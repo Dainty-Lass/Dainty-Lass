@@ -110,6 +110,10 @@ skipped: the Postgres migrations and SQL are unexercised until a run with `REFOR
     unverified.
 11. **`rand`, `tracing`, `serde`** from §13.1's list are not dependencies: UUIDs come from core's
     `replay::random_uuid` (system randomness) and the crate logs nothing.
+12. **After the similarity review** (on the coordinator's request, precautionary): the repository-declaring macro
+    in `src/repo/mod.rs` is renamed `store_trait!` with metavariables of the implementer's own (`$trait_attr`,
+    `$trait_name`, `$repo_name`, `$fn_attr`, `$op`, `$param`, `$param_ty`, `$answer`; the declaration syntax is
+    unchanged), and the test password-hash placeholder in `tests/common/mod.rs` is now `"stored-password-digest"`.
 
 ## 6. Similarity
 

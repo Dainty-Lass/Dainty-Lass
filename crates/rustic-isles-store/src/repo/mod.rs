@@ -4,27 +4,27 @@
 //! One trait per repository (spec §5). A read takes the closure's connection, a write its `Tx`, so the change log
 //! sees every row changed. Every method has a default answering `Unimplemented`, which is what [`Stub`] is.
 
-/// Declares a repository trait whose methods default to `Unimplemented { repository: $label, operation }`, and
-/// implements it for [`Stub`].
-macro_rules! repository {
+/// Declares a store trait whose methods all fall back to `Unimplemented { repository: <name>, operation }`, and
+/// gives [`Stub`] that fallback.
+macro_rules! store_trait {
     (
-        $(#[$doc:meta])*
-        pub trait $name:ident = $label:literal {
-            $( $(#[$mdoc:meta])* fn $method:ident(&self $(, $arg:ident: $ty:ty)* $(,)?) -> $ret:ty; )*
+        $(#[$trait_attr:meta])*
+        pub trait $trait_name:ident = $repo_name:literal {
+            $( $(#[$fn_attr:meta])* fn $op:ident(&self $(, $param:ident: $param_ty:ty)* $(,)?) -> $answer:ty; )*
         }
     ) => {
-        $(#[$doc])*
-        pub trait $name: Send + Sync {
+        $(#[$trait_attr])*
+        pub trait $trait_name: Send + Sync {
             $(
-                $(#[$mdoc])*
-                fn $method(&self $(, $arg: $ty)*) -> $crate::RepoResult<$ret> {
-                    $(let _ = $arg;)*
-                    Err($crate::RepoError::unimplemented($label, stringify!($method)))
+                $(#[$fn_attr])*
+                fn $op(&self $(, $param: $param_ty)*) -> $crate::RepoResult<$answer> {
+                    $(let _ = $param;)*
+                    Err($crate::RepoError::unimplemented($repo_name, stringify!($op)))
                 }
             )*
         }
 
-        impl $name for $crate::repo::Stub {}
+        impl $trait_name for $crate::repo::Stub {}
     };
 }
 

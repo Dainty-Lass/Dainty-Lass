@@ -77,7 +77,7 @@ pub struct PlayerDeletion {
     pub character_count: u64,
 }
 
-repository! {
+store_trait! {
     pub trait AdminRepository = "admin" {
         fn create_session(&self, tx: &mut Tx<'_>, record: &AdminSessionRecord) -> ();
         fn find_active_session_by_token_hash(
@@ -117,7 +117,7 @@ pub struct LauncherNoticesRecord {
     pub tags: Vec<Json>,
 }
 
-repository! {
+store_trait! {
     pub trait LauncherNoticesRepository = "launcherNotices" {
         fn get(&self, conn: &mut AnyConnection) -> Option<LauncherNoticesRecord>;
         fn replace_if_version(&self, tx: &mut Tx<'_>, record: &LauncherNoticesRecord, expected: u64) -> bool;
@@ -218,7 +218,7 @@ pub struct ActivityFlagRecord {
     pub ttl_at: i64,
 }
 
-repository! {
+store_trait! {
     pub trait ActivityRepository = "activity" {
         fn add_to_daily(
             &self,
@@ -443,7 +443,7 @@ pub struct GuardSighting {
     pub new_in_session: bool,
 }
 
-repository! {
+store_trait! {
     pub trait LauncherGuardRepository = "launcherGuard" {
         fn create(&self, tx: &mut Tx<'_>, record: &LauncherGuardSessionRecord) -> ();
         fn find(&self, conn: &mut AnyConnection, id: &str) -> Option<LauncherGuardSessionRecord>;
@@ -487,7 +487,7 @@ pub struct InviteRecord {
     pub created_at: String,
 }
 
-repository! {
+store_trait! {
     pub trait InviteRepository = "reforgedInvites" {
         /// A taken code answers `false`; on Postgres that spoils the transaction, so the caller retries in a new
         /// one (spec §16 item 14)

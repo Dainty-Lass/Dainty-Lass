@@ -39,7 +39,7 @@ pub struct LoadoutRecord {
     pub bootstrap_version: Option<String>,
 }
 
-repository! {
+store_trait! {
     pub trait CharacterRepository = "characters" {
         fn find_many_by_account(&self, conn: &mut AnyConnection, account: &AccountId) -> Vec<CharacterRecord>;
         fn find(&self, conn: &mut AnyConnection, character_id: &str, account: &AccountId) -> Option<CharacterRecord>;
@@ -56,7 +56,7 @@ repository! {
     }
 }
 
-repository! {
+store_trait! {
     pub trait LoadoutRepository = "loadouts" {
         fn find(&self, conn: &mut AnyConnection, character_id: &str, account: &AccountId) -> Option<LoadoutRecord>;
         fn create(&self, tx: &mut Tx<'_>, record: &LoadoutRecord) -> ();

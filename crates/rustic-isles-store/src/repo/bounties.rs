@@ -140,7 +140,7 @@ pub fn is_valid_balance_catalog_id(id: &str) -> bool {
     (1..=128).contains(&id.len()) && id.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'_')
 }
 
-repository! {
+store_trait! {
     pub trait BountyStateRepository = "bountyStates" {
         fn get(&self, conn: &mut AnyConnection, account: &AccountId) -> Option<BountyStateRecord>;
         fn save_if_version(
@@ -152,7 +152,7 @@ repository! {
     }
 }
 
-repository! {
+store_trait! {
     pub trait CooldownStateRepository = "cooldownStates" {
         fn get(&self, conn: &mut AnyConnection, account: &AccountId) -> Option<CooldownStateRecord>;
         fn save_if_version(
@@ -164,14 +164,14 @@ repository! {
     }
 }
 
-repository! {
+store_trait! {
     pub trait EntitlementRepository = "entitlements" {
         fn find(&self, conn: &mut AnyConnection, account: &AccountId) -> Option<EntitlementRecord>;
         fn grant_if_missing(&self, tx: &mut Tx<'_>, account: &AccountId, entry: &EntitlementEntry) -> bool;
     }
 }
 
-repository! {
+store_trait! {
     pub trait WalletRepository = "wallets" {
         fn find(&self, conn: &mut AnyConnection, account: &AccountId) -> Option<WalletRecord>;
         fn create(&self, tx: &mut Tx<'_>, wallet: &WalletRecord) -> ();
@@ -186,7 +186,7 @@ repository! {
     }
 }
 
-repository! {
+store_trait! {
     pub trait EconomyRollupRepository = "economyRollups" {
         fn add_to_rollup(
             &self,

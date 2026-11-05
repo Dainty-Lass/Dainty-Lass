@@ -185,7 +185,7 @@ pub struct PartyEvent {
     pub now: String,
 }
 
-repository! {
+store_trait! {
     pub trait PartyRepository = "parties" {
         fn find_by_id(&self, conn: &mut AnyConnection, id: &GlobalId) -> Option<PartyRecord>;
         fn find_by_party_id(&self, conn: &mut AnyConnection, client_id: &str) -> Option<PartyRecord>;

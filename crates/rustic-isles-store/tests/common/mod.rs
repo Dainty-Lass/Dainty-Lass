@@ -144,7 +144,7 @@ pub fn launcher(
         email: email.map(str::to_owned),
         display_name_normalized: name.to_lowercase(),
         display_name: name.to_owned(),
-        password_hash: Some("$argon2id$hash".into()),
+        password_hash: Some("stored-password-digest".into()),
         status: OperationalStatus::Active,
         approval_status: None,
         approval_updated_at: None,
