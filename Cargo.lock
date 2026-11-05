@@ -4132,6 +4132,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "rustic-isles-gamedata"
+version = "0.0.0"
+dependencies = [
+ "axum",
+ "chrono",
+ "http",
+ "http-body-util",
+ "regex",
+ "rustic-isles",
+ "rustic-isles-auth",
+ "serde_json",
+ "service-kit",
+ "sha2",
+ "tempfile",
+ "tokio",
+ "tower",
+ "tracing",
+]
+
+[[package]]
 name = "rusticata-macros"
 version = "4.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
