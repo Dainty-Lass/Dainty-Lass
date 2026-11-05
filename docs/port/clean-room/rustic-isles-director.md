@@ -109,6 +109,10 @@ Generic library sources in the cargo registry, for API shapes only: `windows` 0.
     target define their own.
 14. **`InProcessDirector::launch`** logs a failure with the route's text before answering `Refused { reason: None }`.
 15. **Training's "not at boot"** is read as `TRAINING_HUB` off.
+16. **After the similarity review** (precautionary, at the coordinator's request): how an `Exit` becomes the
+    `code=`/`signal=` text was rewritten from §5.2, §5.5 and §12.2 alone, without the earlier helpers in view: the two
+    `Exit` text methods are gone, and a `Display` wrapper (`OrNull`, `null` for none) is used at each call site. The
+    two internal errors for a child returned without a stdout or stderr pipe were reworded.
 
 ## 6. Similarity
 

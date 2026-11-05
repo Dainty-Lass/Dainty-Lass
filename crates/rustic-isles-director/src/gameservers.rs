@@ -18,7 +18,7 @@ use tokio::time::Instant;
 use crate::config::Config;
 use crate::hub::{self, HubSupervisor, Level, monotonic_ms};
 use crate::hunt::{HuntResolver, MissingHuntRegistry, ResolverOptions, Tables};
-use crate::launcher::{Command, Launcher};
+use crate::launcher::{Command, Launcher, OrNull};
 use crate::memory::MemoryAdmission;
 use crate::occupancy::{IdleStopPolicy, RuntimeLogOccupancy};
 use crate::port_pool::PortPool;
@@ -622,8 +622,8 @@ impl Director {
             }
             Ok(Some(exit)) => format!(
                 "{label} port {port} exited before ready (code={}, signal={})",
-                exit.code_text(),
-                exit.signal_text()
+                OrNull(&exit.code),
+                OrNull(&exit.signal)
             ),
             Err(_) => format!(
                 "{label} port {port} did not report ready within {}ms",
@@ -671,7 +671,7 @@ impl Director {
             self.remove(server);
             self.release_lease(server);
         } else if self.config.hub_prompt_restart {
-            let reason = format!("exit code={} signal={}", exit.code_text(), exit.signal_text());
+            let reason = format!("exit code={} signal={}", OrNull(&exit.code), OrNull(&exit.signal));
             self.cleanup(server, &reason);
         }
     }

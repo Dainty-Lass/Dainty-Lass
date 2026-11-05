@@ -361,8 +361,14 @@ mod imp {
         let group = pid
             .and_then(|p| libc::pid_t::try_from(p).ok())
             .ok_or_else(|| io::Error::other("the game server exited before it could be watched"))?;
-        let stdout = child.stdout.take().ok_or_else(|| io::Error::other("no stdout pipe"))?;
-        let stderr = child.stderr.take().ok_or_else(|| io::Error::other("no stderr pipe"))?;
+        let stdout = child
+            .stdout
+            .take()
+            .ok_or_else(|| io::Error::other("the child came back without its stdout"))?;
+        let stderr = child
+            .stderr
+            .take()
+            .ok_or_else(|| io::Error::other("the child came back without its stderr"))?;
         let wait = async move {
             match child.wait().await {
                 Ok(status) => Exit {

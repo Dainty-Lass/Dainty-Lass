@@ -26,13 +26,15 @@ pub struct Exit {
     pub signal: Option<String>,
 }
 
-impl Exit {
-    pub fn code_text(&self) -> String {
-        self.code.map_or_else(|| "null".to_owned(), |c| c.to_string())
-    }
+/// A value as a JavaScript template writes it: `null` when there is none (the exit texts of §5.2 and §5.5).
+pub struct OrNull<'a, T>(pub &'a Option<T>);
 
-    pub fn signal_text(&self) -> String {
-        self.signal.clone().unwrap_or_else(|| "null".to_owned())
+impl<T: std::fmt::Display> std::fmt::Display for OrNull<'_, T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self.0 {
+            Some(value) => value.fmt(f),
+            None => f.write_str("null"),
+        }
     }
 }
 

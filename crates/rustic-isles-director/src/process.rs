@@ -12,7 +12,7 @@ use std::time::Duration;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::sync::{mpsc, oneshot, watch};
 
-use crate::launcher::{Command, Exit, Launcher, Pipe, TreeControl};
+use crate::launcher::{Command, Exit, Launcher, OrNull, Pipe, TreeControl};
 
 const CHUNK: usize = 64 * 1024;
 const SCAN_LIMIT: usize = 65_536;
@@ -196,8 +196,8 @@ pub(crate) fn launch(
             "Gameserver process exited port={} label={} pid={pid} code={} signal={}",
             labels.port,
             labels.label,
-            exit.code_text(),
-            exit.signal_text()
+            OrNull(&exit.code),
+            OrNull(&exit.signal)
         );
         tracing::warn!("{text}");
         let _ = log.send(format!("\n=== {text} ===\n").into_bytes());
