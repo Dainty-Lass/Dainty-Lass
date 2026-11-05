@@ -1,0 +1,46 @@
+[package]
+name = "rustic-isles-director"
+description = "Rustic Isles' Director: starts, watches and stops the game servers, leases the hunt ports, guards memory, resolves hunts from the hunt tables and imports those tables"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+# Clean-room rewrite from docs/port/spec-rustic-isles-director.md (RD27, docs/port/clean-room/rustic-isles-director.md)
+license = "MIT"
+repository.workspace = true
+publish.workspace = true
+
+# The tests' stand-in for the game server: no game, no SDK
+[[bin]]
+name = "rustic-isles-fake-gameserver"
+path = "src/bin/rustic-isles-fake-gameserver.rs"
+test = false
+doc = false
+
+[dependencies]
+axum.workspace = true
+chrono.workspace = true
+futures-util.workspace = true
+http.workspace = true
+module-api.workspace = true
+rand.workspace = true
+rustic-isles.workspace = true
+serde_json = { workspace = true, features = ["preserve_order"] }
+service-kit.workspace = true
+tokio = { workspace = true, features = ["fs", "io-util", "macros", "net", "process", "rt", "sync", "time"] }
+tracing.workspace = true
+
+[target."cfg(windows)".dependencies]
+# The game server's tree in a job from its first instruction, its pipes and exit, free memory (§5.7, §8)
+windows = { version = "0.62.2", features = ["Win32_Foundation", "Win32_Security", "Win32_System_JobObjects", "Win32_System_SystemInformation", "Win32_System_Threading"] }
+
+[target."cfg(unix)".dependencies]
+# The game server's process group, the parent-death signal and free pages (§5.7, §8)
+libc = "0.2.191"
+
+[dev-dependencies]
+rustic-isles = { workspace = true, features = ["test-support"] }
+tempfile.workspace = true
+tokio = { workspace = true, features = ["rt-multi-thread"] }
+
+[lints]
+workspace = true
