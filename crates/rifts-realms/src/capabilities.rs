@@ -249,7 +249,7 @@ impl HubPresenceCache {
         let key = (session_id.to_owned(), generation);
         let entries = self.locked();
         let (read_at, accounts) = entries.get(&key)?;
-        fresh(*read_at, now).then(|| accounts.to_vec())
+        fresh(*read_at, now).then(|| accounts.clone())
     }
 
     pub fn put(&self, session_id: &str, generation: i64, now: UnixMillis, accounts: Vec<String>) {

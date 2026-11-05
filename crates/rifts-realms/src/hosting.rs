@@ -1402,10 +1402,7 @@ impl Hosting {
                 return Ok(None);
             };
             if hunt.state == H::Aborted {
-                Some(Err(hunt
-                    .failure_reason
-                    .clone()
-                    .unwrap_or_else(|| "HUNT_ABORTED".into())))
+                Some(Err(hunt.failure_reason.unwrap_or_else(|| "HUNT_ABORTED".into())))
             } else {
                 hunt.participant(account)
                     .and_then(|p| p.local_bridge_ready_at.and(p.local_bridge_port))

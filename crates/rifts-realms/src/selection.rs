@@ -111,7 +111,7 @@ impl From<&HealthyGuard> for StoredGuardRole {
     fn from(guard: &HealthyGuard) -> Self {
         Self {
             role: guard.role.as_str().into(),
-            guard_session_id: guard.guard_session_id.to_owned(),
+            guard_session_id: guard.guard_session_id.clone(),
             manifest_sequence: guard.manifest_sequence,
             sequence: guard.last_sequence,
             risk_score: guard.risk_score,

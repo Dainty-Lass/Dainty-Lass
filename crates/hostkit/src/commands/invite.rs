@@ -80,10 +80,7 @@ pub fn run_with(
                 Value::Number((uses_val as i64).into())
             },
         );
-        obj.insert(
-            "shareUrl".into(),
-            config.share_url.clone().map_or(Value::Null, Value::String),
-        );
+        obj.insert("shareUrl".into(), config.share_url.map_or(Value::Null, Value::String));
         out(&service_kit::jsjson::stringify(&Value::Object(obj)));
     } else {
         let uses_label = if args.unlimited {

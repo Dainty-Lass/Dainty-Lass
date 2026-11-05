@@ -664,7 +664,11 @@ pub fn dry_run(
 
 fn plan_id(plan: &RevertPlan) -> Result<String, Error> {
     let bytes = serde_json::to_vec(plan).map_err(|e| Error::Revert(e.to_string()))?;
-    Ok(Sha256::digest(&bytes).iter().map(|b| format!("{b:02x}")).collect())
+    Ok(Sha256::digest(&bytes)
+        .iter()
+        .flat_map(|&b| [b >> 4, b & 15])
+        .filter_map(|n| char::from_digit(u32::from(n), 16))
+        .collect())
 }
 
 // ------------------------------------------------------------------ apply

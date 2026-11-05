@@ -403,7 +403,7 @@ impl MemoryGuardStore {
     }
 
     pub fn host_writes(&self) -> Vec<HostWriteRecord> {
-        self.tables().host_writes.to_vec()
+        self.tables().host_writes.clone()
     }
 
     pub fn windows(&self) -> Vec<TrafficWindowRecord> {

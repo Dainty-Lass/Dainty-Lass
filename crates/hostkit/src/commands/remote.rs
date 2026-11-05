@@ -248,11 +248,11 @@ pub fn init_controller(paths: &Paths, args: &RemoteInitControllerArgs) -> Result
         let mut existing = RemoteControllerState::load(&state_path).map_err(|e| bad(e.to_string()))?;
         existing.controller_node = node.clone();
         existing.controller_region = region.clone();
-        existing.controller_url = url.clone();
+        existing.controller_url = url;
         existing.controller_cert_fp = cert_fp.clone();
         existing
     } else {
-        RemoteControllerState::new(node.clone(), region.clone(), url.clone(), cert_fp.clone(), shared_toml)
+        RemoteControllerState::new(node.clone(), region.clone(), url, cert_fp.clone(), shared_toml)
             .map_err(|e| bad(e.to_string()))?
     };
     state.save(&state_path).map_err(|e| bad(e.to_string()))?;
@@ -299,7 +299,7 @@ pub fn create_invite(paths: &Paths, args: &RemoteInviteArgs) -> Result<(String, 
         .map_err(|e| bad(format!("--region: {e}")))?;
     let now_ms = chrono::Utc::now().timestamp_millis();
     let (uri, invite) = state
-        .mint_enrollment_invite(node.clone(), region.clone(), args.label.clone(), now_ms, args.ttl_secs)
+        .mint_enrollment_invite(node, region, args.label.clone(), now_ms, args.ttl_secs)
         .map_err(|e| bad(e.to_string()))?;
     state.save(&state_path).map_err(|e| bad(e.to_string()))?;
     let _ = config;
@@ -519,7 +519,7 @@ pub fn set_shared_config_from_host_toml(paths: &Paths) -> Result<Value, HostErro
     let rev = state
         .update_shared_config(shared_toml)
         .map_err(|e| bad(e.to_string()))?;
-    state.config_bundle.server_name = Some(config.name.clone());
+    state.config_bundle.server_name = Some(config.name);
     state.save(&state_path).map_err(|e| bad(e.to_string()))?;
     Ok(json!({
         "revision": rev,
@@ -834,7 +834,6 @@ impl RemoteHostHandler for HostKitRemoteHandler {
             .unwrap_or_else(|| rem.effective_region());
         let label = rem
             .label
-            .clone()
             .filter(|s| !s.trim().is_empty())
             .unwrap_or_else(|| config.name.clone());
 

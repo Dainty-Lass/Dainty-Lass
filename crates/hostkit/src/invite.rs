@@ -207,9 +207,12 @@ pub fn certificate_fingerprint(cert_file: &Path) -> Result<String, HostError> {
     Ok(sha256_hex(&der))
 }
 
+/// Takes any leaf, since its fingerprint is what is checked, but still checks the handshake signature: without it
+/// whatever holds the port could replay the gateway's public certificate and pass as the gateway.
 #[derive(Debug)]
 struct LeafCaptureVerifier {
     leaf_der: Arc<Mutex<Option<Vec<u8>>>>,
+    provider: Arc<rustls::crypto::CryptoProvider>,
 }
 
 impl ServerCertVerifier for LeafCaptureVerifier {
@@ -229,26 +232,24 @@ impl ServerCertVerifier for LeafCaptureVerifier {
 
     fn verify_tls12_signature(
         &self,
-        _message: &[u8],
-        _cert: &CertificateDer<'_>,
-        _dss: &DigitallySignedStruct,
+        message: &[u8],
+        cert: &CertificateDer<'_>,
+        dss: &DigitallySignedStruct,
     ) -> Result<HandshakeSignatureValid, TlsError> {
-        Ok(HandshakeSignatureValid::assertion())
+        rustls::crypto::verify_tls12_signature(message, cert, dss, &self.provider.signature_verification_algorithms)
     }
 
     fn verify_tls13_signature(
         &self,
-        _message: &[u8],
-        _cert: &CertificateDer<'_>,
-        _dss: &DigitallySignedStruct,
+        message: &[u8],
+        cert: &CertificateDer<'_>,
+        dss: &DigitallySignedStruct,
     ) -> Result<HandshakeSignatureValid, TlsError> {
-        Ok(HandshakeSignatureValid::assertion())
+        rustls::crypto::verify_tls13_signature(message, cert, dss, &self.provider.signature_verification_algorithms)
     }
 
     fn supported_verify_schemes(&self) -> Vec<SignatureScheme> {
-        rustls::crypto::aws_lc_rs::default_provider()
-            .signature_verification_algorithms
-            .supported_schemes()
+        self.provider.signature_verification_algorithms.supported_schemes()
     }
 }
 
@@ -261,10 +262,11 @@ pub fn served_fingerprint(port: u16, host: &str, timeout: Duration) -> Option<St
     let _ = stream.set_write_timeout(Some(timeout));
 
     let captured = Arc::new(Mutex::new(None));
+    let provider = Arc::new(rustls::crypto::aws_lc_rs::default_provider());
     let verifier = Arc::new(LeafCaptureVerifier {
         leaf_der: Arc::clone(&captured),
+        provider: Arc::clone(&provider),
     });
-    let provider = Arc::new(rustls::crypto::aws_lc_rs::default_provider());
     let config = ClientConfig::builder_with_provider(provider)
         .with_safe_default_protocol_versions()
         .ok()?
@@ -273,14 +275,15 @@ pub fn served_fingerprint(port: u16, host: &str, timeout: Duration) -> Option<St
         .with_no_client_auth();
 
     let server_name = ServerName::try_from(host.to_owned()).unwrap_or_else(|_| {
-        let ip = host.parse::<IpAddr>().unwrap_or(IpAddr::from([127, 0, 0, 1]));
+        let ip = host.parse::<IpAddr>().unwrap_or_else(|_| IpAddr::from([127, 0, 0, 1]));
         ServerName::IpAddress(ip.into())
     });
 
     let mut conn = ClientConnection::new(Arc::new(config), server_name).ok()?;
     while conn.is_handshaking() {
         if conn.complete_io(&mut stream).is_err() {
-            break;
+            // The leaf is captured before the signature is checked: a failed handshake proves nothing
+            return None;
         }
     }
     let der = captured.lock().ok()?.clone()?;
@@ -547,6 +550,41 @@ mod tests {
 
     use super::*;
     use std::net::TcpListener;
+
+    #[test]
+    fn served_fingerprint_reads_the_leaf_of_a_real_handshake() {
+        let key = rcgen::KeyPair::generate().unwrap();
+        let cert = rcgen::CertificateParams::new(vec!["localhost".to_owned()])
+            .unwrap()
+            .self_signed(&key)
+            .unwrap();
+        let der = cert.der().clone();
+        let expected = sha256_hex(der.as_ref());
+        let provider = Arc::new(rustls::crypto::aws_lc_rs::default_provider());
+        let server = rustls::ServerConfig::builder_with_provider(provider)
+            .with_safe_default_protocol_versions()
+            .unwrap()
+            .with_no_client_auth()
+            .with_single_cert(
+                vec![der],
+                rustls::pki_types::PrivateKeyDer::try_from(key.serialize_der()).unwrap(),
+            )
+            .unwrap();
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let port = listener.local_addr().unwrap().port();
+        let serve = std::thread::spawn(move || {
+            let (mut tcp, _) = listener.accept().unwrap();
+            let mut conn = rustls::ServerConnection::new(Arc::new(server)).unwrap();
+            while conn.is_handshaking() {
+                if conn.complete_io(&mut tcp).is_err() {
+                    break;
+                }
+            }
+        });
+        let got = served_fingerprint(port, "localhost", Duration::from_secs(5));
+        serve.join().unwrap();
+        assert_eq!(got, Some(expected));
+    }
 
     #[test]
     fn formats_private_and_public_invites_and_parses_versions() {

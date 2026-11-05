@@ -237,7 +237,7 @@ pub fn ensure_captures(p: &Paths, pin: &CapturePin, log_file: Option<&Path>) -> 
     let git_dir = captures_root.join(format!("{}.git", pin.name));
     let git_dir_str = git_dir.to_string_lossy().into_owned();
     let run_opts = RunOptions {
-        cwd: captures_root.clone(),
+        cwd: captures_root,
         env: None,
         log_file: log_file.map(Path::to_path_buf),
         quiet: true,

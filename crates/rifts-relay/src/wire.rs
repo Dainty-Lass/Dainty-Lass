@@ -254,7 +254,11 @@ pub fn format_uuid(bytes: &[u8; 16]) -> String {
 }
 
 pub fn hex(bytes: &[u8]) -> String {
-    bytes.iter().map(|byte| format!("{byte:02x}")).collect()
+    bytes
+        .iter()
+        .flat_map(|&b| [b >> 4, b & 15])
+        .filter_map(|n| char::from_digit(u32::from(n), 16))
+        .collect()
 }
 
 #[cfg(test)]

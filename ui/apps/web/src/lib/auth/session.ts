@@ -30,7 +30,10 @@ export function revokeSessionsFor(staffId: number): void {
   if (me) db.delete(schema.authSessions).where(eq(schema.authSessions.userId, me.userId)).run();
 }
 
-/** The peer as the reverse proxy in front reports it; only for the audit trail, never for access. */
+/**
+ * The peer as the reverse proxy in front reports it. The last hop, the one that proxy appended: the first is
+ * whatever the client sent. Only for the audit trail and rate limits, never for access.
+ */
 export function clientIp(h: Headers): string | null {
-  return h.get("x-forwarded-for")?.split(",")[0]?.trim() || h.get("x-real-ip") || null;
+  return h.get("x-forwarded-for")?.split(",").at(-1)?.trim() || h.get("x-real-ip") || null;
 }

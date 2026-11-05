@@ -237,7 +237,7 @@ pub fn participants_still_in_hunt(roster: &[Participant], host: &str) -> Vec<Str
     roster
         .iter()
         .filter(|p| still_in_hunt(p, host))
-        .map(|p| p.account_id.to_owned())
+        .map(|p| p.account_id.clone())
         .collect()
 }
 

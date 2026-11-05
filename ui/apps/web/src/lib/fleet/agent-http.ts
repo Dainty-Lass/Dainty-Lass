@@ -16,15 +16,33 @@ export async function asAgent(
 const failures = new Map<string, { count: number; since: number }>();
 const WINDOW_MS = 15 * 60_000;
 const MAX_FAILURES = 10;
+// Beyond this many addresses the oldest window goes: the map cannot grow without bound. No overall lock, which
+// anyone could trip: a client that varies its address still faces 24^8 codes that expire in 30 minutes.
+const MAX_ADDRESSES = 10_000;
 
-export function pairingLocked(ip: string): boolean {
+const expired = (since: number, now: number) => now - since > WINDOW_MS;
+
+export function pairingLocked(ip: string, now = Date.now()): boolean {
   const f = failures.get(ip);
-  if (!f || Date.now() - f.since > WINDOW_MS) return false;
+  if (!f || expired(f.since, now)) return false;
   return f.count >= MAX_FAILURES;
 }
 
-export function pairingFailed(ip: string): void {
+export function pairingFailed(ip: string, now = Date.now()): void {
   const f = failures.get(ip);
-  if (!f || Date.now() - f.since > WINDOW_MS) failures.set(ip, { count: 1, since: Date.now() });
-  else f.count++;
+  if (f && !expired(f.since, now)) {
+    f.count++;
+    return;
+  }
+  failures.delete(ip);
+  for (const [key, entry] of failures) {
+    if (failures.size < MAX_ADDRESSES && !expired(entry.since, now)) break;
+    failures.delete(key);
+  }
+  failures.set(ip, { count: 1, since: now });
+}
+
+/** For tests: forget every failure. */
+export function resetPairingFailures(): void {
+  failures.clear();
 }
