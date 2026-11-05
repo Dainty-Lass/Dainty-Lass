@@ -1,7 +1,8 @@
 //! `version_data.json` as restricted holds it: isles-core's `areas/characters/data.rs` and `starter.rs` (1.14.7's
-//! character data and starter kit) in the MIT document's shape (spec-rustic-isles-1-14-7 §4.3). The values isles-core
-//! keeps inline in its normalise and bootstrap code (the series fill, the trigger node, the banner customization) are
-//! written out here.
+//! character data and starter kit), isles-db's legacy starter defaults, isles-core's Reward Cache plan and
+//! `src_tokens.txt`, in the MIT document's shape (spec-rustic-isles-1-14-7 §4.3). The values isles-core keeps inline in
+//! its normalise and bootstrap code (the series fill, the trigger node, the banner customization) are written out
+//! here. `tests/version_data.rs` keeps the copy the host ships equal to it.
 #![allow(clippy::unwrap_used, clippy::expect_used, dead_code)] // test helpers
 
 use isles_core::areas::characters::data::{
@@ -13,6 +14,8 @@ use isles_core::areas::characters::starter::{
     STARTER_WEAPON_CATALOG_ID, build_instance_data,
 };
 use serde_json::{Value, json};
+
+const SRC_TOKENS: &str = include_str!("../../../isles-core/src/game_data/src_tokens.txt");
 
 fn parsed(text: &str) -> Value {
     serde_json::from_str(text).unwrap()
@@ -71,7 +74,13 @@ pub fn document() -> Value {
             "flare": "QI_BASIC_FLARE_DURABLE",
             "defaultQuickChats": DEFAULT_QUICK_CHATS,
             "wallet": wallet
-        }
+        },
+        "legacyStarter": {
+            "defaultDye": isles_db::transforms::DEFAULT_BANNER_DYE_ID,
+            "defaultSigil": isles_db::transforms::DEFAULT_BANNER_SIGIL_ID
+        },
+        "rewardCachePlan": isles_core::gamedata::reward_cache_plan_document(),
+        "storageTokenSeeds": SRC_TOKENS.lines().collect::<Vec<_>>()
     })
 }
 
