@@ -192,7 +192,8 @@ pub fn rifts_caller_kind(method: &str, route_path: &str) -> CallerKind {
     if p.starts_with("/launcher/v1/guard/") {
         return CallerKind::Launcher { active: None };
     }
-    if p.starts_with("/mystic/v1/hunts/") {
+    // D3: rifts' hunt routes are /rustic/v1/hunts, no alias
+    if p.starts_with("/rustic/v1/hunts/") {
         if p.ends_with("/tickets/self") || p.ends_with("/status") || p.ends_with("/reward/self") {
             return CallerKind::Launcher { active: None };
         }
@@ -383,9 +384,10 @@ mod tests {
             ("POST", "/launcher/v1/p2p/sessions/:id/peers", launcher(Some(false))),
             ("POST", "/launcher/v1/realm-hosting/hubs/:id/stop", launcher(None)),
             ("POST", "/launcher/v1/guard/batches", launcher(None)),
-            ("GET", "/mystic/v1/hunts/:id/status", launcher(None)),
-            ("POST", "/mystic/v1/hunts/:id/evidence", CallerKind::HostCapability),
+            ("GET", "/rustic/v1/hunts/:id/status", launcher(None)),
+            ("POST", "/rustic/v1/hunts/:id/evidence", CallerKind::HostCapability),
             ("GET", "/launcher/v1/legal", CallerKind::None),
+            ("GET", "/mystic/v1/hunts/:id/status", CallerKind::None),
         ] {
             assert_eq!(rifts_caller_kind(method, path), kind, "{method} {path}");
         }
