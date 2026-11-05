@@ -4153,6 +4153,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "rustic-isles-store"
+version = "0.0.0"
+dependencies = [
+ "diesel",
+ "diesel_migrations",
+ "module-api",
+ "rustic-isles",
+ "rustic-isles-auth",
+ "rustic-isles-store",
+ "serde_json",
+ "service-kit",
+ "store",
+ "tempfile",
+ "thiserror 2.0.21",
+ "tokio",
+ "url",
+]
+
+[[package]]
 name = "rusticata-macros"
 version = "4.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
