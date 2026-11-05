@@ -1377,3 +1377,6 @@ These settle §14 for the implementer and override anything above that disagrees
   prose beyond the wire names §14 item 9 keeps.
 - **Item 14: the store trait.** `AuthStore` stays; restricted keeps the SQL and the migrations until the isles
   database layer is specified and ported as its own crate.
+- **Amended 2026-11-05 with the D3 cutover (core §17):** §4.4's rifts caller kinds match `/rustic/v1/hunts/`, not
+  `/mystic/v1/hunts/`, with no alias; the host capability header is `x-rustic-host-capability`. §14 item 9's
+  `x-mystic-host-capability` and `/mystic/v1/hunts/` no longer stay.
