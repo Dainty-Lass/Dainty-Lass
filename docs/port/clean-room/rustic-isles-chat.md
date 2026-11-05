@@ -116,4 +116,89 @@ replay is still owed (spec §1.3).
 
 ## 6. Similarity
 
-To be measured by the coordinator against restricted `e0e238b`.
+Measured by the RD27 reviewer (who may read the AGPL code) with `similarity.md` §1's method, on the crate as committed
+at `92af120c` (unchanged at `86da5583`): every `.rs` file in `src/` and `tests/` against each of the 12 files of
+restricted `e0e238b` that hold its chat: `modules/rustic-isles/crates/isles-chat/src/` (`lib.rs`, `fake.rs`,
+`headline.rs`, `hubs.rs`, `ids.rs`, `login.rs`, `rooms.rs`, `source.rs`), `isles-core/src/areas/chat.rs`,
+`isles-core/src/areas/chat/rules.rs` and the tests that drive them, `isles-core/tests/chat_{golden,rules}.rs`, the
+best single file named. "Any" counts a line matched by a 3+-line run in any of the 12. Paths in the third column are
+under `modules/rustic-isles/crates/`; a file with no match names none.
+
+| File | New lines | Best restricted file (old lines) | Matched | % | Any, % |
+| --- | ---: | --- | ---: | ---: | ---: |
+| `src/headline.rs` | 122 | `isles-chat/src/headline.rs` (85) | 20 | **16.4** | 23.8 |
+| `src/home.rs` | 54 | none | 0 | **0.0** | 0.0 |
+| `src/hubs.rs` | 128 | `isles-chat/src/hubs.rs` (146) | 16 | **12.5** | 13.3 |
+| `src/ids.rs` | 113 | `isles-chat/src/ids.rs` (91) | 15 | **13.3** | 18.6 |
+| `src/lib.rs` | 70 | `isles-chat/src/source.rs` (41) | 30 | **42.9** | 42.9 |
+| `src/login.rs` | 51 | `isles-chat/src/login.rs` (98) | 21 | **41.2** | 41.2 |
+| `src/routes.rs` | 407 | `isles-core/src/areas/chat.rs` (511) | 40 | **9.8** | 10.1 |
+| `src/rules.rs` | 142 | `isles-chat/src/lib.rs` (110) | 38 | **26.8** | 33.8 |
+| `src/source.rs` | 268 | `isles-core/src/areas/chat/rules.rs` (271) | 42 | **15.7** | 15.7 |
+| `tests/common/mod.rs` | 113 | `isles-core/tests/chat_golden.rs` (297) | 3 | 2.7 | 2.7 |
+| `tests/routes.rs` | 349 | `isles-core/tests/chat_golden.rs` (297) | 6 | 1.7 | 2.0 |
+| `tests/rules.rs` | 589 | `isles-core/tests/chat_rules.rs` (217) | 24 | 4.1 | 7.6 |
+| The 9 `src` files | 1355 | | 222 | **16.4** | 18.4 |
+| The 3 test files | 1051 | | 33 | **3.1** | 5.2 |
+| All 12 | 2406 | | 255 | **10.6** | 12.6 |
+
+Three files reach 25 % against their best single file (`lib.rs` 42.9, `login.rs` 41.2, `rules.rs` 26.8); none other
+does on the "any" column. The fuzz target (`fuzz/fuzz_targets/rustic_isles_chat_names.rs`) has no restricted
+counterpart and was not measured.
+
+**What the matches are.** Every run of 5 lines or more against any of the 12 files was read: 26 of them over 20
+distinct spans of the crate, 7 of which (over 3 spans: `hubs.rs:106-112`, `ids.rs:54-60`, `routes.rs:407-414`) are, or
+end in, the `} } #[cfg(test)] mod tests { use super::*;` boilerplate. The rest:
+
+- **§9.2's records and traits** (`lib.rs`, 30 matched lines): `ChatSettings` with its two fields and `Default`
+  off/on (`lib.rs:45-60`, the longest run, 13), `Player`'s three fields (`74-79`), and the `ChatSource` method heads
+  that §9.2 lists (`node`, `settings`, `party_of`, `friends`, `93-118`) over `module_api`'s `BoxFuture` and
+  `ModuleError`. `from_settings` (§8's table) and the token check do not match.
+- **§5.5's refusals** (`login.rs`, 21): `Refusal`'s variants and `as_str` with §5.5's six reasons in its order
+  (`login.rs:13-34`), and steps 3-4 as two early returns (`52-57`). Four variant names agree; each is the obvious
+  name of its reason. The token and claim reading (steps 1-2) and step 5 do not match.
+- **The rules' trait** (`rules.rs`, 38): §5.4's open and refused rules as two constants (`rules.rs:16-25`, the spec's
+  own words for their names; the same pair in `tests/rules.rs:32-41`), §9.2's `answer` signature with its
+  `Jid`/`Friends` arms (`32-53`), and the `room`, `login` and `friends` method heads (`69-75`, `96-102`, `123-129`;
+  `friends`' default is the one call to the source). `room`'s body, `login`'s fallback chain, `room_kind_of` and
+  `jid` do not match.
+- **Store-spec records and calls** (`routes.rs`, `source.rs`): the friend list's JSON in §6's key order
+  (`routes.rs:183-192`), `FriendEdgeRecord`'s literal (store §8, `204-212`), the `list_for_owner` read
+  (`source.rs:301-306`), the `ChatSource` impl's `node`/`settings` getters (`205-212`), and `unavailable` with §5.1's
+  `chat rules: {error}` warning and `Unavailable` kind (`54-57`).
+- **Wire text and test vectors**: §5.11's event table (`headline.rs:13-19`), `public_event`'s §9.2 signature
+  (`31-35`) and §11.2's headline vector (`87-91`); the temp-store `DatabaseConfig::Sqlite` literal
+  (`tests/common/mod.rs:128-130`) and `tokio::test` heads.
+
+No comment was copied: no comment line of 20 characters or more equals a restricted one. Every string literal of 12
+characters or more that also occurs in the 12 files is in the chat, core, auth or store spec, except the tokio flavour
+`multi_thread` and §11.2's clock written as a format string (`tests/routes.rs:51`) and one of its values (`172`). 40
+of the crate's 127 function names also occur in restricted; they are §9.2's names, `module_api::chat`'s query names
+(`jid`, `room`, `login`, `friends`, `may_whisper`, `room_of`, `account_of`), `std` trait methods, or plain words for a
+spec item (`envelope`, `friends_list`, `unavailable`, `account_id`, `store`, the tests' `send`, and `Fake` for
+§11.2's "fake token check"), except three private helpers: `live` (one obvious word) and the two below. The large files
+(`routes.rs`, `source.rs`, the two test suites) match at 2 to 16 %, and the route handlers, the body reader, the
+cross-node login, eligibility and the home operations share no logic beyond the lines above.
+
+**The three spans that go beyond the spec.** None is 5 lines of copied logic; together they are the only private
+choices the crate shares with restricted.
+
+1. **`src/hubs.rs:31-37` and `66-74` (the registry's private layout).** §5.10 fixes the behaviour (replace and make
+   newest, evict the oldest past 50,000) but not the structure. The private state has the same three field names
+   (`by_account`, `order`, `next`), the same insertion-sequence `BTreeMap<u64, GlobalId>` with a counter, and an
+   eviction loop (`while … len() > MAX_ACCOUNTS { let Some((_, oldest)) = ….pop_first() else { break }; ….remove(&oldest) }`)
+   that matches line for line but for the binding's name, so the 3-line count misses it. Each is a stock choice for an
+   insertion-ordered map in Rust; together they read as the same design.
+2. **`src/ids.rs:40-41` (`uuid_bits`).** A private helper with the same name, signature and first line (splitting on
+   `-` into a `Vec<&str>`). The rest of its body is written differently.
+3. **`src/routes.rs:197-201` (`edge`).** A private helper building `FriendEdgeRecord` with the same name and its first
+   four parameters in the same order and types (`owner`, `other: &AccountRecord`, `status`, `direction`). The body is
+   store §8's record literal, which is fixed.
+
+**Verdict: clean of structural or expressive copying, with three small rewrites asked for as a precaution.** The
+files over 25 % are §9.2's records and trait heads, §5.5's reason table and §5.4's two rules in the only idiomatic
+form; everything else is spec-given wire strings, store-spec records, `module-api`-fixed signatures, pinned test
+vectors and boilerplate. The rewrites, from §5.10, §4.3 and §6 only and without looking at the current text:
+`hubs.rs`'s registry state in the implementer's own design (for instance a different ordered structure or eviction,
+or at least its own names for the state and its fields), `uuid_bits` under another name and shape, and the edge
+builder under another name with its own parameter list. `lib.rs`, `login.rs` and `rules.rs` need nothing.
