@@ -28,7 +28,7 @@ pub mod test_support;
 mod tx;
 mod util;
 
-pub use bounties::{challenge_rewards, economy_ledger, platinum, wallet};
+pub use bounties::{challenge_rewards, economy_ledger, entitlements, platinum, wallet};
 pub use caches::EconomyCaches;
 pub use util::{js_number_text, number_value};
 

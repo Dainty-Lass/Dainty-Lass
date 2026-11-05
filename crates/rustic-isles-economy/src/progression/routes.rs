@@ -1454,7 +1454,7 @@ async fn post_report(call: Call, ports: Arc<ProgressionPorts>) -> Response {
 
 enum Confirmed {
     Rejected(&'static str),
-    Done(ProgressionTrackRecord, i64),
+    Done(Box<ProgressionTrackRecord>, i64),
 }
 
 async fn post_confirm(call: Call, ports: Arc<ProgressionPorts>) -> Response {
@@ -1472,7 +1472,7 @@ async fn post_confirm(call: Call, ports: Arc<ProgressionPorts>) -> Response {
         return bad();
     }
     let rank = js_number_text(&raw);
-    if !(rank.is_finite() && rank.fract() == 0.0 && rank >= 0.0 && rank <= crate::util::MAX_SAFE) {
+    if !(rank.is_finite() && rank.fract() == 0.0 && (0.0..=crate::util::MAX_SAFE).contains(&rank)) {
         tracing::warn!("Rejected rank confirm: invalid rank ({})", log_token(&raw));
         return bad();
     }
@@ -1515,11 +1515,11 @@ async fn post_confirm(call: Call, ports: Arc<ProgressionPorts>) -> Response {
                 }
             }
             let record = repos.progression_tracks.set_confirmed_fremium_rank(tx, &id, &t, rank)?;
-            Ok(Confirmed::Done(record, before))
+            Ok(Confirmed::Done(Box::new(record), before))
         })
         .await;
     let (record, before) = match outcome {
-        Ok(Confirmed::Done(record, before)) => (record, before),
+        Ok(Confirmed::Done(record, before)) => (*record, before),
         Ok(Confirmed::Rejected(reason)) => {
             tracing::warn!(
                 "Rejected rank confirm user={} track={} rank={rank}: {reason}",
