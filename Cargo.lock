@@ -4173,6 +4173,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "rustic-isles-replay"
+version = "0.0.0"
+dependencies = [
+ "aws-lc-rs",
+ "axum",
+ "base64 0.23.1",
+ "module-api",
+ "percent-encoding",
+ "regex",
+ "rustic-isles",
+ "rustic-isles-auth",
+ "rustic-isles-replay",
+ "serde",
+ "serde_json",
+ "service-kit",
+ "sha2",
+ "tempfile",
+ "thiserror 2.0.21",
+ "tokio",
+]
+
+[[package]]
 name = "rustic-isles-store"
 version = "0.0.0"
 dependencies = [
