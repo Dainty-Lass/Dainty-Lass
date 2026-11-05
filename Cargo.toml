@@ -61,6 +61,8 @@ rustic-isles-characters = { path = "crates/rustic-isles-characters" }
 # The Rustic Isles economy: inventory, progression, bounties and the stores, clean-room MIT (RD27,
 # spec-rustic-isles-economy-*)
 rustic-isles-economy = { path = "crates/rustic-isles-economy" }
+# The Rustic Isles database tool: migrate, verify and export-mongo, clean-room MIT (RD27, spec-rustic-isles-db)
+rustic-isles-db = { path = "crates/rustic-isles-db" }
 # The transport's ICE agent and TURN client, sans-IO (spec-rd27-rifts D2)
 rtc-ice = { version = "0.21.1", default-features = false, features = ["crypto-aws-lc-rs"] }
 rtc-turn = { version = "0.21.1", default-features = false, features = ["crypto-aws-lc-rs"] }
