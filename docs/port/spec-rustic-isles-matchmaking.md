@@ -1003,3 +1003,21 @@ These settle the open questions and override anything above that disagrees.
 - **Item 1:** `X-Mystic-Party-Revision` stays (a wire fact).
 - **Everything listed as parity:** parity; the departures above are candidate decision rows for the maintainer to
   ratify.
+
+## Coordinator decisions, amended after implementation (2026-11-05)
+
+Read against the parity implementation after the crate was written; these override §17.2 where they disagree.
+
+- **§17.2, "Solo hunt cancelled before its release": the vector was wrong; §6.4 stands.** A solo `ISLAND` join of a
+  hunt that needs no queue launches at once (§6.7): its candidate is ready on the server with a hunt release 10 to
+  20 s ahead, so the status poll still answers `MATCHING` (it is not client-ready). A leave in that window answers
+  outcome `canceled` with state **`go-now`** (§6.4 step 6: client-ready is `ready`, ready but not released is
+  `go-now`, then `queued` for a player in its hunt's queue, else `matching`), and the candidate id of the search. The
+  status then answers `CANCELED` with `PLAYER_CANCELED` and the same candidate id (a cancel keeps the id); a second
+  leave answers `already-canceled`, state `canceled`, with that id, and the reason is unchanged; a re-join is taken,
+  answers `MATCHING` again and launches a fresh hunt (a second Director launch). The case should read: leave →
+  `canceled`/`go-now`; status `CANCELED` `PLAYER_CANCELED`, same candidate id; a second leave `already-canceled`/
+  `canceled`; a re-join searches again (`MATCHING`) with a new launch. `canceled`/`matching` is what a candidate that
+  is not yet ready and not queued gives, which this flow never reaches.
+- **The party case's state** follows the same rule: a party hunt launched online and cancelled by its leader inside
+  the release window answers `canceled`/`go-now`.
