@@ -4074,6 +4074,32 @@ dependencies = [
 ]
 
 [[package]]
+name = "rustic-isles"
+version = "0.0.0"
+dependencies = [
+ "axum",
+ "chrono",
+ "dotenvy",
+ "http",
+ "http-body-util",
+ "module-api",
+ "rand 0.10.3",
+ "regex",
+ "rifts-seam",
+ "rustic-isles",
+ "rustic-isles-auth",
+ "serde",
+ "serde_json",
+ "service-kit",
+ "sha2",
+ "tempfile",
+ "thiserror 2.0.21",
+ "tokio",
+ "tower",
+ "tracing",
+]
+
+[[package]]
 name = "rustic-isles-auth"
 version = "0.0.0"
 dependencies = [
