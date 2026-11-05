@@ -99,6 +99,12 @@ None outside this repository.
     found by the black-box tests and fixed with the admin tests' commit.
 11. **TOTP in the step-up** reads the system clock (a trust decision), while its attempt window runs on core's clock
     (the public decisions).
+12. **Rewrites after the similarity review** (precautionary, from public spec §4.4 only, without reading the
+    earlier text): `metrics.rs`' registry is now a `Store` of three maps keyed by a `Series` (name and kept labels,
+    ordered by its sort text) with a `Latency` value for histograms. Its exposition was checked byte-identical against
+    a capture taken before the rewrite (counters at the cap, dropped and duplicate labels, the four-label cut, gauges
+    floored at 0, hidden section gauges, histograms with and without labels, the invalid-name fallback). The
+    operations tests' `record(guard, profile, expires)` helper is now `policy_row(expires_at, profile, enforcement)`.
 
 ## 5. Similarity
 
