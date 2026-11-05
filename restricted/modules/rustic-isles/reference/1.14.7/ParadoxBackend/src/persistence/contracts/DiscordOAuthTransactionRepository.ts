@@ -1,0 +1,44 @@
+/*
+ * Original work Copyright (C) 2026 gwog :3 (SyST3MDeV/Undaunted)
+ * Modified work Copyright (C) 2026 MysticFox / Pranav Karande (pranav158/Mystic-Paradox)
+ *
+ * Licensed under the GNU Affero General Public License v3.0.
+ * You may obtain a copy of the License at the root of this repository.
+ *
+ * SPDX-License-Identifier: AGPL-3.0-only
+ * Additional terms under AGPLv3 Section 7 apply. See ADDITIONAL_TERMS.md.
+ */
+
+// One row carries a Discord login through both of its short-lived phases (spec
+// section "Discord OAuth"):
+//   1. start: {state, codeVerifier} — validates the callback and is single-use
+//      via consumeByState.
+//   2. callback (on success): the same row gains {completionCodeHash, userId}
+//      so the one-time deep-link completion code can be consumed separately
+//      via consumeByCompletionCodeHash, without a second collection.
+// [2026-10-15] A link transaction (POST /launcher/v1/account/discord/link/start) carries linkUserId from the start: the callback then
+// links the Discord user to that account instead of signing in, and no completion code is attached.
+export interface DiscordOAuthTransactionRecord {
+    state: string;
+    codeVerifier: string;
+    createdAt: string;
+    expiresAt: string;
+    consumedAt?: string;
+    completionCodeHash?: string;
+    completionExpiresAt?: string;
+    completionConsumedAt?: string;
+    userId?: string;
+    linkUserId?: string;
+}
+
+export interface DiscordOAuthTransactionRepository {
+    create(transaction: DiscordOAuthTransactionRecord): Promise<void>;
+
+    /** Atomic find-and-consume by state — succeeds at most once, only before expiry. */
+    consumeByState(state: string): Promise<DiscordOAuthTransactionRecord | undefined>;
+
+    attachCompletionCode(state: string, completionCodeHash: string, completionExpiresAt: string, userId: string): Promise<void>;
+
+    /** Atomic find-and-consume by the deep-link completion code. */
+    consumeByCompletionCodeHash(completionCodeHash: string): Promise<DiscordOAuthTransactionRecord | undefined>;
+}

@@ -1,0 +1,29 @@
+[package]
+name = "isles-1-14-7-plugin"
+description = "The game module \"Rustic Isles 1.14.7\" as a library the core loads (RD27)"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+[lib]
+name = "isles_1_14_7_plugin"
+crate-type = ["cdylib"]
+
+[features]
+default = ["realms"]
+realms = ["isles-1-14-7/realms"]
+
+[dependencies]
+isles-1-14-7 = { workspace = true, default-features = false }
+module-api.workspace = true
+
+[dev-dependencies]
+serde_json.workspace = true
+plugin-host.workspace = true
+tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
+
+[lints]
+workspace = true

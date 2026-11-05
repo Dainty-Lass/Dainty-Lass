@@ -1,0 +1,50 @@
+# Build output and dependencies
+node_modules/
+dist/
+target/
+build/
+*.tsbuildinfo
+
+# A host's working area: the SDK generated from their game, exported game data, built runtimes, certificates,
+# keys, logs and databases. Never committed.
+.workspace/
+
+# Secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.pfx
+secrets/
+
+# What a checkout from before DS6 leaves of a host's own files in the old places (setup copies them over)
+/paradox/
+/native/paradox-runtime/
+/native/catalog-exporter/
+/native/internal-server/
+
+# Game files and generated SDKs (Phoenix Labs' material)
+*.pak
+*.ucas
+*.utoc
+CppSDK/
+SDK.hpp
+Items_Analysis/
+
+# OS and editor noise
+.DS_Store
+Thumbs.db
+*.log
+.idea/
+.vscode/
+
+# The host kit's test fixtures hold fake secrets on purpose (crates/host/tests/fixtures)
+!crates/host/tests/fixtures/node/*/secrets/
+
+# Session folders the desktop app makes
+.claude/
+
+
+# AI-written notes and plans, kept on the maintainer's PC only
+/.ai-docs/

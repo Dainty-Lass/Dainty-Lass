@@ -1,0 +1,27 @@
+[
+  {
+    "id": "rc_hat",
+    "displayName": "rc_hat",
+    "displayDescription": "d",
+    "displayPriority": 1,
+    "prices": [
+      {
+        "currencyId": "id_currency_seasonal_coin",
+        "price": 40
+      }
+    ],
+    "maxAllowed": 1,
+    "images": {},
+    "tags": [
+      "season_store"
+    ],
+    "items": [
+      {
+        "catalogId": "AC_HAT",
+        "quantity": 1,
+        "instanced": true
+      }
+    ],
+    "duplicateInstancedItems": []
+  }
+]

@@ -1,0 +1,34 @@
+{
+  "code": null,
+  "message": "OK",
+  "payload": {
+    "paths": [
+      {
+        "progression_id": "ExperienceTrack_Weapon_Axe",
+        "requirements": [
+          { "rank_id": 1, "xp_required": 775 },
+          { "rank_id": 2, "xp_required": 27000 }
+        ]
+      },
+      {
+        "progression_id": "ExperienceTrack_Weapon_Sword",
+        "requirements": [
+          { "rank_id": 1, "xp_required": 775 },
+          { "rank_id": 2, "xp_required": 27000 }
+        ]
+      },
+      {
+        "progression_id": "ExperienceTrack_PlayerLevel",
+        "requirements": [{ "rank_id": 1, "xp_required": 100 }]
+      },
+      {
+        "progression_id": "PrestigeTrack_Weapon_Axe",
+        "requirements": [{ "rank_id": 1, "xp_required": 0 }],
+        "prestige": {
+          "xp_per_level": 1,
+          "free_rewards": { "stacked_items": [{ "catalog_id": "CURRENCY_PJM_PRESTIGE_FILLED", "quantity": 1 }] }
+        }
+      }
+    ]
+  }
+}

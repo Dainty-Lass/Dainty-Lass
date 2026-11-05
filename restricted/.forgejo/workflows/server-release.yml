@@ -1,0 +1,316 @@
+# Builds the server release (MIGRATION_PLAN.md RD8, RH6; adapted from Dauntless Revived's server-release.yml, M38).
+# One archive per server platform, which `reforged-host setup` and `reforged-host update` download and check (RH5):
+#  - ReforgedRevivalServer-<version>-windows-x64.zip and -linux-x64.tar.gz hold reforged-revival-server-<version>/:
+#    the source of the commit (git archive, the corresponding source under the AGPL) and of the rustic-isles
+#    submodule at the commit it pins (modules/rustic-isles, DS6), with
+#      bin/              the server in one binary (RD26), built here for that platform: dainty-lass-server-console,
+#                        the same as reforged-host (the name update, the systemd units and the Director's
+#                        game-server wrapper run), and dainty-lass-server-minimal. The 1.14.7 Rust backend and
+#                        Director (isles-1-14-7), gateway, allowlist, content server, admin API and database
+#                        migration/rollback commands (`reforged-host db migrate|verify|export-mongo`) are inside it
+#      plugins/          the libraries host.toml can pin (RD27): the 1.14.7 module ([[modules.external]]) and, once
+#                        their crates land, the content, chat and gateway services ([services.<name>])
+#      modules/rustic-isles/reference/1.14.7/ParadoxBackend and ParadoxDirector, built with their node_modules
+#                        (kept for one release only as the documented RB13/RU9 rollback artefact until RB15)
+#      release.json      the version, commit, platform and repository, and every file of the release with its SHA-256
+#  - SHA256SUMS.txt for the archives
+#
+# On Forgejo (DX3) it is the dry run only: Run workflow on any branch builds, smoke-tests and keeps the release files
+# as a 7-day artifact (server-release). Publishing stays out until DX5: reforged-host update reads GitHub's releases
+# API and checks GitHub attestations, which Forgejo has neither of. The tag trigger, the version checks and the
+# publish job are in b28fd27:.github/workflows/server-release.yml.
+# Runner labels docker and windows-msvc (docs/ci-runners.md). Actions are pinned by commit.
+name: Server release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version for the dry run's archives (default 0.0.0-dryrun.<run number>)"
+        required: false
+        type: string
+
+permissions: {}
+
+jobs:
+  prepare:
+    name: Version
+    runs-on: docker
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    outputs:
+      version: ${{ steps.plan.outputs.version }}
+    steps:
+      - name: Work out the version
+        id: plan
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
+          RUN_NUMBER: ${{ github.run_number }}
+        run: |
+          set -euo pipefail
+          # A semantic version without build metadata: x.y.z or x.y.z-prerelease
+          semver='^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$'
+          version="${INPUT_VERSION:-0.0.0-dryrun.$RUN_NUMBER}"
+          [[ "$version" =~ $semver ]] || { echo "::error::$version is not a version (x.y.z or x.y.z-prerelease)"; exit 1; }
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "servers $version, dry run"
+
+  build:
+    name: Build (${{ matrix.target }})
+    needs: prepare
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 75
+    permissions:
+      contents: read
+    strategy:
+      matrix:
+        include:
+          - os: windows-msvc
+            target: x86_64-pc-windows-msvc
+            platform: windows-x64
+          - os: docker
+            target: x86_64-unknown-linux-gnu
+            platform: linux-x64
+    defaults:
+      run:
+        shell: bash
+    env:
+      TARGET: ${{ matrix.target }}
+      PLATFORM: ${{ matrix.platform }}
+      VERSION: ${{ needs.prepare.outputs.version }}
+      COMMIT: ${{ github.sha }}
+    steps:
+      # Before the checkout: a submodule's objects under a deep path fail to clone without it (DF1)
+      - name: Long paths for git
+        if: runner.os == 'Windows'
+        run: git config --global core.longpaths true
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # dainty-lass's MIT crates are git dependencies (RD27): over HTTPS with the read token here
+      - name: Read dainty-lass over HTTPS
+        env:
+          TOKEN: ${{ secrets.CI_READ_TOKEN }}
+        run: git config --global url."https://oauth2:${TOKEN}@git.silentspud.com/".insteadOf "ssh://git@git.silentspud.com:222/"
+
+      # The runner's temporary folder as bash and GNU tar take it on every runner (tar reads D: as a remote host)
+      - name: Work folder
+        run: |
+          work="$RUNNER_TEMP"
+          if [ "$RUNNER_OS" = Windows ]; then work="$(cygpath -u "$RUNNER_TEMP")"; fi
+          echo "WORK=$work" >> "$GITHUB_ENV"
+
+      # The docker label's image has Node for the actions but no Rust
+      - name: Install rustup
+        if: runner.os == 'Linux'
+        run: |
+          if ! command -v rustup > /dev/null; then
+            curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --no-modify-path --profile minimal --default-toolchain none
+            echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+          fi
+
+      - name: Install the pinned toolchain
+        run: |
+          rustup show active-toolchain || rustup toolchain install
+          rustup target add "$TARGET"
+
+      # No build cache in a release: every file is built from this commit alone.
+      # The 1.14.7 Rust backend, Director and `reforged-host db` commands are compiled into server-console and
+      # server-minimal (with all-modules). For one release after RU9/RB14 (until RB15), the archive also carries
+      # the Node ParadoxBackend and ParadoxDirector bundle below as the documented rollback artefact.
+      # REFORGED_RELEASE_REPOSITORY stays .cargo/config.toml's: the releases are on GitHub until DX5
+      - name: Build the release binaries
+        run: cargo build --release --locked --target "$TARGET" -p server-console -p server-minimal --features server-console/all-modules,server-minimal/all-modules --bins
+
+      # The libraries the core loads (RD27); a service's crate joins the list by being in the workspace
+      - name: Build the libraries
+        run: |
+          set -euo pipefail
+          packages=()
+          for pkg in isles-1-14-7-plugin content-plugin chat-plugin gateway-plugin; do
+            if cargo pkgid --locked -p "$pkg" > /dev/null 2>&1; then packages+=(-p "$pkg"); fi
+          done
+          cargo build --release --locked --target "$TARGET" "${packages[@]}" --lib
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+
+      # Every dependency, dev ones included: gamedata runs Rustic Isles's generators, some of them with tsx.
+      # node_modules is installed on each platform, for the packages with a native build (@node-rs/argon2).
+      - name: Build the Node rollback bundle (kept for one release until RB15)
+        run: |
+          set -euo pipefail
+          isles=modules/rustic-isles/reference/1.14.7
+          for dir in "$isles/ParadoxBackend" "$isles/ParadoxDirector"; do
+            echo "::group::$dir"
+            (cd "$dir" && npm ci --no-audit --no-fund && npm run build)
+            echo "::endgroup::"
+          done
+
+      - name: Assemble the release folder
+        run: |
+          set -euo pipefail
+          ext=""; [ "$RUNNER_OS" = Windows ] && ext=".exe"
+          name="reforged-revival-server-$VERSION"
+          out="$WORK/assemble/$name"
+          rm -rf "$WORK/assemble" && mkdir -p "$out"
+          # The commit's source, as git has it (no .workspace, nothing git ignores); rustic-isles is in-tree (RD27)
+          git archive --format=tar "$COMMIT" | tar -x -C "$out"
+          mkdir -p "$out/bin"
+          for bin in reforged-host dainty-lass-server-console dainty-lass-server-minimal; do
+            cp "target/$TARGET/release/$bin$ext" "$out/bin/"
+          done
+          # The libraries beside them, under the names host.toml's paths give (RD27)
+          mkdir -p "$out/plugins"
+          if [ "$RUNNER_OS" = Windows ]; then prefix=""; suffix=".dll"; else prefix="lib"; suffix=".so"; fi
+          for lib in isles_1_14_7_plugin content_plugin chat_plugin gateway_plugin; do
+            file="target/$TARGET/release/$prefix$lib$suffix"
+            if [ -f "$file" ]; then cp "$file" "$out/plugins/"; fi
+          done
+          [ -f "$out/plugins/${prefix}isles_1_14_7_plugin$suffix" ] || { echo "::error::the 1.14.7 library was not built"; exit 1; }
+          # Kept for one release only as the documented RB13/RU9 rollback artefact (until RB15)
+          isles=modules/rustic-isles/reference/1.14.7
+          cp -R "$isles/ParadoxBackend/build" "$isles/ParadoxBackend/node_modules" "$out/$isles/ParadoxBackend/"
+          cp -R "$isles/ParadoxDirector/dist" "$isles/ParadoxDirector/node_modules" "$out/$isles/ParadoxDirector/"
+          # node_modules/.bin holds links to the packages' commands: nothing a host runs needs them
+          find "$out" -type d -name .bin -path '*/node_modules/*' -prune -exec rm -rf {} +
+          echo "$COMMIT" > "$out/COMMIT"
+          # release.json: what update reads, and every file with its SHA-256 (update removes the files an older
+          # release had and this one has not, and checks what it installed)
+          node - "$out" "$VERSION" "$COMMIT" "$TARGET" "$PLATFORM" "$GITHUB_REPOSITORY" <<'EOF'
+          const fs = require("fs"), path = require("path"), crypto = require("crypto");
+          const [root, version, commit, target, platform, repository] = process.argv.slice(2);
+          const files = [];
+          (function walk(dir) {
+            for (const e of fs.readdirSync(dir, { withFileTypes: true }).sort((a, b) => (a.name < b.name ? -1 : 1))) {
+              const full = path.join(dir, e.name);
+              if (e.isDirectory()) walk(full);
+              else if (e.isFile()) {
+                const data = fs.readFileSync(full);
+                files.push({ path: path.relative(root, full).split(path.sep).join("/"), sha256: crypto.createHash("sha256").update(data).digest("hex"), size: data.length });
+              } else if (e.isSymbolicLink()) throw new Error(`a symbolic link in the release: ${full}`);
+            }
+          })(root);
+          const manifest = { name: "reforged-revival-server", version, commit, target, platform, repository, files };
+          fs.writeFileSync(path.join(root, "release.json"), JSON.stringify(manifest, null, 2) + "\n");
+          console.log(`release.json: ${files.length} files`);
+          EOF
+
+      - name: Smoke test, the binaries start
+        run: |
+          set -euo pipefail
+          ext=""; [ "$RUNNER_OS" = Windows ] && ext=".exe"
+          bin="$WORK/assemble/reforged-revival-server-$VERSION/bin"
+          for b in reforged-host dainty-lass-server-console dainty-lass-server-minimal; do "$bin/$b$ext" --help > /dev/null; done
+          # Each service the binary runs alone, as the systemd units and the containers run it
+          for service in gateway allowlist content backend director; do "$bin/reforged-host$ext" "$service" --help > /dev/null; done
+          for db_cmd in migrate verify export-mongo; do "$bin/reforged-host$ext" db "$db_cmd" --help > /dev/null; done
+          "$bin/reforged-host$ext" admin schema > /dev/null
+          "$bin/reforged-host$ext" --help
+
+      - name: Make the archive
+        run: |
+          set -euo pipefail
+          name="reforged-revival-server-$VERSION"
+          mkdir -p "$WORK/release"
+          cd "$WORK/assemble"
+          if [ "$RUNNER_OS" = Windows ]; then
+            archive="ReforgedRevivalServer-$VERSION-$PLATFORM.zip"
+            7z a -tzip -mx=9 -bd "$WORK/release/$archive" "$name" > /dev/null
+          else
+            archive="ReforgedRevivalServer-$VERSION-$PLATFORM.tar.gz"
+            tar --sort=name --owner=0 --group=0 --numeric-owner -czf "$WORK/release/$archive" "$name"
+          fi
+          ls -l "$WORK/release"
+
+      # Stock upload-artifact v4+ refuses any host but github.com; Forgejo's fork drops that check
+      - uses: https://code.forgejo.org/forgejo/upload-artifact@16871d9e8cfcf27ff31822cac382bbb5450f1e1e # v4 (v4.3.1, GHES check disabled)
+        with:
+          name: server-archive-${{ matrix.platform }}
+          path: ${{ runner.temp }}/release/
+          if-no-files-found: error
+          retention-days: 1
+
+  package:
+    name: Release files
+    needs: [prepare, build]
+    runs-on: docker
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    env:
+      VERSION: ${{ needs.prepare.outputs.version }}
+    steps:
+      - uses: https://code.forgejo.org/forgejo/download-artifact@d8d0a99033603453ad2255e58720b460a0555e1e # v4 (v4.1.4, GHES check disabled)
+        with:
+          pattern: server-archive-*
+          path: release
+          merge-multiple: true
+
+      - name: SHA256SUMS.txt
+        run: |
+          set -euo pipefail
+          cd release
+          expected="$(printf '%s\n' "ReforgedRevivalServer-$VERSION-linux-x64.tar.gz" "ReforgedRevivalServer-$VERSION-windows-x64.zip" | sort)"
+          actual="$(ls -A | sort)"
+          if [ "$actual" != "$expected" ]; then
+            echo "::error::these are not the archives of servers $VERSION"
+            diff <(echo "$expected") <(echo "$actual") || true
+            exit 1
+          fi
+          sha256sum -- * > SHA256SUMS.txt
+          cat SHA256SUMS.txt
+
+      - uses: https://code.forgejo.org/forgejo/upload-artifact@16871d9e8cfcf27ff31822cac382bbb5450f1e1e # v4 (v4.3.1, GHES check disabled)
+        with:
+          name: server-release
+          path: release/
+          if-no-files-found: error
+          retention-days: 7
+
+  # The archives install as setup and update install them: from the release files, checked against SHA256SUMS.txt.
+  try:
+    name: Install (${{ matrix.platform }})
+    needs: [prepare, package]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    strategy:
+      matrix:
+        include:
+          - os: windows-msvc
+            platform: windows-x64
+          - os: docker
+            platform: linux-x64
+    defaults:
+      run:
+        shell: bash
+    env:
+      VERSION: ${{ needs.prepare.outputs.version }}
+      PLATFORM: ${{ matrix.platform }}
+    steps:
+      - uses: https://code.forgejo.org/forgejo/download-artifact@d8d0a99033603453ad2255e58720b460a0555e1e # v4 (v4.1.4, GHES check disabled)
+        with:
+          name: server-release
+          path: ${{ runner.temp }}/release
+
+      - name: Extract, then check the install with reforged-host update --check
+        env:
+          REFORGED_SERVER_RELEASE: ${{ runner.temp }}/release
+        run: |
+          set -euo pipefail
+          ext=""; [ "$RUNNER_OS" = Windows ] && ext=".exe"
+          mkdir -p "$RUNNER_TEMP/host"
+          cd "$RUNNER_TEMP/host"
+          if [ "$RUNNER_OS" = Windows ]; then
+            7z x -bd "$REFORGED_SERVER_RELEASE/ReforgedRevivalServer-$VERSION-$PLATFORM.zip" > /dev/null
+          else
+            tar -xzf "$REFORGED_SERVER_RELEASE/ReforgedRevivalServer-$VERSION-$PLATFORM.tar.gz"
+          fi
+          root="$RUNNER_TEMP/host/reforged-revival-server-$VERSION"
+          "$root/bin/reforged-host$ext" update --check | tee check.txt
+          grep -q "Up to date" check.txt

@@ -1,0 +1,993 @@
+# DaintyLass server in Docker (docs/hosting-docker.md). The same services `reforged-host start`
+# runs (dainty-lass's crates/hostkit/src/serve.rs), one container each, with compose doing the supervision: start order,
+# health checks, restarts, logs, one clean stop. Each Rust service is `reforged-host <service>`, so every container
+# keeps only the privileges its service needs (the allowlist alone has NET_ADMIN).
+#
+#   cp .env.example .env               then edit it
+#   docker compose build
+#   docker compose run --rm host setup --mode public --host play.example.org --name "Friday Hunts"
+#   docker compose up -d
+#   docker compose run --rm host invite --for "Alex"
+#
+# The network profile (docs/hosting-docker.md, DN12) is a test cluster of four such servers instead, among the services
+# below. Run it by itself with `docker compose --profile network up -d --wait network`: the other services have no
+# profile, so a bare `--profile network up` would start the single server too.
+#
+# Every service shares one network namespace, the net service's: they reach each other on 127.0.0.1 exactly as
+# the env files setup writes say, nothing but the gateway and the game ports is published, and the allowlist's
+# nftables table filters the game servers' traffic inside that namespace without touching the host's firewall.
+# Every container mounts the volumes at the paths the env files name (/opt/reforged, as the server release).
+
+name: reforged-revival
+
+x-front: &front
+  image: ${REFORGED_IMAGE:-reforged-revival}-front:${REFORGED_TAG:-local}
+  build:
+    context: .
+    dockerfile: docker/Dockerfile
+    # dainty-lass's crates come over SSH (RD27): `docker compose build` passes the host's agent
+    ssh: [default]
+    target: front
+  network_mode: service:net
+  restart: unless-stopped
+  init: true
+  read_only: true
+  tmpfs: [/tmp]
+  security_opt: [no-new-privileges:true]
+  cap_drop: [ALL]
+
+x-server: &server
+  image: ${REFORGED_IMAGE:-reforged-revival}-server:${REFORGED_TAG:-local}
+  build:
+    context: .
+    dockerfile: docker/Dockerfile
+    # dainty-lass's crates come over SSH (RD27): `docker compose build` passes the host's agent
+    ssh: [default]
+    target: server
+    args:
+      REFORGED_COMMIT: ${REFORGED_COMMIT:-}
+  network_mode: service:net
+  restart: unless-stopped
+  volumes:
+    - workspace:/opt/reforged/.workspace
+    - mongo-data:/opt/reforged/.workspace/mongodb
+    - backend-game-data:/opt/reforged/modules/rustic-isles/reference/1.14.7/ParadoxBackend/game-data
+    - director-game-data:/opt/reforged/modules/rustic-isles/reference/1.14.7/ParadoxDirector/game-data
+    - exports:/opt/reforged/modules/rustic-isles/reference/1.14.7/Items_Analysis
+    - captures:/opt/reforged/modules/rustic-isles/reference/1.14.7/DauntlessEndpointDocumentation
+    - ${REFORGED_GAME_DIR:-./game}:/game
+
+# The network profile (DN12): four nodes, each its own namespace (net-*) holding the gateway, the only service a node
+# of the harness needs, and a netem sidecar that shapes the namespace's traffic. docker/network/test.sh runs it.
+x-network-net: &network-net
+  image: ${REFORGED_IMAGE:-reforged-revival}-front:${REFORGED_TAG:-local}
+  build:
+    context: .
+    dockerfile: docker/Dockerfile
+    # dainty-lass's crates come over SSH (RD27): `docker compose build` passes the host's agent
+    ssh: [default]
+    target: front
+  profiles: [network]
+  command: ["sleep", "infinity"]
+  init: true
+  restart: unless-stopped
+  read_only: true
+  security_opt: [no-new-privileges:true]
+  cap_drop: [ALL]
+  sysctls:
+    net.ipv4.ip_unprivileged_port_start: "0"
+  healthcheck:
+    test: ["CMD", "true"]
+    interval: 30s
+
+# tc and nothing else, with CAP_NET_ADMIN in the node's namespace (the node's own containers keep none)
+x-network-netem: &network-netem
+  image: ${REFORGED_IMAGE:-reforged-revival}-netem:${REFORGED_TAG:-local}
+  build:
+    context: .
+    dockerfile: docker/Dockerfile
+    # dainty-lass's crates come over SSH (RD27): `docker compose build` passes the host's agent
+    ssh: [default]
+    target: netem
+  profiles: [network]
+  init: true
+  restart: unless-stopped
+  read_only: true
+  security_opt: [no-new-privileges:true]
+  cap_drop: [ALL]
+  cap_add: [NET_ADMIN]
+  healthcheck:
+    test: ["CMD-SHELL", "tc qdisc show dev eth0 | grep -q netem"]
+    interval: 2s
+    retries: 15
+
+# Round trips between the regions in milliseconds, the canary's (docs/hosting-docker.md); each way takes half
+x-network-netem-env: &network-netem-env
+  NETEM_NODES: "oregon=${REFORGED_NETWORK_SUBNET:-172.28.77}.11 new-york=${REFORGED_NETWORK_SUBNET:-172.28.77}.12 uk=${REFORGED_NETWORK_SUBNET:-172.28.77}.13 germany=${REFORGED_NETWORK_SUBNET:-172.28.77}.14"
+  NETEM_RTT: "oregon:new-york=${REFORGED_NETWORK_RTT_OREGON_NEW_YORK:-70} oregon:uk=${REFORGED_NETWORK_RTT_OREGON_UK:-140} oregon:germany=${REFORGED_NETWORK_RTT_OREGON_GERMANY:-150} new-york:uk=${REFORGED_NETWORK_RTT_NEW_YORK_UK:-75} new-york:germany=${REFORGED_NETWORK_RTT_NEW_YORK_GERMANY:-85} uk:germany=${REFORGED_NETWORK_RTT_UK_GERMANY:-20}"
+  NETEM_PLAYER_REGION: ${REFORGED_NETWORK_PLAYER_REGION:-germany}
+
+# Setup from the host.toml network-init wrote, before the gateway starts
+x-network-configure: &network-configure
+  image: ${REFORGED_IMAGE:-reforged-revival}-server:${REFORGED_TAG:-local}
+  build:
+    context: .
+    dockerfile: docker/Dockerfile
+    # dainty-lass's crates come over SSH (RD27): `docker compose build` passes the host's agent
+    ssh: [default]
+    target: server
+    args:
+      REFORGED_COMMIT: ${REFORGED_COMMIT:-}
+  profiles: [network]
+  network_mode: none
+  restart: "no"
+  entrypoint: ["/usr/bin/tini", "--", "reforged-host-docker"]
+  command: ["apply"]
+  # Not read-only: setup writes the game-data folders of the image, which a node with no game never reads
+  security_opt: [no-new-privileges:true]
+  cap_drop: [ALL]
+
+x-network-gateway: &network-gateway
+  image: ${REFORGED_IMAGE:-reforged-revival}-front:${REFORGED_TAG:-local}
+  build:
+    context: .
+    dockerfile: docker/Dockerfile
+    # dainty-lass's crates come over SSH (RD27): `docker compose build` passes the host's agent
+    ssh: [default]
+    target: front
+  profiles: [network]
+  command: ["reforged-host", "gateway", "serve", "--env-file", "/opt/reforged/.workspace/config/gateway.env"]
+  restart: unless-stopped
+  init: true
+  read_only: true
+  tmpfs: [/tmp]
+  security_opt: [no-new-privileges:true]
+  cap_drop: [ALL]
+  healthcheck:
+    test: ["CMD", "reforged-healthcheck", "gateway"]
+    interval: 5s
+    start_period: 30s
+
+x-network-node: &network-node
+  image: ${REFORGED_IMAGE:-reforged-revival}-server:${REFORGED_TAG:-local}
+  build:
+    context: .
+    dockerfile: docker/Dockerfile
+    # dainty-lass's crates come over SSH (RD27): `docker compose build` passes the host's agent
+    ssh: [default]
+    target: server
+    args:
+      REFORGED_COMMIT: ${REFORGED_COMMIT:-}
+  profiles: [network]
+  environment:
+    REFORGED_NETWORK_FULL_NODE: "1"
+    REFORGED_WRONG_NODE_POLICY: ${REFORGED_WRONG_NODE_POLICY:-refuse}
+  command: ["reforged-host", "gateway", "serve", "--env-file", "/opt/reforged/.workspace/config/gateway.env"]
+  restart: unless-stopped
+  init: true
+  security_opt: [no-new-privileges:true]
+  cap_drop: [ALL]
+  healthcheck:
+    test: ["CMD", "reforged-healthcheck", "gateway"]
+    interval: 5s
+    start_period: 30s
+
+services:
+  # Holds the network namespace and the published ports, so a service restarting never drops the others'.
+  # compose.tailscale.yaml replaces it with Tailscale for a private server.
+  net:
+    image: ${REFORGED_IMAGE:-reforged-revival}-front:${REFORGED_TAG:-local}
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    # dainty-lass's crates come over SSH (RD27): `docker compose build` passes the host's agent
+    ssh: [default]
+      target: front
+    command: ["sleep", "infinity"]
+    init: true
+    restart: unless-stopped
+    read_only: true
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+    # The public gateway listens on 443 (or setup's --public-port) as an ordinary user
+    sysctls:
+      net.ipv4.ip_unprivileged_port_start: "0"
+    ports:
+      # TCP: the gateway, on the port setup chose (443, or --public-port; the invites name it)
+      - "${REFORGED_GATEWAY_PUBLISH:-443}:${REFORGED_GATEWAY_PORT:-443}/tcp"
+      # UDP: the game servers. 8770-8777 up to 6 hunts; one more below 8770 per hunt above 6 (--max-hunts)
+      - "${REFORGED_GAME_PUBLISH_ADDRESS:-0.0.0.0}:${REFORGED_GAME_PORTS:-8770-8777}:${REFORGED_GAME_PORTS:-8770-8777}/udp"
+    healthcheck:
+      test: ["CMD", "true"]
+      interval: 30s
+
+  # MongoDB with the one-member replica set the Node rollback backend needs (profiles: [rollback] until RB15)
+  mongo:
+    image: ${MONGO_IMAGE:-mongo:8.0}
+    profiles: [rollback]
+    network_mode: service:net
+    restart: unless-stopped
+    command:
+      [
+        "mongod",
+        "--replSet", "rs0",
+        "--bind_ip", "127.0.0.1",
+        "--port", "27017",
+        # A friends' server's database is a few megabytes; the game servers need the memory (mongo.rs)
+        "--wiredTigerCacheSizeGB", "1",
+      ]
+    volumes:
+      - mongo-data:/data/db
+      - mongo-config:/data/configdb
+    healthcheck:
+      # Initiates the replica set the first time, as `reforged-host start` does; healthy once it is primary
+      test:
+        - CMD
+        - mongosh
+        - --quiet
+        - --eval
+        - "try { rs.status() } catch (e) { rs.initiate({ _id: 'rs0', members: [{ _id: 0, host: '127.0.0.1:27017' }] }) } quit(db.hello().isWritablePrimary ? 0 : 1)"
+      interval: 5s
+      timeout: 10s
+      start_period: 60s
+      retries: 12
+    depends_on:
+      net:
+        condition: service_started
+
+  # The postgres profile: for a server whose host.toml picks Postgres ([database] engine = "postgres",
+  # docs/hosting-docker.md). On 127.0.0.1 in the shared namespace, as setup's env files say: libpq is built
+  # without TLS (DF7). The role is dainty, its password setup's REFORGED_DB_PASSWORD, read from secrets.env
+  # when the data volume is first made
+  postgres:
+    image: ${POSTGRES_IMAGE:-postgres:17}
+    profiles: [postgres]
+    network_mode: service:net
+    restart: unless-stopped
+    entrypoint:
+      - sh
+      - -ec
+      - |
+        secrets=/opt/reforged/.workspace/config/secrets.env
+        POSTGRES_PASSWORD=$$(sed -n 's/^REFORGED_DB_PASSWORD="\{0,1\}\([^"]*\)"\{0,1\}$$/\1/p' "$$secrets")
+        if [ -z "$$POSTGRES_PASSWORD" ]; then echo "no REFORGED_DB_PASSWORD in $$secrets: run setup first" >&2; exit 1; fi
+        # initdb trusts 127.0.0.1 by default, and every container shares this namespace: passwords there too
+        export POSTGRES_PASSWORD POSTGRES_USER=dainty POSTGRES_DB=dainty POSTGRES_INITDB_ARGS=--auth-host=scram-sha-256
+        exec docker-entrypoint.sh postgres -c listen_addresses=127.0.0.1
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - workspace:/opt/reforged/.workspace:ro
+    healthcheck:
+      test: ["CMD", "pg_isready", "-h", "127.0.0.1", "-U", "dainty", "-d", "dainty"]
+      interval: 5s
+      start_period: 30s
+      retries: 6
+    depends_on:
+      net:
+        condition: service_started
+      configure:
+        condition: service_completed_successfully
+        required: false
+
+  # The `toml` profile: a server managed by host.toml alone. Setup runs from it before every `up`, so editing
+  # REFORGED_CONFIG_DIR/host.toml and `docker compose up -d` is the whole change (docs/hosting-docker.md)
+  configure:
+    <<: *server
+    profiles: [toml]
+    restart: "no"
+    entrypoint: ["/usr/bin/tini", "--", "reforged-host-docker"]
+    command: ["apply"]
+    volumes:
+      - workspace:/opt/reforged/.workspace
+      - mongo-data:/opt/reforged/.workspace/mongodb
+      - backend-game-data:/opt/reforged/modules/rustic-isles/reference/1.14.7/ParadoxBackend/game-data
+      - director-game-data:/opt/reforged/modules/rustic-isles/reference/1.14.7/ParadoxDirector/game-data
+      - exports:/opt/reforged/modules/rustic-isles/reference/1.14.7/Items_Analysis
+      - captures:/opt/reforged/modules/rustic-isles/reference/1.14.7/DauntlessEndpointDocumentation
+      - ${REFORGED_GAME_DIR:-./game}:/game
+      # z: relabelled for SELinux hosts (Fedora, RHEL with Podman); ignored elsewhere
+      - ${REFORGED_CONFIG_DIR:-./config}:/config:ro,z
+    depends_on:
+      net:
+        condition: service_started
+      mongo:
+        condition: service_healthy
+        required: false
+
+  backend:
+    <<: *server
+    command: ["reforged-host", "backend", "serve", "--env-file", "/opt/reforged/.workspace/config/backend.env"]
+    healthcheck:
+      test: ["CMD", "reforged-healthcheck", "backend"]
+      interval: 5s
+      start_period: 120s
+      retries: 6
+    depends_on:
+      net:
+        condition: service_started
+      postgres:
+        condition: service_healthy
+        required: false
+      configure:
+        condition: service_completed_successfully
+        required: false
+
+  # Opt-in rollback path for one release until RB15 deletes it (docs/hosting-docker.md): Node ParadoxBackend on MongoDB
+  backend-rollback:
+    <<: *server
+    image: ${REFORGED_IMAGE:-reforged-revival}-server-rollback:${REFORGED_TAG:-local}
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    # dainty-lass's crates come over SSH (RD27): `docker compose build` passes the host's agent
+    ssh: [default]
+      target: server-rollback
+      args:
+        REFORGED_COMMIT: ${REFORGED_COMMIT:-}
+    profiles: [rollback]
+    working_dir: /opt/reforged/modules/rustic-isles/reference/1.14.7/ParadoxBackend
+    command: ["node", "--env-file=/opt/reforged/.workspace/config/backend.env", "build/server.js"]
+    healthcheck:
+      test: ["CMD", "reforged-healthcheck", "backend"]
+      interval: 5s
+      start_period: 120s
+      retries: 6
+    depends_on:
+      mongo:
+        condition: service_healthy
+      configure:
+        condition: service_completed_successfully
+        required: false
+
+  # Opt-in rollback path for one release until RB15 deletes it (docs/hosting-docker.md): Node ParadoxDirector
+  director-rollback:
+    <<: *server
+    image: ${REFORGED_IMAGE:-reforged-revival}-server-rollback:${REFORGED_TAG:-local}
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    # dainty-lass's crates come over SSH (RD27): `docker compose build` passes the host's agent
+    ssh: [default]
+      target: server-rollback
+      args:
+        REFORGED_COMMIT: ${REFORGED_COMMIT:-}
+    profiles: [rollback]
+    environment:
+      REFORGED_ROLLBACK: "1"
+    command: ["reforged-director"]
+    healthcheck:
+      test: ["CMD", "reforged-healthcheck", "director"]
+      interval: 5s
+      start_period: 120s
+      retries: 6
+    depends_on:
+      backend-rollback:
+        condition: service_healthy
+      allowlist:
+        condition: service_healthy
+        required: false
+
+  # Starts Ramsgate, the Training Grounds and the hunts as its children (Wine on a virtual display)
+  director:
+    <<: *server
+    command: ["reforged-director"]
+    healthcheck:
+      test: ["CMD", "reforged-healthcheck", "director"]
+      interval: 5s
+      start_period: 120s
+      retries: 6
+    depends_on:
+      backend:
+        condition: service_healthy
+      # A public server's game ports are closed before the first game server starts
+      allowlist:
+        condition: service_healthy
+        required: false
+
+  content:
+    <<: *front
+    command: ["reforged-host", "content", "serve", "--env-file", "/opt/reforged/.workspace/config/content.env"]
+    volumes:
+      - workspace:/opt/reforged/.workspace:ro
+    healthcheck:
+      test: ["CMD", "reforged-healthcheck", "content"]
+      interval: 5s
+      start_period: 30s
+    depends_on:
+      backend:
+        condition: service_healthy
+
+  # The admin API for the host's tools (a Discord bot): loopback in the shared namespace, never published
+  # (docs/admin-api.md). It writes its timeouts next to secrets.env, so the workspace is mounted writable.
+  admin:
+    <<: *front
+    command: ["reforged-host", "admin", "serve", "--env-file", "/opt/reforged/.workspace/config/admin.env"]
+    volumes:
+      - workspace:/opt/reforged/.workspace
+    healthcheck:
+      test: ["CMD", "reforged-healthcheck", "admin"]
+      interval: 5s
+      start_period: 30s
+    depends_on:
+      backend:
+        condition: service_healthy
+
+  # Public servers only: opens the game ports to players who logged in (nftables, in the shared namespace)
+  allowlist:
+    <<: *front
+    profiles: [public]
+    command: ["reforged-host", "allowlist", "--env-file", "/opt/reforged/.workspace/config/allowlist.env"]
+    # nft's file capability: the helper itself runs unprivileged (Dockerfile, front)
+    security_opt: []
+    cap_add: [NET_ADMIN]
+    volumes:
+      - workspace:/opt/reforged/.workspace
+    healthcheck:
+      test: ["CMD", "reforged-healthcheck", "allowlist"]
+      interval: 5s
+      start_period: 30s
+    depends_on:
+      net:
+        condition: service_started
+      configure:
+        condition: service_completed_successfully
+        required: false
+
+  # Started last, as by the host kit: no player request reaches a service that is not up yet
+  gateway:
+    <<: *front
+    command: ["reforged-host", "gateway", "serve", "--env-file", "/opt/reforged/.workspace/config/gateway.env"]
+    volumes:
+      - workspace:/opt/reforged/.workspace:ro
+    healthcheck:
+      test: ["CMD", "reforged-healthcheck", "gateway"]
+      interval: 5s
+      start_period: 30s
+    depends_on:
+      net:
+        condition: service_healthy
+      backend:
+        condition: service_healthy
+      content:
+        condition: service_healthy
+      allowlist:
+        condition: service_healthy
+        required: false
+
+  # The managed profile: syncs settings and commands from a remote controller over mTLS (docs/hosting-docker.md, RM1-RM5)
+  remote-agent:
+    <<: *server
+    profiles: [managed]
+    command: ["reforged-host", "remote-agent"]
+    depends_on:
+      gateway:
+        condition: service_healthy
+
+  # The host kit's commands: docker compose run --rm host setup|invite|doctor|gamedata|publish-runtime|...
+  host:
+    <<: *server
+    profiles: [tools]
+    restart: "no"
+    entrypoint: ["/usr/bin/tini", "--", "reforged-host-docker"]
+    command: ["doctor"]
+    volumes:
+      - workspace:/opt/reforged/.workspace
+      - mongo-data:/opt/reforged/.workspace/mongodb
+      - backend-game-data:/opt/reforged/modules/rustic-isles/reference/1.14.7/ParadoxBackend/game-data
+      - director-game-data:/opt/reforged/modules/rustic-isles/reference/1.14.7/ParadoxDirector/game-data
+      - exports:/opt/reforged/modules/rustic-isles/reference/1.14.7/Items_Analysis
+      - captures:/opt/reforged/modules/rustic-isles/reference/1.14.7/DauntlessEndpointDocumentation
+      - ${REFORGED_GAME_DIR:-./game}:/game
+      # Files to bring in: the runtime's DLLs (publish-runtime --from /import/...), game data packs
+      - ${REFORGED_IMPORT_DIR:-./import}:/import:ro
+
+  # Every server test suite on the server image (docker/test-in-image.sh): docker compose run --rm test
+  # [rust] [backend] [director]. Its own network; the game-data volumes read-only, so the game-data tests check
+  # this server's real data. docker/run-tests.sh is the full run, the smoke test included.
+  test:
+    image: ${REFORGED_IMAGE:-reforged-revival}-test:${REFORGED_TAG:-local}
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    # dainty-lass's crates come over SSH (RD27): `docker compose build` passes the host's agent
+    ssh: [default]
+      target: test
+      args:
+        REFORGED_COMMIT: ${REFORGED_COMMIT:-}
+    profiles: [test]
+    restart: "no"
+    # The allowlist's nftables test, in this container's own network namespace
+    cap_add: [NET_ADMIN]
+    volumes:
+      - backend-game-data:/opt/reforged/modules/rustic-isles/reference/1.14.7/ParadoxBackend/game-data:ro
+      - director-game-data:/opt/reforged/modules/rustic-isles/reference/1.14.7/ParadoxDirector/game-data:ro
+
+  # ---- The network profile (DN12): four nodes of one network, the canary's regions. `network` starts them all;
+  # docker/network/test.sh brings them up and checks the links and the region ping. The four blocks below differ
+  # only in the region and its address.
+
+  # Makes the cluster CA (in the network-ca volume, which nothing else mounts) and what each node needs: its public
+  # certificate, its node certificate, the CA's certificate and a host.toml listing the other three. Runs as root,
+  # with the capabilities to write into the node volumes and hand them to uid 1000.
+  network-init:
+    image: ${REFORGED_IMAGE:-reforged-revival}-server:${REFORGED_TAG:-local}
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    # dainty-lass's crates come over SSH (RD27): `docker compose build` passes the host's agent
+    ssh: [default]
+      target: server
+      args:
+        REFORGED_COMMIT: ${REFORGED_COMMIT:-}
+    profiles: [network]
+    user: "0:0"
+    entrypoint: ["/usr/bin/tini", "--", "reforged-network-init"]
+    environment:
+      NETWORK_NODES: "oregon=oregon-1@${REFORGED_NETWORK_SUBNET:-172.28.77}.11 new-york=new-york-1@${REFORGED_NETWORK_SUBNET:-172.28.77}.12 uk=uk-1@${REFORGED_NETWORK_SUBNET:-172.28.77}.13 germany=germany-1@${REFORGED_NETWORK_SUBNET:-172.28.77}.14"
+    network_mode: none
+    restart: "no"
+    read_only: true
+    tmpfs: [/tmp]
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+    cap_add: [CHOWN, DAC_OVERRIDE, FOWNER]
+    volumes:
+      - network-ca:/ca
+      - network-oregon:/nodes/oregon
+      - network-new-york:/nodes/new-york
+      - network-uk:/nodes/uk
+      - network-germany:/nodes/germany
+
+  net-oregon:
+    <<: *network-net
+    hostname: oregon-1
+    networks:
+      cluster:
+        ipv4_address: ${REFORGED_NETWORK_SUBNET:-172.28.77}.11
+    ports:
+      - "${REFORGED_NETWORK_PUBLISH_ADDRESS:-127.0.0.1}:${REFORGED_NETWORK_PORT_OREGON:-18441}:443/tcp"
+
+  netem-oregon:
+    <<: *network-netem
+    network_mode: service:net-oregon
+    environment:
+      <<: *network-netem-env
+      NETEM_SELF: oregon
+    depends_on:
+      net-oregon:
+        condition: service_started
+
+  configure-oregon:
+    <<: *network-configure
+    volumes:
+      - network-oregon:/opt/reforged/.workspace
+    depends_on:
+      network-init:
+        condition: service_completed_successfully
+
+  gateway-oregon:
+    <<: *network-node
+    network_mode: service:net-oregon
+    volumes:
+      - network-oregon:/opt/reforged/.workspace
+    depends_on:
+      net-oregon:
+        condition: service_healthy
+      netem-oregon:
+        condition: service_healthy
+      configure-oregon:
+        condition: service_completed_successfully
+
+  net-new-york:
+    <<: *network-net
+    hostname: new-york-1
+    networks:
+      cluster:
+        ipv4_address: ${REFORGED_NETWORK_SUBNET:-172.28.77}.12
+    ports:
+      - "${REFORGED_NETWORK_PUBLISH_ADDRESS:-127.0.0.1}:${REFORGED_NETWORK_PORT_NEW_YORK:-18442}:443/tcp"
+
+  netem-new-york:
+    <<: *network-netem
+    network_mode: service:net-new-york
+    environment:
+      <<: *network-netem-env
+      NETEM_SELF: new-york
+    depends_on:
+      net-new-york:
+        condition: service_started
+
+  configure-new-york:
+    <<: *network-configure
+    volumes:
+      - network-new-york:/opt/reforged/.workspace
+    depends_on:
+      network-init:
+        condition: service_completed_successfully
+
+  gateway-new-york:
+    <<: *network-node
+    network_mode: service:net-new-york
+    volumes:
+      - network-new-york:/opt/reforged/.workspace
+    depends_on:
+      net-new-york:
+        condition: service_healthy
+      netem-new-york:
+        condition: service_healthy
+      configure-new-york:
+        condition: service_completed_successfully
+
+  net-uk:
+    <<: *network-net
+    hostname: uk-1
+    networks:
+      cluster:
+        ipv4_address: ${REFORGED_NETWORK_SUBNET:-172.28.77}.13
+    ports:
+      - "${REFORGED_NETWORK_PUBLISH_ADDRESS:-127.0.0.1}:${REFORGED_NETWORK_PORT_UK:-18443}:443/tcp"
+
+  netem-uk:
+    <<: *network-netem
+    network_mode: service:net-uk
+    environment:
+      <<: *network-netem-env
+      NETEM_SELF: uk
+    depends_on:
+      net-uk:
+        condition: service_started
+
+  configure-uk:
+    <<: *network-configure
+    volumes:
+      - network-uk:/opt/reforged/.workspace
+    depends_on:
+      network-init:
+        condition: service_completed_successfully
+
+  gateway-uk:
+    <<: *network-node
+    network_mode: service:net-uk
+    volumes:
+      - network-uk:/opt/reforged/.workspace
+    depends_on:
+      net-uk:
+        condition: service_healthy
+      netem-uk:
+        condition: service_healthy
+      configure-uk:
+        condition: service_completed_successfully
+
+  net-germany:
+    <<: *network-net
+    hostname: germany-1
+    networks:
+      cluster:
+        ipv4_address: ${REFORGED_NETWORK_SUBNET:-172.28.77}.14
+    ports:
+      - "${REFORGED_NETWORK_PUBLISH_ADDRESS:-127.0.0.1}:${REFORGED_NETWORK_PORT_GERMANY:-18444}:443/tcp"
+
+  netem-germany:
+    <<: *network-netem
+    network_mode: service:net-germany
+    environment:
+      <<: *network-netem-env
+      NETEM_SELF: germany
+    depends_on:
+      net-germany:
+        condition: service_started
+
+  configure-germany:
+    <<: *network-configure
+    volumes:
+      - network-germany:/opt/reforged/.workspace
+    depends_on:
+      network-init:
+        condition: service_completed_successfully
+
+  gateway-germany:
+    <<: *network-node
+    network_mode: service:net-germany
+    volumes:
+      - network-germany:/opt/reforged/.workspace
+    depends_on:
+      net-germany:
+        condition: service_healthy
+      netem-germany:
+        condition: service_healthy
+      configure-germany:
+        condition: service_completed_successfully
+
+  # `docker compose --profile network up -d --wait network` starts the four nodes and nothing else
+  network:
+    image: ${REFORGED_IMAGE:-reforged-revival}-front:${REFORGED_TAG:-local}
+    profiles: [network]
+    command: ["sleep", "infinity"]
+    init: true
+    network_mode: none
+    read_only: true
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+    healthcheck:
+      test: ["CMD", "true"]
+      interval: 30s
+    depends_on:
+      gateway-oregon:
+        condition: service_healthy
+      gateway-new-york:
+        condition: service_healthy
+      gateway-uk:
+        condition: service_healthy
+      gateway-germany:
+        condition: service_healthy
+
+  # ---- The remote profile (RM1-RM5): one controller and two managed installs (alpha, bravo) on the cluster network.
+  # docker/remote/test.sh brings them up and verifies enrollment, config sync, remote moderation, offline resilience,
+  # revocation, and wire-payload secret hygiene.
+
+  net-controller:
+    <<: *network-net
+    profiles: [remote]
+    hostname: controller
+    networks:
+      cluster:
+        ipv4_address: ${REFORGED_NETWORK_SUBNET:-172.28.77}.20
+    ports:
+      - "${REFORGED_NETWORK_PUBLISH_ADDRESS:-127.0.0.1}:${REFORGED_REMOTE_PORT_CONTROLLER:-18450}:443/tcp"
+
+  configure-controller:
+    <<: *network-configure
+    profiles: [remote]
+    entrypoint: ["/usr/bin/tini", "--", "sh", "-ec"]
+    command:
+      - |
+        reforged-host-docker setup --mode public --host controller.cluster.test --game-address 203.0.113.20 --name "Fleet Controller" --wine /nonexistent/wine --xvfb --fresh-start
+        reforged-host remote init-controller --node controller --region oregon --url https://${REFORGED_NETWORK_SUBNET:-172.28.77}.20:443
+    volumes:
+      - remote-controller:/opt/reforged/.workspace
+
+  gateway-controller:
+    <<: *network-gateway
+    profiles: [remote]
+    network_mode: service:net-controller
+    environment:
+      REFORGED_REMOTE_WIRE_LOG: /opt/reforged/.workspace/wire.jsonl
+    volumes:
+      - remote-controller:/opt/reforged/.workspace
+    depends_on:
+      net-controller:
+        condition: service_healthy
+      configure-controller:
+        condition: service_completed_successfully
+
+  host-controller:
+    <<: *server
+    profiles: [remote]
+    network_mode: service:net-controller
+    command: ["sleep", "infinity"]
+    environment:
+      REFORGED_REMOTE_WIRE_LOG: /opt/reforged/.workspace/wire.jsonl
+    volumes:
+      - remote-controller:/opt/reforged/.workspace
+    healthcheck:
+      test: ["CMD", "true"]
+      interval: 10s
+    depends_on:
+      gateway-controller:
+        condition: service_healthy
+
+  net-alpha:
+    <<: *network-net
+    profiles: [remote]
+    hostname: alpha
+    networks:
+      cluster:
+        ipv4_address: ${REFORGED_NETWORK_SUBNET:-172.28.77}.21
+    ports:
+      - "${REFORGED_NETWORK_PUBLISH_ADDRESS:-127.0.0.1}:${REFORGED_REMOTE_PORT_ALPHA:-18451}:443/tcp"
+
+  configure-alpha:
+    <<: *network-configure
+    profiles: [remote]
+    entrypoint: ["/usr/bin/tini", "--", "sh", "-ec"]
+    command:
+      - |
+        reforged-host-docker setup --mode public --host alpha.cluster.test --game-address 203.0.113.21 --name "Install Alpha" --wine /nonexistent/wine --xvfb --fresh-start
+    volumes:
+      - remote-alpha:/opt/reforged/.workspace
+
+  backend-alpha:
+    <<: *server
+    profiles: [remote]
+    network_mode: service:net-alpha
+    command: ["reforged-host", "backend", "serve", "--env-file", "/opt/reforged/.workspace/config/backend.env"]
+    volumes:
+      - remote-alpha:/opt/reforged/.workspace
+    healthcheck:
+      test: ["CMD", "reforged-healthcheck", "backend"]
+      interval: 5s
+      start_period: 60s
+      retries: 6
+    depends_on:
+      net-alpha:
+        condition: service_healthy
+      configure-alpha:
+        condition: service_completed_successfully
+
+  content-alpha:
+    <<: *front
+    profiles: [remote]
+    network_mode: service:net-alpha
+    command: ["reforged-host", "content", "serve", "--env-file", "/opt/reforged/.workspace/config/content.env"]
+    volumes:
+      - remote-alpha:/opt/reforged/.workspace:ro
+    healthcheck:
+      test: ["CMD", "reforged-healthcheck", "content"]
+      interval: 5s
+      start_period: 30s
+    depends_on:
+      backend-alpha:
+        condition: service_healthy
+
+  gateway-alpha:
+    <<: *network-gateway
+    profiles: [remote]
+    network_mode: service:net-alpha
+    environment:
+      REFORGED_REMOTE_WIRE_LOG: /opt/reforged/.workspace/wire.jsonl
+    volumes:
+      - remote-alpha:/opt/reforged/.workspace
+    depends_on:
+      net-alpha:
+        condition: service_healthy
+      backend-alpha:
+        condition: service_healthy
+      content-alpha:
+        condition: service_healthy
+
+  host-alpha:
+    <<: *server
+    profiles: [remote]
+    network_mode: service:net-alpha
+    command: ["sleep", "infinity"]
+    environment:
+      REFORGED_REMOTE_WIRE_LOG: /opt/reforged/.workspace/wire.jsonl
+    volumes:
+      - remote-alpha:/opt/reforged/.workspace
+    healthcheck:
+      test: ["CMD", "true"]
+      interval: 10s
+    depends_on:
+      gateway-alpha:
+        condition: service_healthy
+
+  net-bravo:
+    <<: *network-net
+    profiles: [remote]
+    hostname: bravo
+    networks:
+      cluster:
+        ipv4_address: ${REFORGED_NETWORK_SUBNET:-172.28.77}.22
+    ports:
+      - "${REFORGED_NETWORK_PUBLISH_ADDRESS:-127.0.0.1}:${REFORGED_REMOTE_PORT_BRAVO:-18452}:443/tcp"
+
+  configure-bravo:
+    <<: *network-configure
+    profiles: [remote]
+    entrypoint: ["/usr/bin/tini", "--", "sh", "-ec"]
+    command:
+      - |
+        reforged-host-docker setup --mode public --host bravo.cluster.test --game-address 203.0.113.22 --name "Install Bravo" --wine /nonexistent/wine --xvfb --fresh-start
+    volumes:
+      - remote-bravo:/opt/reforged/.workspace
+
+  backend-bravo:
+    <<: *server
+    profiles: [remote]
+    network_mode: service:net-bravo
+    command: ["reforged-host", "backend", "serve", "--env-file", "/opt/reforged/.workspace/config/backend.env"]
+    volumes:
+      - remote-bravo:/opt/reforged/.workspace
+    healthcheck:
+      test: ["CMD", "reforged-healthcheck", "backend"]
+      interval: 5s
+      start_period: 60s
+      retries: 6
+    depends_on:
+      net-bravo:
+        condition: service_healthy
+      configure-bravo:
+        condition: service_completed_successfully
+
+  content-bravo:
+    <<: *front
+    profiles: [remote]
+    network_mode: service:net-bravo
+    command: ["reforged-host", "content", "serve", "--env-file", "/opt/reforged/.workspace/config/content.env"]
+    volumes:
+      - remote-bravo:/opt/reforged/.workspace:ro
+    healthcheck:
+      test: ["CMD", "reforged-healthcheck", "content"]
+      interval: 5s
+      start_period: 30s
+    depends_on:
+      backend-bravo:
+        condition: service_healthy
+
+  gateway-bravo:
+    <<: *network-gateway
+    profiles: [remote]
+    network_mode: service:net-bravo
+    environment:
+      REFORGED_REMOTE_WIRE_LOG: /opt/reforged/.workspace/wire.jsonl
+    volumes:
+      - remote-bravo:/opt/reforged/.workspace
+    depends_on:
+      net-bravo:
+        condition: service_healthy
+      backend-bravo:
+        condition: service_healthy
+      content-bravo:
+        condition: service_healthy
+
+  host-bravo:
+    <<: *server
+    profiles: [remote]
+    network_mode: service:net-bravo
+    command: ["sleep", "infinity"]
+    environment:
+      REFORGED_REMOTE_WIRE_LOG: /opt/reforged/.workspace/wire.jsonl
+    volumes:
+      - remote-bravo:/opt/reforged/.workspace
+    healthcheck:
+      test: ["CMD", "true"]
+      interval: 10s
+    depends_on:
+      gateway-bravo:
+        condition: service_healthy
+
+  # `docker compose --profile remote up -d --wait remote` starts the controller and two managed installs
+  remote:
+    image: ${REFORGED_IMAGE:-reforged-revival}-front:${REFORGED_TAG:-local}
+    profiles: [remote]
+    command: ["sleep", "infinity"]
+    init: true
+    network_mode: none
+    read_only: true
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+    healthcheck:
+      test: ["CMD", "true"]
+      interval: 30s
+    depends_on:
+      host-controller:
+        condition: service_healthy
+      host-alpha:
+        condition: service_healthy
+      host-bravo:
+        condition: service_healthy
+
+networks:
+  # The network profile's private network. Addresses are fixed: the node certificates and tc's filters name them
+  cluster:
+    ipam:
+      config:
+        - subnet: ${REFORGED_NETWORK_SUBNET:-172.28.77}.0/24
+
+volumes:
+  workspace:
+  backend-game-data:
+  director-game-data:
+  exports:
+  captures:
+  mongo-data:
+  mongo-config:
+  postgres-data:
+  network-ca:
+  network-oregon:
+  network-new-york:
+  network-uk:
+  network-germany:
+  remote-controller:
+  remote-alpha:
+  remote-bravo:

@@ -1,0 +1,119 @@
+[package]
+name = "host"
+description = "The host kit: the reforged-host command line (MIGRATION_PLAN.md RH rows)"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+[features]
+default = ["modules", "isles-1-14-7", "realms"]
+# The server's modules (`serve`): the Rust services in this process, composed in compose.rs (RD27). None: a
+# controller that serves nothing
+modules = ["gateway", "allowlist", "content", "admin", "chat"]
+# The gateway brings the node's network side (DD16) and remote management: they attach to its node links
+gateway = ["controller/network", "controller/remote", "network_plugin/log-ship", "dep:gateway", "dep:history-ship"]
+# The allowlist runs inside the gateway service, compiled in as in its library (RD27)
+allowlist = ["gateway"]
+content = ["dep:content"]
+admin = ["controller/admin", "dep:admin", "hostkit/admin"]
+chat = ["dep:chat"]
+# The game modules compiled in (DF5); 1.14.7 and realms are on by default (RU9/RB14)
+stub-module = ["controller/stub-module"]
+isles-1-14-7 = ["dep:isles-1-14-7", "dep:isles-db", "dep:isles-core", "dep:isles-director"]
+realms = ["isles-1-14-7?/realms"]
+# Opt-in rollback path for one release until RB15 deletes it: Rustic Isles's Node backend and Director
+# and MongoDB
+paradox = ["dep:isles-db", "hostkit/paradox"]
+
+[dependencies]
+hostkit = { workspace = true, default-features = false }
+# The backend's token keys, RSA 4096 (D10: aws-lc-rs; already in the tree through rustls and rcgen).
+aws-lc-rs.workspace = true
+base64.workspace = true
+# `update` and setup's install step: the server release over HTTPS (D10: rustls with aws-lc-rs, as the content server)
+bytes = "1"
+# The supervisor's log lines (`===== <ISO time> starting ...`, as the Node kit's)
+chrono.workspace = true
+clap.workspace = true
+controller = { workspace = true, default-features = false }
+# [modules]: module ids, pinned digests, node names (DF3)
+module-api.workspace = true
+# `network ca-init`, `issue-node-cert` and `join`, and the peers in `[[network.nodes]]` (DN3, DN13). Renamed as the gateway renames it
+network_plugin = { workspace = true, features = ["directory"] }
+crossterm.workspace = true
+# RH4: game data packs are gzip-compressed JSON.
+flate2.workspace = true
+# `install-game`: Dauntless from the host's own Epic library (DE6)
+epic.workspace = true
+# Free space for it, as the launcher checks (launcher/src-tauri); hoist into [workspace.dependencies] with the next pass
+fs4 = "1"
+# The services built into this binary (`reforged-host gateway|allowlist|content|admin`, RD26), and the
+# public gateway's certificate on a first `serve`
+admin = { workspace = true, optional = true }
+content = { workspace = true, optional = true }
+gateway = { workspace = true, optional = true }
+chat = { workspace = true, optional = true }
+# The peer log shipping the network module runs (DH7)
+history-ship = { workspace = true, optional = true }
+isles-1-14-7 = { workspace = true, optional = true }
+isles-core = { workspace = true, optional = true }
+isles-db = { workspace = true, optional = true }
+isles-director = { workspace = true, optional = true }
+http-body-util.workspace = true
+hyper.workspace = true
+hyper-rustls.workspace = true
+hyper-util = { workspace = true, features = ["client-legacy", "http1"] }
+# The invite links (section 6).
+protocol.workspace = true
+remote.workspace = true
+ratatui.workspace = true
+# Reading the certificate a port serves (doctor), and the release downloads.
+rustls.workspace = true
+# host.json in JavaScript's key order and number text (service-kit turns on preserve_order).
+serde_json.workspace = true
+service-kit.workspace = true
+# Chat as a library the core loads (RD27): its setup
+service-plugin.workspace = true
+sha2.workspace = true
+store.workspace = true
+# The Linux release is a .tar.gz, the Windows one a .zip.
+tar = { version = "0.4.46", default-features = false }
+thiserror.workspace = true
+toml_edit.workspace = true
+# `start`: Ctrl+C, Ctrl+Break and closing the console on Windows; SIGINT, SIGTERM and SIGHUP elsewhere
+tokio = { workspace = true, features = ["signal", "time", "net", "io-std", "io-util", "rt-multi-thread", "sync"] }
+tracing.workspace = true
+url.workspace = true
+zip = { version = "9.0.5", default-features = false, features = ["deflate"] }
+
+[target."cfg(windows)".dependencies]
+# `start`: one job object per service, so its whole process tree stops with it (RD3)
+windows = { version = "0.62.2", features = ["Win32_Foundation", "Win32_Security", "Win32_System_JobObjects", "Win32_System_Threading", "Win32_System_Console"] }
+
+[target."cfg(unix)".dependencies]
+# `start`: the services' process groups (kill(2)) and, on Linux, PR_SET_PDEATHSIG
+libc = "0.2.191"
+
+[dev-dependencies]
+# install-game's tests: synthetic manifests and chunks and a fake CDN (DE6)
+epic = { workspace = true, features = ["test-support"] }
+# Test certificates, as the gateway makes them.
+rcgen = { version = "0.14.10", default-features = false, features = ["aws_lc_rs", "pem", "crypto"] }
+tempfile.workspace = true
+# admin.env read back by the admin API itself, and its GraphQL answers (tests/admin_network.rs)
+async-graphql.workspace = true
+admin.workspace = true
+# A game database to revert in, made without the game module's migrations
+diesel.workspace = true
+service-kit.workspace = true
+
+# Fake services in child processes: the test binary runs itself in their roles (RH2)
+[[test]]
+name = "start"
+harness = false
+
+[lints]
+workspace = true

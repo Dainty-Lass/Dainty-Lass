@@ -1,0 +1,1741 @@
+[
+ {
+  "name": "features",
+  "status": 200,
+  "headers": {
+   "content-type": "application/json; charset=utf-8"
+  },
+  "body": "{\"code\":null,\"message\":\"OK\",\"payload\":{\"crossplay\":true,\"crossprogression\":true}}"
+ },
+ {
+  "name": "link epic",
+  "status": 200,
+  "headers": {
+   "content-type": "application/json; charset=utf-8"
+  },
+  "body": "{\"code\":null,\"message\":\"OK\",\"payload\":{\"isLinked\":true}}"
+ },
+ {
+  "name": "is banned",
+  "status": 200,
+  "headers": {
+   "content-type": "application/json; charset=utf-8"
+  },
+  "body": "{\"isBanned\":false}"
+ },
+ {
+  "name": "unknown route",
+  "status": 404,
+  "headers": {},
+  "body": ""
+ },
+ {
+  "name": "status",
+  "status": 200,
+  "headers": {
+   "content-type": "application/json; charset=utf-8"
+  },
+  "body": "{\"online\":true,\"supportedBuildChangelist\":647472,\"officialPlay\":{\"available\":true}}"
+ },
+ {
+  "name": "legal",
+  "status": 200,
+  "headers": {
+   "content-type": "application/json; charset=utf-8"
+  },
+  "body": "{\"termsVersion\":\"2026-10-14\",\"privacyVersion\":\"2026-10-17\",\"minimumAge\":16}"
+ },
+ {
+  "name": "notices",
+  "status": 200,
+  "headers": {
+   "content-type": "application/json; charset=utf-8",
+   "cache-control": "public, max-age=30"
+  },
+  "body": "{\"announcements\":[],\"tags\":[],\"serverTime\":\"<iso>\"}"
+ },
+ {
+  "name": "username ok",
+  "status": 200,
+  "headers": {
+   "content-type": "application/json; charset=utf-8"
+  },
+  "body": "{\"available\":true}"
+ },
+ {
+  "name": "username too short",
+  "status": 200,
+  "headers": {
+   "content-type": "application/json; charset=utf-8"
+  },
+  "body": "{\"available\":false,\"reason\":\"Username must be 3–16 characters.\"}"
+ },
+ {
+  "name": "username symbol",
+  "status": 200,
+  "headers": {
+   "content-type": "application/json; charset=utf-8"
+  },
+  "body": "{\"available\":false,\"reason\":\"Username can only contain letters and numbers (no spaces or symbols).\"}"
+ },
+ {
+  "name": "username reserved",
+  "status": 200,
+  "headers": {
+   "content-type": "application/json; charset=utf-8"
+  },
+  "body": "{\"available\":false,\"reason\":\"That username is reserved. Choose another.\"}"
+ },
+ {
+  "name": "username offensive",
+  "status": 200,
+  "headers": {
+   "content-type": "application/json; charset=utf-8"
+  },
+  "body": "{\"available\":false,\"reason\":\"That username isn't allowed. Choose another.\"}"
+ },
+ {
+  "name": "username absent",
+  "status": 200,
+  "headers": {
+   "content-type": "application/json; charset=utf-8"
+  },
+  "body": "{\"available\":false,\"reason\":\"Username must be 3–16 characters.\"}"
+ },
+ {
+  "name": "username repeated",
+  "status": 200,
+  "headers": {
+   "content-type": "application/json; charset=utf-8"
+  },
+  "body": "{\"available\":false,\"reason\":\"Username can only contain letters and numbers (no spaces or symbols).\"}"
+ },
+ {
+  "name": "register bad email",
+  "status": 400,
+  "headers": {
+   "content-type": "application/json; charset=utf-8"
+  },
+  "body": "{\"error\":{\"code\":\"AUTH_VALIDATION_FAILED\",\"message\":\"Enter a valid email address.\",\"requestId\":\"<uuid>\"}}"
+ },
+ {
+  "name": "register short password",
+  "status": 400,
+  "headers": {
+   "content-type": "application/json; charset=utf-8"
+  },
+  "body": "{\"error\":{\"code\":\"AUTH_VALIDATION_FAILED\",\"message\":\"Password must be at least 8 characters.\",\"requestId\":\"<uuid>\"}}"
+ },
+ {
+  "name": "register bad name",
+  "status": 400,
+  "headers": {
+   "content-type": "application/json; charset=utf-8"
+  },
+  "body": "{\"error\":{\"code\":\"AUTH_VALIDATION_FAILED\",\"message\":\"Username must be 3–16 characters.\",\"requestId\":\"<uuid>\"}}"
+ },
+ {
+  "name": "register reserved name",
+  "status": 400,
+  "headers": {
+   "content-type": "application/json; charset=utf-8"
+  },
+  "body": "{\"error\":{\"code\":\"AUTH_VALIDATION_FAILED\",\"message\":\"That username is reserved. Choose another.\",\"requestId\":\"<uuid>\"}}"
+ },
+ {
+  "name": "register offensive name",
+  "status": 400,
+  "headers": {
+   "content-type": "application/json; charset=utf-8"
+  },
+  "body": "{\"error\":{\"code\":\"AUTH_VALIDATION_FAILED\",\"message\":\"That username isn't allowed. Choose another.\",\"requestId\":\"<uuid>\"}}"
+ },
+ {
+  "name": "register no body",
+  "status": 400,
+  "headers": {
+   "content-type": "application/json; charset=utf-8"
+  },
+  "body": "{\"error\":{\"code\":\"AUTH_VALIDATION_FAILED\",\"message\":\"Enter a valid email address.\",\"requestId\":\"<uuid>\"}}"
+ },
+ {
+  "name": "register ok",
+  "status": 202,
+  "headers": {
+   "content-type": "application/json; charset=utf-8"
+  },
+  "body": "{\"approvalRequired\":false,\"account\":{\"userId\":\"<uuid>\",\"displayName\":\"Slayer1\",\"email\":\"slayer1@example.test\",\"discordLinked\":false,\"discord\":{\"linked\":false},\"emailVerified\":false,\"status\":\"active\",\"approvalStatus\":\"approved\",\"needsUsername\":false}}"
+ },
+ {
+  "name": "register same email",
+  "status": 409,
+  "headers": {
+   "content-type": "application/json; charset=utf-8"
+  },
+  "body": "{\"error\":{\"code\":\"AUTH_EMAIL_TAKEN\",\"message\":\"That email is already registered.\",\"requestId\":\"<uuid>\"}}"
+ },
+ {
+  "name": "register same name",
+  "status": 409,
+  "headers": {
+   "content-type": "application/json; charset=utf-8"
+  },
+  "body": "{\"error\":{\"code\":\"AUTH_DISPLAY_NAME_TAKEN\",\"message\":\"That display name is already taken.\",\"requestId\":\"<uuid>\"}}"
+ },
+ {
+  "name": "register without a name",
+  "status": 202,
+  "headers": {
+   "content-type": "application/json; charset=utf-8"
+  },
+  "body": "{\"approvalRequired\":false,\"account\":{\"userId\":\"<uuid>\",\"displayName\":\"<uuid>\",\"email\":\"slayer2@example.test\",\"discordLinked\":false,\"discord\":{\"linked\":false},\"emailVerified\":false,\"status\":\"active\",\"approvalStatus\":\"approved\",\"needsUsername\":true}}"
+ },
+ {
+  "name": "register blank name",
+  "status": 202,
+  "headers": {
+   "content-type": "application/json; charset=utf-8"
+  },
+  "body": "{\"approvalRequired\":false,\"account\":{\"userId\":\"<uuid>\",\"displayName\":\"<uuid>\",\"email\":\"slayer3@example.test\",\"discordLinked\":false,\"discord\":{\"linked\":false},\"emailVerified\":false,\"status\":\"active\",\"approvalStatus\":\"approved\",\"needsUsername\":true}}"
+ },
+ {
+  "name": "username taken",
+  "status": 200,
+  "headers": {
+   "content-type": "application/json; charset=utf-8"
+  },
+  "body": "{\"available\":false,\"reason\":\"That username is already taken.\"}"
+ },
+ {
+  "name": "login wrong password",
+  "status": 401,
+  "headers": {
+   "content-type": "application/json; charset=utf-8"
+  },
+  "body": "{\"error\":{\"code\":\"AUTH_INVALID_CREDENTIALS\",\"message\":\"The email or password is incorrect.\",\"requestId\":\"<uuid>\"}}"
+ },
+ {
+  "name": "login unknown email",
+  "status": 401,
+  "headers": {
+   "content-type": "application/json; charset=utf-8"
+  },
+  "body": "{\"error\":{\"code\":\"AUTH_INVALID_CREDENTIALS\",\"message\":\"The email or password is incorrect.\",\"requestId\":\"<uuid>\"}}"
+ },
+ {
+  "name": "login missing fields",
+  "status": 401,
+  "headers": {
+   "content-type": "application/json; charset=utf-8"
+  },
+  "body": "{\"error\":{\"code\":\"AUTH_INVALID_CREDENTIALS\",\"message\":\"The email or password is incorrect.\",\"requestId\":\"<uuid>\"}}"
+ },
+ {
+  "name": "login email not a string",
+  "status": 500,
+  "headers": {
+   "content-type": "application/json; charset=utf-8"
+  },
+  "body": "{\"error\":{\"code\":\"INTERNAL\",\"message\":\"Something went wrong. Please try again.\",\"requestId\":\"<uuid>\"}}"
+ },
+ {
+  "name": "login no body",
+  "status": 401,
+  "headers": {
+   "content-type": "application/json; charset=utf-8"
+  },
+  "body": "{\"error\":{\"code\":\"AUTH_INVALID_CREDENTIALS\",\"message\":\"The email or password is incorrect.\",\"requestId\":\"<uuid>\"}}"
+ },
+ {
+  "name": "login ok",
+  "status": 200,
+  "headers": {
+   "content-type": "application/json; charset=utf-8"
+  },
+  "body": "{\"accessToken\":\"<jwt>\",\"refreshToken\":\"<hex64>\",\"account\":{\"userId\":\"<uuid>\",\"displayName\":\"Slayer1\",\"email\":\"slayer1@example.test\",\"discordLinked\":false,\"discord\":{\"linked\":false},\"emailVerified\":false,\"status\":\"active\",\"approvalStatus\":\"approved\",\"needsUsername\":false}}"
+ },
+ {
+  "name": "login b",
+  "status": 200,
+  "headers": {
+   "content-type": "application/json; charset=utf-8"
+  },
+  "body": "{\"accessToken\":\"<jwt>\",\"refreshToken\":\"<hex64>\",\"account\":{\"userId\":\"<uuid>\",\"displayName\":\"<uuid>\",\"email\":\"slayer2@example.test\",\"discordLinked\":false,\"discord\":{\"linked\":false},\"emailVerified\":false,\"status\":\"active\",\"approvalStatus\":\"approved\",\"needsUsername\":true}}"
+ },
+ {
+  "name": "malformed json",
+  "status": 400,
+  "headers": {
+   "content-type": "text/html; charset=utf-8"
+  },
+  "body": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n<meta charset=\"utf-8\">\n<title>Error</title>\n</head>\n<body>\n<pre>Bad Request</pre>\n</body>\n</html>\n"
+ },
+ {
+  "name": "json that is not an object",
+  "status": 400,
+  "headers": {
+   "content-type": "text/html; charset=utf-8"
+  },
+  "body": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n<meta charset=\"utf-8\">\n<title>Error</title>\n</head>\n<body>\n<pre>Bad Request</pre>\n</body>\n</html>\n"
+ },
+ {
+  "name": "form body",
+  "status": 200,
+  "headers": {
+   "content-type": "application/json; charset=utf-8"
+  },
+  "body": "{\"accessToken\":\"<jwt>\",\"refreshToken\":\"<hex64>\",\"account\":{\"userId\":\"<uuid>\",\"displayName\":\"Slayer1\",\"email\":\"slayer1@example.test\",\"discordLinked\":false,\"discord\":{\"linked\":false},\"emailVerified\":false,\"status\":\"active\",\"approvalStatus\":\"approved\",\"needsUsername\":false}}"
+ },
+ {
+  "name": "me",
+  "status": 200,
+  "headers": {
+   "content-type": "application/json; charset=utf-8"
+  },
+  "body": "{\"userId\":\"<uuid>\",\"displayName\":\"Slayer1\",\"email\":\"slayer1@example.test\",\"discordLinked\":false,\"discord\":{\"linked\":false},\"emailVerified\":false,\"status\":\"active\",\"approvalStatus\":\"approved\",\"needsUsername\":false}"
+ },
+ {
+  "name": "me without a token",
+  "status": 401,
+  "headers": {
+   "content-type": "application/json; charset=utf-8"
+  },
+  "body": "{\"error\":{\"code\":\"AUTH_UNAUTHORIZED\",\"message\":\"Sign in required.\",\"requestId\":\"<uuid>\"}}"
+ },
+ {
+  "name": "me with a bad token",
+  "status": 401,
+  "headers": {
+   "content-type": "application/json; charset=utf-8"
+  },
+  "body": "{\"error\":{\"code\":\"AUTH_UNAUTHORIZED\",\"message\":\"Your session has expired. Please sign in again.\",\"requestId\":\"<uuid>\"}}"
+ },
+ {
+  "name": "me with a wrong scheme",
+  "status": 401,
+  "headers": {
+   "content-type": "application/json; charset=utf-8"
+  },
+  "body": "{\"error\":{\"code\":\"AUTH_UNAUTHORIZED\",\"message\":\"Sign in required.\",\"requestId\":\"<uuid>\"}}"
+ },
+ {
+  "name": "me b needs a username",
+  "status": 200,
+  "headers": {
+   "content-type": "application/json; charset=utf-8"
+  },
+  "body": "{\"userId\":\"<uuid>\",\"displayName\":\"<uuid>\",\"email\":\"slayer2@example.test\",\"discordLinked\":false,\"discord\":{\"linked\":false},\"emailVerified\":false,\"status\":\"active\",\"approvalStatus\":\"approved\",\"needsUsername\":true}"
+ },
+ {
+  "name": "set username too short",
+  "status": 400,
+  "headers": {
+   "content-type": "application/json; charset=utf-8"
+  },
+  "body": "{\"error\":{\"code\":\"AUTH_VALIDATION_FAILED\",\"message\":\"Username must be 3–16 characters.\",\"requestId\":\"<uuid>\"}}"
+ },
+ {
+  "name": "set username reserved",
+  "status": 400,
+  "headers": {
+   "content-type": "application/json; charset=utf-8"
+  },
+  "body": "{\"error\":{\"code\":\"AUTH_VALIDATION_FAILED\",\"message\":\"That username is reserved. Choose another.\",\"requestId\":\"<uuid>\"}}"
+ },
+ {
+  "name": "set username taken",
+  "status": 409,
+  "headers": {
+   "content-type": "application/json; charset=utf-8"
+  },
+  "body": "{\"error\":{\"code\":\"AUTH_DISPLAY_NAME_TAKEN\",\"message\":\"That username is already taken.\",\"requestId\":\"<uuid>\"}}"
+ },
+ {
+  "name": "set username not a string",
+  "status": 400,
+  "headers": {
+   "content-type": "application/json; charset=utf-8"
+  },
+  "body": "{\"error\":{\"code\":\"AUTH_VALIDATION_FAILED\",\"message\":\"Username must be 3–16 characters.\",\"requestId\":\"<uuid>\"}}"
+ },
+ {
+  "name": "set username ok",
+  "status": 200,
+  "headers": {
+   "content-type": "application/json; charset=utf-8"
+  },
+  "body": "{\"userId\":\"<uuid>\",\"displayName\":\"Slayer2\",\"email\":\"slayer2@example.test\",\"discordLinked\":false,\"discord\":{\"linked\":false},\"emailVerified\":false,\"status\":\"active\",\"approvalStatus\":\"approved\",\"needsUsername\":false}"
+ },
+ {
+  "name": "set username again",
+  "status": 200,
+  "headers": {
+   "content-type": "application/json; charset=utf-8"
+  },
+  "body": "{\"userId\":\"<uuid>\",\"displayName\":\"Slayer2\",\"email\":\"slayer2@example.test\",\"discordLinked\":false,\"discord\":{\"linked\":false},\"emailVerified\":false,\"status\":\"active\",\"approvalStatus\":\"approved\",\"needsUsername\":false}"
+ },
+ {
+  "name": "set username without a token",
+  "status": 401,
+  "headers": {
+   "content-type": "application/json; charset=utf-8"
+  },
+  "body": "{\"error\":{\"code\":\"AUTH_UNAUTHORIZED\",\"message\":\"Sign in required.\",\"requestId\":\"<uuid>\"}}"
+ },
+ {
+  "name": "refresh missing",
+  "status": 401,
+  "headers": {
+   "content-type": "application/json; charset=utf-8"
+  },
+  "body": "{\"error\":{\"code\":\"AUTH_REFRESH_INVALID\",\"message\":\"Session expired. Please sign in again.\",\"requestId\":\"<uuid>\"}}"
+ },
+ {
+  "name": "refresh unknown",
+  "status": 401,
+  "headers": {
+   "content-type": "application/json; charset=utf-8"
+  },
+  "body": "{\"error\":{\"code\":\"AUTH_REFRESH_INVALID\",\"message\":\"Session expired. Please sign in again.\",\"requestId\":\"<uuid>\"}}"
+ },
+ {
+  "name": "refresh ok",
+  "status": 200,
+  "headers": {
+   "content-type": "application/json; charset=utf-8"
+  },
+  "body": "{\"accessToken\":\"<jwt>\",\"refreshToken\":\"<hex64>\",\"account\":{\"userId\":\"<uuid>\",\"displayName\":\"Slayer1\",\"email\":\"slayer1@example.test\",\"discordLinked\":false,\"discord\":{\"linked\":false},\"emailVerified\":false,\"status\":\"active\",\"approvalStatus\":\"approved\",\"needsUsername\":false}}"
+ },
+ {
+  "name": "refresh reuse revokes the family",
+  "status": 401,
+  "headers": {
+   "content-type": "application/json; charset=utf-8"
+  },
+  "body": "{\"error\":{\"code\":\"AUTH_REFRESH_INVALID\",\"message\":\"Session expired. Please sign in again.\",\"requestId\":\"<uuid>\"}}"
+ },
+ {
+  "name": "the family is gone",
+  "status": 401,
+  "headers": {
+   "content-type": "application/json; charset=utf-8"
+  },
+  "body": "{\"error\":{\"code\":\"AUTH_UNAUTHORIZED\",\"message\":\"Your session has expired. Please sign in again.\",\"requestId\":\"<uuid>\"}}"
+ },
+ {
+  "name": "the new token is revoked too",
+  "status": 401,
+  "headers": {
+   "content-type": "application/json; charset=utf-8"
+  },
+  "body": "{\"error\":{\"code\":\"AUTH_REFRESH_INVALID\",\"message\":\"Session expired. Please sign in again.\",\"requestId\":\"<uuid>\"}}"
+ },
+ {
+  "name": "login again",
+  "status": 200,
+  "headers": {
+   "content-type": "application/json; charset=utf-8"
+  },
+  "body": "{\"accessToken\":\"<jwt>\",\"refreshToken\":\"<hex64>\",\"account\":{\"userId\":\"<uuid>\",\"displayName\":\"Slayer1\",\"email\":\"slayer1@example.test\",\"discordLinked\":false,\"discord\":{\"linked\":false},\"emailVerified\":false,\"status\":\"active\",\"approvalStatus\":\"approved\",\"needsUsername\":false}}"
+ },
+ {
+  "name": "logout",
+  "status": 200,
+  "headers": {
+   "content-type": "application/json; charset=utf-8"
+  },
+  "body": "{}"
+ },
+ {
+  "name": "after logout",
+  "status": 401,
+  "headers": {
+   "content-type": "application/json; charset=utf-8"
+  },
+  "body": "{\"error\":{\"code\":\"AUTH_UNAUTHORIZED\",\"message\":\"Your session has expired. Please sign in again.\",\"requestId\":\"<uuid>\"}}"
+ },
+ {
+  "name": "login once more",
+  "status": 200,
+  "headers": {
+   "content-type": "application/json; charset=utf-8"
+  },
+  "body": "{\"accessToken\":\"<jwt>\",\"refreshToken\":\"<hex64>\",\"account\":{\"userId\":\"<uuid>\",\"displayName\":\"Slayer1\",\"email\":\"slayer1@example.test\",\"discordLinked\":false,\"discord\":{\"linked\":false},\"emailVerified\":false,\"status\":\"active\",\"approvalStatus\":\"approved\",\"needsUsername\":false}}"
+ },
+ {
+  "name": "login on another device",
+  "status": 200,
+  "headers": {
+   "content-type": "application/json; charset=utf-8"
+  },
+  "body": "{\"accessToken\":\"<jwt>\",\"refreshToken\":\"<hex64>\",\"account\":{\"userId\":\"<uuid>\",\"displayName\":\"Slayer1\",\"email\":\"slayer1@example.test\",\"discordLinked\":false,\"discord\":{\"linked\":false},\"emailVerified\":false,\"status\":\"active\",\"approvalStatus\":\"approved\",\"needsUsername\":false}}"
+ },
+ {
+  "name": "logout all",
+  "status": 200,
+  "headers": {
+   "content-type": "application/json; charset=utf-8"
+  },
+  "body": "{}"
+ },
+ {
+  "name": "the other device is out",
+  "status": 401,
+  "headers": {
+   "content-type": "application/json; charset=utf-8"
+  },
+  "body": "{\"error\":{\"code\":\"AUTH_UNAUTHORIZED\",\"message\":\"Your session has expired. Please sign in again.\",\"requestId\":\"<uuid>\"}}"
+ },
+ {
+  "name": "login for the rest",
+  "status": 200,
+  "headers": {
+   "content-type": "application/json; charset=utf-8"
+  },
+  "body": "{\"accessToken\":\"<jwt>\",\"refreshToken\":\"<hex64>\",\"account\":{\"userId\":\"<uuid>\",\"displayName\":\"Slayer1\",\"email\":\"slayer1@example.test\",\"discordLinked\":false,\"discord\":{\"linked\":false},\"emailVerified\":false,\"status\":\"active\",\"approvalStatus\":\"approved\",\"needsUsername\":false}}"
+ },
+ {
+  "name": "login b again",
+  "status": 200,
+  "headers": {
+   "content-type": "application/json; charset=utf-8"
+  },
+  "body": "{\"accessToken\":\"<jwt>\",\"refreshToken\":\"<hex64>\",\"account\":{\"userId\":\"<uuid>\",\"displayName\":\"Slayer2\",\"email\":\"slayer2@example.test\",\"discordLinked\":false,\"discord\":{\"linked\":false},\"emailVerified\":false,\"status\":\"active\",\"approvalStatus\":\"approved\",\"needsUsername\":false}}"
+ },
+ {
+  "name": "policy",
+  "status": 200,
+  "headers": {
+   "content-type": "application/json; charset=utf-8"
+  },
+  "body": "{\"policyVersion\":\"<iso>:ops-0\",\"roles\":[\"player\"],\"channel\":\"stable\",\"managedFeatureIds\":[],\"logUpload\":{\"auto\":false},\"guardEnforcement\":\"ENFORCE\",\"diagnosticsProfile\":\"PRODUCTION\"}"
+ },
+ {
+  "name": "consent before",
+  "status": 200,
+  "headers": {
+   "content-type": "application/json; charset=utf-8"
+  },
+  "body": "{\"required\":{\"termsVersion\":\"2026-10-14\",\"privacyVersion\":\"2026-10-17\",\"minimumAge\":16},\"accepted\":null,\"upToDate\":false}"
+ },
+ {
+  "name": "consent without age",
+  "status": 400,
+  "headers": {
+   "content-type": "application/json; charset=utf-8"
+  },
+  "body": "{\"error\":{\"code\":\"CONSENT_AGE_REQUIRED\",\"message\":\"You must be at least 16 years old to play Rustic Isles.\",\"requestId\":\"<uuid>\"}}"
+ },
+ {
+  "name": "consent missing versions",
+  "status": 400,
+  "headers": {
+   "content-type": "application/json; charset=utf-8"
+  },
+  "body": "{\"error\":{\"code\":\"AUTH_VALIDATION_FAILED\",\"message\":\"termsVersion and privacyVersion are required.\",\"requestId\":\"<uuid>\"}}"
+ },
+ {
+  "name": "consent outdated",
+  "status": 409,
+  "headers": {
+   "content-type": "application/json; charset=utf-8"
+  },
+  "body": "{\"error\":{\"termsVersion\":\"2026-10-14\",\"privacyVersion\":\"2026-10-17\",\"code\":\"LEGAL_VERSION_OUTDATED\",\"message\":\"These Terms of Use or this Privacy Policy have changed. Update the launcher, read them again and accept.\",\"requestId\":\"<uuid>\"}}"
+ },
+ {
+  "name": "consent ok",
+  "status": 200,
+  "headers": {
+   "content-type": "application/json; charset=utf-8"
+  },
+  "body": "{\"required\":{\"termsVersion\":\"2026-10-14\",\"privacyVersion\":\"2026-10-17\",\"minimumAge\":16},\"accepted\":{\"termsVersion\":\"2026-10-14\",\"privacyVersion\":\"2026-10-16\",\"ageConfirmed\":true,\"acceptedAt\":\"<iso>\"},\"upToDate\":true}"
+ },
+ {
+  "name": "consent after",
+  "status": 200,
+  "headers": {
+   "content-type": "application/json; charset=utf-8"
+  },
+  "body": "{\"required\":{\"termsVersion\":\"2026-10-14\",\"privacyVersion\":\"2026-10-17\",\"minimumAge\":16},\"accepted\":{\"termsVersion\":\"2026-10-14\",\"privacyVersion\":\"2026-10-16\",\"ageConfirmed\":true,\"acceptedAt\":\"<iso>\"},\"upToDate\":true}"
+ },
+ {
+  "name": "deletion before",
+  "status": 200,
+  "headers": {
+   "content-type": "application/json; charset=utf-8"
+  },
+  "body": "{\"request\":null,\"holdDays\":30}"
+ },
+ {
+  "name": "deletion mismatch",
+  "status": 400,
+  "headers": {
+   "content-type": "application/json; charset=utf-8"
+  },
+  "body": "{\"error\":{\"code\":\"DELETION_CONFIRMATION_MISMATCH\",\"message\":\"Type your username exactly as it is shown to confirm the deletion.\",\"requestId\":\"<uuid>\"}}"
+ },
+ {
+  "name": "deletion no body",
+  "status": 400,
+  "headers": {
+   "content-type": "application/json; charset=utf-8"
+  },
+  "body": "{\"error\":{\"code\":\"DELETION_CONFIRMATION_MISMATCH\",\"message\":\"Type your username exactly as it is shown to confirm the deletion.\",\"requestId\":\"<uuid>\"}}"
+ },
+ {
+  "name": "deletion asked",
+  "status": 200,
+  "headers": {
+   "content-type": "application/json; charset=utf-8"
+  },
+  "body": "{\"request\":{\"requestedAt\":\"<iso>\",\"scheduledFor\":\"<iso>\"},\"holdDays\":30}"
+ },
+ {
+  "name": "deletion asked again",
+  "status": 200,
+  "headers": {
+   "content-type": "application/json; charset=utf-8"
+  },
+  "body": "{\"request\":{\"requestedAt\":\"<iso>\",\"scheduledFor\":\"<iso>\"},\"holdDays\":30}"
+ },
+ {
+  "name": "a deactivated account cannot play",
+  "status": 403,
+  "headers": {
+   "content-type": "application/json; charset=utf-8"
+  },
+  "body": "{\"error\":{\"scheduledFor\":\"<iso>\",\"code\":\"ACCOUNT_DEACTIVATED\",\"message\":\"This account is scheduled for deletion and is deactivated. Restore it from the Account page to play again.\",\"requestId\":\"<uuid>\"}}"
+ },
+ {
+  "name": "deletion cancelled",
+  "status": 200,
+  "headers": {
+   "content-type": "application/json; charset=utf-8"
+  },
+  "body": "{\"request\":null,\"holdDays\":30}"
+ },
+ {
+  "name": "deletion cancelled again",
+  "status": 200,
+  "headers": {
+   "content-type": "application/json; charset=utf-8"
+  },
+  "body": "{\"request\":null,\"holdDays\":30}"
+ },
+ {
+  "name": "deletion after",
+  "status": 200,
+  "headers": {
+   "content-type": "application/json; charset=utf-8"
+  },
+  "body": "{\"request\":null,\"holdDays\":30}"
+ },
+ {
+  "name": "game session without a token",
+  "status": 401,
+  "headers": {
+   "content-type": "application/json; charset=utf-8"
+  },
+  "body": "{\"error\":{\"code\":\"AUTH_UNAUTHORIZED\",\"message\":\"Sign in required.\",\"requestId\":\"<uuid>\"}}"
+ },
+ {
+  "name": "game session, bad channel",
+  "status": 400,
+  "headers": {
+   "content-type": "application/json; charset=utf-8"
+  },
+  "body": "{\"error\":{\"code\":\"AUTH_VALIDATION_FAILED\",\"message\":\"runtimeChannel must be stable, beta, or dev.\",\"requestId\":\"<uuid>\"}}"
+ },
+ {
+  "name": "game session, no changelist",
+  "status": 400,
+  "headers": {
+   "content-type": "application/json; charset=utf-8"
+  },
+  "body": "{\"error\":{\"code\":\"AUTH_VALIDATION_FAILED\",\"message\":\"buildChangelist is required.\",\"requestId\":\"<uuid>\"}}"
+ },
+ {
+  "name": "game session, no executable",
+  "status": 400,
+  "headers": {
+   "content-type": "application/json; charset=utf-8"
+  },
+  "body": "{\"error\":{\"code\":\"AUTH_VALIDATION_FAILED\",\"message\":\"executableSha256 is required.\",\"requestId\":\"<uuid>\"}}"
+ },
+ {
+  "name": "game session, wrong channel for the account",
+  "status": 409,
+  "headers": {
+   "content-type": "application/json; charset=utf-8"
+  },
+  "body": "{\"error\":{\"code\":\"AUTH_CHANNEL_MISMATCH\",\"message\":\"Your account currently requires the stable runtime channel.\",\"requestId\":\"<uuid>\"}}"
+ },
+ {
+  "name": "game session, wrong build",
+  "status": 400,
+  "headers": {
+   "content-type": "application/json; charset=utf-8"
+  },
+  "body": "{\"error\":{\"code\":\"GAME_BUILD_UNSUPPORTED\",\"message\":\"This Dauntless build isn't supported. Verify or repair your installation.\",\"requestId\":\"<uuid>\"}}"
+ },
+ {
+  "name": "game session, unapproved executable",
+  "status": 400,
+  "headers": {
+   "content-type": "application/json; charset=utf-8"
+  },
+  "body": "{\"error\":{\"code\":\"GAME_BUILD_UNSUPPORTED\",\"message\":\"This Dauntless installation isn't recognized. Verify or repair your installation.\",\"requestId\":\"<uuid>\"}}"
+ },
+ {
+  "name": "game session, stale manifest version",
+  "status": 409,
+  "headers": {
+   "content-type": "application/json; charset=utf-8"
+  },
+  "body": "{\"error\":{\"code\":\"RUNTIME_BUILD_UNSUPPORTED\",\"message\":\"The installed stable runtime set is not the approved release.\",\"requestId\":\"<uuid>\"}}"
+ },
+ {
+  "name": "game session, a changed runtime",
+  "status": 409,
+  "headers": {
+   "content-type": "application/json; charset=utf-8"
+  },
+  "body": "{\"error\":{\"code\":\"RUNTIME_BUILD_UNSUPPORTED\",\"message\":\"The installed stable runtime set is not the approved release.\",\"requestId\":\"<uuid>\"}}"
+ },
+ {
+  "name": "game session, an unknown file",
+  "status": 400,
+  "headers": {
+   "content-type": "application/json; charset=utf-8"
+  },
+  "body": "{\"error\":{\"code\":\"AUTH_VALIDATION_FAILED\",\"message\":\"The complete runtime artifact set is required.\",\"requestId\":\"<uuid>\"}}"
+ },
+ {
+  "name": "game session, a realm with realms off",
+  "status": 501,
+  "headers": {
+   "content-type": "application/json; charset=utf-8"
+  },
+  "body": "{\"error\":{\"code\":\"REALMS_DISABLED\",\"message\":\"Realms are not available on this server.\",\"requestId\":\"<uuid>\"}}"
+ },
+ {
+  "name": "game session ok",
+  "status": 200,
+  "headers": {
+   "content-type": "application/json; charset=utf-8"
+  },
+  "body": "{\"exchangeCode\":\"<hex64>\",\"expiresInSeconds\":60}"
+ },
+ {
+  "name": "game session for b",
+  "status": 200,
+  "headers": {
+   "content-type": "application/json; charset=utf-8"
+  },
+  "body": "{\"exchangeCode\":\"<hex64>\",\"expiresInSeconds\":60}"
+ },
+ {
+  "name": "oauth token without a body type",
+  "status": 500,
+  "headers": {
+   "content-type": "text/html; charset=utf-8"
+  },
+  "body": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n<meta charset=\"utf-8\">\n<title>Error</title>\n</head>\n<body>\n<pre>Internal Server Error</pre>\n</body>\n</html>\n"
+ },
+ {
+  "name": "oauth token without a code",
+  "status": 400,
+  "headers": {},
+  "body": ""
+ },
+ {
+  "name": "oauth client credentials",
+  "status": 200,
+  "headers": {
+   "content-type": "application/json; charset=utf-8"
+  },
+  "body": "{\"access_token\":\"<jwt>\",\"token_type\":\"bearer\",\"expires_at\":\"2085-09-09T01:01:01.703Z\",\"features\":[\"Achievements\",\"AntiCheat\",\"Ecom\",\"Voice\"],\"organization_id\":\"o-krlzxj88qrtb69fredeuaf887bl5az\",\"product_id\":\"prod-jackal\",\"sandbox_id\":\"jackal\",\"deployment_id\":\"53565ba467df4edbb6f5a3d939a8b4f2\",\"expires_in\":86400}"
+ },
+ {
+  "name": "oauth unknown code",
+  "status": 401,
+  "headers": {},
+  "body": ""
+ },
+ {
+  "name": "oauth code",
+  "status": 200,
+  "headers": {
+   "content-type": "application/json; charset=utf-8"
+  },
+  "body": "{\"access_token\":\"<jwt>\",\"token_type\":\"bearer\",\"expires_at\":\"2085-09-09T01:01:01.703Z\",\"features\":[\"Achievements\",\"AntiCheat\",\"Ecom\",\"Voice\"],\"organization_id\":\"o-krlzxj88qrtb69fredeuaf887bl5az\",\"product_id\":\"prod-jackal\",\"sandbox_id\":\"jackal\",\"deployment_id\":\"53565ba467df4edbb6f5a3d939a8b4f2\",\"expires_in\":86400,\"refresh_token\":\"refresh.token.lol\",\"refresh_expires_at\":\"2085-09-09T01:01:01.703Z\",\"account_id\":\"<uuid>\"}"
+ },
+ {
+  "name": "oauth code reused",
+  "status": 401,
+  "headers": {},
+  "body": ""
+ },
+ {
+  "name": "oauth code of b",
+  "status": 200,
+  "headers": {
+   "content-type": "application/json; charset=utf-8"
+  },
+  "body": "{\"access_token\":\"<jwt>\",\"token_type\":\"bearer\",\"expires_at\":\"2085-09-09T01:01:01.703Z\",\"features\":[\"Achievements\",\"AntiCheat\",\"Ecom\",\"Voice\"],\"organization_id\":\"o-krlzxj88qrtb69fredeuaf887bl5az\",\"product_id\":\"prod-jackal\",\"sandbox_id\":\"jackal\",\"deployment_id\":\"53565ba467df4edbb6f5a3d939a8b4f2\",\"expires_in\":86400,\"refresh_token\":\"refresh.token.lol\",\"refresh_expires_at\":\"2085-09-09T01:01:01.703Z\",\"account_id\":\"<uuid>\"}"
+ },
+ {
+  "name": "oauth as form",
+  "status": 200,
+  "headers": {
+   "content-type": "application/json; charset=utf-8"
+  },
+  "body": "{\"access_token\":\"<jwt>\",\"token_type\":\"bearer\",\"expires_at\":\"2085-09-09T01:01:01.703Z\",\"features\":[\"Achievements\",\"AntiCheat\",\"Ecom\",\"Voice\"],\"organization_id\":\"o-krlzxj88qrtb69fredeuaf887bl5az\",\"product_id\":\"prod-jackal\",\"sandbox_id\":\"jackal\",\"deployment_id\":\"53565ba467df4edbb6f5a3d939a8b4f2\",\"expires_in\":86400}"
+ },
+ {
+  "name": "oauth verify",
+  "status": 200,
+  "headers": {
+   "content-type": "application/json; charset=utf-8"
+  },
+  "body": "{\"active\":true,\"scope\":\"basic_profile friends_list presence\",\"token_type\":\"bearer\",\"expires_in\":86400,\"expires_at\":\"2085-09-09T01:01:01.703Z\",\"account_id\":\"<uuid>\",\"client_id\":\"xyza7891lhxMVYGCON7LgnKZZ8HQGD5H\",\"application_id\":\"fghi4567O03HROxEjwbn7kgXpBhnhWwv\"}"
+ },
+ {
+  "name": "oauth verify, launcher token",
+  "status": 401,
+  "headers": {},
+  "body": ""
+ },
+ {
+  "name": "oauth verify without a token",
+  "status": 401,
+  "headers": {},
+  "body": ""
+ },
+ {
+  "name": "oauth verify, two-part rule",
+  "status": 401,
+  "headers": {},
+  "body": ""
+ },
+ {
+  "name": "kill sessions",
+  "status": 200,
+  "headers": {
+   "content-type": "application/json; charset=utf-8"
+  },
+  "body": "{}"
+ },
+ {
+  "name": "kill one session",
+  "status": 200,
+  "headers": {
+   "content-type": "application/json; charset=utf-8"
+  },
+  "body": "{}"
+ },
+ {
+  "name": "public account",
+  "status": 200,
+  "headers": {
+   "content-type": "application/json; charset=utf-8"
+  },
+  "body": "{\"id\":\"<uuid>\",\"displayName\":\"Slayer1\",\"externalAuths\":{}}"
+ },
+ {
+  "name": "public account, with a token",
+  "status": 200,
+  "headers": {
+   "content-type": "application/json; charset=utf-8"
+  },
+  "body": "{\"id\":\"<uuid>\",\"displayName\":\"Slayer1\",\"externalAuths\":{}}"
+ },
+ {
+  "name": "public account unknown",
+  "status": 404,
+  "headers": {},
+  "body": ""
+ },
+ {
+  "name": "public account, the legacy alias",
+  "status": 404,
+  "headers": {},
+  "body": ""
+ },
+ {
+  "name": "external auths",
+  "status": 200,
+  "headers": {
+   "content-type": "application/json; charset=utf-8"
+  },
+  "body": "[]"
+ },
+ {
+  "name": "external auths, unknown",
+  "status": 404,
+  "headers": {},
+  "body": ""
+ },
+ {
+  "name": "by display name",
+  "status": 200,
+  "headers": {
+   "content-type": "application/json; charset=utf-8"
+  },
+  "body": "{\"id\":\"<uuid>\",\"displayName\":\"Slayer1\",\"externalAuths\":{}}"
+ },
+ {
+  "name": "by display name, unknown",
+  "status": 404,
+  "headers": {},
+  "body": ""
+ },
+ {
+  "name": "bulk without a token",
+  "status": 401,
+  "headers": {},
+  "body": ""
+ },
+ {
+  "name": "bulk",
+  "status": 200,
+  "headers": {
+   "content-type": "application/json; charset=utf-8"
+  },
+  "body": "[{\"id\":\"<uuid>\",\"displayName\":\"Slayer1\",\"externalAuths\":{}},{\"id\":\"<uuid>\",\"displayName\":\"Slayer2\",\"externalAuths\":{}}]"
+ },
+ {
+  "name": "bulk of oneself",
+  "status": 200,
+  "headers": {
+   "content-type": "application/json; charset=utf-8"
+  },
+  "body": "[{\"id\":\"<uuid>\",\"displayName\":\"Slayer1\",\"externalAuths\":{}}]"
+ },
+ {
+  "name": "bulk, the legacy alias",
+  "status": 200,
+  "headers": {
+   "content-type": "application/json; charset=utf-8"
+  },
+  "body": "[]"
+ },
+ {
+  "name": "game login",
+  "status": 200,
+  "headers": {
+   "content-type": "application/json; charset=utf-8"
+  },
+  "body": "{\"error_code\":\"TicketRateOk\",\"message\":\"\",\"state\":\"OPEN\",\"timeout\":8000,\"title\":\"\"}"
+ },
+ {
+  "name": "game login, another email",
+  "status": 400,
+  "headers": {},
+  "body": ""
+ },
+ {
+  "name": "game login, no body",
+  "status": 500,
+  "headers": {
+   "content-type": "text/html; charset=utf-8"
+  },
+  "body": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n<meta charset=\"utf-8\">\n<title>Error</title>\n</head>\n<body>\n<pre>Internal Server Error</pre>\n</body>\n</html>\n"
+ },
+ {
+  "name": "game login without a token",
+  "status": 401,
+  "headers": {},
+  "body": ""
+ },
+ {
+  "name": "game login, bad token",
+  "status": 401,
+  "headers": {},
+  "body": ""
+ },
+ {
+  "name": "game login, launcher token",
+  "status": 401,
+  "headers": {},
+  "body": ""
+ },
+ {
+  "name": "game login, lower-case scheme",
+  "status": 200,
+  "headers": {
+   "content-type": "application/json; charset=utf-8"
+  },
+  "body": "{\"error_code\":\"TicketRateOk\",\"message\":\"\",\"state\":\"OPEN\",\"timeout\":8000,\"title\":\"\"}"
+ },
+ {
+  "name": "game login, odd scheme",
+  "status": 401,
+  "headers": {},
+  "body": ""
+ },
+ {
+  "name": "game server login",
+  "status": 400,
+  "headers": {},
+  "body": ""
+ },
+ {
+  "name": "game server key refused",
+  "status": 401,
+  "headers": {},
+  "body": ""
+ },
+ {
+  "name": "game server key and a good token",
+  "status": 200,
+  "headers": {
+   "content-type": "application/json; charset=utf-8"
+  },
+  "body": "{\"error_code\":\"TicketRateOk\",\"message\":\"\",\"state\":\"OPEN\",\"timeout\":8000,\"title\":\"\"}"
+ },
+ {
+  "name": "game server key and a bad token",
+  "status": 500,
+  "headers": {
+   "content-type": "text/html; charset=utf-8"
+  },
+  "body": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n<meta charset=\"utf-8\">\n<title>Error</title>\n</head>\n<body>\n<pre>Internal Server Error</pre>\n</body>\n</html>\n"
+ },
+ {
+  "name": "accountinfo",
+  "status": 200,
+  "headers": {
+   "content-type": "application/json; charset=utf-8"
+  },
+  "body": "{\"accountId\":\"<uuid>\",\"creationDate\":\"2000-01-01 00:00:00\",\"email\":null,\"preferredLanguage\":null,\"username\":\"Slayer1\",\"verified\":true}"
+ },
+ {
+  "name": "accountinfo of a game server",
+  "status": 500,
+  "headers": {
+   "content-type": "text/html; charset=utf-8"
+  },
+  "body": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n<meta charset=\"utf-8\">\n<title>Error</title>\n</head>\n<body>\n<pre>Internal Server Error</pre>\n</body>\n</html>\n"
+ },
+ {
+  "name": "tags",
+  "status": 200,
+  "headers": {
+   "content-type": "application/json; charset=utf-8"
+  },
+  "body": "{\"accountId\":\"<uuid>\",\"tags\":[]}"
+ },
+ {
+  "name": "tags of a game server",
+  "status": 200,
+  "headers": {
+   "content-type": "application/json; charset=utf-8"
+  },
+  "body": "{\"tags\":[]}"
+ },
+ {
+  "name": "game session",
+  "status": 200,
+  "headers": {
+   "content-type": "application/json; charset=utf-8"
+  },
+  "body": "{\"code\":null,\"message\":\"OK\",\"payload\":{\"error_code\":null,\"sessionid\":\"<jwt>\",\"sessiontoken\":\"<jwt>\",\"sessionToken\":\"<jwt>\"}}"
+ },
+ {
+  "name": "game session epiceos",
+  "status": 200,
+  "headers": {
+   "content-type": "application/json; charset=utf-8"
+  },
+  "body": "{\"code\":null,\"message\":\"OK\",\"payload\":{\"error_code\":null,\"sessionid\":\"<jwt>\",\"sessiontoken\":\"<jwt>\",\"sessionToken\":\"<jwt>\"}}"
+ },
+ {
+  "name": "game session, game server only",
+  "status": 500,
+  "headers": {
+   "content-type": "text/html; charset=utf-8"
+  },
+  "body": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n<meta charset=\"utf-8\">\n<title>Error</title>\n</head>\n<body>\n<pre>Internal Server Error</pre>\n</body>\n</html>\n"
+ },
+ {
+  "name": "public accountinfo",
+  "status": 200,
+  "headers": {
+   "content-type": "application/json; charset=utf-8"
+  },
+  "body": "{\"accountId\":\"<uuid>\",\"isSubscribed\":true,\"language\":null,\"linkedAccounts\":[{\"accountId\":\"<uuid>\",\"accountType\":\"epic\"}],\"username\":\"Slayer2\"}"
+ },
+ {
+  "name": "public accountinfo, unknown",
+  "status": 200,
+  "headers": {
+   "content-type": "application/json; charset=utf-8"
+  },
+  "body": "{\"accountId\":\"nobody\",\"isSubscribed\":true,\"language\":null,\"linkedAccounts\":[{\"accountId\":\"nobody\",\"accountType\":\"epic\"}],\"username\":\"nobody\"}"
+ },
+ {
+  "name": "public accountinfo, the alias",
+  "status": 200,
+  "headers": {
+   "content-type": "application/json; charset=utf-8"
+  },
+  "body": "{\"accountId\":\"mystpax\",\"isSubscribed\":true,\"language\":null,\"linkedAccounts\":[{\"accountId\":\"mystpax\",\"accountType\":\"epic\"}],\"username\":\"Slayer1\"}"
+ },
+ {
+  "name": "public accountinfo, no id",
+  "status": 500,
+  "headers": {
+   "content-type": "text/html; charset=utf-8"
+  },
+  "body": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n<meta charset=\"utf-8\">\n<title>Error</title>\n</head>\n<body>\n<pre>Internal Server Error</pre>\n</body>\n</html>\n"
+ },
+ {
+  "name": "public accountinfo, no body",
+  "status": 500,
+  "headers": {
+   "content-type": "text/html; charset=utf-8"
+  },
+  "body": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n<meta charset=\"utf-8\">\n<title>Error</title>\n</head>\n<body>\n<pre>Internal Server Error</pre>\n</body>\n</html>\n"
+ },
+ {
+  "name": "public accountinfo without a token",
+  "status": 401,
+  "headers": {},
+  "body": ""
+ },
+ {
+  "name": "migration trigger",
+  "status": 200,
+  "headers": {
+   "content-type": "application/json; charset=utf-8"
+  },
+  "body": "{\"migration_failed\":false,\"migration_finished\":true}"
+ },
+ {
+  "name": "migration status",
+  "status": 200,
+  "headers": {
+   "content-type": "application/json; charset=utf-8"
+  },
+  "body": "{\"code\":null,\"message\":\"OK\",\"payload\":{\"migration_failed\":false,\"migration_finished\":true}}"
+ },
+ {
+  "name": "migration status without a token",
+  "status": 401,
+  "headers": {},
+  "body": ""
+ },
+ {
+  "name": "key generate",
+  "status": 200,
+  "headers": {
+   "content-type": "application/json; charset=utf-8"
+  },
+  "body": "{\"key\":\"<hex64>\",\"nonce\":\"<nonce>\",\"token\":\"Bearer <jwt>\"}"
+ },
+ {
+  "name": "key generate, no candidate",
+  "status": 200,
+  "headers": {
+   "content-type": "application/json; charset=utf-8"
+  },
+  "body": "{\"key\":\"<hex64>\",\"nonce\":\"<nonce>\",\"token\":\"Bearer <jwt>\"}"
+ },
+ {
+  "name": "key generate without a token",
+  "status": 401,
+  "headers": {},
+  "body": ""
+ },
+ {
+  "name": "key consume by candidate",
+  "status": 200,
+  "headers": {
+   "content-type": "application/json; charset=utf-8"
+  },
+  "body": "{\"key\":\"<hex64>\",\"nonce\":\"<nonce>\",\"token\":\"Bearer <jwt>\"}"
+ },
+ {
+  "name": "key consume by token",
+  "status": 200,
+  "headers": {
+   "content-type": "application/json; charset=utf-8"
+  },
+  "body": "{\"key\":\"<hex64>\",\"nonce\":\"<nonce>\",\"token\":\"Bearer <jwt>\"}"
+ },
+ {
+  "name": "key consume by query",
+  "status": 200,
+  "headers": {
+   "content-type": "application/json; charset=utf-8"
+  },
+  "body": "{\"key\":\"<hex64>\",\"nonce\":\"<nonce>\",\"token\":\"Bearer <jwt>\"}"
+ },
+ {
+  "name": "key consume, an unknown token",
+  "status": 200,
+  "headers": {
+   "content-type": "application/json; charset=utf-8"
+  },
+  "body": "{\"key\":\"<hex64>\",\"nonce\":\"<nonce>\",\"token\":\"Bearer <jwt>\"}"
+ },
+ {
+  "name": "key consume without a body",
+  "status": 200,
+  "headers": {
+   "content-type": "application/json; charset=utf-8"
+  },
+  "body": "{\"key\":\"<hex64>\",\"nonce\":\"<nonce>\",\"token\":\"Bearer <jwt>\"}"
+ },
+ {
+  "name": "discord start, not configured",
+  "status": 503,
+  "headers": {
+   "content-type": "application/json; charset=utf-8"
+  },
+  "body": "{\"error\":{\"code\":\"AUTH_DISCORD_NOT_CONFIGURED\",\"message\":\"Discord sign-in isn't set up on this server yet.\",\"requestId\":\"<uuid>\"}}"
+ },
+ {
+  "name": "discord callback, nothing",
+  "status": 302,
+  "headers": {
+   "content-type": "text/plain; charset=utf-8",
+   "location": "rusticisles://auth/error?code=AUTH_DISCORD_CANCELLED",
+   "vary": "Accept"
+  },
+  "body": "Found. Redirecting to rusticisles://auth/error?code=AUTH_DISCORD_CANCELLED"
+ },
+ {
+  "name": "discord callback, unknown state",
+  "status": 302,
+  "headers": {
+   "content-type": "text/plain; charset=utf-8",
+   "location": "rusticisles://auth/error?code=AUTH_DISCORD_CANCELLED",
+   "vary": "Accept"
+  },
+  "body": "Found. Redirecting to rusticisles://auth/error?code=AUTH_DISCORD_CANCELLED"
+ },
+ {
+  "name": "discord callback, repeated parameter",
+  "status": 302,
+  "headers": {
+   "content-type": "text/plain; charset=utf-8",
+   "location": "rusticisles://auth/error?code=AUTH_DISCORD_CANCELLED",
+   "vary": "Accept"
+  },
+  "body": "Found. Redirecting to rusticisles://auth/error?code=AUTH_DISCORD_CANCELLED"
+ },
+ {
+  "name": "discord callback for a browser",
+  "status": 302,
+  "headers": {
+   "content-type": "text/html; charset=utf-8",
+   "location": "rusticisles://auth/error?code=AUTH_DISCORD_CANCELLED",
+   "vary": "Accept"
+  },
+  "body": "<p>Found. Redirecting to rusticisles://auth/error?code=AUTH_DISCORD_CANCELLED</p>"
+ },
+ {
+  "name": "discord link, not configured",
+  "status": 503,
+  "headers": {
+   "content-type": "application/json; charset=utf-8"
+  },
+  "body": "{\"error\":{\"code\":\"AUTH_DISCORD_NOT_CONFIGURED\",\"message\":\"Discord sign-in isn't set up on this server yet.\",\"requestId\":\"<uuid>\"}}"
+ },
+ {
+  "name": "discord on",
+  "env": {
+   "DISCORD_CLIENT_ID": "client-1",
+   "DISCORD_CLIENT_SECRET": "secret-1",
+   "DISCORD_REDIRECT_URI": "https://paradox.example.test/launcher/v1/auth/discord/callback"
+  }
+ },
+ {
+  "name": "discord start",
+  "status": 200,
+  "headers": {
+   "content-type": "application/json; charset=utf-8"
+  },
+  "body": "{\"authorizeUrl\":\"https://discord.com/api/oauth2/authorize?client_id=client-1&redirect_uri=https%3A%2F%2Fparadox.example.test%2Flauncher%2Fv1%2Fauth%2Fdiscord%2Fcallback&response_type=code&scope=identify&state=<hex48>&code_challenge=<challenge>&code_challenge_method=S256\"}"
+ },
+ {
+  "name": "discord callback, unlinked user",
+  "status": 302,
+  "headers": {
+   "content-type": "text/plain; charset=utf-8",
+   "location": "rusticisles://auth/error?code=AUTH_DISCORD_NOT_LINKED",
+   "vary": "Accept"
+  },
+  "body": "Found. Redirecting to rusticisles://auth/error?code=AUTH_DISCORD_NOT_LINKED"
+ },
+ {
+  "name": "discord link without a token",
+  "status": 401,
+  "headers": {
+   "content-type": "application/json; charset=utf-8"
+  },
+  "body": "{\"error\":{\"code\":\"AUTH_UNAUTHORIZED\",\"message\":\"Sign in required.\",\"requestId\":\"<uuid>\"}}"
+ },
+ {
+  "name": "discord link start",
+  "status": 200,
+  "headers": {
+   "content-type": "application/json; charset=utf-8"
+  },
+  "body": "{\"authorizeUrl\":\"https://discord.com/api/oauth2/authorize?client_id=client-1&redirect_uri=https%3A%2F%2Fparadox.example.test%2Flauncher%2Fv1%2Fauth%2Fdiscord%2Fcallback&response_type=code&scope=identify&state=<hex48>&code_challenge=<challenge>&code_challenge_method=S256\"}"
+ },
+ {
+  "name": "discord link callback, a failed exchange",
+  "status": 302,
+  "headers": {
+   "content-type": "text/plain; charset=utf-8",
+   "location": "rusticisles://link/error?code=AUTH_DISCORD_CANCELLED",
+   "vary": "Accept"
+  },
+  "body": "Found. Redirecting to rusticisles://link/error?code=AUTH_DISCORD_CANCELLED"
+ },
+ {
+  "name": "discord link start again",
+  "status": 200,
+  "headers": {
+   "content-type": "application/json; charset=utf-8"
+  },
+  "body": "{\"authorizeUrl\":\"https://discord.com/api/oauth2/authorize?client_id=client-1&redirect_uri=https%3A%2F%2Fparadox.example.test%2Flauncher%2Fv1%2Fauth%2Fdiscord%2Fcallback&response_type=code&scope=identify&state=<hex48>&code_challenge=<challenge>&code_challenge_method=S256\"}"
+ },
+ {
+  "name": "discord link callback",
+  "status": 302,
+  "headers": {
+   "content-type": "text/plain; charset=utf-8",
+   "location": "rusticisles://link/done",
+   "vary": "Accept"
+  },
+  "body": "Found. Redirecting to rusticisles://link/done"
+ },
+ {
+  "name": "discord link callback replayed",
+  "status": 302,
+  "headers": {
+   "content-type": "text/plain; charset=utf-8",
+   "location": "rusticisles://auth/error?code=AUTH_DISCORD_CANCELLED",
+   "vary": "Accept"
+  },
+  "body": "Found. Redirecting to rusticisles://auth/error?code=AUTH_DISCORD_CANCELLED"
+ },
+ {
+  "name": "me with a discord link",
+  "status": 200,
+  "headers": {
+   "content-type": "application/json; charset=utf-8"
+  },
+  "body": "{\"userId\":\"<uuid>\",\"displayName\":\"Slayer1\",\"email\":\"slayer1@example.test\",\"discordLinked\":true,\"discord\":{\"linked\":true,\"username\":\"user-0001\"},\"emailVerified\":false,\"status\":\"active\",\"approvalStatus\":\"approved\",\"needsUsername\":false}"
+ },
+ {
+  "name": "discord link twice",
+  "status": 409,
+  "headers": {
+   "content-type": "application/json; charset=utf-8"
+  },
+  "body": "{\"error\":{\"code\":\"AUTH_DISCORD_ACCOUNT_HAS_LINK\",\"message\":\"This account already has a Discord account linked.\",\"requestId\":\"<uuid>\"}}"
+ },
+ {
+  "name": "discord link for b",
+  "status": 200,
+  "headers": {
+   "content-type": "application/json; charset=utf-8"
+  },
+  "body": "{\"authorizeUrl\":\"https://discord.com/api/oauth2/authorize?client_id=client-1&redirect_uri=https%3A%2F%2Fparadox.example.test%2Flauncher%2Fv1%2Fauth%2Fdiscord%2Fcallback&response_type=code&scope=identify&state=<hex48>&code_challenge=<challenge>&code_challenge_method=S256\"}"
+ },
+ {
+  "name": "discord link of a linked user",
+  "status": 302,
+  "headers": {
+   "content-type": "text/plain; charset=utf-8",
+   "location": "rusticisles://link/error?code=AUTH_DISCORD_ALREADY_LINKED",
+   "vary": "Accept"
+  },
+  "body": "Found. Redirecting to rusticisles://link/error?code=AUTH_DISCORD_ALREADY_LINKED"
+ },
+ {
+  "name": "discord sign-in start",
+  "status": 200,
+  "headers": {
+   "content-type": "application/json; charset=utf-8"
+  },
+  "body": "{\"authorizeUrl\":\"https://discord.com/api/oauth2/authorize?client_id=client-1&redirect_uri=https%3A%2F%2Fparadox.example.test%2Flauncher%2Fv1%2Fauth%2Fdiscord%2Fcallback&response_type=code&scope=identify&state=<hex48>&code_challenge=<challenge>&code_challenge_method=S256\"}"
+ },
+ {
+  "name": "discord sign-in callback",
+  "status": 302,
+  "headers": {
+   "content-type": "text/plain; charset=utf-8",
+   "location": "rusticisles://auth/complete?code=<hex64>",
+   "vary": "Accept"
+  },
+  "body": "Found. Redirecting to rusticisles://auth/complete?code=<hex64>"
+ },
+ {
+  "name": "discord complete",
+  "status": 200,
+  "headers": {
+   "content-type": "application/json; charset=utf-8"
+  },
+  "body": "{\"accessToken\":\"<jwt>\",\"refreshToken\":\"<hex64>\",\"account\":{\"userId\":\"<uuid>\",\"displayName\":\"Slayer1\",\"email\":\"slayer1@example.test\",\"discordLinked\":true,\"discord\":{\"linked\":true,\"username\":\"user-0001\"},\"emailVerified\":false,\"status\":\"active\",\"approvalStatus\":\"approved\",\"needsUsername\":false}}"
+ },
+ {
+  "name": "discord complete again",
+  "status": 400,
+  "headers": {
+   "content-type": "application/json; charset=utf-8"
+  },
+  "body": "{\"error\":{\"code\":\"AUTH_DISCORD_CANCELLED\",\"message\":\"That sign-in link has expired. Please try again.\",\"requestId\":\"<uuid>\"}}"
+ },
+ {
+  "name": "discord complete without a code",
+  "status": 400,
+  "headers": {
+   "content-type": "application/json; charset=utf-8"
+  },
+  "body": "{\"error\":{\"code\":\"AUTH_DISCORD_CANCELLED\",\"message\":\"Discord sign-in didn't complete. Please try again.\",\"requestId\":\"<uuid>\"}}"
+ },
+ {
+  "name": "discord unlink start without mail",
+  "status": 503,
+  "headers": {
+   "content-type": "application/json; charset=utf-8"
+  },
+  "body": "{\"error\":{\"code\":\"AUTH_EMAIL_UNAVAILABLE\",\"message\":\"Email codes aren't available on this server right now. Try again later.\",\"requestId\":\"<uuid>\"}}"
+ },
+ {
+  "name": "preflight",
+  "status": 204,
+  "headers": {
+   "access-control-allow-origin": "http://localhost:1420",
+   "access-control-allow-methods": "GET, POST, DELETE, OPTIONS",
+   "access-control-allow-headers": "Content-Type, Authorization",
+   "vary": "Origin"
+  },
+  "body": ""
+ },
+ {
+  "name": "preflight, unknown origin",
+  "status": 403,
+  "headers": {},
+  "body": ""
+ },
+ {
+  "name": "preflight, no origin",
+  "status": 204,
+  "headers": {},
+  "body": ""
+ },
+ {
+  "name": "preflight, any launcher path",
+  "status": 204,
+  "headers": {
+   "access-control-allow-origin": "https://tauri.localhost",
+   "access-control-allow-methods": "GET, POST, DELETE, OPTIONS",
+   "access-control-allow-headers": "Content-Type, Authorization",
+   "vary": "Origin"
+  },
+  "body": ""
+ },
+ {
+  "name": "allowed origin on a read",
+  "status": 200,
+  "headers": {
+   "content-type": "application/json; charset=utf-8",
+   "access-control-allow-origin": "https://tauri.localhost",
+   "access-control-allow-methods": "GET, POST, DELETE, OPTIONS",
+   "access-control-allow-headers": "Content-Type, Authorization",
+   "vary": "Origin"
+  },
+  "body": "{\"termsVersion\":\"2026-10-14\",\"privacyVersion\":\"2026-10-17\",\"minimumAge\":16}"
+ },
+ {
+  "name": "unknown origin on a read",
+  "status": 403,
+  "headers": {},
+  "body": ""
+ },
+ {
+  "name": "origin on a game route",
+  "status": 200,
+  "headers": {
+   "content-type": "application/json; charset=utf-8"
+  },
+  "body": "{\"isBanned\":false}"
+ },
+ {
+  "name": "resend without mail",
+  "status": 503,
+  "headers": {
+   "content-type": "application/json; charset=utf-8"
+  },
+  "body": "{\"error\":{\"code\":\"AUTH_EMAIL_UNAVAILABLE\",\"message\":\"Email codes aren't available on this server right now. Try again later.\",\"requestId\":\"<uuid>\"}}"
+ },
+ {
+  "name": "forgot without mail",
+  "status": 503,
+  "headers": {
+   "content-type": "application/json; charset=utf-8"
+  },
+  "body": "{\"error\":{\"code\":\"AUTH_EMAIL_UNAVAILABLE\",\"message\":\"Email codes aren't available on this server right now. Try again later.\",\"requestId\":\"<uuid>\"}}"
+ },
+ {
+  "name": "mail on, verification required",
+  "env": {
+   "RUSTIC_ISLES_EMAIL_VERIFICATION": "required",
+   "RUSTIC_ISLES_SMTP_HOST": "smtp.example.test",
+   "RUSTIC_ISLES_SMTP_USER": "postmaster",
+   "RUSTIC_ISLES_SMTP_PASSWORD": "fixture-password"
+  }
+ },
+ {
+  "name": "register under verification",
+  "status": 202,
+  "headers": {
+   "content-type": "application/json; charset=utf-8"
+  },
+  "body": "{\"approvalRequired\":false,\"verificationRequired\":true,\"email\":\"slayer4@example.test\",\"account\":{\"userId\":\"<uuid>\",\"displayName\":\"Slayer4\",\"email\":\"slayer4@example.test\",\"discordLinked\":false,\"discord\":{\"linked\":false},\"emailVerified\":false,\"status\":\"active\",\"approvalStatus\":\"approved\",\"needsUsername\":false}}"
+ },
+ {
+  "name": "login before verification",
+  "status": 403,
+  "headers": {
+   "content-type": "application/json; charset=utf-8"
+  },
+  "body": "{\"error\":{\"code\":\"AUTH_EMAIL_UNVERIFIED\",\"message\":\"Enter the 6-digit code we sent to s***4@example.test. Older launchers: update the launcher to verify your email.\",\"requestId\":\"<uuid>\"}}"
+ },
+ {
+  "name": "login before verification, second",
+  "status": 403,
+  "headers": {
+   "content-type": "application/json; charset=utf-8"
+  },
+  "body": "{\"error\":{\"code\":\"AUTH_EMAIL_UNVERIFIED\",\"message\":\"Enter the 6-digit code we sent to s***4@example.test. Older launchers: update the launcher to verify your email.\",\"requestId\":\"<uuid>\"}}"
+ },
+ {
+  "name": "login before verification, wrong password",
+  "status": 401,
+  "headers": {
+   "content-type": "application/json; charset=utf-8"
+  },
+  "body": "{\"error\":{\"code\":\"AUTH_INVALID_CREDENTIALS\",\"message\":\"The email or password is incorrect.\",\"requestId\":\"<uuid>\"}}"
+ },
+ {
+  "name": "verify without a password",
+  "status": 401,
+  "headers": {
+   "content-type": "application/json; charset=utf-8"
+  },
+  "body": "{\"error\":{\"code\":\"AUTH_INVALID_CREDENTIALS\",\"message\":\"The email or password is incorrect.\",\"requestId\":\"<uuid>\"}}"
+ },
+ {
+  "name": "verify with a wrong password",
+  "status": 401,
+  "headers": {
+   "content-type": "application/json; charset=utf-8"
+  },
+  "body": "{\"error\":{\"code\":\"AUTH_INVALID_CREDENTIALS\",\"message\":\"The email or password is incorrect.\",\"requestId\":\"<uuid>\"}}"
+ },
+ {
+  "name": "verify with a malformed code",
+  "status": 400,
+  "headers": {
+   "content-type": "application/json; charset=utf-8"
+  },
+  "body": "{\"error\":{\"code\":\"AUTH_CODE_INVALID\",\"message\":\"That code is wrong or has expired. Check the latest email or resend the code.\",\"requestId\":\"<uuid>\"}}"
+ },
+ {
+  "name": "the registration mail",
+  "mailcode": {
+   "email": "slayer4@example.test",
+   "var": "c.code"
+  }
+ },
+ {
+  "name": "verify with the code",
+  "status": 200,
+  "headers": {
+   "content-type": "application/json; charset=utf-8"
+  },
+  "body": "{\"accessToken\":\"<jwt>\",\"refreshToken\":\"<hex64>\",\"account\":{\"userId\":\"<uuid>\",\"displayName\":\"Slayer4\",\"email\":\"slayer4@example.test\",\"discordLinked\":false,\"discord\":{\"linked\":false},\"emailVerified\":true,\"status\":\"active\",\"approvalStatus\":\"approved\",\"needsUsername\":false}}"
+ },
+ {
+  "name": "verify with the code again",
+  "status": 400,
+  "headers": {
+   "content-type": "application/json; charset=utf-8"
+  },
+  "body": "{\"error\":{\"code\":\"AUTH_CODE_INVALID\",\"message\":\"That code is wrong or has expired. Check the latest email or resend the code.\",\"requestId\":\"<uuid>\"}}"
+ },
+ {
+  "name": "me after verification",
+  "status": 200,
+  "headers": {
+   "content-type": "application/json; charset=utf-8"
+  },
+  "body": "{\"userId\":\"<uuid>\",\"displayName\":\"Slayer4\",\"email\":\"slayer4@example.test\",\"discordLinked\":false,\"discord\":{\"linked\":false},\"emailVerified\":true,\"status\":\"active\",\"approvalStatus\":\"approved\",\"needsUsername\":false}"
+ },
+ {
+  "name": "resend, malformed address",
+  "status": 400,
+  "headers": {
+   "content-type": "application/json; charset=utf-8"
+  },
+  "body": "{\"error\":{\"code\":\"AUTH_VALIDATION_FAILED\",\"message\":\"Enter a valid email address.\",\"requestId\":\"<uuid>\"}}"
+ },
+ {
+  "name": "resend for a verified account",
+  "status": 200,
+  "headers": {
+   "content-type": "application/json; charset=utf-8"
+  },
+  "body": "{\"sent\":true}"
+ },
+ {
+  "name": "resend for nobody",
+  "status": 200,
+  "headers": {
+   "content-type": "application/json; charset=utf-8"
+  },
+  "body": "{\"sent\":true}"
+ },
+ {
+  "name": "forgot",
+  "status": 200,
+  "headers": {
+   "content-type": "application/json; charset=utf-8"
+  },
+  "body": "{\"sent\":true}"
+ },
+ {
+  "name": "forgot, malformed",
+  "status": 400,
+  "headers": {
+   "content-type": "application/json; charset=utf-8"
+  },
+  "body": "{\"error\":{\"code\":\"AUTH_VALIDATION_FAILED\",\"message\":\"Enter a valid email address.\",\"requestId\":\"<uuid>\"}}"
+ },
+ {
+  "name": "the reset mail",
+  "mailcode": {
+   "email": "slayer4@example.test",
+   "var": "c.reset"
+  }
+ },
+ {
+  "name": "reset with a short password",
+  "status": 400,
+  "headers": {
+   "content-type": "application/json; charset=utf-8"
+  },
+  "body": "{\"error\":{\"code\":\"AUTH_VALIDATION_FAILED\",\"message\":\"Password must be at least 8 characters.\",\"requestId\":\"<uuid>\"}}"
+ },
+ {
+  "name": "reset with a wrong code",
+  "status": 400,
+  "headers": {
+   "content-type": "application/json; charset=utf-8"
+  },
+  "body": "{\"error\":{\"code\":\"AUTH_CODE_INVALID\",\"message\":\"That code is wrong or has expired. Check the latest email or resend the code.\",\"requestId\":\"<uuid>\"}}"
+ },
+ {
+  "name": "reset for nobody",
+  "status": 400,
+  "headers": {
+   "content-type": "application/json; charset=utf-8"
+  },
+  "body": "{\"error\":{\"code\":\"AUTH_CODE_INVALID\",\"message\":\"That code is wrong or has expired. Check the latest email or resend the code.\",\"requestId\":\"<uuid>\"}}"
+ },
+ {
+  "name": "reset",
+  "status": 200,
+  "headers": {
+   "content-type": "application/json; charset=utf-8"
+  },
+  "body": "{\"accessToken\":\"<jwt>\",\"refreshToken\":\"<hex64>\",\"account\":{\"userId\":\"<uuid>\",\"displayName\":\"Slayer4\",\"email\":\"slayer4@example.test\",\"discordLinked\":false,\"discord\":{\"linked\":false},\"emailVerified\":true,\"status\":\"active\",\"approvalStatus\":\"approved\",\"needsUsername\":false}}"
+ },
+ {
+  "name": "old sessions end at a reset",
+  "status": 401,
+  "headers": {
+   "content-type": "application/json; charset=utf-8"
+  },
+  "body": "{\"error\":{\"code\":\"AUTH_UNAUTHORIZED\",\"message\":\"Your session has expired. Please sign in again.\",\"requestId\":\"<uuid>\"}}"
+ },
+ {
+  "name": "login with the new password",
+  "status": 200,
+  "headers": {
+   "content-type": "application/json; charset=utf-8"
+  },
+  "body": "{\"accessToken\":\"<jwt>\",\"refreshToken\":\"<hex64>\",\"account\":{\"userId\":\"<uuid>\",\"displayName\":\"Slayer4\",\"email\":\"slayer4@example.test\",\"discordLinked\":false,\"discord\":{\"linked\":false},\"emailVerified\":true,\"status\":\"active\",\"approvalStatus\":\"approved\",\"needsUsername\":false}}"
+ },
+ {
+  "name": "login with the old password",
+  "status": 401,
+  "headers": {
+   "content-type": "application/json; charset=utf-8"
+  },
+  "body": "{\"error\":{\"code\":\"AUTH_INVALID_CREDENTIALS\",\"message\":\"The email or password is incorrect.\",\"requestId\":\"<uuid>\"}}"
+ },
+ {
+  "name": "an account from before verification is asked for a code",
+  "status": 403,
+  "headers": {
+   "content-type": "application/json; charset=utf-8"
+  },
+  "body": "{\"error\":{\"code\":\"AUTH_EMAIL_UNVERIFIED\",\"message\":\"Enter the 6-digit code we sent to s***1@example.test. Older launchers: update the launcher to verify your email.\",\"requestId\":\"<uuid>\"}}"
+ },
+ {
+  "name": "discord unlink start",
+  "status": 200,
+  "headers": {
+   "content-type": "application/json; charset=utf-8"
+  },
+  "body": "{\"sent\":true,\"email\":\"s***1@example.test\"}"
+ },
+ {
+  "name": "the unlink mail",
+  "mailcode": {
+   "email": "slayer1@example.test",
+   "var": "a.unlink"
+  }
+ },
+ {
+  "name": "discord unlink, wrong code",
+  "status": 400,
+  "headers": {
+   "content-type": "application/json; charset=utf-8"
+  },
+  "body": "{\"error\":{\"code\":\"AUTH_CODE_INVALID\",\"message\":\"That code is wrong or has expired. Check the latest email or resend the code.\",\"requestId\":\"<uuid>\"}}"
+ },
+ {
+  "name": "discord unlink",
+  "status": 200,
+  "headers": {
+   "content-type": "application/json; charset=utf-8"
+  },
+  "body": "{\"account\":{\"userId\":\"<uuid>\",\"displayName\":\"Slayer1\",\"email\":\"slayer1@example.test\",\"discordLinked\":false,\"discord\":{\"linked\":false},\"emailVerified\":false,\"status\":\"active\",\"approvalStatus\":\"approved\",\"needsUsername\":false}}"
+ },
+ {
+  "name": "discord unlink again",
+  "status": 403,
+  "headers": {
+   "content-type": "application/json; charset=utf-8"
+  },
+  "body": "{\"error\":{\"code\":\"AUTH_DISCORD_NOT_LINKED\",\"message\":\"This account has no Discord account linked.\",\"requestId\":\"<uuid>\"}}"
+ },
+ {
+  "name": "me after the unlink",
+  "status": 200,
+  "headers": {
+   "content-type": "application/json; charset=utf-8"
+  },
+  "body": "{\"userId\":\"<uuid>\",\"displayName\":\"Slayer1\",\"email\":\"slayer1@example.test\",\"discordLinked\":false,\"discord\":{\"linked\":false},\"emailVerified\":false,\"status\":\"active\",\"approvalStatus\":\"approved\",\"needsUsername\":false}"
+ }
+]
