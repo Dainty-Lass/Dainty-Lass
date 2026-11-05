@@ -50,6 +50,9 @@ rifts-admission = { path = "../crates/rifts-admission" }
 # guard_evidence, guard_grants: what a host's transport and inventory transactions hand Rustic Rifts' Guard (RD27)
 rifts-guard = { path = "../crates/rifts-guard" }
 rifts-seam = { path = "../crates/rifts-seam" }
+# rustic_isles_auth_text, rustic_isles_auth_tokens: what Rustic Isles' sign-in area reads from players (RD27)
+rustic-isles-auth = { path = "../crates/rustic-isles-auth", features = ["test-support"] }
+axum = { version = "0.8", default-features = false }
 # transport_frame, transport_files, transport_pipe: what a peer, the launcher's files and the game server hand the
 # co-op transport (RD27)
 rifts-transport = { path = "../crates/rifts-transport" }
@@ -342,6 +345,20 @@ bench = false
 [[bin]]
 name = "host_transport_config"
 path = "fuzz_targets/host_transport_config.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "rustic_isles_auth_text"
+path = "fuzz_targets/rustic_isles_auth_text.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "rustic_isles_auth_tokens"
+path = "fuzz_targets/rustic_isles_auth_tokens.rs"
 test = false
 doc = false
 bench = false
