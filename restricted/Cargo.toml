@@ -54,6 +54,11 @@ isles-db = { path = "modules/rustic-isles/crates/isles-db" }
 isles-director = { path = "modules/rustic-isles/crates/isles-director" }
 hmac = "0.13"
 isles-chat = { path = "modules/rustic-isles/crates/isles-chat" }
+# dainty-lass's clean-room 1.14.7 module (RD27), for isles-mit-parity's golden replay
+rustic-isles = { path = "../crates/rustic-isles" }
+rustic-isles-1-14-7 = { path = "../crates/rustic-isles-1-14-7" }
+rustic-isles-auth = { path = "../crates/rustic-isles-auth" }
+rustic-isles-store = { path = "../crates/rustic-isles-store" }
 # Realms (DD14, RF2): the seam always, the server crates behind isles-1-14-7's realms feature, rifts-host behind the
 # launcher's
 rifts-seam = { path = "../crates/rifts-seam" }

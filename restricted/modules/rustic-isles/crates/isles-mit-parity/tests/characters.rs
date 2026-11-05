@@ -7,13 +7,13 @@
 
 mod common;
 
-use std::collections::{BTreeMap, HashMap};
+use std::collections::BTreeMap;
 
 use common::{Caller, Mit, Tally, credentials, send, system};
-use regex::Regex;
+use isles_core::areas::characters::golden::Normalizer;
 use serde_json::{Value, json};
 
-const DIR: &str = "../../crates/isles-core/tests/golden/characters";
+const DIR: &str = "../isles-core/tests/golden/characters";
 
 fn read(name: &str) -> Value {
     let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join(DIR).join(name);
@@ -37,51 +37,6 @@ fn pick(value: &Value, path: &str) -> String {
         Some(Value::String(text)) => text.clone(),
         Some(other) => other.to_string(),
         None => "undefined".into(),
-    }
-}
-
-/// Restricted's normaliser: uuids and instance ids numbered by first appearance over a whole run, dates masked.
-struct Normalizer {
-    ids: HashMap<String, usize>,
-    patterns: [(Regex, &'static str); 4],
-}
-
-impl Normalizer {
-    fn new() -> Self {
-        let regex = |p: &str| Regex::new(p).unwrap();
-        Self {
-            ids: HashMap::new(),
-            patterns: [
-                (regex(r"\b\d{4}\.\d{2}\.\d{2}-\d{2}\.\d{2}\.\d{2}\b"), "<time>"),
-                (
-                    regex(r"\b(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec) \d{1,2}, \d{4}\b"),
-                    "<date>",
-                ),
-                (
-                    regex(r"\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b"),
-                    "uuid",
-                ),
-                (regex(r"\b[A-Z0-9]{26}\b"), "iid"),
-            ],
-        }
-    }
-
-    fn apply(&mut self, text: &str) -> String {
-        let mut out = text.to_owned();
-        let ids = &mut self.ids;
-        for (pattern, label) in &self.patterns {
-            out = pattern
-                .replace_all(&out, |caps: &regex::Captures<'_>| {
-                    if label.starts_with('<') {
-                        return (*label).to_owned();
-                    }
-                    let next = ids.len();
-                    let n = *ids.entry(caps[0].to_owned()).or_insert(next);
-                    format!("<{label}{n}>")
-                })
-                .into_owned();
-        }
-        out
     }
 }
 

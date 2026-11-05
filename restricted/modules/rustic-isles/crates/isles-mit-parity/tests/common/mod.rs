@@ -1,6 +1,6 @@
 //! What every replay shares: the composed MIT module started in process on a temporary SQLite file with its
 //! listeners on 127.0.0.1:0, restricted's version data, game tokens signed with the run's keys, a raw HTTP client,
-//! and the per-suite tally written to `target/mit-parity/<suite>.json`.
+//! and the per-suite tally written to `target/tmp/mit-parity/<suite>.json`.
 #![allow(clippy::unwrap_used, clippy::expect_used, dead_code)] // test helpers
 
 pub mod version_data;
@@ -407,7 +407,7 @@ impl Tally {
 
     /// Writes the tally and prints a summary; never fails the test, so every suite runs to the end.
     pub fn finish(self) {
-        let dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("target/mit-parity");
+        let dir = PathBuf::from(env!("CARGO_TARGET_TMPDIR")).join("mit-parity");
         std::fs::create_dir_all(&dir).unwrap();
         let matched = self.total - self.mismatches.len();
         let out = json!({

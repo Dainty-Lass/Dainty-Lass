@@ -67,7 +67,7 @@ impl Characters for FakeCharacters {
     }
 }
 
-fn normalise(text: &str) -> String {
+pub fn normalise(text: &str) -> String {
     let date = Regex::new(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|\+00:00)");
     let grant = Regex::new(r"gs-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}");
     let text = match date {

@@ -13,17 +13,8 @@ mod common;
 use std::path::Path;
 
 use common::{Caller, Mit, Tally, credentials, seed_account, seed_character, seed_track, seed_wallet, send};
-use regex::Regex;
+use isles_core::areas::inventory::testkit::normalize;
 use serde_json::{Value, json};
-
-fn normalize(text: &str) -> String {
-    let ts = Regex::new(r"\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\.\d{3}Z").unwrap();
-    let uuid = Regex::new(r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}").unwrap();
-    let id = Regex::new(r"[A-Z2-7]{26}").unwrap();
-    let text = ts.replace_all(text, "<TS>");
-    let text = uuid.replace_all(&text, "<UUID>");
-    id.replace_all(&text, "<ID>").into_owned()
-}
 
 /// The recording stubbed the characters area's starter bootstrap (an existing inventory served as it is); the composed
 /// module runs it, and it repairs a seeded inventory that has no loadout with the starter kit (characters §7.2). So an
@@ -74,7 +65,7 @@ fn without_starter_items(actual: &str, recorded: &str) -> (String, usize) {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn inventory() {
-    let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../crates/isles-core/tests/golden/inventory");
+    let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("../isles-core/tests/golden/inventory");
     let scenarios: Value = serde_json::from_str(&std::fs::read_to_string(dir.join("scenarios.json")).unwrap()).unwrap();
     let expected: Vec<Value> =
         serde_json::from_str(&std::fs::read_to_string(dir.join("expected.json")).unwrap()).unwrap();

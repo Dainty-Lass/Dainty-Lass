@@ -13,7 +13,7 @@ use regex::{Captures, Regex};
 use serde_json::{Map, Value, json};
 
 fn golden_dir() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../crates/isles-core/tests/golden/auth")
+    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../isles-core/tests/golden/auth")
 }
 
 fn read(name: &str) -> Value {

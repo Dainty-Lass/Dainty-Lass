@@ -15,15 +15,8 @@ use std::collections::HashMap;
 use std::path::Path;
 
 use common::{Caller, Mit, Tally, credentials, seed_account, seed_character, send, system};
-use regex::Regex;
+use isles_core::areas::progression::testkit::golden::normalise;
 use serde_json::{Value, json};
-
-fn normalise(text: &str) -> String {
-    let date = Regex::new(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|\+00:00)").unwrap();
-    let grant = Regex::new(r"gs-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}").unwrap();
-    let text = date.replace_all(text, "<date>").into_owned();
-    grant.replace_all(&text, "gs-<uuid>").into_owned()
-}
 
 fn now_ms() -> i64 {
     std::time::SystemTime::now()
@@ -34,7 +27,7 @@ fn now_ms() -> i64 {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn progression() {
-    let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../crates/isles-core/tests/golden/progression");
+    let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("../isles-core/tests/golden/progression");
     let recording: Value =
         serde_json::from_str(&std::fs::read_to_string(dir.join("scenarios-1.14.7.json")).unwrap()).unwrap();
     let source = dir.join("game-data");

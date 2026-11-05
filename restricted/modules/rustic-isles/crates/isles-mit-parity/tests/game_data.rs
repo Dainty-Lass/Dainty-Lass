@@ -9,7 +9,7 @@ use common::{Caller, Mit, Tally, credentials, send};
 use serde_json::{Value, json};
 
 fn golden_dir() -> std::path::PathBuf {
-    std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../crates/isles-core/tests/golden")
+    std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../isles-core/tests/golden")
 }
 
 /// Every `description` text and every `list` entry becomes `<prose>`; the rest (keys, order, titles, types) stays.

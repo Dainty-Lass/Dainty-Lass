@@ -91,7 +91,7 @@ async fn fake_deployserver() -> std::net::SocketAddr {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn matchmaking_parties() {
-    let golden_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../crates/isles-core/tests/golden");
+    let golden_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../isles-core/tests/golden");
     let steps: Vec<Value> =
         serde_json::from_str(&std::fs::read_to_string(golden_dir.join("scenario.json")).unwrap()).unwrap();
     let golden: Vec<Value> =

@@ -440,13 +440,19 @@ pub async fn replay(version: IslesVersion, store: IslesStore, scenario: &Value) 
 
 /// Makes the volatile parts of a run comparable: every uuid and instance id becomes a number by first appearance
 /// (so which ones are the same still matters), and the clock-bound dates a fixed word.
-struct Normalizer {
+pub struct Normalizer {
     ids: HashMap<String, usize>,
     patterns: [(Regex, &'static str); 4],
 }
 
+impl Default for Normalizer {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Normalizer {
-    fn new() -> Self {
+    pub fn new() -> Self {
         let regex = |p: &str| Regex::new(p).expect("a valid pattern");
         Self {
             ids: HashMap::new(),
@@ -479,7 +485,7 @@ impl Normalizer {
         self
     }
 
-    fn apply(&mut self, text: &str) -> String {
+    pub fn apply(&mut self, text: &str) -> String {
         let mut out = text.to_owned();
         let ids = &mut self.ids;
         for (pattern, label) in &self.patterns {

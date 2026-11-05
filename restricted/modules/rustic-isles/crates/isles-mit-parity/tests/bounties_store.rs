@@ -16,8 +16,7 @@ use serde_json::{Value, json};
 
 #[tokio::test(flavor = "multi_thread")]
 async fn bounties_store() {
-    let dir =
-        std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../crates/isles-core/tests/golden/bounties_store");
+    let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../isles-core/tests/golden/bounties_store");
     let golden: Value = serde_json::from_str(&std::fs::read_to_string(dir.join("1.14.7.json")).unwrap()).unwrap();
     rustic_isles::replay::pin_now_for_tests(Some(1_793_016_000_000));
     let source = dir.join("game-data");

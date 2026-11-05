@@ -13,8 +13,7 @@ use serde_json::{Value, json};
 
 #[tokio::test(flavor = "multi_thread")]
 async fn request_budget() {
-    let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../../crates/isles-core/tests/golden/request_budget.json");
+    let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../isles-core/tests/golden/request_budget.json");
     let golden: Value = serde_json::from_str(&std::fs::read_to_string(path).unwrap()).unwrap();
     let mit = Mit::start(
         &[

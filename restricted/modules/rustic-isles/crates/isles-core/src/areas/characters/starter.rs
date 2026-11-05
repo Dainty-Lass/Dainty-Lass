@@ -71,14 +71,14 @@ pub const STARTER_INSTANCED_CATALOG_IDS: [&str; 23] = [
     "BN_BEGINNER_00",
 ];
 
-const STARTER_WEAPON_CATALOG_ID: &str = "WP_EB_BEGINNER";
+pub const STARTER_WEAPON_CATALOG_ID: &str = "WP_EB_BEGINNER";
 const STARTER_WEAPON_PART_CATALOG_ID: &str = "PART_EB_SPECIAL_DEFAULT";
-const STARTER_BANNER_CATALOG_ID: &str = "BN_BEGINNER_00";
-const STARTER_FLASK_CATALOG_ID: &str = "FL_HEALING_DEFAULT";
-const STARTER_GLIDER_CATALOG_ID: &str = "GD_FRAME_STARTER_BASE";
+pub const STARTER_BANNER_CATALOG_ID: &str = "BN_BEGINNER_00";
+pub const STARTER_FLASK_CATALOG_ID: &str = "FL_HEALING_DEFAULT";
+pub const STARTER_GLIDER_CATALOG_ID: &str = "GD_FRAME_STARTER_BASE";
 
 const CHAT_WHEEL_SLOTS: usize = 9;
-const DEFAULT_QUICK_CHATS: [&str; CHAT_WHEEL_SLOTS] = [
+pub const DEFAULT_QUICK_CHATS: [&str; CHAT_WHEEL_SLOTS] = [
     "qc_hello",
     "qc_thankyou",
     "qc_goodjob",
@@ -91,7 +91,7 @@ const DEFAULT_QUICK_CHATS: [&str; CHAT_WHEEL_SLOTS] = [
 ];
 
 /// `STARTER_WALLET` (`controllers/wallet.ts`; the bounties-store area owns the wallet routes).
-const STARTER_WALLET: [(&str, f64); 6] = [
+pub const STARTER_WALLET: [(&str, f64); 6] = [
     ("CURRENCY_NOTES", 5000.0),
     ("CURRENCY_PJM_WEAPON", 50.0),
     ("CURRENCY_PJM_ARMOR", 50.0),
@@ -101,7 +101,7 @@ const STARTER_WALLET: [(&str, f64); 6] = [
 ];
 
 /// Weapon, then the armor pieces and lantern: the loadout's equipment, by key.
-const LOADOUT_EQUIPMENT: [(&str, &str); 6] = [
+pub const LOADOUT_EQUIPMENT: [(&str, &str); 6] = [
     ("weapon", STARTER_WEAPON_CATALOG_ID),
     ("helmet", "AR_UNEQUIPPED_HELM"),
     ("chest", "AR_BEGINNER_CHEST"),
@@ -146,7 +146,7 @@ pub fn with_default_chat_wheels(persistent: Value, tables: &VersionTables) -> Va
     Value::Object(map)
 }
 
-fn build_instance_data() -> String {
+pub fn build_instance_data() -> String {
     jsjson::stringify(&json!({
         "SheenType": 73,
         "IsPrimarySheenActive": true,
