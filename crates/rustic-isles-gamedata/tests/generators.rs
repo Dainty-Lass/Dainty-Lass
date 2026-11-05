@@ -426,12 +426,22 @@ fn ladyluck_from_source() {
     write(&source, r#"[{"items":[]},{"id":"b","prices":[]}]"#);
     assert_eq!(
         generate_ladyluck_store(&raw, &out, false).unwrap_err(),
-        "store entries : 2\nmode          : DRY RUN (pass --apply to write)\n\nVALIDATION PROBLEMS (3):\n  entry 0: missing string \"id\"\n  entry 0 (undefined): missing prices[]\n  entry 1 (b): missing items[]\nERROR: refusing to proceed until the source entries are well-formed."
+        "ERROR: refusing to proceed until the source entries are well-formed.\nstore entries : 2\nmode          : DRY RUN (pass --apply to write)\n\nVALIDATION PROBLEMS (3):\n  entry 0: missing string \"id\"\n  entry 0 (undefined): missing prices[]\n  entry 1 (b): missing items[]"
     );
+    write(&source, r#"[null,5,"s",[]]"#);
+    let err = generate_ladyluck_store(&raw, &out, true).unwrap_err();
+    assert!(err.starts_with("ERROR: refusing") && err.contains("VALIDATION PROBLEMS (12):"));
+    for i in 0..4 {
+        let three = format!(
+            "  entry {i}: missing string \"id\"\n  entry {i} (undefined): missing items[]\n  entry {i} (undefined): missing prices[]"
+        );
+        assert!(err.contains(&three), "{err}");
+    }
+    assert_eq!(err.matches("ERROR: refusing").count(), 1);
     let many: Vec<Value> = (0..20).map(|i| json!({"id": format!("x{i}"), "prices": []})).collect();
     write(&source, &Value::Array(many).to_string());
     let err = generate_ladyluck_store(&raw, &out, true).unwrap_err();
-    assert!(err.contains("VALIDATION PROBLEMS (20):") && err.contains("  ...and 5 more\nERROR: refusing"));
+    assert!(err.contains("VALIDATION PROBLEMS (20):") && err.ends_with("  ...and 5 more"));
     assert!(!out.exists());
     write(
         &source,
@@ -439,11 +449,11 @@ fn ladyluck_from_source() {
     );
     assert_eq!(
         generate_ladyluck_store(&raw, &out, false).unwrap(),
-        "store entries : 1\nmode          : DRY RUN (pass --apply to write)\nDry run complete. Nothing written."
+        "store entries : 1\nmode          : DRY RUN (pass --apply to write)\n\nDry run complete. Nothing written."
     );
     assert_eq!(
         generate_ladyluck_store(&raw, &out, true).unwrap(),
-        "store entries : 1\nmode          : APPLY\nWrote ladyluck_store.json (1 entries)"
+        "store entries : 1\nmode          : APPLY\n\nWrote ladyluck_store.json (1 entries)"
     );
     let text = read(&out.join("ladyluck_store.json"));
     assert!(!text.ends_with('\n'));
@@ -630,7 +640,9 @@ fn platinum_fixture(dir: &Path) -> (PathBuf, PathBuf, PathBuf, PathBuf) {
             {"id": "sold", "prices": plat(json!(1)), "items": [{"catalogId": "AR_SOLD"}]},
             {"id": "quest", "prices": plat(json!(1)), "items": [{"catalogId": "EM_QUEST"}]},
             {"id": "cosmetic_ent", "displayPriority": 0, "prices": plat(json!(300)), "entitlements": [{"name": "ent_ccfp_a", "duration": "2.5"}, {"name": "character_facepaint_b"}]},
+            // A null price counts as missing, so the first copy is skipped and the second offered
             {"id": "pass_ent", "prices": plat(Value::Null), "entitlements": [{"name": "other"}]},
+            {"id": "pass_ent", "prices": plat(json!(12.5)), "entitlements": [{"name": "other"}]},
             {"id": "noart", "prices": plat(json!(1)), "items": [{"catalogId": "AR_TWICE"}]},
             {"id": "twice_offer", "prices": plat(json!(1)), "items": [{"catalogId": "AR_TWICE"}]},
             "x"
@@ -712,7 +724,7 @@ fn platinum_store() {
         find("pass_ent")["tags"],
         json!(["huntpass_store", "platinum_store_captured"])
     );
-    assert_eq!(find("pass_ent")["prices"][0]["price"], Value::Null);
+    assert_eq!(find("pass_ent")["prices"][0]["price"], json!(12.5));
     assert_eq!(
         compact("rank1"),
         r#"{"id":"rank1","displayName":"Hunt Pass Level Skip","displayDescription":"","displayPriority":1000,"prices":[{"currencyId":"id_currency_platinum","price":200}],"maxAllowed":null,"images":{},"tags":["hp_level_skip_rank","event","platinum_store_captured"],"items":[],"duplicateInstancedItems":[],"skuProgression":{"levels":1}}"#
