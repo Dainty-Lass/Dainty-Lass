@@ -117,4 +117,73 @@ None beyond this repository: no crate sources from the cargo registry were opene
 
 ## 6. Similarity
 
-To be measured by the coordinator against restricted `e0e238b`.
+Measured by the RD27 reviewer (who may read the AGPL code) with `similarity.md` §1's method, on the crate as committed
+at `05701862`: every `.rs` file in `src/` and `tests/` against each of 12 files of restricted `e0e238b`'s
+`modules/rustic-isles/crates/`: the area (`isles-core/src/areas/characters.rs` and `areas/characters/{controller,
+data,golden,starter}.rs`), the repositories it calls (`src/repo/characters.rs`, `repo/characters/slots.rs`), the
+manifest and version tables (`src/areas/reforged_api/guard_manifest.rs`, `src/tables.rs`, `isles-1-14-7/src/lib.rs`
+with the 1.14.7 starter values), and the tests (`tests/characters.rs`, `tests/common/mod.rs`), the best single file
+named. "Any" counts a line matched by a 3+-line run in any of the 12. Paths in the third column are under
+`isles-core/`.
+
+| File | New lines | Best restricted file (old lines) | Matched | % | Any, % |
+| --- | ---: | --- | ---: | ---: | ---: |
+| `src/controller.rs` | 804 | `src/areas/characters/controller.rs` (609) | 114 | **14.2** | 17.3 |
+| `src/data.rs` | 345 | `src/areas/characters/data.rs` (580) | 40 | **11.6** | 15.7 |
+| `src/lib.rs` | 76 | `src/areas/characters/controller.rs` (609) | 7 | **9.2** | 18.4 |
+| `src/routes.rs` | 550 | `src/areas/characters.rs` (682) | 55 | **10.0** | 11.5 |
+| `src/starter.rs` | 334 | `src/areas/characters/starter.rs` (674) | 47 | **14.1** | 15.3 |
+| `tests/characters.rs` | 450 | `src/areas/characters/data.rs` (580) | 3 | 0.7 | 0.7 |
+| `tests/common/mod.rs` | 652 | `tests/characters.rs` (664) | 46 | 7.1 | 9.8 |
+| `tests/data.rs` | 343 | `src/areas/characters/data.rs` (580) | 32 | 9.3 | 10.2 |
+| `tests/loadouts.rs` | 462 | `src/areas/characters/data.rs` (580) | 3 | 0.6 | 1.3 |
+| The 5 `src` files | 2109 | | 263 | **12.5** | 15.2 |
+| The 4 test files | 1907 | | 84 | **4.4** | 5.7 |
+| All 9 | 4016 | | 347 | **8.6** | 10.7 |
+
+No file reaches 25 %, against its best file or on the "any" column. The `RuntimeCaller` handle in
+`crates/rustic-isles-auth/src/seams.rs` (`0192eabf`'s 57 added code lines, against the 22 files of restricted's
+`areas/auth/`, the characters area, `http.rs` and `hooks.rs`) matches 3 lines (5.3 %), the `#[cfg(test)] mod tests {
+use super::*;` head. The fuzz target (`fuzz/fuzz_targets/rustic_isles_characters_data.rs`) has no restricted
+counterpart and was not measured.
+
+**What the matches are.** Every run of 5 lines or more against any of the 12 files was read: 30 of them, each a
+distinct span. Four are the `} #[cfg(test)] mod tests { use super::*; #[test]` boilerplate or closing braces
+(`data.rs:355-361`, `routes.rs:588-594`, `starter.rs:363-369`, `starter.rs:49-53`). The rest:
+
+- **Spec signatures** (12 runs, `controller.rs`): the parameter lists of §8.2's methods and the controller functions
+  behind §5.2-§5.12 (`store, tables, actor, user_id, character_id` and the in-transaction `tx, repos, tables, account`
+  form: `249-253`, `292-297`, `359-363`, `411-415`, `620-624`, `665-669`, `692-696`, `705-710`, `765-769`,
+  `813-817`); `needs_repair` (`482-488`), whose head is §8.2's and whose first statement is §7.2's "both rows exist";
+  and `ensure_starter_in`'s return type and ownership gate (`503-507`, §8.2 and §7.2's "`characters.find`; none →
+  `NotOwned { character_id, user }`" first).
+- **Spec records and tables**: `LoadoutState` (`controller.rs:26-31`, §8.2's three fields), `Manifest`
+  (`starter.rs:23-28`, §8.2's four), `EnsureError` (`lib.rs:89-95`, §8.2's variants and text), the progress step
+  names (`data.rs:22-27`, §5.5), §5.12's refusal reasons (`data.rs:348-355`) and §13.2's normalised key order
+  (`tests/data.rs:33-39`, `41-46`).
+- **Wire fields**: `body.get("data")`, `body.get("updateVersion")` in `post_character`'s call (`routes.rs:341-345`).
+- **A published algorithm**: `data.rs:310-317`, Howard Hinnant's public-domain `civil_from_days` with his variable
+  names and constants (credited in the comment above it, deviation 12).
+- **Seam implementations in the fixtures** (`tests/common/mod.rs`): `RuntimeAuth`'s fields (`193-197`, an MIT
+  `rifts-seam` struct), a guard method head (`269-273`) and `VersionHooks` stubs (`155-162`, `167-171`), whose method
+  names and signatures the MIT traits fix.
+- `data.rs:80-85`: the tail of a `match` (`_ => None`, braces).
+
+No comment was copied: no comment line of 20 characters or more equals a restricted one. The crate holds 200 distinct
+string literals of 12 characters or more; 77 also occur in the 12 files, and every one is in the characters, core or
+store spec (routes, log lines, refusal and error texts, the 409 page, wire keys). 76 of the crate's 223 function names
+also occur in restricted: the spec's (§8.2, core §5.7), `std` trait methods, the MIT seam traits' (`rifts_seam`'s
+guard and realms hooks, `VersionHooks`), or plain renderings of a spec name (`ensure_total_slots`,
+`set_active_index`, `set_loadout_data` from §5.10-§5.12's Node names; `create_character`, `get_`/`put_`/
+`post_character`, `set_loadout` from §3's routes; `progress_ordinal`, `progress_name` from §5.5; `nullish`,
+`state_of`). Of the 63 type and constant names, 17 also occur; besides the spec's, those are `SAVED_CHARACTER` and
+`ENTERED_RAMSGATE` (§5.5's client enum names), `DataError` (§5's "data error"; `data.rs:37-39`, a `String` newtype
+with `#[error("{0}")]`), `CONFLICT_PAGE` (§3.4's "the conflict page"), `Repaired` (`starter.rs:279`, §7.2's
+repaired items, known ids and "each is a change") and `Ctx` (`routes.rs:93`, a handler context whose first two
+fields are core's `Call` fields). No unusual structure is shared: the order of checks, the retry loops, the progression
+guard, the trigger reader, the repair and reconcile, and the unlock path match nothing beyond the lines above.
+
+**Verdict: clean of structural or expressive copying; no rewrite needed.** At 8.6 % overall and at most 14.2 % for
+any file, every matched span is a §8.2 signature or record, a spec table or wire text, a seam method fixed by an MIT
+trait, a published algorithm, or boilerplate. The name coincidences above (`Repaired`, `DataError`, `Ctx`) are each a
+stock rendering of the spec's own words and none carries shared logic, so they are recorded rather than rewritten.
