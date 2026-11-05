@@ -354,10 +354,15 @@ impl Entry {
             return Ok(false);
         }
         let options = HostWriteOptions {
-            probe: true,
+            probe: false,
             parity: true,
         };
-        self.authorize(kind, target, options).await
+        // A refusal here only means "not authoritative"; a guard error is still the empty 500
+        match self.authorize(kind, target, options).await {
+            Ok(allowed) => Ok(allowed),
+            Err(answer) if answer.status() == StatusCode::INTERNAL_SERVER_ERROR => Err(answer),
+            Err(_) => Ok(false),
+        }
     }
 
     fn inventory_ctx<'a>(&'a self, store: &'a IslesStore) -> TxContext<'a> {

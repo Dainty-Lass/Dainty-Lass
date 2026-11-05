@@ -136,7 +136,7 @@ pub(crate) fn system_now_ms() -> i64 {
 
 /// Plain when it is 1 to 128 bytes of ASCII letters, digits and `_ . : -`, else its first 64 characters as a JSON
 /// string; client text in a log line can never start a new one.
-pub(crate) fn log_token(text: &str) -> String {
+pub fn log_token(text: &str) -> String {
     let plain = (1..=128).contains(&text.len())
         && text
             .bytes()

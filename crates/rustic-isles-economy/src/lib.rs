@@ -30,7 +30,7 @@ mod util;
 
 pub use bounties::{challenge_rewards, economy_ledger, entitlements, platinum, wallet};
 pub use caches::EconomyCaches;
-pub use util::{js_number_text, number_value};
+pub use util::{js_number_text, log_token, number_value};
 
 use rustic_isles::Handlers;
 
