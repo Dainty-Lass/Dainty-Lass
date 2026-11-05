@@ -969,6 +969,7 @@ dependencies = [
  "rustic-isles-auth",
  "rustic-isles-director",
  "rustic-isles-gamedata",
+ "rustic-isles-replay",
  "rustic-isles-store",
  "rustls",
  "serde",
@@ -3612,6 +3613,24 @@ dependencies = [
  "service-kit",
  "sha2",
  "tracing",
+]
+
+[[package]]
+name = "rustic-isles-replay"
+version = "0.0.0"
+dependencies = [
+ "aws-lc-rs",
+ "axum",
+ "base64 0.23.1",
+ "percent-encoding",
+ "regex",
+ "rustic-isles",
+ "serde",
+ "serde_json",
+ "service-kit",
+ "sha2",
+ "thiserror",
+ "tokio",
 ]
 
 [[package]]
