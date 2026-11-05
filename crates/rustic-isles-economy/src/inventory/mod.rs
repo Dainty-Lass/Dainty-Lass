@@ -18,8 +18,8 @@ pub mod weapon_level;
 
 pub use ports::{
     AuthRequest, Authentication, Authenticator, BountiesWallet, Caller, CharacterOwnership, Characters, CharactersList,
-    CharactersStarter, CurrencyChange, ExtensionAuthenticator, HostRuntime, InventoryActivity, InventoryActivitySlot,
-    InventoryPorts, LedgerObserver, NoRing, Observer, RingInstances, RingInstancesSlot, StarterBootstrap, Wallet,
+    CurrencyChange, ExtensionAuthenticator, HostRuntime, InventoryActivity, InventoryActivitySlot, InventoryPorts,
+    LedgerObserver, NoRing, Observer, RingInstances, RingInstancesSlot, StarterBootstrap, StarterRecordsCheck, Wallet,
     WalletError,
 };
 pub use routes::{register, routes};

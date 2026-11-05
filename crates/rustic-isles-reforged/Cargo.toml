@@ -32,6 +32,8 @@ rustic-isles.workspace = true
 rustic-isles-auth.workspace = true
 rustic-isles-chat.workspace = true
 rustic-isles-economy.workspace = true
+# The dedicated-hunt activity hook and the presence and candidates the slots read
+rustic-isles-matchmaking.workspace = true
 rustic-isles-store.workspace = true
 serde_json = { workspace = true, features = ["preserve_order"] }
 service-kit.workspace = true

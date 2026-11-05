@@ -29,6 +29,19 @@ pub trait MatchmakingCandidates: Send + Sync {
     fn has_candidate(&self, user_id: &str) -> bool;
 }
 
+/// Matchmaking's own state fills both slots (the composer passes its `MatchmakingState`).
+impl MatchmakingPresence for rustic_isles_matchmaking::MatchmakingState {
+    fn touch(&self, user_id: &str, at_ms: i64) {
+        self.presence().touch(user_id, at_ms);
+    }
+}
+
+impl MatchmakingCandidates for rustic_isles_matchmaking::MatchmakingState {
+    fn has_candidate(&self, user_id: &str) -> bool {
+        rustic_isles_matchmaking::MatchmakingState::has_candidate(self, user_id)
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Readiness {
     pub ready: bool,

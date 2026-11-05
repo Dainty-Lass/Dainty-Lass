@@ -1,0 +1,42 @@
+[package]
+name = "rustic-isles-matchmaking"
+description = "Rustic Isles' matchmaking and parties: the candidate, QoS and party routes, the queues and Go Now releases, the party outbox, the QoS pong, the Director over HTTP and matchmaking's answers to rustic-rifts"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+# Clean-room rewrite from docs/port/spec-rustic-isles-matchmaking.md (RD27,
+# docs/port/clean-room/rustic-isles-matchmaking.md)
+license = "MIT"
+repository.workspace = true
+publish.workspace = true
+
+[features]
+# A fake Director, a bare module state with the 1.14.7 destination rule, a stand-in auth layer, the clock's advance
+test-support = ["rustic-isles/test-support"]
+
+[dependencies]
+axum.workspace = true
+base64.workspace = true
+http.workspace = true
+module-api.workspace = true
+rifts-seam.workspace = true
+rustic-isles.workspace = true
+rustic-isles-auth.workspace = true
+rustic-isles-chat.workspace = true
+rustic-isles-economy.workspace = true
+rustic-isles-store.workspace = true
+serde_json = { workspace = true, features = ["preserve_order"] }
+service-kit.workspace = true
+tokio = { workspace = true, features = ["net", "rt", "sync", "time", "io-util", "macros"] }
+tracing.workspace = true
+
+[dev-dependencies]
+http-body-util.workspace = true
+rustic-isles = { workspace = true, features = ["test-support"] }
+rustic-isles-matchmaking = { path = ".", features = ["test-support"] }
+rustic-isles-store = { workspace = true, features = ["test-support"] }
+tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
+tower.workspace = true
+
+[lints]
+workspace = true

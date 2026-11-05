@@ -798,6 +798,20 @@ impl rustic_isles_economy::bounties::ClaimActivity for ActivityHooks {
     }
 }
 
+impl rustic_isles_matchmaking::HuntActivity for ActivityHooks {
+    fn dedicated_hunt_starts(&self, users: &[String], hunt_id: &str, hunt_ref: &str) {
+        if let Some(shared) = self.shared() {
+            dedicated_hunt_starts(&shared, users, hunt_id, hunt_ref);
+        }
+    }
+
+    fn dedicated_hunt_ends(&self, users: &[String], end_reason: &str) {
+        if let Some(shared) = self.shared() {
+            dedicated_hunt_ends(&shared, users, end_reason);
+        }
+    }
+}
+
 // ------------------------------------------------------------------ the admin's reads (§10.5)
 
 fn range_error(code: &str, message: &str) -> Response {

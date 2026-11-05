@@ -130,7 +130,142 @@ No other crate was changed.
     after a replay-pinned reset reads as an ordinary grant.
 17. **Without the characters area composed**, the starter bootstrap only checks ownership and needs an existing
     inventory, and the first-character lookup only reads (it creates nothing).
+18. **Rewrites after the similarity review** (precautionary, from inventory §10.1, §11.2 and §11.3 only, without
+    the earlier text): `read_test_multipliers` now decides the reason first and builds the record once (the private
+    `off` helper is gone, the factor reader is `parse_factor`), and the default `StarterBootstrap` adapter is
+    `StarterRecordsCheck`. Behaviour is unchanged; the same tests pass.
 
 ## 6. Similarity
 
-To be measured by the coordinator against restricted `e0e238b`.
+Measured by the RD27 reviewer (who may read the AGPL code) with `similarity.md` §1's method, on the crate as committed
+at `14baf050`: every `.rs` file in `src/` and `tests/` against each of the 50 files of restricted `e0e238b`'s
+`modules/rustic-isles/crates/isles-core/` that hold the three areas and the multipliers: `src/areas/inventory.rs` and
+the 15 files of `areas/inventory/`, `src/areas/progression.rs` and the 15 of `areas/progression/` (with
+`testkit/golden.rs`), `src/areas/bounties_store.rs` and the 16 of `areas/bounties_store/` (its `*_tests.rs` files
+among them), `src/areas/matchmaking/multipliers.rs`, and the tests that drive them, `tests/inventory.rs` and
+`tests/common/mod.rs`, the best single file named. "Any" counts a line matched by a 3+-line run in any of the 50.
+Paths in the third column are under `isles-core/src/`; a file with no match names none.
+
+| File | New lines | Best restricted file (old lines) | Matched | % | Any, % |
+| --- | ---: | --- | ---: | ---: | ---: |
+| `src/bounties/challenge_rewards.rs` | 171 | `areas/bounties_store/challenge_rewards.rs` (95) | 32 | **18.7** | 25.1 |
+| `src/bounties/cooldowns.rs` | 395 | `areas/bounties_store/cooldown_state.rs` (323) | 35 | **8.9** | 13.2 |
+| `src/bounties/economy_ledger.rs` | 675 | `areas/bounties_store/economy_ledger.rs` (829) | 82 | **12.1** | 15.3 |
+| `src/bounties/entitlements.rs` | 70 | `areas/bounties_store/entitlements.rs` (75) | 36 | **51.4** | 54.3 |
+| `src/bounties/mod.rs` | 82 | `areas/bounties_store/authn.rs` (337) | 13 | **15.9** | 15.9 |
+| `src/bounties/platinum.rs` | 59 | `areas/bounties_store/platinum.rs` (231) | 27 | **45.8** | 47.5 |
+| `src/bounties/routes.rs` | 1252 | `areas/bounties_store/handlers.rs` (1443) | 97 | **7.7** | 11.4 |
+| `src/bounties/state.rs` | 892 | `areas/bounties_store/bounty_state.rs` (889) | 69 | **7.7** | 12.3 |
+| `src/bounties/store.rs` | 894 | `areas/bounties_store/store.rs` (900) | 202 | **22.6** | 26.6 |
+| `src/bounties/wallet.rs` | 258 | `areas/bounties_store/wallet.rs` (185) | 53 | **20.5** | 31.4 |
+| `src/caches.rs` | 47 | none | 0 | **0.0** | 0.0 |
+| `src/caller.rs` | 17 | none | 0 | **0.0** | 0.0 |
+| `src/inventory/currency.rs` | 154 | `areas/inventory/ports.rs` (564) | 27 | **17.5** | 20.8 |
+| `src/inventory/items.rs` | 681 | `areas/inventory/items.rs` (720) | 100 | **14.7** | 18.2 |
+| `src/inventory/mod.rs` | 24 | none | 0 | **0.0** | 0.0 |
+| `src/inventory/ports.rs` | 314 | `areas/inventory/ports.rs` (564) | 146 | **46.5** | 50.6 |
+| `src/inventory/prestige.rs` | 111 | `areas/inventory/progression_config.rs` (113) | 12 | **10.8** | 17.1 |
+| `src/inventory/reforge.rs` | 360 | `areas/inventory/reforge.rs` (335) | 22 | **6.1** | 15.3 |
+| `src/inventory/routes.rs` | 922 | `areas/inventory/routes.rs` (1006) | 54 | **5.9** | 9.2 |
+| `src/inventory/storage_policy.rs` | 452 | `areas/inventory/storage_policy.rs` (500) | 79 | **17.5** | 22.1 |
+| `src/inventory/transaction.rs` | 627 | `areas/inventory/transaction.rs` (603) | 132 | **21.1** | 23.1 |
+| `src/inventory/validation.rs` | 211 | `areas/inventory/validation.rs` (226) | 51 | **24.2** | 24.6 |
+| `src/inventory/weapon_level.rs` | 84 | `areas/inventory/items.rs` (720) | 8 | **9.5** | 16.7 |
+| `src/lib.rs` | 21 | none | 0 | **0.0** | 0.0 |
+| `src/multipliers.rs` | 271 | `areas/matchmaking/multipliers.rs` (328) | 75 | **27.7** | 28.4 |
+| `src/progression/escalation.rs` | 675 | `areas/progression/escalation.rs` (754) | 85 | **12.6** | 14.2 |
+| `src/progression/journey.rs` | 376 | `areas/progression/journey.rs` (951) | 45 | **12.0** | 15.4 |
+| `src/progression/mastery.rs` | 361 | `areas/progression/mastery.rs` (560) | 22 | **6.1** | 13.9 |
+| `src/progression/mod.rs` | 91 | `areas/progression/ports.rs` (104) | 16 | **17.6** | 22.0 |
+| `src/progression/reforge.rs` | 353 | `areas/progression/reforge.rs` (373) | 142 | **40.2** | 41.9 |
+| `src/progression/routes.rs` | 2360 | `areas/progression/handlers.rs` (972) | 91 | **3.9** | 9.9 |
+| `src/progression/supplies.rs` | 153 | `areas/progression/supplies.rs` (231) | 21 | **13.7** | 17.6 |
+| `src/progression/tracks.rs` | 350 | `areas/progression/tracks.rs` (400) | 59 | **16.9** | 20.9 |
+| `src/test_support.rs` | 64 | none | 0 | **0.0** | 0.0 |
+| `src/tx.rs` | 34 | `areas/progression/escalation.rs` (754) | 3 | **8.8** | 8.8 |
+| `src/util.rs` | 218 | `areas/bounties_store/wallet.rs` (185) | 11 | **5.0** | 7.8 |
+| `tests/bounties.rs` | 360 | `areas/bounties_store/bounty_state_tests.rs` (1768) | 3 | 0.8 | 2.5 |
+| `tests/common/mod.rs` | 692 | `areas/progression/testkit.rs` (460) | 39 | 5.6 | 10.8 |
+| `tests/inventory.rs` | 732 | `areas/bounties_store/bounty_state_tests.rs` (1768) | 9 | 1.2 | 2.0 |
+| `tests/progression.rs` | 679 | `areas/bounties_store/bounty_state_tests.rs` (1768) | 9 | 1.3 | 2.7 |
+| `tests/routes.rs` | 23 | `areas/progression/supplies.rs` (231) | 3 | 13.0 | 13.0 |
+| The 36 `src` files | 14079 | | 1847 | **13.1** | 17.3 |
+| The 5 test files | 2486 | | 63 | **2.5** | 4.8 |
+| All 41 | 16565 | | 1910 | **11.5** | 15.4 |
+
+Five files reach 25 % against their best single file (`bounties/entitlements.rs` 51.4, `inventory/ports.rs` 46.5,
+`bounties/platinum.rs` 45.8, `progression/reforge.rs` 40.2, `multipliers.rs` 27.7); `bounties/wallet.rs` (31.4),
+`bounties/store.rs` (26.6) and `bounties/challenge_rewards.rs` (25.1) also do on the "any" column. The eight fuzz
+targets (`fuzz/fuzz_targets/rustic_isles_economy_*.rs`) have no restricted counterpart and were not measured.
+
+**What the matches are.** Every run of 5 lines or more against any of the 50 files was read: 237 of them over 169
+distinct spans of the crate, 41 of which are, or end in, the `} } #[cfg(test)] mod tests { use super::*; #[test]`
+boilerplate or a run of closing braces. The rest:
+
+- **Ports and seam signatures** (`inventory/ports.rs`, 146 matched lines): `AuthRequest`'s five fields, the
+  `Authentication` answer, `Authenticator`, `CurrencyChange`, `WalletError`'s three variants, the `Wallet` trait's
+  three methods, `CharacterOwnership` with its display text, `StarterBootstrap::ensure` and
+  `Characters::first_character_id` (`58-73`, `94-151`, `193-226`, `250-272`, runs up to 19). Inventory §11.3 gives
+  every port, argument, return type and the error's text; the matched lines are those signatures and the impl heads
+  that repeat them. The impl bodies (the extension authenticator, the bounties wallet, the characters adapters) match
+  only in a 7-line `first().and_then(get("id"))...` chain, §11.3's "its first entry's `id` string".
+- **Spec records and enums in the spec's order**: `TxRequest`, `TxOptions`, `Economy`, `TxError` and its wallet
+  conversion (`inventory/transaction.rs:104-176`; inventory §12, bounties §6.2 I1), `inventory_record`'s fields
+  (`41-58`, the store record), `ReforgeMode`, `ReforgePlan` with `kind()`'s four strings and the P2 to P5 signatures
+  (`progression/reforge.rs:22-88`, `100-106`, `164-169`, `233-240`, `284-290`; progression §11 and inventory P1 to
+  P5), `EconomySource` with its eight texts and the ledger scope (`bounties/economy_ledger.rs:23-81`, bounties §6.2),
+  `PurchaseReason` with its codes and statuses, `SkuItem`, `SkuGrants` and `PurchasePlan` (`bounties/store.rs:37-117`,
+  `644-689`; bounties §4.10's fields), `FundedClaim` and W5/W6's heads (`challenge_rewards.rs:67-89`, `137-143`),
+  `WalletError::Insufficient` (`wallet.rs:37-50`, W2), the bounty and cooldown summaries (`state.rs:279-284`,
+  `cooldowns.rs:122-129`; the spec's camelCase keys in snake case), `Storage` and `PolicyEntry`
+  (`storage_policy.rs:18-41`), `Talent` and `SeasonTuning` (`escalation.rs:79-92`, progression §6's file shape) and
+  `TestMultipliers` with `OFF` (`multipliers.rs:18-30`, inventory §11.2).
+- **Spec tables**: progression's 23 default track ids (`progression/tracks.rs:37-61`, the longest run, 25), the 13
+  Platinum buckets in spend order (`platinum.rs:15-28`), the starter wallet (`wallet.rs:18-24`, W1), the store's nine
+  sections (`store.rs:18-26`, and again in `tests/common/mod.rs:97-104`), the currency-id map (`store.rs:633-642`),
+  the null-valued SKU keys (`store.rs:593-604`, `915-919`), the draft keys (`state.rs:63-67`), the four item-list
+  field names (`validation.rs:119-125`) and the multiplier's refusal reasons in §10.1's order (`multipliers.rs:72-89`).
+- **Spec rules read in the spec's words**: the effective price (`platinum.rs:43-55`, §4.8.3's sentence), the talent
+  build's spend check (`escalation.rs:243-293`: `earned = min(L, max)`, purchases sorted by gate, the spec's
+  `{p}`/`{e}`/`{g}`/`{s}` placeholders as the locals), the level/XP check (`escalation.rs:207-213`), the reforge
+  restore and refuse rows (`progression/reforge.rs:125-147`, §4.5's table), the stale repair's two increments and log
+  line (`263-280`, §4.6), the entitlement grant loop (`entitlements.rs:67-82`, §4.7), the SKU id rule and its message
+  (`store.rs:236-243`), the Tailscale address range (`multipliers.rs:94-107`), and logged texts
+  (`bounties/routes.rs:752-756`, `1019-1023`, `1252-1265`).
+- **Test vectors**: the stacked-apply rows of inventory's table (`inventory/items.rs:561-642`: `MAT`, `NEW` with
+  `"source":"x"`, `CURRENCY_B` 5 then `CURRENCY_A` 7), the bounty state's key order (`state.rs:977-988`), the
+  multiplier settings (`multipliers.rs:184-188`), and the dedicated-only seam stubs in `tests/common/mod.rs:276-315`
+  (`rifts_seam`'s trait methods).
+
+No comment was copied: no comment line of the crate equals a restricted one. Of the 1426 string literals of 12
+characters or more that also occur in the 50 files, 1392 are in the economy, core, store, auth or characters specs;
+the other 34 are templated spec messages written out (`addStackedItems entry has an invalid quantity` for
+`<field> entry has an invalid quantity`), test dates and ids, or Rust fragments the scan caught (`.to_owned(), `).
+242 of the crate's 626 function names and 92 of its 199 type and constant names also occur in restricted. Nearly all
+are the specs' (each spec's module table and W/I/P call tables) or their Node names in snake case; about forty private
+helpers are not written in any spec but are the plain name of a spec concept or route (`check_level_xp`,
+`filter_unlocks`, `save_cooldowns`, `may_read_escalation`, `empty_breadcrumbs`, `is_huntpass_xp_track`,
+`sha256_hex`), and their bodies match no further than the lines above. No unusual structure is shared: the large files
+(`progression/routes.rs` 3.9 %, `bounties/routes.rs` 7.7, `inventory/routes.rs` 5.9, `bounties/state.rs` 7.7,
+`economy_ledger.rs` 12.1, `escalation.rs` 12.6) and the black-box tests (0.8 to 5.6 %) share no dispatcher,
+transaction, merge or ledger logic beyond the lines above.
+
+**The two spans that go beyond the spec.**
+
+1. **`src/multipliers.rs:32-37` (`TestMultipliers::off`).** A private constructor `off(reason)` built as
+   `Self { reason: Some(..), ..Self::OFF }` and called once per refusal in `read_test_multipliers` (`72-83`). The
+   spec names `OFF` and the reasons, not a helper; this one's name, signature and struct-update body coincide with
+   restricted's, and it carries the 18-line run at `18-37` and the 8-line one at `82-89`. A stock shape, but the one
+   private helper in the crate that coincides in name and body.
+2. **`src/inventory/ports.rs:215` (`CharactersStarter`).** The default `StarterBootstrap` adapter's type name, which
+   no spec gives, is identical; with §11.3's signature after it, it makes the 11-line run at `215-226`. The body
+   differs. A name only.
+
+**Verdict: clean of structural or expressive copying, with two small rewrites asked for as a precaution.** Everything
+else is spec-given signatures, records and enums in the spec's order, spec tables and wire texts, rules transcribed
+from the spec's own sentences, pinned test vectors and boilerplate. The rewrites, from inventory §10.1, §11.2 and
+§11.3 only and without looking at the current text: `read_test_multipliers`' refusals without a private `off` helper
+(for instance the reason decided first and the record built once), and `CharactersStarter` renamed in the
+implementer's own words. `entitlements.rs`, `platinum.rs`, `ports.rs`' signatures, `progression/reforge.rs`,
+`wallet.rs`, `store.rs` and `challenge_rewards.rs` need nothing: their matched lines are the specs' signatures, tables
+and rules in the only idiomatic form.
