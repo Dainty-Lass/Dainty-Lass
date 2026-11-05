@@ -76,6 +76,8 @@ None beyond this repository: no crate sources from the cargo registry were opene
 
 - `Cargo.toml`: `rustic-isles` in `[workspace.dependencies]`; `Cargo.lock`. A seam change in a commit of its own. No
   new external dependency (`uuid` is not in the workspace; ids are formatted from `rand` and `sha2`).
+- `tracing-subscriber` (already a workspace dependency) as a dev-dependency of the crate, to capture the CORS line
+  in that test
 - `fuzz/fuzz_targets/rustic_isles_{routes,pipeline_text}.rs`, their `[[bin]]` entries and the `rustic-isles` and
   `service-kit` dependencies in `fuzz/Cargo.toml`, `fuzz/Cargo.lock`
 - `docs/security/rustic-isles.md`, this record
@@ -111,8 +113,11 @@ None beyond this repository: no crate sources from the cargo registry were opene
 8. **The host capability header to the guard.** The request summary carries the header under the name the request
    used, `x-mystic-host-capability` (§3.4); rifts-seam's own constant is `x-rustic-host-capability`. Restricted's
    guard adapter must read the former, or the coordinator renames one side.
-9. **CORS is asked before the count** at the budget mark (a request ref may not live across the count's await): the
-   only difference a client can't see is a `[CORS] Rejected launcher origin` log on a request then refused 429.
+9. **Count, then CORS** (§3.2 steps 3 and 5, §3.5, auth §4.5). The first cut asked launcher CORS before the count
+   (a request ref may not live across the count's await), so a request the budget refused could still log
+   `[CORS] Rejected launcher origin`. Coordinator review restored the order: the count's input is taken from the
+   request first, then the count, then CORS; `the_budget_counts_before_launcher_cors` pins it by status and by the
+   log line.
 10. **`HEAD`** answers drop the body in the dispatcher as well, so a test through `oneshot` sees what hyper sends.
 11. **Patterns**: a `:name` is letters, digits and `_`; a literal holding `:` is refused like the other pattern
     characters. The gauntlet check comes after the bad-param 400, in §3.2 step 4's order.

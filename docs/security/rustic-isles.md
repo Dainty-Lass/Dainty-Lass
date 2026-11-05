@@ -67,6 +67,8 @@ Fuzz targets in `fuzz`:
 
 - [ ] One count per request, before routes; the probes before `GET /internal/v1/metrics` are never counted; the
       hunts prefix is counted first and once (`tests/pipeline.rs`, `budget_placement`).
+- [ ] Launcher CORS runs only after the count: a refused request is a 429 and never reaches CORS
+      (`the_budget_counts_before_launcher_cors`).
 - [ ] Buckets per client `/56` or IPv4 address, per game server address, per host capability as rifts' guard names
       it; a guard error or empty name falls back to the client bucket (`budget_buckets`).
 - [ ] The limiter is auth's, bounded at 16 384 keys.
@@ -103,8 +105,6 @@ Fuzz targets in `fuzz`:
       daily rules and ids; the gateway should drop the headers from the internet (a separate gateway row).
 - [ ] A game server key header selects the higher game-server budget (6000/min per address) before the key is checked.
 - [ ] The cached game data read never refreshes (`load_backend_cached`); a changed file needs a restart.
-- [ ] Launcher CORS is asked before the count at the budget mark; it only logs a rejected origin, so a 429 can follow a
-      `[CORS] Rejected launcher origin` line.
 
 ## Sign-off
 
