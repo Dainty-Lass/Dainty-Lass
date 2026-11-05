@@ -36,8 +36,10 @@ dainty-lass-ui.
   [modules/rustic-isles/ADDITIONAL_TERMS.md](modules/rustic-isles/ADDITIONAL_TERMS.md).
 - Its backend and Director reference sources and Rust ports (`isles-core`, `isles-director`, `isles-chat`,
   `isles-1-14-7`, `isles-1-12-0`) are in [`modules/rustic-isles`](modules/rustic-isles) (from `ParadoxBackend/`
-  and `ParadoxDirector/` at commit `21b9ff5` and tag `dauntless-1.12.0` at `4d5dfaa`), and its realm and Guard
-  ports (`rifts-transport`, `rifts-guard`, `rifts-server`) are in [`modules/rustic-rifts`](modules/rustic-rifts);
+  and `ParadoxDirector/` at commit `21b9ff5` and tag `dauntless-1.12.0` at `4d5dfaa`), and its co-op transport
+  (`ParadoxTransport/`) and the Node vectors recorded from its realm modules are in
+  [`modules/rustic-rifts`](modules/rustic-rifts) (its Rust realm and Guard ports were replaced by dainty-lass's MIT
+  clean-room `rifts-*` crates, RD27, and removed; they stay in this repository's history);
   its game runtime (`ParadoxRuntime/`) and CatalogExporter (`tools/CatalogExporter/`) are in
   [`modules/rustic-isles/native`](modules/rustic-isles/native), and the runtime's loader (`tools/RuntimeLoader/`)
   is in [`native/runtime-loader`](native/runtime-loader). Its launcher, deployment scripts and self-hosting guide

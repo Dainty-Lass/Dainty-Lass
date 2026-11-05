@@ -25,9 +25,13 @@ Paradox does not endorse it. Every change is recorded in the commit history.
   17 October 2026): the transport (`src/`), its self-test (`src/test/`), the build and dependency scripts and
   `tools/`. Its files keep Mystic Paradox's copyright headers.
 - The Rust workspace (`crates/rifts-seam`, `crates/rifts-admission`, `crates/rifts-relay`, `crates/rifts-realms`,
-  `crates/rifts-guard`, `crates/rifts-host`) ports Mystic Paradox's `p2p/`, `realms/`, Guard and launcher realm-hosting
-  modules (`21b9ff5`, `AGPL-3.0-only`) to Rust on `store`. Every file from Mystic Paradox, every Rust port of its
-  modules, and every change made to it here stays under `AGPL-3.0-only` and Mystic Paradox's additional terms.
+  `crates/rifts-guard`, `crates/rifts-host`) ported Mystic Paradox's `p2p/`, `realms/`, Guard and launcher realm-hosting
+  modules (`21b9ff5`, `AGPL-3.0-only`) to Rust on `store`. Those crates were removed on 2026-11-05 (RD27): DaintyLass
+  now builds dainty-lass's clean-room MIT `rifts-*` crates in their place, which contain none of this code. The
+  removed crates stay in the history, under `AGPL-3.0-only` and Mystic Paradox's additional terms.
+- `oracle/tests/vectors/` (`node-admission.json`, `node-relay.json` and their generator `make-vectors.mts`) are data
+  recorded from Mystic Paradox's own admission, relay and ICE modules, and `oracle/tests/*.rs` the ported tests that
+  replay them; both stay under `AGPL-3.0-only` and Mystic Paradox's additional terms.
 - `LICENSE` and `ADDITIONAL_TERMS.md` are copied unchanged from Mystic Paradox.
 
 ### libjuice

@@ -8,9 +8,10 @@ members = [
     # content, gateway and chat, built here where they ship
     "crates/*",
     "launcher/src-tauri",
-    # The game module and its crates (DD6, DD8), and realms (DD14)
+    # The game module and its crates (DD6, DD8)
     "modules/rustic-isles/crates/*",
-    "modules/rustic-rifts/crates/*",
+    # Mystic Paradox's answers replayed against dainty-lass's MIT rifts crates (spec-rd27-rifts 4.3)
+    "modules/rustic-rifts/oracle",
 ]
 # Workspaces of their own: the fuzz targets (nightly), the 1.4.4 importer (an external plugin, host.toml pins it), the
 # runtime loader (Apache-2.0) and the launcher's host fixture
@@ -55,12 +56,12 @@ hmac = "0.13"
 isles-chat = { path = "modules/rustic-isles/crates/isles-chat" }
 # Realms (DD14, RF2): the seam always, the server crates behind isles-1-14-7's realms feature, rifts-host behind the
 # launcher's
-rifts-seam = { path = "modules/rustic-rifts/crates/rifts-seam" }
-rifts-admission = { path = "modules/rustic-rifts/crates/rifts-admission" }
-rifts-relay = { path = "modules/rustic-rifts/crates/rifts-relay" }
-rifts-realms = { path = "modules/rustic-rifts/crates/rifts-realms" }
-rifts-guard = { path = "modules/rustic-rifts/crates/rifts-guard" }
-rifts-host = { path = "modules/rustic-rifts/crates/rifts-host" }
+rifts-seam = { path = "../crates/rifts-seam" }
+rifts-admission = { path = "../crates/rifts-admission" }
+rifts-relay = { path = "../crates/rifts-relay" }
+rifts-realms = { path = "../crates/rifts-realms" }
+rifts-guard = { path = "../crates/rifts-guard" }
+rifts-host = { path = "../crates/rifts-host" }
 gateway = { path = "../crates/gateway" }
 host = { path = "crates/host" }
 launcher = { path = "launcher/src-tauri" }

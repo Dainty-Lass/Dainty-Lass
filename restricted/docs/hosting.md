@@ -244,9 +244,9 @@ On Dauntless 1.14.7 (`isles-1-14-7` with `modules/rustic-rifts`), players can ho
 relay when NAT traversal needs one:
 
 - **Admission keys.** Generate an ES256 admission key pair (`rifts-admission` / `generate-admission-key`) so the
-  backend can sign short-lived `MPT2` admission tickets and per-pair AES-256-GCM transport keys.
+  backend can sign short-lived `RPT2` admission tickets and per-pair AES-256-GCM transport keys.
 - **The TURN relay (`turn-rs`, DD24).** The host kit configures, starts and stops `turn-rs` as its own child process
-  (`modules/rustic-rifts/crates/rifts-transport/src/turn.rs`) with `static-auth-secret` set to `P2P_TURN_REST_SECRET`
+  (`../crates/rifts-transport/src/turn.rs`) with `static-auth-secret` set to `P2P_TURN_REST_SECRET`
   from `secrets.env`. `turn-rs` listens on UDP and TCP 3478 (plus TLS 5349 when a certificate is configured) and
   allocates relay ports from its configured UDP `port-range`, which the allowlist firewall rules open while the
   server runs ([security/turn-relay.md](security/turn-relay.md)).
