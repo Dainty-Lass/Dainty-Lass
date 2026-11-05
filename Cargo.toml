@@ -52,6 +52,8 @@ rustic-isles-director = { path = "crates/rustic-isles-director" }
 rustic-isles-gamedata = { path = "crates/rustic-isles-gamedata" }
 # The Rustic Isles database layer, clean-room MIT (RD27, spec-rustic-isles-store)
 rustic-isles-store = { path = "crates/rustic-isles-store" }
+# The Rustic Isles chat rules and chat area routes, clean-room MIT (RD27, spec-rustic-isles-chat)
+rustic-isles-chat = { path = "crates/rustic-isles-chat" }
 # The transport's ICE agent and TURN client, sans-IO (spec-rd27-rifts D2)
 rtc-ice = { version = "0.21.1", default-features = false, features = ["crypto-aws-lc-rs"] }
 rtc-turn = { version = "0.21.1", default-features = false, features = ["crypto-aws-lc-rs"] }
