@@ -68,6 +68,9 @@ rustic-isles-reforged = { path = "crates/rustic-isles-reforged" }
 rustic-isles-matchmaking = { path = "crates/rustic-isles-matchmaking" }
 # The Rustic Isles database tool: migrate, verify and export-mongo, clean-room MIT (RD27, spec-rustic-isles-db)
 rustic-isles-db = { path = "crates/rustic-isles-db" }
+# Rustic Isles for Dauntless 1.14.7, the version crate and its plugin, clean-room MIT (RD27, spec-rustic-isles-1-14-7)
+rustic-isles-1-14-7 = { path = "crates/rustic-isles-1-14-7" }
+rustic-isles-1-14-7-plugin = { path = "crates/rustic-isles-1-14-7-plugin" }
 # The transport's ICE agent and TURN client, sans-IO (spec-rd27-rifts D2)
 rtc-ice = { version = "0.21.1", default-features = false, features = ["crypto-aws-lc-rs"] }
 rtc-turn = { version = "0.21.1", default-features = false, features = ["crypto-aws-lc-rs"] }

@@ -4101,6 +4101,51 @@ dependencies = [
 ]
 
 [[package]]
+name = "rustic-isles-1-14-7"
+version = "0.0.0"
+dependencies = [
+ "axum",
+ "http",
+ "module-api",
+ "rifts-admission",
+ "rifts-guard",
+ "rifts-realms",
+ "rifts-relay",
+ "rifts-seam",
+ "rustic-isles",
+ "rustic-isles-1-14-7",
+ "rustic-isles-auth",
+ "rustic-isles-characters",
+ "rustic-isles-chat",
+ "rustic-isles-db",
+ "rustic-isles-director",
+ "rustic-isles-economy",
+ "rustic-isles-gamedata",
+ "rustic-isles-matchmaking",
+ "rustic-isles-reforged",
+ "rustic-isles-store",
+ "serde_json",
+ "service-kit",
+ "store",
+ "tempfile",
+ "thiserror 2.0.21",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
+name = "rustic-isles-1-14-7-plugin"
+version = "0.0.0"
+dependencies = [
+ "module-api",
+ "plugin-host",
+ "rustic-isles",
+ "rustic-isles-1-14-7",
+ "serde_json",
+ "tokio",
+]
+
+[[package]]
 name = "rustic-isles-auth"
 version = "0.0.0"
 dependencies = [
