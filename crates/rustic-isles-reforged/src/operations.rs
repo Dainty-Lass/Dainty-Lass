@@ -373,34 +373,43 @@ pub async fn update_policy(ctx: AdminContext) -> Response {
 mod tests {
     use super::*;
 
-    fn record(guard: &str, profile: &str, expires: Option<&str>) -> OperationsPolicyRecord {
+    fn policy_row(expires_at: Option<&str>, profile: &str, enforcement: &str) -> OperationsPolicyRecord {
         OperationsPolicyRecord {
-            guard_enforcement: guard.into(),
+            guard_enforcement: enforcement.into(),
             diagnostics_profile: profile.into(),
             version: 3,
             updated_at: Some("u".into()),
             updated_by: Some("b".into()),
-            diagnostics_expires_at: expires.map(str::to_owned),
+            diagnostics_expires_at: expires_at.map(str::to_owned),
         }
     }
 
     #[test]
     fn normalizing() {
         let now = service_kit::js::date_parse("2026-10-26T12:00:00Z").unwrap();
-        let (kept, bad) = normalize(&record("OBSERVE", "DEVELOPMENT", Some("2026-10-26T13:00:00.000Z")), now);
+        let (kept, bad) = normalize(
+            &policy_row(Some("2026-10-26T13:00:00.000Z"), "DEVELOPMENT", "OBSERVE"),
+            now,
+        );
         assert!(!bad);
         assert_eq!(
             service_kit::jsjson::stringify(&kept.to_json()),
             r#"{"guardEnforcement":"OBSERVE","diagnosticsProfile":"DEVELOPMENT","version":3,"updatedAt":"u","updatedBy":"b","diagnosticsExpiresAt":"2026-10-26T13:00:00.000Z"}"#
         );
-        let (lapsed, _) = normalize(&record("OBSERVE", "DEVELOPMENT", Some("2026-10-26T11:00:00.000Z")), now);
+        let (lapsed, _) = normalize(
+            &policy_row(Some("2026-10-26T11:00:00.000Z"), "DEVELOPMENT", "OBSERVE"),
+            now,
+        );
         assert_eq!(
             (lapsed.diagnostics_profile.as_str(), lapsed.diagnostics_expires_at),
             ("PRODUCTION", None)
         );
-        let (none, _) = normalize(&record("OBSERVE", "DEVELOPMENT", None), now);
+        let (none, _) = normalize(&policy_row(None, "DEVELOPMENT", "OBSERVE"), now);
         assert_eq!(none.diagnostics_profile, "PRODUCTION");
-        let (maybe, bad) = normalize(&record("MAYBE", "DEVELOPMENT", Some("2026-10-26T13:00:00.000Z")), now);
+        let (maybe, bad) = normalize(
+            &policy_row(Some("2026-10-26T13:00:00.000Z"), "DEVELOPMENT", "MAYBE"),
+            now,
+        );
         assert!(bad);
         assert_eq!(
             (
