@@ -116,4 +116,88 @@ or the 1.14.7 client; §13.3's end-to-end runs stay in restricted.
 
 ## 6. Similarity
 
-To be measured by the coordinator against restricted `e0e238b`.
+Measured by the RD27 reviewer (who may read the AGPL code) with `similarity.md` §1's method, on the crate as committed
+at `f7788d1c` (unchanged at `35af8823`): every `.rs` file in `src/` and `tests/` against each of the 5 files of
+restricted `e0e238b`'s `modules/rustic-isles/crates/` that hold the replay harness and its command (`isles-core/src/replay.rs`,
+`isles-db/src/{replay,main,lib}.rs` and `isles-db/tests/replay_test.rs`), the best single file named. "Any" counts a
+line matched by a 3+-line run in any of the 5. Paths in the third column are under `crates/`; a file with no match
+names none.
+
+| File | New lines | Best restricted file (old lines) | Matched | % | Any, % |
+| --- | ---: | --- | ---: | ---: | ---: |
+| `src/capture.rs` | 240 | `isles-core/src/replay.rs` (1787) | 88 | **36.7** | 36.7 |
+| `src/cli.rs` | 198 | none | 0 | **0.0** | 0.0 |
+| `src/compare.rs` | 216 | `isles-core/src/replay.rs` (1787) | 42 | **19.4** | 19.4 |
+| `src/credentials.rs` | 255 | `isles-core/src/replay.rs` (1787) | 35 | **13.7** | 14.1 |
+| `src/ids.rs` | 158 | `isles-core/src/replay.rs` (1787) | 17 | **10.8** | 10.8 |
+| `src/lib.rs` | 54 | `isles-core/src/replay.rs` (1787) | 16 | **29.6** | 29.6 |
+| `src/normalize.rs` | 316 | `isles-core/src/replay.rs` (1787) | 75 | **23.7** | 25.3 |
+| `src/options.rs` | 215 | `isles-db/src/replay.rs` (162) | 52 | **24.2** | 24.2 |
+| `src/request.rs` | 172 | `isles-core/src/replay.rs` (1787) | 55 | **32.0** | 32.0 |
+| `src/runner.rs` | 491 | `isles-core/src/replay.rs` (1787) | 123 | **25.1** | 26.7 |
+| `src/transport.rs` | 212 | `isles-core/src/replay.rs` (1787) | 18 | **8.5** | 9.9 |
+| `tests/cli.rs` | 245 | `isles-db/tests/replay_test.rs` (1207) | 3 | 1.2 | 1.2 |
+| `tests/common/mod.rs` | 106 | `isles-db/tests/replay_test.rs` (1207) | 3 | 2.8 | 2.8 |
+| `tests/compare.rs` | 357 | `isles-db/tests/replay_test.rs` (1207) | 42 | 11.8 | 11.8 |
+| `tests/parsing.rs` | 176 | `isles-db/tests/replay_test.rs` (1207) | 12 | 6.8 | 6.8 |
+| `tests/request.rs` | 165 | `isles-db/tests/replay_test.rs` (1207) | 9 | 5.5 | 5.5 |
+| `tests/runner.rs` | 348 | none | 0 | 0.0 | 0.0 |
+| `tests/substitution.rs` | 235 | `isles-db/tests/replay_test.rs` (1207) | 12 | 5.1 | 5.1 |
+| The 11 `src` files | 2527 | | 521 | **20.6** | 21.3 |
+| The 7 test files | 1632 | | 81 | **5.0** | 5.0 |
+| All 18 | 4159 | | 602 | **14.5** | 14.9 |
+
+Four files reach 25 % against their best single file (`capture.rs` 36.7, `request.rs` 32.0, `lib.rs` 29.6,
+`runner.rs` 25.1); `normalize.rs` also does on the "any" column (25.3). The fuzz target
+(`fuzz/fuzz_targets/rustic_isles_replay_input.rs`) has no restricted counterpart and was not measured.
+
+**What the matches are.** Every run of 5 lines or more against any of the 5 files was read: 45 of them, 6 of which
+are the closing braces of a recursive `Value` walk (`_ => {} } }`, `other => other.clone(), } }`). The rest are the
+public records of §10.1 written with the spec's names in the spec's order, which leaves no other idiomatic form:
+
+- **The capture records** (`capture.rs`, 88): `CaptureBody`'s six variants with `from_wire`/`to_wire`/`is_lossy`
+  (`15-71`; §3.3's shapes and their inverse), `HttpRecord`'s 15 fields (`74-90`, §3.2's table in order, `status` a
+  `u16` because §3.2 bounds it to 0-65535), `ChatRecord`'s 12 (`93-106`), and `parse_capture_str` as one
+  `lines().filter_map(parse_capture_line)` (`234-236`). The `#[allow(clippy::large_enum_variant)]` on
+  `CaptureRecord` (`109`) is the lint clippy raises on §10.1's two-variant shape. `parse_capture_line`'s field reading
+  and `load_corpus` do not match.
+- **The request and answer** (`request.rs`, 55): §6.1's five dropped headers (`21-26`), `PreparedHttpRequest`'s five
+  fields (`34-40`), §6.1's seed `<conn>:<seq>:<method>:<target>` as one `format!` (`158`) and the struct literal that
+  returns the request (`162-168`), `ReplayHttpResponse`'s three fields (`173-177`) and §6.5's form join
+  (`195-199`, `k=v` with `&`).
+- **The run's types** (`runner.rs`, 123): `ReplayEndpoint`'s variants and fields (`27-40`) with its `Debug`
+  (`42-62`, §10.1: URLs shown, a router's Director only as present or not), `ReplayTarget`'s fields and its three
+  constructors (`79-117`, §10.1's names, arguments and pinning), `ReplayConfig` (`125-131`), `ReplayEntryResult`'s
+  and `ReplayReport`'s fields (`144-172`, §10.6's order), `passed()` (§8.4), and the arguments of §10.6's entry line
+  in its order (`235-242`). The run itself (`run_replay`'s loop, the chat connection, the pinning check) matches no
+  further than its first line.
+- **Normalization and comparison** (`normalize.rs`, 75; `compare.rs`, 42): §7.7's fifteen dropped headers
+  (`normalize.rs:21-36`), `NormalizerConfig` with its all-`true` `Default` (`40-54`, §7.1/§10.1), `IdNormalizer::new`
+  as `..Self::default()` over a private `config` field (`124-139`; its four counters are the implementer's own),
+  the ISO-sentinel replacement's `else "<date>"` tail (`172-176`, §7.3 step 6), the `content-type` canonicalization
+  (`235-237`, §7.7's sentence), `normalize_headers`' signature (`243-246`); `DiffKind`'s variants (`compare.rs:25-45`,
+  §8.1's fields) and `compare_http_responses`' signature and status check (`170-182`, §10.1 and §8.2's first step).
+- **Interfaces and errors**: `ReplayError` (`lib.rs:45-57`, §9.5's five texts and §10.1's variants);
+  `ReplayTargetAuth`'s fields (`credentials.rs:30-35`) and `Substituted<T>` (`207-210`), both §10.1;
+  `ReplayOptions`' 19 fields and `Default` (`options.rs:19-65`, runs of 24 and 19: §10.3's list in order, the
+  per-side secrets written `left_`/`right_` plus §10.3's names, the defaults §10.3 gives); `transport.rs:88-93`,
+  §6.4's "second word of the first line" as `split("\r\n")`, `split_whitespace().nth(1)` and a `u16` parse.
+- **Tests**: §13.2's vectors (C4's presence stanzas on conn 9, N4's `$.secondary` with `<uuid#1>`/`<uuid#2>`, in
+  `tests/compare.rs:107-131` and `338-343`) and the expected `DiffKind` literals around them.
+
+No comment was copied: no comment line equals a restricted one. Of the crate's string literals of 12 characters or
+more that also occur in the 5 files, all but a handful are in the replay, core or auth spec; those are regexes
+written straight from the spec's shapes (§7.2's `<token:X>`, §7.3's `code_challenge=` run, §7.8's 100-character run,
+`<plain:...>` as item 10 of this record's §5, "one or more non-`>`"), §13.2 L1's live value extrapolated from its recorded one
+(`cccc3333dddd4444` after `aaaa1111bbbb2222`), timestamps a second apart after §13.2's `2026-10-22T17:00:00.000Z`,
+a patterned test UUID (`tests/compare.rs:121`), XMPP's standard SASL `<success/>` stanza in the mock chat server, and
+two of §10.5's "(and right)"/"(and per-side)" error texts spelled out. No line of `USAGE` equals one of restricted's
+usage text (§10.5 left the wording to the implementer). 45 of the crate's 194 function names also occur in
+restricted; all but `fmt` (the `Debug` impls), `sha256_hex` and `looks_like_dynamic_id` (§5.1's own phrase "looks
+like a dynamic id") are §10.1's. 20 of its 68 type and const names do, all §10.1's. No unusual structure is shared:
+`cli.rs`, `transport.rs` and the black-box tests match at 0 to 12 %, and parsing, substitution, id learning, the
+normalizer's counters, the comparison walk and the runner share no logic beyond the lines above.
+
+**Verdict: clean of structural or expressive copying; nothing to rewrite.** The four files over 25 % are over it
+because §3.2, §6, §7.7, §8.1, §9.5, §10.1, §10.3 and §10.6 fix the public records field by field and in order, and a
+Rust record of those fields has one idiomatic spelling; the logic around them is the implementer's own.
