@@ -133,6 +133,13 @@ replay is still owed (spec §1.3).
 13. **An empty userId** after game auth is treated as missing (the 500 page), as Node's `!userId` would.
 14. **Dependencies**: `uuid` and `thiserror` from §14.1's list are not needed (the replay source makes UUIDs; the
     outbox owner is `replay::random_uuid`); `base64` is an existing workspace dependency.
+15. **Rewritten after the similarity review** (precautionary, coordinator follow-up): `rules.rs`'s `qos_plan` port
+    parse was redone from spec §9 alone without looking at the earlier text: the setting or the version's default,
+    trimmed, then a byte-by-byte digit accumulation that gives up on a non-digit or a sixth digit, and a `u16`
+    conversion with 0 refused (the off/`0` early return and the two `QosPlan` literals are §9's). The Director test's
+    request id is now `trace-0042-alpha`. After merging `feat/rustic-isles-clean-room`, the solo-cancel test also
+    checks the spec's amended §17.2: the cancelled candidate keeps the search's id, and a re-join makes a second
+    Director launch.
 
 ## 6. Similarity
 
