@@ -877,3 +877,44 @@ These settle §12 and override anything above that disagrees.
 - **Item 5:** the Node behaviour, as specified (the oracle).
 - **Items 6-7:** unchanged here; host.toml fields and hostkit labels are later hostkit rows.
 - **Item 8:** its own page, `docs/security/rustic-isles-gamedata.md`, with both fuzz targets.
+
+### Coordinator decisions, amended after implementation (2026-11-05)
+
+Settled from the Node reference after the implementer's questions (provenance record §5 items 8 and 10). They
+override §5.5 and §5.7 where those disagree.
+
+- **§5.5, the refusal.** Node prints, in this order: `store entries : {n}`, the `mode` line (§5.5), an empty line,
+  `VALIDATION PROBLEMS ({n}):`, the first 15 problems each indented two spaces, `  ...and {n} more` when there are
+  more than 15, and last, on the error stream, `ERROR: refusing to proceed until the source entries are
+  well-formed.` (exit 1). Under the Node host kit a host's one-line step summary was the last line printed, so a host
+  saw the refusal, never `store entries`. hostkit's summary of a failed in-process step is the first non-empty line
+  of the error text, so the error text is the refusal line first, then every line Node printed before it, in Node's
+  order and with the empty line kept: `ERROR: refusing ...`, `store entries : {n}`, the `mode` line, the empty line,
+  `VALIDATION PROBLEMS ({n}):`, the problem lines. The refusal is not repeated at the end. Nothing is written and no
+  backup is made, dry run or not. A `null` entry, which crashes Node with a type error, reports the three problems
+  `entry {i}: missing string "id"`, `entry {i} (undefined): missing items[]` and `entry {i} (undefined): missing
+  prices[]`; any other non-object entry (number, string, array) reports the same three, as Node does.
+- **§5.5, the success lines.** Node puts an empty line before `Dry run complete. Nothing written.` and before
+  `Wrote ladyluck_store.json ({n} entries)`; the report keeps both empty lines.
+- **§5.7, the output order.** The whole key `{section}|{tag}|{price}|{id}` is one string, compared with
+  `service_kit::collate::locale_compare` (Node's `localeCompare`), not field by field and not by byte order; the sort
+  is stable, so equal keys keep the order the passes produced them in.
+  - `section`: `2` when the tags include `hp_level_skip_rank`, else `3` when they include `huntpass_store`, else `1`.
+  - `tag`: the tab table is walked in its order and the first tag the SKU carries is taken (else `zzz`). The table
+    only picks the tag; the key holds the tag's **text**, so section 1 comes out in the tags' collation order
+    (`dye_armour`, `hunting_gliders`, `personality_character`, `personality_fabric`, `personality_flaresigil`,
+    `personality_standard`, `skin_armour`, `skin_lantern`, `skin_weapon_ac`, `skin_weapon_cb`, `skin_weapon_dp`,
+    `skin_weapon_eb`, `skin_weapon_ga`, `skin_weapon_ih`, `skin_weapon_ms`, `social_arrival`, `social_emojis`,
+    `social_emote`, `supplies_boost`, `supplies_supplies`, then `zzz`), not in the table's order. A SKU with both
+    `skin_armour` and `skin_weapon_cb` sorts under `skin_weapon_cb` (earlier in the table).
+  - `price`: the first `prices` entry's `price` turned to text as JavaScript's `String()` does (a number as JS prints
+    it, a string as it is), then padded on the left with `0` to at least 6 characters and never cut: `500` gives
+    `000500`, `1200000` gives `1200000`, `12.5` gives `0012.5`, `-5` gives `0000-5`, `"500"` gives `000500`. It is
+    compared as text, not as a number. Every emitted SKU has a price that is neither `null` nor absent (passes 1-3
+    skip a `null` price as missing; pass 4's is an integer), and real captures hold only non-negative integers.
+  - `id`: the SKU's `id` as `String()` gives it.
+- **Whether the MIT crate matches** (`crates/rustic-isles-gamedata` at `4bc7ca77`): §5.7's order matches for the
+  section, the tag text, the collation and every non-negative integer price; its price part turns any other value
+  (a fraction, a negative, a string) into `000000` or a signed pad and should follow the `String()` rule above.
+  §5.5 does not match: its error ends with the refusal instead of starting with it, and its success reports leave
+  out the two empty lines.

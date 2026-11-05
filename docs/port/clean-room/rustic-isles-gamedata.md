@@ -129,4 +129,81 @@ None beyond this repository: no crate sources from the cargo registry were opene
 
 ## 6. Similarity
 
-To be measured by the coordinator against restricted `e0e238b`.
+Measured by the RD27 reviewer (who may read the AGPL code) with `similarity.md` §1's method, on the crate as committed
+at `4bc7ca77` (unchanged at `e9bd9b3b`): every `.rs` file in `src/` and `tests/` against each of the 13 files of
+restricted `e0e238b`'s `modules/rustic-isles/crates/isles-core/` that hold the game-data area and its generators
+(`src/areas/game_data.rs`, `src/game_data.rs`, the 9 files of `src/game_data/`, and the tests that drive them,
+`tests/{gamedata_generators,pipeline}.rs` and `tests/common/mod.rs`), the best single file named. "Any" counts a line
+matched by a 3+-line run in any of the 13. Paths in the third column are under `isles-core/`; a file with no match
+names none.
+
+| File | New lines | Best restricted file (old lines) | Matched | % | Any, % |
+| --- | ---: | --- | ---: | ---: | ---: |
+| `src/areas.rs` | 262 | `src/areas/game_data.rs` (323) | 13 | **5.0** | 5.0 |
+| `src/gauntlet.rs` | 46 | `src/game_data/gauntlet.rs` (62) | 16 | **34.8** | 43.5 |
+| `src/generators/io.rs` | 209 | `src/game_data/gauntlet.rs` (62) | 6 | **2.9** | 3.3 |
+| `src/generators/ladyluck.rs` | 262 | `src/game_data/generators.rs` (2449) | 15 | **5.7** | 5.7 |
+| `src/generators/mod.rs` | 99 | none | 0 | **0.0** | 0.0 |
+| `src/generators/platinum.rs` | 679 | `src/game_data/generators.rs` (2449) | 34 | **5.0** | 7.1 |
+| `src/generators/policy.rs` | 126 | `src/game_data/generators.rs` (2449) | 16 | **12.7** | 15.9 |
+| `src/generators/pretty.rs` | 99 | `src/game_data/generators.rs` (2449) | 11 | **11.1** | 16.2 |
+| `src/generators/progression.rs` | 53 | `src/game_data/generators.rs` (2449) | 3 | **5.7** | 5.7 |
+| `src/generators/reward_cache.rs` | 338 | `src/game_data/generators.rs` (2449) | 33 | **9.8** | 10.9 |
+| `src/generators/slayers.rs` | 209 | `src/game_data/generators.rs` (2449) | 18 | **8.6** | 10.0 |
+| `src/lib.rs` | 53 | `src/game_data/gauntlet.rs` (62) | 4 | **7.5** | 7.5 |
+| `src/patchnotes.rs` | 70 | `src/game_data/patchnotes.rs` (86) | 9 | **12.9** | 12.9 |
+| `src/progression_config.rs` | 251 | `src/game_data/progression_config.rs` (297) | 42 | **16.7** | 17.9 |
+| `src/tuning.rs` | 101 | `src/game_data/tuning.rs` (105) | 87 | **86.1** | 86.1 |
+| `tests/generators.rs` | 874 | `src/game_data/progression_config.rs` (297) | 12 | 1.4 | 1.4 |
+| `tests/routes.rs` | 557 | `tests/pipeline.rs` (686) | 16 | 2.9 | 4.1 |
+| The 15 `src` files | 2857 | | 307 | **10.7** | 12.1 |
+| The 2 test files | 1431 | | 28 | **2.0** | 2.4 |
+| All 17 | 4288 | | 335 | **7.8** | 8.9 |
+
+Two files reach 25 % against their best single file (`tuning.rs` 86.1, `gauntlet.rs` 34.8). The fuzz targets
+(`fuzz/fuzz_targets/rustic_isles_gamedata_{windows,formats}.rs`) have no restricted counterpart and were not measured.
+
+**What the matches are.** Every run of 5 lines or more against any of the 13 files was read: 24 of them over 21
+distinct spans of the crate, 3 of which are the `} #[cfg(test)] mod tests { use super::*; #[test]` boilerplate. The
+rest, and the shorter runs in the large files:
+
+- **§3.4's wire JSON** (`tuning.rs`, 87 lines): the seven payloads written as `json!` literals, one key per line in
+  §3.4's key order (`tuning.rs:11-24`, `46-74`, `76-98`, `100-117`, runs of 12 to 27), under §8.2's function names.
+  Every key and value is §3.4's; what is shared beyond them is the layout (which small objects sit on one line,
+  such as `GlobalConfig` and each `bounty_data` entry). The grant list `item_grant_data` matches only in its closing
+  lines.
+- **The Gauntlet stubs** (`gauntlet.rs`, 16): §8.2's five payload functions, each one `json!` of §3.5's value, and
+  `progression_payload`'s Unicode lower-case test (§3.5) in its only form (`gauntlet.rs:15-25`, `29-38`).
+- **Spec tables in the spec's order**: the Slayer's Path unlock gates (§5.2, `slayers.rs:17-28`), the platinum
+  exclusion tags (§5.7, `platinum.rs:24-32`), `RewardCacheCategory`'s six variants with its `as_str` and `tag`
+  matches (§8.2, §5.4; `reward_cache.rs:17-57`), the trials leaderboard document (§3.3, `areas.rs:243-249`), the
+  patch-notes structure (§3.6, `patchnotes.rs:18-36`), and `envelope` (§2, `lib.rs:69-70`).
+- **Seam signatures and spec log texts**: `progression_config::served` (§8.2's signature over core's two
+  `ProgressionConfigRule` variants, `progression_config.rs:21-32`), the window rewrite's counters, template guard and
+  closing log (§3.7's step order and its two log texts, `progression_config.rs:100-112`, `129-160`), and the
+  generator heads `(…, source_version, apply) -> Result<String, String>` and `(…, capture_dir, data_dir)` (§8.2).
+- **Short idiom runs** (3-4 lines) in `platinum.rs`, `ladyluck.rs`, `policy.rs`, `pretty.rs` and `io.rs`: `serde_json`
+  accessor chains (`.and_then(Value::as_array).cloned().unwrap_or_default()`), `} else { json!(1) };`, the
+  comma-between-items loop of a pretty printer (`pretty.rs:44-48`, `57-60`; §2.1), and closing braces before
+  a report's `.join`. None carries logic beyond the line.
+
+No comment was copied: no comment line of 20 characters or more equals a restricted one. Of the crate's string
+literals of 12 characters or more that also occur in the 13 files, all are §3-§5's wire, report and error texts or
+test vectors derived from them (the season window dates, §3.7's worked example, core's replay header); the rest of the
+hits are fragments between two literals. 55 of the crate's 187 function names also occur in restricted; all but
+`gauntlet_config`, `backup_stamp` and `reconstructed_price` (the plain names for B47, §4.2's backup stamp and §5.7's
+"reconstructed price") are the spec's (§8.2), core's `VersionHooks` methods the test version implements, or generic
+test helpers (`send`, `post_json`, `patch_notes`). No unusual structure is shared: the generators, which hold most of
+the crate's logic, match their restricted counterpart at 3 to 13 %, and the platinum passes, the Lady Luck enrich
+checks, the policy walk, the Reward Cache selection and the pretty printer share nothing beyond the lines above.
+
+**The one span that goes beyond the spec.** **`src/tuning.rs` (whole file, 86.1 %).** The content is §3.4's, and a
+constant `json!` per payload is the idiomatic form; but the line layout of each literal is the implementer's choice
+and agrees with restricted's line for line, which makes it the one file that reads as a copy.
+
+**Verdict: clean of structural or expressive copying, with one small rewrite asked for as a precaution.** Everything
+else is spec-given wire and report text, tables in the spec's order, §8.2's signatures, test vectors and
+boilerplate. The rewrite, from §3.4 only and without looking at the current text: `src/tuning.rs`'s seven payloads
+in a form of the implementer's own (for instance each one parsed once from §3.4's one-line JSON text, which keeps the
+key order, or a different literal layout). `gauntlet.rs` needs nothing: its matched lines are §3.5's five values in
+the only form they take.
