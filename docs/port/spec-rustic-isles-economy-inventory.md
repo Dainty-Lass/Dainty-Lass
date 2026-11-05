@@ -1136,3 +1136,5 @@ These settle §14 and override anything above that disagrees.
 - **Item 7:** `ApplyCurrencyDeltas`, the prestige gate and the Sparkforge conversion belong to this part, on the
   bounties part's wallet primitives (W1-W8); the bounties spec is reconciled to match.
 - **Security page:** one page for the crate, `docs/security/rustic-isles-economy.md`, with a section per part.
+- **Amended with the progression spec:** the shared multiplier reader (§10.1) reads text as JavaScript `Number` does
+  (parity), not digits only; §12.3's I5 is also called by progression's session-supplies refill.
