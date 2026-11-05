@@ -112,4 +112,103 @@ Generic library sources in the cargo registry, for API shapes only: `windows` 0.
 
 ## 6. Similarity
 
-To be measured by the coordinator against restricted `e0e238b`.
+Measured by the RD27 reviewer (who may read the AGPL code) with `similarity.md` §1's method, on the crate as merged at
+`772e3c3d`: every `.rs` file in `src/` and `tests/` against each of the 24 `.rs` files of restricted `e0e238b`'s
+`modules/rustic-isles/crates/isles-director/` (`src/`, `src/bin/` and `tests/`), the best single file named. "Any"
+counts a line matched by a 3+-line run in any of the 24. Paths in the third column are under `isles-director/`; a
+file with no match names none.
+
+| File | New lines | Best restricted file (old lines) | Matched | % | Any, % |
+| --- | ---: | --- | ---: | ---: | ---: |
+| `src/api.rs` | 133 | `src/api.rs` (130) | 22 | **16.5** | 19.5 |
+| `src/bin/rustic-isles-fake-gameserver.rs` | 128 | `src/bin/isles-fake-gameserver.rs` (125) | 13 | **10.2** | 12.5 |
+| `src/cmdline.rs` | 62 | `src/cmdline.rs` (51) | 25 | **40.3** | 45.2 |
+| `src/config.rs` | 217 | `src/config.rs` (130) | 20 | **9.2** | 10.6 |
+| `src/gameservers.rs` | 1039 | `src/gameservers.rs` (1257) | 98 | **9.4** | 10.5 |
+| `src/hub.rs` | 643 | `src/hub.rs` (332) | 93 | **14.5** | 17.9 |
+| `src/hunt.rs` | 853 | `src/hunt.rs` (633) | 93 | **10.9** | 15.7 |
+| `src/hunt_tables.rs` | 1318 | `src/hunt_tables.rs` (1476) | 161 | **12.2** | 14.9 |
+| `src/launcher.rs` | 55 | `src/process.rs` (220) | 26 | **47.3** | 54.5 |
+| `src/lib.rs` | 271 | `src/lib.rs` (319) | 80 | **29.5** | 29.5 |
+| `src/matchmaker.rs` | 179 | `src/gameservers.rs` (1257) | 11 | **6.1** | 10.1 |
+| `src/memory.rs` | 255 | `src/memory.rs` (167) | 28 | **11.0** | 20.4 |
+| `src/occupancy.rs` | 194 | `src/occupancy.rs` (137) | 41 | **21.1** | 23.7 |
+| `src/os.rs` | 343 | `src/win_spawn.rs` (273) | 43 | **12.5** | 20.7 |
+| `src/port_pool.rs` | 143 | `src/port_pool.rs` (81) | 42 | **29.4** | 35.7 |
+| `src/process.rs` | 201 | `src/gameservers.rs` (1257) | 17 | **8.5** | 14.4 |
+| `tests/common/mod.rs` | 256 | `tests/common/mod.rs` (317) | 17 | 6.6 | 9.4 |
+| `tests/e2e.rs` | 316 | `tests/director.rs` (474) | 51 | 16.1 | 16.1 |
+| `tests/hunt.rs` | 197 | `tests/hunt.rs` (370) | 13 | 6.6 | 6.6 |
+| `tests/import.rs` | 170 | `tests/hunt.rs` (370) | 3 | 1.8 | 3.5 |
+| `tests/module.rs` | 123 | none | 0 | 0.0 | 0.0 |
+| The 16 `src` files | 6034 | | 813 | **13.5** | 17.0 |
+| The 5 test files | 1062 | | 84 | 7.9 | 8.9 |
+| All 21 | 7096 | | 897 | **12.6** | 15.8 |
+
+Four files reach 25 % against their best single file (`launcher.rs` 47.3, `cmdline.rs` 40.3, `lib.rs` 29.5,
+`port_pool.rs` 29.4); all four are short (55 to 271 lines). The five fuzz targets
+(`fuzz/fuzz_targets/rustic_isles_director_*.rs`) have no restricted counterpart and were not measured.
+
+**What the matches are.** Every run of 5 lines or more against any of the 24 files was read: 66 of them over 57
+distinct spans of the crate, 9 of which are, or end in, the `} #[cfg(test)] mod tests { use super::*; #[test]`
+boilerplate. The rest:
+
+- **§12.2's interface** (`lib.rs`, 80 matched lines; `launcher.rs`; `port_pool.rs`; parts of `hub.rs`, `memory.rs`,
+  `hunt.rs`, `hunt_tables.rs`, `config.rs`): the `pub mod` list (`lib.rs:16-25`), `GameserverArgs` and
+  `DirectorConfig` with their fields (`44-48`, `94-99`), `DirectorService`'s `new`/`with_launcher`/`config`/`director`
+  (`179-197`), the `DedicatedServers` and `PortService` impls (`140-169`, `231-292`: the method heads `rustic_isles`
+  fixes, the port `director`); `Command`, `Exit`, `Started`, `Launcher` and `OsLauncher` (`launcher.rs:14-65`);
+  `Lease` and `PortPool` with §12.2's method names over §6's FIFO of free ports and leases held in the order taken
+  (`port_pool.rs:6-42`, `90-98`: the one-line bodies of `new`, `take`, `free_count`, `held_count`); `Level` and
+  `Options::new` over §12.2's field list (`hub.rs:33-43`, `98-107`); `MemoryAdmission::with(options, available, now)`
+  (`memory.rs:128-164`); `Tables`, `ResolverOptions::new`, `HuntResolver::new` and the head of
+  `tag_routed_matchmaker_hunt_ids` (`hunt.rs:56-61`, `289-295`, `340-345`, `398-404`); `ImportHuntTablesOptions`,
+  `ImportHuntTablesReport` and `TableMergeSummary`'s fields (`hunt_tables.rs:107-145`); `Config::from_settings`'s
+  head (`config.rs:113-118`); `GameServer`'s first fields (`gameservers.rs:98-102`, §3.4's instance fields).
+- **§5.3's quoting rule** (`cmdline.rs`, 25): the loop counting backslashes and writing `2n+1` of them before an
+  escaped `"` and `2n` before the closing quote (`cmdline.rs:15-37`) is the MSVC rule §5.3 states, in its stock form
+  (Rust's standard library quotes the same way); `needs_quotes`, the `other` arm and `command_line`'s body do not
+  match.
+- **Spec tables and wire text**: §10.2's two game-type lists (`hunt_tables.rs:22-45`), §10.4's FName fields
+  (`48-59`), §10.3's player and matchmaker key orders (`61-101`, runs of 23 and 16); §12.4's switches in the unit and
+  black-box tests (`lib.rs:300-306`, `tests/common/mod.rs:26-32`, `tests/e2e.rs:129-134`); §9.2's `no Rows` error
+  (`hunt.rs:79-88`); §9.4's any/all/none combinators (`hunt.rs:213-217`); §11's `GAMESERVER_LOG_CMDS` check
+  (`lib.rs:51-55`); §7.4's edge grammar read in its order (digits, ` connCount `, a signed integer, ` -> `;
+  `occupancy.rs:19-22`, `33-39`) and its re-base/poll state (position, partial line, count; `48-61`, `78-85`); §3.2's
+  200/503 (`api.rs:51-55`) and D4's registration (`api.rs:70-90`); §14.2's Instances row as assertions in its order
+  (`tests/e2e.rs:180-186`); §8's option defaults and problem text in `memory.rs`'s tests; §7.1's log lines in
+  `hub.rs`.
+- **Platform calls** (`os.rs`, 43): the job object with kill-on-close (`os.rs:63-74`), `CreateProcessW`'s argument
+  list (`203-209`), the environment block's closing NULs (`133-137`) and Linux's `PR_SET_PDEATHSIG` (`353-358`): the
+  sequences the `windows` and `libc` APIs dictate for §5.7. The job code and its two `SAFETY` comments also stand,
+  word for word, in this repository's MIT `crates/module-api/src/tree.rs`, which §2 lists as read and §12.5 names as
+  the pattern.
+
+No comment was copied: the two comment lines that equal restricted ones are those `SAFETY` comments (`os.rs:48`,
+`66`), from `tree.rs`. Of the crate's string literals of 12 characters or more that also occur in the 24 files, all
+but a few are the spec's: the exceptions are §5.5's `M/D/YYYY, h:mm:ss AM` written as a `chrono` pattern
+(`gameservers.rs:506`), §5.11's `Training Dojo down ({reason})! Restarting!` (which the check split at its `{`),
+column names counted once per use, test fixture names (`tests/hunt.rs:32`, `55-56`, `tests/e2e.rs:291`), tokio's
+`multi_thread` flavour, and the two pipe errors `no stdout pipe`/`no stderr pipe` (`os.rs:364-365`), the only shared
+literals no spec gives. 143 of the crate's 347 function names also occur in restricted; all but about two dozen are
+§12.2's, `std` trait methods or the seam traits' (`PortService`, `DedicatedServers`, `TreeControl`); the rest are
+plain names for a spec step (`express_404`, `start_server`, `on_process_exit`, `live_hub`, `arena_week`,
+`signal_name`, `merge_row`, `merge_table`, `read_json`, `handle_key` and the like), except `code_text` and
+`signal_text` (below). No unusual structure is shared: the large files (`gameservers.rs`, `hunt.rs`,
+`hunt_tables.rs`, `hub.rs`, the black-box tests) match at 2 to 16 %, and the registry, the start and readiness path,
+the supervisor, the resolver, the tag query, the importer's merge, the Windows pipes and the shutdown share no logic
+beyond the lines above.
+
+**The one span that goes beyond the spec.** `src/launcher.rs:29-36`: `Exit::code_text` and `Exit::signal_text`, two
+helpers the spec does not name, whose names and one-line bodies (`null` for none, through `map_or_else` and
+`unwrap_or_else`) are identical to a restricted pair. They render §5.5's `code={code or null} signal={signal or
+null}`, so the behaviour is the spec's and each line is a stock choice; but following `Exit`'s spec-given fields they
+make an 11-line run the spec alone does not explain.
+
+**Verdict: clean of structural or expressive copying, with one small rewrite asked for as a precaution.** Everything
+else is §12.2's interface, §10's and §12.4's tables, §5.3's and §7.4's rules in their stock form, the platform APIs'
+call sequences (shared with the MIT `tree.rs`), pinned test vectors and boilerplate. The rewrite, from §5.5 and §12.2
+only and without looking at the current text: how an `Exit` becomes the log's `code=`/`signal=` text (for instance a
+formatter at the call site, or a helper of another shape and name). Optionally, the `no stdout pipe`/`no stderr
+pipe` texts (`os.rs:364-365`) in the implementer's own words. `cmdline.rs`, `lib.rs` and `port_pool.rs` need
+nothing: their matched lines are §5.3's rule, §12.2's signatures and §6's pool in the only idiomatic form.
