@@ -164,14 +164,6 @@ pub(crate) fn obj(pairs: Vec<(&str, Value)>) -> Value {
     Value::Object(map)
 }
 
-pub(crate) fn text_of(value: Option<&Value>) -> Option<&str> {
-    value.and_then(Value::as_str)
-}
-
-pub(crate) fn non_empty_str(value: Option<&Value>) -> Option<&str> {
-    text_of(value).filter(|s| !s.is_empty())
-}
-
 // ------------------------------------------------------------------ answers
 
 pub(crate) fn empty(status: StatusCode) -> Response {

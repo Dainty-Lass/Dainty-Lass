@@ -30,3 +30,4 @@ pub use transaction::{
 };
 
 pub(crate) use ports::ring_instance;
+pub(crate) use routes::module_id;
