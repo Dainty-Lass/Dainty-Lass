@@ -100,10 +100,45 @@ pub static TABLES: VersionTables = VersionTables {
     starter_manifest: StarterManifest {
         // Stored in existing rows: must stay byte-equal (§14 item 17)
         bootstrap_version: "starter-1.12-v5",
-        // Wire facts by the maintainer's 2026-11-05 ruling, but their values are not in any spec this crate was
-        // written from: the maintainer fills both lists (24 stacked ids; eight emoji ids then one empty text)
-        stacked_item_ids: &[],
-        quick_emoji_wheel: &[],
+        // Wire facts (maintainer's ruling, 2026-11-05): written to a new account's stacked items in this order
+        stacked_item_ids: &[
+            "TOKEN_DAILY_CHALLENGE_DRAFT",
+            "QI_BASIC_FLARE_DURABLE",
+            "EM_INTRO_BEGINNER_01",
+            "EM_END_BEGINNER_01",
+            "EM_PLAYER_BEGINNER_01",
+            "EM_PLAYER_BEGINNER_02",
+            "EM_PLAYER_BEGINNER_03",
+            "EM_PLAYER_BEGINNER_04",
+            "BNC_MESH_BEGINNER_00",
+            "BNC_FABRIC_BEGINNER_00",
+            "BNC_SIGIL_BEGINNER_00",
+            "BNC_ANIMATION_BEGINNER_00",
+            "BNC_VFX_BEGINNER_00",
+            "DYE_GREEN04_DURABLE",
+            "DYE_BROWN07_DURABLE",
+            "EJ_SYSTEM_TYPING",
+            "EJ_PLAYER_BOSUN_JOY",
+            "EJ_PLAYER_KAT_PRAY",
+            "EJ_PLAYER_MOYRA_MUSCLE",
+            "EJ_PLAYER_GREGARIO_QUESTION",
+            "EJ_PLAYER_MIDDLEMAN_HMM",
+            "EJ_PLAYER_PRIYANI_WINK",
+            "EJ_PLAYER_ZAI_ANGRY",
+            "EJ_PLAYER_ZAI_SWEAT",
+        ],
+        // The index is the in-game slot; 1.14.7 has the wheel, so it is never empty (characters §6.3)
+        quick_emoji_wheel: &[
+            "EJ_PLAYER_BOSUN_JOY",
+            "EJ_PLAYER_KAT_PRAY",
+            "EJ_PLAYER_MOYRA_MUSCLE",
+            "EJ_PLAYER_GREGARIO_QUESTION",
+            "EJ_PLAYER_MIDDLEMAN_HMM",
+            "EJ_PLAYER_PRIYANI_WINK",
+            "EJ_PLAYER_ZAI_ANGRY",
+            "EJ_PLAYER_ZAI_SWEAT",
+            "",
+        ],
     },
     // The 1.14.7 QoS fix: unset is 80
     switch_defaults: &[

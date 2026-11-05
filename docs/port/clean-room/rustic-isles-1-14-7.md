@@ -61,10 +61,13 @@ the real 1.14.7 client.
 
 ## 5. Deviations and ambiguities, and how they were resolved
 
-1. **The starter manifest's lists are empty.** The maintainer ruled the 24 stacked ids and the quick-emoji wheel wire
-   facts to commit (decision item 1), but their values are in no document this implementer may read. `TABLES` carries
-   empty lists with a comment; the maintainer fills them. Until then a new character gets no starter stacked items
-   and no quick-emoji wheel.
+1. **The starter manifest's lists (resolved).** The maintainer ruled the 24 stacked ids and the quick-emoji wheel
+   wire facts to commit (decision item 1), but at first their values were in no document this implementer could
+   read, so `TABLES` carried empty lists. The spec's closing subsection "starter manifest wire facts" (merged from
+   `feat/rustic-isles-clean-room` at `5304f463`) then gave them; `TABLES` now holds the bootstrap version, the 24
+   stacked ids and the nine wheel slots exactly as given, pinned by `starter_manifest_wire_facts` (counts, order,
+   the wheel never empty, every wheel id a stacked id). No characters test assumed empty lists: the characters
+   crate's tests use their own tables.
 2. **`starterManifest` in `version_data.json`** existed only under option B; option A was ruled, so the member is
    refused as unknown.
 3. **The QoS port.** Core's `ComposeInputs` carried no ports, so the composer could not bind the pong on the assigned
