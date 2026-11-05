@@ -4,12 +4,13 @@
 //! The composer seam (core spec §11.4): what restricted implements with today's areas until each is ported, and
 //! what a bare test module composes with nothing.
 
+use std::collections::BTreeMap;
 use std::sync::Arc;
 
 use module_api::chat::{ChatAnswer, ChatQuery};
 use module_api::{
     ActorContext, AdminCall, AdminResponse, BoxFuture, ErrorKind, GlobalId, ModuleContext, ModuleError, ModuleId,
-    NodeIdentity,
+    NodeIdentity, PortRange,
 };
 use rustic_isles_auth::{AuthStore, Seams};
 use serde_json::Value;
@@ -34,6 +35,8 @@ pub struct ComposeInputs {
     pub game_data: GameDataRoot,
     /// Open the database (off the async threads) only when this is set
     pub database_wanted: bool,
+    /// The config's assigned ports by manifest name (the QoS pong binds the `qos` one)
+    pub ports: BTreeMap<String, PortRange>,
 }
 
 /// A listener an area started (the QoS pong), recorded after the services.
