@@ -31,7 +31,7 @@ pub use routes::{
     Clock, SLAYER_LINK_MAX_ACCOUNTS, include_pending, register, register_with, slayer_link_availability,
     slayer_link_status,
 };
-pub use rules::{ChatRules, IslesChat};
+pub use rules::{ChatRules, IslesChat, room_kind_of};
 pub use source::StoreChat;
 
 /// The captured logical XMPP domain.

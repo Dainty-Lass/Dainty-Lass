@@ -967,6 +967,7 @@ dependencies = [
  "rifts-transport",
  "rustic-isles",
  "rustic-isles-auth",
+ "rustic-isles-chat",
  "rustic-isles-director",
  "rustic-isles-gamedata",
  "rustic-isles-store",
@@ -3577,6 +3578,24 @@ dependencies = [
  "tokio-rustls",
  "tracing",
  "webpki-roots",
+]
+
+[[package]]
+name = "rustic-isles-chat"
+version = "0.0.0"
+dependencies = [
+ "axum",
+ "http",
+ "http-body-util",
+ "module-api",
+ "percent-encoding",
+ "rustic-isles",
+ "rustic-isles-auth",
+ "rustic-isles-store",
+ "serde_json",
+ "service-kit",
+ "tracing",
+ "ulid",
 ]
 
 [[package]]

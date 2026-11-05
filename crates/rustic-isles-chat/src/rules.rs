@@ -5,7 +5,7 @@
 //! another version can override one and keep the rest.
 
 use module_api::chat::{ChatAnswer, ChatQuery, Jid, RoomKind, RoomRules};
-use module_api::{BoxFuture, ErrorKind, GlobalId, IdKind, ModuleError, Region};
+use module_api::{BoxFuture, ErrorKind, GlobalId, IdKind, ModuleError, NodeIdentity, Region};
 use rustic_isles::replay;
 
 use crate::hubs::HubSessions;
@@ -135,22 +135,7 @@ pub trait ChatRules: Send + Sync {
 
     /// §5.3; never reads the store. Only names the plugin's own naming refused reach it.
     fn room_of(&self, source: &dyn ChatSource, hubs: &HubSessions, name: &str) -> Option<RoomKind> {
-        let node = source.node();
-        if let Some(rest) = name.strip_prefix("Party-") {
-            return instance_id(rest, IdKind::Party, &node.node).map(RoomKind::Party);
-        }
-        if let Some(rest) = name.strip_prefix("Hunt-") {
-            return instance_id(rest, IdKind::Hunt, &node.node).map(RoomKind::Hunt);
-        }
-        let rest = name.strip_prefix("City-")?;
-        if let Some(region) = hubs.region_of_hub(rest, replay::now_ms()) {
-            return Some(RoomKind::Region(region));
-        }
-        if let Ok(region) = Region::new(rest) {
-            return Some(RoomKind::Region(region));
-        }
-        // DD21: one room per region, so any other hub names this node's
-        (!rest.is_empty()).then(|| RoomKind::Region(node.region.clone()))
+        room_kind_of(name, source.node(), hubs, replay::now_ms())
     }
 
     fn account_of<'a>(
@@ -160,6 +145,25 @@ pub trait ChatRules: Send + Sync {
     ) -> BoxFuture<'a, Result<Option<GlobalId>, ModuleError>> {
         source.account_of(local)
     }
+}
+
+/// What a room local part names on `node` at `now` (§5.3).
+pub fn room_kind_of(name: &str, node: &NodeIdentity, hubs: &HubSessions, now: i64) -> Option<RoomKind> {
+    if let Some(rest) = name.strip_prefix("Party-") {
+        return instance_id(rest, IdKind::Party, &node.node).map(RoomKind::Party);
+    }
+    if let Some(rest) = name.strip_prefix("Hunt-") {
+        return instance_id(rest, IdKind::Hunt, &node.node).map(RoomKind::Hunt);
+    }
+    let rest = name.strip_prefix("City-")?;
+    if let Some(region) = hubs.region_of_hub(rest, now) {
+        return Some(RoomKind::Region(region));
+    }
+    if let Ok(region) = Region::new(rest) {
+        return Some(RoomKind::Region(region));
+    }
+    // DD21: one room per region, so any other hub names this node's
+    (!rest.is_empty()).then(|| RoomKind::Region(node.region.clone()))
 }
 
 /// Rustic Isles 1.14.7's rules: every default.
