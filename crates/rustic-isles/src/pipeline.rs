@@ -290,6 +290,17 @@ fn peer(request: &Request) -> Option<IpAddr> {
         .map(|info| info.0.peer.ip())
 }
 
+/// A relayed body, at most 100 KiB: more is an empty 413.
+async fn relay_body(body: Body) -> Result<Vec<u8>, Response> {
+    match http_body_util::Limited::new(body, BODY_LIMIT).collect().await {
+        Ok(collected) => Ok(collected.to_bytes().to_vec()),
+        Err(e) if e.downcast_ref::<http_body_util::LengthLimitError>().is_some() => {
+            Err(empty(StatusCode::PAYLOAD_TOO_LARGE))
+        }
+        Err(_) => Err(empty(StatusCode::BAD_REQUEST)),
+    }
+}
+
 /// What the budget reads from a request, taken before any await (a body is not `Sync`).
 struct Probe {
     ip_key: String,
@@ -513,10 +524,12 @@ impl<'a> Walk<'a> {
     async fn caller(
         &self,
         row: &RouteDef,
-        headers: &HeaderMap,
+        parts: &http::request::Parts,
         peer: Option<IpAddr>,
+        body: &[u8],
     ) -> Result<rifts_seam::Caller, Response> {
         let auth = self.app.shared.auth();
+        let headers = &parts.headers;
         let refuse = |error: LauncherError| error.response(&replay::next_uuid());
         match rustic_isles_auth::rifts_caller_kind(row.method.as_str(), row.path) {
             CallerKind::None | CallerKind::HostCapability => Ok(rifts_seam::Caller::Anonymous),
@@ -533,7 +546,14 @@ impl<'a> Walk<'a> {
                 let Some(authenticator) = self.app.shared.admin_authenticator() else {
                     return Err(crate::shared::admin_refusal());
                 };
-                let admin = authenticator.authenticate(headers, peer).await?;
+                let head = crate::shared::AdminRequestHead {
+                    method: parts.method.as_str(),
+                    target: parts.uri.path_and_query().map_or("/", |p| p.as_str()),
+                    peer,
+                    headers,
+                    body,
+                };
+                let admin = authenticator.authenticate(head).await?;
                 Ok(rifts_seam::Caller::Admin { key_id: admin.key_id })
             }
         }
@@ -553,7 +573,17 @@ impl<'a> Walk<'a> {
             .or_else(|| peer(&request));
         let peer = peer(&request);
         let (parts, body) = request.into_parts();
-        let caller = match self.caller(row, &parts.headers, peer).await {
+        // The admin authenticator checks a signature over the body, so there the body is read first
+        let admin = rustic_isles_auth::rifts_caller_kind(row.method.as_str(), row.path) == CallerKind::Admin;
+        let mut body = Some(body);
+        let mut early = None;
+        if admin && let Some(taken) = body.take() {
+            match relay_body(taken).await {
+                Ok(bytes) => early = Some(bytes),
+                Err(response) => return response,
+            }
+        }
+        let caller = match self.caller(row, &parts, peer, early.as_deref().unwrap_or(&[])).await {
             Ok(caller) => caller,
             Err(response) => return response,
         };
@@ -562,12 +592,13 @@ impl<'a> Walk<'a> {
             .iter()
             .filter_map(|(name, value)| Some((name.as_str().to_owned(), value.to_str().ok()?.to_owned())))
             .collect();
-        let body = match http_body_util::Limited::new(body, BODY_LIMIT).collect().await {
-            Ok(collected) => collected.to_bytes().to_vec(),
-            Err(e) if e.downcast_ref::<http_body_util::LengthLimitError>().is_some() => {
-                return empty(StatusCode::PAYLOAD_TOO_LARGE);
-            }
-            Err(_) => return empty(StatusCode::BAD_REQUEST),
+        let body = match (early, body) {
+            (Some(bytes), _) => bytes,
+            (None, Some(body)) => match relay_body(body).await {
+                Ok(bytes) => bytes,
+                Err(response) => return response,
+            },
+            (None, None) => Vec::new(),
         };
         let call = rifts_seam::RouteCall {
             route: *route,

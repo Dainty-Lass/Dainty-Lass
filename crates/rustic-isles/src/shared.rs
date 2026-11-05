@@ -80,14 +80,25 @@ pub struct AdminCaller {
     pub key_id: String,
 }
 
+/// What the admin authenticator reads of a relayed `/admin/` request: the manager credential signs the method,
+/// target and body, so the body is read before it is asked (reforged-admin spec §3.5).
+#[derive(Debug, Clone, Copy)]
+pub struct AdminRequestHead<'a> {
+    pub method: &'a str,
+    /// The path and query as the handler sees them
+    pub target: &'a str,
+    pub peer: Option<std::net::IpAddr>,
+    pub headers: &'a http::HeaderMap,
+    pub body: &'a [u8],
+}
+
 /// The Reforged API's admin auth, a slot in front of the `/admin/` rifts rows (auth spec §4.4); the Reforged unit
 /// fills it.
 pub trait AdminAuthenticator: Send + Sync {
     /// The admin caller, or the refusal to answer.
     fn authenticate<'a>(
         &'a self,
-        headers: &'a http::HeaderMap,
-        peer: Option<std::net::IpAddr>,
+        request: AdminRequestHead<'a>,
     ) -> BoxFuture<'a, Result<AdminCaller, axum::response::Response>>;
 }
 
