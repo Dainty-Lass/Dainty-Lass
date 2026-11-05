@@ -228,6 +228,7 @@ impl IslesModule {
                 context: ctx.clone(),
                 game_data: game_data.clone(),
                 database_wanted,
+                ports: config.ports.clone(),
             })
             .await?;
         let mut handlers = auth_handlers().map_err(|e| ModuleError::failed(e.to_string()))?;
