@@ -77,7 +77,7 @@ None beyond this repository: no crate sources from the cargo registry were opene
 ## 4. Verification
 
 `cargo fmt --all --check` and `cargo clippy --workspace --all-targets --locked -- -D warnings` clean;
-`cargo test -p rustic-isles-chat --locked --no-fail-fast`: 25 tests pass (10 unit, 5 route, 10 rule). The fuzz target
+`cargo test -p rustic-isles-chat --locked --no-fail-fast`: 26 tests pass (11 unit, 5 route, 10 rule). The fuzz target
 builds with `cargo check` in `fuzz/` but has not run: `cargo +nightly fuzz run rustic_isles_chat_names -s none` failed
 to link on the implementer's Windows machine (`__start/__stop___sancov_pcs` unresolved, a toolchain issue, not the
 target's), so its first run is CI's. Nothing was played against the 1.14.7 client; restricted's `tests/golden/chat/`
