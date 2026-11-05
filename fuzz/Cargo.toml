@@ -68,6 +68,9 @@ rustic-isles-chat = { path = "../crates/rustic-isles-chat" }
 rustic-isles-replay = { path = "../crates/rustic-isles-replay" }
 # rustic_isles_characters_data: the character data, loadout writes and stored items Rustic Isles' characters read (RD27)
 rustic-isles-characters = { path = "../crates/rustic-isles-characters" }
+# rustic_isles_economy_{inventory,progression_report,journey,escalation,bounties,cooldowns,store_data,text}: what
+# Rustic Isles' economy reads from game servers, hosts, its rows and the store files (RD27)
+rustic-isles-economy = { path = "../crates/rustic-isles-economy" }
 axum = { version = "0.8", default-features = false }
 # transport_frame, transport_files, transport_pipe: what a peer, the launcher's files and the game server hand the
 # co-op transport (RD27)
@@ -466,6 +469,62 @@ bench = false
 [[bin]]
 name = "rustic_isles_characters_data"
 path = "fuzz_targets/rustic_isles_characters_data.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "rustic_isles_economy_inventory"
+path = "fuzz_targets/rustic_isles_economy_inventory.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "rustic_isles_economy_progression_report"
+path = "fuzz_targets/rustic_isles_economy_progression_report.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "rustic_isles_economy_journey"
+path = "fuzz_targets/rustic_isles_economy_journey.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "rustic_isles_economy_escalation"
+path = "fuzz_targets/rustic_isles_economy_escalation.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "rustic_isles_economy_bounties"
+path = "fuzz_targets/rustic_isles_economy_bounties.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "rustic_isles_economy_cooldowns"
+path = "fuzz_targets/rustic_isles_economy_cooldowns.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "rustic_isles_economy_store_data"
+path = "fuzz_targets/rustic_isles_economy_store_data.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "rustic_isles_economy_text"
+path = "fuzz_targets/rustic_isles_economy_text.rs"
 test = false
 doc = false
 bench = false
