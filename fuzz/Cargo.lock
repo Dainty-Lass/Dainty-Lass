@@ -974,6 +974,7 @@ dependencies = [
  "rustic-isles-economy",
  "rustic-isles-gamedata",
  "rustic-isles-matchmaking",
+ "rustic-isles-reforged",
  "rustic-isles-replay",
  "rustic-isles-store",
  "rustls",
@@ -3716,6 +3717,35 @@ dependencies = [
  "rustic-isles-store",
  "serde_json",
  "service-kit",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
+name = "rustic-isles-reforged"
+version = "0.0.0"
+dependencies = [
+ "aws-lc-rs",
+ "axum",
+ "base64 0.23.1",
+ "chrono",
+ "diesel",
+ "http",
+ "http-body-util",
+ "module-api",
+ "rand 0.10.3",
+ "regex",
+ "rifts-seam",
+ "rustic-isles",
+ "rustic-isles-auth",
+ "rustic-isles-chat",
+ "rustic-isles-economy",
+ "rustic-isles-matchmaking",
+ "rustic-isles-store",
+ "serde_json",
+ "service-kit",
+ "subtle",
+ "thiserror",
  "tokio",
  "tracing",
 ]
