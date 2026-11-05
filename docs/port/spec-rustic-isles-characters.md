@@ -888,3 +888,6 @@ These settle §15 and override anything above that disagrees.
 - **Items 7-8:** as specified.
 - **Amended 2026-11-05 (maintainer's ruling):** the starter manifest's stacked ids and quick emojis are wire facts in
   core's table; `StarterKit` carries only the other run-time values.
+- **Settled after implementation (2026-11-05):** a soft-deleted starter inventory or loadout row is not restored by
+  the repair; the store refuses an insert over a soft-deleted key (store parity), so that read answers 500 as
+  restricted does. A candidate fix row for the maintainer (restore the row in the repair).
