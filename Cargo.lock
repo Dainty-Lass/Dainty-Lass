@@ -4147,6 +4147,7 @@ dependencies = [
  "serde_json",
  "service-kit",
  "store",
+ "tempfile",
  "tokio",
  "tower",
  "tracing",
