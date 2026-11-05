@@ -33,24 +33,28 @@ pub fn instance_id(text: &str, kind: IdKind, node: &NodeId) -> Option<GlobalId> 
         let owner = NodeId::new(owner).ok()?;
         return Some(GlobalId::from_parts(kind, parsed, owner));
     }
-    uuid_bits(text).map(|bits| GlobalId::from_parts(kind, Ulid::from(bits), node.clone()))
+    ulid_of_uuid(text).map(|ulid| GlobalId::from_parts(kind, ulid, node.clone()))
 }
 
-/// 8-4-4-4-12 hex digits, either case.
-fn uuid_bits(text: &str) -> Option<u128> {
-    let groups: Vec<&str> = text.split('-').collect();
-    let lengths = [8, 4, 4, 4, 12];
-    if groups.len() != lengths.len() {
+/// The ULID with a UUID's 128 bits: 36 bytes, hyphens exactly at 8, 13, 18 and 23, hex digits (either case)
+/// everywhere else.
+fn ulid_of_uuid(text: &str) -> Option<Ulid> {
+    const HYPHENS: [usize; 4] = [8, 13, 18, 23];
+    if text.len() != 36 {
         return None;
     }
-    let mut bits = 0u128;
-    for (group, length) in groups.iter().zip(lengths) {
-        if group.len() != length || !group.bytes().all(|b| b.is_ascii_hexdigit()) {
-            return None;
+    let mut value: u128 = 0;
+    for (at, byte) in text.bytes().enumerate() {
+        if HYPHENS.contains(&at) {
+            if byte != b'-' {
+                return None;
+            }
+            continue;
         }
-        bits = (bits << (4 * length)) | u128::from_str_radix(group, 16).ok()?;
+        let digit = char::from(byte).to_digit(16)?;
+        value = (value << 4) | u128::from(digit);
     }
-    Some(bits)
+    Some(Ulid::from(value))
 }
 
 #[cfg(test)]
