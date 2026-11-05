@@ -298,7 +298,8 @@ sha256 = "<the file's SHA-256: certutil -hashfile <file> SHA256, or sha256sum>"
 
 The 1.14.7 module ships as a library too, in the release's `plugins/` folder (`isles_1_14_7_plugin.dll`, or
 `libisles_1_14_7_plugin.so` on Linux): list it under `[[modules.external]]` with that path and its SHA-256, and leave
-it out of `compiled`. A service can be a library the same way (RD27), in place of the one compiled in; a library
+it out of `compiled`. It carries the same version data as the compiled-in module; `setup`, `start` and `gamedata`
+also install it as `version_data.json` in the backend game data folder, for the module run as a child. A service can be a library the same way (RD27), in place of the one compiled in; a library
 whose SHA-256 is not the one written here is never loaded:
 
 ```toml
@@ -307,7 +308,7 @@ library = "plugins/content_plugin.dll"
 sha256 = "<the file's SHA-256>"
 ```
 
-For `isles-1-14-7` (`modules/rustic-isles`), the `[modules.<id>.switches]` section (or the top-level `[switches]` table, which `setup` also writes to `backend.env`) overrides the module's switch defaults (`crates/isles-core/src/settings.rs`):
+For `isles-1-14-7` (`modules/rustic-isles`), the `[modules.<id>.switches]` section (or the top-level `[switches]` table, which `setup` also writes to `backend.env`) overrides the module's switch defaults (dainty-lass's `crates/rustic-isles/src/settings.rs`):
 
 | `[switches]` / `[modules.<id>.switches]` key | `backend.env` variable | Values | Default |
 | --- | --- | --- | --- |

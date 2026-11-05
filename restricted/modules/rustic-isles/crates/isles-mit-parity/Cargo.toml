@@ -12,12 +12,13 @@ publish.workspace = true
 
 [dev-dependencies]
 # The composed MIT module and the MIT crates it builds on
-rustic-isles-1-14-7 = { workspace = true, features = ["test-support"] }
+rustic-isles-1-14-7 = { workspace = true, features = ["realms", "test-support"] }
 rustic-isles = { workspace = true, features = ["test-support"] }
 rustic-isles-auth = { workspace = true, features = ["test-support"] }
 rustic-isles-store.workspace = true
 # Restricted's own: the goldens' normalisers and 1.14.7's character data and starter kit
 isles-core = { workspace = true, features = ["test-support"] }
+isles-db.workspace = true
 module-api.workspace = true
 service-kit.workspace = true
 aws-lc-rs.workspace = true

@@ -21,8 +21,8 @@ use sha2::{Digest, Sha256};
 const STARTER_BANNER_CATALOG_ID: &str = "BN_BEGINNER_00";
 const STARTER_FLASK_CATALOG_ID: &str = "FL_HEALING_DEFAULT";
 const STARTER_GLIDER_CATALOG_ID: &str = "GD_FRAME_STARTER_BASE";
-const DEFAULT_BANNER_DYE_ID: &str = "DYE_DEFAULT";
-const DEFAULT_BANNER_SIGIL_ID: &str = "BN_SIGIL_BEGINNER_00";
+pub const DEFAULT_BANNER_DYE_ID: &str = "DYE_DEFAULT";
+pub const DEFAULT_BANNER_SIGIL_ID: &str = "BN_SIGIL_BEGINNER_00";
 
 pub fn is_instance_id(text: &str) -> bool {
     text.len() == 26 && text.bytes().all(|b| b.is_ascii_uppercase() || b.is_ascii_digit())

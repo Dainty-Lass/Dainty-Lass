@@ -38,9 +38,27 @@ pub fn game_modules() -> Vec<controller::ModuleFactory> {
     let mut modules = controller::modules::game_modules();
     #[cfg(feature = "isles-1-14-7")]
     modules.push(std::sync::Arc::new(|| {
-        std::sync::Arc::new(isles_1_14_7::module()) as std::sync::Arc<dyn module_api::GameModule>
+        std::sync::Arc::new(isles_1_14_7()) as std::sync::Arc<dyn module_api::GameModule>
     }));
     modules
+}
+
+/// dainty-lass's 1.14.7 module (RD27), handed restricted's version data. The id is a constant that parses, so the
+/// one construction failure cannot happen; a broken compiled-in document (isles-mit-parity's `version_data` test
+/// guards it) falls back to reading the installed `version_data.json`, whose error the start then names.
+#[cfg(feature = "isles-1-14-7")]
+fn isles_1_14_7() -> rustic_isles::IslesModule {
+    let spec = match crate::version_data::load() {
+        Ok(data) => rustic_isles_1_14_7::spec_with(data),
+        Err(error) => {
+            tracing::warn!("{error}; reading the installed one instead");
+            rustic_isles_1_14_7::spec()
+        }
+    };
+    match spec.and_then(rustic_isles::IslesModule::new) {
+        Ok(module) => module,
+        Err(error) => panic!("rustic-isles-1-14-7: {error}"),
+    }
 }
 
 /// The in-process allowlist (`allowlist.env`), for [`gateway`]: it runs inside the gateway service, as it does in

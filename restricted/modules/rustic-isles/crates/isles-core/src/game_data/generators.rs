@@ -1083,6 +1083,40 @@ pub fn reward_cache_selection_ids() -> Vec<&'static str> {
     REWARD_CACHE_SELECTIONS.iter().map(|s| s.catalog_id).collect()
 }
 
+/// The plan as dainty-lass's `RewardCachePlan::from_json` reads it, for restricted's `version_data.json` (RD27).
+pub fn reward_cache_plan_document() -> Value {
+    let selections: Vec<Value> = REWARD_CACHE_SELECTIONS
+        .iter()
+        .map(|s| {
+            let mut entry = json!({
+                "catalogId": s.catalog_id,
+                "category": s.category.as_str(),
+                "price": s.price,
+                "featured": s.featured,
+                "allowRarity3": s.allow_rarity3,
+            });
+            if let Some(name) = s.display_name_override {
+                entry["displayName"] = json!(name);
+            }
+            if let Some(description) = s.description_override {
+                entry["description"] = json!(description);
+            }
+            entry
+        })
+        .collect();
+    let expected: Map<String, Value> = [Armour, Weapon, Style, Event, Limited, General]
+        .iter()
+        .map(|c| (c.as_str().to_owned(), json!(c.expected_count())))
+        .collect();
+    json!({
+        "selections": selections,
+        "armourFamilies": ARMOUR_FAMILY_ORDER,
+        "bannerFamilies": BANNER_FAMILY_ORDER,
+        "expected": expected,
+        "expectedFeatured": 7,
+    })
+}
+
 pub fn generate_reward_cache_store(catalog_path: &Path, output_path: &Path) -> Result<String, String> {
     let catalog = load_catalog_map(catalog_path)?;
     let original_order: HashMap<&str, usize> = REWARD_CACHE_SELECTIONS
