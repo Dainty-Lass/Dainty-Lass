@@ -1,0 +1,38 @@
+[package]
+name = "rustic-isles-replay"
+description = "Rustic Isles' shadow replay harness: reads the gateway's capture, replays it against one or two targets, normalizes what legitimately differs and classifies the rest"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+# Clean-room rewrite from docs/port/spec-rustic-isles-replay.md (RD27, docs/port/clean-room/rustic-isles-replay.md)
+license = "MIT"
+repository.workspace = true
+publish.workspace = true
+
+[features]
+# ReplayTargetAuth::with_test_keys: auth's throwaway RS256 pair (spec §11.2)
+test-support = ["dep:rustic-isles-auth"]
+
+[dependencies]
+aws-lc-rs.workspace = true
+axum.workspace = true
+base64.workspace = true
+percent-encoding.workspace = true
+regex.workspace = true
+rustic-isles.workspace = true
+rustic-isles-auth = { workspace = true, optional = true, features = ["test-support"] }
+serde.workspace = true
+serde_json = { workspace = true, features = ["preserve_order"] }
+service-kit.workspace = true
+sha2.workspace = true
+thiserror.workspace = true
+tokio = { workspace = true, features = ["net", "rt", "sync", "time", "io-util", "macros"] }
+
+[dev-dependencies]
+module-api.workspace = true
+rustic-isles-auth = { workspace = true, features = ["test-support"] }
+rustic-isles-replay = { path = ".", features = ["test-support"] }
+tempfile.workspace = true
+
+[lints]
+workspace = true

@@ -64,6 +64,8 @@ rustic-isles-director = { path = "../crates/rustic-isles-director" }
 rustic-isles-store = { path = "../crates/rustic-isles-store" }
 # rustic_isles_chat_names: the room names, ids, query and bodies Rustic Isles' chat rules read (RD27)
 rustic-isles-chat = { path = "../crates/rustic-isles-chat" }
+# rustic_isles_replay_input: the capture lines, target answers and key maps the shadow replay harness reads (RD27)
+rustic-isles-replay = { path = "../crates/rustic-isles-replay" }
 axum = { version = "0.8", default-features = false }
 # transport_frame, transport_files, transport_pipe: what a peer, the launcher's files and the game server hand the
 # co-op transport (RD27)
@@ -448,6 +450,13 @@ bench = false
 [[bin]]
 name = "rustic_isles_chat_names"
 path = "fuzz_targets/rustic_isles_chat_names.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "rustic_isles_replay_input"
+path = "fuzz_targets/rustic_isles_replay_input.rs"
 test = false
 doc = false
 bench = false
