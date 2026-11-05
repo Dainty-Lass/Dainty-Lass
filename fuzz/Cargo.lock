@@ -967,6 +967,7 @@ dependencies = [
  "rifts-transport",
  "rustic-isles",
  "rustic-isles-auth",
+ "rustic-isles-characters",
  "rustic-isles-chat",
  "rustic-isles-director",
  "rustic-isles-gamedata",
@@ -3579,6 +3580,23 @@ dependencies = [
  "tokio-rustls",
  "tracing",
  "webpki-roots",
+]
+
+[[package]]
+name = "rustic-isles-characters"
+version = "0.0.0"
+dependencies = [
+ "axum",
+ "http",
+ "module-api",
+ "rifts-seam",
+ "rustic-isles",
+ "rustic-isles-auth",
+ "rustic-isles-store",
+ "serde_json",
+ "service-kit",
+ "thiserror",
+ "tracing",
 ]
 
 [[package]]

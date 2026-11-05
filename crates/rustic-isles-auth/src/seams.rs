@@ -3,6 +3,8 @@
 
 //! What the area asks of the rest of isles (spec §11.2). Each default changes nothing: the crate runs alone.
 
+use std::any::Any;
+use std::fmt;
 use std::net::SocketAddr;
 use std::sync::Arc;
 
@@ -64,9 +66,11 @@ pub trait Operations: Send + Sync {
 }
 
 /// A player host's runtime, authenticated by the realms seam.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Clone)]
 pub struct RuntimeCaller {
     roster: Vec<String>,
+    /// The realms seam's own record of the runtime, opaque here; an area downcasts it to hand back to rifts' guard
+    handle: Option<Arc<dyn Any + Send + Sync>>,
 }
 
 impl RuntimeCaller {
@@ -74,14 +78,55 @@ impl RuntimeCaller {
     pub fn new(roster: impl IntoIterator<Item = String>) -> Self {
         Self {
             roster: roster.into_iter().filter(|id| !id.is_empty()).collect(),
+            handle: None,
         }
+    }
+
+    /// The same caller carrying the realms seam's handle (what it sets when it authenticates a runtime).
+    #[must_use]
+    pub fn with_handle(mut self, handle: Arc<dyn Any + Send + Sync>) -> Self {
+        self.handle = Some(handle);
+        self
     }
 
     /// The account texts it may act for.
     pub fn roster(&self) -> &[String] {
         &self.roster
     }
+
+    pub fn handle(&self) -> Option<&Arc<dyn Any + Send + Sync>> {
+        self.handle.as_ref()
+    }
+
+    /// The handle as `T`, when it is one.
+    pub fn handle_as<T: Any + Send + Sync>(&self) -> Option<&T> {
+        self.handle.as_deref()?.downcast_ref::<T>()
+    }
 }
+
+// The handle may hold a capability: only whether there is one is shown
+impl fmt::Debug for RuntimeCaller {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("RuntimeCaller")
+            .field("roster", &self.roster)
+            .field("handle", &self.handle.is_some())
+            .finish()
+    }
+}
+
+/// Equal rosters and the same handle, by identity.
+impl PartialEq for RuntimeCaller {
+    fn eq(&self, other: &Self) -> bool {
+        let same = match (&self.handle, &other.handle) {
+            (None, None) => true,
+            (Some(a), Some(b)) => Arc::ptr_eq(a, b),
+            _ => false,
+        };
+        self.roster == other.roster && same
+    }
+}
+
+impl Eq for RuntimeCaller {}
 
 pub enum RuntimeAuth {
     Authenticated(RuntimeCaller),
@@ -221,5 +266,30 @@ impl Default for Seams {
             mail: Arc::new(SmtpTransport),
             discord: Arc::new(HttpsDiscord::new()),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[derive(Debug, PartialEq)]
+    struct Capability(&'static str);
+
+    #[test]
+    fn runtime_caller_handle() {
+        let bare = RuntimeCaller::new(["a".to_owned(), String::new()]);
+        assert_eq!(bare.roster(), ["a"]);
+        assert!(bare.handle().is_none() && bare.handle_as::<Capability>().is_none());
+        let handle: Arc<dyn Any + Send + Sync> = Arc::new(Capability("secret"));
+        let caller = bare.clone().with_handle(Arc::clone(&handle));
+        assert_eq!(caller.handle_as::<Capability>(), Some(&Capability("secret")));
+        assert!(caller.handle_as::<String>().is_none());
+        assert!(Arc::ptr_eq(caller.handle().unwrap(), &handle));
+        assert_eq!(caller.clone(), caller);
+        assert_ne!(caller, bare);
+        assert_ne!(caller, bare.clone().with_handle(Arc::new(Capability("secret"))));
+        let shown = format!("{caller:?}");
+        assert!(shown.contains("handle: true") && !shown.contains("secret"), "{shown}");
     }
 }
