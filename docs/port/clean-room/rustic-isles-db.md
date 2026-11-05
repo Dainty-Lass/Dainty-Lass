@@ -124,4 +124,75 @@ No other crate was changed.
 
 ## 6. Similarity
 
-To be measured by the coordinator against restricted e0e238b.
+Measured by the RD27 reviewer (who may read the AGPL code) with `similarity.md` §1's method, on the crate as committed
+at `ee7d5db7`: every `.rs` file in `src/` and `tests/` against each of the 9 files of restricted `e0e238b`'s
+`modules/rustic-isles/crates/isles-db/` outside the replay CLI (`src/{lib,main,migrate,mongo,schema,transforms,verify,
+export}.rs` and `tests/migrate.rs`; `src/replay.rs` and `tests/replay_test.rs` are unit 10's), the best single file
+named. "Any" counts a line matched by a 3+-line run in any of the 9. Paths in the third column are under `isles-db/`;
+a file with no match names none.
+
+| File | New lines | Best restricted file (old lines) | Matched | % | Any, % |
+| --- | ---: | --- | ---: | ---: | ---: |
+| `src/cli.rs` | 301 | `src/main.rs` (158) | 23 | **7.6** | 13.3 |
+| `src/export.rs` | 850 | `src/export.rs` (812) | 6 | **0.7** | 0.7 |
+| `src/extract.rs` | 1208 | `src/migrate.rs` (3149) | 43 | **3.6** | 4.5 |
+| `src/ids.rs` | 133 | `src/mongo.rs` (947) | 7 | **5.3** | 9.8 |
+| `src/lib.rs` | 355 | `src/migrate.rs` (3149) | 68 | **19.2** | 25.9 |
+| `src/mongo/bson.rs` | 404 | `src/mongo.rs` (947) | 15 | **3.7** | 4.2 |
+| `src/mongo/mock.rs` | 174 | `src/mongo.rs` (947) | 10 | **5.7** | 5.7 |
+| `src/mongo/mod.rs` | 402 | `src/mongo.rs` (947) | 48 | **11.9** | 13.4 |
+| `src/mongo/scram.rs` | 156 | `src/mongo.rs` (947) | 12 | **7.7** | 9.6 |
+| `src/mongo/uri.rs` | 141 | `src/mongo.rs` (947) | 25 | **17.7** | 19.9 |
+| `src/read.rs` | 194 | `src/transforms.rs` (519) | 34 | **17.5** | 19.6 |
+| `src/repair.rs` | 253 | `src/transforms.rs` (519) | 11 | **4.3** | 6.7 |
+| `src/tables.rs` | 613 | `src/mongo.rs` (947) | 15 | **2.4** | 2.8 |
+| `src/target.rs` | 114 | `src/migrate.rs` (3149) | 6 | **5.3** | 7.9 |
+| `src/verify.rs` | 102 | `src/verify.rs` (1673) | 24 | **23.5** | 23.5 |
+| `tests/cli.rs` | 105 | none | 0 | 0.0 | 0.0 |
+| `tests/common/mod.rs` | 233 | none | 0 | 0.0 | 0.0 |
+| `tests/export.rs` | 188 | `tests/migrate.rs` (1181) | 12 | 6.4 | 8.0 |
+| `tests/migrate.rs` | 370 | `tests/migrate.rs` (1181) | 9 | 2.4 | 2.4 |
+| All 19 | 6296 | | 368 | **5.8** | 7.3 |
+
+No file reaches 25 % against its best single file; `lib.rs` does on the "any" column (25.9), from the public records
+below. The fuzz targets (`fuzz/fuzz_targets/rustic_isles_db_*.rs`) have no restricted counterpart and were not
+measured.
+
+**What the matches are.** Every run of 5 lines or more against any of the 9 files was read: 16 of them. Each is a
+record, enum or text the spec fixes, or boilerplate:
+
+- **Public error enums** (`lib.rs:47-60`, `mongo/mod.rs:34-46`): `DbError` and `MongoError`, the variants and
+  `#[error]` texts of §12.5 in its order; the `#[from]` sources are the variants' payloads.
+- **`Area`** (`lib.rs:68-98`, three runs): §14.4's seven variants, `ALL` and `as_str()`'s lower-case names (§3.3) in the
+  spec's order.
+- **Option and report records** (`lib.rs:145-149`, `162-176`, `221-230`; `verify.rs:16-32`): `MigrateOptions`'
+  fields and its hand-written `PartialEq` (§14.4: "equality compares every field but `starter`", so a derive cannot
+  do it), `MigrateReport` (§12.1), `CollectionVerification`/`VerifyReport` (§12.2), each in the spec's field order.
+- **Output texts** (`cli.rs:203-214`, `223-226`): §12.4's `rb11 transforms:` and `skipped_invalid:` lines and the
+  verify OK header, with the report's fields as arguments.
+- **Wire and repair constants** (`mongo/mod.rs:83-87`, `117`, `123-134`): §4.3's opcode, no-body and `errmsg`
+  fallback texts; `repair.rs:106-110`, §8.3's starter item defaults (`markedNew` ... `surged`).
+- **Field readers** (`read.rs:77-90`, `153-157`): the match tails of §5.2's integer and float readers and §5.4's value
+  reader, one arm per rule in the spec's order; nothing else in `read.rs` (time, ms, boolean, JSON text) matches
+  beyond `_ => default, } }`.
+- **Boilerplate**: `extract.rs:1311-1315` (`} } _ => {} } }`), and the 3- and 4-line `Ok(())`/`out`/`#[cfg(test)]
+  mod tests {` closers that make up most of the remaining matched lines.
+
+Shorter runs are of the same kinds: `MongoUri`'s fields (§4.1, D2), `Command`'s variants (§14.4), `ExportOptions` and
+`ExportReport` (§12.3), `email_codes`' purpose renames (§7.4, `extract.rs:491-493`), `is_instance_id` (§16.2 D8's
+26 characters of `A`-`Z0`-`9`), the account row's optional fields in `tests/export.rs` (the store's record), SCRAM's
+user escaping (§4.6).
+
+No comment was copied (no comment line of 20 characters or more equals a restricted one). Of the crate's 639 string
+literals of 12 characters or more that also occur in the 9 files, all are spec texts (§4.3 to §4.6, §7.4's `missing
+<field>` errors, §12; the script's check misses ten only where the spec wraps or templates them) or the spec's
+`LoadoutSlot_0n` ids. 25 of the crate's 270 function names and 20 of its 73 type and constant names also occur in
+restricted; the ones the spec does not give are generic (`deterministic_ulid` for §6.1's formula, `sha256_hex`,
+`parse_postgres_url` for §9.1, `USAGE` for §3.5, `CROCKFORD` for §6.1's alphabet, and `PendingLoadout` for §8's
+"pending loadouts", whose fields follow §10.4's `loadouts` columns under the crate's own names). No unusual structure
+is shared: the large files (`extract.rs`, `export.rs`, `tables.rs`, `bson.rs`, `mongo/mod.rs`) match at 0.7 to 12 %,
+and the extractor, the repair passes, the table layer, the BSON codec, the wire client, SCRAM and the verifier share
+no logic beyond the lines above.
+
+**Verdict: clean of structural or expressive copying; nothing to rewrite.** Every matched span is a public record,
+enum or error type in the spec's order, a text the spec fixes, a spec rule written one arm per case, or boilerplate.
