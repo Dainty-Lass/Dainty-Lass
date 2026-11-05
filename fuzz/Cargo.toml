@@ -57,6 +57,9 @@ rustic-isles = { path = "../crates/rustic-isles" }
 service-kit = { path = "../crates/service-kit" }
 # rustic_isles_gamedata_windows, rustic_isles_gamedata_formats: the window rewrite and what the generators read (RD27)
 rustic-isles-gamedata = { path = "../crates/rustic-isles-gamedata" }
+# rustic_isles_director_{cmdline,matchmaking,tag_query,lines,hunt_import}: what the Director reads from the backend, the
+# game servers and a capture (RD27)
+rustic-isles-director = { path = "../crates/rustic-isles-director" }
 axum = { version = "0.8", default-features = false }
 # transport_frame, transport_files, transport_pipe: what a peer, the launcher's files and the game server hand the
 # co-op transport (RD27)
@@ -74,7 +77,7 @@ toml_edit = { version = "0.25", default-features = false, features = ["parse", "
 store = { path = "../crates/store" }
 url = "2"
 # plugin_bytes: the stream reader runs on a runtime
-tokio = { version = "1", features = ["rt", "sync", "io-util"] }
+tokio = { version = "1", features = ["rt", "sync", "io-util", "time"] }
 
 [[bin]]
 name = "admin_request"
@@ -392,6 +395,41 @@ bench = false
 [[bin]]
 name = "rustic_isles_gamedata_formats"
 path = "fuzz_targets/rustic_isles_gamedata_formats.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "rustic_isles_director_cmdline"
+path = "fuzz_targets/rustic_isles_director_cmdline.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "rustic_isles_director_matchmaking"
+path = "fuzz_targets/rustic_isles_director_matchmaking.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "rustic_isles_director_tag_query"
+path = "fuzz_targets/rustic_isles_director_tag_query.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "rustic_isles_director_lines"
+path = "fuzz_targets/rustic_isles_director_lines.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "rustic_isles_director_hunt_import"
+path = "fuzz_targets/rustic_isles_director_hunt_import.rs"
 test = false
 doc = false
 bench = false
