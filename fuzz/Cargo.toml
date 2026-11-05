@@ -55,6 +55,8 @@ rustic-isles-auth = { path = "../crates/rustic-isles-auth", features = ["test-su
 # rustic_isles_routes, rustic_isles_pipeline_text: the paths and text Rustic Isles' pipeline reads (RD27)
 rustic-isles = { path = "../crates/rustic-isles" }
 service-kit = { path = "../crates/service-kit" }
+# rustic_isles_gamedata_windows, rustic_isles_gamedata_formats: the window rewrite and what the generators read (RD27)
+rustic-isles-gamedata = { path = "../crates/rustic-isles-gamedata" }
 axum = { version = "0.8", default-features = false }
 # transport_frame, transport_files, transport_pipe: what a peer, the launcher's files and the game server hand the
 # co-op transport (RD27)
@@ -376,6 +378,20 @@ bench = false
 [[bin]]
 name = "rustic_isles_pipeline_text"
 path = "fuzz_targets/rustic_isles_pipeline_text.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "rustic_isles_gamedata_windows"
+path = "fuzz_targets/rustic_isles_gamedata_windows.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "rustic_isles_gamedata_formats"
+path = "fuzz_targets/rustic_isles_gamedata_formats.rs"
 test = false
 doc = false
 bench = false
