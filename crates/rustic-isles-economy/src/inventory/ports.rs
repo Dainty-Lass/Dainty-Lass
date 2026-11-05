@@ -212,9 +212,9 @@ pub trait StarterBootstrap: Send + Sync {
 
 /// The characters area's starter check, in the caller's transaction.
 #[derive(Debug, Default, Clone, Copy)]
-pub struct CharactersStarter;
+pub struct StarterRecordsCheck;
 
-impl StarterBootstrap for CharactersStarter {
+impl StarterBootstrap for StarterRecordsCheck {
     fn ensure(
         &self,
         tx: &mut Tx<'_>,
@@ -377,7 +377,7 @@ impl Default for InventoryPorts {
         Self {
             auth: Arc::new(ExtensionAuthenticator),
             wallet: Arc::new(BountiesWallet),
-            starter: Arc::new(CharactersStarter),
+            starter: Arc::new(StarterRecordsCheck),
             characters: Arc::new(CharactersList),
             observer: Arc::new(LedgerObserver),
             ring: Arc::new(NoRing),

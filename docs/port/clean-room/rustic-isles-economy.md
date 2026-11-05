@@ -130,6 +130,10 @@ No other crate was changed.
     after a replay-pinned reset reads as an ordinary grant.
 17. **Without the characters area composed**, the starter bootstrap only checks ownership and needs an existing
     inventory, and the first-character lookup only reads (it creates nothing).
+18. **Rewrites after the similarity review** (precautionary, from inventory §10.1, §11.2 and §11.3 only, without
+    the earlier text): `read_test_multipliers` now decides the reason first and builds the record once (the private
+    `off` helper is gone, the factor reader is `parse_factor`), and the default `StarterBootstrap` adapter is
+    `StarterRecordsCheck`. Behaviour is unchanged; the same tests pass.
 
 ## 6. Similarity
 

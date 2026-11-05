@@ -29,62 +29,61 @@ impl TestMultipliers {
         reason: None,
     };
 
-    fn off(reason: &str) -> Self {
-        Self {
-            reason: Some(reason.to_owned()),
-            ..Self::OFF
-        }
-    }
-
+    /// Whether either factor applies.
     pub fn is_on(&self) -> bool {
         self.reason.is_none() && (self.xp != 1.0 || self.rewards != 1.0)
     }
 
-    /// The line the module logs at start (core §12 keeps the wiring with the composer).
+    /// The module's start-up line (core §12 leaves the logging to the composer).
     pub fn startup_line(&self) -> String {
-        match &self.reason {
-            None if self.is_on() => format!(
-                "[TestMultiplier] ON: XP x{}, rewards x{} (private Tailscale server)",
-                service_kit::jsjson::number(self.xp),
-                service_kit::jsjson::number(self.rewards)
-            ),
-            None => String::from("[TestMultiplier] off (not set)"),
-            Some(reason) => format!("[TestMultiplier] off ({reason})"),
+        if let Some(why) = &self.reason {
+            return format!("[TestMultiplier] off ({why})");
+        }
+        if !self.is_on() {
+            return String::from("[TestMultiplier] off (not set)");
+        }
+        let (xp, rewards) = (
+            service_kit::jsjson::number(self.xp),
+            service_kit::jsjson::number(self.rewards),
+        );
+        format!("[TestMultiplier] ON: XP x{xp}, rewards x{rewards} (private Tailscale server)")
+    }
+}
+
+/// A setting's factor: blank or unset is 1, anything else JavaScript's `Number` of it, finite and within 1..=100.
+fn parse_factor(raw: Option<&str>) -> Option<f64> {
+    match raw.map(js::trim) {
+        None | Some("") => Some(1.0),
+        Some(text) => {
+            let value = js_number_text(text);
+            (value.is_finite() && (1.0..=MAX_TEST_MULTIPLIER).contains(&value)).then_some(value)
         }
     }
 }
 
-/// One factor: unset or blank is 1; else JavaScript's `Number` of the text, finite and 1 to 100 (coordinator
-/// decision: `Number`, so `0x5` reads 5).
-fn factor(raw: Option<&str>) -> Option<f64> {
-    let Some(raw) = raw else { return Some(1.0) };
-    if js::trim(raw).is_empty() {
-        return Some(1.0);
-    }
-    let n = js_number_text(raw);
-    (n.is_finite() && (1.0..=MAX_TEST_MULTIPLIER).contains(&n)).then_some(n)
-}
-
-/// `ReadTestMultipliers` (§10.1).
+/// `ReadTestMultipliers` (§10.1): the first failing condition names the reason; with none, both factors apply.
 pub fn read_test_multipliers(settings: &Settings) -> TestMultipliers {
-    let xp = factor(settings.raw("REFORGED_XP_MULTIPLIER"));
-    let rewards = factor(settings.raw("REFORGED_REWARD_MULTIPLIER"));
-    let (Some(xp), Some(rewards)) = (xp, rewards) else {
-        return TestMultipliers::off("a multiplier is not a number from 1 to 100");
+    let xp = parse_factor(settings.raw("REFORGED_XP_MULTIPLIER"));
+    let rewards = parse_factor(settings.raw("REFORGED_REWARD_MULTIPLIER"));
+    let reason = match (xp, rewards) {
+        (None, _) | (_, None) => Some("a multiplier is not a number from 1 to 100"),
+        (Some(1.0), Some(1.0)) => Some("not set"),
+        _ if settings.raw("REFORGED_SERVER_MODE") != Some("private") => Some("this is not a private server"),
+        _ if !is_tailscale_host(settings.raw("REFORGED_SERVER_HOST").unwrap_or_default()) => {
+            Some("the server host is not a Tailscale address")
+        }
+        _ => None,
     };
-    if xp == 1.0 && rewards == 1.0 {
-        return TestMultipliers::off("not set");
-    }
-    if settings.raw("REFORGED_SERVER_MODE") != Some("private") {
-        return TestMultipliers::off("this is not a private server");
-    }
-    if !is_tailscale_host(settings.raw("REFORGED_SERVER_HOST").unwrap_or("")) {
-        return TestMultipliers::off("the server host is not a Tailscale address");
-    }
-    TestMultipliers {
-        xp,
-        rewards,
-        reason: None,
+    match reason {
+        Some(why) => TestMultipliers {
+            reason: Some(why.to_owned()),
+            ..TestMultipliers::OFF
+        },
+        None => TestMultipliers {
+            xp: xp.unwrap_or(1.0),
+            rewards: rewards.unwrap_or(1.0),
+            reason: None,
+        },
     }
 }
 
