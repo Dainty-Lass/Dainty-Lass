@@ -92,7 +92,13 @@ impl WorkspacePaths {
     #[must_use]
     pub fn new(root: &Path) -> Self {
         let root = root.to_path_buf();
-        let isles = root.join("modules").join("rustic-isles");
+        let isles = if root.join("modules").join("rustic-isles").is_dir() {
+            root.join("modules").join("rustic-isles")
+        } else if root.join("restricted").join("modules").join("rustic-isles").is_dir() {
+            root.join("restricted").join("modules").join("rustic-isles")
+        } else {
+            root.join("modules").join("rustic-isles")
+        };
         let has_isles = isles.is_dir();
 
         let paradox = if has_isles {
@@ -115,6 +121,8 @@ impl WorkspacePaths {
 
         let loader_dir = if root.join("native").join("runtime-loader").is_dir() {
             root.join("native").join("runtime-loader")
+        } else if root.join("restricted").join("native").join("runtime-loader").is_dir() {
+            root.join("restricted").join("native").join("runtime-loader")
         } else if has_isles && isles.join("native").join("runtime-loader").is_dir() {
             isles.join("native").join("runtime-loader")
         } else {
@@ -267,7 +275,9 @@ pub fn find_host_binary(root: &Path) -> Option<PathBuf> {
 #[must_use]
 pub fn is_workspace(root: &Path) -> bool {
     find_host_binary(root).is_some()
-        && (root.join("modules").join("rustic-isles").is_dir() || root.join("paradox").is_dir())
+        && (root.join("modules").join("rustic-isles").is_dir()
+            || root.join("restricted").join("modules").join("rustic-isles").is_dir()
+            || root.join("paradox").is_dir())
 }
 
 /// Counts regular `*_functions.cpp` files in `sdk_dir`.

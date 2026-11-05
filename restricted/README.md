@@ -13,7 +13,7 @@ internet, or in Docker.
 
 > [!IMPORTANT]
 > Nothing here contains, downloads or mirrors the game. Every player needs their own Dauntless 1.14.7, and every
-> host generates the SDK and the game data from their own copy ([sdk-and-game-data.md](https://git.silentspud.com/silentspud/dainty-lass/src/branch/main/docs/sdk-and-game-data.md), in dainty-lass).
+> host generates the SDK and the game data from their own copy ([../docs/sdk-and-game-data.md](../docs/sdk-and-game-data.md)).
 
 ## How it fits together
 
@@ -24,17 +24,17 @@ Postgres), the **content server** (the game runtime, news and art) and the
 **allowlist**, which opens the game's UDP ports only to players who have logged in. The **Director** (`isles-director`)
 starts Ramsgate, the Training Grounds and the hunts. The game itself loads the host's runtime (`Rustic-Isles.dll`
 through `winmm.dll`) and reaches the backend through a relay the launcher runs on `127.0.0.1:61100`.
-dainty-lass's [architecture.md](https://git.silentspud.com/silentspud/dainty-lass/src/branch/main/docs/architecture.md) has the trust boundaries.
+[../docs/architecture.md](../docs/architecture.md) has the trust boundaries.
 
-## What is in this repository
+## What is in this directory
 
-DaintyLass is two repositories (RD27): this one holds the AGPL parts and builds the server, the launcher and the
-Docker images; [dainty-lass](https://git.silentspud.com/silentspud/dainty-lass) holds the MIT crates (taken here as
-git dependencies at one rev), the UI and the plan.
+`restricted/` is the **AGPL-3.0-only** subtree and Cargo workspace of the DaintyLass monorepo (RD27): it holds the
+AGPL parts and builds the full server, the Tauri launcher and the Docker images, taking the MIT crates from
+[`../crates/`](../crates) as path dependencies.
 
 | Folder | What |
 | --- | --- |
-| [root](.) | One cargo workspace: `crates/` (`host`, the libraries of dainty-lass's MIT gateway, content and chat, and the server executables), `launcher/src-tauri` (Tauri: `dainty-lass-client` and `dainty-lass-manager`), and the game modules' crates |
+| [`.`](.) | Independent AGPL-3.0-only Cargo workspace: `crates/` (`host`, the libraries of the MIT gateway, content and chat, and the server executables), `launcher/src-tauri` (Tauri: `dainty-lass-client` and `dainty-lass-manager`), and the game modules' crates |
 | [`modules/rustic-isles/`](modules/rustic-isles) | The Dauntless 1.14.7 game module (`isles-1-14-7`), `isles-core`, `isles-director`, `isles-chat`, the runtime's C++ source and CatalogExporter (`native/`), and the Node reference sources (`reference/1.14.7`) |
 | [`modules/rustic-rifts/`](modules/rustic-rifts) | Peer-to-peer realms and the realm transport |
 | [`legacy/`](legacy) | The importer for Dauntless Revived 1.4.4 and Reforged Revival installs |
@@ -44,19 +44,17 @@ git dependencies at one rev), the UI and the plan.
 
 ## Building
 
-The Rust workspace, from the root (the toolchain is pinned in `rust-toolchain.toml`); cargo fetches dainty-lass over
-SSH, so your key must read git.silentspud.com:
+The restricted Rust workspace, from `restricted/` (the toolchain is pinned in `rust-toolchain.toml`):
 
 ```bash
 cargo build --release -p server-console --features all-modules --bins
 ```
 
 The desktop apps live in `launcher` (`bun install && bun run build:client` for `dainty-lass-client` and
-`bun run build:manager` for `dainty-lass-manager`, which build the pages from dainty-lass's `ui/`, dainty-dash). Those
-builds need a dainty-lass checkout beside this one, or `DAINTY_LASS_DIR`; the bridge tests are dainty-lass's
-`launcher` (`bun run test`). The runtime and the
-CatalogExporter need a host's own SDK ([sdk-and-game-data.md](https://git.silentspud.com/silentspud/dainty-lass/src/branch/main/docs/sdk-and-game-data.md)).
-`bash docker/run-tests.sh` builds the images (with your SSH agent) and runs every server suite inside them.
+`bun run build:manager` for `dainty-lass-manager`, which build the pages from `../ui/`, dainty-dash). The bridge
+tests are in `../launcher` (`bun run test`). The runtime and the CatalogExporter need a host's own SDK
+([../docs/sdk-and-game-data.md](../docs/sdk-and-game-data.md)).
+`bash docker/run-tests.sh` from `restricted/` builds the images and runs every server suite inside them.
 
 ## Credits and licence
 

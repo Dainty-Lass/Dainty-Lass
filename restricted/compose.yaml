@@ -23,10 +23,8 @@ name: reforged-revival
 x-front: &front
   image: ${REFORGED_IMAGE:-reforged-revival}-front:${REFORGED_TAG:-local}
   build:
-    context: .
-    dockerfile: docker/Dockerfile
-    # dainty-lass's crates come over SSH (RD27): `docker compose build` passes the host's agent
-    ssh: [default]
+    context: ..
+    dockerfile: restricted/docker/Dockerfile
     target: front
   network_mode: service:net
   restart: unless-stopped
@@ -39,10 +37,8 @@ x-front: &front
 x-server: &server
   image: ${REFORGED_IMAGE:-reforged-revival}-server:${REFORGED_TAG:-local}
   build:
-    context: .
-    dockerfile: docker/Dockerfile
-    # dainty-lass's crates come over SSH (RD27): `docker compose build` passes the host's agent
-    ssh: [default]
+    context: ..
+    dockerfile: restricted/docker/Dockerfile
     target: server
     args:
       REFORGED_COMMIT: ${REFORGED_COMMIT:-}
@@ -62,10 +58,8 @@ x-server: &server
 x-network-net: &network-net
   image: ${REFORGED_IMAGE:-reforged-revival}-front:${REFORGED_TAG:-local}
   build:
-    context: .
-    dockerfile: docker/Dockerfile
-    # dainty-lass's crates come over SSH (RD27): `docker compose build` passes the host's agent
-    ssh: [default]
+    context: ..
+    dockerfile: restricted/docker/Dockerfile
     target: front
   profiles: [network]
   command: ["sleep", "infinity"]
@@ -84,10 +78,8 @@ x-network-net: &network-net
 x-network-netem: &network-netem
   image: ${REFORGED_IMAGE:-reforged-revival}-netem:${REFORGED_TAG:-local}
   build:
-    context: .
-    dockerfile: docker/Dockerfile
-    # dainty-lass's crates come over SSH (RD27): `docker compose build` passes the host's agent
-    ssh: [default]
+    context: ..
+    dockerfile: restricted/docker/Dockerfile
     target: netem
   profiles: [network]
   init: true
@@ -111,10 +103,8 @@ x-network-netem-env: &network-netem-env
 x-network-configure: &network-configure
   image: ${REFORGED_IMAGE:-reforged-revival}-server:${REFORGED_TAG:-local}
   build:
-    context: .
-    dockerfile: docker/Dockerfile
-    # dainty-lass's crates come over SSH (RD27): `docker compose build` passes the host's agent
-    ssh: [default]
+    context: ..
+    dockerfile: restricted/docker/Dockerfile
     target: server
     args:
       REFORGED_COMMIT: ${REFORGED_COMMIT:-}
@@ -130,10 +120,8 @@ x-network-configure: &network-configure
 x-network-gateway: &network-gateway
   image: ${REFORGED_IMAGE:-reforged-revival}-front:${REFORGED_TAG:-local}
   build:
-    context: .
-    dockerfile: docker/Dockerfile
-    # dainty-lass's crates come over SSH (RD27): `docker compose build` passes the host's agent
-    ssh: [default]
+    context: ..
+    dockerfile: restricted/docker/Dockerfile
     target: front
   profiles: [network]
   command: ["reforged-host", "gateway", "serve", "--env-file", "/opt/reforged/.workspace/config/gateway.env"]
@@ -151,10 +139,8 @@ x-network-gateway: &network-gateway
 x-network-node: &network-node
   image: ${REFORGED_IMAGE:-reforged-revival}-server:${REFORGED_TAG:-local}
   build:
-    context: .
-    dockerfile: docker/Dockerfile
-    # dainty-lass's crates come over SSH (RD27): `docker compose build` passes the host's agent
-    ssh: [default]
+    context: ..
+    dockerfile: restricted/docker/Dockerfile
     target: server
     args:
       REFORGED_COMMIT: ${REFORGED_COMMIT:-}
@@ -178,10 +164,8 @@ services:
   net:
     image: ${REFORGED_IMAGE:-reforged-revival}-front:${REFORGED_TAG:-local}
     build:
-      context: .
-      dockerfile: docker/Dockerfile
-    # dainty-lass's crates come over SSH (RD27): `docker compose build` passes the host's agent
-    ssh: [default]
+      context: ..
+      dockerfile: restricted/docker/Dockerfile
       target: front
     command: ["sleep", "infinity"]
     init: true
@@ -317,10 +301,8 @@ services:
     <<: *server
     image: ${REFORGED_IMAGE:-reforged-revival}-server-rollback:${REFORGED_TAG:-local}
     build:
-      context: .
-      dockerfile: docker/Dockerfile
-    # dainty-lass's crates come over SSH (RD27): `docker compose build` passes the host's agent
-    ssh: [default]
+      context: ..
+      dockerfile: restricted/docker/Dockerfile
       target: server-rollback
       args:
         REFORGED_COMMIT: ${REFORGED_COMMIT:-}
@@ -344,10 +326,8 @@ services:
     <<: *server
     image: ${REFORGED_IMAGE:-reforged-revival}-server-rollback:${REFORGED_TAG:-local}
     build:
-      context: .
-      dockerfile: docker/Dockerfile
-    # dainty-lass's crates come over SSH (RD27): `docker compose build` passes the host's agent
-    ssh: [default]
+      context: ..
+      dockerfile: restricted/docker/Dockerfile
       target: server-rollback
       args:
         REFORGED_COMMIT: ${REFORGED_COMMIT:-}
@@ -487,10 +467,8 @@ services:
   test:
     image: ${REFORGED_IMAGE:-reforged-revival}-test:${REFORGED_TAG:-local}
     build:
-      context: .
-      dockerfile: docker/Dockerfile
-    # dainty-lass's crates come over SSH (RD27): `docker compose build` passes the host's agent
-    ssh: [default]
+      context: ..
+      dockerfile: restricted/docker/Dockerfile
       target: test
       args:
         REFORGED_COMMIT: ${REFORGED_COMMIT:-}
@@ -512,10 +490,8 @@ services:
   network-init:
     image: ${REFORGED_IMAGE:-reforged-revival}-server:${REFORGED_TAG:-local}
     build:
-      context: .
-      dockerfile: docker/Dockerfile
-    # dainty-lass's crates come over SSH (RD27): `docker compose build` passes the host's agent
-    ssh: [default]
+      context: ..
+      dockerfile: restricted/docker/Dockerfile
       target: server
       args:
         REFORGED_COMMIT: ${REFORGED_COMMIT:-}

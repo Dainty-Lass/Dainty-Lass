@@ -1,10 +1,10 @@
 # NOTICE
 
-dainty-restricted is the AGPL half of DaintyLass (RD27), licensed under the GNU Affero General Public License,
+`restricted/` is the AGPL subtree of DaintyLass (RD27), licensed under the GNU Affero General Public License,
 version 3 only (`AGPL-3.0-only`); see [LICENSE.txt](LICENSE.txt). Additional terms under AGPLv3 section 7 apply to the
 Mystic Paradox material only; see [ADDITIONAL_TERMS.md](ADDITIONAL_TERMS.md). It builds on the MIT crates of
-[dainty-lass](https://git.silentspud.com/silentspud/dainty-lass), taken as git dependencies; a program built from both
-is distributed under the AGPL-3.0-only as a whole. This file records where each part of this repository comes from.
+[`../crates/`](../crates); a program built from both is distributed under the AGPL-3.0-only as a whole. This file
+records where each part of `restricted/` comes from.
 
 ## Modification notice
 

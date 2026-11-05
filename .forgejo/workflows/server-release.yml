@@ -2,7 +2,7 @@
 # One archive per server platform, which `reforged-host setup` and `reforged-host update` download and check (RH5):
 #  - ReforgedRevivalServer-<version>-windows-x64.zip and -linux-x64.tar.gz hold reforged-revival-server-<version>/:
 #    the source of the commit (git archive, the corresponding source under the AGPL) and of the rustic-isles
-#    submodule at the commit it pins (modules/rustic-isles, DS6), with
+#    module in-tree (modules/rustic-isles, DS6/RD27), with
 #      bin/              the server in one binary (RD26), built here for that platform: dainty-lass-server-console,
 #                        the same as reforged-host (the name update, the systemd units and the Director's
 #                        game-server wrapper run), and dainty-lass-server-minimal. The 1.14.7 Rust backend and
@@ -75,6 +75,7 @@ jobs:
     defaults:
       run:
         shell: bash
+        working-directory: restricted
     env:
       TARGET: ${{ matrix.target }}
       PLATFORM: ${{ matrix.platform }}
@@ -84,16 +85,12 @@ jobs:
       # Before the checkout: a submodule's objects under a deep path fail to clone without it (DF1)
       - name: Long paths for git
         if: runner.os == 'Windows'
+        working-directory: .
         run: git config --global core.longpaths true
 
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      # dainty-lass's MIT crates are git dependencies (RD27): over HTTPS with the read token here
-      - name: Read dainty-lass over HTTPS
-        env:
-          TOKEN: ${{ secrets.CI_READ_TOKEN }}
-        run: git config --global url."https://oauth2:${TOKEN}@git.silentspud.com/".insteadOf "ssh://git@git.silentspud.com:222/"
 
       # The runner's temporary folder as bash and GNU tar take it on every runner (tar reads D: as a remote host)
       - name: Work folder
@@ -157,8 +154,8 @@ jobs:
           name="reforged-revival-server-$VERSION"
           out="$WORK/assemble/$name"
           rm -rf "$WORK/assemble" && mkdir -p "$out"
-          # The commit's source, as git has it (no .workspace, nothing git ignores); rustic-isles is in-tree (RD27)
-          git archive --format=tar "$COMMIT" | tar -x -C "$out"
+          # The commit's server source, as git has it (no .workspace, nothing git ignores); rustic-isles is in-tree (RD27)
+          git -C .. archive --format=tar "$COMMIT:restricted" | tar -x -C "$out"
           mkdir -p "$out/bin"
           for bin in reforged-host dainty-lass-server-console dainty-lass-server-minimal; do
             cp "target/$TARGET/release/$bin$ext" "$out/bin/"

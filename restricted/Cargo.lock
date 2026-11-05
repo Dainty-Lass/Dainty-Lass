@@ -17,7 +17,6 @@ checksum = "320119579fcad9c21884f5c4861d16174d0e06250625266f50fe6898340abefa"
 [[package]]
 name = "admin"
 version = "0.0.0"
-source = "git+ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git?rev=f222c7bfe5520ba71d569039de21609c10cc0c9a#f222c7bfe5520ba71d569039de21609c10cc0c9a"
 dependencies = [
  "async-graphql",
  "axum",
@@ -837,7 +836,6 @@ dependencies = [
 [[package]]
 name = "chat"
 version = "0.0.0"
-source = "git+ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git?rev=f222c7bfe5520ba71d569039de21609c10cc0c9a#f222c7bfe5520ba71d569039de21609c10cc0c9a"
 dependencies = [
  "axum",
  "base64 0.23.1",
@@ -1021,7 +1019,6 @@ checksum = "a6ef517f0926dd24a1582492c791b6a4818a4d94e789a334894aa15b0d12f55c"
 [[package]]
 name = "content"
 version = "0.0.0"
-source = "git+ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git?rev=f222c7bfe5520ba71d569039de21609c10cc0c9a#f222c7bfe5520ba71d569039de21609c10cc0c9a"
 dependencies = [
  "bytes",
  "chrono",
@@ -1059,7 +1056,6 @@ dependencies = [
 [[package]]
 name = "controller"
 version = "0.0.0"
-source = "git+ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git?rev=f222c7bfe5520ba71d569039de21609c10cc0c9a#f222c7bfe5520ba71d569039de21609c10cc0c9a"
 dependencies = [
  "admin",
  "history-ship",
@@ -1978,7 +1974,6 @@ dependencies = [
 [[package]]
 name = "epic"
 version = "0.0.0"
-source = "git+ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git?rev=f222c7bfe5520ba71d569039de21609c10cc0c9a#f222c7bfe5520ba71d569039de21609c10cc0c9a"
 dependencies = [
  "bytes",
  "egs-api",
@@ -2260,7 +2255,6 @@ dependencies = [
 [[package]]
 name = "gateway"
 version = "0.0.0"
-source = "git+ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git?rev=f222c7bfe5520ba71d569039de21609c10cc0c9a#f222c7bfe5520ba71d569039de21609c10cc0c9a"
 dependencies = [
  "aws-lc-rs",
  "bytes",
@@ -2717,7 +2711,6 @@ checksum = "7f24254aa9a54b5c858eaee2f5bccdb46aaf0e486a595ed5fd8f86ba55232a70"
 [[package]]
 name = "history-ship"
 version = "0.0.0"
-source = "git+ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git?rev=f222c7bfe5520ba71d569039de21609c10cc0c9a#f222c7bfe5520ba71d569039de21609c10cc0c9a"
 dependencies = [
  "aws-lc-rs",
  "base64 0.23.1",
@@ -2821,7 +2814,6 @@ dependencies = [
 [[package]]
 name = "hostkit"
 version = "0.0.0"
-source = "git+ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git?rev=f222c7bfe5520ba71d569039de21609c10cc0c9a#f222c7bfe5520ba71d569039de21609c10cc0c9a"
 dependencies = [
  "admin",
  "aws-lc-rs",
@@ -3678,7 +3670,6 @@ dependencies = [
 [[package]]
 name = "launcher-kit"
 version = "0.0.0"
-source = "git+ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git?rev=f222c7bfe5520ba71d569039de21609c10cc0c9a#f222c7bfe5520ba71d569039de21609c10cc0c9a"
 dependencies = [
  "base64 0.23.1",
  "bytes",
@@ -3966,7 +3957,6 @@ dependencies = [
 [[package]]
 name = "module-api"
 version = "0.1.0"
-source = "git+ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git?rev=f222c7bfe5520ba71d569039de21609c10cc0c9a#f222c7bfe5520ba71d569039de21609c10cc0c9a"
 dependencies = [
  "libc",
  "serde",
@@ -4056,7 +4046,6 @@ dependencies = [
 [[package]]
 name = "network"
 version = "0.0.0"
-source = "git+ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git?rev=f222c7bfe5520ba71d569039de21609c10cc0c9a#f222c7bfe5520ba71d569039de21609c10cc0c9a"
 dependencies = [
  "aws-lc-rs",
  "base64 0.23.1",
@@ -4789,7 +4778,6 @@ dependencies = [
 [[package]]
 name = "plugin-host"
 version = "0.0.0"
-source = "git+ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git?rev=f222c7bfe5520ba71d569039de21609c10cc0c9a#f222c7bfe5520ba71d569039de21609c10cc0c9a"
 dependencies = [
  "libloading",
  "module-api",
@@ -5012,7 +5000,6 @@ dependencies = [
 [[package]]
 name = "protocol"
 version = "0.0.0"
-source = "git+ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git?rev=f222c7bfe5520ba71d569039de21609c10cc0c9a#f222c7bfe5520ba71d569039de21609c10cc0c9a"
 dependencies = [
  "chrono",
  "module-api",
@@ -5026,7 +5013,6 @@ dependencies = [
 [[package]]
 name = "proxy"
 version = "0.0.0"
-source = "git+ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git?rev=f222c7bfe5520ba71d569039de21609c10cc0c9a#f222c7bfe5520ba71d569039de21609c10cc0c9a"
 dependencies = [
  "http",
  "tokio",
@@ -5376,7 +5362,6 @@ checksum = "d6f6ff9a378485b298a5286656da665ba74413d36db0979633275d2e708145d4"
 [[package]]
 name = "remote"
 version = "0.0.0"
-source = "git+ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git?rev=f222c7bfe5520ba71d569039de21609c10cc0c9a#f222c7bfe5520ba71d569039de21609c10cc0c9a"
 dependencies = [
  "base64 0.23.1",
  "bytes",
@@ -6092,7 +6077,6 @@ dependencies = [
 [[package]]
 name = "service-kit"
 version = "0.0.0"
-source = "git+ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git?rev=f222c7bfe5520ba71d569039de21609c10cc0c9a#f222c7bfe5520ba71d569039de21609c10cc0c9a"
 dependencies = [
  "axum",
  "base64 0.23.1",
@@ -6117,7 +6101,6 @@ dependencies = [
 [[package]]
 name = "service-plugin"
 version = "0.0.0"
-source = "git+ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git?rev=f222c7bfe5520ba71d569039de21609c10cc0c9a#f222c7bfe5520ba71d569039de21609c10cc0c9a"
 dependencies = [
  "base64 0.23.1",
  "module-api",
@@ -6452,7 +6435,6 @@ checksum = "ff7589a1859b09232522bb9edf076ca7fcf14ded96685d3fa629db73023ffbb7"
 [[package]]
 name = "store"
 version = "0.0.0"
-source = "git+ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git?rev=f222c7bfe5520ba71d569039de21609c10cc0c9a#f222c7bfe5520ba71d569039de21609c10cc0c9a"
 dependencies = [
  "diesel",
  "diesel-async",

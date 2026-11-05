@@ -1,6 +1,6 @@
 # Security Review Index
 
-Index of trust-boundary security checklists (`docs/security/*.md`, RX3/DX2) and `cargo fuzz` targets (`fuzz/fuzz_targets/*.rs`) for dainty-restricted's AGPL components. The MIT components' checklists are dainty-lass's (RD27), the gateway's, the allowlist's, content's and chat's among them; the libraries built here from those crates are covered there.
+Index of trust-boundary security checklists (`docs/security/*.md`, RX3/DX2) and `cargo fuzz` targets (`fuzz/fuzz_targets/*.rs`) for `restricted/`'s AGPL components. The MIT components' checklists are in [../SECURITY_REVIEW.md](../SECURITY_REVIEW.md) (RD27), the gateway's, the allowlist's, content's and chat's among them; the libraries built here from those crates are covered there.
 
 ## Checklists (`docs/security/`)
 

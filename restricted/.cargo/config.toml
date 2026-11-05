@@ -20,8 +20,3 @@ REFORGED_RELEASE_REPOSITORY = "SilentSpud/Dauntless-Reforged-Revival"
 # Named so a path dependency carrying `registry = "silentspud"` resolves; the workspace never reads from it.
 [registries.silentspud]
 index = "sparse+https://git.silentspud.com/api/packages/silentspud/cargo/"
-
-# dainty-lass's crates are git dependencies over SSH (RD27, DF1's fallback): git's own client takes the SSH key and
-# long paths, where cargo's libgit2 failed under a long CARGO_HOME (spike DF1).
-[net]
-git-fetch-with-cli = true

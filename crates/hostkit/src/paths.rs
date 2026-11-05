@@ -84,7 +84,9 @@ pub fn game_port_range(max_hunts: u32) -> (u16, u16) {
 
 fn is_repo_root(dir: &Path) -> bool {
     dir.join("services").join("host").join("Cargo.toml").exists()
-        || (dir.join("Cargo.toml").exists() && dir.join("modules").join("rustic-isles").exists())
+        || (dir.join("Cargo.toml").exists()
+            && (dir.join("modules").join("rustic-isles").exists()
+                || dir.join("restricted").join("modules").join("rustic-isles").exists()))
         || dir.join("release.json").exists()
 }
 
@@ -167,12 +169,17 @@ pub struct Paths {
 impl Paths {
     pub fn new(repo: impl Into<PathBuf>) -> Self {
         let repo = repo.into();
+        let restricted = if repo.join("restricted").join("modules").join("rustic-isles").exists() {
+            repo.join("restricted")
+        } else {
+            repo.clone()
+        };
         let preset = repo.join("preset");
         let host_kit = repo.join("services").join("host");
         let gateway_dir = repo.join("services").join("gateway");
         let content_dir = repo.join("services").join("content");
         let workspace = repo.join(".workspace");
-        let isles = repo.join("modules").join("rustic-isles");
+        let isles = restricted.join("modules").join("rustic-isles");
         let paradox = isles.join("reference").join("1.14.7");
         let backend_dir = paradox.join("ParadoxBackend");
         let director_dir = paradox.join("ParadoxDirector");
@@ -180,7 +187,7 @@ impl Paths {
         let sdk_header = runtime_source.join("SDK.hpp");
         let sdk_dir = runtime_source.join("SDK");
         let runtime_dll = runtime_source.join("x64").join("Release").join("Rustic-Isles.dll");
-        let loader_dir = repo.join("native").join("runtime-loader");
+        let loader_dir = restricted.join("native").join("runtime-loader");
         let loader_dll = loader_dir
             .join("target")
             .join("x86_64-pc-windows-msvc")

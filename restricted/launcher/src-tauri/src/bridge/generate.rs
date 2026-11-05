@@ -392,7 +392,7 @@ fn generated_files_are_current() {
 fn generated_isolation_hook_is_dainty_lass_s() {
     let lass = std::env::var_os("DAINTY_LASS_DIR")
         .map(PathBuf::from)
-        .unwrap_or_else(|| launcher_dir().join("../../dainty-lass"));
+        .unwrap_or_else(|| launcher_dir().join("../.."));
     let from = lass.join("launcher/isolation");
     if !from.join("hook.js").is_file() {
         eprintln!(

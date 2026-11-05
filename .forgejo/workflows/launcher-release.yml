@@ -3,7 +3,7 @@
 #  - DaintyLass{Launcher,Manager}_<version>_x64-setup.exe   NSIS, per user, built on windows-msvc
 #  - DaintyLass{Launcher,Manager}_<version>_amd64.AppImage, .deb and _x86_64.rpm   built on Ubuntu 22.04, so the
 #                                                           packages run on its glibc and anything newer
-# with, when the signing secrets are set (docs/launcher-release.md), a .sig beside each bundle (the updater's
+# with, when the signing secrets are set (restricted/docs/launcher-release.md), a .sig beside each bundle (the updater's
 # ed25519 signature), latest.json and latest-manager.json (the two updater feeds, tauri.conf.json's endpoints) and
 # Authenticode on the Windows binaries and installers. Without the secrets the same run builds unsigned and writes
 # no feed. SHA256SUMS.txt covers every file.
@@ -37,11 +37,11 @@ jobs:
         id: plan
         run: |
           set -euo pipefail
-          version="$(sed -n 's/^  "version": "\(.*\)",$/\1/p' launcher/package.json)"
+          version="$(sed -n 's/^  "version": "\(.*\)",$/\1/p' restricted/launcher/package.json)"
           semver='^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$'
           [[ "$version" =~ $semver ]] || { echo "::error::$version is not a version (x.y.z or x.y.z-prerelease)"; exit 1; }
-          grep -qx "version = \"$version\"" launcher/src-tauri/Cargo.toml \
-            || { echo "::error::launcher/src-tauri/Cargo.toml is not at $version"; exit 1; }
+          grep -qx "version = \"$version\"" restricted/launcher/src-tauri/Cargo.toml \
+            || { echo "::error::restricted/launcher/src-tauri/Cargo.toml is not at $version"; exit 1; }
           echo "version=$version" >> "$GITHUB_OUTPUT"
           echo "launcher $version"
 
@@ -67,16 +67,12 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      # dainty-lass's MIT crates are git dependencies (RD27): over HTTPS with the read token here
-      - name: Read dainty-lass over HTTPS
-        env:
-          TOKEN: ${{ secrets.CI_READ_TOKEN }}
-        run: git config --global url."https://oauth2:${TOKEN}@git.silentspud.com/".insteadOf "ssh://git@git.silentspud.com:222/"
 
       - name: Work folder
         run: echo "WORK=$(cygpath -u "$RUNNER_TEMP")" >> "$GITHUB_ENV"
 
       - name: Install the pinned toolchain
+        working-directory: restricted
         run: rustup show active-toolchain || rustup toolchain install
 
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
@@ -85,24 +81,16 @@ jobs:
 
       - uses: https://github.com/oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
-          # dainty-lass launcher/package.json's packageManager
+          # launcher/package.json's packageManager
           bun-version: 1.4.4
 
-      # The pages, the scripts and the isolation hook come from dainty-lass (MIT, RD27), at the rev Cargo.toml pins
-      - name: dainty-lass at the pinned rev
-        run: |
-          rev="$(grep -m1 -o 'dainty-lass.git", rev = "[0-9a-f]*' Cargo.toml | grep -o '[0-9a-f]\{40\}')"
-          git clone -q ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git .dainty-lass
-          git -C .dainty-lass checkout -q "$rev"
-          echo "DAINTY_LASS_DIR=$PWD/.dainty-lass" >> "$GITHUB_ENV"
-
       - name: Install the tauri CLI
-        working-directory: launcher
+        working-directory: restricted/launcher
         run: bun install --frozen-lockfile
 
       # Each secret is optional: unset, that signature is skipped and the run still builds
       - name: Signing
-        working-directory: launcher
+        working-directory: restricted/launcher
         env:
           UPDATER_KEY: ${{ secrets.LAUNCHER_UPDATER_KEY }}
           UPDATER_KEY_PASSWORD: ${{ secrets.LAUNCHER_UPDATER_KEY_PASSWORD }}
@@ -125,9 +113,9 @@ jobs:
           fi
           bun scripts/lass.ts release-config "$(cygpath -w "$WORK/config")"
 
-      # No build cache in a release: every file is built from this commit alone. beforeBuildCommand builds dainty-lass ui/'s page
+      # No build cache in a release: every file is built from this commit alone. beforeBuildCommand builds ui/'s page
       - name: Build DaintyLass Launcher and DaintyLass Manager
-        working-directory: launcher
+        working-directory: restricted/launcher
         run: |
           set -euo pipefail
           config="$(cygpath -w "$WORK/config")"
@@ -207,13 +195,9 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      # dainty-lass's MIT crates are git dependencies (RD27): over HTTPS with the read token here
-      - name: Read dainty-lass over HTTPS
-        env:
-          TOKEN: ${{ secrets.CI_READ_TOKEN }}
-        run: git config --global url."https://oauth2:${TOKEN}@git.silentspud.com/".insteadOf "ssh://git@git.silentspud.com:222/"
 
       - name: Install rustup and the pinned toolchain
+        working-directory: restricted
         run: |
           curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \
             | sh -s -- -y --no-modify-path --profile minimal --default-toolchain none
@@ -222,23 +206,15 @@ jobs:
 
       - uses: https://github.com/oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
-          # dainty-lass launcher/package.json's packageManager
+          # launcher/package.json's packageManager
           bun-version: 1.4.4
 
-      # The pages, the scripts and the isolation hook come from dainty-lass (MIT, RD27), at the rev Cargo.toml pins
-      - name: dainty-lass at the pinned rev
-        run: |
-          rev="$(grep -m1 -o 'dainty-lass.git", rev = "[0-9a-f]*' Cargo.toml | grep -o '[0-9a-f]\{40\}')"
-          git clone -q ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git .dainty-lass
-          git -C .dainty-lass checkout -q "$rev"
-          echo "DAINTY_LASS_DIR=$PWD/.dainty-lass" >> "$GITHUB_ENV"
-
       - name: Install the tauri CLI
-        working-directory: launcher
+        working-directory: restricted/launcher
         run: bun install --frozen-lockfile
 
       - name: Signing
-        working-directory: launcher
+        working-directory: restricted/launcher
         env:
           UPDATER_KEY: ${{ secrets.LAUNCHER_UPDATER_KEY }}
           UPDATER_KEY_PASSWORD: ${{ secrets.LAUNCHER_UPDATER_KEY_PASSWORD }}
@@ -252,7 +228,7 @@ jobs:
           bun scripts/lass.ts release-config "$RUNNER_TEMP/config"
 
       - name: Build DaintyLass Launcher and DaintyLass Manager
-        working-directory: launcher
+        working-directory: restricted/launcher
         run: |
           set -euo pipefail
           mkdir -p "$RUNNER_TEMP/out"
@@ -322,7 +298,7 @@ jobs:
           node - release "$VERSION" <<'EOF'
           const fs = require("fs"), path = require("path");
           const [dir, version] = process.argv.slice(2);
-          const config = JSON.parse(fs.readFileSync("launcher/src-tauri/tauri.conf.json", "utf8"));
+          const config = JSON.parse(fs.readFileSync("restricted/launcher/src-tauri/tauri.conf.json", "utf8"));
           // The release the endpoints name: the bundles sit beside the feed
           const base = config.plugins.updater.endpoints[0].replace(/[^/]*$/, "");
           const apps = { DaintyLassLauncher: "latest.json", DaintyLassManager: "latest-manager.json" };

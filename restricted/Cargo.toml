@@ -25,27 +25,27 @@ repository = "https://git.silentspud.com/silentspud/dainty-restricted"
 publish = false
 
 [workspace.dependencies]
-controller = { git = "ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git", rev = "f222c7bfe5520ba71d569039de21609c10cc0c9a" }
-server-controller = { git = "ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git", rev = "f222c7bfe5520ba71d569039de21609c10cc0c9a", package = "controller" }
-hostkit = { git = "ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git", rev = "f222c7bfe5520ba71d569039de21609c10cc0c9a" }
-launcher-kit = { git = "ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git", rev = "f222c7bfe5520ba71d569039de21609c10cc0c9a" }
-module-api = { git = "ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git", rev = "f222c7bfe5520ba71d569039de21609c10cc0c9a" }
+controller = { path = "../crates/controller" }
+server-controller = { path = "../crates/controller", package = "controller" }
+hostkit = { path = "../crates/hostkit" }
+launcher-kit = { path = "../crates/launcher-kit" }
+module-api = { path = "../crates/module-api" }
 # The network core plugin (DD16-DD18), by its own name (chat) and the one the gateway and host use
-network = { git = "ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git", rev = "f222c7bfe5520ba71d569039de21609c10cc0c9a" }
-network_plugin = { git = "ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git", rev = "f222c7bfe5520ba71d569039de21609c10cc0c9a", package = "network", default-features = false }
-plugin-host = { git = "ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git", rev = "f222c7bfe5520ba71d569039de21609c10cc0c9a" }
+network = { path = "../crates/network" }
+network_plugin = { path = "../crates/network", package = "network", default-features = false }
+plugin-host = { path = "../crates/plugin-host" }
 # The protocol a service built as a library speaks (RD27)
-service-plugin = { git = "ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git", rev = "f222c7bfe5520ba71d569039de21609c10cc0c9a" }
-protocol = { git = "ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git", rev = "f222c7bfe5520ba71d569039de21609c10cc0c9a" }
-remote = { git = "ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git", rev = "f222c7bfe5520ba71d569039de21609c10cc0c9a" }
-store = { git = "ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git", rev = "f222c7bfe5520ba71d569039de21609c10cc0c9a" }
-history-ship = { git = "ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git", rev = "f222c7bfe5520ba71d569039de21609c10cc0c9a" }
-service-kit = { git = "ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git", rev = "f222c7bfe5520ba71d569039de21609c10cc0c9a" }
-proxy = { git = "ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git", rev = "f222c7bfe5520ba71d569039de21609c10cc0c9a" }
-admin = { git = "ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git", rev = "f222c7bfe5520ba71d569039de21609c10cc0c9a" }
-chat = { git = "ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git", rev = "f222c7bfe5520ba71d569039de21609c10cc0c9a" }
-content = { git = "ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git", rev = "f222c7bfe5520ba71d569039de21609c10cc0c9a" }
-epic = { git = "ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git", rev = "f222c7bfe5520ba71d569039de21609c10cc0c9a" }
+service-plugin = { path = "../crates/service-plugin" }
+protocol = { path = "../crates/protocol" }
+remote = { path = "../crates/remote" }
+store = { path = "../crates/store" }
+history-ship = { path = "../crates/history-ship" }
+service-kit = { path = "../crates/service-kit" }
+proxy = { path = "../crates/proxy" }
+admin = { path = "../crates/admin" }
+chat = { path = "../crates/chat" }
+content = { path = "../crates/content" }
+epic = { path = "../crates/epic" }
 # The game modules compiled into the server (DF5): Cargo features of the controller and the bins
 isles-1-14-7 = { path = "modules/rustic-isles/crates/isles-1-14-7", default-features = false }
 isles-core = { path = "modules/rustic-isles/crates/isles-core" }
@@ -61,7 +61,7 @@ rifts-relay = { path = "modules/rustic-rifts/crates/rifts-relay" }
 rifts-realms = { path = "modules/rustic-rifts/crates/rifts-realms" }
 rifts-guard = { path = "modules/rustic-rifts/crates/rifts-guard" }
 rifts-host = { path = "modules/rustic-rifts/crates/rifts-host" }
-gateway = { git = "ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git", rev = "f222c7bfe5520ba71d569039de21609c10cc0c9a" }
+gateway = { path = "../crates/gateway" }
 host = { path = "crates/host" }
 launcher = { path = "launcher/src-tauri" }
 

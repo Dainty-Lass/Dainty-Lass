@@ -138,7 +138,6 @@ if [ "$run_region_ping" = 1 ]; then
 		done | sort -n | awk '{ printf "%s%s=%s", sep, $2, $1; sep = "," }')"
 		echo "home $home ($published): expecting $expect"
 		(
-			cd rust
 			RR_HARNESS_HOME="${published/0.0.0.0/127.0.0.1}" RR_HARNESS_PIN="$pin" RR_HARNESS_EXPECT="$expect" \
 				RR_HARNESS_TOLERANCE_MS="$tolerance" \
 				cargo test -p launcher --lib --locked -- --ignored --nocapture the_region_order_follows

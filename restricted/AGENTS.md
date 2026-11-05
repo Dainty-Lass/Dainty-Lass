@@ -13,19 +13,18 @@ and cite its section rather than re-deriving the mapping in a brief or a commit.
 
 ## Repository layout
 
-DaintyLass is two repositories since the split (RD27, 2026-11-02). **dainty-restricted**, this one, holds every AGPL
-component and everything that links one; **dainty-lass** holds the MIT crates, the UI and the plan
-(`MIGRATION_PLAN.md`, `docs/port/`, `docs/architecture.md`), and is the source of truth for both. This workspace takes
-dainty-lass's crates as git dependencies at one rev (`Cargo.toml`, `[workspace.dependencies]`): a change to an MIT crate
-lands in dainty-lass first, then the rev here moves, for every crate at once.
+`restricted/` is the AGPL-3.0-only subtree and Cargo workspace of the DaintyLass monorepo (RD27). It holds every AGPL
+component and everything that links one; the monorepo root holds the MIT crates (`../crates/`), the UI (`../ui/`) and
+the plan (`../MIGRATION_PLAN.md`, `../docs/port/`, `../docs/architecture.md`). This workspace takes the root MIT crates
+via relative path dependencies (`path = "../crates/<name>"` in `Cargo.toml`, `[workspace.dependencies]`).
 
 | Path | What it is |
 | --- | --- |
-| root | One cargo workspace, every package of its own in `crates/<package name>`: `host` (the AGPL shell around dainty-lass's `hostkit`, whose `compose.rs` composes the services into the controller), `gateway-plugin`, `content-plugin` and `chat-plugin` (the libraries of dainty-lass's MIT `gateway`, `content` and `chat`), `server-console` (which builds `dainty-lass-server-console` and `reforged-host`) and `server-minimal`. Also `launcher/src-tauri` (the Tauri launcher backend: `dainty-lass-client`, and `dainty-lass-manager` with the `server-gui` feature, kept where Tauri expects it) and the game modules' crates |
-| `modules/rustic-isles/` | The 1.14.7 game module (`crates/isles-1-14-7`), `isles-core`, `isles-db`, `isles-director`, `isles-chat`, the C++ game runtime (`native/runtime`) and CatalogExporter (`native/catalog-exporter`), and the Node reference tree (`reference/1.14.7`). In-tree since RD27, members of the root workspace |
+| `restricted/` | One cargo workspace, every package of its own in `crates/<package name>`: `host` (the AGPL shell around `../crates/hostkit`, whose `compose.rs` composes the services into the controller), `gateway-plugin`, `content-plugin` and `chat-plugin` (the libraries of the MIT `gateway`, `content` and `chat`), `server-console` (which builds `dainty-lass-server-console` and `reforged-host`) and `server-minimal`. Also `launcher/src-tauri` (the Tauri launcher backend: `dainty-lass-client`, and `dainty-lass-manager` with the `server-gui` feature, kept where Tauri expects it) and the game modules' crates |
+| `modules/rustic-isles/` | The 1.14.7 game module (`crates/isles-1-14-7`), `isles-core`, `isles-db`, `isles-director`, `isles-chat`, the C++ game runtime (`native/runtime`) and CatalogExporter (`native/catalog-exporter`), and the Node reference tree (`reference/1.14.7`). In-tree since RD27, members of this workspace |
 | `modules/rustic-rifts/` | Peer-to-peer realms: `rifts-seam`, `rifts-admission`, `rifts-relay`, `rifts-realms`, `rifts-guard`, `rifts-host` (the launcher's side), and `ParadoxTransport.dll` (`src/`) |
 | `legacy/` | dainty-legacy: the 1.4.4 importer, a workspace of its own (an external plugin `host.toml` pins) |
-| `ui/` | The UI's two AGPL inputs only: the language catalogs (`packages/i18n/catalogs`) and the bridge types the launcher generates (`packages/bridge/src/generated`); dainty-lass's `ui/` (dainty-dash) copies the bridge types in at build time |
+| `ui/` | The UI's two AGPL inputs only: the language catalogs (`packages/i18n/catalogs`) and the bridge types the launcher generates (`packages/bridge/src/generated`); `../ui/` (dainty-dash) copies the bridge types in at build time |
 | `fuzz/` | `cargo fuzz` targets for the AGPL components, a workspace of its own |
 | `native/` | The runtime loader (`runtime-loader`, `winmm.dll`, outside the workspace) |
 | `docker/`, `compose.yaml` | Container deployment (RX4), laid out as the server release |

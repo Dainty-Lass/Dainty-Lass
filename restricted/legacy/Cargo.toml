@@ -18,15 +18,14 @@ publish = false
 [workspace.dependencies]
 legacy-import = { path = "crates/legacy-import" }
 
-# DaintyLass's crates, as git dependencies on plan at a fixed rev (DF1's fallback) until the silentspud registry
-# serves them; then each becomes `version = "0.1.0", registry = "silentspud"` (DD2). One rev for both, so they share
-# one copy of module-api.
-module-api = { git = "ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git", rev = "fb46a4a322f83a9e6f0bd0540bb825cedd83c319" }
-store = { git = "ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git", rev = "fb46a4a322f83a9e6f0bd0540bb825cedd83c319" }
+# DaintyLass's MIT crates in the root workspace
+module-api = { path = "../../crates/module-api" }
+store = { path = "../../crates/store" }
 
 # The versions DaintyLass's workspace asks for, so one copy of each lands in its tree
 chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
-diesel = { version = "2.3", default-features = false, features = ["sqlite", "postgres", "r2d2", "returning_clauses_for_sqlite_3_35"] }
+diesel = { version = "2.3", default-features = false, features = ["sqlite", "postgres_backend", "r2d2", "returning_clauses_for_sqlite_3_35", "i-implement-a-third-party-backend-and-opt-into-breaking-changes"] }
+diesel-async = { version = "0.9", default-features = false, features = ["postgres", "async-connection-wrapper", "r2d2"] }
 diesel_migrations = { version = "2.3", features = ["sqlite", "postgres"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1", features = ["float_roundtrip"] }
