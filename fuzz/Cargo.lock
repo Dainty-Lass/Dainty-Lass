@@ -966,6 +966,7 @@ dependencies = [
  "rifts-seam",
  "rifts-transport",
  "rustic-isles",
+ "rustic-isles-1-14-7",
  "rustic-isles-auth",
  "rustic-isles-characters",
  "rustic-isles-chat",
@@ -3552,6 +3553,33 @@ dependencies = [
  "serde_json",
  "service-kit",
  "sha2",
+ "thiserror",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
+name = "rustic-isles-1-14-7"
+version = "0.0.0"
+dependencies = [
+ "axum",
+ "http",
+ "module-api",
+ "rifts-seam",
+ "rustic-isles",
+ "rustic-isles-auth",
+ "rustic-isles-characters",
+ "rustic-isles-chat",
+ "rustic-isles-db",
+ "rustic-isles-director",
+ "rustic-isles-economy",
+ "rustic-isles-gamedata",
+ "rustic-isles-matchmaking",
+ "rustic-isles-reforged",
+ "rustic-isles-store",
+ "serde_json",
+ "service-kit",
+ "store",
  "thiserror",
  "tokio",
  "tracing",

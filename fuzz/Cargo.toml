@@ -79,6 +79,8 @@ rustic-isles-db = { path = "../crates/rustic-isles-db" }
 # rustic_isles_reforged_{guard,text,paths,admin_auth,admin_text}: what Rustic Isles' Reforged API reads from
 # launchers, the release tooling, the dashboard, the admin service and the host (RD27)
 rustic-isles-reforged = { path = "../crates/rustic-isles-reforged", features = ["test-support"] }
+# rustic_isles_1_14_7_version_data: the version data document and the hook inputs the 1.14.7 module reads (RD27)
+rustic-isles-1-14-7 = { path = "../crates/rustic-isles-1-14-7", default-features = false }
 axum = { version = "0.8", default-features = false }
 # transport_frame, transport_files, transport_pipe: what a peer, the launcher's files and the game server hand the
 # co-op transport (RD27)
@@ -617,6 +619,13 @@ bench = false
 [[bin]]
 name = "rustic_isles_reforged_admin_text"
 path = "fuzz_targets/rustic_isles_reforged_admin_text.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "rustic_isles_1_14_7_version_data"
+path = "fuzz_targets/rustic_isles_1_14_7_version_data.rs"
 test = false
 doc = false
 bench = false
