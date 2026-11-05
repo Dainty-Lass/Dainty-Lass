@@ -105,6 +105,26 @@ fn tables() {
 }
 
 #[test]
+fn starter_manifest_wire_facts() {
+    let manifest = &TABLES.starter_manifest;
+    assert_eq!(manifest.bootstrap_version, "starter-1.12-v5");
+    let stacked = manifest.stacked_item_ids;
+    assert_eq!(stacked.len(), 24);
+    assert_eq!(stacked[0], "TOKEN_DAILY_CHALLENGE_DRAFT");
+    assert_eq!(stacked[13..15], ["DYE_GREEN04_DURABLE", "DYE_BROWN07_DURABLE"]);
+    assert_eq!(stacked[15], "EJ_SYSTEM_TYPING");
+    assert_eq!(stacked[23], "EJ_PLAYER_ZAI_SWEAT");
+    let unique: std::collections::HashSet<_> = stacked.iter().collect();
+    assert_eq!(unique.len(), 24);
+    let wheel = manifest.quick_emoji_wheel;
+    assert_eq!(wheel.len(), 9);
+    assert_eq!(wheel[0], "EJ_PLAYER_BOSUN_JOY");
+    assert_eq!(wheel[8], "");
+    // Every wheel id is a stacked id (17 to 24, in the same order), so a new account holds what its wheel shows
+    assert_eq!(wheel[..8], stacked[16..24]);
+}
+
+#[test]
 fn director_line() {
     assert_eq!(
         DIRECTOR.launch_args(&Settings::default()).join(" "),
