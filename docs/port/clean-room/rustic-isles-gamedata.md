@@ -76,7 +76,7 @@ None beyond this repository: no crate sources from the cargo registry were opene
 
 ## 4. Verification
 
-- `cargo test -p rustic-isles-gamedata --locked --no-fail-fast`: 31 tests (13 unit, 9 routes, 9 generators), all pass
+- `cargo test -p rustic-isles-gamedata --locked --no-fail-fast`: 32 tests (14 unit, 9 routes, 9 generators), all pass
 - `cargo fmt --all --check`, `cargo clippy --workspace --all-targets --locked -- -D warnings`: clean
 - `cargo check` of the two new bins in `fuzz/`: clean (not fuzzed; the targets need nightly)
 - Not run against the real 1.14.7 client, restricted's game-data golden or the Node byte-for-byte generator test;
@@ -98,9 +98,11 @@ None beyond this repository: no crate sources from the cargo registry were opene
    dropped ids are listed indented four spaces.
 7. **§5.3**: a later row that is left out (all three lists empty) does not remove an earlier row's definition;
    `({rows} nodes)` counts every parsed row; `changed` lists ids in next's order.
-8. **§5.5's refusal** is one error text in Node's order: the report lines, the problem list, then `ERROR: refusing
-   ...`. hostkit shows an error's first non-empty line, so a host sees `store entries : n` rather than the refusal.
-   Flagged for the coordinator: putting the refusal first would read better in hostkit but departs from the oracle.
+8. **§5.5's refusal** (settled by the amended decisions, follow-up commit): the error text starts with `ERROR:
+   refusing ...`, then the report lines, the empty line, `VALIDATION PROBLEMS (n):` and the problem lines, so
+   hostkit's first-line summary is the refusal; it is not repeated at the end. A `null` or other non-object entry
+   reports the three problems. The success reports keep the empty line before `Dry run complete. Nothing written.`
+   and before `Wrote ladyluck_store.json (..)`. First implemented with the refusal last and no empty lines.
 9. **§5.6**: a live capture or store that fails to parse is `invalid JSON in {path}: {message}`; the store file is not
    BOM-stripped (the spec says so only of the capture); "the previous SKU's images when it had any" is an `images`
    key that is present and not null; "Retired" lists existing ids absent from the new store.
@@ -110,7 +112,12 @@ None beyond this repository: no crate sources from the cargo registry were opene
     - The catalog-icon fallback takes, per id, the first of the custom, large and small icons that starts `/Game/`.
     - **The sort key's tag is the tag text** inside `{section}|{tag}|{price}|{id}` with `zzz` as the fallback, so
       section 1 comes out in the tags' collation order, not the tab table's. The tab table's "(it also orders the
-      output)" is read as choosing which tag a SKU sorts by. Flagged: if Node sorts by the table index, this differs.
+      output)" is read as choosing which tag a SKU sorts by. Confirmed by the amended decisions.
+    - **The price part** (amended decisions, follow-up commit) is `String(price)` left-padded with `0` to at least 6
+      characters, never cut (`12.5` is `0012.5`, `-5` is `0000-5`, `"500"` is `000500`); first implemented as the
+      safe integer, else 0, zero-padded.
+    - **A `null` platinum price counts as missing** (amended decisions: "passes 1-3 skip a null price"), so passes 1-3
+      skip it; first implemented as a price.
     - Quest-earned ids are compared exactly (the captures are upper-cased, catalog ids are already upper case).
     - Rank skips and passes check in the order the spec lists (baked, price, then claimed); pass 1 checks claimed
       first. Only skip counts, which are not reported, depend on it.
@@ -123,9 +130,13 @@ None beyond this repository: no crate sources from the cargo registry were opene
 14. **`generators::fuzzing`** (doc-hidden) exposes the rule helpers the formats fuzz target drives; not a contract.
 15. **Backups** stamp with the system clock, not the replay clock (a host-side tool).
 16. **`RewardCachePlan::from_json`** returns `Result<Self, String>`; a category missing from `expected` expects 0.
-17. **Found in core, not changed**: with replay headers on, an extreme integer replay time overflows
-    `season::active_season_window_ms` in a debug build (listed in the security page). The windows fuzz target keeps
-    now within the JS date range.
+17. **Found in core**: an extreme integer replay time overflowed `season::active_season_window_ms` in a debug
+    build. Core's window now saturates (merged from `feat/rustic-isles-clean-room`); the windows fuzz target still
+    keeps now within the JS date range.
+18. **`src/tuning.rs` rewritten** (follow-up commit, a precaution from the similarity review): written again from
+    §3.4 alone without the earlier file's text in view. Each payload is §3.4's one-line JSON text, parsed once
+    (`preserve_order` keeps the wire order); B85's `item_grant_data` is set in place from the version's windows. The
+    public API is unchanged, and a unit test checks every text round-trips byte for byte.
 
 ## 6. Similarity
 
