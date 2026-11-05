@@ -11,9 +11,11 @@ pub const ANCHOR_MS: i64 = 1_727_370_000_000;
 pub const LENGTH_MS: i64 = 84 * 24 * 60 * 60 * 1000;
 
 /// `[start, end)` of the window holding `t`; before the anchor the cycles run backwards.
+/// Saturates at the ends of `i64`, so an extreme (replay-pinned) time cannot overflow.
 pub fn active_season_window_ms(t: i64) -> (i64, i64) {
-    let start = ANCHOR_MS + (t - ANCHOR_MS).div_euclid(LENGTH_MS) * LENGTH_MS;
-    (start, start + LENGTH_MS)
+    let cycles = t.saturating_sub(ANCHOR_MS).div_euclid(LENGTH_MS);
+    let start = ANCHOR_MS.saturating_add(cycles.saturating_mul(LENGTH_MS));
+    (start, start.saturating_add(LENGTH_MS))
 }
 
 /// The window as `IsoUtc` texts.
@@ -84,6 +86,17 @@ mod tests {
         let anchor = DateTime::from_timestamp_millis(ANCHOR_MS).unwrap();
         assert_eq!(anchor.weekday(), chrono::Weekday::Thu);
         assert_eq!(to_iso_string(ANCHOR_MS), "2024-09-26T17:00:00.000Z");
+    }
+
+    #[test]
+    fn extreme_times_saturate() {
+        for t in [i64::MIN, i64::MIN + 1, i64::MAX, i64::MAX - 1] {
+            let (start, end) = active_season_window_ms(t);
+            assert!(start <= end);
+            let _ = active_season_window(t);
+        }
+        assert_eq!(active_season_window_ms(i64::MAX).1, i64::MAX);
+        assert_eq!(to_iso_string(i64::MAX), "Invalid Date");
     }
 
     #[test]

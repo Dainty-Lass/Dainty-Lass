@@ -110,9 +110,9 @@ None beyond this repository: no crate sources from the cargo registry were opene
    hold on a bare module (§15 item 15).
 7. **"No database"** (§7.6, §7.8) is §5.1's "database wanted"; the auth's `start` runs when a database is wanted or the
    composer gave a store.
-8. **The host capability header to the guard.** The request summary carries the header under the name the request
-   used, `x-mystic-host-capability` (§3.4); rifts-seam's own constant is `x-rustic-host-capability`. Restricted's
-   guard adapter must read the former, or the coordinator renames one side.
+8. **The host capability header.** The first cut read `x-mystic-host-capability` (§3.4 as first written) while
+   rifts-seam names `x-rustic-host-capability`. Settled by §17's amendment (D3): core reads
+   `rifts_seam::HOST_CAPABILITY_HEADER` for the bucket and hands it to the guard under that name, no alias.
 9. **Count, then CORS** (§3.2 steps 3 and 5, §3.5, auth §4.5). The first cut asked launcher CORS before the count
    (a request ref may not live across the count's await), so a request the budget refused could still log
    `[CORS] Rejected launcher origin`. Coordinator review restored the order: the count's input is taken from the
@@ -142,6 +142,16 @@ None beyond this repository: no crate sources from the cargo registry were opene
     (`Unreadable`, `OtherKind`) with this implementer's own wording. `UserId` has a private field with `new` and
     `as_str`. `OtherKind`'s message is §2.2's quoted refusal text verbatim, since callers see it
     (coordinator decision, parity over own wording); `Unreadable` keeps its own wording. `PatternError`'s fields are now `row` and `why`, with a reworded message.
+20. **§17's amendment of 2026-11-05.**
+    - **D3 cutover:** the 11 hunt rows are `/rustic/v1/hunts/...`, in the same order with the same attributes. The
+      early budget counts `/rustic/v1/hunts`, and the host capability is `x-rustic-host-capability`. The old names
+      are not aliases: `/mystic/v1/hunts/...` is an unrouted 404.
+    - **Auth change:** core passes the row path to `rustic_isles_auth::rifts_caller_kind`, which still keyed on
+      `/mystic/v1/hunts/`. A player's own hunt reads (`/tickets/self`, `/status`, `/reward/self`) would have lost
+      launcher auth, so that function now keys on `/rustic/v1/hunts/`. It is the smallest change, made in its own
+      commit; the auth spec's §4.4 table needs the same amendment.
+    - **Quick emoji:** `StarterManifest::quick_emoji_wheel` is a `&'static [&'static str]`.
+    - **Season window:** saturating arithmetic, so an `i64::MIN` or `i64::MAX` time no longer overflows.
 
 ## 6. Similarity
 

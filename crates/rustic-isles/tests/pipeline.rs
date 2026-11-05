@@ -148,7 +148,7 @@ impl GuardHooks for Guard {
         Ok(())
     }
     fn rate_limit_bucket(&self, request: RequestInfo) -> BoxFuture<'_, Result<Option<String>, SeamError>> {
-        let capability = request.header("x-mystic-host-capability").unwrap_or("").to_owned();
+        let capability = request.header("x-rustic-host-capability").unwrap_or("").to_owned();
         Box::pin(async move {
             match capability.as_str() {
                 "cap-err" => Err(SeamError::unimplemented(Component::Guard, "bucket")),
@@ -427,7 +427,7 @@ async fn budget_buckets() {
     assert_eq!(hit(key, "/isbanned").await.status, StatusCode::OK);
     assert_eq!(hit(key, "/isbanned").await.status, StatusCode::TOO_MANY_REQUESTS);
 
-    let host: &[(&str, &str)] = &[("x-mystic-host-capability", " cap-123 ")];
+    let host: &[(&str, &str)] = &[("x-rustic-host-capability", " cap-123 ")];
     let hosts = [
         hit(host, "/isbanned").await,
         hit(host, "/isbanned").await,
@@ -435,13 +435,13 @@ async fn budget_buckets() {
     ];
     assert_eq!(statuses(&hosts), [200, 200, 429]);
     assert_eq!(
-        hit(&[("x-mystic-host-capability", "cap-456")], "/isbanned")
+        hit(&[("x-rustic-host-capability", "cap-456")], "/isbanned")
             .await
             .status,
         StatusCode::OK
     );
     for capability in ["nope", "cap-err", "   "] {
-        let headers: &'static [(&str, &str)] = Box::leak(Box::new([("x-mystic-host-capability", capability)]));
+        let headers: &'static [(&str, &str)] = Box::leak(Box::new([("x-rustic-host-capability", capability)]));
         let answer = hit(headers, "/isbanned").await;
         assert_eq!(answer.status, StatusCode::TOO_MANY_REQUESTS, "{capability}");
         assert_eq!(answer.header("ratelimit"), Some(r#""2-in-1min"; r=0; t=60"#));
@@ -501,7 +501,7 @@ async fn the_budget_switch() {
             .send(
                 "GET",
                 "/isbanned",
-                &[PINNED, ("x-mystic-host-capability", "cap-1")],
+                &[PINNED, ("x-rustic-host-capability", "cap-1")],
                 "127.0.0.1:5000",
             )
             .await;
@@ -515,7 +515,7 @@ async fn budget_placement() {
     for path in ["/", "/health/live", "/health/ready", "/health/release-gates"] {
         ok_handler(&mut handlers, Method::Get, path);
     }
-    ok_handler(&mut handlers, Method::Get, "/mystic/v1/hunts/:sessionId/status");
+    ok_handler(&mut handlers, Method::Get, "/rustic/v1/hunts/:sessionId/status");
     let t = Harness::new(Options {
         settings: budget_settings(&[]),
         admin_api: true,
@@ -535,14 +535,14 @@ async fn budget_placement() {
             assert!(answer.header("ratelimit").is_none(), "{probe}");
         }
     }
-    let status = pinned("/mystic/v1/hunts/s1/status").await;
+    let status = pinned("/rustic/v1/hunts/s1/status").await;
     assert_eq!(status.status, StatusCode::OK);
     assert_eq!(status.header("ratelimit"), Some(r#""2-in-1min"; r=1; t=60"#));
-    let tail = pinned("/mystic/v1/hunts/unknown-tail").await;
+    let tail = pinned("/rustic/v1/hunts/unknown-tail").await;
     assert_eq!(tail.status, StatusCode::NOT_FOUND);
     assert_eq!(tail.header("ratelimit"), Some(r#""2-in-1min"; r=0; t=60"#));
     assert_eq!(
-        pinned("/mystic/v1/hunts/s1/status").await.status,
+        pinned("/rustic/v1/hunts/s1/status").await.status,
         StatusCode::TOO_MANY_REQUESTS
     );
     for probe in probes {
@@ -603,7 +603,7 @@ async fn rifts_rows_relay() {
     let host = t
         .send(
             "POST",
-            "/mystic/v1/hunts/s1/host-ready",
+            "/rustic/v1/hunts/s1/host-ready",
             &[("x-rustic-isles-request-id", "relay-12345")],
             "127.0.0.1:5000",
         )
@@ -614,6 +614,11 @@ async fn rifts_rows_relay() {
         r#"{"error":{"code":"NOT_IMPLEMENTED","message":"rifts-guard: stub.route is not implemented yet","requestId":"relay-12345"}}"#
     );
     assert_eq!(host.header("content-type"), Some("application/json; charset=utf-8"));
+    // A player's own hunt reads stay behind launcher auth under the D3 name, and the old name is no alias
+    let status = t.get("/rustic/v1/hunts/s1/status").await;
+    assert_eq!(status.status, StatusCode::UNAUTHORIZED);
+    let old = t.get("/mystic/v1/hunts/s1/status").await;
+    assert_eq!((old.status, old.body.as_str()), (StatusCode::NOT_FOUND, ""));
     let bare = Harness::bare();
     assert_eq!(bare.get("/launcher/v1/realms/mine").await.status, StatusCode::NOT_FOUND);
 }

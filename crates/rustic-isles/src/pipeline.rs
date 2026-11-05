@@ -27,8 +27,8 @@ use crate::shared::Shared;
 pub const REQUEST_ID_HEADER: &str = "x-rustic-isles-request-id";
 /// Selects the game server budget whether or not the key is good; auth checks it later.
 pub const GAMESERVER_KEY_HEADER: &str = "x-rustic-isles-gameserver-apikey";
-/// A player host's capability; rifts' guard names its bucket.
-pub const HOST_CAPABILITY_HEADER: &str = "x-mystic-host-capability";
+/// A player host's capability, under rifts' name (D3); rifts' guard names its bucket.
+pub const HOST_CAPABILITY_HEADER: &str = rifts_seam::HOST_CAPABILITY_HEADER;
 
 const ORIGIN_PREFIX: &str = "/__origin/";
 const APEXES: [&str; 4] = [
@@ -117,9 +117,9 @@ pub fn is_admin_path(path: &str) -> bool {
     has_prefix(path, "/admin")
 }
 
-/// `/mystic/v1/hunts` or `/mystic/v1/hunts/...`, ASCII case-insensitive: counted before anything else.
+/// `/rustic/v1/hunts` or `/rustic/v1/hunts/...` (D3, no alias), ASCII case-insensitive: counted before anything else.
 pub fn is_hunts_path(path: &str) -> bool {
-    has_prefix(path, "/mystic/v1/hunts")
+    has_prefix(path, "/rustic/v1/hunts")
 }
 
 fn has_prefix(path: &str, prefix: &str) -> bool {
@@ -294,7 +294,7 @@ fn peer(request: &Request) -> Option<IpAddr> {
 struct Probe {
     ip_key: String,
     gameserver: bool,
-    /// `x-mystic-host-capability`, first value trimmed, when not empty
+    /// `x-rustic-host-capability`, first value trimmed, when not empty
     capability: Option<String>,
     path: String,
     peer: Option<IpAddr>,
@@ -664,6 +664,7 @@ mod tests {
     #[test]
     fn prefixes() {
         assert!(is_admin_path("/Admin") && is_admin_path("/ADMIN/v1") && !is_admin_path("/administrator"));
-        assert!(is_hunts_path("/Mystic/V1/Hunts/x") && !is_hunts_path("/mystic/v1/huntsx"));
+        assert!(is_hunts_path("/Rustic/V1/Hunts/x") && !is_hunts_path("/rustic/v1/huntsx"));
+        assert!(!is_hunts_path("/mystic/v1/hunts/x"));
     }
 }

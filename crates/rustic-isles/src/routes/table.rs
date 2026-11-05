@@ -258,18 +258,18 @@ pub(super) static TABLE: [RouteDef; 290] = [
     r(B, Post, r"/launcher/v1/guard/sessions", Guard, Rifts, Always), // B225
     r(B, Post, r"/launcher/v1/guard/heartbeat", Guard, Rifts, Always), // B226
     r(B, Get, r"/launcher/v1/guard/sessions/:guardSessionId", Guard, Rifts, Always), // B227
-    r(B, Post, r"/mystic/v1/hunts/:sessionId/tickets/self", P2p, Rifts, RiftsOnly), // B228
-    r(B, Post, r"/mystic/v1/hunts/:sessionId/host-ready", P2p, Rifts, RiftsOnly), // B229
-    r(B, Post, r"/mystic/v1/hunts/:sessionId/event-batches", Guard, Rifts, RiftsOnly), // B230
-    r(B, Post, r"/mystic/v1/hunts/:sessionId/completion", P2p, Rifts, RiftsOnly), // B231
-    r(B, Post, r"/mystic/v1/hunts/:sessionId/abort", P2p, Rifts, RiftsOnly), // B232
-    r(B, Post, r"/mystic/v1/hunts/:sessionId/end", P2p, Rifts, RiftsOnly), // B233
-    r(B, Get, r"/mystic/v1/hunts/:sessionId/status", P2p, Rifts, RiftsOnly), // B234
-    r(B, Get, r"/mystic/v1/hunts/:sessionId/reward/self", P2p, Rifts, RiftsOnly), // B235
+    r(B, Post, r"/rustic/v1/hunts/:sessionId/tickets/self", P2p, Rifts, RiftsOnly), // B228
+    r(B, Post, r"/rustic/v1/hunts/:sessionId/host-ready", P2p, Rifts, RiftsOnly), // B229
+    r(B, Post, r"/rustic/v1/hunts/:sessionId/event-batches", Guard, Rifts, RiftsOnly), // B230
+    r(B, Post, r"/rustic/v1/hunts/:sessionId/completion", P2p, Rifts, RiftsOnly), // B231
+    r(B, Post, r"/rustic/v1/hunts/:sessionId/abort", P2p, Rifts, RiftsOnly), // B232
+    r(B, Post, r"/rustic/v1/hunts/:sessionId/end", P2p, Rifts, RiftsOnly), // B233
+    r(B, Get, r"/rustic/v1/hunts/:sessionId/status", P2p, Rifts, RiftsOnly), // B234
+    r(B, Get, r"/rustic/v1/hunts/:sessionId/reward/self", P2p, Rifts, RiftsOnly), // B235
     r(B, Post, r"/internal/v1/hunt-guard/shadow-comparisons", Guard, Rifts, RiftsOnly), // B236
-    r(B, Post, r"/mystic/v1/hunts/:sessionId/lease", P2p, Rifts, RiftsOnly), // B237
-    r(B, Post, r"/mystic/v1/hunts/:sessionId/tickets/consume", P2p, Rifts, RiftsOnly), // B238
-    r(B, Post, r"/mystic/v1/hunts/:sessionId/peers/:admissionId/disconnect", P2p, Rifts, RiftsOnly), // B239
+    r(B, Post, r"/rustic/v1/hunts/:sessionId/lease", P2p, Rifts, RiftsOnly), // B237
+    r(B, Post, r"/rustic/v1/hunts/:sessionId/tickets/consume", P2p, Rifts, RiftsOnly), // B238
+    r(B, Post, r"/rustic/v1/hunts/:sessionId/peers/:admissionId/disconnect", P2p, Rifts, RiftsOnly), // B239
     r(B, Patch, r"/admin/v1/operations/p2p-emergency-stop", P2p, Rifts, RiftsOnly), // B240
     r(B, Patch, r"/admin/v1/operations/reward-rollout", P2p, Rifts, RiftsOnly), // B241
     r(B, Patch, r"/admin/v1/operations/coop-transport", P2p, Rifts, RiftsOnly), // B242

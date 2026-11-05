@@ -23,7 +23,7 @@ static TABLES: VersionTables = VersionTables {
     starter_manifest: StarterManifest {
         bootstrap_version: "1",
         stacked_item_ids: &[],
-        quick_emoji_wheel: None,
+        quick_emoji_wheel: &[],
     },
     switch_defaults: &[],
     session_payload: rustic_isles_auth::session_payload_1_14_7,

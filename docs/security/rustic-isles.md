@@ -37,7 +37,7 @@ Fuzz targets in `fuzz`:
   agrees with a reference model of §4.1 (segment counts, ASCII case-insensitive literals, non-empty params, decode
   failures refused). Regex rows run on the `regex` crate, linear in the path.
 - `rustic_isles_pipeline_text`: the origin strip, the request id normalizer, `decodeURIComponent`, the `/admin` and
-  `/mystic/v1/hunts` prefix checks, the switches reader, the per-minute parser and the admin API reader never panic;
+  `/rustic/v1/hunts` prefix checks, the switches reader, the per-minute parser and the admin API reader never panic;
   a stripped target starts `/`, an accepted host is an allowed apex or ends in `.` and one, and a kept request id is
   safe.
 
@@ -69,6 +69,9 @@ Fuzz targets in `fuzz`:
       hunts prefix is counted first and once (`tests/pipeline.rs`, `budget_placement`).
 - [ ] Launcher CORS runs only after the count: a refused request is a 429 and never reaches CORS
       (`the_budget_counts_before_launcher_cors`).
+- [ ] The hunt rows and the early-budget prefix are `/rustic/v1/hunts` and the capability header
+      `x-rustic-host-capability` (D3); the old `/mystic/v1/hunts` and `x-mystic-host-capability` are not aliases
+      (`rifts_rows_relay`), and a player's own hunt reads stay behind launcher auth under the new name.
 - [ ] Buckets per client `/56` or IPv4 address, per game server address, per host capability as rifts' guard names
       it; a guard error or empty name falls back to the client bucket (`budget_buckets`).
 - [ ] The limiter is auth's, bounded at 16 384 keys.
@@ -104,6 +107,8 @@ Fuzz targets in `fuzz`:
       absent otherwise). A host that turns it on outside a replay target lets any player choose their budget window,
       daily rules and ids; the gateway should drop the headers from the internet (a separate gateway row).
 - [ ] A game server key header selects the higher game-server budget (6000/min per address) before the key is checked.
+- [ ] The season window saturates on an extreme time, so a replay-pinned `i64::MIN` or `i64::MAX` cannot overflow
+      (`season.rs`, `extreme_times_saturate`).
 - [ ] The cached game data read never refreshes (`load_backend_cached`); a changed file needs a restart.
 
 ## Sign-off

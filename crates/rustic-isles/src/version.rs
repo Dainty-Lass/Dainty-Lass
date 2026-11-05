@@ -37,7 +37,8 @@ pub struct MaskedJourneyNode {
 pub struct StarterManifest {
     pub bootstrap_version: &'static str,
     pub stacked_item_ids: &'static [&'static str],
-    pub quick_emoji_wheel: Option<&'static str>,
+    /// The quick-emoji wheel's texts (nine for 1.14.7)
+    pub quick_emoji_wheel: &'static [&'static str],
 }
 
 #[derive(Debug, Clone, Copy)]

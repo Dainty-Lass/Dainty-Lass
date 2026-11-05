@@ -1,5 +1,5 @@
 //! What Rustic Isles' pipeline reads as text (spec-rustic-isles-core §14): the origin strip, the request id, the
-//! `/admin` and `/mystic/v1/hunts` prefixes, `decodeURIComponent`, the switches reader and the per-minute
+//! `/admin` and `/rustic/v1/hunts` prefixes, `decodeURIComponent`, the switches reader and the per-minute
 //! parser. None may panic; a stripped target starts `/`, an accepted host ends in an allowed apex, a kept request
 //! id is safe.
 #![no_main]

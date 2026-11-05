@@ -398,7 +398,7 @@ pub static SAMPLE_TABLES: VersionTables = VersionTables {
     starter_manifest: StarterManifest {
         bootstrap_version: "1",
         stacked_item_ids: &[],
-        quick_emoji_wheel: None,
+        quick_emoji_wheel: &[],
     },
     switch_defaults: &[
         ("qos_port", "80"),
