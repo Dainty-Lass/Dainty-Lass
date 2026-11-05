@@ -24,11 +24,12 @@ enum Segment {
     Param(String),
 }
 
+/// A row whose path this matcher cannot compile.
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
-#[error("route path {path:?}: {reason}")]
+#[error("cannot compile the row {row:?}, because {why}")]
 pub struct PatternError {
-    pub path: String,
-    pub reason: String,
+    pub row: String,
+    pub why: String,
 }
 
 /// A parameter that is not valid percent-encoded UTF-8 (Express answers 400).
@@ -61,10 +62,10 @@ impl fmt::Display for BadParam {
     }
 }
 
-fn error(path: &str, reason: &str) -> PatternError {
+fn error(path: &str, why: &str) -> PatternError {
     PatternError {
-        path: path.to_owned(),
-        reason: reason.to_owned(),
+        row: path.to_owned(),
+        why: why.to_owned(),
     }
 }
 

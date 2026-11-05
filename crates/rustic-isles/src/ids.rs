@@ -1,45 +1,42 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Silent Spud
 
-//! Account ids and the client-visible userId (core spec §2.2).
+//! The two ids areas pass around (core spec §2.2): the network-wide account id and the userId the client sees.
 
 use std::fmt;
 use std::str::FromStr;
 
 use module_api::{GlobalId, IdKind, NodeId};
 
-/// `account:<ULID>@<node>`, owned by (homed on) its node.
+/// A `GlobalId` known to name an account; the node in it is the account's home.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
-pub struct AccountId(GlobalId);
+pub struct AccountId {
+    id: GlobalId,
+}
 
+/// Why a text or id is not an account id.
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
-#[error("an account id is account:<ULID>@<node>")]
-pub struct AccountIdError;
+pub enum AccountIdError {
+    #[error("{0:?} is not a network id; account ids are written account:<ULID>@<node>")]
+    Unreadable(String),
+    #[error("expected an account id (account:<ULID>@<node>), got a {0} id")]
+    OtherKind(&'static str),
+}
 
 impl AccountId {
-    /// A new id minted on `node`.
+    /// Minted on `node`, which becomes its home.
     pub fn new(node: &NodeId) -> Self {
-        Self(GlobalId::new(IdKind::Account, node))
+        Self {
+            id: GlobalId::new(IdKind::Account, node),
+        }
     }
 
     pub fn global(&self) -> &GlobalId {
-        &self.0
+        &self.id
     }
 
     pub fn home(&self) -> &NodeId {
-        self.0.owner()
-    }
-}
-
-impl TryFrom<GlobalId> for AccountId {
-    type Error = AccountIdError;
-
-    fn try_from(id: GlobalId) -> Result<Self, AccountIdError> {
-        if id.kind() == IdKind::Account {
-            Ok(Self(id))
-        } else {
-            Err(AccountIdError)
-        }
+        self.id.owner()
     }
 }
 
@@ -47,33 +44,56 @@ impl FromStr for AccountId {
     type Err = AccountIdError;
 
     fn from_str(text: &str) -> Result<Self, AccountIdError> {
-        text.parse::<GlobalId>().map_err(|_| AccountIdError)?.try_into()
+        let Ok(id) = text.parse::<GlobalId>() else {
+            return Err(AccountIdError::Unreadable(text.to_owned()));
+        };
+        match id.kind() {
+            IdKind::Account => Ok(Self { id }),
+            other => Err(AccountIdError::OtherKind(other.as_str())),
+        }
+    }
+}
+
+impl TryFrom<GlobalId> for AccountId {
+    type Error = AccountIdError;
+
+    fn try_from(id: GlobalId) -> Result<Self, AccountIdError> {
+        if id.kind() != IdKind::Account {
+            return Err(AccountIdError::OtherKind(id.kind().as_str()));
+        }
+        Ok(Self { id })
     }
 }
 
 impl fmt::Display for AccountId {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.0.fmt(f)
+        fmt::Display::fmt(&self.id, f)
     }
 }
 
-/// The client-visible id: any text; a new one is a UUID v4 from the replay-aware source.
+/// What the game client calls a player: free text; new ones are UUID v4s from the replay-aware source.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
-pub struct UserId(pub String);
+pub struct UserId {
+    text: String,
+}
 
 impl UserId {
+    pub fn new(text: impl Into<String>) -> Self {
+        Self { text: text.into() }
+    }
+
     pub fn random() -> Self {
-        Self(crate::replay::next_uuid())
+        Self::new(crate::replay::next_uuid())
     }
 
     pub fn as_str(&self) -> &str {
-        &self.0
+        &self.text
     }
 }
 
 impl fmt::Display for UserId {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(&self.0)
+        f.write_str(&self.text)
     }
 }
 
@@ -82,15 +102,27 @@ mod tests {
     use super::*;
 
     #[test]
-    fn round_trips() {
+    fn account_ids() {
         let node = NodeId::new("n1").unwrap();
-        let id = AccountId::new(&node);
-        let back: AccountId = id.to_string().parse().unwrap();
-        assert_eq!(back, id);
-        assert_eq!(back.home(), &node);
+        let minted = AccountId::new(&node);
+        let parsed: AccountId = minted.to_string().parse().unwrap();
+        assert_eq!((&parsed, parsed.home()), (&minted, &node));
+        assert_eq!(AccountId::try_from(minted.global().clone()), Ok(minted));
         let hunt = GlobalId::new(IdKind::Hunt, &node);
-        assert_eq!(hunt.to_string().parse::<AccountId>(), Err(AccountIdError));
-        assert_eq!(AccountId::try_from(hunt), Err(AccountIdError));
+        assert!(matches!(
+            hunt.to_string().parse::<AccountId>(),
+            Err(AccountIdError::OtherKind(_))
+        ));
+        assert!(matches!(AccountId::try_from(hunt), Err(AccountIdError::OtherKind(_))));
+        assert!(matches!(
+            "nope".parse::<AccountId>(),
+            Err(AccountIdError::Unreadable(_))
+        ));
+    }
+
+    #[test]
+    fn user_ids() {
         assert_eq!(UserId::random().as_str().len(), 36);
+        assert_eq!(UserId::new("u1").to_string(), "u1");
     }
 }

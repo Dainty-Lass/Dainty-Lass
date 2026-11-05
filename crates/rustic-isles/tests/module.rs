@@ -298,7 +298,10 @@ async fn commands_and_events() {
     let not_account = module.command(ctx.clone(), home_command(&hunt)).await.unwrap_err();
     assert_eq!(
         (not_account.kind, not_account.message.as_str()),
-        (ErrorKind::Invalid, "an account id is account:<ULID>@<node>")
+        (
+            ErrorKind::Invalid,
+            "expected an account id (account:<ULID>@<node>), got a hunt id"
+        )
     );
     let local = GlobalId::new(IdKind::Account, &NodeId::new("local").unwrap());
     let bare = module.command(ctx.clone(), home_command(&local)).await.unwrap_err();

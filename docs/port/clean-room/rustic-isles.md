@@ -137,6 +137,12 @@ None beyond this repository: no crate sources from the cargo registry were opene
 18. **Bodies** follow §3.9: "has a body" includes a missing `host` header (unlike auth's own reader), and a parsed body
     is left as `ExpressBody` in the request so the auth crate reuses it.
 
+19. **Rewrites after the similarity review** (§6): `src/ids.rs` was rewritten from §2.2 and §11.2 alone. The impls
+    are in §11.2's order. `FromStr` matches on the parsed id's kind. `AccountIdError` became an enum
+    (`Unreadable`, `OtherKind`) with this implementer's own wording. `UserId` has a private field with `new` and
+    `as_str`. The wording departs from §2.2's quoted refusal text, at the coordinator's direction; the `Invalid`
+    kind of §7.8 is unchanged. `PatternError`'s fields are now `row` and `why`, with a reworded message.
+
 ## 6. Similarity
 
 Measured by the RD27 reviewer (who may read the AGPL code) with `similarity.md` §1's method, on the crate as committed
