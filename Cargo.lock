@@ -4133,6 +4133,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "rustic-isles-chat"
+version = "0.0.0"
+dependencies = [
+ "axum",
+ "http",
+ "http-body-util",
+ "module-api",
+ "percent-encoding",
+ "rustic-isles",
+ "rustic-isles-auth",
+ "rustic-isles-store",
+ "serde_json",
+ "service-kit",
+ "store",
+ "tempfile",
+ "tokio",
+ "tower",
+ "tracing",
+ "ulid",
+]
+
+[[package]]
 name = "rustic-isles-director"
 version = "0.0.0"
 dependencies = [
