@@ -675,10 +675,11 @@ struct Keys;
 impl rustic_isles::AdminAuthenticator for Keys {
     fn authenticate<'a>(
         &'a self,
-        headers: &'a http::HeaderMap,
-        _: Option<std::net::IpAddr>,
+        request: rustic_isles::AdminRequestHead<'a>,
     ) -> BoxFuture<'a, Result<rustic_isles::AdminCaller, axum::response::Response>> {
-        let known = headers.get("x-admin-key").is_some_and(|v| v == "k1");
+        let known = request.headers.get("x-admin-key").is_some_and(|v| v == "k1")
+            && request.method == "PATCH"
+            && request.target == "/admin/v1/operations/p2p-emergency-stop";
         Box::pin(async move {
             match known {
                 true => Ok(rustic_isles::AdminCaller { key_id: "k1".into() }),

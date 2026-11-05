@@ -53,7 +53,7 @@ rifts-seam = { path = "../crates/rifts-seam" }
 # rustic_isles_auth_text, rustic_isles_auth_tokens: what Rustic Isles' sign-in area reads from players (RD27)
 rustic-isles-auth = { path = "../crates/rustic-isles-auth", features = ["test-support"] }
 # rustic_isles_routes, rustic_isles_pipeline_text: the paths and text Rustic Isles' pipeline reads (RD27)
-rustic-isles = { path = "../crates/rustic-isles" }
+rustic-isles = { path = "../crates/rustic-isles", features = ["test-support"] }
 service-kit = { path = "../crates/service-kit" }
 # rustic_isles_gamedata_windows, rustic_isles_gamedata_formats: the window rewrite and what the generators read (RD27)
 rustic-isles-gamedata = { path = "../crates/rustic-isles-gamedata" }
@@ -76,6 +76,9 @@ rustic-isles-economy = { path = "../crates/rustic-isles-economy" }
 rustic-isles-matchmaking = { path = "../crates/rustic-isles-matchmaking" }
 # rustic_isles_db_{bson,reply,uri,extract,scram}: what the database tool reads from MongoDB, a host and its documents (RD27)
 rustic-isles-db = { path = "../crates/rustic-isles-db" }
+# rustic_isles_reforged_{guard,text,paths,admin_auth,admin_text}: what Rustic Isles' Reforged API reads from
+# launchers, the release tooling, the dashboard, the admin service and the host (RD27)
+rustic-isles-reforged = { path = "../crates/rustic-isles-reforged", features = ["test-support"] }
 axum = { version = "0.8", default-features = false }
 # transport_frame, transport_files, transport_pipe: what a peer, the launcher's files and the game server hand the
 # co-op transport (RD27)
@@ -579,6 +582,41 @@ bench = false
 [[bin]]
 name = "rustic_isles_db_scram"
 path = "fuzz_targets/rustic_isles_db_scram.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "rustic_isles_reforged_guard"
+path = "fuzz_targets/rustic_isles_reforged_guard.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "rustic_isles_reforged_text"
+path = "fuzz_targets/rustic_isles_reforged_text.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "rustic_isles_reforged_paths"
+path = "fuzz_targets/rustic_isles_reforged_paths.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "rustic_isles_reforged_admin_auth"
+path = "fuzz_targets/rustic_isles_reforged_admin_auth.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "rustic_isles_reforged_admin_text"
+path = "fuzz_targets/rustic_isles_reforged_admin_text.rs"
 test = false
 doc = false
 bench = false

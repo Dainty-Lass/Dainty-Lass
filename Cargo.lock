@@ -4290,6 +4290,39 @@ dependencies = [
 ]
 
 [[package]]
+name = "rustic-isles-reforged"
+version = "0.0.0"
+dependencies = [
+ "admin",
+ "aws-lc-rs",
+ "axum",
+ "base64 0.23.1",
+ "chrono",
+ "diesel",
+ "http",
+ "http-body-util",
+ "module-api",
+ "rand 0.10.3",
+ "regex",
+ "rifts-seam",
+ "rustic-isles",
+ "rustic-isles-auth",
+ "rustic-isles-chat",
+ "rustic-isles-economy",
+ "rustic-isles-matchmaking",
+ "rustic-isles-reforged",
+ "rustic-isles-store",
+ "serde_json",
+ "service-kit",
+ "subtle",
+ "tempfile",
+ "thiserror 2.0.21",
+ "tokio",
+ "tower",
+ "tracing",
+]
+
+[[package]]
 name = "rustic-isles-replay"
 version = "0.0.0"
 dependencies = [

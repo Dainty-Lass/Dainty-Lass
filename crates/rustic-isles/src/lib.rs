@@ -46,7 +46,8 @@ pub use pipeline::{REQUEST_ID_HEADER, app, not_implemented};
 pub use routes::{Group, Method, RouteDef, RouteSet, Scope, Service, Side, When};
 pub use settings::{OPTIONAL_SWITCHES, SWITCHES, Settings, SettingsError, SharedSwitch};
 pub use shared::{
-    AdminAuthenticator, AdminCaller, ContextHome, IslesAuth, Presence, Shared, SharedParts, Slots, admin_refusal,
+    AdminAuthenticator, AdminCaller, AdminRequestHead, ContextHome, IslesAuth, Presence, Shared, SharedParts, Slots,
+    admin_refusal,
 };
 pub use version::{
     BountyItemGrant, Destination, Entitlement, GameMode, IslesVersion, MaskedJourneyNode, NoPlayerPolicy, ObjectiveRow,
