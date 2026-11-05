@@ -969,6 +969,7 @@ dependencies = [
  "rustic-isles-auth",
  "rustic-isles-characters",
  "rustic-isles-chat",
+ "rustic-isles-db",
  "rustic-isles-director",
  "rustic-isles-economy",
  "rustic-isles-gamedata",
@@ -3616,6 +3617,30 @@ dependencies = [
  "service-kit",
  "tracing",
  "ulid",
+]
+
+[[package]]
+name = "rustic-isles-db"
+version = "0.0.0"
+dependencies = [
+ "base64 0.23.1",
+ "chrono",
+ "diesel",
+ "hmac 0.13.0",
+ "module-api",
+ "percent-encoding",
+ "rand 0.10.3",
+ "rustic-isles",
+ "rustic-isles-characters",
+ "rustic-isles-economy",
+ "rustic-isles-store",
+ "serde",
+ "serde_json",
+ "sha2",
+ "store",
+ "thiserror",
+ "tokio",
+ "tracing",
 ]
 
 [[package]]
