@@ -180,6 +180,7 @@ fn platinum_price(sku: &Value) -> Option<Value> {
         .iter()
         .find(|p| p.get("currencyId").and_then(Value::as_str) == Some(PLATINUM))?
         .get("price")
+        .filter(|p| !p.is_null())
         .cloned()
 }
 
@@ -558,12 +559,10 @@ fn sort_text(sku: &Value) -> String {
         1
     };
     let tag = TABS.iter().map(|(t, _)| *t).find(|t| tags.contains(t)).unwrap_or("zzz");
-    let price = sku
-        .pointer("/prices/0/price")
-        .and_then(|p| js::safe_integer(Some(p)))
-        .unwrap_or(0);
+    // `String(price).padStart(6, "0")`: compared as text, never cut
+    let price = js::string(sku.pointer("/prices/0/price"));
     let id = js::string(sku.get("id"));
-    format!("{section}|{tag}|{price:06}|{id}")
+    format!("{section}|{tag}|{price:0>6}|{id}")
 }
 
 fn sold_ids(path: &Path, what: &str) -> Result<HashSet<String>, String> {
@@ -730,10 +729,15 @@ mod tests {
     fn sort_keys() {
         let sku = json!({"id": "x", "tags": ["webstore", "skin_armour", "skin_weapon_cb"], "prices": [{"price": 800}]});
         assert_eq!(sort_text(&sku), "1|skin_weapon_cb|000800|x");
-        let pass = json!({"id": "p", "tags": ["huntpass_store"], "prices": [{"price": 1.5}]});
-        assert_eq!(sort_text(&pass), "3|zzz|000000|p");
+        let priced =
+            |price: Value| sort_text(&json!({"id": "p", "tags": ["huntpass_store"], "prices": [{"price": price}]}));
+        assert_eq!(priced(json!(12.5)), "3|zzz|0012.5|p");
+        assert_eq!(priced(json!(-5)), "3|zzz|0000-5|p");
+        assert_eq!(priced(json!("500")), "3|zzz|000500|p");
+        assert_eq!(priced(json!(1_200_000)), "3|zzz|1200000|p");
+        assert_eq!(priced(json!(500)), "3|zzz|000500|p");
         assert_eq!(
-            sort_text(&json!({"id": "r", "tags": ["hp_level_skip_rank"]})),
+            sort_text(&json!({"id": "r", "tags": ["hp_level_skip_rank"], "prices": [{"price": 0}]})),
             "2|zzz|000000|r"
         );
     }

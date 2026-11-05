@@ -76,9 +76,9 @@ Fuzz targets in `fuzz`:
 - [ ] The storage-policy walk follows symbolic links inside the game data folder; a folder already entered is not
       entered again (`policy::walk`).
 - [ ] The served progression config never refreshes while the module runs (core §14).
-- [ ] With `RUSTIC_ISLES_REPLAY_HEADERS` on, the replay clock feeds the season window; an extreme integer time
-      overflows core's window arithmetic (`season::active_season_window_ms`) in a debug build. Replay headers are
-      off by default.
+- [ ] With `RUSTIC_ISLES_REPLAY_HEADERS` on (off by default), the replay clock feeds the season window; core's
+      window arithmetic saturates, so an extreme integer time gives a clamped window, not a panic
+      (`season::active_season_window_ms`).
 
 ## Sign-off
 

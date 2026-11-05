@@ -74,7 +74,11 @@ pub fn generate_ladyluck_store(raw_dir: &Path, out_dir: &Path, apply: bool) -> R
         },
     ];
     if !problems.is_empty() {
-        // Node prints the problems, then refuses (spec §12 item 10a)
+        // The refusal first, since hostkit shows an error's first line; then what Node printed before it
+        report.insert(
+            0,
+            "ERROR: refusing to proceed until the source entries are well-formed.".into(),
+        );
         report.push(String::new());
         report.push(format!("VALIDATION PROBLEMS ({}):", problems.len()));
         for problem in problems.iter().take(15) {
@@ -83,9 +87,9 @@ pub fn generate_ladyluck_store(raw_dir: &Path, out_dir: &Path, apply: bool) -> R
         if problems.len() > 15 {
             report.push(format!("  ...and {} more", problems.len() - 15));
         }
-        report.push("ERROR: refusing to proceed until the source entries are well-formed.".into());
         return Err(report.join("\n"));
     }
+    report.push(String::new());
     if !apply {
         report.push("Dry run complete. Nothing written.".into());
         return Ok(report.join("\n"));
