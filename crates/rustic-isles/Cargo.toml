@@ -1,0 +1,42 @@
+[package]
+name = "rustic-isles"
+description = "Rustic Isles' module skeleton: the pipeline, the route table in Express's order, settings, start and stop, game data, the replay clock, and the composer seam the areas plug into"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+# Clean-room rewrite from docs/port/spec-rustic-isles-core.md (RD27, docs/port/clean-room/rustic-isles.md)
+license = "MIT"
+repository.workspace = true
+publish.workspace = true
+
+[features]
+# sample_path, request, listening, Mounts, sweep, drive and a sample version (here and in the version crate)
+test-support = []
+
+[dependencies]
+axum.workspace = true
+chrono.workspace = true
+dotenvy.workspace = true
+http.workspace = true
+http-body-util.workspace = true
+module-api.workspace = true
+rand.workspace = true
+regex.workspace = true
+rifts-seam.workspace = true
+rustic-isles-auth.workspace = true
+serde.workspace = true
+serde_json = { workspace = true, features = ["preserve_order"] }
+service-kit.workspace = true
+sha2.workspace = true
+thiserror.workspace = true
+tokio = { workspace = true, features = ["net", "rt", "sync", "time", "io-util", "macros"] }
+tracing.workspace = true
+
+[dev-dependencies]
+rustic-isles = { path = ".", features = ["test-support"] }
+tempfile.workspace = true
+tokio = { workspace = true, features = ["rt-multi-thread"] }
+tower.workspace = true
+
+[lints]
+workspace = true

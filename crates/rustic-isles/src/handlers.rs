@@ -1,0 +1,169 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Silent Spud
+
+//! How areas answer rows (core spec §3.6, §5.7): a registry keyed by service, method and the row's exact path text.
+
+use std::collections::HashMap;
+use std::future::Future;
+use std::sync::Arc;
+
+use axum::extract::Request;
+use axum::response::Response;
+use module_api::BoxFuture;
+
+use crate::pattern::{Params, Pattern, PatternError};
+use crate::routes::{self, Group, Method, RouteDef, Service};
+use crate::shared::Shared;
+
+/// One matched request, as a handler gets it.
+pub struct Call {
+    pub shared: Arc<Shared>,
+    pub route: &'static RouteDef,
+    pub params: Params,
+    /// Its URI already stripped of `/__origin/<host>`, every header as received
+    pub request: Request,
+    pub origin_host: Option<String>,
+    pub request_id: String,
+}
+
+pub type Handler = Arc<dyn Fn(Call) -> BoxFuture<'static, Response> + Send + Sync>;
+
+#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
+pub enum MountError {
+    #[error(transparent)]
+    Pattern(#[from] PatternError),
+    #[error("a handler for {service} {method} {path}, which the route table doesn't have")]
+    UnknownRoute {
+        service: &'static str,
+        method: &'static str,
+        path: String,
+    },
+    #[error("rustic-rifts is loaded but answers no {method} {path}")]
+    NoRiftsHandler { method: &'static str, path: &'static str },
+    #[error("rustic-isles-auth's routes differ from the table's auth rows: {0}")]
+    AuthRoutes(String),
+}
+
+type Key = (Service, Method, String);
+
+#[derive(Clone, Default)]
+pub struct Handlers(HashMap<Key, Handler>);
+
+impl Handlers {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Registers (or replaces) the handler of one row.
+    pub fn on<F, Fut>(&mut self, service: Service, method: Method, path: &str, handler: F) -> &mut Self
+    where
+        F: Fn(Call) -> Fut + Send + Sync + 'static,
+        Fut: Future<Output = Response> + Send + 'static,
+    {
+        let handler: Handler = Arc::new(move |call| Box::pin(handler(call)));
+        self.0.insert((service, method, path.to_owned()), handler);
+        self
+    }
+
+    pub fn get(&self, route: &RouteDef) -> Option<&Handler> {
+        self.0.get(&(route.service, route.method, route.path.to_owned()))
+    }
+
+    pub fn contains(&self, service: Service, method: Method, path: &str) -> bool {
+        self.0.contains_key(&(service, method, path.to_owned()))
+    }
+
+    /// Every other set's handlers over these.
+    pub fn extend(&mut self, other: Handlers) {
+        self.0.extend(other.0);
+    }
+
+    /// Every key names a row, and every row compiles.
+    pub fn check(&self) -> Result<(), MountError> {
+        for row in routes::all() {
+            Pattern::parse(row.path)?;
+        }
+        let mut keys: Vec<&Key> = self.0.keys().collect();
+        keys.sort_by(|a, b| a.2.cmp(&b.2));
+        for (service, method, path) in keys {
+            let known = routes::all()
+                .iter()
+                .any(|row| row.service == *service && row.method == *method && row.path == path);
+            if !known {
+                return Err(MountError::UnknownRoute {
+                    service: service.as_str(),
+                    method: method.as_str(),
+                    path: path.clone(),
+                });
+            }
+        }
+        Ok(())
+    }
+}
+
+fn method_of(method: &http::Method) -> Option<Method> {
+    [Method::Get, Method::Post, Method::Put, Method::Patch, Method::Delete]
+        .into_iter()
+        .find(|m| m.http() == method)
+}
+
+/// Each `rustic_isles_auth::routes()` entry as a backend handler calling `Auth::handle`; the pairs must be exactly
+/// the table's auth rows.
+pub fn auth_handlers() -> Result<Handlers, MountError> {
+    let mut handlers = Handlers::new();
+    for route in rustic_isles_auth::routes() {
+        let method = method_of(&route.method).ok_or_else(|| MountError::AuthRoutes(route.method.to_string()))?;
+        let id = route.id;
+        handlers.on(Service::Backend, method, route.path, move |call: Call| async move {
+            let Call {
+                shared,
+                params,
+                request,
+                ..
+            } = call;
+            shared.auth().handle(id, request, params.into_pairs()).await
+        });
+    }
+    let rows: Vec<&RouteDef> = routes::all().iter().filter(|r| r.group == Group::Auth).collect();
+    for row in &rows {
+        if !handlers.contains(row.service, row.method, row.path) {
+            return Err(MountError::AuthRoutes(format!("no auth route for {}", row.name())));
+        }
+    }
+    if rows.len() != handlers.0.len() {
+        return Err(MountError::AuthRoutes(format!(
+            "{} auth routes for {} rows",
+            handlers.0.len(),
+            rows.len()
+        )));
+    }
+    Ok(handlers)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use axum::response::IntoResponse;
+
+    #[test]
+    fn unknown_rows_fail_the_check() {
+        let mut handlers = Handlers::new();
+        handlers.on(Service::Backend, Method::Get, "/", |_| async { "ok".into_response() });
+        assert_eq!(handlers.check(), Ok(()));
+        handlers.on(Service::Backend, Method::Get, "/charactr", |_| async {
+            "ok".into_response()
+        });
+        let error = handlers.check().unwrap_err();
+        assert_eq!(
+            error.to_string(),
+            "a handler for backend GET /charactr, which the route table doesn't have"
+        );
+    }
+
+    #[test]
+    fn auth_routes_are_the_auth_rows() {
+        let handlers = auth_handlers().unwrap();
+        assert_eq!(handlers.0.len(), 49);
+        assert_eq!(handlers.check(), Ok(()));
+    }
+}
