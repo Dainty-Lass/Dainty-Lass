@@ -4137,6 +4137,7 @@ name = "rustic-isles-characters"
 version = "0.0.0"
 dependencies = [
  "axum",
+ "diesel",
  "http",
  "http-body-util",
  "module-api",
