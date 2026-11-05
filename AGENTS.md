@@ -273,9 +273,9 @@ Code copied from DR or Paradox keeps its attribution, and the integration pass r
 `NOTICE.md`.
 
 The MIT crates (`controller`, `module-api`, `hostkit`, `gateway`, `content`, `chat`, ...) are dainty-lass's. Here,
-`crates/host`, the `*-plugin` crates, `launcher/src-tauri` and the game modules' crates inherit the workspace's AGPL
-(`license.workspace = true`); `crates/server-console` and `crates/server-minimal` set `license = "MIT"` in their
-`Cargo.toml`; `fuzz` and `legacy` set `AGPL-3.0-only` themselves, and `native/runtime-loader` is Apache-2.0. A new
+`crates/host`, the `*-plugin` crates, `server-console`, `server-minimal` (their binaries link `host` and the
+modules), `launcher/src-tauri` and the game modules' crates inherit the workspace's AGPL
+(`license.workspace = true`); `fuzz` and `legacy` set `AGPL-3.0-only` themselves, and `native/runtime-loader` is Apache-2.0. A new
 crate is MIT only when nothing in it is ported from DR, Paradox or the Reforged Revival line: no file from those
 trees, no function rewritten from one while looking at it, and such a crate belongs in dainty-lass. Copying a DR or
 Paradox function into an MIT crate moves the crate to `license.workspace = true` in the same commit, with the NOTICE
