@@ -886,3 +886,5 @@ These settle §15 and override anything above that disagrees.
 - **Item 4:** one starter wallet, read through `starter_wallet()`; the economy unit uses it.
 - **Item 6:** log text escaped, as proposed (logs are not a client contract).
 - **Items 7-8:** as specified.
+- **Amended 2026-11-05 (maintainer's ruling):** the starter manifest's stacked ids and quick emojis are wire facts in
+  core's table; `StarterKit` carries only the other run-time values.

@@ -396,10 +396,9 @@ impl<'a> Walk<'a> {
         bucket.ok().flatten().filter(|name| !name.is_empty())
     }
 
-    /// Counts and runs launcher CORS; `Err` is the answer to return.
-    async fn budget_mark(&mut self, probe: Probe, cors: Cors) -> Result<(), Response> {
-        self.count(probe).await?;
-        match cors {
+    /// Launcher CORS, asked only after the count (auth spec §4.5); `Err` is the answer to return.
+    fn cors(&mut self, request: &Request) -> Result<(), Response> {
+        match self.app.shared.auth().launcher_cors(request) {
             Cors::Pass => Ok(()),
             Cors::Answer(response) => Err(self.finish(response)),
             Cors::Headers(headers) => {
@@ -407,11 +406,6 @@ impl<'a> Walk<'a> {
                 Ok(())
             }
         }
-    }
-
-    // Only logs on a refusal, so asking before the count changes nothing a client sees
-    fn cors(&self, request: &Request) -> Cors {
-        self.app.shared.auth().launcher_cors(request)
     }
 
     fn admin_gate(&self, path: &str) -> Result<(), Response> {
@@ -449,7 +443,11 @@ impl<'a> Walk<'a> {
         for mounted in &app.mounted {
             if !at_budget && mounted.index >= app.budget_mark {
                 at_budget = true;
-                if let Err(response) = self.budget_mark(Probe::of(&request), self.cors(&request)).await {
+                // The probe is taken first: a request ref may not live across the count's await
+                if let Err(response) = self.count(Probe::of(&request)).await {
+                    return response;
+                }
+                if let Err(response) = self.cors(&request) {
                     return response;
                 }
             }
@@ -473,8 +471,13 @@ impl<'a> Walk<'a> {
             let response = self.answer(mounted, params, request, origin_host).await;
             return self.finish(response);
         }
-        if !at_budget && let Err(response) = self.budget_mark(Probe::of(&request), self.cors(&request)).await {
-            return response;
+        if !at_budget {
+            if let Err(response) = self.count(Probe::of(&request)).await {
+                return response;
+            }
+            if let Err(response) = self.cors(&request) {
+                return response;
+            }
         }
         if !at_admin && let Err(response) = self.admin_gate(&path) {
             return response;

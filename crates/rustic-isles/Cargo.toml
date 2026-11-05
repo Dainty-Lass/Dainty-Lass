@@ -37,6 +37,8 @@ rustic-isles = { path = ".", features = ["test-support"] }
 tempfile.workspace = true
 tokio = { workspace = true, features = ["rt-multi-thread"] }
 tower.workspace = true
+# Captures the CORS refusal line to pin the budget-then-CORS order
+tracing-subscriber.workspace = true
 
 [lints]
 workspace = true

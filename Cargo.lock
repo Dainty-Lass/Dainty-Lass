@@ -4097,6 +4097,7 @@ dependencies = [
  "tokio",
  "tower",
  "tracing",
+ "tracing-subscriber",
 ]
 
 [[package]]
@@ -4149,6 +4150,26 @@ dependencies = [
  "tokio",
  "tracing",
  "windows 0.62.2",
+]
+
+[[package]]
+name = "rustic-isles-gamedata"
+version = "0.0.0"
+dependencies = [
+ "axum",
+ "chrono",
+ "http",
+ "http-body-util",
+ "regex",
+ "rustic-isles",
+ "rustic-isles-auth",
+ "serde_json",
+ "service-kit",
+ "sha2",
+ "tempfile",
+ "tokio",
+ "tower",
+ "tracing",
 ]
 
 [[package]]

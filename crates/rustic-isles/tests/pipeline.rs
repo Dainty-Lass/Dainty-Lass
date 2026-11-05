@@ -709,3 +709,47 @@ async fn admin_rifts_rows_ask_the_authenticator() {
         .await;
     assert_eq!(relayed.status, StatusCode::NOT_IMPLEMENTED);
 }
+
+#[tokio::test]
+async fn the_budget_counts_before_launcher_cors() {
+    let t = Harness::new(Options {
+        settings: budget_settings(&[("RUSTIC_ISLES_RATE_LIMIT_PER_MINUTE", "1")]),
+        ..Options::default()
+    });
+    let lines = Arc::new(std::sync::Mutex::new(Vec::<u8>::new()));
+    let sink = Arc::clone(&lines);
+    let subscriber = tracing_subscriber::fmt()
+        .with_writer(move || Capture(Arc::clone(&sink)))
+        .with_ansi(false)
+        .finish();
+    let _logs = tracing::subscriber::set_default(subscriber);
+    let rejected = || {
+        String::from_utf8_lossy(&lines.lock().unwrap())
+            .matches("[CORS] Rejected")
+            .count()
+    };
+    let evil = [PINNED, ("origin", "https://evil.example")];
+    let first = t.send("GET", "/launcher/v1/me", &evil, "127.0.0.1:5000").await;
+    assert_eq!(first.status, StatusCode::FORBIDDEN);
+    assert_eq!(first.header("ratelimit"), Some(r#""1-in-1min"; r=0; t=60"#));
+    // Refused by the budget before CORS could refuse the origin, routed or not
+    for path in ["/launcher/v1/me", "/launcher/v1/nothing"] {
+        let answer = t.send("GET", path, &evil, "127.0.0.1:5000").await;
+        assert_eq!(answer.status, StatusCode::TOO_MANY_REQUESTS, "{path}");
+        assert!(answer.header("access-control-allow-origin").is_none());
+    }
+    assert_eq!(rejected(), 1, "CORS was asked for a request the budget refused");
+}
+
+struct Capture(Arc<std::sync::Mutex<Vec<u8>>>);
+
+impl std::io::Write for Capture {
+    fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
+        self.0.lock().unwrap().extend_from_slice(bytes);
+        Ok(bytes.len())
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        Ok(())
+    }
+}
