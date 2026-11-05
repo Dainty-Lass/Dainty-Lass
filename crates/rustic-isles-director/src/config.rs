@@ -26,7 +26,11 @@ fn js_number(settings: &Settings, name: &str) -> f64 {
 }
 
 fn js_number_or(settings: &Settings, name: &str, unset: f64) -> f64 {
-    if settings.raw(name).is_none() { unset } else { js_number(settings, name) }
+    if settings.raw(name).is_none() {
+        unset
+    } else {
+        js_number(settings, name)
+    }
 }
 
 fn trimmed_lower(settings: &Settings, name: &str) -> Option<String> {
@@ -116,7 +120,11 @@ impl Config {
         process_env: impl IntoIterator<Item = (String, String)>,
     ) -> Result<Config, String> {
         let vars = settings.vars();
-        let stale: Vec<&str> = vars.keys().map(String::as_str).filter(|k| k.starts_with("MYSTPAX_")).collect();
+        let stale: Vec<&str> = vars
+            .keys()
+            .map(String::as_str)
+            .filter(|k| k.starts_with("MYSTPAX_"))
+            .collect();
         if !stale.is_empty() {
             return Err(format!(
                 "Rename these environment keys to the RUSTIC_ISLES_ prefix: {}",
@@ -171,7 +179,13 @@ impl Config {
         let (memory, problems) = memory::options_from_settings(settings);
         warnings.extend(problems.into_iter().map(|p| format!("[MemoryGuard] {p}")));
         // The process wins over the settings, as Node's --env-file; Windows names are case-insensitive
-        let key = |name: &str| if cfg!(windows) { name.to_uppercase() } else { name.to_owned() };
+        let key = |name: &str| {
+            if cfg!(windows) {
+                name.to_uppercase()
+            } else {
+                name.to_owned()
+            }
+        };
         let mut env: Vec<(String, String)> = vars.into_iter().collect();
         for (name, value) in process_env {
             env.retain(|(k, _)| key(k) != key(&name));

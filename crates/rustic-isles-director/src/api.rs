@@ -48,7 +48,11 @@ pub fn register(director: &Arc<Director>, handlers: &mut Handlers) {
     handlers.on(Service::Director, Method::Get, "/health/ready", move |_: Call| {
         let ready = d.persistent_hubs_ready();
         async move {
-            let status = if ready { StatusCode::OK } else { StatusCode::SERVICE_UNAVAILABLE };
+            let status = if ready {
+                StatusCode::OK
+            } else {
+                StatusCode::SERVICE_UNAVAILABLE
+            };
             json(status, ready_body(ready))
         }
     });
@@ -112,13 +116,23 @@ async fn express_404(request: Request, next: Next) -> Response {
     let page = format!(
         "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n<meta charset=\"utf-8\">\n<title>Error</title>\n</head>\n<body>\n<pre>{text}</pre>\n</body>\n</html>\n"
     );
-    let body = if method == http::Method::HEAD { Body::empty() } else { Body::from(page) };
+    let body = if method == http::Method::HEAD {
+        Body::empty()
+    } else {
+        Body::from(page)
+    };
     let mut response = Response::new(body);
     *response.status_mut() = StatusCode::NOT_FOUND;
     let headers = response.headers_mut();
-    headers.insert(header::CONTENT_SECURITY_POLICY, HeaderValue::from_static("default-src 'none'"));
+    headers.insert(
+        header::CONTENT_SECURITY_POLICY,
+        HeaderValue::from_static("default-src 'none'"),
+    );
     headers.insert(header::X_CONTENT_TYPE_OPTIONS, HeaderValue::from_static("nosniff"));
-    headers.insert(header::CONTENT_TYPE, HeaderValue::from_static("text/html; charset=utf-8"));
+    headers.insert(
+        header::CONTENT_TYPE,
+        HeaderValue::from_static("text/html; charset=utf-8"),
+    );
     if let Some(id) = inner.headers().get(REQUEST_ID_HEADER) {
         headers.insert(REQUEST_ID_HEADER, id.clone());
     }

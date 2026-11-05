@@ -682,7 +682,10 @@ mod tests {
         let first = hub.ensure("boot").await.unwrap();
         assert!(hub.release(&first, "idle"));
         assert!(!hub.release(&first, "idle"));
-        assert_eq!((hub.failure_count(), hub.retry_armed(), hub.current()), (0, false, None));
+        assert_eq!(
+            (hub.failure_count(), hub.retry_armed(), hub.current()),
+            (0, false, None)
+        );
         hub.ensure("request").await.unwrap();
         assert_eq!(rig.starts(), 2);
     }

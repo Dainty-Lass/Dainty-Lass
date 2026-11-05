@@ -26,7 +26,9 @@ fn say(line: &str) {
 
 /// Exit 9 once the test's process is gone or the time is up.
 fn watch(started: Instant) -> Option<ExitCode> {
-    let max = env("FAKE_GS_MAX_SECS").and_then(|v| v.parse::<u64>().ok()).unwrap_or(900);
+    let max = env("FAKE_GS_MAX_SECS")
+        .and_then(|v| v.parse::<u64>().ok())
+        .unwrap_or(900);
     if started.elapsed() >= Duration::from_secs(max) {
         return Some(ExitCode::from(9));
     }
@@ -77,8 +79,14 @@ fn main() -> ExitCode {
         "launchId".into(),
         Value::from(env("RUSTIC_ISLES_GAMESERVER_LAUNCH_ID").unwrap_or_default()),
     );
-    report.insert("trialsWeek".into(), env("RUSTIC_ISLES_TRIALS_WEEK").map_or(Value::Null, Value::from));
-    report.insert("inherited".into(), env("REFORGED_SERVER_MAX_FPS").map_or(Value::Null, Value::from));
+    report.insert(
+        "trialsWeek".into(),
+        env("RUSTIC_ISLES_TRIALS_WEEK").map_or(Value::Null, Value::from),
+    );
+    report.insert(
+        "inherited".into(),
+        env("REFORGED_SERVER_MAX_FPS").map_or(Value::Null, Value::from),
+    );
     say(&format!("FAKE_ARGS {}", Value::Object(report)));
     if map == "/Game/Maps/crash" {
         eprintln!("LogWindows: fatal");
@@ -99,7 +107,9 @@ fn main() -> ExitCode {
     if map != "/Game/Maps/silent" {
         let launch = env("RUSTIC_ISLES_GAMESERVER_LAUNCH_ID").unwrap_or_default();
         say("LogNet: listening");
-        say(&format!("RUSTIC_ISLES_GAMESERVER_READY launchId={OTHER_LAUNCH} port={port}"));
+        say(&format!(
+            "RUSTIC_ISLES_GAMESERVER_READY launchId={OTHER_LAUNCH} port={port}"
+        ));
         say(&format!("RUSTIC_ISLES_GAMESERVER_READY launchId={launch} port={port}"));
     }
     if map == "/Game/Maps/chatty" {

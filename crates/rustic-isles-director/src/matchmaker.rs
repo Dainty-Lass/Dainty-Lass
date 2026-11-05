@@ -162,7 +162,10 @@ impl Director {
         let text = |key: &str| js::string(manifest.get(key));
         let behemoth = Some(text("behemothPath")).filter(|b| b != "NO_BEHEMOTH");
         let hunt_text = js::string(hunt);
-        let ids = expected.and_then(Value::as_array).map(Vec::as_slice).unwrap_or_default();
+        let ids = expected
+            .and_then(Value::as_array)
+            .map(Vec::as_slice)
+            .unwrap_or_default();
         self.start_hunt(
             text("mapPath"),
             behemoth,

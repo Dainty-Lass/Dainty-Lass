@@ -23,9 +23,14 @@ pub const READY_MARKER: &str = "RUSTIC_ISLES_GAMESERVER_READY";
 
 /// `RUSTIC_ISLES_GAMESERVER_READY launchId={id} port={port}` (JS-trimmed): the id and port when well-formed.
 pub fn parse_marker(line: &str) -> Option<(&str, &str)> {
-    let rest = service_kit::js::trim(line).strip_prefix(READY_MARKER)?.strip_prefix(" launchId=")?;
+    let rest = service_kit::js::trim(line)
+        .strip_prefix(READY_MARKER)?
+        .strip_prefix(" launchId=")?;
     let (id, port) = rest.split_once(" port=")?;
-    let id_ok = !id.is_empty() && id.bytes().all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b) || b == b'-');
+    let id_ok = !id.is_empty()
+        && id
+            .bytes()
+            .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b) || b == b'-');
     let port_ok = !port.is_empty() && port.bytes().all(|b| b.is_ascii_digit());
     (id_ok && port_ok).then_some((id, port))
 }
@@ -127,7 +132,11 @@ fn log_writer(file: std::fs::File) -> mpsc::UnboundedSender<Vec<u8>> {
     sender
 }
 
-fn pump(mut pipe: Pipe, log: mpsc::UnboundedSender<Vec<u8>>, mut scan: Option<(ReadinessScanner, oneshot::Sender<()>)>) -> tokio::task::JoinHandle<()> {
+fn pump(
+    mut pipe: Pipe,
+    log: mpsc::UnboundedSender<Vec<u8>>,
+    mut scan: Option<(ReadinessScanner, oneshot::Sender<()>)>,
+) -> tokio::task::JoinHandle<()> {
     tokio::spawn(async move {
         let mut buffer = vec![0u8; CHUNK];
         loop {

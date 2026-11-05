@@ -292,7 +292,11 @@ impl Converter<'_> {
             .and_then(Value::as_str)
             .filter(|t| !t.is_empty())
             .map_or(Value::Null, |t| self.table_ref(t));
-        let queries = list.get("queries").and_then(Value::as_array).map(Vec::as_slice).unwrap_or_default();
+        let queries = list
+            .get("queries")
+            .and_then(Value::as_array)
+            .map(Vec::as_slice)
+            .unwrap_or_default();
         let queries = queries
             .iter()
             .map(|q| {
@@ -309,9 +313,15 @@ impl Converter<'_> {
                     })
                     .unwrap_or_default();
                 let mut out = Map::new();
-                out.insert("TokenStreamVersion".into(), or(q.get("tokenStreamVersion"), Value::from(0)));
+                out.insert(
+                    "TokenStreamVersion".into(),
+                    or(q.get("tokenStreamVersion"), Value::from(0)),
+                );
                 out.insert("TagDictionary".into(), Value::Array(dictionary));
-                out.insert("QueryTokenStream".into(), or(q.get("tokenStream"), Value::Array(Vec::new())));
+                out.insert(
+                    "QueryTokenStream".into(),
+                    or(q.get("tokenStream"), Value::Array(Vec::new())),
+                );
                 out.insert("UserDescription".into(), or(q.get("userDescription"), Value::from("")));
                 out.insert("AutoDescription".into(), or(q.get("autoDescription"), Value::from("")));
                 Value::Object(out)
@@ -334,8 +344,14 @@ impl Converter<'_> {
         out.insert("HuntName".into(), text());
         out.insert("HuntDescription".into(), text());
         out.insert("Region".into(), self.handle(source.get("region")));
-        out.insert("MatchmakerHuntIDs".into(), self.handles(source.get("matchmakerHuntIDs")));
-        let lists = source.get("matchmakerHuntsByTag").and_then(Value::as_array).map(Vec::as_slice);
+        out.insert(
+            "MatchmakerHuntIDs".into(),
+            self.handles(source.get("matchmakerHuntIDs")),
+        );
+        let lists = source
+            .get("matchmakerHuntsByTag")
+            .and_then(Value::as_array)
+            .map(Vec::as_slice);
         let lists = lists.unwrap_or_default().iter().map(|l| self.tag_list(l)).collect();
         out.insert("MatchmakerHuntsByTag".into(), Value::Array(lists));
         self.enum_field(&mut out, &row, "MatchmakingType", source.get("matchmakingType"));
@@ -346,7 +362,10 @@ impl Converter<'_> {
             self.handle(source.get("escalationModeSpecification")),
         );
         let optional = [
-            ("EscalationPatrolInitialChallengeLevel", "escalationPatrolInitialChallengeLevel"),
+            (
+                "EscalationPatrolInitialChallengeLevel",
+                "escalationPatrolInitialChallengeLevel",
+            ),
             ("EscalationPatrolMaxChallengeLevel", "escalationPatrolMaxChallengeLevel"),
             ("RecommendedEscalationLevel", "recommendedEscalationLevel"),
             ("bHasPortals", "hasPortals"),
@@ -372,7 +391,9 @@ impl Converter<'_> {
 
     fn behemoth(&self, source: Option<&Value>) -> Value {
         let get = |k: &str| source.and_then(|s| s.get(k));
-        let asset = get("behemothAssetPath").and_then(Value::as_str).filter(|p| !p.is_empty());
+        let asset = get("behemothAssetPath")
+            .and_then(Value::as_str)
+            .filter(|p| !p.is_empty());
         let mut asset_out = Map::new();
         asset_out.insert("AssetPathName".into(), Value::from(asset.unwrap_or("None")));
         asset_out.insert("SubPathString".into(), Value::from(""));
@@ -391,7 +412,10 @@ impl Converter<'_> {
     fn map_entry(&mut self, row: &str, source: &Value) -> Value {
         let mut out = Map::new();
         out.insert("MapName".into(), or(source.get("mapName"), Value::from("")));
-        out.insert("MapAssetName".into(), Value::String(map_path(source).unwrap_or("").to_owned()));
+        out.insert(
+            "MapAssetName".into(),
+            Value::String(map_path(source).unwrap_or("").to_owned()),
+        );
         self.enum_field(&mut out, row, "Biome", source.get("biome"));
         if let Some(v) = source.get("weighting") {
             out.insert("Weighting".into(), v.clone());
@@ -406,7 +430,10 @@ impl Converter<'_> {
             Some(Value::Array(list)) if !list.is_empty() => list,
             _ => return Err(format!("{row}: no mapList")),
         };
-        if !list.iter().any(|e| map_path(e).is_some_and(|p| p.starts_with("/Game/"))) {
+        if !list
+            .iter()
+            .any(|e| map_path(e).is_some_and(|p| p.starts_with("/Game/")))
+        {
             let first = map_path(&list[0]).filter(|p| !p.is_empty()).unwrap_or("(empty)");
             return Err(format!("{row}: no /Game/ map path (got \"{first}\")"));
         }
@@ -416,7 +443,10 @@ impl Converter<'_> {
         if let Some(v) = source.get("huntThreatLevel") {
             out.insert("HuntThreatLevel".into(), v.clone());
         }
-        out.insert("GameModeOverride".into(), or(source.get("gameModeOverride"), Value::from("")));
+        out.insert(
+            "GameModeOverride".into(),
+            or(source.get("gameModeOverride"), Value::from("")),
+        );
         if let Some(v) = source.get("dangerPerSecOverride") {
             out.insert("DangerPerSecOverride".into(), v.clone());
         }
@@ -429,7 +459,10 @@ impl Converter<'_> {
         out.insert("MapMetaData".into(), self.handle(source.get("mapMetaData")));
         let maps = list.iter().map(|e| self.map_entry(&row, e)).collect();
         out.insert("MapList".into(), Value::Array(maps));
-        out.insert("Modifiers".into(), or(source.get("modifiers"), Value::Array(Vec::new())));
+        out.insert(
+            "Modifiers".into(),
+            or(source.get("modifiers"), Value::Array(Vec::new())),
+        );
         if source.get("gatherableTier").is_some() {
             self.enum_field(&mut out, &row, "GatherableTier", source.get("gatherableTier"));
         }
@@ -464,7 +497,11 @@ fn row_version(row: &Value) -> String {
         .unwrap_or("");
     marker
         .split_once("EXPORT_HUNTS ")
-        .map(|(_, rest)| rest.chars().take_while(|c| c.is_ascii_digit() || *c == '.').collect::<String>())
+        .map(|(_, rest)| {
+            rest.chars()
+                .take_while(|c| c.is_ascii_digit() || *c == '.')
+                .collect::<String>()
+        })
         .filter(|v| !v.is_empty())
         .unwrap_or_else(|| "1.12.0".to_owned())
 }
@@ -482,7 +519,10 @@ fn handle_key(v: &Value) -> String {
     if row.is_empty() || row == "None" {
         return "None".to_owned();
     }
-    let name = v.get("DataTable").and_then(|t| t.get("ObjectName")).and_then(Value::as_str);
+    let name = v
+        .get("DataTable")
+        .and_then(|t| t.get("ObjectName"))
+        .and_then(Value::as_str);
     let table = name
         .and_then(|n| n.strip_prefix("DataTable'"))
         .and_then(|n| n.strip_suffix('\''))
@@ -532,7 +572,10 @@ fn identity(v: &Value) -> Option<String> {
         return Some(format!("map:{}", package.to_lowercase()));
     }
     if let Some(asset) = v.get("BehemothAsset").filter(|a| a.is_object()) {
-        return Some(format!("behemoth:{}", js::string(asset.get("AssetPathName")).to_lowercase()));
+        return Some(format!(
+            "behemoth:{}",
+            js::string(asset.get("AssetPathName")).to_lowercase()
+        ));
     }
     let table = v.get("MatchmakerTable").filter(|t| t.is_object());
     if let Some(name) = table.and_then(|t| t.get("ObjectName")).and_then(Value::as_str) {
@@ -630,7 +673,13 @@ fn merged(a: &Value, b: &Value, field: &str, versions: (&str, &str)) -> Value {
 }
 
 /// Merges incoming `i` into existing `e`; the changes.
-fn merge_row(e: &mut Map<String, Value>, i: &Map<String, Value>, order: &[&str], version: &str, marker: &str) -> Vec<String> {
+fn merge_row(
+    e: &mut Map<String, Value>,
+    i: &Map<String, Value>,
+    order: &[&str],
+    version: &str,
+    marker: &str,
+) -> Vec<String> {
     let existing = row_version(&Value::Object(e.clone()));
     let versions = (existing.as_str(), version);
     let mut changes = Vec::new();
@@ -730,7 +779,10 @@ fn list(items: &[String], show: usize) -> String {
     if items.is_empty() {
         return String::new();
     }
-    let mut out = format!(" -> {}", items.iter().take(show).cloned().collect::<Vec<_>>().join(", "));
+    let mut out = format!(
+        " -> {}",
+        items.iter().take(show).cloned().collect::<Vec<_>>().join(", ")
+    );
     if items.len() > show {
         let _ = write!(out, ", ...(+{})", items.len() - show);
     }
@@ -753,7 +805,11 @@ fn counted(items: impl IntoIterator<Item = String>, sort: bool) -> Vec<(String, 
 }
 
 fn counted_text(items: &[(String, usize)]) -> String {
-    items.iter().map(|(k, n)| format!("{k} x{n}")).collect::<Vec<_>>().join(", ")
+    items
+        .iter()
+        .map(|(k, n)| format!("{k} x{n}"))
+        .collect::<Vec<_>>()
+        .join(", ")
 }
 
 /// The known object paths of the existing player and main matchmaker files: rows not imported, first seen wins.
@@ -762,7 +818,9 @@ fn known_paths(vendor: &Path) -> Result<HashMap<String, String>, String> {
         match value {
             Value::Object(map) => {
                 let name = map.get("ObjectName").and_then(Value::as_str);
-                let table = name.and_then(|n| n.strip_prefix("DataTable'")).and_then(|n| n.strip_suffix('\''));
+                let table = name
+                    .and_then(|n| n.strip_prefix("DataTable'"))
+                    .and_then(|n| n.strip_suffix('\''));
                 if let (Some(table), Some(path)) = (table, map.get("ObjectPath").and_then(Value::as_str)) {
                     out.entry(table.to_owned()).or_insert_with(|| path.to_owned());
                 }
@@ -821,7 +879,11 @@ fn merge_table(
         return Err(format!("{} has no [0].Rows object", path.display()));
     };
     let mut rows: Map<String, Value> = rows.clone();
-    let order: &[&str] = if name == PLAYER_TABLE { &PLAYER_ORDER } else { &MATCHMAKER_ORDER };
+    let order: &[&str] = if name == PLAYER_TABLE {
+        &PLAYER_ORDER
+    } else {
+        &MATCHMAKER_ORDER
+    };
     let mut summary = TableMergeSummary {
         name: name.to_owned(),
         path: path.clone(),
@@ -920,7 +982,11 @@ fn merge_table(
 }
 
 fn summary_lines(out: &mut Vec<String>, s: &TableMergeSummary, options: &ImportHuntTablesOptions) {
-    let not_written = if options.update_existing { "" } else { " (not written: pass --update-existing)" };
+    let not_written = if options.update_existing {
+        ""
+    } else {
+        " (not written: pass --update-existing)"
+    };
     let new = if s.new_file { "  (NEW vendor file)" } else { "" };
     out.push(format!("\n=== {}{new} ===", s.name));
     out.push(format!("  vendored rows   : {}", s.vendored_rows));
@@ -928,7 +994,11 @@ fn summary_lines(out: &mut Vec<String>, s: &TableMergeSummary, options: &ImportH
     out.push(format!("  added           : {}{}", s.added.len(), list(&s.added, 12)));
     let updated: Vec<String> = s.updated.iter().map(|(n, _)| n.clone()).collect();
     let flag = if updated.is_empty() { "" } else { not_written };
-    out.push(format!("  changed         : {}{flag}{}", updated.len(), list(&updated, 8)));
+    out.push(format!(
+        "  changed         : {}{flag}{}",
+        updated.len(),
+        list(&updated, 8)
+    ));
     if !s.changes.is_empty() {
         out.push(format!("    fields        : {}", counted_text(&s.changes)));
     }
@@ -979,7 +1049,8 @@ pub fn import_hunt_tables(options: &ImportHuntTablesOptions) -> Result<ImportHun
     };
     let version = manifest.get("gameVersion").and_then(Value::as_str).unwrap_or("");
     if !SUPPORTED_VERSIONS.contains(&version) {
-        let shown = present(manifest.get("gameVersion")).map_or_else(|| "(missing)".to_owned(), |v| js::string(Some(v)));
+        let shown =
+            present(manifest.get("gameVersion")).map_or_else(|| "(missing)".to_owned(), |v| js::string(Some(v)));
         return Err(format!(
             "Export {} declares gameVersion '{shown}'.\nEnum numbers can only be decoded for: 1.12.0, 1.14.7. Add the \
              version's EMatchmakingGameType table first.",
@@ -1042,8 +1113,16 @@ pub fn import_hunt_tables(options: &ImportHuntTablesOptions) -> Result<ImportHun
         players.len(),
         matchmakers.len()
     ));
-    let update_flag = if options.update_existing { " +update-existing" } else { "" };
-    let mode = if options.apply { "APPLY" } else { "DRY RUN (pass --apply to write)" };
+    let update_flag = if options.update_existing {
+        " +update-existing"
+    } else {
+        ""
+    };
+    let mode = if options.apply {
+        "APPLY"
+    } else {
+        "DRY RUN (pass --apply to write)"
+    };
     out.push(format!("Mode  : {mode}{update_flag}"));
     for table in &merged {
         summary_lines(&mut out, &table.summary, options);
@@ -1059,14 +1138,22 @@ pub fn import_hunt_tables(options: &ImportHuntTablesOptions) -> Result<ImportHun
 
     out.push("\n=== referential check ===".to_owned());
     let tables: Vec<&Value> = merged.iter().map(|m| &m.file).collect();
-    let rows_of = |file: &Value| file.get(0).and_then(|f| f.get("Rows")).and_then(Value::as_object).cloned();
+    let rows_of = |file: &Value| {
+        file.get(0)
+            .and_then(|f| f.get("Rows"))
+            .and_then(Value::as_object)
+            .cloned()
+    };
     let matchmaker_rows: Vec<Map<String, Value>> = tables[1..].iter().filter_map(|f| rows_of(f)).collect();
     let player_merged = rows_of(tables[0]).unwrap_or_default();
     let mut dangling = Vec::new();
     let mut unknown_tables = Vec::new();
     let merged_names: Vec<&str> = merged.iter().map(|m| m.summary.name.as_str()).collect();
     for (row, value) in js_entries(&player_merged) {
-        let handles = value.get("MatchmakerHuntIDs").and_then(Value::as_array).map(Vec::as_slice);
+        let handles = value
+            .get("MatchmakerHuntIDs")
+            .and_then(Value::as_array)
+            .map(Vec::as_slice);
         for handle in handles.unwrap_or_default() {
             let Some(target) = handle.get("RowName").and_then(Value::as_str) else {
                 continue;
@@ -1078,10 +1165,18 @@ pub fn import_hunt_tables(options: &ImportHuntTablesOptions) -> Result<ImportHun
                 dangling.push(format!("{row} -> {target}"));
             }
         }
-        let lists = value.get("MatchmakerHuntsByTag").and_then(Value::as_array).map(Vec::as_slice);
+        let lists = value
+            .get("MatchmakerHuntsByTag")
+            .and_then(Value::as_array)
+            .map(Vec::as_slice);
         for list in lists.unwrap_or_default() {
-            let name = list.get("MatchmakerTable").and_then(|t| t.get("ObjectName")).and_then(Value::as_str);
-            let Some(table) = name.and_then(|n| n.strip_prefix("DataTable'")).and_then(|n| n.strip_suffix('\''))
+            let name = list
+                .get("MatchmakerTable")
+                .and_then(|t| t.get("ObjectName"))
+                .and_then(Value::as_str);
+            let Some(table) = name
+                .and_then(|n| n.strip_prefix("DataTable'"))
+                .and_then(|n| n.strip_suffix('\''))
             else {
                 continue;
             };
@@ -1103,7 +1198,11 @@ pub fn import_hunt_tables(options: &ImportHuntTablesOptions) -> Result<ImportHun
     if unknown_tables.is_empty() {
         out.push("  every tag-routed MatchmakerTable has a vendored file".to_owned());
     } else {
-        out.extend(unknown_tables.iter().map(|t| format!("  tag-routed table without a vendored file: {t}")));
+        out.extend(
+            unknown_tables
+                .iter()
+                .map(|t| format!("  tag-routed table without a vendored file: {t}")),
+        );
     }
     if !problems.is_empty() {
         out.push(format!("\n=== enum problems ({}) ===", problems.len()));
@@ -1117,7 +1216,11 @@ pub fn import_hunt_tables(options: &ImportHuntTablesOptions) -> Result<ImportHun
         output: String::new(),
     };
     if !options.apply {
-        let again = if options.update_existing { " --update-existing" } else { "" };
+        let again = if options.update_existing {
+            " --update-existing"
+        } else {
+            ""
+        };
         out.push(format!(
             "\nDry run complete. Nothing written. Re-run with --apply{again} to commit."
         ));
@@ -1141,12 +1244,10 @@ pub fn import_hunt_tables(options: &ImportHuntTablesOptions) -> Result<ImportHun
         return Err(out.join("\n"));
     }
     out.push(String::new());
-    std::fs::create_dir_all(&options.vendor_dir)
-        .map_err(|e| format!("{}: {e}", options.vendor_dir.display()))?;
-    let stamp = options
-        .backup_stamp
-        .clone()
-        .unwrap_or_else(|| rustic_isles::season::to_iso_string(chrono::Utc::now().timestamp_millis()).replace([':', '.'], "-"));
+    std::fs::create_dir_all(&options.vendor_dir).map_err(|e| format!("{}: {e}", options.vendor_dir.display()))?;
+    let stamp = options.backup_stamp.clone().unwrap_or_else(|| {
+        rustic_isles::season::to_iso_string(chrono::Utc::now().timestamp_millis()).replace([':', '.'], "-")
+    });
     let mut new_tables = Vec::new();
     for table in merged.iter().filter(|m| m.changes_table) {
         let s = &table.summary;
@@ -1164,7 +1265,11 @@ pub fn import_hunt_tables(options: &ImportHuntTablesOptions) -> Result<ImportHun
         } else {
             String::new()
         };
-        out.push(format!("Wrote {file_name} ({} rows: +{}{detail})", s.rows_after, s.added.len()));
+        out.push(format!(
+            "Wrote {file_name} ({} rows: +{}{detail})",
+            s.rows_after,
+            s.added.len()
+        ));
     }
     if !new_tables.is_empty() {
         out.push(format!("\nNEW vendor table(s): {}", new_tables.join(", ")));
@@ -1186,7 +1291,11 @@ pub fn convert_rows_for_fuzz(players: &[Value], matchmakers: &[Value], version: 
         paths: HashMap::new(),
         problems: Vec::new(),
     };
-    let mut out: Vec<Value> = players.iter().filter(|r| r.is_object()).map(|r| converter.player_row(r)).collect();
+    let mut out: Vec<Value> = players
+        .iter()
+        .filter(|r| r.is_object())
+        .map(|r| converter.player_row(r))
+        .collect();
     out.extend(
         matchmakers
             .iter()
@@ -1217,7 +1326,10 @@ mod tests {
     fn enums() {
         assert_eq!(Enum::GameType.decode(Some(&json!(9)), "1.14.7"), Some("Gauntlet"));
         assert_eq!(Enum::GameType.decode(Some(&json!(9)), "1.12.0"), Some("FTUE"));
-        assert_eq!(Enum::GameType.decode(Some(&json!("EMatchmakingGameType::Gauntlet")), "1.12.0"), Some("Gauntlet"));
+        assert_eq!(
+            Enum::GameType.decode(Some(&json!("EMatchmakingGameType::Gauntlet")), "1.12.0"),
+            Some("Gauntlet")
+        );
         assert_eq!(Enum::Biome.decode(Some(&json!("EHuntBiome::Lava")), "1.14.7"), None);
         assert_eq!(Enum::Tier.decode(Some(&json!(1.5)), "1.14.7"), None);
     }
@@ -1245,14 +1357,25 @@ mod tests {
         assert_eq!(merged(&a, &c, "Region", v)["RowName"], "Q");
         assert_eq!(merged(&json!(1), &json!(9), "MatchmakingGameType", v), json!(9));
         assert_eq!(
-            merged(&json!("EMatchmakingGameType::City"), &json!(9), "MatchmakingGameType", v),
+            merged(
+                &json!("EMatchmakingGameType::City"),
+                &json!(9),
+                "MatchmakingGameType",
+                v
+            ),
             json!("EMatchmakingGameType::Gauntlet")
         );
         let maps_a = json!([{"MapName": "a", "MapAssetName": "/Game/A.a", "Biome": "Moss", "Weighting": 1}]);
         let maps_b = json!([{"MapName": "a", "MapAssetName": "/Game/A.a", "Biome": "Ice"}]);
         let out = merged(&maps_a, &maps_b, "MapList", v);
-        assert_eq!(out, json!([{"MapName": "a", "MapAssetName": "/Game/A.a", "Biome": "Ice", "Weighting": 1}]));
-        let mut e = json!({"Region": a, "HuntTags": [], "_importedFrom": "old"}).as_object().unwrap().clone();
+        assert_eq!(
+            out,
+            json!([{"MapName": "a", "MapAssetName": "/Game/A.a", "Biome": "Ice", "Weighting": 1}])
+        );
+        let mut e = json!({"Region": a, "HuntTags": [], "_importedFrom": "old"})
+            .as_object()
+            .unwrap()
+            .clone();
         let i = json!({"Region": b, "HuntTags": ["X"], "MaxPlayers": 4, "_importedFrom": "new"});
         let changes = merge_row(&mut e, i.as_object().unwrap(), &MATCHMAKER_ORDER, "1.14.7", "M");
         assert_eq!(changes, ["HuntTags", "+MaxPlayers"]);
@@ -1260,9 +1383,18 @@ mod tests {
         assert_eq!(keys, ["Region", "HuntTags", "MaxPlayers", "_importedFrom"]);
         assert_eq!(e["_importedFrom"], "M");
         let mut plain = json!({"HuntTags": []}).as_object().unwrap().clone();
-        merge_row(&mut plain, json!({"HuntTags": ["A"]}).as_object().unwrap(), &MATCHMAKER_ORDER, "1.14.7", "M");
+        merge_row(
+            &mut plain,
+            json!({"HuntTags": ["A"]}).as_object().unwrap(),
+            &MATCHMAKER_ORDER,
+            "1.14.7",
+            "M",
+        );
         assert_eq!(plain["_updatedFrom"], "M");
-        assert_eq!(row_version(&json!({"_updatedFrom": "CatalogExporter EXPORT_HUNTS 1.14.7"})), "1.14.7");
+        assert_eq!(
+            row_version(&json!({"_updatedFrom": "CatalogExporter EXPORT_HUNTS 1.14.7"})),
+            "1.14.7"
+        );
         assert_eq!(row_version(&json!({})), "1.12.0");
     }
 }

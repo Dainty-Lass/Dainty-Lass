@@ -174,7 +174,11 @@ pub(crate) struct ServerSpec {
 
 impl ServerSpec {
     fn hub(kind: ServerKind) -> Self {
-        let map = if kind == ServerKind::Ramsgate { RAMSGATE_MAP } else { TRAINING_DOJO_MAP };
+        let map = if kind == ServerKind::Ramsgate {
+            RAMSGATE_MAP
+        } else {
+            TRAINING_DOJO_MAP
+        };
         Self {
             kind,
             map: map.to_owned(),
@@ -237,7 +241,11 @@ fn now_ms() -> i64 {
 }
 
 fn js_number_text(n: f64) -> String {
-    if n.is_nan() { "NaN".to_owned() } else { service_kit::jsjson::number(n) }
+    if n.is_nan() {
+        "NaN".to_owned()
+    } else {
+        service_kit::jsjson::number(n)
+    }
 }
 
 /// The Behemoth path's last `/` segment cut at its first `.` (`fulgar_bp`), else `hunt`.
@@ -274,10 +282,12 @@ impl Director {
         let registry = Arc::clone(&missing);
         options.on_missing_hunt = Some(Arc::new(move |id: &str| registry.record(id, now_ms())));
         let idle_ms = config.training_idle_minutes * 60_000;
-        let occupancy = config
-            .runtime_log_dir
-            .as_ref()
-            .map(|dir| RuntimeLogOccupancy::new(dir.join(format!("rustic_isles_dll_port{}.log", config.port_range.last.wrapping_sub(1)))));
+        let occupancy = config.runtime_log_dir.as_ref().map(|dir| {
+            RuntimeLogOccupancy::new(dir.join(format!(
+                "rustic_isles_dll_port{}.log",
+                config.port_range.last.wrapping_sub(1)
+            )))
+        });
         Arc::new_cyclic(|me: &Weak<Director>| {
             let supervisor = |kind: ServerKind| {
                 let weak = me.clone();
@@ -509,7 +519,9 @@ impl Director {
             port.to_string(),
             spec.map.clone(),
             spec.behemoth.clone().unwrap_or_else(|| "NO_BEHEMOTH".to_owned()),
-            spec.matchmaker_hunt_id.clone().unwrap_or_else(|| "NO_MM_HUNTID".to_owned()),
+            spec.matchmaker_hunt_id
+                .clone()
+                .unwrap_or_else(|| "NO_MM_HUNTID".to_owned()),
             players,
             format!("{}:{port}", self.config.my_ip_text()),
         ];
@@ -642,7 +654,11 @@ impl Director {
             return Err("the process is gone".to_owned());
         }
         proc.tree.terminate().map_err(|e| e.to_string())?;
-        if tokio::time::timeout(self.config.stop_grace, proc.exited()).await.is_err() && proc.alive() {
+        if tokio::time::timeout(self.config.stop_grace, proc.exited())
+            .await
+            .is_err()
+            && proc.alive()
+        {
             let pid = proc.pid.map_or_else(|| "undefined".to_owned(), |p| p.to_string());
             tracing::warn!("a game server (pid={pid}) ignored its stop; killing its process tree");
             proc.tree.kill();
@@ -719,9 +735,13 @@ impl Director {
             tokio::time::sleep_until(tail.min(began + HUB_QUEUE_CAP)).await;
             let waited = began.elapsed().as_millis();
             if capped {
-                tracing::warn!("[HubSupervisor] {label} hunt launch queue still busy after {waited} ms - cold-starting anyway");
+                tracing::warn!(
+                    "[HubSupervisor] {label} hunt launch queue still busy after {waited} ms - cold-starting anyway"
+                );
             } else if waited >= 100 {
-                tracing::info!("[HubSupervisor] {label} waited {waited} ms for the hunt launch queue before cold start");
+                tracing::info!(
+                    "[HubSupervisor] {label} waited {waited} ms for the hunt launch queue before cold start"
+                );
             }
         }
         if kind == ServerKind::Training {
@@ -802,9 +822,10 @@ impl Director {
             let state = s.state();
             s.is_hunt()
                 && state.status == ServerStatus::Ready
-                && state.roster.as_ref().is_some_and(|r| {
-                    r.first().is_some_and(|(_, h)| h == hunt_id) && (r.len() as f64) < max
-                })
+                && state
+                    .roster
+                    .as_ref()
+                    .is_some_and(|r| r.first().is_some_and(|(_, h)| h == hunt_id) && (r.len() as f64) < max)
         })?;
         let joiners: Vec<Value> = match expected {
             Value::Array(items) => items.clone(),
@@ -907,9 +928,15 @@ impl Director {
                 out.insert("behemoth".into(), s.behemoth.clone().map_or(Value::Null, Value::String));
                 out.insert("players".into(), Value::from(roster.len()));
                 out.insert("maxPlayers".into(), max);
-                out.insert("playerIds".into(), Value::Array(roster.into_iter().map(|(id, _)| id).collect()));
+                out.insert(
+                    "playerIds".into(),
+                    Value::Array(roster.into_iter().map(|(id, _)| id).collect()),
+                );
                 let started = state.ready_at_ms.unwrap_or(s.started_at_ms);
-                out.insert("startedAt".into(), Value::String(rustic_isles::season::to_iso_string(started)));
+                out.insert(
+                    "startedAt".into(),
+                    Value::String(rustic_isles::season::to_iso_string(started)),
+                );
                 Value::Object(out)
             })
             .collect();
@@ -1051,7 +1078,10 @@ impl Director {
                 });
                 let director = Arc::clone(self);
                 tokio::spawn(async move {
-                    if tokio::time::timeout(director.config.stop_grace, server.proc.exited()).await.is_err() {
+                    if tokio::time::timeout(director.config.stop_grace, server.proc.exited())
+                        .await
+                        .is_err()
+                    {
                         tracing::warn!(
                             "a game server (pid={}) ignored its stop; killing its process tree",
                             server.pid_text()

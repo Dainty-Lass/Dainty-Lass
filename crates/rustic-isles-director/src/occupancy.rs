@@ -162,7 +162,11 @@ mod tests {
     }
 
     fn append(path: &std::path::Path, text: &str) {
-        let mut file = std::fs::OpenOptions::new().create(true).append(true).open(path).unwrap();
+        let mut file = std::fs::OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(path)
+            .unwrap();
         file.write_all(text.as_bytes()).unwrap();
     }
 

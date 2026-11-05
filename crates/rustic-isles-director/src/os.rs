@@ -78,8 +78,14 @@ mod imp {
 
     fn inheritable(handle: &impl AsRawHandle) -> io::Result<()> {
         // SAFETY: the handle is open for the call.
-        unsafe { SetHandleInformation(HANDLE(handle.as_raw_handle()), HANDLE_FLAG_INHERIT.0, HANDLE_FLAG_INHERIT) }
-            .map_err(os_error)
+        unsafe {
+            SetHandleInformation(
+                HANDLE(handle.as_raw_handle()),
+                HANDLE_FLAG_INHERIT.0,
+                HANDLE_FLAG_INHERIT,
+            )
+        }
+        .map_err(os_error)
     }
 
     /// The parent's end overlapped (read without blocking a thread), the child's end a plain handle.
@@ -100,6 +106,18 @@ mod imp {
         let client = std::fs::OpenOptions::new().write(true).open(&name)?;
         inheritable(&client)?;
         Ok((server, client))
+    }
+
+    /// The server end once connected (a read before that fails), copied through an in-memory pipe.
+    fn connected(server: NamedPipeServer) -> crate::launcher::Pipe {
+        let (reader, mut writer) = tokio::io::simplex(64 * 1024);
+        tokio::spawn(async move {
+            let mut server = server;
+            if server.connect().await.is_ok() {
+                let _ = tokio::io::copy(&mut server, &mut writer).await;
+            }
+        });
+        Box::pin(reader)
     }
 
     /// `NAME=VALUE\0`... `\0`, sorted by upper-cased name as Windows expects.
@@ -230,8 +248,8 @@ mod imp {
         .boxed();
         Ok(Started {
             pid: Some(process.dwProcessId),
-            stdout: Box::pin(stdout),
-            stderr: Box::pin(stderr),
+            stdout: connected(stdout),
+            stderr: connected(stderr),
             wait,
             tree: Arc::new(JobTree { job }),
         })
@@ -386,5 +404,5 @@ mod imp {
     }
 }
 
-pub use imp::{free_physical_bytes, pid_alive};
 pub(crate) use imp::spawn;
+pub use imp::{free_physical_bytes, pid_alive};

@@ -34,8 +34,12 @@ pub const DEFAULT_TRIALS_ROTATION_MINUTES: u64 = 10_080;
 /// Keys that are array indexes first in ascending order, then the rest in insertion order (JavaScript's).
 pub(crate) fn js_entries(map: &Map<String, Value>) -> Vec<(&String, &Value)> {
     fn index(key: &str) -> Option<u32> {
-        let canonical = key == "0" || (!key.starts_with('0') && !key.is_empty() && key.bytes().all(|b| b.is_ascii_digit()));
-        canonical.then(|| key.parse::<u32>().ok()).flatten().filter(|n| *n < u32::MAX)
+        let canonical =
+            key == "0" || (!key.starts_with('0') && !key.is_empty() && key.bytes().all(|b| b.is_ascii_digit()));
+        canonical
+            .then(|| key.parse::<u32>().ok())
+            .flatten()
+            .filter(|n| *n < u32::MAX)
     }
     let mut indexed: Vec<(u32, &String, &Value)> = Vec::new();
     let mut rest = Vec::new();
@@ -66,8 +70,8 @@ pub fn table_files(trials: bool) -> Vec<String> {
 }
 
 fn load_rows(path: &Path) -> Result<Map<String, Value>, String> {
-    let bytes =
-        std::fs::read(path).map_err(|_| format!("[hunt-manifest] Required hunt table is missing: {}", path.display()))?;
+    let bytes = std::fs::read(path)
+        .map_err(|_| format!("[hunt-manifest] Required hunt table is missing: {}", path.display()))?;
     let text = String::from_utf8_lossy(&bytes);
     let text = text.strip_prefix('\u{feff}').unwrap_or(&text);
     let value = service_kit::jsjson::parse(text).map_err(|e| format!("{}: {e}", path.display()))?;
@@ -129,7 +133,10 @@ pub fn current_trials_week(now_ms: i64, minutes: u64) -> String {
 }
 
 fn is_tag_match(query_tag: &str, row_tag: &str) -> bool {
-    row_tag == query_tag || row_tag.strip_prefix(query_tag).is_some_and(|rest| rest.starts_with('.'))
+    row_tag == query_tag
+        || row_tag
+            .strip_prefix(query_tag)
+            .is_some_and(|rest| rest.starts_with('.'))
 }
 
 fn first_present<'a>(object: &'a Value, keys: &[&str]) -> Option<&'a Value> {
@@ -289,7 +296,13 @@ impl ResolverOptions {
             log: tracing_hunt_log(),
             trials_rotation_minutes: DEFAULT_TRIALS_ROTATION_MINUTES,
             now: Arc::new(|| chrono::Utc::now().timestamp_millis()),
-            random_int: Arc::new(|min, max| if max > min { rand::rng().random_range(min..max) } else { min }),
+            random_int: Arc::new(|min, max| {
+                if max > min {
+                    rand::rng().random_range(min..max)
+                } else {
+                    min
+                }
+            }),
             on_missing_hunt: None,
         }
     }
@@ -504,7 +517,9 @@ impl HuntResolver {
     /// Every usable map of a matchmaker row, cut before the object name; an error names what is missing.
     pub fn usable_maps(&self, matchmaker_hunt_id: &str) -> Result<Vec<String>, String> {
         let row = self.matchmaker_row(matchmaker_hunt_id)?;
-        let Some(Value::Array(list)) = row.get("MapList").filter(|v| v.as_array().is_some_and(|a| !a.is_empty()))
+        let Some(Value::Array(list)) = row
+            .get("MapList")
+            .filter(|v| v.as_array().is_some_and(|a| !a.is_empty()))
         else {
             return Err(format!(
                 "matchmaker_hunts_table row '{matchmaker_hunt_id}' has no MapList"
@@ -580,9 +595,10 @@ impl HuntResolver {
                     audit.tag_routed_rows += 1;
                     let bad = routed.iter().filter(|r| self.usable_maps(r).is_err()).count();
                     if bad > 0 {
-                        audit
-                            .problems
-                            .push(format!("{id} -> {bad}/{} tag-routed rows have no valid map", routed.len()));
+                        audit.problems.push(format!(
+                            "{id} -> {bad}/{} tag-routed rows have no valid map",
+                            routed.len()
+                        ));
                     }
                     continue;
                 }
@@ -701,7 +717,10 @@ impl HuntResolver {
         if table.problems.len() > 20 {
             lines.push((
                 Level::Warn,
-                format!("[HuntTableAudit] {} additional problems omitted", table.problems.len() - 20),
+                format!(
+                    "[HuntTableAudit] {} additional problems omitted",
+                    table.problems.len() - 20
+                ),
             ));
         }
         lines
@@ -868,7 +887,11 @@ mod tests {
         assert!(!evaluate_tag_query(&huge, &["A"]));
         let huge_tags = json!({"tokenStream": [0, 1, 1, 1e18, 0], "tagDictionary": ["A"]});
         assert!(evaluate_tag_query(&huge_tags, &["A"]));
-        let deep: Vec<Value> = [0, 1].into_iter().chain(std::iter::repeat_n(4, 200_000)).map(Value::from).collect();
+        let deep: Vec<Value> = [0, 1]
+            .into_iter()
+            .chain(std::iter::repeat_n(4, 200_000))
+            .map(Value::from)
+            .collect();
         assert!(!evaluate_tag_query(&json!({ "tokenStream": deep }), &["A"]));
     }
 
@@ -889,17 +912,22 @@ mod tests {
                 warning.unwrap()
             })
             .collect();
-        assert_eq!(warnings[0], "[TrialsRotation] invalid TRIALS_ROTATION_MINUTES='0'; using 10080");
+        assert_eq!(
+            warnings[0],
+            "[TrialsRotation] invalid TRIALS_ROTATION_MINUTES='0'; using 10080"
+        );
         assert_eq!(arena_week("Arena_MatchmakerHunt_Hard_042"), Some("042"));
         assert_eq!(arena_week("Arena_MatchmakerHunt_Test_042"), None);
     }
 
     #[test]
     fn families() {
-        let ids: Vec<String> = ["Hunt_A", "Hunt_B", "Hunt_D", "Other_A", "Other_B", "Zed_A", "Zed_B", "Zed_C", "x"]
-            .iter()
-            .map(|s| (*s).to_owned())
-            .collect();
+        let ids: Vec<String> = [
+            "Hunt_A", "Hunt_B", "Hunt_D", "Other_A", "Other_B", "Zed_A", "Zed_B", "Zed_C", "x",
+        ]
+        .iter()
+        .map(|s| (*s).to_owned())
+        .collect();
         assert_eq!(
             family_coverage(&ids),
             [

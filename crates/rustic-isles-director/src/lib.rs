@@ -49,7 +49,9 @@ pub struct GameserverArgs {
 
 fn log_cmds_ok(value: &str) -> bool {
     (1..=512).contains(&value.len())
-        && value.bytes().all(|b| b.is_ascii_alphanumeric() || matches!(b, b'_' | b',' | b' '))
+        && value
+            .bytes()
+            .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'_' | b',' | b' '))
 }
 
 impl GameserverArgs {
@@ -59,7 +61,10 @@ impl GameserverArgs {
 
     /// `GAMESERVER_LOG_CMDS` trimmed when it is `[A-Za-z0-9_, ]{1,512}`; a host typo or a quote cannot add a switch.
     fn log_cmds_value<'a>(&self, settings: &'a Settings) -> Option<&'a str> {
-        settings.raw("GAMESERVER_LOG_CMDS").map(str::trim).filter(|v| log_cmds_ok(v))
+        settings
+            .raw("GAMESERVER_LOG_CMDS")
+            .map(str::trim)
+            .filter(|v| log_cmds_ok(v))
     }
 
     /// The switches, `-LogCmds="..."` last.
@@ -95,7 +100,10 @@ pub struct DirectorConfig {
 
 impl DirectorConfig {
     pub const fn new(target_changelist: u32, args: GameserverArgs) -> Self {
-        Self { target_changelist, args }
+        Self {
+            target_changelist,
+            args,
+        }
     }
 
     pub fn launch_args(&self, settings: &Settings) -> Vec<String> {
@@ -288,7 +296,14 @@ mod tests {
     use super::*;
 
     const ARGS: GameserverArgs = GameserverArgs::new(
-        &["-EpicPortal", "-server", "-nullrhi", "-warp", "-nosound", "-RepDriverEnable"],
+        &[
+            "-EpicPortal",
+            "-server",
+            "-nullrhi",
+            "-warp",
+            "-nosound",
+            "-RepDriverEnable",
+        ],
         "LogPhoenixCharacter VeryVerbose, LogOnline Verbose, LogLoad Off",
     );
 

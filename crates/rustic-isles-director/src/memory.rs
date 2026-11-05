@@ -87,7 +87,14 @@ pub fn options_from_settings(settings: &Settings) -> (Options, Vec<String>) {
         enabled,
         min_free_mb: number(settings, "GAMESERVER_MIN_FREE_MB", 1024, 0, 1_048_576, &mut problems),
         hunt_mb: number(settings, "GAMESERVER_HUNT_MEMORY_MB", 1536, 1, 1_048_576, &mut problems),
-        reservation_seconds: number(settings, "GAMESERVER_MEMORY_RESERVATION_SECONDS", 120, 0, 3600, &mut problems),
+        reservation_seconds: number(
+            settings,
+            "GAMESERVER_MEMORY_RESERVATION_SECONDS",
+            120,
+            0,
+            3600,
+            &mut problems,
+        ),
     };
     (options, problems)
 }
@@ -130,7 +137,9 @@ pub struct MemoryAdmission {
 
 impl fmt::Debug for MemoryAdmission {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("MemoryAdmission").field("options", &self.options).finish()
+        f.debug_struct("MemoryAdmission")
+            .field("options", &self.options)
+            .finish()
     }
 }
 

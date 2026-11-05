@@ -67,7 +67,10 @@ impl Launcher for OsLauncher {
             .chain(command.args.iter().map(String::as_str))
             .chain(command.env.iter().flat_map(|(k, v)| [k.as_str(), v.as_str()]));
         if crate::cmdline::has_nul(texts) {
-            return Err(io::Error::new(io::ErrorKind::InvalidInput, "an argument contains a NUL"));
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                "an argument contains a NUL",
+            ));
         }
         crate::os::spawn(command)
     }
