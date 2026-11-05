@@ -41,9 +41,10 @@ fn reason(module: &TestModule, player: &str) -> Option<String> {
 
 #[tokio::test]
 async fn a_solo_hunt_cancelled_before_its_release() {
-    let (m, _) = module();
+    let (m, d) = module();
     let c = ctx(&m, None);
     assert!(c.join(&solo("a", Some("ISLAND"), Some(ISLAND))).await.unwrap());
+    let searched = m.state.candidate("a").unwrap().candidate_id;
     // Ready on the server but inside its Go Now window: "go-now" by §6.4 step 6
     assert_eq!(leave(&m, "a").await, ("canceled".into(), "go-now".into()));
     let status = c.status_answer("a", c.poll("a").await.unwrap().as_ref()).await;
@@ -53,8 +54,12 @@ async fn a_solo_hunt_cancelled_before_its_release() {
         (Some("CANCELED"), Some("PLAYER_CANCELED"))
     );
     assert!(body.get("retryAfterSeconds").is_none());
+    // A cancel keeps the search's id
+    assert_eq!(body["candidateId"].as_str(), Some(searched.as_str()));
     assert_eq!(leave(&m, "a").await, ("already-canceled".into(), "canceled".into()));
+    assert_eq!(d.launches().len(), 1);
     assert!(c.join(&solo("a", Some("ISLAND"), Some(ISLAND))).await.unwrap());
+    assert_eq!(d.launches().len(), 2, "a re-join launches a fresh hunt");
     let again = c
         .status_answer("a", c.poll("a").await.unwrap().as_ref())
         .await

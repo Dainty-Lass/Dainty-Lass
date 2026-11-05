@@ -213,7 +213,7 @@ async fn the_director_launches_over_http() {
         game_args: None,
         hunt_id: "ShatteredIsles_IslandA".into(),
         expected_players: vec!["a".into(), "b".into()],
-        request_id: Some("req-12345678".into()),
+        request_id: Some("trace-0042-alpha".into()),
     };
     assert_eq!(
         director.launch(request).await,
@@ -227,7 +227,7 @@ async fn the_director_launches_over_http() {
     assert_eq!(
         seen,
         format!(
-            "POST /api/matchmaker/handle-matchmaking-for-player HTTP/1.1\r\nHost: {address}\r\nConnection: close\r\nContent-Type: application/json\r\nx-rustic-isles-request-id: req-12345678\r\nContent-Length: {}\r\n\r\n{body}",
+            "POST /api/matchmaker/handle-matchmaking-for-player HTTP/1.1\r\nHost: {address}\r\nConnection: close\r\nContent-Type: application/json\r\nx-rustic-isles-request-id: trace-0042-alpha\r\nContent-Length: {}\r\n\r\n{body}",
             body.len()
         )
     );

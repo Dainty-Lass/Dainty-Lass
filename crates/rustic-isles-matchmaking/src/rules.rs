@@ -251,22 +251,27 @@ pub struct QosPlan {
 /// `QOS_PORT`: blank is the version's default, `off` or `0` starts none (the host kit's spelling when the launcher's
 /// relay answers the pings), digits from 1 to 65535 are a port.
 pub fn qos_plan(raw: Option<&str>, default: &str) -> QosPlan {
-    let given = raw.map(str::trim).filter(|v| !v.is_empty());
-    let value = given.unwrap_or_else(|| default.trim());
-    let value = if value.is_empty() { "80" } else { value };
-    if value.eq_ignore_ascii_case("off") || value == "0" {
+    let chosen = match raw.map(str::trim) {
+        Some(set) if !set.is_empty() => set,
+        _ => default.trim(),
+    };
+    let value = if chosen.is_empty() { "80" } else { chosen };
+    if value == "0" || value.eq_ignore_ascii_case("off") {
         return QosPlan {
             port: None,
             problem: None,
         };
     }
-    let port = value
-        .bytes()
-        .all(|b| b.is_ascii_digit())
-        .then(|| value.parse::<u16>().ok())
-        .flatten()
-        .filter(|p| *p > 0);
-    match port {
+    // Digits only, so a sign, a space or `0x` is refused rather than read; more than five never fit a port
+    let mut number: u32 = 0;
+    for (count, byte) in value.bytes().enumerate() {
+        if !byte.is_ascii_digit() || count == 5 {
+            number = 0;
+            break;
+        }
+        number = number * 10 + u32::from(byte - b'0');
+    }
+    match u16::try_from(number).ok().filter(|port| *port != 0) {
         Some(port) => QosPlan {
             port: Some(port),
             problem: None,
