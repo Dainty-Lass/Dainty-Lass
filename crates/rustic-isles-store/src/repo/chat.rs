@@ -69,7 +69,7 @@ pub struct FriendEdgeRecord {
     pub favorite: bool,
 }
 
-repository! {
+store_trait! {
     pub trait FriendshipRepository = "friendships" {
         fn list_for_owner(&self, conn: &mut AnyConnection, owner: &AccountId) -> Vec<FriendEdgeRecord>;
         fn find(&self, conn: &mut AnyConnection, owner: &AccountId, other: &AccountId) -> Option<FriendEdgeRecord>;

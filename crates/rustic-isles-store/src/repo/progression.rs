@@ -144,7 +144,7 @@ pub struct EncounteredContentRecord {
 
 // ------------------------------------------------------------------ traits
 
-repository! {
+store_trait! {
     pub trait ProgressionTrackRepository = "progressionTracks" {
         fn get_all_for_account(&self, conn: &mut AnyConnection, account: &AccountId) -> Vec<ProgressionTrackRecord>;
         fn get(&self, conn: &mut AnyConnection, account: &AccountId, id: &str) -> Option<ProgressionTrackRecord>;
@@ -217,7 +217,7 @@ repository! {
     }
 }
 
-repository! {
+store_trait! {
     pub trait ProgressionGrantRepository = "progressionGrants" {
         fn find_by_grant_id(&self, conn: &mut AnyConnection, grant_id: &str) -> Option<ProgressionGrantRecord>;
         /// A replayed grant id is a database error: the caller then serves the stored result
@@ -231,7 +231,7 @@ repository! {
     }
 }
 
-repository! {
+store_trait! {
     pub trait EscalationProgressRepository = "escalationProgress" {
         fn get(&self, conn: &mut AnyConnection, account: &AccountId, season_id: &str) -> Option<EscalationProgressRecord>;
         fn save_if_version(
@@ -243,7 +243,7 @@ repository! {
     }
 }
 
-repository! {
+store_trait! {
     pub trait PlayerJourneyRepository = "playerJourney" {
         fn find(&self, conn: &mut AnyConnection, account: &AccountId) -> Option<PlayerJourneyRecord>;
         /// `false` when any row of the account exists, a soft-deleted one included
@@ -259,7 +259,7 @@ repository! {
     }
 }
 
-repository! {
+store_trait! {
     pub trait BreadcrumbRepository = "breadcrumbs" {
         fn find(&self, conn: &mut AnyConnection, character_id: &str, account: &AccountId) -> Option<BreadcrumbsRecord>;
         fn create(&self, tx: &mut Tx<'_>, record: &BreadcrumbsRecord) -> ();
@@ -274,7 +274,7 @@ repository! {
     }
 }
 
-repository! {
+store_trait! {
     pub trait EncounteredContentRepository = "encounteredContent" {
         fn find(
             &self,

@@ -74,7 +74,7 @@ pub struct LedgerKey<'a> {
     pub transaction_id: &'a str,
 }
 
-repository! {
+store_trait! {
     pub trait InventoryRepository = "inventories" {
         /// Any account's row: the caller checks ownership
         fn find_by_character_id(&self, conn: &mut AnyConnection, character_id: &str) -> Option<InventoryRecord>;
@@ -90,7 +90,7 @@ repository! {
     }
 }
 
-repository! {
+store_trait! {
     pub trait InventoryTransactionRepository = "inventoryTransactions" {
         fn try_begin(&self, tx: &mut Tx<'_>, key: LedgerKey<'_>, request_hash: Option<&str>, created_at: &str) -> TryBegin;
         fn complete(

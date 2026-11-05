@@ -362,7 +362,7 @@ impl fmt::Debug for UserKeyHash {
 
 // ------------------------------------------------------------------ traits
 
-repository! {
+store_trait! {
     pub trait AccountRepository = "accounts" {
         fn find_by_user_id(&self, conn: &mut AnyConnection, user_id: &UserId) -> Option<AccountRecord>;
         fn find(&self, conn: &mut AnyConnection, id: &AccountId) -> Option<AccountRecord>;
@@ -370,7 +370,7 @@ repository! {
     }
 }
 
-repository! {
+store_trait! {
     pub trait LauncherAccountRepository = "launcherAccounts" {
         fn find_by_user_id(&self, conn: &mut AnyConnection, user_id: &UserId) -> Option<LauncherAccountRecord>;
         fn find_by_account(&self, conn: &mut AnyConnection, account: &AccountId) -> Option<LauncherAccountRecord>;
@@ -432,7 +432,7 @@ repository! {
     }
 }
 
-repository! {
+store_trait! {
     pub trait AuthIdentityRepository = "authIdentities" {
         fn find_by_provider_subject(&self, conn: &mut AnyConnection, subject: &str) -> Option<AuthIdentityRecord>;
         fn find_by_account(&self, conn: &mut AnyConnection, account: &AccountId) -> Option<AuthIdentityRecord>;
@@ -441,7 +441,7 @@ repository! {
     }
 }
 
-repository! {
+store_trait! {
     pub trait RefreshSessionRepository = "refreshSessions" {
         fn create(&self, tx: &mut Tx<'_>, record: &RefreshSessionRecord) -> ();
         fn find_by_token_hash(&self, conn: &mut AnyConnection, hash: &str) -> Option<RefreshSessionRecord>;
@@ -455,7 +455,7 @@ repository! {
     }
 }
 
-repository! {
+store_trait! {
     pub trait GameExchangeCodeRepository = "gameExchangeCodes" {
         fn create(&self, tx: &mut Tx<'_>, record: &GameExchangeCodeRecord) -> ();
         fn consume_by_code_hash(&self, tx: &mut Tx<'_>, hash: &str, now: &str) -> Option<GameExchangeCodeRecord>;
@@ -465,7 +465,7 @@ repository! {
     }
 }
 
-repository! {
+store_trait! {
     pub trait DiscordOAuthTransactionRepository = "discordOAuthTransactions" {
         fn create(&self, tx: &mut Tx<'_>, record: &DiscordOAuthTransactionRecord) -> ();
         fn consume_by_state(&self, tx: &mut Tx<'_>, state: &str, now: &str) -> Option<DiscordOAuthTransactionRecord>;
@@ -488,7 +488,7 @@ repository! {
     }
 }
 
-repository! {
+store_trait! {
     pub trait EmailCodeRepository = "emailCodes" {
         fn replace(&self, tx: &mut Tx<'_>, record: &EmailCodeRecord) -> ();
         fn peek_live(
@@ -522,7 +522,7 @@ repository! {
     }
 }
 
-repository! {
+store_trait! {
     pub trait ApiKeyRepository = "apiKeys" {
         fn find_all_game_server_key_hashes(&self, conn: &mut AnyConnection) -> Vec<GameServerKeyHash>;
         fn insert_game_server_key_hash(&self, tx: &mut Tx<'_>, hash: &str) -> ();
