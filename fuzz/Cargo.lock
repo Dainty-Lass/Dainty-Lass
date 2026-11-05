@@ -970,6 +970,7 @@ dependencies = [
  "rustic-isles-characters",
  "rustic-isles-chat",
  "rustic-isles-director",
+ "rustic-isles-economy",
  "rustic-isles-gamedata",
  "rustic-isles-replay",
  "rustic-isles-store",
@@ -3634,6 +3635,27 @@ dependencies = [
  "tokio",
  "tracing",
  "windows",
+]
+
+[[package]]
+name = "rustic-isles-economy"
+version = "0.0.0"
+dependencies = [
+ "axum",
+ "http",
+ "module-api",
+ "rifts-seam",
+ "rustic-isles",
+ "rustic-isles-auth",
+ "rustic-isles-characters",
+ "rustic-isles-gamedata",
+ "rustic-isles-store",
+ "serde_json",
+ "service-kit",
+ "sha2",
+ "thiserror",
+ "tokio",
+ "tracing",
 ]
 
 [[package]]

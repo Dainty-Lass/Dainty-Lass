@@ -4196,6 +4196,31 @@ dependencies = [
 ]
 
 [[package]]
+name = "rustic-isles-economy"
+version = "0.0.0"
+dependencies = [
+ "axum",
+ "http",
+ "http-body-util",
+ "module-api",
+ "rifts-seam",
+ "rustic-isles",
+ "rustic-isles-auth",
+ "rustic-isles-characters",
+ "rustic-isles-economy",
+ "rustic-isles-gamedata",
+ "rustic-isles-store",
+ "serde_json",
+ "service-kit",
+ "sha2",
+ "tempfile",
+ "thiserror 2.0.21",
+ "tokio",
+ "tower",
+ "tracing",
+]
+
+[[package]]
 name = "rustic-isles-gamedata"
 version = "0.0.0"
 dependencies = [
