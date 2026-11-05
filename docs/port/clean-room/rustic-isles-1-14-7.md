@@ -89,4 +89,77 @@ the real 1.14.7 client.
 
 ## 6. Similarity
 
-To be measured by the coordinator against restricted `e0e238b`.
+Measured by the RD27 reviewer (who may read the AGPL code) with `similarity.md` §1's method, on the crates as
+committed at `f0504520`: every `.rs` file in both crates' `src/` and `tests/` against each of the 13 `.rs` files of
+restricted `e0e238b`'s `modules/rustic-isles/crates/isles-1-14-7/` (`src/{lib,main}.rs` and its 8 test files),
+`isles-1-14-7-plugin/` (`src/lib.rs`, `tests/load.rs`) and `isles-core/src/module.rs` (the composition), the best
+single file named. "Any" counts a line matched by a 3+-line run in any of the 13. Paths in the first column are under
+`crates/`, in the third under `modules/rustic-isles/crates/`; a file with no match names none.
+
+| File | New lines | Best restricted file (old lines) | Matched | % | Any, % |
+| --- | ---: | --- | ---: | ---: | ---: |
+| `rustic-isles-1-14-7/src/accounts.rs` | 147 | `isles-1-14-7/tests/module.rs` (594) | 13 | **8.8** | 11.6 |
+| `rustic-isles-1-14-7/src/composer.rs` | 391 | `isles-core/src/module.rs` (1349) | 26 | **6.6** | 7.2 |
+| `rustic-isles-1-14-7/src/data.rs` | 301 | `isles-core/src/module.rs` (1349) | 6 | **2.0** | 2.0 |
+| `rustic-isles-1-14-7/src/hooks.rs` | 161 | `isles-1-14-7/src/lib.rs` (628) | 36 | **22.4** | 22.4 |
+| `rustic-isles-1-14-7/src/lib.rs` | 143 | `isles-1-14-7/src/lib.rs` (628) | 61 | **42.7** | 42.7 |
+| `rustic-isles-1-14-7/src/main.rs` | 10 | `isles-1-14-7/src/lib.rs` (628) | 3 | **30.0** | 30.0 |
+| `rustic-isles-1-14-7/src/realms.rs` | 109 | `isles-1-14-7/src/lib.rs` (628) | 6 | **5.5** | 8.3 |
+| `rustic-isles-1-14-7/src/rifts.rs` | 341 | `isles-1-14-7/src/lib.rs` (628) | 32 | **9.4** | 10.0 |
+| `rustic-isles-1-14-7/src/test_support.rs` | 45 | none | 0 | **0.0** | 0.0 |
+| `rustic-isles-1-14-7-plugin/src/lib.rs` | 7 | none | 0 | **0.0** | 0.0 |
+| `rustic-isles-1-14-7/tests/module.rs` | 291 | `isles-1-14-7/tests/module.rs` (594) | 14 | 4.8 | 4.8 |
+| `rustic-isles-1-14-7/tests/rifts.rs` | 169 | `isles-1-14-7/tests/module.rs` (594) | 7 | 4.1 | 5.9 |
+| `rustic-isles-1-14-7/tests/version.rs` | 256 | `isles-1-14-7/tests/module.rs` (594) | 4 | 1.6 | 2.7 |
+| `rustic-isles-1-14-7-plugin/tests/load.rs` | 44 | `isles-1-14-7-plugin/tests/load.rs` (47) | 10 | 22.7 | 25.0 |
+| The 10 `src` files | 1655 | | 183 | **11.1** | 11.7 |
+| The 4 test files | 760 | | 35 | **4.6** | 5.5 |
+| All 14 | 2415 | | 218 | **9.0** | 9.8 |
+
+Two files reach 25 % against their best single file (`lib.rs` 42.7, `main.rs` 30.0, which is 3 of 10 lines); the
+plugin's `tests/load.rs` reaches it on the "any" column (25.0). The fuzz target
+(`fuzz/fuzz_targets/rustic_isles_1_14_7_version_data.rs`) has no restricted counterpart and was not measured.
+
+**What the matches are.** Every run of 5 lines or more against any of the 13 files was read: 9 of them, over 9
+distinct spans, and the files at 25 % or more were read whole with every matched line marked. The matches:
+
+- **The version's tables** (`lib.rs`, 61 matched lines): `TABLES` (`lib.rs:57-102`, runs of 23, 7 and 5) is §3.2's
+  values in §3.2's order, in the field order of core's `VersionTables`, `BountyItemGrant`, `SeasonalCoin`,
+  `MaskedJourneyNode` and `StarterManifest` (MIT types); `DEFAULT_PORTS`' game range (`46-49`, §3.1);
+  `DIRECTOR`'s six switches (`125-131`, §3.4, in order); `capabilities()` (`139-145`, `module_api::Capabilities`'
+  fields with §3.1's values); and `version()` (`147-153`, core's `IslesVersion` fields). `switch_defaults`,
+  `session_payload`, the `DIRECTOR` constructors and `spec_over`/`spec`/`spec_with`/`module` do not match.
+- **The hooks** (`hooks.rs`, 36): the `VersionHooks` method heads (core §5.2, a trait of MIT `rustic-isles`), each
+  with §3.3's one-line answer (`22-44`, `57-66`: `ConfiguredAccount`, `true`, `true`, §3.3 row 6's
+  `json!({ "huntpass_id": id, "season": id })`, `RollingHuntpassWindows`, row 9's `StubReply`), and the
+  `!settings.raw("KEEP_WEAPON_ITEM_LEVELS")` head of row 3 (`29-30`). `objective_row`, `entitlements_payload` and
+  `candidate_destination`'s bodies, the `number` helper and the tests do not match.
+- **Seam signatures and MIT struct literals**: `accounts.rs:124-136` and `tests/rifts.rs:39-45` are
+  `rifts_seam::IslesCore` method heads delegating to `rifts_seam::NoCore`, as §5.6.1's table says; `rifts.rs`'s
+  matches are its `rifts_realms` `use` lines (`38-44`) and the fields of MIT `HostingRuntime`/`DirectoryParts`,
+  `GuardParts`, `RealmsServiceParts`, `RealmsRoutesParts` and `RiftsParts` (`274-295`, `348-384`), with
+  `RandomIds`, `StderrLog`, `RealmLimits::from_settings` and `GuardConfig::from_settings` from those crates.
+- **Wire text and test vectors**: §5.8's start-up multipliers line, warn when on and info otherwise
+  (`composer.rs:359-362`); the manifest asserts in `tests/version.rs:20-23` (§3.1's id, name and game version).
+- **Boilerplate**: the remaining matched lines in `composer.rs`, `realms.rs`, `data.rs`, `accounts.rs` and `main.rs`
+  are closing-brace runs (`}) } }`); `tests/module.rs:62-87` and the plugin's `tests/load.rs:37-40` are
+  `module_api::ExternalModule`'s fields and `ModuleDriver::load`'s four arguments; `tests/load.rs:16-23`'s
+  `library()` helper is the one in `crates/chat-plugin/tests/load.rs` and `crates/content-plugin/tests/parity.rs`,
+  this repository's own idiom for finding a built cdylib.
+
+No comment was copied: one comment line equals a restricted one (`lib.rs:63`, `// The 1.14.7 runtime collapses the
+line`), §3.2's own parenthesis. Every string literal of 8 characters or more that also occurs in the 13 files is in
+the specs (core, 1.14.7 or an area spec) or is a format fragment the MIT crates already use (`multi_thread`,
+`: null, `, the 64-zero hash). Of the crates' 130 function names, 44 also occur in restricted: the `VersionHooks` and
+`IslesCore` methods, the `ModuleHooks` and `Composer` methods, the MIT port traits' (`is_limited`, `post`), §10.2's
+public functions (`version`, `spec`, `module`, `rifts_with_core`), `main`, and five plain helper names (`text`,
+`env_file`, `host`, `tables`, `library`). One of 18 type names is shared (`Hooks`, §3.3's name), and the five shared
+constant names (`ID`, `DISPLAY_NAME`, `TABLES`, `DIRECTOR`, `RAMSGATE_HUNT`) are named by §10.2 and the matchmaking
+spec. No unusual structure is shared: the composer, the version-data reader, the accounts adapter, the realms adapter
+and the rifts composition match at 2 to 10 %, and share no logic beyond the lines above.
+
+**Verdict: clean of structural or expressive copying; nothing to rewrite.** The two files over 25 % are §3.2's and
+§3.4's tables and §3.3's one-line hook answers in the only idiomatic form, and three closing braces; the rest is
+spec-given wire text, MIT seam signatures and struct fields, and boilerplate. `TABLES.starter_manifest`'s two lists
+were empty when measured; filling them from the spec's amended decisions (2026-11-05) adds 33 lines of wire facts
+that will match restricted by construction.

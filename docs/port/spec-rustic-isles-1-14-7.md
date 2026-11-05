@@ -829,3 +829,20 @@ These settle the open questions and override anything above that disagrees.
 - **Item 7:** restricted ships and installs `version_data.json`; a hostkit step is a later row.
 - **Items 8-9:** as proposed (executable `rustic-isles-1-14-7`, module id `isles-1-14-7`; the composer adapts core's
   hook arguments into a `HomeInvocation`).
+
+## Coordinator decisions, amended after implementation (2026-11-05): starter manifest wire facts
+
+By the maintainer's ruling (decision item 1), these are wire facts committed in dainty-lass. They fill core §5.2's
+`starter_manifest` (`rustic_isles::StarterManifest`) in `TABLES`, and replace §3.2's "values not in this spec". Order
+matters in both lists, and each is given in order: the stacked ids are written to a new account's stacked items, and
+appended to an account that lacks some, in this order (both are stored and read back as they are written); the wheel's
+index is the in-game slot.
+
+| Field | 1.14.7 value |
+| --- | --- |
+| `bootstrap_version` | `starter-1.12-v5` (§3.2, §14 item 17) |
+| `stacked_item_ids` (24, in order) | 1 `TOKEN_DAILY_CHALLENGE_DRAFT`, 2 `QI_BASIC_FLARE_DURABLE`, 3 `EM_INTRO_BEGINNER_01`, 4 `EM_END_BEGINNER_01`, 5 `EM_PLAYER_BEGINNER_01`, 6 `EM_PLAYER_BEGINNER_02`, 7 `EM_PLAYER_BEGINNER_03`, 8 `EM_PLAYER_BEGINNER_04`, 9 `BNC_MESH_BEGINNER_00`, 10 `BNC_FABRIC_BEGINNER_00`, 11 `BNC_SIGIL_BEGINNER_00`, 12 `BNC_ANIMATION_BEGINNER_00`, 13 `BNC_VFX_BEGINNER_00`, 14 `DYE_GREEN04_DURABLE`, 15 `DYE_BROWN07_DURABLE`, 16 `EJ_SYSTEM_TYPING`, 17 `EJ_PLAYER_BOSUN_JOY`, 18 `EJ_PLAYER_KAT_PRAY`, 19 `EJ_PLAYER_MOYRA_MUSCLE`, 20 `EJ_PLAYER_GREGARIO_QUESTION`, 21 `EJ_PLAYER_MIDDLEMAN_HMM`, 22 `EJ_PLAYER_PRIYANI_WINK`, 23 `EJ_PLAYER_ZAI_ANGRY`, 24 `EJ_PLAYER_ZAI_SWEAT` |
+| `quick_emoji_wheel` (9, in slot order) | 0 `EJ_PLAYER_BOSUN_JOY`, 1 `EJ_PLAYER_KAT_PRAY`, 2 `EJ_PLAYER_MOYRA_MUSCLE`, 3 `EJ_PLAYER_GREGARIO_QUESTION`, 4 `EJ_PLAYER_MIDDLEMAN_HMM`, 5 `EJ_PLAYER_PRIYANI_WINK`, 6 `EJ_PLAYER_ZAI_ANGRY`, 7 `EJ_PLAYER_ZAI_SWEAT`, 8 `""` (the empty text) |
+
+1.14.7 has the wheel, so the list is the nine texts, never empty (empty means a version without quick emojis,
+characters §6.3). Every wheel id is also a stacked id (17 to 24), so a new account holds what its wheel shows.
