@@ -1642,7 +1642,7 @@ pub(super) const ROUTES: &[RouteDef] = &[
     route(
         S::Backend,
         M::Post,
-        r"/mystic/v1/hunts/:sessionId/tickets/self",
+        r"/rustic/v1/hunts/:sessionId/tickets/self",
         G::P2p,
         Sd::Rifts,
         W::Rifts,
@@ -1650,7 +1650,7 @@ pub(super) const ROUTES: &[RouteDef] = &[
     route(
         S::Backend,
         M::Post,
-        r"/mystic/v1/hunts/:sessionId/host-ready",
+        r"/rustic/v1/hunts/:sessionId/host-ready",
         G::P2p,
         Sd::Rifts,
         W::Rifts,
@@ -1658,7 +1658,7 @@ pub(super) const ROUTES: &[RouteDef] = &[
     route(
         S::Backend,
         M::Post,
-        r"/mystic/v1/hunts/:sessionId/event-batches",
+        r"/rustic/v1/hunts/:sessionId/event-batches",
         G::Guard,
         Sd::Rifts,
         W::Rifts,
@@ -1666,7 +1666,7 @@ pub(super) const ROUTES: &[RouteDef] = &[
     route(
         S::Backend,
         M::Post,
-        r"/mystic/v1/hunts/:sessionId/completion",
+        r"/rustic/v1/hunts/:sessionId/completion",
         G::P2p,
         Sd::Rifts,
         W::Rifts,
@@ -1674,7 +1674,7 @@ pub(super) const ROUTES: &[RouteDef] = &[
     route(
         S::Backend,
         M::Post,
-        r"/mystic/v1/hunts/:sessionId/abort",
+        r"/rustic/v1/hunts/:sessionId/abort",
         G::P2p,
         Sd::Rifts,
         W::Rifts,
@@ -1682,7 +1682,7 @@ pub(super) const ROUTES: &[RouteDef] = &[
     route(
         S::Backend,
         M::Post,
-        r"/mystic/v1/hunts/:sessionId/end",
+        r"/rustic/v1/hunts/:sessionId/end",
         G::P2p,
         Sd::Rifts,
         W::Rifts,
@@ -1690,7 +1690,7 @@ pub(super) const ROUTES: &[RouteDef] = &[
     route(
         S::Backend,
         M::Get,
-        r"/mystic/v1/hunts/:sessionId/status",
+        r"/rustic/v1/hunts/:sessionId/status",
         G::P2p,
         Sd::Rifts,
         W::Rifts,
@@ -1698,7 +1698,7 @@ pub(super) const ROUTES: &[RouteDef] = &[
     route(
         S::Backend,
         M::Get,
-        r"/mystic/v1/hunts/:sessionId/reward/self",
+        r"/rustic/v1/hunts/:sessionId/reward/self",
         G::P2p,
         Sd::Rifts,
         W::Rifts,
@@ -1714,7 +1714,7 @@ pub(super) const ROUTES: &[RouteDef] = &[
     route(
         S::Backend,
         M::Post,
-        r"/mystic/v1/hunts/:sessionId/lease",
+        r"/rustic/v1/hunts/:sessionId/lease",
         G::P2p,
         Sd::Rifts,
         W::Rifts,
@@ -1722,7 +1722,7 @@ pub(super) const ROUTES: &[RouteDef] = &[
     route(
         S::Backend,
         M::Post,
-        r"/mystic/v1/hunts/:sessionId/tickets/consume",
+        r"/rustic/v1/hunts/:sessionId/tickets/consume",
         G::P2p,
         Sd::Rifts,
         W::Rifts,
@@ -1730,7 +1730,7 @@ pub(super) const ROUTES: &[RouteDef] = &[
     route(
         S::Backend,
         M::Post,
-        r"/mystic/v1/hunts/:sessionId/peers/:admissionId/disconnect",
+        r"/rustic/v1/hunts/:sessionId/peers/:admissionId/disconnect",
         G::P2p,
         Sd::Rifts,
         W::Rifts,

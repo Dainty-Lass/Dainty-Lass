@@ -8,9 +8,9 @@ This document covers the security boundaries and invariants of the 1.14.7 HTTP r
 
 - **1.14.7 Backend Request Budget (`CreateRequestRateLimiter`)**:
   - Mounted on `Service::Backend` when serving `RouteSet::V1147` (`isles-1-14-7`), matching `reference/1.14.7/ParadoxBackend/src/app.ts`:
-    1. Early mount on `/mystic/v1/hunts` (`app.ts` line 196) ahead of the body parsers and early routes.
+    1. Early mount on `/rustic/v1/hunts` (`app.ts` line 196) ahead of the body parsers and early routes.
     2. Main mount (`app.ts` line 245) ahead of `metricsRouter`, `launcherAuthRouter` (including CORS), `/admin`, all game and realm routers, and the 404 fallback.
-  - A request that passes both the `/mystic/v1/hunts` mount and the main mount is counted at most once (`CountedFlag`).
+  - A request that passes both the `/rustic/v1/hunts` mount and the main mount is counted at most once (`CountedFlag`).
   - Fixed 60-second window (`REQUEST_BUDGET_WINDOW_MS = 60_000`), matching `express-rate-limit` `8.7.0` `MemoryStore`.
   - Every counted response carries IETF `draft-8` `RateLimit` (`"<limit>-in-1min"; r=<remaining>; t=<reset_seconds>`) and `RateLimit-Policy` (`"<limit>-in-1min"; q=<limit>; w=60; pk=:<base64(sha256(key)[0..12])>:`) headers.
   - Requests exceeding the bucket quota are refused with HTTP `429 Too Many Requests`, `Retry-After: <reset_seconds>`, and `{"error":"Too many requests. Please retry later."}`.
@@ -27,7 +27,7 @@ Each counted 1.14.7 backend request is assigned to one of three independent buck
    - Quota: `RUSTIC_ISLES_GAMESERVER_RATE_LIMIT_PER_MINUTE` (positive integer, default `6000`).
    - Selecting this bucket does not authenticate the caller; `game_auth` still verifies the API key against the configured key hashes.
 2. **`host:<capability_id>`**:
-   - Selected when `x-mystic-host-capability` resolves through `rifts_seam::GuardHooks::rate_limit_bucket` (`rifts_guard::Guard` backed by `RealmsHuntSessions::capability_by_digest` and a 10-second, 1,024-entry cache) to an active, unrevoked, non-expired host capability.
+   - Selected when `x-rustic-host-capability` resolves through `rifts_seam::GuardHooks::rate_limit_bucket` (`rifts_guard::Guard` backed by `RealmsHuntSessions::capability_by_digest` and a 10-second, 1,024-entry cache) to an active, unrevoked, non-expired host capability.
    - Quota: `RUSTIC_ISLES_HOST_RATE_LIMIT_PER_MINUTE` (positive integer, default `6000`).
    - Missing, malformed, unknown, revoked, or expired capabilities, or any resolver error, fall back to the `client:<address>` bucket.
 3. **`client:<address>`**:
@@ -57,5 +57,5 @@ Each counted 1.14.7 backend request is assigned to one of three independent buck
   - Both the fixed-window request-budget map and the sliding-window `IsRateLimited` map inside `RateLimiter` sweep expired entries every 60 seconds (`SWEEP_INTERVAL_MS = 60_000`) and cap tracked keys at `MAX_RATE_LIMIT_KEYS = 16_384`.
   - If a simultaneous flood of distinct addresses or `/56` subnets exceeds `16_384` live keys within a single window after sweeping expired keys, the entry with the earliest expiration timestamp is evicted before inserting the new key.
 - **No Sensitive Values Logged or Exposed**:
-  - Raw `x-rustic-isles-gameserver-apikey` values, `x-mystic-host-capability` secrets, and full client IP addresses are never logged by the rate limiter.
+  - Raw `x-rustic-isles-gameserver-apikey` values, `x-rustic-host-capability` secrets, and full client IP addresses are never logged by the rate limiter.
   - The `RateLimit-Policy` `pk` parameter exposes only the base64 encoding of the first 12 lowercase hex characters of `SHA-256(key)`.

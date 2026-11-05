@@ -524,21 +524,21 @@ fn replay_scope_of(request: &Request) -> crate::game_data::season_window::Replay
     ReplayScope::new(now_ms, seed)
 }
 
-/// `/mystic/v1/hunts` and everything under it, as `app.use("/mystic/v1/hunts", RequestLimiter)` matches.
+/// `/rustic/v1/hunts` and under it, as `app.use("/mystic/v1/hunts", RequestLimiter)` matches (renamed by D3).
 fn under_hunts(path: &str) -> bool {
     let lower = path.to_ascii_lowercase();
-    lower == "/mystic/v1/hunts" || lower.starts_with("/mystic/v1/hunts/")
+    lower == "/rustic/v1/hunts" || lower.starts_with("/rustic/v1/hunts/")
 }
 
 fn host_bucket_request_info(request: &Request, request_id: &str) -> Option<RequestInfo> {
-    let raw = crate::areas::auth::middleware::header(request.headers(), "x-mystic-host-capability")?;
+    let raw = crate::areas::auth::middleware::header(request.headers(), "x-rustic-host-capability")?;
     let trimmed = raw.trim();
     if trimmed.is_empty() {
         return None;
     }
     Some(RequestInfo {
         path: request.uri().path().to_owned(),
-        headers: vec![("x-mystic-host-capability".to_owned(), trimmed.to_owned())],
+        headers: vec![("x-rustic-host-capability".to_owned(), trimmed.to_owned())],
         remote: crate::areas::auth::util::peer_ip(request),
         request_id: request_id.to_owned(),
     })
@@ -657,7 +657,7 @@ async fn answer(app: &Arc<App>, request: &mut Request, request_id: String) -> Re
     let path = request.uri().path().to_owned();
     let mut budget_verdict = None;
     let mut counted = false;
-    // Early mount on `/mystic/v1/hunts` ahead of the body parsers and early routes (`app.ts` line 196).
+    // Early mount on `/rustic/v1/hunts` ahead of the body parsers and early routes (`app.ts` line 196).
     if app.rate_limit_enabled && under_hunts(&path) {
         counted = true;
         if let Some(verdict) = check_request_budget(app.shared.clone(), request, &request_id).await {
@@ -674,7 +674,7 @@ async fn answer(app: &Arc<App>, request: &mut Request, request_id: String) -> Re
         if !post_probe_passed && app.post_probe_gate.is_some_and(|gate| mounted.position >= gate) {
             post_probe_passed = true;
             // Main mount after the health probes and `releaseGatesRouter` (`app.ts` line 245); `CountedFlag` prevents
-            // double-counting a request that already passed the `/mystic/v1/hunts` mount.
+            // double-counting a request that already passed the `/rustic/v1/hunts` mount.
             if app.rate_limit_enabled && !counted {
                 counted = true;
                 if let Some(verdict) = check_request_budget(app.shared.clone(), request, &request_id).await {

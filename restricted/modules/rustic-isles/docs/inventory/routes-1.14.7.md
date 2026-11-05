@@ -2,7 +2,8 @@
 
 RU3a. Every Express route that `ParadoxBackend` and `ParadoxDirector` register, as of `main` at `ce1c42e` (Mystic
 Paradox `21b9ff5` with Reforged's patches 0001 to 0039), with the listeners that aren't Express at the end. RU4 answers each route 501 and RU5 ports them, one area group per agent; RF1 takes the
-rifts rows.
+rifts rows. Since D3 (spec-rd27-rifts) the Rust port serves the `/mystic/v1/hunts` rows at `/rustic/v1/hunts`; the
+rows keep Node's paths.
 
 [`routes-1.14.7.json`](routes-1.14.7.json) is the machine-readable list: one `{service, method, path, file, group,
 side}` per registration. [`scripts/check-route-inventory.mjs`](../../scripts/check-route-inventory.mjs) extracts the

@@ -32,7 +32,8 @@ fn the_table_is_ru3as_inventory_in_its_order() {
             "{} {} {} {} {}",
             field(entry, "service"),
             field(entry, "method"),
-            field(entry, "path"),
+            // The inventory is Node's; D3 (spec-rd27-rifts) renamed Guard's and admission's prefix
+            field(entry, "path").replace("/mystic/v1/", "/rustic/v1/"),
             field(entry, "group"),
             field(entry, "side")
         );

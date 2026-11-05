@@ -229,7 +229,7 @@ impl rifts_seam::GuardHooks for TestGuardHooks {
         &self,
         request: rifts_seam::RequestInfo,
     ) -> module_api::BoxFuture<'_, Result<Option<String>, rifts_seam::SeamError>> {
-        let out = match request.header("x-mystic-host-capability") {
+        let out = match request.header("x-rustic-host-capability") {
             Some("valid-cap") => Ok(Some("host:cap-123".to_owned())),
             Some("valid-cap-2") => Ok(Some("host:cap-456".to_owned())),
             Some("resolver-error") => Err(rifts_seam::SeamError::unimplemented(
@@ -411,7 +411,7 @@ fn test_handlers() -> Handlers {
         "/health/ready",
         "/health/release-gates",
         "/character",
-        "/mystic/v1/hunts/:sessionId/status",
+        "/rustic/v1/hunts/:sessionId/status",
     ] {
         handlers.on(Service::Backend, Method::Get, path, |_call| {
             Box::pin(async {
@@ -479,7 +479,8 @@ async fn request_budget_matches_express_rate_limit_golden_byte_for_byte() {
             .as_object()
             .unwrap()
             .iter()
-            .map(|(k, v)| (k.clone(), v.as_str().unwrap().to_owned()))
+            // Node's host capability header, renamed by D3 (spec-rd27-rifts)
+            .map(|(k, v)| (k.replace("x-mystic-", "x-rustic-"), v.as_str().unwrap().to_owned()))
             .collect();
         for (k, v) in &extra {
             req_headers.push((k.as_str(), v.as_str()));
@@ -565,7 +566,7 @@ async fn buckets_are_independent_and_gameserver_and_host_headers_select_their_bu
     let host1_hdrs = [
         now,
         ("x-forwarded-for", "198.51.100.10"),
-        ("x-mystic-host-capability", "valid-cap"),
+        ("x-rustic-host-capability", "valid-cap"),
     ];
     assert_eq!(
         request_with_headers(address, "GET", "/character", &host1_hdrs).await.0,
@@ -584,7 +585,7 @@ async fn buckets_are_independent_and_gameserver_and_host_headers_select_their_bu
     let host2_hdrs = [
         now,
         ("x-forwarded-for", "198.51.100.10"),
-        ("x-mystic-host-capability", "valid-cap-2"),
+        ("x-rustic-host-capability", "valid-cap-2"),
     ];
     assert_eq!(
         request_with_headers(address, "GET", "/character", &host2_hdrs).await.0,
@@ -596,7 +597,7 @@ async fn buckets_are_independent_and_gameserver_and_host_headers_select_their_bu
         let bad_hdrs = [
             now,
             ("x-forwarded-for", "198.51.100.10"),
-            ("x-mystic-host-capability", bad_cap),
+            ("x-rustic-host-capability", bad_cap),
         ];
         let (status, res_hdrs, _) = request_with_headers(address, "GET", "/character", &bad_hdrs).await;
         assert_eq!(
@@ -664,7 +665,7 @@ async fn switch_disables_budget_and_invalid_limits_fall_back_to_defaults() {
         address,
         "GET",
         "/character",
-        &[now, ("x-mystic-host-capability", "valid-cap")],
+        &[now, ("x-rustic-host-capability", "valid-cap")],
     )
     .await;
     assert_eq!(
@@ -691,17 +692,17 @@ async fn health_probes_are_not_counted_and_hunts_mount_counts_only_once() {
         }
     }
 
-    // Request through `/mystic/v1/hunts/...` passes both the early mount (line 196) and the main mount (line 245)
+    // Request through `/rustic/v1/hunts/...` passes both the early mount (line 196) and the main mount (line 245)
     // and must be counted exactly once (r goes from 1 -> 0 across two requests, not 1 -> 429 on the first).
-    let (status1, hdrs1, _) = request_with_headers(address, "GET", "/mystic/v1/hunts/s1/status", &now).await;
+    let (status1, hdrs1, _) = request_with_headers(address, "GET", "/rustic/v1/hunts/s1/status", &now).await;
     assert_eq!(status1, 200);
     assert_eq!(find_header(&hdrs1, "ratelimit"), Some("\"2-in-1min\"; r=1; t=60"));
-    // An unmounted path under `/mystic/v1/hunts` also passes both mounts and counts once before answering 404
-    let (status2, hdrs2, _) = request_with_headers(address, "GET", "/mystic/v1/hunts/unknown-tail", &now).await;
+    // An unmounted path under `/rustic/v1/hunts` also passes both mounts and counts once before answering 404
+    let (status2, hdrs2, _) = request_with_headers(address, "GET", "/rustic/v1/hunts/unknown-tail", &now).await;
     assert_eq!(status2, 404);
     assert_eq!(find_header(&hdrs2, "ratelimit"), Some("\"2-in-1min\"; r=0; t=60"));
     // Third counted request is refused with 429
-    let (status3, _, _) = request_with_headers(address, "GET", "/mystic/v1/hunts/s1/status", &now).await;
+    let (status3, _, _) = request_with_headers(address, "GET", "/rustic/v1/hunts/s1/status", &now).await;
     assert_eq!(status3, 429);
 
     // Even while the bucket is exhausted, health probes continue to answer 200

@@ -257,11 +257,11 @@ async fn realms_and_guard_routes_serve_live_implementations_when_database_is_con
     assert_eq!(listed["realms"].as_array().unwrap().len(), 1);
     assert_eq!(listed["realms"][0]["name"], "horizon");
 
-    // 3. Query Guard's GET /mystic/v1/hunts/:sessionId/reward/self and verify SqlGuardStore answers P2P_SESSION_NOT_FOUND (not 501 Unimplemented).
+    // 3. Query Guard's GET /rustic/v1/hunts/:sessionId/reward/self and verify SqlGuardStore answers P2P_SESSION_NOT_FOUND (not 501 Unimplemented).
     let (reward_route, reward_handler) = rifts
         .routes()
-        .find(|(r, _)| r.method == Method::Get && r.path == "/mystic/v1/hunts/:sessionId/reward/self")
-        .expect("GET /mystic/v1/hunts/:sessionId/reward/self mounted");
+        .find(|(r, _)| r.method == Method::Get && r.path == "/rustic/v1/hunts/:sessionId/reward/self")
+        .expect("GET /rustic/v1/hunts/:sessionId/reward/self mounted");
     let reward_err = reward_handler
         .handle(RouteCall {
             route: *reward_route,
@@ -383,7 +383,7 @@ async fn realms_and_guard_routes_serve_live_implementations_when_database_is_con
         .expect("a second account under the limit passes");
     assert_eq!(other_reply.status, 200);
 
-    // 6. Recovery: a live hunt whose host reports an unhealthy process on POST /mystic/v1/hunts/:sessionId/lease is
+    // 6. Recovery: a live hunt whose host reports an unhealthy process on POST /rustic/v1/hunts/:sessionId/lease is
     // recovered to ABORTED by RealmsRecovery (does not stay live), releases its lease and party key, and queues FENCE_NOW.
     let db_config = store::DatabaseConfig::from_lookup(|_| None, db_path.clone()).unwrap();
     let realms_db = rifts_realms::db::RealmsDb::open(
@@ -475,8 +475,8 @@ async fn realms_and_guard_routes_serve_live_implementations_when_database_is_con
 
     let (lease_route, lease_handler) = rifts
         .routes()
-        .find(|(r, _)| r.method == Method::Post && r.path == "/mystic/v1/hunts/:sessionId/lease")
-        .expect("POST /mystic/v1/hunts/:sessionId/lease mounted");
+        .find(|(r, _)| r.method == Method::Post && r.path == "/rustic/v1/hunts/:sessionId/lease")
+        .expect("POST /rustic/v1/hunts/:sessionId/lease mounted");
     let mut lease_req = RequestInfo::default();
     lease_req.headers.push((
         rifts_seam::HOST_CAPABILITY_HEADER.to_owned(),
@@ -580,11 +580,11 @@ async fn realms_and_guard_routes_serve_live_implementations_when_database_is_con
     let hub_session_id = hub_started["sessionId"].as_str().unwrap().to_owned();
     let hub_cap = hub_started["capability"].as_str().unwrap().to_owned();
 
-    // Host marks hub ready via POST /mystic/v1/hunts/:sessionId/host-ready.
+    // Host marks hub ready via POST /rustic/v1/hunts/:sessionId/host-ready.
     let (ready_route, ready_handler) = rifts
         .routes()
-        .find(|(r, _)| r.method == Method::Post && r.path == "/mystic/v1/hunts/:sessionId/host-ready")
-        .expect("POST /mystic/v1/hunts/:sessionId/host-ready mounted");
+        .find(|(r, _)| r.method == Method::Post && r.path == "/rustic/v1/hunts/:sessionId/host-ready")
+        .expect("POST /rustic/v1/hunts/:sessionId/host-ready mounted");
     let mut ready_req = RequestInfo::default();
     ready_req
         .headers
@@ -624,11 +624,11 @@ async fn realms_and_guard_routes_serve_live_implementations_when_database_is_con
         .expect("RelayRoutes transport_config succeeds");
     assert_eq!(ice_cfg_reply.status, 200);
 
-    // Host consumes its own self-ticket via POST /mystic/v1/hunts/:sessionId/tickets/consume (AdmissionRoutes).
+    // Host consumes its own self-ticket via POST /rustic/v1/hunts/:sessionId/tickets/consume (AdmissionRoutes).
     let (consume_route, consume_handler) = rifts
         .routes()
-        .find(|(r, _)| r.method == Method::Post && r.path == "/mystic/v1/hunts/:sessionId/tickets/consume")
-        .expect("POST /mystic/v1/hunts/:sessionId/tickets/consume mounted");
+        .find(|(r, _)| r.method == Method::Post && r.path == "/rustic/v1/hunts/:sessionId/tickets/consume")
+        .expect("POST /rustic/v1/hunts/:sessionId/tickets/consume mounted");
     let mut consume_req = RequestInfo {
         request_id: "req-consume-1".to_owned(),
         ..RequestInfo::default()
