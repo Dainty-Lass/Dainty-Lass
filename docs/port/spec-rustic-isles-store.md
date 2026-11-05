@@ -1318,3 +1318,5 @@ These settle the open questions and override anything above that disagrees.
 - **Everything listed as parity:** parity.
 - **`Debug`:** secrets stay out, as proposed.
 - **Security:** the crate gets `docs/security/rustic-isles-store.md` and the `rustic_isles_store_decode` fuzz target.
+- **Added with the Reforged admin spec:** `LauncherAccountRepository::set_email(account, normalized email)` (refuses
+  an address another live account holds, as registration's uniqueness does), for the admin bootstrap's email rename.
