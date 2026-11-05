@@ -113,6 +113,14 @@ replay is still owed (spec §1.3).
     there are none.
 11. **Dependencies**: `serde` and `thiserror` from §9.1's list are not needed; `ulid` (a UUID read as the ULID with
     the same bits), `http-body-util` (the body reader) and `tempfile` (tests) are existing workspace dependencies.
+12. **Three helpers rewritten after the similarity review** (§6 below), each redone from its spec section without
+    looking at the earlier text: `hubs.rs`'s registry (§5.10) is now a `Ledger` of `visits` (a `HashMap` of `Visit`s
+    carrying a serial) and an `arrivals` queue (`VecDeque<(serial, account)>`), where a re-record leaves its old
+    arrival behind as a stale entry; the cap pops arrivals from the front, skipping stale ones, and stale entries are
+    swept once they outnumber the live (a test keeps the queue small under repeated records). `ids.rs`'s UUID reader
+    (§4.3) is `ulid_of_uuid`, a single pass over 36 bytes with hyphens at fixed offsets, answering the `Ulid`.
+    `routes.rs`'s edge builder (§6.3) is `friend_row((from, to), Side { status, direction, since })`. Merged
+    `feat/rustic-isles-clean-room` first. 26 tests pass (11 unit).
 
 ## 6. Similarity
 

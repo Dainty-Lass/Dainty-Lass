@@ -194,20 +194,22 @@ async fn friends_list(mut call: Call) -> Response {
     Json(Value::Array(shown)).into_response()
 }
 
-fn edge(
-    owner: &AccountRecord,
-    other: &AccountRecord,
+/// How one side of a friendship is written: its state and the time it carries.
+struct Side {
     status: FriendshipStatus,
     direction: Option<FriendshipDirection>,
-    created: String,
-) -> FriendEdgeRecord {
+    since: String,
+}
+
+/// `from`'s row pointing at `to`; every invite and accept resets `favorite` (spec §13 item 9).
+fn friend_row((from, to): (&AccountRecord, &AccountRecord), side: Side) -> FriendEdgeRecord {
     FriendEdgeRecord {
-        owner: owner.id.clone(),
-        other: other.id.clone(),
-        other_user_id: other.user_id.clone(),
-        status,
-        direction,
-        created,
+        owner: from.id.clone(),
+        other: to.id.clone(),
+        other_user_id: to.user_id.clone(),
+        status: side.status,
+        direction: side.direction,
+        created: side.since,
         favorite: false,
     }
 }
@@ -243,16 +245,26 @@ async fn invite(store: &IslesStore, caller: &str, friend: &str, clock: &Clock) -
     match existing {
         Some(e) if e.status == FriendshipStatus::Accepted => {}
         Some(e) if e.status == FriendshipStatus::Pending && e.direction == Some(FriendshipDirection::Inbound) => {
-            let accepted = FriendshipStatus::Accepted;
-            write_edge(store, &actor, edge(&ours, &theirs, accepted, None, e.created)).await?;
-            write_edge(store, &actor, edge(&theirs, &ours, accepted, None, now)).await?;
+            // The caller keeps the invite's time, the friend gets now
+            let accepted = |since| Side {
+                status: FriendshipStatus::Accepted,
+                direction: None,
+                since,
+            };
+            write_edge(store, &actor, friend_row((&ours, &theirs), accepted(e.created))).await?;
+            write_edge(store, &actor, friend_row((&theirs, &ours), accepted(now))).await?;
             tracing::info!("{caller} accepted friend invite from {friend}");
         }
         _ => {
-            let pending = FriendshipStatus::Pending;
-            let (out, inbound) = (Some(FriendshipDirection::Outbound), Some(FriendshipDirection::Inbound));
-            write_edge(store, &actor, edge(&ours, &theirs, pending, out, now.clone())).await?;
-            write_edge(store, &actor, edge(&theirs, &ours, pending, inbound, now)).await?;
+            let pending = |direction, since| Side {
+                status: FriendshipStatus::Pending,
+                direction: Some(direction),
+                since,
+            };
+            let outbound = pending(FriendshipDirection::Outbound, now.clone());
+            write_edge(store, &actor, friend_row((&ours, &theirs), outbound)).await?;
+            let inbound = pending(FriendshipDirection::Inbound, now);
+            write_edge(store, &actor, friend_row((&theirs, &ours), inbound)).await?;
             tracing::info!("{caller} sent friend invite to {friend}");
         }
     }
