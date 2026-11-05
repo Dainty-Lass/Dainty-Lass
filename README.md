@@ -13,18 +13,18 @@ internet, or in Docker.
 
 > [!IMPORTANT]
 > Nothing here contains, downloads or mirrors the game. Every player needs their own Dauntless 1.14.7, and every
-> host generates the SDK and the game data from their own copy ([docs/sdk-and-game-data.md](docs/sdk-and-game-data.md)).
+> host generates the SDK and the game data from their own copy ([sdk-and-game-data.md](https://git.silentspud.com/silentspud/dainty-lass/src/branch/main/docs/sdk-and-game-data.md), in dainty-lass).
 
 ## How it fits together
 
 The launcher on a player's PC talks to the host's **gateway**, the one thing the server exposes: TLS on 443 with a
 pinned certificate for a public server, plain HTTP inside the tailnet for a private one. Behind it sit the
-**backend** (Rustic Isles's 1.14.7 backend and launcher API, ported to Rust in `modules/rustic-isles` on SQLite or
+**backend** (Rustic Isles's 1.14.7 backend and launcher API, ported to Rust in `modules/rustic-isles`, on SQLite or
 Postgres), the **content server** (the game runtime, news and art) and the
 **allowlist**, which opens the game's UDP ports only to players who have logged in. The **Director** (`isles-director`)
 starts Ramsgate, the Training Grounds and the hunts. The game itself loads the host's runtime (`Rustic-Isles.dll`
 through `winmm.dll`) and reaches the backend through a relay the launcher runs on `127.0.0.1:61100`.
-[docs/architecture.md](docs/architecture.md) has the trust boundaries.
+dainty-lass's [architecture.md](https://git.silentspud.com/silentspud/dainty-lass/src/branch/main/docs/architecture.md) has the trust boundaries.
 
 ## What is in this repository
 
@@ -34,7 +34,7 @@ git dependencies at one rev), the UI and the plan.
 
 | Folder | What |
 | --- | --- |
-| [root](.) | One cargo workspace: `crates/` (`host`, the libraries of dainty-lass's MIT gateway, content and chat, and the server executables), `launcher/` (Tauri: `dainty-lass-client` and `dainty-lass-manager`), and the game modules' crates |
+| [root](.) | One cargo workspace: `crates/` (`host`, the libraries of dainty-lass's MIT gateway, content and chat, and the server executables), `launcher/src-tauri` (Tauri: `dainty-lass-client` and `dainty-lass-manager`), and the game modules' crates |
 | [`modules/rustic-isles/`](modules/rustic-isles) | The Dauntless 1.14.7 game module (`isles-1-14-7`), `isles-core`, `isles-director`, `isles-chat`, the runtime's C++ source and CatalogExporter (`native/`), and the Node reference sources (`reference/1.14.7`) |
 | [`modules/rustic-rifts/`](modules/rustic-rifts) | Peer-to-peer realms and the realm transport |
 | [`legacy/`](legacy) | The importer for Dauntless Revived 1.4.4 and Reforged Revival installs |
@@ -51,10 +51,11 @@ SSH, so your key must read git.silentspud.com:
 cargo build --release -p server-console --features all-modules --bins
 ```
 
-The desktop apps live in `launcher` (`npm ci && npm run build:client` for `dainty-lass-client` and
-`npm run build:manager` for `dainty-lass-manager`, which use Bun to build the pages from dainty-lass's `ui/` (dainty-dash)); those builds and its
-bridge tests (`npm test`) need a dainty-lass checkout beside this one, or `DAINTY_LASS_DIR`. The runtime and the
-CatalogExporter need a host's own SDK ([docs/sdk-and-game-data.md](../dainty-lass/docs/sdk-and-game-data.md)).
+The desktop apps live in `launcher` (`bun install && bun run build:client` for `dainty-lass-client` and
+`bun run build:manager` for `dainty-lass-manager`, which build the pages from dainty-lass's `ui/`, dainty-dash). Those
+builds need a dainty-lass checkout beside this one, or `DAINTY_LASS_DIR`; the bridge tests are dainty-lass's
+`launcher` (`bun run test`). The runtime and the
+CatalogExporter need a host's own SDK ([sdk-and-game-data.md](https://git.silentspud.com/silentspud/dainty-lass/src/branch/main/docs/sdk-and-game-data.md)).
 `bash docker/run-tests.sh` builds the images (with your SSH agent) and runs every server suite inside them.
 
 ## Credits and licence

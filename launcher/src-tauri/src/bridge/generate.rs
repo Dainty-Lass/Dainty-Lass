@@ -1,11 +1,11 @@
 //! The files generated from the bridge (rows L6, L8, L9; RA2), kept in the repository and checked here:
 //!
-//! - the TypeScript declarations of every type in `types.rs` and the command names, for dainty-lass-ui's
+//! - the TypeScript declarations of every type in `types.rs` and the command names, for the UI's
 //!   bridge package (`ui/packages/bridge/src/generated/types.ts`, DD11);
 //! - `isolation/commands.js`: the command list with each argument's shape, for the isolation hook (whose
 //!   `hook.js` and `index.html` are copies of dainty-lass's, checked below);
 //! - `src-tauri/permissions/app-commands.toml`: the permission set that grants exactly those commands;
-//! - `src-tauri/gen/strings.json`: dainty-lass-ui's language catalogs (`ui/packages/i18n/catalogs`, DU2),
+//! - `src-tauri/gen/strings.json`: the language catalogs in `ui/packages/i18n/catalogs` (DU2),
 //!   from which build.rs makes `Language` and the backend's own text.
 //!
 //! The test fails when a file is stale; `RR_UPDATE_GENERATED=1 cargo test -p launcher generated`

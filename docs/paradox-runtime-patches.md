@@ -40,7 +40,7 @@ With the patch saved as `patch.diff`:
 4. Commit it alone, as `NNNN-runtime-<name>` like the patches before it, with what it does as the body and a
    line naming where it came from. Add a row to [paradox-patches.md](paradox-patches.md).
 5. Build the runtime with a host's SDK (`modules\rustic-isles\native\runtime\_build.bat`,
-   [sdk-and-game-data.md](sdk-and-game-data.md#2-the-runtime)) and play a hunt with it before it is released.
+   [sdk-and-game-data.md](https://git.silentspud.com/silentspud/dainty-lass/src/branch/main/docs/sdk-and-game-data.md#2-the-runtime)) and play a hunt with it before it is released.
    Hosts rebuild and publish it after `reforged-host update`, which says so when the runtime or the loader changed.
 
 ## Keeping track

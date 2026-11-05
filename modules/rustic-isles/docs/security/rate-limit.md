@@ -1,10 +1,10 @@
-# Security: `isles-core` Request Budget and Rate Limiting
+# Security: `isles-core` request budget and rate limiting
 
 This document covers the security boundaries and invariants of the 1.14.7 HTTP request budget (`CreateRequestRateLimiter`, `crates/isles-core/src/http.rs` and `crates/isles-core/src/areas/auth/runtime.rs`) and the per-route `IsRateLimited` sliding windows (**RU5**).
 
 ---
 
-## 1. What Is Limited
+## 1. What is limited
 
 - **1.14.7 Backend Request Budget (`CreateRequestRateLimiter`)**:
   - Mounted on `Service::Backend` when serving `RouteSet::V1147` (`isles-1-14-7`), matching `reference/1.14.7/ParadoxBackend/src/app.ts`:
@@ -18,7 +18,7 @@ This document covers the security boundaries and invariants of the 1.14.7 HTTP r
 - **Per-Route Sliding Windows (`IsRateLimited`)**:
   - Enforced independently inside the auth, launcher, and realm directory handlers (such as login, registration, email verification, password reset, and realm creation/invitation).
 
-## 2. Bucket Keys and Quotas
+## 2. Bucket keys and quotas
 
 Each counted 1.14.7 backend request is assigned to one of three independent buckets in `check_request_budget` (`crates/isles-core/src/http.rs`):
 
@@ -29,17 +29,17 @@ Each counted 1.14.7 backend request is assigned to one of three independent buck
 2. **`host:<capability_id>`**:
    - Selected when `x-mystic-host-capability` resolves through `rifts_seam::GuardHooks::rate_limit_bucket` (`rifts_guard::Guard` backed by `RealmsHuntSessions::capability_by_digest` and a 10-second, 1,024-entry cache) to an active, unrevoked, non-expired host capability.
    - Quota: `RUSTIC_ISLES_HOST_RATE_LIMIT_PER_MINUTE` (positive integer, default `6000`).
-   - Missing, malformed, unknown, revoked, or expired capabilities—or any resolver error—fall back to the `client:<address>` bucket.
+   - Missing, malformed, unknown, revoked, or expired capabilities, or any resolver error, fall back to the `client:<address>` bucket.
 3. **`client:<address>`**:
    - Selected for all other requests.
    - Quota: `RUSTIC_ISLES_RATE_LIMIT_PER_MINUTE` (positive integer, default `600`).
 
-### Client Address Resolution and IPv6 Subnet Grouping
+### Client address resolution and IPv6 subnet grouping
 
 - Client addresses follow Express's `trust proxy: loopback` (`crates/isles-core/src/areas/auth/util.rs`, `forwarded_client_address`): `X-Forwarded-For` is honoured only when the socket peer is a loopback address (`127.0.0.0/8`, `::1`, or `::ffff:127.0.0.0/104`), taking the rightmost non-loopback hop; non-loopback peers always use their own socket address.
 - `ip_key_generator` (`express-rate-limit` `8.7.0` `ipKeyGenerator(ip, 56)`) normalizes IPv4-mapped IPv6 addresses (`::ffff:a.b.c.d`) to IPv4 and masks all other IPv6 addresses to their `/56` network prefix (`<network>/56`), preventing a single client with an IPv6 prefix allocation from rotating interface identifiers to bypass the `client:` or `gameserver:` limit.
 
-## 3. What Is Exempt
+## 3. What is exempt
 
 - **Probes mounted before `app.use(RequestLimiter)` (`app.ts` lines 214–242)**:
   - `GET` and `HEAD` `/`
@@ -51,7 +51,7 @@ Each counted 1.14.7 backend request is assigned to one of three independent buck
 - **`Service::Director`**:
   - The Director does not install `CreateRequestRateLimiter`, so it does not apply the per-minute request budget.
 
-## 4. Memory Bound and Secret Redaction
+## 4. Memory bound and secret redaction
 
 - **Bounded In-Memory State (`crates/isles-core/src/areas/auth/runtime.rs`)**:
   - Both the fixed-window request-budget map and the sliding-window `IsRateLimited` map inside `RateLimiter` sweep expired entries every 60 seconds (`SWEEP_INTERVAL_MS = 60_000`) and cap tracked keys at `MAX_RATE_LIMIT_KEYS = 16_384`.

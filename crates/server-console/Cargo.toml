@@ -4,7 +4,7 @@ description = "The server in one binary: every reforged-host command, `serve` wi
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
-license = "MIT"
+license.workspace = true
 repository.workspace = true
 publish.workspace = true
 

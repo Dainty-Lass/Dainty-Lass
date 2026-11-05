@@ -19,7 +19,7 @@ containers in [hosting-docker.md](hosting-docker.md) are this page with the pack
   logs and a switch file next to the executable. Copy it from a PC that has it, or let the server fetch it from
   your own Epic library with `install-game` ([below](#getting-the-game-from-epic)).
 - The **runtime** (`Rustic-Isles.dll`, `winmm.dll`) and the **game data**, made on a Windows PC with your own
-  game ([sdk-and-game-data.md](sdk-and-game-data.md)) and brought over: the DLLs as a folder, the game data as
+  game ([sdk-and-game-data.md](https://git.silentspud.com/silentspud/dainty-lass/src/branch/main/docs/sdk-and-game-data.md)) and brought over: the DLLs as a folder, the game data as
   a pack (`reforged-host gamedata --export`).
 - The **server release** (`ReforgedRevivalServer-<version>-linux-x64.tar.gz`).
 - Public: TCP 443 and UDP 8770-8777 open at the provider's firewall.
@@ -94,7 +94,7 @@ Debian's package listens on localhost only, which is what `setup` wants: the con
 ## Managing several installs
 
 A Linux server can act as a remote-management controller or enroll under a Windows or Linux **DaintyLass Manager**
-controller over pinned mTLS ([hosting.md](hosting.md#managing-several-installs), [remote-management.md](remote-management.md)):
+controller over pinned mTLS ([hosting.md](hosting.md#managing-several-installs), [remote-management.md](https://git.silentspud.com/silentspud/dainty-lass/src/branch/main/docs/remote-management.md)):
 
 ```bash
 # On the controller (or in DaintyLass Manager -> Host -> Managed installs):

@@ -60,14 +60,14 @@ the host kit's, unchanged, and a `.workspace` can move between a container host 
   or writable for uid 1000: the game servers write their logs and a switch file next to the executable. Or an
   empty folder of that kind and `install-game` ([below](#getting-the-game-from-epic)), which fetches it from your
   own Epic library.
-- The game runtime and game data, from a Windows PC with your own game ([sdk-and-game-data.md](sdk-and-game-data.md)).
+- The game runtime and game data, from a Windows PC with your own game ([sdk-and-game-data.md](https://git.silentspud.com/silentspud/dainty-lass/src/branch/main/docs/sdk-and-game-data.md)).
 - Public: the provider's firewall open for TCP 443 and UDP 8770-8777, as in [hosting-linux.md](hosting-linux.md).
 
 ## A public server
 
 ```bash
-git clone --recurse-submodules ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git
-cd dainty-lass
+git clone ssh://git@git.silentspud.com:222/silentspud/dainty-restricted.git
+cd dainty-restricted
 cp .env.example .env
 ```
 
@@ -78,11 +78,12 @@ REFORGED_COMMIT=$(git rev-parse --short=12 HEAD) docker compose build
 docker compose run --rm host setup --mode public --host play.example.org --name "Friday Hunts"
 ```
 
-The build needs the submodules checked out (`modules/rustic-isles` and `modules/rustic-rifts` hold the game modules'
-Rust crates, which cargo reads even for a build without them) and no network access to the Git server: the modules'
-Git dependencies resolve to those folders ([server-modules.md](server-modules.md)). The server binary is built with
+The game modules' crates are in the repository (`modules/rustic-isles`, `modules/rustic-rifts`). dainty-lass's MIT
+crates are git dependencies over SSH (RD27), so the build needs an SSH agent holding a key that reads
+`git.silentspud.com`: Compose passes the agent in (`ssh: [default]`), and a plain `docker build` takes
+`--ssh default`. The server binary is built with
 `all-modules`, as the release is; to build without any game module, set the build argument
-`REFORGED_MODULES=` (`docker build -f docker/Dockerfile --build-arg REFORGED_MODULES= --target server .`).
+`REFORGED_MODULES=` (`docker build --ssh default -f docker/Dockerfile --build-arg REFORGED_MODULES= --target server .`).
 The server image also holds the libraries `host.toml` can pin (RD27) in `/opt/reforged/plugins`, so a
 `[[modules.external]]` or `[services.<name>]` path there reads `plugins/libisles_1_14_7_plugin.so` and the like
 ([hosting.md](hosting.md#game-modules-and-plugins)).
@@ -226,7 +227,7 @@ what the harness checks. The other services have no profile, so name the target 
 
 | Container | What it is |
 | --- | --- |
-| `network-init` | One-shot, as root: makes the cluster CA in the `network-ca` volume, which no other container mounts, and writes into each node's volume its public gateway certificate, its node certificate and key, the CA's certificate (never its key) and its `host.toml` ([security/network.md](security/network.md#the-docker-harness-dn12)) |
+| `network-init` | One-shot, as root: makes the cluster CA in the `network-ca` volume, which no other container mounts, and writes into each node's volume its public gateway certificate, its node certificate and key, the CA's certificate (never its key) and its `host.toml` ([security/network.md](https://git.silentspud.com/silentspud/dainty-lass/src/branch/main/docs/security/network.md#the-docker-harness-dn12)) |
 | `configure-<region>` | One-shot: `setup` from that `host.toml` (the `toml` profile's `apply`), then exits |
 | `net-<region>` | The node's network namespace and published port, at a fixed address in the private network |
 | `netem-<region>` | `tc` with CAP_NET_ADMIN in that namespace, the only container with it: shapes the node's outgoing traffic (below) |
@@ -289,7 +290,7 @@ peer); its exit code is 1 when a peer is not `up`.
 ## Managing several installs
 
 A Docker server can enroll under a **DaintyLass Manager** controller (or a headless controller container) over pinned
-mTLS ([hosting.md](hosting.md#managing-several-installs), [remote-management.md](remote-management.md)):
+mTLS ([hosting.md](hosting.md#managing-several-installs), [remote-management.md](https://git.silentspud.com/silentspud/dainty-lass/src/branch/main/docs/remote-management.md)):
 
 - **First-boot enrollment (`REFORGED_REMOTE_ENROLL_TOKEN`).** Set `REFORGED_REMOTE_ENROLL_TOKEN="dainty-lass-remote://enroll?v=1&..."`
   (and optional `REFORGED_REMOTE_LABEL`) in `.env` and add the `managed` profile (`COMPOSE_PROFILES=public,managed`).
@@ -328,7 +329,7 @@ namespace and the optional dependencies depend on Compose's own behaviour. Rootl
 | --- | --- |
 | Stop, start | `docker compose stop`, `docker compose up -d`; a clean stop includes the game servers |
 | Change a setting | `docker compose run --rm host setup …` (or `multipliers`), then `docker compose up -d --force-recreate`. With the `toml` profile: edit `config/host.toml`, then the same `up` |
-| Update | `git pull --recurse-submodules` (once after a clone made without them: `git submodule update --init --recursive`), `docker compose build`, `docker compose up -d`. On a server updating from the pre-RU9 Node backend with existing `mongo-data`, run the one-time migration below first (`backend` refuses to start while `mongo-data` is unmigrated). `reforged-host update` is not used in Docker |
+| Update | `git pull`, `docker compose build`, `docker compose up -d`. On a server updating from the pre-RU9 Node backend with existing `mongo-data`, run the one-time migration below first (`backend` refuses to start while `mongo-data` is unmigrated). `reforged-host update` is not used in Docker |
 | Back up | `docker compose run --rm host backup` (into the `workspace` volume, `backups/`), and keep a copy of the `workspace` volume: it holds the certificate every invite names and the secrets |
 | A shell | `docker compose run --rm --entrypoint bash host` |
 

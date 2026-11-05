@@ -18,7 +18,7 @@ npx electron . "$TEMP/rrk-profile"
 REFORGED_ELECTRON_PROFILE="$TEMP/rrk-profile" cargo test -p launcher --lib an_electron_profile_reads_back -- --ignored
 ```
 
-The last line runs from `rust/`. Never point the harness or the test at a real launcher profile: the harness
+The last line runs from the repository root. Never point the harness or the test at a real launcher profile: the harness
 refuses a folder that is not empty, and the test moves keys into new files.
 
 ## A real 1.5.1 profile (the maintainer's check)

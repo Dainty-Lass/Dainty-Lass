@@ -19,7 +19,7 @@ These repositories were merged in with their history (RD27) and are archived; ea
 licence files in its folder: `modules/rustic-isles` ([NOTICE.md](modules/rustic-isles/NOTICE.md), with Mystic Paradox's
 additional terms), `modules/rustic-rifts` ([NOTICE.md](modules/rustic-rifts/NOTICE.md); libjuice is `MPL-2.0`),
 and `legacy/` (dainty-legacy). dainty-dash was here too until 2026-11-02, when it moved to dainty-lass's
-`dashboard/` under the MIT licence; its history up to then stays in this repository's. The UI's two AGPL inputs (`ui/`) came from
+`dashboard/` (now `ui/`) under the MIT licence; its history up to then stays in this repository's. The UI's two AGPL inputs (`ui/`) came from
 dainty-lass-ui.
 
 ## Where the parts come from
@@ -59,7 +59,7 @@ dainty-lass-ui.
   [github.com/mixutin/dauntless-revived](https://github.com/mixutin/dauntless-revived), AGPL-3.0-only.
   Dauntless Revived is itself a modified version of Undaunted.
 - The workspace files and the fuzz targets `http_body` and `proxy_headers` are modified versions of its `rust/` folder at commit `e1c5fec`
-  ([docs/port/migration-guide.md](docs/port/migration-guide.md) section 2 says how); `launcher/src-tauri`
+  (dainty-lass's [docs/port/migration-guide.md](https://git.silentspud.com/silentspud/dainty-lass/src/branch/main/docs/port/migration-guide.md) section 2 says how); `launcher/src-tauri`
   carries the DR-derived core of its launcher's Rust side alongside `crates/launcher-kit`. (`crates/protocol`,
   `proxy`, `service-kit`, the SQLite helpers of `store`, and `gateway`, `content` and `chat` were rewritten clean-room from behaviour specs under MIT in
   `DL3b`/`DD26`; see `docs/port/clean-room/`.)

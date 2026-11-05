@@ -6,7 +6,7 @@
 //! - the languages and the backend's text (row L14): `gen/strings.json` (the page's strings, one table per
 //!   language code such as `en` or `pt-BR`) becomes the `Language` enum and one lookup table per
 //!   language, so a language added to the page appears here by rebuilding (`bridge/generate.rs` writes the
-//!   file from dainty-lass-ui's catalogs, DU2).
+//!   file from the catalogs in `ui/packages/i18n/catalogs`, DU2).
 
 use std::fmt::Write as _;
 use std::fs;

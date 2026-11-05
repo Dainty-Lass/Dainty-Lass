@@ -45,8 +45,8 @@ GetUserInfo answers, runtime manifests, news, the art pack's index, paths and im
       `dauntless-revived://` = `version=1.4.4`) with exactly the v1 or v2 parameters plus an optional `version` (`1.14.7` or its alias `reforged`, `1.4.4` or
       `revived`) are read: unknown, repeated or missing parameters, a fragment, bad percent-encoding, a `version` this code does not
       know, an alias given another game's `version`, or more than 2048 UTF-16 units refuse the whole invite
-      (`protocol::invite::parse_invite`). A known version the build does not play (`protocol::game::supported_versions`,
-      set by its features: 1.4.4 only with `legacy`) is refused as `revived`, unread through its alias (RD5). The
+      (`protocol::invite::parse_invite`). A known version the build does not play (1.4.4, `protocol::invite::is_revived`)
+      is refused as `revived`, unread through its alias (RD5). The
       launcher registers only the schemes its build opens (`invite_schemes`), and the page's parser takes the same
       list from the snapshot (`app.gameVersions`).
 - [ ] The host is IPv4 in dotted-decimal or a lower-case DNS name; anything a resolver could read as a number

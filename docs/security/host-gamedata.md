@@ -54,11 +54,12 @@ Code: `crates/host/src/` (`gamedata.rs`, `gamepack.rs`, `preset.rs`, `progressio
 
 ### Generators and the export
 
-- [ ] Since RB11, `gamedata` runs the in-process Rust generators in `isles_core::areas::game_data::generators`
-  (`generate_slayers_path`, `generate_lady_luck_store`, `generate_platinum_store`, `generate_reward_cache_store`,
-  `generate_inventory_storage_policy`) and `isles_director::hunt_tables::generate_all`, verified byte for byte against
-  the reference Node scripts in `crates/isles-core/tests/gamedata_generators_parity.rs`; no Node process is spawned and
-  nothing from the export reaches a command line.
+- [ ] Since RB11, `gamedata` runs the in-process Rust generators in `isles_core::gamedata`
+  (`modules/rustic-isles/crates/isles-core/src/game_data/generators.rs`: `generate_slayers_path`,
+  `generate_ladyluck_store`, `generate_platinum_store`, `generate_reward_cache_store`,
+  `generate_inventory_storage_policy`) and `isles_director::hunt_tables::import_hunt_tables`, verified byte for byte
+  against the reference Node scripts in `modules/rustic-isles/crates/isles-core/tests/gamedata_generators.rs`; no
+  Node process is spawned and nothing from the export reaches a command line.
 - [ ] The progression export is parsed line by line; a line that is not a JSON object is skipped; numbers outside
   JavaScript's safe integers fall back as the Node kit's do. The output is the Node kit's byte for byte
   (`tests/gamedata.rs`).

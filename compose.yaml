@@ -1,5 +1,5 @@
 # DaintyLass server in Docker (docs/hosting-docker.md). The same services `reforged-host start`
-# runs (crates/host/src/serve.rs), one container each, with compose doing the supervision: start order,
+# runs (dainty-lass's crates/hostkit/src/serve.rs), one container each, with compose doing the supervision: start order,
 # health checks, restarts, logs, one clean stop. Each Rust service is `reforged-host <service>`, so every container
 # keeps only the privileges its service needs (the allowlist alone has NET_ADMIN).
 #
