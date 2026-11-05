@@ -58,6 +58,9 @@ rustic-isles-chat = { path = "crates/rustic-isles-chat" }
 rustic-isles-replay = { path = "crates/rustic-isles-replay" }
 # The Rustic Isles characters and loadouts area, clean-room MIT (RD27, spec-rustic-isles-characters)
 rustic-isles-characters = { path = "crates/rustic-isles-characters" }
+# The Rustic Isles economy: inventory, progression, bounties and the stores, clean-room MIT (RD27,
+# spec-rustic-isles-economy-*)
+rustic-isles-economy = { path = "crates/rustic-isles-economy" }
 # The transport's ICE agent and TURN client, sans-IO (spec-rd27-rifts D2)
 rtc-ice = { version = "0.21.1", default-features = false, features = ["crypto-aws-lc-rs"] }
 rtc-turn = { version = "0.21.1", default-features = false, features = ["crypto-aws-lc-rs"] }
