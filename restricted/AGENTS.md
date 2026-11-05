@@ -32,8 +32,11 @@ via relative path dependencies (`path = "../crates/<name>"` in `Cargo.toml`, `[w
 
 DaintyLass serves one game, Dauntless 1.14.7 (2026-10-31). On the default path (since the RU9 code cutover,
 maintainer decision 2026-10-28), `host::serve` runs the compiled-in Rust `isles-1-14-7` backend (port 61000) and
-in-process `isles-director` (port 61001) on `store` (SQLite by default, or Postgres), with `isles-1-14-7` and realms
-linked in by the server binaries' `all-modules` feature (DF5). For one release after the cutover (until RB15), the
+in-process Director (port 61001) on `store` (SQLite by default, or Postgres), with `isles-1-14-7` and realms
+linked in by the server binaries' `all-modules` feature (DF5). The module is dainty-lass's clean-room
+`rustic-isles-1-14-7` (RD27), handed restricted's version data
+(`modules/rustic-isles/version-data/1.14.7/version_data.json`, kept current by isles-mit-parity's `version_data` test);
+the AGPL `isles-*` crates still build but nothing the server ships links them. For one release after the cutover (until RB15), the
 opt-in `paradox` Cargo feature on `host` retains Rustic Isles's Node backend and Director from
 `modules/rustic-isles/reference/1.14.7/` and MongoDB as a rollback path.
 

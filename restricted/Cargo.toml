@@ -47,19 +47,24 @@ admin = { path = "../crates/admin" }
 chat = { path = "../crates/chat" }
 content = { path = "../crates/content" }
 epic = { path = "../crates/epic" }
-# The game modules compiled into the server (DF5): Cargo features of the controller and the bins
+# restricted's AGPL 1.14.7 module, retired for the MIT one below: nothing the server ships links it (RD27)
 isles-1-14-7 = { path = "modules/rustic-isles/crates/isles-1-14-7", default-features = false }
 isles-core = { path = "modules/rustic-isles/crates/isles-core" }
 isles-db = { path = "modules/rustic-isles/crates/isles-db" }
 isles-director = { path = "modules/rustic-isles/crates/isles-director" }
 hmac = "0.13"
 isles-chat = { path = "modules/rustic-isles/crates/isles-chat" }
-# dainty-lass's clean-room 1.14.7 module (RD27), for isles-mit-parity's golden replay
+# The game modules compiled into the server (DF5), a Cargo feature of the host and the bins: dainty-lass's clean-room
+# 1.14.7 module (RD27) with its db tool, replay, generators and hunt-table import; also isles-mit-parity's replay
 rustic-isles = { path = "../crates/rustic-isles" }
-rustic-isles-1-14-7 = { path = "../crates/rustic-isles-1-14-7" }
+rustic-isles-1-14-7 = { path = "../crates/rustic-isles-1-14-7", default-features = false }
 rustic-isles-auth = { path = "../crates/rustic-isles-auth" }
+rustic-isles-db = { path = "../crates/rustic-isles-db" }
+rustic-isles-director = { path = "../crates/rustic-isles-director" }
+rustic-isles-gamedata = { path = "../crates/rustic-isles-gamedata" }
+rustic-isles-replay = { path = "../crates/rustic-isles-replay" }
 rustic-isles-store = { path = "../crates/rustic-isles-store" }
-# Realms (DD14, RF2): the seam always, the server crates behind isles-1-14-7's realms feature, rifts-host behind the
+# Realms (DD14, RF2): the seam always, the server crates behind rustic-isles-1-14-7's realms feature, rifts-host behind the
 # launcher's
 rifts-seam = { path = "../crates/rifts-seam" }
 rifts-admission = { path = "../crates/rifts-admission" }

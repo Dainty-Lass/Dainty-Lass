@@ -2810,10 +2810,6 @@ dependencies = [
  "hyper",
  "hyper-rustls",
  "hyper-util",
- "isles-1-14-7",
- "isles-core",
- "isles-db",
- "isles-director",
  "libc",
  "module-api",
  "network",
@@ -2821,6 +2817,12 @@ dependencies = [
  "ratatui",
  "rcgen",
  "remote",
+ "rustic-isles",
+ "rustic-isles-1-14-7",
+ "rustic-isles-db",
+ "rustic-isles-director",
+ "rustic-isles-gamedata",
+ "rustic-isles-replay",
  "rustls",
  "serde_json",
  "service-kit",
@@ -3282,9 +3284,10 @@ dependencies = [
 name = "isles-1-14-7-plugin"
 version = "0.0.0"
 dependencies = [
- "isles-1-14-7",
  "module-api",
  "plugin-host",
+ "rustic-isles",
+ "rustic-isles-1-14-7",
  "serde_json",
  "tokio",
 ]
@@ -3391,6 +3394,7 @@ dependencies = [
  "aws-lc-rs",
  "base64 0.23.1",
  "isles-core",
+ "isles-db",
  "module-api",
  "regex",
  "rusqlite",
@@ -6038,6 +6042,24 @@ dependencies = [
  "thiserror 2.0.21",
  "tokio",
  "tracing",
+]
+
+[[package]]
+name = "rustic-isles-replay"
+version = "0.0.0"
+dependencies = [
+ "aws-lc-rs",
+ "axum",
+ "base64 0.23.1",
+ "percent-encoding",
+ "regex",
+ "rustic-isles",
+ "serde",
+ "serde_json",
+ "service-kit",
+ "sha2 0.11.1",
+ "thiserror 2.0.21",
+ "tokio",
 ]
 
 [[package]]
