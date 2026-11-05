@@ -1,0 +1,3154 @@
+[
+  {
+    "name": "maintenance status",
+    "env": {},
+    "files": {},
+    "request": {
+      "method": "GET",
+      "path": "/maintenance/status"
+    },
+    "response": {
+      "status": 200,
+      "headers": {
+        "content-type": "application/json; charset=utf-8",
+        "content-length": "21"
+      },
+      "body": "{\"show-status\":false}"
+    }
+  },
+  {
+    "name": "metrics, loopback without a token",
+    "env": {
+      "NODE_ENV": "development"
+    },
+    "files": {},
+    "request": {
+      "method": "GET",
+      "path": "/internal/v1/metrics"
+    },
+    "response": {
+      "status": 200,
+      "headers": {
+        "content-type": "text/plain; charset=utf-8; version=0.0.4",
+        "cache-control": "no-store",
+        "content-length": "564"
+      },
+      "body": null
+    }
+  },
+  {
+    "name": "metrics, production without a token",
+    "env": {
+      "NODE_ENV": "production"
+    },
+    "files": {},
+    "request": {
+      "method": "GET",
+      "path": "/internal/v1/metrics"
+    },
+    "response": {
+      "status": 503,
+      "headers": {
+        "content-type": "text/plain; charset=utf-8",
+        "content-length": "20"
+      },
+      "body": "metrics unavailable\n"
+    }
+  },
+  {
+    "name": "metrics, token required and missing",
+    "env": {
+      "RUSTIC_ISLES_METRICS_TOKEN": "route-test-token"
+    },
+    "files": {},
+    "request": {
+      "method": "GET",
+      "path": "/internal/v1/metrics"
+    },
+    "response": {
+      "status": 401,
+      "headers": {
+        "content-type": "text/plain; charset=utf-8",
+        "content-length": "20"
+      },
+      "body": "metrics unavailable\n"
+    }
+  },
+  {
+    "name": "metrics, wrong bearer",
+    "env": {
+      "RUSTIC_ISLES_METRICS_TOKEN": "route-test-token"
+    },
+    "files": {},
+    "request": {
+      "method": "GET",
+      "path": "/internal/v1/metrics",
+      "headers": {
+        "authorization": "Bearer nope"
+      }
+    },
+    "response": {
+      "status": 401,
+      "headers": {
+        "content-type": "text/plain; charset=utf-8",
+        "content-length": "20"
+      },
+      "body": "metrics unavailable\n"
+    }
+  },
+  {
+    "name": "metrics, bearer",
+    "env": {
+      "RUSTIC_ISLES_METRICS_TOKEN": "route-test-token"
+    },
+    "files": {},
+    "request": {
+      "method": "GET",
+      "path": "/internal/v1/metrics",
+      "headers": {
+        "authorization": "Bearer route-test-token"
+      }
+    },
+    "response": {
+      "status": 200,
+      "headers": {
+        "content-type": "text/plain; charset=utf-8; version=0.0.4",
+        "cache-control": "no-store",
+        "content-length": "564"
+      },
+      "body": null
+    }
+  },
+  {
+    "name": "metrics, token header",
+    "env": {
+      "RUSTIC_ISLES_METRICS_TOKEN": "route-test-token"
+    },
+    "files": {},
+    "request": {
+      "method": "GET",
+      "path": "/internal/v1/metrics",
+      "headers": {
+        "x-rustic-isles-metrics-token": "route-test-token"
+      }
+    },
+    "response": {
+      "status": 200,
+      "headers": {
+        "content-type": "text/plain; charset=utf-8; version=0.0.4",
+        "cache-control": "no-store",
+        "content-length": "564"
+      },
+      "body": null
+    }
+  },
+  {
+    "name": "release gates, defaults",
+    "env": {
+      "RUSTIC_ISLES_ADMIN_API": "on"
+    },
+    "files": {},
+    "request": {
+      "method": "GET",
+      "path": "/health/release-gates"
+    },
+    "response": {
+      "status": 200,
+      "headers": {
+        "content-type": "application/json; charset=utf-8",
+        "content-length": "382"
+      },
+      "body": "{\"ok\":true,\"gates\":[{\"name\":\"no_active_play\",\"ok\":true,\"detail\":\"nobody in game\"},{\"name\":\"guard_mode\",\"ok\":true,\"detail\":\"mode=observe (default)\"},{\"name\":\"registration_approval_mode\",\"ok\":true,\"detail\":\"mode=off (default)\"},{\"name\":\"tls_proxy_consistency\",\"ok\":true,\"detail\":\"proxy mode off (in-process HTTPS)\"},{\"name\":\"no_legacy_env_keys\",\"ok\":true,\"detail\":\"0 MYSTPAX_ keys\"}]}"
+    }
+  },
+  {
+    "name": "release gates, legacy key and a bad guard mode",
+    "env": {
+      "RUSTIC_ISLES_ADMIN_API": "on",
+      "MYSTPAX_OLD": "1",
+      "MYSTPAX_AGAIN": "2",
+      "RUSTIC_ISLES_GUARD_MODE": "sometimes"
+    },
+    "files": {},
+    "request": {
+      "method": "GET",
+      "path": "/health/release-gates"
+    },
+    "response": {
+      "status": 503,
+      "headers": {
+        "content-type": "application/json; charset=utf-8",
+        "content-length": "471"
+      },
+      "body": "{\"ok\":false,\"gates\":[{\"name\":\"no_active_play\",\"ok\":true,\"detail\":\"nobody in game\"},{\"name\":\"guard_mode\",\"ok\":false,\"detail\":\"RUSTIC_ISLES_GUARD_MODE has an unrecognised value (must be observe or enforce)\"},{\"name\":\"registration_approval_mode\",\"ok\":true,\"detail\":\"mode=off (default)\"},{\"name\":\"tls_proxy_consistency\",\"ok\":true,\"detail\":\"proxy mode off (in-process HTTPS)\"},{\"name\":\"no_legacy_env_keys\",\"ok\":false,\"detail\":\"2 MYSTPAX_ key(s): MYSTPAX_AGAIN, MYSTPAX_OLD\"}]}"
+    }
+  },
+  {
+    "name": "release gates, enforce and required",
+    "env": {
+      "RUSTIC_ISLES_ADMIN_API": "on",
+      "RUSTIC_ISLES_GUARD_MODE": " Enforce ",
+      "RUSTIC_ISLES_REGISTRATION_APPROVAL": "required",
+      "RUSTIC_ISLES_REGISTRATION_AUTO_APPROVE": "true"
+    },
+    "files": {},
+    "request": {
+      "method": "GET",
+      "path": "/health/release-gates"
+    },
+    "response": {
+      "status": 200,
+      "headers": {
+        "content-type": "application/json; charset=utf-8",
+        "content-length": "432"
+      },
+      "body": "{\"ok\":true,\"gates\":[{\"name\":\"no_active_play\",\"ok\":true,\"detail\":\"nobody in game\"},{\"name\":\"guard_mode\",\"ok\":true,\"detail\":\"mode=enforce\"},{\"name\":\"registration_approval_mode\",\"ok\":true,\"detail\":\"mode=required; RUSTIC_ISLES_REGISTRATION_AUTO_APPROVE is set and has no effect\"},{\"name\":\"tls_proxy_consistency\",\"ok\":true,\"detail\":\"proxy mode off (in-process HTTPS)\"},{\"name\":\"no_legacy_env_keys\",\"ok\":true,\"detail\":\"0 MYSTPAX_ keys\"}]}"
+    }
+  },
+  {
+    "name": "release gates, proxy without a bind host",
+    "env": {
+      "RUSTIC_ISLES_ADMIN_API": "on",
+      "RUSTIC_ISLES_TLS_TERMINATED_BY_PROXY": "on"
+    },
+    "files": {},
+    "request": {
+      "method": "GET",
+      "path": "/health/release-gates"
+    },
+    "response": {
+      "status": 503,
+      "headers": {
+        "content-type": "application/json; charset=utf-8",
+        "content-length": "405"
+      },
+      "body": "{\"ok\":false,\"gates\":[{\"name\":\"no_active_play\",\"ok\":true,\"detail\":\"nobody in game\"},{\"name\":\"guard_mode\",\"ok\":true,\"detail\":\"mode=observe (default)\"},{\"name\":\"registration_approval_mode\",\"ok\":true,\"detail\":\"mode=off (default)\"},{\"name\":\"tls_proxy_consistency\",\"ok\":false,\"detail\":\"proxy mode on but BIND_HOST is unset (every interface)\"},{\"name\":\"no_legacy_env_keys\",\"ok\":true,\"detail\":\"0 MYSTPAX_ keys\"}]}"
+    }
+  },
+  {
+    "name": "release gates, proxy on loopback",
+    "env": {
+      "RUSTIC_ISLES_ADMIN_API": "on",
+      "RUSTIC_ISLES_TLS_TERMINATED_BY_PROXY": "on",
+      "BIND_HOST": "127.0.0.1"
+    },
+    "files": {},
+    "request": {
+      "method": "GET",
+      "path": "/health/release-gates"
+    },
+    "response": {
+      "status": 200,
+      "headers": {
+        "content-type": "application/json; charset=utf-8",
+        "content-length": "385"
+      },
+      "body": "{\"ok\":true,\"gates\":[{\"name\":\"no_active_play\",\"ok\":true,\"detail\":\"nobody in game\"},{\"name\":\"guard_mode\",\"ok\":true,\"detail\":\"mode=observe (default)\"},{\"name\":\"registration_approval_mode\",\"ok\":true,\"detail\":\"mode=off (default)\"},{\"name\":\"tls_proxy_consistency\",\"ok\":true,\"detail\":\"proxy mode on, BIND_HOST is loopback\"},{\"name\":\"no_legacy_env_keys\",\"ok\":true,\"detail\":\"0 MYSTPAX_ keys\"}]}"
+    }
+  },
+  {
+    "name": "release gates, proxy value unreadable",
+    "env": {
+      "RUSTIC_ISLES_ADMIN_API": "on",
+      "RUSTIC_ISLES_TLS_TERMINATED_BY_PROXY": "perhaps"
+    },
+    "files": {},
+    "request": {
+      "method": "GET",
+      "path": "/health/release-gates"
+    },
+    "response": {
+      "status": 503,
+      "headers": {
+        "content-type": "application/json; charset=utf-8",
+        "content-length": "405"
+      },
+      "body": "{\"ok\":false,\"gates\":[{\"name\":\"no_active_play\",\"ok\":true,\"detail\":\"nobody in game\"},{\"name\":\"guard_mode\",\"ok\":true,\"detail\":\"mode=observe (default)\"},{\"name\":\"registration_approval_mode\",\"ok\":true,\"detail\":\"mode=off (default)\"},{\"name\":\"tls_proxy_consistency\",\"ok\":false,\"detail\":\"RUSTIC_ISLES_TLS_TERMINATED_BY_PROXY must be on or off\"},{\"name\":\"no_legacy_env_keys\",\"ok\":true,\"detail\":\"0 MYSTPAX_ keys\"}]}"
+    }
+  },
+  {
+    "name": "release gates, http only",
+    "env": {
+      "RUSTIC_ISLES_ADMIN_API": "on",
+      "REFORGED_HTTP_ONLY": "yes",
+      "BIND_HOST": "0.0.0.0"
+    },
+    "files": {},
+    "request": {
+      "method": "GET",
+      "path": "/health/release-gates"
+    },
+    "response": {
+      "status": 503,
+      "headers": {
+        "content-type": "application/json; charset=utf-8",
+        "content-length": "404"
+      },
+      "body": "{\"ok\":false,\"gates\":[{\"name\":\"no_active_play\",\"ok\":true,\"detail\":\"nobody in game\"},{\"name\":\"guard_mode\",\"ok\":true,\"detail\":\"mode=observe (default)\"},{\"name\":\"registration_approval_mode\",\"ok\":true,\"detail\":\"mode=off (default)\"},{\"name\":\"tls_proxy_consistency\",\"ok\":false,\"detail\":\"proxy mode on but BIND_HOST is not a loopback address\"},{\"name\":\"no_legacy_env_keys\",\"ok\":true,\"detail\":\"0 MYSTPAX_ keys\"}]}"
+    }
+  },
+  {
+    "name": "release gates, forwarded",
+    "env": {
+      "RUSTIC_ISLES_ADMIN_API": "on"
+    },
+    "files": {},
+    "request": {
+      "method": "GET",
+      "path": "/health/release-gates",
+      "headers": {
+        "x-forwarded-for": "203.0.113.7"
+      }
+    },
+    "response": {
+      "status": 404,
+      "headers": {
+        "content-length": "0"
+      },
+      "body": ""
+    }
+  },
+  {
+    "name": "release gates, real ip",
+    "env": {
+      "RUSTIC_ISLES_ADMIN_API": "on"
+    },
+    "files": {},
+    "request": {
+      "method": "GET",
+      "path": "/health/release-gates",
+      "headers": {
+        "x-real-ip": "203.0.113.7"
+      }
+    },
+    "response": {
+      "status": 404,
+      "headers": {
+        "content-length": "0"
+      },
+      "body": ""
+    }
+  },
+  {
+    "name": "release gates, forwarded header",
+    "env": {
+      "RUSTIC_ISLES_ADMIN_API": "on"
+    },
+    "files": {},
+    "request": {
+      "method": "GET",
+      "path": "/health/release-gates",
+      "headers": {
+        "forwarded": "for=203.0.113.7"
+      }
+    },
+    "response": {
+      "status": 404,
+      "headers": {
+        "content-length": "0"
+      },
+      "body": ""
+    }
+  },
+  {
+    "name": "registration status, default",
+    "env": {},
+    "files": {},
+    "request": {
+      "method": "GET",
+      "path": "/reforged/api/RegistrationStatus"
+    },
+    "response": {
+      "status": 200,
+      "headers": {
+        "content-type": "application/json; charset=utf-8",
+        "content-length": "21"
+      },
+      "body": "{\"mode\":\"INVITECODE\"}"
+    }
+  },
+  {
+    "name": "registration status, open",
+    "env": {
+      "REGISTRATION_MODE": " open "
+    },
+    "files": {},
+    "request": {
+      "method": "GET",
+      "path": "/reforged/api/RegistrationStatus"
+    },
+    "response": {
+      "status": 200,
+      "headers": {
+        "content-type": "application/json; charset=utf-8",
+        "content-length": "15"
+      },
+      "body": "{\"mode\":\"OPEN\"}"
+    }
+  },
+  {
+    "name": "registration status, none",
+    "env": {
+      "REGISTRATION_MODE": "NONE"
+    },
+    "files": {},
+    "request": {
+      "method": "GET",
+      "path": "/reforged/api/RegistrationStatus"
+    },
+    "response": {
+      "status": 200,
+      "headers": {
+        "content-type": "application/json; charset=utf-8",
+        "content-length": "15"
+      },
+      "body": "{\"mode\":\"NONE\"}"
+    }
+  },
+  {
+    "name": "registration status, unknown",
+    "env": {
+      "REGISTRATION_MODE": "yes please"
+    },
+    "files": {},
+    "request": {
+      "method": "GET",
+      "path": "/reforged/api/RegistrationStatus"
+    },
+    "response": {
+      "status": 200,
+      "headers": {
+        "content-type": "application/json; charset=utf-8",
+        "content-length": "21"
+      },
+      "body": "{\"mode\":\"INVITECODE\"}"
+    }
+  },
+  {
+    "name": "register, closed",
+    "env": {
+      "REGISTRATION_MODE": "NONE"
+    },
+    "files": {},
+    "request": {
+      "method": "POST",
+      "path": "/reforged/api/Register",
+      "json": "{\"Username\":\"Fox_9\"}"
+    },
+    "response": {
+      "status": 400,
+      "headers": {
+        "content-type": "application/json; charset=utf-8",
+        "content-length": "84"
+      },
+      "body": "{\"error\":\"registration_closed\",\"message\":\"This server is not taking registrations.\"}"
+    }
+  },
+  {
+    "name": "register, no body",
+    "env": {
+      "REGISTRATION_MODE": "OPEN"
+    },
+    "files": {},
+    "request": {
+      "method": "POST",
+      "path": "/reforged/api/Register"
+    },
+    "response": {
+      "status": 400,
+      "headers": {
+        "content-type": "application/json; charset=utf-8",
+        "content-length": "102"
+      },
+      "body": "{\"error\":\"bad_request\",\"message\":\"The body is not JSON, or a field is missing or has the wrong type.\"}"
+    }
+  },
+  {
+    "name": "register, name not text",
+    "env": {
+      "REGISTRATION_MODE": "OPEN"
+    },
+    "files": {},
+    "request": {
+      "method": "POST",
+      "path": "/reforged/api/Register",
+      "json": "{\"Username\":5}"
+    },
+    "response": {
+      "status": 400,
+      "headers": {
+        "content-type": "application/json; charset=utf-8",
+        "content-length": "102"
+      },
+      "body": "{\"error\":\"bad_request\",\"message\":\"The body is not JSON, or a field is missing or has the wrong type.\"}"
+    }
+  },
+  {
+    "name": "register, code not text",
+    "env": {
+      "REGISTRATION_MODE": "OPEN"
+    },
+    "files": {},
+    "request": {
+      "method": "POST",
+      "path": "/reforged/api/Register",
+      "json": "{\"Username\":\"Fox_9\",\"InviteCode\":7}"
+    },
+    "response": {
+      "status": 400,
+      "headers": {
+        "content-type": "application/json; charset=utf-8",
+        "content-length": "102"
+      },
+      "body": "{\"error\":\"bad_request\",\"message\":\"The body is not JSON, or a field is missing or has the wrong type.\"}"
+    }
+  },
+  {
+    "name": "register, code null",
+    "env": {
+      "REGISTRATION_MODE": "OPEN"
+    },
+    "files": {},
+    "request": {
+      "method": "POST",
+      "path": "/reforged/api/Register",
+      "json": "{\"Username\":\"Fox_9\",\"InviteCode\":null}"
+    },
+    "response": {
+      "status": 400,
+      "headers": {
+        "content-type": "application/json; charset=utf-8",
+        "content-length": "102"
+      },
+      "body": "{\"error\":\"bad_request\",\"message\":\"The body is not JSON, or a field is missing or has the wrong type.\"}"
+    }
+  },
+  {
+    "name": "register, name too short",
+    "env": {
+      "REGISTRATION_MODE": "OPEN"
+    },
+    "files": {},
+    "request": {
+      "method": "POST",
+      "path": "/reforged/api/Register",
+      "json": "{\"Username\":\" ab \"}"
+    },
+    "response": {
+      "status": 400,
+      "headers": {
+        "content-type": "application/json; charset=utf-8",
+        "content-length": "106"
+      },
+      "body": "{\"error\":\"username_invalid\",\"message\":\"A username is 3 to 16 characters: letters, digits and underscore.\"}"
+    }
+  },
+  {
+    "name": "register, name with a space",
+    "env": {
+      "REGISTRATION_MODE": "OPEN"
+    },
+    "files": {},
+    "request": {
+      "method": "POST",
+      "path": "/reforged/api/Register",
+      "json": "{\"Username\":\"Fox 9\"}"
+    },
+    "response": {
+      "status": 400,
+      "headers": {
+        "content-type": "application/json; charset=utf-8",
+        "content-length": "106"
+      },
+      "body": "{\"error\":\"username_invalid\",\"message\":\"A username is 3 to 16 characters: letters, digits and underscore.\"}"
+    }
+  },
+  {
+    "name": "register, name too long",
+    "env": {
+      "REGISTRATION_MODE": "OPEN"
+    },
+    "files": {},
+    "request": {
+      "method": "POST",
+      "path": "/reforged/api/Register",
+      "json": "{\"Username\":\"abcdefghijklmnopq\"}"
+    },
+    "response": {
+      "status": 400,
+      "headers": {
+        "content-type": "application/json; charset=utf-8",
+        "content-length": "106"
+      },
+      "body": "{\"error\":\"username_invalid\",\"message\":\"A username is 3 to 16 characters: letters, digits and underscore.\"}"
+    }
+  },
+  {
+    "name": "register, invite needed",
+    "env": {},
+    "files": {},
+    "request": {
+      "method": "POST",
+      "path": "/reforged/api/Register",
+      "json": "{\"Username\":\"Fox_9\"}"
+    },
+    "response": {
+      "status": 401,
+      "headers": {
+        "content-type": "application/json; charset=utf-8",
+        "content-length": "90"
+      },
+      "body": "{\"error\":\"invite_invalid\",\"message\":\"That invite code is not valid, or has been used up.\"}"
+    }
+  },
+  {
+    "name": "register, invite malformed",
+    "env": {},
+    "files": {},
+    "request": {
+      "method": "POST",
+      "path": "/reforged/api/Register",
+      "json": "{\"Username\":\"Fox_9\",\"InviteCode\":\"a b\"}"
+    },
+    "response": {
+      "status": 401,
+      "headers": {
+        "content-type": "application/json; charset=utf-8",
+        "content-length": "90"
+      },
+      "body": "{\"error\":\"invite_invalid\",\"message\":\"That invite code is not valid, or has been used up.\"}"
+    }
+  },
+  {
+    "name": "register, invite too short",
+    "env": {},
+    "files": {},
+    "request": {
+      "method": "POST",
+      "path": "/reforged/api/Register",
+      "json": "{\"Username\":\"Fox_9\",\"InviteCode\":\"abc\"}"
+    },
+    "response": {
+      "status": 401,
+      "headers": {
+        "content-type": "application/json; charset=utf-8",
+        "content-length": "90"
+      },
+      "body": "{\"error\":\"invite_invalid\",\"message\":\"That invite code is not valid, or has been used up.\"}"
+    }
+  },
+  {
+    "name": "register, broken json",
+    "env": {
+      "REGISTRATION_MODE": "OPEN",
+      "NODE_ENV": "production"
+    },
+    "files": {},
+    "request": {
+      "method": "POST",
+      "path": "/reforged/api/Register",
+      "json": "{\"Username\":"
+    },
+    "response": {
+      "status": 400,
+      "headers": {
+        "content-type": "text/html; charset=utf-8",
+        "content-length": "138"
+      },
+      "body": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n<meta charset=\"utf-8\">\n<title>Error</title>\n</head>\n<body>\n<pre>Bad Request</pre>\n</body>\n</html>\n"
+    }
+  },
+  {
+    "name": "get user info, no key",
+    "env": {},
+    "files": {},
+    "request": {
+      "method": "GET",
+      "path": "/reforged/api/GetUserInfo"
+    },
+    "response": {
+      "status": 401,
+      "headers": {
+        "content-type": "application/json; charset=utf-8",
+        "content-length": "24"
+      },
+      "body": "{\"error\":\"unauthorized\"}"
+    }
+  },
+  {
+    "name": "get user info, odd key",
+    "env": {},
+    "files": {},
+    "request": {
+      "method": "GET",
+      "path": "/reforged/api/GetUserInfo",
+      "headers": {
+        "x-reforged-user-api-key": "no good"
+      }
+    },
+    "response": {
+      "status": 401,
+      "headers": {
+        "content-type": "application/json; charset=utf-8",
+        "content-length": "24"
+      },
+      "body": "{\"error\":\"unauthorized\"}"
+    }
+  },
+  {
+    "name": "create invite, not the host",
+    "env": {},
+    "files": {},
+    "request": {
+      "method": "POST",
+      "path": "/reforged/api/CreateInvite",
+      "json": "{}"
+    },
+    "response": {
+      "status": 403,
+      "headers": {
+        "content-type": "application/json; charset=utf-8",
+        "content-length": "21"
+      },
+      "body": "{\"error\":\"forbidden\"}"
+    }
+  },
+  {
+    "name": "create invite, wrong key",
+    "env": {
+      "REFORGED_ADMIN_KEY": "0123456789abcdef0123456789abcdef0123"
+    },
+    "files": {},
+    "request": {
+      "method": "POST",
+      "path": "/reforged/api/CreateInvite",
+      "json": "{}",
+      "headers": {
+        "x-reforged-admin-key": "wrong"
+      }
+    },
+    "response": {
+      "status": 403,
+      "headers": {
+        "content-type": "application/json; charset=utf-8",
+        "content-length": "21"
+      },
+      "body": "{\"error\":\"forbidden\"}"
+    }
+  },
+  {
+    "name": "create invite, gateway stamp",
+    "env": {
+      "REFORGED_ADMIN_KEY": "0123456789abcdef0123456789abcdef0123"
+    },
+    "files": {},
+    "request": {
+      "method": "POST",
+      "path": "/reforged/api/CreateInvite",
+      "json": "{}",
+      "headers": {
+        "x-reforged-admin-key": "0123456789abcdef0123456789abcdef0123",
+        "x-reforged-gateway": "1"
+      }
+    },
+    "response": {
+      "status": 403,
+      "headers": {
+        "content-type": "application/json; charset=utf-8",
+        "content-length": "21"
+      },
+      "body": "{\"error\":\"forbidden\"}"
+    }
+  },
+  {
+    "name": "create invite, forwarded",
+    "env": {
+      "REFORGED_ADMIN_KEY": "0123456789abcdef0123456789abcdef0123"
+    },
+    "files": {},
+    "request": {
+      "method": "POST",
+      "path": "/reforged/api/CreateInvite",
+      "json": "{}",
+      "headers": {
+        "x-reforged-admin-key": "0123456789abcdef0123456789abcdef0123",
+        "x-forwarded-for": "203.0.113.9"
+      }
+    },
+    "response": {
+      "status": 403,
+      "headers": {
+        "content-type": "application/json; charset=utf-8",
+        "content-length": "21"
+      },
+      "body": "{\"error\":\"forbidden\"}"
+    }
+  },
+  {
+    "name": "create invite, key too short",
+    "env": {
+      "REFORGED_ADMIN_KEY": "short"
+    },
+    "files": {},
+    "request": {
+      "method": "POST",
+      "path": "/reforged/api/CreateInvite",
+      "json": "{}",
+      "headers": {
+        "x-reforged-admin-key": "short"
+      }
+    },
+    "response": {
+      "status": 403,
+      "headers": {
+        "content-type": "application/json; charset=utf-8",
+        "content-length": "21"
+      },
+      "body": "{\"error\":\"forbidden\"}"
+    }
+  },
+  {
+    "name": "create invite, no uses",
+    "env": {
+      "REFORGED_ADMIN_KEY": "0123456789abcdef0123456789abcdef0123"
+    },
+    "files": {},
+    "request": {
+      "method": "POST",
+      "path": "/reforged/api/CreateInvite",
+      "json": "{\"uses\":0}",
+      "headers": {
+        "x-reforged-admin-key": "0123456789abcdef0123456789abcdef0123"
+      }
+    },
+    "response": {
+      "status": 400,
+      "headers": {
+        "content-type": "application/json; charset=utf-8",
+        "content-length": "87"
+      },
+      "body": "{\"error\":\"bad_request\",\"message\":\"uses is a whole number from 1 to 1000; name is text\"}"
+    }
+  },
+  {
+    "name": "create invite, too many uses",
+    "env": {
+      "REFORGED_ADMIN_KEY": "0123456789abcdef0123456789abcdef0123"
+    },
+    "files": {},
+    "request": {
+      "method": "POST",
+      "path": "/reforged/api/CreateInvite",
+      "json": "{\"uses\":1001}",
+      "headers": {
+        "x-reforged-admin-key": "0123456789abcdef0123456789abcdef0123"
+      }
+    },
+    "response": {
+      "status": 400,
+      "headers": {
+        "content-type": "application/json; charset=utf-8",
+        "content-length": "87"
+      },
+      "body": "{\"error\":\"bad_request\",\"message\":\"uses is a whole number from 1 to 1000; name is text\"}"
+    }
+  },
+  {
+    "name": "create invite, fractional uses",
+    "env": {
+      "REFORGED_ADMIN_KEY": "0123456789abcdef0123456789abcdef0123"
+    },
+    "files": {},
+    "request": {
+      "method": "POST",
+      "path": "/reforged/api/CreateInvite",
+      "json": "{\"uses\":1.5}",
+      "headers": {
+        "x-reforged-admin-key": "0123456789abcdef0123456789abcdef0123"
+      }
+    },
+    "response": {
+      "status": 400,
+      "headers": {
+        "content-type": "application/json; charset=utf-8",
+        "content-length": "87"
+      },
+      "body": "{\"error\":\"bad_request\",\"message\":\"uses is a whole number from 1 to 1000; name is text\"}"
+    }
+  },
+  {
+    "name": "create invite, text uses",
+    "env": {
+      "REFORGED_ADMIN_KEY": "0123456789abcdef0123456789abcdef0123"
+    },
+    "files": {},
+    "request": {
+      "method": "POST",
+      "path": "/reforged/api/CreateInvite",
+      "json": "{\"uses\":\"2\"}",
+      "headers": {
+        "x-reforged-admin-key": "0123456789abcdef0123456789abcdef0123"
+      }
+    },
+    "response": {
+      "status": 400,
+      "headers": {
+        "content-type": "application/json; charset=utf-8",
+        "content-length": "87"
+      },
+      "body": "{\"error\":\"bad_request\",\"message\":\"uses is a whole number from 1 to 1000; name is text\"}"
+    }
+  },
+  {
+    "name": "create invite, name not text",
+    "env": {
+      "REFORGED_ADMIN_KEY": "0123456789abcdef0123456789abcdef0123"
+    },
+    "files": {},
+    "request": {
+      "method": "POST",
+      "path": "/reforged/api/CreateInvite",
+      "json": "{\"name\":5}",
+      "headers": {
+        "x-reforged-admin-key": "0123456789abcdef0123456789abcdef0123"
+      }
+    },
+    "response": {
+      "status": 400,
+      "headers": {
+        "content-type": "application/json; charset=utf-8",
+        "content-length": "87"
+      },
+      "body": "{\"error\":\"bad_request\",\"message\":\"uses is a whole number from 1 to 1000; name is text\"}"
+    }
+  },
+  {
+    "name": "invite codes, not the host",
+    "env": {},
+    "files": {},
+    "request": {
+      "method": "GET",
+      "path": "/reforged/api/InviteCodes"
+    },
+    "response": {
+      "status": 403,
+      "headers": {
+        "content-type": "application/json; charset=utf-8",
+        "content-length": "21"
+      },
+      "body": "{\"error\":\"forbidden\"}"
+    }
+  },
+  {
+    "name": "delete invite, not the host",
+    "env": {},
+    "files": {},
+    "request": {
+      "method": "DELETE",
+      "path": "/reforged/api/InviteCode/ABCD-EFGH-JKMN"
+    },
+    "response": {
+      "status": 403,
+      "headers": {
+        "content-type": "application/json; charset=utf-8",
+        "content-length": "21"
+      },
+      "body": "{\"error\":\"forbidden\"}"
+    }
+  },
+  {
+    "name": "delete invite, bad code",
+    "env": {
+      "REFORGED_ADMIN_KEY": "0123456789abcdef0123456789abcdef0123"
+    },
+    "files": {},
+    "request": {
+      "method": "DELETE",
+      "path": "/reforged/api/InviteCode/a%20b",
+      "headers": {
+        "x-reforged-admin-key": "0123456789abcdef0123456789abcdef0123"
+      }
+    },
+    "response": {
+      "status": 400,
+      "headers": {
+        "content-type": "application/json; charset=utf-8",
+        "content-length": "23"
+      },
+      "body": "{\"error\":\"bad_request\"}"
+    }
+  },
+  {
+    "name": "delete invite, too short",
+    "env": {
+      "REFORGED_ADMIN_KEY": "0123456789abcdef0123456789abcdef0123"
+    },
+    "files": {},
+    "request": {
+      "method": "DELETE",
+      "path": "/reforged/api/InviteCode/abc",
+      "headers": {
+        "x-reforged-admin-key": "0123456789abcdef0123456789abcdef0123"
+      }
+    },
+    "response": {
+      "status": 400,
+      "headers": {
+        "content-type": "application/json; charset=utf-8",
+        "content-length": "23"
+      },
+      "body": "{\"error\":\"bad_request\"}"
+    }
+  },
+  {
+    "name": "set account status, not the host",
+    "env": {},
+    "files": {},
+    "request": {
+      "method": "POST",
+      "path": "/reforged/api/SetAccountStatus",
+      "json": "{}"
+    },
+    "response": {
+      "status": 403,
+      "headers": {
+        "content-type": "application/json; charset=utf-8",
+        "content-length": "21"
+      },
+      "body": "{\"error\":\"forbidden\"}"
+    }
+  },
+  {
+    "name": "set account status, no status",
+    "env": {
+      "REFORGED_ADMIN_KEY": "0123456789abcdef0123456789abcdef0123"
+    },
+    "files": {},
+    "request": {
+      "method": "POST",
+      "path": "/reforged/api/SetAccountStatus",
+      "json": "{\"Username\":\"Fox_9\"}",
+      "headers": {
+        "x-reforged-admin-key": "0123456789abcdef0123456789abcdef0123"
+      }
+    },
+    "response": {
+      "status": 400,
+      "headers": {
+        "content-type": "application/json; charset=utf-8",
+        "content-length": "98"
+      },
+      "body": "{\"error\":\"bad_request\",\"message\":\"Username and Status (active, banned or disabled) are required.\"}"
+    }
+  },
+  {
+    "name": "set account status, unknown status",
+    "env": {
+      "REFORGED_ADMIN_KEY": "0123456789abcdef0123456789abcdef0123"
+    },
+    "files": {},
+    "request": {
+      "method": "POST",
+      "path": "/reforged/api/SetAccountStatus",
+      "json": "{\"Username\":\"Fox_9\",\"Status\":\"gone\"}",
+      "headers": {
+        "x-reforged-admin-key": "0123456789abcdef0123456789abcdef0123"
+      }
+    },
+    "response": {
+      "status": 400,
+      "headers": {
+        "content-type": "application/json; charset=utf-8",
+        "content-length": "98"
+      },
+      "body": "{\"error\":\"bad_request\",\"message\":\"Username and Status (active, banned or disabled) are required.\"}"
+    }
+  },
+  {
+    "name": "kick, not the host",
+    "env": {},
+    "files": {},
+    "request": {
+      "method": "POST",
+      "path": "/reforged/api/Kick",
+      "json": "{}"
+    },
+    "response": {
+      "status": 403,
+      "headers": {
+        "content-type": "application/json; charset=utf-8",
+        "content-length": "21"
+      },
+      "body": "{\"error\":\"forbidden\"}"
+    }
+  },
+  {
+    "name": "kick, no name",
+    "env": {
+      "REFORGED_ADMIN_KEY": "0123456789abcdef0123456789abcdef0123"
+    },
+    "files": {},
+    "request": {
+      "method": "POST",
+      "path": "/reforged/api/Kick",
+      "json": "{}",
+      "headers": {
+        "x-reforged-admin-key": "0123456789abcdef0123456789abcdef0123"
+      }
+    },
+    "response": {
+      "status": 400,
+      "headers": {
+        "content-type": "application/json; charset=utf-8",
+        "content-length": "57"
+      },
+      "body": "{\"error\":\"bad_request\",\"message\":\"Username is required.\"}"
+    }
+  },
+  {
+    "name": "kick, bad name",
+    "env": {
+      "REFORGED_ADMIN_KEY": "0123456789abcdef0123456789abcdef0123"
+    },
+    "files": {},
+    "request": {
+      "method": "POST",
+      "path": "/reforged/api/Kick",
+      "json": "{\"Username\":\"a b\"}",
+      "headers": {
+        "x-reforged-admin-key": "0123456789abcdef0123456789abcdef0123"
+      }
+    },
+    "response": {
+      "status": 400,
+      "headers": {
+        "content-type": "application/json; charset=utf-8",
+        "content-length": "57"
+      },
+      "body": "{\"error\":\"bad_request\",\"message\":\"Username is required.\"}"
+    }
+  },
+  {
+    "name": "server status, limited",
+    "env": {
+      "REFORGED_SERVER_NAME": "  Fox\u0007hold  ",
+      "REFORGED_SERVER_VERSION": "1.2.3",
+      "REFORGED_SOURCE_URL": "https://Example.COM/src",
+      "REFORGED_SOURCE_COMMIT": " abc123 "
+    },
+    "files": {},
+    "request": {
+      "method": "GET",
+      "path": "/reforged/api/ServerStatus"
+    },
+    "response": {
+      "status": 200,
+      "headers": {
+        "content-type": "application/json; charset=utf-8",
+        "cache-control": "no-store",
+        "content-length": "348",
+        "vary": "x-reforged-user-api-key"
+      },
+      "body": "{\"name\":\"Fox hold\",\"online\":true,\"version\":\"1.2.3\",\"commit\":\"abc123\",\"sourceUrl\":\"https://example.com/src\",\"registration\":\"INVITECODE\",\"uptimeSeconds\":0,\"contentPort\":null,\"game\":{\"build\":\"rel-1.14.7-Archon\",\"changelist\":647472,\"executableSha256\":null},\"gameData\":\"missing\",\"chat\":false,\"playersOnline\":0,\"players\":[],\"instances\":[],\"limited\":true}"
+    }
+  },
+  {
+    "name": "server status, defaults and a bad url",
+    "env": {
+      "REFORGED_SOURCE_URL": "http://example.com/src",
+      "APPROVED_EXECUTABLE_SHA256": "xyz"
+    },
+    "files": {},
+    "request": {
+      "method": "GET",
+      "path": "/reforged/api/ServerStatus"
+    },
+    "response": {
+      "status": 200,
+      "headers": {
+        "content-type": "application/json; charset=utf-8",
+        "cache-control": "no-store",
+        "content-length": "330",
+        "vary": "x-reforged-user-api-key"
+      },
+      "body": "{\"name\":\"DaintyLass server\",\"online\":true,\"version\":\"0.1.0\",\"commit\":\"\",\"sourceUrl\":null,\"registration\":\"INVITECODE\",\"uptimeSeconds\":0,\"contentPort\":null,\"game\":{\"build\":\"rel-1.14.7-Archon\",\"changelist\":647472,\"executableSha256\":null},\"gameData\":\"missing\",\"chat\":false,\"playersOnline\":0,\"players\":[],\"instances\":[],\"limited\":true}"
+    }
+  },
+  {
+    "name": "server status, hash and chat",
+    "env": {
+      "APPROVED_EXECUTABLE_SHA256": "ABABABABABABABABABABABABABABABABABABABABABABABABABABABABABABABAB",
+      "REALTIME_XMPP_ENABLED": "true",
+      "REGISTRATION_MODE": "OPEN",
+      "REFORGED_SOURCE_URL": "https://user:pw@example.com/"
+    },
+    "files": {},
+    "request": {
+      "method": "GET",
+      "path": "/reforged/api/ServerStatus"
+    },
+    "response": {
+      "status": 200,
+      "headers": {
+        "content-type": "application/json; charset=utf-8",
+        "cache-control": "no-store",
+        "content-length": "385",
+        "vary": "x-reforged-user-api-key"
+      },
+      "body": "{\"name\":\"DaintyLass server\",\"online\":true,\"version\":\"0.1.0\",\"commit\":\"\",\"sourceUrl\":null,\"registration\":\"OPEN\",\"uptimeSeconds\":0,\"contentPort\":null,\"game\":{\"build\":\"rel-1.14.7-Archon\",\"changelist\":647472,\"executableSha256\":\"abababababababababababababababababababababababababababababababab\"},\"gameData\":\"missing\",\"chat\":true,\"playersOnline\":0,\"players\":[],\"instances\":[],\"limited\":true}"
+    }
+  },
+  {
+    "name": "runtime manifest",
+    "env": {
+      "UPDATE_PUBLIC_BASE_URL": "https://updates.example.test/"
+    },
+    "files": {
+      "runtime/client/stable/windows-x86_64/latest.json": "{\"schema\":1,\"component\":\"ParadoxRuntime\",\"target\":\"client\",\"version\":\"1.2.3\",\"channel\":\"stable\",\"targetChangelist\":647472,\"platform\":\"windows-x86_64\",\"size\":3,\"sha256\":\"00\",\"signature\":\"sig\",\"file\":\"ParadoxRuntime-1.2.3-client-647472.dll\",\"publishedAt\":\"2026-10-01T00:00:00.000Z\",\"url\":\"https://updates.example.test/x\",\"extraFiles\":[{\"name\":\"winmm.dll\",\"size\":5,\"sha256\":\"11\",\"signature\":\"s2\",\"url\":\"u\"}]}",
+      "runtime/client/stable/windows-x86_64/1.2.3/ParadoxRuntime-1.2.3-client-647472.dll": "dll",
+      "runtime/client/stable/windows-x86_64/1.2.3/winmm.dll": "winmm"
+    },
+    "request": {
+      "method": "GET",
+      "path": "/launcher/v1/runtime/client/stable/windows-x86_64"
+    },
+    "response": {
+      "status": 200,
+      "headers": {
+        "content-type": "application/json; charset=utf-8",
+        "cache-control": "no-cache, no-store, must-revalidate",
+        "content-length": "405"
+      },
+      "body": "{\"schema\":1,\"component\":\"ParadoxRuntime\",\"target\":\"client\",\"version\":\"1.2.3\",\"channel\":\"stable\",\"targetChangelist\":647472,\"platform\":\"windows-x86_64\",\"size\":3,\"sha256\":\"00\",\"signature\":\"sig\",\"file\":\"ParadoxRuntime-1.2.3-client-647472.dll\",\"publishedAt\":\"2026-10-01T00:00:00.000Z\",\"url\":\"https://updates.example.test/x\",\"extraFiles\":[{\"name\":\"winmm.dll\",\"size\":5,\"sha256\":\"11\",\"signature\":\"s2\",\"url\":\"u\"}]}"
+    }
+  },
+  {
+    "name": "runtime manifest, client form",
+    "env": {
+      "UPDATE_PUBLIC_BASE_URL": "https://updates.example.test/"
+    },
+    "files": {
+      "runtime/client/stable/windows-x86_64/latest.json": "{\"schema\":1,\"component\":\"ParadoxRuntime\",\"target\":\"client\",\"version\":\"1.2.3\",\"channel\":\"stable\",\"targetChangelist\":647472,\"platform\":\"windows-x86_64\",\"size\":3,\"sha256\":\"00\",\"signature\":\"sig\",\"file\":\"ParadoxRuntime-1.2.3-client-647472.dll\",\"publishedAt\":\"2026-10-01T00:00:00.000Z\",\"url\":\"https://updates.example.test/x\",\"extraFiles\":[{\"name\":\"winmm.dll\",\"size\":5,\"sha256\":\"11\",\"signature\":\"s2\",\"url\":\"u\"}]}",
+      "runtime/client/stable/windows-x86_64/1.2.3/ParadoxRuntime-1.2.3-client-647472.dll": "dll",
+      "runtime/client/stable/windows-x86_64/1.2.3/winmm.dll": "winmm"
+    },
+    "request": {
+      "method": "GET",
+      "path": "/launcher/v1/runtime/stable/windows-x86_64"
+    },
+    "response": {
+      "status": 200,
+      "headers": {
+        "content-type": "application/json; charset=utf-8",
+        "cache-control": "no-cache, no-store, must-revalidate",
+        "content-length": "405"
+      },
+      "body": "{\"schema\":1,\"component\":\"ParadoxRuntime\",\"target\":\"client\",\"version\":\"1.2.3\",\"channel\":\"stable\",\"targetChangelist\":647472,\"platform\":\"windows-x86_64\",\"size\":3,\"sha256\":\"00\",\"signature\":\"sig\",\"file\":\"ParadoxRuntime-1.2.3-client-647472.dll\",\"publishedAt\":\"2026-10-01T00:00:00.000Z\",\"url\":\"https://updates.example.test/x\",\"extraFiles\":[{\"name\":\"winmm.dll\",\"size\":5,\"sha256\":\"11\",\"signature\":\"s2\",\"url\":\"u\"}]}"
+    }
+  },
+  {
+    "name": "runtime manifest, missing",
+    "env": {
+      "UPDATE_PUBLIC_BASE_URL": "https://updates.example.test/"
+    },
+    "files": {},
+    "request": {
+      "method": "GET",
+      "path": "/launcher/v1/runtime/client/stable/windows-x86_64"
+    },
+    "response": {
+      "status": 404,
+      "headers": {
+        "content-type": "text/plain; charset=utf-8",
+        "content-length": "9"
+      },
+      "body": "Not Found"
+    }
+  },
+  {
+    "name": "runtime manifest, other platform",
+    "env": {
+      "UPDATE_PUBLIC_BASE_URL": "https://updates.example.test/"
+    },
+    "files": {
+      "runtime/client/stable/windows-x86_64/latest.json": "{\"schema\":1,\"component\":\"ParadoxRuntime\",\"target\":\"client\",\"version\":\"1.2.3\",\"channel\":\"stable\",\"targetChangelist\":647472,\"platform\":\"windows-x86_64\",\"size\":3,\"sha256\":\"00\",\"signature\":\"sig\",\"file\":\"ParadoxRuntime-1.2.3-client-647472.dll\",\"publishedAt\":\"2026-10-01T00:00:00.000Z\",\"url\":\"https://updates.example.test/x\",\"extraFiles\":[{\"name\":\"winmm.dll\",\"size\":5,\"sha256\":\"11\",\"signature\":\"s2\",\"url\":\"u\"}]}",
+      "runtime/client/stable/windows-x86_64/1.2.3/ParadoxRuntime-1.2.3-client-647472.dll": "dll",
+      "runtime/client/stable/windows-x86_64/1.2.3/winmm.dll": "winmm"
+    },
+    "request": {
+      "method": "GET",
+      "path": "/launcher/v1/runtime/client/stable/linux"
+    },
+    "response": {
+      "status": 404,
+      "headers": {
+        "content-type": "text/plain; charset=utf-8",
+        "content-length": "9"
+      },
+      "body": "Not Found"
+    }
+  },
+  {
+    "name": "runtime manifest, bad target",
+    "env": {
+      "UPDATE_PUBLIC_BASE_URL": "https://updates.example.test/"
+    },
+    "files": {
+      "runtime/client/stable/windows-x86_64/latest.json": "{\"schema\":1,\"component\":\"ParadoxRuntime\",\"target\":\"client\",\"version\":\"1.2.3\",\"channel\":\"stable\",\"targetChangelist\":647472,\"platform\":\"windows-x86_64\",\"size\":3,\"sha256\":\"00\",\"signature\":\"sig\",\"file\":\"ParadoxRuntime-1.2.3-client-647472.dll\",\"publishedAt\":\"2026-10-01T00:00:00.000Z\",\"url\":\"https://updates.example.test/x\",\"extraFiles\":[{\"name\":\"winmm.dll\",\"size\":5,\"sha256\":\"11\",\"signature\":\"s2\",\"url\":\"u\"}]}",
+      "runtime/client/stable/windows-x86_64/1.2.3/ParadoxRuntime-1.2.3-client-647472.dll": "dll",
+      "runtime/client/stable/windows-x86_64/1.2.3/winmm.dll": "winmm"
+    },
+    "request": {
+      "method": "GET",
+      "path": "/launcher/v1/runtime/bot/stable/windows-x86_64"
+    },
+    "response": {
+      "status": 400,
+      "headers": {
+        "content-type": "text/plain; charset=utf-8",
+        "content-length": "11"
+      },
+      "body": "Bad Request"
+    }
+  },
+  {
+    "name": "runtime manifest, server target",
+    "env": {
+      "UPDATE_PUBLIC_BASE_URL": "https://updates.example.test/"
+    },
+    "files": {
+      "runtime/client/stable/windows-x86_64/latest.json": "{\"schema\":1,\"component\":\"ParadoxRuntime\",\"target\":\"client\",\"version\":\"1.2.3\",\"channel\":\"stable\",\"targetChangelist\":647472,\"platform\":\"windows-x86_64\",\"size\":3,\"sha256\":\"00\",\"signature\":\"sig\",\"file\":\"ParadoxRuntime-1.2.3-client-647472.dll\",\"publishedAt\":\"2026-10-01T00:00:00.000Z\",\"url\":\"https://updates.example.test/x\",\"extraFiles\":[{\"name\":\"winmm.dll\",\"size\":5,\"sha256\":\"11\",\"signature\":\"s2\",\"url\":\"u\"}]}",
+      "runtime/client/stable/windows-x86_64/1.2.3/ParadoxRuntime-1.2.3-client-647472.dll": "dll",
+      "runtime/client/stable/windows-x86_64/1.2.3/winmm.dll": "winmm"
+    },
+    "request": {
+      "method": "GET",
+      "path": "/launcher/v1/runtime/server/stable/windows-x86_64"
+    },
+    "response": {
+      "status": 404,
+      "headers": {
+        "content-type": "text/plain; charset=utf-8",
+        "content-length": "9"
+      },
+      "body": "Not Found"
+    }
+  },
+  {
+    "name": "runtime manifest, bad segment",
+    "env": {
+      "UPDATE_PUBLIC_BASE_URL": "https://updates.example.test/"
+    },
+    "files": {
+      "runtime/client/stable/windows-x86_64/latest.json": "{\"schema\":1,\"component\":\"ParadoxRuntime\",\"target\":\"client\",\"version\":\"1.2.3\",\"channel\":\"stable\",\"targetChangelist\":647472,\"platform\":\"windows-x86_64\",\"size\":3,\"sha256\":\"00\",\"signature\":\"sig\",\"file\":\"ParadoxRuntime-1.2.3-client-647472.dll\",\"publishedAt\":\"2026-10-01T00:00:00.000Z\",\"url\":\"https://updates.example.test/x\",\"extraFiles\":[{\"name\":\"winmm.dll\",\"size\":5,\"sha256\":\"11\",\"signature\":\"s2\",\"url\":\"u\"}]}",
+      "runtime/client/stable/windows-x86_64/1.2.3/ParadoxRuntime-1.2.3-client-647472.dll": "dll",
+      "runtime/client/stable/windows-x86_64/1.2.3/winmm.dll": "winmm"
+    },
+    "request": {
+      "method": "GET",
+      "path": "/launcher/v1/runtime/client/stable/win%2Fdows"
+    },
+    "response": {
+      "status": 400,
+      "headers": {
+        "content-type": "text/plain; charset=utf-8",
+        "content-length": "11"
+      },
+      "body": "Bad Request"
+    }
+  },
+  {
+    "name": "runtime manifest, unreadable",
+    "env": {
+      "UPDATE_PUBLIC_BASE_URL": "https://updates.example.test/"
+    },
+    "files": {
+      "runtime/client/stable/windows-x86_64/latest.json": "{not json"
+    },
+    "request": {
+      "method": "GET",
+      "path": "/launcher/v1/runtime/client/stable/windows-x86_64"
+    },
+    "response": {
+      "status": 404,
+      "headers": {
+        "content-type": "text/plain; charset=utf-8",
+        "content-length": "9"
+      },
+      "body": "Not Found"
+    }
+  },
+  {
+    "name": "runtime manifest, paused",
+    "env": {
+      "UPDATE_PUBLIC_BASE_URL": "https://updates.example.test/"
+    },
+    "files": {
+      "runtime/client/stable/windows-x86_64/latest.json": "{\"schema\":1,\"component\":\"ParadoxRuntime\",\"target\":\"client\",\"version\":\"1.2.3\",\"channel\":\"stable\",\"targetChangelist\":647472,\"platform\":\"windows-x86_64\",\"size\":3,\"sha256\":\"00\",\"signature\":\"sig\",\"file\":\"ParadoxRuntime-1.2.3-client-647472.dll\",\"publishedAt\":\"2026-10-01T00:00:00.000Z\",\"url\":\"https://updates.example.test/x\",\"extraFiles\":[{\"name\":\"winmm.dll\",\"size\":5,\"sha256\":\"11\",\"signature\":\"s2\",\"url\":\"u\"}]}",
+      "runtime/client/stable/windows-x86_64/1.2.3/ParadoxRuntime-1.2.3-client-647472.dll": "dll",
+      "runtime/client/stable/windows-x86_64/1.2.3/winmm.dll": "winmm",
+      "serving.json": "{\"runtimeEnabled\":false}"
+    },
+    "request": {
+      "method": "GET",
+      "path": "/launcher/v1/runtime/client/stable/windows-x86_64"
+    },
+    "response": {
+      "status": 204,
+      "headers": {
+        "cache-control": "no-cache, no-store, must-revalidate"
+      },
+      "body": ""
+    }
+  },
+  {
+    "name": "runtime manifest, switch unreadable",
+    "env": {
+      "UPDATE_PUBLIC_BASE_URL": "https://updates.example.test/"
+    },
+    "files": {
+      "runtime/client/stable/windows-x86_64/latest.json": "{\"schema\":1,\"component\":\"ParadoxRuntime\",\"target\":\"client\",\"version\":\"1.2.3\",\"channel\":\"stable\",\"targetChangelist\":647472,\"platform\":\"windows-x86_64\",\"size\":3,\"sha256\":\"00\",\"signature\":\"sig\",\"file\":\"ParadoxRuntime-1.2.3-client-647472.dll\",\"publishedAt\":\"2026-10-01T00:00:00.000Z\",\"url\":\"https://updates.example.test/x\",\"extraFiles\":[{\"name\":\"winmm.dll\",\"size\":5,\"sha256\":\"11\",\"signature\":\"s2\",\"url\":\"u\"}]}",
+      "runtime/client/stable/windows-x86_64/1.2.3/ParadoxRuntime-1.2.3-client-647472.dll": "dll",
+      "runtime/client/stable/windows-x86_64/1.2.3/winmm.dll": "winmm",
+      "serving.json": "nonsense"
+    },
+    "request": {
+      "method": "GET",
+      "path": "/launcher/v1/runtime/client/stable/windows-x86_64"
+    },
+    "response": {
+      "status": 200,
+      "headers": {
+        "content-type": "application/json; charset=utf-8",
+        "cache-control": "no-cache, no-store, must-revalidate",
+        "content-length": "405"
+      },
+      "body": "{\"schema\":1,\"component\":\"ParadoxRuntime\",\"target\":\"client\",\"version\":\"1.2.3\",\"channel\":\"stable\",\"targetChangelist\":647472,\"platform\":\"windows-x86_64\",\"size\":3,\"sha256\":\"00\",\"signature\":\"sig\",\"file\":\"ParadoxRuntime-1.2.3-client-647472.dll\",\"publishedAt\":\"2026-10-01T00:00:00.000Z\",\"url\":\"https://updates.example.test/x\",\"extraFiles\":[{\"name\":\"winmm.dll\",\"size\":5,\"sha256\":\"11\",\"signature\":\"s2\",\"url\":\"u\"}]}"
+    }
+  },
+  {
+    "name": "runtime manifest, paused but a bad segment",
+    "env": {
+      "UPDATE_PUBLIC_BASE_URL": "https://updates.example.test/"
+    },
+    "files": {
+      "serving.json": "{\"runtimeEnabled\":false}"
+    },
+    "request": {
+      "method": "GET",
+      "path": "/launcher/v1/runtime/client/stable/win%2Fdows"
+    },
+    "response": {
+      "status": 204,
+      "headers": {
+        "cache-control": "no-cache, no-store, must-revalidate"
+      },
+      "body": ""
+    }
+  },
+  {
+    "name": "runtime download",
+    "env": {
+      "UPDATE_PUBLIC_BASE_URL": "https://updates.example.test/"
+    },
+    "files": {
+      "runtime/client/stable/windows-x86_64/latest.json": "{\"schema\":1,\"component\":\"ParadoxRuntime\",\"target\":\"client\",\"version\":\"1.2.3\",\"channel\":\"stable\",\"targetChangelist\":647472,\"platform\":\"windows-x86_64\",\"size\":3,\"sha256\":\"00\",\"signature\":\"sig\",\"file\":\"ParadoxRuntime-1.2.3-client-647472.dll\",\"publishedAt\":\"2026-10-01T00:00:00.000Z\",\"url\":\"https://updates.example.test/x\",\"extraFiles\":[{\"name\":\"winmm.dll\",\"size\":5,\"sha256\":\"11\",\"signature\":\"s2\",\"url\":\"u\"}]}",
+      "runtime/client/stable/windows-x86_64/1.2.3/ParadoxRuntime-1.2.3-client-647472.dll": "dll",
+      "runtime/client/stable/windows-x86_64/1.2.3/winmm.dll": "winmm"
+    },
+    "request": {
+      "method": "GET",
+      "path": "/launcher/v1/runtime/client/stable/windows-x86_64/download"
+    },
+    "response": {
+      "status": 200,
+      "headers": {
+        "content-type": "application/octet-stream",
+        "cache-control": "public, max-age=31536000, immutable",
+        "content-length": "3"
+      },
+      "body": "dll"
+    }
+  },
+  {
+    "name": "runtime download, file missing",
+    "env": {
+      "UPDATE_PUBLIC_BASE_URL": "https://updates.example.test/"
+    },
+    "files": {
+      "runtime/client/stable/windows-x86_64/latest.json": "{\"schema\":1,\"component\":\"ParadoxRuntime\",\"target\":\"client\",\"version\":\"1.2.3\",\"channel\":\"stable\",\"targetChangelist\":647472,\"platform\":\"windows-x86_64\",\"size\":3,\"sha256\":\"00\",\"signature\":\"sig\",\"file\":\"ParadoxRuntime-1.2.3-client-647472.dll\",\"publishedAt\":\"2026-10-01T00:00:00.000Z\",\"url\":\"https://updates.example.test/x\",\"extraFiles\":[{\"name\":\"winmm.dll\",\"size\":5,\"sha256\":\"11\",\"signature\":\"s2\",\"url\":\"u\"}]}"
+    },
+    "request": {
+      "method": "GET",
+      "path": "/launcher/v1/runtime/client/stable/windows-x86_64/download"
+    },
+    "response": {
+      "status": 404,
+      "headers": {
+        "content-type": "text/plain; charset=utf-8",
+        "content-length": "9"
+      },
+      "body": "Not Found"
+    }
+  },
+  {
+    "name": "runtime download, a path for a file",
+    "env": {
+      "UPDATE_PUBLIC_BASE_URL": "https://updates.example.test/"
+    },
+    "files": {
+      "runtime/client/stable/windows-x86_64/latest.json": "{\"schema\":1,\"component\":\"ParadoxRuntime\",\"target\":\"client\",\"version\":\"1.2.3\",\"channel\":\"stable\",\"targetChangelist\":647472,\"platform\":\"windows-x86_64\",\"size\":3,\"sha256\":\"00\",\"signature\":\"sig\",\"file\":\"../x.dll\",\"publishedAt\":\"2026-10-01T00:00:00.000Z\",\"url\":\"https://updates.example.test/x\",\"extraFiles\":[{\"name\":\"winmm.dll\",\"size\":5,\"sha256\":\"11\",\"signature\":\"s2\",\"url\":\"u\"}]}",
+      "runtime/client/stable/windows-x86_64/1.2.3/ParadoxRuntime-1.2.3-client-647472.dll": "dll",
+      "runtime/client/stable/windows-x86_64/1.2.3/winmm.dll": "winmm"
+    },
+    "request": {
+      "method": "GET",
+      "path": "/launcher/v1/runtime/client/stable/windows-x86_64/download"
+    },
+    "response": {
+      "status": 404,
+      "headers": {
+        "content-type": "text/plain; charset=utf-8",
+        "content-length": "9"
+      },
+      "body": "Not Found"
+    }
+  },
+  {
+    "name": "runtime download, a path for a version",
+    "env": {
+      "UPDATE_PUBLIC_BASE_URL": "https://updates.example.test/"
+    },
+    "files": {
+      "runtime/client/stable/windows-x86_64/latest.json": "{\"schema\":1,\"component\":\"ParadoxRuntime\",\"target\":\"client\",\"version\":\"../1\",\"channel\":\"stable\",\"targetChangelist\":647472,\"platform\":\"windows-x86_64\",\"size\":3,\"sha256\":\"00\",\"signature\":\"sig\",\"file\":\"ParadoxRuntime-1.2.3-client-647472.dll\",\"publishedAt\":\"2026-10-01T00:00:00.000Z\",\"url\":\"https://updates.example.test/x\",\"extraFiles\":[{\"name\":\"winmm.dll\",\"size\":5,\"sha256\":\"11\",\"signature\":\"s2\",\"url\":\"u\"}]}",
+      "runtime/client/stable/windows-x86_64/1.2.3/ParadoxRuntime-1.2.3-client-647472.dll": "dll",
+      "runtime/client/stable/windows-x86_64/1.2.3/winmm.dll": "winmm"
+    },
+    "request": {
+      "method": "GET",
+      "path": "/launcher/v1/runtime/client/stable/windows-x86_64/download"
+    },
+    "response": {
+      "status": 400,
+      "headers": {
+        "content-type": "text/plain; charset=utf-8",
+        "content-length": "11"
+      },
+      "body": "Bad Request"
+    }
+  },
+  {
+    "name": "runtime download, bad target",
+    "env": {
+      "UPDATE_PUBLIC_BASE_URL": "https://updates.example.test/"
+    },
+    "files": {
+      "runtime/client/stable/windows-x86_64/latest.json": "{\"schema\":1,\"component\":\"ParadoxRuntime\",\"target\":\"client\",\"version\":\"1.2.3\",\"channel\":\"stable\",\"targetChangelist\":647472,\"platform\":\"windows-x86_64\",\"size\":3,\"sha256\":\"00\",\"signature\":\"sig\",\"file\":\"ParadoxRuntime-1.2.3-client-647472.dll\",\"publishedAt\":\"2026-10-01T00:00:00.000Z\",\"url\":\"https://updates.example.test/x\",\"extraFiles\":[{\"name\":\"winmm.dll\",\"size\":5,\"sha256\":\"11\",\"signature\":\"s2\",\"url\":\"u\"}]}",
+      "runtime/client/stable/windows-x86_64/1.2.3/ParadoxRuntime-1.2.3-client-647472.dll": "dll",
+      "runtime/client/stable/windows-x86_64/1.2.3/winmm.dll": "winmm"
+    },
+    "request": {
+      "method": "GET",
+      "path": "/launcher/v1/runtime/bot/stable/windows-x86_64/download"
+    },
+    "response": {
+      "status": 400,
+      "headers": {
+        "content-type": "text/plain; charset=utf-8",
+        "content-length": "11"
+      },
+      "body": "Bad Request"
+    }
+  },
+  {
+    "name": "runtime download, the legacy url (shadowed)",
+    "env": {
+      "UPDATE_PUBLIC_BASE_URL": "https://updates.example.test/"
+    },
+    "files": {
+      "runtime/client/stable/windows-x86_64/latest.json": "{\"schema\":1,\"component\":\"ParadoxRuntime\",\"target\":\"client\",\"version\":\"1.2.3\",\"channel\":\"stable\",\"targetChangelist\":647472,\"platform\":\"windows-x86_64\",\"size\":3,\"sha256\":\"00\",\"signature\":\"sig\",\"file\":\"ParadoxRuntime-1.2.3-client-647472.dll\",\"publishedAt\":\"2026-10-01T00:00:00.000Z\",\"url\":\"https://updates.example.test/x\",\"extraFiles\":[{\"name\":\"winmm.dll\",\"size\":5,\"sha256\":\"11\",\"signature\":\"s2\",\"url\":\"u\"}]}",
+      "runtime/client/stable/windows-x86_64/1.2.3/ParadoxRuntime-1.2.3-client-647472.dll": "dll",
+      "runtime/client/stable/windows-x86_64/1.2.3/winmm.dll": "winmm"
+    },
+    "request": {
+      "method": "GET",
+      "path": "/launcher/v1/runtime/stable/windows-x86_64/download"
+    },
+    "response": {
+      "status": 400,
+      "headers": {
+        "content-type": "text/plain; charset=utf-8",
+        "content-length": "11"
+      },
+      "body": "Bad Request"
+    }
+  },
+  {
+    "name": "runtime download, the legacy url with a target as channel",
+    "env": {
+      "UPDATE_PUBLIC_BASE_URL": "https://updates.example.test/"
+    },
+    "files": {
+      "runtime/client/stable/windows-x86_64/latest.json": "{\"schema\":1,\"component\":\"ParadoxRuntime\",\"target\":\"client\",\"version\":\"1.2.3\",\"channel\":\"stable\",\"targetChangelist\":647472,\"platform\":\"windows-x86_64\",\"size\":3,\"sha256\":\"00\",\"signature\":\"sig\",\"file\":\"ParadoxRuntime-1.2.3-client-647472.dll\",\"publishedAt\":\"2026-10-01T00:00:00.000Z\",\"url\":\"https://updates.example.test/x\",\"extraFiles\":[{\"name\":\"winmm.dll\",\"size\":5,\"sha256\":\"11\",\"signature\":\"s2\",\"url\":\"u\"}]}",
+      "runtime/client/stable/windows-x86_64/1.2.3/ParadoxRuntime-1.2.3-client-647472.dll": "dll",
+      "runtime/client/stable/windows-x86_64/1.2.3/winmm.dll": "winmm"
+    },
+    "request": {
+      "method": "GET",
+      "path": "/launcher/v1/runtime/client/windows-x86_64/download"
+    },
+    "response": {
+      "status": 401,
+      "headers": {
+        "content-type": "application/json; charset=utf-8",
+        "content-length": "119"
+      },
+      "body": "{\"error\":{\"code\":\"AUTH_UNAUTHORIZED\",\"message\":\"Sign in required.\",\"requestId\":\"<id>\"}}"
+    }
+  },
+  {
+    "name": "runtime extra",
+    "env": {
+      "UPDATE_PUBLIC_BASE_URL": "https://updates.example.test/"
+    },
+    "files": {
+      "runtime/client/stable/windows-x86_64/latest.json": "{\"schema\":1,\"component\":\"ParadoxRuntime\",\"target\":\"client\",\"version\":\"1.2.3\",\"channel\":\"stable\",\"targetChangelist\":647472,\"platform\":\"windows-x86_64\",\"size\":3,\"sha256\":\"00\",\"signature\":\"sig\",\"file\":\"ParadoxRuntime-1.2.3-client-647472.dll\",\"publishedAt\":\"2026-10-01T00:00:00.000Z\",\"url\":\"https://updates.example.test/x\",\"extraFiles\":[{\"name\":\"winmm.dll\",\"size\":5,\"sha256\":\"11\",\"signature\":\"s2\",\"url\":\"u\"}]}",
+      "runtime/client/stable/windows-x86_64/1.2.3/ParadoxRuntime-1.2.3-client-647472.dll": "dll",
+      "runtime/client/stable/windows-x86_64/1.2.3/winmm.dll": "winmm"
+    },
+    "request": {
+      "method": "GET",
+      "path": "/launcher/v1/runtime/client/stable/windows-x86_64/extra/winmm.dll"
+    },
+    "response": {
+      "status": 200,
+      "headers": {
+        "content-type": "application/octet-stream",
+        "cache-control": "public, max-age=31536000, immutable",
+        "content-length": "5"
+      },
+      "body": "winmm"
+    }
+  },
+  {
+    "name": "runtime extra, unknown",
+    "env": {
+      "UPDATE_PUBLIC_BASE_URL": "https://updates.example.test/"
+    },
+    "files": {
+      "runtime/client/stable/windows-x86_64/latest.json": "{\"schema\":1,\"component\":\"ParadoxRuntime\",\"target\":\"client\",\"version\":\"1.2.3\",\"channel\":\"stable\",\"targetChangelist\":647472,\"platform\":\"windows-x86_64\",\"size\":3,\"sha256\":\"00\",\"signature\":\"sig\",\"file\":\"ParadoxRuntime-1.2.3-client-647472.dll\",\"publishedAt\":\"2026-10-01T00:00:00.000Z\",\"url\":\"https://updates.example.test/x\",\"extraFiles\":[{\"name\":\"winmm.dll\",\"size\":5,\"sha256\":\"11\",\"signature\":\"s2\",\"url\":\"u\"}]}",
+      "runtime/client/stable/windows-x86_64/1.2.3/ParadoxRuntime-1.2.3-client-647472.dll": "dll",
+      "runtime/client/stable/windows-x86_64/1.2.3/winmm.dll": "winmm"
+    },
+    "request": {
+      "method": "GET",
+      "path": "/launcher/v1/runtime/client/stable/windows-x86_64/extra/other.dll"
+    },
+    "response": {
+      "status": 404,
+      "headers": {
+        "content-type": "text/plain; charset=utf-8",
+        "content-length": "9"
+      },
+      "body": "Not Found"
+    }
+  },
+  {
+    "name": "runtime extra, listed but missing",
+    "env": {
+      "UPDATE_PUBLIC_BASE_URL": "https://updates.example.test/"
+    },
+    "files": {
+      "runtime/client/stable/windows-x86_64/latest.json": "{\"schema\":1,\"component\":\"ParadoxRuntime\",\"target\":\"client\",\"version\":\"1.2.3\",\"channel\":\"stable\",\"targetChangelist\":647472,\"platform\":\"windows-x86_64\",\"size\":3,\"sha256\":\"00\",\"signature\":\"sig\",\"file\":\"ParadoxRuntime-1.2.3-client-647472.dll\",\"publishedAt\":\"2026-10-01T00:00:00.000Z\",\"url\":\"https://updates.example.test/x\",\"extraFiles\":[{\"name\":\"winmm.dll\",\"size\":5,\"sha256\":\"11\",\"signature\":\"s2\",\"url\":\"u\"}]}"
+    },
+    "request": {
+      "method": "GET",
+      "path": "/launcher/v1/runtime/client/stable/windows-x86_64/extra/winmm.dll"
+    },
+    "response": {
+      "status": 404,
+      "headers": {
+        "content-type": "text/plain; charset=utf-8",
+        "content-length": "9"
+      },
+      "body": "Not Found"
+    }
+  },
+  {
+    "name": "runtime extra, bad target",
+    "env": {
+      "UPDATE_PUBLIC_BASE_URL": "https://updates.example.test/"
+    },
+    "files": {
+      "runtime/client/stable/windows-x86_64/latest.json": "{\"schema\":1,\"component\":\"ParadoxRuntime\",\"target\":\"client\",\"version\":\"1.2.3\",\"channel\":\"stable\",\"targetChangelist\":647472,\"platform\":\"windows-x86_64\",\"size\":3,\"sha256\":\"00\",\"signature\":\"sig\",\"file\":\"ParadoxRuntime-1.2.3-client-647472.dll\",\"publishedAt\":\"2026-10-01T00:00:00.000Z\",\"url\":\"https://updates.example.test/x\",\"extraFiles\":[{\"name\":\"winmm.dll\",\"size\":5,\"sha256\":\"11\",\"signature\":\"s2\",\"url\":\"u\"}]}",
+      "runtime/client/stable/windows-x86_64/1.2.3/ParadoxRuntime-1.2.3-client-647472.dll": "dll",
+      "runtime/client/stable/windows-x86_64/1.2.3/winmm.dll": "winmm"
+    },
+    "request": {
+      "method": "GET",
+      "path": "/launcher/v1/runtime/bot/stable/windows-x86_64/extra/winmm.dll"
+    },
+    "response": {
+      "status": 400,
+      "headers": {
+        "content-type": "text/plain; charset=utf-8",
+        "content-length": "11"
+      },
+      "body": "Bad Request"
+    }
+  },
+  {
+    "name": "runtime extra, no manifest",
+    "env": {
+      "UPDATE_PUBLIC_BASE_URL": "https://updates.example.test/"
+    },
+    "files": {},
+    "request": {
+      "method": "GET",
+      "path": "/launcher/v1/runtime/client/stable/windows-x86_64/extra/winmm.dll"
+    },
+    "response": {
+      "status": 404,
+      "headers": {
+        "content-type": "text/plain; charset=utf-8",
+        "content-length": "9"
+      },
+      "body": "Not Found"
+    }
+  },
+  {
+    "name": "serving, read",
+    "env": {
+      "UPDATE_PUBLISHER_ALLOWED_IPS": "127.0.0.1",
+      "UPDATE_PUBLISHER_API_KEY": "publisher-key"
+    },
+    "files": {},
+    "request": {
+      "method": "GET",
+      "path": "/launcher/v1/admin/updates/serving",
+      "headers": {
+        "x-update-api-key": "publisher-key"
+      }
+    },
+    "response": {
+      "status": 200,
+      "headers": {
+        "content-type": "application/json; charset=utf-8",
+        "content-length": "23"
+      },
+      "body": "{\"runtimeEnabled\":true}"
+    }
+  },
+  {
+    "name": "serving, read while paused",
+    "env": {
+      "UPDATE_PUBLISHER_ALLOWED_IPS": "127.0.0.1",
+      "UPDATE_PUBLISHER_API_KEY": "publisher-key"
+    },
+    "files": {
+      "serving.json": "{\"runtimeEnabled\":false}"
+    },
+    "request": {
+      "method": "GET",
+      "path": "/launcher/v1/admin/updates/serving",
+      "headers": {
+        "x-update-api-key": "publisher-key"
+      }
+    },
+    "response": {
+      "status": 200,
+      "headers": {
+        "content-type": "application/json; charset=utf-8",
+        "content-length": "24"
+      },
+      "body": "{\"runtimeEnabled\":false}"
+    }
+  },
+  {
+    "name": "serving, wrong address",
+    "env": {
+      "UPDATE_PUBLISHER_ALLOWED_IPS": "203.0.113.1",
+      "UPDATE_PUBLISHER_API_KEY": "publisher-key"
+    },
+    "files": {},
+    "request": {
+      "method": "GET",
+      "path": "/launcher/v1/admin/updates/serving",
+      "headers": {
+        "x-update-api-key": "publisher-key"
+      }
+    },
+    "response": {
+      "status": 403,
+      "headers": {
+        "content-type": "application/json; charset=utf-8",
+        "content-length": "42"
+      },
+      "body": "{\"error\":\"Not allowed from this address.\"}"
+    }
+  },
+  {
+    "name": "serving, no allowed addresses",
+    "env": {
+      "UPDATE_PUBLISHER_API_KEY": "publisher-key"
+    },
+    "files": {},
+    "request": {
+      "method": "GET",
+      "path": "/launcher/v1/admin/updates/serving",
+      "headers": {
+        "x-update-api-key": "publisher-key"
+      }
+    },
+    "response": {
+      "status": 403,
+      "headers": {
+        "content-type": "application/json; charset=utf-8",
+        "content-length": "42"
+      },
+      "body": "{\"error\":\"Not allowed from this address.\"}"
+    }
+  },
+  {
+    "name": "serving, no key",
+    "env": {
+      "UPDATE_PUBLISHER_ALLOWED_IPS": "127.0.0.1",
+      "UPDATE_PUBLISHER_API_KEY": "publisher-key"
+    },
+    "files": {},
+    "request": {
+      "method": "GET",
+      "path": "/launcher/v1/admin/updates/serving"
+    },
+    "response": {
+      "status": 401,
+      "headers": {
+        "content-type": "application/json; charset=utf-8",
+        "content-length": "49"
+      },
+      "body": "{\"error\":\"Invalid update publisher credentials.\"}"
+    }
+  },
+  {
+    "name": "serving, wrong key",
+    "env": {
+      "UPDATE_PUBLISHER_ALLOWED_IPS": "127.0.0.1",
+      "UPDATE_PUBLISHER_API_KEY": "publisher-key"
+    },
+    "files": {},
+    "request": {
+      "method": "GET",
+      "path": "/launcher/v1/admin/updates/serving",
+      "headers": {
+        "x-update-api-key": "publisher-kex"
+      }
+    },
+    "response": {
+      "status": 401,
+      "headers": {
+        "content-type": "application/json; charset=utf-8",
+        "content-length": "49"
+      },
+      "body": "{\"error\":\"Invalid update publisher credentials.\"}"
+    }
+  },
+  {
+    "name": "serving, key of another length",
+    "env": {
+      "UPDATE_PUBLISHER_ALLOWED_IPS": "127.0.0.1",
+      "UPDATE_PUBLISHER_API_KEY": "publisher-key"
+    },
+    "files": {},
+    "request": {
+      "method": "GET",
+      "path": "/launcher/v1/admin/updates/serving",
+      "headers": {
+        "x-update-api-key": "publisher-key-longer"
+      }
+    },
+    "response": {
+      "status": 401,
+      "headers": {
+        "content-type": "application/json; charset=utf-8",
+        "content-length": "49"
+      },
+      "body": "{\"error\":\"Invalid update publisher credentials.\"}"
+    }
+  },
+  {
+    "name": "serving, off",
+    "env": {
+      "UPDATE_PUBLISHER_ALLOWED_IPS": "127.0.0.1",
+      "UPDATE_PUBLISHER_API_KEY": "publisher-key"
+    },
+    "files": {},
+    "request": {
+      "method": "POST",
+      "path": "/launcher/v1/admin/updates/serving",
+      "json": "{\"runtimeEnabled\":false}",
+      "headers": {
+        "x-update-api-key": "publisher-key"
+      }
+    },
+    "response": {
+      "status": 200,
+      "headers": {
+        "content-type": "application/json; charset=utf-8",
+        "content-length": "24"
+      },
+      "body": "{\"runtimeEnabled\":false}"
+    },
+    "servingAfter": false
+  },
+  {
+    "name": "serving, on",
+    "env": {
+      "UPDATE_PUBLISHER_ALLOWED_IPS": "127.0.0.1",
+      "UPDATE_PUBLISHER_API_KEY": "publisher-key"
+    },
+    "files": {},
+    "request": {
+      "method": "POST",
+      "path": "/launcher/v1/admin/updates/serving",
+      "json": "{\"runtimeEnabled\":true}",
+      "headers": {
+        "x-update-api-key": "publisher-key"
+      }
+    },
+    "response": {
+      "status": 200,
+      "headers": {
+        "content-type": "application/json; charset=utf-8",
+        "content-length": "23"
+      },
+      "body": "{\"runtimeEnabled\":true}"
+    },
+    "servingAfter": true
+  },
+  {
+    "name": "serving, not a boolean",
+    "env": {
+      "UPDATE_PUBLISHER_ALLOWED_IPS": "127.0.0.1",
+      "UPDATE_PUBLISHER_API_KEY": "publisher-key"
+    },
+    "files": {},
+    "request": {
+      "method": "POST",
+      "path": "/launcher/v1/admin/updates/serving",
+      "json": "{\"runtimeEnabled\":\"yes\"}",
+      "headers": {
+        "x-update-api-key": "publisher-key"
+      }
+    },
+    "response": {
+      "status": 400,
+      "headers": {
+        "content-type": "application/json; charset=utf-8",
+        "content-length": "45"
+      },
+      "body": "{\"error\":\"runtimeEnabled must be a boolean.\"}"
+    }
+  },
+  {
+    "name": "serving, no body",
+    "env": {
+      "UPDATE_PUBLISHER_ALLOWED_IPS": "127.0.0.1",
+      "UPDATE_PUBLISHER_API_KEY": "publisher-key"
+    },
+    "files": {},
+    "request": {
+      "method": "POST",
+      "path": "/launcher/v1/admin/updates/serving",
+      "headers": {
+        "x-update-api-key": "publisher-key"
+      }
+    },
+    "response": {
+      "status": 400,
+      "headers": {
+        "content-type": "application/json; charset=utf-8",
+        "content-length": "45"
+      },
+      "body": "{\"error\":\"runtimeEnabled must be a boolean.\"}"
+    }
+  },
+  {
+    "name": "serving, wrong address on the toggle",
+    "env": {
+      "UPDATE_PUBLISHER_ALLOWED_IPS": "203.0.113.1",
+      "UPDATE_PUBLISHER_API_KEY": "publisher-key"
+    },
+    "files": {},
+    "request": {
+      "method": "POST",
+      "path": "/launcher/v1/admin/updates/serving",
+      "json": "{\"runtimeEnabled\":false}",
+      "headers": {
+        "x-update-api-key": "publisher-key"
+      }
+    },
+    "response": {
+      "status": 403,
+      "headers": {
+        "content-type": "application/json; charset=utf-8",
+        "content-length": "42"
+      },
+      "body": "{\"error\":\"Not allowed from this address.\"}"
+    }
+  },
+  {
+    "name": "publish runtime, wrong address",
+    "env": {
+      "UPDATE_PUBLISHER_ALLOWED_IPS": "",
+      "UPDATE_PUBLISHER_API_KEY": "publisher-key"
+    },
+    "files": {},
+    "request": {
+      "method": "POST",
+      "path": "/launcher/v1/admin/updates/runtime/client/stable/windows-x86_64"
+    },
+    "response": {
+      "status": 403,
+      "headers": {
+        "content-type": "application/json; charset=utf-8",
+        "content-length": "63"
+      },
+      "body": "{\"error\":\"Update publishing is not allowed from this address.\"}"
+    }
+  },
+  {
+    "name": "publish runtime, no key",
+    "env": {
+      "UPDATE_PUBLISHER_ALLOWED_IPS": "127.0.0.1",
+      "UPDATE_PUBLISHER_API_KEY": "publisher-key"
+    },
+    "files": {},
+    "request": {
+      "method": "POST",
+      "path": "/launcher/v1/admin/updates/runtime/client/stable/windows-x86_64"
+    },
+    "response": {
+      "status": 401,
+      "headers": {
+        "content-type": "application/json; charset=utf-8",
+        "content-length": "49"
+      },
+      "body": "{\"error\":\"Invalid update publisher credentials.\"}"
+    }
+  },
+  {
+    "name": "publish extra, wrong address",
+    "env": {
+      "UPDATE_PUBLISHER_ALLOWED_IPS": "",
+      "UPDATE_PUBLISHER_API_KEY": "publisher-key"
+    },
+    "files": {},
+    "request": {
+      "method": "POST",
+      "path": "/launcher/v1/admin/updates/runtime/client/stable/windows-x86_64/extra"
+    },
+    "response": {
+      "status": 403,
+      "headers": {
+        "content-type": "application/json; charset=utf-8",
+        "content-length": "63"
+      },
+      "body": "{\"error\":\"Update publishing is not allowed from this address.\"}"
+    }
+  },
+  {
+    "name": "publish guard manifest, wrong address",
+    "env": {
+      "UPDATE_PUBLISHER_ALLOWED_IPS": "",
+      "UPDATE_PUBLISHER_API_KEY": "publisher-key"
+    },
+    "files": {},
+    "request": {
+      "method": "POST",
+      "path": "/launcher/v1/admin/guard-manifests/stable/windows-x86_64",
+      "json": "{}"
+    },
+    "response": {
+      "status": 403,
+      "headers": {
+        "content-type": "application/json; charset=utf-8",
+        "content-length": "42"
+      },
+      "body": "{\"error\":\"Not allowed from this address.\"}"
+    }
+  },
+  {
+    "name": "publish guard manifest, no key",
+    "env": {
+      "UPDATE_PUBLISHER_ALLOWED_IPS": "127.0.0.1",
+      "UPDATE_PUBLISHER_API_KEY": "publisher-key"
+    },
+    "files": {},
+    "request": {
+      "method": "POST",
+      "path": "/launcher/v1/admin/guard-manifests/stable/windows-x86_64",
+      "json": "{}"
+    },
+    "response": {
+      "status": 401,
+      "headers": {
+        "content-type": "application/json; charset=utf-8",
+        "content-length": "49"
+      },
+      "body": "{\"error\":\"Invalid update publisher credentials.\"}"
+    }
+  },
+  {
+    "name": "publish guard manifest, empty envelope",
+    "env": {
+      "UPDATE_PUBLISHER_ALLOWED_IPS": "127.0.0.1",
+      "UPDATE_PUBLISHER_API_KEY": "publisher-key",
+      "TARGET_CHANGELIST": "647472"
+    },
+    "files": {},
+    "request": {
+      "method": "POST",
+      "path": "/launcher/v1/admin/guard-manifests/stable/windows-x86_64",
+      "json": "{}",
+      "headers": {
+        "x-update-api-key": "publisher-key"
+      }
+    },
+    "response": {
+      "status": 400,
+      "headers": {
+        "content-type": "application/json; charset=utf-8",
+        "content-length": "44"
+      },
+      "body": "{\"error\":\"Invalid Guard manifest envelope.\"}"
+    }
+  },
+  {
+    "name": "publish guard manifest, unknown key",
+    "env": {
+      "UPDATE_PUBLISHER_ALLOWED_IPS": "127.0.0.1",
+      "UPDATE_PUBLISHER_API_KEY": "publisher-key",
+      "TARGET_CHANGELIST": "647472"
+    },
+    "files": {},
+    "request": {
+      "method": "POST",
+      "path": "/launcher/v1/admin/guard-manifests/stable/windows-x86_64",
+      "json": "{\"schema\":1,\"keyId\":\"other\",\"payloadBase64\":\"e30=\",\"signature\":\"AAAA\"}",
+      "headers": {
+        "x-update-api-key": "publisher-key"
+      }
+    },
+    "response": {
+      "status": 400,
+      "headers": {
+        "content-type": "application/json; charset=utf-8",
+        "content-length": "47"
+      },
+      "body": "{\"error\":\"Unknown Guard manifest signing key.\"}"
+    }
+  },
+  {
+    "name": "publish guard manifest, bad signature",
+    "env": {
+      "UPDATE_PUBLISHER_ALLOWED_IPS": "127.0.0.1",
+      "UPDATE_PUBLISHER_API_KEY": "publisher-key",
+      "TARGET_CHANGELIST": "647472"
+    },
+    "files": {},
+    "request": {
+      "method": "POST",
+      "path": "/launcher/v1/admin/guard-manifests/stable/windows-x86_64",
+      "json": "{\"schema\":1,\"keyId\":\"guard-2026-10\",\"payloadBase64\":\"e30=\",\"signature\":\"AAAA\"}",
+      "headers": {
+        "x-update-api-key": "publisher-key"
+      }
+    },
+    "response": {
+      "status": 400,
+      "headers": {
+        "content-type": "application/json; charset=utf-8",
+        "content-length": "57"
+      },
+      "body": "{\"error\":\"Guard manifest signature verification failed.\"}"
+    }
+  },
+  {
+    "name": "guard manifest, none",
+    "env": {
+      "TARGET_CHANGELIST": "647472"
+    },
+    "files": {},
+    "request": {
+      "method": "GET",
+      "path": "/launcher/v1/guard-manifests/stable/windows-x86_64"
+    },
+    "response": {
+      "status": 404,
+      "headers": {
+        "content-type": "text/plain; charset=utf-8",
+        "content-length": "9"
+      },
+      "body": "Not Found"
+    }
+  },
+  {
+    "name": "guard manifest, unreadable",
+    "env": {
+      "TARGET_CHANGELIST": "647472"
+    },
+    "files": {
+      "guard/stable/windows-x86_64/latest.json": "{\"schema\":1}"
+    },
+    "request": {
+      "method": "GET",
+      "path": "/launcher/v1/guard-manifests/stable/windows-x86_64"
+    },
+    "response": {
+      "status": 400,
+      "headers": {
+        "content-type": "text/plain; charset=utf-8",
+        "content-length": "11"
+      },
+      "body": "Bad Request"
+    }
+  },
+  {
+    "name": "guard manifest, bad segment",
+    "env": {
+      "TARGET_CHANGELIST": "647472"
+    },
+    "files": {},
+    "request": {
+      "method": "GET",
+      "path": "/launcher/v1/guard-manifests/stable/win%2Fdows"
+    },
+    "response": {
+      "status": 400,
+      "headers": {
+        "content-type": "text/plain; charset=utf-8",
+        "content-length": "11"
+      },
+      "body": "Bad Request"
+    }
+  },
+  {
+    "name": "non-stable channel needs a sign-in",
+    "env": {
+      "UPDATE_PUBLIC_BASE_URL": "https://updates.example.test/"
+    },
+    "files": {
+      "runtime/client/stable/windows-x86_64/latest.json": "{\"schema\":1,\"component\":\"ParadoxRuntime\",\"target\":\"client\",\"version\":\"1.2.3\",\"channel\":\"stable\",\"targetChangelist\":647472,\"platform\":\"windows-x86_64\",\"size\":3,\"sha256\":\"00\",\"signature\":\"sig\",\"file\":\"ParadoxRuntime-1.2.3-client-647472.dll\",\"publishedAt\":\"2026-10-01T00:00:00.000Z\",\"url\":\"https://updates.example.test/x\",\"extraFiles\":[{\"name\":\"winmm.dll\",\"size\":5,\"sha256\":\"11\",\"signature\":\"s2\",\"url\":\"u\"}]}",
+      "runtime/client/stable/windows-x86_64/1.2.3/ParadoxRuntime-1.2.3-client-647472.dll": "dll",
+      "runtime/client/stable/windows-x86_64/1.2.3/winmm.dll": "winmm"
+    },
+    "request": {
+      "method": "GET",
+      "path": "/launcher/v1/runtime/client/beta/windows-x86_64"
+    },
+    "response": {
+      "status": 401,
+      "headers": {
+        "content-type": "application/json; charset=utf-8",
+        "content-length": "119"
+      },
+      "body": "{\"error\":{\"code\":\"AUTH_UNAUTHORIZED\",\"message\":\"Sign in required.\",\"requestId\":\"<id>\"}}"
+    }
+  },
+  {
+    "name": "non-stable guard manifest needs a sign-in",
+    "env": {
+      "TARGET_CHANGELIST": "647472"
+    },
+    "files": {},
+    "request": {
+      "method": "GET",
+      "path": "/launcher/v1/guard-manifests/dev/windows-x86_64"
+    },
+    "response": {
+      "status": 401,
+      "headers": {
+        "content-type": "application/json; charset=utf-8",
+        "content-length": "119"
+      },
+      "body": "{\"error\":{\"code\":\"AUTH_UNAUTHORIZED\",\"message\":\"Sign in required.\",\"requestId\":\"<id>\"}}"
+    }
+  },
+  {
+    "name": "non-stable download needs a sign-in",
+    "env": {
+      "UPDATE_PUBLIC_BASE_URL": "https://updates.example.test/"
+    },
+    "files": {
+      "runtime/client/stable/windows-x86_64/latest.json": "{\"schema\":1,\"component\":\"ParadoxRuntime\",\"target\":\"client\",\"version\":\"1.2.3\",\"channel\":\"stable\",\"targetChangelist\":647472,\"platform\":\"windows-x86_64\",\"size\":3,\"sha256\":\"00\",\"signature\":\"sig\",\"file\":\"ParadoxRuntime-1.2.3-client-647472.dll\",\"publishedAt\":\"2026-10-01T00:00:00.000Z\",\"url\":\"https://updates.example.test/x\",\"extraFiles\":[{\"name\":\"winmm.dll\",\"size\":5,\"sha256\":\"11\",\"signature\":\"s2\",\"url\":\"u\"}]}",
+      "runtime/client/stable/windows-x86_64/1.2.3/ParadoxRuntime-1.2.3-client-647472.dll": "dll",
+      "runtime/client/stable/windows-x86_64/1.2.3/winmm.dll": "winmm"
+    },
+    "request": {
+      "method": "GET",
+      "path": "/launcher/v1/runtime/client/beta/windows-x86_64/download"
+    },
+    "response": {
+      "status": 401,
+      "headers": {
+        "content-type": "application/json; charset=utf-8",
+        "content-length": "119"
+      },
+      "body": "{\"error\":{\"code\":\"AUTH_UNAUTHORIZED\",\"message\":\"Sign in required.\",\"requestId\":\"<id>\"}}"
+    }
+  },
+  {
+    "name": "launcher feed, an update",
+    "env": {
+      "UPDATE_PUBLIC_BASE_URL": "https://updates.example.test/"
+    },
+    "files": {
+      "launcher/windows/x86_64/latest.json": "{\"version\":\"0.2.0\",\"notes\":\"n\",\"pub_date\":\"2026-10-20T00:00:00Z\",\"url\":\"https://updates.example.test/launcher/v1/updates/windows/x86_64/files/0.2.0/App_0.2.0_x64-setup.exe\",\"signature\":\"sig\",\"file\":\"App_0.2.0_x64-setup.exe\",\"sha256\":\"00\",\"size\":3}",
+      "launcher/windows/x86_64/0.2.0/App_0.2.0_x64-setup.exe": "exe"
+    },
+    "request": {
+      "method": "GET",
+      "path": "/launcher/v1/updates/windows/x86_64/0.1.0"
+    },
+    "response": {
+      "status": 200,
+      "headers": {
+        "content-type": "application/json; charset=utf-8",
+        "cache-control": "no-cache, no-store, must-revalidate",
+        "content-length": "191"
+      },
+      "body": "{\"version\":\"0.2.0\",\"notes\":\"n\",\"pub_date\":\"2026-10-20T00:00:00Z\",\"url\":\"https://updates.example.test/launcher/v1/updates/windows/x86_64/files/0.2.0/App_0.2.0_x64-setup.exe\",\"signature\":\"sig\"}"
+    }
+  },
+  {
+    "name": "launcher feed, up to date",
+    "env": {
+      "UPDATE_PUBLIC_BASE_URL": "https://updates.example.test/"
+    },
+    "files": {
+      "launcher/windows/x86_64/latest.json": "{\"version\":\"0.2.0\",\"notes\":\"n\",\"pub_date\":\"2026-10-20T00:00:00Z\",\"url\":\"https://updates.example.test/launcher/v1/updates/windows/x86_64/files/0.2.0/App_0.2.0_x64-setup.exe\",\"signature\":\"sig\",\"file\":\"App_0.2.0_x64-setup.exe\",\"sha256\":\"00\",\"size\":3}",
+      "launcher/windows/x86_64/0.2.0/App_0.2.0_x64-setup.exe": "exe"
+    },
+    "request": {
+      "method": "GET",
+      "path": "/launcher/v1/updates/windows/x86_64/0.2.0"
+    },
+    "response": {
+      "status": 204,
+      "headers": {
+        "cache-control": "no-cache, no-store, must-revalidate"
+      },
+      "body": ""
+    }
+  },
+  {
+    "name": "launcher feed, newer than the server",
+    "env": {
+      "UPDATE_PUBLIC_BASE_URL": "https://updates.example.test/"
+    },
+    "files": {
+      "launcher/windows/x86_64/latest.json": "{\"version\":\"0.2.0\",\"notes\":\"n\",\"pub_date\":\"2026-10-20T00:00:00Z\",\"url\":\"https://updates.example.test/launcher/v1/updates/windows/x86_64/files/0.2.0/App_0.2.0_x64-setup.exe\",\"signature\":\"sig\",\"file\":\"App_0.2.0_x64-setup.exe\",\"sha256\":\"00\",\"size\":3}",
+      "launcher/windows/x86_64/0.2.0/App_0.2.0_x64-setup.exe": "exe"
+    },
+    "request": {
+      "method": "GET",
+      "path": "/launcher/v1/updates/windows/x86_64/0.10.0"
+    },
+    "response": {
+      "status": 204,
+      "headers": {
+        "cache-control": "no-cache, no-store, must-revalidate"
+      },
+      "body": ""
+    }
+  },
+  {
+    "name": "launcher feed, an unreadable current version",
+    "env": {
+      "UPDATE_PUBLIC_BASE_URL": "https://updates.example.test/"
+    },
+    "files": {
+      "launcher/windows/x86_64/latest.json": "{\"version\":\"0.2.0\",\"notes\":\"n\",\"pub_date\":\"2026-10-20T00:00:00Z\",\"url\":\"https://updates.example.test/launcher/v1/updates/windows/x86_64/files/0.2.0/App_0.2.0_x64-setup.exe\",\"signature\":\"sig\",\"file\":\"App_0.2.0_x64-setup.exe\",\"sha256\":\"00\",\"size\":3}",
+      "launcher/windows/x86_64/0.2.0/App_0.2.0_x64-setup.exe": "exe"
+    },
+    "request": {
+      "method": "GET",
+      "path": "/launcher/v1/updates/windows/x86_64/whatever"
+    },
+    "response": {
+      "status": 200,
+      "headers": {
+        "content-type": "application/json; charset=utf-8",
+        "cache-control": "no-cache, no-store, must-revalidate",
+        "content-length": "191"
+      },
+      "body": "{\"version\":\"0.2.0\",\"notes\":\"n\",\"pub_date\":\"2026-10-20T00:00:00Z\",\"url\":\"https://updates.example.test/launcher/v1/updates/windows/x86_64/files/0.2.0/App_0.2.0_x64-setup.exe\",\"signature\":\"sig\"}"
+    }
+  },
+  {
+    "name": "launcher feed, installer missing",
+    "env": {
+      "UPDATE_PUBLIC_BASE_URL": "https://updates.example.test/"
+    },
+    "files": {
+      "launcher/windows/x86_64/latest.json": "{\"version\":\"0.2.0\",\"notes\":\"n\",\"pub_date\":\"2026-10-20T00:00:00Z\",\"url\":\"https://updates.example.test/launcher/v1/updates/windows/x86_64/files/0.2.0/App_0.2.0_x64-setup.exe\",\"signature\":\"sig\",\"file\":\"App_0.2.0_x64-setup.exe\",\"sha256\":\"00\",\"size\":3}"
+    },
+    "request": {
+      "method": "GET",
+      "path": "/launcher/v1/updates/windows/x86_64/0.1.0"
+    },
+    "response": {
+      "status": 204,
+      "headers": {
+        "cache-control": "no-cache, no-store, must-revalidate"
+      },
+      "body": ""
+    }
+  },
+  {
+    "name": "launcher feed, no manifest",
+    "env": {
+      "UPDATE_PUBLIC_BASE_URL": "https://updates.example.test/"
+    },
+    "files": {},
+    "request": {
+      "method": "GET",
+      "path": "/launcher/v1/updates/windows/x86_64/0.1.0"
+    },
+    "response": {
+      "status": 204,
+      "headers": {
+        "cache-control": "no-cache, no-store, must-revalidate"
+      },
+      "body": ""
+    }
+  },
+  {
+    "name": "launcher feed, no signature",
+    "env": {
+      "UPDATE_PUBLIC_BASE_URL": "https://updates.example.test/"
+    },
+    "files": {
+      "launcher/windows/x86_64/latest.json": "{\"version\":\"0.2.0\",\"notes\":\"n\",\"pub_date\":\"2026-10-20T00:00:00Z\",\"url\":\"https://updates.example.test/launcher/v1/updates/windows/x86_64/files/0.2.0/App_0.2.0_x64-setup.exe\",\"signature\":\"\",\"file\":\"App_0.2.0_x64-setup.exe\",\"sha256\":\"00\",\"size\":3}",
+      "launcher/windows/x86_64/0.2.0/App_0.2.0_x64-setup.exe": "exe"
+    },
+    "request": {
+      "method": "GET",
+      "path": "/launcher/v1/updates/windows/x86_64/0.1.0"
+    },
+    "response": {
+      "status": 204,
+      "headers": {
+        "cache-control": "no-cache, no-store, must-revalidate"
+      },
+      "body": ""
+    }
+  },
+  {
+    "name": "launcher feed, http url",
+    "env": {
+      "UPDATE_PUBLIC_BASE_URL": "https://updates.example.test/"
+    },
+    "files": {
+      "launcher/windows/x86_64/latest.json": "{\"version\":\"0.2.0\",\"notes\":\"n\",\"pub_date\":\"2026-10-20T00:00:00Z\",\"url\":\"http://updates.example.test/launcher/v1/updates/x\",\"signature\":\"sig\",\"file\":\"App_0.2.0_x64-setup.exe\",\"sha256\":\"00\",\"size\":3}",
+      "launcher/windows/x86_64/0.2.0/App_0.2.0_x64-setup.exe": "exe"
+    },
+    "request": {
+      "method": "GET",
+      "path": "/launcher/v1/updates/windows/x86_64/0.1.0"
+    },
+    "response": {
+      "status": 204,
+      "headers": {
+        "cache-control": "no-cache, no-store, must-revalidate"
+      },
+      "body": ""
+    }
+  },
+  {
+    "name": "launcher feed, foreign url",
+    "env": {
+      "UPDATE_PUBLIC_BASE_URL": "https://updates.example.test/"
+    },
+    "files": {
+      "launcher/windows/x86_64/latest.json": "{\"version\":\"0.2.0\",\"notes\":\"n\",\"pub_date\":\"2026-10-20T00:00:00Z\",\"url\":\"https://evil.example/launcher/v1/updates/x\",\"signature\":\"sig\",\"file\":\"App_0.2.0_x64-setup.exe\",\"sha256\":\"00\",\"size\":3}",
+      "launcher/windows/x86_64/0.2.0/App_0.2.0_x64-setup.exe": "exe"
+    },
+    "request": {
+      "method": "GET",
+      "path": "/launcher/v1/updates/windows/x86_64/0.1.0"
+    },
+    "response": {
+      "status": 204,
+      "headers": {
+        "cache-control": "no-cache, no-store, must-revalidate"
+      },
+      "body": ""
+    }
+  },
+  {
+    "name": "launcher feed, url with a query",
+    "env": {
+      "UPDATE_PUBLIC_BASE_URL": "https://updates.example.test/"
+    },
+    "files": {
+      "launcher/windows/x86_64/latest.json": "{\"version\":\"0.2.0\",\"notes\":\"n\",\"pub_date\":\"2026-10-20T00:00:00Z\",\"url\":\"https://updates.example.test/launcher/v1/updates/x?a=1\",\"signature\":\"sig\",\"file\":\"App_0.2.0_x64-setup.exe\",\"sha256\":\"00\",\"size\":3}",
+      "launcher/windows/x86_64/0.2.0/App_0.2.0_x64-setup.exe": "exe"
+    },
+    "request": {
+      "method": "GET",
+      "path": "/launcher/v1/updates/windows/x86_64/0.1.0"
+    },
+    "response": {
+      "status": 204,
+      "headers": {
+        "cache-control": "no-cache, no-store, must-revalidate"
+      },
+      "body": ""
+    }
+  },
+  {
+    "name": "launcher feed, version not x.y.z",
+    "env": {
+      "UPDATE_PUBLIC_BASE_URL": "https://updates.example.test/"
+    },
+    "files": {
+      "launcher/windows/x86_64/latest.json": "{\"version\":\"0.2\",\"notes\":\"n\",\"pub_date\":\"2026-10-20T00:00:00Z\",\"url\":\"https://updates.example.test/launcher/v1/updates/windows/x86_64/files/0.2.0/App_0.2.0_x64-setup.exe\",\"signature\":\"sig\",\"file\":\"App_0.2.0_x64-setup.exe\",\"sha256\":\"00\",\"size\":3}",
+      "launcher/windows/x86_64/0.2.0/App_0.2.0_x64-setup.exe": "exe"
+    },
+    "request": {
+      "method": "GET",
+      "path": "/launcher/v1/updates/windows/x86_64/0.1.0"
+    },
+    "response": {
+      "status": 204,
+      "headers": {
+        "cache-control": "no-cache, no-store, must-revalidate"
+      },
+      "body": ""
+    }
+  },
+  {
+    "name": "launcher feed, a release host",
+    "env": {
+      "UPDATE_PUBLIC_BASE_URL": "https://updates.example.test/"
+    },
+    "files": {
+      "launcher/windows/x86_64/latest.json": "{\"version\":\"0.2.0\",\"notes\":\"n\",\"pub_date\":\"2026-10-20T00:00:00Z\",\"url\":\"https://github.com/pranav158/Mystic-Paradox/releases/download/v0.2.0/App.exe\",\"signature\":\"sig\",\"sha256\":\"00\",\"size\":3}"
+    },
+    "request": {
+      "method": "GET",
+      "path": "/launcher/v1/updates/windows/x86_64/0.1.0"
+    },
+    "response": {
+      "status": 200,
+      "headers": {
+        "content-type": "application/json; charset=utf-8",
+        "cache-control": "no-cache, no-store, must-revalidate",
+        "content-length": "168"
+      },
+      "body": "{\"version\":\"0.2.0\",\"notes\":\"n\",\"pub_date\":\"2026-10-20T00:00:00Z\",\"url\":\"https://github.com/pranav158/Mystic-Paradox/releases/download/v0.2.0/App.exe\",\"signature\":\"sig\"}"
+    }
+  },
+  {
+    "name": "launcher feed, another release prefix",
+    "env": {
+      "UPDATE_PUBLIC_BASE_URL": "https://updates.example.test/",
+      "LAUNCHER_UPDATE_URL_PREFIXES": "https://releases.example.test/dl/, http://no/, bad"
+    },
+    "files": {
+      "launcher/windows/x86_64/latest.json": "{\"version\":\"0.2.0\",\"notes\":\"n\",\"pub_date\":\"2026-10-20T00:00:00Z\",\"url\":\"https://releases.example.test/dl/App.exe\",\"signature\":\"sig\",\"sha256\":\"00\",\"size\":3}"
+    },
+    "request": {
+      "method": "GET",
+      "path": "/launcher/v1/updates/windows/x86_64/0.1.0"
+    },
+    "response": {
+      "status": 200,
+      "headers": {
+        "content-type": "application/json; charset=utf-8",
+        "cache-control": "no-cache, no-store, must-revalidate",
+        "content-length": "132"
+      },
+      "body": "{\"version\":\"0.2.0\",\"notes\":\"n\",\"pub_date\":\"2026-10-20T00:00:00Z\",\"url\":\"https://releases.example.test/dl/App.exe\",\"signature\":\"sig\"}"
+    }
+  },
+  {
+    "name": "launcher feed, default prefix replaced",
+    "env": {
+      "UPDATE_PUBLIC_BASE_URL": "https://updates.example.test/",
+      "LAUNCHER_UPDATE_URL_PREFIXES": "https://releases.example.test/dl/"
+    },
+    "files": {
+      "launcher/windows/x86_64/latest.json": "{\"version\":\"0.2.0\",\"notes\":\"n\",\"pub_date\":\"2026-10-20T00:00:00Z\",\"url\":\"https://github.com/pranav158/Mystic-Paradox/releases/download/v0.2.0/App.exe\",\"signature\":\"sig\",\"sha256\":\"00\",\"size\":3}"
+    },
+    "request": {
+      "method": "GET",
+      "path": "/launcher/v1/updates/windows/x86_64/0.1.0"
+    },
+    "response": {
+      "status": 204,
+      "headers": {
+        "cache-control": "no-cache, no-store, must-revalidate"
+      },
+      "body": ""
+    }
+  },
+  {
+    "name": "launcher feed, bad segment",
+    "env": {
+      "UPDATE_PUBLIC_BASE_URL": "https://updates.example.test/"
+    },
+    "files": {
+      "launcher/windows/x86_64/latest.json": "{\"version\":\"0.2.0\",\"notes\":\"n\",\"pub_date\":\"2026-10-20T00:00:00Z\",\"url\":\"https://updates.example.test/launcher/v1/updates/windows/x86_64/files/0.2.0/App_0.2.0_x64-setup.exe\",\"signature\":\"sig\",\"file\":\"App_0.2.0_x64-setup.exe\",\"sha256\":\"00\",\"size\":3}",
+      "launcher/windows/x86_64/0.2.0/App_0.2.0_x64-setup.exe": "exe"
+    },
+    "request": {
+      "method": "GET",
+      "path": "/launcher/v1/updates/win%2Fdows/x86_64/0.1.0"
+    },
+    "response": {
+      "status": 400,
+      "headers": {
+        "content-type": "text/plain; charset=utf-8",
+        "content-length": "11"
+      },
+      "body": "Bad Request"
+    }
+  },
+  {
+    "name": "launcher download",
+    "env": {
+      "UPDATE_PUBLIC_BASE_URL": "https://updates.example.test/"
+    },
+    "files": {
+      "launcher/windows/x86_64/latest.json": "{\"version\":\"0.2.0\",\"notes\":\"n\",\"pub_date\":\"2026-10-20T00:00:00Z\",\"url\":\"https://updates.example.test/launcher/v1/updates/windows/x86_64/files/0.2.0/App_0.2.0_x64-setup.exe\",\"signature\":\"sig\",\"file\":\"App_0.2.0_x64-setup.exe\",\"sha256\":\"00\",\"size\":3}",
+      "launcher/windows/x86_64/0.2.0/App_0.2.0_x64-setup.exe": "exe"
+    },
+    "request": {
+      "method": "GET",
+      "path": "/launcher/v1/updates/windows/x86_64/download"
+    },
+    "response": {
+      "status": 200,
+      "headers": {
+        "content-type": "application/octet-stream",
+        "cache-control": "no-cache, no-store, must-revalidate",
+        "content-length": "3"
+      },
+      "body": "exe"
+    }
+  },
+  {
+    "name": "launcher download, installer missing",
+    "env": {
+      "UPDATE_PUBLIC_BASE_URL": "https://updates.example.test/"
+    },
+    "files": {
+      "launcher/windows/x86_64/latest.json": "{\"version\":\"0.2.0\",\"notes\":\"n\",\"pub_date\":\"2026-10-20T00:00:00Z\",\"url\":\"https://updates.example.test/launcher/v1/updates/windows/x86_64/files/0.2.0/App_0.2.0_x64-setup.exe\",\"signature\":\"sig\",\"file\":\"App_0.2.0_x64-setup.exe\",\"sha256\":\"00\",\"size\":3}"
+    },
+    "request": {
+      "method": "GET",
+      "path": "/launcher/v1/updates/windows/x86_64/download"
+    },
+    "response": {
+      "status": 404,
+      "headers": {
+        "content-type": "text/plain; charset=utf-8",
+        "content-length": "9"
+      },
+      "body": "Not Found"
+    }
+  },
+  {
+    "name": "launcher download, no manifest",
+    "env": {
+      "UPDATE_PUBLIC_BASE_URL": "https://updates.example.test/"
+    },
+    "files": {},
+    "request": {
+      "method": "GET",
+      "path": "/launcher/v1/updates/windows/x86_64/download"
+    },
+    "response": {
+      "status": 404,
+      "headers": {
+        "content-type": "text/plain; charset=utf-8",
+        "content-length": "9"
+      },
+      "body": "Not Found"
+    }
+  },
+  {
+    "name": "launcher download, redirected",
+    "env": {
+      "UPDATE_PUBLIC_BASE_URL": "https://updates.example.test/"
+    },
+    "files": {
+      "launcher/windows/x86_64/latest.json": "{\"version\":\"0.2.0\",\"notes\":\"n\",\"pub_date\":\"2026-10-20T00:00:00Z\",\"url\":\"https://github.com/pranav158/Mystic-Paradox/releases/download/v0.2.0/App.exe\",\"signature\":\"sig\",\"sha256\":\"00\",\"size\":3}"
+    },
+    "request": {
+      "method": "GET",
+      "path": "/launcher/v1/updates/windows/x86_64/download"
+    },
+    "response": {
+      "status": 302,
+      "headers": {
+        "content-type": "text/plain; charset=utf-8",
+        "cache-control": "no-cache, no-store, must-revalidate",
+        "content-length": "98",
+        "location": "https://github.com/pranav158/Mystic-Paradox/releases/download/v0.2.0/App.exe",
+        "vary": "Accept"
+      },
+      "body": "Found. Redirecting to https://github.com/pranav158/Mystic-Paradox/releases/download/v0.2.0/App.exe"
+    }
+  },
+  {
+    "name": "launcher download, our own url is no redirect",
+    "env": {
+      "UPDATE_PUBLIC_BASE_URL": "https://updates.example.test/"
+    },
+    "files": {
+      "launcher/windows/x86_64/latest.json": "{\"version\":\"0.2.0\",\"notes\":\"n\",\"pub_date\":\"2026-10-20T00:00:00Z\",\"url\":\"https://updates.example.test/launcher/v1/updates/windows/x86_64/files/0.2.0/App_0.2.0_x64-setup.exe\",\"signature\":\"sig\",\"sha256\":\"00\",\"size\":3}"
+    },
+    "request": {
+      "method": "GET",
+      "path": "/launcher/v1/updates/windows/x86_64/download"
+    },
+    "response": {
+      "status": 404,
+      "headers": {
+        "content-type": "text/plain; charset=utf-8",
+        "content-length": "9"
+      },
+      "body": "Not Found"
+    }
+  },
+  {
+    "name": "launcher download, a path for a file",
+    "env": {
+      "UPDATE_PUBLIC_BASE_URL": "https://updates.example.test/"
+    },
+    "files": {
+      "launcher/windows/x86_64/latest.json": "{\"version\":\"0.2.0\",\"notes\":\"n\",\"pub_date\":\"2026-10-20T00:00:00Z\",\"url\":\"https://updates.example.test/launcher/v1/updates/windows/x86_64/files/0.2.0/App_0.2.0_x64-setup.exe\",\"signature\":\"sig\",\"file\":\"../x.exe\",\"sha256\":\"00\",\"size\":3}"
+    },
+    "request": {
+      "method": "GET",
+      "path": "/launcher/v1/updates/windows/x86_64/download"
+    },
+    "response": {
+      "status": 404,
+      "headers": {
+        "content-type": "text/plain; charset=utf-8",
+        "content-length": "9"
+      },
+      "body": "Not Found"
+    }
+  },
+  {
+    "name": "launcher installer by version",
+    "env": {
+      "UPDATE_PUBLIC_BASE_URL": "https://updates.example.test/"
+    },
+    "files": {
+      "launcher/windows/x86_64/latest.json": "{\"version\":\"0.2.0\",\"notes\":\"n\",\"pub_date\":\"2026-10-20T00:00:00Z\",\"url\":\"https://updates.example.test/launcher/v1/updates/windows/x86_64/files/0.2.0/App_0.2.0_x64-setup.exe\",\"signature\":\"sig\",\"file\":\"App_0.2.0_x64-setup.exe\",\"sha256\":\"00\",\"size\":3}",
+      "launcher/windows/x86_64/0.2.0/App_0.2.0_x64-setup.exe": "exe"
+    },
+    "request": {
+      "method": "GET",
+      "path": "/launcher/v1/updates/windows/x86_64/files/0.2.0/App_0.2.0_x64-setup.exe"
+    },
+    "response": {
+      "status": 200,
+      "headers": {
+        "content-type": "application/octet-stream",
+        "cache-control": "public, max-age=31536000, immutable",
+        "content-length": "3",
+        "content-disposition": "attachment; filename=\"App_0.2.0_x64-setup.exe\""
+      },
+      "body": "exe"
+    }
+  },
+  {
+    "name": "launcher installer, other name",
+    "env": {
+      "UPDATE_PUBLIC_BASE_URL": "https://updates.example.test/"
+    },
+    "files": {
+      "launcher/windows/x86_64/latest.json": "{\"version\":\"0.2.0\",\"notes\":\"n\",\"pub_date\":\"2026-10-20T00:00:00Z\",\"url\":\"https://updates.example.test/launcher/v1/updates/windows/x86_64/files/0.2.0/App_0.2.0_x64-setup.exe\",\"signature\":\"sig\",\"file\":\"App_0.2.0_x64-setup.exe\",\"sha256\":\"00\",\"size\":3}",
+      "launcher/windows/x86_64/0.2.0/App_0.2.0_x64-setup.exe": "exe"
+    },
+    "request": {
+      "method": "GET",
+      "path": "/launcher/v1/updates/windows/x86_64/files/0.2.0/evil.exe"
+    },
+    "response": {
+      "status": 404,
+      "headers": {
+        "content-type": "text/plain; charset=utf-8",
+        "content-length": "9"
+      },
+      "body": "Not Found"
+    }
+  },
+  {
+    "name": "launcher installer, version not in the name",
+    "env": {
+      "UPDATE_PUBLIC_BASE_URL": "https://updates.example.test/"
+    },
+    "files": {
+      "launcher/windows/x86_64/latest.json": "{\"version\":\"0.2.0\",\"notes\":\"n\",\"pub_date\":\"2026-10-20T00:00:00Z\",\"url\":\"https://updates.example.test/launcher/v1/updates/windows/x86_64/files/0.2.0/App_0.2.0_x64-setup.exe\",\"signature\":\"sig\",\"file\":\"App_0.2.0_x64-setup.exe\",\"sha256\":\"00\",\"size\":3}",
+      "launcher/windows/x86_64/0.2.0/App_0.2.0_x64-setup.exe": "exe"
+    },
+    "request": {
+      "method": "GET",
+      "path": "/launcher/v1/updates/windows/x86_64/files/0.3.0/App_0.2.0_x64-setup.exe"
+    },
+    "response": {
+      "status": 404,
+      "headers": {
+        "content-type": "text/plain; charset=utf-8",
+        "content-length": "9"
+      },
+      "body": "Not Found"
+    }
+  },
+  {
+    "name": "launcher installer, not there",
+    "env": {
+      "UPDATE_PUBLIC_BASE_URL": "https://updates.example.test/"
+    },
+    "files": {
+      "launcher/windows/x86_64/latest.json": "{\"version\":\"0.2.0\",\"notes\":\"n\",\"pub_date\":\"2026-10-20T00:00:00Z\",\"url\":\"https://updates.example.test/launcher/v1/updates/windows/x86_64/files/0.2.0/App_0.2.0_x64-setup.exe\",\"signature\":\"sig\",\"file\":\"App_0.2.0_x64-setup.exe\",\"sha256\":\"00\",\"size\":3}",
+      "launcher/windows/x86_64/0.2.0/App_0.2.0_x64-setup.exe": "exe"
+    },
+    "request": {
+      "method": "GET",
+      "path": "/launcher/v1/updates/windows/x86_64/files/0.2.0/Other_0.2.0_x64-setup.exe"
+    },
+    "response": {
+      "status": 404,
+      "headers": {
+        "content-type": "text/plain; charset=utf-8",
+        "content-length": "9"
+      },
+      "body": "Not Found"
+    }
+  },
+  {
+    "name": "launcher logs, no token",
+    "env": {
+      "LAUNCHER_LOG_SYNC_TOKEN": "sync-token"
+    },
+    "files": {
+      "logs/u1/abcdef12-3456-7890/launcher.log": "log text",
+      "logs/u1/abcdef12-3456-7890/metadata.json": "{}",
+      "logs/u1/abcdef12-3456-7890/.uploaded-at.json": "{\"lastUploadedAt\":\"2026-10-02T00:00:00.000Z\"}\n",
+      "logs/u2/bbbbbbbb-2/launcher.log": "other",
+      "logs/u2/bbbbbbbb-2/.uploaded-at.json": "{\"lastUploadedAt\":\"2026-10-01T00:00:00.000Z\"}\n"
+    },
+    "request": {
+      "method": "GET",
+      "path": "/admin/v1/launcher-logs"
+    },
+    "response": {
+      "status": 401,
+      "headers": {
+        "content-type": "application/json; charset=utf-8",
+        "content-length": "37"
+      },
+      "body": "{\"error\":\"Invalid sync credentials.\"}"
+    }
+  },
+  {
+    "name": "launcher logs, wrong token",
+    "env": {
+      "LAUNCHER_LOG_SYNC_TOKEN": "sync-token"
+    },
+    "files": {
+      "logs/u1/abcdef12-3456-7890/launcher.log": "log text",
+      "logs/u1/abcdef12-3456-7890/metadata.json": "{}",
+      "logs/u1/abcdef12-3456-7890/.uploaded-at.json": "{\"lastUploadedAt\":\"2026-10-02T00:00:00.000Z\"}\n",
+      "logs/u2/bbbbbbbb-2/launcher.log": "other",
+      "logs/u2/bbbbbbbb-2/.uploaded-at.json": "{\"lastUploadedAt\":\"2026-10-01T00:00:00.000Z\"}\n"
+    },
+    "request": {
+      "method": "GET",
+      "path": "/admin/v1/launcher-logs",
+      "headers": {
+        "x-sync-token": "nope"
+      }
+    },
+    "response": {
+      "status": 401,
+      "headers": {
+        "content-type": "application/json; charset=utf-8",
+        "content-length": "37"
+      },
+      "body": "{\"error\":\"Invalid sync credentials.\"}"
+    }
+  },
+  {
+    "name": "launcher logs, none configured",
+    "env": {},
+    "files": {
+      "logs/u1/abcdef12-3456-7890/launcher.log": "log text",
+      "logs/u1/abcdef12-3456-7890/metadata.json": "{}",
+      "logs/u1/abcdef12-3456-7890/.uploaded-at.json": "{\"lastUploadedAt\":\"2026-10-02T00:00:00.000Z\"}\n",
+      "logs/u2/bbbbbbbb-2/launcher.log": "other",
+      "logs/u2/bbbbbbbb-2/.uploaded-at.json": "{\"lastUploadedAt\":\"2026-10-01T00:00:00.000Z\"}\n"
+    },
+    "request": {
+      "method": "GET",
+      "path": "/admin/v1/launcher-logs",
+      "headers": {
+        "x-sync-token": "sync-token"
+      }
+    },
+    "response": {
+      "status": 401,
+      "headers": {
+        "content-type": "application/json; charset=utf-8",
+        "content-length": "37"
+      },
+      "body": "{\"error\":\"Invalid sync credentials.\"}"
+    }
+  },
+  {
+    "name": "launcher logs, list",
+    "env": {
+      "LAUNCHER_LOG_SYNC_TOKEN": "sync-token"
+    },
+    "files": {
+      "logs/u1/abcdef12-3456-7890/launcher.log": "log text",
+      "logs/u1/abcdef12-3456-7890/metadata.json": "{}",
+      "logs/u1/abcdef12-3456-7890/.uploaded-at.json": "{\"lastUploadedAt\":\"2026-10-02T00:00:00.000Z\"}\n",
+      "logs/u2/bbbbbbbb-2/launcher.log": "other",
+      "logs/u2/bbbbbbbb-2/.uploaded-at.json": "{\"lastUploadedAt\":\"2026-10-01T00:00:00.000Z\"}\n"
+    },
+    "request": {
+      "method": "GET",
+      "path": "/admin/v1/launcher-logs",
+      "headers": {
+        "x-sync-token": "sync-token"
+      }
+    },
+    "response": {
+      "status": 200,
+      "headers": {
+        "content-type": "application/json; charset=utf-8",
+        "content-length": "262"
+      },
+      "body": "{\"sessions\":[{\"userId\":\"u2\",\"launchSessionId\":\"bbbbbbbb-2\",\"uploadedAt\":\"2026-10-01T00:00:00.000Z\",\"files\":[\"launcher.log\"]},{\"userId\":\"u1\",\"launchSessionId\":\"abcdef12-3456-7890\",\"uploadedAt\":\"2026-10-02T00:00:00.000Z\",\"files\":[\"launcher.log\",\"metadata.json\"]}]}"
+    }
+  },
+  {
+    "name": "launcher logs, list since",
+    "env": {
+      "LAUNCHER_LOG_SYNC_TOKEN": "sync-token"
+    },
+    "files": {
+      "logs/u1/abcdef12-3456-7890/launcher.log": "log text",
+      "logs/u1/abcdef12-3456-7890/metadata.json": "{}",
+      "logs/u1/abcdef12-3456-7890/.uploaded-at.json": "{\"lastUploadedAt\":\"2026-10-02T00:00:00.000Z\"}\n",
+      "logs/u2/bbbbbbbb-2/launcher.log": "other",
+      "logs/u2/bbbbbbbb-2/.uploaded-at.json": "{\"lastUploadedAt\":\"2026-10-01T00:00:00.000Z\"}\n"
+    },
+    "request": {
+      "method": "GET",
+      "path": "/admin/v1/launcher-logs?since=2026-10-01T12:00:00Z",
+      "headers": {
+        "x-sync-token": "sync-token"
+      }
+    },
+    "response": {
+      "status": 200,
+      "headers": {
+        "content-type": "application/json; charset=utf-8",
+        "content-length": "150"
+      },
+      "body": "{\"sessions\":[{\"userId\":\"u1\",\"launchSessionId\":\"abcdef12-3456-7890\",\"uploadedAt\":\"2026-10-02T00:00:00.000Z\",\"files\":[\"launcher.log\",\"metadata.json\"]}]}"
+    }
+  },
+  {
+    "name": "launcher logs, list since the last",
+    "env": {
+      "LAUNCHER_LOG_SYNC_TOKEN": "sync-token"
+    },
+    "files": {
+      "logs/u1/abcdef12-3456-7890/launcher.log": "log text",
+      "logs/u1/abcdef12-3456-7890/metadata.json": "{}",
+      "logs/u1/abcdef12-3456-7890/.uploaded-at.json": "{\"lastUploadedAt\":\"2026-10-02T00:00:00.000Z\"}\n",
+      "logs/u2/bbbbbbbb-2/launcher.log": "other",
+      "logs/u2/bbbbbbbb-2/.uploaded-at.json": "{\"lastUploadedAt\":\"2026-10-01T00:00:00.000Z\"}\n"
+    },
+    "request": {
+      "method": "GET",
+      "path": "/admin/v1/launcher-logs?since=2026-10-02T00:00:00.000Z",
+      "headers": {
+        "x-sync-token": "sync-token"
+      }
+    },
+    "response": {
+      "status": 200,
+      "headers": {
+        "content-type": "application/json; charset=utf-8",
+        "content-length": "15"
+      },
+      "body": "{\"sessions\":[]}"
+    }
+  },
+  {
+    "name": "launcher logs, list since garbage",
+    "env": {
+      "LAUNCHER_LOG_SYNC_TOKEN": "sync-token"
+    },
+    "files": {
+      "logs/u1/abcdef12-3456-7890/launcher.log": "log text",
+      "logs/u1/abcdef12-3456-7890/metadata.json": "{}",
+      "logs/u1/abcdef12-3456-7890/.uploaded-at.json": "{\"lastUploadedAt\":\"2026-10-02T00:00:00.000Z\"}\n",
+      "logs/u2/bbbbbbbb-2/launcher.log": "other",
+      "logs/u2/bbbbbbbb-2/.uploaded-at.json": "{\"lastUploadedAt\":\"2026-10-01T00:00:00.000Z\"}\n"
+    },
+    "request": {
+      "method": "GET",
+      "path": "/admin/v1/launcher-logs?since=garbage",
+      "headers": {
+        "x-sync-token": "sync-token"
+      }
+    },
+    "response": {
+      "status": 200,
+      "headers": {
+        "content-type": "application/json; charset=utf-8",
+        "content-length": "262"
+      },
+      "body": "{\"sessions\":[{\"userId\":\"u2\",\"launchSessionId\":\"bbbbbbbb-2\",\"uploadedAt\":\"2026-10-01T00:00:00.000Z\",\"files\":[\"launcher.log\"]},{\"userId\":\"u1\",\"launchSessionId\":\"abcdef12-3456-7890\",\"uploadedAt\":\"2026-10-02T00:00:00.000Z\",\"files\":[\"launcher.log\",\"metadata.json\"]}]}"
+    }
+  },
+  {
+    "name": "launcher logs, no root",
+    "env": {
+      "LAUNCHER_LOG_SYNC_TOKEN": "sync-token"
+    },
+    "files": {},
+    "request": {
+      "method": "GET",
+      "path": "/admin/v1/launcher-logs",
+      "headers": {
+        "x-sync-token": "sync-token"
+      }
+    },
+    "response": {
+      "status": 200,
+      "headers": {
+        "content-type": "application/json; charset=utf-8",
+        "content-length": "15"
+      },
+      "body": "{\"sessions\":[]}"
+    }
+  },
+  {
+    "name": "launcher logs, a file",
+    "env": {
+      "LAUNCHER_LOG_SYNC_TOKEN": "sync-token"
+    },
+    "files": {
+      "logs/u1/abcdef12-3456-7890/launcher.log": "log text",
+      "logs/u1/abcdef12-3456-7890/metadata.json": "{}",
+      "logs/u1/abcdef12-3456-7890/.uploaded-at.json": "{\"lastUploadedAt\":\"2026-10-02T00:00:00.000Z\"}\n",
+      "logs/u2/bbbbbbbb-2/launcher.log": "other",
+      "logs/u2/bbbbbbbb-2/.uploaded-at.json": "{\"lastUploadedAt\":\"2026-10-01T00:00:00.000Z\"}\n"
+    },
+    "request": {
+      "method": "GET",
+      "path": "/admin/v1/launcher-logs/u1/abcdef12-3456-7890/launcher.log",
+      "headers": {
+        "x-sync-token": "sync-token"
+      }
+    },
+    "response": {
+      "status": 200,
+      "headers": {
+        "content-type": "application/octet-stream",
+        "content-length": "8"
+      },
+      "body": "log text"
+    }
+  },
+  {
+    "name": "launcher logs, a missing file",
+    "env": {
+      "LAUNCHER_LOG_SYNC_TOKEN": "sync-token"
+    },
+    "files": {
+      "logs/u1/abcdef12-3456-7890/launcher.log": "log text",
+      "logs/u1/abcdef12-3456-7890/metadata.json": "{}",
+      "logs/u1/abcdef12-3456-7890/.uploaded-at.json": "{\"lastUploadedAt\":\"2026-10-02T00:00:00.000Z\"}\n",
+      "logs/u2/bbbbbbbb-2/launcher.log": "other",
+      "logs/u2/bbbbbbbb-2/.uploaded-at.json": "{\"lastUploadedAt\":\"2026-10-01T00:00:00.000Z\"}\n"
+    },
+    "request": {
+      "method": "GET",
+      "path": "/admin/v1/launcher-logs/u1/abcdef12-3456-7890/nothing.log",
+      "headers": {
+        "x-sync-token": "sync-token"
+      }
+    },
+    "response": {
+      "status": 404,
+      "headers": {
+        "content-type": "text/plain; charset=utf-8",
+        "content-length": "9"
+      },
+      "body": "Not Found"
+    }
+  },
+  {
+    "name": "launcher logs, a bad path",
+    "env": {
+      "LAUNCHER_LOG_SYNC_TOKEN": "sync-token"
+    },
+    "files": {
+      "logs/u1/abcdef12-3456-7890/launcher.log": "log text",
+      "logs/u1/abcdef12-3456-7890/metadata.json": "{}",
+      "logs/u1/abcdef12-3456-7890/.uploaded-at.json": "{\"lastUploadedAt\":\"2026-10-02T00:00:00.000Z\"}\n",
+      "logs/u2/bbbbbbbb-2/launcher.log": "other",
+      "logs/u2/bbbbbbbb-2/.uploaded-at.json": "{\"lastUploadedAt\":\"2026-10-01T00:00:00.000Z\"}\n"
+    },
+    "request": {
+      "method": "GET",
+      "path": "/admin/v1/launcher-logs/u1/abcdef12-3456-7890/..%2Fx",
+      "headers": {
+        "x-sync-token": "sync-token"
+      }
+    },
+    "response": {
+      "status": 400,
+      "headers": {
+        "content-type": "application/json; charset=utf-8",
+        "content-length": "25"
+      },
+      "body": "{\"error\":\"Invalid path.\"}"
+    }
+  },
+  {
+    "name": "launcher log upload, no sign-in",
+    "env": {
+      "LAUNCHER_LOG_SYNC_TOKEN": "sync-token"
+    },
+    "files": {},
+    "request": {
+      "method": "PUT",
+      "path": "/launcher/v1/logs/sessions/abcdef12-3456-7890/launcher.log"
+    },
+    "response": {
+      "status": 401,
+      "headers": {
+        "content-type": "application/json; charset=utf-8",
+        "content-length": "119"
+      },
+      "body": "{\"error\":{\"code\":\"AUTH_UNAUTHORIZED\",\"message\":\"Sign in required.\",\"requestId\":\"<id>\"}}"
+    }
+  }
+]

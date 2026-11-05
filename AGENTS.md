@@ -14,30 +14,26 @@ clean-room from the specs in `docs/port/` (RD27; the reviews are in `docs/port/c
 
 ## Repository layout
 
-DaintyLass is two repositories since the split (RD27, 2026-11-02): **dainty-lass**, this one, holds only MIT code;
-**dainty-restricted** (beside it, `R:\source\dauntless\dainty-restricted` on the maintainer's PC) holds every AGPL
-component and the binaries that link them, and takes this repository's crates as git dependencies at one rev.
+DaintyLass is one monorepo with two licence-separated Cargo workspaces (RD27): the root workspace holds only MIT code
+(`exclude = ["fuzz", "restricted"]`); **`restricted/`** holds every AGPL component and the binaries that link them in
+its own Cargo workspace (`restricted/Cargo.toml`), taking the root MIT crates via relative `path = "../crates/<name>"`
+dependencies.
 
 | Path | What it is |
 | --- | --- |
-| root | One cargo workspace, every package in `crates/<package name>`: the libraries (`controller`, `module-api`, `epic`, `history-ship`, `hostkit`, `launcher-kit`, `plugin-host`, `protocol`, `proxy`, `remote`, `service-kit`, `service-plugin`, `store`), the services (`admin`, `backend`, `director`, `gateway`, `content`), the core plugins (`network`, `chat`), the `*-plugin` libraries (`gateway-plugin`, `content-plugin`, `chat-plugin`), the realms crates (`rifts-seam`, `rifts-admission`, `rifts-relay`, `rifts-realms`, `rifts-guard`, `rifts-transport`, `rifts-host`) and the `dainty-lass-server` binary |
+| root | The MIT cargo workspace, every package in `crates/<package name>`: the libraries (`controller`, `module-api`, `epic`, `history-ship`, `hostkit`, `launcher-kit`, `plugin-host`, `protocol`, `proxy`, `remote`, `service-kit`, `service-plugin`, `store`), the services (`admin`, `backend`, `director`, `gateway`, `content`), the core plugins (`network`, `chat`), the `*-plugin` libraries (`gateway-plugin`, `content-plugin`, `chat-plugin`), the realms crates (`rifts-seam`, `rifts-admission`, `rifts-relay`, `rifts-realms`, `rifts-guard`, `rifts-transport`, `rifts-host`) and the `dainty-lass-server` binary |
 | `fuzz/` | `cargo fuzz` targets for the MIT crates, a workspace of its own (excluded from the main one) |
-| `ui/` | dainty-dash: the staff dashboard, the launcher and server-manager pages dainty-restricted's Tauri shells serve, and the fleet agent. MIT; its generated bridge types come from dainty-restricted at build time (`bun run restricted-data`) |
-| `launcher/` | The launcher's JavaScript side (RD27): the isolation hook, the scripts the Tauri shells and the release run, and their tests. The Rust shell (`launcher/src-tauri`) is dainty-restricted's |
+| `ui/` | dainty-dash: the staff dashboard, the launcher and server-manager pages `restricted/`'s Tauri shells serve, and the fleet agent. MIT; its generated bridge types come from `restricted/` at build time (`bun run restricted-data`) |
+| `launcher/` | The launcher's JavaScript side (RD27): the isolation hook, the scripts the Tauri shells and the release run, and their tests. The Rust shell (`restricted/launcher/src-tauri`) is in `restricted/` |
 | `scripts/` | `replay-capture.mjs` |
 | `docs/` | `architecture.md`, the plans, `port/` (the migration guide, delta and catch-up lists), `security/` for the MIT components (indexed in [`SECURITY_REVIEW.md`](SECURITY_REVIEW.md)) |
+| `restricted/` | The AGPL-3.0-only workspace (`restricted/Cargo.toml`): `crates/` (`host` = the AGPL shell around `hostkit` that composes the services in `compose.rs`, the `*-plugin` crates, and the server executables `server-console` and `server-minimal`), `launcher/src-tauri` (Tauri: `dainty-lass-client`, `dainty-lass-manager`), `modules/rustic-isles` and `modules/rustic-rifts`, `legacy/` (the 1.4.4 importer), `native/runtime-loader`, `docker/`, `compose.yaml`, the Tauri backend's language catalogs (`restricted/ui/`), and the hosting, player and Paradox docs. [`restricted/AGENTS.md`](restricted/AGENTS.md) covers them |
 
-In dainty-restricted: `crates/` (`host` = the AGPL shell around `hostkit` that composes the services in
-`compose.rs`, the `*-plugin` crates that build this repository's libraries, and the server executables
-`server-console` and `server-minimal`), `launcher/src-tauri` (Tauri: `dainty-lass-client`, `dainty-lass-manager`),
-`modules/rustic-isles` and `modules/rustic-rifts` (in-tree, one workspace with the rest), `legacy/` (the 1.4.4
-importer), `native/runtime-loader`, `docker/`, the Tauri backend's language catalogs, and the hosting, player and
-Paradox docs. Its own `AGENTS.md` covers them.
-
-**Which repository a change goes in** follows its licence: anything ported from DR, Paradox or the Reforged Revival
-line, or linking such code, is dainty-restricted's. A new crate here is MIT and depends on nothing AGPL; CI fails a
-package that is not MIT or Apache-2.0. Until the plugin ABI lands (RD27's phase 2), restricted's host composes the
-AGPL services into the controller in-process; then the MIT core loads them as libraries.
+**Which workspace a change goes in** follows its licence: anything ported from DR, Paradox or the Reforged Revival
+line, or linking such code, goes under `restricted/`. A crate in root `crates/` is MIT and depends on nothing in
+`restricted/` or AGPL; CI fails a root package that is not MIT or Apache-2.0 or that references `restricted/`. Until
+the plugin ABI lands (RD27's phase 2), `restricted/crates/host` composes the AGPL services into the controller
+in-process; then the MIT core loads them as libraries.
 
 DaintyLass serves one game, Dauntless 1.14.7 (2026-10-31). On the default path (since the RU9 code cutover,
 maintainer decision 2026-10-28), restricted's `host::serve` runs the compiled-in Rust `isles-1-14-7` backend (port

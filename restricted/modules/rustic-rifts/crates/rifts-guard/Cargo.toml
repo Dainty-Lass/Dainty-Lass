@@ -1,0 +1,27 @@
+[package]
+name = "rifts-guard"
+description = "Guard in observe mode: evidence intake, host writes, host policy and traffic limits"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+[dependencies]
+diesel.workspace = true
+diesel_migrations.workspace = true
+rifts-seam.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
+store.workspace = true
+thiserror.workspace = true
+tokio = { workspace = true, features = ["rt", "rt-multi-thread"] }
+
+[dev-dependencies]
+tempfile.workspace = true
+tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
+url.workspace = true
+
+[lints]
+workspace = true

@@ -1,0 +1,56 @@
+# The Node services' tests on Forgejo Actions (DX3): npm ci, tests and build for the backend and Director of each
+# game version. A folder that doesn't exist on this commit passes as skipped, so the list covers today's layout and
+# RU1's reference/1.14.7/ alike. Mystic's .github/workflows are GitHub's (Forgejo reads only this folder once it
+# exists). Runner label docker (dainty-lass docs/ci-runners.md). Actions are pinned by commit.
+name: CI
+
+on:
+  push:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' && github.ref != 'refs/heads/plan' }}
+
+jobs:
+  node:
+    # No matrix value in the name: Forgejo appends it
+    name: Node service
+    runs-on: docker
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        dir:
+          - ParadoxBackend
+          - ParadoxDirector
+          - reference/1.14.7/ParadoxBackend
+          - reference/1.14.7/ParadoxDirector
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+
+      - name: npm ci, test and build
+        env:
+          DIR: ${{ matrix.dir }}
+        run: |
+          set -euo pipefail
+          if [ ! -f "$DIR/package.json" ]; then
+            echo "$DIR is not on this commit: skipped"
+            exit 0
+          fi
+          cd "$DIR"
+          npm ci --no-audit --no-fund
+          npm run test --if-present
+          npm run build

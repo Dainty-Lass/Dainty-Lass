@@ -7,16 +7,16 @@ import path from "node:path"
 export const launcherDir = path.resolve(import.meta.dir, "..")
 export const repoDir = path.resolve(launcherDir, "..")
 
-// The same rule as ui/packages/bridge/scripts/restricted-data.ts, so both copy from one checkout
+// The same rule as ui/packages/bridge/scripts/restricted-data.ts, so both copy from restricted/
 export function restrictedDir(): string {
-  return process.env.DAINTY_RESTRICTED_DIR || path.resolve(repoDir, "../dainty-restricted")
+  return process.env.DAINTY_RESTRICTED_DIR || path.resolve(repoDir, "restricted")
 }
 
 function main(): void {
   const restricted = restrictedDir()
   const from = path.join(restricted, "launcher", "isolation", "commands.js")
   if (!existsSync(from)) {
-    console.error(`missing ${from}: set DAINTY_RESTRICTED_DIR to a dainty-restricted checkout`)
+    console.error(`missing ${from}: set DAINTY_RESTRICTED_DIR to the restricted/ folder`)
     process.exit(1)
   }
   mkdirSync(path.join(launcherDir, "isolation"), { recursive: true })

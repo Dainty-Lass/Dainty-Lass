@@ -1,7 +1,7 @@
 # Security Review Index
 
 Index of trust-boundary security checklists (`docs/security/*.md`, RX3/DX2) and `cargo fuzz` targets (`fuzz/fuzz_targets/*.rs`) for dainty-lass's MIT components. The AGPL components' checklists (the host
-shell, the Tauri launcher, the game modules and dainty-restricted's realms crates) and their fuzz targets are in dainty-restricted's own index (RD27).
+shell, the Tauri launcher, the game modules and `restricted/`'s realms crates) and their fuzz targets are in [restricted/SECURITY_REVIEW.md](restricted/SECURITY_REVIEW.md) (RD27).
 
 ## Checklists (`docs/security/`)
 

@@ -1,0 +1,3877 @@
+{
+  "version": "1.14.7",
+  "users": [
+    "player-1",
+    "player-2",
+    "player-3",
+    "host-1"
+  ],
+  "characters": [
+    [
+      "player-1",
+      "char-1"
+    ],
+    [
+      "player-2",
+      "char-2"
+    ],
+    [
+      "player-3",
+      "char-3"
+    ]
+  ],
+  "steps": [
+    {
+      "name": "huntpass",
+      "request": {
+        "method": "GET",
+        "path": "/huntpass/player-1",
+        "role": "player",
+        "user": "player-1",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "body": "{\"code\":null,\"message\":\"OK\",\"payload\":{\"huntpass_id\":\"season43\",\"season\":\"season43\"}}"
+      },
+      "hooks": {
+        "authorized": [],
+        "records": [],
+        "notes": 0
+      }
+    },
+    {
+      "name": "progression list, nothing stored",
+      "request": {
+        "method": "GET",
+        "path": "/progression/player-1",
+        "role": "player",
+        "user": "player-1",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "body": "{\"code\":null,\"message\":\"OK\",\"payload\":[{\"phx_account_id\":\"player-1\",\"progression_id\":\"MasteryTrack_PlayerLevel\",\"progress\":0,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.684Z\"},{\"phx_account_id\":\"player-1\",\"progression_id\":\"MasteryTrack_Weapon_Axe\",\"progress\":0,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.684Z\"},{\"phx_account_id\":\"player-1\",\"progression_id\":\"MasteryTrack_Weapon_ChainBlades\",\"progress\":0,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.684Z\"},{\"phx_account_id\":\"player-1\",\"progression_id\":\"MasteryTrack_Weapon_Hammer\",\"progress\":0,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.684Z\"},{\"phx_account_id\":\"player-1\",\"progression_id\":\"MasteryTrack_Weapon_Repeaters\",\"progress\":0,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.684Z\"},{\"phx_account_id\":\"player-1\",\"progression_id\":\"MasteryTrack_Weapon_Sword\",\"progress\":0,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.684Z\"},{\"phx_account_id\":\"player-1\",\"progression_id\":\"MasteryTrack_Weapon_Spear\",\"progress\":0,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.684Z\"},{\"phx_account_id\":\"player-1\",\"progression_id\":\"MasteryTrack_Weapon_Strikers\",\"progress\":0,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.684Z\"},{\"phx_account_id\":\"player-1\",\"progression_id\":\"ExperienceTrack_PlayerLevel\",\"progress\":0,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.684Z\"},{\"phx_account_id\":\"player-1\",\"progression_id\":\"ExperienceTrack_Weapon_Axe\",\"progress\":0,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.684Z\"},{\"phx_account_id\":\"player-1\",\"progression_id\":\"ExperienceTrack_Weapon_ChainBlades\",\"progress\":0,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.684Z\"},{\"phx_account_id\":\"player-1\",\"progression_id\":\"ExperienceTrack_Weapon_Hammer\",\"progress\":0,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.684Z\"},{\"phx_account_id\":\"player-1\",\"progression_id\":\"ExperienceTrack_Weapon_Repeaters\",\"progress\":0,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.684Z\"},{\"phx_account_id\":\"player-1\",\"progression_id\":\"ExperienceTrack_Weapon_Sword\",\"progress\":0,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.684Z\"},{\"phx_account_id\":\"player-1\",\"progression_id\":\"ExperienceTrack_Weapon_Spear\",\"progress\":0,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.684Z\"},{\"phx_account_id\":\"player-1\",\"progression_id\":\"ExperienceTrack_Weapon_Strikers\",\"progress\":0,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.684Z\"},{\"phx_account_id\":\"player-1\",\"progression_id\":\"PrestigeTrack_Weapon_Axe\",\"progress\":0,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.684Z\"},{\"phx_account_id\":\"player-1\",\"progression_id\":\"PrestigeTrack_Weapon_ChainBlades\",\"progress\":0,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.684Z\"},{\"phx_account_id\":\"player-1\",\"progression_id\":\"PrestigeTrack_Weapon_Hammer\",\"progress\":0,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.684Z\"},{\"phx_account_id\":\"player-1\",\"progression_id\":\"PrestigeTrack_Weapon_Repeaters\",\"progress\":0,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.684Z\"},{\"phx_account_id\":\"player-1\",\"progression_id\":\"PrestigeTrack_Weapon_Sword\",\"progress\":0,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.684Z\"},{\"phx_account_id\":\"player-1\",\"progression_id\":\"PrestigeTrack_Weapon_Spear\",\"progress\":0,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.684Z\"},{\"phx_account_id\":\"player-1\",\"progression_id\":\"PrestigeTrack_Weapon_Strikers\",\"progress\":0,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.684Z\"},{\"phx_account_id\":\"player-1\",\"progression_id\":\"season43\",\"progress\":0,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.684Z\"}]}"
+      },
+      "hooks": {
+        "authorized": [],
+        "records": [],
+        "notes": 0
+      }
+    },
+    {
+      "name": "progression list for the no-player sentinel",
+      "request": {
+        "method": "GET",
+        "path": "/progression/INVALID",
+        "role": "gs",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "body": "{\"code\":null,\"message\":\"OK\",\"payload\":[{\"phx_account_id\":\"INVALID\",\"progression_id\":\"MasteryTrack_PlayerLevel\",\"progress\":0,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.687Z\"},{\"phx_account_id\":\"INVALID\",\"progression_id\":\"MasteryTrack_Weapon_Axe\",\"progress\":0,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.687Z\"},{\"phx_account_id\":\"INVALID\",\"progression_id\":\"MasteryTrack_Weapon_ChainBlades\",\"progress\":0,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.687Z\"},{\"phx_account_id\":\"INVALID\",\"progression_id\":\"MasteryTrack_Weapon_Hammer\",\"progress\":0,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.687Z\"},{\"phx_account_id\":\"INVALID\",\"progression_id\":\"MasteryTrack_Weapon_Repeaters\",\"progress\":0,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.687Z\"},{\"phx_account_id\":\"INVALID\",\"progression_id\":\"MasteryTrack_Weapon_Sword\",\"progress\":0,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.687Z\"},{\"phx_account_id\":\"INVALID\",\"progression_id\":\"MasteryTrack_Weapon_Spear\",\"progress\":0,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.687Z\"},{\"phx_account_id\":\"INVALID\",\"progression_id\":\"MasteryTrack_Weapon_Strikers\",\"progress\":0,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.687Z\"},{\"phx_account_id\":\"INVALID\",\"progression_id\":\"ExperienceTrack_PlayerLevel\",\"progress\":0,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.687Z\"},{\"phx_account_id\":\"INVALID\",\"progression_id\":\"ExperienceTrack_Weapon_Axe\",\"progress\":0,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.687Z\"},{\"phx_account_id\":\"INVALID\",\"progression_id\":\"ExperienceTrack_Weapon_ChainBlades\",\"progress\":0,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.687Z\"},{\"phx_account_id\":\"INVALID\",\"progression_id\":\"ExperienceTrack_Weapon_Hammer\",\"progress\":0,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.687Z\"},{\"phx_account_id\":\"INVALID\",\"progression_id\":\"ExperienceTrack_Weapon_Repeaters\",\"progress\":0,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.687Z\"},{\"phx_account_id\":\"INVALID\",\"progression_id\":\"ExperienceTrack_Weapon_Sword\",\"progress\":0,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.687Z\"},{\"phx_account_id\":\"INVALID\",\"progression_id\":\"ExperienceTrack_Weapon_Spear\",\"progress\":0,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.687Z\"},{\"phx_account_id\":\"INVALID\",\"progression_id\":\"ExperienceTrack_Weapon_Strikers\",\"progress\":0,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.687Z\"},{\"phx_account_id\":\"INVALID\",\"progression_id\":\"PrestigeTrack_Weapon_Axe\",\"progress\":0,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.687Z\"},{\"phx_account_id\":\"INVALID\",\"progression_id\":\"PrestigeTrack_Weapon_ChainBlades\",\"progress\":0,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.687Z\"},{\"phx_account_id\":\"INVALID\",\"progression_id\":\"PrestigeTrack_Weapon_Hammer\",\"progress\":0,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.687Z\"},{\"phx_account_id\":\"INVALID\",\"progression_id\":\"PrestigeTrack_Weapon_Repeaters\",\"progress\":0,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.687Z\"},{\"phx_account_id\":\"INVALID\",\"progression_id\":\"PrestigeTrack_Weapon_Sword\",\"progress\":0,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.687Z\"},{\"phx_account_id\":\"INVALID\",\"progression_id\":\"PrestigeTrack_Weapon_Spear\",\"progress\":0,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.687Z\"},{\"phx_account_id\":\"INVALID\",\"progression_id\":\"PrestigeTrack_Weapon_Strikers\",\"progress\":0,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.687Z\"},{\"phx_account_id\":\"INVALID\",\"progression_id\":\"season43\",\"progress\":0,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.687Z\"}]}"
+      },
+      "hooks": {
+        "authorized": [],
+        "records": [],
+        "notes": 0
+      }
+    },
+    {
+      "name": "progression list of another account",
+      "request": {
+        "method": "GET",
+        "path": "/progression/player-2",
+        "role": "player",
+        "user": "player-1",
+        "headers": {}
+      },
+      "response": {
+        "status": 403,
+        "body": "{\"code\":null,\"message\":\"Forbidden\",\"payload\":{}}"
+      },
+      "hooks": {
+        "authorized": [],
+        "records": [],
+        "notes": 0
+      }
+    },
+    {
+      "name": "progression list, no auth",
+      "request": {
+        "method": "GET",
+        "path": "/progression/player-1",
+        "headers": {}
+      },
+      "response": {
+        "status": 401,
+        "body": ""
+      },
+      "hooks": {
+        "authorized": [],
+        "records": [],
+        "notes": 0
+      }
+    },
+    {
+      "name": "single track, nothing stored",
+      "request": {
+        "method": "GET",
+        "path": "/progression/player-1/ExperienceTrack_Weapon_Axe",
+        "role": "player",
+        "user": "player-1",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "body": "{\"code\":null,\"message\":\"OK\",\"payload\":{\"phx_account_id\":\"player-1\",\"progression_id\":\"ExperienceTrack_Weapon_Axe\",\"progress\":0,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.694Z\"}}"
+      },
+      "hooks": {
+        "authorized": [],
+        "records": [],
+        "notes": 0
+      }
+    },
+    {
+      "name": "single track, reserved segment",
+      "request": {
+        "method": "GET",
+        "path": "/progression/config/x",
+        "role": "player",
+        "user": "player-1",
+        "headers": {}
+      },
+      "response": {
+        "status": 404,
+        "body": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n<meta charset=\"utf-8\">\n<title>Error</title>\n</head>\n<body>\n<pre>Cannot GET /progression/config/x</pre>\n</body>\n</html>\n"
+      },
+      "hooks": {
+        "authorized": [],
+        "records": [],
+        "notes": 0
+      }
+    },
+    {
+      "name": "single track, sentinel",
+      "request": {
+        "method": "GET",
+        "path": "/progression/INVALID/ExperienceTrack_Weapon_Axe",
+        "role": "gs",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "body": "{\"code\":null,\"message\":\"OK\",\"payload\":{\"phx_account_id\":\"INVALID\",\"progression_id\":\"ExperienceTrack_Weapon_Axe\",\"progress\":0,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.707Z\"}}"
+      },
+      "hooks": {
+        "authorized": [],
+        "records": [],
+        "notes": 0
+      }
+    },
+    {
+      "name": "objectives, none",
+      "request": {
+        "method": "GET",
+        "path": "/progression/objectives/player-1",
+        "role": "player",
+        "user": "player-1",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "body": "{\"code\":null,\"message\":\"OK\",\"payload\":[]}"
+      },
+      "hooks": {
+        "authorized": [],
+        "records": [],
+        "notes": 0
+      }
+    },
+    {
+      "name": "objectives, sentinel",
+      "request": {
+        "method": "GET",
+        "path": "/progression/objectives/INVALID",
+        "role": "gs",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "body": "{\"code\":null,\"message\":\"OK\",\"payload\":[]}"
+      },
+      "hooks": {
+        "authorized": [],
+        "records": [],
+        "notes": 0
+      }
+    },
+    {
+      "name": "weapon tracker",
+      "request": {
+        "method": "GET",
+        "path": "/weapon_tracker/player-1/RHLDQHG6UNBG3KROD7MWHKZSKU",
+        "role": "player",
+        "user": "player-1",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "body": "{\"code\":null,\"message\":\"OK\",\"payload\":{\"TrackersInfo\":[]}}"
+      },
+      "hooks": {
+        "authorized": [],
+        "records": [],
+        "notes": 0
+      }
+    },
+    {
+      "name": "weapon tracker, other account",
+      "request": {
+        "method": "GET",
+        "path": "/weapon_tracker/player-2/X",
+        "role": "player",
+        "user": "player-1",
+        "headers": {}
+      },
+      "response": {
+        "status": 403,
+        "body": "{\"code\":null,\"message\":\"Forbidden\",\"payload\":{}}"
+      },
+      "hooks": {
+        "authorized": [],
+        "records": [],
+        "notes": 0
+      }
+    },
+    {
+      "name": "tracked objectives",
+      "request": {
+        "method": "GET",
+        "path": "/progression/tracked_objectives/player-1",
+        "role": "player",
+        "user": "player-1",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "body": "{\"code\":null,\"message\":\"OK\",\"payload\":{\"current_set\":\"quest_slayer_links\",\"omitted_quests\":[],\"phx_account_id\":\"player-1\",\"tracked_craftables\":[],\"tracked_quests\":[]}}"
+      },
+      "hooks": {
+        "authorized": [],
+        "records": [],
+        "notes": 0
+      }
+    },
+    {
+      "name": "tracked objectives post",
+      "request": {
+        "method": "POST",
+        "path": "/progression/tracked_objectives/player-1",
+        "role": "player",
+        "user": "player-1",
+        "headers": {},
+        "body": {
+          "current_set": "x"
+        }
+      },
+      "response": {
+        "status": 200,
+        "body": "{\"code\":null,\"message\":\"OK\",\"payload\":null}"
+      },
+      "hooks": {
+        "authorized": [],
+        "records": [],
+        "notes": 0
+      }
+    },
+    {
+      "name": "grant",
+      "request": {
+        "method": "POST",
+        "path": "/progression/player-1/ExperienceTrack_Weapon_Axe/250",
+        "role": "gs",
+        "headers": {
+          "x-rustic-isles-grant-id": "g1"
+        }
+      },
+      "response": {
+        "status": 200,
+        "body": "{\"code\":null,\"message\":\"OK\",\"payload\":{\"phx_account_id\":\"player-1\",\"progression_id\":\"ExperienceTrack_Weapon_Axe\",\"progress\":250,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.749Z\",\"grant_id\":\"g1\",\"replayed\":false}}"
+      },
+      "hooks": {
+        "authorized": [],
+        "records": [],
+        "notes": 0
+      }
+    },
+    {
+      "name": "grant replay",
+      "request": {
+        "method": "POST",
+        "path": "/progression/player-1/ExperienceTrack_Weapon_Axe/250",
+        "role": "gs",
+        "headers": {
+          "x-rustic-isles-grant-id": "g1"
+        }
+      },
+      "response": {
+        "status": 200,
+        "body": "{\"code\":null,\"message\":\"OK\",\"payload\":{\"phx_account_id\":\"player-1\",\"progression_id\":\"ExperienceTrack_Weapon_Axe\",\"progress\":250,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.749Z\",\"grant_id\":\"g1\",\"replayed\":true}}"
+      },
+      "hooks": {
+        "authorized": [],
+        "records": [],
+        "notes": 0
+      }
+    },
+    {
+      "name": "grant id reused with another amount",
+      "request": {
+        "method": "POST",
+        "path": "/progression/player-1/ExperienceTrack_Weapon_Axe/251",
+        "role": "gs",
+        "headers": {
+          "x-rustic-isles-grant-id": "g1"
+        }
+      },
+      "response": {
+        "status": 409,
+        "body": "{\"code\":null,\"message\":\"Conflict\",\"payload\":{}}"
+      },
+      "hooks": {
+        "authorized": [],
+        "records": [],
+        "notes": 0
+      }
+    },
+    {
+      "name": "grant id reused for another user",
+      "request": {
+        "method": "POST",
+        "path": "/progression/player-2/ExperienceTrack_Weapon_Axe/250",
+        "role": "gs",
+        "headers": {
+          "x-rustic-isles-grant-id": "g1"
+        }
+      },
+      "response": {
+        "status": 409,
+        "body": "{\"code\":null,\"message\":\"Conflict\",\"payload\":{}}"
+      },
+      "hooks": {
+        "authorized": [],
+        "records": [],
+        "notes": 0
+      }
+    },
+    {
+      "name": "grant without an id from a game server",
+      "request": {
+        "method": "POST",
+        "path": "/progression/player-1/ExperienceTrack_PlayerLevel/98",
+        "role": "gs",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "body": "{\"code\":null,\"message\":\"OK\",\"payload\":{\"phx_account_id\":\"player-1\",\"progression_id\":\"ExperienceTrack_PlayerLevel\",\"progress\":98,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.759Z\",\"grant_id\":\"gs-436a6e02-89c9-40dc-9a5b-264b3db7e189\",\"replayed\":false}}"
+      },
+      "hooks": {
+        "authorized": [],
+        "records": [],
+        "notes": 0
+      }
+    },
+    {
+      "name": "grant without an id from a host-less player",
+      "request": {
+        "method": "POST",
+        "path": "/progression/player-1/ExperienceTrack_PlayerLevel/98",
+        "role": "player",
+        "user": "player-1",
+        "headers": {}
+      },
+      "response": {
+        "status": 403,
+        "body": "{\"code\":null,\"message\":\"Forbidden\",\"payload\":{}}"
+      },
+      "hooks": {
+        "authorized": [],
+        "records": [],
+        "notes": 0
+      }
+    },
+    {
+      "name": "grant with a bad id",
+      "request": {
+        "method": "POST",
+        "path": "/progression/player-1/ExperienceTrack_PlayerLevel/98",
+        "role": "gs",
+        "headers": {
+          "x-rustic-isles-grant-id": "-bad id"
+        }
+      },
+      "response": {
+        "status": 400,
+        "body": "{\"code\":null,\"message\":\"Bad Request\",\"payload\":{}}"
+      },
+      "hooks": {
+        "authorized": [],
+        "records": [],
+        "notes": 0
+      }
+    },
+    {
+      "name": "grant with header and body ids that differ",
+      "request": {
+        "method": "POST",
+        "path": "/progression/player-1/ExperienceTrack_PlayerLevel/5",
+        "role": "gs",
+        "headers": {
+          "x-rustic-isles-grant-id": "g-head"
+        },
+        "body": {
+          "grant_id": "g-body"
+        }
+      },
+      "response": {
+        "status": 400,
+        "body": "{\"code\":null,\"message\":\"Bad Request\",\"payload\":{}}"
+      },
+      "hooks": {
+        "authorized": [],
+        "records": [],
+        "notes": 0
+      }
+    },
+    {
+      "name": "grant with the id in the body",
+      "request": {
+        "method": "POST",
+        "path": "/progression/player-1/ExperienceTrack_PlayerLevel/5",
+        "role": "gs",
+        "headers": {},
+        "body": {
+          "grantId": "g-body-2"
+        }
+      },
+      "response": {
+        "status": 200,
+        "body": "{\"code\":null,\"message\":\"OK\",\"payload\":{\"phx_account_id\":\"player-1\",\"progression_id\":\"ExperienceTrack_PlayerLevel\",\"progress\":103,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.766Z\",\"grant_id\":\"g-body-2\",\"replayed\":false}}"
+      },
+      "hooks": {
+        "authorized": [],
+        "records": [],
+        "notes": 0
+      }
+    },
+    {
+      "name": "grant with an idempotency key",
+      "request": {
+        "method": "POST",
+        "path": "/progression/player-1/ExperienceTrack_PlayerLevel/6",
+        "role": "gs",
+        "headers": {
+          "idempotency-key": "g-key"
+        }
+      },
+      "response": {
+        "status": 200,
+        "body": "{\"code\":null,\"message\":\"OK\",\"payload\":{\"phx_account_id\":\"player-1\",\"progression_id\":\"ExperienceTrack_PlayerLevel\",\"progress\":109,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.767Z\",\"grant_id\":\"g-key\",\"replayed\":false}}"
+      },
+      "hooks": {
+        "authorized": [],
+        "records": [],
+        "notes": 0
+      }
+    },
+    {
+      "name": "grant, amount zero",
+      "request": {
+        "method": "POST",
+        "path": "/progression/player-1/ExperienceTrack_PlayerLevel/0",
+        "role": "gs",
+        "headers": {
+          "x-rustic-isles-grant-id": "g2"
+        }
+      },
+      "response": {
+        "status": 400,
+        "body": "{\"code\":null,\"message\":\"Bad Request\",\"payload\":{}}"
+      },
+      "hooks": {
+        "authorized": [],
+        "records": [],
+        "notes": 0
+      }
+    },
+    {
+      "name": "grant, amount text",
+      "request": {
+        "method": "POST",
+        "path": "/progression/player-1/ExperienceTrack_PlayerLevel/abc",
+        "role": "gs",
+        "headers": {
+          "x-rustic-isles-grant-id": "g3"
+        }
+      },
+      "response": {
+        "status": 400,
+        "body": "{\"code\":null,\"message\":\"Bad Request\",\"payload\":{}}"
+      },
+      "hooks": {
+        "authorized": [],
+        "records": [],
+        "notes": 0
+      }
+    },
+    {
+      "name": "grant, amount fraction",
+      "request": {
+        "method": "POST",
+        "path": "/progression/player-1/ExperienceTrack_PlayerLevel/1.5",
+        "role": "gs",
+        "headers": {
+          "x-rustic-isles-grant-id": "g4"
+        }
+      },
+      "response": {
+        "status": 400,
+        "body": "{\"code\":null,\"message\":\"Bad Request\",\"payload\":{}}"
+      },
+      "hooks": {
+        "authorized": [],
+        "records": [],
+        "notes": 0
+      }
+    },
+    {
+      "name": "grant, amount exponent",
+      "request": {
+        "method": "POST",
+        "path": "/progression/player-1/ExperienceTrack_PlayerLevel/1e2",
+        "role": "gs",
+        "headers": {
+          "x-rustic-isles-grant-id": "g5"
+        }
+      },
+      "response": {
+        "status": 200,
+        "body": "{\"code\":null,\"message\":\"OK\",\"payload\":{\"phx_account_id\":\"player-1\",\"progression_id\":\"ExperienceTrack_PlayerLevel\",\"progress\":209,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.770Z\",\"grant_id\":\"g5\",\"replayed\":false}}"
+      },
+      "hooks": {
+        "authorized": [],
+        "records": [],
+        "notes": 0
+      }
+    },
+    {
+      "name": "grant, amount over the maximum",
+      "request": {
+        "method": "POST",
+        "path": "/progression/player-1/ExperienceTrack_PlayerLevel/100001",
+        "role": "gs",
+        "headers": {
+          "x-rustic-isles-grant-id": "g6"
+        }
+      },
+      "response": {
+        "status": 400,
+        "body": "{\"code\":null,\"message\":\"Bad Request\",\"payload\":{}}"
+      },
+      "hooks": {
+        "authorized": [],
+        "records": [],
+        "notes": 0
+      }
+    },
+    {
+      "name": "grant, amount at the maximum",
+      "request": {
+        "method": "POST",
+        "path": "/progression/player-1/ExperienceTrack_Weapon_Sword/100000",
+        "role": "gs",
+        "headers": {
+          "x-rustic-isles-grant-id": "g7"
+        }
+      },
+      "response": {
+        "status": 200,
+        "body": "{\"code\":null,\"message\":\"OK\",\"payload\":{\"phx_account_id\":\"player-1\",\"progression_id\":\"ExperienceTrack_Weapon_Sword\",\"progress\":100000,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.781Z\",\"grant_id\":\"g7\",\"replayed\":false}}"
+      },
+      "hooks": {
+        "authorized": [],
+        "records": [],
+        "notes": 0
+      }
+    },
+    {
+      "name": "grant, sentinel user",
+      "request": {
+        "method": "POST",
+        "path": "/progression/INVALID/ExperienceTrack_PlayerLevel/5",
+        "role": "gs",
+        "headers": {
+          "x-rustic-isles-grant-id": "g8"
+        }
+      },
+      "response": {
+        "status": 400,
+        "body": "{\"code\":null,\"message\":\"Bad Request\",\"payload\":{}}"
+      },
+      "hooks": {
+        "authorized": [],
+        "records": [],
+        "notes": 0
+      }
+    },
+    {
+      "name": "grant, unapproved track",
+      "request": {
+        "method": "POST",
+        "path": "/progression/player-1/Linked_Slayer_Slot_1/5",
+        "role": "gs",
+        "headers": {
+          "x-rustic-isles-grant-id": "g9"
+        }
+      },
+      "response": {
+        "status": 400,
+        "body": "{\"code\":null,\"message\":\"Bad Request\",\"payload\":{}}"
+      },
+      "hooks": {
+        "authorized": [],
+        "records": [],
+        "notes": 0
+      }
+    },
+    {
+      "name": "grant, unknown track",
+      "request": {
+        "method": "POST",
+        "path": "/progression/player-1/ExperienceTrack_Nothing/5",
+        "role": "gs",
+        "headers": {
+          "x-rustic-isles-grant-id": "g10"
+        }
+      },
+      "response": {
+        "status": 400,
+        "body": "{\"code\":null,\"message\":\"Bad Request\",\"payload\":{}}"
+      },
+      "hooks": {
+        "authorized": [],
+        "records": [],
+        "notes": 0
+      }
+    },
+    {
+      "name": "grant, long track",
+      "request": {
+        "method": "POST",
+        "path": "/progression/player-1/xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx/5",
+        "role": "gs",
+        "headers": {
+          "x-rustic-isles-grant-id": "g11"
+        }
+      },
+      "response": {
+        "status": 400,
+        "body": "{\"code\":null,\"message\":\"Bad Request\",\"payload\":{}}"
+      },
+      "hooks": {
+        "authorized": [],
+        "records": [],
+        "notes": 0
+      }
+    },
+    {
+      "name": "grant to the active hunt pass",
+      "request": {
+        "method": "POST",
+        "path": "/progression/player-1/season43/20",
+        "role": "gs",
+        "headers": {
+          "x-rustic-isles-grant-id": "g12"
+        }
+      },
+      "response": {
+        "status": 200,
+        "body": "{\"code\":null,\"message\":\"OK\",\"payload\":{\"phx_account_id\":\"player-1\",\"progression_id\":\"season43\",\"progress\":20,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.789Z\",\"grant_id\":\"g12\",\"replayed\":false}}"
+      },
+      "hooks": {
+        "authorized": [],
+        "records": [],
+        "notes": 0
+      }
+    },
+    {
+      "name": "grant to the other hunt pass",
+      "request": {
+        "method": "POST",
+        "path": "/progression/player-1/season19/20",
+        "role": "gs",
+        "headers": {
+          "x-rustic-isles-grant-id": "g13"
+        }
+      },
+      "response": {
+        "status": 400,
+        "body": "{\"code\":null,\"message\":\"Bad Request\",\"payload\":{}}"
+      },
+      "hooks": {
+        "authorized": [],
+        "records": [],
+        "notes": 0
+      }
+    },
+    {
+      "name": "grant to a mastery track",
+      "request": {
+        "method": "POST",
+        "path": "/progression/player-1/MasteryTrack_PlayerLevel/2",
+        "role": "gs",
+        "headers": {
+          "x-rustic-isles-grant-id": "g14"
+        }
+      },
+      "response": {
+        "status": 200,
+        "body": "{\"code\":null,\"message\":\"OK\",\"payload\":{\"phx_account_id\":\"player-1\",\"progression_id\":\"MasteryTrack_PlayerLevel\",\"progress\":2,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.792Z\",\"grant_id\":\"g14\",\"replayed\":false}}"
+      },
+      "hooks": {
+        "authorized": [],
+        "records": [],
+        "notes": 0
+      }
+    },
+    {
+      "name": "grant by a player",
+      "request": {
+        "method": "POST",
+        "path": "/progression/player-1/ExperienceTrack_PlayerLevel/5",
+        "role": "player",
+        "user": "player-1",
+        "headers": {
+          "x-rustic-isles-grant-id": "g15"
+        }
+      },
+      "response": {
+        "status": 403,
+        "body": "{\"code\":null,\"message\":\"Forbidden\",\"payload\":{}}"
+      },
+      "hooks": {
+        "authorized": [],
+        "records": [],
+        "notes": 0
+      }
+    },
+    {
+      "name": "grant, prestige without a reforge",
+      "request": {
+        "method": "POST",
+        "path": "/progression/player-1/PrestigeTrack_Weapon_Axe/1",
+        "role": "gs",
+        "headers": {
+          "x-rustic-isles-grant-id": "g16"
+        }
+      },
+      "response": {
+        "status": 409,
+        "body": "{\"code\":null,\"message\":\"Conflict\",\"payload\":{}}"
+      },
+      "hooks": {
+        "authorized": [],
+        "records": [],
+        "notes": 0
+      }
+    },
+    {
+      "name": "progression list after grants",
+      "request": {
+        "method": "GET",
+        "path": "/progression/player-1",
+        "role": "player",
+        "user": "player-1",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "body": "{\"code\":null,\"message\":\"OK\",\"payload\":[{\"phx_account_id\":\"player-1\",\"progression_id\":\"MasteryTrack_PlayerLevel\",\"progress\":2,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.792Z\"},{\"phx_account_id\":\"player-1\",\"progression_id\":\"MasteryTrack_Weapon_Axe\",\"progress\":0,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.804Z\"},{\"phx_account_id\":\"player-1\",\"progression_id\":\"MasteryTrack_Weapon_ChainBlades\",\"progress\":0,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.805Z\"},{\"phx_account_id\":\"player-1\",\"progression_id\":\"MasteryTrack_Weapon_Hammer\",\"progress\":0,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.805Z\"},{\"phx_account_id\":\"player-1\",\"progression_id\":\"MasteryTrack_Weapon_Repeaters\",\"progress\":0,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.805Z\"},{\"phx_account_id\":\"player-1\",\"progression_id\":\"MasteryTrack_Weapon_Sword\",\"progress\":0,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.805Z\"},{\"phx_account_id\":\"player-1\",\"progression_id\":\"MasteryTrack_Weapon_Spear\",\"progress\":0,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.805Z\"},{\"phx_account_id\":\"player-1\",\"progression_id\":\"MasteryTrack_Weapon_Strikers\",\"progress\":0,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.805Z\"},{\"phx_account_id\":\"player-1\",\"progression_id\":\"ExperienceTrack_PlayerLevel\",\"progress\":209,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.770Z\"},{\"phx_account_id\":\"player-1\",\"progression_id\":\"ExperienceTrack_Weapon_Axe\",\"progress\":250,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.749Z\"},{\"phx_account_id\":\"player-1\",\"progression_id\":\"ExperienceTrack_Weapon_ChainBlades\",\"progress\":0,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.805Z\"},{\"phx_account_id\":\"player-1\",\"progression_id\":\"ExperienceTrack_Weapon_Hammer\",\"progress\":0,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.805Z\"},{\"phx_account_id\":\"player-1\",\"progression_id\":\"ExperienceTrack_Weapon_Repeaters\",\"progress\":0,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.805Z\"},{\"phx_account_id\":\"player-1\",\"progression_id\":\"ExperienceTrack_Weapon_Sword\",\"progress\":100000,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.781Z\"},{\"phx_account_id\":\"player-1\",\"progression_id\":\"ExperienceTrack_Weapon_Spear\",\"progress\":0,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.805Z\"},{\"phx_account_id\":\"player-1\",\"progression_id\":\"ExperienceTrack_Weapon_Strikers\",\"progress\":0,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.805Z\"},{\"phx_account_id\":\"player-1\",\"progression_id\":\"PrestigeTrack_Weapon_Axe\",\"progress\":0,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.805Z\"},{\"phx_account_id\":\"player-1\",\"progression_id\":\"PrestigeTrack_Weapon_ChainBlades\",\"progress\":0,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.805Z\"},{\"phx_account_id\":\"player-1\",\"progression_id\":\"PrestigeTrack_Weapon_Hammer\",\"progress\":0,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.805Z\"},{\"phx_account_id\":\"player-1\",\"progression_id\":\"PrestigeTrack_Weapon_Repeaters\",\"progress\":0,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.805Z\"},{\"phx_account_id\":\"player-1\",\"progression_id\":\"PrestigeTrack_Weapon_Sword\",\"progress\":0,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.805Z\"},{\"phx_account_id\":\"player-1\",\"progression_id\":\"PrestigeTrack_Weapon_Spear\",\"progress\":0,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.805Z\"},{\"phx_account_id\":\"player-1\",\"progression_id\":\"PrestigeTrack_Weapon_Strikers\",\"progress\":0,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.805Z\"},{\"phx_account_id\":\"player-1\",\"progression_id\":\"season43\",\"progress\":20,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.789Z\"}]}"
+      },
+      "hooks": {
+        "authorized": [],
+        "records": [],
+        "notes": 0
+      }
+    },
+    {
+      "name": "single track after grants",
+      "request": {
+        "method": "GET",
+        "path": "/progression/player-1/ExperienceTrack_Weapon_Axe",
+        "role": "player",
+        "user": "player-1",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "body": "{\"code\":null,\"message\":\"OK\",\"payload\":{\"phx_account_id\":\"player-1\",\"progression_id\":\"ExperienceTrack_Weapon_Axe\",\"progress\":250,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.749Z\"}}"
+      },
+      "hooks": {
+        "authorized": [],
+        "records": [],
+        "notes": 0
+      }
+    },
+    {
+      "name": "single track, a stored track outside the defaults",
+      "request": {
+        "method": "GET",
+        "path": "/progression/player-1/season19",
+        "role": "gs",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "body": "{\"code\":null,\"message\":\"OK\",\"payload\":{\"phx_account_id\":\"player-1\",\"progression_id\":\"season19\",\"progress\":0,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.809Z\"}}"
+      },
+      "hooks": {
+        "authorized": [],
+        "records": [],
+        "notes": 0
+      }
+    },
+    {
+      "name": "confirm rank 1",
+      "request": {
+        "method": "POST",
+        "path": "/progression/player-1/ExperienceTrack_Weapon_Axe/1/confirm/public",
+        "role": "gs",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "body": "{\"code\":null,\"message\":\"OK\",\"payload\":{\"phx_account_id\":\"player-1\",\"progression_id\":\"ExperienceTrack_Weapon_Axe\",\"progress\":250,\"confirmed_fremium_rank\":1,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.810Z\"}}"
+      },
+      "hooks": {
+        "authorized": [],
+        "records": [],
+        "notes": 0
+      }
+    },
+    {
+      "name": "confirm rank 1 again",
+      "request": {
+        "method": "POST",
+        "path": "/progression/player-1/ExperienceTrack_Weapon_Axe/1/confirm/public",
+        "role": "gs",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "body": "{\"code\":null,\"message\":\"OK\",\"payload\":{\"phx_account_id\":\"player-1\",\"progression_id\":\"ExperienceTrack_Weapon_Axe\",\"progress\":250,\"confirmed_fremium_rank\":1,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.812Z\"}}"
+      },
+      "hooks": {
+        "authorized": [],
+        "records": [],
+        "notes": 0
+      }
+    },
+    {
+      "name": "confirm rank 0 after 1 keeps 1",
+      "request": {
+        "method": "POST",
+        "path": "/progression/player-1/ExperienceTrack_Weapon_Axe/0/confirm/public",
+        "role": "gs",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "body": "{\"code\":null,\"message\":\"OK\",\"payload\":{\"phx_account_id\":\"player-1\",\"progression_id\":\"ExperienceTrack_Weapon_Axe\",\"progress\":250,\"confirmed_fremium_rank\":1,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.813Z\"}}"
+      },
+      "hooks": {
+        "authorized": [],
+        "records": [],
+        "notes": 0
+      }
+    },
+    {
+      "name": "confirm a rank the XP does not reach",
+      "request": {
+        "method": "POST",
+        "path": "/progression/player-1/ExperienceTrack_Weapon_Axe/2/confirm/public",
+        "role": "gs",
+        "headers": {}
+      },
+      "response": {
+        "status": 409,
+        "body": "{\"code\":null,\"message\":\"Rejected: insufficient_xp\",\"payload\":{}}"
+      },
+      "hooks": {
+        "authorized": [],
+        "records": [],
+        "notes": 0
+      }
+    },
+    {
+      "name": "confirm a rank out of range",
+      "request": {
+        "method": "POST",
+        "path": "/progression/player-1/ExperienceTrack_Weapon_Axe/9/confirm/public",
+        "role": "gs",
+        "headers": {}
+      },
+      "response": {
+        "status": 400,
+        "body": "{\"code\":null,\"message\":\"Rejected: rank_out_of_range\",\"payload\":{}}"
+      },
+      "hooks": {
+        "authorized": [],
+        "records": [],
+        "notes": 0
+      }
+    },
+    {
+      "name": "confirm an unknown track",
+      "request": {
+        "method": "POST",
+        "path": "/progression/player-1/Nothing/1/confirm/public",
+        "role": "gs",
+        "headers": {}
+      },
+      "response": {
+        "status": 400,
+        "body": "{\"code\":null,\"message\":\"Rejected: unknown_track\",\"payload\":{}}"
+      },
+      "hooks": {
+        "authorized": [],
+        "records": [],
+        "notes": 0
+      }
+    },
+    {
+      "name": "confirm a bad rank",
+      "request": {
+        "method": "POST",
+        "path": "/progression/player-1/ExperienceTrack_Weapon_Axe/-1/confirm/public",
+        "role": "gs",
+        "headers": {}
+      },
+      "response": {
+        "status": 400,
+        "body": "{\"code\":null,\"message\":\"Bad Request\",\"payload\":{}}"
+      },
+      "hooks": {
+        "authorized": [],
+        "records": [],
+        "notes": 0
+      }
+    },
+    {
+      "name": "confirm a fractional rank",
+      "request": {
+        "method": "POST",
+        "path": "/progression/player-1/ExperienceTrack_Weapon_Axe/1.5/confirm/public",
+        "role": "gs",
+        "headers": {}
+      },
+      "response": {
+        "status": 400,
+        "body": "{\"code\":null,\"message\":\"Bad Request\",\"payload\":{}}"
+      },
+      "hooks": {
+        "authorized": [],
+        "records": [],
+        "notes": 0
+      }
+    },
+    {
+      "name": "confirm for the sentinel",
+      "request": {
+        "method": "POST",
+        "path": "/progression/INVALID/ExperienceTrack_Weapon_Axe/1/confirm/public",
+        "role": "gs",
+        "headers": {}
+      },
+      "response": {
+        "status": 400,
+        "body": "{\"code\":null,\"message\":\"Bad Request\",\"payload\":{}}"
+      },
+      "hooks": {
+        "authorized": [],
+        "records": [],
+        "notes": 0
+      }
+    },
+    {
+      "name": "confirm by a player",
+      "request": {
+        "method": "POST",
+        "path": "/progression/player-1/ExperienceTrack_Weapon_Axe/1/confirm/public",
+        "role": "player",
+        "user": "player-1",
+        "headers": {}
+      },
+      "response": {
+        "status": 403,
+        "body": "{\"code\":null,\"message\":\"Forbidden\",\"payload\":{}}"
+      },
+      "hooks": {
+        "authorized": [],
+        "records": [],
+        "notes": 0
+      }
+    },
+    {
+      "name": "confirm rank 0 of a track never granted",
+      "request": {
+        "method": "POST",
+        "path": "/progression/player-1/ExperienceTrack_Weapon_Sword/0/confirm/public",
+        "role": "gs",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "body": "{\"code\":null,\"message\":\"OK\",\"payload\":{\"phx_account_id\":\"player-1\",\"progression_id\":\"ExperienceTrack_Weapon_Sword\",\"progress\":100000,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.829Z\"}}"
+      },
+      "hooks": {
+        "authorized": [],
+        "records": [],
+        "notes": 0
+      }
+    },
+    {
+      "name": "confirm a mastery rank one short",
+      "request": {
+        "method": "POST",
+        "path": "/progression/player-1/MasteryTrack_PlayerLevel/3/confirm/public",
+        "role": "gs",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "body": "{\"code\":null,\"message\":\"OK\",\"payload\":{\"phx_account_id\":\"player-1\",\"progression_id\":\"MasteryTrack_PlayerLevel\",\"progress\":3,\"confirmed_fremium_rank\":3,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.830Z\"}}"
+      },
+      "hooks": {
+        "authorized": [],
+        "records": [],
+        "notes": 0
+      }
+    },
+    {
+      "name": "confirm a mastery rank two short",
+      "request": {
+        "method": "POST",
+        "path": "/progression/player-1/MasteryTrack_Weapon_Sword/3/confirm/public",
+        "role": "gs",
+        "headers": {}
+      },
+      "response": {
+        "status": 409,
+        "body": "{\"code\":null,\"message\":\"Rejected: insufficient_xp\",\"payload\":{}}"
+      },
+      "hooks": {
+        "authorized": [],
+        "records": [],
+        "notes": 0
+      }
+    },
+    {
+      "name": "confirm a prestige rank",
+      "request": {
+        "method": "POST",
+        "path": "/progression/player-1/season43/5/confirm/public",
+        "role": "gs",
+        "headers": {}
+      },
+      "response": {
+        "status": 409,
+        "body": "{\"code\":null,\"message\":\"Rejected: insufficient_xp\",\"payload\":{}}"
+      },
+      "hooks": {
+        "authorized": [],
+        "records": [],
+        "notes": 0
+      }
+    },
+    {
+      "name": "open a reforge",
+      "op": "reforge-open",
+      "user": "player-1",
+      "track": "ExperienceTrack_Weapon_Axe",
+      "progress": 350,
+      "banked": 50,
+      "cap": 300,
+      "ageMs": 0
+    },
+    {
+      "name": "reforge: prestige +1",
+      "request": {
+        "method": "POST",
+        "path": "/progression/player-1/PrestigeTrack_Weapon_Axe/1",
+        "role": "gs",
+        "headers": {
+          "x-rustic-isles-grant-id": "r1"
+        }
+      },
+      "response": {
+        "status": 200,
+        "body": "{\"code\":null,\"message\":\"OK\",\"payload\":{\"phx_account_id\":\"player-1\",\"progression_id\":\"PrestigeTrack_Weapon_Axe\",\"progress\":1,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.833Z\",\"grant_id\":\"r1\",\"replayed\":false}}"
+      },
+      "hooks": {
+        "authorized": [],
+        "records": [],
+        "notes": 0
+      }
+    },
+    {
+      "name": "reforge: prestige +1 again",
+      "request": {
+        "method": "POST",
+        "path": "/progression/player-1/PrestigeTrack_Weapon_Axe/1",
+        "role": "gs",
+        "headers": {
+          "x-rustic-isles-grant-id": "r2"
+        }
+      },
+      "response": {
+        "status": 409,
+        "body": "{\"code\":null,\"message\":\"Conflict\",\"payload\":{}}"
+      },
+      "hooks": {
+        "authorized": [],
+        "records": [],
+        "notes": 0
+      }
+    },
+    {
+      "name": "reforge: prestige replay",
+      "request": {
+        "method": "POST",
+        "path": "/progression/player-1/PrestigeTrack_Weapon_Axe/1",
+        "role": "gs",
+        "headers": {
+          "x-rustic-isles-grant-id": "r1"
+        }
+      },
+      "response": {
+        "status": 200,
+        "body": "{\"code\":null,\"message\":\"OK\",\"payload\":{\"phx_account_id\":\"player-1\",\"progression_id\":\"PrestigeTrack_Weapon_Axe\",\"progress\":1,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.833Z\",\"grant_id\":\"r1\",\"replayed\":true}}"
+      },
+      "hooks": {
+        "authorized": [],
+        "records": [],
+        "notes": 0
+      }
+    },
+    {
+      "name": "reforge: restore of the wrong size",
+      "request": {
+        "method": "POST",
+        "path": "/progression/player-1/ExperienceTrack_Weapon_Axe/49",
+        "role": "gs",
+        "headers": {
+          "x-rustic-isles-grant-id": "r3"
+        }
+      },
+      "response": {
+        "status": 200,
+        "body": "{\"code\":null,\"message\":\"OK\",\"payload\":{\"phx_account_id\":\"player-1\",\"progression_id\":\"ExperienceTrack_Weapon_Axe\",\"progress\":49,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.845Z\",\"grant_id\":\"r3\",\"replayed\":false}}"
+      },
+      "hooks": {
+        "authorized": [],
+        "records": [],
+        "notes": 0
+      }
+    },
+    {
+      "name": "reforge: banked restore",
+      "request": {
+        "method": "POST",
+        "path": "/progression/player-1/ExperienceTrack_Weapon_Axe/50",
+        "role": "gs",
+        "headers": {
+          "x-rustic-isles-grant-id": "r4"
+        }
+      },
+      "response": {
+        "status": 200,
+        "body": "{\"code\":null,\"message\":\"OK\",\"payload\":{\"phx_account_id\":\"player-1\",\"progression_id\":\"ExperienceTrack_Weapon_Axe\",\"progress\":99,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.847Z\",\"grant_id\":\"r4\",\"replayed\":false}}"
+      },
+      "hooks": {
+        "authorized": [],
+        "records": [],
+        "notes": 0
+      }
+    },
+    {
+      "name": "reforge: banked restore again",
+      "request": {
+        "method": "POST",
+        "path": "/progression/player-1/ExperienceTrack_Weapon_Axe/50",
+        "role": "gs",
+        "headers": {
+          "x-rustic-isles-grant-id": "r5"
+        }
+      },
+      "response": {
+        "status": 409,
+        "body": "{\"code\":null,\"message\":\"Conflict\",\"payload\":{}}"
+      },
+      "hooks": {
+        "authorized": [],
+        "records": [],
+        "notes": 0
+      }
+    },
+    {
+      "name": "progression list after the reforge",
+      "request": {
+        "method": "GET",
+        "path": "/progression/player-1",
+        "role": "gs",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "body": "{\"code\":null,\"message\":\"OK\",\"payload\":[{\"phx_account_id\":\"player-1\",\"progression_id\":\"MasteryTrack_PlayerLevel\",\"progress\":3,\"confirmed_fremium_rank\":3,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.830Z\"},{\"phx_account_id\":\"player-1\",\"progression_id\":\"MasteryTrack_Weapon_Axe\",\"progress\":0,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.849Z\"},{\"phx_account_id\":\"player-1\",\"progression_id\":\"MasteryTrack_Weapon_ChainBlades\",\"progress\":0,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.849Z\"},{\"phx_account_id\":\"player-1\",\"progression_id\":\"MasteryTrack_Weapon_Hammer\",\"progress\":0,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.849Z\"},{\"phx_account_id\":\"player-1\",\"progression_id\":\"MasteryTrack_Weapon_Repeaters\",\"progress\":0,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.849Z\"},{\"phx_account_id\":\"player-1\",\"progression_id\":\"MasteryTrack_Weapon_Sword\",\"progress\":0,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.849Z\"},{\"phx_account_id\":\"player-1\",\"progression_id\":\"MasteryTrack_Weapon_Spear\",\"progress\":0,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.849Z\"},{\"phx_account_id\":\"player-1\",\"progression_id\":\"MasteryTrack_Weapon_Strikers\",\"progress\":0,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.849Z\"},{\"phx_account_id\":\"player-1\",\"progression_id\":\"ExperienceTrack_PlayerLevel\",\"progress\":209,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.770Z\"},{\"phx_account_id\":\"player-1\",\"progression_id\":\"ExperienceTrack_Weapon_Axe\",\"progress\":99,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.847Z\"},{\"phx_account_id\":\"player-1\",\"progression_id\":\"ExperienceTrack_Weapon_ChainBlades\",\"progress\":0,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.849Z\"},{\"phx_account_id\":\"player-1\",\"progression_id\":\"ExperienceTrack_Weapon_Hammer\",\"progress\":0,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.849Z\"},{\"phx_account_id\":\"player-1\",\"progression_id\":\"ExperienceTrack_Weapon_Repeaters\",\"progress\":0,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.849Z\"},{\"phx_account_id\":\"player-1\",\"progression_id\":\"ExperienceTrack_Weapon_Sword\",\"progress\":100000,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.829Z\"},{\"phx_account_id\":\"player-1\",\"progression_id\":\"ExperienceTrack_Weapon_Spear\",\"progress\":0,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.849Z\"},{\"phx_account_id\":\"player-1\",\"progression_id\":\"ExperienceTrack_Weapon_Strikers\",\"progress\":0,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.849Z\"},{\"phx_account_id\":\"player-1\",\"progression_id\":\"PrestigeTrack_Weapon_Axe\",\"progress\":1,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.833Z\"},{\"phx_account_id\":\"player-1\",\"progression_id\":\"PrestigeTrack_Weapon_ChainBlades\",\"progress\":0,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.849Z\"},{\"phx_account_id\":\"player-1\",\"progression_id\":\"PrestigeTrack_Weapon_Hammer\",\"progress\":0,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.849Z\"},{\"phx_account_id\":\"player-1\",\"progression_id\":\"PrestigeTrack_Weapon_Repeaters\",\"progress\":0,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.849Z\"},{\"phx_account_id\":\"player-1\",\"progression_id\":\"PrestigeTrack_Weapon_Sword\",\"progress\":0,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.849Z\"},{\"phx_account_id\":\"player-1\",\"progression_id\":\"PrestigeTrack_Weapon_Spear\",\"progress\":0,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.849Z\"},{\"phx_account_id\":\"player-1\",\"progression_id\":\"PrestigeTrack_Weapon_Strikers\",\"progress\":0,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.849Z\"},{\"phx_account_id\":\"player-1\",\"progression_id\":\"season43\",\"progress\":20,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.789Z\"}]}"
+      },
+      "hooks": {
+        "authorized": [],
+        "records": [],
+        "notes": 0
+      }
+    },
+    {
+      "name": "open a stale reforge",
+      "op": "reforge-open",
+      "user": "player-1",
+      "track": "ExperienceTrack_Weapon_Sword",
+      "progress": 330,
+      "banked": 30,
+      "cap": 300,
+      "ageMs": 600000
+    },
+    {
+      "name": "load repairs the stale reforge",
+      "request": {
+        "method": "GET",
+        "path": "/progression/player-1",
+        "role": "gs",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "body": "{\"code\":null,\"message\":\"OK\",\"payload\":[{\"phx_account_id\":\"player-1\",\"progression_id\":\"MasteryTrack_PlayerLevel\",\"progress\":3,\"confirmed_fremium_rank\":3,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.830Z\"},{\"phx_account_id\":\"player-1\",\"progression_id\":\"MasteryTrack_Weapon_Axe\",\"progress\":0,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.850Z\"},{\"phx_account_id\":\"player-1\",\"progression_id\":\"MasteryTrack_Weapon_ChainBlades\",\"progress\":0,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.850Z\"},{\"phx_account_id\":\"player-1\",\"progression_id\":\"MasteryTrack_Weapon_Hammer\",\"progress\":0,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.850Z\"},{\"phx_account_id\":\"player-1\",\"progression_id\":\"MasteryTrack_Weapon_Repeaters\",\"progress\":0,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.850Z\"},{\"phx_account_id\":\"player-1\",\"progression_id\":\"MasteryTrack_Weapon_Sword\",\"progress\":0,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.850Z\"},{\"phx_account_id\":\"player-1\",\"progression_id\":\"MasteryTrack_Weapon_Spear\",\"progress\":0,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.850Z\"},{\"phx_account_id\":\"player-1\",\"progression_id\":\"MasteryTrack_Weapon_Strikers\",\"progress\":0,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.850Z\"},{\"phx_account_id\":\"player-1\",\"progression_id\":\"ExperienceTrack_PlayerLevel\",\"progress\":209,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.770Z\"},{\"phx_account_id\":\"player-1\",\"progression_id\":\"ExperienceTrack_Weapon_Axe\",\"progress\":99,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.847Z\"},{\"phx_account_id\":\"player-1\",\"progression_id\":\"ExperienceTrack_Weapon_ChainBlades\",\"progress\":0,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.850Z\"},{\"phx_account_id\":\"player-1\",\"progression_id\":\"ExperienceTrack_Weapon_Hammer\",\"progress\":0,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.850Z\"},{\"phx_account_id\":\"player-1\",\"progression_id\":\"ExperienceTrack_Weapon_Repeaters\",\"progress\":0,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.850Z\"},{\"phx_account_id\":\"player-1\",\"progression_id\":\"ExperienceTrack_Weapon_Sword\",\"progress\":30,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.850Z\"},{\"phx_account_id\":\"player-1\",\"progression_id\":\"ExperienceTrack_Weapon_Spear\",\"progress\":0,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.850Z\"},{\"phx_account_id\":\"player-1\",\"progression_id\":\"ExperienceTrack_Weapon_Strikers\",\"progress\":0,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.850Z\"},{\"phx_account_id\":\"player-1\",\"progression_id\":\"PrestigeTrack_Weapon_Axe\",\"progress\":1,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.833Z\"},{\"phx_account_id\":\"player-1\",\"progression_id\":\"PrestigeTrack_Weapon_ChainBlades\",\"progress\":0,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.850Z\"},{\"phx_account_id\":\"player-1\",\"progression_id\":\"PrestigeTrack_Weapon_Hammer\",\"progress\":0,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.850Z\"},{\"phx_account_id\":\"player-1\",\"progression_id\":\"PrestigeTrack_Weapon_Repeaters\",\"progress\":0,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.850Z\"},{\"phx_account_id\":\"player-1\",\"progression_id\":\"PrestigeTrack_Weapon_Sword\",\"progress\":1,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.850Z\"},{\"phx_account_id\":\"player-1\",\"progression_id\":\"PrestigeTrack_Weapon_Spear\",\"progress\":0,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.850Z\"},{\"phx_account_id\":\"player-1\",\"progression_id\":\"PrestigeTrack_Weapon_Strikers\",\"progress\":0,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.850Z\"},{\"phx_account_id\":\"player-1\",\"progression_id\":\"season43\",\"progress\":20,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.789Z\"}]}"
+      },
+      "hooks": {
+        "authorized": [],
+        "records": [],
+        "notes": 0
+      }
+    },
+    {
+      "name": "load repairs it once",
+      "request": {
+        "method": "GET",
+        "path": "/progression/player-1",
+        "role": "gs",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "body": "{\"code\":null,\"message\":\"OK\",\"payload\":[{\"phx_account_id\":\"player-1\",\"progression_id\":\"MasteryTrack_PlayerLevel\",\"progress\":3,\"confirmed_fremium_rank\":3,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.830Z\"},{\"phx_account_id\":\"player-1\",\"progression_id\":\"MasteryTrack_Weapon_Axe\",\"progress\":0,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.852Z\"},{\"phx_account_id\":\"player-1\",\"progression_id\":\"MasteryTrack_Weapon_ChainBlades\",\"progress\":0,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.852Z\"},{\"phx_account_id\":\"player-1\",\"progression_id\":\"MasteryTrack_Weapon_Hammer\",\"progress\":0,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.852Z\"},{\"phx_account_id\":\"player-1\",\"progression_id\":\"MasteryTrack_Weapon_Repeaters\",\"progress\":0,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.852Z\"},{\"phx_account_id\":\"player-1\",\"progression_id\":\"MasteryTrack_Weapon_Sword\",\"progress\":0,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.852Z\"},{\"phx_account_id\":\"player-1\",\"progression_id\":\"MasteryTrack_Weapon_Spear\",\"progress\":0,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.852Z\"},{\"phx_account_id\":\"player-1\",\"progression_id\":\"MasteryTrack_Weapon_Strikers\",\"progress\":0,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.852Z\"},{\"phx_account_id\":\"player-1\",\"progression_id\":\"ExperienceTrack_PlayerLevel\",\"progress\":209,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.770Z\"},{\"phx_account_id\":\"player-1\",\"progression_id\":\"ExperienceTrack_Weapon_Axe\",\"progress\":99,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.847Z\"},{\"phx_account_id\":\"player-1\",\"progression_id\":\"ExperienceTrack_Weapon_ChainBlades\",\"progress\":0,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.852Z\"},{\"phx_account_id\":\"player-1\",\"progression_id\":\"ExperienceTrack_Weapon_Hammer\",\"progress\":0,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.852Z\"},{\"phx_account_id\":\"player-1\",\"progression_id\":\"ExperienceTrack_Weapon_Repeaters\",\"progress\":0,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.852Z\"},{\"phx_account_id\":\"player-1\",\"progression_id\":\"ExperienceTrack_Weapon_Sword\",\"progress\":30,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.850Z\"},{\"phx_account_id\":\"player-1\",\"progression_id\":\"ExperienceTrack_Weapon_Spear\",\"progress\":0,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.852Z\"},{\"phx_account_id\":\"player-1\",\"progression_id\":\"ExperienceTrack_Weapon_Strikers\",\"progress\":0,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.852Z\"},{\"phx_account_id\":\"player-1\",\"progression_id\":\"PrestigeTrack_Weapon_Axe\",\"progress\":1,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.833Z\"},{\"phx_account_id\":\"player-1\",\"progression_id\":\"PrestigeTrack_Weapon_ChainBlades\",\"progress\":0,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.852Z\"},{\"phx_account_id\":\"player-1\",\"progression_id\":\"PrestigeTrack_Weapon_Hammer\",\"progress\":0,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.852Z\"},{\"phx_account_id\":\"player-1\",\"progression_id\":\"PrestigeTrack_Weapon_Repeaters\",\"progress\":0,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.852Z\"},{\"phx_account_id\":\"player-1\",\"progression_id\":\"PrestigeTrack_Weapon_Sword\",\"progress\":1,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.850Z\"},{\"phx_account_id\":\"player-1\",\"progression_id\":\"PrestigeTrack_Weapon_Spear\",\"progress\":0,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.852Z\"},{\"phx_account_id\":\"player-1\",\"progression_id\":\"PrestigeTrack_Weapon_Strikers\",\"progress\":0,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.852Z\"},{\"phx_account_id\":\"player-1\",\"progression_id\":\"season43\",\"progress\":20,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.789Z\"}]}"
+      },
+      "hooks": {
+        "authorized": [],
+        "records": [],
+        "notes": 0
+      }
+    },
+    {
+      "name": "report: first completions",
+      "request": {
+        "method": "POST",
+        "path": "/progression/player-1",
+        "role": "gs",
+        "headers": {},
+        "body": {
+          "progress_tracks": [
+            {
+              "progression_id": "MasteryTrack_PlayerLevel",
+              "progress": 2
+            },
+            {
+              "progression_id": "MasteryTrack_Weapon_Sword",
+              "progress": 1
+            }
+          ],
+          "objectives": [
+            {
+              "objective_id": "MasteryObjective_Weapon_Sword_Generic_Kills1",
+              "value": 5,
+              "completed_count": 1
+            },
+            {
+              "objective_id": "AchievementObjective_Win",
+              "value": 1,
+              "completed_count": 1
+            },
+            {
+              "objective_id": "MasteryObjective_Weapon_Sword_Generic_Kills2",
+              "value": 2,
+              "completed_count": 0
+            }
+          ]
+        }
+      },
+      "response": {
+        "status": 200,
+        "body": "{\"code\":null,\"message\":\"OK\",\"payload\":{\"progress_tracks\":[{\"phx_account_id\":\"player-1\",\"progression_id\":\"MasteryTrack_PlayerLevel\",\"progress\":4,\"confirmed_fremium_rank\":3,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.856Z\"},{\"phx_account_id\":\"player-1\",\"progression_id\":\"MasteryTrack_Weapon_Sword\",\"progress\":1,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.862Z\"}],\"objectives\":[{\"phx_account_id\":\"player-1\",\"objective_id\":\"MasteryObjective_Weapon_Sword_Generic_Kills1\",\"progress\":5,\"completed_count\":1,\"created_date\":\"2026-10-27T06:28:03.864Z\",\"last_modified_date\":\"2026-10-27T06:28:03.864Z\"},{\"phx_account_id\":\"player-1\",\"objective_id\":\"AchievementObjective_Win\",\"progress\":1,\"completed_count\":1,\"created_date\":\"2026-10-27T06:28:03.864Z\",\"last_modified_date\":\"2026-10-27T06:28:03.864Z\"},{\"phx_account_id\":\"player-1\",\"objective_id\":\"MasteryObjective_Weapon_Sword_Generic_Kills2\",\"progress\":2,\"completed_count\":0,\"created_date\":\"2026-10-27T06:28:03.864Z\",\"last_modified_date\":\"2026-10-27T06:28:03.864Z\"}]}}"
+      },
+      "hooks": {
+        "authorized": [],
+        "records": [],
+        "notes": 0
+      }
+    },
+    {
+      "name": "report: the same again",
+      "request": {
+        "method": "POST",
+        "path": "/progression/player-1",
+        "role": "gs",
+        "headers": {},
+        "body": {
+          "progress_tracks": [
+            {
+              "progression_id": "MasteryTrack_PlayerLevel",
+              "progress": 2
+            }
+          ],
+          "objectives": [
+            {
+              "objective_id": "MasteryObjective_Weapon_Sword_Generic_Kills1",
+              "value": 3,
+              "completed_count": 1
+            }
+          ]
+        }
+      },
+      "response": {
+        "status": 200,
+        "body": "{\"code\":null,\"message\":\"OK\",\"payload\":{\"progress_tracks\":[{\"phx_account_id\":\"player-1\",\"progression_id\":\"MasteryTrack_PlayerLevel\",\"progress\":4,\"confirmed_fremium_rank\":3,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.856Z\"}],\"objectives\":[{\"phx_account_id\":\"player-1\",\"objective_id\":\"MasteryObjective_Weapon_Sword_Generic_Kills1\",\"progress\":5,\"completed_count\":1,\"created_date\":\"2026-10-27T06:28:03.867Z\",\"last_modified_date\":\"2026-10-27T06:28:03.867Z\"}]}}"
+      },
+      "hooks": {
+        "authorized": [],
+        "records": [],
+        "notes": 0
+      }
+    },
+    {
+      "name": "report: credit capped by the claim",
+      "request": {
+        "method": "POST",
+        "path": "/progression/player-1",
+        "role": "gs",
+        "headers": {},
+        "body": {
+          "progress_tracks": [
+            {
+              "progression_id": "MasteryTrack_PlayerLevel",
+              "progress": 0
+            }
+          ],
+          "objectives": [
+            {
+              "objective_id": "MasteryObjective_Behemoth_Embermane_Boop",
+              "value": 1,
+              "completed_count": 1
+            }
+          ]
+        }
+      },
+      "response": {
+        "status": 200,
+        "body": "{\"code\":null,\"message\":\"OK\",\"payload\":{\"progress_tracks\":[{\"phx_account_id\":\"player-1\",\"progression_id\":\"MasteryTrack_PlayerLevel\",\"progress\":4,\"confirmed_fremium_rank\":3,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.856Z\"}],\"objectives\":[{\"phx_account_id\":\"player-1\",\"objective_id\":\"MasteryObjective_Behemoth_Embermane_Boop\",\"progress\":1,\"completed_count\":1,\"created_date\":\"2026-10-27T06:28:03.870Z\",\"last_modified_date\":\"2026-10-27T06:28:03.870Z\"}]}}"
+      },
+      "hooks": {
+        "authorized": [],
+        "records": [],
+        "notes": 0
+      }
+    },
+    {
+      "name": "report: unknown weapon code",
+      "request": {
+        "method": "POST",
+        "path": "/progression/player-1",
+        "role": "gs",
+        "headers": {},
+        "body": {
+          "progress_tracks": [
+            {
+              "progression_id": "MasteryTrack_PlayerLevel",
+              "progress": 1
+            }
+          ],
+          "objectives": [
+            {
+              "objective_id": "MasteryObjective_Weapon_Bow_Kill",
+              "value": 1,
+              "completed_count": 1
+            }
+          ]
+        }
+      },
+      "response": {
+        "status": 200,
+        "body": "{\"code\":null,\"message\":\"OK\",\"payload\":{\"progress_tracks\":[{\"phx_account_id\":\"player-1\",\"progression_id\":\"MasteryTrack_PlayerLevel\",\"progress\":5,\"confirmed_fremium_rank\":3,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.874Z\"}],\"objectives\":[{\"phx_account_id\":\"player-1\",\"objective_id\":\"MasteryObjective_Weapon_Bow_Kill\",\"progress\":1,\"completed_count\":1,\"created_date\":\"2026-10-27T06:28:03.874Z\",\"last_modified_date\":\"2026-10-27T06:28:03.874Z\"}]}}"
+      },
+      "hooks": {
+        "authorized": [],
+        "records": [],
+        "notes": 0
+      }
+    },
+    {
+      "name": "report: tracks only",
+      "request": {
+        "method": "POST",
+        "path": "/progression/player-1",
+        "role": "gs",
+        "headers": {},
+        "body": {
+          "progress_tracks": [
+            {
+              "progression_id": "MasteryTrack_Weapon_Axe",
+              "progress": 4
+            }
+          ]
+        }
+      },
+      "response": {
+        "status": 200,
+        "body": "{\"code\":null,\"message\":\"OK\",\"payload\":{\"progress_tracks\":[{\"phx_account_id\":\"player-1\",\"progression_id\":\"MasteryTrack_Weapon_Axe\",\"progress\":0,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.876Z\"}],\"objectives\":[]}}"
+      },
+      "hooks": {
+        "authorized": [],
+        "records": [],
+        "notes": 0
+      }
+    },
+    {
+      "name": "report: empty body",
+      "request": {
+        "method": "POST",
+        "path": "/progression/player-1",
+        "role": "gs",
+        "headers": {},
+        "body": {}
+      },
+      "response": {
+        "status": 200,
+        "body": "{\"code\":null,\"message\":\"OK\",\"payload\":{\"progress_tracks\":[],\"objectives\":[]}}"
+      },
+      "hooks": {
+        "authorized": [],
+        "records": [],
+        "notes": 0
+      }
+    },
+    {
+      "name": "report: invalid id",
+      "request": {
+        "method": "POST",
+        "path": "/progression/player-1",
+        "role": "gs",
+        "headers": {},
+        "body": {
+          "objectives": [
+            {
+              "objective_id": "bad id",
+              "value": 1
+            }
+          ]
+        }
+      },
+      "response": {
+        "status": 400,
+        "body": "{\"code\":null,\"message\":\"Bad Request\",\"payload\":{}}"
+      },
+      "hooks": {
+        "authorized": [],
+        "records": [],
+        "notes": 0
+      }
+    },
+    {
+      "name": "report: negative value",
+      "request": {
+        "method": "POST",
+        "path": "/progression/player-1",
+        "role": "gs",
+        "headers": {},
+        "body": {
+          "objectives": [
+            {
+              "objective_id": "AchievementObjective_Win",
+              "value": -1
+            }
+          ]
+        }
+      },
+      "response": {
+        "status": 400,
+        "body": "{\"code\":null,\"message\":\"Bad Request\",\"payload\":{}}"
+      },
+      "hooks": {
+        "authorized": [],
+        "records": [],
+        "notes": 0
+      }
+    },
+    {
+      "name": "report: tracks not an array",
+      "request": {
+        "method": "POST",
+        "path": "/progression/player-1",
+        "role": "gs",
+        "headers": {},
+        "body": {
+          "progress_tracks": "x"
+        }
+      },
+      "response": {
+        "status": 400,
+        "body": "{\"code\":null,\"message\":\"Bad Request\",\"payload\":{}}"
+      },
+      "hooks": {
+        "authorized": [],
+        "records": [],
+        "notes": 0
+      }
+    },
+    {
+      "name": "report: own state by a player token is diagnostics only",
+      "request": {
+        "method": "POST",
+        "path": "/progression/player-1",
+        "role": "player",
+        "user": "player-1",
+        "headers": {},
+        "body": {
+          "objectives": [
+            {
+              "objective_id": "AchievementObjective_Win",
+              "value": 9,
+              "completed_count": 1
+            }
+          ]
+        }
+      },
+      "response": {
+        "status": 200,
+        "body": "{\"code\":null,\"message\":\"OK\",\"payload\":{}}"
+      },
+      "hooks": {
+        "authorized": [],
+        "records": [],
+        "notes": 0
+      }
+    },
+    {
+      "name": "report: another account by a player token",
+      "request": {
+        "method": "POST",
+        "path": "/progression/player-2",
+        "role": "player",
+        "user": "player-1",
+        "headers": {},
+        "body": {}
+      },
+      "response": {
+        "status": 403,
+        "body": "{\"code\":null,\"message\":\"Forbidden\",\"payload\":{}}"
+      },
+      "hooks": {
+        "authorized": [],
+        "records": [],
+        "notes": 0
+      }
+    },
+    {
+      "name": "report: the sentinel",
+      "request": {
+        "method": "POST",
+        "path": "/progression/INVALID",
+        "role": "gs",
+        "headers": {},
+        "body": {
+          "x": 1
+        }
+      },
+      "response": {
+        "status": 200,
+        "body": "{\"code\":null,\"message\":\"OK\",\"payload\":{}}"
+      },
+      "hooks": {
+        "authorized": [],
+        "records": [],
+        "notes": 0
+      }
+    },
+    {
+      "name": "report: the account in the body is ignored for a path user",
+      "request": {
+        "method": "POST",
+        "path": "/progression/player-2",
+        "role": "gs",
+        "headers": {},
+        "body": {
+          "accountId": "player-1",
+          "objectives": []
+        }
+      },
+      "response": {
+        "status": 200,
+        "body": "{\"code\":null,\"message\":\"OK\",\"payload\":{\"progress_tracks\":[],\"objectives\":[]}}"
+      },
+      "hooks": {
+        "authorized": [],
+        "records": [],
+        "notes": 0
+      }
+    },
+    {
+      "name": "objectives after reports",
+      "request": {
+        "method": "GET",
+        "path": "/progression/objectives/player-1",
+        "role": "player",
+        "user": "player-1",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "body": "{\"code\":null,\"message\":\"OK\",\"payload\":[{\"phx_account_id\":\"player-1\",\"objective_id\":\"MasteryObjective_Weapon_Sword_Generic_Kills1\",\"progress\":5,\"completed_count\":1,\"created_date\":\"2026-10-27T06:28:03.867Z\",\"last_modified_date\":\"2026-10-27T06:28:03.867Z\"},{\"phx_account_id\":\"player-1\",\"objective_id\":\"AchievementObjective_Win\",\"progress\":1,\"completed_count\":1,\"created_date\":\"2026-10-27T06:28:03.856Z\",\"last_modified_date\":\"2026-10-27T06:28:03.856Z\"},{\"phx_account_id\":\"player-1\",\"objective_id\":\"MasteryObjective_Weapon_Sword_Generic_Kills2\",\"progress\":2,\"completed_count\":0,\"created_date\":\"2026-10-27T06:28:03.856Z\",\"last_modified_date\":\"2026-10-27T06:28:03.856Z\"},{\"phx_account_id\":\"player-1\",\"objective_id\":\"MasteryObjective_Behemoth_Embermane_Boop\",\"progress\":1,\"completed_count\":1,\"created_date\":\"2026-10-27T06:28:03.869Z\",\"last_modified_date\":\"2026-10-27T06:28:03.869Z\"},{\"phx_account_id\":\"player-1\",\"objective_id\":\"MasteryObjective_Weapon_Bow_Kill\",\"progress\":1,\"completed_count\":1,\"created_date\":\"2026-10-27T06:28:03.874Z\",\"last_modified_date\":\"2026-10-27T06:28:03.874Z\"}]}"
+      },
+      "hooks": {
+        "authorized": [],
+        "records": [],
+        "notes": 0
+      }
+    },
+    {
+      "name": "progression list after mastery",
+      "request": {
+        "method": "GET",
+        "path": "/progression/player-1",
+        "role": "player",
+        "user": "player-1",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "body": "{\"code\":null,\"message\":\"OK\",\"payload\":[{\"phx_account_id\":\"player-1\",\"progression_id\":\"MasteryTrack_PlayerLevel\",\"progress\":5,\"confirmed_fremium_rank\":3,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.874Z\"},{\"phx_account_id\":\"player-1\",\"progression_id\":\"MasteryTrack_Weapon_Axe\",\"progress\":0,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.907Z\"},{\"phx_account_id\":\"player-1\",\"progression_id\":\"MasteryTrack_Weapon_ChainBlades\",\"progress\":0,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.907Z\"},{\"phx_account_id\":\"player-1\",\"progression_id\":\"MasteryTrack_Weapon_Hammer\",\"progress\":0,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.907Z\"},{\"phx_account_id\":\"player-1\",\"progression_id\":\"MasteryTrack_Weapon_Repeaters\",\"progress\":0,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.907Z\"},{\"phx_account_id\":\"player-1\",\"progression_id\":\"MasteryTrack_Weapon_Sword\",\"progress\":1,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.862Z\"},{\"phx_account_id\":\"player-1\",\"progression_id\":\"MasteryTrack_Weapon_Spear\",\"progress\":0,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.907Z\"},{\"phx_account_id\":\"player-1\",\"progression_id\":\"MasteryTrack_Weapon_Strikers\",\"progress\":0,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.907Z\"},{\"phx_account_id\":\"player-1\",\"progression_id\":\"ExperienceTrack_PlayerLevel\",\"progress\":209,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.770Z\"},{\"phx_account_id\":\"player-1\",\"progression_id\":\"ExperienceTrack_Weapon_Axe\",\"progress\":99,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.847Z\"},{\"phx_account_id\":\"player-1\",\"progression_id\":\"ExperienceTrack_Weapon_ChainBlades\",\"progress\":0,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.907Z\"},{\"phx_account_id\":\"player-1\",\"progression_id\":\"ExperienceTrack_Weapon_Hammer\",\"progress\":0,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.907Z\"},{\"phx_account_id\":\"player-1\",\"progression_id\":\"ExperienceTrack_Weapon_Repeaters\",\"progress\":0,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.907Z\"},{\"phx_account_id\":\"player-1\",\"progression_id\":\"ExperienceTrack_Weapon_Sword\",\"progress\":30,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.850Z\"},{\"phx_account_id\":\"player-1\",\"progression_id\":\"ExperienceTrack_Weapon_Spear\",\"progress\":0,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.907Z\"},{\"phx_account_id\":\"player-1\",\"progression_id\":\"ExperienceTrack_Weapon_Strikers\",\"progress\":0,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.907Z\"},{\"phx_account_id\":\"player-1\",\"progression_id\":\"PrestigeTrack_Weapon_Axe\",\"progress\":1,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.833Z\"},{\"phx_account_id\":\"player-1\",\"progression_id\":\"PrestigeTrack_Weapon_ChainBlades\",\"progress\":0,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.907Z\"},{\"phx_account_id\":\"player-1\",\"progression_id\":\"PrestigeTrack_Weapon_Hammer\",\"progress\":0,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.907Z\"},{\"phx_account_id\":\"player-1\",\"progression_id\":\"PrestigeTrack_Weapon_Repeaters\",\"progress\":0,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.907Z\"},{\"phx_account_id\":\"player-1\",\"progression_id\":\"PrestigeTrack_Weapon_Sword\",\"progress\":1,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.850Z\"},{\"phx_account_id\":\"player-1\",\"progression_id\":\"PrestigeTrack_Weapon_Spear\",\"progress\":0,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.907Z\"},{\"phx_account_id\":\"player-1\",\"progression_id\":\"PrestigeTrack_Weapon_Strikers\",\"progress\":0,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.907Z\"},{\"phx_account_id\":\"player-1\",\"progression_id\":\"season43\",\"progress\":20,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.789Z\"}]}"
+      },
+      "hooks": {
+        "authorized": [],
+        "records": [],
+        "notes": 0
+      }
+    },
+    {
+      "name": "escalation, nothing stored",
+      "request": {
+        "method": "GET",
+        "path": "/escalation/ESC_SEASON_6/player-1",
+        "role": "player",
+        "user": "player-1",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "body": "{\"code\":null,\"message\":\"OK\",\"payload\":{\"escalation_level\":0,\"next_level_xp\":0,\"talents_progress\":[],\"unlock_progress\":[],\"update_version\":0}}"
+      },
+      "hooks": {
+        "authorized": [],
+        "records": [],
+        "notes": 0
+      }
+    },
+    {
+      "name": "escalation read of another account",
+      "request": {
+        "method": "GET",
+        "path": "/escalation/ESC_SEASON_6/player-2",
+        "role": "player",
+        "user": "player-1",
+        "headers": {}
+      },
+      "response": {
+        "status": 403,
+        "body": ""
+      },
+      "hooks": {
+        "authorized": [],
+        "records": [],
+        "notes": 0
+      }
+    },
+    {
+      "name": "escalation write",
+      "request": {
+        "method": "POST",
+        "path": "/escalation/ESC_SEASON_6/player-1",
+        "role": "gs",
+        "headers": {},
+        "body": {
+          "escalation_level": 4,
+          "next_level_xp": 20,
+          "talents_progress": [
+            {
+              "talent_id": "Talent_A",
+              "rank": 2
+            }
+          ],
+          "unlock_progress": []
+        }
+      },
+      "response": {
+        "status": 200,
+        "body": "{\"code\":null,\"message\":\"OK\",\"payload\":{\"escalation_level\":4,\"next_level_xp\":20,\"talents_progress\":[{\"talent_id\":\"Talent_A\",\"rank\":2}],\"unlock_progress\":[],\"update_version\":1}}"
+      },
+      "hooks": {
+        "authorized": [],
+        "records": [],
+        "notes": 0
+      }
+    },
+    {
+      "name": "escalation write that lowers the level",
+      "request": {
+        "method": "POST",
+        "path": "/escalation/ESC_SEASON_6/player-1",
+        "role": "gs",
+        "headers": {},
+        "body": {
+          "escalation_level": 1,
+          "next_level_xp": 5
+        }
+      },
+      "response": {
+        "status": 200,
+        "body": "{\"code\":null,\"message\":\"OK\",\"payload\":{\"escalation_level\":4,\"next_level_xp\":5,\"talents_progress\":[{\"talent_id\":\"Talent_A\",\"rank\":2}],\"unlock_progress\":[],\"update_version\":2}}"
+      },
+      "hooks": {
+        "authorized": [],
+        "records": [],
+        "notes": 0
+      }
+    },
+    {
+      "name": "escalation write of a respec",
+      "request": {
+        "method": "POST",
+        "path": "/escalation/ESC_SEASON_6/player-1",
+        "role": "gs",
+        "headers": {},
+        "body": {
+          "talents_progress": []
+        }
+      },
+      "response": {
+        "status": 200,
+        "body": "{\"code\":null,\"message\":\"OK\",\"payload\":{\"escalation_level\":4,\"next_level_xp\":5,\"talents_progress\":[],\"unlock_progress\":[],\"update_version\":3}}"
+      },
+      "hooks": {
+        "authorized": [],
+        "records": [],
+        "notes": 0
+      }
+    },
+    {
+      "name": "escalation write with bad values",
+      "request": {
+        "method": "POST",
+        "path": "/escalation/ESC_SEASON_6/player-1",
+        "role": "gs",
+        "headers": {},
+        "body": {
+          "escalation_level": -1,
+          "next_level_xp": 1.5,
+          "unlock_progress": "x"
+        }
+      },
+      "response": {
+        "status": 200,
+        "body": "{\"code\":null,\"message\":\"OK\",\"payload\":{\"escalation_level\":4,\"next_level_xp\":5,\"talents_progress\":[],\"unlock_progress\":[],\"update_version\":4}}"
+      },
+      "hooks": {
+        "authorized": [],
+        "records": [],
+        "notes": 0
+      }
+    },
+    {
+      "name": "escalation write by the player",
+      "request": {
+        "method": "POST",
+        "path": "/escalation/ESC_SEASON_6/player-1",
+        "role": "player",
+        "user": "player-1",
+        "headers": {},
+        "body": {
+          "escalation_level": 9
+        }
+      },
+      "response": {
+        "status": 200,
+        "body": "{\"code\":null,\"message\":\"OK\",\"payload\":{\"escalation_level\":9,\"next_level_xp\":5,\"talents_progress\":[],\"unlock_progress\":[],\"update_version\":5}}"
+      },
+      "hooks": {
+        "authorized": [],
+        "records": [],
+        "notes": 0
+      }
+    },
+    {
+      "name": "escalation write by another player",
+      "request": {
+        "method": "POST",
+        "path": "/escalation/ESC_SEASON_6/player-2",
+        "role": "player",
+        "user": "player-1",
+        "headers": {},
+        "body": {
+          "escalation_level": 9
+        }
+      },
+      "response": {
+        "status": 403,
+        "body": ""
+      },
+      "hooks": {
+        "authorized": [],
+        "records": [],
+        "notes": 0
+      }
+    },
+    {
+      "name": "escalation read",
+      "request": {
+        "method": "GET",
+        "path": "/escalation/ESC_SEASON_6/player-1",
+        "role": "gs",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "body": "{\"code\":null,\"message\":\"OK\",\"payload\":{\"escalation_level\":9,\"next_level_xp\":5,\"talents_progress\":[],\"unlock_progress\":[],\"update_version\":5}}"
+      },
+      "hooks": {
+        "authorized": [],
+        "records": [],
+        "notes": 0
+      }
+    },
+    {
+      "name": "escalation, no body",
+      "request": {
+        "method": "POST",
+        "path": "/escalation/ESC_SEASON_7/player-1",
+        "role": "gs",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "body": "{\"code\":null,\"message\":\"OK\",\"payload\":{\"escalation_level\":0,\"next_level_xp\":0,\"talents_progress\":[],\"unlock_progress\":[],\"update_version\":1}}"
+      },
+      "hooks": {
+        "authorized": [],
+        "records": [],
+        "notes": 0
+      }
+    },
+    {
+      "name": "encountered content add",
+      "request": {
+        "method": "POST",
+        "path": "/encountered-content/char-1",
+        "role": "player",
+        "user": "player-1",
+        "headers": {},
+        "body": {
+          "content_type": 2,
+          "content_id": "BEH_X"
+        }
+      },
+      "response": {
+        "status": 200,
+        "body": "{\"code\":null,\"message\":\"OK\",\"payload\":{}}"
+      },
+      "hooks": {
+        "authorized": [],
+        "records": [],
+        "notes": 0
+      }
+    },
+    {
+      "name": "encountered content add again",
+      "request": {
+        "method": "POST",
+        "path": "/encountered-content/char-1",
+        "role": "player",
+        "user": "player-1",
+        "headers": {},
+        "body": {
+          "content_type": 2,
+          "content_id": "BEH_Y"
+        }
+      },
+      "response": {
+        "status": 200,
+        "body": "{\"code\":null,\"message\":\"OK\",\"payload\":{}}"
+      },
+      "hooks": {
+        "authorized": [],
+        "records": [],
+        "notes": 0
+      }
+    },
+    {
+      "name": "encountered content add, other category",
+      "request": {
+        "method": "POST",
+        "path": "/encountered-content/char-1",
+        "role": "player",
+        "user": "player-1",
+        "headers": {},
+        "body": {
+          "content_type": 5,
+          "content_id": "ITEM_Z"
+        }
+      },
+      "response": {
+        "status": 200,
+        "body": "{\"code\":null,\"message\":\"OK\",\"payload\":{}}"
+      },
+      "hooks": {
+        "authorized": [],
+        "records": [],
+        "notes": 0
+      }
+    },
+    {
+      "name": "encountered content add without a type",
+      "request": {
+        "method": "POST",
+        "path": "/encountered-content/char-1",
+        "role": "player",
+        "user": "player-1",
+        "headers": {},
+        "body": {
+          "content_id": "ITEM_Z"
+        }
+      },
+      "response": {
+        "status": 200,
+        "body": "{\"code\":null,\"message\":\"OK\",\"payload\":{}}"
+      },
+      "hooks": {
+        "authorized": [],
+        "records": [],
+        "notes": 0
+      }
+    },
+    {
+      "name": "encountered content add to a character of another account",
+      "request": {
+        "method": "POST",
+        "path": "/encountered-content/char-2",
+        "role": "player",
+        "user": "player-1",
+        "headers": {},
+        "body": {
+          "content_type": 2,
+          "content_id": "BEH_X"
+        }
+      },
+      "response": {
+        "status": 403,
+        "body": ""
+      },
+      "hooks": {
+        "authorized": [],
+        "records": [],
+        "notes": 0
+      }
+    },
+    {
+      "name": "encountered content get",
+      "request": {
+        "method": "GET",
+        "path": "/encountered-content/char-1/2",
+        "role": "player",
+        "user": "player-1",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "body": "{\"code\":null,\"message\":\"OK\",\"payload\":{\"content_types\":[{\"content\":[\"BEH_X\",\"BEH_Y\"],\"content_type\":2}],\"success\":true}}"
+      },
+      "hooks": {
+        "authorized": [],
+        "records": [],
+        "notes": 0
+      }
+    },
+    {
+      "name": "encountered content get, a type with none",
+      "request": {
+        "method": "GET",
+        "path": "/encountered-content/char-1/7",
+        "role": "player",
+        "user": "player-1",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "body": "{\"code\":null,\"message\":\"OK\",\"payload\":{\"content_types\":[{\"content\":[],\"content_type\":7}],\"success\":true}}"
+      },
+      "hooks": {
+        "authorized": [],
+        "records": [],
+        "notes": 0
+      }
+    },
+    {
+      "name": "encountered content get, a type out of range",
+      "request": {
+        "method": "GET",
+        "path": "/encountered-content/char-1/9",
+        "role": "player",
+        "user": "player-1",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "body": "{\"code\":null,\"message\":\"OK\",\"payload\":{\"content_types\":[],\"success\":true}}"
+      },
+      "hooks": {
+        "authorized": [],
+        "records": [],
+        "notes": 0
+      }
+    },
+    {
+      "name": "encountered content get, not a number",
+      "request": {
+        "method": "GET",
+        "path": "/encountered-content/char-1/x",
+        "role": "player",
+        "user": "player-1",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "body": "{\"code\":null,\"message\":\"OK\",\"payload\":{\"content_types\":[],\"success\":true}}"
+      },
+      "hooks": {
+        "authorized": [],
+        "records": [],
+        "notes": 0
+      }
+    },
+    {
+      "name": "encountered content get, another account's character",
+      "request": {
+        "method": "GET",
+        "path": "/encountered-content/char-2/2",
+        "role": "player",
+        "user": "player-1",
+        "headers": {}
+      },
+      "response": {
+        "status": 403,
+        "body": "{\"code\":\"forbidden\",\"message\":\"Character is not owned by the authenticated account.\",\"payload\":null}"
+      },
+      "hooks": {
+        "authorized": [],
+        "records": [],
+        "notes": 0
+      }
+    },
+    {
+      "name": "encountered content get, no user",
+      "request": {
+        "method": "GET",
+        "path": "/encountered-content/char-1/2",
+        "role": "gs",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "body": "{\"code\":null,\"message\":\"OK\",\"payload\":{\"content_types\":[{\"content\":[],\"content_type\":2}],\"success\":true}}"
+      },
+      "hooks": {
+        "authorized": [],
+        "records": [],
+        "notes": 0
+      }
+    },
+    {
+      "name": "encountered content query",
+      "request": {
+        "method": "POST",
+        "path": "/encountered-content/query/char-1",
+        "role": "player",
+        "user": "player-1",
+        "headers": {},
+        "body": {
+          "content_types": [
+            5,
+            2,
+            3
+          ]
+        }
+      },
+      "response": {
+        "status": 200,
+        "body": "{\"code\":null,\"message\":\"OK\",\"payload\":{\"content_types\":[{\"content\":[\"BEH_X\",\"BEH_Y\"],\"content_type\":2},{\"content\":[],\"content_type\":3},{\"content\":[\"ITEM_Z\"],\"content_type\":5}],\"success\":true}}"
+      },
+      "hooks": {
+        "authorized": [],
+        "records": [],
+        "notes": 0
+      }
+    },
+    {
+      "name": "encountered content query, character first",
+      "request": {
+        "method": "POST",
+        "path": "/encountered-content/char-1/query",
+        "role": "player",
+        "user": "player-1",
+        "headers": {},
+        "body": {
+          "content_types": [
+            2
+          ]
+        }
+      },
+      "response": {
+        "status": 200,
+        "body": "{\"code\":null,\"message\":\"OK\",\"payload\":{\"content_types\":[{\"content\":[\"BEH_X\",\"BEH_Y\"],\"content_type\":2}],\"success\":true}}"
+      },
+      "hooks": {
+        "authorized": [],
+        "records": [],
+        "notes": 0
+      }
+    },
+    {
+      "name": "encountered content query, no list",
+      "request": {
+        "method": "POST",
+        "path": "/encountered-content/char-1/query",
+        "role": "player",
+        "user": "player-1",
+        "headers": {},
+        "body": {}
+      },
+      "response": {
+        "status": 200,
+        "body": "{\"code\":null,\"message\":\"OK\",\"payload\":{\"content_types\":[],\"success\":true}}"
+      },
+      "hooks": {
+        "authorized": [],
+        "records": [],
+        "notes": 0
+      }
+    },
+    {
+      "name": "encountered content query, no user",
+      "request": {
+        "method": "POST",
+        "path": "/encountered-content/query/char-1",
+        "role": "gs",
+        "headers": {},
+        "body": {
+          "content_types": [
+            1,
+            4
+          ]
+        }
+      },
+      "response": {
+        "status": 200,
+        "body": "{\"code\":null,\"message\":\"OK\",\"payload\":{\"content_types\":[{\"content\":[],\"content_type\":1},{\"content\":[],\"content_type\":4}],\"success\":true}}"
+      },
+      "hooks": {
+        "authorized": [],
+        "records": [],
+        "notes": 0
+      }
+    },
+    {
+      "name": "encountered content query, no character",
+      "request": {
+        "method": "POST",
+        "path": "/encountered-content/query",
+        "role": "player",
+        "user": "player-1",
+        "headers": {},
+        "body": {
+          "content_types": [
+            1
+          ]
+        }
+      },
+      "response": {
+        "status": 200,
+        "body": "{\"code\":null,\"message\":\"OK\",\"payload\":{\"content_types\":[{\"content\":[],\"content_type\":1}],\"success\":true}}"
+      },
+      "hooks": {
+        "authorized": [],
+        "records": [],
+        "notes": 0
+      }
+    },
+    {
+      "name": "encountered content query, no character or list",
+      "request": {
+        "method": "POST",
+        "path": "/encountered-content/query",
+        "role": "player",
+        "user": "player-1",
+        "headers": {},
+        "body": {}
+      },
+      "response": {
+        "status": 200,
+        "body": "{\"code\":null,\"message\":\"OK\",\"payload\":{\"content_types\":[],\"success\":true}}"
+      },
+      "hooks": {
+        "authorized": [],
+        "records": [],
+        "notes": 0
+      }
+    },
+    {
+      "name": "encountered content, no character id",
+      "request": {
+        "method": "POST",
+        "path": "/encountered-content",
+        "role": "player",
+        "user": "player-1",
+        "headers": {},
+        "body": {}
+      },
+      "response": {
+        "status": 200,
+        "body": "{\"code\":null,\"message\":\"OK\",\"payload\":{}}"
+      },
+      "hooks": {
+        "authorized": [],
+        "records": [],
+        "notes": 0
+      }
+    },
+    {
+      "name": "encountered content, no character id and a slash",
+      "request": {
+        "method": "POST",
+        "path": "/encountered-content/",
+        "role": "player",
+        "user": "player-1",
+        "headers": {},
+        "body": {}
+      },
+      "response": {
+        "status": 200,
+        "body": "{\"code\":null,\"message\":\"OK\",\"payload\":{}}"
+      },
+      "hooks": {
+        "authorized": [],
+        "records": [],
+        "notes": 0
+      }
+    },
+    {
+      "name": "breadcrumbs, no character",
+      "request": {
+        "method": "GET",
+        "path": "/breadcrumbs/",
+        "role": "player",
+        "user": "player-1",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "body": "{\"code\":null,\"message\":\"OK\",\"payload\":{\"breadcrumbs\":[],\"updateVersion\":0}}"
+      },
+      "hooks": {
+        "authorized": [],
+        "records": [],
+        "notes": 0
+      }
+    },
+    {
+      "name": "breadcrumbs, created on first read",
+      "request": {
+        "method": "GET",
+        "path": "/breadcrumbs/char-1",
+        "role": "player",
+        "user": "player-1",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "body": "{\"code\":null,\"message\":\"OK\",\"payload\":{\"breadcrumbs\":[],\"updateVersion\":0}}"
+      },
+      "hooks": {
+        "authorized": [],
+        "records": [],
+        "notes": 0
+      }
+    },
+    {
+      "name": "breadcrumbs write",
+      "request": {
+        "method": "POST",
+        "path": "/breadcrumbs/char-1",
+        "role": "player",
+        "user": "player-1",
+        "headers": {},
+        "body": {
+          "breadcrumbs": [
+            {
+              "id": "a",
+              "seen": true
+            }
+          ],
+          "updateVersion": 3
+        }
+      },
+      "response": {
+        "status": 200,
+        "body": "{\"code\":null,\"message\":\"OK\",\"payload\":{\"breadcrumbs\":[{\"id\":\"a\",\"seen\":true}],\"updateVersion\":3}}"
+      },
+      "hooks": {
+        "authorized": [],
+        "records": [],
+        "notes": 0
+      }
+    },
+    {
+      "name": "breadcrumbs read",
+      "request": {
+        "method": "GET",
+        "path": "/breadcrumbs/char-1",
+        "role": "player",
+        "user": "player-1",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "body": "{\"code\":null,\"message\":\"OK\",\"payload\":{\"breadcrumbs\":[{\"id\":\"a\",\"seen\":true}],\"updateVersion\":3}}"
+      },
+      "hooks": {
+        "authorized": [],
+        "records": [],
+        "notes": 0
+      }
+    },
+    {
+      "name": "breadcrumbs of another account's character",
+      "request": {
+        "method": "GET",
+        "path": "/breadcrumbs/char-2",
+        "role": "player",
+        "user": "player-1",
+        "headers": {}
+      },
+      "response": {
+        "status": 403,
+        "body": ""
+      },
+      "hooks": {
+        "authorized": [],
+        "records": [],
+        "notes": 0
+      }
+    },
+    {
+      "name": "breadcrumbs write to another account's character",
+      "request": {
+        "method": "POST",
+        "path": "/breadcrumbs/char-2",
+        "role": "player",
+        "user": "player-1",
+        "headers": {},
+        "body": {
+          "breadcrumbs": [],
+          "updateVersion": 1
+        }
+      },
+      "response": {
+        "status": 403,
+        "body": ""
+      },
+      "hooks": {
+        "authorized": [],
+        "records": [],
+        "notes": 0
+      }
+    },
+    {
+      "name": "breadcrumbs, no user",
+      "request": {
+        "method": "GET",
+        "path": "/breadcrumbs/char-1",
+        "role": "gs",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "body": "{\"code\":null,\"message\":\"OK\",\"payload\":{\"breadcrumbs\":[],\"updateVersion\":0}}"
+      },
+      "hooks": {
+        "authorized": [],
+        "records": [],
+        "notes": 0
+      }
+    },
+    {
+      "name": "breadcrumbs write, first for a second character",
+      "request": {
+        "method": "POST",
+        "path": "/breadcrumbs/char-3",
+        "role": "player",
+        "user": "player-3",
+        "headers": {},
+        "body": {
+          "breadcrumbs": [
+            "x"
+          ],
+          "updateVersion": 1
+        }
+      },
+      "response": {
+        "status": 200,
+        "body": "{\"code\":null,\"message\":\"OK\",\"payload\":{\"breadcrumbs\":[\"x\"],\"updateVersion\":1}}"
+      },
+      "hooks": {
+        "authorized": [],
+        "records": [],
+        "notes": 0
+      }
+    },
+    {
+      "name": "pjm, the sentinel",
+      "request": {
+        "method": "GET",
+        "path": "/pjm/INVALID",
+        "role": "gs",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "body": "{\"code\":null,\"message\":\"OK\",\"payload\":{\"nodes\":{},\"update_version\":1}}"
+      },
+      "hooks": {
+        "authorized": [],
+        "records": [],
+        "notes": 0
+      }
+    },
+    {
+      "name": "pjm, nothing saved",
+      "request": {
+        "method": "GET",
+        "path": "/pjm/player-1",
+        "role": "player",
+        "user": "player-1",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "body": "{\"code\":null,\"message\":\"OK\",\"payload\":{\"nodes\":{},\"update_version\":1}}"
+      },
+      "hooks": {
+        "authorized": [],
+        "records": [],
+        "notes": 0
+      }
+    },
+    {
+      "name": "pjm, other account",
+      "request": {
+        "method": "GET",
+        "path": "/pjm/player-2",
+        "role": "player",
+        "user": "player-1",
+        "headers": {}
+      },
+      "response": {
+        "status": 403,
+        "body": "{\"code\":null,\"message\":\"Forbidden\",\"payload\":{}}"
+      },
+      "hooks": {
+        "authorized": [],
+        "records": [],
+        "notes": 0
+      }
+    },
+    {
+      "name": "pjm save by a player",
+      "request": {
+        "method": "POST",
+        "path": "/pjm/player-1",
+        "role": "player",
+        "user": "player-1",
+        "headers": {},
+        "body": {
+          "nodes": {},
+          "update_version": 2
+        }
+      },
+      "response": {
+        "status": 403,
+        "body": "{\"code\":null,\"message\":\"Forbidden\",\"payload\":{}}"
+      },
+      "hooks": {
+        "authorized": [],
+        "records": [],
+        "notes": 0
+      }
+    },
+    {
+      "name": "pjm save, the sentinel",
+      "request": {
+        "method": "POST",
+        "path": "/pjm/INVALID",
+        "role": "gs",
+        "headers": {},
+        "body": {
+          "nodes": {},
+          "update_version": 5
+        }
+      },
+      "response": {
+        "status": 200,
+        "body": "{\"code\":null,\"message\":\"OK\",\"payload\":{\"nodes\":{},\"update_version\":5}}"
+      },
+      "hooks": {
+        "authorized": [],
+        "records": [],
+        "notes": 0
+      }
+    },
+    {
+      "name": "pjm save, the sentinel without a version",
+      "request": {
+        "method": "POST",
+        "path": "/pjm/INVALID",
+        "role": "gs",
+        "headers": {},
+        "body": {}
+      },
+      "response": {
+        "status": 200,
+        "body": "{\"code\":null,\"message\":\"OK\",\"payload\":{\"nodes\":{},\"update_version\":1}}"
+      },
+      "hooks": {
+        "authorized": [],
+        "records": [],
+        "notes": 0
+      }
+    },
+    {
+      "name": "pjm first save",
+      "request": {
+        "method": "POST",
+        "path": "/pjm/player-1",
+        "role": "gs",
+        "headers": {},
+        "body": {
+          "nodes": {
+            "A": {
+              "node_id": "A",
+              "node_status": 2,
+              "objectives": []
+            },
+            "B": {
+              "node_id": "B",
+              "node_status": 0,
+              "objectives": []
+            },
+            "Gauntlet_Unlock": {
+              "node_id": "Gauntlet_Unlock",
+              "node_status": 2,
+              "objectives": []
+            }
+          },
+          "update_version": 2
+        }
+      },
+      "response": {
+        "status": 200,
+        "body": "{\"code\":null,\"message\":\"OK\",\"payload\":{\"nodes\":{\"A\":{\"node_id\":\"A\",\"node_status\":2,\"objectives\":[]},\"B\":{\"node_id\":\"B\",\"node_status\":0,\"objectives\":[]},\"Gauntlet_Unlock\":{\"node_id\":\"Gauntlet_Unlock\",\"node_status\":0,\"objectives\":[]}},\"update_version\":2}}"
+      },
+      "hooks": {
+        "authorized": [],
+        "records": [],
+        "notes": 0
+      }
+    },
+    {
+      "name": "pjm read masks Gauntlet_Unlock",
+      "request": {
+        "method": "GET",
+        "path": "/pjm/player-1",
+        "role": "player",
+        "user": "player-1",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "body": "{\"code\":null,\"message\":\"OK\",\"payload\":{\"nodes\":{\"A\":{\"node_id\":\"A\",\"node_status\":2,\"objectives\":[]},\"B\":{\"node_id\":\"B\",\"node_status\":0,\"objectives\":[]},\"Gauntlet_Unlock\":{\"node_id\":\"Gauntlet_Unlock\",\"node_status\":0,\"objectives\":[]}},\"update_version\":2}}"
+      },
+      "hooks": {
+        "authorized": [],
+        "records": [],
+        "notes": 0
+      }
+    },
+    {
+      "name": "pjm newer save adds nodes",
+      "request": {
+        "method": "POST",
+        "path": "/pjm/player-1",
+        "role": "gs",
+        "headers": {},
+        "body": {
+          "nodes": {
+            "B": {
+              "node_id": "B",
+              "node_status": 2,
+              "objectives": [
+                {
+                  "id": "k",
+                  "progress": 3
+                }
+              ]
+            },
+            "C": {
+              "node_id": "C",
+              "node_status": 0,
+              "objectives": []
+            }
+          },
+          "update_version": 3
+        }
+      },
+      "response": {
+        "status": 200,
+        "body": "{\"code\":null,\"message\":\"OK\",\"payload\":{\"nodes\":{\"A\":{\"node_id\":\"A\",\"node_status\":2,\"objectives\":[]},\"B\":{\"node_id\":\"B\",\"node_status\":2,\"objectives\":[{\"id\":\"k\",\"progress\":3}]},\"Gauntlet_Unlock\":{\"node_id\":\"Gauntlet_Unlock\",\"node_status\":0,\"objectives\":[]},\"C\":{\"node_id\":\"C\",\"node_status\":0,\"objectives\":[]}},\"update_version\":3}}"
+      },
+      "hooks": {
+        "authorized": [],
+        "records": [],
+        "notes": 0
+      }
+    },
+    {
+      "name": "pjm stale save keeps stored nodes",
+      "request": {
+        "method": "POST",
+        "path": "/pjm/player-1",
+        "role": "gs",
+        "headers": {},
+        "body": {
+          "nodes": {
+            "A": {
+              "node_id": "A",
+              "node_status": 0,
+              "objectives": []
+            },
+            "Z": {
+              "node_id": "Z",
+              "node_status": 0,
+              "objectives": []
+            }
+          },
+          "update_version": 2
+        }
+      },
+      "response": {
+        "status": 200,
+        "body": "{\"code\":null,\"message\":\"OK\",\"payload\":{\"nodes\":{\"A\":{\"node_id\":\"A\",\"node_status\":2,\"objectives\":[]},\"Z\":{\"node_id\":\"Z\",\"node_status\":0,\"objectives\":[]},\"B\":{\"node_id\":\"B\",\"node_status\":2,\"objectives\":[{\"id\":\"k\",\"progress\":3}]},\"Gauntlet_Unlock\":{\"node_id\":\"Gauntlet_Unlock\",\"node_status\":0,\"objectives\":[]},\"C\":{\"node_id\":\"C\",\"node_status\":0,\"objectives\":[]}},\"update_version\":3}}"
+      },
+      "hooks": {
+        "authorized": [],
+        "records": [],
+        "notes": 0
+      }
+    },
+    {
+      "name": "pjm save with the masked status keeps the unlock",
+      "request": {
+        "method": "POST",
+        "path": "/pjm/player-1",
+        "role": "gs",
+        "headers": {},
+        "body": {
+          "nodes": {
+            "Gauntlet_Unlock": {
+              "node_id": "Gauntlet_Unlock",
+              "node_status": 0,
+              "objectives": []
+            }
+          },
+          "update_version": 9
+        }
+      },
+      "response": {
+        "status": 200,
+        "body": "{\"code\":null,\"message\":\"OK\",\"payload\":{\"nodes\":{\"A\":{\"node_id\":\"A\",\"node_status\":2,\"objectives\":[]},\"Z\":{\"node_id\":\"Z\",\"node_status\":0,\"objectives\":[]},\"B\":{\"node_id\":\"B\",\"node_status\":2,\"objectives\":[{\"id\":\"k\",\"progress\":3}]},\"Gauntlet_Unlock\":{\"node_id\":\"Gauntlet_Unlock\",\"node_status\":0,\"objectives\":[]},\"C\":{\"node_id\":\"C\",\"node_status\":0,\"objectives\":[]}},\"update_version\":9}}"
+      },
+      "hooks": {
+        "authorized": [],
+        "records": [],
+        "notes": 0
+      }
+    },
+    {
+      "name": "pjm save without a numeric version",
+      "request": {
+        "method": "POST",
+        "path": "/pjm/player-1",
+        "role": "gs",
+        "headers": {},
+        "body": {
+          "nodes": {
+            "Q": {
+              "node_id": "Q",
+              "node_status": 0,
+              "objectives": []
+            }
+          },
+          "update_version": "10"
+        }
+      },
+      "response": {
+        "status": 200,
+        "body": "{\"code\":null,\"message\":\"OK\",\"payload\":{\"nodes\":{\"Q\":{\"node_id\":\"Q\",\"node_status\":0,\"objectives\":[]},\"A\":{\"node_id\":\"A\",\"node_status\":2,\"objectives\":[]},\"Z\":{\"node_id\":\"Z\",\"node_status\":0,\"objectives\":[]},\"B\":{\"node_id\":\"B\",\"node_status\":2,\"objectives\":[{\"id\":\"k\",\"progress\":3}]},\"Gauntlet_Unlock\":{\"node_id\":\"Gauntlet_Unlock\",\"node_status\":0,\"objectives\":[]},\"C\":{\"node_id\":\"C\",\"node_status\":0,\"objectives\":[]}},\"update_version\":9}}"
+      },
+      "hooks": {
+        "authorized": [],
+        "records": [],
+        "notes": 0
+      }
+    },
+    {
+      "name": "pjm read",
+      "request": {
+        "method": "GET",
+        "path": "/pjm/player-1",
+        "role": "gs",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "body": "{\"code\":null,\"message\":\"OK\",\"payload\":{\"nodes\":{\"Q\":{\"node_id\":\"Q\",\"node_status\":0,\"objectives\":[]},\"A\":{\"node_id\":\"A\",\"node_status\":2,\"objectives\":[]},\"Z\":{\"node_id\":\"Z\",\"node_status\":0,\"objectives\":[]},\"B\":{\"node_id\":\"B\",\"node_status\":2,\"objectives\":[{\"id\":\"k\",\"progress\":3}]},\"Gauntlet_Unlock\":{\"node_id\":\"Gauntlet_Unlock\",\"node_status\":0,\"objectives\":[]},\"C\":{\"node_id\":\"C\",\"node_status\":0,\"objectives\":[]}},\"update_version\":9}}"
+      },
+      "hooks": {
+        "authorized": [],
+        "records": [],
+        "notes": 0
+      }
+    },
+    {
+      "name": "pjm without a user",
+      "request": {
+        "method": "GET",
+        "path": "/pjm",
+        "role": "gs",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "body": "{\"code\":null,\"message\":\"OK\",\"payload\":{\"nodes\":{\"A\":{\"node_id\":\"A\",\"node_status\":0,\"objectives\":[]},\"B\":{\"node_id\":\"B\",\"node_status\":0,\"objectives\":[]},\"C\":{\"node_id\":\"C\",\"node_status\":0,\"objectives\":[]},\"D\":{\"node_id\":\"D\",\"node_status\":0,\"objectives\":[]},\"E\":{\"node_id\":\"E\",\"node_status\":0,\"objectives\":[]},\"X\":{\"node_id\":\"X\",\"node_status\":0,\"objectives\":[]},\"Slayer_11\":{\"node_id\":\"Slayer_11\",\"node_status\":0,\"objectives\":[]},\"Prestige.Unlock\":{\"node_id\":\"Prestige.Unlock\",\"node_status\":0,\"objectives\":[]},\"Gauntlet_Unlock\":{\"node_id\":\"Gauntlet_Unlock\",\"node_status\":0,\"objectives\":[]}},\"update_version\":1}}"
+      },
+      "hooks": {
+        "authorized": [],
+        "records": [],
+        "notes": 0
+      }
+    },
+    {
+      "name": "pjm bootstrap for an account with no save",
+      "request": {
+        "method": "GET",
+        "path": "/pjm",
+        "role": "player",
+        "user": "player-2",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "body": "{\"code\":null,\"message\":\"OK\",\"payload\":{\"nodes\":{\"A\":{\"node_id\":\"A\",\"node_status\":0,\"objectives\":[]},\"B\":{\"node_id\":\"B\",\"node_status\":0,\"objectives\":[]},\"C\":{\"node_id\":\"C\",\"node_status\":0,\"objectives\":[]},\"D\":{\"node_id\":\"D\",\"node_status\":0,\"objectives\":[]},\"E\":{\"node_id\":\"E\",\"node_status\":0,\"objectives\":[]},\"X\":{\"node_id\":\"X\",\"node_status\":0,\"objectives\":[]},\"Slayer_11\":{\"node_id\":\"Slayer_11\",\"node_status\":0,\"objectives\":[]},\"Prestige.Unlock\":{\"node_id\":\"Prestige.Unlock\",\"node_status\":0,\"objectives\":[]},\"Gauntlet_Unlock\":{\"node_id\":\"Gauntlet_Unlock\",\"node_status\":0,\"objectives\":[]}},\"update_version\":1}}"
+      },
+      "hooks": {
+        "authorized": [],
+        "records": [],
+        "notes": 0
+      }
+    },
+    {
+      "name": "pjm of the account that saved",
+      "request": {
+        "method": "GET",
+        "path": "/pjm",
+        "role": "player",
+        "user": "player-1",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "body": "{\"code\":null,\"message\":\"OK\",\"payload\":{\"nodes\":{\"Q\":{\"node_id\":\"Q\",\"node_status\":0,\"objectives\":[]},\"A\":{\"node_id\":\"A\",\"node_status\":2,\"objectives\":[]},\"Z\":{\"node_id\":\"Z\",\"node_status\":0,\"objectives\":[]},\"B\":{\"node_id\":\"B\",\"node_status\":2,\"objectives\":[{\"id\":\"k\",\"progress\":3}]},\"Gauntlet_Unlock\":{\"node_id\":\"Gauntlet_Unlock\",\"node_status\":0,\"objectives\":[]},\"C\":{\"node_id\":\"C\",\"node_status\":0,\"objectives\":[]}},\"update_version\":9}}"
+      },
+      "hooks": {
+        "authorized": [],
+        "records": [],
+        "notes": 0
+      }
+    },
+    {
+      "name": "host: allow",
+      "op": "guard",
+      "denial": null,
+      "policyRefuses": true,
+      "probeRefuses": []
+    },
+    {
+      "name": "host grant",
+      "request": {
+        "method": "POST",
+        "path": "/progression/player-1/ExperienceTrack_Weapon_Sword/98",
+        "role": "host",
+        "user": "host-1",
+        "roster": "host-1,player-1",
+        "headers": {
+          "x-rustic-isles-grant-id": "h1"
+        }
+      },
+      "response": {
+        "status": 200,
+        "body": "{\"code\":null,\"message\":\"OK\",\"payload\":{\"phx_account_id\":\"player-1\",\"progression_id\":\"ExperienceTrack_Weapon_Sword\",\"progress\":128,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:04.007Z\",\"grant_id\":\"h1\",\"replayed\":false}}"
+      },
+      "hooks": {
+        "authorized": [
+          [
+            "XP",
+            "player-1"
+          ]
+        ],
+        "records": [
+          {
+            "kind": "XP",
+            "target": "player-1",
+            "summary": {
+              "track": "ExperienceTrack_Weapon_Sword",
+              "amount": 98,
+              "grantId": "h1"
+            }
+          }
+        ],
+        "notes": 0
+      }
+    },
+    {
+      "name": "host grant over the ceiling",
+      "request": {
+        "method": "POST",
+        "path": "/progression/player-1/ExperienceTrack_Weapon_Axe/1001",
+        "role": "host",
+        "user": "host-1",
+        "headers": {
+          "x-rustic-isles-grant-id": "h2"
+        }
+      },
+      "response": {
+        "status": 403,
+        "body": "{\"code\":\"HOST_WRITE_LIMIT\",\"message\":\"This write is beyond what a hosted server may report.\",\"payload\":null}"
+      },
+      "hooks": {
+        "authorized": [
+          [
+            "XP",
+            "player-1"
+          ]
+        ],
+        "records": [],
+        "notes": 0
+      }
+    },
+    {
+      "name": "host grant to a mastery track",
+      "request": {
+        "method": "POST",
+        "path": "/progression/player-1/MasteryTrack_PlayerLevel/1",
+        "role": "host",
+        "user": "host-1",
+        "headers": {
+          "x-rustic-isles-grant-id": "h3"
+        }
+      },
+      "response": {
+        "status": 403,
+        "body": "{\"code\":\"HOST_WRITE_LIMIT\",\"message\":\"This write is beyond what a hosted server may report.\",\"payload\":null}"
+      },
+      "hooks": {
+        "authorized": [
+          [
+            "XP",
+            "player-1"
+          ]
+        ],
+        "records": [],
+        "notes": 0
+      }
+    },
+    {
+      "name": "host prestige grant that is not a reforge",
+      "request": {
+        "method": "POST",
+        "path": "/progression/player-1/PrestigeTrack_Weapon_Axe/1",
+        "role": "host",
+        "user": "host-1",
+        "headers": {
+          "x-rustic-isles-grant-id": "h4"
+        }
+      },
+      "response": {
+        "status": 409,
+        "body": "{\"code\":null,\"message\":\"Conflict\",\"payload\":{}}"
+      },
+      "hooks": {
+        "authorized": [
+          [
+            "XP",
+            "player-1"
+          ]
+        ],
+        "records": [],
+        "notes": 0
+      }
+    },
+    {
+      "name": "host grant of the hunt pass",
+      "request": {
+        "method": "POST",
+        "path": "/progression/player-1/season43/200",
+        "role": "host",
+        "user": "host-1",
+        "headers": {
+          "x-rustic-isles-grant-id": "h5"
+        }
+      },
+      "response": {
+        "status": 200,
+        "body": "{\"code\":null,\"message\":\"OK\",\"payload\":{\"phx_account_id\":\"player-1\",\"progression_id\":\"season43\",\"progress\":220,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:04.012Z\",\"grant_id\":\"h5\",\"replayed\":false}}"
+      },
+      "hooks": {
+        "authorized": [
+          [
+            "XP",
+            "player-1"
+          ]
+        ],
+        "records": [
+          {
+            "kind": "XP",
+            "target": "player-1",
+            "summary": {
+              "track": "season43",
+              "amount": 200,
+              "grantId": "h5"
+            }
+          }
+        ],
+        "notes": 0
+      }
+    },
+    {
+      "name": "host: a session that takes the hunt pass as its own kind",
+      "op": "guard",
+      "denial": null,
+      "policyRefuses": true,
+      "probeRefuses": [
+        "XP"
+      ]
+    },
+    {
+      "name": "host hunt pass grant as its own kind",
+      "request": {
+        "method": "POST",
+        "path": "/progression/player-1/season43/10",
+        "role": "host",
+        "user": "host-1",
+        "headers": {
+          "x-rustic-isles-grant-id": "h6"
+        }
+      },
+      "response": {
+        "status": 200,
+        "body": "{\"code\":null,\"message\":\"OK\",\"payload\":{\"phx_account_id\":\"player-1\",\"progression_id\":\"season43\",\"progress\":230,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:04.013Z\",\"grant_id\":\"h6\",\"replayed\":false}}"
+      },
+      "hooks": {
+        "authorized": [
+          [
+            "XP",
+            "player-1"
+          ],
+          [
+            "HUNT_PASS_XP",
+            "player-1"
+          ]
+        ],
+        "records": [
+          {
+            "kind": "HUNT_PASS_XP",
+            "target": "player-1",
+            "summary": {
+              "track": "season43",
+              "amount": 10,
+              "grantId": "h6"
+            }
+          }
+        ],
+        "notes": 0
+      }
+    },
+    {
+      "name": "host weapon grant refused when only the hunt pass is taken",
+      "request": {
+        "method": "POST",
+        "path": "/progression/player-1/ExperienceTrack_Weapon_Axe/10",
+        "role": "host",
+        "user": "host-1",
+        "headers": {
+          "x-rustic-isles-grant-id": "h7"
+        }
+      },
+      "response": {
+        "status": 200,
+        "body": "{\"code\":null,\"message\":\"OK\",\"payload\":{\"phx_account_id\":\"player-1\",\"progression_id\":\"ExperienceTrack_Weapon_Axe\",\"progress\":109,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:04.014Z\",\"grant_id\":\"h7\",\"replayed\":false}}"
+      },
+      "hooks": {
+        "authorized": [
+          [
+            "XP",
+            "player-1"
+          ],
+          [
+            "XP",
+            "player-1"
+          ]
+        ],
+        "records": [
+          {
+            "kind": "XP",
+            "target": "player-1",
+            "summary": {
+              "track": "ExperienceTrack_Weapon_Axe",
+              "amount": 10,
+              "grantId": "h7"
+            }
+          }
+        ],
+        "notes": 0
+      }
+    },
+    {
+      "name": "host: observe mode",
+      "op": "guard",
+      "denial": null,
+      "policyRefuses": false,
+      "probeRefuses": []
+    },
+    {
+      "name": "host grant over the ceiling only logs",
+      "request": {
+        "method": "POST",
+        "path": "/progression/player-1/ExperienceTrack_Weapon_Axe/1001",
+        "role": "host",
+        "user": "host-1",
+        "headers": {
+          "x-rustic-isles-grant-id": "h8"
+        }
+      },
+      "response": {
+        "status": 200,
+        "body": "{\"code\":null,\"message\":\"OK\",\"payload\":{\"phx_account_id\":\"player-1\",\"progression_id\":\"ExperienceTrack_Weapon_Axe\",\"progress\":1110,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:04.015Z\",\"grant_id\":\"h8\",\"replayed\":false}}"
+      },
+      "hooks": {
+        "authorized": [
+          [
+            "XP",
+            "player-1"
+          ]
+        ],
+        "records": [
+          {
+            "kind": "XP",
+            "target": "player-1",
+            "summary": {
+              "track": "ExperienceTrack_Weapon_Axe",
+              "amount": 1001,
+              "grantId": "h8"
+            }
+          }
+        ],
+        "notes": 1
+      }
+    },
+    {
+      "name": "host fills the player level track",
+      "request": {
+        "method": "POST",
+        "path": "/progression/player-1/ExperienceTrack_PlayerLevel/1000",
+        "role": "host",
+        "user": "host-1",
+        "headers": {
+          "x-rustic-isles-grant-id": "h9"
+        }
+      },
+      "response": {
+        "status": 200,
+        "body": "{\"code\":null,\"message\":\"OK\",\"payload\":{\"phx_account_id\":\"player-1\",\"progression_id\":\"ExperienceTrack_PlayerLevel\",\"progress\":1209,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:04.016Z\",\"grant_id\":\"h9\",\"replayed\":false}}"
+      },
+      "hooks": {
+        "authorized": [
+          [
+            "XP",
+            "player-1"
+          ]
+        ],
+        "records": [
+          {
+            "kind": "XP",
+            "target": "player-1",
+            "summary": {
+              "track": "ExperienceTrack_PlayerLevel",
+              "amount": 1000,
+              "grantId": "h9"
+            }
+          }
+        ],
+        "notes": 0
+      }
+    },
+    {
+      "name": "host grant to a full player level track only logs",
+      "request": {
+        "method": "POST",
+        "path": "/progression/player-1/ExperienceTrack_PlayerLevel/10",
+        "role": "host",
+        "user": "host-1",
+        "headers": {
+          "x-rustic-isles-grant-id": "h10"
+        }
+      },
+      "response": {
+        "status": 200,
+        "body": "{\"code\":null,\"message\":\"OK\",\"payload\":{\"phx_account_id\":\"player-1\",\"progression_id\":\"ExperienceTrack_PlayerLevel\",\"progress\":1219,\"confirmed_fremium_rank\":0,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:04.017Z\",\"grant_id\":\"h10\",\"replayed\":false}}"
+      },
+      "hooks": {
+        "authorized": [
+          [
+            "XP",
+            "player-1"
+          ]
+        ],
+        "records": [
+          {
+            "kind": "XP",
+            "target": "player-1",
+            "summary": {
+              "track": "ExperienceTrack_PlayerLevel",
+              "amount": 10,
+              "grantId": "h10"
+            }
+          }
+        ],
+        "notes": 1
+      }
+    },
+    {
+      "name": "host: enforce mode",
+      "op": "guard",
+      "denial": null,
+      "policyRefuses": true,
+      "probeRefuses": []
+    },
+    {
+      "name": "host grant to a full player level track",
+      "request": {
+        "method": "POST",
+        "path": "/progression/player-1/ExperienceTrack_PlayerLevel/10",
+        "role": "host",
+        "user": "host-1",
+        "headers": {
+          "x-rustic-isles-grant-id": "h11"
+        }
+      },
+      "response": {
+        "status": 403,
+        "body": "{\"code\":\"HOST_WRITE_LIMIT\",\"message\":\"This write is beyond what a hosted server may report.\",\"payload\":null}"
+      },
+      "hooks": {
+        "authorized": [
+          [
+            "XP",
+            "player-1"
+          ]
+        ],
+        "records": [],
+        "notes": 0
+      }
+    },
+    {
+      "name": "host confirm",
+      "request": {
+        "method": "POST",
+        "path": "/progression/player-1/ExperienceTrack_Weapon_Axe/2/confirm/public",
+        "role": "host",
+        "user": "host-1",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "body": "{\"code\":null,\"message\":\"OK\",\"payload\":{\"phx_account_id\":\"player-1\",\"progression_id\":\"ExperienceTrack_Weapon_Axe\",\"progress\":1110,\"confirmed_fremium_rank\":2,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:04.027Z\"}}"
+      },
+      "hooks": {
+        "authorized": [
+          [
+            "RANK_CONFIRM",
+            "player-1"
+          ]
+        ],
+        "records": [
+          {
+            "kind": "RANK_CONFIRM",
+            "target": "player-1",
+            "summary": {
+              "track": "ExperienceTrack_Weapon_Axe",
+              "rank": 2,
+              "previousRank": 0,
+              "confirmedRank": 2
+            }
+          }
+        ],
+        "notes": 0
+      }
+    },
+    {
+      "name": "host confirm that raises nothing",
+      "request": {
+        "method": "POST",
+        "path": "/progression/player-1/ExperienceTrack_Weapon_Axe/1/confirm/public",
+        "role": "host",
+        "user": "host-1",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "body": "{\"code\":null,\"message\":\"OK\",\"payload\":{\"phx_account_id\":\"player-1\",\"progression_id\":\"ExperienceTrack_Weapon_Axe\",\"progress\":1110,\"confirmed_fremium_rank\":2,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:04.028Z\"}}"
+      },
+      "hooks": {
+        "authorized": [
+          [
+            "RANK_CONFIRM",
+            "player-1"
+          ]
+        ],
+        "records": [],
+        "notes": 0
+      }
+    },
+    {
+      "name": "host report",
+      "request": {
+        "method": "POST",
+        "path": "/progression/player-1",
+        "role": "host",
+        "user": "host-1",
+        "headers": {},
+        "body": {
+          "progress_tracks": [
+            {
+              "progression_id": "MasteryTrack_PlayerLevel",
+              "progress": 5
+            }
+          ],
+          "objectives": [
+            {
+              "objective_id": "MasteryObjective_Weapon_Sword_Generic_Kills2",
+              "value": 500000000,
+              "completed_count": 99
+            },
+            {
+              "objective_id": "Unknown_Thing",
+              "value": 1,
+              "completed_count": 1
+            }
+          ]
+        }
+      },
+      "response": {
+        "status": 200,
+        "body": "{\"code\":null,\"message\":\"OK\",\"payload\":{\"progress_tracks\":[{\"phx_account_id\":\"player-1\",\"progression_id\":\"MasteryTrack_PlayerLevel\",\"progress\":5,\"confirmed_fremium_rank\":3,\"confirmed_premium_rank\":0,\"confirmed_date\":\"2026-10-27T06:28:03.874Z\"}],\"objectives\":[{\"phx_account_id\":\"player-1\",\"objective_id\":\"MasteryObjective_Weapon_Sword_Generic_Kills2\",\"progress\":100000000,\"completed_count\":10,\"created_date\":\"2026-10-27T06:28:04.039Z\",\"last_modified_date\":\"2026-10-27T06:28:04.039Z\"}]}}"
+      },
+      "hooks": {
+        "authorized": [
+          [
+            "OBJECTIVES",
+            "player-1"
+          ],
+          [
+            "MASTERY",
+            "player-1"
+          ]
+        ],
+        "records": [
+          {
+            "kind": "OBJECTIVES",
+            "target": "player-1",
+            "summary": {
+              "progressTracks": [
+                {
+                  "id": "MasteryTrack_PlayerLevel",
+                  "progress": 5
+                }
+              ],
+              "progressTrackCount": 1,
+              "objectiveCount": 2,
+              "completedObjectiveCount": 2
+            }
+          },
+          {
+            "kind": "MASTERY",
+            "target": "player-1",
+            "summary": {
+              "objectives": 1,
+              "newlyCompleted": [
+                "MasteryObjective_Weapon_Sword_Generic_Kills2"
+              ],
+              "newlyCompletedCount": 1,
+              "credits": {},
+              "claimed": {
+                "MasteryTrack_PlayerLevel": 5
+              },
+              "capped": [
+                "MasteryTrack_Weapon_Sword 1->0"
+              ],
+              "ignoredCount": 1,
+              "ignored": [
+                "Unknown_Thing:unrecognised_id_family"
+              ],
+              "clamped": [
+                "MasteryObjective_Weapon_Sword_Generic_Kills2 value 500000000->100000000",
+                "MasteryObjective_Weapon_Sword_Generic_Kills2 count 99->10"
+              ],
+              "atCap": [
+                "MasteryTrack_PlayerLevel 1->0 (total 5, cap 5)"
+              ]
+            }
+          }
+        ],
+        "notes": 0
+      }
+    },
+    {
+      "name": "host escalation write",
+      "request": {
+        "method": "POST",
+        "path": "/escalation/ESC_SEASON_6/player-1",
+        "role": "host",
+        "user": "host-1",
+        "roster": "host-1,player-1",
+        "headers": {},
+        "body": {
+          "escalation_level": 6,
+          "next_level_xp": 10,
+          "talents_progress": [
+            {
+              "talent_id": "Talent_B",
+              "rank": 1
+            }
+          ],
+          "unlock_progress": [
+            {
+              "reward_id": "Reward_A",
+              "collected": true
+            }
+          ]
+        }
+      },
+      "response": {
+        "status": 200,
+        "body": "{\"code\":null,\"message\":\"OK\",\"payload\":{\"escalation_level\":9,\"next_level_xp\":5,\"talents_progress\":[{\"talent_id\":\"Talent_B\",\"rank\":1}],\"unlock_progress\":[{\"reward_id\":\"Reward_A\",\"collected\":true}],\"update_version\":6}}"
+      },
+      "hooks": {
+        "authorized": [
+          [
+            "ESCALATION",
+            "player-1"
+          ]
+        ],
+        "records": [
+          {
+            "kind": "ESCALATION",
+            "target": "player-1",
+            "summary": {
+              "season": "ESC_SEASON_6",
+              "levelBefore": 9,
+              "levelAfter": 9,
+              "xpBefore": 5,
+              "xpAfter": 5,
+              "levelXpRegressionIgnored": true,
+              "talents": {
+                "before": 0,
+                "after": 1,
+                "ignored": 0
+              },
+              "unlocks": {
+                "before": 0,
+                "after": 1,
+                "ignored": 0
+              },
+              "version": 6,
+              "talentPoints": {
+                "before": 0,
+                "after": 1
+              }
+            }
+          }
+        ],
+        "notes": 0
+      }
+    },
+    {
+      "name": "host escalation write of an unknown season",
+      "request": {
+        "method": "POST",
+        "path": "/escalation/ESC_SEASON_9/player-1",
+        "role": "host",
+        "user": "host-1",
+        "headers": {},
+        "body": {
+          "escalation_level": 6
+        }
+      },
+      "response": {
+        "status": 403,
+        "body": "{\"code\":\"ESCALATION_SEASON_UNKNOWN\",\"message\":\"This escalation season is not known.\",\"payload\":null}"
+      },
+      "hooks": {
+        "authorized": [
+          [
+            "ESCALATION",
+            "player-1"
+          ]
+        ],
+        "records": [],
+        "notes": 0
+      }
+    },
+    {
+      "name": "host escalation write that is impossible",
+      "request": {
+        "method": "POST",
+        "path": "/escalation/ESC_SEASON_6/player-1",
+        "role": "host",
+        "user": "host-1",
+        "headers": {},
+        "body": {
+          "escalation_level": 6,
+          "next_level_xp": 700,
+          "talents_progress": [
+            {
+              "talent_id": "Talent_Z",
+              "rank": 1
+            }
+          ]
+        }
+      },
+      "response": {
+        "status": 200,
+        "body": "{\"code\":null,\"message\":\"OK\",\"payload\":{\"escalation_level\":9,\"next_level_xp\":5,\"talents_progress\":[{\"talent_id\":\"Talent_B\",\"rank\":1}],\"unlock_progress\":[{\"reward_id\":\"Reward_A\",\"collected\":true}],\"update_version\":7}}"
+      },
+      "hooks": {
+        "authorized": [
+          [
+            "ESCALATION",
+            "player-1"
+          ]
+        ],
+        "records": [
+          {
+            "kind": "ESCALATION",
+            "target": "player-1",
+            "summary": {
+              "season": "ESC_SEASON_6",
+              "levelBefore": 9,
+              "levelAfter": 9,
+              "xpBefore": 5,
+              "xpAfter": 5,
+              "levelXpRegressionIgnored": false,
+              "talents": {
+                "before": 1,
+                "after": 1,
+                "ignored": 1
+              },
+              "unlocks": {
+                "before": 1,
+                "after": 1,
+                "ignored": 0
+              },
+              "version": 7,
+              "levelXpRejected": "next_level_xp 700 is not below the 700 XP level 7 takes",
+              "talentPoints": {
+                "before": 1,
+                "after": 1
+              },
+              "talentsRejected": "talent \"Talent_Z\" is not in this season's table"
+            }
+          }
+        ],
+        "notes": 0
+      }
+    },
+    {
+      "name": "host escalation read outside its roster",
+      "request": {
+        "method": "GET",
+        "path": "/escalation/ESC_SEASON_6/player-1",
+        "role": "host",
+        "user": "host-1",
+        "roster": "host-1",
+        "headers": {}
+      },
+      "response": {
+        "status": 403,
+        "body": ""
+      },
+      "hooks": {
+        "authorized": [],
+        "records": [],
+        "notes": 0
+      }
+    },
+    {
+      "name": "host escalation read of its roster",
+      "request": {
+        "method": "GET",
+        "path": "/escalation/ESC_SEASON_6/player-1",
+        "role": "host",
+        "user": "host-1",
+        "roster": "host-1,player-1",
+        "headers": {}
+      },
+      "response": {
+        "status": 200,
+        "body": "{\"code\":null,\"message\":\"OK\",\"payload\":{\"escalation_level\":9,\"next_level_xp\":5,\"talents_progress\":[{\"talent_id\":\"Talent_B\",\"rank\":1}],\"unlock_progress\":[{\"reward_id\":\"Reward_A\",\"collected\":true}],\"update_version\":7}}"
+      },
+      "hooks": {
+        "authorized": [],
+        "records": [],
+        "notes": 0
+      }
+    },
+    {
+      "name": "host journey save",
+      "request": {
+        "method": "POST",
+        "path": "/pjm/player-1",
+        "role": "host",
+        "user": "host-1",
+        "headers": {},
+        "body": {
+          "nodes": {
+            "Slayer_11": {
+              "node_id": "Slayer_11",
+              "node_status": 2,
+              "objectives": []
+            },
+            "D": {
+              "node_id": "D",
+              "node_status": 2,
+              "objectives": []
+            },
+            "X": {
+              "node_id": "X",
+              "node_status": 2,
+              "objectives": []
+            },
+            "Ghost": {
+              "node_id": "Ghost",
+              "node_status": 2,
+              "objectives": []
+            }
+          },
+          "update_version": 20
+        }
+      },
+      "response": {
+        "status": 200,
+        "body": "{\"code\":null,\"message\":\"OK\",\"payload\":{\"nodes\":{\"Q\":{\"node_id\":\"Q\",\"node_status\":0,\"objectives\":[]},\"A\":{\"node_id\":\"A\",\"node_status\":2,\"objectives\":[]},\"Z\":{\"node_id\":\"Z\",\"node_status\":0,\"objectives\":[]},\"B\":{\"node_id\":\"B\",\"node_status\":2,\"objectives\":[{\"id\":\"k\",\"progress\":3}]},\"Gauntlet_Unlock\":{\"node_id\":\"Gauntlet_Unlock\",\"node_status\":0,\"objectives\":[]},\"C\":{\"node_id\":\"C\",\"node_status\":0,\"objectives\":[]},\"Slayer_11\":{\"node_id\":\"Slayer_11\",\"node_status\":2,\"objectives\":[]},\"D\":{\"node_id\":\"D\",\"node_status\":2,\"objectives\":[]},\"X\":{\"node_id\":\"X\",\"node_status\":2,\"objectives\":[]},\"Ghost\":{\"node_id\":\"Ghost\",\"node_status\":0,\"objectives\":[]}},\"update_version\":20}}"
+      },
+      "hooks": {
+        "authorized": [
+          [
+            "SLAYERS_PATH",
+            "player-1"
+          ]
+        ],
+        "records": [
+          {
+            "kind": "SLAYERS_PATH",
+            "target": "player-1",
+            "summary": {
+              "unlocked": [
+                "Slayer_11",
+                "D",
+                "X"
+              ],
+              "stripped": [
+                "Ghost:unknown-node"
+              ]
+            }
+          }
+        ],
+        "notes": 0
+      }
+    },
+    {
+      "name": "host journey save that locks again",
+      "request": {
+        "method": "POST",
+        "path": "/pjm/player-1",
+        "role": "host",
+        "user": "host-1",
+        "headers": {},
+        "body": {
+          "nodes": {
+            "X": {
+              "node_id": "X",
+              "node_status": 0,
+              "objectives": []
+            }
+          },
+          "update_version": 21
+        }
+      },
+      "response": {
+        "status": 200,
+        "body": "{\"code\":null,\"message\":\"OK\",\"payload\":{\"nodes\":{\"Q\":{\"node_id\":\"Q\",\"node_status\":0,\"objectives\":[]},\"A\":{\"node_id\":\"A\",\"node_status\":2,\"objectives\":[]},\"Z\":{\"node_id\":\"Z\",\"node_status\":0,\"objectives\":[]},\"B\":{\"node_id\":\"B\",\"node_status\":2,\"objectives\":[{\"id\":\"k\",\"progress\":3}]},\"Gauntlet_Unlock\":{\"node_id\":\"Gauntlet_Unlock\",\"node_status\":0,\"objectives\":[]},\"C\":{\"node_id\":\"C\",\"node_status\":0,\"objectives\":[]},\"Slayer_11\":{\"node_id\":\"Slayer_11\",\"node_status\":2,\"objectives\":[]},\"D\":{\"node_id\":\"D\",\"node_status\":2,\"objectives\":[]},\"X\":{\"node_id\":\"X\",\"node_status\":2,\"objectives\":[]},\"Ghost\":{\"node_id\":\"Ghost\",\"node_status\":0,\"objectives\":[]}},\"update_version\":21}}"
+      },
+      "hooks": {
+        "authorized": [
+          [
+            "SLAYERS_PATH",
+            "player-1"
+          ]
+        ],
+        "records": [
+          {
+            "kind": "SLAYERS_PATH",
+            "target": "player-1",
+            "summary": {
+              "unlocked": [],
+              "stripped": [],
+              "relocked": [
+                "X"
+              ]
+            }
+          }
+        ],
+        "notes": 0
+      }
+    },
+    {
+      "name": "host: refused",
+      "op": "guard",
+      "denial": {
+        "status": 403,
+        "body": {
+          "code": "P2P_HOST_WRITE_DENIED",
+          "message": "This host may not write this player's state.",
+          "payload": null
+        }
+      },
+      "policyRefuses": true,
+      "probeRefuses": []
+    },
+    {
+      "name": "host grant refused",
+      "request": {
+        "method": "POST",
+        "path": "/progression/player-1/ExperienceTrack_Weapon_Axe/5",
+        "role": "host",
+        "user": "host-1",
+        "headers": {
+          "x-rustic-isles-grant-id": "h12"
+        }
+      },
+      "response": {
+        "status": 403,
+        "body": "{\"code\":\"P2P_HOST_WRITE_DENIED\",\"message\":\"This host may not write this player's state.\",\"payload\":null}"
+      },
+      "hooks": {
+        "authorized": [
+          [
+            "XP",
+            "player-1"
+          ],
+          [
+            "XP",
+            "player-1"
+          ]
+        ],
+        "records": [],
+        "notes": 0
+      }
+    },
+    {
+      "name": "host report refused",
+      "request": {
+        "method": "POST",
+        "path": "/progression/player-1",
+        "role": "host",
+        "user": "host-1",
+        "headers": {},
+        "body": {}
+      },
+      "response": {
+        "status": 403,
+        "body": "{\"code\":\"P2P_HOST_WRITE_DENIED\",\"message\":\"This host may not write this player's state.\",\"payload\":null}"
+      },
+      "hooks": {
+        "authorized": [
+          [
+            "OBJECTIVES",
+            "player-1"
+          ]
+        ],
+        "records": [],
+        "notes": 0
+      }
+    },
+    {
+      "name": "host journey save refused",
+      "request": {
+        "method": "POST",
+        "path": "/pjm/player-1",
+        "role": "host",
+        "user": "host-1",
+        "headers": {},
+        "body": {
+          "nodes": {}
+        }
+      },
+      "response": {
+        "status": 403,
+        "body": "{\"code\":\"P2P_HOST_WRITE_DENIED\",\"message\":\"This host may not write this player's state.\",\"payload\":null}"
+      },
+      "hooks": {
+        "authorized": [
+          [
+            "SLAYERS_PATH",
+            "player-1"
+          ]
+        ],
+        "records": [],
+        "notes": 0
+      }
+    },
+    {
+      "name": "host escalation write refused",
+      "request": {
+        "method": "POST",
+        "path": "/escalation/ESC_SEASON_6/player-1",
+        "role": "host",
+        "user": "host-1",
+        "headers": {},
+        "body": {
+          "escalation_level": 7
+        }
+      },
+      "response": {
+        "status": 403,
+        "body": "{\"code\":\"P2P_HOST_WRITE_DENIED\",\"message\":\"This host may not write this player's state.\",\"payload\":null}"
+      },
+      "hooks": {
+        "authorized": [
+          [
+            "ESCALATION",
+            "player-1"
+          ]
+        ],
+        "records": [],
+        "notes": 0
+      }
+    },
+    {
+      "name": "host confirm refused",
+      "request": {
+        "method": "POST",
+        "path": "/progression/player-1/ExperienceTrack_Weapon_Axe/1/confirm/public",
+        "role": "host",
+        "user": "host-1",
+        "headers": {}
+      },
+      "response": {
+        "status": 403,
+        "body": "{\"code\":\"P2P_HOST_WRITE_DENIED\",\"message\":\"This host may not write this player's state.\",\"payload\":null}"
+      },
+      "hooks": {
+        "authorized": [
+          [
+            "RANK_CONFIRM",
+            "player-1"
+          ]
+        ],
+        "records": [],
+        "notes": 0
+      }
+    },
+    {
+      "name": "host load refused the parity check",
+      "request": {
+        "method": "GET",
+        "path": "/progression/player-1",
+        "role": "host",
+        "user": "host-1",
+        "roster": "host-1,player-1",
+        "headers": {}
+      },
+      "response": {
+        "status": 403,
+        "body": "{\"code\":null,\"message\":\"Forbidden\",\"payload\":{}}"
+      },
+      "hooks": {
+        "authorized": [],
+        "records": [],
+        "notes": 0
+      }
+    }
+  ]
+}

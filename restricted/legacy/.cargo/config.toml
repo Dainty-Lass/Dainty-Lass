@@ -1,0 +1,15 @@
+# module-api and store come from DaintyLass's repository over SSH until the silentspud registry serves them (DD2,
+# spike DF1): git's own client takes the SSH key and long paths, where cargo's libgit2 failed under a long CARGO_HOME.
+[net]
+git-fetch-with-cli = true
+
+[registries.silentspud]
+index = "sparse+https://git.silentspud.com/api/packages/silentspud/cargo/"
+
+# As DaintyLass's rust/.cargo/config.toml: the module executable links the C runtime statically, and the bundled
+# SQLite gets better-sqlite3's options, so store's queries mean what they mean inside DaintyLass.
+[target.x86_64-pc-windows-msvc]
+rustflags = ["-C", "target-feature=+crt-static"]
+
+[env]
+LIBSQLITE3_FLAGS = "SQLITE_DQS=0 SQLITE_LIKE_DOESNT_MATCH_BLOBS SQLITE_ENABLE_MATH_FUNCTIONS SQLITE_ENABLE_PERCENTILE SQLITE_DEFAULT_WAL_SYNCHRONOUS=1 SQLITE_DEFAULT_CACHE_SIZE=-16000"

@@ -1,9 +1,16 @@
 # Checks every push, by code family (MIGRATION_PLAN.md RR3): a push to a work branch runs only the jobs of the
 # families it changes, and the "CI ok" job sums them up for branch protection. It is the one required check. A
 # push to main or plan, a manual run and any change to the workflows run every family.
-#  - Rust (the MIT workspace): fmt, clippy and tests on Linux and Windows, every package MIT, cargo-deny, a short
-#    run of every fuzz target
-#  - UI (ui/, dainty-dash): bun install, typecheck, test and build in every mode, with the AGPL bridge types from dainty-restricted (RD27)
+#  - Rust (the MIT workspace at the root): fmt, clippy and tests on Linux and Windows, every package MIT and
+#    independent of restricted/, cargo-deny, a short run of every fuzz target
+#  - UI (ui/, dainty-dash): bun install, typecheck, test and build in every mode, with the AGPL bridge types from restricted/ (RD27)
+#  - Rust restricted (restricted/: the AGPL services, the launcher, the bins and the game modules): fmt, clippy and
+#    tests on Linux and Windows, cargo-deny, a short run of every fuzz target
+#  - Paradox (ParadoxBackend, ParadoxDirector in restricted/modules/rustic-isles/reference/1.14.7): npm ci and tests
+#  - Docker (restricted/docker/, restricted/compose*.yaml and everything the images copy): the images, the suites inside
+#    them, the smoke test
+#  - Network (the gateway and host kit, restricted/docker/, restricted/compose*.yaml): four nodes in Docker with
+#    injected latency, their links and the launcher's region ping (restricted/docker/network/test.sh, DN12)
 #
 # Forgejo Actions (DX3). Runner labels: docker (a job container), linux-host (the runner's own Docker) and
 # windows-msvc; docs/ci-runners.md sets them up. Actions are pinned by commit.
@@ -36,6 +43,12 @@ jobs:
     outputs:
       rust: ${{ steps.pick.outputs.rust }}
       ui: ${{ steps.pick.outputs.ui }}
+      rust-restricted: ${{ steps.pick.outputs.rust-restricted }}
+      rust-tauri: ${{ steps.pick.outputs.rust-tauri }}
+      paradox: ${{ steps.pick.outputs.paradox }}
+      launcher: ${{ steps.pick.outputs.launcher }}
+      docker: ${{ steps.pick.outputs.docker }}
+      network: ${{ steps.pick.outputs.network }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -76,6 +89,56 @@ jobs:
               - fuzz/**
             ui:
               - ui/**
+              - restricted/ui/**
+            rust_restricted:
+              - crates/**
+              - restricted/Cargo.toml
+              - restricted/Cargo.lock
+              - restricted/.cargo/**
+              - restricted/rust-toolchain.toml
+              - restricted/deny.toml
+              - restricted/clippy.toml
+              - restricted/rustfmt.toml
+              - restricted/crates/**
+              - restricted/launcher/src-tauri/**
+              - restricted/fuzz/**
+              - restricted/modules/**
+            paradox:
+              - restricted/modules/rustic-isles/**
+            launcher:
+              - launcher/**
+              - ui/**
+              - restricted/launcher/**
+              - restricted/ui/**
+              - restricted/Cargo.toml
+            docker:
+              - crates/**
+              - .dockerignore
+              - restricted/docker/**
+              - restricted/compose*.yaml
+              - restricted/.dockerignore
+              - restricted/.env.example
+              - restricted/Cargo.toml
+              - restricted/Cargo.lock
+              - restricted/.cargo/**
+              - restricted/rust-toolchain.toml
+              - restricted/deny.toml
+              - restricted/clippy.toml
+              - restricted/rustfmt.toml
+              - restricted/crates/**
+              - restricted/launcher/src-tauri/**
+              - restricted/fuzz/**
+              - restricted/native/**
+              - restricted/modules/**
+            network:
+              - crates/**
+              - restricted/docker/**
+              - restricted/compose*.yaml
+              - restricted/.env.example
+              - restricted/Cargo.toml
+              - restricted/Cargo.lock
+              - restricted/crates/**
+              - restricted/launcher/**
 
       - name: Pick the families, run everything on main, plan, manual runs and workflow changes
         id: pick
@@ -83,18 +146,28 @@ jobs:
           ALL: ${{ (github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/plan')) || github.event_name == 'workflow_dispatch' || steps.filter.outputs.workflow == 'true' }}
           RUST: ${{ steps.filter.outputs.rust }}
           UI: ${{ steps.filter.outputs.ui }}
+          RUST_RESTRICTED: ${{ steps.filter.outputs.rust_restricted }}
+          PARADOX: ${{ steps.filter.outputs.paradox }}
+          LAUNCHER: ${{ steps.filter.outputs.launcher }}
+          DOCKER: ${{ steps.filter.outputs.docker }}
+          NETWORK: ${{ steps.filter.outputs.network }}
         run: |
           set -euo pipefail
-          for family in rust ui; do
+          for family in rust ui rust_restricted paradox launcher docker network; do
             var="${family^^}"
             value="${!var}"
             [ "$ALL" = true ] && value=true
-            echo "$family=$value" | tee -a "$GITHUB_OUTPUT"
+            out="${family//_/-}"
+            echo "$out=$value" | tee -a "$GITHUB_OUTPUT"
           done
+          # Tauri needs WebKitGTK and GTK3 to build on Linux
+          tauri=false
+          if grep -qE '^tauri[[:space:]]*=' restricted/launcher/src-tauri/Cargo.toml 2>/dev/null; then tauri=true; fi
+          echo "rust-tauri=$tauri" | tee -a "$GITHUB_OUTPUT"
 
   rust:
     # Forgejo appends the matrix value to the name
-    name: Rust workspace
+    name: Rust workspace (MIT)
     needs: changes
     if: needs.changes.outputs.rust == 'true'
     runs-on: ${{ matrix.os }}
@@ -166,18 +239,29 @@ jobs:
       - name: Tests
         run: cargo test --workspace --locked --no-fail-fast
 
-      # RD27: dainty-lass is MIT; an AGPL crate or dependency by path belongs in dainty-restricted
-      - name: Every package is MIT
+      # RD27: dainty-lass root workspace is MIT; an AGPL crate or dependency on restricted/ is forbidden
+      - name: Every package is MIT and independent of restricted/
         run: |
           cargo metadata --format-version 1 --no-deps --locked | node -e '
             const { packages } = JSON.parse(require("fs").readFileSync(0, "utf8"));
-            const bad = packages.filter((p) => !["MIT", "Apache-2.0", "MIT OR Apache-2.0"].includes(p.license));
-            for (const p of bad) console.log(`::error::${p.name} is ${p.license}`);
-            process.exit(bad.length ? 1 : 0);
+            let failed = false;
+            for (const p of packages) {
+              if (!["MIT", "Apache-2.0", "MIT OR Apache-2.0"].includes(p.license)) {
+                console.log(`::error::${p.name} is ${p.license}`);
+                failed = true;
+              }
+              for (const dep of p.dependencies) {
+                if (dep.path && dep.path.replace(/\\/g, "/").includes("/restricted/")) {
+                  console.log(`::error::MIT crate ${p.name} depends on restricted path ${dep.path}`);
+                  failed = true;
+                }
+              }
+            }
+            process.exit(failed ? 1 : 0);
           '
 
   rust-deny:
-    name: Rust licences and advisories
+    name: Rust licences and advisories (MIT)
     needs: changes
     if: needs.changes.outputs.rust == 'true'
     runs-on: docker
@@ -201,7 +285,7 @@ jobs:
   # Every parser of untrusted input, fuzzed for a short time on every change (MIGRATION_PLAN.md RD10, RX3). The
   # 24-hour run before a cutover is the one in fuzz/Cargo.toml. A crash keeps its input as an artifact.
   fuzz:
-    name: Fuzz the untrusted-input parsers
+    name: Fuzz the untrusted-input parsers (MIT)
     needs: changes
     if: needs.changes.outputs.rust == 'true'
     runs-on: docker
@@ -253,7 +337,6 @@ jobs:
           if-no-files-found: ignore
           retention-days: 14
 
-
   # dainty-dash at ui/: the dashboard, the launcher and server-manager pages, and the agent
   ui:
     name: UI build
@@ -272,31 +355,308 @@ jobs:
         with:
           # launcher/package.json's packageManager; ui/ names only bun in devEngines
           bun-version: 1.4.4
-      # The AGPL bridge types (packages/bridge/scripts/restricted-data.ts, RD27)
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          repository: silentspud/dainty-restricted
-          path: .restricted
-          persist-credentials: false
-          token: ${{ secrets.CI_READ_TOKEN || github.token }}
       - run: bun install --frozen-lockfile
       - run: bun run typecheck
-        env:
-          DAINTY_RESTRICTED_DIR: ${{ github.workspace }}/.restricted
       - run: bun run test
       - run: bun run build
       # apps/web's other two modes; each build empties dist/, so one at a time
       - run: bun run build:launcher
       - run: bun run build:manager
 
+  rust-restricted:
+    name: Rust workspace (restricted)
+    needs: changes
+    if: needs.changes.outputs.rust-restricted == 'true'
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [docker, windows-msvc]
+    defaults:
+      run:
+        shell: bash
+        working-directory: restricted
+    steps:
+      - name: Long paths for git
+        if: runner.os == 'Windows'
+        working-directory: .
+        run: git config --global core.longpaths true
 
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
+      - name: Install rustup
+        if: runner.os == 'Linux'
+        run: |
+          if ! command -v rustup > /dev/null; then
+            curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --no-modify-path --profile minimal --default-toolchain none
+            echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+          fi
+
+      - name: Install the pinned toolchain
+        run: rustup show active-toolchain || rustup toolchain install
+
+      - uses: https://github.com/Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          workspaces: restricted
+          key: rust-restricted
+
+      - name: Install the launcher's Linux build dependencies
+        if: runner.os == 'Linux' && needs.changes.outputs.rust-tauri == 'true'
+        run: |
+          sudo=""; [ "$(id -u)" = 0 ] || sudo=sudo
+          $sudo apt-get update
+          $sudo apt-get install -y --no-install-recommends libwebkit2gtk-4.1-dev libgtk-3-dev librsvg2-dev libayatana-appindicator3-dev libdbus-1-dev patchelf
+
+      - name: No crate from the silentspud registry in Cargo.lock
+        run: |
+          if grep -n 'sparse+https://git.silentspud.com/' Cargo.lock; then
+            echo "::error::restricted/Cargo.lock takes a crate from the silentspud registry: a [patch] went unused (DF1)"
+            exit 1
+          fi
+
+      - name: Start Postgres for the two-engine store tests
+        if: runner.os == 'Linux'
+        run: |
+          sudo=""; [ "$(id -u)" = 0 ] || sudo=sudo
+          $sudo apt-get update
+          $sudo apt-get install -y --no-install-recommends postgresql
+          $sudo service postgresql start
+          $sudo su - postgres -c "psql -c \"ALTER USER postgres WITH PASSWORD 'postgres';\""
+          echo "REFORGED_TEST_POSTGRES_URL=postgres://postgres:postgres@127.0.0.1:5432/postgres" >> "$GITHUB_ENV"
+
+      - name: Format
+        run: cargo fmt --all --check
+
+      - name: Clippy
+        run: cargo clippy --workspace --all-targets --locked -- -D warnings
+
+      - name: The module and service libraries
+        run: cargo build --locked -p isles-1-14-7-plugin -p gateway-plugin -p content-plugin -p chat-plugin
+
+      - name: Tests
+        run: cargo test --workspace --locked --no-fail-fast
+
+  rust-restricted-deny:
+    name: Rust licences and advisories (restricted)
+    needs: changes
+    if: needs.changes.outputs.rust-restricted == 'true'
+    runs-on: docker
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - id: toolchain
+        run: echo "channel=$(grep '^channel' restricted/rust-toolchain.toml | cut -d '"' -f 2)" >> "$GITHUB_OUTPUT"
+
+      - uses: https://github.com/EmbarkStudios/cargo-deny-action@3c6349835b2b7b196a839186cb8b78e02f7b5f25 # v2.1.1
+        with:
+          manifest-path: restricted/Cargo.toml
+          command: check
+          arguments: --all-features
+          rust-version: ${{ steps.toolchain.outputs.channel }}
+
+  fuzz-restricted:
+    name: Fuzz the untrusted-input parsers (restricted)
+    needs: changes
+    if: needs.changes.outputs.rust-restricted == 'true'
+    runs-on: docker
+    timeout-minutes: 45
+    env:
+      NIGHTLY: nightly-2026-10-20
+    defaults:
+      run:
+        working-directory: restricted/fuzz
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install rustup
+        run: |
+          if ! command -v rustup > /dev/null; then
+            curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --no-modify-path --profile minimal --default-toolchain none
+            echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+          fi
+
+      - uses: https://github.com/Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          workspaces: restricted/fuzz
+          key: fuzz-restricted
+
+      - name: Install the pinned nightly and cargo-fuzz
+        run: |
+          rustup toolchain install "$NIGHTLY" --profile minimal
+          cargo "+$NIGHTLY" install cargo-fuzz --version 0.13.2 --locked
+
+      - name: Run every target for 45 seconds
+        run: |
+          set -euo pipefail
+          for target in $(cargo "+$NIGHTLY" fuzz list); do
+            echo "::group::$target"
+            mkdir -p "corpus/$target"
+            cargo "+$NIGHTLY" fuzz run "$target" "corpus/$target" -- -max_total_time=45 -max_len=4096
+            echo "::endgroup::"
+          done
+
+      - name: Keep the inputs that crashed
+        if: failure()
+        uses: https://code.forgejo.org/forgejo/upload-artifact@16871d9e8cfcf27ff31822cac382bbb5450f1e1e # v4 (v4.3.1, GHES check disabled)
+        with:
+          name: fuzz-restricted-crashes
+          path: restricted/fuzz/artifacts/
+          if-no-files-found: ignore
+          retention-days: 14
+
+  paradox:
+    name: Paradox tests
+    needs: changes
+    if: needs.changes.outputs.paradox == 'true'
+    runs-on: docker
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        package: [ParadoxBackend, ParadoxDirector]
+    defaults:
+      run:
+        working-directory: restricted/modules/rustic-isles/reference/1.14.7/${{ matrix.package }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+      - run: npm ci --no-audit --no-fund
+      - run: npm test
+
+  docker:
+    name: Docker images (build, tests in the image, smoke test)
+    needs: changes
+    if: needs.changes.outputs.docker == 'true'
+    runs-on: linux-host
+    timeout-minutes: 90
+    defaults:
+      run:
+        working-directory: restricted
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Build the images and run the full test run
+        env:
+          REFORGED_COMMIT: ${{ github.sha }}
+        run: bash docker/run-tests.sh
+
+  installers-windows:
+    name: Windows NSIS installers (client and manager)
+    needs: changes
+    if: needs.changes.outputs.rust-restricted == 'true' || needs.changes.outputs.launcher == 'true'
+    runs-on: windows-msvc
+    timeout-minutes: 45
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Long paths for git
+        run: git config --global core.longpaths true
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install the pinned toolchain
+        working-directory: restricted
+        run: rustup show active-toolchain || rustup toolchain install
+
+      - uses: https://github.com/Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          workspaces: restricted
+          key: installers-windows
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+
+      - uses: https://github.com/oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version: 1.4.4
+
+      - name: Bridge tests
+        working-directory: launcher
+        run: |
+          bun install --frozen-lockfile
+          bun run test
+
+      - name: Build unsigned NSIS installers (DaintyLass Launcher and DaintyLass Manager)
+        working-directory: restricted/launcher
+        run: |
+          bun install --frozen-lockfile
+          bun run build:client
+          bun run build:manager
+          ls -la ../target/release/bundle/nsis/*-setup.exe
+
+      - name: Upload unsigned Windows NSIS installers
+        uses: https://code.forgejo.org/forgejo/upload-artifact@16871d9e8cfcf27ff31822cac382bbb5450f1e1e # v4 (v4.3.1, GHES check disabled)
+        with:
+          name: windows-nsis-installers
+          path: restricted/target/release/bundle/nsis/*-setup.exe
+          if-no-files-found: error
+          retention-days: 14
+
+  network:
+    name: Network harness (four nodes, netem)
+    needs: changes
+    if: needs.changes.outputs.network == 'true'
+    runs-on: linux-host
+    timeout-minutes: 60
+    defaults:
+      run:
+        working-directory: restricted
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install rustup
+        run: |
+          if ! command -v rustup > /dev/null; then
+            curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --no-modify-path --profile minimal --default-toolchain none
+            echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+          fi
+
+      - name: Install the pinned toolchain
+        run: rustup show active-toolchain || rustup toolchain install
+
+      - uses: https://github.com/Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          workspaces: restricted
+          key: network
+
+      - name: The launcher's Linux build dependencies
+        run: |
+          pkgs="libwebkit2gtk-4.1-dev libgtk-3-dev librsvg2-dev libayatana-appindicator3-dev libdbus-1-dev patchelf build-essential pkg-config"
+          # shellcheck disable=SC2086
+          if dpkg -s $pkgs > /dev/null 2>&1; then exit 0; fi
+          sudo -n apt-get update
+          sudo -n apt-get install -y --no-install-recommends $pkgs
+
+      - name: Build the images and run the harness
+        env:
+          REFORGED_COMMIT: ${{ github.sha }}
+          NETWORK_REGION_PING: require
+        run: bash docker/network/test.sh
 
   # The one check branch protection requires. Jobs skipped because their family didn't change count as passed; a
   # failed or cancelled job, or a failed change detection, fails it.
   ci-ok:
     name: CI ok
-    needs: [changes, rust, rust-deny, fuzz, ui]
+    needs: [changes, rust, rust-deny, fuzz, ui, rust-restricted, rust-restricted-deny, fuzz-restricted, paradox, docker, installers-windows, network]
     if: always()
     runs-on: docker
     timeout-minutes: 5

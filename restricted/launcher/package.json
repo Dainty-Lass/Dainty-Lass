@@ -1,0 +1,25 @@
+{
+  "name": "dainty-lass-launcher",
+  "productName": "DaintyLass Launcher",
+  "version": "2.0.0-beta",
+  "description": "The Tauri CLI for the two desktop apps. Their scripts, isolation hook and bridge tests are MIT in dainty-lass's launcher/ (RD27), run through scripts/lass.ts.",
+  "private": true,
+  "type": "module",
+  "license": "AGPL-3.0-only",
+  "packageManager": "bun@1.4.4",
+  "scripts": {
+    "tauri": "tauri",
+    "build:pages": "bun scripts/lass.ts dashboard-page build launcher && bun scripts/lass.ts dashboard-page build server-manager",
+    "build": "tauri build --bundles nsis -- --features realms",
+    "build:client": "tauri build --bundles nsis -- --features realms",
+    "build:manager": "tauri build --bundles nsis --config src-tauri/tauri.server-gui.conf.json -- --no-default-features --features server-gui",
+    "build:server-gui": "bun run build:manager",
+    "build:all": "bun run build:client && bun run build:manager",
+    "dev": "tauri dev -- --features realms",
+    "dev:manager": "tauri dev --config src-tauri/tauri.server-gui.conf.json -- --no-default-features --features server-gui",
+    "dev:server-gui": "bun run dev:manager"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "2.12.4"
+  }
+}

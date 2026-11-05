@@ -1,0 +1,42 @@
+# The build context for docker/Dockerfile: the source only, never a host's own files or build output.
+.git
+.github
+.claude
+.workspace
+**/node_modules
+**/dist
+**/build
+**/target
+**/target*
+paradox
+**/*.tsbuildinfo
+**/.env
+**/.env.*
+!**/.env.example
+**/*.pem
+**/*.key
+**/*.pfx
+**/*.log
+# The Rust tests' fixtures hold fake env files and certificates (the test image runs them)
+!**/tests/fixtures/**
+
+# A host's own game data and exports (rustic-isles' .gitignore): mounted as volumes, never baked in
+modules/rustic-isles/reference/1.14.7/ParadoxBackend/game-data/*.json
+modules/rustic-isles/reference/1.14.7/ParadoxDirector/game-data/*.json
+!modules/rustic-isles/reference/1.14.7/ParadoxBackend/game-data/*.example.json
+!modules/rustic-isles/reference/1.14.7/ParadoxDirector/game-data/*.example.json
+modules/rustic-isles/reference/1.14.7/ParadoxBackend/game-data/raw
+modules/rustic-isles/reference/1.14.7/ParadoxDirector/game-data/raw
+modules/rustic-isles/reference/1.14.7/Items_Analysis
+modules/rustic-isles/reference/1.14.7/DauntlessEndpointDocumentation
+modules/rustic-isles/native/runtime/SDK
+modules/rustic-isles/native/runtime/SDK.hpp
+modules/rustic-isles/native/runtime/x64
+modules/rustic-isles/native/catalog-exporter/x64
+# Submodules no image uses (DS6), and each submodule's .git file. rustic-rifts stays: cargo reads its crates (DF5)
+**/.git
+ui
+
+# Not used by any image
+launcher/node_modules
+docs

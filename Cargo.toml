@@ -1,10 +1,10 @@
-# The MIT half of DaintyLass (RD27): the shared crates, the MIT services and the core plugins. The AGPL services,
-# the launcher and the game modules are dainty-restricted's, which takes these crates as git dependencies.
+# The MIT root workspace of DaintyLass (RD27): the shared crates, the MIT services and the core plugins.
+# The AGPL components, launcher and game modules live in restricted/ (an independent workspace).
 [workspace]
 resolver = "3"
 members = ["crates/*"]
-# The fuzz targets (cargo fuzz, nightly) are a workspace of their own
-exclude = ["fuzz"]
+# Separate workspaces: the fuzz targets (cargo fuzz, nightly) and the AGPL subtree (restricted/)
+exclude = ["fuzz", "restricted"]
 
 [workspace.package]
 version = "0.0.0"

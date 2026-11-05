@@ -1,0 +1,349 @@
+# Builds the launcher release (MIGRATION_PLAN.md RA14, RD7; from Dauntless Revived's L45–L48): DaintyLass Launcher
+# (dainty-lass-client) and DaintyLass Manager (dainty-lass-manager), each as
+#  - DaintyLass{Launcher,Manager}_<version>_x64-setup.exe   NSIS, per user, built on windows-msvc
+#  - DaintyLass{Launcher,Manager}_<version>_amd64.AppImage, .deb and _x86_64.rpm   built on Ubuntu 22.04, so the
+#                                                           packages run on its glibc and anything newer
+# with, when the signing secrets are set (restricted/docs/launcher-release.md), a .sig beside each bundle (the updater's
+# ed25519 signature), latest.json and latest-manager.json (the two updater feeds, tauri.conf.json's endpoints) and
+# Authenticode on the Windows binaries and installers. Without the secrets the same run builds unsigned and writes
+# no feed. SHA256SUMS.txt covers every file.
+#
+# On Forgejo (DX3) it is the build only: Run workflow keeps the release files as a 14-day artifact
+# (launcher-release). Publishing them as the `launcher-updates` release stays out until DX5.
+# Runner labels docker and windows-msvc (docs/ci-runners.md). Actions are pinned by commit.
+name: Launcher release
+
+on:
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  prepare:
+    name: Version
+    runs-on: docker
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    outputs:
+      version: ${{ steps.plan.outputs.version }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # The bundles take package.json's version; Cargo.toml's must agree (tests/bundles.rs checks it too)
+      - name: Work out the version
+        id: plan
+        run: |
+          set -euo pipefail
+          version="$(sed -n 's/^  "version": "\(.*\)",$/\1/p' restricted/launcher/package.json)"
+          semver='^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$'
+          [[ "$version" =~ $semver ]] || { echo "::error::$version is not a version (x.y.z or x.y.z-prerelease)"; exit 1; }
+          grep -qx "version = \"$version\"" restricted/launcher/src-tauri/Cargo.toml \
+            || { echo "::error::restricted/launcher/src-tauri/Cargo.toml is not at $version"; exit 1; }
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "launcher $version"
+
+  windows:
+    name: Bundle (Windows NSIS)
+    needs: prepare
+    runs-on: windows-msvc
+    timeout-minutes: 90
+    permissions:
+      contents: read
+    defaults:
+      run:
+        shell: bash
+    env:
+      VERSION: ${{ needs.prepare.outputs.version }}
+      # Optional: the certificate vendor's RFC 3161 server (sign-windows.ts defaults to DigiCert's)
+      WINDOWS_TIMESTAMP_URL: ${{ vars.WINDOWS_TIMESTAMP_URL }}
+    steps:
+      # Before the checkout: a submodule's objects under a deep path fail to clone without it (DF1)
+      - name: Long paths for git
+        run: git config --global core.longpaths true
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Work folder
+        run: echo "WORK=$(cygpath -u "$RUNNER_TEMP")" >> "$GITHUB_ENV"
+
+      - name: Install the pinned toolchain
+        working-directory: restricted
+        run: rustup show active-toolchain || rustup toolchain install
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+
+      - uses: https://github.com/oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          # launcher/package.json's packageManager
+          bun-version: 1.4.4
+
+      - name: Install the tauri CLI
+        working-directory: restricted/launcher
+        run: bun install --frozen-lockfile
+
+      # Each secret is optional: unset, that signature is skipped and the run still builds
+      - name: Signing
+        working-directory: restricted/launcher
+        env:
+          UPDATER_KEY: ${{ secrets.LAUNCHER_UPDATER_KEY }}
+          UPDATER_KEY_PASSWORD: ${{ secrets.LAUNCHER_UPDATER_KEY_PASSWORD }}
+          CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
+          CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
+        run: |
+          set -euo pipefail
+          if [ -n "$UPDATER_KEY" ]; then
+            export TAURI_SIGNING_PRIVATE_KEY="$UPDATER_KEY"
+            { echo "TAURI_SIGNING_PRIVATE_KEY<<KEY_END"; echo "$UPDATER_KEY"; echo "KEY_END"; } >> "$GITHUB_ENV"
+            echo "TAURI_SIGNING_PRIVATE_KEY_PASSWORD=$UPDATER_KEY_PASSWORD" >> "$GITHUB_ENV"
+          fi
+          if [ -n "$CERTIFICATE" ]; then
+            certificate="$WORK/codesign.pfx"
+            printf '%s' "$CERTIFICATE" | base64 -d > "$certificate"
+            WINDOWS_CERTIFICATE_PATH="$(cygpath -w "$certificate")"
+            export WINDOWS_CERTIFICATE_PATH
+            echo "WINDOWS_CERTIFICATE_PATH=$WINDOWS_CERTIFICATE_PATH" >> "$GITHUB_ENV"
+            echo "WINDOWS_CERTIFICATE_PASSWORD=$CERTIFICATE_PASSWORD" >> "$GITHUB_ENV"
+          fi
+          bun scripts/lass.ts release-config "$(cygpath -w "$WORK/config")"
+
+      # No build cache in a release: every file is built from this commit alone. beforeBuildCommand builds ui/'s page
+      - name: Build DaintyLass Launcher and DaintyLass Manager
+        working-directory: restricted/launcher
+        run: |
+          set -euo pipefail
+          config="$(cygpath -w "$WORK/config")"
+          bun run tauri build --ci --bundles nsis --config "$config\\client.json" -- --features realms
+          mkdir -p "$WORK/out"
+          collect() {
+            local name="$1" exe sig
+            exe="$(ls ../target/release/bundle/nsis/*-setup.exe)"
+            cp "$exe" "$WORK/out/${name}_${VERSION}_x64-setup.exe"
+            sig="$exe.sig"
+            if [ -f "$sig" ]; then cp "$sig" "$WORK/out/${name}_${VERSION}_x64-setup.exe.sig"; fi
+            rm -rf ../target/release/bundle/nsis
+          }
+          collect DaintyLassLauncher
+          bun run tauri build --ci --bundles nsis --config "$config\\manager.json" -- --no-default-features --features server-gui
+          collect DaintyLassManager
+          ls -l "$WORK/out"
+
+      - name: Check the Authenticode signatures
+        if: env.WINDOWS_CERTIFICATE_PATH != ''
+        shell: pwsh
+        run: |
+          Get-ChildItem "$env:RUNNER_TEMP\out\*-setup.exe" | ForEach-Object {
+            $signature = Get-AuthenticodeSignature $_.FullName
+            if ($signature.Status -ne 'Valid') { throw "$($_.Name): $($signature.Status)" }
+            "$($_.Name): signed by $($signature.SignerCertificate.Subject)"
+          }
+
+      # A host-mode runner keeps its files: the certificate must not outlive the job
+      - name: Remove the certificate
+        if: always()
+        run: rm -f "$WORK/codesign.pfx"
+
+      # Stock upload-artifact v4+ refuses any host but github.com; Forgejo's fork drops that check
+      - uses: https://code.forgejo.org/forgejo/upload-artifact@16871d9e8cfcf27ff31822cac382bbb5450f1e1e # v4 (v4.3.1, GHES check disabled)
+        with:
+          name: launcher-bundles-windows
+          path: ${{ runner.temp }}/out/
+          if-no-files-found: error
+          retention-days: 1
+
+  linux:
+    name: Bundle (Linux AppImage, deb, rpm)
+    needs: prepare
+    runs-on: docker
+    # Not the label's bookworm image: Ubuntu 22.04's glibc is the oldest the row supports
+    container:
+      image: ubuntu:22.04
+    timeout-minutes: 90
+    permissions:
+      contents: read
+    defaults:
+      run:
+        shell: bash
+    env:
+      VERSION: ${{ needs.prepare.outputs.version }}
+      DEBIAN_FRONTEND: noninteractive
+      # linuxdeploy is an AppImage itself, and a job container has no FUSE
+      APPIMAGE_EXTRACT_AND_RUN: "1"
+    steps:
+      # The image has neither git nor Node, which the actions need
+      - name: Build dependencies and Node 22
+        run: |
+          set -euo pipefail
+          apt-get update
+          apt-get install -y --no-install-recommends ca-certificates curl git xz-utils unzip file xdg-utils rpm \
+            build-essential pkg-config libwebkit2gtk-4.1-dev libgtk-3-dev librsvg2-dev \
+            libayatana-appindicator3-dev libdbus-1-dev libssl-dev patchelf
+          base=https://nodejs.org/dist/latest-v22.x
+          name="$(curl -fsSL "$base/SHASUMS256.txt" | awk '/linux-x64\.tar\.xz$/ {print $2}')"
+          curl -fsSLO "$base/$name"
+          curl -fsSL "$base/SHASUMS256.txt" | grep " $name\$" | sha256sum -c -
+          tar -xJf "$name" -C /usr/local --strip-components=1
+          rm "$name"
+          node --version
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install rustup and the pinned toolchain
+        working-directory: restricted
+        run: |
+          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \
+            | sh -s -- -y --no-modify-path --profile minimal --default-toolchain none
+          echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+          "$HOME/.cargo/bin/rustup" show active-toolchain || "$HOME/.cargo/bin/rustup" toolchain install
+
+      - uses: https://github.com/oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          # launcher/package.json's packageManager
+          bun-version: 1.4.4
+
+      - name: Install the tauri CLI
+        working-directory: restricted/launcher
+        run: bun install --frozen-lockfile
+
+      - name: Signing
+        working-directory: restricted/launcher
+        env:
+          UPDATER_KEY: ${{ secrets.LAUNCHER_UPDATER_KEY }}
+          UPDATER_KEY_PASSWORD: ${{ secrets.LAUNCHER_UPDATER_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          if [ -n "$UPDATER_KEY" ]; then
+            export TAURI_SIGNING_PRIVATE_KEY="$UPDATER_KEY"
+            { echo "TAURI_SIGNING_PRIVATE_KEY<<KEY_END"; echo "$UPDATER_KEY"; echo "KEY_END"; } >> "$GITHUB_ENV"
+            echo "TAURI_SIGNING_PRIVATE_KEY_PASSWORD=$UPDATER_KEY_PASSWORD" >> "$GITHUB_ENV"
+          fi
+          bun scripts/lass.ts release-config "$RUNNER_TEMP/config"
+
+      - name: Build DaintyLass Launcher and DaintyLass Manager
+        working-directory: restricted/launcher
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/out"
+          collect() {
+            local name="$1" bundle=../target/release/bundle file
+            for file in "$bundle"/appimage/*.AppImage "$bundle"/deb/*.deb "$bundle"/rpm/*.rpm; do
+              case "$file" in
+                *.AppImage) target="${name}_${VERSION}_amd64.AppImage" ;;
+                *.deb) target="${name}_${VERSION}_amd64.deb" ;;
+                *.rpm) target="${name}_${VERSION}_x86_64.rpm" ;;
+              esac
+              cp "$file" "$RUNNER_TEMP/out/$target"
+              if [ -f "$file.sig" ]; then cp "$file.sig" "$RUNNER_TEMP/out/$target.sig"; fi
+            done
+            rm -rf "$bundle"
+          }
+          bun run tauri build --ci --bundles appimage,deb,rpm --config "$RUNNER_TEMP/config/client.json" -- --features realms
+          collect DaintyLassLauncher
+          bun run tauri build --ci --bundles appimage,deb,rpm --config "$RUNNER_TEMP/config/manager.json" \
+            -- --no-default-features --features server-gui
+          collect DaintyLassManager
+          ls -l "$RUNNER_TEMP/out"
+
+      # The packages' metadata, and the launcher's invite scheme in its desktop entry (RA11)
+      - name: Check the packages
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP/out"
+          for app in DaintyLassLauncher DaintyLassManager; do
+            dpkg-deb --info "${app}_${VERSION}_amd64.deb"
+            rpm -qip "${app}_${VERSION}_x86_64.rpm"
+          done
+          dpkg-deb --fsys-tarfile "DaintyLassLauncher_${VERSION}_amd64.deb" | tar -xO --wildcards './usr/share/applications/*.desktop' \
+            | grep -q 'x-scheme-handler/dauntless;'
+
+      - uses: https://code.forgejo.org/forgejo/upload-artifact@16871d9e8cfcf27ff31822cac382bbb5450f1e1e # v4 (v4.3.1, GHES check disabled)
+        with:
+          name: launcher-bundles-linux
+          path: ${{ runner.temp }}/out/
+          if-no-files-found: error
+          retention-days: 1
+
+  package:
+    name: Release files
+    needs: [prepare, windows, linux]
+    runs-on: docker
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    env:
+      VERSION: ${{ needs.prepare.outputs.version }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: https://code.forgejo.org/forgejo/download-artifact@d8d0a99033603453ad2255e58720b460a0555e1e # v4 (v4.1.4, GHES check disabled)
+        with:
+          pattern: launcher-bundles-*
+          path: release
+          merge-multiple: true
+
+      # The updater feeds, only when every bundle is signed: a feed entry without its signature is refused anyway
+      - name: latest.json and latest-manager.json
+        run: |
+          set -euo pipefail
+          node - release "$VERSION" <<'EOF'
+          const fs = require("fs"), path = require("path");
+          const [dir, version] = process.argv.slice(2);
+          const config = JSON.parse(fs.readFileSync("restricted/launcher/src-tauri/tauri.conf.json", "utf8"));
+          // The release the endpoints name: the bundles sit beside the feed
+          const base = config.plugins.updater.endpoints[0].replace(/[^/]*$/, "");
+          const apps = { DaintyLassLauncher: "latest.json", DaintyLassManager: "latest-manager.json" };
+          const kinds = {
+            "windows-x86_64-nsis": "_x64-setup.exe",
+            "linux-x86_64-appimage": "_amd64.AppImage",
+            "linux-x86_64-deb": "_amd64.deb",
+            "linux-x86_64-rpm": "_x86_64.rpm",
+          };
+          const expected = Object.keys(apps).flatMap((app) => Object.values(kinds).map((kind) => `${app}_${version}${kind}`));
+          const missing = expected.filter((file) => !fs.existsSync(path.join(dir, file)));
+          if (missing.length) throw new Error(`missing bundles: ${missing.join(", ")}`);
+          const unsigned = expected.filter((file) => !fs.existsSync(path.join(dir, `${file}.sig`)));
+          if (unsigned.length === expected.length) {
+            console.log("no updater signatures (LAUNCHER_UPDATER_KEY unset): no feed written");
+            process.exit(0);
+          }
+          if (unsigned.length) throw new Error(`unsigned bundles: ${unsigned.join(", ")}`);
+          const pubDate = new Date().toISOString().replace(/\.\d+Z$/, "Z");
+          for (const [app, feed] of Object.entries(apps)) {
+            const platforms = {};
+            for (const [target, kind] of Object.entries(kinds)) {
+              const file = `${app}_${version}${kind}`;
+              const signature = fs.readFileSync(path.join(dir, `${file}.sig`), "utf8").trim();
+              platforms[target] = { signature, url: base + encodeURIComponent(file) };
+            }
+            // A target without the bundle type, as an older build or a bare binary asks
+            platforms["windows-x86_64"] = platforms["windows-x86_64-nsis"];
+            platforms["linux-x86_64"] = platforms["linux-x86_64-appimage"];
+            const manifest = { version, notes: `${app} ${version}`, pub_date: pubDate, platforms };
+            fs.writeFileSync(path.join(dir, feed), JSON.stringify(manifest, null, 2) + "\n");
+            console.log(`${feed}: ${Object.keys(platforms).length} targets`);
+          }
+          EOF
+
+      - name: SHA256SUMS.txt
+        run: |
+          set -euo pipefail
+          cd release
+          sha256sum -- * > SHA256SUMS.txt
+          cat SHA256SUMS.txt
+
+      - uses: https://code.forgejo.org/forgejo/upload-artifact@16871d9e8cfcf27ff31822cac382bbb5450f1e1e # v4 (v4.3.1, GHES check disabled)
+        with:
+          name: launcher-release
+          path: release/
+          if-no-files-found: error
+          retention-days: 14
