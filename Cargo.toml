@@ -42,6 +42,8 @@ rifts-guard = { path = "crates/rifts-guard" }
 rifts-realms = { path = "crates/rifts-realms" }
 rifts-transport = { path = "crates/rifts-transport" }
 rifts-host = { path = "crates/rifts-host" }
+# The Rustic Isles sign-in area, clean-room MIT (RD27, spec-rustic-isles-auth)
+rustic-isles-auth = { path = "crates/rustic-isles-auth" }
 # The transport's ICE agent and TURN client, sans-IO (spec-rd27-rifts D2)
 rtc-ice = { version = "0.21.1", default-features = false, features = ["crypto-aws-lc-rs"] }
 rtc-turn = { version = "0.21.1", default-features = false, features = ["crypto-aws-lc-rs"] }
@@ -60,6 +62,8 @@ ratatui = { version = "0.30", default-features = false, features = ["crossterm"]
 aws-lc-rs = "1.18"
 axum = { version = "0.8", default-features = false, features = ["http1", "json", "query", "tokio", "form", "ws"] }
 aes-gcm = "0.11"
+# Launcher passwords: reads the Argon2id PHC hashes accounts already have (rustic-isles-auth)
+argon2 = { version = "0.5", default-features = false, features = ["alloc", "password-hash"] }
 # ES256 admission tickets (rifts-admission). Its types are in that crate's public API, so dainty-restricted resolves
 # the same line
 p256 = { version = "0.14", features = ["ecdsa", "pem", "pkcs8", "std"] }
@@ -87,6 +91,8 @@ hyper-util = { version = "0.1", default-features = false, features = ["tokio", "
 # HTTPS for the services' outgoing requests (D10: aws-lc-rs)
 hyper-rustls = { version = "0.27", default-features = false, features = ["http1", "aws-lc-rs", "webpki-tokio", "tls12"] }
 rustls = { version = "0.23", default-features = false, features = ["aws_lc_rs", "std", "tls12"] }
+# The roots rustic-isles-auth's SMTP client verifies against (hyper-rustls already pulls this line)
+webpki-roots = "1"
 # Bundled: one SQLite, built with the options in .cargo/config.toml, shared by Diesel and rusqlite (M17).
 libsqlite3-sys = { version = "0.38", features = ["bundled"] }
 percent-encoding = "2"
