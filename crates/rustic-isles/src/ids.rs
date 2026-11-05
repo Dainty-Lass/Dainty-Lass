@@ -19,7 +19,8 @@ pub struct AccountId {
 pub enum AccountIdError {
     #[error("{0:?} is not a network id; account ids are written account:<ULID>@<node>")]
     Unreadable(String),
-    #[error("expected an account id (account:<ULID>@<node>), got a {0} id")]
+    /// The kind it names; the text is the spec's (§2.2), which callers see
+    #[error("an account id is account:<ULID>@<node>")]
     OtherKind(&'static str),
 }
 

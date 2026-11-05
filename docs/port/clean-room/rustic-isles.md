@@ -140,8 +140,8 @@ None beyond this repository: no crate sources from the cargo registry were opene
 19. **Rewrites after the similarity review** (§6): `src/ids.rs` was rewritten from §2.2 and §11.2 alone. The impls
     are in §11.2's order. `FromStr` matches on the parsed id's kind. `AccountIdError` became an enum
     (`Unreadable`, `OtherKind`) with this implementer's own wording. `UserId` has a private field with `new` and
-    `as_str`. The wording departs from §2.2's quoted refusal text, at the coordinator's direction; the `Invalid`
-    kind of §7.8 is unchanged. `PatternError`'s fields are now `row` and `why`, with a reworded message.
+    `as_str`. `OtherKind`'s message is §2.2's quoted refusal text verbatim, since callers see it
+    (coordinator decision, parity over own wording); `Unreadable` keeps its own wording. `PatternError`'s fields are now `row` and `why`, with a reworded message.
 
 ## 6. Similarity
 
