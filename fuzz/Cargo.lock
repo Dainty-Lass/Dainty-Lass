@@ -969,6 +969,7 @@ dependencies = [
  "rustic-isles-auth",
  "rustic-isles-director",
  "rustic-isles-gamedata",
+ "rustic-isles-store",
  "rustls",
  "serde",
  "serde_json",
@@ -3611,6 +3612,21 @@ dependencies = [
  "service-kit",
  "sha2",
  "tracing",
+]
+
+[[package]]
+name = "rustic-isles-store"
+version = "0.0.0"
+dependencies = [
+ "diesel",
+ "diesel_migrations",
+ "module-api",
+ "rustic-isles",
+ "rustic-isles-auth",
+ "serde_json",
+ "service-kit",
+ "store",
+ "thiserror",
 ]
 
 [[package]]

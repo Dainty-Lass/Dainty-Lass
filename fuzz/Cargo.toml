@@ -60,6 +60,8 @@ rustic-isles-gamedata = { path = "../crates/rustic-isles-gamedata" }
 # rustic_isles_director_{cmdline,matchmaking,tag_query,lines,hunt_import}: what the Director reads from the backend, the
 # game servers and a capture (RD27)
 rustic-isles-director = { path = "../crates/rustic-isles-director" }
+# rustic_isles_store_decode: what Rustic Isles' store reads back from its columns (RD27)
+rustic-isles-store = { path = "../crates/rustic-isles-store" }
 axum = { version = "0.8", default-features = false }
 # transport_frame, transport_files, transport_pipe: what a peer, the launcher's files and the game server hand the
 # co-op transport (RD27)
@@ -430,6 +432,13 @@ bench = false
 [[bin]]
 name = "rustic_isles_director_hunt_import"
 path = "fuzz_targets/rustic_isles_director_hunt_import.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "rustic_isles_store_decode"
+path = "fuzz_targets/rustic_isles_store_decode.rs"
 test = false
 doc = false
 bench = false

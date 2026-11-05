@@ -1,0 +1,35 @@
+[package]
+name = "rustic-isles-store"
+description = "Rustic Isles' database layer: the handle on store with the home check and the actor mapping, both engines' migrations, the repositories, and the AuthStore adapter"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+# Clean-room rewrite from docs/port/spec-rustic-isles-store.md (RD27, docs/port/clean-room/rustic-isles-store.md)
+license = "MIT"
+repository.workspace = true
+publish.workspace = true
+
+[features]
+# TempStore: a store on a temporary SQLite file (here and in the area crates)
+test-support = ["dep:tempfile"]
+
+[dependencies]
+diesel.workspace = true
+diesel_migrations.workspace = true
+module-api.workspace = true
+rustic-isles.workspace = true
+rustic-isles-auth.workspace = true
+serde_json = { workspace = true, features = ["preserve_order", "float_roundtrip"] }
+service-kit.workspace = true
+store.workspace = true
+tempfile = { workspace = true, optional = true }
+thiserror.workspace = true
+
+[dev-dependencies]
+rustic-isles-store = { path = ".", features = ["test-support"] }
+tempfile.workspace = true
+tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
+url.workspace = true
+
+[lints]
+workspace = true
