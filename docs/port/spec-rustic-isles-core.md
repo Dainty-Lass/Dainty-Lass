@@ -1292,3 +1292,9 @@ These settle §15 and override anything above that disagrees.
 - **Settings `Debug`** prints names only, never values (security over parity).
 - **Everything else in §15:** parity, as specified.
 - **Unit order:** §16 as proposed.
+- **Amended 2026-11-05 with the composition spec:**
+  - D3 cutover: the 11 `/mystic/v1/hunts` rows of Appendix A are `/rustic/v1/hunts`, the early-budget prefix of
+    §3.2 step 2 is `/rustic/v1/hunts`, and the host capability header is `x-rustic-host-capability`
+    (`rifts_seam::HOST_CAPABILITY_HEADER`), no aliases.
+  - `quick_emoji_wheel` is a list of texts (nine for 1.14.7), not one optional text.
+  - The season window's arithmetic saturates instead of overflowing on an extreme (replay-pinned) time.

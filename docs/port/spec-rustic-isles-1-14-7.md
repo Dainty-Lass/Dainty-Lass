@@ -808,3 +808,24 @@ arbitrary text through `candidate_destination`, `huntpass_payload` and `objectiv
    names the path, so either works. Kept as proposed unless the coordinator prefers the id.
 9. **`ReforgedAdmin::home_operation` takes a `HomeInvocation`** while core's hook passes its parts (§5.7); the
    adapter rebuilds one. If the Reforged unit prefers the parts, the adapter shrinks.
+
+---
+
+## Coordinator decisions (2026-11-05, before implementation)
+
+These settle the open questions and override anything above that disagrees.
+
+- **Item 1: the starter manifest's identifier lists are wire facts (maintainer's ruling, 2026-11-05).** The 24
+  stacked ids and the quick-emoji texts stay in core's `&'static` table, committed in dainty-lass; option A. The
+  characters spec's decisions are amended to match.
+- **Item 2:** core's `quick_emoji_wheel` becomes the list of nine texts characters reads (a core change).
+- **Item 3: the D3 cutover lands in core now.** The 11 `/mystic/v1/hunts` rows become `/rustic/v1/hunts`, the early
+  budget prefix follows, and the host capability is read from `x-rustic-host-capability` (rifts-seam's constant),
+  with no aliases (D3, 2026-11-02). The runtime patch and launcher release that send the new name are the
+  maintainer's hands-on work in dainty-restricted.
+- **Item 4 and §14:** parity; the listed rifts wiring oddities are candidate decision rows.
+- **Item 5:** `MatchmakingCore` reads `Shared` through the composer's late cell, as the other late-bound parts do.
+- **Item 6:** later; restricted supplies the seeds.
+- **Item 7:** restricted ships and installs `version_data.json`; a hostkit step is a later row.
+- **Items 8-9:** as proposed (executable `rustic-isles-1-14-7`, module id `isles-1-14-7`; the composer adapts core's
+  hook arguments into a `HomeInvocation`).
