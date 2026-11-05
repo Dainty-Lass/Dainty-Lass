@@ -967,6 +967,7 @@ dependencies = [
  "rifts-transport",
  "rustic-isles",
  "rustic-isles-auth",
+ "rustic-isles-director",
  "rustic-isles-gamedata",
  "rustls",
  "serde",
@@ -3575,6 +3576,25 @@ dependencies = [
  "tokio-rustls",
  "tracing",
  "webpki-roots",
+]
+
+[[package]]
+name = "rustic-isles-director"
+version = "0.0.0"
+dependencies = [
+ "axum",
+ "chrono",
+ "futures-util",
+ "http",
+ "libc",
+ "module-api",
+ "rand 0.10.3",
+ "rustic-isles",
+ "serde_json",
+ "service-kit",
+ "tokio",
+ "tracing",
+ "windows",
 ]
 
 [[package]]
