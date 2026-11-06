@@ -15,7 +15,8 @@ use std::sync::{LazyLock, Mutex, MutexGuard, PoisonError};
 use chrono::{DateTime, SecondsFormat, Utc};
 use regex::Regex;
 use tracing::field::{Field, Visit};
-use tracing::{Event, Subscriber};
+use tracing::{Event, Metadata, Subscriber};
+use tracing_log::NormalizeEvent as _;
 use tracing_subscriber::layer::{Context, Layer, SubscriberExt as _};
 
 /// The log file's name in the log folder.
@@ -79,7 +80,7 @@ struct Patterns {
 }
 
 static PATTERNS: LazyLock<Option<Patterns>> = LazyLock::new(|| {
-    let auth = format!(r#"({})[^{JS_SPACE}"']+"#, ascii_ci("-AUTH_PASSWORD="));
+    let auth = format!(r#"({})[^{JS_SPACE}"']*"#, ascii_ci("-AUTH_PASSWORD="));
     let header = format!(
         r#"({}["']?[{JS_SPACE}]*[:=][{JS_SPACE}]*["']?)[^{JS_SPACE}"',}}]+"#,
         ascii_ci("x-reforged-user-api-key")
@@ -263,6 +264,10 @@ struct EventText {
 
 impl Visit for EventText {
     fn record_str(&mut self, field: &Field, value: &str) {
+        // `tracing-log` carries the record's target and location as `log.*` fields; the target is written first.
+        if field.name().starts_with("log.") {
+            return;
+        }
         if field.name() == "message" {
             self.message.push_str(value);
         } else {
@@ -271,6 +276,9 @@ impl Visit for EventText {
     }
 
     fn record_debug(&mut self, field: &Field, value: &dyn std::fmt::Debug) {
+        if field.name().starts_with("log.") {
+            return;
+        }
         if field.name() == "message" {
             let _ = write!(self.message, "{value:?}");
         } else {
@@ -285,7 +293,11 @@ pub struct LogLayer;
 
 impl<S: Subscriber> Layer<S> for LogLayer {
     fn on_event(&self, event: &Event<'_>, _ctx: Context<'_, S>) {
-        let meta = event.metadata();
+        let normalized = event.normalized_metadata();
+        let meta = normalized.as_ref().unwrap_or_else(|| event.metadata());
+        if !accepts(meta.target(), *meta.level()) {
+            return;
+        }
         let level = match *meta.level() {
             tracing::Level::ERROR => Level::Error,
             tracing::Level::WARN => Level::Warn,
@@ -304,13 +316,29 @@ pub fn accepts(target: &str, level: tracing::Level) -> bool {
     level <= tracing::Level::INFO && !epic::is_egs_api_target(target)
 }
 
+/// The subscriber-wide filter of [`accepts`]. An event the `log` crate forwarded through `tracing-log` has the
+/// target `log`, so its real target is checked once the event exists.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct LogFilter;
+
+impl<S: Subscriber> Layer<S> for LogFilter {
+    fn enabled(&self, metadata: &Metadata<'_>, _ctx: Context<'_, S>) -> bool {
+        accepts(metadata.target(), *metadata.level())
+    }
+
+    fn event_enabled(&self, event: &Event<'_>, _ctx: Context<'_, S>) -> bool {
+        event
+            .normalized_metadata()
+            .is_none_or(|meta| accepts(meta.target(), *meta.level()))
+    }
+}
+
 /// Installs [`LogLayer`] as the process's `tracing` subscriber and logs panics as `panic: <info>`. False when
 /// another subscriber was already installed; the panic hook is set either way.
 pub fn install() -> bool {
     std::panic::set_hook(Box::new(|info| error(format!("panic: {info}"))));
-    // A global filter: egs-api's events must not reach any layer, not just this one.
-    let filter = tracing_subscriber::filter::filter_fn(|meta| accepts(meta.target(), *meta.level()));
-    let subscriber = tracing_subscriber::registry().with(filter).with(LogLayer);
+    // A global filter: egs-api's events can carry tokens and must not reach any layer, not just this one.
+    let subscriber = tracing_subscriber::registry().with(LogFilter).with(LogLayer);
     tracing::subscriber::set_global_default(subscriber).is_ok()
 }
 
@@ -367,6 +395,25 @@ mod tests {
             tracing::info!(target: "kit", host = "example", port = 5, "connected");
             tracing::debug!(target: "kit", "dropped");
         });
+        // Forwarded from the `log` crate: the real target is normalised back, and egs-api's never reaches a layer.
+        let subscriber = tracing_subscriber::registry().with(LogFilter).with(LogLayer);
+        tracing::subscriber::with_default(subscriber, || {
+            let forward = |target: &str, text: &str| {
+                tracing_log::format_trace(
+                    &tracing_log::log::Record::builder()
+                        .args(format_args!("{text}"))
+                        .level(tracing_log::log::Level::Warn)
+                        .target(target)
+                        .module_path(Some(target))
+                        .build(),
+                )
+                .unwrap();
+            };
+            forward("egs_api::api", "Bearer leaked-token");
+            forward("egs_api", "leaked-too");
+            forward("hyper::client", "retrying");
+            tracing::warn!(target: "egs_api::api", "direct leak");
+        });
         warn("token hunter2-secret RRK_abc");
         unregister_secret("hunter2-secret");
         info("hunter2-secret");
@@ -377,6 +424,7 @@ mod tests {
             messages,
             [
                 "INFO kit: connected host=example port=5",
+                "WARN hyper::client: retrying",
                 "WARN token <hidden> RRK_<hidden>",
                 "INFO hunter2-secret",
             ]

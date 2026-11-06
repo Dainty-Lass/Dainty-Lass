@@ -2573,6 +2573,7 @@ dependencies = [
  "toml_edit",
  "tower",
  "tracing",
+ "tracing-log",
  "tracing-subscriber",
  "ts-rs",
  "url",
