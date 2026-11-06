@@ -5,11 +5,10 @@
 The checklist for `crates/rustic-isles-characters`, the MIT characters-and-loadouts area of Rustic Isles (RD27,
 `docs/port/spec-rustic-isles-characters.md` §16). It parses untrusted input (character data blobs, loadout slot and
 `persistent` data, path params, body fields) behind core's pipeline, so it gets this page and a fuzz target.
-`SECURITY_REVIEW.md` indexes it once the integration pass adds the row.
 
-How to use it: before restricted's area switches to this crate, copy this list into the change, check each item in
-the code (not from memory), link the code or test that shows it, and sign at the end with the date and the commit
-reviewed.
+How to use it: before a change to this crate merges, and before its cutover is signed (RD10), copy this list into the
+change, check each item in the code (not from memory), link the code or test that shows it, and sign at the end with the
+date and the commit reviewed.
 
 ## What it is and where the boundary is
 

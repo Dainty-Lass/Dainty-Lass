@@ -2,6 +2,9 @@
 
 # Security checklist: relay credentials (RX3)
 
+> **Retired** (RD27): this checklist is for the AGPL `rifts-*` crate, which was replaced by the root's MIT
+> clean-room crate and removed. Kept for reference; the root's `docs/security/rifts-*.md` is the live checklist.
+
 The checklist for `crates/rifts-relay` (DaintyLass plan RF4, DD14, DD24, DX2): TURN credentials (`turn-rest` for
 turn-rs and coturn, Cloudflare TURN), the per-pair transport keys, the ICE transport config and signal routes, and
 the `coop-transport` admin route. The relay process itself (turn-rs, its listener exception and port range) is the

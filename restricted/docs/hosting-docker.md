@@ -78,12 +78,10 @@ REFORGED_COMMIT=$(git rev-parse --short=12 HEAD) docker compose build
 docker compose run --rm host setup --mode public --host play.example.org --name "Friday Hunts"
 ```
 
-The game modules' crates are in the repository (`modules/rustic-isles`, `modules/rustic-rifts`). dainty-lass's MIT
-crates are git dependencies over SSH (RD27), so the build needs an SSH agent holding a key that reads
-`git.silentspud.com`: Compose passes the agent in (`ssh: [default]`), and a plain `docker build` takes
-`--ssh default`. The server binary is built with
+Every crate is in the checkout: the images build with the monorepo root as context (Compose's `context: ..`), so
+`restricted/` reaches the root's MIT crates by path and the build needs no SSH key. The server binary is built with
 `all-modules`, as the release is; to build without any game module, set the build argument
-`REFORGED_MODULES=` (`docker build --ssh default -f docker/Dockerfile --build-arg REFORGED_MODULES= --target server .`).
+`REFORGED_MODULES=` (from the root: `docker build -f restricted/docker/Dockerfile --build-arg REFORGED_MODULES= --target server .`).
 The server image also holds the libraries `host.toml` can pin (RD27) in `/opt/reforged/plugins`, so a
 `[[modules.external]]` or `[services.<name>]` path there reads `plugins/libisles_1_14_7_plugin.so` and the like
 ([hosting.md](hosting.md#game-modules-and-plugins)).

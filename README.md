@@ -19,9 +19,9 @@ internet, or in Docker.
 
 The launcher on a player's PC talks to the host's **gateway**, the one thing the server exposes: TLS on 443 with a
 pinned certificate for a public server, plain HTTP inside the tailnet for a private one. Behind it sit the
-**backend** (Rustic Isles's 1.14.7 backend and launcher API, ported to Rust in `restricted/modules/rustic-isles`, on SQLite
-or Postgres), the **content server** (the game runtime, news and art) and the
-**allowlist**, which opens the game's UDP ports only to players who have logged in. The **Director** (`isles-director`)
+***backend** (Rustic Isles's 1.14.7 backend and launcher API, re-created clean-room in Rust as the MIT
+`rustic-isles-*` crates, on SQLite or Postgres), the **content server** (the game runtime, news and art) and the
+**allowlist**, which opens the game's UDP ports only to players who have logged in. The **Director** (`rustic-isles-director`)
 starts Ramsgate, the Training Grounds and the hunts. The game itself loads the host's runtime (`Rustic-Isles.dll`
 through `winmm.dll`) and reaches the backend through a relay the launcher runs on `127.0.0.1:61100`.
 [docs/architecture.md](docs/architecture.md) has the trust boundaries.
@@ -31,20 +31,21 @@ through `winmm.dll`) and reaches the backend through a relay the launcher runs o
 DaintyLass is a monorepo with a strict licence boundary (RD27): the root workspace and everything outside
 [`restricted/`](restricted) is **MIT** ([LICENSE.txt](LICENSE.txt)); [`restricted/`](restricted) is a separate
 Cargo workspace licensed under **GNU AGPL-3.0-only** ([restricted/LICENSE.txt](restricted/LICENSE.txt),
-[restricted/NOTICE.md](restricted/NOTICE.md)) holding the host shell, the Tauri launcher, the AGPL game modules,
-the 1.4.4 importer, the runtime loader, the server binaries that link them, the Docker images, and the host and
+[restricted/NOTICE.md](restricted/NOTICE.md)) holding the host shell, the Tauri launcher, the game runtime and the
+Node reference it was ported from, the 1.4.4 importer, the runtime loader, the server binaries that link them, the Docker images, and the host and
 player guides. No MIT crate at the root depends on anything in `restricted/`.
 
 | Folder | Licence | What |
 | --- | --- | --- |
-| [root](.) (`crates/`, `fuzz/`) | MIT | The MIT Cargo workspace, every package in `crates/<package name>` (libraries, the gateway, content, admin and chat services, core plugins, the Rustic Rifts crates and the `dainty-lass-server` binary), and `fuzz/` |
+| [root](.) (`crates/`, `fuzz/`) | MIT | The MIT Cargo workspace, every package in `crates/<package name>` (libraries, the gateway, content, admin and chat services, core plugins, the Rustic Isles game module and the Rustic Rifts crates, and the `dainty-lass-server` binary), and `fuzz/` |
 | [`ui/`](ui) | MIT | dainty-dash: the staff dashboard, the launcher and server-manager pages the Tauri shells serve, and the fleet agent (Astryx on Next.js through vinext, built with Bun); its generated bridge types are copied from `restricted/ui` at build time |
 | [`launcher/`](launcher) | MIT | The launcher's JavaScript side: the isolation hook, the scripts the Tauri shells and the release run, and their tests |
 | [`scripts/`](scripts) | MIT | `replay-capture.mjs`, the shadow-replay wrapper |
 | [`docs/`](docs) | MIT | The architecture, the plans and the MIT components' security checklists ([SECURITY_REVIEW.md](SECURITY_REVIEW.md)) |
-| [`restricted/`](restricted) | AGPL-3.0-only | Separate Cargo workspace: the host shell (`restricted/crates/host`), the Tauri launcher (`restricted/launcher/src-tauri`), the AGPL game modules (`restricted/modules/`), the 1.4.4 importer (`restricted/legacy/`), the Apache-2.0 runtime loader (`restricted/native/`), the server executables, Docker (`restricted/docker/`, `restricted/compose.yaml`), and the host and player guides ([restricted/SECURITY_REVIEW.md](restricted/SECURITY_REVIEW.md)) |
+| [`restricted/`](restricted) | AGPL-3.0-only | Separate Cargo workspace: the host shell (`restricted/crates/host`), the Tauri launcher (`restricted/launcher/src-tauri`), Rustic Isles' runtime, Node reference, version data and parity replay and Rustic Rifts' `ParadoxTransport` (`restricted/modules/`), the 1.4.4 importer (`restricted/legacy/`), the Apache-2.0 runtime loader (`restricted/native/`), the server executables, Docker (`restricted/docker/`, `restricted/compose.yaml`), and the host and player guides ([restricted/SECURITY_REVIEW.md](restricted/SECURITY_REVIEW.md)) |
 
-Where it is going: [MIGRATION_PLAN.md](MIGRATION_PLAN.md) and [docs/dainty-lass-plan.md](docs/dainty-lass-plan.md).
+What is left to do: [MIGRATION_PLAN.md](MIGRATION_PLAN.md). The design record behind it:
+[docs/dainty-lass-plan.md](docs/dainty-lass-plan.md).
 
 ## Building
 
@@ -68,8 +69,8 @@ cd restricted && cargo build --release -p server-console --features all-modules 
 
 ## Credits and licence
 
-DaintyLass stands on [Mystic Paradox](https://github.com/pranav158/Mystic-Paradox) (Pranav Karande), whose backend,
-Director and runtime live in `restricted/modules/rustic-isles`; on [Dauntless Revived](https://github.com/mixutin/dauntless-revived)
+DaintyLass stands on [Mystic Paradox](https://github.com/pranav158/Mystic-Paradox) (Pranav Karande), whose runtime
+and Node backend and Director (the behaviour the Rust port follows) live in `restricted/modules/rustic-isles`; on [Dauntless Revived](https://github.com/mixutin/dauntless-revived)
 (mixutin and contributors), whose Rust crates the workspace started from and whose invite and account-key design
 the launcher follows; and on [Undaunted](https://github.com/SyST3MDeV/Undaunted) (gwog and contributors), which both
 of those build on.

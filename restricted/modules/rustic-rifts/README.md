@@ -25,7 +25,8 @@ the SHA-256 of `build\<Configuration>\ParadoxTransport.dll`. Exit code 0 only wh
 
 ### CI: what it needs
 
-`.forgejo/workflows/transport.yml` builds on a Forgejo runner labelled `windows-msvc`, runs `all --relay-local` and keeps
+`.forgejo/workflows/transport.yml` (here, so Forgejo no longer runs it: it reads only the monorepo root's
+workflows, `docs/ci-runners.md`) builds on a Forgejo runner labelled `windows-msvc`, runs `all --relay-local` and keeps
 the DLL as an artifact. The runner is the maintainer's (Visual Studio 2026 or its Build Tools with v145, PowerShell 7, Node).
 The checks below were made on GitHub's hosted runner before the move to Forgejo.
 

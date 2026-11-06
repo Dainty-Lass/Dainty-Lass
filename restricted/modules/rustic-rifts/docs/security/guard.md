@@ -2,6 +2,9 @@
 
 # Security checklist: Guard in observe mode (RX3)
 
+> **Retired** (RD27): this checklist is for the AGPL `rifts-*` crate, which was replaced by the root's MIT
+> clean-room crate and removed. Kept for reference; the root's `docs/security/rifts-*.md` is the live checklist.
+
 The checklist for `crates/rifts-guard` (DaintyLass plan RF6, DD14, DX2): the Hunt Guard evidence chain intake, host
 writes and the native inventory fence, the host grant policy and the draft token cap, the host policy mode, the Guard traffic limits, the host route census and
 Guard's two admin operations routes. Launcher Guard and the Guard manifests are isles' (RF1, decision 1) and have

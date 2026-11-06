@@ -2,6 +2,10 @@
 
 # AGPL provenance inventory and MIT rewrite scope (L0 — DD26, DL2, DL3a, DL4a)
 
+> **Historical** (L0): the inventory that scoped the MIT rewrite. Everything it lists for rewriting was rewritten
+> clean-room (RD27): the MIT crates are at the root, the AGPL ones are under `restricted/`, and `dainty-lass-ui` and
+> the `rust/` folder are gone. The provenance records that replace it are in `clean-room/`.
+
 This document inventories every crate in `dainty-lass/rust` (including `fuzz`), `native/runtime-loader`, and every
 package in the `ui/` workspace (`silentspud/dainty-lass-ui`) at `plan` (`b190010` / `5dd3e28`). It records each file's
 provenance and evidence, maps the crate dependency graph (including every MIT-to-AGPL dependency edge), determines the

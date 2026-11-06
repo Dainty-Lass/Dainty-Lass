@@ -2,6 +2,9 @@
 
 # Catch-up list: host kit (RX2)
 
+> **Closed** (RD16, 2026-10-26): the upstream line was removed and RH5/RH7 are done. Kept as the record of what was
+> ported; paths name the layout of the time.
+
 Every Node commit that changed Reforged's host kit (`ReforgedHost/`, now `legacy/ReforgedHost/`) after the delta
 lists (RX1) were made, and whether the Rust host kit in `crates/host` on `plan` has it. RH5 and RH7 port what
 is left before the host kit's cutover.

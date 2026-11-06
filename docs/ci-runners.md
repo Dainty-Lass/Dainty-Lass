@@ -1,8 +1,8 @@
 # CI runners
 
-The two repositories, dainty-lass and dainty-restricted (RD27), run their checks on Forgejo Actions at
-`git.silentspud.com` (DX3). The workflows are in each repository's root `.forgejo/workflows/`; Forgejo reads only
-that folder and ignores `.github/workflows/` once it exists, so the GitHub workflows Mystic Paradox and Dauntless
+dainty-lass runs its checks on Forgejo Actions at `git.silentspud.com` (DX3), for both workspaces: the MIT root
+and the AGPL `restricted/` (RD27). The workflows are in the root `.forgejo/workflows/`; Forgejo reads only that
+folder and ignores `.github/workflows/` once it exists, so the GitHub workflows Mystic Paradox and Dauntless
 Revived came with stay as they were, for GitHub only.
 This page is the maintainer's: the runners, their labels and how to register them.
 
@@ -13,20 +13,20 @@ Three labels. One Linux machine can serve the first two from one runner.
 | Label | Runs on | Used for |
 | --- | --- | --- |
 | `docker` | A job container from `node:22-bookworm` on a Linux runner | Rust (rustup is installed by the job), Node, Bun, cargo-deny, fuzzing, the change detection and `CI ok` |
-| `linux-host` | The Linux runner itself (host mode) | dainty-restricted's Docker and network jobs: they build the images and run the compose smoke test on the runner's own Docker |
-| `windows-msvc` | The maintainer's Windows machine (host mode) | MSVC builds: each repository's Rust workspace on Windows, dainty-restricted's unsigned NSIS installers (`installers-windows`), and its release builds on Windows |
+| `linux-host` | The Linux runner itself (host mode) | restricted's Docker and network jobs: they build the images and run the compose smoke test on the runner's own Docker |
+| `windows-msvc` | The maintainer's Windows machine (host mode) | MSVC builds: both Rust workspaces on Windows, restricted's unsigned NSIS installers (`installers-windows`), and the release builds on Windows |
 
-| Repository | Workflows | Labels |
+| Workflow | Jobs | Labels |
 | --- | --- | --- |
-| dainty-lass | `ci.yml` (every push: Rust, cargo-deny, fuzz, the UI) | `docker`, `windows-msvc` |
-| dainty-restricted | `ci.yml` (every push: Rust, cargo-deny, fuzz, the Paradox reference, Docker, the installers, the network), `server-release.yml` and `launcher-release.yml` (Run workflow, a dry run) | `docker`, `linux-host`, `windows-msvc` |
+| `ci.yml` (every push) | The root's Rust, cargo-deny and fuzz; the UI; `restricted/`'s Rust, cargo-deny and fuzz, the Paradox reference, Docker, the installers and the network | `docker`, `linux-host`, `windows-msvc` |
+| `server-release.yml`, `launcher-release.yml` (Run workflow, a dry run) | Build from `restricted/` | `docker`, `windows-msvc` |
 
 rustic-isles' and rustic-rifts' own workflows (`ci.yml`, `routes.yml`, and RF3's `transport.yml` for the
-transport DLL and its self-test) are still in their `modules/<name>/.forgejo/workflows/` from before they moved
+transport DLL and its self-test) are still in `restricted/modules/<name>/.forgejo/workflows/` from before they moved
 in-tree. Forgejo doesn't read a workflow there, so nothing runs them.
 
-Register the runners on the **`silentspud` organisation**, not on one repository, so every repository reaches
-them: organisation settings, Actions, Runners, "Create new runner" shows the registration token. A job whose label
+Register the runners on the **`silentspud` account** (a user, not an organisation), not on one repository, so every
+repository reaches them: user settings, Actions, Runners, "Create new runner" shows the registration token. A job whose label
 no runner carries waits in the queue; it doesn't fail.
 
 ## What every runner needs
@@ -107,36 +107,35 @@ named.
 
 ## Secrets and settings
 
-Set them on the `silentspud` organisation (settings, Actions, Secrets), so every repository sees them. Both are
-optional today.
+Set them on the `silentspud` account (settings, Actions, Secrets), so every repository sees them. It is optional
+today.
 
 | Secret | Used by | When it is needed |
 | --- | --- | --- |
-| `CI_READ_TOKEN` | dainty-restricted's jobs, which fetch dainty-lass's crates over HTTPS at the rev `Cargo.toml` pins; dainty-lass's UI job, which checks out dainty-restricted for `bun run restricted-data` | When the job's own token can't read the other repository while the instance needs sign-in (DF1's finding). A token with read access to repositories |
+| `CI_READ_TOKEN` | Nothing since `restricted/` moved in-tree (2026-11-05): restricted takes the root's crates by path and the UI job reads `restricted/` from the same checkout. Kept for a job that has to read another repository | When the job's own token can't read the other repository while the instance needs sign-in (DF1's finding). A token with read access to repositories |
 
 Actions must be on for each repository (repository settings, Units, Actions) and on the instance
 (`[actions] ENABLED = true` in `app.ini`, the default).
 
 ## Branch protection
 
-Each repository's `CI ok` is the one check to require on its `plan` and `main`; the jobs it sums up are skipped
+`CI ok` is the one check to require on `plan` and `main`; the jobs it sums up are skipped
 when their family didn't change. In Forgejo's branch protection, "Enable status check", the pattern is
 `CI / CI ok*`.
 
 ## First run
 
-1. On each repository's Actions tab, check that the workflows are listed.
-2. Run dainty-restricted's CI with "Run workflow" on `plan`: every family runs, so every label is exercised. Then
-   dainty-lass's.
-3. Run dainty-restricted's Server release by hand once. The release's artifact `server-release` holds the two
+1. On the repository's Actions tab, check that the workflows are listed.
+2. Run CI with "Run workflow" on `plan`: every family runs, so every label is exercised.
+3. Run the Server release by hand once. The release's artifact `server-release` holds the two
    archives and `SHA256SUMS.txt`.
 
 ## What isn't here
 
-- **Publishing a release.** dainty-restricted's `server-release.yml` is a dry run on Forgejo: `reforged-host update` reads GitHub's
+- **Publishing a release.** `.forgejo/workflows/server-release.yml` is a dry run on Forgejo: `reforged-host update` reads GitHub's
   releases API and checks GitHub attestations. The tag trigger and the publish job come back with DX5, from
   `b28fd27:.github/workflows/server-release.yml`.
 - **Dependency updates.** `.github/dependabot.yml` is GitHub's and does nothing on Forgejo. Renovate is the
   Forgejo equivalent, if wanted before DX5.
-- **Mystic's and DR's other jobs.** rustic-isles' launcher, runtime loader and gitleaks jobs stay in its
-  `.github/workflows/`, for GitHub only.
+- **Mystic's and DR's other jobs.** rustic-isles' launcher, runtime loader and gitleaks jobs stay in
+  `restricted/modules/rustic-isles/.github/workflows/`, for GitHub only.

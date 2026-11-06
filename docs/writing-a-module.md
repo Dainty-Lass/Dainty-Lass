@@ -2,14 +2,14 @@
 
 Every game version DaintyLass serves (today `1.14.7`) is packaged as a **`GameModule`** on
 [`crates/module-api`](../crates/module-api). The same `GameModule` implementation runs compiled into
-dainty-restricted's server binaries (`server-minimal`, `server-console`, and the launcher's `server-gui`) or out of
+`restricted/`'s server binaries (`server-minimal`, `server-console`, and the launcher's `server-gui`) or out of
 process as a standalone executable speaking length-prefixed JSON frames over stdin and stdout (`module_api::child`).
 
 ## 1. Crate layout
 
-A game module lives outside `dainty-lass`'s git history and depends on `module-api`, `protocol`, `service-kit` and
-`store` as git dependencies on dainty-lass at one rev, as dainty-restricted's `modules/rustic-isles` does. Give the
-crate both a `[lib]` target (for compiled-in server builds) and a `[[bin]]` target (for out-of-process loading):
+A game module depends on `module-api`, `protocol`, `service-kit` and `store`: by path inside this repository, as
+`crates/rustic-isles-1-14-7` does, or as git dependencies on dainty-lass at one rev from a repository of its own. Give
+the crate both a `[lib]` target (for compiled-in server builds) and a `[[bin]]` target (for out-of-process loading):
 
 ```toml
 [package]
@@ -159,7 +159,7 @@ and forwards `start`, `command`, `admin`, `status` and `stop` over length-prefix
 
 ## 5. Loading the module in `host.toml`
 
-- **Compiled-in modules** are enabled via Cargo features on dainty-restricted's `server-console`, `server-minimal`
+- **Compiled-in modules** are enabled via Cargo features on `restricted/`'s `server-console`, `server-minimal`
   and `launcher` ([server-modules.md](server-modules.md)) and loaded by default unless `[modules] compiled = [...]`
   restricts the list.
 - **External modules** are listed in `.workspace/config/host.toml` with a relative path under the server root and

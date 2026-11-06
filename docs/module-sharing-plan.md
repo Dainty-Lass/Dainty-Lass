@@ -6,7 +6,10 @@ Draft, 2026-11-01, reworked against `plan` (`8ea66dd`). The first draft (`8e4d19
 proposed a registry, capabilities, a loopback module API and a sidecar supervisor that `plan` already has in another
 form. This version keeps what exists, cuts what duplicates it, and lists only the additions.
 
-**One game.** Dauntless 1.14.7 on rustic-isles (`isles-1-14-7`, from `modules/rustic-isles`) and nothing else. No
+**Status (2026-11-05):** not started; D1–D6 below wait on the maintainer. Paths are updated for the in-tree
+`restricted/` and the MIT `rustic-isles-*` crates (RD27).
+
+**One game.** Dauntless 1.14.7 on rustic-isles (`crates/rustic-isles-1-14-7`) and nothing else. No
 Dauntless Revived 1.4.4 or Rustic Isles 1.12 modules, so nothing here is per edition.
 
 **Words.** A *server* is one DaintyLass install: a `ServerController` (`crates/controller/src/controller.rs`) with its
@@ -34,9 +37,9 @@ this doc doesn't.
 | Per-module configuration | `[modules.<id>.<section>]` laid over registered defaults into `ModuleConfig.sections`; `ModuleRegistry::update_settings`; ports placed by `PortBook` into `ModuleConfig.ports` | `registry.rs`, `ports.rs`, `hostconfig/modules.rs` |
 | Secrets for built-in services | Each built-in reads its own env file that `setup` writes from `host.toml` and `secrets.env` (`SECRET_KEYS`) | `crates/hostkit/src/hostconfig.rs`, `controller/src/modules.rs` |
 | Moderation across modules | `AdminRequest` (kick, ban, unban, lift timeout, lookup) routed to the player's game; admin GraphQL `modules`, `loadModule`, `unloadModule`, `restartModule` | `crates/admin/src/modules.rs`, `module_control.rs`, `schema.graphql` |
-| The hub's readiness | `DedicatedServers::hub_status()` → `LiveHubStatus { ramsgate: Option<LiveHub { ready, host, port }>, .. }` from the Director's `GET /api/hub-status` | rustic-isles `crates/isles-core/src/areas/matchmaking/deploy.rs` |
+| The hub's readiness | `DedicatedServers::hub_status()` → `LiveHubStatus { ramsgate: Option<LiveHub { ready, host, port }>, .. }` from the Director's `GET /api/hub-status` | `crates/rustic-isles/src/dedicated.rs` |
 | Every game server on one server | The Director's `GET /api/instances`: city (hub), hunt, dojo, tutorial, with players. Admin parses it (`input::Instance`, `InstanceKind`) but `huntStatus` keeps only hunts | `crates/admin/src/upstream.rs` (`instances`), `input.rs` |
-| Invites | Host-only `POST /reforged/api/CreateInvite` in the game module (uses, infinite, note; no expiry) | rustic-isles `crates/isles-core/src/areas/reforged_api/host_routes.rs` |
+| Invites | Host-only `POST /reforged/api/CreateInvite` in the game module (uses, infinite, note; no expiry) | `crates/rustic-isles-reforged/src/admin/host_routes.rs` |
 | Many servers, one place | `crates/remote` (DD27, MIT): enrollment, mTLS `POST /__node/remote`, 15 s `Sync` with `InstallReport` (counts of players, hunts, hubs, realms; component health; doctor; history), queued `RemoteCommand`s with roles and `DH6` approval, `SharedConfigBundle` revisions | `crates/remote/src/wire.rs`, `state.rs`, `transport.rs` |
 | Game servers across a network | `InstanceRecord` and the ring (DN6, DN8, DN9), the directory (DD17) | `crates/network/src/ring.rs`, `directory.rs`; `module-api/src/network.rs` |
 | History of every database write | `store`'s hash-chained change log (DD23, DH1–DH5), on SQLite (default) or Postgres (DD15) | `crates/store/src/history.rs`, `engine.rs` |
@@ -126,7 +129,7 @@ pub struct GameServer {
 
 ### A3. rustic-isles: the game module answers game calls
 
-In `modules/rustic-isles` (its own repository, pinned as a submodule):
+In the `rustic-isles-*` crates (`crates/rustic-isles` and `crates/rustic-isles-1-14-7`), through their specs (RD27):
 
 - `Availability`: `hub_status()`; `up` when `ramsgate` is `Some` with `ready`. Unreachable Director →
   `director_unreachable`; no Ramsgate → `no_hub`; present but not ready → `hub_not_ready`.
@@ -167,7 +170,7 @@ create index events_name_seq on events (name, seq);
 - **Change log:** every `store` table is change-logged (DH1), so an append-only events table writes each row twice.
   D2 decides whether that is acceptable or `store` grows an opt-out for append-only tables.
 - **Retention:** `[events] retention_days` (proposed, default 90), a daily delete by `at_ms`.
-- The schema goes through `store`'s owner (section 5.1 of the plan).
+- The schema goes through `store`'s owner (section 2 of `MIGRATION_PLAN.md`).
 
 ### A6. `remote`: game servers in the fleet
 
@@ -244,7 +247,7 @@ flowchart LR
         Remote["remote"]
         Bot["discord bot (A7)"]:::new
         Recorder["event recorder (A5)"]:::new
-        Isles["isles-1-14-7\nbackend + Director"]
+        Isles["rustic-isles-1-14-7\nbackend + Director"]
     end
 
     Child["external module\n(child process)"]
@@ -359,12 +362,12 @@ One agent, one worktree and branch each (RD18). MS1 is a seam and lands first.
 | --- | --- | --- | --- |
 | **MS1** | `module_api::game` (A1): `GameCall`, `GameAnswer`, `Availability`, `UnavailableReason`, `GameServer`, `GameServerKind`, the event-name constants; `GameModule::game`; `ModuleCall::Game` / `ModuleAnswer::Game`; `Registrar::game_call`; `API_VERSION`; the stub module answers it; the `module_frame` fuzz target covers the new frames; `docs/writing-a-module.md` and `docs/security/module-host.md` | `crates/module-api` (seam: through the integration pass) | — |
 | **MS2** | Controller (A2): `ModuleRegistry::game`, `game_servers`; restart with backoff for external modules; `restart` in `hostconfig/modules.rs` and `hosttoml.rs`; `docs/hosting.md` row | `crates/controller`, `crates/hostkit/src/hostconfig/modules.rs` | MS1 |
-| **MS3** | rustic-isles (A3): `game()` on the isles module, the hub-status watch and its events, invite expiry per D4 | `modules/rustic-isles` (its repository), then the submodule bump here | MS1 |
+| **MS3** | rustic-isles (A3): `game()` on the isles module, the hub-status watch and its events, invite expiry per D4 | `crates/rustic-isles`, `crates/rustic-isles-1-14-7`, through `docs/port/spec-rustic-isles-*.md` | MS1 |
 | **MS4** | Admin (A4): `gameServers`, `availability`, `events`; `schema.graphql`; `docs/admin-api.md` | `crates/admin` | MS2, MS5 for `events` |
 | **MS5** | Event recorder (A5): subscriber, table, `events.lagged`, retention, `[events]` in host.toml; the schema reported to `store`'s owner | `crates/controller` (recorder only), `crates/hostkit` (`[events]`) | MS2; D2 |
 | **MS6** | Remote (A6): `InstallReport` fields, last report per node, admin `installs` and `node` on moderation; upgrade order in `docs/remote-management.md`; `remote_wire` fuzz target | `crates/remote`, `crates/admin` (fleet fields only, after MS4) | MS2, MS4; D1 |
 | **MS7** | Discord bot (A7): `plugins/discord`, `controller::modules::discord`, `[discord]` and the token through `setup`, `/key` and `/status`, catalog in `en` and `pt-BR`, `docs/security/discord.md` and a fuzz target for interaction parsing, the hosting docs | new `plugins/discord`; `crates/hostkit` (`[discord]`, secret) | MS2, MS3; MS5 for its audit (D6) |
-| **MS8** | dainty-dash (A8): the account-creation setting and `GET /api/public/signup`; game-server views; the fleet from `installs` (or, per D1, the agent's report gains `gameServers`) | dainty-dash repository | MS4, MS6; D1, D3 |
+| **MS8** | dainty-dash (A8): the account-creation setting and `GET /api/public/signup`; game-server views; the fleet from `installs` (or, per D1, the agent's report gains `gameServers`) | `ui/` | MS4, MS6; D1, D3 |
 
 MS3, MS4 and MS5 can run side by side once MS2 is merged. Nothing here edits `MIGRATION_PLAN.md`; the integration
 pass adds the rows and the decisions.

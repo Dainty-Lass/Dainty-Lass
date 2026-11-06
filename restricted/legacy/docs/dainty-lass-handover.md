@@ -4,7 +4,10 @@ dainty-legacy now carries everything DaintyLass did for old installs. This page 
 it depends on this module, what it adds to reach it, and what the two must keep in step. dainty-legacy edits nothing
 in dainty-lass; the 1.4.4 removal there does these.
 
-Paths are dainty-lass `plan` at `fb46a4a`, the rev this repository pins.
+Paths are dainty-lass `plan` at `fb46a4a`, the rev dainty-legacy pinned when it was a repository of its own.
+
+> **Done.** dainty-lass made these changes, and dainty-legacy is `restricted/legacy/` in the monorepo since
+> 2026-11-05, taking `module-api` and `store` by path. Kept as the record of the hand-over.
 
 ## What dainty-lass deletes
 

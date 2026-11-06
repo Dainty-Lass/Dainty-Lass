@@ -2,6 +2,9 @@
 
 # Security checklist: realm host and transport loader (RF7)
 
+> **Retired** (RD27): this checklist is for the AGPL `rifts-*` crate, which was replaced by the root's MIT
+> clean-room crate and removed. Kept for reference; the root's `docs/security/rifts-*.md` is the live checklist.
+
 The checklist for `crates/rifts-host` (DaintyLass plan RF7, DD12, RD9): loading `ParadoxTransport.dll` via `libloading`,
 the per-session folder and `0600` secret files, the hosted server launch environment, and the boundary between realm
 hosting and normal game launch.

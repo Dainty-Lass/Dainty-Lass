@@ -2,15 +2,14 @@
 
 # Security checklist: Rustic Isles module skeleton (RX3)
 
-The checklist for `crates/rustic-isles`, the MIT skeleton of dainty-restricted's Rustic Isles module: the pipeline in
+The checklist for `crates/rustic-isles`, the MIT skeleton of the Rustic Isles module: the pipeline in
 front of every backend and Director route, the route table, settings, start and stop, the game data loader and the
 replay clock (RD27, `docs/port/spec-rustic-isles-core.md`). The sign-in area it hosts has its own page,
-[`rustic-isles-auth.md`](rustic-isles-auth.md). `SECURITY_REVIEW.md` indexes it once the integration pass adds the
-row.
+[`rustic-isles-auth.md`](rustic-isles-auth.md).
 
-How to use it: before restricted's version crate composes this crate, copy this list into the change, check each item
-in the code (not from memory), link the code or test that shows it, and sign at the end with the date and the commit
-reviewed. An item that does not hold is a bug to fix first, not a box to leave open.
+How to use it: before a change to this crate merges, and before its cutover is signed (RD10), copy this list into the
+change, check each item in the code (not from memory), link the code or test that shows it, and sign at the end with the
+date and the commit reviewed. An item that does not hold is a bug to fix first, not a box to leave open.
 
 ## What it is and where the boundary is
 

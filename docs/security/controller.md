@@ -13,8 +13,8 @@ the commit reviewed. An item that does not hold is a bug to fix before the cutov
 
 ## What it is and where the boundary is
 
-The controller starts the server's modules in order (allowlist, gateway, content, admin, the compiled-in `isles-1-14-7`
-Rust backend on port 61000 and in-process `isles-director` on port 61001 over SQLite or Postgres; or MongoDB and the Node backend/Director when built with the opt-in `paradox` rollback
+The controller starts the server's modules in order (allowlist, gateway, content, admin, the compiled-in MIT
+`rustic-isles-1-14-7` module: its backend on port 61000 and in-process `rustic-isles-director` on port 61001 over SQLite or Postgres; or MongoDB and the Node backend/Director when built with the opt-in `paradox` rollback
 feature), keeps each one's phase, and stops them in reverse. It opens no listener of its own: every port belongs to a
 module, and each module keeps the checklist of its component (`gateway.md`, `allowlist.md`, `content.md`,
 `admin-api.md`, `host-start.md`). What the controller adds is one process holding all of them, a console that drives

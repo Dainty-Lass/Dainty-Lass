@@ -5,11 +5,11 @@
 The checklist for `crates/rustic-isles-chat`, the MIT chat rules and chat area routes of Rustic Isles (RD27,
 `docs/port/spec-rustic-isles-chat.md` §12). It opens no listener of its own: its routes run behind core's pipeline on
 the backend, and its rules answer the chat plugin's queries, which carry what a game client wrote (a SASL authcid and
-token, room names, JID local parts). `SECURITY_REVIEW.md` indexes it once the integration pass adds the row.
+token, room names, JID local parts).
 
-How to use it: before restricted's composer switches to this crate, copy this list into the change, check each item in
-the code (not from memory), link the code or test that shows it, and sign at the end with the date and the commit
-reviewed.
+How to use it: before a change to this crate merges, and before its cutover is signed (RD10), copy this list into the
+change, check each item in the code (not from memory), link the code or test that shows it, and sign at the end with the
+date and the commit reviewed.
 
 ## What it is and where the boundary is
 

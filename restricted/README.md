@@ -37,7 +37,7 @@ AGPL parts and builds the full server, the Tauri launcher and the Docker images,
 | --- | --- |
 | [`.`](.) | Independent AGPL-3.0-only Cargo workspace: `crates/` (`host`, the libraries of the MIT gateway, content and chat, and the server executables), `launcher/src-tauri` (Tauri: `dainty-lass-client` and `dainty-lass-manager`), and the game modules' crates |
 | [`modules/rustic-isles/`](modules/rustic-isles) | The library the core loads for the 1.14.7 module (`isles-1-14-7-plugin`), its version data and the Node goldens replayed against it (`isles-mit-parity`), the runtime's C++ source and CatalogExporter (`native/`), and the Node reference sources (`reference/1.14.7`) |
-| [`modules/rustic-rifts/`](modules/rustic-rifts) | Peer-to-peer realms and the realm transport |
+| [`modules/rustic-rifts/`](modules/rustic-rifts) | The realm transport (`ParadoxTransport.dll`) and `oracle`, which replays Mystic Paradox's answers against the root's MIT `rifts-*` crates |
 | [`legacy/`](legacy) | The importer for Dauntless Revived 1.4.4 and Reforged Revival installs |
 | [`native/`](native) | The runtime loader (`runtime-loader`, Rust `winmm.dll` proxy) |
 | [`docker/`](docker), `compose.yaml` | The server as containers |
