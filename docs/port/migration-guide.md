@@ -147,7 +147,7 @@ against fixtures generated from the Node kit (`restricted/crates/host/tests/fixt
 | `linux/setup-vps.sh`, `linux/Deploy-FromWindows.ps1` | not carried; gone with `legacy/` on 2026-10-26 | RH5 reduces them to fetching the release and calling `reforged-host`; `restricted/docs/hosting-linux.md` is the host's view |
 | — | `commands/setup/` (`database`, `firewall`, `install`, `options`, `paradox`, `secrets`), `commands/backup.rs`, `commands/multipliers.rs` | The Rust split of the Node `setup` and its helpers; `paradox` also copies a host's files from the layouts before RP4 and DS6 |
 | — | `serve.rs`, `repl.rs`, `tui.rs`, `hostconfig/yaml.rs` | New (RD26): the server as one process, its console and dashboard, and `host.yaml`. No Node counterpart, so an upstream host-kit change never lands here first |
-| — | `guarded.rs`, `hostconfig/guard.rs`, `hostconfig/modules.rs`, `commands/history.rs`, `commands/network.rs`, `epicinstall.rs`, `commands/install_game.rs` | New (DF3, DN2/DN3, DH3b, DH6, DE6): `[guard]` and `[modules]`/`[network]` config, guarded action CLI, `history`/`revert` CLI, `network ca-init`/`issue-node-cert`/`list`/`status`, and `install-game` from Epic |
+| — | `guarded.rs`, `hostconfig/guard.rs`, `hostconfig/modules.rs`, `hostconfig/env.rs`, `commands/history.rs`, `commands/network.rs`, `epicinstall.rs`, `commands/install_game.rs` | New (DF3, DN2/DN3, DH3b, DH6, DE6, RD24): `[guard]`, `[modules]`/`[network]` and `[env.<service>]` config, guarded action CLI, `history`/`revert` CLI, `network ca-init`/`issue-node-cert`/`list`/`status`, and `install-game` from Epic |
 
 ### 2.6 Launcher (`launcher`, rows RA1–RA13)
 
