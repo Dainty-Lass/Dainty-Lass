@@ -1925,6 +1925,7 @@ mod tests {
             env: None,
             network: None,
             remote: None,
+            split: None,
             file: FileForm::default(),
         };
         save_host_config(&paths, &cfg).unwrap();
@@ -2008,6 +2009,7 @@ mod tests {
             env: None,
             network: None,
             remote: None,
+            split: None,
             switches: Default::default(),
             file: FileForm::default(),
         };
@@ -2096,6 +2098,7 @@ mod tests {
             env: None,
             network: None,
             remote: None,
+            split: None,
             switches: Default::default(),
             file: FileForm::default(),
         };

@@ -5,6 +5,7 @@ pub mod env;
 pub mod guard;
 pub mod modules;
 pub mod services;
+pub mod split;
 pub mod yaml;
 
 pub use guard::GuardConfig;
@@ -774,6 +775,8 @@ pub struct HostConfig {
     pub env: Option<env::EnvPassthrough>,
     pub network: Option<NetworkConfig>,
     pub remote: Option<RemoteConfig>,
+    /// `[split]`: this server is one half of two, the metagame or the game servers (`docs/split-roles.md`)
+    pub split: Option<split::SplitConfig>,
     pub file: FileForm,
 }
 
@@ -922,6 +925,10 @@ impl HostConfig {
             Some(r) if !r.is_null() => Some(RemoteConfig::from_json(r)?),
             _ => None,
         };
+        let split = match obj.get("split") {
+            Some(s) if !s.is_null() => Some(split::SplitConfig::from_json(s)?),
+            _ => None,
+        };
         Ok(Self {
             version,
             mode,
@@ -947,6 +954,7 @@ impl HostConfig {
             env,
             network,
             remote,
+            split,
             file: FileForm {
                 document: obj,
                 read,
@@ -984,6 +992,9 @@ impl HostConfig {
             }
             if self.remote.is_none() {
                 self.remote = prev.remote.clone();
+            }
+            if self.split.is_none() {
+                self.split = prev.split.clone();
             }
             if self.dashboard_url.is_none() {
                 self.dashboard_url = prev.dashboard_url.clone();
@@ -1156,6 +1167,9 @@ impl HostConfig {
         }
         if let Some(e) = &self.env {
             canonical.insert("env".into(), env::to_json(e));
+        }
+        if let Some(sp) = &self.split {
+            canonical.insert("split".into(), sp.to_json());
         }
         merge_document_order(&self.file.document, canonical)
     }
@@ -1980,6 +1994,15 @@ pub fn validate(document: &Value) -> Result<Value, HostError> {
         None => None,
     };
 
+    let split_cfg = match obj.get("split").filter(|v| !v.is_null()) {
+        Some(sp) => {
+            let split = split::SplitConfig::from_json(sp)?;
+            split.check(mode, network_cfg.as_ref())?;
+            Some(split)
+        }
+        None => None,
+    };
+
     let mut canonical = Map::new();
     canonical.insert("version".into(), Value::from(1));
     canonical.insert("mode".into(), Value::String(mode.as_str().to_owned()));
@@ -2080,6 +2103,9 @@ pub fn validate(document: &Value) -> Result<Value, HostError> {
     if let Some(e) = env_cfg {
         canonical.insert("env".into(), env::to_json(&e));
     }
+    if let Some(sp) = split_cfg {
+        canonical.insert("split".into(), sp.to_json());
+    }
     Ok(Value::Object(merge_document_order(obj, canonical)))
 }
 
@@ -2103,6 +2129,7 @@ fn merge_document_order(orig: &Map<String, Value>, canonical: Map<String, Value>
         "modules",
         "services",
         "env",
+        "split",
     ];
     let mut out = Map::new();
     for (k, orig_v) in orig {
@@ -2510,6 +2537,10 @@ pub fn build_env_files(c: &HostConfig, s: &Secrets, p: &Paths, source_commit: &s
         "REFORGED_SESSION_SUPPLIES_FILE",
         path_text(&p.config.join("session-supplies.json")),
     );
+    // The other half's port is the node-link tunnel (docs/split-roles.md)
+    if let Some(split) = &c.split {
+        push(&mut backend, "RUSTIC_ISLES_PORT_SERVICES", split.role.port_service());
+    }
     push(&mut backend, "LOG_LEVEL", "info");
 
     // 2. director
@@ -3032,6 +3063,82 @@ GATEWAY_MAX_CONNECTIONS = 4096"
                 .unwrap_err()
                 .to_string()
                 .contains("env.gateway.GATEWAY_SECRET")
+        );
+    }
+
+    /// `[split]` needs the other half in `[network]`, guards a public game servers half's ports, and tells the module
+    /// which port service it runs.
+    #[test]
+    fn split_reaches_the_backend_file() {
+        let text = "version = 1
+mode = \"public\"
+name = \"Friday Hunts\"
+host = \"play.example.org\"
+game_address = \"203.0.113.7\"
+registration = \"INVITECODE\"
+max_hunt_servers = 3
+
+[network]
+node = \"meta-1\"
+region = \"oregon\"
+
+[[network.nodes]]
+id = \"games-1\"
+region = \"oregon\"
+host = \"games.internal\"
+port = 443
+
+[split]
+role = \"metagame\"
+peer = \"games-1\"
+";
+        let cfg = HostConfig::from_toml(text).unwrap();
+        let split = cfg.split.clone().unwrap();
+        assert_eq!(
+            (split.role, split.peer.as_str()),
+            (split::SplitRole::Metagame, "games-1")
+        );
+        let rewritten = cfg.to_toml().unwrap();
+        assert!(
+            rewritten.contains("[split]") && rewritten.contains("peer = \"games-1\""),
+            "{rewritten}"
+        );
+
+        let dir = tempfile::tempdir().unwrap();
+        let p = Paths::new(dir.path());
+        let files = build_env_files(&cfg, &Secrets::default(), &p, "", Platform::Windows);
+        assert!(
+            files
+                .backend
+                .contains(&("RUSTIC_ISLES_PORT_SERVICES".to_owned(), "backend".to_owned()))
+        );
+        let none = HostConfig::from_toml(&text.replace(
+            "[split]
+role = \"metagame\"
+peer = \"games-1\"
+",
+            "",
+        ))
+        .unwrap();
+        assert!(none.split.is_none());
+        let files = build_env_files(&none, &Secrets::default(), &p, "", Platform::Windows);
+        assert!(!files.backend.iter().any(|(k, _)| k == "RUSTIC_ISLES_PORT_SERVICES"));
+
+        let refused = |text: &str| HostConfig::from_toml(text).unwrap_err().to_string();
+        assert!(refused(&text.replace("peer = \"games-1\"", "peer = \"games-2\"")).contains("[[network.nodes]]"));
+        assert!(refused(&text.replace("peer = \"games-1\"", "peer = \"meta-1\"")).contains("this node"));
+        let games = text.replace("role = \"metagame\"", "role = \"gameservers\"");
+        assert!(refused(&games).contains("open_game_ports"));
+        let open = HostConfig::from_toml(&format!(
+            "{games}open_game_ports = true
+"
+        ))
+        .unwrap();
+        let files = build_env_files(&open, &Secrets::default(), &p, "", Platform::Windows);
+        assert!(
+            files
+                .backend
+                .contains(&("RUSTIC_ISLES_PORT_SERVICES".to_owned(), "director".to_owned()))
         );
     }
 }

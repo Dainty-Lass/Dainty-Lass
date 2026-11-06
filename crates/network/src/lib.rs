@@ -14,6 +14,8 @@
 //! - [`home`]: the home API (DD17): session tickets an account's home signs, and a game module's operations on an
 //!   account run at its home for another node ([`home::NetworkedHome`], [`home::HomeService`]).
 //!
+//! - [`tunnel`]: HTTP between the two halves of a split server (`docs/split-roles.md`): a loopback listener on one
+//!   node, the same port's service on the other.
 //! - [`logship`]: a node's change log shipped to a peer region's node (DH7): the put protocol, `PeerBucket` for
 //!   `history-ship`'s shipper, and the folder the peer keeps it in.
 //!
@@ -34,6 +36,7 @@ pub mod messages;
 pub mod relay;
 pub mod ring;
 pub mod tls;
+pub mod tunnel;
 #[cfg(feature = "directory")]
 pub mod username;
 pub mod wire;

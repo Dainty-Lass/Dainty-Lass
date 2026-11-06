@@ -49,6 +49,7 @@ const TOP: &[Field] = &[
     ("modules", "modules", false),
     ("services", "services", false),
     ("env", "env", false),
+    ("split", "split", false),
 ];
 
 /// The top-level keys whose tables and lists are read as they are (`hostconfig/modules.rs`, `services.rs`, `env.rs`).
@@ -82,6 +83,12 @@ fn is_peer_list(prefix: &str, json: &str) -> bool {
 fn is_string_list(prefix: &str, json: &str) -> bool {
     prefix == "remote." && json == "localOverrides"
 }
+
+const SPLIT: &[Field] = &[
+    ("role", "role", false),
+    ("peer", "peer", false),
+    ("openGamePorts", "open_game_ports", false),
+];
 
 const MONGO: &[Field] = &[
     ("uri", "uri", false),
@@ -162,6 +169,7 @@ fn table_fields(json_key: &str) -> Option<&'static [Field]> {
         "switches" => Some(SWITCHES),
         "network" => Some(NETWORK),
         "remote" => Some(REMOTE),
+        "split" => Some(SPLIT),
         _ => None,
     }
 }
@@ -600,6 +608,18 @@ fn comment(path: &str) -> &'static str {
             "Extra variables for one service's env file, one [env.<service>] table each (backend, director, content,\n\
              gateway, admin, allowlist), for a tunable with no setting above: GATEWAY_RATE_WS = \"40/24\". Secrets,\n\
              ports, bind addresses and anything setup already writes are refused."
+        }
+        "split" => {
+            "This server as one half of two (docs/split-roles.md): the metagame on one machine or container, the game
+             servers on another, both nodes of [network]. Left out: one server runs both."
+        }
+        "split.role" => {
+            "\"metagame\" (backend, content, admin) or \"gameservers\" (the Director and its game servers)."
+        }
+        "split.peer" => "The other half's node id, listed in [[network.nodes]].",
+        "split.open_game_ports" => {
+            "Game servers half in public mode: true runs with the game ports open to everyone, since players'
+             heartbeats reach the metagame half's gateway, not this half's allowlist."
         }
         "database.allow_remote" => {
             "true: accept a Postgres server on another machine, over a network you trust (private, not the internet)."

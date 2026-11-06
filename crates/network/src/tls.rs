@@ -368,7 +368,12 @@ impl TlsPeerLink {
     }
 
     async fn timed(&self, peer: &Peer, method: Method, target: Target, body: Vec<u8>) -> Result<Bytes, LinkError> {
-        tokio::time::timeout(self.inner.request_timeout, self.exchange(peer, method, target, body))
+        // A tunnelled hunt launch waits for its game server, as the Director's own HTTP client does
+        let limit = match target {
+            Target::Service(Service::Tunnel) => crate::tunnel::CALL_TIMEOUT.max(self.inner.request_timeout),
+            _ => self.inner.request_timeout,
+        };
+        tokio::time::timeout(limit, self.exchange(peer, method, target, body))
             .await
             .unwrap_or_else(|_| Err(unreachable(&peer.id, "no answer in time")))
     }

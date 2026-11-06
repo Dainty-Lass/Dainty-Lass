@@ -36,10 +36,12 @@ pub enum Service {
     Ring,
     /// Remote management between a controller and its enrolled installs (DD27, RM2)
     Remote,
+    /// HTTP between the halves of a split server: the backend's and the Director's loopback ports (`docs/split-roles.md`)
+    Tunnel,
 }
 
 impl Service {
-    pub const ALL: [Service; 7] = [
+    pub const ALL: [Service; 8] = [
         Self::Directory,
         Self::Home,
         Self::Admin,
@@ -47,6 +49,7 @@ impl Service {
         Self::Chat,
         Self::Ring,
         Self::Remote,
+        Self::Tunnel,
     ];
 }
 
@@ -60,6 +63,7 @@ impl Service {
             Self::Chat => "chat",
             Self::Ring => "ring",
             Self::Remote => "remote",
+            Self::Tunnel => "tunnel",
         }
     }
 
