@@ -54,7 +54,7 @@ that an allowed token never ends above the cap.
       `GET .../reward/self` answers `HUNT_REWARDS_UNAVAILABLE` to members. Tests:
       `what_observe_would_refuse_becomes_a_finding`, `the_evidence_chain_through_the_routes`,
       `the_routes_answer_as_node_without_the_module`.
-- [ ] With `MYSTICPARADOX_HUNT_EVIDENCE` off (the default at trust tier 0) both evidence routes answer
+- [ ] With `RUSTIC_RIFTS_HUNT_EVIDENCE` off (the default at trust tier 0) both evidence routes answer
       `HUNT_EVIDENCE_NOT_COLLECTED` (404) as Node does without the module, after the budget and traffic charge, and
       nothing is stored. Test: `the_routes_answer_as_node_without_the_module`.
 - [ ] `rewards.policyStatus` is never ready (`ANTICHEAT_MODULE_ABSENT`), so a Tier 1 hunt routes to a dedicated
@@ -186,7 +186,7 @@ cargo +nightly fuzz run guard_evidence -- -max_total_time=86400
 ## Changes from Node's Guard
 
 - The evidence chain intake is new: Node without the module answers `HUNT_EVIDENCE_NOT_COLLECTED` to every batch.
-  Rifts does the same while `MYSTICPARADOX_HUNT_EVIDENCE` is off, and with it on takes the batches the transport
+  Rifts does the same while `RUSTIC_RIFTS_HUNT_EVIDENCE` is off, and with it on takes the batches the transport
   sends, so `hunts.result` is `{progressionApplied:false,rewardsApplied:false}` after a completion instead of absent.
 - `record_host_write` reads the session again rather than carrying the authorized one on the request.
 - The census ties sort in byte order, not `localeCompare`; request, audit and alert ids are version 4 UUIDs from

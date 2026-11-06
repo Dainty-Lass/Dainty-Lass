@@ -69,7 +69,7 @@ Code: `ffi.rs` (`NativeTransportLoader`, `LoadedTransport`, `sha256_file`), `tra
 - [ ] `build_launch_environment` strips every variable in `CLEARED_VARIABLES` before populating `LAUNCH_VARIABLES`; the
       player's account key is never placed in the dedicated server environment or in any file under `p2p-sessions/`
       (`realm_hosting_creates_0600_session_files_builds_launch_variables_and_cleans_up_on_stop`).
-- [ ] The hosted dedicated server always binds `127.0.0.1` (`MYSTICPARADOX_BIND_ADDRESS=127.0.0.1`,
+- [ ] The hosted dedicated server always binds `127.0.0.1` (`RUSTIC_RIFTS_BIND_ADDRESS=127.0.0.1`,
       `host_server_arguments` with `-multihome=127.0.0.1`); external peers reach it only through the authenticated
       transport tunnel.
 - [ ] Realm hosting and joining never inject a DLL into the game client or write `Archon.ini` redirects (RD9); the
