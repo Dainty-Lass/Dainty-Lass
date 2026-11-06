@@ -266,6 +266,7 @@ mod tests {
             network: None,
             remote: None,
             split: None,
+            logs: None,
             file: FileForm::default(),
         };
         let mongo_uri = resolve_mongo_uri(&paths, Some(&cfg), None);

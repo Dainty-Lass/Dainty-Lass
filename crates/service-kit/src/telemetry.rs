@@ -3,7 +3,9 @@
 
 //! Unified `tracing` + `tracing-subscriber` logging pipeline (`docs/app-structure-plan.md` §4):
 //! - [`RedactingVisitor`] and [`redact_secrets`] scrub `RRK_` keys, operator secrets, and auth tokens.
-//! - [`TableStdoutLayer`] writes `{service:<14} | {line}` atomically to `stdout` (or a custom writer).
+//! - [`TableStdoutLayer`] writes Docker-like lines (`{service:<14} | {time} {LEVEL} {target}: {line}`, colored, or
+//!   JSON; [`crate::console`]) atomically to `stdout` (or a custom writer).
+//! - [`GelfLayer`] ships every record to Graylog in GELF ([`crate::gelf`]).
 //! - [`ChannelLogLayer`] (`LauncherGuiLayer`) streams structured [`HostLogEntry`] records to the GUI.
 //! - [`TuiRingBufferLayer`] buffers structured [`HostLogEntry`] records for the console `--tui` pane.
 //! - [`FileLogLayer`] appends redacted timestamped lines to a log file.
@@ -19,7 +21,7 @@ use std::sync::{Arc, Mutex, OnceLock};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use tracing::field::{Field, Visit};
-use tracing::span::{Attributes, Record};
+use tracing::span::{Attributes, Record as SpanRecord};
 use tracing::{Event, Id, Level, Subscriber};
 use tracing_subscriber::Layer;
 use tracing_subscriber::filter::{LevelFilter, Targets};
@@ -27,6 +29,9 @@ use tracing_subscriber::layer::{Context, SubscriberExt};
 use tracing_subscriber::registry::LookupSpan;
 use tracing_subscriber::reload;
 use tracing_subscriber::util::SubscriberInitExt;
+
+use crate::console::{ColorMode, ConsoleStyle, LogFormat, Record, render};
+use crate::gelf::GelfSink;
 
 static TRACING_BRIDGE_ACTIVE: AtomicBool = AtomicBool::new(false);
 static NEXT_LOG_SEQ: AtomicU64 = AtomicU64::new(1);
@@ -223,7 +228,7 @@ where
     }
 }
 
-fn update_span_service<S>(id: &Id, values: &Record<'_>, ctx: Context<'_, S>)
+fn update_span_service<S>(id: &Id, values: &SpanRecord<'_>, ctx: Context<'_, S>)
 where
     S: Subscriber + for<'a> LookupSpan<'a>,
 {
@@ -236,22 +241,93 @@ where
     }
 }
 
-/// Writes `{service:<14} | {line}` atomically to `stdout` (or a custom writer `W`).
-pub struct TableStdoutLayer<W = fn() -> std::io::Stdout> {
+/// The writer the console layer takes a line's bytes to.
+pub type MakeWriter = Box<dyn Fn() -> Box<dyn Write> + Send + Sync>;
+
+/// Writes each record as [`crate::console::render`] lays it out, every line of it in one write.
+pub struct TableStdoutLayer<W = MakeWriter> {
     make_writer: W,
+    style: ConsoleStyle,
 }
 
-impl TableStdoutLayer<fn() -> std::io::Stdout> {
+impl TableStdoutLayer<MakeWriter> {
+    /// `stdout` in plain text, colored when [`ColorMode::Auto`] says so.
     pub fn stdout() -> Self {
+        Self::stdout_styled(LogFormat::Text, ColorMode::Auto)
+    }
+
+    /// `stdout` in `format`; color only in text. Colors go through `anstream`, which turns them on in a legacy
+    /// Windows console.
+    pub fn stdout_styled(format: LogFormat, color: ColorMode) -> Self {
+        use std::io::IsTerminal;
+        let color =
+            format == LogFormat::Text && color.resolve(std::io::stdout().is_terminal(), |n| std::env::var(n).ok());
+        let make: MakeWriter = if color {
+            Box::new(|| Box::new(anstream::AutoStream::always(std::io::stdout())))
+        } else {
+            Box::new(|| Box::new(std::io::stdout()))
+        };
         Self {
-            make_writer: std::io::stdout,
+            make_writer: make,
+            style: ConsoleStyle { format, color },
         }
     }
 }
 
 impl<W> TableStdoutLayer<W> {
+    /// Plain text to `make_writer`.
     pub fn new(make_writer: W) -> Self {
-        Self { make_writer }
+        Self::styled(make_writer, ConsoleStyle::default())
+    }
+
+    pub fn styled(make_writer: W, style: ConsoleStyle) -> Self {
+        Self { make_writer, style }
+    }
+}
+
+/// The record a layer writes: redacted, with its service and the module that logged it.
+struct Taken {
+    service: String,
+    level: &'static str,
+    target: String,
+    visitor: RedactingVisitor,
+}
+
+impl Taken {
+    fn of<S>(event: &Event<'_>, ctx: &Context<'_, S>) -> Self
+    where
+        S: Subscriber + for<'a> LookupSpan<'a>,
+    {
+        let mut visitor = RedactingVisitor::default();
+        event.record(&mut visitor);
+        let service = resolve_service(event, ctx, &visitor);
+        Self {
+            service,
+            level: level_str(event.metadata().level()),
+            target: event.metadata().target().to_owned(),
+            visitor,
+        }
+    }
+
+    fn record(&self, timestamp_ms: i64) -> Record<'_> {
+        Record {
+            timestamp_ms,
+            level: self.level,
+            service: &self.service,
+            target: &self.target,
+            message: self.visitor.message.as_deref().unwrap_or(""),
+            fields: &self.visitor.fields,
+        }
+    }
+
+    /// Every rendered line, each ended.
+    fn text(&self, style: ConsoleStyle) -> String {
+        let mut text = String::new();
+        for line in render(&self.record(chrono::Utc::now().timestamp_millis()), style) {
+            text.push_str(&line);
+            text.push('\n');
+        }
+        text
     }
 }
 
@@ -265,19 +341,44 @@ where
         record_span_service(attrs, id, ctx);
     }
 
-    fn on_record(&self, id: &Id, values: &Record<'_>, ctx: Context<'_, S>) {
+    fn on_record(&self, id: &Id, values: &SpanRecord<'_>, ctx: Context<'_, S>) {
         update_span_service(id, values, ctx);
     }
 
     fn on_event(&self, event: &Event<'_>, ctx: Context<'_, S>) {
-        let mut visitor = RedactingVisitor::default();
-        event.record(&mut visitor);
-        let service = resolve_service(event, &ctx, &visitor);
-        let line = visitor.format_line();
+        let text = Taken::of(event, &ctx).text(self.style);
         let mut out = (self.make_writer)();
-        for part in line.lines() {
-            let _ = writeln!(out, "{service:<14} | {part}");
-        }
+        let _ = out.write_all(text.as_bytes());
+    }
+}
+
+/// Ships every record to a GELF collector (Graylog), through [`GelfSink`]'s queue.
+#[derive(Clone)]
+pub struct GelfLayer {
+    sink: GelfSink,
+}
+
+impl GelfLayer {
+    pub fn new(sink: GelfSink) -> Self {
+        Self { sink }
+    }
+}
+
+impl<S> Layer<S> for GelfLayer
+where
+    S: Subscriber + for<'a> LookupSpan<'a>,
+{
+    fn on_new_span(&self, attrs: &Attributes<'_>, id: &Id, ctx: Context<'_, S>) {
+        record_span_service(attrs, id, ctx);
+    }
+
+    fn on_record(&self, id: &Id, values: &SpanRecord<'_>, ctx: Context<'_, S>) {
+        update_span_service(id, values, ctx);
+    }
+
+    fn on_event(&self, event: &Event<'_>, ctx: Context<'_, S>) {
+        let taken = Taken::of(event, &ctx);
+        self.sink.send(&taken.record(chrono::Utc::now().timestamp_millis()));
     }
 }
 
@@ -313,7 +414,7 @@ where
         record_span_service(attrs, id, ctx);
     }
 
-    fn on_record(&self, id: &Id, values: &Record<'_>, ctx: Context<'_, S>) {
+    fn on_record(&self, id: &Id, values: &SpanRecord<'_>, ctx: Context<'_, S>) {
         update_span_service(id, values, ctx);
     }
 
@@ -370,7 +471,7 @@ where
         record_span_service(attrs, id, ctx);
     }
 
-    fn on_record(&self, id: &Id, values: &Record<'_>, ctx: Context<'_, S>) {
+    fn on_record(&self, id: &Id, values: &SpanRecord<'_>, ctx: Context<'_, S>) {
         update_span_service(id, values, ctx);
     }
 
@@ -419,7 +520,7 @@ where
         record_span_service(attrs, id, ctx);
     }
 
-    fn on_record(&self, id: &Id, values: &Record<'_>, ctx: Context<'_, S>) {
+    fn on_record(&self, id: &Id, values: &SpanRecord<'_>, ctx: Context<'_, S>) {
         update_span_service(id, values, ctx);
     }
 
@@ -428,13 +529,7 @@ where
         let Some(file) = guard.as_mut() else {
             return;
         };
-        let mut visitor = RedactingVisitor::default();
-        event.record(&mut visitor);
-        let service = resolve_service(event, &ctx, &visitor);
-        let ts = chrono::Utc::now().format("%Y-%m-%dT%H:%M:%S%.3fZ");
-        let lvl = level_str(event.metadata().level());
-        let line = visitor.format_line();
-        let _ = writeln!(file, "{ts} [{lvl}] {service}: {line}");
+        let _ = file.write_all(Taken::of(event, &ctx).text(ConsoleStyle::default()).as_bytes());
     }
 }
 
@@ -494,18 +589,11 @@ impl LogFilterReloadHandle {
     }
 }
 
-/// Installs the global `TableStdoutLayer` subscriber (`{service:<14} | {line}`) with runtime reload support.
-pub fn init_table_stdout_subscriber(default_level: LevelFilter) -> LogFilterReloadHandle {
-    let targets = Targets::new().with_default(default_level);
-    let (filter_layer, reload_handle) = reload::Layer::new(targets);
-    let _ = tracing_log::LogTracer::init();
-    let installed = tracing_subscriber::registry()
-        .with(filter_layer)
-        .with(TableStdoutLayer::stdout())
-        .try_init();
-    if installed.is_ok() {
-        set_tracing_bridge_active(true);
-    }
+/// The reload handle over `reload_handle`'s `Targets`: per-service levels, by service name and by crate.
+fn reload_handle_for<S: 'static>(
+    default_level: LevelFilter,
+    reload_handle: reload::Handle<Targets, S>,
+) -> LogFilterReloadHandle {
     let overrides: Arc<Mutex<std::collections::HashMap<String, LevelFilter>>> =
         Arc::new(Mutex::new(std::collections::HashMap::new()));
     let overrides_clone = overrides.clone();
@@ -531,11 +619,50 @@ pub fn init_table_stdout_subscriber(default_level: LevelFilter) -> LogFilterRelo
     }
 }
 
+/// How the console reads, and the GELF collector the log goes to besides (`[logs]`).
+#[derive(Clone, Default)]
+pub struct LogOutputs {
+    pub format: LogFormat,
+    pub color: ColorMode,
+    pub gelf: Option<GelfSink>,
+}
+
+/// Installs the global `TableStdoutLayer` subscriber in plain text, colored on a terminal, with runtime reload support.
+pub fn init_table_stdout_subscriber(default_level: LevelFilter) -> LogFilterReloadHandle {
+    init_console_subscriber(default_level, LogOutputs::default())
+}
+
+/// Installs the global `TableStdoutLayer` subscriber as `outputs` says, and its GELF shipping.
+pub fn init_console_subscriber(default_level: LevelFilter, outputs: LogOutputs) -> LogFilterReloadHandle {
+    let targets = Targets::new().with_default(default_level);
+    let (filter_layer, reload_handle) = reload::Layer::new(targets);
+    let _ = tracing_log::LogTracer::init();
+    let installed = tracing_subscriber::registry()
+        .with(filter_layer)
+        .with(TableStdoutLayer::stdout_styled(outputs.format, outputs.color))
+        .with(outputs.gelf.map(GelfLayer::new))
+        .try_init();
+    if installed.is_ok() {
+        set_tracing_bridge_active(true);
+    }
+    reload_handle_for(default_level, reload_handle)
+}
+
 /// Installs the global `TuiRingBufferLayer` subscriber for `server-console --tui`.
 pub fn init_tui_subscriber(
     default_level: LevelFilter,
     max_entries: usize,
     log_file: Option<PathBuf>,
+) -> (TuiRingBufferLayer, LogFilterReloadHandle) {
+    init_tui_subscriber_with(default_level, max_entries, log_file, None)
+}
+
+/// The same, shipping to a GELF collector too.
+pub fn init_tui_subscriber_with(
+    default_level: LevelFilter,
+    max_entries: usize,
+    log_file: Option<PathBuf>,
+    gelf: Option<GelfSink>,
 ) -> (TuiRingBufferLayer, LogFilterReloadHandle) {
     let targets = Targets::new().with_default(default_level);
     let (filter_layer, reload_handle) = reload::Layer::new(targets);
@@ -546,34 +673,12 @@ pub fn init_tui_subscriber(
         .with(filter_layer)
         .with(ring.clone())
         .with(file_layer)
+        .with(gelf.map(GelfLayer::new))
         .try_init();
     if installed.is_ok() {
         set_tracing_bridge_active(true);
     }
-    let overrides: Arc<Mutex<std::collections::HashMap<String, LevelFilter>>> =
-        Arc::new(Mutex::new(std::collections::HashMap::new()));
-    let overrides_clone = overrides.clone();
-    let handle = LogFilterReloadHandle {
-        default_level,
-        overrides,
-        apply: Arc::new(move |_service, _level| {
-            let map = overrides_clone
-                .lock()
-                .unwrap_or_else(std::sync::PoisonError::into_inner)
-                .clone();
-            reload_handle
-                .modify(move |targets| {
-                    let mut next = Targets::new().with_default(default_level);
-                    for (svc, lvl) in &map {
-                        let crate_target = svc.replace('-', "_");
-                        next = next.with_target(svc.clone(), *lvl).with_target(crate_target, *lvl);
-                    }
-                    *targets = next;
-                })
-                .map_err(|e| e.to_string())
-        }),
-    };
-    (ring, handle)
+    (ring, reload_handle_for(default_level, reload_handle))
 }
 
 /// Installs the global `ChannelLogLayer` (`LauncherGuiLayer`) subscriber for `server-gui*`.
@@ -596,29 +701,7 @@ pub fn init_gui_channel_subscriber(
     if installed.is_ok() {
         set_tracing_bridge_active(true);
     }
-    let overrides: Arc<Mutex<std::collections::HashMap<String, LevelFilter>>> =
-        Arc::new(Mutex::new(std::collections::HashMap::new()));
-    let overrides_clone = overrides.clone();
-    let handle = LogFilterReloadHandle {
-        default_level,
-        overrides,
-        apply: Arc::new(move |_service, _level| {
-            let map = overrides_clone
-                .lock()
-                .unwrap_or_else(std::sync::PoisonError::into_inner)
-                .clone();
-            reload_handle
-                .modify(move |targets| {
-                    let mut next = Targets::new().with_default(default_level);
-                    for (svc, lvl) in &map {
-                        let crate_target = svc.replace('-', "_");
-                        next = next.with_target(svc.clone(), *lvl).with_target(crate_target, *lvl);
-                    }
-                    *targets = next;
-                })
-                .map_err(|e| e.to_string())
-        }),
-    };
+    let handle = reload_handle_for(default_level, reload_handle);
     (layer, rx, handle)
 }
 
@@ -655,9 +738,13 @@ mod tests {
             );
         });
         let text = String::from_utf8(buf.0.lock().unwrap().clone()).unwrap();
+        let (prefix, rest) = text.split_once(" | ").unwrap();
+        assert_eq!(prefix, "gateway       ");
+        let (_time, rest) = rest.split_once(' ').unwrap();
         assert_eq!(
-            text,
-            "gateway        | listening on public port with token [REDACTED] api_key=[REDACTED] port=443\n"
+            rest,
+            "INFO  service_kit::telemetry::tests: listening on public port with token [REDACTED] api_key=[REDACTED] \
+             port=443\n"
         );
     }
 

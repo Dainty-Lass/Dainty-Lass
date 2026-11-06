@@ -5,8 +5,10 @@
 
 pub mod body;
 pub mod collate;
+pub mod console;
 pub mod context;
 pub mod env;
+pub mod gelf;
 pub mod js;
 pub mod jsjson;
 pub mod json;
