@@ -1298,12 +1298,16 @@ A progress and control wrapper around MIT `epic::download::install` (DE5):
 - **Secrets**: registering a value of at least 6 units remembers it; a value starting `RRK_` also remembers the
   rest when that has at least 16 units and no line breaks. Unregistering removes the value and its `RRK_`-less rest.
 - **Redaction**, in order: every remembered secret → `<hidden>`; `RRK_[A-Za-z0-9_-]+` → `RRK_<hidden>`;
-  `-AUTH_PASSWORD=` (any case) followed by anything but JavaScript white space and quotes → the prefix +
-  `<hidden>`; `x-reforged-user-api-key` (any case), an optional quote, optional white space, `:` or `=`, optional
+  `-AUTH_PASSWORD=` (any case) followed by any run, **possibly empty**, of anything but JavaScript white space and
+  quotes → the prefix + `<hidden>` (so `-auth_password='x y'` becomes `-auth_password=<hidden>'x y'`);
+  `x-reforged-user-api-key` (any case), an optional quote, optional white space, `:` or `=`, optional
   white space and quote, then the value up to white space, a quote, `,` or `}` → the prefix + `<hidden>`.
   "White space" is JavaScript's `\s`.
 - Library events (`tracing`, INFO and above) go into the same log as `<target>: <message> <field>=<value>...`;
-  events from the `egs-api` crate are dropped for the whole subscriber (`epic::is_egs_api_target`). Panics are
+  events from the `egs-api` crate are dropped for the whole subscriber (`epic::is_egs_api_target`), **including
+  events the `log` crate forwarded through `tracing-log`**: their metadata's target is then `log`, and the real
+  target is in the normalised metadata (`tracing_log::NormalizeEvent`), which is what must be checked (RL1 gap,
+  found in the RL3 switch). Panics are
   logged as `panic: <info>`. An error's one-line description is its text, redacted.
 - `test/cases/log.json` is the redaction oracle (§3.2).
 
