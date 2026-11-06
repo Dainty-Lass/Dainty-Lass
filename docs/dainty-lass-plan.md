@@ -2,11 +2,13 @@
 
 # DaintyLass plan: one controller, game modules in their own repositories
 
-Status: draft, written 2026-10-26. The maintainer chose the decisions in section 3 the same day, over several
-rounds of questions; section 8 lists what is still open. Reviewed the same evening against `main` and Forgejo:
-done rows are ~~struck through~~ as in `MIGRATION_PLAN.md`, a row done in part says so in bold, and section 1
-records the state each was checked against. Pruned 2026-11-01 for one game: what served Dauntless Revived's 1.4.4
-or the 1.12 port is struck or marked removed (section 8).
+Status: a design record. Written 2026-10-26 as the plan that split this repository into five; the maintainer chose
+the decisions in section 3 the same day. Most of what it planned is built, but not in the shape section 2 drew: on
+2026-11-02 RD27 split the code by licence instead of by game, and on 2026-11-05 the AGPL half came back in-tree as
+`restricted/` and Rustic Isles was re-created as MIT crates at the root. **Open work is listed only in
+[`MIGRATION_PLAN.md`](../MIGRATION_PLAN.md) "What's left"**; the rows below stay because code and checklists cite
+them for what they built. Done rows are ~~struck through~~. Where a decision or row names a repository, a
+submodule, `rust/` or an `isles-*` crate, read the current layout from section 1.
 
 This plan renames the app and splits this repository. `dauntless-eternal` (this repository, Reforged Revival)
 becomes **DaintyLass**: the controller, the module framework, the core plugins and the admin API. The game code
@@ -32,67 +34,45 @@ the RB, RA, RS, RH and RD ids point into `MIGRATION_PLAN.md`.
 
 ## 1. Where things stand
 
-Measured 2026-10-28 on `plan` across the Forgejo repositories, and updated 2026-11-01 for one game:
+Updated 2026-11-05 against `plan` at `a5ac3d8f`.
 
 | What | State |
 | --- | --- |
-| This repository (`dainty-lass`) | `plan` holds the module framework (`crates/module-api`, `crates/controller`, `crates/epic`, `crates/history-ship`, `crates/store` on SQLite + Postgres with the hash-chained change log), core plugins (`crates/network` including directory, home API, persistent ticket revocation floors, instance registry, matchmaking ring, and regional Ramsgate, `crates/chat` with `ChatFederation` over `Service::Chat`), services (`gateway` with allowlist, `content`, `admin`, `host`, `backend`, `director`), four binaries (`server-minimal`, `server-console`, `server-gui`, `online-client`), the Tauri launcher serving `ui/dist`, clean-room licensing specs (`docs/port/spec-dl3-hostkit.md`, `docs/port/spec-dl4-launcher.md`), and submodules `ui/` (`dainty-lass-ui`), `modules/rustic-isles` and `modules/rustic-rifts` (DS6, DF1–DF8, DE1–DE7, DH1–DH7, DN2–DN13, DU1–DU4, DX1–DX4, DL1, DL3, DL4, RS5, RB11, RB13, RX4 done; RU9/RB14 done in code per maintainer decision 2026-10-28 with canary and shadow replay not run; DU5 done in part) |
-| `modules/rustic-isles` | `plan` holds RU1–RU7, RU10, RB11, RB13 done, RU9/RB14 done in code (maintainer decision 2026-10-28; canary and shadow replay not run), and RU8 done in part: `crates/isles-core` (all 9 area groups and all 5 backend game-data generators ported for 1.14.7 on `store` SQLite + Postgres, plus `crates/isles-db` `migrate`/`verify`/`export-mongo`/`replay`), `crates/isles-director` (RU6, including `hunt_tables::generate_all` and in-process `ServerSpec::from_env_files` wiring), `crates/isles-chat`, and the `isles-1-14-7` `GameModule` crate |
-| `modules/rustic-rifts` | `plan` holds RF1–RF5, RF7 done, RF8 ready for maintainer two-PC NAT check, and RF6 done in part: `native/transport` (`ParadoxTransport.dll`), `crates/rifts-seam`, `crates/rifts-admission`, `crates/rifts-relay`, `crates/rifts-guard` (with `SqlGuardStore` on `store` SQLite + Postgres), `crates/rifts-realms` (with `RealmsService`, `RealmsRoutes`, and `RealmsHuntSessions`), and `crates/rifts-host` |
-| `dainty-legacy` | `R:\source\dauntless\dainty-legacy`: a Plugin module (`ModuleKind::Plugin`, id `legacy`, run out of process, DD5) that imports old installs into DaintyLass: a 1.4.4 server's metagame database, a 1.4.4 offline save, a Reforged Revival Node-kit server. It took over from `modules/legacy-revived`, whose submodule left DaintyLass on 2026-10-31 (`29631d2`) |
-| `chore/remove-legacy-games` | `92e671c`, not yet merged: `reforged-host legacy import <revived\|offline-save\|reforged>` runs the `[[modules.external]] id = "legacy"` executable that `host.toml` pins (dainty-legacy); `host.json` and the automatic MongoDB move leave the host kit |
-| `ui/` (`dainty-lass-ui`) | `plan` holds DU1–DU4 and DE7 done and DU5 done in part: Astro + Preact + Tailwind monorepo (`apps/web`, `packages/bridge`, `packages/i18n`, `packages/ui`) with player, server, module-panel, history/guarded, Epic install and realm hosting/joining screens |
-| The Reforged Revival line | `FreezaMotoqueiro/Dauntless-Reforged-Revival`, `main` at `477a6ac` (2026-10-24, 92 commits): what this repository began as a fork of. Removed from it on 2026-10-26: its Node projects (`legacy/`), preset, brand, docs, workflows and root files are gone, its three infrastructure patches to Mystic Paradox were rewritten from the Rust side's contract, and `main` was given a new root. The old history is in `dainty-lass-pre-rewrite-2026-10-26.bundle` beside the repository. The line lives on as rustic-freeza (DD25) |
-| Forgejo | `git.silentspud.com`, Forgejo 15.0.10, with access to the instance restricted. Five repositories under `silentspud`, each reached as `origin` over SSH on port 222: `dainty-lass` (this one, renamed from `dauntless-eternal` on 2026-10-26; the old name is refused, not redirected, so every clone's `origin` was re-pointed by hand) and `rustic-isles`, `rustic-rifts`, `legacy-revived` and `dainty-lass-ui`, created the same day and since filled; `legacy-revived` is unused since 2026-10-31 (one game) |
-| Mystic Paradox | Upstream `main` at `21b9ff5` (`mystic` remote, `pranav158/Mystic-Paradox`). The local `replay` branch is `21b9ff5` plus Reforged's patches 0001–0039 as one commit each and their follow-ups (`ce1c42e`, 41 commits). |
-| Paradox's size (TS, JS and C++, tests included) | `replay`: backend 103.5k, Director 4.5k, runtime 29.5k, `ParadoxTransport` 8.8k |
-| Realms on `replay` | Players host hubs and hunts on their own PCs; joiners connect through `ParadoxTransport.dll` (ICE on libjuice: direct, or through a TURN relay). A self-hosted backend brings its own relay (Cloudflare TURN or a `turn-rest` server such as coturn) and an admission key pair. Mystic's anti-cheat and Steam transport are private, so Guard runs on stubs in observe mode. In the backend, `p2p/`, `realms/` and Guard are about 2.0 of its 5.1 MiB of source (210 files mention realms). A "local realm" is something else: the whole backend on one PC with no database server (`PERSISTENCE_PROVIDER=sqlite`, every repository on `node:sqlite`, a file under `realm-data/`, daily `VACUUM INTO` backups); player-hosted hubs keep their state on the central backend |
-| Dauntless Revived | `SilentSpud/dauntless-revived` on GitHub: `plan` at `24b7624` is upstream `main` (`5eb74ff`, `mixutin/dauntless-revived`) plus 468 commits, DR's Rust migration among them. This repository carries pieces of it with Reforged's changes: merge `54e271a` (commits `c1be7f7`…`18ac587`) |
-| Rust Director | `feat/rb10-director-single-binary` (`cdc0a87`): RB10, the Director in Rust, never merged; based on the old `plan` layout |
-| Unmerged branches on `main` | Rebased onto the new root on 2026-10-26: `docs/app-structure-rd26` (`723d249`, ten commits): the app-structure fixes, the server GUI's Host page running the server inside the launcher, RX3's controller checklist (`docs/security/controller.md`) and RD26 recorded in `MIGRATION_PLAN.md`, AGENTS.md and the guide (its additions to the hosting pages were dropped with the old pages and are to be written again); `feat/app-structure-docker` (`b7ea110`, the server as one container); `docs/dainty-lass-plan` (this file). The integration pass merges them before DF6, so the rename sweep runs over the final tree |
-| Getting the game | Epic still lists Dauntless (app name `Jackal`) for accounts that added it before it left the store in May 2025, but serves only 2.1.1's manifest. Older builds install from an archived manifest plus Epic's chunk CDN (`.../Builds/Org/o-krlzxj88qrtb69fredeuaf887bl5az/Jackal/default` on three hosts), which asks for no login. The community [Dauntless Manifest Archive](https://github.com/addison2k/DauntlessManifestArchive) holds builds from 1.5.4 to 2.1.1 with SHA-1 sums, 1.14.7 among them. Mystic's guide pins 1.14.7's manifest by SHA-1 (`aa70748e…31476`) and its executable by SHA-256, through Legendary. Epic can delete an old build's chunks at any time. [`egs-api`](https://docs.rs/egs-api/) 0.14.0 (MIT, September 2026) signs in with an authorization code, lists the library and parses download manifests; whether it downloads chunks itself is not documented |
+| Repositories | One, `silentspud/dainty-lass` on Forgejo (`git.silentspud.com`, SSH port 222). The MIT workspace is the root; `restricted/` is the AGPL workspace (RD27). dainty-restricted was imported into `restricted/` and its repository deleted (its tags live on as `restricted/<tag>`). Archived, not merged: `dainty-lass-ui` (its history is `ui/`), `rustic-isles`, `rustic-rifts`, `dainty-dashboard` (now `ui/`, dainty-dash), `dainty-legacy` (now `restricted/legacy/`), `legacy-revived` and `rustic-freeza` |
+| Framework and core plugins | `crates/module-api`, `crates/controller`, `crates/plugin-host`, `crates/store` (SQLite or Postgres with the hash-chained change log), `crates/history-ship`, `crates/gateway` (with the allowlist), `crates/content`, `crates/admin`, `crates/chat`, `crates/network`, `crates/remote`, `crates/epic`, `crates/hostkit`, `crates/launcher-kit`: DF1–DF8, DH1–DH7, DN2–DN13, DE1–DE7, DX1–DX4, DL1–DL4, RM1–RM5 done |
+| Rustic Isles (RU) | The MIT crates `crates/rustic-isles` and its areas (`-auth`, `-reforged`, `-characters`, `-economy`, `-matchmaking`, `-chat`, `-gamedata`, `-director`, `-store`, `-db`, `-replay`), composed for 1.14.7 by `crates/rustic-isles-1-14-7` and built as a library by `-plugin`. They replaced the AGPL `isles-*` port the RU rows built; RU1–RU7 and RU10 done, RU8 and RU9 done in code with the canary and the live replay left to the maintainer. `restricted/modules/rustic-isles` keeps the runtime, the CatalogExporter, the Node reference, the version data, `isles-1-14-7-plugin` and the parity replay `isles-mit-parity` (890 of 890 goldens match) |
+| Rustic Rifts (RF) | The MIT crates `crates/rifts-*` (`-seam`, `-admission`, `-relay`, `-realms`, `-guard` with enforce mode, `-transport`, `-host`), wired in by `rustic-isles-1-14-7`. RF1–RF7 done; RF8 waits for the maintainer's two-PC check. `restricted/modules/rustic-rifts` keeps `ParadoxTransport.dll` and the `oracle` replay |
+| UI (DU) | `ui/`: dainty-dash (Astryx on Next.js through vinext, built with Bun), one app for the staff dashboard and the launcher and server-manager pages the Tauri shells serve. DU1–DU5 done; DU5's two-PC check is RF8's |
+| Executables (DF5, RD26) | restricted's `dainty-lass-client` and `dainty-lass-manager` (Tauri, `restricted/launcher/src-tauri`), `server-console` (`reforged-host`) and `server-minimal`; the root's MIT core `dainty-lass-server` |
+| Importing old installs | `restricted/legacy/`: the 1.4.4 importer, an external plugin `host.toml` pins, run by `reforged-host legacy import` |
+| Licensing (DL) | Done by RD27's clean-room rewrites; DL5's legal read is the maintainer's |
+| Mystic Paradox | Upstream `main` at `21b9ff5`; the `replay` branch is `21b9ff5` plus Reforged's patches 0001–0039, in-tree as `restricted/modules/rustic-isles` |
+| Getting the game | Epic still lists Dauntless (app name `Jackal`) for accounts that added it before it left the store in May 2025, but serves only 2.1.1's manifest. Older builds install from an archived manifest plus Epic's chunk CDN (DD22, `crates/epic`) |
 
 ## 2. End state
 
+As built (RD27), not as first drawn: one repository split by licence, not five split by game.
+
 ```text
-silentspud/dainty-lass            (renamed from dauntless-eternal)
-  rust/
-    crates/module-api             the framework: GameVersion, manifests, traits, the out-of-process protocol
-    crates/controller             the registry, lifecycle, commands and events
-    crates/protocol, proxy, service-kit, store (SQLite or Postgres, change history)
-    crates/gateway (allowlist), content, admin, host, launcher (Tauri shell)
-    crates/network               node links, directory, instance registry, matchmaking ring
-    crates/chat                  XMPP over WebSocket, federated between nodes
-    bins/server, server-console, server-gui, client
-  native/runtime-loader           winmm.dll, shared by every game's client payload
-  ui/                             submodule: silentspud/dainty-lass-ui
-  modules/rustic-isles/           submodule: silentspud/rustic-isles
-  modules/rustic-rifts/           submodule: silentspud/rustic-rifts
-  modules/rustic-freeza/          submodule: silentspud/rustic-freeza
-  docs/ docker/ brand/
-
-silentspud/rustic-isles           Mystic Paradox's history, `replay` as main
-  crates/isles-*                  the Rust backend and Director
-  modules/isles-1-14-7            game module "Rustic Isles 1.14.7", links rustic-rifts' server libraries
-  native/runtime/                 Rustic-Isles.dll; catalog-exporter
-  reference/                      the 1.14.7 Node services the port is from, until the replay passes
-  preset/                         1.14.7 game data (from dainty-lass)
-
-silentspud/rustic-rifts           realms, one library per component
-  crates/rifts-admission, rifts-relay, rifts-realms, rifts-guard   server side, used by isles-1-14-7
-  crates/rifts-host               client side, used by DaintyLass's launcher
-  native/transport/               ParadoxTransport.dll, with its history
-
-silentspud/dainty-lass-ui         Astro + shadcn monorepo from the preset
-
-silentspud/rustic-freeza          Freeza's history (Dauntless-Reforged-Revival at 477a6ac as main); a plugin
-  crates/rustic-freeza            his gameplay patch set for the 1.14.7 game servers, and his launcher's look as a UI theme
-  reference/                      his Node projects, docs and workflows, as they were
+silentspud/dainty-lass
+  crates/          MIT workspace: module-api, controller, plugin-host, protocol, proxy, service-kit, store,
+                   history-ship, gateway (allowlist), content, admin, chat, network, remote, epic, hostkit,
+                   launcher-kit, the *-plugin libraries, rifts-*, rustic-isles and rustic-isles-*,
+                   dainty-lass-server
+  fuzz/            the MIT crates' fuzz targets
+  ui/              dainty-dash: dashboard, launcher and server-manager pages
+  launcher/        the launcher's JavaScript: isolation hook, scripts, tests
+  docs/            architecture, plans, port/ (specs, clean-room reviews), security/
+  restricted/      AGPL-3.0-only workspace
+    crates/        host (the shell around hostkit), server-console, server-minimal, *-plugin shells
+    launcher/      src-tauri: dainty-lass-client and dainty-lass-manager
+    modules/rustic-isles/   runtime, CatalogExporter, Node reference, version data, isles-1-14-7-plugin,
+                            isles-mit-parity
+    modules/rustic-rifts/   ParadoxTransport.dll, oracle
+    legacy/        the 1.4.4 importer
+    native/runtime-loader   winmm.dll (Apache-2.0)
+    docker/, compose.yaml, docs/ (hosting, players, Paradox patches)
 ```
-
-Until 2026-10-31 the layout also held `modules/legacy-revived` (Dauntless Revived's 1.4.4) and rustic-isles'
-`modules/isles-1-12-0`; both were removed when DaintyLass narrowed to one game (DD9, DD10). Old installs import
-through `dainty-legacy`, an external plugin `host.toml` pins (section 1).
 
 ## 3. Decisions
 
@@ -352,7 +332,7 @@ alongside, but goes live only after RU9 has run on single servers: a node runs a
 
 ## 6. Things that must not change
 
-`MIGRATION_PLAN.md` section 6 holds, with two changes: the launcher page's look is replaced (DD11), its strings in
+`MIGRATION_PLAN.md` section 3 holds, with two changes: the launcher page's look is replaced (DD11), its strings in
 both languages are not; and "the host-only routes and headers stay refused" now covers every module's routes. Also:
 
 - An invite made before the split joins the same server after it: scheme, `version`, `fp`.
@@ -367,7 +347,7 @@ both languages are not; and "the host-only routes and headers stay refused" now 
 
 ## 7. Amendments to `MIGRATION_PLAN.md`
 
-For the integration pass: RD1 (Paradox becomes a submodule, no longer a subtree at `paradox/`), RD11 and section
+Folded in on 2026-10-28, and superseded where RD27 differs. For the integration pass: RD1 (Paradox becomes a submodule, no longer a subtree at `paradox/`), RD11 and section
 4.1 (the layout in section 2 here), RD15 (SQLite by default and Postgres where concurrency pays, DD15), RD17 (no
 gate for the Paradox port, DD6), RD22 (DR's downloader comes back for installing from Epic, DD22), RD25 (one admin
 key per person with a role, the existing key becoming the owner's, DD23), section 4.5 (the RB rows move to RU and

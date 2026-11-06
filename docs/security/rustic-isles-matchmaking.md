@@ -5,11 +5,11 @@
 The checklist for `crates/rustic-isles-matchmaking`, the MIT matchmaking-parties area of Rustic Isles (RD27,
 `docs/port/spec-rustic-isles-matchmaking.md` §16). It is a trust-boundary component: it parses client JSON and
 headers on 18 backend rows, the realms side's candidate JSON, the Director's HTTP answers, and it runs the QoS pong
-listener. `SECURITY_REVIEW.md` indexes it once the integration pass adds the row.
+listener.
 
-How to use it: before restricted's composer switches to this crate, copy this list into the change, check each item in
-the code (not from memory), link the code or test that shows it, and sign at the end with the date and the commit
-reviewed.
+How to use it: before a change to this crate merges, and before its cutover is signed (RD10), copy this list into the
+change, check each item in the code (not from memory), link the code or test that shows it, and sign at the end with the
+date and the commit reviewed.
 
 ## What it is and where the boundary is
 

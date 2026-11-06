@@ -11,9 +11,8 @@ player's DLLs speak HTTP to whichever backend answers, so a fix to the game's be
 
 With the patch saved as `patch.diff`:
 
-1. Turn Paradox's paths into each repository's, then apply each part with a three-way merge, so a patch whose
-   context moved still applies or stops with conflict markers. The runtime part, from `modules/rustic-isles` on a
-   branch of rustic-isles:
+1. Turn Paradox's paths into this tree's, then apply each part with a three-way merge, so a patch whose
+   context moved still applies or stops with conflict markers. The runtime part, from `restricted/modules/rustic-isles`:
 
    ```bash
    sed -e 's#\([ab]\)/ParadoxRuntime/#\1/native/runtime/#g' patch.diff > runtime.diff
@@ -21,22 +20,21 @@ With the patch saved as `patch.diff`:
    git apply --3way --include='native/runtime/*' runtime.diff
    ```
 
-   The loader part, from this repository's root:
+   The loader part, from `restricted/`:
 
    ```bash
    sed -e 's#\([ab]\)/tools/RuntimeLoader/#\1/native/runtime-loader/#g' patch.diff > loader.diff
    git apply --3way --include='native/runtime-loader/*' loader.diff
    ```
 
-   Once rustic-isles' integration pass has merged the runtime part, this repository moves its
-   `modules/rustic-isles` pin to that commit. A patch saved on Windows may have CRLF line endings; convert it to
+   Both parts land in the same commit, since rustic-isles is in-tree. A patch saved on Windows may have CRLF line endings; convert it to
    LF first (`dos2unix patch.diff`).
 2. If it does not apply, read what the patch does and make the change by hand. A conflict usually means an
    earlier runtime change the patch builds on is missing: take that one first.
 3. A patch that also changes the backend or the Director (a new environment variable the Director passes
    on, a route the runtime calls) is taken for its runtime part only. Write down what the other part did in
-   the commit message; the Rust backend and Director (the RB rows in MIGRATION_PLAN.md, the RU rows in
-   dainty-lass-plan.md) decide whether they need it.
+   the commit message; the MIT `rustic-isles-*` crates take it, if they need it, only through their specs
+   (`docs/port/spec-rustic-isles-*.md` at the root, RD27).
 4. Commit it alone, as `NNNN-runtime-<name>` like the patches before it, with what it does as the body and a
    line naming where it came from. Add a row to [paradox-patches.md](paradox-patches.md).
 5. Build the runtime with a host's SDK (`modules\rustic-isles\native\runtime\_build.bat`,

@@ -4,11 +4,11 @@
 
 The checklist for `crates/rustic-isles-store`, the MIT database layer of Rustic Isles (RD27,
 `docs/port/spec-rustic-isles-store.md` §14). It opens no listener and parses no request, so it is not on RX3's
-trust-boundary list; what it guards is the data at rest and the home rule. `SECURITY_REVIEW.md` indexes it once the
-integration pass adds the row.
+trust-boundary list; what it guards is the data at rest and the home rule.
 
-How to use it: before restricted's areas switch to this crate, copy this list into the change, check each item in the
-code (not from memory), link the code or test that shows it, and sign at the end with the date and the commit reviewed.
+How to use it: before a change to this crate merges, and before its cutover is signed (RD10), copy this list into the
+change, check each item in the code (not from memory), link the code or test that shows it, and sign at the end with the
+date and the commit reviewed.
 
 ## What it is and where the boundary is
 

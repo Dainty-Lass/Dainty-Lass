@@ -2,6 +2,10 @@
 
 # Catch-up list: rustic-isles (DS5)
 
+> **Closed**: RU1 applied what this list marks needed (DS5). The rustic-isles repository is in-tree as
+> `restricted/modules/rustic-isles` since RD27, and its Rust port is the MIT `rustic-isles-*` crates at the root.
+> Kept as the record; paths name the layout of the time.
+
 Every commit of this repository since RP2 that touched `paradox/`, `native/paradox-runtime`,
 `native/catalog-exporter` or `preset/`, and whether rustic-isles' base, the `replay` branch, already has it. RU1
 applies what is marked needed when it lays out rustic-isles (`docs/dainty-lass-plan.md`, DD7, DD13, RU1). The

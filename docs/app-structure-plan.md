@@ -1,6 +1,6 @@
 # Plan: a unified server controller, pure service libraries, concurrent editions and 12 binary crates
 
-Draft, 2026-10-24. **Superseded where it differs by RD26** in [MIGRATION_PLAN.md](../MIGRATION_PLAN.md)
+Draft, 2026-10-24, kept as a design record: nothing here is open work. **Superseded where it differs by RD26** in [MIGRATION_PLAN.md](../MIGRATION_PLAN.md)
 (2026-10-25): this is the design the `feat/app-structure` merge (`c57f157`) was built from, kept for its reasoning.
 What shipped differs: two server binaries and the launcher's two, not twelve crates; `protocol::Game` and the
 `legacy` feature, not Refined and Reforged editions; the host kit's `secrets.env` and env files, not secrets the

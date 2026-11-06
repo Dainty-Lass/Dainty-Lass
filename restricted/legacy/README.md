@@ -56,8 +56,8 @@ cargo clippy --workspace --all-targets --locked -- -D warnings
 cargo test --workspace --locked --no-fail-fast
 ```
 
-The toolchain is pinned in `rust-toolchain.toml`. DaintyLass's `module-api` and `store` are git dependencies at a fixed
-rev over SSH (`.cargo/config.toml` uses git's own client). Fuzz targets are in `fuzz/` (`cargo +nightly fuzz run
+The toolchain is pinned in `rust-toolchain.toml`. DaintyLass's `module-api` and `store` are path dependencies on the
+monorepo root's crates (`../../crates/`). Fuzz targets are in `fuzz/` (`cargo +nightly fuzz run
 database_readers`); the security checklist is [docs/security/importer.md](docs/security/importer.md), and what
 dainty-lass removes now that this exists is [docs/dainty-lass-handover.md](docs/dainty-lass-handover.md).
 

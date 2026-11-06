@@ -6,7 +6,7 @@ The checklist for `crates/rifts-host`, the launcher's side of realms: the co-op 
 trait, the two JSON files the host PC keeps, and the host and join flows that write a session folder, start the hosted
 game server, open a transport session and pump signals and the roster. Written with the clean-room MIT rewrite from
 `docs/port/spec-rd27-rifts-host.md` (and the umbrella's D1 and D3). It replaces nothing in this repository; the old
-checklist in dainty-restricted describes the AGPL crate and is wrong in places, so it was not used.
+checklist for the AGPL crate (`restricted/modules/rustic-rifts/docs/security/host.md`, retired with it) describes it and is wrong in places, so it was not used.
 `SECURITY_REVIEW.md` indexes it.
 
 How to use it: before the launcher switches to this crate, copy this list into the cutover commit, check each item

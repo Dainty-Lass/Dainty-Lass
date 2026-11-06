@@ -5,11 +5,11 @@
 The checklist for `crates/rustic-isles-replay`, the MIT shadow replay harness of Rustic Isles (RD27,
 `docs/port/spec-rustic-isles-replay.md` §14). It opens no listener a player reaches; it is a host tool that reads the
 gateway's capture and sends the requests in it to targets the operator names. What it guards is the credentials it
-holds and the personal data it reads. `SECURITY_REVIEW.md` indexes it once the integration pass adds the row.
+holds and the personal data it reads.
 
-How to use it: before restricted's `isles-db replay` or the host kit's `db replay` call this crate, copy this list into
-the change, check each item in the code (not from memory), link the code or test that shows it, and sign at the end
-with the date and the commit reviewed.
+How to use it: before a change to this crate merges, and before its cutover is signed (RD10), copy this list into the
+change, check each item in the code (not from memory), link the code or test that shows it, and sign at the end with the
+date and the commit reviewed.
 
 ## What it is and where the boundary is
 

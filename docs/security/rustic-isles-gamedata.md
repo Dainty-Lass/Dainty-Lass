@@ -2,13 +2,12 @@
 
 # Security checklist: Rustic Isles game data (RX3)
 
-The checklist for `crates/rustic-isles-gamedata`, the MIT game-data area and generators dainty-restricted's Rustic
-Isles module and host call (RD27, `docs/port/spec-rustic-isles-gamedata.md`). `SECURITY_REVIEW.md` indexes it once
-the integration pass adds the row.
+The checklist for `crates/rustic-isles-gamedata`, the MIT game-data area and generators the Rustic
+Isles module and host call (RD27, `docs/port/spec-rustic-isles-gamedata.md`).
 
-How to use it: before the composer registers this crate and the host maps `GeneratorKind` to `run`, copy this list
-into the change, check each item in the code (not from memory), link the code or test that shows it, and sign at the
-end with the date and the commit reviewed. An item that does not hold is a bug to fix first, not a box to leave open.
+How to use it: before a change to this crate merges, and before its cutover is signed (RD10), copy this list into the
+change, check each item in the code (not from memory), link the code or test that shows it, and sign at the end with the
+date and the commit reviewed. An item that does not hold is a bug to fix first, not a box to leave open.
 
 ## What it is and where the boundary is
 

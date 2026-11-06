@@ -11,7 +11,7 @@ on a Windows PC with the game installed:
 
 The launcher's **Host page** (a build with the host tools) has a button for each step and shows what is
 missing; `reforged-host doctor` says the same on the command line. A Linux host does these on a Windows PC and
-brings the results over (dainty-restricted's `docs/hosting-linux.md`). Every path below is in dainty-restricted.
+brings the results over (`restricted/docs/hosting-linux.md`). Every path below is under `restricted/`.
 
 ## 1. The SDK
 

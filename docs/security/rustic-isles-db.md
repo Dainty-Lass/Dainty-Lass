@@ -2,12 +2,12 @@
 
 # Security checklist: Rustic Isles database tool (RX3)
 
-The checklist for `crates/rustic-isles-db`, the MIT library behind `isles-db migrate`, `verify` and `export-mongo`
-(RD27, `docs/port/spec-rustic-isles-db.md`). `SECURITY_REVIEW.md` indexes it once the integration pass adds the row.
+The checklist for `crates/rustic-isles-db`, the MIT library behind `reforged-host db migrate`, `verify` and `export-mongo`
+(RD27, `docs/port/spec-rustic-isles-db.md`).
 
-How to use it: before restricted's `reforged-host db` wiring switches to this crate, copy this list into the change,
-check each item in the code (not from memory), link the code or test that shows it, and sign at the end with the date
-and the commit reviewed. An item that does not hold is a bug to fix first, not a box to leave open.
+How to use it: before a change to this crate merges, and before its cutover is signed (RD10), copy this list into the
+change, check each item in the code (not from memory), link the code or test that shows it, and sign at the end with the
+date and the commit reviewed. An item that does not hold is a bug to fix first, not a box to leave open.
 
 ## What it is and where the boundary is
 

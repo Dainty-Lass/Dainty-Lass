@@ -221,7 +221,7 @@ Fuzz target: `network_link` in `fuzz` (the route table, the time header, a ping 
 
 ## The Docker harness (DN12)
 
-`compose.yaml`'s `network` profile runs four nodes on one machine for tests (dainty-restricted's `docs/hosting-docker.md`,
+`compose.yaml`'s `network` profile runs four nodes on one machine for tests (`restricted/docs/hosting-docker.md`,
 `docker/network/test.sh`). It is not a deployment: its CA and every key in it are made for the test and thrown away
 with `docker compose down --volumes`. It keeps the rules above anyway, so what it proves is the real arrangement.
 
@@ -386,7 +386,7 @@ writes verifies, a changed byte of a real ticket never verifies; public keys fro
   - [ ] `POST /network/v1/regions` is wired in production through `Gateway::set_region_handler` (`NodeServices::region_report_handler`) to `RingNode::record_region_pings_authenticated`, authenticating the caller via either a registered home API key or a verified `SessionTicket` (`session_ticket_from_token`) before storing the account's ordered region RTT list. Test: `region_report_handler_reaches_ring_node_record_region_pings_authenticated`.
   - [ ] A ticket is owned by the player's home node, published to the lowest-ping region at step 0, and widened along `RingSchedule` (`DEFAULT_RING_DELAYS_MS`) by `RingNode::spawn_ticker` in `controller::modules::network`. When a regional node forms a match, it claims each candidate ticket at its home node via atomic compare-and-set (`local_claim_ticket`), feeds matched players' IPs and guarded UDP ports into the in-process allowlist (`InProcessAllowlistSink` -> `Helper::admit_udp`), and releases partial claims (`ReleaseTicket`) if any candidate was already claimed or cancelled. Tests: `dn8_four_region_matchmaking_ring_never_double_books_and_bounds_wait_time`, `matched_player_is_admitted_into_in_process_allowlist_and_unmatched_is_not`.
   - [ ] Regional Ramsgate (`assign_ramsgate`, `AssignHub`) places players from any home node into their lowest-ping region's shared Ramsgate shard and starts a new shard on that region's Director when `max_hub_players` is reached. Test: `dn9_regional_ramsgate_places_players_from_different_homes_into_lowest_ping_hub_and_shards`.
-- **Wired end-to-end in `controller::modules::network`, `isles-core`, and `launcher::net::relay` (DN5, DN6, DN8, DN9)**:
+- **Wired end-to-end in `controller::modules::network`, `rustic-isles` (`module.rs`'s `command`), and `launcher::net::relay` (DN5, DN6, DN8, DN9)**:
   - `HomeRouterHook` registers `DriverDirectorRouter` (`DirectorInvocation` over `GameModule::command`) alongside `DriverBackend` (`HomeInvocation` over `GameModule::command`) for each loaded game module, and `NetworkedHome` delegates all ring methods (`ring_register_instance`, `ring_resolve_join`, `ring_submit_ticket`, `ring_try_form_matches`, `ring_ticket_state`, `ring_forward_hunt_rewards`, `ring_assign_ramsgate`, `ring_register_local_account_key`) to `RingNode`.
   - `WrongNodePolicy` defaults to `WrongNodePolicy::Refuse` (`409 Conflict` with `"error":"WRONG_NODE"`) and can be switched to `WrongNodePolicy::Redirect` (`x-reforged-redirect-*` + `x-reforged-session-ticket` response headers) via `[network] wrong_node_policy` in `host.toml` (`REFORGED_WRONG_NODE_POLICY`).
   - `launcher::net::relay` inspects upstream responses for `x-reforged-redirect-host`, `x-reforged-redirect-port`, `x-reforged-redirect-fingerprint`, and `x-reforged-session-ticket`, automatically calling `Relay::repoint` when all four are present.
