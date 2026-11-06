@@ -288,7 +288,7 @@ mutation { revertApply(planId: "<id>") { rowsChanged databases { database rows }
 `{"query": ..., "variables": ...}`. The headers:
 
 - `Authorization: Bearer <key>`: `REFORGED_ADMIN_API_KEY` (the owner's), or the person's own key
-- `x-reforged-operator-id: <Discord user id>`: who the moderation is for, digits only. The backend's audit log records
+- `x-dainty-operator-id: <Discord user id>`: who the moderation is for, digits only. The backend's audit log records
   it as `manager:<id>`. Leave it out and it is `0`, the host.
 
 From the server itself:
@@ -344,7 +344,7 @@ const KEY = process.env.REFORGED_ADMIN_API_KEY;
 async function admin(query, variables, operatorId) {
   const answer = await fetch(API, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${KEY}`, 'x-reforged-operator-id': operatorId },
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${KEY}`, 'x-dainty-operator-id': operatorId },
     body: JSON.stringify({ query, variables }),
     signal: AbortSignal.timeout(15000),
   });

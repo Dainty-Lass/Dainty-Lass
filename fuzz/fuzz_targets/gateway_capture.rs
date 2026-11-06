@@ -38,7 +38,7 @@ fuzz_target!(|input: (Vec<u8>, String, u8)| {
     ];
     if let Ok(value) = HeaderValue::from_bytes(&bytes) {
         let mut headers = HeaderMap::new();
-        headers.insert("x-reforged-user-api-key", value.clone());
+        headers.insert("x-dainty-user-api-key", value.clone());
         headers.insert("authorization", value);
         outputs.push(redact_capture_headers(&headers).to_string());
     }

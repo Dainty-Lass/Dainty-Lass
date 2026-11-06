@@ -26,7 +26,7 @@ static AUTH_ARGUMENT: LazyLock<Regex> = LazyLock::new(|| {
 });
 static KEY_HEADER: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(&format!(
-        r#"(?i)(x-reforged-user-api-key["']?[{JS_SPACE}]*[:=][{JS_SPACE}]*["']?)[^{JS_SPACE}"',}}]+"#
+        r#"(?i)(x-dainty-user-api-key["']?[{JS_SPACE}]*[:=][{JS_SPACE}]*["']?)[^{JS_SPACE}"',}}]+"#
     ))
     .unwrap_or_else(|_| unreachable_regex())
 });

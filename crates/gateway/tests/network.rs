@@ -45,7 +45,7 @@ fn post(body: &str, key: Option<&str>) -> Options<'static> {
     Options {
         method: Some("POST"),
         headers: key
-            .map(|key| vec![("x-reforged-user-api-key", key.to_owned())])
+            .map(|key| vec![("x-dainty-user-api-key", key.to_owned())])
             .unwrap_or_default(),
         body: Some(body.as_bytes().to_vec()),
         ..Options::default()
@@ -314,7 +314,7 @@ async fn region_report_handler_reaches_ring_node_record_region_pings_authenticat
     // Session ticket header is parsed and verified via RingNode::record_region_pings_authenticated
     let ticket_req = Options {
         method: Some("POST"),
-        headers: vec![("x-reforged-session-ticket", session_ticket.token.clone())],
+        headers: vec![("x-dainty-session-ticket", session_ticket.token.clone())],
         body: Some(report.as_bytes().to_vec()),
         ..Options::default()
     };

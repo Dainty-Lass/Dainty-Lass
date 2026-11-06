@@ -30,7 +30,7 @@ The backend must run with `RUSTIC_ISLES_MANAGER_ADMIN=on` for the signed calls t
 kit's `setup` already writes it, with the secret, for the admin service (dainty-lass `docs/admin-api.md`).
 
 Every staff action reaches the game as that staff member: the admin API gets their Discord id in
-`x-reforged-operator-id`, and the backend's signed calls carry it in `X-Paradox-Operator-Id`, so the
+`x-dainty-operator-id`, and the backend's signed calls carry it in `X-Paradox-Operator-Id`, so the
 backend's own audit trail names them as `manager:<discord id>` alongside the dashboard's. A member with
 no Discord linked is sent as `dashboard-<member id>`.
 

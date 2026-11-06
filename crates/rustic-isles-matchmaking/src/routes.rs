@@ -27,7 +27,7 @@ use crate::startup::QOS_PONG;
 use crate::state::MatchmakingState;
 use crate::status::StatusAnswer;
 
-const INSTANCE_HEADER: &str = "x-reforged-instance-id";
+const INSTANCE_HEADER: &str = "x-dainty-instance-id";
 
 fn json(status: StatusCode, value: &Value) -> Response {
     (
@@ -330,14 +330,14 @@ async fn ring_join(ctx: &Ctx, user: &str, body: &Value, echo: Option<&Value>) ->
                 ("sessionTicket", ticket.token.clone().into()),
             ]);
             let mut headers = vec![
-                ("x-reforged-redirect-host", gateway.host.clone()),
-                ("x-reforged-redirect-port", gateway.port.to_string()),
+                ("x-dainty-redirect-host", gateway.host.clone()),
+                ("x-dainty-redirect-port", gateway.port.to_string()),
             ];
             if let Some(fingerprint) = &gateway.fingerprint {
-                headers.push(("x-reforged-redirect-fingerprint", fingerprint.clone()));
+                headers.push(("x-dainty-redirect-fingerprint", fingerprint.clone()));
             }
             // The ticket goes to the caller only, never to a log
-            headers.push(("x-reforged-session-ticket", ticket.token));
+            headers.push(("x-dainty-session-ticket", ticket.token));
             Some(with_headers(ok(&body), headers))
         }
         Err(HomeError::NotInNetwork) => None,

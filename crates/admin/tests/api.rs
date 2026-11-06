@@ -79,7 +79,7 @@ async fn backend(State(state): State<Arc<Backend>>, request: Request) -> Respons
     }
     if path == "/reforged/api/Kick" {
         // HasAdminKey: the key, from this machine, not through the gateway
-        if header("x-reforged-admin-key").as_deref() != Some(ADMIN_KEY) || header("x-reforged-gateway").is_some() {
+        if header("x-dainty-admin-key").as_deref() != Some(ADMIN_KEY) || header("x-dainty-gateway").is_some() {
             return reply(StatusCode::FORBIDDEN, json!({"error": "forbidden"}));
         }
         let given: Value = serde_json::from_slice(&body).unwrap_or_default();
@@ -341,7 +341,7 @@ impl World {
             &[
                 ("authorization", &bearer),
                 ("content-type", "application/json"),
-                ("x-reforged-operator-id", "42"),
+                ("x-dainty-operator-id", "42"),
             ],
             &json!({"query": query, "variables": variables}).to_string(),
         )
@@ -395,11 +395,7 @@ async fn refuses_requests_without_the_key_or_through_a_proxy() {
             "FORWARDED",
         ),
         (
-            vec![
-                json_type,
-                ("authorization", bearer.as_str()),
-                ("x-reforged-gateway", "s"),
-            ],
+            vec![json_type, ("authorization", bearer.as_str()), ("x-dainty-gateway", "s")],
             403,
             "FORWARDED",
         ),
@@ -412,7 +408,7 @@ async fn refuses_requests_without_the_key_or_through_a_proxy() {
             vec![
                 json_type,
                 ("authorization", bearer.as_str()),
-                ("x-reforged-operator-id", "me"),
+                ("x-dainty-operator-id", "me"),
             ],
             400,
             "BAD_OPERATOR",

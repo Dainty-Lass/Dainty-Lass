@@ -97,7 +97,7 @@ fn fake_backend(answer: fn(&str, &str) -> (u16, String)) -> (u16, Seen) {
             };
             let key = head
                 .lines()
-                .find_map(|l| l.strip_prefix("x-reforged-admin-key: "))
+                .find_map(|l| l.strip_prefix("x-dainty-admin-key: "))
                 .unwrap_or_default()
                 .to_owned();
             record

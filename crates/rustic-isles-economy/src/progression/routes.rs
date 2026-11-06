@@ -1051,7 +1051,7 @@ fn send_notes(entry: &Entry, notes: &[String]) {
 async fn forward_grant(entry: &Entry, account: GlobalId, track: &str, multiplied: f64) -> Response {
     let header_hunt = entry
         .headers
-        .get("x-reforged-instance-id")
+        .get("x-dainty-instance-id")
         .and_then(|v| v.to_str().ok())
         .and_then(|t| t.parse::<GlobalId>().ok());
     let hunt = header_hunt

@@ -10,7 +10,7 @@ use crate::upstream::Operator;
 /// The biggest request body read: a query and its variables, never more.
 pub const MAX_BODY: usize = 16 * 1024;
 /// The header naming the Discord user an action is for, 1 to 32 digits; without it, the action is the host's.
-pub const OPERATOR_HEADER: &str = "x-reforged-operator-id";
+pub const OPERATOR_HEADER: &str = "x-dainty-operator-id";
 /// What reaches a ban's reason, which the player reads in the launcher.
 pub const MAX_REASON: usize = 400;
 /// A timeout ends within a year; longer is a ban.
@@ -18,7 +18,14 @@ pub const MAX_TIMEOUT_MS: i64 = 365 * 24 * 60 * 60 * 1000;
 
 /// Headers that mean the request came through a proxy (the gateway among them), which nothing on
 /// this machine has any reason to put in front of the admin API.
-const FORWARDED: [&str; 5] = ["forwarded", "via", "x-real-ip", "x-reforged-gateway", "x-forwarded-for"];
+const FORWARDED: [&str; 6] = [
+    "forwarded",
+    "via",
+    "x-real-ip",
+    "x-dainty-gateway",
+    "x-reforged-gateway",
+    "x-forwarded-for",
+];
 
 /// Why a request is refused before any GraphQL is run.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -385,7 +392,7 @@ mod tests {
                 Refusal::Forwarded,
             ),
             (
-                vec![("authorization", bearer.as_str()), ("x-reforged-gateway", "s")],
+                vec![("authorization", bearer.as_str()), ("x-dainty-gateway", "s")],
                 Refusal::Forwarded,
             ),
             (

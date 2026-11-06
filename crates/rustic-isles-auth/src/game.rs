@@ -180,7 +180,7 @@ impl<S: AuthStore> Auth<S> {
             }
         }
 
-        if let Some(ticket) = util::header(&headers, "x-reforged-session-ticket") {
+        if let Some(ticket) = util::header(&headers, "x-dainty-session-ticket") {
             let ticket = service_kit::js::trim(&ticket).to_owned();
             if !ticket.is_empty() {
                 let Ok((ticket, _)) = SessionTicket::from_token(&ticket) else {
@@ -315,7 +315,7 @@ impl<S: AuthStore> Auth<S> {
         let headers = request.headers();
         let token = match util::header(headers, "authorization") {
             Some(authorization) => util::drop_bytes(&authorization, 7),
-            None => match util::header(headers, "x-reforged-session-ticket") {
+            None => match util::header(headers, "x-dainty-session-ticket") {
                 Some(ticket) => service_kit::js::trim(&ticket).to_owned(),
                 None => return page(StatusCode::INTERNAL_SERVER_ERROR),
             },

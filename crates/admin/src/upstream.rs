@@ -306,7 +306,7 @@ impl Upstream {
         let bytes = Self::body(body);
         let mut request = Request::builder().method(method).uri(&url);
         if admin_key {
-            request = request.header("x-reforged-admin-key", &self.admin_key);
+            request = request.header("x-dainty-admin-key", &self.admin_key);
         }
         if !bytes.is_empty() {
             request = request.header("content-type", "application/json");

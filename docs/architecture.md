@@ -26,7 +26,7 @@ under [security/](security) go through each trust boundary line by line; the AGP
 **The gateway is the only listener off loopback, with one written exception for the TURN relay (DD24).**
 Every HTTP and control service binds `127.0.0.1`, and the gateway refuses the host-only routes (`/admin`,
 `/launcher`, `/internal`, `/health`, and `/__node/*` without a valid cluster client certificate) and headers
-(`x-rustic-isles-gameserver-apikey`, `x-reforged-admin-key`, `x-rustic-isles-metrics-token`, and their `x-mysticparadox-` forms) before anything
+(`x-rustic-isles-gameserver-apikey`, `x-dainty-admin-key`, `x-rustic-isles-metrics-token`, and their `x-mysticparadox-` forms) before anything
 reaches an upstream. The game servers' UDP ports are opened per player address by the allowlist only after that
 player logs in. When realms are enabled on 1.14.7, `turn-rs` (or `coturn`) listens on UDP/TCP 3478 (and optional
 TLS 5349 plus its UDP relay port range) because STUN/TURN traffic cannot sit behind an HTTP gateway
@@ -96,10 +96,10 @@ the host kit (`crates/rustic-isles-reforged/src/reforged_api.rs`, written clean-
 | Route | Who calls it | Through the gateway |
 | --- | --- | --- |
 | `POST /reforged/api/Register` | launcher | yes |
-| `GET /reforged/api/GetUserInfo` | launcher, content server (`x-reforged-user-api-key`) | yes |
+| `GET /reforged/api/GetUserInfo` | launcher, content server (`x-dainty-user-api-key`) | yes |
 | `GET /reforged/api/ServerStatus` | launcher, admin API | yes |
 | `GET /reforged/api/RegistrationStatus` | launcher | yes |
-| `POST /reforged/api/CreateInvite`, `GET …/InviteCodes`, `DELETE …/InviteCode/:code` | host kit (`x-reforged-admin-key`, loopback only) | refused |
+| `POST /reforged/api/CreateInvite`, `GET …/InviteCodes`, `DELETE …/InviteCode/:code` | host kit (`x-dainty-admin-key`, loopback only) | refused |
 | `POST /reforged/api/SetAccountStatus`, `POST /reforged/api/Kick` | host kit, admin API | refused |
 
 Everything else under `/reforged/api` is refused at the gateway with 403, admin key or not: the backend

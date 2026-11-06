@@ -44,7 +44,7 @@ fuzz_target!(|request: Request<'_>| {
         assert!(
             headers
                 .keys()
-                .all(|n| !n.as_str().starts_with("x-forwarded-") && n != "x-reforged-gateway")
+                .all(|n| !n.as_str().starts_with("x-forwarded-") && n != "x-dainty-gateway")
         );
     }
     if let Ok(operator) = operator(&headers) {

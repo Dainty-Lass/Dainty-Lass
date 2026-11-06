@@ -22,6 +22,8 @@ service-plugin.workspace = true
 
 [dev-dependencies]
 # The parity harness content's own tests run (crates/content/tests/parity/harness.rs)
+# protocol::renamed reads the recordings under the new names
+protocol.workspace = true
 axum.workspace = true
 content.workspace = true
 controller.workspace = true

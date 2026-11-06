@@ -227,7 +227,7 @@ impl<S: AuthStore> Auth<S> {
             if let Some(authorization) = util::header(headers, "authorization") {
                 return self.bearer_inner(&authorization).await;
             }
-            let key = util::header(headers, "x-reforged-user-api-key")
+            let key = util::header(headers, "x-dainty-user-api-key")
                 .map(|k| service_kit::js::trim(&k).to_owned())
                 .filter(|k| !k.is_empty());
             let Some(key) = key else {

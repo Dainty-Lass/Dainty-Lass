@@ -53,7 +53,7 @@ async fn backend() -> String {
                 let text = String::from_utf8_lossy(&head).to_string();
                 let key = text.lines().find_map(|l| {
                     l.to_ascii_lowercase()
-                        .starts_with("x-reforged-user-api-key:")
+                        .starts_with("x-dainty-user-api-key:")
                         .then(|| l.split_once(':').unwrap().1.trim().to_owned())
                 });
                 let (status, body) = match key.as_deref().filter(|k| k.starts_with("RRK_")) {
@@ -147,13 +147,13 @@ async fn get(port: u16, path: &str) -> Reply {
 }
 
 async fn keyed(port: u16, path: &str, key: &str) -> Reply {
-    send(port, "GET", path, &[("x-reforged-user-api-key", key)]).await
+    send(port, "GET", path, &[("x-dainty-user-api-key", key)]).await
 }
 
 /// A download whose client reads only the status line and then stalls.
 async fn stalled(port: u16, path: &str, key: &str) -> (TcpStream, u16) {
     let mut socket = TcpStream::connect(("127.0.0.1", port)).await.unwrap();
-    let request = format!("GET {path} HTTP/1.1\r\nhost: content\r\nx-reforged-user-api-key: {key}\r\n\r\n");
+    let request = format!("GET {path} HTTP/1.1\r\nhost: content\r\nx-dainty-user-api-key: {key}\r\n\r\n");
     socket.write_all(request.as_bytes()).await.unwrap();
     let mut first = [0u8; 12];
     socket.read_exact(&mut first).await.unwrap();
@@ -246,7 +246,7 @@ async fn stream_limits() {
     assert_eq!((third.status, third.header("retry-after")), (429, Some("2")));
     assert_eq!(third.text(), r#"{"error":"too_many_streams"}"#);
     // HEAD takes no slot
-    let head = send(server.port, "HEAD", file, &[("x-reforged-user-api-key", "RRK_a")]).await;
+    let head = send(server.port, "HEAD", file, &[("x-dainty-user-api-key", "RRK_a")]).await;
     assert_eq!((head.status, head.header("content-length")), (200, Some("50331648")));
     assert!(head.body.is_empty() && head.header("cache-control").is_none());
     let (_b, sb) = stalled(server.port, file, "RRK_b").await;
@@ -263,7 +263,7 @@ async fn stream_limits() {
             server.port,
             "GET",
             "/content/v1/runtime/files/winmm.dll",
-            &[("x-reforged-user-api-key", "RRK_c")],
+            &[("x-dainty-user-api-key", "RRK_c")],
         )
         .await
         .status
@@ -450,7 +450,7 @@ async fn module_routes() {
     assert_eq!(served.body, manifest_bytes);
     assert_eq!(served.header("etag"), Some(format!("\"{sha1}\"").as_str()));
     assert_eq!(served.header("content-type"), Some("application/octet-stream"));
-    let head = send(server.port, "HEAD", epic, &[("x-reforged-user-api-key", "RRK_a")]).await;
+    let head = send(server.port, "HEAD", epic, &[("x-dainty-user-api-key", "RRK_a")]).await;
     assert_eq!(
         head.header("content-length"),
         Some(manifest_bytes.len().to_string().as_str())
@@ -461,7 +461,7 @@ async fn module_routes() {
         server.port,
         "GET",
         epic,
-        &[("x-reforged-user-api-key", "RRK_a"), ("if-none-match", &quoted)],
+        &[("x-dainty-user-api-key", "RRK_a"), ("if-none-match", &quoted)],
     )
     .await;
     assert_eq!(unchanged.status, 304);
@@ -514,7 +514,7 @@ async fn l1_the_download_line_and_no_key_anywhere() {
         server.port,
         "GET",
         "/content/v1/runtime/files/winmm.dll",
-        &[("x-reforged-user-api-key", key), ("x-forwarded-for", "203.0.113.9")],
+        &[("x-dainty-user-api-key", key), ("x-forwarded-for", "203.0.113.9")],
     )
     .await;
     assert_eq!(reply.status, 200);

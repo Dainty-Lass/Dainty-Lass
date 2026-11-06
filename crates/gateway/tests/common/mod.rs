@@ -549,7 +549,7 @@ async fn upstream_answer(
         h.append("set-cookie", "a=1".parse().unwrap());
         h.append("set-cookie", "b=2".parse().unwrap());
         h.insert("x-powered-by", "Express".parse().unwrap());
-        h.insert("x-reforged-gateway", "leak".parse().unwrap());
+        h.insert("x-dainty-gateway", "leak".parse().unwrap());
         return r;
     }
     if path == "/heartbeat" && method == "POST" {

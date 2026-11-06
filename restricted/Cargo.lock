@@ -3207,6 +3207,7 @@ dependencies = [
  "aws-lc-rs",
  "base64 0.23.1",
  "module-api",
+ "protocol",
  "regex",
  "rusqlite",
  "rustic-isles",

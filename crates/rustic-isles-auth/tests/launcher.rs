@@ -222,18 +222,18 @@ async fn account_keys_sign_in() {
     let hash = rustic_isles_auth::hashes::user_key_hash(common::SECRET, "RRK_test");
     t.store().insert_user_key(&account.account_id, &hash);
     let me = t
-        .get("/launcher/v1/me", &[("x-reforged-user-api-key", " RRK_test ")])
+        .get("/launcher/v1/me", &[("x-dainty-user-api-key", " RRK_test ")])
         .await;
     assert_eq!(me.status, StatusCode::OK);
     let wrong = t
-        .get("/launcher/v1/me", &[("x-reforged-user-api-key", "RRK_other")])
+        .get("/launcher/v1/me", &[("x-dainty-user-api-key", "RRK_other")])
         .await;
     assert_eq!(wrong.message(), "Sign in required.");
     // Logout with a key matches no family
     let out = t
         .post(
             "/launcher/v1/auth/logout",
-            &[("x-reforged-user-api-key", "RRK_test")],
+            &[("x-dainty-user-api-key", "RRK_test")],
             json!({}),
         )
         .await;

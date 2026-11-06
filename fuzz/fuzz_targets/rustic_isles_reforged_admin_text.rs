@@ -31,7 +31,7 @@ fuzz_target!(|data: &[u8]| {
     }
     let mut headers = HeaderMap::new();
     if let Ok(value) = HeaderValue::from_str(&text) {
-        headers.insert("x-reforged-admin-key", value);
+        headers.insert("x-dainty-admin-key", value);
     }
     let _ = local_admin(&rustic_isles::Settings::default(), &text, &headers);
 });

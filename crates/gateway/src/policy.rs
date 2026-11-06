@@ -36,6 +36,8 @@ pub const HOST_ONLY_HEADERS: &[&str] = &[
     "x-rustic-isles-gameserver-key",
     "x-mysticparadox-gameserver-apikey",
     "x-mysticparadox-gameserver-key",
+    "x-dainty-admin-key",
+    // The name before the rename, refused too so it never reaches a service
     "x-reforged-admin-key",
     "x-rustic-isles-metrics-token",
     "x-mysticparadox-metrics-token",
@@ -631,8 +633,10 @@ mod tests {
             reason(classify("GET", "/x", &key, false)),
             (403, "gameserver_key_header")
         );
-        let admin = headers(&[("x-reforged-admin-key", "k")]);
+        let admin = headers(&[("x-dainty-admin-key", "k")]);
         assert_eq!(reason(classify("GET", "/x", &admin, false)), (403, "host_only_header"));
+        let old = headers(&[("x-reforged-admin-key", "k")]);
+        assert_eq!(reason(classify("GET", "/x", &old, false)), (403, "host_only_header"));
         assert_eq!(
             decide("POST", "/Heartbeat/"),
             Decision::Proxy {

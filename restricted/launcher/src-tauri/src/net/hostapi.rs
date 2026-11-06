@@ -2,7 +2,7 @@
 //! same contract as Dauntless Revived's `/undaunted/api`) and the content server behind the gateway
 //! (`/content/v1`).
 //!
-//! The account key is sent only in the `x-reforged-user-api-key` header, only to the invite's host (in
+//! The account key is sent only in the `x-dainty-user-api-key` header, only to the invite's host (in
 //! public mode only over the TLS connection pinned to the invite's certificate fingerprint): GetUserInfo,
 //! ServerStatus (for the player list) and, through RA7, the runtime downloads. It is never logged and
 //! never part of an error.
@@ -30,7 +30,7 @@ pub use parse::{
     parse_runtime_manifest, sniff_image,
 };
 
-pub const KEY_HEADER: &str = "x-reforged-user-api-key";
+pub const KEY_HEADER: &str = "x-dainty-user-api-key";
 
 /// Where a server's launcher API is and which header its key goes in.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

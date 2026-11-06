@@ -212,7 +212,7 @@ impl Holder {
 
 /// Who holds the presented account key; a store failure is no holder.
 pub async fn key_holder(shared: &Shared, store: &IslesStore, headers: &HeaderMap) -> Option<(Holder, String)> {
-    let key = util::header_lossy(headers, "x-reforged-user-api-key")?;
+    let key = util::header_lossy(headers, "x-dainty-user-api-key")?;
     if !looks_like_account_key(&key) {
         return None;
     }
@@ -404,7 +404,7 @@ pub async fn register(call: Call) -> Response {
     announce(&shared, &account, &key, &username).await;
     ReforgedState::of(&shared).forget_status();
     let response = util::ok(&object(vec![("UUK", Value::from(key))]));
-    util::with_header(response, "x-reforged-account-id", &account.to_string())
+    util::with_header(response, "x-dainty-account-id", &account.to_string())
 }
 
 /// `GET /reforged/api/GetUserInfo`: the key holder's account.
@@ -440,7 +440,7 @@ pub async fn get_user_info(call: Call) -> Response {
         ("Username", Value::from(holder.username.clone())),
         ("IsAdmin", Value::Bool(holder.admin)),
     ]);
-    util::with_header(util::ok(&body), "x-reforged-account-id", &holder.account.to_string())
+    util::with_header(util::ok(&body), "x-dainty-account-id", &holder.account.to_string())
 }
 
 /// `GET /reforged/api/ServerStatus`: the server's status, the full view for an eligible key holder.
@@ -467,7 +467,7 @@ pub async fn server_status(call: Call) -> Response {
     };
     let mut response = util::ok(&body);
     util::set_header(&mut response, "cache-control", "no-store");
-    util::set_header(&mut response, "vary", "x-reforged-user-api-key");
+    util::set_header(&mut response, "vary", "x-dainty-user-api-key");
     response
 }
 

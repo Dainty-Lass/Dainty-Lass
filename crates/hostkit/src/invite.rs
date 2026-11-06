@@ -471,7 +471,7 @@ pub fn create_invite_code(admin_key: &str, opts: &CodeOptions, port: u16) -> Res
         "POST",
         port,
         "/reforged/api/CreateInvite",
-        &[("x-reforged-admin-key", key), ("Content-Type", "application/json")],
+        &[("x-dainty-admin-key", key), ("Content-Type", "application/json")],
         Some(&body_str),
         Duration::from_millis(5000),
     )
@@ -517,7 +517,7 @@ pub fn list_invite_codes(port: u16, admin_key: &str) -> Result<Vec<Value>, HostE
         "GET",
         port,
         "/reforged/api/InviteCodes",
-        &[("x-reforged-admin-key", key)],
+        &[("x-dainty-admin-key", key)],
         None,
         Duration::from_millis(5000),
     )
@@ -658,7 +658,7 @@ mod tests {
             let n = stream.read(&mut buf).unwrap();
             let req = String::from_utf8_lossy(&buf[..n]);
             assert!(req.contains("POST /reforged/api/CreateInvite HTTP/1.1"));
-            assert!(req.contains("x-reforged-admin-key: secret123"));
+            assert!(req.contains("x-dainty-admin-key: secret123"));
             let body = r#"{"code":"HUNT-2026"}"#;
             let resp = format!(
                 "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\n\r\n{body}",

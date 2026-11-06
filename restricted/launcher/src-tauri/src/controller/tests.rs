@@ -42,7 +42,7 @@ use crate::platform::game_folder::{GAME_VERSION_TEXT, StoreEnv};
 use crate::platform::keystore::Encryptor;
 use crate::platform::launch::LaunchRuntime;
 
-const KEY_HEADER: &str = "x-reforged-user-api-key";
+const KEY_HEADER: &str = "x-dainty-user-api-key";
 const EXE_DATA: &[u8] = b"MZ this is not really Dauntless 1.14.7";
 
 fn sha(data: &[u8]) -> String {

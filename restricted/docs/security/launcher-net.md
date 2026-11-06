@@ -85,7 +85,7 @@ GetUserInfo answers, runtime manifests, news, the art pack's index, paths and im
 
 ### The account key
 
-- [ ] The key is sent only in `x-reforged-user-api-key`, built only by `key_headers`: a plausible key (8-128
+- [ ] The key is sent only in `x-dainty-user-api-key`, built only by `key_headers`: a plausible key (8-128
       characters of `[A-Za-z0-9_-]`) and an endpoint that is pinned or private-mode. Otherwise no header is sent at
       all, for ServerStatus and GetUserInfo alike (Reforged's rule; DR sent it to GetUserInfo unconditionally).
 - [ ] Register, the runtime manifest, news, the art pack and `/dauntless-status` never carry the key.
@@ -126,7 +126,7 @@ cargo +nightly fuzz run launcher_input -- -max_total_time=86400
 
 ## Changes from Dauntless Revived
 
-- The key header is `x-reforged-user-api-key` and the routes are under `/reforged/api` (DR: `x-undaunted-...`,
+- The key header is `x-dainty-user-api-key` and the routes are under `/reforged/api` (DR: `x-undaunted-...`,
   `/undaunted/api`).
 - GetUserInfo follows the same key rule as ServerStatus; DR sent the key unconditionally.
 - DR's `DeviceSignals`, `HuntRegion` and `PlayingEnded` calls and its 1.4.4 content manifest are not ported; the

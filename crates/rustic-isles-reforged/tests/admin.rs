@@ -580,12 +580,12 @@ async fn host_routes() {
     let t = rig().await;
     let r = &t.rig;
     let host =
-        |method: &'static str, uri: &'static str| Request1::new(method, uri).header("x-reforged-admin-key", ADMIN_KEY);
+        |method: &'static str, uri: &'static str| Request1::new(method, uri).header("x-dainty-admin-key", ADMIN_KEY);
     let forbidden = r#"{"error":"forbidden"}"#;
     r.send(Request1::new("GET", "/reforged/api/InviteCodes"))
         .await
         .assert(403, forbidden);
-    r.send(host("GET", "/reforged/api/InviteCodes").header("x-reforged-gateway", "1"))
+    r.send(host("GET", "/reforged/api/InviteCodes").header("x-dainty-gateway", "1"))
         .await
         .assert(403, forbidden);
     r.send(host("GET", "/reforged/api/InviteCodes").header("x-forwarded-for", "1.2.3.4"))

@@ -46,7 +46,7 @@ const HEADERS: [&str; 12] = [
     "connection",
     "retry-after",
     "x-powered-by",
-    "x-reforged-gateway",
+    "x-dainty-gateway",
     "set-cookie",
     "upgrade",
     "sec-websocket-accept",
@@ -84,7 +84,8 @@ fn echo_record(name: &str, method: &str, url: &str, headers: &http::HeaderMap, b
             continue;
         }
         let value = String::from_utf8_lossy(v.as_bytes()).into_owned();
-        seen.entry(n.as_str().to_owned())
+        // Named as the Node recording names them, so the echo's length matches it too (protocol::renamed)
+        seen.entry(protocol::renamed::as_recorded(n.as_str()))
             .and_modify(|old| {
                 old.push_str(", ");
                 old.push_str(&value);
@@ -415,7 +416,15 @@ fn load(name: &str, kind: &str) -> Value {
     let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("../gateway/tests/parity")
         .join(format!("{name}.{kind}.json"));
-    serde_json::from_slice(&std::fs::read(&path).unwrap_or_else(|e| panic!("{}: {e}", path.display()))).unwrap()
+    let text = std::fs::read_to_string(&path).unwrap_or_else(|e| panic!("{}: {e}", path.display()));
+    // Recorded from Node under the old names (protocol::renamed): the client sends the new ones, and the echo
+    // upstream reports them as recorded, so the answers compare as they are
+    let text = if kind == "requests" {
+        protocol::renamed::renamed(&text)
+    } else {
+        text
+    };
+    serde_json::from_str(&text).unwrap()
 }
 
 /// Runs every request of `<name>.requests.json` against the gateway `start` brings up with the given settings and

@@ -356,11 +356,11 @@ mod tests {
     fn options_never_print_header_values() {
         let key = concat!("RRK_", "0123456789abcdef", "0123456789abcdef", "0123456789abcdef");
         let mut with_key = options();
-        with_key.headers = vec![("x-reforged-user-api-key", key.to_owned())];
+        with_key.headers = vec![("x-dainty-user-api-key", key.to_owned())];
         with_key.body = Some(format!("{{\"k\":\"{key}\"}}"));
         let printed = format!("{with_key:?}");
         assert!(
-            printed.contains("x-reforged-user-api-key") && !printed.contains(key),
+            printed.contains("x-dainty-user-api-key") && !printed.contains(key),
             "{printed}"
         );
     }

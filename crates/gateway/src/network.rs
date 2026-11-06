@@ -23,7 +23,7 @@ pub const REGIONS_PATH: &str = "/network/v1/regions";
 /// Redeems a remote-management enrollment code.
 pub const ENROLL_PATH: &str = "/__node/enroll";
 /// Header carrying a home-signed session ticket when the launcher is connected to or reporting to a node (DN5, DN6, DN8).
-pub const SESSION_TICKET_HEADER: &str = "x-reforged-session-ticket";
+pub const SESSION_TICKET_HEADER: &str = "x-dainty-session-ticket";
 
 /// Optional handler on a controller gateway that redeems a one-time enrollment token (`POST /__node/enroll`, DD27, RM2).
 pub type EnrollHandler = Arc<dyn Fn(Vec<u8>) -> Pin<Box<dyn Future<Output = (u16, Vec<u8>)> + Send>> + Send + Sync>;

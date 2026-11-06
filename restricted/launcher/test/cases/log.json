@@ -37,20 +37,20 @@
       "redacted": "-Auth_Password=<hidden>"
     },
     {
-      "line": "headers {\"x-reforged-user-api-key\":\"secret-value\",\"other\":1}",
-      "redacted": "headers {\"x-reforged-user-api-key\":\"<hidden>\",\"other\":1}"
+      "line": "headers {\"x-dainty-user-api-key\":\"secret-value\",\"other\":1}",
+      "redacted": "headers {\"x-dainty-user-api-key\":\"<hidden>\",\"other\":1}"
     },
     {
-      "line": "X-Reforged-User-Api-Key = abc123, next",
-      "redacted": "X-Reforged-User-Api-Key = <hidden>, next"
+      "line": "X-Dainty-User-Api-Key = abc123, next",
+      "redacted": "X-Dainty-User-Api-Key = <hidden>, next"
     },
     {
-      "line": "x-reforged-user-api-key:﻿abc",
-      "redacted": "x-reforged-user-api-key:﻿<hidden>"
+      "line": "x-dainty-user-api-key:﻿abc",
+      "redacted": "x-dainty-user-api-key:﻿<hidden>"
     },
     {
-      "line": "x-reforged-user-api-key: abc",
-      "redacted": "x-reforged-user-api-key: <hidden>"
+      "line": "x-dainty-user-api-key: abc",
+      "redacted": "x-dainty-user-api-key: <hidden>"
     },
     {
       "line": "-AUTH_PASSWORD=a　b",

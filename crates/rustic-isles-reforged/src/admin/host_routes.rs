@@ -24,10 +24,10 @@ pub fn local_admin(settings: &rustic_isles::Settings, peer: &str, headers: &Head
     if util::utf16_len(configured) < 32 || !is_loopback_peer(peer) {
         return false;
     }
-    if headers.contains_key("x-reforged-gateway") || headers.contains_key("x-forwarded-for") {
+    if headers.contains_key("x-dainty-gateway") || headers.contains_key("x-forwarded-for") {
         return false;
     }
-    let sent = util::header_text(headers, "x-reforged-admin-key").unwrap_or_default();
+    let sent = util::header_text(headers, "x-dainty-admin-key").unwrap_or_default();
     util::ct_eq(&util::sha256(sent.as_bytes()), &util::sha256(configured.as_bytes()))
 }
 
@@ -293,12 +293,12 @@ mod tests {
         let key = "k".repeat(32);
         let settings = rustic_isles::Settings::from_pairs([("REFORGED_ADMIN_KEY", key.as_str())]);
         let mut headers = HeaderMap::new();
-        headers.insert("x-reforged-admin-key", key.parse().unwrap());
+        headers.insert("x-dainty-admin-key", key.parse().unwrap());
         assert!(local_admin(&settings, "127.0.0.1", &headers));
         assert!(local_admin(&settings, "::ffff:127.0.0.2", &headers));
         assert!(!local_admin(&settings, "10.0.0.1", &headers));
         let mut gateway = headers.clone();
-        gateway.insert("x-reforged-gateway", "1".parse().unwrap());
+        gateway.insert("x-dainty-gateway", "1".parse().unwrap());
         assert!(!local_admin(&settings, "127.0.0.1", &gateway));
         let short = rustic_isles::Settings::from_pairs([("REFORGED_ADMIN_KEY", "k".repeat(31).as_str())]);
         assert!(!local_admin(&short, "127.0.0.1", &headers));

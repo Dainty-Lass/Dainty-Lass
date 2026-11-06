@@ -183,16 +183,16 @@ async fn route(mut request: Request<Incoming>, seen: Arc<Mutex<Vec<Seen>>>) -> R
             let mut response = json(serde_json::json!({ "redirected": true }));
             let headers = response.headers_mut();
             if let Some(h) = request.headers().get("x-test-redirect-host") {
-                headers.insert("x-reforged-redirect-host", h.clone());
+                headers.insert("x-dainty-redirect-host", h.clone());
             }
             if let Some(p) = request.headers().get("x-test-redirect-port") {
-                headers.insert("x-reforged-redirect-port", p.clone());
+                headers.insert("x-dainty-redirect-port", p.clone());
             }
             if let Some(f) = request.headers().get("x-test-redirect-fingerprint") {
-                headers.insert("x-reforged-redirect-fingerprint", f.clone());
+                headers.insert("x-dainty-redirect-fingerprint", f.clone());
             }
             if let Some(t) = request.headers().get("x-test-session-ticket") {
-                headers.insert("x-reforged-session-ticket", t.clone());
+                headers.insert("x-dainty-session-ticket", t.clone());
             }
             response
         }
@@ -1090,22 +1090,22 @@ async fn repoint_requires_ticket_off_home_strips_key_and_restores_home_forwardin
     let (relay, _) = relay_for(&home_upstream, None).await;
     let home_target = relay.current_target();
 
-    // Initial request to home node: x-reforged-user-api-key passes through
+    // Initial request to home node: x-dainty-user-api-key passes through
     let answer = call(
         relay.port(),
         "GET",
         "/session",
-        &[("x-reforged-user-api-key", "RRK_home_secret_key_123456")],
+        &[("x-dainty-user-api-key", "RRK_home_secret_key_123456")],
         None,
     )
     .await;
     assert_eq!(answer.status, 200);
     let home_seen = home_upstream.seen().last().cloned().unwrap();
     assert_eq!(
-        values(&home_seen.headers, "x-reforged-user-api-key"),
+        values(&home_seen.headers, "x-dainty-user-api-key"),
         ["RRK_home_secret_key_123456"]
     );
-    assert!(!home_seen.headers.contains_key("x-reforged-session-ticket"));
+    assert!(!home_seen.headers.contains_key("x-dainty-session-ticket"));
 
     let peer_target = RelayTarget {
         host: "127.0.0.1".into(),
@@ -1136,16 +1136,16 @@ async fn repoint_requires_ticket_off_home_strips_key_and_restores_home_forwardin
         relay.port(),
         "GET",
         "/hunt/join",
-        &[("x-reforged-user-api-key", "RRK_home_secret_key_123456")],
+        &[("x-dainty-user-api-key", "RRK_home_secret_key_123456")],
         None,
     )
     .await;
     assert_eq!(answer.status, 200);
     let peer_seen = peer_upstream.seen().last().cloned().unwrap();
     assert_eq!(peer_seen.uri.as_str(), "/hunt/join");
-    assert!(!peer_seen.headers.contains_key("x-reforged-user-api-key"));
+    assert!(!peer_seen.headers.contains_key("x-dainty-user-api-key"));
     assert_eq!(
-        values(&peer_seen.headers, "x-reforged-session-ticket"),
+        values(&peer_seen.headers, "x-dainty-session-ticket"),
         ["dlt1.signed_session_ticket"]
     );
 
@@ -1158,7 +1158,7 @@ async fn repoint_requires_ticket_off_home_strips_key_and_restores_home_forwardin
         relay.port(),
         "GET",
         "/session/after-hunt",
-        &[("x-reforged-user-api-key", "RRK_home_secret_key_123456")],
+        &[("x-dainty-user-api-key", "RRK_home_secret_key_123456")],
         None,
     )
     .await;
@@ -1166,10 +1166,10 @@ async fn repoint_requires_ticket_off_home_strips_key_and_restores_home_forwardin
     let home_seen_after = home_upstream.seen().last().cloned().unwrap();
     assert_eq!(home_seen_after.uri.as_str(), "/session/after-hunt");
     assert_eq!(
-        values(&home_seen_after.headers, "x-reforged-user-api-key"),
+        values(&home_seen_after.headers, "x-dainty-user-api-key"),
         ["RRK_home_secret_key_123456"]
     );
-    assert!(!home_seen_after.headers.contains_key("x-reforged-session-ticket"));
+    assert!(!home_seen_after.headers.contains_key("x-dainty-session-ticket"));
 
     relay.stop().await;
 }
@@ -1186,7 +1186,7 @@ async fn redirect_response_headers_automatically_repoint_relay_and_strip_account
         "POST",
         "/redirect-me",
         &[
-            ("x-reforged-user-api-key", "RRK_home_secret_key_123456"),
+            ("x-dainty-user-api-key", "RRK_home_secret_key_123456"),
             ("x-test-redirect-host", "127.0.0.1"),
             ("x-test-redirect-port", &peer_port_str),
             ("x-test-redirect-fingerprint", &peer_upstream.fingerprint),
@@ -1210,16 +1210,16 @@ async fn redirect_response_headers_automatically_repoint_relay_and_strip_account
         relay.port(),
         "GET",
         "/matchmaking/instance-info",
-        &[("x-reforged-user-api-key", "RRK_home_secret_key_123456")],
+        &[("x-dainty-user-api-key", "RRK_home_secret_key_123456")],
         None,
     )
     .await;
     assert_eq!(follow_up.status, 200);
     let peer_seen = peer_upstream.seen().last().cloned().unwrap();
     assert_eq!(peer_seen.uri.as_str(), "/matchmaking/instance-info");
-    assert!(!peer_seen.headers.contains_key("x-reforged-user-api-key"));
+    assert!(!peer_seen.headers.contains_key("x-dainty-user-api-key"));
     assert_eq!(
-        values(&peer_seen.headers, "x-reforged-session-ticket"),
+        values(&peer_seen.headers, "x-dainty-session-ticket"),
         ["dlt1.auto_redirect_ticket"]
     );
 

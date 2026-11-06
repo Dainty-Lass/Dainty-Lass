@@ -73,7 +73,7 @@ Fuzz targets in `fuzz`:
 
 ### Secrets
 
-- [ ] A ring redirect's session ticket goes only to the caller (the body and `x-reforged-session-ticket`) and is
+- [ ] A ring redirect's session ticket goes only to the caller (the body and `x-dainty-session-ticket`) and is
   never logged (`routes.rs` `ring_join`).
 - [ ] No setting here is a secret; `HttpDirector`'s `Debug` prints the authority only; `MatchmakingState`'s prints
   counts only.

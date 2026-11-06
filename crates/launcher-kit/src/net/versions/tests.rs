@@ -607,7 +607,7 @@ async fn content(request: hyper::Request<Incoming>, seen: Seen, manifest: Vec<u8
     let path = request.uri().path().to_owned();
     let key = request
         .headers()
-        .get("x-reforged-user-api-key")
+        .get("x-dainty-user-api-key")
         .and_then(|value| value.to_str().ok())
         .map(str::to_owned);
     seen.lock().unwrap().push((path.clone(), key.clone()));

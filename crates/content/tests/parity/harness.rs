@@ -55,7 +55,9 @@ pub fn fixtures() -> PathBuf {
 
 fn read_json(path: &Path) -> Value {
     let text = std::fs::read_to_string(path).unwrap_or_else(|e| panic!("{}: {e}", path.display()));
-    serde_json::from_str(text.trim_start_matches('\u{feff}')).unwrap_or_else(|e| panic!("{}: {e}", path.display()))
+    // Recorded from Node under the old names (protocol::renamed)
+    let text = protocol::renamed::renamed(text.trim_start_matches('\u{feff}'));
+    serde_json::from_str(&text).unwrap_or_else(|e| panic!("{}: {e}", path.display()))
 }
 
 fn sha256_hex(bytes: &[u8]) -> String {
@@ -158,7 +160,7 @@ async fn fake_backend(keys: Map<String, Value>) -> String {
                     .to_owned();
                 let key = lines.find_map(|line| {
                     let (name, value) = line.split_once(':')?;
-                    name.eq_ignore_ascii_case("x-reforged-user-api-key")
+                    name.eq_ignore_ascii_case("x-dainty-user-api-key")
                         .then(|| value.trim().to_owned())
                 });
                 let answer = key

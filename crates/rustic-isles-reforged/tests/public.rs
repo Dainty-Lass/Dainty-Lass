@@ -109,7 +109,7 @@ async fn registration() {
     assert_eq!(keys, ["UUK"]);
     let key = body["UUK"].as_str().unwrap().to_owned();
     assert!(key.starts_with("RRK_") && key.len() == 52);
-    assert!(made.header("x-reforged-account-id").unwrap().starts_with("account:"));
+    assert!(made.header("x-dainty-account-id").unwrap().starts_with("account:"));
     assert_eq!(
         register(&open, json!({"Username": "fox_9"})).await.code(),
         "username_taken"
@@ -134,7 +134,7 @@ async fn registration() {
         );
     }
     let info = open
-        .send(Request1::new("GET", "/reforged/api/GetUserInfo").header("x-reforged-user-api-key", &key))
+        .send(Request1::new("GET", "/reforged/api/GetUserInfo").header("x-dainty-user-api-key", &key))
         .await;
     assert_eq!(info.status, 200);
     assert_eq!(info.json()["Username"], "Fox_9");
@@ -155,7 +155,7 @@ async fn registration() {
         .get("/reforged/api/RegistrationStatus")
         .await
         .assert(200, r#"{"mode":"INVITECODE"}"#);
-    let host = |r: Request1<'static>| r.header("x-reforged-admin-key", common::ADMIN_KEY);
+    let host = |r: Request1<'static>| r.header("x-dainty-admin-key", common::ADMIN_KEY);
     let code = invite
         .send(host(
             Request1::new("POST", "/reforged/api/CreateInvite").json(&json!({})),
@@ -229,12 +229,12 @@ async fn user_info_and_status() {
         .await
         .assert(401, r#"{"error":"unauthorized"}"#);
     let odd = rig
-        .send(Request1::new("GET", "/reforged/api/GetUserInfo").header("x-reforged-user-api-key", "a b c"))
+        .send(Request1::new("GET", "/reforged/api/GetUserInfo").header("x-dainty-user-api-key", "a b c"))
         .await;
     odd.assert(401, r#"{"error":"unauthorized"}"#);
     let made = register(&rig, json!({"Username": "Fox_9"})).await;
     let key = made.json()["UUK"].as_str().unwrap().to_owned();
-    let account: rustic_isles_store::AccountId = made.header("x-reforged-account-id").unwrap().parse().unwrap();
+    let account: rustic_isles_store::AccountId = made.header("x-dainty-account-id").unwrap().parse().unwrap();
     let ban = |status: rustic_isles_store::repo::auth::OperationalStatus, reason: Option<&str>| {
         let a = account.clone();
         let reason = reason.map(str::to_owned);
@@ -258,7 +258,7 @@ async fn user_info_and_status() {
                 .unwrap();
         }
     };
-    let info = || Request1::new("GET", "/reforged/api/GetUserInfo").header("x-reforged-user-api-key", &key);
+    let info = || Request1::new("GET", "/reforged/api/GetUserInfo").header("x-dainty-user-api-key", &key);
     use rustic_isles_store::repo::auth::OperationalStatus::{Active, Banned, Disabled};
     ban(Banned, Some("cheating")).await;
     rig.send(info())
@@ -274,7 +274,7 @@ async fn user_info_and_status() {
     let limited = rig.get("/reforged/api/ServerStatus").await;
     assert_eq!(limited.status, 200);
     assert_eq!(limited.header("cache-control"), Some("no-store"));
-    assert_eq!(limited.header("vary"), Some("x-reforged-user-api-key"));
+    assert_eq!(limited.header("vary"), Some("x-dainty-user-api-key"));
     let body = limited.json();
     let keys: Vec<&String> = body.as_object().unwrap().keys().collect();
     assert_eq!(
@@ -311,7 +311,7 @@ async fn user_info_and_status() {
     assert_eq!(body["chat"], false);
     assert_eq!(body["limited"], true);
     let full = rig
-        .send(Request1::new("GET", "/reforged/api/ServerStatus").header("x-reforged-user-api-key", &key))
+        .send(Request1::new("GET", "/reforged/api/ServerStatus").header("x-dainty-user-api-key", &key))
         .await
         .json();
     assert_eq!(

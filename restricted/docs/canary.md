@@ -39,7 +39,7 @@ The gateway writes one file per UTC day named `gateway-YYYY-MM-DD.jsonl` inside 
 - Game-server API keys (`x-rustic-isles-gameserver-apikey`) become `<gskey>`.
 - XMPP SASL `PLAIN` frames (`<auth ...>...</auth>`) become `<plain:UID-...>` so the replay runner can synthesize a valid base64 `\0<userId>\0<fresh-jwt>` frame for the target server.
 - Any other JSON or form field whose name matches `(?i)(key|token|secret|pass|auth|jwt|sig|cred|recovery|invite|cookie)` (unless already converted to `<token:...>` or `<key:...>`) and any 40+ character hex string or 100+ character token string is replaced with `<redacted>`.
-- The `cookie`, `set-cookie` and `x-reforged-gateway` headers are stripped before writing.
+- The `cookie`, `set-cookie` and `x-dainty-gateway` headers are stripped before writing.
 
 > Capture files still contain player usernames, account IDs, IP addresses, and play history. Keep `CAPTURE_DIR` on local encrypted storage with `0600` permissions, never commit real capture files to Git, and delete them once replay verification completes.
 
@@ -111,7 +111,7 @@ Report counters and diff classifications in `--out <replay-report.json>`:
 | `inexact_diffed` | Entries marked `inexact` whose responses differed (expected when an unmapped key or omitted body prevents exact replay). |
 | `unexplained_diffed` | Blocks the release: exact entries whose normalized responses differed. Must be `0` for `PASS`. |
 | `StatusDiff` | HTTP status code mismatch (`left` vs `right`, e.g. `200` vs `500`). |
-| `HeaderDiff` | Normalized response header mismatch (`content-type`, `ratelimit`, custom `x-reforged-*` / `x-mystic-*` headers). Volatile transport headers (`date`, `etag`, `content-length`, `connection`, `transfer-encoding`, `server`, CORS) are stripped automatically. |
+| `HeaderDiff` | Normalized response header mismatch (`content-type`, `ratelimit`, custom `x-dainty-*` / `x-mystic-*` headers). Volatile transport headers (`date`, `etag`, `content-length`, `connection`, `transfer-encoding`, `server`, CORS) are stripped automatically. |
 | `ValueDiff` | JSON value mismatch at a specific JSONPath (`$.payload.loadouts[0]...`) after normalizing timestamps (`<date>`, `<login-time>`, `<display-date>`), JWTs (`<jwt:UID-...>`), gateway-redacted secret fields (`<redacted>`), and first-appearance dynamic IDs (`<uuid#1>`, `<iid#1>`, `<party#1>`, `gs-<uuid#1>`). |
 | `TextDiff` | Raw wire serialization mismatch (such as JSON object key ordering or number formatting) when semantic values match, or non-JSON body text mismatch. |
 | `ChatStanzaDiff` | XMPP server stanza mismatch on connection `conn` at stanza index `index` after normalizing stream IDs (`<stream>`), server stanza IDs (`srv-<id>`), and timestamps, and filtering keepalive pings. |
@@ -187,8 +187,8 @@ The end-to-end pipeline (live `Server A` with `CAPTURE_DIR` enabled in `.workspa
 ### 5.1 Captured routes exercised through the gateway
 
 1. `GET /reforged/api/RegistrationStatus`
-2. `GET /reforged/api/ServerStatus` (with `x-reforged-user-api-key: RRK_...` -> redacted to `<key:sha256>`)
-3. `GET /reforged/api/GetUserInfo` (with `x-reforged-user-api-key: RRK_...` -> redacted to `<key:sha256>`)
+2. `GET /reforged/api/ServerStatus` (with `x-dainty-user-api-key: RRK_...` -> redacted to `<key:sha256>`)
+3. `GET /reforged/api/GetUserInfo` (with `x-dainty-user-api-key: RRK_...` -> redacted to `<key:sha256>`)
 4. `POST /account/api/oauth/token` (`grant_type=exchange_code&exchange_code=RRK_...` -> redacted to `<key:sha256>`, response `access_token` redacted to `<token:52c7ed2e-99e4-463c-8d08-7f509bc9de02>`)
 5. `POST /login` (with `Authorization: Bearer <jwt>` -> redacted to `Bearer <token:52c7ed2e-99e4-463c-8d08-7f509bc9de02>`)
 6. `GET /accountinfo`

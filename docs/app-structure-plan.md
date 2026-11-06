@@ -131,7 +131,7 @@ flowchart LR
 
 ### How each component handles concurrent editions
 1. **`gateway`**:
-   - Can either bind one shared public listener (routing `/content/v1/*` to `content` and dispatching backend/WebSocket traffic by edition route prefix, header `x-reforged-edition: refined|reforged`, or query parameter) **or** bind two separate public/private listeners (`[editions.reforged].gateway_port = 443`, `[editions.refined].gateway_port = 8443`) sharing the same pinned TLS certificate (`fp`) so one server cert covers both editions.
+   - Can either bind one shared public listener (routing `/content/v1/*` to `content` and dispatching backend/WebSocket traffic by edition route prefix, header `x-dainty-edition: refined|reforged`, or query parameter) **or** bind two separate public/private listeners (`[editions.reforged].gateway_port = 443`, `[editions.refined].gateway_port = 8443`) sharing the same pinned TLS certificate (`fp`) so one server cert covers both editions.
 2. **`allowlist`**:
    - Runs as a **single in-process `AllowlistState` + `SyncWorker`** guarding the combined list of UDP ports from both active editions (e.g., `8770-8777` for Reforged + `8780-8787` for Refined). When a player authenticates on either edition, their IPv4 address is opened in the single `inet dainty_lass` nftables set / Windows Firewall rule.
    - In `public` mode on non-elevated Windows Desktop (`server-gui`), spawns only the lightweight `allowlist` helper with UAC (`runas`) or surfaces an elevation toggle on the Status Page; in `private` mode (Tailscale), `allowlist` is `Disabled`.

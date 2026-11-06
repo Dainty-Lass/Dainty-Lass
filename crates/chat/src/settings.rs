@@ -36,7 +36,7 @@ pub struct Settings {
     pub host: IpAddr,
     /// The port, 0 for any.
     pub port: u16,
-    /// The secret the gateway sends in `x-reforged-gateway`, so its `x-forwarded-for` is trusted. Never logged.
+    /// The secret the gateway sends in `x-dainty-gateway`, so its `x-forwarded-for` is trusted. Never logged.
     pub gateway_secret: Option<String>,
     /// What a wrong nick does.
     pub nick_check: NickCheck,

@@ -50,13 +50,13 @@ pub const DEFAULT_RELAY_PORT: u16 = 61100;
 /// The extra QoS-only listener's port (`RelayOptions::qos_port`)
 pub const DEFAULT_QOS_PORT: u16 = 80;
 /// Header carrying the player's home account key; stripped when re-pointed to another node.
-pub const ACCOUNT_KEY_HEADER: &str = "x-reforged-user-api-key";
+pub const ACCOUNT_KEY_HEADER: &str = "x-dainty-user-api-key";
 /// Header carrying a home-signed session ticket when re-pointed to another node.
-pub const SESSION_TICKET_HEADER: &str = "x-reforged-session-ticket";
+pub const SESSION_TICKET_HEADER: &str = "x-dainty-session-ticket";
 /// Headers sent by a node when redirecting a wrong-node join under `WrongNodePolicy::Redirect`.
-pub const REDIRECT_HOST_HEADER: &str = "x-reforged-redirect-host";
-pub const REDIRECT_PORT_HEADER: &str = "x-reforged-redirect-port";
-pub const REDIRECT_FINGERPRINT_HEADER: &str = "x-reforged-redirect-fingerprint";
+pub const REDIRECT_HOST_HEADER: &str = "x-dainty-redirect-host";
+pub const REDIRECT_PORT_HEADER: &str = "x-dainty-redirect-port";
+pub const REDIRECT_FINGERPRINT_HEADER: &str = "x-dainty-redirect-fingerprint";
 /// How long an upgraded connection (the chat) may be silent both ways before it is cut
 const TUNNEL_IDLE: Duration = Duration::from_secs(24 * 60 * 60);
 const UPGRADE_BODY_MAX: usize = 64 * 1024;

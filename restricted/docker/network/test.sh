@@ -201,7 +201,7 @@ key_a="$(printf '%s' "$reg_a" | sed -n 's/.*"UUK":"\([^"]*\)".*/\1/p')"
 [ -n "$key_a" ] || fail "failed to register Player A on oregon-1: $reg_a"
 
 info_a="$(curl -sk -i "$oregon_url/reforged/api/GetUserInfo" \
-	-H "x-reforged-user-api-key: $key_a")"
+	-H "x-dainty-user-api-key: $key_a")"
 echo "oregon user info:"
 echo "$info_a"
 uid_a="$(printf '%s' "$info_a" | sed -n 's/.*"UserId":"\([^"]*\)".*/\1/p' | head -n 1)"
@@ -222,7 +222,7 @@ key_b="$(printf '%s' "$reg_b" | sed -n 's/.*"UUK":"\([^"]*\)".*/\1/p')"
 [ -n "$key_b" ] || fail "failed to register Player B on germany-1: $reg_b"
 
 info_b="$(curl -sk -i "$germany_url/reforged/api/GetUserInfo" \
-	-H "x-reforged-user-api-key: $key_b")"
+	-H "x-dainty-user-api-key: $key_b")"
 echo "germany user info:"
 echo "$info_b"
 uid_b="$(printf '%s' "$info_b" | sed -n 's/.*"UserId":"\([^"]*\)".*/\1/p' | head -n 1)"
@@ -401,10 +401,10 @@ echo "$redir_resp"
 printf '%s' "$redir_resp" | grep -q '"hostNode":"oregon-1"' \
 	|| fail "expected hostNode oregon-1 in redirect response"
 session_ticket="$(printf '%s' "$redir_resp" | tr -d '\r' | sed -n 's/^[xX]-reforged-session-ticket: *//p' | head -n 1)"
-[ -n "$session_ticket" ] || fail "missing x-reforged-session-ticket header on redirect"
+[ -n "$session_ticket" ] || fail "missing x-dainty-session-ticket header on redirect"
 
 admit_session="$(curl -sk -i -X PUT "$oregon_url/gamesession/epiceos" \
-	-H "x-reforged-session-ticket: $session_ticket" \
+	-H "x-dainty-session-ticket: $session_ticket" \
 	-H 'Content-Type: application/json' \
 	-d '{}')"
 echo "target-node game session with session ticket (no account key):"
@@ -413,7 +413,7 @@ printf '%s' "$admit_session" | head -n 1 | grep -q '200' || fail "target node re
 printf '%s' "$admit_session" | grep -q '"sessiontoken"' || fail "target node did not return session token"
 
 admit_join="$(curl -sk -i -X POST "$oregon_url/candidate/join" \
-	-H "x-reforged-session-ticket: $session_ticket" \
+	-H "x-dainty-session-ticket: $session_ticket" \
 	-H 'Content-Type: application/json' \
 	-d "{\"gameMode\":\"ISLAND\",\"instanceId\":\"$oregon_inst2\"}")"
 echo "target-node instance join with session ticket (no account key):"
@@ -423,7 +423,7 @@ printf '%s' "$admit_join" | grep -q "\"instanceId\":\"$oregon_inst2\"" || fail "
 
 step "DN9: regional Ramsgate places player on the lowest-RTT healthy node"
 regions_de_resp="$(curl -sk -i -X POST "$oregon_url/network/v1/regions" \
-	-H "x-reforged-user-api-key: $key_a" \
+	-H "x-dainty-user-api-key: $key_a" \
 	-H 'Content-Type: application/json' \
 	-d '{"regions":[{"region":"germany","rttMs":12},{"region":"uk","rttMs":35},{"region":"new-york","rttMs":85},{"region":"oregon","rttMs":150}]}')"
 echo "reported regions (germany nearest) response:"
@@ -448,7 +448,7 @@ printf '%s' "$cand_city_de" | grep -q '"host":"203.0.113.14"' \
 	|| fail "expected Germany Ramsgate hub (203.0.113.14), got: $cand_city_de"
 
 regions_or_resp="$(curl -sk -i -X POST "$oregon_url/network/v1/regions" \
-	-H "x-reforged-user-api-key: $key_a" \
+	-H "x-dainty-user-api-key: $key_a" \
 	-H 'Content-Type: application/json' \
 	-d '{"regions":[{"region":"oregon","rttMs":8},{"region":"new-york","rttMs":70},{"region":"uk","rttMs":140},{"region":"germany","rttMs":150}]}')"
 echo "reported regions (oregon nearest) response:"

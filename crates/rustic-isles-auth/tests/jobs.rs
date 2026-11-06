@@ -260,7 +260,7 @@ async fn erasure() {
     assert!(t.store().launcher_account_by_user_id(&user_id).await.unwrap().is_none());
     assert!(t.store().game_account_by_user_id(&user_id).await.unwrap().is_none());
     assert_eq!(
-        t.get("/launcher/v1/me", &[("x-reforged-user-api-key", "RRK_gone")])
+        t.get("/launcher/v1/me", &[("x-dainty-user-api-key", "RRK_gone")])
             .await
             .message(),
         "Sign in required."

@@ -199,7 +199,10 @@ pub fn redact_capture_headers(headers: &HeaderMap) -> Value {
     let mut out = Map::new();
     for name in headers.keys() {
         let name = name.as_str();
-        if matches!(name, "cookie" | "set-cookie" | "x-reforged-gateway") {
+        if matches!(
+            name,
+            "cookie" | "set-cookie" | "x-dainty-gateway" | "x-reforged-gateway"
+        ) {
             continue;
         }
         let joined = headers
@@ -213,7 +216,7 @@ pub fn redact_capture_headers(headers: &HeaderMap) -> Value {
         } else if name == "authorization" {
             redact_capture_text(&joined)
         } else {
-            let short = ["x-reforged-", "x-rustic-isles-", "x-mysticparadox-"]
+            let short = ["x-dainty-", "x-reforged-", "x-rustic-isles-", "x-mysticparadox-"]
                 .iter()
                 .find_map(|p| name.strip_prefix(p))
                 .unwrap_or(name);
@@ -854,9 +857,9 @@ mod tests {
         let mut h = HeaderMap::new();
         h.insert("user-agent", "Game/1".parse().unwrap());
         h.insert("cookie", "a=b".parse().unwrap());
-        h.insert("x-reforged-gateway", "s".parse().unwrap());
-        h.insert("x-reforged-user-api-key", "RRK_abc".parse().unwrap());
-        h.insert("x-reforged-admin-key", "adm".parse().unwrap());
+        h.insert("x-dainty-gateway", "s".parse().unwrap());
+        h.insert("x-dainty-user-api-key", "RRK_abc".parse().unwrap());
+        h.insert("x-dainty-admin-key", "adm".parse().unwrap());
         h.insert("x-rustic-isles-gameserver-key", "g".parse().unwrap());
         h.append("accept", "a".parse().unwrap());
         h.append("accept", "b".parse().unwrap());
@@ -864,8 +867,8 @@ mod tests {
         let hash = crate::hex(&Sha256::digest(b"RRK_abc"));
         assert_eq!(
             v,
-            json!({"user-agent":"Game/1","x-reforged-user-api-key":format!("<key:{hash}>"),
-                "x-reforged-admin-key":"<redacted>","x-rustic-isles-gameserver-key":"<gskey>","accept":"a, b"})
+            json!({"user-agent":"Game/1","x-dainty-user-api-key":format!("<key:{hash}>"),
+                "x-dainty-admin-key":"<redacted>","x-rustic-isles-gameserver-key":"<gskey>","accept":"a, b"})
         );
     }
 

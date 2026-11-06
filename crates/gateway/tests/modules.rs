@@ -80,7 +80,7 @@ async fn an_attached_module_gets_its_routes_and_never_its_host_only_ones() {
     let seen = module_upstream.last();
     assert_eq!(seen.url, "/__origin/gamedev-prod.steelyard.ca/party/invites");
     assert_eq!(
-        seen.headers.get("x-reforged-gateway").map(String::as_str),
+        seen.headers.get("x-dainty-gateway").map(String::as_str),
         Some(GATEWAY_SECRET)
     );
 

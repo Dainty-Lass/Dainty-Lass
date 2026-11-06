@@ -13,7 +13,7 @@ use service_kit::js;
 use crate::log;
 
 /// The account key's header (the backend's own name for it).
-pub const KEY_HEADER: &str = "x-reforged-user-api-key";
+pub const KEY_HEADER: &str = "x-dainty-user-api-key";
 
 const MANIFEST: &str = "/content/v1/runtime/manifest";
 const BRANDING: &str = "/content/v1/branding";

@@ -358,7 +358,7 @@ mod tests {
                 let n = socket.read(&mut buf).await.unwrap_or(0);
                 let request = String::from_utf8_lossy(&buf[..n]).to_lowercase();
                 assert!(request.starts_with("get /reforged/api/getuserinfo "), "{request}");
-                assert!(request.contains("x-reforged-user-api-key: rrk_k"));
+                assert!(request.contains("x-dainty-user-api-key: rrk_k"));
                 let reply = format!(
                     "HTTP/1.1 {status} X\r\ncontent-type: application/json\r\ncontent-length: {}\r\nconnection: close\r\n\r\n{body}",
                     body.len()

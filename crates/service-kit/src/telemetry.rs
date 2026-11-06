@@ -58,7 +58,7 @@ fn redact_patterns() -> &'static [(Regex, &'static str)] {
             (compile(r"(?i)(-AUTH_PASSWORD=)\S+"), "${1}[REDACTED]"),
             (
                 compile(
-                    r#"(?i)((?:x-reforged-user-api-key|x-paradox-operator-key|x-paradox-operator-signature|x-allowlist-key|authorization)\s*[:=]\s*"?)(?:Bearer\s+)?[^\s",}]+"#,
+                    r#"(?i)((?:x-dainty-user-api-key|x-paradox-operator-key|x-paradox-operator-signature|x-allowlist-key|authorization)\s*[:=]\s*"?)(?:Bearer\s+)?[^\s",}]+"#,
                 ),
                 "${1}[REDACTED]",
             ),

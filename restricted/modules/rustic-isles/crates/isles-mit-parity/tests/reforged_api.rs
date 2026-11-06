@@ -47,7 +47,9 @@ fn write_files(dir: &Path, files: &Map<String, Value>) {
 #[tokio::test(flavor = "multi_thread")]
 async fn reforged_api() {
     let path = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/golden/reforged_api.json");
-    let cases: Value = serde_json::from_str(&std::fs::read_to_string(path).unwrap()).unwrap();
+    // Recorded from Node under the old names (protocol::renamed)
+    let text = protocol::renamed::renamed(&std::fs::read_to_string(path).unwrap());
+    let cases: Value = serde_json::from_str(&text).unwrap();
     let mut tally = Tally::new("reforged_api");
     for (n, case) in cases.as_array().unwrap().iter().enumerate() {
         let name = case["name"].as_str().unwrap();

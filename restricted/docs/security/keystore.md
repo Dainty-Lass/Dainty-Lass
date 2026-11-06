@@ -13,7 +13,7 @@ An item that does not hold is a bug to fix before the cutover, not a box to leav
 ## What it is and where the boundary is
 
 An account key (`RRK_<48 hex>`, or any 8 to 128 plain characters a player pasted) is the player's password on one
-server. Whoever has it plays as that player there. The launcher sends it in the `x-reforged-user-api-key` header and
+server. Whoever has it plays as that player there. The launcher sends it in the `x-dainty-user-api-key` header and
 on the game's command line (`-AUTH_PASSWORD=`), and to nothing else.
 
 - **At rest, this launcher:** `userData/keys/<server id>.key2`. Windows: DPAPI for the current user
@@ -84,7 +84,7 @@ Node code), and `an_electron_profile_reads_back` with the harness in `launcher/t
 - [ ] Every key read or saved is registered with `log::add_secret` (with and without `RRK_`) before anything can log
       it, including a key moved from the Electron files.
 - [ ] Every log line passes `redact`: registered secrets, `RRK_...`, `-AUTH_PASSWORD=...` and the
-      `x-reforged-user-api-key` header are hidden, also in library (`tracing`) events and panics
+      `x-dainty-user-api-key` header are hidden, also in library (`tracing`) events and panics
       (`a_registered_key_never_reaches_the_file`, the shared table).
 - [ ] Error values from the store (`KeyStoreError`) carry no key and no path.
 

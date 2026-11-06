@@ -16,7 +16,7 @@ backend's admin routes and the Director, so what it can do is bounded by what th
 
 - **In, from callers:** HTTP on `127.0.0.1:61003` only. `POST /graphql` with `Authorization: Bearer <key>` (the
   owner's, or one per person, below), an
-  optional `x-reforged-operator-id` (digits), and a JSON body. `GET /health` answers `{"ok":true}` without a key, for
+  optional `x-dainty-operator-id` (digits), and a JSON body. `GET /health` answers `{"ok":true}` without a key, for
   the host kit's ready probe. It reveals nothing.
 - **In, from the host:** `admin.env` (written by `dainty-host setup` from `host.toml` and `secrets.env`) and the
   timeouts file it names.
@@ -95,7 +95,7 @@ Fuzz target in `fuzz`:
 - [ ] A peer that is not loopback is refused even so (`app.rs`, `graphql`).
 - [ ] The gateway never routes to port 61003: it forwards only to `GATEWAY_BACKEND_URL` and `GATEWAY_CONTENT_URL`.
       In Docker the `admin` service publishes no port (`compose.yaml`).
-- [ ] A request carrying `Forwarded`, `Via`, `X-Real-IP`, `X-Reforged-Gateway` or any `X-Forwarded-*` header is
+- [ ] A request carrying `Forwarded`, `Via`, `X-Real-IP`, `X-Dainty-Gateway` or any `X-Forwarded-*` header is
       403, before the key is looked at (`input.rs`, `check_headers`).
 - [ ] The key is compared as SHA-256 digests with a constant-time fold, so neither its length nor where it differs
       shows (`hmac.rs`, `same_secret`). A repeated `Authorization` header is refused. Keys and roles: below.

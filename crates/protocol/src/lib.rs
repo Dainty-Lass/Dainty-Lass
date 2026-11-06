@@ -7,6 +7,7 @@
 pub mod account;
 pub mod invite;
 pub mod manifest;
+pub mod renamed;
 pub mod status;
 pub mod text;
 
