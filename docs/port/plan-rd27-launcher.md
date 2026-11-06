@@ -24,9 +24,8 @@ of its conclusions are now out of date, and they make the target larger:
 | The isolation hook and the TS tests are B (§2.3.7, §2.9) | Done: `launcher/` at the root is MIT |
 
 So after these rows, the only parts of the launcher left in `restricted/` are the text and data that can't be
-relicensed (spec §3): the language catalogs and `gen/strings.json`, DR's recorded test tables
-(`test/cases/{game-config,hostapi,log,settings}.json`) and the Electron key-store harness. Whether the icons ship
-under MIT is still the maintainer's call (§3.5).
+relicensed (spec §3): the page's language catalogs, DR's recorded test tables
+(`test/cases/{game-config,hostapi,log,settings}.json`), the Electron key-store harness and today's icons (L2).
 
 ## 2. Decisions for the maintainer, before RL2
 
@@ -42,15 +41,17 @@ under MIT is still the maintainer's call (§3.5).
 
 - **Clean room.** A Category B implementer works in a worktree where `restricted/` is excluded by sparse checkout
   (`/*`, `!/restricted/`), as DL4b did ([`clean-room/launcher-kit.md`](clean-room/launcher-kit.md) §1). They read
-  the spec, this page and the MIT crates, and never `git show` a restricted path. If L4 is yes, the three generated
-  files are copied into the row's brief as fixtures. A row that only moves Category A files may read `restricted/`.
+  the spec, this page and the MIT crates, and never `git show` a restricted path. The three generated files are
+  copied into RL8's brief as fixtures (L4). A row that only moves Category A files may read `restricted/`.
 - **Where the code goes.** The B groups go into `crates/launcher-kit` behind its existing `host`, `server-gui` and
   `realms` features. The Tauri-facing parts go into a new MIT shell crate (RL12). Until RL13, `restricted/launcher/src-tauri`
   keeps building: each row ends by switching its module there to a re-export of the new launcher-kit module, which is
   how DL4b left nine files.
 - **Checks per row.** Root: fmt, clippy and test. `restricted/`: `cargo test -p launcher` (with `-j 6`), with
   restricted's own tests running against the re-export. The recorded tables in `restricted/launcher/test/cases` are
-  the oracle (spec §3.2). A row that touches a fuzzed file moves its fuzz target to the root's `fuzz/`.
+  the oracle (spec §3.2). A row with an oracle also writes its own MIT table in `crates/launcher-kit/tests/cases/`,
+  with cases and expected values taken from the spec, never from the restricted table (L5). A row that touches a
+  fuzzed file moves its fuzz target to the root's `fuzz/`.
 - **Review (RL14).** Someone outside the clean room measures each new file with
   [`clean-room/similarity.md`](clean-room/similarity.md)'s script. The baseline is `restricted/launcher` at the commit
   before RL2, and the threshold is spec §6: under 30% per file, no run longer than 6 lines outside fixed tables. The
@@ -69,23 +70,23 @@ Rows in the same wave touch different files and can run at the same time. Sizes 
 | --- | --- | --- | --- | --- |
 | RL1 | **Spec refresh** (not clean room: the spec writer reads restricted). Fix spec §3.6 and §4 for the points in §1, renaming paths to the monorepo's. Re-check line ranges against the current HEAD (`controller/host.rs`'s B/A split at line 1171, and any file changed since `849f45e`). Add the `RealmHost` trait's exact operations | all | S | — |
 | RL2 | Requests: close the API gap between launcher-kit's `pinned`, `http`, `to_file` and the shell's callers; write `connector`; the Epic install job over `epic::download` | §2.6.1, §2.6.2, §2.6.6 | S | relay and runtime tests in restricted |
-| RL3 | Platform leaves: bring `linux_runtime` and `system` to parity; rewrite `log` (redaction) and `paths` (including the legacy-folder migration) | §2.7.3, §2.7.4, §2.7.13, §2.7.14 | S | `log.json` |
-| RL4 | Core: `game_language`; `i18n` as a lookup over a table supplied at build or run time (per L1); point every caller of the shell's `core/{invite,status,username,text,pins}` at `protocol` and launcher-kit | §2.8 | S | — |
+| RL3 | Platform leaves: bring `linux_runtime` and `system` to parity; rewrite `log` (redaction) and `paths` (including the legacy-folder migration) | §2.7.3, §2.7.4, §2.7.13, §2.7.14 | S | `log.json`; new MIT `log` table |
+| RL4 | Core: `game_language`; `i18n` over a new MIT catalog of the backend's 12 keys in `en` and `pt-BR`, with new wording written from §2.8.2's description of each key (L1; the pt-BR is flagged for the maintainer); point every caller of the shell's `core/{invite,status,username,text,pins}` at `protocol` and launcher-kit | §2.8 | S | — |
 
 ### Wave 2: stored data and the network (after wave 1)
 
 | Row | What | Spec | Size | Oracle |
 | --- | --- | --- | --- | --- |
-| RL5 | Key store: `keystore/{mod,format,os,legacy}` (DPAPI, Secret Service, `RRK2` and Electron framing, legacy decryption); move `keystore/epic.rs` with its test fake rewritten | §2.7.1 | M | Electron harness (stays in restricted) |
-| RL6 | Settings, byte-exact (section 3 of the plan: stored data must not change) | §2.7.2 | M | `settings.json` |
-| RL7 | Host API and its parsers | §2.6.3 | M | `hostapi.json` |
+| RL5 | Key store: `keystore/{mod,format,os,legacy}` (DPAPI, Secret Service, `RRK2` and Electron framing, legacy decryption), with the backup file's two advisory sentences newly written (L3); move `keystore/epic.rs` with its test fake rewritten | §2.7.1 | M | Electron harness (stays in restricted) |
+| RL6 | Settings, byte-exact (section 3 of the plan: stored data must not change) | §2.7.2 | M | `settings.json`; new MIT `settings` table |
+| RL7 | Host API and its parsers | §2.6.3 | M | `hostapi.json`; new MIT `hostapi` table |
 | RL8 | Bridge: `spec` (full command table with argument shapes), `types` (all wire types), `progress`, the argument checks, and the generator as a launcher-kit test producing byte-identical `types.ts`, `commands.js` and `app-commands.toml` | §2.3.1–2.3.6, §2.3.8 | M | the three generated files (L4) |
 
 ### Wave 3: the game side (after RL3, RL4)
 
 | Row | What | Spec | Size | Oracle |
 | --- | --- | --- | --- | --- |
-| RL9 | Launch, game config, game folder; move `clipboard` (A) | §2.7.5–2.7.7 | M | `game-config.json` |
+| RL9 | Launch, game config, game folder; move `clipboard` (A) | §2.7.5–2.7.7 | M | `game-config.json`; new MIT `game-config` table |
 | RL10 | Invite link and the single-instance channel, external links | §2.7.8, §2.7.9 | M | — |
 
 ### Wave 4: relay, then the state machine
@@ -100,7 +101,7 @@ Rows in the same wave touch different files and can run at the same time. Sizes 
 
 | Row | What | Spec | Size |
 | --- | --- | --- | --- |
-| RL13 | The MIT Tauri shell crate at the root (suggested `crates/launcher-app`; the name `launcher` is taken by restricted's package): `main`, `lib`, `window`, `bridge::{commands, backend}`, the Tauri `Platform` impl, `art`, `dialogs`, `updater`, the Epic sign-in window, `build.rs`, rewritten `tauri.conf.json`, `capabilities/main.json` and `launcher.desktop`; `tauri.server-gui.conf.json` and `manager.desktop` move. Then `restricted/launcher/src-tauri` shrinks to a thin crate that adds the catalogs' strings (L1), the DR tables' tests and the Electron harness; `restricted/fuzz`'s `launcher_*` targets move to `fuzz/`. Report the seam lines: release workflows, `bun run restricted-data` sourcing the generated files from the root, and AGENTS.md's launcher-bridge section | §2.1, §2.2, §2.7.10–2.7.12, §4 | M |
+| RL13 | The MIT Tauri shell crate at the root (suggested `crates/launcher-app`; the name `launcher` is taken by restricted's package): `main`, `lib`, `window`, `bridge::{commands, backend}`, the Tauri `Platform` impl, `art`, `dialogs`, `updater`, the Epic sign-in window, `build.rs`, rewritten `tauri.conf.json`, `capabilities/main.json` and `launcher.desktop`; `tauri.server-gui.conf.json` and `manager.desktop` move. The icons come from a folder the build is given: `restricted/` supplies today's until new ones exist (L2). Then `restricted/launcher/src-tauri` shrinks to a thin crate that adds the icons, the DR tables' tests and the Electron harness; `restricted/fuzz`'s `launcher_*` targets move to `fuzz/`. Report the seam lines: release workflows, `bun run restricted-data` sourcing the generated files from the root, and AGENTS.md's launcher-bridge section | §2.1, §2.2, §2.7.10–2.7.12, §4 | M |
 | RL14 | Review outside the clean room: similarity per file, `cargo tree` showing no `restricted/` crate under the MIT shell, restricted's suites passing unchanged against the MIT crates, `bun run test` in `launcher/`; `clean-room/launcher.md` | §6 | S |
 
 ## 5. Outside these rows
@@ -110,5 +111,7 @@ Rows in the same wave touch different files and can run at the same time. Sizes 
   it must land before RL13 if the manager should build at the root.
 - **Hands-on (maintainer).** After RL13: the launcher against a real 1.14.7 client and the canary's gateway (already
   listed in `MIGRATION_PLAN.md`), and RA14's packaging from the new shell.
-- **Not covered.** `restricted/` keeps its AGPL test data and the catalogs. Rewriting the catalog text is L1's
-  separate decision, and changing the release licence is DL5's (the lawyer's read).
+- **New icons (L2).** The launcher's and the manager's icon sets drawn anew (Windows `.ico`, the PNG sizes Tauri
+  asks for, `brand/icon.png`) before an MIT client ships. Design work, not a row.
+- **Not covered.** `restricted/` keeps its AGPL test data and the page's catalogs. Changing the release licence is
+  DL5's call (the lawyer's read).
