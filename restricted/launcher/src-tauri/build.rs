@@ -3,10 +3,10 @@
 //! - the app's commands under the ACL (row L8): each command in `src/bridge/spec.rs` gets
 //!   `allow-<command>` / `deny-<command>` permissions, and the page may call only what
 //!   `capabilities/main.json` grants;
-//! - the languages and the backend's text (row L14): `gen/strings.json` (the page's strings, one table per
-//!   language code such as `en` or `pt-BR`) becomes the `Language` enum and one lookup table per
-//!   language, so a language added to the page appears here by rebuilding (`bridge/generate.rs` writes the
-//!   file from the catalogs in `ui/packages/i18n/catalogs`, DU2).
+//! - the languages (row L14): the codes of `gen/strings.json` (one table per language code such as `en` or
+//!   `pt-BR`) become the `Language` enum, so a language added to the page appears here by rebuilding
+//!   (`bridge/generate.rs` writes the file from the catalogs in `ui/packages/i18n/catalogs`, DU2). The
+//!   backend's text is launcher-kit's own catalog (L1).
 
 use std::fmt::Write as _;
 use std::fs;
@@ -36,11 +36,6 @@ fn variant(code: &str) -> String {
                 .unwrap_or_default()
         })
         .collect()
-}
-
-/// `pt-BR` -> `PT_BR`, the name of its table
-fn table_name(code: &str) -> String {
-    code.to_ascii_uppercase().replace('-', "_")
 }
 
 /// A language code as the page's registry names it: `en`, or `pt-BR`.
@@ -84,31 +79,7 @@ fn languages() -> String {
     for code in &codes {
         let _ = writeln!(out, "            Self::{} => {code:?},", variant(code));
     }
-    out.push_str("        }\n    }\n\n    /// This language's text, sorted by key.\n    fn table(self) -> &'static [(&'static str, &'static str)] {\n        match self {\n");
-    for code in &codes {
-        let _ = writeln!(out, "            Self::{} => {},", variant(code), table_name(code));
-    }
     out.push_str("        }\n    }\n}\n");
-    for (code, table) in &strings {
-        let table = table
-            .as_object()
-            .unwrap_or_else(|| panic!("gen/strings.json: {code} is not an object"));
-        let mut entries: Vec<(&String, &str)> = table
-            .iter()
-            .map(|(key, value)| {
-                (
-                    key,
-                    value.as_str().unwrap_or_else(|| panic!("{code}.{key} is not text")),
-                )
-            })
-            .collect();
-        entries.sort_unstable_by(|a, b| a.0.cmp(b.0));
-        let _ = writeln!(out, "\nstatic {}: &[(&str, &str)] = &[", table_name(code));
-        for (key, value) in entries {
-            let _ = writeln!(out, "    ({key:?}, {value:?}),");
-        }
-        out.push_str("];\n");
-    }
     out
 }
 

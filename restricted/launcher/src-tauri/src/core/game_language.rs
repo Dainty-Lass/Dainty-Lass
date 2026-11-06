@@ -1,12 +1,10 @@
-//! The game's own text language (row L16): `gameLocale` in `src/main/launch.ts`. The 1.4.4 client has
-//! text for exactly these cultures (`Archon/Content/Localization/Game/<culture>`); the setting is sent to
-//! it as `-epiclocale`.
+//! The game's own text language (row L16) over launcher-kit's `core::game_language` (RL4): the setting's
+//! enum is the bridge's, the rules are the MIT crate's. The setting is sent to the game as `-epiclocale`.
 #![cfg_attr(not(test), allow(dead_code, reason = "the game launch (L31) sends it"))]
 
-use crate::bridge::types::GameLanguage;
+use launcher_kit::core::game_language as kit;
 
-/// In the order "auto" looks through them.
-pub const GAME_LOCALES: [&str; 8] = ["en-US", "de-DE", "es-ES", "fr-FR", "it-IT", "ja-JP", "pt-BR", "ru-RU"];
+use crate::bridge::types::GameLanguage;
 
 impl GameLanguage {
     /// The culture name, or None for "auto".
@@ -25,29 +23,20 @@ impl GameLanguage {
     }
 }
 
-/// The `-epiclocale` for the Game language setting. "auto" takes the operating system's language when
-/// the game has text for it (es-419 -> es-ES, pt-PT -> pt-BR), and English otherwise.
+/// The `-epiclocale` for the Game language setting; "auto" follows the system where the game has text.
 pub fn game_locale(setting: GameLanguage, system_locale: &str) -> &'static str {
-    if let Some(locale) = setting.locale() {
-        return locale;
-    }
-    let code: String = system_locale.chars().take(2).flat_map(char::to_lowercase).collect();
-    GAME_LOCALES
-        .into_iter()
-        .find(|locale| locale.to_lowercase().starts_with(&format!("{code}-")))
-        .unwrap_or("en-US")
+    setting.locale().unwrap_or_else(|| kit::from_os_locale(system_locale))
 }
 
 /// Never an argument the game has no text for.
 pub fn launch_locale(locale: Option<&str>) -> &'static str {
-    locale
-        .and_then(|locale| GAME_LOCALES.into_iter().find(|known| *known == locale))
-        .unwrap_or("en-US")
+    locale.map_or(kit::DEFAULT_LOCALE, kit::launch_locale)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use launcher_kit::core::game_language::GAME_LOCALES;
 
     #[test]
     fn auto_follows_the_system_when_the_game_has_that_language() {

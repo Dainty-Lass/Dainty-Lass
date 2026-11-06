@@ -1,65 +1,18 @@
-//! Checks on the player's PC (row L33): Tailscale, free disk space (`system.ts`) and the client-reported
-//! device signals (`device-signals.ts`: neither the SMBIOS UUID nor the TPM key hash is attestation).
+//! Checks on the player's PC (row L33) over launcher-kit's `platform::system` (RL3): Tailscale, free disk
+//! space and the client-reported device signals (neither the SMBIOS UUID nor the TPM key hash is attestation).
 
+#[cfg(test)]
 use std::path::{Path, PathBuf};
-use std::time::Duration;
 
+use launcher_kit::platform::system as kit;
 use serde::Serialize;
 
-use super::launch::{run_hidden, system_root};
+pub use kit::{find_tailscale, free_bytes};
 
-pub fn tailscale_candidates() -> Vec<PathBuf> {
-    let path = std::env::var_os("PATH").unwrap_or_default();
-    let on_path = std::env::split_paths(&path).filter(|dir| !dir.as_os_str().is_empty());
-    if cfg!(target_os = "linux") {
-        let mut out: Vec<PathBuf> = ["/usr/bin/tailscale", "/usr/local/bin/tailscale", "/snap/bin/tailscale"]
-            .map(PathBuf::from)
-            .to_vec();
-        for dir in on_path {
-            let candidate = dir.join("tailscale");
-            if !out.contains(&candidate) {
-                out.push(candidate);
-            }
-        }
-        return out;
-    }
-    if !cfg!(windows) {
-        return Vec::new();
-    }
-    let mut dirs: Vec<PathBuf> = Vec::new();
-    for base in ["ProgramW6432", "ProgramFiles", "ProgramFiles(x86)"]
-        .iter()
-        .filter_map(std::env::var_os)
-        .map(PathBuf::from)
-        .chain([PathBuf::from("C:\\Program Files")])
-    {
-        let dir = base.join("Tailscale");
-        if !dirs.contains(&dir) {
-            dirs.push(dir);
-        }
-    }
-    if let Some(local) = std::env::var_os("LOCALAPPDATA") {
-        dirs.push(PathBuf::from(local).join("Tailscale"));
-    }
-    let mut out: Vec<PathBuf> = dirs.into_iter().map(|dir| dir.join("tailscale.exe")).collect();
-    out.extend(on_path.map(|dir| PathBuf::from(dir.to_string_lossy().trim_matches('"')).join("tailscale.exe")));
-    out
-}
-
-pub fn find_tailscale() -> Option<PathBuf> {
-    tailscale_candidates().into_iter().find(|candidate| candidate.is_file())
-}
-
-/// Free space on the drive that holds `dir` (or its nearest existing parent).
-pub fn free_bytes(dir: &Path) -> Option<u64> {
-    let mut current = Some(dir);
-    while let Some(path) = current {
-        if let Ok(free) = fs4::available_space(path) {
-            return Some(free);
-        }
-        current = path.parent();
-    }
-    None
+/// This process's candidates, from its own environment.
+#[cfg(test)]
+fn tailscale_candidates() -> Vec<PathBuf> {
+    kit::tailscale_candidates(&|name| std::env::var_os(name))
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize)]
@@ -71,62 +24,23 @@ pub struct DeviceSignals {
     pub tpm_ek_sha256: Option<String>,
 }
 
-fn all_same(text: &str, c: u8) -> bool {
-    text.bytes().all(|b| b == c)
+impl From<(Option<String>, Option<String>)> for DeviceSignals {
+    fn from((smbios_uuid, tpm_ek_sha256): (Option<String>, Option<String>)) -> Self {
+        Self {
+            smbios_uuid,
+            tpm_ek_sha256,
+        }
+    }
 }
 
 /// Known formats only, without firmware placeholders.
 pub fn normalize_device_signals(uuid: &str, tpm: &str) -> DeviceSignals {
-    let uuid = uuid.trim().to_lowercase();
-    let groups: Vec<&str> = uuid.split('-').collect();
-    let shaped = groups.iter().map(|g| g.len()).eq([8, 4, 4, 4, 12])
-        && groups.iter().all(|g| g.bytes().all(|b| b.is_ascii_hexdigit()));
-    let bare = uuid.replace('-', "");
-    let uuid_ok =
-        shaped && !all_same(&bare, b'0') && !all_same(&bare, b'f') && uuid != "03000200-0400-0500-0006-000700080009";
-    let tpm = tpm.trim().to_lowercase();
-    let tpm_ok =
-        tpm.len() == 64 && tpm.bytes().all(|b| b.is_ascii_hexdigit()) && !all_same(&tpm, b'0') && !all_same(&tpm, b'f');
-    DeviceSignals {
-        smbios_uuid: uuid_ok.then_some(uuid),
-        tpm_ek_sha256: tpm_ok.then_some(tpm),
-    }
+    kit::normalize_device_signals(Some(uuid), Some(tpm)).into()
 }
-
-const PREFIX: &str = "$ErrorActionPreference='Stop';$ProgressPreference='SilentlyContinue';try{";
 
 /// Two fixed, hidden, bounded PowerShell queries; a missing, denied or slow TPM never drops the UUID.
 pub async fn collect_device_signals() -> DeviceSignals {
-    if !cfg!(windows) {
-        return DeviceSignals::default();
-    }
-    let powershell = system_root()
-        .join("System32")
-        .join("WindowsPowerShell")
-        .join("v1.0")
-        .join("powershell.exe");
-    let read = |script: String| {
-        let powershell = powershell.clone();
-        async move {
-            run_hidden(
-                &powershell,
-                &["-NoLogo", "-NoProfile", "-NonInteractive", "-Command", &script],
-                Duration::from_secs(4),
-                4096,
-            )
-            .await
-            .unwrap_or_default()
-        }
-    };
-    let (uuid, tpm) = tokio::join!(
-        read(format!(
-            "{PREFIX}[string](Get-CimInstance -ClassName Win32_ComputerSystemProduct -ErrorAction Stop).UUID}}catch{{}}"
-        )),
-        read(format!(
-            "{PREFIX}$ek=Get-TpmEndorsementKeyInfo -HashAlgorithm Sha256 -ErrorAction Stop;if($ek.IsPresent){{[string]$ek.PublicKeyHash}}}}catch{{}}"
-        )),
-    );
-    normalize_device_signals(&uuid, &tpm)
+    kit::read_device_signals().await.into()
 }
 
 #[cfg(test)]

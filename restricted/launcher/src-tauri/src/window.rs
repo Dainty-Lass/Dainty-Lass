@@ -83,7 +83,7 @@ pub fn create(app: &AppHandle) -> tauri::Result<WebviewWindow> {
                 let _ = window.show();
             }
         });
-    if let Some(paths) = crate::platform::paths::Paths::from_system() {
+    if let Some(paths) = <crate::platform::paths::Paths as crate::platform::paths::PathsExt>::from_system() {
         builder = builder.data_directory(paths.user_data.join("WebView2"));
     }
     let window = builder.build()?;

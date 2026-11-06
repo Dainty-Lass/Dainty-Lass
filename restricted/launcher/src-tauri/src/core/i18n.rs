@@ -1,7 +1,6 @@
-//! The backend's own text (rows L14, RA3): the dialogs the backend shows, in the player's language, from
-//! `gen/strings.json` (one table per language, made into `Language` and its tables by build.rs). That file
-//! is the two catalogs in `ui/packages/i18n/catalogs` (DU2), written by `bridge/generate.rs`; the backend shows only the keys
-//! below. Nothing here lists the languages: a catalog added there appears by regenerating and rebuilding.
+//! The backend's own text (rows L14, RA3): the dialogs and menus the backend shows, in the player's language.
+//! The text is launcher-kit's MIT catalog (RL4, L1); `Language` stays the page's list, made by build.rs from
+//! `gen/strings.json`'s codes, because it crosses the bridge as a setting.
 #![cfg_attr(
     not(test),
     allow(
@@ -10,92 +9,31 @@
     )
 )]
 
+use launcher_kit::core::i18n as kit;
+
+pub use kit::{APP_TITLE, CLOSE_ANYWAY, CLOSE_KEEP, CLOSE_TEXT, CLOSE_TITLE, EPIC_SIGN_IN_TITLE, TRAY_OPEN, TRAY_QUIT};
+
 include!(concat!(env!("OUT_DIR"), "/languages.rs"));
-
-/// The keys the backend shows. Each exists in every language (a test checks it).
-pub const APP_TITLE: &str = "app_title";
-pub const CLOSE_TITLE: &str = "close_title";
-pub const CLOSE_TEXT: &str = "close_text";
-pub const CLOSE_KEEP: &str = "close_keep";
-pub const CLOSE_ANYWAY: &str = "close_anyway";
-/// The folder dialogs' titles, by purpose, as `src/main.ts` names them.
-pub const DIALOG_GAME_FOLDER: &str = "dialog_game_folder";
-pub const DIALOG_RUNTIME_FOLDER: &str = "dialog_runtime_folder";
-pub const DIALOG_WORKSPACE_FOLDER: &str = "dialog_workspace_folder";
-pub const DIALOG_SDK_FOLDER: &str = "dialog_sdk_folder";
-pub const DIALOG_DUMPER_DLL: &str = "dialog_dumper_dll";
-pub const DIALOG_GAMEDATA_PACK: &str = "dialog_gamedata_pack";
-/// The Epic sign-in window's title (DE2)
-pub const EPIC_SIGN_IN_TITLE: &str = "epic_sign_in_title";
-/// The tray icon's menu, while the window is hidden to it
-pub const TRAY_OPEN: &str = "tray_open";
-pub const TRAY_QUIT: &str = "tray_quit";
-
-#[cfg(test)]
-const USED: &[&str] = &[
-    APP_TITLE,
-    CLOSE_TITLE,
-    CLOSE_TEXT,
-    CLOSE_KEEP,
-    CLOSE_ANYWAY,
-    DIALOG_GAME_FOLDER,
-    DIALOG_RUNTIME_FOLDER,
-    DIALOG_WORKSPACE_FOLDER,
-    DIALOG_SDK_FOLDER,
-    DIALOG_DUMPER_DLL,
-    DIALOG_GAMEDATA_PACK,
-    EPIC_SIGN_IN_TITLE,
-    TRAY_OPEN,
-    TRAY_QUIT,
-];
 
 impl Language {
     pub fn from_code(code: &str) -> Option<Self> {
         Self::ALL.into_iter().find(|language| language.code() == code)
     }
 
-    fn lookup(self, key: &str) -> Option<&'static str> {
-        let table = self.table();
-        table
-            .binary_search_by(|(entry, _)| (*entry).cmp(key))
-            .ok()
-            .map(|index| table[index].1)
+    /// The MIT catalog's language; one the catalog lacks reads as English there.
+    fn kit(self) -> kit::Language {
+        kit::Language::from_code(self.code()).unwrap_or_default()
     }
 }
 
-/// `translate` in `src/shared/i18n/index.ts`: the language's text, else English, else the key itself,
-/// with each `{name}` replaced.
+/// The language's text, else English, else the key itself, with each `{name}` replaced.
 pub fn translate(language: Language, key: &str, vars: &[(&str, &str)]) -> String {
-    let mut text = language
-        .lookup(key)
-        .or_else(|| Language::En.lookup(key))
-        .unwrap_or(key)
-        .to_owned();
-    for (name, value) in vars {
-        text = text.replace(&format!("{{{name}}}"), value);
-    }
-    text
+    kit::translate(language.kit(), key, vars)
 }
 
-/// `systemLanguage`: the language a first start picks from the operating system's locale ("pt-BR",
-/// "pt_PT", "en-US"...): the language with that exact code, else the first one for the same language (so
-/// any Portuguese locale gives `pt-BR`), else English.
+/// The language a first start picks from the operating system's locale ("pt-BR", "pt_PT", "en-US"...).
 pub fn system_language(locale: &str) -> Language {
-    let code = locale.to_ascii_lowercase().replace('_', "-");
-    let language = code.split('-').next().unwrap_or_default();
-    let base = |language: Language| {
-        language
-            .code()
-            .split('-')
-            .next()
-            .unwrap_or_default()
-            .to_ascii_lowercase()
-    };
-    Language::ALL
-        .into_iter()
-        .find(|candidate| candidate.code().eq_ignore_ascii_case(&code))
-        .or_else(|| Language::ALL.into_iter().find(|candidate| base(*candidate) == language))
-        .unwrap_or(Language::En)
+    Language::from_code(kit::Language::from_system(locale).code()).unwrap_or(Language::En)
 }
 
 /// The operating system's language, as `system_language` reads it.
@@ -108,21 +46,32 @@ mod tests {
     use super::*;
 
     #[test]
-    fn every_key_the_backend_shows_exists_in_every_language() {
+    fn every_key_the_backend_shows_has_text_in_every_language() {
         for language in Language::ALL {
-            for key in USED {
-                assert!(
-                    language.lookup(key).is_some_and(|text| !text.is_empty()),
-                    "{} {key}",
-                    language.code()
-                );
+            for key in kit::KEYS {
+                let text = translate(language, key, &[]);
+                assert!(!text.trim().is_empty() && text != key, "{} {key}", language.code());
             }
         }
     }
 
     #[test]
+    fn every_page_language_is_one_the_catalog_has() {
+        for language in Language::ALL {
+            assert!(
+                kit::Language::from_code(language.code()).is_some(),
+                "{}",
+                language.code()
+            );
+        }
+    }
+
+    #[test]
     fn translates_like_the_page() {
-        assert_eq!(translate(Language::PtBr, CLOSE_ANYWAY, &[]), "Fechar assim mesmo");
+        assert_ne!(
+            translate(Language::PtBr, CLOSE_ANYWAY, &[]),
+            translate(Language::En, CLOSE_ANYWAY, &[])
+        );
         assert_eq!(translate(Language::PtBr, "x {a}, {a}", &[("a", "Ana")]), "x Ana, Ana");
         assert_eq!(translate(Language::En, "no_such_key", &[]), "no_such_key");
         assert_eq!(translate(Language::En, "x {a} {a}", &[("a", "1")]), "x 1 1");
@@ -146,31 +95,6 @@ mod tests {
             ("", Language::En),
         ] {
             assert_eq!(system_language(locale), language, "{locale}");
-        }
-    }
-
-    #[test]
-    fn every_language_has_the_english_keys_and_placeholders() {
-        fn placeholders(text: &str) -> Vec<&str> {
-            let mut names: Vec<&str> = text
-                .split('{')
-                .skip(1)
-                .filter_map(|rest| rest.split_once('}').map(|(name, _)| name))
-                .filter(|name| !name.is_empty() && name.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'_'))
-                .collect();
-            names.sort_unstable();
-            names
-        }
-        let english = Language::En.table();
-        for language in Language::ALL {
-            let table = language.table();
-            let keys =
-                |table: &'static [(&'static str, &'static str)]| table.iter().map(|(key, _)| *key).collect::<Vec<_>>();
-            assert_eq!(keys(table), keys(english), "{}", language.code());
-            for ((key, text), (_, source)) in table.iter().zip(english) {
-                assert!(!text.trim().is_empty(), "{}.{key} is empty", language.code());
-                assert_eq!(placeholders(text), placeholders(source), "{}.{key}", language.code());
-            }
         }
     }
 }

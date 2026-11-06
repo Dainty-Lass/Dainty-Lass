@@ -32,7 +32,7 @@ use tauri::{AppHandle, Manager, RunEvent};
 
 use controller::platform::TauriPlatform;
 use controller::{Config, Controller, ControllerHandle};
-use platform::paths::Paths;
+use platform::paths::{Paths, PathsExt as _};
 
 use platform::invite_link::{self, Claim};
 
@@ -303,10 +303,7 @@ mod secure_storage {
     pub fn bootstrap(args: &[String], home: &Path) -> bool {
         log::warn("secure storage unavailable (no Secret Service)");
         let env = current_env();
-        if cfg!(dev)
-            || env.get("REFORGED_AUTO_INSTALL").map(String::as_str) == Some("0")
-            || env.get(BOOTSTRAPPED).map(String::as_str) == Some("1")
-        {
+        if cfg!(dev) || env.var("REFORGED_AUTO_INSTALL") == Some("0") || env.var(BOOTSTRAPPED) == Some("1") {
             return false;
         }
         let Some(plan) = install_plan(DependencyKind::SecureStorage, &env) else {
@@ -314,7 +311,7 @@ mod secure_storage {
         };
         log::info(&format!(
             "installing Linux secure-storage dependencies with {}",
-            plan.name
+            plan.display_command
         ));
         if let Err(error) = tauri::async_runtime::block_on(run_install(&plan, &env, home)) {
             log::error(&format!("secure-storage dependency install failed: {error}"));

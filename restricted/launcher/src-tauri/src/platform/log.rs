@@ -1,123 +1,40 @@
-//! A small logger that can never write an account key (row L29): `src/main/log.ts`. Every line goes
-//! through `redact`, which removes registered secrets and anything shaped like a key, a
-//! `-AUTH_PASSWORD=` argument or a key header. Lines go to `userData/logs/launcher.log`, which moves to
-//! `launcher.old.log` past 2 MiB. Events from the libraries (`tracing`) and panics take the same way.
+//! The launcher's log (row L29) over launcher-kit's `platform::log` (RL3), which writes and redacts. Kept
+//! here: the library layer, which also mutes `egs-api` events that `log` forwarded (their target is then in
+//! a field, so the MIT filter's plain target check misses them).
 
-use std::io::Write as _;
 use std::path::PathBuf;
-use std::sync::{LazyLock, Mutex, MutexGuard};
 
-use regex::Regex;
+use launcher_kit::platform::log as kit;
 
-use protocol::account::ACCOUNT_KEY_PREFIX;
-use protocol::text::js_length;
+pub use kit::describe_error;
 
-/// JavaScript's `\s` (ECMAScript white space and line terminators), for the patterns below.
-const JS_SPACE: &str =
-    r"\t\n\x0B\x0C\r \x{A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}\x{FEFF}";
-
-static SECRETS: Mutex<Vec<String>> = Mutex::new(Vec::new());
-static SINK: Mutex<Option<PathBuf>> = Mutex::new(None);
-
-static ACCOUNT_KEY: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new("RRK_[A-Za-z0-9_-]+").unwrap_or_else(|_| unreachable_regex()));
-static AUTH_ARGUMENT: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(&format!(r#"(?i)(-AUTH_PASSWORD=)[^{JS_SPACE}"']*"#)).unwrap_or_else(|_| unreachable_regex())
-});
-static KEY_HEADER: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(&format!(
-        r#"(?i)(x-reforged-user-api-key["']?[{JS_SPACE}]*[:=][{JS_SPACE}]*["']?)[^{JS_SPACE}"',}}]+"#
-    ))
-    .unwrap_or_else(|_| unreachable_regex())
-});
-
-/// The patterns above are constants; a pattern that matches nothing stands in if one ever failed.
-fn unreachable_regex() -> Regex {
-    Regex::new(r"[^\s\S]").unwrap_or_else(|_| std::process::abort())
+pub fn info(message: &str) {
+    kit::info(message);
 }
 
-fn secrets() -> MutexGuard<'static, Vec<String>> {
-    SECRETS.lock().unwrap_or_else(|poisoned| poisoned.into_inner())
+pub fn warn(message: &str) {
+    kit::warn(message);
 }
 
-fn remember(value: &str) {
-    let mut secrets = secrets();
-    if !secrets.iter().any(|known| known == value) {
-        secrets.push(value.to_owned());
-    }
+pub fn error(message: &str) {
+    kit::error(message);
 }
+#[cfg(test)]
+pub use kit::redact;
 
 /// Registers a value that must never reach the log; a server-made key without its `RRK_` too.
 pub fn add_secret(value: &str) {
-    if js_length(value) >= 6 {
-        remember(value);
-    }
-    if let Some(rest) = value.strip_prefix(ACCOUNT_KEY_PREFIX)
-        && js_length(rest) >= 16
-        && !rest.contains(['\n', '\r', '\u{2028}', '\u{2029}'])
-    {
-        remember(rest);
-    }
+    kit::register_secret(value);
 }
 
 pub fn remove_secret(value: &str) {
-    let mut secrets = secrets();
-    secrets.retain(|known| known != value && value.strip_prefix(ACCOUNT_KEY_PREFIX) != Some(known.as_str()));
+    kit::unregister_secret(value);
 }
-
-pub fn redact(text: &str) -> String {
-    let mut out = text.to_owned();
-    for secret in secrets().iter() {
-        out = out.replace(secret.as_str(), "<hidden>");
-    }
-    let out = ACCOUNT_KEY.replace_all(&out, "RRK_<hidden>");
-    let out = AUTH_ARGUMENT.replace_all(&out, "${1}<hidden>");
-    KEY_HEADER.replace_all(&out, "${1}<hidden>").into_owned()
-}
-
-const MAX_LOG_BYTES: u64 = 2 * 1024 * 1024;
 
 /// Writes from now on to `<dir>/launcher.log`.
 pub fn log_to_file(dir: PathBuf) {
     let _ = std::fs::create_dir_all(&dir);
-    *SINK.lock().unwrap_or_else(|poisoned| poisoned.into_inner()) = Some(dir);
-}
-
-fn write(level: &str, message: &str) {
-    let line = redact(&format!(
-        "{} {level} {message}",
-        chrono::Utc::now().format("%Y-%m-%dT%H:%M:%S%.3fZ")
-    ));
-    let sink = SINK.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
-    let Some(dir) = sink.as_ref() else {
-        eprintln!("{line}");
-        return;
-    };
-    // Logging must never break the launcher
-    let file = dir.join("launcher.log");
-    if std::fs::metadata(&file).is_ok_and(|metadata| metadata.len() > MAX_LOG_BYTES) {
-        let _ = std::fs::rename(&file, dir.join("launcher.old.log"));
-    }
-    if let Ok(mut out) = std::fs::OpenOptions::new().create(true).append(true).open(&file) {
-        let _ = writeln!(out, "{line}");
-    }
-}
-
-pub fn info(message: &str) {
-    write("INFO", message);
-}
-
-pub fn warn(message: &str) {
-    write("WARN", message);
-}
-
-pub fn error(message: &str) {
-    write("ERROR", message);
-}
-
-/// `describeError`: an error as one masked line.
-pub fn describe_error(error: &dyn std::error::Error) -> String {
-    redact(&error.to_string())
+    kit::set_folder(&dir);
 }
 
 /// Whether an event comes from `egs-api`, also when `log` forwarded it (its target is then in a field).
@@ -177,11 +94,12 @@ pub fn install() {
 
 /// Tests that point the log at a file of their own take this, since the file is the process's.
 #[cfg(test)]
-pub(crate) static FILE_TESTS: Mutex<()> = Mutex::new(());
+pub(crate) static FILE_TESTS: std::sync::Mutex<()> = std::sync::Mutex::new(());
 
+/// The MIT log has no way back to stderr; later lines go to a folder of the test process's own.
 #[cfg(test)]
 pub(crate) fn stop_file_for_tests() {
-    *SINK.lock().unwrap_or_else(|poisoned| poisoned.into_inner()) = None;
+    kit::set_folder(&std::env::temp_dir().join(format!("launcher-tests-{}", std::process::id())));
 }
 
 #[cfg(test)]
@@ -237,6 +155,6 @@ mod tests {
         assert!(!text.contains("egs-api-secret"), "{text}");
         assert!(text.contains(" INFO launching with -AUTH_PASSWORD=<hidden>"), "{text}");
         assert!(text.contains(" WARN "), "{text}");
-        *SINK.lock().unwrap() = None;
+        stop_file_for_tests();
     }
 }

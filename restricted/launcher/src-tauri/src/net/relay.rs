@@ -38,7 +38,7 @@ use tokio::net::TcpListener;
 use tokio_util::sync::CancellationToken;
 use tower_service::Service as _;
 
-use super::connector::{Host, HostConnector, pin_error};
+use super::connector::{Host, HostConnector, host_connector, pin_error};
 use super::pinned::PinnedTarget;
 
 mod local;
@@ -208,7 +208,8 @@ fn build_active_upstream(
         ),
         None => None,
     };
-    let connector = HostConnector::new(upstream, connect_timeout);
+    let connector =
+        host_connector(&upstream, connect_timeout).map_err(|error| RelayError::ListenFailed(error.to_string()))?;
     let client = Client::builder(TokioExecutor::new())
         .pool_idle_timeout(Duration::from_secs(60))
         .pool_max_idle_per_host(8)
@@ -236,7 +237,7 @@ struct Shared {
     upgrades: AtomicU64,
     failures: AtomicU64,
     qos_answers: AtomicU64,
-    upstream_connections: Arc<AtomicU64>,
+    upstream_connections: HostConnector,
 }
 
 impl Shared {
@@ -388,7 +389,7 @@ impl Relay {
     /// address or name or to this PC, as for every other request (`http.rs`).
     pub async fn start(options: RelayOptions) -> Result<Self, RelayError> {
         let (active, mode, host) = build_active_upstream(&options.target, options.connect_timeout, None)?;
-        let upstream_connections = active.connector.opened.clone();
+        let upstream_connections = active.connector.clone();
         let listener = bind(options.port).await?;
         let port = listener
             .local_addr()
@@ -463,7 +464,7 @@ impl Relay {
     /// Connections opened to the server so far (kept-alive ones are reused).
     #[cfg_attr(not(test), expect(dead_code, reason = "the tests use it"))]
     pub fn upstream_connections(&self) -> u64 {
-        self.shared.upstream_connections.load(Ordering::Relaxed)
+        self.shared.upstream_connections.connections_opened() as u64
     }
 
     /// Re-points the running relay to another node with a session ticket, or back to the home node.

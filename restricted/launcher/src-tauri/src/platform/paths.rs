@@ -1,159 +1,69 @@
-//! Where the launcher keeps its files (row L26). Tauri's own app data folder would be
-//! `…/io.github.freezamotoqueiro.dauntlessreforgedrevival`; it is not used. The folders use the DaintyLass
-//! product names (`DaintyLass Launcher` and `Documents/DaintyLass/Account Keys`), and automatically migrate
-//! existing `Dauntless Reforged Revival Launcher` and `Documents/Dauntless Reforged Revival` folders on first start.
+//! Where the launcher keeps its files (row L26), over launcher-kit's `platform::paths` (RL3). Tauri's own app
+//! data folder would be `…/io.github.freezamotoqueiro.dauntlessreforgedrevival`; it is not used. Pre-rename
+//! folders are migrated on first start.
 
+use std::ffi::OsString;
 use std::path::{Path, PathBuf};
 
-/// The launcher's `userData` folder under the roaming app data folder (Windows) or
-/// `$XDG_CONFIG_HOME` / `~/.config` (Linux).
-pub const PRODUCT_NAME: &str = "DaintyLass Launcher";
+use launcher_kit::platform::paths as kit;
 
-/// The pre-rename 1.5.x Electron launcher's `userData` folder, migrated on first start.
-pub const LEGACY_PRODUCT_NAME: &str = "Dauntless Reforged Revival Launcher";
+pub use kit::Paths;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Paths {
-    pub user_data: PathBuf,
-    pub documents: PathBuf,
-    pub home: PathBuf,
+pub const PRODUCT_NAME: &str = kit::APP_FOLDER;
+pub const LEGACY_PRODUCT_NAME: &str = kit::LEGACY_APP_FOLDER;
+pub const RECOVERY_FOLDER: &str = kit::DOCUMENTS_FOLDER;
+pub const LEGACY_RECOVERY_FOLDER: &str = kit::LEGACY_DOCUMENTS_FOLDER;
+
+/// The shell's names for the MIT `Paths`; `from_system` also migrates pre-rename folders.
+pub trait PathsExt: Sized {
+    fn from_system() -> Option<Self>;
+    fn keys_dir(&self) -> PathBuf;
+    fn logs_dir(&self) -> PathBuf;
+    fn recovery_dir(&self) -> PathBuf;
 }
 
-/// Recursively copies files and directories from `src` into `dst` without overwriting any file that already
-/// exists in `dst`.
-fn merge_missing_dir(src: &Path, dst: &Path) {
-    let Ok(entries) = std::fs::read_dir(src) else {
-        return;
-    };
-    let _ = std::fs::create_dir_all(dst);
-    for entry in entries.flatten() {
-        let src_path = entry.path();
-        let dst_path = dst.join(entry.file_name());
-        let Ok(ft) = entry.file_type() else {
-            continue;
-        };
-        if ft.is_dir() {
-            merge_missing_dir(&src_path, &dst_path);
-        } else if ft.is_file() && !dst_path.exists() {
-            let _ = std::fs::copy(&src_path, &dst_path);
-        }
+impl PathsExt for Paths {
+    fn from_system() -> Option<Self> {
+        let paths = Self::resolve()?;
+        migrate_legacy_folders(&paths.user_data, Some(&paths.documents));
+        Some(paths)
+    }
+
+    fn keys_dir(&self) -> PathBuf {
+        self.keys()
+    }
+
+    fn logs_dir(&self) -> PathBuf {
+        self.logs()
+    }
+
+    fn recovery_dir(&self) -> PathBuf {
+        self.recovery()
     }
 }
 
-/// Moves `legacy` to `target` when `target` does not exist yet (falling back to copying if rename fails),
-/// or merges any missing files from `legacy` into `target` when both exist.
-fn migrate_one_dir(legacy: &Path, target: &Path) {
-    if !legacy.is_dir() || legacy == target {
-        return;
-    }
-    if !target.exists() {
-        if let Some(parent) = target.parent() {
-            let _ = std::fs::create_dir_all(parent);
-        }
-        if std::fs::rename(legacy, target).is_ok() {
-            return;
-        }
-    }
-    merge_missing_dir(legacy, target);
-}
-
-/// Migrates legacy `Dauntless Reforged Revival Launcher` user-data and `Documents/Dauntless Reforged Revival`
-/// recovery folders into `DaintyLass Launcher` and `Documents/DaintyLass` on first start without losing or
-/// overwriting newer files.
+/// Moves or merges the pre-rename `userData` and Documents folders; Documents only when given.
 pub fn migrate_legacy_folders(user_data: &Path, documents: Option<&Path>) {
     if user_data.file_name().is_some_and(|name| name == PRODUCT_NAME)
         && let Some(parent) = user_data.parent()
     {
-        let legacy_user_data = parent.join(LEGACY_PRODUCT_NAME);
-        migrate_one_dir(&legacy_user_data, user_data);
+        let _ = kit::migrate_folder(&parent.join(LEGACY_PRODUCT_NAME), user_data);
     }
     if let Some(docs) = documents {
-        let legacy_recovery = docs.join(LEGACY_RECOVERY_FOLDER);
-        let new_recovery = docs.join(RECOVERY_FOLDER);
-        migrate_one_dir(&legacy_recovery, &new_recovery);
+        let _ = kit::migrate_folder(&docs.join(LEGACY_RECOVERY_FOLDER), &docs.join(RECOVERY_FOLDER));
     }
 }
 
-/// Parses `--user-data-dir <dir>` or `--user-data-dir=<dir>` from command-line arguments so multiple
-/// launcher instances can run side by side with isolated profiles.
+/// `--user-data-dir <dir>` or `--user-data-dir=<dir>`, for side-by-side profiles.
 pub fn user_data_dir_from_args<S: AsRef<str>>(args: &[S]) -> Option<PathBuf> {
-    let mut iter = args.iter().map(AsRef::as_ref);
-    while let Some(arg) = iter.next() {
-        if arg == "--user-data-dir"
-            && let Some(dir) = iter.next()
-            && !dir.is_empty()
-        {
-            return Some(PathBuf::from(dir));
-        }
-        if let Some(dir) = arg.strip_prefix("--user-data-dir=")
-            && !dir.is_empty()
-        {
-            return Some(PathBuf::from(dir));
-        }
-    }
-    None
+    let args: Vec<OsString> = args.iter().map(|arg| OsString::from(arg.as_ref())).collect();
+    kit::user_data_dir_arg(&args)
 }
-
-impl Paths {
-    /// From the operating system's folders, migrating any pre-rename folders on first start.
-    pub fn from_system() -> Option<Self> {
-        let home = dirs::home_dir()?;
-        let args: Vec<String> = std::env::args().collect();
-        if let Some(dir) = user_data_dir_from_args(&args) {
-            let user_data = dir.join("User Data");
-            let documents = dir.join("Documents");
-            migrate_legacy_folders(&user_data, Some(&documents));
-            return Some(Self {
-                user_data,
-                documents,
-                home,
-            });
-        }
-        // Throwaway profile when REFORGED_DEV_PROFILE is set, so a developer's or host's real settings and keys stay untouched
-        if let Some(dir) = std::env::var_os("REFORGED_DEV_PROFILE").map(PathBuf::from) {
-            let user_data = dir.join("User Data");
-            let documents = dir.join("Documents");
-            migrate_legacy_folders(&user_data, Some(&documents));
-            return Some(Self {
-                user_data,
-                documents,
-                home,
-            });
-        }
-        let user_data = dirs::config_dir()?.join(PRODUCT_NAME);
-        let documents = dirs::document_dir().unwrap_or_else(|| home.join("Documents"));
-        migrate_legacy_folders(&user_data, Some(&documents));
-        Some(Self {
-            user_data,
-            documents,
-            home,
-        })
-    }
-
-    pub fn keys_dir(&self) -> PathBuf {
-        self.user_data.join("keys")
-    }
-
-    pub fn logs_dir(&self) -> PathBuf {
-        self.user_data.join("logs")
-    }
-
-    /// The plain account key copies the player finds again after reinstalling the system:
-    /// `Documents/DaintyLass/Account Keys/<server id>.txt`.
-    pub fn recovery_dir(&self) -> PathBuf {
-        self.documents.join(RECOVERY_FOLDER).join("Account Keys")
-    }
-}
-
-/// The launcher's folder in Documents
-pub const RECOVERY_FOLDER: &str = "DaintyLass";
-
-/// The pre-rename 1.5.x folder in Documents, migrated on first start
-pub const LEGACY_RECOVERY_FOLDER: &str = "Dauntless Reforged Revival";
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::path::PathBuf;
 
     #[test]
     fn the_electron_folders() {
