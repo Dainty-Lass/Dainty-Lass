@@ -1205,7 +1205,7 @@ async fn notices_errors_and_updates() {
 
 // ---------------------------------------------------------------- the Host page (RA12)
 
-/// A workspace in the planned layout with the fake `reforged-host` (`fixtures/host`) in it.
+/// A workspace in the planned layout with the fake `dainty-host` (`fixtures/host`) in it.
 #[cfg(feature = "host")]
 fn host_workspace(root: &Path) -> PathBuf {
     std::fs::create_dir_all(root.join("modules").join("rustic-isles")).unwrap();
@@ -1309,7 +1309,7 @@ async fn the_host_page_drives_reforged_host_setup_server_invite_and_stop() {
     hx.c.init().await;
     assert_eq!(hx.c.host_server_start().await, host_error("workspace"));
 
-    // A folder without reforged-host is not a workspace
+    // A folder without dainty-host is not a workspace
     let not_one = hx.temp();
     hx.pick("workspace", &not_one);
     assert_eq!(hx.c.host_choose_workspace().await, host_error("workspace"));
@@ -1333,7 +1333,7 @@ async fn the_host_page_drives_reforged_host_setup_server_invite_and_stop() {
     };
     assert_eq!(
         hx.c.host_setup(setup).await,
-        host_error("game data is missing: reforged-host gamedata")
+        host_error("game data is missing: dainty-host gamedata")
     );
     let job = hx.c.host_kit().await.job.unwrap();
     assert_eq!(job.state, crate::bridge::types::HostJobState::Failed);
@@ -1424,7 +1424,7 @@ async fn import_sdk_takes_the_newest_dump_and_multipliers_are_private_only() {
     assert_eq!(hx.c.host_choose_workspace().await, ActionResult::Ok);
     assert_eq!(
         hx.c.host_action(HostAction::ImportSdk).await,
-        host_error("game data is missing: reforged-host gamedata")
+        host_error("game data is missing: dainty-host gamedata")
     );
 
     // Rustic Isles's source is in the checkout (RD1)

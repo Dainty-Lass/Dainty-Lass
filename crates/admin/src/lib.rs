@@ -13,6 +13,7 @@ pub mod guarded_cli;
 pub mod history;
 pub mod history_text;
 pub mod hmac;
+pub mod host_settings;
 pub mod input;
 pub mod key_cli;
 pub mod keys;

@@ -280,7 +280,7 @@ fn backup_dumps_the_backends_database_into_the_workspace() {
         run_with(&p, &env, &mut |l| lines.push(l.to_owned()))
             .unwrap_err()
             .to_string(),
-        "not set up yet: run reforged-host setup first"
+        "not set up yet: run dainty-host setup first"
     );
     let config = HostConfig::from_json(&json!({
         "version": 1, "mode": "private", "host": "100.101.102.103", "gameAddress": "100.101.102.103", "name": "x",

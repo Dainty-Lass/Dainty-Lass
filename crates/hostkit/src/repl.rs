@@ -288,7 +288,7 @@ async fn run_module(
 }
 
 /// The most lines the console prints for one command: a revert of a mass delete lists every row, and the
-/// terminal command (`reforged-host revert`) is where to read all of them.
+/// terminal command (`dainty-host revert`) is where to read all of them.
 const MAX_REPLY_LINES: usize = 200;
 
 fn capped(lines: Vec<String>) -> Vec<String> {
@@ -296,7 +296,7 @@ fn capped(lines: Vec<String>) -> Vec<String> {
     let mut out: Vec<String> = lines.iter().take(MAX_REPLY_LINES).map(|l| plain(l)).collect();
     if total > MAX_REPLY_LINES {
         out.push(format!(
-            "... {} more lines: run the same command from a terminal, `reforged-host <command>`, to read them all",
+            "... {} more lines: run the same command from a terminal, `dainty-host <command>`, to read them all",
             total - MAX_REPLY_LINES
         ));
     }
@@ -350,7 +350,7 @@ pub async fn run_command(
         },
         ConsoleCommand::Invite => {
             let snap = controller.snapshot();
-            let mut out = vec!["An invite is made for one player: reforged-host invite --for \"Alex\"".to_string()];
+            let mut out = vec!["An invite is made for one player: dainty-host invite --for \"Alex\"".to_string()];
             if let Some(fp) = &snap.cert_fingerprint {
                 out.push(format!("Certificate SHA-256 (every invite's fp): {fp}"));
             }
@@ -382,7 +382,7 @@ pub async fn run_command(
                 .collect();
             (out, false)
         }
-        ConsoleCommand::Backup => said("The database is backed up from another terminal: reforged-host backup".into()),
+        ConsoleCommand::Backup => said("The database is backed up from another terminal: dainty-host backup".into()),
         ConsoleCommand::Log { service, level } => {
             let Some(handle) = filter_handle else {
                 return said("log levels cannot be changed in this console".into());

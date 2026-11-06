@@ -65,18 +65,18 @@ async function main(): Promise<void> {
     mkdirSync(workspace, { recursive: true })
 
     step(2, "finding the manager")
-    let exe = path.join(restricted, "target", "release", "dainty-lass-manager.exe")
+    let exe = path.join(restricted, "target", "release", "dainty-manager.exe")
     if (!existsSync(exe)) {
       const bundles =
         process.env.E2E_BUNDLE_DIR || path.join(restricted, "target", "release", "bundle", "nsis")
       mkdirSync(installDir, { recursive: true })
       installed = true
-      exe = install(installer(bundles, "DaintyLass Manager"), installDir, "dainty-lass-manager.exe")
+      exe = install(installer(bundles, "DaintyLass Manager"), installDir, "dainty-manager.exe")
     }
 
     step(3, "copying the controller's workspace")
     // A sync first, so alpha's last contact falls inside the 60 s online window
-    compose(restricted, ["host-alpha", "reforged-host", "remote", "sync"])
+    compose(restricted, ["host-alpha", "dainty-host", "remote", "sync"])
     // These hold keys: they stay in the temporary root and go with it
     for (const file of WORKSPACE_FILES) {
       const contents = compose(restricted, ["host-controller", "cat", `${CONTAINER_WORKSPACE}/${file}`])

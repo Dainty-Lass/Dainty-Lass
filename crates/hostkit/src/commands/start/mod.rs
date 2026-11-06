@@ -65,7 +65,7 @@ pub fn require_env_files(paths: &Paths, names: &[&str]) -> Result<(), HostError>
         Ok(())
     } else {
         Err(HostError::message(format!(
-            "missing {} in {}: run reforged-host setup first",
+            "missing {} in {}: run dainty-host setup first",
             missing.join(", "),
             paths.config.display()
         )))
@@ -98,12 +98,12 @@ pub fn load_config(paths: &Paths) -> Result<HostConfig, HostError> {
         && crate::commands::update::has_unmigrated_mongo_dir(paths)
     {
         return Err(HostError::message(format!(
-            "unmigrated MongoDB data was found in {}: move it with `reforged-host db migrate` and `db verify` (or `dainty-legacy import reforged <checkout>`), or pass --fresh-start to setup to start on a fresh database",
+            "unmigrated MongoDB data was found in {}: move it with `dainty-host db migrate` and `db verify` (or `dainty-legacy import reforged <checkout>`), or pass --fresh-start to setup to start on a fresh database",
             paths.mongo_data.display()
         )));
     }
     Err(HostError::message(
-        "server is not configured yet: run reforged-host setup first",
+        "server is not configured yet: run dainty-host setup first",
     ))
 }
 

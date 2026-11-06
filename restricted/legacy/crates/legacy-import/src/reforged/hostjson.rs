@@ -3,7 +3,7 @@
 
 //! `host.json` → `host.toml`: the Node kit's settings file moved to the one DaintyLass reads, with the keys of the
 //! games DaintyLass no longer runs (Dauntless Revived 1.4.4 and Rustic Isles' 1.12.0) left out. The values are
-//! carried as they are: `reforged-host setup`, run next, checks them and fills in the rest with its defaults.
+//! carried as they are: `dainty-host setup`, run next, checks them and fills in the rest with its defaults.
 
 use serde_json::{Map, Value};
 use toml_edit::{DocumentMut, Item, Table};
@@ -210,8 +210,8 @@ fn free_item(value: &Value, path: &str) -> Result<Item> {
 }
 
 const HEADER: &str = "\
-# This server's settings (reforged-host), moved here from the Node kit's host.json by dainty-legacy. Edit them
-# here, then run `reforged-host setup` again to apply them; setup keeps your comments and every value it does not
+# This server's settings (dainty-host), moved here from the Node kit's host.json by dainty-legacy. Edit them
+# here, then run `dainty-host setup` again to apply them; setup keeps your comments and every value it does not
 # change. A setting that is left out takes its default. The secrets are not here: they are in secrets.env.
 ";
 

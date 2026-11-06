@@ -12,13 +12,13 @@ licence (`Copyright (c) 2026 Silent Spud`) in `crates/remote` with zero dependen
 
 | Role | What runs it | `host.toml` `[remote]` setting | Description |
 | --- | --- | --- | --- |
-| **Controller** | A `DaintyLass Manager` desktop install (or a headless `reforged-host` / `dainty-lass-server-console` install) with remote management enabled | `role = "controller"` | Holds the cluster/management CA (or enrollment issuer), maintains the authoritative shared configuration revision, displays the status/logs/history of every enrolled install, and dispatches operator commands to one install or a group. |
-| **Managed install** | Any DaintyLass server install enrolled with the controller: headless servers (`reforged-host`, `dainty-lass-server-console`, `dainty-lass-server-minimal`), Docker containers (`reforged-revival-server`), other `DaintyLass Manager` installs, or the regional nodes of a network (`DD16`) | `role = "managed"` | Enrolls once with the controller using a one-time enrollment code, pulls shared settings and runtime/gamedata packs from the controller, reports health/logs/doctor/migration/history back, and executes authenticated remote operator commands through the same local code paths (`DH2`, `DH6`, `DD23`). |
+| **Controller** | A `DaintyLass Manager` desktop install (or a headless `dainty-host` / `dainty-server` install) with remote management enabled | `role = "controller"` | Holds the cluster/management CA (or enrollment issuer), maintains the authoritative shared configuration revision, displays the status/logs/history of every enrolled install, and dispatches operator commands to one install or a group. |
+| **Managed install** | Any DaintyLass server install enrolled with the controller: headless servers (`dainty-host`, `dainty-server`, `dainty-server-minimal`), Docker containers (`reforged-revival-server`), other `DaintyLass Manager` installs, or the regional nodes of a network (`DD16`) | `role = "managed"` | Enrolls once with the controller using a one-time enrollment code, pulls shared settings and runtime/gamedata packs from the controller, reports health/logs/doctor/migration/history back, and executes authenticated remote operator commands through the same local code paths (`DH2`, `DH6`, `DD23`). |
 | **Standalone install** *(default)* | Any install that has not enabled controller mode or enrolled with a controller | `role = "standalone"` *(or `[remote]` omitted)* | Operates locally with zero network or remote-management traffic, exactly as before. |
 
-### Can a player client (`dainty-lass-client`) also be a managed install?
+### Can a player client (`dainty-launcher`) also be a managed install?
 
-We do **not** make `dainty-lass-client` a managed install by default, because a player's PC is not operator
+We do **not** make `dainty-launcher` a managed install by default, because a player's PC is not operator
 infrastructure: the controller must never be able to execute host commands, inspect local files, or alter a player's
 keystore.
 
@@ -157,14 +157,14 @@ Remote management introduces **no new cryptographic protocol or listener**:
 
 1. **Minting the enrollment code (on the controller)**:
    - In `DaintyLass Manager` ("Managed installs" -> "Enroll install") or via CLI
-     `reforged-host remote invite --node <id> --region <region>`, the controller generates a one-time enrollment code:
+     `dainty-host remote invite --node <id> --region <region>`, the controller generates a one-time enrollment code:
      ```text
      dainty-lass-remote://enroll?v=1&url=https%3A%2F%2Fhost.example.org%3A61000&fp=<sha256-hex>&node=<id>&region=<region>&token=<32-byte-base64url>
      ```
    - The controller stores only `sha256(token)`, the assigned `NodeId` and `Region`, `expires_at` (default 15 minutes),
      and `used = false`.
 2. **Redeeming the enrollment code (on the managed install)**:
-   - The operator runs `reforged-host remote enroll "<code-or-uri>"` (or pastes it into a second Manager's "Enroll with
+   - The operator runs `dainty-host remote enroll "<code-or-uri>"` (or pastes it into a second Manager's "Enroll with
      a controller" dialog).
    - The managed install generates a fresh private key locally in `.workspace/tls/node.key` (mode `0600`; **the private
      key never leaves the managed install**).
@@ -188,7 +188,7 @@ Remote management introduces **no new cryptographic protocol or listener**:
 ### 5.3 Revocation and offline behaviour
 
 - **Revocation**:
-  - When the operator clicks **Revoke** in the Manager (or runs `reforged-host remote revoke <node>`), the controller:
+  - When the operator clicks **Revoke** in the Manager (or runs `dainty-host remote revoke <node>`), the controller:
     1. Marks `<node>` as `Revoked` in its managed-install store and adds `<node>` (and its certificate SHA-256
        fingerprint) to the controller's revoked-peer set;
     2. Immediately drops `<node>` from `TlsPeerLink`'s allowed peers so any subsequent mTLS connection or
@@ -207,7 +207,7 @@ Remote management introduces **no new cryptographic protocol or listener**:
   `host.toml`). Allowing two controllers to push conflicting `host.toml` revisions, presets, or module states to the
   same install would create split-brain configuration.
 - Multiple operators can still manage the same fleet by signing into the controller with their per-person admin keys
-  (`DH2`), or by running `reforged-host remote leave` on an install before enrolling it with a different controller.
+  (`DH2`), or by running `dainty-host remote leave` on an install before enrolling it with a different controller.
 
 ### 5.5 Exposure: the gateway remains the only listener off loopback
 
@@ -255,7 +255,7 @@ restarting):
 3. **Bounded backoff with jitter**: The background sync task logs a single warning on transition to unreachable
    (`controller unreachable; running on cached revision <N>`) and retries `RemoteRequest::Sync` with exponential
    backoff (5s -> 10s -> 20s -> 40s -> max 60s, plus ±20% jitter) until the controller answers again.
-4. **Local escape hatch**: At any time, the local machine owner can run `reforged-host remote leave` to detach the
+4. **Local escape hatch**: At any time, the local machine owner can run `dainty-host remote leave` to detach the
    install from the unreachable controller and manage it standalone on its current settings.
 
 ---
@@ -282,7 +282,7 @@ restarting):
      with its label, `NodeId`, region, live state badge (`Online`, `Degraded`, `Offline`, `Revoked`), player count,
      version, and config sync badge (`Revision #N`).
    - Clicking **Enroll install** opens a dialog that mints a one-time `dainty-lass-remote://enroll?...` URI with a
-     one-click **Copy enrollment command** (`reforged-host remote enroll "..."`) button and expiry countdown.
+     one-click **Copy enrollment command** (`dainty-host remote enroll "..."`) button and expiry countdown.
 2. **Per-install inspection and control (reusing existing tabs)**:
    - Selecting any enrolled install in the Manager switches the target context (`selectedInstallId`) so the existing
      **Server**, **Status**, **Modules**, **Admin**, and **History** tabs display that remote install's status,
@@ -293,16 +293,16 @@ restarting):
      all**, **Stop all**, **Restart all**, **Run doctor on all**, **Backup all**, and **Broadcast ban/unban**, showing a
      per-install outcome table as each install replies or queues the action.
 
-### 9.2 Headless CLI (`reforged-host remote`)
+### 9.2 Headless CLI (`dainty-host remote`)
 
 ```text
-reforged-host remote init-controller [--listen-url <https://host:61000>]
-reforged-host remote invite --node <node-id> [--region <region>] [--ttl-minutes 15]
-reforged-host remote enroll <enrollment-uri-or-token> [--label <name>]
-reforged-host remote status
-reforged-host remote list
-reforged-host remote revoke <node-id>
-reforged-host remote leave
+dainty-host remote init-controller [--listen-url <https://host:61000>]
+dainty-host remote invite --node <node-id> [--region <region>] [--ttl-minutes 15]
+dainty-host remote enroll <enrollment-uri-or-token> [--label <name>]
+dainty-host remote status
+dainty-host remote list
+dainty-host remote revoke <node-id>
+dainty-host remote leave
 ```
 
 ### 9.3 Plan rows (`RM1`–`RM5` in `docs/dainty-lass-plan.md`)
@@ -311,7 +311,7 @@ reforged-host remote leave
 | --- | --- | --- |
 | **RM1** | Design (`docs/remote-management.md`), security checklist (`docs/security/remote-management.md`), `SECURITY_REVIEW.md` entry, and fuzz target `remote_wire` (`R0`, `R1`) | Checklist covers enrollment token pinning/single-use, mTLS peer identity, secret non-export, guarded actions, and payload bounds; `cargo check --manifest-path fuzz/Cargo.toml --bins --locked` passes |
 | **RM2** | `crates/remote` (`license = "MIT"`): enrollment token mint/redeem over gateway `POST /__node/enroll`, `Service::Remote` (`POST /__node/remote`) over `crates/network` mTLS links, config revision sync + local override merger, `InstallReport` telemetry, remote command dispatch with `DH6` guarded approval and `DD23` remote operator actor, and `RemoteHostHandler` trait (`R2`) | Unit and integration tests for enrollment, token replay refusal, cert fingerprint mismatch refusal, config merge preserving per-host overrides, guarded two-person approval, and offline fallback; `cargo tree -e normal` shows zero AGPL dependencies |
-| **RM3** | Wire `crates/remote` into `controller` (`remote` feature), `host::serve`, `host::commands::setup`, `reforged-host remote` CLI subcommands, Docker entrypoint (`REFORGED_REMOTE_ENROLL_TOKEN`), Manager bridge commands (`spec.rs` + `api.ts`), and `ui/` Managed Installs UI with `en`/`pt-BR` catalog keys (`R2`) | Bridge staleness tests, `npm test`, `bun run test` (including new Managed Installs UI tests in `en` and `pt-BR`), and CLI round-trip tests pass |
+| **RM3** | Wire `crates/remote` into `controller` (`remote` feature), `host::serve`, `host::commands::setup`, `dainty-host remote` CLI subcommands, Docker entrypoint (`REFORGED_REMOTE_ENROLL_TOKEN`), Manager bridge commands (`spec.rs` + `api.ts`), and `ui/` Managed Installs UI with `en`/`pt-BR` catalog keys (`R2`) | Bridge staleness tests, `npm test`, `bun run test` (including new Managed Installs UI tests in `en` and `pt-BR`), and CLI round-trip tests pass |
 | **RM4** | Docker multi-install harness (`docker/remote/test.sh` and `docker/run-tests.sh`) + Windows Manager E2E verification and screenshots in `en` and `pt-BR` (`R3`) | 1 controller + 2 managed installs enroll, sync a setting change, apply a remote ban, survive controller stop, enforce revocation, and prove by wire inspection that zero secrets/account keys/DB files crossed; Manager desktop screenshots captured in both languages |
 | **RM5** | Documentation sweep (`docs/hosting.md`, `docs/hosting-linux.md`, `docs/hosting-docker.md`, `docs/architecture.md`, `README.md`, `AGENTS.md`, `NOTICE.md`, and handoff ledger) (`R4`) | All hosting guides include "Managing several installs", `NOTICE.md` lists `crates/remote` under MIT, and all workspace checks pass |
 
@@ -320,7 +320,7 @@ reforged-host remote leave
 ## 10. Resolved maintainer decisions (`R0` gate)
 
 1. **Client launcher scope**: **Confirmed (`Recommended: no remote management in client launcher`)**: remote
-   management applies strictly to server and `DaintyLass Manager` installs; `dainty-lass-client` has no remote
+   management applies strictly to server and `DaintyLass Manager` installs; `dainty-launcher` has no remote
    management surface.
 2. **Single controller ownership**: **Confirmed (`true`)**: each managed install has at most one active controller at a
    time (`remote leave` is required before enrolling with a different controller), while multiple human operators share

@@ -1,4 +1,4 @@
-//! The host kit (`reforged-host`): thin AGPL shell wiring `hostkit` (MIT) to the compiled-in
+//! The host kit (`dainty-host`): thin AGPL shell wiring `hostkit` (MIT) to the compiled-in
 //! services (`gateway`, `allowlist`, `content`, `admin`, and `isles-1-14-7` from dainty-lass's
 //! `rustic-isles-1-14-7`), the `rustic-isles-db` and `rustic-isles-replay` tools, the
 //! `rustic-isles-gamedata` / `rustic-isles-director` generators, and the `legacy` 1.4.4 stack.
@@ -24,7 +24,7 @@ use std::time::Duration;
 use crate::compose as modules;
 use clap::Parser as _;
 
-/// Which services this binary runs on its own (`reforged-host <service>`).
+/// Which services this binary runs on its own (`dainty-host <service>`).
 pub const BUILT_IN_SERVICES: &[&str] = &[
     #[cfg(feature = "gateway")]
     "gateway",
@@ -238,7 +238,7 @@ mod db_impl {
             let display_from = redact_uri_password(&from_uri);
             let display_to = redact_uri_password(&to_target);
             out(&format!(
-                "reforged-host db migrate ({mode}, from {display_from} to {display_to}):"
+                "dainty-host db migrate ({mode}, from {display_from} to {display_to}):"
             ));
             for (table, count) in &report.counts {
                 if *count > 0 {
@@ -303,7 +303,7 @@ mod db_impl {
             }
         } else if report.ok {
             out(&format!(
-                "reforged-host db verify: OK ({} collections verified against {display_against} for {display_to})",
+                "dainty-host db verify: OK ({} collections verified against {display_against} for {display_to})",
                 report.collections.len()
             ));
             for col in &report.collections {
@@ -383,7 +383,7 @@ mod db_impl {
             let display_from = redact_uri_password(&from_source);
             let display_to = redact_uri_password(&to_uri);
             out(&format!(
-                "reforged-host db export-mongo ({mode}, from {display_from} to {display_to}):"
+                "dainty-host db export-mongo ({mode}, from {display_from} to {display_to}):"
             ));
             for (collection, count) in &report.counts {
                 if *count > 0 {
@@ -490,7 +490,7 @@ mod db_impl {
         } else {
             let status = if report.passed() { "PASS" } else { "DIFF" };
             out(&format!(
-                "reforged-host db replay: {status} (records={}, http={}, chat_conns={}, skipped={}, exact_matched={}, inexact_matched={}, inexact_diffed={}, unexplained_diffed={})",
+                "dainty-host db replay: {status} (records={}, http={}, chat_conns={}, skipped={}, exact_matched={}, inexact_matched={}, inexact_diffed={}, unexplained_diffed={})",
                 report.total_records,
                 report.http_replayed,
                 report.chat_connections_replayed,
@@ -1441,7 +1441,7 @@ fn isles_service_main(name: &'static str, args: &[String]) -> ExitCode {
             && hostkit::commands::update::has_unmigrated_mongo_dir(p)
         {
             eprintln!(
-                "Unmigrated MongoDB data found in {}: move it with `reforged-host db migrate` and `db verify` (or `dainty-legacy import reforged <checkout>`), or pass `reforged-host setup --fresh-start` to start with an empty database without modifying MongoDB.",
+                "Unmigrated MongoDB data found in {}: move it with `dainty-host db migrate` and `db verify` (or `dainty-legacy import reforged <checkout>`), or pass `dainty-host setup --fresh-start` to start with an empty database without modifying MongoDB.",
                 p.mongo_data.display()
             );
             return ExitCode::FAILURE;
@@ -1828,7 +1828,7 @@ mod tests {
         assert!(BUILT_IN_SERVICES.contains(&"backend"));
         assert!(BUILT_IN_SERVICES.contains(&"director"));
         let cli = cli::Cli::try_parse_from([
-            "reforged-host",
+            "dainty-host",
             "backend",
             "serve",
             "--env-file",
@@ -1837,7 +1837,7 @@ mod tests {
         .unwrap();
         assert_eq!(cli.command.name(), "backend");
         let cli = cli::Cli::try_parse_from([
-            "reforged-host",
+            "dainty-host",
             "director",
             "serve",
             "--env-file=/opt/reforged/.workspace/config/director.env",
@@ -1951,7 +1951,7 @@ mod tests {
             &mut |l| lines.push(l.to_owned()),
         )
         .unwrap();
-        assert!(lines.iter().any(|l| l.contains("reforged-host db verify: OK")));
+        assert!(lines.iter().any(|l| l.contains("dainty-host db verify: OK")));
         assert!(paths.config.join(commands::update::MONGO_MIGRATED_MARKER).exists());
 
         lines.clear();
@@ -1969,7 +1969,7 @@ mod tests {
         assert!(
             lines
                 .iter()
-                .any(|l| l.contains("reforged-host db export-mongo (dry-run"))
+                .any(|l| l.contains("dainty-host db export-mongo (dry-run"))
         );
         assert!(lines.iter().any(|l| l.contains("accounts: 1")));
     }

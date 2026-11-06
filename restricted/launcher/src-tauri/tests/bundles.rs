@@ -1,4 +1,4 @@
-//! The two desktop apps' bundle configs (`dainty-lass-client`, `dainty-lass-manager`) are wired and distinct:
+//! The two desktop apps' bundle configs (`dainty-launcher`, `dainty-manager`) are wired and distinct:
 //! names, identifiers, icons, their dashboard page, and the version and features the release builds take.
 
 use std::path::{Path, PathBuf};
@@ -34,14 +34,14 @@ fn client_and_manager_are_distinct_apps() {
     let manager = json("tauri.server-gui.conf.json");
 
     assert_eq!(text(&client, "/productName"), "DaintyLass Launcher");
-    assert_eq!(text(&client, "/mainBinaryName"), "dainty-lass-client");
+    assert_eq!(text(&client, "/mainBinaryName"), "dainty-launcher");
     // Unchanged since the Electron launcher, so installs update in place
     assert_eq!(
         text(&client, "/identifier"),
         "io.github.freezamotoqueiro.dauntlessreforgedrevival"
     );
     assert_eq!(text(&manager, "/productName"), "DaintyLass Manager");
-    assert_eq!(text(&manager, "/mainBinaryName"), "dainty-lass-manager");
+    assert_eq!(text(&manager, "/mainBinaryName"), "dainty-manager");
     assert_eq!(
         text(&manager, "/identifier"),
         "io.github.freezamotoqueiro.dauntlessreforgedrevival.server"

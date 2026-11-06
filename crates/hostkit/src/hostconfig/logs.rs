@@ -83,6 +83,68 @@ impl LogsConfig {
     }
 }
 
+/// host.toml's `[logs]` for the admin API's `logSettings` and `setLogSettings` (the dashboard).
+#[cfg(feature = "admin")]
+pub struct LogsFile {
+    pub file: std::path::PathBuf,
+    /// What this run started with
+    pub started: LogsConfig,
+}
+
+#[cfg(feature = "admin")]
+impl LogsFile {
+    fn view(&self, logs: &LogsConfig) -> admin::host_settings::LogSettings {
+        admin::host_settings::LogSettings {
+            format: logs.format.as_str().to_owned(),
+            color: logs.color.as_str().to_owned(),
+            gelf_url: logs.gelf_url.clone(),
+            restart_needed: *logs != self.started,
+        }
+    }
+
+    fn read(&self) -> Result<super::HostConfig, String> {
+        super::read_host_config(&self.file)
+            .map_err(|e| e.to_string())?
+            .ok_or_else(|| format!("{} does not exist", self.file.display()))
+    }
+}
+
+#[cfg(feature = "admin")]
+impl admin::host_settings::HostSettings for LogsFile {
+    fn logs(&self) -> Result<admin::host_settings::LogSettings, String> {
+        Ok(self.view(&self.read()?.logs.unwrap_or_default()))
+    }
+
+    fn set_logs(
+        &self,
+        change: &admin::host_settings::LogSettingsInput,
+    ) -> Result<admin::host_settings::LogSettings, String> {
+        let mut config = self.read()?;
+        let Value::Object(mut fields) = config.logs.clone().unwrap_or_default().to_json() else {
+            return Err("logs did not read back as a table".into());
+        };
+        if let Some(format) = &change.format {
+            fields.insert("format".into(), Value::from(format.as_str()));
+        }
+        if let Some(color) = &change.color {
+            fields.insert("color".into(), Value::from(color.as_str()));
+        }
+        match change.gelf_url.as_deref().map(str::trim) {
+            Some("") => {
+                fields.remove("gelfUrl");
+            }
+            Some(url) => {
+                fields.insert("gelfUrl".into(), Value::from(url));
+            }
+            None => {}
+        }
+        let logs = LogsConfig::from_json(&Value::Object(fields)).map_err(|e| e.to_string())?;
+        config.logs = Some(logs.clone());
+        super::write_host_config(&self.file, &config).map_err(|e| e.to_string())?;
+        Ok(self.view(&logs))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -109,5 +171,66 @@ mod tests {
         ] {
             assert!(LogsConfig::from_json(&value).is_err(), "{value}");
         }
+    }
+
+    #[cfg(feature = "admin")]
+    #[test]
+    fn the_dashboard_edits_the_file() {
+        use admin::host_settings::{HostSettings, LogSettingsInput};
+
+        let dir = tempfile::tempdir().unwrap();
+        let file = dir.path().join("host.toml");
+        std::fs::write(
+            &file,
+            "version = 1
+mode = \"private\"
+name = \"Friday Hunts\"
+host = \"100.101.102.103\"
+             game_address = \"100.101.102.103\"
+registration = \"INVITECODE\"
+max_hunt_servers = 3
+",
+        )
+        .unwrap();
+        let settings = LogsFile {
+            file: file.clone(),
+            started: LogsConfig::default(),
+        };
+        let now = settings.logs().unwrap();
+        assert_eq!(
+            (now.format.as_str(), now.color.as_str(), now.restart_needed),
+            ("text", "auto", false)
+        );
+
+        let change = LogSettingsInput {
+            format: Some("json".into()),
+            color: None,
+            gelf_url: Some("tcp://graylog:12201".into()),
+        };
+        let after = settings.set_logs(&change).unwrap();
+        assert_eq!(after.gelf_url.as_deref(), Some("tcp://graylog:12201"));
+        assert!(after.restart_needed);
+        let text = std::fs::read_to_string(&file).unwrap();
+        assert!(
+            text.contains("[logs]") && text.contains("gelf_url = \"tcp://graylog:12201\""),
+            "{text}"
+        );
+        assert!(text.contains("name = \"Friday Hunts\""), "{text}");
+
+        let refused = LogSettingsInput {
+            gelf_url: Some("http://logs.example.org/gelf".into()),
+            ..LogSettingsInput::default()
+        };
+        assert!(settings.set_logs(&refused).is_err());
+        assert_eq!(
+            settings.logs().unwrap().gelf_url.as_deref(),
+            Some("tcp://graylog:12201")
+        );
+
+        let cleared = LogSettingsInput {
+            gelf_url: Some(String::new()),
+            ..LogSettingsInput::default()
+        };
+        assert_eq!(settings.set_logs(&cleared).unwrap().gelf_url, None);
     }
 }

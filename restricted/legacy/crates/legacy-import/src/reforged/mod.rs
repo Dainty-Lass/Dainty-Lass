@@ -1,7 +1,7 @@
 //! A Dauntless Reforged Revival Node-kit server upgraded in place to DaintyLass: the old `.workspace` layout's
 //! folders moved, its MongoDB moved into the 1.14.7 database, `secrets.env` kept, and `host.json` turned into
 //! `host.toml`. In that order, as DaintyLass's setup did it: a MongoDB move that fails leaves the old install as it
-//! was. `reforged-host setup` runs next and writes the services' env files from the new host.toml.
+//! was. `dainty-host setup` runs next and writes the services' env files from the new host.toml.
 
 pub mod hostjson;
 pub mod layout;
@@ -106,6 +106,6 @@ pub fn upgrade(root: &Path, mongo_plan: &MongoPlan<'_>, dry_run: bool) -> Result
             folder.strip_prefix(&l.repo).unwrap_or(&folder).display()
         ));
     }
-    report.note("next: run reforged-host setup, which checks host.toml and writes the services' settings");
+    report.note("next: run dainty-host setup, which checks host.toml and writes the services' settings");
     Ok(report)
 }

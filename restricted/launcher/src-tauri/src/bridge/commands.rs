@@ -860,7 +860,7 @@ fn guarded_id(value: &Value) -> Option<&str> {
 }
 
 /// The destructive and bulk admin actions that wait (DD23, DH6), for the server GUI: the host decides them
-/// as `reforged-host admin guarded` does, in this process.
+/// as `dainty-host admin guarded` does, in this process.
 #[tauri::command]
 pub async fn guarded_list(app: AppHandle) -> GuardedList {
     #[cfg(feature = "server-gui")]

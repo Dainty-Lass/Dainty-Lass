@@ -75,7 +75,7 @@ pub const REBORN_BUILD: GameBuild<'static> = GameBuild {
     version_text: GAME_VERSION_TEXT,
     exe_sha256: PINNED_EXE_SHA256,
     name: "1.14.7",
-    get_it: "run reforged-host install-game",
+    get_it: "run dainty-host install-game",
 };
 
 pub const SERVICES_MEMORY_MB: i64 = 1536;
@@ -492,7 +492,7 @@ pub fn performance_checks(
                     text: format!(
                         "{max_h} hunts at once may need more than this machine's {gb:.1} GB: about {fits} fit"
                     ),
-                    fix: Some(format!("reforged-host setup --memory-guard, or --max-hunts {fits}")),
+                    fix: Some(format!("dainty-host setup --memory-guard, or --max-hunts {fits}")),
                 });
             }
         }
@@ -542,7 +542,7 @@ pub fn linux_checks(p: &Paths, config: &HostConfig) -> Result<Vec<Check>, HostEr
                 area,
                 level: Level::Warn,
                 text: format!("Wine prefix is not initialized at {}", p.wine_prefix.display()),
-                fix: Some("run reforged-host setup".to_owned()),
+                fix: Some("run dainty-host setup".to_owned()),
             });
         }
     }
@@ -592,7 +592,7 @@ pub fn linux_checks(p: &Paths, config: &HostConfig) -> Result<Vec<Check>, HostEr
             area,
             level: Level::Fail,
             text: format!("gameserver wrapper missing at {}", p.gameserver_wrapper.display()),
-            fix: Some("run reforged-host setup".to_owned()),
+            fix: Some("run dainty-host setup".to_owned()),
         });
     }
 
@@ -655,7 +655,7 @@ pub fn network_checks(p: &Paths, config: &HostConfig, _platform: Platform) -> Re
                         area,
                         level: Level::Warn,
                         text: format!("Tailscale IPv4 is {ts_ip}, but game_address is {}", config.game_address),
-                        fix: Some(format!("run reforged-host setup --game-address {ts_ip}")),
+                        fix: Some(format!("run dainty-host setup --game-address {ts_ip}")),
                     });
                 }
             } else {
@@ -683,7 +683,7 @@ pub fn network_checks(p: &Paths, config: &HostConfig, _platform: Platform) -> Re
                             area,
                             level: Level::Fail,
                             text: format!("gateway TLS certificate is invalid: {e}"),
-                            fix: Some("run reforged-host setup".to_owned()),
+                            fix: Some("run dainty-host setup".to_owned()),
                         });
                     }
                 }
@@ -692,7 +692,7 @@ pub fn network_checks(p: &Paths, config: &HostConfig, _platform: Platform) -> Re
                     area,
                     level: Level::Fail,
                     text: "gateway TLS certificate or key is missing".to_owned(),
-                    fix: Some("run reforged-host setup".to_owned()),
+                    fix: Some("run dainty-host setup".to_owned()),
                 });
             }
 
@@ -717,7 +717,7 @@ pub fn network_checks(p: &Paths, config: &HostConfig, _platform: Platform) -> Re
                         area,
                         level: Level::Fail,
                         text: "cluster node TLS certificate, key, or CA is missing in .workspace/tls".to_owned(),
-                        fix: Some("run reforged-host network issue-node-cert or join".to_owned()),
+                        fix: Some("run dainty-host network issue-node-cert or join".to_owned()),
                     });
                 }
             }
@@ -748,7 +748,7 @@ pub fn database_check(mongo: &MongoCheck, _uri: &str, managed: bool) -> Check {
             area,
             level: Level::Warn,
             text: format!("MongoDB replica set {set_name} is not primary yet"),
-            fix: Some("wait a few seconds or run reforged-host setup".to_owned()),
+            fix: Some("wait a few seconds or run dainty-host setup".to_owned()),
         },
         MongoCheck::Failed {
             reason: MongoProblem::Unreachable,
@@ -757,13 +757,13 @@ pub fn database_check(mongo: &MongoCheck, _uri: &str, managed: bool) -> Check {
             area,
             level: Level::Info,
             text: format!("managed MongoDB is not running right now ({detail})"),
-            fix: Some("start the server with reforged-host start".to_owned()),
+            fix: Some("start the server with dainty-host start".to_owned()),
         },
         MongoCheck::Failed { reason, detail } => Check {
             area,
             level: Level::Fail,
             text: format!("MongoDB check failed ({reason:?}): {detail}"),
-            fix: Some("start MongoDB with --replSet rs0 or run reforged-host setup".to_owned()),
+            fix: Some("start MongoDB with --replSet rs0 or run dainty-host setup".to_owned()),
         },
     }
 }
@@ -786,7 +786,7 @@ pub fn store_database_check(p: &Paths, config: &HostConfig) -> Check {
                 area,
                 level: Level::Fail,
                 text: format!("invalid database configuration: {e}"),
-                fix: Some("run reforged-host setup".to_owned()),
+                fix: Some("run dainty-host setup".to_owned()),
             };
         }
     };
@@ -815,7 +815,7 @@ pub fn store_database_check(p: &Paths, config: &HostConfig) -> Check {
                 area,
                 level: Level::Fail,
                 text: format!("{engine_label} store database check failed: {e}"),
-                fix: Some("run reforged-host setup".to_owned()),
+                fix: Some("run dainty-host setup".to_owned()),
             },
         },
     }
@@ -858,7 +858,7 @@ pub fn run_doctor(p: &Paths, opts: &DoctorOptions) -> Result<Vec<Check>, HostErr
             area: "config",
             level: Level::Fail,
             text: "server is not configured yet (host.toml is missing)".to_owned(),
-            fix: Some("run reforged-host setup".to_owned()),
+            fix: Some("run dainty-host setup".to_owned()),
         });
         return Ok(checks);
     };
@@ -899,7 +899,7 @@ pub fn run_doctor(p: &Paths, opts: &DoctorOptions) -> Result<Vec<Check>, HostErr
             area: "runtime",
             level: Level::Warn,
             text: format!("published runtime is missing in {}", p.runtime_publish.display()),
-            fix: Some("run reforged-host publish-runtime".to_owned()),
+            fix: Some("run dainty-host publish-runtime".to_owned()),
         });
     }
 
@@ -1069,18 +1069,16 @@ mod tests {
             "netstat" => {
                 Some("  TCP    127.0.0.1:61000        0.0.0.0:0              LISTENING       4242\r\n".to_owned())
             }
-            "tasklist" => Some("\"reforged-host.exe\",\"4242\",\"Console\",\"1\",\"12,000 K\"\r\n".to_owned()),
+            "tasklist" => Some("\"dainty-host.exe\",\"4242\",\"Console\",\"1\",\"12,000 K\"\r\n".to_owned()),
             _ => None,
         });
-        assert_eq!(win.as_deref(), Some("reforged-host.exe (PID 4242)"));
+        assert_eq!(win.as_deref(), Some("dainty-host.exe (PID 4242)"));
 
         let lin = port_owner_hint_with(61000, Platform::Linux, |cmd, _| match cmd {
-            "ss" => {
-                Some("LISTEN 0 128 127.0.0.1:61000 0.0.0.0:* users:((\"reforged-host\",pid=9001,fd=8))\n".to_owned())
-            }
+            "ss" => Some("LISTEN 0 128 127.0.0.1:61000 0.0.0.0:* users:((\"dainty-host\",pid=9001,fd=8))\n".to_owned()),
             _ => None,
         });
-        assert_eq!(lin.as_deref(), Some("reforged-host (PID 9001)"));
+        assert_eq!(lin.as_deref(), Some("dainty-host (PID 9001)"));
     }
 
     #[test]

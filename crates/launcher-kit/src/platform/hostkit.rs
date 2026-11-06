@@ -56,9 +56,9 @@ pub const DIRECTOR_GAME_DATA: [&str; 7] = [
 pub const DUMPER_OUTPUT_ROOT: &str = r"C:\Dumper-7";
 
 pub const HOST_BINARY: &str = if cfg!(windows) {
-    "reforged-host.exe"
+    "dainty-host.exe"
 } else {
-    "reforged-host"
+    "dainty-host"
 };
 
 const EXEC_TIMEOUT: Duration = Duration::from_secs(20);
@@ -258,7 +258,7 @@ pub struct Logged {
     pub last_line: Option<String>,
 }
 
-/// Locates `reforged-host` inside `root` (`<root>/<HOST_BINARY>`, `<root>/bin/<HOST_BINARY>`,
+/// Locates `dainty-host` inside `root` (`<root>/<HOST_BINARY>`, `<root>/bin/<HOST_BINARY>`,
 /// or `<root>/target/release/<HOST_BINARY>`).
 #[must_use]
 pub fn find_host_binary(root: &Path) -> Option<PathBuf> {
@@ -271,7 +271,7 @@ pub fn find_host_binary(root: &Path) -> Option<PathBuf> {
     .find(|candidate| candidate.is_file())
 }
 
-/// Returns `true` iff `root` contains `reforged-host` and either `modules/rustic-isles` or `paradox`.
+/// Returns `true` iff `root` contains `dainty-host` and either `modules/rustic-isles` or `paradox`.
 #[must_use]
 pub fn is_workspace(root: &Path) -> bool {
     find_host_binary(root).is_some()

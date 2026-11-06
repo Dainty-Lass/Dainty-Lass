@@ -2,8 +2,8 @@
 
 One PC runs the whole server: the gateway, the 1.14.7 Rust backend and Director (`isles-1-14-7`), the content
 server, the admin API, the SQLite (or Postgres) store and the game servers. A **private** server is reachable by
-friends on your tailnet; a **public** one by anyone with an invite, over TLS. The host kit, `reforged-host`, does
-the setting up from a terminal; **DaintyLass Manager** (`dainty-lass-manager`, or the client launcher's Host page)
+friends on your tailnet; a **public** one by anyone with an invite, over TLS. The host kit, `dainty-host`, does
+the setting up from a terminal; **DaintyLass Manager** (`dainty-manager`, or the client launcher's Host page)
 drives the same server and setup with a graphical interface.
 
 Linux: [hosting-linux.md](hosting-linux.md). Docker: [hosting-docker.md](hosting-docker.md).
@@ -12,10 +12,10 @@ Linux: [hosting-linux.md](hosting-linux.md). Docker: [hosting-docker.md](hosting
 
 - Windows 10 or 11, and **your own Dauntless 1.14.7** install (the folder with `Archon` in it), or an Epic
   account whose library has Dauntless, from which `install-game` installs it ([below](#getting-the-game-from-epic)).
-- The **server release** (`ReforgedRevivalServer-<version>-windows-x64.zip`), unpacked anywhere; `bin\reforged-host.exe`
+- The **server release** (`ReforgedRevivalServer-<version>-windows-x64.zip`), unpacked anywhere; `bin\dainty-host.exe`
   is the kit. Or a checkout of this repository built from source. No Node.js or MongoDB is needed on the default
   path: the 1.14.7 backend, Director, gateway, content server, allowlist helper and admin API are compiled into
-  `reforged-host` and store player data in `.workspace\config\dainty-lass.db` (SQLite) or Postgres (`[database]`).
+  `dainty-host` and store player data in `.workspace\config\dainty-lass.db` (SQLite) or Postgres (`[database]`).
 - **Visual Studio 2022** with Desktop development with C++, and **Dumper-7**, to generate the SDK and build
   the game runtime from your own game ([sdk-and-game-data.md](https://git.silentspud.com/silentspud/dainty-lass/src/branch/main/docs/sdk-and-game-data.md)). Players get the runtime
   you build; nobody else's works with your server's build.
@@ -27,13 +27,13 @@ Linux: [hosting-linux.md](hosting-linux.md). Docker: [hosting-docker.md](hosting
 A private server, from the release folder:
 
 ```powershell
-bin\reforged-host setup --mode private --name "Friday Hunts" --game "D:\Games\Dauntless"
+bin\dainty-host setup --mode private --name "Friday Hunts" --game "D:\Games\Dauntless"
 ```
 
 `--host` defaults to this PC's Tailscale address. A public one:
 
 ```powershell
-bin\reforged-host setup --mode public --host play.example.org --game-address 203.0.113.10 --name "Friday Hunts" --game "D:\Games\Dauntless"
+bin\dainty-host setup --mode public --host play.example.org --game-address 203.0.113.10 --name "Friday Hunts" --game "D:\Games\Dauntless"
 ```
 
 `setup` writes `.workspace\config\host.toml` (every setting, with a comment each), `secrets.env` (made
@@ -47,20 +47,20 @@ No 1.14.7 folder yet? `install-game` fetches one from your own Epic library
 Then the SDK, the runtime and the game data ([sdk-and-game-data.md](https://git.silentspud.com/silentspud/dainty-lass/src/branch/main/docs/sdk-and-game-data.md)):
 
 ```powershell
-bin\reforged-host gamedata                  # from your CatalogExporter export in modules\rustic-isles\reference\1.14.7\Items_Analysis
-bin\reforged-host publish-runtime           # the Rustic-Isles.dll and winmm.dll you built
-bin\reforged-host doctor                    # what is still missing or wrong
+bin\dainty-host gamedata                  # from your CatalogExporter export in modules\rustic-isles\reference\1.14.7\Items_Analysis
+bin\dainty-host publish-runtime           # the Rustic-Isles.dll and winmm.dll you built
+bin\dainty-host doctor                    # what is still missing or wrong
 ```
 
 ## Running it
 
 ```powershell
-bin\reforged-host start                     # every service, until Ctrl+C
-bin\reforged-host invite --for "Alex"       # an invite link to send
-bin\reforged-host invite --list
+bin\dainty-host start                     # every service, until Ctrl+C
+bin\dainty-host invite --for "Alex"       # an invite link to send
+bin\dainty-host invite --list
 ```
 
-`start` runs one process tree and stops all of it on Ctrl+C. **DaintyLass Manager** (`dainty-lass-manager`, built
+`start` runs one process tree and stops all of it on Ctrl+C. **DaintyLass Manager** (`dainty-manager`, built
 with the `server-gui` feature) runs the same server in-process from its Host page. Logs are in `.workspace\logs` (the game servers' in `logs\gameservers`).
 
 | Command | What |
@@ -89,8 +89,8 @@ The game servers run your own Dauntless. If you own it on Epic, the host kit ins
 the launcher does for players (DaintyLass never hosts or mirrors game files):
 
 ```powershell
-bin\reforged-host install-game                       # 1.14.7, into .workspace\game\1.14.7
-bin\reforged-host install-game --dir D:\Games\Dauntless   # into D:\Games\Dauntless\1.14.7
+bin\dainty-host install-game                       # 1.14.7, into .workspace\game\1.14.7
+bin\dainty-host install-game --dir D:\Games\Dauntless   # into D:\Games\Dauntless\1.14.7
 ```
 
 It prints Epic's login address. Open it in a browser on any computer, sign in, and Epic shows a page of text with an
@@ -116,11 +116,11 @@ Every change to the server's data is in a change log with who made it, when, and
 used by someone it wasn't issued to can be seen and undone from the host, with no key:
 
 ```powershell
-bin\reforged-host history --actor admin:58ef5419 --since 2d       # what that key did in the last two days, newest first
-bin\reforged-host history --account <account id>                  # everything that touched one player's rows
-bin\reforged-host revert --actor admin:58ef5419 --since 2d        # a dry run: prints what would change, and a plan id
-bin\reforged-host revert --actor admin:58ef5419 --since 2d --apply <plan id>
-bin\reforged-host history verify                                  # is the log itself intact?
+bin\dainty-host history --actor admin:58ef5419 --since 2d       # what that key did in the last two days, newest first
+bin\dainty-host history --account <account id>                  # everything that touched one player's rows
+bin\dainty-host revert --actor admin:58ef5419 --since 2d        # a dry run: prints what would change, and a plan id
+bin\dainty-host revert --actor admin:58ef5419 --since 2d --apply <plan id>
+bin\dainty-host history verify                                  # is the log itself intact?
 ```
 
 - **Who and when.** `--actor` is `admin:<key id>` (the ids are in `admin key list`; a bare id works, `owner` is
@@ -145,7 +145,7 @@ bin\reforged-host history verify                                  # is the log i
   removed. It exits 1 when one is broken. The head it prints is what to keep somewhere off the server.
 
 The same commands are in the `serve` console and the dashboard (`history --actor ...`, `revert ... --apply ...`;
-a long list is cut off at 200 lines, so read a mass revert in a terminal), in **DaintyLass Manager** (`dainty-lass-manager`, History tab) and in the admin API for the owner's key ([admin-api.md](https://git.silentspud.com/silentspud/dainty-lass/src/branch/main/docs/admin-api.md)). In Docker:
+a long list is cut off at 200 lines, so read a mass revert in a terminal), in **DaintyLass Manager** (`dainty-manager`, History tab) and in the admin API for the owner's key ([admin-api.md](https://git.silentspud.com/silentspud/dainty-lass/src/branch/main/docs/admin-api.md)). In Docker:
 `docker compose run --rm host history --actor admin:58ef5419`.
 
 ## Settings
@@ -274,7 +274,7 @@ ban_guard = "approval"    # "delay" (the default), "approval" or "off"
 delay_minutes = 30
 ```
 
-`reforged-host admin guarded list`, `approve <id>` and `cancel <id>` decide as the host, and **DaintyLass Manager** (`dainty-lass-manager`)
+`dainty-host admin guarded list`, `approve <id>` and `cancel <id>` decide as the host, and **DaintyLass Manager** (`dainty-manager`)
 lists what waits. A rule on `"approval"` on a server with one owner key waits for nobody and expires after
 `expire_hours`: use it once the team has a second key. How it works, and what a bot sees, is in
 [admin-api.md](https://git.silentspud.com/silentspud/dainty-lass/src/branch/main/docs/admin-api.md#guarded-actions-dh6).
@@ -282,7 +282,7 @@ lists what waits. A rule on `"approval"` on a server with one owner key waits fo
 ### Game modules and plugins
 
 A game module serves one exact game version; a plugin extends the module of its version. A module compiled into
-`reforged-host` is loaded unless `compiled` leaves it out; any other is an
+`dainty-host` is loaded unless `compiled` leaves it out; any other is an
 executable you list with its SHA-256, and nothing else is ever started. Its path is taken from the server folder (the
 one that holds `.workspace`), and that folder must be writable by the server's account only.
 
@@ -343,10 +343,10 @@ Several public servers, one in each region, can form one network (DD16). Each se
 call each other through their gateways, on the same TLS port players use, under a certificate authority you run.
 The steps are yours to do by hand:
 
-1. On your own machine (not a server), make the CA once: `reforged-host network ca-init --out cluster-ca.pem`. The
+1. On your own machine (not a server), make the CA once: `dainty-host network ca-init --out cluster-ca.pem`. The
    file holds the CA's key. Back it up, and never copy it to a server.
 2. For each server, issue its certificate from that file:
-   `reforged-host network issue-node-cert --ca cluster-ca.pem --node oregon-1 --region oregon --host 203.0.113.7`
+   `dainty-host network issue-node-cert --ca cluster-ca.pem --node oregon-1 --region oregon --host 203.0.113.7`
    (`--host` is the address its gateway answers on, an IP or a DNS name, as the other nodes will list it; repeat it
    for more; `--days` sets how long it is valid, 365 by default). It writes `node-cert.pem`, `node-key.pem` and
    `cluster-ca-cert.pem` to a folder named after the node.
@@ -369,13 +369,13 @@ fingerprint = "..."         # optional: that server's public certificate, from `
 
 A node answers only the nodes it lists, and a certificate from the CA is not enough: to cut a node off, remove it
 from the other nodes' lists and run `setup` again. Node links need `mode = "public"`. Certificates are renewed by
-issuing a new one before `reforged-host network list` says "expires soon"; the server logs a warning 30 days ahead.
+issuing a new one before `dainty-host network list` says "expires soon"; the server logs a warning 30 days ahead.
 The `fingerprint` is what the launcher pins when it measures the ping to that region; a peer without one is
-still a peer, only not listed to players. `reforged-host network list` shows this server's place in the network,
-or, with `--ca <file>`, what a CA has issued. `reforged-host network status` pings every peer over the node link now
+still a peer, only not listed to players. `dainty-host network list` shows this server's place in the network,
+or, with `--ca <file>`, what a CA has issued. `dainty-host network status` pings every peer over the node link now
 with this server's own certificate and shows each one's state, round trip and clock skew (`--json` for scripts; the exit
 code is 1 when a peer is not up). When an existing standalone server joins a network (DN13),
-`reforged-host network join` registers its existing accounts with this server as their `home` while keeping existing
+`dainty-host network join` registers its existing accounts with this server as their `home` while keeping existing
 invites and account keys intact; if a username clashes with an account already in the directory, the earliest-registered
 account keeps the name and the later one gets a temporary `_2` suffix (shortened to 16 characters) and a free rename on
 its next login. Docker's `network` profile runs four such nodes with injected latency, for testing
@@ -396,32 +396,32 @@ the hash chain and any off-server `trusted_head`.
 
 ### Managing several installs
 
-One **DaintyLass Manager** (`dainty-lass-manager`) install or headless controller can manage several enrolled server
+One **DaintyLass Manager** (`dainty-manager`) install or headless controller can manage several enrolled server
 installs over pinned mTLS ([remote-management.md](https://git.silentspud.com/silentspud/dainty-lass/src/branch/main/docs/remote-management.md), [security/remote-management.md](https://git.silentspud.com/silentspud/dainty-lass/src/branch/main/docs/security/remote-management.md)).
-The player launcher (`dainty-lass-client`) has no remote-management surface.
+The player launcher (`dainty-launcher`) has no remote-management surface.
 
 1. **Initialize the controller.** In **DaintyLass Manager** -> **Host** -> **Managed installs**, click **Enable
-   Controller Mode** (or run `bin\reforged-host remote init-controller --node controller --region oregon --url https://203.0.113.10:443`).
+   Controller Mode** (or run `bin\dainty-host remote init-controller --node controller --region oregon --url https://203.0.113.10:443`).
    This creates `.workspace\tls\remote-cluster-ca.pem` (kept on the controller only) and writes `[remote] role = "controller"` in `host.toml`.
 2. **Mint a single-use enrollment invite.** In the Manager's **Managed installs** panel, enter the target node ID,
-   region and optional label and click **Create Enrollment Invite** (or run `bin\reforged-host remote invite --node us-east-1 --region us-east --label "US East 1"`).
+   region and optional label and click **Create Enrollment Invite** (or run `bin\dainty-host remote invite --node us-east-1 --region us-east --label "US East 1"`).
    The URI (`dainty-lass-remote://enroll?v=1&url=...&fp=<sha256>&node=...&region=...&token=...`) is single-use and
    expires in 15 minutes (`--ttl-secs`).
 3. **Enroll the managed install.** On the target machine, paste the URI in **DaintyLass Manager** -> **Managed installs**
-   or run `bin\reforged-host remote enroll "dainty-lass-remote://enroll?..."`. The install connects over TLS pinned to
+   or run `bin\dainty-host remote enroll "dainty-lass-remote://enroll?..."`. The install connects over TLS pinned to
    `fp`, generates its own ECDSA P-256 private key locally (`.workspace\tls\node-key.pem` never leaves the machine),
    receives a signed leaf certificate from the controller on `POST /__node/enroll`, and syncs over mTLS on
    `POST /__node/remote`.
 4. **Shared settings, local overrides and remote actions.** Changing shared settings on the controller
-   (`bin\reforged-host remote set-config --set name="Friday Hunts" --set max_hunt_servers=4`) bumps the controller's
+   (`bin\dainty-host remote set-config --set name="Friday Hunts" --set max_hunt_servers=4`) bumps the controller's
    config revision; enrolled installs merge the shared revision while keeping their local `host`, `game_address`,
    `ports`, `paths`, `database`, `tls`, `secrets.env` and any dotted keys listed in `[remote].local_overrides`. Remote
-   admin actions (`bin\reforged-host remote exec --node us-east-1 --action ban --target PlayerName --reason "..."`, or
+   admin actions (`bin\dainty-host remote exec --node us-east-1 --action ban --target PlayerName --reason "..."`, or
    the **Doctor** / **Backup** / **Revoke** buttons in the Manager) preserve `DH2` role checks, `DH6` guarded approval
    and `DD23` change-log attribution (`remote:<controller>:<operator>`). If the controller goes offline, managed
    installs keep serving with their last applied configuration.
-5. **Revoke or leave.** `bin\reforged-host remote revoke <node>` on the controller immediately refuses that install on
-   `/__node/remote` (`403 not_a_peer`); `bin\reforged-host remote leave` on a managed install detaches it back to
+5. **Revoke or leave.** `bin\dainty-host remote revoke <node>` on the controller immediately refuses that install on
+   `/__node/remote` (`403 not_a_peer`); `bin\dainty-host remote leave` on a managed install detaches it back to
    `role = "standalone"`.
 
 | `[remote]` key in `host.toml` | `gateway.env` / `host` variable | Values | Default |
@@ -444,24 +444,24 @@ The player launcher (`dainty-lass-client`) has no remote-management surface.
   as administrator; `start` asks.
 - **Registration**: `INVITECODE` (the default) needs a code per player, `OPEN` lets anyone with the address
   register, `NONE` closes it.
-- A ban: `reforged-host` has no command for it yet; the admin API ([admin-api.md](https://git.silentspud.com/silentspud/dainty-lass/src/branch/main/docs/admin-api.md)) and the
+- A ban: `dainty-host` has no command for it yet; the admin API ([admin-api.md](https://git.silentspud.com/silentspud/dainty-lass/src/branch/main/docs/admin-api.md)) and the
   backend's `SetAccountStatus` route do it.
 
 ## Updating
 
 ```powershell
-bin\reforged-host update --check            # is there a newer server release?
-bin\reforged-host update                    # install it and run setup again
+bin\dainty-host update --check            # is there a newer server release?
+bin\dainty-host update                    # install it and run setup again
 ```
 
 `update` keeps `.workspace` and runs `setup` from your `host.toml`. Neither moves a Node backend's MongoDB data any
 more: [dainty-legacy](https://git.silentspud.com/silentspud/dainty-legacy)'s `import reforged` upgrades an old Node
-kit (its `host.json`, layout and MongoDB), and on a server already on `host.toml`, `bin\reforged-host db migrate`
-followed by `bin\reforged-host db verify` moves the data into the configured store (`.workspace\config\dainty-lass.db`
+kit (its `host.json`, layout and MongoDB), and on a server already on `host.toml`, `bin\dainty-host db migrate`
+followed by `bin\dainty-host db verify` moves the data into the configured store (`.workspace\config\dainty-lass.db`
 on SQLite, or Postgres when `[database]` sets `engine = "postgres"`). `verify` writes `.workspace\config\.mongo-migrated`
 once it finds no difference; MongoDB is never modified. `start` and `serve` refuse to run the Rust backend while
 `.workspace\mongodb` holds data without that marker (unless the host opts into an empty database with
-`reforged-host setup --fresh-start` or `fresh_start = true` under `[database]` in `host.toml`). A `host.json` with no
+`dainty-host setup --fresh-start` or `fresh_start = true` under `[database]` in `host.toml`). A `host.json` with no
 `host.toml` is refused until dainty-legacy has imported it. When `native\` changed, `update` says so: rebuild the
 runtime and publish it again.
 Players' launchers notice the new hashes and ask once more.
@@ -470,19 +470,19 @@ Players' launchers notice the new hashes and ask once more.
 
 When cutting a live 1.14.7 server over from the Node backend to the Rust backend:
 
-1. **Backup.** Stop the server (or take a snapshot first), run `bin\reforged-host backup` so `.workspace\backups\`
+1. **Backup.** Stop the server (or take a snapshot first), run `bin\dainty-host backup` so `.workspace\backups\`
    holds a fresh database dump, and copy `.workspace\config` (`host.toml`, `secrets.env`) and `.workspace\tls`
    (`gateway-cert.pem`, `gateway-key.pem`) to safe off-server storage.
-2. **Update and migrate.** Run `bin\reforged-host update`. If the server has existing MongoDB data, start `mongod`
-   and run `bin\reforged-host db migrate` then `bin\reforged-host db verify`, and confirm `verify` reports no
+2. **Update and migrate.** Run `bin\dainty-host update`. If the server has existing MongoDB data, start `mongod`
+   and run `bin\dainty-host db migrate` then `bin\dainty-host db verify`, and confirm `verify` reports no
    difference.
-3. **Smoke check.** Run `bin\reforged-host doctor`, start the server with `bin\reforged-host start`, verify that
+3. **Smoke check.** Run `bin\dainty-host doctor`, start the server with `bin\dainty-host start`, verify that
    `/dauntless-status`, `/reforged/api/Status` and `/content/v1/runtime` answer on the gateway, and verify with a
    1.14.7 client and launcher that an existing account can sign in, enter Ramsgate with its characters, inventory and
    loadouts intact, and depart for a hunt.
 4. **Rollback (if needed).** Stop the server, export the SQLite or Postgres store back to MongoDB with
-   `bin\reforged-host db export-mongo --to mongodb://127.0.0.1:27017/reforged` (source and target default from
-   `host.toml`), verify with `bin\reforged-host db verify --against mongodb://127.0.0.1:27017/reforged`, and start the
+   `bin\dainty-host db export-mongo --to mongodb://127.0.0.1:27017/reforged` (source and target default from
+   `host.toml`), verify with `bin\dainty-host db verify --against mongodb://127.0.0.1:27017/reforged`, and start the
    `paradox` build (below).
 
 ## Rollback to the Node backend and MongoDB (`paradox` feature)
@@ -491,5 +491,5 @@ For one release after the RU9/RB14 cutover (until RB15 deletes the reference Nod
 the opt-in `paradox` Cargo feature (`cargo build --release -p server-console --features paradox`) runs Mystic
 Paradox's Node `ParadoxBackend` and `ParadoxDirector` from `modules/rustic-isles/reference/1.14.7/` against MongoDB
 instead of the compiled-in `isles-1-14-7` Rust module. To export a server's SQLite or Postgres store back to MongoDB
-before starting a `paradox` build, run `reforged-host db export-mongo --to <mongodb-uri>` (and optionally
-`reforged-host db verify --against <mongodb-uri>`; `--from` and `--to` default from `host.toml`).
+before starting a `paradox` build, run `dainty-host db export-mongo --to <mongodb-uri>` (and optionally
+`dainty-host db verify --against <mongodb-uri>`; `--from` and `--to` default from `host.toml`).

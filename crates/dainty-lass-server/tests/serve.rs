@@ -82,7 +82,7 @@ struct Server {
 
 impl Server {
     fn start(root: &Path) -> Self {
-        let mut child = Command::new(env!("CARGO_BIN_EXE_dainty-lass-server"))
+        let mut child = Command::new(env!("CARGO_BIN_EXE_dainty-core"))
             .arg("--root")
             .arg(root)
             .env("REFORGED_CONTROL", "stdin")
@@ -192,7 +192,7 @@ fn a_service_host_toml_pins_runs_as_a_library() {
     let wrong = toml.replace(&sha256, &"00".repeat(32));
     let (dir, paths, _) = server_folder(&wrong);
     std::fs::write(paths.config.join("echo.env"), "").unwrap();
-    let out = Command::new(env!("CARGO_BIN_EXE_dainty-lass-server"))
+    let out = Command::new(env!("CARGO_BIN_EXE_dainty-core"))
         .arg("--root")
         .arg(dir.path())
         .env("REFORGED_CONTROL", "stdin")

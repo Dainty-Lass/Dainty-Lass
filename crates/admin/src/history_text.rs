@@ -1,4 +1,4 @@
-//! History and revert in words (DH3b): what `reforged-host history` and `revert`, the console and the launcher
+//! History and revert in words (DH3b): what `dainty-host history` and `revert`, the console and the launcher
 //! print. Row bodies are never printed, only which row and what would happen to it; the admin API and the
 //! launcher's page carry them, redacted (`history::redact`).
 

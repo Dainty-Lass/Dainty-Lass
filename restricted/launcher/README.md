@@ -1,9 +1,9 @@
-# DaintyLass desktop apps (`dainty-lass-client` & `dainty-lass-manager`)
+# DaintyLass desktop apps (`dainty-launcher` & `dainty-manager`)
 
 This package contains the Tauri 2 desktop backend (`src-tauri/`) and test cases (`test/`) for both DaintyLass desktop applications:
 
-- **DaintyLass Launcher (`dainty-lass-client`)**: the player launcher (`src-tauri/tauri.conf.json`). Join servers by invite or address, register and sign in (with the account key stored only in the OS keystore), check server status and news, verify Dauntless 1.14.7 installs, download the server runtime, and host or join peer-to-peer realms.
-- **DaintyLass Manager (`dainty-lass-manager`, Cargo feature `server-gui`)**: the standalone server manager GUI (`src-tauri/tauri.server-gui.conf.json`, built with `--no-default-features --features server-gui`). Embeds `crates/host`, `server-controller`, `admin`, and the Rust game modules (`isles-1-14-7`) in-process so a host can set up, configure, migrate, run, and administer a community server without a terminal. Keeps the bundle identifier `io.github.freezamotoqueiro.dauntlessreforgedrevival.server` so existing server GUI installations update in place.
+- **DaintyLass Launcher (`dainty-launcher`)**: the player launcher (`src-tauri/tauri.conf.json`). Join servers by invite or address, register and sign in (with the account key stored only in the OS keystore), check server status and news, verify Dauntless 1.14.7 installs, download the server runtime, and host or join peer-to-peer realms.
+- **DaintyLass Manager (`dainty-manager`, Cargo feature `server-gui`)**: the standalone server manager GUI (`src-tauri/tauri.server-gui.conf.json`, built with `--no-default-features --features server-gui`). Embeds `crates/host`, `server-controller`, `admin`, and the Rust game modules (`isles-1-14-7`) in-process so a host can set up, configure, migrate, run, and administer a community server without a terminal. Keeps the bundle identifier `io.github.freezamotoqueiro.dauntlessreforgedrevival.server` so existing server GUI installations update in place.
 
 Each app embeds its own page from [dainty-lass's `ui/`](https://git.silentspud.com/silentspud/dainty-lass/src/branch/main/ui) (dainty-dash), whose `apps/web` builds every page from one source: the launcher serves it built with `DAINTY_MODE=launcher`, the manager with `DAINTY_MODE=manager`. `beforeBuildCommand` runs dainty-lass's `launcher/scripts/dashboard-page.ts` (MIT, RD27) through `scripts/lass.ts`, which builds the page's static export with Bun (`apps/web/dist/client`) and copies it to `dist/launcher` or `dist/server-manager` here, the configs' `frontendDist`. dainty-lass is `DAINTY_LASS_DIR`, or `dainty-lass` beside this repository; the dashboard is its `ui/`, or `DAINTY_DASH_DIR`. Tauri hashes the exports' inline scripts into the CSP at build time, so `script-src 'self'` holds. The bridge types stay in `../ui/packages/bridge/src/generated`, generated from `src-tauri/src/bridge/spec.rs`.
 
@@ -22,10 +22,10 @@ From `launcher/`:
 # 1. Install Tauri CLI and test dependencies
 bun install
 
-# 2. Build the player launcher NSIS installer (dainty-lass-client)
+# 2. Build the player launcher NSIS installer (dainty-launcher)
 bun run build:client
 
-# 3. Build the server manager GUI NSIS installer (dainty-lass-manager)
+# 3. Build the server manager GUI NSIS installer (dainty-manager)
 bun run build:manager
 # (alias: bun run build:server-gui)
 
@@ -44,8 +44,8 @@ DAINTY_LASS_DIR=/path/to/dainty-lass bun run build:client
 After building from the workspace root (`target/release/`):
 
 - **Executables**:
-  - `../target/release/dainty-lass-client.exe`
-  - `../target/release/dainty-lass-manager.exe`
+  - `../target/release/dainty-launcher.exe`
+  - `../target/release/dainty-manager.exe`
 - **NSIS Installers**:
   - `../target/release/bundle/nsis/DaintyLass Launcher_<version>_x64-setup.exe`
   - `../target/release/bundle/nsis/DaintyLass Manager_<version>_x64-setup.exe`

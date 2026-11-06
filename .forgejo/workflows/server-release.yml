@@ -1,13 +1,13 @@
 # Builds the server release (MIGRATION_PLAN.md RD8, RH6; adapted from Dauntless Revived's server-release.yml, M38).
-# One archive per server platform, which `reforged-host setup` and `reforged-host update` download and check (RH5):
+# One archive per server platform, which `dainty-host setup` and `dainty-host update` download and check (RH5):
 #  - ReforgedRevivalServer-<version>-windows-x64.zip and -linux-x64.tar.gz hold reforged-revival-server-<version>/:
 #    the source of the commit (git archive, the corresponding source under the AGPL) and of the rustic-isles
 #    module in-tree (modules/rustic-isles, DS6/RD27), with
-#      bin/              the server in one binary (RD26), built here for that platform: dainty-lass-server-console,
-#                        the same as reforged-host (the name update, the systemd units and the Director's
-#                        game-server wrapper run), and dainty-lass-server-minimal. The 1.14.7 Rust backend and
+#      bin/              the server in one binary (RD26), built here for that platform: dainty-server,
+#                        the same as dainty-host (the name update, the systemd units and the Director's
+#                        game-server wrapper run), and dainty-server-minimal. The 1.14.7 Rust backend and
 #                        Director (isles-1-14-7), gateway, allowlist, content server, admin API and database
-#                        migration/rollback commands (`reforged-host db migrate|verify|export-mongo`) are inside it
+#                        migration/rollback commands (`dainty-host db migrate|verify|export-mongo`) are inside it
 #      plugins/          the libraries host.toml can pin (RD27): the 1.14.7 module ([[modules.external]]) and, once
 #                        their crates land, the content, chat and gateway services ([services.<name>])
 #      modules/rustic-isles/reference/1.14.7/ParadoxBackend and ParadoxDirector, built with their node_modules
@@ -16,7 +16,7 @@
 #  - SHA256SUMS.txt for the archives
 #
 # On Forgejo (DX3) it is the dry run only: Run workflow on any branch builds, smoke-tests and keeps the release files
-# as a 7-day artifact (server-release). Publishing stays out until DX5: reforged-host update reads GitHub's releases
+# as a 7-day artifact (server-release). Publishing stays out until DX5: dainty-host update reads GitHub's releases
 # API and checks GitHub attestations, which Forgejo has neither of. The tag trigger, the version checks and the
 # publish job are in b28fd27:.github/workflows/server-release.yml.
 # Runner labels docker and windows-msvc (docs/ci-runners.md). Actions are pinned by commit.
@@ -114,7 +114,7 @@ jobs:
           rustup target add "$TARGET"
 
       # No build cache in a release: every file is built from this commit alone.
-      # The 1.14.7 Rust backend, Director and `reforged-host db` commands are compiled into server-console and
+      # The 1.14.7 Rust backend, Director and `dainty-host db` commands are compiled into server-console and
       # server-minimal (with all-modules). For one release after RU9/RB14 (until RB15), the archive also carries
       # the Node ParadoxBackend and ParadoxDirector bundle below as the documented rollback artefact.
       # REFORGED_RELEASE_REPOSITORY stays .cargo/config.toml's: the releases are on GitHub until DX5
@@ -157,7 +157,7 @@ jobs:
           # The commit's server source, as git has it (no .workspace, nothing git ignores); rustic-isles is in-tree (RD27)
           git -C .. archive --format=tar "$COMMIT:restricted" | tar -x -C "$out"
           mkdir -p "$out/bin"
-          for bin in reforged-host dainty-lass-server-console dainty-lass-server-minimal; do
+          for bin in dainty-host dainty-server dainty-server-minimal; do
             cp "target/$TARGET/release/$bin$ext" "$out/bin/"
           done
           # The libraries beside them, under the names host.toml's paths give (RD27)
@@ -201,12 +201,12 @@ jobs:
           set -euo pipefail
           ext=""; [ "$RUNNER_OS" = Windows ] && ext=".exe"
           bin="$WORK/assemble/reforged-revival-server-$VERSION/bin"
-          for b in reforged-host dainty-lass-server-console dainty-lass-server-minimal; do "$bin/$b$ext" --help > /dev/null; done
+          for b in dainty-host dainty-server dainty-server-minimal; do "$bin/$b$ext" --help > /dev/null; done
           # Each service the binary runs alone, as the systemd units and the containers run it
-          for service in gateway allowlist content backend director; do "$bin/reforged-host$ext" "$service" --help > /dev/null; done
-          for db_cmd in migrate verify export-mongo; do "$bin/reforged-host$ext" db "$db_cmd" --help > /dev/null; done
-          "$bin/reforged-host$ext" admin schema > /dev/null
-          "$bin/reforged-host$ext" --help
+          for service in gateway allowlist content backend director; do "$bin/dainty-host$ext" "$service" --help > /dev/null; done
+          for db_cmd in migrate verify export-mongo; do "$bin/dainty-host$ext" db "$db_cmd" --help > /dev/null; done
+          "$bin/dainty-host$ext" admin schema > /dev/null
+          "$bin/dainty-host$ext" --help
 
       - name: Make the archive
         run: |
@@ -295,7 +295,7 @@ jobs:
           name: server-release
           path: ${{ runner.temp }}/release
 
-      - name: Extract, then check the install with reforged-host update --check
+      - name: Extract, then check the install with dainty-host update --check
         env:
           REFORGED_SERVER_RELEASE: ${{ runner.temp }}/release
         run: |
@@ -309,5 +309,5 @@ jobs:
             tar -xzf "$REFORGED_SERVER_RELEASE/ReforgedRevivalServer-$VERSION-$PLATFORM.tar.gz"
           fi
           root="$RUNNER_TEMP/host/reforged-revival-server-$VERSION"
-          "$root/bin/reforged-host$ext" update --check | tee check.txt
+          "$root/bin/dainty-host$ext" update --check | tee check.txt
           grep -q "Up to date" check.txt

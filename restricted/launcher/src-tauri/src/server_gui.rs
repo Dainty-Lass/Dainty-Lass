@@ -1,6 +1,6 @@
 //! The server GUI (`server-gui` feature, RD26): the host kit's server running inside the launcher, driven
 //! by the Host page's server panel (`platform::hostserver::EmbeddedServer`) in place of a child
-//! `reforged-host start`. Its services' log events come over [`ChannelLogLayer`]; only the server's own
+//! `dainty-host start`. Its services' log events come over [`ChannelLogLayer`]; only the server's own
 //! (events inside a service's span, and the host kit's) reach the page.
 
 use std::path::PathBuf;

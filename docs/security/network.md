@@ -107,7 +107,7 @@ spelling, and that it writes back as the same message.
   does that yet.
 - **Wired in the controller (`controller::modules::network`):** `Directory` opens on the node database, attaches to
   `Service::Directory` on `NodeServices`, and spawns `spawn_replication` from `[network]` in `host.toml`.
-- **Joining an existing server** (DN13): `reforged-host network join` registers existing accounts through the leader
+- **Joining an existing server** (DN13): `dainty-host network join` registers existing accounts through the leader
   with clash suffixes (`_2`..`_999`) and `rename_required = true`.
 
 ## Node certificates and the cluster CA (DN3)
@@ -115,7 +115,7 @@ spelling, and that it writes back as the same message.
 Nodes reach each other through their gateways, on the public TLS port, with mutual TLS under a CA the operator
 runs. The gateway stays the only listener off loopback.
 
-- **The CA** (`cluster.rs`, `reforged-host network ca-init`): one file with the CA's certificate and key, made and
+- **The CA** (`cluster.rs`, `dainty-host network ca-init`): one file with the CA's certificate and key, made and
   kept on the operator's own machine. `issue-node-cert --ca <file>` reads it each time and stores nothing of it. A
   node holds three files in `.workspace/tls`: its own certificate and key and the CA's certificate. A CA file on a
   node (a key in the file the node reads as the CA's) stops the gateway at start.
@@ -241,7 +241,7 @@ with `docker compose down --volumes`. It keeps the rules above anyway, so what i
 - **Published ports** are the gateways' 443 on `127.0.0.1` (`REFORGED_NETWORK_PUBLISH_ADDRESS`); the node links share
   that port as they do anywhere. Setting the address to `0.0.0.0` exposes four nodes whose CA key anyone with the
   Docker socket can read: don't.
-- **`reforged-host network status`** (the check the harness runs in each node) calls the peers as the node itself, from
+- **`dainty-host network status`** (the check the harness runs in each node) calls the peers as the node itself, from
   the node certificate the gateway reads, and prints states and round trips; it takes no action on a peer and prints
   no key. Run in a container, it needs the node's `gateway.env` and nothing of the CA.
 

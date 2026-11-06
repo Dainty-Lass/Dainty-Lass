@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Silent Spud
 
-//! The host kit (`reforged-host`): CLI, configuration (`host.toml` and `.env` files), setup,
+//! The host kit (`dainty-host`): CLI, configuration (`host.toml` and `.env` files), setup,
 //! game data generation, process supervision, diagnostics, and interactive server console/TUI.
 
 pub mod captures;
@@ -119,7 +119,7 @@ pub fn service_main(name: &str, args: &[String]) -> ExitCode {
     }
 }
 
-/// `reforged-host`: the command line (help when no command is given).
+/// `dainty-host`: the command line (help when no command is given).
 pub fn host_main() -> ExitCode {
     let cli = cli::Cli::parse();
     match run(&cli) {
@@ -131,7 +131,7 @@ pub fn host_main() -> ExitCode {
     }
 }
 
-/// Entry point of the `server-console*` binaries: `reforged-host`'s commands, with `serve` when no
+/// Entry point of the `server-console*` binaries: `dainty-host`'s commands, with `serve` when no
 /// command is given (a bare console serves).
 pub fn console_main() -> ExitCode {
     let mut args: Vec<std::ffi::OsString> = std::env::args_os().collect();

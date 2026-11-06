@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Silent Spud
 
-//! `reforged-host network` (DN3): the cluster CA and the node certificates, and a look at this server's
+//! `dainty-host network` (DN3): the cluster CA and the node certificates, and a look at this server's
 //! place in a network.
 //!
 //! - `ca-init` makes the CA file (certificate and key) on the owner's own machine. It is the one thing that can
@@ -85,7 +85,7 @@ fn ca_init(a: &CaInitArgs) -> Outcome {
     println!(
         "Cluster CA: {}\n\nThis file signs every node's certificate and holds the CA's key. Keep it on your own\n\
          machine and back it up; never copy it to a node. If it is lost or leaks, make a new CA and issue\n\
-         every node's certificate again.\n\nNext: reforged-host network issue-node-cert --ca {} --node <id> --region <region> --host <address>",
+         every node's certificate again.\n\nNext: dainty-host network issue-node-cert --ca {} --node <id> --region <region> --host <address>",
         out.display(),
         out.display()
     );
@@ -202,7 +202,7 @@ fn list(a: &ListArgs, paths: Option<&Paths>) -> Outcome {
     }
     let paths = paths
         .ok_or_else(|| bad("run this in the server's folder, or give --ca <the CA file> to list what it issued"))?;
-    let config = load_host_config(paths)?.ok_or_else(|| bad("no host.toml: run `reforged-host setup` first"))?;
+    let config = load_host_config(paths)?.ok_or_else(|| bad("no host.toml: run `dainty-host setup` first"))?;
     let Some(network) = &config.network else {
         println!("This server is not in a network ([network] is not in host.toml).");
         return Ok(ExitCode::SUCCESS);
@@ -397,8 +397,8 @@ fn status(a: &StatusArgs, paths: Option<&Paths>) -> Outcome {
 /// another server's account keeps the earlier-registered account's name while giving the later one a
 /// `_2` / `_3` suffix (shortened to fit 16 characters) and a free rename (`needsUsername = true`).
 fn join(a: &JoinArgs, paths: Option<&Paths>) -> Outcome {
-    let paths = paths.ok_or_else(|| bad("run `reforged-host network join` in the server's folder"))?;
-    let config = load_host_config(paths)?.ok_or_else(|| bad("no host.toml: run `reforged-host setup` first"))?;
+    let paths = paths.ok_or_else(|| bad("run `dainty-host network join` in the server's folder"))?;
+    let config = load_host_config(paths)?.ok_or_else(|| bad("no host.toml: run `dainty-host setup` first"))?;
     let network = config
         .network
         .as_ref()

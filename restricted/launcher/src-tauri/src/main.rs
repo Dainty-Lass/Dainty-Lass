@@ -6,7 +6,7 @@ fn main() -> std::process::ExitCode {
     if let Some(code) = launcher::game_console_helper() {
         return code;
     }
-    // dainty-lass-manager, or dainty-lass-client: the feature decides, the config names the file
+    // dainty-manager, or dainty-launcher: the feature decides, the config names the file
     #[cfg(feature = "server-gui")]
     let started = launcher::run_server_gui();
     #[cfg(not(feature = "server-gui"))]

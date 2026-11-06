@@ -465,7 +465,7 @@ pub fn create_invite_code(admin_key: &str, opts: &CodeOptions, port: u16) -> Res
     )
     .map_err(|e| {
         HostError::message(format!(
-            "the backend is not running on 127.0.0.1:{port} ({e}): start the server first (reforged-host start)"
+            "the backend is not running on 127.0.0.1:{port} ({e}): start the server first (dainty-host start)"
         ))
     })?;
 

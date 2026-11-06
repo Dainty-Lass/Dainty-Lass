@@ -294,6 +294,37 @@ enum LocationKind {
 	TUTORIAL
 }
 
+"""
+`[logs]`, as the file says and as the running server started with it.
+"""
+type LogSettings {
+	"""
+	text or json
+	"""
+	format: String!
+	"""
+	auto, always or never
+	"""
+	color: String!
+	"""
+	The GELF collector (Graylog), when one is named
+	"""
+	gelfUrl: String
+	"""
+	The file differs from what this run started with
+	"""
+	restartNeeded: Boolean!
+}
+
+"""
+A change to `[logs]`: a field left out keeps its value; an empty `gelfUrl` stops shipping.
+"""
+input LogSettingsInput {
+	format: String
+	color: String
+	gelfUrl: String
+}
+
 type Module {
 	id: String!
 	"""
@@ -363,6 +394,11 @@ type Mutation {
 	Stops a module, its plugins first, and kills what it left running. Needs the admin role.
 	"""
 	unloadModule(id: String!): Module!
+	"""
+	Writes host.toml's `[logs]`; the server takes it at its next start. Only the owner: a collector receives
+	every line the server logs.
+	"""
+	setLogSettings(input: LogSettingsInput!): LogSettings!
 	"""
 	Needs the admin role.
 	"""
@@ -470,6 +506,10 @@ type Query {
 	One listed module; null when host.toml lists none by that id.
 	"""
 	module(id: String!): Module
+	"""
+	host.toml's `[logs]`, and whether the file changed since this run started. Needs the admin role.
+	"""
+	logSettings: LogSettings!
 	"""
 	Every admin key, the owner first, with its role and who issued it. Admin role or higher. Never the
 	key itself.

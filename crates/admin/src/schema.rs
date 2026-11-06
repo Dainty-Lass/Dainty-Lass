@@ -15,6 +15,7 @@ use crate::guard::Guards;
 use crate::guarded::{APPROVED_BY, Gate, GuardedAction};
 use crate::history;
 use crate::history_text;
+use crate::host_settings::{self, LogSettings, LogSettingsInput};
 use crate::input::{self, InstanceKind};
 use crate::keys::{Action, Caller, KeyError, KeyInfo, Keys, Role};
 use crate::log;
@@ -149,7 +150,7 @@ fn upstream(service: &str, error: UpstreamError) -> async_graphql::Error {
         UpstreamError::Refused { status, code } => {
             let code = code.unwrap_or_default();
             let hint = if code.starts_with("ADMIN_OPERATOR") || matches!(status, 401 | 403 | 503) {
-                ": the admin API's credentials do not match the backend's; run reforged-host setup and restart the server"
+                ": the admin API's credentials do not match the backend's; run dainty-host setup and restart the server"
             } else {
                 ""
             };
@@ -2351,6 +2352,13 @@ impl Query {
         module_control::get(ctx, &id)
     }
 
+    /// host.toml's `[logs]`, and whether the file changed since this run started. Needs the admin role.
+    async fn log_settings(&self, ctx: &Context<'_>) -> async_graphql::Result<LogSettings> {
+        let (_, caller) = parts(ctx)?;
+        allow(caller, Role::Admin, "logSettings")?;
+        host_settings::logs(ctx)
+    }
+
     /// Every admin key, the owner first, with its role and who issued it. Admin role or higher. Never the
     /// key itself.
     async fn admin_keys(&self, ctx: &Context<'_>) -> async_graphql::Result<Vec<AdminKey>> {
@@ -2489,6 +2497,24 @@ impl Mutation {
         let module = module_control::unload(ctx, &id).await?;
         admin.audit(caller, "unloadModule", Some(&id), None, None).await;
         Ok(module)
+    }
+
+    /// Writes host.toml's `[logs]`; the server takes it at its next start. Only the owner: a collector receives
+    /// every line the server logs.
+    async fn set_log_settings(&self, ctx: &Context<'_>, input: LogSettingsInput) -> async_graphql::Result<LogSettings> {
+        let (admin, caller) = parts(ctx)?;
+        allow(caller, Role::Owner, "setLogSettings")?;
+        let after = host_settings::set_logs(ctx, &input)?;
+        let detail = format!(
+            "format={} color={} gelf_url={}",
+            after.format,
+            after.color,
+            after.gelf_url.as_deref().unwrap_or("-")
+        );
+        admin
+            .audit(caller, "setLogSettings", Some("logs"), None, Some(&detail))
+            .await;
+        Ok(after)
     }
 
     /// Needs the admin role.

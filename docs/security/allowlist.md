@@ -2,7 +2,7 @@
 
 # Security checklist: allowlist helper and its IPC (RX3)
 
-The checklist for the allowlist helper of `crates/gateway`, run as `reforged-host allowlist` (MIGRATION_PLAN.md RS4,
+The checklist for the allowlist helper of `crates/gateway`, run as `dainty-host allowlist` (MIGRATION_PLAN.md RS4,
 RD10, RD20). `SECURITY_REVIEW.md` indexes it.
 
 How to use it: before the helper's cutover, copy this list into the cutover PR, check each item in the code (not

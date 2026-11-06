@@ -131,7 +131,7 @@ drop the triggers or edit the database file: DH4 (shipping) and DH5 (the hash ch
 ## The commands: host kit, console, launcher and admin API (DH3b)
 
 `crates/admin/src/history.rs` and `history_text.rs` (the engine over a server's databases and its words), the
-host kit's `commands/history.rs` (`reforged-host history` and `revert`, the console's and dashboard's `history` and
+host kit's `commands/history.rs` (`dainty-host history` and `revert`, the console's and dashboard's `history` and
 `revert`), the admin API's `history`, `historyCheck`, `revertPlan` and `revertApply` (`schema.rs`) and the server GUI's
 `history_query`, `history_revert_dry_run` and `history_revert_apply` (`launcher/src-tauri/src/server_history.rs`).
 Fuzz target: `history_input` (`fuzz/fuzz_targets/history_input.rs`), for the text a person or the bot

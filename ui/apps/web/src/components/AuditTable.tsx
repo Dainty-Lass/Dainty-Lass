@@ -40,6 +40,7 @@ const REVERTIBLE = new Set([
   "staff.update",
   "report.update",
   "controller.update",
+  "controller.logs",
 ]);
 
 function isFlat(v: unknown): v is Record<string, unknown> {

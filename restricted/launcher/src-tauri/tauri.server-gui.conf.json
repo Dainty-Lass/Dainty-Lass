@@ -1,6 +1,6 @@
 {
   "productName": "DaintyLass Manager",
-  "mainBinaryName": "dainty-lass-manager",
+  "mainBinaryName": "dainty-manager",
   "identifier": "io.github.freezamotoqueiro.dauntlessreforgedrevival.server",
   "build": {
     "devUrl": "http://localhost:4322",

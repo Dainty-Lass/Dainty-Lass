@@ -1029,7 +1029,7 @@ fn packs_with_an_unknown_path_a_bad_hash_another_game_build_or_no_pack_at_all_ar
     let error = export_game_data_pack(&with_examples(&empty), &files.path().join("e.json.gz"), Utc::now())
         .unwrap_err()
         .to_string();
-    assert!(error.contains("reforged-host gamedata first"), "{error}");
+    assert!(error.contains("dainty-host gamedata first"), "{error}");
 }
 
 /// A host's game data laid out as the fixtures hold it (`pack/gamedata/{backend,director}`).
@@ -1212,7 +1212,7 @@ fn the_preset_is_not_applied_when_a_file_was_edited_by_hand_and_is_absent_when_t
     let error = create_preset(&preset_host(&empty), &opts(None), Utc::now())
         .unwrap_err()
         .to_string();
-    assert!(error.contains("reforged-host gamedata first"), "{error}");
+    assert!(error.contains("dainty-host gamedata first"), "{error}");
 
     // Made on another machine than the game's: the executable's hash is given.
     let elsewhere_dir = TempDir::new().unwrap();

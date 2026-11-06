@@ -252,7 +252,8 @@
       "account_unlinked": "{actor} unlinked a sign-in method",
       "passkey_added": "{actor} added a passkey",
       "passkey_removed": "{actor} removed a passkey",
-      "chat_direct_read": "{actor} read {target}'s direct messages"
+      "chat_direct_read": "{actor} read {target}'s direct messages",
+      "controller_logs": "{actor} changed {target}'s log settings"
     }
   },
   "players": {
@@ -842,6 +843,27 @@
       "step2": "Then start the agent from a dainty-dash checkout:",
       "after": "The code works once. The agent stores the token it gets in exchange and reconnects with it from then on.",
       "insecure": "This dashboard's address is not HTTPS. Agents send their token with every request, so put the dashboard behind TLS before pairing hosts over the internet."
+    },
+    "logs": {
+      "title": "Logs",
+      "hint": "How this server's console log reads, and the Graylog (GELF) collector it ships every line to. Saved to its host.toml; the server takes it at its next start.",
+      "unavailable": "This controller did not answer for its log settings. It may be offline, or running an older server.",
+      "restartNeeded": "Saved. Restart the server for these settings to take effect.",
+      "format": "Format",
+      "formats": {
+        "text": "Text",
+        "json": "JSON"
+      },
+      "color": "Color",
+      "colors": {
+        "auto": "On a terminal",
+        "always": "Always",
+        "never": "Never"
+      },
+      "gelfUrl": "Graylog (GELF) URL",
+      "gelfUrlHint": "https:// anywhere; http:// or tcp://host:port only to the server's own machine or a private network. Empty stops shipping.",
+      "save": "Save",
+      "saved": "Log settings saved"
     }
   },
   "account": {

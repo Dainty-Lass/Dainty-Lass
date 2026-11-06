@@ -1,6 +1,6 @@
 //! History and revert in the server GUI (DD23, DH3b): `history_query`, `history_revert_dry_run` and
 //! `history_revert_apply` against the databases of the server the launcher hosts, read from its workspace
-//! (`admin::history`, the same engine as `reforged-host history` and `revert`). Whether the server runs
+//! (`admin::history`, the same engine as `dainty-host history` and `revert`). Whether the server runs
 //! does not matter: the files are the same, and a stopped server's history is the thing to read after a
 //! partner has been in it.
 //!

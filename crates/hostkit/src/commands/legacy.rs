@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Silent Spud
 
-//! `reforged-host legacy import <kind> [args]`: dainty-legacy's importers for old installs (Revived 1.4.4
+//! `dainty-host legacy import <kind> [args]`: dainty-legacy's importers for old installs (Revived 1.4.4
 //! servers and offline saves, Reforged Node kits). It runs its own process, never linked in, so its AGPL
 //! code stays out of this crate; while the server runs, the console's `legacy import` reaches the same
 //! importer as `module run legacy import-<kind>`.

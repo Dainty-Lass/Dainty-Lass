@@ -1,7 +1,7 @@
 // Copyright (c) 2026 Silent Spud
 // SPDX-License-Identifier: MIT
 
-//! Pure parsers for `reforged-host` output, `host.toml`/`host.json`, and `vswhere` (Spec §2.3).
+//! Pure parsers for `dainty-host` output, `host.toml`/`host.json`, and `vswhere` (Spec §2.3).
 //! Compiled directly into the `launcher_host` fuzz target.
 
 use serde_json::{Map, Value};
@@ -164,7 +164,7 @@ pub fn clean_invite_link(raw: &str) -> Option<String> {
     Some(trimmed.to_owned())
 }
 
-/// Extracts an [`InviteLine`] from the `--json` output of `reforged-host invite`.
+/// Extracts an [`InviteLine`] from the `--json` output of `dainty-host invite`.
 #[must_use]
 pub fn invite_line(lines: &[String]) -> Option<InviteLine> {
     let json = last_json(lines)?;
@@ -187,7 +187,7 @@ fn clean_short_token(raw: &str, max: usize) -> Option<String> {
     (!cleaned.is_empty()).then_some(cleaned)
 }
 
-/// Parses `reforged-host update --check --json` output.
+/// Parses `dainty-host update --check --json` output.
 #[must_use]
 pub fn update_check(json: &Map<String, Value>) -> Option<UpdateCheck> {
     let behind = json.get("behind")?.as_u64()?;
@@ -199,7 +199,7 @@ pub fn update_check(json: &Map<String, Value>) -> Option<UpdateCheck> {
     Some(UpdateCheck { behind, head })
 }
 
-/// Parses `reforged-host update --json` completion output.
+/// Parses `dainty-host update --json` completion output.
 #[must_use]
 pub fn update_done(json: &Map<String, Value>) -> Option<UpdateDone> {
     if json.get("error").is_some() {
@@ -233,7 +233,7 @@ pub fn parse_update_output(lines: &[String]) -> Option<UpdateDone> {
     update_done(&json)
 }
 
-/// Extracts an update failure code or message from `reforged-host update --json`.
+/// Extracts an update failure code or message from `dainty-host update --json`.
 #[must_use]
 pub fn update_failure(json: Option<&Map<String, Value>>, fallback: Option<&str>) -> String {
     if let Some(map) = json {
@@ -267,7 +267,7 @@ pub fn update_failure(json: Option<&Map<String, Value>>, fallback: Option<&str>)
     "update".to_owned()
 }
 
-/// Extracts the published runtime version from `reforged-host publish-runtime` output lines.
+/// Extracts the published runtime version from `dainty-host publish-runtime` output lines.
 #[must_use]
 pub fn published_version(lines: &[String]) -> Option<String> {
     for raw in lines.iter().rev() {
@@ -288,7 +288,7 @@ pub fn published_version(lines: &[String]) -> Option<String> {
     None
 }
 
-/// Extracts the exported game-data pack file name from `reforged-host gamedata --export` output lines.
+/// Extracts the exported game-data pack file name from `dainty-host gamedata --export` output lines.
 #[must_use]
 pub fn pack_written(lines: &[String]) -> Option<String> {
     for raw in lines.iter().rev() {

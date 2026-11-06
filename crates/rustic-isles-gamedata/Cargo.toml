@@ -1,6 +1,6 @@
 [package]
 name = "rustic-isles-gamedata"
-description = "Rustic Isles' game-data area: the login, Ramsgate and Gauntlet stubs, the served progression config, and the backend game-data generators reforged-host gamedata runs"
+description = "Rustic Isles' game-data area: the login, Ramsgate and Gauntlet stubs, the served progression config, and the backend game-data generators dainty-host gamedata runs"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true

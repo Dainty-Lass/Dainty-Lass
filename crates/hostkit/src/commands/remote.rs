@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Silent Spud
 
-//! `reforged-host remote` (DD27, RM1–RM5): controller initialization, single-use enrollment
+//! `dainty-host remote` (DD27, RM1–RM5): controller initialization, single-use enrollment
 //! invites, managed-install enrollment, status/list, revocation, leave, shared configuration
 //! publishing, and remote command execution over mTLS node links (`Service::Remote`).
 
@@ -200,7 +200,7 @@ pub fn shared_toml_from_host_config(paths: &Paths, config: &HostConfig) -> Resul
 
 pub fn init_controller(paths: &Paths, args: &RemoteInitControllerArgs) -> Result<Value, HostError> {
     let mut config =
-        load_host_config(paths)?.ok_or_else(|| bad("no host.toml found: run `reforged-host setup` first"))?;
+        load_host_config(paths)?.ok_or_else(|| bad("no host.toml found: run `dainty-host setup` first"))?;
     let node: NodeId = args
         .node
         .as_deref()
@@ -268,7 +268,7 @@ pub fn init_controller(paths: &Paths, args: &RemoteInitControllerArgs) -> Result
 }
 
 pub fn create_invite(paths: &Paths, args: &RemoteInviteArgs) -> Result<(String, Value), HostError> {
-    let config = load_host_config(paths)?.ok_or_else(|| bad("no host.toml found: run `reforged-host setup` first"))?;
+    let config = load_host_config(paths)?.ok_or_else(|| bad("no host.toml found: run `dainty-host setup` first"))?;
     let state_path = controller_state_path(paths);
     if !state_path.is_file() {
         let _ = init_controller(
@@ -323,7 +323,7 @@ pub fn create_invite(paths: &Paths, args: &RemoteInviteArgs) -> Result<(String, 
 pub fn enroll(paths: &Paths, args: &RemoteEnrollArgs) -> Result<Value, HostError> {
     let invite = parse_enrollment_uri(&args.uri).map_err(|e| bad(e.to_string()))?;
     let mut config =
-        load_host_config(paths)?.ok_or_else(|| bad("no host.toml found: run `reforged-host setup` first"))?;
+        load_host_config(paths)?.ok_or_else(|| bad("no host.toml found: run `dainty-host setup` first"))?;
     let local_fp = if config.mode == ServerMode::Public {
         Some(ensure_gateway_cert_file(paths, &config.host)?)
     } else {
@@ -500,7 +500,7 @@ pub fn revoke(paths: &Paths, node_str: &str) -> Result<Value, HostError> {
 
 pub fn leave(paths: &Paths) -> Result<Value, HostError> {
     let mut config =
-        load_host_config(paths)?.ok_or_else(|| bad("no host.toml found: run `reforged-host setup` first"))?;
+        load_host_config(paths)?.ok_or_else(|| bad("no host.toml found: run `dainty-host setup` first"))?;
     config.remote = None;
     save_host_config(paths, &config)?;
     rewrite_env_files_for_config(paths, &config)?;
@@ -512,7 +512,7 @@ pub fn leave(paths: &Paths) -> Result<Value, HostError> {
 }
 
 pub fn set_shared_config_from_host_toml(paths: &Paths) -> Result<Value, HostError> {
-    let config = load_host_config(paths)?.ok_or_else(|| bad("no host.toml found: run `reforged-host setup` first"))?;
+    let config = load_host_config(paths)?.ok_or_else(|| bad("no host.toml found: run `dainty-host setup` first"))?;
     let state_path = controller_state_path(paths);
     let mut state = RemoteControllerState::load(&state_path).map_err(|e| bad(e.to_string()))?;
     let shared_toml = shared_toml_from_host_config(paths, &config)?;
@@ -1194,7 +1194,7 @@ pub fn compose_remote_module(
 }
 
 pub fn sync_with_controller(paths: &Paths, args: &RemoteSyncArgs) -> Result<Value, HostError> {
-    let config = load_host_config(paths)?.ok_or_else(|| bad("no host.toml found: run `reforged-host setup` first"))?;
+    let config = load_host_config(paths)?.ok_or_else(|| bad("no host.toml found: run `dainty-host setup` first"))?;
     let rem = config
         .remote
         .as_ref()

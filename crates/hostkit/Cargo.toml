@@ -1,6 +1,6 @@
 [package]
 name = "hostkit"
-description = "The host kit: the reforged-host command line and configuration library (DL3b)"
+description = "The host kit: the dainty-host command line and configuration library (DL3b)"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true

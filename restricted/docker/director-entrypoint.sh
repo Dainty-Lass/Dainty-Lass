@@ -1,8 +1,8 @@
 #!/bin/sh
-# DaintyLass: the Director's container (compose.yaml). Does what `reforged-host start` does
+# DaintyLass: the Director's container (compose.yaml). Does what `dainty-host start` does
 # before the Director on Linux (crates/host/src/commands/start/mod.rs: preflight, linux_steps), then
 # runs the Rust Director with its env file (or the Node Director when REFORGED_ROLLBACK=1). The Director starts
-# each game server through .workspace/bin/reforged-gameserver (`reforged-host gameserver`, Wine on a virtual
+# each game server through .workspace/bin/reforged-gameserver (`dainty-host gameserver`, Wine on a virtual
 # display), in this container, so the game servers stop with it.
 set -eu
 
@@ -42,4 +42,4 @@ if [ "${REFORGED_ROLLBACK:-0}" = 1 ]; then
 	exec node --env-file="$env_file" dist/server.js
 fi
 
-exec reforged-host director serve --env-file "$env_file"
+exec dainty-host director serve --env-file "$env_file"

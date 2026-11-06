@@ -1,14 +1,14 @@
 //! The Host page: the host kit's workspace, requirements, builds,
 //! game data and the server a host runs from the launcher, for the planned layout only (RD23), on
 //! `platform::hostkit`, `platform::hostserver`, `platform::requirements` and
-//! `platform::loader_session`, driving `reforged-host`.
+//! `platform::loader_session`, driving `dainty-host`.
 //!
 //! Dumper-7 and CatalogExporter are loaded by the runtime's own loader through its `mystic_loader.ini`
 //! (RD9): a session places the DLL and the ini, starts the game, and `mod.rs` ends the session when that
 //! game exits. Nothing here touches another process.
 //!
 //! Not ported (RD23): the Node kit's paths (`npm run upstream`, `npm install`), git's clone and fast
-//! forward. The project folder is a server release (or a checkout with `reforged-host` built); when the
+//! forward. The project folder is a server release (or a checkout with `dainty-host` built); when the
 //! one beside the game is not there, the page says so.
 
 use std::path::{Path, PathBuf};
@@ -350,7 +350,7 @@ impl Controller {
         HostTool::find(ws).ok_or_else(|| self.host_kit_failure(&HostKitError::Missing))
     }
 
-    /// A one-shot `reforged-host` command in the workspace (in-process when the server GUI runs embedded).
+    /// A one-shot `dainty-host` command in the workspace (in-process when the server GUI runs embedded).
     async fn run_host(&self, ws: &Path, args: &[&str], log_name: &str) -> Result<CommandOutput, ActionResult> {
         #[cfg(feature = "server-gui")]
         if self.host.server.has_embedded() {
@@ -380,7 +380,7 @@ impl Controller {
                         log::warn(&format!("host: server not started again: {}", error.detail()));
                     }
                 }
-                Err(_) => log::warn("host: server not started again: no reforged-host"),
+                Err(_) => log::warn("host: server not started again: no dainty-host"),
             }
         }
         out
@@ -485,7 +485,7 @@ impl Controller {
         ActionResult::Ok
     }
 
-    /// A game data pack the host exported earlier (`reforged-host gamedata --import`).
+    /// A game data pack the host exported earlier (`dainty-host gamedata --import`).
     pub async fn host_import_gamedata(&self) -> ActionResult {
         if self.job_running() {
             return busy();
@@ -743,7 +743,7 @@ impl Controller {
         }
     }
 
-    /// The server GUI's in-process server, driven in place of `reforged-host start`.
+    /// The server GUI's in-process server, driven in place of `dainty-host start`.
     pub fn set_embedded_server(&self, server: Arc<dyn crate::platform::hostserver::EmbeddedServer>) {
         self.host.server.set_embedded(server);
     }
@@ -754,7 +754,7 @@ impl Controller {
         ActionResult::Ok
     }
 
-    /// `reforged-host setup` from the page's form, already checked (`commands::host_setup_request`). The
+    /// `dainty-host setup` from the page's form, already checked (`commands::host_setup_request`). The
     /// game folder is the one this launcher plays from.
     pub async fn host_setup(&self, request: HostSetupRequest) -> ActionResult {
         let Some(ws) = self.workspace() else {
@@ -829,7 +829,7 @@ impl Controller {
         ActionResult::Ok
     }
 
-    /// `reforged-host update`: compares first (a server stays up when there is nothing to update), then
+    /// `dainty-host update`: compares first (a server stays up when there is nothing to update), then
     /// updates with the server stopped and runs setup again with this server's settings.
     pub async fn host_update(&self) -> ActionResult {
         let Some(ws) = self.workspace() else {
@@ -905,7 +905,7 @@ impl Controller {
         .await
     }
 
-    /// `reforged-host multipliers` (None turns them off). The backend reads them when it starts.
+    /// `dainty-host multipliers` (None turns them off). The backend reads them when it starts.
     pub async fn host_set_multipliers(&self, multipliers: Option<HostMultipliers>) -> ActionResult {
         let Some(ws) = self.workspace() else {
             return self.workspace_fail();
@@ -973,7 +973,7 @@ impl Controller {
     }
 
     /// Rustic Isles's source is part of the checkout (RD1); a release without it gets it from
-    /// `reforged-host upstream`, so the SDK, the loader and the game data steps do not wait for setup.
+    /// `dainty-host upstream`, so the SDK, the loader and the game data steps do not wait for setup.
     async fn ensure_upstream(&self, ws: &Path) -> Result<(), ActionResult> {
         let w = WorkspacePaths::new(ws);
         if is_file(&w.runtime_source.join("dllmain.cpp")) {
@@ -1019,7 +1019,7 @@ impl Controller {
         is_dir(&dir).then_some(dir)
     }
 
-    /// The game's export into the workspace when there is one, then `reforged-host gamedata`. A running
+    /// The game's export into the workspace when there is one, then `dainty-host gamedata`. A running
     /// server reads the new data once it is started again.
     async fn generate_game_data(&self, ws: &Path) -> ActionResult {
         let w = WorkspacePaths::new(ws);
@@ -2144,7 +2144,7 @@ impl host::commands::setup::SetupEnv for InProcessSetupEnv {
     }
 
     fn gateway_program(&self) -> String {
-        std::env::current_exe().map_or_else(|_| "dainty-lass-manager".to_owned(), |p| p.display().to_string())
+        std::env::current_exe().map_or_else(|_| "dainty-manager".to_owned(), |p| p.display().to_string())
     }
 
     fn require_checkout_sources(&self) -> bool {

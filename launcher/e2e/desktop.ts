@@ -58,8 +58,8 @@ async function main(): Promise<void> {
     step(2, "installing both bundles")
     const bundles =
       process.env.E2E_BUNDLE_DIR || path.join(restrictedDir(), "target", "release", "bundle", "nsis")
-    const clientExe = install(installer(bundles, "DaintyLass Launcher"), installClient, "dainty-lass-client.exe")
-    const managerExe = install(installer(bundles, "DaintyLass Manager"), installServer, "dainty-lass-manager.exe")
+    const clientExe = install(installer(bundles, "DaintyLass Launcher"), installClient, "dainty-launcher.exe")
+    const managerExe = install(installer(bundles, "DaintyLass Manager"), installServer, "dainty-manager.exe")
 
     step(3, "launching the manager and the client")
     manager = await launch(managerExe, { profile: profileServer, port: 9321, label: "manager" })

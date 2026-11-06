@@ -1,4 +1,4 @@
-import type { GamePlayer, HuntStatus, ServerStatus } from "@dainty/fleet";
+import type { GamePlayer, HuntStatus, LogSettings, ServerStatus } from "@dainty/fleet";
 import { config } from "@/lib/config";
 import { game } from "@/lib/fleet/transport";
 
@@ -11,10 +11,18 @@ export type {
   AccountStatus,
   GamePlayer,
   HuntStatus,
+  LogSettings,
   Restriction,
   RestrictionKind,
   ServerStatus,
 } from "@dainty/fleet";
+
+/** A change to `[logs]`: a field left out keeps its value; an empty gelfUrl stops shipping. */
+export interface LogSettingsChange {
+  format?: "text" | "json";
+  color?: "auto" | "always" | "never";
+  gelfUrl?: string;
+}
 
 export function adminApiConfigured(): boolean {
   return Boolean(config.adminApi.key);
@@ -50,5 +58,8 @@ export function adminApi(controllerId: string) {
       g.admin<GamePlayer>("ban", { u: username, r: reason }, op),
     unban: (username: string, reason: string | null, op: string) =>
       g.admin<GamePlayer>("unban", { u: username, r: reason }, op),
+    logSettings: (op = "0") => g.admin<LogSettings>("logSettings", {}, op),
+    setLogSettings: (change: LogSettingsChange, op: string) =>
+      g.admin<LogSettings>("setLogSettings", { i: change }, op),
   };
 }

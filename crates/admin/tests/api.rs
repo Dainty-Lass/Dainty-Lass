@@ -680,7 +680,7 @@ async fn says_what_is_wrong_when_a_service_is_down_or_the_secret_differs() {
         body["errors"][0]["message"]
             .as_str()
             .unwrap()
-            .contains("reforged-host setup")
+            .contains("dainty-host setup")
     );
 }
 

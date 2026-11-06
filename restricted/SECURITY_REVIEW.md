@@ -15,7 +15,7 @@ Index of trust-boundary security checklists (`docs/security/*.md`, RX3/DX2) and 
 | Launcher region ping (pinned TLS RTT measurement, `ServerHello` timing) | [docs/security/region-ping.md](docs/security/region-ping.md) | dainty-lass's `launcher_region.rs` | DN7 |
 | Launcher runtime download and loader verification (`mystic_loader.ini`, SHA-256) | [docs/security/runtime-download.md](docs/security/runtime-download.md) | dainty-lass's `runtime_input.rs` | RA8, RA10 |
 | Launcher local loopback relay (`127.0.0.1:61100`, PID owner check, XMPP upgrade, mid-session re-point & key stripping) | [docs/security/relay.md](docs/security/relay.md) | `relay_input.rs` | RA9, DN6 |
-| Launcher Host page and supervised `reforged-host` driver | [docs/security/host-page.md](docs/security/host-page.md) | dainty-lass's `launcher_host.rs` | RA11, RA12 |
+| Launcher Host page and supervised `dainty-host` driver | [docs/security/host-page.md](docs/security/host-page.md) | dainty-lass's `launcher_host.rs` | RA11, RA12 |
 
 ## Game module checklists
 

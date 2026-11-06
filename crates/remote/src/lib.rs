@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: MIT
 
 //! Remote management (`docs/remote-management.md`, `docs/security/remote-management.md`, DD27, RM1–RM4):
-//! one controller (`DaintyLass Manager` or `reforged-host`) manages enrolled DaintyLass server installs
+//! one controller (`DaintyLass Manager` or `dainty-host`) manages enrolled DaintyLass server installs
 //! over `crates/network` mTLS node links (`POST /__node/remote`) and one-time enrollment codes
 //! (`POST /__node/enroll`).
 

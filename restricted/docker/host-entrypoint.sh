@@ -1,6 +1,6 @@
 #!/bin/sh
 # DaintyLass: `docker compose run --rm host <command>` (compose.yaml's host service) runs
-# reforged-host inside the server image, in the server's network, with its volumes. Every command works as on a
+# dainty-host inside the server image, in the server's network, with its volumes. Every command works as on a
 # Linux host (docs/hosting-linux.md), with these differences (docs/hosting-docker.md):
 #  - setup: the services are in the image already (--skip-install), the game folder is the one mounted at /game,
 #    and if the mongo-data volume mounted at /opt/reforged/.workspace/mongodb holds pre-cutover MongoDB data,
@@ -30,9 +30,9 @@ docker_setup() {
 	if ! has --game "$@" && [ -d /game/Archon ]; then
 		set -- "$@" --game /game
 	fi
-	reforged-host setup "$@"
+	dainty-host setup "$@"
 	if [ -n "${REFORGED_REMOTE_ENROLL_URI:-}" ] && [ ! -f /opt/reforged/.workspace/config/remote-managed.json ]; then
-		reforged-host remote enroll "${REFORGED_REMOTE_ENROLL_URI}"
+		dainty-host remote enroll "${REFORGED_REMOTE_ENROLL_URI}"
 	fi
 }
 
@@ -50,7 +50,7 @@ update)
 install-game)
 	shift
 	has --dir "$@" || set -- "$@" --dir /game
-	exec reforged-host install-game "$@"
+	exec dainty-host install-game "$@"
 	;;
 apply)
 	if [ -f /config/host.toml ]; then
@@ -74,4 +74,4 @@ setup)
 	exit 0
 	;;
 esac
-exec reforged-host "$@"
+exec dainty-host "$@"

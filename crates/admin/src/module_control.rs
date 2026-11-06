@@ -2,7 +2,7 @@
 //! on the modules). The game modules and plugins `[modules]` lists, for the host's tools: `modules` and `module`
 //! to read them, `loadModule`, `unloadModule` and `restartModule` to act on one (`schema.rs` roots). Only a listed module can
 //! be loaded, never a path (DD5). The controller hands the registry in as a [`ModuleControl`]; a
-//! standalone admin API (`reforged-host admin`) has none and says so.
+//! standalone admin API (`dainty-host admin`) has none and says so.
 
 use std::future::Future;
 use std::pin::Pin;
@@ -46,6 +46,10 @@ pub trait ModuleControl: Send + Sync {
     fn load<'a>(&'a self, id: &'a str) -> Pending<'a, Module>;
     fn unload<'a>(&'a self, id: &'a str) -> Pending<'a, Module>;
     fn restart<'a>(&'a self, id: &'a str) -> Pending<'a, Module>;
+    /// host.toml's settings the dashboard edits, when the host kit handed the file in
+    fn host_settings(&self) -> Option<Arc<dyn crate::host_settings::HostSettings>> {
+        None
+    }
 }
 
 /// The registry, when the admin API runs inside the server.
@@ -60,7 +64,7 @@ fn control<'a>(ctx: &'a Context<'_>) -> async_graphql::Result<&'a Arc<dyn Module
     ctx.data::<Modules>()?.0.as_ref().ok_or_else(|| {
         fail(
             "MODULES_UNAVAILABLE",
-            "this admin API runs outside the server, so it has no modules: run it through reforged-host serve",
+            "this admin API runs outside the server, so it has no modules: run it through dainty-host serve",
         )
     })
 }

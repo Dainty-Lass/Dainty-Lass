@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Silent Spud
 
-//! `dainty-lass-server`: the MIT core (RD27). The admin API and remote management are built in; every other service
+//! `dainty-core` (package `dainty-lass-server`): the MIT core (RD27). The admin API and remote management are built in; every other service
 //! is a library `[services.<name>]` pins, and every game module one `[[modules.external]]` pins. Bare, or with
-//! options only, it serves (as `dainty-lass-server-console` does); otherwise it takes the host kit's commands.
+//! options only, it serves (as `dainty-server` does); otherwise it takes the host kit's commands.
 //! `--root <dir>` first names the server folder, which is found from here otherwise.
 
 use std::path::PathBuf;

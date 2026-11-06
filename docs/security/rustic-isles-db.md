@@ -2,7 +2,7 @@
 
 # Security checklist: Rustic Isles database tool (RX3)
 
-The checklist for `crates/rustic-isles-db`, the MIT library behind `reforged-host db migrate`, `verify` and `export-mongo`
+The checklist for `crates/rustic-isles-db`, the MIT library behind `dainty-host db migrate`, `verify` and `export-mongo`
 (RD27, `docs/port/spec-rustic-isles-db.md`).
 
 How to use it: before a change to this crate merges, and before its cutover is signed (RD10), copy this list into the

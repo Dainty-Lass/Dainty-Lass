@@ -18,7 +18,7 @@ backend's admin routes and the Director, so what it can do is bounded by what th
   owner's, or one per person, below), an
   optional `x-reforged-operator-id` (digits), and a JSON body. `GET /health` answers `{"ok":true}` without a key, for
   the host kit's ready probe. It reveals nothing.
-- **In, from the host:** `admin.env` (written by `reforged-host setup` from `host.toml` and `secrets.env`) and the
+- **In, from the host:** `admin.env` (written by `dainty-host setup` from `host.toml` and `secrets.env`) and the
   timeouts file it names.
 - **In, from this machine's services:** the backend's answers (`/admin/v1/players`, `/admin/v1/online-players`,
   `/admin/v1/players/<id>/access`, `/reforged/api/Kick`, `/reforged/api/ServerStatus`) and the Director's
@@ -57,7 +57,7 @@ id, so a change in a module's log leads back to the request and the person who a
 - `REFORGED_ADMIN_API_KEY` (`secrets.env`) is the owner's key, id `owner`. Every other key is `RRA_<8 hex id>_<64 hex
   secret>` (256 random bits), stored as the SHA-256 of the whole key in `admin_keys` in the admin API's own database
   (`admin.db` beside the node's SQLite file; the node's database on Postgres). The key is printed once by
-  `reforged-host admin key issue` (or returned once by `issueKey`) and is not recoverable.
+  `dainty-host admin key issue` (or returned once by `issueKey`) and is not recoverable.
 - A request is authenticated on every call against the database, so `key revoke` refuses the key's next request. The
   owner's key is checked first and needs no database. An unknown id, a wrong secret and a malformed key are the same
   401, and only a key whose secret matches can learn it was revoked. A key's shape is checked before any lookup.

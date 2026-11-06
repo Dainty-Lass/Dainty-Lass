@@ -132,7 +132,7 @@ when their family didn't change. In Forgejo's branch protection, "Enable status 
 
 ## What isn't here
 
-- **Publishing a release.** `.forgejo/workflows/server-release.yml` is a dry run on Forgejo: `reforged-host update` reads GitHub's
+- **Publishing a release.** `.forgejo/workflows/server-release.yml` is a dry run on Forgejo: `dainty-host update` reads GitHub's
   releases API and checks GitHub attestations. The tag trigger and the publish job come back with DX5, from
   `b28fd27:.github/workflows/server-release.yml`.
 - **Dependency updates.** `.github/dependabot.yml` is GitHub's and does nothing on Forgejo. Renovate is the

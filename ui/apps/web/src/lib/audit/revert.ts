@@ -4,6 +4,7 @@ import { db, schema } from "@/lib/db";
 import type { AuditEvent, BlacklistTerm, Staff } from "@/lib/db/schema";
 import { DomainError } from "@/lib/errors";
 import { updateController } from "@/lib/fleet/controllers";
+import { updateLogSettings } from "@/lib/fleet/log-settings";
 import type { Restriction } from "@/lib/game/admin-api";
 import {
   banPlayer,
@@ -120,6 +121,19 @@ const REVERTERS: Record<string, (me: Staff, ev: AuditEvent) => Promise<unknown> 
       disabled: boolean;
     };
     return updateController(me, ev.controllerId, b, ev.id);
+  },
+  "controller.logs": (me, ev) => {
+    const b = ev.before as {
+      format: "text" | "json";
+      color: "auto" | "always" | "never";
+      gelfUrl: string | null;
+    };
+    return updateLogSettings(
+      me,
+      ev.controllerId,
+      { format: b.format, color: b.color, gelfUrl: b.gelfUrl ?? "" },
+      ev.id,
+    );
   },
   "staff.update": (me, ev) => {
     // Older events carry only role, disabled and note; what they lack stays as it is.

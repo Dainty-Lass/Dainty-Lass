@@ -2,7 +2,7 @@
 
 # Security checklist: the host kit's game-data commands (RX3)
 
-The checklist for `reforged-host gamedata`, `preset` and `publish-runtime` in `crates/host` (MIGRATION_PLAN.md
+The checklist for `dainty-host gamedata`, `preset` and `publish-runtime` in `crates/host` (MIGRATION_PLAN.md
 RH4, RD3, RD23). `SECURITY_REVIEW.md` indexes it.
 
 How to use it: before the host kit's cutover, copy this list into the cutover PR, check each item in the code (not

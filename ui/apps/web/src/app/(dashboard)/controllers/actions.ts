@@ -11,7 +11,9 @@ import {
   repairController,
   updateController,
 } from "@/lib/fleet/controllers";
+import { updateLogSettings } from "@/lib/fleet/log-settings";
 import { ALL, SCOPE_COOKIE } from "@/lib/fleet/scope";
+import type { LogSettingsChange } from "@/lib/game/admin-api";
 
 export async function createControllerAction(name: string, region: string) {
   return attempt(async () => {
@@ -39,6 +41,13 @@ export async function repairControllerAction(id: string) {
 export async function removeControllerAction(id: string) {
   return attempt(async () => {
     removeController(await requireAction("controllers:write"), id);
+  });
+}
+
+/** The controller's host.toml `[logs]`; the server takes it at its next start. */
+export async function updateLogSettingsAction(id: string, change: LogSettingsChange) {
+  return attempt(async () => {
+    await updateLogSettings(await requireAction("controllers:write"), id, change);
   });
 }
 

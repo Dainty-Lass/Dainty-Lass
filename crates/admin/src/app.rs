@@ -1,4 +1,4 @@
-//! The HTTP side: `POST /graphql` for the bot, `GET /health` for `reforged-host start`'s ready probe.
+//! The HTTP side: `POST /graphql` for the bot, `GET /health` for `dainty-host start`'s ready probe.
 //! Every GraphQL request is checked before its body is read: a loopback peer, no proxy headers, a key that
 //! is the owner's or an issued one that is not revoked (`keys::Keys`), and the operator id.
 

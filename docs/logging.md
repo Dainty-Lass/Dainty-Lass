@@ -2,7 +2,7 @@
 
 # Logging
 
-`reforged-host start` and `serve` log every in-process service, and every process they supervise, through one
+`dainty-host start` and `serve` log every in-process service, and every process they supervise, through one
 `tracing` subscriber (`crates/service-kit/src/telemetry.rs`). Every record is redacted first: account keys, secrets,
 tokens and auth headers never reach the console, the file or a collector.
 
@@ -71,8 +71,17 @@ Shipping never slows a service: records queue for one thread (10 000 at most; th
 are sent in order. When the collector is down, records are dropped until it is back, and `start` says so once on
 stderr, never through the log itself.
 
+## From the dashboard
+
+A controller's page on the staff dashboard has a Logs card for the owner's key: format, color and the GELF URL. It
+calls the admin API's `logSettings` and `setLogSettings` (`crates/admin/src/host_settings.rs`), which read and write
+`host.toml`'s `[logs]` with the same checks as the file, so a plain-text URL to a public host is refused there too.
+The log is set up once at start, so a change takes effect at the next start; until then the card says a restart is
+needed. Each change is audited on the dashboard and can be undone from its activity log. A server started with
+`--config` pointing at another file still has its `host.toml` edited.
+
 ## Not covered yet
 
-- `reforged-host <service>` run alone (the per-service Docker containers) still logs pino-style JSON
+- `dainty-host <service>` run alone (the per-service Docker containers) still logs pino-style JSON
   (`crates/service-kit/src/log.rs`), not this format, and ships nothing. Docker's own `gelf` log driver ships those.
 - GELF over UDP, and an auth header for a collector behind a proxy.

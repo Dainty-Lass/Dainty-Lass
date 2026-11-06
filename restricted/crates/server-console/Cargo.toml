@@ -1,6 +1,6 @@
 [package]
 name = "server-console"
-description = "The server in one binary: every reforged-host command, `serve` with its console or dashboard, and each service alone"
+description = "The server in one binary: every dainty-host command, `serve` with its console or dashboard, and each service alone"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -9,14 +9,14 @@ repository.workspace = true
 publish.workspace = true
 
 [[bin]]
-name = "dainty-lass-server-console"
+name = "dainty-server"
 path = "src/main.rs"
 
 # The same binary under the host kit's name, without `serve` as its default: `update`, the systemd units and
-# the Director's game-server wrapper run bin/reforged-host (RD23)
+# the Director's game-server wrapper run bin/dainty-host (RD23)
 [[bin]]
-name = "reforged-host"
-path = "src/bin/reforged-host.rs"
+name = "dainty-host"
+path = "src/bin/dainty-host.rs"
 
 [features]
 default = ["isles-1-14-7", "realms"]

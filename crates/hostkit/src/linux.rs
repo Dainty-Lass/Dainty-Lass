@@ -138,7 +138,7 @@ pub fn sh_quote(s: &str) -> String {
 pub fn gameserver_wrapper_script(host_bin: &Path) -> String {
     let quoted = sh_quote(&host_bin.to_string_lossy());
     format!(
-        "#!/bin/sh\n# Written by reforged-host setup. Launches Dauntless-Win64-Shipping.exe under Wine or Proton.\nexec {quoted} gameserver \"$@\"\n"
+        "#!/bin/sh\n# Written by dainty-host setup. Launches Dauntless-Win64-Shipping.exe under Wine or Proton.\nexec {quoted} gameserver \"$@\"\n"
     )
 }
 
@@ -284,7 +284,7 @@ pub fn unit_path(s: &str) -> Result<String, HostError> {
 }
 
 pub fn host_binary(paths: &Paths) -> PathBuf {
-    resolve_host_bin(paths).unwrap_or_else(|_| paths.repo.join("reforged-host"))
+    resolve_host_bin(paths).unwrap_or_else(|_| paths.repo.join("dainty-host"))
 }
 
 pub fn set_mode(_path: &Path, _mode: u32) -> Result<(), HostError> {
@@ -298,9 +298,9 @@ pub fn set_mode(_path: &Path, _mode: u32) -> Result<(), HostError> {
 
 fn resolve_host_bin(paths: &Paths) -> Result<PathBuf, HostError> {
     let candidates = [
-        paths.repo.join("bin").join("reforged-host"),
-        paths.repo.join("reforged-host"),
-        paths.repo.join("target").join("release").join("reforged-host"),
+        paths.repo.join("bin").join("dainty-host"),
+        paths.repo.join("dainty-host"),
+        paths.repo.join("target").join("release").join("dainty-host"),
     ];
     for c in candidates {
         if c.is_file() {
@@ -471,7 +471,7 @@ pub fn systemd_installed(unit: &str) -> bool {
 pub fn linux_firewall_script(c: &HostConfig) -> Result<String, HostError> {
     let mut lines = vec![
         "#!/bin/sh".to_owned(),
-        "# Written by reforged-host setup. Configures ufw for the server's ports.".to_owned(),
+        "# Written by dainty-host setup. Configures ufw for the server's ports.".to_owned(),
         "set -eu".to_owned(),
     ];
 
@@ -503,7 +503,7 @@ mod tests {
     #[test]
     fn parses_effective_capabilities_from_proc_status() {
         let status =
-            "Name:\treforged-host\nCapInh:\t0000000000000000\nCapPrm:\t0000000000001400\nCapEff:\t0000000000001400\n";
+            "Name:\tdainty-host\nCapInh:\t0000000000000000\nCapPrm:\t0000000000001400\nCapEff:\t0000000000001400\n";
         assert_eq!(effective_capabilities(status), 0x1400);
         assert!(has_capability(CAP_NET_BIND_SERVICE, Some(status)));
         assert!(has_capability(CAP_NET_ADMIN, Some(status)));
@@ -523,9 +523,9 @@ mod tests {
     #[test]
     fn sh_quote_and_wrapper_script_escape_single_quotes() {
         assert_eq!(sh_quote("/opt/dainty's/bin"), "'/opt/dainty'\\''s/bin'");
-        let script = gameserver_wrapper_script(Path::new("/srv/dauntless/bin/reforged-host"));
+        let script = gameserver_wrapper_script(Path::new("/srv/dauntless/bin/dainty-host"));
         assert!(script.starts_with("#!/bin/sh\n"));
-        assert!(script.contains("exec '/srv/dauntless/bin/reforged-host' gameserver \"$@\""));
+        assert!(script.contains("exec '/srv/dauntless/bin/dainty-host' gameserver \"$@\""));
     }
 
     #[test]
@@ -542,13 +542,13 @@ mod tests {
         let paths = Paths::new("/srv/server");
         let bad_ctx = UnitContext {
             user: "root".to_owned(),
-            host_bin: PathBuf::from("/srv/server/bin/reforged-host"),
+            host_bin: PathBuf::from("/srv/server/bin/dainty-host"),
         };
         assert!(systemd_units(&cfg, &paths, &bad_ctx).is_err());
 
         let ctx = UnitContext {
             user: "reforged".to_owned(),
-            host_bin: PathBuf::from("/srv/server/bin/reforged-host"),
+            host_bin: PathBuf::from("/srv/server/bin/dainty-host"),
         };
         let units = systemd_units(&cfg, &paths, &ctx).unwrap();
         let names: Vec<&str> = units.iter().map(|(n, _)| n.as_str()).collect();

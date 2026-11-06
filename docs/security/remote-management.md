@@ -2,7 +2,7 @@
 
 # Security checklist: remote management (`crates/remote`, RX3, DD27, RM1–RM4)
 
-The checklist for remote management across a controller (`DaintyLass Manager` or `reforged-host` with
+The checklist for remote management across a controller (`DaintyLass Manager` or `dainty-host` with
 `[remote] role = "controller"`) and its enrolled managed server installs (`crates/remote`,
 `docs/remote-management.md`, DD27, RM1–RM4). `SECURITY_REVIEW.md` indexes it.
 
@@ -31,7 +31,7 @@ preservation, and `DH6` two-person guarded approval.
   body size (`MAX_REMOTE_WIRE`).
 - **No new public listener:** "The gateway is the only listener off loopback" (`AGENTS.md`, DD3, DD16) holds without
   exception; neither the controller nor a managed install opens a separate TCP or UDP port for remote management.
-- **No player client surface:** `dainty-lass-client` has no remote-management commands or listeners (`docs/remote-management.md` §10).
+- **No player client surface:** `dainty-launcher` has no remote-management commands or listeners (`docs/remote-management.md` §10).
 
 Code: `crates/remote/src/enroll.rs` (enrollment URIs, token validation, SHA-256 fingerprint pinning),
 `crates/remote/src/wire.rs` (wire envelopes, `MAX_REMOTE_WIRE`, secret-leak detector, `DH2` role and `DH6` guarded

@@ -108,11 +108,11 @@ pub fn parse(kind: Kind, args: &[String]) -> Result<Request> {
             "--db-tool" if kind == Kind::Reforged => {
                 request.db_tool = Some(absolute(value("--db-tool")?, "--db-tool")?);
             }
-            // isles-db was retired for `reforged-host db` (RD27): a script still naming it gets told, not misrun
+            // isles-db was retired for `dainty-host db` (RD27): a script still naming it gets told, not misrun
             "--isles-db" if kind == Kind::Reforged => {
                 return Err(usage(
-                    "--isles-db is gone: the database steps run through reforged-host db; name that program with \
-                     --db-tool <program> (reforged-host from PATH by default)",
+                    "--isles-db is gone: the database steps run through dainty-host db; name that program with \
+                     --db-tool <program> (dainty-host from PATH by default)",
                 ));
             }
             flag if flag.starts_with("--") => return Err(usage(format!("unknown option {flag}"))),
@@ -168,7 +168,7 @@ pub fn database_config(target: &TargetArg) -> Result<DatabaseConfig> {
 }
 
 /// Runs `request`. `default_node` is the node accounts are homed on when `--node` isn't given: the running node's
-/// as a module command, `local` from the command line (as `reforged-host db migrate` does).
+/// as a module command, `local` from the command line (as `dainty-host db migrate` does).
 pub async fn run(request: &Request, default_node: &NodeId) -> Result<Report> {
     let node = request.node.clone().unwrap_or_else(|| default_node.clone());
     let options = Options::now(request.dry_run);
@@ -258,11 +258,11 @@ mod tests {
         let tool = parse(
             Kind::Reforged,
             &args(&format!(
-                "{ROOT}srv/kit --to {ROOT}x.db --db-tool {ROOT}srv/reforged-host"
+                "{ROOT}srv/kit --to {ROOT}x.db --db-tool {ROOT}srv/dainty-host"
             )),
         )
         .unwrap();
-        assert_eq!(tool.db_tool, Some(PathBuf::from(format!("{ROOT}srv/reforged-host"))));
+        assert_eq!(tool.db_tool, Some(PathBuf::from(format!("{ROOT}srv/dainty-host"))));
         let ImportError::Usage(message) = parse(
             Kind::Reforged,
             &args(&format!("{ROOT}srv/kit --to {ROOT}x.db --isles-db {ROOT}bin/isles-db")),

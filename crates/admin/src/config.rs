@@ -1,4 +1,4 @@
-//! Settings from `admin.env`, which `reforged-host setup` writes (`hostconfig.rs`); read once at
+//! Settings from `admin.env`, which `dainty-host setup` writes (`hostconfig.rs`); read once at
 //! start, and a bad one stops the start.
 
 use std::net::IpAddr;
@@ -55,7 +55,7 @@ fn secret(env: &Env, name: &str) -> Result<String, String> {
     match optional(env, name) {
         Some(value) if value.chars().count() >= MIN_SECRET => Ok(value),
         Some(_) => Err(format!("{name} must be at least {MIN_SECRET} characters")),
-        None => Err(format!("{name} is not set: run reforged-host setup")),
+        None => Err(format!("{name} is not set: run dainty-host setup")),
     }
 }
 
@@ -176,7 +176,7 @@ impl Config {
             Some(_) => return Err("REFORGED_SERVER_MODE must be private or public".into()),
         };
         let timeouts_file = optional(env, "REFORGED_ADMIN_API_TIMEOUTS_FILE")
-            .ok_or("REFORGED_ADMIN_API_TIMEOUTS_FILE is not set: run reforged-host setup")?;
+            .ok_or("REFORGED_ADMIN_API_TIMEOUTS_FILE is not set: run dainty-host setup")?;
         let timeouts_file = std::path::absolute(Path::new(&timeouts_file)).unwrap_or_else(|_| timeouts_file.into());
         let beside = timeouts_file.with_file_name("dainty-lass.db");
         let database = store::DatabaseConfig::from_lookup(|name| optional(env, name), beside)?;

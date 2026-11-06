@@ -4,14 +4,14 @@
 #   bash docker/remote/test.sh
 # Brings up compose.yaml's `remote` profile (one controller and two managed installs, alpha and bravo) in throwaway
 # volumes and proves that:
-#  1. both installs enroll over pinned TLS using single-use tokens (`reforged-host remote invite` + `enroll`), and
+#  1. both installs enroll over pinned TLS using single-use tokens (`dainty-host remote invite` + `enroll`), and
 #     token replay is refused
-#  2. changing a shared setting on the controller (`reforged-host remote set-config`) is picked up by both managed
+#  2. changing a shared setting on the controller (`dainty-host remote set-config`) is picked up by both managed
 #     installs on sync while keeping each install's own host, game_address and secrets.env untouched
-#  3. running a remote ban (`reforged-host remote exec --node alpha --action ban ...`) applies on the target install
+#  3. running a remote ban (`dainty-host remote exec --node alpha --action ban ...`) applies on the target install
 #     and records the remote operator actor (`controller:ctrl-admin`)
 #  4. stopping the controller leaves both managed installs running and answering `/reforged/api/ServerStatus`
-#  5. revoking one install (`reforged-host remote revoke bravo`) causes the controller to refuse bravo's sync and
+#  5. revoking one install (`dainty-host remote revoke bravo`) causes the controller to refuse bravo's sync and
 #     commands while alpha continues syncing
 #  6. inspecting the captured wire logs (`wire.jsonl`) from the controller and both managed installs proves that the
 #     expected JSON protocol messages crossed the wire and zero secrets (`secrets.env` values, `RRK_`, `PRIVATE KEY`,
@@ -62,8 +62,8 @@ started=1
 compose ps
 
 step "1. enroll both managed installs (alpha and bravo) and verify single-use token replay is refused"
-invite_alpha="$(compose exec -T host-controller reforged-host remote invite --node alpha --region us-east --label "Install Alpha" | tr -d '\r')"
-invite_bravo="$(compose exec -T host-controller reforged-host remote invite --node bravo --region eu-west --label "Install Bravo" | tr -d '\r')"
+invite_alpha="$(compose exec -T host-controller dainty-host remote invite --node alpha --region us-east --label "Install Alpha" | tr -d '\r')"
+invite_bravo="$(compose exec -T host-controller dainty-host remote invite --node bravo --region eu-west --label "Install Bravo" | tr -d '\r')"
 case "$invite_alpha" in
 	dainty-lass-remote://enroll\?*) echo "alpha invite minted" ;;
 	*) fail "unexpected alpha invite URI: $invite_alpha" ;;
@@ -73,26 +73,26 @@ case "$invite_bravo" in
 	*) fail "unexpected bravo invite URI: $invite_bravo" ;;
 esac
 
-enroll_alpha_out="$(compose exec -T host-alpha reforged-host remote enroll "$invite_alpha" --json)"
+enroll_alpha_out="$(compose exec -T host-alpha dainty-host remote enroll "$invite_alpha" --json)"
 echo "$enroll_alpha_out"
 printf '%s\n' "$enroll_alpha_out" | grep -q '"node": "alpha"' || fail "alpha enrollment did not report node=alpha"
 
-if compose exec -T host-alpha reforged-host remote enroll "$invite_alpha" >/dev/null 2>&1; then
+if compose exec -T host-alpha dainty-host remote enroll "$invite_alpha" >/dev/null 2>&1; then
 	fail "replaying a redeemed single-use enrollment token succeeded"
 fi
 echo "single-use token replay refused as expected"
 
-enroll_bravo_out="$(compose exec -T host-bravo reforged-host remote enroll "$invite_bravo" --json)"
+enroll_bravo_out="$(compose exec -T host-bravo dainty-host remote enroll "$invite_bravo" --json)"
 echo "$enroll_bravo_out"
 printf '%s\n' "$enroll_bravo_out" | grep -q '"node": "bravo"' || fail "bravo enrollment did not report node=bravo"
 
 # Initial sync from both installs
-sync_alpha_1="$(compose exec -T host-alpha reforged-host remote sync --json)"
-sync_bravo_1="$(compose exec -T host-bravo reforged-host remote sync --json)"
+sync_alpha_1="$(compose exec -T host-alpha dainty-host remote sync --json)"
+sync_bravo_1="$(compose exec -T host-bravo dainty-host remote sync --json)"
 printf '%s\n' "$sync_alpha_1" | grep -q '"applied_revision": 1' || fail "alpha did not sync revision 1: $sync_alpha_1"
 printf '%s\n' "$sync_bravo_1" | grep -q '"applied_revision": 1' || fail "bravo did not sync revision 1: $sync_bravo_1"
 
-list_1="$(compose exec -T host-controller reforged-host remote list --json)"
+list_1="$(compose exec -T host-controller dainty-host remote list --json)"
 echo "$list_1"
 printf '%s\n' "$list_1" | grep -q '"node": "alpha"' || fail "controller list missing alpha"
 printf '%s\n' "$list_1" | grep -q '"node": "bravo"' || fail "controller list missing bravo"
@@ -105,12 +105,12 @@ compose exec -T host-controller sh -ec '
 	sed -i "s/^name = .*/name = \"Fleet Friday Hunts\"/" /opt/reforged/.workspace/config/host.toml
 	sed -i "s/^max_hunt_servers = .*/max_hunt_servers = 4/" /opt/reforged/.workspace/config/host.toml
 '
-set_cfg_out="$(compose exec -T host-controller reforged-host remote set-config --json)"
+set_cfg_out="$(compose exec -T host-controller dainty-host remote set-config --json)"
 echo "$set_cfg_out"
 printf '%s\n' "$set_cfg_out" | grep -q '"revision": 2' || fail "controller revision did not advance to 2"
 
-sync_alpha_2="$(compose exec -T host-alpha reforged-host remote sync --json)"
-sync_bravo_2="$(compose exec -T host-bravo reforged-host remote sync --json)"
+sync_alpha_2="$(compose exec -T host-alpha dainty-host remote sync --json)"
+sync_bravo_2="$(compose exec -T host-bravo dainty-host remote sync --json)"
 echo "$sync_alpha_2"
 echo "$sync_bravo_2"
 printf '%s\n' "$sync_alpha_2" | grep -q '"applied_revision": 2' || fail "alpha did not pick up revision 2"
@@ -133,23 +133,23 @@ bravo_secrets_sha_after="$(compose exec -T host-bravo sha256sum /opt/reforged/.w
 
 step "3. run a remote ban from the controller and verify it applies on alpha with the remote operator actor"
 # Create a player invite on alpha so an RRK_ key also exists locally on alpha (and must never cross the wire)
-player_invite_alpha="$(compose exec -T host-alpha reforged-host invite --for Griefer99 --json)"
+player_invite_alpha="$(compose exec -T host-alpha dainty-host invite --for Griefer99 --json)"
 echo "$player_invite_alpha"
 
-ban_exec_out="$(compose exec -T host-controller reforged-host remote exec \
+ban_exec_out="$(compose exec -T host-controller dainty-host remote exec \
 	--node alpha --action ban --account Griefer99 --reason "fleet rule violation" \
 	--role admin --actor ctrl-admin --json)"
 echo "$ban_exec_out"
 printf '%s\n' "$ban_exec_out" | grep -q '"status": "queued"' || fail "remote ban was not queued"
 
-compose exec -T host-alpha reforged-host remote sync --json
+compose exec -T host-alpha dainty-host remote sync --json
 alpha_mod="$(compose exec -T host-alpha cat /opt/reforged/.workspace/config/remote-moderation.json)"
 echo "$alpha_mod"
 printf '%s\n' "$alpha_mod" | grep -q '"target": "Griefer99"' || fail "alpha moderation ledger missing Griefer99"
 printf '%s\n' "$alpha_mod" | grep -q '"status": "banned"' || fail "alpha moderation ledger missing banned status"
 printf '%s\n' "$alpha_mod" | grep -q '"actor": "remote:controller:ctrl-admin"' || fail "alpha moderation ledger missing remote actor remote:controller:ctrl-admin"
 
-ctrl_status_after_ban="$(compose exec -T host-controller reforged-host remote status --json)"
+ctrl_status_after_ban="$(compose exec -T host-controller dainty-host remote status --json)"
 echo "$ctrl_status_after_ban"
 printf '%s\n' "$ctrl_status_after_ban" | grep -q 'banned applied for Griefer99 by remote:controller:ctrl-admin' \
 	|| fail "controller did not receive completed ban outcome from alpha"
@@ -162,10 +162,10 @@ compose exec -T backend-bravo reforged-healthcheck backend || fail "backend-brav
 compose exec -T gateway-bravo reforged-healthcheck gateway || fail "gateway-bravo stopped when controller went offline"
 
 # Syncing while the controller is stopped fails cleanly without wiping local config or detaching the install
-if compose exec -T host-alpha reforged-host remote sync >/dev/null 2>&1; then
+if compose exec -T host-alpha dainty-host remote sync >/dev/null 2>&1; then
 	fail "alpha sync unexpectedly succeeded while gateway-controller was stopped"
 fi
-alpha_status_offline="$(compose exec -T host-alpha reforged-host remote status --json)"
+alpha_status_offline="$(compose exec -T host-alpha dainty-host remote status --json)"
 echo "$alpha_status_offline"
 printf '%s\n' "$alpha_status_offline" | grep -q '"detached": false' || fail "alpha detached merely because controller was offline"
 printf '%s\n' "$alpha_status_offline" | grep -q '"applied_revision": 2' || fail "alpha lost its applied_revision while controller was offline"
@@ -180,23 +180,23 @@ done
 compose exec -T gateway-controller reforged-healthcheck gateway || fail "gateway-controller did not recover after start"
 
 step "5. revoke bravo and verify the controller refuses bravo while alpha continues syncing"
-revoke_out="$(compose exec -T host-controller reforged-host remote revoke bravo --json)"
+revoke_out="$(compose exec -T host-controller dainty-host remote revoke bravo --json)"
 echo "$revoke_out"
 printf '%s\n' "$revoke_out" | grep -q '"revoked": "bravo"' || fail "revoke did not report bravo"
 
-if compose exec -T host-bravo reforged-host remote sync >/dev/null 2>&1; then
+if compose exec -T host-bravo dainty-host remote sync >/dev/null 2>&1; then
 	fail "revoked install bravo was still able to sync with the controller"
 fi
-bravo_status_revoked="$(compose exec -T host-bravo reforged-host remote status --json)"
+bravo_status_revoked="$(compose exec -T host-bravo dainty-host remote status --json)"
 echo "$bravo_status_revoked"
 printf '%s\n' "$bravo_status_revoked" | grep -q '"detached": true' || fail "bravo did not mark itself detached after revocation refusal"
 
-if compose exec -T host-controller reforged-host remote exec --node bravo --action doctor --role admin --actor ctrl-admin >/dev/null 2>&1; then
+if compose exec -T host-controller dainty-host remote exec --node bravo --action doctor --role admin --actor ctrl-admin >/dev/null 2>&1; then
 	fail "controller allowed queueing a command for revoked install bravo"
 fi
 
 # Alpha can still sync after bravo is revoked (revoke increments controller revision from 2 to 3)
-compose exec -T host-alpha reforged-host remote sync --json | grep -q '"applied_revision": 3' \
+compose exec -T host-alpha dainty-host remote sync --json | grep -q '"applied_revision": 3' \
 	|| fail "alpha could not sync after bravo was revoked"
 
 step "6. inspect captured wire payloads to prove no secret, account key or database file crossed"

@@ -13,11 +13,11 @@ publish.workspace = true
 name = "launcher"
 
 # One binary, as `tauri build` packages one and names it from the config's mainBinaryName (RD26):
-#   tauri build                                    dainty-lass-client: the players' launcher, no server crate in it
+#   tauri build                                    dainty-launcher: the players' launcher, no server crate in it
 #   tauri build --config src-tauri/tauri.server-gui.conf.json --features server-gui
-#                                                  dainty-lass-manager: the server manager with the server inside
+#                                                  dainty-manager: the server manager with the server inside
 [[bin]]
-name = "dainty-lass-launcher"
+name = "dainty-launcher"
 path = "src/main.rs"
 
 [build-dependencies]

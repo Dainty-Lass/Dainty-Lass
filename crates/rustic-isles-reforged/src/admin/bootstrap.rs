@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Silent Spud
 
 //! The administrator bootstrap (admin spec §12): makes an existing password account an administrator, the only way
-//! to a password administrator. A library function; the `reforged-host admin bootstrap` subcommand is a clap row.
+//! to a password administrator. A library function; the `dainty-host admin bootstrap` subcommand is a clap row.
 
 use module_api::{Actor, ActorContext};
 use rustic_isles_store::repo::auth::{AccessChange, ApprovalStatus, CreateOutcome, OperationalStatus};
@@ -11,7 +11,7 @@ use rustic_isles_store::{IslesStore, RepoError};
 use super::user_id_of;
 use crate::util::{self, iso, system_now_ms};
 
-pub const USAGE: &str = "Usage: reforged-host admin bootstrap --email=you@example.com [--from-email=old@example.com | \
+pub const USAGE: &str = "Usage: dainty-host admin bootstrap --email=you@example.com [--from-email=old@example.com | \
                          --username=ExistingName] --confirm=GRANT_ADMIN_ROLE";
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]

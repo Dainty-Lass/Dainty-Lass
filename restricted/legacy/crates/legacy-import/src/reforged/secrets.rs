@@ -1,5 +1,5 @@
 //! `secrets.env`: carried as it is, since every invite's and session's validity hangs on it. It is only read to
-//! say which secrets are missing (`reforged-host setup` makes those) and, on Unix, made private to the host's user.
+//! say which secrets are missing (`dainty-host setup` makes those) and, on Unix, made private to the host's user.
 //! No value is ever copied, printed or logged: only the names.
 
 use std::collections::BTreeSet;
@@ -49,7 +49,7 @@ fn names_with_values(text: &str) -> BTreeSet<String> {
 
 pub fn check(file: &Path, dry_run: bool, report: &mut Report) -> Result<()> {
     if !file.is_file() {
-        report.note("there is no secrets.env: reforged-host setup makes a new one, which logs every player out");
+        report.note("there is no secrets.env: dainty-host setup makes a new one, which logs every player out");
         return Ok(());
     }
     let text = std::fs::read_to_string(file).map_err(|e| ImportError::io(file, e))?;
@@ -73,7 +73,7 @@ pub fn check(file: &Path, dry_run: bool, report: &mut Report) -> Result<()> {
     }
     if !missing.is_empty() {
         report.note(format!(
-            "secrets.env is kept; reforged-host setup adds what it lacks: {}",
+            "secrets.env is kept; dainty-host setup adds what it lacks: {}",
             missing.join(", ")
         ));
     }

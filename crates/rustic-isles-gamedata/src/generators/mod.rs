@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Silent Spud
 
-//! The backend game-data generators `reforged-host gamedata` runs (spec §4, §5). Each returns a report or an
+//! The backend game-data generators `dainty-host gamedata` runs (spec §4, §5). Each returns a report or an
 //! error text, both English host terminal text; an error writes nothing unless the spec says so.
 
 mod io;

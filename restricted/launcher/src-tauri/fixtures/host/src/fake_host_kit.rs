@@ -1,4 +1,4 @@
-//! A stand-in for `reforged-host` (Reforged's hostserver.test.ts fake `dist/cli.js`): `start` keeps the
+//! A stand-in for `dainty-host` (Reforged's hostserver.test.ts fake `dist/cli.js`): `start` keeps the
 //! control contract, `invite` answers one JSON line, anything else fails with an `Error:` line. A
 //! first argument `fail` makes `start` fail; `deaf` makes it ignore the stop line.
 
@@ -20,7 +20,7 @@ fn main() {
         }
         _ => {
             println!("working");
-            eprintln!("\nError: game data is missing: reforged-host gamedata");
+            eprintln!("\nError: game data is missing: dainty-host gamedata");
             std::process::exit(1);
         }
     }

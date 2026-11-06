@@ -1,6 +1,6 @@
 #![allow(clippy::unwrap_used, clippy::expect_used)] // tests
 
-//! `reforged-host network` (DN3): the CA, a node's certificate, and what stays off a node.
+//! `dainty-host network` (DN3): the CA, a node's certificate, and what stays off a node.
 
 use clap::Parser as _;
 use host::cli::Cli;
@@ -8,7 +8,7 @@ use host::commands::network;
 
 fn run(args: &[&str]) -> Result<(), String> {
     let cli =
-        Cli::try_parse_from(std::iter::once("reforged-host").chain(args.iter().copied())).map_err(|e| e.to_string())?;
+        Cli::try_parse_from(std::iter::once("dainty-host").chain(args.iter().copied())).map_err(|e| e.to_string())?;
     let host::cli::Command::Network(args) = &cli.command else {
         return Err("not the network command".into());
     };

@@ -202,7 +202,7 @@ fn the_command_prints_the_link_and_the_launchers_json_line() {
     };
     assert_eq!(
         invite(&p, args(false), 1).unwrap_err(),
-        "not set up yet: run reforged-host setup first"
+        "not set up yet: run dainty-host setup first"
     );
     write_host_config(&p.host_toml, &config(json!({}))).unwrap();
     load_or_create_secrets(&p.config, fast_secrets).unwrap();

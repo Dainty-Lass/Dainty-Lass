@@ -36,7 +36,7 @@ use self::options::{host_config_from_args, performance_summary};
 use self::paradox::{Layout, missing_paradox};
 
 pub const NOT_AS_ROOT: &str =
-    "reforged-host setup should not be run as root (or with sudo): run it as the user that owns this folder";
+    "dainty-host setup should not be run as root (or with sudo): run it as the user that owns this folder";
 
 pub trait SetupEnv {
     fn platform(&self) -> Platform;
@@ -147,7 +147,7 @@ impl SetupEnv for RealSetupEnv {
         std::env::current_exe()
             .ok()
             .map(|p| p.to_string_lossy().into_owned())
-            .unwrap_or_else(|| "reforged-host".to_owned())
+            .unwrap_or_else(|| "dainty-host".to_owned())
     }
 }
 
@@ -358,10 +358,10 @@ pub fn run_with(
     }
 
     if config.game_dir.is_none() {
-        out("\n! No game folder yet. Pass --game <path to Dauntless> or run reforged-host install-game.");
+        out("\n! No game folder yet. Pass --game <path to Dauntless> or run dainty-host install-game.");
     }
 
-    out("\nNext steps:\n  reforged-host start\n  reforged-host doctor shows what is still missing.");
+    out("\nNext steps:\n  dainty-host start\n  dainty-host doctor shows what is still missing.");
 
     Ok(ExitCode::SUCCESS)
 }

@@ -3,7 +3,7 @@
 
 //! Rustic Isles' game-data area (RD27, written clean-room from `docs/port/spec-rustic-isles-gamedata.md`): the
 //! stubs and static answers the 1.14.7 client asks for at login, in Ramsgate and on the Gauntlet host, the served
-//! progression config, and the backend game-data generators `reforged-host gamedata` runs.
+//! progression config, and the backend game-data generators `dainty-host gamedata` runs.
 
 #![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used))]
 

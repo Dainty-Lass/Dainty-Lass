@@ -73,7 +73,7 @@ fn make_release(dir: &Path, version: &str, platform: &str, files: &[(&str, &str)
 }
 
 const V1: &[(&str, &str)] = &[
-    ("bin/reforged-host", "host 1"),
+    ("bin/dainty-host", "host 1"),
     (
         "modules/rustic-isles/reference/1.14.7/ParadoxBackend/build/server.js",
         "backend 1",
@@ -86,7 +86,7 @@ const V1: &[(&str, &str)] = &[
     ("docs/old.md", "goes in 2"),
 ];
 const V2: &[(&str, &str)] = &[
-    ("bin/reforged-host", "host 2"),
+    ("bin/dainty-host", "host 2"),
     (
         "modules/rustic-isles/reference/1.14.7/ParadoxBackend/build/server.js",
         "backend 2",
@@ -413,7 +413,7 @@ fn moves_a_node_kit_checkout_over_then_updates_it() {
         #[cfg(unix)]
         if platform == "linux-x64" {
             use std::os::unix::fs::PermissionsExt;
-            let mode = std::fs::metadata(root.join("bin/reforged-host"))
+            let mode = std::fs::metadata(root.join("bin/dainty-host"))
                 .unwrap()
                 .permissions()
                 .mode();
@@ -451,7 +451,7 @@ fn moves_a_node_kit_checkout_over_then_updates_it() {
         assert_eq!((m2.version.as_str(), r2.files, r2.removed), ("2.0.0", 3, 1));
         assert_eq!(r2.runtime_changed, Some(true));
         assert!(!root.join("docs").exists(), "an emptied folder goes too");
-        assert_eq!(read(&root, "bin/reforged-host"), "host 2");
+        assert_eq!(read(&root, "bin/dainty-host"), "host 2");
         assert_eq!(selfupdate::read_manifest(&root).unwrap().unwrap().version, "2.0.0");
     }
 }
@@ -542,7 +542,7 @@ fn setup_puts_back_a_damaged_release_and_leaves_a_whole_one() {
         ["- servers 1.0.0 (linux-x64, 0123456789ab) from the release: every file checked"]
     );
 
-    std::fs::remove_file(root.join("bin/reforged-host")).unwrap();
+    std::fs::remove_file(root.join("bin/dainty-host")).unwrap();
     std::fs::write(
         root.join("modules/rustic-isles/reference/1.14.7/ParadoxBackend/build/server.js"),
         "edited",
@@ -562,7 +562,7 @@ fn setup_puts_back_a_damaged_release_and_leaves_a_whole_one() {
         "{lines:?}"
     );
     assert_eq!(lines.last().unwrap(), "- servers 1.0.0 installed");
-    assert_eq!(read(&root, "bin/reforged-host"), "host 1");
+    assert_eq!(read(&root, "bin/dainty-host"), "host 1");
     assert_eq!(
         read(
             &root,
@@ -573,9 +573,9 @@ fn setup_puts_back_a_damaged_release_and_leaves_a_whole_one() {
 
     // A newer release is update's, not setup's
     make_release(&releases, "2.0.0", "linux-x64", V2);
-    std::fs::remove_file(root.join("bin/reforged-host")).unwrap();
+    std::fs::remove_file(root.join("bin/dainty-host")).unwrap();
     install_from_release(&root, Some(&m), "linux-x64", &source, &log, &mut |_| {}).unwrap();
-    assert_eq!(read(&root, "bin/reforged-host"), "host 1");
+    assert_eq!(read(&root, "bin/dainty-host"), "host 1");
 }
 
 // ------------------------------------------------------------------ the command
@@ -660,7 +660,7 @@ fn update_checks_installs_and_runs_setup_with_the_new_binary() {
         (done["updated"].clone(), done["to"].clone(), done["files"].clone()),
         (json!(true), json!("1.0.0"), json!(5))
     );
-    assert_eq!(lines.last().unwrap(), "Now run reforged-host setup.", "{lines:?}");
+    assert_eq!(lines.last().unwrap(), "Now run dainty-host setup.", "{lines:?}");
 
     let (r, lines) = update(
         &root,
@@ -674,7 +674,7 @@ fn update_checks_installs_and_runs_setup_with_the_new_binary() {
     assert_eq!(lines[0], "Up to date: servers 1.0.0 (linux-x64).");
     assert_eq!(last_json(&lines)["behind"], json!(0));
 
-    // Set up: 2.0.0 is installed and setup runs again with the release's reforged-host
+    // Set up: 2.0.0 is installed and setup runs again with the release's dainty-host
     std::fs::write(root.join(".workspace").join("config").join("host.toml"), "").unwrap();
     make_release(&releases, "2.0.0", "linux-x64", V2);
     let (r, lines) = update(&root, &env, UpdateArgs::default());
@@ -693,7 +693,7 @@ fn update_checks_installs_and_runs_setup_with_the_new_binary() {
         *env.setups.borrow(),
         [root
             .join("bin")
-            .join(format!("reforged-host{}", std::env::consts::EXE_SUFFIX))]
+            .join(format!("dainty-host{}", std::env::consts::EXE_SUFFIX))]
     );
     assert!(!root.join(".workspace").join("update").join("staging").exists());
 

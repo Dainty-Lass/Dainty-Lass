@@ -1,4 +1,4 @@
-//! `reforged-host start`'s supervisor and control contract with fake services (RH2): the ready
+//! `dainty-host start`'s supervisor and control contract with fake services (RH2): the ready
 //! line, a `stop` line on stdin, stdin closing, Ctrl+C, and nothing left running afterwards, the
 //! Director's game servers included.
 //!

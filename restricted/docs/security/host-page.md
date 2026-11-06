@@ -13,7 +13,7 @@ item that does not hold is a bug to fix before the cutover, not a box to leave o
 
 ## What it is and where the boundary is
 
-The Host page lets a host run a server from their PC. It drives `reforged-host` from the host's project folder
+The Host page lets a host run a server from their PC. It drives `dainty-host` from the host's project folder
 (the server release, RD3, RD8), builds the runtime with the host's own toolchain, and makes game data from the
 1.14.7 client with Dumper-7 (an SDK) and CatalogExporter (an export). Both DLLs are loaded by the runtime loader
 (`winmm.dll`, `native/runtime-loader`), which the game loads at start and which loads every DLL its
@@ -21,16 +21,16 @@ The Host page lets a host run a server from their PC. It drives `reforged-host` 
 the player's account key in reach: the list and the folder it points into are the trust boundary.
 
 - **In from the host:** the project folder (a folder dialog), the Dumper-7 DLL (a file dialog), a game data pack
-  (a file dialog), the setup form, who an invite is for, the multipliers, and in `dainty-lass-manager`
+  (a file dialog), the setup form, who an invite is for, the multipliers, and in `dainty-manager`
   (`feature = "server-gui"`) the `host.toml` settings patch (`SERVER_CONFIG_PATCH`) and player administration
   request (`ADMIN_REQUEST`). The page's values are checked by the isolation hook (`bridge/spec.rs`) and again in
   `bridge/commands.rs` before the controller sees them.
-- **In from the host kit:** `reforged-host`'s output (lines, `Error:` lines, `--json` lines), `host.toml` (or a
+- **In from the host kit:** `dainty-host`'s output (lines, `Error:` lines, `--json` lines), `host.toml` (or a
   Node kit's `host.json`), and
   `vswhere`'s answers. All of it is parsed by `platform/hostkit/parse.rs`, which touches no file or process.
 - **In from disk:** the session record `host-loader-session.json` in the launcher's data folder, and whatever is in
   the game's `Win64` folder.
-- **Out:** `reforged-host` and the build tools started as child processes (never through a shell); in a session,
+- **Out:** `dainty-host` and the build tools started as child processes (never through a shell); in a session,
   one DLL copy and `mystic_loader.ini` in the game's `Win64` folder, and for Dumper-7 the runtime DLLs renamed
   aside; `export_flags.txt` there for CatalogExporter.
 
@@ -99,8 +99,8 @@ and that multipliers that parse are finite, from 1 to 100, and private only.
       (`the_host_page_drives_reforged_host_setup_server_invite_and_stop`). The controller never logs it.
 - [ ] Only a `dauntless://`, `reforged-revival://` or `dauntless-revived://` link of at most 4096 characters with no control characters is taken from the
       host kit's output (`invite_line`).
-- [ ] The client launcher (`dainty-lass-client`) never reads `secrets.env` or the env files; `host.toml` (or `host.json`) is read for the name,
-      mode, public host and multipliers only, and a file over 1 MiB is not read. In `dainty-lass-manager` (`feature = "server-gui"`),
+- [ ] The client launcher (`dainty-launcher`) never reads `secrets.env` or the env files; `host.toml` (or `host.json`) is read for the name,
+      mode, public host and multipliers only, and a file over 1 MiB is not read. In `dainty-manager` (`feature = "server-gui"`),
       in-process `host` library calls (`setup`, `backup`, `server_invite_list`) use `secrets.env` inside the Rust process only and never
       return or log secret values across the bridge.
 - [ ] The host kit gets the launcher's environment plus `NO_COLOR`, `FORCE_COLOR` and, for `start`,
@@ -109,7 +109,7 @@ and that multipliers that parse are finite, from 1 to 100, and private only.
 
 ### Running the host kit and the build tools
 
-- [ ] `reforged-host` is only the one in the chosen project folder (beside it, in `bin\`, or a build in
+- [ ] `dainty-host` is only the one in the chosen project folder (beside it, in `bin\`, or a build in
       `rust\target\release\`), started directly with an argument list, never through a shell or `npm`/`node`
       (RD23). A folder without it and `modules\rustic-isles\` (or a pre-DS6 `paradox\`) is not a workspace.
 - [ ] The host's text (server name, invite note) is trimmed, length-capped and free of control characters, and goes

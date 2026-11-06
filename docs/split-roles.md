@@ -2,7 +2,7 @@
 
 # Split roles: the metagame and the game servers on two machines
 
-One DaintyLass server can run as two halves, each its own `reforged-host start` (one process, so one container):
+One DaintyLass server can run as two halves, each its own `dainty-host start` (one process, so one container):
 
 | Half | `split.role` | Runs | Its other port |
 | --- | --- | --- | --- |
@@ -76,8 +76,8 @@ from any node but the configured peer is refused. `docs/security/tunnel.md` is t
    open_game_ports = true
    ```
 
-3. `reforged-host setup` (or `update`) on each half writes `RUSTIC_ISLES_PORT_SERVICES` into `backend.env`, which keeps
-   the module from binding the other half's port. Then `reforged-host start` on each.
+3. `dainty-host setup` (or `update`) on each half writes `RUSTIC_ISLES_PORT_SERVICES` into `backend.env`, which keeps
+   the module from binding the other half's port. Then `dainty-host start` on each.
 
 Both halves use the same `secrets.env`'s game server key (`GAMESERVER_API_KEY`): the game half's game servers present it
 to the metagame half's backend. Copy the metagame half's `secrets.env` to the game half before its first `setup`.
@@ -92,20 +92,20 @@ admits only your players' networks if that matters to you.
 
 ## Docker
 
-Each half is the `server` image running `reforged-host start`, with its own `workspace` volume and `host.toml`. A sketch
+Each half is the `server` image running `dainty-host start`, with its own `workspace` volume and `host.toml`. A sketch
 (not yet run against the real client; the per-service `compose.yaml` in `restricted/` is unchanged):
 
 ```yaml
 services:
   metagame:
     image: reforged-revival-server:local
-    command: ["reforged-host", "start"]
+    command: ["dainty-host", "start"]
     volumes: ["meta-workspace:/opt/reforged/.workspace"]
     ports: ["443:443"]           # the public gateway; the game half's node link arrives here too
     networks: [split]
   gameservers:
     image: reforged-revival-server:local
-    command: ["reforged-host", "start"]
+    command: ["dainty-host", "start"]
     volumes: ["games-workspace:/opt/reforged/.workspace", "./game:/game"]
     ports: ["8770-8777:8770-8777/udp"]   # the game ports only: its gateway is reached on the private network
     networks: [split]
