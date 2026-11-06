@@ -1,7 +1,7 @@
 # Rustic Isles goldens against the MIT module
 
 What the composed clean-room module (`rustic-isles-1-14-7` at dainty-lass `3d0a64a8`, `spec_with` and restricted's
-version data) answers to every recorded golden under `crates/isles-core/tests/golden/`, compared with the recorded
+version data) answers to every recorded golden under `crates/isles-mit-parity/tests/golden/`, compared with the recorded
 answers after each golden's own normalisation. The replay is `crates/isles-mit-parity` (AGPL test crate, a member of
 restricted's workspace; see "How it runs"). Run on 2026-11-05, SQLite only, and again after the move into the
 workspace with the same result.
@@ -101,11 +101,13 @@ replay.
 
 `crates/isles-mit-parity` is a member of restricted's workspace. It was a workspace of its own until restricted
 switched to dainty-lass's MIT `rifts-*` crates (RD27): before that, restricted's `modules/rustic-rifts` members had the
-same package names and versions, and one lockfile couldn't hold both. Now it links isles-core and takes restricted's
-own pieces from it: the characters normaliser (`areas::characters::golden::Normalizer`), the inventory recorder's
-`normalize` and the progression replay's `normalise`, and the character data and starter kit constants. The auth
-golden's normaliser lives in isles-core's own test file and is still a copy; so are the values isles-core writes
-inline in its normalise and bootstrap code (the series fill, the trigger node, the banner customization).
+same package names and versions, and one lockfile couldn't hold both. Since the AGPL isles-core and isles-db were
+removed (RD27) it holds everything it took from them: the goldens (`tests/golden/`, isles-core's `tests/golden/` before),
+the characters normaliser, the inventory recorder's `normalize` and the progression replay's `normalise`
+(`tests/common/normalise.rs`), the character data and starter kit constants (`tests/common/starter.rs`), the Reward
+Cache plan (`tests/common/reward_cache.rs`), the storage token seeds (`tests/common/src_tokens.txt`) and isles-db's
+legacy banner defaults. The values isles-core wrote inline in its normalise and bootstrap code (the series fill, the
+trigger node, the banner customization) are written out in `tests/common/version_data.rs`.
 
 Each suite is a test file. It starts the module in process, as the version crate's own composition tests do: a fresh
 SQLite file, every port 127.0.0.1:0, one env file, and the golden's game data folder. Where a step changes the
@@ -121,5 +123,7 @@ cargo test -p isles-mit-parity -j 6 --locked
 It also runs with the rest of `cargo test --workspace`.
 
 The version data is restricted's 1.14.7 character data and starter kit in `version_data.json`'s shape
-(spec-rustic-isles-1-14-7 §4.3), handed to `spec_with`. `rewardCachePlan`, `storageTokenSeeds` and `legacyStarter`
-are left out: they feed the game-data generators and the db tool, which no HTTP golden reaches.
+(spec-rustic-isles-1-14-7 §4.3), handed to `spec_with`: the whole document the host ships, so `rewardCachePlan`,
+`storageTokenSeeds` and `legacyStarter` are in it too, although they feed the game-data generators and the db tool,
+which no HTTP golden reaches. The `version_data` test keeps `version-data/1.14.7/version_data.json` equal to it.
+Rerun on 2026-11-05 after the move out of isles-core: 890 of 890 again.

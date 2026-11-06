@@ -2,16 +2,18 @@
 
 > **Modified, unofficial version.** This repository (`silentspud/rustic-isles` on `git.silentspud.com`) is a modified,
 > unofficial version of [Mystic Paradox](https://github.com/pranav158/Mystic-Paradox) (`21b9ff5` and tag
-> `dauntless-1.12.0` at `4d5dfaa`), maintained as the **Rustic Isles 1.14.7** (`crates/isles-1-14-7`) game module of
+> `dauntless-1.12.0` at `4d5dfaa`), maintained as the **Rustic Isles 1.14.7** game module of
 > [DaintyLass](https://git.silentspud.com/silentspud/dainty-lass). It is **not** an official release of the Mystic
 > Paradox project, and Mystic Paradox does not endorse it.
 >
 > "Mystic Paradox's Dauntless 1.12.0 and 1.14.7 ports and related modifications were developed by MysticFox / Pranav
 > Karande. See NOTICE.md for contribution and provenance information."
 >
-> The Rust workspace (`crates/isles-core`, `crates/isles-director`, `crates/isles-chat`, `crates/isles-db`,
-> `crates/isles-1-14-7`) is ported from Mystic Paradox's 1.14.7 backend and Director, on `store` (SQLite and
-> Postgres). The Node reference under `reference/1.14.7` is the code it was ported from.
+> The Rust port of Mystic Paradox's 1.14.7 backend and Director that lived here (`isles-core`, `isles-director`,
+> `isles-chat`, `isles-db`, `isles-1-14-7`) was replaced by DaintyLass's clean-room MIT `rustic-isles-*` crates (RD27)
+> and removed; it stays in the history. What is left here is the library DaintyLass loads over the MIT module
+> (`crates/isles-1-14-7-plugin`), its version data, the recorded goldens replayed against it (`crates/isles-mit-parity`),
+> the Node reference under `reference/1.14.7` the port came from, and the runtime and tools under `native/`.
 
 <h1 align="center">Rustic Isles</h1>
 
@@ -73,7 +75,7 @@ Expect active development, not production-grade uptime. The Gauntlet is not avai
 
 | Folder | What it is |
 |---|---|
-| [`crates`](crates), [`crates/isles-1-14-7`](crates/isles-1-14-7) | The Rust backend, Director, chat and database tools, and the game module DaintyLass loads |
+| [`crates/isles-1-14-7-plugin`](crates/isles-1-14-7-plugin), [`crates/isles-mit-parity`](crates/isles-mit-parity), [`version-data`](version-data) | The library DaintyLass loads (its MIT `rustic-isles-1-14-7` with this version data), and the Node goldens replayed against it |
 | [`reference/1.14.7/ParadoxBackend`](reference/1.14.7/ParadoxBackend) | The Node account and metagame backend the Rust port came from (login, characters, inventory, progression, store, party, co-op hunts, Paradox realms…) |
 | [`reference/1.14.7/ParadoxDirector`](reference/1.14.7/ParadoxDirector) | The Node Director: starts and supervises the dedicated game servers for hubs and hunts |
 | [`native/runtime`](native/runtime) | `Rustic-Isles.dll`, the C++ runtime loaded into the client and servers to adapt them to the private backend (MSVC + MinHook) |

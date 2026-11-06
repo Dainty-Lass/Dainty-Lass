@@ -21,5 +21,5 @@ Index of trust-boundary security checklists (`docs/security/*.md`, RX3/DX2) and 
 
 | Module | Checklist | Fuzz targets | Row |
 | --- | --- | --- | --- |
-| `modules/rustic-isles` | [modules/rustic-isles/docs/security/db-migrate.md](modules/rustic-isles/docs/security/db-migrate.md), [rate-limit.md](modules/rustic-isles/docs/security/rate-limit.md) | none yet | RU5–RU7, RB11, RB13, RU9 |
+| `modules/rustic-isles` | None here: the 1.14.7 module is dainty-lass's MIT `rustic-isles-*` crates (RD27), checked in dainty-lass's `docs/security/rustic-isles*.md` | dainty-lass's `fuzz/fuzz_targets/rustic_isles_*.rs` | RU5–RU7, RB11, RB13, RU9 |
 | `modules/rustic-rifts` | [admission.md](modules/rustic-rifts/docs/security/admission.md), [relay-credentials.md](modules/rustic-rifts/docs/security/relay-credentials.md), [guard.md](modules/rustic-rifts/docs/security/guard.md), [host.md](modules/rustic-rifts/docs/security/host.md) (in `modules/rustic-rifts/docs/security/`) | `modules/rustic-rifts/fuzz/fuzz_targets/` (`admission_control.rs`, `admission_ticket.rs`, `guard_evidence.rs`, `guard_grants.rs`, `relay_signal.rs`) | RF3–RF7 |
