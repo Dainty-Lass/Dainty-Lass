@@ -21,14 +21,14 @@ backend's admin routes and the Director, so what it can do is bounded by what th
 - **In, from the host:** `admin.env` (written by `dainty-host setup` from `host.toml` and `secrets.env`) and the
   timeouts file it names.
 - **In, from this machine's services:** the backend's answers (`/admin/v1/players`, `/admin/v1/online-players`,
-  `/admin/v1/players/<id>/access`, `/reforged/api/Kick`, `/reforged/api/ServerStatus`) and the Director's
+  `/admin/v1/players/<id>/access`, `/dainty/api/Kick`, `/dainty/api/ServerStatus`) and the Director's
   `/api/instances`. They are local and trusted to be what they say, but each one is parsed defensively.
 - **In, from game modules (DF4c):** the answers to kick, ban and lookup (`module_api::AdminResponse` or a
   `ModuleError`), through the controller's driver. A module out of process is another program: its frames are
   checked by `module-api`'s parser (fuzz target `module_frame`), and the admin API treats the text of its errors as
   untrusted.
 - **Out:** signed `/admin/v1` calls (the manager-operator credential,
-  `modules/rustic-isles/reference/1.14.7/ParadoxBackend/src/security/managerOperator.ts`), the admin key to `/reforged/api/Kick`, `AdminCall`s to game
+  `modules/rustic-isles/reference/1.14.7/ParadoxBackend/src/security/managerOperator.ts`), the admin key to `/dainty/api/Kick`, `AdminCall`s to game
   modules, and GraphQL answers to the caller.
 
 ### Which game a player is in
@@ -232,8 +232,8 @@ and input checks (`schema.rs`; `guarded.rs`, `guard.rs`). Not guarded, with the 
       `setup` moves it from `MYSTICPARADOX_MANAGER_OPERATOR_SECRET` with the same value, and the admin API reads
       the old name for one release. The
       env files are owner-only too (`write_secret_file`).
-- [ ] `POST /reforged/api/Kick` sits behind `HasAdminKey` (the admin key, a loopback peer, no gateway or
-      `X-Forwarded-For` header). The gateway refuses it like every `/reforged/api` route not on its public list
+- [ ] `POST /dainty/api/Kick` sits behind `HasAdminKey` (the admin key, a loopback peer, no gateway or
+      `X-Forwarded-For` header). The gateway refuses it like every `/dainty/api` route not on its public list
       (`PUBLIC_REFORGED_API`).
 
 ## paradox/ change
@@ -242,14 +242,14 @@ RD2 makes fixes the baseline for `paradox/`, not a rule. The kick needs a way to
 the Node backend did that: `SessionRegistry` holds the chat connections, but no route closed them on demand. The Rust
 backend can't start before its gate (RD17). So `paradox/` gained one small route (2026-10-24, decision RD25):
 
-- `modules/rustic-isles/reference/1.14.7/ParadoxBackend/src/routes/reforgedApi.ts`: `POST /reforged/api/Kick {Username}`, behind `HasAdminKey`, answers
+- `modules/rustic-isles/reference/1.14.7/ParadoxBackend/src/routes/reforgedApi.ts`: `POST /dainty/api/Kick {Username}`, behind `HasAdminKey`, answers
   `{UserId, Username, Closed}` (404 `not_found`, 400 `bad_request`).
 - `modules/rustic-isles/reference/1.14.7/ParadoxBackend/src/launcherApiRules.ts`: `DisconnectAccount` revokes the account's refresh sessions and unused exchange
   codes, then closes each chat connection with WebSocket code 1008 `kicked by the host`. Tested in
   `launcherApiRules.test.ts`.
 - The game's access token isn't revocable in the Node backend and stays valid until it expires. The kick doesn't
   ban, so the player can sign straight back in with their key. To keep someone out, use a timeout or a ban.
-- RB7 ports this route with the rest of `/reforged/api`, and RB1's inventory has to list it.
+- RB7 ports this route with the rest of `/dainty/api`, and RB1's inventory has to list it.
 
 ## Changes to section 6
 

@@ -184,7 +184,7 @@ USER dainty
 RUN cargo test --locked --no-run \
       -p protocol -p proxy -p remote -p service-kit -p store -p gateway -p content -p admin -p hostkit -p host \
       -p controller
-# gateway's route-policy tests check /reforged/api against the reference route file
+# gateway's route-policy tests check /dainty/api against the reference route file
 COPY --chown=dainty:dainty restricted/modules/rustic-isles/reference/1.14.7/ParadoxBackend/src/routes/reforgedApi.ts modules/rustic-isles/reference/1.14.7/ParadoxBackend/src/routes/reforgedApi.ts
 ENTRYPOINT ["/usr/bin/tini", "--", "dainty-test"]
 CMD []

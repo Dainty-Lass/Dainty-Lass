@@ -84,7 +84,7 @@ reason.
 
 How the moderation works:
 
-- **kick** closes the player's chat connections and revokes their sign-in tokens (`POST /reforged/api/Kick` on the
+- **kick** closes the player's chat connections and revokes their sign-in tokens (`POST /dainty/api/Kick` on the
   backend). They aren't banned and can log in again with their key. Nobody has yet checked what the 1.14.7 client
   does after losing its chat connection mid-hunt.
 - **timeout** bans the player with the reason `Timed out until <time>: <reason>`, which the player sees in the

@@ -351,8 +351,8 @@ impl Fake {
         let user = key.as_ref().and_then(|key| self.users.get(key)).cloned();
         match path {
             "/dauntless-status" => (200, serde_json::json!({ "show-status": true, "name": "Test Server" })),
-            "/reforged/api/ServerStatus" if self.status_missing => (404, serde_json::json!({})),
-            "/reforged/api/ServerStatus" => {
+            "/dainty/api/ServerStatus" if self.status_missing => (404, serde_json::json!({})),
+            "/dainty/api/ServerStatus" => {
                 let full = user.is_some();
                 let players = if full {
                     serde_json::json!([{ "name": "Aurora", "where": "city", "instance": "city-8777" }])
@@ -369,14 +369,14 @@ impl Fake {
                     }),
                 )
             }
-            "/reforged/api/GetUserInfo" => match user {
+            "/dainty/api/GetUserInfo" => match user {
                 Some((username, id)) => (
                     200,
                     serde_json::json!({ "UserId": id, "Username": username, "IsAdmin": false }),
                 ),
                 None => (401, serde_json::json!({ "error": "unauthorized" })),
             },
-            "/reforged/api/Register" if method == Method::POST => {
+            "/dainty/api/Register" if method == Method::POST => {
                 let Ok(parsed) = serde_json::from_slice::<Value>(body) else {
                     return (400, serde_json::json!({ "error": "bad_request" }));
                 };
@@ -513,8 +513,8 @@ async fn status_over_the_pin_the_full_list_with_the_key_the_limited_view_without
     assert_eq!(
         seen(&fake),
         [
-            ("/reforged/api/ServerStatus".to_owned(), None),
-            ("/reforged/api/ServerStatus".to_owned(), Some(KEY.to_owned())),
+            ("/dainty/api/ServerStatus".to_owned(), None),
+            ("/dainty/api/ServerStatus".to_owned(), Some(KEY.to_owned())),
         ]
     );
 
@@ -560,7 +560,7 @@ async fn an_older_server_is_recognised_through_dauntless_status_which_never_gets
     assert_eq!(
         seen(&fake),
         [
-            ("/reforged/api/ServerStatus".to_owned(), Some(KEY.to_owned())),
+            ("/dainty/api/ServerStatus".to_owned(), Some(KEY.to_owned())),
             ("/dauntless-status".to_owned(), None),
         ]
     );
@@ -597,7 +597,7 @@ async fn register_and_user_info_over_the_pin_and_nothing_sent_to_a_mismatching_s
     assert_eq!(info.username, "Borealis");
     assert_eq!(
         seen(&fake).last().unwrap(),
-        &("/reforged/api/GetUserInfo".to_owned(), Some(key.clone()))
+        &("/dainty/api/GetUserInfo".to_owned(), Some(key.clone()))
     );
     assert_eq!(
         fetch_user_info(&mismatched, &key).await,

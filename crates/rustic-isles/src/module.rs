@@ -37,11 +37,11 @@ pub const LISTENING_EVENT: &str = "isles.listening";
 
 /// Operator routes the gateway keeps off the internet.
 pub const HOST_ONLY_PREFIXES: [&str; 5] = [
-    "/reforged/api/CreateInvite",
-    "/reforged/api/InviteCodes",
-    "/reforged/api/InviteCode",
-    "/reforged/api/SetAccountStatus",
-    "/reforged/api/Kick",
+    "/dainty/api/CreateInvite",
+    "/dainty/api/InviteCodes",
+    "/dainty/api/InviteCode",
+    "/dainty/api/SetAccountStatus",
+    "/dainty/api/Kick",
 ];
 
 const DRAIN: Duration = Duration::from_secs(2);

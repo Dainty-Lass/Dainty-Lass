@@ -506,7 +506,7 @@ mod tests {
             "/",
             "/party/invites",
             "/__origin/gamedev-prod.steelyard.ca/party",
-            "/reforged/api/ServerStatus",
+            "/dainty/api/ServerStatus",
         ] {
             let routed = get(&routes, "1.14.7", target);
             assert_eq!(port(&routed), Some(7001), "{target}");
@@ -532,7 +532,7 @@ mod tests {
         assert_eq!((reason(&chat), chat.endpoint), (None, None));
         // The policy's refusals come first and are unchanged
         assert_eq!(
-            reason(&get(&routes, "1.14.7", "/reforged/api/CreateInvite")),
+            reason(&get(&routes, "1.14.7", "/dainty/api/CreateInvite")),
             Some("admin_route")
         );
         assert_eq!(reason(&get(&routes, "1.14.7", "/admin/v1")), Some("host_only_route"));

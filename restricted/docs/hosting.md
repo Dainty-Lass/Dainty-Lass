@@ -189,7 +189,7 @@ servers' key) lives only in `secrets.env`.
 | --- | --- | --- |
 | `GATEWAY_SECRET` | `gateway.env` | Authenticates the gateway to its upstreams |
 | `ALLOWLIST_SECRET` | `gateway.env`, `allowlist.env` | Authenticates the gateway to the allowlist helper |
-| `REFORGED_ADMIN_KEY` | `backend.env`, `admin.env` | The backend's `/reforged/api/*` admin key |
+| `REFORGED_ADMIN_KEY` | `backend.env`, `admin.env` | The backend's `/dainty/api/*` admin key |
 | `GAMESERVER_API_KEY` | `backend.env` (`GAMESERVER_API_KEYS`), `director.env` (`METAGAME_API_KEY`) | Shared key between the game servers and the backend |
 | `API_KEY_HASH_SECRET` | `backend.env` | HMAC secret for hashing account API keys at rest |
 | `RUSTIC_ISLES_METRICS_TOKEN` | `backend.env` | Bearer token for the backend's `/metrics` endpoint |
@@ -477,7 +477,7 @@ When cutting a live 1.14.7 server over from the Node backend to the Rust backend
    and run `bin\dainty-host db migrate` then `bin\dainty-host db verify`, and confirm `verify` reports no
    difference.
 3. **Smoke check.** Run `bin\dainty-host doctor`, start the server with `bin\dainty-host start`, verify that
-   `/dauntless-status`, `/reforged/api/Status` and `/content/v1/runtime` answer on the gateway, and verify with a
+   `/dauntless-status`, `/dainty/api/Status` and `/content/v1/runtime` answer on the gateway, and verify with a
    1.14.7 client and launcher that an existing account can sign in, enter Ramsgate with its characters, inventory and
    loadouts intact, and depart for a hunt.
 4. **Rollback (if needed).** Stop the server, export the SQLite or Postgres store back to MongoDB with

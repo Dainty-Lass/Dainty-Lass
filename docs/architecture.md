@@ -70,12 +70,12 @@ DaintyLass separates **core plugins** from **game modules** ([`crates/module-api
    for a public one. The `dauntless://` scheme carries the same fields plus `version` (`reforged` for 1.14.7;
    `revived`, a Dauntless Revived 1.4.4 server, is refused with its own error). The parser accepts nothing it does
    not recognise (`crates/protocol`, `tests/cases/invite.json`).
-2. **Registration.** The launcher posts the chosen name and the code to `POST /reforged/api/Register` and gets
+2. **Registration.** The launcher posts the chosen name and the code to `POST /dainty/api/Register` and gets
    an **account key** (`RRK_` and 48 hex digits). The key is stored in the OS keystore and never shown again
    unless the player backs it up. In public mode the launcher connects only over TLS pinned to the `fp` from
    the invite, and the key goes only to that server and certificate.
-3. **Status and identity.** `GET /reforged/api/ServerStatus` (with the key, the full view: players and
-   instances; without it, the limited one) and `GET /reforged/api/GetUserInfo` (the account's id and name, or
+3. **Status and identity.** `GET /dainty/api/ServerStatus` (with the key, the full view: players and
+   instances; without it, the limited one) and `GET /dainty/api/GetUserInfo` (the account's id and name, or
    a ban with its reason).
 4. **The runtime.** The content server lists the host's build of `Rustic-Isles.dll` and `winmm.dll` with sizes
    and SHA-256s (`/content/v1/runtime/manifest`). The launcher shows them, the player accepts them once, and
@@ -89,20 +89,20 @@ DaintyLass separates **core plugins** from **game modules** ([`crates/module-api
 
 ## The launcher API
 
-The backend's `/reforged/api` is the one contract between the launcher, the content server, the admin API and
+The backend's `/dainty/api` is the one contract between the launcher, the content server, the admin API and
 the host kit (`crates/rustic-isles-reforged/src/reforged_api.rs`, written clean-room from the behaviour of
 `restricted/modules/rustic-isles/reference/1.14.7/ParadoxBackend/src/routes/reforgedApi.ts`).
 
 | Route | Who calls it | Through the gateway |
 | --- | --- | --- |
-| `POST /reforged/api/Register` | launcher | yes |
-| `GET /reforged/api/GetUserInfo` | launcher, content server (`x-dainty-user-api-key`) | yes |
-| `GET /reforged/api/ServerStatus` | launcher, admin API | yes |
-| `GET /reforged/api/RegistrationStatus` | launcher | yes |
-| `POST /reforged/api/CreateInvite`, `GET …/InviteCodes`, `DELETE …/InviteCode/:code` | host kit (`x-dainty-admin-key`, loopback only) | refused |
-| `POST /reforged/api/SetAccountStatus`, `POST /reforged/api/Kick` | host kit, admin API | refused |
+| `POST /dainty/api/Register` | launcher | yes |
+| `GET /dainty/api/GetUserInfo` | launcher, content server (`x-dainty-user-api-key`) | yes |
+| `GET /dainty/api/ServerStatus` | launcher, admin API | yes |
+| `GET /dainty/api/RegistrationStatus` | launcher | yes |
+| `POST /dainty/api/CreateInvite`, `GET …/InviteCodes`, `DELETE …/InviteCode/:code` | host kit (`x-dainty-admin-key`, loopback only) | refused |
+| `POST /dainty/api/SetAccountStatus`, `POST /dainty/api/Kick` | host kit, admin API | refused |
 
-Everything else under `/reforged/api` is refused at the gateway with 403, admin key or not: the backend
+Everything else under `/dainty/api` is refused at the gateway with 403, admin key or not: the backend
 accepts those calls only from its own machine anyway. The gateway's tests read the route file, so a route
 added there without a policy decision fails CI.
 

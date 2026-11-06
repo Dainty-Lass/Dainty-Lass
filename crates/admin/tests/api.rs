@@ -66,7 +66,7 @@ async fn backend(State(state): State<Arc<Backend>>, request: Request) -> Respons
         .collect();
     let param = |name: &str| query.iter().find(|(k, _)| k == name).map(|(_, v)| v.clone());
 
-    if path == "/reforged/api/ServerStatus" {
+    if path == "/dainty/api/ServerStatus" {
         return reply(
             StatusCode::OK,
             json!({
@@ -77,7 +77,7 @@ async fn backend(State(state): State<Arc<Backend>>, request: Request) -> Respons
             }),
         );
     }
-    if path == "/reforged/api/Kick" {
+    if path == "/dainty/api/Kick" {
         // HasAdminKey: the key, from this machine, not through the gateway
         if header("x-dainty-admin-key").as_deref() != Some(ADMIN_KEY) || header("x-dainty-gateway").is_some() {
             return reply(StatusCode::FORBIDDEN, json!({"error": "forbidden"}));

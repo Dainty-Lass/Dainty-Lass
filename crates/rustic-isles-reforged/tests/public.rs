@@ -88,7 +88,7 @@ async fn metrics_route() {
 }
 
 async fn register(rig: &Rig, body: Value) -> common::Answer {
-    rig.send(Request1::new("POST", "/reforged/api/Register").json(&body))
+    rig.send(Request1::new("POST", "/dainty/api/Register").json(&body))
         .await
 }
 
@@ -99,7 +99,7 @@ async fn registration() {
         ..options(true)
     })
     .await;
-    open.get("/reforged/api/RegistrationStatus")
+    open.get("/dainty/api/RegistrationStatus")
         .await
         .assert(200, r#"{"mode":"OPEN"}"#);
     let made = register(&open, json!({"Username": "  Fox_9 "})).await;
@@ -134,7 +134,7 @@ async fn registration() {
         );
     }
     let info = open
-        .send(Request1::new("GET", "/reforged/api/GetUserInfo").header("x-dainty-user-api-key", &key))
+        .send(Request1::new("GET", "/dainty/api/GetUserInfo").header("x-dainty-user-api-key", &key))
         .await;
     assert_eq!(info.status, 200);
     assert_eq!(info.json()["Username"], "Fox_9");
@@ -146,20 +146,18 @@ async fn registration() {
     })
     .await;
     let closed = none
-        .send(Request1::new("POST", "/reforged/api/Register").header("content-type", "application/json"))
+        .send(Request1::new("POST", "/dainty/api/Register").header("content-type", "application/json"))
         .await;
     assert_eq!((closed.status, closed.code().as_str()), (400, "registration_closed"));
 
     let invite = Rig::new(options(true)).await;
     invite
-        .get("/reforged/api/RegistrationStatus")
+        .get("/dainty/api/RegistrationStatus")
         .await
         .assert(200, r#"{"mode":"INVITECODE"}"#);
     let host = |r: Request1<'static>| r.header("x-dainty-admin-key", common::ADMIN_KEY);
     let code = invite
-        .send(host(
-            Request1::new("POST", "/reforged/api/CreateInvite").json(&json!({})),
-        ))
+        .send(host(Request1::new("POST", "/dainty/api/CreateInvite").json(&json!({}))))
         .await
         .json()["code"]
         .as_str()
@@ -183,7 +181,7 @@ async fn registration() {
     );
     let two = invite
         .send(host(
-            Request1::new("POST", "/reforged/api/CreateInvite").json(&json!({"uses": 2})),
+            Request1::new("POST", "/dainty/api/CreateInvite").json(&json!({"uses": 2})),
         ))
         .await
         .json()["code"]
@@ -197,7 +195,7 @@ async fn registration() {
         409
     );
     let list = invite
-        .send(host(Request1::new("GET", "/reforged/api/InviteCodes")))
+        .send(host(Request1::new("GET", "/dainty/api/InviteCodes")))
         .await
         .json();
     let entry = list["InviteCodes"]
@@ -225,11 +223,11 @@ async fn user_info_and_status() {
         ..options(true)
     })
     .await;
-    rig.get("/reforged/api/GetUserInfo")
+    rig.get("/dainty/api/GetUserInfo")
         .await
         .assert(401, r#"{"error":"unauthorized"}"#);
     let odd = rig
-        .send(Request1::new("GET", "/reforged/api/GetUserInfo").header("x-dainty-user-api-key", "a b c"))
+        .send(Request1::new("GET", "/dainty/api/GetUserInfo").header("x-dainty-user-api-key", "a b c"))
         .await;
     odd.assert(401, r#"{"error":"unauthorized"}"#);
     let made = register(&rig, json!({"Username": "Fox_9"})).await;
@@ -258,7 +256,7 @@ async fn user_info_and_status() {
                 .unwrap();
         }
     };
-    let info = || Request1::new("GET", "/reforged/api/GetUserInfo").header("x-dainty-user-api-key", &key);
+    let info = || Request1::new("GET", "/dainty/api/GetUserInfo").header("x-dainty-user-api-key", &key);
     use rustic_isles_store::repo::auth::OperationalStatus::{Active, Banned, Disabled};
     ban(Banned, Some("cheating")).await;
     rig.send(info())
@@ -271,7 +269,7 @@ async fn user_info_and_status() {
     ban(Active, None).await;
     assert_eq!(rig.send(info()).await.status, 200);
 
-    let limited = rig.get("/reforged/api/ServerStatus").await;
+    let limited = rig.get("/dainty/api/ServerStatus").await;
     assert_eq!(limited.status, 200);
     assert_eq!(limited.header("cache-control"), Some("no-store"));
     assert_eq!(limited.header("vary"), Some("x-dainty-user-api-key"));
@@ -311,7 +309,7 @@ async fn user_info_and_status() {
     assert_eq!(body["chat"], false);
     assert_eq!(body["limited"], true);
     let full = rig
-        .send(Request1::new("GET", "/reforged/api/ServerStatus").header("x-dainty-user-api-key", &key))
+        .send(Request1::new("GET", "/dainty/api/ServerStatus").header("x-dainty-user-api-key", &key))
         .await
         .json();
     assert_eq!(

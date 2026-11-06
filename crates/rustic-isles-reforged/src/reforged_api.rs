@@ -267,7 +267,7 @@ pub async fn announce(shared: &Shared, account: &AccountId, key: &str, username:
 
 // ------------------------------------------------------------------ routes
 
-/// `GET /reforged/api/RegistrationStatus`: the registration mode.
+/// `GET /dainty/api/RegistrationStatus`: the registration mode.
 pub async fn registration_status(call: Call) -> Response {
     let mode = RegistrationMode::from_settings(call.shared.settings());
     util::ok(&object(vec![("mode", Value::from(mode.as_str()))]))
@@ -289,7 +289,7 @@ fn is_unique_violation(error: &RepoError) -> bool {
     ) || matches!(error, RepoError::Data(text) if text == TAKEN)
 }
 
-/// `POST /reforged/api/Register`: creates an account and its key.
+/// `POST /dainty/api/Register`: creates an account and its key.
 pub async fn register(call: Call) -> Response {
     let Call {
         shared,
@@ -407,7 +407,7 @@ pub async fn register(call: Call) -> Response {
     util::with_header(response, "x-dainty-account-id", &account.to_string())
 }
 
-/// `GET /reforged/api/GetUserInfo`: the key holder's account.
+/// `GET /dainty/api/GetUserInfo`: the key holder's account.
 pub async fn get_user_info(call: Call) -> Response {
     let Some(store) = store_of(&call.shared) else {
         return util::no_store(call.route, &call.request_id);
@@ -443,7 +443,7 @@ pub async fn get_user_info(call: Call) -> Response {
     util::with_header(util::ok(&body), "x-dainty-account-id", &holder.account.to_string())
 }
 
-/// `GET /reforged/api/ServerStatus`: the server's status, the full view for an eligible key holder.
+/// `GET /dainty/api/ServerStatus`: the server's status, the full view for an eligible key holder.
 pub async fn server_status(call: Call) -> Response {
     let Some(store) = store_of(&call.shared) else {
         return util::no_store(call.route, &call.request_id);

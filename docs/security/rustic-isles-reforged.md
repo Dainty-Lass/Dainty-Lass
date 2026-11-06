@@ -13,7 +13,7 @@ date and the commit reviewed. An item that does not hold is a bug to fix first, 
 ## What it is and where the boundary is
 
 The crate answers 62 backend rows (44 public, 18 admin) inside the Rustic Isles backend (port 61000), which listens on
-loopback behind the gateway. The gateway refuses `/admin` and the host-only `/reforged/api/*` prefixes from outside
+loopback behind the gateway. The gateway refuses `/admin` and the host-only `/dainty/api/*` prefixes from outside
 (core's `HOST_ONLY_PREFIXES`); the admin API is off unless `RUSTIC_ISLES_ADMIN_API` or `RUSTIC_ISLES_MANAGER_ADMIN`
 is on (core §6.3).
 

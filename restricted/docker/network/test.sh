@@ -193,14 +193,14 @@ oregon_url="$(node_url oregon)"
 germany_url="$(node_url germany)"
 
 step "register and authenticate players on oregon-1 and germany-1"
-reg_a="$(curl -sk -X POST "$oregon_url/reforged/api/Register" \
+reg_a="$(curl -sk -X POST "$oregon_url/dainty/api/Register" \
 	-H 'Content-Type: application/json' \
 	-d '{"Username":"SlayerOregon"}')"
 echo "oregon register: $reg_a"
 key_a="$(printf '%s' "$reg_a" | sed -n 's/.*"UUK":"\([^"]*\)".*/\1/p')"
 [ -n "$key_a" ] || fail "failed to register Player A on oregon-1: $reg_a"
 
-info_a="$(curl -sk -i "$oregon_url/reforged/api/GetUserInfo" \
+info_a="$(curl -sk -i "$oregon_url/dainty/api/GetUserInfo" \
 	-H "x-dainty-user-api-key: $key_a")"
 echo "oregon user info:"
 echo "$info_a"
@@ -214,14 +214,14 @@ tok_a_json="$(curl -sk -X POST "$oregon_url/account/api/oauth/token" \
 tok_a="$(printf '%s' "$tok_a_json" | sed -n 's/.*"access_token":"\([^"]*\)".*/\1/p')"
 [ -n "$tok_a" ] || fail "failed to obtain access token for Player A: $tok_a_json"
 
-reg_b="$(curl -sk -X POST "$germany_url/reforged/api/Register" \
+reg_b="$(curl -sk -X POST "$germany_url/dainty/api/Register" \
 	-H 'Content-Type: application/json' \
 	-d '{"Username":"SlayerGermany"}')"
 echo "germany register: $reg_b"
 key_b="$(printf '%s' "$reg_b" | sed -n 's/.*"UUK":"\([^"]*\)".*/\1/p')"
 [ -n "$key_b" ] || fail "failed to register Player B on germany-1: $reg_b"
 
-info_b="$(curl -sk -i "$germany_url/reforged/api/GetUserInfo" \
+info_b="$(curl -sk -i "$germany_url/dainty/api/GetUserInfo" \
 	-H "x-dainty-user-api-key: $key_b")"
 echo "germany user info:"
 echo "$info_b"
@@ -370,7 +370,7 @@ compose exec -T gateway-germany sh -c '
 '
 compose restart gateway-germany
 for _ in $(seq 1 30); do
-	if curl -sk "$germany_url/reforged/api/ServerStatus" | grep -q '"online":true'; then
+	if curl -sk "$germany_url/dainty/api/ServerStatus" | grep -q '"online":true'; then
 		break
 	fi
 	sleep 1
@@ -527,7 +527,7 @@ echo "germany waiting queue before uk-1 login: $waiting_de"
 printf '%s' "$waiting_de" | grep -q 'waiting while offline' || fail "offline whisper not queued at germany-1: $waiting_de"
 
 uk_url="$(node_url uk)"
-reg_c="$(curl -sk -X POST "$uk_url/reforged/api/Register" \
+reg_c="$(curl -sk -X POST "$uk_url/dainty/api/Register" \
 	-H 'Content-Type: application/json' \
 	-d '{"Username":"SlayerUK"}')"
 key_c="$(printf '%s' "$reg_c" | sed -n 's/.*"UUK":"\([^"]*\)".*/\1/p')"

@@ -1425,12 +1425,12 @@ mod tests {
     #[test]
     fn targets_are_judged_as_sent() {
         for (sent, logged) in [
-            ("/reforged/api/Register?x=1", "/reforged/api/Register?x=1"),
+            ("/dainty/api/Register?x=1", "/dainty/api/Register?x=1"),
             ("//", "//"),
             ("*", "*"),
             (
-                "http://evil.example/reforged/api/CreateInvite",
-                "http://evil.example/reforged/api/CreateInvite",
+                "http://evil.example/dainty/api/CreateInvite",
+                "http://evil.example/dainty/api/CreateInvite",
             ),
             (
                 "https://evil.example:443/__node/enroll",

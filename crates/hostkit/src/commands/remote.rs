@@ -773,7 +773,7 @@ impl HostKitRemoteHandler {
             }
         }
 
-        // If secrets.env exists and the local backend is listening, forward to `/admin/v1` or `/reforged/api/Kick`.
+        // If secrets.env exists and the local backend is listening, forward to `/admin/v1` or `/dainty/api/Kick`.
         if let Ok((secrets, _)) =
             load_or_create_secrets(&self.paths.config, crate::commands::setup::secrets::new_secrets)
         {

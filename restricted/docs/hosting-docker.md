@@ -348,7 +348,7 @@ images:
 3. The compose smoke test (`docker/smoke-test.sh`): a pre-cutover `mongo-data` volume seeded with an account and
    invite, `backend` refusing to start before migration, `host db migrate` and `host db verify` moving the data into
    the SQLite store, the `toml` profile's `configure` applying an edited `host.toml`, every service healthy, the
-   gateway serving setup's certificate and answering `/reforged/api/ServerStatus` and account checks from the
+   gateway serving setup's certificate and answering `/dainty/api/ServerStatus` and account checks from the
    Rust backend, the allowlist's table in place, an invite, a clean stop.
 
 `bash docker/run-tests.sh rust` runs only step 2; `SKIP_SMOKE=1` leaves out step 3. On a server,

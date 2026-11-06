@@ -10,7 +10,7 @@
 #     installs on sync while keeping each install's own host, game_address and secrets.env untouched
 #  3. running a remote ban (`dainty-host remote exec --node alpha --action ban ...`) applies on the target install
 #     and records the remote operator actor (`controller:ctrl-admin`)
-#  4. stopping the controller leaves both managed installs running and answering `/reforged/api/ServerStatus`
+#  4. stopping the controller leaves both managed installs running and answering `/dainty/api/ServerStatus`
 #  5. revoking one install (`dainty-host remote revoke bravo`) causes the controller to refuse bravo's sync and
 #     commands while alpha continues syncing
 #  6. inspecting the captured wire logs (`wire.jsonl`) from the controller and both managed installs proves that the

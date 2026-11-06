@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 use crate::text::{is_js_space, js_length, js_trim};
 
 /// Route the launcher posts a [`RegisterRequest`] to.
-pub const REGISTER_PATH: &str = "/reforged/api/Register";
+pub const REGISTER_PATH: &str = "/dainty/api/Register";
 /// Prefix of every account key the server issues.
 pub const ACCOUNT_KEY_PREFIX: &str = "RRK_";
 /// Shortest accepted username, in bytes (usernames are ASCII).

@@ -206,7 +206,7 @@ pub struct RouteDef {
     pub when: When,
 }
 
-const NODE_PREFIXES: [&str; 4] = ["/launcher/", "/admin/", "/health/", "/reforged/api/"];
+const NODE_PREFIXES: [&str; 4] = ["/launcher/", "/admin/", "/health/", "/dainty/api/"];
 
 impl RouteDef {
     /// [`Scope::Node`] when the path is under a launcher, admin, health or Reforged API prefix, else

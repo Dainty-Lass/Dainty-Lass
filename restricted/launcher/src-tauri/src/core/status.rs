@@ -1,4 +1,4 @@
-//! Live server status (`GET /reforged/api/ServerStatus`), row L12: `protocol::status` (RS1), which reads
+//! Live server status (`GET /dainty/api/ServerStatus`), row L12: `protocol::status` (RS1), which reads
 //! `parseServerStatus` in `src/shared/status.ts` answer for answer. The answer comes from the network, so
 //! every field is checked and cleaned before the page sees it. Both sides run
 //! dainty-lass's `crates/protocol/tests/cases/status.json`.

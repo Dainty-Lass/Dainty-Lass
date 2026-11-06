@@ -31,7 +31,7 @@ pub enum RegisterResult {
     Err { error: ErrorCode, message: Option<String> },
 }
 
-/// The answer to `POST /reforged/api/Register`.
+/// The answer to `POST /dainty/api/Register`.
 pub fn read_register(status: u16, body: Option<&Value>) -> RegisterResult {
     let body = object(body);
     let failed = |error| RegisterResult::Err { error, message: None };
@@ -72,7 +72,7 @@ pub fn is_valid_user_id(text: &str) -> bool {
             .all(|byte| byte.is_ascii_alphanumeric() || byte == b'_' || byte == b'-')
 }
 
-/// The answer to `GET /reforged/api/GetUserInfo`. A ban (or a disabled account) carries the server's
+/// The answer to `GET /dainty/api/GetUserInfo`. A ban (or a disabled account) carries the server's
 /// reason when it gave one, and no default text.
 pub fn read_user_info(status: u16, body: Option<&Value>) -> Result<UserInfo, (ErrorCode, Option<String>)> {
     let body = object(body);

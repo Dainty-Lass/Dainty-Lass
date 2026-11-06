@@ -582,13 +582,13 @@ async fn host_routes() {
     let host =
         |method: &'static str, uri: &'static str| Request1::new(method, uri).header("x-dainty-admin-key", ADMIN_KEY);
     let forbidden = r#"{"error":"forbidden"}"#;
-    r.send(Request1::new("GET", "/reforged/api/InviteCodes"))
+    r.send(Request1::new("GET", "/dainty/api/InviteCodes"))
         .await
         .assert(403, forbidden);
-    r.send(host("GET", "/reforged/api/InviteCodes").header("x-dainty-gateway", "1"))
+    r.send(host("GET", "/dainty/api/InviteCodes").header("x-dainty-gateway", "1"))
         .await
         .assert(403, forbidden);
-    r.send(host("GET", "/reforged/api/InviteCodes").header("x-forwarded-for", "1.2.3.4"))
+    r.send(host("GET", "/dainty/api/InviteCodes").header("x-forwarded-for", "1.2.3.4"))
         .await
         .assert(403, forbidden);
     let bad = r#"{"error":"bad_request","message":"uses is a whole number from 1 to 1000; name is text"}"#;
@@ -598,46 +598,44 @@ async fn host_routes() {
         json!({"name": 5}),
         json!({"name": null}),
     ] {
-        r.send(host("POST", "/reforged/api/CreateInvite").json(&body))
+        r.send(host("POST", "/dainty/api/CreateInvite").json(&body))
             .await
             .assert(400, bad);
     }
-    let made = r
-        .send(host("POST", "/reforged/api/CreateInvite").json(&json!({})))
-        .await;
+    let made = r.send(host("POST", "/dainty/api/CreateInvite").json(&json!({}))).await;
     assert_eq!(made.status, 200, "{}", made.body);
     let code = made.json()["code"].as_str().unwrap().to_owned();
     let re = regex::Regex::new(r"^[A-HJ-NP-Z2-9]{4}(-[A-HJ-NP-Z2-9]{4}){2}$").unwrap();
     assert!(re.is_match(&code), "{code}");
-    let list = r.send(host("GET", "/reforged/api/InviteCodes")).await.json();
+    let list = r.send(host("GET", "/dainty/api/InviteCodes")).await.json();
     assert_eq!(list["InviteCodes"][0]["note"], Value::Null);
     assert_eq!(list["InviteCodes"][0]["usesRemaining"], 1);
-    r.send(host("DELETE", "/reforged/api/InviteCode/a"))
+    r.send(host("DELETE", "/dainty/api/InviteCode/a"))
         .await
         .assert(400, r#"{"error":"bad_request"}"#);
-    r.send(host("DELETE", "/reforged/api/InviteCode/ZZZZ-ZZZZ-ZZZZ"))
+    r.send(host("DELETE", "/dainty/api/InviteCode/ZZZZ-ZZZZ-ZZZZ"))
         .await
         .assert(404, "");
-    r.send(host("DELETE", leak(&format!("/reforged/api/InviteCode/{code}"))))
+    r.send(host("DELETE", leak(&format!("/dainty/api/InviteCode/{code}"))))
         .await
         .assert(200, "");
     let status_bad =
         r#"{"error":"bad_request","message":"Username and Status (active, banned or disabled) are required."}"#;
-    r.send(host("POST", "/reforged/api/SetAccountStatus").json(&json!({"Username": "Fox_9", "Status": "x"})))
+    r.send(host("POST", "/dainty/api/SetAccountStatus").json(&json!({"Username": "Fox_9", "Status": "x"})))
         .await
         .assert(400, status_bad);
-    r.send(host("POST", "/reforged/api/SetAccountStatus").json(&json!({"Username": "a", "Status": "banned"})))
+    r.send(host("POST", "/dainty/api/SetAccountStatus").json(&json!({"Username": "a", "Status": "banned"})))
         .await
         .assert(400, status_bad);
-    r.send(host("POST", "/reforged/api/SetAccountStatus").json(&json!({"Username": "Nobody", "Status": "banned"})))
+    r.send(host("POST", "/dainty/api/SetAccountStatus").json(&json!({"Username": "Nobody", "Status": "banned"})))
         .await
         .assert(404, r#"{"error":"not_found","message":"No account has that name."}"#);
     let set = r
-        .send(host("POST", "/reforged/api/SetAccountStatus").json(&json!({"Username": "fox_9", "Status": "banned"})))
+        .send(host("POST", "/dainty/api/SetAccountStatus").json(&json!({"Username": "fox_9", "Status": "banned"})))
         .await;
     set.assert(200, r#"{"UserId":"fox-user","Username":"Fox_9","Status":"banned"}"#);
     let kick = r
-        .send(host("POST", "/reforged/api/Kick").json(&json!({"Username": "Fox_9"})))
+        .send(host("POST", "/dainty/api/Kick").json(&json!({"Username": "Fox_9"})))
         .await;
     kick.assert(200, r#"{"UserId":"fox-user","Username":"Fox_9","Closed":0}"#);
 }

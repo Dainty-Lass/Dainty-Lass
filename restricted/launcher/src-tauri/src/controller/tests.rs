@@ -89,7 +89,7 @@ mod realms;
 
 // ---------------------------------------------------------------- the fake server
 
-/// `FakeServer`: the backend's launcher API (`/reforged/api/*`) and the content server (`/content/v1/*`)
+/// `FakeServer`: the backend's launcher API (`/dainty/api/*`) and the content server (`/content/v1/*`)
 /// on one address, as the launcher sees them through the gateway.
 struct Host {
     name: String,
@@ -173,7 +173,7 @@ async fn handle(host: Shared, request: Request<Incoming>) -> Response<Full<Bytes
     host.lock().unwrap().seen.push(path.clone());
     // A Dauntless Revived server answers the same calls under DR's names
     let path = match path.strip_prefix("/undaunted/api/") {
-        Some(rest) => format!("/reforged/api/{rest}"),
+        Some(rest) => format!("/dainty/api/{rest}"),
         None => path,
     };
     let body = request
@@ -185,11 +185,11 @@ async fn handle(host: Shared, request: Request<Incoming>) -> Response<Full<Bytes
     let user = |host: &Host| key.as_ref().and_then(|key| host.users.get(key)).cloned();
     match path.as_str() {
         "/dauntless-status" => return reply(200, json!({ "show-status": true })),
-        "/reforged/api/ServerStatus" => {
+        "/dainty/api/ServerStatus" => {
             let h = host.lock().unwrap();
             return reply(200, status_body(&h, user(&h).is_some()));
         }
-        "/reforged/api/GetUserInfo" => {
+        "/dainty/api/GetUserInfo" => {
             let h = host.lock().unwrap();
             if let Some(reason) = key.as_ref().and_then(|key| h.banned.get(key)) {
                 return reply(403, json!({ "error": "account_banned", "reason": reason }));
@@ -199,7 +199,7 @@ async fn handle(host: Shared, request: Request<Incoming>) -> Response<Full<Bytes
                 None => reply(401, json!({ "error": "unauthorized" })),
             };
         }
-        "/reforged/api/Register" if method == hyper::Method::POST => {
+        "/dainty/api/Register" if method == hyper::Method::POST => {
             let parsed: Value = serde_json::from_slice(&body).unwrap_or(Value::Null);
             let username = parsed["Username"].as_str().unwrap_or("").to_owned();
             let code = parsed["InviteCode"].as_str().unwrap_or("").to_owned();
@@ -231,7 +231,7 @@ async fn handle(host: Shared, request: Request<Incoming>) -> Response<Full<Bytes
             );
         }
         "/content/v1/branding" => return reply(200, json!({ "backgrounds": [], "accent": null })),
-        "/reforged/api/PlayingEnded" => return reply(204, Value::Null),
+        "/dainty/api/PlayingEnded" => return reply(204, Value::Null),
         "/content/v1/manifest" => {
             let h = host.lock().unwrap();
             return match &h.game_files {
@@ -738,7 +738,7 @@ async fn public_mode_end_to_end_join_register_game_check_runtime_trust_and_insta
     assert_eq!(status, 200);
     assert!(body.contains("pong"), "{body}");
     let before = gw.lock().unwrap().seen.len();
-    let (status, _) = get(hx.relay_port, "/reforged/api/RegistrationStatus").await;
+    let (status, _) = get(hx.relay_port, "/dainty/api/RegistrationStatus").await;
     assert_eq!(status, 404, "the fake has no such route: the request reached it");
     assert_eq!(gw.lock().unwrap().seen.len(), before + 1);
     assert_eq!(hx.c.play().await, error(ErrorCode::AlreadyRunning));

@@ -98,7 +98,7 @@ impl GameModule for MyModule {
     }
 
     fn register(&mut self, reg: &mut Registrar) -> Result<(), ModuleError> {
-        reg.add_route_group(RouteGroup::new("backend", vec!["/reforged/api".into(), "/account".into()]))?;
+        reg.add_route_group(RouteGroup::new("backend", vec!["/dainty/api".into(), "/account".into()]))?;
         reg.add_udp_range(UdpRange::new("game", 8770, 8777)?)?;
         reg.add_command(CommandSpec::new("status", "Print module status"))?;
         reg.add_config_section(ConfigSectionSpec::new(

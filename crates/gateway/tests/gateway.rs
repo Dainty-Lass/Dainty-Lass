@@ -65,11 +65,11 @@ async fn proxies_with_the_secret_set_and_the_policy_applied() {
     .await;
     assert_eq!((k.status, k.text().as_str()), (403, r#"{"error":"forbidden"}"#));
     assert_eq!(k.header("cache-control"), Some("no-store"));
-    let admin = request(gw.port, fp, "POST", "/reforged/api/CreateInvite", &[], b"{}").await;
+    let admin = request(gw.port, fp, "POST", "/dainty/api/CreateInvite", &[], b"{}").await;
     assert_eq!(admin.status, 403);
     assert_eq!(admin.header("connection"), Some("close"));
     assert_eq!(backend.seen.lock().unwrap().len(), before);
-    let public = request(gw.port, fp, "GET", "/reforged/api/ServerStatus", &[], b"").await;
+    let public = request(gw.port, fp, "GET", "/dainty/api/ServerStatus", &[], b"").await;
     assert_eq!(public.status, 200);
 
     // Chunked answers stay chunked with both cookies; hop-by-hop and leaky headers dropped

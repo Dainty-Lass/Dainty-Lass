@@ -126,7 +126,7 @@ cargo +nightly fuzz run launcher_input -- -max_total_time=86400
 
 ## Changes from Dauntless Revived
 
-- The key header is `x-dainty-user-api-key` and the routes are under `/reforged/api` (DR: `x-undaunted-...`,
+- The key header is `x-dainty-user-api-key` and the routes are under `/dainty/api` (DR: `x-undaunted-...`,
   `/undaunted/api`).
 - GetUserInfo follows the same key rule as ServerStatus; DR sent the key unconditionally.
 - DR's `DeviceSignals`, `HuntRegion` and `PlayingEnded` calls and its 1.4.4 content manifest are not ported; the

@@ -311,12 +311,12 @@ mod tests {
             port,
             pin: None,
         };
-        let response = request(&endpoint, "/reforged/api/ServerStatus?x=1", options())
+        let response = request(&endpoint, "/dainty/api/ServerStatus?x=1", options())
             .await
             .unwrap();
         assert_eq!(response.status, 200);
         let body = parse_json_body(&response).unwrap();
-        assert_eq!(body["path"], "/reforged/api/ServerStatus?x=1");
+        assert_eq!(body["path"], "/dainty/api/ServerStatus?x=1");
         assert_eq!(body["host"], format!("127.0.0.1:{port}"));
     }
 

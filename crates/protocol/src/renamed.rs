@@ -3,7 +3,11 @@
 //! through [`renamed`] so they stay as recorded (RD2) while the services answer under the new names.
 
 /// Old spelling, new spelling: applied in order, each one everywhere it occurs.
-pub const RENAMES: &[(&str, &str)] = &[("x-reforged-", "x-dainty-"), ("X-Reforged-", "X-Dainty-")];
+pub const RENAMES: &[(&str, &str)] = &[
+    ("x-reforged-", "x-dainty-"),
+    ("X-Reforged-", "X-Dainty-"),
+    ("/reforged/api", "/dainty/api"),
+];
 
 /// `name` as a recording made under the old names spells it: [`renamed`] backwards, for a test double that reports
 /// what it was sent the way the recording does.

@@ -115,17 +115,17 @@ echo "served:   $served"
 echo "expected: $expected"
 [ "$served" = "$expected" ]
 
-step "the gateway proxies /reforged/api/ServerStatus and migrated accounts from the Rust backend"
+step "the gateway proxies /dainty/api/ServerStatus and migrated accounts from the Rust backend"
 printf '%s\n' "$fp_file" >"$smoke_dir/gateway-cert.pem"
-status_json="$(curl -fsS --cacert "$smoke_dir/gateway-cert.pem" --resolve "smoke.example.org:${SMOKE_PORT:-18443}:127.0.0.1" "https://smoke.example.org:${SMOKE_PORT:-18443}/reforged/api/ServerStatus")"
+status_json="$(curl -fsS --cacert "$smoke_dir/gateway-cert.pem" --resolve "smoke.example.org:${SMOKE_PORT:-18443}:127.0.0.1" "https://smoke.example.org:${SMOKE_PORT:-18443}/dainty/api/ServerStatus")"
 echo "ServerStatus: $status_json"
 printf '%s\n' "$status_json" | grep -q '"online":true'
 
-user_taken_json="$(curl -sS --cacert "$smoke_dir/gateway-cert.pem" --resolve "smoke.example.org:${SMOKE_PORT:-18443}:127.0.0.1" -H "Content-Type: application/json" -d '{"Username":"SlayerDocker","InviteCode":"INV-DOCKER-01"}' "https://smoke.example.org:${SMOKE_PORT:-18443}/reforged/api/Register")"
+user_taken_json="$(curl -sS --cacert "$smoke_dir/gateway-cert.pem" --resolve "smoke.example.org:${SMOKE_PORT:-18443}:127.0.0.1" -H "Content-Type: application/json" -d '{"Username":"SlayerDocker","InviteCode":"INV-DOCKER-01"}' "https://smoke.example.org:${SMOKE_PORT:-18443}/dainty/api/Register")"
 echo "Register SlayerDocker (migrated account): $user_taken_json"
 printf '%s\n' "$user_taken_json" | grep -q '"username_taken"'
 
-user_new_json="$(curl -fsS --cacert "$smoke_dir/gateway-cert.pem" --resolve "smoke.example.org:${SMOKE_PORT:-18443}:127.0.0.1" -H "Content-Type: application/json" -d '{"Username":"DockerNewbie","InviteCode":"INV-DOCKER-01"}' "https://smoke.example.org:${SMOKE_PORT:-18443}/reforged/api/Register")"
+user_new_json="$(curl -fsS --cacert "$smoke_dir/gateway-cert.pem" --resolve "smoke.example.org:${SMOKE_PORT:-18443}:127.0.0.1" -H "Content-Type: application/json" -d '{"Username":"DockerNewbie","InviteCode":"INV-DOCKER-01"}' "https://smoke.example.org:${SMOKE_PORT:-18443}/dainty/api/Register")"
 echo "Register DockerNewbie with migrated invite: $user_new_json"
 printf '%s\n' "$user_new_json" | grep -q '"UUK"'
 

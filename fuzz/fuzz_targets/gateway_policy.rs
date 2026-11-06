@@ -37,7 +37,7 @@ fuzz_target!(|input: (String, String, Vec<(String, Vec<u8>)>, bool)| {
     assert!(HOST_ONLY_PREFIXES.iter().all(|p| !under(&canonical, p)));
     let method = method.to_ascii_uppercase();
     if under(&canonical, "/reforged") {
-        let name = canonical.strip_prefix("/reforged/api/").expect("only the public API");
+        let name = canonical.strip_prefix("/dainty/api/").expect("only the public API");
         let (_, methods) = PUBLIC_REFORGED_API
             .iter()
             .find(|(n, _)| *n == name)

@@ -203,15 +203,15 @@ pub(super) static TABLE: [RouteDef; 290] = [
     r(B, Get, r"/launcher/v1/account/deletion", Auth, Isles, Always), // B170
     r(B, Post, r"/launcher/v1/account/deletion", Auth, Isles, Always), // B171
     r(B, Delete, r"/launcher/v1/account/deletion", Auth, Isles, Always), // B172
-    r(B, Post, r"/reforged/api/Register", ReforgedApi, Isles, Always), // B173
-    r(B, Get, r"/reforged/api/GetUserInfo", ReforgedApi, Isles, Always), // B174
-    r(B, Get, r"/reforged/api/ServerStatus", ReforgedApi, Isles, Always), // B175
-    r(B, Get, r"/reforged/api/RegistrationStatus", ReforgedApi, Isles, Always), // B176
-    r(B, Post, r"/reforged/api/CreateInvite", ReforgedApi, Isles, Always), // B177
-    r(B, Get, r"/reforged/api/InviteCodes", ReforgedApi, Isles, Always), // B178
-    r(B, Delete, r"/reforged/api/InviteCode/:code", ReforgedApi, Isles, Always), // B179
-    r(B, Post, r"/reforged/api/SetAccountStatus", ReforgedApi, Isles, Always), // B180
-    r(B, Post, r"/reforged/api/Kick", ReforgedApi, Isles, Always), // B181
+    r(B, Post, r"/dainty/api/Register", ReforgedApi, Isles, Always), // B173
+    r(B, Get, r"/dainty/api/GetUserInfo", ReforgedApi, Isles, Always), // B174
+    r(B, Get, r"/dainty/api/ServerStatus", ReforgedApi, Isles, Always), // B175
+    r(B, Get, r"/dainty/api/RegistrationStatus", ReforgedApi, Isles, Always), // B176
+    r(B, Post, r"/dainty/api/CreateInvite", ReforgedApi, Isles, Always), // B177
+    r(B, Get, r"/dainty/api/InviteCodes", ReforgedApi, Isles, Always), // B178
+    r(B, Delete, r"/dainty/api/InviteCode/:code", ReforgedApi, Isles, Always), // B179
+    r(B, Post, r"/dainty/api/SetAccountStatus", ReforgedApi, Isles, Always), // B180
+    r(B, Post, r"/dainty/api/Kick", ReforgedApi, Isles, Always), // B181
     r(B, Get, r"/launcher/v1/runtime/:target/:channel/:platform", ReforgedApi, Isles, Always), // B182
     r(B, Get, r"/launcher/v1/runtime/:channel/:platform", ReforgedApi, Isles, Always), // B183
     r(B, Get, r"/launcher/v1/runtime/:target/:channel/:platform/download", ReforgedApi, Isles, Always), // B184

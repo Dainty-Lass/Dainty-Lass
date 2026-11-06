@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Silent Spud
 
 //! Invite link formatting (`dauntless://join?...`), gateway X.509 certificate SHA-256 fingerprint
-//! inspection, and local backend admin API calls (`/reforged/api/CreateInvite` and `/reforged/api/InviteCodes`).
+//! inspection, and local backend admin API calls (`/dainty/api/CreateInvite` and `/dainty/api/InviteCodes`).
 
 use std::io::{Read, Write};
 use std::net::{IpAddr, SocketAddr, TcpStream};
@@ -449,7 +449,7 @@ fn error_detail_from_body(body: &str) -> String {
     }
 }
 
-/// Calls `POST /reforged/api/CreateInvite` on `127.0.0.1:port` and returns the created invite code.
+/// Calls `POST /dainty/api/CreateInvite` on `127.0.0.1:port` and returns the created invite code.
 pub fn create_invite_code(admin_key: &str, opts: &CodeOptions, port: u16) -> Result<String, HostError> {
     let key = admin_key.trim();
     if key.is_empty() {
@@ -470,7 +470,7 @@ pub fn create_invite_code(admin_key: &str, opts: &CodeOptions, port: u16) -> Res
     let resp = http_request(
         "POST",
         port,
-        "/reforged/api/CreateInvite",
+        "/dainty/api/CreateInvite",
         &[("x-dainty-admin-key", key), ("Content-Type", "application/json")],
         Some(&body_str),
         Duration::from_millis(5000),
@@ -507,7 +507,7 @@ pub fn create_invite_code(admin_key: &str, opts: &CodeOptions, port: u16) -> Res
     Ok(code.to_owned())
 }
 
-/// Calls `GET /reforged/api/InviteCodes` on `127.0.0.1:port` and returns the invite code objects.
+/// Calls `GET /dainty/api/InviteCodes` on `127.0.0.1:port` and returns the invite code objects.
 pub fn list_invite_codes(port: u16, admin_key: &str) -> Result<Vec<Value>, HostError> {
     let key = admin_key.trim();
     if key.is_empty() {
@@ -516,7 +516,7 @@ pub fn list_invite_codes(port: u16, admin_key: &str) -> Result<Vec<Value>, HostE
     let resp = http_request(
         "GET",
         port,
-        "/reforged/api/InviteCodes",
+        "/dainty/api/InviteCodes",
         &[("x-dainty-admin-key", key)],
         None,
         Duration::from_millis(5000),
@@ -657,7 +657,7 @@ mod tests {
             let mut buf = [0u8; 2048];
             let n = stream.read(&mut buf).unwrap();
             let req = String::from_utf8_lossy(&buf[..n]);
-            assert!(req.contains("POST /reforged/api/CreateInvite HTTP/1.1"));
+            assert!(req.contains("POST /dainty/api/CreateInvite HTTP/1.1"));
             assert!(req.contains("x-dainty-admin-key: secret123"));
             let body = r#"{"code":"HUNT-2026"}"#;
             let resp = format!(

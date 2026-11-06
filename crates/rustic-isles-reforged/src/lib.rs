@@ -66,13 +66,13 @@ pub fn register_public(handlers: &mut Handlers) {
         .on(b, Get, "/internal/v1/metrics", probes::metrics)
         .on(b, Get, "/dauntless-status", probes::dauntless_status)
         .on(b, Get, "/maintenance/status", probes::maintenance)
-        .on(b, Post, "/reforged/api/Register", reforged_api::register)
-        .on(b, Get, "/reforged/api/GetUserInfo", reforged_api::get_user_info)
-        .on(b, Get, "/reforged/api/ServerStatus", reforged_api::server_status)
+        .on(b, Post, "/dainty/api/Register", reforged_api::register)
+        .on(b, Get, "/dainty/api/GetUserInfo", reforged_api::get_user_info)
+        .on(b, Get, "/dainty/api/ServerStatus", reforged_api::server_status)
         .on(
             b,
             Get,
-            "/reforged/api/RegistrationStatus",
+            "/dainty/api/RegistrationStatus",
             reforged_api::registration_status,
         )
         .on(

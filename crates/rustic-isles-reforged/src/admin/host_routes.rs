@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Silent Spud
 
-//! The host kit's own `/reforged/api/*` calls (admin spec §9): loopback, no gateway stamp, the host key.
+//! The host kit's own `/dainty/api/*` calls (admin spec §9): loopback, no gateway stamp, the host key.
 
 use axum::response::Response;
 use http::{HeaderMap, StatusCode};
@@ -63,7 +63,7 @@ fn bad_request(message: Option<&str>) -> Response {
     json(StatusCode::BAD_REQUEST, &body)
 }
 
-/// `POST /reforged/api/CreateInvite`: mints a registration invite code.
+/// `POST /dainty/api/CreateInvite`: mints a registration invite code.
 pub async fn create_invite(mut call: Call) -> Response {
     let (body, store) = match enter(&mut call).await {
         Ok(entered) => entered,
@@ -113,7 +113,7 @@ pub async fn create_invite(mut call: Call) -> Response {
     util::empty(StatusCode::INTERNAL_SERVER_ERROR)
 }
 
-/// `GET /reforged/api/InviteCodes`: lists the invite codes.
+/// `GET /dainty/api/InviteCodes`: lists the invite codes.
 pub async fn invite_codes(mut call: Call) -> Response {
     let (_, store) = match enter(&mut call).await {
         Ok(entered) => entered,
@@ -142,7 +142,7 @@ pub async fn invite_codes(mut call: Call) -> Response {
     }
 }
 
-/// `DELETE /reforged/api/InviteCode/:code`: deletes an invite code.
+/// `DELETE /dainty/api/InviteCode/:code`: deletes an invite code.
 pub async fn delete_invite(mut call: Call) -> Response {
     let (_, store) = match enter(&mut call).await {
         Ok(entered) => entered,
@@ -181,7 +181,7 @@ async fn by_name(store: &IslesStore, name: &str) -> Result<Option<(LauncherAccou
         .await
 }
 
-/// `POST /reforged/api/SetAccountStatus`: sets an account's operational status.
+/// `POST /dainty/api/SetAccountStatus`: sets an account's operational status.
 pub async fn set_account_status(mut call: Call) -> Response {
     let (body, store) = match enter(&mut call).await {
         Ok(entered) => entered,
@@ -239,7 +239,7 @@ pub async fn set_account_status(mut call: Call) -> Response {
     }
 }
 
-/// `POST /reforged/api/Kick`: disconnects a player by username.
+/// `POST /dainty/api/Kick`: disconnects a player by username.
 pub async fn kick(mut call: Call) -> Response {
     let (body, store) = match enter(&mut call).await {
         Ok(entered) => entered,

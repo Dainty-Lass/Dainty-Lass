@@ -76,7 +76,7 @@ Fuzz targets in `fuzz`:
 - [ ] Paths are compared the way Express matches routes, and more leniently: percent-decoded, lower case, repeated
       slashes folded, trailing slashes dropped (`canonical_path`).
 - [ ] Under `/reforged`, only `POST register`, `GET`/`HEAD getuserinfo`, `serverstatus` and `registrationstatus` under
-      `/reforged/api/` pass; every other route (invites, account status) is 403 `admin_route`, even with a valid admin
+      `/dainty/api/` pass; every other route (invites, account status) is 403 `admin_route`, even with a valid admin
       key and even as an upgrade. The test reads every route from `modules/rustic-isles/reference/1.14.7/ParadoxBackend/src/routes/reforgedApi.ts`, so a
       route added there is covered (`policy.rs` and `tests/gateway.rs`, `only_the_public_reforged_routes_*`).
 - [ ] `/admin`, `/launcher`, `/internal` and `/health`, and everything under them, are 403 `host_only_route`

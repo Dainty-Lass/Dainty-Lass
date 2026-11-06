@@ -52,7 +52,7 @@ Shadow replay is built into `dainty-host db replay` (backed by dainty-lass's `ru
 ### 2.1 Preparing the target server (`--right`)
 
 1. Start from a database snapshot (`dainty-lass.db` or PostgreSQL dump) taken before the captured session began, so account state, character `updateVersion`, inventory instances, and progression tracks start from the same baseline.
-2. If the captured session includes `/account/api/oauth/token` (`grant_type=exchange_code`), `/reforged/api/ServerStatus`, or `/reforged/api/GetUserInfo` calls authenticated with a launcher account key (`RRK_...` or `UUK_...`), provide a `--key-map <keymap.json>` file so `<key:<sha256>>` placeholders resolve to the raw key registered on the target server:
+2. If the captured session includes `/account/api/oauth/token` (`grant_type=exchange_code`), `/dainty/api/ServerStatus`, or `/dainty/api/GetUserInfo` calls authenticated with a launcher account key (`RRK_...` or `UUK_...`), provide a `--key-map <keymap.json>` file so `<key:<sha256>>` placeholders resolve to the raw key registered on the target server:
    - Either a JSON array of raw keys (the runner computes each key's SHA-256 automatically):
      ```json
      [
@@ -186,9 +186,9 @@ The end-to-end pipeline (live `Server A` with `CAPTURE_DIR` enabled in `.workspa
 
 ### 5.1 Captured routes exercised through the gateway
 
-1. `GET /reforged/api/RegistrationStatus`
-2. `GET /reforged/api/ServerStatus` (with `x-dainty-user-api-key: RRK_...` -> redacted to `<key:sha256>`)
-3. `GET /reforged/api/GetUserInfo` (with `x-dainty-user-api-key: RRK_...` -> redacted to `<key:sha256>`)
+1. `GET /dainty/api/RegistrationStatus`
+2. `GET /dainty/api/ServerStatus` (with `x-dainty-user-api-key: RRK_...` -> redacted to `<key:sha256>`)
+3. `GET /dainty/api/GetUserInfo` (with `x-dainty-user-api-key: RRK_...` -> redacted to `<key:sha256>`)
 4. `POST /account/api/oauth/token` (`grant_type=exchange_code&exchange_code=RRK_...` -> redacted to `<key:sha256>`, response `access_token` redacted to `<token:52c7ed2e-99e4-463c-8d08-7f509bc9de02>`)
 5. `POST /login` (with `Authorization: Bearer <jwt>` -> redacted to `Bearer <token:52c7ed2e-99e4-463c-8d08-7f509bc9de02>`)
 6. `GET /accountinfo`

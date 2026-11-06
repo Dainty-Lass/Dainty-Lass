@@ -97,7 +97,7 @@ fn echo_record(name: &str, method: &str, url: &str, headers: &http::HeaderMap, b
         r#"{{"upstream":{},"method":{},"url":{},"headers":{},"bodyLength":{},"bodySha":{}}}"#,
         json_text(name),
         json_text(method),
-        json_text(url),
+        json_text(&protocol::renamed::as_recorded(url)),
         serde_json::to_string(&seen).unwrap(),
         body.len(),
         json_text(&sha)
@@ -459,6 +459,12 @@ where
     let mut server = start(pairs, cert.clone()).await;
     let mut differences = Vec::new();
     for (request, wanted) in requests["requests"].as_array().unwrap().iter().zip(expected) {
+        // The label and the gateway's own log say what it was sent, under the new names
+        let mut wanted = wanted.clone();
+        for field in ["request", "log"] {
+            wanted[field] = serde_json::from_str(&protocol::renamed::renamed(&wanted[field].to_string())).unwrap();
+        }
+        let wanted = &wanted;
         let wanted_lines = wanted["log"].as_array().map_or(0, Vec::len);
         let got = exchange(&server, &cert, request, wanted_lines).await;
         if &got != wanted {

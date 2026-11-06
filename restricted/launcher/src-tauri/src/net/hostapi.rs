@@ -1,4 +1,4 @@
-//! Calls to the host, row L21: `src/main/hostapi.ts`. The backend's launcher API (`/reforged/api`, the
+//! Calls to the host, row L21: `src/main/hostapi.ts`. The backend's launcher API (`/dainty/api`, the
 //! same contract as Dauntless Revived's `/undaunted/api`) and the content server behind the gateway
 //! (`/content/v1`).
 //!
@@ -40,7 +40,7 @@ pub struct Flavor {
 }
 
 pub const REFORGED: Flavor = Flavor {
-    api: "/reforged/api",
+    api: "/dainty/api",
     key_header: KEY_HEADER,
 };
 
@@ -153,7 +153,7 @@ pub async fn fetch_server_status_as(
 
 // ---------------------------------------------------------------- Register / GetUserInfo
 
-/// `POST /reforged/api/Register`. The key in a successful answer goes to the keystore, nowhere else.
+/// `POST /dainty/api/Register`. The key in a successful answer goes to the keystore, nowhere else.
 pub async fn register_account(endpoint: &Endpoint, username: &str, invite_code: &str) -> RegisterResult {
     register_account_as(REFORGED, endpoint, username, invite_code).await
 }
@@ -188,7 +188,7 @@ pub async fn register_account_as(
     }
 }
 
-/// `GET /reforged/api/GetUserInfo`, with the key under the same rule as ServerStatus.
+/// `GET /dainty/api/GetUserInfo`, with the key under the same rule as ServerStatus.
 pub async fn fetch_user_info(endpoint: &Endpoint, key: &str) -> Result<UserInfo, (ErrorCode, Option<String>)> {
     fetch_user_info_as(REFORGED, endpoint, key).await
 }

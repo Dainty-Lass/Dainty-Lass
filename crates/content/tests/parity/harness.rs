@@ -164,7 +164,7 @@ async fn fake_backend(keys: Map<String, Value>) -> String {
                         .then(|| value.trim().to_owned())
                 });
                 let answer = key
-                    .filter(|_| target == "/reforged/api/GetUserInfo")
+                    .filter(|_| target == "/dainty/api/GetUserInfo")
                     .and_then(|key| keys.get(&key).cloned());
                 let (status, body) = match answer {
                     Some(answer) => (

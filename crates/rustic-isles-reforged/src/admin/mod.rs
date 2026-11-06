@@ -588,16 +588,11 @@ pub fn register_admin(handlers: &mut rustic_isles::Handlers) {
     };
     handlers
         .on(b, Get, "/health/release-gates", release_gates::release_gates)
-        .on(b, Post, "/reforged/api/CreateInvite", host_routes::create_invite)
-        .on(b, Get, "/reforged/api/InviteCodes", host_routes::invite_codes)
-        .on(b, Delete, "/reforged/api/InviteCode/:code", host_routes::delete_invite)
-        .on(
-            b,
-            Post,
-            "/reforged/api/SetAccountStatus",
-            host_routes::set_account_status,
-        )
-        .on(b, Post, "/reforged/api/Kick", host_routes::kick);
+        .on(b, Post, "/dainty/api/CreateInvite", host_routes::create_invite)
+        .on(b, Get, "/dainty/api/InviteCodes", host_routes::invite_codes)
+        .on(b, Delete, "/dainty/api/InviteCode/:code", host_routes::delete_invite)
+        .on(b, Post, "/dainty/api/SetAccountStatus", host_routes::set_account_status)
+        .on(b, Post, "/dainty/api/Kick", host_routes::kick);
     let (open, required) = (AdminAuth::Open, AdminAuth::Required);
     wrapped(handlers, Post, "/admin/v1/auth/login", open, |c| {
         Box::pin(signin::login(c))

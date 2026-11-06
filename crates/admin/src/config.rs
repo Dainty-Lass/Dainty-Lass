@@ -35,7 +35,7 @@ pub struct Config {
     pub director_url: String,
     /// `REFORGED_ADMIN_API_KEY`: what the bot sends, `Authorization: Bearer <key>`
     pub api_key: String,
-    /// `REFORGED_ADMIN_KEY`: the backend's `/reforged/api` admin routes (the kick)
+    /// `REFORGED_ADMIN_KEY`: the backend's `/dainty/api` admin routes (the kick)
     pub admin_key: String,
     /// `RUSTIC_ISLES_MANAGER_OPERATOR_SECRET`: signs the calls to the backend's `/admin/v1`
     pub operator_secret: String,
