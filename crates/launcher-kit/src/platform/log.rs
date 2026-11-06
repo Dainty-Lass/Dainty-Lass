@@ -80,7 +80,7 @@ struct Patterns {
 }
 
 static PATTERNS: LazyLock<Option<Patterns>> = LazyLock::new(|| {
-    let auth = format!(r#"({})[^{JS_SPACE}"']+"#, ascii_ci("-AUTH_PASSWORD="));
+    let auth = format!(r#"({})[^{JS_SPACE}"']*"#, ascii_ci("-AUTH_PASSWORD="));
     let header = format!(
         r#"({}["']?[{JS_SPACE}]*[:=][{JS_SPACE}]*["']?)[^{JS_SPACE}"',}}]+"#,
         ascii_ci("x-reforged-user-api-key")

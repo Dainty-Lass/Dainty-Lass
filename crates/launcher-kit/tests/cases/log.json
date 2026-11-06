@@ -126,6 +126,16 @@
       "expected": "'-AUTH_PASSWORD=<hidden>' next"
     },
     {
+      "name": "an empty password value is still marked hidden when a quote follows",
+      "input": "-auth_password='x y'",
+      "expected": "-auth_password=<hidden>'x y'"
+    },
+    {
+      "name": "an empty password value is still marked hidden when white space or the end follows",
+      "input": "-AUTH_PASSWORD= next -AUTH_PASSWORD=",
+      "expected": "-AUTH_PASSWORD=<hidden> next -AUTH_PASSWORD=<hidden>"
+    },
+    {
       "name": "the password value stops at tab, no-break space and byte order mark (JavaScript white space)",
       "input": "-AUTH_PASSWORD=a\tb -AUTH_PASSWORD=c d -AUTH_PASSWORD=e﻿f",
       "expected": "-AUTH_PASSWORD=<hidden>\tb -AUTH_PASSWORD=<hidden> d -AUTH_PASSWORD=<hidden>﻿f"
