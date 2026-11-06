@@ -98,13 +98,13 @@ Each half is the `server` image running `dainty-host start`, with its own `works
 ```yaml
 services:
   metagame:
-    image: reforged-revival-server:local
+    image: dainty-lass-server:local
     command: ["dainty-host", "start"]
     volumes: ["meta-workspace:/opt/reforged/.workspace"]
     ports: ["443:443"]           # the public gateway; the game half's node link arrives here too
     networks: [split]
   gameservers:
-    image: reforged-revival-server:local
+    image: dainty-lass-server:local
     command: ["dainty-host", "start"]
     volumes: ["games-workspace:/opt/reforged/.workspace", "./game:/game"]
     ports: ["8770-8777:8770-8777/udp"]   # the game ports only: its gateway is reached on the private network

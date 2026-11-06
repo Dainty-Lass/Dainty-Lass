@@ -158,7 +158,7 @@ docker compose run --rm host setup --mode private --host 100.x.y.z --name "Frida
 docker compose up -d
 ```
 
-The node is a machine of its own in your tailnet (`reforged-revival`, or `TS_HOSTNAME`): share that one with
+The node is a machine of its own in your tailnet (`dainty-lass`, or `TS_HOSTNAME`): share that one with
 your friends, and give its share link to setup with `--share`.
 
 ## Managed by host.toml alone
@@ -333,6 +333,11 @@ namespace and the optional dependencies depend on Compose's own behaviour. Rootl
 
 Never delete the `workspace` volume of a server that has players: a new certificate changes the fingerprint
 in every invite, and new secrets log everyone out.
+
+The Compose project was called `reforged-revival` before 2026-11-06, and Docker names the volumes after the project
+(`reforged-revival_workspace`). A server set up before then keeps its volumes, and so its certificate and players,
+by setting `COMPOSE_PROJECT_NAME=reforged-revival` in `.env` before the next `up`. Without it, Compose starts an empty
+`dainty-lass_workspace`.
 
 ## Testing the images
 

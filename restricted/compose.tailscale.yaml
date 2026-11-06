@@ -24,7 +24,7 @@ services:
     environment:
       # A reusable auth key (https://login.tailscale.com/admin/settings/keys), needed for the first start only
       TS_AUTHKEY: ${TS_AUTHKEY:-}
-      TS_HOSTNAME: ${TS_HOSTNAME:-reforged-revival}
+      TS_HOSTNAME: ${TS_HOSTNAME:-dainty-lass}
       TS_STATE_DIR: /var/lib/tailscale
       # A kernel network interface: the game servers' UDP and the gateway's TCP on the Tailscale address
       TS_USERSPACE: "false"

@@ -1,6 +1,6 @@
 # Builds the server release (MIGRATION_PLAN.md RD8, RH6; adapted from Dauntless Revived's server-release.yml, M38).
 # One archive per server platform, which `dainty-host setup` and `dainty-host update` download and check (RH5):
-#  - ReforgedRevivalServer-<version>-windows-x64.zip and -linux-x64.tar.gz hold reforged-revival-server-<version>/:
+#  - ReforgedRevivalServer-<version>-windows-x64.zip and -linux-x64.tar.gz hold dainty-lass-server-<version>/:
 #    the source of the commit (git archive, the corresponding source under the AGPL) and of the rustic-isles
 #    module in-tree (modules/rustic-isles, DS6/RD27), with
 #      bin/              the server in one binary (RD26), built here for that platform: dainty-server,
@@ -151,7 +151,7 @@ jobs:
         run: |
           set -euo pipefail
           ext=""; [ "$RUNNER_OS" = Windows ] && ext=".exe"
-          name="reforged-revival-server-$VERSION"
+          name="dainty-lass-server-$VERSION"
           out="$WORK/assemble/$name"
           rm -rf "$WORK/assemble" && mkdir -p "$out"
           # The commit's server source, as git has it (no .workspace, nothing git ignores); rustic-isles is in-tree (RD27)
@@ -191,7 +191,7 @@ jobs:
               } else if (e.isSymbolicLink()) throw new Error(`a symbolic link in the release: ${full}`);
             }
           })(root);
-          const manifest = { name: "reforged-revival-server", version, commit, target, platform, repository, files };
+          const manifest = { name: "dainty-lass-server", version, commit, target, platform, repository, files };
           fs.writeFileSync(path.join(root, "release.json"), JSON.stringify(manifest, null, 2) + "\n");
           console.log(`release.json: ${files.length} files`);
           EOF
@@ -200,7 +200,7 @@ jobs:
         run: |
           set -euo pipefail
           ext=""; [ "$RUNNER_OS" = Windows ] && ext=".exe"
-          bin="$WORK/assemble/reforged-revival-server-$VERSION/bin"
+          bin="$WORK/assemble/dainty-lass-server-$VERSION/bin"
           for b in dainty-host dainty-server dainty-server-minimal; do "$bin/$b$ext" --help > /dev/null; done
           # Each service the binary runs alone, as the systemd units and the containers run it
           for service in gateway allowlist content backend director; do "$bin/dainty-host$ext" "$service" --help > /dev/null; done
@@ -211,7 +211,7 @@ jobs:
       - name: Make the archive
         run: |
           set -euo pipefail
-          name="reforged-revival-server-$VERSION"
+          name="dainty-lass-server-$VERSION"
           mkdir -p "$WORK/release"
           cd "$WORK/assemble"
           if [ "$RUNNER_OS" = Windows ]; then
@@ -308,6 +308,6 @@ jobs:
           else
             tar -xzf "$REFORGED_SERVER_RELEASE/ReforgedRevivalServer-$VERSION-$PLATFORM.tar.gz"
           fi
-          root="$RUNNER_TEMP/host/reforged-revival-server-$VERSION"
+          root="$RUNNER_TEMP/host/dainty-lass-server-$VERSION"
           "$root/bin/dainty-host$ext" update --check | tee check.txt
           grep -q "Up to date" check.txt

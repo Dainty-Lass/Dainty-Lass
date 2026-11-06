@@ -27,7 +27,7 @@ fn sha(data: &[u8]) -> String {
 /// `SHA256SUMS.txt` (added to what is there).
 fn make_release(dir: &Path, version: &str, platform: &str, files: &[(&str, &str)]) -> PathBuf {
     std::fs::create_dir_all(dir).unwrap();
-    let top = format!("reforged-revival-server-{version}");
+    let top = format!("dainty-lass-server-{version}");
     let mut all: Vec<(String, Vec<u8>)> = files
         .iter()
         .map(|(p, t)| ((*p).to_owned(), t.as_bytes().to_vec()))
@@ -37,7 +37,7 @@ fn make_release(dir: &Path, version: &str, platform: &str, files: &[(&str, &str)
         .map(|(p, d)| json!({ "path": p, "sha256": sha(d), "size": d.len() }))
         .collect();
     let manifest = json!({
-        "name": "reforged-revival-server", "version": version, "commit": "0123456789abcdef0123",
+        "name": "dainty-lass-server", "version": version, "commit": "0123456789abcdef0123",
         "target": "test", "platform": platform, "files": listed,
     });
     all.push(("release.json".into(), serde_json::to_vec_pretty(&manifest).unwrap()));
@@ -344,7 +344,7 @@ fn reads_sha256sums_and_refuses_a_manifest_that_leaves_the_folder() {
         ]
     );
     let manifest = |path: &str| {
-        json!({ "name": "reforged-revival-server", "version": "1.0.0", "files": [{ "path": path, "sha256": "0".repeat(64) }] }).to_string()
+        json!({ "name": "dainty-lass-server", "version": "1.0.0", "files": [{ "path": path, "sha256": "0".repeat(64) }] }).to_string()
     };
     assert!(Manifest::parse(&manifest("bin/gateway")).is_ok());
     for bad in ["../x", "/etc/passwd", "a/../../x", "C:/x", "a\\b", ""] {

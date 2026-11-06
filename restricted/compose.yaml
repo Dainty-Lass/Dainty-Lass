@@ -18,10 +18,10 @@
 # nftables table filters the game servers' traffic inside that namespace without touching the host's firewall.
 # Every container mounts the volumes at the paths the env files name (/opt/reforged, as the server release).
 
-name: reforged-revival
+name: dainty-lass
 
 x-front: &front
-  image: ${REFORGED_IMAGE:-reforged-revival}-front:${REFORGED_TAG:-local}
+  image: ${REFORGED_IMAGE:-dainty-lass}-front:${REFORGED_TAG:-local}
   build:
     context: ..
     dockerfile: restricted/docker/Dockerfile
@@ -35,7 +35,7 @@ x-front: &front
   cap_drop: [ALL]
 
 x-server: &server
-  image: ${REFORGED_IMAGE:-reforged-revival}-server:${REFORGED_TAG:-local}
+  image: ${REFORGED_IMAGE:-dainty-lass}-server:${REFORGED_TAG:-local}
   build:
     context: ..
     dockerfile: restricted/docker/Dockerfile
@@ -56,7 +56,7 @@ x-server: &server
 # The network profile (DN12): four nodes, each its own namespace (net-*) holding the gateway, the only service a node
 # of the harness needs, and a netem sidecar that shapes the namespace's traffic. docker/network/test.sh runs it.
 x-network-net: &network-net
-  image: ${REFORGED_IMAGE:-reforged-revival}-front:${REFORGED_TAG:-local}
+  image: ${REFORGED_IMAGE:-dainty-lass}-front:${REFORGED_TAG:-local}
   build:
     context: ..
     dockerfile: restricted/docker/Dockerfile
@@ -76,7 +76,7 @@ x-network-net: &network-net
 
 # tc and nothing else, with CAP_NET_ADMIN in the node's namespace (the node's own containers keep none)
 x-network-netem: &network-netem
-  image: ${REFORGED_IMAGE:-reforged-revival}-netem:${REFORGED_TAG:-local}
+  image: ${REFORGED_IMAGE:-dainty-lass}-netem:${REFORGED_TAG:-local}
   build:
     context: ..
     dockerfile: restricted/docker/Dockerfile
@@ -101,7 +101,7 @@ x-network-netem-env: &network-netem-env
 
 # Setup from the host.toml network-init wrote, before the gateway starts
 x-network-configure: &network-configure
-  image: ${REFORGED_IMAGE:-reforged-revival}-server:${REFORGED_TAG:-local}
+  image: ${REFORGED_IMAGE:-dainty-lass}-server:${REFORGED_TAG:-local}
   build:
     context: ..
     dockerfile: restricted/docker/Dockerfile
@@ -118,7 +118,7 @@ x-network-configure: &network-configure
   cap_drop: [ALL]
 
 x-network-gateway: &network-gateway
-  image: ${REFORGED_IMAGE:-reforged-revival}-front:${REFORGED_TAG:-local}
+  image: ${REFORGED_IMAGE:-dainty-lass}-front:${REFORGED_TAG:-local}
   build:
     context: ..
     dockerfile: restricted/docker/Dockerfile
@@ -137,7 +137,7 @@ x-network-gateway: &network-gateway
     start_period: 30s
 
 x-network-node: &network-node
-  image: ${REFORGED_IMAGE:-reforged-revival}-server:${REFORGED_TAG:-local}
+  image: ${REFORGED_IMAGE:-dainty-lass}-server:${REFORGED_TAG:-local}
   build:
     context: ..
     dockerfile: restricted/docker/Dockerfile
@@ -162,7 +162,7 @@ services:
   # Holds the network namespace and the published ports, so a service restarting never drops the others'.
   # compose.tailscale.yaml replaces it with Tailscale for a private server.
   net:
-    image: ${REFORGED_IMAGE:-reforged-revival}-front:${REFORGED_TAG:-local}
+    image: ${REFORGED_IMAGE:-dainty-lass}-front:${REFORGED_TAG:-local}
     build:
       context: ..
       dockerfile: restricted/docker/Dockerfile
@@ -299,7 +299,7 @@ services:
   # Opt-in rollback path for one release until RB15 deletes it (docs/hosting-docker.md): Node ParadoxBackend on MongoDB
   backend-rollback:
     <<: *server
-    image: ${REFORGED_IMAGE:-reforged-revival}-server-rollback:${REFORGED_TAG:-local}
+    image: ${REFORGED_IMAGE:-dainty-lass}-server-rollback:${REFORGED_TAG:-local}
     build:
       context: ..
       dockerfile: restricted/docker/Dockerfile
@@ -324,7 +324,7 @@ services:
   # Opt-in rollback path for one release until RB15 deletes it (docs/hosting-docker.md): Node ParadoxDirector
   director-rollback:
     <<: *server
-    image: ${REFORGED_IMAGE:-reforged-revival}-server-rollback:${REFORGED_TAG:-local}
+    image: ${REFORGED_IMAGE:-dainty-lass}-server-rollback:${REFORGED_TAG:-local}
     build:
       context: ..
       dockerfile: restricted/docker/Dockerfile
@@ -465,7 +465,7 @@ services:
   # [rust] [backend] [director]. Its own network; the game-data volumes read-only, so the game-data tests check
   # this server's real data. docker/run-tests.sh is the full run, the smoke test included.
   test:
-    image: ${REFORGED_IMAGE:-reforged-revival}-test:${REFORGED_TAG:-local}
+    image: ${REFORGED_IMAGE:-dainty-lass}-test:${REFORGED_TAG:-local}
     build:
       context: ..
       dockerfile: restricted/docker/Dockerfile
@@ -488,7 +488,7 @@ services:
   # certificate, its node certificate, the CA's certificate and a host.toml listing the other three. Runs as root,
   # with the capabilities to write into the node volumes and hand them to uid 1000.
   network-init:
-    image: ${REFORGED_IMAGE:-reforged-revival}-server:${REFORGED_TAG:-local}
+    image: ${REFORGED_IMAGE:-dainty-lass}-server:${REFORGED_TAG:-local}
     build:
       context: ..
       dockerfile: restricted/docker/Dockerfile
@@ -676,7 +676,7 @@ services:
 
   # `docker compose --profile network up -d --wait network` starts the four nodes and nothing else
   network:
-    image: ${REFORGED_IMAGE:-reforged-revival}-front:${REFORGED_TAG:-local}
+    image: ${REFORGED_IMAGE:-dainty-lass}-front:${REFORGED_TAG:-local}
     profiles: [network]
     command: ["sleep", "infinity"]
     init: true
@@ -924,7 +924,7 @@ services:
 
   # `docker compose --profile remote up -d --wait remote` starts the controller and two managed installs
   remote:
-    image: ${REFORGED_IMAGE:-reforged-revival}-front:${REFORGED_TAG:-local}
+    image: ${REFORGED_IMAGE:-dainty-lass}-front:${REFORGED_TAG:-local}
     profiles: [remote]
     command: ["sleep", "infinity"]
     init: true
