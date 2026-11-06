@@ -40,9 +40,13 @@ rand.workspace = true
 futures-util.workspace = true
 base64.workspace = true
 url.workspace = true
+# The pooled client's connector (net/connector.rs)
+tower.workspace = true
 ts-rs = { workspace = true, optional = true }
 
 [dev-dependencies]
+# The fake CDN and synthetic versions for the install job (net/epic_install.rs)
+epic = { workspace = true, features = ["test-support"] }
 sha1_smol = "1"
 tokio-stream = "0.1"
 tempfile.workspace = true
