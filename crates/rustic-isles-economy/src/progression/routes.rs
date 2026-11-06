@@ -2408,7 +2408,7 @@ impl SessionSupplies {
         let Some(path) = self
             .shared
             .settings()
-            .get("REFORGED_SESSION_SUPPLIES_FILE")
+            .get("DAINTY_SESSION_SUPPLIES_FILE")
             .map(str::to_owned)
         else {
             return;

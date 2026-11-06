@@ -1,4 +1,4 @@
-//! Shipping and restore against a real S3 server: opt-in, with `REFORGED_TEST_S3` naming a throwaway MinIO
+//! Shipping and restore against a real S3 server: opt-in, with `DAINTY_TEST_S3` naming a throwaway MinIO
 //! on this machine and its root credentials (`http://user:password@127.0.0.1:9000`). The test makes its own
 //! bucket with object lock and a one-day GOVERNANCE retention. Skipped otherwise.
 #![allow(clippy::unwrap_used, clippy::expect_used, reason = "a panic is how a test fails")]
@@ -35,11 +35,11 @@ fn now() -> i64 {
 }
 
 fn minio() -> Option<S3Config> {
-    let Ok(url) = std::env::var("REFORGED_TEST_S3") else {
-        eprintln!("REFORGED_TEST_S3 is not set: the MinIO test is skipped");
+    let Ok(url) = std::env::var("DAINTY_TEST_S3") else {
+        eprintln!("DAINTY_TEST_S3 is not set: the MinIO test is skipped");
         return None;
     };
-    let url = url::Url::parse(&url).expect("REFORGED_TEST_S3 is http://user:password@127.0.0.1:port");
+    let url = url::Url::parse(&url).expect("DAINTY_TEST_S3 is http://user:password@127.0.0.1:port");
     Some(S3Config {
         endpoint: format!(
             "{}://{}:{}",

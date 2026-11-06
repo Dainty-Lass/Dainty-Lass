@@ -82,7 +82,7 @@ DaintyLass separates **core plugins** from **game modules** ([`crates/module-api
    every launch checks the files again. The launcher never injects: the DLL reaches the game only through the
    loader's `mystic_loader.ini`, and PLAY refuses to start while a leftover ini or an unknown DLL sits beside
    the loader.
-5. **Play.** The launcher starts Dauntless 1.14.7 with `-AUTH_PASSWORD=<key>` and `REFORGED_BACKEND_URL`
+5. **Play.** The launcher starts Dauntless 1.14.7 with `-AUTH_PASSWORD=<key>` and `DAINTY_BACKEND_URL`
    pointing at its relay. The relay carries the game's HTTP and chat to the gateway and answers the game's
    region ping (`/QoS`) locally; the game only ever sees `127.0.0.1:61100`. The backend runs Rustic Isles
    with `AUTH_MODE=APIKEY`, so the key is the game's login.

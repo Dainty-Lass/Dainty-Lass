@@ -191,7 +191,7 @@ impl Rig {
             ("RUSTIC_ISLES_ADMIN_API".into(), "on".into()),
             ("RUSTIC_ISLES_MANAGER_ADMIN".into(), "on".into()),
             ("RUSTIC_ISLES_MANAGER_OPERATOR_SECRET".into(), OPERATOR_SECRET.into()),
-            ("REFORGED_ADMIN_KEY".into(), ADMIN_KEY.into()),
+            ("DAINTY_ADMIN_KEY".into(), ADMIN_KEY.into()),
             ("LAUNCHER_UPDATE_ROOT".into(), updates.path().display().to_string()),
             ("LAUNCHER_LOG_STORAGE_DIR".into(), logs.path().display().to_string()),
             ("UPDATE_PUBLISHER_ALLOWED_IPS".into(), "127.0.0.1".into()),

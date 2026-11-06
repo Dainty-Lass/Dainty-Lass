@@ -37,7 +37,7 @@ through the leader.
 
 Code: `crates/network/src/directory.rs` (the leader's rules, the replica's pull and checks, the tables),
 `messages.rs` (the messages and their decoder), `username.rs` (the claim's case rule), `link.rs` and `inprocess.rs`.
-Tests: `crates/network/tests/directory.rs`, on SQLite and, with `REFORGED_TEST_POSTGRES_URL`, Postgres.
+Tests: `crates/network/tests/directory.rs`, on SQLite and, with `DAINTY_TEST_POSTGRES_URL`, Postgres.
 
 Fuzz target: `network_directory` in `fuzz` (both decoders and the username rule). It checks that a message is
 read whole or refused, that what is read holds only usernames the protocol's rule accepts and account ids of one
@@ -238,7 +238,7 @@ with `docker compose down --volumes`. It keeps the rules above anyway, so what i
   the ones that run. The `host.toml` lists every other node with the SHA-256 of its public gateway certificate.
 - **CAP_NET_ADMIN is the `netem-*` containers' alone**, in each node's namespace; the gateways keep
   `cap_drop: ALL`, `no-new-privileges` and a read-only root. `tc` shapes only that namespace's outgoing traffic.
-- **Published ports** are the gateways' 443 on `127.0.0.1` (`REFORGED_NETWORK_PUBLISH_ADDRESS`); the node links share
+- **Published ports** are the gateways' 443 on `127.0.0.1` (`DAINTY_NETWORK_PUBLISH_ADDRESS`); the node links share
   that port as they do anywhere. Setting the address to `0.0.0.0` exposes four nodes whose CA key anyone with the
   Docker socket can read: don't.
 - **`dainty-host network status`** (the check the harness runs in each node) calls the peers as the node itself, from
@@ -283,7 +283,7 @@ Code: `crates/network/src/home/` (`ticket.rs`, `keys.rs`, `protocol.rs`, `servic
 `client.rs` for `NetworkedHome`), `link.rs` (`Service::Home`, `ServiceMux`), and in
 `crates/module-api/src/network.rs` the seams (`HomeBackend`, `HomeInvocation`, `HomeForward`,
 `HomeApi::forward` and `admit`).
-Tests: `crates/network/tests/home.rs` (three regions in process, SQLite and, with `REFORGED_TEST_POSTGRES_URL`,
+Tests: `crates/network/tests/home.rs` (three regions in process, SQLite and, with `DAINTY_TEST_POSTGRES_URL`,
 Postgres), unit tests in `home/ticket.rs`, `keys.rs` and `protocol.rs`, and `crates/gateway/tests/home.rs` (two
 real gateways over mutual TLS).
 
@@ -388,7 +388,7 @@ writes verifies, a changed byte of a real ticket never verifies; public keys fro
   - [ ] Regional Ramsgate (`assign_ramsgate`, `AssignHub`) places players from any home node into their lowest-ping region's shared Ramsgate shard and starts a new shard on that region's Director when `max_hub_players` is reached. Test: `dn9_regional_ramsgate_places_players_from_different_homes_into_lowest_ping_hub_and_shards`.
 - **Wired end-to-end in `controller::modules::network`, `rustic-isles` (`module.rs`'s `command`), and `launcher::net::relay` (DN5, DN6, DN8, DN9)**:
   - `HomeRouterHook` registers `DriverDirectorRouter` (`DirectorInvocation` over `GameModule::command`) alongside `DriverBackend` (`HomeInvocation` over `GameModule::command`) for each loaded game module, and `NetworkedHome` delegates all ring methods (`ring_register_instance`, `ring_resolve_join`, `ring_submit_ticket`, `ring_try_form_matches`, `ring_ticket_state`, `ring_forward_hunt_rewards`, `ring_assign_ramsgate`, `ring_register_local_account_key`) to `RingNode`.
-  - `WrongNodePolicy` defaults to `WrongNodePolicy::Refuse` (`409 Conflict` with `"error":"WRONG_NODE"`) and can be switched to `WrongNodePolicy::Redirect` (`x-dainty-redirect-*` + `x-dainty-session-ticket` response headers) via `[network] wrong_node_policy` in `host.toml` (`REFORGED_WRONG_NODE_POLICY`).
+  - `WrongNodePolicy` defaults to `WrongNodePolicy::Refuse` (`409 Conflict` with `"error":"WRONG_NODE"`) and can be switched to `WrongNodePolicy::Redirect` (`x-dainty-redirect-*` + `x-dainty-session-ticket` response headers) via `[network] wrong_node_policy` in `host.toml` (`DAINTY_WRONG_NODE_POLICY`).
   - `launcher::net::relay` inspects upstream responses for `x-dainty-redirect-host`, `x-dainty-redirect-port`, `x-dainty-redirect-fingerprint`, and `x-dainty-session-ticket`, automatically calling `Relay::repoint` when all four are present.
 
 ## Chat federation (DN10b)

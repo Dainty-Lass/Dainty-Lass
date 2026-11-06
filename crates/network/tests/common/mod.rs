@@ -1,4 +1,4 @@
-//! The engines the network's tests run on: SQLite always, and Postgres too when `REFORGED_TEST_POSTGRES_URL` names
+//! The engines the network's tests run on: SQLite always, and Postgres too when `DAINTY_TEST_POSTGRES_URL` names
 //! a server the tests may create databases on, as `store`'s tests do.
 #![allow(
     clippy::unwrap_used,
@@ -33,8 +33,8 @@ impl Drop for PgDatabase {
 }
 
 pub fn postgres_server() -> Option<PostgresConfig> {
-    let url = std::env::var("REFORGED_TEST_POSTGRES_URL").ok()?;
-    let url = url::Url::parse(&url).expect("REFORGED_TEST_POSTGRES_URL is a postgres:// URL");
+    let url = std::env::var("DAINTY_TEST_POSTGRES_URL").ok()?;
+    let url = url::Url::parse(&url).expect("DAINTY_TEST_POSTGRES_URL is a postgres:// URL");
     Some(PostgresConfig {
         host: url.host_str().unwrap_or("127.0.0.1").to_owned(),
         port: url.port().unwrap_or(5432),
@@ -58,7 +58,7 @@ pub fn new_postgres(server: PostgresConfig) -> PgDatabase {
             .subsec_nanos()
     );
     PgConnection::establish(&server.conninfo())
-        .expect("REFORGED_TEST_POSTGRES_URL is reachable")
+        .expect("DAINTY_TEST_POSTGRES_URL is reachable")
         .batch_execute(&format!("CREATE DATABASE {}", portable::quote_ident(&name)))
         .unwrap();
     let config = PostgresConfig {
@@ -79,7 +79,7 @@ pub fn engines() -> Vec<Engine> {
     if postgres_server().is_some() {
         vec![Engine::Sqlite, Engine::Postgres]
     } else {
-        eprintln!("REFORGED_TEST_POSTGRES_URL is not set: the Postgres half is skipped");
+        eprintln!("DAINTY_TEST_POSTGRES_URL is not set: the Postgres half is skipped");
         vec![Engine::Sqlite]
     }
 }

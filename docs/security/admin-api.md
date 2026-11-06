@@ -42,7 +42,7 @@ has the name. A name found in two games is refused (`AMBIGUOUS_PLAYER`) until th
 (`game: "1.4.4"`).
 
 Every call to a module carries `ActorContext { actor: admin { key: "<key id>" }, request: "admin-<ms>-<n>" }`: the id
-of the key that asked (`owner` for `REFORGED_ADMIN_API_KEY`, DD23), and the request id is logged beside the operator
+of the key that asked (`owner` for `DAINTY_ADMIN_API_KEY`, DD23), and the request id is logged beside the operator
 id, so a change in a module's log leads back to the request and the person who asked (DH2).
 
 ### Keys and roles (DH2)
@@ -54,7 +54,7 @@ id, so a change in a module's log leads back to the request and the person who a
 | admin | + `unban`, `liftTimeout`, `loadModule`, `unloadModule`, `restartModule`, `adminKeys`, `issueKey` for viewer and moderator |
 | owner | + `issueKey` for admin and owner, `revokeKey`; the history revert (DH3b) requires `Role::Owner` through `schema::allow` |
 
-- `REFORGED_ADMIN_API_KEY` (`secrets.env`) is the owner's key, id `owner`. Every other key is `RRA_<8 hex id>_<64 hex
+- `DAINTY_ADMIN_API_KEY` (`secrets.env`) is the owner's key, id `owner`. Every other key is `RRA_<8 hex id>_<64 hex
   secret>` (256 random bits), stored as the SHA-256 of the whole key in `admin_keys` in the admin API's own database
   (`admin.db` beside the node's SQLite file; the node's database on Postgres). The key is printed once by
   `dainty-host admin key issue` (or returned once by `issueKey`) and is not recoverable.
@@ -254,10 +254,10 @@ backend can't start before its gate (RD17). So `paradox/` gained one small route
 ## Changes to section 6
 
 Section 6 keeps the host kit's `.env` files as the Node kit wrote them. This row adds to them and changes nothing
-already there: two keys at the end of `secrets.env`, two lines in `backend.env` (after `REFORGED_ADMIN_KEY`), and a
+already there: two keys at the end of `secrets.env`, two lines in `backend.env` (after `DAINTY_ADMIN_KEY`), and a
 new `admin.env`. `tests/node_fixtures.rs` still checks every Node-kit line byte for byte and leaves out only these.
 
-DH6 changes no existing file: `admin.env` gains the `REFORGED_GUARD_*` lines only when `host.toml` has a `[guard]`
+DH6 changes no existing file: `admin.env` gains the `DAINTY_GUARD_*` lines only when `host.toml` has a `[guard]`
 table, the admin database gains a table and a column through a migration, and the schema gains `guarded`, `approve`
 and `cancel`. What does change for a client is that a ban or timeout over the limit, the revoking of an admin or
 owner key and a big revert answer `GUARDED` instead of running (the owner included): that is the row, and the limits

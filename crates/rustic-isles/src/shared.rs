@@ -130,7 +130,7 @@ pub struct SharedParts {
     pub node: NodeIdentity,
     /// The module's game data folders.
     pub game_data: GameDataRoot,
-    /// Whether a database is configured (`REFORGED_DB_FILE` or `REFORGED_DB_ENGINE`).
+    /// Whether a database is configured (`DAINTY_DB_FILE` or `DAINTY_DB_ENGINE`).
     pub database_wanted: bool,
     /// The rifts seam.
     pub rifts: rifts_seam::Rifts,

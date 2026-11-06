@@ -1,6 +1,6 @@
 //! The local relay (DR's contract C4, rows L22, L33; RA6): `src/main/relay.ts`.
 //!
-//! The game runtime sends the 1.14.7 client's backend calls to `REFORGED_BACKEND_URL`, which the
+//! The game runtime sends the 1.14.7 client's backend calls to `DAINTY_BACKEND_URL`, which the
 //! launcher sets to `http://127.0.0.1:61100`: this relay on the player's own PC. Every request (and the
 //! chat WebSocket) is forwarded to the server:
 //!   - public mode: over TLS to the server's gateway, on a connection pinned to the certificate

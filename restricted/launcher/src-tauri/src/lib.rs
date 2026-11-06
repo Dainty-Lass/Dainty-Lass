@@ -212,7 +212,7 @@ fn run_app(embedded: Embedded) -> tauri::Result<()> {
             let _ = APP.set(app.handle().clone());
             if !cfg!(dev)
                 && !cfg!(feature = "server-gui")
-                && std::env::var_os("REFORGED_DEV_PROFILE").is_none()
+                && std::env::var_os("DAINTY_DEV_PROFILE").is_none()
                 && let Ok(exe) = std::env::current_exe()
             {
                 invite_link::register_scheme(&exe);
@@ -273,7 +273,7 @@ fn run_app(embedded: Embedded) -> tauri::Result<()> {
 
 /// Linux without a Secret Service (DR's `ensureLinuxSecureStorageDependency`): a packaged launcher
 /// installs gnome-keyring and libsecret through the package manager once, then starts again. Without it,
-/// keys cannot be saved ("unavailable"), as before. `REFORGED_AUTO_INSTALL=0` turns this off.
+/// keys cannot be saved ("unavailable"), as before. `DAINTY_AUTO_INSTALL=0` turns this off.
 #[cfg(target_os = "linux")]
 mod secure_storage {
     use std::path::Path;
@@ -282,8 +282,8 @@ mod secure_storage {
     use crate::platform::linux_runtime::{DependencyKind, current_env, install_plan, run_install};
     use crate::platform::log;
 
-    const BOOTSTRAPPED: &str = "REFORGED_STORAGE_BOOTSTRAPPED";
-    const PARENT: &str = "REFORGED_PARENT_PID";
+    const BOOTSTRAPPED: &str = "DAINTY_STORAGE_BOOTSTRAPPED";
+    const PARENT: &str = "DAINTY_PARENT_PID";
 
     /// A launcher started again after the install waits for the old one to exit, which still holds the
     /// single-launcher channel; else the new one would hand its arguments to it and stop.
@@ -304,7 +304,7 @@ mod secure_storage {
         log::warn("secure storage unavailable (no Secret Service)");
         let env = current_env();
         if cfg!(dev)
-            || env.get("REFORGED_AUTO_INSTALL").map(String::as_str) == Some("0")
+            || env.get("DAINTY_AUTO_INSTALL").map(String::as_str) == Some("0")
             || env.get(BOOTSTRAPPED).map(String::as_str) == Some("1")
         {
             return false;
@@ -356,7 +356,7 @@ fn make_controller(
     } else {
         app.path().resource_dir()?
     };
-    let relay_port = net::relay::relay_port_override(std::env::var("REFORGED_RELAY_PORT").ok().as_deref())
+    let relay_port = net::relay::relay_port_override(std::env::var("DAINTY_RELAY_PORT").ok().as_deref())
         .unwrap_or(net::relay::DEFAULT_RELAY_PORT);
     let config = Config {
         user_data: paths.user_data.clone(),

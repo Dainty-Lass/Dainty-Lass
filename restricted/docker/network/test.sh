@@ -14,7 +14,7 @@
 #                            skip), require (CI) or skip. The addresses are the private network's: a Linux host
 #                            reaches them, Docker Desktop does not
 #   NETWORK_TOLERANCE_MS=    how far above the injected round trip a measurement may be (25)
-#   REFORGED_NETWORK_*       compose.yaml's settings; the table this expects is read back from `docker compose config`
+#   DAINTY_NETWORK_*       compose.yaml's settings; the table this expects is read back from `docker compose config`
 set -euo pipefail
 
 export COMPOSE_PROJECT_NAME="${COMPOSE_PROJECT_NAME:-dainty-network}"

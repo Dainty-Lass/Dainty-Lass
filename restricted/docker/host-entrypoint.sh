@@ -10,7 +10,7 @@
 #    containers, which mount it at the same path, see them.
 #  - start and update are compose's: `docker compose up -d` runs the server, a new image updates it.
 #  - apply (the `toml` profile's configure service): setup from host.toml alone, before every `up`. A host.toml in
-#    /config (REFORGED_CONFIG_DIR) replaces the workspace's first, so that file is the server's whole configuration.
+#    /config (DAINTY_CONFIG_DIR) replaces the workspace's first, so that file is the server's whole configuration.
 set -eu
 
 workspace_toml=/opt/dainty-lass/.workspace/config/host.toml
@@ -31,8 +31,8 @@ docker_setup() {
 		set -- "$@" --game /game
 	fi
 	dainty-host setup "$@"
-	if [ -n "${REFORGED_REMOTE_ENROLL_URI:-}" ] && [ ! -f /opt/dainty-lass/.workspace/config/remote-managed.json ]; then
-		dainty-host remote enroll "${REFORGED_REMOTE_ENROLL_URI}"
+	if [ -n "${DAINTY_REMOTE_ENROLL_URI:-}" ] && [ ! -f /opt/dainty-lass/.workspace/config/remote-managed.json ]; then
+		dainty-host remote enroll "${DAINTY_REMOTE_ENROLL_URI}"
 	fi
 }
 
@@ -56,9 +56,9 @@ apply)
 	if [ -f /config/host.toml ]; then
 		mkdir -p "$(dirname "$workspace_toml")"
 		cp /config/host.toml "$workspace_toml"
-		echo "host.toml taken from REFORGED_CONFIG_DIR"
+		echo "host.toml taken from DAINTY_CONFIG_DIR"
 	elif [ ! -f "$workspace_toml" ]; then
-		echo "No host.toml: put one in REFORGED_CONFIG_DIR (./config by default; docs/hosting-docker.md shows how)." >&2
+		echo "No host.toml: put one in DAINTY_CONFIG_DIR (./config by default; docs/hosting-docker.md shows how)." >&2
 		exit 2
 	fi
 	docker_setup

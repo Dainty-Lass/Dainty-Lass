@@ -241,8 +241,8 @@ async fn exercise(library: Option<PathBuf>) {
     let database = dir.path().join("dainty.db");
     let env = Env::from_pairs([
         ("CHAT_PORT", "0"),
-        ("REFORGED_DB_ENGINE", "sqlite"),
-        ("REFORGED_DB_FILE", database.to_str().unwrap()),
+        ("DAINTY_DB_ENGINE", "sqlite"),
+        ("DAINTY_DB_FILE", database.to_str().unwrap()),
     ]);
 
     let mut controller = ServerController::new("private", Vec::new());

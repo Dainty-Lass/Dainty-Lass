@@ -85,7 +85,7 @@ impl Server {
         let mut child = Command::new(env!("CARGO_BIN_EXE_dainty-core"))
             .arg("--root")
             .arg(root)
-            .env("REFORGED_CONTROL", "stdin")
+            .env("DAINTY_CONTROL", "stdin")
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
@@ -100,7 +100,7 @@ impl Server {
             let (output, ready_tx) = (output.clone(), ready_tx.clone());
             std::thread::spawn(move || {
                 for line in BufReader::new(stream).lines().map_while(Result::ok) {
-                    if line.contains("REFORGED_SERVER_READY") {
+                    if line.contains("DAINTY_SERVER_READY") {
                         _ = ready_tx.send(());
                     }
                     output.lock().unwrap().push_str(&format!("{line}\n"));
@@ -195,7 +195,7 @@ fn a_service_host_toml_pins_runs_as_a_library() {
     let out = Command::new(env!("CARGO_BIN_EXE_dainty-core"))
         .arg("--root")
         .arg(dir.path())
-        .env("REFORGED_CONTROL", "stdin")
+        .env("DAINTY_CONTROL", "stdin")
         .stdin(Stdio::null())
         .output()
         .unwrap();

@@ -79,7 +79,7 @@ keys, password hashes, or SQLite database headers) is refused, and that every ac
       which refuses any payload containing:
       - player account keys (`RRK_...`, case-insensitive);
       - admin secret keys (`RRA_...`, case-insensitive);
-      - `secrets.env` variables (`REFORGED_ADMIN_API_KEY`, `JWT_SECRET`, `SESSION_SECRET`, `TURN_STATIC_AUTH_SECRET`,
+      - `secrets.env` variables (`DAINTY_ADMIN_API_KEY`, `JWT_SECRET`, `SESSION_SECRET`, `TURN_STATIC_AUTH_SECRET`,
         `AUTH_SIGNING_PRIVKEY_B64`);
       - PEM private keys (`-----BEGIN PRIVATE KEY-----`, `EC PRIVATE KEY`, `RSA PRIVATE KEY`, `OPENSSH PRIVATE KEY`);
       - password hashes (`$2a$`, `$2b$`, `$2y$`, `$argon2`);

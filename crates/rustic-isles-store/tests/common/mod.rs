@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Silent Spud
 
 //! The engines the tests run on: SQLite always, and a throwaway Postgres database when
-//! `REFORGED_TEST_POSTGRES_URL` names a server the tests may create databases on (as `store`'s tests do).
+//! `DAINTY_TEST_POSTGRES_URL` names a server the tests may create databases on (as `store`'s tests do).
 #![allow(
     clippy::unwrap_used,
     clippy::expect_used,
@@ -40,8 +40,8 @@ impl Drop for PgDatabase {
 static NEXT: AtomicU32 = AtomicU32::new(0);
 
 fn new_postgres() -> Option<PgDatabase> {
-    let url = std::env::var("REFORGED_TEST_POSTGRES_URL").ok()?;
-    let url = url::Url::parse(&url).expect("REFORGED_TEST_POSTGRES_URL is a postgres:// URL");
+    let url = std::env::var("DAINTY_TEST_POSTGRES_URL").ok()?;
+    let url = url::Url::parse(&url).expect("DAINTY_TEST_POSTGRES_URL is a postgres:// URL");
     let server = PostgresConfig {
         host: url.host_str().unwrap_or("127.0.0.1").to_owned(),
         port: url.port().unwrap_or(5432),
@@ -56,7 +56,7 @@ fn new_postgres() -> Option<PgDatabase> {
         NEXT.fetch_add(1, Ordering::Relaxed)
     );
     PgConnection::establish(&server.conninfo())
-        .expect("REFORGED_TEST_POSTGRES_URL is reachable")
+        .expect("DAINTY_TEST_POSTGRES_URL is reachable")
         .batch_execute(&format!("CREATE DATABASE {}", portable::quote_ident(&name)))
         .unwrap();
     let config = PostgresConfig {
@@ -101,7 +101,7 @@ pub fn targets() -> Vec<Target> {
             _sqlite: None,
             _postgres: Some(pg),
         }),
-        None => eprintln!("REFORGED_TEST_POSTGRES_URL is not set: the Postgres half is skipped"),
+        None => eprintln!("DAINTY_TEST_POSTGRES_URL is not set: the Postgres half is skipped"),
     }
     out
 }

@@ -325,7 +325,7 @@ async fn send(url: &str, method: &str, headers: &[(&str, &str)], body: &str) -> 
 }
 
 impl World {
-    /// A GraphQL request as the bot sends it with the owner's key (REFORGED_ADMIN_API_KEY), for Discord user 42.
+    /// A GraphQL request as the bot sends it with the owner's key (DAINTY_ADMIN_API_KEY), for Discord user 42.
     async fn gql(&self, query: &str, variables: Value) -> Value {
         let (status, body) = self.gql_as(API_KEY, query, variables).await;
         assert_eq!(status, 200, "{body}");

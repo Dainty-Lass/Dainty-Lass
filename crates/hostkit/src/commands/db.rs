@@ -224,7 +224,7 @@ mod tests {
         std::fs::create_dir_all(&paths.config).unwrap();
         std::fs::write(
             paths.config.join("secrets.env"),
-            "REFORGED_DB_PASSWORD=\"pgSuperSecret42\"\n",
+            "DAINTY_DB_PASSWORD=\"pgSuperSecret42\"\n",
         )
         .unwrap();
 

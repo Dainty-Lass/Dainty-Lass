@@ -90,7 +90,7 @@ pub fn config_gates(env: &BTreeMap<String, String>) -> Vec<Gate> {
     }
     gates.push(approval);
     let mut tls = read(env, "RUSTIC_ISLES_TLS_TERMINATED_BY_PROXY");
-    if tls.is_empty() && matches!(read(env, "REFORGED_HTTP_ONLY").as_str(), "1" | "true" | "yes" | "on") {
+    if tls.is_empty() && matches!(read(env, "DAINTY_HTTP_ONLY").as_str(), "1" | "true" | "yes" | "on") {
         tls = "on".into();
     }
     gates.push(match tls.as_str() {

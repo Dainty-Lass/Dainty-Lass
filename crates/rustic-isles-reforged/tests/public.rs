@@ -215,9 +215,9 @@ async fn user_info_and_status() {
     let rig = Rig::new(common::Options {
         settings: settings(&[
             ("REGISTRATION_MODE", "OPEN"),
-            ("REFORGED_SERVER_NAME", "Fox hold"),
-            ("REFORGED_SERVER_VERSION", "1.2.3"),
-            ("REFORGED_SOURCE_URL", "https://example.com/src"),
+            ("DAINTY_SERVER_NAME", "Fox hold"),
+            ("DAINTY_SERVER_VERSION", "1.2.3"),
+            ("DAINTY_SOURCE_URL", "https://example.com/src"),
             ("APPROVED_EXECUTABLE_SHA256", &"AB".repeat(32)),
         ]),
         ..options(true)

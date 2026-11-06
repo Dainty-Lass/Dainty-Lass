@@ -12,12 +12,12 @@ use crate::error::HostError;
 
 /// Environment variable set to `"stdin"` when a parent process (such as the Electron launcher)
 /// controls `dainty-host` over standard input.
-pub const CONTROL_ENV: &str = "REFORGED_CONTROL";
+pub const CONTROL_ENV: &str = "DAINTY_CONTROL";
 
 /// Marker line printed to stdout once all required services are ready.
-pub const SERVER_READY_LINE: &str = "REFORGED_SERVER_READY";
+pub const SERVER_READY_LINE: &str = "DAINTY_SERVER_READY";
 
-/// Returns `true` when `REFORGED_CONTROL=stdin` is set in the process environment.
+/// Returns `true` when `DAINTY_CONTROL=stdin` is set in the process environment.
 pub fn controlled_by_stdin() -> bool {
     std::env::var(CONTROL_ENV).is_ok_and(|val| val.trim() == "stdin")
 }
@@ -178,7 +178,7 @@ fn ensure_ctrlc_registered() {
     });
 }
 
-/// Coordinates graceful shutdown from Ctrl+C/SIGTERM or `REFORGED_CONTROL=stdin`.
+/// Coordinates graceful shutdown from Ctrl+C/SIGTERM or `DAINTY_CONTROL=stdin`.
 #[derive(Clone)]
 pub struct Control {
     inner: Arc<ControlInner>,

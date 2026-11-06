@@ -783,7 +783,7 @@ async fn online_players(shared: &Shared, store: &IslesStore, map: &HashMap<Strin
 async fn status_body(shared: &Arc<Shared>, store: &IslesStore, state: &ReforgedState, view: StatusView) -> Value {
     let settings = shared.settings();
     let tables = shared.version().tables;
-    let version = util::take_chars(trim(settings.raw("REFORGED_SERVER_VERSION").unwrap_or("")), 48);
+    let version = util::take_chars(trim(settings.raw("DAINTY_SERVER_VERSION").unwrap_or("")), 48);
     let sha = settings
         .raw("APPROVED_EXECUTABLE_SHA256")
         .filter(|v| util::is_hex(v, 64))
@@ -809,7 +809,7 @@ async fn status_body(shared: &Arc<Shared>, store: &IslesStore, state: &ReforgedS
         StatusView::Limited => (Vec::new(), Vec::new()),
     };
     object(vec![
-        ("name", Value::from(server_name(settings.raw("REFORGED_SERVER_NAME")))),
+        ("name", Value::from(server_name(settings.raw("DAINTY_SERVER_NAME")))),
         ("online", Value::Bool(true)),
         (
             "version",
@@ -822,13 +822,13 @@ async fn status_body(shared: &Arc<Shared>, store: &IslesStore, state: &ReforgedS
         (
             "commit",
             Value::from(util::take_chars(
-                trim(settings.raw("REFORGED_SOURCE_COMMIT").unwrap_or("")),
+                trim(settings.raw("DAINTY_SOURCE_COMMIT").unwrap_or("")),
                 64,
             )),
         ),
         (
             "sourceUrl",
-            source_url(settings.raw("REFORGED_SOURCE_URL")).map_or(Value::Null, Value::from),
+            source_url(settings.raw("DAINTY_SOURCE_URL")).map_or(Value::Null, Value::from),
         ),
         (
             "registration",

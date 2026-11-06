@@ -225,7 +225,7 @@ The trust boundary between a controller and a managed install is strict: **the c
 never secrets, and a managed install reports status and summaries, never secrets or raw databases.**
 
 1. **Never sent from a managed install to the controller (or vice versa)**:
-   - `.workspace/config/secrets.env` or any variable in `SECRET_KEYS` (`REFORGED_ADMIN_API_KEY`, `JWT_SECRET`,
+   - `.workspace/config/secrets.env` or any variable in `SECRET_KEYS` (`DAINTY_ADMIN_API_KEY`, `JWT_SECRET`,
      `SESSION_SECRET`, `TURN_STATIC_AUTH_SECRET`, `AUTH_SIGNING_PRIVKEY_B64`, S3 credentials, Postgres passwords,
      MongoDB URI passwords);
    - Player account keys (`RRK_...`), OAuth tokens, refresh tokens, or password/key hashes;
@@ -311,7 +311,7 @@ dainty-host remote leave
 | --- | --- | --- |
 | **RM1** | Design (`docs/remote-management.md`), security checklist (`docs/security/remote-management.md`), `SECURITY_REVIEW.md` entry, and fuzz target `remote_wire` (`R0`, `R1`) | Checklist covers enrollment token pinning/single-use, mTLS peer identity, secret non-export, guarded actions, and payload bounds; `cargo check --manifest-path fuzz/Cargo.toml --bins --locked` passes |
 | **RM2** | `crates/remote` (`license = "MIT"`): enrollment token mint/redeem over gateway `POST /__node/enroll`, `Service::Remote` (`POST /__node/remote`) over `crates/network` mTLS links, config revision sync + local override merger, `InstallReport` telemetry, remote command dispatch with `DH6` guarded approval and `DD23` remote operator actor, and `RemoteHostHandler` trait (`R2`) | Unit and integration tests for enrollment, token replay refusal, cert fingerprint mismatch refusal, config merge preserving per-host overrides, guarded two-person approval, and offline fallback; `cargo tree -e normal` shows zero AGPL dependencies |
-| **RM3** | Wire `crates/remote` into `controller` (`remote` feature), `host::serve`, `host::commands::setup`, `dainty-host remote` CLI subcommands, Docker entrypoint (`REFORGED_REMOTE_ENROLL_TOKEN`), Manager bridge commands (`spec.rs` + `api.ts`), and `ui/` Managed Installs UI with `en`/`pt-BR` catalog keys (`R2`) | Bridge staleness tests, `npm test`, `bun run test` (including new Managed Installs UI tests in `en` and `pt-BR`), and CLI round-trip tests pass |
+| **RM3** | Wire `crates/remote` into `controller` (`remote` feature), `host::serve`, `host::commands::setup`, `dainty-host remote` CLI subcommands, Docker entrypoint (`DAINTY_REMOTE_ENROLL_TOKEN`), Manager bridge commands (`spec.rs` + `api.ts`), and `ui/` Managed Installs UI with `en`/`pt-BR` catalog keys (`R2`) | Bridge staleness tests, `npm test`, `bun run test` (including new Managed Installs UI tests in `en` and `pt-BR`), and CLI round-trip tests pass |
 | **RM4** | Docker multi-install harness (`docker/remote/test.sh` and `docker/run-tests.sh`) + Windows Manager E2E verification and screenshots in `en` and `pt-BR` (`R3`) | 1 controller + 2 managed installs enroll, sync a setting change, apply a remote ban, survive controller stop, enforce revocation, and prove by wire inspection that zero secrets/account keys/DB files crossed; Manager desktop screenshots captured in both languages |
 | **RM5** | Documentation sweep (`docs/hosting.md`, `docs/hosting-linux.md`, `docs/hosting-docker.md`, `docs/architecture.md`, `README.md`, `AGENTS.md`, `NOTICE.md`, and handoff ledger) (`R4`) | All hosting guides include "Managing several installs", `NOTICE.md` lists `crates/remote` under MIT, and all workspace checks pass |
 

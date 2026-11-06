@@ -4,7 +4,7 @@
 #  - to each other node: half the round trip the table says, so the two directions add up to the table's value
 #  - to everything else (the Docker host, which plays a player): the whole round trip between the player's region
 #    (NETEM_PLAYER_REGION) and this node, since nothing delays the way in
-# ARP is never delayed. The table is compose.yaml's REFORGED_NETWORK_RTT_* (docs/hosting-docker.md).
+# ARP is never delayed. The table is compose.yaml's DAINTY_NETWORK_RTT_* (docs/hosting-docker.md).
 #   NETEM_SELF=oregon  NETEM_NODES="oregon=172.28.77.11 new-york=..."  NETEM_RTT="oregon:new-york=70 ..."
 #   NETEM_PLAYER_REGION=germany  NETEM_IFACE=eth0
 set -eu

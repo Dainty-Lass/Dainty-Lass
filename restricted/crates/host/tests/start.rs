@@ -282,7 +282,7 @@ impl Server {
         let pids = dir.path().join("pids");
         std::fs::create_dir_all(&pids).unwrap();
         let env_file = dir.path().join("director.env");
-        std::fs::write(&env_file, "# director\nGREETING=from-the-env-file\nREFORGED_X=1\n").unwrap();
+        std::fs::write(&env_file, "# director\nGREETING=from-the-env-file\nDAINTY_X=1\n").unwrap();
         let ports = [free_port(), free_port(), free_port()].map(|p| p.to_string()).join(",");
         let mut command = Command::new(std::env::current_exe().unwrap());
         command

@@ -91,7 +91,7 @@ Node code), and `an_electron_profile_reads_back` with the harness in `launcher/t
 ### Files and folders
 
 - [ ] `userData` is `%APPDATA%\DaintyLass Launcher` (`~/.config/DaintyLass Launcher` on Linux), migrated automatically on first start from the Electron launcher's folder (`%APPDATA%\Dauntless Reforged Revival Launcher`,
-      `~/.config/Dauntless Reforged Revival Launcher`), so an upgrade reads the old profile without losing data; `REFORGED_DEV_PROFILE`
+      `~/.config/Dauntless Reforged Revival Launcher`), so an upgrade reads the old profile without losing data; `DAINTY_DEV_PROFILE`
       is honoured in debug builds only.
 - [ ] Key files are written to a `.tmp` file and renamed; a crash leaves the old file or the new one.
 - [ ] The Documents copy is written 0600 on Linux. Writing it may fail without losing the key (a warning, no key in

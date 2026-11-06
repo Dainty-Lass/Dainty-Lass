@@ -10,7 +10,7 @@
 # Arguments pick the in-image suites (rust, backend, director); SKIP_SMOKE=1 leaves out step 2, SKIP_NETWORK=1 step 3.
 set -euo pipefail
 
-image="${REFORGED_IMAGE:-dainty-lass}-test:${REFORGED_TAG:-local}"
+image="${DAINTY_IMAGE:-dainty-lass}-test:${DAINTY_TAG:-local}"
 export COMPOSE_FILE=compose.yaml
 
 printf '\n== build\n'

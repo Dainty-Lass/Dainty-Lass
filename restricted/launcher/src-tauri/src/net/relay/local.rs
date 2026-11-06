@@ -13,7 +13,7 @@ pub fn is_qos_path(target: &str) -> bool {
     bytes.len() >= 4 && bytes[..4].eq_ignore_ascii_case(b"/qos") && matches!(bytes.get(4), None | Some(b'/' | b'?'))
 }
 
-/// The hidden override for the relay port (`REFORGED_RELAY_PORT`; tests and rehearsals on a PC where
+/// The hidden override for the relay port (`DAINTY_RELAY_PORT`; tests and rehearsals on a PC where
 /// 61100 is taken): 4 or 5 digits, 1024 to 65535.
 pub fn relay_port_override(value: Option<&str>) -> Option<u16> {
     let text = value?.trim();

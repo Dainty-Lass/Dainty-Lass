@@ -247,7 +247,7 @@ fn secrets_are_made_once_and_kept_and_a_missing_one_is_added_without_touching_th
     let without: String = text
         .split_inclusive('\n')
         .map(|line| {
-            if line.starts_with("REFORGED_ADMIN_KEY=") {
+            if line.starts_with("DAINTY_ADMIN_KEY=") {
                 "\n"
             } else {
                 line
@@ -343,7 +343,7 @@ fn the_admin_api_gets_its_keys_on_loopback_and_the_backend_accepts_its_signed_ca
     assert_eq!(read.server_mode, admin::config::ServerMode::Public);
     // In the config folder, kept with secrets.env in the host's backups
     assert_eq!(
-        get(&f.admin, "REFORGED_ADMIN_API_TIMEOUTS_FILE"),
+        get(&f.admin, "DAINTY_ADMIN_API_TIMEOUTS_FILE"),
         p.config.join("admin-timeouts.json").to_str()
     );
 }
@@ -355,7 +355,7 @@ fn the_database_engine_goes_into_admin_env_and_reads_back_as_store_reads_it() {
     let read = |doc: Value| {
         let f = build_env_files(&config(doc), &s, &p, "", Platform::Windows);
         assert!(
-            f.backend.iter().all(|(k, _)| !k.starts_with("REFORGED_DB_")),
+            f.backend.iter().all(|(k, _)| !k.starts_with("DAINTY_DB_")),
             "the Node backend keeps Mongo"
         );
         let env = service_kit::env::Env::from_pairs(f.admin.iter().map(|(k, v)| (k.as_str(), v.as_str())));
@@ -397,7 +397,7 @@ fn the_guard_goes_into_admin_env_and_reads_back_as_the_admin_api_reads_it() {
         let env = service_kit::env::Env::from_pairs(f.admin.iter().map(|(k, v)| (k.as_str(), v.as_str())));
         (
             admin::config::Config::from_env(&env).unwrap().guard,
-            f.admin.iter().any(|(k, _)| k.starts_with("REFORGED_GUARD_")),
+            f.admin.iter().any(|(k, _)| k.starts_with("DAINTY_GUARD_")),
         )
     };
     // No [guard], as in every file before DH6: the defaults, and no line added to admin.env
@@ -531,7 +531,7 @@ fn private_mode_the_backend_behind_the_gateway_on_the_tailscale_address_in_plain
     assert_eq!(get(&f.backend, "NODE_ENV"), Some("production"));
     assert_eq!(get(&f.backend, "RUSTIC_ISLES_SERVICE_ROLE"), Some("api"));
     assert_eq!(get(&f.backend, "BIND_HOST"), Some("127.0.0.1"));
-    assert_eq!(get(&f.backend, "REFORGED_HTTP_ONLY"), Some("true"));
+    assert_eq!(get(&f.backend, "DAINTY_HTTP_ONLY"), Some("true"));
     assert_eq!(get(&f.backend, "QOS_TARGET_URL"), Some("http://127.0.0.1:61100/QoS"));
     assert_eq!(get(&f.backend, "REALTIME_XMPP_DEV_CITY_MUC"), Some("false"));
     assert_eq!(
@@ -548,7 +548,7 @@ fn private_mode_the_backend_behind_the_gateway_on_the_tailscale_address_in_plain
         "the Director's game servers use the backend's game-server key"
     );
     assert_eq!(get(&f.director, "MY_IP"), Some("100.101.102.103"));
-    assert_eq!(get(&f.director, "REFORGED_BACKEND_URL"), Some("http://127.0.0.1:61000"));
+    assert_eq!(get(&f.director, "DAINTY_BACKEND_URL"), Some("http://127.0.0.1:61000"));
     assert_eq!(get(&f.director, "PORT_RANGE_BEGIN"), Some("8770"));
     assert_eq!(get(&f.director, "PORT_RANGE_END"), Some("8777"));
     assert!(
@@ -605,15 +605,15 @@ fn test_multipliers_only_a_private_servers_backend_gets_them_always_with_its_mod
         "",
         Platform::Windows,
     );
-    assert_eq!(get(&on.backend, "REFORGED_SERVER_MODE"), Some("private"));
-    assert_eq!(get(&on.backend, "REFORGED_SERVER_HOST"), Some("100.101.102.103"));
-    assert_eq!(get(&on.backend, "REFORGED_XP_MULTIPLIER"), Some("5"));
-    assert_eq!(get(&on.backend, "REFORGED_REWARD_MULTIPLIER"), Some("3"));
+    assert_eq!(get(&on.backend, "DAINTY_SERVER_MODE"), Some("private"));
+    assert_eq!(get(&on.backend, "DAINTY_SERVER_HOST"), Some("100.101.102.103"));
+    assert_eq!(get(&on.backend, "DAINTY_XP_MULTIPLIER"), Some("5"));
+    assert_eq!(get(&on.backend, "DAINTY_REWARD_MULTIPLIER"), Some("3"));
     let off = build_env_files(&config(private()), &s, &p, "", Platform::Windows);
-    assert_eq!(get(&off.backend, "REFORGED_XP_MULTIPLIER"), None);
+    assert_eq!(get(&off.backend, "DAINTY_XP_MULTIPLIER"), None);
     let public_files = build_env_files(&config(public()), &s, &p, "", Platform::Windows);
-    assert_eq!(get(&public_files.backend, "REFORGED_SERVER_MODE"), Some("public"));
-    assert_eq!(get(&public_files.backend, "REFORGED_XP_MULTIPLIER"), None);
+    assert_eq!(get(&public_files.backend, "DAINTY_SERVER_MODE"), Some("public"));
+    assert_eq!(get(&public_files.backend, "DAINTY_XP_MULTIPLIER"), None);
     assert!(error(with(public(), json!({ "multipliers": { "xp": 5, "rewards": 1 } }))).contains("private"));
     assert!(error(with(private(), json!({ "multipliers": { "xp": 101, "rewards": 1 } }))).contains("1 to 100"));
     assert!(error(with(private(), json!({ "multipliers": { "xp": 0.5, "rewards": 1 } }))).contains("1 to 100"));
@@ -633,7 +633,7 @@ fn are_written_owner_only_and_the_allowlist_file_goes_away_in_private_mode() {
     write_env_files(&lp, &build_env_files(&config(private()), &s, &lp, "", Platform::Linux)).unwrap();
     assert!(!lp.config.join("allowlist.env").exists());
     let backend = parse_env(&std::fs::read_to_string(lp.config.join("backend.env")).unwrap());
-    assert_eq!(backend.get("REFORGED_ADMIN_KEY"), Some(s.admin_key.as_str()));
+    assert_eq!(backend.get("DAINTY_ADMIN_KEY"), Some(s.admin_key.as_str()));
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
@@ -712,8 +712,8 @@ fn caps_the_game_servers_at_30_fps_starts_training_on_demand_and_keeps_the_game_
     let p = Paths::new("/home/reforged/Reforged");
     for platform in [Platform::Linux, Platform::Windows] {
         let f = build_env_files(&config(perf_public()), &s, &p, "", platform);
-        assert_eq!(get(&f.director, "REFORGED_SERVER_MAX_FPS"), Some("30"));
-        assert_eq!(get(&f.director, "REFORGED_SERVER_IDLE_FPS"), Some("10"));
+        assert_eq!(get(&f.director, "DAINTY_SERVER_MAX_FPS"), Some("30"));
+        assert_eq!(get(&f.director, "DAINTY_SERVER_IDLE_FPS"), Some("10"));
         assert_eq!(get(&f.director, "TRAINING_ON_DEMAND"), Some("1"));
         assert_eq!(get(&f.director, "GAMESERVER_LOG_CMDS"), Some(QUIET_GAME_LOG_CMDS));
         assert_eq!(get(&f.director, "GAMESERVER_MEMORY_GUARD"), Some("1"));
@@ -765,8 +765,8 @@ fn follows_host_json_no_cap_training_at_boot_upstreams_verbose_logs() {
         "serverFps": 0, "idleFps": 0, "trainingOnDemand": false, "verboseGameLogs": true, "memoryGuard": false,
     })));
     let f = build_env_files(&c, &s, &p, "", Platform::Linux);
-    assert_eq!(get(&f.director, "REFORGED_SERVER_MAX_FPS"), Some("0"));
-    assert_eq!(get(&f.director, "REFORGED_SERVER_IDLE_FPS"), Some("0"));
+    assert_eq!(get(&f.director, "DAINTY_SERVER_MAX_FPS"), Some("0"));
+    assert_eq!(get(&f.director, "DAINTY_SERVER_IDLE_FPS"), Some("0"));
     assert_eq!(get(&f.director, "TRAINING_ON_DEMAND"), Some("0"));
     assert_eq!(
         get(&f.director, "GAMESERVER_LOG_CMDS"),
@@ -874,10 +874,10 @@ fn linux_the_director_starts_the_wine_launcher_with_the_executable_the_prefix_an
         get(&f.director, "GAMESERVER_BINARY_PATH"),
         p.gameserver_wrapper.to_str()
     );
-    assert_eq!(get(&f.director, "REFORGED_GAME_EXE"), exe.to_str());
-    assert_eq!(get(&f.director, "REFORGED_WINEPREFIX"), p.wine_prefix.to_str());
-    assert_eq!(get(&f.director, "REFORGED_XVFB"), Some("1"));
-    assert_eq!(get(&f.director, "REFORGED_WINE"), None, "found on PATH when not set");
+    assert_eq!(get(&f.director, "DAINTY_GAME_EXE"), exe.to_str());
+    assert_eq!(get(&f.director, "DAINTY_WINEPREFIX"), p.wine_prefix.to_str());
+    assert_eq!(get(&f.director, "DAINTY_XVFB"), Some("1"));
+    assert_eq!(get(&f.director, "DAINTY_WINE"), None, "found on PATH when not set");
     assert_eq!(get(&f.director, "GAMESERVER_READY_TIMEOUT_MS"), Some("90000"));
     let allowlist = f.allowlist.unwrap();
     assert_eq!(get(&allowlist, "ALLOWLIST_DRY_RUN"), Some("0"));
@@ -889,8 +889,8 @@ fn linux_the_director_starts_the_wine_launcher_with_the_executable_the_prefix_an
         json!({ "linux": { "wine": "/usr/bin/wine64", "proton": null, "xvfb": false, "firewallInterface": "eth0" } }),
     ));
     let f = build_env_files(&wine, &s, &p, "", Platform::Linux);
-    assert_eq!(get(&f.director, "REFORGED_WINE"), Some("/usr/bin/wine64"));
-    assert_eq!(get(&f.director, "REFORGED_XVFB"), Some("0"));
+    assert_eq!(get(&f.director, "DAINTY_WINE"), Some("/usr/bin/wine64"));
+    assert_eq!(get(&f.director, "DAINTY_XVFB"), Some("0"));
 }
 
 #[test]
@@ -899,7 +899,7 @@ fn windows_keeps_starting_the_executable_itself() {
     let f = build_env_files(&config(linux_public()), &fast_secrets(), &p, "", Platform::Windows);
     let exe = Path::new("/srv/dauntless/Dauntless").join(game_exe_relative());
     assert_eq!(get(&f.director, "GAMESERVER_BINARY_PATH"), exe.to_str());
-    assert_eq!(get(&f.director, "REFORGED_GAME_EXE"), None);
+    assert_eq!(get(&f.director, "DAINTY_GAME_EXE"), None);
     assert_eq!(get(&f.director, "GAMESERVER_READY_TIMEOUT_MS"), Some("30000"));
     assert_eq!(get(f.allowlist.as_ref().unwrap(), "ALLOWLIST_INTERFACE"), None);
 }

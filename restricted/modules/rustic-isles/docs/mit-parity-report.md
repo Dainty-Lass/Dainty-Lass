@@ -92,7 +92,7 @@ the replay supplies what the stub did:
 | `request_budget` | `host capability bucket allowed at t=15000ms ...` | The host bucket is the one rifts' guard names for a capability it recognises. The recording's guard knew `valid-cap`, the dedicated-only module knows none, and a real one needs a live host. The module answered from the client bucket (429, `"2-in-1min"; r=0; t=45`), which is what core says for a capability the guard doesn't map |
 | `reforged_api` | `release gates, legacy key and a bad guard mode` | The case puts `MYSTPAX_OLD` and `MYSTPAX_AGAIN` in the env file. Composed, the Director refuses to start on them (`Rename these environment keys to the RUSTIC_ISLES_ prefix: MYSTPAX_AGAIN, MYSTPAX_OLD`; spec-rustic-isles-director §11, its decision item 1 keeps the refusal), so the module never serves the release gate. The recording served the backend alone |
 
-Also not covered: the Postgres halves (`REFORGED_TEST_POSTGRES_URL` was not set; the replay has no Postgres path yet),
+Also not covered: the Postgres halves (`DAINTY_TEST_POSTGRES_URL` was not set; the replay has no Postgres path yet),
 the Director's hunt-manifest digest (`reference/1.14.7/shared/hunt-manifest/golden-digest.json`, rustic-rifts' hunt
 tables, not an HTTP golden), and the shadow-replay harness's own tests, which have no recorded gateway capture to
 replay.

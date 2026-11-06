@@ -117,7 +117,7 @@ jobs:
       # The 1.14.7 Rust backend, Director and `dainty-host db` commands are compiled into server-console and
       # server-minimal (with all-modules). For one release after RU9/RB14 (until RB15), the archive also carries
       # the Node ParadoxBackend and ParadoxDirector bundle below as the documented rollback artefact.
-      # REFORGED_RELEASE_REPOSITORY stays .cargo/config.toml's: the releases are on GitHub until DX5
+      # DAINTY_RELEASE_REPOSITORY stays .cargo/config.toml's: the releases are on GitHub until DX5
       - name: Build the release binaries
         run: cargo build --release --locked --target "$TARGET" -p server-console -p server-minimal --features server-console/all-modules,server-minimal/all-modules --bins
 
@@ -297,16 +297,16 @@ jobs:
 
       - name: Extract, then check the install with dainty-host update --check
         env:
-          REFORGED_SERVER_RELEASE: ${{ runner.temp }}/release
+          DAINTY_SERVER_RELEASE: ${{ runner.temp }}/release
         run: |
           set -euo pipefail
           ext=""; [ "$RUNNER_OS" = Windows ] && ext=".exe"
           mkdir -p "$RUNNER_TEMP/host"
           cd "$RUNNER_TEMP/host"
           if [ "$RUNNER_OS" = Windows ]; then
-            7z x -bd "$REFORGED_SERVER_RELEASE/DaintyLassServer-$VERSION-$PLATFORM.zip" > /dev/null
+            7z x -bd "$DAINTY_SERVER_RELEASE/DaintyLassServer-$VERSION-$PLATFORM.zip" > /dev/null
           else
-            tar -xzf "$REFORGED_SERVER_RELEASE/DaintyLassServer-$VERSION-$PLATFORM.tar.gz"
+            tar -xzf "$DAINTY_SERVER_RELEASE/DaintyLassServer-$VERSION-$PLATFORM.tar.gz"
           fi
           root="$RUNNER_TEMP/host/dainty-lass-server-$VERSION"
           "$root/bin/dainty-host$ext" update --check | tee check.txt

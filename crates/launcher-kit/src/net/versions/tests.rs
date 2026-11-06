@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: MIT
 
 //! The list against synthetic manifests and stand-in sources. The archived manifests are Epic's files: the
-//! opt-in test fetches them (`REFORGED_TEST_EPIC_MANIFEST=1`), as `crates/epic/tests/archive.rs` does.
+//! opt-in test fetches them (`DAINTY_TEST_EPIC_MANIFEST=1`), as `crates/epic/tests/archive.rs` does.
 
 use std::collections::HashMap;
 use std::convert::Infallible;
@@ -768,11 +768,11 @@ fn with_nothing_reachable_the_list_is_still_the_table() {
     );
 }
 
-/// The real archive over the network: `REFORGED_TEST_EPIC_MANIFEST=1`.
+/// The real archive over the network: `DAINTY_TEST_EPIC_MANIFEST=1`.
 #[test]
 fn the_archived_manifests_give_the_archives_sizes() {
-    if std::env::var("REFORGED_TEST_EPIC_MANIFEST").as_deref() != Ok("1") {
-        eprintln!("set REFORGED_TEST_EPIC_MANIFEST=1 to fetch the archived 1.14.7 manifest");
+    if std::env::var("DAINTY_TEST_EPIC_MANIFEST").as_deref() != Ok("1") {
+        eprintln!("set DAINTY_TEST_EPIC_MANIFEST=1 to fetch the archived 1.14.7 manifest");
         return;
     }
     let list = block_on(list(

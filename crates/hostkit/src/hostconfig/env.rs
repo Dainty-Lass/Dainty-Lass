@@ -27,10 +27,10 @@ const MAX_VALUE_BYTES: usize = 4096;
 
 /// Never through the passthrough, on any service: what decides who may connect or what a public server allows.
 const DENIED: [&str; 10] = [
-    "REFORGED_SERVER_MODE",
+    "DAINTY_SERVER_MODE",
     "APPROVED_EXECUTABLE_SHA256",
-    "REFORGED_XP_MULTIPLIER",
-    "REFORGED_REWARD_MULTIPLIER",
+    "DAINTY_XP_MULTIPLIER",
+    "DAINTY_REWARD_MULTIPLIER",
     "REGISTRATION_MODE",
     "MONGODB_URI",
     "NODE_ENV",
@@ -38,7 +38,7 @@ const DENIED: [&str; 10] = [
     "BIND_HOST",
     "MY_IP",
 ];
-const DENIED_PREFIXES: [&str; 2] = ["AUTH_", "REFORGED_DB_"];
+const DENIED_PREFIXES: [&str; 2] = ["AUTH_", "DAINTY_DB_"];
 const DENIED_SUFFIXES: [&str; 8] = [
     "_SECRET",
     "_KEY",
@@ -203,7 +203,7 @@ mod tests {
             director: one("LOG_LEVEL"),
             content: one("CONTENT_NEWS_FILE"),
             gateway: one("GATEWAY_TLS"),
-            admin: one("REFORGED_MAX_HUNT_SERVERS"),
+            admin: one("DAINTY_MAX_HUNT_SERVERS"),
             allowlist: None,
             passthrough_refused: Vec::new(),
         }
@@ -231,10 +231,10 @@ mod tests {
             "GATEWAY_PORT",
             "GATEWAY_BIND",
             "AUTH_MODE",
-            "REFORGED_SERVER_MODE",
+            "DAINTY_SERVER_MODE",
             "APPROVED_EXECUTABLE_SHA256",
             "PORT",
-            "REFORGED_DB_PASSWORD",
+            "DAINTY_DB_PASSWORD",
         ] {
             let err = from_json(&json!({ "gateway": { key: "x" } })).unwrap_err().to_string();
             assert!(

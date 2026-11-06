@@ -93,7 +93,7 @@ Fuzz targets in `fuzz`: `rustic_isles_reforged_guard`, `rustic_isles_reforged_te
       nonce set, a JSON body only; checked before any handler (`admin::auth::verify_operator`). A request signed by
       `crates/admin`'s `operator_signature` is admitted (test `a_request_crates_admin_signs_is_admitted`).
 - [ ] With the manager switch on, the module refuses to start without a 32-character secret.
-- [ ] The host routes: `REFORGED_ADMIN_KEY` of 32 units or more, a loopback peer, no `x-dainty-gateway` or
+- [ ] The host routes: `DAINTY_ADMIN_KEY` of 32 units or more, a loopback peer, no `x-dainty-gateway` or
       `x-forwarded-for`, the key compared by SHA-256 in constant time.
 - [ ] Core's admin authenticator slot (the `/admin/` rifts rows) runs the same origin check and credentials; core now
       hands it the method, target and body (the commit before the crate).

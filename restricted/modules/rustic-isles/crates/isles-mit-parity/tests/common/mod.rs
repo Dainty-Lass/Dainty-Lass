@@ -70,7 +70,7 @@ pub fn base_settings(db: &Path) -> BTreeMap<String, String> {
     let (private, public) = rustic_isles_auth::test_support::throwaway_signing_keys();
     let mut settings = BTreeMap::new();
     for (key, value) in [
-        ("REFORGED_DB_FILE", db.display().to_string()),
+        ("DAINTY_DB_FILE", db.display().to_string()),
         ("API_KEY_HASH_SECRET", API_KEY_HASH_SECRET.to_owned()),
         ("AUTH_SIGNING_PRIVKEY_B64", private),
         ("AUTH_SIGNING_PUBKEY_B64", public),
@@ -201,7 +201,7 @@ impl Mit {
             identity: NodeIdentity::standalone(),
         });
         rustic_isles_store::IslesStore::open_configured(
-            |name| (name == "REFORGED_DB_FILE").then(|| path.clone()),
+            |name| (name == "DAINTY_DB_FILE").then(|| path.clone()),
             home,
             &NodeIdentity::standalone(),
         )

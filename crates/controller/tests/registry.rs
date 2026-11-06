@@ -374,7 +374,7 @@ fn children_get_the_os_variables_and_no_server_setting() {
     let vars = [
         ("PATH", "/bin"),
         ("SystemRoot", "C:\\Windows"),
-        ("REFORGED_ADMIN_API_KEY", "secret"),
+        ("DAINTY_ADMIN_API_KEY", "secret"),
         ("GATEWAY_SECRET", "secret"),
         ("MONGODB_URI", "mongodb://x"),
     ]

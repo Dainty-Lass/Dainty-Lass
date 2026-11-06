@@ -381,7 +381,9 @@ pub fn runtime_cpu_patches(dll_path: &Path) -> Option<CpuPatches> {
         .flat_map(u16::to_le_bytes)
         .collect();
     let cpu_fixes = contains_subslice(&bytes, &walk_flag_utf16le);
-    let frame_cap = contains_subslice(&bytes, b"REFORGED_SERVER_MAX_FPS");
+    // A runtime built before the 2026-11-06 rename names it REFORGED_SERVER_MAX_FPS
+    let frame_cap =
+        contains_subslice(&bytes, b"DAINTY_SERVER_MAX_FPS") || contains_subslice(&bytes, b"REFORGED_SERVER_MAX_FPS");
     Some(CpuPatches { cpu_fixes, frame_cap })
 }
 
@@ -1071,7 +1073,7 @@ mod tests {
         for unit in "LEGACY_EXPECTED_PLAYER_WALK.flag".encode_utf16() {
             bytes.extend_from_slice(&unit.to_le_bytes());
         }
-        bytes.extend_from_slice(b"middle REFORGED_SERVER_MAX_FPS footer");
+        bytes.extend_from_slice(b"middle DAINTY_SERVER_MAX_FPS footer");
         fs::write(&dll, &bytes).unwrap();
 
         let patches = runtime_cpu_patches(&dll).unwrap();

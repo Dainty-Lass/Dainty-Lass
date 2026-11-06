@@ -45,7 +45,7 @@ pub fn channel_name() -> String {
     let args: Vec<String> = std::env::args().collect();
     let raw_profile = crate::platform::paths::user_data_dir_from_args(&args)
         .map(|p| p.to_string_lossy().into_owned())
-        .or_else(|| std::env::var("REFORGED_DEV_PROFILE").ok().filter(|s| !s.is_empty()))
+        .or_else(|| std::env::var("DAINTY_DEV_PROFILE").ok().filter(|s| !s.is_empty()))
         .unwrap_or_default();
     let profile: String = raw_profile
         .chars()

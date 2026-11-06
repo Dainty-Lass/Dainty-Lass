@@ -24,13 +24,13 @@ pub const RELEASE_FILE: &str = "release.json";
 /// The checksum file published beside each release archive.
 pub const SUMS_FILE: &str = "SHA256SUMS.txt";
 /// The variable that points updates at another source: a GitHub `owner/repo`, a folder or a URL.
-pub const SOURCE_ENV: &str = "REFORGED_SERVER_RELEASE";
+pub const SOURCE_ENV: &str = "DAINTY_SERVER_RELEASE";
 /// The prefix of a server release's git tag.
 pub const TAG_PREFIX: &str = "server-v";
 /// The prefix of a release archive's file name.
 pub const ARCHIVE_PREFIX: &str = "DaintyLassServer-";
 /// The GitHub repository releases come from, fixed at build time.
-pub const DEFAULT_REPOSITORY: &str = env!("REFORGED_RELEASE_REPOSITORY");
+pub const DEFAULT_REPOSITORY: &str = env!("DAINTY_RELEASE_REPOSITORY");
 
 /// Why an update stopped; [`Problem::code`] is the machine-readable form `update --json` prints.
 #[derive(Debug, Clone, PartialEq, Eq)]

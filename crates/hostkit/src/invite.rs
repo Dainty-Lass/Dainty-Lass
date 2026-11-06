@@ -453,7 +453,7 @@ fn error_detail_from_body(body: &str) -> String {
 pub fn create_invite_code(admin_key: &str, opts: &CodeOptions, port: u16) -> Result<String, HostError> {
     let key = admin_key.trim();
     if key.is_empty() {
-        return Err(HostError::message("REFORGED_ADMIN_KEY is missing from secrets.env"));
+        return Err(HostError::message("DAINTY_ADMIN_KEY is missing from secrets.env"));
     }
     let mut payload = serde_json::Map::new();
     payload.insert("uses".into(), Value::Number((opts.uses as i64).into()));
@@ -483,7 +483,7 @@ pub fn create_invite_code(admin_key: &str, opts: &CodeOptions, port: u16) -> Res
 
     if resp.status == 401 || resp.status == 403 {
         return Err(HostError::message(format!(
-            "the backend refused the admin key (HTTP {}): check REFORGED_ADMIN_KEY in secrets.env",
+            "the backend refused the admin key (HTTP {}): check DAINTY_ADMIN_KEY in secrets.env",
             resp.status
         )));
     }
@@ -511,7 +511,7 @@ pub fn create_invite_code(admin_key: &str, opts: &CodeOptions, port: u16) -> Res
 pub fn list_invite_codes(port: u16, admin_key: &str) -> Result<Vec<Value>, HostError> {
     let key = admin_key.trim();
     if key.is_empty() {
-        return Err(HostError::message("REFORGED_ADMIN_KEY is missing from secrets.env"));
+        return Err(HostError::message("DAINTY_ADMIN_KEY is missing from secrets.env"));
     }
     let resp = http_request(
         "GET",

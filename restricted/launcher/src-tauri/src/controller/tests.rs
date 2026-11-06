@@ -496,10 +496,7 @@ impl Harness {
                 )),
                 env: Some(vec![
                     ("PATH".into(), "/usr/bin".into()),
-                    (
-                        "REFORGED_BACKEND_URL".into(),
-                        "https://should-be-replaced.invalid".into(),
-                    ),
+                    ("DAINTY_BACKEND_URL".into(), "https://should-be-replaced.invalid".into()),
                 ]),
                 store_env: Some(StoreEnv::default()),
                 qos_port: None,
@@ -719,7 +716,7 @@ async fn public_mode_end_to_end_join_register_game_check_runtime_trust_and_insta
         "game language auto follows the system locale"
     );
     let relay_url = OsString::from(format!("http://127.0.0.1:{}", hx.relay_port));
-    assert_eq!(env_of(&env, "REFORGED_BACKEND_URL"), [&relay_url]);
+    assert_eq!(env_of(&env, "DAINTY_BACKEND_URL"), [&relay_url]);
     assert_eq!(
         env_of(&env, "RUSTIC_ISLES_RUNTIME_PROFILE"),
         [&OsString::from("production")]
@@ -1279,7 +1276,7 @@ fn host_harness() -> Harness {
             },
             env: Some(vec![
                 ("PATH".into(), "/usr/bin".into()),
-                ("REFORGED_BACKEND_URL".into(), "https://x.invalid".into()),
+                ("DAINTY_BACKEND_URL".into(), "https://x.invalid".into()),
                 ("MysticParadox_Profile".into(), "development".into()),
             ]),
             store_env: Some(StoreEnv::default()),
@@ -1349,7 +1346,7 @@ async fn the_host_page_drives_reforged_host_setup_server_invite_and_stop() {
             .host_server_view()
             .lines
             .iter()
-            .any(|l| l.contains("REFORGED_SERVER_READY")),
+            .any(|l| l.contains("DAINTY_SERVER_READY")),
         "the ready line is not shown"
     );
     // Setup refuses a running server; the invite's link reaches the view only

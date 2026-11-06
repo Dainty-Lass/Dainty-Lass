@@ -429,7 +429,7 @@ pub fn systemd_units(c: &HostConfig, p: &Paths, ctx: &UnitContext) -> Result<Vec
     };
 
     let env_line = if c.mode == ServerMode::Public {
-        "Environment=REFORGED_ALLOWLIST=external\n"
+        "Environment=DAINTY_ALLOWLIST=external\n"
     } else {
         ""
     };
@@ -596,7 +596,7 @@ mod tests {
         assert_eq!(names, vec![UNIT_ALLOWLIST, UNIT_SERVER, "install.sh"]);
         let server_unit = &units[1].1;
         assert!(server_unit.contains("AmbientCapabilities=CAP_NET_BIND_SERVICE"));
-        assert!(server_unit.contains("Environment=REFORGED_ALLOWLIST=external\n"));
+        assert!(server_unit.contains("Environment=DAINTY_ALLOWLIST=external\n"));
     }
 
     #[test]

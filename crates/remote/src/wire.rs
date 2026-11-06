@@ -25,7 +25,7 @@ pub const MAX_PEM_LEN: usize = 16 * 1024;
 /// Secret patterns that must never cross the remote-management wire in either direction
 /// (`docs/remote-management.md` §6).
 pub const FORBIDDEN_SECRET_PATTERNS: &[&str] = &[
-    "REFORGED_ADMIN_API_KEY",
+    "DAINTY_ADMIN_API_KEY",
     "JWT_SECRET",
     "SESSION_SECRET",
     "TURN_STATIC_AUTH_SECRET",

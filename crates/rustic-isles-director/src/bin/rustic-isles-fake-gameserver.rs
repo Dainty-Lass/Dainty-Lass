@@ -85,7 +85,7 @@ fn main() -> ExitCode {
     );
     report.insert(
         "inherited".into(),
-        env("REFORGED_SERVER_MAX_FPS").map_or(Value::Null, Value::from),
+        env("DAINTY_SERVER_MAX_FPS").map_or(Value::Null, Value::from),
     );
     say(&format!("FAKE_ARGS {}", Value::Object(report)));
     if map == "/Game/Maps/crash" {

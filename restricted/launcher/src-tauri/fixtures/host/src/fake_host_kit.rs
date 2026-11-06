@@ -27,7 +27,7 @@ fn main() {
 }
 
 fn start(mode: Option<&str>) {
-    if std::env::var("REFORGED_CONTROL").as_deref() != Ok("stdin") {
+    if std::env::var("DAINTY_CONTROL").as_deref() != Ok("stdin") {
         eprintln!("Error: not controlled");
         std::process::exit(2);
     }
@@ -36,7 +36,7 @@ fn start(mode: Option<&str>) {
         std::process::exit(1);
     }
     println!("\u{1b}[32mmongod   | ready\u{1b}[0m");
-    println!("REFORGED_SERVER_READY");
+    println!("DAINTY_SERVER_READY");
     std::io::stdout().flush().unwrap();
     if mode == Some("deaf") {
         loop {

@@ -17,8 +17,8 @@ const SECRET: &str = "0123456789abcdef0123456789abcdef";
 fn write_env(dir: &Path, extra: &str) -> String {
     let file = dir.join("admin.env");
     let text = format!(
-        "REFORGED_ADMIN_API_KEY={SECRET}\nREFORGED_ADMIN_KEY={SECRET}\nRUSTIC_ISLES_MANAGER_OPERATOR_SECRET={SECRET}\n\
-         REFORGED_ADMIN_API_TIMEOUTS_FILE={}\n{extra}",
+        "DAINTY_ADMIN_API_KEY={SECRET}\nDAINTY_ADMIN_KEY={SECRET}\nRUSTIC_ISLES_MANAGER_OPERATOR_SECRET={SECRET}\n\
+         DAINTY_ADMIN_API_TIMEOUTS_FILE={}\n{extra}",
         dir.join("admin-timeouts.json").display().to_string().replace("\\", "/")
     );
     std::fs::write(&file, text).unwrap();
@@ -45,7 +45,7 @@ fn held(subject: &str, rule: Rule) -> New {
 #[tokio::test(flavor = "multi_thread")]
 async fn the_host_lists_approves_and_cancels_under_its_own_actor() {
     let dir = tempfile::tempdir().unwrap();
-    let env = write_env(dir.path(), "REFORGED_GUARD_BAN=approval\n");
+    let env = write_env(dir.path(), "DAINTY_GUARD_BAN=approval\n");
     let go = |rest: &[&str]| {
         let args: Vec<String> = rest
             .iter()

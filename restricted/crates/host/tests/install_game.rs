@@ -313,7 +313,7 @@ async fn a_fresh_host_signs_in_with_a_pasted_code_and_installs_for_its_game_serv
     assert_eq!(c.game_dir.as_deref(), Some(folder.to_string_lossy().as_ref()));
     let director = parse_env(&std::fs::read_to_string(f.paths.config.join("director.env")).unwrap());
     assert_eq!(
-        director.get("REFORGED_GAME_EXE"),
+        director.get("DAINTY_GAME_EXE"),
         Some(folder.join(game_exe_relative()).to_string_lossy().as_ref())
     );
     assert!(ran.lines.iter().any(|l| l.contains("game_dir =")), "{:?}", ran.lines);

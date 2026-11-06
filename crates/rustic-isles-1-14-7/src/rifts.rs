@@ -69,7 +69,7 @@ mod wired {
     }
 
     fn node(settings: &Settings) -> NodeId {
-        get(settings, "REFORGED_NODE_ID")
+        get(settings, "DAINTY_NODE_ID")
             .and_then(|text| NodeId::new(text.trim()).ok())
             .unwrap_or_else(|| NodeIdentity::standalone().node)
     }
@@ -84,11 +84,11 @@ mod wired {
 
     /// No line is logged for a failed open: the stubs answer (§14 item 11).
     fn open_db(settings: &Settings, node: &NodeId) -> Option<RealmsDb> {
-        let wanted = get(settings, "REFORGED_DB_FILE").is_some() || get(settings, "REFORGED_DB_ENGINE").is_some();
+        let wanted = get(settings, "DAINTY_DB_FILE").is_some() || get(settings, "DAINTY_DB_ENGINE").is_some();
         if !wanted {
             return None;
         }
-        let file = PathBuf::from(get(settings, "REFORGED_DB_FILE").unwrap_or(""));
+        let file = PathBuf::from(get(settings, "DAINTY_DB_FILE").unwrap_or(""));
         let config = DatabaseConfig::from_lookup(|name| get(settings, name).map(str::to_owned), file).ok()?;
         RealmsDb::open(&config, &DatabaseOptions::default(), node.clone()).ok()
     }

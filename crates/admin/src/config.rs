@@ -33,9 +33,9 @@ pub struct Config {
     pub backend_url: String,
     /// The Director's base URL.
     pub director_url: String,
-    /// `REFORGED_ADMIN_API_KEY`: what the bot sends, `Authorization: Bearer <key>`
+    /// `DAINTY_ADMIN_API_KEY`: what the bot sends, `Authorization: Bearer <key>`
     pub api_key: String,
-    /// `REFORGED_ADMIN_KEY`: the backend's `/dainty/api` admin routes (the kick)
+    /// `DAINTY_ADMIN_KEY`: the backend's `/dainty/api` admin routes (the kick)
     pub admin_key: String,
     /// `RUSTIC_ISLES_MANAGER_OPERATOR_SECRET`: signs the calls to the backend's `/admin/v1`
     pub operator_secret: String,
@@ -49,7 +49,7 @@ pub struct Config {
     /// (`keys::Keys::database_for`, DH2). Nothing set (an env file from before DF7): SQLite beside the
     /// timeouts file.
     pub database: store::DatabaseConfig,
-    /// `REFORGED_GUARD_*`: when a destructive or bulk action waits (DH6). Nothing set: the defaults.
+    /// `DAINTY_GUARD_*`: when a destructive or bulk action waits (DH6). Nothing set: the defaults.
     pub guard: GuardSettings,
     /// `RUSTIC_ISLES_METRICS_TOKEN`: `/metrics` adds the backend's own with it. Not set: left out.
     pub metrics_token: Option<String>,
@@ -131,20 +131,20 @@ fn rule(env: &Env, name: &str, default: Rule) -> Result<Rule, String> {
 fn guard_settings(env: &Env) -> Result<GuardSettings, String> {
     let d = GuardSettings::default();
     Ok(GuardSettings {
-        ban_limit: bounded(env, "REFORGED_GUARD_BAN_LIMIT", GuardSettings::MAX_LIMIT)?.unwrap_or(d.ban_limit),
+        ban_limit: bounded(env, "DAINTY_GUARD_BAN_LIMIT", GuardSettings::MAX_LIMIT)?.unwrap_or(d.ban_limit),
         ban_window_minutes: bounded(
             env,
-            "REFORGED_GUARD_BAN_WINDOW_MINUTES",
+            "DAINTY_GUARD_BAN_WINDOW_MINUTES",
             GuardSettings::MAX_WINDOW_MINUTES,
         )?
         .unwrap_or(d.ban_window_minutes),
-        ban_guard: rule(env, "REFORGED_GUARD_BAN", d.ban_guard)?,
-        revert_limit: bounded(env, "REFORGED_GUARD_REVERT_LIMIT", GuardSettings::MAX_LIMIT)?.unwrap_or(d.revert_limit),
-        revert_guard: rule(env, "REFORGED_GUARD_REVERT", d.revert_guard)?,
-        revoke_guard: rule(env, "REFORGED_GUARD_REVOKE", d.revoke_guard)?,
-        delay_minutes: bounded(env, "REFORGED_GUARD_DELAY_MINUTES", GuardSettings::MAX_DELAY_MINUTES)?
+        ban_guard: rule(env, "DAINTY_GUARD_BAN", d.ban_guard)?,
+        revert_limit: bounded(env, "DAINTY_GUARD_REVERT_LIMIT", GuardSettings::MAX_LIMIT)?.unwrap_or(d.revert_limit),
+        revert_guard: rule(env, "DAINTY_GUARD_REVERT", d.revert_guard)?,
+        revoke_guard: rule(env, "DAINTY_GUARD_REVOKE", d.revoke_guard)?,
+        delay_minutes: bounded(env, "DAINTY_GUARD_DELAY_MINUTES", GuardSettings::MAX_DELAY_MINUTES)?
             .unwrap_or(d.delay_minutes),
-        expire_hours: bounded(env, "REFORGED_GUARD_EXPIRE_HOURS", GuardSettings::MAX_EXPIRE_HOURS)?
+        expire_hours: bounded(env, "DAINTY_GUARD_EXPIRE_HOURS", GuardSettings::MAX_EXPIRE_HOURS)?
             .unwrap_or(d.expire_hours),
     })
 }
@@ -174,21 +174,21 @@ impl Config {
                 "BIND_HOST must be a loopback address (got {host}): the admin API is for tools on this machine"
             ));
         }
-        let max_hunt_servers = match optional(env, "REFORGED_MAX_HUNT_SERVERS") {
+        let max_hunt_servers = match optional(env, "DAINTY_MAX_HUNT_SERVERS") {
             None => 3,
             Some(raw) => raw
                 .parse::<u32>()
                 .ok()
                 .filter(|n| (1..=MAX_HUNTS).contains(n))
-                .ok_or(format!("REFORGED_MAX_HUNT_SERVERS must be 1 to {MAX_HUNTS}"))?,
+                .ok_or(format!("DAINTY_MAX_HUNT_SERVERS must be 1 to {MAX_HUNTS}"))?,
         };
-        let server_mode = match optional(env, "REFORGED_SERVER_MODE").as_deref() {
+        let server_mode = match optional(env, "DAINTY_SERVER_MODE").as_deref() {
             None | Some("private") => ServerMode::Private,
             Some("public") => ServerMode::Public,
-            Some(_) => return Err("REFORGED_SERVER_MODE must be private or public".into()),
+            Some(_) => return Err("DAINTY_SERVER_MODE must be private or public".into()),
         };
-        let timeouts_file = optional(env, "REFORGED_ADMIN_API_TIMEOUTS_FILE")
-            .ok_or("REFORGED_ADMIN_API_TIMEOUTS_FILE is not set: run dainty-host setup")?;
+        let timeouts_file = optional(env, "DAINTY_ADMIN_API_TIMEOUTS_FILE")
+            .ok_or("DAINTY_ADMIN_API_TIMEOUTS_FILE is not set: run dainty-host setup")?;
         let timeouts_file = std::path::absolute(Path::new(&timeouts_file)).unwrap_or_else(|_| timeouts_file.into());
         let beside = timeouts_file.with_file_name("dainty-lass.db");
         let database = store::DatabaseConfig::from_lookup(|name| optional(env, name), beside)?;
@@ -196,9 +196,9 @@ impl Config {
             port,
             bind_hosts,
             backend_url: local_url(env, "BACKEND_URL", "http://127.0.0.1:61000")?,
-            director_url: local_url(env, "REFORGED_DIRECTOR_URL", "http://127.0.0.1:61001")?,
-            api_key: secret(env, "REFORGED_ADMIN_API_KEY")?,
-            admin_key: secret(env, "REFORGED_ADMIN_KEY")?,
+            director_url: local_url(env, "DAINTY_DIRECTOR_URL", "http://127.0.0.1:61001")?,
+            api_key: secret(env, "DAINTY_ADMIN_API_KEY")?,
+            admin_key: secret(env, "DAINTY_ADMIN_KEY")?,
             operator_secret: secret(
                 env,
                 renamed(
@@ -233,10 +233,10 @@ mod tests {
 
     fn load(extra: &[(&str, &str)]) -> Result<Config, String> {
         let mut pairs = vec![
-            ("REFORGED_ADMIN_API_KEY", KEY),
-            ("REFORGED_ADMIN_KEY", KEY),
+            ("DAINTY_ADMIN_API_KEY", KEY),
+            ("DAINTY_ADMIN_KEY", KEY),
             ("RUSTIC_ISLES_MANAGER_OPERATOR_SECRET", KEY),
-            ("REFORGED_ADMIN_API_TIMEOUTS_FILE", "timeouts.json"),
+            ("DAINTY_ADMIN_API_TIMEOUTS_FILE", "timeouts.json"),
         ];
         pairs.extend_from_slice(extra);
         Config::from_env(&Env::from_pairs(pairs))
@@ -253,14 +253,14 @@ mod tests {
         assert_eq!(c.server_mode, ServerMode::Private);
         assert!(c.timeouts_file.is_absolute());
         for name in [
-            "REFORGED_ADMIN_API_KEY",
-            "REFORGED_ADMIN_KEY",
+            "DAINTY_ADMIN_API_KEY",
+            "DAINTY_ADMIN_KEY",
             "RUSTIC_ISLES_MANAGER_OPERATOR_SECRET",
-            "REFORGED_ADMIN_API_TIMEOUTS_FILE",
+            "DAINTY_ADMIN_API_TIMEOUTS_FILE",
         ] {
             assert!(load(&[(name, " ")]).unwrap_err().contains(name), "{name}");
         }
-        assert!(load(&[("REFORGED_ADMIN_API_KEY", "short")]).unwrap_err().contains("32"));
+        assert!(load(&[("DAINTY_ADMIN_API_KEY", "short")]).unwrap_err().contains("32"));
     }
 
     #[test]
@@ -285,12 +285,12 @@ mod tests {
                 file: c.timeouts_file.with_file_name("dainty-lass.db")
             }
         );
-        let postgres = [("REFORGED_DB_ENGINE", "postgres")];
-        assert!(load(&postgres).unwrap_err().contains("REFORGED_DB_PASSWORD"));
+        let postgres = [("DAINTY_DB_ENGINE", "postgres")];
+        assert!(load(&postgres).unwrap_err().contains("DAINTY_DB_PASSWORD"));
         let far = [
-            ("REFORGED_DB_ENGINE", "postgres"),
-            ("REFORGED_DB_PASSWORD", "pw"),
-            ("REFORGED_DB_HOST", "10.0.0.1"),
+            ("DAINTY_DB_ENGINE", "postgres"),
+            ("DAINTY_DB_PASSWORD", "pw"),
+            ("DAINTY_DB_HOST", "10.0.0.1"),
         ];
         assert!(load(&far).unwrap_err().contains("not encrypted"));
     }
@@ -299,14 +299,14 @@ mod tests {
     fn the_guard_keeps_its_defaults_and_checks_what_is_set() {
         assert_eq!(load(&[]).unwrap().guard, GuardSettings::default());
         let set = load(&[
-            ("REFORGED_GUARD_BAN_LIMIT", "3"),
-            ("REFORGED_GUARD_BAN_WINDOW_MINUTES", "30"),
-            ("REFORGED_GUARD_BAN", "approval"),
-            ("REFORGED_GUARD_REVERT_LIMIT", "20"),
-            ("REFORGED_GUARD_REVERT", "approval"),
-            ("REFORGED_GUARD_REVOKE", "off"),
-            ("REFORGED_GUARD_DELAY_MINUTES", "45"),
-            ("REFORGED_GUARD_EXPIRE_HOURS", "6"),
+            ("DAINTY_GUARD_BAN_LIMIT", "3"),
+            ("DAINTY_GUARD_BAN_WINDOW_MINUTES", "30"),
+            ("DAINTY_GUARD_BAN", "approval"),
+            ("DAINTY_GUARD_REVERT_LIMIT", "20"),
+            ("DAINTY_GUARD_REVERT", "approval"),
+            ("DAINTY_GUARD_REVOKE", "off"),
+            ("DAINTY_GUARD_DELAY_MINUTES", "45"),
+            ("DAINTY_GUARD_EXPIRE_HOURS", "6"),
         ])
         .unwrap()
         .guard;
@@ -324,14 +324,14 @@ mod tests {
             }
         );
         for (name, bad) in [
-            ("REFORGED_GUARD_BAN_LIMIT", "0"),
-            ("REFORGED_GUARD_BAN_LIMIT", "many"),
-            ("REFORGED_GUARD_BAN_WINDOW_MINUTES", "1441"),
-            ("REFORGED_GUARD_REVERT_LIMIT", "1000001"),
-            ("REFORGED_GUARD_DELAY_MINUTES", "0"),
-            ("REFORGED_GUARD_EXPIRE_HOURS", "721"),
-            ("REFORGED_GUARD_BAN", "Delay"),
-            ("REFORGED_GUARD_REVOKE", "never"),
+            ("DAINTY_GUARD_BAN_LIMIT", "0"),
+            ("DAINTY_GUARD_BAN_LIMIT", "many"),
+            ("DAINTY_GUARD_BAN_WINDOW_MINUTES", "1441"),
+            ("DAINTY_GUARD_REVERT_LIMIT", "1000001"),
+            ("DAINTY_GUARD_DELAY_MINUTES", "0"),
+            ("DAINTY_GUARD_EXPIRE_HOURS", "721"),
+            ("DAINTY_GUARD_BAN", "Delay"),
+            ("DAINTY_GUARD_REVOKE", "never"),
         ] {
             assert!(load(&[(name, bad)]).unwrap_err().contains(name), "{name}={bad}");
         }
@@ -353,7 +353,7 @@ mod tests {
             "nope",
         ] {
             assert!(load(&[("BACKEND_URL", url)]).is_err(), "{url}");
-            assert!(load(&[("REFORGED_DIRECTOR_URL", url)]).is_err(), "{url}");
+            assert!(load(&[("DAINTY_DIRECTOR_URL", url)]).is_err(), "{url}");
         }
         assert_eq!(
             load(&[("BACKEND_URL", "http://[::1]:61000//")]).unwrap().backend_url,
@@ -364,15 +364,12 @@ mod tests {
     #[test]
     fn numbers_and_the_mode_are_checked() {
         assert!(load(&[("PORT", "0")]).is_err());
-        assert!(load(&[("REFORGED_MAX_HUNT_SERVERS", "11")]).is_err());
+        assert!(load(&[("DAINTY_MAX_HUNT_SERVERS", "11")]).is_err());
+        assert_eq!(load(&[("DAINTY_MAX_HUNT_SERVERS", "10")]).unwrap().max_hunt_servers, 10);
         assert_eq!(
-            load(&[("REFORGED_MAX_HUNT_SERVERS", "10")]).unwrap().max_hunt_servers,
-            10
-        );
-        assert_eq!(
-            load(&[("REFORGED_SERVER_MODE", "public")]).unwrap().server_mode,
+            load(&[("DAINTY_SERVER_MODE", "public")]).unwrap().server_mode,
             ServerMode::Public
         );
-        assert!(load(&[("REFORGED_SERVER_MODE", "PUBLIC")]).is_err());
+        assert!(load(&[("DAINTY_SERVER_MODE", "PUBLIC")]).is_err());
     }
 }

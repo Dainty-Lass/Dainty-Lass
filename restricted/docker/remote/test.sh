@@ -220,13 +220,13 @@ echo "wire log lines captured: controller=$(printf '%s\n' "$wire_controller" | w
 
 # Check forbidden markers across every captured wire byte
 for marker in \
-	"REFORGED_ADMIN_KEY" \
-	"REFORGED_ADMIN_API_KEY" \
-	"REFORGED_SECRET" \
+	"DAINTY_ADMIN_KEY" \
+	"DAINTY_ADMIN_API_KEY" \
+	"DAINTY_SECRET" \
 	"GATEWAY_SECRET" \
 	"ALLOWLIST_SECRET" \
 	"RUSTIC_ISLES_MANAGER_OPERATOR_SECRET" \
-	"REFORGED_DB_PASSWORD" \
+	"DAINTY_DB_PASSWORD" \
 	"RRK_" \
 	"PRIVATE KEY" \
 	"SQLite format 3" \

@@ -24,7 +24,7 @@ export function PairingInstructions({
     `DAINTY_AGENT_DASHBOARD_URL=${dashboardUrl}`,
     `DAINTY_AGENT_PAIRING_CODE=${code}`,
     "# from that controller's secrets.env:",
-    "DAINTY_AGENT_ADMIN_API_KEY=<REFORGED_ADMIN_API_KEY>",
+    "DAINTY_AGENT_ADMIN_API_KEY=<DAINTY_ADMIN_API_KEY>",
     "DAINTY_AGENT_OPERATOR_SECRET=<RUSTIC_ISLES_MANAGER_OPERATOR_SECRET>",
   ].join("\n");
   return (

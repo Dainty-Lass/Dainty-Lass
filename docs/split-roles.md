@@ -23,7 +23,7 @@ on each gateway's port (`docs/security/network.md`). The split adds one node-lin
 - On the metagame half, `127.0.0.1:61001` is a listener that carries each request to the game half, which replays it
   on its own `127.0.0.1:61001`, the Director. The backend's `DEPLOYSERVER_URL` is unchanged.
 - On the game half, `127.0.0.1:61000` is a listener that carries each request to the metagame half's backend. The game
-  servers' `REFORGED_BACKEND_URL` is unchanged, and so is their game server key: it travels inside the node link, never
+  servers' `DAINTY_BACKEND_URL` is unchanged, and so is their game server key: it travels inside the node link, never
   through a public gateway route, which still refuses it.
 
 Nothing but the gateways listens off loopback. The Director's port carries only the Director's four routes; a call

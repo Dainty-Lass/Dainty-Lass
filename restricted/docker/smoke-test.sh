@@ -8,12 +8,12 @@ set -euo pipefail
 export COMPOSE_PROJECT_NAME="${COMPOSE_PROJECT_NAME:-dainty-smoke}"
 export COMPOSE_PROFILES=public
 export COMPOSE_FILE=compose.yaml
-export REFORGED_GATEWAY_PORT=443
-export REFORGED_GATEWAY_PUBLISH="127.0.0.1:${SMOKE_PORT:-18443}"
-export REFORGED_GAME_PUBLISH_ADDRESS=127.0.0.1
+export DAINTY_GATEWAY_PORT=443
+export DAINTY_GATEWAY_PUBLISH="127.0.0.1:${SMOKE_PORT:-18443}"
+export DAINTY_GAME_PUBLISH_ADDRESS=127.0.0.1
 smoke_dir="$(mktemp -d)"
-export REFORGED_GAME_DIR="$smoke_dir/game" REFORGED_IMPORT_DIR="$smoke_dir/import" REFORGED_CONFIG_DIR="$smoke_dir/config"
-mkdir -p "$REFORGED_GAME_DIR" "$REFORGED_IMPORT_DIR" "$REFORGED_CONFIG_DIR"
+export DAINTY_GAME_DIR="$smoke_dir/game" DAINTY_IMPORT_DIR="$smoke_dir/import" DAINTY_CONFIG_DIR="$smoke_dir/config"
+mkdir -p "$DAINTY_GAME_DIR" "$DAINTY_IMPORT_DIR" "$DAINTY_CONFIG_DIR"
 
 compose() { docker compose "$@"; }
 step() { printf '\n== %s\n' "$*"; }
@@ -35,7 +35,7 @@ if [ "${SMOKE_NO_BUILD:-0}" != 1 ]; then
 fi
 
 step "fresh toml profile apply with no MongoDB succeeds"
-cat <<'TOML' >"$REFORGED_CONFIG_DIR/host.toml"
+cat <<'TOML' >"$DAINTY_CONFIG_DIR/host.toml"
 version = 1
 mode = "public"
 host = "smoke.example.org"
@@ -99,7 +99,7 @@ compose run --rm host db verify
 COMPOSE_PROFILES=public,mongo compose rm -sf mongo
 
 step "the toml profile applies host.toml alone"
-compose run --rm --entrypoint sh host -c 'cat /opt/dainty-lass/.workspace/config/host.toml' 	| sed 's/^name = .*/name = "Smoke Toml"/' >"$REFORGED_CONFIG_DIR/host.toml"
+compose run --rm --entrypoint sh host -c 'cat /opt/dainty-lass/.workspace/config/host.toml' 	| sed 's/^name = .*/name = "Smoke Toml"/' >"$DAINTY_CONFIG_DIR/host.toml"
 COMPOSE_PROFILES=public,toml compose run --rm configure
 compose run --rm --entrypoint sh host -c 'cat /opt/dainty-lass/.workspace/config/backend.env' | grep -q 'Smoke Toml'
 
@@ -109,7 +109,7 @@ compose ps
 
 step "the gateway serves setup's certificate"
 fp_file="$(compose run --rm --entrypoint sh host -c 'cat /opt/dainty-lass/.workspace/tls/gateway-cert.pem')"
-served="$(echo | openssl s_client -connect "$REFORGED_GATEWAY_PUBLISH" -servername smoke.example.org 2>/dev/null | openssl x509 -noout -fingerprint -sha256)"
+served="$(echo | openssl s_client -connect "$DAINTY_GATEWAY_PUBLISH" -servername smoke.example.org 2>/dev/null | openssl x509 -noout -fingerprint -sha256)"
 expected="$(printf '%s\n' "$fp_file" | openssl x509 -noout -fingerprint -sha256)"
 echo "served:   $served"
 echo "expected: $expected"

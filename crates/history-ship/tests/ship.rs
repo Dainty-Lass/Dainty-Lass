@@ -1,6 +1,6 @@
 //! Shipping and restore against an in-memory object-locked bucket (DH4's Verify): restore to a minute before
 //! a delete, on a copy, into either engine; with shipping stopped, the lag alert fires. SQLite always;
-//! Postgres too when `REFORGED_TEST_POSTGRES_URL` names a server the tests may create databases on, as in
+//! Postgres too when `DAINTY_TEST_POSTGRES_URL` names a server the tests may create databases on, as in
 //! `store`'s tests.
 #![allow(clippy::unwrap_used, clippy::expect_used, reason = "a panic is how a test fails")]
 
@@ -61,8 +61,8 @@ impl Drop for PgDatabase {
 static NEXT: AtomicU32 = AtomicU32::new(0);
 
 fn new_postgres() -> Option<PgDatabase> {
-    let url = std::env::var("REFORGED_TEST_POSTGRES_URL").ok()?;
-    let url = url::Url::parse(&url).expect("REFORGED_TEST_POSTGRES_URL is a postgres:// URL");
+    let url = std::env::var("DAINTY_TEST_POSTGRES_URL").ok()?;
+    let url = url::Url::parse(&url).expect("DAINTY_TEST_POSTGRES_URL is a postgres:// URL");
     let server = PostgresConfig {
         host: url.host_str().unwrap_or("127.0.0.1").to_owned(),
         port: url.port().unwrap_or(5432),
@@ -81,7 +81,7 @@ fn new_postgres() -> Option<PgDatabase> {
             .subsec_nanos()
     );
     PgConnection::establish(&server.conninfo())
-        .expect("REFORGED_TEST_POSTGRES_URL is reachable")
+        .expect("DAINTY_TEST_POSTGRES_URL is reachable")
         .batch_execute(&format!("CREATE DATABASE {}", portable::quote_ident(&name)))
         .unwrap();
     let config = PostgresConfig {
@@ -136,7 +136,7 @@ fn engines() -> Vec<Target> {
     let mut out = vec![sqlite()];
     match new_postgres() {
         Some(pg) => out.push(Target::Postgres(pg)),
-        None => eprintln!("REFORGED_TEST_POSTGRES_URL is not set: Postgres skipped"),
+        None => eprintln!("DAINTY_TEST_POSTGRES_URL is not set: Postgres skipped"),
     }
     out
 }

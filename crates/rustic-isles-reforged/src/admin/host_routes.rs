@@ -20,7 +20,7 @@ use crate::util::{self, iso, json, now_ms, object};
 
 /// The local admin check: a long enough key, a loopback peer, no gateway or forwarding stamp, the key's SHA-256.
 pub fn local_admin(settings: &rustic_isles::Settings, peer: &str, headers: &HeaderMap) -> bool {
-    let configured = settings.raw("REFORGED_ADMIN_KEY").unwrap_or("");
+    let configured = settings.raw("DAINTY_ADMIN_KEY").unwrap_or("");
     if util::utf16_len(configured) < 32 || !is_loopback_peer(peer) {
         return false;
     }
@@ -291,7 +291,7 @@ mod tests {
     #[test]
     fn local_admin_rules() {
         let key = "k".repeat(32);
-        let settings = rustic_isles::Settings::from_pairs([("REFORGED_ADMIN_KEY", key.as_str())]);
+        let settings = rustic_isles::Settings::from_pairs([("DAINTY_ADMIN_KEY", key.as_str())]);
         let mut headers = HeaderMap::new();
         headers.insert("x-dainty-admin-key", key.parse().unwrap());
         assert!(local_admin(&settings, "127.0.0.1", &headers));
@@ -300,7 +300,7 @@ mod tests {
         let mut gateway = headers.clone();
         gateway.insert("x-dainty-gateway", "1".parse().unwrap());
         assert!(!local_admin(&settings, "127.0.0.1", &gateway));
-        let short = rustic_isles::Settings::from_pairs([("REFORGED_ADMIN_KEY", "k".repeat(31).as_str())]);
+        let short = rustic_isles::Settings::from_pairs([("DAINTY_ADMIN_KEY", "k".repeat(31).as_str())]);
         assert!(!local_admin(&short, "127.0.0.1", &headers));
         assert!(!local_admin(&settings, "127.0.0.1", &HeaderMap::new()));
     }

@@ -50,7 +50,7 @@ impl Kind {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum TargetArg {
     File(PathBuf),
-    /// The backend's env file the host kit wrote, read for `REFORGED_DB_*` (its password is never printed)
+    /// The backend's env file the host kit wrote, read for `DAINTY_DB_*` (or `REFORGED_DB_*`) (its password is never printed)
     EnvFile(PathBuf),
 }
 
@@ -145,23 +145,30 @@ fn read_env_file(file: &Path) -> Result<BTreeMap<String, String>> {
 }
 
 /// store's `engine::ENV_ENGINE` and `ENV_FILE`, which it doesn't export
-const ENV_ENGINE: &str = "REFORGED_DB_ENGINE";
-const ENV_FILE: &str = "REFORGED_DB_FILE";
+const ENV_ENGINE: &str = "DAINTY_DB_ENGINE";
+const ENV_FILE: &str = "DAINTY_DB_FILE";
+
+/// `name` from `env`, or the same setting under the prefix before the 2026-11-06 rename (an older kit's file)
+fn setting(env: &BTreeMap<String, String>, name: &str) -> Option<String> {
+    env.get(name)
+        .or_else(|| name.strip_prefix("DAINTY_").and_then(|rest| env.get(&format!("REFORGED_{rest}"))))
+        .cloned()
+}
 
 pub fn database_config(target: &TargetArg) -> Result<DatabaseConfig> {
     match target {
         TargetArg::File(file) => Ok(DatabaseConfig::Sqlite { file: file.clone() }),
         TargetArg::EnvFile(file) => {
             let env = read_env_file(file)?;
-            let engine = env.get(ENV_ENGINE).map(String::as_str).unwrap_or("sqlite");
-            if engine.trim() == "sqlite" && !env.contains_key(ENV_FILE) {
+            let engine = setting(&env, ENV_ENGINE).unwrap_or_else(|| "sqlite".into());
+            if engine.trim() == "sqlite" && setting(&env, ENV_FILE).is_none() {
                 return Err(ImportError::Usage(format!(
                     "{}: no {}, so not the 1.14.7 backend's env file",
                     file.display(),
                     ENV_FILE
                 )));
             }
-            DatabaseConfig::from_lookup(|name| env.get(name).cloned(), PathBuf::new())
+            DatabaseConfig::from_lookup(|name| setting(&env, name), PathBuf::new())
                 .map_err(|e| ImportError::Usage(format!("{}: {e}", file.display())))
         }
     }

@@ -198,9 +198,9 @@ async fn grants() {
 async fn test_multiplier() {
     let on = Harness::new(Options {
         settings: settings(&[
-            ("REFORGED_SERVER_MODE", "private"),
-            ("REFORGED_SERVER_HOST", "100.101.102.103"),
-            ("REFORGED_XP_MULTIPLIER", "5"),
+            ("DAINTY_SERVER_MODE", "private"),
+            ("DAINTY_SERVER_HOST", "100.101.102.103"),
+            ("DAINTY_XP_MULTIPLIER", "5"),
         ]),
         ..Options::default()
     })
@@ -212,9 +212,9 @@ async fn test_multiplier() {
     );
     let off = Harness::new(Options {
         settings: settings(&[
-            ("REFORGED_SERVER_MODE", "private"),
-            ("REFORGED_SERVER_HOST", "203.0.113.7"),
-            ("REFORGED_XP_MULTIPLIER", "5"),
+            ("DAINTY_SERVER_MODE", "private"),
+            ("DAINTY_SERVER_HOST", "203.0.113.7"),
+            ("DAINTY_XP_MULTIPLIER", "5"),
         ]),
         ..Options::default()
     })
@@ -669,7 +669,7 @@ async fn session_supplies() {
     let shared = {
         // The setting points at the file; a new module reads it
         let h2 = Harness::new(Options {
-            settings: settings(&[("REFORGED_SESSION_SUPPLIES_FILE", file.to_str().unwrap())]),
+            settings: settings(&[("DAINTY_SESSION_SUPPLIES_FILE", file.to_str().unwrap())]),
             ..Options::default()
         })
         .await;

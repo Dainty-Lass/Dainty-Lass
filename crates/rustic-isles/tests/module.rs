@@ -159,7 +159,7 @@ fn env_files_merge() {
     write(
         dir.path(),
         "admin.env",
-        "REFORGED_DB_ENGINE=sqlite\nREFORGED_DB_FILE=reforged.db\nPORT=61003\n",
+        "DAINTY_DB_ENGINE=sqlite\nDAINTY_DB_FILE=reforged.db\nPORT=61003\n",
     );
     write(
         dir.path(),
@@ -175,7 +175,7 @@ fn env_files_merge() {
     with_range(&mut config, 8770, 8777);
     let s = settings(&config);
     assert_eq!(s.raw("PORT"), Some("61000"));
-    assert_eq!(s.raw("REFORGED_DB_ENGINE"), Some("sqlite"));
+    assert_eq!(s.raw("DAINTY_DB_ENGINE"), Some("sqlite"));
     assert_eq!(s.raw("METAGAME_API_KEY"), Some("k"));
     assert!(s.database_wanted());
     assert_eq!(
@@ -201,7 +201,7 @@ fn env_files_merge() {
 
     let other = write(dir.path(), "other.env", "PORT=1\n");
     let s = settings(&self::config(&module, Some(&other)));
-    assert_eq!((s.raw("PORT"), s.raw("REFORGED_DB_ENGINE")), (Some("1"), None));
+    assert_eq!((s.raw("PORT"), s.raw("DAINTY_DB_ENGINE")), (Some("1"), None));
     let missing = self::config(&module, Some(&dir.path().join("none.env")));
     assert!(module.settings(&missing).unwrap_err().message.contains("none.env"));
 }
@@ -279,7 +279,7 @@ async fn commands_and_events() {
     );
 
     let dir = tempfile::tempdir().unwrap();
-    let env = write(dir.path(), "db.env", "REFORGED_DB_FILE=isles.db\n");
+    let env = write(dir.path(), "db.env", "DAINTY_DB_FILE=isles.db\n");
     module.start(ctx.clone(), config(&module, Some(&env))).await.unwrap();
     let unsupported = module.command(ctx.clone(), unknown()).await.unwrap_err();
     assert_eq!(

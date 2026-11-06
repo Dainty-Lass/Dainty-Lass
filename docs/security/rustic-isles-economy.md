@@ -24,7 +24,7 @@ refuses the host-only headers (`x-rustic-isles-gameserver-apikey`) from the inte
   and the slots `BountiesSeams`, `RingInstancesSlot`, `InventoryActivitySlot`, `EconomyCaches`.
 - **Files:** only the module's backend game-data folder, by fixed names (`inventory_storage_policy.json`,
   `progression_config.json`, `slayers_path.json`, `slayers_path_definitions.json`, `mastery_objectives.json`,
-  `escalation_tuning.json`, the four store files) and `REFORGED_SESSION_SUPPLIES_FILE`. No path is built from request
+  `escalation_tuning.json`, the four store files) and `DAINTY_SESSION_SUPPLIES_FILE`. No path is built from request
   text.
 
 Code: `crates/rustic-isles-economy/src/` (`inventory/`, `progression/`, `bounties/`, `multipliers.rs`, `caller.rs`,

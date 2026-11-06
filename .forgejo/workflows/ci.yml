@@ -215,7 +215,7 @@ jobs:
             exit 1
           fi
 
-      # store's two-engine tests run against Postgres when REFORGED_TEST_POSTGRES_URL is set (DF7)
+      # store's two-engine tests run against Postgres when DAINTY_TEST_POSTGRES_URL is set (DF7)
       - name: Start Postgres for the two-engine store tests
         if: runner.os == 'Linux'
         run: |
@@ -224,7 +224,7 @@ jobs:
           $sudo apt-get install -y --no-install-recommends postgresql
           $sudo service postgresql start
           $sudo su - postgres -c "psql -c \"ALTER USER postgres WITH PASSWORD 'postgres';\""
-          echo "REFORGED_TEST_POSTGRES_URL=postgres://postgres:postgres@127.0.0.1:5432/postgres" >> "$GITHUB_ENV"
+          echo "DAINTY_TEST_POSTGRES_URL=postgres://postgres:postgres@127.0.0.1:5432/postgres" >> "$GITHUB_ENV"
 
       - name: Format
         run: cargo fmt --all --check
@@ -425,7 +425,7 @@ jobs:
           $sudo apt-get install -y --no-install-recommends postgresql
           $sudo service postgresql start
           $sudo su - postgres -c "psql -c \"ALTER USER postgres WITH PASSWORD 'postgres';\""
-          echo "REFORGED_TEST_POSTGRES_URL=postgres://postgres:postgres@127.0.0.1:5432/postgres" >> "$GITHUB_ENV"
+          echo "DAINTY_TEST_POSTGRES_URL=postgres://postgres:postgres@127.0.0.1:5432/postgres" >> "$GITHUB_ENV"
 
       - name: Format
         run: cargo fmt --all --check
@@ -550,7 +550,7 @@ jobs:
           persist-credentials: false
       - name: Build the images and run the full test run
         env:
-          REFORGED_COMMIT: ${{ github.sha }}
+          DAINTY_COMMIT: ${{ github.sha }}
         run: bash docker/run-tests.sh
 
   installers-windows:
@@ -648,7 +648,7 @@ jobs:
 
       - name: Build the images and run the harness
         env:
-          REFORGED_COMMIT: ${{ github.sha }}
+          DAINTY_COMMIT: ${{ github.sha }}
           NETWORK_REGION_PING: require
         run: bash docker/network/test.sh
 

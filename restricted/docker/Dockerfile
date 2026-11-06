@@ -50,12 +50,12 @@ COPY --from=rust-sources /src/ /src/
 # The release workflow's build: the server in one binary, dainty-host, with the gateway, allowlist, content server
 # and admin API inside it, and the game modules (all-modules, DF5). The launcher is a workspace member but is not
 # built (only the lock file is read).
-# REFORGED_MODULES: the server-console features that link the game modules; empty builds none, which still serves.
-ARG REFORGED_MODULES=all-modules
+# DAINTY_MODULES: the server-console features that link the game modules; empty builds none, which still serves.
+ARG DAINTY_MODULES=all-modules
 RUN --mount=type=cache,id=dainty-cargo-registry,target=/usr/local/cargo/registry \
     --mount=type=cache,id=dainty-cargo-git,target=/usr/local/cargo/git \
     --mount=type=cache,id=dainty-cargo-target,target=/src/restricted/target \
-    features="$REFORGED_MODULES" \
+    features="$DAINTY_MODULES" \
  && set -- \
  && for f in $(echo "$features" | tr , ' '); do set -- "$@" --features "server-console/$f"; done \
  && cargo build --release --locked -p server-console "$@" --bins \
@@ -130,10 +130,10 @@ COPY --chmod=0755 restricted/docker/healthcheck.sh bin/dainty-healthcheck
 COPY --chmod=0755 restricted/docker/network/init.sh bin/dainty-network-init
 RUN mkdir -p .workspace "$ISLES/Items_Analysis" "$ISLES/DauntlessEndpointDocumentation" \
  && chown dainty:dainty .workspace "$ISLES/Items_Analysis" "$ISLES/DauntlessEndpointDocumentation"
-# The commit the backend names to players (REFORGED_SOURCE_COMMIT, the AGPL source offer). setup reads it from
+# The commit the backend names to players (DAINTY_SOURCE_COMMIT, the AGPL source offer). setup reads it from
 # git or release.json, neither of which is in the image; the process environment wins over the env file.
-ARG REFORGED_COMMIT=""
-ENV REFORGED_SOURCE_COMMIT=${REFORGED_COMMIT} \
+ARG DAINTY_COMMIT=""
+ENV DAINTY_SOURCE_COMMIT=${DAINTY_COMMIT} \
     PATH=/opt/dainty-lass/bin:$PATH
 USER dainty
 ENTRYPOINT ["/usr/bin/tini", "--"]

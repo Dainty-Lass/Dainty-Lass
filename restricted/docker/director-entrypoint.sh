@@ -28,13 +28,13 @@ if [ ! -f "$prefix/system.reg" ]; then
 fi
 
 # The runtime switches the game servers need beside the executable (publish.rs, SERVER_RUNTIME_FLAGS)
-exe="$(sed -n 's/^REFORGED_GAME_EXE=//p' "$env_file" | tr -d '"')"
+exe="$(sed -n 's/^DAINTY_GAME_EXE=//p' "$env_file" | tr -d '"')"
 if [ -n "$exe" ] && [ -f "$exe" ]; then
 	win64="$(dirname "$exe")"
 	[ -e "$win64/CALL_HUNTPASS_QUERY.flag" ] || : >"$win64/CALL_HUNTPASS_QUERY.flag" || true
 else
 	echo "director | ! no game executable at ${exe:-(none)}: the Director runs, but no game server can start." >&2
-	echo "director |   Mount your Dauntless 1.14.7 folder (REFORGED_GAME_DIR) and run setup with --game /game" >&2
+	echo "director |   Mount your Dauntless 1.14.7 folder (DAINTY_GAME_DIR) and run setup with --game /game" >&2
 fi
 
 exec dainty-host director serve --env-file "$env_file"

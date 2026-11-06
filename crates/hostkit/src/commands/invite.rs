@@ -129,19 +129,19 @@ fn read_admin_key(paths: &Paths) -> Result<String, HostError> {
     let secrets_path = paths.config.join(SECRET_FILE);
     if secrets_path.is_file() {
         let env = read_env_file(&secrets_path)?;
-        if let Some(key) = env.get("REFORGED_ADMIN_KEY").filter(|s| !s.trim().is_empty()) {
+        if let Some(key) = env.get("DAINTY_ADMIN_KEY").filter(|s| !s.trim().is_empty()) {
             return Ok(key.to_string());
         }
     }
     let backend_env_path = paths.config.join("backend.env");
     if backend_env_path.is_file() {
         let env = read_env_file(&backend_env_path)?;
-        if let Some(key) = env.get("REFORGED_ADMIN_KEY").filter(|s| !s.trim().is_empty()) {
+        if let Some(key) = env.get("DAINTY_ADMIN_KEY").filter(|s| !s.trim().is_empty()) {
             return Ok(key.to_string());
         }
     }
     Err(HostError::message(
-        "REFORGED_ADMIN_KEY is missing from .workspace/config/secrets.env (run dainty-host setup)",
+        "DAINTY_ADMIN_KEY is missing from .workspace/config/secrets.env (run dainty-host setup)",
     ))
 }
 

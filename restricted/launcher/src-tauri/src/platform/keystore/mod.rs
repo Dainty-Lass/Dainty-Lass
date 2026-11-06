@@ -566,14 +566,14 @@ mod tests {
     /// safeStorage, as the same user on the same PC): every key reads back through `legacy.rs`, is moved to
     /// this launcher's files once, and the 1.4.4 server in its settings loads. Never a real profile.
     #[tokio::test]
-    #[ignore = "needs REFORGED_ELECTRON_PROFILE, a profile made by test/electron-keystore (see its README)"]
+    #[ignore = "needs DAINTY_ELECTRON_PROFILE, a profile made by test/electron-keystore (see its README)"]
     async fn an_electron_profile_reads_back() {
         use serde_json::Value;
 
         use crate::core::i18n::Language;
         use crate::platform::settings::{Platform, SettingsStore, is_revived};
 
-        let profile = PathBuf::from(std::env::var_os("REFORGED_ELECTRON_PROFILE").expect("REFORGED_ELECTRON_PROFILE"));
+        let profile = PathBuf::from(std::env::var_os("DAINTY_ELECTRON_PROFILE").expect("DAINTY_ELECTRON_PROFILE"));
         let expected: Value =
             serde_json::from_str(&std::fs::read_to_string(profile.join("expected.json")).unwrap()).unwrap();
         let user_data = profile.join("User Data");

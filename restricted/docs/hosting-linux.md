@@ -58,14 +58,14 @@ bin/dainty-host doctor
 
 | File | What |
 | --- | --- |
-| `systemd/dainty-lass.service` | The server (`dainty-host start` with `Environment=REFORGED_ALLOWLIST=external`), as your user, at boot |
+| `systemd/dainty-lass.service` | The server (`dainty-host start` with `Environment=DAINTY_ALLOWLIST=external`), as your user, at boot |
 | `systemd/dainty-lass-allowlist.service` | Public: the allowlist helper (`dainty-host allowlist`) with `CAP_NET_ADMIN` only, for its nftables table `dainty_lass` |
 | `systemd/install.sh` | Installs and starts the units (needs root once) |
 | `config/firewall.sh` | Lets a host firewall (ufw) pass TCP 443 and the game's UDP ports |
 
 Run `sudo .workspace/systemd/install.sh`, then `systemctl status dainty-lass`. Without systemd, start the allowlist helper
 with `CAP_NET_ADMIN` (for example under `sudo` with `.workspace/config/allowlist.env`) and run
-`REFORGED_ALLOWLIST=external bin/dainty-host start` in the foreground as your user.
+`DAINTY_ALLOWLIST=external bin/dainty-host start` in the foreground as your user.
 
 Linux options of `setup`: `--wine <path>` or `--proton <script>` (a Proton or GE-Proton script instead of
 Wine; `--no-proton` goes back), `--xvfb` (the default) or `--no-xvfb`, and `--firewall-interface eth0`
@@ -85,7 +85,7 @@ Postgres instead of SQLite for the Rust services' database is `[database]` in `h
 
 ```bash
 sudo apt install postgresql
-pw=$(sed -n 's/^REFORGED_DB_PASSWORD=//p' .workspace/config/secrets.env)
+pw=$(sed -n 's/^DAINTY_DB_PASSWORD=//p' .workspace/config/secrets.env)
 sudo -u postgres psql -c "CREATE ROLE dainty LOGIN PASSWORD '$pw'" -c "CREATE DATABASE dainty OWNER dainty"
 ```
 

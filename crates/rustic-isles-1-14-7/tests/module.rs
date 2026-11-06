@@ -141,7 +141,7 @@ async fn chat_before_during_and_after() {
 fn database_lines(db: &Path, extra: &[&str]) -> Vec<String> {
     let (private, public) = rustic_isles_auth::test_support::throwaway_signing_keys();
     let mut lines = vec![
-        format!("REFORGED_DB_FILE='{}'", db.display()),
+        format!("DAINTY_DB_FILE='{}'", db.display()),
         "API_KEY_HASH_SECRET=test-secret-of-at-least-thirty-two-chars".to_owned(),
         format!("AUTH_SIGNING_PRIVKEY_B64={private}"),
         format!("AUTH_SIGNING_PUBKEY_B64={public}"),

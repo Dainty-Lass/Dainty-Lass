@@ -1,4 +1,4 @@
-//! The keys on both engines (DD15, DH2). `REFORGED_TEST_POSTGRES_URL` names a server the test may create a
+//! The keys on both engines (DD15, DH2). `DAINTY_TEST_POSTGRES_URL` names a server the test may create a
 //! database on (`postgres://user:pw@127.0.0.1:5432/postgres`); without it only SQLite runs.
 
 #![allow(clippy::unwrap_used, clippy::expect_used, reason = "a panic is how a test fails")]
@@ -26,7 +26,7 @@ impl Drop for PgDatabase {
 }
 
 fn new_postgres() -> Option<PgDatabase> {
-    let url = url::Url::parse(&std::env::var("REFORGED_TEST_POSTGRES_URL").ok()?).expect("a postgres:// URL");
+    let url = url::Url::parse(&std::env::var("DAINTY_TEST_POSTGRES_URL").ok()?).expect("a postgres:// URL");
     let server = PostgresConfig {
         host: url.host_str().unwrap_or("127.0.0.1").to_owned(),
         port: url.port().unwrap_or(5432),
@@ -37,7 +37,7 @@ fn new_postgres() -> Option<PgDatabase> {
     };
     let name = format!("admin_keys_test_{}", std::process::id());
     PgConnection::establish(&server.conninfo())
-        .expect("REFORGED_TEST_POSTGRES_URL is reachable")
+        .expect("DAINTY_TEST_POSTGRES_URL is reachable")
         .batch_execute(&format!("CREATE DATABASE {}", portable::quote_ident(&name)))
         .unwrap();
     let config = PostgresConfig {
@@ -87,7 +87,7 @@ async fn exercise(config: DatabaseConfig) {
     let listed = keys.list().await.unwrap();
     assert_eq!(
         listed.iter().map(|k| k.name.as_str()).collect::<Vec<_>>(),
-        ["REFORGED_ADMIN_API_KEY", "Maya", "Maya"]
+        ["DAINTY_ADMIN_API_KEY", "Maya", "Maya"]
     );
 
     // Every change is in the log under whoever made it, with the key's hash and never the key
@@ -121,7 +121,7 @@ async fn keys_on_sqlite() {
 #[tokio::test(flavor = "multi_thread")]
 async fn keys_on_postgres() {
     let Some(pg) = new_postgres() else {
-        eprintln!("REFORGED_TEST_POSTGRES_URL is not set: skipping the Postgres half");
+        eprintln!("DAINTY_TEST_POSTGRES_URL is not set: skipping the Postgres half");
         return;
     };
     exercise(DatabaseConfig::Postgres(pg.config.clone())).await;

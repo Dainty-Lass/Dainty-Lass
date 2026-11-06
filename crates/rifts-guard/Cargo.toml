@@ -21,7 +21,7 @@ tokio = { workspace = true, features = ["rt", "rt-multi-thread"] }
 [dev-dependencies]
 tempfile.workspace = true
 tokio = { workspace = true, features = ["rt", "rt-multi-thread", "macros"] }
-# REFORGED_TEST_POSTGRES_URL, for the Postgres half of the store tests
+# DAINTY_TEST_POSTGRES_URL, for the Postgres half of the store tests
 url.workspace = true
 
 [lints]

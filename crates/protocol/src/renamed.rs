@@ -7,6 +7,7 @@ pub const RENAMES: &[(&str, &str)] = &[
     ("x-reforged-", "x-dainty-"),
     ("X-Reforged-", "X-Dainty-"),
     ("/reforged/api", "/dainty/api"),
+    ("REFORGED_", "DAINTY_"),
 ];
 
 /// `name` as a recording made under the old names spells it: [`renamed`] backwards, for a test double that reports

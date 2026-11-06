@@ -7,7 +7,7 @@
 #   rust      cargo test for the server crates (protocol, proxy, service-kit, store, gateway, content, admin, host,
 #             controller, backend, director), every test binary even after a failure. With CAP_NET_ADMIN
 #             (docker run --cap-add NET_ADMIN) the allowlist's nftables test applies its rules for real
-#             (REFORGED_TEST_NFT=1), in this container's own network namespace
+#             (DAINTY_TEST_NFT=1), in this container's own network namespace
 #   backend   the Node backend's tests (rustic-isles' ParadoxBackend, npm test)
 #   director  the Node Director's tests (rustic-isles' ParadoxDirector, npm test)
 set -uo pipefail
@@ -26,7 +26,7 @@ run_suite() {
 	case "$1" in
 	rust)
 		if can_net_admin; then
-			export REFORGED_TEST_NFT=1
+			export DAINTY_TEST_NFT=1
 			echo "(nftables test: on, this container has CAP_NET_ADMIN)"
 		else
 			echo "(nftables test: off; run with --cap-add NET_ADMIN to include it)"

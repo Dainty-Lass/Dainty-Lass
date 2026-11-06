@@ -42,7 +42,7 @@ what `docker compose up` without `-t` needs. On Windows the colors work in the l
 under the launcher's control writes to a pipe, so it gets plain lines unless `always` is set. The `--tui` dashboard and
 `.workspace/logs/server.log` keep plain text.
 
-The machine lines `start` prints itself (`REFORGED_SERVER_READY`, `say`'s `- ...` lines) are unchanged.
+The machine lines `start` prints itself (`DAINTY_SERVER_READY`, `say`'s `- ...` lines) are unchanged.
 
 ## Shipping to Graylog (GELF)
 

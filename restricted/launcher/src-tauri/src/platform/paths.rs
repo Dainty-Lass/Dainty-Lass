@@ -109,8 +109,8 @@ impl Paths {
                 home,
             });
         }
-        // Throwaway profile when REFORGED_DEV_PROFILE is set, so a developer's or host's real settings and keys stay untouched
-        if let Some(dir) = std::env::var_os("REFORGED_DEV_PROFILE").map(PathBuf::from) {
+        // Throwaway profile when DAINTY_DEV_PROFILE is set, so a developer's or host's real settings and keys stay untouched
+        if let Some(dir) = std::env::var_os("DAINTY_DEV_PROFILE").map(PathBuf::from) {
             let user_data = dir.join("User Data");
             let documents = dir.join("Documents");
             migrate_legacy_folders(&user_data, Some(&documents));

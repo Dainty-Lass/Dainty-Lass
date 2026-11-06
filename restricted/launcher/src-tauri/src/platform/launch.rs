@@ -3,7 +3,7 @@
 //! backend runs `AUTH_MODE=APIKEY` and trades the key for the game's session token. The key is never
 //! logged (`mask_args`).
 //!
-//! The runtime learns where the backend is from the environment: `REFORGED_BACKEND_URL` names the
+//! The runtime learns where the backend is from the environment: `DAINTY_BACKEND_URL` names the
 //! launcher's local relay, `RUSTIC_ISLES_RUNTIME_PROFILE` picks the runtime's log profile.
 //!
 //! On Linux the game runs through DR's `LaunchRuntime` (Proton or Wine before the exe) and the running
@@ -118,7 +118,14 @@ pub fn runtime_profile_name(profile: RuntimeProfile) -> &'static str {
 
 /// The prefixes of the variables that point a runtime somewhere; `MYSTICPARADOX_` is a runtime's from before the
 /// Rustic Isles rename, read for one release (DX4), and `RUSTIC_RIFTS_` names the realms ones since (D3)
-pub const RUNTIME_ENV_PREFIXES: [&str; 4] = ["REFORGED_", "RUSTIC_ISLES_", "RUSTIC_RIFTS_", "MYSTICPARADOX_"];
+// REFORGED_: the names before the 2026-11-06 rename, which a runtime built before it still reads
+pub const RUNTIME_ENV_PREFIXES: [&str; 5] = [
+    "DAINTY_",
+    "REFORGED_",
+    "RUSTIC_ISLES_",
+    "RUSTIC_RIFTS_",
+    "MYSTICPARADOX_",
+];
 
 /// Whether the game must not inherit `name` (any case)
 pub fn is_runtime_env(name: &OsStr) -> bool {
@@ -137,7 +144,10 @@ pub fn launch_environment(
         return Err("the backend URL must be the local relay");
     }
     let mut env: Vec<(OsString, OsString)> = base.into_iter().filter(|(name, _)| !is_runtime_env(name)).collect();
-    env.push(("REFORGED_BACKEND_URL".into(), backend_url.into()));
+    // The runtime reads RUSTIC_ISLES_BACKEND_URL first; one built before the 2026-11-06 rename knows no DAINTY_ name
+    for name in ["DAINTY_BACKEND_URL", "RUSTIC_ISLES_BACKEND_URL"] {
+        env.push((name.into(), backend_url.into()));
+    }
     // Both names: a host may still publish a runtime from before the rename (DX4)
     for name in ["RUSTIC_ISLES_RUNTIME_PROFILE", "MYSTICPARADOX_RUNTIME_PROFILE"] {
         env.push((name.into(), runtime_profile_name(profile).into()));
@@ -484,7 +494,7 @@ mod tests {
         let out = launch_environment(
             env(&[
                 ("PATH", "x"),
-                ("REFORGED_BACKEND_URL", "https://evil.example"),
+                ("DAINTY_BACKEND_URL", "https://evil.example"),
                 ("RUSTIC_ISLES_LOG", "1"),
                 ("MYSTICPARADOX_LOG", "1"),
                 ("mysticparadox_backend_url", "https://evil.example"),
@@ -495,7 +505,8 @@ mod tests {
             RuntimeProfile::Development,
         )
         .unwrap();
-        assert_eq!(get(&out, "REFORGED_BACKEND_URL"), Some("http://127.0.0.1:61100"));
+        assert_eq!(get(&out, "DAINTY_BACKEND_URL"), Some("http://127.0.0.1:61100"));
+        assert_eq!(get(&out, "RUSTIC_ISLES_BACKEND_URL"), Some("http://127.0.0.1:61100"));
         assert_eq!(get(&out, "RUSTIC_ISLES_RUNTIME_PROFILE"), Some("development"));
         assert_eq!(get(&out, "MYSTICPARADOX_RUNTIME_PROFILE"), Some("development"));
         assert_eq!(get(&out, "PATH"), Some("x"));
@@ -504,7 +515,7 @@ mod tests {
         assert_eq!(get(&out, "mysticparadox_backend_url"), None);
         assert_eq!(get(&out, "RUSTIC_RIFTS_BIND_ADDRESS"), None);
         assert_eq!(get(&out, "reforged_other"), None);
-        assert_eq!(out.len(), 4, "the inherited REFORGED_BACKEND_URL is gone, not doubled");
+        assert_eq!(out.len(), 5, "the inherited DAINTY_BACKEND_URL is gone, not doubled");
         for bad in [
             "http://192.168.1.2:61100",
             "https://127.0.0.1:61100",

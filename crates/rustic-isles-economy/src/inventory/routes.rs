@@ -42,7 +42,7 @@ use crate::util::{
 };
 
 const INVALID: &str = "INVALID";
-const NO_DATABASE: &str = "isles: no database is configured (REFORGED_DB_FILE or REFORGED_DB_ENGINE)";
+const NO_DATABASE: &str = "isles: no database is configured (DAINTY_DB_FILE or DAINTY_DB_ENGINE)";
 const WIRE_CREDENTIALS: [&str; 3] = [
     "authorization",
     "x-rustic-isles-gameserver-apikey",

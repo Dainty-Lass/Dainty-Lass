@@ -378,7 +378,7 @@ pub struct KickResult {
 /// An admin key as listed: who it is for and what it may do, never the key itself.
 #[derive(SimpleObject, Clone, Debug, PartialEq, Eq)]
 pub struct AdminKey {
-    /// What the log and `admin:<id>` in the change log call it. `owner` is REFORGED_ADMIN_API_KEY.
+    /// What the log and `admin:<id>` in the change log call it. `owner` is DAINTY_ADMIN_API_KEY.
     pub id: String,
     /// What the key is for, as its issuer named it.
     pub name: String,

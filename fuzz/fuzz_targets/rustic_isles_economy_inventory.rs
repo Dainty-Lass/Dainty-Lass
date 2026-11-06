@@ -75,9 +75,9 @@ fuzz_target!(|data: &[u8]| {
         parts.next().unwrap_or(""),
     );
     let _ = read_test_multipliers(&rustic_isles::Settings::from_pairs([
-        ("REFORGED_XP_MULTIPLIER", extra),
-        ("REFORGED_SERVER_MODE", "private"),
-        ("REFORGED_SERVER_HOST", extra),
+        ("DAINTY_XP_MULTIPLIER", extra),
+        ("DAINTY_SERVER_MODE", "private"),
+        ("DAINTY_SERVER_HOST", extra),
     ]));
     let _ = is_tailscale_host(extra);
     let Ok(body) = serde_json::from_str::<Value>(body_text) else {

@@ -1074,7 +1074,7 @@ fn gateway_service_main(args: &[String]) -> ExitCode {
     let Some(p) = paths else {
         return gateway::cli::main_from(argv);
     };
-    if std::env::var("REFORGED_NETWORK_FULL_NODE").as_deref() == Ok("1")
+    if std::env::var("DAINTY_NETWORK_FULL_NODE").as_deref() == Ok("1")
         && let Ok(Some(hc)) = hostconfig::load_host_config(&p)
     {
         return run_network_full_node(&p, &hc);

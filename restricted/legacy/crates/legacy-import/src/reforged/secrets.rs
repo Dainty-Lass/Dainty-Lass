@@ -12,19 +12,23 @@ use crate::report::Report;
 pub const SECRET_KEYS: [&str; 11] = [
     "GATEWAY_SECRET",
     "ALLOWLIST_SECRET",
-    "REFORGED_ADMIN_KEY",
+    "DAINTY_ADMIN_KEY",
     "GAMESERVER_API_KEY",
     "API_KEY_HASH_SECRET",
     "RUSTIC_ISLES_METRICS_TOKEN",
     "AUTH_SIGNING_PRIVKEY_B64",
     "AUTH_SIGNING_PUBKEY_B64",
-    "REFORGED_ADMIN_API_KEY",
+    "DAINTY_ADMIN_API_KEY",
     "RUSTIC_ISLES_MANAGER_OPERATOR_SECRET",
-    "REFORGED_DB_PASSWORD",
+    "DAINTY_DB_PASSWORD",
 ];
 
-/// The names an old kit wrote, which the services still read for one release (rustic-isles `981a9f0`)
-const LEGACY_NAMES: [(&str, &str); 2] = [
+/// The names an old kit wrote, which `dainty-host setup` moves to the new ones with the same value (rustic-isles
+/// `981a9f0`; the 2026-11-06 DAINTY_ rename)
+const LEGACY_NAMES: [(&str, &str); 5] = [
+    ("DAINTY_ADMIN_KEY", "REFORGED_ADMIN_KEY"),
+    ("DAINTY_ADMIN_API_KEY", "REFORGED_ADMIN_API_KEY"),
+    ("DAINTY_DB_PASSWORD", "REFORGED_DB_PASSWORD"),
     ("RUSTIC_ISLES_METRICS_TOKEN", "MYSTICPARADOX_METRICS_TOKEN"),
     (
         "RUSTIC_ISLES_MANAGER_OPERATOR_SECRET",
@@ -67,7 +71,7 @@ pub fn check(file: &Path, dry_run: bool, report: &mut Report) -> Result<()> {
         .collect();
     if !legacy.is_empty() {
         report.note(format!(
-            "secrets.env keeps the old names {}; the services read them for one release only",
+            "secrets.env keeps the old names {}; dainty-host setup moves each to its new name, same value",
             legacy.join(", ")
         ));
     }

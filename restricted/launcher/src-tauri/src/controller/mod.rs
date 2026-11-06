@@ -7,7 +7,7 @@
 //!    invite's certificate fingerprint.
 //!
 //! Either way, while the game runs a local relay on 127.0.0.1:61100 carries the game's own traffic
-//! (`net::relay`): the runtime sends it there because the launcher sets `REFORGED_BACKEND_URL`.
+//! (`net::relay`): the runtime sends it there because the launcher sets `DAINTY_BACKEND_URL`.
 //!
 //! The state sits behind one mutex that is only held between awaits, never across one: each locked
 //! stretch is what one synchronous stretch of the TypeScript controller was on Node's event loop, so the
@@ -121,7 +121,7 @@ pub struct Config {
     /// The operating system's locale ("es-ES"), for the game language "auto"
     pub system_locale: String,
     pub game_config_dir: PathBuf,
-    /// Where the local relay listens (`REFORGED_RELAY_PORT` changes it for tests and rehearsals)
+    /// Where the local relay listens (`DAINTY_RELAY_PORT` changes it for tests and rehearsals)
     pub relay_port: u16,
     /// The file checked by hash before every launch: (relative path, SHA-256). Tests use a fake game.
     pub exe_pin: (String, String),

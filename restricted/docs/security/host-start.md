@@ -17,7 +17,7 @@ backend (port 61000) and in-process Director (port 61001), dainty-lass's MIT `ru
 the Node backend/Director run only in opt-in `--features paradox` rollback builds until RB15).
 
 - **In:** `host.toml` (or a Node kit's `host.json`) and the `.env` files under `.workspace/config` (trusted: whoever can write them chooses what
-  runs), the process environment, and with `REFORGED_CONTROL=stdin` the launcher's stdin pipe.
+  runs), the process environment, and with `DAINTY_CONTROL=stdin` the launcher's stdin pipe.
 - **Out:** child processes (never through a shell), their logs under `.workspace/logs`, and the console.
 
 Code: `src/commands/start/` (`mod.rs`, `control.rs`, `binaries.rs`), `src/services.rs`, `src/services/tree.rs`,
@@ -30,7 +30,7 @@ line and compared with one word.
 
 - [ ] Every program is started with an argument list, never a shell string (`services.rs` `launch`, `run.rs`); `npm`
       and `npx` on Windows are the only `.cmd` files, with fixed arguments.
-- [ ] A service's environment is the system's variables, then its env file: no `REFORGED_`, `RUSTIC_ISLES_`,
+- [ ] A service's environment is the system's variables, then its env file: no `DAINTY_`, `RUSTIC_ISLES_`,
       `GATEWAY_`, `ALLOWLIST_`, `MONGODB_` or other server setting left in the shell reaches it
       (`service_environment`, tested).
 - [ ] A Rust service gets its env file with `--env-file` and nothing else configures it (DR X7, `binaries.rs`).

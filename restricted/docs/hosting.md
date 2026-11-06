@@ -124,7 +124,7 @@ bin\dainty-host history verify                                  # is the log its
 ```
 
 - **Who and when.** `--actor` is `admin:<key id>` (the ids are in `admin key list`; a bare id works, `owner` is
-  `REFORGED_ADMIN_API_KEY`), `host:console`, `player:<account>` or `system:<task>`. A time is RFC 3339
+  `DAINTY_ADMIN_API_KEY`), `host:console`, `player:<account>` or `system:<task>`. A time is RFC 3339
   (`2026-10-27T10:30:00Z`), a date or a date and time in UTC (`2026-10-27`, `2026-10-27T10:30`) or how long ago
   (`90m`, `6h`, `2d`, `1w`). `--since` counts, `--until` doesn't. `history` shows 50 changes a page
   (`--limit`, up to 1000) and prints the `--cursor` for the next, older page.
@@ -189,14 +189,14 @@ servers' key) lives only in `secrets.env`.
 | --- | --- | --- |
 | `GATEWAY_SECRET` | `gateway.env` | Authenticates the gateway to its upstreams |
 | `ALLOWLIST_SECRET` | `gateway.env`, `allowlist.env` | Authenticates the gateway to the allowlist helper |
-| `REFORGED_ADMIN_KEY` | `backend.env`, `admin.env` | The backend's `/dainty/api/*` admin key |
+| `DAINTY_ADMIN_KEY` | `backend.env`, `admin.env` | The backend's `/dainty/api/*` admin key |
 | `GAMESERVER_API_KEY` | `backend.env` (`GAMESERVER_API_KEYS`), `director.env` (`METAGAME_API_KEY`) | Shared key between the game servers and the backend |
 | `API_KEY_HASH_SECRET` | `backend.env` | HMAC secret for hashing account API keys at rest |
 | `RUSTIC_ISLES_METRICS_TOKEN` | `backend.env` | Bearer token for the backend's `/metrics` endpoint |
 | `AUTH_SIGNING_PRIVKEY_B64`, `AUTH_SIGNING_PUBKEY_B64` | `backend.env` | 4096-bit RSA keypair (PKCS#8 private key and SPKI public key, base64-encoded PEM) that signs and verifies the auth service's RS256 access tokens |
-| `REFORGED_ADMIN_API_KEY` | `admin.env` | The owner's bearer key for the admin GraphQL API ([admin-api.md](https://git.silentspud.com/silentspud/dainty-lass/src/branch/main/docs/admin-api.md)) |
+| `DAINTY_ADMIN_API_KEY` | `admin.env` | The owner's bearer key for the admin GraphQL API ([admin-api.md](https://git.silentspud.com/silentspud/dainty-lass/src/branch/main/docs/admin-api.md)) |
 | `RUSTIC_ISLES_MANAGER_OPERATOR_SECRET` | `backend.env`, `admin.env` | HMAC secret signing the admin API's `/admin/v1` requests to the backend |
-| `REFORGED_DB_PASSWORD` | `admin.env` (when Postgres is enabled) | Password for the Postgres role when `[database]` uses `engine = "postgres"` |
+| `DAINTY_DB_PASSWORD` | `admin.env` (when Postgres is enabled) | Password for the Postgres role when `[database]` uses `engine = "postgres"` |
 | `DASHBOARD_INGEST_KEY` | `gateway.env` (`CHAT_DASHBOARD_INGEST_KEY`, when `dashboard_url` is set) | What chat sends the staff dashboard with: set the dashboard's own `DASHBOARD_INGEST_KEY` to the same value |
 
 The `RUSTIC_ISLES_*` names were `MYSTICPARADOX_*` before the Rustic Isles rename. `setup` moves the two secrets to
@@ -214,7 +214,7 @@ engine = "postgres"
 ```
 
 Postgres is yours to run: make a role and a database for it, with the role's password set to
-`REFORGED_DB_PASSWORD` from `secrets.env` (setup makes it once), then run `setup` again. The connection is not
+`DAINTY_DB_PASSWORD` from `secrets.env` (setup makes it once), then run `setup` again. The connection is not
 encrypted, so `setup` refuses a Postgres server on another machine unless `allow_remote = true`, which is only for a
 network you trust.
 
@@ -426,15 +426,15 @@ The player launcher (`dainty-launcher`) has no remote-management surface.
 
 | `[remote]` key in `host.toml` | `gateway.env` / `host` variable | Values | Default |
 | --- | --- | --- | --- |
-| `role` | `REFORGED_REMOTE_ROLE` | `"standalone"`, `"controller"`, `"managed"` | `"standalone"` |
-| `controller_url` | `REFORGED_REMOTE_CONTROLLER_URL` | `https://<host>[:<port>]` | unset |
-| `controller_cert_fp` | `REFORGED_REMOTE_CONTROLLER_CERT_FP` | 64 lowercase hex digits (SHA-256 of controller gateway cert) | unset |
-| `controller_node` | `REFORGED_REMOTE_CONTROLLER_NODE` | `[a-z0-9-]{1,32}` | unset |
-| `node` | `REFORGED_REMOTE_NODE` | `[a-z0-9-]{1,32}` | `[network].node` |
-| `region` | `REFORGED_REMOTE_REGION` | `[a-z0-9-]{1,32}` | `[network].region` |
-| `label` | `REFORGED_REMOTE_LABEL` | display string (`1`–`64` chars) | unset |
-| `sync_interval_secs` | `REFORGED_REMOTE_SYNC_INTERVAL_SECS` | integer `5`–`3600` | `15` |
-| `local_overrides` | `REFORGED_REMOTE_LOCAL_OVERRIDES` | array of dotted `host.toml` paths preserved locally | `[]` |
+| `role` | `DAINTY_REMOTE_ROLE` | `"standalone"`, `"controller"`, `"managed"` | `"standalone"` |
+| `controller_url` | `DAINTY_REMOTE_CONTROLLER_URL` | `https://<host>[:<port>]` | unset |
+| `controller_cert_fp` | `DAINTY_REMOTE_CONTROLLER_CERT_FP` | 64 lowercase hex digits (SHA-256 of controller gateway cert) | unset |
+| `controller_node` | `DAINTY_REMOTE_CONTROLLER_NODE` | `[a-z0-9-]{1,32}` | unset |
+| `node` | `DAINTY_REMOTE_NODE` | `[a-z0-9-]{1,32}` | `[network].node` |
+| `region` | `DAINTY_REMOTE_REGION` | `[a-z0-9-]{1,32}` | `[network].region` |
+| `label` | `DAINTY_REMOTE_LABEL` | display string (`1`–`64` chars) | unset |
+| `sync_interval_secs` | `DAINTY_REMOTE_SYNC_INTERVAL_SECS` | integer `5`–`3600` | `15` |
+| `local_overrides` | `DAINTY_REMOTE_LOCAL_OVERRIDES` | array of dotted `host.toml` paths preserved locally | `[]` |
 
 ## Public servers
 
