@@ -17,7 +17,27 @@ supersedes it where they differ (§1.5 lists where). Measurement follows
 > `2e04dd6`). Category A files are moved, not rewritten. Nothing written from
 > this document names DR's or Reforged's files, commits or TypeScript identifiers in comments.
 
-The host half is [`spec-rd27-host.md`](spec-rd27-host.md).
+The host half is [`spec-rd27-host.md`](spec-rd27-host.md). The rows that carry this out, and the maintainer's
+decisions L1–L5, are in [`plan-rd27-launcher.md`](plan-rd27-launcher.md).
+
+> **Refreshed (RL1, 2026-11-06)** against `restricted/launcher` at `60b984d4`, after dainty-restricted was imported
+> into this repository as `restricted/` (2026-11-05). Read "dainty-restricted" below as `restricted/` and
+> "dainty-lass" as this repository's root. In the clean-room rule, the excluded tree is `restricted/` (all of it)
+> and the excluded history is every commit's `launcher/` and `restricted/launcher/`. What changed since `849f45e`:
+>
+> - **Names**: the binaries are `dainty-launcher` and `dainty-manager`; the host kit is `dainty-host`.
+> - **New behaviour, specified here**: the tray (§2.2, §2.2.1), the Game log read from the game's console
+>   (§2.7.16, command 54 `game_log_get`, event `game-log`), the settings `minimizeToTray`, `closeToTray` and
+>   `showGameConsole` (§2.3.3, §2.4.2, §2.4.10, §2.4.11, §2.7.2), the backend keys `tray_open` and `tray_quit`
+>   (§2.8.2: 14 keys, not 12), and `RUSTIC_RIFTS_` among the stripped prefixes (§2.7.5). The realm adapter speaks
+>   the D3 routes and headers (`/rustic/v1/...`, `x-rustic-host-capability`).
+> - **Licences**: `rifts-host`, `rifts-seam`, gateway, content, chat and every `rustic-isles-*` crate are MIT at the
+>   root, and `restricted/crates/host` links only MIT crates. So realms and the manager's embedded server no longer
+>   force the binaries to AGPL. §3.6 and §4 are rewritten for this.
+> - **Line ranges** hold: `controller/host.rs` changed only in names since, so its B part is still lines 1–1171 and
+>   its born-here tail (the server GUI's in-process host kit) starts at 1172.
+> - **Done since**: the launcher's JavaScript (the isolation hook, the TS tests, the scripts) is MIT in `launcher/`
+>   ([`clean-room/launcher-js.md`](clean-room/launcher-js.md)); `test/cases/manifest.json` is gone.
 
 ---
 
@@ -33,7 +53,8 @@ The host half is [`spec-rd27-host.md`](spec-rd27-host.md).
 - launcher-kit already has clean-room versions of seven of them (`pinned`, `http`, `to_file`, `linux_runtime`,
   `system`, `core/text`, `core/pins`) that the shell never adopted because their APIs differ. For those the work is
   closing a documented gap, not a rewrite.
-- After the rewrite, the only AGPL parts a launcher binary still needs are the realm transport (`rifts-host`,
+- *(Superseded by the RL1 refresh above and §3.6: realms and the embedded server are no longer AGPL.)* After the
+  rewrite, the only AGPL parts a launcher binary still needs are the realm transport (`rifts-host`,
   `rifts-seam`, feature `realms`), the embedded server of the manager (feature `server-gui`, through
   `crates/host`), the language catalogs' text and DR's recorded test tables (§3).
 
@@ -93,9 +114,9 @@ The host half is [`spec-rd27-host.md`](spec-rd27-host.md).
 | `controller/guarded.rs` | A | 10.0% | DD23, DH6 | `admin` (MIT) | launcher-kit `server-gui` |
 | `controller/install.rs` | A | 6.4% | DE5 | `epic`, `epic_install` | launcher-kit |
 | `controller/loader.rs` | A | 12.5% | RD9 | `loader_session` | launcher-kit |
-| `controller/realms.rs` | A | 3.3% | RF7, DU5 | **`rifts-host`, `rifts-seam` (AGPL)** | restricted adapter (§4.4) |
+| `controller/realms.rs` | A | 3.3% | RF7, DU5; D3 routes since `a260cf2e` | `rifts-host`, `rifts-seam` (MIT since RD27) | launcher-kit `controller::realms` behind `realms` (§4.3) |
 | `controller/realms_off.rs` | A | 0% | RF7 stub | — | launcher-kit |
-| `controller/tests/realms.rs` | A | 2.3% | RF7 | **`rifts-host` (AGPL)** | restricted |
+| `controller/tests/realms.rs` | A | 2.3% | RF7; scripted transport since `a260cf2e` | `rifts-host` (MIT) | launcher-kit tests |
 | `controller/region.rs` | A | 0% | DN7 | `regionping` | launcher-kit |
 | `controller/revived.rs` | A | 0% | RD5/RD22 refusal stubs | — | launcher-kit (or delete with the 1.4.4 commands) |
 | `controller/versions.rs` | A | 8.6% | DE4 | `versions` | launcher-kit |
@@ -148,6 +169,9 @@ The host half is [`spec-rd27-host.md`](spec-rd27-host.md).
 | `server_gui.rs` | A | 12.8% | RD26 | **`host` (restricted shell)**, `controller`, `service-kit` | restricted until RD27 phase 2 (§4.3) |
 | `server_gui/modules.rs`, `server_gui/modules/tests.rs` | A | 6.1%, 0% | DU3, DF3 | `host::hostconfig` (= hostkit), `controller` | launcher-kit `server-gui` |
 | `server_history.rs` | A | 2.6% | DD23, DH3b | `admin` | launcher-kit `server-gui` |
+| `tray.rs` | A | not measured (RL14) | Written here in `d1a07964` (2026-11-05); no DR or Reforged counterpart | Tauri tray and menu, `window`, `i18n` | MIT shell crate (§2.2.1) |
+| `platform/game_console.rs` | A | not measured (RL14) | Written here in `e55518d2` (2026-11-05) | `windows` crate (Windows only) | launcher-kit `platform` (§2.7.16) |
+| `tests/bundles.rs` | A | 0% | RA14, `67e5fd67`: the two bundle configs | the Tauri configs | MIT shell crate tests |
 
 ### 1.4 Everything else under `launcher/`
 
@@ -192,6 +216,11 @@ The host half is [`spec-rd27-host.md`](spec-rd27-host.md).
 | Other files | 23 | 10 | 3 | 5 | 15 | 56 |
 | **Launcher total** | **51** | **68** | **3** | **5** | **15** | **142** |
 
+Since the RL1 refresh: three more A files (`tray.rs`, `platform/game_console.rs`, `tests/bundles.rs`), so 31 A Rust
+sources; the JavaScript and TypeScript rows of §1.4 (the isolation hook, `test/*.ts`, the scripts, `package.json`,
+`tsconfig.json`) are MIT in the root's `launcher/` already, and `restricted/launcher/isolation/hook.js` is a copy of
+it; `test/cases/manifest.json` is deleted.
+
 Differences from DL4 §1.2, found in this audit:
 
 - `controller/host.rs` and `controller/runtime.rs` were DL4 Rewrite modules, but DL4b never moved them: they are
@@ -223,8 +252,10 @@ them (plan section 6). Where text is a user-visible string from the language cat
 
 #### 2.1.1 Binaries and features
 
-- One binary target. `tauri build` names it from the config: `dainty-lass-client` (`tauri.conf.json`) or
-  `dainty-lass-manager` (`tauri.server-gui.conf.json`, built with `--no-default-features --features server-gui`).
+- One binary target. `tauri build` names it from the config: `dainty-launcher` (`tauri.conf.json`) or
+  `dainty-manager` (`tauri.server-gui.conf.json`, built with `--no-default-features --features server-gui`).
+  Before anything else, `main` checks whether this process is the game console's reader (§2.7.16: first argument
+  `--read-game-console`); if so it runs only that and exits with its code.
   `main` runs the manager when the `server-gui` feature is on, the client otherwise; a start failure prints
   `DaintyLass could not start: <error>` to stderr and exits 1. Release builds on Windows have no console window.
 - Features: `host` (default; the Host page backend), `server-gui` (implies `host`; the server inside the
@@ -252,7 +283,7 @@ them (plan section 6). Where text is a user-visible string from the language cat
 7. Keep an invite link found in the arguments (§2.7.8) for the page.
 8. Build the Tauri app with: the dialog plugin; the updater plugin; managed state for updates, the close guard
    (§2.2), the art store (§2.7.10), the bridge backend (§2.3.5), the Epic ownership cache; the asynchronous URI
-   scheme `rr-art` answered by the art store; the command handler with the 99 commands **in the order of §2.3.1**
+   scheme `rr-art` answered by the art store; the command handler with the 100 commands **in the order of §2.3.1**
    (a test reads the handler list and compares it with the command table).
 9. In the setup step: remember the app handle for second-launcher messages; in a packaged client build (not a
    development build, not the manager, and without `REFORGED_DEV_PROFILE`) register the invite schemes for this
@@ -270,10 +301,12 @@ them (plan section 6). Where text is a user-visible string from the language cat
 
 #### 2.1.3 Configuration files (rewritten, same effect)
 
-- **`tauri.conf.json`** (client): product name `DaintyLass Launcher`, main binary `dainty-lass-client`, version
+- **`tauri.conf.json`** (client): product name `DaintyLass Launcher`, main binary `dainty-launcher`, version
   from `../package.json`, identifier `io.github.freezamotoqueiro.dauntlessreforgedrevival` (kept so installs update
   in place). Dev URL `http://localhost:4321`; frontend `../dist/launcher`; before-dev and before-build commands run
-  `node scripts/dashboard-page.mjs dev|build launcher`. No windows declared (the backend makes the one window). No
+  `bun scripts/lass.ts dashboard-page dev|build launcher` (the manager's: `... server-manager`, frontend
+  `../dist/server-manager`, identifier `io.github.freezamotoqueiro.dauntlessreforgedrevival.server`, product name
+  `DaintyLass Manager`, main binary `dainty-manager`). No windows declared (the backend makes the one window). No
   global Tauri object. Content Security Policy: `default-src 'none'`; scripts, styles, fonts and connections from
   `'self'` only; images from `'self'`, `rr-art:`, `http://rr-art.localhost` and `data:`; `base-uri`, `form-action`,
   `frame-ancestors` and `object-src` none. Prototype freezing on. The **isolation pattern**, with the folder
@@ -325,12 +358,26 @@ them (plan section 6). Where text is a user-visible string from the language cat
   in the controller's language. Keep (the default, also on Esc or the dialog's own close button): minimise the
   window and, for the relay reason, call the "kept" callback (the controller shows notice `keep_open`). Close
   anyway: mark closing confirmed and close.
+- **Tray settings** (read from the controller; both off until it exists). On a resize that leaves the window
+  minimised: with `minimizeToTray`, hide it to the tray (§2.2.1), and do nothing else for that event (no
+  `window-state`). On a close request, before the guard above: unless the tray's Quit asked for this close (a
+  one-shot "quitting" flag, cleared as it is read), with `closeToTray` prevent the close and hide to the tray; a
+  hidden window keeps the relay, so nothing is confirmed.
+
+#### 2.2.1 The tray (`tray.rs`, A)
+
+The icon exists only while the window is hidden to it. Hiding makes it if missing (id `main`, the app's window
+icon, tooltip `app_title`, a menu with `tray_open` and `tray_quit`, the menu not shown on a left click); when the
+tray can't be made (a Linux desktop without one), log it at info and leave the window as it is. Left click (on
+release) or Open: show, unminimise and focus the window, and remove the icon. Quit: set the "quitting" flag,
+restore the window and close it, so the close still passes the running game's keep-open dialog. A second launcher
+(§2.7.8) restores the window the same way.
 
 ### 2.3 The bridge
 
 #### 2.3.1 The command table
 
-The page may call exactly these 99 commands, in this order (the order of the handler list, `commands.js`, the
+The page may call exactly these 100 commands, in this order (the order of the handler list, `commands.js`, the
 permission set and `CommandName`). Argument names are the page's (camelCase). Kinds: **text ≤n** a string of at
 most n UTF-16 units; **optional text** that, or absent, or null; **flag** a boolean; **index 0..n** an integral
 number in range; **name** one of a fixed list of strings; **number a..b** a finite number in range; **object** an
@@ -393,56 +440,57 @@ numbers or booleans; **channel** a Tauri channel. "Build" says which builds serv
 | 51 | `host_set_multipliers` | `multipliers`: object or null {xp: number 1..100; rewards: number 1..100} | host |
 | 52 | `copy_text` | `text`: text ≤4096 | every |
 | 53 | `take_invite_link` | — | every |
-| 54 | `dismiss_notice` | — | every |
-| 55 | `dismiss_error` | — | every |
-| 56 | `subscribe_progress` | `onProgress`: channel | every |
-| 57 | `epic_sign_in_start` | — | every |
-| 58 | `epic_sign_in_code` | `code`: text ≤1024 | every |
-| 59 | `epic_get` | — | every |
-| 60 | `epic_sign_out` | — | every |
-| 61 | `epic_library_check` | — | every |
-| 62 | `game_version_list` | — | every |
-| 63 | `game_install_start` | `version`: text ≤64 | every |
-| 64 | `game_install_pause` | `version`: text ≤64 | every |
-| 65 | `game_install_resume` | `version`: text ≤64 | every |
-| 66 | `game_install_cancel` | `version`: text ≤64 | every |
-| 67 | `game_install_get` | `version`: text ≤64 | every |
-| 68 | `region_ping` | — | every |
-| 69 | `module_list` | — | server-gui |
-| 70 | `module_get` | `module`: text ≤64 | server-gui |
-| 71 | `module_run_command` | `module`: text ≤64; `command`: text ≤64; `input`: text ≤8192 | server-gui |
-| 72 | `module_set_settings` | `module`: text ≤64; `values`: text ≤8192 | server-gui |
-| 73 | `module_load` | `module`: text ≤64 | server-gui |
-| 74 | `module_unload` | `module`: text ≤64 | server-gui |
-| 75 | `realm_host` | `kind`: name (hub, hunt) | realms |
-| 76 | `realm_join` | `realm`: text ≤128 | realms |
-| 77 | `realm_stop` | — | realms |
-| 78 | `realm_get` | — | realms |
-| 79 | `history_query` | `filter`: object {account: optional text ≤64; actor: optional text ≤64; since: optional text ≤40; until: optional text ≤40; cursor: optional text ≤128} | server-gui |
-| 80 | `history_revert_dry_run` | `selection`: object {account: optional text ≤64; actor: optional text ≤64; since: optional text ≤40; until: optional text ≤40} | server-gui |
-| 81 | `history_revert_apply` | `plan`: text ≤64 | server-gui |
-| 82 | `guarded_list` | — | server-gui |
-| 83 | `guarded_approve` | `id`: text ≤64 | server-gui |
-| 84 | `guarded_cancel` | `id`: text ≤64 | server-gui |
-| 85 | `server_doctor` | — | server-gui |
-| 86 | `server_backup` | — | server-gui |
-| 87 | `server_config_get` | — | server-gui |
-| 88 | `server_config_save` | `config`: object {registration: name (OPEN, INVITECODE, NONE, INVITE); database: name (sqlite, postgres); maxHubs: index 0..64; maxHunts: index 0..128; freshStart: flag} | server-gui |
-| 89 | `server_migrate_mongo` | — | server-gui |
-| 90 | `server_confirm_fresh_start` | — | server-gui |
-| 91 | `server_invite_list` | — | server-gui |
-| 92 | `admin_action` | `request`: object {action: name (lookup, kick, timeout, ban, unban); player: text ≤64; reason: optional text ≤500; until: optional text ≤40; module: optional text ≤64} | server-gui |
-| 93 | `remote_status` | — | server-gui |
-| 94 | `remote_init_controller` | `request`: object {node: optional text ≤64; region: optional text ≤64; url: optional text ≤512} | server-gui |
-| 95 | `remote_invite` | `request`: object {node: text ≤64; region: optional text ≤64; label: optional text ≤128; url: optional text ≤512} | server-gui |
-| 96 | `remote_enroll` | `request`: object {uri: text ≤2048; label: optional text ≤128} | server-gui |
-| 97 | `remote_revoke` | `node`: text ≤64 | server-gui |
-| 98 | `remote_leave` | — | server-gui |
-| 99 | `remote_exec` | `request`: object {node: text ≤64; action: name (9 names, §2.3.3); target: optional text ≤64; reason: optional text ≤500} | server-gui |
+| 54 | `game_log_get` | — | every |
+| 55 | `dismiss_notice` | — | every |
+| 56 | `dismiss_error` | — | every |
+| 57 | `subscribe_progress` | `onProgress`: channel | every |
+| 58 | `epic_sign_in_start` | — | every |
+| 59 | `epic_sign_in_code` | `code`: text ≤1024 | every |
+| 60 | `epic_get` | — | every |
+| 61 | `epic_sign_out` | — | every |
+| 62 | `epic_library_check` | — | every |
+| 63 | `game_version_list` | — | every |
+| 64 | `game_install_start` | `version`: text ≤64 | every |
+| 65 | `game_install_pause` | `version`: text ≤64 | every |
+| 66 | `game_install_resume` | `version`: text ≤64 | every |
+| 67 | `game_install_cancel` | `version`: text ≤64 | every |
+| 68 | `game_install_get` | `version`: text ≤64 | every |
+| 69 | `region_ping` | — | every |
+| 70 | `module_list` | — | server-gui |
+| 71 | `module_get` | `module`: text ≤64 | server-gui |
+| 72 | `module_run_command` | `module`: text ≤64; `command`: text ≤64; `input`: text ≤8192 | server-gui |
+| 73 | `module_set_settings` | `module`: text ≤64; `values`: text ≤8192 | server-gui |
+| 74 | `module_load` | `module`: text ≤64 | server-gui |
+| 75 | `module_unload` | `module`: text ≤64 | server-gui |
+| 76 | `realm_host` | `kind`: name (hub, hunt) | realms |
+| 77 | `realm_join` | `realm`: text ≤128 | realms |
+| 78 | `realm_stop` | — | realms |
+| 79 | `realm_get` | — | realms |
+| 80 | `history_query` | `filter`: object {account: optional text ≤64; actor: optional text ≤64; since: optional text ≤40; until: optional text ≤40; cursor: optional text ≤128} | server-gui |
+| 81 | `history_revert_dry_run` | `selection`: object {account: optional text ≤64; actor: optional text ≤64; since: optional text ≤40; until: optional text ≤40} | server-gui |
+| 82 | `history_revert_apply` | `plan`: text ≤64 | server-gui |
+| 83 | `guarded_list` | — | server-gui |
+| 84 | `guarded_approve` | `id`: text ≤64 | server-gui |
+| 85 | `guarded_cancel` | `id`: text ≤64 | server-gui |
+| 86 | `server_doctor` | — | server-gui |
+| 87 | `server_backup` | — | server-gui |
+| 88 | `server_config_get` | — | server-gui |
+| 89 | `server_config_save` | `config`: object {registration: name (OPEN, INVITECODE, NONE, INVITE); database: name (sqlite, postgres); maxHubs: index 0..64; maxHunts: index 0..128; freshStart: flag} | server-gui |
+| 90 | `server_migrate_mongo` | — | server-gui |
+| 91 | `server_confirm_fresh_start` | — | server-gui |
+| 92 | `server_invite_list` | — | server-gui |
+| 93 | `admin_action` | `request`: object {action: name (lookup, kick, timeout, ban, unban); player: text ≤64; reason: optional text ≤500; until: optional text ≤40; module: optional text ≤64} | server-gui |
+| 94 | `remote_status` | — | server-gui |
+| 95 | `remote_init_controller` | `request`: object {node: optional text ≤64; region: optional text ≤64; url: optional text ≤512} | server-gui |
+| 96 | `remote_invite` | `request`: object {node: text ≤64; region: optional text ≤64; label: optional text ≤128; url: optional text ≤512} | server-gui |
+| 97 | `remote_enroll` | `request`: object {uri: text ≤2048; label: optional text ≤128} | server-gui |
+| 98 | `remote_revoke` | `node`: text ≤64 | server-gui |
+| 99 | `remote_leave` | — | server-gui |
+| 100 | `remote_exec` | `request`: object {node: text ≤64; action: name (9 names, §2.3.3); target: optional text ≤64; reason: optional text ≤500} | server-gui |
 
 #### 2.3.2 Which build serves a command
 
-- **server-gui**: the 27 commands from `module_list` to `remote_exec` that are not `realm_*` (rows 69–74 and 79–99).
+- **server-gui**: the 27 commands from `module_list` to `remote_exec` that are not `realm_*` (rows 70–75 and 80–100).
 - **realms**: `realm_host`, `realm_join`, `realm_stop`, `realm_get`.
 - **host**: every other command whose name starts with `host_`.
 - **every**: the rest.
@@ -465,7 +513,7 @@ module id 64; module command 64; module JSON 8192; realm id 128; history who 64;
 Name lists (each equals its wire enum's names, in order; a test checks):
 
 - settings keys: `graphics`, `windowed`, `streamerMode`, `hostTools`, `language`, `gameLanguage`, `runtimeProfile`,
-  `gameEdition`;
+  `gameEdition`, `minimizeToTray`, `closeToTray`, `showGameConsole`;
 - install modes: `install`, `repair`;
 - external targets (24): `tailscale_download`, `tailscale_share`, `vc_redist`, `server_source`, `project_source`,
   `project_license`, `project_issues`, `project_docs_players`, `project_docs_hosting`, `project_docs_sdk`,
@@ -530,10 +578,11 @@ otherwise. Codes are launcher-kit's `ErrorCode` names.
 Then each command calls the controller method of the same meaning (§2.4, §2.5), the Epic session, the ownership
 cache, the module panel or the history engine (A code). `get_snapshot`, `check_invite`, `get_news`,
 `get_branding`, `open_external`, `open_game_folder`, `open_logs_folder`, `host_open`, `host_server_get`,
-`cancel_task`, `set_status_polling`, `copy_text`, `take_invite_link`, `dismiss_notice`, `dismiss_error`,
+`cancel_task`, `set_status_polling`, `copy_text`, `take_invite_link`, `game_log_get`, `dismiss_notice`, `dismiss_error`,
 `subscribe_progress`, `epic_get`, `game_install_pause|resume|cancel|get` are synchronous; the rest asynchronous.
 `refresh_status` runs one status poll; `retry_connect` runs `connect`; `install_update` installs a waiting update
-(§2.7.12); `take_invite_link` hands over and forgets the waiting link.
+(§2.7.12); `take_invite_link` hands over and forgets the waiting link; `game_log_get` answers the kept Game log
+lines (§2.7.16), oldest first.
 
 #### 2.3.5 Events and the progress channel
 
@@ -544,6 +593,7 @@ cache, the module panel or the history engine (A code). `get_snapshot`, `check_i
 | `host-kit` | `HostKit` | the Host page's state changed |
 | `host-server` | `HostServerView` | the server's state changed; it may carry the newest invite link, a secret: never logged |
 | `window-state` | boolean (maximised) | §2.2 |
+| `game-log` | array of text (new lines, redacted) | the game's console printed lines (§2.7.16) |
 
 All events go to the window `main` only. **Progress**: `subscribe_progress` stores the page's channel (replacing
 any earlier one). A progress value is sent only when the throttle passes it: the first value; a value at least
@@ -666,7 +716,8 @@ managed-install and remote types and their outcomes.
   file to open (starts in Documents, `Text`/`txt`), choose the Dumper-7 DLL (`DLL`/`dll`), choose a game data pack
   (`Game data pack`/`gz`), open a checked URL, open a folder, emit the snapshot / progress / host kit / host server,
   register an art file, find Tailscale, find running game clients, prepare the game launch (Windows: native; Linux:
-  §2.7.13 or "missing"), and list the missing Visual C++ and DirectX files.
+  §2.7.13 or "missing"), list the missing Visual C++ and DirectX files, start reading a game's console (pid, hide,
+  a sink for batches of lines; §2.7.16; default: nothing) and emit new Game log lines (default: nothing).
 - **Test seams**: a stand-in spawner for the game, the game's base environment, the store folders, the extra QoS
   port (default 80; tests turn it off), a probe for "a Host page server answers on 61000", and the Dumper-7 output
   root.
@@ -693,7 +744,8 @@ not reachable → `connect`; no key or key refused → `register`; a game proble
 the current server (`loopback` when its host is a loopback host); connection; account (`hasKey` = stored and not
 refused; `offerBackup` when it has a key and no backup was offered for this server); game; `revived` null;
 runtime; task; running (game, relay port); settings (with `hostTools` false in a build without `host`;
-`gameEdition` always `reborn`); app (version, packaged, update ready, platform, `hostToolsAvailable` = the `host`
+`gameEdition` always `reborn`; then `minimizeToTray`, `closeToTray`, `showGameConsole` as
+stored); app (version, packaged, update ready, platform, `hostToolsAvailable` = the `host`
 feature, `serverGui` = the `server-gui` feature, `legacyAvailable` false, `gameVersions` = the protocol's played
 versions as text); status; status unsupported; last error; notice.
 
@@ -875,8 +927,12 @@ the background. If the game is found but unverified, verify it in the background
 
 - **`set_settings(patch)`**: a player-only build ignores `hostTools`. The edition is always `reborn`, so a
   `gameEdition` change does nothing. Each present field is written to the settings map (graphics as its number,
-  language as its code, the rest as their names). Turning Host tools on ensures the Host workspace quietly. Publish;
-  answer the settings.
+  language as its code, the tray and console flags as booleans, the rest as their names). Turning Host tools on
+  ensures the Host workspace quietly. Publish; answer the settings.
+- **`tray()`**: (`minimizeToTray`, `closeToTray`) for the window (§2.2).
+- **Game log**: when the game starts, clear the kept lines and start reading its console (§2.7.16) with hide =
+  not `showGameConsole`. Each batch is redacted line by line, appended, cut to the newest 5,000 lines, and the
+  redacted batch is emitted as `game-log`. `game_log()` answers the kept lines.
 - **`open_external(target)`**: `tailscale_share` → the current private server's share link; `server_source` → the
   status's source URL, else the project URL; every other target → its fixed URL (§2.7.9). The URL must pass the
   link check with the status's source URL; else `unknown`.
@@ -888,7 +944,8 @@ the background. If the game is found but unverified, verify it in the background
 
 A typed view of the settings map (§2.7.2): the current server and the saved servers (each: `game` default
 `reforged`, `mode`, `host`, `port`, `name`, `share`, `fp`, `code`), `gameRoot`, `graphics`, `windowed`,
-`streamerMode`, `language`, `gameLanguage`, `runtimeProfile`, `hostTools`, `usernames`, `backupOffered`,
+`streamerMode`, `language`, `gameLanguage`, `runtimeProfile`, `hostTools`, `minimizeToTray`, `closeToTray`,
+`showGameConsole` (each false when absent), `usernames`, `backupOffered`,
 `trustedRuntimes`, `localRuntimeDir`, `hostWorkspace`, `dumperDll`. A server's id is the key store's id (§2.7.1);
 its endpoint is host, port and, in public mode only, the fingerprint as the pin; its key slot is host, port, public
 and fingerprint. Edits are made on the map (set the server, edit one field of the current server, set or remove a
@@ -1201,7 +1258,9 @@ A progress and control wrapper around MIT `epic::download::install` (DE5):
 - **Key order and defaults**: `version` 1, `server` null, `savedServers` [], `gameRoot` null, `graphics` −1,
   `windowed` false, `streamerMode` false, `language` (the OS language's code), `gameLanguage` `auto`,
   `runtimeProfile` `production`, `hostTools` false, `usernames` {}, `backupOffered` {}, `trustedRuntimes` {},
-  `localRuntimeDir` null, `hostWorkspace` null, `dumperDll` null.
+  `localRuntimeDir` null, `hostWorkspace` null, `dumperDll` null; then, after `dumperDll` and in this order,
+  `minimizeToTray`, `closeToTray` and `showGameConsole`, each written as `true` **only when it is JSON `true`** and
+  absent otherwise, so a file without them is written byte for byte as before.
 - **A server entry** is kept only when: `name` passes protocol `clean_server_name` (stored cleaned); `host` is a
   valid host and, unless `mode` is `public`, a private-mode host; `port` a number, integral, 1..65535; public needs a
   valid fingerprint. Written as `game` (`revived` only if it said so, else `reforged`), `mode`, `host`, `port`,
@@ -1258,7 +1317,7 @@ A progress and control wrapper around MIT `epic::download::install` (DE5):
 - **Masking** for the log: any argument starting `-AUTH_PASSWORD=` (any case) → `-AUTH_PASSWORD=<hidden>`; the
   description is `<exe> <masked args joined by spaces>`.
 - **Environment**: the backend URL must match `^http://127\.0\.0\.1:[1-9][0-9]{0,4}$`; from the base environment drop
-  every variable whose upper-cased name starts with `REFORGED_`, `RUSTIC_ISLES_` or `MYSTICPARADOX_`; add
+  every variable whose upper-cased name starts with `REFORGED_`, `RUSTIC_ISLES_`, `RUSTIC_RIFTS_` or `MYSTICPARADOX_`; add
   `REFORGED_BACKEND_URL=<url>`, `RUSTIC_ISLES_RUNTIME_PROFILE=<profile>` and
   `MYSTICPARADOX_RUNTIME_PROFILE=<profile>`.
 - **The game process**: one at a time (a second start is an error); the exe `Dauntless-Win64-Shipping.exe` in the
@@ -1442,6 +1501,18 @@ launcher-kit has a clean-room `platform::system`; reference behaviour:
 
 Module roots; the Host modules exist only with the `host` feature.
 
+#### 2.7.16 The game's console (`game_console.rs`, A)
+
+Moves as it is; summarised here for the controller and the shell. Windows only (elsewhere both calls do nothing).
+`watch(pid, hide, sink)` runs this executable again as `--read-game-console <pid> [--hide]` with no window and its
+stdout piped, replacing (killing) an earlier reader; a thread reads lines and hands each burst to the sink as one
+batch. The reader attaches to the game's console, hides its window when asked, polls the screen buffer for new
+rows and writes them to stdout until the game exits. `redact(line)` masks `RRK_` keys (to the first character that
+is not alphanumeric, `_` or `-`) and the value of `-AUTH_PASSWORD=` (any case; a quoted value to its closing
+quote, else to the next space) as `<hidden>`, because Unreal prints its command line. It needs `unsafe` for the
+Win32 calls: at the root that is a per-item `#[allow(unsafe_code, reason = ...)]` with a SAFETY note, as
+`crates/gateway/src/allowlist/windows.rs` does (the same holds for `keystore/os.rs` and `clipboard.rs`).
+
 ### 2.8 Core rules
 
 #### 2.8.1 The game's language (`core/game_language.rs`)
@@ -1453,10 +1524,16 @@ Module roots; the Host modules exist only with the `host` feature.
 
 #### 2.8.2 The backend's own text (`core/i18n.rs`)
 
-- Keys the backend shows: `app_title`, `close_title`, `close_text`, `close_keep`, `close_anyway`,
+- Keys the backend shows (14): `app_title`, `close_title`, `close_text`, `close_keep`, `close_anyway`,
   `dialog_game_folder`, `dialog_runtime_folder`, `dialog_workspace_folder`, `dialog_sdk_folder`,
-  `dialog_dumper_dll`, `dialog_gamedata_pack`, `epic_sign_in_title`. Each must exist and be non-empty in every
-  language (a test).
+  `dialog_dumper_dll`, `dialog_gamedata_pack`, `epic_sign_in_title`, `tray_open`, `tray_quit`. Each must exist and
+  be non-empty in every language (a test).
+- What each says, for the new wording (L1; no placeholders in any of them): `app_title` the app's name;
+  `close_title`, `close_text`, `close_keep`, `close_anyway` the keep-open dialog's title, its question (closing
+  would end the game's connection while it plays), and its two buttons (stay open, close anyway); the six
+  `dialog_*` the folder and file pickers' titles (choose the game folder, a local runtime folder, the Host
+  workspace, the SDK dump folder, the Dumper-7 DLL, a game data pack); `epic_sign_in_title` the Epic sign-in
+  window's title; `tray_open` and `tray_quit` the tray menu's two items (show the window, quit the app).
 - `translate(language, key, vars)`: the language's text, else English's, else the key; every `{name}` replaced by
   its value.
 - Language from a code: exact codes only. System language: the locale lower-cased with `_` as `-`; the exact code
@@ -1489,7 +1566,7 @@ with exponent, `0x`/`0o`/`0b` integers, `Infinity`, otherwise NaN). The shared t
   on both listeners, the local rules, `/__origin/` paths, the owner check, re-pointing, a pin mismatch.
 - `net/hostapi/tests.rs` (with `test/cases/hostapi.json`): every parser of §2.6.3.
 - `platform/game_config_tests.rs` (with `test/cases/game-config.json`): §2.7.6.
-- `fixtures/host/src/fake_host_kit.rs`: a stand-in for `reforged-host`: a first argument `fail` makes `start` fail
+- `fixtures/host/src/fake_host_kit.rs`: a stand-in for `dainty-host`: a first argument `fail` makes `start` fail
   and `deaf` makes it ignore the stop line; `start` follows the host kit's control contract; `invite` answers one
   JSON line; anything else fails with an `Error:` line.
 - Unit tests named in each section (throttle timings, window fit, link check, keystore ids, Electron decryption with
@@ -1514,15 +1591,17 @@ A clean-room path, and what it costs:
    of what the key says (its screen, its purpose, its placeholders), in both languages. This changes what players
    and hosts read: every screen's wording. It contradicts plan section 6, so it is the maintainer's decision, not a
    row's.
-2. **Narrow it to the backend.** The backend shows only the 12 keys of §2.8.2. A clean backend can embed only those
-   12, rewritten (12 new strings in each language: a small, visible change to the close dialog, the pickers' titles
-   and the Epic window's title), and leave the page's 1,171 others to the page. The page itself (dainty-dash)
+2. **Narrow it to the backend.** The backend shows only the 14 keys of §2.8.2 (12 when this was written; the tray
+   added two). A clean backend can embed only those 14, rewritten (14 new strings in each language: a small,
+   visible change to the close dialog, the pickers' titles, the Epic window's title and the tray menu), and leave
+   the page's other keys to the page. The page itself (dainty-dash)
    still ships the full catalogs, so the *installer* stays AGPL-bearing even then.
 3. **Load the text at run time.** The backend reads the 12 strings from a data file installed beside it instead of
    compiling them in. The executable is then free of the text; the installer is not.
 
-Recommendation: decide (1) on its own merits; until then, take (3) or (2) so the backend source and executable are
-clean, and keep the catalogs in dainty-restricted as they are. The key *names* and the placeholder syntax
+**Decided (L1, 2026-11-06): (2).** The 14 are rewritten in `en` and `pt-BR` from §2.8.2's descriptions,
+into a new MIT catalog the MIT backend compiles in; the page's catalogs stay in `restricted/` as they are. The
+key *names* and the placeholder syntax
 (`{name}`) are an interface and can be used by MIT code.
 
 ### 3.2 DR's recorded test tables
@@ -1563,12 +1642,17 @@ terms before they ship with an MIT shell.
 
 Not a provenance question, but it decides the binaries' licence:
 
-- `controller/realms.rs` and its tests link `rifts-host` and `rifts-seam` (Rustic Rifts, AGPL with Mystic Paradox's
-  additional terms). The `realms` feature, on in the release client, makes `dainty-lass-client` AGPL.
-- `server_gui.rs` and the manager's feature list link `crates/host`, `isles-1-14-7` and realms. The
-  `server-gui` feature makes `dainty-lass-manager` AGPL until RD27 phase 2 loads those as libraries.
-- The page each shell serves is dainty-dash's (`scripts/dashboard-page.mjs`), which lives in dainty-restricted;
-  its licence is outside this document but decides the installer's.
+Refreshed by RL1:
+
+- `controller/realms.rs` and its tests link `rifts-host` and `rifts-seam`: both are MIT clean-room crates at the
+  root now. The `realms` feature no longer decides the client's licence.
+- `server_gui.rs`, the A tail of `controller/host.rs` and the manager's features link `restricted/crates/host`
+  (`host::serve::prepare_embedded`, its hooks, `host::commands::*`). That crate's own dependencies are all MIT; its
+  one restricted input is `modules/rustic-isles/version-data/1.14.7/version_data.json` (`version_data.rs`, Paradox
+  data). Until the host shell moves to the root, with the version data read at run time or supplied by a small
+  restricted crate (outside this spec), `server-gui` makes `dainty-manager` an AGPL build.
+- The page each shell serves is dainty-dash (`ui/`, MIT). It shows the language catalogs' text, which stays AGPL
+  (§3.1), so the installers carry AGPL text whatever the binaries' licence.
 
 ---
 
@@ -1576,50 +1660,53 @@ Not a provenance question, but it decides the binaries' licence:
 
 ### 4.1 Principle
 
-Everything that does not link an AGPL crate goes to dainty-lass under MIT: the B groups rewritten into
-`crates/launcher-kit`, the A files moved, and a new MIT Tauri shell crate. dainty-restricted keeps only adapters that
-link AGPL crates, the AGPL data (catalogs, recorded tables) and a thin build that turns the AGPL features on.
+Everything that does not link an AGPL crate goes to the root under MIT: the B groups rewritten into
+`crates/launcher-kit`, the A files moved, and a new MIT Tauri shell crate. `restricted/` keeps only what can't be
+relicensed: the page's catalogs, DR's recorded tables and the tests that read them, the Electron key-store harness,
+today's icons (L2), and, until the host shell moves, the manager build that links it.
 
 ### 4.2 Crates
 
 | Crate | Repository | Licence | Holds |
 | --- | --- | --- | --- |
 | `crates/launcher-kit` | dainty-lass | MIT | Today's modules, plus: `bridge::{spec (full command table with argument shapes), types (all wire types), progress, checks}`; the generator as a test-only module; `controller` (§2.4, §2.5, the A controller modules) over a `Platform` trait with no Tauri types; `net::{connector, hostapi, relay, relay_owner, epic_install}`; `platform::{keystore, settings, paths, log, launch, game_config, game_folder, invite_link, links, clipboard}`; `core::{game_language, i18n (lookup over a table given at build or run time)}`. Features `host`, `server-gui`, `realms` gate the same things as today |
-| `launcher/` (new, Tauri shell) | dainty-lass | MIT | `main.rs`, `lib.rs` (§2.1), `window.rs`, `bridge::{commands, backend}`, the Tauri `Platform` impl, `art.rs`, `dialogs.rs`, `updater.rs`, `epic_login.rs` (the sign-in webview), `build.rs`, the Tauri configs, the isolation hook, the TS tests, scripts, `package.json`. Builds `dainty-lass-client` without `realms`, and with a `RealmHost` trait object when one is supplied |
-| `launcher/src-tauri` | dainty-restricted | AGPL | A thin binary crate that depends on the MIT shell and adds: the realm adapter (`controller/realms.rs` behind the MIT `RealmHost` trait), the embedded server (`server_gui.rs` behind launcher-kit's `EmbeddedServer`) and its hooks installer, the catalogs' `gen/strings.json` (or the strings data file, §3.1), the DR test tables and the tests that read them, the Electron keystore harness, `controller/tests/realms.rs` |
+| `crates/launcher-app` (new, Tauri shell; the package name `launcher` is restricted's) | root | MIT | `main.rs`, `lib.rs` (§2.1), `window.rs`, `tray.rs`, `bridge::{commands, backend}`, the Tauri `Platform` impl, `art.rs`, `dialogs.rs`, `updater.rs`, `epic_login.rs` (the sign-in webview), `build.rs` (strings from the MIT catalog of §2.8.2), the Tauri configs with the icon folder given by the build (L2), `tests/bundles.rs`. The isolation hook, TS tests and scripts are already in the root's `launcher/`. Builds `dainty-launcher` with or without `realms` |
+| `restricted/launcher/src-tauri` | restricted | AGPL | A thin crate over the MIT shell: today's icons, the DR test tables' tests against launcher-kit, the Electron keystore harness, the `gen/strings.json` generator for the page, and the manager build (`server-gui`) until the host shell moves |
 
 ### 4.3 Seams
 
 - **Controller ↔ app**: launcher-kit `controller::Platform` (the trait of §2.4.1), implemented by the MIT shell.
-- **Realms**: an MIT `RealmHost` trait in launcher-kit with the four operations the controller uses (host, join,
-  stop, get, plus shutdown); the stub answers `not_in_this_build`. dainty-restricted implements it over `rifts-host`.
+- **Realms**: no trait. `controller/realms.rs` (A) moves into launcher-kit's `controller::realms` behind the
+  `realms` feature and links `rifts-host`/`rifts-seam` directly; `realms_off.rs` stays the stub
+  (`not_in_this_build`). Its surface, unchanged: `realm_host(kind)`, `realm_join(realm)`, `realm_stop()`,
+  `realm_get()` (each answering `RealmOutcome`), `realms_shutdown()` (logout, server switch, exit) and, for tests,
+  `set_realms_seams(RealmsSeams { loader, ... })` and `live_host_backend()`. Its requests go through launcher-kit's
+  `net::{http, hostapi::key_headers}`, so it moves after RL7.
 - **Embedded server**: launcher-kit's existing `EmbeddedServer` and `ModulePanel` traits. `server_gui.rs` (A) moves to
-  launcher-kit once `prepare_embedded` is reachable through `hostkit` with hooks supplied by the caller (it calls
-  `host::serve::prepare_embedded`, which today only adds `ensure_hooks`); the hooks themselves stay AGPL until phase
-  2.
+  launcher-kit once `prepare_embedded` and the hooks are reachable from the root, i.e. once the host shell
+  (`restricted/crates/host`) moves; until then the manager build stays in `restricted/`.
 - **The in-process host kit of the manager** (the A tail of `controller/host.rs`): it calls the host kit's commands
   through `host::*`, which are `hostkit::*` re-exports plus the hooks; it moves to launcher-kit calling `hostkit`
   directly, with the same caller-supplied hooks.
-- **Backend strings**: `core::i18n` takes its tables from the build (the MIT build ships the 12 rewritten strings or
-  a data file, §3.1) instead of compiling `gen/strings.json`.
+- **Backend strings**: `core::i18n` takes its tables from the MIT catalog of the 14 rewritten keys (L1, §3.1)
+  instead of compiling `gen/strings.json`.
 - **Fuzz targets**: `launcher_files`, `launcher_input`, `launcher_net`, `relay_input` include launcher files by path;
-  they move with the rewritten modules to dainty-lass's `fuzz/`.
+  they move with the rewritten modules to the root's `fuzz/`.
 
 ### 4.4 What dainty-restricted keeps
 
-The realm adapter and its tests, the embedded-server hooks (until RD27 phase 2), the language catalogs and the
-generated strings, the DR test tables running against the MIT crate, the Electron keystore harness, and the
-dashboard pages. The generated `types.ts` stays where dainty-lass's `ui/` copies it from today until the generator
-moves with `bridge::spec` to dainty-lass, after which `ui/packages/bridge/src/generated/types.ts` is MIT generated
-output.
+The page's language catalogs and the `gen/strings.json` generator, the DR test tables running against the MIT
+crate (with new MIT tables beside them at the root, L5), the Electron keystore harness, today's icons (L2), and the
+manager build until the host shell moves. The generator for `types.ts`, `commands.js` and `app-commands.toml` moves
+with `bridge::spec` to launcher-kit; from then `bun run restricted-data` is no longer how the root gets them, and
+`ui/packages/bridge/src/generated/types.ts` is MIT generated output.
 
 ### 4.5 The binaries afterwards
 
 | Binary | Build | Licence |
 | --- | --- | --- |
-| `dainty-lass-client` without `realms`, with the 12 rewritten strings or a strings data file | dainty-lass | MIT (the installer's page aside, §3.6) |
-| `dainty-lass-client` with `realms` | dainty-restricted | AGPL (rifts) |
-| `dainty-lass-manager` | dainty-restricted | AGPL until phase 2; then it can follow the client |
+| `dainty-launcher`, with or without `realms`, with the 14 rewritten strings | root | MIT (the installer's page text and icons aside, §3.6, L2) |
+| `dainty-manager` | `restricted/` | AGPL until the host shell moves to the root; then it can follow the launcher |
 
 ---
 
@@ -1656,13 +1743,16 @@ decision can be taken at any point; it only gates the client binary's licence.
 
 ## 6. Acceptance for the implementers
 
-- `RR_UPDATE_GENERATED` unset, the generator's test passes against today's `types.ts`, `commands.js`,
-  `app-commands.toml` and `strings.json` (byte-identical).
-- A reviewer outside the clean room runs dainty-restricted's suites against the MIT crates, unchanged; they pass: the controller flow, the relay, the host API and
-  game-config tables, settings and log tables, `npm test` in `launcher/`, and the fuzz targets build.
+- `RR_UPDATE_GENERATED` unset, the generator's test passes against today's `types.ts`, `commands.js` and
+  `app-commands.toml` (byte-identical). `strings.json` stays generated in `restricted/` (L1).
+- A reviewer outside the clean room runs `restricted/`'s suites against the MIT crates, unchanged; they pass: the
+  controller flow, the relay, the host API and game-config tables, settings and log tables, `bun run test` in
+  `launcher/`, and the fuzz targets build.
+- The new MIT tables (L5) pass at the root.
 - Similarity of each rewritten file, by `similarity.md`'s measure against both DR's `legacy/UndauntedLauncher` at
-  `e1c5fec` and dainty-restricted's `launcher/` at `849f45e`: below 30% per file, and no run longer than 6 lines
-  outside import lists, constant tables that §2 fixes (command table, name lists, launch arguments, config keys) and
+  `e1c5fec` and `restricted/launcher/` at the commit before RL2 (and `launcher/` at `849f45e`): below 30% per
+  file, and no run longer than 6 lines outside import lists, constant tables that §2 fixes (command table, name
+  lists, launch arguments, config keys) and
   match arms over the same enum.
 - `cargo tree` of every dainty-lass crate shows no AGPL crate, and the MIT client builds without `realms`.
 - No catalog text and no DR or Reforged identifier in comments of the new files.

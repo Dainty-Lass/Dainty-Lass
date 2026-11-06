@@ -31,7 +31,7 @@ relicensed (spec §3): the page's language catalogs, DR's recorded test tables
 
 | # | Question | Spec | Decision |
 | --- | --- | --- | --- |
-| L1 | The backend's 12 strings | §3.1 | **Rewrite the 12**, en and pt-BR, compiled into the MIT backend from a new MIT catalog. The close dialog's, the pickers' and the Epic window's wording changes slightly. The page's 1,171 other keys stay in `restricted/` as they are |
+| L1 | The backend's strings (12 when asked; the tray made them 14) | §3.1 | **Rewrite them**, en and pt-BR, compiled into the MIT backend from a new MIT catalog. The close dialog's, the pickers' and the Epic window's wording changes slightly. The page's 1,171 other keys stay in `restricted/` as they are |
 | L2 | The 15 icons | §3.5 | **Origin unknown: treat them as restricted.** They stay in `restricted/`, and new icons are drawn before an MIT client ships |
 | L3 | The key backup file's two advisory sentences | §3.3 | **Write new ones** |
 | L4 | Comparing the generator's output against today's `types.ts`, `commands.js` and `app-commands.toml` | §3.4 | **The implementer compares**: the three files go into RL8's brief as fixtures |
@@ -68,10 +68,10 @@ Rows in the same wave touch different files and can run at the same time. Sizes 
 
 | Row | What | Spec | Size | Oracle |
 | --- | --- | --- | --- | --- |
-| RL1 | **Spec refresh** (not clean room: the spec writer reads restricted). Fix spec §3.6 and §4 for the points in §1, renaming paths to the monorepo's. Re-check line ranges against the current HEAD (`controller/host.rs`'s B/A split at line 1171, and any file changed since `849f45e`). Add the `RealmHost` trait's exact operations | all | S | — |
+| ~~RL1~~ | **Spec refresh**, done 2026-11-06: the spec now has a refresh note, the tray, the Game log, the three new settings, command 54 `game_log_get`, the 14 backend keys, `RUSTIC_RIFTS_`, the `dainty-` names, and §3.6/§4 rewritten. No `RealmHost` trait: `rifts-host` is MIT, so the realm adapter moves as it is | all | S | — |
 | RL2 | Requests: close the API gap between launcher-kit's `pinned`, `http`, `to_file` and the shell's callers; write `connector`; the Epic install job over `epic::download` | §2.6.1, §2.6.2, §2.6.6 | S | relay and runtime tests in restricted |
 | RL3 | Platform leaves: bring `linux_runtime` and `system` to parity; rewrite `log` (redaction) and `paths` (including the legacy-folder migration) | §2.7.3, §2.7.4, §2.7.13, §2.7.14 | S | `log.json`; new MIT `log` table |
-| RL4 | Core: `game_language`; `i18n` over a new MIT catalog of the backend's 12 keys in `en` and `pt-BR`, with new wording written from §2.8.2's description of each key (L1; the pt-BR is flagged for the maintainer); point every caller of the shell's `core/{invite,status,username,text,pins}` at `protocol` and launcher-kit | §2.8 | S | — |
+| RL4 | Core: `game_language`; `i18n` over a new MIT catalog of the backend's 14 keys in `en` and `pt-BR`, with new wording written from §2.8.2's description of each key (L1; the pt-BR is flagged for the maintainer); point every caller of the shell's `core/{invite,status,username,text,pins}` at `protocol` and launcher-kit | §2.8 | S | — |
 
 ### Wave 2: stored data and the network (after wave 1)
 
@@ -94,14 +94,14 @@ Rows in the same wave touch different files and can run at the same time. Sizes 
 | Row | What | Spec | Size | After |
 | --- | --- | --- | --- | --- |
 | RL11 | Relay and owner check (`relay`, `relay/local`, `relay_owner`, its table), with re-pointing (DN) and the netstat check; fuzz `relay_input` moves | §2.6.4, §2.6.5 | L | RL2, RL9 |
-| RL12a | Controller: the `Platform` trait with no Tauri types, state and snapshot, init, join, connect and poll, account, PLAY, game, runtime, settings, stored view, shutdown; move the A modules (`install`, `loader`, `region`, `versions`, `realms_off`, `revived`, `host_off`) and `realms.rs` behind an MIT `RealmHost` trait over `rifts-host`; rewrite `controller/tests.rs` (§2.10) | §2.4 | L | waves 1–3, RL11 |
+| RL12a | Controller: the `Platform` trait with no Tauri types, state and snapshot, init, join, connect and poll, account, PLAY, game, runtime, settings, stored view, shutdown; move the A modules (`install`, `loader`, `region`, `versions`, `realms_off`, `revived`, `host_off`, `realms.rs` linking `rifts-host` directly, its tests, `platform/game_console.rs`); rewrite `controller/tests.rs` (§2.10) | §2.4 | L | waves 1–3, RL11 |
 | RL12b | Host page controller (`host.rs` up to line 1171, B), and moving its born-here tail, `guarded.rs`, `server_gui/modules.rs` and `server_history.rs` (A) into launcher-kit's `server-gui`; rewrite `fake_host_kit.rs` | §2.5, §4.3 | M | RL12a |
 
 ### Wave 5: the shell and the cutover
 
 | Row | What | Spec | Size |
 | --- | --- | --- | --- |
-| RL13 | The MIT Tauri shell crate at the root (suggested `crates/launcher-app`; the name `launcher` is taken by restricted's package): `main`, `lib`, `window`, `bridge::{commands, backend}`, the Tauri `Platform` impl, `art`, `dialogs`, `updater`, the Epic sign-in window, `build.rs`, rewritten `tauri.conf.json`, `capabilities/main.json` and `launcher.desktop`; `tauri.server-gui.conf.json` and `manager.desktop` move. The icons come from a folder the build is given: `restricted/` supplies today's until new ones exist (L2). Then `restricted/launcher/src-tauri` shrinks to a thin crate that adds the icons, the DR tables' tests and the Electron harness; `restricted/fuzz`'s `launcher_*` targets move to `fuzz/`. Report the seam lines: release workflows, `bun run restricted-data` sourcing the generated files from the root, and AGENTS.md's launcher-bridge section | §2.1, §2.2, §2.7.10–2.7.12, §4 | M |
+| RL13 | The MIT Tauri shell crate at the root (suggested `crates/launcher-app`; the name `launcher` is taken by restricted's package): `main`, `lib`, `window`, `tray` (A), `tests/bundles.rs` (A), `bridge::{commands, backend}`, the Tauri `Platform` impl, `art`, `dialogs`, `updater`, the Epic sign-in window, `build.rs`, rewritten `tauri.conf.json`, `capabilities/main.json` and `launcher.desktop`; `tauri.server-gui.conf.json` and `manager.desktop` move. The icons come from a folder the build is given: `restricted/` supplies today's until new ones exist (L2). Then `restricted/launcher/src-tauri` shrinks to a thin crate that adds the icons, the DR tables' tests and the Electron harness; `restricted/fuzz`'s `launcher_*` targets move to `fuzz/`. Report the seam lines: release workflows, `bun run restricted-data` sourcing the generated files from the root, and AGENTS.md's launcher-bridge section | §2.1, §2.2, §2.7.10–2.7.12, §4 | M |
 | RL14 | Review outside the clean room: similarity per file, `cargo tree` showing no `restricted/` crate under the MIT shell, restricted's suites passing unchanged against the MIT crates, `bun run test` in `launcher/`; `clean-room/launcher.md` | §6 | S |
 
 ## 5. Outside these rows
