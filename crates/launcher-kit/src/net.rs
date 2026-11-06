@@ -3,6 +3,8 @@
 
 //! Talking to servers: endpoints, pinned TLS, region ping, runtime downloads, game file checks and versions.
 
+pub mod connector;
+pub mod epic_install;
 pub mod hostapi;
 pub mod http;
 pub mod pinned;
