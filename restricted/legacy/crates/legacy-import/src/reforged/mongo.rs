@@ -2,8 +2,8 @@
 // `rust/crates/hostkit/src/commands/update.rs` and `db.rs` (plan `fb46a4a`), MIT, Copyright (c) 2026 Silent Spud;
 // LICENSE-MIT.txt there.
 
-//! The Node kit's MongoDB, moved into the 1.14.7 database by rustic-isles' `isles-db migrate` and checked by
-//! `isles-db verify` before anything else of the old install changes. A verified move leaves the
+//! The Node kit's MongoDB, moved into the 1.14.7 database by the host kit's `reforged-host db migrate` and checked
+//! by `db verify` before anything else of the old install changes. A verified move leaves the
 //! `.mongo-migrated` marker, which DaintyLass reads, and MongoDB's own files untouched.
 
 use std::path::{Path, PathBuf};
@@ -101,9 +101,9 @@ pub fn has_unmigrated_mongo_dir(l: &Layout) -> bool {
     entries.flatten().any(|e| e.file_name().to_str() != Some("mongod.lock"))
 }
 
-/// `isles-db`'s target argument for a store database (hostkit's `store_target_for_migration`).
+/// The `--to` argument of `reforged-host db` for a store database (hostkit's `store_target_for_migration`).
 #[must_use]
-pub fn isles_db_target(config: &DatabaseConfig) -> (String, bool) {
+pub fn db_tool_target(config: &DatabaseConfig) -> (String, bool) {
     match config {
         DatabaseConfig::Sqlite { file } => (file.to_string_lossy().into_owned(), false),
         DatabaseConfig::Postgres(pg) => {
@@ -120,7 +120,7 @@ pub fn isles_db_target(config: &DatabaseConfig) -> (String, bool) {
     }
 }
 
-/// Moves a MongoDB into a 1.14.7 database and checks the result: `isles-db migrate` and `verify`.
+/// Moves a MongoDB into a 1.14.7 database and checks the result: `reforged-host db migrate` and `verify`.
 pub trait MongoMigrator {
     /// Copies every document; nothing in MongoDB changes.
     fn migrate(&self, uri: &str, target: &DatabaseConfig) -> Result<()>;
@@ -128,14 +128,19 @@ pub trait MongoMigrator {
     fn verify(&self, uri: &str, target: &DatabaseConfig) -> Result<Vec<String>>;
 }
 
-/// rustic-isles' `isles-db` executable, from a path or `PATH`.
-pub struct IslesDb {
+/// What `--db-tool` names when it isn't given, from `PATH`.
+pub const DEFAULT_DB_TOOL: &str = "reforged-host";
+
+/// The host kit's database tool, run as `<program> db ...` (dainty-lass's MIT `rustic-isles-db`), from a path or
+/// `PATH`. It finds its server folder from the working directory or its own location.
+pub struct DbTool {
     pub program: PathBuf,
 }
 
-impl IslesDb {
+impl DbTool {
     fn run(&self, args: &[&str]) -> Result<std::process::Output> {
         Command::new(&self.program)
+            .arg("db")
             .args(args)
             .output()
             .map_err(|e| ImportError::Io(format!("{}: {e}", self.program.display())))
@@ -150,14 +155,14 @@ impl IslesDb {
     }
 }
 
-impl MongoMigrator for IslesDb {
+impl MongoMigrator for DbTool {
     fn migrate(&self, uri: &str, target: &DatabaseConfig) -> Result<()> {
-        let (to, remote) = isles_db_target(target);
+        let (to, remote) = db_tool_target(target);
         let out = self.run(&Self::common("migrate", "--from", uri, &to, remote))?;
         if !out.status.success() {
-            // isles-db's own messages redact the URI; its exit status is what counts here
+            // The tool's own messages redact the URI; its exit status is what counts here
             return Err(ImportError::invalid(format!(
-                "isles-db migrate from {} failed ({}): is MongoDB running?",
+                "reforged-host db migrate from {} failed ({}): is MongoDB running?",
                 redact_mongo_uri(uri),
                 out.status
             )));
@@ -166,10 +171,10 @@ impl MongoMigrator for IslesDb {
     }
 
     fn verify(&self, uri: &str, target: &DatabaseConfig) -> Result<Vec<String>> {
-        let (to, remote) = isles_db_target(target);
+        let (to, remote) = db_tool_target(target);
         let out = self.run(&Self::common("verify", "--against", uri, &to, remote))?;
         let report: serde_json::Value = serde_json::from_slice(&out.stdout)
-            .map_err(|_| ImportError::invalid(format!("isles-db verify gave no report ({})", out.status)))?;
+            .map_err(|_| ImportError::invalid(format!("reforged-host db verify gave no report ({})", out.status)))?;
         let differ = report["collections"]
             .as_array()
             .map(|list| {
@@ -180,7 +185,10 @@ impl MongoMigrator for IslesDb {
             })
             .unwrap_or_default();
         if !out.status.success() && Vec::<String>::is_empty(&differ) {
-            return Err(ImportError::invalid(format!("isles-db verify failed ({})", out.status)));
+            return Err(ImportError::invalid(format!(
+                "reforged-host db verify failed ({})",
+                out.status
+            )));
         }
         Ok(differ)
     }
@@ -235,7 +243,7 @@ pub fn upgrade(
         MongoPlan::Migrate { target, migrator } => {
             if dry_run {
                 report.note(format!(
-                    "MongoDB ({redacted}) would be moved with isles-db migrate and verify"
+                    "MongoDB ({redacted}) would be moved with reforged-host db migrate and verify"
                 ));
                 return Ok(());
             }
@@ -243,7 +251,7 @@ pub fn upgrade(
             let differ = migrator.verify(&uri, target)?;
             if !differ.is_empty() {
                 return Err(ImportError::invalid(format!(
-                    "isles-db verify found differences in [{}]: nothing else of the old install was changed, and \
+                    "reforged-host db verify found differences in [{}]: nothing else of the old install was changed, and \
                      MongoDB was not modified",
                     differ.join(", ")
                 )));
