@@ -27,15 +27,15 @@ So after these rows, the only parts of the launcher left in `restricted/` are th
 relicensed (spec §3): the page's language catalogs, DR's recorded test tables
 (`test/cases/{game-config,hostapi,log,settings}.json`), the Electron key-store harness and today's icons (L2).
 
-## 2. Decisions for the maintainer, before RL2
+## 2. Decisions (maintainer, 2026-11-06)
 
-| # | Question | Spec | Recommendation |
+| # | Question | Spec | Decision |
 | --- | --- | --- | --- |
-| L1 | The backend's 12 strings: rewrite them (a visible wording change to the close dialog, the pickers' titles and the Epic window), load them at run time from a data file, or rewrite all 1,183 keys | §3.1 | Run-time data file for now (no visible change); decide on rewriting the catalogs separately |
-| L2 | Who drew the 15 icons, and under what terms | §3.5 | Needed before the MIT client ships, not before RL2 |
-| L3 | The key backup file's two advisory sentences: write new ones | §3.3 | Yes. Only a player who opens the file sees them |
-| L4 | May the implementer compare the generator's output against today's `types.ts`, `commands.js` and `app-commands.toml`, or does only the reviewer compare them? | §3.4 | The implementer compares them. They are interface declarations, on the same footing as `crates/protocol/tests/cases` |
-| L5 | DR's test tables: keep them running from `restricted/` against the MIT crates, or also commission new MIT cases | §3.2 | Keep them in `restricted/` (no work); new cases are optional |
+| L1 | The backend's 12 strings | §3.1 | **Rewrite the 12**, en and pt-BR, compiled into the MIT backend from a new MIT catalog. The close dialog's, the pickers' and the Epic window's wording changes slightly. The page's 1,171 other keys stay in `restricted/` as they are |
+| L2 | The 15 icons | §3.5 | **Origin unknown: treat them as restricted.** They stay in `restricted/`, and new icons are drawn before an MIT client ships |
+| L3 | The key backup file's two advisory sentences | §3.3 | **Write new ones** |
+| L4 | Comparing the generator's output against today's `types.ts`, `commands.js` and `app-commands.toml` | §3.4 | **The implementer compares**: the three files go into RL8's brief as fixtures |
+| L5 | DR's recorded test tables | §3.2 | **Keep them in `restricted/`, running against the MIT crates, and also write new MIT cases** from the spec, so the root has its own tables |
 
 ## 3. How each row runs
 
