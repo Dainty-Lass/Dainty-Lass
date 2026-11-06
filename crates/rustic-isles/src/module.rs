@@ -142,6 +142,17 @@ fn sibling_files(path: &Path) -> Vec<PathBuf> {
     }
 }
 
+/// `RUSTIC_ISLES_PORT_SERVICES`: the port services this server runs, all of them when unset or blank.
+pub fn port_services(settings: &Settings) -> Option<Vec<String>> {
+    let names: Vec<String> = settings
+        .raw("RUSTIC_ISLES_PORT_SERVICES")?
+        .split(',')
+        .map(|name| name.trim().to_ascii_lowercase())
+        .filter(|name| !name.is_empty())
+        .collect();
+    (!names.is_empty()).then_some(names)
+}
+
 impl IslesModule {
     /// Fails when the version's game version does not parse.
     pub fn new(spec: ModuleSpec) -> Result<Self, ModuleError> {
@@ -283,8 +294,13 @@ impl IslesModule {
             }
         }
         let mut addresses = Vec::new();
+        let wanted = port_services(shared.settings());
         for service in &self.spec.services {
             let name = service.port();
+            // The other half of a split server runs it, reached through the node-link tunnel (docs/split-roles.md)
+            if wanted.as_ref().is_some_and(|w| !w.iter().any(|n| n == name)) {
+                continue;
+            }
             let Some(port) = self.port_for(name, config) else {
                 return Err(failed(running, ModuleError::failed(format!("no {name} port"))));
             };
@@ -712,6 +728,19 @@ impl GameModule for IslesModule {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn port_services_names_the_ones_this_half_runs() {
+        assert_eq!(port_services(&Settings::default()), None);
+        assert_eq!(
+            port_services(&Settings::from_pairs([("RUSTIC_ISLES_PORT_SERVICES", " , ")])),
+            None
+        );
+        assert_eq!(
+            port_services(&Settings::from_pairs([("RUSTIC_ISLES_PORT_SERVICES", "Director, ")])),
+            Some(vec!["director".to_owned()])
+        );
+    }
 
     #[test]
     fn default_windows() {

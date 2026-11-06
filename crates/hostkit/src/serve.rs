@@ -342,6 +342,11 @@ pub fn compose(
     use start_cmd::binaries::{FrontService, Programs, rust_ported};
 
     let public = config.mode == ServerMode::Public;
+    // The game servers half of a split server runs the Director only; the metagame half runs the rest
+    let game_half = config
+        .split
+        .as_ref()
+        .is_some_and(|s| s.role == hostconfig::split::SplitRole::GameServers);
     let node_runs = cfg!(feature = "paradox");
     if !node_runs {
         crate::commands::update::check_unmigrated_mongo_data(paths, config)?;
@@ -386,8 +391,9 @@ pub fn compose(
 
     let mut slot: Option<crate::hooks::AnySlot> = None;
     let mut guarded = false;
-    // A gateway library holds the allowlist (it serves UdpPorts)
-    if public && !external_allowlist && gateway_library.is_none() {
+    // A gateway library holds the allowlist (it serves UdpPorts). A game servers half never sees a heartbeat, so its
+    // game ports are open (`split.open_game_ports`, checked when host.toml is read)
+    if public && !external_allowlist && gateway_library.is_none() && !game_half {
         if in_process(FrontService::Allowlist) {
             slot = crate::hooks::get().compose_in_process_allowlist(&mut controller, paths, &registry)?;
             guarded = slot.is_some();
@@ -437,7 +443,9 @@ pub fn compose(
         );
     }
 
-    if let Some(library) = content_library {
+    if game_half {
+        // Players' clients fetch content from the metagame half
+    } else if let Some(library) = content_library {
         hooks.compose_service_library(&mut controller, paths, config, &registry, library)?;
     } else if in_process(FrontService::Content) {
         hooks.compose_in_process_content(&mut controller, paths, &registry)?;
@@ -447,7 +455,7 @@ pub fn compose(
 
     // The admin API has no Node build; it runs when setup wrote its env file (an older setup did not)
     #[cfg(feature = "admin")]
-    if start_cmd::env_file(paths, "admin").is_file() {
+    if !game_half && start_cmd::env_file(paths, "admin").is_file() {
         controller
             .add(modules::admin(&module_env(paths, "admin")?, Some(registry.clone())).map_err(HostError::message)?);
     }
@@ -478,10 +486,32 @@ pub fn compose(
         controller.add(front_process(FrontService::Gateway, ready));
     }
     crate::commands::remote::compose_remote_module(paths, config, &registry, &mut controller)?;
+    if let Some(split) = &config.split {
+        controller.add(split_tunnel(split, &registry));
+    }
 
     list_modules(paths, config, &registry, hooks.game_modules())?;
     controller.set_registry(registry);
     Ok(controller)
+}
+
+/// The tunnel to the other half of a split server: its port listened on here, this half's reached from there.
+fn split_tunnel(split: &hostconfig::split::SplitConfig, registry: &ModuleRegistry) -> Module {
+    use crate::paths::PORTS;
+    use hostconfig::split::SplitRole;
+    use network_plugin::tunnel::Port;
+
+    let (backend, director) = ((Port::Backend, PORTS.backend), (Port::Director, PORTS.director));
+    let (listen, expose) = match split.role {
+        SplitRole::Metagame => (director, backend),
+        SplitRole::GameServers => (backend, director),
+    };
+    modules::tunnel(modules::TunnelOptions {
+        services: registry.node_services().clone(),
+        peer: split.peer.clone(),
+        listen,
+        expose,
+    })
 }
 
 /// `store`'s settings as the `REFORGED_DB_*` variables a service reads them from, as setup writes them.
@@ -1002,6 +1032,7 @@ mod tests {
             env: None,
             network: None,
             remote: None,
+            split: None,
             switches: Default::default(),
             file: FileForm::default(),
         }

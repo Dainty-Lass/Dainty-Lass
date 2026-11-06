@@ -629,3 +629,11 @@ path = "fuzz_targets/rustic_isles_1_14_7_version_data.rs"
 test = false
 doc = false
 bench = false
+
+# network_tunnel: the split server's tunnel messages (docs/split-roles.md)
+[[bin]]
+name = "network_tunnel"
+path = "fuzz_targets/network_tunnel.rs"
+test = false
+doc = false
+bench = false

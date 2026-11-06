@@ -409,3 +409,61 @@ pub fn remote_managed(options: RemoteManagedOptions) -> Result<crate::Module, St
     .optional()
     .ready_within(std::time::Duration::from_secs(30)))
 }
+
+/// One half of a split server's tunnel (`docs/split-roles.md`).
+pub struct TunnelOptions {
+    pub services: crate::NodeServices,
+    /// The other half
+    pub peer: module_api::network::NodeId,
+    /// The port the other half runs, listened on here on loopback
+    pub listen: (network_plugin::tunnel::Port, u16),
+    /// The port this half runs, which the other half reaches through the link
+    pub expose: (network_plugin::tunnel::Port, u16),
+}
+
+/// The split server's tunnel (`Service::Tunnel`): this half's loopback listener for the other half's port, and the
+/// node service that replays the other half's calls on this half's own.
+pub fn tunnel(options: TunnelOptions) -> crate::Module {
+    use network_plugin::tunnel::{TunnelClient, TunnelService, serve};
+    use std::sync::Arc;
+
+    let options = Arc::new(options);
+    crate::Module::new(
+        "tunnel",
+        Arc::new(move |mut ctx| {
+            let options = Arc::clone(&options);
+            Box::pin(async move {
+                let (port, number) = options.listen;
+                let listener = tokio::net::TcpListener::bind(("127.0.0.1", number))
+                    .await
+                    .map_err(|e| format!("tunnel to the {} on 127.0.0.1:{number}: {e}", port.as_str()))?;
+                let lookup = options.services.clone();
+                let client = Arc::new(TunnelClient {
+                    link: Arc::new(move || lookup.peer_link()),
+                    peer: options.peer.clone(),
+                    port,
+                });
+                options.services.attach(
+                    network_plugin::Service::Tunnel,
+                    Arc::new(TunnelService::new(options.peer.clone(), vec![options.expose])),
+                );
+                let (stop_tx, stop_rx) = tokio::sync::oneshot::channel::<()>();
+                let server = tokio::spawn(serve(listener, client, async {
+                    let _ = stop_rx.await;
+                }));
+                ctx.status.report_ready(
+                    Some(number),
+                    format!("the {} on {}, over the node link", port.as_str(), options.peer),
+                );
+                ctx.wait_stop().await;
+                ctx.status.stopping();
+                let _ = stop_tx.send(());
+                let _ = server.await;
+                options.services.detach(network_plugin::Service::Tunnel);
+                ctx.status.stopped();
+                Ok(())
+            })
+        }),
+    )
+    .ready_within(std::time::Duration::from_secs(10))
+}
