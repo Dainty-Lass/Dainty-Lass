@@ -9,16 +9,12 @@
 
 use crate::bridge::types::ExternalTarget;
 
-pub const PROJECT_URL: &str = "https://github.com/FreezaMotoqueiro/Dauntless-Reforged-Revival";
-pub const PROJECT_LICENSE_URL: &str =
-    "https://github.com/FreezaMotoqueiro/Dauntless-Reforged-Revival/blob/main/LICENSE.txt";
-const PROJECT_ISSUES_URL: &str = "https://github.com/FreezaMotoqueiro/Dauntless-Reforged-Revival/issues";
-const PROJECT_DOCS_PLAYERS_URL: &str =
-    "https://github.com/FreezaMotoqueiro/Dauntless-Reforged-Revival/blob/main/docs/players.md";
-const PROJECT_DOCS_HOSTING_URL: &str =
-    "https://github.com/FreezaMotoqueiro/Dauntless-Reforged-Revival/blob/main/docs/hosting.md";
-const PROJECT_DOCS_SDK_URL: &str =
-    "https://github.com/FreezaMotoqueiro/Dauntless-Reforged-Revival/blob/main/docs/sdk-and-game-data.md";
+pub const PROJECT_URL: &str = "https://github.com/SilentSpud/DaintyLass";
+pub const PROJECT_LICENSE_URL: &str = "https://github.com/SilentSpud/DaintyLass/blob/main/restricted/LICENSE.txt";
+const PROJECT_ISSUES_URL: &str = "https://github.com/SilentSpud/DaintyLass/issues";
+const PROJECT_DOCS_PLAYERS_URL: &str = "https://github.com/SilentSpud/DaintyLass/blob/main/restricted/docs/players.md";
+const PROJECT_DOCS_HOSTING_URL: &str = "https://github.com/SilentSpud/DaintyLass/blob/main/restricted/docs/hosting.md";
+const PROJECT_DOCS_SDK_URL: &str = "https://github.com/SilentSpud/DaintyLass/blob/main/docs/sdk-and-game-data.md";
 // The projects this one is built from
 const REVIVED_URL: &str = "https://github.com/mixutin/dauntless-revived";
 const MYSTIC_URL: &str = "https://github.com/pranav158/Mystic-Paradox";
@@ -176,8 +172,6 @@ mod tests {
             "https://git.example:8443/me",
             Some("https://git.example:8443/me")
         ));
-        assert!(!is_allowed_static_url(
-            "https://github.com/FreezaMotoqueiro/Dauntless-Reforged-Revival/x"
-        ));
+        assert!(!is_allowed_static_url("https://github.com/SilentSpud/DaintyLass/x"));
     }
 }

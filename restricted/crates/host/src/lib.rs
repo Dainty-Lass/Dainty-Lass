@@ -1832,7 +1832,7 @@ mod tests {
             "backend",
             "serve",
             "--env-file",
-            "/opt/reforged/.workspace/config/backend.env",
+            "/opt/dainty-lass/.workspace/config/backend.env",
         ])
         .unwrap();
         assert_eq!(cli.command.name(), "backend");
@@ -1840,7 +1840,7 @@ mod tests {
             "dainty-host",
             "director",
             "serve",
-            "--env-file=/opt/reforged/.workspace/config/director.env",
+            "--env-file=/opt/dainty-lass/.workspace/config/director.env",
         ])
         .unwrap();
         assert_eq!(cli.command.name(), "director");
@@ -1850,13 +1850,13 @@ mod tests {
                 &[
                     "serve".into(),
                     "--env-file".into(),
-                    "/opt/reforged/.workspace/config/backend.env".into()
+                    "/opt/dainty-lass/.workspace/config/backend.env".into()
                 ],
                 None
             )
             .unwrap()
             .as_deref(),
-            Some(std::path::Path::new("/opt/reforged/.workspace/config/backend.env"))
+            Some(std::path::Path::new("/opt/dainty-lass/.workspace/config/backend.env"))
         );
         assert!(parse_service_env_file("backend", &["--env-file".into()], None).is_err());
     }
@@ -1966,11 +1966,7 @@ mod tests {
             &mut |l| lines.push(l.to_owned()),
         )
         .unwrap();
-        assert!(
-            lines
-                .iter()
-                .any(|l| l.contains("dainty-host db export-mongo (dry-run"))
-        );
+        assert!(lines.iter().any(|l| l.contains("dainty-host db export-mongo (dry-run")));
         assert!(lines.iter().any(|l| l.contains("accounts: 1")));
     }
 

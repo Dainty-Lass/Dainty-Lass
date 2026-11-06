@@ -1,6 +1,6 @@
 # Builds the server release (MIGRATION_PLAN.md RD8, RH6; adapted from Dauntless Revived's server-release.yml, M38).
 # One archive per server platform, which `dainty-host setup` and `dainty-host update` download and check (RH5):
-#  - ReforgedRevivalServer-<version>-windows-x64.zip and -linux-x64.tar.gz hold dainty-lass-server-<version>/:
+#  - DaintyLassServer-<version>-windows-x64.zip and -linux-x64.tar.gz hold dainty-lass-server-<version>/:
 #    the source of the commit (git archive, the corresponding source under the AGPL) and of the rustic-isles
 #    module in-tree (modules/rustic-isles, DS6/RD27), with
 #      bin/              the server in one binary (RD26), built here for that platform: dainty-server,
@@ -215,10 +215,10 @@ jobs:
           mkdir -p "$WORK/release"
           cd "$WORK/assemble"
           if [ "$RUNNER_OS" = Windows ]; then
-            archive="ReforgedRevivalServer-$VERSION-$PLATFORM.zip"
+            archive="DaintyLassServer-$VERSION-$PLATFORM.zip"
             7z a -tzip -mx=9 -bd "$WORK/release/$archive" "$name" > /dev/null
           else
-            archive="ReforgedRevivalServer-$VERSION-$PLATFORM.tar.gz"
+            archive="DaintyLassServer-$VERSION-$PLATFORM.tar.gz"
             tar --sort=name --owner=0 --group=0 --numeric-owner -czf "$WORK/release/$archive" "$name"
           fi
           ls -l "$WORK/release"
@@ -251,7 +251,7 @@ jobs:
         run: |
           set -euo pipefail
           cd release
-          expected="$(printf '%s\n' "ReforgedRevivalServer-$VERSION-linux-x64.tar.gz" "ReforgedRevivalServer-$VERSION-windows-x64.zip" | sort)"
+          expected="$(printf '%s\n' "DaintyLassServer-$VERSION-linux-x64.tar.gz" "DaintyLassServer-$VERSION-windows-x64.zip" | sort)"
           actual="$(ls -A | sort)"
           if [ "$actual" != "$expected" ]; then
             echo "::error::these are not the archives of servers $VERSION"
@@ -304,9 +304,9 @@ jobs:
           mkdir -p "$RUNNER_TEMP/host"
           cd "$RUNNER_TEMP/host"
           if [ "$RUNNER_OS" = Windows ]; then
-            7z x -bd "$REFORGED_SERVER_RELEASE/ReforgedRevivalServer-$VERSION-$PLATFORM.zip" > /dev/null
+            7z x -bd "$REFORGED_SERVER_RELEASE/DaintyLassServer-$VERSION-$PLATFORM.zip" > /dev/null
           else
-            tar -xzf "$REFORGED_SERVER_RELEASE/ReforgedRevivalServer-$VERSION-$PLATFORM.tar.gz"
+            tar -xzf "$REFORGED_SERVER_RELEASE/DaintyLassServer-$VERSION-$PLATFORM.tar.gz"
           fi
           root="$RUNNER_TEMP/host/dainty-lass-server-$VERSION"
           "$root/bin/dainty-host$ext" update --check | tee check.txt

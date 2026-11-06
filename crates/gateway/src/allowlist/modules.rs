@@ -51,7 +51,7 @@ impl AllowlistPlugin {
         }
     }
 
-    /// For a public server whose allowlist runs in an external process (`reforged-allowlist.service`,
+    /// For a public server whose allowlist runs in an external process (`dainty-lass-allowlist.service`,
     /// which guards `base`): admits a module whose assigned UDP ranges lie inside `base`, and refuses
     /// any range outside `base`.
     pub fn external(base: PortRange, view: Arc<dyn PortView>) -> Self {

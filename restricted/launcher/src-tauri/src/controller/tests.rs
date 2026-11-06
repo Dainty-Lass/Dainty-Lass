@@ -148,7 +148,7 @@ fn status_body(host: &Host, full: bool) -> Value {
         "online": true,
         "version": "0.1.0",
         "commit": "abc1234",
-        "sourceUrl": "https://github.com/FreezaMotoqueiro/Dauntless-Reforged-Revival",
+        "sourceUrl": "https://github.com/SilentSpud/DaintyLass",
         "registration": host.registration,
         "playersOnline": if full { 1 } else { 0 },
         "players": if full { json!([{ "name": "Aurora", "where": "city", "instance": "city-8777" }]) } else { json!([]) },
@@ -1313,7 +1313,7 @@ async fn the_host_page_drives_reforged_host_setup_server_invite_and_stop() {
     let not_one = hx.temp();
     hx.pick("workspace", &not_one);
     assert_eq!(hx.c.host_choose_workspace().await, host_error("workspace"));
-    let ws = host_workspace(&hx.temp().join("Reforged"));
+    let ws = host_workspace(&hx.temp().join("DaintyLass"));
     hx.pick("workspace", &ws);
     assert_eq!(hx.c.host_choose_workspace().await, ActionResult::Ok);
     let kit = hx.c.host_kit().await;
@@ -1362,11 +1362,11 @@ async fn the_host_page_drives_reforged_host_setup_server_invite_and_stop() {
     assert_eq!(hx.c.host_create_invite(Some("Sam".into())).await, ActionResult::Ok);
     let view = hx.c.host_server_view();
     let invite = view.invite.unwrap();
-    assert_eq!(invite.link, "reforged-revival://join/abc");
+    assert_eq!(invite.link, "dainty://join/abc");
     assert_eq!(invite.for_name.as_deref(), Some("Sam"));
-    assert!(!view.lines.iter().any(|l| l.contains("reforged-revival://")));
+    assert!(!view.lines.iter().any(|l| l.contains("dainty://")));
     let log = std::fs::read_to_string(ws.join(".workspace").join("logs").join("launcher-invite.log")).unwrap();
-    assert!(!log.contains("reforged-revival://"), "the link is never logged");
+    assert!(!log.contains("dainty://"), "the link is never logged");
 
     // The launcher's shutdown stops the server it started
     hx.c.shutdown().await;
@@ -1382,7 +1382,7 @@ async fn host_tools_turned_on_take_the_project_folder_beside_the_game() {
     let game = hx.game();
     hx.c.init().await;
     assert_eq!(hx.c.use_game_path(&game.to_string_lossy()).await, ActionResult::Ok);
-    let beside = game.parent().unwrap().join("Reforged");
+    let beside = game.parent().unwrap().join("DaintyLass");
     assert_eq!(
         hx.c.host_kit().await.project_target.as_deref(),
         Some(beside.to_string_lossy().as_ref())
@@ -1419,7 +1419,7 @@ async fn host_tools_turned_on_take_the_project_folder_beside_the_game() {
 async fn import_sdk_takes_the_newest_dump_and_multipliers_are_private_only() {
     let hx = host_harness();
     hx.c.init().await;
-    let ws = host_workspace(&hx.temp().join("Reforged"));
+    let ws = host_workspace(&hx.temp().join("DaintyLass"));
     hx.pick("workspace", &ws);
     assert_eq!(hx.c.host_choose_workspace().await, ActionResult::Ok);
     assert_eq!(
@@ -1606,7 +1606,7 @@ async fn a_catalog_exporter_session_plays_with_the_exporter_on_the_loader_list()
     assert_eq!(hx.c.use_game_path(&game.to_string_lossy()).await, ActionResult::Ok);
     assert_eq!(hx.c.choose_local_runtime().await, ActionResult::Ok);
     let win64 = game.join("Archon").join("Binaries").join("Win64");
-    let ws = host_workspace(&hx.temp().join("Reforged"));
+    let ws = host_workspace(&hx.temp().join("DaintyLass"));
     hx.pick("workspace", &ws);
     assert_eq!(hx.c.host_choose_workspace().await, ActionResult::Ok);
     assert_eq!(

@@ -22,7 +22,7 @@
 set -euo pipefail
 
 export MSYS_NO_PATHCONV=1
-export COMPOSE_PROJECT_NAME="${COMPOSE_PROJECT_NAME:-reforged-remote}"
+export COMPOSE_PROJECT_NAME="${COMPOSE_PROJECT_NAME:-dainty-remote}"
 export COMPOSE_PROFILES=remote
 export COMPOSE_FILE=compose.yaml
 
@@ -98,12 +98,12 @@ printf '%s\n' "$list_1" | grep -q '"node": "alpha"' || fail "controller list mis
 printf '%s\n' "$list_1" | grep -q '"node": "bravo"' || fail "controller list missing bravo"
 
 step "2. change a shared setting on the controller and verify both installs pick it up while preserving local host and secrets"
-alpha_secrets_sha_before="$(compose exec -T host-alpha sha256sum /opt/reforged/.workspace/config/secrets.env | awk '{print $1}')"
-bravo_secrets_sha_before="$(compose exec -T host-bravo sha256sum /opt/reforged/.workspace/config/secrets.env | awk '{print $1}')"
+alpha_secrets_sha_before="$(compose exec -T host-alpha sha256sum /opt/dainty-lass/.workspace/config/secrets.env | awk '{print $1}')"
+bravo_secrets_sha_before="$(compose exec -T host-bravo sha256sum /opt/dainty-lass/.workspace/config/secrets.env | awk '{print $1}')"
 
 compose exec -T host-controller sh -ec '
-	sed -i "s/^name = .*/name = \"Fleet Friday Hunts\"/" /opt/reforged/.workspace/config/host.toml
-	sed -i "s/^max_hunt_servers = .*/max_hunt_servers = 4/" /opt/reforged/.workspace/config/host.toml
+	sed -i "s/^name = .*/name = \"Fleet Friday Hunts\"/" /opt/dainty-lass/.workspace/config/host.toml
+	sed -i "s/^max_hunt_servers = .*/max_hunt_servers = 4/" /opt/dainty-lass/.workspace/config/host.toml
 '
 set_cfg_out="$(compose exec -T host-controller dainty-host remote set-config --json)"
 echo "$set_cfg_out"
@@ -116,8 +116,8 @@ echo "$sync_bravo_2"
 printf '%s\n' "$sync_alpha_2" | grep -q '"applied_revision": 2' || fail "alpha did not pick up revision 2"
 printf '%s\n' "$sync_bravo_2" | grep -q '"applied_revision": 2' || fail "bravo did not pick up revision 2"
 
-alpha_toml="$(compose exec -T host-alpha cat /opt/reforged/.workspace/config/host.toml)"
-bravo_toml="$(compose exec -T host-bravo cat /opt/reforged/.workspace/config/host.toml)"
+alpha_toml="$(compose exec -T host-alpha cat /opt/dainty-lass/.workspace/config/host.toml)"
+bravo_toml="$(compose exec -T host-bravo cat /opt/dainty-lass/.workspace/config/host.toml)"
 printf '%s\n' "$alpha_toml" | grep -q 'name = "Fleet Friday Hunts"' || fail "alpha host.toml missing updated name"
 printf '%s\n' "$alpha_toml" | grep -q 'max_hunt_servers = 4' || fail "alpha host.toml missing updated max_hunt_servers"
 printf '%s\n' "$alpha_toml" | grep -q '203.0.113.21' || fail "alpha host.toml lost its local game_address"
@@ -125,8 +125,8 @@ printf '%s\n' "$bravo_toml" | grep -q 'name = "Fleet Friday Hunts"' || fail "bra
 printf '%s\n' "$bravo_toml" | grep -q 'max_hunt_servers = 4' || fail "bravo host.toml missing updated max_hunt_servers"
 printf '%s\n' "$bravo_toml" | grep -q '203.0.113.22' || fail "bravo host.toml lost its local game_address"
 
-alpha_secrets_sha_after="$(compose exec -T host-alpha sha256sum /opt/reforged/.workspace/config/secrets.env | awk '{print $1}')"
-bravo_secrets_sha_after="$(compose exec -T host-bravo sha256sum /opt/reforged/.workspace/config/secrets.env | awk '{print $1}')"
+alpha_secrets_sha_after="$(compose exec -T host-alpha sha256sum /opt/dainty-lass/.workspace/config/secrets.env | awk '{print $1}')"
+bravo_secrets_sha_after="$(compose exec -T host-bravo sha256sum /opt/dainty-lass/.workspace/config/secrets.env | awk '{print $1}')"
 [ "$alpha_secrets_sha_before" = "$alpha_secrets_sha_after" ] || fail "alpha secrets.env changed during config sync"
 [ "$bravo_secrets_sha_before" = "$bravo_secrets_sha_after" ] || fail "bravo secrets.env changed during config sync"
 [ "$alpha_secrets_sha_after" != "$bravo_secrets_sha_after" ] || fail "alpha and bravo should have distinct local secrets.env files"
@@ -143,7 +143,7 @@ echo "$ban_exec_out"
 printf '%s\n' "$ban_exec_out" | grep -q '"status": "queued"' || fail "remote ban was not queued"
 
 compose exec -T host-alpha dainty-host remote sync --json
-alpha_mod="$(compose exec -T host-alpha cat /opt/reforged/.workspace/config/remote-moderation.json)"
+alpha_mod="$(compose exec -T host-alpha cat /opt/dainty-lass/.workspace/config/remote-moderation.json)"
 echo "$alpha_mod"
 printf '%s\n' "$alpha_mod" | grep -q '"target": "Griefer99"' || fail "alpha moderation ledger missing Griefer99"
 printf '%s\n' "$alpha_mod" | grep -q '"status": "banned"' || fail "alpha moderation ledger missing banned status"
@@ -156,10 +156,10 @@ printf '%s\n' "$ctrl_status_after_ban" | grep -q 'banned applied for Griefer99 b
 
 step "4. stop the controller and verify both managed installs keep running"
 compose stop gateway-controller
-compose exec -T backend-alpha reforged-healthcheck backend || fail "backend-alpha stopped when controller went offline"
-compose exec -T gateway-alpha reforged-healthcheck gateway || fail "gateway-alpha stopped when controller went offline"
-compose exec -T backend-bravo reforged-healthcheck backend || fail "backend-bravo stopped when controller went offline"
-compose exec -T gateway-bravo reforged-healthcheck gateway || fail "gateway-bravo stopped when controller went offline"
+compose exec -T backend-alpha dainty-healthcheck backend || fail "backend-alpha stopped when controller went offline"
+compose exec -T gateway-alpha dainty-healthcheck gateway || fail "gateway-alpha stopped when controller went offline"
+compose exec -T backend-bravo dainty-healthcheck backend || fail "backend-bravo stopped when controller went offline"
+compose exec -T gateway-bravo dainty-healthcheck gateway || fail "gateway-bravo stopped when controller went offline"
 
 # Syncing while the controller is stopped fails cleanly without wiping local config or detaching the install
 if compose exec -T host-alpha dainty-host remote sync >/dev/null 2>&1; then
@@ -172,12 +172,12 @@ printf '%s\n' "$alpha_status_offline" | grep -q '"applied_revision": 2' || fail 
 
 compose start gateway-controller
 for _ in $(seq 1 30); do
-	if compose exec -T gateway-controller reforged-healthcheck gateway >/dev/null 2>&1; then
+	if compose exec -T gateway-controller dainty-healthcheck gateway >/dev/null 2>&1; then
 		break
 	fi
 	sleep 1
 done
-compose exec -T gateway-controller reforged-healthcheck gateway || fail "gateway-controller did not recover after start"
+compose exec -T gateway-controller dainty-healthcheck gateway || fail "gateway-controller did not recover after start"
 
 step "5. revoke bravo and verify the controller refuses bravo while alpha continues syncing"
 revoke_out="$(compose exec -T host-controller dainty-host remote revoke bravo --json)"
@@ -200,9 +200,9 @@ compose exec -T host-alpha dainty-host remote sync --json | grep -q '"applied_re
 	|| fail "alpha could not sync after bravo was revoked"
 
 step "6. inspect captured wire payloads to prove no secret, account key or database file crossed"
-wire_controller="$(compose exec -T host-controller cat /opt/reforged/.workspace/wire.jsonl)"
-wire_alpha="$(compose exec -T host-alpha cat /opt/reforged/.workspace/wire.jsonl)"
-wire_bravo="$(compose exec -T host-bravo cat /opt/reforged/.workspace/wire.jsonl)"
+wire_controller="$(compose exec -T host-controller cat /opt/dainty-lass/.workspace/wire.jsonl)"
+wire_alpha="$(compose exec -T host-alpha cat /opt/dainty-lass/.workspace/wire.jsonl)"
+wire_bravo="$(compose exec -T host-bravo cat /opt/dainty-lass/.workspace/wire.jsonl)"
 all_wire="$(printf '%s\n%s\n%s\n' "$wire_controller" "$wire_alpha" "$wire_bravo")"
 
 [ -n "$wire_controller" ] || fail "controller wire log is empty"
@@ -240,7 +240,7 @@ done
 
 # Also extract the actual generated secret values from controller, alpha and bravo and verify none of those values crossed
 for host_svc in host-controller host-alpha host-bravo; do
-	secrets_text="$(compose exec -T "$host_svc" cat /opt/reforged/.workspace/config/secrets.env | tr -d '\r')"
+	secrets_text="$(compose exec -T "$host_svc" cat /opt/dainty-lass/.workspace/config/secrets.env | tr -d '\r')"
 	while IFS='=' read -r key val; do
 		val="${val%\"}"
 		val="${val#\"}"

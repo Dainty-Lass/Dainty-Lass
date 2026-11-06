@@ -125,7 +125,7 @@ fn ensure_ctrlc_registered() {
         {
             let (ready_tx, ready_rx) = std::sync::mpsc::sync_channel(0);
             let _ = std::thread::Builder::new()
-                .name("reforged-ctrlc".to_owned())
+                .name("dainty-ctrlc".to_owned())
                 .spawn(move || {
                     let Ok(rt) = tokio::runtime::Builder::new_current_thread().enable_all().build() else {
                         let _ = ready_tx.send(());
@@ -210,7 +210,7 @@ impl Control {
         if stdin {
             let inner = Arc::clone(&ctrl.inner);
             std::thread::Builder::new()
-                .name("reforged-stdin-control".to_owned())
+                .name("dainty-stdin-control".to_owned())
                 .spawn(move || {
                     let stdin_handle = std::io::stdin();
                     let reader = std::io::BufReader::new(stdin_handle);

@@ -12,7 +12,7 @@ Linux: [hosting-linux.md](hosting-linux.md). Docker: [hosting-docker.md](hosting
 
 - Windows 10 or 11, and **your own Dauntless 1.14.7** install (the folder with `Archon` in it), or an Epic
   account whose library has Dauntless, from which `install-game` installs it ([below](#getting-the-game-from-epic)).
-- The **server release** (`ReforgedRevivalServer-<version>-windows-x64.zip`), unpacked anywhere; `bin\dainty-host.exe`
+- The **server release** (`DaintyLassServer-<version>-windows-x64.zip`), unpacked anywhere; `bin\dainty-host.exe`
   is the kit. Or a checkout of this repository built from source. No Node.js or MongoDB is needed on the default
   path: the 1.14.7 backend, Director, gateway, content server, allowlist helper and admin API are compiled into
   `dainty-host` and store player data in `.workspace\config\dainty-lass.db` (SQLite) or Postgres (`[database]`).

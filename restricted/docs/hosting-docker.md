@@ -30,16 +30,16 @@ from outside, not even from other containers. The allowlist's nftables table liv
 filters the game servers' traffic without any privilege on the host and without touching the host's firewall.
 Only the allowlist has `CAP_NET_ADMIN`, and only through `nft`'s file capability.
 
-**The same files as a Linux host.** Both images are laid out as the server release is, under `/opt/reforged`,
+**The same files as a Linux host.** Both images are laid out as the server release is, under `/opt/dainty-lass`,
 and every container mounts the volumes at the same paths, so `host.toml`, `secrets.env` and the env files are
 the host kit's, unchanged, and a `.workspace` can move between a container host and a plain one.
 
 | Volume | Path | Holds |
 | --- | --- | --- |
-| `workspace` | `/opt/reforged/.workspace` | Configuration and secrets, the certificate, the published runtime, branding, logs, the Wine prefix |
-| `backend-game-data`, `director-game-data` | `/opt/reforged/modules/rustic-isles/reference/1.14.7/*/game-data` | Your game data |
-| `exports`, `captures` | `/opt/reforged/modules/rustic-isles/reference/1.14.7/Items_Analysis`, `…/DauntlessEndpointDocumentation` | CatalogExporter exports and store captures, for `gamedata` |
-| `mongo-data`, `mongo-config` | `/data/db` in `mongo`, `/opt/reforged/.workspace/mongodb` in `server` | Pre-cutover MongoDB data (moved into `store` by `host db migrate` and `host db verify`, and used by the `rollback` profile) |
+| `workspace` | `/opt/dainty-lass/.workspace` | Configuration and secrets, the certificate, the published runtime, branding, logs, the Wine prefix |
+| `backend-game-data`, `director-game-data` | `/opt/dainty-lass/modules/rustic-isles/reference/1.14.7/*/game-data` | Your game data |
+| `exports`, `captures` | `/opt/dainty-lass/modules/rustic-isles/reference/1.14.7/Items_Analysis`, `…/DauntlessEndpointDocumentation` | CatalogExporter exports and store captures, for `gamedata` |
+| `mongo-data`, `mongo-config` | `/data/db` in `mongo`, `/opt/dainty-lass/.workspace/mongodb` in `server` | Pre-cutover MongoDB data (moved into `store` by `host db migrate` and `host db verify`, and used by the `rollback` profile) |
 | `postgres-data` | Postgres's | The `postgres` profile's database |
 | bind mount `REFORGED_GAME_DIR` | `/game` | Your Dauntless 1.14.7 folder (the one with `Archon`), or the folder `install-game` makes `1.14.7` in |
 | bind mount `REFORGED_IMPORT_DIR` | `/import` (read-only, `host` only) | Files to bring in: the runtime's DLLs, game data packs |
@@ -82,7 +82,7 @@ Every crate is in the checkout: the images build with the monorepo root as conte
 `restricted/` reaches the root's MIT crates by path and the build needs no SSH key. The server binary is built with
 `all-modules`, as the release is; to build without any game module, set the build argument
 `REFORGED_MODULES=` (from the root: `docker build -f restricted/docker/Dockerfile --build-arg REFORGED_MODULES= --target server .`).
-The server image also holds the libraries `host.toml` can pin (RD27) in `/opt/reforged/plugins`, so a
+The server image also holds the libraries `host.toml` can pin (RD27) in `/opt/dainty-lass/plugins`, so a
 `[[modules.external]]` or `[services.<name>]` path there reads `plugins/libisles_1_14_7_plugin.so` and the like
 ([hosting.md](hosting.md#game-modules-and-plugins)).
 
@@ -173,7 +173,7 @@ per-minute HTTP request budget (`rate_limit` -> `RUSTIC_ISLES_RATE_LIMIT`, `rate
 `RUSTIC_ISLES_RATE_LIMIT_PER_MINUTE`, `gameserver_rate_limit_per_minute` ->
 `RUSTIC_ISLES_GAMESERVER_RATE_LIMIT_PER_MINUTE`, `host_rate_limit_per_minute` ->
 `RUSTIC_ISLES_HOST_RATE_LIMIT_PER_MINUTE`; see [hosting.md](hosting.md#game-modules-and-plugins)); `docker compose run --rm host admin guarded list --env-file
-/opt/reforged/.workspace/config/admin.env` lists what waits.
+/opt/dainty-lass/.workspace/config/admin.env` lists what waits.
 
 In `.env`, `COMPOSE_PROFILES=public,toml` (or `toml` for a private server). The file needs every setting a
 first setup asks for, so the easiest way to get one is to let setup write it once and copy it out:
@@ -181,7 +181,7 @@ first setup asks for, so the easiest way to get one is to let setup write it onc
 ```bash
 docker compose run --rm host setup --mode public --host play.example.org --name "Friday Hunts"
 mkdir -p config
-docker compose run --rm --entrypoint cat host /opt/reforged/.workspace/config/host.toml > config/host.toml
+docker compose run --rm --entrypoint cat host /opt/dainty-lass/.workspace/config/host.toml > config/host.toml
 docker compose up -d
 ```
 
@@ -276,7 +276,7 @@ To look around, start it and run what the test runs:
 ```bash
 docker compose --profile network up -d --wait network
 docker compose --profile network exec gateway-uk dainty-host network status \
-  --env-file /opt/reforged/.workspace/config/gateway.env
+  --env-file /opt/dainty-lass/.workspace/config/gateway.env
 curl -k https://127.0.0.1:18441/network/v1/nodes       # what the launcher is told about the other regions
 docker compose --profile network exec netem-oregon tc qdisc show dev eth0
 docker compose --profile network down --volumes
@@ -293,7 +293,7 @@ mTLS ([hosting.md](hosting.md#managing-several-installs), [remote-management.md]
 - **First-boot enrollment (`REFORGED_REMOTE_ENROLL_TOKEN`).** Set `REFORGED_REMOTE_ENROLL_TOKEN="dainty-lass-remote://enroll?v=1&..."`
   (and optional `REFORGED_REMOTE_LABEL`) in `.env` and add the `managed` profile (`COMPOSE_PROFILES=public,managed`).
   When `remote-agent` starts (`docker/host-entrypoint.sh`), it redeems the single-use enrollment URI once if
-  `remote-managed.json` does not exist yet, writes the issued mTLS leaf certificate into `/opt/reforged/.workspace/tls/`,
+  `remote-managed.json` does not exist yet, writes the issued mTLS leaf certificate into `/opt/dainty-lass/.workspace/tls/`,
   and syncs shared settings and queued remote commands from the controller every `REFORGED_REMOTE_SYNC_INTERVAL_SECS`
   (default `15`).
 - **Manual CLI enrollment.** On an already running container, run
@@ -334,11 +334,6 @@ namespace and the optional dependencies depend on Compose's own behaviour. Rootl
 Never delete the `workspace` volume of a server that has players: a new certificate changes the fingerprint
 in every invite, and new secrets log everyone out.
 
-The Compose project was called `reforged-revival` before 2026-11-06, and Docker names the volumes after the project
-(`reforged-revival_workspace`). A server set up before then keeps its volumes, and so its certificate and players,
-by setting `COMPOSE_PROJECT_NAME=reforged-revival` in `.env` before the next `up`. Without it, Compose starts an empty
-`dainty-lass_workspace`.
-
 ## Testing the images
 
 `bash docker/run-tests.sh` (from the repository root) is the full test run CI's `docker` job does on the built
@@ -374,8 +369,8 @@ below before starting it.
 
 ## Migrating existing MongoDB data and rollback (`rollback` profile)
 
-The `mongo-data` volume is mounted at `/opt/reforged/.workspace/mongodb` inside `backend`, `configure` and `host`.
-While `mongo-data` is non-empty and `/opt/reforged/.workspace/.mongo-migrated` has not been written, `backend`
+The `mongo-data` volume is mounted at `/opt/dainty-lass/.workspace/mongodb` inside `backend`, `configure` and `host`.
+While `mongo-data` is non-empty and `/opt/dainty-lass/.workspace/.mongo-migrated` has not been written, `backend`
 refuses to start so an updated server never comes up silently on an empty database.
 
 To migrate an existing `mongo-data` volume from the pre-RU9 Node backend:
@@ -385,7 +380,7 @@ To migrate an existing `mongo-data` volume from the pre-RU9 Node backend:
 2. Run `docker compose run --rm host setup` (or `COMPOSE_PROFILES=public,toml,rollback docker compose run --rm configure`
    when using the `toml` profile), then `docker compose run --rm host db migrate` and
    `docker compose run --rm host db verify`. `db migrate` moves every collection from `mongo` into the configured
-   store (SQLite in `/opt/reforged/.workspace/config/dainty-lass.db` or the `postgres` profile); `db verify` checks
+   store (SQLite in `/opt/dainty-lass/.workspace/config/dainty-lass.db` or the `postgres` profile); `db verify` checks
    every collection and writes `.mongo-migrated` only when it finds no difference, leaving `mongo-data` untouched.
    (To start on a fresh empty database without migrating, pass `--fresh-start` to `host setup` or set
    `fresh_start = true` under `[database]` in `host.toml`.)

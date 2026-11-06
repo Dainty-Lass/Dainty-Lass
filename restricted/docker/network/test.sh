@@ -17,7 +17,7 @@
 #   REFORGED_NETWORK_*       compose.yaml's settings; the table this expects is read back from `docker compose config`
 set -euo pipefail
 
-export COMPOSE_PROJECT_NAME="${COMPOSE_PROJECT_NAME:-reforged-network}"
+export COMPOSE_PROJECT_NAME="${COMPOSE_PROJECT_NAME:-dainty-network}"
 export COMPOSE_PROFILES=network
 export COMPOSE_FILE=compose.yaml
 tolerance="${NETWORK_TOLERANCE_MS:-25}"
@@ -93,7 +93,7 @@ within() { awk -v v="$1" -v want="$2" -v tol="$3" 'BEGIN { exit !(v >= want - 2 
 step "every node reaches its peers, with the injected round trips"
 for region in "${regions[@]}"; do
 	out="$(compose exec -T "gateway-$region" dainty-host network status --count 5 \
-		--env-file /opt/reforged/.workspace/config/gateway.env)" || { echo "$out"; fail "$region: a peer is not up"; }
+		--env-file /opt/dainty-lass/.workspace/config/gateway.env)" || { echo "$out"; fail "$region: a peer is not up"; }
 	echo "$out"
 	peers=0
 	while read -r _ node peer state _ rtt unit _; do
@@ -131,7 +131,7 @@ if [ "$run_region_ping" = 1 ]; then
 	for home in "${regions[@]}"; do
 		published="$(compose port "net-$home" 443)"
 		pin="$(compose exec -T "gateway-$home" dainty-host gateway make-cert --fingerprint \
-			/opt/reforged/.workspace/tls/gateway-cert.pem | sed -n 's/^Fingerprint: *//p')"
+			/opt/dainty-lass/.workspace/tls/gateway-cert.pem | sed -n 's/^Fingerprint: *//p')"
 		# The other regions, nearest to the player first, each with the round trip injected to it
 		expect="$(for r in "${regions[@]}"; do
 			[ "$r" = "$home" ] || printf '%s %s\n' "$(injected "$player" "$r")" "$r"
@@ -153,7 +153,7 @@ node_url() {
 
 node_gs_key() {
 	compose exec -T "gateway-$1" sed -n 's/^METAGAME_API_KEY="\{0,1\}\([^"]*\)"\{0,1\}$/\1/p' \
-		/opt/reforged/.workspace/config/director.env | tr -d '\r\n'
+		/opt/dainty-lass/.workspace/config/director.env | tr -d '\r\n'
 }
 
 node_backend_post() {
@@ -364,8 +364,8 @@ printf '%s' "$refuse_resp" | grep -q '409' || fail "expected 409 Conflict under 
 printf '%s' "$refuse_resp" | grep -q 'WRONG_NODE' || fail "expected WRONG_NODE body under default refuse policy"
 
 compose exec -T gateway-germany sh -c '
-	sed "/^\[network\]$/a wrong_node_policy = \"redirect\"" /opt/reforged/.workspace/config/host.toml >/tmp/host.toml
-	cat /tmp/host.toml >/opt/reforged/.workspace/config/host.toml
+	sed "/^\[network\]$/a wrong_node_policy = \"redirect\"" /opt/dainty-lass/.workspace/config/host.toml >/tmp/host.toml
+	cat /tmp/host.toml >/opt/dainty-lass/.workspace/config/host.toml
 	rm -f /tmp/host.toml
 '
 compose restart gateway-germany

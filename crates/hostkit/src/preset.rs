@@ -14,7 +14,9 @@ use crate::gamepack::{is_example_path, pack_entries, sha256_hex};
 use crate::paths::{GAME_CHANGELIST, Paths};
 
 /// The `format` a preset.json names.
-pub const PRESET_FORMAT: &str = "dauntless-reforged-revival-preset";
+pub const PRESET_FORMAT: &str = "dainty-lass-preset";
+/// The `format` of a preset the Reforged Revival Node kit made, still read so its presets load
+pub const LEGACY_PRESET_FORMAT: &str = "dauntless-reforged-revival-preset";
 /// The preset's manifest, in the preset folder.
 pub const PRESET_MANIFEST: &str = "preset.json";
 /// Game data never put in a preset: each server builds these from its store captures.
@@ -153,7 +155,7 @@ pub fn read_preset_manifest(p: &Paths) -> Result<Option<PresetManifest>, HostErr
     };
 
     let format = obj.get("format").and_then(Value::as_str).unwrap_or_default();
-    if format != PRESET_FORMAT {
+    if format != PRESET_FORMAT && format != LEGACY_PRESET_FORMAT {
         return Err(HostError::message(format!(
             "{}: invalid preset format {format:?}",
             file.display()

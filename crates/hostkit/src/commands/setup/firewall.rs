@@ -86,9 +86,9 @@ pub fn apply_windows_firewall_rules(config: &HostConfig, log_file: &Path) -> Res
     let gw = gateway_port(config);
     let (first, last) = game_ports(config);
     let rules_to_apply = [
-        (format!("Reforged Gateway TCP {gw}"), "TCP".to_owned(), gw.to_string()),
+        (format!("DaintyLass Gateway TCP {gw}"), "TCP".to_owned(), gw.to_string()),
         (
-            format!("Reforged Game UDP {first}-{last}"),
+            format!("DaintyLass Game UDP {first}-{last}"),
             "UDP".to_owned(),
             format!("{first}-{last}"),
         ),

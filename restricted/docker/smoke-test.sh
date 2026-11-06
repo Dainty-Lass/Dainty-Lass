@@ -5,7 +5,7 @@
 # shared namespace, the backend makes an invite, and everything stops. Builds the images unless SMOKE_NO_BUILD=1.
 set -euo pipefail
 
-export COMPOSE_PROJECT_NAME="${COMPOSE_PROJECT_NAME:-reforged-smoke}"
+export COMPOSE_PROJECT_NAME="${COMPOSE_PROJECT_NAME:-dainty-smoke}"
 export COMPOSE_PROFILES=public
 export COMPOSE_FILE=compose.yaml
 export REFORGED_GATEWAY_PORT=443
@@ -45,7 +45,7 @@ registration = "INVITECODE"
 max_hunt_servers = 1
 TOML
 COMPOSE_PROFILES=public,toml compose run --rm configure
-compose run --rm --entrypoint sh host -c 'cat /opt/reforged/.workspace/config/backend.env' | grep -q 'Fresh Toml Apply'
+compose run --rm --entrypoint sh host -c 'cat /opt/dainty-lass/.workspace/config/backend.env' | grep -q 'Fresh Toml Apply'
 compose down --volumes --remove-orphans >/dev/null 2>&1
 
 step "seed pre-cutover mongo-data volume"
@@ -99,16 +99,16 @@ compose run --rm host db verify
 COMPOSE_PROFILES=public,rollback compose rm -sf mongo
 
 step "the toml profile applies host.toml alone"
-compose run --rm --entrypoint sh host -c 'cat /opt/reforged/.workspace/config/host.toml' 	| sed 's/^name = .*/name = "Smoke Toml"/' >"$REFORGED_CONFIG_DIR/host.toml"
+compose run --rm --entrypoint sh host -c 'cat /opt/dainty-lass/.workspace/config/host.toml' 	| sed 's/^name = .*/name = "Smoke Toml"/' >"$REFORGED_CONFIG_DIR/host.toml"
 COMPOSE_PROFILES=public,toml compose run --rm configure
-compose run --rm --entrypoint sh host -c 'cat /opt/reforged/.workspace/config/backend.env' | grep -q 'Smoke Toml'
+compose run --rm --entrypoint sh host -c 'cat /opt/dainty-lass/.workspace/config/backend.env' | grep -q 'Smoke Toml'
 
 step "up, configure first"
 COMPOSE_PROFILES=public,toml compose up -d --wait --wait-timeout 300
 compose ps
 
 step "the gateway serves setup's certificate"
-fp_file="$(compose run --rm --entrypoint sh host -c 'cat /opt/reforged/.workspace/tls/gateway-cert.pem')"
+fp_file="$(compose run --rm --entrypoint sh host -c 'cat /opt/dainty-lass/.workspace/tls/gateway-cert.pem')"
 served="$(echo | openssl s_client -connect "$REFORGED_GATEWAY_PUBLISH" -servername smoke.example.org 2>/dev/null | openssl x509 -noout -fingerprint -sha256)"
 expected="$(printf '%s\n' "$fp_file" | openssl x509 -noout -fingerprint -sha256)"
 echo "served:   $served"
@@ -134,12 +134,12 @@ compose run --rm host invite --list | tee "$smoke_dir/invites-list.txt"
 grep -q 'INV-DOCKER-01' "$smoke_dir/invites-list.txt"
 
 step "the allowlist's table closes the game ports"
-compose exec -T allowlist nft list table inet reforged_revival | tee "$smoke_dir/nft.txt"
+compose exec -T allowlist nft list table inet dainty_lass | tee "$smoke_dir/nft.txt"
 grep -q 'udp dport 8770-8777 drop' "$smoke_dir/nft.txt"
 
 step invite
 compose run --rm host invite --for "Smoke" | tee "$smoke_dir/invite.txt"
-grep -q 'reforged-revival://' "$smoke_dir/invite.txt"
+grep -q 'dainty://' "$smoke_dir/invite.txt"
 
 step doctor
 compose run --rm host doctor --no-hash || true

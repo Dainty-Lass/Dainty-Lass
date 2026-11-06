@@ -3,7 +3,7 @@
 # dainty-host inside the server image, in the server's network, with its volumes. Every command works as on a
 # Linux host (docs/hosting-linux.md), with these differences (docs/hosting-docker.md):
 #  - setup: the services are in the image already (--skip-install), the game folder is the one mounted at /game,
-#    and if the mongo-data volume mounted at /opt/reforged/.workspace/mongodb holds pre-cutover MongoDB data,
+#    and if the mongo-data volume mounted at /opt/dainty-lass/.workspace/mongodb holds pre-cutover MongoDB data,
 #    setup migrates and verifies it from the rollback profile's mongo service at 127.0.0.1:27017 into store.
 #    Each default is added only when the command line does not say otherwise.
 #  - install-game: the versions go in the mounted game folder (--dir /game, unless given), so the Director's
@@ -13,7 +13,7 @@
 #    /config (REFORGED_CONFIG_DIR) replaces the workspace's first, so that file is the server's whole configuration.
 set -eu
 
-workspace_toml=/opt/reforged/.workspace/config/host.toml
+workspace_toml=/opt/dainty-lass/.workspace/config/host.toml
 
 has() {
 	want="$1"
@@ -31,7 +31,7 @@ docker_setup() {
 		set -- "$@" --game /game
 	fi
 	dainty-host setup "$@"
-	if [ -n "${REFORGED_REMOTE_ENROLL_URI:-}" ] && [ ! -f /opt/reforged/.workspace/config/remote-managed.json ]; then
+	if [ -n "${REFORGED_REMOTE_ENROLL_URI:-}" ] && [ ! -f /opt/dainty-lass/.workspace/config/remote-managed.json ]; then
 		dainty-host remote enroll "${REFORGED_REMOTE_ENROLL_URI}"
 	fi
 }

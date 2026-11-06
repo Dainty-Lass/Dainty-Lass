@@ -36,7 +36,7 @@
   "plugins": {
     "updater": {
       "endpoints": [
-        "https://github.com/FreezaMotoqueiro/Dauntless-Reforged-Revival/releases/download/launcher-updates/latest-manager.json"
+        "https://github.com/SilentSpud/DaintyLass/releases/download/launcher-updates/latest-manager.json"
       ]
     }
   }

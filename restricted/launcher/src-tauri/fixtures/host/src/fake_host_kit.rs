@@ -16,7 +16,7 @@ fn main() {
             println!("noise");
             let whom = args.iter().position(|a| a == "--for").and_then(|i| args.get(i + 1));
             let whom = whom.map_or("null".to_owned(), |w| format!("\"{w}\""));
-            println!("{{\"link\":\"reforged-revival://join/abc\",\"for\":{whom}}}");
+            println!("{{\"link\":\"dainty://join/abc\",\"for\":{whom}}}");
         }
         _ => {
             println!("working");

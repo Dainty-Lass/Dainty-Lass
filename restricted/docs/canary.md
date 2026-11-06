@@ -15,7 +15,7 @@ On the server whose traffic you want to record, add to `.workspace/config/gatewa
 ```dotenv
 # Absolute path to the directory where daily capture JSONL files are written.
 # Created with mode 0700 (files 0600 on Unix).
-CAPTURE_DIR="/opt/reforged/.workspace/capture"
+CAPTURE_DIR="/opt/dainty-lass/.workspace/capture"
 
 # Number of days to keep daily capture files before automatic pruning (1..90, default: 14).
 CAPTURE_RETENTION_DAYS=14
@@ -24,7 +24,7 @@ CAPTURE_RETENTION_DAYS=14
 CAPTURE_MAX_BODY_BYTES=262144
 ```
 
-Restart the server (`dainty-host start`, `dainty-host serve`, or `systemctl restart reforged.service`). At start the gateway logs:
+Restart the server (`dainty-host start`, `dainty-host serve`, or `systemctl restart dainty-lass.service`). At start the gateway logs:
 
 ```text
 traffic capture is on: every request and answer is recorded, redacted, for the shadow replay (personal data; see dainty-lass's docs/security/gateway.md)
@@ -129,13 +129,13 @@ Before starting the Node services, export the current SQLite (`dainty-lass.db`) 
 ```bash
 # Dry-run first to inspect collection document counts:
 dainty-host db export-mongo \
-  --from /opt/reforged/.workspace/config/dainty-lass.db \
+  --from /opt/dainty-lass/.workspace/config/dainty-lass.db \
   --to mongodb://127.0.0.1:27017/reforged \
   --dry-run
 
 # Perform the live export into MongoDB:
 dainty-host db export-mongo \
-  --from /opt/reforged/.workspace/config/dainty-lass.db \
+  --from /opt/dainty-lass/.workspace/config/dainty-lass.db \
   --to mongodb://127.0.0.1:27017/reforged
 ```
 

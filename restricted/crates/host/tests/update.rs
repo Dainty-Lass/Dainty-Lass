@@ -122,7 +122,7 @@ fn a_checksum_failure_deletes_the_download_and_installs_nothing() {
     let Err(UpdateError::Problem(Problem::Checksum { file, .. })) = selfupdate::fetch(&candidate, &work) else {
         panic!("a changed archive must not pass")
     };
-    assert_eq!(file, "ReforgedRevivalServer-1.0.0-linux-x64.tar.gz");
+    assert_eq!(file, "DaintyLassServer-1.0.0-linux-x64.tar.gz");
     assert_eq!(
         std::fs::read_dir(&work).unwrap().count(),
         0,
@@ -158,7 +158,7 @@ fn a_missing_file_stops_before_anything_is_installed() {
     make_release(&other, "1.0.0", "windows-x64", V1);
     let candidate = Candidate {
         sums_at: Location::File(releases.join("SHA256SUMS.txt")),
-        archive: "ReforgedRevivalServer-9.9.9-windows-x64.zip".into(),
+        archive: "DaintyLassServer-9.9.9-windows-x64.zip".into(),
         ..selfupdate::find_release(&Source::Folder(other), "windows-x64", Wanted::Newest(None)).unwrap()
     };
     let Err(UpdateError::Problem(p @ Problem::NotInSums(_))) = selfupdate::fetch(&candidate, &dir.path().join("w2"))
@@ -296,11 +296,11 @@ fn offers_stable_releases_and_prereleases_to_the_canary() {
         "only prereleases yet"
     );
     assert_eq!(
-        selfupdate::archive_version("ReforgedRevivalServer-0.2.0-rc.1-linux-x64.tar.gz", "linux-x64"),
+        selfupdate::archive_version("DaintyLassServer-0.2.0-rc.1-linux-x64.tar.gz", "linux-x64"),
         Some("0.2.0-rc.1")
     );
     assert_eq!(
-        selfupdate::archive_version("ReforgedRevivalServer-0.2.0-windows-x64.zip", "linux-x64"),
+        selfupdate::archive_version("DaintyLassServer-0.2.0-windows-x64.zip", "linux-x64"),
         None
     );
 }
@@ -309,10 +309,10 @@ fn offers_stable_releases_and_prereleases_to_the_canary() {
 fn picks_the_release_from_githubs_list() {
     let asset = |name: &str| json!({ "name": name, "browser_download_url": format!("https://example.test/{name}") });
     let releases = json!([
-        { "tag_name": "launcher-v9.0.0", "draft": false, "assets": [asset("ReforgedRevivalServer-9.0.0-linux-x64.tar.gz"), asset("SHA256SUMS.txt")] },
-        { "tag_name": "server-v0.3.0", "draft": true, "assets": [asset("ReforgedRevivalServer-0.3.0-linux-x64.tar.gz"), asset("SHA256SUMS.txt")] },
-        { "tag_name": "server-v0.2.0", "draft": false, "assets": [asset("ReforgedRevivalServer-0.2.0-windows-x64.zip"), asset("SHA256SUMS.txt")] },
-        { "tag_name": "server-v0.1.0", "draft": false, "assets": [asset("ReforgedRevivalServer-0.1.0-linux-x64.tar.gz"), asset("SHA256SUMS.txt")] },
+        { "tag_name": "launcher-v9.0.0", "draft": false, "assets": [asset("DaintyLassServer-9.0.0-linux-x64.tar.gz"), asset("SHA256SUMS.txt")] },
+        { "tag_name": "server-v0.3.0", "draft": true, "assets": [asset("DaintyLassServer-0.3.0-linux-x64.tar.gz"), asset("SHA256SUMS.txt")] },
+        { "tag_name": "server-v0.2.0", "draft": false, "assets": [asset("DaintyLassServer-0.2.0-windows-x64.zip"), asset("SHA256SUMS.txt")] },
+        { "tag_name": "server-v0.1.0", "draft": false, "assets": [asset("DaintyLassServer-0.1.0-linux-x64.tar.gz"), asset("SHA256SUMS.txt")] },
     ]);
     let c = selfupdate::candidates_from_github(&releases, "o/r", "linux-x64", Wanted::Newest(None)).unwrap();
     assert_eq!(
@@ -321,7 +321,7 @@ fn picks_the_release_from_githubs_list() {
     );
     assert_eq!(
         c.archive_at,
-        Location::Url("https://example.test/ReforgedRevivalServer-0.1.0-linux-x64.tar.gz".into())
+        Location::Url("https://example.test/DaintyLassServer-0.1.0-linux-x64.tar.gz".into())
     );
     assert_eq!(c.repository.as_deref(), Some("o/r"));
     let c = selfupdate::candidates_from_github(&releases, "o/r", "windows-x64", Wanted::Exactly("0.2.0")).unwrap();
@@ -704,7 +704,7 @@ fn update_checks_installs_and_runs_setup_with_the_new_binary() {
     let (r, lines) = update(&root, &env, json);
     let error = r.unwrap_err();
     assert!(
-        error.starts_with("ReforgedRevivalServer-3.0.0-linux-x64.tar.gz is not the file the release lists"),
+        error.starts_with("DaintyLassServer-3.0.0-linux-x64.tar.gz is not the file the release lists"),
         "{error}"
     );
     let failed = last_json(&lines);

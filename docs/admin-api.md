@@ -141,7 +141,7 @@ dainty-host admin key revoke 58ef5419                       # its next request i
 
 The key is shown once and only its SHA-256 is kept, so a lost key is revoked and a new one issued. One active key per
 name. The owner's key is listed as `owner` and is changed in `secrets.env` (then `setup` and a restart), never
-revoked here. In a container: `docker compose run --rm host admin key list --env-file /opt/reforged/.workspace/config/admin.env`.
+revoked here. In a container: `docker compose run --rm host admin key list --env-file /opt/dainty-lass/.workspace/config/admin.env`.
 
 From the API: `issueKey(name, role)` (admin for viewer and moderator, owner for any), `revokeKey(id)` (owner) and
 `adminKeys`. Revoking takes effect on the key's next request.

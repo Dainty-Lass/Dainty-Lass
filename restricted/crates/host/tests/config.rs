@@ -882,7 +882,7 @@ fn linux_the_director_starts_the_wine_launcher_with_the_executable_the_prefix_an
     let allowlist = f.allowlist.unwrap();
     assert_eq!(get(&allowlist, "ALLOWLIST_DRY_RUN"), Some("0"));
     assert_eq!(get(&allowlist, "ALLOWLIST_FIREWALL"), Some("nftables"));
-    assert_eq!(get(&allowlist, "ALLOWLIST_NFT_TABLE"), Some("reforged_revival"));
+    assert_eq!(get(&allowlist, "ALLOWLIST_NFT_TABLE"), Some("dainty_lass"));
     assert_eq!(get(&allowlist, "ALLOWLIST_INTERFACE"), Some("eth0"));
     let wine = config(with(
         linux_public(),

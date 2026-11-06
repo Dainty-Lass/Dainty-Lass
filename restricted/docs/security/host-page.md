@@ -39,7 +39,7 @@ Code: `launcher/src-tauri/src/controller/host.rs`, `platform/loader_session.rs`,
 in `controller/mod.rs` (`play_now`, `game_changed`).
 
 Fuzz target: `launcher_host` in `fuzz` (`hostkit/parse.rs`: the host kit's output, the invite and update JSON,
-`host.toml` and `host.json`, vswhere). It also checks that an invite that parses is a short `reforged-revival://` link on one line,
+`host.toml` and `host.json`, vswhere). It also checks that an invite that parses is a short `dainty://` link on one line,
 and that multipliers that parse are finite, from 1 to 100, and private only.
 
 ## Checklist
@@ -97,7 +97,7 @@ and that multipliers that parse are finite, from 1 to 100, and private only.
 - [ ] The invite link (`invite --json`) is a secret: its JSON line goes neither to the page's output lines nor to
       `launcher-invite.log`; it reaches only the `host-server` view, which the page blurs in streamer mode
       (`the_host_page_drives_reforged_host_setup_server_invite_and_stop`). The controller never logs it.
-- [ ] Only a `dauntless://`, `reforged-revival://` or `dauntless-revived://` link of at most 4096 characters with no control characters is taken from the
+- [ ] Only a `dauntless://`, `dainty://` or `dauntless-revived://` link of at most 4096 characters with no control characters is taken from the
       host kit's output (`invite_line`).
 - [ ] The client launcher (`dainty-launcher`) never reads `secrets.env` or the env files; `host.toml` (or `host.json`) is read for the name,
       mode, public host and multipliers only, and a file over 1 MiB is not read. In `dainty-manager` (`feature = "server-gui"`),

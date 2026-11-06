@@ -19,7 +19,9 @@ use crate::gamedata::{BACKEND_GAME_DATA, DIRECTOR_GAME_DATA, SUPPLIED_SOURCES, i
 use crate::paths::{GAME_CHANGELIST, Paths};
 
 /// The `format` a pack names.
-pub const PACK_FORMAT: &str = "dauntless-reforged-revival-gamedata";
+pub const PACK_FORMAT: &str = "dainty-lass-gamedata";
+/// The `format` of a pack the Reforged Revival Node kit made, still read so its packs import
+pub const LEGACY_PACK_FORMAT: &str = "dauntless-reforged-revival-gamedata";
 /// The pack version this kit reads and writes.
 pub const PACK_VERSION: u64 = 1;
 
@@ -227,7 +229,7 @@ pub fn parse_game_data_pack(p: &Paths, file: &Path, compressed: &[u8]) -> Result
     };
 
     let format = obj.get("format").and_then(Value::as_str).unwrap_or_default();
-    if format != PACK_FORMAT {
+    if format != PACK_FORMAT && format != LEGACY_PACK_FORMAT {
         return Err(HostError::message(format!(
             "{}: not a game data pack (format is {format:?})",
             file.display()

@@ -13,7 +13,7 @@ item that does not hold is a bug to fix before the cutover, not a box to leave o
 
 The helper keeps the game's UDP ports open only to the addresses of players who logged in. It runs with the most
 rights of any server component: administrator on Windows (a scheduled task with highest privileges), root or
-`CAP_NET_ADMIN` on Linux (the `reforged-allowlist` systemd unit). Anything that can make it run a command or open the
+`CAP_NET_ADMIN` on Linux (the `dainty-lass-allowlist` systemd unit). Anything that can make it run a command or open the
 ports to everyone defeats the allowlist.
 
 - **IPC in:** plain HTTP on loopback (`ALLOWLIST_BIND`, `127.0.0.1` or `::1`, port `ALLOWLIST_PORT`, default 61005).
@@ -65,7 +65,7 @@ the nftables script or the Windows rule.
       characters from `[A-Za-z0-9_.@-]`, starting with a letter or digit. Neither can close a quote or a brace in the
       script.
 - [ ] `ALLOWLIST_RULE_NAME` (the Windows Firewall rule the helper finds and changes; a second helper on a server
-      running both games names its own) starts with `DaintyLass ` (or legacy `Dauntless Reforged Revival `), holds only letters, digits,
+      running both games names its own) starts with `DaintyLass `, holds only letters, digits,
       spaces and `()-._`, and is at most 80 characters (`config.rs`, `check_rule_name`; the `allowlist_input` fuzz
       target). The helper can never be pointed at a rule that is not the server's own.
 - [ ] At most `ALLOWLIST_MAX_ENTRIES` addresses (default 256, at most 1000); past that, `/allow` answers 503 and
@@ -125,8 +125,7 @@ runs in the core's process, as the in-process allowlist module did: that process
 - [ ] The chain's first rule is `iifname "lo" accept`, so loopback is never filtered. The other three rules match
       the game ports only: from `@players4` or `@players6` accept, anything else on those ports drop. The chain's
       policy is `accept`, so the helper cannot cut the host off anything else.
-- [ ] The helper only ever touches its own table (`reforged_revival` by default). A host that ran the Node helper
-      has the same table, and the first change replaces it.
+- [ ] The helper only ever touches its own table (`dainty_lass` by default).
 - [ ] The script goes to nft on stdin. Only if stdin fails the first time and a file works does the helper switch to
       files: a new folder of mode 0700 under the temporary folder, `rules.nft` of mode 0600 created with
       `create_new`, both removed after the run (`nft.rs`, `private_script`; tested on Linux with a stand-in nft).
@@ -190,7 +189,7 @@ sudo -E env "PATH=$PATH" REFORGED_TEST_NFT=1 cargo test -p gateway --lib nftable
 sudo nft list tables
 ```
 
-The last command must not list `reforged_revival_test`.
+The last command must not list `dainty_lass_test`.
 
 Windows, in an elevated prompt:
 

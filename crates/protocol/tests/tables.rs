@@ -64,11 +64,11 @@ fn with_version(input: &str, version: &str) -> String {
 }
 
 #[test]
-fn reforged_revival_invites_are_dauntless_ones_with_version_1_14_7() {
+fn dainty_lass_invites_are_dauntless_ones_with_version_1_14_7() {
     let cases: Invites = table("invite.json");
     let mut checked = 0;
     for case in &cases.accept {
-        let unified = respell(&case.input, "reforged-revival", "dauntless").unwrap();
+        let unified = respell(&case.input, "dainty", "dauntless").unwrap();
         assert_eq!(parse_invite(&unified), Ok(case.invite.clone()), "{unified:?}");
         assert_eq!(
             parse_invite(&with_version(&unified, "1.14.7")),
@@ -117,7 +117,7 @@ fn reforged_revival_invites_are_dauntless_ones_with_version_1_14_7() {
         .iter()
         .filter(|case| case.error != "revived" && case.error != "too_long")
     {
-        let Some(unified) = respell(&case.input, "reforged-revival", "dauntless") else {
+        let Some(unified) = respell(&case.input, "dainty", "dauntless") else {
             continue;
         };
         assert_eq!(

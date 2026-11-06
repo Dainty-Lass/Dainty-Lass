@@ -14,13 +14,12 @@ fn fp() -> String {
     "3f".repeat(32)
 }
 
-const GOOD: &str =
-    "reforged-revival://join?v=1&host=100.101.102.103&port=61000&code=ABCD-1234&name=Alex%27s%20Ramsgate";
+const GOOD: &str = "dainty://join?v=1&host=100.101.102.103&port=61000&code=ABCD-1234&name=Alex%27s%20Ramsgate";
 const RLO: char = '\u{202e}';
 
 fn good_v2() -> String {
     format!(
-        "reforged-revival://join?v=2&mode=public&host=203.0.113.10&port=443&fp={}&code=ABCD-EFGH-JKLM&name=Friday%20Hunts",
+        "dainty://join?v=2&mode=public&host=203.0.113.10&port=443&fp={}&code=ABCD-EFGH-JKLM&name=Friday%20Hunts",
         fp()
     )
 }
@@ -81,7 +80,7 @@ fn v1_parses_a_valid_invite() {
 fn v1_accepts_surrounding_whitespace_a_magic_dns_name_a_share_link_and_an_upper_case_scheme() {
     let share = encode("https://login.tailscale.com/admin/invite/abcDEF123");
     let r = parse_invite(&format!(
-        "  REFORGED-REVIVAL://join/?v=1&host=HostPC.tail1234.ts.net&port=61000&code=abcd&name=Friends+Night&share={share}\n"
+        "  DAINTY://join/?v=1&host=HostPC.tail1234.ts.net&port=61000&code=abcd&name=Friends+Night&share={share}\n"
     ))
     .unwrap();
     assert_eq!(r.mode, ServerMode::Private);
@@ -128,7 +127,7 @@ fn v2_parses_a_valid_public_invite() {
 #[test]
 fn v2_the_port_defaults_to_443_a_dns_name_and_any_parameter_order_work() {
     let r = parse_invite(&format!(
-        "reforged-revival://join?name=Hunts&code=abcd&fp={}&host=Play.Example.ORG&mode=public&v=2",
+        "dainty://join?name=Hunts&code=abcd&fp={}&host=Play.Example.ORG&mode=public&v=2",
         fp()
     ))
     .unwrap();
@@ -140,7 +139,7 @@ fn v2_the_port_defaults_to_443_a_dns_name_and_any_parameter_order_work() {
 #[test]
 fn v2_a_custom_gateway_port() {
     let r = parse_invite(&format!(
-        "reforged-revival://join?v=2&mode=public&host=198.51.100.7&port=8443&fp={}&code=abcd&name=x",
+        "dainty://join?v=2&mode=public&host=198.51.100.7&port=8443&fp={}&code=abcd&name=x",
         fp()
     ))
     .unwrap();
@@ -188,7 +187,7 @@ fn build2(over: &[(&str, Option<&str>)]) -> String {
         .into_iter()
         .filter_map(|(k, v)| v.map(|v| format!("{k}={v}")))
         .collect();
-    format!("reforged-revival://join?{}", joined.join("&"))
+    format!("dainty://join?{}", joined.join("&"))
 }
 
 // ------------------------------------------------------------------ malformed
@@ -196,7 +195,7 @@ fn build2(over: &[(&str, Option<&str>)]) -> String {
 fn bad() -> Vec<(String, InviteError)> {
     use InviteError::*;
     let fp = fp();
-    let p = "reforged-revival://join?";
+    let p = "dainty://join?";
     let base1 = "v=1&host=100.64.0.1&port=61000&code=abcd";
     let mut cases: Vec<(String, InviteError)> = vec![
         ("".into(), Empty),
@@ -204,13 +203,10 @@ fn bad() -> Vec<(String, InviteError)> {
         ("hello".into(), NotInvite),
         ("https://example.com/join?v=1".into(), NotInvite),
         (
-            "reforged-revival://register?v=1&host=1.2.3.4&port=1&code=abcd&name=x".into(),
+            "dainty://register?v=1&host=1.2.3.4&port=1&code=abcd&name=x".into(),
             NotInvite,
         ),
-        (
-            "reforged-revival:join?v=1&host=1.2.3.4&port=1&code=abcd&name=x".into(),
-            NotInvite,
-        ),
+        ("dainty:join?v=1&host=1.2.3.4&port=1&code=abcd&name=x".into(), NotInvite),
         (format!("{p}v=3&host=100.64.0.1&port=61000&code=abcd&name=x"), Version),
         (format!("{p}v=01&host=100.64.0.1&port=61000&code=abcd&name=x"), Version),
         (format!("{p}host=100.64.0.1&port=61000&code=abcd&name=x"), Version),
@@ -332,10 +328,7 @@ fn rejects_malformed_invites() {
 fn v1_loopback_is_allowed() {
     for host in ["127.0.0.1", "localhost"] {
         assert!(
-            parse_invite(&format!(
-                "reforged-revival://join?v=1&host={host}&port=61000&code=abcd&name=x"
-            ))
-            .is_ok(),
+            parse_invite(&format!("dainty://join?v=1&host={host}&port=61000&code=abcd&name=x")).is_ok(),
             "{host}"
         );
     }
@@ -399,7 +392,7 @@ fn dauntless_revived_invites_are_refused_as_1_4_4_servers() {
         parse_invite(&format!("dauntless-revived://join?{}", "x".repeat(3000))),
         Err(InviteError::TooLong)
     );
-    let ours = parse_invite("reforged-revival://join?v=1&host=100.64.0.1&port=61000&code=Code-42&name=Ours");
+    let ours = parse_invite("dainty://join?v=1&host=100.64.0.1&port=61000&code=Code-42&name=Ours");
     assert!(ours.is_ok());
     // And formatInvite writes Reforged's scheme only
     let inv = invite(
@@ -411,5 +404,5 @@ fn dauntless_revived_invites_are_refused_as_1_4_4_servers() {
         None,
         None,
     );
-    assert!(format_invite(&inv).unwrap().starts_with("reforged-revival://join?"));
+    assert!(format_invite(&inv).unwrap().starts_with("dainty://join?"));
 }

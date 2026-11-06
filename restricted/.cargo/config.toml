@@ -14,7 +14,7 @@ LIBSQLITE3_FLAGS = "SQLITE_DQS=0 SQLITE_LIKE_DOESNT_MATCH_BLOBS SQLITE_ENABLE_MA
 AWS_LC_SYS_PREBUILT_NASM = "1"
 # Where dainty-host looks for server releases (update, setup's install step), built into the binary.
 # An environment variable of the same name wins: the release workflow sets it to the repository it runs in.
-REFORGED_RELEASE_REPOSITORY = "SilentSpud/Dauntless-Reforged-Revival"
+REFORGED_RELEASE_REPOSITORY = "SilentSpud/DaintyLass"
 
 # Forgejo's Cargo registry, where module-api is published for the module repositories (DD2, spike DF1).
 # Named so a path dependency carrying `registry = "silentspud"` resolves; the workspace never reads from it.

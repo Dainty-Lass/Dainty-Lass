@@ -66,7 +66,7 @@ mod tests {
             version: protocol::invite::reforged_version(),
         };
         let link = format_invite(&invite).unwrap();
-        assert!(link.starts_with("reforged-revival://join?v=2&"));
+        assert!(link.starts_with("dainty://join?v=2&"));
         assert_eq!(parse_invite(&link), Ok(invite));
     }
 

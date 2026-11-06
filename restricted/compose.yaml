@@ -16,7 +16,7 @@
 # Every service shares one network namespace, the net service's: they reach each other on 127.0.0.1 exactly as
 # the env files setup writes say, nothing but the gateway and the game ports is published, and the allowlist's
 # nftables table filters the game servers' traffic inside that namespace without touching the host's firewall.
-# Every container mounts the volumes at the paths the env files name (/opt/reforged, as the server release).
+# Every container mounts the volumes at the paths the env files name (/opt/dainty-lass, as the server release).
 
 name: dainty-lass
 
@@ -45,12 +45,12 @@ x-server: &server
   network_mode: service:net
   restart: unless-stopped
   volumes:
-    - workspace:/opt/reforged/.workspace
-    - mongo-data:/opt/reforged/.workspace/mongodb
-    - backend-game-data:/opt/reforged/modules/rustic-isles/reference/1.14.7/ParadoxBackend/game-data
-    - director-game-data:/opt/reforged/modules/rustic-isles/reference/1.14.7/ParadoxDirector/game-data
-    - exports:/opt/reforged/modules/rustic-isles/reference/1.14.7/Items_Analysis
-    - captures:/opt/reforged/modules/rustic-isles/reference/1.14.7/DauntlessEndpointDocumentation
+    - workspace:/opt/dainty-lass/.workspace
+    - mongo-data:/opt/dainty-lass/.workspace/mongodb
+    - backend-game-data:/opt/dainty-lass/modules/rustic-isles/reference/1.14.7/ParadoxBackend/game-data
+    - director-game-data:/opt/dainty-lass/modules/rustic-isles/reference/1.14.7/ParadoxDirector/game-data
+    - exports:/opt/dainty-lass/modules/rustic-isles/reference/1.14.7/Items_Analysis
+    - captures:/opt/dainty-lass/modules/rustic-isles/reference/1.14.7/DauntlessEndpointDocumentation
     - ${REFORGED_GAME_DIR:-./game}:/game
 
 # The network profile (DN12): four nodes, each its own namespace (net-*) holding the gateway, the only service a node
@@ -124,7 +124,7 @@ x-network-gateway: &network-gateway
     dockerfile: restricted/docker/Dockerfile
     target: front
   profiles: [network]
-  command: ["dainty-host", "gateway", "serve", "--env-file", "/opt/reforged/.workspace/config/gateway.env"]
+  command: ["dainty-host", "gateway", "serve", "--env-file", "/opt/dainty-lass/.workspace/config/gateway.env"]
   restart: unless-stopped
   init: true
   read_only: true
@@ -132,7 +132,7 @@ x-network-gateway: &network-gateway
   security_opt: [no-new-privileges:true]
   cap_drop: [ALL]
   healthcheck:
-    test: ["CMD", "reforged-healthcheck", "gateway"]
+    test: ["CMD", "dainty-healthcheck", "gateway"]
     interval: 5s
     start_period: 30s
 
@@ -148,13 +148,13 @@ x-network-node: &network-node
   environment:
     REFORGED_NETWORK_FULL_NODE: "1"
     REFORGED_WRONG_NODE_POLICY: ${REFORGED_WRONG_NODE_POLICY:-refuse}
-  command: ["dainty-host", "gateway", "serve", "--env-file", "/opt/reforged/.workspace/config/gateway.env"]
+  command: ["dainty-host", "gateway", "serve", "--env-file", "/opt/dainty-lass/.workspace/config/gateway.env"]
   restart: unless-stopped
   init: true
   security_opt: [no-new-privileges:true]
   cap_drop: [ALL]
   healthcheck:
-    test: ["CMD", "reforged-healthcheck", "gateway"]
+    test: ["CMD", "dainty-healthcheck", "gateway"]
     interval: 5s
     start_period: 30s
 
@@ -232,7 +232,7 @@ services:
       - sh
       - -ec
       - |
-        secrets=/opt/reforged/.workspace/config/secrets.env
+        secrets=/opt/dainty-lass/.workspace/config/secrets.env
         POSTGRES_PASSWORD=$$(sed -n 's/^REFORGED_DB_PASSWORD="\{0,1\}\([^"]*\)"\{0,1\}$$/\1/p' "$$secrets")
         if [ -z "$$POSTGRES_PASSWORD" ]; then echo "no REFORGED_DB_PASSWORD in $$secrets: run setup first" >&2; exit 1; fi
         # initdb trusts 127.0.0.1 by default, and every container shares this namespace: passwords there too
@@ -240,7 +240,7 @@ services:
         exec docker-entrypoint.sh postgres -c listen_addresses=127.0.0.1
     volumes:
       - postgres-data:/var/lib/postgresql/data
-      - workspace:/opt/reforged/.workspace:ro
+      - workspace:/opt/dainty-lass/.workspace:ro
     healthcheck:
       test: ["CMD", "pg_isready", "-h", "127.0.0.1", "-U", "dainty", "-d", "dainty"]
       interval: 5s
@@ -262,12 +262,12 @@ services:
     entrypoint: ["/usr/bin/tini", "--", "dainty-host-docker"]
     command: ["apply"]
     volumes:
-      - workspace:/opt/reforged/.workspace
-      - mongo-data:/opt/reforged/.workspace/mongodb
-      - backend-game-data:/opt/reforged/modules/rustic-isles/reference/1.14.7/ParadoxBackend/game-data
-      - director-game-data:/opt/reforged/modules/rustic-isles/reference/1.14.7/ParadoxDirector/game-data
-      - exports:/opt/reforged/modules/rustic-isles/reference/1.14.7/Items_Analysis
-      - captures:/opt/reforged/modules/rustic-isles/reference/1.14.7/DauntlessEndpointDocumentation
+      - workspace:/opt/dainty-lass/.workspace
+      - mongo-data:/opt/dainty-lass/.workspace/mongodb
+      - backend-game-data:/opt/dainty-lass/modules/rustic-isles/reference/1.14.7/ParadoxBackend/game-data
+      - director-game-data:/opt/dainty-lass/modules/rustic-isles/reference/1.14.7/ParadoxDirector/game-data
+      - exports:/opt/dainty-lass/modules/rustic-isles/reference/1.14.7/Items_Analysis
+      - captures:/opt/dainty-lass/modules/rustic-isles/reference/1.14.7/DauntlessEndpointDocumentation
       - ${REFORGED_GAME_DIR:-./game}:/game
       # z: relabelled for SELinux hosts (Fedora, RHEL with Podman); ignored elsewhere
       - ${REFORGED_CONFIG_DIR:-./config}:/config:ro,z
@@ -280,9 +280,9 @@ services:
 
   backend:
     <<: *server
-    command: ["dainty-host", "backend", "serve", "--env-file", "/opt/reforged/.workspace/config/backend.env"]
+    command: ["dainty-host", "backend", "serve", "--env-file", "/opt/dainty-lass/.workspace/config/backend.env"]
     healthcheck:
-      test: ["CMD", "reforged-healthcheck", "backend"]
+      test: ["CMD", "dainty-healthcheck", "backend"]
       interval: 5s
       start_period: 120s
       retries: 6
@@ -307,10 +307,10 @@ services:
       args:
         REFORGED_COMMIT: ${REFORGED_COMMIT:-}
     profiles: [rollback]
-    working_dir: /opt/reforged/modules/rustic-isles/reference/1.14.7/ParadoxBackend
-    command: ["node", "--env-file=/opt/reforged/.workspace/config/backend.env", "build/server.js"]
+    working_dir: /opt/dainty-lass/modules/rustic-isles/reference/1.14.7/ParadoxBackend
+    command: ["node", "--env-file=/opt/dainty-lass/.workspace/config/backend.env", "build/server.js"]
     healthcheck:
-      test: ["CMD", "reforged-healthcheck", "backend"]
+      test: ["CMD", "dainty-healthcheck", "backend"]
       interval: 5s
       start_period: 120s
       retries: 6
@@ -334,9 +334,9 @@ services:
     profiles: [rollback]
     environment:
       REFORGED_ROLLBACK: "1"
-    command: ["reforged-director"]
+    command: ["dainty-director"]
     healthcheck:
-      test: ["CMD", "reforged-healthcheck", "director"]
+      test: ["CMD", "dainty-healthcheck", "director"]
       interval: 5s
       start_period: 120s
       retries: 6
@@ -350,9 +350,9 @@ services:
   # Starts Ramsgate, the Training Grounds and the hunts as its children (Wine on a virtual display)
   director:
     <<: *server
-    command: ["reforged-director"]
+    command: ["dainty-director"]
     healthcheck:
-      test: ["CMD", "reforged-healthcheck", "director"]
+      test: ["CMD", "dainty-healthcheck", "director"]
       interval: 5s
       start_period: 120s
       retries: 6
@@ -366,11 +366,11 @@ services:
 
   content:
     <<: *front
-    command: ["dainty-host", "content", "serve", "--env-file", "/opt/reforged/.workspace/config/content.env"]
+    command: ["dainty-host", "content", "serve", "--env-file", "/opt/dainty-lass/.workspace/config/content.env"]
     volumes:
-      - workspace:/opt/reforged/.workspace:ro
+      - workspace:/opt/dainty-lass/.workspace:ro
     healthcheck:
-      test: ["CMD", "reforged-healthcheck", "content"]
+      test: ["CMD", "dainty-healthcheck", "content"]
       interval: 5s
       start_period: 30s
     depends_on:
@@ -381,11 +381,11 @@ services:
   # (docs/admin-api.md). It writes its timeouts next to secrets.env, so the workspace is mounted writable.
   admin:
     <<: *front
-    command: ["dainty-host", "admin", "serve", "--env-file", "/opt/reforged/.workspace/config/admin.env"]
+    command: ["dainty-host", "admin", "serve", "--env-file", "/opt/dainty-lass/.workspace/config/admin.env"]
     volumes:
-      - workspace:/opt/reforged/.workspace
+      - workspace:/opt/dainty-lass/.workspace
     healthcheck:
-      test: ["CMD", "reforged-healthcheck", "admin"]
+      test: ["CMD", "dainty-healthcheck", "admin"]
       interval: 5s
       start_period: 30s
     depends_on:
@@ -396,14 +396,14 @@ services:
   allowlist:
     <<: *front
     profiles: [public]
-    command: ["dainty-host", "allowlist", "--env-file", "/opt/reforged/.workspace/config/allowlist.env"]
+    command: ["dainty-host", "allowlist", "--env-file", "/opt/dainty-lass/.workspace/config/allowlist.env"]
     # nft's file capability: the helper itself runs unprivileged (Dockerfile, front)
     security_opt: []
     cap_add: [NET_ADMIN]
     volumes:
-      - workspace:/opt/reforged/.workspace
+      - workspace:/opt/dainty-lass/.workspace
     healthcheck:
-      test: ["CMD", "reforged-healthcheck", "allowlist"]
+      test: ["CMD", "dainty-healthcheck", "allowlist"]
       interval: 5s
       start_period: 30s
     depends_on:
@@ -416,11 +416,11 @@ services:
   # Started last, as by the host kit: no player request reaches a service that is not up yet
   gateway:
     <<: *front
-    command: ["dainty-host", "gateway", "serve", "--env-file", "/opt/reforged/.workspace/config/gateway.env"]
+    command: ["dainty-host", "gateway", "serve", "--env-file", "/opt/dainty-lass/.workspace/config/gateway.env"]
     volumes:
-      - workspace:/opt/reforged/.workspace:ro
+      - workspace:/opt/dainty-lass/.workspace:ro
     healthcheck:
-      test: ["CMD", "reforged-healthcheck", "gateway"]
+      test: ["CMD", "dainty-healthcheck", "gateway"]
       interval: 5s
       start_period: 30s
     depends_on:
@@ -451,12 +451,12 @@ services:
     entrypoint: ["/usr/bin/tini", "--", "dainty-host-docker"]
     command: ["doctor"]
     volumes:
-      - workspace:/opt/reforged/.workspace
-      - mongo-data:/opt/reforged/.workspace/mongodb
-      - backend-game-data:/opt/reforged/modules/rustic-isles/reference/1.14.7/ParadoxBackend/game-data
-      - director-game-data:/opt/reforged/modules/rustic-isles/reference/1.14.7/ParadoxDirector/game-data
-      - exports:/opt/reforged/modules/rustic-isles/reference/1.14.7/Items_Analysis
-      - captures:/opt/reforged/modules/rustic-isles/reference/1.14.7/DauntlessEndpointDocumentation
+      - workspace:/opt/dainty-lass/.workspace
+      - mongo-data:/opt/dainty-lass/.workspace/mongodb
+      - backend-game-data:/opt/dainty-lass/modules/rustic-isles/reference/1.14.7/ParadoxBackend/game-data
+      - director-game-data:/opt/dainty-lass/modules/rustic-isles/reference/1.14.7/ParadoxDirector/game-data
+      - exports:/opt/dainty-lass/modules/rustic-isles/reference/1.14.7/Items_Analysis
+      - captures:/opt/dainty-lass/modules/rustic-isles/reference/1.14.7/DauntlessEndpointDocumentation
       - ${REFORGED_GAME_DIR:-./game}:/game
       # Files to bring in: the runtime's DLLs (publish-runtime --from /import/...), game data packs
       - ${REFORGED_IMPORT_DIR:-./import}:/import:ro
@@ -477,8 +477,8 @@ services:
     # The allowlist's nftables test, in this container's own network namespace
     cap_add: [NET_ADMIN]
     volumes:
-      - backend-game-data:/opt/reforged/modules/rustic-isles/reference/1.14.7/ParadoxBackend/game-data:ro
-      - director-game-data:/opt/reforged/modules/rustic-isles/reference/1.14.7/ParadoxDirector/game-data:ro
+      - backend-game-data:/opt/dainty-lass/modules/rustic-isles/reference/1.14.7/ParadoxBackend/game-data:ro
+      - director-game-data:/opt/dainty-lass/modules/rustic-isles/reference/1.14.7/ParadoxDirector/game-data:ro
 
   # ---- The network profile (DN12): four nodes of one network, the canary's regions. `network` starts them all;
   # docker/network/test.sh brings them up and checks the links and the region ping. The four blocks below differ
@@ -497,7 +497,7 @@ services:
         REFORGED_COMMIT: ${REFORGED_COMMIT:-}
     profiles: [network]
     user: "0:0"
-    entrypoint: ["/usr/bin/tini", "--", "reforged-network-init"]
+    entrypoint: ["/usr/bin/tini", "--", "dainty-network-init"]
     environment:
       NETWORK_NODES: "oregon=oregon-1@${REFORGED_NETWORK_SUBNET:-172.28.77}.11 new-york=new-york-1@${REFORGED_NETWORK_SUBNET:-172.28.77}.12 uk=uk-1@${REFORGED_NETWORK_SUBNET:-172.28.77}.13 germany=germany-1@${REFORGED_NETWORK_SUBNET:-172.28.77}.14"
     network_mode: none
@@ -536,7 +536,7 @@ services:
   configure-oregon:
     <<: *network-configure
     volumes:
-      - network-oregon:/opt/reforged/.workspace
+      - network-oregon:/opt/dainty-lass/.workspace
     depends_on:
       network-init:
         condition: service_completed_successfully
@@ -545,7 +545,7 @@ services:
     <<: *network-node
     network_mode: service:net-oregon
     volumes:
-      - network-oregon:/opt/reforged/.workspace
+      - network-oregon:/opt/dainty-lass/.workspace
     depends_on:
       net-oregon:
         condition: service_healthy
@@ -576,7 +576,7 @@ services:
   configure-new-york:
     <<: *network-configure
     volumes:
-      - network-new-york:/opt/reforged/.workspace
+      - network-new-york:/opt/dainty-lass/.workspace
     depends_on:
       network-init:
         condition: service_completed_successfully
@@ -585,7 +585,7 @@ services:
     <<: *network-node
     network_mode: service:net-new-york
     volumes:
-      - network-new-york:/opt/reforged/.workspace
+      - network-new-york:/opt/dainty-lass/.workspace
     depends_on:
       net-new-york:
         condition: service_healthy
@@ -616,7 +616,7 @@ services:
   configure-uk:
     <<: *network-configure
     volumes:
-      - network-uk:/opt/reforged/.workspace
+      - network-uk:/opt/dainty-lass/.workspace
     depends_on:
       network-init:
         condition: service_completed_successfully
@@ -625,7 +625,7 @@ services:
     <<: *network-node
     network_mode: service:net-uk
     volumes:
-      - network-uk:/opt/reforged/.workspace
+      - network-uk:/opt/dainty-lass/.workspace
     depends_on:
       net-uk:
         condition: service_healthy
@@ -656,7 +656,7 @@ services:
   configure-germany:
     <<: *network-configure
     volumes:
-      - network-germany:/opt/reforged/.workspace
+      - network-germany:/opt/dainty-lass/.workspace
     depends_on:
       network-init:
         condition: service_completed_successfully
@@ -665,7 +665,7 @@ services:
     <<: *network-node
     network_mode: service:net-germany
     volumes:
-      - network-germany:/opt/reforged/.workspace
+      - network-germany:/opt/dainty-lass/.workspace
     depends_on:
       net-germany:
         condition: service_healthy
@@ -720,16 +720,16 @@ services:
         dainty-host-docker setup --mode public --host controller.cluster.test --game-address 203.0.113.20 --name "Fleet Controller" --wine /nonexistent/wine --xvfb --fresh-start
         dainty-host remote init-controller --node controller --region oregon --url https://${REFORGED_NETWORK_SUBNET:-172.28.77}.20:443
     volumes:
-      - remote-controller:/opt/reforged/.workspace
+      - remote-controller:/opt/dainty-lass/.workspace
 
   gateway-controller:
     <<: *network-gateway
     profiles: [remote]
     network_mode: service:net-controller
     environment:
-      REFORGED_REMOTE_WIRE_LOG: /opt/reforged/.workspace/wire.jsonl
+      REFORGED_REMOTE_WIRE_LOG: /opt/dainty-lass/.workspace/wire.jsonl
     volumes:
-      - remote-controller:/opt/reforged/.workspace
+      - remote-controller:/opt/dainty-lass/.workspace
     depends_on:
       net-controller:
         condition: service_healthy
@@ -742,9 +742,9 @@ services:
     network_mode: service:net-controller
     command: ["sleep", "infinity"]
     environment:
-      REFORGED_REMOTE_WIRE_LOG: /opt/reforged/.workspace/wire.jsonl
+      REFORGED_REMOTE_WIRE_LOG: /opt/dainty-lass/.workspace/wire.jsonl
     volumes:
-      - remote-controller:/opt/reforged/.workspace
+      - remote-controller:/opt/dainty-lass/.workspace
     healthcheck:
       test: ["CMD", "true"]
       interval: 10s
@@ -770,17 +770,17 @@ services:
       - |
         dainty-host-docker setup --mode public --host alpha.cluster.test --game-address 203.0.113.21 --name "Install Alpha" --wine /nonexistent/wine --xvfb --fresh-start
     volumes:
-      - remote-alpha:/opt/reforged/.workspace
+      - remote-alpha:/opt/dainty-lass/.workspace
 
   backend-alpha:
     <<: *server
     profiles: [remote]
     network_mode: service:net-alpha
-    command: ["dainty-host", "backend", "serve", "--env-file", "/opt/reforged/.workspace/config/backend.env"]
+    command: ["dainty-host", "backend", "serve", "--env-file", "/opt/dainty-lass/.workspace/config/backend.env"]
     volumes:
-      - remote-alpha:/opt/reforged/.workspace
+      - remote-alpha:/opt/dainty-lass/.workspace
     healthcheck:
-      test: ["CMD", "reforged-healthcheck", "backend"]
+      test: ["CMD", "dainty-healthcheck", "backend"]
       interval: 5s
       start_period: 60s
       retries: 6
@@ -794,11 +794,11 @@ services:
     <<: *front
     profiles: [remote]
     network_mode: service:net-alpha
-    command: ["dainty-host", "content", "serve", "--env-file", "/opt/reforged/.workspace/config/content.env"]
+    command: ["dainty-host", "content", "serve", "--env-file", "/opt/dainty-lass/.workspace/config/content.env"]
     volumes:
-      - remote-alpha:/opt/reforged/.workspace:ro
+      - remote-alpha:/opt/dainty-lass/.workspace:ro
     healthcheck:
-      test: ["CMD", "reforged-healthcheck", "content"]
+      test: ["CMD", "dainty-healthcheck", "content"]
       interval: 5s
       start_period: 30s
     depends_on:
@@ -810,9 +810,9 @@ services:
     profiles: [remote]
     network_mode: service:net-alpha
     environment:
-      REFORGED_REMOTE_WIRE_LOG: /opt/reforged/.workspace/wire.jsonl
+      REFORGED_REMOTE_WIRE_LOG: /opt/dainty-lass/.workspace/wire.jsonl
     volumes:
-      - remote-alpha:/opt/reforged/.workspace
+      - remote-alpha:/opt/dainty-lass/.workspace
     depends_on:
       net-alpha:
         condition: service_healthy
@@ -827,9 +827,9 @@ services:
     network_mode: service:net-alpha
     command: ["sleep", "infinity"]
     environment:
-      REFORGED_REMOTE_WIRE_LOG: /opt/reforged/.workspace/wire.jsonl
+      REFORGED_REMOTE_WIRE_LOG: /opt/dainty-lass/.workspace/wire.jsonl
     volumes:
-      - remote-alpha:/opt/reforged/.workspace
+      - remote-alpha:/opt/dainty-lass/.workspace
     healthcheck:
       test: ["CMD", "true"]
       interval: 10s
@@ -855,17 +855,17 @@ services:
       - |
         dainty-host-docker setup --mode public --host bravo.cluster.test --game-address 203.0.113.22 --name "Install Bravo" --wine /nonexistent/wine --xvfb --fresh-start
     volumes:
-      - remote-bravo:/opt/reforged/.workspace
+      - remote-bravo:/opt/dainty-lass/.workspace
 
   backend-bravo:
     <<: *server
     profiles: [remote]
     network_mode: service:net-bravo
-    command: ["dainty-host", "backend", "serve", "--env-file", "/opt/reforged/.workspace/config/backend.env"]
+    command: ["dainty-host", "backend", "serve", "--env-file", "/opt/dainty-lass/.workspace/config/backend.env"]
     volumes:
-      - remote-bravo:/opt/reforged/.workspace
+      - remote-bravo:/opt/dainty-lass/.workspace
     healthcheck:
-      test: ["CMD", "reforged-healthcheck", "backend"]
+      test: ["CMD", "dainty-healthcheck", "backend"]
       interval: 5s
       start_period: 60s
       retries: 6
@@ -879,11 +879,11 @@ services:
     <<: *front
     profiles: [remote]
     network_mode: service:net-bravo
-    command: ["dainty-host", "content", "serve", "--env-file", "/opt/reforged/.workspace/config/content.env"]
+    command: ["dainty-host", "content", "serve", "--env-file", "/opt/dainty-lass/.workspace/config/content.env"]
     volumes:
-      - remote-bravo:/opt/reforged/.workspace:ro
+      - remote-bravo:/opt/dainty-lass/.workspace:ro
     healthcheck:
-      test: ["CMD", "reforged-healthcheck", "content"]
+      test: ["CMD", "dainty-healthcheck", "content"]
       interval: 5s
       start_period: 30s
     depends_on:
@@ -895,9 +895,9 @@ services:
     profiles: [remote]
     network_mode: service:net-bravo
     environment:
-      REFORGED_REMOTE_WIRE_LOG: /opt/reforged/.workspace/wire.jsonl
+      REFORGED_REMOTE_WIRE_LOG: /opt/dainty-lass/.workspace/wire.jsonl
     volumes:
-      - remote-bravo:/opt/reforged/.workspace
+      - remote-bravo:/opt/dainty-lass/.workspace
     depends_on:
       net-bravo:
         condition: service_healthy
@@ -912,9 +912,9 @@ services:
     network_mode: service:net-bravo
     command: ["sleep", "infinity"]
     environment:
-      REFORGED_REMOTE_WIRE_LOG: /opt/reforged/.workspace/wire.jsonl
+      REFORGED_REMOTE_WIRE_LOG: /opt/dainty-lass/.workspace/wire.jsonl
     volumes:
-      - remote-bravo:/opt/reforged/.workspace
+      - remote-bravo:/opt/dainty-lass/.workspace
     healthcheck:
       test: ["CMD", "true"]
       interval: 10s

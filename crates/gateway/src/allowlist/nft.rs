@@ -18,7 +18,7 @@ use super::firewall::{RulePlan, plan};
 use crate::json_string;
 
 /// The table's default name.
-pub const NFT_TABLE: &str = "reforged_revival";
+pub const NFT_TABLE: &str = "dainty_lass";
 
 const RUN_LIMIT: Duration = Duration::from_secs(30);
 const CHECK_LIMIT: Duration = Duration::from_secs(15);
@@ -135,10 +135,10 @@ pub struct Nft {
     feed: Mutex<Feed>,
 }
 
-/// A private folder (`reforged-nft-*`, 0700) holding `rules.nft` (0600, created new); both go with the guard.
+/// A private folder (`dainty-nft-*`, 0700) holding `rules.nft` (0600, created new); both go with the guard.
 pub fn private_script(script: &str) -> std::io::Result<(tempfile::TempDir, std::path::PathBuf)> {
     let mut builder = tempfile::Builder::new();
-    builder.prefix("reforged-nft-");
+    builder.prefix("dainty-nft-");
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt as _;
@@ -273,7 +273,7 @@ mod tests {
 
     #[test]
     fn names() {
-        assert!(check_nft_table("reforged_revival").is_ok());
+        assert!(check_nft_table("dainty_lass").is_ok());
         for bad in ["1table", "my-table", "_t", &"t".repeat(33)] {
             assert!(check_nft_table(bad).is_err(), "{bad}");
         }
@@ -289,7 +289,7 @@ mod tests {
     #[test]
     fn the_exact_script() {
         let settings = NftSettings {
-            table: "reforged_revival".into(),
+            table: "dainty_lass".into(),
             interface: Some("eth0".into()),
         };
         let script = nft_script(
@@ -299,9 +299,9 @@ mod tests {
         .unwrap();
         assert_eq!(
             script,
-            "table inet reforged_revival {}\n\
-             delete table inet reforged_revival\n\
-             table inet reforged_revival {\n\
+            "table inet dainty_lass {}\n\
+             delete table inet dainty_lass\n\
+             table inet dainty_lass {\n\
              \tset players4 {\n\
              \t\ttype ipv4_addr\n\
              \t\telements = { 203.0.113.7, 198.51.100.2 }\n\
@@ -363,7 +363,7 @@ mod tests {
                 .file_name()
                 .unwrap()
                 .to_string_lossy()
-                .starts_with("reforged-nft-")
+                .starts_with("dainty-nft-")
         );
         assert_eq!(std::fs::read_to_string(&file).unwrap(), "table inet t {}\n");
         let path = dir.path().to_owned();

@@ -1056,9 +1056,11 @@ fn writes_and_reads_packs_as_the_node_kit() {
     flate2::read::GzDecoder::new(std::fs::File::open(&out).unwrap())
         .read_to_string(&mut text)
         .unwrap();
+    // The Node kit's bytes, with this kit's format name in place of the Reforged Revival one
     assert_eq!(
         text,
-        read(&fixtures().join("pack").join("pack.json")),
+        read(&fixtures().join("pack").join("pack.json"))
+            .replace(hostkit::gamepack::LEGACY_PACK_FORMAT, hostkit::gamepack::PACK_FORMAT),
         "the pack's JSON, byte for byte"
     );
 
@@ -1066,7 +1068,7 @@ fn writes_and_reads_packs_as_the_node_kit() {
     let to_dir = TempDir::new().unwrap();
     let to = host(&to_dir);
     let pack = read_game_data_pack(&to, &fixtures().join("pack").join("pack.json.gz")).unwrap();
-    assert_eq!(pack_json(&pack), text);
+    assert_eq!(pack_json(&pack), read(&fixtures().join("pack").join("pack.json")));
     let imported = import_game_data_pack(&to, &fixtures().join("pack").join("pack.json.gz"), Utc::now()).unwrap();
     assert_eq!(imported.written, r.included);
     for name in &r.included {
@@ -1261,6 +1263,15 @@ fn writes_the_preset_byte_for_byte_as_the_node_kit() {
         let mut ours = Vec::new();
         collect(&expected, &expected, &mut theirs);
         collect(&p.preset, &p.preset, &mut ours);
+        // The Node kit's bytes, with this kit's format name in place of the Reforged Revival one
+        for (name, bytes) in &mut theirs {
+            if name.ends_with("preset.json") {
+                let text = String::from_utf8(std::mem::take(bytes)).unwrap();
+                *bytes = text
+                    .replace(hostkit::preset::LEGACY_PRESET_FORMAT, hostkit::preset::PRESET_FORMAT)
+                    .into_bytes();
+            }
+        }
         assert_eq!(ours, theirs, "{case}");
     }
 }

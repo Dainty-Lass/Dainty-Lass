@@ -5,7 +5,7 @@
 //! The first launcher listens on a per-user channel (a named pipe on Windows, a socket in
 //! `$XDG_RUNTIME_DIR` on Linux); a second one sends it its arguments and exits, and the first focuses its
 //! window and takes the invite link from them. In a packaged build every invite scheme the build opens
-//! (`protocol::invite::invite_schemes`: `dauntless:` and `reforged-revival:`) points at this launcher (the current user's registry on Windows, a desktop entry for the AppImage on Linux;
+//! (`protocol::invite::invite_schemes`: `dauntless:` and `dainty:`) points at this launcher (the current user's registry on Windows, a desktop entry for the AppImage on Linux;
 //! deb and rpm install their own).
 
 use std::future::Future;
@@ -376,7 +376,7 @@ mod tests {
 
     use super::*;
 
-    const LINK: &str = "reforged-revival://join?v=1&host=100.64.0.1&port=61000&code=abcd&name=x";
+    const LINK: &str = "dainty://join?v=1&host=100.64.0.1&port=61000&code=abcd&name=x";
 
     #[test]
     fn the_invite_link_among_the_arguments() {
@@ -384,23 +384,23 @@ mod tests {
         assert_eq!(
             invite_from_args(&[
                 "launcher.exe",
-                "REFORGED-REVIVAL://join?v=1&host=100.64.0.1&port=61000&code=abcd&name=x "
+                "DAINTY://join?v=1&host=100.64.0.1&port=61000&code=abcd&name=x "
             ])
             .as_deref(),
-            Some("REFORGED-REVIVAL://join?v=1&host=100.64.0.1&port=61000&code=abcd&name=x")
+            Some("DAINTY://join?v=1&host=100.64.0.1&port=61000&code=abcd&name=x")
         );
         assert_eq!(
-            invite_from_args(&["launcher.exe", "reforged-revival://join?v=9"]),
+            invite_from_args(&["launcher.exe", "dainty://join?v=9"]),
             None,
             "the first link counts, and it must be valid"
         );
         assert_eq!(invite_from_args(&["launcher.exe", "--flag"]), None);
-        let unified = LINK.replacen("reforged-revival", "dauntless", 1);
+        let unified = LINK.replacen("dainty", "dauntless", 1);
         assert_eq!(
             invite_from_args(&["launcher.exe", &unified]).as_deref(),
             Some(unified.as_str())
         );
-        let revived = LINK.replacen("reforged-revival", "dauntless-revived", 1);
+        let revived = LINK.replacen("dainty", "dauntless-revived", 1);
         assert!(
             invite_from_args(&["launcher.exe", &revived]).is_none(),
             "a 1.4.4 invite is no link of ours"
@@ -470,7 +470,7 @@ mod tests {
             (registry.values[0].0.as_str(), registry.values[0].2.as_str()),
             (r"Software\Classes\dauntless", "URL:Dauntless invite")
         );
-        let key = r"Software\Classes\reforged-revival";
+        let key = r"Software\Classes\dainty";
         assert_eq!(
             registry.values[3..6],
             [

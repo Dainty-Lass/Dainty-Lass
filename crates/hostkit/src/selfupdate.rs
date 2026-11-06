@@ -28,7 +28,7 @@ pub const SOURCE_ENV: &str = "REFORGED_SERVER_RELEASE";
 /// The prefix of a server release's git tag.
 pub const TAG_PREFIX: &str = "server-v";
 /// The prefix of a release archive's file name.
-pub const ARCHIVE_PREFIX: &str = "ReforgedRevivalServer-";
+pub const ARCHIVE_PREFIX: &str = "DaintyLassServer-";
 /// The GitHub repository releases come from, fixed at build time.
 pub const DEFAULT_REPOSITORY: &str = env!("REFORGED_RELEASE_REPOSITORY");
 
@@ -1531,12 +1531,12 @@ mod tests {
     #[test]
     fn archive_name_and_version_roundtrip() {
         let win = archive_name("0.4.2", "windows-x64");
-        assert_eq!(win, "ReforgedRevivalServer-0.4.2-windows-x64.zip");
+        assert_eq!(win, "DaintyLassServer-0.4.2-windows-x64.zip");
         assert_eq!(archive_version(&win, "windows-x64"), Some("0.4.2"));
         assert_eq!(archive_version(&win, "linux-x64"), None);
 
         let lin = archive_name("0.4.2", "linux-x64");
-        assert_eq!(lin, "ReforgedRevivalServer-0.4.2-linux-x64.tar.gz");
+        assert_eq!(lin, "DaintyLassServer-0.4.2-linux-x64.tar.gz");
         assert_eq!(archive_version(&lin, "linux-x64"), Some("0.4.2"));
     }
 
@@ -1548,7 +1548,7 @@ mod tests {
                 "draft": false,
                 "assets": [
                     {
-                        "name": "ReforgedRevivalServer-0.1.0-linux-x64.tar.gz",
+                        "name": "DaintyLassServer-0.1.0-linux-x64.tar.gz",
                         "browser_download_url": "https://example.org/0.1.0.tar.gz"
                     },
                     {
@@ -1562,7 +1562,7 @@ mod tests {
                 "draft": false,
                 "assets": [
                     {
-                        "name": "ReforgedRevivalServer-0.2.0-linux-x64.tar.gz",
+                        "name": "DaintyLassServer-0.2.0-linux-x64.tar.gz",
                         "browser_download_url": "https://example.org/0.2.0.tar.gz"
                     },
                     {
@@ -1573,15 +1573,9 @@ mod tests {
             }
         ]);
 
-        let c = candidates_from_github(
-            &releases,
-            "SilentSpud/Dauntless-Reforged-Revival",
-            "linux-x64",
-            Wanted::Newest(None),
-        )
-        .unwrap();
+        let c = candidates_from_github(&releases, "SilentSpud/DaintyLass", "linux-x64", Wanted::Newest(None)).unwrap();
         assert_eq!(c.version, "0.2.0");
-        assert_eq!(c.archive, "ReforgedRevivalServer-0.2.0-linux-x64.tar.gz");
+        assert_eq!(c.archive, "DaintyLassServer-0.2.0-linux-x64.tar.gz");
     }
 
     #[test]
@@ -1601,7 +1595,7 @@ mod tests {
             "commit": "abcdef1234567890",
             "target": "x86_64-unknown-linux-gnu",
             "platform": "linux-x64",
-            "repository": "SilentSpud/Dauntless-Reforged-Revival",
+            "repository": "SilentSpud/DaintyLass",
             "files": [
                 {
                     "path": "README.txt",

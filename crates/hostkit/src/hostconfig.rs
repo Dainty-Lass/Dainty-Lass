@@ -2702,7 +2702,7 @@ pub fn build_env_files(c: &HostConfig, s: &Secrets, p: &Paths, source_commit: &s
     if cfg!(feature = "paradox") {
         push(&mut backend, "MONGODB_URI", &c.mongo.uri);
         push(&mut backend, "MONGODB_DB", "reforged");
-        push(&mut backend, "MONGODB_APP_NAME", "reforged-backend");
+        push(&mut backend, "MONGODB_APP_NAME", "dainty-backend");
         push(&mut backend, "MONGODB_TRANSACTION_MAX_COMMIT_TIME_MS", "15000");
     }
     push(&mut backend, "TARGET_CHANGELIST", "647472");
@@ -2728,7 +2728,7 @@ pub fn build_env_files(c: &HostConfig, s: &Secrets, p: &Paths, source_commit: &s
     push(
         &mut backend,
         "REFORGED_SOURCE_URL",
-        "https://github.com/FreezaMotoqueiro/Dauntless-Reforged-Revival",
+        "https://github.com/SilentSpud/DaintyLass",
     );
     push(&mut backend, "REFORGED_SOURCE_COMMIT", source_commit);
     push(&mut backend, "REFORGED_SERVER_MODE", c.mode.as_str());
@@ -2983,7 +2983,7 @@ pub fn build_env_files(c: &HostConfig, s: &Secrets, p: &Paths, source_commit: &s
                 if linux { "nftables" } else { "windows" },
             );
             if linux {
-                push(&mut al, "ALLOWLIST_NFT_TABLE", "reforged_revival");
+                push(&mut al, "ALLOWLIST_NFT_TABLE", "dainty_lass");
                 if let Some(iface) = linux_options(c).firewall_interface {
                     push(&mut al, "ALLOWLIST_INTERFACE", iface);
                 }

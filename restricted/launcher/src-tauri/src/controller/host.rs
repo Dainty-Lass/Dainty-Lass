@@ -37,8 +37,8 @@ use crate::platform::log;
 use crate::platform::requirements::{Inputs, check_requirements_here};
 use crate::platform::settings::Platform as HostPlatform;
 
-/// Where a downloaded project goes beside the game folder (Reforged's `PROJECT_FOLDER_NAME`).
-const PROJECT_FOLDER_NAME: &str = "Reforged";
+/// Where a downloaded project goes beside the game folder.
+const PROJECT_FOLDER_NAME: &str = "DaintyLass";
 /// The requirements are looked at again after this long (vswhere and friends are slow).
 const REQUIREMENTS_TTL: Duration = Duration::from_secs(15);
 /// What the Dumper-7 game starts with: no anti-cheat, no Epic or EOS sign-in.

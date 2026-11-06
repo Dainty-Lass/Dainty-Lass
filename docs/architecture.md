@@ -65,8 +65,8 @@ DaintyLass separates **core plugins** from **game modules** ([`crates/module-api
 ## Joining a server
 
 1. **Invite.** The host makes one with `dainty-host invite`:
-   `reforged-revival://join?v=1&host=<Tailscale IP>&port=61000&code=..&name=..[&share=..]` for a private
-   server, `reforged-revival://join?v=2&mode=public&host=<IP or DNS>&port=443&fp=<certificate SHA-256>&code=..&name=..`
+   `dainty://join?v=1&host=<Tailscale IP>&port=61000&code=..&name=..[&share=..]` for a private
+   server, `dainty://join?v=2&mode=public&host=<IP or DNS>&port=443&fp=<certificate SHA-256>&code=..&name=..`
    for a public one. The `dauntless://` scheme carries the same fields plus `version` (`reforged` for 1.14.7;
    `revived`, a Dauntless Revived 1.4.4 server, is refused with its own error). The parser accepts nothing it does
    not recognise (`crates/protocol`, `tests/cases/invite.json`).
