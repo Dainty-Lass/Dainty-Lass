@@ -13,7 +13,9 @@ use crate::{IslesStore, RepoResult};
 
 /// The store and the folder its file lives in (removed when dropped).
 pub struct TempStore {
+    /// The opened store.
     pub store: IslesStore,
+    /// The temporary folder holding the database file.
     pub dir: tempfile::TempDir,
 }
 
@@ -23,6 +25,7 @@ impl TempStore {
         Self::open_as(NodeIdentity::standalone())
     }
 
+    /// A store in a fresh temporary folder, as node `identity`.
     pub fn open_as(identity: NodeIdentity) -> RepoResult<Self> {
         let dir = tempfile::tempdir()
             .map_err(|e| crate::RepoError::Store(store::Error::Config(format!("temporary folder: {e}"))))?;

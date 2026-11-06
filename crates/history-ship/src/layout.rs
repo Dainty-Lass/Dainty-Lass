@@ -24,12 +24,16 @@ use store::recovery::SnapshotKind;
 
 use crate::Error;
 
+/// The folder under the prefix that holds log segments.
 pub const LOG_DIR: &str = "log/";
+/// The folder under the prefix that holds snapshots.
 pub const SNAPSHOT_DIR: &str = "snapshot/";
+/// [`SegmentHeader::format`] in every segment this crate writes.
 pub const SEGMENT_FORMAT: &str = "dainty-lass-log";
 const SEGMENT_VERSION: u32 = 1;
 /// The most a segment or a snapshot may inflate to: a bomb from the bucket stops here.
 pub const MAX_SEGMENT_BYTES: u64 = 256 << 20;
+/// The most a snapshot may inflate to.
 pub const MAX_SNAPSHOT_BYTES: u64 = 16 << 30;
 
 /// A prefix is empty or ends in `/`, of letters, digits and `-_./`, with no empty or dot segment.
@@ -54,6 +58,7 @@ pub fn check_prefix(prefix: &str) -> Result<(), Error> {
     }
 }
 
+/// Lowercase hex SHA-256 of `data`, as object names carry it.
 pub fn sha256_hex(data: &[u8]) -> String {
     hex(&Sha256::digest(data))
 }
@@ -78,14 +83,19 @@ fn is_sha(text: &str) -> bool {
     text.len() == 64 && text.bytes().all(|b| matches!(b, b'0'..=b'9' | b'a'..=b'f'))
 }
 
+/// A log segment's object name, parsed.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SegmentName {
+    /// The entry id the segment starts after (exclusive).
     pub after: i64,
+    /// The last entry id it holds (inclusive).
     pub through: i64,
+    /// Lowercase hex SHA-256 of the gzipped body.
     pub sha256: String,
 }
 
 impl SegmentName {
+    /// The object key under `prefix`.
     pub fn key(&self, prefix: &str) -> String {
         format!(
             "{prefix}{LOG_DIR}{:019}-{:019}-{}.jsonl.gz",
@@ -119,15 +129,21 @@ impl SegmentName {
     }
 }
 
+/// A snapshot's object name, parsed.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SnapshotName {
+    /// When it was taken, unix milliseconds.
     pub taken_at: i64,
+    /// The newest log entry id it holds.
     pub last_id: i64,
+    /// SQLite file or logical dump.
     pub kind: SnapshotKind,
+    /// Lowercase hex SHA-256 of the gzipped body.
     pub sha256: String,
 }
 
 impl SnapshotName {
+    /// The object key under `prefix`.
     pub fn key(&self, prefix: &str) -> String {
         format!(
             "{prefix}{SNAPSHOT_DIR}{:013}-{:019}-{}.{}.gz",
@@ -138,6 +154,7 @@ impl SnapshotName {
         )
     }
 
+    /// The name in `key`, or `None` for anything else under the prefix.
     pub fn parse(prefix: &str, key: &str) -> Option<Self> {
         let rest = key
             .strip_prefix(prefix)?
@@ -161,23 +178,31 @@ impl SnapshotName {
     }
 }
 
+/// A segment's first line.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SegmentHeader {
+    /// Always [`SEGMENT_FORMAT`].
     pub format: String,
+    /// The segment layout version, 1 so far.
     pub version: u32,
+    /// The entry id the segment starts after (exclusive).
     pub after: i64,
+    /// The last entry id it holds (inclusive).
     pub through: i64,
+    /// How many entries follow the header.
     pub count: usize,
     /// The last entry's hash: the head this segment ships (DH5).
     pub head_hash: String,
 }
 
+/// `data` gzipped at the default level.
 pub fn gzip(data: &[u8]) -> Result<Vec<u8>, Error> {
     let mut encoder = GzEncoder::new(Vec::new(), Compression::default());
     encoder.write_all(data).map_err(|e| Error::Bucket(e.to_string()))?;
     encoder.finish().map_err(|e| Error::Bucket(e.to_string()))
 }
 
+/// `data` inflated; errors when it is not gzip or inflates past `limit` bytes.
 pub fn gunzip(data: &[u8], limit: u64) -> Result<Vec<u8>, String> {
     let mut out = Vec::new();
     GzDecoder::new(data)
@@ -279,7 +304,7 @@ pub fn decode_segment(name: &SegmentName, body: &[u8]) -> Result<Vec<ChangeEntry
 
 #[cfg(test)]
 mod tests {
-    #![allow(clippy::unwrap_used)]
+    #![allow(clippy::unwrap_used, reason = "a panic is how a test fails")]
 
     use super::*;
 

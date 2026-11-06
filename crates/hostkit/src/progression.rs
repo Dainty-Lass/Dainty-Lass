@@ -10,42 +10,64 @@ use serde_json::{Map, Value, json};
 
 use crate::error::HostError;
 
+/// The export's folder under the exports folder.
 pub const PROGRESSION_EXPORT_DIR: &str = "progression_1_14_7";
+/// The track exports, one JSONL file each.
 pub const TRACK_EXPORTS: [&str; 4] = [
     "player-experience-tracks.jsonl",
     "weapon-experience-tracks.jsonl",
     "experience-tracks.jsonl",
     "mastery-tracks.jsonl",
 ];
+/// The Hunt Pass season table export.
 pub const HUNT_PASS_EXPORT: &str = "huntpass-season-table.jsonl";
+/// The Hunt Pass season the config makes active.
 pub const ACTIVE_HUNT_PASS: &str = "season43";
+/// The `generated_by` a source this kit wrote carries; a source without it is the host's own and is kept.
 pub const GENERATED_BY: &str = "DaintyLass host kit, from the CatalogExporter progression export";
 
 const START_DATE: &str = "2019-01-01T14:00:00+00:00";
 const END_DATE: &str = "2099-01-01T14:00:00+00:00";
 const MAX_SAFE_INT: i64 = 9_007_199_254_740_991;
 
+/// A progression config built from the export.
 #[derive(Debug, Clone, PartialEq)]
 pub struct ProgressionBuild {
+    /// The config, as `progression_config.source.json` holds it.
     pub config: Value,
+    /// How many paths it holds.
     pub paths: usize,
+    /// The track ids taken, in order.
     pub tracks: Vec<String>,
+    /// Tracks left out because they have no ranks.
     pub skipped: Vec<String>,
+    /// Prestige tracks derived from the weapon tracks.
     pub derived: Vec<String>,
 }
 
+/// What [`write_progression_source`] did.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SourceWritten {
+    /// The source there is the host's own, so it was kept.
     Supplied,
+    /// There is no progression export to build from.
     NoExport,
-    Written { written: usize, derived: usize },
+    /// The source was written.
+    Written {
+        /// How many paths it holds.
+        written: usize,
+        /// How many prestige tracks were derived.
+        derived: usize,
+    },
 }
 
+/// The rows of a JSONL file; lines that are not JSON objects are skipped.
 pub fn read_jsonl(file: &Path) -> Result<Vec<Map<String, Value>>, HostError> {
     let text = std::fs::read_to_string(file).map_err(|e| HostError::io(file, e))?;
     Ok(parse_jsonl(&text))
 }
 
+/// The JSON object rows of a JSONL text; a BOM, blank lines, `status:` lines and anything else are skipped.
 pub fn parse_jsonl(text: &str) -> Vec<Map<String, Value>> {
     let text = text.strip_prefix('\u{feff}').unwrap_or(text);
     let mut rows = Vec::new();
@@ -234,6 +256,7 @@ fn multiplier_value(base: &Map<String, Value>) -> Value {
     json!(1)
 }
 
+/// Builds the config from the track rows and the Hunt Pass seasons, with `active_hunt_pass` the active season.
 pub fn build_from_rows(
     tracks: &[Vec<Map<String, Value>>],
     seasons: &[Map<String, Value>],
@@ -405,6 +428,7 @@ fn resolve_export_dir(exports_dir: &Path) -> PathBuf {
     if sub.is_dir() { sub } else { exports_dir.to_path_buf() }
 }
 
+/// Builds the config from the export in `exports_dir` (or its progression folder); fails when there is none.
 pub fn build_progression_config(exports_dir: &Path, active_hunt_pass: &str) -> Result<ProgressionBuild, HostError> {
     let dir = resolve_export_dir(exports_dir);
     let mut track_groups = Vec::with_capacity(TRACK_EXPORTS.len());
@@ -431,12 +455,14 @@ pub fn build_progression_config(exports_dir: &Path, active_hunt_pass: &str) -> R
     build_from_rows(&track_groups, &seasons, active_hunt_pass)
 }
 
+/// The config's file text.
 pub fn progression_text(build: &ProgressionBuild) -> String {
     let mut text = crate::hostconfig::stringify_pretty(&build.config);
     text.push('\n');
     text
 }
 
+/// Writes the progression source from the export, unless the host supplied their own.
 pub fn write_progression_source(exports_dir: &Path, source_file: &Path) -> Result<SourceWritten, HostError> {
     if source_file.is_file()
         && let Ok(existing_text) = std::fs::read_to_string(source_file)
@@ -474,7 +500,7 @@ pub fn write_progression_source(exports_dir: &Path, source_file: &Path) -> Resul
 
 #[cfg(test)]
 mod tests {
-    #![allow(clippy::unwrap_used, clippy::expect_used)]
+    #![allow(clippy::unwrap_used, clippy::expect_used, reason = "a panic is how a test fails")]
 
     use super::*;
 

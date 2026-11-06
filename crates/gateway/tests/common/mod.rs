@@ -3,7 +3,12 @@
 
 //! What the gateway's integration tests share: a test certificate, configs, a gateway on a free port, pinning
 //! HTTPS and raw clients with a chosen local address, log capture, and fake upstreams and helper.
-#![allow(dead_code, clippy::unwrap_used, clippy::expect_used)]
+#![allow(
+    dead_code,
+    clippy::unwrap_used,
+    clippy::expect_used,
+    reason = "shared by several test binaries, each using only some; a panic is how a test fails"
+)]
 
 use std::convert::Infallible;
 use std::net::{Ipv4Addr, SocketAddr};
@@ -359,7 +364,10 @@ pub async fn request(
     request_from(port, Ipv4Addr::LOCALHOST, fingerprint, method, target, headers, body).await
 }
 
-#[allow(clippy::too_many_arguments)]
+#[allow(
+    clippy::too_many_arguments,
+    reason = "each argument is one part of the raw request a test builds"
+)]
 pub async fn request_from(
     port: u16,
     local: Ipv4Addr,
@@ -629,5 +637,5 @@ pub async fn fake_helper(status: u16) -> (u16, Arc<Mutex<Vec<String>>>) {
 }
 
 mod compat;
-#[allow(unused_imports)] // not every test calls the moved tests' helpers
+#[allow(unused_imports, reason = "not every test calls the moved tests' helpers")]
 pub use compat::*;

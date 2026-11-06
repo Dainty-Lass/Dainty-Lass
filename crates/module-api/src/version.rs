@@ -14,10 +14,13 @@ pub const MAX_VERSION_PARTS: usize = 8;
 #[serde(try_from = "String", into = "String")]
 pub struct GameVersion(Vec<u32>);
 
+/// Why text is not a [`GameVersion`].
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 pub enum VersionError {
+    /// A part is empty, not digits, or has a leading zero.
     #[error("a game version is dot-separated integers, such as 1.14.7")]
     Malformed,
+    /// More than [`MAX_VERSION_PARTS`] parts.
     #[error("a game version has at most {MAX_VERSION_PARTS} parts")]
     TooLong,
 }
@@ -28,6 +31,7 @@ impl GameVersion {
         Self(vec![major, minor, patch])
     }
 
+    /// The version's numbers, most significant first.
     pub fn parts(&self) -> &[u32] {
         &self.0
     }
@@ -85,7 +89,9 @@ impl fmt::Display for GameVersion {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ApiVersion {
+    /// Raised by a change a built module can't follow.
     pub major: u16,
+    /// Raised by an addition.
     pub minor: u16,
 }
 

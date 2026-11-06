@@ -12,6 +12,7 @@ use rustic_isles_auth::{
 };
 use serde_json::Value;
 
+/// Auth's [`Realms`] answered by rifts: launcher accounts and runtime callers go through the seam.
 #[derive(Clone)]
 pub struct RealmsAdapter {
     rifts: Rifts,
@@ -26,6 +27,7 @@ impl std::fmt::Debug for RealmsAdapter {
 }
 
 impl RealmsAdapter {
+    /// Wraps the rifts seam.
     pub fn new(rifts: Rifts) -> Self {
         Self { rifts }
     }

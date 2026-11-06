@@ -1,15 +1,22 @@
 // Copyright (c) 2026 Silent Spud
 // SPDX-License-Identifier: MIT
 
+//! The hash cache's file format: `{"files": {<path>: {size, mtimeMs, sha256}}}`.
+
 use serde_json::{Map, Value, json};
 
+/// Most files the hash cache keeps; the oldest go first.
 pub const MAX_ENTRIES: usize = 32;
 const MAX_SAFE_INTEGER: u64 = (1 << 53) - 1;
 
+/// One cached hash.
 #[derive(Debug, Clone, PartialEq)]
 pub struct CacheEntry {
+    /// File size in bytes.
     pub size: u64,
+    /// Modification time in milliseconds since the Unix epoch.
     pub mtime_ms: f64,
+    /// Lowercase hex SHA-256.
     pub sha256: String,
 }
 
@@ -17,6 +24,7 @@ fn is_lower_hex_64(s: &str) -> bool {
     s.len() == 64 && s.bytes().all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
 }
 
+/// The entries in a cache file's JSON, oldest first; bad entries are skipped and a bad file gives none.
 pub fn parse_cache_file(raw: &str) -> Vec<(String, CacheEntry)> {
     let Ok(parsed) = serde_json::from_str::<Value>(raw) else {
         return Vec::new();
@@ -64,6 +72,7 @@ pub fn parse_cache_file(raw: &str) -> Vec<(String, CacheEntry)> {
     entries
 }
 
+/// The cache file's JSON for the newest [`MAX_ENTRIES`] entries.
 pub fn write_cache_file(entries: &[(String, CacheEntry)]) -> String {
     let start = entries.len().saturating_sub(MAX_ENTRIES);
     let mut files = Map::new();

@@ -1,6 +1,6 @@
 //! The stub module run compiled in and as a child process gives the same answers and makes the same calls
 //! into the host (DF2's verify), and the host refuses executables and hellos it shouldn't run.
-#![allow(clippy::unwrap_used, clippy::expect_used)] // test helpers
+#![allow(clippy::unwrap_used, clippy::expect_used, reason = "a panic is how a test fails")]
 
 use std::path::PathBuf;
 use std::sync::Arc;

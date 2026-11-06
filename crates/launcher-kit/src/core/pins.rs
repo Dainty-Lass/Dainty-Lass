@@ -32,9 +32,12 @@ pub const STATUS_POLL_MS: u64 = 15000;
 /// Minimum extra free disk space buffer required above a download's byte size (256 MiB).
 pub const DISK_MARGIN_BYTES: u64 = 256 * 1024 * 1024;
 
+/// Length of a SHA-256 digest in hex.
 pub const SHA256_HEX_LEN: usize = 64;
+/// Length of a SHA-1 digest in hex.
 pub const SHA1_HEX_LEN: usize = 40;
 
+/// `raw` as `N` lowercase hex digits, or none. Accepts a `sha256:`/`sha1:` prefix and `:`, space or `-` separators.
 pub fn normalize_hex<const N: usize>(raw: &str) -> Option<String> {
     let trimmed = raw.trim();
     let hex_part = trimmed
@@ -60,22 +63,27 @@ pub fn normalize_hex<const N: usize>(raw: &str) -> Option<String> {
     if out.len() == N { Some(out) } else { None }
 }
 
+/// A certificate fingerprint as 64 lowercase hex digits, however it was written.
 pub fn normalize_pin(raw: &str) -> Option<String> {
     normalize_hex::<SHA256_HEX_LEN>(raw)
 }
 
+/// A SHA-256 digest as 64 lowercase hex digits, however it was written.
 pub fn normalize_sha256(raw: &str) -> Option<String> {
     normalize_hex::<SHA256_HEX_LEN>(raw)
 }
 
+/// A SHA-1 digest as 40 lowercase hex digits, however it was written.
 pub fn normalize_sha1(raw: &str) -> Option<String> {
     normalize_hex::<SHA1_HEX_LEN>(raw)
 }
 
+/// `s` is exactly `expected_len` lowercase hex digits.
 pub fn is_lower_hex(s: &str, expected_len: usize) -> bool {
     s.len() == expected_len && s.bytes().all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
 }
 
+/// `bytes` as lowercase hex.
 pub fn lower_hex(bytes: &[u8]) -> String {
     const HEX: &[u8; 16] = b"0123456789abcdef";
     let mut out = String::with_capacity(bytes.len() * 2);
@@ -86,6 +94,7 @@ pub fn lower_hex(bytes: &[u8]) -> String {
     out
 }
 
+/// SHA-256 of `data` as lowercase hex.
 pub fn sha256_hex(data: &[u8]) -> String {
     let digest = Sha256::digest(data);
     lower_hex(&digest)

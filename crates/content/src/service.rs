@@ -33,12 +33,14 @@ impl RegistryView for RecordedDirs {
     }
 }
 
+/// Content as a service library: the server and the module table the controller attaches modules to.
 pub struct ContentService {
     modules: Arc<ContentModules>,
     dirs: Dirs,
 }
 
 impl ContentService {
+    /// A service with an empty module table.
     pub fn new() -> Self {
         let dirs = Dirs::default();
         Self {
@@ -47,6 +49,7 @@ impl ContentService {
         }
     }
 
+    /// The module table, for the controller to attach modules to.
     pub fn modules(&self) -> &Arc<ContentModules> {
         &self.modules
     }

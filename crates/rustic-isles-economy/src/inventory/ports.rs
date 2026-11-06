@@ -26,19 +26,23 @@ use crate::inventory::transaction::CommittedTransaction;
 /// A player-host runtime, with rifts' capability when the realms seam handed one over.
 #[derive(Debug, Clone)]
 pub struct HostRuntime {
+    /// Rifts' runtime capability, when the seam's handle is one.
     pub capability: Option<RuntimeAuth>,
 }
 
 /// The caller as the inventory routes see it.
 #[derive(Debug, Clone, Default)]
 pub struct Caller {
+    /// The player's userId, when the caller acts for one.
     pub user_id: Option<String>,
+    /// True for the dedicated game server.
     pub is_gameserver: bool,
     /// Never together with `is_gameserver`
     pub runtime: Option<HostRuntime>,
 }
 
 impl Caller {
+    /// The caller the auth area put in the request.
     pub fn from_auth(data: &AuthData) -> Self {
         let runtime = if data.is_gameserver {
             None
@@ -55,20 +59,31 @@ impl Caller {
     }
 }
 
+/// The parts of a request the authenticator reads.
 pub struct AuthRequest<'a> {
+    /// The HTTP method.
     pub method: &'a http::Method,
+    /// The request path.
     pub path: &'a str,
+    /// The request headers.
     pub headers: &'a HeaderMap,
+    /// The request extensions, where the auth area leaves its `AuthData`.
     pub extensions: &'a Extensions,
+    /// The request id, for the log.
     pub request_id: &'a str,
 }
 
+/// What authenticating an inventory request gave.
 pub enum Authentication {
+    /// A caller to serve.
     Authenticated(Caller),
+    /// The answer to send instead, such as an empty 401.
     Answer(Response),
 }
 
+/// Who an inventory request is from.
 pub trait Authenticator: Send + Sync {
+    /// The caller, or the answer refusing the request.
     fn authenticate<'a>(&'a self, shared: &'a Shared, request: AuthRequest<'a>) -> BoxFuture<'a, Authentication>;
 }
 
@@ -92,26 +107,38 @@ impl Authenticator for ExtensionAuthenticator {
 
 /// The currency half of a transaction's inputs (§9.1).
 pub struct CurrencyChange<'a> {
+    /// The module's shared state.
     pub shared: &'a Shared,
+    /// The wallet's account.
     pub account: &'a AccountId,
+    /// The owner's userId, for the log.
     pub user_id: &'a str,
     /// Normalized
     pub add_stacked: &'a [Value],
     /// As sent
     pub remove_stacked: &'a Value,
+    /// The transaction id, for funding and the log.
     pub transaction_id: &'a str,
+    /// Whether a seasonal coin add may fund a claimed challenge reward (W5).
     pub allow_challenge_reward_funding: bool,
+    /// An operator's test grant, which skips the prestige check.
     pub operator_test_funding: bool,
+    /// The version's progression config, for the prestige rules.
     pub prestige: &'a ProgressionConfig,
+    /// The starter wallet a new account begins with.
     pub starter: &'a [(String, f64)],
 }
 
+/// Why the currency step refused a transaction.
 #[derive(Debug, thiserror::Error)]
 pub enum WalletError {
+    /// A removal asked for more than the balance holds.
     #[error("{0}")]
     InsufficientBalance(String),
+    /// An add needs more banked prestige than the account has.
     #[error("{0}")]
     InsufficientPrestige(String),
+    /// The store failed.
     #[error(transparent)]
     Repo(#[from] RepoError),
 }
@@ -126,6 +153,7 @@ impl From<BountyWalletError> for WalletError {
     }
 }
 
+/// The currency half of an inventory transaction.
 pub trait Wallet: Send + Sync {
     /// The touched balances, in touch order.
     fn apply_currency_deltas(
@@ -134,6 +162,7 @@ pub trait Wallet: Send + Sync {
         repos: &Repositories,
         change: &CurrencyChange<'_>,
     ) -> Result<Vec<(String, f64)>, WalletError>;
+    /// The stored stacked list with the wallet's balances merged in, for an answer.
     fn merge_into_stacked(
         &self,
         tx: &mut Tx<'_>,
@@ -143,6 +172,7 @@ pub trait Wallet: Send + Sync {
         user_id: &str,
         stacked: Vec<Value>,
     ) -> RepoResult<Vec<Value>>;
+    /// Waits briefly for a claimed challenge the coin grant can fund (W7); false when none appears.
     fn wait_for_fundable_season_claim<'a>(
         &'a self,
         store: &'a IslesStore,
@@ -194,11 +224,15 @@ impl Wallet for BountiesWallet {
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 #[error("Character {character_id} does not belong to user {user_id}")]
 pub struct CharacterOwnership {
+    /// The character asked for.
     pub character_id: String,
+    /// The user who asked.
     pub user_id: String,
 }
 
+/// The starter records an inventory transaction needs before it runs.
 pub trait StarterBootstrap: Send + Sync {
+    /// The character's inventory, created with the starter kit when missing; an error value when the character is not the user's.
     fn ensure(
         &self,
         tx: &mut Tx<'_>,
@@ -247,6 +281,7 @@ impl StarterBootstrap for StarterRecordsCheck {
     }
 }
 
+/// The characters area, as the inventory routes call it.
 pub trait Characters: Send + Sync {
     /// The user's first character id; it may create the account and that character.
     fn first_character_id<'a>(
@@ -258,6 +293,7 @@ pub trait Characters: Send + Sync {
     ) -> BoxFuture<'a, RepoResult<Option<String>>>;
 }
 
+/// The characters area's own lookup.
 #[derive(Debug, Default, Clone, Copy)]
 pub struct CharactersList;
 
@@ -302,16 +338,21 @@ impl Characters for CharactersList {
 
 /// Monitoring only: never on the wire, never fails a request.
 pub trait Observer: Send + Sync {
+    /// A transaction was committed.
     fn committed(&self, shared: &Arc<Shared>, transaction: &CommittedTransaction);
+    /// An account's reforge reset its progression at `at_ms`.
     fn reforge_reset(&self, shared: &Arc<Shared>, account: &AccountId, at_ms: i64);
 }
 
 /// The Reforged API's activity hooks; the composer puts an [`InventoryActivitySlot`] in the slots.
 pub trait InventoryActivity: Send + Sync {
+    /// Counts a committed inventory transaction.
     fn record_inventory_transaction(&self, _transaction: &CommittedTransaction) {}
+    /// Counts a reforge.
     fn record_reforge(&self, _account: &AccountId, _at_ms: i64) {}
 }
 
+/// The slot the composer fills with the Reforged API's activity hooks.
 pub struct InventoryActivitySlot(pub Arc<dyn InventoryActivity>);
 
 /// The economy ledger (W9) and the activity slot.
@@ -339,6 +380,7 @@ pub trait RingInstances: Send + Sync {
     fn ring_instance_for_player(&self, player: &GlobalId) -> Option<GlobalId>;
 }
 
+/// The slot matchmaking fills with its ring instances.
 pub struct RingInstancesSlot(pub Arc<dyn RingInstances>);
 
 /// No ring instance (a new hunt id is minted).
@@ -362,11 +404,17 @@ pub(crate) fn ring_instance(shared: &Shared, ports: &InventoryPorts, player: &Gl
 /// The ports; `Default` is production's.
 #[derive(Clone)]
 pub struct InventoryPorts {
+    /// Who a request is from.
     pub auth: Arc<dyn Authenticator>,
+    /// The currency half of a transaction.
     pub wallet: Arc<dyn Wallet>,
+    /// The starter records check.
     pub starter: Arc<dyn StarterBootstrap>,
+    /// The characters lookup.
     pub characters: Arc<dyn Characters>,
+    /// The monitoring hooks.
     pub observer: Arc<dyn Observer>,
+    /// Where a player is hunting.
     pub ring: Arc<dyn RingInstances>,
     /// Tests; none is the store's own
     pub repos: Option<Repositories>,

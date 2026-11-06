@@ -6,6 +6,7 @@
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex, PoisonError};
 
+/// Why a download slot was refused.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Refusal {
     /// The account's own streams are full (429)
@@ -15,6 +16,7 @@ pub enum Refusal {
 }
 
 impl Refusal {
+    /// The log and reply reason code.
     pub fn reason(self) -> &'static str {
         match self {
             Self::Account => "account_limit",
@@ -29,6 +31,7 @@ struct Counts {
     accounts: HashMap<String, usize>,
 }
 
+/// Counts of open download streams, per account and in all; cheap to clone.
 #[derive(Clone)]
 pub struct Slots {
     per_account: usize,
@@ -43,6 +46,7 @@ pub struct Slot {
 }
 
 impl Slots {
+    /// Allows `per_account` streams per account and `total` in all.
     pub fn new(per_account: usize, total: usize) -> Self {
         Self {
             per_account,
@@ -51,6 +55,7 @@ impl Slots {
         }
     }
 
+    /// Takes a slot for `account`, or says which limit is full.
     pub fn acquire(&self, account: &str) -> Result<Slot, Refusal> {
         let mut counts = self.counts.lock().unwrap_or_else(PoisonError::into_inner);
         if counts.accounts.get(account).copied().unwrap_or(0) >= self.per_account {
@@ -89,7 +94,7 @@ impl Drop for Slot {
 
 #[cfg(test)]
 mod tests {
-    #![allow(clippy::unwrap_used)]
+    #![allow(clippy::unwrap_used, reason = "a panic is how a test fails")]
     use super::*;
 
     #[test]

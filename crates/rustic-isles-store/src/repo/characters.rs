@@ -13,36 +13,54 @@ use service_kit::jsjson;
 use crate::sql::{account_id, sql};
 use crate::{AccountId, AnyConnection, RepoResult, Tx};
 
+/// A live `characters` row.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CharacterRecord {
+    /// The character's id.
     pub character_id: String,
+    /// The owning account.
     pub account: AccountId,
+    /// When it was created, as the client's date text.
     pub created_date: String,
+    /// When it was last changed, as the client's date text.
     pub last_modified_date: String,
+    /// The character's name.
     pub name: String,
+    /// The client's version; a save must be newer.
     pub update_version: i64,
     /// The character JSON as the client sent it
     pub data: String,
 }
 
+/// A live `loadouts` row: a character's loadout slots.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct LoadoutRecord {
+    /// The character.
     pub character_id: String,
+    /// The owning account.
     pub account: AccountId,
     /// JSON text
     pub loadouts: String,
     /// JSON text
     pub persistent: String,
+    /// The selected slot.
     pub active_index: Option<u32>,
+    /// The slots unlocked; None on a legacy row.
     pub unlocked_total_slots: Option<u32>,
+    /// Bumped on every write; a write names the revision it read; None reads as 0.
     pub revision: Option<i64>,
+    /// The starter kit version the row was created from.
     pub bootstrap_version: Option<String>,
 }
 
 store_trait! {
+    /// Characters (`characters`); every read sees live rows only.
     pub trait CharacterRepository = "characters" {
+        /// The account's characters, in creation order.
         fn find_many_by_account(&self, conn: &mut AnyConnection, account: &AccountId) -> Vec<CharacterRecord>;
+        /// The character, when it is the account's.
         fn find(&self, conn: &mut AnyConnection, character_id: &str, account: &AccountId) -> Option<CharacterRecord>;
+        /// Writes a new character, placed after every row the account ever had.
         fn create(&self, tx: &mut Tx<'_>, record: &CharacterRecord) -> CharacterRecord;
         /// Refused silently unless the stored version is below `effective_version` (Node's `void`)
         fn update_data_conditional(
@@ -57,9 +75,13 @@ store_trait! {
 }
 
 store_trait! {
+    /// Loadouts (`loadouts`); each write is refused (false) unless the revision is still `expected`, and bumps it.
     pub trait LoadoutRepository = "loadouts" {
+        /// The character's loadouts, when it is the account's.
         fn find(&self, conn: &mut AnyConnection, character_id: &str, account: &AccountId) -> Option<LoadoutRecord>;
+        /// Writes a new loadout row.
         fn create(&self, tx: &mut Tx<'_>, record: &LoadoutRecord) -> ();
+        /// Replaces one visible slot with `data_json`; false for a slot out of range or text that does not parse.
         fn replace_slot_if_revision_matches(
             &self,
             tx: &mut Tx<'_>,
@@ -69,6 +91,7 @@ store_trait! {
             data_json: &str,
             expected: i64,
         ) -> bool;
+        /// Replaces every slot and the unlocked count; false unless 1 to 6 slots with at most that many unlocked.
         fn replace_all_and_entitlement_if_revision_matches(
             &self,
             tx: &mut Tx<'_>,
@@ -78,6 +101,7 @@ store_trait! {
             unlocked: u32,
             expected: i64,
         ) -> bool;
+        /// Replaces `persistent`.
         fn update_persistent_if_revision_matches(
             &self,
             tx: &mut Tx<'_>,
@@ -100,6 +124,7 @@ store_trait! {
 
 // ------------------------------------------------------------------ characters
 
+/// [`CharacterRepository`] in SQL.
 pub struct SqlCharacters;
 
 #[derive(QueryableByName)]
@@ -202,6 +227,7 @@ impl CharacterRepository for SqlCharacters {
 
 // ------------------------------------------------------------------ loadouts
 
+/// [`LoadoutRepository`] in SQL.
 pub struct SqlLoadouts;
 
 #[derive(QueryableByName)]

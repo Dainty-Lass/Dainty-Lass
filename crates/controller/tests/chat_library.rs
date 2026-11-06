@@ -1,7 +1,7 @@
 //! The chat service (tests/chat-service) over its own messages: it is set up, learns which modules answer chat,
 //! asks one, reaches the home API, the event bus and a peer through the core, and answers a peer's call (RD27). Every
 //! script runs both ways: loaded as a library and compiled in.
-#![allow(clippy::unwrap_used, clippy::expect_used)] // test helpers
+#![allow(clippy::unwrap_used, clippy::expect_used, reason = "a panic is how a test fails")]
 
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};

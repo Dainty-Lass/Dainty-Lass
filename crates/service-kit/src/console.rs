@@ -15,24 +15,32 @@ use serde_json::{Map, Value};
 /// One record, already redacted.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Record<'a> {
+    /// When it was logged, in Unix milliseconds.
     pub timestamp_ms: i64,
+    /// Level name.
     pub level: &'a str,
     /// The service (or module) the record belongs to: `gateway`, `backend`, `isles-1-14-7`
     pub service: &'a str,
     /// The part of it that wrote the record: the Rust module path, such as `rustic_isles_director::gameservers`
     pub target: &'a str,
+    /// The message, already redacted.
     pub message: &'a str,
+    /// Other fields as `name`, `value` pairs.
     pub fields: &'a [(String, String)],
 }
 
+/// How a console line is written.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum LogFormat {
+    /// Docker-style text.
     #[default]
     Text,
+    /// One JSON object per line.
     Json,
 }
 
 impl LogFormat {
+    /// Reads `text` or `json`.
     pub fn parse(text: &str) -> Option<Self> {
         match text {
             "text" => Some(Self::Text),
@@ -41,6 +49,7 @@ impl LogFormat {
         }
     }
 
+    /// The name used in host.toml.
     pub fn as_str(self) -> &'static str {
         match self {
             Self::Text => "text",
@@ -49,16 +58,20 @@ impl LogFormat {
     }
 }
 
+/// Whether console lines are colored.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum ColorMode {
     /// On a terminal, unless `NO_COLOR` is set; `CLICOLOR_FORCE` or `FORCE_COLOR` turn it on anywhere
     #[default]
     Auto,
+    /// Always.
     Always,
+    /// Never.
     Never,
 }
 
 impl ColorMode {
+    /// Reads `auto`, `always` or `never`.
     pub fn parse(text: &str) -> Option<Self> {
         match text {
             "auto" => Some(Self::Auto),
@@ -68,6 +81,7 @@ impl ColorMode {
         }
     }
 
+    /// The name used in host.toml.
     pub fn as_str(self) -> &'static str {
         match self {
             Self::Auto => "auto",
@@ -92,7 +106,9 @@ impl ColorMode {
 /// The console's settings.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub struct ConsoleStyle {
+    /// Text or JSON.
     pub format: LogFormat,
+    /// Whether to color the text form.
     pub color: bool,
 }
 

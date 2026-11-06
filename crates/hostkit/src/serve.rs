@@ -38,7 +38,9 @@ pub struct ServeOptions {
     /// The REPL (or the TUI) on this terminal. `start`, and a run the launcher controls through
     /// stdin, have neither.
     pub interactive: bool,
+    /// Shows the dashboard instead of the line console.
     pub tui: bool,
+    /// The log filter, as `RUST_LOG` takes it.
     pub log_filter: String,
 }
 
@@ -335,9 +337,9 @@ pub fn add_service_library(
 
 /// The server's modules in start order: the database, the allowlist (its table closes the game
 /// ports before any game server listens), the backend, the Director, the content server, the admin
-/// API, the gateway last. A front service runs in this process once [`rust_ported`] says so and this
-/// binary has it; until then its Node build runs as a supervised process. A service `[services]` lists
-/// runs as a library in its place.
+/// API, the gateway last. A front service runs in this process once
+/// [`rust_ported`](crate::commands::start::binaries::rust_ported) says so and this binary has it; until then
+/// its Node build runs as a supervised process. A service `[services]` lists runs as a library in its place.
 pub fn compose(
     paths: &Paths,
     config: &HostConfig,

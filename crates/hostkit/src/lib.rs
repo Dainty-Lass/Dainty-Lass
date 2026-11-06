@@ -56,7 +56,7 @@ pub fn run(cli: &cli::Cli) -> Outcome {
     run_in(cli, None)
 }
 
-/// [`run`] in the server folder `root` (the one that holds `.workspace/`), or the one found from here.
+/// [`run()`] in the server folder `root` (the one that holds `.workspace/`), or the one found from here.
 pub fn run_in(cli: &cli::Cli, root: Option<&std::path::Path>) -> Outcome {
     use cli::Command;
     let found = || root.map_or_else(paths::locate_repo_root, |r| Ok(r.to_path_buf()));
@@ -99,7 +99,7 @@ pub fn with_admin_env(name: &str, args: &[String]) -> Vec<String> {
     args
 }
 
-/// One service with the command line its own binary had: `name` is its argv[0].
+/// One service with the command line its own binary had: `name` is its `argv[0]`.
 pub fn service_main(name: &str, args: &[String]) -> ExitCode {
     if let Some(code) = hooks::get().run_service(name, args) {
         return code;

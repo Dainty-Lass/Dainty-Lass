@@ -27,12 +27,15 @@ use crate::{
 #[cfg(test)]
 mod tests;
 
+/// The lifetime of a joiner's ticket, in seconds.
 pub const JOIN_TICKET_LIFETIME_SECONDS: u32 = 180;
+/// The most peers a hub peer list returns.
 pub const MAXIMUM_PEER_LIST: usize = 64;
 const PEER_LISTS_PER_HOUR: u32 = 3600;
 
 type Outcome<T> = Result<T, AdmissionError>;
 
+/// A refusal with this code and message.
 pub fn refused(code: &str, message: &str) -> AdmissionError {
     rifts_seam::Refusal {
         code: code.into(),
@@ -98,15 +101,25 @@ fn ensure(holds: bool, no: No) -> Outcome<()> {
 /// A hunt or hub as admission sees it.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct AdmissionHunt {
+    /// Realms' view of the session: roster, host, generation and state.
     pub snapshot: HuntSnapshot,
+    /// The session's UUID, which tickets carry.
     pub session: SessionUuid,
+    /// The party the hunt was made for.
     pub party_id: String,
+    /// The party's revision.
     pub party_revision: u64,
+    /// The hunt definition being played.
     pub hunt_definition_id: String,
+    /// The game build.
     pub build: u32,
+    /// The bridge protocol version.
     pub bridge_protocol: u16,
+    /// The game's virtual port.
     pub virtual_port: u16,
+    /// The host's lobby id, once the host reported one.
     pub lobby_id: Option<String>,
+    /// The host bridge's instance id, once the host reported ready.
     pub bridge_instance_id: Option<String>,
 }
 
@@ -151,15 +164,22 @@ impl AdmissionHunt {
 /// What a host runtime proved about itself: its hunt, generation, peer and bridge.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct HostCapability {
+    /// The hunt or hub session.
     pub session: SessionId,
+    /// The session id as the wire carries it.
     pub wire_session: String,
+    /// The generation the capability was issued for.
     pub generation: u64,
+    /// The hosting account.
     pub host_account: AccountId,
+    /// The host's peer id.
     pub host_peer: PeerId,
+    /// The host bridge's instance id.
     pub bridge_instance_id: String,
 }
 
 impl HostCapability {
+    /// The host's identity from a resolved capability; `None` without a peer id or bridge instance.
     pub fn from_runtime(runtime: &RuntimeAuth) -> Option<Self> {
         let (host_peer, bridge) = (runtime.host_peer?, runtime.bridge_instance.as_ref()?);
         let wire_session = match &runtime.wire_session {
@@ -184,9 +204,12 @@ impl HostCapability {
     }
 }
 
+/// A ticket minted for the host's own game client.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct IssuedTicket {
+    /// The signed ticket.
     pub ticket: MintedTicket,
+    /// The hunt it admits to.
     pub hunt: AdmissionHunt,
 }
 
@@ -197,6 +220,7 @@ fn millis(seconds: u64) -> UnixMillis {
 }
 
 impl IssuedTicket {
+    /// The reply: the ticket, its expiry and the rendezvous the client connects to.
     pub fn to_json(&self) -> String {
         let IssuedTicket { ticket, hunt } = self;
         let shot = &hunt.snapshot;
@@ -217,11 +241,14 @@ impl IssuedTicket {
     }
 }
 
+/// What a joiner's launcher needs to join a hunt.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct JoinBootstrap {
     /// Realms' fields, as one JSON object.
     pub common: Json,
+    /// The joiner's signed ticket.
     pub ticket: Secret,
+    /// The host's lobby id.
     pub lobby_id: String,
 }
 
@@ -239,16 +266,23 @@ impl JoinBootstrap {
     }
 }
 
+/// A host's request to consume a joiner's ticket.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ConsumeTicket {
+    /// The joiner's ticket text.
     pub ticket: Secret,
+    /// The peer id the host's transport authenticated, as decimal text.
     pub authenticated_peer: String,
+    /// The host bridge's instance id, 16 to 96 characters.
     pub bridge_instance_id: String,
+    /// The joiner's connection handle on the host, 1 to 32 characters.
     pub connection_handle: String,
+    /// The request's id header.
     pub request_id: String,
 }
 
 impl ConsumeTicket {
+    /// Reads a consume body; refused as malformed when a field is missing, not a string or out of length.
     pub fn from_body(body: &Value, request_id: &str) -> Result<Self, AdmissionError> {
         let field = |name: &str| {
             body.get(name)
@@ -271,17 +305,25 @@ impl ConsumeTicket {
     }
 }
 
+/// An admitted joiner.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ConsumedTicket {
+    /// The same connection had already consumed this ticket.
     pub idempotent: bool,
+    /// The admission's id, 64 hex digits.
     pub admission_id: String,
+    /// The joiner's account.
     pub account: AccountId,
+    /// The joiner's peer id.
     pub peer: PeerId,
+    /// The session id as the wire carries it.
     pub wire_session: String,
+    /// The generation the ticket was for.
     pub generation: u32,
 }
 
 impl ConsumedTicket {
+    /// The reply, field for field as the backend sends it.
     pub fn to_json(&self) -> String {
         let Self {
             idempotent,
@@ -303,11 +345,16 @@ impl ConsumedTicket {
     }
 }
 
+/// One peer of a hub, as its host links with it.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct HubPeer {
+    /// The peer's account.
     pub account: AccountId,
+    /// The peer's id.
     pub peer: PeerId,
+    /// The key sealing frames between the host and this peer.
     pub pair_key: Secret,
+    /// The peer's presence state.
     pub state: &'static str,
 }
 
@@ -323,13 +370,17 @@ impl HubPeer {
     }
 }
 
+/// The live peers of a hub generation, without the host.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct HubPeers {
+    /// The hub's generation.
     pub generation: u64,
+    /// Up to 64 live peers.
     pub peers: Vec<HubPeer>,
 }
 
 impl HubPeers {
+    /// The reply: the generation and each peer with its pair key.
     pub fn to_json(&self) -> String {
         let peers = wire::json_array(self.peers.iter().map(HubPeer::json));
         JsonObject::new()
@@ -341,7 +392,9 @@ impl HubPeers {
 
 /// What admission needs from realms.
 pub trait AdmissionHunts: Send + Sync {
+    /// Whether player-hosted hunts are switched on or stopped.
     fn gate(&self) -> Outcome<P2PGate>;
+    /// The hunt or hub, `None` when there is none.
     fn find_hunt(&self, id: &SessionId) -> Outcome<Option<AdmissionHunt>>;
     /// The participant's next attempt within the rejoin window and limit; `None` when refused.
     fn reserve_participant(
@@ -358,6 +411,7 @@ pub trait AdmissionHunts: Send + Sync {
         verified_link: Option<&PeerLinkRecord>,
         at: UnixMillis,
     ) -> Outcome<PeerId>;
+    /// Records that the member was given a hub ticket expiring at `ticket_expiry`; `false` when the entry is gone.
     fn mark_hub_ticketed(
         &self,
         on: &AdmissionHunt,
@@ -365,19 +419,29 @@ pub trait AdmissionHunts: Send + Sync {
         at: UnixMillis,
         ticket_expiry: UnixMillis,
     ) -> Outcome<bool>;
+    /// Marks the participant admitted; `false` when the generation was fenced meanwhile.
     fn mark_participant_admitted(&self, on: &AdmissionHunt, who: &AccountId, at: UnixMillis) -> Outcome<bool>;
+    /// Records a hub member's admission under its id.
     fn admit_hub_peer(&self, on: &AdmissionHunt, who: &AccountId, admission: &str, at: UnixMillis) -> Outcome<()>;
+    /// Records that an admitted peer disconnected.
     fn peer_disconnected(&self, row: &PeerAdmissionRecord, at: UnixMillis) -> Outcome<()>;
+    /// Up to `most` presence rows of the hub.
     fn hub_presence(&self, on: &AdmissionHunt, most: usize) -> Outcome<Vec<PresenceRow>>;
     /// Realms' bootstrap fields as one JSON object, or `None`.
     fn join_bootstrap_common(&self, on: &AdmissionHunt, key: &str, bridge: &str) -> Outcome<Option<Json>>;
 }
 
+/// The admission service over realms, a ticket authority and the admission store.
 pub struct Admission {
+    /// Mints and verifies tickets.
     pub tickets: Arc<dyn TicketAuthority>,
+    /// Tickets, peer links and admissions.
     pub store: Arc<dyn AdmissionStore>,
+    /// The hunts and hubs realms keeps.
     pub hunts: Arc<dyn AdmissionHunts>,
+    /// The secret pair keys are derived from; `None` when the co-op transport is not configured.
     pub transport_key_secret: Option<Secret>,
+    /// The current time; tests inject their own clock.
     pub clock: Arc<dyn Fn() -> UnixMillis + Send + Sync>,
     list_calls: HourlyCounter,
 }
@@ -418,6 +482,7 @@ fn admission_id_shaped(id: &str) -> bool {
 }
 
 impl Admission {
+    /// A service over these parts.
     pub fn new(
         tickets: Arc<dyn TicketAuthority>,
         store: Arc<dyn AdmissionStore>,

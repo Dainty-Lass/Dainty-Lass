@@ -87,6 +87,7 @@ impl State {
 pub struct Phases(Arc<Mutex<State>>);
 
 impl Phases {
+    /// A fresh connection waiting for its first head.
     pub fn new(timeouts: &Timeouts) -> Self {
         let now = Instant::now();
         Self(Arc::new(Mutex::new(State {
@@ -127,10 +128,12 @@ impl Phases {
         }
     }
 
+    /// The connection became a WebSocket.
     pub fn upgraded(&self) {
         self.lock().phase = Phase::Upgraded;
     }
 
+    /// Whether the connection waits for a request head.
     pub fn is_awaiting_head(&self) -> bool {
         matches!(self.lock().phase, Phase::AwaitingHead { .. })
     }
@@ -191,6 +194,7 @@ pub struct Guard<S> {
 }
 
 impl<S> Guard<S> {
+    /// Guards `inner` with the deadlines in `phases`.
     pub fn new(inner: S, phases: Phases) -> Self {
         let now = Instant::now();
         Self {
@@ -203,10 +207,12 @@ impl<S> Guard<S> {
         }
     }
 
+    /// The connection's phases.
     pub fn phases(&self) -> &Phases {
         &self.phases
     }
 
+    /// The wrapped stream.
     pub fn get_ref(&self) -> &S {
         &self.inner
     }

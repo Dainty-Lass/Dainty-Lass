@@ -17,6 +17,7 @@ pub struct AccountId {
 /// Why a text or id is not an account id.
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 pub enum AccountIdError {
+    /// The text does not parse as a network id.
     #[error("{0:?} is not a network id; account ids are written account:<ULID>@<node>")]
     Unreadable(String),
     /// The kind it names; the text is the spec's (§2.2), which callers see
@@ -32,10 +33,12 @@ impl AccountId {
         }
     }
 
+    /// The underlying network id.
     pub fn global(&self) -> &GlobalId {
         &self.id
     }
 
+    /// The account's home node.
     pub fn home(&self) -> &NodeId {
         self.id.owner()
     }
@@ -79,14 +82,17 @@ pub struct UserId {
 }
 
 impl UserId {
+    /// Wraps a client userId as it is.
     pub fn new(text: impl Into<String>) -> Self {
         Self { text: text.into() }
     }
 
+    /// A fresh UUID v4 from the replay-aware source.
     pub fn random() -> Self {
         Self::new(crate::replay::next_uuid())
     }
 
+    /// The userId text.
     pub fn as_str(&self) -> &str {
         &self.text
     }

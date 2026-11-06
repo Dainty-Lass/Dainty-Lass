@@ -10,6 +10,7 @@ macro_rules! wire_text {
         impl $ty {
             $crate::wire::wire_text!(@all [$($all)?] $($variant)+);
 
+            /// The variant's wire text.
             pub const fn $name(self) -> &'static str {
                 match self {
                     $(Self::$variant => $text,)+
@@ -20,12 +21,14 @@ macro_rules! wire_text {
         }
     };
     (fn $ty:ident { $name:ident, $parse:ident } $($variant:ident => $text:literal,)+) => {
+        /// The variant's wire text.
         pub const fn $name(value: $ty) -> &'static str {
             match value {
                 $($ty::$variant => $text,)+
             }
         }
 
+        /// The variant for its wire text; `None` for a text it does not know.
         pub fn $parse(text: &str) -> Option<$ty> {
             match text {
                 $($text => Some($ty::$variant),)+
@@ -36,10 +39,12 @@ macro_rules! wire_text {
     // Optional parts take their name in brackets, so the variant list repeats on its own.
     (@all [] $($variant:ident)+) => {};
     (@all [$all:ident] $($variant:ident)+) => {
+        /// Every variant, in declaration order.
         pub const $all: [Self; [$(stringify!($variant)),+].len()] = [$(Self::$variant),+];
     };
     (@parse [] $($variant:ident => $text:literal,)+) => {};
     (@parse [$parse:ident] $($variant:ident => $text:literal,)+) => {
+        /// The variant for its wire text; `None` for a text it does not know.
         pub fn $parse(text: &str) -> Option<Self> {
             match text {
                 $($text => Some(Self::$variant),)+

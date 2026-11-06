@@ -23,8 +23,11 @@ use crate::{json::non_negative, operations::RewardRollout, store::CompletionMode
 
 // ---- time and ids ---------------------------------------------------------------------------------------------
 
+/// Where Guard reads the time and makes record ids.
 pub trait Clock: Send + Sync {
+    /// The current time.
     fn now(&self) -> UnixMillis;
+    /// A fresh version 4 UUID for a record.
     fn uuid(&self) -> String;
 }
 
@@ -71,6 +74,7 @@ pub struct ManualClock {
 }
 
 impl ManualClock {
+    /// A clock stopped at `now`.
     pub fn at(now: UnixMillis) -> Self {
         let UnixMillis(start) = now;
         Self {
@@ -79,6 +83,7 @@ impl ManualClock {
         }
     }
 
+    /// Moves the clock forward by `millis` milliseconds.
     pub fn advance(&self, millis: u64) {
         self.now
             .fetch_add(millis.try_into().unwrap_or(i64::MAX), Ordering::SeqCst);
@@ -136,9 +141,13 @@ pub fn iso_time(at: UnixMillis) -> String {
 
 // ---- logs -----------------------------------------------------------------------------------------------------
 
+/// Where Guard writes its log lines, by level.
 pub trait GuardLog: Send + Sync {
+    /// An informational line.
     fn info(&self, line: &str);
+    /// A warning.
     fn warn(&self, line: &str);
+    /// An error.
     fn error(&self, line: &str);
 }
 
@@ -164,6 +173,7 @@ macro_rules! levelled_log {
     };
 }
 
+/// Writes every line to stderr, prefixed by its level.
 #[derive(Clone, Copy, Debug, Default)]
 pub struct StderrLog;
 
@@ -176,6 +186,7 @@ pub struct MemoryLog {
 }
 
 impl MemoryLog {
+    /// Every line so far, in order.
     pub fn lines(&self) -> Vec<String> {
         self.kept().clone()
     }
@@ -189,36 +200,52 @@ levelled_log!(MemoryLog, |log, text| log.kept().push(text));
 
 // ---- hunts ----------------------------------------------------------------------------------------------------
 
+/// One member of a hunt's roster.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct RosterEntry {
+    /// The member's account.
     pub account: AccountId,
+    /// Whether the member was admitted to the hunt.
     pub admitted: bool,
 }
 
 /// A hosted hunt or hub as Guard sees it.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct HuntView {
+    /// The hunt or hub's session.
     pub session: SessionId,
+    /// The session's current generation; a new host starts a new one.
     pub generation: u64,
+    /// The session's state, such as `RUNNING`.
     pub state: String,
+    /// The state before the session was marked `SUSPECT`.
     pub pre_suspect_state: Option<String>,
+    /// The account hosting this generation, if any.
     pub host: Option<AccountId>,
+    /// The realm the session belongs to, if any.
     pub realm: Option<RealmId>,
+    /// The hub's kind, `None` for a hunt.
     pub hub: Option<HubKind>,
+    /// Who joined, admitted or not.
     pub roster: Vec<RosterEntry>,
+    /// The characters each member is locked to for the hunt, as `(account, character id)`.
     pub frozen_characters: Vec<(AccountId, String)>,
+    /// When the hunt pays its completion, if it set one.
     pub completion_mode: Option<CompletionMode>,
 }
 
 impl HuntView {
+    /// Whether the session is a realm hub rather than a hunt.
     pub fn is_hub(&self) -> bool {
         self.hub.is_some()
     }
 
+    /// `REALM_HUB` for a hub, `None` for a hunt.
     pub fn session_kind(&self) -> Option<&'static str> {
         self.is_hub().then_some("REALM_HUB")
     }
 
+    /// `TRAINING` or `RAMSGATE` for a hub, `None` for a hunt.
     pub fn hub_kind(&self) -> Option<&'static str> {
         Some(if self.hub? == HubKind::Training {
             "TRAINING"
@@ -242,17 +269,24 @@ impl HuntView {
     }
 }
 
+/// A hosted runtime's capability, found by its token's digest.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct CapabilityView {
+    /// The capability's id, which names its rate-limit bucket.
     pub capability_id: String,
+    /// When the capability stops being accepted.
     pub expires_at: UnixMillis,
+    /// Whether the capability was revoked.
     pub revoked: bool,
 }
 
 /// The hunts, as realms keeps them.
 pub trait HuntSessions: Send + Sync {
+    /// The session's hunt or hub, `None` when there is none.
     fn hunt(&self, session: &SessionId) -> Result<Option<HuntView>, StoreError>;
+    /// The accounts present in a hub generation now.
     fn hub_present_accounts(&self, session: &SessionId, generation: u64) -> Result<Vec<AccountId>, StoreError>;
+    /// The capability whose token has this SHA-256 hex digest.
     fn capability_by_digest(&self, digest: &str) -> Result<Option<CapabilityView>, StoreError>;
 
     /// A store that cannot resolve capabilities knows none.
@@ -288,23 +322,37 @@ impl HuntSessions for NoHuntSessions {
 
 // ---- the operations policy ------------------------------------------------------------------------------------
 
+/// The operations policy as last read.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct PolicySnapshot {
+    /// The policy's version; a write must name it.
     pub version: u64,
+    /// The reward rollout flags.
     pub reward_rollout: RewardRollout,
+    /// The whole policy document as stored.
     pub json: Json,
 }
 
+/// One audit log entry of an operations route.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct AuditEntry {
+    /// The entry's UUID.
     pub id: String,
+    /// Who made the change, as the route authenticated it.
     pub actor: String,
+    /// What was done, such as setting the reward rollout.
     pub action: String,
+    /// The state before, as JSON.
     pub old_state: Json,
+    /// The state after, as JSON.
     pub new_state: Json,
+    /// The operator's reason, at least 8 characters.
     pub reason: String,
+    /// The caller's address.
     pub ip: String,
+    /// The request's id.
     pub request_id: String,
+    /// When, as an ISO 8601 time.
     pub created_at: String,
 }
 
@@ -314,7 +362,9 @@ fn settled<'a, T: Send + 'a>(value: T) -> Fut<'a, T> {
     Box::pin(std::future::ready(Ok(value)))
 }
 
+/// The operations policy document and its audit log.
 pub trait OperationsPolicyPort: Send + Sync {
+    /// The current policy.
     fn policy(&self) -> Fut<'_, PolicySnapshot>;
     /// Writes only at `expected_version` and bumps it; `None` when the version moved.
     fn set_reward_rollout(
@@ -323,6 +373,7 @@ pub trait OperationsPolicyPort: Send + Sync {
         actor: String,
         expected_version: u64,
     ) -> Fut<'_, Option<PolicySnapshot>>;
+    /// Appends one entry to the audit log.
     fn append_audit(&self, entry: AuditEntry) -> Fut<'_, ()>;
 }
 
@@ -355,6 +406,7 @@ pub struct MemoryOperations {
 }
 
 impl MemoryOperations {
+    /// Every audit entry so far.
     pub fn audit(&self) -> Vec<AuditEntry> {
         self.held().audit.clone()
     }
@@ -398,6 +450,7 @@ pub struct CoreOperationsPolicy {
 }
 
 impl CoreOperationsPolicy {
+    /// A policy over isles' document, with writes kept in memory.
     pub fn new(core: Arc<dyn IslesCore>) -> Self {
         let fallback = MemoryOperations::default();
         Self { core, fallback }

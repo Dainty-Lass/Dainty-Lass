@@ -12,48 +12,78 @@ use std::time::{Duration, Instant};
 use crate::Ready;
 use crate::text::truncate;
 
+/// Diagnostic lines kept unread; the oldest is dropped past this.
 pub const MAX_DIAGNOSTICS: usize = 256;
+/// The longest diagnostic line kept, in bytes.
 pub const DIAGNOSTIC_BYTES: usize = 1023;
+/// Peer event lines kept unread; the oldest is dropped past this.
 pub const MAX_EVENTS: usize = 256;
+/// The longest peer event line kept, in bytes.
 pub const EVENT_BYTES: usize = 255;
+/// Signals queued each way; past this, new ones are dropped.
 pub const MAX_SIGNALS: usize = 2048;
+/// Roster commands queued for the session thread.
 pub const MAX_ROSTER_COMMANDS: usize = 256;
+/// The longest failure code in a `SESSION_FAILURE` line, in bytes.
 pub const FAILURE_CODE_BYTES: usize = 96;
+/// The host's roster limit until its configuration sets one.
 pub const DEFAULT_ROSTER_LIMIT: usize = 64;
 
 /// Result codes (spec §2.17).
 pub mod result {
+    /// The session stopped cleanly.
     pub const CLEAN: i32 = 0;
+    /// An input file or value was invalid.
     pub const BAD_INPUT: i32 = 2;
+    /// The session could not be set up, or its thread panicked.
     pub const SETUP: i32 = 3;
+    /// The joiner was refused admission.
     pub const REFUSED_ADMISSION: i32 = 4;
+    /// The host's lease failed.
     pub const LEASE_FAILED: i32 = 5;
+    /// No session has this handle.
     pub const UNKNOWN_HANDLE: i32 = -1;
 }
 
+/// A signal for the launcher to relay to a peer.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Signal {
+    /// The peer's account.
     pub to: String,
+    /// `DESCRIPTION`, `CANDIDATE` or `GATHERING_DONE`.
     pub kind: String,
+    /// The signal's text.
     pub data: String,
 }
 
+/// A signal the launcher relayed from a peer.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct IncomingSignal {
+    /// The peer's account.
     pub from: String,
+    /// `DESCRIPTION`, `CANDIDATE` or `GATHERING_DONE`.
     pub kind: String,
+    /// The signal's text.
     pub data: String,
 }
 
+/// A roster change queued for a running host session.
 #[derive(Clone, PartialEq, Eq)]
 pub enum RosterCommand {
+    /// Admit this joiner.
     Add {
+        /// The joiner's account.
         account: String,
+        /// The joiner's peer id.
         peer_id: u64,
+        /// The key sealing this joiner's frames.
         pair_key: [u8; 32],
     },
+    /// Close this joiner's link.
     Remove {
+        /// The joiner's account.
         account: String,
+        /// Why, cut to 48 bytes, for the diagnostics.
         reason: String,
     },
 }
@@ -90,6 +120,7 @@ struct State {
 /// One session's shared state; the session thread writes through [`SessionIo`], the API reads.
 #[derive(Debug)]
 pub struct Shared {
+    /// Whether this is a host session, which alone takes roster commands.
     pub is_host: bool,
     stop: AtomicBool,
     running: AtomicBool,
@@ -98,6 +129,7 @@ pub struct Shared {
 }
 
 impl Shared {
+    /// A running session's state, nothing reported yet.
     pub fn new(is_host: bool) -> Self {
         Self {
             is_host,
@@ -126,14 +158,17 @@ impl Shared {
         self.state.lock().ok()
     }
 
+    /// Asks the session thread to stop.
     pub fn request_stop(&self) {
         self.stop.store(true, Ordering::SeqCst);
     }
 
+    /// Whether a stop was asked for.
     pub fn stop_requested(&self) -> bool {
         self.stop.load(Ordering::SeqCst)
     }
 
+    /// Whether the session thread is still running.
     pub fn running(&self) -> bool {
         self.running.load(Ordering::SeqCst)
     }
@@ -174,6 +209,7 @@ impl Shared {
         }
     }
 
+    /// The result code, 0 while running.
     pub fn result(&self) -> i32 {
         if self.running() {
             return 0;
@@ -181,23 +217,28 @@ impl Shared {
         self.lock().map_or(result::SETUP, |s| s.result)
     }
 
+    /// Whether diagnostics, events or signals wait to be read.
     pub fn has_unread(&self) -> bool {
         self.lock()
             .is_some_and(|s| !s.diagnostics.is_empty() || !s.outbox.is_empty() || !s.events.is_empty())
     }
 
+    /// The next diagnostic line, if any.
     pub fn read_diagnostic(&self) -> Option<String> {
         self.lock()?.diagnostics.pop_front()
     }
 
+    /// The next peer event line, if any.
     pub fn read_event(&self) -> Option<String> {
         self.lock()?.events.pop_front()
     }
 
+    /// The next outgoing signal, if any.
     pub fn read_signal(&self) -> Option<Signal> {
         self.lock()?.outbox.pop_front()
     }
 
+    /// Queues a relayed signal; `false` when the session ended or the inbox is full.
     pub fn submit_signal(&self, signal: IncomingSignal) -> bool {
         let Some(mut state) = self.lock() else {
             return false;
@@ -209,6 +250,7 @@ impl Shared {
         true
     }
 
+    /// Queues a roster add; refused for a joiner session, a duplicate account or peer id, a full roster or queue.
     pub fn add_peer(&self, account: &str, peer_id: u64, pair_key: [u8; 32]) -> bool {
         let Some(mut state) = self.lock() else {
             return false;
@@ -230,6 +272,7 @@ impl Shared {
         true
     }
 
+    /// Queues a roster removal; refused for a joiner session, an account not on the roster or a full queue.
     pub fn remove_peer(&self, account: &str, reason: &str) -> bool {
         let Some(mut state) = self.lock() else {
             return false;
@@ -253,10 +296,12 @@ impl Shared {
 pub struct SessionIo<'a>(pub &'a Shared);
 
 impl SessionIo<'_> {
+    /// Whether a stop was asked for.
     pub fn stop_requested(&self) -> bool {
         self.0.stop_requested()
     }
 
+    /// Queues a diagnostic line, cut to 1023 bytes; the oldest unread line is dropped when full.
     pub fn diagnostic(&self, line: &str) {
         if let Some(mut state) = self.0.lock() {
             if state.diagnostics.len() >= MAX_DIAGNOSTICS {
@@ -266,10 +311,12 @@ impl SessionIo<'_> {
         }
     }
 
+    /// Queues a `SESSION_FAILURE code=...` diagnostic.
     pub fn failure(&self, code: &str) {
         self.diagnostic(&format!("SESSION_FAILURE code={}", truncate(code, FAILURE_CODE_BYTES)));
     }
 
+    /// Queues a peer event line, cut to 255 bytes; the oldest unread line is dropped when full.
     pub fn event(&self, line: &str) {
         if let Some(mut state) = self.0.lock() {
             if state.events.len() >= MAX_EVENTS {
@@ -279,6 +326,7 @@ impl SessionIo<'_> {
         }
     }
 
+    /// Queues a signal for the launcher; dropped when the outbox is full, with an occasional diagnostic.
     pub fn signal(&self, signal: Signal) {
         let dropped = {
             let Some(mut state) = self.0.lock() else {
@@ -299,6 +347,7 @@ impl SessionIo<'_> {
         }
     }
 
+    /// Takes every relayed signal.
     pub fn take_inbox(&self) -> Vec<IncomingSignal> {
         self.0
             .lock()
@@ -306,6 +355,7 @@ impl SessionIo<'_> {
             .unwrap_or_default()
     }
 
+    /// Takes every queued roster command.
     pub fn take_commands(&self) -> Vec<RosterCommand> {
         self.0
             .lock()
@@ -313,6 +363,7 @@ impl SessionIo<'_> {
             .unwrap_or_default()
     }
 
+    /// Reports the ready line and wakes anyone waiting on it.
     pub fn set_ready(&self, line: String) {
         if let Some(mut state) = self.0.lock() {
             state.ready = Some(line);
@@ -330,6 +381,7 @@ impl SessionIo<'_> {
         }
     }
 
+    /// Drops an account from the API's roster view.
     pub fn forget_peer(&self, account: &str) {
         if let Some(mut state) = self.0.lock() {
             state.roster.peers.remove(account);

@@ -17,6 +17,7 @@ pub const STARTER_DYES: [&str; 2] = ["DYE_BANNER_BACKGROUND_DEFAULT", "DYE_BANNE
 
 const ALPHABET: &[u8; 32] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
 
+/// Whether the id is a wallet currency (`CURRENCY_`), which the wallet holds instead of the stacked list.
 pub fn is_wallet_currency_id(catalog_id: &str) -> bool {
     catalog_id.starts_with("CURRENCY_")
 }
@@ -188,35 +189,52 @@ pub fn apply_item_data_save(
 /// A removal asked for more of a stacked item than is owned.
 #[derive(Debug, Clone, PartialEq)]
 pub struct InsufficientStackedItem {
+    /// The item's catalog id.
     pub catalog_id: String,
+    /// How many are owned.
     pub owned: f64,
+    /// How many the removal asked for.
     pub requested: f64,
 }
 
 /// What [`apply_transaction`] works on.
 pub struct Delta<'a> {
+    /// The owner's userId, for the log.
     pub user_id: &'a str,
+    /// The transaction id, for the log.
     pub transaction_id: &'a str,
+    /// The stored instanced items.
     pub instanced: Vec<Value>,
+    /// The stored stacked items.
     pub stacked: Vec<Value>,
     /// Normalized (§8.3)
     pub add_instanced: &'a [Value],
+    /// Stacked items to add.
     pub add_stacked: &'a [Value],
     /// As sent (`null` or a non-array is empty)
     pub remove_instanced: &'a Value,
+    /// Stacked items to remove, as sent.
     pub remove_stacked: &'a Value,
+    /// Item data saves on owned instances, as sent; a save is never a grant.
     pub save_instanced: &'a Value,
     /// The currency step's balances, in touch order
     pub touched: &'a [(String, f64)],
+    /// Mints an instance id for an add that needs one.
     pub minter: &'a mut dyn FnMut() -> String,
 }
 
+/// A transaction's result.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Applied {
+    /// The instanced items to store.
     pub instanced: Vec<Value>,
+    /// The stacked items to store, wallet currencies left out.
     pub stacked: Vec<Value>,
+    /// The instanced items added, normalized.
     pub created: Vec<Value>,
+    /// The instances whose item data a save changed.
     pub updated_instanced: Vec<Value>,
+    /// The stacks the answer reports: those changed, those removed, then the touched balances.
     pub updated_stacked: Vec<Value>,
     /// `{catalogId, quantity}` of each stacked add with a positive safe-integer quantity (the annotator's input)
     pub accepted: Vec<Value>,

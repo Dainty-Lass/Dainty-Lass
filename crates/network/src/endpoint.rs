@@ -17,22 +17,28 @@ use crate::wire::{self, ErrorBody, PingAnswer, Target, code};
 /// What to answer: a status, a JSON body and this node's clock (the `x-node-time` header).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Reply {
+    /// HTTP status.
     pub status: u16,
+    /// JSON body.
     pub body: Vec<u8>,
+    /// This node's clock, unix milliseconds, for `x-node-time`.
     pub time_ms: i64,
 }
 
 /// What a request's head says, read before its body is.
 #[derive(Debug, Clone, Copy)]
 pub struct Head<'a> {
+    /// The HTTP method.
     pub method: &'a str,
     /// The request target as received: path and any query
     pub target: &'a str,
+    /// The `content-length` header, if valid.
     pub content_length: Option<u64>,
     /// The `x-node-time` header, if there is exactly one
     pub time: Option<&'a str>,
 }
 
+/// The answering side of a node link: checks the caller and the request, then calls the attached service.
 pub struct NodeEndpoint {
     me: NodeIdentity,
     peers: RwLock<BTreeSet<NodeId>>,
@@ -53,27 +59,33 @@ impl NodeEndpoint {
         }
     }
 
+    /// Uses `clock` instead of the system's, for tests.
     pub fn with_clock(mut self, clock: Arc<Clock>) -> Self {
         self.clock = clock;
         self
     }
 
+    /// This node.
     pub fn identity(&self) -> &NodeIdentity {
         &self.me
     }
 
+    /// The clock replies are stamped with and skew is checked against.
     pub fn clock(&self) -> &Arc<Clock> {
         &self.clock
     }
 
+    /// Whether `node` is answered.
     pub fn is_peer(&self, node: &NodeId) -> bool {
         self.peers.read().unwrap_or_else(PoisonError::into_inner).contains(node)
     }
 
+    /// Answers `node` from now on.
     pub fn add_peer(&self, node: NodeId) {
         self.peers.write().unwrap_or_else(PoisonError::into_inner).insert(node);
     }
 
+    /// Stops answering `node`.
     pub fn remove_peer(&self, node: &NodeId) {
         self.peers.write().unwrap_or_else(PoisonError::into_inner).remove(node);
     }
@@ -84,6 +96,7 @@ impl NodeEndpoint {
         *self.service.write().unwrap_or_else(PoisonError::into_inner) = Some(service);
     }
 
+    /// Drops the attached service: calls answer `no_service` again.
     pub fn detach(&self) {
         *self.service.write().unwrap_or_else(PoisonError::into_inner) = None;
     }

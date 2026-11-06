@@ -12,8 +12,11 @@ use service_kit::js::safe_integer;
 
 use crate::util::{is_hex, lenient_base64};
 
+/// The key id of runtime manifests' signatures.
 pub const RUNTIME_KEY_ID: &str = "runtime-2026-01";
+/// The key id of Guard manifests' signatures.
 pub const GUARD_KEY_ID: &str = "guard-2026-10";
+/// The only platform a Guard manifest names.
 pub const PLATFORM: &str = "windows-x86_64";
 const RUNTIME_SPKI: &str = "MCowBQYDK2VwAyEA3ZMtA7qUgs1F+1NQs2kmSG2zbOvXfjsh6+axI6eC/tc=";
 const GUARD_SPKI: &str = "MCowBQYDK2VwAyEAcqOh1F/NOXtZ4ZSyefheKk0Md//2L85OgMiQH8Jyi/U=";
@@ -36,7 +39,9 @@ pub use crate::util::is_segment;
 /// The two public keys the server trusts (raw 32-byte Ed25519).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Trusted {
+    /// The runtime manifests' key.
     pub runtime: [u8; 32],
+    /// The Guard manifests' key.
     pub guard: [u8; 32],
 }
 
@@ -80,25 +85,39 @@ pub fn ed25519_verify(public_key: &[u8], message: &[u8], signature: &[u8]) -> bo
             .is_ok()
 }
 
+/// A file the Guard manifest vouches for.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct GuardArtifact {
+    /// What it is: `GAME`, `LAUNCHER`, `CONTENT`, `INTERNAL_SERVER` or `UDP_PROXY`.
     pub role: String,
+    /// Its file name.
     pub name: String,
     /// Lower-cased
     pub sha256: String,
 }
 
+/// A verified Guard manifest's payload.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct GuardPayload {
+    /// The manifest's id.
     pub manifest_id: String,
+    /// Its sequence number; a newer manifest has a higher one.
     pub sequence: i64,
+    /// The update channel.
     pub channel: String,
+    /// Always [`PLATFORM`].
     pub platform: String,
+    /// The game build it is for.
     pub changelist: i64,
+    /// The oldest launcher, `x.y.z`, that may use it.
     pub minimum_launcher_version: String,
+    /// When it expires, ISO text.
     pub expires_at: String,
+    /// Most private executable memory the game may hold, bytes.
     pub max_private_executable_bytes: i64,
+    /// Most writable executable memory the game may hold, bytes.
     pub max_writable_executable_bytes: i64,
+    /// The files it vouches for.
     pub artifacts: Vec<GuardArtifact>,
 }
 

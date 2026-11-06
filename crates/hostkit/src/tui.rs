@@ -60,8 +60,11 @@ pub struct TuiState {
 /// What a key asks for.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum KeyAction {
+    /// Nothing to do.
     None,
+    /// Runs a console command.
     Run(ConsoleCommand),
+    /// Stops the server.
     Quit,
 }
 

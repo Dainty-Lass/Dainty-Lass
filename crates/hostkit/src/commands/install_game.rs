@@ -33,7 +33,12 @@ const CODE_MAX_BYTES: usize = 16 * 1024;
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Configured {
     /// `game_dir` now names the folder; the env files were rewritten if setup had made them
-    Updated { previous: Option<String>, env_files: bool },
+    Updated {
+        /// The folder it named before.
+        previous: Option<String>,
+        /// Whether the env files were rewritten.
+        env_files: bool,
+    },
     /// It already did
     Unchanged,
     /// No host.toml yet: setup takes the folder as `--game`
@@ -98,10 +103,15 @@ fn free_bytes(dir: &Path) -> Option<u64> {
 
 /// What the command talks to; the tests give doubles and a fake CDN.
 pub struct Deps<'a, L: Library> {
+    /// The Epic sign-in.
     pub accounts: &'a dyn Accounts,
+    /// The host's Epic library.
     pub library: L,
+    /// How chunks are fetched.
     pub options: Options,
+    /// The OS the env files are rewritten for.
     pub platform: Platform,
+    /// The short commit of the release or checkout, for the env files.
     pub source_commit: &'a dyn Fn(&Path) -> Result<String, HostError>,
     /// The build for a `--version` ([`Plan::for_version`] for the command; the tests plan their own)
     pub plan: &'a dyn Fn(&str) -> Result<Plan, HostError>,
@@ -267,7 +277,7 @@ fn read_pasted(stdin: &mut dyn BufRead) -> Result<String, HostError> {
 
 #[cfg(test)]
 mod tests {
-    #![allow(clippy::unwrap_used)]
+    #![allow(clippy::unwrap_used, reason = "a panic is how a test fails")]
 
     use super::*;
 

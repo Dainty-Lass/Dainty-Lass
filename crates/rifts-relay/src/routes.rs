@@ -27,6 +27,7 @@ const fn route(method: Method, mount: Mount, path: &'static str, handler: &'stat
     }
 }
 
+/// The relay's routes: the admin `coop-transport` switch, then the launcher's transport config and ICE signal.
 pub const ROUTES: &[Route] = &[
     route(
         Method::Patch,
@@ -48,6 +49,7 @@ pub const ROUTES: &[Route] = &[
     ),
 ];
 
+/// The relay's routes, each answering `Unimplemented`.
 pub fn stub_routes() -> StubRoutes {
     StubRoutes {
         routes: ROUTES,
@@ -55,6 +57,7 @@ pub fn stub_routes() -> StubRoutes {
     }
 }
 
+/// Answers the relay's routes through an [`IceService`].
 #[derive(Clone)]
 pub struct RelayRoutes {
     service: Arc<dyn IceService>,
@@ -83,6 +86,7 @@ fn ok(body: Json) -> Reply {
 }
 
 impl RelayRoutes {
+    /// Routes for `service`; `node` reads plain UUID session ids as this node's.
     pub fn new(service: Arc<dyn IceService>, node: NodeId) -> Self {
         Self { node, service }
     }

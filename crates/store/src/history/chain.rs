@@ -32,7 +32,9 @@ const PAGE: i64 = 1000;
 /// [`verify`] takes as known good.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Head {
+    /// Log entry id.
     pub id: i64,
+    /// Its hash, as [`entry_hash`] writes it.
     pub hash: String,
 }
 
@@ -82,19 +84,41 @@ pub fn is_hash(text: &str) -> bool {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Break {
     /// The entry's hash isn't the hash of what it holds: it was changed after it was written.
-    Edited { id: i64 },
+    Edited {
+        /// Id of the entry where the chain breaks.
+        id: i64,
+    },
     /// The entry has no hash: it was put in the log outside `store`'s write path.
-    Unsealed { id: i64 },
+    Unsealed {
+        /// Id of the entry where the chain breaks.
+        id: i64,
+    },
     /// The entry doesn't name the one before it (`after`; `None` for the start of the walk): entries
     /// between them were removed or reordered, or `after` was changed and its hash recomputed.
-    Unlinked { id: i64, after: Option<i64> },
+    Unlinked {
+        /// Id of the entry where the chain breaks.
+        id: i64,
+        /// The entry the walk read before it.
+        after: Option<i64>,
+    },
     /// The entry's id isn't above the one before it (a stream read back out of order).
-    OutOfOrder { id: i64, after: i64 },
+    OutOfOrder {
+        /// Id of the entry where the chain breaks.
+        id: i64,
+        /// The entry the walk read before it.
+        after: i64,
+    },
     /// The trusted head's entry isn't in the log: the log was cut short, or that entry removed.
-    HeadMissing { id: i64 },
+    HeadMissing {
+        /// The trusted head's entry id.
+        id: i64,
+    },
     /// The trusted head's entry has another hash: it, or an entry before it, was changed and the chain
     /// recomputed from there.
-    HeadMismatch { id: i64 },
+    HeadMismatch {
+        /// The trusted head's entry id.
+        id: i64,
+    },
 }
 
 impl Break {

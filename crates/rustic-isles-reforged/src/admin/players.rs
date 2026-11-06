@@ -34,6 +34,7 @@ fn approval_text(account: &LauncherAccountRecord) -> &'static str {
     account.approval_status.map_or("approved", ApprovalStatus::as_str)
 }
 
+/// `GET /admin/v1/online-players`: the players online now.
 pub async fn online(ctx: AdminContext) -> Response {
     let state = ReforgedState::of(&ctx.shared);
     let ids = state.active_players(&ctx.shared, 60_000);
@@ -77,6 +78,7 @@ fn is_player_id(text: &str) -> bool {
             .all(|b| b.is_ascii_alphanumeric() || b == b'_' || b == b'-')
 }
 
+/// `GET /admin/v1/players`: a page of launcher accounts, filtered and searched.
 pub async fn list(ctx: AdminContext) -> Response {
     let now = iso(now_ms());
     if let Some(ids) = ctx.request.joined("ids").filter(|t| !t.trim().is_empty()) {
@@ -178,6 +180,7 @@ enum Access {
     Done(Box<LauncherAccountRecord>, String),
 }
 
+/// `PATCH /admin/v1/players/:userId/access`: sets a player's approval, status or timeout.
 pub async fn access(ctx: AdminContext) -> Response {
     let Ok(approval) = optional(ctx.request.field("approvalStatus"), ApprovalStatus::parse) else {
         return validation("Invalid approval status.");
@@ -285,6 +288,7 @@ pub async fn access(ctx: AdminContext) -> Response {
     }
 }
 
+/// `PATCH /admin/v1/players/:userId/roles`: sets a player's roles.
 pub async fn roles(ctx: AdminContext) -> Response {
     let requested: Option<Vec<String>> = ctx.request.field("roles").and_then(Value::as_array).and_then(|list| {
         list.iter()
@@ -374,6 +378,7 @@ pub async fn roles(ctx: AdminContext) -> Response {
     }
 }
 
+/// `DELETE /admin/v1/players/:userId`: deletes a player's account; never the caller's own.
 pub async fn delete(ctx: AdminContext) -> Response {
     let Some(caller) = ctx.caller.clone() else {
         return admin_internal("the deletion had no caller");
@@ -462,6 +467,7 @@ pub async fn delete(ctx: AdminContext) -> Response {
     }
 }
 
+/// An audit row as the dashboard reads it.
 pub fn audit_json(r: &AdminAuditRecord) -> Value {
     let mut pairs = vec![
         ("id", Value::from(r.id.clone())),
@@ -486,6 +492,7 @@ pub fn audit_json(r: &AdminAuditRecord) -> Value {
     object(pairs)
 }
 
+/// `GET /admin/v1/audit`: a page of the admin audit.
 pub async fn audit(ctx: AdminContext) -> Response {
     let page = page_of(&ctx.request);
     let limit = limit_of(&ctx.request, 50, 100);

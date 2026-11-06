@@ -4,7 +4,7 @@
 //! one that names another node, is refused before a byte of the request is sent.
 //!
 //! Each call checks the clocks (the peer's `x-node-time` against ours, the bound is
-//! [`MAX_CLOCK_SKEW`](crate::link::MAX_CLOCK_SKEW)), and every call and every periodic ping updates the
+//! [`crate::link::MAX_CLOCK_SKEW`]), and every call and every periodic ping updates the
 //! peer's [`PeerHealth`]. Connections are kept for the next call and dropped when they close, so a peer
 //! that restarts is reached again on the next call, with no one doing anything.
 
@@ -29,19 +29,26 @@ use crate::cluster::{self, NODE_ALPN, NodeCredentials, Peer};
 use crate::link::{Clock, LinkError, MAX_CLOCK_SKEW, MAX_MESSAGE, PeerLink, PeerRoster, Service};
 use crate::wire::{self, PingAnswer, Target};
 
+/// How a [`TlsPeerLink`] reaches its peers.
 pub struct TlsLinkConfig {
+    /// This node's certificate, key and the cluster CA.
     pub credentials: NodeCredentials,
+    /// The peers, as `[[network.nodes]]` lists them.
     pub peers: Vec<Peer>,
     /// Reaching a peer and finishing the TLS handshake
     pub connect_timeout: Duration,
     /// One call, connecting included
     pub request_timeout: Duration,
+    /// How often each peer is pinged.
     pub ping_interval: Duration,
+    /// How far a peer's clock may differ before its calls are refused.
     pub max_skew: Duration,
+    /// The clock pings and calls are stamped with.
     pub clock: Arc<Clock>,
 }
 
 impl TlsLinkConfig {
+    /// 5 s to connect, 15 s per call, a ping every 10 s and the standard skew bound.
     pub fn new(credentials: NodeCredentials, peers: Vec<Peer>) -> Self {
         Self {
             credentials,
@@ -61,6 +68,7 @@ impl TlsLinkConfig {
 pub enum PeerState {
     /// Not called or pinged yet
     Unknown,
+    /// The last call or ping was answered.
     Up,
     /// Not reachable, or no answer in time
     Down,
@@ -72,10 +80,14 @@ pub enum PeerState {
     Untrusted,
 }
 
+/// What this node knows of one peer, for `status` and the roster.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct PeerHealth {
+    /// The peer.
     pub node: NodeId,
+    /// Its region.
     pub region: Region,
+    /// Up, down or refused.
     pub state: PeerState,
     /// The last ping's round trip
     pub rtt_ms: Option<u64>,
@@ -87,13 +99,16 @@ pub struct PeerHealth {
     pub since_ms: i64,
     /// Failures in a row
     pub failures: u32,
+    /// The last failure, if any.
     pub last_error: Option<String>,
 }
 
 /// A ping that was answered.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct PingReport {
+    /// The round trip.
     pub rtt: Duration,
+    /// The peer's clock minus ours, in milliseconds.
     pub skew_ms: i64,
 }
 
@@ -164,6 +179,7 @@ fn unreachable(node: &NodeId, reason: impl Into<String>) -> LinkError {
 }
 
 impl TlsPeerLink {
+    /// Checks the peer list against this node's own name and builds the TLS client; no connection is made yet.
     pub fn new(config: TlsLinkConfig) -> Result<Self, cluster::CertError> {
         let me = config.credentials.identity().clone();
         cluster::check_peers(&me.node, &config.peers)?;
@@ -203,6 +219,7 @@ impl TlsPeerLink {
         })
     }
 
+    /// This node, as its certificate names it.
     pub fn identity(&self) -> &NodeIdentity {
         &self.inner.me
     }
@@ -217,6 +234,7 @@ impl TlsPeerLink {
             .collect()
     }
 
+    /// `node`'s health, if it is a listed peer.
     pub fn peer_health(&self, node: &NodeId) -> Option<PeerHealth> {
         lock(&self.inner.health).get(node).cloned()
     }

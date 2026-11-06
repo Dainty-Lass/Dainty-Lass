@@ -5,7 +5,7 @@
 //! report. Ignored by default; `CHAT_DASHBOARD_LIVE_URL` and `CHAT_DASHBOARD_LIVE_KEY` point it at one,
 //! and `CHAT_DASHBOARD_LIVE_ADD_TERM` is a command that adds the word term `noob` (flag, party only)
 //! through the dashboard's store, run once the first filter has arrived.
-#![allow(clippy::unwrap_used, clippy::expect_used)] // test helpers
+#![allow(clippy::unwrap_used, clippy::expect_used, reason = "a panic is how a test fails")]
 
 use std::time::{Duration, Instant};
 

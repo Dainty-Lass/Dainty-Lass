@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Silent Spud
 
+//! What a Linux host needs: root and capability checks, Wine or Proton and its prefix, the game server wrapper,
+//! and the systemd units and firewall script `setup` writes.
+
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -9,36 +12,54 @@ use crate::hostconfig::{HostConfig, LinuxOptions, ServerMode, game_ports, gatewa
 use crate::paths::Paths;
 use crate::run::{RunOptions, capture, run};
 
+/// The server's systemd unit.
 pub const UNIT_SERVER: &str = "reforged.service";
+/// The allowlist's systemd unit, on a public server.
 pub const UNIT_ALLOWLIST: &str = "reforged-allowlist.service";
+/// The capability that lets a process bind a port below 1024.
 pub const CAP_NET_BIND_SERVICE: u32 = 10;
+/// The capability that lets a process change the firewall.
 pub const CAP_NET_ADMIN: u32 = 12;
 
+/// What runs the game servers.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum RuntimeKind {
+    /// Wine.
     Wine,
+    /// Proton.
     Proton,
 }
 
+/// The runtime found for the game servers.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct GameRuntime {
+    /// Wine or Proton.
     pub kind: RuntimeKind,
+    /// Its executable.
     pub path: String,
 }
 
+/// What preparing the Wine prefix came to.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct WinePrefix {
+    /// The prefix is ready, or Proton needs none.
     pub ok: bool,
+    /// This call made it.
     pub created: bool,
+    /// Why it is not ready, or a note.
     pub detail: Option<String>,
 }
 
+/// Who the systemd units run as, and what they run.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct UnitContext {
+    /// The user, never root.
     pub user: String,
+    /// The `dainty-host` executable.
     pub host_bin: PathBuf,
 }
 
+/// The `CapEff` mask of a `/proc/<pid>/status` text; 0 when there is none.
 pub fn effective_capabilities(status_text: &str) -> u64 {
     for line in status_text.lines() {
         let trimmed = line.trim();
@@ -52,6 +73,7 @@ pub fn effective_capabilities(status_text: &str) -> u64 {
     0
 }
 
+/// Whether capability `bit` is effective, from `status_text` or this process's `/proc/self/status`.
 pub fn has_capability(bit: u32, status_text: Option<&str>) -> bool {
     if bit >= 64 {
         return false;
@@ -83,6 +105,7 @@ fn parse_effective_uid(status_text: &str) -> Option<u32> {
     None
 }
 
+/// Whether this process runs as root (effective uid 0).
 pub fn is_root() -> Result<bool, HostError> {
     if let Ok(status) = fs::read_to_string("/proc/self/status")
         && let Some(euid) = parse_effective_uid(&status)
@@ -104,6 +127,7 @@ pub fn is_root() -> Result<bool, HostError> {
     Ok(false)
 }
 
+/// Whether `port` can be bound, given root, a `/proc/self/status` text and `ip_unprivileged_port_start`.
 pub fn can_bind_port_with(port: u16, root: bool, status: Option<&str>, unprivileged_start: Option<&str>) -> bool {
     if port >= 1024 || root {
         return true;
@@ -117,6 +141,7 @@ pub fn can_bind_port_with(port: u16, root: bool, status: Option<&str>, unprivile
     has_capability(CAP_NET_BIND_SERVICE, status)
 }
 
+/// Whether this process can bind `port`.
 pub fn can_bind_port(port: u16) -> Result<bool, HostError> {
     if port >= 1024 {
         return Ok(true);
@@ -127,14 +152,17 @@ pub fn can_bind_port(port: u16) -> Result<bool, HostError> {
     Ok(can_bind_port_with(port, root, status.as_deref(), unpriv.as_deref()))
 }
 
+/// Whether this process can change the firewall: root or `CAP_NET_ADMIN`.
 pub fn can_change_firewall() -> Result<bool, HostError> {
     Ok(is_root()? || has_capability(CAP_NET_ADMIN, None))
 }
 
+/// `s` single-quoted for sh.
 pub fn sh_quote(s: &str) -> String {
     format!("'{}'", s.replace('\'', "'\\''"))
 }
 
+/// The game server wrapper script, which runs `host_bin gameserver` with the game's arguments.
 pub fn gameserver_wrapper_script(host_bin: &Path) -> String {
     let quoted = sh_quote(&host_bin.to_string_lossy());
     format!(
@@ -142,6 +170,7 @@ pub fn gameserver_wrapper_script(host_bin: &Path) -> String {
     )
 }
 
+/// Writes the game server wrapper into `.workspace/bin`, executable; returns its path.
 pub fn write_gameserver_wrapper(paths: &Paths) -> Result<PathBuf, HostError> {
     let host_bin = resolve_host_bin(paths)?;
     fs::create_dir_all(&paths.bin)?;
@@ -166,6 +195,7 @@ fn set_executable_mode(path: &Path) -> Result<(), HostError> {
     Ok(())
 }
 
+/// Proton when host.toml names one, else the Wine host.toml names or one found on PATH; `None` when there is none.
 pub fn game_runtime(options: &LinuxOptions) -> Result<Option<GameRuntime>, HostError> {
     if let Some(proton) = options.proton.as_deref().map(str::trim).filter(|s| !s.is_empty()) {
         if crate::wine::is_executable(Path::new(proton)) {
@@ -192,6 +222,7 @@ pub fn game_runtime(options: &LinuxOptions) -> Result<Option<GameRuntime>, HostE
     }))
 }
 
+/// Makes the Wine prefix with `wineboot --init` unless it is ready, logging to `log_file`; Proton keeps its own.
 pub fn ensure_wine_prefix(paths: &Paths, options: &LinuxOptions, log_file: &Path) -> Result<WinePrefix, HostError> {
     if options.proton.as_deref().is_some_and(|s| !s.trim().is_empty()) {
         fs::create_dir_all(&paths.proton_data)?;
@@ -260,6 +291,7 @@ pub fn ensure_wine_prefix(paths: &Paths, options: &LinuxOptions, log_file: &Path
     })
 }
 
+/// `s` trimmed, refused unless it is letters, digits, `_`, `-` and `.`: safe in a unit file.
 pub fn unit_word(s: &str) -> Result<String, HostError> {
     let trimmed = s.trim();
     if trimmed.is_empty()
@@ -272,6 +304,7 @@ pub fn unit_word(s: &str) -> Result<String, HostError> {
     Ok(trimmed.to_owned())
 }
 
+/// `s` trimmed and with `%` escaped, refused unless it is an absolute path without quotes, `;` or control characters.
 pub fn unit_path(s: &str) -> Result<String, HostError> {
     let trimmed = s.trim();
     if trimmed.is_empty()
@@ -283,10 +316,12 @@ pub fn unit_path(s: &str) -> Result<String, HostError> {
     Ok(trimmed.replace('%', "%%"))
 }
 
+/// The `dainty-host` executable the units run: the release's or the build's, else this one.
 pub fn host_binary(paths: &Paths) -> PathBuf {
     resolve_host_bin(paths).unwrap_or_else(|_| paths.repo.join("dainty-host"))
 }
 
+/// Sets `path`'s Unix permission bits; does nothing elsewhere.
 pub fn set_mode(_path: &Path, _mode: u32) -> Result<(), HostError> {
     #[cfg(unix)]
     {
@@ -310,6 +345,7 @@ fn resolve_host_bin(paths: &Paths) -> Result<PathBuf, HostError> {
     std::env::current_exe().map_err(HostError::from)
 }
 
+/// The user the units run as (the one behind sudo, else the current one) and the executable they run.
 pub fn unit_context(paths: &Paths) -> Result<UnitContext, HostError> {
     let user = std::env::var("SUDO_USER")
         .ok()
@@ -340,6 +376,7 @@ pub fn unit_context(paths: &Paths) -> Result<UnitContext, HostError> {
     Ok(UnitContext { user, host_bin })
 }
 
+/// Each unit file's name and text, and their install script, for this config; refused for root or an unsafe path.
 pub fn systemd_units(c: &HostConfig, p: &Paths, ctx: &UnitContext) -> Result<Vec<(String, String)>, HostError> {
     let user = unit_word(&ctx.user)?;
     if user == "root" {
@@ -438,11 +475,13 @@ pub fn systemd_units(c: &HostConfig, p: &Paths, ctx: &UnitContext) -> Result<Vec
     Ok(units)
 }
 
+/// Writes the units into `.workspace/systemd`; returns the files written.
 pub fn write_systemd_units(config: &HostConfig, paths: &Paths) -> Result<Vec<PathBuf>, HostError> {
     let ctx = unit_context(paths)?;
     write_systemd_units_with(config, paths, &ctx)
 }
 
+/// [`write_systemd_units`] for `ctx`'s user and executable.
 pub fn write_systemd_units_with(
     config: &HostConfig,
     paths: &Paths,
@@ -462,12 +501,14 @@ pub fn write_systemd_units_with(
     Ok(written)
 }
 
+/// Whether `unit` is installed in a systemd unit folder.
 pub fn systemd_installed(unit: &str) -> bool {
     Path::new("/etc/systemd/system").join(unit).is_file()
         || Path::new("/lib/systemd/system").join(unit).is_file()
         || Path::new("/usr/lib/systemd/system").join(unit).is_file()
 }
 
+/// The ufw script that opens the gateway's TCP port and the game ports (on tailscale0 only, for a private server).
 pub fn linux_firewall_script(c: &HostConfig) -> Result<String, HostError> {
     let mut lines = vec![
         "#!/bin/sh".to_owned(),
@@ -495,7 +536,7 @@ pub fn linux_firewall_script(c: &HostConfig) -> Result<String, HostError> {
 
 #[cfg(test)]
 mod tests {
-    #![allow(clippy::unwrap_used, clippy::expect_used)]
+    #![allow(clippy::unwrap_used, clippy::expect_used, reason = "a panic is how a test fails")]
 
     use super::*;
     use serde_json::json;

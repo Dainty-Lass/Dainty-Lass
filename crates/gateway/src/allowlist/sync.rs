@@ -19,13 +19,18 @@ pub type OnResult = Arc<dyn Fn(&ApplyResult) + Send + Sync>;
 
 const MAX_BACKOFF: Duration = Duration::from_secs(60);
 
+/// How one firewall run went.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ApplyResult {
+    /// Whether the firewall now matches.
     pub ok: bool,
+    /// The addresses it applied.
     pub ips: Vec<String>,
     /// Milliseconds since the epoch, when the run started
     pub at: i64,
+    /// How long it took, in milliseconds.
     pub ms: u64,
+    /// Why it failed.
     pub error: Option<String>,
 }
 
@@ -59,6 +64,7 @@ struct Inner {
     run_lock: tokio::sync::Mutex<()>,
 }
 
+/// Brings the firewall to the desired address list in the background, at most once per interval, backing off on failure.
 #[derive(Clone)]
 pub struct FirewallSync(Arc<Inner>);
 
@@ -112,10 +118,12 @@ impl FirewallSync {
         state.running || state.differs()
     }
 
+    /// The last run's result.
     pub fn last_result(&self) -> Option<ApplyResult> {
         self.lock().last.clone()
     }
 
+    /// Runs so far.
     pub fn runs(&self) -> u64 {
         self.lock().runs
     }

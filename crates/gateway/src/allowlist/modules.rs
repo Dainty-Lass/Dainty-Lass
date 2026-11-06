@@ -21,9 +21,11 @@ use super::guard::Guard;
 /// What the plugin needs from the controller's registry: the range a module was given for a port name,
 /// known from the moment the controller assigns it, before the module starts.
 pub trait PortView: Send + Sync {
+    /// The range assigned to `module`'s port `port`, if any.
     fn assigned(&self, module: &ModuleId, port: &str) -> Option<PortRange>;
 }
 
+/// The allowlist as a core plugin: guards the UDP port ranges modules register.
 pub struct AllowlistPlugin {
     guard: Option<Arc<Guard>>,
     external_base: Option<PortRange>,

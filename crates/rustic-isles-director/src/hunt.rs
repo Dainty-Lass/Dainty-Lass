@@ -16,6 +16,7 @@ use service_kit::js;
 
 use crate::hub::Level;
 
+/// The player hunt table's name.
 pub const PLAYER_TABLE: &str = "player_hunts_table";
 /// In lookup order; the main table first wins a name collision. The `_new` Trials tables are reached only through
 /// tag routing.
@@ -29,6 +30,7 @@ pub const MATCHMAKER_TABLES: [&str; 6] = [
 ];
 /// The rotation's length, as the runtime counts it.
 pub const TRIALS_ROTATION_ROW_COUNT: i64 = 181;
+/// A week, the default for `TRIALS_ROTATION_MINUTES`.
 pub const DEFAULT_TRIALS_ROTATION_MINUTES: u64 = 10_080;
 
 /// Keys that are array indexes first in ascending order, then the rest in insertion order (JavaScript's).
@@ -53,8 +55,10 @@ pub(crate) fn js_entries(map: &Map<String, Value>) -> Vec<(&String, &Value)> {
     indexed.into_iter().map(|(_, k, v)| (k, v)).chain(rest).collect()
 }
 
+/// The hunt tables the resolver reads.
 #[derive(Debug, Clone, Default)]
 pub struct Tables {
+    /// `player_hunts_table`'s rows by player hunt id.
     pub player_rows: Map<String, Value>,
     /// The matchmaker tables that were loaded, in lookup order
     pub matchmaker_sources: Vec<(String, Map<String, Value>)>,
@@ -89,6 +93,8 @@ pub fn load_tables(dir: &Path) -> Result<Tables, String> {
     load_tables_for(dir, true)
 }
 
+/// Loads the player table and the matchmaker tables, the `_new` Trials ones only with `trials`. A missing or malformed
+/// table is an error.
 pub fn load_tables_for(dir: &Path, trials: bool) -> Result<Tables, String> {
     let files = table_files(trials);
     let mut tables = Tables::default();
@@ -267,9 +273,12 @@ pub fn expected_player_args(ids: &[Value], hunt_id: &str) -> String {
         .join(",")
 }
 
+/// Where the resolver's log lines go.
 pub type HuntLog = Arc<dyn Fn(Level, &str) + Send + Sync>;
+/// Called with each player hunt id missing from the tables.
 pub type MissingHuntHook = Arc<dyn Fn(&str) + Send + Sync>;
 
+/// A [`HuntLog`] writing to `tracing` at the line's level.
 pub fn tracing_hunt_log() -> HuntLog {
     Arc::new(|level, message| match level {
         Level::Info => tracing::info!("{message}"),
@@ -278,13 +287,19 @@ pub fn tracing_hunt_log() -> HuntLog {
     })
 }
 
+/// What a [`HuntResolver`] reads and how it logs.
 pub struct ResolverOptions {
+    /// The hunt tables.
     pub tables: Tables,
+    /// Where log lines go.
     pub log: HuntLog,
+    /// Minutes each Trials week lasts.
     pub trials_rotation_minutes: u64,
+    /// The clock, Unix ms.
     pub now: Arc<dyn Fn() -> i64 + Send + Sync>,
     /// A value in `[min, max)`
     pub random_int: Arc<dyn Fn(u64, u64) -> u64 + Send + Sync>,
+    /// Told each player hunt id missing from the tables.
     pub on_missing_hunt: Option<MissingHuntHook>,
 }
 
@@ -308,39 +323,57 @@ impl ResolverOptions {
     }
 }
 
+/// The table audit's counts: rows by how they reach a matchmaker row, and the problems found.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct TableAudit {
+    /// Rows in the player table.
     pub player_rows: usize,
+    /// Player rows naming matchmaker rows directly.
     pub direct_rows: usize,
+    /// Player rows routed by gameplay tags.
     pub tag_routed_rows: usize,
+    /// Direct references left as `None` for tag routing.
     pub tag_routed_refs: usize,
+    /// Rows in the main matchmaker table.
     pub matchmaker_rows: usize,
+    /// Matchmaker tables loaded.
     pub tables: usize,
+    /// Missing matchmaker rows and rows without a usable map.
     pub problems: Vec<String>,
 }
 
+/// Which player hunts resolve, and what they reach.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct CoverageAudit {
+    /// Rows in the player table.
     pub total: usize,
+    /// Player hunt ids that reach no matchmaker row, sorted.
     pub unresolved: Vec<String>,
+    /// Matchmaker rows reached.
     pub referenced: BTreeSet<String>,
+    /// Maps reached.
     pub maps: BTreeSet<String>,
+    /// Game modes reached; `(map/default)` for a row without an override.
     pub game_modes: BTreeSet<String>,
+    /// Distinct `MaxPlayers` values, ascending.
     pub max_players: Vec<i64>,
 }
 
 impl CoverageAudit {
+    /// Player hunts that reach a matchmaker row.
     pub fn resolvable(&self) -> usize {
         self.total - self.unresolved.len()
     }
 }
 
+/// Picks the matchmaker row, map and Behemoth a player hunt starts (§9).
 pub struct HuntResolver {
     options: ResolverOptions,
     quiet: AtomicBool,
 }
 
 impl HuntResolver {
+    /// A resolver over the given tables and hooks.
     pub fn new(options: ResolverOptions) -> Self {
         Self {
             options,
@@ -348,10 +381,12 @@ impl HuntResolver {
         }
     }
 
+    /// The tables it reads.
     pub fn tables(&self) -> &Tables {
         &self.options.tables
     }
 
+    /// Silences its log lines (the audits run quiet).
     pub fn set_quiet(&self, quiet: bool) {
         self.quiet.store(quiet, Ordering::SeqCst);
     }
@@ -372,6 +407,7 @@ impl HuntResolver {
         self.options.tables.player_rows.get(id).filter(|v| !v.is_null())
     }
 
+    /// A matchmaker row by id, from the first table that holds it.
     pub fn find_matchmaker_row(&self, id: &str) -> Option<&Value> {
         self.options
             .tables
@@ -539,6 +575,7 @@ impl HuntResolver {
         Ok(maps)
     }
 
+    /// One of the row's usable `/Game/` maps at random; an error when it has none.
     pub fn map_path_for(&self, matchmaker_hunt_id: &str) -> Result<String, String> {
         let maps = self.usable_maps(matchmaker_hunt_id)?;
         Ok(self.pick(&maps).to_owned())
@@ -825,6 +862,7 @@ impl MissingHuntRegistry {
         ))
     }
 
+    /// The registry as JSON: `huntId`, `count`, `firstSeen` and `lastSeen`, most asked first.
     pub fn to_json(&self) -> Value {
         let iso = rustic_isles::season::to_iso_string;
         Value::Array(

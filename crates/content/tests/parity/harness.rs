@@ -5,7 +5,12 @@
 //! through `launch`, sends the script's raw requests, and compares the replies with the ones recorded from the
 //! Node server. `content-plugin`'s test includes this file by `#[path]`, so it finds the fixtures from either
 //! crate and needs only `serde_json`, `service-kit`, `sha2`, `tempfile` and `tokio`.
-#![allow(dead_code, clippy::unwrap_used, clippy::expect_used)]
+#![allow(
+    dead_code,
+    clippy::unwrap_used,
+    clippy::expect_used,
+    reason = "shared by several test binaries, each using only some; a panic is how a test fails"
+)]
 
 use std::collections::BTreeMap;
 use std::fmt::Write as _;

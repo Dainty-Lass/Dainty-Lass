@@ -67,6 +67,7 @@ fn issue(keys: &Keys, name: &str, role: &str) -> Result<(), String> {
     Ok(())
 }
 
+/// Runs one `admin key` command against the env file's keys database.
 pub fn run(command: KeyCommand) -> ExitCode {
     let done = match command {
         KeyCommand::Issue { name, role, env_file } => keys(env_file.as_deref()).and_then(|k| issue(&k, &name, &role)),

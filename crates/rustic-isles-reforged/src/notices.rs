@@ -91,6 +91,7 @@ pub fn public_view(record: Option<&LauncherNoticesRecord>, now_ms: i64) -> Value
     ])
 }
 
+/// The launcher notices as the dashboard edits them.
 pub fn admin_view(record: Option<&LauncherNoticesRecord>, now_ms: i64) -> Value {
     let opt = |v: Option<&String>| v.cloned().map_or(Value::Null, Value::from);
     object(vec![
@@ -320,6 +321,7 @@ pub fn validate_expected_version(value: Option<&Value>) -> Result<u64, String> {
 
 // ------------------------------------------------------------------ routes (§8.3)
 
+/// `GET /admin/v1/launcher-notices`: the notices for editing.
 pub async fn admin_read(ctx: AdminContext) -> Response {
     match ctx.store.read(|conn, repos| repos.launcher_notices.get(conn)).await {
         Ok(record) => util::ok(&admin_view(record.as_ref(), now_ms())),
@@ -335,6 +337,7 @@ enum Saved {
     Conflict(Option<LauncherNoticesRecord>),
 }
 
+/// `PUT /admin/v1/launcher-notices`: saves the notices, refusing a stale version.
 pub async fn admin_save(ctx: AdminContext) -> Response {
     let body = ctx.request.body.as_ref();
     let mut ids = || util::random_uuid();

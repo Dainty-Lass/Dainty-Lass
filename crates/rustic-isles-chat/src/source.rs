@@ -27,6 +27,7 @@ impl TokenCheck for GameTokens {
     }
 }
 
+/// The [`ChatSource`] on the isles store, the game token check and the home API.
 pub struct StoreChat {
     node: NodeIdentity,
     module_id: ModuleId,
@@ -78,6 +79,7 @@ fn now_iso() -> String {
 }
 
 impl StoreChat {
+    /// A source from its parts; [`StoreChat::for_module`] is the usual way in.
     pub fn new(
         node: NodeIdentity,
         module_id: ModuleId,
@@ -108,10 +110,12 @@ impl StoreChat {
         )
     }
 
+    /// The store, or None when the module runs without a database.
     pub fn store(&self) -> Option<&IslesStore> {
         self.store.as_ref()
     }
 
+    /// The module this source answers for.
     pub fn module_id(&self) -> &ModuleId {
         &self.module_id
     }

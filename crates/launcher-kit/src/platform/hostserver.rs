@@ -68,7 +68,9 @@ pub type ServerView = HostServerView;
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct StartServerOutput {
+    /// The server panel after starting.
     pub view: HostServerView,
+    /// The started process's id; none for the embedded server.
     pub pid: Option<u32>,
 }
 
@@ -83,10 +85,15 @@ pub type LineSink = Arc<dyn Fn(String) + Send + Sync>;
 
 /// Trait implemented by an in-process embedded server controller.
 pub trait EmbeddedServer: Send + Sync {
+    /// Starts every service from `workspace`'s configuration, sending each console line to `lines`.
     fn start(&self, workspace: PathBuf, lines: LineSink) -> Pin<Box<dyn Future<Output = Result<(), String>> + Send>>;
+    /// Stops every service; returns once they are down.
     fn stop(&self) -> Pin<Box<dyn Future<Output = ()> + Send>>;
+    /// Restarts the service called `name`; fails on an unknown name.
     fn restart(&self, name: String) -> Pin<Box<dyn Future<Output = Result<(), String>> + Send>>;
+    /// Each service's state.
     fn components(&self) -> Vec<HostServerComponent>;
+    /// The module panel, when the server has a module registry.
     fn modules(&self) -> Option<Arc<dyn crate::bridge::modules::ModulePanel>> {
         None
     }
@@ -95,7 +102,9 @@ pub trait EmbeddedServer: Send + Sync {
 /// Resolved command invocation for `dainty-host`.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct HostTool {
+    /// The program to run.
     pub program: PathBuf,
+    /// Arguments placed before the subcommand.
     pub prefix: Vec<OsString>,
 }
 
@@ -112,9 +121,13 @@ impl HostTool {
 /// Error returned when spawning or invoking the host tool fails.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum HostKitError {
+    /// No `dainty-host` was found in the workspace.
     Missing,
+    /// The process could not be started or waited on.
     Spawn(String),
+    /// Another server operation is in progress.
     Busy,
+    /// The server is already running.
     AlreadyRunning,
 }
 
@@ -133,8 +146,11 @@ impl HostKitError {
 /// Captured result of a one-shot `dainty-host` CLI subcommand.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CommandOutput {
+    /// The process's exit code, -1 when it had none.
     pub code: i32,
+    /// Every cleaned output line.
     pub lines: Vec<String>,
+    /// The line explaining a failure, when the exit code was not 0.
     pub failure: Option<String>,
 }
 

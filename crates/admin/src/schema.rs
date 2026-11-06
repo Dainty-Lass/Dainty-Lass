@@ -24,12 +24,14 @@ use crate::modules::{AdminModule, AdminPlugin, NODE_GAME};
 use crate::timeouts::{Timeout, Timeouts};
 use crate::upstream::{Account, Clock, Operator, Upstream, UpstreamError};
 
+/// The admin API's GraphQL schema.
 pub type AdminSchema = Schema<Query, Mutation, EmptySubscription>;
 
 /// Deep enough for every field here, small enough that no query fans out into thousands of calls.
 const MAX_DEPTH: usize = 6;
 const MAX_COMPLEXITY: usize = 200;
 
+/// The schema over `admin`, with no module registry behind `modules`.
 pub fn build(admin: Arc<Admin>) -> AdminSchema {
     build_with_control(admin, Modules::default())
 }
@@ -54,26 +56,43 @@ pub fn sdl() -> String {
 /// The `code` in an error's `extensions`, which the bot switches on.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Code {
+    /// The input was refused: a malformed name, reason, time or id.
     BadInput,
+    /// No such player, key or action.
     NotFound,
+    /// The player holds the backend's admin role.
     Protected,
+    /// The player is already banned.
     AlreadyBanned,
+    /// The player is not banned.
     NotBanned,
+    /// The player is not timed out.
     NotTimedOut,
+    /// The backend or Director did not answer.
     BackendUnavailable,
+    /// The backend or a module refused.
     BackendRefused,
+    /// The change was made, but its record (the timeouts file or ticket state) was not saved.
     StateNotSaved,
+    /// The name matches players in more than one game: name the game.
     AmbiguousPlayer,
+    /// This server runs no such game.
     UnknownGame,
+    /// The player's game does not do this through the admin API.
     NotSupported,
+    /// The key's role does not allow it, or the guard refused the caller.
     Forbidden,
     /// The action was not done but held (DH6): it waits for its delay or a second operator.
     Guarded,
     /// A guarded action that is not waiting, or that waits out a delay and cannot be approved.
     NotWaiting,
+    /// The rows a revert plan covers changed since it was made.
     PlanChanged,
+    /// The revert plan is no longer kept.
     PlanExpired,
+    /// A change log could not be read.
     HistoryUnavailable,
+    /// A revert changed some databases but not all.
     PartialRevert,
 }
 
@@ -164,15 +183,20 @@ fn upstream(service: &str, error: UpstreamError) -> async_graphql::Error {
 
 // ------------------------------------------------------------------ types
 
+/// An account's state in its game.
 #[derive(Enum, Copy, Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum AccountStatus {
+    /// May play.
     Active,
+    /// Banned or timed out.
     Banned,
+    /// Disabled by the backend's own admin tools.
     Disabled,
     /// A status this API does not know, or a player in a game whose module doesn't report one.
     Unknown,
 }
 
+/// What keeps a player out.
 #[derive(Enum, Copy, Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum RestrictionKind {
     /// Banned until someone lifts it.
@@ -186,6 +210,7 @@ pub enum RestrictionKind {
 /// Why a player cannot play right now.
 #[derive(SimpleObject, Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct Restriction {
+    /// Ban, timeout or disabled.
     pub kind: RestrictionKind,
     /// The text the player sees in the launcher.
     pub reason: Option<String>,
@@ -200,9 +225,11 @@ pub struct Restriction {
 /// A timeout the admin API will lift: what `timeouts.json` holds, not the backend's view of the account.
 #[derive(SimpleObject, Clone, Debug, PartialEq, Eq)]
 pub struct ActiveTimeout {
+    /// The player's name.
     pub username: String,
     /// When it ends (RFC 3339).
     pub until: String,
+    /// The text the player sees in the launcher.
     pub reason: String,
     /// `manager:<operator id>`.
     pub by: String,
@@ -210,29 +237,38 @@ pub struct ActiveTimeout {
     pub at: String,
 }
 
+/// The kind of game server a player is on.
 #[derive(Enum, Copy, Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum LocationKind {
     /// Ramsgate
     Hub,
+    /// A hunt.
     Hunt,
     /// The Training Grounds
     Training,
+    /// The tutorial.
     Tutorial,
 }
 
 /// The game server a player is on, from the Director.
 #[derive(SimpleObject, Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct Location {
+    /// The kind of game server.
     pub kind: LocationKind,
+    /// The Director's instance id.
     pub instance_id: String,
     /// "Ramsgate", "Training Grounds", or the hunt's behemoth or island.
     pub title: String,
 }
 
+/// A player as the admin API shows them.
 #[derive(SimpleObject, Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct Player {
+    /// The account id.
     pub user_id: String,
+    /// The display name.
     pub username: String,
+    /// The account's state.
     pub status: AccountStatus,
     /// Null when the player may play.
     pub restriction: Option<Restriction>,
@@ -243,12 +279,15 @@ pub struct Player {
     /// Holds the backend's admin role: kicks, timeouts and bans refuse such accounts. False in a game
     /// whose module doesn't report it; that module refuses to act on its own admins.
     pub admin: bool,
+    /// When the account was made (RFC 3339), if the game reports it.
     pub created_at: Option<String>,
+    /// The last login (RFC 3339), if the game reports it.
     pub last_login_at: Option<String>,
     /// The game version the player is in, such as 1.14.7.
     pub game: String,
 }
 
+/// How players reach the server.
 #[derive(Enum, Copy, Clone, Debug, PartialEq, Eq)]
 pub enum ServerMode {
     /// Reached over Tailscale.
@@ -257,55 +296,78 @@ pub enum ServerMode {
     Public,
 }
 
+/// What the server is and how it is doing.
 #[derive(SimpleObject, Clone, Debug, PartialEq, Eq)]
 pub struct ServerStatus {
+    /// The server's name.
     pub name: String,
+    /// How players reach it.
     pub mode: ServerMode,
     /// INVITECODE, OPEN or NONE.
     pub registration: String,
+    /// The server's version.
     pub version: String,
     /// The server's source commit; null when unknown.
     pub commit: Option<String>,
     /// Seconds since the backend started.
     pub uptime_seconds: u32,
+    /// Players online now.
     pub online_count: u32,
+    /// Whether chat is running.
     pub chat: bool,
     /// real, synthetic or missing.
     pub game_data: String,
 }
 
+/// A player in a hunt.
 #[derive(SimpleObject, Clone, Debug, PartialEq, Eq)]
 pub struct HuntPlayer {
+    /// The account id.
     pub user_id: String,
     /// Null when the backend has no account with that id.
     pub username: Option<String>,
 }
 
+/// A running hunt.
 #[derive(SimpleObject, Clone, Debug, PartialEq, Eq)]
 pub struct Hunt {
+    /// The Director's instance id.
     pub id: String,
+    /// The title the Director gives it.
     pub title: String,
+    /// The map's name.
     pub map: String,
+    /// The behemoth, if the hunt has one.
     pub behemoth: Option<String>,
+    /// Players in it now.
     pub player_count: u32,
+    /// The most it takes.
     pub max_players: u32,
+    /// Who is in it.
     pub players: Vec<HuntPlayer>,
+    /// When it started, as the Director gives it.
     pub started_at: Option<String>,
 }
 
+/// The hunt servers and what they hold.
 #[derive(SimpleObject, Clone, Debug, PartialEq, Eq)]
 pub struct HuntStatus {
     /// `max_hunt_servers` in host.toml.
     pub max_hunt_servers: u32,
+    /// Hunt servers running.
     pub running: u32,
     /// Hunt servers that can still start.
     pub free: u32,
+    /// The running hunts.
     pub hunts: Vec<Hunt>,
 }
 
+/// What a kick did.
 #[derive(SimpleObject, Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct KickResult {
+    /// The account id.
     pub user_id: String,
+    /// The display name.
     pub username: String,
     /// Chat connections closed; 0 when the player held none, or in a game whose module doesn't count them.
     pub connections_closed: u32,
@@ -318,7 +380,9 @@ pub struct KickResult {
 pub struct AdminKey {
     /// What the log and `admin:<id>` in the change log call it. `owner` is REFORGED_ADMIN_API_KEY.
     pub id: String,
+    /// What the key is for, as its issuer named it.
     pub name: String,
+    /// What it may do.
     pub role: Role,
     /// Null for the owner key, which setup made.
     pub created_at: Option<String>,
@@ -326,6 +390,7 @@ pub struct AdminKey {
     pub created_by: String,
     /// Set once revoked: that key is refused.
     pub revoked_at: Option<String>,
+    /// The actor that revoked it, as the change log writes it.
     pub revoked_by: Option<String>,
 }
 
@@ -348,6 +413,7 @@ impl From<KeyInfo> for AdminKey {
 pub struct IssuedKey {
     /// `RRA_<id>_<secret>`: send it as `Authorization: Bearer <key>`. Keep it; it cannot be shown again.
     pub key: String,
+    /// What the key may do, as listed.
     pub info: AdminKey,
 }
 
@@ -360,6 +426,7 @@ pub struct IssuedKey {
 pub struct HistoryFilter {
     /// Rows that belong to this account id, before or after the change.
     pub account: Option<String>,
+    /// Changes made by this actor.
     pub actor: Option<String>,
     /// From this time on, inclusive.
     pub since: Option<String>,
@@ -381,12 +448,15 @@ impl HistoryFilter {
 /// One change to one row, from a database's change log.
 #[derive(SimpleObject, Clone, Debug, PartialEq, Eq)]
 pub struct HistoryEntry {
+    /// The log entry's id.
     pub id: String,
     /// `node` (the game), `admin` or `chat`.
     pub database: String,
+    /// When the change was made (RFC 3339).
     pub at: String,
     /// Who made it: `player:<account>`, `admin:<key id>`, `host:<command>` or `system:<task>`.
     pub actor: String,
+    /// The table the row is in.
     pub table: String,
     /// The row's primary key, as JSON.
     pub key: String,
@@ -394,17 +464,20 @@ pub struct HistoryEntry {
     pub op: String,
     /// The row before and after, as JSON; an admin key's hash is hidden.
     pub before: Option<String>,
+    /// The row after the change, as JSON; an admin key's hash is hidden.
     pub after: Option<String>,
 }
 
 /// Changes newest first.
 #[derive(SimpleObject, Clone, Debug, PartialEq, Eq)]
 pub struct HistoryPage {
+    /// The entries on this page.
     pub entries: Vec<HistoryEntry>,
     /// Pass it as `cursor` for the next, older page; null at the end.
     pub next: Option<String>,
 }
 
+/// What a revert does to one row.
 #[derive(Enum, Copy, Clone, Debug, PartialEq, Eq)]
 pub enum RevertKind {
     /// A deleted row, put back.
@@ -417,83 +490,120 @@ pub enum RevertKind {
     SoftDelete,
 }
 
+/// One row a revert would change.
 #[derive(SimpleObject, Clone, Debug, PartialEq, Eq)]
 pub struct RevertAction {
+    /// `node`, `admin` or `chat`.
     pub database: String,
+    /// The table the row is in.
     pub table: String,
+    /// The row's primary key, as JSON.
     pub key: String,
+    /// What the revert does to it.
     pub kind: RevertKind,
     /// The row now and as the revert leaves it, as JSON.
     pub current: Option<String>,
+    /// The row as the revert leaves it, as JSON.
     pub target: Option<String>,
 }
 
 /// A row the revert leaves as it is.
 #[derive(SimpleObject, Clone, Debug, PartialEq, Eq)]
 pub struct RevertConflict {
+    /// `node`, `admin` or `chat`.
     pub database: String,
+    /// The table the row is in.
     pub table: String,
+    /// The row's primary key, as JSON.
     pub key: String,
     /// `changed_since`, `not_as_logged`, `key_changed` or `schema_changed`.
     pub reason: String,
     /// `changed_since`: the first newer entry, who made it and when.
     pub entry: Option<String>,
+    /// `changed_since`: who made the newer entry.
     pub by: Option<String>,
+    /// `changed_since`: when (RFC 3339).
     pub at: Option<String>,
+    /// More on the conflict, for the operator.
     pub detail: Option<String>,
 }
 
+/// A row the revert finds already as it would leave it.
 #[derive(SimpleObject, Clone, Debug, PartialEq, Eq)]
 pub struct RevertUnchanged {
+    /// `node`, `admin` or `chat`.
     pub database: String,
+    /// The table the row is in.
     pub table: String,
+    /// The row's primary key, as JSON.
     pub key: String,
 }
 
 /// What a revert would do. `revertApply` with `id` does exactly this and nothing else.
 #[derive(SimpleObject, Clone, Debug, PartialEq, Eq)]
 pub struct RevertPlan {
+    /// Pass it to `revertApply`.
     pub id: String,
     /// Log entries the selection matches.
     pub entries: i32,
+    /// Rows the revert would change.
     pub action_count: i32,
+    /// Rows it would leave because they changed since.
     pub conflict_count: i32,
+    /// Rows already as it would leave them.
     pub unchanged_count: i32,
     /// The first rows of each list; `truncated` says there are more than listed.
     pub actions: Vec<RevertAction>,
+    /// Rows it would leave, the first ones.
     pub conflicts: Vec<RevertConflict>,
+    /// Rows already as it would leave them, the first ones.
     pub unchanged: Vec<RevertUnchanged>,
+    /// Whether any list holds fewer rows than its count.
     pub truncated: bool,
     /// How long the server keeps this plan for `revertApply` without the selection.
     pub kept_for_seconds: i32,
 }
 
+/// Rows a revert changed in one database.
 #[derive(SimpleObject, Clone, Debug, PartialEq, Eq)]
 pub struct RevertedIn {
+    /// `node`, `admin` or `chat`.
     pub database: String,
+    /// Rows changed.
     pub rows: i32,
 }
 
+/// What a revert did.
 #[derive(SimpleObject, Clone, Debug, PartialEq, Eq)]
 pub struct RevertDone {
+    /// The plan carried out.
     pub plan_id: String,
     /// The revert's own entries carry this time and `admin:<key id>`.
     pub at: Option<String>,
+    /// Rows changed in all.
     pub rows_changed: i32,
+    /// Rows changed, by database.
     pub databases: Vec<RevertedIn>,
     /// Rows left as they are.
     pub conflicts: Vec<RevertConflict>,
+    /// Rows left as they are, in all.
     pub conflict_count: i32,
+    /// Whether `conflicts` holds fewer than `conflictCount`.
     pub truncated: bool,
 }
 
 /// One log's hash chain checked from its start (`history verify`).
 #[derive(SimpleObject, Clone, Debug, PartialEq, Eq)]
 pub struct HistoryCheck {
+    /// `node`, `admin` or `chat`.
     pub database: String,
+    /// Entries checked, as a decimal string.
     pub entries: String,
+    /// Whether the whole chain holds.
     pub ok: bool,
+    /// The newest entry's id.
     pub head_id: Option<String>,
+    /// The newest entry's hash.
     pub head_hash: Option<String>,
     /// Where the chain breaks and what that means.
     pub broken: Option<String>,
@@ -581,10 +691,13 @@ fn history_failure(error: history::HistoryError) -> async_graphql::Error {
 
 // ------------------------------------------------------------------ what the fields do
 
+/// What the admin API's fields act on.
 pub struct Admin {
+    /// The backend and the Director over loopback.
     pub upstream: Upstream,
     /// The game modules that answer admin actions (DF4c); none until DF3's controller loads modules.
     pub modules: Arc<AdminPlugin>,
+    /// The timeouts this API set and will lift.
     pub timeouts: Timeouts,
     /// The owner's key and the issued ones, and the record of what each did (DH2).
     pub keys: Keys,
@@ -594,8 +707,11 @@ pub struct Admin {
     pub history: history::Service,
     /// Peer-to-peer admin relay, session ticket revocation and down-peer queue (DN11).
     pub relay: crate::relay::AdminRelay,
+    /// `max_hunt_servers` in host.toml.
     pub max_hunt_servers: u32,
+    /// How players reach the server.
     pub server_mode: config::ServerMode,
+    /// Where every time comes from.
     pub clock: Clock,
 }
 
@@ -761,7 +877,7 @@ impl Admin {
         .await;
     }
 
-    #[allow(clippy::too_many_arguments)]
+    #[allow(clippy::too_many_arguments, reason = "each argument is one column of the audit row")]
     pub(crate) async fn audit_full(
         &self,
         key: &str,
@@ -1386,6 +1502,7 @@ impl Admin {
         Ok((home_reply, pending))
     }
 
+    /// Disconnects the player (on every node in a network) and ends their session tickets.
     pub async fn kick(&self, caller: &Caller, name: &str, game: Option<&str>) -> async_graphql::Result<KickResult> {
         allow(caller, Role::Moderator, "kick")?;
         let name = Self::checked_name(name)?;
@@ -1521,6 +1638,7 @@ impl Admin {
         Ok(result)
     }
 
+    /// Bans the player; past the ban limit it waits in the guard (DH6). Relayed to every node in a network.
     pub async fn ban(
         &self,
         caller: &Caller,
@@ -1707,6 +1825,7 @@ impl Admin {
         Ok(player)
     }
 
+    /// Bans the player until `minutes` from now or `until`, then lifts it. Relayed to every node in a network.
     pub async fn timeout(
         &self,
         caller: &Caller,
@@ -1886,7 +2005,10 @@ impl Admin {
         self.player(&caller.operator, updated).await
     }
 
-    #[allow(clippy::too_many_arguments)]
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "the mutation's inputs plus where the request came from"
+    )]
     async fn timeout_local(
         &self,
         caller: &Caller,
@@ -1921,6 +2043,7 @@ impl Admin {
         Ok(player)
     }
 
+    /// Lifts a ban. Admin role only. Relayed to every node in a network.
     pub async fn unban(
         &self,
         caller: &Caller,
@@ -2053,6 +2176,7 @@ impl Admin {
         Ok(player)
     }
 
+    /// Lifts a timeout early. Admin role only. Relayed to every node in a network.
     pub async fn lift_timeout(&self, caller: &Caller, name: &str, game: Option<&str>) -> async_graphql::Result<Player> {
         allow(caller, Role::Admin, "liftTimeout")?;
         let name = Self::checked_name(name)?;
@@ -2217,6 +2341,7 @@ impl Admin {
         }
     }
 
+    /// The server's name, mode, version and who is online.
     pub async fn server_status(&self, caller: &Caller) -> async_graphql::Result<ServerStatus> {
         let status = self.upstream.status().await.map_err(|e| upstream("backend", e))?;
         let online = self
@@ -2240,6 +2365,7 @@ impl Admin {
         })
     }
 
+    /// The running hunts and how many more may start.
     pub async fn hunt_status(&self, caller: &Caller) -> async_graphql::Result<HuntStatus> {
         let hunts: Vec<_> = self
             .upstream
@@ -2295,6 +2421,7 @@ fn parts<'a>(ctx: &'a Context<'_>) -> async_graphql::Result<(&'a Arc<Admin>, &'a
     Ok((ctx.data::<Arc<Admin>>()?, ctx.data::<Caller>()?))
 }
 
+/// The GraphQL query root.
 pub struct Query;
 
 #[Object]
@@ -2410,6 +2537,7 @@ impl Query {
     }
 }
 
+/// The GraphQL mutation root.
 pub struct Mutation;
 
 #[Object]

@@ -37,14 +37,21 @@ pub use crate::{
 /// What every service operation resolves to.
 type Answer<'a, T> = seam::BoxFuture<'a, Result<T, AdmissionError>>;
 
+/// Why an admission operation failed.
 #[derive(Clone, Debug, Eq, PartialEq)]
 #[non_exhaustive]
 pub enum AdmissionError {
+    /// An operation that is not implemented yet.
     Unimplemented(seam::Unimplemented),
+    /// Refused with a code and message the caller sees.
     Refused(seam::Refusal),
+    /// A ticket failed to mint or verify.
     Ticket(TicketError),
+    /// The admission key could not be read.
     Key(KeyError),
+    /// The store failed.
     Store(seam::StoreError),
+    /// The record already exists.
     Conflict,
 }
 
@@ -95,6 +102,7 @@ admission_error_from! {
     Store <- seam::StoreError,
 }
 
+/// The id of an admission signing key, named in every ticket it signs.
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub struct KeyId(pub String);
 
@@ -102,13 +110,16 @@ pub struct KeyId(pub String);
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct PublicXy(pub [u8; 64]);
 
+/// A new admission key pair, encoded for a server's settings.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct GeneratedKeyPair {
+    /// The id written as `P2P_ADMISSION_KEY_ID`.
     pub key_id: KeyId,
     /// Standard base64 of the PKCS#8 PEM.
     pub signing_key: Secret,
     /// Standard base64 of the SPKI PEM.
     pub verify_key: String,
+    /// The verifying key's X and Y coordinates.
     pub public_xy: PublicXy,
 }
 
@@ -124,18 +135,24 @@ impl GeneratedKeyPair {
     }
 }
 
+/// Makes new admission key pairs.
 pub trait KeyGenerator: Send + Sync {
+    /// A new key pair under `id`.
     fn generate(&self, id: KeyId) -> Result<GeneratedKeyPair, AdmissionError>;
 }
 
+/// Mints and verifies admission tickets.
 pub trait TicketAuthority: Send + Sync {
+    /// The key new tickets are signed with.
     fn key_id(&self) -> KeyId;
+    /// A signed ticket for these bindings, valid from `at` for the lifetime given or the default.
     fn mint(
         &self,
         to: TicketBindings,
         at: UnixMillis,
         lifetime_seconds: Option<u32>,
     ) -> Result<MintedTicket, AdmissionError>;
+    /// The ticket's claims if it is well formed, signed by the active key and valid at `at`.
     fn verify(&self, text: &str, at: UnixMillis) -> Result<TicketClaims, AdmissionError>;
 }
 
@@ -153,16 +170,22 @@ pub fn derive_ice_peer_id(account: &AccountId) -> PeerId {
     PeerId((u64::from_be_bytes(leading) & (u64::MAX >> 1)).max(1))
 }
 
+/// The admission routes' operations.
 pub trait AdmissionService: Send + Sync {
+    /// A ticket for the host's own game client in its hunt.
     fn issue_self_ticket(&self, who: AccountId, hunt: SessionId) -> Answer<'_, IssuedTicket>;
+    /// A joiner's ticket and what its transport needs to join the hunt.
     fn create_join_bootstrap(&self, who: AccountId, hunt: SessionId) -> Answer<'_, JoinBootstrap>;
+    /// Consumes a joiner's ticket for the host whose capability called; a replay for the same connection answers idempotently.
     fn consume_ticket(&self, host: HostCapability, request: ConsumeTicket) -> Answer<'_, ConsumedTicket>;
+    /// Records that an admitted peer disconnected; `false` when the admission was unknown or already closed.
     fn record_peer_disconnected(
         &self,
         host: HostCapability,
         admission: String,
         at: Option<UnixMillis>,
     ) -> Answer<'_, bool>;
+    /// The peers of a hub generation the host should link with.
     fn list_hub_peers(&self, who: AccountId, hub: SessionId, generation: Option<i64>) -> Answer<'_, HubPeers>;
 }
 

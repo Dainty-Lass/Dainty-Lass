@@ -4,7 +4,7 @@
 //! Sessions through the `Transport` API (spec §5.3 "Module sessions" and the API checks of "abi" that still apply
 //! without the C ABI): handles, files, config rules, the session limit, a hub and a hunt side by side, teardown.
 
-#![allow(clippy::unwrap_used, clippy::expect_used)] // test helpers
+#![allow(clippy::unwrap_used, clippy::expect_used, reason = "a panic is how a test fails")]
 
 mod common;
 

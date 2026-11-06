@@ -4,7 +4,7 @@
 //! The core loads the built chat library and players chat through it as they did through the compiled-in plugin
 //! (`crates/chat/tests/chat.rs`): their logins come from a game module of the core's, and the library's history
 //! keeps a whisper for someone offline (RD27).
-#![allow(clippy::unwrap_used, clippy::expect_used)] // test helpers
+#![allow(clippy::unwrap_used, clippy::expect_used, reason = "a panic is how a test fails")]
 
 use std::collections::BTreeMap;
 use std::path::PathBuf;

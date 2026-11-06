@@ -37,14 +37,17 @@ use crate::{Clock, now_ms};
 
 /// Node's `server.maxConnections`
 pub const MAX_CONNECTIONS: usize = 512;
+/// How long a client may take to send its request headers.
 pub const HEADER_TIMEOUT: Duration = Duration::from_secs(20);
 /// Node's `server.setTimeout(120000)`: a client that stops reading a download frees its slot
 pub const IDLE_TIMEOUT: Duration = Duration::from_secs(120);
 
+/// Serves `config` standalone until stopped, with no modules attached.
 pub async fn run(config: Config) -> Result<(), String> {
     run_with_context(config, ServiceContext::standalone("content")).await
 }
 
+/// Serves `config` until `ctx` says stop, with no modules attached.
 pub async fn run_with_context(config: Config, ctx: ServiceContext) -> Result<(), String> {
     run_with_modules(config, ctx, Arc::new(ContentModules::default())).await
 }

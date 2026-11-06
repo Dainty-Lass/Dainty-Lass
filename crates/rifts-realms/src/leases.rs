@@ -64,13 +64,18 @@ pub(crate) const LIFECYCLE_ACTOR: Actor = Actor::System("realms-lifecycle");
 /// What hosting reads from settings; isles may change `policy` and `realm_hosting` after reading it.
 #[derive(Clone, Debug, PartialEq)]
 pub struct HostingSettings {
+    /// Player hosting's switches and limits.
     pub policy: HostingPolicy,
+    /// What a player needs to be offered a host.
     pub eligibility: EligibilityPolicy,
+    /// The realm hub settings.
     pub realm_hub: RealmHubPolicy,
+    /// Whether realm hosting is on.
     pub realm_hosting: bool,
 }
 
 impl HostingSettings {
+    /// Reads every part from the server's settings.
     pub fn from_settings(settings: &dyn Settings) -> Self {
         let realm_hosting = realm_hosting_enabled(settings);
         let realm_hub = RealmHubPolicy::from_settings(settings);
@@ -88,61 +93,117 @@ impl HostingSettings {
 /// What a server that issues bootstraps and tickets wires in.
 #[derive(Clone)]
 pub struct HostingRuntime {
+    /// Issues and checks host capabilities.
     pub capabilities: Arc<HostCapabilities>,
+    /// Where admission records live.
     pub admission_store: Arc<dyn AdmissionStore>,
+    /// Signs admission tickets.
     pub tickets: Arc<Es256Tickets>,
+    /// The module's accounts, parties and matchmaking.
     pub core: Arc<dyn IslesCore>,
+    /// The backend URL a host's runtime calls.
     pub backend_url: String,
+    /// The game server UDP port a host uses when the session sets none.
     pub host_server_udp_port: u16,
+    /// Whether the realms module is on.
     pub realms_enabled: bool,
+    /// This server's node, for global ids.
     pub node: NodeId,
 }
 
+/// What player hosting runs on.
 pub struct HostingParts {
+    /// The realms database.
     pub db: RealmsDb,
+    /// The hosting settings.
     pub settings: HostingSettings,
+    /// The time now.
     pub clock: Arc<dyn Clock>,
+    /// The operations policy as hosting reads it.
     pub operations: Arc<dyn OperationsView>,
+    /// Launcher Guard sessions.
     pub guard: Arc<dyn GuardSessions>,
+    /// Where a hunt that lost its host is recovered.
     pub recovery: Arc<dyn Recovery>,
+    /// The artifact hashes a host must run, or why they could not be read.
     pub expected_artifacts: Arc<dyn Fn() -> Result<ArtifactHashes, String> + Send + Sync>,
+    /// Hosting's log.
     pub log: Arc<dyn RealmsLog>,
 }
 
+/// What one lifecycle sweep did to a session.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum SweepStep {
-    Suspect { reason: String },
+    /// The session became suspect.
+    Suspect {
+        /// Why, as a code.
+        reason: String,
+    },
+    /// The lease came back; the session returned to its state before suspicion.
     Recovered,
+    /// The host offer expired; another host is being chosen.
     OfferExpired,
-    RetriedHost { reason: String },
-    Ended { reason: String, state: HuntState },
+    /// The host failed before the session went live; another host is being chosen.
+    RetriedHost {
+        /// Why, as a code.
+        reason: String,
+    },
+    /// The session ended.
+    Ended {
+        /// Why, as a code.
+        reason: String,
+        /// The terminal state it ended in.
+        state: HuntState,
+    },
+    /// Host selection ran.
     Selected,
-    Recovery { reason: String, before_active: bool },
+    /// The session was handed to recovery.
+    Recovery {
+        /// Why, as a code.
+        reason: String,
+        /// Whether the session had not gone live yet.
+        before_active: bool,
+    },
+    /// Recovery took its next step.
     RecoveryAdvanced,
+    /// This many waiting hub entries expired.
     HubEntriesExpired(usize),
 }
 
+/// The answer to a host's lease heartbeat.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct LeaseReply {
+    /// Always true.
     pub renewed: bool,
+    /// The session.
     pub session_id: String,
+    /// Its generation.
     pub generation: i64,
+    /// The new lease expiry, as ISO 8601.
     pub lease_expires_at: String,
+    /// The session's state, as its wire name.
     pub state: &'static str,
 }
 
+/// The answer to a participant's observation.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ObservationReply {
+    /// Always true.
     pub accepted: bool,
+    /// The session.
     pub session_id: String,
+    /// Its generation.
     pub generation: i64,
+    /// Whether the observation was stored; false for a hub or a session that has ended.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub stored: Option<bool>,
+    /// The session's state, as its wire name.
     pub state: &'static str,
 }
 
+/// Player hosting: sessions, hosts, leases, and the sweep that moves them along.
 pub struct Hosting {
     pub(crate) parts: HostingParts,
     pub(crate) runtime: Option<HostingRuntime>,
@@ -335,6 +396,7 @@ fn read_observation(
 }
 
 impl Hosting {
+    /// Hosting over these parts, with no runtime: it issues no bootstraps or tickets.
     pub fn new(parts: HostingParts) -> Hosting {
         let realms = RealmsRepository::new(parts.db.clone());
         let hub = RealmHubRepository::new(parts.db.clone());
@@ -348,6 +410,7 @@ impl Hosting {
         }
     }
 
+    /// Adds the runtime that issues bootstraps and tickets.
     #[must_use]
     pub fn with_runtime(mut self, runtime: HostingRuntime) -> Self {
         self.runtime.replace(runtime);
@@ -519,7 +582,7 @@ impl Hosting {
             .await
     }
 
-    #[allow(clippy::too_many_arguments)]
+    #[allow(clippy::too_many_arguments, reason = "each argument is one part of the transition")]
     pub(crate) async fn end_hunt(
         &self,
         actor: &Actor,

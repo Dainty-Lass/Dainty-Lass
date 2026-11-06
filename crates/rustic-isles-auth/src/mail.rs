@@ -17,12 +17,14 @@ use crate::AuthSettings;
 use crate::store::Purpose;
 use crate::util;
 
+/// The From header when `RUSTIC_ISLES_MAIL_FROM` is unset.
 pub const DEFAULT_FROM: &str = "Rustic Isles <no-reply@mysticfox.dev>";
 const CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
 const IO_TIMEOUT: Duration = Duration::from_secs(20);
 const MAX_REPLY_LINE: usize = 4096;
 const MAX_REPLY_LINES: usize = 128;
 
+/// How the SMTP connection is secured (`RUSTIC_ISLES_SMTP_SECURE`).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SmtpSecurity {
     /// Required STARTTLS on a plain connection
@@ -31,13 +33,20 @@ pub enum SmtpSecurity {
     Tls,
 }
 
+/// The host's SMTP settings; Debug leaves out the password.
 #[derive(Clone, PartialEq, Eq)]
 pub struct SmtpConfig {
+    /// The SMTP server's host name.
     pub host: String,
+    /// The SMTP port (default 587).
     pub port: u16,
+    /// STARTTLS or TLS from the start.
     pub security: SmtpSecurity,
+    /// The SMTP login.
     pub user: String,
+    /// The SMTP password; never logged.
     pub password: String,
+    /// The From header.
     pub from: String,
 }
 
@@ -114,11 +123,16 @@ impl SmtpConfig {
     }
 }
 
+/// One rendered email.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MailMessage {
+    /// The recipient's address.
     pub to: String,
+    /// The subject line.
     pub subject: String,
+    /// The plain-text body.
     pub text: String,
+    /// The HTML body.
     pub html: String,
 }
 
@@ -126,16 +140,20 @@ pub struct MailMessage {
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 #[error("{code}")]
 pub struct MailError {
+    /// A nodemailer-style code such as `ECONNECTION` or `ETIMEDOUT`.
     pub code: String,
 }
 
 impl MailError {
+    /// A failure with `code`.
     pub fn new(code: impl Into<String>) -> Self {
         Self { code: code.into() }
     }
 }
 
+/// How mail is sent, a trait so tests send none.
 pub trait MailTransport: Send + Sync {
+    /// Sends `message` through the SMTP server in `settings`.
     fn send<'a>(&'a self, settings: &'a SmtpConfig, message: MailMessage) -> BoxFuture<'a, Result<(), MailError>>;
 }
 

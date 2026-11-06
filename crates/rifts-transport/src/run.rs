@@ -25,20 +25,31 @@ const DRAIN_LIMIT: Duration = Duration::from_secs(3);
 const REMOTE_PEERS_MAX_HUB: u64 = 64;
 const REMOTE_PEERS_MAX_HUNT: u64 = 4;
 
+/// The files a host session reads, as the launcher wrote them.
 #[derive(Debug, Clone)]
 pub struct HostPaths {
+    /// The ticket signing public key.
     pub public_key: PathBuf,
+    /// `bridge.conf`.
     pub config: PathBuf,
+    /// The host capability file.
     pub capability: PathBuf,
+    /// The host's own ticket, if one was given.
     pub host_ticket: Option<PathBuf>,
+    /// `transport.secret`.
     pub secrets: PathBuf,
 }
 
+/// The files a joiner session reads, as the launcher wrote them.
 #[derive(Debug, Clone)]
 pub struct JoinPaths {
+    /// The ticket signing public key.
     pub public_key: PathBuf,
+    /// `bridge.conf`.
     pub config: PathBuf,
+    /// The joiner's admission ticket.
     pub ticket: PathBuf,
+    /// `transport.secret`.
     pub secrets: PathBuf,
 }
 

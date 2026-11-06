@@ -87,9 +87,11 @@ pub enum Cors {
 /// The signed-in launcher caller (§4.2).
 #[derive(Debug, Clone)]
 pub struct LauncherAuth {
+    /// The caller's userId.
     pub user_id: String,
     /// The refresh family, or `apikey` for an account-key caller
     pub sid: String,
+    /// The caller's account as the sign-in read it.
     pub account: LauncherAccount,
 }
 
@@ -129,6 +131,7 @@ impl<S: AuthStore> Auth<S> {
         })
     }
 
+    /// The CORS handling of a request: only `/launcher/` paths with an `Origin` are checked.
     pub fn launcher_cors(&self, request: &Request) -> Cors {
         if !request.uri().path().to_ascii_lowercase().starts_with("/launcher/") {
             return Cors::Pass;

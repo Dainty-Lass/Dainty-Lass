@@ -3,7 +3,7 @@
 
 //! The version's values (spec §12.2): manifest, tables, Director line, version data and route coverage.
 
-#![allow(clippy::unwrap_used, clippy::expect_used)]
+#![allow(clippy::unwrap_used, clippy::expect_used, reason = "a panic is how a test fails")]
 
 use module_api::GameModule;
 use module_api::manifest::{PatchSetCapability, Transport};

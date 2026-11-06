@@ -3,7 +3,7 @@
 
 //! The server against a real listener on 127.0.0.1:0 (spec section 3.3, H and L): keys, streams, a runtime
 //! changing under the list, versioned runtimes, the module routes, and the request log.
-#![allow(clippy::unwrap_used, clippy::expect_used)]
+#![allow(clippy::unwrap_used, clippy::expect_used, reason = "a panic is how a test fails")]
 
 use std::collections::BTreeMap;
 use std::fmt::Write as _;

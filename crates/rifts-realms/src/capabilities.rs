@@ -116,21 +116,29 @@ pub fn request_identity(params: &[(String, String)], path: &str, body: Option<&V
 /// A capability with its hunt; `present` only for a hub.
 #[derive(Clone, Debug, PartialEq)]
 pub struct RuntimeContext {
+    /// The capability the request carried.
     pub capability: HostCapabilityRecord,
+    /// The session the capability was issued for.
     pub hunt: HuntSession,
+    /// For a hub, the accounts admitted to its generation.
     pub present: Option<Vec<String>>,
 }
 
+/// Who a host runtime's request acts for.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct RuntimeIdentity {
+    /// The account it acts for.
     pub user_id: String,
+    /// The session's roster, the accounts it may act for.
     pub roster: Vec<String>,
 }
 
 /// The user a signed per-player token names.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum SignedUser<'a> {
+    /// No signed token: the requested user, or the host.
     Absent,
+    /// The token names this user.
     User(&'a str),
     /// A token without `userId`: refused.
     Missing,
@@ -245,6 +253,7 @@ impl HubPresenceCache {
         self.entries.lock().unwrap_or_else(PoisonError::into_inner)
     }
 
+    /// The generation's cached accounts, while still fresh.
     pub fn get(&self, session_id: &str, generation: i64, now: UnixMillis) -> Option<Vec<String>> {
         let key = (session_id.to_owned(), generation);
         let entries = self.locked();
@@ -252,6 +261,7 @@ impl HubPresenceCache {
         fresh(*read_at, now).then(|| accounts.clone())
     }
 
+    /// Caches the generation's accounts as read at `now`, pruning stale entries when the cache is large.
     pub fn put(&self, session_id: &str, generation: i64, now: UnixMillis, accounts: Vec<String>) {
         let mut entries = self.locked();
         if entries.len() >= CACHE_PRUNE_AT {
@@ -265,10 +275,12 @@ impl HubPresenceCache {
         self.locked().retain(|key, _| key.0 != session_id);
     }
 
+    /// How many generations are cached.
     pub fn len(&self) -> usize {
         self.locked().len()
     }
 
+    /// Whether nothing is cached.
     pub fn is_empty(&self) -> bool {
         self.locked().is_empty()
     }
@@ -281,6 +293,7 @@ pub struct HostCapabilities {
 }
 
 impl HostCapabilities {
+    /// Capabilities over `db`, with an empty hub presence cache.
     pub fn new(db: RealmsDb) -> Self {
         Self {
             presence: Arc::new(HubPresenceCache::default()),
@@ -288,6 +301,7 @@ impl HostCapabilities {
         }
     }
 
+    /// The hub presence cache, shared.
     pub fn hub_presence(&self) -> Arc<HubPresenceCache> {
         Arc::clone(&self.presence)
     }
@@ -433,6 +447,7 @@ impl HostCapabilities {
         }))
     }
 
+    /// The seam's view of a resolved capability; `None` when its session id does not parse.
     pub fn runtime_auth(&self, context: &RuntimeContext, identity: &RuntimeIdentity) -> Option<RuntimeAuth> {
         let capability = &context.capability;
         let session = seam_session_id(&capability.session_id, self.db.node())?;
@@ -504,18 +519,22 @@ impl RealmsHuntSessions {
         }
     }
 
+    /// Guard's view with its own cache, on a realms clock.
     pub fn new(db: RealmsDb, clock: Arc<dyn Clock>) -> Self {
         Self::assemble(db, None, realms_now(clock))
     }
 
+    /// Guard's view sharing `cache`, on a realms clock.
     pub fn with_cache(db: RealmsDb, cache: Arc<HubPresenceCache>, clock: Arc<dyn Clock>) -> Self {
         Self::assemble(db, Some(cache), realms_now(clock))
     }
 
+    /// Guard's view with its own cache, on Guard's clock.
     pub fn with_guard_clock(db: RealmsDb, clock: Arc<dyn rifts_guard::Clock>) -> Self {
         Self::assemble(db, None, guard_now(clock))
     }
 
+    /// Guard's view sharing `cache`, on Guard's clock.
     pub fn with_cache_and_guard_clock(
         db: RealmsDb,
         cache: Arc<HubPresenceCache>,
@@ -524,6 +543,7 @@ impl RealmsHuntSessions {
         Self::assemble(db, Some(cache), guard_now(clock))
     }
 
+    /// The hub presence cache, shared.
     pub fn presence_cache(&self) -> Arc<HubPresenceCache> {
         Arc::clone(&self.cache)
     }

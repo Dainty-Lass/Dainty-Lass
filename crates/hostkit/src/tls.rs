@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Silent Spud
 
+//! The gateway's self-signed certificate: made once, from host.toml's addresses, and never regenerated, since every
+//! invite's `fp` is its SHA-256.
+
 use std::net::Ipv4Addr;
 
 use aws_lc_rs::rand::{SecureRandom, SystemRandom};
@@ -14,23 +17,34 @@ use crate::error::HostError;
 use crate::hostconfig::{HostConfig, is_ipv4, write_secret_file};
 use crate::paths::Paths;
 
+/// What a self-signed certificate names.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CertRequest {
+    /// Its subject's common name.
     pub common_name: String,
+    /// The DNS names it is valid for.
     pub dns_names: Vec<String>,
+    /// The IPv4 addresses it is valid for.
     pub ip_addresses: Vec<String>,
 }
 
+/// When a certificate is valid.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Validity {
+    /// The first moment it is valid.
     pub not_before: DateTime<Utc>,
+    /// The last moment it is valid.
     pub not_after: DateTime<Utc>,
 }
 
+/// A made certificate.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Cert {
+    /// The certificate, PEM.
     pub cert_pem: String,
+    /// Its ECDSA P-256 private key, PKCS#8 PEM.
     pub key_pem: String,
+    /// The certificate's SHA-256, lowercase hex.
     pub fingerprint: String,
 }
 
@@ -137,6 +151,7 @@ fn der_cn_name(cn: &str) -> Vec<u8> {
     der_seq(&[rdn])
 }
 
+/// A certificate for `req`, valid from a day ago for ten years.
 pub fn generate_self_signed_cert(req: &CertRequest) -> Result<Cert, HostError> {
     let now = Utc::now();
     let validity = Validity {
@@ -146,6 +161,7 @@ pub fn generate_self_signed_cert(req: &CertRequest) -> Result<Cert, HostError> {
     generate_self_signed_cert_at(req, validity)
 }
 
+/// A certificate for `req` with an ECDSA P-256 key, valid for `validity`.
 pub fn generate_self_signed_cert_at(req: &CertRequest, validity: Validity) -> Result<Cert, HostError> {
     let rng = SystemRandom::new();
     let pkcs8 = EcdsaKeyPair::generate_pkcs8(&ECDSA_P256_SHA256_ASN1_SIGNING, &rng)
@@ -262,6 +278,7 @@ pub fn generate_self_signed_cert_at(req: &CertRequest, validity: Validity) -> Re
     })
 }
 
+/// The certificate and key PEMs for `hosts`, the first one its common name.
 pub fn generate_self_signed_cert_pem(hosts: &[String]) -> Result<(String, String), HostError> {
     let common_name = hosts.first().cloned().unwrap_or_else(|| "127.0.0.1".to_owned());
     let mut dns_names = Vec::new();
@@ -283,6 +300,8 @@ pub fn generate_self_signed_cert_pem(hosts: &[String]) -> Result<(String, String
     Ok((cert.cert_pem, cert.key_pem))
 }
 
+/// Writes the gateway's certificate and key for host.toml's host and game address unless both are there.
+/// Returns whether it wrote them; the key is readable by its owner only.
 pub fn write_gateway_cert_if_missing(paths: &Paths, config: &HostConfig) -> Result<bool, HostError> {
     if paths.cert_file.is_file() && paths.key_file.is_file() {
         return Ok(false);
@@ -311,7 +330,7 @@ pub fn write_gateway_cert_if_missing(paths: &Paths, config: &HostConfig) -> Resu
 
 #[cfg(test)]
 mod tests {
-    #![allow(clippy::unwrap_used)]
+    #![allow(clippy::unwrap_used, reason = "a panic is how a test fails")]
 
     use super::*;
 

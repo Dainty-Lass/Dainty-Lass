@@ -3,7 +3,7 @@
 
 //! Normalization and comparison (spec §13.2 N3-N9, R1-R2, C1-C5).
 
-#![allow(clippy::unwrap_used, clippy::expect_used)]
+#![allow(clippy::unwrap_used, clippy::expect_used, reason = "a panic is how a test fails")]
 
 use std::collections::BTreeMap;
 

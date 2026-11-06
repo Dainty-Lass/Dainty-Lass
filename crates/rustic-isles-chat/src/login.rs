@@ -10,17 +10,25 @@ use serde_json::Value;
 
 use crate::{CLIENT_CREDENTIALS_USER_ID, ChatSource, Player};
 
+/// Why a login was refused; logged, never shown to the client.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Refusal {
+    /// The token did not verify, or there is no token check.
     JwtVerifyFailed,
+    /// The token carries no string `userId`.
     NoUserId,
+    /// The token is a client-credentials one, not a player's.
     ClientCredentials,
+    /// The SASL authcid is not the token's `userId`.
     Mismatch,
+    /// No account answers to that `userId`.
     NotEligible,
+    /// The account lookup failed.
     LookupError,
 }
 
 impl Refusal {
+    /// The reason as the log line writes it.
     pub fn as_str(self) -> &'static str {
         match self {
             Self::JwtVerifyFailed => "jwt verify failed",
@@ -39,6 +47,7 @@ impl fmt::Display for Refusal {
     }
 }
 
+/// The player a SASL `PLAIN` login names, checked in the order of spec §5.5; the first failing step is the refusal.
 pub async fn authenticate(authcid: &str, token: &str, source: &dyn ChatSource) -> Result<Player, Refusal> {
     let claims = source
         .token_check()

@@ -3,7 +3,7 @@
 
 //! The 29 rows black-box through core's `app()` (spec §10.2).
 
-#![allow(clippy::unwrap_used, clippy::expect_used)]
+#![allow(clippy::unwrap_used, clippy::expect_used, reason = "a panic is how a test fails")]
 
 use std::net::SocketAddr;
 use std::path::Path;

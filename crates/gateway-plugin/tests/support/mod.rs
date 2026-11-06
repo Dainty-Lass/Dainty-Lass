@@ -2,7 +2,12 @@
 // Copyright (c) 2026 Silent Spud
 
 //! What the library's tests share: the library cargo built, run by the core as `host` would, and its log.
-#![allow(dead_code, clippy::unwrap_used, clippy::expect_used)] // test helpers
+#![allow(
+    dead_code,
+    clippy::unwrap_used,
+    clippy::expect_used,
+    reason = "shared by several test binaries, each using only some; a panic is how a test fails"
+)]
 
 use std::sync::{Arc, Mutex, OnceLock};
 use std::time::Duration;

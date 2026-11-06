@@ -1,6 +1,10 @@
 //! A fake Epic CDN for tests, here and in the host kit's (`test-support`): three HTTPS hosts on 127.0.0.1:0 with a
 //! CA of their own, serving the chunks of a synthetic manifest. Nothing reaches Epic.
-#![allow(clippy::unwrap_used, clippy::expect_used)]
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    reason = "test fixtures, built only for tests and test-support; a panic is how a test fails"
+)]
 
 use std::collections::HashMap;
 use std::convert::Infallible;
@@ -19,26 +23,33 @@ use crate::chunk::synthetic::encode;
 use crate::manifest::synthetic::{Build, chunk, file};
 use crate::manifest::{Manifest, Sha1Digest};
 
+/// How one fake CDN host answers.
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum Host {
+    /// Serves every chunk as it is.
     Good,
     /// Every chunk with one byte flipped in its payload
     Corrupt,
     /// A redirect to a good copy, which must not be followed
     Redirect,
+    /// Answers 404 for everything.
     Missing,
     /// Serves this many chunks, then never answers (a download killed halfway)
     Stall(usize),
 }
 
+/// A running fake CDN.
 pub struct Cdn {
+    /// Each host's base URL, in the order of the hosts asked for.
     pub bases: Vec<String>,
     /// Paths asked of each host
     seen: Vec<Arc<Mutex<Vec<String>>>>,
+    /// A client config trusting the CDN's own CA.
     pub tls: Arc<rustls::ClientConfig>,
 }
 
 impl Cdn {
+    /// The paths host `host` was asked for, in order.
     pub fn requests(&self, host: usize) -> Vec<String> {
         self.seen[host].lock().unwrap().clone()
     }
@@ -135,6 +146,7 @@ pub async fn cdn(hosts: &[Host], files: HashMap<String, Vec<u8>>) -> Cdn {
     }
 }
 
+/// Path of the executable in [`build`].
 pub const EXE: &str = "Archon/Binaries/Win64/Dauntless-Win64-Shipping.exe";
 
 /// A small version: chunks shared between files, one file with no parts, packed and stored chunks.
@@ -152,18 +164,24 @@ pub fn build() -> Build {
     }
 }
 
+/// A synthetic version with its manifest and CDN files.
 pub struct Version {
+    /// What it was built from.
     pub build: Build,
+    /// Its parsed manifest.
     pub manifest: Manifest,
+    /// SHA-1 of the manifest bytes.
     pub pin: Sha1Digest,
     /// URL path -> `.chunk` file
     pub files: HashMap<String, Vec<u8>>,
 }
 
+/// [`version_of`] the default [`build`].
 pub fn version() -> Version {
     version_of(build())
 }
 
+/// `build` packed, parsed and its chunks encoded for the CDN, alternately compressed and stored.
 pub fn version_of(build: Build) -> Version {
     let bytes = build.bytes();
     let pin = Sha1Digest::of(&bytes);

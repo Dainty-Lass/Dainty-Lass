@@ -727,7 +727,7 @@ fn fresh(fields: &Map<String, Value>) -> Result<String, HostError> {
 
 #[cfg(test)]
 mod tests {
-    #![allow(clippy::unwrap_used)]
+    #![allow(clippy::unwrap_used, reason = "a panic is how a test fails")]
 
     use super::*;
     use serde_json::json;

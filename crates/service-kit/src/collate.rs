@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Silent Spud
 
+//! String ordering as the Node services' `localeCompare` gave it for the names they sort.
+
 use std::cmp::Ordering;
 
 const ORDER: &[u8] = b" _-,;:!?.'\"()[]{}@*/\\&#%`^+<=>|~$0123456789abcdefghijklmnopqrstuvwxyz";
@@ -34,6 +36,7 @@ fn tertiary_weight(c: char) -> u8 {
     u8::from(c.is_ascii_uppercase())
 }
 
+/// Compares as `a.localeCompare(b)`: punctuation before digits before letters, case only as a tie-break.
 pub fn locale_compare(a: &str, b: &str) -> Ordering {
     let mut iter_a = a.chars().filter(|c| !c.is_ascii_control());
     let mut iter_b = b.chars().filter(|c| !c.is_ascii_control());

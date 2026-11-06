@@ -28,22 +28,35 @@ use crate::messages::{
 use crate::username::Username;
 
 diesel::table! {
+    /// The leader's append-only log of directory changes.
     network_directory_log (seq) {
+        /// Entry number, from 1, assigned by the leader.
         seq -> BigInt,
+        /// Unix milliseconds.
         at -> BigInt,
+        /// `register`, `rename` or their `_clash` forms.
         op -> Text,
+        /// The account's global id.
         account -> Text,
+        /// The username the entry gives it.
         username -> Text,
+        /// The account's home node, for a registration.
         home -> Nullable<Text>,
     }
 }
 
 diesel::table! {
+    /// What the log adds up to: one row per account.
     network_directory_accounts (account) {
+        /// The account's global id.
         account -> Text,
+        /// Its home node.
         home -> Text,
+        /// Its username as written.
         username -> Text,
+        /// The username's case-folded key, unique.
         username_key -> Text,
+        /// The log entry that last changed the row.
         seq -> BigInt,
     }
 }
@@ -52,29 +65,44 @@ use network_directory_accounts as accounts;
 use network_directory_log as log;
 
 diesel::table! {
+    /// The game's `accounts` table, read when a server joins a network (DN13).
     #[sql_name = "accounts"]
     host_accounts (id) {
+        /// The game's account id.
         id -> Text,
+        /// The account's user id.
         user_id -> Text,
+        /// The in-game name.
         name -> Text,
+        /// The game's notes counter.
         notes -> BigInt,
+        /// Unix milliseconds; set when deleted.
         deleted_at -> Nullable<BigInt>,
     }
 }
 
 diesel::table! {
+    /// The launcher's `launcher_accounts` table, read when a server joins a network (DN13).
     #[sql_name = "launcher_accounts"]
     host_launcher_accounts (account_id) {
+        /// The global account id.
         account_id -> Text,
+        /// The display name, normalised for comparison.
         display_name_normalized -> Text,
+        /// The display name.
         display_name -> Text,
+        /// When the account was created, as the launcher wrote it.
         created_at -> Text,
+        /// 0 while the account still has its placeholder name.
         username_set -> Nullable<BigInt>,
+        /// Unix milliseconds; set when deleted.
         deleted_at -> Nullable<BigInt>,
     }
 }
 
+/// The directory's SQLite migrations.
 pub const SQLITE_MIGRATIONS: EmbeddedMigrations = embed_migrations!("migrations/sqlite");
+/// The directory's Postgres migrations.
 pub const POSTGRES_MIGRATIONS: EmbeddedMigrations = embed_migrations!("migrations/postgres");
 
 /// The directory's tables on a database of their own. A node that keeps them in its game database
@@ -88,18 +116,24 @@ pub const SCHEMA: DatabaseSchema = DatabaseSchema {
 /// Who applies the leader's entries on a replica, in the change log.
 const REPLICATION: &str = "directory-replication";
 
+/// Where this node stands in the directory.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Role {
     /// Not in a network: the directory is this server's alone
     Standalone,
+    /// Holds the log and accepts writes.
     Leader,
+    /// Pulls the leader's log.
     Replica {
+        /// The node it pulls from.
         leader: NodeId,
     },
 }
 
+/// How a [`Directory`] is set up.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DirectoryConfig {
+    /// This node.
     pub node: NodeId,
     /// The network's leader; none outside a network
     pub leader: Option<NodeId>,
@@ -108,6 +142,7 @@ pub struct DirectoryConfig {
 }
 
 impl DirectoryConfig {
+    /// Outside a network: this node is its own leader.
     pub fn standalone(node: NodeId) -> Self {
         Self {
             node,
@@ -116,6 +151,7 @@ impl DirectoryConfig {
         }
     }
 
+    /// In a network led by `leader`; the leader's own node is passed as both.
     pub fn in_network(node: NodeId, leader: NodeId) -> Self {
         Self {
             node,
@@ -124,6 +160,7 @@ impl DirectoryConfig {
         }
     }
 
+    /// Entries per pull, clamped to 1..=[`MAX_PULL`].
     pub fn with_page(mut self, page: u32) -> Self {
         self.page = page.clamp(1, MAX_PULL);
         self
@@ -141,26 +178,33 @@ impl DirectoryConfig {
 /// What the directory knows of one account.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AccountRecord {
+    /// The account's global id.
     pub account: GlobalId,
+    /// Its username.
     pub username: Username,
+    /// Its home node.
     pub home: NodeId,
     /// The entry that last changed it
     pub seq: u64,
 }
 
+/// Why a directory call failed.
 #[derive(Debug, thiserror::Error)]
 pub enum DirectoryError {
+    /// The leader refused the change, such as a name already taken.
     #[error(transparent)]
     Refused(#[from] Refusal),
     /// Registrations and renames wait for the leader rather than risk a name claimed twice
     #[error("the directory's leader can't be reached: {0}")]
     LeaderUnreachable(LinkError),
+    /// The leader answered something that does not fit the call.
     #[error("the leader's answer makes no sense: {0}")]
     Protocol(String),
     /// This node's log isn't a prefix of the leader's (a leader restored from an older backup, say):
     /// replication stops until an operator resets one of them
     #[error("this node's directory has diverged from the leader's: {0}")]
     Diverged(String),
+    /// The database failed.
     #[error(transparent)]
     Store(#[from] store::Error),
 }
@@ -573,10 +617,12 @@ impl Directory {
         })
     }
 
+    /// This node.
     pub fn node(&self) -> &NodeId {
         &self.node
     }
 
+    /// Whether this node leads, replicates or stands alone.
     pub fn role(&self) -> &Role {
         &self.role
     }

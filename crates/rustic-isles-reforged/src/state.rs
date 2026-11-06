@@ -21,11 +21,13 @@ const RECENT_LIMIT: usize = 50_000;
 
 /// Matchmaking's presence touch (unit 8 fills it).
 pub trait MatchmakingPresence: Send + Sync {
+    /// Marks the user's game as seen at `at_ms`.
     fn touch(&self, user_id: &str, at_ms: i64);
 }
 
 /// Whether matchmaking holds a live candidate for the user (unit 8 fills it).
 pub trait MatchmakingCandidates: Send + Sync {
+    /// Whether the user has a candidate.
     fn has_candidate(&self, user_id: &str) -> bool;
 }
 
@@ -42,9 +44,12 @@ impl MatchmakingCandidates for rustic_isles_matchmaking::MatchmakingState {
     }
 }
 
+/// Whether the backend is ready, and why.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Readiness {
+    /// Whether it is ready.
     pub ready: bool,
+    /// Why, such as `API_BEHIND_PROXY_RUNNING`.
     pub reason: String,
     /// Unix ms of the last change, taken the first time it is read
     pub changed_ms: i64,
@@ -65,10 +70,13 @@ struct StatusCache {
 /// The two views of `ServerStatus`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum StatusView {
+    /// The view for an eligible key holder.
     Full,
+    /// The view for everyone else.
     Limited,
 }
 
+/// The Reforged area's per-module state: readiness, metrics, caches and the matchmaking slots.
 pub struct ReforgedState {
     started: Instant,
     readiness: Mutex<ReadinessCell>,
@@ -99,6 +107,7 @@ fn lock<T>(m: &Mutex<T>) -> std::sync::MutexGuard<'_, T> {
 }
 
 impl ReforgedState {
+    /// A ready state with empty caches and no matchmaking slots filled.
     pub fn new() -> Self {
         Self {
             started: Instant::now(),
@@ -128,14 +137,17 @@ impl ReforgedState {
         shared.slot::<Self>().unwrap_or_else(|| Arc::new(Self::new()))
     }
 
+    /// The module's metrics.
     pub fn metrics(&self) -> &Metrics {
         &self.metrics
     }
 
+    /// Seconds since the state was made.
     pub fn uptime_seconds(&self) -> u64 {
         self.started.elapsed().as_secs()
     }
 
+    /// The readiness; the change time is fixed the first time it is read.
     pub fn readiness(&self) -> Readiness {
         let mut cell = lock(&self.readiness);
         let changed_ms = *cell.changed_ms.get_or_insert_with(now_ms);
@@ -173,6 +185,7 @@ impl ReforgedState {
             .map(|(_, body)| body.clone())
     }
 
+    /// Caches a view's body, unless the clock is pinned.
     pub fn store_status(&self, view: StatusView, body: &Value) {
         if rustic_isles::replay::is_replay_pinned() {
             return;
@@ -250,18 +263,22 @@ impl ReforgedState {
 
     // -------------------------------------------------------------- matchmaking slots
 
+    /// Fills matchmaking's presence slot.
     pub fn set_matchmaking_presence(&self, presence: Arc<dyn MatchmakingPresence>) {
         *self.presence.write().unwrap_or_else(PoisonError::into_inner) = Some(presence);
     }
 
+    /// Fills matchmaking's candidates slot.
     pub fn set_matchmaking_candidates(&self, candidates: Arc<dyn MatchmakingCandidates>) {
         *self.candidates.write().unwrap_or_else(PoisonError::into_inner) = Some(candidates);
     }
 
+    /// Matchmaking's presence, none until filled.
     pub fn matchmaking_presence(&self) -> Option<Arc<dyn MatchmakingPresence>> {
         self.presence.read().unwrap_or_else(PoisonError::into_inner).clone()
     }
 
+    /// Whether matchmaking holds a candidate for the user; false until filled.
     pub fn has_matchmaking_candidate(&self, user_id: &str) -> bool {
         let candidates = self.candidates.read().unwrap_or_else(PoisonError::into_inner).clone();
         candidates.is_some_and(|c| c.has_candidate(user_id))

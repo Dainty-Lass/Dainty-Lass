@@ -30,6 +30,7 @@ pub fn wire_session_id(session: &SessionId) -> String {
     out
 }
 
+/// The value if it is 1 to `maximum` bytes on one line; otherwise the backend's data is refused as unsafe.
 pub fn safe_config_value(value: &str, maximum: usize) -> Result<&str, HostError> {
     let one_line = !value.contains(['\r', '\n', '\0']);
     ((1..=maximum).contains(&value.len()) && one_line)
@@ -46,24 +47,29 @@ fn printable(text: &str) -> bool {
     text.bytes().all(|b| b.is_ascii_graphic())
 }
 
+/// 1 to 64 ASCII alphanumerics, `-`, `_` or `:`.
 pub fn safe_account(text: &str) -> bool {
     shaped(text, 1..=64, |b| b.is_ascii_alphanumeric() || b"-_:".contains(&b))
 }
 
+/// A nonzero decimal u64 with no leading zero.
 pub fn safe_peer_id(text: &str) -> bool {
     // Decimal with no leading zero that still fits a u64.
     shaped(text, 1..=20, |b| b.is_ascii_digit()) && !text.starts_with('0') && text.parse::<u64>().is_ok()
 }
 
+/// 43 base64url characters: a 32-byte pair key.
 pub fn safe_key(text: &str) -> bool {
     shaped(text, 43..=43, |b| b.is_ascii_alphanumeric() || b"-_".contains(&b))
 }
 
+/// A `stun:`, `turn:` or `turns:` URL of at most 256 printable bytes and no comma.
 pub fn safe_url(text: &str) -> bool {
     let scheme_ok = text.starts_with("stun:") || text.starts_with("turn:") || text.starts_with("turns:");
     scheme_ok && text.len() <= 256 && printable(text) && !text.contains(',')
 }
 
+/// 1 to 512 printable ASCII bytes.
 pub fn safe_credential(text: &str) -> bool {
     (1..=512).contains(&text.len()) && printable(text)
 }
@@ -139,6 +145,8 @@ fn push_line(out: &mut String, key: &str, value: &str) {
     out.push('\n');
 }
 
+/// The session's ICE files from the backend's transport config; refused when an id is unsafe, the host peer id
+/// differs or the peers do not fit `files_for`. A hub host gets no peer lines.
 pub fn ice_files(config: &TransportConfig, files_for: FilesFor, host_peer_id: &str) -> Result<IceFiles, HostError> {
     let accounts_ok = safe_account(&config.local_account_id) && safe_account(&config.host_account_id);
     let peers_ok = safe_peer_id(&config.local_peer_id) && safe_peer_id(&config.host_peer_id);
@@ -222,6 +230,7 @@ pub fn parse_ice_ready(
         .ok_or_else(|| refused("returned an invalid local route"))
 }
 
+/// The peer event a transport line reports, `None` for any other line.
 pub fn parse_peer_event(line: &str) -> Option<PeerEvent> {
     let mut tokens = line.split_whitespace();
     let kind = tokens.next()?;
@@ -244,6 +253,7 @@ pub fn parse_peer_event(line: &str) -> Option<PeerEvent> {
     }
 }
 
+/// Whether the line admits the host's own local game client.
 pub fn is_local_admission(line: &str) -> bool {
     let mut tokens = line.split_whitespace();
     if tokens.next() != Some("ADMISSION_ACCEPTED") {
@@ -257,6 +267,7 @@ pub fn is_local_admission(line: &str) -> bool {
     as_host && from_local
 }
 
+/// Applies a peer event to the panel's view: an admission adds the peer, a loss or removal drops it.
 pub fn apply_peer_event(live: &mut SessionLive, event: &PeerEvent, now_iso: &str) {
     if let PeerEvent::Admitted { account, route } = event {
         let entry = PeerLive {
@@ -269,6 +280,7 @@ pub fn apply_peer_event(live: &mut SessionLive, event: &PeerEvent, now_iso: &str
     }
 }
 
+/// Applies a transport line to the panel's view, if it is a peer event or the local admission.
 pub fn apply_peer_line(live: &mut SessionLive, line: &str, now_iso: &str) {
     if is_local_admission(line) {
         live.local_since = Some(now_iso.to_owned());
@@ -313,6 +325,7 @@ pub fn wanted_peers(entries: &[PeerListEntry], host_account_id: Option<&str>) ->
     (wanted, refused)
 }
 
+/// The adds and removes that turn the linked accounts into the wanted roster.
 pub fn peer_diff(linked: &HashSet<String>, wanted: &[WantedPeer]) -> PeerDiff {
     let wanted_ids: HashSet<&str> = wanted.iter().map(|w| w.account_id.as_str()).collect();
     let remove: BTreeSet<&String> = linked.iter().filter(|a| !wanted_ids.contains(a.as_str())).collect();
@@ -443,6 +456,7 @@ pub(super) const fn launch_variable_names() -> [&'static str; 17] {
     names
 }
 
+/// The hosted server's environment: the inherited one without our variables, in any letter case, then ours from `spec`.
 pub fn build_launch_environment(
     spec: &LaunchEnvironmentSpec,
     inherited: impl IntoIterator<Item = (String, String)>,
@@ -499,12 +513,14 @@ pub fn sanitize_central_log_line(line: &str) -> String {
 
 // ---- traffic, relay and the hosting panel's timers ------------------------------------------------------------
 
+/// The `localRx=` count of a `UDP_STATS` line.
 pub fn udp_stats_local_rx(line: &str) -> Option<u64> {
     let reading = line.split_whitespace().find_map(|t| t.strip_prefix("localRx="));
     reading.filter(|_| line.contains("UDP_STATS"))?.parse().ok()
 }
 
 impl GameTrafficWatch {
+    /// A watch whose traffic last changed at `now`.
     pub fn new(now: Instant) -> Self {
         Self {
             reading: None,
@@ -512,6 +528,7 @@ impl GameTrafficWatch {
         }
     }
 
+    /// Takes a `UDP_STATS` line; the watch restarts when the local count grew.
     pub fn observe(&mut self, line: &str, now: Instant) {
         if let Some(reading) = udp_stats_local_rx(line) {
             let grew = self.reading.is_none_or(|previous| reading > previous);
@@ -522,15 +539,18 @@ impl GameTrafficWatch {
         }
     }
 
+    /// Treats the traffic as changed at `now`.
     pub fn restart(&mut self, now: Instant) {
         self.changed = now;
     }
 
+    /// How long the local traffic has stood still.
     pub fn idle(&self, now: Instant) -> Duration {
         now.saturating_duration_since(self.changed)
     }
 }
 
+/// `game_left` once the game's traffic stood still long enough, `timeout` once the wait ran out, else `None`.
 pub fn hunt_join_leave_outcome(asked_at: Instant, traffic: &GameTrafficWatch, now: Instant) -> Option<&'static str> {
     let waited = now.saturating_duration_since(asked_at);
     [
@@ -541,6 +561,7 @@ pub fn hunt_join_leave_outcome(asked_at: Instant, traffic: &GameTrafficWatch, no
     .find_map(|(due, outcome)| due.then_some(outcome))
 }
 
+/// Whether to refresh the relay grant now: inside the margin always, inside the early window once `RELAY_EARLY_REFRESH_SPACING` has passed since the last one.
 pub fn relay_refresh_due(seconds_left: Option<i64>, since_last: Option<Duration>) -> bool {
     seconds_left.is_some_and(|left| {
         let spaced = since_last.is_none_or(|s| s >= RELAY_EARLY_REFRESH_SPACING);
@@ -548,10 +569,12 @@ pub fn relay_refresh_due(seconds_left: Option<i64>, since_last: Option<Duration>
     })
 }
 
+/// Whether the relay grant has 5 minutes or less left, so the session must restart.
 pub fn relay_restart_due(seconds_left: Option<i64>) -> bool {
     matches!(seconds_left, Some(left) if left <= 300)
 }
 
+/// The default hub server limit for a PC with this much memory, in GB: 1 to 6.
 pub fn default_max_servers(physical_gb: u64) -> u8 {
     // Two servers per 3 GB above the first 4, from 1 to 6.
     let spare = physical_gb.saturating_sub(4);
@@ -563,6 +586,7 @@ pub fn default_max_servers(physical_gb: u64) -> u8 {
     u8::try_from(servers).unwrap_or(6)
 }
 
+/// Accepts another server only above the commit floor and under the server limit.
 pub fn capacity_decision(commit_mib: u64, active_servers: u8, max_servers: u8) -> CapacityDecision {
     let room = commit_mib >= HOST_COMMIT_FLOOR_MIB && active_servers < max_servers;
     if room {
@@ -575,29 +599,35 @@ pub fn capacity_decision(commit_mib: u64, active_servers: u8, max_servers: u8) -
 const RESTART_WINDOW: Duration = Duration::from_secs(600);
 const BACKOFF_SECONDS: [u64; 3] = [5, 15, 60];
 
+/// The wait before a restart after this many recent ones: 5, 15, then 60 seconds.
 pub fn restart_backoff(attempts_in_window: usize) -> Duration {
     let step = attempts_in_window.min(BACKOFF_SECONDS.len() - 1);
     Duration::from_secs(BACKOFF_SECONDS[step])
 }
 
+/// Restart attempts within the last 10 minutes.
 pub fn attempts_in_window(attempts: &[Instant], now: Instant) -> usize {
     let recent = |at: &&Instant| now.saturating_duration_since(**at) < RESTART_WINDOW;
     attempts.iter().filter(recent).count()
 }
 
+/// Whether fewer than 5 restarts were tried within the last 10 minutes.
 pub fn restart_allowed(attempts: &[Instant], now: Instant) -> bool {
     attempts_in_window(attempts, now) < 5
 }
 
+/// When the hub became empty, `None` while anyone is present.
 pub fn next_idle_since(previous: Option<Instant>, present: usize, now: Instant) -> Option<Instant> {
     (present == 0).then(|| previous.unwrap_or(now))
 }
 
+/// Whether the Training hub has been empty for 5 minutes.
 pub fn training_should_stop(idle_since: Option<Instant>, now: Instant) -> bool {
     const TRAINING_IDLE: Duration = Duration::from_secs(5 * 60);
     matches!(idle_since, Some(since) if now.saturating_duration_since(since) >= TRAINING_IDLE)
 }
 
+/// Whether an empty hub has been up more than 20 hours and should restart.
 pub fn scheduled_restart_due(uptime: Duration, present: bool) -> bool {
     const SCHEDULED_UPTIME: Duration = Duration::from_secs(20 * 60 * 60);
     uptime > SCHEDULED_UPTIME && !present

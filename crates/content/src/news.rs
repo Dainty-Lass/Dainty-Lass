@@ -17,10 +17,15 @@ use crate::client::{BodyError, Reply};
 use crate::input::{NewsItem, header_text, parse_news};
 use crate::{Clock, log};
 
+/// How often the news file is looked at again, in ms.
 pub const FILE_RECHECK_MS: i64 = 5_000;
+/// Largest news file read, in bytes.
 pub const MAX_FILE_BYTES: u64 = 1 << 20;
+/// How often the GitHub news is fetched again, in ms.
 pub const REFETCH_MS: i64 = 60_000;
+/// How long one GitHub fetch may take.
 pub const FETCH_TIMEOUT: Duration = Duration::from_secs(5);
+/// Largest GitHub reply read, in bytes.
 pub const MAX_REMOTE_BYTES: usize = 1 << 20;
 
 /// GETs a URL, with the ETag to send as `If-None-Match` when one is stored. Tests hand in their own.
@@ -46,6 +51,7 @@ struct RemoteSide {
     items: Option<Vec<NewsItem>>,
 }
 
+/// The news from the host's file or GitHub; a successful fetch wins over the file.
 pub struct News {
     file: Option<PathBuf>,
     url: Option<String>,
@@ -70,10 +76,12 @@ fn github_get(url: String, etag: Option<String>) -> BoxFuture<'static, Result<Re
 }
 
 impl News {
+    /// News from `file` and `url`, fetched over HTTPS.
     pub fn new(file: Option<PathBuf>, url: Option<String>, clock: Clock) -> Self {
         Self::with_fetch(file, url, clock, Arc::new(github_get))
     }
 
+    /// As [`News::new`], with `fetch` doing the GETs.
     pub fn with_fetch(file: Option<PathBuf>, url: Option<String>, clock: Clock, fetch: Fetch) -> Self {
         News {
             file,
@@ -85,10 +93,12 @@ impl News {
         }
     }
 
+    /// The news file, if one is set.
     pub fn file(&self) -> Option<&Path> {
         self.file.as_deref()
     }
 
+    /// The GitHub news URL, if one is set.
     pub fn url(&self) -> Option<&str> {
         self.url.as_deref()
     }
@@ -196,6 +206,7 @@ impl News {
         });
     }
 
+    /// Whether a GitHub fetch is in flight.
     pub fn refreshing(&self) -> bool {
         held(&self.remote).in_flight
     }
@@ -255,7 +266,7 @@ fn read_document(path: &Path) -> Result<Vec<NewsItem>, String> {
 
 #[cfg(test)]
 mod tests {
-    #![allow(clippy::unwrap_used)]
+    #![allow(clippy::unwrap_used, reason = "a panic is how a test fails")]
     use super::*;
     use std::sync::atomic::{AtomicI64, AtomicUsize, Ordering};
 

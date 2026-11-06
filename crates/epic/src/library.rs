@@ -18,6 +18,7 @@ use crate::auth::Session;
 pub const APP_NAME: &str = "Jackal";
 /// Dauntless's namespace and catalog item, from the archived manifests' `CatalogItemId` (spike DE1).
 pub const NAMESPACE: &str = "jackal";
+/// Dauntless's catalog item id.
 pub const CATALOG_ITEM_ID: &str = "2f415248cb524eaf950a16e55d315dac";
 /// Whether a record must also carry [`NAMESPACE`] and [`CATALOG_ITEM_ID`]. Off until the maintainer reads them
 /// from a real library (spike DE1, hands-on step 2), so a wrong guess can't refuse a player who owns the game.
@@ -26,6 +27,7 @@ pub const CATALOG_CONFIRMED: bool = false;
 /// How long an answer is kept, in seconds. A game rarely leaves a library; a player who has just bought it
 /// shouldn't wait long.
 pub const OWNED_FOR: i64 = 24 * 60 * 60;
+/// How long a "not owned" answer is kept, in seconds.
 pub const REFUSED_FOR: i64 = 10 * 60;
 
 /// The cache file in the launcher's (or the host kit's) data folder.
@@ -36,8 +38,11 @@ const CACHE_FILE_MAX: u64 = 4096;
 /// One entry in the account's library, as much of it as the check reads.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct Record {
+    /// Epic's app name; [`APP_NAME`] for Dauntless.
     pub app_name: String,
+    /// Catalog namespace.
     pub namespace: String,
+    /// Catalog item id.
     pub catalog_item_id: String,
 }
 
@@ -60,6 +65,7 @@ pub enum LibraryError {
     /// The access token has expired: refresh the session (DE2) and ask again
     #[error("the Epic session has expired")]
     SessionExpired,
+    /// Epic's library service did not answer or gave nothing back.
     #[error("Epic's library could not be read")]
     Unreachable,
 }
@@ -68,14 +74,17 @@ pub enum LibraryError {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
 #[non_exhaustive]
 pub enum OwnershipError {
+    /// The account's library has no Dauntless.
     #[error("this Epic account does not own Dauntless")]
     NotOwned,
+    /// The library could not be read.
     #[error(transparent)]
     Library(#[from] LibraryError),
 }
 
 /// The account's library: [`EgsLibrary`], or a double in tests.
 pub trait Library: Send + Sync {
+    /// The account's library records, read with `session`'s access token.
     fn records(&self, session: &Session) -> impl Future<Output = Result<Vec<Record>, LibraryError>> + Send;
 }
 
@@ -138,7 +147,9 @@ fn unix_now() -> i64 {
 /// An answer and when it was given (Unix seconds).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Checked {
+    /// Whether the account owns Dauntless.
     pub owned: bool,
+    /// When Epic was asked, in Unix seconds.
     pub checked_at: i64,
 }
 

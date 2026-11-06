@@ -13,20 +13,27 @@ use crate::util;
 /// A well-formed `launcher` report.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct LauncherReport {
+    /// The launcher's semantic version.
     pub version: String,
     /// Lower-cased
     pub sha256: String,
 }
 
+/// What a launcher's report says about its build.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum LauncherVerdict {
+    /// Its hash is the pinned official one.
     Official,
+    /// Not the official hash, and older than the served version.
     Outdated,
+    /// Not the official hash and not older: a build of its own.
     Unofficial,
+    /// No report, or no pinned hash to compare with.
     Unknown,
 }
 
 impl LauncherVerdict {
+    /// The verdict as logged and stored.
     pub fn as_str(self) -> &'static str {
         match self {
             Self::Official => "official",
@@ -90,13 +97,18 @@ pub fn launcher_verdict(
 /// The host's `RUSTIC_ISLES_UNOFFICIAL_LAUNCHER*` settings.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct LauncherPolicy {
+    /// Refuse unofficial launchers (`refuse`) instead of only logging them (`observe`).
     pub refuse: bool,
+    /// Lower-case SHA-256 hashes let in even when refusing.
     pub allowed_hashes: Vec<String>,
+    /// Whether admins skip the refusal; true unless the testers-exempt setting is off.
     pub admins_exempt: bool,
+    /// Problems with the settings, for the host's log.
     pub warnings: Vec<String>,
 }
 
 impl LauncherPolicy {
+    /// The policy from the settings; a bad value is a warning and the safe default, never an error.
     pub fn from_settings(settings: &dyn AuthSettings) -> Self {
         let mut warnings = Vec::new();
         let mode = util::normalize_lower(settings.raw("RUSTIC_ISLES_UNOFFICIAL_LAUNCHER").unwrap_or(""));

@@ -17,9 +17,12 @@ use service_kit::gelf::GelfTarget;
 
 use crate::error::HostError;
 
+/// `[logs]`; each setting left out takes its default.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct LogsConfig {
+    /// Text or JSON lines on the console.
     pub format: LogFormat,
+    /// Whether the console lines are colored.
     pub color: ColorMode,
     /// Checked by [`GelfTarget::parse`] when read
     pub gelf_url: Option<String>,
@@ -30,6 +33,7 @@ fn bad(text: impl Into<String>) -> HostError {
 }
 
 impl LogsConfig {
+    /// Reads `[logs]`; fails on a key it doesn't know or a value it doesn't take.
     pub fn from_json(value: &Value) -> Result<Self, HostError> {
         let obj = value.as_object().ok_or_else(|| bad("logs must be a table"))?;
         for key in obj.keys() {
@@ -66,6 +70,7 @@ impl LogsConfig {
         })
     }
 
+    /// The table host.toml writes.
     #[must_use]
     pub fn to_json(&self) -> Value {
         let mut out = Map::new();
@@ -86,6 +91,7 @@ impl LogsConfig {
 /// host.toml's `[logs]` for the admin API's `logSettings` and `setLogSettings` (the dashboard).
 #[cfg(feature = "admin")]
 pub struct LogsFile {
+    /// The host.toml the settings are read from and written to.
     pub file: std::path::PathBuf,
     /// What this run started with
     pub started: LogsConfig,

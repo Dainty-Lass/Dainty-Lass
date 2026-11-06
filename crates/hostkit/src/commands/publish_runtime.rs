@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Silent Spud
 
+//! `dainty-host publish-runtime`: the built runtime DLLs published into `.workspace/runtime`.
+
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
@@ -12,10 +14,12 @@ use crate::hostconfig::load_host_config;
 use crate::paths::{Paths, RUNTIME_FILE_NAMES, game_exe_relative};
 use crate::publish::{default_sources, ensure_server_flags, install_server_runtime, publish_runtime};
 
+/// Runs `dainty-host publish-runtime`, printing to stdout.
 pub fn run(paths: &Paths, args: &PublishRuntimeArgs) -> Result<ExitCode, HostError> {
     run_with(paths, args, &mut |line| println!("{line}"))
 }
 
+/// Publishes the runtime DLLs from `--from` or the build's outputs, printing through `out`.
 pub fn run_with(paths: &Paths, args: &PublishRuntimeArgs, out: &mut dyn FnMut(&str)) -> Result<ExitCode, HostError> {
     let sources: Vec<(&str, PathBuf)> = match args.from.as_deref().map(str::trim).filter(|s| !s.is_empty()) {
         Some(dir_str) => {
@@ -58,7 +62,7 @@ pub fn run_with(paths: &Paths, args: &PublishRuntimeArgs, out: &mut dyn FnMut(&s
 
 #[cfg(test)]
 mod tests {
-    #![allow(clippy::unwrap_used)]
+    #![allow(clippy::unwrap_used, reason = "a panic is how a test fails")]
 
     use super::*;
     use tempfile::TempDir;

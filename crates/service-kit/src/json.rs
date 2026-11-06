@@ -1,13 +1,17 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Silent Spud
 
+//! JSON replies written as Express's `res.json` writes them.
+
 use axum::extract::Request;
 use axum::http::{StatusCode, header};
 use axum::response::{IntoResponse, Response};
 use serde::{Serialize, Serializer};
 
+/// Express's JSON content type.
 pub const JSON_UTF8: &str = "application/json; charset=utf-8";
 
+/// A JSON reply serialized by [`crate::jsjson::stringify`], as `res.json` sends it.
 #[derive(Debug, Clone, Copy)]
 pub struct Json<T>(pub T);
 
@@ -23,6 +27,7 @@ impl<T: Serialize> IntoResponse for Json<T> {
     }
 }
 
+/// Serializes an `f64` as JavaScript would: integers without a fraction, non-finite as `null`.
 pub fn js_number<S: Serializer>(value: &f64, serializer: S) -> Result<S::Ok, S::Error> {
     if !value.is_finite() {
         return serializer.serialize_none();
@@ -42,6 +47,7 @@ pub fn js_number<S: Serializer>(value: &f64, serializer: S) -> Result<S::Ok, S::
     serializer.serialize_f64(*value)
 }
 
+/// [`js_number`] for an optional value; `None` is `null`.
 pub fn js_number_opt<S: Serializer>(value: &Option<f64>, serializer: S) -> Result<S::Ok, S::Error> {
     match value {
         Some(v) => js_number(v, serializer),
@@ -49,6 +55,7 @@ pub fn js_number_opt<S: Serializer>(value: &Option<f64>, serializer: S) -> Resul
     }
 }
 
+/// A bare 404, for routers' fallback.
 pub fn not_found(_request: &Request) -> Response {
     StatusCode::NOT_FOUND.into_response()
 }

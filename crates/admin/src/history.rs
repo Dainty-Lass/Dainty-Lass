@@ -32,6 +32,7 @@ pub const CHAT: &str = "chat";
 
 /// The most a page holds (`store::revert::MAX_PAGE`).
 pub const MAX_PAGE: i64 = store::revert::MAX_PAGE;
+/// A page's size when none is asked for.
 pub const DEFAULT_PAGE: i64 = 50;
 
 /// The change log's actor for a host kit command, the console or the launcher's server panel: `host:<name>`.
@@ -41,7 +42,9 @@ pub fn host_actor(name: &str) -> Actor {
 
 /// The longest account, actor or time the tools take, and the longest cursor.
 pub const MAX_WHO: usize = 64;
+/// The longest time value the tools take, in characters.
 pub const MAX_TIME: usize = 40;
+/// The longest cursor the tools take, in characters.
 pub const MAX_CURSOR: usize = 128;
 
 /// Which rows belong to an account, in the game's database. Isles' accounts table is the only player-facing
@@ -89,6 +92,7 @@ pub const CHAT_ACCOUNTS: &[AccountColumn] = &[
 
 // ------------------------------------------------------------------ errors
 
+/// Why reading or reverting the history failed.
 #[derive(Debug, thiserror::Error)]
 pub enum HistoryError {
     /// The caller's input: said to them as it is.
@@ -97,15 +101,20 @@ pub enum HistoryError {
     /// No database to read: the server has not run yet.
     #[error("there is no database to read yet: start the server once, then try again")]
     NoDatabase,
+    /// The rows changed since the plan was made.
     #[error("the history changed since the dry run: run it again")]
     PlanChanged,
     /// A revert that spans databases failed part of the way.
     #[error("{} reverted, then {failed} failed: {why}; run the dry run again for the rest", .done.join(" and "))]
     Partial {
+        /// The databases already reverted.
         done: Vec<String>,
+        /// The one that failed.
         failed: String,
+        /// Its error.
         why: String,
     },
+    /// A database failed.
     #[error("{0}")]
     Store(store::Error),
 }
@@ -129,9 +138,13 @@ fn bad(text: impl Into<String>) -> HistoryError {
 /// A filter as people write it (`--actor`, `--since`): parsed by [`Selection::to_filter`].
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct Selection {
+    /// Rows that belong to this account id.
     pub account: Option<String>,
+    /// Changes made by this actor; a bare key id means `admin:<id>`.
     pub actor: Option<String>,
+    /// From this time on: RFC 3339, a date, or how long ago (`6h`, `2d`).
     pub since: Option<String>,
+    /// Up to this time, in the same forms.
     pub until: Option<String>,
 }
 
@@ -215,6 +228,7 @@ pub fn parse_time(text: &str, now_ms: i64) -> Result<i64, HistoryError> {
 }
 
 impl Selection {
+    /// Converts to the `store` filter; the error tells the caller which field is malformed.
     pub fn to_filter(&self, now_ms: i64) -> Result<Filter, HistoryError> {
         let filter = Filter {
             account: self
@@ -240,8 +254,11 @@ impl Selection {
 /// One database of the server: its name, where it is, and the account columns its tables are declared with.
 #[derive(Debug, Clone)]
 pub struct Source {
+    /// `node`, `admin` or `chat`.
     pub name: &'static str,
+    /// Where it is.
     pub config: DatabaseConfig,
+    /// The columns that tie its rows to an account.
     pub accounts: Vec<AccountColumn>,
 }
 
@@ -319,10 +336,13 @@ pub fn node_database(env_file: Option<&std::path::Path>) -> Result<DatabaseConfi
 /// One entry of a log and the database it is in.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Entry {
+    /// `node`, `admin` or `chat`.
     pub database: String,
+    /// The entry.
     pub entry: store::ChangeEntry,
 }
 
+/// One page of changes across the databases.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Page {
     /// Newest first.
@@ -381,7 +401,9 @@ fn cursor_text(positions: &BTreeMap<String, Position>) -> String {
 /// One database's part of a plan.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Part {
+    /// `node`, `admin` or `chat`.
     pub database: String,
+    /// What the revert would do there.
     pub plan: RevertPlan,
 }
 
@@ -389,8 +411,11 @@ pub struct Part {
 /// only while it is still this plan.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Plan {
+    /// A hash of every part's plan id: the same while nothing changed.
     pub id: String,
+    /// The filter it was made from.
     pub selection: Filter,
+    /// One part per database the selection reaches.
     pub parts: Vec<Part>,
 }
 
@@ -413,10 +438,12 @@ impl Plan {
         self.parts.iter().map(|p| p.plan.actions.len()).sum()
     }
 
+    /// Rows left because they changed since.
     pub fn conflicts(&self) -> usize {
         self.parts.iter().map(|p| p.plan.conflicts.len()).sum()
     }
 
+    /// Rows already as the revert would leave them.
     pub fn unchanged(&self) -> usize {
         self.parts.iter().map(|p| p.plan.unchanged.len()).sum()
     }
@@ -430,6 +457,7 @@ impl Plan {
 /// What [`HistorySet::apply`] did.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Applied {
+    /// The plan carried out.
     pub plan: Plan,
     /// The databases that changed, with the revert's write time.
     pub done: Vec<(String, RevertOutcome)>,
@@ -438,7 +466,9 @@ pub struct Applied {
 /// One database's chain check.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Verified {
+    /// `node`, `admin` or `chat`.
     pub database: String,
+    /// What the check found.
     pub verification: Verification,
 }
 
@@ -477,6 +507,7 @@ impl HistorySet {
         Self { dbs: Arc::new(dbs) }
     }
 
+    /// The databases held, by name.
     pub fn names(&self) -> Vec<&str> {
         self.dbs.iter().map(|(name, _)| name.as_str()).collect()
     }
@@ -616,6 +647,7 @@ pub struct PlanCache {
 }
 
 impl PlanCache {
+    /// Keeps `plan`, dropping expired ones and the oldest past 16.
     pub fn put(&self, plan: Plan) {
         let mut slots = self.slots.lock().unwrap_or_else(PoisonError::into_inner);
         slots.retain(|(at, p)| at.elapsed() < PLAN_KEPT && p.id != plan.id);
@@ -625,6 +657,7 @@ impl PlanCache {
         }
     }
 
+    /// The plan with that id, if it is still kept.
     pub fn get(&self, id: &str) -> Option<Plan> {
         let slots = self.slots.lock().unwrap_or_else(PoisonError::into_inner);
         slots
@@ -633,6 +666,7 @@ impl PlanCache {
             .map(|(_, plan)| plan.clone())
     }
 
+    /// Drops the plan with that id.
     pub fn forget(&self, id: &str) {
         self.slots
             .lock()
@@ -646,10 +680,12 @@ impl PlanCache {
 pub struct Service {
     node: DatabaseConfig,
     set: tokio::sync::Mutex<Option<HistorySet>>,
+    /// The plans made, for the apply call that follows.
     pub plans: PlanCache,
 }
 
 impl Service {
+    /// History over the game database `node` and the databases beside it.
     pub fn new(node: DatabaseConfig) -> Self {
         Self {
             node,
@@ -658,6 +694,7 @@ impl Service {
         }
     }
 
+    /// The databases, opened again when a service has made its file since the last call.
     pub async fn set(&self) -> Result<HistorySet, HistoryError> {
         let mut held = self.set.lock().await;
         if let Some(set) = held.as_ref().filter(|set| set.is_current(&self.node)) {
@@ -691,11 +728,15 @@ pub struct ConflictFields {
     pub reason: &'static str,
     /// `changed_since`: the first newer entry, who made it and when.
     pub entry: Option<String>,
+    /// `changed_since`: the actor.
     pub by: Option<String>,
+    /// `changed_since`: when (RFC 3339).
     pub at: Option<String>,
+    /// More on the conflict, for the operator.
     pub detail: Option<String>,
 }
 
+/// How a row conflict is told to a caller.
 pub fn conflict_fields(conflict: &RowConflict) -> ConflictFields {
     use store::revert::Conflict;
     let none = |reason| ConflictFields {

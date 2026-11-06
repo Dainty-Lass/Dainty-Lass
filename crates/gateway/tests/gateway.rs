@@ -3,7 +3,7 @@
 
 //! The gateway end to end: TLS, routing, the secret, the policy, the feed, the access log, WebSockets, private
 //! mode and the capture (spec-rd27-gateway.md section 5.2).
-#![allow(clippy::unwrap_used, clippy::expect_used)]
+#![allow(clippy::unwrap_used, clippy::expect_used, reason = "a panic is how a test fails")]
 
 mod common;
 

@@ -11,6 +11,7 @@ use crate::paths::Paths;
 use crate::progression::{PROGRESSION_EXPORT_DIR, SourceWritten, write_progression_source};
 use crate::run::RunResult;
 
+/// The game-data files the backend needs, in its game-data folder.
 pub const BACKEND_GAME_DATA: [&str; 7] = [
     "progression_config.json",
     "slayers_path.json",
@@ -21,6 +22,7 @@ pub const BACKEND_GAME_DATA: [&str; 7] = [
     "inventory_storage_policy.json",
 ];
 
+/// The game-data files the Director needs, in its game-data folder.
 pub const DIRECTOR_GAME_DATA: [&str; 7] = [
     "player_hunts_table.json",
     "matchmaker_hunts_table.json",
@@ -31,6 +33,7 @@ pub const DIRECTOR_GAME_DATA: [&str; 7] = [
     "arena_elite_matchmaker_hunts_new.json",
 ];
 
+/// The sources a host may supply instead of an export: (the export's name, the source's name in the raw game data).
 pub const SUPPLIED_SOURCES: [(&str, &str); 2] = [
     ("progression_config.json", "progression_config.source.json"),
     ("ladyluck_store.json", "ladyluck_store.source.json"),
@@ -46,37 +49,60 @@ const EXTRA_BACKEND_EXAMPLES: [&str; 7] = [
     "island_fauna.json",
 ];
 
+/// How real a folder's game data is.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum GameDataKind {
+    /// A file is missing.
     Missing,
+    /// Every file is there, and some are still the shipped examples.
     Synthetic,
+    /// Every file is there and generated.
     Real,
 }
 
+/// A game-data folder's state.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct GameDataState {
+    /// The state overall.
     pub state: GameDataKind,
+    /// The files that are missing.
     pub missing: Vec<String>,
+    /// The files that are still the shipped examples.
     pub synthetic: Vec<String>,
 }
 
+/// One generation step's generator.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum GeneratorKind {
+    /// The backend's progression config.
     ProgressionConfig,
+    /// The Director's hunt tables.
     HuntTables,
+    /// The Slayer's Path graph.
     SlayersPath,
+    /// The Slayer's Path definitions.
     SlayersPathDefinitions,
+    /// The reward cache store.
     RewardCache,
+    /// Lady Luck's Store, from a supplied source.
     LadyLuckGenerate,
+    /// Lady Luck's Store, enriched from the export and the store captures.
     LadyLuckEnrich,
+    /// The platinum store and the inventory storage policy.
     PlatinumAndStoragePolicy,
 }
 
-#[allow(non_upper_case_globals)]
+#[allow(
+    non_upper_case_globals,
+    reason = "the aliases are spelled like the variants they stand for"
+)]
 impl GeneratorKind {
+    /// Another name for [`GeneratorKind::HuntTables`].
     pub const DirectorHunts: Self = Self::HuntTables;
+    /// Another name for [`GeneratorKind::PlatinumAndStoragePolicy`].
     pub const PlatinumStore: Self = Self::PlatinumAndStoragePolicy;
 
+    /// The generator's Rust path, as the log names it.
     pub const fn label(self) -> &'static str {
         match self {
             Self::ProgressionConfig => "isles_core::gamedata::generate_progression_config",
@@ -91,17 +117,23 @@ impl GeneratorKind {
     }
 }
 
+/// One step of game-data generation.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Step<'a> {
+    /// Its name, as the output and [`GenerateOptions::only`] name it.
     pub title: &'static str,
+    /// The reference service folder the step belongs to (backend or Director).
     pub cwd: PathBuf,
+    /// The reference service's npm script name for the step.
     pub script: &'static str,
+    /// The generator it runs.
     pub generator: GeneratorKind,
     paths: &'a Paths,
     examples_for_missing: bool,
 }
 
 impl Step<'_> {
+    /// Why the step can't run (its input is not there); `None` when it can.
     pub fn skip(&self) -> Option<String> {
         let p = self.paths;
         let has_catalog =
@@ -193,28 +225,42 @@ impl Step<'_> {
     }
 }
 
+/// How [`generate_game_data`] runs.
 #[derive(Debug, Clone, Default)]
 pub struct GenerateOptions {
+    /// Copies the shipped examples for files still missing after the steps.
     pub examples_for_missing: bool,
+    /// The log the steps write to.
     pub log_file: PathBuf,
+    /// Only the steps with these titles; every step when `None`.
     pub only: Option<Vec<String>>,
 }
 
+/// What [`generate_game_data`] did.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct Generated {
+    /// No step failed.
     pub ok: bool,
+    /// The steps that ran.
     pub ran: Vec<String>,
+    /// The steps skipped for want of their input.
     pub skipped: Vec<String>,
+    /// The steps that failed.
     pub failed: Vec<String>,
+    /// The files copied from the shipped examples.
     pub examples: Vec<String>,
 }
 
-#[allow(clippy::type_complexity)]
+/// The parts of generation a test replaces.
+#[allow(clippy::type_complexity, reason = "each field is one generator's function signature")]
 pub struct Generators<'a> {
+    /// Fetches the pinned store captures.
     pub fetch_captures: &'a dyn Fn(&Paths, &CapturePin, &Path) -> Result<CaptureFetch, HostError>,
+    /// Runs one step.
     pub run_step: &'a dyn Fn(&Paths, &Step<'_>, &Path) -> Result<RunResult, HostError>,
 }
 
+/// The example file's name for `name`: `x.json` gives `x.example.json`.
 pub fn example_file_name(name: &str) -> String {
     match name.strip_suffix(".json") {
         Some(stem) => format!("{stem}.example.json"),
@@ -222,6 +268,7 @@ pub fn example_file_name(name: &str) -> String {
     }
 }
 
+/// A minimal seed for `name`, for when the checkout has no example file.
 pub fn embedded_example(name: &str) -> Option<&'static str> {
     match name {
         "progression_config.json" => {
@@ -256,6 +303,7 @@ fn normalize_lf_str(text: &str) -> String {
     text.replace("\r\n", "\n")
 }
 
+/// Whether `dir/name` is still its example file, ignoring line endings.
 pub fn is_example_file(dir: &Path, name: &str) -> Result<bool, HostError> {
     let target = dir.join(name);
     if !target.is_file() {
@@ -270,6 +318,7 @@ pub fn is_example_file(dir: &Path, name: &str) -> Result<bool, HostError> {
     Ok(normalize_lf_str(&target_text) == normalize_lf_str(&example_text))
 }
 
+/// The state of `files` in `dir`.
 pub fn game_data_state(dir: &Path, files: &[&str]) -> Result<GameDataState, HostError> {
     let mut missing = Vec::new();
     let mut synthetic = Vec::new();
@@ -295,6 +344,7 @@ pub fn game_data_state(dir: &Path, files: &[&str]) -> Result<GameDataState, Host
     })
 }
 
+/// Copies the example of each of `files` that is missing in `dir`; returns the files copied.
 pub fn use_examples(dir: &Path, files: &[&str]) -> Result<Vec<String>, HostError> {
     std::fs::create_dir_all(dir).map_err(|e| HostError::io(dir, e))?;
     let mut copied = Vec::new();
@@ -332,6 +382,8 @@ fn seed_dir_examples(dir: &Path, files: &[&str]) -> Result<Vec<String>, HostErro
     Ok(seeded)
 }
 
+/// Fills every missing game-data file from its example, or an embedded seed when there is none; returns the files
+/// filled.
 pub fn seed_embedded_examples(paths: &Paths) -> Result<Vec<String>, HostError> {
     let mut seeded = seed_dir_examples(&paths.backend_game_data, &BACKEND_GAME_DATA)?;
     seeded.extend(seed_dir_examples(&paths.backend_game_data, &EXTRA_BACKEND_EXAMPLES)?);
@@ -339,6 +391,7 @@ pub fn seed_embedded_examples(paths: &Paths) -> Result<Vec<String>, HostError> {
     Ok(seeded)
 }
 
+/// Copies each supplied source from `from_dir` that the raw game data lacks; returns the files copied.
 pub fn copy_supplied_sources(p: &Paths, from_dir: &Path) -> Result<Vec<String>, HostError> {
     let mut copied = Vec::new();
     for (export_name, source_name) in SUPPLIED_SOURCES {
@@ -364,6 +417,7 @@ pub fn copy_supplied_sources(p: &Paths, from_dir: &Path) -> Result<Vec<String>, 
     Ok(copied)
 }
 
+/// The generation steps in the order they run.
 pub fn game_data_steps(p: &Paths, examples_for_missing: bool) -> Vec<Step<'_>> {
     let has_ladyluck_source = p.raw_game_data.join(SUPPLIED_SOURCES[1].1).is_file();
     let (ll_script, ll_gen) = if has_ladyluck_source {
@@ -431,10 +485,13 @@ pub fn game_data_steps(p: &Paths, examples_for_missing: bool) -> Vec<Step<'_>> {
     ]
 }
 
+/// Runs one step's generator through the host's hooks.
 pub fn run_generator(p: &Paths, step: &Step<'_>, _log_file: &Path) -> Result<RunResult, HostError> {
     crate::hooks::get().run_generator(p, step)
 }
 
+/// Fetches the store captures if a step needs them and runs every step whose input is there.
+/// A failed step is reported and the rest still run; the error is for a folder that can't be made.
 pub fn generate_game_data(
     p: &Paths,
     opts: &GenerateOptions,
@@ -448,6 +505,7 @@ pub fn generate_game_data(
     generate_game_data_with(p, opts, out, &hooks)
 }
 
+/// [`generate_game_data`] with `hooks` in place of the capture fetch and the generators.
 pub fn generate_game_data_with(
     p: &Paths,
     opts: &GenerateOptions,
@@ -600,7 +658,7 @@ pub fn generate_game_data_with(
 
 #[cfg(test)]
 mod tests {
-    #![allow(clippy::unwrap_used, clippy::expect_used)]
+    #![allow(clippy::unwrap_used, clippy::expect_used, reason = "a panic is how a test fails")]
 
     use super::*;
 

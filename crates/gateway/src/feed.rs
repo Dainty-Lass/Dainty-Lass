@@ -57,6 +57,7 @@ struct Inner {
     throttle: Throttle,
 }
 
+/// Reports admitted players' addresses to the allowlist helpers, at most once per refresh interval each.
 #[derive(Clone)]
 pub struct AllowlistFeed(Arc<Inner>);
 
@@ -67,10 +68,12 @@ enum Outcome {
 }
 
 impl AllowlistFeed {
+    /// A feed for `config`; `None` feeds nothing.
     pub fn new(config: Option<&Allowlist>) -> Self {
         Self::with_clock(config, Arc::new(crate::now_ms))
     }
 
+    /// As [`AllowlistFeed::new`], with `clock` in Unix milliseconds.
     pub fn with_clock(config: Option<&Allowlist>, clock: Clock) -> Self {
         let mut connector = HttpConnector::new();
         connector.set_nodelay(true);

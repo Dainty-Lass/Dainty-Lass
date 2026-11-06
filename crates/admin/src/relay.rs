@@ -34,21 +34,37 @@ pub const MAX_QUEUE_TOTAL: i64 = 2048;
 
 diesel::table! {
     // 15 columns (within Diesel's 16-column default table width)
+    /// Admin actions waiting for a peer that was down (DN11).
     admin_relay_queue (id) {
+        /// `<peer>:<request key>`: one entry per action and peer.
         id -> Text,
+        /// The peer it waits for.
         peer -> Text,
+        /// The relay's idempotency key: the peer applies it once however often it is sent.
         request_key -> Text,
+        /// The relay operation, such as `admin.ban`.
         operation -> Text,
+        /// The account it acts on, when the directory resolved one.
         account -> Nullable<Text>,
+        /// 1 when the action ends the account's session tickets.
         revoke_tickets -> Integer,
+        /// The admin key that acted: `owner` or a key id.
         actor_key -> Text,
+        /// The Discord user it was for, or `host`.
         operator -> Text,
+        /// The approving key, for a guarded action (DH6).
         approved_by -> Nullable<Text>,
+        /// The player's name as given.
         target -> Nullable<Text>,
+        /// The player's game version.
         game -> Nullable<Text>,
+        /// The action's payload, as JSON.
         body -> Text,
+        /// Unix milliseconds.
         created_at -> BigInt,
+        /// Sends tried so far.
         attempts -> Integer,
+        /// The last send's error.
         last_error -> Nullable<Text>,
     }
 }
@@ -75,20 +91,35 @@ struct QueueRow {
 /// An admin action queued for a peer that was unreachable when the action ran (DN11).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PendingPeerAction {
+    /// `<peer>:<request key>`: one entry per action and peer.
     pub id: String,
+    /// The peer it waits for.
     pub peer: NodeId,
+    /// The relay's idempotency key.
     pub request_key: String,
+    /// The relay operation, such as `admin.ban`.
     pub operation: String,
+    /// The account it acts on, when the directory resolved one.
     pub account: Option<GlobalId>,
+    /// Whether the action ends the account's session tickets.
     pub revoke_tickets: bool,
+    /// The admin key that acted: `owner` or a key id.
     pub actor_key: String,
+    /// The Discord user it was for, or `host`.
     pub operator: String,
+    /// The approving key, for a guarded action (DH6).
     pub approved_by: Option<String>,
+    /// The player's name as given.
     pub target: Option<String>,
+    /// The player's game version.
     pub game: Option<String>,
+    /// The action's payload.
     pub body: Value,
+    /// Unix milliseconds.
     pub created_at: i64,
+    /// Sends tried so far.
     pub attempts: i32,
+    /// The last send's error.
     pub last_error: Option<String>,
     /// `"pending on node <peer>"`
     pub status: String,
@@ -103,15 +134,25 @@ impl fmt::Display for PendingPeerAction {
 /// GraphQL representation of a queued admin action waiting for a down peer (DN11).
 #[derive(SimpleObject, Clone, Debug, PartialEq, Eq)]
 pub struct PendingRelay {
+    /// The queue entry's id.
     pub id: String,
+    /// The peer it waits for.
     pub node: String,
+    /// The relay's idempotency key.
     pub request_key: String,
+    /// The relay operation, such as `admin.ban`.
     pub operation: String,
+    /// The player's name as given.
     pub target: Option<String>,
+    /// The player's game version.
     pub game: Option<String>,
+    /// The admin key that acted: `owner` or a key id.
     pub actor_key: String,
+    /// When it was queued (RFC 3339).
     pub created_at: String,
+    /// Sends tried so far.
     pub attempts: i32,
+    /// The last send's error.
     pub last_error: Option<String>,
     /// `"pending on node <node>"`
     pub status: String,
@@ -167,10 +208,15 @@ impl QueueRow {
 
 /// The network handles the admin API uses when the server is part of a cluster (DN11).
 pub trait AdminNetwork: Send + Sync {
+    /// This node, when in a network.
     fn local_node(&self) -> Option<NodeId>;
+    /// The link to peers.
     fn peer_link(&self) -> Option<Arc<dyn PeerLink>>;
+    /// Which peers are listed and up.
     fn peer_roster(&self) -> Option<Arc<dyn PeerRoster>>;
+    /// The directory, to find an account's home.
     fn directory(&self) -> Option<Arc<Directory>>;
+    /// The session tickets to revoke for actions that end them.
     fn tickets(&self) -> Option<Arc<Tickets>>;
 }
 
@@ -202,14 +248,20 @@ impl AdminNetwork for NoNetwork {
 
 /// A fixed network configuration for tests and direct composition.
 pub struct ConnectedNetwork {
+    /// This node.
     pub node: NodeId,
+    /// The link to peers.
     pub link: Arc<dyn PeerLink>,
+    /// Which peers are listed and up.
     pub roster: Arc<dyn PeerRoster>,
+    /// The directory, if this node keeps one.
     pub directory: Option<Arc<Directory>>,
+    /// The session tickets, if this node makes them.
     pub tickets: Option<Arc<Tickets>>,
 }
 
 impl ConnectedNetwork {
+    /// `link` is both the link and the roster.
     pub fn new<L>(
         node: NodeId,
         link: Arc<L>,
@@ -268,20 +320,34 @@ impl PeerRoster for DynamicRoster {
 /// Parameters for an outbound admin action to be sent to a player's home and fanned out to peers.
 #[derive(Debug, Clone)]
 pub struct OutboundAction {
+    /// The idempotency key: resending runs the action at most once.
     pub key: RequestKey,
+    /// The relay operation, such as [`operations::BAN`].
     pub operation: &'static str,
+    /// The account it acts on, when the directory resolved one.
     pub account: Option<GlobalId>,
+    /// Whether the action ends the account's session tickets.
     pub revoke_tickets: bool,
+    /// The admin key that acted: `owner` or a key id.
     pub actor_key: String,
+    /// The Discord user it was for, or `host`.
     pub operator: String,
+    /// The approving key, for a guarded action (DH6).
     pub approved_by: Option<String>,
+    /// The player's name as given.
     pub target: Option<String>,
+    /// The player's game version.
     pub game: Option<String>,
+    /// The action's payload.
     pub body: Value,
 }
 
 impl OutboundAction {
-    #[allow(clippy::too_many_arguments)]
+    /// An action with a fresh idempotency key; errors only when the system's random source fails.
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "each argument is one field of the relayed action"
+    )]
     pub fn new(
         operation: &'static str,
         account: Option<GlobalId>,
@@ -308,6 +374,7 @@ impl OutboundAction {
         })
     }
 
+    /// The action as it crosses the link; errors on a field the wire refuses, such as one shaped like a key.
     pub fn to_wire(&self) -> Result<RelayAction, String> {
         let operation: OperationName = self
             .operation
@@ -338,7 +405,12 @@ impl OutboundAction {
 #[derive(Debug)]
 pub enum PeerCallError {
     /// The peer was reached and refused the action (for example `PROTECTED_ACCOUNT` at the home).
-    Refused { code: Option<String>, message: String },
+    Refused {
+        /// The peer's error code, if it gave one.
+        code: Option<String>,
+        /// What it said.
+        message: String,
+    },
     /// The peer was down, unreachable, or timed out: the action should be queued for retry.
     Unreachable(String),
 }
@@ -351,14 +423,17 @@ pub struct AdminRelay {
 }
 
 impl AdminRelay {
+    /// A relay over `network`, queuing in `db`.
     pub fn new(db: Database, network: Arc<dyn AdminNetwork>) -> Self {
         Self { db, network }
     }
 
+    /// A relay with no peers: every action stays local.
     pub fn standalone(db: Database) -> Self {
         Self::new(db, Arc::new(NoNetwork))
     }
 
+    /// The network handles in use.
     pub fn network(&self) -> &Arc<dyn AdminNetwork> {
         &self.network
     }
@@ -372,11 +447,12 @@ impl AdminRelay {
                 .is_some_and(|roster| !roster.peers().is_empty())
     }
 
+    /// This node, when in a network.
     pub fn local_node(&self) -> Option<NodeId> {
         self.network.local_node()
     }
 
-    /// Builds a [`NodeService`] for `Service::Admin` backed by `authority` and this relay's network.
+    /// Builds a [`network_plugin::link::NodeService`] for `Service::Admin` backed by `authority` and this relay's network.
     pub fn service(&self, authority: Arc<dyn AdminAuthority>) -> AdminRelayService {
         let me = self
             .network

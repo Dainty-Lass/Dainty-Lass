@@ -44,7 +44,9 @@ use crate::session::{IncomingSignal, SessionIo, Shared};
 pub use crate::session::{Signal, result};
 use crate::text::is_account;
 
+/// The transport ABI these calls carry.
 pub const ABI_VERSION: u32 = 3;
+/// The most sessions running at once.
 pub const MAX_RUNNING: usize = 8;
 const MAX_ENDED_KEPT: usize = 8;
 const MAX_SIGNAL_DATA: usize = 4096;
@@ -56,7 +58,9 @@ pub struct Handle(pub i32);
 /// `WaitReadyH`'s three answers.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Ready {
+    /// The session is ready; the ready line it reported.
     Ready(String),
+    /// Not ready within the timeout; the session still runs.
     TimedOut,
     /// The session ended before it was ready, or the handle is unknown.
     Ended,
@@ -130,6 +134,7 @@ fn path_given(path: &Path) -> bool {
 }
 
 impl Transport {
+    /// A transport with the default timeouts; no peer id until [`Transport::initialize`].
     pub fn new() -> Self {
         Self::with_timing(Timing::default())
     }
@@ -157,6 +162,7 @@ impl Transport {
         Arc::ptr_eq(&self.inner, &other.inner)
     }
 
+    /// Always [`ABI_VERSION`].
     pub fn abi_version(&self) -> u32 {
         ABI_VERSION
     }
@@ -187,10 +193,12 @@ impl Transport {
         self.inner.shutdown();
     }
 
+    /// The transport's peer id, 0 before [`Transport::initialize`].
     pub fn peer_id(&self) -> u64 {
         self.inner.peer_id.load(Ordering::SeqCst)
     }
 
+    /// Whether a peer id was drawn.
     pub fn networking_ready(&self) -> bool {
         self.peer_id() != 0
     }
@@ -272,6 +280,7 @@ impl Transport {
         self.open(true, move |io| run::host(io, &paths, runtime.as_ref(), timing))
     }
 
+    /// Opens a joiner session. Files are read on the session thread, so a bad file shows as an end before readiness.
     pub fn join_open(&self, public_key: &Path, config: &Path, ticket: &Path, secrets: &Path) -> Result<Handle, String> {
         if ![public_key, config, ticket, secrets].into_iter().all(path_given) {
             return Err("A co-op join input path is missing.".to_owned());
@@ -299,6 +308,7 @@ impl Transport {
         shared.wait_ready(Duration::from_millis(u64::from(timeout_ms)))
     }
 
+    /// Whether the session is still running; `false` for an unknown handle.
     pub fn session_running(&self, handle: Handle) -> bool {
         self.shared(handle).is_some_and(|s| s.running())
     }
@@ -326,6 +336,7 @@ impl Transport {
         self.shared(handle).map_or(result::UNKNOWN_HANDLE, |s| s.result())
     }
 
+    /// The next signal for the launcher to relay, if any.
     pub fn read_signal(&self, handle: Handle) -> Option<Signal> {
         self.shared(handle)?.read_signal()
     }
@@ -349,10 +360,12 @@ impl Transport {
         })
     }
 
+    /// The next peer event line, if any.
     pub fn read_peer_event(&self, handle: Handle) -> Option<String> {
         self.shared(handle)?.read_event()
     }
 
+    /// The next diagnostic line, if any.
     pub fn read_diagnostic(&self, handle: Handle) -> Option<String> {
         self.shared(handle)?.read_diagnostic()
     }

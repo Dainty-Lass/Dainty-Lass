@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Silent Spud
 
+//! Invite links (`dauntless://join?...`): parsing, formatting and the game version aliases they carry (RD5).
+
 use std::fmt;
 
 use percent_encoding::{AsciiSet, CONTROLS, utf8_percent_encode};
@@ -10,10 +12,15 @@ use url::Url;
 use crate::GameVersion;
 use crate::text::{collapse_js_whitespace, has_control_or_format, js_length, js_trim};
 
+/// Scheme of current invites, which may name any played version.
 pub const UNIFIED_INVITE_SCHEME: &str = "dauntless";
+/// Older scheme, pinned to 1.14.7.
 pub const INVITE_SCHEME: &str = "reforged-revival";
+/// Dauntless Revived's scheme, recognised only to refuse it (RD5).
 pub const REVIVED_INVITE_SCHEME: &str = "dauntless-revived";
+/// Port a public invite implies when it names none.
 pub const DEFAULT_PUBLIC_PORT: u16 = 443;
+/// Longest invite accepted, in UTF-16 code units.
 pub const MAX_INVITE_LENGTH: usize = 2048;
 
 const MAX_INVITE_UTF16_LEN: usize = MAX_INVITE_LENGTH;
@@ -66,49 +73,77 @@ pub fn invite_schemes() -> Vec<&'static str> {
     vec![UNIFIED_INVITE_SCHEME, INVITE_SCHEME]
 }
 
+/// How the launcher reaches the server named in an invite.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[serde(rename_all = "lowercase")]
 pub enum ServerMode {
+    /// Loopback or Tailscale address, invite format v1, no certificate pin.
     Private,
+    /// Public host behind the gateway, invite format v2, pinned by certificate fingerprint.
     Public,
 }
 
+/// A parsed invite, every field already validated.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 pub struct Invite {
+    /// Game version the server plays, 1.14.7 when the invite names none.
     #[serde(default = "reforged_version")]
     #[cfg_attr(feature = "ts", ts(type = "string"))]
     pub version: GameVersion,
+    /// Private or public, from the invite format.
     pub mode: ServerMode,
+    /// Host name or IP address, lowercased.
     pub host: String,
+    /// TCP port of the server (the gateway's in public mode).
     pub port: u16,
+    /// Invite code to register with.
     pub code: String,
+    /// Server name for display, cleaned of control characters.
     pub name: String,
+    /// Tailscale share link (`https://login.tailscale.com/...`), private invites only.
     pub share: Option<String>,
+    /// SHA-256 of the gateway certificate, 64 lowercase hex digits; public invites only.
     pub fp: Option<String>,
 }
 
+/// Why [`parse_invite`] refused a link, serialized as the snake_case code the launcher translates.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum InviteError {
+    /// The text is empty or only whitespace.
     Empty,
+    /// Longer than [`MAX_INVITE_LENGTH`].
     TooLong,
+    /// Not a `join` link in a recognised scheme.
     NotInvite,
+    /// A Dauntless Revived invite, which this build does not play (RD5).
     Revived,
+    /// The `v` format parameter is missing or unknown.
     Version,
+    /// The invite names a game version this build does not play.
     GameVersion,
+    /// `mode` is missing or not `public` in a v2 invite.
     Mode,
+    /// `fp` is missing or not a SHA-256 fingerprint.
     Fp,
+    /// `host` is missing or not allowed for the invite's mode.
     Host,
+    /// `port` is missing or out of range.
     Port,
+    /// `code` is missing or malformed.
     Code,
+    /// `name` is missing or empty after cleaning.
     Name,
+    /// `share` is not a Tailscale share link.
     Share,
+    /// The query is malformed, repeats a key, or carries one the format does not allow.
     Params,
 }
 
 impl InviteError {
+    /// The wire code, as serialized.
     #[must_use]
     pub const fn as_str(self) -> &'static str {
         match self {
@@ -130,18 +165,27 @@ impl InviteError {
     }
 }
 
+/// Why [`format_invite`] could not write an [`Invite`]; names the offending field.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum FormatError {
+    /// The host is not allowed for the invite's mode.
     Host,
+    /// The port is zero.
     Port,
+    /// The invite code is malformed.
     Code,
+    /// The name is empty after cleaning.
     Name,
+    /// The share link is not a Tailscale share link, or is set on a public invite.
     Share,
+    /// The fingerprint is missing or malformed in public mode.
     Fp,
+    /// This build cannot write an invite for the game version.
     Version,
 }
 
 impl FormatError {
+    /// The field's name, as used in messages.
     #[must_use]
     pub const fn as_str(self) -> &'static str {
         match self {

@@ -4,7 +4,12 @@
 //! A module over a temporary store with the three economy parts and the characters area, driven through core's
 //! `app()`; synthetic game data written by the test (nothing from the game).
 
-#![allow(dead_code, clippy::unwrap_used, clippy::expect_used)]
+#![allow(
+    dead_code,
+    clippy::unwrap_used,
+    clippy::expect_used,
+    reason = "shared by several test binaries, each using only some; a panic is how a test fails"
+)]
 
 use std::net::SocketAddr;
 use std::sync::{Arc, Mutex};

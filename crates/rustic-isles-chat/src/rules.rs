@@ -28,7 +28,9 @@ fn open_if(open: bool) -> RoomRules {
     if open { OPEN } else { REFUSED }
 }
 
+/// The 1.14.7 chat rules, one overridable method per `ChatQuery`.
 pub trait ChatRules: Send + Sync {
+    /// The answer to one chat query, dispatched to the method for its kind.
     fn answer<'a>(
         &'a self,
         source: &'a dyn ChatSource,
@@ -138,6 +140,7 @@ pub trait ChatRules: Send + Sync {
         room_kind_of(name, source.node(), hubs, replay::now_ms())
     }
 
+    /// A JID local part's account (§5.8), as the source answers it.
     fn account_of<'a>(
         &'a self,
         source: &'a dyn ChatSource,

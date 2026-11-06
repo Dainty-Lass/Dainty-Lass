@@ -4,7 +4,7 @@
 //! The unit-level scenarios of the transport spec (§5.1): crypto, parsing, the lease, held signals and the roster,
 //! the lane, the late consume and the local bridge.
 
-#![allow(clippy::unwrap_used, clippy::expect_used)] // test helpers
+#![allow(clippy::unwrap_used, clippy::expect_used, reason = "a panic is how a test fails")]
 
 mod common;
 

@@ -36,23 +36,32 @@ pub const PROTOCOL_VERSION: u32 = 1;
 pub enum ToService {
     /// Runs the service once, on its env file as the host kit wrote it (`Config::from_env` reads it)
     Start {
+        /// Must be [`PROTOCOL_VERSION`]; the service answers any other with [`FromService::Ended`].
         protocol: u32,
+        /// The env file's settings, in file order.
         env: Vec<(String, String)>,
     },
     /// Ends the run [`ToService::Start`] began, as the controller stops a module
     Stop {},
     /// A module's registration, as `CorePlugin::attach` takes it, with the folder its files are relative to
     Attach {
+        /// Echoed in [`FromService::Attached`].
         id: u64,
+        /// The module's manifest.
         module: Box<ModuleManifest>,
+        /// What it registered.
         registration: Box<Registration>,
+        /// Folder its files are relative to, kept for its later attaches.
         dir: Option<PathBuf>,
     },
+    /// A module's registration withdrawn, as `CorePlugin::detach` takes it.
     Detach {
+        /// The module withdrawn.
         module: ModuleId,
     },
     /// The gateway library's own (`gateway`)
     Gateway {
+        /// The gateway message.
         message: gateway::ToGateway,
     },
     /// Chat's host calls answered, and its drivers' comings and goings ([`chat`])
@@ -65,47 +74,67 @@ pub enum ToService {
 pub enum FromService {
     /// First, before anything else: who it is and what it serves as a core plugin
     Hello {
+        /// The service's [`PROTOCOL_VERSION`].
         protocol: u32,
+        /// Its [`Service::name`].
         name: String,
+        /// Its [`Service::serves`].
         serves: Vec<CoreCapability>,
     },
     /// Its component's status, each time it changes
     Status {
+        /// The new status.
         status: Box<ComponentStatus>,
     },
     /// A log line of its own (a library's tracing has no subscriber of the core's)
     Log {
+        /// The event's level.
         level: LogLevel,
+        /// The event's tracing target.
         target: String,
+        /// The message, then the other fields as `name=value`.
         message: String,
     },
+    /// The answer to [`ToService::Attach`].
     Attached {
+        /// The [`ToService::Attach`]'s id, echoed.
         id: u64,
+        /// What the service's attach returned.
         result: Result<(), ModuleError>,
     },
     /// The run ended, on its own or after [`ToService::Stop {}`]
     Ended {
+        /// How the run ended.
         result: Result<(), String>,
     },
+    /// The gateway library's own (`gateway`).
     Gateway {
+        /// The gateway message.
         message: gateway::FromGateway,
     },
     /// Chat's host calls ([`chat`])
     Chat(chat::FromChat),
 }
 
+/// A forwarded log line's level, as tracing's.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum LogLevel {
+    /// An error.
     Error,
+    /// A warning.
     Warn,
+    /// Information.
     Info,
+    /// Debug detail.
     Debug,
+    /// Trace detail.
     Trace,
 }
 
 /// A service built as a library.
 pub trait Service: Send + Sync + 'static {
+    /// Its component name, shown in status and logs.
     fn name(&self) -> &'static str;
 
     /// What it serves as a core plugin; nothing for a service that takes no module's registration.
@@ -123,6 +152,7 @@ pub trait Service: Send + Sync + 'static {
         Ok(())
     }
 
+    /// `CorePlugin::detach`: the module's registration is withdrawn.
     fn detach(&self, _module: &ModuleId) {}
 
     /// The gateway's messages from the core; `out` reaches the core for as long as the instance is open.
@@ -204,7 +234,9 @@ pub async fn serve<S: Service>(service: Arc<S>, reader: ChannelReader, writer: L
 /// library's instance has (`module_api::plugin::open_with`), so it behaves exactly as its library does. Its tracing is
 /// the core's own.
 pub struct InProcess {
+    /// Frames from the service, for the core to read.
     pub reader: ChannelReader,
+    /// Frames to the service.
     pub writer: LibraryWriter,
     closer: InProcessCloser,
 }
@@ -230,6 +262,7 @@ struct Running {
 const CLOSE_GRACE: std::time::Duration = std::time::Duration::from_secs(2);
 
 impl InProcessCloser {
+    /// Closes the stream and waits up to 2 s for the service to finish, then up to 2 s for its runtime to stop.
     pub async fn close(&self) {
         let taken = self.0.lock().unwrap_or_else(PoisonError::into_inner).take();
         let Some(Running {
@@ -407,7 +440,10 @@ fn start<S: Service>(
 #[macro_export]
 macro_rules! export_service {
     ($make:expr) => {
-        #[allow(unsafe_code)]
+        #[allow(
+            unsafe_code,
+            reason = "the exported C entry point needs `no_mangle`, which is unsafe"
+        )]
         #[unsafe(no_mangle)]
         pub extern "C" fn dainty_service_v1() -> *const ::module_api::plugin::PluginV1 {
             unsafe extern "C" fn open(sink: ::module_api::plugin::HostSink) -> *mut ::std::ffi::c_void {
@@ -432,7 +468,7 @@ macro_rules! export_service {
 
 #[cfg(test)]
 mod tests {
-    #![allow(clippy::unwrap_used)]
+    #![allow(clippy::unwrap_used, reason = "a panic is how a test fails")]
     use super::*;
 
     #[test]

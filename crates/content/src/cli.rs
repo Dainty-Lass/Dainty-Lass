@@ -30,6 +30,7 @@ enum Command {
     Serve,
 }
 
+/// Parses `args` and serves until stopped; the exit code reports a bad configuration or a failed start.
 pub fn main_from<I, T>(args: I) -> ExitCode
 where
     I: IntoIterator<Item = T>,
@@ -79,7 +80,7 @@ where
 
 #[cfg(test)]
 mod tests {
-    #![allow(clippy::unwrap_used)]
+    #![allow(clippy::unwrap_used, reason = "a panic is how a test fails")]
     use super::*;
     use clap::CommandFactory as _;
 

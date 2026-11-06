@@ -13,29 +13,45 @@ use crate::error::HostError;
 use crate::gamepack::{is_example_path, pack_entries, sha256_hex};
 use crate::paths::{GAME_CHANGELIST, Paths};
 
+/// The `format` a preset.json names.
 pub const PRESET_FORMAT: &str = "dauntless-reforged-revival-preset";
+/// The preset's manifest, in the preset folder.
 pub const PRESET_MANIFEST: &str = "preset.json";
+/// Game data never put in a preset: each server builds these from its store captures.
 pub const PRESET_EXCLUDED: [&str; 2] = ["backend/ladyluck_store.json", "backend/platinum_store.json"];
 
+/// One file a preset holds.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PresetFile {
+    /// Its path in the game data, like `backend/slayers_path.json`.
     pub path: String,
+    /// Its SHA-256, lowercase hex.
     pub sha256: String,
+    /// Its size in bytes.
     pub bytes: u64,
 }
 
+/// A preset.json.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PresetManifest {
+    /// The note at its top for whoever opens it.
     pub comment: Vec<String>,
+    /// The preset's name.
     pub name: String,
+    /// The game build it is for.
     pub game: String,
+    /// The SHA-256 of the game executable it was made with, when that was known.
     pub executable_sha256: Option<String>,
+    /// When it was made, RFC 3339 in UTC.
     pub created: String,
+    /// The tools that made its files, for the reader.
     pub sources: Vec<String>,
+    /// The files it holds.
     pub files: Vec<PresetFile>,
 }
 
 impl PresetManifest {
+    /// The preset.json text.
     pub fn to_json(&self) -> String {
         let files: Vec<Value> = self
             .files
@@ -65,26 +81,40 @@ impl PresetManifest {
     }
 }
 
+/// What [`create_preset`] records.
 #[derive(Debug, Clone, Default)]
 pub struct CreateOptions {
+    /// The preset's name.
     pub name: String,
+    /// The game executable, hashed into the manifest.
     pub executable: Option<PathBuf>,
+    /// The executable's SHA-256 when it is known without hashing.
     pub executable_sha256: Option<String>,
 }
 
+/// What [`create_preset`] did.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PresetCreated {
+    /// The manifest written.
     pub manifest: PresetManifest,
+    /// Game-data files left out because they are missing or still the shipped examples.
     pub left: Vec<String>,
+    /// Generated files left out because they are in [`PRESET_EXCLUDED`].
     pub excluded: Vec<String>,
 }
 
+/// What [`apply_preset`] did.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PresetApplied {
+    /// The preset's name.
     pub name: String,
+    /// Files written.
     pub written: Vec<String>,
+    /// Files that already held the preset's content.
     pub unchanged: Vec<String>,
+    /// Files the host changed, kept because `force` was not given.
     pub kept: Vec<String>,
+    /// Backups made of the files `force` replaced.
     pub backups: Vec<String>,
 }
 
@@ -105,6 +135,7 @@ fn normalize_lf(text: &str) -> String {
     text.replace("\r\n", "\n")
 }
 
+/// The preset folder's manifest; `None` when there is none.
 pub fn read_preset_manifest(p: &Paths) -> Result<Option<PresetManifest>, HostError> {
     let file = p.preset.join(PRESET_MANIFEST);
     if !file.is_file() {
@@ -258,6 +289,8 @@ fn clean_stale_preset_files(preset_dir: &Path, dir: &Path, keep: &HashSet<String
     Ok(())
 }
 
+/// Writes the server's generated game data into the preset folder with its manifest.
+/// Fails when there is nothing generated to put in it.
 pub fn create_preset(p: &Paths, opts: &CreateOptions, now: DateTime<Utc>) -> Result<PresetCreated, HostError> {
     let mut staged: Vec<(String, String, PresetFile)> = Vec::new();
     let mut left = Vec::new();
@@ -367,10 +400,13 @@ pub fn create_preset(p: &Paths, opts: &CreateOptions, now: DateTime<Utc>) -> Res
     })
 }
 
+/// [`apply_preset_at`] now.
 pub fn apply_preset(paths: &Paths, force: bool) -> Result<Option<PresetApplied>, HostError> {
     apply_preset_at(paths, force, Utc::now())
 }
 
+/// Checks every preset file against its manifest and writes them into the game data; `None` when there is no preset.
+/// A file the host changed is kept unless `force`, which backs it up first; nothing is written when a check fails.
 pub fn apply_preset_at(p: &Paths, force: bool, now: DateTime<Utc>) -> Result<Option<PresetApplied>, HostError> {
     let Some(manifest) = read_preset_manifest(p)? else {
         return Ok(None);
@@ -473,7 +509,7 @@ pub fn apply_preset_at(p: &Paths, force: bool, now: DateTime<Utc>) -> Result<Opt
 
 #[cfg(test)]
 mod tests {
-    #![allow(clippy::unwrap_used, clippy::expect_used)]
+    #![allow(clippy::unwrap_used, clippy::expect_used, reason = "a panic is how a test fails")]
 
     use chrono::TimeZone;
 

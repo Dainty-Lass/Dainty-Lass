@@ -30,20 +30,28 @@ use crate::version::API_VERSION;
 /// An external module as `host.toml` names it (DF3): an executable, pinned by its SHA-256.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ExternalModule {
+    /// The executable.
     pub path: PathBuf,
+    /// The SHA-256 its bytes must have.
     pub sha256: Sha256Hex,
+    /// Arguments it is started with.
     pub args: Vec<String>,
     /// The module `host.toml` lists under this entry; the child's hello must name it
     pub expected: Option<ModuleId>,
 }
 
+/// How a child module is started and how long it may take.
 #[derive(Debug, Clone)]
 pub struct ChildOptions {
+    /// How long the child has to send its hello.
     pub handshake_timeout: Duration,
+    /// How long one call may take, `start` and `stop` aside.
     pub call_timeout: Duration,
+    /// How long `start` may take.
     pub start_timeout: Duration,
     /// How long `stop` may take, and how long the child has to exit after it before it is killed
     pub stop_grace: Duration,
+    /// Largest frame accepted after the handshake.
     pub max_frame: usize,
     /// The child's whole environment. `None` passes the host's on, every service's settings with it: the
     /// controller always gives one, as `start` gives each service only its own (DF3)
@@ -66,24 +74,45 @@ impl Default for ChildOptions {
     }
 }
 
+/// Why an external module could not be loaded.
 #[derive(Debug, thiserror::Error)]
 pub enum LoadError {
+    /// The executable could not be opened or read to hash it.
     #[error("could not read {path} to check it: {error}")]
-    Read { path: PathBuf, error: std::io::Error },
+    Read {
+        /// The executable.
+        path: PathBuf,
+        /// The OS error.
+        error: std::io::Error,
+    },
+    /// The executable's SHA-256 is not the pinned one.
     #[error("{path} has SHA-256 {found}, host.toml pins {expected}")]
     HashMismatch {
+        /// The executable.
         path: PathBuf,
+        /// The pin from `host.toml`.
         expected: Sha256Hex,
+        /// The executable's actual digest.
         found: Sha256Hex,
     },
+    /// The process could not be started.
     #[error("could not start {path}: {error}")]
-    Spawn { path: PathBuf, error: std::io::Error },
+    Spawn {
+        /// The executable.
+        path: PathBuf,
+        /// The OS error.
+        error: std::io::Error,
+    },
+    /// No hello arrived within the given time.
     #[error("the module did not say hello within {0:?}")]
     HandshakeTimeout(Duration),
+    /// The host refused the hello.
     #[error("the module's hello was refused: {0}")]
     Refused(#[from] Refusal),
+    /// The child exited or sent something other than a hello first.
     #[error("the module's handshake failed: {0}")]
     Handshake(String),
+    /// Reading the hello's frame failed.
     #[error("the module's handshake failed: {0}")]
     Frame(#[from] FrameError),
 }
@@ -144,6 +173,7 @@ pub fn program(path: &Path, file: &std::fs::File) -> PathBuf {
     if by_handle.exists() { by_handle } else { path.to_owned() }
 }
 
+/// What to start or load: the path, since this OS cannot run an open handle.
 #[cfg(not(target_os = "linux"))]
 pub fn program(path: &Path, _file: &std::fs::File) -> PathBuf {
     path.to_owned()

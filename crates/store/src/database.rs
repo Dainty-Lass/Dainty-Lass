@@ -45,12 +45,14 @@ pub struct DatabaseSchema {
     /// `embed_migrations!` of the SQLite set and of the Postgres set: functions, as `EmbeddedMigrations`
     /// can't be copied. Both sets have the same versions, so `db move` can tell the two are at one schema.
     pub sqlite: fn() -> EmbeddedMigrations,
+    /// As `sqlite`, for Postgres.
     pub postgres: fn() -> EmbeddedMigrations,
     /// Player-facing tables (accounts, characters, inventory, bans): deleted by setting `deleted_at`, and
     /// removed for good only by [`Database::purge_soft_deleted`] once the retention period has passed.
     pub soft_delete: &'static [&'static str],
 }
 
+/// How a [`Database`] opens its connections.
 #[derive(Debug, Clone)]
 pub struct DatabaseOptions {
     /// Connections for read closures.
@@ -186,7 +188,9 @@ pub struct Tx<'a> {
 /// A value of a primary key column, for [`Tx::soft_delete`] and [`Tx::restore`].
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum KeyValue {
+    /// An integer key.
     Int(i64),
+    /// A text key.
     Text(String),
 }
 
@@ -196,10 +200,12 @@ impl Tx<'_> {
         self.conn
     }
 
+    /// Which engine the transaction is on.
     pub fn engine(&self) -> Engine {
         self.conn.engine()
     }
 
+    /// Who the write is recorded as in the change log.
     pub fn actor(&self) -> &Actor {
         self.actor
     }
@@ -424,6 +430,7 @@ impl Database {
         self
     }
 
+    /// The account columns history filters match against.
     pub fn account_columns(&self) -> Arc<[AccountColumn]> {
         self.accounts.clone()
     }
@@ -432,6 +439,7 @@ impl Database {
         self.soft_delete.clone()
     }
 
+    /// Which engine the database is on.
     pub fn engine(&self) -> Engine {
         self.engine
     }

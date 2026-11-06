@@ -39,6 +39,7 @@ pub fn newly_unlocked(stored: &Map<String, Value>, next: &Map<String, Value>) ->
         .collect()
 }
 
+/// The object's members, or none for anything else.
 pub fn as_map(value: &Value) -> Map<String, Value> {
     value.as_object().cloned().unwrap_or_default()
 }
@@ -88,8 +89,11 @@ pub fn restore_masked(merged: &mut Map<String, Value>, stored: &Map<String, Valu
 /// `slayers_path_definitions.json` and the served node keys.
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct Graph {
+    /// Node id to the nodes that list it as a child.
     pub parents: HashMap<String, Vec<String>>,
+    /// Every node id the definitions or the served keys name.
     pub known: HashSet<String>,
+    /// False when the definitions failed to load; a host's unlocks are then refused.
     pub usable: bool,
     /// Node id to its reward catalog ids
     pub rewards: HashMap<String, Vec<String>>,
@@ -132,12 +136,16 @@ impl Graph {
     }
 }
 
+/// What a host's journey save may store.
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct HostJourneyPlan {
+    /// The nodes to store.
     pub nodes: Map<String, Value>,
+    /// Nodes newly unlocked and accepted.
     pub unlocked: Vec<String>,
     /// `(id, reason)`
     pub stripped: Vec<(String, &'static str)>,
+    /// Stored unlocks the save would have lost, put back.
     pub relocked: Vec<String>,
 }
 
@@ -243,8 +251,11 @@ pub fn plan_host_journey(stored: &Map<String, Value>, merged: &Map<String, Value
 /// One reward item to grant (§4.12).
 #[derive(Debug, Clone, PartialEq)]
 pub struct RewardGrant {
+    /// The reward item's catalog id.
     pub catalog_id: String,
+    /// The grant's transaction id, derived from the user, character and item.
     pub transaction_id: String,
+    /// The instanced item to add, with an id derived the same way.
     pub item: Value,
     /// `{catalogId, instanceId}` of the legacy items it repairs
     pub removes: Vec<Value>,

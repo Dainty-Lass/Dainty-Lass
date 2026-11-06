@@ -72,6 +72,7 @@ impl HomeRouter {
             .insert(module, backend);
     }
 
+    /// Stops answering for `module`.
     pub fn unregister(&self, module: &ModuleId) {
         self.backends
             .write()
@@ -79,6 +80,7 @@ impl HomeRouter {
             .remove(module);
     }
 
+    /// The backend answering for `module`, if one is registered.
     pub fn get(&self, module: &ModuleId) -> Option<Arc<dyn HomeBackend>> {
         self.backends
             .read()
@@ -97,6 +99,7 @@ pub struct DriverBackend {
 }
 
 impl DriverBackend {
+    /// Answers for `driver`'s module and game version.
     pub fn new(driver: Arc<dyn ModuleDriver>) -> Self {
         let game = driver.manifest().game_version.clone();
         Self { driver, game }
@@ -116,6 +119,7 @@ impl HomeBackend for DriverBackend {
     }
 }
 
+/// Limits on how a [`HomeService`] runs calls.
 #[derive(Debug, Clone, Copy)]
 pub struct HomeConfig {
     /// How long a request waits for the module before it is told to ask again
@@ -124,6 +128,7 @@ pub struct HomeConfig {
     pub max_in_flight: usize,
     /// Answers kept for repeats, by count and by bytes
     pub dedup_entries: usize,
+    /// The byte half of that limit.
     pub dedup_bytes: usize,
 }
 
@@ -276,10 +281,12 @@ impl HomeService {
         }
     }
 
+    /// The tickets this home makes and checks.
     pub fn tickets(&self) -> &Arc<Tickets> {
         &self.inner.tickets
     }
 
+    /// The modules answering here.
     pub fn router(&self) -> &Arc<HomeRouter> {
         &self.inner.router
     }

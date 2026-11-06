@@ -8,7 +8,9 @@ use module_api::NodeId;
 use rifts_seam::{AccountId, Actor};
 use store::{AnyConnection, Database, DatabaseConfig, DatabaseOptions, DatabaseSchema};
 
+/// The SQLite migrations for the realms tables.
 pub const SQLITE_MIGRATIONS: EmbeddedMigrations = embed_migrations!("migrations/sqlite");
+/// The Postgres migrations for the realms tables.
 pub const POSTGRES_MIGRATIONS: EmbeddedMigrations = embed_migrations!("migrations/postgres");
 
 /// No realms table is player-facing in DD23's sense, so nothing is soft-deleted.
@@ -18,10 +20,13 @@ pub const SCHEMA: DatabaseSchema = DatabaseSchema {
     soft_delete: &[],
 };
 
+/// Why a realms table read or write failed.
 #[derive(Debug, thiserror::Error)]
 pub enum RepoError {
+    /// The store failed.
     #[error(transparent)]
     Store(#[from] store::Error),
+    /// A query failed.
     #[error("database: {0}")]
     Query(#[from] diesel::result::Error),
     /// A unique key is taken (Node's E11000).
@@ -66,10 +71,12 @@ impl RealmsDb {
         Ok(Self::new(db, node))
     }
 
+    /// A handle over an opened database.
     pub fn new(db: Database, node: NodeId) -> RealmsDb {
         RealmsDb { node, db }
     }
 
+    /// The database underneath.
     pub fn database(&self) -> &Database {
         &self.db
     }
@@ -79,6 +86,7 @@ impl RealmsDb {
         &self.node
     }
 
+    /// Guard's store, on the same database.
     pub fn guard_store(&self) -> rifts_guard::SqlGuardStore {
         let shared = self.db.clone();
         rifts_guard::SqlGuardStore::new(shared)

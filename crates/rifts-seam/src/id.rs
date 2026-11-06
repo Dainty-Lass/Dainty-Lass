@@ -5,10 +5,14 @@
 
 use std::{fmt, str::FromStr};
 
+/// Why an id did not parse.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum IdError {
+    /// Not 26 Crockford base32 characters, or too large.
     BadUlid,
+    /// Not a valid node name.
     BadNode,
+    /// Not `<ULID>@<node>`.
     BadGlobal,
 }
 
@@ -55,6 +59,7 @@ impl Ulid {
         Self(time | random)
     }
 
+    /// The ULID's timestamp, in milliseconds since the Unix epoch.
     pub const fn unix_millis(self) -> u64 {
         (self.0 >> TIME_SHIFT) as u64
     }
@@ -91,6 +96,7 @@ impl FromStr for Ulid {
 pub struct NodeId(String);
 
 impl NodeId {
+    /// Checks the name: 1 to 32 of `a-z`, `0-9` and `-`, not starting or ending with `-`.
     pub fn new(name: &str) -> Result<Self, IdError> {
         let charset = name.bytes().all(|b| matches!(b, b'a'..=b'z' | b'0'..=b'9' | b'-'));
         let edges = !(name.starts_with('-') || name.ends_with('-'));
@@ -100,6 +106,7 @@ impl NodeId {
         }
     }
 
+    /// The node's name.
     pub fn as_str(&self) -> &str {
         self.0.as_str()
     }
@@ -108,7 +115,9 @@ impl NodeId {
 /// `<ULID>@<node>`.
 #[derive(Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub struct GlobalId {
+    /// The id, unique on its node.
     pub ulid: Ulid,
+    /// The node that made it.
     pub node: NodeId,
 }
 
@@ -171,9 +180,11 @@ macro_rules! global_newtype {
 global_newtype!(
     /// A hunt session.
     SessionId,
+    /// A party.
     PartyId,
     /// An admission ticket.
     TicketId,
+    /// A player-hosted realm.
     RealmId,
     /// A peer's admission into a session.
     AdmissionId,

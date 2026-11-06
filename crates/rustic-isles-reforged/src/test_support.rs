@@ -3,7 +3,11 @@
 
 //! Test support: a fixed clock, a recording matchmaking presence, a tester funding fake and the operator signer.
 
-#![allow(clippy::unwrap_used, clippy::expect_used)]
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    reason = "test fixtures; a panic is how a test fails"
+)]
 
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
@@ -54,18 +58,24 @@ pub type Applied = (String, String, Vec<(String, i64)>);
 /// Tracks with a linear curve of `per_rank` XP for `ranks` ranks, catalog ids it knows, and stacks it records.
 #[derive(Debug, Default)]
 pub struct FakeFunding {
+    /// `(XP per rank, ranks)` by track id.
     pub tracks: HashMap<String, (i64, i64)>,
+    /// Catalog ids it knows.
     pub catalog: Vec<String>,
+    /// Every stack run applied.
     pub applied: Mutex<Vec<Applied>>,
+    /// Answer every stack run [`StackOutcome::NotOwned`].
     pub refuse_stacks: bool,
 }
 
 impl FakeFunding {
+    /// Adds a track.
     pub fn with_track(mut self, id: &str, per_rank: i64, ranks: i64) -> Self {
         self.tracks.insert(id.to_owned(), (per_rank, ranks));
         self
     }
 
+    /// Adds catalog ids.
     pub fn with_catalog(mut self, ids: &[&str]) -> Self {
         self.catalog.extend(ids.iter().map(|s| (*s).to_owned()));
         self
@@ -90,7 +100,7 @@ impl TesterFunding for FakeFunding {
         match self.tracks.get(id) {
             None => RankRequirement::UnknownTrack,
             Some((_, ranks)) if rank > *ranks || rank < 0 => RankRequirement::OutOfRange,
-            #[allow(clippy::cast_precision_loss)]
+            #[allow(clippy::cast_precision_loss, reason = "test ranks and XP are small")]
             Some((per, _)) => RankRequirement::Xp((per * rank) as f64),
         }
     }

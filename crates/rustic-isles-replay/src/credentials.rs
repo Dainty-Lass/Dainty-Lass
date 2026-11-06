@@ -28,13 +28,18 @@ const TTL_S: i64 = 86_400;
 /// One side's credentials (§4.1). `Debug` says which secrets are set, never their values (D2).
 #[derive(Clone, Default)]
 pub struct ReplayTargetAuth {
+    /// HS256 secret for minted tokens; a fixed default when none.
     pub jwt_secret: Option<String>,
     /// Standard base64 of a PEM RSA private key (`AUTH_SIGNING_PRIVKEY_B64`), PKCS#1 or PKCS#8
     pub signing_key_b64: Option<String>,
+    /// Game-server key that fills `<gskey>`.
     pub gs_key: Option<String>,
+    /// Sent as `x-gateway-secret` on every request when set (§6.2).
     pub gateway_secret: Option<String>,
     /// SHA-256 hex of a raw account key → the key
     pub key_map: BTreeMap<String, String>,
+    /// Fill an unmapped `<key:...>` with `RRK_replay_` and the hash's first 24 characters instead of leaving it
+    /// inexact.
     pub deterministic_fallback_keys: bool,
 }
 
@@ -205,7 +210,9 @@ pub fn mint_rs256_jwt(subject: &str, privkey_b64: &str, now_ms: i64) -> Result<S
 /// A substituted value and whether it is only an approximation of what the client sent (§4.3).
 #[derive(Debug, Clone, PartialEq)]
 pub struct Substituted<T> {
+    /// The substituted value.
     pub value: T,
+    /// Whether a placeholder could not be filled exactly.
     pub inexact: bool,
 }
 

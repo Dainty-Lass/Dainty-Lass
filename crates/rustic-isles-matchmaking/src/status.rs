@@ -16,7 +16,9 @@ const HOST_ROUTE_FAILED: &str = "HOST_ROUTE_FAILED";
 /// A status and its JSON body, or a bare status.
 #[derive(Debug, Clone, PartialEq)]
 pub struct StatusAnswer {
+    /// The HTTP status.
     pub status: u16,
+    /// The JSON body; `None` answers the bare status.
     pub body: Option<Value>,
 }
 

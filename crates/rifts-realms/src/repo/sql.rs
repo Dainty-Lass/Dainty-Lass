@@ -233,7 +233,7 @@ macro_rules! table_row {
         }
 
         impl $row {
-            #[allow(dead_code)]
+            #[allow(dead_code, reason = "not every row type reads its column list")]
             const COLUMNS: &'static [&'static str] = &[$(stringify!($column)),+];
         }
     };

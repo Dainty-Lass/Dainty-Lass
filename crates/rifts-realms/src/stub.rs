@@ -12,6 +12,7 @@ use rifts_seam::{
 use crate::RealmsError;
 use crate::hosting::{HostBootstrap, HuntLifecycle, HuntStatus, Observation, StartHub};
 
+/// Answers every realms hook and route as not written yet.
 #[derive(Debug, Clone, Copy, Default)]
 pub struct Stub;
 

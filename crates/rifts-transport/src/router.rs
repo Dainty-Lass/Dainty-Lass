@@ -10,19 +10,24 @@ const BYTES_PER_PEER: usize = 1 << 20;
 
 /// What a bridge sends through and reads from.
 pub trait MessageTransport {
+    /// Sends `payload` to `peer`; `false` when it was not taken.
     fn send(&mut self, peer: u64, payload: &[u8]) -> bool;
+    /// Up to `max` received messages as `(peer, message)`, oldest first.
     fn receive(&mut self, max: usize) -> Vec<(u64, Vec<u8>)>;
 }
 
+/// Holds gameplay from attached peers until a bridge reads it; about 256 messages and 1 MiB per attached peer.
 #[derive(Debug, Default)]
 pub struct Router {
     attached: HashSet<u64>,
     inbox: VecDeque<(u64, Vec<u8>)>,
     bytes: usize,
+    /// Messages dropped: unattached peer, empty or over the bound.
     pub dropped: u64,
 }
 
 impl Router {
+    /// Lets `peer`'s gameplay through.
     pub fn attach(&mut self, peer: u64) {
         self.attached.insert(peer);
     }
@@ -34,14 +39,17 @@ impl Router {
         self.bytes = self.inbox.iter().map(|(_, m)| m.len()).sum();
     }
 
+    /// Whether `peer`'s gameplay is let through.
     pub fn is_attached(&self, peer: u64) -> bool {
         self.attached.contains(&peer)
     }
 
+    /// How many peers are let through.
     pub fn attached_count(&self) -> usize {
         self.attached.len()
     }
 
+    /// Queues a message from `peer`; dropped unless attached and within the bound.
     pub fn deliver(&mut self, peer: u64, message: Vec<u8>) {
         let slots = self.attached.len() + 1;
         let fits = self.inbox.len() < MESSAGES_PER_PEER * slots && self.bytes + message.len() <= BYTES_PER_PEER * slots;
@@ -53,6 +61,7 @@ impl Router {
         self.inbox.push_back((peer, message));
     }
 
+    /// Up to `max` queued messages as `(peer, message)`, oldest first.
     pub fn read(&mut self, max: usize) -> Vec<(u64, Vec<u8>)> {
         let count = max.min(self.inbox.len());
         let out: Vec<_> = self.inbox.drain(..count).collect();
@@ -77,11 +86,13 @@ impl MemoryNetwork {
         true
     }
 
+    /// One endpoint's view of the network.
     pub fn endpoint(&mut self, peer: u64) -> MemoryEndpoint<'_> {
         MemoryEndpoint { network: self, peer }
     }
 }
 
+/// A [`MessageTransport`] for one endpoint of a [`MemoryNetwork`].
 pub struct MemoryEndpoint<'a> {
     network: &'a mut MemoryNetwork,
     peer: u64,

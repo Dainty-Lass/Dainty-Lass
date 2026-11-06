@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Silent Spud
 
+//! Online backups of a SQLite store.
+
 use std::path::Path;
 use std::time::{Duration, Instant};
 

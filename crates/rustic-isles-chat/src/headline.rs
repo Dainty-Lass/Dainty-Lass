@@ -19,6 +19,7 @@ const NAMES: [(&str, &str); 7] = [
     ("PARTY_HUNT_STATUS_CHANGED", "party.hunt_status_changed"),
 ];
 
+/// The client's event name for an outbox event type; None for a type the client has no name for.
 pub fn event_name(event_type: &str) -> Option<&'static str> {
     NAMES
         .iter()

@@ -4,7 +4,7 @@
 //! Every rifts crate stubbed: the module is loaded, each of the 60 routes is mounted once (RF1's 68 less the 8
 //! Launcher Guard and manifest routes isles keeps) and answers 501, and the hooks answer unimplemented.
 
-#![allow(clippy::unwrap_used, clippy::expect_used)]
+#![allow(clippy::unwrap_used, clippy::expect_used, reason = "a panic is how a test fails")]
 
 use std::collections::HashSet;
 use std::sync::Arc;

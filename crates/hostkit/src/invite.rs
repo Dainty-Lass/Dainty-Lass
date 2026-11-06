@@ -47,27 +47,39 @@ pub fn parse_game_version(text: &str) -> Option<GameVersion> {
 /// Components used to build an invite URL.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct InviteParts {
+    /// Private or public: which form the link takes.
     pub mode: ServerMode,
+    /// The gateway's host.
     pub host: String,
+    /// The gateway's port.
     pub port: u16,
+    /// The invite code, or `OPEN`.
     pub code: String,
+    /// The server's name, as the launcher shows it.
     pub name: String,
+    /// The gateway certificate's SHA-256, hex; a public invite needs it.
     pub fp: Option<String>,
+    /// A private server's Tailscale share link.
     pub share: Option<String>,
 }
 
 /// Options for creating a new invite code on the backend.
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct CodeOptions {
+    /// How many accounts the code registers.
     pub uses: f64,
+    /// The code has no limit on its uses.
     pub infinite: bool,
+    /// Who the code is for.
     pub note: Option<String>,
 }
 
 /// Plain HTTP/1.1 response from a loopback service endpoint.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct HttpResponse {
+    /// The status code.
     pub status: u16,
+    /// The body, as text.
     pub body: String,
 }
 
@@ -546,7 +558,7 @@ pub fn list_invite_codes(port: u16, admin_key: &str) -> Result<Vec<Value>, HostE
 
 #[cfg(test)]
 mod tests {
-    #![allow(clippy::unwrap_used, clippy::expect_used)]
+    #![allow(clippy::unwrap_used, clippy::expect_used, reason = "a panic is how a test fails")]
 
     use super::*;
     use std::net::TcpListener;

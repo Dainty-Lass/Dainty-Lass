@@ -10,9 +10,13 @@ use service_kit::js;
 
 /// The live service's last pass cutoff (`Date.parse` = 1733184000000).
 pub const ENDED_END: &str = "2024-12-03T00:00:00+00:00";
+/// [`ENDED_END`] in milliseconds; a pass starting at or after it is moved back to [`ENDED_START`].
 pub const ENDED_END_MS: i64 = 1_733_184_000_000;
+/// The start an ended pass is given.
 pub const ENDED_START: &str = "2019-01-01T00:00:00+00:00";
+/// The start a recent season copied from the template is given.
 pub const FUTURE_START: &str = "2099-01-02T00:00:00+00:00";
+/// The end a recent season copied from the template is given.
 pub const FUTURE_END: &str = "2099-12-31T00:00:00+00:00";
 
 const PASS_PREFIXES: [&str; 3] = ["eventpass_", "d24_", "season"];

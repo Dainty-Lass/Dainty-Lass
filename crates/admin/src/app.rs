@@ -16,10 +16,14 @@ use crate::keys::{AuthError, Caller, Keys};
 use crate::log;
 use crate::schema::AdminSchema;
 
+/// What the admin API's routes share.
 #[derive(Clone)]
 pub struct AppState {
+    /// The GraphQL schema requests run against.
     pub schema: AdminSchema,
+    /// The keys requests are checked against.
     pub keys: Keys,
+    /// What the fields act on.
     pub admin: std::sync::Arc<crate::schema::Admin>,
     /// `RUSTIC_ISLES_METRICS_TOKEN`: the backend's own metrics are added to `/metrics` with it
     pub metrics_token: Option<String>,
@@ -184,6 +188,7 @@ async fn not_found() -> Response {
     (StatusCode::NOT_FOUND, Body::empty()).into_response()
 }
 
+/// The admin API's routes: `/graphql`, `/health` and `/metrics`.
 pub fn router(state: AppState) -> Router {
     Router::new()
         .route("/graphql", post(graphql))

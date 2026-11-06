@@ -21,6 +21,7 @@ use crate::error::HostError;
 /// The env files `setup` writes, in [`EnvFiles::files`]'s order.
 pub const SERVICES: [&str; 6] = ["backend", "director", "content", "gateway", "admin", "allowlist"];
 
+/// The most variables one `[env.<service>]` table may hold.
 pub const MAX_KEYS: usize = 64;
 const MAX_VALUE_BYTES: usize = 4096;
 
@@ -190,7 +191,7 @@ pub fn apply(files: &mut EnvFiles, env: &EnvPassthrough) -> Vec<String> {
 
 #[cfg(test)]
 mod tests {
-    #![allow(clippy::unwrap_used)]
+    #![allow(clippy::unwrap_used, reason = "a panic is how a test fails")]
 
     use super::*;
     use serde_json::json;

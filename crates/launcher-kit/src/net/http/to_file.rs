@@ -1,6 +1,8 @@
 // Copyright (c) 2026 Silent Spud
 // SPDX-License-Identifier: MIT
 
+//! Streaming a GET response straight to a file, for runtime and game downloads.
+
 use std::fmt;
 use std::path::Path;
 use std::time::Duration;
@@ -17,17 +19,26 @@ use tokio_util::sync::CancellationToken;
 use crate::net::http::{Endpoint, HttpError, check_endpoint, host_header};
 use crate::net::pinned::{PinnedTarget, pinned_connect, validate_host};
 
+/// How a file download is sent and bounded.
 pub struct FileRequestOptions<'a> {
+    /// Extra headers, such as the account key's.
     pub headers: Vec<(&'static str, String)>,
+    /// Longest wait for the connection or the next body chunk.
     pub idle_timeout: Duration,
+    /// Largest body accepted before [`HttpError::TooLarge`].
     pub max_bytes: u64,
+    /// Cancels the download when triggered.
     pub cancel: Option<CancellationToken>,
+    /// Called with each chunk's size as it is written, for progress.
     pub on_bytes: Option<&'a mut (dyn FnMut(u64) + Send)>,
 }
 
+/// Why a download failed.
 #[derive(Debug)]
 pub enum FileRequestError {
+    /// The request failed.
     Http(HttpError),
+    /// Writing the file failed.
     Disk(std::io::Error),
 }
 
@@ -42,6 +53,8 @@ impl fmt::Display for FileRequestError {
 
 impl std::error::Error for FileRequestError {}
 
+/// GETs `path_and_query` into `target` and returns the status. Only a 200's body is written, and a
+/// download that fails partway has its file removed.
 pub async fn request_to_file(
     endpoint: &Endpoint,
     path_and_query: &str,

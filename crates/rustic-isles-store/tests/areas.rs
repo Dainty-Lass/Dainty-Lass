@@ -3,7 +3,7 @@
 
 //! Characters, loadouts, friendships, inventory, progression and the economy (spec §7-§11.1): rows C1-C4, F1,
 //! I1-I3, P1-P9 and B1-B4 of §15.2.
-#![allow(clippy::unwrap_used, clippy::expect_used)]
+#![allow(clippy::unwrap_used, clippy::expect_used, reason = "a panic is how a test fails")]
 
 mod common;
 

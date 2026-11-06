@@ -93,6 +93,7 @@ fn entry(item: &super::io::Item) -> Value {
     json!({ "storage": storage, "maxQuantity": max, "tags": item.tags() })
 }
 
+/// Writes `inventory_storage_policy.json` in `game_data_dir`: each catalog item's storage kind, cap and tags.
 pub fn generate_inventory_storage_policy(
     catalog: &Path,
     tokens: &TokenSource,

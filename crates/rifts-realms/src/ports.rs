@@ -27,20 +27,27 @@ fn settled<T: Send + 'static>(value: T) -> Port<'static, T> {
     port(ready(Ok(value)))
 }
 
+/// Where the time comes from.
 pub trait Clock: Sync + Send {
+    /// The time now.
     fn now(&self) -> UnixMillis;
 }
 
 /// Isles' per-key budget.
 pub trait RateLimiter: Sync + Send {
+    /// Whether `key` has used up its `max` calls in the last `window_ms`.
     fn is_limited(&self, key: &str, max: u32, window_ms: i64) -> bool;
 }
 
+/// Where new ids and invite codes come from.
 pub trait IdSource: Sync + Send {
+    /// A fresh random invite code.
     fn invite_code(&self) -> String;
+    /// A fresh realm id, a random UUID.
     fn realm_id(&self) -> String;
 }
 
+/// Account lookups the directory needs from isles.
 pub trait Accounts: Sync + Send {
     /// The account whose launcher username this is, trimmed and case-insensitive.
     fn resolve_username(&self, username: String) -> Port<'_, Option<String>>;
@@ -50,37 +57,50 @@ pub trait Accounts: Sync + Send {
 
 /// A failure is the caller's to log, never the request's.
 pub trait RealmEventSink: Sync + Send {
+    /// Sends the event to the players it concerns.
     fn emit(&self, event: RealmEvent) -> Port<'_, ()>;
 }
 
 /// Nothing logged carries a secret or an address.
 pub trait RealmsLog: Sync + Send {
+    /// Logs a warning.
     fn warn(&self, line: &str);
+    /// Logs a notice.
     fn info(&self, line: &str);
 }
 
+/// Launcher Guard sessions, which isles keeps.
 pub trait GuardSessions: Sync + Send {
+    /// The account's healthy Guard session for this role, if it has one.
     fn find_healthy(&self, account: String, session_id: String, role: GuardRole) -> Port<'_, Option<HealthyGuard>>;
 }
 
+/// The operations policy as hosting reads it.
 pub trait OperationsView: Sync + Send {
     /// Enforce mode with the Guard rule on.
     fn guard_refuses(&self) -> bool;
     /// The `ICE` co-op transport, the default.
     fn ice_transport(&self) -> bool;
+    /// Whether the operators' emergency stop is on.
     fn emergency_stop(&self) -> Port<'_, bool>;
 }
 
 /// A healthy Launcher Guard session (isles keeps Launcher Guard).
 #[derive(Clone, Debug, PartialEq)]
 pub struct HealthyGuard {
+    /// The session's role.
     pub role: GuardRole,
+    /// The Guard session.
     pub guard_session_id: String,
+    /// The Guard manifest's sequence it runs under.
     pub manifest_sequence: i64,
+    /// Its latest report sequence.
     pub last_sequence: i64,
+    /// Guard's risk score for it.
     pub risk_score: f64,
 }
 
+/// The system clock.
 #[derive(Clone, Copy, Debug, Default)]
 pub struct SystemClock;
 
@@ -97,15 +117,18 @@ pub struct ManualClock {
 }
 
 impl ManualClock {
+    /// A clock reading `now`.
     pub fn at(now: UnixMillis) -> Self {
         let UnixMillis(start) = now;
         Self { now: start.into() }
     }
 
+    /// Moves the clock on by `millis`.
     pub fn advance(&self, millis: i64) {
         self.now.fetch_add(millis, SeqCst);
     }
 
+    /// Sets the clock to `now`.
     pub fn set(&self, now: UnixMillis) {
         self.now.store(now.0, SeqCst);
     }
@@ -117,6 +140,7 @@ impl Clock for ManualClock {
     }
 }
 
+/// Random invite codes and UUID realm ids.
 #[derive(Clone, Copy, Debug, Default)]
 pub struct RandomIds;
 
@@ -132,7 +156,9 @@ impl IdSource for RandomIds {
 /// Fixed answers; `usernames` keys are lower case.
 #[derive(Clone, Debug, Default)]
 pub struct FixedAccounts {
+    /// Display names by account.
     pub names: Names,
+    /// Account ids by lower-case username.
     pub usernames: BTreeMap<String, String>,
 }
 
@@ -186,6 +212,7 @@ impl Accounts for CoreAccounts {
     }
 }
 
+/// Keeps every event emitted, for tests.
 #[derive(Debug, Default)]
 pub struct RecordedEvents {
     events: Mutex<Vec<RealmEvent>>,
@@ -196,10 +223,12 @@ impl RecordedEvents {
         self.events.lock().unwrap_or_else(PoisonError::into_inner)
     }
 
+    /// Every event so far.
     pub fn all(&self) -> Vec<RealmEvent> {
         self.held().to_vec()
     }
 
+    /// Every event so far, emptying the record.
     pub fn take(&self) -> Vec<RealmEvent> {
         self.held().drain(..).collect()
     }
@@ -212,9 +241,11 @@ impl RealmEventSink for RecordedEvents {
     }
 }
 
+/// Logs to standard error.
 #[derive(Clone, Copy, Debug, Default)]
 pub struct StderrLog;
 
+/// Logs nothing.
 #[derive(Clone, Copy, Debug, Default)]
 pub struct QuietLog;
 
@@ -232,6 +263,7 @@ impl RealmsLog for QuietLog {
     fn info(&self, _: &str) {}
 }
 
+/// Finds no Guard session for anyone.
 #[derive(Clone, Copy, Debug, Default)]
 pub struct NoGuardSessions;
 
@@ -280,8 +312,10 @@ impl GuardSessions for CoreGuardSessions {
     }
 }
 
+/// Nothing refuses, `ICE` is the transport, and the emergency stop is whatever `stopped` says.
 #[derive(Debug, Default)]
 pub struct DefaultOperations {
+    /// Whether the emergency stop is on.
     pub stopped: AtomicBool,
 }
 

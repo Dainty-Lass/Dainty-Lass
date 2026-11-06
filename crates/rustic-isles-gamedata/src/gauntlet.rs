@@ -24,10 +24,12 @@ pub fn progression_payload(first_segment: &str) -> Value {
     }
 }
 
+/// The personal rewards answer: always an empty object.
 pub fn personal_rewards_payload() -> Value {
     json!({})
 }
 
+/// The guild rewards answer: always 0.
 pub fn guild_rewards_payload() -> Value {
     json!(0)
 }

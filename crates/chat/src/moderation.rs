@@ -26,10 +26,15 @@ use tokio::sync::mpsc;
 /// What a line is checked against: the whole filter, or (per term) only some channels.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Channel {
+    /// Network and regional rooms.
     City,
+    /// Party and hunt rooms.
     Party,
+    /// Guild chat.
     Guild,
+    /// Whispers.
     Direct,
+    /// Server messages.
     System,
 }
 
@@ -43,6 +48,7 @@ pub fn channel_of(kind: &module_api::chat::RoomKind) -> Channel {
 }
 
 impl Channel {
+    /// The dashboard's name for the channel.
     pub fn as_str(self) -> &'static str {
         match self {
             Self::City => "city",
@@ -54,24 +60,34 @@ impl Channel {
     }
 }
 
+/// What a matching term does to a line.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Action {
+    /// Lets it through and marks it for staff.
     Flag,
+    /// Replaces the matched text with `*`.
     Mask,
+    /// Stops the line.
     Block,
 }
 
+/// The filter's rating of a line: the strongest action any term took.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Verdict {
+    /// No term matched.
     Allowed,
+    /// Delivered; staff see it flagged.
     Flagged,
+    /// Delivered with the matched text masked.
     Masked,
+    /// Not delivered.
     Blocked,
 }
 
 impl Verdict {
+    /// The dashboard's name for the verdict.
     pub fn as_str(self) -> &'static str {
         match self {
             Self::Allowed => "allowed",
@@ -82,11 +98,15 @@ impl Verdict {
     }
 }
 
+/// How a term's pattern matches.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum MatchType {
+    /// The pattern as a whole word.
     Word,
+    /// The pattern anywhere in the text.
     Substring,
+    /// A JavaScript regular expression (`giu`).
     Regex,
 }
 
@@ -94,10 +114,15 @@ pub enum MatchType {
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Term {
+    /// The dashboard's term id.
     pub id: i64,
+    /// What to look for, read as [`Term::match_type`] says.
     pub pattern: String,
+    /// How the pattern matches.
     pub match_type: MatchType,
+    /// What a match does.
     pub action: Action,
+    /// The channels the term applies to; none for all.
     #[serde(default)]
     pub channels: Option<Vec<String>>,
 }
@@ -118,6 +143,7 @@ struct Compiled {
 /// A compiled filter. The empty one allows everything.
 #[derive(Default)]
 pub struct Filter {
+    /// The dashboard's filter version this was compiled from; none for the empty filter.
     pub version: Option<i64>,
     terms: Vec<Compiled>,
 }
@@ -125,7 +151,9 @@ pub struct Filter {
 /// What the filter made of a line: the verdict and the text recipients see.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Rated {
+    /// The strongest action that matched.
     pub verdict: Verdict,
+    /// The text recipients see: masked when the verdict is [`Verdict::Masked`].
     pub shown: String,
 }
 
@@ -222,6 +250,7 @@ fn is_word_char(ch: char) -> bool {
 }
 
 impl Filter {
+    /// Compiles the terms; a term whose pattern does not compile is skipped.
     pub fn compile(version: Option<i64>, terms: &[Term]) -> Self {
         let terms = terms
             .iter()
@@ -269,6 +298,7 @@ impl Filter {
         found
     }
 
+    /// Rates `text` as sent on `channel`.
     pub fn rate(&self, text: &str, channel: Channel) -> Rated {
         let found = self.matches(text, channel);
         let verdict = match found.iter().map(|f| f.0).max() {
@@ -294,6 +324,7 @@ impl Filter {
 /// Where the dashboard is: `CHAT_DASHBOARD_URL` and `CHAT_DASHBOARD_INGEST_KEY` in chat's env file.
 #[derive(Clone, PartialEq, Eq)]
 pub struct DashboardSettings {
+    /// The dashboard's base URL, `http://` or `https://`.
     pub url: String,
     /// The dashboard refuses a key under 32 characters. Never logged.
     pub key: String,
@@ -308,6 +339,7 @@ impl std::fmt::Debug for DashboardSettings {
 }
 
 impl DashboardSettings {
+    /// What is wrong with the settings, as sentences for the host; empty when they work.
     pub fn problems(&self) -> Vec<String> {
         let mut problems = Vec::new();
         if !(self.url.starts_with("http://") || self.url.starts_with("https://")) {
@@ -320,10 +352,13 @@ impl DashboardSettings {
     }
 }
 
+/// A player as the dashboard names them.
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Person {
+    /// The global account id.
     pub user_id: String,
+    /// The display name, clipped to 64 UTF-16 units.
     #[serde(serialize_with = "name_field")]
     pub name: String,
 }
@@ -345,42 +380,65 @@ fn name_field<S: serde::Serializer>(name: &str, serializer: S) -> Result<S::Ok, 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Line {
+    /// The message id: `mid` for a federated message.
     pub id: String,
+    /// Unix milliseconds.
     pub at: i64,
+    /// [`Channel::as_str`].
     pub channel: &'static str,
+    /// The room key, for a room line.
     pub room_id: Option<String>,
+    /// Who sent it.
     pub sender: Person,
+    /// The whisper's recipient.
     pub recipient: Option<Person>,
+    /// The text as sent, before masking.
     pub body: String,
+    /// What the filter made of it.
     pub verdict: Verdict,
 }
 
+/// Where and when a report was made.
 #[derive(Debug, Clone, Serialize)]
 pub struct ReportContext {
+    /// The room the reporter was in, if any.
     #[serde(rename = "roomId")]
     pub room_id: Option<String>,
+    /// Unix milliseconds.
     pub at: i64,
 }
 
+/// One `/report` for `POST /api/ingest/reports`.
 #[derive(Debug, Clone, Serialize)]
 pub struct Report {
+    /// A random `report-` id.
     pub id: String,
+    /// Where the report came from: `game`.
     pub source: &'static str,
+    /// Who reported.
     pub reporter: Person,
+    /// Who was reported.
     pub target: TargetPerson,
+    /// One of [`REPORT_CATEGORIES`].
     pub category: &'static str,
+    /// What happened, up to 2000 characters.
     pub description: String,
+    /// Where and when.
     pub context: ReportContext,
 }
 
+/// The player a report names, who may not be known to chat.
 #[derive(Debug, Clone, Serialize)]
 pub struct TargetPerson {
+    /// The global account id, when the name resolves to one.
     #[serde(rename = "userId", skip_serializing_if = "Option::is_none")]
     pub user_id: Option<String>,
+    /// The name as the reporter typed it, clipped to 64 UTF-16 units.
     #[serde(serialize_with = "name_field")]
     pub name: String,
 }
 
+/// The categories the dashboard accepts; a `/report` names one or gets `other`.
 pub const REPORT_CATEGORIES: [&str; 8] = [
     "harassment",
     "hate_speech",
@@ -460,6 +518,7 @@ impl Moderation {
         moderation
     }
 
+    /// Whether a dashboard is configured.
     pub fn is_on(&self) -> bool {
         self.out.is_some()
     }
@@ -477,6 +536,7 @@ impl Moderation {
         rated
     }
 
+    /// Queues a line for the dashboard; drops it when the queue is full or there is no dashboard.
     pub fn record(&self, line: Line) {
         if let Some(out) = &self.out
             && out.try_send(Outgoing::Line(line)).is_err()
@@ -496,6 +556,7 @@ impl Moderation {
         }
     }
 
+    /// Queues a report; returns `false` when there is no dashboard or the queue is full.
     pub fn report(&self, report: Report) -> bool {
         self.out
             .as_ref()

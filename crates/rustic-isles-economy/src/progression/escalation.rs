@@ -22,6 +22,7 @@ pub fn non_negative_int32(value: Option<&Value>) -> Option<i64> {
     (n.is_finite() && n.fract() == 0.0 && (0.0..=MAX_INT32).contains(&n)).then(|| crate::util::whole(n))
 }
 
+/// The escalation answer for a stored record, zeros without one.
 pub fn escalation_payload(record: Option<&EscalationProgressRecord>) -> Value {
     let (level, xp, talents, unlocks, version) = match record {
         Some(r) => (
@@ -76,23 +77,32 @@ pub fn merge_escalation(
 
 // ------------------------------------------------------------------ the season table
 
+/// One talent's rules.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Talent {
+    /// Points spent elsewhere before the talent can be bought.
     pub points_to_unlock: i64,
+    /// The cost of each rank, in order.
     pub point_costs: Vec<i64>,
 }
 
+/// One season's escalation table.
 #[derive(Debug, Clone, PartialEq)]
 pub struct SeasonTuning {
+    /// The highest level.
     pub max_level: i64,
     /// 0-based: index L is the XP level L + 1 takes
     pub xp_to_reach_level: Vec<i64>,
+    /// Unlock name to the level that grants it.
     pub unlocks: HashMap<String, i64>,
+    /// Talent name to its rules.
     pub talents: HashMap<String, Talent>,
 }
 
+/// `escalation_tuning.json`.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Tuning {
+    /// Season id to its table.
     pub seasons: HashMap<String, SeasonTuning>,
 }
 
@@ -268,8 +278,7 @@ pub fn check_build(season: &SeasonTuning, build: &Value, level: i64) -> Result<i
             return Err(format!("talent {} appears twice", quoted(id)));
         }
         let ranks = talent.point_costs.len();
-        // `ranks` is at most 100
-        #[allow(clippy::cast_precision_loss)]
+        #[allow(clippy::cast_precision_loss, reason = "`ranks` is at most 100")]
         let Some(rank) = int_in(entry.get("rank"), 1.0, ranks as f64) else {
             return Err(format!("talent {} needs a rank of 1..{ranks}", quoted(id)));
         };
@@ -416,12 +425,17 @@ const ENTRY_KEYS: [&str; 3] = ["talent_id", "reward_id", "unlock_id"];
 
 /// A host's merge (§4.10): the record, the tag's summary (after `season`) and the parts it refused.
 pub struct HostMerge {
+    /// The record to store.
     pub record: EscalationProgressRecord,
+    /// The host tag's summary of the merge.
     pub summary: Map<String, Value>,
+    /// Why the level and XP sent were refused, if they were.
     pub level_xp_rejected: Option<String>,
+    /// Why the talents sent were refused, if they were.
     pub talents_rejected: Option<String>,
 }
 
+/// A host's merge: as the dedicated server's, but the level and talents are checked against the season table and a refused part keeps the stored value.
 pub fn merge_host_escalation(
     previous: Option<&EscalationProgressRecord>,
     update: &Value,

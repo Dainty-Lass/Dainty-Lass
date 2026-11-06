@@ -35,12 +35,14 @@ pub const LOGIN_URL: &str = "https://www.epicgames.com/id/login?redirectUrl=http
 
 /// Where [`LOGIN_URL`] ends: the JSON page with the code. A webview reads the code here and nowhere else.
 pub const REDIRECT_ORIGIN: &str = "https://www.epicgames.com";
+/// Path on [`REDIRECT_ORIGIN`] of the page with the code.
 pub const REDIRECT_PATH: &str = "/id/api/redirect";
 
 /// A secret string: an access or refresh token, or an authorization code.
 pub struct Token(String);
 
 impl Token {
+    /// Wraps `secret`; it is only shown through [`Token::expose`].
     pub fn new(secret: String) -> Self {
         Self(secret)
     }
@@ -78,6 +80,7 @@ impl AuthorizationCode {
         }
     }
 
+    /// The code itself, for the one exchange that needs it.
     pub fn expose(&self) -> &str {
         self.0.expose()
     }
@@ -113,26 +116,32 @@ impl Session {
         }
     }
 
+    /// Epic's account id.
     pub fn account_id(&self) -> &str {
         &self.account_id
     }
 
+    /// The account's display name.
     pub fn display_name(&self) -> &str {
         &self.display_name
     }
 
+    /// The access token.
     pub fn access_token(&self) -> &Token {
         &self.access_token
     }
 
+    /// When the access token expires, in Unix seconds.
     pub fn access_expires_at(&self) -> i64 {
         self.access_expires_at
     }
 
+    /// The refresh token.
     pub fn refresh_token(&self) -> &Token {
         &self.refresh_token
     }
 
+    /// When the refresh token expires, in Unix seconds.
     pub fn refresh_expires_at(&self) -> i64 {
         self.refresh_expires_at
     }
@@ -153,11 +162,13 @@ impl fmt::Debug for Session {
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 #[non_exhaustive]
 pub enum AuthError {
+    /// The text is not an authorization code, or not the JSON page holding one.
     #[error("that is not an Epic authorization code")]
     BadCode,
     /// Epic refused the code (used, expired, another client's) or the refresh token (signed out elsewhere)
     #[error("Epic refused the sign-in")]
     Rejected,
+    /// The account service did not answer.
     #[error("Epic's account service could not be reached")]
     Unreachable,
     /// An answer without the session's fields, or one that could not be read
@@ -167,7 +178,9 @@ pub enum AuthError {
 
 /// What Epic's token endpoint is given.
 pub enum Grant {
+    /// Exchange an authorization code.
     Code(AuthorizationCode),
+    /// Refresh a session.
     Refresh(Token),
 }
 
@@ -176,7 +189,9 @@ pub type Pending<'a, T> = Pin<Box<dyn Future<Output = Result<T, AuthError>> + Se
 
 /// Epic's account service: the token endpoint and the end of a session.
 pub trait Accounts: Send + Sync {
+    /// Exchanges `grant` for a session.
     fn token(&self, grant: Grant) -> Pending<'_, Session>;
+    /// Ends the session `access_token` belongs to.
     fn end_session(&self, access_token: Token) -> Pending<'_, ()>;
 }
 

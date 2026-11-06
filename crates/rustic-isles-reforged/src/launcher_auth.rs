@@ -14,14 +14,18 @@ use crate::util;
 /// The signed-in launcher caller.
 #[derive(Debug, Clone)]
 pub struct LauncherCaller {
+    /// The launcher account's id.
     pub account_id: String,
+    /// The game account's userId.
     pub user_id: String,
     /// The refresh family
     pub sid: String,
+    /// The launcher account.
     pub account: LauncherAccount,
 }
 
 impl LauncherCaller {
+    /// Whether the account holds the role.
     pub fn has_role(&self, role: &str) -> bool {
         self.account.roles.iter().any(|r| r == role)
     }

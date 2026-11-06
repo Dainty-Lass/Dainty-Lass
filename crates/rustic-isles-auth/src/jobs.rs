@@ -16,26 +16,34 @@ const SWEEP_LIMIT: usize = 500;
 const ERASURES_PER_RUN: usize = 50;
 const HOURLY: Duration = Duration::from_secs(3600);
 
+/// Why the auth jobs could not start.
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 pub enum StartError {
+    /// `API_KEY_HASH_SECRET` is unset or too short.
     #[error("API_KEY_HASH_SECRET must contain at least 32 characters.")]
     Secret,
+    /// The token signing keys could not be loaded.
     #[error("{0}")]
     Keys(tokens::TokenError),
+    /// Email verification is required but the SMTP settings are not usable; holds the keys at fault.
     #[error(
         "RUSTIC_ISLES_EMAIL_VERIFICATION=required needs working SMTP settings ({0} not set or invalid; the required keys \
          are RUSTIC_ISLES_SMTP_HOST, RUSTIC_ISLES_SMTP_USER and RUSTIC_ISLES_SMTP_PASSWORD)"
     )]
     Smtp(String),
+    /// The game server keys could not be synchronized with the store.
     #[error("the game server keys could not be synchronized: {0}")]
     Store(StoreError),
 }
 
+/// What erasing one due account did.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ErasureOutcome {
     /// Live activity keeps it for the next run
     Blocked(Vec<String>),
+    /// Nothing blocked it, but it was a dry run.
     DryRun,
+    /// The account was erased; the rows deleted, by kind.
     Erased(ErasureCounts),
 }
 
@@ -136,6 +144,7 @@ impl<S: AuthStore> Auth<S> {
         Ok(removed)
     }
 
+    /// Live accounts whose deletion hold has ended at `now_iso`, oldest first, at most `limit`.
     pub async fn due_deletions(&self, now_iso: &str, limit: usize) -> Result<Vec<LauncherAccount>, StoreError> {
         self.store()?.due_deletions(now_iso, limit).await
     }

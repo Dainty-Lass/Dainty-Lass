@@ -7,10 +7,14 @@
 use module_api::BoxFuture;
 use serde_json::{Map, Value};
 
+/// A Director launch (§5.6).
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct LaunchRequest {
+    /// The client's game mode, such as `ISLAND` or `CITY`.
     pub game_mode: Option<String>,
+    /// The client's travel arguments.
     pub game_args: Option<String>,
+    /// The hunt to start.
     pub hunt_id: String,
     /// User ids
     pub expected_players: Vec<String>,
@@ -35,31 +39,48 @@ impl LaunchRequest {
     }
 }
 
+/// The Director's answer.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Launch {
     /// The port as the Director wrote it (a caller maps one outside u16)
-    Online { host: String, port: i64 },
+    Online {
+        /// The server's address.
+        host: String,
+        /// The server's port.
+        port: i64,
+    },
     /// A reason only when nothing was asked
-    Refused { reason: Option<String> },
+    Refused {
+        /// The Director's reason.
+        reason: Option<String>,
+    },
 }
 
+/// One persistent hub as the Director reports it.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct LiveHub {
+    /// Whether it reported ready.
     pub ready: bool,
+    /// Its address.
     pub host: String,
+    /// Its port, as the Director wrote it.
     pub port: i64,
 }
 
 /// Ramsgate's and the Training Dojo's hubs.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct LiveHubStatus {
+    /// The Ramsgate hub, none when it is not running.
     pub ramsgate: Option<LiveHub>,
+    /// The Training Dojo hub, none when it is not running.
     pub training: Option<LiveHub>,
 }
 
+/// The Director as matchmaking asks it (§5.6): in-process, over `DEPLOYSERVER_URL`, or none.
 pub trait DedicatedServers: Send + Sync {
     /// Whether a Director can be asked.
     fn configured(&self) -> bool;
+    /// Launches a game server; `Err` is a transport or Director failure text.
     fn launch(&self, request: LaunchRequest) -> BoxFuture<'_, Result<Launch, String>>;
     /// None when unreachable.
     fn hub_status(&self) -> BoxFuture<'_, Option<LiveHubStatus>>;

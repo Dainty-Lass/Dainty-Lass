@@ -7,7 +7,10 @@
 //! default-on `export-mongo` feature RB15 removes). A library with a command-line front, [`main_with`], for
 //! restricted's `isles-db` binary; the 1.14.7 starter values are the caller's ([`LegacyStarter`]).
 
-#![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used))]
+#![cfg_attr(
+    test,
+    allow(clippy::unwrap_used, clippy::expect_used, reason = "a panic is how a test fails")
+)]
 
 mod cli;
 #[cfg(feature = "export-mongo")]
@@ -44,18 +47,30 @@ use crate::extract::{Settings, Source};
 use crate::ids::Resolver;
 use crate::mongo::{MongoClient, MongoError, MongoUri};
 
+/// Why a command failed.
 #[derive(Debug, thiserror::Error)]
 pub enum DbError {
+    /// The MongoDB side failed: URI, connection, authentication or a command.
     #[error("mongo: {0}")]
     Mongo(#[from] MongoError),
+    /// The store failed to open, read or write.
     #[error("store: {0}")]
     Store(#[from] store::Error),
+    /// A query against the store failed.
     #[error("diesel: {0}")]
     Diesel(#[from] diesel::result::Error),
+    /// A bad option: an unknown area, a refused target or a missing file.
     #[error("invalid argument: {0}")]
     Config(String),
+    /// A source document could not be read and `--skip-invalid` was not given.
     #[error("invalid document in {collection}: {detail}")]
-    InvalidDocument { collection: String, detail: String },
+    InvalidDocument {
+        /// The MongoDB collection.
+        collection: String,
+        /// What is wrong with the document.
+        detail: String,
+    },
+    /// `verify` found this many tables that did not match.
     #[error("verification failed: {0} collection(s) did not match")]
     VerificationFailed(usize),
     /// `replay` is unit 10's command; the front routes it there (§3.1)
@@ -63,18 +78,27 @@ pub enum DbError {
     Replay(Vec<String>),
 }
 
+/// One `--area`: a group of tables migrated, verified or exported together.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub enum Area {
+    /// Accounts and launcher approvals.
     Auth,
+    /// Characters and loadouts.
     Characters,
+    /// Inventory and reforging.
     Inventory,
+    /// Progression.
     Progression,
+    /// Bounties, the store and wallets.
     Bounties,
+    /// Parties, matchmaking, chat and friendships.
     Parties,
+    /// The Reforged API's own tables: admin, guard and policy.
     Reforged,
 }
 
 impl Area {
+    /// Every area, in the order the tables are written.
     pub const ALL: [Area; 7] = [
         Self::Auth,
         Self::Characters,
@@ -85,6 +109,7 @@ impl Area {
         Self::Reforged,
     ];
 
+    /// The area's name as `--area` and the reports spell it.
     pub fn as_str(self) -> &'static str {
         match self {
             Self::Auth => "auth",
@@ -141,21 +166,31 @@ fn effective(areas: &BTreeSet<Area>) -> BTreeSet<Area> {
     }
 }
 
+/// `migrate` and `verify`'s options. `Debug` hides URI credentials.
 #[derive(Clone)]
 pub struct MigrateOptions {
+    /// The MongoDB URI read from (`--from` or `--against`).
     pub from_uri: String,
+    /// The store written to or compared with (`--to`): a SQLite file, `sqlite://<file>` or a Postgres URL.
     pub to_target: String,
+    /// The node derived ids belong to (`--node`, default `local`).
     pub node: NodeId,
+    /// Read and transform only; nothing is written (`--dry-run`).
     pub dry_run: bool,
     /// Empty: all seven
     pub areas: BTreeSet<Area>,
+    /// Skip a document missing a required field instead of failing (`--skip-invalid`).
     pub skip_invalid: bool,
+    /// Where the storage policy file is looked for (`--game-data-dir`); none means no storage repair.
     pub game_data_dir: Option<PathBuf>,
+    /// Accept a Postgres host off this machine, over a plaintext connection (`--allow-remote-postgres`).
     pub allow_remote_postgres: bool,
+    /// The game version's starter values the RB11 repairs need.
     pub starter: LegacyStarter,
 }
 
 impl MigrateOptions {
+    /// The selected areas, or every area when none was given.
     pub fn effective_areas(&self) -> BTreeSet<Area> {
         effective(&self.areas)
     }
@@ -190,16 +225,23 @@ impl fmt::Debug for MigrateOptions {
     }
 }
 
+/// `export-mongo`'s options. `Debug` hides URI credentials.
 #[derive(Clone, PartialEq, Eq)]
 pub struct ExportOptions {
+    /// The store read from (`--from`): a SQLite file, `sqlite://<file>` or a Postgres URL.
     pub from_source: String,
+    /// The MongoDB URI written to (`--to`).
     pub to_uri: String,
+    /// The selected areas; empty means all of them.
     pub areas: BTreeSet<Area>,
+    /// Build the collections but write nothing (`--dry-run`).
     pub dry_run: bool,
+    /// Accept a Postgres host off this machine, over a plaintext connection (`--allow-remote-postgres`).
     pub allow_remote_postgres: bool,
 }
 
 impl ExportOptions {
+    /// The selected areas, or every area when none was given.
     pub fn effective_areas(&self) -> BTreeSet<Area> {
         effective(&self.areas)
     }
@@ -217,21 +259,31 @@ impl fmt::Debug for ExportOptions {
     }
 }
 
+/// What `migrate` did, or would do on a dry run.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct MigrateReport {
+    /// Whether this was a dry run, so nothing was written.
     pub dry_run: bool,
     /// All 37 tables by name, 0 for an area not selected
     pub counts: BTreeMap<String, usize>,
+    /// Documents skipped under `--skip-invalid`.
     pub skipped_invalid: usize,
+    /// Launcher approvals added where the source had none (RB11).
     pub rb11_launcher_approvals_backfilled: usize,
+    /// Inventory arrays rewritten into the store's shape (RB11).
     pub rb11_inventory_arrays_transformed: usize,
+    /// Starter item instance ids repaired (RB11).
     pub rb11_starter_instances_repaired: usize,
+    /// Loadouts whose slot count was reconciled with entitlements (RB11).
     pub rb11_loadout_slots_reconciled: usize,
 }
 
+/// What `export-mongo` wrote, or would write on a dry run.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ExportReport {
+    /// Whether this was a dry run, so nothing was written.
     pub dry_run: bool,
+    /// Documents per MongoDB collection.
     pub counts: BTreeMap<String, usize>,
 }
 
@@ -343,6 +395,7 @@ pub async fn verify_report(opts: &MigrateOptions) -> Result<VerifyReport, DbErro
     })
 }
 
+/// [`verify_report`], failing with [`DbError::VerificationFailed`] when any table does not match.
 pub async fn run_verify(opts: &MigrateOptions) -> Result<VerifyReport, DbError> {
     let report = verify_report(opts).await?;
     match report.collections.iter().filter(|c| !c.ok).count() {

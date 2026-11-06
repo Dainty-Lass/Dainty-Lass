@@ -20,6 +20,7 @@ pub struct Build {
     pub display_name: &'static str,
     /// Epic's build version, which the manifest carries
     pub build_version: &'static str,
+    /// The SHA-1 of the build's manifest, 40 hex digits: what every source's copy must match.
     pub manifest_sha1: &'static str,
     /// The archive's commit and file
     pub archive: (&'static str, &'static str),
@@ -33,6 +34,7 @@ impl Build {
         self.manifest_sha1.parse().ok()
     }
 
+    /// [`Build::executable_sha256`] as bytes; `None` if it is not 64 hex digits.
     pub fn executable_sha256_bytes(&self) -> Option<[u8; 32]> {
         hex32(self.executable_sha256)
     }

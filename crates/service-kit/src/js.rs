@@ -1,17 +1,22 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Silent Spud
 
+//! JavaScript's conversions and comparisons on JSON values, for ports that must answer as the Node code did.
+
 use chrono::{DateTime, Local, NaiveDate, NaiveDateTime, TimeZone};
 use serde_json::Value;
 
+/// What JavaScript's `\s` and `trim` treat as white space: Unicode white space less U+0085, plus the BOM.
 pub fn is_space(c: char) -> bool {
     (c.is_whitespace() && c != '\u{85}') || c == '\u{feff}'
 }
 
+/// `String.prototype.trim`.
 pub fn trim(text: &str) -> &str {
     text.trim_matches(is_space)
 }
 
+/// `Number(value)`; a missing value is `undefined`, so NaN.
 pub fn number(value: Option<&Value>) -> f64 {
     match value {
         None => f64::NAN,
@@ -75,6 +80,7 @@ pub fn number(value: Option<&Value>) -> f64 {
     }
 }
 
+/// `String(value)`; a missing value is `"undefined"`.
 pub fn string(value: Option<&Value>) -> String {
     match value {
         None => "undefined".to_owned(),
@@ -95,6 +101,7 @@ pub fn string(value: Option<&Value>) -> String {
     }
 }
 
+/// `a === b` (arrays and objects are never equal).
 pub fn strict_eq(a: Option<&Value>, b: Option<&Value>) -> bool {
     match (a, b) {
         (None, None) | (Some(Value::Null), Some(Value::Null)) => true,
@@ -108,10 +115,12 @@ pub fn strict_eq(a: Option<&Value>, b: Option<&Value>) -> bool {
     }
 }
 
+/// `value == null`.
 pub fn is_nullish(value: Option<&Value>) -> bool {
     matches!(value, None | Some(Value::Null))
 }
 
+/// JavaScript truthiness.
 pub fn truthy(value: Option<&Value>) -> bool {
     match value {
         None | Some(Value::Null | Value::Bool(false)) => false,
@@ -121,10 +130,12 @@ pub fn truthy(value: Option<&Value>) -> bool {
     }
 }
 
+/// `typeof value === "number"`.
 pub fn is_number(value: Option<&Value>) -> bool {
     matches!(value, Some(Value::Number(_)))
 }
 
+/// The value as an integer if it is a number within `Number.MAX_SAFE_INTEGER`.
 pub fn safe_integer(value: Option<&Value>) -> Option<i64> {
     let f = value?.as_f64()?;
     if f.is_finite() && f.fract() == 0.0 && f.abs() <= 9_007_199_254_740_991.0 {
@@ -134,6 +145,7 @@ pub fn safe_integer(value: Option<&Value>) -> Option<i64> {
     }
 }
 
+/// `Date.parse(text)` in Unix milliseconds for the formats the services meet; date-only text is UTC, date-time local.
 pub fn date_parse(text: &str) -> Option<i64> {
     let s = trim(text);
     if s.is_empty() {
@@ -168,6 +180,7 @@ fn hex_val(b: u8) -> Option<u8> {
     }
 }
 
+/// `decodeURIComponent(text)`; `None` where it would throw.
 pub fn decode_uri_component(text: &str) -> Option<String> {
     let bytes = text.as_bytes();
     let mut out = Vec::with_capacity(bytes.len());

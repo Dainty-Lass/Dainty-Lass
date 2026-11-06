@@ -5,7 +5,10 @@
 //! handle on `store` (both engines, the change log, soft deletes, the actor mapping, the home check), every
 //! migration, the repositories the areas call, and the adapter `rustic-isles-auth` is given as its store.
 
-#![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used))]
+#![cfg_attr(
+    test,
+    allow(clippy::unwrap_used, clippy::expect_used, reason = "a panic is how a test fails")
+)]
 
 mod adapter;
 #[doc(hidden)]
@@ -28,6 +31,7 @@ pub use repo::{Repositories, Stub};
 pub use rustic_isles::{AccountId, UserId};
 pub use store::{AnyConnection, Tx};
 
+/// A JSON value as the repositories read and write it.
 pub type Json = serde_json::Value;
 
 const SQLITE: EmbeddedMigrations = embed_migrations!("migrations/sqlite");
@@ -53,32 +57,48 @@ pub const SOFT_DELETE: &[&str] = &[
     "wallet_balances",
 ];
 
+/// The isles schema: both engines' migrations and the soft-delete tables.
 pub const SCHEMA: DatabaseSchema = DatabaseSchema {
     sqlite: || SQLITE,
     postgres: || POSTGRES,
     soft_delete: SOFT_DELETE,
 };
 
+/// Why a repository call failed.
 #[derive(Debug, thiserror::Error)]
 pub enum RepoError {
+    /// The operation has no implementation in this repository set ([`Stub`]).
     #[error("{repository}: {operation} is not implemented yet")]
     Unimplemented {
+        /// The repository's name.
         repository: &'static str,
+        /// The operation called.
         operation: &'static str,
     },
+    /// The account lives on another node, so this one may not write its rows (DD17).
     #[error("{account} is homed on {home}, not here")]
-    NotHome { account: AccountId, home: String },
+    NotHome {
+        /// The account written for.
+        account: AccountId,
+        /// The node it is homed on.
+        home: String,
+    },
+    /// The home lookup failed.
     #[error("the account's home could not be resolved: {0}")]
     Home(String),
+    /// A `store` call failed.
     #[error(transparent)]
     Store(#[from] store::Error),
+    /// A query failed.
     #[error("database: {0}")]
     Query(#[from] diesel::result::Error),
+    /// A stored row could not be read; the text says which.
     #[error("stored data: {0}")]
     Data(String),
 }
 
 impl RepoError {
+    /// The error a [`Stub`] operation answers.
     pub fn unimplemented(repository: &'static str, operation: &'static str) -> Self {
         Self::Unimplemented { repository, operation }
     }
@@ -88,6 +108,7 @@ impl RepoError {
     }
 }
 
+/// A repository call's result.
 pub type RepoResult<T> = Result<T, RepoError>;
 
 /// The change log's name for an actor (spec §2.3).
@@ -147,24 +168,29 @@ impl IslesStore {
         Self::open(&config, &DatabaseOptions::default(), home, node).map(Some)
     }
 
+    /// The same store with these repositories (tests and fakes).
     #[must_use]
     pub fn with_repos(mut self, repos: Repositories) -> Self {
         self.repos = repos;
         self
     }
 
+    /// The underlying `store` handle.
     pub fn database(&self) -> &Database {
         &self.database
     }
 
+    /// The repositories the closures are given.
     pub fn repos(&self) -> &Repositories {
         &self.repos
     }
 
+    /// This node's id.
     pub fn node(&self) -> &NodeId {
         &self.node
     }
 
+    /// The home API that says where an account lives.
     pub fn home(&self) -> &Arc<dyn HomeApi> {
         &self.home
     }

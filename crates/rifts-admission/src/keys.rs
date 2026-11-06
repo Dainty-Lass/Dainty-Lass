@@ -27,25 +27,43 @@ use crate::{
     ticket::{DEFAULT_LIFETIME_SECONDS, Es256Tickets, safe_key_id},
 };
 
+/// The setting naming the active admission key.
 pub const KEY_ID_SETTING: &str = "P2P_ADMISSION_KEY_ID";
+/// The setting holding the signing key, a base64 PKCS#8 or SEC1 PEM; a secret.
 pub const SIGNING_KEY_SETTING: &str = "P2P_ADMISSION_SIGNING_PRIVKEY_B64";
+/// The setting holding the verifying key, a base64 SPKI PEM.
 pub const VERIFY_KEY_SETTING: &str = "P2P_ADMISSION_VERIFY_PUBKEY_B64";
+/// The setting holding the default ticket lifetime, in seconds.
 pub const LIFETIME_SETTING: &str = "P2P_ADMISSION_TICKET_TTL_SECONDS";
+/// The settings that are secrets.
 pub const SECRET_SETTINGS: &[&str] = &[SIGNING_KEY_SETTING];
+/// The key set's private key file.
 pub const PRIVATE_PEM_FILE: &str = "admission-private.pkcs8.pem";
+/// The key set's public key file.
 pub const PUBLIC_PEM_FILE: &str = "admission-public.spki.pem";
+/// The key set's raw public key, X and Y, for the game folder.
 pub const PUBLIC_XY_FILE: &str = "p2p-admission-public.xy";
+/// The key set's env file, holding the admission settings.
 pub const ENV_FILE: &str = "metagame-admission.env";
 
+/// Why the admission key could not be read or a key set written.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum KeyError {
+    /// `P2P_ADMISSION_KEY_ID` is missing or not a safe id.
     KeyId,
+    /// This required setting is missing.
     Missing(&'static str),
+    /// This setting is not a P-256 key in base64 PEM.
     Unreadable(&'static str),
+    /// The system random source failed.
     Random,
+    /// The key set command was given an unsafe key id.
     Usage,
+    /// The output folder's parent does not exist.
     NoParent(PathBuf),
+    /// The output folder already exists.
     Exists(PathBuf),
+    /// Writing the key set failed.
     Io(String),
 }
 
@@ -87,6 +105,7 @@ pub fn verifying_key_from_pem(pem: &str) -> Option<VerifyingKey> {
     VerifyingKey::from_public_key_pem(pem).ok()
 }
 
+/// The key's X and Y coordinates, 32 bytes each.
 pub fn public_xy(key: &VerifyingKey) -> PublicXy {
     let encoded = key.to_sec1_point(false);
     // Uncompressed SEC1: the 0x04 tag, then X and Y.
@@ -128,6 +147,7 @@ fn pem_setting(settings: &dyn Settings, name: &'static str) -> Option<Result<Str
     Some(decoded.map(|bytes| String::from_utf8_lossy(&bytes).into_owned()))
 }
 
+/// The key id setting, if it is a safe id.
 pub fn key_id_from_settings(settings: &dyn Settings) -> Result<KeyId, KeyError> {
     settings
         .get(KEY_ID_SETTING)
@@ -159,11 +179,13 @@ impl Es256Tickets {
         })
     }
 
+    /// The verifying key's X and Y coordinates.
     pub fn public_xy(&self) -> PublicXy {
         public_xy(&self.verifying)
     }
 }
 
+/// Makes new P-256 admission key pairs from the system random source.
 #[derive(Clone, Copy, Debug, Default)]
 pub struct P256KeyGenerator;
 

@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Silent Spud
 
+//! HTTP proxying helpers shared by the services: hop-by-hop header filtering and an idle-timed byte tunnel.
+
 use std::collections::BTreeSet;
 use std::future::Future;
 use std::io;
@@ -12,6 +14,7 @@ use http::HeaderMap;
 use tokio::io::{AsyncRead, AsyncWrite, ReadBuf};
 use tokio::time::{Instant, Sleep};
 
+/// Headers that apply to one connection only (RFC 9110 section 7.6.1) and are never forwarded.
 pub const HOP_BY_HOP: &[&str] = &[
     "connection",
     "keep-alive",
@@ -24,10 +27,12 @@ pub const HOP_BY_HOP: &[&str] = &[
     "upgrade",
 ];
 
+/// Whether `name` is in [`HOP_BY_HOP`], ignoring ASCII case.
 pub fn is_hop_by_hop(name: &str) -> bool {
     HOP_BY_HOP.iter().any(|hop| name.eq_ignore_ascii_case(hop))
 }
 
+/// The header names listed in every `Connection` header, lowercased; a proxy drops these too.
 pub fn connection_tokens(headers: &HeaderMap) -> BTreeSet<String> {
     let mut tokens = BTreeSet::new();
     for value in headers.get_all(http::header::CONNECTION) {
@@ -43,6 +48,7 @@ pub fn connection_tokens(headers: &HeaderMap) -> BTreeSet<String> {
     tokens
 }
 
+/// Copies the headers worth forwarding: drops hop-by-hop headers, those named by `Connection` and any `drop` matches.
 pub fn end_to_end(headers: &HeaderMap, drop: impl Fn(&str) -> bool) -> HeaderMap {
     let conn_tokens = connection_tokens(headers);
     let mut out = HeaderMap::new();
@@ -55,6 +61,7 @@ pub fn end_to_end(headers: &HeaderMap, drop: impl Fn(&str) -> bool) -> HeaderMap
     out
 }
 
+/// A stream that fails with `TimedOut` once no byte moves either way for its limit, and counts the bytes written.
 pub struct Idle<S> {
     inner: S,
     limit: Duration,
@@ -63,6 +70,7 @@ pub struct Idle<S> {
 }
 
 impl<S> Idle<S> {
+    /// Wraps `inner`; the idle timer starts now and restarts on every read or write that moves a byte.
     pub fn new(inner: S, limit: Duration) -> Self {
         Self {
             inner,
@@ -121,6 +129,8 @@ impl<S: AsyncWrite + Unpin> AsyncWrite for Idle<S> {
     }
 }
 
+/// Copies both ways between `a` and `b` until either closes or stays idle for `idle`.
+/// Returns the bytes written to `b` and to `a`; on an error or timeout, the counts so far.
 pub async fn tunnel<A, B>(a: A, b: B, idle: Duration) -> (u64, u64)
 where
     A: AsyncRead + AsyncWrite + Unpin,

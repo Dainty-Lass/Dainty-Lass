@@ -30,6 +30,7 @@ pub fn secure_suffix(settings: &rustic_isles::Settings) -> &'static str {
     }
 }
 
+/// The `set-cookie` value for a new session: eight hours, `HttpOnly`, `SameSite=Strict`.
 pub fn session_cookie(raw: &str, settings: &rustic_isles::Settings) -> String {
     format!(
         "{SESSION_COOKIE}={}; Path=/admin/v1; HttpOnly; SameSite=Strict; Max-Age=28800{}",
@@ -76,6 +77,7 @@ pub async fn open_session(
     Ok((raw, record))
 }
 
+/// `POST /admin/v1/auth/login`: signs in with a password, rate limited per client.
 pub async fn login(ctx: AdminContext) -> Response {
     let key = format!("admin-login:{}", ctx.request.client_ip);
     if ctx
@@ -161,6 +163,7 @@ pub async fn login(ctx: AdminContext) -> Response {
     util::with_header(util::ok(&body), "set-cookie", &session_cookie(&raw, settings))
 }
 
+/// `POST /admin/v1/auth/logout`: ends the caller's session.
 pub async fn logout(ctx: AdminContext) -> Response {
     let Some(caller) = ctx.caller.clone() else {
         return admin_internal("sign-out had no caller");
@@ -185,6 +188,7 @@ pub async fn logout(ctx: AdminContext) -> Response {
     util::with_header(empty, "set-cookie", &cleared_cookie(ctx.shared.settings()))
 }
 
+/// `GET /admin/v1/me`: the signed-in caller.
 pub async fn me(ctx: AdminContext) -> Response {
     let Some(caller) = ctx.caller.clone() else {
         return admin_internal("me had no caller");

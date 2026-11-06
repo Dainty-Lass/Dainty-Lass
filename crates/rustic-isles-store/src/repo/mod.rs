@@ -46,35 +46,65 @@ pub struct Stub;
 /// The repositories a store hands its closures; the field names are what the areas are written against.
 #[derive(Clone)]
 pub struct Repositories {
+    /// Game accounts.
     pub accounts: Arc<dyn auth::AccountRepository>,
+    /// Launcher accounts.
     pub launcher_accounts: Arc<dyn auth::LauncherAccountRepository>,
+    /// Linked Discord identities.
     pub auth_identities: Arc<dyn auth::AuthIdentityRepository>,
+    /// Launcher refresh sessions.
     pub refresh_sessions: Arc<dyn auth::RefreshSessionRepository>,
+    /// One-time codes from the launcher to the game.
     pub game_exchange_codes: Arc<dyn auth::GameExchangeCodeRepository>,
+    /// Discord sign-in transactions.
     pub discord_oauth_transactions: Arc<dyn auth::DiscordOAuthTransactionRepository>,
+    /// Emailed one-time codes.
     pub email_codes: Arc<dyn auth::EmailCodeRepository>,
+    /// Game server and user API key hashes.
     pub api_keys: Arc<dyn auth::ApiKeyRepository>,
+    /// The Reforged API's admin data.
     pub admin: Arc<dyn reforged::AdminRepository>,
+    /// Reforged invites.
     pub invites: Arc<dyn reforged::InviteRepository>,
+    /// The launcher's notices.
     pub launcher_notices: Arc<dyn reforged::LauncherNoticesRepository>,
+    /// Activity records.
     pub activity: Arc<dyn reforged::ActivityRepository>,
+    /// Launcher guard data.
     pub launcher_guard: Arc<dyn reforged::LauncherGuardRepository>,
+    /// Characters.
     pub characters: Arc<dyn characters::CharacterRepository>,
+    /// Loadouts.
     pub loadouts: Arc<dyn characters::LoadoutRepository>,
+    /// Inventories.
     pub inventories: Arc<dyn inventory::InventoryRepository>,
+    /// The inventory transaction ledger.
     pub inventory_transactions: Arc<dyn inventory::InventoryTransactionRepository>,
+    /// Progression tracks.
     pub progression_tracks: Arc<dyn progression::ProgressionTrackRepository>,
+    /// The progression grant ledger.
     pub progression_grants: Arc<dyn progression::ProgressionGrantRepository>,
+    /// Escalation progress.
     pub escalation_progress: Arc<dyn progression::EscalationProgressRepository>,
+    /// Slayer's Path journeys.
     pub player_journey: Arc<dyn progression::PlayerJourneyRepository>,
+    /// Breadcrumbs.
     pub breadcrumbs: Arc<dyn progression::BreadcrumbRepository>,
+    /// Encountered content.
     pub encountered_content: Arc<dyn progression::EncounteredContentRepository>,
+    /// Bounty states.
     pub bounty_states: Arc<dyn bounties::BountyStateRepository>,
+    /// Cooldown states.
     pub cooldown_states: Arc<dyn bounties::CooldownStateRepository>,
+    /// Entitlements.
     pub entitlements: Arc<dyn bounties::EntitlementRepository>,
+    /// Wallets.
     pub wallets: Arc<dyn bounties::WalletRepository>,
+    /// Daily economy rollups.
     pub economy_rollups: Arc<dyn bounties::EconomyRollupRepository>,
+    /// Parties.
     pub parties: Arc<dyn parties::PartyRepository>,
+    /// Friendships.
     pub friendships: Arc<dyn chat::FriendshipRepository>,
 }
 

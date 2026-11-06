@@ -56,7 +56,9 @@ type GwBody = UnsyncBoxBody<Bytes, io::Error>;
 /// The public certificate's server settings and what it says about itself.
 #[derive(Clone)]
 pub struct Tls {
+    /// Server settings with the certificate and key.
     pub config: Arc<rustls::ServerConfig>,
+    /// The certificate's details.
     pub info: CertInfo,
 }
 
@@ -76,10 +78,12 @@ impl Stats {
         }
     }
 
+    /// Connections open now.
     pub fn connections(&self) -> usize {
         *self.connections.borrow()
     }
 
+    /// WebSockets open now.
     pub fn websockets(&self) -> usize {
         self.websockets.load(Ordering::Relaxed)
     }
@@ -579,30 +583,37 @@ impl Gateway {
         Ok(gateway)
     }
 
+    /// Its settings.
     pub fn config(&self) -> &Config {
         &self.0.config
     }
 
+    /// The public certificate's details; `None` in private mode.
     pub fn certificate(&self) -> Option<&CertInfo> {
         self.0.tls.as_ref().map(|t| &t.info)
     }
 
+    /// Connection counts.
     pub fn stats(&self) -> &Stats {
         &self.0.stats
     }
 
+    /// The module routes.
     pub fn routes(&self) -> &Arc<ModuleRoutes> {
         &self.0.routes
     }
 
+    /// The allowlist feed.
     pub fn feed(&self) -> &AllowlistFeed {
         &self.0.feed
     }
 
+    /// Sets what takes `POST /network/v1/regions` reports.
     pub fn set_region_handler(&self, handler: RegionReportHandler) {
         *self.0.region.write().unwrap_or_else(PoisonError::into_inner) = Some(handler);
     }
 
+    /// The node links, when loaded.
     pub fn node_links(&self) -> Option<Arc<NodeLinks>> {
         self.0.node_links.read().unwrap_or_else(PoisonError::into_inner).clone()
     }
@@ -612,6 +623,7 @@ impl Gateway {
         *self.0.node_links.write().unwrap_or_else(PoisonError::into_inner) = links;
     }
 
+    /// Whether it is shutting down.
     pub fn is_closing(&self) -> bool {
         *self.0.closing.borrow()
     }
@@ -936,7 +948,10 @@ impl Gateway {
         response
     }
 
-    #[allow(clippy::too_many_arguments)]
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "each argument is part of one refusal: its status, code, log reason and connection handling"
+    )]
     fn refuse(
         &self,
         access: Access,

@@ -142,16 +142,19 @@ pub async fn send_http_request(
 
 /// A router served on a fresh loopback listener until [`EphemeralServer::stop`].
 pub struct EphemeralServer {
+    /// The loopback address it listens on.
     pub addr: SocketAddr,
     stop: Option<oneshot::Sender<()>>,
     task: JoinHandle<std::io::Result<()>>,
 }
 
 impl EphemeralServer {
+    /// The server's URL: `http://` and the listening address.
     pub fn base_url(&self) -> String {
         format!("http://{}", self.addr)
     }
 
+    /// Shuts the server down and waits for it to finish.
     pub async fn stop(mut self) {
         if let Some(stop) = self.stop.take() {
             let _ = stop.send(());

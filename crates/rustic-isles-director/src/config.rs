@@ -16,6 +16,7 @@ use crate::{DirectorConfig, memory};
 
 const LAUNCH_ID: &str = "RUSTIC_ISLES_GAMESERVER_LAUNCH_ID";
 const TRIALS_WEEK: &str = "RUSTIC_ISLES_TRIALS_WEEK";
+/// How long a stopped server's process tree may take to exit before it is killed.
 pub const STOP_GRACE: Duration = Duration::from_secs(10);
 
 fn js_number(settings: &Settings, name: &str) -> f64 {
@@ -51,33 +52,53 @@ pub fn game_range(settings: &Settings) -> Result<PortRange, String> {
     })
 }
 
+/// The Director's settings for one module start. `Debug` leaves out the key and the environment.
 pub struct Config {
+    /// The game server ports the module was given.
     pub port_range: PortRange,
+    /// The game server executable (`GAMESERVER_BINARY_PATH`); none means no server can start.
     pub binary_path: Option<String>,
     api_key: Option<String>,
+    /// The address players are sent to (`MY_IP`).
     pub my_ip: Option<String>,
+    /// Wait between two server starts (`SECONDS_TO_WAIT_BETWEEN_GAMESERVER_STARTUP`), at least 1 ms.
     pub stagger: Duration,
+    /// How long a server has to report ready (`GAMESERVER_READY_TIMEOUT_MS`, default 30 s).
     pub ready_timeout: Duration,
     /// `GAMESERVER_READY_TIMEOUT_MS` as a number, for the error text
     pub ready_timeout_setting: f64,
+    /// Most hunt servers at once (`MAX_CONCURRENT_HUNT_SERVERS`, default 3).
     pub max_hunts: f64,
+    /// Players a reused public hunt may hold (`PUBLIC_HUNT_MAX_PLAYERS`, default 4).
     pub public_max_players: f64,
+    /// Join players to a running public hunt (`ENABLE_PUBLIC_HUNT_REUSE=1`).
     pub public_reuse: bool,
+    /// Restart a hub as soon as it exits or is found gone (`HUB_PROMPT_RESTART`, default on).
     pub hub_prompt_restart: bool,
+    /// Keep the Ramsgate hub running (`RAMSGATE_HUB`, default on).
     pub ramsgate_hub: bool,
+    /// Keep the Training Grounds running (`TRAINING_HUB`); off by default under `TRAINING_ON_DEMAND`.
     pub training_hub: bool,
     /// 0 is off
     pub training_idle_minutes: u64,
+    /// Where the runtime writes its per-port occupancy logs (`GAMESERVER_RUNTIME_LOG_DIR`).
     pub runtime_log_dir: Option<PathBuf>,
+    /// Where each server's output is written (`GAMESERVER_LOG_DIR`, default `../debug/gameservers`).
     pub log_dir: PathBuf,
+    /// Hide the server's window on Windows (`GAMESERVER_WINDOWS_HIDE`).
     pub windows_hide: bool,
+    /// The switches every server is started with, `-LogCmds` last.
     pub launch_args: Vec<String>,
+    /// Minutes each Trials week lasts (`TRIALS_ROTATION_MINUTES`, default a week).
     pub trials_rotation_minutes: u64,
+    /// The memory guard's settings.
     pub memory: memory::Options,
     /// Warned when the service is built
     pub warnings: Vec<String>,
     base_env: Vec<(String, String)>,
+    /// Wait before a stopped server's tree is killed, [`STOP_GRACE`] outside tests.
     pub stop_grace: Duration,
+    /// The hubs' restart backoff in ms; none uses the supervisor's default.
     pub hub_backoff_ms: Option<Vec<u64>>,
 }
 
@@ -113,6 +134,8 @@ fn idle_minutes(settings: &Settings, warnings: &mut Vec<String>) -> u64 {
 }
 
 impl Config {
+    /// Reads the settings; an old `MYSTPAX_` key is an error. `process_env` wins over the settings in the child's
+    /// environment.
     pub fn from_settings(
         settings: &Settings,
         director: &DirectorConfig,
@@ -241,6 +264,7 @@ impl Config {
         env
     }
 
+    /// [`Config::my_ip`] for formatted addresses and log text, `undefined` when unset.
     pub fn my_ip_text(&self) -> &str {
         self.my_ip.as_deref().unwrap_or("undefined")
     }

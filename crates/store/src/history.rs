@@ -9,7 +9,7 @@
 //! can't forget one. A trigger refuses a write made outside [`crate::Database::write`]: that call puts the
 //! actor where the trigger finds it (a row of `__store_context` on SQLite, a transaction-local setting on
 //! Postgres), and nothing else does. The log itself refuses deletes, and updates but the one that seals an
-//! entry into the hash chain ([`chain`], DH5) before the write commits.
+//! entry into the hash chain (`chain.rs`, DH5) before the write commits.
 //!
 //! JSON per engine: SQLite stores booleans as 0 and 1, and blobs are written as `\x` and lower-case hex on
 //! both, as Postgres writes `bytea`. Postgres's `jsonb` text orders keys its own way: parse, don't compare.
@@ -28,6 +28,7 @@ pub mod record;
 pub(crate) use chain::seal;
 pub use chain::{Break, Chain, GENESIS, Head, Verification, entry_hash, head, is_hash, verify, verify_after};
 
+/// Name of the change log table.
 pub const CHANGE_LOG: &str = "__store_change_log";
 pub(crate) const CONTEXT: &str = "__store_context";
 pub(crate) const MIGRATIONS: &str = "__diesel_schema_migrations";
@@ -62,6 +63,7 @@ impl Actor {
         format!("{kind}:{id}")
     }
 
+    /// Reads the text [`Actor::as_text`] writes; `None` for an unknown kind, an empty id or a control character.
     pub fn parse(text: &str) -> Option<Self> {
         let (kind, id) = text.split_once(':')?;
         if id.is_empty() || id.chars().any(char::is_control) {
@@ -111,13 +113,16 @@ impl From<&module_api::actor::ActorContext> for Actor {
 /// One entry of the log; DH4 ships it as [`record`] lines.
 #[derive(Debug, Clone, PartialEq, Eq, QueryableByName)]
 pub struct ChangeEntry {
+    /// Log entry id, rising with every change.
     #[diesel(sql_type = BigInt)]
     pub id: i64,
     /// Unix milliseconds: the start of the write it belongs to, the same for every entry of it.
     #[diesel(sql_type = BigInt)]
     pub at: i64,
+    /// Who made the change, as [`Actor::as_text`] writes it.
     #[diesel(sql_type = Text)]
     pub actor: String,
+    /// Table the row is in.
     #[diesel(sql_type = Text)]
     pub table_name: String,
     /// The primary key as a JSON object.
@@ -126,8 +131,10 @@ pub struct ChangeEntry {
     /// `insert`, `update`, `delete`, `soft_delete`, `restore`, or `migrate` for a migration applied at open.
     #[diesel(sql_type = Text)]
     pub op: String,
+    /// The row before the change as a JSON object; `None` for an insert.
     #[diesel(sql_type = Nullable<Text>)]
     pub before: Option<String>,
+    /// The row after the change as a JSON object; `None` for a delete.
     #[diesel(sql_type = Nullable<Text>)]
     pub after: Option<String>,
     /// The hash of the entry before, [`GENESIS`] for the first. `None` only until the write is sealed, or

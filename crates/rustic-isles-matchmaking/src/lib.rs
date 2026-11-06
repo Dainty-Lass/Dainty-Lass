@@ -6,9 +6,14 @@
 //! game presence, the party outbox dispatcher, the QoS pong listener, the Director over HTTP, matchmaking's answers
 //! to rustic-rifts and the two module hooks core's Director invocation calls.
 
-#![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used))]
-// A refusal is the answer itself (an axum `Response`), as in core and the other areas, so it is not boxed
-#![allow(clippy::result_large_err)]
+#![cfg_attr(
+    test,
+    allow(clippy::unwrap_used, clippy::expect_used, reason = "a panic is how a test fails")
+)]
+#![allow(
+    clippy::result_large_err,
+    reason = "a refusal is the answer itself (an axum `Response`), as in core and the other areas, so it is not boxed"
+)]
 
 pub mod candidate;
 pub mod controller;

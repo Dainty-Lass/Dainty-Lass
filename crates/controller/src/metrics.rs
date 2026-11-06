@@ -23,9 +23,13 @@ const PHASES: [ComponentPhase; 6] = [
 
 /// Registers the collector for this controller (one per process: a second controller replaces the first).
 pub fn install(status: StatusRegistry) {
+    install_as("controller", status);
+}
+
+fn install_as(key: &str, status: StatusRegistry) {
     // CPU use is measured between two refreshes, so the system is kept: the first scrape reads 0
     let system = Arc::new(Mutex::new(System::new()));
-    m::collector("controller", move || {
+    m::collector(key, move || {
         components(&status);
         processes(&mut system.lock().unwrap_or_else(PoisonError::into_inner));
     });
@@ -156,8 +160,11 @@ mod tests {
     fn a_scrape_has_the_components_and_this_process() {
         let status = StatusRegistry::new("private", Vec::new());
         status.register_component("gateway", None);
-        install(status);
+        // Other tests' controllers replace the "controller" collector at any time. Collectors run in key order,
+        // so a key of its own that sorts after it makes this registry the one the scrape reports.
+        install_as("controller-metrics-test", status);
         let text = m::render();
+        m::remove_collector("controller-metrics-test");
         assert!(
             text.contains("dainty_component_phase{component=\"gateway\",phase=\"stopped\"} 1\n"),
             "{text}"

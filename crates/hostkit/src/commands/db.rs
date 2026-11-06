@@ -212,7 +212,7 @@ fn replay(_p: &Paths, _args: &DbReplayArgs, _out: &mut dyn FnMut(&str)) -> Outco
 }
 
 #[cfg(test)]
-#[allow(clippy::unwrap_used, clippy::expect_used)]
+#[allow(clippy::unwrap_used, clippy::expect_used, reason = "a panic is how a test fails")]
 mod tests {
     use super::*;
     use crate::hostconfig::{DatabaseSettings, FileForm, HostConfig, MongoConfig, Registration, ServerMode};

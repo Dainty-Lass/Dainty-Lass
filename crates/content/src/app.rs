@@ -56,6 +56,7 @@ struct Inner {
 }
 
 impl AppState {
+    /// Builds the shared state from the parts [`crate::server`] sets up.
     pub fn new(
         runtime: Store,
         auth: Auth,
@@ -76,14 +77,17 @@ impl AppState {
         }
     }
 
+    /// The game runtime published from the runtime folder.
     pub fn runtime(&self) -> &Store {
         &self.inner.runtime
     }
 
+    /// The version-keyed module table.
     pub fn modules(&self) -> &Arc<ContentModules> {
         &self.inner.modules
     }
 
+    /// The download slots.
     pub fn slots(&self) -> &Slots {
         &self.inner.slots
     }

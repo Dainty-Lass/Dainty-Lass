@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Silent Spud
 
-#![allow(clippy::unwrap_used, clippy::expect_used)]
+//! Route matching through a router service.
+
+#![allow(clippy::unwrap_used, clippy::expect_used, reason = "a panic is how a test fails")]
 
 use axum::body::Body;
 use axum::extract::{Extension, State};

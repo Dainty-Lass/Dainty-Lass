@@ -5,7 +5,10 @@
 //! `module_api::export_plugin!(MyModule::new());`, in a crate with `crate-type = ["cdylib"]`.
 //!
 //! The unsafe code of the library side is here, where every module shares it; the core's is `plugin-host`'s.
-#![allow(unsafe_code)]
+#![allow(
+    unsafe_code,
+    reason = "the library side of the plugin ABI: raw pointers across the C boundary"
+)]
 
 use std::ffi::c_void;
 use std::future::Future;
@@ -38,6 +41,7 @@ const CLOSE_GRACE: Duration = Duration::from_secs(2);
 #[repr(C)]
 #[derive(Clone, Copy)]
 pub struct HostSink {
+    /// The core's state for this module, passed back to `send` and `closed`.
     pub ctx: *mut c_void,
     /// Bytes from the library: the core copies them before it returns
     pub send: unsafe extern "C" fn(ctx: *mut c_void, ptr: *const u8, len: usize),
@@ -48,6 +52,7 @@ pub struct HostSink {
 /// What [`ENTRY`] returns, valid as long as the library stays loaded.
 #[repr(C)]
 pub struct PluginV1 {
+    /// [`ABI_VERSION`] of the library; the core refuses one it does not speak.
     pub abi_version: u32,
     /// Starts the module, which speaks first (its hello); null when it could not start. `sink` stays valid until
     /// `close` returns.
@@ -67,6 +72,7 @@ pub struct ChannelReader {
 }
 
 impl ChannelReader {
+    /// Reads what arrives on `rx`.
     pub fn new(rx: mpsc::UnboundedReceiver<Vec<u8>>) -> Self {
         Self {
             rx,
@@ -100,6 +106,7 @@ impl AsyncRead for ChannelReader {
 pub struct CallWriter<F>(F);
 
 impl<F: Fn(&[u8]) + Send + Unpin> CallWriter<F> {
+    /// Writes through `send`.
     pub fn new(send: F) -> Self {
         Self(send)
     }
@@ -154,7 +161,7 @@ struct Instance {
 /// What a library writes to the core with.
 pub type LibraryWriter = CallWriter<Box<dyn Fn(&[u8]) + Send + Sync>>;
 
-/// [`PluginV1::open`] for the module `make` builds; [`export_plugin!`] calls it.
+/// [`PluginV1::open`] for the module `make` builds; [`export_plugin!`](crate::export_plugin) calls it.
 pub fn open<M: GameModule>(make: impl FnOnce() -> M, sink: HostSink) -> *mut c_void {
     open_with(
         move |reader, writer| {
@@ -258,7 +265,7 @@ pub unsafe extern "C" fn close(handle: *mut c_void) {
 #[macro_export]
 macro_rules! export_plugin {
     ($make:expr) => {
-        #[allow(unsafe_code)]
+        #[allow(unsafe_code, reason = "the exported C entry point; no_mangle is unsafe")]
         #[unsafe(no_mangle)]
         pub extern "C" fn dainty_plugin_v1() -> *const $crate::plugin::PluginV1 {
             unsafe extern "C" fn open(sink: $crate::plugin::HostSink) -> *mut ::std::ffi::c_void {

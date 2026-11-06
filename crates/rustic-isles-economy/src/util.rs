@@ -19,8 +19,10 @@ pub fn number_value(n: f64) -> Value {
         return Value::Null;
     }
     if n.fract() == 0.0 && n.abs() <= MAX_SAFE {
-        // Whole and inside 2^53, so the cast is exact; -0 becomes 0 as JSON.stringify writes it
-        #[allow(clippy::cast_possible_truncation)]
+        #[allow(
+            clippy::cast_possible_truncation,
+            reason = "whole and inside 2^53, so the cast is exact; -0 becomes 0 as JSON.stringify writes it"
+        )]
         return Value::from(n as i64);
     }
     Number::from_f64(n).map_or(Value::Null, Value::Number)
@@ -60,8 +62,10 @@ pub(crate) fn is_whole(n: f64) -> bool {
 
 /// An `i64` from a number already known to be whole and in range.
 pub(crate) fn whole(n: f64) -> i64 {
-    // Callers check `is_whole` (or truncate a bounded value) first
-    #[allow(clippy::cast_possible_truncation)]
+    #[allow(
+        clippy::cast_possible_truncation,
+        reason = "callers check `is_whole` (or truncate a bounded value) first"
+    )]
     let out = n as i64;
     out
 }
@@ -71,8 +75,10 @@ pub(crate) fn trunc_i64(n: f64) -> i64 {
     if n.is_nan() {
         return 0;
     }
-    // `as` saturates for floats, which is the bound wanted here
-    #[allow(clippy::cast_possible_truncation)]
+    #[allow(
+        clippy::cast_possible_truncation,
+        reason = "`as` saturates for floats, which is the bound wanted here"
+    )]
     let out = n.trunc() as i64;
     out
 }

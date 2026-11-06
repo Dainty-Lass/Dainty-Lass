@@ -64,15 +64,20 @@ pub const MANIFEST_MAX_BYTES: usize = 16 << 20;
 /// A game version and what the launcher needs to install and start it: a module manifest, narrowed.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct KnownProfile {
+    /// The game version, such as `1.14.7`.
     pub game_version: GameVersion,
+    /// Name shown to the player.
     pub display_name: String,
+    /// How the launcher installs and starts the client.
     pub client: ClientProfile,
 }
 
 /// A profile a server served, and whether that server also holds the version's Epic manifest.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ServedProfile {
+    /// The checked profile.
     pub profile: KnownProfile,
+    /// The server holds the version's pinned Epic manifest.
     pub epic_manifest: bool,
 }
 
@@ -80,7 +85,9 @@ pub struct ServedProfile {
 /// route and nowhere else, and never into a log.
 #[derive(Clone, PartialEq, Eq)]
 pub struct JoinedServer {
+    /// Where the server is and its certificate pin.
     pub endpoint: Endpoint,
+    /// The account key made for this server, if the player has one.
     pub key: Option<String>,
 }
 
@@ -114,9 +121,12 @@ pub trait Sources: Sync {
     fn url(&self, url: &str) -> impl Future<Output = Option<Bytes>> + Send;
 }
 
+/// An Epic build's sizes, read from its manifest.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Sizes {
+    /// Bytes to download.
     pub download: u64,
+    /// Bytes on disk once installed.
     pub install: u64,
 }
 

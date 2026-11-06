@@ -37,11 +37,31 @@ options:
   --json                       print the report as JSON
   -h, --help                   this text";
 
+/// A parsed command line.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Command {
-    Migrate { opts: MigrateOptions, json: bool },
-    Verify { opts: MigrateOptions, json: bool },
-    ExportMongo { opts: ExportOptions, json: bool },
+    /// `migrate`: MongoDB into the store; `json` prints the report as JSON.
+    Migrate {
+        /// The command's options.
+        opts: MigrateOptions,
+        /// Print the report as JSON (`--json`).
+        json: bool,
+    },
+    /// `verify`: the store compared with MongoDB table by table.
+    Verify {
+        /// The command's options.
+        opts: MigrateOptions,
+        /// Print the report as JSON (`--json`).
+        json: bool,
+    },
+    /// `export-mongo`: the store written back into MongoDB (RB13).
+    ExportMongo {
+        /// The command's options.
+        opts: ExportOptions,
+        /// Print the report as JSON (`--json`).
+        json: bool,
+    },
+    /// `-h`/`--help`, or no command: print the usage.
     Help,
 }
 
@@ -190,6 +210,7 @@ fn print_json(report: &impl Serialize) {
     }
 }
 
+/// Prints `migrate`'s report to stdout, as text or as JSON.
 pub fn print_migrate_report(report: &MigrateReport, json: bool) {
     if json {
         return print_json(report);
@@ -254,6 +275,7 @@ pub fn print_verify_report(report: &VerifyReport, json: bool) {
     }
 }
 
+/// Prints `export-mongo`'s report to stdout, as text or as JSON.
 pub fn print_export_report(report: &ExportReport, json: bool) {
     if json {
         return print_json(report);

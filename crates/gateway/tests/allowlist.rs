@@ -4,7 +4,7 @@
 //! The allowlist helper over HTTP, in dry run: every status, the nft script and the Windows rule after a login
 //! and a logout, state across a restart, `--close-ports`, the platform checks, modules' ports, and the gateway's
 //! feed straight into an in-process helper (spec-rd27-gateway.md 5.2).
-#![allow(clippy::unwrap_used, clippy::expect_used)]
+#![allow(clippy::unwrap_used, clippy::expect_used, reason = "a panic is how a test fails")]
 
 mod common;
 

@@ -11,10 +11,14 @@ use std::path::{Path, PathBuf};
 use crate::error::HostError;
 use crate::paths::Paths;
 
+/// A service `start` runs in front of the server.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum FrontService {
+    /// The gateway.
     Gateway,
+    /// The content server.
     Content,
+    /// The UDP allowlist.
     Allowlist,
 }
 
@@ -28,6 +32,7 @@ pub fn rust_ported(service: FrontService) -> bool {
 }
 
 impl FrontService {
+    /// Its command name, also its env file's and binary's.
     pub fn bin_name(self) -> &'static str {
         match self {
             Self::Gateway => "gateway",
@@ -57,8 +62,11 @@ impl FrontService {
 /// How to start one program.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Launch {
+    /// The program.
     pub command: PathBuf,
+    /// Its arguments.
     pub args: Vec<String>,
+    /// The folder it runs in.
     pub cwd: PathBuf,
     /// The env file is in `args` (a Rust service); otherwise it is read into the environment.
     pub env_file_in_args: bool,
@@ -68,8 +76,11 @@ pub struct Launch {
 /// for the Rust binaries that are not part of it.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Programs {
+    /// The Node executable; only a `paradox` build looks for it.
     pub node: PathBuf,
+    /// This binary, which runs the Rust services.
     pub host: PathBuf,
+    /// Folders searched for the Rust binaries not built into this one.
     pub rust_dirs: Vec<PathBuf>,
 }
 
@@ -115,6 +126,7 @@ impl Programs {
         }
     }
 
+    /// The Rust binary `name` in the first of `rust_dirs` that has it.
     pub fn rust_bin(&self, name: &str) -> Option<PathBuf> {
         let file = format!("{name}{}", std::env::consts::EXE_SUFFIX);
         self.rust_dirs.iter().map(|d| d.join(&file)).find(|f| f.is_file())

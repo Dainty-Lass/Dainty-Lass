@@ -3,7 +3,12 @@
 
 //! Synthetic fixtures (spec §13.1) and a module over a temporary store, driven through core's `app()`.
 
-#![allow(dead_code, clippy::unwrap_used, clippy::expect_used)]
+#![allow(
+    dead_code,
+    clippy::unwrap_used,
+    clippy::expect_used,
+    reason = "shared by several test binaries, each using only some; a panic is how a test fails"
+)]
 
 use std::net::SocketAddr;
 use std::sync::{Arc, Mutex};

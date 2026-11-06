@@ -12,15 +12,18 @@ use crate::rules::make_party_id;
 
 /// Invites last ten minutes.
 pub const INVITE_TTL_MS: i64 = 10 * 60 * 1000;
+/// Most members a party may hold.
 pub const MAX_PARTY_SIZE: u32 = 4;
 /// Every player is on Windows.
 pub const PLATFORM: &str = "win";
 const WRITE_ATTEMPTS: usize = 3;
 
+/// Why a party operation failed.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum PartyError {
     /// The routes' 501
     NoDatabase,
+    /// The store refused, or the player has no account; the text says which.
     Failed(String),
 }
 
@@ -42,17 +45,25 @@ impl From<RepoError> for PartyError {
 /// An invitation as `GET /party/invites` lists it.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Invitation {
+    /// The party's id.
     pub party_id: String,
+    /// The inviter's userId.
     pub sender_user_id: String,
+    /// The inviter's display name when the invite was sent.
     pub display_name: String,
+    /// The inviter's platform.
     pub platform: String,
 }
 
 /// The party operations over the module's store, as one acting request.
 pub struct Parties<'a> {
+    /// The module's store; none answers [`PartyError::NoDatabase`].
     pub store: Option<&'a IslesStore>,
+    /// The node new party ids belong to.
     pub node: &'a NodeId,
+    /// The request's id, carried into store writes.
     pub request_id: Option<&'a str>,
+    /// The request's time, Unix ms.
     pub now: i64,
 }
 
@@ -81,6 +92,7 @@ impl Parties<'_> {
         }
     }
 
+    /// The account for a userId, `None` when it has none.
     pub async fn account_of(&self, user: &str) -> Result<Option<AccountId>, PartyError> {
         let store = self.store()?;
         let user = UserId::new(user);
@@ -114,6 +126,7 @@ impl Parties<'_> {
         }
     }
 
+    /// The player's party, `None` without an account or a party.
     pub async fn for_player(&self, user: &str) -> Result<Option<PartyRecord>, PartyError> {
         let Some(account) = self.account_of(user).await? else {
             return Ok(None);
@@ -124,6 +137,7 @@ impl Parties<'_> {
             .await?)
     }
 
+    /// The player's party, or a new solo party when the player has none.
     pub async fn get_or_create(&self, user: &str, build_id: &str) -> Result<PartyRecord, PartyError> {
         let account = self.require_account(user).await?;
         let new_party = self.new_party(build_id);
@@ -134,6 +148,7 @@ impl Parties<'_> {
         .await
     }
 
+    /// Invites `recipient` to `sender`'s party for ten minutes; a missing recipient, or the sender as recipient, is a no-op.
     pub async fn invite(
         &self,
         sender: &str,
@@ -166,6 +181,7 @@ impl Parties<'_> {
         .await
     }
 
+    /// The player's pending invitations; none without an account.
     pub async fn invites_for(&self, user: &str) -> Result<Vec<Invitation>, PartyError> {
         let Some(account) = self.account_of(user).await? else {
             return Ok(Vec::new());
@@ -193,6 +209,8 @@ impl Parties<'_> {
         Ok(listed)
     }
 
+    /// Joins the inviter's party; a missing inviter leaves the recipient's party as it is. Returns the recipient's
+    /// party.
     pub async fn accept(
         &self,
         recipient: &str,
@@ -242,6 +260,7 @@ impl Parties<'_> {
         .await
     }
 
+    /// Makes `target` the leader of `actor`'s party; a missing target is a no-op.
     pub async fn promote(&self, actor: &str, target: &str) -> Result<(), PartyError> {
         let actor_account = self.require_account(actor).await?;
         let Some(target_account) = self.account_of(target).await? else {

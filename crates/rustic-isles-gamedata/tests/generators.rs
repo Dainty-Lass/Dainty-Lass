@@ -3,7 +3,7 @@
 
 //! The generators on synthetic fixtures (spec §10.2): made-up ids and paths, never a row of a real export.
 
-#![allow(clippy::unwrap_used, clippy::expect_used)]
+#![allow(clippy::unwrap_used, clippy::expect_used, reason = "a panic is how a test fails")]
 
 use std::path::{Path, PathBuf};
 

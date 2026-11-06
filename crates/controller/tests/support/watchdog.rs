@@ -3,8 +3,13 @@
 use std::time::Duration;
 
 /// Aborts the test binary if a test outlives `limit`: a library stuck in its process would otherwise hold CI forever.
-// Dropped at the end of the test, which ends the wait
-pub struct Watchdog(#[allow(dead_code)] std::sync::mpsc::Sender<()>);
+pub struct Watchdog(
+    #[allow(
+        dead_code,
+        reason = "never read: dropping it at the end of the test is what ends the wait"
+    )]
+    std::sync::mpsc::Sender<()>,
+);
 
 pub fn watchdog(test: &'static str, limit: Duration) -> Watchdog {
     let (done, wait) = std::sync::mpsc::channel::<()>();

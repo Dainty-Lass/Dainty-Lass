@@ -40,46 +40,77 @@ const ROSTER_LIVE_STATES: &[HuntState] = &[HostReady, Admitting, Running];
 
 const RENEWABLE_STATES: &[HuntState] = &[HostReady, Admitting, Running, Draining, Suspect];
 
+/// A host's runtime starting a session it accepted.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct HostStartup {
+    /// The session.
     pub session_id: String,
+    /// The host.
     pub host_account_id: String,
+    /// The host's bridge instance.
     pub bridge_instance_id: String,
+    /// The nonce the runtime's metadata carries.
     pub metadata_nonce: String,
+    /// When the host must be ready by.
     pub startup_deadline: UnixMillis,
+    /// The game server's UDP port, if the host chose one.
     pub server_udp_port: Option<i64>,
 }
 
+/// A host's lease heartbeat.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct LeaseRenewal {
+    /// The session.
     pub session_id: String,
+    /// The generation the host holds.
     pub generation: i64,
+    /// The host's transport peer id.
     pub host_steam_id: String,
+    /// The host's bridge instance.
     pub bridge_instance_id: String,
+    /// The heartbeat's sequence number; only a newer one renews.
     pub lease_sequence: i64,
+    /// When the heartbeat was sent.
     pub heartbeat_at: UnixMillis,
+    /// The new lease expiry.
     pub lease_expires_at: UnixMillis,
 }
 
+/// A host's runtime reporting it is ready.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct HostReadyMark {
+    /// The session.
     pub session_id: String,
+    /// The generation the host holds.
     pub generation: i64,
+    /// The host's transport peer id.
     pub host_steam_id: String,
+    /// The host's bridge instance.
     pub bridge_instance_id: String,
+    /// The transport lobby it opened.
     pub lobby_id: String,
+    /// The game's virtual port; must match the session's.
     pub virtual_port: i64,
+    /// The first lease expiry.
     pub lease_expires_at: UnixMillis,
 }
 
+/// A message to queue for an account's launcher; the queue gives its id and sequence.
 #[derive(Clone, Debug, PartialEq)]
 pub struct NewControlMessage {
+    /// The account it is for.
     pub account_id: String,
+    /// The message type, such as `ICE_SIGNAL`.
     pub message_type: String,
+    /// The session it is about, if any.
     pub session_id: Option<String>,
+    /// That session's generation.
     pub generation: Option<i64>,
+    /// The message body.
     pub payload: Value,
+    /// When it was queued.
     pub created_at: UnixMillis,
+    /// When it is dropped undelivered.
     pub expires_at: UnixMillis,
 }
 
@@ -375,10 +406,12 @@ impl HuntTx<'_> {
         Statement::new(text, args)?.run(self.conn)
     }
 
+    /// The session with its roster, if it exists.
     pub fn find_hunt(&mut self, session_id: &str) -> Result<Option<HuntSession>, RepoError> {
         load(self.conn, session_id)
     }
 
+    /// Stores a new session and its roster; `Duplicate` for a taken session id or active party key.
     pub fn create_hunt(&mut self, session: &HuntSession) -> Result<(), RepoError> {
         let text = "SELECT COUNT(*) AS n FROM rifts_hunt_sessions WHERE session_id = ?";
         if any(self.conn, text, binds![session.session_id])? {
@@ -429,6 +462,7 @@ impl HuntTx<'_> {
         })
     }
 
+    /// Records a state change, giving it an id when it has none.
     pub fn append_transition(&mut self, t: &HuntTransition) -> Result<(), RepoError> {
         let mut stored = t.clone();
         if stored.transition_id.is_empty() {
@@ -473,6 +507,7 @@ impl HuntTx<'_> {
         })
     }
 
+    /// Moves STARTING or HOST_READY to HOST_READY for the session's current host, bridge and virtual port; `None` when they do not match.
     pub fn mark_host_ready(&mut self, m: &HostReadyMark, now: UnixMillis) -> Result<Option<HuntSession>, RepoError> {
         self.update(&m.session_id, true, |hunt| {
             let same_host = hunt.generation == m.generation
@@ -505,7 +540,10 @@ impl HuntTx<'_> {
     }
 
     /// Matched by account and peer id; no version bump.
-    #[allow(clippy::too_many_arguments)]
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "the arguments are the row's key (session, generation, account) and its new values"
+    )]
     pub fn mark_participant_route_ready(
         &mut self,
         session_id: &str,
@@ -525,6 +563,7 @@ impl HuntTx<'_> {
         self.participant_change((session_id, generation, ROSTER_LIVE_STATES), false, pick, route)
     }
 
+    /// Marks the participant admitted, clearing any disconnection; `None` when the session or participant does not match.
     pub fn mark_participant_admitted(
         &mut self,
         session_id: &str,
@@ -543,7 +582,10 @@ impl HuntTx<'_> {
     }
 
     /// Refused past the reconnect budget, or for a disconnected participant whose rejoin window has closed.
-    #[allow(clippy::too_many_arguments)]
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "the arguments are the row's key (session, generation, account) and its new values"
+    )]
     pub fn reserve_participant_ticket(
         &mut self,
         session_id: &str,
@@ -567,6 +609,7 @@ impl HuntTx<'_> {
         self.participant_change((session_id, generation, ROSTER_LIVE_STATES), false, pick, reserve)
     }
 
+    /// Marks the participant lost with its rejoin deadline; `None` when the session or participant does not match.
     pub fn mark_participant_disconnected(
         &mut self,
         session_id: &str,
@@ -584,6 +627,7 @@ impl HuntTx<'_> {
         self.participant_change((session_id, generation, RENEWABLE_STATES), false, pick, lose)
     }
 
+    /// Stores a capability; `Duplicate` for a secret digest already stored.
     pub fn create_capability(&mut self, c: &HostCapabilityRecord) -> Result<(), RepoError> {
         let text = "SELECT COUNT(*) AS n FROM rifts_host_capabilities WHERE secret_digest = ?";
         if any(self.conn, text, binds![c.secret_digest])? {
@@ -593,6 +637,7 @@ impl HuntTx<'_> {
         self.exec(&text, CapabilityRow::values(c)).map(drop)
     }
 
+    /// Raises the capability's last sequence to `sequence`; false when it is revoked or the sequence is not newer.
     pub fn advance_capability_sequence(&mut self, capability_id: &str, sequence: i64) -> Result<bool, RepoError> {
         let text = "UPDATE rifts_host_capabilities SET last_sequence = ? \
                     WHERE capability_id = ? AND revoked_at IS NULL AND last_sequence < ?";
@@ -653,6 +698,7 @@ impl HuntTx<'_> {
         Ok(self.exec(text, binds![at, message_id, account_id])? > 0)
     }
 
+    /// Stores the account's host presence, replacing any earlier one.
     pub fn upsert_host_presence(&mut self, p: &HostPresenceRecord) -> Result<(), RepoError> {
         let detail = serde_json::to_string(p).map_err(json_error)?;
         let args = binds![
@@ -671,6 +717,7 @@ impl HuntTx<'_> {
         )
     }
 
+    /// The host's reliability record, if it has one.
     pub fn find_reliability(&mut self, account_id: &str) -> Result<Option<HostReliabilityRecord>, RepoError> {
         reliability(self.conn, account_id)
     }
@@ -703,6 +750,7 @@ impl HuntTx<'_> {
         upsert(self.conn, OFFERS, row, OfferRow::values(o))
     }
 
+    /// The offer, if it exists.
     pub fn find_offer(&mut self, offer_id: &str) -> Result<Option<HostOfferRecord>, RepoError> {
         offer(self.conn, offer_id)
     }
@@ -751,6 +799,7 @@ pub struct HuntRepository {
 }
 
 impl HuntRepository {
+    /// The hunt tables in `db`.
     pub fn new(db: RealmsDb) -> Self {
         Self { db }
     }
@@ -781,11 +830,13 @@ impl HuntRepository {
         self.db.read(f).await
     }
 
+    /// As [`HuntTx::create_hunt`], in a transaction of its own.
     pub async fn create_hunt(&self, actor: &Actor, session: &HuntSession) -> Result<(), RepoError> {
         let hunt = session.clone();
         self.transaction(actor, move |tx| tx.create_hunt(&hunt)).await
     }
 
+    /// As [`HuntTx::compare_and_set`], in a transaction of its own.
     pub async fn compare_and_set_hunt(
         &self,
         actor: &Actor,
@@ -803,12 +854,14 @@ impl HuntRepository {
         .await
     }
 
+    /// As [`HuntTx::append_transition`], in a transaction of its own.
     pub async fn append_hunt_transition(&self, actor: &Actor, t: &HuntTransition) -> Result<(), RepoError> {
         let transition = t.clone();
         self.transaction(actor, move |tx| tx.append_transition(&transition))
             .await
     }
 
+    /// As [`HuntTx::begin_host_startup`], in a transaction of its own.
     pub async fn begin_host_startup(
         &self,
         actor: &Actor,
@@ -820,11 +873,13 @@ impl HuntRepository {
             .await
     }
 
+    /// As [`HuntTx::renew_host_lease`], in a transaction of its own.
     pub async fn renew_host_lease(&self, actor: &Actor, r: &LeaseRenewal) -> Result<Option<HuntSession>, RepoError> {
         let renewal = r.clone();
         self.transaction(actor, move |tx| tx.renew_host_lease(&renewal)).await
     }
 
+    /// As [`HuntTx::mark_host_ready`], in a transaction of its own.
     pub async fn mark_host_ready(
         &self,
         actor: &Actor,
@@ -835,7 +890,8 @@ impl HuntRepository {
         self.transaction(actor, move |tx| tx.mark_host_ready(&mark, now)).await
     }
 
-    #[allow(clippy::too_many_arguments)]
+    /// As [`HuntTx::mark_participant_route_ready`], in a transaction of its own.
+    #[allow(clippy::too_many_arguments, reason = "mirrors the transaction method's arguments")]
     pub async fn mark_participant_route_ready(
         &self,
         actor: &Actor,
@@ -862,6 +918,7 @@ impl HuntRepository {
         .await
     }
 
+    /// As [`HuntTx::mark_participant_admitted`], in a transaction of its own.
     pub async fn mark_participant_admitted(
         &self,
         actor: &Actor,
@@ -877,7 +934,8 @@ impl HuntRepository {
         .await
     }
 
-    #[allow(clippy::too_many_arguments)]
+    /// As [`HuntTx::reserve_participant_ticket`], in a transaction of its own.
+    #[allow(clippy::too_many_arguments, reason = "mirrors the transaction method's arguments")]
     pub async fn reserve_participant_ticket(
         &self,
         actor: &Actor,
@@ -895,6 +953,7 @@ impl HuntRepository {
         .await
     }
 
+    /// As [`HuntTx::mark_participant_disconnected`], in a transaction of its own.
     pub async fn mark_participant_disconnected(
         &self,
         actor: &Actor,
@@ -911,12 +970,14 @@ impl HuntRepository {
         .await
     }
 
+    /// As [`HuntTx::create_capability`], in a transaction of its own.
     pub async fn create_host_capability(&self, actor: &Actor, c: &HostCapabilityRecord) -> Result<(), RepoError> {
         let capability = c.clone();
         self.transaction(actor, move |tx| tx.create_capability(&capability))
             .await
     }
 
+    /// As [`HuntTx::advance_capability_sequence`], in a transaction of its own.
     pub async fn advance_host_capability_sequence(
         &self,
         actor: &Actor,
@@ -928,6 +989,7 @@ impl HuntRepository {
             .await
     }
 
+    /// As [`HuntTx::revoke_generation`], in a transaction of its own.
     pub async fn revoke_generation(
         &self,
         actor: &Actor,
@@ -940,6 +1002,7 @@ impl HuntRepository {
             .await
     }
 
+    /// As [`HuntTx::enqueue_control`], in a transaction of its own.
     pub async fn enqueue_control_message(
         &self,
         actor: &Actor,
@@ -949,6 +1012,7 @@ impl HuntRepository {
         self.transaction(actor, move |tx| tx.enqueue_control(&message)).await
     }
 
+    /// As [`HuntTx::acknowledge_control`], in a transaction of its own.
     pub async fn acknowledge_control_message(
         &self,
         actor: &Actor,
@@ -961,12 +1025,14 @@ impl HuntRepository {
             .await
     }
 
+    /// As [`HuntTx::upsert_host_presence`], in a transaction of its own.
     pub async fn upsert_host_presence(&self, actor: &Actor, p: &HostPresenceRecord) -> Result<(), RepoError> {
         let presence = p.clone();
         self.transaction(actor, move |tx| tx.upsert_host_presence(&presence))
             .await
     }
 
+    /// As [`HuntTx::increment_reliability`], in a transaction of its own.
     pub async fn increment_host_reliability(
         &self,
         actor: &Actor,
@@ -982,12 +1048,14 @@ impl HuntRepository {
         .await
     }
 
+    /// As [`HuntTx::create_offer`], in a transaction of its own.
     pub async fn create_host_offer(&self, actor: &Actor, o: &HostOfferRecord) -> Result<(), RepoError> {
         let offered = o.clone();
         self.transaction(actor, move |tx| tx.create_offer(&offered)).await
     }
 
-    #[allow(clippy::too_many_arguments)]
+    /// As [`HuntTx::update_offer`], in a transaction of its own.
+    #[allow(clippy::too_many_arguments, reason = "mirrors the transaction method's arguments")]
     pub async fn update_host_offer(
         &self,
         actor: &Actor,
@@ -1006,12 +1074,14 @@ impl HuntRepository {
         .await
     }
 
+    /// As [`HuntTx::record_observation`], in a transaction of its own.
     pub async fn record_participant_observation(&self, actor: &Actor, o: &ObservationRecord) -> Result<(), RepoError> {
         let observation = o.clone();
         self.transaction(actor, move |tx| tx.record_observation(&observation))
             .await
     }
 
+    /// The session with its roster, if it exists.
     pub async fn find_hunt(&self, session_id: &str) -> Result<Option<HuntSession>, RepoError> {
         let session = String::from(session_id);
         self.read(move |conn| load(conn, &session)).await
@@ -1033,6 +1103,7 @@ impl HuntRepository {
         self.read(move |conn| first_session(conn, TAIL, args)).await
     }
 
+    /// The account's newest unexpired RECOVERING hunt, if any.
     pub async fn find_recoverable_hunt_for_account(
         &self,
         account_id: &str,
@@ -1052,6 +1123,7 @@ impl HuntRepository {
         self.read(move |conn| sessions(conn, &tail, args)).await
     }
 
+    /// The session's state changes, oldest first.
     pub async fn list_transitions(&self, session_id: &str) -> Result<Vec<HuntTransition>, RepoError> {
         let text = format!(
             "SELECT {} FROM rifts_hunt_transitions WHERE session_id = ? ORDER BY at, state_version, transition_id",
@@ -1065,6 +1137,7 @@ impl HuntRepository {
         .await
     }
 
+    /// The capability whose secret has this digest, revoked or not.
     pub async fn find_host_capability_by_digest(
         &self,
         digest: &str,
@@ -1167,6 +1240,7 @@ impl HuntRepository {
         self.count_in(filter, account_id, LIVE_HOST_STATES).await
     }
 
+    /// Hunts holding a party key in the realm, in the states that occupy a server.
     pub async fn count_active_realm_servers(&self, realm_id: &str) -> Result<i64, RepoError> {
         let filter = "realm_id = ? AND active_party_key IS NOT NULL AND";
         self.count_in(filter, realm_id, REALM_SERVER_STATES).await
@@ -1197,16 +1271,19 @@ impl HuntRepository {
         self.read(move |conn| sessions(conn, &tail, args)).await
     }
 
+    /// The host's reliability record, if it has one.
     pub async fn find_host_reliability(&self, account_id: &str) -> Result<Option<HostReliabilityRecord>, RepoError> {
         let account = String::from(account_id);
         self.read(move |conn| reliability(conn, &account)).await
     }
 
+    /// The offer, if it exists.
     pub async fn find_host_offer(&self, offer_id: &str) -> Result<Option<HostOfferRecord>, RepoError> {
         let offered = String::from(offer_id);
         self.read(move |conn| offer(conn, &offered)).await
     }
 
+    /// The generation's offers, by rank.
     pub async fn list_host_offers(&self, session_id: &str, generation: i64) -> Result<Vec<HostOfferRecord>, RepoError> {
         let text = format!(
             "SELECT {} FROM {OFFERS} WHERE session_id = ? AND generation = ? ORDER BY rank, offer_id",

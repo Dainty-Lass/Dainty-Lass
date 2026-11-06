@@ -17,29 +17,38 @@ use sha2::Digest as _;
 use crate::input::parse_runtime_json;
 use crate::{Clock, log, sha256_hex};
 
+/// Largest `runtime.json` read, in bytes.
 pub const MAX_INDEX_BYTES: u64 = 64 * 1024;
+/// How often the runtime folder is checked, in ms.
 pub const RECHECK_MS: i64 = 10_000;
+/// Read size for hashing and streaming runtime files, in bytes.
 pub const READ_CHUNK: usize = 256 * 1024;
 const INDEX: &str = "runtime.json";
 
 /// A runtime that checked out: the manifest, the body players are sent, and its ETag.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Published {
+    /// The manifest as checked.
     pub manifest: RuntimeManifest,
+    /// The JSON body served for it.
     pub body: String,
+    /// ETag of the body.
     pub etag: String,
 }
 
+/// What the runtime folder holds, as last checked.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Status {
     /// Nothing published (404 `no_runtime`)
     None(String),
     /// Published, but it does not check out (503 `runtime_invalid`)
     Invalid(String),
+    /// A runtime that checked out.
     Ok(Arc<Published>),
 }
 
 impl Status {
+    /// Why nothing is served, unless the runtime checked out.
     pub fn reason(&self) -> Option<&str> {
         match self {
             Self::None(reason) | Self::Invalid(reason) => Some(reason),
@@ -78,6 +87,7 @@ pub struct Store {
 }
 
 impl Store {
+    /// A runtime in `dir`; `None` serves none.
     pub fn new(dir: Option<PathBuf>, clock: Clock) -> Self {
         Self {
             dir,
@@ -90,6 +100,7 @@ impl Store {
         }
     }
 
+    /// The runtime folder, if one is set.
     pub fn dir(&self) -> Option<&Path> {
         self.dir.as_deref()
     }
@@ -255,7 +266,7 @@ fn hash_file(path: &Path) -> std::io::Result<String> {
 
 #[cfg(test)]
 mod tests {
-    #![allow(clippy::unwrap_used)]
+    #![allow(clippy::unwrap_used, reason = "a panic is how a test fails")]
     use std::sync::atomic::{AtomicI64, Ordering};
 
     use super::*;

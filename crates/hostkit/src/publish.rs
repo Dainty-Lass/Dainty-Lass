@@ -14,24 +14,35 @@ use crate::error::HostError;
 use crate::paths::{GAME_CHANGELIST, Paths, RUNTIME_FILE_NAMES};
 use protocol::manifest::{LEGACY_RUNTIME_DLL, RUNTIME_DLL};
 
+/// What follows a DLL's name when it is moved aside because it was loaded; such files are swept on the next install.
 pub const ASIDE_MARK: &str = ".rr-old-";
+/// Flag files the server's game folder must hold for the runtime.
 pub const SERVER_RUNTIME_FLAGS: [&str; 1] = ["CALL_HUNTPASS_QUERY.flag"];
 
+/// One published runtime file.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RuntimeFile {
+    /// Its file name.
     pub name: String,
+    /// Its size in bytes.
     pub size: u64,
+    /// Its SHA-256, lowercase hex.
     pub sha256: String,
 }
 
+/// `.workspace/runtime/runtime.json`: what was last published.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PublishedRuntime {
+    /// The publish's version: its date and a hash of its files.
     pub version: String,
+    /// The game build it is for.
     pub changelist: u32,
+    /// The files published.
     pub files: Vec<RuntimeFile>,
 }
 
 impl PublishedRuntime {
+    /// The runtime.json text.
     pub fn to_json(&self) -> String {
         let files: Vec<Value> = self
             .files
@@ -57,17 +68,25 @@ impl PublishedRuntime {
     }
 }
 
+/// How a file was put in place.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Replaced {
+    /// Renamed over the old one.
     Replaced,
+    /// The old one could not be replaced (it was loaded), so it was moved aside first.
     InUse,
 }
 
+/// What [`install_server_runtime`] did.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct InstalledRuntime {
+    /// Files installed.
     pub installed: Vec<String>,
+    /// Files that already matched.
     pub unchanged: Vec<String>,
+    /// Files installed while the old one was loaded.
     pub in_use: Vec<String>,
+    /// Files not installed, each with why.
     pub failed: Vec<(String, String)>,
 }
 
@@ -81,6 +100,7 @@ fn sha256_bytes(bytes: &[u8]) -> String {
     out
 }
 
+/// `YYYYMMDD-` and the first 8 hex digits of the SHA-256 of the files' hashes.
 pub fn runtime_version(now: DateTime<Utc>, hashes: &[&str]) -> String {
     let combined = hashes.join(":");
     let digest = sha256_bytes(combined.as_bytes());
@@ -88,11 +108,13 @@ pub fn runtime_version(now: DateTime<Utc>, hashes: &[&str]) -> String {
     format!("{}-{short}", now.format("%Y%m%d"))
 }
 
+/// The file's SHA-256, lowercase hex.
 pub fn sha256_file(file: &Path) -> Result<String, HostError> {
     let bytes = std::fs::read(file).map_err(|e| HostError::io(file, e))?;
     Ok(sha256_bytes(&bytes))
 }
 
+/// Renames `tmp` over `target`; a loaded `target` is moved aside first, and put back if the rename still fails.
 pub fn replace_loaded_file(tmp: &Path, target: &Path) -> Result<Replaced, HostError> {
     match std::fs::rename(tmp, target) {
         Ok(()) => Ok(Replaced::Replaced),
@@ -116,6 +138,7 @@ pub fn replace_loaded_file(tmp: &Path, target: &Path) -> Result<Replaced, HostEr
     }
 }
 
+/// Where the build puts the runtime DLL and the loader.
 pub fn default_sources(p: &Paths) -> [(&'static str, PathBuf); 2] {
     [
         (RUNTIME_DLL, p.runtime_dll.clone()),
@@ -123,6 +146,8 @@ pub fn default_sources(p: &Paths) -> [(&'static str, PathBuf); 2] {
     ]
 }
 
+/// Copies the runtime files from `sources` into `.workspace/runtime` and writes runtime.json; fails on a missing
+/// source.
 pub fn publish_runtime(
     p: &Paths,
     now: DateTime<Utc>,
@@ -190,6 +215,7 @@ fn sweep_aside_files(win64_dir: &Path) {
     }
 }
 
+/// Installs the published runtime beside the server's game executable in `win64_dir`, clearing old moved-aside files.
 pub fn install_server_runtime(p: &Paths, win64_dir: &Path) -> InstalledRuntime {
     let mut out = InstalledRuntime::default();
     sweep_aside_files(win64_dir);
@@ -238,6 +264,7 @@ pub fn install_server_runtime(p: &Paths, win64_dir: &Path) -> InstalledRuntime {
     out
 }
 
+/// Creates the flag files the game folder lacks; returns the ones made.
 pub fn ensure_server_flags(win64_dir: &Path) -> Result<Vec<String>, HostError> {
     let mut created = Vec::new();
     for flag in SERVER_RUNTIME_FLAGS {
@@ -252,7 +279,7 @@ pub fn ensure_server_flags(win64_dir: &Path) -> Result<Vec<String>, HostError> {
 
 #[cfg(test)]
 mod tests {
-    #![allow(clippy::unwrap_used, clippy::expect_used)]
+    #![allow(clippy::unwrap_used, clippy::expect_used, reason = "a panic is how a test fails")]
 
     use chrono::TimeZone;
 

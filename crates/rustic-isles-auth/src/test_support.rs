@@ -4,7 +4,11 @@
 //! Test doubles (feature `test-support`): an in-memory store with §9.3's atomic rules, a recording mail transport,
 //! a stub Discord, settings from a map, and a throwaway signing key pair.
 
-#![allow(clippy::unwrap_used, clippy::expect_used)]
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    reason = "test fixtures; a panic is how a test fails"
+)]
 
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -27,6 +31,7 @@ pub struct MapSettings {
 }
 
 impl MapSettings {
+    /// Settings holding `pairs`.
     pub fn new(pairs: &[(&str, &str)]) -> Self {
         let settings = Self::default();
         for (k, v) in pairs {
@@ -35,6 +40,7 @@ impl MapSettings {
         settings
     }
 
+    /// Sets one setting, replacing its value.
     pub fn set(&self, name: &str, value: &str) {
         let leaked: &'static str = Box::leak(value.to_owned().into_boxed_str());
         self.values
@@ -43,6 +49,7 @@ impl MapSettings {
             .insert(name.to_owned(), leaked);
     }
 
+    /// Removes one setting.
     pub fn unset(&self, name: &str) {
         self.values.write().unwrap_or_else(PoisonError::into_inner).remove(name);
     }
@@ -90,10 +97,12 @@ pub struct RecordingMail {
 }
 
 impl RecordingMail {
+    /// Makes every later send fail (`true`) or succeed.
     pub fn fail(&self, fail: bool) {
         self.fail.store(fail, Ordering::SeqCst);
     }
 
+    /// Every message sent so far, oldest first.
     pub fn messages(&self) -> Vec<MailMessage> {
         self.sent.lock().unwrap_or_else(PoisonError::into_inner).clone()
     }
@@ -221,6 +230,7 @@ pub struct MemoryStore {
 }
 
 impl MemoryStore {
+    /// An empty, online store.
     pub fn new() -> Self {
         Self::default()
     }
@@ -245,14 +255,17 @@ impl MemoryStore {
         }
     }
 
+    /// Every stored email code.
     pub fn email_codes(&self) -> Vec<EmailCode> {
         self.lock().codes.clone()
     }
 
+    /// Every stored refresh session.
     pub fn sessions(&self) -> Vec<RefreshSession> {
         self.lock().sessions.clone()
     }
 
+    /// The stored game server key hashes.
     pub fn gameserver_hashes(&self) -> Vec<String> {
         self.lock().gameserver_keys.clone()
     }

@@ -8,10 +8,12 @@ use serde_json::{Map, Value};
 /// Where a candidate came from; only the realms' hubs are marked.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum CandidateSource {
+    /// A hub a realm runs, whose status is read from its hub session.
     RealmHub,
 }
 
 impl CandidateSource {
+    /// The value the candidate's JSON carries (`REALM_HUB`).
     pub const fn as_str(self) -> &'static str {
         match self {
             Self::RealmHub => "REALM_HUB",
@@ -19,19 +21,28 @@ impl CandidateSource {
     }
 }
 
+/// One player's matchmaking search, as the status route answers it.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MatchCandidate {
     /// Internal server readiness; the client also waits for `ready_at`
     pub ready: bool,
+    /// Whether the search was cancelled; `status_reason` says why.
     pub canceled: bool,
+    /// Why the search ended without a server, such as `PLAYER_CANCELED`.
     pub status_reason: Option<String>,
+    /// The hunt searched for.
     pub hunt_id: String,
+    /// This client's travel attempt; party members sharing an instance each get their own.
     pub candidate_id: String,
+    /// The game session the client joins.
     pub game_session_id: String,
+    /// The game server's address; empty until it is ready.
     pub host: String,
+    /// The game server's port; 0 until it is ready.
     pub port: i64,
     /// Unix ms of the Go Now release; 0 is none
     pub ready_at: i64,
+    /// Set only for a realm hub.
     pub source: Option<CandidateSource>,
     /// The hub session a realm hub's status is read from
     pub source_session_id: Option<String>,
@@ -55,10 +66,12 @@ impl MatchCandidate {
         }
     }
 
+    /// Whether the candidate is a realm's hub.
     pub fn is_realm_hub(&self) -> bool {
         self.source == Some(CandidateSource::RealmHub)
     }
 
+    /// Whether the client may travel at `now` (Unix ms): the server is ready and the Go Now release has passed.
     pub fn is_client_ready(&self, now: i64) -> bool {
         self.ready && (self.ready_at == 0 || now >= self.ready_at)
     }

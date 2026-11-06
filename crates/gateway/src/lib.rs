@@ -12,7 +12,10 @@ pub mod cert;
 pub mod cli;
 pub mod config;
 pub mod feed;
-#[allow(clippy::module_inception)]
+#[allow(
+    clippy::module_inception,
+    reason = "the request path proper; the crate holds the whole service around it"
+)]
 pub mod gateway;
 pub mod guard;
 pub mod ip;

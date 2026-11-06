@@ -32,6 +32,7 @@ fn pair(a: &NodeId, b: &NodeId) -> (NodeId, NodeId) {
 }
 
 impl InProcessNetwork {
+    /// A network with no nodes yet.
     pub fn new() -> Self {
         Self::default()
     }

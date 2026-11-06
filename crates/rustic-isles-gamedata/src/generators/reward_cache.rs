@@ -12,13 +12,20 @@ use serde_json::{Map, Value, json};
 use super::io::{Catalog, Item, checked_texture, create_parent, read_catalog, show, write_file};
 use super::pretty::stringify_pretty;
 
+/// A Reward Cache store tab.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum RewardCacheCategory {
+    /// Armour sets.
     Armour,
+    /// Weapons.
     Weapon,
+    /// Cosmetics.
     Style,
+    /// Event items.
     Event,
+    /// Limited items.
     Limited,
+    /// Everything else.
     General,
 }
 
@@ -33,6 +40,7 @@ impl RewardCacheCategory {
         Self::General,
     ];
 
+    /// The plan's name for the category.
     pub const fn as_str(self) -> &'static str {
         match self {
             Self::Armour => "armour",
@@ -56,32 +64,43 @@ impl RewardCacheCategory {
         }
     }
 
+    /// The category the plan names; None for an unknown name.
     pub fn parse(text: &str) -> Option<Self> {
         Self::ALL.into_iter().find(|c| c.as_str() == text)
     }
 }
 
+/// One catalog item the Reward Cache sells.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RewardCacheSelection {
+    /// The item sold; must be in the catalog and not exclusive.
     pub catalog_id: String,
+    /// The tab it is listed under.
     pub category: RewardCacheCategory,
+    /// The price in seasonal coin, one of the store's fixed prices.
     pub price: i64,
+    /// Whether it is featured, which also sorts it first.
     pub featured: bool,
     /// An explicit rarity-3 premium selection
     pub allow_rarity3: bool,
+    /// A name in place of the catalog's.
     pub display_name: Option<String>,
+    /// A description in place of the catalog's.
     pub description: Option<String>,
 }
 
 /// Authored data over game identifiers: an input the version crate supplies (spec §13, item 2).
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct RewardCachePlan {
+    /// Every item sold.
     pub selections: Vec<RewardCacheSelection>,
     /// Ordered catalog-id substrings ranking armour sets
     pub armour_families: Vec<String>,
     /// Ordered substrings ranking banner families
     pub banner_families: Vec<String>,
+    /// How many selections each category must have; a category not listed must have none.
     pub expected: Vec<(RewardCacheCategory, usize)>,
+    /// How many selections must be featured.
     pub expected_featured: usize,
 }
 
@@ -306,6 +325,7 @@ fn sku(s: &RewardCacheSelection, i: usize, item: &Item, used_skus: &mut HashSet<
     Ok(Value::Object(out))
 }
 
+/// Writes the Reward Cache store for `plan` to `output`; any selection the catalog or the plan's checks refuse is an error and nothing is written.
 pub fn generate_reward_cache_store(catalog: &Path, output: &Path, plan: &RewardCachePlan) -> Result<String, String> {
     let catalog = read_catalog(catalog)?;
     let mut order: Vec<&RewardCacheSelection> = plan.selections.iter().collect();

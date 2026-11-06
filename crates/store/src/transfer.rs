@@ -33,6 +33,7 @@ pub(crate) struct Row {
 /// What a move copied: rows per table, the change log last.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct MoveReport {
+    /// Rows copied per table, in copy order.
     pub tables: Vec<(String, usize)>,
 }
 

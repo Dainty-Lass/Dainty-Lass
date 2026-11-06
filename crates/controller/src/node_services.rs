@@ -14,12 +14,15 @@ use module_api::BoxFuture;
 use module_api::network::NodeId;
 use network_plugin::{LinkError, NodeService, Service, ServiceMux};
 
+/// Answers a `POST /__node/enroll` body with a status code and a response body.
 pub type RemoteEnrollCallback = Arc<dyn Fn(Vec<u8>) -> BoxFuture<'static, (u16, Vec<u8>)> + Send + Sync>;
 
 /// The gateway's `/_rr/node/*` side, as the host composing the gateway hands it over: the MIT controller never
 /// names the AGPL gateway's types (RD27).
 pub trait GatewayLinks: Send + Sync {
+    /// The gateway's node endpoint, which the default methods forward to.
     fn endpoint(&self) -> &network_plugin::NodeEndpoint;
+    /// Sets what answers `POST /__node/enroll`; `None` refuses it.
     fn set_enroll_handler(&self, handler: Option<RemoteEnrollCallback>);
 
     /// The endpoint's, unless the endpoint is across a library's protocol (`service_library::gateway`).
@@ -27,10 +30,12 @@ pub trait GatewayLinks: Send + Sync {
         self.endpoint().attach(services);
     }
 
+    /// Lets `node` reach this node's services through the gateway.
     fn add_peer(&self, node: NodeId) {
         self.endpoint().add_peer(node);
     }
 
+    /// Stops letting `node` reach this node's services through the gateway.
     fn remove_peer(&self, node: &NodeId) {
         self.endpoint().remove_peer(node);
     }
@@ -54,12 +59,15 @@ struct Inner {
     gateway: RwLock<Option<Arc<dyn GatewayLinks>>>,
 }
 
+/// What this node answers over its node links, by service, and the links and peers it reaches others with.
+/// Clones share one set.
 #[derive(Clone)]
 pub struct NodeServices {
     inner: Arc<Inner>,
 }
 
 impl NodeServices {
+    /// An empty set for `node`.
     pub fn new(node: NodeId) -> Self {
         Self {
             inner: Arc::new(Inner {
@@ -81,14 +89,17 @@ impl NodeServices {
         }
     }
 
+    /// This node's id.
     pub fn node(&self) -> &NodeId {
         &self.inner.node
     }
 
+    /// Sets how this node reaches its peers; `None` while it has no link.
     pub fn set_peer_link(&self, link: Option<Arc<dyn network_plugin::PeerLink>>) {
         *self.inner.peer_link.write().unwrap_or_else(PoisonError::into_inner) = link;
     }
 
+    /// How this node reaches its peers, once set.
     pub fn peer_link(&self) -> Option<Arc<dyn network_plugin::PeerLink>> {
         self.inner
             .peer_link
@@ -97,10 +108,12 @@ impl NodeServices {
             .clone()
     }
 
+    /// Sets the peers this node knows of; `None` while there is no roster.
     pub fn set_peer_roster(&self, roster: Option<Arc<dyn network_plugin::PeerRoster>>) {
         *self.inner.peer_roster.write().unwrap_or_else(PoisonError::into_inner) = roster;
     }
 
+    /// The peers this node knows of, once set.
     pub fn peer_roster(&self) -> Option<Arc<dyn network_plugin::PeerRoster>> {
         self.inner
             .peer_roster
@@ -109,11 +122,13 @@ impl NodeServices {
             .clone()
     }
 
+    /// Sets the network's directory; `None` while this node is in no network.
     #[cfg(feature = "network")]
     pub fn set_directory(&self, directory: Option<Arc<network_plugin::directory::Directory>>) {
         *self.inner.directory.write().unwrap_or_else(PoisonError::into_inner) = directory;
     }
 
+    /// The network's directory, once set.
     #[cfg(feature = "network")]
     pub fn directory(&self) -> Option<Arc<network_plugin::directory::Directory>> {
         self.inner
@@ -123,11 +138,13 @@ impl NodeServices {
             .clone()
     }
 
+    /// Sets the home's ticket store; `None` while this node is in no network.
     #[cfg(feature = "network")]
     pub fn set_tickets(&self, tickets: Option<Arc<network_plugin::home::Tickets>>) {
         *self.inner.tickets.write().unwrap_or_else(PoisonError::into_inner) = tickets;
     }
 
+    /// The home's ticket store, once set.
     #[cfg(feature = "network")]
     pub fn tickets(&self) -> Option<Arc<network_plugin::home::Tickets>> {
         self.inner
@@ -137,16 +154,19 @@ impl NodeServices {
             .clone()
     }
 
+    /// Sets this node's place in the ring; `None` while it is in no ring.
     #[cfg(feature = "network")]
     pub fn set_ring(&self, ring: Option<Arc<network_plugin::ring::RingNode>>) {
         *self.inner.ring.write().unwrap_or_else(PoisonError::into_inner) = ring;
     }
 
+    /// This node's place in the ring, once set.
     #[cfg(feature = "network")]
     pub fn ring(&self) -> Option<Arc<network_plugin::ring::RingNode>> {
         self.inner.ring.read().unwrap_or_else(PoisonError::into_inner).clone()
     }
 
+    /// Sets what answers `POST /__node/enroll`, passed on to the gateway now and on each restart; `None` refuses it.
     pub fn set_enroll_handler(&self, handler: Option<RemoteEnrollCallback>) {
         *self
             .inner
@@ -156,6 +176,7 @@ impl NodeServices {
         self.bind_gateway();
     }
 
+    /// What answers `POST /__node/enroll`, if anything does.
     pub fn enroll_handler(&self) -> Option<RemoteEnrollCallback> {
         self.inner
             .enroll_handler
@@ -164,6 +185,7 @@ impl NodeServices {
             .clone()
     }
 
+    /// Lets `node` (an enrolled install) reach this node, now and after each gateway restart.
     pub fn add_dynamic_peer(&self, node: NodeId) {
         self.inner
             .dynamic_peers
@@ -175,6 +197,7 @@ impl NodeServices {
         }
     }
 
+    /// Stops letting `node` reach this node.
     pub fn remove_dynamic_peer(&self, node: &NodeId) {
         self.inner
             .dynamic_peers
@@ -232,6 +255,7 @@ impl NodeServices {
         }
     }
 
+    /// Stops answering `service`.
     pub fn detach(&self, service: Service) {
         let mut attached = self.inner.attached.write().unwrap_or_else(PoisonError::into_inner);
         if attached.remove(&service).is_some() {
@@ -239,6 +263,7 @@ impl NodeServices {
         }
     }
 
+    /// Whether something answers `service`.
     pub fn is_attached(&self, service: Service) -> bool {
         self.inner
             .attached
@@ -271,7 +296,7 @@ impl NodeService for NodeServices {
 
 #[cfg(test)]
 mod tests {
-    #![allow(clippy::unwrap_used)]
+    #![allow(clippy::unwrap_used, reason = "a panic is how a test fails")]
 
     use super::*;
 

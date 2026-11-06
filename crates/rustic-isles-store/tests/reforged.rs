@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Silent Spud
 
 //! The Reforged API's repositories, the erasure and the TTL purge (spec §11.3).
-#![allow(clippy::unwrap_used, clippy::expect_used)]
+#![allow(clippy::unwrap_used, clippy::expect_used, reason = "a panic is how a test fails")]
 
 mod common;
 

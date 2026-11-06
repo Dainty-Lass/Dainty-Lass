@@ -22,6 +22,7 @@ const RECORD_PEER_DISCONNECTED: &str = "admission.record_peer_disconnected";
 const CREATE_JOIN_BOOTSTRAP: &str = "admission.create_join_bootstrap";
 const LIST_HUB_PEERS: &str = "admission.list_hub_peers";
 
+/// Admission's routes: the host runtime's ticket routes and the launcher's join bootstrap and hub peer list.
 pub const ROUTES: &[Route] = &[
     Route {
         method: Method::Post,
@@ -55,6 +56,7 @@ pub const ROUTES: &[Route] = &[
     },
 ];
 
+/// Every admission route under its handler id, for a build that answers them `Unimplemented`.
 pub fn stub_routes() -> StubRoutes {
     StubRoutes {
         component: Component::Admission,
@@ -70,6 +72,7 @@ pub type CapabilityResolver = Arc<
         + Sync,
 >;
 
+/// Admission's HTTP routes over a service.
 #[derive(Clone)]
 pub struct AdmissionRoutes {
     service: Arc<dyn AdmissionService>,
@@ -78,6 +81,7 @@ pub struct AdmissionRoutes {
 }
 
 impl AdmissionRoutes {
+    /// Routes over `service`; host routes resolve their capability with `resolver` when the caller is not yet known.
     pub fn new(service: Arc<dyn AdmissionService>, resolver: Option<CapabilityResolver>, node: NodeId) -> Self {
         Self {
             service,
@@ -238,8 +242,10 @@ fn generation_of(value: &Value) -> Option<i64> {
         return None;
     }
     let float = number.as_f64()?;
-    // Bounded by MAX_SAFE_INTEGER, so the cast is exact.
-    #[allow(clippy::cast_possible_truncation)]
+    #[allow(
+        clippy::cast_possible_truncation,
+        reason = "bounded by MAX_SAFE_INTEGER, so the cast is exact"
+    )]
     (float.is_finite() && float.fract() == 0.0 && float.abs() <= MAX_SAFE_INTEGER).then_some(float as i64)
 }
 

@@ -18,39 +18,60 @@ use crate::error::HostError;
 use crate::gamedata::{BACKEND_GAME_DATA, DIRECTOR_GAME_DATA, SUPPLIED_SOURCES, is_example_file};
 use crate::paths::{GAME_CHANGELIST, Paths};
 
+/// The `format` a pack names.
 pub const PACK_FORMAT: &str = "dauntless-reforged-revival-gamedata";
+/// The pack version this kit reads and writes.
 pub const PACK_VERSION: u64 = 1;
 
+/// One file a pack carries.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PackFile {
+    /// Its path in the game data, like `backend/slayers_path.json`.
     pub path: String,
+    /// Its SHA-256, lowercase hex.
     pub sha256: String,
+    /// Its content.
     pub data: String,
 }
 
+/// A game-data pack, as its gzipped JSON holds it.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Pack {
+    /// Always [`PACK_FORMAT`].
     pub format: String,
+    /// Always [`PACK_VERSION`].
     pub version: u64,
+    /// The game build it is for.
     pub game: String,
+    /// When it was made, RFC 3339 in UTC.
     pub created: String,
+    /// The files it carries.
     pub files: Vec<PackFile>,
 }
 
+/// What [`export_game_data_pack`] did.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Exported {
+    /// The pack written.
     pub file: PathBuf,
+    /// The files it carries.
     pub included: Vec<String>,
+    /// Files left out because they are missing or still the shipped examples.
     pub left: Vec<String>,
 }
 
+/// What [`import_game_data_pack`] did.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Imported {
+    /// Files written.
     pub written: Vec<String>,
+    /// Files that already held the pack's content.
     pub unchanged: Vec<String>,
+    /// Backups made of the generated files the pack replaced.
     pub backups: Vec<PathBuf>,
 }
 
+/// The example file beside `file`: `x.json` gives `x.example.json`.
 pub fn example_of(file: &Path) -> PathBuf {
     let Some(name) = file.file_name().and_then(|s| s.to_str()) else {
         return file.to_path_buf();
@@ -59,6 +80,7 @@ pub fn example_of(file: &Path) -> PathBuf {
     file.with_file_name(ex)
 }
 
+/// The SHA-256 of `text`'s UTF-8 bytes, lowercase hex.
 pub fn sha256_hex(text: &str) -> String {
     let digest = Sha256::digest(text.as_bytes());
     let mut out = String::with_capacity(64);
@@ -69,6 +91,7 @@ pub fn sha256_hex(text: &str) -> String {
     out
 }
 
+/// Every file a pack may carry: its path in the pack and where it is on this server.
 pub fn pack_entries(p: &Paths) -> Vec<(String, PathBuf)> {
     let mut entries = Vec::with_capacity(BACKEND_GAME_DATA.len() + DIRECTOR_GAME_DATA.len() + SUPPLIED_SOURCES.len());
     for name in BACKEND_GAME_DATA {
@@ -83,6 +106,7 @@ pub fn pack_entries(p: &Paths) -> Vec<(String, PathBuf)> {
     entries
 }
 
+/// Where a pack made on `now`'s date goes by default, in `.workspace`.
 pub fn default_pack_file(p: &Paths, now: DateTime<Utc>) -> PathBuf {
     p.workspace.join(format!(
         "gamedata-1.14.7-{GAME_CHANGELIST}-{}.json.gz",
@@ -98,6 +122,7 @@ fn iso_millis(now: DateTime<Utc>) -> String {
     now.to_rfc3339_opts(SecondsFormat::Millis, true)
 }
 
+/// The pack's JSON text.
 pub fn pack_json(pack: &Pack) -> String {
     let files: Vec<Value> = pack
         .files
@@ -127,6 +152,7 @@ pub(crate) fn is_example_path(full_path: &Path) -> Result<bool, HostError> {
     is_example_file(dir, name)
 }
 
+/// Writes the server's generated game data to `out_file` as a pack; fails when there is nothing generated.
 pub fn export_game_data_pack(p: &Paths, out_file: &Path, now: DateTime<Utc>) -> Result<Exported, HostError> {
     let mut pack_files = Vec::new();
     let mut included = Vec::new();
@@ -180,11 +206,13 @@ pub fn export_game_data_pack(p: &Paths, out_file: &Path, now: DateTime<Utc>) -> 
     })
 }
 
+/// Reads and checks the pack at `file`.
 pub fn read_game_data_pack(p: &Paths, file: &Path) -> Result<Pack, HostError> {
     let compressed = std::fs::read(file).map_err(|e| HostError::io(file, e))?;
     parse_game_data_pack(p, file, &compressed)
 }
 
+/// Unzips and checks a pack: its format, version, game build and every file's path and SHA-256.
 pub fn parse_game_data_pack(p: &Paths, file: &Path, compressed: &[u8]) -> Result<Pack, HostError> {
     let mut decoder = GzDecoder::new(compressed);
     let mut text = String::new();
@@ -308,6 +336,7 @@ pub fn parse_game_data_pack(p: &Paths, file: &Path, compressed: &[u8]) -> Result
     })
 }
 
+/// Writes a pack's files into the game data, backing up each generated file it replaces.
 pub fn import_game_data_pack(p: &Paths, file: &Path, now: DateTime<Utc>) -> Result<Imported, HostError> {
     let pack = read_game_data_pack(p, file)?;
     let known = pack_entries(p);
@@ -349,7 +378,7 @@ pub fn import_game_data_pack(p: &Paths, file: &Path, now: DateTime<Utc>) -> Resu
 
 #[cfg(test)]
 mod tests {
-    #![allow(clippy::unwrap_used, clippy::expect_used)]
+    #![allow(clippy::unwrap_used, clippy::expect_used, reason = "a panic is how a test fails")]
 
     use chrono::TimeZone;
 

@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Silent Spud
 
-#![allow(clippy::unwrap_used, clippy::expect_used)] // test helpers
+//! Username checks and server status parsing against the shared cases.
+
+#![allow(clippy::unwrap_used, clippy::expect_used, reason = "a panic is how a test fails")]
 
 use protocol::account::{check_username, extract_account_key, is_plausible_account_key, is_valid_username};
 use protocol::status::{

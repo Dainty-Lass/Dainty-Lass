@@ -39,14 +39,20 @@ pub fn load_public_key(path: &Path) -> Result<VerifyingKey, String> {
 /// What the session expects a ticket to name.
 #[derive(Debug, Clone, Copy)]
 pub struct Expected<'a> {
+    /// The session's bindings, which the ticket must repeat.
     pub bindings: &'a Bindings,
+    /// The joiner's peer id the ticket must name.
     pub joiner_peer: u64,
+    /// The host's peer id the ticket must name.
     pub host_peer: u64,
 }
 
+/// What a verified ticket admits.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Verified {
+    /// The account the ticket was issued to.
     pub account: String,
+    /// The ticket's id, which may be consumed once.
     pub jti: [u8; 16],
 }
 

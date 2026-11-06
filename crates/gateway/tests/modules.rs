@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Silent Spud
 
-#![allow(clippy::unwrap_used, clippy::expect_used)] // test helpers
+#![allow(clippy::unwrap_used, clippy::expect_used, reason = "a panic is how a test fails")]
 
 //! The gateway on the module registry (DF4a), over TLS: a module the controller attaches gets its routes,
 //! never its host-only ones, and the node-link group refuses everything until DN3.

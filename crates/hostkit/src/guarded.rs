@@ -15,7 +15,9 @@ use crate::paths::Paths;
 /// the words, which are English and for the log.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Failure {
+    /// The stable code.
     pub code: &'static str,
+    /// What happened, in English, for the log.
     pub message: String,
 }
 
@@ -65,11 +67,13 @@ mod run {
             .collect())
     }
 
+    /// Approves the waiting action `id`; returns its record as JSON.
     pub async fn approve(workspace: &Path, id: &str) -> Result<Value, Failure> {
         let guards = open(workspace).await?;
         Ok(record_json(&guarded_cli::approve(&guards, id).await?))
     }
 
+    /// Cancels the waiting action `id`; returns its record as JSON.
     pub async fn cancel(workspace: &Path, id: &str) -> Result<Value, Failure> {
         let guards = open(workspace).await?;
         Ok(record_json(&guarded_cli::cancel(&guards, id).await?))
@@ -90,14 +94,17 @@ mod absent {
         }
     }
 
+    /// Fails: this build has no admin API.
     pub async fn list(_workspace: &Path) -> Result<Vec<Value>, Failure> {
         Err(built_without())
     }
 
+    /// Fails: this build has no admin API.
     pub async fn approve(_workspace: &Path, _id: &str) -> Result<Value, Failure> {
         Err(built_without())
     }
 
+    /// Fails: this build has no admin API.
     pub async fn cancel(_workspace: &Path, _id: &str) -> Result<Value, Failure> {
         Err(built_without())
     }

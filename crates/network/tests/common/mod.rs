@@ -1,6 +1,11 @@
 //! The engines the network's tests run on: SQLite always, and Postgres too when `REFORGED_TEST_POSTGRES_URL` names
 //! a server the tests may create databases on, as `store`'s tests do.
-#![allow(clippy::unwrap_used, clippy::expect_used, dead_code)] // test helpers
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    dead_code,
+    reason = "shared by several test binaries, each using only some; a panic is how a test fails"
+)]
 
 use std::sync::atomic::{AtomicU32, Ordering};
 

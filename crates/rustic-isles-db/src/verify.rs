@@ -13,21 +13,33 @@ use sha2::{Digest as _, Sha256};
 use crate::Area;
 use crate::tables::{Doc, TABLES, Table, TargetState};
 
+/// One table's comparison.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CollectionVerification {
+    /// The table's name.
     pub name: String,
+    /// The area the table belongs to.
     pub area: Area,
+    /// Rows migrate would produce from the source.
     pub expected_count: usize,
+    /// Rows in the store.
     pub actual_count: usize,
+    /// SHA-256 over the expected rows' keys and content hashes, lower-case hex.
     pub expected_sha256: String,
+    /// The same hash over the store's rows.
     pub actual_sha256: String,
+    /// Whether the counts and hashes match and no row differs.
     pub ok: bool,
+    /// Rows missing, extra or with different content, one line each.
     pub mismatches: Vec<String>,
 }
 
+/// `verify`'s result.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct VerifyReport {
+    /// Whether every table matched.
     pub ok: bool,
+    /// Each selected table, in comparison order.
     pub collections: Vec<CollectionVerification>,
 }
 

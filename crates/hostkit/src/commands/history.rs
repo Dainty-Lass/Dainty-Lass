@@ -24,9 +24,13 @@ pub const ACTOR: &str = "console";
 /// Which changes, as typed.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct Select {
+    /// Only changes to this account.
     pub account: Option<String>,
+    /// Only changes made by this actor.
     pub actor: Option<String>,
+    /// Only changes from this time on.
     pub since: Option<String>,
+    /// Only changes before this time.
     pub until: Option<String>,
 }
 
@@ -41,35 +45,50 @@ impl From<&HistoryFilterArgs> for Select {
     }
 }
 
+/// One `history` or `revert` job.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Job {
     /// A page of history, newest first. The limit is as typed; [`run`] checks it.
     Page {
+        /// Which changes.
         select: Select,
+        /// How many changes a page shows, as typed.
         limit: String,
+        /// Where the page starts: the cursor the previous page printed.
         cursor: Option<String>,
     },
     /// Each log's hash chain.
     Verify,
     /// A dry run, or with a plan id the apply.
-    Revert { select: Select, apply: Option<String> },
+    Revert {
+        /// Which changes to undo.
+        select: Select,
+        /// The plan id of the dry run to apply; a dry run when `None`.
+        apply: Option<String>,
+    },
 }
 
 /// Where the job came from, for the commands it prints.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Surface {
+    /// `dainty-host history` or `revert`.
     Cli,
+    /// The console or the dashboard's prompt.
     Console,
 }
 
 /// What a job printed, and whether it ended well (`history verify` does not when a chain is broken).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Done {
+    /// What to print.
     pub lines: Vec<String>,
+    /// False when the job failed, or `history verify` found a broken chain.
     pub ok: bool,
 }
 
+/// The console's `history` usage line.
 pub const HISTORY_USAGE: &str = "usage: history [--account id] [--actor who] [--since time] [--until time] [--limit N] [--cursor c] | history verify";
+/// The console's `revert` usage line.
 pub const REVERT_USAGE: &str =
     "usage: revert (--actor who | --account id | --since time) [--until time] [--dry-run | --apply <plan id>]";
 
@@ -118,6 +137,7 @@ pub fn parse_console(word: &str, args: &[&str]) -> Result<Job, String> {
     })
 }
 
+/// Runs the job against the server's databases, reading `admin.env`; the error is the line to show.
 #[cfg(feature = "admin")]
 pub async fn run(paths: &Paths, job: &Job, surface: Surface) -> Result<Done, String> {
     use admin::history::{self, HistorySet, Selection};
@@ -191,6 +211,7 @@ pub async fn run(paths: &Paths, job: &Job, surface: Surface) -> Result<Done, Str
     }
 }
 
+/// Fails: this build has no admin service, which the history tools come with.
 #[cfg(not(feature = "admin"))]
 pub async fn run(_paths: &Paths, _job: &Job, _surface: Surface) -> Result<Done, String> {
     Err("this build of the host kit has no admin service, which the history tools come with".into())
@@ -210,6 +231,7 @@ fn run_cli(paths: &Paths, job: &Job) -> Outcome {
     Ok(if done.ok { ExitCode::SUCCESS } else { ExitCode::FAILURE })
 }
 
+/// Runs `dainty-host history`.
 pub fn run_history(paths: &Paths, args: &HistoryArgs) -> Outcome {
     let job = match args.command {
         Some(HistoryCommand::Verify) => Job::Verify,

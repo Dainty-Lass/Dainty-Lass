@@ -85,10 +85,15 @@ pub fn redact_secrets(input: &str) -> String {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct HostLogEntry {
+    /// Order of arrival, rising across the process.
     pub seq: u64,
+    /// When it was logged, in Unix milliseconds.
     pub timestamp_ms: i64,
+    /// Service the record belongs to.
     pub service: String,
+    /// Level name.
     pub level: String,
+    /// The message with its fields, redacted.
     pub message: String,
 }
 
@@ -118,8 +123,11 @@ impl Visit for ServiceFieldVisitor {
 /// Extracts and redacts the message and structured fields of a `tracing::Event`.
 #[derive(Default)]
 pub struct RedactingVisitor {
+    /// The message, redacted.
     pub message: Option<String>,
+    /// A `service` field, which names the record's service instead of its span's.
     pub service_override: Option<String>,
+    /// Other fields, redacted, sensitive keys replaced whole.
     pub fields: Vec<(String, String)>,
 }
 
@@ -151,6 +159,7 @@ impl RedactingVisitor {
         self.fields.push((name.to_owned(), redacted));
     }
 
+    /// The message, then the fields as `name=value`.
     pub fn format_line(&self) -> String {
         let mut line = self.message.clone().unwrap_or_default();
         for (k, v) in &self.fields {
@@ -280,6 +289,7 @@ impl<W> TableStdoutLayer<W> {
         Self::styled(make_writer, ConsoleStyle::default())
     }
 
+    /// Writes to `make_writer` in `style`.
     pub fn styled(make_writer: W, style: ConsoleStyle) -> Self {
         Self { make_writer, style }
     }
@@ -359,6 +369,7 @@ pub struct GelfLayer {
 }
 
 impl GelfLayer {
+    /// Ships to `sink`.
     pub fn new(sink: GelfSink) -> Self {
         Self { sink }
     }
@@ -388,9 +399,11 @@ pub struct ChannelLogLayer {
     tx: tokio::sync::mpsc::UnboundedSender<HostLogEntry>,
 }
 
+/// The layer the launcher's GUI reads logs through.
 pub type LauncherGuiLayer = ChannelLogLayer;
 
 impl ChannelLogLayer {
+    /// Sends every record to `tx`.
     pub fn new(tx: tokio::sync::mpsc::UnboundedSender<HostLogEntry>) -> Self {
         Self { tx }
     }
@@ -441,6 +454,7 @@ pub struct TuiRingBufferLayer {
 }
 
 impl TuiRingBufferLayer {
+    /// Keeps the last `max_entries` records (at least one).
     pub fn new(max_entries: usize) -> Self {
         Self {
             entries: Arc::new(Mutex::new(VecDeque::with_capacity(max_entries))),
@@ -448,6 +462,7 @@ impl TuiRingBufferLayer {
         }
     }
 
+    /// The records kept, filtered by service and by level name.
     pub fn snapshot(&self, service_filter: Option<&str>, level_filter: Option<&str>) -> Vec<HostLogEntry> {
         let guard = self.entries.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
         guard
@@ -458,6 +473,7 @@ impl TuiRingBufferLayer {
             .collect()
     }
 
+    /// The records kept, filtered by service.
     pub fn entries(&self, service_filter: Option<&str>) -> Vec<HostLogEntry> {
         self.snapshot(service_filter, None)
     }
@@ -501,6 +517,7 @@ pub struct FileLogLayer {
 }
 
 impl FileLogLayer {
+    /// Appends to `path`, creating its folder; when it can't be opened, nothing is written.
     pub fn open(path: &std::path::Path) -> Self {
         let file = path.parent().and_then(|dir| {
             std::fs::create_dir_all(dir).ok()?;
@@ -535,6 +552,7 @@ where
 
 type ReloadExporter = dyn Fn(&str, LevelFilter) -> Result<(), String> + Send + Sync;
 
+/// Reads a level name: `trace`, `debug`, `info`, `warn` or `warning`, `error`, `off`.
 pub fn parse_level_filter(raw: &str) -> Option<LevelFilter> {
     match raw.trim().to_ascii_lowercase().as_str() {
         "trace" => Some(LevelFilter::TRACE),
@@ -556,6 +574,7 @@ pub struct LogFilterReloadHandle {
 }
 
 impl LogFilterReloadHandle {
+    /// A handle that records levels but changes no filter.
     pub fn noop(default_level: LevelFilter) -> Self {
         Self {
             default_level,
@@ -564,6 +583,7 @@ impl LogFilterReloadHandle {
         }
     }
 
+    /// Sets `service`'s level and applies it to the running filter.
     pub fn set_service_level(&self, service: &str, level: LevelFilter) -> Result<(), String> {
         {
             let mut map = self.overrides.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
@@ -572,6 +592,7 @@ impl LogFilterReloadHandle {
         (self.apply)(service, level)
     }
 
+    /// As [`LogFilterReloadHandle::set_service_level`], from a level name.
     pub fn set_service_level_str(&self, service: &str, level_str: &str) -> Result<(), String> {
         let level = parse_level_filter(level_str).ok_or_else(|| {
             format!("unknown log level `{level_str}` (expected trace, debug, info, warn, error, or off)")
@@ -579,6 +600,7 @@ impl LogFilterReloadHandle {
         self.set_service_level(service, level)
     }
 
+    /// `service`'s level: its override, or the default.
     pub fn service_level(&self, service: &str) -> LevelFilter {
         self.overrides
             .lock()
@@ -622,8 +644,11 @@ fn reload_handle_for<S: 'static>(
 /// How the console reads, and the GELF collector the log goes to besides (`[logs]`).
 #[derive(Clone, Default)]
 pub struct LogOutputs {
+    /// Text or JSON.
     pub format: LogFormat,
+    /// When to color.
     pub color: ColorMode,
+    /// GELF collector to ship to as well, if any.
     pub gelf: Option<GelfSink>,
 }
 

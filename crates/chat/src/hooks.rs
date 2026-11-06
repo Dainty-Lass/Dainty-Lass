@@ -30,6 +30,7 @@ pub struct Login<'a> {
 /// Who a login is, once its game module has checked the token.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Player {
+    /// The player's global account.
     pub account: GlobalId,
     /// The game module the token belongs to, which answers this player's chat queries
     pub module: ModuleId,
@@ -40,14 +41,18 @@ pub struct Player {
 /// Why a login was refused; logged, never told to the client beyond SASL's `not-authorized`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum LoginRefusal {
+    /// The token's time ran out.
     Expired,
+    /// The token is not one the module issued.
     BadToken,
+    /// The token is good but names no account.
     NoAccount,
     /// The module could not be asked; `temporary-auth-failure`
     Unavailable,
 }
 
 impl LoginRefusal {
+    /// The name logged for it.
     pub fn as_str(self) -> &'static str {
         match self {
             Self::Expired => "expired",
@@ -58,6 +63,7 @@ impl LoginRefusal {
     }
 }
 
+/// What chat needs from the host: logins, module queries, blocks and presence.
 pub trait ChatHost: Send + Sync {
     /// Checks a login's token with the game it belongs to.
     fn login<'a>(&'a self, login: Login<'a>) -> BoxFuture<'a, Result<Player, LoginRefusal>>;
@@ -114,6 +120,7 @@ pub struct Drivers {
 }
 
 impl Drivers {
+    /// Adds a module's driver, replacing one with the same id.
     pub fn insert(&self, driver: Arc<dyn ModuleDriver>) {
         let id = driver.manifest().id.clone();
         self.drivers
@@ -122,6 +129,7 @@ impl Drivers {
             .insert(id, driver);
     }
 
+    /// Drops a module's driver.
     pub fn remove(&self, module: &ModuleId) {
         self.drivers
             .lock()
@@ -129,6 +137,7 @@ impl Drivers {
             .remove(module);
     }
 
+    /// The ids of the modules held.
     pub fn module_ids(&self) -> Vec<ModuleId> {
         self.drivers
             .lock()
@@ -138,6 +147,7 @@ impl Drivers {
             .collect()
     }
 
+    /// Asks a module a chat query; a module not held answers unsupported.
     pub async fn ask(&self, module: &ModuleId, query: ChatQuery) -> Result<ChatAnswer, ModuleError> {
         let driver = self
             .drivers

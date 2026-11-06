@@ -13,8 +13,11 @@ use crate::seal::decode_pair_key;
 use crate::text::{is_account, safe_str};
 use crate::url::{ServerAddr, parse_stun, parse_turn_udp, split_list};
 
+/// The largest `bridge.conf` or `transport.secret`, in bytes.
 pub const CONFIG_LIMIT: usize = 16384;
+/// The largest capability file, in bytes.
 pub const CAPABILITY_LIMIT: usize = 128;
+/// The largest ticket file, in bytes.
 pub const TICKET_LIMIT: usize = 4096;
 const MAX_KEY: usize = 48;
 const MAX_VALUE: usize = 1024;
@@ -48,6 +51,7 @@ pub fn read_input(path: &Path, limit: usize, allow_empty: bool) -> Result<String
 pub struct Fields(Vec<(String, String)>);
 
 impl Fields {
+    /// Reads `key=value` lines, skipping blanks and `#` comments; a malformed, unsafe or repeated field fails it.
     pub fn parse(text: &str) -> Result<Self, String> {
         let mut fields: Vec<(String, String)> = Vec::new();
         for line in text.split('\n') {
@@ -68,14 +72,17 @@ impl Fields {
         Ok(Self(fields))
     }
 
+    /// The first value of `key`.
     pub fn get(&self, key: &str) -> Option<&str> {
         self.0.iter().find(|(k, _)| k == key).map(|(_, v)| v.as_str())
     }
 
+    /// Whether `key` is present.
     pub fn has(&self, key: &str) -> bool {
         self.get(key).is_some()
     }
 
+    /// Every value of `key`, in file order.
     pub fn all<'a>(&'a self, key: &'a str) -> impl Iterator<Item = &'a str> + 'a {
         self.0.iter().filter(move |(k, _)| k == key).map(|(_, v)| v.as_str())
     }
@@ -88,14 +95,17 @@ pub struct Reader<'a> {
 }
 
 impl<'a> Reader<'a> {
+    /// A reader with no failure yet.
     pub fn new(fields: &'a Fields) -> Self {
         Self { fields, error: None }
     }
 
+    /// Records a failure; the last one is reported.
     pub fn fail(&mut self, error: String) {
         self.error = Some(error);
     }
 
+    /// The value of `key` if it is at most `max` safe bytes, else empty with a failure recorded.
     pub fn text(&mut self, key: &str, max: usize, extra: &[u8]) -> String {
         match self.fields.get(key) {
             Some(value) if safe_str(value, max, extra) => value.to_owned(),
@@ -106,6 +116,7 @@ impl<'a> Reader<'a> {
         }
     }
 
+    /// The value of `key` as decimal digits within `min..=max`, else 0 with a failure recorded.
     pub fn number(&mut self, key: &str, min: u64, max: u64) -> u64 {
         let Some(value) = self.fields.get(key) else {
             self.fail(format!("missing numeric configuration field: {key}"));
@@ -122,11 +133,13 @@ impl<'a> Reader<'a> {
         })
     }
 
+    /// The last failure, if any field failed.
     pub fn finish(self) -> Result<(), String> {
         self.error.map_or(Ok(()), Err)
     }
 }
 
+/// Whether `key` is exactly `true`.
 pub fn boolean(fields: &Fields, key: &str) -> bool {
     fields.get(key) == Some("true")
 }
@@ -134,21 +147,35 @@ pub fn boolean(fields: &Fields, key: &str) -> bool {
 /// What a session's config binds it to; the ticket must name the same values.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct Bindings {
+    /// The key the ticket is signed with.
     pub key_id: String,
+    /// The hunt session, a UUID.
     pub session_id: String,
+    /// The party the hunt was made for.
     pub party_id: String,
+    /// The hunt definition being played.
     pub hunt_definition_id: String,
+    /// This bridge's instance id.
     pub bridge_instance_id: String,
+    /// The party's revision when the hunt was made.
     pub party_revision: u64,
+    /// The host's peer id.
     pub host_peer_id: u64,
+    /// The session's generation.
     pub generation: u32,
+    /// The game build.
     pub build: u32,
+    /// The bridge protocol version.
     pub bridge_protocol: u16,
+    /// The game's virtual port, 1 to 999.
     pub virtual_port: u16,
 }
 
-// The ranges below bound each value to its type, so the narrowing casts cannot truncate.
-#[allow(clippy::cast_possible_truncation)]
+/// Reads the bindings from a config; failures are left on `reader`.
+#[allow(
+    clippy::cast_possible_truncation,
+    reason = "the ranges below bound each value to its type, so the narrowing casts cannot truncate"
+)]
 pub fn read_bindings(reader: &mut Reader<'_>) -> Bindings {
     Bindings {
         key_id: reader.text("key_id", 32, b"._-"),
@@ -165,10 +192,14 @@ pub fn read_bindings(reader: &mut Reader<'_>) -> Bindings {
     }
 }
 
+/// One joiner the host may admit, from the secrets file.
 #[derive(Clone, PartialEq, Eq)]
 pub struct PeerEntry {
+    /// The joiner's account.
     pub account: String,
+    /// The joiner's peer id.
     pub peer_id: u64,
+    /// The key sealing this joiner's frames; never printed.
     pub pair_key: [u8; 32],
 }
 
@@ -181,10 +212,14 @@ impl std::fmt::Debug for PeerEntry {
     }
 }
 
+/// What the link needs to connect: servers and, for the host, its joiners.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct IceMaterial {
+    /// The STUN server, if one is set.
     pub stun: Option<ServerAddr>,
+    /// The TURN relays, at most four.
     pub relays: Vec<RelayServer>,
+    /// The joiners the host may admit.
     pub peers: Vec<PeerEntry>,
 }
 

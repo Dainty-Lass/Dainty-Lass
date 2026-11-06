@@ -1,23 +1,30 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Silent Spud
 
+//! `.env` files: read into ordered variables, written from them, and edited in place keeping the comments, blank lines,
+//! line endings and BOM a host left there.
+
 use crate::error::HostError;
 use service_kit::js;
 
+/// An env file's variables in the order first set; a later line for a key replaces its value in place.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct EnvMap(Vec<(String, String)>);
 
 impl EnvMap {
+    /// No variables.
     #[must_use]
     pub fn new() -> Self {
         Self(Vec::new())
     }
 
+    /// The value of `key`.
     #[must_use]
     pub fn get(&self, key: &str) -> Option<&str> {
         self.0.iter().find(|(k, _)| k == key).map(|(_, v)| v.as_str())
     }
 
+    /// Sets `key`, in its first place if it was set before, else at the end.
     pub fn insert(&mut self, key: impl Into<String>, value: impl Into<String>) {
         let key = key.into();
         let value = value.into();
@@ -28,15 +35,18 @@ impl EnvMap {
         }
     }
 
+    /// Each variable as (key, value), in order.
     pub fn iter(&self) -> impl Iterator<Item = (&str, &str)> {
         self.0.iter().map(|(k, v)| (k.as_str(), v.as_str()))
     }
 
+    /// How many variables there are.
     #[must_use]
     pub fn len(&self) -> usize {
         self.0.len()
     }
 
+    /// Whether there are none.
     #[must_use]
     pub fn is_empty(&self) -> bool {
         self.0.is_empty()
@@ -71,6 +81,7 @@ impl FromIterator<(String, String)> for EnvMap {
     }
 }
 
+/// Whether `key` can be an env variable: a letter or `_`, then letters, digits and `_`.
 #[must_use]
 pub fn valid_key(key: &str) -> bool {
     let mut bytes = key.bytes();
@@ -146,6 +157,7 @@ fn parse_line(raw_line: &str) -> Option<(String, String)> {
     Some((key.to_owned(), value))
 }
 
+/// The variables of an env file's text; a BOM, comments, blank lines and malformed lines are skipped.
 #[must_use]
 pub fn parse_env(text: &str) -> EnvMap {
     let text = text.strip_prefix('\u{feff}').unwrap_or(text);
@@ -163,6 +175,8 @@ fn is_plain_value_byte(b: u8) -> bool {
     b.is_ascii_alphanumeric() || matches!(b, b'_' | b'.' | b'/' | b':' | b'@' | b',' | b'+' | b'=' | b'%' | b'-')
 }
 
+/// `value` as an env file writes it: bare when it is plain, else double-quoted with `\` and `"` escaped.
+/// Fails on a line break, which no env file can hold.
 pub fn format_value(value: &str) -> Result<String, HostError> {
     if value.contains('\n') || value.contains('\r') {
         return Err(HostError::message("env values cannot contain line breaks"));
@@ -183,6 +197,8 @@ pub fn format_value(value: &str) -> Result<String, HostError> {
     Ok(quoted)
 }
 
+/// An env file's text: `header` as comment lines, a blank line, then each `KEY=value`; fails on an invalid key or
+/// value.
 pub fn format_env<K: AsRef<str>, V: AsRef<str>>(header: &[&str], entries: &[(K, V)]) -> Result<String, HostError> {
     let mut lines = Vec::new();
     for h in header {
@@ -218,6 +234,7 @@ enum Line {
     Entry { key: String, value: String, raw: String },
 }
 
+/// An env file kept line by line, so an edit changes only the line it touches.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct EnvDocument {
     bom: bool,
@@ -226,6 +243,7 @@ pub struct EnvDocument {
 }
 
 impl EnvDocument {
+    /// Reads `text`, remembering its BOM and line ending.
     #[must_use]
     pub fn parse(text: &str) -> Self {
         let (bom, body) = match text.strip_prefix('\u{feff}') {
@@ -253,6 +271,7 @@ impl EnvDocument {
         }
     }
 
+    /// The variables it sets; a later line for a key wins.
     #[must_use]
     pub fn values(&self) -> EnvMap {
         let mut map = EnvMap::new();
@@ -264,6 +283,7 @@ impl EnvDocument {
         map
     }
 
+    /// The value the last line for `key` sets.
     #[must_use]
     pub fn get(&self, key: &str) -> Option<String> {
         self.lines.iter().rev().find_map(|line| match line {
@@ -272,6 +292,7 @@ impl EnvDocument {
         })
     }
 
+    /// Sets `key`: its last line is rewritten, or a new line is added at the end. Fails on an invalid key or value.
     pub fn set(&mut self, key: &str, value: &str) -> Result<(), HostError> {
         if !valid_key(key) {
             return Err(HostError::message(format!(
@@ -315,6 +336,7 @@ impl EnvDocument {
             .retain(|line| !matches!(line, Line::Entry { key: k, .. } if k == key));
     }
 
+    /// The text, with its BOM and line ending as read.
     #[must_use]
     pub fn to_text(&self) -> String {
         let joined = self

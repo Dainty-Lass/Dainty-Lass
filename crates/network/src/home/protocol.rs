@@ -6,7 +6,7 @@
 //! name, id or number that is checked when it is read; the free-form parts are [`HomeBody`] (a module's
 //! operation and answer), [`WireActor`], [`RequestKey`] and [`CleanText`], whose constructors and
 //! deserialisers refuse anything shaped like an `RRK_` key; and a ticket's token is a base64url string of
-//! bounded length whose claims are typed (`ticket.rs`). `decode_*` and `encode_*` run [`validate`] over what
+//! bounded length whose claims are typed (`ticket.rs`). `decode_*` and `encode_*` run [`Validate::validate`] over what
 //! they carry, so a message neither leaves this node nor is believed with one in it.
 
 use module_api::network::{GlobalId, NodeId, OperationName, SessionTicket};
@@ -27,7 +27,9 @@ pub const MAX_BODY: usize = 256 * 1024;
 /// The longest message a refusal carries from a module.
 pub const MAX_TEXT: usize = 512;
 
+/// The shortest [`RequestKey`], in characters.
 pub const MIN_KEY: usize = 8;
+/// The longest [`RequestKey`], in characters.
 pub const MAX_KEY: usize = 64;
 
 /// Whether `text` holds something shaped like an account key (`RRK_` and at least eight more of the characters
@@ -63,12 +65,16 @@ pub fn holds_account_key(value: &serde_json::Value) -> bool {
     }
 }
 
+/// Why a home message field was refused.
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 pub enum FieldError {
+    /// The body is over [`MAX_BODY`] bytes as JSON.
     #[error("over {MAX_BODY} bytes")]
     TooLarge,
+    /// It holds something shaped like an account key.
     #[error("holds something shaped like an account key")]
     AccountKey,
+    /// Not what the field takes: wrong length, characters or shape.
     #[error("not what this field takes")]
     Invalid,
 }
@@ -78,6 +84,7 @@ pub enum FieldError {
 pub struct HomeBody(serde_json::Value);
 
 impl HomeBody {
+    /// Refuses a body over [`MAX_BODY`] bytes or holding something shaped like an account key.
     pub fn new(value: serde_json::Value) -> Result<Self, FieldError> {
         if holds_account_key(&value) {
             return Err(FieldError::AccountKey);
@@ -89,14 +96,17 @@ impl HomeBody {
         Ok(Self(value))
     }
 
+    /// JSON `null`, for an operation that takes nothing.
     pub fn null() -> Self {
         Self(serde_json::Value::Null)
     }
 
+    /// The JSON.
     pub fn value(&self) -> &serde_json::Value {
         &self.0
     }
 
+    /// The JSON, owned.
     pub fn into_value(self) -> serde_json::Value {
         self.0
     }
@@ -128,6 +138,7 @@ impl<'de> Deserialize<'de> for HomeBody {
 pub struct WireActor(ActorContext);
 
 impl WireActor {
+    /// Refuses an invalid actor or one holding something shaped like an account key.
     pub fn new(actor: ActorContext) -> Result<Self, FieldError> {
         if !actor.is_valid() {
             return Err(FieldError::Invalid);
@@ -139,6 +150,7 @@ impl WireActor {
         Ok(Self(actor))
     }
 
+    /// The actor as the calling node's module gave it.
     pub fn actor(&self) -> &ActorContext {
         &self.0
     }
@@ -164,6 +176,7 @@ impl From<WireActor> for ActorContext {
 pub struct RequestKey(String);
 
 impl RequestKey {
+    /// Refuses text outside 8 to 64 characters of `A-Za-z0-9_-` or shaped like an account key.
     pub fn new(text: impl Into<String>) -> Result<Self, FieldError> {
         let text = text.into();
         let ok = (MIN_KEY..=MAX_KEY).contains(&text.len())
@@ -179,11 +192,13 @@ impl RequestKey {
         Ok(Self(text))
     }
 
+    /// A random 32-character hex key; errors only when the system's random source fails.
     pub fn generate() -> Result<Self, FieldError> {
         let text = super::keys::random_hex::<16>().map_err(|_| FieldError::Invalid)?;
         Self::new(text)
     }
 
+    /// The key's text.
     pub fn as_str(&self) -> &str {
         &self.0
     }
@@ -209,6 +224,7 @@ impl From<RequestKey> for String {
 pub struct CleanText(String);
 
 impl CleanText {
+    /// Refuses text over [`MAX_TEXT`] bytes, with control characters, or shaped like an account key.
     pub fn new(text: impl Into<String>) -> Result<Self, FieldError> {
         let text = text.into();
         if text.len() > MAX_TEXT || text.chars().any(char::is_control) {
@@ -227,10 +243,12 @@ impl CleanText {
         Self::new(cut).unwrap_or_else(|_| Self(String::from("the module failed")))
     }
 
+    /// The text.
     pub fn as_str(&self) -> &str {
         &self.0
     }
 
+    /// The text, owned.
     pub fn into_string(self) -> String {
         self.0
     }
@@ -264,14 +282,19 @@ pub struct HomeCall {
     pub ticket: SessionTicket,
     /// The module whose backend runs it at the home
     pub module: ModuleId,
+    /// The operation to run.
     pub operation: OperationName,
     /// Must be the ticket's account
     pub account: GlobalId,
+    /// Who asked, for the home's change log.
     pub actor: WireActor,
+    /// The idempotency key: resending the call runs it at most once.
     pub key: RequestKey,
+    /// The operation's input.
     pub body: HomeBody,
 }
 
+/// What one node asks of an account's home over `Service::Home`.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub enum HomeRequestCall {
@@ -279,21 +302,28 @@ pub enum HomeRequestCall {
     PublicKeys,
     /// Does the home still stand behind this ticket
     Check {
+        /// The ticket to check.
         ticket: SessionTicket,
     },
     /// A ticket for `audience` in return for a ticket the home made for the caller: how a node hands a player
     /// on, and with the caller as audience how it renews its own
     Exchange {
+        /// A ticket the home made for the caller.
         ticket: SessionTicket,
+        /// The node the new ticket is for.
         audience: NodeId,
     },
+    /// Run a module's operation on the account.
     Run(Box<HomeCall>),
 }
 
+/// A home call as sent: [`HomeRequestCall`] with the protocol version.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct HomeRequest {
+    /// [`HOME_VERSION`].
     pub version: u32,
+    /// The call.
     pub call: HomeRequestCall,
 }
 
@@ -301,6 +331,7 @@ pub struct HomeRequest {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct SessionInfo {
+    /// The account the ticket is for.
     pub account: GlobalId,
     /// When the ticket checked expires, in unix ms
     pub expires_at: i64,
@@ -308,14 +339,17 @@ pub struct SessionInfo {
     pub since: i64,
 }
 
+/// Why a home refused a call.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, thiserror::Error)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub enum HomeRefusal {
+    /// The ticket failed a check.
     #[error("ticket refused: {0}")]
     Ticket(TicketError),
     /// The account isn't homed on the node asked
     #[error("not the account's home")]
     NotHome,
+    /// The module named is not loaded at the home.
     #[error("the home runs no such module")]
     NoModule,
     /// The request disagrees with itself (an account that isn't the ticket's) or names an unknown node
@@ -324,46 +358,81 @@ pub enum HomeRefusal {
     /// A request with this key is running; ask again for its answer
     #[error("that request is still running")]
     InFlight,
+    /// Too many calls at once; try again.
     #[error("the home is busy")]
     Busy,
     /// The module ran it and it failed
     #[error("the module failed: {message:?}")]
-    Failed { kind: ErrorKind, message: CleanText },
+    Failed {
+        /// The module's error kind.
+        kind: ErrorKind,
+        /// The module's message.
+        message: CleanText,
+    },
+    /// The answer would be over the size limit.
     #[error("the answer was too large")]
     TooLarge,
+    /// The request's version is not the home's.
     #[error("home protocol {supported} only")]
-    UnsupportedVersion { supported: u32 },
+    UnsupportedVersion {
+        /// The version the home speaks.
+        supported: u32,
+    },
+    /// The request does not parse as a home message.
     #[error("not a home message")]
     Malformed,
+    /// The home could not place the account just now: its directory failed.
     #[error("the home can't answer just now")]
     Unavailable,
 }
 
+/// The home's answer to a [`HomeRequestCall`].
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub enum HomeReply {
-    PublicKeys { node: NodeId, keys: Vec<VerifyingKey> },
+    /// The answer to `PublicKeys`.
+    PublicKeys {
+        /// The home node.
+        node: NodeId,
+        /// Its keys, newest first.
+        keys: Vec<VerifyingKey>,
+    },
+    /// The answer to `Check`: the session stands.
     Session(SessionInfo),
+    /// The answer to `Exchange`: the new ticket.
     Ticket(SessionTicket),
-    Done { body: HomeBody },
+    /// The answer to `Run`: the operation's output.
+    Done {
+        /// The module's answer.
+        body: HomeBody,
+    },
+    /// The call was refused.
     Refused(HomeRefusal),
 }
 
+/// A home answer as sent: [`HomeReply`] with the protocol version.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct HomeResponse {
+    /// [`HOME_VERSION`].
     pub version: u32,
+    /// The answer.
     pub reply: HomeReply,
 }
 
+/// Why a home message could not be decoded or encoded.
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 pub enum DecodeError {
+    /// Over the node link's message limit.
     #[error("a node-link message is over {MAX_MESSAGE} bytes")]
     TooLarge,
+    /// Another protocol version; holds the one received.
     #[error("home protocol {0}")]
     Version(u32),
+    /// Not the expected JSON.
     #[error("{0}")]
     Json(String),
+    /// A field fails [`Validate`].
     #[error("{0}")]
     Field(String),
 }
@@ -384,6 +453,7 @@ fn ticket_ok(ticket: &SessionTicket) -> Result<(), DecodeError> {
 /// What the types alone don't settle: tickets are bounded base64url text, a keys list is no longer than a node
 /// has keys, and a call's account is its ticket's. Run by `encode_*` and `decode_*`.
 pub trait Validate {
+    /// Checks what serde could not; errors with [`DecodeError::Field`].
     fn validate(&self) -> Result<(), DecodeError>;
 }
 
@@ -431,10 +501,12 @@ fn decode<T: DeserializeOwned + Validate>(bytes: &[u8], version_of: impl Fn(&T) 
     }
 }
 
+/// A request decoded and checked; refuses another version.
 pub fn decode_request(bytes: &[u8]) -> Result<HomeRequest, DecodeError> {
     decode(bytes, |r: &HomeRequest| r.version)
 }
 
+/// A response decoded and checked; refuses another version.
 pub fn decode_response(bytes: &[u8]) -> Result<HomeResponse, DecodeError> {
     decode(bytes, |r: &HomeResponse| r.version)
 }
@@ -448,15 +520,18 @@ fn encode<T: Serialize + Validate>(message: &T) -> Result<Vec<u8>, DecodeError> 
     Ok(bytes)
 }
 
+/// A request checked and encoded.
 pub fn encode_request(message: &HomeRequest) -> Result<Vec<u8>, DecodeError> {
     encode(message)
 }
 
+/// A response checked and encoded.
 pub fn encode_response(message: &HomeResponse) -> Result<Vec<u8>, DecodeError> {
     encode(message)
 }
 
 impl HomeRequest {
+    /// A request at the current version.
     pub fn new(call: HomeRequestCall) -> Self {
         Self {
             version: HOME_VERSION,
@@ -466,6 +541,7 @@ impl HomeRequest {
 }
 
 impl HomeResponse {
+    /// A response at the current version.
     pub fn new(reply: HomeReply) -> Self {
         Self {
             version: HOME_VERSION,
@@ -473,6 +549,7 @@ impl HomeResponse {
         }
     }
 
+    /// A refusal at the current version.
     pub fn refused(refusal: HomeRefusal) -> Self {
         Self::new(HomeReply::Refused(refusal))
     }
@@ -480,7 +557,7 @@ impl HomeResponse {
 
 #[cfg(test)]
 mod tests {
-    #![allow(clippy::unwrap_used)]
+    #![allow(clippy::unwrap_used, reason = "a panic is how a test fails")]
 
     use module_api::Actor;
 

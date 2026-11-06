@@ -89,7 +89,7 @@ fn notify_subscribers() {
 }
 
 #[cfg(windows)]
-#[allow(unsafe_code)]
+#[allow(unsafe_code, reason = "SetConsoleCtrlHandler takes an extern callback")]
 mod win_ctrl {
     use windows::Win32::System::Console::{CTRL_BREAK_EVENT, CTRL_C_EVENT, CTRL_CLOSE_EVENT, SetConsoleCtrlHandler};
     use windows::core::BOOL;
@@ -272,7 +272,7 @@ impl Control {
 
 #[cfg(test)]
 mod tests {
-    #![allow(clippy::unwrap_used)]
+    #![allow(clippy::unwrap_used, reason = "a panic is how a test fails")]
 
     use super::*;
     use std::io::Cursor;

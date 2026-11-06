@@ -21,6 +21,7 @@ fn too_deep() -> String {
     format!("nested more than {MAX_DEPTH} levels deep")
 }
 
+/// Parses the YAML subset a host.yaml uses into JSON; the error says what is wrong, and too big or too deep is refused.
 pub fn parse_yaml_to_json(input: &str) -> Result<Value, String> {
     if input.len() > MAX_YAML_BYTES {
         return Err(format!("larger than {} KiB", MAX_YAML_BYTES / 1024));

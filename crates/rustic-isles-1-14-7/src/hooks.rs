@@ -16,6 +16,7 @@ fn number(n: f64) -> Value {
     rustic_isles_economy::number_value(n)
 }
 
+/// 1.14.7's [`VersionHooks`]: the answers areas ask of the version.
 #[derive(Debug, Clone, Copy, Default)]
 pub struct Hooks;
 

@@ -28,13 +28,17 @@ pub struct LogSettings {
 /// A change to `[logs]`: a field left out keeps its value; an empty `gelfUrl` stops shipping.
 #[derive(InputObject, Clone, Debug, Default, PartialEq, Eq)]
 pub struct LogSettingsInput {
+    /// `text` or `json`.
     pub format: Option<String>,
+    /// `auto`, `always` or `never`.
     pub color: Option<String>,
+    /// The GELF collector's URL; empty stops shipping.
     pub gelf_url: Option<String>,
 }
 
 /// What the admin API may do with host.toml.
 pub trait HostSettings: Send + Sync {
+    /// `[logs]` as the file holds it.
     fn logs(&self) -> Result<LogSettings, String>;
     /// Validated as `setup` validates the file; refused whole when any part is wrong.
     fn set_logs(&self, change: &LogSettingsInput) -> Result<LogSettings, String>;
@@ -57,10 +61,12 @@ fn settings(ctx: &Context<'_>) -> async_graphql::Result<Arc<dyn HostSettings>> {
         })
 }
 
+/// The `logSettings` query: `[logs]`, or a coded error when there is no host.toml or it cannot be read.
 pub fn logs(ctx: &Context<'_>) -> async_graphql::Result<LogSettings> {
     settings(ctx)?.logs().map_err(|e| fail("SETTINGS_UNREADABLE", e))
 }
 
+/// The `setLogSettings` mutation: writes `[logs]` and answers it, or a coded error naming what was refused.
 pub fn set_logs(ctx: &Context<'_>, change: &LogSettingsInput) -> async_graphql::Result<LogSettings> {
     settings(ctx)?.set_logs(change).map_err(|e| fail("SETTINGS_REFUSED", e))
 }

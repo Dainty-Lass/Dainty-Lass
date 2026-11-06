@@ -11,10 +11,15 @@ use crate::realm::{
     NameRefusal, existing_realm_name, js_trim, normalize_invite_code, utf16_len, validate_realm_name,
 };
 
+/// Realms a list returns when no limit is asked for.
 pub const LIST_DEFAULT_LIMIT: u32 = 25;
+/// The most realms a list returns.
 pub const LIST_MAX_LIMIT: u32 = 50;
+/// The furthest a list may page.
 pub const LIST_MAX_OFFSET: u32 = 10_000;
+/// The longest ban reason, in UTF-16 units.
 pub const BAN_REASON_MAX_LENGTH: usize = 200;
+/// The longest username, in UTF-16 units.
 pub const USERNAME_MAX_LENGTH: usize = 64;
 
 const VALIDATION: &str = "REALM_VALIDATION_FAILED";
@@ -29,12 +34,16 @@ const LISTED_MESSAGE: &str = "listed must be true or false.";
 /// `Number.MAX_SAFE_INTEGER`.
 const MAX_SAFE_INTEGER: f64 = 9_007_199_254_740_991.0;
 
+/// Why a request body or parameter was refused; answered as a 400.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ParseFailure {
+    /// The error code, such as `REALM_VALIDATION_FAILED`.
     pub code: &'static str,
+    /// The text for the caller.
     pub message: String,
 }
 
+/// A parsed input, or why it was refused.
 pub type Parsed<T> = Result<T, ParseFailure>;
 
 fn fail<T>(code: &'static str, message: &str) -> Parsed<T> {
@@ -48,53 +57,80 @@ fn invalid<T>(message: &str) -> Parsed<T> {
     fail(VALIDATION, message)
 }
 
+/// A create-realm request.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CreateRealmInput {
+    /// The name asked for; `None` to derive one from the username.
     pub name: Option<String>,
+    /// The host's public key.
     pub host_public_key: String,
+    /// Who may join; invite-only when not given.
     pub join_policy: JoinPolicy,
+    /// Whether to list the realm publicly; false when not given.
     pub listed: bool,
+    /// The host's version.
     pub version: Option<String>,
 }
 
+/// A settings change; at least one field is set.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SettingsInput {
+    /// The new join policy.
     pub join_policy: Option<JoinPolicy>,
+    /// The new listing.
     pub listed: Option<bool>,
 }
 
+/// An invite-code request.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct InviteInput {
+    /// How many joins the code allows.
     pub max_uses: i64,
+    /// How long it lasts, in hours.
     pub ttl_hours: i64,
 }
 
+/// A join request; it names a realm, an invite code or both.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct JoinInput {
+    /// The realm's name.
     pub name: Option<String>,
+    /// The invite code.
     pub invite_code: Option<String>,
+    /// The host key the player knew the realm by, to catch a change of owner.
     pub known_host_key: Option<String>,
 }
 
+/// The hosting settings a host heartbeat carries.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct HostingInput {
+    /// The most hunt servers, 1 to 8.
     pub max_servers: i64,
+    /// The most hub players, 1 to 64.
     pub max_players: i64,
+    /// The idle limit, 0 to 7200 seconds.
     pub afk_seconds: Option<i64>,
 }
 
+/// A host heartbeat.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct HeartbeatInput {
+    /// `false` ends the online window now.
     pub online: Option<bool>,
+    /// The host's version.
     pub version: Option<String>,
+    /// New hosting settings, if sent.
     pub hosting: Option<HostingInput>,
 }
 
 /// The `realm` of a game-session request (Play).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct EntryRealmInput {
+    /// The realm's name.
     pub name: String,
+    /// The invite code, if any.
     pub invite_code: Option<String>,
+    /// The host key the player knew the realm by.
     pub known_host_key: Option<String>,
 }
 
@@ -138,6 +174,7 @@ pub fn parse_host_public_key(value: &Value) -> Option<String> {
     host_key_text(value.as_str()?)
 }
 
+/// The trimmed version: 1 to 64 of letters, digits, `.`, `_`, `+` and `-`.
 pub fn parse_version(value: &Value) -> Option<String> {
     let version = js_trim(value.as_str()?);
     let shaped = (1..=64).contains(&version.len())
@@ -180,6 +217,7 @@ fn version(value: &Value) -> Parsed<String> {
     parse_version(value).map_or_else(|| invalid(VERSION_MALFORMED), Ok)
 }
 
+/// Reads a create-realm body.
 pub fn parse_create_realm_body(body: Option<&Value>) -> Parsed<CreateRealmInput> {
     let body = object(body)?;
     let name = match body.get("name") {
@@ -210,6 +248,7 @@ pub fn parse_create_realm_body(body: Option<&Value>) -> Parsed<CreateRealmInput>
     })
 }
 
+/// Reads a settings body; refused when it changes nothing.
 pub fn parse_settings_body(body: Option<&Value>) -> Parsed<SettingsInput> {
     let body = object(body)?;
     let join_policy = body.get("joinPolicy").map(join_policy).transpose()?;
@@ -220,6 +259,7 @@ pub fn parse_settings_body(body: Option<&Value>) -> Parsed<SettingsInput> {
     Ok(SettingsInput { join_policy, listed })
 }
 
+/// Reads an invite body, defaulting and bounding uses and lifetime.
 pub fn parse_invite_body(body: Option<&Value>) -> Parsed<InviteInput> {
     let body = object(body)?;
     let max_uses = match body.get("maxUses") {
@@ -239,6 +279,7 @@ pub fn parse_invite_body(body: Option<&Value>) -> Parsed<InviteInput> {
     Ok(InviteInput { max_uses, ttl_hours })
 }
 
+/// Reads a join body; refused when it has neither a name nor a code.
 pub fn parse_join_body(body: Option<&Value>) -> Parsed<JoinInput> {
     let body = object(body)?;
     let name = body.get("name").map(existing_name).transpose()?;
@@ -254,6 +295,7 @@ pub fn parse_join_body(body: Option<&Value>) -> Parsed<JoinInput> {
     })
 }
 
+/// Reads a host heartbeat body.
 pub fn parse_heartbeat_body(body: Option<&Value>) -> Parsed<HeartbeatInput> {
     let body = object(body)?;
     let online = body
@@ -292,6 +334,7 @@ pub fn parse_heartbeat_body(body: Option<&Value>) -> Parsed<HeartbeatInput> {
     })
 }
 
+/// Reads the `realm` of a game-session request.
 pub fn parse_entry_realm(value: &Value) -> Parsed<EntryRealmInput> {
     let Value::Object(realm) = value else {
         return invalid("realm must be an object with a name.");
@@ -329,6 +372,7 @@ pub fn parse_ban_body(body: Option<&Value>) -> Parsed<Option<String>> {
     Ok((!reason.is_empty()).then(|| reason.to_owned()))
 }
 
+/// Reads a username body: 1 to [`USERNAME_MAX_LENGTH`] units of plain text, trimmed.
 pub fn parse_username_body(body: Option<&Value>) -> Parsed<String> {
     let body = object(body)?;
     let Some(value) = body.get("username") else {
@@ -379,6 +423,7 @@ pub fn parse_list_query(limit: Option<&str>, offset: Option<&str>) -> Parsed<(u3
     Ok((limit, offset))
 }
 
+/// Reads the `knownHostKey` query; `None` when absent.
 pub fn parse_known_host_key_query(raw: Option<&str>) -> Parsed<Option<String>> {
     match raw {
         None => Ok(None),
@@ -386,11 +431,13 @@ pub fn parse_known_host_key_query(raw: Option<&str>) -> Parsed<Option<String>> {
     }
 }
 
+/// Reads a realm name from the path.
 pub fn parse_name_param(raw: Option<&str>) -> Parsed<String> {
     raw.and_then(existing_realm_name)
         .map_or_else(|| fail(NAME_INVALID, NOT_A_NAME), Ok)
 }
 
+/// Reads an invite code from the path.
 pub fn parse_invite_code_param(raw: &str) -> Parsed<String> {
     normalize_invite_code(raw).map_or_else(|| invalid(NOT_A_CODE), Ok)
 }

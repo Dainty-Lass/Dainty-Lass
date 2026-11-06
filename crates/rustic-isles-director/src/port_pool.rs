@@ -5,14 +5,18 @@
 
 use std::collections::VecDeque;
 
+/// A port handed to a launch.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Lease {
+    /// The leased port.
     pub port: u16,
     /// The launch id that took it
     pub owner: String,
+    /// The process using it, once spawned.
     pub pid: Option<u32>,
 }
 
+/// The game server ports: free ones in order, and the leases.
 #[derive(Debug, Default)]
 pub struct PortPool {
     free: VecDeque<u16>,
@@ -20,6 +24,7 @@ pub struct PortPool {
 }
 
 impl PortPool {
+    /// An empty pool.
     pub fn new() -> Self {
         Self::default()
     }
@@ -31,6 +36,7 @@ impl PortPool {
         }
     }
 
+    /// The first free port, leased to `owner`; none when all are held.
     pub fn take(&mut self, owner: &str) -> Option<u16> {
         let port = self.free.pop_front()?;
         self.held.push(Lease {
@@ -81,22 +87,27 @@ impl PortPool {
         gone
     }
 
+    /// Who holds the port.
     pub fn owner_of(&self, port: u16) -> Option<&str> {
         self.held.iter().find(|l| l.port == port).map(|l| l.owner.as_str())
     }
 
+    /// The process holding the port, if attached.
     pub fn pid_of(&self, port: u16) -> Option<u32> {
         self.held.iter().find(|l| l.port == port).and_then(|l| l.pid)
     }
 
+    /// How many ports are free.
     pub fn free_count(&self) -> usize {
         self.free.len()
     }
 
+    /// How many ports are leased.
     pub fn held_count(&self) -> usize {
         self.held.len()
     }
 
+    /// Every lease.
     pub fn leases(&self) -> &[Lease] {
         &self.held
     }

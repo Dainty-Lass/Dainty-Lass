@@ -15,17 +15,25 @@ use crate::run::{RunOptions, run};
 
 const DEFAULT_CAPTURE_NAME: &str = "DauntlessEndpointDocumentation";
 
+/// `store-captures.json`: the store captures pinned to one commit of a git repository.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CapturePin {
+    /// The capture set's name, also the bare repository's under `.workspace/captures`.
     pub name: String,
+    /// The repository's https URL.
     pub repository: String,
+    /// The pinned commit, 40 lowercase hex digits.
     pub commit: String,
+    /// Each file as (path in the repository, its SHA-256 in lowercase hex).
     pub files: Vec<(String, String)>,
 }
 
+/// What [`ensure_captures`] did.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum CaptureFetch {
+    /// Every file was there already with its pinned SHA-256.
     AlreadyReady,
+    /// The files were fetched.
     Fetched,
 }
 
@@ -102,11 +110,13 @@ fn target_path(base: &Path, rel: &str) -> PathBuf {
     out
 }
 
+/// Reads and checks the pin at `file`.
 pub fn read_capture_pin(file: &Path) -> Result<CapturePin, HostError> {
     let text = std::fs::read_to_string(file).map_err(|e| HostError::io(file, e))?;
     parse_capture_pin(file, &text)
 }
 
+/// Parses and checks a pin: its name, a URL, a full commit id and every file's path and SHA-256.
 pub fn parse_capture_pin(file: &Path, text: &str) -> Result<CapturePin, HostError> {
     let text = text.strip_prefix('\u{feff}').unwrap_or(text);
     let value: Value =
@@ -197,6 +207,7 @@ fn file_matches_sha256(path: &Path, expected: &str) -> bool {
     sha256_hex(&normalized) == expected
 }
 
+/// The pinned files missing or not matching their SHA-256.
 pub fn missing_captures(p: &Paths, pin: &CapturePin) -> Vec<String> {
     pin.files
         .iter()
@@ -227,6 +238,8 @@ fn git_show_blob(git_dir: &Path, commit: &str, rel: &str) -> Result<Vec<u8>, Hos
     Ok(output.stdout)
 }
 
+/// Fetches the pinned commit with git into a bare repository under `.workspace/captures` and writes every pinned
+/// file whose SHA-256 checks out; fails when one does not. Logs git's output to `log_file`.
 pub fn ensure_captures(p: &Paths, pin: &CapturePin, log_file: Option<&Path>) -> Result<CaptureFetch, HostError> {
     if missing_captures(p, pin).is_empty() {
         return Ok(CaptureFetch::AlreadyReady);
@@ -309,7 +322,7 @@ pub fn ensure_captures(p: &Paths, pin: &CapturePin, log_file: Option<&Path>) -> 
 
 #[cfg(test)]
 mod tests {
-    #![allow(clippy::unwrap_used, clippy::expect_used)]
+    #![allow(clippy::unwrap_used, clippy::expect_used, reason = "a panic is how a test fails")]
 
     use super::*;
 

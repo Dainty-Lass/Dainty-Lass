@@ -5,7 +5,7 @@
 //! 127.0.0.1:0 (DM across two nodes arriving once and stored in both histories, offline DM, region and
 //! network rooms across nodes, party room history replication, mutes across nodes, partition catch-up
 //! via `chat_outbox`) plus one real mutual-TLS end-to-end test over `network`'s node link.
-#![allow(clippy::unwrap_used, clippy::expect_used)]
+#![allow(clippy::unwrap_used, clippy::expect_used, reason = "a panic is how a test fails")]
 
 use std::collections::HashMap;
 use std::sync::Arc;

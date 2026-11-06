@@ -1,129 +1,245 @@
 // Copyright (c) 2026 Silent Spud
 // SPDX-License-Identifier: MIT
 
+//! The bridge's command table: every command the page may invoke, the argument each takes, the bounds
+//! on its text, and which build serves it.
+
 use crate::core::text::{utf16_len, within_utf16};
 
 use super::types::RequirementId;
 
+/// The JSON shape a command's argument must have, checked by [`arg_accepts`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Arg {
+    /// No argument: null or `{}`.
     None,
+    /// `{invite}`: the pasted invite text.
     Invite,
+    /// `{serverId}`: 24 lowercase hex digits.
     ServerId,
+    /// `{serverId, username, inviteCode?}`.
     RegisterAccount,
+    /// `{serverId, key, username?}`.
     ImportAccountKey,
+    /// `{serverId}` of the key to export.
     ExportAccountKey,
+    /// `{path}`: the game folder.
     GamePath,
+    /// `{version}`: a game version.
     SelectGameVersion,
+    /// `{version, path}`: a game version and its folder.
     GameVersionPath,
+    /// `{code}`: the Epic authorization code.
     EpicCompleteSignIn,
+    /// `{version, installDir}`.
     InstallGameVersion,
+    /// Any JSON object of launcher settings.
     LauncherSettings,
+    /// `{mode}`: the Linux compatibility layer.
     LinuxCompat,
+    /// `{id}`: a [`RequirementId`].
     Requirement,
+    /// `{id, path}`: a [`RequirementId`] and where it is installed.
     LocateRequirement,
+    /// `{displayName, port}`.
     HostServerConfig,
+    /// An optional filter object.
     HostLogQuery,
+    /// `{id, approve}`: a guarded action and the host's decision.
     GuardedDecision,
+    /// `{moduleId}`.
     ModuleId,
+    /// `{moduleId, ...}`: settings for one module.
     ModuleConfigure,
+    /// `{moduleId, command, ...}`.
     ModuleCommand,
+    /// An optional history filter object.
     HistoryQuery,
+    /// `{entryId}`: the history entry to roll back to.
     HistoryPreviewRollback,
+    /// `{planId}`: the previewed rollback to apply.
     HistoryApplyRollback,
+    /// `{realmId}`.
     RealmId,
+    /// `{name, moduleId}`.
     RealmCreate,
+    /// `{realmId, ...}`: settings for one realm.
     RealmConfig,
+    /// An optional account filter object.
     AdminAccountsQuery,
+    /// `{username}`.
     AdminAccountCreate,
+    /// `{accountId, status}`.
     AdminAccountStatus,
+    /// `{accountId, note?}`.
     AdminAccountNote,
+    /// `{accountId}`.
     AdminAccountDelete,
+    /// Optional invite settings object.
     AdminInviteCreate,
+    /// `{code}`: an invite code.
     AdminInviteCode,
+    /// `{sessionId}`.
     AdminSessionKick,
+    /// `{message}`: text sent to every player.
     AdminBroadcast,
+    /// `{url?}`.
     OptionalUrl,
 }
 
+/// Every command the page may invoke on the Rust side.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Command {
+    /// Which features this build serves.
     GetCapabilities,
+    /// The launcher's full state.
     GetSnapshot,
+    /// Parses an invite without adding its server.
     PreviewInvite,
+    /// Adds the invite's server to the list.
     AddServerFromInvite,
+    /// Makes a listed server the joined one.
     SelectServer,
+    /// Removes a server and its stored key.
     RemoveServer,
+    /// Checks a server's status.
     ProbeServer,
+    /// Times the joined server's regions and reports the order to it.
     ProbeRegionPing,
+    /// Registers an account on a server.
     RegisterAccount,
+    /// Stores an account key the player pasted.
     ImportAccountKey,
+    /// Copies a stored account key out for the player.
     ExportAccountKey,
+    /// Opens a folder picker for the game.
     PickGameFolder,
+    /// Sets the game folder.
     SetGamePath,
+    /// Checks the game files against the server's manifest.
     VerifyGame,
+    /// Game versions the player may install.
     ListGameVersions,
+    /// Makes a game version the active one.
     SelectGameVersion,
+    /// Opens a folder picker for a game version.
     PickGameVersionFolder,
+    /// Sets a game version's folder.
     SetGameVersionPath,
+    /// Checks a game version's files.
     VerifyGameVersion,
+    /// Whether an Epic account is signed in.
     EpicAccountStatus,
+    /// Opens Epic's sign-in page.
     EpicStartSignIn,
+    /// Finishes Epic sign-in with the pasted code.
     EpicCompleteSignIn,
+    /// Forgets the Epic sign-in.
     EpicSignOut,
+    /// Downloads a game version through Epic.
     InstallGameVersion,
+    /// Stops a running game install.
     CancelGameInstall,
+    /// Starts the game for the joined server.
     LaunchGame,
+    /// Stops the running game.
     StopGame,
+    /// Saves launcher settings.
     UpdateSettings,
+    /// Finds Proton and Wine installs.
     DetectLinuxCompat,
+    /// Picks the compatibility layer used on Linux.
     SetLinuxCompat,
+    /// Checks for a launcher update.
     CheckForUpdates,
+    /// Opens a fixed external page in the browser.
     OpenExternalUrl,
+    /// Runs the host requirement checks.
     CheckRequirements,
+    /// Installs a host requirement.
     InstallRequirement,
+    /// Points a host requirement at a folder.
     LocateRequirement,
+    /// The embedded server's state.
     GetHostServerState,
+    /// Saves the server's name and port.
     ConfigureHostServer,
+    /// Starts the embedded server.
     StartHostServer,
+    /// Stops the embedded server.
     StopHostServer,
+    /// Restarts the embedded server.
     RestartHostServer,
+    /// The server's recent log lines.
     GetHostLogs,
+    /// Clears the server's logs.
     ClearHostLogs,
+    /// Copies the latest invite link.
     CopyHostInvite,
+    /// Guarded actions waiting for the host.
     ListGuardedExecutions,
+    /// Approves or refuses a guarded action.
     DecideGuardedExecution,
+    /// The server's modules.
     ListModules,
+    /// Loads a module.
     LoadModule,
+    /// Stops a module.
     UnloadModule,
+    /// Stops and loads a module again.
     ReloadModule,
+    /// Saves a module's settings.
     ConfigureModule,
+    /// Runs a module command.
     RunModuleCommand,
+    /// The server's change history.
     ListHistory,
+    /// Previews rolling back to a history entry.
     PreviewRollback,
+    /// Applies a previewed rollback.
     ApplyRollback,
+    /// The server's realms.
     ListRealms,
+    /// Makes a realm.
     CreateRealm,
+    /// Saves a realm's settings.
     ConfigureRealm,
+    /// Starts a realm.
     StartRealm,
+    /// Stops a realm.
     StopRealm,
+    /// Deletes a realm.
     DeleteRealm,
+    /// Joins a realm.
     JoinRealm,
+    /// Lists accounts.
     AdminListAccounts,
+    /// Makes an account.
     AdminCreateAccount,
+    /// Sets an account's status.
     AdminSetAccountStatus,
+    /// Sets an account's staff note.
     AdminSetAccountNote,
+    /// Issues a new key for an account.
     AdminResetAccountKey,
+    /// Deletes an account.
     AdminDeleteAccount,
+    /// Lists invites.
     AdminListInvites,
+    /// Makes an invite.
     AdminCreateInvite,
+    /// Revokes an invite.
     AdminRevokeInvite,
+    /// Lists connected sessions.
     AdminListSessions,
+    /// Disconnects a session.
     AdminKickSession,
+    /// Sends a message to every player.
     AdminBroadcast,
 }
 
 impl Command {
+    /// The command's name on the wire, as the page invokes it.
     pub const fn name(self) -> &'static str {
         match self {
             Self::GetCapabilities => "get_capabilities",
@@ -202,6 +318,7 @@ impl Command {
         }
     }
 
+    /// The [`Arg`] it takes.
     pub const fn arg(self) -> Arg {
         match self {
             Self::GetCapabilities
@@ -268,6 +385,7 @@ impl Command {
         }
     }
 
+    /// Only host builds, with the server GUI, serve it.
     pub const fn requires_server_gui(self) -> bool {
         matches!(
             self,
@@ -308,6 +426,7 @@ impl Command {
         )
     }
 
+    /// Only builds with realms serve it.
     pub const fn requires_realms(self) -> bool {
         matches!(
             self,
@@ -321,11 +440,13 @@ impl Command {
         )
     }
 
+    /// Declared but not served by any build yet.
     pub const fn is_planned(self) -> bool {
         matches!(self, Self::OpenExternalUrl)
     }
 }
 
+/// Every command, in declaration order.
 pub const ALL_COMMANDS: &[Command] = &[
     Command::GetCapabilities,
     Command::GetSnapshot,
@@ -402,6 +523,7 @@ pub const ALL_COMMANDS: &[Command] = &[
     Command::AdminBroadcast,
 ];
 
+/// The command with this wire name, if any.
 pub const fn command(name: &str) -> Option<Command> {
     let mut i = 0;
     while i < ALL_COMMANDS.len() {
@@ -430,32 +552,54 @@ const fn str_eq(a: &str, b: &str) -> bool {
     true
 }
 
+/// Longest invite text, in UTF-16 units.
 pub const INVITE_MAX_LEN: usize = 2048;
+/// Length of a server id: 24 hex digits.
 pub const SERVER_ID_LEN: usize = 24;
+/// Shortest username, in UTF-16 units.
 pub const USERNAME_MIN_LEN: usize = 3;
+/// Longest username, in UTF-16 units.
 pub const USERNAME_MAX_LEN: usize = 32;
+/// Longest invite code, in UTF-16 units.
 pub const INVITE_CODE_MAX_LEN: usize = 64;
+/// Longest account key, in UTF-16 units.
 pub const KEY_MAX_LEN: usize = 512;
+/// Longest path, in UTF-16 units.
 pub const PATH_MAX_LEN: usize = 4096;
+/// Longest game version string, in UTF-16 units.
 pub const GAME_VERSION_MAX_LEN: usize = 64;
+/// Longest Epic authorization code, in UTF-16 units.
 pub const EPIC_AUTH_CODE_MAX_LEN: usize = 512;
+/// Longest URL, in UTF-16 units.
 pub const URL_MAX_LEN: usize = 2048;
+/// Longest server name, in UTF-16 units.
 pub const HOST_NAME_MAX_LEN: usize = 128;
+/// Longest module id, in UTF-16 units.
 pub const MODULE_ID_MAX_LEN: usize = 64;
+/// Longest module command name, in UTF-16 units.
 pub const MODULE_COMMAND_MAX_LEN: usize = 64;
+/// Longest realm id, in UTF-16 units.
 pub const REALM_ID_MAX_LEN: usize = 64;
+/// Longest realm name, in UTF-16 units.
 pub const REALM_NAME_MAX_LEN: usize = 64;
+/// Longest account note, in UTF-16 units.
 pub const NOTE_MAX_LEN: usize = 512;
+/// Longest broadcast message, in UTF-16 units.
 pub const BROADCAST_MAX_LEN: usize = 1024;
 
+/// Which shell the bridge is compiled into; it decides the commands served.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Build {
+    /// The player launcher: realms, no server GUI.
     Player,
+    /// The server manager without realms.
     Host,
+    /// The server manager with realms too.
     Full,
 }
 
 impl Build {
+    /// Build name the page reads from `get_capabilities`.
     pub const fn kind(self) -> &'static str {
         match self {
             Self::Player => "player",
@@ -464,15 +608,18 @@ impl Build {
         }
     }
 
+    /// Whether it serves the server GUI commands.
     pub const fn server_gui(self) -> bool {
         matches!(self, Self::Host | Self::Full)
     }
 
+    /// Whether it serves the realm commands.
     pub const fn realms(self) -> bool {
         matches!(self, Self::Player | Self::Full)
     }
 }
 
+/// Wire names of the commands only the server GUI serves.
 pub const SERVER_GUI_COMMANDS: &[&str] = &[
     "check_requirements",
     "install_requirement",
@@ -510,6 +657,7 @@ pub const SERVER_GUI_COMMANDS: &[&str] = &[
     "admin_broadcast",
 ];
 
+/// Wire names of the realm commands.
 pub const REALM_COMMANDS: &[&str] = &[
     "list_realms",
     "create_realm",
@@ -520,8 +668,10 @@ pub const REALM_COMMANDS: &[&str] = &[
     "join_realm",
 ];
 
+/// Wire names of the commands no build serves yet.
 pub const PLANNED: &[&str] = &["open_external_url"];
 
+/// Wire names of every command, in declaration order.
 pub const COMMANDS: &[&str] = &[
     "get_capabilities",
     "get_snapshot",
@@ -598,6 +748,7 @@ pub const COMMANDS: &[&str] = &[
     "admin_broadcast",
 ];
 
+/// Names of the events Rust emits to the page.
 pub const EVENTS: &[&str] = &[
     "snapshot",
     "game_status",
@@ -613,6 +764,7 @@ pub const EVENTS: &[&str] = &[
     "notice",
 ];
 
+/// The build for the features compiled in.
 pub fn build(server_gui: bool, realms: bool) -> Build {
     match (server_gui, realms) {
         (false, _) => Build::Player,
@@ -621,6 +773,7 @@ pub fn build(server_gui: bool, realms: bool) -> Build {
     }
 }
 
+/// Whether build `b` serves `cmd`.
 pub const fn serves(b: Build, cmd: Command) -> bool {
     if cmd.is_planned() {
         return false;
@@ -634,15 +787,18 @@ pub const fn serves(b: Build, cmd: Command) -> bool {
     true
 }
 
+/// `s` is not blank and fits in `max_utf16` UTF-16 units, as JavaScript counts length.
 pub fn fits(s: &str, max_utf16: usize) -> bool {
     let trimmed = s.trim();
     !trimmed.is_empty() && within_utf16(s, max_utf16)
 }
 
+/// `s` is a server id: 24 lowercase hex digits.
 pub fn is_server_id(s: &str) -> bool {
     s.len() == SERVER_ID_LEN && s.bytes().all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
 }
 
+/// Whether `value` has the shape `arg` requires.
 pub fn arg_accepts(arg: Arg, value: &serde_json::Value) -> bool {
     match arg {
         Arg::None => value.is_null() || value.as_object().is_some_and(|o| o.is_empty()),
@@ -744,7 +900,7 @@ fn opt_str(value: &serde_json::Value, key: &str, max_utf16: usize) -> bool {
 
 #[cfg(test)]
 mod tests {
-    #![allow(clippy::unwrap_used, clippy::expect_used)]
+    #![allow(clippy::unwrap_used, clippy::expect_used, reason = "a panic is how a test fails")]
 
     use std::collections::HashSet;
 

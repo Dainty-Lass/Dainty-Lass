@@ -4,7 +4,7 @@
 //! Test helpers: a ticket signer, the session files, a fake backend, a UDP echo server, a game client and a signal
 //! carrier between sessions.
 
-#![allow(dead_code)]
+#![allow(dead_code, reason = "shared by several test binaries, each using only some")]
 
 pub mod backend;
 pub mod turn_server;

@@ -7,7 +7,10 @@
 //! those tables from a CatalogExporter capture. It plugs into `rustic-isles` as a `PortService` and as the module's
 //! dedicated-servers slot.
 
-#![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used))]
+#![cfg_attr(
+    test,
+    allow(clippy::unwrap_used, clippy::expect_used, reason = "a panic is how a test fails")
+)]
 
 mod api;
 pub mod cmdline;
@@ -43,7 +46,9 @@ pub use memory::MemoryAdmission;
 /// A version's game server switches and default `-LogCmds` (§12.4).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct GameserverArgs {
+    /// The switches every server gets.
     pub standard: &'static [&'static str],
+    /// The default `-LogCmds` value, used unless `GAMESERVER_LOG_CMDS` is valid.
     pub log_cmds: &'static str,
 }
 
@@ -55,6 +60,7 @@ fn log_cmds_ok(value: &str) -> bool {
 }
 
 impl GameserverArgs {
+    /// A version's switches and default `-LogCmds`.
     pub const fn new(standard: &'static [&'static str], log_cmds: &'static str) -> Self {
         Self { standard, log_cmds }
     }
@@ -95,10 +101,12 @@ impl GameserverArgs {
 pub struct DirectorConfig {
     /// For the not-yet-ported runtime updater
     pub target_changelist: u32,
+    /// The game server switches.
     pub args: GameserverArgs,
 }
 
 impl DirectorConfig {
+    /// A version's values.
     pub const fn new(target_changelist: u32, args: GameserverArgs) -> Self {
         Self {
             target_changelist,
@@ -106,14 +114,17 @@ impl DirectorConfig {
         }
     }
 
+    /// [`GameserverArgs::launch_args`].
     pub fn launch_args(&self, settings: &Settings) -> Vec<String> {
         self.args.launch_args(settings)
     }
 
+    /// [`GameserverArgs::log_cmds_invalid`].
     pub fn log_cmds_invalid(&self, settings: &Settings) -> bool {
         self.args.log_cmds_invalid(settings)
     }
 
+    /// [`GameserverArgs::hide_window`].
     pub fn hide_window(&self, settings: &Settings) -> bool {
         self.args.hide_window(settings)
     }
@@ -177,10 +188,12 @@ pub struct DirectorService {
 }
 
 impl DirectorService {
+    /// The service, starting real processes.
     pub fn new(config: DirectorConfig) -> Self {
         Self::with_launcher(config, Arc::new(OsLauncher))
     }
 
+    /// The service with another launcher (tests).
     pub fn with_launcher(config: DirectorConfig, launcher: Arc<dyn Launcher>) -> Self {
         Self {
             config,
@@ -190,10 +203,12 @@ impl DirectorService {
         }
     }
 
+    /// The version's values.
     pub fn config(&self) -> &DirectorConfig {
         &self.config
     }
 
+    /// The running Director; none before start-up.
     pub fn director(&self) -> Option<Arc<Director>> {
         self.director.lock().unwrap_or_else(PoisonError::into_inner).clone()
     }

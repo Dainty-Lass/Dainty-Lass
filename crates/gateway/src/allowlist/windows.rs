@@ -24,11 +24,17 @@ use super::firewall::WindowsChange;
 /// What a rule with the helper's name says, read-only.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RuleState {
+    /// Whether the rule is enabled.
     pub enabled: bool,
+    /// Its local ports.
     pub local_ports: String,
+    /// Its remote addresses.
     pub remote_addresses: String,
+    /// Its protocol number (17 for UDP).
     pub protocol: i32,
+    /// Its direction (1 for in).
     pub direction: i32,
+    /// Its action (1 for allow).
     pub action: i32,
 }
 
@@ -44,7 +50,7 @@ fn fw(e: windows::core::Error) -> String {
 struct Apartment;
 
 impl Apartment {
-    #[allow(unsafe_code)]
+    #[allow(unsafe_code, reason = "CoInitializeEx; see the SAFETY note")]
     fn enter() -> Result<Self, String> {
         // SAFETY: no reserved pointer; paired with CoUninitialize in Drop on the same thread.
         unsafe { CoInitializeEx(None, COINIT_MULTITHREADED) }
@@ -55,14 +61,14 @@ impl Apartment {
 }
 
 impl Drop for Apartment {
-    #[allow(unsafe_code)]
+    #[allow(unsafe_code, reason = "CoUninitialize; see the SAFETY note")]
     fn drop(&mut self) {
         // SAFETY: this thread entered the apartment in `enter`, and every COM object made in it is gone.
         unsafe { CoUninitialize() };
     }
 }
 
-#[allow(unsafe_code)]
+#[allow(unsafe_code, reason = "COM: creates the firewall policy object")]
 fn rules() -> Result<INetFwRules, String> {
     // SAFETY: a registered in-process class id and its interface; no outer object.
     let policy: INetFwPolicy2 = unsafe { CoCreateInstance(&NetFwPolicy2, None, CLSCTX_INPROC_SERVER) }.map_err(com)?;
@@ -71,7 +77,7 @@ fn rules() -> Result<INetFwRules, String> {
 }
 
 /// Every rule whose display name is `name`.
-#[allow(unsafe_code)]
+#[allow(unsafe_code, reason = "COM: walks the rules enumerator")]
 fn named(rules: &INetFwRules, name: &str) -> Result<Vec<INetFwRule>, String> {
     // SAFETY: a live rules collection; its enumerator is an IEnumVARIANT by contract.
     let all: IEnumVARIANT = unsafe { rules._NewEnum() }.map_err(fw)?.cast().map_err(fw)?;
@@ -109,7 +115,7 @@ fn named(rules: &INetFwRules, name: &str) -> Result<Vec<INetFwRule>, String> {
     Ok(found)
 }
 
-#[allow(unsafe_code)]
+#[allow(unsafe_code, reason = "COM: the rule's setters")]
 fn set_open(rule: &INetFwRule, open: &super::firewall::WindowsRule) -> Result<(), String> {
     // SAFETY: a live rule object; each setter copies the BSTR it is given. The protocol goes before the ports,
     // which need one.
@@ -128,7 +134,7 @@ fn set_open(rule: &INetFwRule, open: &super::firewall::WindowsRule) -> Result<()
     }
 }
 
-#[allow(unsafe_code)]
+#[allow(unsafe_code, reason = "COM: the rule's setter")]
 fn disable(rule: &INetFwRule) -> Result<(), String> {
     // SAFETY: a live rule object.
     unsafe { rule.SetEnabled(VARIANT_FALSE) }.map_err(fw)
@@ -136,7 +142,7 @@ fn disable(rule: &INetFwRule) -> Result<(), String> {
 
 /// Brings the rules named `name` to `change`: close disables them all; open sets the first (or makes one) and
 /// disables the rest, so exactly one is in effect. A rule an older helper made with the name is taken over.
-#[allow(unsafe_code)]
+#[allow(unsafe_code, reason = "COM calls on the firewall rules")]
 pub fn apply_rule(change: &WindowsChange, name: &str) -> Result<(), String> {
     let _apartment = Apartment::enter()?;
     let rules = rules()?;
@@ -163,7 +169,7 @@ pub fn apply_rule(change: &WindowsChange, name: &str) -> Result<(), String> {
 }
 
 /// Every rule named `name`, read-only.
-#[allow(unsafe_code)]
+#[allow(unsafe_code, reason = "COM calls on the firewall rules")]
 pub fn read_rules(name: &str) -> Result<Vec<RuleState>, String> {
     let _apartment = Apartment::enter()?;
     let rules = rules()?;
@@ -186,7 +192,7 @@ pub fn read_rules(name: &str) -> Result<Vec<RuleState>, String> {
 }
 
 /// Removes every rule named `name`, one at a time (only the live test uses it).
-#[allow(unsafe_code)]
+#[allow(unsafe_code, reason = "COM calls on the firewall rules")]
 pub fn remove_rules(name: &str) -> Result<usize, String> {
     let _apartment = Apartment::enter()?;
     let rules = rules()?;
@@ -199,7 +205,7 @@ pub fn remove_rules(name: &str) -> Result<usize, String> {
 }
 
 /// Whether this process runs elevated: a read-only query of its token.
-#[allow(unsafe_code)]
+#[allow(unsafe_code, reason = "the Win32 token query is an FFI call")]
 pub fn is_elevated() -> bool {
     let mut token = HANDLE::default();
     // SAFETY: the current process's pseudo handle, and a handle slot that outlives the call.

@@ -4,8 +4,11 @@
 //! Relay-only filtering of signal text, applied both ways: only relay candidates leave the transport or reach the
 //! agent, so neither side's address is shown to the other.
 
+/// The signal kind carrying a session description.
 pub const DESCRIPTION: &str = "DESCRIPTION";
+/// The signal kind carrying one ICE candidate.
 pub const CANDIDATE: &str = "CANDIDATE";
+/// The signal kind saying candidate gathering is done.
 pub const GATHERING_DONE: &str = "GATHERING_DONE";
 
 fn is_candidate(line: &str) -> bool {

@@ -2,7 +2,12 @@
 // Copyright (c) 2026 Silent Spud
 
 //! Accounts on a temporary store, a home that records the ring calls, and an activity recorder.
-#![allow(clippy::unwrap_used, clippy::expect_used, dead_code)]
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    dead_code,
+    reason = "shared by several test binaries, each using only some; a panic is how a test fails"
+)]
 
 use std::sync::{Arc, Mutex};
 

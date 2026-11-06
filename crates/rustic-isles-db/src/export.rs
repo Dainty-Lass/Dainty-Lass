@@ -12,6 +12,7 @@ use crate::Area;
 use crate::tables::{Doc, TargetState};
 use crate::verify::{is_seed_policy, sha256_hex};
 
+/// MongoDB documents by collection name, in the order export-mongo writes them.
 pub type Collections = BTreeMap<String, Vec<Map<String, Value>>>;
 
 /// One document under construction: keys in the order they are added, `?` keys skipped when null.

@@ -26,18 +26,28 @@ const VERSION_PREFIX: &str = "/content/v1/versions/";
 /// The route a raw request path names, byte for byte: no decoding, no dot segments, no case folding.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Route<'a> {
+    /// The runtime manifest.
     RuntimeManifest,
+    /// The art pack's JSON.
     Branding,
+    /// The news JSON.
     News,
+    /// One art pack image, by file name.
     BrandingImage(&'a str),
+    /// One runtime file, by name.
     RuntimeFile(&'a str),
+    /// The versions this server serves.
     Versions,
+    /// A version's client profile.
     ClientProfile(&'a str),
+    /// A version's pinned Epic manifest.
     EpicManifest(&'a str),
+    /// Any other path.
     Unknown,
 }
 
 impl<'a> Route<'a> {
+    /// The route `path_only` (no query) names.
     pub fn of(path_only: &'a str) -> Route<'a> {
         match path_only {
             MANIFEST => return Route::RuntimeManifest,
@@ -113,6 +123,7 @@ pub fn is_runtime_file_name(name: &str) -> bool {
     runtime_file_slot(name).is_some()
 }
 
+/// Which query key named the version.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum VersionKey {
     /// `version=` or `game=`: a version or an invite alias
@@ -206,21 +217,29 @@ fn is_sha256_hex(text: &str) -> bool {
     text.len() == 64 && text.bytes().all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
 }
 
+/// One news entry as served.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct NewsItem {
+    /// ISO 8601 date, the sort key (newest first).
     pub date: String,
+    /// Title, cleaned and cut to [`MAX_TITLE`].
     pub title: String,
+    /// Body, cleaned and cut to [`MAX_BODY`]; may be empty.
     pub body: String,
 }
 
 impl NewsItem {
+    /// The entry as served in the news JSON.
     pub fn to_json(&self) -> Value {
         json!({"date": self.date, "title": self.title, "body": self.body})
     }
 }
 
+/// Most news entries served.
 pub const MAX_NEWS_ITEMS: usize = 50;
+/// Longest title, in UTF-16 code units.
 pub const MAX_TITLE: usize = 200;
+/// Longest body, in UTF-16 code units.
 pub const MAX_BODY: usize = 10_000;
 /// JavaScript's `Date` range, in ms either side of 1970
 const MAX_DATE_MS: i64 = 8_640_000_000_000_000;
@@ -382,6 +401,7 @@ pub fn accent_colour(value: Option<&Value>) -> Option<String> {
     well_formed.then(|| text.to_ascii_lowercase())
 }
 
+/// Longest image credit, in UTF-16 code units.
 pub const MAX_CREDIT: usize = 200;
 
 /// What JavaScript's `\s` matches: Unicode white space less U+0085, plus the BOM.
@@ -413,7 +433,7 @@ pub fn credit_line(value: Option<&Value>) -> Option<String> {
 
 #[cfg(test)]
 mod tests {
-    #![allow(clippy::unwrap_used)]
+    #![allow(clippy::unwrap_used, reason = "a panic is how a test fails")]
     use super::*;
 
     const SORTED_START: &str = r#"{"version":"v1","build":{"name":"rel-1.14.7-Archon","changelist":647472},"files":[{"name":"Rustic-Isles.dll","size":10,"#;

@@ -5,9 +5,13 @@
 
 use serde_json::Value;
 
+/// The slots a new account starts with.
 pub const DEFAULT_ACCOUNT_LOADOUT_SLOTS: u32 = 1;
+/// The most slots the Slayer's Path can unlock.
 pub const MAX_CHARACTER_LOADOUT_SLOTS: u32 = 5;
+/// The most slots a character's stored row can hold.
 pub const MAX_TOTAL_LOADOUT_SLOTS: u32 = 6;
+/// The Slayer's Path nodes that each unlock one slot.
 pub const PLAYER_JOURNEY_LOADOUT_NODE_IDS: [&str; 5] = [
     "LoadoutSlot_01",
     "LoadoutSlot_02",
@@ -16,6 +20,7 @@ pub const PLAYER_JOURNEY_LOADOUT_NODE_IDS: [&str; 5] = [
     "LoadoutSlot_05",
 ];
 
+/// A slot count out of range; the text says which.
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 #[error("{0}")]
 pub struct SlotRangeError(pub String);
@@ -81,8 +86,11 @@ pub fn resolve_active_index(stored: Option<i64>, visible: u32) -> Result<u32, Sl
 pub fn wire_counts(entitled: f64) -> (u32, u32, u32, u32) {
     let entitled = if entitled.is_finite() { entitled.trunc() } else { 0.0 };
     let total = entitled.clamp(1.0, f64::from(MAX_TOTAL_LOADOUT_SLOTS));
-    // Clamped to 1..6 above, so the cast is exact
-    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+    #[allow(
+        clippy::cast_possible_truncation,
+        clippy::cast_sign_loss,
+        reason = "clamped to 1..6 above, so the cast is exact"
+    )]
     let total = total as u32;
     (0, 0, total, MAX_TOTAL_LOADOUT_SLOTS)
 }

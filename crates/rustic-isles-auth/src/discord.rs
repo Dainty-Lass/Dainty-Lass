@@ -21,10 +21,14 @@ const ME_URL: &str = "https://discord.com/api/users/@me";
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(15);
 const MAX_ANSWER: usize = 64 * 1024;
 
+/// The host's Discord application (`RUSTIC_ISLES_DISCORD_*`); Debug leaves out the secret.
 #[derive(Clone, PartialEq, Eq)]
 pub struct DiscordConfig {
+    /// The application's OAuth client id.
     pub client_id: String,
+    /// The application's OAuth client secret; never logged.
     pub client_secret: String,
+    /// The callback URL registered with Discord.
     pub redirect_uri: String,
 }
 
@@ -50,11 +54,16 @@ impl DiscordConfig {
     }
 }
 
+/// The Discord account a code exchange signed in.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DiscordUser {
+    /// Discord's snowflake id for the user.
     pub id: String,
+    /// The Discord username.
     pub username: String,
+    /// The display name, when the user set one.
     pub global_name: Option<String>,
+    /// The avatar hash, when the user has one.
     pub avatar: Option<String>,
 }
 
@@ -62,10 +71,13 @@ pub struct DiscordUser {
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 #[error("the Discord call failed")]
 pub struct DiscordFailure {
+    /// Discord's HTTP status; None when it never answered.
     pub status: Option<u16>,
 }
 
+/// The Discord calls, a trait so tests answer without the network.
 pub trait DiscordApi: Send + Sync {
+    /// Trades an authorization code and its PKCE verifier for the signed-in user.
     fn exchange_code<'a>(
         &'a self,
         config: &'a DiscordConfig,
@@ -94,6 +106,7 @@ pub fn code_challenge(verifier: &str) -> String {
     URL_SAFE_NO_PAD.encode(util::sha256(verifier.as_bytes()))
 }
 
+/// Discord's authorize URL for `state`, with the PKCE challenge of `verifier` and the `identify` scope.
 pub fn authorize_url(config: &DiscordConfig, state: &str, verifier: &str) -> String {
     let challenge = code_challenge(verifier);
     let pairs = [
@@ -146,6 +159,7 @@ impl Default for HttpsDiscord {
 }
 
 impl HttpsDiscord {
+    /// A client on the platform's TLS provider; every call fails if TLS cannot be set up.
     pub fn new() -> Self {
         let tls = rustls::ClientConfig::builder_with_provider(std::sync::Arc::new(
             rustls::crypto::aws_lc_rs::default_provider(),

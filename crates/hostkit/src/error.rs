@@ -6,27 +6,38 @@
 
 use std::path::{Path, PathBuf};
 
+/// Why a host kit command failed.
 #[derive(Debug, thiserror::Error)]
 pub enum HostError {
     /// A command or helper the skeleton (RH1) registered and a later row fills.
     #[error("{what} is not written yet in dainty-host (MIGRATION_PLAN.md {row})")]
-    NotImplemented { what: &'static str, row: &'static str },
+    NotImplemented {
+        /// What is missing.
+        what: &'static str,
+        /// The plan row that writes it.
+        row: &'static str,
+    },
     /// A problem told to the host.
     #[error("{0}")]
     Message(String),
+    /// A file could not be read or written.
     #[error("{}: {source}", path.display())]
     Io {
+        /// The file.
         path: PathBuf,
+        /// What the OS said.
         #[source]
         source: std::io::Error,
     },
 }
 
 impl HostError {
+    /// A problem told to the host.
     pub fn message(text: impl Into<String>) -> Self {
         Self::Message(text.into())
     }
 
+    /// An I/O error on `path`.
     pub fn io(path: impl AsRef<Path>, source: std::io::Error) -> Self {
         Self::Io {
             path: path.as_ref().to_path_buf(),

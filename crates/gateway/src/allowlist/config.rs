@@ -14,13 +14,17 @@ pub use super::ports::check_ports;
 use crate::config::{absolute, check_secret, optional, whole};
 use crate::json_string;
 
+/// Which firewall the helper drives.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum FirewallKind {
+    /// Windows Firewall, through its COM API.
     Windows,
+    /// Linux nftables, through the `nft` binary.
     Nftables,
 }
 
 impl FirewallKind {
+    /// The name `ALLOWLIST_FIREWALL` takes.
     pub fn as_str(self) -> &'static str {
         match self {
             Self::Windows => "windows",
@@ -37,24 +41,40 @@ impl FirewallKind {
     }
 }
 
+/// The helper's settings, from its `ALLOWLIST_*` variables.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AllowlistConfig {
+    /// Only log what would change (`ALLOWLIST_DRY_RUN=1`); the variable must be set to `1` or `0`.
     pub dry_run: bool,
+    /// Loopback address to listen on, `127.0.0.1` or `::1`.
     pub bind: String,
+    /// The firewall to drive.
     pub firewall: FirewallKind,
+    /// Absolute path of the `nft` binary.
     pub nft: String,
+    /// nftables table the helper owns.
     pub nft_table: String,
+    /// Network interface the nftables rules match, if any.
     pub interface: Option<String>,
+    /// Port to listen on; 61005 by default.
     pub port: u16,
+    /// Shared secret the gateway sends.
     pub secret: String,
+    /// Admit private and loopback addresses too (`ALLOWLIST_ALLOW_PRIVATE=1`).
     pub allow_private: bool,
+    /// How long an admitted address stays; 10 minutes by default.
     pub ttl: Duration,
+    /// Shortest time between two firewall changes; 3 s by default.
     pub min_interval: Duration,
+    /// Most addresses admitted at once; 256 by default.
     pub max_entries: usize,
     /// `ALLOWLIST_PORTS`, normalised
     pub ports: String,
+    /// Audit log file, absolute.
     pub audit_log: PathBuf,
+    /// State file restored at start, absolute.
     pub state_file: PathBuf,
+    /// Windows Firewall rule display name, starting `DaintyLass `.
     pub rule_name: String,
 }
 
@@ -78,6 +98,7 @@ pub fn check_rule_name(name: &str) -> Result<String, String> {
 }
 
 impl AllowlistConfig {
+    /// Reads and checks every setting; the error names the first bad one.
     pub fn from_env(env: &Env) -> Result<Self, String> {
         let dry_run = match optional(env, "ALLOWLIST_DRY_RUN") {
             Some("1") => true,

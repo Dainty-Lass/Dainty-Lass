@@ -8,6 +8,7 @@ use crate::{
     id::{AccountId, SessionId},
 };
 
+/// Milliseconds since the Unix epoch.
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub struct UnixMillis(pub i64);
 
@@ -16,10 +17,12 @@ pub struct UnixMillis(pub i64);
 pub struct Secret(String);
 
 impl Secret {
+    /// Wraps a value so it never reaches a log.
     pub fn new(value: String) -> Self {
         Self(value)
     }
 
+    /// The hidden value, for the one place that needs it.
     pub fn expose(&self) -> &str {
         self.0.as_str()
     }
@@ -34,35 +37,56 @@ impl fmt::Debug for Secret {
 /// Who made a stored change.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum Actor {
+    /// A player through the launcher.
     Account(AccountId),
-    HostRuntime { session: SessionId, host: AccountId },
-    Admin { key_id: String },
+    /// A hosted runtime acting for its host.
+    HostRuntime {
+        /// The hosted session.
+        session: SessionId,
+        /// The player hosting it.
+        host: AccountId,
+    },
+    /// An operator with an admin key.
+    Admin {
+        /// The admin key's id, never the key.
+        key_id: String,
+    },
+    /// Rifts itself, named by the job that made the change.
     System(&'static str),
 }
 
 /// One table a component owns, as its schema check and the operators' docs list it.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct TableSpec {
+    /// The table's name.
     pub name: &'static str,
     /// The collection the table stands for in the original Node service; documentation only.
     pub node_collection: &'static str,
+    /// The component that owns it.
     pub owner: Component,
+    /// Its keys and indexes in short form for the docs, such as `realm + account; name unique`.
     pub keys: &'static str,
+    /// The column whose time expires a row, if rows expire.
     pub expires_by: Option<&'static str>,
 }
 
 /// One step of account deletion: which table, which column names the account, and what happens to the row.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct DeletionStep {
+    /// The table.
     pub table: &'static str,
+    /// The column that holds the account.
     pub account_column: &'static str,
+    /// What happens to the account's rows.
     pub action: DeletionAction,
 }
 
 /// Remove the row, or clear the account from it.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum DeletionAction {
+    /// Remove the row.
     Delete,
+    /// Clear the account from the row and keep it.
     Detach,
 }
 
@@ -70,7 +94,9 @@ pub enum DeletionAction {
 #[derive(Clone, Debug, Eq, PartialEq)]
 #[non_exhaustive]
 pub enum StoreError {
+    /// The backend is not written yet.
     Unimplemented(Unimplemented),
+    /// The database failed, with its own text.
     Database(String),
 }
 

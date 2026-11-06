@@ -4,7 +4,10 @@
 //! Rustic Rifts' realms: player-owned realms and their directory, realm hubs, the player-hosted hunt lifecycle, the
 //! launcher's control channel, and the store under all of them (one database with Guard's, on `store`).
 
-#![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used))]
+#![cfg_attr(
+    test,
+    allow(clippy::unwrap_used, clippy::expect_used, reason = "a panic is how a test fails")
+)]
 
 pub mod capabilities;
 pub mod control;
@@ -42,6 +45,7 @@ pub use crate::service::{RealmsService, RealmsServiceParts, realms_enabled_or_de
 pub use crate::stub::Stub;
 pub use rifts_guard::SqlGuardStore;
 
+/// Why a realms operation failed.
 #[derive(Clone, Debug, Eq, thiserror::Error, PartialEq)]
 #[non_exhaustive]
 pub enum RealmsError {

@@ -10,6 +10,7 @@ use rand::TryRng as _;
 use rifts_seam::UnixMillis;
 use serde_json::Value;
 
+/// `Number.MAX_SAFE_INTEGER`.
 pub const MAX_SAFE_INTEGER: f64 = 9_007_199_254_740_991.0;
 
 /// The characters `JSON.stringify` writes with a short escape.
@@ -46,6 +47,7 @@ pub fn json_string(text: &str) -> String {
 pub struct JsonObject(String);
 
 impl JsonObject {
+    /// An empty object to add fields to, in order.
     pub fn new() -> Self {
         Self("{".to_owned())
     }
@@ -62,10 +64,12 @@ impl JsonObject {
         self
     }
 
+    /// Adds a string field, escaped as `JSON.stringify` does.
     pub fn string(self, key: &str, value: &str) -> Self {
         self.field(key, &json_string(value))
     }
 
+    /// Adds a string field when there is a value; nothing for `None`.
     pub fn optional_string(self, key: &str, value: Option<&str>) -> Self {
         let Some(text) = value else {
             return self;
@@ -73,23 +77,28 @@ impl JsonObject {
         self.string(key, text)
     }
 
+    /// Adds a number field, written as its `Display`.
     pub fn number(self, key: &str, value: impl Display) -> Self {
         self.field(key, &value.to_string())
     }
 
+    /// Adds a boolean field.
     pub fn boolean(self, key: &str, value: bool) -> Self {
         self.field(key, &value.to_string())
     }
 
+    /// Adds a field whose value is already JSON text.
     pub fn raw(self, key: &str, json_text: &str) -> Self {
         self.field(key, json_text)
     }
 
+    /// Adds an array of strings.
     pub fn strings(self, key: &str, values: &[String]) -> Self {
         let quoted = values.iter().map(|value| json_string(value));
         self.field(key, &json_array(quoted))
     }
 
+    /// The finished JSON text.
     pub fn finish(self) -> String {
         let Self(mut text) = self;
         text.push('}');
@@ -97,6 +106,7 @@ impl JsonObject {
     }
 }
 
+/// A JSON array of items that are already JSON text.
 pub fn json_array(items: impl IntoIterator<Item = String>) -> String {
     let joined = items.into_iter().collect::<Vec<_>>().join(",");
     format!("[{joined}]")
@@ -144,10 +154,12 @@ fn is_js_space(c: char) -> bool {
     ('\u{2000}'..='\u{200a}').contains(&c) || SINGLE.contains(&c)
 }
 
+/// `String.prototype.trim`: strips JavaScript's whitespace, not only Rust's.
 pub fn js_trim(text: &str) -> &str {
     text.trim_matches(is_js_space)
 }
 
+/// `Number.isSafeInteger`.
 pub fn is_safe_integer(value: f64) -> bool {
     value.is_finite() && value.trunc() == value && value.abs() <= MAX_SAFE_INTEGER
 }
@@ -242,6 +254,7 @@ pub fn random_uuid() -> Result<String, rand::rngs::SysError> {
     Ok(format_uuid(&bytes))
 }
 
+/// The 16 bytes as a lower-case hyphenated UUID.
 pub fn format_uuid(bytes: &[u8; 16]) -> String {
     let mut text = String::with_capacity(36);
     for (index, byte) in bytes.iter().enumerate() {
@@ -253,6 +266,7 @@ pub fn format_uuid(bytes: &[u8; 16]) -> String {
     text
 }
 
+/// Lower-case hex.
 pub fn hex(bytes: &[u8]) -> String {
     bytes
         .iter()

@@ -44,14 +44,29 @@ pub(crate) fn pattern(text: &str) -> regex::Regex {
 /// §9.5. A token error never ends a run: substitution turns it into an inexact record.
 #[derive(Debug, thiserror::Error)]
 pub enum ReplayError {
+    /// A corpus or report file could not be read or written.
     #[error("I/O error at {path}: {message}")]
-    Io { path: String, message: String },
+    Io {
+        /// The path read or written.
+        path: String,
+        /// The I/O error's text.
+        message: String,
+    },
+    /// A bad option.
     #[error("invalid replay configuration: {0}")]
     Config(String),
+    /// A token could not be signed.
     #[error("token signing error: {0}")]
     Token(String),
+    /// A request to a side failed to send or answer.
     #[error("HTTP transport error calling {target}: {message}")]
-    Transport { target: String, message: String },
+    Transport {
+        /// The URL or address called.
+        target: String,
+        /// What went wrong.
+        message: String,
+    },
+    /// The report could not be serialized.
     #[error("JSON serialization error: {0}")]
     Json(String),
 }

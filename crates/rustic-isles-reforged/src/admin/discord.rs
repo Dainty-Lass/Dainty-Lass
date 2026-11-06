@@ -24,6 +24,7 @@ use super::{AdminContext, ReforgedAdmin, admin_error, fresh_id, user_id_of};
 use crate::reforged_api::is_account_eligible;
 use crate::util::{self, form_encode, hex, hmac_sha256, iso, now_ms, object, system_now_ms};
 
+/// The cookie binding a Discord sign-in to the browser that started it.
 pub const BINDING_COOKIE: &str = "rustic_isles_admin_oauth";
 const SYSTEM_ACTOR: &str = "system:admin-discord-oauth";
 const AUTHORIZE: &str = "https://discord.com/api/oauth2/authorize";
@@ -31,12 +32,16 @@ const AUTHORIZE: &str = "https://discord.com/api/oauth2/authorize";
 /// A setting read as a secure URL (§5.1): origin, path and query.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SecureUrl {
+    /// Scheme, host and port.
     pub origin: String,
+    /// The path.
     pub path: String,
+    /// The query, without `?`; empty when none.
     pub query: String,
 }
 
 impl SecureUrl {
+    /// The URL as text.
     pub fn written(&self) -> String {
         if self.query.is_empty() {
             format!("{}{}", self.origin, self.path)
@@ -99,10 +104,15 @@ pub fn secure_url(var: &str, raw: Option<&str>, production: bool) -> Result<Secu
 /// The admin Discord configuration; its `Debug` leaves the secret out.
 #[derive(Clone)]
 pub struct AdminDiscordConfig {
+    /// The Discord application's id (`DISCORD_CLIENT_ID`).
     pub client_id: String,
+    /// The Discord application's secret (`DISCORD_CLIENT_SECRET`).
     pub client_secret: String,
+    /// Where Discord sends the browser back (`ADMIN_DISCORD_REDIRECT_URI`).
     pub redirect_uri: String,
+    /// The dashboard page the flow returns to (`ADMIN_FRONTEND_URL`).
     pub frontend: String,
+    /// Discord user ids allowed to sign in (`ADMIN_DISCORD_ALLOWED_IDS`).
     pub allowed: Vec<String>,
 }
 
@@ -142,6 +152,7 @@ pub fn allowed_ids(raw: Option<&str>) -> Result<Vec<String>, String> {
     Ok(out)
 }
 
+/// Reads the configuration; the error is the code the dashboard is sent.
 pub fn read_config(settings: &rustic_isles::Settings) -> Result<AdminDiscordConfig, String> {
     let production = settings.raw("NODE_ENV") == Some("production");
     let client_id = settings
@@ -262,6 +273,7 @@ fn burn(settings: &rustic_isles::Settings) -> String {
     )
 }
 
+/// `GET /admin/v1/auth/discord/start`: redirects to Discord with a fresh PKCE challenge and binding cookie.
 pub async fn start(ctx: AdminContext) -> Response {
     let settings = ctx.shared.settings();
     let config = match read_config(settings) {
@@ -335,6 +347,7 @@ enum Resolved {
 
 const LINKED_MISSING: &str = "ADMIN_DISCORD_LINKED_ACCOUNT_MISSING";
 
+/// `GET /admin/v1/auth/discord/callback`: finishes the sign-in and redirects to the dashboard.
 pub async fn callback(ctx: AdminContext) -> Response {
     let settings = ctx.shared.settings();
     let burned = burn(settings);

@@ -42,6 +42,7 @@ impl std::fmt::Debug for AccountsCore {
 }
 
 impl AccountsCore {
+    /// Builds the core over the module's store (none without a database), its settings and the late `Shared` cell.
     pub fn new(store: Option<IslesStore>, settings: Settings, shared: Arc<SharedCell>) -> Self {
         Self {
             store: store.map(IslesAuthStore::new),

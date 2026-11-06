@@ -13,11 +13,16 @@ use rustic_isles::Settings;
 
 const MIB: u64 = 1024 * 1024;
 
+/// The memory guard's settings (`GAMESERVER_MEMORY_GUARD` and friends).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Options {
+    /// Whether the guard is on.
     pub enabled: bool,
+    /// Memory (MiB) that must stay free besides the new hunt (`GAMESERVER_MIN_FREE_MB`, default 1024).
     pub min_free_mb: u64,
+    /// Memory (MiB) one hunt is reckoned to need (default 1536).
     pub hunt_mb: u64,
+    /// How long a start's reservation holds (`GAMESERVER_MEMORY_RESERVATION_SECONDS`, default 120).
     pub reservation_seconds: u64,
 }
 
@@ -32,17 +37,23 @@ impl Default for Options {
     }
 }
 
+/// What the guard sees now.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Status {
+    /// Whether the guard is on.
     pub enabled: bool,
     /// Read only when enabled; none when it cannot be measured
     pub available_mb: Option<u64>,
+    /// MiB still held by recent starts.
     pub reserved_mb: u64,
+    /// MiB a hunt needs: its own plus the floor.
     pub needed_mb: u64,
 }
 
+/// The guard's refusal.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct HuntMemoryUnavailable {
+    /// The text the caller and the log show.
     pub reason: String,
 }
 
@@ -118,7 +129,9 @@ fn system_available() -> Option<u64> {
     read_available_bytes(Path::new("/proc/meminfo"), cfg!(target_os = "linux"))
 }
 
+/// A clock in ms.
 pub type Clock = Arc<dyn Fn() -> u64 + Send + Sync>;
+/// Available memory in bytes; none when it cannot be measured.
 pub type Available = Arc<dyn Fn() -> Option<u64> + Send + Sync>;
 
 struct Reservation {
@@ -127,6 +140,7 @@ struct Reservation {
     until_ms: u64,
 }
 
+/// The memory guard (§8): admits a hunt only when there is room for it.
 pub struct MemoryAdmission {
     options: Options,
     available: Available,
@@ -144,6 +158,7 @@ impl fmt::Debug for MemoryAdmission {
 }
 
 impl MemoryAdmission {
+    /// A guard reading the system's memory on the monotonic clock.
     pub fn new(options: Options) -> Self {
         Self::with(options, Arc::new(system_available), Arc::new(crate::hub::monotonic_ms))
     }
@@ -159,10 +174,12 @@ impl MemoryAdmission {
         }
     }
 
+    /// Whether the guard is on.
     pub fn enabled(&self) -> bool {
         self.options.enabled
     }
 
+    /// Its settings.
     pub fn options(&self) -> Options {
         self.options
     }
@@ -187,6 +204,7 @@ impl MemoryAdmission {
         }
     }
 
+    /// What the guard sees now, expired reservations dropped.
     pub fn status(&self) -> Status {
         self.status_of(&mut self.held())
     }

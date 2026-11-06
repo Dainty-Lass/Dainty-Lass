@@ -27,14 +27,22 @@ const MAX_GRANTED_KEYS: usize = 8;
 
 // ------------------------------------------------------------------ settings (§10.1)
 
+/// The activity monitor's switch and flag thresholds, read per call.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct ActivitySettings {
+    /// Whether recording is on (`RUSTIC_ISLES_ACTIVITY_MONITOR` not off).
     pub enabled: bool,
+    /// Kills per hour that raise a flag (`RUSTIC_ISLES_KILLS_PER_HOUR_FLAG`, default 90).
     pub kills_per_hour: f64,
+    /// Rewards per hour that raise a flag (`RUSTIC_ISLES_REWARDS_PER_HOUR_FLAG`, default 600).
     pub rewards_per_hour: f64,
+    /// Platinum credited in a day that raises a flag (`RUSTIC_ISLES_PLAT_DAILY_FLAG`, default 5000).
     pub platinum_credit_day: f64,
+    /// Platinum spent in a day that raises a flag (`RUSTIC_ISLES_PLAT_SPEND_FLAG`, default 10000).
     pub platinum_spend_day: f64,
+    /// Seasonal coins in a day that raise a flag (`RUSTIC_ISLES_SEASONAL_COIN_DAILY_FLAG`, default 20000).
     pub seasonal_coin_day: f64,
+    /// XP per minute that raises a flag (`RUSTIC_ISLES_XP_PER_MINUTE_FLAG`, default 2500).
     pub xp_per_minute: f64,
 }
 
@@ -50,6 +58,7 @@ fn threshold(settings: &Settings, name: &str, default: f64) -> f64 {
 }
 
 impl ActivitySettings {
+    /// Reads the settings; a threshold that is not a finite number of 0 or more takes its default.
     pub fn read(settings: &Settings) -> Self {
         let switch = settings
             .raw("RUSTIC_ISLES_ACTIVITY_MONITOR")
@@ -93,6 +102,7 @@ fn midnight(day: &str) -> Option<i64> {
     (day_of(at) == day).then_some(at)
 }
 
+/// Whether the text is a real `YYYY-MM-DD` day.
 pub fn is_valid_day(day: &str) -> bool {
     midnight(day).is_some()
 }
@@ -215,7 +225,7 @@ pub fn advance_playtime(previous: Option<i64>, now: i64) -> Option<(f64, u32, i6
     if gap > 3 * MINUTE_MS {
         return Some((0.0, 1, now));
     }
-    #[allow(clippy::cast_precision_loss)]
+    #[allow(clippy::cast_precision_loss, reason = "a gap in ms, far below 2^53")]
     Some((gap as f64 / MINUTE_MS as f64, 0, now))
 }
 
@@ -231,10 +241,15 @@ pub fn classify_dedicated_end_reason(reason: &str) -> HuntResult {
 /// §10.3's transaction fields.
 #[derive(Debug, Clone, PartialEq)]
 pub struct ActivityInput {
+    /// The ledger's transaction id.
     pub transaction_id: String,
+    /// What made the transaction, such as `OPERATOR_TEST`.
     pub source: String,
+    /// Items granted, `(catalog id, amount)`.
     pub granted: Vec<(String, f64)>,
+    /// Currencies credited, `(currency, amount)`.
     pub credits: Vec<(String, f64)>,
+    /// Currencies debited, `(currency, amount)`.
     pub debits: Vec<(String, f64)>,
 }
 
@@ -273,8 +288,11 @@ pub fn inventory_increments(input: &ActivityInput) -> (Vec<(String, f64)>, u64) 
         match catalog.strip_prefix("TOKEN_KILL_COUNT_").filter(|r| !r.is_empty()) {
             Some(rest) => {
                 add(&mut increments, format!("kills.{}", safe_key(rest)), *quantity);
-                // Positive and finite; truncation is the rule
-                #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+                #[allow(
+                    clippy::cast_possible_truncation,
+                    clippy::cast_sign_loss,
+                    reason = "positive and finite; truncation is the rule"
+                )]
                 let whole = quantity.trunc() as u64;
                 tokens = tokens.saturating_add(whole);
             }
@@ -459,6 +477,8 @@ pub fn touch_game_session(shared: &Arc<Shared>, user: &str, at_ms: i64) {
     });
 }
 
+/// Records a committed inventory transaction in the day's document, in the background; operator test grants are not
+/// counted.
 pub fn record_inventory_transaction(shared: &Arc<Shared>, transaction: &CommittedTransaction) {
     let input = ActivityInput::from(transaction);
     let (increments, tokens) = inventory_increments(&input);
@@ -510,6 +530,7 @@ pub fn record_inventory_transaction(shared: &Arc<Shared>, transaction: &Committe
     });
 }
 
+/// Records an XP grant on a progression track, in the background.
 pub fn record_xp_grant(shared: &Arc<Shared>, user: &str, progression_id: &str, amount: f64) {
     if !(amount.is_finite() && amount > 0.0) || util::trim(user).is_empty() {
         return;
@@ -522,6 +543,7 @@ pub fn record_xp_grant(shared: &Arc<Shared>, user: &str, progression_id: &str, a
     spawn(async move { record(&store, settings, &user, at, increments).await });
 }
 
+/// Records claimed challenges, in the background.
 pub fn record_challenge_claims(shared: &Arc<Shared>, user: &str, count: usize) {
     if count == 0 {
         return;
@@ -530,11 +552,12 @@ pub fn record_challenge_claims(shared: &Arc<Shared>, user: &str, count: usize) {
         return;
     };
     let (user, at) = (user.to_owned(), now_ms());
-    #[allow(clippy::cast_precision_loss)]
+    #[allow(clippy::cast_precision_loss, reason = "a claim count, far below 2^53")]
     let increments = vec![("challengesClaimed".to_owned(), count as f64)];
     spawn(async move { record(&store, settings, &user, at, increments).await });
 }
 
+/// Records one reforge, in the background.
 pub fn record_reforge(shared: &Arc<Shared>, user: &str) {
     let Some((store, settings)) = ready(shared) else {
         return;
@@ -543,6 +566,7 @@ pub fn record_reforge(shared: &Arc<Shared>, user: &str) {
     spawn(async move { record(&store, settings, &user, at, vec![("reforges".to_owned(), 1.0)]).await });
 }
 
+/// Records Slayer's Path node unlocks, in the background; operator test unlocks are not counted.
 pub fn record_slayers_path_unlocks(shared: &Arc<Shared>, user: &str, nodes: &[String], source: &str) {
     if source == "OPERATOR_TEST" {
         return;
@@ -601,6 +625,7 @@ fn distinct_users(users: &[String]) -> Vec<String> {
     out
 }
 
+/// Records a dedicated hunt's start for each player, in the background.
 pub fn dedicated_hunt_starts(shared: &Arc<Shared>, users: &[String], hunt_id: &str, hunt_ref: &str) {
     let users = distinct_users(users);
     let Some((store, settings)) = ready(shared) else {
@@ -663,6 +688,8 @@ pub fn dedicated_hunt_starts(shared: &Arc<Shared>, users: &[String], hunt_id: &s
     });
 }
 
+/// Records a dedicated hunt's end for each player, classed as completed or abandoned from `end_reason`, in the
+/// background.
 pub fn dedicated_hunt_ends(shared: &Arc<Shared>, users: &[String], end_reason: &str) {
     let users = distinct_users(users);
     let Some((store, settings)) = ready(shared) else {
@@ -753,6 +780,7 @@ impl std::fmt::Debug for ActivityHooks {
 }
 
 impl ActivityHooks {
+    /// Points the hooks at the module; only the first call counts.
     pub fn bind(&self, shared: &Arc<Shared>) {
         let _ = self.shared.set(Arc::downgrade(shared));
     }
@@ -1000,6 +1028,7 @@ fn bad_user() -> Response {
     )
 }
 
+/// `GET /admin/v1/activity/players/:userId`: one player's daily documents over a day range.
 pub async fn player(ctx: AdminContext) -> Response {
     let user = util::trim(ctx.param("userId")).to_owned();
     if user.is_empty() || user.len() > 200 {
@@ -1158,6 +1187,7 @@ pub async fn player(ctx: AdminContext) -> Response {
     ]))
 }
 
+/// `GET /admin/v1/activity/overview`: totals over a day range.
 pub async fn overview(ctx: AdminContext) -> Response {
     let (from, to) = match read_range(&ctx.request.query, &day_of(now_ms())) {
         Ok(range) => range,
@@ -1217,6 +1247,7 @@ pub async fn overview(ctx: AdminContext) -> Response {
     ]))
 }
 
+/// `GET /admin/v1/activity/flags`: flags by status (`open`, `acknowledged` or `all`).
 pub async fn flags(ctx: AdminContext) -> Response {
     let status = util::single(&ctx.request.query, "status")
         .map(|s| util::trim(s).to_owned())
@@ -1269,6 +1300,7 @@ enum Acknowledged {
     Done(Value),
 }
 
+/// `PATCH /admin/v1/activity/flags/:id`: acknowledges a flag.
 pub async fn acknowledge(ctx: AdminContext) -> Response {
     let id = ctx.param("id").to_owned();
     if id.is_empty() || id.len() > 300 {

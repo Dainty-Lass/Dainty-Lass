@@ -1,25 +1,42 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Silent Spud
 
+//! A service's env file (`--env-file`), read as Node's `--env-file` reads it: the process environment wins (DR X7).
+
 use std::collections::BTreeMap;
 use std::fmt::Display;
 use std::path::Path;
 use std::str::FromStr;
 
+/// The variables a service reads: its env file overlaid with the process environment.
 #[derive(Debug, Clone, Default)]
 pub struct Env {
     vars: BTreeMap<String, String>,
 }
 
+/// Why the env file or a setting could not be read.
 #[derive(Debug, thiserror::Error)]
 pub enum EnvError {
+    /// The env file could not be read or parsed.
     #[error("{path}: {message}")]
-    File { path: String, message: String },
+    File {
+        /// Path of the env file.
+        path: String,
+        /// The reader's error.
+        message: String,
+    },
+    /// A setting's value does not parse.
     #[error("{name}: {message}")]
-    Value { name: String, message: String },
+    Value {
+        /// The variable's name.
+        name: String,
+        /// Why it does not parse.
+        message: String,
+    },
 }
 
 impl Env {
+    /// Reads `file`, then the process environment over it; with no file, the environment alone.
     pub fn load(file: Option<&Path>) -> Result<Self, EnvError> {
         let mut vars = BTreeMap::new();
         if let Some(path) = file {
@@ -41,11 +58,13 @@ impl Env {
         Ok(Self { vars })
     }
 
+    /// Exactly `pairs`, for tests and in-process services.
     pub fn from_pairs<'a>(pairs: impl IntoIterator<Item = (&'a str, &'a str)>) -> Self {
         let vars = pairs.into_iter().map(|(k, v)| (k.to_owned(), v.to_owned())).collect();
         Self { vars }
     }
 
+    /// The variables starting with `prefix`, with it removed.
     pub fn strip_prefix(&self, prefix: &str) -> Self {
         let vars = self
             .vars
@@ -55,18 +74,22 @@ impl Env {
         Self { vars }
     }
 
+    /// Every variable, sorted by name.
     pub fn vars(&self) -> impl Iterator<Item = (&str, &str)> {
         self.vars.iter().map(|(k, v)| (k.as_str(), v.as_str()))
     }
 
+    /// The value of `name`, empty included.
     pub fn raw(&self, name: &str) -> Option<&str> {
         self.vars.get(name).map(String::as_str)
     }
 
+    /// The value of `name`, with an empty one taken as unset.
     pub fn get(&self, name: &str) -> Option<&str> {
         self.raw(name).filter(|val| !val.is_empty())
     }
 
+    /// Parses the trimmed value of `name`; `None` when unset or empty.
     pub fn parse<T>(&self, name: &str) -> Result<Option<T>, EnvError>
     where
         T: FromStr,
@@ -81,6 +104,7 @@ impl Env {
         })
     }
 
+    /// A `0` or `1` setting; `default` when unset or empty.
     pub fn flag(&self, name: &str, default: bool) -> Result<bool, EnvError> {
         match self.get(name) {
             None => Ok(default),

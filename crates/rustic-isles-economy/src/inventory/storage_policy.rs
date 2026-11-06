@@ -13,17 +13,22 @@ use service_kit::js;
 
 use crate::util::{MAX_SAFE, num, num0, number_value, obj, sha_upper};
 
+/// The game data file the policy is read from.
 pub const POLICY_FILE: &str = "inventory_storage_policy.json";
 
+/// How the game keeps an item.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Storage {
+    /// One instance per unit, each with its own id.
     Instanced,
+    /// One stack with a quantity.
     Stacked,
     /// Present but neither: not acted on
     Other,
 }
 
 impl Storage {
+    /// The policy's text for it.
     pub fn as_str(self) -> &'static str {
         match self {
             Self::Instanced => "instanced",
@@ -33,11 +38,14 @@ impl Storage {
     }
 }
 
+/// One catalog id's policy.
 #[derive(Debug, Clone, PartialEq)]
 pub struct PolicyEntry {
+    /// How the item is kept.
     pub storage: Storage,
     /// NaN when not a number
     pub max_quantity: f64,
+    /// The item's tags, strings only.
     pub tags: Vec<String>,
     /// The `storage` text as written (none when absent), for messages
     pub storage_text: Option<String>,
@@ -48,6 +56,7 @@ pub struct PolicyEntry {
 #[error("{0}")]
 pub struct PolicyError(pub String);
 
+/// The storage of every catalog id the policy names.
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct StoragePolicy {
     entries: HashMap<String, PolicyEntry>,
@@ -119,6 +128,7 @@ impl StoragePolicy {
         (*loaded).clone()
     }
 
+    /// The policy for a catalog id, when it names it.
     pub fn entry(&self, catalog_id: &str) -> Option<&PolicyEntry> {
         self.entries.get(catalog_id)
     }
@@ -128,6 +138,7 @@ impl StoragePolicy {
         self.entry(id).map(|e| e.storage)
     }
 
+    /// Whether the policy keeps the catalog id instanced.
     pub fn is_instanced(&self, catalog_id: &str) -> bool {
         self.entry(catalog_id).is_some_and(|e| e.storage == Storage::Instanced)
     }
@@ -156,13 +167,18 @@ pub fn is_ownership_unlock(entry: &PolicyEntry) -> bool {
 /// One grant moved to the representation the policy says.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Correction {
+    /// The item moved.
     pub catalog_id: String,
+    /// The representation it was sent as.
     pub from: Storage,
+    /// The representation the policy says.
     pub to: Storage,
+    /// How many units moved.
     pub quantity: f64,
 }
 
 impl Correction {
+    /// `{catalog_id}:{from}->{to}x{quantity}`, for the log.
     pub fn describe(&self) -> String {
         format!(
             "{}:{}->{}x{}",
@@ -174,10 +190,14 @@ impl Correction {
     }
 }
 
+/// A transaction's add collections, moved to the representations the policy says.
 #[derive(Debug, Clone, PartialEq)]
 pub struct NormalizedGrants {
+    /// The instanced adds: converted stacks first, then the instanced adds that stay.
     pub add_instanced: Vec<Value>,
+    /// The stacked adds, with instanced adds of stacked items folded in.
     pub add_stacked: Vec<Value>,
+    /// Each grant that moved.
     pub corrections: Vec<Correction>,
 }
 
@@ -269,11 +289,16 @@ pub fn normalize_inventory_grant_collections(
     })
 }
 
+/// One stackable item whose instanced rows became a stack.
 #[derive(Debug, Clone, PartialEq)]
 pub struct MigrationChange {
+    /// The item.
     pub catalog_id: String,
+    /// How many instanced rows were folded in.
     pub migrated: usize,
+    /// The quantity stacked before.
     pub existing: f64,
+    /// The stack's quantity after: the sum, or 1 for an ownership unlock.
     pub final_quantity: f64,
     /// `moved` or `deduplicated-to-one`
     pub result: &'static str,
@@ -282,23 +307,32 @@ pub struct MigrationChange {
 /// A stacked entry the policy says is instanced, left for manual review.
 #[derive(Debug, Clone, PartialEq)]
 pub struct MigrationIssue {
+    /// The item.
     pub catalog_id: String,
+    /// The stack's quantity as stored.
     pub quantity: Value,
 }
 
+/// An inventory with its stackable instanced rows folded into stacks.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Migration {
+    /// The instanced rows kept.
     pub instanced: Vec<Value>,
+    /// The stacked list after the fold.
     pub stacked: Vec<Value>,
+    /// Each item folded.
     pub changes: Vec<MigrationChange>,
+    /// Stacks the policy says are instanced, left for review.
     pub issues: Vec<MigrationIssue>,
 }
 
 impl Migration {
+    /// True when anything was folded.
     pub fn changed(&self) -> bool {
         !self.changes.is_empty()
     }
 
+    /// The changes, for the log.
     pub fn describe_changes(&self) -> String {
         self.changes
             .iter()
@@ -341,8 +375,10 @@ pub fn migrate_inventory_storage_arrays(
             }
         });
         let unlock = policy.entry(&id).is_some_and(is_ownership_unlock);
-        // `count` is bounded by the stored list's length
-        #[allow(clippy::cast_precision_loss)]
+        #[allow(
+            clippy::cast_precision_loss,
+            reason = "`count` is bounded by the stored list's length"
+        )]
         let total = existing + count as f64;
         let final_quantity = if unlock { 1.0 } else { total };
         stacked.push(obj(vec![

@@ -31,6 +31,7 @@ pub fn is_egs_api_target(target: &str) -> bool {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
 #[error("not implemented yet ({row})")]
 pub struct NotImplemented {
+    /// The plan row that implements it.
     pub row: &'static str,
 }
 

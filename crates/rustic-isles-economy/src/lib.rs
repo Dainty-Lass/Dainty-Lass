@@ -13,9 +13,14 @@
 //!
 //! Game-derived values (curves, store files, the storage policy) are the host's own game data, read at run time.
 
-#![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used))]
-// A refusal is the answer itself (an axum `Response`), as in core and the other areas
-#![allow(clippy::result_large_err)]
+#![cfg_attr(
+    test,
+    allow(clippy::unwrap_used, clippy::expect_used, reason = "a panic is how a test fails")
+)]
+#![allow(
+    clippy::result_large_err,
+    reason = "a refusal is the answer itself (an axum `Response`), as in core and the other areas"
+)]
 
 pub mod bounties;
 mod caches;

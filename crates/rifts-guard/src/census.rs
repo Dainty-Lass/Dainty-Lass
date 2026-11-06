@@ -12,18 +12,26 @@ use rifts_seam::HostRouteSample;
 
 use crate::json::{js_length, js_number, js_string};
 
+/// How long one census window sums samples before its summary line is logged, in milliseconds.
 pub const HOST_ROUTE_CENSUS_WINDOW_MS: u64 = 60_000;
+/// The most route rows a summary lists; the rest are counted as omitted.
 pub const HOST_ROUTE_CENSUS_MAX_ROWS: usize = 200;
 
 const NO_ROUTE: &str = "(no route)";
 const METHODS: [&str; 7] = ["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"];
 
+/// One census row's identity: a call's normalized method, route, status class and session kinds.
 #[derive(Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub struct HostRouteKey {
+    /// The HTTP method, or `OTHER` for one outside the known set.
     pub method: String,
+    /// The mount's base and matched pattern, or `(no route)`.
     pub route: String,
+    /// The status class, such as `2xx`, or `other`.
     pub status: String,
+    /// The session's kind label, or `unknown` when absent or malformed.
     pub session_kind: String,
+    /// The hub's kind label, when the session is a hub and the label is well formed.
     pub hub_kind: Option<String>,
 }
 
@@ -51,21 +59,30 @@ impl HostRouteKey {
     }
 }
 
+/// One route key and how many calls it saw.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct HostRouteRow {
+    /// The normalized call.
     pub key: HostRouteKey,
+    /// Calls in the window.
     pub count: u64,
 }
 
+/// A census window's summary, logged as `[HostRoute] summary` JSON.
 #[derive(Clone, Debug, PartialEq)]
 pub struct HostRouteSummary {
+    /// The window's length in seconds.
     pub window_seconds: f64,
+    /// Calls counted across every row, the omitted ones included.
     pub total: u64,
+    /// The busiest rows, at most the census's row limit.
     pub routes: Vec<HostRouteRow>,
+    /// Rows left out past the row limit.
     pub omitted_rows: u64,
 }
 
 impl HostRouteSummary {
+    /// The summary as JSON, field for field as the Node census wrote it.
     pub fn to_json(&self) -> String {
         let rows: Vec<String> = self
             .routes
@@ -82,6 +99,7 @@ impl HostRouteSummary {
     }
 }
 
+/// The status code's class (`1xx` to `5xx`), or `other` outside 100 to 599.
 pub fn status_class(code: u16) -> &'static str {
     const CLASSES: [&str; 5] = ["1xx", "2xx", "3xx", "4xx", "5xx"];
     let hundreds = usize::from(code / 100);
@@ -98,6 +116,7 @@ fn kind_label(value: Option<&str>) -> Option<String> {
     shaped.then(|| label.to_owned())
 }
 
+/// The sample's census key: unknown methods, oversize routes and malformed kind labels folded to fixed values.
 pub fn normalize(sample: &HostRouteSample) -> HostRouteKey {
     let known_method = METHODS.iter().any(|m| *m == sample.method);
     let route_fits = (1..=160).contains(&js_length(&sample.route));
@@ -138,6 +157,7 @@ fn rows_of(counts: &BTreeMap<HostRouteKey, u64>) -> Vec<HostRouteRow> {
     counts.iter().map(row).collect()
 }
 
+/// One row per distinct key with its count, in key order.
 pub fn aggregate(samples: &[HostRouteSample]) -> Vec<HostRouteRow> {
     let mut counts = BTreeMap::new();
     samples.iter().for_each(|sample| count_into(&mut counts, sample));
@@ -166,6 +186,7 @@ pub fn summarize(rows: &[HostRouteRow], window_seconds: f64, max_rows: usize) ->
     })
 }
 
+/// Counts hosted runtimes' route calls per window when enabled; a disabled census records nothing.
 #[derive(Debug)]
 pub struct HostRouteCensus {
     enabled: bool,
@@ -175,10 +196,12 @@ pub struct HostRouteCensus {
 }
 
 impl HostRouteCensus {
+    /// A census over the default window and row limit.
     pub fn new(enabled: bool) -> Self {
         Self::with_window(enabled, HOST_ROUTE_CENSUS_WINDOW_MS, HOST_ROUTE_CENSUS_MAX_ROWS)
     }
 
+    /// A census over a custom window (milliseconds) and row limit.
     pub fn with_window(enabled: bool, window_ms: u64, max_rows: usize) -> Self {
         let counts = Mutex::default();
         Self {
@@ -189,10 +212,12 @@ impl HostRouteCensus {
         }
     }
 
+    /// Whether samples are counted at all.
     pub fn enabled(&self) -> bool {
         self.enabled
     }
 
+    /// The window's length in milliseconds.
     pub fn window_ms(&self) -> u64 {
         self.window_ms
     }
@@ -201,6 +226,7 @@ impl HostRouteCensus {
         self.counts.lock().unwrap_or_else(PoisonError::into_inner)
     }
 
+    /// Counts one call in the current window; nothing when disabled.
     pub fn record(&self, sample: &HostRouteSample) {
         if !self.enabled {
             return;
@@ -213,6 +239,7 @@ impl HostRouteCensus {
         summarize(&rows_of(counts), seconds, self.max_rows)
     }
 
+    /// The current window's summary without resetting it; `None` before any traffic.
     pub fn peek(&self) -> Option<HostRouteSummary> {
         let counts = self.counts();
         self.summary_of(&counts)

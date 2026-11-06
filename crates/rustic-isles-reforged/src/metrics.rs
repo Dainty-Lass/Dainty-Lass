@@ -26,7 +26,9 @@ const COUNTER_CEILING: f64 = 9_007_199_254_740_991.0;
 /// A section another area renders itself: `(name, help, value)` gauges; the raw gauges it names are not repeated.
 #[derive(Clone)]
 pub struct Section {
+    /// Renders the section's gauges.
     pub render: Arc<dyn Fn() -> Vec<(String, String, f64)> + Send + Sync>,
+    /// Raw gauge names the section replaces.
     pub hidden_gauges: Vec<String>,
 }
 
@@ -176,6 +178,7 @@ impl Metrics {
         self.0.lock().unwrap_or_else(PoisonError::into_inner)
     }
 
+    /// Adds to a counter; a non-positive or non-finite amount is ignored, and the total stops at 2^53 - 1.
     pub fn increment(&self, name: &str, amount: f64, labels: &[(&str, &str)]) {
         if !(amount.is_finite() && amount > 0.0) {
             return;
@@ -185,12 +188,14 @@ impl Metrics {
         *total = (*total + amount).min(COUNTER_CEILING);
     }
 
+    /// Sets a gauge; a non-finite value is ignored.
     pub fn set(&self, name: &str, value: f64, labels: &[(&str, &str)]) {
         if value.is_finite() {
             self.store().gauges.insert(Series::new(name, labels), value);
         }
     }
 
+    /// Moves a gauge, never below 0; a non-finite delta is ignored.
     pub fn adjust(&self, name: &str, delta: f64, labels: &[(&str, &str)]) {
         if !delta.is_finite() {
             return;
@@ -200,6 +205,7 @@ impl Metrics {
         *gauge = (*gauge + delta).max(0.0);
     }
 
+    /// Records a latency in the histogram; a negative or non-finite value is ignored.
     pub fn observe(&self, name: &str, value: f64, labels: &[(&str, &str)]) {
         if !(value.is_finite() && value >= 0.0) {
             return;
@@ -215,10 +221,12 @@ impl Metrics {
         latency.total += value;
     }
 
+    /// Adds a section rendered with the rest.
     pub fn register_section(&self, section: Section) {
         self.store().sections.push(section);
     }
 
+    /// The Prometheus text, with the identity, readiness and every series.
     pub fn render(&self, role: &str, ready: bool, changed_at_seconds: f64) -> String {
         let store = self.store();
         let mut out = Vec::new();

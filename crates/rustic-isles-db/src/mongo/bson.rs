@@ -176,7 +176,10 @@ fn hex(bytes: &[u8]) -> String {
 
 /// A command or reply value: JSON, plus the BSON types JSON has no word for. The reading commands use only the
 /// scalars; documents and arrays are the writer's.
-#[cfg_attr(not(feature = "export-mongo"), allow(dead_code))]
+#[cfg_attr(
+    not(feature = "export-mongo"),
+    allow(dead_code, reason = "only the export-mongo writer builds documents and arrays")
+)]
 pub(crate) enum B<'a> {
     Str(&'a str),
     I32(i32),

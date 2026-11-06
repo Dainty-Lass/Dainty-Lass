@@ -5,7 +5,7 @@
 //! end through two `LocalRealmHosting`s over the real transport, a fake backend and a signal relay.
 
 #![cfg(feature = "in-process")]
-#![allow(clippy::unwrap_used, clippy::expect_used)]
+#![allow(clippy::unwrap_used, clippy::expect_used, reason = "a panic is how a test fails")]
 
 use std::collections::HashMap;
 use std::io::{BufRead as _, BufReader, Read as _, Write as _};

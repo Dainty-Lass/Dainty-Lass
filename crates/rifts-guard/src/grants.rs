@@ -9,7 +9,9 @@ use serde_json::Value;
 
 use crate::json::{js_trim, safe_integer};
 
+/// The daily premium draft token, the one Hunt Pass item a host may grant.
 pub const HOST_DRAFT_PREMIUM_ID: &str = "TOKEN_DAILY_CHALLENGE_DRAFT_PREMIUM";
+/// The most draft tokens a player may hold after a host's grant.
 pub const HOST_DRAFT_PREMIUM_BALANCE_CAP: i128 = 1;
 
 /// The cosmetics every new character gets, which a host may hand out again.
@@ -31,6 +33,7 @@ pub const HOST_STARTER_COSMETIC_IDS: [&str; 13] = [
 
 /// What a hunt's challenge claim may pay out, so a host may grant it.
 pub const CHALLENGE_REWARD_CURRENCIES: [&str; 1] = ["CURRENCY_SEASONAL_COIN"];
+/// The most seasonal coin one challenge claim may pay.
 pub const MAX_CHALLENGE_REWARD_PER_CLAIM: i64 = 1000;
 
 const PLATINUM_IDS: [&str; 13] = [
@@ -95,15 +98,21 @@ const COSMETIC_TAGS: [&str; 13] = [
 ];
 const ENTITLEMENT_HEADS: [&str; 5] = ["ent", "pass", "eventpass", "minipass", "exchange_slot"];
 
+/// The class of item a host may not grant.
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub enum DenyClass {
+    /// Platinum and debug currencies.
     PremiumCurrency,
+    /// Hunt Pass currencies, tokens and prestige rewards.
     HuntPass,
+    /// Cosmetics: dyes, emotes, titles, banners and the like.
     Cosmetic,
+    /// Entitlements and passes.
     Entitlement,
 }
 
 impl DenyClass {
+    /// The class's name in logs and denials, such as `PREMIUM_CURRENCY`.
     pub fn as_str(self) -> &'static str {
         const NAMES: [&str; 4] = ["PREMIUM_CURRENCY", "HUNT_PASS", "COSMETIC", "ENTITLEMENT"];
         NAMES[self as usize]
@@ -115,15 +124,21 @@ impl DenyClass {
     }
 }
 
+/// One item list of an inventory transaction body.
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub enum GrantField {
+    /// `addStackedItems`.
     AddStackedItems,
+    /// `addInstancedItems`.
     AddInstancedItems,
+    /// `removeStackedItems`.
     RemoveStackedItems,
+    /// `removeInstancedItems`.
     RemoveInstancedItems,
 }
 
 impl GrantField {
+    /// Every list, in the order violations are reported.
     pub const ALL: [Self; 4] = [
         Self::AddStackedItems,
         Self::AddInstancedItems,
@@ -169,40 +184,57 @@ impl HostGrantCatalog for NoGameData {
     }
 }
 
+/// One item a host may not grant or take.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Violation {
+    /// The item as the body names it.
     pub catalog_id: String,
+    /// The class that refuses it.
     pub denied_class: DenyClass,
+    /// The list it was in.
     pub field: GrantField,
 }
 
+/// Why a host's inventory transaction is refused.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct GrantDenial {
+    /// The denied classes in first-seen order, or `NO_REWARD_SESSION`.
     pub classes: Vec<&'static str>,
+    /// Every violation, empty for a no-reward session.
     pub violations: Vec<Violation>,
+    /// The log summary: up to 16 `id(class,field)` entries and a `+n` count of the rest.
     pub summary: String,
 }
 
+/// What the hunt session allows of a host's grants.
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub struct GrantSession {
+    /// The session pays no rewards.
     pub no_completion: bool,
+    /// The session is a realm hub, which keeps its grants despite `no_completion`.
     pub realm_hub: bool,
 }
 
+/// Exemptions a caller has already checked.
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub struct Allowances {
+    /// The daily draft token may be granted once.
     pub draft_premium: bool,
 }
 
+/// Whether a host's grant of the daily draft token stays within its cap.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct DraftPremiumDecision {
+    /// Whether the grant may go through.
     pub allowed: bool,
+    /// The decision's code, such as `OVER_BALANCE_CAP`.
     pub reason: &'static str,
     /// `(before, after)` when a balance was read.
     pub balance: Option<(i128, i128)>,
 }
 
 impl DraftPremiumDecision {
+    /// The ` balance=before->after cap=n` log tags, empty when no balance was read.
     pub fn balance_tags(&self) -> String {
         let Some((before, after)) = self.balance else {
             return String::new();
@@ -256,6 +288,7 @@ fn is_entitlement_id(id: &str) -> bool {
         || id.strip_suffix("_premium").is_some_and(entitlement_tail)
 }
 
+/// The class that refuses this item, `None` when a host may grant it; the first matching class wins.
 pub fn classify(catalog_id: &str, catalog: &dyn HostGrantCatalog) -> Option<DenyClass> {
     let id = canonical_id(catalog_id);
     if id.is_empty() {
@@ -321,11 +354,13 @@ fn single(item: &Value) -> bool {
     quantity(item).and_then(Value::as_f64) == Some(1.0)
 }
 
+/// A seasonal coin add of 1 to 1000, which a hunt's challenge claim funds.
 pub fn is_claim_funded_coin_grant(item: &Value) -> bool {
     let coin = catalog_id(item).is_some_and(|id| CHALLENGE_REWARD_CURRENCIES.contains(&id));
     coin && whole_quantity(item).is_some_and(|q| (1..=MAX_CHALLENGE_REWARD_PER_CLAIM).contains(&q))
 }
 
+/// A positive add of a prestige-gated Hunt Pass item.
 pub fn is_prestige_funded_grant(item: &Value, catalog: &dyn HostGrantCatalog) -> bool {
     catalog_id(item).is_some_and(|id| {
         catalog.is_prestige_gated(id)
@@ -334,20 +369,24 @@ pub fn is_prestige_funded_grant(item: &Value, catalog: &dyn HostGrantCatalog) ->
     })
 }
 
+/// A starter cosmetic added with no quantity or exactly one.
 pub fn is_host_starter_cosmetic_add(item: &Value) -> bool {
     let starter = catalog_id(item).is_some_and(|id| HOST_STARTER_COSMETIC_IDS.contains(&id));
     starter && (quantity(item).is_none() || single(item))
 }
 
+/// An entry naming the daily draft token.
 pub fn is_host_draft_premium_add(item: &Value) -> bool {
     matches!(catalog_id(item), Some(HOST_DRAFT_PREMIUM_ID))
 }
 
+/// Whether `addStackedItems` holds the daily draft token.
 pub fn body_adds_host_draft_premium(body: &Value) -> bool {
     let added = items(body, GrantField::AddStackedItems);
     added.iter().any(is_host_draft_premium_add)
 }
 
+/// A platinum currency entry, which a host may spend.
 pub fn is_platinum_spend_item(item: &Value) -> bool {
     let Some(id) = catalog_id(item) else {
         return false;
@@ -378,6 +417,7 @@ fn is_exempt(item: &Value, field: GrantField, body: &Value, catalog: &dyn HostGr
     }
 }
 
+/// Every item the host may not grant or remove, with exemptions applied.
 pub fn violations(body: &Value, catalog: &dyn HostGrantCatalog, allowances: Allowances) -> Vec<Violation> {
     let listed = GrantField::ALL
         .into_iter()
@@ -400,6 +440,7 @@ pub fn violations(body: &Value, catalog: &dyn HostGrantCatalog, allowances: Allo
 /// At most this many violations are named in a summary; the rest are counted.
 const SUMMARY_NAMES: usize = 16;
 
+/// Why the body is refused, `None` when it may go through.
 pub fn grant_denial(
     session: GrantSession,
     body: &Value,
@@ -461,6 +502,8 @@ pub fn stacked_balance_of(stored: Option<&str>, id: &str) -> Option<i128> {
         })
 }
 
+/// The cap decision for a draft token grant, `None` when the body adds none.
+/// An unreadable balance or more than one whole token is refused.
 pub fn decide_draft_premium(body: &Value, balance_before: Option<i128>) -> Option<DraftPremiumDecision> {
     let mut adds = items(body, GrantField::AddStackedItems)
         .iter()

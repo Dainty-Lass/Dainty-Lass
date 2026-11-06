@@ -16,20 +16,30 @@ use serde_json::Value;
 use crate::input::{KEY_HEADER, is_plausible_key};
 use crate::{Clock, client, sha256_hex};
 
+/// How long one backend lookup may take.
 pub const LOOKUP_TIMEOUT: Duration = Duration::from_secs(5);
+/// Largest backend answer read, in bytes.
 pub const MAX_ANSWER: usize = 1 << 20;
+/// How long a refused key stays cached, in ms.
 pub const REFUSED_TTL_MS: i64 = 30_000;
+/// Most keys cached at once; the oldest goes first.
 pub const MAX_ENTRIES: usize = 2000;
 
+/// The account a key belongs to, from the backend's `GetUserInfo`.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Account {
+    /// Account id.
     pub id: String,
+    /// Display name.
     pub username: String,
+    /// Whether the backend reports `IsAdmin: true`.
     pub admin: bool,
 }
 
+/// What a key check found.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Check {
+    /// The key is valid for this account.
     Account(Account),
     /// The backend said no (401 or 403), or the key could never be one
     Refused,
@@ -79,6 +89,7 @@ impl Cache {
     }
 }
 
+/// Checks account keys, caching answers under the key's SHA-256 and sharing concurrent lookups of one key.
 #[derive(Clone)]
 pub struct Auth {
     lookup: Lookup,
@@ -98,6 +109,7 @@ impl Auth {
         Self::new(lookup, cache_seconds, clock)
     }
 
+    /// Checks keys with `lookup`; accounts are cached for `cache_seconds` (0 turns that off).
     pub fn new(lookup: Lookup, cache_seconds: u64, clock: Clock) -> Self {
         Self {
             lookup,
@@ -111,6 +123,7 @@ impl Auth {
         self.cache.lock().unwrap_or_else(PoisonError::into_inner)
     }
 
+    /// Checks `key`, from the cache when it holds a live answer; only accounts and refusals are cached.
     pub async fn check(&self, key: &str) -> Check {
         if !is_plausible_key(key) {
             return Check::Refused;
@@ -204,7 +217,7 @@ pub async fn backend_lookup(url: &str, key: &str) -> Check {
 
 #[cfg(test)]
 mod tests {
-    #![allow(clippy::unwrap_used)]
+    #![allow(clippy::unwrap_used, reason = "a panic is how a test fails")]
     use std::sync::atomic::{AtomicI64, AtomicUsize, Ordering};
 
     use super::*;

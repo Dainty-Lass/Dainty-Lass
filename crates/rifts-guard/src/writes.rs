@@ -35,6 +35,7 @@ pub(crate) const ALL_KINDS: [HostWriteKind; 12] = {
     kinds
 };
 
+/// The kind's name in logs and the store, such as `xp`.
 pub fn kind_name(kind: HostWriteKind) -> &'static str {
     KIND_NAMES
         .iter()
@@ -49,16 +50,24 @@ pub(crate) fn parse_kind(text: &str) -> Option<HostWriteKind> {
 /// Why a write is refused.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum WriteDenial {
+    /// No hunt for this runtime's session and generation.
     HuntNotFound,
+    /// The hunt is not `RUNNING` or `DRAINING`, nor `SUSPECT` after `RUNNING`.
     HuntNotRunning,
+    /// A hub refuses this kind of write.
     WriteKindNotAllowedInHub,
+    /// The target is neither the hub's host nor present in it.
     MemberNotPresent,
+    /// A hunt refuses this kind of write.
     WriteKindNotAllowed,
+    /// The target is not on the hunt's roster.
     NotAMember,
+    /// The target is on the roster but was not admitted.
     MemberNotAdmitted,
 }
 
 impl WriteDenial {
+    /// The denial's code, such as `NOT_A_MEMBER`.
     pub fn as_str(self) -> &'static str {
         use WriteDenial::*;
         match self {
@@ -114,6 +123,8 @@ fn this_generation<'a>(hunt: Option<&'a HuntView>, runtime: &RuntimeAuth) -> Opt
     hunt.filter(|h| h.generation == runtime.generation && h.session == runtime.session)
 }
 
+/// Why the runtime may not write `target`'s state, `None` when it may.
+/// The kind is checked only with `check_kind`; a hub write must name its kind.
 pub fn host_write_denial(
     runtime: &RuntimeAuth,
     hunt: Option<&HuntView>,
@@ -156,6 +167,7 @@ fn forbidden(code_json: &str, message_json: &str) -> Reply {
     }
 }
 
+/// The 403 `P2P_HOST_WRITE_DENIED` reply with this message.
 pub fn write_refusal(message: &str) -> Reply {
     forbidden(r#""P2P_HOST_WRITE_DENIED""#, &js_string(message))
 }
@@ -199,6 +211,7 @@ pub fn inventory_body_denial(
     (frozen.map(String::as_str) != Some(character_id)).then_some("CHARACTER_MISMATCH")
 }
 
+/// Why an inventory transaction for `account` is refused, without a body to check.
 pub fn inventory_denial(
     runtime: &RuntimeAuth,
     hunt: Option<&HuntView>,
@@ -209,6 +222,7 @@ pub fn inventory_denial(
     inventory_body_denial(runtime, hunt, account, character_id, None, presence)
 }
 
+/// The 403 loot refusal reply with this code.
 pub fn loot_refusal(code: &str) -> Reply {
     forbidden(
         &js_string(code),

@@ -20,6 +20,7 @@ use store::{Actor, AnyConnection, Database, DatabaseConfig, DatabaseOptions, Dat
 const SQLITE: EmbeddedMigrations = embed_migrations!("migrations/sqlite");
 const POSTGRES: EmbeddedMigrations = embed_migrations!("migrations/postgres");
 
+/// Chat's migrations for each engine, for `Database::open`.
 pub const SCHEMA: DatabaseSchema = DatabaseSchema {
     sqlite: || SQLITE,
     postgres: || POSTGRES,
@@ -30,72 +31,115 @@ pub const SCHEMA: DatabaseSchema = DatabaseSchema {
 pub const FILE_NAME: &str = "chat.db";
 
 diesel::table! {
+    /// Room history, one row per message.
     chat_room_messages (id) {
+        /// Row id, in the order this node stored them.
         id -> BigInt,
+        /// `naming::room_key`.
         room -> Text,
+        /// The sender's global account id.
         sender -> Text,
+        /// The nick shown in the room.
         nick -> Text,
+        /// Message text.
         body -> Text,
+        /// The client's stanza id, if it sent one.
         stanza_id -> Nullable<Text>,
+        /// Unix milliseconds.
         at -> BigInt,
+        /// The id every node knows it by (DN10b).
         mid -> Nullable<Text>,
     }
 }
 
 diesel::table! {
+    /// Direct messages, kept until delivered and after.
     chat_direct_messages (id) {
+        /// Row id, in the order this node stored them.
         id -> BigInt,
+        /// The sender's global account id.
         sender -> Text,
+        /// The sender's JID local part.
         sender_local -> Text,
+        /// The recipient's global account id.
         recipient -> Text,
+        /// Message text.
         body -> Text,
+        /// The client's stanza id, if it sent one.
         stanza_id -> Nullable<Text>,
+        /// Unix milliseconds.
         at -> BigInt,
+        /// When a session of the recipient took it.
         delivered_at -> Nullable<BigInt>,
+        /// The id every node knows it by (DN10b).
         mid -> Nullable<Text>,
     }
 }
 
 diesel::table! {
+    /// Calls to other nodes waiting to be answered (DN10b).
     chat_outbox (id) {
+        /// Row id.
         id -> BigInt,
+        /// The node the call goes to.
         peer -> Text,
+        /// The call as JSON.
         call -> Text,
+        /// Attempts so far.
         tries -> BigInt,
+        /// Unix milliseconds: the next attempt.
         next_at -> BigInt,
+        /// Unix milliseconds.
         created_at -> BigInt,
     }
 }
 
 diesel::table! {
+    /// Chat mutes, one per account.
     chat_mutes (account) {
+        /// The muted account's global id.
         account -> Text,
+        /// Unix milliseconds; null means until lifted.
         until_at -> Nullable<BigInt>,
+        /// Shown to the muted player.
         reason -> Nullable<Text>,
+        /// The actor that set it, as the change log writes actors.
         muted_by -> Text,
+        /// Unix milliseconds.
         at -> BigInt,
     }
 }
 
 diesel::table! {
+    /// The account each JID local part last logged in as.
     chat_accounts (jid_local) {
+        /// The JID local part.
         jid_local -> Text,
+        /// The global account id.
         account -> Text,
+        /// The game module the login came through.
         module -> Text,
+        /// The domain the login came through.
         domain -> Text,
+        /// Unix milliseconds: the last login.
         seen_at -> BigInt,
     }
 }
 
+/// A stored room message.
 #[derive(Debug, Clone, PartialEq, Eq, Queryable, Serialize, Deserialize)]
 pub struct RoomMessage {
+    /// Row id, in the order this node stored them.
     pub id: i64,
     /// `naming::room_key`
     pub room: String,
     /// The sender's global account id
     pub sender: String,
+    /// The nick shown in the room.
     pub nick: String,
+    /// Message text.
     pub body: String,
+    /// The client's stanza id, if it sent one.
     pub stanza_id: Option<String>,
     /// Unix milliseconds
     pub at: i64,
@@ -106,23 +150,38 @@ pub struct RoomMessage {
 /// A room message to store, before it has an id.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct NewRoom {
+    /// `naming::room_key`.
     pub room: String,
+    /// The sender's global account id.
     pub sender: String,
+    /// The nick shown in the room.
     pub nick: String,
+    /// Message text.
     pub body: String,
+    /// The client's stanza id, if it sent one.
     pub stanza_id: Option<String>,
+    /// The id every node knows it by (DN10b); none for a local message.
     pub mid: Option<String>,
+    /// Unix milliseconds.
     pub at: i64,
 }
 
+/// A stored direct message.
 #[derive(Debug, Clone, PartialEq, Eq, Queryable, Serialize, Deserialize)]
 pub struct DirectMessage {
+    /// Row id, in the order this node stored them.
     pub id: i64,
+    /// The sender's global account id.
     pub sender: String,
+    /// The sender's JID local part.
     pub sender_local: String,
+    /// The recipient's global account id.
     pub recipient: String,
+    /// Message text.
     pub body: String,
+    /// The client's stanza id, if it sent one.
     pub stanza_id: Option<String>,
+    /// Unix milliseconds.
     pub at: i64,
     /// When a session of the recipient took it; none while it waits for their next login
     pub delivered_at: Option<i64>,
@@ -133,40 +192,58 @@ pub struct DirectMessage {
 /// A direct message to store, before it has an id.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct NewDirect {
+    /// The sender's global account id.
     pub sender: String,
+    /// The sender's JID local part.
     pub sender_local: String,
+    /// The recipient's global account id.
     pub recipient: String,
+    /// Message text.
     pub body: String,
+    /// The client's stanza id, if it sent one.
     pub stanza_id: Option<String>,
+    /// Unix milliseconds.
     pub at: i64,
+    /// Unix milliseconds: when a session of the recipient took it, none while it waits.
     pub delivered_at: Option<i64>,
+    /// The id every node knows it by (DN10b).
     pub mid: Option<String>,
 }
 
 /// A call to another node that is retried until it is answered (DN10b).
 #[derive(Debug, Clone, PartialEq, Eq, Queryable)]
 pub struct OutboxRow {
+    /// Row id: calls are retried oldest first.
     pub id: i64,
+    /// The node the call goes to.
     pub peer: String,
     /// The call as JSON
     pub call: String,
+    /// Attempts so far.
     pub tries: i64,
+    /// Unix milliseconds: the next attempt.
     pub next_at: i64,
+    /// Unix milliseconds: calls older than the expiry are dropped.
     pub created_at: i64,
 }
 
+/// A chat mute on one account.
 #[derive(Debug, Clone, PartialEq, Eq, Queryable, Serialize, Deserialize)]
 pub struct Mute {
+    /// The muted account's global id.
     pub account: String,
     /// Unix milliseconds; none is until lifted
     pub until: Option<i64>,
+    /// Shown to the muted player.
     pub reason: Option<String>,
     /// The actor that set it, as the change log writes actors
     pub by: String,
+    /// Unix milliseconds: when it was set.
     pub at: i64,
 }
 
 impl Mute {
+    /// Whether the mute still applies at `now` (unix milliseconds).
     pub fn holds(&self, now: i64) -> bool {
         self.until.is_none_or(|until| until > now)
     }
@@ -203,6 +280,7 @@ impl History {
         }
     }
 
+    /// The underlying `store` database.
     pub fn database(&self) -> &Database {
         &self.db
     }
@@ -242,6 +320,7 @@ impl History {
             .await
     }
 
+    /// The account a JID local part last logged in as, if any.
     pub async fn account_of(&self, local: &str) -> Result<Option<String>, Error> {
         let local = local.to_owned();
         self.db
@@ -255,6 +334,7 @@ impl History {
             .await
     }
 
+    /// Stores a local room message; returns its row id.
     pub async fn add_room_message(
         &self,
         room: &str,
@@ -276,6 +356,7 @@ impl History {
         .await
     }
 
+    /// Stores a room message; returns its row id.
     pub async fn add_room(&self, message: NewRoom) -> Result<i64, Error> {
         let actor = Actor::Player(message.sender.clone());
         self.db
@@ -335,6 +416,7 @@ impl History {
             .await
     }
 
+    /// Stores a direct message; returns its row id.
     pub async fn add_direct(&self, message: NewDirect) -> Result<i64, Error> {
         let actor = Actor::Player(message.sender.clone());
         self.db
@@ -389,6 +471,7 @@ impl History {
             .await
     }
 
+    /// The direct message another node knows by `mid`, if this node holds it.
     pub async fn direct_by_mid(&self, mid: &str) -> Result<Option<DirectMessage>, Error> {
         let mid = mid.to_owned();
         self.db
@@ -437,6 +520,7 @@ impl History {
             .await
     }
 
+    /// Marks direct messages as taken by a session of `recipient` at `at`. No write for an empty list.
     pub async fn mark_delivered(&self, recipient: &str, ids: Vec<i64>, at: i64) -> Result<(), Error> {
         if ids.is_empty() {
             return Ok(());
@@ -473,6 +557,7 @@ impl History {
             .await
     }
 
+    /// The mute on `account`, expired or not.
     pub async fn mute_of(&self, account: &str) -> Result<Option<Mute>, Error> {
         let account = account.to_owned();
         self.db
@@ -480,6 +565,7 @@ impl History {
             .await
     }
 
+    /// Sets or replaces the mute on its account.
     pub async fn set_mute(&self, mute: Mute, actor: Actor) -> Result<(), Error> {
         self.db
             .write(actor, move |tx| {
@@ -513,6 +599,7 @@ impl History {
 
     // ---- The outbox (DN10b) ----
 
+    /// Queues a call to `peer`, due now; returns its row id.
     pub async fn outbox_add(&self, peer: &str, call: &str, now: i64) -> Result<i64, Error> {
         let values = (
             chat_outbox::peer.eq(peer.to_owned()),
@@ -544,6 +631,7 @@ impl History {
             .await
     }
 
+    /// Removes an answered call.
     pub async fn outbox_done(&self, id: i64) -> Result<(), Error> {
         self.db
             .write(Actor::System(String::from("chat-federation")), move |tx| {
@@ -553,6 +641,7 @@ impl History {
             .await
     }
 
+    /// Records a failed attempt and when to try again.
     pub async fn outbox_retry(&self, id: i64, tries: i64, next_at: i64) -> Result<(), Error> {
         self.db
             .write(Actor::System(String::from("chat-federation")), move |tx| {
@@ -573,6 +662,7 @@ impl History {
             .await
     }
 
+    /// How many calls wait to be answered.
     pub async fn outbox_len(&self) -> Result<i64, Error> {
         self.db
             .read(move |conn: &mut AnyConnection| Ok(chat_outbox::table.count().get_result(conn)?))

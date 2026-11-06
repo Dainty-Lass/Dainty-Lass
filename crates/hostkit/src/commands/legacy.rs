@@ -18,8 +18,10 @@ use crate::paths::Paths;
 /// The external module id dainty-legacy is pinned under in `[[modules.external]]`.
 pub const MODULE_ID: &str = "legacy";
 
+/// The kinds `legacy import` takes.
 pub const KINDS: [&str; 3] = ["revived", "offline-save", "reforged"];
 
+/// Runs dainty-legacy's `import <kind>` in the server folder and returns its exit code.
 pub fn run(paths: &Paths, args: &LegacyArgs) -> Outcome {
     let crate::cli::LegacyCommand::Import(import) = &args.command;
     if !KINDS.contains(&import.kind.as_str()) {
@@ -71,7 +73,7 @@ fn program(paths: &Paths, explicit: Option<&Path>) -> Result<PathBuf, HostError>
 
 #[cfg(test)]
 mod tests {
-    #![allow(clippy::unwrap_used)]
+    #![allow(clippy::unwrap_used, reason = "a panic is how a test fails")]
 
     use super::*;
     use crate::cli::{LegacyCommand, LegacyImportArgs};

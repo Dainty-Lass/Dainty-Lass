@@ -12,13 +12,18 @@ use crate::json::{js_length, js_safe_integer, js_slice, js_string, js_to_number,
 use crate::ports::{AuditEntry, Clock, OperationsPolicyPort, iso_time};
 use crate::store::GuardStore;
 
+/// The reward rollout flags of the operations policy.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct RewardRollout {
+    /// The rollout's version; a change must advance it.
     pub version: u64,
+    /// Tier 0 hunts may run reward shadow comparisons.
     pub tier0_shadow_enabled: bool,
+    /// Tier 1 hunts may be granted rewards.
     pub tier1_grants_enabled: bool,
 }
 
+/// The rollout before any change: version 0, tier 0 shadow on, tier 1 grants off.
 pub const DEFAULT_REWARD_ROLLOUT: RewardRollout = RewardRollout {
     version: 0,
     tier0_shadow_enabled: true,
@@ -32,6 +37,7 @@ impl Default for RewardRollout {
 }
 
 impl RewardRollout {
+    /// The rollout as the policy document's `rewardRollout` object.
     pub fn to_json(&self) -> Json {
         Json(format!(
             r#"{{"version":{},"tier0ShadowEnabled":{},"tier1GrantsEnabled":{}}}"#,
@@ -39,6 +45,7 @@ impl RewardRollout {
         ))
     }
 
+    /// Reads a `rewardRollout` object; `None` unless all three fields are present and well typed.
     pub fn from_value(value: Option<&Value>) -> Option<Self> {
         let object = value?.as_object()?;
         Some(Self {

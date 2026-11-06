@@ -5,7 +5,7 @@
 //! multipliers go back to the host kit as arguments. The launcher's own parser file, compiled in here, since the launcher crate needs a webview
 //! to build.
 #![no_main]
-#![allow(dead_code)]
+#![allow(dead_code, reason = "the launcher's parser file is compiled in whole; the target calls only part of it")]
 
 use libfuzzer_sys::fuzz_target;
 

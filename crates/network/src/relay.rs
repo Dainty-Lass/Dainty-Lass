@@ -27,6 +27,7 @@ use crate::home::Tickets;
 use crate::home::protocol::{CleanText, DecodeError, HomeBody, RequestKey, holds_account_key, looks_like_account_key};
 use crate::link::{LinkError, NodeService, PeerRoster, Service};
 
+/// The `version` every admin relay message carries; another is refused.
 pub const ADMIN_RELAY_VERSION: u32 = 1;
 
 /// Maximum bytes of an encoded [`AdminRelayRequest`] or [`AdminRelayResponse`] on a node link.
@@ -34,11 +35,17 @@ pub const MAX_ADMIN_WIRE: usize = 64 * 1024;
 
 /// Standard admin relay operation names (DN11).
 pub mod operations {
+    /// Kick the player off this node.
     pub const KICK: &str = "admin.kick";
+    /// Ban the account.
     pub const BAN: &str = "admin.ban";
+    /// Time the account out.
     pub const TIMEOUT: &str = "admin.timeout";
+    /// Lift a ban.
     pub const UNBAN: &str = "admin.unban";
+    /// Lift a timeout.
     pub const LIFT_TIMEOUT: &str = "admin.lift_timeout";
+    /// Revoke an admin key.
     pub const REVOKE_KEY: &str = "admin.revoke_key";
 }
 
@@ -123,14 +130,18 @@ impl RelayAction {
     }
 }
 
+/// An admin relay call as sent: [`RelayAction`] with the protocol version.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AdminRelayRequest {
+    /// [`ADMIN_RELAY_VERSION`].
     pub version: u32,
+    /// The action.
     pub action: RelayAction,
 }
 
 impl AdminRelayRequest {
+    /// A request at the current version.
     pub fn new(action: RelayAction) -> Self {
         Self {
             version: ADMIN_RELAY_VERSION,
@@ -139,51 +150,74 @@ impl AdminRelayRequest {
     }
 }
 
+/// Why a peer refused a relayed admin action.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, thiserror::Error)]
 #[serde(rename_all = "snake_case", tag = "reason", deny_unknown_fields)]
 pub enum AdminRelayRefusal {
+    /// The request's version is not this node's.
     #[error("admin relay protocol {supported} is required")]
-    UnsupportedVersion { supported: u32 },
+    UnsupportedVersion {
+        /// The version this node speaks.
+        supported: u32,
+    },
+    /// The message could not be read.
     #[error("the admin relay message could not be read")]
     Malformed,
+    /// Larger than [`MAX_ADMIN_WIRE`].
     #[error("the admin relay message is larger than the link allows")]
     TooLarge,
+    /// The caller is not a peer this node lists.
     #[error("the caller is not a peer this node lists")]
     UnknownPeer,
+    /// The key was already used for a different action.
     #[error("the request key was already used for a different action")]
     KeyReused,
+    /// An action with this key is still running here.
     #[error("that request is already running here")]
     InFlight,
+    /// Too many relayed actions at once.
     #[error("this node is busy with too many relayed admin actions")]
     Busy,
+    /// The local admin service failed to apply it.
     #[error("{message}")]
     Failed {
+        /// The service's error code, if it gave one.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         code: Option<CleanText>,
+        /// What it said.
         message: CleanText,
     },
 }
 
+/// A peer's answer to a relayed admin action.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", tag = "status", deny_unknown_fields)]
 pub enum AdminRelayReply {
+    /// Applied here.
     Applied {
+        /// What the admin service answered.
         #[serde(default)]
         body: HomeBody,
     },
+    /// Not applied.
     Refused {
+        /// Why.
         refusal: AdminRelayRefusal,
     },
 }
 
+/// An admin relay answer as sent: [`AdminRelayReply`] with the version.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AdminRelayResponse {
+    /// [`ADMIN_RELAY_VERSION`].
     pub version: u32,
+    /// The answer.
     pub reply: AdminRelayReply,
 }
 
 impl AdminRelayResponse {
+    /// A response at the current version.
     pub fn new(reply: AdminRelayReply) -> Self {
         Self {
             version: ADMIN_RELAY_VERSION,
@@ -192,6 +226,7 @@ impl AdminRelayResponse {
     }
 }
 
+/// A request checked for secrets and size, then encoded.
 pub fn encode_request(request: &AdminRelayRequest) -> Result<Vec<u8>, DecodeError> {
     if request.version != ADMIN_RELAY_VERSION {
         return Err(DecodeError::Version(request.version));
@@ -204,6 +239,7 @@ pub fn encode_request(request: &AdminRelayRequest) -> Result<Vec<u8>, DecodeErro
     Ok(bytes)
 }
 
+/// A request decoded; refuses another version, an oversized one and anything shaped like a secret key.
 pub fn decode_request(bytes: &[u8]) -> Result<AdminRelayRequest, DecodeError> {
     if bytes.len() > MAX_ADMIN_WIRE {
         return Err(DecodeError::TooLarge);
@@ -222,6 +258,7 @@ pub fn decode_request(bytes: &[u8]) -> Result<AdminRelayRequest, DecodeError> {
     Ok(request)
 }
 
+/// A response checked for secrets and size, then encoded.
 pub fn encode_response(response: &AdminRelayResponse) -> Result<Vec<u8>, DecodeError> {
     if response.version != ADMIN_RELAY_VERSION {
         return Err(DecodeError::Version(response.version));
@@ -240,6 +277,7 @@ pub fn encode_response(response: &AdminRelayResponse) -> Result<Vec<u8>, DecodeE
     Ok(bytes)
 }
 
+/// A response decoded; refuses another version, an oversized one and anything shaped like a secret key.
 pub fn decode_response(bytes: &[u8]) -> Result<AdminRelayResponse, DecodeError> {
     if bytes.len() > MAX_ADMIN_WIRE {
         return Err(DecodeError::TooLarge);
@@ -269,26 +307,37 @@ pub fn decode_response(bytes: &[u8]) -> Result<AdminRelayResponse, DecodeError> 
 /// An action arriving from a listed peer (`via_node`) to be applied by the local [`AdminAuthority`].
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RelayedAction {
+    /// The peer it came from.
     pub via_node: NodeId,
+    /// Its idempotency key.
     pub key: RequestKey,
+    /// The operation name, such as [`operations::BAN`].
     pub operation: OperationName,
+    /// The account, when resolved through the directory.
     pub account: Option<GlobalId>,
+    /// Whether the action ends the account's session tickets, once applied.
     pub revoke_tickets: bool,
     /// The originating admin key id (`owner` or 8 lower-case hex digits). The local actor is `admin:<actor_key>`.
     pub actor_key: String,
+    /// The operator id (`discord:<id>`, `host`...).
     pub operator: String,
+    /// The approving operator's key id for a guarded action (DH6).
     pub approved_by: Option<String>,
+    /// The action's JSON payload.
     pub body: Value,
 }
 
 /// An error returned by [`AdminAuthority::apply`].
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AdminRelayError {
+    /// A machine-readable code, if any.
     pub code: Option<String>,
+    /// What failed, for the operator.
     pub message: String,
 }
 
 impl AdminRelayError {
+    /// An error with an optional code.
     pub fn new(code: Option<impl Into<String>>, message: impl Into<String>) -> Self {
         Self {
             code: code.map(Into::into),
@@ -299,14 +348,20 @@ impl AdminRelayError {
 
 /// The local admin service that applies a [`RelayedAction`] received over `Service::Admin`.
 pub trait AdminAuthority: Send + Sync {
+    /// Applies a relayed action; the `Ok` value goes back to the caller as [`AdminRelayReply::Applied`].
     fn apply<'a>(&'a self, action: RelayedAction) -> BoxFuture<'a, Result<Value, AdminRelayError>>;
 }
 
+/// Limits on how an [`AdminRelayService`] runs relayed actions.
 #[derive(Debug, Clone, Copy)]
 pub struct AdminRelayConfig {
+    /// How long an action may run before the caller is told to ask again.
     pub call_timeout: Duration,
+    /// Actions running at once; past it the answer is busy.
     pub max_in_flight: usize,
+    /// Answers kept for repeated keys, by count.
     pub dedup_entries: usize,
+    /// Answers kept for repeated keys, by bytes.
     pub dedup_bytes: usize,
 }
 
@@ -438,6 +493,7 @@ pub struct AdminRelayService {
 }
 
 impl AdminRelayService {
+    /// Accepts actions from `peers`; with `tickets`, revokes session tickets for actions that ask.
     pub fn new(
         me: NodeId,
         peers: impl IntoIterator<Item = NodeId>,
@@ -459,19 +515,23 @@ impl AdminRelayService {
         }
     }
 
+    /// Also accepts the peers `roster` lists.
     pub fn with_roster(self, roster: Arc<dyn PeerRoster>) -> Self {
         *self.inner.roster.write().unwrap_or_else(PoisonError::into_inner) = Some(roster);
         self
     }
 
+    /// Replaces or clears the roster whose peers are also accepted.
     pub fn set_roster(&self, roster: Option<Arc<dyn PeerRoster>>) {
         *self.inner.roster.write().unwrap_or_else(PoisonError::into_inner) = roster;
     }
 
+    /// Replaces or clears the tickets revoked for actions that ask.
     pub fn set_tickets(&self, tickets: Option<Arc<Tickets>>) {
         *self.inner.tickets.write().unwrap_or_else(PoisonError::into_inner) = tickets;
     }
 
+    /// Replaces the listed peers.
     pub fn set_peers(&self, peers: impl IntoIterator<Item = NodeId>) {
         *self.inner.peers.write().unwrap_or_else(PoisonError::into_inner) = peers.into_iter().collect();
     }
@@ -676,7 +736,7 @@ impl NodeService for AdminRelayService {
 
 #[cfg(test)]
 mod tests {
-    #![allow(clippy::unwrap_used)]
+    #![allow(clippy::unwrap_used, reason = "a panic is how a test fails")]
 
     use std::sync::atomic::{AtomicUsize, Ordering};
 

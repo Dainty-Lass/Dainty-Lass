@@ -23,6 +23,7 @@ use crate::upstream::{Clock, Upstream};
 pub const SWEEP_EVERY: Duration = Duration::from_secs(30);
 const DRAIN: Duration = Duration::from_secs(5);
 
+/// Opens the timeouts file and the admin databases and builds the routes' state, with no game modules attached.
 pub fn prepare(config: &Config, clock: Clock) -> Result<(AppState, Arc<Admin>), String> {
     prepare_with_modules(config, clock, Arc::new(AdminPlugin::none()))
 }
@@ -84,6 +85,7 @@ pub fn prepare_with_network(
     Ok((state, admin))
 }
 
+/// Runs the admin API standalone until it is told to stop; errors when it cannot start.
 pub async fn run(config: Config) -> Result<(), String> {
     run_with_context(config, service_kit::context::ServiceContext::standalone("admin")).await
 }

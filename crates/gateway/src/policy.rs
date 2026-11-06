@@ -19,6 +19,7 @@ pub const PUBLIC_REFORGED_API: &[(&str, &[&str])] = &[
 /// The backend's admin and launcher APIs, metrics and probes: never from off this machine.
 pub const HOST_ONLY_PREFIXES: &[&str] = &["/admin", "/launcher", "/internal", "/health", "/metrics"];
 
+/// The game-server key header the backend reads first; host-only.
 pub const GAMESERVER_KEY_HEADER: &str = "x-rustic-isles-gameserver-apikey";
 
 /// The game-server key under each name the backend still reads (DX4).
@@ -29,6 +30,7 @@ pub const GAMESERVER_KEY_HEADERS: &[&str] = &[
     "x-mysticparadox-gameserver-key",
 ];
 
+/// Headers refused on any request from off this machine.
 pub const HOST_ONLY_HEADERS: &[&str] = &[
     GAMESERVER_KEY_HEADER,
     "x-rustic-isles-gameserver-key",
@@ -41,9 +43,12 @@ pub const HOST_ONLY_HEADERS: &[&str] = &[
 
 const ALLOWED_METHODS: &[&str] = &["GET", "HEAD", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"];
 
+/// A loopback service the gateway proxies to.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Upstream {
+    /// The game backend.
     Backend,
+    /// The content server.
     Content,
     /// The WebSocket listener the game's chat upgrades reach
     Ws,
@@ -63,14 +68,20 @@ impl Upstream {
 /// The rate-limit bucket a request spends.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum LimitClass {
+    /// Most requests.
     General,
+    /// `/content` downloads.
     Content,
+    /// `POST /reforged/api/Register`.
     Register,
+    /// `POST /account/api/oauth/token`.
     Token,
+    /// WebSocket upgrades.
     Ws,
 }
 
 impl LimitClass {
+    /// The class's name in logs and replies.
     pub fn as_str(self) -> &'static str {
         match self {
             Self::General => "general",
@@ -87,14 +98,18 @@ impl LimitClass {
 pub enum FeedKind {
     /// Only when the request carried a bearer ([`has_bearer`])
     Heartbeat,
+    /// A login token was issued.
     Token,
 }
 
 /// The routes the gateway answers itself (DN7).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum NetworkRoute {
+    /// `GET /network/v1/nodes`.
     Nodes,
+    /// `GET /network/v1/ping`.
     Ping,
+    /// `POST /network/v1/regions`.
     Regions,
 }
 
@@ -105,36 +120,51 @@ impl NetworkRoute {
         (Self::Regions, "/network/v1/regions", "POST"),
     ];
 
+    /// The route's path.
     pub fn path(self) -> &'static str {
         Self::ALL.iter().find(|(r, ..)| *r == self).map_or("", |(_, p, _)| p)
     }
 
+    /// The route's method.
     pub fn method(self) -> &'static str {
         Self::ALL.iter().find(|(r, ..)| *r == self).map_or("", |(.., m)| m)
     }
 }
 
+/// What the policy decided for one request.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Decision {
     /// Answered with `{"error":"<error>"}`; `reason` is for the access log
     Reject {
+        /// HTTP status.
         status: u16,
+        /// The error code in the body.
         error: &'static str,
+        /// Why, for the access log.
         reason: &'static str,
+        /// The bucket it spends.
         limit_class: LimitClass,
     },
+    /// Proxied to a loopback service.
     Proxy {
+        /// Where it goes.
         upstream: Upstream,
+        /// The bucket it spends.
         limit_class: LimitClass,
+        /// What a 2xx answer reports to the allowlist feed.
         feed: Option<FeedKind>,
     },
+    /// Answered by the gateway itself.
     Network {
+        /// The route that answers.
         route: NetworkRoute,
+        /// The bucket it spends.
         limit_class: LimitClass,
     },
 }
 
 impl Decision {
+    /// The bucket the request spends.
     pub fn class(&self) -> LimitClass {
         match self {
             Self::Reject { limit_class, .. } | Self::Proxy { limit_class, .. } | Self::Network { limit_class, .. } => {
@@ -143,6 +173,7 @@ impl Decision {
         }
     }
 
+    /// A refusal with `status` and `{"error":"<error>"}`.
     pub fn reject(status: u16, error: &'static str, reason: &'static str, class: LimitClass) -> Self {
         Self::Reject {
             status,
@@ -199,8 +230,10 @@ pub fn under(canonical: &str, prefix: &str) -> bool {
         .is_some_and(|rest| rest.is_empty() || rest.starts_with('/'))
 }
 
+/// A request path with its `/__origin/<host>` wrapper taken off.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Unwrapped {
+    /// The inner path.
     pub path: String,
     /// The official host the runtime wrapped the call for
     pub origin: Option<String>,
@@ -283,6 +316,7 @@ pub fn classify_for(
     classify(method, target, headers, is_upgrade)
 }
 
+/// Decides where a request goes from its method, target, header names and whether it upgrades; reads no body.
 pub fn classify(method: &str, target: &str, headers: &HeaderMap, is_upgrade: bool) -> Decision {
     use LimitClass::General;
     let method = method.to_ascii_uppercase();

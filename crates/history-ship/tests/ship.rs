@@ -2,7 +2,7 @@
 //! a delete, on a copy, into either engine; with shipping stopped, the lag alert fires. SQLite always;
 //! Postgres too when `REFORGED_TEST_POSTGRES_URL` names a server the tests may create databases on, as in
 //! `store`'s tests.
-#![allow(clippy::unwrap_used, clippy::expect_used)] // test helpers
+#![allow(clippy::unwrap_used, clippy::expect_used, reason = "a panic is how a test fails")]
 
 use std::collections::BTreeMap;
 use std::sync::atomic::{AtomicI64, AtomicU32, Ordering};

@@ -3,7 +3,7 @@
 
 //! The gateway in this process answers every recorded request as the Node one did (spec-rd27-gateway.md section 5.1;
 //! the harness says how). gateway-plugin's `tests/parity.rs` runs the same scripts compiled in and as a library.
-#![allow(clippy::unwrap_used, clippy::expect_used)] // tests
+#![allow(clippy::unwrap_used, clippy::expect_used, reason = "a panic is how a test fails")]
 
 mod common;
 #[path = "parity/harness.rs"]

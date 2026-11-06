@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Silent Spud
 
+//! Routes matched as Express 4 matches them: in registration order, case-insensitively, a trailing slash allowed, and
+//! `:param` segments percent-decoded.
+
 use std::convert::Infallible;
 use std::future::Future;
 use std::pin::Pin;
@@ -23,16 +26,19 @@ enum Segment {
     Param(String),
 }
 
+/// A route path such as `/users/:id`.
 #[derive(Debug, Clone)]
 pub struct Pattern {
     raw: String,
     segments: Vec<Segment>,
 }
 
+/// A parameter that does not percent-decode to UTF-8; the request is answered 400.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct BadParam(pub String);
 
 impl Pattern {
+    /// Parses `path`; panics on a pattern Express-style routes do not take (wildcards, empty segments).
     pub fn parse(path: &str) -> Self {
         assert!(path.starts_with('/'), "route pattern must start with '/': {path}");
         assert!(
@@ -63,10 +69,12 @@ impl Pattern {
         }
     }
 
+    /// The pattern as written.
     pub fn as_str(&self) -> &str {
         &self.raw
     }
 
+    /// The parameters if `path` matches; `Some(Err)` when it matches but a parameter does not decode.
     pub fn matches(&self, path: &str) -> Option<Result<Params, BadParam>> {
         if !path.starts_with('/') {
             return None;
@@ -119,10 +127,12 @@ impl Pattern {
     }
 }
 
+/// The matched route's decoded parameters, a request extension and extractor.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct Params(Vec<(String, String)>);
 
 impl Params {
+    /// The parameter called `name`.
     pub fn get(&self, name: &str) -> Option<&str> {
         self.0.iter().find_map(|(k, v)| (k == name).then_some(v.as_str()))
     }
@@ -136,6 +146,7 @@ impl<S: Send + Sync> FromRequestParts<S> for Params {
     }
 }
 
+/// The pattern of the route that matched, a request extension.
 #[derive(Debug, Clone)]
 pub struct MatchedPattern(pub Arc<str>);
 
@@ -146,6 +157,7 @@ struct RouteEntry<S> {
     router: MethodRouter<S>,
 }
 
+/// Routes in registration order; the first match wins.
 pub struct Router<S = ()> {
     routes: Vec<RouteEntry<S>>,
 }
@@ -157,10 +169,12 @@ impl<S: Clone + Send + Sync + 'static> Default for Router<S> {
 }
 
 impl<S: Clone + Send + Sync + 'static> Router<S> {
+    /// A router with no routes.
     pub fn new() -> Self {
         Self { routes: Vec::new() }
     }
 
+    /// Adds `handler` for `method` on `path`; GET routes also answer HEAD.
     pub fn route<H, T>(mut self, method: Method, path: &str, handler: H) -> Self
     where
         H: Handler<T, S>,
@@ -180,26 +194,32 @@ impl<S: Clone + Send + Sync + 'static> Router<S> {
         self
     }
 
+    /// Adds a GET route.
     pub fn get<H: Handler<T, S>, T: 'static>(self, path: &str, handler: H) -> Self {
         self.route(Method::GET, path, handler)
     }
 
+    /// Adds a POST route.
     pub fn post<H: Handler<T, S>, T: 'static>(self, path: &str, handler: H) -> Self {
         self.route(Method::POST, path, handler)
     }
 
+    /// Adds a PUT route.
     pub fn put<H: Handler<T, S>, T: 'static>(self, path: &str, handler: H) -> Self {
         self.route(Method::PUT, path, handler)
     }
 
+    /// Adds a PATCH route.
     pub fn patch<H: Handler<T, S>, T: 'static>(self, path: &str, handler: H) -> Self {
         self.route(Method::PATCH, path, handler)
     }
 
+    /// Adds a DELETE route.
     pub fn delete<H: Handler<T, S>, T: 'static>(self, path: &str, handler: H) -> Self {
         self.route(Method::DELETE, path, handler)
     }
 
+    /// Wraps every route added so far in `layer`.
     pub fn layer<L>(mut self, layer: L) -> Self
     where
         L: Layer<Route> + Clone + Send + Sync + 'static,
@@ -221,11 +241,13 @@ impl<S: Clone + Send + Sync + 'static> Router<S> {
         self
     }
 
+    /// Appends `other`'s routes after these.
     pub fn merge(mut self, other: Router<S>) -> Self {
         self.routes.extend(other.routes);
         self
     }
 
+    /// Every route's method and pattern, in order.
     pub fn table(&self) -> Vec<(Method, String)> {
         self.routes
             .iter()
@@ -233,6 +255,7 @@ impl<S: Clone + Send + Sync + 'static> Router<S> {
             .collect()
     }
 
+    /// Compiles the routes with `state`; requests no route matches go to `fallback`.
     pub fn into_service(self, state: S, fallback: fn(&Request<Body>) -> Response) -> RouterService {
         let compiled = self
             .routes
@@ -258,6 +281,7 @@ struct CompiledRoute {
     router: MethodRouter<()>,
 }
 
+/// A compiled [`Router`] as a tower service.
 #[derive(Clone)]
 pub struct RouterService {
     routes: Arc<Vec<CompiledRoute>>,

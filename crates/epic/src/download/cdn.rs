@@ -15,16 +15,22 @@ use hyper_util::rt::TokioExecutor;
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 #[non_exhaustive]
 pub enum FetchError {
+    /// The URL is not `https`.
     #[error("not an https URL")]
     NotHttps,
+    /// The host answered with this non-200 status.
     #[error("HTTP {0}")]
     Status(u16),
+    /// The body went over this many bytes.
     #[error("larger than {0} bytes")]
     TooLarge(usize),
+    /// The connection failed; holds the error text.
     #[error("{0}")]
     Connection(String),
+    /// The request ran past its timeout.
     #[error("timed out")]
     TimedOut,
+    /// The TLS client could not be set up.
     #[error("TLS setup failed")]
     Tls,
 }

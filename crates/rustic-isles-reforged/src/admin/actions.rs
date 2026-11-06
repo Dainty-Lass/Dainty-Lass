@@ -33,9 +33,13 @@ fn no_store() -> ModuleError {
 /// The player an admin text names.
 #[derive(Debug, Clone)]
 pub struct Resolved {
+    /// The game account.
     pub account: AccountId,
+    /// The game account's userId, else the account id text.
     pub user_id: String,
+    /// The display name, else the game name, else the userId.
     pub name: String,
+    /// The launcher account, if the player has one.
     pub launcher: Option<LauncherAccountRecord>,
 }
 

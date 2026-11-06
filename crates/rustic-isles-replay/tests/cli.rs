@@ -3,7 +3,7 @@
 
 //! Key maps and the command line (spec §13.2 K1-K7, U8).
 
-#![allow(clippy::unwrap_used, clippy::expect_used)]
+#![allow(clippy::unwrap_used, clippy::expect_used, reason = "a panic is how a test fails")]
 
 mod common;
 

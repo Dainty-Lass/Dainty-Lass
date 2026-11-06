@@ -18,63 +18,117 @@ use crate::store::Purpose;
 use crate::util::{self, ok};
 use crate::{Auth, AuthData, AuthStore, LauncherError};
 
+/// Which of the 49 routes a request matched.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum RouteId {
+    /// `GET /features/platform/win`.
     FeaturesPlatformWin,
+    /// `GET /account/link/epic/:AccId`.
     AccountLinkEpic,
+    /// `GET /isbanned`.
     IsBanned,
+    /// `POST /migration/trigger`.
     MigrationTrigger,
+    /// `GET /migration/status`.
     MigrationStatus,
+    /// `GET /tags`.
     Tags,
+    /// `POST /login`.
     Login,
+    /// `GET /accountinfo`.
     AccountInfo,
+    /// `PUT /gamesession/epic`.
     GameSessionEpic,
+    /// `PUT /gamesession/epiceos`.
     GameSessionEpicEos,
+    /// `POST /accountinfo/public`.
     AccountInfoPublic,
+    /// `POST /account/api/oauth/token`.
     OauthToken,
+    /// `GET /account/api/oauth/verify`.
     OauthVerify,
+    /// `GET /account/api/public/account/displayName/:displayName`.
     PublicAccountByDisplayName,
+    /// `GET /account/api/public/account/:AccId/externalAuths`.
     PublicAccountExternalAuths,
+    /// `GET /account/api/public/account/:AccId`.
     PublicAccount,
+    /// `DELETE /account/api/oauth/sessions/kill`.
     KillSessions,
+    /// `DELETE /account/api/oauth/sessions/kill/:AuthToken`.
     KillSession,
+    /// `GET /account/api/public/account`.
     PublicAccounts,
+    /// `POST /key/generate`.
     KeyGenerate,
+    /// `POST /key/consume`.
     KeyConsume,
+    /// `POST /launcher/v1/auth/register`.
     Register,
+    /// `POST /launcher/v1/auth/login`.
     LauncherLogin,
+    /// `POST /launcher/v1/auth/refresh`.
     Refresh,
+    /// `POST /launcher/v1/auth/logout`.
     Logout,
+    /// `POST /launcher/v1/auth/logout-all`.
     LogoutAll,
+    /// `POST /launcher/v1/auth/email/verify`.
     EmailVerify,
+    /// `POST /launcher/v1/auth/email/resend`.
     EmailResend,
+    /// `POST /launcher/v1/auth/password/forgot`.
     PasswordForgot,
+    /// `POST /launcher/v1/auth/password/reset`.
     PasswordReset,
+    /// `POST /launcher/v1/auth/discord/start`.
     DiscordStart,
+    /// `GET /launcher/v1/auth/discord/callback`.
     DiscordCallback,
+    /// `POST /launcher/v1/auth/discord/complete`.
     DiscordComplete,
+    /// `POST /launcher/v1/account/discord/link/start`.
     DiscordLinkStart,
+    /// `POST /launcher/v1/account/discord/unlink/start`.
     DiscordUnlinkStart,
+    /// `POST /launcher/v1/account/discord/unlink`.
     DiscordUnlink,
+    /// `GET /launcher/v1/me`.
     Me,
+    /// `GET /launcher/v1/username`.
     UsernameCheck,
+    /// `POST /launcher/v1/username`.
     UsernameSet,
+    /// `GET /launcher/v1/account/consent`.
     ConsentGet,
+    /// `POST /launcher/v1/account/consent`.
     ConsentPost,
+    /// `GET /launcher/v1/account/deletion`.
     DeletionGet,
+    /// `POST /launcher/v1/account/deletion`.
     DeletionPost,
+    /// `DELETE /launcher/v1/account/deletion`.
     DeletionDelete,
+    /// `GET /launcher/v1/policy`.
     Policy,
+    /// `GET /launcher/v1/status`.
     Status,
+    /// `GET /launcher/v1/legal`.
     Legal,
+    /// `GET /launcher/v1/notices`.
     Notices,
+    /// `POST /launcher/v1/game-sessions`.
     GameSessions,
 }
 
+/// One row of the route table.
 #[derive(Debug, Clone)]
 pub struct Route {
+    /// The HTTP method it answers.
     pub method: Method,
+    /// The Express-style path, `:name` for a parameter.
     pub path: &'static str,
+    /// The handler it dispatches to.
     pub id: RouteId,
 }
 

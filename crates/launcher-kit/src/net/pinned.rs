@@ -1,6 +1,8 @@
 // Copyright (c) 2026 Silent Spud
 // SPDX-License-Identifier: MIT
 
+//! TLS pinned to a certificate's SHA-256, the trust an invite's `fp` gives (AGENTS.md: checked before any byte is sent).
+
 use std::fmt;
 use std::net::IpAddr;
 use std::sync::{Arc, Mutex};
@@ -16,17 +18,30 @@ use tokio_rustls::client::TlsStream;
 
 use crate::core::pins::{normalize_pin, sha256_hex};
 
+/// A TLS server to reach, trusted by its certificate's fingerprint rather than a CA.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PinnedTarget {
+    /// Host name or IP address.
     pub host: String,
+    /// TCP port, never 0.
     pub port: u16,
+    /// SHA-256 of the certificate the server must present, in any form [`normalize_pin`] takes.
     pub fingerprint: String,
 }
 
+/// Why a connection could not be made.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ConnectError {
-    Pin { expected: String, actual: String },
+    /// The server's certificate does not match the pin.
+    Pin {
+        /// The pinned fingerprint, lowercase hex SHA-256.
+        expected: String,
+        /// The fingerprint the server presented.
+        actual: String,
+    },
+    /// The deadline passed.
     Timeout,
+    /// The target was refused, or connecting or the handshake failed.
     Io(String),
 }
 
@@ -44,6 +59,7 @@ impl fmt::Display for ConnectError {
 
 impl std::error::Error for ConnectError {}
 
+/// SHA-256 of a DER certificate as lowercase hex, the form invites carry as `fp`.
 pub fn certificate_fingerprint(der: &[u8]) -> String {
     sha256_hex(der)
 }
@@ -98,6 +114,7 @@ impl ServerCertVerifier for PinVerifier {
     }
 }
 
+/// `host` without IPv6 brackets, when it is an IP address or a plain DNS name (no spaces, at most 253 bytes).
 pub fn validate_host(host: &str) -> Result<&str, ConnectError> {
     let trimmed = host.trim();
     if trimmed.is_empty() || trimmed != host {
@@ -122,6 +139,8 @@ pub fn validate_host(host: &str) -> Result<&str, ConnectError> {
     Ok(unbracketed)
 }
 
+/// A TLS connection to `target` whose certificate's SHA-256 matches the pin; CA trust and the name are not checked.
+/// `timeout` covers the TCP connect and the handshake.
 pub async fn pinned_connect(target: &PinnedTarget, timeout: Duration) -> Result<TlsStream<TcpStream>, ConnectError> {
     if target.port == 0 {
         return Err(ConnectError::Io("port cannot be 0".to_owned()));
@@ -185,7 +204,7 @@ pub async fn pinned_connect(target: &PinnedTarget, timeout: Duration) -> Result<
 
 #[cfg(test)]
 pub(crate) mod tests {
-    #![allow(clippy::unwrap_used, clippy::expect_used)]
+    #![allow(clippy::unwrap_used, clippy::expect_used, reason = "a panic is how a test fails")]
 
     use std::sync::Arc;
     use std::time::Duration;

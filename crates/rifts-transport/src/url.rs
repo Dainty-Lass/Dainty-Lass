@@ -6,9 +6,12 @@
 
 const DEFAULT_PORT: u16 = 3478;
 
+/// A STUN or TURN server's host and port.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct ServerAddr {
+    /// The host name or IPv4 address.
     pub host: String,
+    /// The UDP port, 3478 when the URL names none.
     pub port: u16,
 }
 

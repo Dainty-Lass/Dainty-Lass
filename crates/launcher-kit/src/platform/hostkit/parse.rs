@@ -7,52 +7,81 @@
 use serde_json::{Map, Value};
 use toml_edit::{DocumentMut, Item};
 
+/// The upstream Mystic Paradox commit the runtime source is pinned to.
 pub const PINNED_MP_COMMIT: &str = "b4d12f0";
+/// File whose presence marks a runtime source as carrying the DaintyLass patches.
 pub const PATCH_SENTINEL: &str = ".reforged-patches.json";
+/// The CatalogExporter's flags file the Host page writes: which exports run, CRLF line endings.
 pub const EXPORT_FLAGS: &str = "# Written by the DaintyLass launcher (Host page). See docs/sdk-and-game-data.md.\r\nEXPORT_CATALOG=1\r\nEXPORT_SLAYERS_PATH=1\r\nEXPORT_HUNTS=1\r\nEXPORT_STORE_RUNTIME=1\r\nEXPORT_PROGRESSION=1\r\nEXPORT_COMBAT=0\r\nEXPORT_SKINS=0\r\nEXPORT_SKINS_RESOLVE_STRINGTABLE=0\r\nEXPORT_WEAPON_SLOTS=0\r\nEXPORT_TABLE_INVENTORY=0\r\nEXPORT_CELLS=0\r\nEXPORT_DROP_TABLES=0\r\nEXPORT_CURRENCY_NAMES=0\r\n";
+/// The backend's port.
 pub const SERVER_PORT: u16 = 61000;
+/// Longest server name kept from `host.toml`, in characters.
 pub const MAX_SERVER_NAME_LEN: usize = 80;
+/// Lowest test multiplier.
 pub const MIN_MULTIPLIER: f64 = 1.0;
+/// Highest test multiplier.
 pub const MAX_MULTIPLIER: f64 = 100.0;
 
+/// Schemes an invite link from `dainty-host invite` may start with.
 pub const INVITE_LINK_PREFIXES: [&str; 3] = ["dauntless://", "reforged-revival://", "dauntless-revived://"];
 
+/// The invite `dainty-host invite` printed.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct InviteLine {
+    /// The invite link.
     pub link: String,
+    /// Player name it was made for, at most 40 characters.
     pub for_name: Option<String>,
 }
 
+/// What `dainty-host update --check` found.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct UpdateCheck {
+    /// Commits the workspace is behind.
     pub behind: u64,
+    /// The upstream head commit, at most 40 characters.
     pub head: String,
 }
 
+/// What `dainty-host update` did.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct UpdateDone {
+    /// The commit the workspace moved to.
     pub to: String,
+    /// Number of files changed.
     pub files: u32,
+    /// The runtime source changed, so the runtime needs a rebuild.
     pub runtime_changed: bool,
 }
 
+/// The update summary the page is shown.
 pub type UpdateSummary = UpdateDone;
 
+/// Who may join, from `host.toml`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ServerMode {
+    /// Invite only, over a private network.
     Private,
+    /// Reachable at a public address.
     Public,
 }
 
+/// The server settings in `host.toml`.
 #[derive(Debug, Clone, PartialEq)]
 pub struct ServerConfig {
+    /// Server name, cleaned and bounded.
     pub name: Option<String>,
+    /// Private or public.
     pub mode: ServerMode,
+    /// Public host name.
     pub host: Option<String>,
+    /// Test `(xp, rewards)` multipliers; private mode only, and only when one is above 1.
     pub multipliers: Option<(f64, f64)>,
 }
 
+/// The server settings as the host kit reads them.
 pub type ServerConfigValue = ServerConfig;
+/// Test multipliers as `(xp, rewards)`.
 pub type ServerMultipliersValue = (f64, f64);
 
 /// Truncates `text` to at most `max` Unicode scalar values.

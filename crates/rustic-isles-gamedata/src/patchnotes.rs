@@ -11,7 +11,7 @@ use crate::envelope;
 const PERMALINK: &str = "/patch-notes/rusticisles/";
 
 /// The notes for `language`, enveloped. 1.14.7's empty release version gets the welcome notes, since its runtime
-/// collapses the "Update <version>" line.
+/// collapses the `Update <version>` line.
 pub fn payload(language: &str, release_version: &str) -> Value {
     if !release_version.is_empty() {
         return envelope(json!({

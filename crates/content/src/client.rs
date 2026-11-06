@@ -14,19 +14,26 @@ use hyper_util::client::legacy::Client;
 use hyper_util::client::legacy::connect::HttpConnector;
 use hyper_util::rt::TokioExecutor;
 
+/// Error text for a request that timed out, as Node's `fetch` writes it.
 pub const TIMEOUT_TEXT: &str = "The operation was aborted due to timeout";
 
 /// A reply: the status and headers, and the body unless it was over the limit or broke off.
 #[derive(Debug)]
 pub struct Reply {
+    /// HTTP status code.
     pub status: u16,
+    /// Response headers.
     pub headers: http::HeaderMap,
+    /// Response body, or why it was not read.
     pub body: Result<Bytes, BodyError>,
 }
 
+/// Why a reply body was not read.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum BodyError {
+    /// The body went over the caller's limit.
     TooLarge,
+    /// The connection broke off; holds the error text.
     Failed(String),
 }
 
@@ -86,7 +93,7 @@ async fn exchange(url: &str, headers: &[(&str, &str)], limit: usize) -> Result<R
 
 #[cfg(test)]
 mod tests {
-    #![allow(clippy::unwrap_used)]
+    #![allow(clippy::unwrap_used, reason = "a panic is how a test fails")]
     use super::*;
     use tokio::io::{AsyncReadExt as _, AsyncWriteExt as _};
 

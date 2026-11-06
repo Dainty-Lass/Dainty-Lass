@@ -1,7 +1,7 @@
 //! Loads modules built as libraries ([`module_api::plugin`], RD27) and drives them as any other module: the bytes a
 //! library writes go through [`ChildModule`]'s frame protocol code, so they are checked as a child process's are
 //! (docs/security/plugin-host.md). The only crate in dainty-lass allowed unsafe code; every block of it is here.
-#![allow(unsafe_code)]
+#![allow(unsafe_code, reason = "loads plugin libraries and calls them across the C ABI")]
 
 use std::collections::HashMap;
 use std::ffi::c_void;
@@ -168,8 +168,11 @@ pub type CoreWriter = CallWriter<Box<dyn Fn(&[u8]) + Send + Sync>>;
 
 /// One open instance of a library, as two byte streams; [`Closer::close`] ends it.
 pub struct LibraryStream {
+    /// What the library writes, read by the core.
     pub reader: ChannelReader,
+    /// Writes calls to the library.
     pub writer: CoreWriter,
+    /// Ends this instance.
     pub closer: Closer,
 }
 
@@ -178,6 +181,7 @@ pub struct LibraryStream {
 pub struct Closer(Arc<Mutex<Option<Open>>>);
 
 impl Closer {
+    /// Closes the instance on a blocking thread and waits for it; later calls do nothing.
     pub async fn close(&self) {
         let taken = self.0.lock().unwrap_or_else(PoisonError::into_inner).take();
         if let Some(taken) = taken {

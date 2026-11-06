@@ -1,6 +1,8 @@
 // Copyright (c) 2026 Silent Spud
 // SPDX-License-Identifier: MIT
 
+//! Talking to servers: endpoints, pinned TLS, region ping, runtime downloads, game file checks and versions.
+
 pub mod hostapi;
 pub mod http;
 pub mod pinned;

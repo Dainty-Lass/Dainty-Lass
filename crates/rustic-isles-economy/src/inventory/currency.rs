@@ -77,8 +77,7 @@ pub(crate) fn apply_currency_deltas(
             if id == AETHERHEART && hearts > 0 && js::safe_integer(add.get("quantity")).is_some_and(|n| n > 0) {
                 let converted = trunc_i64(q).min(hearts);
                 hearts -= converted;
-                // `converted` is at most q, a safe integer
-                #[allow(clippy::cast_precision_loss)]
+                #[allow(clippy::cast_precision_loss, reason = "`converted` is at most q, a safe integer")]
                 let converted = converted as f64;
                 needed = q - converted;
             }
@@ -134,8 +133,10 @@ pub(crate) fn spend_banked_prestige(
         let track = repos
             .progression_tracks
             .get(tx.conn(), account, &source.progression_id)?;
-        // Stored counters are i64; as floats they stay exact well past any real track
-        #[allow(clippy::cast_precision_loss)]
+        #[allow(
+            clippy::cast_precision_loss,
+            reason = "stored counters are i64; as floats they stay exact well past any real track"
+        )]
         let (claimed_before, progress) = track.as_ref().map_or((0.0, 0.0), |t| {
             (t.prestige_claimed.unwrap_or(0) as f64, t.progress as f64)
         });

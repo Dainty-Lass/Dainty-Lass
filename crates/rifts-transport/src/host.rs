@@ -27,9 +27,12 @@ const FRAMES_PER_PUMP: usize = 64;
 const REJECT_LINGER: Duration = Duration::from_secs(1);
 const GAMEPLAY_PAYLOAD: &str = "{\"transport\":\"ice\"}";
 
+/// The host session's timeouts.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Timing {
+    /// How long a joiner's signal is held while its link is not open.
     pub held_signal_ttl: Duration,
+    /// How long a connected joiner has to be admitted.
     pub admission_deadline: Duration,
 }
 
@@ -46,35 +49,56 @@ impl Default for Timing {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct InvalidSession;
 
+/// What a session counted, reported in its stats lines.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct SessionCounters {
+    /// Links opened to joiners.
     pub connection_attempts: u64,
+    /// Joiners admitted.
     pub admitted: u64,
+    /// Admission requests refused.
     pub admission_rejected: u64,
+    /// Joiners that connected but never asked to be admitted in time.
     pub authentication_timeouts: u64,
+    /// Control frames that were not an admission request.
     pub malformed_control: u64,
+    /// Gameplay frames dropped from a joiner not yet admitted.
     pub pre_admission_gameplay_dropped: u64,
+    /// Admitted joiners whose link closed.
     pub disconnected: u64,
+    /// Signals refused: unknown, malformed or over a holding limit.
     pub signals_rejected: u64,
 }
 
 /// What a pump produced for the run to route: lines, signals for the launcher, Guard events, freed bridge slots.
 #[derive(Debug, Default)]
 pub struct Output {
+    /// Diagnostic lines.
     pub diagnostics: Vec<String>,
+    /// Peer event lines for the launcher.
     pub events: Vec<String>,
+    /// Signals for the launcher, as `(account, kind, data)`.
     pub signals: Vec<(String, String, String)>,
+    /// Guard events, as `(type, actor account, payload JSON)`.
     pub guard: Vec<(String, String, String)>,
+    /// Peer ids whose bridge slot is free again.
     pub disconnected: Vec<u64>,
 }
 
+/// What a host session is set up with.
 #[derive(Debug, Clone)]
 pub struct HostConfig {
+    /// The values the session is bound to.
     pub bindings: Bindings,
+    /// The most joiners at once.
     pub maximum_peers: usize,
+    /// Use TURN relays only.
     pub force_relay: bool,
+    /// The STUN server, if one is set.
     pub stun: Option<ServerAddr>,
+    /// The TURN relays.
     pub relays: Vec<RelayServer>,
+    /// The session's timeouts.
     pub timing: Timing,
 }
 
@@ -118,6 +142,7 @@ struct Notice {
 
 type Mailbox = Arc<Mutex<Vec<(u64, ConsumeAnswer)>>>;
 
+/// The host's side of a hunt: a link per joiner, admission over it and the backend consume.
 pub struct HostSession {
     config: HostConfig,
     key: VerifyingKey,
@@ -186,14 +211,17 @@ impl HostSession {
         Ok(session)
     }
 
+    /// What the pumps produced since the last take.
     pub fn take_output(&mut self) -> Output {
         std::mem::take(&mut self.out)
     }
 
+    /// The counters so far.
     pub fn counters(&self) -> SessionCounters {
         self.counters
     }
 
+    /// How many joiners are admitted now.
     pub fn admitted_count(&self) -> usize {
         self.peers
             .iter()
@@ -201,10 +229,12 @@ impl HostSession {
             .count()
     }
 
+    /// Every rostered joiner as `(account, peer id)`.
     pub fn roster(&self) -> Vec<(String, u64)> {
         self.peers.iter().map(|p| (p.account.clone(), p.peer_id)).collect()
     }
 
+    /// The most joiners at once.
     pub fn limit(&self) -> usize {
         self.config.maximum_peers
     }
@@ -226,6 +256,7 @@ impl HostSession {
         Ok(())
     }
 
+    /// Adds a joiner to the roster; refused as `invalid_peer`, `duplicate_account`, `duplicate_peer` or `full`.
     pub fn add_peer(&mut self, account: &str, peer_id: u64, pair_key: [u8; 32]) -> Result<(), &'static str> {
         self.validate(account, peer_id)?;
         if self.peers.len() >= self.config.maximum_peers {
@@ -646,14 +677,17 @@ impl HostSession {
         self.flush_notices();
     }
 
+    /// Takes the backend lane, so it can be drained off the session.
     pub fn take_lane(&mut self) -> Option<Lane> {
         self.lane.take()
     }
 
+    /// Puts a backend lane back, or none.
     pub fn set_lane(&mut self, lane: Option<Lane>) {
         self.lane = lane;
     }
 
+    /// Moves every link, admits or rejects joiners, and closes failed or timed-out ones.
     pub fn pump(&mut self, now: Instant) {
         self.settle();
         self.expire_held(now);
@@ -738,6 +772,7 @@ impl HostSession {
         self.flush_notices();
     }
 
+    /// The remote bridge's view of the admitted joiners.
     pub fn network(&mut self) -> HostNetwork<'_> {
         HostNetwork { session: self }
     }

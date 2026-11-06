@@ -31,8 +31,10 @@ pub use parse::{
     vswhere_msbuild,
 };
 
+/// The files a built runtime publishes: the runtime DLL and its loader.
 pub const RUNTIME_FILE_NAMES: [&str; 2] = ["Rustic-Isles.dll", "winmm.dll"];
 
+/// Game-data files the backend reads.
 pub const BACKEND_GAME_DATA: [&str; 7] = [
     "progression_config.json",
     "slayers_path.json",
@@ -43,6 +45,7 @@ pub const BACKEND_GAME_DATA: [&str; 7] = [
     "inventory_storage_policy.json",
 ];
 
+/// Game-data files the director reads.
 pub const DIRECTOR_GAME_DATA: [&str; 7] = [
     "player_hunts_table.json",
     "matchmaker_hunts_table.json",
@@ -53,8 +56,10 @@ pub const DIRECTOR_GAME_DATA: [&str; 7] = [
     "arena_elite_matchmaker_hunts_new.json",
 ];
 
+/// Where Dumper-7 writes its dumps.
 pub const DUMPER_OUTPUT_ROOT: &str = r"C:\Dumper-7";
 
+/// File name of the host executable for this OS.
 pub const HOST_BINARY: &str = if cfg!(windows) {
     "dainty-host.exe"
 } else {
@@ -69,26 +74,44 @@ const MAX_DUMP_DIRS: usize = 200;
 /// Canonical filesystem layout of a host workspace (submodule or flat checkout).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct WorkspacePaths {
+    /// The workspace root.
     pub root: PathBuf,
+    /// The runtime's C++ source (`native/runtime`).
     pub runtime_source: PathBuf,
+    /// `SDK.hpp` in the runtime source.
     pub sdk_header: PathBuf,
+    /// The imported SDK's folder.
     pub sdk_dir: PathBuf,
+    /// The runtime's Visual Studio solution.
     pub runtime_solution: PathBuf,
+    /// The built runtime DLL (`x64/Release`).
     pub runtime_dll: PathBuf,
+    /// The runtime loader's crate.
     pub loader_dir: PathBuf,
+    /// The built loader (`winmm.dll`), from the MSVC target folder unless only a plain release build exists.
     pub loader_dll: PathBuf,
+    /// The CatalogExporter's project file.
     pub exporter_project: PathBuf,
+    /// The built CatalogExporter DLL.
     pub exporter_dll: PathBuf,
+    /// The backend's game-data folder.
     pub backend_game_data: PathBuf,
+    /// The director's game-data folder.
     pub director_game_data: PathBuf,
+    /// The CatalogExporter's exports (`Items_Analysis`).
     pub exports: PathBuf,
+    /// Where the built runtime is published for the content server.
     pub publish: PathBuf,
+    /// The host kit's logs (`.workspace/logs`).
     pub logs: PathBuf,
+    /// `.workspace/config/host.toml`.
     pub host_toml: PathBuf,
+    /// Game-data packs (`.workspace/gamedata-packs`).
     pub gamedata_packs: PathBuf,
 }
 
 impl WorkspacePaths {
+    /// The layout under `root`, picking whichever of the module, restricted and legacy layouts is present.
     #[must_use]
     pub fn new(root: &Path) -> Self {
         let root = root.to_path_buf();
@@ -204,6 +227,7 @@ impl WorkspacePaths {
         }
     }
 
+    /// Path of the launcher's log for a job named `name`.
     #[must_use]
     pub fn launcher_log(&self, name: &str) -> PathBuf {
         self.logs.join(format!("launcher-{name}.log"))
@@ -213,13 +237,18 @@ impl WorkspacePaths {
 /// Detected Visual Studio / MSBuild and Rust Cargo toolchain on the host PC.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct Toolchain {
+    /// Display name of the Visual Studio install with the C++ workload.
     pub visual_studio: Option<String>,
+    /// Its major version, which picks the platform toolset.
     pub major_version: Option<u32>,
+    /// `MSBuild.exe`, when found.
     pub msbuild: Option<PathBuf>,
+    /// `cargo`, when found.
     pub cargo: Option<PathBuf>,
 }
 
 impl Toolchain {
+    /// The toolchain as the page shows it.
     #[must_use]
     pub fn view(&self) -> HostToolchain {
         HostToolchain {
@@ -233,13 +262,18 @@ impl Toolchain {
 /// Failure codes returned by [`import_sdk`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SdkError {
+    /// The dump has no `SDK.hpp`.
     NoHeader,
+    /// The workspace has no runtime source (`dllmain.cpp`).
     NoRuntimeSource,
+    /// The dump's SDK has no `*_functions.cpp` files.
     NoFunctions,
+    /// Copying the SDK failed.
     Io,
 }
 
 impl SdkError {
+    /// Catalog code of the failure, for the page.
     #[must_use]
     pub const fn code(self) -> &'static str {
         match self {
@@ -254,7 +288,9 @@ impl SdkError {
 /// Outcome of running an external tool via [`run_logged`].
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Logged {
+    /// The tool's exit code, -1 when it did not start or was killed.
     pub code: i32,
+    /// Last non-blank output line, bounded to 300 characters.
     pub last_line: Option<String>,
 }
 

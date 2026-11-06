@@ -25,6 +25,7 @@ use crate::layout::{
     sha256_hex,
 };
 
+/// What a [`restore_to`] may read and trust.
 #[derive(Debug, Clone)]
 pub struct RestoreOptions {
     /// A folder for a SQLite snapshot's file while it is read.
@@ -54,11 +55,14 @@ impl RestoreOptions {
     }
 }
 
+/// What a restore read and what it wrote.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct RestoreOutcome {
+    /// The key of the snapshot replayed from.
     pub snapshot: String,
     /// The segments read, in order.
     pub segments: Vec<String>,
+    /// What `store` reports for the replay.
     pub report: RestoreReport,
     /// The newest entry the segments read hold (id, time): when it is before the moment asked for, the
     /// shipped log ends there.

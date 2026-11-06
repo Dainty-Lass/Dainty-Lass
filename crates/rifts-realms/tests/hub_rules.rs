@@ -3,7 +3,7 @@
 
 //! The realm hub rules: identity, manifests, the state machine and its tick, ticket eligibility, capacity.
 
-#![allow(clippy::unwrap_used, clippy::expect_used)]
+#![allow(clippy::unwrap_used, clippy::expect_used, reason = "a panic is how a test fails")]
 
 mod common;
 

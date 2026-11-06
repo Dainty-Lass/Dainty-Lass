@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Silent Spud
 
 //! migrate and verify against the mock server (spec §16.2 D5 to D10, D13 to D15), on SQLite.
-#![allow(clippy::unwrap_used, clippy::expect_used)]
+#![allow(clippy::unwrap_used, clippy::expect_used, reason = "a panic is how a test fails")]
 
 mod common;
 

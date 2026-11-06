@@ -18,16 +18,24 @@ use crate::util::{self, MAX_SAFE, iso, json, now_ms, object, system_now_ms};
 const STEP_UP_WINDOW_MS: i64 = 15 * 60_000;
 const LEASE_MS: i64 = 2 * 3_600_000;
 
+/// The operations policy (§9).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Policy {
+    /// `ENFORCE` or `OBSERVE`.
     pub guard_enforcement: String,
+    /// `PRODUCTION` or `DEVELOPMENT`.
     pub diagnostics_profile: String,
+    /// Bumped by each change; 0 is the untouched default.
     pub version: u64,
+    /// When it last changed, ISO text.
     pub updated_at: Option<String>,
+    /// Who changed it.
     pub updated_by: Option<String>,
+    /// When `DEVELOPMENT` reverts to `PRODUCTION`, ISO text.
     pub diagnostics_expires_at: Option<String>,
 }
 
+/// The untouched policy: `ENFORCE`, `PRODUCTION`, version 0, never changed.
 pub fn default_policy() -> Policy {
     Policy {
         guard_enforcement: "ENFORCE".into(),
@@ -40,6 +48,7 @@ pub fn default_policy() -> Policy {
 }
 
 impl Policy {
+    /// The policy as the dashboard reads it.
     pub fn to_json(&self) -> Value {
         let mut pairs = vec![
             ("guardEnforcement", Value::from(self.guard_enforcement.clone())),
@@ -191,6 +200,7 @@ fn session_json(
     object(pairs)
 }
 
+/// `GET /admin/v1/operations/overview`: the policy and recent Guard sessions.
 pub async fn overview(ctx: AdminContext) -> Response {
     let read = ctx
         .store
@@ -227,13 +237,17 @@ enum Changed {
 fn whole_version(value: Option<&Value>) -> Option<u64> {
     let n = service_kit::js::number(value);
     (n.is_finite() && n.fract() == 0.0 && (0.0..=MAX_SAFE).contains(&n)).then(|| {
-        // Whole and inside 2^53
-        #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+        #[allow(
+            clippy::cast_possible_truncation,
+            clippy::cast_sign_loss,
+            reason = "whole and inside 2^53"
+        )]
         let v = n as u64;
         v
     })
 }
 
+/// `PATCH /admin/v1/operations/policy`: changes the policy, refusing a stale version.
 pub async fn update_policy(ctx: AdminContext) -> Response {
     let request = &ctx.request;
     let guard = request

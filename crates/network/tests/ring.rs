@@ -1,4 +1,4 @@
-#![allow(clippy::unwrap_used)]
+#![allow(clippy::unwrap_used, reason = "a panic is how a test fails")]
 
 //! Integration tests for DN6 (instance registry and wrong-node redirects), DN8 (four-region matchmaking
 //! ring, CAS ticket claims, allowlist feed, and XP/loot/bounty forwarding), and DN9 (regional Ramsgate

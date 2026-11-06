@@ -22,9 +22,13 @@ pub struct LegacyStarter {
     pub instanced: Vec<String>,
     /// `(slot key, catalog id)`: the kit's equipment, then the flask
     pub equipment: Vec<(String, String)>,
+    /// The starter banner's catalog id.
     pub banner: String,
+    /// The starter glider's catalog id.
     pub glider: String,
+    /// The dye a loadout's empty or missing dye slots get.
     pub default_dye: String,
+    /// The sigil a loadout banner without one gets.
     pub default_sigil: String,
 }
 

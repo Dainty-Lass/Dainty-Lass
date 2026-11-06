@@ -6,9 +6,14 @@
 //! start-up and stop, the game data root and loader, the replay clock and ids, and the composer seam that
 //! restricted's areas (and later the area crates) plug into. It hosts `rustic-isles-auth`.
 
-#![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used))]
-// A refusal is the answer itself (an axum `Response`), as in rustic-isles-auth, so it is not boxed
-#![allow(clippy::result_large_err)]
+#![cfg_attr(
+    test,
+    allow(clippy::unwrap_used, clippy::expect_used, reason = "a panic is how a test fails")
+)]
+#![allow(
+    clippy::result_large_err,
+    reason = "a refusal is the answer itself (an axum `Response`), as in rustic-isles-auth, so it is not boxed"
+)]
 
 pub mod body;
 pub mod composer;

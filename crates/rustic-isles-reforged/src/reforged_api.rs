@@ -29,14 +29,19 @@ const MAX_PLAYERS: usize = 500;
 
 // ------------------------------------------------------------------ rules (§5.1)
 
+/// Who may register (`REGISTRATION_MODE`).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum RegistrationMode {
+    /// Anyone.
     Open,
+    /// Only with an invite code; the default.
     InviteCode,
+    /// Nobody.
     None,
 }
 
 impl RegistrationMode {
+    /// Reads `REGISTRATION_MODE`, trimmed, any case; anything unknown is invite-only.
     pub fn from_settings(settings: &rustic_isles::Settings) -> Self {
         let raw = settings.raw("REGISTRATION_MODE").unwrap_or("");
         match raw.trim().to_uppercase().as_str() {
@@ -46,6 +51,7 @@ impl RegistrationMode {
         }
     }
 
+    /// The mode as `RegistrationStatus` answers it.
     pub fn as_str(self) -> &'static str {
         match self {
             Self::Open => "OPEN",
@@ -91,6 +97,7 @@ pub fn uniform_index(n: usize) -> usize {
     }
 }
 
+/// A fresh invite code: three groups of four characters joined with `-`.
 pub fn make_invite_code() -> String {
     make_invite_code_with(uniform_index)
 }
@@ -123,17 +130,25 @@ pub fn is_account_eligible(account: &LauncherAccountRecord) -> bool {
         && account.username_set != Some(false)
 }
 
+/// Why a Reforged API call was refused.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Refusal {
+    /// The body is not JSON, or a field is missing or wrong.
     BadRequest,
+    /// The invite code is unknown or used up.
     InviteInvalid,
+    /// No account has that name.
     NotFound,
+    /// Registration is off.
     RegistrationClosed,
+    /// The username breaks the rules.
     UsernameInvalid,
+    /// The username is taken.
     UsernameTaken,
 }
 
 impl Refusal {
+    /// The error code in the body.
     pub fn code(self) -> &'static str {
         match self {
             Self::BadRequest => "bad_request",
@@ -145,6 +160,7 @@ impl Refusal {
         }
     }
 
+    /// The message in the body.
     pub fn message(self) -> &'static str {
         match self {
             Self::BadRequest => "The body is not JSON, or a field is missing or has the wrong type.",
@@ -156,6 +172,7 @@ impl Refusal {
         }
     }
 
+    /// `{"error","message"}`.
     pub fn body(self) -> Value {
         object(vec![
             ("error", Value::from(self.code())),
@@ -163,6 +180,7 @@ impl Refusal {
         ])
     }
 
+    /// The body with the status.
     pub fn response(self, status: StatusCode) -> Response {
         json(status, &self.body())
     }
@@ -170,16 +188,23 @@ impl Refusal {
 
 // ------------------------------------------------------------------ the account key's holder (§3.3)
 
+/// The holder of an account key.
 #[derive(Debug, Clone)]
 pub struct Holder {
+    /// The game account.
     pub account: AccountId,
+    /// The game account's userId, else the account id text.
     pub user_id: String,
+    /// The display name, else the game name, else the userId.
     pub username: String,
+    /// Whether the launcher account has the `admin` role.
     pub admin: bool,
+    /// The launcher account, if any.
     pub launcher: Option<LauncherAccountRecord>,
 }
 
 impl Holder {
+    /// Whether the holder may use the key: no launcher account, or an eligible one.
     pub fn eligible(&self) -> bool {
         self.launcher.as_ref().is_none_or(is_account_eligible)
     }
@@ -242,6 +267,7 @@ pub async fn announce(shared: &Shared, account: &AccountId, key: &str, username:
 
 // ------------------------------------------------------------------ routes
 
+/// `GET /reforged/api/RegistrationStatus`: the registration mode.
 pub async fn registration_status(call: Call) -> Response {
     let mode = RegistrationMode::from_settings(call.shared.settings());
     util::ok(&object(vec![("mode", Value::from(mode.as_str()))]))
@@ -263,6 +289,7 @@ fn is_unique_violation(error: &RepoError) -> bool {
     ) || matches!(error, RepoError::Data(text) if text == TAKEN)
 }
 
+/// `POST /reforged/api/Register`: creates an account and its key.
 pub async fn register(call: Call) -> Response {
     let Call {
         shared,
@@ -380,6 +407,7 @@ pub async fn register(call: Call) -> Response {
     util::with_header(response, "x-reforged-account-id", &account.to_string())
 }
 
+/// `GET /reforged/api/GetUserInfo`: the key holder's account.
 pub async fn get_user_info(call: Call) -> Response {
     let Some(store) = store_of(&call.shared) else {
         return util::no_store(call.route, &call.request_id);
@@ -415,6 +443,7 @@ pub async fn get_user_info(call: Call) -> Response {
     util::with_header(util::ok(&body), "x-reforged-account-id", &holder.account.to_string())
 }
 
+/// `GET /reforged/api/ServerStatus`: the server's status, the full view for an eligible key holder.
 pub async fn server_status(call: Call) -> Response {
     let Some(store) = store_of(&call.shared) else {
         return util::no_store(call.route, &call.request_id);
@@ -473,14 +502,19 @@ pub fn source_url(raw: Option<&str>) -> Option<String> {
     Some(format!("https://{}{tail}", authority.to_lowercase()))
 }
 
+/// What the backend game data folder holds.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum GameDataKind {
+    /// A file or the folder is missing.
     Missing,
+    /// A file is byte-equal to its `.example.json`.
     Synthetic,
+    /// Every file is the host's own.
     Real,
 }
 
 impl GameDataKind {
+    /// The kind as `ServerStatus` answers it.
     pub fn as_str(self) -> &'static str {
         match self {
             Self::Missing => "missing",
@@ -576,8 +610,11 @@ pub fn instance_title(kind: &str, map: &str, behemoth: Option<&str>) -> String {
 fn positive_floor(value: Option<&Value>) -> u64 {
     match value.and_then(Value::as_f64) {
         Some(n) if n.is_finite() && n > 0.0 => {
-            // Floored and positive; a huge value saturates
-            #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+            #[allow(
+                clippy::cast_possible_truncation,
+                clippy::cast_sign_loss,
+                reason = "floored and positive; a huge value saturates"
+            )]
             let out = n.floor() as u64;
             out
         }

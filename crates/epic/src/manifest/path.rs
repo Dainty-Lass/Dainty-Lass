@@ -9,22 +9,31 @@ use std::path::{Path, PathBuf};
 #[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
 #[non_exhaustive]
 pub enum PathProblem {
+    /// The name is empty.
     #[error("the name is empty")]
     Empty,
+    /// The name starts with `/`.
     #[error("the name starts at a root")]
     Absolute,
+    /// The name has a backslash.
     #[error("the name has a backslash")]
     Backslash,
+    /// The name has a colon: a drive or a stream.
     #[error("the name has a colon (a drive or a stream)")]
     Colon,
+    /// The name has a control character or one of `<`, `>`, `"`, `|`, `?` and `*`.
     #[error("the name has a control character or one of < > \" | ? *")]
     Character,
+    /// Two slashes in a row, or a trailing one.
     #[error("the name has an empty component")]
     EmptyComponent,
+    /// A `.` or `..` component.
     #[error("the name has a . or .. component")]
     DotComponent,
+    /// A component ends in a dot or a space, which Windows drops.
     #[error("a component ends in a dot or a space")]
     TrailingDotOrSpace,
+    /// A component is a Windows device name (`CON`, `NUL.txt`).
     #[error("a component is a Windows device name")]
     DeviceName,
 }
@@ -34,6 +43,7 @@ pub enum PathProblem {
 pub struct InstallPath(String);
 
 impl InstallPath {
+    /// Checks a manifest's file name against the rules above.
     pub fn new(name: &str) -> Result<Self, PathProblem> {
         if name.is_empty() {
             return Err(PathProblem::Empty);
@@ -59,10 +69,12 @@ impl InstallPath {
         Ok(Self(name.to_owned()))
     }
 
+    /// The name as the manifest gives it, `/`-separated.
     pub fn as_str(&self) -> &str {
         &self.0
     }
 
+    /// The name's components, in order.
     pub fn components(&self) -> impl Iterator<Item = &str> {
         self.0.split('/')
     }

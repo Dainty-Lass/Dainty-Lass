@@ -56,6 +56,7 @@ fn node_id(row: &Value) -> Option<&str> {
     row.get("nodeId").and_then(Value::as_str).filter(|s| !s.is_empty())
 }
 
+/// Replaces `target`'s `payload.nodes` with one locked node per exported journey node; without `apply` it is a dry run that only reports.
 pub fn generate_slayers_path(export: &Path, target: &Path, apply: bool) -> Result<String, String> {
     let rows = read_export(export, true)?;
     if !target.is_file() {
@@ -167,6 +168,7 @@ pub(crate) fn definition(row: &Value) -> Option<Value> {
     Some(Value::Object(out))
 }
 
+/// Writes the journey node definitions to `target`, naming the export `source_version` in the report; without `apply` it is a dry run that only reports.
 pub fn generate_slayers_path_definitions(
     export: &Path,
     target: &Path,

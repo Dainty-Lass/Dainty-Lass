@@ -1,7 +1,7 @@
 //! The registry's verify (DF3): two modules for one game version refused in either order, a module killed
 //! mid-run shown failed and restarted on command, nothing left running after stop; and what a load does
 //! between: ports moved off a clash, host.toml's settings, the bus, core plugins, plugins on a game module.
-#![allow(clippy::unwrap_used, clippy::expect_used)] // test helpers
+#![allow(clippy::unwrap_used, clippy::expect_used, reason = "a panic is how a test fails")]
 
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};

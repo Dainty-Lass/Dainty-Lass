@@ -1,6 +1,6 @@
 //! History across a server's databases (DD23, DH3b): one cursor over several logs, the words people type.
 
-#![allow(clippy::unwrap_used, clippy::expect_used)] // test helpers
+#![allow(clippy::unwrap_used, clippy::expect_used, reason = "a panic is how a test fails")]
 
 use admin::history::{self, HistorySet, Selection, parse_actor, parse_time};
 use admin::keys::{Keys, Role};

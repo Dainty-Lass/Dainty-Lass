@@ -31,16 +31,22 @@ const MAX_REPLY: usize = 64 * 1024 * 1024;
 const TIMEOUT: Duration = Duration::from_secs(30);
 const BATCH: i32 = 500;
 
+/// Why a MongoDB operation failed.
 #[derive(Debug, thiserror::Error)]
 pub enum MongoError {
+    /// The URI could not be parsed.
     #[error("invalid MongoDB URI: {0}")]
     InvalidUri(String),
+    /// Connecting, reading or writing the socket failed.
     #[error("MongoDB I/O error: {0}")]
     Io(#[from] std::io::Error),
+    /// A reply was not valid BSON.
     #[error("BSON decode error: {0}")]
     Bson(String),
+    /// A command failed, or a request could not be encoded.
     #[error("MongoDB command error: {0}")]
     Command(String),
+    /// The server refused the credentials.
     #[error("MongoDB authentication failed: {0}")]
     Auth(String),
 }
@@ -264,6 +270,7 @@ impl MongoClient {
         }
     }
 
+    /// The database the URI names (`dauntless` when it names none).
     pub fn database(&self) -> &str {
         &self.database
     }
@@ -329,6 +336,7 @@ pub struct MongoWriter {
 
 #[cfg(feature = "export-mongo")]
 impl MongoWriter {
+    /// The first host that connects, answers `hello` and (with credentials) authenticates.
     pub fn connect(uri: &MongoUri) -> Result<Self, MongoError> {
         Ok(Self {
             conn: connect(uri)?,

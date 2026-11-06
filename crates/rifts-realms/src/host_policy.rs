@@ -27,8 +27,10 @@ pub struct ArtifactSources {
     pub guard_artifacts: Option<Vec<(String, String)>>,
 }
 
+/// The artifact hashes a host must run, and any warnings about them.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct ArtifactPolicy {
+    /// The expected hashes.
     pub hashes: ArtifactHashes,
     /// One operator warning per pin that disagrees with the feed.
     pub stale_pins: Vec<String>,
@@ -151,6 +153,7 @@ fn resolve(settings: &dyn Settings, names: &[&str], feed: Option<String>, stale:
     Some(pinned)
 }
 
+/// The expected hashes from the pins in the settings and the feed; `Err` names the first missing or invalid one.
 pub fn read_artifact_policy(settings: &dyn Settings, sources: &ArtifactSources) -> Result<ArtifactPolicy, String> {
     let mut policy = ArtifactPolicy::default();
     let feeds = feed_hashes(settings, sources);
@@ -199,6 +202,7 @@ fn values(h: &ArtifactHashes) -> [&String; 6] {
     ]
 }
 
+/// Whether every actual hash is a 64-digit hex SHA-256 equal to the expected one, ignoring case.
 pub fn artifact_hashes_match(actual: &ArtifactHashes, expected: &ArtifactHashes) -> bool {
     std::iter::zip(values(actual), values(expected)).all(|(got, want)| is_sha256(got) && got.eq_ignore_ascii_case(want))
 }
@@ -276,9 +280,11 @@ macro_rules! eligibility_policy {
     (|$s:ident| { $( $field:ident: $ty:ty = $read:expr ),* $(,)? }) => {
         /// The host checks' thresholds (Node's `ReadP2PHostEligibilityPolicy`).
         #[derive(Clone, Debug, PartialEq)]
+        #[allow(missing_docs, reason = "the field table takes no attributes; each field sits beside its setting below")]
         pub struct EligibilityPolicy { $( pub $field: $ty, )* }
 
         impl EligibilityPolicy {
+            /// Reads every threshold; a missing or out-of-range value takes its default.
             pub fn from_settings($s: &dyn Settings) -> Self {
                 Self { $( $field: $read, )* }
             }

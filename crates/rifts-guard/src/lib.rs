@@ -6,7 +6,10 @@
 //! Guard traffic, the host route census and two admin operations routes. Nothing here grants or withholds a
 //! reward: the chain is observed, and every would-be refusal of the host policy is logged unless it enforces.
 
-#![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used))]
+#![cfg_attr(
+    test,
+    allow(clippy::unwrap_used, clippy::expect_used, reason = "a panic is how a test fails")
+)]
 
 pub mod census;
 pub mod evidence;
@@ -147,16 +150,20 @@ impl Refuse {
 /// What Guard says a completed hunt earned: in observe mode, nothing.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct HuntVerdict {
+    /// Whether the hunt's progression was applied; always false in observe mode.
     pub progression_applied: bool,
+    /// Whether the hunt's rewards were applied; always false in observe mode.
     pub rewards_applied: bool,
 }
 
 impl HuntVerdict {
+    /// Nothing applied, the only verdict observe mode gives.
     pub const OBSERVED: Self = Self {
         progression_applied: false,
         rewards_applied: false,
     };
 
+    /// The verdict as `{"progressionApplied":..,"rewardsApplied":..}`.
     pub fn to_json(&self) -> Json {
         let Self {
             progression_applied: progression,
@@ -168,33 +175,56 @@ impl HuntVerdict {
     }
 }
 
+/// Whether a hunt has a reward policy Guard could grant against.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum RewardPolicyStatus {
-    Ready { version: String, digest: String },
-    NotReady { reason: &'static str },
+    /// A policy is loaded.
+    Ready {
+        /// The policy's version.
+        version: String,
+        /// The policy's digest.
+        digest: String,
+    },
+    /// No policy is loaded.
+    NotReady {
+        /// Why, such as `ANTICHEAT_MODULE_ABSENT`.
+        reason: &'static str,
+    },
 }
 
+/// The Hunt Guard evidence routes a host's transport and the launcher call.
 pub trait EvidenceIntake: Send + Sync {
+    /// Appends one evidence batch to the runtime's chain and answers with its new head.
     fn submit_evidence(&self, runtime: RuntimeAuth, body: Json) -> BoxFuture<'_, Result<Json, GuardError>>;
+    /// Closes the runtime's chain at its final sequence and hash.
     fn complete(&self, runtime: RuntimeAuth, body: Json) -> BoxFuture<'_, Result<Json, GuardError>>;
+    /// What a completed generation earned, `None` before completion.
     fn verdict(&self, session: SessionId, generation: u64) -> BoxFuture<'_, Result<Option<HuntVerdict>, GuardError>>;
+    /// A member's reward receipt for a generation, `None` when there is none.
     fn reward_receipt(
         &self,
         session: SessionId,
         generation: u64,
         account: AccountId,
     ) -> BoxFuture<'_, Result<Option<Json>, GuardError>>;
+    /// Records a shadow reward comparison, keyed by the shadow key.
     fn record_shadow_comparison(&self, key: Option<Secret>, body: Json) -> BoxFuture<'_, Result<Json, GuardError>>;
 }
 
+/// The answer to a charge against the Guard traffic limits.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum TrafficDecision {
+    /// Within both the host's and the session's windows.
     Accepted,
+    /// Over a window's request or byte bound.
     RateLimited,
+    /// The shared store could not be reached.
     Unavailable,
 }
 
+/// Bounds the Guard traffic each host and session may send.
 pub trait TrafficLimits: Send + Sync {
+    /// Charges one request of `bytes` to the host's and the session's windows.
     fn charge(
         &self,
         host: AccountId,
@@ -203,13 +233,16 @@ pub trait TrafficLimits: Send + Sync {
     ) -> BoxFuture<'_, Result<TrafficDecision, GuardError>>;
 }
 
+/// The admin operations routes.
 pub trait GuardOperations: Send + Sync {
+    /// Sets the reward rollout flags behind the admin key, auditing the change from `ip`.
     fn set_reward_rollout(
         &self,
         admin_key: String,
         body: Option<Value>,
         ip: String,
     ) -> BoxFuture<'_, Result<Reply, GuardError>>;
+    /// Acknowledges an operator alert behind the admin key, auditing it from `ip`.
     fn acknowledge_alert(
         &self,
         admin_key: String,
@@ -221,12 +254,19 @@ pub trait GuardOperations: Send + Sync {
 
 /// What Guard is built from.
 pub struct GuardParts {
+    /// Guard's settings.
     pub config: GuardConfig,
+    /// Chains, traffic windows, host writes and alerts.
     pub store: Arc<dyn GuardStore>,
+    /// The hunt sessions Guard checks runtimes against.
     pub hunts: Arc<dyn HuntSessions>,
+    /// The operations policy and its audit log.
     pub operations: Arc<dyn OperationsPolicyPort>,
+    /// The Isles core Guard answers for.
     pub core: Arc<dyn IslesCore>,
+    /// The time and new record ids.
     pub clock: Arc<dyn Clock>,
+    /// Where Guard's lines go.
     pub log: Arc<dyn GuardLog>,
 }
 
@@ -237,6 +277,7 @@ struct Bucket {
     answer: Option<String>,
 }
 
+/// Rustic Rifts' Guard: the evidence chain, host policy, traffic bounds and census over one store.
 pub struct Guard {
     parts: GuardParts,
     census: HostRouteCensus,
@@ -260,6 +301,7 @@ fn held<T>(lock: &Mutex<T>) -> MutexGuard<'_, T> {
 }
 
 impl Guard {
+    /// A Guard over these parts; the census switch comes from the config.
     pub fn new(parts: GuardParts) -> Self {
         Self {
             census: HostRouteCensus::new(parts.config.census),
@@ -270,10 +312,12 @@ impl Guard {
         }
     }
 
+    /// The settings Guard was built with.
     pub fn config(&self) -> &GuardConfig {
         &self.parts.config
     }
 
+    /// The in-flight request bound the hunt routes share.
     pub fn request_budget(&self) -> &RequestBudget {
         &self.budget
     }
@@ -298,10 +342,12 @@ impl Guard {
         self.parts.config.host_policy_refuses()
     }
 
+    /// Counts one hosted runtime's route call in the census.
     pub fn record_census(&self, sample: &HostRouteSample) {
         self.census.record(sample);
     }
 
+    /// Logs the census window's summary line, if it saw traffic, and starts a new window.
     pub fn flush_census(&self) {
         let Some(line) = self.census.flush() else {
             return;
@@ -339,6 +385,7 @@ impl Guard {
         Ok(())
     }
 
+    /// The chain of this hunt generation as stored, `None` when none was opened.
     pub fn chain_status(&self, session: &SessionId, generation: u64) -> Result<Option<ChainRecord>, GuardError> {
         self.store().chain(session, generation).map_err(GuardError::from)
     }
@@ -436,6 +483,7 @@ impl Guard {
         Err(refusal.error)
     }
 
+    /// Appends a parsed batch body to the runtime's chain, retrying a lost race a few times.
     pub fn submit_parsed(&self, runtime: &RuntimeAuth, body: Option<&Value>) -> Result<Json, GuardError> {
         let hunt = self.evidence_gate(runtime)?;
         let batch = parse_batch(body).map_err(BatchProblem::into_error)?;
@@ -449,6 +497,7 @@ impl Guard {
         Err(Refuse::Conflict.error())
     }
 
+    /// Completes the runtime's chain from a parsed body, retrying a lost race a few times.
     pub fn complete_parsed(&self, runtime: &RuntimeAuth, body: Option<&Value>) -> Result<Json, GuardError> {
         self.evidence_gate(runtime)?;
         let request = parse_completion(body)?;

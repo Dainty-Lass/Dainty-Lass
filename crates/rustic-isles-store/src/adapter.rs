@@ -28,6 +28,7 @@ pub struct IslesAuthStore {
 }
 
 impl IslesAuthStore {
+    /// The auth store over `store`.
     pub fn new(store: IslesStore) -> Self {
         Self { store }
     }

@@ -1,7 +1,13 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Silent Spud
 
-#![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used))]
+//! Storage for the services: SQLite or Postgres through Diesel, schema migrations and Drizzle adoption, the
+//! hash-chained change log with revert, and backup, snapshot and restore.
+
+#![cfg_attr(
+    test,
+    allow(clippy::unwrap_used, clippy::expect_used, reason = "a panic is how a test fails")
+)]
 
 pub mod adopt;
 pub mod backup;
@@ -37,8 +43,10 @@ pub use readonly::{open_read_only, schema_version};
 pub use revert::{AccountColumn, Cursor, Filter, RevertOutcome, RevertPlan};
 pub use snapshot::schema_snapshot;
 
+/// The SQLite connection a [`Store`] hands its closures.
 pub type Connection = diesel::SqliteConnection;
 
+/// A SQLite database in WAL mode: one writer connection and a pool of query-only readers; cheap to clone.
 #[derive(Clone)]
 pub struct Store {
     writer_pool: Pool<ConnectionManager<Connection>>,
@@ -48,6 +56,7 @@ pub struct Store {
 }
 
 impl Store {
+    /// Opens `path`, creating it if needed, and migrates it to `schema` before any pool connection opens.
     pub fn open(path: &Path, options: &Options, schema: &Schema) -> Result<Self, Error> {
         let dsn = path.to_string_lossy().into_owned();
         {
@@ -85,6 +94,7 @@ impl Store {
         })
     }
 
+    /// Runs `f` in a transaction on a query-only reader connection, off the async threads.
     pub async fn read<T, E, F>(&self, f: F) -> Result<T, E>
     where
         F: FnOnce(&mut Connection) -> Result<T, E> + Send + 'static,
@@ -99,6 +109,7 @@ impl Store {
         .await
     }
 
+    /// Runs `f` in an immediate transaction on the one writer connection, off the async threads.
     pub async fn write<T, E, F>(&self, f: F) -> Result<T, E>
     where
         F: FnOnce(&mut Connection) -> Result<T, E> + Send + 'static,
@@ -113,6 +124,7 @@ impl Store {
         .await
     }
 
+    /// Truncates the write-ahead log into the database file.
     pub async fn checkpoint(&self) -> Result<(), Error> {
         let pool = self.writer_pool.clone();
         database::run_blocking(move || {
@@ -137,9 +149,12 @@ pub fn migrate(conn: &mut Connection, schema: &Schema) -> Result<(), Error> {
     adopt::apply_schema(conn, schema)
 }
 
+/// How a [`Store`] opens its connections.
 #[derive(Debug, Clone)]
 pub struct Options {
+    /// Reader connections in the pool (at least one); 4 by default.
     pub read_connections: u32,
+    /// How long a connection waits on a locked database; 5 s by default.
     pub busy_timeout: Duration,
 }
 
@@ -152,34 +167,49 @@ impl Default for Options {
     }
 }
 
+/// Every way a store operation fails.
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
+    /// A query failed.
     #[error("database: {0}")]
     Query(#[from] diesel::result::Error),
+    /// A connection could not be opened.
     #[error("database connection: {0}")]
     Connection(#[from] diesel::ConnectionError),
+    /// No pooled connection was available.
     #[error("database pool: {0}")]
     Pool(#[from] diesel::r2d2::PoolError),
+    /// A migration failed to apply.
     #[error("migration: {0}")]
     Migration(String),
+    /// The database holds a schema the migrations cannot take over.
     #[error("the database can't be adopted: {0}")]
     Adoption(String),
+    /// A backup could not be made.
     #[error("backup: {0}")]
     Backup(String),
+    /// The database settings are invalid.
     #[error("database settings: {0}")]
     Config(String),
+    /// The schema is not what the store expects.
     #[error("schema: {0}")]
     Schema(String),
+    /// An [`Actor`] whose text form does not read back as itself.
     #[error("not an actor the change log can record: {0:?}")]
     Actor(String),
+    /// `db move` could not copy a database.
     #[error("db move: {0}")]
     Move(String),
+    /// A revert or history request was refused.
     #[error("revert: {0}")]
     Revert(String),
+    /// The history changed between a revert's dry run and its apply.
     #[error("the history changed since the dry run: run it again")]
     PlanChanged,
+    /// A restore could not be done.
     #[error("restore: {0}")]
     Restore(String),
+    /// The blocking task running a closure panicked.
     #[error("the database task panicked")]
     Panicked,
 }

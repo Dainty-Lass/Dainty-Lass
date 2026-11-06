@@ -27,18 +27,26 @@ use crate::HostError;
 use crate::files::{ADMISSION_PUBLIC_KEY_FILE, DISABLE_COOP_FLAG_FILE, SESSION_FILES};
 use crate::transport::{ABI_VERSION, Handle, HostOpen, JoinOpen, ReadyState, SessionResult, TransportAbi};
 
+/// Hosting and joining realm sessions from the launcher.
 pub trait RealmHosting: Send + Sync {
+    /// Whether co-op can run now: no opt-out flag, the right transport ABI and networking ready.
     fn coop_available(&self) -> BoxFuture<'_, Result<bool, HostError>>;
+    /// Hosts a hunt: bootstraps it, writes its folder, opens the transport and starts the server.
     fn host_hunt(&self, account: AccountId, session: SessionId) -> BoxFuture<'_, Result<LocalSession, HostError>>;
+    /// Joins a hunt hosted by another player.
     fn join_hunt(&self, account: AccountId, session: SessionId) -> BoxFuture<'_, Result<LocalSession, HostError>>;
+    /// Starts a hub of this kind under these limits.
     fn start_hub(
         &self,
         account: AccountId,
         kind: HubKind,
         limits: HubLimits,
     ) -> BoxFuture<'_, Result<LocalSession, HostError>>;
+    /// Stops this account's hub of this kind.
     fn stop_hub(&self, account: AccountId, kind: HubKind) -> BoxFuture<'_, Result<(), HostError>>;
+    /// Stops a local session and its server.
     fn stop(&self, session: SessionId) -> BoxFuture<'_, Result<(), HostError>>;
+    /// Every local session, states refreshed from the transport.
     fn sessions(&self) -> BoxFuture<'_, Result<Vec<LocalSession>, HostError>>;
 }
 
@@ -227,6 +235,7 @@ fn bool_text(value: bool) -> &'static str {
 }
 
 impl LocalRealmHosting {
+    /// Hosting over this transport with the local backend, which spawns no server.
     pub fn new(
         app_local_data: impl Into<PathBuf>,
         game_dir: impl Into<PathBuf>,
@@ -241,6 +250,7 @@ impl LocalRealmHosting {
         )
     }
 
+    /// Hosting over this transport, backend and server spawner.
     pub fn with_backend_and_spawner(
         app_local_data: impl Into<PathBuf>,
         game_dir: impl Into<PathBuf>,
@@ -259,12 +269,14 @@ impl LocalRealmHosting {
         }
     }
 
+    /// How long opening a session waits for the transport's ready line, in milliseconds.
     #[must_use]
     pub fn with_wait_ready_timeout_ms(mut self, timeout_ms: u32) -> Self {
         self.wait_ready_timeout_ms = timeout_ms;
         self
     }
 
+    /// The session's folder, while the session is recorded.
     pub fn session_directory(&self, session: &SessionId) -> Option<PathBuf> {
         locked(&self.sessions).get(session).map(|r| r.directory.clone())
     }
@@ -274,6 +286,7 @@ impl LocalRealmHosting {
         locked(&self.sessions).get(session).map(|r| r.environment.clone())
     }
 
+    /// The loopback port the local game client connects to, 0 when none does.
     pub fn session_local_port(&self, session: &SessionId) -> Option<u16> {
         locked(&self.sessions).get(session).map(|r| r.local_port)
     }

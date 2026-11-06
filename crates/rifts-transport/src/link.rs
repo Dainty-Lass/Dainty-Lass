@@ -32,6 +32,7 @@ use crate::fragment::{self, Piece, Reassembler};
 use crate::seal::{FrameType, PairCipher, Side};
 use crate::url::ServerAddr;
 
+/// The largest signal a link accepts, in bytes.
 pub const MAX_SIGNAL_BYTES: usize = 4096;
 const MAX_OUTGOING_SIGNALS: usize = 64;
 const MAX_EARLY_CANDIDATES: usize = 32;
@@ -42,39 +43,60 @@ const READS_PER_PUMP: usize = 256;
 const GATHER_LIMIT: Duration = Duration::from_secs(10);
 const ICE_OPTIONS: &str = "ice2,trickle";
 
+/// One TURN relay and its credentials.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RelayServer {
+    /// The relay's host and port.
     pub server: ServerAddr,
+    /// The TURN username.
     pub username: String,
+    /// The TURN credential; never printed.
     pub credential: String,
 }
 
+/// What a link is set up with.
 #[derive(Debug, Clone)]
 pub struct LinkConfig {
+    /// Which end of the pair this link is, which picks the seal's direction keys.
     pub side: Side,
+    /// The 32-byte key sealing every frame.
     pub pair_key: Vec<u8>,
+    /// The STUN server, if one is set.
     pub stun: Option<ServerAddr>,
+    /// The TURN relays.
     pub relays: Vec<RelayServer>,
+    /// Offer and accept relay candidates only.
     pub force_relay: bool,
 }
 
+/// Where a link is in its life.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum LinkState {
+    /// Created, not started.
     New,
+    /// Waiting for the peer's description.
     Gathering,
+    /// Both descriptions set; checking candidate pairs.
     Connecting,
+    /// A pair was selected; frames may flow.
     Connected,
+    /// ICE failed; the link carries nothing more.
     Failed,
+    /// Stopped by its owner.
     Closed,
 }
 
+/// How a connected link reaches its peer.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Route {
+    /// Through a TURN relay at either end.
     Relay,
+    /// Host or reflexive candidates at both ends.
     Direct,
 }
 
 impl Route {
+    /// `relay` or `direct`, as diagnostics name it.
     pub fn as_str(self) -> &'static str {
         match self {
             Self::Relay => "relay",
@@ -83,6 +105,7 @@ impl Route {
     }
 }
 
+/// The SDP name of a candidate type, such as `srflx`.
 pub fn candidate_type_name(kind: CandidateType) -> &'static str {
     match kind {
         CandidateType::Host => "host",
@@ -93,10 +116,14 @@ pub fn candidate_type_name(kind: CandidateType) -> &'static str {
     }
 }
 
+/// What a link failed to send or deliver.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct LinkCounters {
+    /// Frames that could not be sealed or sent.
     pub send_failures: u64,
+    /// Frames that failed to open or were not valid pieces.
     pub frames_rejected: u64,
+    /// Messages dropped with the receive queue full, partial messages evicted included.
     pub queue_drops: u64,
 }
 
@@ -182,6 +209,7 @@ fn parse_candidate(line: &str) -> Option<Candidate> {
     unmarshal_candidate(body).ok()
 }
 
+/// One ICE link to one peer, carrying sealed frames once connected.
 pub struct Link {
     side: Side,
     force_relay: bool,
@@ -520,6 +548,7 @@ impl Link {
         self.outgoing.drain(..).collect()
     }
 
+    /// Whether the peer's description was applied.
     pub fn has_remote_description(&self) -> bool {
         self.remote_set
     }
@@ -819,6 +848,7 @@ impl Link {
         self.received.drain(..count).collect()
     }
 
+    /// Where the link is in its life.
     pub fn state(&self) -> LinkState {
         self.state
     }
@@ -841,6 +871,7 @@ impl Link {
         })
     }
 
+    /// What the link failed to send or deliver so far.
     pub fn counters(&self) -> LinkCounters {
         LinkCounters {
             queue_drops: self.counters.queue_drops + self.reassembler.queue_drops,
@@ -848,6 +879,7 @@ impl Link {
         }
     }
 
+    /// Closes the TURN allocations and sockets; the link carries nothing more.
     pub fn stop(&mut self) {
         if self.state == LinkState::Closed {
             return;

@@ -171,7 +171,7 @@ pub fn insert_rows(table: &str, columns: &[&str], rows: usize) -> String {
 
 #[cfg(test)]
 mod tests {
-    #![allow(clippy::unwrap_used)]
+    #![allow(clippy::unwrap_used, reason = "a panic is how a test fails")]
 
     use super::*;
 

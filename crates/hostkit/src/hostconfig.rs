@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Silent Spud
 
+//! The server's configuration: `host.toml` (or a host.json, .yaml, .yml) read, validated and written back,
+//! `secrets.env`, and the per-service env files `setup` builds from the two.
+
 pub mod env;
 pub mod guard;
 pub mod logs;
@@ -22,13 +25,16 @@ use crate::envfile::{EnvDocument, EnvMap, format_env, parse_env};
 use crate::error::HostError;
 use crate::paths::{MAX_HUNTS, PINNED_EXE_SHA256, PORTS, Paths, game_exe_relative, game_port_range};
 
+/// The SQLite store's file name, in the config folder.
 pub const DATABASE_FILE: &str = "dainty-lass.db";
+/// The Linux options when host.toml has no `linux` section.
 pub const DEFAULT_LINUX: LinuxOptions = LinuxOptions {
     wine: None,
     proton: None,
     xvfb: true,
     firewall_interface: None,
 };
+/// The game-server options when host.toml has no `performance` section.
 pub const DEFAULT_PERFORMANCE: PerformanceOptions = PerformanceOptions {
     server_fps: 30,
     idle_fps: 10,
@@ -39,9 +45,13 @@ pub const DEFAULT_PERFORMANCE: PerformanceOptions = PerformanceOptions {
     min_free_memory_mb: 1024,
     hunt_memory_mb: 1536,
 };
+/// `GAMESERVER_LOG_CMDS` for quiet game logs: the noisy categories turned down.
 pub const QUIET_GAME_LOG_CMDS: &str = "LogPhoenixCharacter Warning, LogOnline Warning, LogLoad Off";
+/// The largest XP or reward multiplier host.toml takes.
 pub const MAX_MULTIPLIER: f64 = 100.0;
+/// The MongoDB a server migrates pre-cutover data from when host.toml names none.
 pub const DEFAULT_MONGO_URI: &str = "mongodb://127.0.0.1:27017/?replicaSet=rs0";
+/// TCP ports the server's own services hold; no module or public port may take one.
 pub const RESERVED_PORTS: [u16; 8] = [
     PORTS.backend,
     PORTS.director,
@@ -54,8 +64,11 @@ pub const RESERVED_PORTS: [u16; 8] = [
 ];
 /// `edition` is read only to refuse the 1.4.4 ones; `reborn` is dropped when the file is next written
 pub const EDITION_REMOVED: &str = "edition \"legacy\" and \"both\" ran Dauntless Revived's 1.4.4, which this server no longer runs: remove edition from host.toml (an old 1.4.4 server's accounts import with dainty-host legacy import revived)";
+/// The largest host.toml (or .json, .yaml) read, in bytes.
 pub const MAX_HOST_CONFIG_BYTES: u64 = 256 * 1024;
+/// The secrets file's name, in the config folder.
 pub const SECRET_FILE: &str = "secrets.env";
+/// Every key `secrets.env` holds; one missing or empty is made on the next setup.
 pub const SECRET_KEYS: [&str; 12] = [
     "GATEWAY_SECRET",
     "ALLOWLIST_SECRET",
@@ -79,10 +92,15 @@ pub const RENAMED_SECRET_KEYS: [(&str, &str); 2] = [
         "RUSTIC_ISLES_MANAGER_OPERATOR_SECRET",
     ),
 ];
+/// The node certificate's file name, in `.workspace/tls`.
 pub const NODE_CERT_FILE: &str = "node-cert.pem";
+/// The node key's file name, in `.workspace/tls`.
 pub const NODE_KEY_FILE: &str = "node-key.pem";
+/// The cluster CA certificate's file name, in `.workspace/tls`.
 pub const CLUSTER_CA_FILE: &str = "cluster-ca-cert.pem";
+/// The session key's file name.
 pub const SESSION_KEY_FILE: &str = "session-key";
+/// The comment lines at the top of every env file setup writes.
 pub const ENV_FILE_HEADER: [&str; 2] = [
     "Written by ReforgedHost (`npm run setup`) from host.json and secrets.env. SECRET: never share or commit.",
     "Run setup again instead of editing: it rewrites this file.",
@@ -103,17 +121,22 @@ pub(crate) fn integer(value: Option<&Value>) -> Option<f64> {
     js::safe_integer(value).map(|n| n as f64)
 }
 
+/// `path` as env-file text, lossy where it is not UTF-8.
 pub fn path_text(path: &Path) -> String {
     path.to_string_lossy().into_owned()
 }
 
+/// Whom the server is for.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ServerMode {
+    /// Friends over Tailscale.
     Private,
+    /// A server on the internet.
     Public,
 }
 
 impl ServerMode {
+    /// The name host.toml spells it with.
     #[must_use]
     pub fn as_str(self) -> &'static str {
         match self {
@@ -122,6 +145,7 @@ impl ServerMode {
         }
     }
 
+    /// The mode host.toml's `mode` names; `None` for anything else.
     #[must_use]
     pub fn parse(text: &str) -> Option<Self> {
         match text {
@@ -138,14 +162,19 @@ impl std::fmt::Display for ServerMode {
     }
 }
 
+/// Who may register an account.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Registration {
+    /// With an invite code.
     Invitecode,
+    /// Anyone.
     Open,
+    /// No one.
     None,
 }
 
 impl Registration {
+    /// The name host.toml spells it with.
     #[must_use]
     pub fn as_str(self) -> &'static str {
         match self {
@@ -155,6 +184,7 @@ impl Registration {
         }
     }
 
+    /// The policy host.toml's `registration` names (upper case); `None` for anything else.
     #[must_use]
     pub fn parse(text: &str) -> Option<Self> {
         match text {
@@ -172,16 +202,23 @@ impl std::fmt::Display for Registration {
     }
 }
 
+/// The MongoDB a server migrates its pre-cutover player data from.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MongoConfig {
+    /// Its connection string.
     pub uri: String,
+    /// Whether the server starts its own mongod.
     pub manage: bool,
+    /// The mongod executable it starts; found on PATH or under Program Files when `None`.
     pub mongod: Option<String>,
 }
 
+/// A private test server's multipliers; 1.0 is the game's own rate.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Multipliers {
+    /// Multiplies the XP awarded.
     pub xp: f64,
+    /// Multiplies the rewards given.
     pub rewards: f64,
 }
 
@@ -191,11 +228,16 @@ impl Default for Multipliers {
     }
 }
 
+/// How the game servers run on Linux.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct LinuxOptions {
+    /// The Wine executable; found on PATH when `None`.
     pub wine: Option<String>,
+    /// The Proton executable, which runs them instead of Wine.
     pub proton: Option<String>,
+    /// Whether they run under xvfb-run when there is no display.
     pub xvfb: bool,
+    /// The network interface the firewall script guards; every interface when `None`.
     pub firewall_interface: Option<String>,
 }
 
@@ -205,23 +247,33 @@ impl Default for LinuxOptions {
     }
 }
 
+/// host.toml's `database`: where the store is, and whether to start empty.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct DatabaseSettings {
+    /// `postgres`, or SQLite when `None` or anything else.
     pub engine: Option<String>,
+    /// The Postgres host; 127.0.0.1 when `None`.
     pub postgres_host: Option<String>,
+    /// The Postgres port; 5432 when `None`.
     pub postgres_port: Option<u16>,
+    /// The Postgres user; `dainty` when `None`.
     pub postgres_user: Option<String>,
+    /// The Postgres database; `dainty` when `None`.
     pub postgres_database: Option<String>,
+    /// Allows a Postgres host off this machine.
     pub allow_remote: Option<bool>,
+    /// Starts with an empty store instead of migrating the MongoDB data.
     pub fresh_start: Option<bool>,
 }
 
 impl DatabaseSettings {
+    /// Whether the store is Postgres.
     #[must_use]
     pub fn postgres(&self) -> bool {
         self.engine.as_deref() == Some("postgres")
     }
 
+    /// Reads host.toml's `database` table; keys it doesn't know are ignored.
     #[must_use]
     pub fn from_json(d: &Map<String, Value>) -> Self {
         Self {
@@ -235,6 +287,7 @@ impl DatabaseSettings {
         }
     }
 
+    /// The table host.toml writes, without the keys that are `None`.
     #[must_use]
     pub fn to_json(&self) -> Value {
         let mut out = Map::new();
@@ -263,15 +316,24 @@ impl DatabaseSettings {
     }
 }
 
+/// How the game servers run.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct PerformanceOptions {
+    /// The frame cap: 0 for none, or 10 to 240.
     pub server_fps: u32,
+    /// The frame cap after 15 s without players: 0 for the same as `server_fps`.
     pub idle_fps: u32,
+    /// Starts the Training Grounds when a player asks for them, not at boot.
     pub training_on_demand: bool,
+    /// Minutes without players before an on-demand Training Grounds stops; 0 keeps it running.
     pub training_idle_minutes: u32,
+    /// Keeps the game servers' full logs.
     pub verbose_game_logs: bool,
+    /// Starts a new hunt only with `min_free_memory_mb + hunt_memory_mb` free.
     pub memory_guard: bool,
+    /// Memory kept free for the system, in MB.
     pub min_free_memory_mb: u32,
+    /// Memory one hunt needs, in MB.
     pub hunt_memory_mb: u32,
 }
 
@@ -329,21 +391,33 @@ const SWITCH_NUMBERS: [(&str, &str, &str); 3] = [
     ),
 ];
 
+/// host.toml's `switches`: Rustic Isles' feature switches, each `None` for the module's default.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct SwitchesConfig {
+    /// `on`, `log` or `off`.
     pub reforge: Option<String>,
+    /// `on` or `off`.
     pub mastery_persistence: Option<String>,
+    /// `on` or `off`.
     pub bounty_persistence: Option<String>,
+    /// `on` or `off`.
     pub cooldown_persistence: Option<String>,
+    /// `on` or `off`.
     pub account_erasure: Option<String>,
+    /// `on` or `off`.
     pub log_purge: Option<String>,
+    /// `on` or `off`.
     pub rate_limit: Option<String>,
+    /// Requests a player may make a minute.
     pub rate_limit_per_minute: Option<u32>,
+    /// Requests a game server may make a minute.
     pub gameserver_rate_limit_per_minute: Option<u32>,
+    /// Requests the host's own tools may make a minute.
     pub host_rate_limit_per_minute: Option<u32>,
 }
 
 impl SwitchesConfig {
+    /// Fails on a `switches` value that is not a table, or on a word or number a switch does not take.
     pub fn validate(value: &Value) -> Result<(), HostError> {
         let s = value.as_object().ok_or_else(|| bad("switches must be an object"))?;
         for (key, _, _, allowed) in SWITCH_STRINGS {
@@ -374,6 +448,7 @@ impl SwitchesConfig {
         Ok(())
     }
 
+    /// Reads a validated `switches` table.
     #[must_use]
     pub fn from_json(s: &Map<String, Value>) -> Self {
         let word = |key: &str| s.get(key).and_then(Value::as_str).map(str::to_owned);
@@ -392,6 +467,7 @@ impl SwitchesConfig {
         }
     }
 
+    /// The table host.toml writes, without the switches that are `None`.
     #[must_use]
     pub fn to_json(&self) -> Value {
         let mut out = Map::new();
@@ -422,6 +498,7 @@ impl SwitchesConfig {
         Value::Object(out)
     }
 
+    /// The backend's `RUSTIC_ISLES_*` variables for the switches that are set.
     #[must_use]
     pub fn env(&self) -> Vec<(&'static str, String)> {
         let json = self.to_json();
@@ -439,6 +516,7 @@ impl SwitchesConfig {
         out
     }
 
+    /// The module's setting names and values for the switches that are set.
     #[must_use]
     pub fn module_switches(&self) -> Vec<(&'static str, Value)> {
         let json = self.to_json();
@@ -457,12 +535,15 @@ impl SwitchesConfig {
     }
 }
 
+/// host.toml's `history`: where the change log is shipped.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct HistoryConfig {
+    /// The peer node each change is shipped to; kept only here when `None`.
     pub ship_to_peer: Option<module_api::network::NodeId>,
 }
 
 impl HistoryConfig {
+    /// Fails on a value that is not a table, or a `shipToPeer` that is no node id.
     pub fn from_json(value: &Value) -> Result<Self, HostError> {
         let obj = value.as_object().ok_or_else(|| bad("history must be an object"))?;
         let ship_to_peer = match obj.get("shipToPeer") {
@@ -478,6 +559,7 @@ impl HistoryConfig {
         Ok(Self { ship_to_peer })
     }
 
+    /// The table host.toml writes.
     #[must_use]
     pub fn to_json(&self) -> Value {
         let mut out = Map::new();
@@ -488,20 +570,31 @@ impl HistoryConfig {
     }
 }
 
+/// host.toml's `remote`: this install's place in remote management (DD27).
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct RemoteConfig {
+    /// `standalone`, `controller` or `managed`; standalone when `None`.
     pub role: Option<String>,
+    /// This install's node id.
     pub node: Option<module_api::network::NodeId>,
+    /// This install's region.
     pub region: Option<module_api::network::Region>,
+    /// The controller's https:// URL; required when managed.
     pub controller_url: Option<String>,
+    /// The controller's node id; required when managed.
     pub controller_node: Option<module_api::network::NodeId>,
+    /// The controller certificate's SHA-256 fingerprint; required when managed.
     pub controller_cert_fp: Option<String>,
+    /// Seconds between syncs with the controller, 1 to 86400.
     pub sync_interval_secs: Option<u64>,
+    /// This install's label, 1 to 64 printable characters.
     pub label: Option<String>,
+    /// Setting keys this install keeps its own value for over the controller's shared configuration.
     pub local_overrides: Vec<String>,
 }
 
 impl RemoteConfig {
+    /// Fails on a value that is not a table, a field of the wrong form, or a managed install without its controller.
     pub fn from_json(value: &Value) -> Result<Self, HostError> {
         let obj = value.as_object().ok_or_else(|| bad("remote must be an object"))?;
         let role = match obj.get("role") {
@@ -661,6 +754,7 @@ impl RemoteConfig {
         })
     }
 
+    /// The table host.toml writes, without the fields that are `None`.
     #[must_use]
     pub fn to_json(&self) -> Value {
         let mut out = Map::new();
@@ -697,6 +791,7 @@ impl RemoteConfig {
         Value::Object(out)
     }
 
+    /// The node id, or `controller` or `managed` by role when none is set.
     #[must_use]
     pub fn effective_node(&self) -> module_api::network::NodeId {
         self.node.clone().unwrap_or_else(|| {
@@ -710,6 +805,7 @@ impl RemoteConfig {
         })
     }
 
+    /// The region, or the standalone default.
     #[must_use]
     pub fn effective_region(&self) -> module_api::network::Region {
         self.region
@@ -717,6 +813,7 @@ impl RemoteConfig {
             .unwrap_or_else(|| module_api::NodeIdentity::standalone().region)
     }
 
+    /// The controller as a node-link peer, for a managed install that is not the controller itself.
     #[must_use]
     pub fn controller_peer(&self, local_node: &module_api::network::NodeId) -> Option<network_plugin::cluster::Peer> {
         if self.role.as_deref() != Some("managed") {
@@ -740,56 +837,85 @@ impl RemoteConfig {
     }
 }
 
+/// The file a [`HostConfig`] was read from, kept so writing it back keeps the host's order and comments.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct FileForm {
+    /// The validated document, in the file's key order.
     pub document: Map<String, Value>,
+    /// The document as read, before validation.
     pub read: Map<String, Value>,
+    /// The host.toml text as read; `None` for a JSON or YAML file.
     pub toml: Option<String>,
 }
 
+/// host.toml: the server's configuration, validated.
 #[derive(Debug, Clone, PartialEq)]
 pub struct HostConfig {
+    /// The file's format version.
     pub version: u32,
+    /// Whom the server is for.
     pub mode: ServerMode,
+    /// The address players reach: a Tailscale address or .ts.net name, or a public IPv4 or domain name.
     pub host: String,
+    /// The IPv4 address the game servers announce.
     pub game_address: String,
+    /// The server's name, as the launcher shows it.
     pub name: String,
+    /// The Dauntless 1.14.7 folder the game servers run from.
     pub game_dir: Option<String>,
+    /// Who may register.
     pub registration: Registration,
+    /// A private server's Tailscale share link.
     pub share_url: Option<String>,
+    /// The MongoDB pre-cutover data is migrated from.
     pub mongo: MongoConfig,
+    /// The most hunts that run at once, 1 to 10.
     pub max_hunt_servers: u32,
+    /// A private test server's multipliers; `None` when off.
     pub multipliers: Option<Multipliers>,
+    /// The TCP port a public server's gateway listens on; 443 when `None`.
     pub public_port: Option<u16>,
     /// The staff dashboard chat sends its log and reports to, with `DASHBOARD_INGEST_KEY` (dainty-dash)
     pub dashboard_url: Option<String>,
+    /// How the game servers run; [`DEFAULT_PERFORMANCE`] when `None`.
     pub performance: Option<PerformanceOptions>,
+    /// How the game servers run on Linux; [`DEFAULT_LINUX`] when `None`.
     pub linux: Option<LinuxOptions>,
+    /// Where the store is.
     pub database: Option<DatabaseSettings>,
+    /// `[guard]`: when a destructive or bulk admin action waits for a delay or a second operator (DH6).
     pub guard: Option<GuardConfig>,
+    /// Where the change log is shipped.
     pub history: Option<HistoryConfig>,
+    /// Rustic Isles' feature switches.
     pub switches: Option<SwitchesConfig>,
+    /// `[modules]`: the game modules and plugins the server loads.
     pub modules: Option<ModulesConfig>,
     /// `[services.<name>]`: services loaded as libraries (RD27); `None` composes the compiled-in ones
     pub services: Option<ServicesConfig>,
     /// `[env.<service>]`: variables appended to a service's env file (RD24 phase 2)
     pub env: Option<env::EnvPassthrough>,
+    /// `[network]`: the other nodes this server links to.
     pub network: Option<NetworkConfig>,
+    /// `[remote]`: this install's place in remote management.
     pub remote: Option<RemoteConfig>,
     /// `[split]`: this server is one half of two, the metagame or the game servers (`docs/split-roles.md`)
     pub split: Option<split::SplitConfig>,
     /// `[logs]`: the console's format and color, and the GELF collector (`docs/logging.md`)
     pub logs: Option<logs::LogsConfig>,
+    /// The file it was read from.
     pub file: FileForm,
 }
 
 impl HostConfig {
+    /// Validates a host.json or host.yaml document.
     pub fn from_json(document: &Value) -> Result<Self, HostError> {
         let validated = validate(document)?;
         let read = document.as_object().cloned().unwrap_or_default();
         Self::from_validated(validated, read, None)
     }
 
+    /// Validates host.toml's text; the error names the key and the problem as host.toml spells them.
     pub fn from_toml(text: &str) -> Result<Self, HostError> {
         let doc = crate::hosttoml::document(text)?;
         let validated = validate(&doc).map_err(|e| bad(crate::hosttoml::message(&e.to_string())))?;
@@ -971,6 +1097,7 @@ impl HostConfig {
         })
     }
 
+    /// Fills the sections this config leaves out from `previous`, and takes its file form, so writing it keeps them.
     #[must_use]
     pub fn written_over(mut self, previous: Option<&HostConfig>) -> Self {
         if let Some(prev) = previous {
@@ -1016,6 +1143,7 @@ impl HostConfig {
         self
     }
 
+    /// Whether the store starts empty instead of migrating the MongoDB data.
     #[must_use]
     pub fn fresh_start(&self) -> bool {
         self.database.as_ref().and_then(|d| d.fresh_start).unwrap_or(false)
@@ -1188,6 +1316,7 @@ impl HostConfig {
         merge_document_order(&self.file.document, canonical)
     }
 
+    /// host.toml's text, laid over the file it was read from so the host's order and comments stay.
     pub fn to_toml(&self) -> Result<String, HostError> {
         let fields = self.fields_map();
         let validated = validate(&Value::Object(fields)).map_err(|e| bad(crate::hosttoml::message(&e.to_string())))?;
@@ -1204,6 +1333,7 @@ impl HostConfig {
         crate::hosttoml::text(&merged, &self.file.read, self.file.toml.as_deref())
     }
 
+    /// The validated document, as host.json holds it.
     pub fn to_json(&self) -> Result<Value, HostError> {
         let fields = self.fields_map();
         validate(&Value::Object(fields))
@@ -1218,31 +1348,48 @@ fn format_multiplier_num(n: Number, raw: f64) -> Number {
     }
 }
 
+/// The server's secrets, as `secrets.env` holds them; never logged.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct Secrets {
+    /// `GATEWAY_SECRET`.
     pub gateway_secret: String,
+    /// `ALLOWLIST_SECRET`.
     pub allowlist_secret: String,
+    /// `REFORGED_ADMIN_KEY`.
     pub admin_key: String,
+    /// `GAMESERVER_API_KEY`.
     pub gameserver_key: String,
+    /// `API_KEY_HASH_SECRET`.
     pub api_key_hash_secret: String,
+    /// `RUSTIC_ISLES_METRICS_TOKEN`.
     pub metrics_token: String,
+    /// `AUTH_SIGNING_PRIVKEY_B64`: the private key tokens are signed with, base64.
     pub jwt_private_key_b64: String,
+    /// `AUTH_SIGNING_PUBKEY_B64`: its public key, base64.
     pub jwt_public_key_b64: String,
+    /// `REFORGED_ADMIN_API_KEY`.
     pub admin_api_key: String,
+    /// `RUSTIC_ISLES_MANAGER_OPERATOR_SECRET`.
     pub operator_secret: String,
+    /// `REFORGED_DB_PASSWORD`: the Postgres password.
     pub database_password: String,
     /// What chat sends the staff dashboard with; the dashboard's own `DASHBOARD_INGEST_KEY` is set to it
     pub dashboard_ingest_key: String,
 }
 
+/// The OS the env files are written for.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Platform {
+    /// Windows.
     Windows,
+    /// Linux.
     Linux,
+    /// Anything else: no firewall to drive, so the allowlist runs dry.
     Other,
 }
 
 impl Platform {
+    /// The OS this binary was built for.
     #[must_use]
     pub fn current() -> Self {
         if cfg!(target_os = "windows") {
@@ -1255,21 +1402,30 @@ impl Platform {
     }
 }
 
+/// An env file's variables, in the order written.
 pub type EnvEntries = Vec<(String, String)>;
 
+/// Every env file setup writes, by service.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct EnvFiles {
+    /// backend.env.
     pub backend: EnvEntries,
+    /// director.env.
     pub director: EnvEntries,
+    /// content.env.
     pub content: EnvEntries,
+    /// gateway.env.
     pub gateway: EnvEntries,
+    /// admin.env.
     pub admin: EnvEntries,
+    /// allowlist.env; `None` when the server runs no allowlist, and the file is then removed.
     pub allowlist: Option<EnvEntries>,
     /// `[env.<service>]` lines not written, each with why; `setup` refuses while there are any
     pub passthrough_refused: Vec<String>,
 }
 
 impl EnvFiles {
+    /// Each file's name without `.env`, with its variables.
     #[must_use]
     pub fn files(&self) -> [(&'static str, Option<&EnvEntries>); 6] {
         [
@@ -1283,43 +1439,51 @@ impl EnvFiles {
     }
 }
 
+/// Whether `host` names this machine: localhost, 127.0.0.1 or ::1.
 #[must_use]
 pub fn is_local_database_host(host: &str) -> bool {
     let trimmed = host.trim();
     trimmed.eq_ignore_ascii_case("localhost") || trimmed == "127.0.0.1" || trimmed == "::1"
 }
 
+/// The config's game-server options, or [`DEFAULT_PERFORMANCE`].
 #[must_use]
 pub fn performance_options(c: &HostConfig) -> PerformanceOptions {
     c.performance.unwrap_or(DEFAULT_PERFORMANCE)
 }
 
+/// Whether `value` is a whole number of minutes from 0 to 1440.
 #[must_use]
 pub fn valid_minutes(value: f64) -> bool {
     value.is_finite() && value.fract() == 0.0 && (0.0..=1440.0).contains(&value)
 }
 
+/// Whether `value` is a whole number of megabytes from `min` to 1048576.
 #[must_use]
 pub fn valid_megabytes(value: f64, min: f64) -> bool {
     value.is_finite() && value.fract() == 0.0 && value >= min && value <= 1_048_576.0
 }
 
+/// Whether `value` is 0 (no cap) or a whole frame rate from `min` to 240.
 #[must_use]
 pub fn valid_fps(value: f64, min: f64) -> bool {
     value.is_finite() && value.fract() == 0.0 && (value == 0.0 || (value >= min && value <= 240.0))
 }
 
+/// The first and last UDP port the game servers may use.
 #[must_use]
 pub fn game_ports(c: &HostConfig) -> (u16, u16) {
     game_port_range(c.max_hunt_servers)
 }
 
+/// The game ports as `first<separator>last`.
 #[must_use]
 pub fn game_ports_text(c: &HostConfig, separator: &str) -> String {
     let (first, last) = game_ports(c);
     format!("{first}{separator}{last}")
 }
 
+/// The TCP port the gateway listens on.
 #[must_use]
 pub fn gateway_port(c: &HostConfig) -> u16 {
     match c.mode {
@@ -1328,12 +1492,14 @@ pub fn gateway_port(c: &HostConfig) -> u16 {
     }
 }
 
+/// Whether a multiplier other than 1.0 is set.
 #[must_use]
 pub fn multipliers_on(c: &HostConfig) -> bool {
     c.multipliers
         .is_some_and(|m| (m.xp - 1.0).abs() > f64::EPSILON || (m.rewards - 1.0).abs() > f64::EPSILON)
 }
 
+/// The config's Linux options, or [`DEFAULT_LINUX`].
 #[must_use]
 pub fn linux_options(c: &HostConfig) -> LinuxOptions {
     c.linux.clone().unwrap_or(DEFAULT_LINUX)
@@ -1354,11 +1520,13 @@ fn parse_ipv4_octets(host: &str) -> Option<[u8; 4]> {
     Some(octets)
 }
 
+/// Whether `host` is a dotted IPv4 address, without leading zeros.
 #[must_use]
 pub fn is_ipv4(host: &str) -> bool {
     parse_ipv4_octets(host).is_some()
 }
 
+/// Whether `host` is a Tailscale address (100.64.0.0/10).
 #[must_use]
 pub fn is_tailscale_ipv4(host: &str) -> bool {
     let Some([a, b, _, _]) = parse_ipv4_octets(host) else {
@@ -1367,6 +1535,7 @@ pub fn is_tailscale_ipv4(host: &str) -> bool {
     a == 100 && (64..=127).contains(&b)
 }
 
+/// Whether `host` is an IPv4 address outside the private, loopback, link-local, Tailscale and multicast ranges.
 #[must_use]
 pub fn is_public_ipv4(host: &str) -> bool {
     let Some([a, b, _, _]) = parse_ipv4_octets(host) else {
@@ -1390,6 +1559,7 @@ pub fn is_public_ipv4(host: &str) -> bool {
     true
 }
 
+/// Whether `host` is a DNS name: two labels or more, and a top-level label that is not all digits.
 #[must_use]
 pub fn is_dns_name(host: &str) -> bool {
     if host.is_empty() || host.len() > 253 || is_ipv4(host) || !host.contains('.') {
@@ -1414,6 +1584,7 @@ pub fn is_dns_name(host: &str) -> bool {
     tld.len() >= 2 && !tld.bytes().all(|b| b.is_ascii_digit())
 }
 
+/// Whether `name` can be a Linux network interface name.
 #[must_use]
 pub fn is_linux_interface(name: &str) -> bool {
     let bytes = name.as_bytes();
@@ -1424,6 +1595,7 @@ pub fn is_linux_interface(name: &str) -> bool {
             .all(|b| b.is_ascii_alphanumeric() || matches!(*b, b'_' | b'.' | b'-'))
 }
 
+/// `name` with control characters replaced, white space collapsed and cut to 48 UTF-16 units, as the launcher shows it.
 #[must_use]
 pub fn clean_server_name(name: &str) -> String {
     let mut replaced = String::with_capacity(name.len());
@@ -1461,6 +1633,7 @@ pub fn clean_server_name(name: &str) -> String {
     js::trim(&truncated).to_owned()
 }
 
+/// Whether `url` is a Tailscale link on login.tailscale.com.
 #[must_use]
 pub fn is_valid_share_url(url: &str) -> bool {
     let Some(rest) = url.strip_prefix("https://login.tailscale.com/") else {
@@ -1476,6 +1649,7 @@ fn is_reserved_or_game_port(port: u16) -> bool {
     RESERVED_PORTS.contains(&port) || (PORTS.game_lowest..=PORTS.game_last).contains(&port)
 }
 
+/// Checks a host.json document and returns it in canonical form, keeping its key order; the error says what is wrong.
 pub fn validate(document: &Value) -> Result<Value, HostError> {
     let Some(obj) = document.as_object() else {
         return Err(bad("host.json must hold a JSON object"));
@@ -2213,11 +2387,14 @@ fn format_js_pretty(value: &Value, indent: usize) -> String {
     }
 }
 
+/// `value` as `JSON.stringify(value, null, 2)` writes it.
 #[must_use]
 pub fn stringify_pretty(value: &Value) -> String {
     format_js_pretty(&jsjson::to_js(value), 0)
 }
 
+/// Reads the config at `file`, by its extension; `None` when there is no file.
+/// Fails on a file over [`MAX_HOST_CONFIG_BYTES`] or one that doesn't parse or validate.
 pub fn read_host_config(file: &Path) -> Result<Option<HostConfig>, HostError> {
     let meta = match std::fs::metadata(file) {
         Ok(m) => m,
@@ -2252,6 +2429,7 @@ pub fn read_host_config(file: &Path) -> Result<Option<HostConfig>, HostError> {
     }
 }
 
+/// Reads the workspace's host.toml; `None` before the first setup. A Node kit's host.json alone is refused.
 pub fn load_host_config(p: &Paths) -> Result<Option<HostConfig>, HostError> {
     let old = p.config.join("host.json");
     if !p.host_toml.is_file() && old.is_file() {
@@ -2263,15 +2441,18 @@ pub fn load_host_config(p: &Paths) -> Result<Option<HostConfig>, HostError> {
     read_host_config(&p.host_toml)
 }
 
+/// Whether the workspace has a host.toml.
 #[must_use]
 pub fn has_host_config(p: &Paths) -> bool {
     p.host_toml.is_file()
 }
 
+/// The config as host.json text.
 pub fn host_config_text(c: &HostConfig) -> Result<String, HostError> {
     Ok(format!("{}\n", stringify_pretty(&c.to_json()?)))
 }
 
+/// Writes the config to `file`, as JSON for a `.json` file and as host.toml otherwise.
 pub fn write_host_config(file: &Path, c: &HostConfig) -> Result<(), HostError> {
     if let Some(parent) = file.parent() {
         std::fs::create_dir_all(parent).map_err(|e| HostError::io(parent, e))?;
@@ -2289,14 +2470,17 @@ pub fn write_host_config(file: &Path, c: &HostConfig) -> Result<(), HostError> {
     std::fs::write(file, text).map_err(|e| HostError::io(file, e))
 }
 
+/// Writes the workspace's host.toml.
 pub fn save_host_config(p: &Paths, c: &HostConfig) -> Result<(), HostError> {
     write_host_config(&p.host_toml, c)
 }
 
+/// Fresh random secrets.
 pub fn new_secrets() -> Result<Secrets, HostError> {
     crate::commands::setup::secrets::new_secrets()
 }
 
+/// Writes `text` to `file`, readable by its owner only on Unix.
 pub fn write_secret_file(file: &Path, text: &str) -> Result<(), HostError> {
     if let Some(parent) = file.parent() {
         std::fs::create_dir_all(parent).map_err(|e| HostError::io(parent, e))?;
@@ -2314,7 +2498,7 @@ pub fn write_secret_file(file: &Path, text: &str) -> Result<(), HostError> {
             .map_err(|e| HostError::io(file, e))?;
         handle.write_all(text.as_bytes()).map_err(|e| HostError::io(file, e))?;
         let _ = std::fs::set_permissions(file, std::fs::Permissions::from_mode(0o600));
-        return Ok(());
+        Ok(())
     }
     #[cfg(not(unix))]
     {
@@ -2322,6 +2506,8 @@ pub fn write_secret_file(file: &Path, text: &str) -> Result<(), HostError> {
     }
 }
 
+/// The secrets in `config_dir`'s `secrets.env`, and whether the file was made now.
+/// A new file gets `make`'s secrets; a missing or empty key is filled from it and old names are renamed (DX4).
 pub fn load_or_create_secrets(
     config_dir: &Path,
     make: impl FnOnce() -> Result<Secrets, HostError>,
@@ -2486,6 +2672,7 @@ fn module_switch_env(c: &HostConfig) -> Vec<(String, String)> {
     out
 }
 
+/// Every env file's variables for this config and these secrets.
 #[must_use]
 pub fn build_env_files(c: &HostConfig, s: &Secrets, p: &Paths, source_commit: &str, platform: Platform) -> EnvFiles {
     fn push(vec: &mut EnvEntries, k: &str, v: impl Into<String>) {
@@ -2862,6 +3049,7 @@ pub fn build_env_files(c: &HostConfig, s: &Secrets, p: &Paths, source_commit: &s
     files
 }
 
+/// The store this node opens: Postgres as `database` says, or the SQLite file in the config folder.
 pub fn node_database_config(c: &HostConfig, p: &Paths) -> Result<store::DatabaseConfig, HostError> {
     if let Some(db) = &c.database
         && db.postgres()
@@ -2881,6 +3069,7 @@ pub fn node_database_config(c: &HostConfig, p: &Paths) -> Result<store::Database
     })
 }
 
+/// Writes each `<name>.env` that has variables and removes each that has `None`; returns the files written.
 pub fn write_named_env_files(p: &Paths, files: &[(&str, Option<&EnvEntries>)]) -> Result<Vec<PathBuf>, HostError> {
     std::fs::create_dir_all(&p.config).map_err(|e| HostError::io(&p.config, e))?;
     let mut written = Vec::new();
@@ -2902,11 +3091,13 @@ pub fn write_named_env_files(p: &Paths, files: &[(&str, Option<&EnvEntries>)]) -
     Ok(written)
 }
 
+/// Writes every env file in `files`; returns the files written.
 pub fn write_env_files(p: &Paths, files: &EnvFiles) -> Result<Vec<PathBuf>, HostError> {
     let named = files.files();
     write_named_env_files(p, &named)
 }
 
+/// Reads an env file's variables.
 pub fn read_env_file(file: &Path) -> Result<EnvMap, HostError> {
     let text = std::fs::read_to_string(file).map_err(|e| HostError::io(file, e))?;
     Ok(parse_env(&text))
@@ -2914,7 +3105,7 @@ pub fn read_env_file(file: &Path) -> Result<EnvMap, HostError> {
 
 #[cfg(test)]
 mod tests {
-    #![allow(clippy::unwrap_used)]
+    #![allow(clippy::unwrap_used, reason = "a panic is how a test fails")]
 
     use super::*;
     use serde_json::json;

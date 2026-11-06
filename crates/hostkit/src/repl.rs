@@ -27,42 +27,69 @@ pub const MAX_LINE: usize = 512;
 /// terminal as anything but text.
 pub const MAX_NAME: usize = 32;
 
+/// The log levels `log <service> <level>` takes.
 pub const LEVELS: [&str; 6] = ["trace", "debug", "info", "warn", "error", "off"];
 
+/// A console line, parsed.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ConsoleCommand {
+    /// An empty line.
     Empty,
+    /// `status`: every service's state.
     Status,
+    /// `start <service>`: a service or a listed module.
     Start(String),
+    /// `stop <service>`: a service or a listed module.
     Stop(String),
+    /// `restart <service>`: a service or a listed module.
     Restart(String),
+    /// `invite`: how to make an invite, and the certificate's fingerprint.
     Invite,
+    /// `players`: how many players are connected.
     Players,
+    /// `instances`: how many hunts run, of the most allowed.
     Instances,
+    /// `doctor`: each service's state, flagged.
     Doctor,
+    /// `backup`: where to run a backup from.
     Backup,
+    /// `log <service> <level>`: changes a service's log level while it runs.
     Log {
+        /// The service.
         service: String,
+        /// One of [`LEVELS`].
         level: &'static str,
     },
+    /// `modules`: the listed modules.
     Modules,
+    /// `module status <id>`.
     ModuleStatus(String),
+    /// `module load <id>`.
     ModuleLoad(String),
+    /// `module unload <id>`.
     ModuleUnload(String),
+    /// `module restart <id>`.
     ModuleRestart(String),
+    /// `module run <id> <command> [args...]`: a command the module registered.
     ModuleRun {
+        /// The module's id.
         module: String,
+        /// The command's name.
         command: String,
+        /// Its arguments.
         args: Vec<String>,
     },
     /// `history ...` and `revert ...` (DH3b)
     History(Job),
+    /// `help` or `?`.
     Help,
+    /// `stop`, `quit`, `exit` or `shutdown`: stops the server.
     Quit,
 }
 
 /// Arguments to a module's command: at most this many, each at most [`MAX_ARG`] characters of text.
 pub const MAX_ARGS: usize = 16;
+/// The most characters one argument to a module's command may have.
 pub const MAX_ARG: usize = 128;
 
 /// A service name as the console takes it: 1 to [`MAX_NAME`] of `a-z`, `0-9` and `-`.

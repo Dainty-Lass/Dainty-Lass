@@ -35,12 +35,19 @@ pub type Settings = BTreeMap<String, BTreeMap<String, Value>>;
 /// The calls the page makes on the server's modules. Implemented over the embedded server's registry
 /// (`server_gui`); the arguments are the page's text, checked by the implementation with the functions below.
 pub trait ModulePanel: Send + Sync {
+    /// Every module the registry knows.
     fn list(&self) -> Boxed<ModuleListOutcome>;
+    /// One module by the id the page named.
     fn get(&self, module: String) -> Boxed<ModuleOutcome>;
+    /// Runs a module command with the form's JSON input (checked by [`command_args`]).
     fn run(&self, module: String, command: String, input: String) -> Boxed<ModuleCommandOutcome>;
+    /// Lays the page's JSON over a module's saved settings (checked by [`merge_settings`]) and keeps the result.
     fn set_settings(&self, module: String, values: String) -> Boxed<ModuleOutcome>;
+    /// Loads a module that is not running.
     fn load(&self, module: String) -> Boxed<ModuleOutcome>;
+    /// Stops a running module.
     fn unload(&self, module: String) -> Boxed<ModuleOutcome>;
+    /// Runs a moderation action on `player`; `until` ends a timeout, `module` names the module to act in, if any.
     fn admin(
         &self,
         action: AdminActionKind,
@@ -57,10 +64,12 @@ pub const VALUE_MAX: usize = 4096;
 pub const ARG_MAX: usize = 1024;
 /// What the page is shown of a command's answer, so a chatty module can't fill its memory
 pub const OUTPUT_TEXT_MAX: usize = 16 * 1024;
+/// How much of a command's data answer the page is shown.
 pub const OUTPUT_DATA_MAX: usize = 64 * 1024;
 /// A failure's words, shown under the sentence for it
 pub const DETAIL_MAX: usize = 300;
 
+/// A [`LauncherError`] with `code` and an optional detail.
 pub fn refusal(code: ErrorCode, detail: impl Into<Option<String>>) -> LauncherError {
     LauncherError {
         code,
@@ -221,14 +230,23 @@ pub fn merge_settings(schema: &[ConfigSection], saved: &Settings, values: &str) 
 
 /// What the registry says about one listed module, in the types this file draws from.
 pub struct Listed {
+    /// Module id.
     pub id: ModuleId,
+    /// Compiled in or external.
     pub origin: ModuleOrigin,
+    /// Loads when the server starts.
     pub autoload: bool,
+    /// Its lifecycle state.
     pub state: ModuleRunState,
+    /// Words on a failure, unbounded until [`view`] trims them.
     pub detail: Option<String>,
+    /// Its manifest, when it has loaded one.
     pub manifest: Option<ModuleManifest>,
+    /// Port ranges it holds, by name.
     pub ports: BTreeMap<String, PortRange>,
+    /// Commands it registered.
     pub commands: Vec<CommandSpec>,
+    /// Settings sections it registered.
     pub config: Vec<ConfigSection>,
 }
 

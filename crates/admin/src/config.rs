@@ -13,17 +13,25 @@ const MIN_SECRET: usize = 32;
 /// `paths::MAX_HUNTS` in the host kit: UDP 8766-8777 at most.
 const MAX_HUNTS: u32 = 10;
 
+/// How players reach the server, from `GATEWAY_MODE`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ServerMode {
+    /// Over Tailscale.
     Private,
+    /// Over the internet through the gateway's TLS port.
     Public,
 }
 
+/// The admin API's settings, from its env file.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Config {
+    /// The loopback port it listens on.
     pub port: u16,
+    /// The loopback addresses it binds.
     pub bind_hosts: Vec<String>,
+    /// The game backend's base URL.
     pub backend_url: String,
+    /// The Director's base URL.
     pub director_url: String,
     /// `REFORGED_ADMIN_API_KEY`: what the bot sends, `Authorization: Bearer <key>`
     pub api_key: String,
@@ -31,8 +39,11 @@ pub struct Config {
     pub admin_key: String,
     /// `RUSTIC_ISLES_MANAGER_OPERATOR_SECRET`: signs the calls to the backend's `/admin/v1`
     pub operator_secret: String,
+    /// The file the timeouts this API set are kept in.
     pub timeouts_file: PathBuf,
+    /// `max_hunt_servers` in host.toml, at most 10.
     pub max_hunt_servers: u32,
+    /// How players reach the server.
     pub server_mode: ServerMode,
     /// The node's database (DD15). The admin API keeps its keys in a database of its own beside it
     /// (`keys::Keys::database_for`, DH2). Nothing set (an env file from before DF7): SQLite beside the
@@ -139,6 +150,7 @@ fn guard_settings(env: &Env) -> Result<GuardSettings, String> {
 }
 
 impl Config {
+    /// Reads and checks the settings; the error names the variable for the host.
     pub fn from_env(env: &Env) -> Result<Self, String> {
         let port = match optional(env, "PORT") {
             None => 61003,

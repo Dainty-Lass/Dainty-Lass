@@ -3,7 +3,7 @@
 
 //! The controller (spec §6, §17.2 "Controller"): a bare module with the fake Director, the clock moved, never slept.
 
-#![allow(clippy::unwrap_used, clippy::expect_used)]
+#![allow(clippy::unwrap_used, clippy::expect_used, reason = "a panic is how a test fails")]
 
 mod common;
 

@@ -23,6 +23,7 @@ pub struct CertInfo {
     pub fingerprint: String,
     /// Milliseconds since the epoch
     pub not_before: i64,
+    /// End of validity, milliseconds since the epoch.
     pub not_after: i64,
     /// As Node's `X509Certificate.subjectAltName` writes it
     pub subject_alt_name: String,
@@ -31,8 +32,11 @@ pub struct CertInfo {
 /// A certificate chain and its key, checked to belong together.
 #[derive(Debug)]
 pub struct Loaded {
+    /// The certificate chain, leaf first.
     pub chain: Vec<CertificateDer<'static>>,
+    /// The private key.
     pub key: PrivateKeyDer<'static>,
+    /// What the leaf says about itself.
     pub info: CertInfo,
 }
 
@@ -145,23 +149,41 @@ pub fn is_dns_name(name: &str) -> bool {
         })
 }
 
+/// Where `make-cert` writes.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Where {
+    /// `gateway-cert.pem` and `gateway-key.pem` in this folder (`--out`).
     Out(PathBuf),
-    Files { cert: PathBuf, key: PathBuf },
+    /// These two files (`--cert`, `--key`).
+    Files {
+        /// The certificate file.
+        cert: PathBuf,
+        /// The key file.
+        key: PathBuf,
+    },
 }
 
+/// What `gateway make-cert` was asked to do.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum MakeCert {
+    /// Print the usage.
     Help,
+    /// Print a certificate's fingerprint (`--fingerprint`).
     Fingerprint {
+        /// The certificate file.
         file: PathBuf,
+        /// Print JSON.
         json: bool,
     },
+    /// Make a new certificate and key.
     Make {
+        /// Names and addresses it is for (`--host`).
         hosts: Vec<String>,
+        /// Where to write it.
         place: Where,
+        /// Overwrite existing files (`--force`).
         force: bool,
+        /// Print JSON.
         json: bool,
     },
 }
@@ -266,7 +288,9 @@ fn usage(message: Option<&str>) -> ExitCode {
 
 /// A new certificate and key, as PEM.
 pub struct Made {
+    /// The certificate.
     pub cert_pem: String,
+    /// The private key.
     pub key_pem: String,
 }
 

@@ -38,8 +38,11 @@ pub const IGNORED_RESPONSE_HEADERS: [&str; 15] = [
 /// §7.1; all on by default and not on the command line.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct NormalizerConfig {
+    /// Replace times with placeholders.
     pub normalize_timestamps: bool,
+    /// Number generated ids in order of appearance.
     pub normalize_dynamic_ids: bool,
+    /// Compare raw JSON text when the values are equal (§8.3).
     pub check_raw_json_text: bool,
 }
 
@@ -131,6 +134,7 @@ pub struct IdNormalizer {
 }
 
 impl IdNormalizer {
+    /// A normalizer with fresh counters.
     pub fn new(config: NormalizerConfig) -> Self {
         Self {
             config,
@@ -138,6 +142,7 @@ impl IdNormalizer {
         }
     }
 
+    /// The switches it was built with.
     pub fn config(&self) -> NormalizerConfig {
         self.config
     }

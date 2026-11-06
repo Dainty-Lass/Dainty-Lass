@@ -11,6 +11,7 @@ use serde_json::Value;
 use crate::state::ReforgedState;
 use crate::util::{self, object, ok, peer_text, store_of};
 
+/// The service name the probes answer, as Node's.
 pub const SERVICE: &str = "paradox-backend";
 
 /// `api` for `api`, anything else `combined`.
@@ -23,6 +24,7 @@ pub fn role(settings: &Settings) -> &'static str {
     }
 }
 
+/// `GET /`: `ok`.
 pub async fn root(_call: Call) -> Response {
     (
         StatusCode::OK,
@@ -32,6 +34,7 @@ pub async fn root(_call: Call) -> Response {
         .into_response()
 }
 
+/// `GET /health/live`: always up.
 pub async fn live(call: Call) -> Response {
     ok(&object(vec![
         ("ok", Value::Bool(true)),
@@ -40,6 +43,7 @@ pub async fn live(call: Call) -> Response {
     ]))
 }
 
+/// `GET /health/ready`: 200 when ready and the store answers, else 503 with the reason.
 pub async fn ready(call: Call) -> Response {
     let state = ReforgedState::of(&call.shared);
     let readiness = state.readiness();
@@ -73,10 +77,12 @@ pub async fn ready(call: Call) -> Response {
     util::json(status, &body)
 }
 
+/// `GET /maintenance/status`: never in maintenance.
 pub async fn maintenance(_call: Call) -> Response {
     ok(&object(vec![("show-status", Value::Bool(false))]))
 }
 
+/// `GET /dauntless-status`: the welcome text in each client language.
 pub async fn dauntless_status(_call: Call) -> Response {
     const WELCOME: &str = "Welcome to Rustic Isles!";
     let mut pairs = vec![("show-status", Value::Bool(true))];
@@ -103,6 +109,7 @@ pub fn metrics_authorized(settings: &Settings, headers: &http::HeaderMap, peer: 
     supplied.is_some_and(|s| util::ct_eq(s.as_bytes(), token.as_bytes()))
 }
 
+/// `GET /internal/v1/metrics`: the Prometheus text, for a token or a loopback caller outside production.
 pub async fn metrics(call: Call) -> Response {
     let settings = call.shared.settings();
     let peer = peer_text(&call.request);
@@ -124,7 +131,7 @@ pub async fn metrics(call: Call) -> Response {
     }
     let state = ReforgedState::of(&call.shared);
     let readiness = state.readiness();
-    #[allow(clippy::cast_precision_loss)]
+    #[allow(clippy::cast_precision_loss, reason = "an epoch-ms timestamp, below 2^53")]
     let changed = readiness.changed_ms as f64 / 1000.0;
     let text = state.metrics().render(role(settings), readiness.ready, changed);
     (

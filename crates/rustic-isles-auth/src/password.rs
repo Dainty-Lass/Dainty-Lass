@@ -25,6 +25,7 @@ fn hash_with_salt(password: &str, salt: &[u8]) -> Option<String> {
     Some(hash.to_string())
 }
 
+/// The Argon2 hasher refused its input.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
 #[error("the password could not be hashed")]
 pub struct HashError;

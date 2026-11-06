@@ -31,10 +31,12 @@ pub const SLAYER_LINK_MAX_ACCOUNTS: usize = 256;
 const SLAYER_LINK_MAX_ID: usize = 128;
 const BODY_LIMIT: usize = rustic_isles::BODY_LIMIT;
 
+/// Adds the chat routes, timestamped by the wall clock.
 pub fn register(handlers: &mut Handlers) {
     register_with(handlers, Arc::new(|| season::to_iso_string(replay::now_ms())));
 }
 
+/// Adds the chat routes with `clock` for the times they write.
 pub fn register_with(handlers: &mut Handlers, clock: Clock) {
     use Method::{Delete, Get, Post};
     let b = Service::Backend;
@@ -399,6 +401,7 @@ pub fn slayer_link_availability(body: Option<&Value>) -> Value {
     json!({"availability": availability})
 }
 
+/// The Slayer link status body: no invites, no links (1.14.7 has no Slayer link).
 pub fn slayer_link_status() -> Value {
     json!({
         "config": {"invite_expiry_hours": 48, "link_duration_hours": 168},

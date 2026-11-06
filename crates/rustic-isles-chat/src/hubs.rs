@@ -63,10 +63,12 @@ impl Ledger {
     }
 }
 
+/// Every account's last hub, shared by matchmaking (which records) and the room rules (which read).
 #[derive(Debug, Default)]
 pub struct HubSessions(Mutex<Ledger>);
 
 impl HubSessions {
+    /// An empty registry.
     pub fn new() -> Self {
         Self::default()
     }
@@ -102,6 +104,7 @@ impl HubSessions {
         ledger.visits.get(account).filter(|v| v.fresh_at(now)).cloned()
     }
 
+    /// Whether the account's live hub record is in this region (the region-room rule).
     pub fn may_join_region(&self, account: &GlobalId, region: &Region, now: i64) -> bool {
         self.fresh_visit(account, now).is_some_and(|v| &v.region == region)
     }
@@ -118,10 +121,12 @@ impl HubSessions {
         self.fresh_visit(account, now).is_some_and(|v| v.hub == game_session_id)
     }
 
+    /// How many accounts have a record, live or stale.
     pub fn len(&self) -> usize {
         self.ledger().visits.len()
     }
 
+    /// True when no account has a record.
     pub fn is_empty(&self) -> bool {
         self.len() == 0
     }

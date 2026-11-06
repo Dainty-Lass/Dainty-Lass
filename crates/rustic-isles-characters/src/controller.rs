@@ -25,8 +25,11 @@ const ATTEMPTS: u32 = 10;
 /// What a loadout route answers (spec §5.9): the visible slots, `persistent` and the active index.
 #[derive(Debug, Clone, PartialEq)]
 pub struct LoadoutState {
+    /// The visible loadout slots, each a stored slot object.
     pub loadouts: Vec<Value>,
+    /// The account-wide `persistent` object (banner, glider, quick chats).
     pub persistent: Value,
+    /// The slot the client has selected, an index into `loadouts`.
     pub active_index: u32,
 }
 
@@ -168,10 +171,12 @@ impl Characters {
         }
     }
 
+    /// The character-data rules this unit applies.
     pub fn data(&self) -> &CharacterData {
         &self.data
     }
 
+    /// The starter kit a new character is given.
     pub fn kit(&self) -> &StarterKit {
         &self.kit
     }
@@ -405,7 +410,10 @@ impl Characters {
     }
 
     /// `UpdateCharacterForUid` (spec §5.6): whether the save is accepted.
-    #[allow(clippy::too_many_arguments)]
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "each argument is one part of the save, as spec §5.6 lists them"
+    )]
     pub(crate) async fn update_character(
         &self,
         store: &IslesStore,
@@ -431,7 +439,7 @@ impl Characters {
         let requested = js::number(body_version);
         let mut effective = js::safe_integer(Some(&Value::from(requested))).filter(|_| requested.is_finite());
         // NaN compares false, so it is never stale
-        #[allow(clippy::cast_precision_loss)]
+        #[allow(clippy::cast_precision_loss, reason = "a stored counter, far below 2^53")]
         let stale = (current as f64) >= requested;
         if stale {
             if !gameserver {

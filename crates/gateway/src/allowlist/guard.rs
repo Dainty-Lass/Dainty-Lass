@@ -16,6 +16,7 @@ pub const FIRST_MODULE_PORT: u16 = 1024;
 
 type Changed = Arc<dyn Fn() + Send + Sync>;
 
+/// The UDP ports the helper may open: its base range, and the ranges modules were given inside it.
 pub struct Guard {
     base: PortRange,
     modules: Mutex<BTreeMap<ModuleId, Vec<PortRange>>>,

@@ -77,6 +77,7 @@ pub const ROUTES: &[Route] = &[
     ),
 ];
 
+/// Every Guard route under its handler id, for a build that answers them `Unimplemented`.
 pub fn stub_routes() -> StubRoutes {
     let routes = ROUTES;
     StubRoutes {
@@ -136,6 +137,7 @@ fn ok(body: Json) -> Reply {
     Reply { status: 200, body }
 }
 
+/// Guard's HTTP routes: the hunt evidence routes and the two admin operations routes.
 #[derive(Clone)]
 pub struct GuardRoutes {
     guard: Arc<Guard>,
@@ -143,6 +145,7 @@ pub struct GuardRoutes {
 }
 
 impl GuardRoutes {
+    /// Routes over a Guard backed by a store.
     pub fn new(guard: Arc<Guard>) -> Self {
         Self::with_store(guard, true)
     }

@@ -6,9 +6,14 @@
 //! character-data rules every read and write applies, and the starter records a new character is seeded with (and
 //! repaired from when one goes missing). Game-derived values are inputs ([`CharacterData`], [`StarterKit`]).
 
-#![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used))]
-// A refusal is the answer itself (an axum `Response`), as in core and auth
-#![allow(clippy::result_large_err)]
+#![cfg_attr(
+    test,
+    allow(clippy::unwrap_used, clippy::expect_used, reason = "a panic is how a test fails")
+)]
+#![allow(
+    clippy::result_large_err,
+    reason = "a refusal is the answer itself (an axum `Response`), as in core and auth"
+)]
 
 mod controller;
 pub mod data;
@@ -29,7 +34,9 @@ pub struct CharacterData {
     pub fill: Vec<(String, Value)>,
     /// With `Data` and `StringData` arrays
     pub default_appearance: Map<String, Value>,
+    /// Character flags added when absent, with their values.
     pub forced_character_flags: Vec<(String, Value)>,
+    /// The login flag added when absent, and removed while the creator is unfinished.
     pub forced_login_flag: (String, Value),
     /// The member the Dojo series is kept in (`SERIE_dojo` for 1.14.7)
     pub dojo_series_key: String,
@@ -37,8 +44,11 @@ pub struct CharacterData {
     pub dojo_series: Map<String, Value>,
     /// The journey node that unlocks the Dojo
     pub dojo_node_id: String,
+    /// The member holding the series whose node unlocks the Dojo.
     pub trigger_series_key: String,
+    /// The node in that series that is read.
     pub trigger_node: String,
+    /// The node `Status` that adds the Dojo series.
     pub trigger_status: f64,
 }
 
@@ -53,11 +63,17 @@ pub struct StarterKit {
     pub equipment: Vec<(String, String)>,
     /// `(catalog id, object)`: that equipment entry's `instance_data`
     pub instance_data: Vec<(String, Map<String, Value>)>,
+    /// The flask's catalog id; its instance goes in the slot.
     pub flask: String,
+    /// The banner's catalog id; its instance goes in `persistent`.
     pub banner: String,
+    /// The glider's catalog id; its instance goes in `persistent`.
     pub glider: String,
+    /// `persistent.bannerCustomization`, stored as its compact text.
     pub banner_customization: Map<String, Value>,
+    /// `persistent.intro_emote`.
     pub intro_emote: String,
+    /// `persistent.flare`.
     pub flare: String,
     /// Nine texts
     pub default_quick_chats: Vec<String>,
@@ -67,14 +83,19 @@ pub struct StarterKit {
     pub default_appearance: Map<String, Value>,
 }
 
+/// What the character and loadout routes can fail with.
 #[derive(Debug, thiserror::Error)]
 pub enum CharactersError {
+    /// The character id is not one of the caller's characters.
     #[error("the character does not belong to the user")]
     NotOwned,
+    /// The store failed.
     #[error(transparent)]
     Repo(#[from] RepoError),
+    /// The stored character data did not parse.
     #[error("{0}")]
     Data(String),
+    /// A stored loadout or inventory is malformed; the text says which.
     #[error("{0}")]
     Failed(String),
 }
@@ -89,7 +110,14 @@ impl From<data::DataError> for CharactersError {
 #[derive(Debug, thiserror::Error)]
 pub enum EnsureError {
     #[error("Character {character_id} does not belong to user {user}")]
-    NotOwned { character_id: String, user: String },
+    /// The character id is not one of the user's characters.
+    NotOwned {
+        /// The character id asked for.
+        character_id: String,
+        /// The user it was asked for.
+        user: String,
+    },
+    /// The store failed, or a starter record was malformed.
     #[error(transparent)]
     Repo(#[from] RepoError),
 }

@@ -40,6 +40,7 @@ pub fn pem(label: &str, der: &[u8]) -> String {
     out + &format!("-----END {label}-----\n")
 }
 
+/// Fresh random secrets: random keys, and an RSA key pair for the backend's tokens.
 pub fn new_secrets() -> Result<Secrets, HostError> {
     let rng = SystemRandom::new();
     let pair = KeyPair::generate(KeySize::Rsa4096).map_err(|_| crypto_failed("the RSA key pair"))?;

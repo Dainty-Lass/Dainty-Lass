@@ -22,6 +22,7 @@ use crate::inventory::storage_policy::{
 use crate::tx::guarded;
 use crate::util::{now_iso, obj};
 
+/// The actor for a write made for the account's player, tagged with the request id when there is one.
 pub fn player_actor(account: &AccountId, request_id: Option<&str>) -> ActorContext {
     let actor = ActorContext::new(Actor::Player {
         account: account.global().clone(),
@@ -32,6 +33,7 @@ pub fn player_actor(account: &AccountId, request_id: Option<&str>) -> ActorConte
     }
 }
 
+/// The actor for a system write, tagged with the request id when there is one.
 pub fn system_actor(request_id: Option<&str>) -> ActorContext {
     let actor = ActorContext::new(Actor::System);
     match request_id {
@@ -60,16 +62,21 @@ pub fn inventory_record(
 /// What a transaction call runs against: the module, its store and the ports.
 #[derive(Clone, Copy)]
 pub struct TxContext<'a> {
+    /// The module's shared state.
     pub shared: &'a Arc<Shared>,
+    /// The isles store.
     pub store: &'a IslesStore,
+    /// The ports.
     pub ports: &'a InventoryPorts,
 }
 
 impl<'a> TxContext<'a> {
+    /// A context over these parts.
     pub fn new(shared: &'a Arc<Shared>, store: &'a IslesStore, ports: &'a InventoryPorts) -> Self {
         Self { shared, store, ports }
     }
 
+    /// The ports' repositories when they override them, else the store's.
     pub fn repos(&self) -> Repositories {
         self.ports.repos.clone().unwrap_or_else(|| self.store.repos().clone())
     }
@@ -100,23 +107,35 @@ impl<'a> TxContext<'a> {
     }
 }
 
+/// One `POST /inventory` request.
 #[derive(Debug, Clone, PartialEq)]
 pub struct TxRequest {
+    /// The owner's userId.
     pub user_id: String,
+    /// The character whose inventory changes.
     pub character_id: String,
+    /// The client's transaction id; a repeat replays the first result.
     pub transaction_id: String,
+    /// `addInstancedItems` as sent.
     pub add_instanced: Value,
+    /// `addStackedItems` as sent.
     pub add_stacked: Value,
+    /// `removeInstancedItems` as sent.
     pub remove_instanced: Value,
+    /// `removeStackedItems` as sent.
     pub remove_stacked: Value,
+    /// `saveInstancedItems` as sent.
     pub save_instanced: Value,
 }
 
 /// Monitoring only.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Economy {
+    /// The ledger's source name, such as `INVENTORY_GAMESERVER`.
     pub source: String,
+    /// The P2P session the grant came from.
     pub p2p_session_id: Option<String>,
+    /// The SKU bought, for a store purchase.
     pub store_sku_id: Option<String>,
 }
 
@@ -126,47 +145,75 @@ pub type Annotator = Box<dyn FnOnce(&[Value], &[Value]) -> Option<Map<String, Va
 /// Runs inside the transaction for a new transaction id; may refuse (rolling everything back) or annotate.
 pub type GrantHook = Box<dyn FnOnce(&mut Tx<'_>, &Repositories) -> Result<Option<Annotator>, TxError> + Send>;
 
+/// How one transaction runs.
 #[derive(Default)]
 pub struct TxOptions {
+    /// Skip the character ownership check (the caller already made it).
     pub ownership_already_validated: bool,
+    /// Logs the timing under this label, however long the transaction takes.
     pub diagnostic_label: Option<String>,
+    /// Runs in the transaction before the write; can refuse it or annotate the ledger row.
     pub on_grant: Option<GrantHook>,
+    /// Whether a seasonal coin add may fund a claimed challenge reward (W5).
     pub allow_challenge_reward_funding: bool,
+    /// An operator's test grant, which skips the prestige check.
     pub operator_test_funding: bool,
+    /// The monitor's attribution; None is `OTHER`.
     pub economy: Option<Economy>,
 }
 
+/// How a transaction ended without an error.
 #[derive(Debug, Clone, PartialEq)]
 pub enum TxOutcome {
+    /// The character is not the user's.
     NotOwned,
+    /// Applied or replayed; the answer's body.
     Done(Value),
 }
 
+/// Why an inventory transaction failed.
 #[derive(Debug, thiserror::Error)]
 pub enum TxError {
+    /// A currency removal asked for more than the balance.
     #[error("{0}")]
     InsufficientBalance(String),
+    /// A currency add needs more banked prestige than the account has.
     #[error("{0}")]
     InsufficientPrestige(String),
+    /// A stacked removal asked for more than is owned.
     #[error(
         "Insufficient stacked item: user {user} has {} of {catalog_id}, cannot remove {}",
         jsjson::number(*owned),
         jsjson::number(*requested)
     )]
     InsufficientStackedItem {
+        /// The owner's userId.
         user: String,
+        /// The item.
         catalog_id: String,
+        /// How many are owned.
         owned: f64,
+        /// How many the removal asked for.
         requested: f64,
     },
+    /// The transaction id was used with a different request body.
     #[error("{0}")]
     Mismatch(String),
+    /// Another write to the inventory or the same transaction landed first.
     #[error("{0}")]
     Conflict(String),
+    /// The grant hook refused; answered with this status and body.
     #[error("denied ({status})")]
-    Denied { status: u16, body: Value },
+    Denied {
+        /// The HTTP status.
+        status: u16,
+        /// The JSON body.
+        body: Value,
+    },
+    /// The storage policy refused a grant or could not load.
     #[error(transparent)]
     Policy(#[from] PolicyError),
+    /// The store failed.
     #[error(transparent)]
     Repo(#[from] RepoError),
 }
@@ -184,15 +231,21 @@ impl From<WalletError> for TxError {
 /// What the observer is told after a commit (§6.1).
 #[derive(Debug, Clone, PartialEq)]
 pub struct CommittedTransaction {
+    /// The owner's account.
     pub account: AccountId,
+    /// The owner's userId.
     pub user_id: String,
+    /// The client's transaction id.
     pub transaction_id: String,
+    /// The ledger's source name.
     pub source: String,
     /// `(catalogId, quantity)`: instanced adds as 1 each, then stacked adds; no currency
     pub granted: Vec<(String, f64)>,
     /// `(catalogId, amount)`
     pub currency_credits: Vec<(String, f64)>,
+    /// `(catalogId, amount)` of each currency removed.
     pub currency_debits: Vec<(String, f64)>,
+    /// The answer's body.
     pub result: Value,
 }
 
@@ -206,8 +259,7 @@ fn currency_moves(entries: &[Value]) -> Vec<(String, f64)> {
         .filter_map(|e| {
             let id = e.get("catalogId").and_then(Value::as_str)?;
             let q = js::safe_integer(e.get("quantity"))?;
-            // A safe integer is exact as a float
-            #[allow(clippy::cast_precision_loss)]
+            #[allow(clippy::cast_precision_loss, reason = "a safe integer is exact as a float")]
             (id.starts_with("CURRENCY_") && q > 0).then(|| (id.to_owned(), q as f64))
         })
         .collect()
@@ -217,8 +269,7 @@ fn granted(instanced: &[Value], stacked: &[Value]) -> Vec<(String, f64)> {
     let item = |e: &Value, quantity: Option<i64>| {
         let id = e.get("catalogId").and_then(Value::as_str)?;
         let q = quantity?;
-        // A safe integer is exact as a float
-        #[allow(clippy::cast_precision_loss)]
+        #[allow(clippy::cast_precision_loss, reason = "a safe integer is exact as a float")]
         (!id.starts_with("CURRENCY_")).then(|| (id.to_owned(), q as f64))
     };
     instanced
@@ -563,12 +614,17 @@ pub async fn get_inventory(
 /// The single item save's inputs (§6.4).
 #[derive(Debug, Clone, PartialEq)]
 pub struct ItemUpdate {
+    /// The character whose inventory holds the item.
     pub character_id: String,
+    /// The owner's userId.
     pub user_id: Option<String>,
+    /// The item's `instanceId`, as sent.
     pub instance_id: Value,
+    /// The item's `catalogId`, as sent; it must match the stored one.
     pub catalog_id: Value,
     /// Absent is none
     pub item_data: Option<Value>,
+    /// The client's `updateVersion`, as sent.
     pub update_version: Option<Value>,
 }
 

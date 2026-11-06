@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Silent Spud
 
+//! `dainty-host preset`: the checkout's game-data preset shown, created from this server's game data, or applied.
+
 use std::path::PathBuf;
 use std::process::ExitCode;
 
@@ -13,6 +15,7 @@ use crate::hostconfig::load_host_config;
 use crate::paths::{Paths, game_exe_relative};
 use crate::preset::{CreateOptions, apply_preset, create_preset, read_preset_manifest};
 
+/// Runs `dainty-host preset`: applies, creates or shows the preset, printing to stdout.
 pub fn run(paths: &Paths, args: &PresetArgs) -> Result<ExitCode, HostError> {
     if let Some(ref apply_arg) = args.apply {
         let target_paths = resolve_target_paths(paths, apply_arg);
@@ -113,7 +116,7 @@ fn resolve_target_paths(paths: &Paths, raw: &str) -> Paths {
 
 #[cfg(test)]
 mod tests {
-    #![allow(clippy::unwrap_used)]
+    #![allow(clippy::unwrap_used, reason = "a panic is how a test fails")]
 
     use super::*;
     use tempfile::TempDir;

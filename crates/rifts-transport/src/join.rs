@@ -22,20 +22,32 @@ use crate::url::ServerAddr;
 const FRAMES_PER_PUMP: usize = 64;
 const RESEND: Duration = Duration::from_millis(750);
 
+/// What a joiner session is set up with.
 #[derive(Debug, Clone)]
 pub struct JoinConfig {
+    /// The values the session is bound to; the ticket must name the same.
     pub bindings: Bindings,
+    /// This joiner's peer id.
     pub local_peer_id: u64,
+    /// This joiner's account; the ticket must belong to it.
     pub local_account_id: String,
+    /// The host's account; signals from anyone else are refused.
     pub host_account_id: String,
+    /// The key sealing frames with the host; never printed.
     pub pair_key: [u8; 32],
+    /// The admission ticket, sent until the host answers and then forgotten.
     pub ticket: String,
+    /// Use TURN relays only; a direct route fails the session.
     pub force_relay: bool,
+    /// The STUN server, if one is set.
     pub stun: Option<ServerAddr>,
+    /// The TURN relays.
     pub relays: Vec<RelayServer>,
+    /// How long the joiner waits to connect and be admitted.
     pub admission_deadline: Duration,
 }
 
+/// The joiner's side of a hunt: one link to the host and admission over it.
 pub struct JoinSession {
     config: JoinConfig,
     key: VerifyingKey,
@@ -122,22 +134,27 @@ impl JoinSession {
         Ok(())
     }
 
+    /// What the pumps produced since the last take.
     pub fn take_output(&mut self) -> Output {
         std::mem::take(&mut self.out)
     }
 
+    /// The counters so far.
     pub fn counters(&self) -> SessionCounters {
         self.counters
     }
 
+    /// Whether the host admitted this joiner.
     pub fn admitted(&self) -> bool {
         self.admitted
     }
 
+    /// Why the session failed, such as `admission_response_timeout`; `None` while it has not.
     pub fn failure(&self) -> Option<&str> {
         self.failure.as_deref()
     }
 
+    /// The link's route once connected.
     pub fn route(&self) -> Option<Route> {
         self.link.as_ref().and_then(Link::route)
     }
@@ -167,6 +184,8 @@ impl JoinSession {
         }
     }
 
+    /// Hands a signal from `from` to the link; anything not from the host is refused.
+    /// A second description means the host replaced its link, which fails a joiner not yet admitted.
     pub fn apply_signal(&mut self, from: &str, kind: &str, data: &str) {
         let host = self.host();
         let Some(link) = self.link.as_mut().filter(|_| from == host) else {
@@ -188,6 +207,7 @@ impl JoinSession {
         }
     }
 
+    /// Moves the link, sends the ticket while waiting and reads the host's answer; fails the session on a timeout or refusal.
     pub fn pump(&mut self, now: Instant) {
         let host = self.host();
         let host_peer = self.config.bindings.host_peer_id;
@@ -293,6 +313,7 @@ impl JoinSession {
         }
     }
 
+    /// Closes the link and detaches the host peer.
     pub fn stop(&mut self) {
         if let Some(link) = self.link.as_mut() {
             link.stop();
@@ -300,6 +321,7 @@ impl JoinSession {
         self.router.detach(self.config.bindings.host_peer_id);
     }
 
+    /// The joiner bridge's view of the host peer.
     pub fn network(&mut self) -> JoinNetwork<'_> {
         JoinNetwork { session: self }
     }

@@ -25,7 +25,10 @@ pub const ALL: &[&str] = &["admin"];
 
 /// The game modules compiled into this binary (DD3, DF5): the stub only here; dainty-restricted adds its own. A server's
 /// `[modules]` section picks which of them load; the rest stay listed and unloaded.
-#[cfg_attr(not(feature = "stub-module"), allow(unused_mut))]
+#[cfg_attr(
+    not(feature = "stub-module"),
+    allow(unused_mut, reason = "only the stub module pushes")
+)]
 pub fn game_modules() -> Vec<crate::registry::ModuleFactory> {
     let mut modules: Vec<crate::registry::ModuleFactory> = Vec::new();
     #[cfg(feature = "stub-module")]
@@ -225,11 +228,16 @@ impl admin::modules::AdminCalls for AdminRoute {
     }
 }
 
+/// What [`remote_controller`] runs with.
 #[cfg(feature = "remote")]
 pub struct RemoteControllerOptions {
+    /// The enrolled installs and the enrollment tokens they redeem.
     pub state: std::sync::Arc<std::sync::Mutex<remote::RemoteControllerState>>,
+    /// Where the state is saved after each enrollment and reread before the next; `None` keeps it in memory.
     pub state_file: Option<std::path::PathBuf>,
+    /// The cluster CA that signs each enrolled install's certificate.
     pub ca: std::sync::Arc<network_plugin::cluster::ClusterCa>,
+    /// Where the module attaches `Service::Remote` and the enroll handler.
     pub services: crate::NodeServices,
 }
 
@@ -340,12 +348,18 @@ pub fn remote_controller(options: RemoteControllerOptions) -> Result<crate::Modu
     .ready_within(std::time::Duration::from_secs(30)))
 }
 
+/// What [`remote_managed`] runs with.
 #[cfg(feature = "remote")]
 pub struct RemoteManagedOptions {
+    /// This install's enrollment: the controller it answers to and the sync state.
     pub agent: std::sync::Arc<std::sync::Mutex<remote::RemoteManagedAgent>>,
+    /// Carries out what the controller pushes or sends back on a sync.
     pub handler: std::sync::Arc<dyn remote::RemoteHostHandler>,
+    /// The node link the sync reaches the controller over.
     pub link: std::sync::Arc<dyn network_plugin::PeerLink>,
+    /// Where the module attaches `Service::Remote`.
     pub services: crate::NodeServices,
+    /// How long between syncs while the controller answers; at least one second.
     pub sync_interval: std::time::Duration,
 }
 
@@ -424,6 +438,7 @@ pub fn remote_managed(options: RemoteManagedOptions) -> Result<crate::Module, St
 
 /// One half of a split server's tunnel (`docs/split-roles.md`).
 pub struct TunnelOptions {
+    /// Where the tunnel's service is attached.
     pub services: crate::NodeServices,
     /// The other half
     pub peer: module_api::network::NodeId,

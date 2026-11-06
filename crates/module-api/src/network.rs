@@ -29,7 +29,9 @@ name_type!(
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct NodeIdentity {
+    /// This node's name.
     pub node: NodeId,
+    /// The region it serves.
     pub region: Region,
 }
 
@@ -48,16 +50,23 @@ impl NodeIdentity {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum IdKind {
+    /// A player's account.
     Account,
+    /// A hunt.
     Hunt,
+    /// A hub instance.
     HubInstance,
+    /// A party.
     Party,
+    /// A matchmaking ticket.
     Ticket,
 }
 
 impl IdKind {
+    /// Every kind, in declaration order.
     pub const ALL: [IdKind; 5] = [Self::Account, Self::Hunt, Self::HubInstance, Self::Party, Self::Ticket];
 
+    /// The kind's tag in an id's text, such as `hub_instance`.
     pub fn as_str(self) -> &'static str {
         match self {
             Self::Account => "account",
@@ -79,6 +88,7 @@ pub struct GlobalId {
     node: NodeId,
 }
 
+/// Text that is not a [`GlobalId`].
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 #[error("a global id is <kind>:<ULID>@<node>, such as hunt:01J9Z3N5C8Q0V2X4Y6W8T0R2P4@oregon-1")]
 pub struct GlobalIdError;
@@ -93,14 +103,17 @@ impl GlobalId {
         }
     }
 
+    /// The id with these parts, as read back from storage.
     pub fn from_parts(kind: IdKind, ulid: Ulid, node: NodeId) -> Self {
         Self { kind, ulid, node }
     }
 
+    /// What it names.
     pub fn kind(&self) -> IdKind {
         self.kind
     }
 
+    /// Its ULID.
     pub fn ulid(&self) -> Ulid {
         self.ulid
     }
@@ -161,8 +174,11 @@ impl fmt::Display for GlobalId {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct SessionTicket {
+    /// The account the ticket acts for.
     pub account: GlobalId,
+    /// The node it was made for.
     pub audience: NodeId,
+    /// The home's signed token (`dlt1.<claims>.<signature>`).
     pub token: String,
 }
 
@@ -171,10 +187,15 @@ pub struct SessionTicket {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct PeerGateway {
+    /// The peer's node name.
     pub node: NodeId,
+    /// The region it serves.
     pub region: Region,
+    /// Its gateway's public host.
     pub host: String,
+    /// Its gateway's port.
     pub port: u16,
+    /// SHA-256 of its gateway's certificate, lowercase hex.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub fingerprint: Option<String>,
 }
@@ -183,6 +204,7 @@ pub struct PeerGateway {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct RegionPing {
+    /// The region.
     pub region: Region,
     /// Round-trip time in milliseconds, or `None` if the region did not answer.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -193,16 +215,26 @@ pub struct RegionPing {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct InstanceRecord {
+    /// The instance's id.
     pub id: GlobalId,
+    /// The region it runs in.
     pub region: Region,
+    /// The game version it runs.
     pub game: GameVersion,
+    /// The matchmaking queue it came from.
     pub queue: String,
+    /// The game server's host.
     pub server_host: String,
+    /// The game server's port.
     pub server_port: u16,
+    /// Most players it takes.
     pub capacity: u16,
+    /// The players in it.
     pub players: Vec<GlobalId>,
+    /// The hub shard's number, for a hub.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub shard: Option<u32>,
+    /// When it was registered, in Unix milliseconds.
     pub created_at_ms: i64,
 }
 
@@ -214,16 +246,24 @@ pub enum JoinDecision {
     Local(InstanceRecord),
     /// Another node owns the instance; the launcher relay should re-point to `gateway` with `ticket`.
     Redirect {
+        /// The instance.
         instance: GlobalId,
+        /// The node that owns it.
         owner: NodeId,
+        /// That node's gateway.
         gateway: PeerGateway,
+        /// A ticket for that node.
         ticket: SessionTicket,
     },
     /// Another node owns the instance and wrong-node joins are refused (`WrongNodePolicy::Refuse`, DN1).
     Refused {
+        /// The instance.
         instance: GlobalId,
+        /// The node that owns it.
         owner: NodeId,
+        /// That node's region.
         region: Region,
+        /// Words for the player.
         message: String,
     },
 }
@@ -232,14 +272,23 @@ pub enum JoinDecision {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct PublishedTicket {
+    /// The ticket's id.
     pub ticket: GlobalId,
+    /// The account that queued.
     pub account: GlobalId,
+    /// The account's home node.
     pub home_node: NodeId,
+    /// The matchmaking queue.
     pub queue: String,
+    /// The game version.
     pub game: GameVersion,
+    /// Players in the party.
     pub party_size: u16,
+    /// The player's IP address, for placing them.
     pub client_ip: String,
+    /// Regions to search, nearest first.
     pub ordered_regions: Vec<Region>,
+    /// When it was published, in Unix milliseconds.
     pub created_at_ms: i64,
 }
 
@@ -247,14 +296,21 @@ pub struct PublishedTicket {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub enum TicketState {
+    /// Still looking for a match.
     Searching {
+        /// How many of its ordered regions it has been published to.
         published_steps: usize,
     },
+    /// A node took it into a match.
     Claimed {
+        /// The match's id.
         match_id: GlobalId,
+        /// The node hosting the match.
         hosting_node: NodeId,
+        /// When it was claimed, in Unix milliseconds.
         claimed_at_ms: i64,
     },
+    /// Cancelled before a match.
     Cancelled,
 }
 
@@ -262,13 +318,19 @@ pub enum TicketState {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct HuntRewards {
+    /// The hunt.
     pub hunt: GlobalId,
+    /// The module whose backend applies the rewards.
     pub module: ModuleId,
+    /// The player.
     pub account: GlobalId,
+    /// XP to grant, as JSON the module defines.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub xp_grant: Option<serde_json::Value>,
+    /// Loot to write, as JSON the module defines.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub loot_write: Option<serde_json::Value>,
+    /// Objective progress to write, as JSON the module defines.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub objective_write: Option<serde_json::Value>,
 }
@@ -280,16 +342,26 @@ pub const DIRECTOR_COMMAND: &str = "__director";
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub enum DirectorInvocation {
+    /// Start a hunt for a formed match.
     PlaceHunt {
+        /// The match's id.
         match_id: GlobalId,
+        /// The queue it came from.
         queue: String,
+        /// The game version.
         game: GameVersion,
+        /// The players.
         players: Vec<GlobalId>,
     },
+    /// Start a hub shard.
     PlaceHub {
+        /// The hub's id.
         hub_id: GlobalId,
+        /// The region it serves.
         region: Region,
+        /// Its shard number.
         shard: u32,
+        /// The game version.
         game: GameVersion,
     },
 }
@@ -298,17 +370,21 @@ pub enum DirectorInvocation {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct PlacedInstance {
+    /// The game server's host.
     pub server_host: String,
+    /// The game server's port.
     pub server_port: u16,
 }
 
 impl DirectorInvocation {
+    /// The game version the placement is for.
     pub fn game(&self) -> &GameVersion {
         match self {
             Self::PlaceHunt { game, .. } | Self::PlaceHub { game, .. } => game,
         }
     }
 
+    /// The command that carries this invocation to the module, as the system actor.
     pub fn to_command(&self) -> CommandRequest {
         CommandRequest {
             actor: ActorContext::new(crate::actor::Actor::System),
@@ -317,6 +393,7 @@ impl DirectorInvocation {
         }
     }
 
+    /// The invocation a command carries; none for any other command.
     pub fn from_command(request: &CommandRequest) -> Option<Result<Self, ModuleError>> {
         if request.name != DIRECTOR_COMMAND {
             return None;
@@ -396,14 +473,17 @@ impl SessionTicket {
     }
 }
 
+/// Why a home call failed.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, thiserror::Error)]
 #[serde(rename_all = "snake_case")]
 pub enum HomeError {
     /// This server has no peers, so only accounts it owns resolve
     #[error("this server is not in a network")]
     NotInNetwork,
+    /// The account's owner is not a node this one knows.
     #[error("no node owns that account")]
     UnknownAccount,
+    /// The home node could not be reached; holds the cause.
     #[error("the home node did not answer: {0}")]
     Unreachable(String),
     /// The home (or the verifying node) refused: a ticket that is expired, replayed or not for this node, a
@@ -424,6 +504,7 @@ pub const MAX_OPERATION_NAME: usize = 64;
 #[serde(try_from = "String", into = "String")]
 pub struct OperationName(String);
 
+/// Text that is not an [`OperationName`].
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 #[error(
     "an operation name is dot-separated lowercase names, such as inventory.write, at most {MAX_OPERATION_NAME} bytes"
@@ -431,12 +512,14 @@ pub struct OperationName(String);
 pub struct OperationNameError;
 
 impl OperationName {
+    /// `text` as an operation name, when every part follows the naming rule and it fits.
     pub fn new(text: impl Into<String>) -> Result<Self, OperationNameError> {
         let text = text.into();
         let ok = text.len() <= MAX_OPERATION_NAME && text.split('.').all(|part| check_name(part, "").is_ok());
         if ok { Ok(Self(text)) } else { Err(OperationNameError) }
     }
 
+    /// The name's text.
     pub fn as_str(&self) -> &str {
         &self.0
     }
@@ -473,12 +556,19 @@ impl fmt::Display for OperationName {
 /// The operation names a game module's home backend is expected to answer for the account data other nodes
 /// need (DN5): a convention, so DN6, DN8 and the modules agree; the bodies are each module's own.
 pub mod operations {
+    /// Load a character.
     pub const CHARACTER_LOAD: &str = "character.load";
+    /// Read progression.
     pub const PROGRESSION_READ: &str = "progression.read";
+    /// Grant progression.
     pub const PROGRESSION_GRANT: &str = "progression.grant";
+    /// Read the inventory.
     pub const INVENTORY_READ: &str = "inventory.read";
+    /// Write the inventory.
     pub const INVENTORY_WRITE: &str = "inventory.write";
+    /// Read bounties.
     pub const BOUNTY_READ: &str = "bounty.read";
+    /// Write bounties.
     pub const BOUNTY_WRITE: &str = "bounty.write";
     /// The generic envelope: what `IslesStore::account_write` forwards when the account is homed elsewhere
     pub const ACCOUNT_WRITE: &str = "account.write";
@@ -491,10 +581,13 @@ pub mod operations {
 pub struct HomeForward {
     /// The module whose backend runs it at the home
     pub module: ModuleId,
+    /// The account the operation is for.
     pub account: GlobalId,
     /// Who asked at this node, for the home's change log (DD23)
     pub actor: ActorContext,
+    /// What to run.
     pub operation: OperationName,
+    /// Its input, as the operation defines it.
     #[serde(default)]
     pub body: serde_json::Value,
     /// Names this request, 8 to 64 characters of `[A-Za-z0-9_-]`: the home runs one key once and answers a
@@ -508,103 +601,148 @@ pub struct HomeForward {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub enum HomeCall {
+    /// Ask which node an account is homed on.
     ResolveHome {
+        /// The account.
         account: GlobalId,
     },
+    /// Ask the account's home for a ticket for another node.
     SessionTicket {
+        /// The account.
         account: GlobalId,
+        /// The node the ticket is for.
         audience: NodeId,
     },
     /// Run an operation at the account's home (DN5)
     Forward(HomeForward),
     /// Check a ticket some player arrived with, as the node it was made for (DN5)
     Admit {
+        /// The ticket.
         ticket: SessionTicket,
+        /// The game version the player is joining.
         game: GameVersion,
     },
     /// Verify a ticket for an ongoing HTTP session on the audience node (admits on first use and allows
     /// subsequent requests on the same held session until expiry or revocation, DN6/DN8)
     VerifySessionTicket {
+        /// The ticket.
         ticket: SessionTicket,
+        /// The game version of the session.
         game: GameVersion,
     },
     /// Register the SHA-256 hex digest of a local account's API key so `POST /network/v1/regions` can
     /// verify the caller without the raw account key crossing `HostLink` (DN8, RD9)
     RegisterAccountKeyHash {
+        /// Lowercase hex SHA-256 of the key.
         key_sha256: String,
+        /// The account.
         account: GlobalId,
     },
     /// Register a newly created account in the cluster directory (DN4)
     RegisterDirectoryAccount {
+        /// The new account.
         account: GlobalId,
+        /// The username it asked for.
         username: String,
     },
     /// Submit a home-owned matchmaking ticket into the regional ring (DN8)
     RingSubmitTicket {
+        /// The account queueing.
         account: GlobalId,
+        /// The matchmaking queue.
         queue: String,
+        /// The game version.
         game: GameVersion,
+        /// Players in the party.
         party_size: u16,
+        /// The player's IP address.
         client_ip: String,
     },
     /// Try forming matches in this node's regional matchmaking pool for `(queue, game)` (DN8)
     RingTryFormMatches {
+        /// The matchmaking queue.
         queue: String,
+        /// The game version.
         game: GameVersion,
     },
     /// Query the current state of a matchmaking ticket owned by this home node (DN8)
     RingTicketState {
+        /// The ticket.
         ticket: GlobalId,
     },
     /// Cancel a matchmaking ticket owned by this home node (DN8)
     RingCancelTicket {
+        /// The ticket.
         ticket: GlobalId,
     },
     /// Look up an instance record by its `GlobalId` across the network (DN6, DN8)
     RingLookupInstance {
+        /// The instance.
         instance: GlobalId,
     },
     /// Register an active hunt, hub shard, or party instance owned by this node (DN6)
     RingRegisterInstance {
+        /// The instance's record.
         record: Box<InstanceRecord>,
     },
     /// Resolve a player's join for an instance arriving at this node (DN6)
     RingResolveJoin {
+        /// The player.
         account: GlobalId,
+        /// The player's IP address.
         client_ip: String,
+        /// The instance being joined.
         instance: GlobalId,
     },
     /// Assign a player to the shared Ramsgate hub in their lowest-ping region (DN9)
     RingAssignRamsgate {
+        /// The player.
         account: GlobalId,
+        /// The player's IP address.
         client_ip: String,
+        /// The game version.
         game: GameVersion,
     },
     /// Forward post-hunt XP, loot, and objective progress to a player's home node (DN8)
     RingForwardHuntRewards {
+        /// The rewards.
         rewards: Box<HuntRewards>,
     },
 }
 
+/// The answer to a [`HomeCall`], the variant matching the call's.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub enum HomeAnswer {
+    /// The node the account is homed on.
     Home(NodeIdentity),
+    /// The ticket made.
     Ticket(SessionTicket),
     /// What the home's module answered
     Forwarded(serde_json::Value),
     /// The account the ticket proved is logged in at its home
     Admitted(GlobalId),
+    /// The call was carried out.
     Ack,
+    /// The username the directory gave the account.
     DirectoryUsername(String),
+    /// The published matchmaking ticket.
     PublishedTicket(Box<PublishedTicket>),
+    /// Matches formed.
     FormedMatches(Vec<InstanceRecord>),
+    /// The ticket's state, none when unknown.
     TicketState(Option<Box<TicketState>>),
+    /// Whether a ticket was cancelled.
     Cancelled(bool),
+    /// The instance, none when unknown.
     Instance(Option<Box<InstanceRecord>>),
+    /// Where the player's join goes.
     JoinDecision(Box<JoinDecision>),
+    /// The Ramsgate instance the player was assigned.
     RamsgateAssigned {
+        /// The instance.
         instance: Box<InstanceRecord>,
+        /// A ticket for the instance's node, when one was issued.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         ticket: Option<SessionTicket>,
     },
@@ -814,10 +952,15 @@ pub async fn dispatch_home(api: &dyn HomeApi, call: HomeCall) -> Result<HomeAnsw
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct HomeInvocation {
+    /// The node that asked, as its link authenticated it.
     pub from: NodeId,
+    /// The account, homed here.
     pub account: GlobalId,
+    /// Who asked at the calling node.
     pub actor: ActorContext,
+    /// What to run.
     pub operation: OperationName,
+    /// Its input, as the operation defines it.
     #[serde(default)]
     pub body: serde_json::Value,
 }
@@ -869,6 +1012,7 @@ pub trait HomeBackend: Send + Sync {
 /// unknown, and no ticket is issued.
 #[derive(Debug, Clone)]
 pub struct StandaloneHome {
+    /// This node.
     pub identity: NodeIdentity,
 }
 

@@ -13,6 +13,7 @@ use serde_json::Value;
 
 use crate::settings::config_text;
 
+/// The backend's game data files, by fixed name.
 pub const BACKEND_FILES: [&str; 11] = [
     "progression_config.json",
     "slayers_path.json",
@@ -27,6 +28,7 @@ pub const BACKEND_FILES: [&str; 11] = [
     "tester_max_kit.json",
 ];
 
+/// The Director's hunt tables every version has.
 pub const DIRECTOR_FILES: [&str; 5] = [
     "player_hunts_table.json",
     "matchmaker_hunts_table.json",
@@ -41,6 +43,7 @@ pub const DIRECTOR_TRIALS_FILES: [&str; 2] = [
     "arena_elite_matchmaker_hunts_new.json",
 ];
 
+/// The Director's files, with the Trials tables when `trials`.
 pub fn director_files(trials: bool) -> Vec<&'static str> {
     let mut files = DIRECTOR_FILES.to_vec();
     if trials {
@@ -49,10 +52,13 @@ pub fn director_files(trials: bool) -> Vec<&'static str> {
     files
 }
 
+/// Why a required game data file could not be read.
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 pub enum LoadError {
+    /// The file or its folder is missing; the text tells the host how to make it.
     #[error("{0}")]
     Missing(String),
+    /// The file exists but could not be read or parsed.
     #[error("{0}")]
     Unreadable(String),
 }
@@ -60,7 +66,9 @@ pub enum LoadError {
 /// One module's folders, and its cache of required reads (per module, not per process).
 #[derive(Debug, Clone, Default)]
 pub struct GameDataRoot {
+    /// The backend game data folder, none when unset.
     pub backend: Option<PathBuf>,
+    /// The Director's hunt table folder, none when unset.
     pub director: Option<PathBuf>,
     cache: Arc<Mutex<HashMap<PathBuf, Value>>>,
 }
@@ -94,6 +102,7 @@ fn read(path: &Path) -> Result<Option<Value>, LoadError> {
 }
 
 impl GameDataRoot {
+    /// A root over the two folders with an empty cache.
     pub fn new(backend: Option<PathBuf>, director: Option<PathBuf>) -> Self {
         Self {
             backend,
@@ -110,10 +119,12 @@ impl GameDataRoot {
         )
     }
 
+    /// The path of a backend file, none without a backend folder.
     pub fn backend_file(&self, name: &str) -> Option<PathBuf> {
         self.backend.as_ref().map(|dir| dir.join(name))
     }
 
+    /// The path of a Director file, none without a Director folder.
     pub fn director_file(&self, name: &str) -> Option<PathBuf> {
         self.director.as_ref().map(|dir| dir.join(name))
     }
@@ -126,6 +137,7 @@ impl GameDataRoot {
         }
     }
 
+    /// Reads a backend file, which must exist; parsed as `JSON.parse` does.
     pub fn load_backend(&self, name: &str) -> Result<Value, LoadError> {
         let Some(path) = self.backend_file(name) else {
             return Err(missing(&format!("<no backend game data folder>/{name}")));

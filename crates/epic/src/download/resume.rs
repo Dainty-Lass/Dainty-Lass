@@ -19,7 +19,9 @@ const MAX_SIZE: u64 = 16 << 20;
 /// What an earlier run of the same download finished.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct ResumeState {
+    /// Chunks fetched and written.
     pub chunks: HashSet<Guid>,
+    /// Files verified, by index in the manifest.
     pub files: HashSet<usize>,
 }
 

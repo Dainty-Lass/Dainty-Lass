@@ -23,6 +23,7 @@ const fn admission_table(name: &'static str, node_collection: &'static str, keys
     }
 }
 
+/// Admission's tables, with the Node collection each replaces and its key.
 pub const TABLES: &[TableSpec] = &[
     admission_table("rifts_peer_links", "p2pSteamLinks", "account; peer unique"),
     admission_table(
@@ -37,110 +38,179 @@ pub const TABLES: &[TableSpec] = &[
     ),
 ];
 
+/// Whether an account's peer link holds.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum LinkStatus {
+    /// The link was verified.
     Verified,
+    /// The link was revoked.
     Revoked,
 }
 
+/// An account's verified link to its transport peer id.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct PeerLinkRecord {
+    /// The account.
     pub account: AccountId,
+    /// The linked peer id.
     pub peer: PeerId,
+    /// Whether the link holds.
     pub status: LinkStatus,
+    /// Bumped on every change.
     pub revision: u64,
+    /// When the link was verified.
     pub verified_at: UnixMillis,
+    /// How it was verified.
     pub verification_method: String,
 }
 
+/// Where an issued ticket is in its life.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum TicketStatus {
+    /// Minted, not consumed yet.
     Issued,
+    /// Consumed by a host.
     Consumed,
+    /// Revoked before use.
     Revoked,
 }
 
+/// An issued ticket, kept by its digest and bindings, never its text.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct TicketRecord {
+    /// The SHA-256 hex digest of the ticket's jti.
     pub jti_digest: String,
+    /// The key it was signed with.
     pub key_id: String,
     /// The session's wire text.
     pub session: String,
+    /// The hunt generation.
     pub generation: u64,
+    /// The joiner's account.
     pub account: AccountId,
+    /// The joiner's peer id.
     pub joiner_peer: PeerId,
+    /// The host's peer id.
     pub host_peer: PeerId,
+    /// The bridge protocol version.
     pub bridge_protocol: u16,
+    /// The game's virtual port.
     pub virtual_port: u16,
+    /// When it was minted.
     pub issued_at: UnixMillis,
+    /// When it expires.
     pub expires_at: UnixMillis,
+    /// Where it is in its life.
     pub status: TicketStatus,
+    /// When a host consumed it.
     pub consumed_at: Option<UnixMillis>,
+    /// The bridge instance that consumed it.
     pub consumer_bridge_instance_id: Option<String>,
+    /// The request id that consumed it, so the same request may retry.
     pub consumer_request_id: Option<String>,
 }
 
+/// A host's attempt to consume a ticket.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ConsumeRequest {
+    /// The SHA-256 hex digest of the ticket's jti.
     pub jti_digest: String,
+    /// The session's wire text.
     pub session: String,
+    /// The hunt generation.
     pub generation: u64,
+    /// The joiner's account.
     pub account: AccountId,
+    /// The joiner's peer id.
     pub joiner_peer: PeerId,
+    /// The host's peer id.
     pub host_peer: PeerId,
+    /// The consuming bridge's instance id.
     pub bridge_instance_id: String,
+    /// The request's id.
     pub request_id: String,
+    /// When the attempt was made.
     pub now: UnixMillis,
 }
 
+/// What consuming a ticket did.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum ConsumeOutcome {
+    /// Consumed now.
     Consumed(TicketRecord),
     /// The same bridge retried the same request.
     Idempotent(TicketRecord),
+    /// The ticket expired.
     Expired,
+    /// Another bridge or request already consumed it.
     Replay,
+    /// No such ticket, or it does not match the attempt.
     Invalid,
 }
 
+/// One joiner's admission to a host's session.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct PeerAdmissionRecord {
+    /// The admission's id, 64 hex digits.
     pub admission_id: String,
     /// `<wire session>:<generation>:<peer>` while live; at most one live admission holds it.
     pub active_key: Option<String>,
+    /// The session's wire text.
     pub session: String,
+    /// The hunt generation.
     pub generation: u64,
+    /// The joiner's account.
     pub account: AccountId,
+    /// The joiner's peer id.
     pub peer: PeerId,
+    /// The host bridge's instance id.
     pub bridge_instance_id: String,
+    /// The joiner's connection handle on the host.
     pub connection_handle: String,
+    /// When the joiner was admitted.
     pub admitted_at: UnixMillis,
+    /// When the joiner disconnected or was superseded.
     pub disconnected_at: Option<UnixMillis>,
+    /// When a newer admission for the same seat replaced it.
     pub superseded_at: Option<UnixMillis>,
 }
 
+/// A host's report that an admitted peer disconnected.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct DisconnectRequest {
+    /// The admission's id.
     pub admission_id: String,
+    /// The session's wire text.
     pub session: String,
+    /// The hunt generation.
     pub generation: u64,
+    /// The reporting bridge's instance id, which must be the admitting one.
     pub bridge_instance_id: String,
+    /// When the peer disconnected.
     pub at: UnixMillis,
 }
 
+/// Admission's storage; each method is one transaction.
 pub trait AdmissionStore: Send + Sync {
+    /// The account's peer link, `None` when it has none.
     fn peer_link(&self, of: &AccountId) -> Stored<Option<PeerLinkRecord>>;
+    /// Writes the account's peer link, replacing any earlier one.
     fn put_peer_link(&self, by: &Actor, row: &PeerLinkRecord) -> Stored<()>;
     /// `false` when the digest is already stored.
     fn insert_ticket(&self, by: &Actor, row: &TicketRecord) -> Stored<bool>;
+    /// Consumes a ticket if it matches the attempt and is live.
     fn consume_ticket(&self, by: &Actor, attempt: &ConsumeRequest) -> Stored<ConsumeOutcome>;
     /// `false` when the id or the live active key is already held.
     fn insert_admission(&self, by: &Actor, row: &PeerAdmissionRecord) -> Stored<bool>;
+    /// An admission by id.
     fn find_admission(&self, id: &str) -> Stored<Option<PeerAdmissionRecord>>;
+    /// Closes the live admission holding `key`; `false` when none does.
     fn supersede_active(&self, by: &Actor, key: &str, at: UnixMillis) -> Stored<bool>;
+    /// Marks the admission disconnected; `false` when it is unknown, already closed or from another bridge.
     fn disconnect(&self, by: &Actor, attempt: &DisconnectRequest) -> Stored<bool>;
 }
 
+/// Fails every operation with `Unimplemented`.
 #[derive(Clone, Copy, Debug, Default)]
 pub struct StubAdmissionStore;
 
@@ -197,6 +267,7 @@ impl MemoryAdmissionStore {
         self.tables.lock().unwrap_or_else(PoisonError::into_inner)
     }
 
+    /// The stored ticket with this jti digest.
     pub fn ticket(&self, jti_digest: &str) -> Option<TicketRecord> {
         self.rows().tickets.get(jti_digest).cloned()
     }

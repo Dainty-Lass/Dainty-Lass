@@ -19,8 +19,7 @@ const GAME_DAY_OFFSET_MS: i64 = 17 * 3_600_000;
 /// The version's coin, a finite quantity above 0 and at most its ceiling.
 pub fn is_challenge_reward_grant(coin: Option<SeasonalCoin>, catalog_id: &str, quantity: f64) -> bool {
     let Some(coin) = coin else { return false };
-    // The ceiling is small (1000 for 1.14.7)
-    #[allow(clippy::cast_precision_loss)]
+    #[allow(clippy::cast_precision_loss, reason = "the ceiling is small (1000 for 1.14.7)")]
     let ceiling = coin.max_per_claim as f64;
     catalog_id == coin.catalog_id && quantity.is_finite() && quantity > 0.0 && quantity <= ceiling
 }
@@ -31,6 +30,7 @@ pub fn game_day_key(ms: i64) -> String {
     iso(start)
 }
 
+/// Whether today's daily reward has been credited (the game day starts at 17:00 UTC).
 pub fn is_daily_paid(record: &BountyStateRecord, now_ms: i64) -> bool {
     record.daily_reward_credited_on.as_deref() == Some(game_day_key(now_ms).as_str())
 }
@@ -64,9 +64,12 @@ pub fn fundable_claim(record: &BountyStateRecord, now_ms: i64) -> Option<usize> 
     best
 }
 
+/// The challenge a grant was credited to.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct FundedClaim {
+    /// The challenge's bounty id.
     pub bounty_id: String,
+    /// When the challenge was claimed, as ISO text.
     pub claimed_at: Option<String>,
 }
 

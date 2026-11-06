@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Silent Spud
 
+//! `dainty-host update`'s machinery: finding a release, checking it against `SHA256SUMS.txt` and its build
+//! attestation, unpacking it safely, and installing it in place without overwriting files the host changed.
+
 use std::cmp::Ordering;
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
@@ -16,29 +19,47 @@ use sha2::{Digest, Sha256};
 use crate::error::HostError;
 use crate::run::{RunOptions, run};
 
+/// The manifest at a release's root, listing every file with its SHA-256.
 pub const RELEASE_FILE: &str = "release.json";
+/// The checksum file published beside each release archive.
 pub const SUMS_FILE: &str = "SHA256SUMS.txt";
+/// The variable that points updates at another source: a GitHub `owner/repo`, a folder or a URL.
 pub const SOURCE_ENV: &str = "REFORGED_SERVER_RELEASE";
+/// The prefix of a server release's git tag.
 pub const TAG_PREFIX: &str = "server-v";
+/// The prefix of a release archive's file name.
 pub const ARCHIVE_PREFIX: &str = "ReforgedRevivalServer-";
+/// The GitHub repository releases come from, fixed at build time.
 pub const DEFAULT_REPOSITORY: &str = env!("REFORGED_RELEASE_REPOSITORY");
 
+/// Why an update stopped; [`Problem::code`] is the machine-readable form `update --json` prints.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Problem {
+    /// No release matches what was asked for.
     NoRelease(String),
+    /// A download failed.
     DownloadFailed(String),
+    /// The archive is not listed in [`SUMS_FILE`].
     NotInSums(String),
+    /// A downloaded file's SHA-256 is not the one listed.
     Checksum {
+        /// The file.
         file: String,
+        /// The SHA-256 listed, hex.
         expected: String,
+        /// The SHA-256 it has, hex.
         actual: String,
     },
+    /// The release's build provenance did not verify.
     Attestation(String),
+    /// The archive could not be unpacked, or holds no valid release.
     BadArchive(String),
+    /// Files the host changed that the update would overwrite.
     LocalChanges(Vec<String>),
 }
 
 impl Problem {
+    /// A snake_case code for the problem.
     pub fn code(&self) -> &'static str {
         match self {
             Self::NoRelease(_) => "no_release",
@@ -51,6 +72,7 @@ impl Problem {
         }
     }
 
+    /// The problem's particulars without the sentence around them.
     pub fn detail(&self) -> Option<String> {
         match self {
             Self::NoRelease(s)
@@ -63,6 +85,7 @@ impl Problem {
         }
     }
 
+    /// The sentence the host reads.
     pub fn message(&self) -> String {
         match self {
             Self::NoRelease(s) => s.clone(),
@@ -86,9 +109,12 @@ impl fmt::Display for Problem {
     }
 }
 
+/// Why an update failed.
 #[derive(Debug)]
 pub enum UpdateError {
+    /// Something about the release refuses it.
     Problem(Problem),
+    /// A local error: a file, a command or the network stack.
     Host(HostError),
 }
 
@@ -121,11 +147,15 @@ impl From<io::Error> for UpdateError {
     }
 }
 
+/// What the update steps return.
 pub type UpdateResult<T> = Result<T, UpdateError>;
 
+/// A semantic version, compared as SemVer orders them (build metadata ignored).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Version {
+    /// Major, minor and patch.
     pub core: [u64; 3],
+    /// The pre-release identifiers; empty for a release.
     pub pre: Vec<String>,
 }
 
@@ -144,6 +174,7 @@ fn parse_numeric_no_leading_zero(s: &str) -> Option<u64> {
 }
 
 impl Version {
+    /// Parses a SemVer string; `None` for anything that is not one.
     pub fn parse(text: &str) -> Option<Self> {
         let trimmed = text.trim();
         if trimmed.is_empty() {
@@ -192,6 +223,7 @@ impl Version {
         })
     }
 
+    /// Whether it is a pre-release.
     pub fn is_prerelease(&self) -> bool {
         !self.pre.is_empty()
     }
@@ -241,20 +273,31 @@ impl PartialOrd for Version {
     }
 }
 
+/// One file a release holds.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ManifestFile {
+    /// Its path from the release root, with forward slashes.
     pub path: String,
+    /// Its SHA-256, lowercase hex.
     pub sha256: String,
+    /// Its size in bytes.
     pub size: u64,
 }
 
+/// A release's [`RELEASE_FILE`].
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Manifest {
+    /// The release's version.
     pub version: String,
+    /// The git commit it was built from.
     pub commit: String,
+    /// The Rust target it was built for.
     pub target: String,
+    /// The platform name in its archive's name, like `windows-x64`.
     pub platform: String,
+    /// The GitHub repository it came from, which later updates use.
     pub repository: Option<String>,
+    /// Every file it holds.
     pub files: Vec<ManifestFile>,
 }
 
@@ -273,6 +316,7 @@ fn is_safe_relative_path(path: &str) -> bool {
 }
 
 impl Manifest {
+    /// Parses a release.json; the error says what is missing or malformed, and an unsafe file path is refused.
     pub fn parse(text: &str) -> Result<Self, String> {
         let stripped = text.strip_prefix('\u{feff}').unwrap_or(text);
         let val: Value = serde_json::from_str(stripped).map_err(|e| format!("invalid JSON: {e}"))?;
@@ -361,11 +405,13 @@ impl Manifest {
         })
     }
 
+    /// The listed file at `path`, matched with forward slashes.
     pub fn file(&self, path: &str) -> Option<&ManifestFile> {
         let norm = path.replace('\\', "/");
         self.files.iter().find(|f| f.path == norm)
     }
 
+    /// The commit's first 12 characters, or `unknown`.
     pub fn short_commit(&self) -> &str {
         if self.commit.is_empty() {
             "unknown"
@@ -376,20 +422,28 @@ impl Manifest {
     }
 }
 
+/// Where a download comes from.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Location {
+    /// A file in a release folder.
     File(PathBuf),
+    /// A URL.
     Url(String),
 }
 
+/// Where releases are looked for.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Source {
+    /// A GitHub repository, `owner/repo`.
     GitHub(String),
+    /// A folder holding release archives and their checksums.
     Folder(PathBuf),
+    /// A URL whose folder holds them.
     Url(String),
 }
 
 impl Source {
+    /// The source [`SOURCE_ENV`] names, else the installed release's repository, else [`DEFAULT_REPOSITORY`].
     pub fn from_env(installed: Option<&Manifest>) -> Self {
         if let Ok(val) = std::env::var(SOURCE_ENV) {
             let trimmed = val.trim();
@@ -407,6 +461,8 @@ impl Source {
         Self::GitHub(DEFAULT_REPOSITORY.to_owned())
     }
 
+    /// Reads `http://` or `https://` as a URL, `github:owner/repo` or a bare `owner/repo` that is no path on disk as
+    /// a repository, and anything else as a folder.
     pub fn parse(value: &str) -> Self {
         let trimmed = value.trim();
         if trimmed.starts_with("https://") || trimmed.starts_with("http://") {
@@ -429,6 +485,7 @@ impl Source {
         }
     }
 
+    /// The source as the host reads it.
     pub fn describe(&self) -> String {
         match self {
             Self::GitHub(repo) => format!("GitHub ({repo})"),
@@ -438,36 +495,55 @@ impl Source {
     }
 }
 
+/// The release an update would install.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Candidate {
+    /// Its version.
     pub version: String,
+    /// Its archive's file name.
     pub archive: String,
+    /// Where the archive is.
     pub archive_at: Location,
+    /// Where its [`SUMS_FILE`] is.
     pub sums_at: Location,
+    /// The GitHub repository it came from, for the attestation check; `None` from a folder or URL.
     pub repository: Option<String>,
 }
 
+/// Which release to look for.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Wanted<'a> {
+    /// The newest, past the installed version if one is given.
     Newest(Option<&'a str>),
+    /// This version.
     Exactly(&'a str),
 }
 
+/// What came of the build provenance check.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Attestation {
+    /// `gh attestation verify` verified the archive.
     Verified,
+    /// Not checked, and why.
     Skipped(String),
 }
 
+/// What an install did.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Installed {
+    /// The version installed before; `None` for a first install.
     pub from: Option<String>,
+    /// The version installed now.
     pub to: String,
+    /// How many files were written.
     pub files: usize,
+    /// How many files of the old release were removed.
     pub removed: usize,
+    /// Whether the game runtime's files changed; `None` without an earlier release.
     pub runtime_changed: Option<bool>,
 }
 
+/// This machine's release platform: `windows-x64` or `linux-x64`; `None` elsewhere.
 pub fn platform() -> Option<&'static str> {
     if cfg!(all(target_os = "windows", target_arch = "x86_64")) {
         Some("windows-x64")
@@ -478,6 +554,7 @@ pub fn platform() -> Option<&'static str> {
     }
 }
 
+/// This machine's release platform, or an error on one that has no releases.
 pub fn this_platform() -> Result<&'static str, HostError> {
     platform().ok_or_else(|| HostError::message("self-update is only supported on windows-x64 and linux-x64"))
 }
@@ -490,11 +567,13 @@ fn archive_ext(platform: &str) -> &'static str {
     }
 }
 
+/// The archive's file name for `version` on `platform`.
 pub fn archive_name(version: &str, platform: &str) -> String {
     let ext = archive_ext(platform);
     format!("{ARCHIVE_PREFIX}{version}-{platform}{ext}")
 }
 
+/// The version in a release archive's name for `platform`; `None` for another platform's or a foreign file.
 pub fn archive_version<'a>(name: &'a str, platform: &str) -> Option<&'a str> {
     let ext = archive_ext(platform);
     let suffix = format!("-{platform}{ext}");
@@ -504,6 +583,7 @@ pub fn archive_version<'a>(name: &'a str, platform: &str) -> Option<&'a str> {
     Some(ver)
 }
 
+/// The highest SemVer of `versions`; pre-releases only when the installed one is one, or when there is nothing else.
 pub fn pick_newest<'a>(versions: &[&'a str], installed: Option<&str>) -> Option<&'a str> {
     let allow_prerelease = installed.and_then(Version::parse).is_some_and(|v| v.is_prerelease());
 
@@ -526,6 +606,7 @@ pub fn pick_newest<'a>(versions: &[&'a str], installed: Option<&str>) -> Option<
     best.or(best_pre).map(|(s, _)| s)
 }
 
+/// The release.json at `root`; `None` when there is none (a checkout).
 pub fn read_manifest(root: &Path) -> Result<Option<Manifest>, HostError> {
     let file = root.join(RELEASE_FILE);
     if !file.is_file() {
@@ -537,6 +618,7 @@ pub fn read_manifest(root: &Path) -> Result<Option<Manifest>, HostError> {
         .map_err(|e| HostError::message(format!("invalid {}: {e}", file.display())))
 }
 
+/// The file's SHA-256, lowercase hex.
 pub fn sha256_file(file: &Path) -> Result<String, HostError> {
     let mut f = File::open(file)?;
     let mut hasher = Sha256::new();
@@ -557,6 +639,7 @@ pub fn sha256_file(file: &Path) -> Result<String, HostError> {
     Ok(hex)
 }
 
+/// The (lowercase SHA-256, file name) pairs of a SHA256SUMS text; comments and malformed lines are skipped.
 pub fn parse_sums(text: &str) -> Vec<(String, String)> {
     let stripped = text.strip_prefix('\u{feff}').unwrap_or(text);
     let mut out = Vec::new();
@@ -622,6 +705,7 @@ fn select_candidate(
     }
 }
 
+/// The release `wanted` picks from a GitHub releases API answer, with its archive and checksum asset URLs.
 pub fn candidates_from_github(
     releases: &Value,
     repo: &str,
@@ -693,6 +777,7 @@ pub fn candidates_from_github(
     select_candidate(&candidates, wanted, &format!("GitHub ({repo})"), platform)
 }
 
+/// Finds the release `wanted` picks for `platform` in `source`.
 pub fn find_release(source: &Source, platform: &str, wanted: Wanted<'_>) -> UpdateResult<Candidate> {
     match source {
         Source::GitHub(repo) => {
@@ -797,6 +882,8 @@ fn fetch_location(loc: &Location, dest: &Path) -> UpdateResult<()> {
     }
 }
 
+/// Downloads the candidate's archive and checksums into `dir` and checks the archive's SHA-256; returns the archive.
+/// Nothing downloaded is kept when the check fails.
 pub fn fetch(candidate: &Candidate, dir: &Path) -> UpdateResult<PathBuf> {
     fs::create_dir_all(dir)?;
     let sums_dest = dir.join(SUMS_FILE);
@@ -853,6 +940,8 @@ pub fn fetch(candidate: &Candidate, dir: &Path) -> UpdateResult<PathBuf> {
     Ok(archive_dest)
 }
 
+/// Checks the archive's build provenance with `gh attestation verify`, logging to `log_file`.
+/// Skipped, not failed, when the release has no repository or `gh` is missing.
 pub fn verify_attestation(archive: &Path, candidate: &Candidate, log_file: &Path) -> UpdateResult<Attestation> {
     let Some(repo) = candidate.repository.as_deref() else {
         return Ok(Attestation::Skipped(
@@ -998,6 +1087,8 @@ fn extract_tar_gz(archive: &Path, dest: &Path) -> UpdateResult<()> {
     Ok(())
 }
 
+/// Unpacks a zip or tar.gz into `dest` (emptied first), refusing paths that escape it and links.
+/// Returns the release root: `dest`, or its one folder when that holds the release.json.
 pub fn extract(archive: &Path, dest: &Path) -> UpdateResult<PathBuf> {
     if dest.exists() {
         fs::remove_dir_all(dest)?;
@@ -1036,6 +1127,7 @@ pub fn extract(archive: &Path, dest: &Path) -> UpdateResult<PathBuf> {
     Ok(dest.to_path_buf())
 }
 
+/// The listed files at `root` that are missing or whose size or SHA-256 differ.
 pub fn damaged_files(root: &Path, manifest: &Manifest) -> Result<Vec<String>, HostError> {
     let mut damaged = Vec::new();
     for f in &manifest.files {
@@ -1069,6 +1161,7 @@ fn is_runtime_manifest_path(path: &str) -> bool {
         || norm == "MysticParadox.dll"
 }
 
+/// Whether the game runtime's files differ between the two releases.
 pub fn runtime_changed(previous: &Manifest, next: &Manifest) -> bool {
     let prev_rt: BTreeMap<&str, &str> = previous
         .files
@@ -1085,6 +1178,8 @@ pub fn runtime_changed(previous: &Manifest, next: &Manifest) -> bool {
     prev_rt != next_rt
 }
 
+/// Files at `root` the host changed since `previous` was installed, unless they already match the new release.
+/// Without a previous release, a git checkout's uncommitted changes.
 pub fn local_changes(root: &Path, previous: Option<&Manifest>, next: &Manifest) -> Result<Vec<String>, HostError> {
     let Some(prev) = previous else {
         if !root.join(RELEASE_FILE).is_file()
@@ -1148,10 +1243,12 @@ fn sweep_aside_in_dir(dir: &Path) {
     }
 }
 
+/// Removes files an earlier install moved aside because they were locked.
 pub fn remove_moved_aside(root: &Path) {
     sweep_aside_in_dir(root);
 }
 
+/// The file that says an install is under way; an update that finds it finishes the interrupted install.
 pub fn installing_marker(root: &Path) -> PathBuf {
     root.join(".workspace").join("update").join("installing")
 }
@@ -1209,6 +1306,9 @@ fn remove_empty_parent_dirs(mut dir: Option<&Path>, root: &Path) {
     }
 }
 
+/// Installs the staged release over `root`, file by file, with [`installing_marker`] held until it is done.
+/// Returns the new manifest and what changed; a damaged staged release or [`Problem::LocalChanges`] stops it before it
+/// writes.
 pub fn install(staged: &Path, root: &Path, previous: Option<&Manifest>) -> UpdateResult<(Manifest, Installed)> {
     let next = read_manifest(staged)
         .map_err(|e| UpdateError::Problem(Problem::BadArchive(e.to_string())))?
@@ -1293,6 +1393,7 @@ pub fn install(staged: &Path, root: &Path, previous: Option<&Manifest>) -> Updat
     Ok((next, info))
 }
 
+/// Plain HTTPS GETs for the update, following redirects.
 pub mod http {
     use std::fs::{self, File};
     use std::io::Write;
@@ -1371,11 +1472,13 @@ pub mod http {
         rt.block_on(fut)
     }
 
+    /// The body at `url` as text; `api` asks for GitHub's API JSON.
     pub fn get_text(url: &str, api: bool) -> Result<String, String> {
         let bytes = run_async(fetch_bytes(url, api))?;
         String::from_utf8(bytes).map_err(|e| format!("invalid UTF-8 from {url}: {e}"))
     }
 
+    /// Downloads `url` to `file`, making its folder.
     pub fn download(url: &str, file: &Path) -> Result<(), String> {
         let bytes = run_async(fetch_bytes(url, false))?;
         if let Some(parent) = file.parent() {
@@ -1393,7 +1496,7 @@ pub mod http {
 
 #[cfg(test)]
 mod tests {
-    #![allow(clippy::unwrap_used, clippy::expect_used)]
+    #![allow(clippy::unwrap_used, clippy::expect_used, reason = "a panic is how a test fails")]
 
     use super::*;
     use serde_json::json;

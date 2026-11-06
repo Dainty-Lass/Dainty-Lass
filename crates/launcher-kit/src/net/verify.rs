@@ -1,6 +1,8 @@
 // Copyright (c) 2026 Silent Spud
 // SPDX-License-Identifier: MIT
 
+//! Hashing game files against the pinned executable, with a cache keyed by size and mtime.
+
 use std::fmt;
 use std::io::Read;
 use std::path::{Path, PathBuf};
@@ -16,13 +18,17 @@ pub mod cache_file;
 
 pub use cache_file::{CacheEntry, MAX_ENTRIES, parse_cache_file, write_cache_file};
 
+/// SHA-256 of the 1.14.7 shipping executable the launcher accepts.
 pub const EXE_PIN: &str = crate::core::pins::PINNED_EXE_SHA256;
 
 const HASH_CHUNK_BYTES: usize = 1024 * 1024;
 
+/// Why hashing stopped.
 #[derive(Debug)]
 pub enum VerifyError {
+    /// The caller aborted.
     Aborted,
+    /// Reading the file failed.
     Io(std::io::Error),
 }
 
@@ -43,30 +49,39 @@ impl From<std::io::Error> for VerifyError {
     }
 }
 
+/// A flag that stops a running hash at its next chunk; clones share it.
 #[derive(Debug, Clone, Default)]
 pub struct Abort(Arc<AtomicBool>);
 
 impl Abort {
+    /// A flag not yet raised.
     pub fn new() -> Self {
         Self(Arc::new(AtomicBool::new(false)))
     }
 
+    /// Raises the flag.
     pub fn abort(&self) {
         self.0.store(true, Ordering::SeqCst);
     }
 
+    /// Whether the flag is raised.
     pub fn aborted(&self) -> bool {
         self.0.load(Ordering::SeqCst)
     }
 }
 
+/// What the game executable turned out to be.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ExeCheck {
+    /// The pinned 1.14.7 build.
     Pinned,
+    /// Some other build.
     OtherBuild,
+    /// Not there.
     Missing,
 }
 
+/// The file's modification time in milliseconds since the Unix epoch, 0 when unknown.
 pub fn mtime_ms(metadata: &std::fs::Metadata) -> f64 {
     metadata
         .modified()
@@ -76,6 +91,7 @@ pub fn mtime_ms(metadata: &std::fs::Metadata) -> f64 {
         .unwrap_or(0.0)
 }
 
+/// SHA-256 of `file` as lowercase hex, read on a blocking thread in 1 MiB chunks; `on_bytes` gets each chunk's size.
 pub async fn hash_file(
     file: PathBuf,
     abort: Abort,
@@ -105,6 +121,7 @@ pub async fn hash_file(
     .map_err(|e| VerifyError::Io(std::io::Error::other(e.to_string())))?
 }
 
+/// File hashes kept by path, size and mtime, so an unchanged file is not read twice.
 pub struct HashCache {
     path: PathBuf,
     entries: Vec<(String, CacheEntry)>,
@@ -112,6 +129,7 @@ pub struct HashCache {
 }
 
 impl HashCache {
+    /// The cache saved at `file`; empty when it is missing or unreadable.
     pub fn load(file: PathBuf) -> Self {
         let entries = std::fs::read_to_string(&file)
             .map(|raw| parse_cache_file(&raw))
@@ -123,6 +141,7 @@ impl HashCache {
         }
     }
 
+    /// The cached hash of `file`, when its size and mtime still match.
     pub fn cached(&self, file: &Path) -> Option<String> {
         let meta = std::fs::metadata(file).ok()?;
         if !meta.is_file() {
@@ -147,6 +166,7 @@ impl HashCache {
             })
     }
 
+    /// The hash of `file`, from the cache or by reading it. Cached only when the file did not change while read.
     pub async fn hash(
         &mut self,
         file: &Path,
@@ -185,6 +205,7 @@ impl HashCache {
         Ok(digest)
     }
 
+    /// Writes the cache when anything was added, through a temporary file.
     pub async fn save(&mut self) -> std::io::Result<()> {
         if !self.dirty {
             return Ok(());
@@ -212,6 +233,7 @@ impl HashCache {
     }
 }
 
+/// The executable's state from the cache alone; none when it would need hashing.
 pub fn cached_exe_check(cache: &HashCache, exe: &Path, expected_sha256: &str) -> Option<ExeCheck> {
     if !exe.is_file() {
         return Some(ExeCheck::Missing);
@@ -224,6 +246,7 @@ pub fn cached_exe_check(cache: &HashCache, exe: &Path, expected_sha256: &str) ->
     }
 }
 
+/// Hashes the executable (or reads the cache) and compares it with `expected_sha256`.
 pub async fn check_game_exe(
     cache: &mut HashCache,
     exe: &Path,

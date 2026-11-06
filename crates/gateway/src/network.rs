@@ -14,9 +14,13 @@ use std::sync::Arc;
 use serde::Serialize;
 use serde_json::Value;
 
+/// Lists the network's nodes for the launcher.
 pub const NODES_PATH: &str = "/network/v1/nodes";
+/// Answers a ping, for measuring round trips.
 pub const PING_PATH: &str = "/network/v1/ping";
+/// Takes a player's region round-trip report.
 pub const REGIONS_PATH: &str = "/network/v1/regions";
+/// Redeems a remote-management enrollment code.
 pub const ENROLL_PATH: &str = "/__node/enroll";
 /// Header carrying a home-signed session ticket when the launcher is connected to or reporting to a node (DN5, DN6, DN8).
 pub const SESSION_TICKET_HEADER: &str = "x-reforged-session-ticket";
@@ -34,6 +38,7 @@ pub type RegionReportHandler = Arc<
 pub const MAX_NODES: usize = 16;
 /// A report is a few dozen bytes per region
 pub const MAX_REPORT_BYTES: usize = 4096;
+/// Most regions one report may list.
 pub const MAX_REPORT_REGIONS: usize = 32;
 /// A minute: anything slower is no answer
 pub const MAX_RTT_MS: f64 = 60_000.0;
@@ -41,9 +46,13 @@ pub const MAX_RTT_MS: f64 = 60_000.0;
 /// One node as the launcher reaches it: its region, its gateway, and the certificate the launcher pins.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct NetworkNode {
+    /// Region id.
     pub region: String,
+    /// Gateway host name or address.
     pub host: String,
+    /// Gateway port.
     pub port: u16,
+    /// SHA-256 of the gateway's certificate, the launcher's pin.
     pub fingerprint: String,
 }
 
@@ -72,7 +81,9 @@ pub fn nodes_body(nodes: &[NetworkNode]) -> String {
 /// One region of a player's report, nearest first; `None` when the launcher got no answer from it.
 #[derive(Debug, Clone, PartialEq)]
 pub struct RegionRtt {
+    /// Region id.
     pub region: String,
+    /// Round trip in milliseconds.
     pub rtt_ms: Option<f64>,
 }
 

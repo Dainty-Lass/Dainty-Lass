@@ -48,15 +48,20 @@ const CONFIGS_PER_HOUR: Bounded = Bounded {
     allowed: 1..=1000,
 };
 
+/// Where TURN credentials come from (`P2P_TURN_PROVIDER`).
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub enum TurnProvider {
+    /// Cloudflare's TURN service.
     #[default]
     Cloudflare,
+    /// A TURN server sharing a secret with this server (TURN REST).
     TurnRest,
+    /// No relay: transports get STUN only.
     None,
 }
 
 impl TurnProvider {
+    /// The setting's word for the provider.
     pub const fn as_str(self) -> &'static str {
         match self {
             Self::Cloudflare => "cloudflare",
@@ -75,29 +80,41 @@ impl TurnProvider {
     }
 }
 
+/// A Cloudflare TURN key.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct CloudflareTurn {
+    /// The key's id (`P2P_CLOUDFLARE_TURN_KEY_ID`).
     pub key_id: String,
+    /// The API token (`P2P_CLOUDFLARE_TURN_API_TOKEN`).
     pub api_token: Secret,
 }
 
+/// A TURN REST server.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct TurnRest {
+    /// Its TURN URLs (`P2P_TURN_REST_URLS`).
     pub urls: Vec<String>,
+    /// The shared secret (`P2P_TURN_REST_SECRET`), at least 16 characters.
     pub secret: Secret,
 }
 
+/// Cloudflare analytics access, for reading relay usage.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct CloudflareAnalytics {
+    /// The Cloudflare account id (`P2P_CLOUDFLARE_ANALYTICS_ACCOUNT_ID`).
     pub account_id: String,
+    /// The API token (`P2P_CLOUDFLARE_ANALYTICS_API_TOKEN`).
     pub api_token: Secret,
 }
 
 /// Ports of a self-hosted TURN server.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct TurnRelayPorts {
+    /// The listening port, UDP and TCP.
     pub listen: u16,
+    /// The TLS port, if any.
     pub tls: Option<u16>,
+    /// The ports relayed traffic uses.
     pub relay: RangeInclusive<u16>,
 }
 
@@ -112,18 +129,30 @@ impl Default for TurnRelayPorts {
     }
 }
 
+/// The relay's settings, read from the server's settings.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct RelayConfig {
+    /// STUN URLs every transport gets (`P2P_ICE_STUN_URLS`); Cloudflare's when none are valid.
     pub stun_urls: Vec<String>,
+    /// Where TURN credentials come from.
     pub provider: TurnProvider,
+    /// The Cloudflare key, when the provider is Cloudflare and both settings are present.
     pub cloudflare: Option<CloudflareTurn>,
+    /// The TURN REST server, when that is the provider and its settings are valid.
     pub turn_rest: Option<TurnRest>,
+    /// The longest a hunt's TURN credential lasts, in seconds (`P2P_TURN_MAX_TTL_SECONDS`).
     pub credential_ttl_seconds: u32,
+    /// The longest a realm hub's TURN credential lasts, in seconds (`P2P_REALM_HUB_TURN_TTL_SECONDS`).
     pub hub_credential_ttl_seconds: u32,
+    /// Relay bytes an account may use a month; 0 for no limit (`P2P_RELAY_MONTHLY_QUOTA_GB`).
     pub monthly_quota_bytes: u64,
+    /// Transport configs an account may ask for an hour (`P2P_ICE_CONFIGS_PER_HOUR`).
     pub configs_per_hour: u32,
+    /// Cloudflare analytics access, for measuring the quota.
     pub analytics: Option<CloudflareAnalytics>,
+    /// The secret pair keys derive from (`P2P_TRANSPORT_KEY_SECRET`), at least 32 characters.
     pub transport_key_secret: Option<Secret>,
+    /// Whether transports must use the relay and never connect directly (`P2P_FORCE_SDR`).
     pub force_relay: bool,
 }
 
@@ -192,6 +221,7 @@ impl Reader<'_> {
 }
 
 impl RelayConfig {
+    /// Reads the settings; a missing or out-of-range value takes its default, and an invalid secret reads as unset.
     pub fn from_settings(settings: &dyn Settings) -> Self {
         let read = Reader(settings);
         let provider = TurnProvider::named(&read.text("P2P_TURN_PROVIDER"));
@@ -236,6 +266,7 @@ impl RelayConfig {
         }
     }
 
+    /// Whether the provider has the settings it needs to issue credentials.
     pub fn relay_configured(&self) -> bool {
         match self.provider {
             TurnProvider::None => false,
@@ -287,10 +318,12 @@ fn host_and_port<'a>(text: &'a str, schemes: [&str; 2]) -> Option<&'a str> {
     }
 }
 
+/// Whether `text` is a `stun:` or `stuns:` URL with a host and nothing after it.
 pub fn is_stun_url(text: &str) -> bool {
     matches!(host_and_port(text, ["stun:", "stuns:"]), Some(""))
 }
 
+/// Whether `text` is a `turn:` or `turns:` URL with a host and at most a UDP or TCP `transport`.
 pub fn is_turn_url(text: &str) -> bool {
     let tail = host_and_port(text, ["turn:", "turns:"]);
     tail.is_some_and(|tail| ["", "?transport=udp", "?transport=tcp"].contains(&tail))

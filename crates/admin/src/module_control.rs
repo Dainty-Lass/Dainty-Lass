@@ -10,41 +10,58 @@ use std::sync::Arc;
 
 use async_graphql::{Context, ErrorExtensions, SimpleObject};
 
+/// What a [`ModuleControl`] action returns: the module after it, or why it was refused.
 pub type Pending<'a, T> = Pin<Box<dyn Future<Output = Result<T, String>> + Send + 'a>>;
 
 /// A port a module was given: its default, or where the controller moved it.
 #[derive(SimpleObject, Clone, Debug, PartialEq, Eq)]
 pub struct ModulePort {
+    /// What the module calls the port.
     pub name: String,
+    /// The first port of its range.
     pub first: u16,
+    /// The last port of its range, inclusive.
     pub last: u16,
 }
 
+/// A module `[modules]` lists, as the registry sees it now.
 #[derive(SimpleObject, Clone, Debug, PartialEq, Eq)]
 pub struct Module {
+    /// The module's id.
     pub id: String,
     /// not_loaded, starting, ready or failed
     pub state: String,
     /// compiled_in or external
     pub source: String,
+    /// Whether the server loads it at start.
     pub autoload: bool,
     /// Known once it loaded, or at once for a compiled-in one
     pub display_name: Option<String>,
+    /// The game version it serves, once known.
     pub game_version: Option<String>,
     /// game or plugin
     pub kind: Option<String>,
+    /// Built but not checked against recorded traffic (DD9).
     pub unverified: bool,
+    /// Why it failed or was unloaded.
     pub detail: Option<String>,
+    /// The ports it was given.
     pub ports: Vec<ModulePort>,
+    /// The commands it registered.
     pub commands: Vec<String>,
 }
 
 /// What the admin API may do with the registry.
 pub trait ModuleControl: Send + Sync {
+    /// Every listed module.
     fn list(&self) -> Vec<Module>;
+    /// One listed module, or why there is none.
     fn get(&self, id: &str) -> Result<Module, String>;
+    /// Loads a listed module.
     fn load<'a>(&'a self, id: &'a str) -> Pending<'a, Module>;
+    /// Unloads a module.
     fn unload<'a>(&'a self, id: &'a str) -> Pending<'a, Module>;
+    /// Unloads and loads a module again.
     fn restart<'a>(&'a self, id: &'a str) -> Pending<'a, Module>;
     /// host.toml's settings the dashboard edits, when the host kit handed the file in
     fn host_settings(&self) -> Option<Arc<dyn crate::host_settings::HostSettings>> {
@@ -69,29 +86,34 @@ fn control<'a>(ctx: &'a Context<'_>) -> async_graphql::Result<&'a Arc<dyn Module
     })
 }
 
+/// The `modules` query; a coded error when the admin API runs outside the server.
 pub fn list(ctx: &Context<'_>) -> async_graphql::Result<Vec<Module>> {
     Ok(control(ctx)?.list())
 }
 
+/// The `module` query: the module, or null when none has that id.
 pub fn get(ctx: &Context<'_>, id: &str) -> async_graphql::Result<Option<Module>> {
     Ok(control(ctx)?.get(id).ok())
 }
 
+/// The `loadModule` mutation.
 pub async fn load(ctx: &Context<'_>, id: &str) -> async_graphql::Result<Module> {
     control(ctx)?.load(id).await.map_err(|e| fail("MODULE_REFUSED", e))
 }
 
+/// The `unloadModule` mutation.
 pub async fn unload(ctx: &Context<'_>, id: &str) -> async_graphql::Result<Module> {
     control(ctx)?.unload(id).await.map_err(|e| fail("MODULE_REFUSED", e))
 }
 
+/// The `restartModule` mutation.
 pub async fn restart(ctx: &Context<'_>, id: &str) -> async_graphql::Result<Module> {
     control(ctx)?.restart(id).await.map_err(|e| fail("MODULE_REFUSED", e))
 }
 
 #[cfg(test)]
 mod tests {
-    #![allow(clippy::unwrap_used)]
+    #![allow(clippy::unwrap_used, reason = "a panic is how a test fails")]
 
     use std::sync::Mutex;
 

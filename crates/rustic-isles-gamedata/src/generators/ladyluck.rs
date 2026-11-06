@@ -59,6 +59,7 @@ pub(crate) fn shape_source(entries: &[Value]) -> (Vec<Value>, Vec<String>) {
     (out, problems)
 }
 
+/// Generates Lady Luck's store (§5.5) from `ladyluck_store.source.json` in `raw_dir` to `ladyluck_store.json` in `out_dir`; without `apply` it is a dry run that only reports.
 pub fn generate_ladyluck_store(raw_dir: &Path, out_dir: &Path, apply: bool) -> Result<String, String> {
     let source = read_source(&raw_dir.join("ladyluck_store.source.json"), "store")?;
     let Some(entries) = source.as_array() else {
@@ -130,6 +131,7 @@ fn live_item(item: &Value, catalog: &Catalog) -> Value {
     Value::Object(out)
 }
 
+/// Rewrites the Lady Luck store from a live SKU capture, keeping only offers whose items are all in the catalog.
 pub fn enrich_ladyluck_store(catalog: &Path, live: &Path, store: &Path) -> Result<String, String> {
     let catalog = read_catalog(catalog)?;
     if !live.is_file() {

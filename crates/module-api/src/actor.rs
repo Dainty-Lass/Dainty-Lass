@@ -10,6 +10,7 @@ use crate::network::GlobalId;
 /// The most bytes an actor's free-text parts (a key's name, a request id) may hold.
 pub const MAX_ACTOR_TEXT: usize = 128;
 
+/// Who asked for a change.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub enum Actor {
@@ -18,17 +19,27 @@ pub enum Actor {
     /// Whoever has the host's terminal (the console and TUI have no login, by design)
     Console,
     /// A person with an admin key (DD23's one key per person; `key` is the key's name, never the key)
-    Admin { key: String },
+    Admin {
+        /// The admin key's name.
+        key: String,
+    },
     /// A player, acting on their own account
-    Player { account: GlobalId },
+    Player {
+        /// The player's account.
+        account: GlobalId,
+    },
     /// Another module, through an event it handled
-    Module { module: ModuleId },
+    Module {
+        /// The module that handled the event.
+        module: ModuleId,
+    },
 }
 
 /// The actor and the request that carried them.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ActorContext {
+    /// Who asked.
     pub actor: Actor,
     /// The request id the gateway or admin API logged, to tie a log entry to its request
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -36,10 +47,12 @@ pub struct ActorContext {
 }
 
 impl ActorContext {
+    /// `actor`, with no request id.
     pub fn new(actor: Actor) -> Self {
         Self { actor, request: None }
     }
 
+    /// Ties the context to the request id the gateway or admin API logged.
     pub fn with_request(mut self, request: impl Into<String>) -> Self {
         self.request = Some(request.into());
         self

@@ -11,14 +11,22 @@ use crate::text::safe_str;
 
 /// Umbrella spec D3: `RGE1` and the `RusticHuntGuard.events.` name the launcher gives the pipe.
 pub const MESSAGE_MAGIC: &str = "RGE1";
+/// The pipe's name prefix the launcher uses (umbrella spec D3).
 pub const PIPE_PREFIX: &str = "RusticHuntGuard.events.";
+/// The largest pipe message read, in bytes.
 pub const MAX_MESSAGE: usize = 8192;
+// Only the Windows pipe server reads messages; elsewhere the pipe stays empty.
+#[cfg(windows)]
 const MAX_QUEUED: usize = 256;
 
+/// One Guard event read from the pipe.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PipeEvent {
+    /// The event type.
     pub kind: String,
+    /// The actor account, empty when none is named.
     pub actor: String,
+    /// The payload, a JSON object's text.
     pub payload: String,
 }
 
@@ -47,6 +55,7 @@ struct Shared {
     stopped: bool,
 }
 
+#[cfg(windows)]
 impl Shared {
     fn push(&mut self, message: &[u8]) {
         match parse_message(message) {
@@ -56,11 +65,13 @@ impl Shared {
     }
 }
 
+/// The inbound Guard event pipe; dropping it stops the reader.
 pub struct GuardPipe {
     shared: Arc<Mutex<Shared>>,
     task: Option<tokio::task::JoinHandle<()>>,
 }
 
+/// Checks the pipe name and that a game server process id is given.
 pub fn check_config(name: &str, expected_pid: u32) -> Result<(), String> {
     if safe_str(name, 96, b"_-.:") && expected_pid != 0 {
         Ok(())
@@ -70,6 +81,7 @@ pub fn check_config(name: &str, expected_pid: u32) -> Result<(), String> {
 }
 
 impl GuardPipe {
+    /// Opens the named pipe and starts reading it on `runtime`.
     pub fn create(name: &str, expected_pid: u32, runtime: &tokio::runtime::Handle) -> Result<Self, String> {
         check_config(name, expected_pid)?;
         let shared: Arc<Mutex<Shared>> = Arc::default();

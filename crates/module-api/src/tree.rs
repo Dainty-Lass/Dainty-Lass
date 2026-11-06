@@ -4,7 +4,7 @@
 //! hello, so the window is the time between the spawn and the next line.
 
 #[cfg(windows)]
-#[allow(unsafe_code)] // Win32 job objects
+#[allow(unsafe_code, reason = "the Win32 job object calls are FFI")]
 mod imp {
     use std::ffi::c_void;
     use std::io;
@@ -62,7 +62,7 @@ mod imp {
 }
 
 #[cfg(unix)]
-#[allow(unsafe_code)] // kill(2) on the process group
+#[allow(unsafe_code, reason = "kill(2) on the process group is a libc call")]
 mod imp {
     use std::io;
 

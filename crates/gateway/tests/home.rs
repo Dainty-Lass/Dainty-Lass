@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Silent Spud
 
-#![allow(clippy::unwrap_used, clippy::expect_used)] // tests
+#![allow(clippy::unwrap_used, clippy::expect_used, reason = "a panic is how a test fails")]
 
 //! The home API over the real node link (DN5): two nodes on 127.0.0.1:0, each a gateway, call each other through
 //! `TlsPeerLink` over mutual TLS under one cluster CA. The home hands the player's ticket to the hunt's node, the

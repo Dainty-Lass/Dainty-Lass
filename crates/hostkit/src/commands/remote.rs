@@ -40,33 +40,49 @@ use crate::invite::certificate_fingerprint;
 use crate::paths::Paths;
 use crate::tls::generate_self_signed_cert_pem;
 
+/// The controller's state (enrolled installs, invites, the shared configuration), in the config folder.
 pub const CONTROLLER_STATE_FILE: &str = "remote-controller.json";
+/// A managed install's enrollment, in the config folder.
 pub const MANAGED_STATE_FILE: &str = "remote-managed.json";
+/// The controller's cluster CA, in `.workspace/tls`.
 pub const CONTROLLER_CA_FILE: &str = "remote-cluster-ca.pem";
+/// The ledger of bans, unbans and kicks a controller sent, in the config folder.
 pub const MODERATION_STATE_FILE: &str = "remote-moderation.json";
 
 fn bad(text: impl Into<String>) -> HostError {
     HostError::message(text)
 }
 
+/// A managed install's [`MANAGED_STATE_FILE`].
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ManagedInstallStateFile {
+    /// This install's node id.
     pub node: NodeId,
+    /// This install's region.
     pub region: Region,
+    /// The controller's node id.
     pub controller_node: NodeId,
+    /// The controller's region, when the invite named it.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub controller_region: Option<Region>,
+    /// The controller's https:// URL.
     pub controller_url: String,
+    /// The controller certificate's SHA-256 fingerprint.
     pub controller_cert_fp: String,
+    /// The shared configuration revision last applied.
     pub applied_revision: u64,
+    /// When it enrolled, Unix milliseconds.
     pub enrolled_at_ms: i64,
+    /// This install's label.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub label: Option<String>,
+    /// Set once the controller revoked this install; it syncs no more.
     #[serde(default)]
     pub detached: bool,
 }
 
 impl ManagedInstallStateFile {
+    /// The state at `path`; `None` when there is no file.
     pub fn load(path: &Path) -> Result<Option<Self>, HostError> {
         match std::fs::read_to_string(path) {
             Ok(text) => serde_json::from_str(&text)
@@ -77,6 +93,7 @@ impl ManagedInstallStateFile {
         }
     }
 
+    /// Writes the state to `path`, making its folder.
     pub fn save(&self, path: &Path) -> Result<(), HostError> {
         if let Some(parent) = path.parent() {
             std::fs::create_dir_all(parent).map_err(|e| HostError::io(parent, e))?;
@@ -86,14 +103,17 @@ impl ManagedInstallStateFile {
     }
 }
 
+/// Where the controller's state is.
 pub fn controller_state_path(paths: &Paths) -> PathBuf {
     paths.config.join(CONTROLLER_STATE_FILE)
 }
 
+/// Where a managed install's state is.
 pub fn managed_state_path(paths: &Paths) -> PathBuf {
     paths.config.join(MANAGED_STATE_FILE)
 }
 
+/// Where the controller's cluster CA is.
 pub fn controller_ca_path(paths: &Paths) -> PathBuf {
     paths.tls.join(CONTROLLER_CA_FILE)
 }
@@ -198,6 +218,8 @@ pub fn shared_toml_from_host_config(paths: &Paths, config: &HostConfig) -> Resul
     Ok(doc.to_string())
 }
 
+/// Makes this server the controller: its gateway certificate, cluster CA and node certificate, host.toml's `[remote]`,
+/// the env files and the controller state. Returns what `--json` prints.
 pub fn init_controller(paths: &Paths, args: &RemoteInitControllerArgs) -> Result<Value, HostError> {
     let mut config =
         load_host_config(paths)?.ok_or_else(|| bad("no host.toml found: run `dainty-host setup` first"))?;
@@ -267,6 +289,8 @@ pub fn init_controller(paths: &Paths, args: &RemoteInitControllerArgs) -> Result
     }))
 }
 
+/// Mints a single-use enrollment invite, making this server the controller first when it is not yet one.
+/// Returns the invite URI and what `--json` prints.
 pub fn create_invite(paths: &Paths, args: &RemoteInviteArgs) -> Result<(String, Value), HostError> {
     let config = load_host_config(paths)?.ok_or_else(|| bad("no host.toml found: run `dainty-host setup` first"))?;
     let state_path = controller_state_path(paths);
@@ -320,6 +344,7 @@ pub fn create_invite(paths: &Paths, args: &RemoteInviteArgs) -> Result<(String, 
     Ok((uri, out))
 }
 
+/// Enrolls this install with the controller the invite names and records it as managed. Returns what `--json` prints.
 pub fn enroll(paths: &Paths, args: &RemoteEnrollArgs) -> Result<Value, HostError> {
     let invite = parse_enrollment_uri(&args.uri).map_err(|e| bad(e.to_string()))?;
     let mut config =
@@ -390,6 +415,7 @@ pub fn enroll(paths: &Paths, args: &RemoteEnrollArgs) -> Result<Value, HostError
     }))
 }
 
+/// This install's role and remote state, as `remote status --json` prints it.
 pub fn status_json(paths: &Paths) -> Result<Value, HostError> {
     let config = load_host_config(paths)?;
     let role = config
@@ -487,6 +513,7 @@ pub fn status_json(paths: &Paths) -> Result<Value, HostError> {
     }
 }
 
+/// Revokes the enrolled install `node_str`. Returns what `--json` prints.
 pub fn revoke(paths: &Paths, node_str: &str) -> Result<Value, HostError> {
     let state_path = controller_state_path(paths);
     let mut state = RemoteControllerState::load(&state_path).map_err(|e| bad(e.to_string()))?;
@@ -498,6 +525,7 @@ pub fn revoke(paths: &Paths, node_str: &str) -> Result<Value, HostError> {
     }))
 }
 
+/// Leaves remote management: drops `[remote]`, rewrites the env files and forgets the enrollment.
 pub fn leave(paths: &Paths) -> Result<Value, HostError> {
     let mut config =
         load_host_config(paths)?.ok_or_else(|| bad("no host.toml found: run `dainty-host setup` first"))?;
@@ -511,6 +539,7 @@ pub fn leave(paths: &Paths) -> Result<Value, HostError> {
     }))
 }
 
+/// Publishes host.toml's shareable settings as the next shared configuration revision; returns the revision.
 pub fn set_shared_config_from_host_toml(paths: &Paths) -> Result<Value, HostError> {
     let config = load_host_config(paths)?.ok_or_else(|| bad("no host.toml found: run `dainty-host setup` first"))?;
     let state_path = controller_state_path(paths);
@@ -601,6 +630,7 @@ fn build_wire_command(args: &RemoteExecArgs) -> Result<WireRemoteCommand, HostEr
     }
 }
 
+/// Queues a command for the target installs, or holds it as a guarded command waiting for approval.
 pub fn exec_command(paths: &Paths, args: &RemoteExecArgs) -> Result<Value, HostError> {
     let state_path = controller_state_path(paths);
     let mut state = RemoteControllerState::load(&state_path).map_err(|e| bad(e.to_string()))?;
@@ -646,6 +676,7 @@ pub fn exec_command(paths: &Paths, args: &RemoteExecArgs) -> Result<Value, HostE
     }
 }
 
+/// Approves a guarded command, which queues it.
 pub fn approve_command(paths: &Paths, args: &RemoteApproveArgs) -> Result<Value, HostError> {
     let state_path = controller_state_path(paths);
     let mut state = RemoteControllerState::load(&state_path).map_err(|e| bad(e.to_string()))?;
@@ -668,6 +699,7 @@ pub fn approve_command(paths: &Paths, args: &RemoteApproveArgs) -> Result<Value,
     }))
 }
 
+/// Cancels a guarded command.
 pub fn cancel_command(paths: &Paths, args: &RemoteCancelArgs) -> Result<Value, HostError> {
     let state_path = controller_state_path(paths);
     let mut state = RemoteControllerState::load(&state_path).map_err(|e| bad(e.to_string()))?;
@@ -695,6 +727,7 @@ pub struct HostKitRemoteHandler {
 }
 
 impl HostKitRemoteHandler {
+    /// A handler that carries out the controller's commands on the install at `paths`.
     #[must_use]
     pub fn new(paths: Paths) -> Self {
         Self { paths }
@@ -1053,6 +1086,7 @@ impl RemoteHostHandler for HostKitRemoteHandler {
     }
 }
 
+/// For a controller, makes the certificates and the controller state when they are missing; does nothing otherwise.
 pub fn ensure_controller_files(paths: &Paths, config: &HostConfig) -> Result<(), HostError> {
     let Some(rem) = &config.remote else {
         return Ok(());
@@ -1193,6 +1227,7 @@ pub fn compose_remote_module(
     Ok(())
 }
 
+/// Syncs a managed install with its controller once, or until stopped with `--loop`; returns the revision applied.
 pub fn sync_with_controller(paths: &Paths, args: &RemoteSyncArgs) -> Result<Value, HostError> {
     let config = load_host_config(paths)?.ok_or_else(|| bad("no host.toml found: run `dainty-host setup` first"))?;
     let rem = config
@@ -1295,6 +1330,7 @@ pub fn sync_with_controller(paths: &Paths, args: &RemoteSyncArgs) -> Result<Valu
     }))
 }
 
+/// Runs `dainty-host remote <command>`.
 pub fn run(paths: &Paths, args: &RemoteArgs) -> Outcome {
     let _ = merge_managed_host_toml;
     let _ = RemoteConfig::default;
@@ -1457,7 +1493,7 @@ pub fn run(paths: &Paths, args: &RemoteArgs) -> Outcome {
 
 #[cfg(test)]
 mod tests {
-    #![allow(clippy::unwrap_used, clippy::expect_used)]
+    #![allow(clippy::unwrap_used, clippy::expect_used, reason = "a panic is how a test fails")]
 
     use super::*;
     use tempfile::TempDir;

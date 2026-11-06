@@ -5,7 +5,10 @@
 //! stubs and static answers the 1.14.7 client asks for at login, in Ramsgate and on the Gauntlet host, the served
 //! progression config, and the backend game-data generators `dainty-host gamedata` runs.
 
-#![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used))]
+#![cfg_attr(
+    test,
+    allow(clippy::unwrap_used, clippy::expect_used, reason = "a panic is how a test fails")
+)]
 
 mod areas;
 pub mod gauntlet;

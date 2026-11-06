@@ -1,6 +1,6 @@
 //! The stub module as a library (tests/stub-plugin) answers as it does compiled in, makes its calls into the host
 //! across the boundary, and a library that doesn't match its pin is never loaded (RD27).
-#![allow(clippy::unwrap_used, clippy::expect_used)] // test helpers
+#![allow(clippy::unwrap_used, clippy::expect_used, reason = "a panic is how a test fails")]
 
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, OnceLock};

@@ -24,8 +24,11 @@ use crate::occupancy::{IdleStopPolicy, RuntimeLogOccupancy};
 use crate::port_pool::PortPool;
 use crate::process::{self, Labels, Proc};
 
+/// The map the Ramsgate hub runs.
 pub const RAMSGATE_MAP: &str = "/Game/Maps/ramsgate/ramsgate_01_persistent";
+/// The map the Training Grounds run.
 pub const TRAINING_DOJO_MAP: &str = "/Game/Maps/islands/dojo/training_dojo_persistent";
+/// The player hunt id of the Training Grounds.
 pub const TRAINING_DOJO_HUNT_ID: &str = "ShatteredIsles_TrainingDojo";
 
 const WATCHDOG: Duration = Duration::from_secs(60);
@@ -34,31 +37,47 @@ const IDLE_ABANDON_MS: u64 = 120_000;
 const ON_DEMAND_WAIT: Duration = Duration::from_secs(30);
 const POLL: Duration = Duration::from_millis(50);
 
+/// What a server is for.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ServerKind {
+    /// The persistent Ramsgate hub.
     Ramsgate,
+    /// The Training Grounds hub.
     Training,
+    /// A hunt for one group of players.
     Hunt,
 }
 
+/// Where a server's start-up stands.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ServerStatus {
+    /// Started, not yet reporting ready.
     Starting,
+    /// Reported ready.
     Ready,
+    /// Exited or timed out before ready.
     Failed,
 }
 
+/// Why a start failed.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum StartErrorKind {
+    /// Every hunt port is taken, or `MAX_CONCURRENT_HUNT_SERVERS` is reached.
     NoCapacity,
+    /// The memory guard refused the hunt.
     Memory,
+    /// The server exited or timed out before ready.
     Startup,
+    /// Anything else: no binary, a refused setting, a spawn error.
     Other,
 }
 
+/// A failed start.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct StartError {
+    /// Which kind of failure.
     pub kind: StartErrorKind,
+    /// The text the caller and the log show.
     pub message: String,
 }
 
@@ -94,15 +113,25 @@ struct ServerState {
     roster: Option<Vec<RosterEntry>>,
 }
 
+/// One running game server.
 pub struct GameServer {
+    /// The id passed to the server and echoed in its ready marker.
     pub launch_id: String,
+    /// The port the server listens on.
     pub port: u16,
+    /// The map it runs.
     pub map: String,
+    /// The Behemoth asset the hunt overrides, if any.
     pub behemoth: Option<String>,
+    /// The matchmaker row it was started from; none for a hub.
     pub matchmaker_hunt_id: Option<String>,
+    /// What it is for.
     pub kind: ServerKind,
+    /// Its name in logs: `ramsgate`, `training_dojo` or the Behemoth's.
     pub label: String,
+    /// Where its output is written.
     pub log_path: PathBuf,
+    /// When it was spawned, Unix ms.
     pub started_at_ms: i64,
     proc: Arc<Proc>,
     state: Mutex<ServerState>,
@@ -129,18 +158,22 @@ impl GameServer {
         self.state.lock().unwrap_or_else(PoisonError::into_inner)
     }
 
+    /// The process id, when the OS gave one.
     pub fn pid(&self) -> Option<u32> {
         self.proc.pid
     }
 
+    /// Whether the process is still running.
     pub fn alive(&self) -> bool {
         self.proc.alive()
     }
 
+    /// Where its start-up stands.
     pub fn status(&self) -> ServerStatus {
         self.state().status
     }
 
+    /// The players a hunt expects, if it was started with a roster.
     pub fn roster(&self) -> Option<Vec<RosterEntry>> {
         self.state().roster.clone()
     }
@@ -149,6 +182,7 @@ impl GameServer {
         self.status() == ServerStatus::Ready && self.alive()
     }
 
+    /// Whether it is a hunt rather than a hub.
     pub fn is_hunt(&self) -> bool {
         self.kind == ServerKind::Hunt
     }
@@ -215,8 +249,10 @@ struct Training {
     occupancy: Option<RuntimeLogOccupancy>,
 }
 
+/// A persistent hub's supervisor.
 pub type Supervisor = HubSupervisor<Arc<GameServer>>;
 
+/// The game servers one module runs: hubs, hunts, ports and the hunt tables.
 pub struct Director {
     config: Config,
     resolver: HuntResolver,
@@ -275,6 +311,7 @@ pub fn roster_argument(roster: Option<&[RosterEntry]>) -> String {
 }
 
 impl Director {
+    /// The Director over `config` and the hunt tables; nothing starts until start-up.
     pub fn new(config: Config, tables: Tables, memory: MemoryAdmission, launcher: Arc<dyn Launcher>) -> Arc<Director> {
         let missing = Arc::new(MissingHuntRegistry::default());
         let mut options = ResolverOptions::new(tables);
@@ -335,34 +372,42 @@ impl Director {
         })
     }
 
+    /// The settings it was built with.
     pub fn config(&self) -> &Config {
         &self.config
     }
 
+    /// The resolver that picks which hunt a request starts.
     pub fn resolver(&self) -> &HuntResolver {
         &self.resolver
     }
 
+    /// The Ramsgate hub's supervisor.
     pub fn ramsgate(&self) -> &Arc<Supervisor> {
         &self.ramsgate
     }
 
+    /// The Training Grounds' supervisor.
     pub fn training(&self) -> &Arc<Supervisor> {
         &self.training
     }
 
+    /// The memory guard.
     pub fn memory(&self) -> &MemoryAdmission {
         &self.memory
     }
 
+    /// Whether shutdown has begun.
     pub fn is_stopping(&self) -> bool {
         self.stopping.load(Ordering::SeqCst)
     }
 
+    /// Whether the persistent hubs are up, which `/health/ready` reports.
     pub fn persistent_hubs_ready(&self) -> bool {
         self.hubs_ready.load(Ordering::SeqCst)
     }
 
+    /// Marks the persistent hubs as up or not.
     pub fn set_persistent_hubs_ready(&self, ready: bool) {
         self.hubs_ready.store(ready, Ordering::SeqCst);
     }
@@ -372,6 +417,7 @@ impl Director {
         lock(&self.inner).servers.clone()
     }
 
+    /// Hunt ids asked for but missing from the tables, most asked first, as JSON.
     pub fn missing_hunt_requests(&self) -> Value {
         self.missing.to_json()
     }

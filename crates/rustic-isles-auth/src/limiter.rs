@@ -80,6 +80,7 @@ struct Budget {
 /// What the request budget says about one hit.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct BudgetVerdict {
+    /// Whether this hit is refused.
     pub limited: bool,
     /// `ratelimit`: `"{limit}-in-1min"; r={remaining}; t={seconds}`
     pub rate_limit: String,
@@ -89,6 +90,7 @@ pub struct BudgetVerdict {
     pub retry_after: Option<String>,
 }
 
+/// Attempt windows and per-minute request budgets, in memory and bounded in keys.
 pub struct RateLimiter {
     windows: Mutex<Bounded<Window>>,
     budgets: Mutex<Bounded<Budget>>,
@@ -101,6 +103,7 @@ impl Default for RateLimiter {
 }
 
 impl RateLimiter {
+    /// A limiter that tracks nothing yet.
     pub fn new() -> Self {
         Self {
             windows: Mutex::new(Bounded::new()),
@@ -187,6 +190,7 @@ impl RateLimiter {
             .len()
     }
 
+    /// Keys the request budgets track (for tests and metrics).
     pub fn tracked_budgets(&self) -> usize {
         self.budgets
             .lock()
@@ -199,13 +203,18 @@ impl RateLimiter {
 /// The request budget's settings (§10.1).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct BudgetConfig {
+    /// False when `RUSTIC_ISLES_RATE_LIMIT` is off.
     pub enabled: bool,
+    /// A client's requests per minute (default 600).
     pub client_per_minute: u64,
+    /// A game server's requests per minute (default 6000).
     pub gameserver_per_minute: u64,
+    /// A player host's requests per minute (default 6000).
     pub host_per_minute: u64,
 }
 
 impl BudgetConfig {
+    /// The budget from the settings; an unreadable number takes the default.
     pub fn from_settings(settings: &dyn AuthSettings) -> Self {
         let enabled = !matches!(
             util::normalize_lower(settings.raw("RUSTIC_ISLES_RATE_LIMIT").unwrap_or("")).as_str(),

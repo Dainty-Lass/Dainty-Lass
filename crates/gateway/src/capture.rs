@@ -22,11 +22,16 @@ use tokio::io::{AsyncRead, AsyncWrite, ReadBuf};
 
 use crate::policy::GAMESERVER_KEY_HEADERS;
 
+/// Where and how much the traffic capture records.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CaptureOptions {
+    /// Folder of the daily files, absolute (`CAPTURE_DIR`).
     pub dir: PathBuf,
+    /// Days a file is kept, 1 to 90 (`CAPTURE_RETENTION_DAYS`).
     pub retention_days: u32,
+    /// Body bytes kept per message, 0 to 16 MiB (`CAPTURE_MAX_BODY_BYTES`).
     pub max_body_bytes: usize,
+    /// Service that writes it: each record's `src` and the files' name prefix.
     pub source: String,
 }
 
@@ -267,16 +272,21 @@ pub fn redact_chat_frame(text: &str) -> String {
     redact_capture_text(&text)
 }
 
+/// A request target with its secrets replaced by placeholders.
 pub fn redact_capture_target(raw: &str) -> String {
     redact_capture_text(raw)
 }
 
 // ---- WebSocket messages ----
 
+/// One whole WebSocket data message, as the capture records it.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ChatMessage {
+    /// Its text, when within the cap.
     Text(String),
+    /// A message over the cap: its length in bytes.
     Omitted(u64),
+    /// A compressed message, not decoded: its length in bytes.
     Compressed(u64),
 }
 
@@ -319,6 +329,7 @@ fn head_len(head: &[u8]) -> Option<usize> {
 }
 
 impl FrameReader {
+    /// A reader keeping at most `cap` bytes of a message's text.
     pub fn new(cap: usize) -> Self {
         Self {
             cap,
@@ -428,6 +439,7 @@ impl FrameReader {
 
 // ---- the files ----
 
+/// Which way a chat message went.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Direction {
     /// From the game
@@ -441,7 +453,9 @@ struct Day {
     file: std::fs::File,
 }
 
+/// Writes capture records to the day's file, dropping files past their retention.
 pub struct CaptureWriter {
+    /// The capture's settings.
     pub options: CaptureOptions,
     secrets: Mutex<Vec<String>>,
     day: Mutex<Option<Day>>,
@@ -556,6 +570,7 @@ impl CaptureWriter {
         }
     }
 
+    /// Appends `record` to today's file; after a write error the capture stops.
     pub fn write(&self, record: &Value) {
         self.write_at(record, crate::now_ms());
     }
@@ -564,12 +579,15 @@ impl CaptureWriter {
 /// Bytes of a body up to a cap, and the count of all of them.
 #[derive(Debug, Default, Clone)]
 pub struct BodyTap {
+    /// The first bytes, up to the cap.
     pub kept: Vec<u8>,
+    /// Bytes seen in all, kept or not.
     pub total: u64,
     cap: usize,
 }
 
 impl BodyTap {
+    /// A tap keeping at most `cap` bytes.
     pub fn new(cap: usize) -> Self {
         Self {
             kept: Vec::new(),
@@ -578,12 +596,14 @@ impl BodyTap {
         }
     }
 
+    /// Counts `bytes` and keeps what fits under the cap.
     pub fn push(&mut self, bytes: &[u8]) {
         self.total += bytes.len() as u64;
         let room = self.cap.saturating_sub(self.kept.len()).min(bytes.len());
         self.kept.extend_from_slice(&bytes[..room]);
     }
 
+    /// The kept body, redacted for its content type.
     pub fn redacted(&self, content_type: Option<&str>) -> Value {
         redact_capture_body(&self.kept, content_type, self.total, self.cap)
     }
@@ -605,6 +625,7 @@ pub struct CaptureConn {
 }
 
 impl Capture {
+    /// A capture writing through `writer`.
     pub fn new(writer: CaptureWriter) -> Self {
         Self {
             writer: Arc::new(writer),
@@ -613,14 +634,17 @@ impl Capture {
         }
     }
 
+    /// Its writer.
     pub fn writer(&self) -> &CaptureWriter {
         &self.writer
     }
 
+    /// Body bytes kept per message.
     pub fn max_body(&self) -> usize {
         self.writer.options.max_body_bytes
     }
 
+    /// A handle for one new connection.
     pub fn connection(&self) -> CaptureConn {
         CaptureConn {
             capture: self.clone(),
@@ -631,16 +655,27 @@ impl Capture {
 
 /// One answered request, as the replay reads it.
 pub struct HttpRecord<'a> {
+    /// Client address.
     pub ip: &'a str,
+    /// Request method.
     pub method: &'a str,
+    /// Request target, before redaction.
     pub target: &'a str,
+    /// Route the gateway sent it to.
     pub route: &'a str,
+    /// Request headers, before redaction.
     pub req_headers: &'a HeaderMap,
+    /// Request body.
     pub req_body: &'a BodyTap,
+    /// Response status.
     pub status: u16,
+    /// Response headers, before redaction.
     pub res_headers: &'a HeaderMap,
+    /// Response body.
     pub res_body: &'a BodyTap,
+    /// Milliseconds to answer.
     pub ms: u64,
+    /// Whether the client went away before the answer ended.
     pub aborted: bool,
 }
 
@@ -651,6 +686,7 @@ impl CaptureConn {
             .get_or_init(|| self.capture.conns.fetch_add(1, Ordering::Relaxed) + 1)
     }
 
+    /// Records one request and its answer, redacted.
     pub fn http(&self, r: &HttpRecord<'_>) {
         let conn = self.number();
         let seq = self.capture.seq.fetch_add(1, Ordering::Relaxed) + 1;
@@ -678,12 +714,14 @@ impl CaptureConn {
         self.capture.writer.write(&record);
     }
 
+    /// Records a chat tunnel opening.
     pub fn chat_open(&self, ip: &str, target: &str) {
         let record = json!({"kind": "chat", "conn": self.number(), "event": "open", "ip": ip,
             "target": redact_capture_target(target)});
         self.capture.writer.write(&record);
     }
 
+    /// Records one chat message, redacted.
     pub fn chat_message(&self, direction: Direction, message: &ChatMessage) {
         let dir = match direction {
             Direction::In => "in",
@@ -701,6 +739,7 @@ impl CaptureConn {
         self.capture.writer.write(&record);
     }
 
+    /// Records the chat tunnel closing.
     pub fn chat_close(&self) {
         let record = json!({"kind": "chat", "conn": self.number(), "event": "close", "reason": "socket"});
         self.capture.writer.write(&record);
@@ -716,6 +755,7 @@ pub struct ChatTap<S> {
 }
 
 impl<S> ChatTap<S> {
+    /// Taps `inner`'s traffic into `conn`'s capture.
     pub fn new(inner: S, conn: CaptureConn) -> Self {
         let cap = conn.capture.max_body();
         Self {

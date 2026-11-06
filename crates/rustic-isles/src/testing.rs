@@ -67,15 +67,19 @@ pub fn sample_path(route: &RouteDef) -> String {
     }
 }
 
+/// A raw HTTP answer.
 #[derive(Debug, Clone)]
 pub struct Reply {
+    /// The status.
     pub status: u16,
     /// Names lower-cased
     pub headers: Vec<(String, String)>,
+    /// The body, de-chunked, as text.
     pub body: String,
 }
 
 impl Reply {
+    /// The first header with this lower-case name.
     pub fn header(&self, name: &str) -> Option<&str> {
         self.headers.iter().find(|(n, _)| n == name).map(|(_, v)| v.as_str())
     }
@@ -161,7 +165,9 @@ pub fn listening(host: &RecordingHost) -> Vec<(String, String)> {
 pub struct Mounts {
     /// Rows an area answers: the sweep leaves them (and paths they take) alone
     pub handled: Vec<(Service, Method, &'static str)>,
+    /// Whether the admin API rows are mounted.
     pub admin_api: bool,
+    /// Whether the `rifts` rows are mounted.
     pub rifts_loaded: bool,
 }
 
@@ -385,6 +391,7 @@ impl VersionHooks for SampleHooks {
     }
 }
 
+/// Tables for tests: 1.14.7's build with empty lists.
 pub static SAMPLE_TABLES: VersionTables = VersionTables {
     target_changelist: 647_472,
     game_version: "1.14.7",
@@ -410,6 +417,7 @@ pub static SAMPLE_TABLES: VersionTables = VersionTables {
     session_payload: rustic_isles_auth::session_payload_1_14_7,
 };
 
+/// A version over [`SAMPLE_TABLES`] and sample hooks, with every row.
 pub fn sample_version() -> IslesVersion {
     IslesVersion {
         hooks: Arc::new(SampleHooks),

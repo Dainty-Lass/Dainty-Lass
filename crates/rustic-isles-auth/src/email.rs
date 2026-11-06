@@ -5,7 +5,9 @@
 
 use crate::util;
 
+/// How long an emailed code stays valid: 5 minutes.
 pub const CODE_TTL_MS: i64 = 5 * 60 * 1000;
+/// Wrong entries a code allows before it is spent.
 pub const CODE_MAX_ATTEMPTS: u32 = 5;
 
 /// One `@`, not first, a local part of at most 64 units, a dotted domain of at least 3; no space, tab, CR or LF.

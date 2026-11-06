@@ -2,7 +2,7 @@
 //! database and directory, a stub game module recording what is written to an account, and the row's Verify: a
 //! hunt hosted in another region saves loot and XP at the player's home. SQLite always; Postgres too when
 //! `REFORGED_TEST_POSTGRES_URL` is set.
-#![allow(clippy::unwrap_used, clippy::expect_used)] // test helpers
+#![allow(clippy::unwrap_used, clippy::expect_used, reason = "a panic is how a test fails")]
 
 mod common;
 

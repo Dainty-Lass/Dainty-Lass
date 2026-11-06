@@ -3,7 +3,7 @@
 
 //! The chat plugin over real WebSockets on 127.0.0.1:0: login, rooms, room messages, direct messages to
 //! someone offline delivered at their next login, history, mutes, and a game module's own JID and rules.
-#![allow(clippy::unwrap_used, clippy::expect_used)] // test helpers
+#![allow(clippy::unwrap_used, clippy::expect_used, reason = "a panic is how a test fails")]
 
 use std::collections::HashMap;
 use std::sync::Arc;

@@ -3,7 +3,7 @@
 
 //! The route dispatcher's checks and answers with the services wired.
 
-#![allow(clippy::unwrap_used, clippy::expect_used)]
+#![allow(clippy::unwrap_used, clippy::expect_used, reason = "a panic is how a test fails")]
 
 mod common;
 

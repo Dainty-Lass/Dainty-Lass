@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Silent Spud
 
-#![allow(clippy::unwrap_used, clippy::expect_used)] // test helpers
+//! The shared case tables (`tests/cases`).
+
+#![allow(clippy::unwrap_used, clippy::expect_used, reason = "a panic is how a test fails")]
 
 use protocol::account::{UsernameCheck, check_username, extract_account_key, is_plausible_account_key};
 use protocol::invite::{Invite, parse_invite};

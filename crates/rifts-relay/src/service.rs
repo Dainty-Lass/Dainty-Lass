@@ -15,31 +15,44 @@ use crate::{
     wire::{self, JsonObject},
 };
 
+/// Whether player hosting runs.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct P2PGate {
+    /// Whether player hosting is switched on.
     pub enabled: bool,
+    /// Whether the operators' emergency stop is on, which stops it regardless.
     pub emergency_stop: bool,
 }
 
 /// A message queued for one account's launcher.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ControlMessage {
+    /// The account whose launcher gets it.
     pub account: AccountId,
+    /// The message type, such as `ICE_SIGNAL`.
     pub message_type: &'static str,
+    /// The session it is about, as the wire spells it.
     pub wire_session: String,
+    /// The session's generation.
     pub generation: u64,
+    /// The message body.
     pub payload: Json,
+    /// When it was queued.
     pub created_at: UnixMillis,
+    /// When it is dropped undelivered.
     pub expires_at: UnixMillis,
 }
 
+/// How setting the co-op transport ended.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum CoopTransportOutcome {
+    /// Changed; carries the new policy.
     Updated(Json),
     /// The policy's version moved on; carries the current policy.
     Conflict(Json),
 }
 
+/// A relay refusal with this code and text.
 pub fn refusal(code: &str, message: &str) -> RelayError {
     rifts_seam::Refusal {
         code: code.into(),
@@ -52,13 +65,19 @@ type Outcome<T> = Result<T, RelayError>;
 
 /// What the relay needs from the realms side.
 pub trait IceHunts: Send + Sync {
+    /// Whether player hosting runs.
     fn gate(&self) -> Outcome<P2PGate>;
+    /// The hunt or hub session, if it exists.
     fn find_hunt(&self, id: &SessionId) -> Outcome<Option<HuntSnapshot>>;
+    /// The hub's presence rows, at most `most` of them.
     fn hub_presence(&self, of: &HuntSnapshot, most: usize) -> Outcome<Vec<PresenceRow>>;
+    /// Queues a message for an account's launcher.
     fn enqueue(&self, queued: ControlMessage) -> Outcome<()>;
 }
 
+/// Where the operations policy's co-op transport is changed.
 pub trait OperationsPolicy: Send + Sync {
+    /// Sets the transport if the policy is still at `expected_version`, recording the admin, reason and request id.
     fn set_coop_transport(
         &self,
         admin: &str,
@@ -128,10 +147,15 @@ const ADMIN_VALIDATION: &str = r#"{"error":{"code":"ADMIN_VALIDATION","message":
 const ADMIN_CONFLICT: &str =
     r#"{"code":"ADMIN_POLICY_CONFLICT","message":"The operations policy changed. Refresh it before trying again."}"#;
 
+/// The relay's ICE operations.
 pub struct Ice {
+    /// The hunts and hubs the relay serves.
     pub hunts: Arc<dyn IceHunts>,
+    /// Where relay credentials come from.
     pub grants: RelayGrants,
+    /// The operations policy the admin switch changes.
     pub policy: Arc<dyn OperationsPolicy>,
+    /// The time now.
     pub clock: Arc<dyn Fn() -> UnixMillis + Send + Sync>,
     config_calls: HourlyCounter,
     signal_calls: HourlyCounter,
@@ -154,6 +178,7 @@ impl Seen {
 }
 
 impl Ice {
+    /// The operations over these parts, with empty hourly limits.
     pub fn new(
         hunts: Arc<dyn IceHunts>,
         grants: RelayGrants,

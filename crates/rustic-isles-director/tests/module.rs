@@ -3,7 +3,7 @@
 
 //! The Director as the module's `director` service and dedicated-servers slot (spec §12.3, §14.2).
 
-#![allow(clippy::unwrap_used, clippy::expect_used)]
+#![allow(clippy::unwrap_used, clippy::expect_used, reason = "a panic is how a test fails")]
 
 mod common;
 

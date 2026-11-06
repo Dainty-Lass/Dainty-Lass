@@ -20,19 +20,29 @@ use crate::util::{first_chars, num, num0};
 const DAY_MS: i64 = 86_400_000;
 const SEASONAL_COIN: &str = "CURRENCY_SEASONAL_COIN";
 
+/// Where a movement came from, as the log and the rollup's `bySource` name it.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum EconomySource {
+    /// A store purchase.
     Store,
+    /// An operator's grant.
     Operator,
+    /// An operator's test grant; never logged or summed.
     OperatorTest,
+    /// A challenge reward the claim funded.
     Quest,
+    /// A Hunt Pass reward.
     HuntPass,
+    /// A game server's inventory post.
     InventoryGameserver,
+    /// A player host's inventory post.
     InventoryHost,
+    /// Anything else.
     Other,
 }
 
 impl EconomySource {
+    /// The name the log and rollups use.
     pub fn as_str(self) -> &'static str {
         match self {
             Self::Store => "STORE",
@@ -61,15 +71,21 @@ impl EconomySource {
     }
 }
 
+/// What the transaction was, for attributing its movements.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Scope {
+    /// The kind of transaction.
     pub source: EconomySource,
+    /// The SKU bought, for a store purchase.
     pub store_sku_id: Option<String>,
+    /// The P2P session it ran in, for a host's post.
     pub p2p_session_id: Option<String>,
+    /// The host's account, for a host's post.
     pub host_account_id: Option<String>,
 }
 
 impl Scope {
+    /// A scope of `source` with nothing else named.
     pub fn of(source: EconomySource) -> Self {
         Self {
             source,
@@ -80,11 +96,16 @@ impl Scope {
     }
 }
 
+/// The monitor's settings (`RUSTIC_ISLES_*`).
 #[derive(Debug, Clone, PartialEq)]
 pub struct EconomyMonitorSettings {
+    /// Off only when `RUSTIC_ISLES_ECONOMY_MONITOR` is off.
     pub enabled: bool,
+    /// Platinum credited in a day that raises a flag (default 5000).
     pub plat_daily_flag: f64,
+    /// Platinum spent in a day that raises a flag (default 5000).
     pub plat_daily_spend_flag: f64,
+    /// Seasonal coin credited in a day that raises a flag.
     pub seasonal_coin_daily_flag: f64,
     /// Read and carried; this part does not use it
     pub xp_per_minute_flag: f64,
@@ -107,6 +128,7 @@ fn threshold(settings: &Settings, name: &str, default: f64) -> f64 {
 }
 
 impl EconomyMonitorSettings {
+    /// The settings; a bad threshold is logged and takes its default.
     pub fn read(settings: &Settings) -> Self {
         Self {
             enabled: settings.on_unless_off("RUSTIC_ISLES_ECONOMY_MONITOR"),
@@ -164,6 +186,7 @@ fn is_season_coin_pattern(id: &str) -> bool {
     digits > 0 && matches!(&rest[digits..], "_COIN" | "_DAILY")
 }
 
+/// Whether a catalog id is a Hunt Pass reward: the fixed currencies, a season coin, or an id the progression config names.
 pub fn is_hunt_pass_reward_id(id: &str, from_config: &HashSet<String>) -> bool {
     matches!(
         id,
@@ -206,32 +229,48 @@ pub struct EconomyLedger {
 /// One rollup write and the flag it may cross.
 #[derive(Debug, Clone, PartialEq)]
 pub struct RollupWrite {
+    /// The rollup's currency: the platinum aggregate or a reward's catalog id.
     pub currency: String,
+    /// `(dotted path, amount)` added to the day's rollup.
     pub increments: Vec<(String, f64)>,
+    /// The flags this write may cross.
     pub flags: Vec<Flag>,
 }
 
+/// A daily threshold one rollup may cross.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Flag {
     /// The counter whose day total is compared (`credited` or `debited`)
     pub counter: &'static str,
+    /// The day total that raises the flag.
     pub threshold: f64,
+    /// This transaction's share of the total.
     pub amount: f64,
+    /// Which threshold it is.
     pub kind: FlagKind,
 }
 
+/// Which daily threshold a flag watches.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum FlagKind {
+    /// Platinum credited.
     PlatinumCredit,
+    /// Platinum spent.
     PlatinumSpend,
+    /// Seasonal coin credited.
     SeasonalCoin,
 }
 
+/// A transaction's monitor output.
 #[derive(Debug, Clone, PartialEq)]
 pub struct CommitPlan {
+    /// The UTC day, `YYYY-MM-DD`.
     pub day: String,
+    /// When the rollups expire, in Unix milliseconds (400 days on).
     pub ttl_at: i64,
+    /// The log lines.
     pub lines: Vec<String>,
+    /// The rollup writes.
     pub writes: Vec<RollupWrite>,
 }
 
@@ -256,6 +295,7 @@ fn add(increments: &mut Vec<(String, f64)>, path: String, value: f64) {
 }
 
 impl EconomyLedger {
+    /// An empty ledger for one transaction; `granted` is what it granted, `hunt_pass_ids` the config's reward ids.
     pub fn new(
         user_id: &str,
         transaction_id: &str,
@@ -286,6 +326,7 @@ impl EconomyLedger {
         }
     }
 
+    /// Records platinum credited; an amount of 0 or less is ignored. `funded` marks a claimed challenge's reward.
     pub fn record_platinum_credit(&mut self, id: &str, amount: f64, balance_after: f64, funded: bool) {
         if amount.is_nan() || amount <= 0.0 {
             return;
@@ -298,6 +339,7 @@ impl EconomyLedger {
         });
     }
 
+    /// Adds platinum spent to the transaction's one spend; an amount of 0 or less is ignored.
     pub fn record_platinum_spend(&mut self, amount: f64, balance_after: f64) {
         if amount.is_nan() || amount <= 0.0 {
             return;
@@ -306,6 +348,7 @@ impl EconomyLedger {
         self.spend = Some((total, balance_after));
     }
 
+    /// Records a Hunt Pass or funded reward; platinum and anything else are ignored.
     pub fn record_reward(&mut self, id: &str, amount: f64, funded: bool) {
         if is_platinum_catalog_id(id) || amount.is_nan() || amount <= 0.0 {
             return;
@@ -319,6 +362,7 @@ impl EconomyLedger {
         }
     }
 
+    /// True when nothing was recorded.
     pub fn is_empty(&self) -> bool {
         self.credits.is_empty() && self.spend.is_none() && self.rewards.is_empty()
     }

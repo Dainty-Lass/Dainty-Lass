@@ -4,7 +4,7 @@
 //! The process-wide test pin against the replay scope (core spec §9.1), in a binary of its own because the pin is
 //! process-wide.
 
-#![allow(clippy::unwrap_used, clippy::expect_used)]
+#![allow(clippy::unwrap_used, clippy::expect_used, reason = "a panic is how a test fails")]
 
 use rustic_isles::replay::{
     ReplayScope, is_replay_pinned, now_ms, pin_now_for_tests, replay_now_ms, with_replay_scope,

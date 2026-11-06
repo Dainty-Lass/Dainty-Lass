@@ -24,9 +24,12 @@ use crate::{
     writes::{kind_name, parse_kind},
 };
 
+/// Guard's SQLite schema migrations.
 pub const SQLITE_MIGRATIONS: EmbeddedMigrations = embed_migrations!("migrations/sqlite");
+/// Guard's Postgres schema migrations.
 pub const POSTGRES_MIGRATIONS: EmbeddedMigrations = embed_migrations!("migrations/postgres");
 
+/// Guard's schema for `store::Database`, both backends.
 pub const SCHEMA: DatabaseSchema = DatabaseSchema {
     sqlite: || SQLITE_MIGRATIONS,
     postgres: || POSTGRES_MIGRATIONS,
@@ -701,10 +704,12 @@ impl SqlGuardStore {
         Ok(Self::new(db))
     }
 
+    /// A store over an opened database.
     pub fn new(db: Database) -> Self {
         Self { db }
     }
 
+    /// The database underneath, for sharing its pools.
     pub fn database(&self) -> &Database {
         &self.db
     }
@@ -735,6 +740,7 @@ impl SqlGuardStore {
         })
     }
 
+    /// Every traffic window, by id.
     pub fn windows(&self) -> Result<Vec<TrafficWindowRecord>, StoreError> {
         self.read(|conn| {
             let text = format!(
@@ -746,6 +752,7 @@ impl SqlGuardStore {
         })
     }
 
+    /// One operator alert, `None` when there is none by that id.
     pub fn alert(&self, alert_id: &str) -> Result<Option<AlertRecord>, StoreError> {
         let id = Param::from(alert_id);
         self.read(move |conn| {
@@ -758,6 +765,7 @@ impl SqlGuardStore {
         })
     }
 
+    /// A member's XP summary for a hunt session, `None` when none was kept.
     pub fn xp_summary(&self, session: &SessionId, member: &AccountId) -> Result<Option<XpSummaryRecord>, StoreError> {
         let key = vec![Param::Text(session.to_string()), Param::Text(member.0.clone())];
         self.read(move |conn| {

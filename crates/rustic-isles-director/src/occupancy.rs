@@ -51,6 +51,7 @@ pub struct RuntimeLogOccupancy {
 }
 
 impl RuntimeLogOccupancy {
+    /// Follows the log at `path` from its start.
     pub fn new(path: impl Into<PathBuf>) -> Self {
         Self {
             path: path.into(),
@@ -111,6 +112,7 @@ impl RuntimeLogOccupancy {
         self.count
     }
 
+    /// Bytes held of an unfinished last line.
     pub fn partial_len(&self) -> usize {
         self.partial.len()
     }
@@ -132,6 +134,7 @@ impl IdleStopPolicy {
         }
     }
 
+    /// Forgets when the hub became idle.
     pub fn reset(&mut self) {
         self.idle_start = None;
     }

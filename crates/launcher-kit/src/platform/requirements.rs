@@ -10,19 +10,29 @@ use std::path::{Path, PathBuf};
 use crate::bridge::types::{Requirement, RequirementId, RequirementState};
 use crate::platform::hostkit::{Toolchain, any_visual_studio, system_env};
 
+/// A store backend the server can run on.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Database {
+    /// MongoDB, which the store migrates from.
     MongoDb,
+    /// PostgreSQL.
     Postgres,
+    /// SQLite, the default.
     Sqlite,
 }
 
+/// The store backend the host kit sets up by default.
 pub const DATABASE: Database = Database::Sqlite;
+/// Oldest PostgreSQL major version the store supports.
 pub const POSTGRES_MINIMUM: u32 = 17;
 
+/// How the checks see the system, so tests can stand in for it.
 pub struct Probes<'a> {
+    /// Reads an environment variable.
     pub env: &'a (dyn Fn(&str) -> Option<OsString> + Sync),
+    /// Whether a file exists.
     pub exists: &'a (dyn Fn(&Path) -> bool + Sync),
+    /// Entry names in a folder.
     pub list_dir: &'a (dyn Fn(&Path) -> Vec<String> + Sync),
 }
 
@@ -31,6 +41,7 @@ fn system_exists(path: &Path) -> bool {
 }
 
 impl Probes<'static> {
+    /// The probes on the real system.
     #[must_use]
     pub fn system() -> Self {
         Self {
@@ -41,11 +52,17 @@ impl Probes<'static> {
     }
 }
 
+/// What the host kit already knows, fed to [`check_requirements`].
 pub struct Inputs<'a> {
+    /// Whether the game was found, and what to show for it.
     pub game: (bool, Option<String>),
+    /// The build toolchain found.
     pub toolchain: &'a Toolchain,
+    /// The Dumper-7 DLL the host picked, if any.
     pub dumper_dll: Option<&'a Path>,
+    /// Tailscale is installed.
     pub tailscale: bool,
+    /// Number of Visual C++ runtime DLLs missing.
     pub missing_vc_runtime: usize,
 }
 
@@ -260,7 +277,8 @@ pub async fn check_requirements_here(inputs: &Inputs<'_>) -> Vec<Requirement> {
     check_requirements(inputs, &Probes::system(), any_visual_studio).await
 }
 
-#[cfg(test)]
+// The probes answer Windows paths, which `Path::join` builds with `/` elsewhere
+#[cfg(all(test, windows))]
 mod tests {
     use super::*;
 

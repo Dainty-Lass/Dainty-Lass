@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Silent Spud
 
+//! JSON as `JSON.stringify` writes it: numbers as JavaScript prints them and integer-like keys first.
+
 use std::fmt::Write;
 
 use serde_json::{Map, Number, Value};
@@ -39,6 +41,7 @@ fn ordered_entries(map: &Map<String, Value>) -> Vec<(&String, &Value)> {
     out
 }
 
+/// `value` as JavaScript prints it; non-finite numbers are `null`.
 pub fn number(value: f64) -> String {
     if !value.is_finite() {
         return "null".to_owned();
@@ -151,12 +154,14 @@ fn write_value(out: &mut String, value: &Value) {
     }
 }
 
+/// `JSON.stringify(value)`.
 pub fn stringify(value: &Value) -> String {
     let mut out = String::new();
     write_value(&mut out, value);
     out
 }
 
+/// `value` normalized as JavaScript would hold it: numbers as doubles, integer-like keys first.
 pub fn to_js(value: &Value) -> Value {
     match value {
         Value::Null => Value::Null,
@@ -198,11 +203,13 @@ pub fn to_js(value: &Value) -> Value {
     }
 }
 
+/// `JSON.parse(text)`, normalized with [`to_js`].
 pub fn parse(text: &str) -> Result<Value, serde_json::Error> {
     let val: Value = serde_json::from_str(text)?;
     Ok(to_js(&val))
 }
 
+/// Structural equality with numbers compared as doubles and NaN equal to NaN.
 pub fn deep_equal(a: &Value, b: &Value) -> bool {
     match (a, b) {
         (Value::Null, Value::Null) => true,

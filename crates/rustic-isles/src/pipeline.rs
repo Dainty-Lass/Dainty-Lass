@@ -24,6 +24,7 @@ use crate::replay::{self, ReplayScope};
 use crate::routes::{self, Method, RouteDef, Service, When};
 use crate::shared::Shared;
 
+/// The header carrying a request's id, read from the request or minted, and set on the answer.
 pub const REQUEST_ID_HEADER: &str = "x-rustic-isles-request-id";
 /// Selects the game server budget whether or not the key is good; auth checks it later.
 pub const GAMESERVER_KEY_HEADER: &str = "x-rustic-isles-gameserver-apikey";
@@ -41,8 +42,16 @@ const APEXES: [&str; 4] = [
 /// What the `/__origin/<host>/` strip does to a request target (§3.3).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum OriginStrip {
+    /// Not an `/__origin/` target.
     Unchanged,
-    Stripped { host: String, target: String },
+    /// An allowed origin host, stripped.
+    Stripped {
+        /// The host, lower-cased.
+        host: String,
+        /// The rest of the target, starting with `/`.
+        target: String,
+    },
+    /// A malformed or disallowed origin host, answered with 400.
     Refused,
 }
 

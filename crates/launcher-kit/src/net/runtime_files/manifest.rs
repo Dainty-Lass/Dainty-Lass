@@ -1,14 +1,17 @@
 // Copyright (c) 2026 Silent Spud
 // SPDX-License-Identifier: MIT
 
+//! Reading the server's runtime manifest: anything outside the expected shape makes the whole manifest invalid.
+
 use protocol::manifest::{
     DEFAULT_CHANGELIST, MAX_RUNTIME_FILE_BYTES, RUNTIME_FILE_NAMES, RuntimeFile, RuntimeManifest, runtime_file_slot,
 };
 use protocol::text::{is_js_space, is_unsafe_char, js_trim};
 use serde_json::Value;
 
-#[allow(dead_code)]
+/// File in the game's `Win64` folder recording which runtime was installed and from where.
 pub const RUNTIME_MARKER_FILE: &str = ".reforged-runtime.json";
+/// JavaScript's `Number.MAX_SAFE_INTEGER`, the largest changelist the Node services could send.
 pub const MAX_SAFE_INTEGER: u64 = (1 << 53) - 1;
 
 fn clean_version_text(value: &str, max_len: usize) -> String {
@@ -48,6 +51,8 @@ fn is_lower_hex_64(s: &str) -> bool {
     s.len() == 64 && s.bytes().all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
 }
 
+/// The manifest in `raw`, files sorted by name; none unless it lists each runtime slot once, each with a
+/// lowercase SHA-256 and a size in bounds. A missing or bad changelist becomes [`DEFAULT_CHANGELIST`].
 pub fn parse_runtime_manifest(raw: &Value) -> Option<RuntimeManifest> {
     let obj = raw.as_object()?;
     let raw_version = obj.get("version")?.as_str()?;

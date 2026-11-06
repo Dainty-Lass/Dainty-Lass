@@ -50,6 +50,7 @@ const REFRESH_MARGIN: i64 = 300;
 /// Where this command keeps its files.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Files {
+    /// The Epic session: `epic-session.env` in the config folder, owner-only.
     pub session: PathBuf,
     /// The resume files, the ownership answer and the records of finished installs: `.workspace/epic`
     pub data: PathBuf,
@@ -58,6 +59,7 @@ pub struct Files {
 }
 
 impl Files {
+    /// The files under the server folder `paths`.
     pub fn of(paths: &Paths) -> Self {
         Self {
             session: paths.config.join(SESSION_FILE),
@@ -66,6 +68,7 @@ impl Files {
         }
     }
 
+    /// Where an interrupted install of `version` keeps what it fetched.
     pub fn resume_file(&self, version: &str) -> PathBuf {
         self.data.join(format!("{version}.resume"))
     }
@@ -139,6 +142,7 @@ fn tighten(file: &Path) {
     }
 }
 
+/// Signs out by deleting the session file; one that is not there is not an error.
 pub fn delete_session(file: &Path) -> Result<(), HostError> {
     match std::fs::remove_file(file) {
         Ok(()) => Ok(()),
@@ -158,16 +162,22 @@ fn unix_now() -> i64 {
 /// One version to install: a compiled-in build (`epic::builds`), or the tests' own.
 #[derive(Debug, Clone)]
 pub struct Plan {
+    /// The game version, like `1.14.7`.
     pub version: String,
+    /// Its name, as the output says it.
     pub display_name: String,
+    /// The Epic build version of its manifest.
     pub build_version: String,
     /// The pin every manifest source's bytes are checked against
     pub pin: Sha1Digest,
+    /// Where its manifest is fetched from.
     pub sources: Vec<String>,
+    /// The executable checked by SHA-256 once every file matches the manifest.
     pub executable: Executable,
 }
 
 impl Plan {
+    /// The plan for a compiled-in build; fails on a malformed row of the build table.
     pub fn for_build(build: &Build) -> Result<Self, HostError> {
         let broken = || HostError::message(format!("the build table has a bad row for {}", build.version));
         Ok(Self {
@@ -203,18 +213,24 @@ fn available() -> String {
 /// Everything the install talks to. The real command uses `EpicAccounts`, `EgsLibrary` and the CDN; the tests
 /// use doubles and a fake CDN (`Options::bases`, `Options::tls`).
 pub struct Env<'a, L: Library> {
+    /// The Epic sign-in.
     pub accounts: &'a dyn Accounts,
+    /// Who owns the game, from the host's library.
     pub ownership: &'a Ownership<L>,
+    /// How chunks are fetched: the CDN bases and how many at once.
     pub options: Options,
 }
 
 /// What a finished run reports.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Done {
+    /// The folder the game is in.
     pub folder: PathBuf,
     /// It was installed already and its executable still checked out: nothing was fetched
     pub already: bool,
+    /// Files installed; 0 when it was there already.
     pub files: usize,
+    /// The bytes they take; 0 when it was there already.
     pub bytes: u64,
 }
 
@@ -579,7 +595,7 @@ pub async fn install_game<L: Library>(
 
 #[cfg(test)]
 mod tests {
-    #![allow(clippy::unwrap_used)]
+    #![allow(clippy::unwrap_used, reason = "a panic is how a test fails")]
 
     use super::*;
 

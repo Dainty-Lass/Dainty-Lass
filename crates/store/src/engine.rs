@@ -25,13 +25,17 @@ pub const DEFAULT_POSTGRES_PORT: u16 = 5432;
 pub const DEFAULT_POSTGRES_USER: &str = "dainty";
 pub const DEFAULT_POSTGRES_DATABASE: &str = "dainty";
 
+/// The database engine a service runs on.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Engine {
+    /// One SQLite file per service.
     Sqlite,
+    /// A Postgres database.
     Postgres,
 }
 
 impl Engine {
+    /// The name used in settings: `sqlite` or `postgres`.
     pub fn as_str(self) -> &'static str {
         match self {
             Self::Sqlite => "sqlite",
@@ -39,6 +43,7 @@ impl Engine {
         }
     }
 
+    /// Reads a name [`Engine::as_str`] writes.
     pub fn parse(text: &str) -> Option<Self> {
         match text {
             "sqlite" => Some(Self::Sqlite),
@@ -51,11 +56,17 @@ impl Engine {
 /// Where a Postgres database is and how to log in.
 #[derive(Clone, PartialEq, Eq)]
 pub struct PostgresConfig {
+    /// Host name, IP address or Unix socket folder.
     pub host: String,
+    /// TCP port.
     pub port: u16,
+    /// Role to log in as.
     pub user: String,
+    /// Database name.
     pub database: String,
+    /// Password; never logged.
     pub password: String,
+    /// Whether an address off this machine is accepted, though the connection is plaintext.
     pub allow_remote: bool,
 }
 
@@ -103,11 +114,17 @@ impl PostgresConfig {
 /// A database as a service opens it.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum DatabaseConfig {
-    Sqlite { file: PathBuf },
+    /// One SQLite file.
+    Sqlite {
+        /// Path of the database file.
+        file: PathBuf,
+    },
+    /// A Postgres server.
     Postgres(PostgresConfig),
 }
 
 impl DatabaseConfig {
+    /// Which engine the configuration opens.
     pub fn engine(&self) -> Engine {
         match self {
             Self::Sqlite { .. } => Engine::Sqlite,
@@ -185,7 +202,7 @@ fn conninfo_value(value: &str) -> String {
 
 #[cfg(test)]
 mod tests {
-    #![allow(clippy::unwrap_used)]
+    #![allow(clippy::unwrap_used, reason = "a panic is how a test fails")]
 
     use super::*;
     use std::collections::HashMap;

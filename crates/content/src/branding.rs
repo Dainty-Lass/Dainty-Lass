@@ -15,23 +15,35 @@ use serde_json::{Map, Value, json};
 use crate::input::{accent_colour, credit_line, cut_utf16, image_content_type, is_image_file_name, signature_matches};
 use crate::{Clock, log};
 
+/// How often the art pack is re-scanned, in ms.
 pub const RESCAN_MS: i64 = 10_000;
+/// Most images served.
 pub const MAX_IMAGES: usize = 50;
+/// Largest image served, in bytes.
 pub const MAX_IMAGE_BYTES: u64 = 25 * 1024 * 1024;
+/// Route prefix image URLs are served under.
 pub const URL_PREFIX: &str = "/content/v1/branding/";
 const CONFIG: &str = "branding.json";
 
+/// One background image in the art pack.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Image {
+    /// File name, also its URL path segment.
     pub name: String,
+    /// Credit line shown with the image.
     pub credit: Option<String>,
+    /// MIME type, from the file's extension.
     pub content_type: &'static str,
 }
 
+/// One scan of the art pack.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Scan {
+    /// Images found, in the order they are listed.
     pub images: Vec<Image>,
+    /// Accent colour as lowercase `#rgb` or `#rrggbb`.
     pub accent: Option<String>,
+    /// The JSON body served for the art pack.
     pub body: String,
 }
 
@@ -45,11 +57,13 @@ impl Scan {
         Self { images, accent, body }
     }
 
+    /// The scanned image called `name`, if any.
     pub fn image(&self, name: &str) -> Option<&Image> {
         self.images.iter().find(|image| image.name == name)
     }
 }
 
+/// The art pack in `dir`, scanned on demand.
 pub struct Branding {
     dir: Option<PathBuf>,
     clock: Clock,
@@ -57,6 +71,7 @@ pub struct Branding {
 }
 
 impl Branding {
+    /// An art pack in `dir`; `None` serves an empty one.
     pub fn new(dir: Option<PathBuf>, clock: Clock) -> Self {
         Self {
             dir,
@@ -65,6 +80,7 @@ impl Branding {
         }
     }
 
+    /// The art pack folder, if one is set.
     pub fn dir(&self) -> Option<&Path> {
         self.dir.as_deref()
     }
@@ -227,7 +243,7 @@ fn check_image(path: &Path, content_type: &str) -> Result<(), Skip> {
 
 #[cfg(test)]
 mod tests {
-    #![allow(clippy::unwrap_used)]
+    #![allow(clippy::unwrap_used, reason = "a panic is how a test fails")]
     use std::sync::atomic::{AtomicI64, Ordering};
 
     use super::*;

@@ -18,7 +18,9 @@ use serde::{Deserialize, Serialize};
 use crate::{HostError, session::HubLimits};
 
 // In the launcher's config folder.
+/// Hub limits per server id.
 pub const HUB_LIMITS_FILE: &str = "realm-host-limits.json";
+/// Control cursors per account.
 pub const HOST_SETTINGS_FILE: &str = "p2p-host-settings.json";
 
 /// In the session folder, in the order they are written.
@@ -27,6 +29,7 @@ pub const SESSION_FILES: [&str; 4] = ["bridge.conf", "transport.secret", "capabi
 // In the game folder.
 /// Guard role `ADMISSION_KEY`.
 pub const ADMISSION_PUBLIC_KEY_FILE: &str = "p2p-admission-public.xy";
+/// Its presence in the game folder or app data turns co-op off.
 pub const DISABLE_COOP_FLAG_FILE: &str = "DISABLE_COOP_TRANSPORT.flag";
 /// The file name the launcher still pins a digest for; nothing loads it since the transport is linked in (D1).
 pub const TRANSPORT_DLL: &str = "RusticTransport.dll";
@@ -34,6 +37,7 @@ pub const TRANSPORT_DLL: &str = "RusticTransport.dll";
 const SERVER_ID_LENGTHS: RangeInclusive<usize> = 1..=64;
 const ACCOUNT_ID_LENGTHS: RangeInclusive<usize> = 1..=128;
 
+/// Refuses limits outside 1 to 64 players, 1 to 8 servers and 0 to 7200 AFK seconds.
 pub fn validate_hub_limits(limits: &HubLimits) -> Result<(), HostError> {
     let players = (1..=64).contains(&limits.max_players);
     let servers = (1..=8).contains(&limits.max_servers);
@@ -48,10 +52,15 @@ pub fn validate_hub_limits(limits: &HubLimits) -> Result<(), HostError> {
     refusal.map_or(Ok(()), |text| Err(HostError::InvalidInput(text.to_owned())))
 }
 
+/// What the host PC keeps between launches.
 pub trait HostState: Send + Sync {
+    /// This server's hub limits, `None` when none were saved.
     fn hub_limits(&self) -> Result<Option<HubLimits>, HostError>;
+    /// Saves this server's hub limits after checking them.
     fn save_hub_limits(&self, limits: &HubLimits) -> Result<(), HostError>;
+    /// The last control message sequence handled for this account.
     fn control_cursor(&self, account: &rifts_seam::AccountId) -> Result<Option<u64>, HostError>;
+    /// Records the last control message sequence handled for this account.
     fn set_control_cursor(&self, account: &rifts_seam::AccountId, sequence: u64) -> Result<(), HostError>;
 }
 
@@ -193,10 +202,12 @@ fn invalid(text: &str) -> HostError {
 }
 
 impl FileHostState {
+    /// State for the `default` server in `config_dir`.
     pub fn new(config_dir: impl Into<PathBuf>) -> Self {
         Self::for_server(config_dir, "default")
     }
 
+    /// State for `server_id` in `config_dir`.
     pub fn for_server(config_dir: impl Into<PathBuf>, server_id: impl Into<String>) -> Self {
         let (folder, server) = (config_dir.into(), server_id.into());
         Self {
@@ -206,10 +217,12 @@ impl FileHostState {
         }
     }
 
+    /// The folder the files live in.
     pub fn config_dir(&self) -> &Path {
         self.folder.as_path()
     }
 
+    /// The server the hub limits are kept for.
     pub fn server_id(&self) -> &str {
         self.server.as_str()
     }

@@ -23,22 +23,33 @@ pub const MONGO_CACHE_GB: u32 = 1;
 /// Failure categories when probing a MongoDB instance.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum MongoProblem {
+    /// No way to talk to MongoDB in this build.
     NoDriver,
+    /// Nothing answered at the URI's host and port.
     Unreachable,
+    /// A mongod answered that runs without a replica set.
     Standalone,
+    /// MongoDB answered with an error, or the URI was bad.
     Error,
 }
 
 /// Outcome of probing or initiating the MongoDB replica set.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum MongoCheck {
+    /// The replica set answers.
     Ok {
+        /// Its name.
         set_name: String,
+        /// Whether the node is primary.
         primary: bool,
+        /// Whether this check initiated it.
         initiated: bool,
     },
+    /// The check failed.
     Failed {
+        /// Which kind of failure.
         reason: MongoProblem,
+        /// What MongoDB or the connection said.
         detail: String,
     },
 }
@@ -46,8 +57,11 @@ pub enum MongoCheck {
 /// Options for [`ensure_replica_set`].
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ReplicaSetOptions {
+    /// Runs `replSetInitiate` when the node has no replica set yet.
     pub initiate: bool,
+    /// The member `host:port` to initiate with; the URI's host and port when `None`.
     pub host: Option<String>,
+    /// How long to wait for the node, in milliseconds; 8000 when `None`.
     pub timeout_ms: Option<u64>,
 }
 
@@ -90,6 +104,7 @@ pub fn program_files() -> PathBuf {
 
 /// Helper trait allowing [`search_path`] to accept either a single binary name (`&str`) or a slice (`&[&str]`).
 pub trait SearchNames<'a> {
+    /// The names to look for.
     fn as_names(&self) -> Vec<&'a str>;
 }
 
@@ -500,7 +515,7 @@ pub fn ensure_replica_set(uri: &str, opts: &ReplicaSetOptions) -> Result<MongoCh
 
 #[cfg(test)]
 mod tests {
-    #![allow(clippy::unwrap_used, clippy::expect_used)]
+    #![allow(clippy::unwrap_used, clippy::expect_used, reason = "a panic is how a test fails")]
 
     use super::*;
     use std::io::{Read, Write};

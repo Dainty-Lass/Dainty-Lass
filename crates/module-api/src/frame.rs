@@ -33,15 +33,20 @@ pub const MAX_HELLO_FRAME: usize = 64 << 10;
 
 const LENGTH_BYTES: usize = 4;
 
+/// The child's first frame.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Hello {
+    /// The frame protocol it speaks.
     pub protocol: u32,
+    /// The module API it was built against.
     pub api: ApiVersion,
+    /// Its manifest.
     pub manifest: ModuleManifest,
 }
 
 impl Hello {
+    /// The hello this build sends for `manifest`.
     pub fn new(manifest: ModuleManifest) -> Self {
         Self {
             protocol: PROTOCOL_VERSION,
@@ -51,11 +56,15 @@ impl Hello {
     }
 }
 
+/// The host's answer to an accepted [`Hello`].
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Welcome {
+    /// The frame protocol the host speaks.
     pub protocol: u32,
+    /// The module API the host speaks.
     pub api: ApiVersion,
+    /// The node the module runs on.
     pub node: NodeIdentity,
 }
 
@@ -63,26 +72,43 @@ pub struct Welcome {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub enum ModuleCall {
+    /// What the module needs from the core plugins.
     Register,
+    /// Start serving with this configuration.
     Start(ModuleConfig),
+    /// Stop serving.
     Stop,
+    /// The module's status.
     Status,
+    /// Run a console command.
     Command(CommandRequest),
+    /// Run an admin action.
     Admin(AdminCall),
+    /// Handle an event the module subscribed to.
     Event(Event),
+    /// Answer the chat plugin.
     Chat(ChatQuery),
 }
 
+/// A module's answer to a [`ModuleCall`], the variant matching the call's.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub enum ModuleAnswer {
+    /// What the module registered.
     Registered(Registration),
+    /// The module started.
     Started,
+    /// The module stopped.
     Stopped,
+    /// The module's status.
     Status(ModuleStatus),
+    /// The command's output.
     Command(CommandOutput),
+    /// The admin action's result.
     Admin(AdminResponse),
+    /// The event was handled.
     EventHandled,
+    /// The chat answer.
     Chat(ChatAnswer),
 }
 
@@ -90,13 +116,20 @@ pub enum ModuleAnswer {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "t", rename_all = "snake_case", deny_unknown_fields)]
 pub enum ToHost {
+    /// The handshake's first frame.
     Hello(Box<Hello>),
+    /// A call into the host.
     Call {
+        /// Chosen by the child; the reply carries it back.
         id: u64,
+        /// The call.
         call: HostCall,
     },
+    /// The answer to the host's call with the same id.
     Reply {
+        /// The host call's id.
         id: u64,
+        /// The module's answer or error.
         result: Result<ModuleAnswer, ModuleError>,
     },
 }
@@ -105,30 +138,50 @@ pub enum ToHost {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "t", rename_all = "snake_case", deny_unknown_fields)]
 pub enum ToModule {
+    /// The hello was accepted.
     Welcome(Welcome),
+    /// The hello was refused; the host closes the connection after it.
     Refused {
+        /// Why the host refused.
         reason: String,
     },
+    /// A call into the module.
     Call {
+        /// Chosen by the host; the reply carries it back.
         id: u64,
+        /// The call.
         call: ModuleCall,
     },
+    /// The answer to the module's call with the same id.
     Reply {
+        /// The module call's id.
         id: u64,
+        /// The host's answer or error.
         result: Result<HostAnswer, ModuleError>,
     },
 }
 
+/// Why a frame could not be read or written; any of them ends the connection.
 #[derive(Debug, thiserror::Error)]
 pub enum FrameError {
+    /// The length prefix is over the limit.
     #[error("a frame of {len} bytes is over the {max}-byte limit")]
-    TooLarge { len: usize, max: usize },
+    TooLarge {
+        /// The frame's length in bytes.
+        len: usize,
+        /// The limit it broke.
+        max: usize,
+    },
+    /// The length prefix is 0.
     #[error("an empty frame")]
     Empty,
+    /// The stream ended partway through a frame.
     #[error("the stream ended inside a frame")]
     Truncated,
+    /// The body is not a known message.
     #[error("a frame that is not a known message: {0}")]
     Malformed(#[from] serde_json::Error),
+    /// Reading or writing the stream failed.
     #[error("{0}")]
     Io(#[from] std::io::Error),
 }
@@ -192,6 +245,7 @@ pub async fn read_frame<T: DeserializeOwned, R: AsyncRead + Unpin>(
     Ok(Some(serde_json::from_slice(&body)?))
 }
 
+/// Writes one message as a frame and flushes; a message over `max` is refused before anything is written.
 pub async fn write_frame<T: Serialize, W: AsyncWrite + Unpin>(
     writer: &mut W,
     message: &T,
@@ -206,14 +260,28 @@ pub async fn write_frame<T: Serialize, W: AsyncWrite + Unpin>(
 /// Why the host refused a child's hello.
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 pub enum Refusal {
+    /// The child speaks another frame protocol, the one held.
     #[error("frame protocol {0} is not {PROTOCOL_VERSION}")]
     Protocol(u32),
+    /// The host's API does not accept the module's.
     #[error("module API {module} can't run on this host's {host}")]
-    Api { module: ApiVersion, host: ApiVersion },
+    Api {
+        /// The API the module was built against.
+        module: ApiVersion,
+        /// The host's API.
+        host: ApiVersion,
+    },
+    /// The manifest is invalid; holds the reason.
     #[error("{0}")]
     Manifest(String),
+    /// The executable is another module than the one `host.toml` named.
     #[error("expected module {expected}, the executable is {found}")]
-    WrongModule { expected: ModuleId, found: ModuleId },
+    WrongModule {
+        /// The module `host.toml` named.
+        expected: ModuleId,
+        /// The module the executable is.
+        found: ModuleId,
+    },
 }
 
 /// The host's check of a child's hello: the protocol and API it speaks, its manifest, and that it is the

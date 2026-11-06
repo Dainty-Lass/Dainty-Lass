@@ -28,13 +28,16 @@ enum Segment {
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 #[error("cannot compile the row {row:?}, because {why}")]
 pub struct PatternError {
+    /// The row's path text.
     pub row: String,
+    /// Why it does not compile.
     pub why: String,
 }
 
 /// A parameter that is not valid percent-encoded UTF-8 (Express answers 400).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct BadParam {
+    /// The raw parameter text.
     pub value: String,
 }
 
@@ -43,14 +46,17 @@ pub struct BadParam {
 pub struct Params(Vec<(String, String)>);
 
 impl Params {
+    /// The decoded value of a named parameter.
     pub fn get(&self, name: &str) -> Option<&str> {
         self.0.iter().find(|(k, _)| k == name).map(|(_, v)| v.as_str())
     }
 
+    /// Every parameter in path order.
     pub fn pairs(&self) -> &[(String, String)] {
         &self.0
     }
 
+    /// Every parameter in path order, owned.
     pub fn into_pairs(self) -> Vec<(String, String)> {
         self.0
     }
@@ -84,6 +90,7 @@ pub fn decode_param(raw: &str) -> Result<String, BadParam> {
 }
 
 impl Pattern {
+    /// Compiles an Express path or a `/^...$/` regex row.
     pub fn parse(path: &str) -> Result<Self, PatternError> {
         if path.starts_with("/^") {
             return Self::parse_regex(path);

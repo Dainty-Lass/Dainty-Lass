@@ -1,6 +1,8 @@
 // Copyright (c) 2026 Silent Spud
 // SPDX-License-Identifier: MIT
 
+//! A minimal HTTP/1.1 client: one request per connection, pinned TLS to public hosts, bodies bounded.
+
 use std::fmt;
 use std::net::IpAddr;
 use std::time::Duration;
@@ -16,23 +18,34 @@ use crate::net::pinned::{ConnectError, PinnedTarget, pinned_connect, validate_ho
 
 pub mod to_file;
 
+/// A server to talk to: plain HTTP to a private or loopback host, or TLS pinned to a certificate's SHA-256.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Endpoint {
+    /// Host name or IP address, IPv6 with or without brackets.
     pub host: String,
+    /// TCP port, never 0.
     pub port: u16,
+    /// The certificate's SHA-256 fingerprint; a public host must have one.
     pub pin: Option<String>,
 }
 
+/// How one request is sent and bounded.
 #[derive(Debug, Clone)]
 pub struct RequestOptions {
+    /// HTTP method.
     pub method: Method,
+    /// Extra headers, such as the account key's.
     pub headers: Vec<(&'static str, String)>,
+    /// JSON body, sent with its content type and length.
     pub body: Option<String>,
+    /// Deadline for the whole request, connect included.
     pub timeout: Duration,
+    /// Largest body accepted before [`HttpError::TooLarge`].
     pub max_bytes: usize,
 }
 
 impl RequestOptions {
+    /// A GET with no extra headers or body.
     pub fn get(timeout: Duration, max_bytes: usize) -> Self {
         Self {
             method: Method::GET,
@@ -44,19 +57,34 @@ impl RequestOptions {
     }
 }
 
+/// A response with its body read in full.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct HttpResponse {
+    /// HTTP status code.
     pub status: u16,
+    /// Response body.
     pub body: Bytes,
 }
 
+/// Why a request failed.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum HttpError {
-    Pin { expected: String, actual: String },
+    /// The server's certificate does not match the pin.
+    Pin {
+        /// The pinned fingerprint, lowercase hex SHA-256.
+        expected: String,
+        /// The fingerprint the server presented.
+        actual: String,
+    },
+    /// The deadline passed.
     Timeout,
+    /// Connecting or reading failed, or the endpoint was refused before connecting.
     Io(String),
+    /// The HTTP exchange itself failed.
     Protocol(String),
+    /// The body passed `max_bytes`.
     TooLarge,
+    /// The caller cancelled.
     Aborted,
 }
 
@@ -87,6 +115,7 @@ impl From<ConnectError> for HttpError {
     }
 }
 
+/// `host` is localhost or a loopback, private, link-local, CGNAT (Tailscale) or unique-local address.
 pub fn is_private_or_loopback(host: &str) -> bool {
     let clean = host
         .trim()
@@ -109,6 +138,8 @@ pub fn is_private_or_loopback(host: &str) -> bool {
     }
 }
 
+/// The endpoint's normalized pin, or none for a private or loopback host.
+/// Fails on port 0, a bad host, a bad pin, or a public host without one.
 pub fn check_endpoint(endpoint: &Endpoint) -> Result<Option<String>, HttpError> {
     if endpoint.port == 0 {
         return Err(HttpError::Io("port cannot be 0".to_owned()));
@@ -129,6 +160,7 @@ pub fn check_endpoint(endpoint: &Endpoint) -> Result<Option<String>, HttpError> 
     }
 }
 
+/// The `Host` header value, with the port only when it is not the scheme's default.
 pub fn host_header(endpoint: &Endpoint) -> String {
     let clean = endpoint
         .host
@@ -150,6 +182,7 @@ pub fn host_header(endpoint: &Endpoint) -> String {
     }
 }
 
+/// Sends one request over a fresh connection and reads the body, bounded by `options`.
 pub async fn request(endpoint: &Endpoint, path: &str, options: RequestOptions) -> Result<HttpResponse, HttpError> {
     let checked_pin = check_endpoint(endpoint)?;
     if !path.starts_with('/') {
@@ -252,6 +285,7 @@ pub async fn request(endpoint: &Endpoint, path: &str, options: RequestOptions) -
         .map_err(|_| HttpError::Timeout)?
 }
 
+/// The body as JSON, or none when it is not.
 pub fn parse_json_body(response: &HttpResponse) -> Option<serde_json::Value> {
     serde_json::from_slice(&response.body).ok()
 }

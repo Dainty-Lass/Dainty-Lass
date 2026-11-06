@@ -6,22 +6,33 @@
 
 use std::net::SocketAddr;
 
+/// What kind of address an IP is.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum IpClass {
+    /// `0.0.0.0` or `::`.
     Unspecified,
+    /// Loopback.
     Loopback,
+    /// Link-local.
     LinkLocal,
+    /// Multicast.
     Multicast,
+    /// Reserved ranges, or IPv6 outside global unicast.
     Reserved,
+    /// Private networks, CGNAT, benchmarking and unique-local.
     Private,
+    /// Anything else.
     Public,
 }
 
+/// One strictly parsed IP address.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ParsedIp {
     /// 4 or 6; an IPv4-mapped IPv6 address is 4
     pub version: u8,
+    /// Its canonical text.
     pub canonical: String,
+    /// What kind it is.
     pub class: IpClass,
     /// 4 bytes for IPv4, 16 for IPv6
     pub bytes: Vec<u8>,
@@ -211,6 +222,7 @@ pub fn rate_limit_key(ip: &str) -> String {
 /// The allowlist helper's judgement of one value.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum AllowlistCheck {
+    /// The address may be admitted.
     Allowed(ParsedIp),
     /// `not_a_string`, `range_not_allowed`, `not_an_ip`, `unspecified`, `multicast`, `reserved` or `private`
     Refused(&'static str),

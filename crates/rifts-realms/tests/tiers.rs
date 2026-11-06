@@ -3,7 +3,7 @@
 
 //! The hosting policy and hunt routing: every gate fails closed, and each on its own.
 
-#![allow(clippy::unwrap_used, clippy::expect_used)]
+#![allow(clippy::unwrap_used, clippy::expect_used, reason = "a panic is how a test fails")]
 
 use std::collections::BTreeMap;
 

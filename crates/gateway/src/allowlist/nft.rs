@@ -23,9 +23,12 @@ pub const NFT_TABLE: &str = "reforged_revival";
 const RUN_LIMIT: Duration = Duration::from_secs(30);
 const CHECK_LIMIT: Duration = Duration::from_secs(15);
 
+/// Where the helper's nftables rules live.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct NftSettings {
+    /// Table name.
     pub table: String,
+    /// Network interface the rules match, if any.
     pub interface: Option<String>,
 }
 
@@ -61,6 +64,7 @@ pub fn check_interface(name: &str) -> Result<String, String> {
     }
 }
 
+/// Accepts an absolute path to `nft`; the error says why another is refused.
 pub fn check_nft_binary(path: &str) -> Result<String, String> {
     if path.starts_with('/') {
         Ok(path.to_owned())
@@ -116,8 +120,11 @@ pub fn nft_script(rule: &RulePlan, settings: &NftSettings) -> Result<String, Str
 /// How nft takes the script: unknown until a run settles it.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Feed {
+    /// Not run yet.
     Unknown,
+    /// The script goes on stdin.
     Stdin,
+    /// The script goes in a temporary file.
     File,
 }
 
@@ -202,6 +209,7 @@ async fn run(path: &str, args: &[&str], stdin: Option<&str>, limit: Duration) ->
 }
 
 impl Nft {
+    /// `nft` at `path`, its script feed not yet known.
     pub fn new(path: impl Into<String>) -> Self {
         Self {
             path: path.into(),
@@ -209,6 +217,7 @@ impl Nft {
         }
     }
 
+    /// How the script was last fed.
     pub fn feed(&self) -> Feed {
         *self.feed.lock().unwrap_or_else(PoisonError::into_inner)
     }

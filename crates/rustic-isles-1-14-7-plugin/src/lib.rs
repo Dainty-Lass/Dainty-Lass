@@ -5,6 +5,11 @@
 //! cannot happen; if it did, the panic unwinds inside module-api's open guard and the core sees a failed load, never
 //! undefined behaviour (the workspace's `panic = "unwind"`).
 
+#![allow(
+    missing_docs,
+    reason = "the exported entry symbol is the macro's and carries no doc; an attribute on the invocation is ignored"
+)]
+
 fn module() -> rustic_isles::IslesModule {
     match rustic_isles_1_14_7::module() {
         Ok(module) => module,

@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Silent Spud
 
+//! `dainty-host multipliers`: a private test server's XP and reward multipliers, shown or set, with the env files
+//! rewritten so the backend takes them on its next start.
+
 use std::path::Path;
 use std::process::ExitCode;
 
@@ -13,6 +16,7 @@ use crate::hostconfig::{
 };
 use crate::paths::Paths;
 
+/// Whether the command sets anything, rather than showing the multipliers.
 #[must_use]
 pub fn asked(args: &MultipliersArgs) -> bool {
     args.xp.is_some() || args.rewards.is_some() || args.off
@@ -22,6 +26,7 @@ fn format_mult(n: f64) -> String {
     service_kit::jsjson::number(n)
 }
 
+/// Runs `dainty-host multipliers`, printing to stdout.
 pub fn run(paths: &Paths, args: &MultipliersArgs) -> Result<ExitCode, HostError> {
     let source_commit = |repo: &Path| -> Result<String, HostError> {
         Ok(crate::selfupdate::read_manifest(repo)
@@ -40,6 +45,7 @@ pub fn run(paths: &Paths, args: &MultipliersArgs) -> Result<ExitCode, HostError>
     })
 }
 
+/// Shows or sets the multipliers in host.toml, rewriting the env files if setup made them; prints through `out`.
 pub fn run_with(
     paths: &Paths,
     args: &MultipliersArgs,
@@ -118,7 +124,7 @@ fn parse_multiplier(flag: &str, raw: &str) -> Result<f64, HostError> {
 
 #[cfg(test)]
 mod tests {
-    #![allow(clippy::unwrap_used)]
+    #![allow(clippy::unwrap_used, reason = "a panic is how a test fails")]
 
     use super::*;
     use crate::hostconfig::HostConfig;

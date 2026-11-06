@@ -17,8 +17,11 @@ use crate::{Connection, Error};
 /// A single Drizzle Kit migration loaded from disk or constructed for replay.
 #[derive(Debug, Clone)]
 pub struct Migration {
+    /// Tag from the journal, also the SQL file's stem.
     pub tag: String,
+    /// Journal `when`, in unix milliseconds.
     pub created_at: i64,
+    /// The migration's SQL.
     pub sql: String,
 }
 

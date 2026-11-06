@@ -17,7 +17,9 @@ use crate::admin::{AdminContext, admin_error, fresh_id};
 use crate::launcher_auth::launcher_sign_in;
 use crate::util::{self, DAY_MS, HOUR_MS, iso, json, now_ms, object, status_text};
 
+/// Days an uploaded session is kept.
 pub const RETENTION_DAYS: i64 = 90;
+/// The file in a session folder that records when it was uploaded.
 pub const MARKER: &str = ".uploaded-at.json";
 const MAX_FILE: usize = 10 * 1024 * 1024;
 const MAX_SESSIONS: usize = 200;
@@ -103,11 +105,16 @@ fn upload_time(session: &Path) -> Option<i64> {
 
 // ------------------------------------------------------------------ the listing (§7.4)
 
+/// One uploaded session's folder.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Upload {
+    /// The account folder's userId.
     pub user_id: String,
+    /// The launch session id.
     pub session_id: String,
+    /// When it was last uploaded, Unix ms.
     pub uploaded_ms: i64,
+    /// The folder.
     pub path: PathBuf,
 }
 
@@ -162,6 +169,7 @@ fn summary_files(session: &Path) -> Vec<(String, u64)> {
         .collect()
 }
 
+/// A session as the listings show it: ids, upload time and its files.
 pub fn summary(upload: &Upload) -> Value {
     let files = summary_files(&upload.path);
     let total: u64 = files.iter().map(|(_, s)| s).sum();
@@ -184,11 +192,16 @@ pub fn summary(upload: &Upload) -> Value {
 
 // ------------------------------------------------------------------ retention (§7.5)
 
+/// What a purge did.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct PurgeReport {
+    /// Sessions looked at.
     pub checked: usize,
+    /// Sessions past retention.
     pub expired: usize,
+    /// Sessions removed.
     pub removed: usize,
+    /// Sessions that could not be removed.
     pub failed: usize,
 }
 
@@ -264,6 +277,7 @@ enum Saved {
     Storage,
 }
 
+/// `PUT /launcher/v1/logs/sessions/:launchSessionId/:fileName`: a tester's log upload.
 pub async fn upload(mut call: Call) -> Response {
     let caller = match launcher_sign_in(&call.shared, call.request.headers()).await {
         Ok(caller) => caller,
@@ -360,6 +374,7 @@ async fn sync_gate(call: &mut Call) -> Result<(), Response> {
     Ok(())
 }
 
+/// `GET /admin/v1/launcher-logs`: the sync script's listing.
 pub async fn sync_list(mut call: Call) -> Response {
     if let Err(refused) = sync_gate(&mut call).await {
         return refused;
@@ -415,6 +430,7 @@ pub async fn sync_list(mut call: Call) -> Response {
     )]))
 }
 
+/// `GET /admin/v1/launcher-logs/:userId/:launchSessionId/:fileName`: the sync script's file read.
 pub async fn sync_file(mut call: Call) -> Response {
     if let Err(refused) = sync_gate(&mut call).await {
         return refused;
@@ -481,6 +497,7 @@ fn is_before(text: &str) -> bool {
     fraction_ok && service_kit::js::date_parse(text).is_some()
 }
 
+/// `GET /admin/v1/player-logs`: the dashboard's listing.
 pub async fn list_player_logs(ctx: AdminContext) -> Response {
     let query = &ctx.request.query;
     let user = if util::repeated(query, "userId") {
@@ -571,6 +588,7 @@ fn locate_session(root: &Path, user: &str, session: &str) -> Result<PathBuf, Res
     Ok(folder)
 }
 
+/// `GET /admin/v1/player-logs/:userId/:launchSessionId/:fileName`: the dashboard's file read.
 pub async fn read_player_log(ctx: AdminContext) -> Response {
     let query = &ctx.request.query;
     let download = match (util::repeated(query, "download"), util::single(query, "download")) {
@@ -647,6 +665,7 @@ pub async fn read_player_log(ctx: AdminContext) -> Response {
     response
 }
 
+/// `DELETE /admin/v1/player-logs/:userId/:launchSessionId`: deletes a session's logs, with a reason.
 pub async fn delete_player_logs(ctx: AdminContext) -> Response {
     let reason = ctx
         .request

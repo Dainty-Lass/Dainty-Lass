@@ -3,7 +3,7 @@
 
 //! The hunt tables and the resolver (spec §9, §14.2): picks fixed to the first candidate.
 
-#![allow(clippy::unwrap_used, clippy::expect_used)]
+#![allow(clippy::unwrap_used, clippy::expect_used, reason = "a panic is how a test fails")]
 
 use std::sync::{Arc, Mutex};
 

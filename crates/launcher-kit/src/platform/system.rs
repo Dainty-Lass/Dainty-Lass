@@ -9,13 +9,17 @@ use std::path::{Path, PathBuf};
 /// Creates a [`tokio::process::Command`] configured with `CREATE_NO_WINDOW` on Windows
 /// so console helper tools do not flash a terminal window.
 pub fn run_hidden(program: impl AsRef<OsStr>) -> tokio::process::Command {
-    let mut cmd = tokio::process::Command::new(program);
     #[cfg(windows)]
     {
         const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+        let mut cmd = tokio::process::Command::new(program);
         cmd.creation_flags(CREATE_NO_WINDOW);
+        cmd
     }
-    cmd
+    #[cfg(not(windows))]
+    {
+        tokio::process::Command::new(program)
+    }
 }
 
 /// Returns the Windows root folder (`%SystemRoot%` or `%WINDIR%`, defaulting to `C:\Windows`).

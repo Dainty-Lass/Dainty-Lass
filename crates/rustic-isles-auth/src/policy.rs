@@ -9,19 +9,29 @@ use crate::errors::LauncherError;
 use crate::store::{Approval, Consent, LauncherAccount, Status};
 use crate::util;
 
+/// The Terms of Use version a consent must name.
 pub const TERMS_VERSION: &str = "2026-10-14";
+/// The current Privacy Policy version.
 pub const PRIVACY_VERSION: &str = "2026-10-17";
 /// Privacy versions an earlier consent may still name
 pub const ACCEPTED_PRIVACY_VERSIONS: [&str; 3] = ["2026-10-16", "2026-10-15", "2026-10-14.2"];
+/// The youngest age a registration may declare, in years.
 pub const MINIMUM_AGE: u32 = 16;
+/// Days between a deletion request and the erasure.
 pub const DELETION_HOLD_DAYS: i64 = 30;
 
+/// `AUTH_ACCOUNT_BANNED`'s text.
 pub const MSG_BANNED: &str = "This account has been banned.";
+/// `AUTH_ACCOUNT_DISABLED`'s text.
 pub const MSG_DISABLED: &str = "This account has been disabled.";
+/// `AUTH_APPROVAL_PENDING`'s text.
 pub const MSG_PENDING: &str = "Your closed-test access request is waiting for approval.";
+/// `AUTH_APPROVAL_REJECTED`'s text.
 pub const MSG_REJECTED: &str = "Your closed-test access request was not approved.";
+/// `CONSENT_REQUIRED`'s text.
 pub const MSG_CONSENT_REQUIRED: &str =
     "Update the launcher to read and accept the current Terms of Use and Privacy Policy, then try again.";
+/// `ACCOUNT_DEACTIVATED`'s text.
 pub const MSG_DEACTIVATED: &str =
     "This account is scheduled for deletion and is deactivated. Restore it from the Account page to play again.";
 
@@ -69,10 +79,12 @@ pub fn assert_account_eligible(account: &LauncherAccount, now_iso: &str) -> Resu
     Ok(())
 }
 
+/// Whether the account may play now, as [`assert_account_eligible`] decides.
 pub fn is_account_eligible(account: &LauncherAccount, now_iso: &str) -> bool {
     assert_account_eligible(account, now_iso).is_ok()
 }
 
+/// Whether a consent's privacy version is current or still accepted.
 pub fn is_privacy_accepted(version: &str) -> bool {
     version == PRIVACY_VERSION || ACCEPTED_PRIVACY_VERSIONS.contains(&version)
 }
@@ -99,6 +111,7 @@ pub fn consent_enforced(raw: Option<&str>) -> bool {
     is_on(raw)
 }
 
+/// A setting reads as on: `1`, `true`, `on` or `yes`, in any case.
 pub fn is_on(raw: Option<&str>) -> bool {
     matches!(
         util::normalize_lower(raw.unwrap_or("")).as_str(),
@@ -106,6 +119,7 @@ pub fn is_on(raw: Option<&str>) -> bool {
     )
 }
 
+/// `ACCOUNT_DEACTIVATED` (with `scheduledFor`) while a deletion is scheduled.
 pub fn assert_not_deactivated(account: &LauncherAccount) -> Result<(), LauncherError> {
     match &account.deletion {
         Some(deletion) => Err(LauncherError::new("ACCOUNT_DEACTIVATED", MSG_DEACTIVATED)
@@ -114,6 +128,7 @@ pub fn assert_not_deactivated(account: &LauncherAccount) -> Result<(), LauncherE
     }
 }
 
+/// `CONSENT_REQUIRED` (403) when consent is enforced and the account's is not current.
 pub fn assert_consent_if_enforced(account: &LauncherAccount, enforced: bool) -> Result<(), LauncherError> {
     if enforced && !has_current_consent(account) {
         // 403 here; the table's 400 is the registration refusal
@@ -227,10 +242,15 @@ const RESERVED_WHOLE: &[&str] = &[
     "unknown",
 ];
 
+/// A username outside 3 to 16 characters.
 pub const MSG_USERNAME_LENGTH: &str = "Username must be 3\u{2013}16 characters.";
+/// A username with anything but letters and digits.
 pub const MSG_USERNAME_SYMBOLS: &str = "Username can only contain letters and numbers (no spaces or symbols).";
+/// A username with no letter.
 pub const MSG_USERNAME_LETTER: &str = "Username needs at least one letter.";
+/// A username on a word list or the operator's blocklist.
 pub const MSG_USERNAME_NOT_ALLOWED: &str = "That username isn't allowed. Choose another.";
+/// A username the service keeps for itself.
 pub const MSG_USERNAME_RESERVED: &str = "That username is reserved. Choose another.";
 
 /// The format rules on the JS-trimmed text (a non-string is `""`); the trimmed name when they pass.
@@ -365,6 +385,7 @@ pub fn registration_approval(raw: Option<&str>) -> (bool, Option<String>) {
     }
 }
 
+/// The answer while official play is off.
 pub const MSG_OFFICIAL_UNAVAILABLE: &str = "The official server is currently unavailable. Join or host a realm.";
 
 /// `RUSTIC_ISLES_OFFICIAL_PLAY`: `(available, the unrecognised value)`.

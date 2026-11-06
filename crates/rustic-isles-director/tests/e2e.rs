@@ -4,7 +4,7 @@
 //! The Director end to end over the real launcher and the fake game server (spec §14.2). Every test is bounded
 //! and kills every tree however it ends (the rig's drop).
 
-#![allow(clippy::unwrap_used, clippy::expect_used)]
+#![allow(clippy::unwrap_used, clippy::expect_used, reason = "a panic is how a test fails")]
 
 mod common;
 

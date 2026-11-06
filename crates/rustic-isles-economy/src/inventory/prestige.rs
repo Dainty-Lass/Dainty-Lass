@@ -11,18 +11,25 @@ use serde_json::Value;
 
 use crate::util::num;
 
+/// The game data file the prestige sources are read from.
 pub const PROGRESSION_CONFIG_FILE: &str = "progression_config.json";
 
 /// One track paying `reward_per_level` of a catalog id per prestige level past `cap`.
 #[derive(Debug, Clone, PartialEq)]
 pub struct PrestigeRewardSource {
+    /// The reward currency paid.
     pub catalog_id: String,
+    /// The progression track paying it.
     pub progression_id: String,
+    /// XP per prestige level.
     pub xp_per_level: f64,
+    /// How much of the currency each level pays.
     pub reward_per_level: f64,
+    /// The XP at which prestige starts: the sum of the track's level requirements.
     pub cap: f64,
 }
 
+/// Every prestige reward source in the version's progression config.
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct ProgressionConfig {
     sources: Vec<PrestigeRewardSource>,
@@ -95,14 +102,17 @@ impl ProgressionConfig {
         )
     }
 
+    /// Whether some track pays the currency as a prestige reward, so a grant of it is gated.
     pub fn is_prestige_gated_reward(&self, catalog_id: &str) -> bool {
         self.sources.iter().any(|s| s.catalog_id == catalog_id)
     }
 
+    /// The tracks that pay the currency.
     pub fn prestige_sources(&self, catalog_id: &str) -> Vec<&PrestigeRewardSource> {
         self.sources.iter().filter(|s| s.catalog_id == catalog_id).collect()
     }
 
+    /// True when no track pays a prestige reward.
     pub fn is_empty(&self) -> bool {
         self.sources.is_empty()
     }

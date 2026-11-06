@@ -40,6 +40,7 @@ pub type ModuleFactory = Arc<dyn Fn() -> Arc<dyn GameModule> + Send + Sync>;
 /// Where a listed module comes from.
 #[derive(Clone)]
 pub enum ModuleSource {
+    /// Built into this binary; the factory makes a fresh instance for each load.
     CompiledIn(ModuleFactory),
     /// An executable, or a library (`.dll`, `.so`) the core loads (RD27), pinned by its SHA-256 (DD5)
     External(ExternalModule),
@@ -57,7 +58,9 @@ impl std::fmt::Debug for ModuleSource {
 /// A module `host.toml` lists: the only kind the registry loads.
 #[derive(Debug, Clone)]
 pub struct ModuleEntry {
+    /// The module's id, also its component name.
     pub id: ModuleId,
+    /// Where it is loaded from.
     pub source: ModuleSource,
     /// Loaded when the server starts; otherwise loaded from the console or the admin API
     pub autoload: bool,
@@ -67,6 +70,7 @@ pub struct ModuleEntry {
 
 /// How the registry runs its modules.
 pub struct RegistryOptions {
+    /// This node's identity, given to every module.
     pub node: NodeIdentity,
     /// The home API modules reach through `HostLink` until the network swaps it ([`ModuleRegistry::set_home`])
     pub home: Arc<dyn HomeApi>,
@@ -135,38 +139,69 @@ pub fn system_environment(vars: impl IntoIterator<Item = (String, String)>) -> V
         .collect()
 }
 
+/// Why the registry refused or failed a load, unload or call.
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 pub enum RegistryError {
+    /// The id is not in `host.toml`'s `[modules]`.
     #[error("no module {0} is listed in host.toml ([modules])")]
     NotListed(ModuleId),
+    /// `host.toml` lists the id more than once.
     #[error("module {0} is listed twice")]
     ListedTwice(ModuleId),
+    /// A service already has the id as its name.
     #[error("{0} is already a service's name")]
     NameTaken(ModuleId),
+    /// A load asked of a module that is already loaded.
     #[error("module {0} is already loaded")]
     AlreadyLoaded(ModuleId),
+    /// An unload or call asked of a module that is not loaded.
     #[error("module {0} is not loaded")]
     NotLoaded(ModuleId),
+    /// A game module for a version another module or the host kit already serves.
     #[error("{id} was refused: game version {version} is already served by {by}")]
     Duplicate {
+        /// The module refused.
         id: ModuleId,
+        /// The game version both serve.
         version: GameVersion,
+        /// What already serves it.
         by: String,
     },
+    /// A plugin for a game version no loaded module serves.
     #[error("{id} extends game version {version}, and no module for it is loaded")]
-    NoGameFor { id: ModuleId, version: GameVersion },
+    NoGameFor {
+        /// The plugin refused.
+        id: ModuleId,
+        /// The game version it extends.
+        version: GameVersion,
+    },
+    /// The module's manifest does not match its listing or what the server allows.
     #[error("{id} was refused: {reason}")]
-    Refused { id: ModuleId, reason: String },
+    Refused {
+        /// The module refused.
+        id: ModuleId,
+        /// Why it was refused.
+        reason: String,
+    },
+    /// The module failed to start, or an answer from it failed.
     #[error("{id}: {reason}")]
-    Failed { id: ModuleId, reason: String },
+    Failed {
+        /// The module that failed.
+        id: ModuleId,
+        /// The module's or the driver's error.
+        reason: String,
+    },
 }
 
 /// Where a listed module is.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ModuleState {
+    /// Listed and not running: never loaded, unloaded, or stopped.
     NotLoaded,
+    /// Loading, until it reports ready.
     Starting,
+    /// Running and ready.
     Ready,
     /// It broke after it started (its process died, its pipe broke) or failed to start
     Failed,
@@ -175,15 +210,21 @@ pub enum ModuleState {
 /// One listed module, as the console, the TUI, the server GUI and the admin API show it.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct ModuleInfo {
+    /// Its id, also its component name.
     pub id: ModuleId,
     /// `compiled_in` or `external`
     pub source: &'static str,
+    /// Whether it loads when the server starts.
     pub autoload: bool,
+    /// Where it is now.
     pub state: ModuleState,
+    /// Why it failed or stopped, when it did.
     pub detail: Option<String>,
     /// Known once it was loaded, or at once for a compiled-in one
     pub manifest: Option<ModuleManifest>,
+    /// The port ranges it was given, by the manifest's port name (DD4).
     pub ports: BTreeMap<String, PortRange>,
+    /// The commands it registered for the console and the admin API (DD3).
     pub commands: Vec<CommandSpec>,
     /// The `[modules.<id>.<section>]` keys it registered, with their defaults: what the server GUI's
     /// settings editor draws (DU3). Empty until it loads
@@ -321,6 +362,7 @@ pub struct WeakRegistry {
 }
 
 impl WeakRegistry {
+    /// The registry, while the server still holds it.
     pub fn upgrade(&self) -> Option<ModuleRegistry> {
         self.inner.upgrade().map(|inner| ModuleRegistry { inner })
     }
@@ -349,6 +391,7 @@ impl ModuleRegistry {
         }
     }
 
+    /// A handle that doesn't keep the registry alive.
     pub fn downgrade(&self) -> WeakRegistry {
         WeakRegistry {
             inner: Arc::downgrade(&self.inner),
@@ -415,6 +458,7 @@ impl ModuleRegistry {
         }
     }
 
+    /// The status the modules show in, beside the services.
     pub fn status_registry(&self) -> &StatusRegistry {
         &self.inner.status
     }
@@ -472,15 +516,18 @@ impl ModuleRegistry {
         Ok(())
     }
 
+    /// Whether `host.toml` lists the module `id` names; false for a string that is no module id.
     pub fn is_listed(&self, id: &str) -> bool {
         id.parse::<ModuleId>()
             .is_ok_and(|id| lock(&self.inner.state).slots.contains_key(&id))
     }
 
+    /// Every listed module, loaded or not.
     pub fn list(&self) -> Vec<ModuleInfo> {
         lock(&self.inner.state).slots.values().map(Slot::info).collect()
     }
 
+    /// One listed module; [`RegistryError::NotListed`] when `host.toml` doesn't list it.
     pub fn info(&self, id: &ModuleId) -> Result<ModuleInfo, RegistryError> {
         lock(&self.inner.state)
             .slots
@@ -589,6 +636,7 @@ impl ModuleRegistry {
         Ok(())
     }
 
+    /// Unloads the module if it is loaded and loads it again.
     pub async fn restart(&self, id: &ModuleId) -> Result<ModuleInfo, RegistryError> {
         match self.unload(id).await {
             Ok(()) | Err(RegistryError::NotLoaded(_)) => {}

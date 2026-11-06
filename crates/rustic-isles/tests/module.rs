@@ -3,7 +3,7 @@
 
 //! The module over a bare composer (core spec §7, §13.2): drive, start, settings, admin and commands.
 
-#![allow(clippy::unwrap_used, clippy::expect_used)]
+#![allow(clippy::unwrap_used, clippy::expect_used, reason = "a panic is how a test fails")]
 
 use std::path::Path;
 use std::sync::Arc;

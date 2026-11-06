@@ -1,10 +1,13 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Silent Spud
 
+//! Where Rustic Isles' sources are in a checkout, and which of them are missing.
+
 use std::path::PathBuf;
 
 use crate::paths::Paths;
 
+/// The generated SDK files a runtime build needs.
 pub const SDK_FILES: [&str; 6] = [
     "SDK.hpp",
     "Assertions.inl",
@@ -14,25 +17,41 @@ pub const SDK_FILES: [&str; 6] = [
     "UtfN.hpp",
 ];
 
+/// Where Rustic Isles' parts are in this server folder.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Layout {
+    /// The server folder.
     pub repo: PathBuf,
+    /// Rustic Isles' 1.14.7 reference tree.
     pub paradox: PathBuf,
+    /// `modules/rustic-isles`.
     pub isles: PathBuf,
+    /// The reference backend.
     pub backend_dir: PathBuf,
+    /// The reference Director.
     pub director_dir: PathBuf,
+    /// The game runtime's sources.
     pub runtime_source: PathBuf,
+    /// The runtime loader's sources.
     pub loader_dir: PathBuf,
+    /// The generated SDK header.
     pub sdk_header: PathBuf,
+    /// The generated SDK folder.
     pub sdk_dir: PathBuf,
+    /// CatalogExporter's sources.
     pub exporter_dir: PathBuf,
+    /// The game exports.
     pub exports: PathBuf,
+    /// The backend's game data.
     pub backend_game_data: PathBuf,
+    /// The Director's game data.
     pub director_game_data: PathBuf,
+    /// The backend's raw game data.
     pub raw_game_data: PathBuf,
 }
 
 impl Layout {
+    /// The layout of `p`.
     #[must_use]
     pub fn new(p: &Paths) -> Self {
         Self {
@@ -54,6 +73,7 @@ impl Layout {
     }
 }
 
+/// The sources a checkout lacks, by their path in the checkout.
 #[must_use]
 pub fn missing_paradox(l: &Layout) -> Vec<&'static str> {
     let mut missing = Vec::new();
@@ -77,7 +97,7 @@ pub fn missing_paradox(l: &Layout) -> Vec<&'static str> {
 
 #[cfg(test)]
 mod tests {
-    #![allow(clippy::unwrap_used)]
+    #![allow(clippy::unwrap_used, reason = "a panic is how a test fails")]
 
     use std::fs;
 

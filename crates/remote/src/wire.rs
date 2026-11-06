@@ -113,19 +113,27 @@ pub fn contains_forbidden_secret_bytes(bytes: &[u8]) -> bool {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct EnrollRequest {
+    /// The one-time token from the invite.
     pub token: String,
+    /// Node id the invite was minted for.
     pub node: NodeId,
+    /// Region the invite was minted for.
     pub region: Region,
+    /// Display label; must match the invite's when both are set.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub label: Option<String>,
+    /// The install's new public key, PEM, for the controller to sign a node certificate for.
     pub public_key_pem: String,
+    /// The install's gateway URL, if it has a public one.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub gateway_url: Option<String>,
+    /// SHA-256 of the install's gateway certificate, 64 lowercase hex.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub gateway_cert_fp: Option<String>,
 }
 
 impl EnrollRequest {
+    /// Checks the token, label, key and gateway fields; refuses secrets.
     pub fn validate(&self) -> Result<(), RemoteError> {
         let _ = validate_enrollment_token(&self.token)?;
         if let Some(label) = &self.label {
@@ -169,15 +177,22 @@ impl EnrollRequest {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct EnrollAnswer {
+    /// The controller's node id.
     pub controller_node: NodeId,
+    /// The controller's region.
     pub controller_region: Region,
+    /// SHA-256 of the controller's certificate.
     pub controller_cert_fp: String,
+    /// The network CA certificate, PEM.
     pub ca_cert_pem: String,
+    /// The install's signed node certificate, PEM.
     pub node_cert_pem: String,
+    /// Config revision to start from.
     pub initial_revision: u64,
 }
 
 impl EnrollAnswer {
+    /// Checks the fingerprint and both certificates; refuses secrets.
     pub fn validate(&self) -> Result<(), RemoteError> {
         if !is_valid_sha256_fp(&self.controller_cert_fp) {
             return Err(RemoteError::InvalidInput(
@@ -213,13 +228,18 @@ impl EnrollAnswer {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum RemoteRole {
+    /// Reads status, history and doctor results.
     Viewer,
+    /// Moderates players as well.
     Moderator,
+    /// Runs lifecycle, module, backup and database commands as well.
     Admin,
+    /// Everything, including updates, fresh starts, real reverts and detaching.
     Owner,
 }
 
 impl RemoteRole {
+    /// Order of authority, 1 for viewer to 4 for owner.
     pub fn rank(self) -> u8 {
         match self {
             Self::Viewer => 1,
@@ -229,6 +249,7 @@ impl RemoteRole {
         }
     }
 
+    /// Whether this role may do what `required` may.
     pub fn allows(self, required: RemoteRole) -> bool {
         self.rank() >= required.rank()
     }
@@ -239,13 +260,18 @@ impl RemoteRole {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct OperatorEnvelope {
+    /// The controller the operator acts through.
     pub controller_node: NodeId,
+    /// Admin key's id, never its secret.
     pub key_id: String,
+    /// The operator's role.
     pub role: RemoteRole,
+    /// When the envelope was made, in Unix milliseconds.
     pub issued_at_ms: i64,
 }
 
 impl OperatorEnvelope {
+    /// Checks the key id is a plain id, not `system`, and holds no secret.
     pub fn validate(&self) -> Result<(), RemoteError> {
         let trimmed = self.key_id.trim();
         if trimmed.is_empty() || trimmed.len() > 64 || trimmed != self.key_id {
@@ -277,38 +303,60 @@ impl OperatorEnvelope {
     }
 }
 
+/// What a lifecycle command does to the server.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum LifecycleAction {
+    /// Start it.
     Start,
+    /// Stop it.
     Stop,
+    /// Stop and start it.
     Restart,
 }
 
+/// A moderation command's action.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum AdminModerationKind {
+    /// Disconnect the player.
     Kick,
+    /// Mute the player for a while.
     Timeout,
+    /// End the player's timeout.
     LiftTimeout,
+    /// Ban the player.
     Ban,
+    /// Lift the player's ban.
     Unban,
+    /// Read the player's moderation record.
     Lookup,
 }
 
+/// What a module command does.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum ModuleControlKind {
+    /// Load the module.
     Load,
+    /// Unload the module.
     Unload,
-    SetSettings { settings: BTreeMap<String, Value> },
+    /// Replace the module's settings.
+    SetSettings {
+        /// The new settings by name.
+        settings: BTreeMap<String, Value>,
+    },
 }
 
+/// A database command.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum DbSubcommand {
+    /// Apply pending migrations.
     Migrate,
+    /// Check the database.
     Verify,
+    /// Export the store as Mongo collections.
     ExportMongo,
 }
 
@@ -316,50 +364,81 @@ pub enum DbSubcommand {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum RemoteCommand {
+    /// Start, stop or restart the server.
     Lifecycle {
+        /// Start, stop or restart.
         action: LifecycleAction,
     },
+    /// Run `setup` again.
     Setup {
+        /// Install the example files.
         examples: bool,
+        /// Discard the existing data and start over (guarded).
         fresh_start: bool,
     },
+    /// A moderation action on a player.
     AdminAction {
+        /// What to do.
         action: AdminModerationKind,
+        /// The player, at most 128 characters.
         target: String,
+        /// Why, at most 512 characters.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         reason: Option<String>,
+        /// How long, for a timeout or ban.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         duration_secs: Option<u64>,
     },
+    /// Load, unload or configure a module.
     ModuleControl {
+        /// Id of the module.
         module_id: String,
+        /// What to do.
         action: ModuleControlKind,
     },
+    /// Read the change history.
     HistoryQuery {
+        /// Only changes by this actor.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         actor: Option<String>,
+        /// Only changes of this kind.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         kind: Option<String>,
+        /// Most entries returned.
         limit: u32,
     },
+    /// Verify the change log's hash chain.
     HistoryVerify,
+    /// Revert the history back to an entry.
     HistoryRevert {
+        /// Change-log entry to revert to.
         target_seq: i64,
+        /// Plan only; a real revert is guarded.
         dry_run: bool,
+        /// Why, for the log.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         reason: Option<String>,
     },
+    /// Back up the database.
     Backup,
+    /// Update the server.
     Update {
+        /// Only report whether an update is available.
         check_only: bool,
+        /// Version to install; the latest when unset.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         version: Option<String>,
     },
+    /// A database command.
     Db {
+        /// The database command to run.
         subcommand: DbSubcommand,
     },
+    /// Run `doctor`.
     Doctor,
+    /// Detach the install from the controller for good.
     Detached {
+        /// Why, for the log.
         reason: String,
     },
 }
@@ -396,6 +475,7 @@ impl RemoteCommand {
         )
     }
 
+    /// Checks targets, reasons and arguments are in range and hold no secrets.
     pub fn validate(&self) -> Result<(), RemoteError> {
         match self {
             Self::AdminAction {
@@ -506,14 +586,19 @@ impl RemoteCommand {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct QueuedRemoteCommand {
+    /// Command id, 1 to 64 letters, digits, `-` or `_`.
     pub command_id: String,
+    /// Who asked for it.
     pub operator: OperatorEnvelope,
+    /// What to run.
     pub command: RemoteCommand,
+    /// The second operator, for a guarded command.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub approved_by: Option<OperatorEnvelope>,
 }
 
 impl QueuedRemoteCommand {
+    /// Checks the id, the operator's role, and the approval a guarded command needs.
     pub fn validate(&self) -> Result<(), RemoteError> {
         if self.command_id.trim().is_empty()
             || self.command_id.len() > 64
@@ -560,16 +645,22 @@ impl QueuedRemoteCommand {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct CommandOutcome {
+    /// The command it answers.
     pub command_id: String,
+    /// Whether it succeeded.
     pub ok: bool,
+    /// Machine-readable result code.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub code: Option<String>,
+    /// What happened, for the operator.
     pub message: String,
+    /// Command-specific result data.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub data: Option<Value>,
 }
 
 impl CommandOutcome {
+    /// Checks the fields are in range and hold no secrets.
     pub fn validate(&self) -> Result<(), RemoteError> {
         if self.command_id.trim().is_empty() || self.command_id.len() > 64 {
             return Err(RemoteError::InvalidInput("invalid command_id in outcome".to_string()));
@@ -590,69 +681,105 @@ impl CommandOutcome {
     }
 }
 
+/// How the server is running, as the install reports it.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ServerRunState {
+    /// Running normally.
     Running,
+    /// Starting up.
     Starting,
+    /// Shutting down.
     Stopping,
+    /// Not running.
     Stopped,
+    /// Running with a component down.
     Degraded,
 }
 
+/// One component's health in a report.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ComponentHealth {
+    /// Component name.
     pub id: String,
+    /// Its phase, as text.
     pub state: String,
+    /// Port it listens on.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub port: Option<u16>,
+    /// Status text.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub detail: Option<String>,
 }
 
+/// One doctor check's result.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct DoctorCheckEntry {
+    /// Check id.
     pub id: String,
+    /// `pass`, `warn` or `fail`.
     pub status: String,
+    /// What it found.
     pub summary: String,
+    /// More detail.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub detail: Option<String>,
 }
 
+/// The install's last doctor run.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct DoctorSummary {
+    /// Whether nothing failed.
     pub ok: bool,
+    /// Checks that passed.
     pub pass_count: u32,
+    /// Checks that warned.
     pub warn_count: u32,
+    /// Checks that failed.
     pub fail_count: u32,
+    /// When it ran, in Unix milliseconds.
     pub checked_at_ms: i64,
+    /// Each check, at most 128.
     #[serde(default)]
     pub checks: Vec<DoctorCheckEntry>,
 }
 
+/// Whether the install's legacy Mongo data was brought over.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum MongoMigrationState {
+    /// There was none to bring over.
     NotNeeded,
+    /// There is data still to migrate.
     Unmigrated,
+    /// It was migrated.
     Migrated,
+    /// The host chose a fresh start instead.
     Skipped,
 }
 
+/// The install's change log, for the dashboard.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct HistorySummary {
+    /// Id of the newest entry.
     pub head_seq: i64,
+    /// Hash of the newest entry.
     pub head_hash: String,
+    /// Whether the hash chain last verified.
     pub chain_verified: bool,
+    /// When the newest change was made, in Unix milliseconds.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub last_change_at_ms: Option<i64>,
+    /// Who made it.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub last_actor: Option<String>,
+    /// Guarded actions waiting on the install.
     pub pending_guarded_count: u32,
+    /// How far behind log shipping is, in seconds.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub ship_lag_secs: Option<u64>,
 }
@@ -661,29 +788,47 @@ pub struct HistorySummary {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct InstallReport {
+    /// The install's node id.
     pub node: NodeId,
+    /// Its region.
     pub region: Region,
+    /// Display label.
     pub label: String,
+    /// Server version.
     pub version: String,
+    /// Operating system.
     pub os: String,
+    /// CPU architecture.
     pub arch: String,
+    /// Config revision applied.
     pub applied_revision: u64,
+    /// How the server is running.
     pub server_state: ServerRunState,
+    /// Seconds since the server started.
     pub uptime_secs: u64,
+    /// Players online.
     pub players_online: u32,
+    /// Hunts running.
     pub active_hunts: u32,
+    /// Hubs running.
     pub active_hubs: u32,
+    /// Realms running.
     pub active_realms: u32,
+    /// Each component's health.
     #[serde(default)]
     pub components: Vec<ComponentHealth>,
+    /// The last doctor run.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub doctor: Option<DoctorSummary>,
+    /// Legacy Mongo data state.
     pub mongo_migration: MongoMigrationState,
+    /// Change-log summary.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub history: Option<HistorySummary>,
 }
 
 impl InstallReport {
+    /// Checks the label and sizes, and that nothing in it is a secret.
     pub fn validate(&self) -> Result<(), RemoteError> {
         let _ = validate_label(&self.label)?;
         if self.components.len() > 64 {
@@ -707,16 +852,22 @@ impl InstallReport {
     }
 }
 
+/// An invite code every managed install accepts.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct SharedInvite {
+    /// The invite code.
     pub code: String,
+    /// Account it is reserved for.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub for_user: Option<String>,
+    /// Registrations left; unlimited when unset.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub uses_remaining: Option<u32>,
+    /// When it stops working, in Unix milliseconds.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub expires_at_ms: Option<i64>,
+    /// Whether it was withdrawn.
     pub revoked: bool,
 }
 
@@ -725,23 +876,32 @@ pub struct SharedInvite {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct SharedConfigBundle {
+    /// Revision number, rising with every change.
     pub revision: u64,
+    /// The `host.toml` settings every install shares.
     pub shared_host_toml: String,
+    /// Extra `host.toml` text per node id.
     #[serde(default)]
     pub node_overrides: BTreeMap<String, String>,
+    /// Invite codes every install accepts.
     #[serde(default)]
     pub invites: Vec<SharedInvite>,
+    /// Server presets by name, as JSON.
     #[serde(default)]
     pub presets: BTreeMap<String, String>,
+    /// SHA-256 of the runtime manifest installs must serve.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub runtime_manifest_sha256: Option<String>,
+    /// SHA-256 of the game data pack installs must use.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub gamedata_pack_sha256: Option<String>,
+    /// Server name to show.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub server_name: Option<String>,
 }
 
 impl SharedConfigBundle {
+    /// Checks every part is in range, the hashes are SHA-256 and nothing is a secret.
     pub fn validate(&self) -> Result<(), RemoteError> {
         if self.shared_host_toml.len() > 256 * 1024 {
             return Err(RemoteError::InvalidInput(
@@ -785,13 +945,19 @@ impl SharedConfigBundle {
     }
 }
 
+/// One log line fetched from a managed install.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct RemoteLogEntry {
+    /// Sequence number, for paging.
     pub seq: u64,
+    /// When it was logged, in Unix milliseconds.
     pub timestamp_ms: i64,
+    /// Level name, as text.
     pub level: String,
+    /// Module that wrote it.
     pub target: String,
+    /// The message, redacted.
     pub message: String,
 }
 
@@ -801,21 +967,37 @@ pub struct RemoteLogEntry {
 pub enum RemoteRequest {
     /// Outbound heartbeat pull sent by a managed install to its controller.
     Sync {
+        /// The install's node id; must match its certificate.
         node: NodeId,
+        /// Config revision it has applied.
         applied_revision: u64,
+        /// Its status report.
         report: Box<InstallReport>,
+        /// Outcomes of commands run since the last sync.
         #[serde(default)]
         completed_commands: Vec<CommandOutcome>,
     },
     /// Direct command push sent by the controller to a reachable managed install.
-    Execute { command: QueuedRemoteCommand },
+    Execute {
+        /// The command to run now.
+        command: QueuedRemoteCommand,
+    },
     /// Direct config revision push sent by the controller to a reachable managed install.
-    PushRevision { bundle: SharedConfigBundle },
+    PushRevision {
+        /// The config to apply.
+        bundle: SharedConfigBundle,
+    },
     /// Log page request sent by the controller to a reachable managed install.
-    FetchLogs { since_seq: u64, limit: u32 },
+    FetchLogs {
+        /// Return entries after this sequence number.
+        since_seq: u64,
+        /// Most entries, 1 to [`MAX_LOG_ENTRIES`].
+        limit: u32,
+    },
 }
 
 impl RemoteRequest {
+    /// Checks every part; a `FetchLogs` limit must be 1 to [`MAX_LOG_ENTRIES`].
     pub fn validate(&self) -> Result<(), RemoteError> {
         match self {
             Self::Sync {
@@ -857,30 +1039,45 @@ impl RemoteRequest {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "op", rename_all = "snake_case")]
 pub enum RemoteResponse {
+    /// The controller's answer to a sync.
     SyncAck {
+        /// The controller's current config revision.
         controller_revision: u64,
+        /// The new config, when the install is behind.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         bundle: Option<SharedConfigBundle>,
+        /// Commands queued for the install.
         #[serde(default)]
         pending_commands: Vec<QueuedRemoteCommand>,
     },
+    /// The outcome of an `Execute`.
     Executed {
+        /// How it went.
         outcome: CommandOutcome,
     },
+    /// A pushed revision was applied.
     RevisionApplied {
+        /// The revision now applied.
         applied_revision: u64,
     },
+    /// A page of log lines.
     Logs {
+        /// Sequence number to ask from next.
         next_seq: u64,
+        /// The lines, at most [`MAX_LOG_ENTRIES`].
         entries: Vec<RemoteLogEntry>,
     },
+    /// The request was refused or failed.
     Error {
+        /// Machine-readable code, at most 64 bytes.
         code: String,
+        /// What went wrong, at most 2048 bytes.
         message: String,
     },
 }
 
 impl RemoteResponse {
+    /// Checks every part; an error's code and message are bounded and hold no secrets.
     pub fn validate(&self) -> Result<(), RemoteError> {
         match self {
             Self::SyncAck {
@@ -943,6 +1140,7 @@ fn check_wire_slice(bytes: &[u8]) -> Result<(), RemoteError> {
     Ok(())
 }
 
+/// Validates and serializes an enrollment request; refuses one over [`MAX_REMOTE_WIRE`] or holding a secret.
 pub fn encode_enroll_request(req: &EnrollRequest) -> Result<Vec<u8>, RemoteError> {
     req.validate()?;
     let bytes = serde_json::to_vec(req).map_err(|e| RemoteError::InvalidInput(format!("encode EnrollRequest: {e}")))?;
@@ -950,6 +1148,7 @@ pub fn encode_enroll_request(req: &EnrollRequest) -> Result<Vec<u8>, RemoteError
     Ok(bytes)
 }
 
+/// Parses and validates an enrollment request, with the same size and secret checks.
 pub fn decode_enroll_request(bytes: &[u8]) -> Result<EnrollRequest, RemoteError> {
     check_wire_slice(bytes)?;
     let req: EnrollRequest =
@@ -958,6 +1157,7 @@ pub fn decode_enroll_request(bytes: &[u8]) -> Result<EnrollRequest, RemoteError>
     Ok(req)
 }
 
+/// Validates and serializes an enrollment answer, with the size and secret checks.
 pub fn encode_enroll_answer(ans: &EnrollAnswer) -> Result<Vec<u8>, RemoteError> {
     ans.validate()?;
     let bytes = serde_json::to_vec(ans).map_err(|e| RemoteError::InvalidInput(format!("encode EnrollAnswer: {e}")))?;
@@ -965,6 +1165,7 @@ pub fn encode_enroll_answer(ans: &EnrollAnswer) -> Result<Vec<u8>, RemoteError> 
     Ok(bytes)
 }
 
+/// Parses and validates an enrollment answer, with the size and secret checks.
 pub fn decode_enroll_answer(bytes: &[u8]) -> Result<EnrollAnswer, RemoteError> {
     check_wire_slice(bytes)?;
     let ans: EnrollAnswer =
@@ -973,6 +1174,7 @@ pub fn decode_enroll_answer(bytes: &[u8]) -> Result<EnrollAnswer, RemoteError> {
     Ok(ans)
 }
 
+/// Validates and serializes a remote request, with the size and secret checks.
 pub fn encode_request(req: &RemoteRequest) -> Result<Vec<u8>, RemoteError> {
     req.validate()?;
     let bytes = serde_json::to_vec(req).map_err(|e| RemoteError::InvalidInput(format!("encode RemoteRequest: {e}")))?;
@@ -980,6 +1182,7 @@ pub fn encode_request(req: &RemoteRequest) -> Result<Vec<u8>, RemoteError> {
     Ok(bytes)
 }
 
+/// Parses and validates a remote request, with the size and secret checks.
 pub fn decode_request(bytes: &[u8]) -> Result<RemoteRequest, RemoteError> {
     check_wire_slice(bytes)?;
     let req: RemoteRequest =
@@ -988,6 +1191,7 @@ pub fn decode_request(bytes: &[u8]) -> Result<RemoteRequest, RemoteError> {
     Ok(req)
 }
 
+/// Validates and serializes a remote response, with the size and secret checks.
 pub fn encode_response(resp: &RemoteResponse) -> Result<Vec<u8>, RemoteError> {
     resp.validate()?;
     let bytes =
@@ -996,6 +1200,7 @@ pub fn encode_response(resp: &RemoteResponse) -> Result<Vec<u8>, RemoteError> {
     Ok(bytes)
 }
 
+/// Parses and validates a remote response, with the size and secret checks.
 pub fn decode_response(bytes: &[u8]) -> Result<RemoteResponse, RemoteError> {
     check_wire_slice(bytes)?;
     let resp: RemoteResponse =

@@ -78,11 +78,17 @@ struct Entry {
 /// One version's row in `/content/v1/versions`.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct VersionSummary {
+    /// Game version the module plays.
     pub game_version: GameVersion,
+    /// Module serving it.
     pub module: ModuleId,
+    /// Name the launcher shows.
     pub display_name: String,
+    /// Other names an invite may give this version.
     pub invite_aliases: Vec<String>,
+    /// Built but not checked against recorded traffic (DD9).
     pub unverified: bool,
+    /// Whether the module has a client profile.
     pub client: bool,
     /// This server serves the pinned Epic manifest (DD22: the launcher tries a joined server's copy first)
     pub epic_manifest: bool,
@@ -91,7 +97,9 @@ pub struct VersionSummary {
 /// The body of `/content/v1/versions`.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct VersionsBody {
+    /// Version the launcher picks when it has no choice.
     pub default_version: &'static str,
+    /// One row per served version.
     pub versions: Vec<VersionSummary>,
 }
 
@@ -105,7 +113,12 @@ pub enum EpicManifestError {
     /// Registered but not readable as a regular file under the cap (503 `epic_manifest_unavailable`)
     Unavailable(String),
     /// The file is not the pinned one (503 `epic_manifest_invalid`)
-    Mismatch { expected: Sha1Hex, found: Sha1Hex },
+    Mismatch {
+        /// SHA-1 the module pins.
+        expected: Sha1Hex,
+        /// SHA-1 of the file as read.
+        found: Sha1Hex,
+    },
 }
 
 /// The version-keyed table content serves from: the [`CorePlugin`] the controller attaches modules to.
@@ -138,6 +151,7 @@ fn sha1_of(data: &[u8]) -> Sha1Hex {
 }
 
 impl ContentModules {
+    /// A table that reads module registrations through `view`.
     pub fn new(view: Arc<dyn RegistryView>) -> Self {
         Self {
             view,
@@ -195,6 +209,7 @@ impl ContentModules {
         folders
     }
 
+    /// The body of `/content/v1/versions`, ordered by version.
     pub fn versions(&self) -> VersionsBody {
         let table = self.by_version.read().unwrap_or_else(PoisonError::into_inner);
         VersionsBody {

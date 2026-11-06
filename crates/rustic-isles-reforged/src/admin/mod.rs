@@ -70,6 +70,7 @@ impl Default for ReforgedAdmin {
 }
 
 impl ReforgedAdmin {
+    /// The admin half over a Discord client and the tester max funding.
     pub fn new(discord: Arc<dyn DiscordApi>, funding: Arc<dyn TesterFunding>) -> Self {
         Self {
             nonces: Mutex::new(HashMap::new()),
@@ -94,14 +95,17 @@ impl ReforgedAdmin {
             .unwrap_or_else(|| crate::state::ReforgedState::of(shared).admin_fallback())
     }
 
+    /// The Discord client sign-in uses.
     pub fn discord(&self) -> &Arc<dyn DiscordApi> {
         &self.discord
     }
 
+    /// What tester max grants through.
     pub fn funding(&self) -> &Arc<dyn TesterFunding> {
         &self.funding
     }
 
+    /// The chat crate, when it answers the `chat.*` home operations.
     pub fn chat(&self) -> Option<&Arc<rustic_isles_chat::StoreChat>> {
         self.chat.as_ref()
     }
@@ -132,20 +136,27 @@ impl ReforgedAdmin {
 
 // ------------------------------------------------------------------ the caller
 
+/// How the caller signed in.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Via {
+    /// A dashboard session cookie.
     Session,
+    /// The manager's operator credential.
     Manager,
 }
 
 /// The admin caller: a session's account, or the manager's synthetic administrator.
 #[derive(Clone)]
 pub struct AdminCaller {
+    /// The caller's userId; the operator id for the manager.
     pub user_id: String,
+    /// The name shown in the audit.
     pub display_name: String,
     /// None for the manager
     pub account: Option<LauncherAccountRecord>,
+    /// The session, none for the manager.
     pub session: Option<AdminSessionRecord>,
+    /// How the caller signed in.
     pub via: Via,
     /// The manager's `createdAt` (now at acceptance)
     pub created_at: String,
@@ -163,6 +174,7 @@ impl std::fmt::Debug for AdminCaller {
 }
 
 impl AdminCaller {
+    /// The caller's account id, none for the manager.
     pub fn account_id(&self) -> Option<&AccountId> {
         self.account.as_ref().map(|a| &a.account)
     }
@@ -177,47 +189,68 @@ pub fn admin_actor(caller: &AdminCaller) -> ActorContext {
 
 // ------------------------------------------------------------------ the request as handlers see it
 
+/// An admin request as handlers see it, the body already read.
 pub struct AdminRequest {
+    /// The HTTP method.
     pub method: Method,
+    /// The path.
     pub path: String,
     /// Path and query as received
     pub target: String,
+    /// The request's headers.
     pub headers: HeaderMap,
+    /// Query pairs in order.
     pub query: Vec<(String, String)>,
+    /// The body's bytes.
     pub raw_body: Bytes,
+    /// The parsed JSON body, none when absent.
     pub body: Option<Value>,
+    /// The client address (auth §4.6).
     pub client_ip: String,
+    /// The socket peer.
     pub peer: Option<IpAddr>,
 }
 
 impl AdminRequest {
+    /// A body field, when the body is an object.
     pub fn field(&self, name: &str) -> Option<&Value> {
         util::field(self.body.as_ref(), name)
     }
 
+    /// A query value given exactly once.
     pub fn single(&self, name: &str) -> Option<&str> {
         util::single(&self.query, name)
     }
 
+    /// Every value of a query name joined with `,`.
     pub fn joined(&self, name: &str) -> Option<String> {
         util::joined(&self.query, name)
     }
 
+    /// A header's first value as text.
     pub fn header(&self, name: &str) -> Option<String> {
         util::header_text(&self.headers, name)
     }
 }
 
+/// What an admin handler gets.
 pub struct AdminContext {
+    /// The module's shared state.
     pub shared: Arc<Shared>,
+    /// The module's store.
     pub store: Arc<IslesStore>,
+    /// The request.
     pub request: AdminRequest,
+    /// Path parameters.
     pub params: Params,
+    /// The signed-in caller; none on an open route.
     pub caller: Option<AdminCaller>,
+    /// The request's id.
     pub request_id: String,
 }
 
 impl AdminContext {
+    /// A path parameter, empty when absent.
     pub fn param(&self, name: &str) -> &str {
         self.params.get(name).unwrap_or("")
     }
@@ -227,6 +260,7 @@ impl AdminContext {
         self.caller.as_ref().map(|c| c.user_id.clone()).unwrap_or_default()
     }
 
+    /// The caller as the store's actor, `System` on an open route.
     pub fn actor(&self) -> ActorContext {
         self.caller
             .as_ref()
@@ -234,14 +268,18 @@ impl AdminContext {
     }
 }
 
+/// Whether a route needs a signed-in caller.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum AdminAuth {
+    /// A session or the operator credential is required.
     Required,
+    /// Anyone may call it (sign-in itself).
     Open,
 }
 
 // ------------------------------------------------------------------ errors and readers
 
+/// `{"error":{"code","message"}}` with the status.
 pub fn admin_error(status: StatusCode, code: &str, message: &str) -> Response {
     util::admin_error(status, code, message)
 }
@@ -252,6 +290,7 @@ pub fn admin_internal(error: impl std::fmt::Display) -> Response {
     util::empty(StatusCode::INTERNAL_SERVER_ERROR)
 }
 
+/// The 404 for an unknown player.
 pub fn player_not_found() -> Response {
     admin_error(StatusCode::NOT_FOUND, "NOT_FOUND", "Player not found.")
 }
@@ -290,6 +329,7 @@ pub fn limit_of(request: &AdminRequest, default: u32, max: u32) -> u32 {
     u32::try_from(n.clamp(1, i64::from(max))).unwrap_or(default)
 }
 
+/// Rows to skip for a 1-based page.
 pub fn skip_of(page: u32, limit: u32) -> u32 {
     page.saturating_sub(1).saturating_mul(limit)
 }
@@ -319,6 +359,7 @@ pub fn find_target(
 
 // ------------------------------------------------------------------ the public account (§4.4)
 
+/// A launcher account as the dashboard reads it.
 pub fn public_account(account: &LauncherAccountRecord, user_id: &str, now_iso: &str) -> Value {
     let mut pairs = vec![
         ("userId", Value::from(user_id)),
@@ -451,7 +492,9 @@ fn is_json_type(headers: &HeaderMap) -> bool {
 /// What the operator credential reads of the body: whether one is declared, and its bytes when JSON was read.
 #[derive(Debug, Clone, Default)]
 pub struct BodyFacts {
+    /// Whether the request declares a body.
     pub declared: bool,
+    /// Whether the body was read as JSON.
     pub json_read: bool,
 }
 

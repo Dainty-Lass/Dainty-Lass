@@ -23,6 +23,7 @@ use crate::upstream::Operator;
 const SQLITE: EmbeddedMigrations = embed_migrations!("migrations/sqlite");
 const POSTGRES: EmbeddedMigrations = embed_migrations!("migrations/postgres");
 
+/// The admin API's own migrations for each engine, for `Database::open`.
 pub const SCHEMA: DatabaseSchema = DatabaseSchema {
     sqlite: || SQLITE,
     postgres: || POSTGRES,
@@ -33,6 +34,7 @@ pub const SCHEMA: DatabaseSchema = DatabaseSchema {
 /// The SQLite file's name beside the node's database.
 pub const FILE_NAME: &str = "admin.db";
 
+/// What every issued key starts with: `RRA_<8 hex id>_<64 hex secret>`.
 pub const KEY_PREFIX: &str = "RRA_";
 const ID_HEX: usize = 8;
 const SECRET_HEX: usize = 64;
@@ -40,30 +42,51 @@ const SECRET_HEX: usize = 64;
 pub const MAX_NAME: usize = 64;
 
 diesel::table! {
+    /// Issued admin keys; a revoked one stays as a row.
     admin_keys (id) {
+        /// 8 lower-case hex digits.
         id -> Text,
+        /// Who it is for.
         name -> Text,
+        /// The role, as [`crate::keys::Role::as_str`] names it.
         role -> Text,
+        /// Lowercase hex SHA-256 of the key. The key itself is never kept.
         key_hash -> Text,
+        /// Unix milliseconds.
         created_at -> BigInt,
+        /// The actor that issued it, as the change log writes actors.
         created_by -> Text,
+        /// Unix milliseconds; set once revoked.
         revoked_at -> Nullable<BigInt>,
+        /// The actor that revoked it.
         revoked_by -> Nullable<Text>,
     }
 }
 
 diesel::table! {
+    /// What each key did: one row per moderation action.
     admin_actions (id) {
+        /// Row id.
         id -> BigInt,
+        /// Unix milliseconds.
         at -> BigInt,
+        /// The key that acted: `owner` or a key id.
         key_id -> Text,
+        /// The Discord user it was for, or `host`.
         operator -> Text,
+        /// The action's name, such as `ban`.
         action -> Text,
+        /// The player it acted on.
         target -> Nullable<Text>,
+        /// The player's game version.
         game -> Nullable<Text>,
+        /// The reason or other detail.
         detail -> Nullable<Text>,
+        /// The approving key, for a guarded action (DH6).
         approved_by -> Nullable<Text>,
+        /// The peer the action came from over `Service::Admin` (DN11).
         via_node -> Nullable<Text>,
+        /// The relay's idempotency key, for an action from a peer.
         request_key -> Nullable<Text>,
     }
 }
@@ -82,8 +105,10 @@ pub enum Role {
 }
 
 impl Role {
+    /// Every role, lowest first.
     pub const ALL: [Self; 4] = [Self::Viewer, Self::Moderator, Self::Admin, Self::Owner];
 
+    /// The name host.toml, the database and the CLI use.
     pub fn as_str(self) -> &'static str {
         match self {
             Self::Viewer => "viewer",
@@ -93,6 +118,7 @@ impl Role {
         }
     }
 
+    /// The role a name gives, surrounding spaces ignored.
     pub fn parse(text: &str) -> Option<Self> {
         Self::ALL.into_iter().find(|r| r.as_str() == text.trim())
     }
@@ -110,7 +136,9 @@ impl std::fmt::Display for Role {
 pub struct Caller {
     /// The key's id: `owner` for `REFORGED_ADMIN_API_KEY`. The change log's actor is `admin:<key>`.
     pub key: String,
+    /// What it may do.
     pub role: Role,
+    /// The Discord user the bot names, or the host.
     pub operator: Operator,
 }
 
@@ -131,6 +159,7 @@ pub fn key_id(key: &str) -> Option<&str> {
     (is_key_id(id) && is_lower_hex(secret, SECRET_HEX)).then_some(id)
 }
 
+/// Lowercase hex SHA-256 of `key`, as `admin_keys.key_hash` holds it.
 pub fn hash_key(key: &str) -> String {
     sha256_hex(key.as_bytes())
 }
@@ -161,16 +190,22 @@ pub fn clean_name(given: &str) -> Option<String> {
 
 // ------------------------------------------------------------------ the store
 
+/// Why a key could not be issued, listed or revoked.
 #[derive(Debug, thiserror::Error)]
 pub enum KeyError {
+    /// A malformed name, role or id; the message says which.
     #[error("{0}")]
     Invalid(&'static str),
+    /// An active key already has that name.
     #[error("a key for {0} is already in use: revoke it first")]
     NameTaken(String),
+    /// No such key, or it is already revoked.
     #[error("no such key, or it is already revoked")]
     NotFound,
+    /// The owner's key cannot be revoked here: it lives in secrets.env.
     #[error("the owner's key is REFORGED_ADMIN_API_KEY in secrets.env: change it there")]
     Owner,
+    /// The database failed.
     #[error("{0}")]
     Store(#[from] store::Error),
 }
@@ -184,13 +219,19 @@ impl From<diesel::result::Error> for KeyError {
 /// A key as `admin key list` shows it: never the key or its hash.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct KeyInfo {
+    /// 8 lower-case hex digits, or `owner`.
     pub id: String,
+    /// Who it is for.
     pub name: String,
+    /// What it may do.
     pub role: Role,
+    /// Unix milliseconds; 0 for the owner key.
     pub created_at: i64,
     /// The actor that issued it, as the change log writes actors (`host:...`, `admin:<key>`).
     pub created_by: String,
+    /// Unix milliseconds; set once revoked.
     pub revoked_at: Option<i64>,
+    /// The actor that revoked it.
     pub revoked_by: Option<String>,
 }
 
@@ -234,10 +275,15 @@ pub enum AuthError {
 /// One moderation action, for `admin_actions`.
 #[derive(Debug, Clone, Default)]
 pub struct Action<'a> {
+    /// The Discord user it was for, or `host`.
     pub operator: &'a str,
+    /// The action's name, such as `ban`.
     pub action: &'a str,
+    /// The player it acted on.
     pub target: Option<&'a str>,
+    /// The player's game version.
     pub game: Option<&'a str>,
+    /// The reason or other detail.
     pub detail: Option<&'a str>,
     /// The second operator's key when a guarded action ran on their approval (DH6).
     pub approved_by: Option<&'a str>,
@@ -404,7 +450,7 @@ impl Keys {
             .await
     }
 
-    /// Records a moderation action under the key that made it: the change log actor is admin:<key id>.
+    /// Records a moderation action under the key that made it: the change log actor is `admin:<key id>`.
     pub async fn record(&self, key: &str, action: Action<'_>, at: i64) -> Result<(), store::Error> {
         let values = (
             admin_actions::at.eq(at),

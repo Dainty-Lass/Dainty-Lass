@@ -40,6 +40,7 @@ impl std::fmt::Debug for ReforgedSeams {
 }
 
 impl ReforgedSeams {
+    /// Seams not yet bound to a module.
     pub fn new() -> Self {
         Self::default()
     }
@@ -49,18 +50,22 @@ impl ReforgedSeams {
         let _ = self.binding.0.set(Arc::downgrade(shared));
     }
 
+    /// Auth's activity seam.
     pub fn activity(&self) -> Arc<dyn Activity> {
         Arc::new(self.clone())
     }
 
+    /// Auth's operations seam.
     pub fn operations(&self) -> Arc<dyn Operations> {
         Arc::new(self.clone())
     }
 
+    /// Auth's notices seam.
     pub fn notices(&self) -> Arc<dyn Notices> {
         Arc::new(self.clone())
     }
 
+    /// Auth's erasure seam.
     pub fn erasure(&self) -> Arc<dyn Erasure> {
         Arc::new(self.clone())
     }

@@ -14,16 +14,22 @@ use crate::json_string;
 
 /// The rule's id, as the firewall's own tools name it.
 pub const RULE_NAME: &str = "DaintyLass-GamePorts-Allowlist";
+/// The Windows rule's display name when `ALLOWLIST_RULE_NAME` is unset.
 pub const RULE_DISPLAY_NAME: &str = "DaintyLass game ports (allowlist)";
+/// The Windows rule's group.
 pub const RULE_GROUPING: &str = "DaintyLass";
+/// The Windows rule's description.
 pub const RULE_DESCRIPTION: &str =
     "Opens the game ports to players who logged in through the gateway. Managed by the allowlist helper.";
 
 /// Addresses (as given, in order) and the checked ports; enabled when it has an address.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RulePlan {
+    /// Admitted addresses, canonical, in the order given.
     pub ips: Vec<String>,
+    /// The checked game port list.
     pub ports: String,
+    /// Whether the rule admits anyone.
     pub enabled: bool,
 }
 
@@ -43,23 +49,35 @@ pub fn plan(ips: &[String], ports: &str) -> Result<RulePlan, String> {
     })
 }
 
+/// The Windows Firewall rule the helper writes.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct WindowsRule {
+    /// Display name.
     pub display_name: String,
+    /// Description.
     pub description: String,
+    /// Group.
     pub grouping: String,
+    /// Always `in`.
     pub direction: String,
+    /// Always `allow`.
     pub action: String,
+    /// Always `udp`.
     pub protocol: String,
+    /// The game ports.
     pub local_ports: String,
+    /// Admitted addresses, comma-separated.
     pub remote_addresses: String,
+    /// Always `all`.
     pub profiles: String,
 }
 
+/// What the Windows backend does to bring the firewall to a plan.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum WindowsChange {
     /// Every rule with the name disabled: Windows then drops the game ports' traffic by default
     Close,
+    /// Every rule with the name set to this one, enabled.
     Open(Box<WindowsRule>),
 }
 
@@ -82,6 +100,7 @@ impl WindowsChange {
     }
 }
 
+/// The Windows change for `plan`, with the rule named `name`.
 pub fn windows_change(plan: &RulePlan, name: &str) -> WindowsChange {
     if !plan.enabled {
         return WindowsChange::Close;
@@ -104,20 +123,29 @@ pub fn windows_change(plan: &RulePlan, name: &str) -> WindowsChange {
 pub enum Backend {
     /// Never touches the firewall: every change is only described
     DryRun {
+        /// The firewall it describes.
         firewall: FirewallKind,
+        /// nftables table and interface it describes.
         nft: NftSettings,
+        /// Windows rule name it describes.
         rule_name: String,
     },
+    /// Drives nftables.
     Nftables {
+        /// The `nft` binary.
         nft: Nft,
+        /// Table and interface.
         settings: NftSettings,
     },
+    /// Drives Windows Firewall.
     Windows {
+        /// The rule's display name.
         rule_name: String,
     },
 }
 
 impl Backend {
+    /// Which firewall it is for, dry run included.
     pub fn firewall(&self) -> FirewallKind {
         match self {
             Self::DryRun { firewall, .. } => *firewall,
@@ -131,6 +159,7 @@ impl Backend {
         self.firewall().backend_name()
     }
 
+    /// Whether it only describes changes.
     pub fn is_dry_run(&self) -> bool {
         matches!(self, Self::DryRun { .. })
     }

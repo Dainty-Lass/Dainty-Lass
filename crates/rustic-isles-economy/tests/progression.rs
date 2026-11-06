@@ -3,7 +3,7 @@
 
 //! The progression routes (progression spec §13), black-box through core's `app()`.
 
-#![allow(clippy::unwrap_used, clippy::expect_used)]
+#![allow(clippy::unwrap_used, clippy::expect_used, reason = "a panic is how a test fails")]
 
 mod common;
 

@@ -20,11 +20,14 @@ use crate::{json_string, whole_number};
 /// A loopback upstream.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Endpoint {
+    /// Host name or IP address.
     pub host: String,
+    /// TCP port.
     pub port: u16,
 }
 
 impl Endpoint {
+    /// An endpoint at `host:port`.
     pub fn new(host: impl Into<String>, port: u16) -> Self {
         Self {
             host: host.into(),
@@ -47,41 +50,68 @@ impl Endpoint {
 pub struct Allowlist {
     /// `http://<authority>`
     pub url: String,
+    /// The helper's address.
     pub endpoint: Endpoint,
+    /// Shared secret sent to the helpers (`ALLOWLIST_SECRET`).
     pub secret: String,
+    /// How often an admitted player is reported again, 5 to 540 s (`GATEWAY_ALLOWLIST_REFRESH_SECONDS`).
     pub refresh: Duration,
+    /// Up to four more helpers fed the same (`ALLOWLIST_ADDITIONAL_URLS`).
     pub additional: Vec<Endpoint>,
+    /// How long one report may take.
     pub timeout: Duration,
 }
 
+/// Token buckets per rate-limit class (`GATEWAY_RATE_*`).
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Rates {
+    /// Most requests.
     pub general: BucketSpec,
+    /// `/content` downloads.
     pub content: BucketSpec,
+    /// Account registration.
     pub register: BucketSpec,
+    /// Login token requests.
     pub token: BucketSpec,
+    /// WebSocket upgrades.
     pub ws: BucketSpec,
+    /// New connections.
     pub connect: BucketSpec,
 }
 
+/// Size and count limits.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Limits {
+    /// Largest request body, in bytes (`GATEWAY_MAX_BODY_BYTES`).
     pub max_body_bytes: u64,
+    /// Open connections in all (`GATEWAY_MAX_CONNECTIONS`).
     pub max_connections: usize,
+    /// Open connections per client address (`GATEWAY_MAX_CONNECTIONS_PER_IP`).
     pub max_connections_per_ip: usize,
+    /// Most request headers.
     pub max_headers: usize,
+    /// Rate limits.
     pub rates: Rates,
 }
 
+/// Connection and request time limits.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Timeouts {
+    /// TLS handshake (`GATEWAY_HANDSHAKE_TIMEOUT_MS`).
     pub handshake: Duration,
+    /// Request head (`GATEWAY_HEADERS_TIMEOUT_MS`).
     pub headers: Duration,
+    /// Whole request (`GATEWAY_REQUEST_TIMEOUT_MS`).
     pub request: Duration,
+    /// Idle keep-alive connection (`GATEWAY_KEEPALIVE_TIMEOUT_MS`).
     pub keep_alive: Duration,
+    /// Connection with no traffic (`GATEWAY_IDLE_TIMEOUT_MS`).
     pub idle: Duration,
+    /// Idle pooled connection to an upstream (`GATEWAY_UPSTREAM_IDLE_TIMEOUT_MS`).
     pub upstream_idle: Duration,
+    /// WebSocket with no traffic (`GATEWAY_WS_IDLE_TIMEOUT_MS`).
     pub ws_idle: Duration,
+    /// How long open connections get to finish at shutdown (`GATEWAY_SHUTDOWN_GRACE_MS`).
     pub shutdown_grace: Duration,
     /// Fixed; nothing depends on it
     pub check_interval: Duration,
@@ -91,6 +121,7 @@ const fn bucket(burst: f64, per_minute: f64) -> BucketSpec {
     BucketSpec { burst, per_minute }
 }
 
+/// Limits when nothing overrides them.
 pub const DEFAULT_LIMITS: Limits = Limits {
     max_body_bytes: 131_072,
     max_connections: 2048,
@@ -107,6 +138,7 @@ pub const DEFAULT_LIMITS: Limits = Limits {
     },
 };
 
+/// Timeouts when nothing overrides them.
 pub const DEFAULT_TIMEOUTS: Timeouts = Timeouts {
     handshake: Duration::from_millis(10_000),
     headers: Duration::from_millis(10_000),
@@ -122,10 +154,15 @@ pub const DEFAULT_TIMEOUTS: Timeouts = Timeouts {
 /// The node links on the public listener (DN3).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct NodeLinkConfig {
+    /// This node's id and region (`GATEWAY_NODE_ID`, `GATEWAY_NODE_REGION`).
     pub identity: NodeIdentity,
+    /// Node certificate.
     pub cert_file: PathBuf,
+    /// Node key.
     pub key_file: PathBuf,
+    /// Network CA certificate.
     pub ca_file: PathBuf,
+    /// The peers allowed to call.
     pub peers: Vec<Peer>,
 }
 
@@ -133,23 +170,38 @@ use crate::network::NetworkNode;
 
 const MAX_NETWORK_NODES: usize = 16;
 
+/// The gateway's settings, from `gateway.env`.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Config {
+    /// Game version served (`GATEWAY_GAME`).
     pub version: GameVersion,
+    /// Address to listen on (`GATEWAY_BIND`).
     pub bind_host: String,
+    /// Port to listen on; 443 in public mode, 61000 in private (`GATEWAY_PORT`).
     pub port: u16,
     /// Public mode (TLS); false is private mode, plain HTTP inside a tailnet
     pub tls: bool,
+    /// TLS certificate, PEM (`GATEWAY_CERT`).
     pub cert_file: PathBuf,
+    /// TLS key, PEM (`GATEWAY_KEY`).
     pub key_file: PathBuf,
+    /// Shared secret for the backend (`GATEWAY_SECRET`).
     pub secret: String,
+    /// The game backend (`GATEWAY_BACKEND_URL`).
     pub backend: Endpoint,
+    /// The content server (`GATEWAY_CONTENT_URL`).
     pub content: Endpoint,
+    /// The chat listener (`GATEWAY_WS_URL`).
     pub ws: Endpoint,
+    /// The allowlist feed; `None` with `GATEWAY_ALLOWLIST=0`.
     pub allowlist: Option<Allowlist>,
+    /// Size and rate limits.
     pub limits: Limits,
+    /// Time limits.
     pub timeouts: Timeouts,
+    /// The network's nodes for the launcher (`GATEWAY_NETWORK_NODES`).
     pub network: Vec<NetworkNode>,
+    /// Node links, when this node is in a network.
     pub node_links: Option<NodeLinkConfig>,
 }
 
@@ -241,6 +293,7 @@ fn millis(env: &Env, name: &str, default: Duration, min: u64, max: u64) -> Resul
 }
 
 impl Config {
+    /// Reads and checks every setting; the error names the first bad one.
     pub fn from_env(env: &Env) -> Result<Self, String> {
         let version = parse_game(env.raw("GATEWAY_GAME"))?;
         let bind_host = optional(env, "GATEWAY_BIND").unwrap_or("0.0.0.0").to_owned();

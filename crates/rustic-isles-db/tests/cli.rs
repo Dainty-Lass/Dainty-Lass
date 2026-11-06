@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Silent Spud
 
 //! The argument parser (spec §3; §16.2 D1).
-#![allow(clippy::unwrap_used, clippy::expect_used)]
+#![allow(clippy::unwrap_used, clippy::expect_used, reason = "a panic is how a test fails")]
 
 use std::path::PathBuf;
 

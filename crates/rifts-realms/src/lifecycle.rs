@@ -50,6 +50,7 @@ pub const SUPERSEDE_STATES: [HuntState; 8] = [
 ];
 /// The host's server is up: it reported ready, whatever came after.
 const STARTED_STATES: [HuntState; 4] = [H::HostReady, H::Admitting, H::Running, H::Suspect];
+/// States in which a party's forming hunt may still be cancelled.
 pub const CANCELLABLE_FORMING_STATES: [HuntState; 5] = [
     H::HostSelecting,
     H::HostOffered,
@@ -58,7 +59,9 @@ pub const CANCELLABLE_FORMING_STATES: [HuntState; 5] = [
     H::Admitting,
 ];
 
+/// Why a drained hunt completed when it recorded no reason of its own.
 pub const DRAIN_COMPLETION_REASON: &str = "SUPERSEDED_REQUESTER_LEFT_HUNT";
+/// How long after a hunt is made its host's Guard session may still be starting, in milliseconds.
 pub const HOST_GUARD_START_GRACE_MS: i64 = 90_000;
 
 const MINUTE_MS: i64 = 60_000;
@@ -70,6 +73,7 @@ const fn tier_zero(hunt: &HuntSession) -> bool {
     matches!(hunt.trust_tier, None | Some(0))
 }
 
+/// Whether the hunt was running, before suspicion if it is suspect; a draining hunt ran.
 pub fn hunt_ran(hunt: &HuntSession) -> bool {
     match hunt.state {
         H::Running | H::Draining => true,
@@ -88,10 +92,12 @@ pub fn select_recovery_participants(roster: &[Participant], before_active: bool)
     roster.iter().filter(|p| before_active || bridged(p)).cloned().collect()
 }
 
+/// Whether a hunt that failed before going live falls back to a dedicated server.
 pub fn should_use_dedicated_pre_active_fallback(before_active: bool, dedicated_hunts_disabled: bool) -> bool {
     !dedicated_hunts_disabled && before_active
 }
 
+/// Whether an operator stop in this state comes before the hunt went live.
 pub fn is_pre_active_operator_stop_state(state: HuntState) -> bool {
     [H::HostSelecting, H::HostOffered, H::Starting, H::HostReady].contains(&state)
 }
@@ -99,17 +105,21 @@ pub fn is_pre_active_operator_stop_state(state: HuntState) -> bool {
 /// A Launcher Guard session's role; a host's covers a client's.
 #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub enum GuardRole {
+    /// The player's game client.
     Client,
+    /// The hosted server; covers the client's role too.
     Host,
 }
 
 const GUARD_ROLE_TEXT: [(GuardRole, &str); 2] = [(GuardRole::Client, "client"), (GuardRole::Host, "host")];
 
 impl GuardRole {
+    /// The role's wire name.
     pub const fn as_str(self) -> &'static str {
         GUARD_ROLE_TEXT[self as usize].1
     }
 
+    /// The role for its wire name.
     pub fn parse(text: &str) -> Option<Self> {
         GUARD_ROLE_TEXT
             .iter()
@@ -118,9 +128,12 @@ impl GuardRole {
     }
 }
 
+/// Why a Launcher Guard list in a ticket request was refused.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct GuardListError {
+    /// The error code.
     pub code: &'static str,
+    /// The text for the caller.
     pub message: &'static str,
 }
 
@@ -249,6 +262,7 @@ pub fn clean_end_terminal_state(hunt: &HuntSession) -> HuntState {
     }
 }
 
+/// For a tier-0 hunt whose host left: the clean end's reason when the hunt completed or every player left, else `None`.
 pub fn host_loss_is_clean_end(hunt: &HuntSession) -> Option<&'static str> {
     if !(tier_zero(hunt) && STARTED_STATES.contains(&hunt.state)) {
         return None;
@@ -287,11 +301,16 @@ pub fn mark_participant_returned_to_hub(
     Some((updated, first, remaining))
 }
 
+/// What to do with a party's existing session when it asks for a hunt again.
 #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq)]
 pub enum PartySessionAction {
+    /// Join it again.
     Reuse,
+    /// End it and make a new one, for this reason.
     Supersede(&'static str),
+    /// Let it drain and make a new one, for this reason.
     Drain(&'static str),
+    /// Refuse the request, for this reason.
     Conflict(&'static str),
 }
 
@@ -359,6 +378,7 @@ pub fn classify_existing_party_session(
     }
 }
 
+/// Whether the hunt is still forming with nobody admitted, so it may be cancelled.
 pub fn is_cancellable_forming(hunt: &HuntSession) -> bool {
     let anyone_admitted = hunt
         .roster
@@ -485,7 +505,7 @@ fn cancel_open_offer(tx: &mut HuntTx<'_>, hunt: &HuntSession, reason: &str, now:
 }
 
 /// Ends one generation (realms' part of the session end). Admission tickets and party activity are the caller's.
-#[allow(clippy::too_many_arguments)]
+#[allow(clippy::too_many_arguments, reason = "each argument is one part of the transition")]
 pub fn end_session(
     tx: &mut HuntTx<'_>,
     session_id: &str,
@@ -539,6 +559,7 @@ pub fn end_session(
     Ok(Some(ended))
 }
 
+/// Marks the hunt suspect for `reason` and records the transition; `None` when its state moved on.
 pub fn mark_suspect(
     tx: &mut HuntTx<'_>,
     hunt: &HuntSession,
@@ -610,6 +631,7 @@ pub fn reset_to_selection(tx: &mut HuntTx<'_>, hunt: &HuntSession) -> Result<Opt
     })
 }
 
+/// Expires the host offer and goes back to host selection; `None` when there was no offer to expire.
 pub fn expire_offer(
     tx: &mut HuntTx<'_>,
     hunt: &HuntSession,
@@ -633,6 +655,7 @@ pub fn expire_offer(
 
 /// Where a session that cannot go on is sent. Recovery to a dedicated server or back to Ramsgate is the core's.
 pub trait Recovery: Send + Sync {
+    /// Sends the session to recovery: a dedicated server, or back to Ramsgate.
     fn prepare(
         &self,
         session_id: String,
@@ -769,6 +792,7 @@ fn expire_recovery(
 }
 
 impl RealmsRecovery {
+    /// Recovery over the hunt tables and the module's core.
     pub fn new(db: RealmsDb, core: Arc<dyn IslesCore>, clock: Arc<dyn Clock>, log: Arc<dyn RealmsLog>) -> Self {
         let hunts = HuntRepository::new(db);
         Self {

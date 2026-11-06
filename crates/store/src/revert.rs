@@ -38,7 +38,9 @@ pub const MAX_PAGE: i64 = 1000;
 /// `account_id`. [`Filter::account`] matches it in the row before or after each change.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct AccountColumn {
+    /// Table the column is in.
     pub table: &'static str,
+    /// Column holding the account id.
     pub column: &'static str,
 }
 
@@ -47,6 +49,7 @@ pub struct AccountColumn {
 pub struct Filter {
     /// Rows whose [`AccountColumn`] holds this id, before or after the change.
     pub account: Option<String>,
+    /// Who made the change.
     pub actor: Option<Actor>,
     /// Unix milliseconds, inclusive.
     pub since: Option<i64>,
@@ -84,11 +87,13 @@ impl FromStr for Cursor {
 /// Entries newest first.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct HistoryPage {
+    /// The page's entries.
     pub entries: Vec<ChangeEntry>,
     /// Set when the page is full: there may be older entries.
     pub next: Option<Cursor>,
 }
 
+/// What a compensating change does to a row.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum RevertKind {
@@ -105,12 +110,15 @@ pub enum RevertKind {
 /// One compensating change.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct RevertAction {
+    /// Table the row is in.
     pub table: String,
     /// The primary key as a JSON object, as the log names the row.
     pub key: Value,
+    /// What the compensating change does.
     pub kind: RevertKind,
     /// The row now, and as the revert leaves it; null when absent (a soft delete only sets `deleted_at`).
     pub current: Option<Value>,
+    /// The row as the revert leaves it; null when absent.
     pub target: Option<Value>,
     /// The selection's entries on this row.
     pub entries: Vec<i64>,
@@ -121,21 +129,37 @@ pub struct RevertAction {
 #[serde(tag = "reason", rename_all = "snake_case")]
 pub enum Conflict {
     /// Changed since the selection's first entry on it by an entry outside the selection: the first one.
-    ChangedSince { entry: i64, actor: String, at: i64 },
+    ChangedSince {
+        /// The entry that changed it.
+        entry: i64,
+        /// Who made that change.
+        actor: String,
+        /// When, in unix milliseconds.
+        at: i64,
+    },
     /// Not as its last entry left it: a migration changed it, or a write around the log.
     NotAsLogged,
     /// A change in its history moved its primary key, so the log names it under two keys.
     KeyChanged,
     /// Its table, a column or its key isn't what the log recorded.
-    SchemaChanged { detail: String },
+    SchemaChanged {
+        /// What differs.
+        detail: String,
+    },
 }
 
+/// A row the revert leaves as it is, and why.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct RowConflict {
+    /// Table the row is in.
     pub table: String,
+    /// The primary key as a JSON object.
     pub key: Value,
+    /// The selection's entries on this row.
     pub entries: Vec<i64>,
+    /// The row now; null when absent.
     pub current: Option<Value>,
+    /// Why it is left.
     #[serde(flatten)]
     pub conflict: Conflict,
 }
@@ -143,8 +167,11 @@ pub struct RowConflict {
 /// A row already as the revert would leave it.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct RowRef {
+    /// Table the row is in.
     pub table: String,
+    /// The primary key as a JSON object.
     pub key: Value,
+    /// The selection's entries on this row.
     pub entries: Vec<i64>,
 }
 
@@ -153,12 +180,15 @@ pub struct RowRef {
 pub struct RevertPlan {
     /// SHA-256 of everything below, in hex: [`apply`] runs the plan only while it is still this one.
     pub id: String,
+    /// The entries the plan reverts.
     pub selection: Filter,
     /// How many log entries the selection holds.
     pub entries: usize,
     /// In the order [`apply`] runs them: rows back parents first, changed rows, rows out children first.
     pub actions: Vec<RevertAction>,
+    /// Rows left as they are, with why.
     pub conflicts: Vec<RowConflict>,
+    /// Rows already as the revert would leave them.
     pub unchanged: Vec<RowRef>,
 }
 
@@ -167,6 +197,7 @@ pub struct RevertPlan {
 pub struct RevertOutcome {
     /// The revert's write time: its entries carry it, with the reverting actor.
     pub at: i64,
+    /// The plan that ran.
     pub plan: RevertPlan,
 }
 
@@ -411,7 +442,10 @@ fn normalized(value: &Value) -> Value {
     match value {
         Value::Bool(b) => Value::from(i64::from(*b)),
         Value::Number(n) if n.is_f64() => match n.as_f64() {
-            #[allow(clippy::cast_possible_truncation)] // whole and well inside i64
+            #[allow(
+                clippy::cast_possible_truncation,
+                reason = "the guard keeps it whole and well inside i64"
+            )]
             Some(f) if f.fract() == 0.0 && f.abs() < 9.0e15 => Value::from(f as i64),
             _ => value.clone(),
         },
@@ -775,7 +809,7 @@ pub fn apply(tx: &mut Tx<'_>, plan: &RevertPlan, accounts: &[AccountColumn]) -> 
 }
 
 impl Database {
-    /// One page of history, newest first: [`history`] in a read.
+    /// One page of history, newest first: [`history()`] in a read.
     pub async fn history(&self, filter: Filter, cursor: Option<Cursor>, limit: i64) -> Result<HistoryPage, Error> {
         let accounts = self.account_columns();
         self.read(move |conn| history(conn, &filter, &accounts, cursor, limit))

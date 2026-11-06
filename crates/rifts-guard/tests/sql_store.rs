@@ -5,7 +5,7 @@
 //! create a database on: `postgres://user:pw@127.0.0.1:5432/postgres`) on Postgres. Each engine runs from sync
 //! code, from a multi-thread runtime and from a current-thread one, since `block_on_store` serves all three.
 
-#![allow(clippy::unwrap_used, clippy::expect_used)]
+#![allow(clippy::unwrap_used, clippy::expect_used, reason = "a panic is how a test fails")]
 
 use std::collections::BTreeMap;
 

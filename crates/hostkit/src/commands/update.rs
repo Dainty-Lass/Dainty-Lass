@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Silent Spud
 
+//! `dainty-host update`: a newer release found, checked and installed in place, then setup rerun; and the check that
+//! stops a start or update while pre-cutover MongoDB data is not migrated.
+
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
@@ -17,17 +20,24 @@ use crate::selfupdate::{
     find_release, install, installing_marker, read_manifest, this_platform, verify_attestation,
 };
 
-// Written by dainty-legacy's `import reforged`, which moves a Node kit's MongoDB into the store
+/// The marker file written by dainty-legacy's `import reforged` when it moves a Node kit's MongoDB into the store.
 pub const MONGO_MIGRATED_MARKER: &str = ".mongo-migrated";
 
+/// What `update` needs of the machine, so a test can stand in for it.
 pub trait UpdateEnv {
+    /// This machine's release platform; an error on one with no releases.
     fn platform(&self) -> Result<&'static str, HostError>;
+    /// Where releases are looked for.
     fn source(&self, installed: Option<&Manifest>) -> Source;
+    /// Checks the archive's build provenance, logging to `log`.
     fn verify_attestation(&self, archive: &Path, candidate: &Candidate, log: &Path) -> UpdateResult<Attestation>;
+    /// The checkout's short commit, or `unknown`.
     fn checkout_commit(&self, root: &Path) -> String;
+    /// Runs the new `program`'s `setup --skip-install` in `root`; returns its exit code.
     fn run_setup(&self, program: &Path, root: &Path) -> Result<i32, HostError>;
 }
 
+/// The real machine.
 #[derive(Default)]
 pub struct RealUpdateEnv;
 
@@ -67,11 +77,13 @@ impl UpdateEnv for RealUpdateEnv {
     }
 }
 
+/// Where the MongoDB-migrated marker is.
 #[must_use]
 pub fn mongo_migrated_marker(p: &Paths) -> PathBuf {
     p.config.join(MONGO_MIGRATED_MARKER)
 }
 
+/// `uri` with the password in its user info replaced, for printing.
 #[must_use]
 pub fn redact_mongo_uri(uri: &str) -> String {
     let Some((scheme, rest)) = uri.split_once("://") else {
@@ -91,11 +103,13 @@ pub fn redact_mongo_uri(uri: &str) -> String {
     format!("{scheme}://{redacted_user}@{hostpart}{tail}")
 }
 
+/// `uri` with its password redacted, as [`redact_mongo_uri`] does.
 #[must_use]
 pub fn redact_uri_password(uri: &str) -> String {
     redact_mongo_uri(uri)
 }
 
+/// `raw_uri` with a database in its path: the one it names, else `db_override`, else `reforged`.
 #[must_use]
 pub fn mongo_uri_with_database(raw_uri: &str, db_override: Option<&str>) -> String {
     let db = db_override
@@ -120,6 +134,8 @@ pub fn mongo_uri_with_database(raw_uri: &str, db_override: Option<&str>) -> Stri
     }
 }
 
+/// The store a migration writes to: its target (a SQLite file or a postgres:// URL with the password),
+/// whether a remote Postgres is allowed, and the SQLite file when it is one.
 pub fn store_target_for_migration(
     paths: &Paths,
     config: &HostConfig,
@@ -141,14 +157,23 @@ pub fn store_target_for_migration(
     }
 }
 
+/// Whether this server's pre-cutover MongoDB data was moved into the store.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum MongoMigrationStatus {
+    /// There is no MongoDB data to move.
     None,
+    /// It was moved.
     Migrated,
+    /// The host chose to start on an empty store instead.
     Skipped,
-    Unmigrated { source: String },
+    /// MongoDB data is there and was not moved.
+    Unmigrated {
+        /// The folder the data is in.
+        source: String,
+    },
 }
 
+/// Whether the marker records a fresh start rather than a migration.
 #[must_use]
 pub fn is_fresh_start_marker(marker: &Path) -> bool {
     fs::read_to_string(marker)
@@ -156,6 +181,7 @@ pub fn is_fresh_start_marker(marker: &Path) -> bool {
         .is_some_and(|s| s.starts_with("fresh-start"))
 }
 
+/// Records that the host chose to start on an empty store.
 pub fn confirm_fresh_start(p: &Paths) -> Result<(), HostError> {
     let marker = mongo_migrated_marker(p);
     if let Some(parent) = marker.parent() {
@@ -164,6 +190,7 @@ pub fn confirm_fresh_start(p: &Paths) -> Result<(), HostError> {
     fs::write(&marker, "fresh-start\n").map_err(|e| HostError::io(&marker, e))
 }
 
+/// The migration's state, from the marker, host.toml and the managed MongoDB's data folder.
 #[must_use]
 pub fn inspect_mongo_migration(p: &Paths) -> MongoMigrationStatus {
     let marker = mongo_migrated_marker(p);
@@ -184,6 +211,7 @@ pub fn inspect_mongo_migration(p: &Paths) -> MongoMigrationStatus {
     MongoMigrationStatus::None
 }
 
+/// Whether the managed MongoDB's data folder holds anything but its lock file.
 #[must_use]
 pub fn has_unmigrated_mongo_dir(p: &Paths) -> bool {
     let Ok(entries) = fs::read_dir(&p.mongo_data) else {
@@ -192,6 +220,7 @@ pub fn has_unmigrated_mongo_dir(p: &Paths) -> bool {
     entries.flatten().any(|e| e.file_name().to_str() != Some("mongod.lock"))
 }
 
+/// The error a start or update gives while MongoDB data is not migrated; `None` when there is nothing to move.
 #[must_use]
 pub fn unmigrated_mongo_problem(p: &Paths, config: &HostConfig) -> Option<String> {
     if cfg!(feature = "paradox") || config.fresh_start() || mongo_migrated_marker(p).is_file() {
@@ -206,6 +235,7 @@ pub fn unmigrated_mongo_problem(p: &Paths, config: &HostConfig) -> Option<String
     })
 }
 
+/// Fails with [`unmigrated_mongo_problem`]'s text when there is one.
 pub fn check_unmigrated_mongo_data(p: &Paths, config: &HostConfig) -> Result<(), HostError> {
     match unmigrated_mongo_problem(p, config) {
         Some(problem) => Err(HostError::message(problem)),
@@ -213,6 +243,7 @@ pub fn check_unmigrated_mongo_data(p: &Paths, config: &HostConfig) -> Result<(),
     }
 }
 
+/// Runs `dainty-host update`, printing to stdout; an error is printed and gives a failing exit code.
 #[must_use]
 pub fn run(paths: &Paths, args: &UpdateArgs) -> ExitCode {
     let env = RealUpdateEnv;
@@ -225,6 +256,9 @@ pub fn run(paths: &Paths, args: &UpdateArgs) -> ExitCode {
     }
 }
 
+/// Finds the release, downloads and checks it, installs it and reruns setup unless `--no-setup`, printing through
+/// `out`.
+/// With `--check` it only says whether a newer release is out.
 pub fn run_with(
     p: &Paths,
     args: &UpdateArgs,
@@ -417,7 +451,7 @@ pub fn run_with(
 
 #[cfg(test)]
 mod tests {
-    #![allow(clippy::unwrap_used)]
+    #![allow(clippy::unwrap_used, reason = "a panic is how a test fails")]
 
     use super::*;
     use tempfile::TempDir;

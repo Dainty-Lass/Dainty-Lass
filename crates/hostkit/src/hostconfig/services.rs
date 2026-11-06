@@ -22,6 +22,7 @@ use serde_json::{Map, Value};
 
 use crate::error::HostError;
 
+/// The most `[services.<name>]` tables.
 pub const MAX_SERVICES: usize = 16;
 
 /// Modules this core composes itself under these names; a library can't take one.
@@ -43,10 +44,12 @@ pub const KNOWN: [(&str, &[CoreCapability]); 3] = [
     ("gateway", &[CoreCapability::Routes, CoreCapability::UdpPorts]),
 ];
 
+/// One `[services.<name>]`: a service the core loads as a library.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ServiceEntry {
     /// As written; relative to the server folder
     pub library: String,
+    /// The SHA-256 the library must have.
     pub sha256: Sha256Hex,
     /// Only for a name not in [`KNOWN`]
     pub serves: Option<Vec<CoreCapability>>,
@@ -63,6 +66,7 @@ impl ServiceEntry {
     }
 }
 
+/// What the known service `name` serves as a core plugin; `None` for a name not in [`KNOWN`].
 #[must_use]
 pub fn known(name: &str) -> Option<&'static [CoreCapability]> {
     KNOWN
@@ -177,7 +181,7 @@ pub fn to_json(services: &ServicesConfig) -> Value {
 
 #[cfg(test)]
 mod tests {
-    #![allow(clippy::unwrap_used)]
+    #![allow(clippy::unwrap_used, reason = "a panic is how a test fails")]
 
     use super::*;
     use crate::hostconfig::HostConfig;

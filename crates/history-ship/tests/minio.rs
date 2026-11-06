@@ -1,7 +1,7 @@
 //! Shipping and restore against a real S3 server: opt-in, with `REFORGED_TEST_S3` naming a throwaway MinIO
 //! on this machine and its root credentials (`http://user:password@127.0.0.1:9000`). The test makes its own
 //! bucket with object lock and a one-day GOVERNANCE retention. Skipped otherwise.
-#![allow(clippy::unwrap_used, clippy::expect_used)] // test helpers
+#![allow(clippy::unwrap_used, clippy::expect_used, reason = "a panic is how a test fails")]
 
 use std::sync::atomic::{AtomicI64, Ordering};
 

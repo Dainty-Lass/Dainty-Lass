@@ -34,6 +34,7 @@ fn bad(text: impl Into<String>) -> HostError {
     HostError::message(text)
 }
 
+/// Runs `dainty-host network <command>`; `paths` is `None` outside a server folder.
 pub fn run(args: &NetworkArgs, paths: Option<&Paths>) -> Outcome {
     match &args.command {
         NetworkCommand::CaInit(a) => ca_init(a),
@@ -485,7 +486,7 @@ fn join(a: &JoinArgs, paths: Option<&Paths>) -> Outcome {
 
 #[cfg(test)]
 mod tests {
-    #![allow(clippy::unwrap_used)]
+    #![allow(clippy::unwrap_used, reason = "a panic is how a test fails")]
 
     use super::*;
 

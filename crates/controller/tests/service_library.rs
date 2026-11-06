@@ -1,7 +1,7 @@
 //! A service built as a library (tests/echo-service) runs as a module of the controller on its env file, reports its
 //! status through it, takes a module's registration as a core plugin, takes it again after a restart, and stops when
 //! the controller does (RD27).
-#![allow(clippy::unwrap_used, clippy::expect_used)] // test helpers
+#![allow(clippy::unwrap_used, clippy::expect_used, reason = "a panic is how a test fails")]
 
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};

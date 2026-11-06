@@ -1,6 +1,9 @@
 // Copyright (c) 2026 Silent Spud
 // SPDX-License-Identifier: MIT
 
+//! The game runtime's files from the joined server: trusting a set, checking what is installed, and replacing
+//! files the game may hold open.
+
 use std::fmt;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -27,8 +30,11 @@ use crate::net::http::{Endpoint, HttpError, RequestOptions, parse_json_body, req
 use crate::net::verify::{Abort, VerifyError, hash_file};
 use crate::platform::system::free_bytes;
 
+/// Content route each runtime file is downloaded from, by name.
 pub const RUNTIME_FILES_BASE_PATH: &str = "/content/v1/runtime/files";
+/// Suffix of a file still downloading, next to its target.
 pub const DOWNLOAD_SUFFIX: &str = ".rr-download";
+/// Mark of a replaced file set aside while the game held it, followed by a millisecond timestamp.
 pub const ASIDE_MARK: &str = ".rr-old-";
 
 const DOWNLOAD_IDLE_TIMEOUT: Duration = Duration::from_secs(30);
@@ -36,8 +42,10 @@ const MANIFEST_TIMEOUT: Duration = Duration::from_secs(10);
 const MANIFEST_MAX_BYTES: usize = 64 * 1024;
 const MAX_TRUSTED_SETS: usize = 8;
 
+/// What the server's runtime manifest route answered.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum RuntimeManifestResult {
+    /// A valid manifest.
     Ok(RuntimeManifest),
     /// Server returned HTTP 404 (no runtime offered).
     None,
@@ -49,27 +57,42 @@ pub enum RuntimeManifestResult {
     Unreachable,
 }
 
+/// Why a runtime install failed.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum RuntimeErrorCode {
+    /// The server refused the account key (401 or 403).
     KeyRejected,
+    /// The server or the local folder lacks a file.
     NotFound,
+    /// A file differs from its manifest entry, or the server's runtime changed (503).
     Different,
+    /// A download failed for another reason.
     DownloadFailed,
+    /// The server's certificate does not match the pin.
     CertMismatch,
+    /// The game folder is missing, the disk is full, or a write failed.
     DiskError,
+    /// A runtime file is locked by a running game.
     InUse,
+    /// The player cancelled.
     Cancelled,
+    /// Anything else.
     Failed,
 }
 
+/// A failed runtime install.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RuntimeError {
+    /// Why it failed.
     pub code: RuntimeErrorCode,
+    /// The file it failed on, if any.
     pub file: Option<String>,
+    /// Words for the log.
     pub message: String,
 }
 
 impl RuntimeError {
+    /// A failure with `code`, the file it happened on and its words.
     pub fn new(code: RuntimeErrorCode, file: Option<String>, message: impl Into<String>) -> Self {
         Self {
             code,
@@ -90,31 +113,46 @@ impl fmt::Display for RuntimeError {
 
 impl std::error::Error for RuntimeError {}
 
+/// Install progress, sent before the first file and after each chunk.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RuntimeProgress {
+    /// Bytes written so far, across every file.
     pub done_bytes: u64,
+    /// Bytes to write in all.
     pub total_bytes: u64,
+    /// Files finished.
     pub files_done: usize,
+    /// Files to install.
     pub files_total: usize,
+    /// The file being written.
     pub current_file: Option<String>,
 }
 
+/// What an install did.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct RuntimeInstallResult {
+    /// Files the game held, replaced by setting the old copy aside; they take effect when the game restarts.
     pub replaced_in_use: Vec<String>,
 }
 
+/// How [`replace_file`] put a file in place.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Replaced {
+    /// Renamed over the target.
     Replaced,
+    /// The target was held, so it was set aside first.
     InUse,
 }
 
+/// The file operations [`replace_file`] uses, so tests can fail them.
 pub trait ReplaceOps {
+    /// Renames `from` to `to`.
     fn rename(&self, from: &Path, to: &Path) -> std::io::Result<()>;
+    /// Removes `file`.
     fn remove(&self, file: &Path) -> std::io::Result<()>;
 }
 
+/// [`ReplaceOps`] on the real file system.
 pub struct DiskOps;
 
 impl ReplaceOps for DiskOps {
@@ -127,15 +165,23 @@ impl ReplaceOps for DiskOps {
     }
 }
 
+/// What [`install_runtime`] installs and where.
 pub struct InstallRequest<'a> {
+    /// The server the files come from.
     pub endpoint: &'a Endpoint,
+    /// Headers sent with each download, such as the account key's.
     pub headers: Vec<(&'static str, String)>,
+    /// The manifest the files are checked against.
     pub manifest: &'a RuntimeManifest,
+    /// The game's `Win64` folder.
     pub win64_dir: &'a Path,
+    /// Cancels the install when triggered.
     pub cancel: Option<CancellationToken>,
+    /// Called with each [`RuntimeProgress`].
     pub on_progress: Option<&'a (dyn Fn(RuntimeProgress) + Send + Sync)>,
 }
 
+/// The manifest's files as the bridge's [`RuntimeFileInfo`]s.
 pub fn file_infos(files: &[RuntimeFile]) -> Vec<RuntimeFileInfo> {
     files
         .iter()
@@ -147,6 +193,7 @@ pub fn file_infos(files: &[RuntimeFile]) -> Vec<RuntimeFileInfo> {
         .collect()
 }
 
+/// The id the player trusts a runtime by: SHA-256 over its sorted `name:size:sha256` lines.
 pub fn runtime_set_id(files: &[RuntimeFile]) -> String {
     let mut sorted = files.to_vec();
     sorted.sort_by(|a, b| a.name.encode_utf16().cmp(b.name.encode_utf16()));
@@ -157,10 +204,12 @@ pub fn runtime_set_id(files: &[RuntimeFile]) -> String {
     sha256_hex(lines.join("\n").as_bytes())
 }
 
+/// The player trusted exactly this file set; an empty set is never trusted.
 pub fn is_trusted(trusted: &[String], files: &[RuntimeFile]) -> bool {
     !files.is_empty() && trusted.contains(&runtime_set_id(files))
 }
 
+/// Trusts `files`, keeping only the most recent 8 trusted sets, and returns the set's id.
 pub fn accept(trusted: &mut Vec<String>, files: &[RuntimeFile]) -> String {
     let id = runtime_set_id(files);
     trusted.retain(|existing| existing != &id);
@@ -172,6 +221,7 @@ pub fn accept(trusted: &mut Vec<String>, files: &[RuntimeFile]) -> String {
     id
 }
 
+/// The joined server's runtime manifest.
 pub async fn fetch_runtime_manifest(endpoint: &Endpoint) -> RuntimeManifestResult {
     let options = RequestOptions::get(MANIFEST_TIMEOUT, MANIFEST_MAX_BYTES);
     match request(endpoint, RUNTIME_MANIFEST_PATH, options).await {
@@ -204,6 +254,7 @@ fn same_slot(installed: &str, listed: &str) -> bool {
     runtime_file_slot(listed) == Some(installed)
 }
 
+/// SHA-256 of each installed runtime file in `win64_dir`, none for a file missing or empty.
 pub async fn installed_runtime(win64_dir: &Path) -> Vec<(&'static str, Option<String>)> {
     let mut out = Vec::with_capacity(RUNTIME_FILE_NAMES.len());
     for name in RUNTIME_FILE_NAMES {
@@ -221,10 +272,13 @@ pub async fn installed_runtime(win64_dir: &Path) -> Vec<(&'static str, Option<St
     out
 }
 
+/// Every runtime file is in `dir` and not empty.
 pub async fn is_complete_runtime_dir(dir: &Path) -> bool {
     installed_runtime(dir).await.iter().all(|(_, hash)| hash.is_some())
 }
 
+/// The runtime's state for the page, and whether every file is in place. A local runtime folder wins over
+/// the server's offer; `trusted` says the player trusted the offered set.
 pub async fn check_runtime(
     win64_dir: &Path,
     offered: Option<&RuntimeManifest>,
@@ -265,6 +319,7 @@ pub async fn check_runtime(
     }
 }
 
+/// Removes Windows' mark-of-the-web (`Zone.Identifier`) so the loader is not blocked; a no-op off Windows.
 pub async fn unblock(file: &Path) {
     #[cfg(windows)]
     {
@@ -278,6 +333,8 @@ pub async fn unblock(file: &Path) {
     }
 }
 
+/// Moves `tmp` over `target`. When the game holds `target`, it is renamed aside first,
+/// and put back if the move still fails.
 pub fn replace_file(tmp: &Path, target: &Path, ops: &dyn ReplaceOps) -> std::io::Result<Replaced> {
     if ops.rename(tmp, target).is_ok() {
         return Ok(Replaced::Replaced);
@@ -302,6 +359,7 @@ pub fn replace_file(tmp: &Path, target: &Path, ops: &dyn ReplaceOps) -> std::io:
     Ok(Replaced::InUse)
 }
 
+/// Removes leftover downloads and set-aside files from `win64_dir`.
 pub fn sweep_aside(win64_dir: &Path) {
     let Ok(entries) = std::fs::read_dir(win64_dir) else {
         return;
@@ -351,6 +409,8 @@ fn write_runtime_marker(win64_dir: &Path, version: &str, source: &str, files: &[
     std::fs::write(win64_dir.join(RUNTIME_MARKER_FILE), text)
 }
 
+/// Downloads the files that differ from `request.manifest`, checks each one's size and SHA-256, puts them in
+/// place and writes the runtime marker. Leftovers are swept first, and a failed file's download is removed.
 pub async fn install_runtime(request: InstallRequest<'_>) -> Result<RuntimeInstallResult, RuntimeError> {
     let InstallRequest {
         endpoint,
@@ -568,6 +628,7 @@ pub async fn install_runtime(request: InstallRequest<'_>) -> Result<RuntimeInsta
     Ok(RuntimeInstallResult { replaced_in_use })
 }
 
+/// Copies a runtime from `local_dir` into `win64_dir` and records it as `local`.
 pub async fn install_local_runtime(local_dir: &Path, win64_dir: &Path) -> Result<RuntimeInstallResult, RuntimeError> {
     let is_dir = std::fs::metadata(win64_dir).map(|m| m.is_dir()).unwrap_or(false);
     if !is_dir {

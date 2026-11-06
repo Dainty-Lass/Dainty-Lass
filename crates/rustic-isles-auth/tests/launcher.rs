@@ -3,7 +3,7 @@
 
 //! The launcher API black-box, from spec §12.2 and §12.3.
 
-#![allow(clippy::unwrap_used, clippy::expect_used)]
+#![allow(clippy::unwrap_used, clippy::expect_used, reason = "a panic is how a test fails")]
 
 mod common;
 

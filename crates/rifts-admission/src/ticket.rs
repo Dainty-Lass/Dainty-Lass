@@ -23,42 +23,72 @@ mod tests;
 
 /// Umbrella spec D3: `rpt1`, lower case although the payload says `RPT2`.
 pub const TOKEN_PREFIX: &str = "rpt1";
+/// The magic the signed payload starts with.
 pub const PAYLOAD_MAGIC: &[u8; 4] = b"RPT2";
+/// The payload format version.
 pub const PAYLOAD_VERSION: u8 = 2;
+/// The payload's fixed-size part, in bytes, before its variable-length identifiers.
 pub const FIXED_BYTES: usize = 106;
+/// The longest ticket text accepted or minted, in bytes.
 pub const MAX_TOKEN_BYTES: usize = 4096;
+/// The shortest ticket lifetime allowed, in seconds.
 pub const MIN_LIFETIME_SECONDS: u32 = 15;
+/// The longest ticket lifetime allowed, in seconds.
 pub const MAX_LIFETIME_SECONDS: u64 = 180;
+/// How far either clock may be off when a ticket's times are checked, in seconds.
 pub const CLOCK_SKEW_SECONDS: u64 = 30;
+/// The ticket lifetime when the setting is absent, in seconds.
 pub const DEFAULT_LIFETIME_SECONDS: u32 = 75;
 
 /// The texts are compared with Node's messages by the recorded vectors.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum TicketError {
+    /// A key id, account or other identifier has characters or a length a ticket refuses.
     UnsafeIdentifier,
+    /// The named field does not fit its unsigned range.
     OutOfRange(&'static str),
+    /// The virtual port is 0.
     ZeroVirtualPort,
+    /// A peer id is not a valid SteamID64.
     InvalidPeerId,
+    /// The session is not a canonical RFC 4122 UUID.
     SessionNotUuid,
+    /// The lifetime is not whole seconds from 15 to 180.
     LifetimeSetting,
+    /// A minted ticket would exceed 4096 bytes.
     TokenTooLarge,
+    /// The ticket text is missing or over 4096 bytes.
     MissingOrOversized,
+    /// The text is not `rpt1.<payload>.<signature>`.
     MalformedToken,
+    /// The base64url is not in its canonical form.
     NoncanonicalEncoding,
+    /// The signature does not verify.
     BadSignature,
+    /// The payload could not be read.
     MalformedPayload,
+    /// The payload's magic, version or lengths are wrong.
     Framing,
+    /// The payload decodes but is not in its canonical form.
     NoncanonicalPayload,
+    /// The ticket names a key other than the active one.
     KeyNotActive,
+    /// The ticket's times are out of order or span more than 180 seconds.
     InvalidLifetime,
+    /// The ticket's start is in the future, beyond the allowed skew.
     NotYetValid,
+    /// The ticket expired, beyond the allowed skew.
     Expired,
+    /// The jti is not 32 hex digits.
     InvalidJti,
+    /// Minting needs the signing key, which is not set.
     NoSigningKey,
+    /// The system random source failed.
     Random,
 }
 
 impl TicketError {
+    /// Whether this is [`TicketError::Expired`].
     pub fn is_expired(&self) -> bool {
         *self == Self::Expired
     }
@@ -118,6 +148,7 @@ fn sixteen_from_hex(text: &[u8]) -> Option<[u8; 16]> {
 pub struct SessionUuid(pub [u8; 16]);
 
 impl SessionUuid {
+    /// The UUID if its version is 1 to 5 and its variant RFC 4122's.
     pub fn from_bytes(bytes: [u8; 16]) -> Result<Self, TicketError> {
         let version_ok = matches!(bytes[6] >> 4, 1..=5);
         let variant_ok = bytes[8] & 0xc0 == 0x80;
@@ -153,6 +184,7 @@ impl fmt::Display for SessionUuid {
 pub struct Jti(pub [u8; 16]);
 
 impl Jti {
+    /// A jti from the system random source.
     pub fn random() -> Result<Self, TicketError> {
         let mut fresh = Self([0; 16]);
         match rand::rngs::SysRng.try_fill_bytes(&mut fresh.0) {
@@ -161,6 +193,7 @@ impl Jti {
         }
     }
 
+    /// A jti from 32 hex digits of either case.
     pub fn parse(text: &str) -> Result<Self, TicketError> {
         sixteen_from_hex(text.as_bytes())
             .map(Self)
@@ -179,37 +212,57 @@ impl fmt::Display for Jti {
     }
 }
 
+/// The SHA-256 hex digest of a jti given as 32 hex digits.
 pub fn hash_jti(jti: &str) -> Result<String, TicketError> {
     Ok(Jti::parse(jti)?.digest())
 }
 
+/// Everything a ticket admits a joiner to; the host checks each against its own config.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct TicketBindings {
+    /// The joiner's account.
     pub account: AccountId,
+    /// The joiner's peer id.
     pub joiner_peer: PeerId,
+    /// The host's peer id.
     pub host_peer: PeerId,
+    /// The hunt session.
     pub session: SessionUuid,
+    /// The hunt generation.
     pub generation: u32,
+    /// The party the hunt was made for.
     pub party_id: String,
+    /// The party's revision, at most 2^53 - 1.
     pub party_revision: u64,
+    /// The hunt definition being played.
     pub hunt_definition_id: String,
+    /// The game build.
     pub build: u32,
+    /// The bridge protocol version.
     pub bridge_protocol: u16,
+    /// The game's virtual port, never 0.
     pub virtual_port: u16,
 }
 
 /// Times are Unix seconds.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct TicketClaims {
+    /// The key that signs the ticket.
     pub key_id: KeyId,
+    /// The ticket's one-time id.
     pub jti: Jti,
+    /// What the ticket admits to.
     pub bindings: TicketBindings,
+    /// When it was minted, in Unix seconds.
     pub issued_at: u64,
+    /// When it starts being valid, in Unix seconds.
     pub not_before: u64,
+    /// When it expires, in Unix seconds.
     pub expires_at: u64,
 }
 
 impl TicketClaims {
+    /// The jti's SHA-256 hex digest, which is also the admission's id.
     pub fn jti_digest(&self) -> String {
         self.jti.digest()
     }
@@ -224,6 +277,7 @@ fn is_identifier(text: &str, longest: usize, punctuation: &str) -> bool {
             .all(|c| c.is_ascii_alphanumeric() || punctuation.contains(c))
 }
 
+/// 1 to 32 ASCII letters, digits, `.`, `_` or `-`.
 pub fn safe_key_id(text: &str) -> bool {
     is_identifier(text, 32, "._-")
 }
@@ -434,6 +488,7 @@ pub fn parse_signed(token: &str, verify: impl FnOnce(&[u8], &Signature) -> bool)
     }
 }
 
+/// Checks the claims' times against `now_seconds`, allowing 30 seconds of clock skew either way.
 pub fn check_lifetime(claims: &TicketClaims, now_seconds: u64) -> Result<(), TicketError> {
     let TicketClaims {
         issued_at,
@@ -458,18 +513,25 @@ pub fn parse_unverified(token: &str) -> Result<TicketClaims, TicketError> {
     parse_signed(token, |_, _| true)
 }
 
+/// A ticket just signed.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct MintedTicket {
+    /// The ticket text; a secret until it reaches the joiner.
     pub text: Secret,
+    /// What it carries.
     pub claims: TicketClaims,
+    /// The jti's SHA-256 hex digest.
     pub jti_digest: String,
 }
 
 /// The ES256 ticket authority: verify-only when it has no signing key.
 #[derive(Clone)]
 pub struct Es256Tickets {
+    /// The key id named in minted tickets and required of verified ones.
     pub key_id: KeyId,
+    /// The signing key; `None` makes the authority verify-only.
     pub signing: Option<SigningKey>,
+    /// The key tickets are verified with.
     pub verifying: VerifyingKey,
     /// A setting's `Number()`, checked only when a ticket is minted.
     pub default_lifetime: f64,
@@ -493,6 +555,7 @@ fn whole_lifetime(seconds: f64) -> Option<u64> {
 }
 
 impl Es256Tickets {
+    /// Mints a ticket valid from `now_seconds` for `lifetime_seconds` or the default lifetime.
     pub fn mint(
         &self,
         bindings: TicketBindings,
@@ -511,6 +574,7 @@ impl Es256Tickets {
         })
     }
 
+    /// Signs these claims; fails without a signing key or when the text would be too long.
     pub fn sign(&self, claims: TicketClaims) -> Result<MintedTicket, TicketError> {
         let payload = encode_claims(&claims)?;
         let Some(key) = &self.signing else {

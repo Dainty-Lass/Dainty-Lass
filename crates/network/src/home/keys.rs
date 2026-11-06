@@ -19,6 +19,7 @@ use sha2::{Digest, Sha256};
 
 /// Ed25519 public keys and signatures are these long.
 pub const PUBLIC_KEY_LEN: usize = 32;
+/// An Ed25519 signature's length in bytes.
 pub const SIGNATURE_LEN: usize = 64;
 /// Keys one node may have at once: its current one and the ones still verifying tickets made before a rotation.
 pub const MAX_KEYS_PER_NODE: usize = 4;
@@ -26,14 +27,19 @@ pub const MAX_KEYS_PER_NODE: usize = 4;
 pub const MAX_NODES: usize = 64;
 const FILE_PREFIX: &str = "dlk1.";
 
+/// Why a ticket signing key could not be made, read or saved.
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 pub enum KeyError {
+    /// The file is not a `dlk1.` key.
     #[error("the signing key file is not a ticket key")]
     NotAKey,
+    /// The key file is readable by other users; holds its path.
     #[error("the signing key file {0} is readable by other users; make it private to the server's account")]
     Exposed(String),
+    /// Reading or writing the file failed.
     #[error("{0}")]
     Io(String),
+    /// The system's random source failed.
     #[error("the system's random source failed")]
     Random,
 }
@@ -139,14 +145,17 @@ impl SigningKey {
         }
     }
 
+    /// The public half.
     pub fn verifying_key(&self) -> &VerifyingKey {
         &self.public
     }
 
+    /// The key's id: 16 lowercase hex characters of its public key's SHA-256.
     pub fn kid(&self) -> &str {
         &self.public.kid
     }
 
+    /// An Ed25519 signature of `message`.
     pub fn sign(&self, message: &[u8]) -> [u8; SIGNATURE_LEN] {
         let mut out = [0u8; SIGNATURE_LEN];
         out.copy_from_slice(self.pair.sign(message).as_ref());
@@ -170,6 +179,7 @@ struct WireKey {
 }
 
 impl VerifyingKey {
+    /// The key in `bytes`, `None` unless they are 32 bytes.
     pub fn from_bytes(bytes: &[u8]) -> Option<Self> {
         let bytes: [u8; PUBLIC_KEY_LEN] = bytes.try_into().ok()?;
         Some(Self {
@@ -178,14 +188,17 @@ impl VerifyingKey {
         })
     }
 
+    /// The key's id: 16 lowercase hex characters of its SHA-256.
     pub fn kid(&self) -> &str {
         &self.kid
     }
 
+    /// The raw Ed25519 public key.
     pub fn as_bytes(&self) -> &[u8; PUBLIC_KEY_LEN] {
         &self.bytes
     }
 
+    /// Whether `signature` is this key's Ed25519 signature of `message`.
     pub fn verify(&self, message: &[u8], signature: &[u8]) -> bool {
         UnparsedPublicKey::new(&ED25519, &self.bytes)
             .verify(message, signature)
@@ -239,11 +252,13 @@ impl KeyRing {
         true
     }
 
+    /// `node`'s key with id `kid`, if known.
     pub fn find(&self, node: &NodeId, kid: &str) -> Option<VerifyingKey> {
         let map = self.keys.read().unwrap_or_else(PoisonError::into_inner);
         map.get(node)?.iter().find(|key| key.kid == kid).cloned()
     }
 
+    /// Whether any key of `node` is known.
     pub fn knows(&self, node: &NodeId) -> bool {
         self.keys
             .read()
@@ -254,7 +269,7 @@ impl KeyRing {
 
 #[cfg(test)]
 mod tests {
-    #![allow(clippy::unwrap_used)]
+    #![allow(clippy::unwrap_used, reason = "a panic is how a test fails")]
 
     use super::*;
 

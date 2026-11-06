@@ -24,6 +24,7 @@ pub const START_TIMEOUT: Duration = Duration::from_secs(5);
 /// How long a module may take to stop before it is aborted.
 pub const STOP_GRACE: Duration = Duration::from_secs(10);
 
+/// A module's run: it ends `Ok` when it stopped as asked, or with the error that ended it.
 pub type ModuleFuture = Pin<Box<dyn Future<Output = Result<(), String>> + Send>>;
 /// Runs the module until its context says stop; called again on every restart.
 pub type ModuleStart = Arc<dyn Fn(ServiceContext) -> ModuleFuture + Send + Sync>;
@@ -31,17 +32,22 @@ pub type ModuleStart = Arc<dyn Fn(ServiceContext) -> ModuleFuture + Send + Sync>
 /// One thing the controller runs: a Rust service in this process, or a program it supervises.
 #[derive(Clone)]
 pub struct Module {
+    /// The component name the status and the console show; unique among the controller's modules.
     pub name: String,
+    /// The game edition it serves, shown beside it in the status; `None` for one that serves no edition.
     pub edition: Option<String>,
+    /// How long it may take to report `Ready` before its start fails.
     pub ready_timeout: Duration,
     /// How long it may take to stop before it is aborted.
     pub stop_grace: Duration,
     /// The server does not run without it: a start that fails stops `start_all`.
     pub required: bool,
+    /// Builds the module's run for each start.
     pub start: ModuleStart,
 }
 
 impl Module {
+    /// A required module that may take [`START_TIMEOUT`] to start and [`STOP_GRACE`] to stop.
     pub fn new(name: impl Into<String>, start: ModuleStart) -> Self {
         Self {
             name: name.into(),
@@ -53,21 +59,25 @@ impl Module {
         }
     }
 
+    /// Lets the server run on when it fails to start.
     pub fn optional(mut self) -> Self {
         self.required = false;
         self
     }
 
+    /// Gives it `timeout` to report `Ready`.
     pub fn ready_within(mut self, timeout: Duration) -> Self {
         self.ready_timeout = timeout;
         self
     }
 
+    /// Gives it `grace` to stop before it is aborted.
     pub fn stop_within(mut self, grace: Duration) -> Self {
         self.stop_grace = grace;
         self
     }
 
+    /// Shows it as serving `edition`.
     pub fn for_edition(mut self, edition: impl Into<String>) -> Self {
         self.edition = Some(edition.into());
         self
@@ -79,6 +89,7 @@ struct Running {
     handle: JoinHandle<Result<(), String>>,
 }
 
+/// Starts, stops and restarts the server's modules and keeps the status every view reads.
 pub struct ServerController {
     status_registry: StatusRegistry,
     modules: Vec<Module>,
@@ -88,6 +99,8 @@ pub struct ServerController {
 }
 
 impl ServerController {
+    /// A controller with no modules yet, for the server mode and game editions the status reports; installs the
+    /// metrics.
     pub fn new(mode: impl Into<String>, editions: Vec<String>) -> Self {
         let status_registry = StatusRegistry::new(mode, editions);
         crate::metrics::install(status_registry.clone());
@@ -106,6 +119,7 @@ impl ServerController {
         self
     }
 
+    /// The module registry, once [`Self::set_registry`] gave one.
     pub fn registry(&self) -> Option<&ModuleRegistry> {
         self.registry.as_ref()
     }
@@ -129,6 +143,7 @@ impl ServerController {
         self
     }
 
+    /// The added modules' names, in the order they start.
     pub fn module_names(&self) -> Vec<String> {
         self.modules.iter().map(|m| m.name.clone()).collect()
     }
@@ -138,14 +153,17 @@ impl ServerController {
         self.modules.is_empty() && self.registry.as_ref().is_none_or(|r| r.list().is_empty())
     }
 
+    /// The status every view reads.
     pub fn status_registry(&self) -> &StatusRegistry {
         &self.status_registry
     }
 
+    /// Every change to the status from now on.
     pub fn subscribe_status(&self) -> watch::Receiver<ServerSnapshot> {
         self.status_registry.subscribe()
     }
 
+    /// The status now.
     pub fn snapshot(&self) -> ServerSnapshot {
         self.status_registry.snapshot()
     }
@@ -184,6 +202,8 @@ impl ServerController {
         Ok(())
     }
 
+    /// Starts one service, or loads the listed module of that name, and waits for it to report `Ready`.
+    /// Fails when it is already running, unknown, or fails or exits before it is ready.
     pub async fn start_component(&mut self, name: &str) -> Result<(), String> {
         if let Some((registry, id)) = self.listed_module(name) {
             return registry.load(&id).await.map(drop).map_err(|e| e.to_string());
@@ -206,6 +226,9 @@ impl ServerController {
         self.record_started(name, module.ready_timeout, stop_tx, handle).await
     }
 
+    /// Stops one service, or unloads the listed module of that name; one that ignores its stop past its grace is
+    /// aborted.
+    /// Fails when it is not running.
     pub async fn stop_component(&mut self, name: &str) -> Result<(), String> {
         if let Some((registry, id)) = self.listed_module(name) {
             return registry.unload(&id).await.map_err(|e| e.to_string());
@@ -237,6 +260,7 @@ impl ServerController {
         Ok(())
     }
 
+    /// Stops the service if it runs and starts it again, or restarts the listed module of that name.
     pub async fn restart_component(&mut self, name: &str) -> Result<(), String> {
         if let Some((registry, id)) = self.listed_module(name) {
             return registry.restart(&id).await.map(drop).map_err(|e| e.to_string());

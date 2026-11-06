@@ -5,7 +5,12 @@
 //! `REFORGED_TEST_POSTGRES_URL` names a server the tests may create databases on
 //! (`postgres://postgres:postgres@127.0.0.1:5432/postgres` in CI).
 
-#![allow(dead_code, clippy::unwrap_used, clippy::expect_used)]
+#![allow(
+    dead_code,
+    clippy::unwrap_used,
+    clippy::expect_used,
+    reason = "shared by several test binaries, each using only some; a panic is how a test fails"
+)]
 
 pub mod kit;
 

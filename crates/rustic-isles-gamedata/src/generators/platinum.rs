@@ -93,6 +93,7 @@ fn tag_of(category: &str) -> Option<&'static str> {
     TABS.iter().find(|(_, c)| *c == category).map(|(t, _)| *t)
 }
 
+/// The platinum price of an item with no captured offer, by store category and rarity.
 pub fn reconstructed_price(category: &str, rarity: i64) -> i64 {
     match (category, rarity) {
         (c, r) if c.starts_with("weapon_") => match r {
@@ -586,6 +587,7 @@ fn sold_ids(path: &Path, what: &str) -> Result<HashSet<String>, String> {
     Ok(ids)
 }
 
+/// Builds the platinum store (§5.6) from the catalog, the store image rows and the captures, minus items the Reward Cache and Lady Luck stores already sell, and writes `platinum_store.json` in `data_dir`.
 pub fn generate_platinum_store(
     catalog: &Path,
     store_images: &Path,

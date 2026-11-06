@@ -19,22 +19,39 @@ use crate::keys::Role;
 
 diesel::table! {
     // 16 columns, Diesel's default width
+    /// Held actions, one row per action.
     guarded_actions (id) {
+        /// 16 lower-case hex digits.
         id -> Text,
+        /// The kind, as [`crate::guard::Kind::as_str`] names it.
         kind -> Text,
+        /// What it acts on: one action per kind and subject waits at a time.
         subject -> Text,
+        /// One line for people.
         summary -> Text,
+        /// What running it needs, as JSON. Never a key.
         params -> Text,
+        /// `delay` or `approval`.
         mode -> Text,
+        /// The state, as [`crate::guard::State::as_str`] names it.
         state -> Text,
+        /// The role an approver needs.
         needs_role -> Text,
+        /// The key that asked.
         initiated_by -> Text,
+        /// Unix milliseconds.
         created_at -> BigInt,
+        /// Unix milliseconds: when a delayed action runs.
         release_at -> Nullable<BigInt>,
+        /// Unix milliseconds: when a waiting action expires.
         expires_at -> BigInt,
+        /// The key that approved it.
         approved_by -> Nullable<Text>,
+        /// The key, or `host`, that canceled it.
         canceled_by -> Nullable<Text>,
+        /// Unix milliseconds: when it finished.
         ended_at -> Nullable<BigInt>,
+        /// What running it did, or why it failed.
         result -> Nullable<Text>,
     }
 }
@@ -58,6 +75,7 @@ pub enum Rule {
 }
 
 impl Rule {
+    /// The rule a host.toml value names: `off`, `delay` or `approval`.
     pub fn parse(text: &str) -> Option<Self> {
         match text.trim() {
             "off" => Some(Self::Off),
@@ -67,6 +85,7 @@ impl Rule {
         }
     }
 
+    /// The host.toml value.
     pub fn as_str(self) -> &'static str {
         match self {
             Self::Off => "off",
@@ -91,10 +110,13 @@ impl Rule {
 pub struct GuardSettings {
     /// Bans and timeouts one key may make in `ban_window_minutes` before the next one is held.
     pub ban_limit: u32,
+    /// The window `ban_limit` counts in, in minutes.
     pub ban_window_minutes: u32,
+    /// What happens to the ban or timeout over the limit.
     pub ban_guard: Rule,
     /// A revert of more compensating changes than this is held.
     pub revert_limit: u32,
+    /// What happens to a revert over the limit.
     pub revert_guard: Rule,
     /// Revoking an admin or owner key.
     pub revoke_guard: Rule,
@@ -120,15 +142,21 @@ impl Default for GuardSettings {
 }
 
 impl GuardSettings {
+    /// The highest `ban_limit` or `revert_limit` accepted.
     pub const MAX_LIMIT: u32 = 1_000_000;
+    /// The longest `ban_window_minutes` accepted.
     pub const MAX_WINDOW_MINUTES: u32 = 24 * 60;
+    /// The longest `delay_minutes` accepted.
     pub const MAX_DELAY_MINUTES: u32 = 24 * 60;
+    /// The longest `expire_hours` accepted.
     pub const MAX_EXPIRE_HOURS: u32 = 30 * 24;
 
+    /// `delay_minutes` in milliseconds.
     pub fn delay_ms(&self) -> i64 {
         i64::from(self.delay_minutes) * MINUTE_MS
     }
 
+    /// `ban_window_minutes` in milliseconds.
     pub fn window_ms(&self) -> i64 {
         i64::from(self.ban_window_minutes) * MINUTE_MS
     }
@@ -143,13 +171,18 @@ impl GuardSettings {
 /// The guarded actions.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Kind {
+    /// A ban past the limit.
     Ban,
+    /// A timeout past the limit.
     Timeout,
+    /// Revoking an admin or owner key.
     RevokeKey,
+    /// A revert past the limit.
     Revert,
 }
 
 impl Kind {
+    /// The name the database and the API use.
     pub fn as_str(self) -> &'static str {
         match self {
             Self::Ban => "ban",
@@ -159,6 +192,7 @@ impl Kind {
         }
     }
 
+    /// The kind [`Kind::as_str`] names.
     pub fn parse(text: &str) -> Option<Self> {
         [Self::Ban, Self::Timeout, Self::RevokeKey, Self::Revert]
             .into_iter()
@@ -175,6 +209,7 @@ impl Kind {
     }
 }
 
+/// How a held action is released.
 #[derive(Enum, Copy, Clone, Debug, PartialEq, Eq)]
 #[graphql(name = "GuardMode")]
 pub enum Mode {
@@ -201,6 +236,7 @@ impl Mode {
     }
 }
 
+/// Where a held action is.
 #[derive(Enum, Copy, Clone, Debug, PartialEq, Eq)]
 #[graphql(name = "GuardedState")]
 pub enum State {
@@ -210,15 +246,18 @@ pub enum State {
     Approved,
     /// Being run now.
     Running,
+    /// It ran and succeeded.
     Done,
     /// It ran and the action itself refused or failed, or the server stopped while it ran: see `result`.
     Failed,
+    /// An operator canceled it.
     Canceled,
     /// Nobody approved it in time, or the server was down past its time.
     Expired,
 }
 
 impl State {
+    /// The name the database uses.
     pub fn as_str(self) -> &'static str {
         match self {
             Self::Pending => "pending",
@@ -249,25 +288,37 @@ impl State {
 /// One guarded action as held.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Record {
+    /// 16 lower-case hex digits.
     pub id: String,
+    /// What kind of action it is.
     pub kind: Kind,
+    /// What it acts on: one action per kind and subject waits at a time.
     pub subject: String,
     /// One line for people: `ban Bo_Slayer (1.14.7): griefing hunts`.
     pub summary: String,
     /// What running it needs, and `operator`, the Discord user it is for. Never a key.
     pub params: Value,
+    /// How it is released.
     pub mode: Mode,
+    /// Where it is.
     pub state: State,
     /// The role an approver needs.
     pub needs_role: Role,
     /// The key that asked: `owner` or an issued key's id.
     pub initiated_by: String,
+    /// Unix milliseconds.
     pub created_at: i64,
+    /// Unix milliseconds: when a delayed action runs.
     pub release_at: Option<i64>,
+    /// Unix milliseconds: when a waiting action expires.
     pub expires_at: i64,
+    /// The key that approved it.
     pub approved_by: Option<String>,
+    /// The key, or `host`, that canceled it.
     pub canceled_by: Option<String>,
+    /// Unix milliseconds: when it finished.
     pub ended_at: Option<i64>,
+    /// What running it did, or why it failed.
     pub result: Option<String>,
 }
 
@@ -317,23 +368,33 @@ impl Row {
 /// An action to hold.
 #[derive(Debug, Clone)]
 pub struct New {
+    /// What kind of action it is.
     pub kind: Kind,
+    /// What it acts on: an action already waiting for the same kind and subject is answered instead.
     pub subject: String,
+    /// One line for people, clipped to 400 characters.
     pub summary: String,
+    /// What running it needs. Never a key.
     pub params: Value,
+    /// Delay or approval; `off` is refused.
     pub rule: Rule,
+    /// The key that asked.
     pub initiated_by: String,
+    /// That key's role: an approver needs at least this and the action's own.
     pub initiator_role: Role,
 }
 
 /// Whether [`Guards::hold`] wrote a record, or the same action was already waiting.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Held {
+    /// A new record was written.
     New(Record),
+    /// The same action was already waiting.
     Already(Record),
 }
 
 impl Held {
+    /// The record, new or not.
     pub fn record(&self) -> &Record {
         match self {
             Self::New(r) | Self::Already(r) => r,
@@ -344,14 +405,19 @@ impl Held {
 /// Who approves or cancels: a key, or the host kit (`key` is `host`, an owner's right on this machine).
 #[derive(Debug, Clone)]
 pub struct Who {
+    /// The key's id, or `host`.
     pub key: String,
+    /// Its role.
     pub role: Role,
+    /// The actor the change log records.
     pub actor: Actor,
 }
 
 impl Who {
+    /// The key the host kit acts as.
     pub const HOST: &'static str = "host";
 
+    /// An admin key.
     pub fn key(key: &str, role: Role) -> Self {
         Self {
             key: key.to_owned(),
@@ -370,22 +436,31 @@ impl Who {
     }
 }
 
+/// Why a guarded action could not be held, approved or canceled.
 #[derive(Debug, thiserror::Error)]
 pub enum GuardError {
+    /// No action has that id.
     #[error("no such guarded action")]
     NotFound,
+    /// It is no longer waiting; holds the state it is in.
     #[error("this action is {0}, not waiting")]
     NotWaiting(&'static str),
+    /// It waits out a delay and cannot be approved.
     #[error("this action waits out its delay: it runs by itself, or cancel it")]
     DelayOnly,
+    /// The key that started it cannot approve it.
     #[error("a second operator must approve this action: it was started by this key")]
     SameKey,
+    /// Approving it needs a higher role; holds the one needed.
     #[error("approving this action needs the {0} role")]
     RoleTooLow(Role),
+    /// It waited past `expires_at`.
     #[error("this action has expired")]
     Expired,
+    /// Only its initiator or an owner may cancel it.
     #[error("only the key that started this action, or an owner, may cancel it")]
     NotYours,
+    /// The database failed.
     #[error("{0}")]
     Store(#[from] store::Error),
 }
@@ -433,6 +508,7 @@ pub struct Guards {
 }
 
 impl Guards {
+    /// The held actions in `db`, under `settings`.
     pub fn new(db: Database, settings: GuardSettings) -> Self {
         Self {
             db,
@@ -440,6 +516,7 @@ impl Guards {
         }
     }
 
+    /// The `[guard]` settings in force.
     pub fn settings(&self) -> &GuardSettings {
         &self.settings
     }
@@ -504,6 +581,7 @@ impl Guards {
             .await
     }
 
+    /// One action by id.
     pub async fn get(&self, id: &str) -> Result<Record, GuardError> {
         let id = id.to_owned();
         self.db.read(move |conn: &mut AnyConnection| load(conn, &id)).await

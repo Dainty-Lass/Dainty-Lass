@@ -32,9 +32,11 @@ pub trait ForeignAccounts: Send + Sync {
 
 /// The Reforged API's claim counter (fire and forget).
 pub trait ClaimActivity: Send + Sync {
+    /// Reports `count` challenges claimed by the user.
     fn challenges_claimed(&self, user_id: &str, count: usize);
 }
 
+/// A [`ForeignAccounts`] that knows no other node.
 #[derive(Debug, Default, Clone, Copy)]
 pub struct NoForeignAccounts;
 
@@ -44,6 +46,7 @@ impl ForeignAccounts for NoForeignAccounts {
     }
 }
 
+/// A [`ClaimActivity`] that reports nothing.
 #[derive(Debug, Default, Clone, Copy)]
 pub struct NoClaimActivity;
 
@@ -54,7 +57,9 @@ impl ClaimActivity for NoClaimActivity {
 /// This part's slot; the composer fills it from matchmaking and the Reforged API.
 #[derive(Clone)]
 pub struct BountiesSeams {
+    /// Accounts homed on other nodes.
     pub foreign: Arc<dyn ForeignAccounts>,
+    /// Where claims are counted.
     pub activity: Arc<dyn ClaimActivity>,
 }
 
@@ -70,6 +75,7 @@ impl Default for BountiesSeams {
 /// A daily claim's ledger row: the character it was made under.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DailyClaim {
+    /// The character id, when the row names one.
     pub character_id: Option<String>,
 }
 

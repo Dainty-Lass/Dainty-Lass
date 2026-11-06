@@ -3,10 +3,12 @@
 
 //! The pipeline black-box through `app()` over a bare composition (core spec §13.2).
 
-#![allow(clippy::unwrap_used, clippy::expect_used)]
+#![allow(clippy::unwrap_used, clippy::expect_used, reason = "a panic is how a test fails")]
 
+use std::collections::HashMap;
 use std::net::SocketAddr;
 use std::sync::Arc;
+use std::thread::ThreadId;
 
 use axum::body::Body;
 use axum::extract::{ConnectInfo, Request};
@@ -722,13 +724,7 @@ async fn the_budget_counts_before_launcher_cors() {
         settings: budget_settings(&[("RUSTIC_ISLES_RATE_LIMIT_PER_MINUTE", "1")]),
         ..Options::default()
     });
-    let lines = Arc::new(std::sync::Mutex::new(Vec::<u8>::new()));
-    let sink = Arc::clone(&lines);
-    let subscriber = tracing_subscriber::fmt()
-        .with_writer(move || Capture(Arc::clone(&sink)))
-        .with_ansi(false)
-        .finish();
-    let _logs = tracing::subscriber::set_default(subscriber);
+    let lines = capture_logs();
     let rejected = || {
         String::from_utf8_lossy(&lines.lock().unwrap())
             .matches("[CORS] Rejected")
@@ -747,11 +743,46 @@ async fn the_budget_counts_before_launcher_cors() {
     assert_eq!(rejected(), 1, "CORS was asked for a request the budget refused");
 }
 
-struct Capture(Arc<std::sync::Mutex<Vec<u8>>>);
+type Sink = Arc<std::sync::Mutex<Vec<u8>>>;
+
+/// The log lines written on this test's thread from now on.
+// One global subscriber: a per-test `set_default` raced the other tests' threads over tracing's callsite
+// interest cache, which now and then cached the warning as disabled and the capture read 0.
+fn capture_logs() -> Sink {
+    static SINKS: std::sync::OnceLock<std::sync::Mutex<HashMap<ThreadId, Sink>>> = std::sync::OnceLock::new();
+    let sinks = SINKS.get_or_init(Default::default);
+    let sink = Sink::default();
+    sinks
+        .lock()
+        .unwrap()
+        .insert(std::thread::current().id(), Arc::clone(&sink));
+    static INSTALL: std::sync::Once = std::sync::Once::new();
+    INSTALL.call_once(|| {
+        let subscriber = tracing_subscriber::fmt()
+            .with_writer(|| {
+                Capture(
+                    SINKS
+                        .get()
+                        .and_then(|s| s.lock().unwrap().get(&std::thread::current().id()).cloned()),
+                )
+            })
+            .with_ansi(false)
+            .finish();
+        tracing::subscriber::set_global_default(subscriber).unwrap();
+    });
+    // A callsite another thread was registering while the subscriber went in may have cached the old answer
+    tracing::callsite::rebuild_interest_cache();
+    sink
+}
+
+/// Writes into the thread's sink, or nowhere for a thread no test is capturing.
+struct Capture(Option<Sink>);
 
 impl std::io::Write for Capture {
     fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
-        self.0.lock().unwrap().extend_from_slice(bytes);
+        if let Some(sink) = &self.0 {
+            sink.lock().unwrap().extend_from_slice(bytes);
+        }
         Ok(bytes.len())
     }
 

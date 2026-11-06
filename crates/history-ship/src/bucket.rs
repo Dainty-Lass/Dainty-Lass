@@ -12,10 +12,12 @@ use crate::Error;
 /// One object as a listing names it.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ObjectInfo {
+    /// The full object key, prefix included.
     pub key: String,
     /// Unix milliseconds by the bucket's clock: when it received the current version. The server can't
     /// set it, which is what lets a restore distrust objects written after the moment it restores to.
     pub last_modified: i64,
+    /// Body size in bytes.
     pub size: u64,
 }
 

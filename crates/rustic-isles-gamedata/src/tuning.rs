@@ -43,14 +43,17 @@ static PARSED: LazyLock<Parsed> = LazyLock::new(|| {
     }
 });
 
+/// `/game_tuning/seasonal_event_schedule`: no scheduled items.
 pub fn seasonal_event_schedule() -> Value {
     envelope(PARSED.schedule.clone())
 }
 
+/// `/game_tuning/huntpass_xp_config`: no event configs, the global XP rules.
 pub fn huntpass_xp_config() -> Value {
     envelope(PARSED.huntpass_xp.clone())
 }
 
+/// `/game_tuning/island_content_config`: nothing disallowed.
 pub fn island_content_config() -> Value {
     envelope(PARSED.island_content.clone())
 }
@@ -72,6 +75,7 @@ pub fn item_grant_data(windows: &[BountyItemGrant]) -> Value {
         .collect()
 }
 
+/// The bounty config with `item_grant_data` from `windows`, enveloped.
 pub fn bounty_game_data(windows: &[BountyItemGrant]) -> Value {
     let mut payload = PARSED.bounty.clone();
     if let Some(map) = payload.as_object_mut() {
@@ -81,10 +85,12 @@ pub fn bounty_game_data(windows: &[BountyItemGrant]) -> Value {
     envelope(payload)
 }
 
+/// The daily bounty config, enveloped.
 pub fn bounty_game_data_daily() -> Value {
     envelope(PARSED.daily.clone())
 }
 
+/// The weekly bounty config, enveloped.
 pub fn bounty_game_data_weekly() -> Value {
     envelope(PARSED.weekly.clone())
 }

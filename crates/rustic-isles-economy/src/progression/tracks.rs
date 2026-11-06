@@ -11,8 +11,11 @@ use serde_json::Value;
 
 use crate::util::{num, sha256_hex, trunc_i64};
 
+/// The largest XP one grant may carry.
 pub const MAX_PROGRESSION_GRANT_AMOUNT: f64 = 100_000.0;
+/// UE4's userId for a call with no logged-in player.
 pub const NO_PLAYER: &str = "INVALID";
+/// The weapons with experience and prestige tracks.
 pub const WEAPONS: [&str; 7] = [
     "Axe",
     "ChainBlades",
@@ -97,6 +100,7 @@ impl TrackCurve {
         }
     }
 
+    /// The track's highest rank.
     pub fn max_rank(&self) -> i64 {
         self.max_rank
     }
@@ -122,8 +126,7 @@ impl TrackCurve {
         if rank > self.max_rank.saturating_add(100_000) {
             return None;
         }
-        // Bounded by the check above
-        #[allow(clippy::cast_precision_loss)]
+        #[allow(clippy::cast_precision_loss, reason = "bounded by the check above")]
         let levels = (rank - self.max_rank) as f64;
         Some(self.cap_xp() + levels * per_level)
     }
@@ -144,12 +147,14 @@ impl TrackCurve {
     }
 }
 
+/// Every track's XP curve from `progression_config.json`.
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct Curves {
     tracks: HashMap<String, TrackCurve>,
 }
 
 impl Curves {
+    /// The curves of `{"payload":{"paths":[..]}}`; a path without an id or requirements is skipped.
     pub fn from_document(document: &Value) -> Self {
         let mut tracks = HashMap::new();
         let paths = document
@@ -178,14 +183,17 @@ impl Curves {
         Self { tracks }
     }
 
+    /// The track's curve.
     pub fn get(&self, track: &str) -> Option<&TrackCurve> {
         self.tracks.get(track)
     }
 
+    /// Whether the track has a curve.
     pub fn has(&self, track: &str) -> bool {
         self.tracks.contains_key(track)
     }
 
+    /// The rank `progress` XP reaches on the track; None for a track with no curve.
     pub fn rank_for_progress(&self, track: &str, progress: f64) -> Option<i64> {
         self.get(track)?.rank_for_progress(progress)
     }
@@ -212,10 +220,12 @@ pub fn curves(shared: &Shared) -> Arc<Curves> {
     })
 }
 
+/// The version's active Hunt Pass id.
 pub fn active_pass(shared: &Shared) -> &'static str {
     shared.version().tables.active_huntpass_id
 }
 
+/// The Hunt Pass id the progression config serves.
 pub fn served_pass(shared: &Shared) -> String {
     rustic_isles_gamedata::progression_config::served_huntpass_id(shared.version().tables, shared.settings())
 }
@@ -224,10 +234,12 @@ fn starts_with_ci(text: &str, prefix: &str) -> bool {
     text.len() >= prefix.len() && text.as_bytes()[..prefix.len()].eq_ignore_ascii_case(prefix.as_bytes())
 }
 
+/// Whether the id names a Hunt Pass (`season`, `eventpass_` or `d24_`, in any case).
 pub fn has_huntpass_shape(id: &str) -> bool {
     ["season", "eventpass_", "d24_"].iter().any(|p| starts_with_ci(id, p))
 }
 
+/// Whether XP to the id goes to the active or the served Hunt Pass.
 pub fn is_huntpass_xp_track(shared: &Shared, id: &str) -> bool {
     id == active_pass(shared) || id == served_pass(shared)
 }
@@ -272,6 +284,7 @@ pub fn xp_track_refusal(shared: &Shared, id: &str) -> Option<String> {
     Some("not on the XP allowlist".into())
 }
 
+/// Whether the XP route may grant to the track.
 pub fn is_approved_xp_track(shared: &Shared, id: &str) -> bool {
     xp_track_refusal(shared, id).is_none()
 }
@@ -289,11 +302,13 @@ pub fn track_cap_xp(shared: &Shared, id: &str) -> Option<f64> {
     curves(shared).get(id).map(TrackCurve::cap_xp)
 }
 
+/// Whether the id is a weapon's experience track, which can be reforged.
 pub fn is_reforgeable_track(id: &str) -> bool {
     id.strip_prefix("ExperienceTrack_Weapon_")
         .is_some_and(|w| WEAPONS.contains(&w))
 }
 
+/// Whether the id is a weapon's prestige track.
 pub fn is_prestige_track(id: &str) -> bool {
     id.strip_prefix("PrestigeTrack_Weapon_")
         .is_some_and(|w| WEAPONS.contains(&w))
@@ -304,6 +319,7 @@ pub fn experience_track_for_prestige(id: &str) -> Option<String> {
     is_prestige_track(id).then(|| id.replacen("PrestigeTrack_", "ExperienceTrack_", 1))
 }
 
+/// The prestige track paired with a weapon's experience track.
 pub fn prestige_track_for(experience_track: &str) -> String {
     experience_track.replacen("ExperienceTrack_", "PrestigeTrack_", 1)
 }

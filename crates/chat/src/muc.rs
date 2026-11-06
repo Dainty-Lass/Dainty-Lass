@@ -17,11 +17,17 @@ use crate::server::{BODY_LIMIT, Chat, MAX_ID, random_hex, utf16_len};
 use crate::settings::NickCheck;
 use crate::xmpp::{Element, Jid, NS_MUC, NS_MUC_USER, NS_STANZAS, escape, log_text, text_of};
 
+/// The longest room nick, in bytes.
 pub const MAX_NICK_BYTES: usize = 1023;
+/// The most rooms one session may be in.
 pub const MAX_ROOMS_PER_SESSION: usize = 8;
+/// The most occupants a room takes.
 pub const MAX_OCCUPANTS: usize = 128;
+/// The most rooms that may exist at once.
 pub const MAX_ROOMS: usize = 1000;
+/// Joins a session may make at once before being throttled.
 pub const JOIN_BURST: u32 = 10;
+/// Room messages a session may send at once before being throttled.
 pub const MESSAGE_BURST: u32 = 8;
 const JOIN_REFILL_MS: f64 = 6000.0;
 const MESSAGE_REFILL_MS: f64 = 1000.0;

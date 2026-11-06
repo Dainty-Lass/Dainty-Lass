@@ -4,7 +4,12 @@
 //! What the end-to-end tests share: a free band of UDP ports, the two-hunt tables, a Director served on
 //! 127.0.0.1:0 over the real launcher and the fake game server, and a small HTTP client.
 
-#![allow(dead_code, clippy::unwrap_used, clippy::expect_used)]
+#![allow(
+    dead_code,
+    clippy::unwrap_used,
+    clippy::expect_used,
+    reason = "shared by several test binaries, each using only some; a panic is how a test fails"
+)]
 
 use std::net::{SocketAddr, UdpSocket};
 use std::path::{Path, PathBuf};

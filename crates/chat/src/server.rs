@@ -35,6 +35,7 @@ pub const BODY_LIMIT: usize = 2048;
 /// Default unsent-output limit, bytes
 pub const OUTPUT_LIMIT: usize = 256 * 1024;
 
+/// The time source: unix milliseconds. Tests swap in a fixed clock.
 pub type Clock = Arc<dyn Fn() -> i64 + Send + Sync>;
 /// Sees every stanza handed to a connection, with the receiving session's JID local part
 pub type Observer = Arc<dyn Fn(Option<&str>, &str) + Send + Sync>;
@@ -69,12 +70,18 @@ const MAX_TOKEN_UNITS: usize = 8192;
 const MAX_LOGGED_NAMESPACES: usize = 32;
 const REPORT_WINDOW: i64 = 30_000;
 
+/// How a chat runs, beyond its [`crate::Settings`]: the hooks that tests and the host replace.
 #[derive(Clone)]
 pub struct Options {
+    /// Where every time comes from.
     pub clock: Clock,
+    /// Unsent output, in bytes, past which a connection stops getting stanzas.
     pub output_limit: usize,
+    /// Whether the task ticks itself; tests turn it off and call `tick`.
     pub auto_tick: bool,
+    /// Sees every stanza handed to a connection.
     pub observe: Option<Observer>,
+    /// The dashboard's filter and chat log.
     pub moderation: Moderation,
 }
 
@@ -93,9 +100,11 @@ impl Default for Options {
 /// What the task hands a connection's writer.
 #[derive(Debug)]
 pub enum Out {
+    /// One text frame.
     Text(String),
     /// A close frame with this code and an empty reason; nothing is written after it
     Close(u16),
+    /// Drop the socket without a close frame.
     Cut,
 }
 
@@ -110,12 +119,14 @@ pub struct Writer {
 /// The connection's side: what the task hands it, and the counts the task reads.
 #[derive(Debug)]
 pub struct WriterEnd {
+    /// What the task hands the connection, in order.
     pub rx: mpsc::UnboundedReceiver<Out>,
     unsent: Arc<AtomicUsize>,
     closed: Arc<AtomicBool>,
 }
 
 impl Writer {
+    /// A writer and the connection's end of it.
     pub fn new() -> (Self, WriterEnd) {
         let (tx, rx) = mpsc::unbounded_channel();
         let unsent = Arc::new(AtomicUsize::new(0));
@@ -133,6 +144,7 @@ impl Writer {
         self.unsent.load(Ordering::Relaxed)
     }
 
+    /// Whether the connection's socket is gone.
     pub fn is_closed(&self) -> bool {
         self.closed.load(Ordering::Acquire)
     }
@@ -143,6 +155,7 @@ impl Writer {
 }
 
 impl WriterEnd {
+    /// Takes `bytes` just written off the unsent total.
     pub fn written(&self, bytes: usize) {
         _ = self
             .unsent
@@ -158,38 +171,63 @@ impl WriterEnd {
 /// Whatever the chat task is asked.
 #[derive(Debug)]
 pub enum Event {
+    /// Whether a new connection from `address` may open. Answered on `reply`.
     Admit {
+        /// The player's address.
         address: IpAddr,
+        /// Gets the answer.
         reply: oneshot::Sender<bool>,
     },
+    /// A WebSocket opened. Answered on `reply` with the session id.
     Open {
+        /// The player's address.
         address: IpAddr,
+        /// `gateway` when the gateway named the address, `direct` otherwise.
         via: &'static str,
+        /// Where the task writes to the connection.
         writer: Writer,
+        /// Gets the session id.
         reply: oneshot::Sender<u64>,
     },
+    /// A text frame from a session.
     Frame {
+        /// The session id.
         session: u64,
+        /// The frame as received.
         text: String,
     },
+    /// A session's socket closed.
     Gone {
+        /// The session id.
         session: u64,
+        /// Whether it closed on a frame over [`FRAME_LIMIT`], which counts as a failed login.
         too_large: bool,
     },
+    /// A mute was set or lifted: live sessions of `account` follow it.
     Muted {
+        /// The account.
         account: GlobalId,
+        /// The mute, or none when lifted.
         mute: Option<Mute>,
     },
+    /// A direct message from another node for a session here. Answered with whether one took it.
     RemoteDirect {
+        /// The message.
         message: DirectWire,
+        /// Gets whether a session took it.
         reply: oneshot::Sender<bool>,
     },
+    /// A room message from another node for the occupants here.
     RemoteRoom {
+        /// The message.
         message: RoomWire,
     },
+    /// Run the periodic work now: pings, sweeps, federation's outbox.
     Tick {
+        /// Signalled when the tick is done.
         done: oneshot::Sender<()>,
     },
+    /// End every session and stop the task.
     Shutdown,
 }
 
@@ -201,6 +239,7 @@ pub fn now_ms() -> i64 {
     }
 }
 
+/// `n` random bytes as lowercase hex.
 pub fn random_hex(n: usize) -> String {
     let mut bytes = vec![0_u8; n];
     rand::rng().fill_bytes(&mut bytes);
@@ -414,7 +453,7 @@ pub(crate) struct Session {
     pub(crate) last_limit_log: Option<i64>,
     logged_namespaces: Vec<String>,
     /// Kept as the Node chat kept it; nothing is echoed
-    #[allow(dead_code)]
+    #[allow(dead_code, reason = "kept as the Node chat kept it; nothing reads it")]
     available: bool,
     /// `(room JID as the client spelled it, nickname)`, in join order
     pub(crate) rooms: Vec<(String, String)>,
@@ -708,7 +747,7 @@ impl Chat {
             }
         }
         let Some(session) = self.sessions.get(&id) else { return };
-        #[allow(clippy::cast_precision_loss)]
+        #[allow(clippy::cast_precision_loss, reason = "a session age in ms, far below 2^53")]
         let age = ((now - session.opened) as f64 / 1000.0).round();
         info!(
             "chat: closed c={id} uid={} reason={} after={age}s",
@@ -1710,7 +1749,7 @@ impl Chat {
 
 #[cfg(test)]
 mod tests {
-    #![allow(clippy::unwrap_used)]
+    #![allow(clippy::unwrap_used, reason = "a panic is how a test fails")]
     use base64::Engine as _;
 
     use super::*;

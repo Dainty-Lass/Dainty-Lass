@@ -23,8 +23,11 @@ use crate::{
     wire::{self, JsonObject},
 };
 
+/// How long a provider request may take, in milliseconds.
 pub const PROVIDER_TIMEOUT_MS: u64 = 5000;
+/// Cloudflare's Realtime TURN API.
 pub const CLOUDFLARE_RTC_API: &str = "https://rtc.live.cloudflare.com/v1";
+/// Cloudflare's GraphQL analytics API, read for relay usage.
 pub const CLOUDFLARE_GRAPHQL_API: &str = "https://api.cloudflare.com/client/v4/graphql";
 
 // Umbrella spec D3: the Rustic label. Changing it changes every tag, and so the provider's per-tag usage history.
@@ -72,13 +75,16 @@ pub fn mint_turn_rest(turn_rest: &TurnRest, account: &AccountId, ttl_seconds: u3
     }
 }
 
+/// A credential as a provider issued it.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct IssuedCredential {
     /// STUN URLs the provider adds to the configured ones.
     pub stun_urls: Vec<String>,
+    /// The TURN credential.
     pub credential: RelayCredential,
 }
 
+/// Issues TURN REST (shared-secret) credentials locally, with no provider call.
 #[derive(Clone, Debug)]
 pub struct TurnRestIssuer(pub TurnRest);
 
@@ -96,22 +102,29 @@ impl CredentialIssuer for TurnRestIssuer {
     }
 }
 
+/// One HTTPS POST to the relay provider.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ProviderRequest {
+    /// The full URL.
     pub url: String,
+    /// The API token, sent as `Authorization: Bearer`.
     pub bearer: Secret,
     /// JSON text.
     pub body: String,
+    /// How long the request may take, in milliseconds.
     pub timeout_ms: u64,
 }
 
+/// What the provider answered.
 #[derive(Clone, Debug, PartialEq)]
 pub struct ProviderAnswer {
+    /// The HTTP status.
     pub status: u16,
     /// `None` when the body was not JSON.
     pub json: Option<Value>,
 }
 
+/// The provider could not be reached, or did not answer in time.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ProviderUnreachable;
 
@@ -126,13 +139,18 @@ impl std::error::Error for ProviderUnreachable {}
 /// HTTPS to the provider, written by the module: a POST with `Authorization: Bearer`, the JSON body and the
 /// timeout. It logs neither the token nor the body.
 pub trait ProviderHttp: Send + Sync {
+    /// Sends the request; `Err` only when no answer came back.
     fn post(&self, request: ProviderRequest) -> BoxFuture<'_, Result<ProviderAnswer, ProviderUnreachable>>;
 }
 
+/// Why a provider call gave no credential.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum ProviderFailure {
+    /// The provider answered with a status that is not success.
     Status(u16),
+    /// The answer had no usable TURN entry.
     NoRelayEntry,
+    /// The provider could not be reached.
     Unreachable(ProviderUnreachable),
 }
 
@@ -154,6 +172,7 @@ impl From<ProviderUnreachable> for ProviderFailure {
     }
 }
 
+/// Asks Cloudflare for a TURN credential for `account`, valid for `ttl_seconds`.
 pub async fn mint_cloudflare(
     cloudflare: &CloudflareTurn,
     account: &AccountId,
@@ -198,9 +217,12 @@ pub async fn mint_cloudflare(
     Ok(IssuedCredential { stun_urls, credential })
 }
 
+/// Issues credentials through Cloudflare's TURN service.
 #[derive(Clone)]
 pub struct CloudflareIssuer {
+    /// The Cloudflare TURN key.
     pub key: CloudflareTurn,
+    /// HTTPS to Cloudflare.
     pub http: Arc<dyn ProviderHttp>,
 }
 
@@ -217,8 +239,10 @@ impl CredentialIssuer for CloudflareIssuer {
     }
 }
 
+/// The ICE servers read from a provider's answer.
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct ProviderIceServers {
+    /// Its STUN URLs.
     pub stun_urls: Vec<String>,
     /// TURN URLs, username and credential of the first usable TURN entry.
     pub turn: Option<(Vec<String>, String, Secret)>,
@@ -244,6 +268,7 @@ fn entry_urls(entry: &Value) -> Vec<&str> {
         .collect()
 }
 
+/// Reads the provider's `iceServers` (one entry or a list): its STUN URLs and first usable TURN entry, dropping port 53.
 pub fn normalize_provider_ice_servers(body: Option<&Value>) -> ProviderIceServers {
     let entries: &[Value] = match body.and_then(|body| body.get("iceServers")) {
         Some(Value::Array(items)) => items,
@@ -337,6 +362,7 @@ pub struct RelayUsageCache {
 }
 
 impl RelayUsageCache {
+    /// The account's relay bytes for `month`, while the cached figure is still fresh.
     pub fn get(&self, account: &AccountId, month: &str, now: UnixMillis) -> Option<f64> {
         let entries = guard(&self.entries);
         let &(ref for_month, bytes, read_at) = entries.get(&account.0)?;
@@ -344,6 +370,7 @@ impl RelayUsageCache {
         (fresh && for_month == month).then_some(bytes)
     }
 
+    /// Caches the account's relay bytes for `month`, read at `now`.
     pub fn set(&self, account: &AccountId, month: &str, bytes: f64, now: UnixMillis) {
         let mut entries = guard(&self.entries);
         if entries.len() > MAX_TRACKED {
@@ -360,6 +387,7 @@ pub struct HourlyCounter {
 }
 
 impl HourlyCounter {
+    /// Counts one call for `key` and returns whether it is within `limit` calls in the last hour; a refused call is not counted.
     pub fn allow(&self, key: &str, limit: u32, now: UnixMillis) -> bool {
         let within = |at: &i64| now.0 - *at < WINDOW_MS;
         let mut hits = guard(&self.hits);
@@ -377,6 +405,7 @@ impl HourlyCounter {
 }
 
 wire_enum! {
+    /// Why a transport gets no TURN relay; each travels as its code.
     #[derive(Clone, Copy, Debug, Eq, PartialEq)]
     RelayDenied {
         NotConfigured = "RELAY_NOT_CONFIGURED",
@@ -385,20 +414,33 @@ wire_enum! {
     }
 }
 
+/// Whether a transport may use the TURN relay.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum RelayStatus {
-    Allowed { ttl_seconds: u32, expires_at: UnixMillis },
+    /// Granted.
+    Allowed {
+        /// How long the credential lasts, in seconds.
+        ttl_seconds: u32,
+        /// When it stops working.
+        expires_at: UnixMillis,
+    },
+    /// Not granted; the transport gets STUN only.
     Denied(RelayDenied),
 }
 
+/// One ICE server entry, as the transports read it.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct IceServer {
+    /// Its STUN or TURN URLs.
     pub urls: Vec<String>,
+    /// The TURN username; `None` for STUN.
     pub username: Option<String>,
+    /// The TURN password; `None` for STUN.
     pub credential: Option<Secret>,
 }
 
 impl IceServer {
+    /// A STUN entry.
     pub fn stun(urls: Vec<String>) -> Self {
         Self {
             username: None,
@@ -407,6 +449,7 @@ impl IceServer {
         }
     }
 
+    /// A TURN entry for this credential.
     pub fn turn(credential: &RelayCredential) -> Self {
         let RelayCredential {
             username,
@@ -432,17 +475,22 @@ impl IceServer {
     }
 }
 
+/// The ICE servers and relay status for one transport.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct RelayGrant {
+    /// STUN first, then the TURN entry when granted.
     pub ice_servers: Vec<IceServer>,
+    /// Whether the relay was granted.
     pub relay: RelayStatus,
 }
 
 impl RelayGrant {
+    /// The ICE servers as a JSON array.
     pub fn ice_servers_json(&self) -> String {
         wire::json_array(self.ice_servers.iter().map(IceServer::to_json))
     }
 
+    /// The relay status as JSON: `allowed`, and the TTL and expiry or the reason.
     pub fn relay_json(&self) -> String {
         let body = JsonObject::new();
         let filled = match self.relay {
@@ -458,6 +506,7 @@ impl RelayGrant {
         filled.finish()
     }
 
+    /// `ISSUED`, or the refusal's code, for the log.
     pub fn result_label(&self) -> &'static str {
         let RelayStatus::Denied(why) = self.relay else {
             return "ISSUED";
@@ -466,14 +515,19 @@ impl RelayGrant {
     }
 }
 
+/// Grants relay credentials under the server's relay settings.
 #[derive(Clone)]
 pub struct RelayGrants {
+    /// The relay settings.
     pub config: Arc<RelayConfig>,
+    /// HTTPS to the provider.
     pub http: Arc<dyn ProviderHttp>,
+    /// Cached monthly relay usage per account.
     pub usage: Arc<RelayUsageCache>,
 }
 
 impl RelayGrants {
+    /// The issuer for the configured provider; `None` when no provider is configured or its settings are missing.
     pub fn issuer(&self) -> Option<Box<dyn CredentialIssuer>> {
         let config = &*self.config;
         let issuer: Box<dyn CredentialIssuer> = match config.provider {

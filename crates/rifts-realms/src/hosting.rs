@@ -99,53 +99,88 @@ fn no(says: Says) -> RealmsError {
 /// What the host's launcher starts a hosted server from.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct HostBootstrap {
+    /// The session to host.
     pub session: SessionId,
+    /// The generation the host holds.
     pub generation: u64,
+    /// The runtime's capability; never logged.
     pub capability: Secret,
+    /// The host's own admission ticket, when it also plays.
     pub host_ticket: Option<Secret>,
+    /// The backend URL the runtime calls.
     pub backend_url: String,
+    /// The game server's UDP port.
     pub server_udp_port: u16,
+    /// The most players the server takes.
     pub maximum_peers: u8,
 }
 
+/// A session's status as a participant sees it.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct HuntStatus {
+    /// Where the session is in its lifecycle.
     pub state: HuntState,
+    /// Its generation.
     pub generation: u64,
+    /// Guard's verdict on the hunt, when there is one.
     pub verdict: Option<Json>,
 }
 
+/// A participant's report of its connection to the host.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Observation {
+    /// Whether the host was reachable.
     pub host_reachable: bool,
+    /// Whether the participant's local bridge was alive.
     pub local_bridge_alive: bool,
+    /// `DIRECT`, `RELAY` or `CONNECTING`; `None` when no metrics were available.
     pub route_kind: Option<String>,
+    /// Round trip to the host, in milliseconds.
     pub ping_ms: Option<u32>,
+    /// Jitter, in milliseconds.
     pub jitter_ms: Option<u32>,
+    /// Packet loss, 0 to 100.
     pub packet_loss_percent: Option<u8>,
+    /// How long since the last packet from the host, in milliseconds.
     pub last_packet_age_ms: Option<u64>,
 }
 
+/// A realm host's request to start one of its hubs.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct StartHub {
+    /// Which hub.
     pub kind: HubKind,
+    /// The most players it takes, 1 to 64.
     pub max_players: u8,
+    /// How long an idle player may stay, in seconds.
     pub afk_seconds: u32,
 }
 
 /// The session routes as typed calls with seam ids.
 pub trait HuntLifecycle: Send + Sync {
+    /// What the host's launcher starts the hosted server from; refused for anyone but the session's host.
     fn host_bootstrap(&self, account: AccountId, session: SessionId) -> Fut<'_, HostBootstrap>;
+    /// A participant's local bridge is up on `local_port`.
     fn route_ready(&self, account: AccountId, session: SessionId, local_port: u16) -> Fut<'_, ()>;
+    /// The host's runtime is ready for players.
     fn host_ready(&self, runtime: RuntimeAuth) -> Fut<'_, ()>;
+    /// The host's runtime aborts the session.
     fn abort(&self, runtime: RuntimeAuth, reason: String) -> Fut<'_, ()>;
+    /// The host's runtime ends the session cleanly.
     fn end(&self, runtime: RuntimeAuth, reason: String) -> Fut<'_, ()>;
+    /// The session's status for a participant.
     fn status(&self, account: AccountId, session: SessionId) -> Fut<'_, HuntStatus>;
+    /// Records a participant's report of its connection to the host.
     fn observe(&self, account: AccountId, session: SessionId, observation: Observation) -> Fut<'_, ()>;
+    /// Starts one of the host's realm hubs and answers its bootstrap.
     fn start_hub(&self, account: AccountId, hub: StartHub) -> Fut<'_, HostBootstrap>;
+    /// Stops one of the host's realm hubs.
     fn stop_hub(&self, account: AccountId, kind: HubKind) -> Fut<'_, ()>;
+    /// The host's realm hosting status, as JSON.
     fn hosting_status(&self, account: AccountId) -> Fut<'_, Json>;
+    /// Checks an emergency-stop policy body and answers the policy it describes; nothing is stored (kept as found).
     fn set_emergency_stop(&self, admin_key: String, policy: Json) -> Fut<'_, Json>;
+    /// The launch manifest for a hosted session, as JSON.
     fn resolve_launch_manifest(&self, request: Json) -> Fut<'_, Json>;
 }
 
@@ -1153,7 +1188,7 @@ impl Hosting {
     }
 
     /// A realm hub, STARTING on its host with a lease and the startup clock running.
-    #[allow(clippy::too_many_arguments)]
+    #[allow(clippy::too_many_arguments, reason = "each argument is one field of the new hub")]
     fn new_hub(
         &self,
         host: &str,

@@ -14,6 +14,7 @@ fn is_token_byte(b: u8) -> bool {
     b.is_ascii_alphanumeric() || b == b'_' || b == b'-'
 }
 
+/// `text` with JWTs, account keys (current and legacy) and long token-like runs replaced.
 pub fn redact(text: &str) -> String {
     let text = jwts(text);
     let text = keys(&text, ACCOUNT_KEY_PREFIX);

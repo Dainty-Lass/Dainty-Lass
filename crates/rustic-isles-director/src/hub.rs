@@ -12,7 +12,9 @@ use std::time::Instant;
 use futures_util::FutureExt;
 use futures_util::future::{BoxFuture, Shared};
 
+/// Wait (ms) before each retry after a failure; the last repeats.
 pub const DEFAULT_BACKOFF_MS: [u64; 6] = [5_000, 15_000, 30_000, 60_000, 120_000, 300_000];
+/// Uptime (ms) after which a hub's failure count resets.
 pub const DEFAULT_STABLE_UPTIME_MS: u64 = 120_000;
 
 /// Milliseconds since the first call in this process.
@@ -30,15 +32,20 @@ pub fn switch_on(value: Option<&str>, default: bool) -> bool {
     !matches!(value.to_ascii_lowercase().as_str(), "0" | "false" | "no" | "off")
 }
 
+/// A supervisor log line's level.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Level {
+    /// Routine progress.
     Info,
+    /// Something the host should look at.
     Warn,
+    /// Something failed.
     Error,
 }
 
 /// A cancellable timer from [`Options::set_timer`].
 pub trait Timer: Send {
+    /// Stops the timer; a no-op once it fired.
     fn cancel(&self);
 }
 
@@ -56,8 +63,11 @@ impl Timer for NoTimer {
     fn cancel(&self) {}
 }
 
+/// Starts the hub for a reason (shown in the log), returning it or the failure text.
 pub type StartFn<T> = Arc<dyn Fn(String) -> BoxFuture<'static, Result<T, String>> + Send + Sync>;
+/// Calls the closure after a delay in ms, returning a handle that cancels it.
 pub type SetTimer = Arc<dyn Fn(u64, Box<dyn FnOnce() + Send>) -> Box<dyn Timer> + Send + Sync>;
+/// Writes a log line at a level, with an optional error text.
 pub type LogFn = Arc<dyn Fn(Level, String, Option<String>) + Send + Sync>;
 
 /// A tokio sleep; none outside a runtime.
@@ -86,14 +96,23 @@ pub fn tracing_log() -> LogFn {
     })
 }
 
+/// How a [`HubSupervisor`] starts, checks and logs its hub.
 pub struct Options<T> {
+    /// The hub's name in log lines.
     pub label: String,
+    /// Starts the hub.
     pub start: StartFn<T>,
+    /// Whether a started hub is still running.
     pub is_alive: Arc<dyn Fn(&T) -> bool + Send + Sync>,
+    /// The clock, monotonic ms.
     pub now: Arc<dyn Fn() -> u64 + Send + Sync>,
+    /// Schedules the retry.
     pub set_timer: SetTimer,
+    /// Where log lines go.
     pub log: LogFn,
+    /// Wait (ms) before each retry; the last repeats.
     pub backoff_ms: Vec<u64>,
+    /// Uptime (ms) after which the failure count resets.
     pub stable_uptime_ms: u64,
 }
 
@@ -132,6 +151,7 @@ enum Begin<T> {
     Wait(Pending<T>),
 }
 
+/// Keeps one persistent hub running (§7.1): one start at a time, retries with backoff.
 pub struct HubSupervisor<T: Clone + PartialEq + Send + Sync + 'static> {
     options: Options<T>,
     state: Mutex<State<T>>,
@@ -143,6 +163,7 @@ fn seconds(ms: u64) -> String {
 }
 
 impl<T: Clone + PartialEq + Send + Sync + 'static> HubSupervisor<T> {
+    /// A supervisor with nothing started yet.
     pub fn new(options: Options<T>) -> Arc<Self> {
         Arc::new_cyclic(|me| Self {
             options,
@@ -160,6 +181,7 @@ impl<T: Clone + PartialEq + Send + Sync + 'static> HubSupervisor<T> {
         })
     }
 
+    /// The hub's name in log lines.
     pub fn label(&self) -> &str {
         &self.options.label
     }
@@ -424,6 +446,7 @@ impl<T: Clone + PartialEq + Send + Sync + 'static> HubSupervisor<T> {
         }
     }
 
+    /// Stops retrying; a later failure arms no timer.
     pub fn dispose(&self) {
         let mut state = self.state();
         state.disposed = true;
@@ -432,22 +455,27 @@ impl<T: Clone + PartialEq + Send + Sync + 'static> HubSupervisor<T> {
         }
     }
 
+    /// The running hub, if any.
     pub fn current(&self) -> Option<T> {
         self.state().current.clone()
     }
 
+    /// Whether a start is in flight.
     pub fn pending(&self) -> bool {
         self.state().pending.is_some()
     }
 
+    /// Failed starts since the last stable run.
     pub fn failure_count(&self) -> u32 {
         self.state().failures
     }
 
+    /// When the next retry is due, monotonic ms.
     pub fn next_attempt_due_at(&self) -> u64 {
         self.state().next_due
     }
 
+    /// Whether a retry timer is set.
     pub fn retry_armed(&self) -> bool {
         self.state().timer.is_some()
     }

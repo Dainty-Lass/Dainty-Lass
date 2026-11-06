@@ -8,29 +8,49 @@ use std::path::{Path, PathBuf};
 
 use crate::error::HostError;
 
+/// The game runtime's DLLs `publish-runtime` publishes: the runtime and its loader.
 pub const RUNTIME_FILE_NAMES: [&str; 2] = ["Rustic-Isles.dll", "winmm.dll"];
+/// The pinned Dauntless 1.14.7 build's changelist.
 pub const GAME_CHANGELIST: u32 = 647472;
+/// The pinned build's version string, as the game reports it.
 pub const GAME_VERSION_TEXT: &str = "dauntless_rel-1.14.7_Shipping_2024-04-01_14-59-21_647472";
+/// The SHA-256 of the pinned build's `Dauntless-Win64-Shipping.exe`, lowercase hex.
 pub const PINNED_EXE_SHA256: &str = "f3f95fbf22709ef077a11632ed95d675b7209b7e0172d9ecb9ba7d02a1fbb66b";
+/// The most hunts a server runs at once.
 pub const MAX_HUNTS: u32 = 10;
+/// The public port a 1.4.4 edition's gateway listened on.
 pub const DEFAULT_LEGACY_PUBLIC_PORT: u16 = 4443;
 
+/// The server's fixed ports.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Ports {
+    /// The backend's TCP port.
     pub backend: u16,
+    /// The Director's TCP port.
     pub director: u16,
+    /// The content server's TCP port.
     pub content: u16,
+    /// The admin service's TCP port.
     pub admin: u16,
+    /// The allowlist's TCP port.
     pub allowlist: u16,
+    /// A public server's gateway port, unless host.toml sets another.
     pub public_gateway: u16,
+    /// A private server's gateway port.
     pub private_gateway: u16,
+    /// The relay's TCP port, which serves `/QoS`.
     pub relay: u16,
+    /// MongoDB's TCP port.
     pub mongo: u16,
+    /// The first UDP game port, unless more hunts need the range to start lower.
     pub game_first: u16,
+    /// The last UDP game port.
     pub game_last: u16,
+    /// The lowest UDP game port any hunt count gives.
     pub game_lowest: u16,
 }
 
+/// The ports the server uses.
 pub const PORTS: Ports = Ports {
     backend: 61000,
     director: 61001,
@@ -46,18 +66,28 @@ pub const PORTS: Ports = Ports {
     game_lowest: 8766,
 };
 
+/// The ports a 1.4.4 edition used beside 1.14.7.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct LegacyPorts {
+    /// Its metagame's TCP port.
     pub metagame: u16,
+    /// Its deploy service's TCP port.
     pub deploy: u16,
+    /// Its content server's TCP port.
     pub content: u16,
+    /// Its allowlist's TCP port.
     pub allowlist: u16,
+    /// Its private gateway's TCP port.
     pub private_gateway: u16,
+    /// Its chat's TCP port.
     pub chat: u16,
+    /// Its first UDP game port.
     pub game_first: u16,
+    /// Its last UDP game port.
     pub game_last: u16,
 }
 
+/// The ports a 1.4.4 edition used when both ran.
 pub const BOTH_LEGACY_PORTS: LegacyPorts = LegacyPorts {
     metagame: 61010,
     deploy: 61011,
@@ -69,6 +99,7 @@ pub const BOTH_LEGACY_PORTS: LegacyPorts = LegacyPorts {
     game_last: 8787,
 };
 
+/// The game executable's path inside a Dauntless folder.
 pub fn game_exe_relative() -> PathBuf {
     Path::new("Archon")
         .join("Binaries")
@@ -76,6 +107,7 @@ pub fn game_exe_relative() -> PathBuf {
         .join("Dauntless-Win64-Shipping.exe")
 }
 
+/// The first and last UDP port the game servers use for `max_hunts` (clamped to 1 to [`MAX_HUNTS`]).
 pub fn game_port_range(max_hunts: u32) -> (u16, u16) {
     let hunts = max_hunts.clamp(1, MAX_HUNTS) as u16;
     let first = PORTS.game_first.min(PORTS.game_last - 1 - hunts);
@@ -90,6 +122,7 @@ fn is_repo_root(dir: &Path) -> bool {
         || dir.join("release.json").exists()
 }
 
+/// The first folder from `start` upward (at most 8 levels) that is a checkout or a release; an error when none is.
 pub fn find_repo_root(start: &Path) -> Result<PathBuf, HostError> {
     let resolved = std::fs::canonicalize(start).unwrap_or_else(|_| start.to_path_buf());
     let mut current: Option<&Path> = Some(resolved.as_path());
@@ -108,6 +141,7 @@ pub fn find_repo_root(start: &Path) -> Result<PathBuf, HostError> {
     )))
 }
 
+/// The server folder found from the current folder, else from the executable's.
 pub fn locate_repo_root() -> Result<PathBuf, HostError> {
     let cwd = std::env::current_dir().map_err(|e| HostError::io(".", e))?;
     if let Ok(root) = find_repo_root(&cwd) {
@@ -122,51 +156,93 @@ pub fn locate_repo_root() -> Result<PathBuf, HostError> {
     find_repo_root(&cwd)
 }
 
+/// Where everything the host kit reads and writes is, from the server folder.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Paths {
+    /// The server folder: a checkout or an unpacked release.
     pub repo: PathBuf,
+    /// `preset/`: the game-data preset a checkout ships.
     pub preset: PathBuf,
+    /// `services/host`.
     pub host_kit: PathBuf,
+    /// `services/gateway`.
     pub gateway_dir: PathBuf,
+    /// `services/content`.
     pub content_dir: PathBuf,
+    /// `.workspace/`: everything the server makes and keeps.
     pub workspace: PathBuf,
+    /// Rustic Isles' 1.14.7 reference tree.
     pub paradox: PathBuf,
+    /// `modules/rustic-isles`, in this checkout or its `restricted/`.
     pub isles: PathBuf,
+    /// The reference backend, `ParadoxBackend`.
     pub backend_dir: PathBuf,
+    /// The reference Director, `ParadoxDirector`.
     pub director_dir: PathBuf,
+    /// The game runtime's sources.
     pub runtime_source: PathBuf,
+    /// The generated SDK header, `SDK.hpp`.
     pub sdk_header: PathBuf,
+    /// The generated SDK folder.
     pub sdk_dir: PathBuf,
+    /// The built runtime DLL.
     pub runtime_dll: PathBuf,
+    /// The runtime loader's sources.
     pub loader_dir: PathBuf,
+    /// The built loader, `winmm.dll`.
     pub loader_dll: PathBuf,
+    /// CatalogExporter's sources.
     pub exporter_dir: PathBuf,
+    /// The built CatalogExporter DLL.
     pub exporter_dll: PathBuf,
+    /// The backend's game data.
     pub backend_game_data: PathBuf,
+    /// The Director's game data.
     pub director_game_data: PathBuf,
+    /// The backend's raw game data, the generators' input.
     pub raw_game_data: PathBuf,
+    /// The game exports, `Items_Analysis`.
     pub exports: PathBuf,
+    /// Where the pinned store captures are fetched to.
     pub store_captures: PathBuf,
+    /// The store-capture pin, `store-captures.json`.
     pub captures_pin: PathBuf,
+    /// `.workspace/runtime`: the published runtime.
     pub runtime_publish: PathBuf,
+    /// `.workspace/config`: host.toml, secrets.env and the env files.
     pub config: PathBuf,
+    /// `.workspace/config/host.toml`.
     pub host_toml: PathBuf,
+    /// `.workspace/tls`: the gateway's and the node's certificates.
     pub tls: PathBuf,
+    /// The gateway's certificate, which every invite's fingerprint depends on.
     pub cert_file: PathBuf,
+    /// The gateway's private key.
     pub key_file: PathBuf,
+    /// `.workspace/mongodb`: a managed mongod's data.
     pub mongo_data: PathBuf,
+    /// `.workspace/logs`.
     pub logs: PathBuf,
+    /// The game servers' logs.
     pub gameserver_logs: PathBuf,
+    /// `.workspace/branding`.
     pub branding: PathBuf,
+    /// `.workspace/config/news.json`.
     pub news_file: PathBuf,
+    /// `.workspace/bin`.
     pub bin: PathBuf,
+    /// The Linux game server wrapper, `reforged-gameserver`.
     pub gameserver_wrapper: PathBuf,
+    /// `.workspace/wine`: the Wine prefix.
     pub wine_prefix: PathBuf,
+    /// `.workspace/proton`: Proton's compat data.
     pub proton_data: PathBuf,
+    /// `.workspace/systemd`: the generated units and their install script.
     pub systemd: PathBuf,
 }
 
 impl Paths {
+    /// The layout under `repo`; Rustic Isles is looked for in `restricted/` first.
     pub fn new(repo: impl Into<PathBuf>) -> Self {
         let repo = repo.into();
         let restricted = if repo.join("restricted").join("modules").join("rustic-isles").exists() {
@@ -265,7 +341,7 @@ impl Paths {
 
 #[cfg(test)]
 mod tests {
-    #![allow(clippy::unwrap_used, clippy::expect_used)]
+    #![allow(clippy::unwrap_used, clippy::expect_used, reason = "a panic is how a test fails")]
 
     use super::*;
 

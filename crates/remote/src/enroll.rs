@@ -19,23 +19,37 @@ use url::Url;
 
 use crate::RemoteError;
 
+/// URI scheme of enrollment invites.
 pub const ENROLL_SCHEME: &str = "dainty-lass-remote";
+/// URI host of enrollment invites.
 pub const ENROLL_HOST: &str = "enroll";
+/// Invite format version (`v=`).
 pub const ENROLL_VERSION: u32 = 1;
+/// Random bytes in an enrollment token.
 pub const TOKEN_BYTES: usize = 32;
+/// How long an invite is valid when the operator sets nothing: 15 minutes.
 pub const DEFAULT_ENROLL_TTL_SECS: i64 = 15 * 60;
+/// Longest validity an invite may have: one day.
 pub const MAX_ENROLL_TTL_SECS: i64 = 24 * 60 * 60;
+/// Longest enrollment URI, in bytes.
 pub const MAX_ENROLL_URI_LEN: usize = 2048;
+/// Longest install label, in bytes.
 pub const MAX_LABEL_LEN: usize = 64;
 
 /// Parsed contents of a `dainty-lass-remote://enroll?...` one-time invitation.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct EnrollmentInvite {
+    /// The controller's base URL, `scheme://host[:port]`.
     pub url: String,
+    /// SHA-256 of the controller's certificate, 64 lowercase hex: checked before the token is sent.
     pub controller_fp: String,
+    /// Node id the install is enrolled as.
     pub node: NodeId,
+    /// Region the install is enrolled in.
     pub region: Region,
+    /// The one-time token, URL-safe base64.
     pub token: String,
+    /// Display label for the install.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub label: Option<String>,
 }
@@ -44,13 +58,20 @@ pub struct EnrollmentInvite {
 /// Only the SHA-256 digest of the token is persisted, never the raw token.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PendingEnrollment {
+    /// SHA-256 of the token, lowercase hex; the token itself is never stored.
     pub token_sha256_hex: String,
+    /// Node id the install will have.
     pub node: NodeId,
+    /// Region it will be in.
     pub region: Region,
+    /// Display label.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub label: Option<String>,
+    /// When it was minted, in Unix milliseconds.
     pub created_at_ms: i64,
+    /// When it stops being accepted, in Unix milliseconds.
     pub expires_at_ms: i64,
+    /// Whether it was redeemed.
     pub used: bool,
 }
 
@@ -174,6 +195,7 @@ pub fn validate_enrollment_token(token: &str) -> Result<[u8; TOKEN_BYTES], Remot
 }
 
 impl EnrollmentInvite {
+    /// Checks every field is valid and in canonical form.
     pub fn validate(&self) -> Result<(), RemoteError> {
         let normalized_url = validate_controller_url(&self.url)?;
         if normalized_url != self.url {
@@ -198,6 +220,7 @@ impl EnrollmentInvite {
         Ok(())
     }
 
+    /// The invite as a `dainty-lass-remote://enroll?...` URI, after [`EnrollmentInvite::validate`].
     pub fn to_uri(&self) -> Result<String, RemoteError> {
         self.validate()?;
         let encoded_url = utf8_percent_encode(&self.url, NON_ALPHANUMERIC).to_string();

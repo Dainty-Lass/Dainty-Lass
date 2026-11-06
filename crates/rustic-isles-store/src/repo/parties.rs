@@ -17,14 +17,18 @@ pub const REVISION_CONFLICT: &str = "PARTY_REVISION_CONFLICT";
 
 macro_rules! text_enum {
     ($name:ident { $($variant:ident = $text:literal),* $(,)? }) => {
+        /// A text column's values; each variant is stored as the text beside it in the invocation.
+        #[allow(missing_docs, reason = "the invocation's variants take no doc comments; each stands beside its stored text")]
         #[derive(Debug, Clone, Copy, PartialEq, Eq)]
         pub enum $name { $($variant),* }
 
         impl $name {
+            /// The stored text.
             pub fn as_str(self) -> &'static str {
                 match self { $(Self::$variant => $text),* }
             }
 
+            /// The value a stored text names; None for any other text.
             pub fn parse(text: &str) -> Option<Self> {
                 match text { $($text => Some(Self::$variant),)* _ => None }
             }
@@ -64,25 +68,37 @@ text_enum!(OutboxState {
     Published = "PUBLISHED",
 });
 
+/// One party member.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PartyMember {
+    /// The member's account.
     pub account: AccountId,
+    /// The member's userId.
     pub user_id: UserId,
 }
 
+/// A party with its members.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PartyRecord {
+    /// The party's network-wide id.
     pub id: GlobalId,
     /// Node's `partyId`: the `client_id` column
     pub party_id: String,
+    /// Bumped on every change; a change names the revision it read.
     pub revision: i64,
+    /// The party leader.
     pub leader: PartyMember,
     /// In join order
     pub members: Vec<PartyMember>,
+    /// The game build the party was made on.
     pub build_id: String,
+    /// What the party is doing.
     pub activity: PartyActivity,
+    /// The hunt session it is in, if any.
     pub active_hunt_session_id: Option<String>,
+    /// When it was created, as ISO text.
     pub created_at: String,
+    /// When it last changed, as ISO text.
     pub updated_at: String,
 }
 
@@ -117,79 +133,132 @@ impl PartyRecord {
     }
 }
 
+/// A party invite.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PartyInviteRecord {
     /// `<recipient userId>` U+001F `<sender userId>`
     pub invite_id: String,
+    /// The party's `partyId`.
     pub party_id: String,
+    /// The party's revision when the invite was sent.
     pub party_revision: i64,
+    /// Who sent it.
     pub sender: AccountId,
+    /// Who it is for.
     pub recipient: AccountId,
+    /// The sender's display name, as the client sent it.
     pub sending_display_name: String,
+    /// The sender's platform, as the client sent it.
     pub sending_platform: String,
+    /// Its state.
     pub status: InviteStatus,
+    /// When it was sent, as ISO text.
     pub created_at: String,
+    /// When it lapses, as ISO text.
     pub expires_at: String,
 }
 
+/// One party event in the outbox, delivered or not.
 #[derive(Debug, Clone, PartialEq)]
 pub struct PartyOutboxRecord {
+    /// The event's id.
     pub event_id: String,
+    /// The party's `partyId`.
     pub party_id: String,
+    /// The party's revision the event describes.
     pub party_revision: i64,
+    /// What happened.
     pub event_type: PartyEventType,
+    /// Who is told.
     pub recipients: Vec<UserId>,
+    /// The event body.
     pub payload: Json,
+    /// Where delivery stands.
     pub state: OutboxState,
+    /// When it was written, as ISO text.
     pub created_at: String,
+    /// When a deliverer claimed it, as ISO text.
     pub claimed_at: Option<String>,
+    /// The deliverer holding the claim.
     pub claim_owner: Option<String>,
+    /// When it was delivered, as ISO text.
     pub published_at: Option<String>,
 }
 
+/// The ids a party made on demand will take.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct NewParty {
+    /// The network-wide id.
     pub id: GlobalId,
+    /// The client-facing `partyId`.
     pub party_id: String,
 }
 
+/// An invite to send.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct NewInvite {
+    /// The inviting account.
     pub sender: AccountId,
+    /// The invited account.
     pub recipient: AccountId,
+    /// The game build, for a party made for the sender.
     pub build_id: String,
+    /// The sender's display name.
     pub sender_display_name: String,
+    /// The sender's platform.
     pub sender_platform: String,
+    /// The ids of the sender's party if one must be made.
     pub new_party: NewParty,
+    /// The current time, as ISO text.
     pub now: String,
+    /// When the invite lapses, as ISO text.
     pub expires_at: String,
 }
 
+/// An invite to accept.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AcceptInvite {
+    /// The accepting account.
     pub recipient: AccountId,
+    /// The account that sent the invite.
     pub inviter: AccountId,
+    /// The game build, for a party made for the inviter.
     pub build_id: String,
+    /// The ids of the inviter's party if one must be made.
     pub new_party: NewParty,
+    /// The current time, as ISO text.
     pub now: String,
+    /// The most members a party may have.
     pub max_party_size: u32,
 }
 
+/// A party event to write to the outbox.
 #[derive(Debug, Clone, PartialEq)]
 pub struct PartyEvent {
+    /// The party's `partyId`.
     pub party_id: String,
+    /// The party's revision it describes.
     pub party_revision: i64,
+    /// What happened.
     pub event_type: PartyEventType,
+    /// Who is told.
     pub recipients: Vec<UserId>,
+    /// The event body.
     pub payload: Json,
+    /// The current time, as ISO text.
     pub now: String,
 }
 
 store_trait! {
+    /// Parties, invites and the outbox; every change bumps the party's revision and writes its event.
     pub trait PartyRepository = "parties" {
+        /// The party with that network-wide id.
         fn find_by_id(&self, conn: &mut AnyConnection, id: &GlobalId) -> Option<PartyRecord>;
+        /// The party with that client-facing `partyId`.
         fn find_by_party_id(&self, conn: &mut AnyConnection, client_id: &str) -> Option<PartyRecord>;
+        /// The party the account is in.
         fn find_by_member(&self, conn: &mut AnyConnection, account: &AccountId) -> Option<PartyRecord>;
+        /// The account's party, made as a party of one (with its event) when it has none.
         fn get_or_create_solo(
             &self,
             tx: &mut Tx<'_>,
@@ -198,17 +267,24 @@ store_trait! {
             new_party: &NewParty,
             now: &str,
         ) -> PartyRecord;
+        /// Sends an invite from the sender's party, making the party if needed; sends nothing to oneself or to a member.
         fn create_invite(&self, tx: &mut Tx<'_>, invite: &NewInvite) -> ();
+        /// The recipient's pending, unexpired invites, newest first.
         fn list_pending_invites(
             &self,
             conn: &mut AnyConnection,
             recipient: &AccountId,
             now: &str,
         ) -> Vec<PartyInviteRecord>;
+        /// Moves the recipient into the inviter's party if the invite is live, the party issued it and has room; returns the recipient's party after.
         fn accept_invite(&self, tx: &mut Tx<'_>, accept: &AcceptInvite) -> Option<PartyRecord>;
+        /// Takes the account out of its party.
         fn leave(&self, tx: &mut Tx<'_>, account: &AccountId, now: &str) -> ();
+        /// The leader removes `target`; anyone else's call does nothing.
         fn kick(&self, tx: &mut Tx<'_>, actor: &AccountId, target: &AccountId, now: &str) -> ();
+        /// The leader hands leadership to member `target`; anyone else's call does nothing.
         fn promote(&self, tx: &mut Tx<'_>, actor: &AccountId, target: &AccountId, now: &str) -> ();
+        /// Sets the activity and hunt session if the revision is still `expected`; a lost race is a [`REVISION_CONFLICT`] error.
         fn set_activity(
             &self,
             tx: &mut Tx<'_>,
@@ -218,7 +294,9 @@ store_trait! {
             hunt_session: Option<&str>,
             now: &str,
         ) -> Option<PartyRecord>;
+        /// Writes an event to the outbox.
         fn append_event(&self, tx: &mut Tx<'_>, event: &PartyEvent) -> ();
+        /// Claims the oldest pending event, or one whose claim went stale before `stale_before`, for `owner`.
         fn claim_next_outbox(
             &self,
             tx: &mut Tx<'_>,
@@ -226,11 +304,14 @@ store_trait! {
             now: &str,
             stale_before: &str,
         ) -> Option<PartyOutboxRecord>;
+        /// Marks the event delivered if `owner` still holds it; returns whether it did.
         fn mark_outbox_published(&self, tx: &mut Tx<'_>, event_id: &str, owner: &str, at: &str) -> bool;
+        /// Gives the event back to the queue if `owner` holds it.
         fn release_outbox(&self, tx: &mut Tx<'_>, event_id: &str, owner: &str) -> ();
     }
 }
 
+/// [`PartyRepository`] in SQL.
 pub struct SqlParties;
 
 // ------------------------------------------------------------------ reading

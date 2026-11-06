@@ -28,26 +28,41 @@ const MAX_MODULE_SIZE: i64 = 1 << 40;
 
 // ------------------------------------------------------------------ the report (§11.4)
 
+/// A module loaded in the game that the manifest does not list.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct UnexpectedModule {
+    /// Its file name.
     pub file_name: String,
+    /// Who signed it: a subject, `unsigned` or `invalid`.
     pub signer: String,
     /// Lower-cased
     pub sha256: String,
+    /// Its size in bytes.
     pub size: i64,
 }
 
+/// One heartbeat's report about the game process (§11.4).
 #[derive(Debug, Clone, PartialEq)]
 pub struct Signals {
+    /// The game's process id.
     pub game_process_id: i64,
+    /// Modules loaded.
     pub module_count: i64,
+    /// Private executable memory, bytes.
     pub private_executable_bytes: i64,
+    /// Writable executable memory, bytes.
     pub writable_executable_bytes: i64,
+    /// Modules the manifest does not list.
     pub unexpected_module_count: i64,
+    /// Protected pages whose content differs from the manifest.
     pub protected_page_mismatch_count: i64,
+    /// When the game process started, ISO text.
     pub game_started_at: String,
+    /// A digest of the loaded module set.
     pub module_set_digest: String,
+    /// Whether a debugger is attached.
     pub debugger_present: bool,
+    /// The unexpected modules, when listed.
     pub modules: Option<Vec<UnexpectedModule>>,
     /// Every key as sent, the module list normalized in its place
     pub stored: Value,
@@ -143,7 +158,7 @@ impl Signals {
 }
 
 /// The 17 lines a heartbeat signs.
-#[allow(clippy::too_many_arguments)]
+#[allow(clippy::too_many_arguments, reason = "one argument per signed line")]
 pub fn signature_material(
     role: &str,
     session_id: &str,
@@ -226,6 +241,8 @@ pub fn explain_signals(signals: &Signals, max_private: i64, max_writable: i64) -
     (score.min(100), reasons)
 }
 
+/// Whether the report breaks a hard rule: a debugger, an unsigned module, a page mismatch or executable memory over the
+/// manifest's limits.
 pub fn hard_violation(signals: &Signals, max_private: i64, max_writable: i64) -> bool {
     let (untrusted, _) = module_counts(signals);
     signals.debugger_present
@@ -251,6 +268,7 @@ pub fn explain_continuity(previous: Option<&Signals>, current: &Signals, last_se
     (0, Vec::new())
 }
 
+/// Healthy without a hard violation and with a risk under 50; degraded otherwise.
 pub fn guard_status(hard: bool, risk: i64) -> GuardStatus {
     if !hard && risk < 50 {
         GuardStatus::Healthy
@@ -407,6 +425,7 @@ fn parse_role(value: Option<&Value>) -> Option<GuardRole> {
     }
 }
 
+/// `POST /launcher/v1/guard/sessions`: starts a Guard session against the published manifest.
 pub async fn start(mut call: Call) -> Response {
     let entered = match enter(&mut call).await {
         Ok(entered) => entered,
@@ -490,8 +509,11 @@ pub async fn start(mut call: Call) -> Response {
 fn whole_sequence(value: Option<&Value>) -> Option<u64> {
     let n = service_kit::js::number(value);
     (n.is_finite() && n.fract() == 0.0 && (1.0..=MAX_SAFE).contains(&n)).then(|| {
-        // Whole and inside 2^53
-        #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+        #[allow(
+            clippy::cast_possible_truncation,
+            clippy::cast_sign_loss,
+            reason = "whole and inside 2^53"
+        )]
         let v = n as u64;
         v
     })
@@ -501,6 +523,7 @@ fn is_session_id(text: &str) -> bool {
     text.len() == 36 && text.bytes().all(|b| b.is_ascii_hexdigit() || b == b'-')
 }
 
+/// `POST /launcher/v1/guard/heartbeat`: a signed report on the game process.
 pub async fn heartbeat(mut call: Call) -> Response {
     let entered = match enter(&mut call).await {
         Ok(entered) => entered,
@@ -600,7 +623,7 @@ pub async fn heartbeat(mut call: Call) -> Response {
     let at = iso(now_ms());
     let next = util::random_base64url::<24>();
     let expires = iso(now_ms() + SESSION_TTL_MS);
-    #[allow(clippy::cast_precision_loss)]
+    #[allow(clippy::cast_precision_loss, reason = "a risk score of at most 100")]
     let risk_f = risk as f64;
     let beat = GuardHeartbeat {
         guard_session_id: session.guard_session_id.clone(),
@@ -693,6 +716,7 @@ async fn record_findings(entered: &Entered, signals: &Signals, previous: Option<
     }
 }
 
+/// `GET /launcher/v1/guard/sessions/:guardSessionId`: the caller's session status.
 pub async fn status(mut call: Call) -> Response {
     let entered = match enter(&mut call).await {
         Ok(entered) => entered,
@@ -763,6 +787,7 @@ fn query_invalid(message: &str) -> Response {
     admin_error(StatusCode::BAD_REQUEST, "GUARD_QUERY_INVALID", message)
 }
 
+/// `GET /admin/v1/guard/sessions`: a page of Guard sessions.
 pub async fn sessions(ctx: AdminContext) -> Response {
     let query = &ctx.request.query;
     let status_text = util::single(query, "status")
@@ -817,6 +842,7 @@ pub async fn sessions(ctx: AdminContext) -> Response {
     }
 }
 
+/// `GET /admin/v1/guard/sessions/:guardSessionId`: one session.
 pub async fn session(ctx: AdminContext) -> Response {
     let id = ctx.param("guardSessionId").to_owned();
     let not_found = || {
@@ -850,6 +876,7 @@ pub async fn session(ctx: AdminContext) -> Response {
     }
 }
 
+/// `GET /admin/v1/guard/findings`: unexpected modules seen, by signer.
 pub async fn findings(ctx: AdminContext) -> Response {
     let signer = util::single(&ctx.request.query, "signer")
         .map(|s| util::take_chars(util::trim(s), 100))

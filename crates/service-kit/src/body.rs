@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Silent Spud
 
+//! Request bodies as Express's `json()` and `urlencoded()` parse them: JSON and forms, gzip or deflate, UTF-8 only.
+
 use std::convert::Infallible;
 use std::io::Read;
 use std::sync::Arc;
@@ -16,20 +18,29 @@ use http_body_util::{BodyExt, LengthLimitError, Limited};
 use percent_encoding::percent_decode_str;
 use serde_json::{Map, Value};
 
+/// Largest body read, in bytes, before or after decoding.
 pub const DEFAULT_LIMIT: usize = 50 * 1024 * 1024;
 const PARAMETER_LIMIT: usize = 1000;
 
+/// Why a body was refused.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum BodyError {
+    /// Not UTF-8, not JSON whose top level is an object or array, or a broken encoding.
     Malformed,
+    /// Over the body limit.
     TooLarge,
+    /// A form with more than 1000 parameters.
     TooManyParameters,
+    /// A charset other than UTF-8.
     UnsupportedCharset,
+    /// A content encoding other than identity, gzip or deflate.
     UnsupportedEncoding,
+    /// The client stopped sending the body.
     Aborted,
 }
 
 impl BodyError {
+    /// The status Express answers with: 400, 413 or 415.
     pub fn status(self) -> StatusCode {
         match self {
             Self::Malformed | Self::Aborted => StatusCode::BAD_REQUEST,
@@ -45,6 +56,7 @@ impl IntoResponse for BodyError {
     }
 }
 
+/// Express's default HTML error page for `status`.
 pub fn error_page(status: StatusCode) -> Response {
     let reason = status.canonical_reason().unwrap_or("Error");
     let html = format!(
@@ -62,11 +74,15 @@ pub fn error_page(status: StatusCode) -> Response {
         .into_response()
 }
 
+/// Builds the reply for a refused body; `None` falls back to [`error_page`].
 pub type OnBodyError = dyn Fn(&Parts, BodyError) -> Option<Response> + Send + Sync;
 
+/// How [`parse_bodies`] reads bodies.
 #[derive(Clone)]
 pub struct BodyConfig {
+    /// Largest body, in bytes.
     pub limit: usize,
+    /// Replaces the default error page.
     pub on_error: Arc<OnBodyError>,
 }
 
@@ -79,6 +95,7 @@ impl Default for BodyConfig {
     }
 }
 
+/// The parsed body, `None` when the request had no JSON or form body; the raw body stays readable downstream.
 #[derive(Debug, Clone, PartialEq)]
 pub struct ExpressBody(pub Option<Value>);
 
@@ -162,6 +179,7 @@ fn fail_response(parts: &Parts, config: &BodyConfig, err: BodyError) -> Response
     (config.on_error)(parts, err).unwrap_or_else(|| err.into_response())
 }
 
+/// Middleware: parses a JSON or form body into an [`ExpressBody`] extension, or answers with the refusal.
 pub async fn parse_bodies(State(config): State<BodyConfig>, mut request: Request, next: Next) -> Response {
     let kind = match inspect_content_type(request.headers()) {
         Ok(Some(k)) => k,
@@ -212,6 +230,7 @@ pub async fn parse_bodies(State(config): State<BodyConfig>, mut request: Request
     }
 }
 
+/// Parses a JSON body; empty is `{}`, and the top level must be an object or array.
 pub fn parse_json(text: &str) -> Result<Value, BodyError> {
     if text.is_empty() {
         return Ok(Value::Object(Map::new()));
@@ -230,6 +249,7 @@ fn decode_form_part(raw: &str) -> String {
         .map_or_else(|_| plus_spaced.clone(), std::borrow::Cow::into_owned)
 }
 
+/// Parses a form body into an object; a repeated key collects its values in an array.
 pub fn parse_form(text: &str) -> Result<Value, BodyError> {
     let pairs: Vec<&str> = text.split('&').filter(|s| !s.is_empty()).collect();
     if pairs.len() > PARAMETER_LIMIT {

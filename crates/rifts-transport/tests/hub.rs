@@ -4,7 +4,7 @@
 //! A realm hub with six joiners and a changing roster (spec §5.3 "hub"), direct and relay-only through a TURN
 //! server on 127.0.0.2, so that only relay pairs exist.
 
-#![allow(clippy::unwrap_used, clippy::expect_used)] // test helpers
+#![allow(clippy::unwrap_used, clippy::expect_used, reason = "a panic is how a test fails")]
 
 mod common;
 

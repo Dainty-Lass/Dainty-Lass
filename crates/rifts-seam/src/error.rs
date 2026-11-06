@@ -6,11 +6,17 @@ use std::{error::Error, fmt};
 /// Which part of rifts (or the module itself) an answer comes from.
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub enum Component {
+    /// `rifts-admission`.
     Admission,
+    /// `rifts-relay`.
     Relay,
+    /// `rifts-realms`.
     Realms,
+    /// `rifts-guard`.
     Guard,
+    /// `rifts-host`.
     Host,
+    /// The 1.14.7 module itself.
     Isles,
 }
 
@@ -37,11 +43,14 @@ impl fmt::Display for Component {
 /// An operation with no implementation yet; clients see it as a 501.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct Unimplemented {
+    /// The component that has not written it.
     pub component: Component,
+    /// The operation's name.
     pub operation: &'static str,
 }
 
 impl Unimplemented {
+    /// The marker for `operation` in `component`.
     pub const fn new(component: Component, operation: &'static str) -> Self {
         Self { component, operation }
     }
@@ -59,7 +68,9 @@ impl Error for Unimplemented {}
 /// A refusal with the code the module's status table maps to an HTTP status.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Refusal {
+    /// The status code, such as `REALMS_DISABLED`.
     pub code: String,
+    /// A sentence for the player or operator.
     pub message: String,
 }
 
@@ -75,15 +86,19 @@ impl Error for Refusal {}
 #[derive(Clone, Debug, Eq, PartialEq)]
 #[non_exhaustive]
 pub enum SeamError {
+    /// The operation is not written yet; a 501.
     Unimplemented(Unimplemented),
+    /// A refusal with a status code.
     Refused(Refusal),
 }
 
 impl SeamError {
+    /// The [`SeamError::Unimplemented`] for `operation` in `component`.
     pub const fn unimplemented(component: Component, operation: &'static str) -> Self {
         Self::Unimplemented(Unimplemented::new(component, operation))
     }
 
+    /// Whether the operation is not written yet, as opposed to refused.
     pub fn is_unimplemented(&self) -> bool {
         matches!(self, Self::Unimplemented(_))
     }

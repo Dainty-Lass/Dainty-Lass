@@ -23,10 +23,14 @@ const WINDOW_MS: u64 = 60_000;
 const DEFAULT_LIMITER_KEYS: usize = 4096;
 const MAX_KEY_UNITS: usize = 256;
 
+/// One key's bound per fixed window.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct TrafficLimit {
+    /// Requests per window.
     pub max_requests: u64,
+    /// Bytes per window.
     pub max_bytes: u64,
+    /// The window's length in milliseconds.
     pub window_ms: u64,
 }
 
@@ -42,24 +46,30 @@ impl TrafficLimit {
     }
 }
 
+/// Each host account's bound: 180 requests and 8 MiB a minute.
 pub const HUNT_GUARD_HOST_TRAFFIC_LIMIT: TrafficLimit = TrafficLimit {
     max_requests: 180,
     max_bytes: 8 << 20,
     window_ms: WINDOW_MS,
 };
 
+/// Each hunt session's bound: 120 requests and 4 MiB a minute.
 pub const HUNT_GUARD_SESSION_TRAFFIC_LIMIT: TrafficLimit = TrafficLimit {
     max_requests: 120,
     max_bytes: 4 << 20,
     window_ms: WINDOW_MS,
 };
 
+/// The bound on requests in flight at once, across every host.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct RequestBudgetLimit {
+    /// Requests in flight at once.
     pub max_in_flight_requests: u64,
+    /// Body bytes in flight at once.
     pub max_in_flight_bytes: u64,
 }
 
+/// The hunt routes' in-flight bound: 64 requests and 1 MiB.
 pub const HUNT_GUARD_REQUEST_BUDGET: RequestBudgetLimit = RequestBudgetLimit {
     max_in_flight_requests: 64,
     max_in_flight_bytes: 1 << 20,
@@ -100,6 +110,7 @@ impl Drop for BudgetPermit {
 }
 
 impl RequestBudget {
+    /// A budget with nothing in flight.
     pub fn new(limit: RequestBudgetLimit) -> Self {
         let in_flight = Shared::default();
         Self { limit, in_flight }
@@ -166,6 +177,7 @@ impl Default for LocalTrafficLimiter {
 }
 
 impl LocalTrafficLimiter {
+    /// A limiter keeping at most `max_keys` keys.
     pub fn new(max_keys: usize) -> Self {
         Self {
             max_keys,
@@ -174,10 +186,12 @@ impl LocalTrafficLimiter {
         }
     }
 
+    /// How many keys have a window.
     pub fn len(&self) -> usize {
         self.windows.len()
     }
 
+    /// Whether no key has a window.
     pub fn is_empty(&self) -> bool {
         self.len() == 0
     }
@@ -196,6 +210,7 @@ impl LocalTrafficLimiter {
         }
     }
 
+    /// Charges one request of `bytes` to `key`'s window; `false`, charging nothing, when it does not fit.
     pub fn consume(&mut self, key: &str, bytes: u64, limit: TrafficLimit, now: UnixMillis) -> bool {
         if key.is_empty() || !limit.admits(bytes) {
             return false;
@@ -223,13 +238,18 @@ impl LocalTrafficLimiter {
 /// Which hunt route a path is, for what counts against Guard's traffic.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum HuntOperation {
+    /// `.../event-batches`.
     EventBatch,
+    /// `.../completion`.
     Completion,
+    /// `.../shadow-comparisons`.
     Shadow,
+    /// Any other hunt route: opening, closing and the like.
     Lifecycle,
 }
 
 impl HuntOperation {
+    /// The operation a request path names.
     pub fn of(path: &str) -> Self {
         const BY_PATH: [(&str, HuntOperation); 3] = [
             ("event-batches", HuntOperation::EventBatch),

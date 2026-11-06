@@ -3,7 +3,7 @@
 
 //! The hunt-table importer (spec §10, §14.2), authored: handles use `table`, as the CatalogExporter writes them.
 
-#![allow(clippy::unwrap_used, clippy::expect_used)]
+#![allow(clippy::unwrap_used, clippy::expect_used, reason = "a panic is how a test fails")]
 
 use std::path::{Path, PathBuf};
 

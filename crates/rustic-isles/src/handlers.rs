@@ -17,39 +17,60 @@ use crate::shared::Shared;
 
 /// One matched request, as a handler gets it.
 pub struct Call {
+    /// The module's shared state.
     pub shared: Arc<Shared>,
+    /// The table row it matched.
     pub route: &'static RouteDef,
+    /// Path parameters, decoded.
     pub params: Params,
     /// Its URI already stripped of `/__origin/<host>`, every header as received
     pub request: Request,
+    /// The host the `/__origin/` prefix named, none when there was none.
     pub origin_host: Option<String>,
+    /// The request's id, also on the answer as `x-rustic-isles-request-id`.
     pub request_id: String,
 }
 
+/// Answers one matched request.
 pub type Handler = Arc<dyn Fn(Call) -> BoxFuture<'static, Response> + Send + Sync>;
 
+/// Why a service's app could not be built.
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 pub enum MountError {
+    /// A row's path does not compile.
     #[error(transparent)]
     Pattern(#[from] PatternError),
+    /// A handler was registered for a row the table does not have.
     #[error("a handler for {service} {method} {path}, which the route table doesn't have")]
     UnknownRoute {
+        /// The handler's service.
         service: &'static str,
+        /// The handler's method.
         method: &'static str,
+        /// The handler's path text.
         path: String,
     },
+    /// A `rifts` row has neither an isles handler nor a rifts route.
     #[error("rustic-rifts is loaded but answers no {method} {path}")]
-    NoRiftsHandler { method: &'static str, path: &'static str },
+    NoRiftsHandler {
+        /// The row's method.
+        method: &'static str,
+        /// The row's path text.
+        path: &'static str,
+    },
+    /// The auth crate's routes and the table's auth rows disagree.
     #[error("rustic-isles-auth's routes differ from the table's auth rows: {0}")]
     AuthRoutes(String),
 }
 
 type Key = (Service, Method, String);
 
+/// The handlers areas registered, by service, method and the row's exact path text.
 #[derive(Clone, Default)]
 pub struct Handlers(HashMap<Key, Handler>);
 
 impl Handlers {
+    /// An empty registry.
     pub fn new() -> Self {
         Self::default()
     }
@@ -65,10 +86,12 @@ impl Handlers {
         self
     }
 
+    /// The row's handler, if one is registered.
     pub fn get(&self, route: &RouteDef) -> Option<&Handler> {
         self.0.get(&(route.service, route.method, route.path.to_owned()))
     }
 
+    /// Whether a handler is registered for the row.
     pub fn contains(&self, service: Service, method: Method, path: &str) -> bool {
         self.0.contains_key(&(service, method, path.to_owned()))
     }

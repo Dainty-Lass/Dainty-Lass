@@ -33,6 +33,7 @@ const STORED_ENCRYPTED: u8 = 0x02;
 pub struct Sha1Digest(pub [u8; 20]);
 
 impl Sha1Digest {
+    /// The SHA-1 of `data`.
     pub fn of(data: &[u8]) -> Self {
         Self(Sha1::digest(data).into())
     }
@@ -93,48 +94,103 @@ impl fmt::Debug for Guid {
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 #[non_exhaustive]
 pub enum ManifestError {
+    /// The file's SHA-1 is not the pin.
     #[error("the manifest's SHA-1 is {actual}, not the pinned {expected}")]
-    PinMismatch { expected: Sha1Digest, actual: Sha1Digest },
+    PinMismatch {
+        /// The pinned SHA-1.
+        expected: Sha1Digest,
+        /// The file's SHA-1.
+        actual: Sha1Digest,
+    },
+    /// The manifest is JSON, not binary.
     #[error("JSON manifests are not supported, only binary ones")]
     Json,
+    /// The file does not start with the manifest magic.
     #[error("not an Epic manifest")]
     NotAManifest,
+    /// The manifest is stored encrypted.
     #[error("the manifest is encrypted")]
     Encrypted,
+    /// The header's sizes or fields disagree.
     #[error("the manifest's header is inconsistent")]
     BadHeader,
+    /// The data is over the largest size accepted.
     #[error("the manifest is larger than any game's")]
     TooLarge,
+    /// The data does not inflate.
     #[error("the manifest's data does not unpack")]
     Inflate,
+    /// The unpacked data does not match the SHA-1 in the header.
     #[error("the manifest's data does not match the SHA-1 in its header")]
     DataHash,
+    /// The data ends before a field.
     #[error("the manifest ends early at byte {offset}")]
-    Truncated { offset: usize },
+    Truncated {
+        /// Byte offset of the field.
+        offset: usize,
+    },
+    /// A string's length or text is invalid.
     #[error("bad text at byte {offset}")]
-    BadString { offset: usize },
+    BadString {
+        /// Byte offset of the string.
+        offset: usize,
+    },
+    /// A section's size disagrees with what it holds.
     #[error("the {section} section's size is wrong")]
-    SectionSize { section: &'static str },
+    SectionSize {
+        /// The section's name.
+        section: &'static str,
+    },
+    /// A count is more than the remaining bytes could hold.
     #[error("more {what} than the manifest has room for")]
-    CountTooLarge { what: &'static str },
+    CountTooLarge {
+        /// What was counted.
+        what: &'static str,
+    },
+    /// Bytes left after the last section.
     #[error("bytes left after the last section")]
     TrailingData,
+    /// A chunk GUID is listed twice.
     #[error("chunk {0} is listed twice")]
     DuplicateChunk(Guid),
+    /// A chunk's download size is negative.
     #[error("a chunk's download size is negative")]
     NegativeSize,
+    /// A file part's header is shorter than its fields.
     #[error("a file part's header is shorter than its fields")]
     BadPart,
+    /// A file name failed [`InstallPath::new`].
     #[error("file {name:?}: {problem}")]
-    UnsafePath { name: String, problem: PathProblem },
+    UnsafePath {
+        /// The file name.
+        name: String,
+        /// What is wrong with it.
+        problem: PathProblem,
+    },
+    /// A file is a symlink.
     #[error("file {name:?} is a symlink")]
-    Symlink { name: String },
+    Symlink {
+        /// The file's name in the manifest.
+        name: String,
+    },
+    /// A file name is listed twice.
     #[error("file {name:?} is listed twice")]
-    DuplicatePath { name: String },
+    DuplicatePath {
+        /// The file's name in the manifest.
+        name: String,
+    },
+    /// A file uses a chunk the manifest does not list.
     #[error("file {name:?} uses a chunk the manifest does not list")]
-    UnknownChunk { name: String },
+    UnknownChunk {
+        /// The file's name in the manifest.
+        name: String,
+    },
+    /// A file part reads past the end of its chunk.
     #[error("file {name:?} reads past the end of a chunk")]
-    PartOutOfRange { name: String },
+    PartOutOfRange {
+        /// The file's name in the manifest.
+        name: String,
+    },
 }
 
 /// A file's flags, as Epic sets them.
@@ -142,14 +198,19 @@ pub enum ManifestError {
 pub struct FileFlags(pub u8);
 
 impl FileFlags {
+    /// The file is installed read-only.
     pub const READ_ONLY: u8 = 0x01;
+    /// The file is stored compressed.
     pub const COMPRESSED: u8 = 0x02;
+    /// The file is executable on Unix.
     pub const UNIX_EXECUTABLE: u8 = 0x04;
 
+    /// Whether [`FileFlags::READ_ONLY`] is set.
     pub fn read_only(self) -> bool {
         self.0 & Self::READ_ONLY != 0
     }
 
+    /// Whether [`FileFlags::UNIX_EXECUTABLE`] is set.
     pub fn unix_executable(self) -> bool {
         self.0 & Self::UNIX_EXECUTABLE != 0
     }
@@ -158,11 +219,13 @@ impl FileFlags {
 /// One chunk the CDN serves, as the manifest describes it.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ChunkInfo {
+    /// The chunk's GUID; part of its CDN name.
     pub guid: Guid,
     /// Epic's rolling hash; part of the chunk's CDN name
     pub rolling_hash: u64,
     /// Of the chunk's data once unpacked: what [`crate::chunk::decode`] checks
     pub sha1: Sha1Digest,
+    /// CDN group folder, 0 to 99.
     pub group: u8,
     /// The unpacked size
     pub window_size: u32,
@@ -196,42 +259,65 @@ pub fn chunk_dir(feature_level: u32) -> &'static str {
 /// Bytes `offset..offset + size` of chunk `guid`, the next piece of a file.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ChunkPart {
+    /// The chunk's GUID.
     pub guid: Guid,
+    /// Where the piece starts in the chunk's unpacked data.
     pub offset: u32,
+    /// Its length in bytes.
     pub size: u32,
 }
 
 /// One file of the build.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct FileEntry {
+    /// Where the file goes in the install folder.
     pub path: InstallPath,
+    /// SHA-1 of the whole file.
     pub sha1: Sha1Digest,
+    /// Epic's flags.
     pub flags: FileFlags,
+    /// Epic's install tags.
     pub install_tags: Vec<String>,
     /// In order; the file is their concatenation
     pub parts: Vec<ChunkPart>,
+    /// Size in bytes: the parts' sizes added up.
     pub size: u64,
+    /// MD5 of the file, when the manifest lists one.
     pub md5: Option<[u8; 16]>,
+    /// MIME type, often empty.
     pub mime_type: String,
+    /// SHA-256 of the file, when the manifest lists one.
     pub sha256: Option<[u8; 32]>,
 }
 
 /// A parsed, pinned manifest.
 #[derive(Debug, Clone)]
 pub struct Manifest {
+    /// Epic's manifest feature level; it picks the CDN's chunk folder.
     pub feature_level: u32,
+    /// Whether the manifest describes file data rather than chunks.
     pub is_file_data: bool,
+    /// Epic's app id.
     pub app_id: u32,
     /// `Jackal` for Dauntless
     pub app_name: String,
+    /// Epic's build version.
     pub build_version: String,
+    /// Epic's build id, when the meta section is version 1 or later.
     pub build_id: Option<String>,
+    /// Executable the launcher would start, relative to the install folder.
     pub launch_exe: String,
+    /// Command line for it.
     pub launch_command: String,
+    /// Prerequisite ids.
     pub prereq_ids: Vec<String>,
+    /// Prerequisite name.
     pub prereq_name: String,
+    /// Prerequisite installer path.
     pub prereq_path: String,
+    /// Prerequisite installer arguments.
     pub prereq_args: String,
+    /// Custom fields, in file order.
     pub custom_fields: Vec<(String, String)>,
     chunks: Vec<ChunkInfo>,
     files: Vec<FileEntry>,
@@ -300,18 +386,22 @@ impl Manifest {
         })
     }
 
+    /// Every chunk, in manifest order.
     pub fn chunks(&self) -> &[ChunkInfo] {
         &self.chunks
     }
 
+    /// Every file, in manifest order.
     pub fn files(&self) -> &[FileEntry] {
         &self.files
     }
 
+    /// The chunk with `guid`.
     pub fn chunk(&self, guid: &Guid) -> Option<&ChunkInfo> {
         self.chunk_index.get(guid).and_then(|i| self.chunks.get(*i))
     }
 
+    /// The file whose manifest name is `path`.
     pub fn file(&self, path: &str) -> Option<&FileEntry> {
         self.files.iter().find(|f| f.path.as_str() == path)
     }

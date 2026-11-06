@@ -1,6 +1,6 @@
 //! The MIT core serves the admin API with no library at all, and runs a service `[services.<name>]` pins as a
 //! library beside it (RD27).
-#![allow(clippy::unwrap_used, clippy::expect_used)] // test helpers
+#![allow(clippy::unwrap_used, clippy::expect_used, reason = "a panic is how a test fails")]
 
 use std::io::{BufRead as _, BufReader, Read as _, Write as _};
 use std::net::{TcpListener, TcpStream};

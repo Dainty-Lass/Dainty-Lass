@@ -19,32 +19,45 @@ use service_kit::js::safe_integer;
 use super::{AdminContext, ReforgedAdmin, admin_actor, admin_error, fresh_id, player_not_found};
 use crate::util::{self, iso, json, now_ms, object};
 
+/// The tester max kit's file in the backend game data folder.
 pub const KIT_FILE: &str = "tester_max_kit.json";
 const MAX_GRANT: i64 = 100_000;
 
 /// What a confirm asks of a track's curve.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum RankRequirement {
+    /// The XP the rank needs.
     Xp(f64),
+    /// The track is not known.
     UnknownTrack,
+    /// The rank is past the track's curve.
     OutOfRange,
 }
 
 /// How the operator's test stacks went.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum StackOutcome {
+    /// The stacks were granted.
     Applied,
+    /// The character is not the player's.
     NotOwned,
+    /// The transaction failed, with the reason.
     Failed(String),
 }
 
 /// What tester max takes from the economy (§15.3).
 pub trait TesterFunding: Send + Sync {
+    /// Whether tester max may grant XP on this track.
     fn is_approved_xp_track(&self, shared: &Shared, id: &str) -> bool;
+    /// The track's XP cap, none when uncapped or unknown.
     fn track_cap_xp(&self, shared: &Shared, id: &str) -> Option<i64>;
+    /// The rank `progress` XP reaches on the track.
     fn rank_for_progress(&self, shared: &Shared, id: &str, progress: i64) -> Option<i64>;
+    /// The XP the rank needs on the track.
     fn required_xp_for_rank(&self, shared: &Shared, id: &str, rank: i64) -> RankRequirement;
+    /// Whether the catalog has this item id.
     fn is_known_catalog_id(&self, shared: &Shared, id: &str) -> bool;
+    /// Most XP one run grants.
     fn max_xp_grant(&self) -> i64 {
         MAX_GRANT
     }
@@ -70,15 +83,17 @@ impl TesterFunding for EconomyFunding {
 
     fn track_cap_xp(&self, shared: &Shared, id: &str) -> Option<i64> {
         rustic_isles_economy::progression::tracks::track_cap_xp(shared, id).map(|xp| {
-            // A cumulative XP total from the host's curve
-            #[allow(clippy::cast_possible_truncation)]
+            #[allow(
+                clippy::cast_possible_truncation,
+                reason = "a cumulative XP total from the host's curve"
+            )]
             let whole = xp as i64;
             whole
         })
     }
 
     fn rank_for_progress(&self, shared: &Shared, id: &str, progress: i64) -> Option<i64> {
-        #[allow(clippy::cast_precision_loss)]
+        #[allow(clippy::cast_precision_loss, reason = "track progress is far below 2^53")]
         let progress = progress as f64;
         rustic_isles_economy::progression::curves(shared).rank_for_progress(id, progress)
     }
@@ -456,7 +471,7 @@ impl std::fmt::Display for StepError {
     }
 }
 
-#[allow(clippy::too_many_arguments)]
+#[allow(clippy::too_many_arguments, reason = "the run's context and the one track it drives")]
 async fn run_track(
     shared: &Arc<Shared>,
     store: &IslesStore,
@@ -490,7 +505,7 @@ async fn run_track(
             return Err(StepError::Plain(format!("Unsupported progression track '{id}'.")));
         }
         let grant_id = derived_id(run_id, &format!("xp:{id}:{index}"));
-        #[allow(clippy::cast_precision_loss)]
+        #[allow(clippy::cast_precision_loss, reason = "an XP amount, far below 2^53")]
         let hash = rustic_isles_economy::progression::tracks::grant_request_hash(user_id, id, amount as f64);
         let (a, track) = (account.clone(), id.to_owned());
         store
@@ -546,7 +561,7 @@ async fn run_track(
                     .progression_tracks
                     .get(tx.conn(), &a, &track)?
                     .map_or(0, |t| t.progress);
-                #[allow(clippy::cast_precision_loss)]
+                #[allow(clippy::cast_precision_loss, reason = "track progress is far below 2^53")]
                 if required > 0.0 && (progress as f64) < required {
                     return Err(RepoError::Data(format!("rank {rank} confirm refused: insufficient_xp")));
                 }
@@ -663,6 +678,7 @@ impl Drop for Busy<'_> {
     }
 }
 
+/// `POST /admin/v1/players/:userId/tester-max`: grants a tester's account the kit, ranks and XP.
 pub async fn tester_max(ctx: AdminContext) -> Response {
     let user_id = ctx.param("userId").to_owned();
     let lookup = user_id.clone();

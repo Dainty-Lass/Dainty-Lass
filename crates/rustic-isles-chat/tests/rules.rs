@@ -3,7 +3,7 @@
 
 //! The chat rules over a source in memory and over a temporary store (spec §11.2, rules table).
 
-#![allow(clippy::unwrap_used, clippy::expect_used)]
+#![allow(clippy::unwrap_used, clippy::expect_used, reason = "a panic is how a test fails")]
 
 mod common;
 

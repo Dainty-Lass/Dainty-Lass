@@ -3,7 +3,7 @@
 
 //! The built library loads through plugin-host, pinned by its SHA-256, and answers as the compiled-in module.
 
-#![allow(clippy::unwrap_used, clippy::expect_used)]
+#![allow(clippy::unwrap_used, clippy::expect_used, reason = "a panic is how a test fails")]
 
 use std::path::PathBuf;
 

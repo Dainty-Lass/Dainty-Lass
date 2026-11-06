@@ -26,6 +26,7 @@ const QOS_DRAIN: Duration = Duration::from_secs(1);
 /// answering every region reads `9999ms Invalid`. A game module opens no public listener, so this one is loopback
 /// and the gateway decides whether to publish it.
 pub struct QosListener {
+    /// The loopback port the listener binds.
     pub bind_port: u16,
 }
 

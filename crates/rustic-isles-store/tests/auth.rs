@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Silent Spud
 
 //! The handle (spec §3) and the sign-in repositories (§6): rows S1-S4 and A1-A11 of §15.2.
-#![allow(clippy::unwrap_used, clippy::expect_used)]
+#![allow(clippy::unwrap_used, clippy::expect_used, reason = "a panic is how a test fails")]
 
 mod common;
 

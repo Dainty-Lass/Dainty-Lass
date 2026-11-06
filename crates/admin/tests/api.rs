@@ -2,7 +2,7 @@
 //! as the Node services do (`routes/reforgedApi.ts`, `controllers/admin.ts`, the Director's
 //! `/api/instances`) and check the manager-operator signature and the admin key as they do.
 
-#![allow(clippy::unwrap_used, clippy::expect_used)] // test helpers
+#![allow(clippy::unwrap_used, clippy::expect_used, reason = "a panic is how a test fails")]
 
 use std::net::SocketAddr;
 use std::sync::atomic::{AtomicI64, Ordering};

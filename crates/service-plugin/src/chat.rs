@@ -20,26 +20,34 @@ use crate::FromService;
 
 /// Unanswered requests one side holds; past it a request is refused as unavailable.
 pub const MAX_PENDING: usize = 256;
+/// How long a side waits for an answer before giving up on it.
 pub const REPLY_TIMEOUT: Duration = Duration::from_secs(30);
 /// A JID local part, as chat's `is_authcid_shape` bounds it, with room to spare
 pub const MAX_LOCAL: usize = 256;
 /// A game token (1.14.7: a JWT)
 pub const MAX_TOKEN: usize = 16 * 1024;
+/// Longest [`PeerError`] reason carried, in bytes.
 pub const MAX_REASON: usize = 512;
+/// Most peers a [`ChatNetwork`] may list.
 pub const MAX_PEERS: usize = 1024;
 
 /// Who this node is and, in a network, who leads it and its peers (DN10b): what `ChatOptions` gave in-process.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ChatSetup {
+    /// This node.
     pub node: NodeIdentity,
+    /// The network it is in; `None` for a server on its own.
     pub network: Option<ChatNetwork>,
 }
 
+/// The network a node is in.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ChatNetwork {
+    /// The node that leads it.
     pub leader: NodeId,
+    /// Every peer and its region.
     pub peers: Vec<(NodeId, Region)>,
 }
 
@@ -49,36 +57,54 @@ pub struct ChatNetwork {
 pub enum ToChat {
     /// Before `Start`, once per instance
     Setup {
+        /// This node and its network.
         setup: Box<ChatSetup>,
     },
     /// A game module with the chat capability started, or is gone: whom [`FromChat::Ask`] reaches
     Loaded {
+        /// The module that started.
         module: ModuleId,
     },
+    /// A game module with the chat capability is gone.
     Unloaded {
+        /// The module that is gone.
         module: ModuleId,
     },
+    /// The answer to [`FromChat::Ask`].
     Answer {
+        /// Id of the [`FromChat::Ask`] it answers.
         id: u64,
+        /// What the module answered.
         result: Result<ChatAnswer, ModuleError>,
     },
     /// The display name the account's home gave, none when it refused
     HomeLoggedIn {
+        /// Id of the [`FromChat::HomeLogin`] it answers.
         id: u64,
+        /// Display name; `None` when the home refused.
         name: Option<String>,
     },
+    /// The answer to [`FromChat::FindAccount`].
     Account {
+        /// Id of the [`FromChat::FindAccount`] it answers.
         id: u64,
+        /// The account; `None` when the directory holds none.
         account: Option<GlobalId>,
     },
+    /// The answer to [`FromChat::PeerCall`].
     PeerAnswer {
+        /// Id of the [`FromChat::PeerCall`] it answers.
         id: u64,
+        /// The peer's answer, or why there is none.
         result: Result<serde_json::Value, PeerError>,
     },
     /// A peer's call to this node's `Service::Chat`, as the node link authenticated `from`
     PeerServe {
+        /// Id the answer goes back under, in [`FromChat::PeerServed`].
         id: u64,
+        /// The calling node.
         from: NodeId,
+        /// Request body.
         body: serde_json::Value,
     },
 }
@@ -89,30 +115,52 @@ pub enum ToChat {
 pub enum FromChat {
     /// `GameModule::chat` on one loaded module
     Ask {
+        /// Id the answer comes back under.
         id: u64,
+        /// The module asked.
         module: ModuleId,
+        /// The query.
         query: ChatQuery,
     },
     /// A login whose account is homed elsewhere: `chat.login` run at its home through `module`
     HomeLogin {
+        /// Id the answer comes back under.
         id: u64,
+        /// Module that reaches the account's home.
         module: ModuleId,
+        /// The account logging in.
         account: GlobalId,
+        /// JID local part the client logged in with, at most [`MAX_LOCAL`] bytes.
         authcid: String,
+        /// The client's game token, at most [`MAX_TOKEN`] bytes.
         token: String,
     },
     /// The account a JID local part is in the network's directory
-    FindAccount { id: u64, local: String },
+    FindAccount {
+        /// Id the answer comes back under.
+        id: u64,
+        /// The local part, at most [`MAX_LOCAL`] bytes.
+        local: String,
+    },
     /// Emitted as `chat.presence`
-    Presence { event: PresenceEvent },
+    Presence {
+        /// The presence change.
+        event: PresenceEvent,
+    },
     /// A call to `to`'s `Service::Chat`
     PeerCall {
+        /// Id the answer comes back under.
         id: u64,
+        /// The node called.
         to: NodeId,
+        /// Request body.
         body: serde_json::Value,
     },
+    /// Chat's answer to [`ToChat::PeerServe`].
     PeerServed {
+        /// Id of the [`ToChat::PeerServe`] it answers.
         id: u64,
+        /// The answer, or why there is none.
         result: Result<serde_json::Value, PeerError>,
     },
 }
@@ -134,15 +182,39 @@ impl FromChat {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum PeerError {
+    /// This server is not in a network.
     NoPeers {},
+    /// The node is not a peer of this one.
     UnknownPeer {},
-    Unreachable { reason: String },
+    /// The peer did not answer.
+    Unreachable {
+        /// Why, at most [`MAX_REASON`] bytes.
+        reason: String,
+    },
+    /// The message is over the node link's limit.
     TooLarge {},
+    /// The peer does not serve chat.
     NoService {},
-    ClockSkew { skew_ms: i64 },
-    Refused { reason: String },
-    Untrusted { reason: String },
-    Protocol { reason: String },
+    /// The peer's clock is too far off this node's (DN3).
+    ClockSkew {
+        /// Its clock minus ours, in ms.
+        skew_ms: i64,
+    },
+    /// The peer refused this node.
+    Refused {
+        /// Why, at most [`MAX_REASON`] bytes.
+        reason: String,
+    },
+    /// What answered isn't that peer on this cluster.
+    Untrusted {
+        /// Why, at most [`MAX_REASON`] bytes.
+        reason: String,
+    },
+    /// The peer answered something a node link doesn't say.
+    Protocol {
+        /// What was wrong, at most [`MAX_REASON`] bytes.
+        reason: String,
+    },
 }
 
 impl PeerError {
@@ -180,6 +252,7 @@ impl PeerError {
 
 /// What chat serves its peers with: `Service::Chat`'s `NodeService`.
 pub trait PeerServer: Send + Sync {
+    /// Answers `from`'s call with `body`.
     fn serve<'a>(
         &'a self,
         from: &'a NodeId,
@@ -258,6 +331,7 @@ impl ChatLink {
         answer.ok()?.ok()
     }
 
+    /// Runs `query` on `module`'s chat hook; fails as unavailable when the core does not answer in time.
     pub async fn ask(&self, module: &ModuleId, query: ChatQuery) -> Result<ChatAnswer, ModuleError> {
         let module = module.clone();
         match self.request(|id| FromChat::Ask { id, module, query }).await {
@@ -266,6 +340,7 @@ impl ChatLink {
         }
     }
 
+    /// Logs in at the account's home through `module`; returns the display name, or `None` when refused, too long or unanswered.
     pub async fn home_login(
         &self,
         module: &ModuleId,
@@ -291,6 +366,7 @@ impl ChatLink {
         }
     }
 
+    /// The account a JID local part names in the network's directory; `None` when unknown, too long or unanswered.
     pub async fn find_account(&self, local: &str) -> Option<GlobalId> {
         if local.len() > MAX_LOCAL {
             return None;
@@ -302,12 +378,14 @@ impl ChatLink {
         }
     }
 
+    /// Emits `event` as `chat.presence`; dropped when its user id is over [`MAX_LOCAL`].
     pub fn presence(&self, event: PresenceEvent) {
         if event.user_id.len() <= MAX_LOCAL {
             self.send(FromChat::Presence { event });
         }
     }
 
+    /// Calls `to`'s chat service with `body`; an unanswered call comes back as [`PeerError::Unreachable`].
     pub async fn peer_call(&self, to: &NodeId, body: serde_json::Value) -> Result<serde_json::Value, PeerError> {
         let to = to.clone();
         match self.request(|id| FromChat::PeerCall { id, to, body }).await {
@@ -361,7 +439,7 @@ impl ChatLink {
 
 #[cfg(test)]
 mod tests {
-    #![allow(clippy::unwrap_used)]
+    #![allow(clippy::unwrap_used, reason = "a panic is how a test fails")]
     use super::*;
 
     #[test]

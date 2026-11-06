@@ -27,6 +27,7 @@ pub const SPEND_ORDER: [&str; 13] = [
     "CURRENCY_PLATINUM_SWITCH",
 ];
 
+/// Whether the id is one of the platinum buckets.
 pub fn is_platinum_catalog_id(id: &str) -> bool {
     SPEND_ORDER.contains(&id)
 }

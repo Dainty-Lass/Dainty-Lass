@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Silent Spud
 
+//! Serving an axum app until stopped, with Nagle off and a bounded drain.
+
 use std::future::{Future, pending};
 use std::io;
 use std::net::SocketAddr;
@@ -14,9 +16,12 @@ use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::Notify;
 
+/// The two ends of a connection, a connect-info extension.
 #[derive(Debug, Clone, Copy)]
 pub struct ConnectionInfo {
+    /// The client's address.
     pub peer: SocketAddr,
+    /// The local address it connected to.
     pub local: SocketAddr,
 }
 
@@ -42,6 +47,7 @@ impl Connected<IncomingStream<'_, NoDelay>> for ConnectionInfo {
     }
 }
 
+/// A listener whose accepted sockets have Nagle's algorithm off.
 pub struct NoDelay(pub TcpListener);
 
 impl Listener for NoDelay {
@@ -87,6 +93,7 @@ async fn terminate_signal() {
     pending::<()>().await;
 }
 
+/// Resolves on Ctrl+C, SIGTERM (Ctrl+Break on Windows), or a `shutdown` line on stdin.
 pub async fn stop_requested() {
     tokio::select! {
         res = tokio::signal::ctrl_c() => {
@@ -99,6 +106,7 @@ pub async fn stop_requested() {
     }
 }
 
+/// Serves `app` on `listener` until `stop` resolves, then lets connections finish for at most `drain`.
 pub async fn serve(
     listener: TcpListener,
     app: Router,

@@ -22,20 +22,26 @@ use crate::network::{
 use crate::registrar::{AdminAction, Registrar, Registration};
 use crate::version::GameVersion;
 
+/// A boxed `Send` future, the return type of the module traits' async calls.
 pub type BoxFuture<'a, T> = Pin<Box<dyn Future<Output = T> + Send + 'a>>;
 
+/// What kind of failure a [`ModuleError`] is.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ErrorKind {
     /// The module doesn't do that (a command it doesn't have, a capability it didn't declare)
     Unsupported,
+    /// The request was malformed or broke a rule.
     Invalid,
+    /// What the request names does not exist.
     NotFound,
+    /// The module tried and failed.
     Failed,
     /// The other side of the pipe broke the protocol; the connection is dropped
     Protocol,
     /// The module or host is gone or not running
     Unavailable,
+    /// The call took longer than its deadline.
     Timeout,
 }
 
@@ -58,11 +64,14 @@ impl fmt::Display for ErrorKind {
 #[serde(deny_unknown_fields)]
 #[error("{kind}: {message}")]
 pub struct ModuleError {
+    /// What kind of failure.
     pub kind: ErrorKind,
+    /// Words for the log or the console.
     pub message: String,
 }
 
 impl ModuleError {
+    /// An error of `kind` with `message`.
     pub fn new(kind: ErrorKind, message: impl Into<String>) -> Self {
         Self {
             kind,
@@ -70,10 +79,12 @@ impl ModuleError {
         }
     }
 
+    /// An [`ErrorKind::Unsupported`] error naming `what`.
     pub fn unsupported(what: impl fmt::Display) -> Self {
         Self::new(ErrorKind::Unsupported, format!("{what} is not supported"))
     }
 
+    /// An [`ErrorKind::Failed`] error.
     pub fn failed(message: impl Into<String>) -> Self {
         Self::new(ErrorKind::Failed, message)
     }
@@ -87,17 +98,20 @@ pub const MAX_EVENT_NAME: usize = 128;
 #[serde(try_from = "String", into = "String")]
 pub struct EventName(String);
 
+/// Text that is not an [`EventName`].
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 #[error("an event name is dot-separated lowercase names, such as player.joined, at most {MAX_EVENT_NAME} bytes")]
 pub struct EventNameError;
 
 impl EventName {
+    /// `text` as an event name, when every part follows the naming rule and it fits.
     pub fn new(text: impl Into<String>) -> Result<Self, EventNameError> {
         let text = text.into();
         let ok = text.len() <= MAX_EVENT_NAME && text.split('.').all(|part| check_name(part, "").is_ok());
         if ok { Ok(Self(text)) } else { Err(EventNameError) }
     }
 
+    /// The name's text.
     pub fn as_str(&self) -> &str {
         &self.0
     }
@@ -135,24 +149,34 @@ impl fmt::Display for EventName {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Event {
+    /// Its name.
     pub name: EventName,
+    /// Its data, as the event's emitter defines it.
     #[serde(default)]
     pub payload: serde_json::Value,
 }
 
+/// How serious a [`LogRecord`] is.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum LogLevel {
+    /// Something failed.
     Error,
+    /// Something looks wrong.
     Warn,
+    /// Normal operation.
     Info,
+    /// Detail for debugging.
     Debug,
 }
 
+/// A line a module logs through the host.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct LogRecord {
+    /// How serious it is.
     pub level: LogLevel,
+    /// The line, one line of text.
     pub message: String,
 }
 
@@ -160,12 +184,16 @@ pub struct LogRecord {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct CommandRequest {
+    /// Who asked.
     pub actor: ActorContext,
+    /// The command's name, as the module registered it.
     pub name: String,
+    /// Its arguments, in order.
     #[serde(default)]
     pub args: Vec<String>,
 }
 
+/// What a command printed and returned.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct CommandOutput {
@@ -177,6 +205,7 @@ pub struct CommandOutput {
 }
 
 impl CommandOutput {
+    /// Output with text and no data.
     pub fn text(text: impl Into<String>) -> Self {
         Self {
             text: text.into(),
@@ -189,35 +218,50 @@ impl CommandOutput {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub enum AdminRequest {
+    /// Disconnect the player.
     Kick {
+        /// The player, as the module names them.
         player: String,
+        /// Words given to the player and the log.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         reason: Option<String>,
     },
+    /// Ban the player.
     Ban {
+        /// The player, as the module names them.
         player: String,
+        /// Words given to the player and the log.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         reason: Option<String>,
         /// RFC 3339; none is permanent
         #[serde(default, skip_serializing_if = "Option::is_none")]
         until: Option<String>,
     },
+    /// Lift the player's ban.
     Unban {
+        /// The player, as the module names them.
         player: String,
+        /// Words for the log.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         reason: Option<String>,
     },
+    /// End the player's timeout early.
     LiftTimeout {
+        /// The player, as the module names them.
         player: String,
+        /// Words for the log.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         reason: Option<String>,
     },
+    /// Look the player up.
     Lookup {
+        /// The player, as the module names them.
         player: String,
     },
 }
 
 impl AdminRequest {
+    /// The request's [`AdminAction`].
     pub fn action(&self) -> AdminAction {
         match self {
             Self::Kick { .. } => AdminAction::Kick,
@@ -229,13 +273,17 @@ impl AdminRequest {
     }
 }
 
+/// An admin request and who made it.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AdminCall {
+    /// Who asked.
     pub actor: ActorContext,
+    /// What was asked.
     pub request: AdminRequest,
 }
 
+/// What kind of restriction a [`PlayerRestriction`] is.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum RestrictionKind {
@@ -251,7 +299,9 @@ pub enum RestrictionKind {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct PlayerRestriction {
+    /// What kind.
     pub kind: RestrictionKind,
+    /// Words given when it was set.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reason: Option<String>,
     /// RFC 3339
@@ -262,47 +312,65 @@ pub struct PlayerRestriction {
     pub until: Option<String>,
 }
 
+/// A player as an admin lookup shows them.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct PlayerInfo {
+    /// The player's network account, when the module knows it.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub account: Option<GlobalId>,
+    /// Name shown to players.
     pub name: String,
+    /// Connected now.
     pub online: bool,
     /// None for a player who may play, or a game whose module doesn't say
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub restriction: Option<PlayerRestriction>,
 }
 
+/// A module's answer to an [`AdminCall`].
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub enum AdminResponse {
+    /// The action was carried out.
     Done,
+    /// No such player.
     NotFound,
+    /// The player looked up, or as the action left them.
     Player(PlayerInfo),
 }
 
+/// Where a module is in its lifecycle.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Phase {
     /// Registered, not started
     Loaded,
+    /// Starting its services.
     Starting,
+    /// Serving.
     Ready,
+    /// Stopping its services.
     Stopping,
+    /// Stopped after running.
     Stopped,
+    /// Failed to start, or stopped serving on an error.
     Failed,
 }
 
+/// A module's lifecycle state, as `status` reports it.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ModuleStatus {
+    /// Where it is.
     pub phase: Phase,
+    /// Words on the state, such as a failure's reason.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub detail: Option<String>,
 }
 
 impl ModuleStatus {
+    /// A status with no detail.
     pub fn new(phase: Phase) -> Self {
         Self { phase, detail: None }
     }
@@ -312,8 +380,10 @@ impl ModuleStatus {
 #[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ModuleConfig {
+    /// The port range each named port got.
     #[serde(default)]
     pub ports: BTreeMap<String, PortRange>,
+    /// Each section's keys and values.
     #[serde(default)]
     pub sections: BTreeMap<String, BTreeMap<String, serde_json::Value>>,
 }
@@ -342,6 +412,7 @@ impl ModuleConfig {
         Self { ports, sections }
     }
 
+    /// The value of `key` in `section`, if set.
     pub fn get(&self, section: &str, key: &str) -> Option<&serde_json::Value> {
         self.sections.get(section)?.get(key)
     }
@@ -351,21 +422,28 @@ impl ModuleConfig {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub enum HostCall {
+    /// Puts an event on the controller's bus.
     Emit(Event),
+    /// Writes a log line.
     Log(LogRecord),
+    /// A call to the network's home API.
     Home(HomeCall),
 }
 
+/// The host's answer to a [`HostCall`].
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub enum HostAnswer {
+    /// The call was carried out.
     Done,
+    /// The home API's answer or error.
     Home(Result<HomeAnswer, HomeError>),
 }
 
 /// The host as a module sees it. The controller implements it (DF3); out of process, the child adapter
 /// carries each call over the pipe to the host's implementation, so a module can't tell the difference.
 pub trait HostLink: Send + Sync {
+    /// Carries `call` from `module` to the host.
     fn call<'a>(&'a self, module: &'a ModuleId, call: HostCall) -> BoxFuture<'a, Result<HostAnswer, ModuleError>>;
 }
 
@@ -391,14 +469,17 @@ fn unexpected(answer: &HostAnswer) -> ModuleError {
 }
 
 impl ModuleContext {
+    /// The context for `module` on `node`, calling the host through `link`.
     pub fn new(module: ModuleId, node: NodeIdentity, link: Arc<dyn HostLink>) -> Self {
         Self { module, node, link }
     }
 
+    /// This module's id.
     pub fn module_id(&self) -> &ModuleId {
         &self.module
     }
 
+    /// The node the module runs on.
     pub fn node(&self) -> &NodeIdentity {
         &self.node
     }
@@ -419,6 +500,7 @@ impl ModuleContext {
         }
     }
 
+    /// Puts `event` on the controller's bus.
     pub async fn emit(&self, event: Event) -> Result<(), ModuleError> {
         self.done(HostCall::Emit(event)).await
     }
@@ -537,6 +619,7 @@ impl ModuleContext {
         })
     }
 
+    /// Verifies a ticket for an ongoing HTTP session on this node, admitting on first use (DN6, DN8).
     pub async fn verify_session_ticket(
         &self,
         ticket: &SessionTicket,
@@ -558,6 +641,8 @@ impl ModuleContext {
         })
     }
 
+    /// Registers the SHA-256 of a local account's API key, so the network can check the caller without
+    /// the key (DN8).
     pub async fn register_account_key_hash(
         &self,
         key_sha256: &str,
@@ -579,6 +664,7 @@ impl ModuleContext {
         })
     }
 
+    /// Registers a new account in the cluster directory and returns the username it got there (DN4).
     pub async fn register_directory_account(
         &self,
         account: &GlobalId,
@@ -600,6 +686,7 @@ impl ModuleContext {
         })
     }
 
+    /// Submits a home-owned matchmaking ticket into the regional ring (DN8).
     pub async fn ring_submit_ticket(
         &self,
         account: &GlobalId,
@@ -627,6 +714,7 @@ impl ModuleContext {
         })
     }
 
+    /// Tries to form matches in this node's regional pool for `(queue, game)` (DN8).
     pub async fn ring_try_form_matches(
         &self,
         queue: &str,
@@ -648,6 +736,7 @@ impl ModuleContext {
         })
     }
 
+    /// The state of a matchmaking ticket this home owns, none when unknown (DN8).
     pub async fn ring_ticket_state(
         &self,
         ticket: &GlobalId,
@@ -665,6 +754,7 @@ impl ModuleContext {
         })
     }
 
+    /// Cancels a matchmaking ticket this home owns; whether one was cancelled (DN8).
     pub async fn ring_cancel_ticket(&self, ticket: &GlobalId) -> Result<Result<bool, HomeError>, ModuleError> {
         let call = HomeCall::RingCancelTicket { ticket: ticket.clone() };
         Ok(match self.home(call).await? {
@@ -679,6 +769,7 @@ impl ModuleContext {
         })
     }
 
+    /// An instance record by its id, from across the network (DN6, DN8).
     pub async fn ring_lookup_instance(
         &self,
         instance: &GlobalId,
@@ -698,6 +789,7 @@ impl ModuleContext {
         })
     }
 
+    /// Registers a hunt, hub shard or party instance this node owns (DN6).
     pub async fn ring_register_instance(&self, record: &InstanceRecord) -> Result<Result<(), HomeError>, ModuleError> {
         let call = HomeCall::RingRegisterInstance {
             record: Box::new(record.clone()),
@@ -714,6 +806,7 @@ impl ModuleContext {
         })
     }
 
+    /// Decides a player's join to an instance arriving at this node (DN6).
     pub async fn ring_resolve_join(
         &self,
         account: &GlobalId,
@@ -737,6 +830,8 @@ impl ModuleContext {
         })
     }
 
+    /// Puts a player in the shared Ramsgate hub of their lowest-ping region, with a ticket for its node
+    /// when one was issued (DN9).
     pub async fn ring_assign_ramsgate(
         &self,
         account: &GlobalId,
@@ -760,6 +855,7 @@ impl ModuleContext {
         })
     }
 
+    /// Sends post-hunt XP, loot and objective progress to the player's home node (DN8).
     pub async fn ring_forward_hunt_rewards(&self, rewards: &HuntRewards) -> Result<Result<(), HomeError>, ModuleError> {
         let call = HomeCall::RingForwardHuntRewards {
             rewards: Box::new(rewards.clone()),
@@ -780,6 +876,7 @@ impl ModuleContext {
 /// A game module, or a plugin loaded like one (DD3, DD25). Written once: the controller runs it compiled
 /// in, or as an executable through `child::main` (DD5), and every call gives the same answer both ways.
 pub trait GameModule: Send + Sync + 'static {
+    /// The module's manifest.
     fn manifest(&self) -> ModuleManifest;
 
     /// Declares what the module needs from the core plugins. Runs before `start`, once per load.
@@ -789,10 +886,13 @@ pub trait GameModule: Send + Sync + 'static {
     /// services keep running on the module's own tasks until `stop`.
     fn start(&self, ctx: ModuleContext, config: ModuleConfig) -> BoxFuture<'_, Result<(), ModuleError>>;
 
+    /// Stops the module's services; it may be started again.
     fn stop(&self, ctx: ModuleContext) -> BoxFuture<'_, Result<(), ModuleError>>;
 
+    /// The module's current status.
     fn status(&self) -> ModuleStatus;
 
+    /// Runs a console command the module registered; unsupported unless overridden.
     fn command(
         &self,
         _ctx: ModuleContext,
@@ -801,6 +901,7 @@ pub trait GameModule: Send + Sync + 'static {
         Box::pin(async move { Err(ModuleError::unsupported(format!("command {}", request.name))) })
     }
 
+    /// Runs an admin action the module registered; unsupported unless overridden.
     fn admin(&self, _ctx: ModuleContext, call: AdminCall) -> BoxFuture<'_, Result<AdminResponse, ModuleError>> {
         Box::pin(async move { Err(ModuleError::unsupported(format!("{:?}", call.request.action()))) })
     }
@@ -828,6 +929,7 @@ pub enum CoreCapability {
     ContentFiles,
     /// The console, TUI, server GUI and admin API (DF3)
     Commands,
+    /// The event bus: what a module emits and subscribes to (DF3).
     Events,
     /// The admin API's kick, ban and lookup (DF4c)
     AdminActions,
@@ -842,13 +944,16 @@ pub enum CoreCapability {
 /// A plugin compiled into DaintyLass (gateway, content, admin API, host kit, chat, network). The
 /// controller hands it each module's registration as the module loads, and takes it back on unload.
 pub trait CorePlugin: Send + Sync {
+    /// The plugin's name, for logs.
     fn name(&self) -> &'static str;
 
+    /// What it serves.
     fn serves(&self) -> &'static [CoreCapability];
 
     /// Takes the parts of a registration this plugin serves. An error refuses the module's load.
     fn attach(&self, module: &ModuleManifest, registration: &Registration) -> Result<(), ModuleError>;
 
+    /// Drops what it took for `module` when the module unloads.
     fn detach(&self, module: &ModuleId);
 }
 

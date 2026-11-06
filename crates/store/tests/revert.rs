@@ -3,7 +3,7 @@
 
 //! History and revert (DD23, DH3a) on both engines. Postgres when `REFORGED_TEST_POSTGRES_URL` is set, as in
 //! `database.rs`.
-#![allow(clippy::unwrap_used, clippy::expect_used)] // test helpers
+#![allow(clippy::unwrap_used, clippy::expect_used, reason = "a panic is how a test fails")]
 
 use std::sync::atomic::{AtomicU32, Ordering};
 
@@ -37,28 +37,42 @@ const ACCOUNTS: &[AccountColumn] = &[
 ];
 
 diesel::table! {
+    /// The test schema's soft-deletable accounts.
     accounts (id) {
+        /// Primary key.
         id -> BigInt,
+        /// Display name.
         name -> Text,
+        /// Admin flag.
         is_admin -> Bool,
+        /// A nullable float.
         score -> Nullable<Double>,
+        /// A nullable blob.
         avatar -> Nullable<Binary>,
+        /// Soft-delete time, unix milliseconds.
         deleted_at -> Nullable<BigInt>,
     }
 }
 
 diesel::table! {
+    /// Items keyed by account and slot, with a renamed column.
     items (account_id, slot) {
+        /// Owning account.
         account_id -> BigInt,
+        /// Inventory slot.
         slot -> Integer,
+        /// Stored as `itemName`.
         #[sql_name = "itemName"]
         item_name -> Text,
     }
 }
 
 diesel::table! {
+    /// A table outside every account.
     notes (id) {
+        /// Primary key.
         id -> BigInt,
+        /// Note text.
         body -> Text,
     }
 }

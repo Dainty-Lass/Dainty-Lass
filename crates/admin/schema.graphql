@@ -1,6 +1,18 @@
+"""
+An account's state in its game.
+"""
 enum AccountStatus {
+	"""
+	May play.
+	"""
 	ACTIVE
+	"""
+	Banned or timed out.
+	"""
 	BANNED
+	"""
+	Disabled by the backend's own admin tools.
+	"""
 	DISABLED
 	"""
 	A status this API does not know, or a player in a game whose module doesn't report one.
@@ -12,11 +24,17 @@ enum AccountStatus {
 A timeout the admin API will lift: what `timeouts.json` holds, not the backend's view of the account.
 """
 type ActiveTimeout {
+	"""
+	The player's name.
+	"""
 	username: String!
 	"""
 	When it ends (RFC 3339).
 	"""
 	until: String!
+	"""
+	The text the player sees in the launcher.
+	"""
 	reason: String!
 	"""
 	`manager:<operator id>`.
@@ -36,7 +54,13 @@ type AdminKey {
 	What the log and `admin:<id>` in the change log call it. `owner` is REFORGED_ADMIN_API_KEY.
 	"""
 	id: String!
+	"""
+	What the key is for, as its issuer named it.
+	"""
 	name: String!
+	"""
+	What it may do.
+	"""
 	role: Role!
 	"""
 	Null for the owner key, which setup made.
@@ -50,9 +74,15 @@ type AdminKey {
 	Set once revoked: that key is refused.
 	"""
 	revokedAt: String
+	"""
+	The actor that revoked it, as the change log writes it.
+	"""
 	revokedBy: String
 }
 
+"""
+How a held action is released.
+"""
 enum GuardMode {
 	"""
 	Waits `delay_minutes`, then runs by itself.
@@ -80,7 +110,13 @@ type GuardedAction {
 	One line of what it will do.
 	"""
 	summary: String!
+	"""
+	Waiting, running or finished.
+	"""
 	state: GuardedState!
+	"""
+	Delay or approval.
+	"""
 	mode: GuardMode!
 	"""
 	The key that asked: `owner` or a key id.
@@ -90,6 +126,9 @@ type GuardedAction {
 	The lowest role that may approve it.
 	"""
 	needsRole: Role!
+	"""
+	When it was asked for (RFC 3339).
+	"""
 	createdAt: String!
 	"""
 	When a delay ends and the action runs by itself; null when it waits for an approval.
@@ -103,7 +142,13 @@ type GuardedAction {
 	The second operator key (`host` for the host kit). The action ran as the key that asked.
 	"""
 	approvedBy: String
+	"""
+	The key that canceled it (`host` for the host kit).
+	"""
 	canceledBy: String
+	"""
+	When it finished (RFC 3339).
+	"""
 	endedAt: String
 	"""
 	What it did, or why it did not: the action own refusal, or that the key that asked was revoked.
@@ -111,6 +156,9 @@ type GuardedAction {
 	result: String
 }
 
+"""
+Where a held action is.
+"""
 enum GuardedState {
 	"""
 	Waiting for its delay to end or for an approval.
@@ -124,11 +172,17 @@ enum GuardedState {
 	Being run now.
 	"""
 	RUNNING
+	"""
+	It ran and succeeded.
+	"""
 	DONE
 	"""
 	It ran and the action itself refused or failed, or the server stopped while it ran: see `result`.
 	"""
 	FAILED
+	"""
+	An operator canceled it.
+	"""
 	CANCELED
 	"""
 	Nobody approved it in time, or the server was down past its time.
@@ -140,10 +194,25 @@ enum GuardedState {
 One log's hash chain checked from its start (`history verify`).
 """
 type HistoryCheck {
+	"""
+	`node`, `admin` or `chat`.
+	"""
 	database: String!
+	"""
+	Entries checked, as a decimal string.
+	"""
 	entries: String!
+	"""
+	Whether the whole chain holds.
+	"""
 	ok: Boolean!
+	"""
+	The newest entry's id.
+	"""
 	headId: String
+	"""
+	The newest entry's hash.
+	"""
 	headHash: String
 	"""
 	Where the chain breaks and what that means.
@@ -155,16 +224,25 @@ type HistoryCheck {
 One change to one row, from a database's change log.
 """
 type HistoryEntry {
+	"""
+	The log entry's id.
+	"""
 	id: String!
 	"""
 	`node` (the game), `admin` or `chat`.
 	"""
 	database: String!
+	"""
+	When the change was made (RFC 3339).
+	"""
 	at: String!
 	"""
 	Who made it: `player:<account>`, `admin:<key id>`, `host:<command>` or `system:<task>`.
 	"""
 	actor: String!
+	"""
+	The table the row is in.
+	"""
 	table: String!
 	"""
 	The row's primary key, as JSON.
@@ -178,6 +256,9 @@ type HistoryEntry {
 	The row before and after, as JSON; an admin key's hash is hidden.
 	"""
 	before: String
+	"""
+	The row after the change, as JSON; an admin key's hash is hidden.
+	"""
 	after: String
 }
 
@@ -191,6 +272,9 @@ input HistoryFilter {
 	Rows that belong to this account id, before or after the change.
 	"""
 	account: String
+	"""
+	Changes made by this actor.
+	"""
 	actor: String
 	"""
 	From this time on, inclusive.
@@ -206,6 +290,9 @@ input HistoryFilter {
 Changes newest first.
 """
 type HistoryPage {
+	"""
+	The entries on this page.
+	"""
 	entries: [HistoryEntry!]!
 	"""
 	Pass it as `cursor` for the next, older page; null at the end.
@@ -213,18 +300,51 @@ type HistoryPage {
 	next: String
 }
 
+"""
+A running hunt.
+"""
 type Hunt {
+	"""
+	The Director's instance id.
+	"""
 	id: String!
+	"""
+	The title the Director gives it.
+	"""
 	title: String!
+	"""
+	The map's name.
+	"""
 	map: String!
+	"""
+	The behemoth, if the hunt has one.
+	"""
 	behemoth: String
+	"""
+	Players in it now.
+	"""
 	playerCount: Int!
+	"""
+	The most it takes.
+	"""
 	maxPlayers: Int!
+	"""
+	Who is in it.
+	"""
 	players: [HuntPlayer!]!
+	"""
+	When it started, as the Director gives it.
+	"""
 	startedAt: String
 }
 
+"""
+A player in a hunt.
+"""
 type HuntPlayer {
+	"""
+	The account id.
+	"""
 	userId: String!
 	"""
 	Null when the backend has no account with that id.
@@ -232,16 +352,25 @@ type HuntPlayer {
 	username: String
 }
 
+"""
+The hunt servers and what they hold.
+"""
 type HuntStatus {
 	"""
 	`max_hunt_servers` in host.toml.
 	"""
 	maxHuntServers: Int!
+	"""
+	Hunt servers running.
+	"""
 	running: Int!
 	"""
 	Hunt servers that can still start.
 	"""
 	free: Int!
+	"""
+	The running hunts.
+	"""
 	hunts: [Hunt!]!
 }
 
@@ -253,11 +382,23 @@ type IssuedKey {
 	`RRA_<id>_<secret>`: send it as `Authorization: Bearer <key>`. Keep it; it cannot be shown again.
 	"""
 	key: String!
+	"""
+	What the key may do, as listed.
+	"""
 	info: AdminKey!
 }
 
+"""
+What a kick did.
+"""
 type KickResult {
+	"""
+	The account id.
+	"""
 	userId: String!
+	"""
+	The display name.
+	"""
 	username: String!
 	"""
 	Chat connections closed; 0 when the player held none, or in a game whose module doesn't count them.
@@ -273,7 +414,13 @@ type KickResult {
 The game server a player is on, from the Director.
 """
 type Location {
+	"""
+	The kind of game server.
+	"""
 	kind: LocationKind!
+	"""
+	The Director's instance id.
+	"""
 	instanceId: String!
 	"""
 	"Ramsgate", "Training Grounds", or the hunt's behemoth or island.
@@ -281,16 +428,25 @@ type Location {
 	title: String!
 }
 
+"""
+The kind of game server a player is on.
+"""
 enum LocationKind {
 	"""
 	Ramsgate
 	"""
 	HUB
+	"""
+	A hunt.
+	"""
 	HUNT
 	"""
 	The Training Grounds
 	"""
 	TRAINING
+	"""
+	The tutorial.
+	"""
 	TUTORIAL
 }
 
@@ -320,12 +476,27 @@ type LogSettings {
 A change to `[logs]`: a field left out keeps its value; an empty `gelfUrl` stops shipping.
 """
 input LogSettingsInput {
+	"""
+	`text` or `json`.
+	"""
 	format: String
+	"""
+	`auto`, `always` or `never`.
+	"""
 	color: String
+	"""
+	The GELF collector's URL; empty stops shipping.
+	"""
 	gelfUrl: String
 }
 
+"""
+A module `[modules]` lists, as the registry sees it now.
+"""
 type Module {
+	"""
+	The module's id.
+	"""
 	id: String!
 	"""
 	not_loaded, starting, ready or failed
@@ -335,19 +506,37 @@ type Module {
 	compiled_in or external
 	"""
 	source: String!
+	"""
+	Whether the server loads it at start.
+	"""
 	autoload: Boolean!
 	"""
 	Known once it loaded, or at once for a compiled-in one
 	"""
 	displayName: String
+	"""
+	The game version it serves, once known.
+	"""
 	gameVersion: String
 	"""
 	game or plugin
 	"""
 	kind: String
+	"""
+	Built but not checked against recorded traffic (DD9).
+	"""
 	unverified: Boolean!
+	"""
+	Why it failed or was unloaded.
+	"""
 	detail: String
+	"""
+	The ports it was given.
+	"""
 	ports: [ModulePort!]!
+	"""
+	The commands it registered.
+	"""
 	commands: [String!]!
 }
 
@@ -355,8 +544,17 @@ type Module {
 A port a module was given: its default, or where the controller moved it.
 """
 type ModulePort {
+	"""
+	What the module calls the port.
+	"""
 	name: String!
+	"""
+	The first port of its range.
+	"""
 	first: Int!
+	"""
+	The last port of its range, inclusive.
+	"""
 	last: Int!
 }
 
@@ -436,15 +634,45 @@ type Mutation {
 GraphQL representation of a queued admin action waiting for a down peer (DN11).
 """
 type PendingRelay {
+	"""
+	The queue entry's id.
+	"""
 	id: String!
+	"""
+	The peer it waits for.
+	"""
 	node: String!
+	"""
+	The relay's idempotency key.
+	"""
 	requestKey: String!
+	"""
+	The relay operation, such as `admin.ban`.
+	"""
 	operation: String!
+	"""
+	The player's name as given.
+	"""
 	target: String
+	"""
+	The player's game version.
+	"""
 	game: String
+	"""
+	The admin key that acted: `owner` or a key id.
+	"""
 	actorKey: String!
+	"""
+	When it was queued (RFC 3339).
+	"""
 	createdAt: String!
+	"""
+	Sends tried so far.
+	"""
 	attempts: Int!
+	"""
+	The last send's error.
+	"""
 	lastError: String
 	"""
 	`"pending on node <node>"`
@@ -452,9 +680,21 @@ type PendingRelay {
 	status: String!
 }
 
+"""
+A player as the admin API shows them.
+"""
 type Player {
+	"""
+	The account id.
+	"""
 	userId: String!
+	"""
+	The display name.
+	"""
 	username: String!
+	"""
+	The account's state.
+	"""
 	status: AccountStatus!
 	"""
 	Null when the player may play.
@@ -473,7 +713,13 @@ type Player {
 	whose module doesn't report it; that module refuses to act on its own admins.
 	"""
 	admin: Boolean!
+	"""
+	When the account was made (RFC 3339), if the game reports it.
+	"""
 	createdAt: String
+	"""
+	The last login (RFC 3339), if the game reports it.
+	"""
 	lastLoginAt: String
 	"""
 	The game version the player is in, such as 1.14.7.
@@ -548,6 +794,9 @@ type Query {
 Why a player cannot play right now.
 """
 type Restriction {
+	"""
+	Ban, timeout or disabled.
+	"""
 	kind: RestrictionKind!
 	"""
 	The text the player sees in the launcher.
@@ -567,6 +816,9 @@ type Restriction {
 	until: String
 }
 
+"""
+What keeps a player out.
+"""
 enum RestrictionKind {
 	"""
 	Banned until someone lifts it.
@@ -582,15 +834,33 @@ enum RestrictionKind {
 	DISABLED
 }
 
+"""
+One row a revert would change.
+"""
 type RevertAction {
+	"""
+	`node`, `admin` or `chat`.
+	"""
 	database: String!
+	"""
+	The table the row is in.
+	"""
 	table: String!
+	"""
+	The row's primary key, as JSON.
+	"""
 	key: String!
+	"""
+	What the revert does to it.
+	"""
 	kind: RevertKind!
 	"""
 	The row now and as the revert leaves it, as JSON.
 	"""
 	current: String
+	"""
+	The row as the revert leaves it, as JSON.
+	"""
 	target: String
 }
 
@@ -598,8 +868,17 @@ type RevertAction {
 A row the revert leaves as it is.
 """
 type RevertConflict {
+	"""
+	`node`, `admin` or `chat`.
+	"""
 	database: String!
+	"""
+	The table the row is in.
+	"""
 	table: String!
+	"""
+	The row's primary key, as JSON.
+	"""
 	key: String!
 	"""
 	`changed_since`, `not_as_logged`, `key_changed` or `schema_changed`.
@@ -609,27 +888,57 @@ type RevertConflict {
 	`changed_since`: the first newer entry, who made it and when.
 	"""
 	entry: String
+	"""
+	`changed_since`: who made the newer entry.
+	"""
 	by: String
+	"""
+	`changed_since`: when (RFC 3339).
+	"""
 	at: String
+	"""
+	More on the conflict, for the operator.
+	"""
 	detail: String
 }
 
+"""
+What a revert did.
+"""
 type RevertDone {
+	"""
+	The plan carried out.
+	"""
 	planId: String!
 	"""
 	The revert's own entries carry this time and `admin:<key id>`.
 	"""
 	at: String
+	"""
+	Rows changed in all.
+	"""
 	rowsChanged: Int!
+	"""
+	Rows changed, by database.
+	"""
 	databases: [RevertedIn!]!
 	"""
 	Rows left as they are.
 	"""
 	conflicts: [RevertConflict!]!
+	"""
+	Rows left as they are, in all.
+	"""
 	conflictCount: Int!
+	"""
+	Whether `conflicts` holds fewer than `conflictCount`.
+	"""
 	truncated: Boolean!
 }
 
+"""
+What a revert does to one row.
+"""
 enum RevertKind {
 	"""
 	A deleted row, put back.
@@ -653,20 +962,41 @@ enum RevertKind {
 What a revert would do. `revertApply` with `id` does exactly this and nothing else.
 """
 type RevertPlan {
+	"""
+	Pass it to `revertApply`.
+	"""
 	id: String!
 	"""
 	Log entries the selection matches.
 	"""
 	entries: Int!
+	"""
+	Rows the revert would change.
+	"""
 	actionCount: Int!
+	"""
+	Rows it would leave because they changed since.
+	"""
 	conflictCount: Int!
+	"""
+	Rows already as it would leave them.
+	"""
 	unchangedCount: Int!
 	"""
 	The first rows of each list; `truncated` says there are more than listed.
 	"""
 	actions: [RevertAction!]!
+	"""
+	Rows it would leave, the first ones.
+	"""
 	conflicts: [RevertConflict!]!
+	"""
+	Rows already as it would leave them, the first ones.
+	"""
 	unchanged: [RevertUnchanged!]!
+	"""
+	Whether any list holds fewer rows than its count.
+	"""
 	truncated: Boolean!
 	"""
 	How long the server keeps this plan for `revertApply` without the selection.
@@ -674,14 +1004,35 @@ type RevertPlan {
 	keptForSeconds: Int!
 }
 
+"""
+A row the revert finds already as it would leave it.
+"""
 type RevertUnchanged {
+	"""
+	`node`, `admin` or `chat`.
+	"""
 	database: String!
+	"""
+	The table the row is in.
+	"""
 	table: String!
+	"""
+	The row's primary key, as JSON.
+	"""
 	key: String!
 }
 
+"""
+Rows a revert changed in one database.
+"""
 type RevertedIn {
+	"""
+	`node`, `admin` or `chat`.
+	"""
 	database: String!
+	"""
+	Rows changed.
+	"""
 	rows: Int!
 }
 
@@ -707,6 +1058,9 @@ enum Role {
 	OWNER
 }
 
+"""
+How players reach the server.
+"""
 enum ServerMode {
 	"""
 	Reached over Tailscale.
@@ -718,13 +1072,25 @@ enum ServerMode {
 	PUBLIC
 }
 
+"""
+What the server is and how it is doing.
+"""
 type ServerStatus {
+	"""
+	The server's name.
+	"""
 	name: String!
+	"""
+	How players reach it.
+	"""
 	mode: ServerMode!
 	"""
 	INVITECODE, OPEN or NONE.
 	"""
 	registration: String!
+	"""
+	The server's version.
+	"""
 	version: String!
 	"""
 	The server's source commit; null when unknown.
@@ -734,7 +1100,13 @@ type ServerStatus {
 	Seconds since the backend started.
 	"""
 	uptimeSeconds: Int!
+	"""
+	Players online now.
+	"""
 	onlineCount: Int!
+	"""
+	Whether chat is running.
+	"""
 	chat: Boolean!
 	"""
 	real, synthetic or missing.

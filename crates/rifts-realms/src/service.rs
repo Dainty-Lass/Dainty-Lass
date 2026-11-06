@@ -26,17 +26,27 @@ use crate::{
 
 type Fut<'a, T> = BoxFuture<'a, Result<T, SeamError>>;
 
+/// What the realms side of the seam answers from; an absent part answers as a dedicated-only server.
 pub struct RealmsServiceParts {
+    /// The realm directory, when realms run.
     pub directory: Option<Arc<RealmDirectory>>,
+    /// Host capabilities, when hosted runtimes are checked.
     pub capabilities: Option<Arc<HostCapabilities>>,
+    /// Player hosting, when it runs.
     pub hosting: Option<Arc<Hosting>>,
+    /// The time now.
     pub clock: Arc<dyn Clock>,
+    /// The module's accounts, parties and matchmaking.
     pub core: Arc<dyn IslesCore>,
+    /// The player-hosted policy.
     pub policy: HostingPolicy,
+    /// Whether the realms module is on.
     pub realms_enabled: bool,
+    /// This server's node, for global ids.
     pub node: NodeId,
 }
 
+/// The module's realms hooks and game-session entry, over these parts.
 pub struct RealmsService {
     parts: RealmsServiceParts,
 }
@@ -101,6 +111,7 @@ const METRIC_CLASSES: [(&str, &str); 4] = [
 ];
 
 impl RealmsService {
+    /// The service over these parts.
     pub fn new(parts: RealmsServiceParts) -> Self {
         Self { parts }
     }

@@ -63,11 +63,14 @@ const HOP_BY_HOP: &[&str] = &[
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Port {
+    /// The game backend's port: every route.
     Backend,
+    /// The Director's port: only the routes the other half calls.
     Director,
 }
 
 impl Port {
+    /// The name the request carries.
     pub fn as_str(self) -> &'static str {
         match self {
             Self::Backend => "backend",
@@ -95,11 +98,15 @@ mod b64 {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct TunnelRequest {
+    /// Which loopback port it goes to.
     pub port: Port,
+    /// The HTTP method, one the tunnel carries.
     pub method: String,
     /// Origin form: path and query
     pub target: String,
+    /// Headers in order, hop-by-hop ones left out.
     pub headers: Vec<(String, String)>,
+    /// The body, base64 on the wire.
     #[serde(with = "b64")]
     pub body: Vec<u8>,
 }
@@ -108,8 +115,11 @@ pub struct TunnelRequest {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct TunnelResponse {
+    /// The HTTP status.
     pub status: u16,
+    /// Headers in order, hop-by-hop ones left out.
     pub headers: Vec<(String, String)>,
+    /// The body, base64 on the wire.
     #[serde(with = "b64")]
     pub body: Vec<u8>,
 }
@@ -159,6 +169,7 @@ pub fn carries(port: Port, method: &str, target: &str) -> bool {
 }
 
 impl TunnelRequest {
+    /// Refuses a method, target, header set or body the tunnel does not carry.
     pub fn check(&self) -> Result<(), String> {
         if !METHODS.contains(&self.method.as_str()) {
             return Err("a method the tunnel does not carry".into());
@@ -171,6 +182,7 @@ impl TunnelRequest {
         Ok(())
     }
 
+    /// The request as JSON.
     pub fn encode(&self) -> Result<Vec<u8>, String> {
         serde_json::to_vec(self).map_err(|e| e.to_string())
     }
@@ -184,6 +196,7 @@ impl TunnelRequest {
 }
 
 impl TunnelResponse {
+    /// Refuses a status outside 100 to 599 and an oversized header set or body.
     pub fn check(&self) -> Result<(), String> {
         if !(100..=599).contains(&self.status) {
             return Err(format!("status {}", self.status));
@@ -195,10 +208,12 @@ impl TunnelResponse {
         Ok(())
     }
 
+    /// The answer as JSON.
     pub fn encode(&self) -> Result<Vec<u8>, String> {
         serde_json::to_vec(self).map_err(|e| e.to_string())
     }
 
+    /// Parsed and checked: an answer that fails [`check`](Self::check) is refused.
     pub fn decode(bytes: &[u8]) -> Result<Self, String> {
         let response: Self = serde_json::from_slice(bytes).map_err(|e| format!("not a tunnel answer: {e}"))?;
         response.check()?;
@@ -353,8 +368,11 @@ pub type LinkSource = Arc<dyn Fn() -> Option<Arc<dyn PeerLink>> + Send + Sync>;
 
 /// The listening half's side of one port.
 pub struct TunnelClient {
+    /// Finds the link to the other half.
     pub link: LinkSource,
+    /// The node running the other half.
     pub peer: NodeId,
+    /// The port requests go to there.
     pub port: Port,
 }
 

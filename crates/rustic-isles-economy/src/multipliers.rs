@@ -12,17 +12,22 @@ use service_kit::js;
 
 use crate::util::{is_whole, js_number_text, num, number_value};
 
+/// The largest factor a multiplier setting may take.
 pub const MAX_TEST_MULTIPLIER: f64 = 100.0;
 
 /// Both factors, and why they are off when they are (1 and 1 then).
 #[derive(Debug, Clone, PartialEq)]
 pub struct TestMultipliers {
+    /// The XP factor (`REFORGED_XP_MULTIPLIER`).
     pub xp: f64,
+    /// The rewards factor (`REFORGED_REWARD_MULTIPLIER`).
     pub rewards: f64,
+    /// Why the factors are off; None when they apply or are both 1.
     pub reason: Option<String>,
 }
 
 impl TestMultipliers {
+    /// Both factors 1 and no reason.
     pub const OFF: Self = Self {
         xp: 1.0,
         rewards: 1.0,

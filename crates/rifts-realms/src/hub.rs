@@ -14,8 +14,11 @@ use crate::time::Later as _;
 
 /// The host included.
 pub const DEFAULT_HUB_MAX_PLAYERS: i64 = 16;
+/// The most players a hub may be started for, the host included.
 pub const MAXIMUM_HUB_MAX_PLAYERS: i64 = 64;
+/// How long a hub session lasts, in milliseconds.
 pub const HUB_SESSION_LIFETIME_MS: i64 = WEEK_MS;
+/// How long a host has to accept a hub offer, in milliseconds.
 pub const HUB_OFFER_LIFETIME_MS: i64 = 120_000;
 /// A waiting entry lives this long.
 pub const ENTRY_LIFETIME_MS: i64 = 90_000;
@@ -34,12 +37,16 @@ pub fn hub_party_key(realm_id: &str, kind: HubKind) -> String {
     ["realmhub", realm_id, suffix].join(":")
 }
 
+/// What a realm player's matchmaking request is for.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum RealmRequest {
+    /// One of the realm's hubs.
     Hub(HubKind),
+    /// A hunt.
     Hunt,
 }
 
+/// Classifies a request: Ramsgate for the `CITY` mode or a return to Ramsgate, training for the dojo, a hunt otherwise.
 pub fn classify_realm_request(game_mode: &str, hunt_id: &str) -> RealmRequest {
     let to_ramsgate = game_mode == "CITY" || hunt_id.contains("ReturnToRamsgate");
     match (to_ramsgate, hunt_id.contains("TrainingDojo")) {
@@ -49,15 +56,24 @@ pub fn classify_realm_request(game_mode: &str, hunt_id: &str) -> RealmRequest {
     }
 }
 
+/// What a host's runtime loads for a hub.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct HubManifest {
+    /// Which hub.
     pub hub_kind: HubKind,
+    /// The hunt definition id the game knows the hub by.
     pub hunt_definition_id: &'static str,
+    /// The game mode.
     pub game_mode: &'static str,
+    /// The map to load.
     pub map_path: &'static str,
+    /// The matchmaker hunt id; empty for a hub.
     pub matchmaker_hunt_id: &'static str,
+    /// The behemoth to load; empty for a hub.
     pub behemoth_path: &'static str,
+    /// The expected roster; empty for a hub.
     pub expected_player_string: &'static str,
+    /// Guard's completion mode; empty for a hub.
     pub guard_completion_mode: &'static str,
 }
 
@@ -75,6 +91,7 @@ const fn hub_level(kind: HubKind, definition: &'static str, mode: &'static str, 
     }
 }
 
+/// The manifest for a hub of this kind.
 pub const fn hub_manifest(kind: HubKind) -> HubManifest {
     match kind {
         HubKind::Ramsgate => hub_level(
@@ -112,6 +129,7 @@ fn hub_kind_of(body: &Value) -> Result<HubKind, &'static str> {
         .ok_or("hubKind must be RAMSGATE or TRAINING.")
 }
 
+/// The hub kind and player limit from a hub start body; the limit defaults to [`DEFAULT_HUB_MAX_PLAYERS`]. `Err` is the 400 text.
 pub fn parse_hub_start_body(body: &Value) -> Result<(HubKind, i64), &'static str> {
     let kind = hub_kind_of(body)?;
     let Some(requested) = body.get("maxPlayers") else {
@@ -123,10 +141,12 @@ pub fn parse_hub_start_body(body: &Value) -> Result<(HubKind, i64), &'static str
     }
 }
 
+/// The hub kind from a hub stop body. `Err` is the 400 text.
 pub fn parse_hub_stop_body(body: &Value) -> Result<HubKind, &'static str> {
     hub_kind_of(body)
 }
 
+/// States in which a hub counts as live.
 pub const HUB_LIVE_STATES: [H; 6] = [
     H::HostOffered,
     H::Starting,
@@ -135,15 +155,19 @@ pub const HUB_LIVE_STATES: [H; 6] = [
     H::Running,
     H::Suspect,
 ];
+/// States a hub ends in.
 pub const HUB_TERMINAL_STATES: [H; 2] = [H::Completed, H::Aborted];
 /// The host's runtime holds a live credential.
 pub const HUB_RUNTIME_STATES: [H; 5] = [H::Starting, H::HostReady, H::Admitting, H::Running, H::Suspect];
+/// States in which the host holds a lease it must renew.
 pub const HUB_LEASED_STATES: [H; 3] = [H::HostReady, H::Admitting, H::Running];
 
 /// The hub events, declared once with the list `is_hub_transition_allowed` walks.
 macro_rules! hub_events {
     ($( $event:ident ),* $(,)?) => {
+        /// Something that happens to a hub session; [`next_hub_state`] says where it moves.
         #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+        #[allow(missing_docs, reason = "the event list takes no attributes; the names say what happened")]
         pub enum HubEvent { $( $event, )* }
 
         const EVERY_HUB_EVENT: &[HubEvent] = &[$( HubEvent::$event, )*];
@@ -152,6 +176,7 @@ macro_rules! hub_events {
 
 hub_events! { HostBootstrap, HostReady, HostRouteReady, HostAdmitted, LeaseLapsed, LeaseBack, SuspectTimeout, Stop, Abort }
 
+/// Whether the hub is in one of [`HUB_LIVE_STATES`].
 pub fn is_hub_live(state: H) -> bool {
     HUB_LIVE_STATES.contains(&state)
 }
@@ -177,6 +202,7 @@ pub fn next_hub_state(state: H, event: HubEvent, pre_suspect: Option<H>) -> Opti
     applies.then_some(to)
 }
 
+/// Whether some hub event, or a lease coming back, moves `from` to `to`.
 pub fn is_hub_transition_allowed(from: H, to: H) -> bool {
     // LeaseBack needs the state before suspicion: it is covered here and is a no-op in the walk.
     let recovers = from == H::Suspect && is_leased(&to);
@@ -186,6 +212,7 @@ pub fn is_hub_transition_allowed(from: H, to: H) -> bool {
             .any(|&event| next_hub_state(from, event, None) == Some(to))
 }
 
+/// Whether the hub was running, before suspicion if it is suspect.
 pub fn hub_ran(state: H, pre_suspect: Option<H>) -> bool {
     match state {
         H::Running => true,
@@ -194,12 +221,23 @@ pub fn hub_ran(state: H, pre_suspect: Option<H>) -> bool {
     }
 }
 
+/// What a periodic check does to a hub.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum HubTick {
+    /// Nothing.
     None,
-    Suspect { reason: &'static str },
+    /// The host's lease lapsed; the hub becomes suspect.
+    Suspect {
+        /// Why, as a code.
+        reason: &'static str,
+    },
+    /// The lease came back; the hub returns to its state before suspicion.
     Recover,
-    End { reason: &'static str },
+    /// The hub ends, aborted.
+    End {
+        /// Why, as a code.
+        reason: &'static str,
+    },
 }
 
 /// Every hub end from the tick is ABORTED: hubs have no clean end, no quorum and no recovery.
@@ -244,6 +282,7 @@ pub fn decide_hub_tick(hub: &HuntSession, now: UnixMillis, emergency_stop: bool,
     }
 }
 
+/// Whether a hub ending for `reason` counts against the host's reliability.
 pub fn hub_end_counts_as_host_failure(reason: &str) -> bool {
     ["HOST_LEASE_LOST", "HOST_PROCESS_UNHEALTHY", "HUB_STARTUP_TIMEOUT"].contains(&reason)
 }
@@ -256,8 +295,10 @@ macro_rules! presence_states {
         pub enum PresenceState { $( $(#[$doc])* $variant, )* }
 
         impl PresenceState {
+            /// Every state, in declaration order.
             pub const ALL: [PresenceState; 7] = [$( Self::$variant, )*];
 
+            /// The state's stored text.
             pub const fn as_str(self) -> &'static str {
                 match self { $( Self::$variant => $text, )* }
             }
@@ -272,27 +313,35 @@ presence_states! {
     Ticketed = "TICKETED",
     /// Connected; the host's own row starts here.
     Admitted = "ADMITTED",
+    /// Disconnected, or the hub session ended.
     Lost = "LOST",
     /// Travelled to a hunt, or left.
     Left = "LEFT",
     /// Kicked, banned, or the realm was released.
     Removed = "REMOVED",
+    /// A waiting row whose time ran out.
     Expired = "EXPIRED",
 }
 
 impl PresenceState {
+    /// States in which the member is connected.
     pub const PRESENT: [PresenceState; 1] = [Self::Admitted];
+    /// States in which the row counts as live.
     pub const LIVE: [PresenceState; 3] = [Self::Pending, Self::Ticketed, Self::Admitted];
+    /// States in which the row waits and can expire.
     pub const EXPIRING: [PresenceState; 2] = [Self::Pending, Self::Ticketed];
 
+    /// The state for its stored text.
     pub fn parse(text: &str) -> Option<Self> {
         Self::ALL.iter().copied().find(|candidate| candidate.as_str() == text)
     }
 
+    /// Whether the state is one of [`PresenceState::LIVE`].
     pub fn is_live_state(self) -> bool {
         Self::LIVE.contains(&self)
     }
 
+    /// Whether the state is one of [`PresenceState::EXPIRING`].
     pub fn is_expiring_state(self) -> bool {
         Self::EXPIRING.contains(&self)
     }
@@ -301,7 +350,9 @@ impl PresenceState {
 /// The presence events and their table: an event applies to the rows in its source set and moves them to its target.
 macro_rules! presence_events {
     ($( $event:ident: $sources:ident -> $target:ident ),* $(,)?) => {
+        /// Something that happens to a member's hub row; [`next_presence_state`] says where it moves.
         #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+        #[allow(missing_docs, reason = "the event table takes no attributes; the table gives each one's move")]
         pub enum PresenceEvent { $( $event, )* }
 
         /// The presence table: `None` when the event does not apply in `from`.
@@ -325,10 +376,12 @@ presence_events! {
     SessionEnded: LIVE -> Lost,
 }
 
+/// When a waiting entry made now expires.
 pub fn entry_expires_at(now: UnixMillis) -> UnixMillis {
     now.saturating_add(ENTRY_LIFETIME_MS)
 }
 
+/// When a row that stopped being live at `at` is purged.
 pub fn presence_purge_at(at: UnixMillis) -> UnixMillis {
     at.saturating_add(PRESENCE_PURGE_AFTER_MS)
 }
@@ -338,18 +391,23 @@ pub fn is_presence_expired(state: PresenceState, expires_at: UnixMillis, now: Un
     expires_at <= now && state.is_expiring_state()
 }
 
+/// Whether the row is live and has not expired.
 pub fn is_presence_live(state: PresenceState, expires_at: UnixMillis, now: UnixMillis) -> bool {
     !is_presence_expired(state, expires_at, now) && state.is_live_state()
 }
 
+/// What to do with a hub entry request, given the account's current row.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum EntryDecision {
+    /// No row: make one.
     Create,
     /// A waiting row still valid: neither the candidate churns nor a ticket in flight goes stale.
     Reuse,
+    /// A row that is no longer waiting: enter again.
     Reenter,
 }
 
+/// What to do with an entry request, given the account's row state and expiry.
 pub fn decide_entry_request(existing: Option<(PresenceState, UnixMillis)>, now: UnixMillis) -> EntryDecision {
     let Some((state, expires_at)) = existing else {
         return EntryDecision::Create;
@@ -365,24 +423,33 @@ pub fn decide_entry_request(existing: Option<(PresenceState, UnixMillis)>, now: 
 /// What a hub ticket request is checked against.
 #[derive(Clone, Copy, Debug)]
 pub struct HubTicketCheck<'a> {
+    /// The hub.
     pub hub: &'a HuntSession,
+    /// The generation the request is for, if it named one.
     pub generation: Option<i64>,
+    /// The account asking.
     pub account_id: &'a str,
     /// (state, expires at, peer id) of the account's row.
     pub presence: Option<(PresenceState, UnixMillis, &'a str)>,
+    /// Whether the account is a member of the hub's realm.
     pub is_member: bool,
+    /// Whether the account is banned from it.
     pub is_banned: bool,
     /// (status, peer id) of the account's peer link.
     pub link: Option<(&'a str, &'a str)>,
+    /// The time now.
     pub now: UnixMillis,
 }
 
 /// Each denial beside the (code, text) it answers with.
 macro_rules! ticket_denials {
     ($( $denial:ident => $error:ident ),* $(,)?) => {
+        /// Why an account may not have a hub ticket.
         #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+        #[allow(missing_docs, reason = "the denial table takes no attributes; the table gives each one's error")]
         pub enum HubTicketDenial { $( $denial, )* }
 
+        /// The code and text a ticket denial answers with.
         pub fn hub_ticket_denial_error(denial: HubTicketDenial) -> (&'static str, &'static str) {
             match denial { $( HubTicketDenial::$denial => $error, )* }
         }
@@ -409,6 +476,7 @@ ticket_denials! {
     PeerLinkMissing => LINK_REQUIRED, PeerIdMismatch => LINK_REQUIRED,
 }
 
+/// Why the account may not have a hub ticket, or `None` when it may.
 pub fn hub_ticket_denial(check: &HubTicketCheck<'_>) -> Option<HubTicketDenial> {
     use HubTicketDenial as D;
     let HubTicketCheck { hub, now, .. } = *check;
@@ -442,25 +510,37 @@ pub fn hub_ticket_denial(check: &HubTicketCheck<'_>) -> Option<HubTicketDenial> 
     (link_peer != entry_peer).then_some(D::PeerIdMismatch)
 }
 
+/// What a realm host's capacity for another server is checked against.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct RealmCapacityInput {
+    /// Servers running now.
     pub active_servers: i64,
+    /// The realm's server limit.
     pub max_servers: i64,
+    /// The host's free physical memory, in MiB.
     pub free_physical_memory_mib: f64,
+    /// The host's commit headroom, in MiB.
     pub commit_headroom_mib: f64,
+    /// The free memory a server should have, in MiB.
     pub minimum_free_memory_mib: f64,
+    /// The commit headroom a server needs, in MiB.
     pub minimum_commit_headroom_mib: f64,
 }
 
+/// Whether a realm host can start another server.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum RealmCapacity {
+    /// It can.
     Ok,
     /// Goes ahead; running out of commit, not free memory, is what ends a server.
     OkLowFreeMemory,
+    /// Too little commit headroom.
     CommitLow,
+    /// The realm runs its maximum servers already.
     ServerLimit,
 }
 
+/// Whether the host can start another server: the server limit, then commit headroom, then free memory.
 pub fn decide_realm_capacity(input: &RealmCapacityInput) -> RealmCapacity {
     let checks = [
         (input.active_servers >= input.max_servers, RealmCapacity::ServerLimit),
@@ -479,12 +559,14 @@ pub fn decide_realm_capacity(input: &RealmCapacityInput) -> RealmCapacity {
         .unwrap_or(RealmCapacity::Ok)
 }
 
+/// Whether a hub with `present` players is full for an account not yet present.
 pub fn hub_is_full(present: i64, max_peers: i64, already_present: bool) -> bool {
     present >= max_peers && !already_present
 }
 
 pub(crate) const REALMS_HOSTING_SETTING: &str = "RUSTIC_RIFTS_REALMS_HOSTING";
 
+/// Whether `RUSTIC_RIFTS_REALMS_HOSTING` turns realm hosting on; off unless `on`, `true` or `1`.
 pub fn realm_hosting_enabled(settings: &dyn Settings) -> bool {
     let Some(raw) = settings.get(REALMS_HOSTING_SETTING) else {
         return false;
@@ -493,11 +575,16 @@ pub fn realm_hosting_enabled(settings: &dyn Settings) -> bool {
     matches!(value.as_str(), "on" | "true" | "1")
 }
 
+/// The realm hub settings.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct RealmHubPolicy {
+    /// How long a hub host's capability lasts, in milliseconds (`P2P_REALM_HUB_CAPABILITY_TTL_HOURS`).
     pub capability_ttl_ms: i64,
+    /// The free memory each server should have, in MiB (`P2P_REALM_MIN_FREE_MEMORY_MIB_PER_SERVER`).
     pub minimum_free_memory_mib: f64,
+    /// The commit headroom each server needs, in MiB.
     pub minimum_commit_headroom_mib: f64,
+    /// A realm's server limit when its host set none.
     pub default_max_servers: i64,
 }
 
@@ -518,6 +605,7 @@ fn digits_setting(settings: &dyn Settings, name: &str, default: i64, range: std:
 }
 
 impl RealmHubPolicy {
+    /// Reads the settings; a missing or out-of-range value takes its default.
     pub fn from_settings(settings: &dyn Settings) -> Self {
         let ttl_hours = digits_setting(settings, "P2P_REALM_HUB_CAPABILITY_TTL_HOURS", 24, 1..=168);
         let free_mib = digits_setting(

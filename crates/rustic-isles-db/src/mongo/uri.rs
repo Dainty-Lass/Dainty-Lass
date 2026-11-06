@@ -9,12 +9,18 @@ use percent_encoding::percent_decode_str;
 
 use super::MongoError;
 
+/// A parsed `mongodb://` URI. `Debug` leaves out the password.
 #[derive(Clone, PartialEq, Eq)]
 pub struct MongoUri {
+    /// Seed hosts in URI order, port 27017 when none is given.
     pub hosts: Vec<(String, u16)>,
+    /// The database in the path, `dauntless` when it names none.
     pub database: String,
+    /// The percent-decoded user name, if credentials were given.
     pub user: Option<String>,
+    /// The percent-decoded password, if credentials were given.
     pub password: Option<String>,
+    /// The database to authenticate against (`authSource`, default `admin`).
     pub auth_source: String,
 }
 
@@ -42,6 +48,7 @@ fn decode(text: &str, what: &str) -> Result<String, MongoError> {
 }
 
 impl MongoUri {
+    /// Parses a `mongodb://` URI; SRV URIs and unknown forms are refused with [`MongoError::InvalidUri`].
     pub fn parse(text: &str) -> Result<Self, MongoError> {
         let rest = text
             .strip_prefix("mongodb://")

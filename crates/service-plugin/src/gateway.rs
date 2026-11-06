@@ -34,49 +34,75 @@ pub enum ToGateway {
     Configure {
         /// Routes come from the registry's modules (attach) rather than the stand-in for `GATEWAY_GAME`
         registry: bool,
+        /// Where the allowlist runs.
         allowlist: AllowlistMode,
         /// The chat listener's port when the core runs chat on the backend's (compose.rs's override)
         ws_port: Option<u16>,
     },
     /// A module's ports as the controller placed them: before its attach, and again once it runs
     Placed {
+        /// The module placed.
         module: ModuleId,
+        /// Its ports by name.
         ports: BTreeMap<String, PortRange>,
+        /// Whether the module is running yet.
         running: bool,
     },
+    /// A module stopped: its routes and ports are withdrawn.
     Stopped {
+        /// The module that stopped.
         module: ModuleId,
     },
     /// The network ring admits a player to a game server's UDP port (DN8, DN9)
     AdmitUdp {
+        /// The player's address.
         ip: String,
+        /// The UDP port admitted.
         port: u16,
     },
+    /// A peer node joined the network ring.
     AddPeer {
+        /// The peer's node id.
         node: NodeId,
     },
+    /// A peer node left the network ring.
     RemovePeer {
+        /// The peer's node id.
         node: NodeId,
     },
     /// Whether the core redeems `POST /__node/enroll` (DD27, RM2)
     Enroll {
+        /// Whether the core has an enroll handler.
         present: bool,
     },
+    /// A piece of the body of call `id`; the message that ends the call follows.
     Part {
+        /// The call the part belongs to.
         id: u64,
+        /// The piece, base64 on the wire.
         data: Bytes,
     },
+    /// The node services' answer to [`FromGateway::NodeCall`].
     NodeAnswer {
+        /// Id of the [`FromGateway::NodeCall`] it answers.
         id: u64,
+        /// The answer body, or why there is none.
         result: Result<Bytes, NodeFailure>,
     },
+    /// The answer to [`FromGateway::Enroll`].
     Enrolled {
+        /// Id of the [`FromGateway::Enroll`] it answers.
         id: u64,
+        /// HTTP status to reply with.
         status: u16,
+        /// Reply body.
         body: Bytes,
     },
+    /// The answer to [`FromGateway::RegionReport`].
     RegionAnswer {
+        /// Id of the [`FromGateway::RegionReport`] it answers.
         id: u64,
+        /// Whether the core accepted the report.
         accepted: bool,
     },
 }
@@ -87,28 +113,43 @@ pub enum ToGateway {
 pub enum FromGateway {
     /// The node links are up, as this node: the core binds its node services to them
     NodeLinks {
+        /// This node's identity on the links.
         identity: NodeIdentity,
     },
+    /// A piece of the body of call `id`; the message that ends the call follows.
     Part {
+        /// The call the part belongs to.
         id: u64,
+        /// The piece, base64 on the wire.
         data: Bytes,
     },
     /// A peer's call the endpoint admitted (DN3): the caller its certificate named, and the service by name
     NodeCall {
+        /// Id the answer comes back under.
         id: u64,
+        /// The calling node.
         from: NodeId,
+        /// The service called.
         service: String,
+        /// Request body.
         body: Bytes,
     },
+    /// A `POST /__node/enroll` request for the core to redeem.
     Enroll {
+        /// Id the answer comes back under.
         id: u64,
+        /// Request body.
         body: Bytes,
     },
     /// `POST /network/v1/regions`, shape-checked already (DN7, DN8)
     RegionReport {
+        /// Id the answer comes back under.
         id: u64,
+        /// The reporting player's API key, if sent.
         api_key: Option<String>,
+        /// The player's ticket, if sent.
         ticket: Option<String>,
+        /// Round-trip times the client measured.
         regions: Vec<RegionRtt>,
     },
 }
@@ -120,17 +161,26 @@ pub enum AllowlistMode {
     /// No allowlist plugin: UDP ports are not guarded here (private mode)
     Off,
     /// In the library, on `allowlist.env`: it guards modules' UDP ranges and takes the gateway's admits directly
-    InProcess { env: Vec<(String, String)> },
+    InProcess {
+        /// `allowlist.env`'s settings, in file order.
+        env: Vec<(String, String)>,
+    },
     /// In a helper process guarding `base`: a module's UDP ranges must lie inside it
-    External { base: PortRange },
+    External {
+        /// The UDP range the helper guards.
+        base: PortRange,
+    },
     /// A public server without one: every UDP port is refused
     Absent,
 }
 
+/// One region's round trip as a client measured it.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct RegionRtt {
+    /// Region name.
     pub region: String,
+    /// Round trip in milliseconds; `None` when unreachable.
     pub rtt_ms: Option<f64>,
 }
 
@@ -138,10 +188,20 @@ pub struct RegionRtt {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum NodeFailure {
+    /// The call's body was over the limit.
     TooLarge,
+    /// No node service of that name.
     NoService,
-    Refused { reason: String },
-    Failed { reason: String },
+    /// The service refused the call.
+    Refused {
+        /// Why, for the peer.
+        reason: String,
+    },
+    /// The service failed.
+    Failed {
+        /// Why, for the peer.
+        reason: String,
+    },
 }
 
 /// Bytes, as base64 on the wire.
@@ -185,6 +245,7 @@ pub struct Parts {
 }
 
 impl Parts {
+    /// Adds a piece to call `id`; a body past [`MAX_BODY`] marks the call refused, and a new call while 64 are open is dropped.
     pub fn push(&mut self, id: u64, data: Bytes) {
         if !self.open.contains_key(&id) && self.open.len() >= MAX_OPEN {
             return;
@@ -217,6 +278,7 @@ impl Parts {
 pub struct Outbox(pub(crate) mpsc::UnboundedSender<FromService>);
 
 impl Outbox {
+    /// Sends `message` to the core; false once the instance closed.
     pub fn send(&self, message: FromGateway) -> bool {
         self.0.send(FromService::Gateway { message }).is_ok()
     }
@@ -230,7 +292,7 @@ impl Outbox {
 
 #[cfg(test)]
 mod tests {
-    #![allow(clippy::unwrap_used)]
+    #![allow(clippy::unwrap_used, reason = "a panic is how a test fails")]
     use super::*;
     use crate::ToService;
 

@@ -6,9 +6,14 @@
 //! email codes, Discord, consent, deletion, game launches). The crate owns the routes and rules; isles owns the
 //! pipeline, the tables ([`AuthStore`]) and the neighbours ([`Seams`]).
 
-#![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used))]
-// A refusal is the answer itself (§11.2 hands isles a `Response`), so it is not boxed
-#![allow(clippy::result_large_err)]
+#![cfg_attr(
+    test,
+    allow(clippy::unwrap_used, clippy::expect_used, reason = "a panic is how a test fails")
+)]
+#![allow(
+    clippy::result_large_err,
+    reason = "a refusal is the answer itself (§11.2 hands isles a `Response`), so it is not boxed"
+)]
 
 use std::collections::HashSet;
 use std::sync::atomic::AtomicBool;
@@ -94,16 +99,23 @@ pub enum NoPlayerPolicy {
     ConfiguredAccount,
 }
 
+/// What the version and the host give the auth area.
 pub struct AuthConfig {
+    /// The game build's changelist the client reports.
     pub target_changelist: u32,
+    /// The game version this module serves.
     pub game_version: GameVersion,
+    /// The node this module runs on.
     pub node: NodeIdentity,
+    /// Which account a bearer-less game server call acts as.
     pub no_player: NoPlayerPolicy,
     /// The `/gamesession/epic` payload for a session token
     pub session_payload: fn(&str) -> Value,
     /// For `RUSTIC_ISLES_CONSENT_REQUIRED`'s blank default
     pub engine_is_postgres: bool,
+    /// The clock for limits, codes and token signing; token validation uses the system clock.
     pub clock: Clock,
+    /// Where new UUIDs come from.
     pub ids: IdSource,
 }
 
@@ -136,9 +148,13 @@ pub fn session_payload_1_14_7(token: &str) -> Value {
 /// The game caller (§4.1), in the request's extensions for other areas to read.
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct AuthData {
+    /// The player's userId; None for a runtime or a bearer-less game server with no configured account.
     pub user_id: Option<String>,
+    /// True when the call carried the game server key.
     pub is_gameserver: bool,
+    /// The game token's claims; empty without a token.
     pub claims: Map<String, Value>,
+    /// The player host's runtime, when the realms seam authenticated one.
     pub runtime: Option<RuntimeCaller>,
 }
 
@@ -148,13 +164,17 @@ pub enum CallerKind {
     /// Anonymous
     None,
     /// Launcher auth; then the active-account check with (`Some(true)`) or without (`Some(false)`) consent
-    Launcher { active: Option<bool> },
+    Launcher {
+        /// Which active-account check runs, as above; None skips it.
+        active: Option<bool>,
+    },
     /// Anonymous here; rifts checks the host capability
     HostCapability,
     /// The Reforged API's admin auth
     Admin,
 }
 
+/// The auth a relayed rustic-rifts route takes, by its method and path.
 pub fn rifts_caller_kind(method: &str, route_path: &str) -> CallerKind {
     let post = method.eq_ignore_ascii_case("POST");
     let p = route_path;
@@ -233,18 +253,22 @@ impl<S: AuthStore> Auth<S> {
         })
     }
 
+    /// The version's and host's config.
     pub fn config(&self) -> &AuthConfig {
         &self.config
     }
 
+    /// The module's attempt and request limiter.
     pub fn limiter(&self) -> &RateLimiter {
         &self.limiter
     }
 
+    /// The hub's network encryption keys.
     pub fn encryption_keys(&self) -> &EncryptionKeys {
         &self.keys
     }
 
+    /// The store; None without a database.
     pub fn store_ref(&self) -> Option<&S> {
         self.store.as_ref()
     }
@@ -307,26 +331,32 @@ impl<S: AuthStore> Auth<S> {
         chrono::Utc::now().timestamp()
     }
 
+    /// A game token for `userId`; fails when the signing keys cannot load.
     pub fn sign_game_token(&self, user_id: &str) -> Result<String, TokenError> {
         tokens::sign_game(&*self.token_keys()?, user_id, self.sign_seconds())
     }
 
+    /// A game token's claims, checked against the system clock.
     pub fn validate_game_token(&self, token: &str) -> Result<Map<String, Value>, TokenError> {
         tokens::validate_game(&*self.token_keys()?, token, Self::system_seconds())
     }
 
+    /// A launcher access token for `userId` in refresh family `sid`.
     pub fn sign_launcher_token(&self, user_id: &str, sid: &str) -> Result<String, TokenError> {
         tokens::sign_launcher(&*self.token_keys()?, user_id, sid, self.sign_seconds())
     }
 
+    /// A launcher token's `(userId, sid)`, checked against the system clock.
     pub fn validate_launcher_token(&self, token: &str) -> Result<(String, String), TokenError> {
         tokens::validate_launcher(&*self.token_keys()?, token, Self::system_seconds())
     }
 
+    /// A store token carrying `purchase`.
     pub fn sign_store_token(&self, purchase: &StorePurchase) -> Result<String, TokenError> {
         tokens::sign_store(&*self.token_keys()?, purchase, self.sign_seconds())
     }
 
+    /// The purchase a store token carries, checked against the system clock.
     pub fn validate_store_token(&self, token: &str) -> Result<StorePurchase, TokenError> {
         tokens::validate_store(&*self.token_keys()?, token, Self::system_seconds())
     }

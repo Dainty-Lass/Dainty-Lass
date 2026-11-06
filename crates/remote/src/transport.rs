@@ -31,6 +31,7 @@ use crate::wire::{
     decode_response, encode_enroll_request, encode_request, encode_response,
 };
 
+/// The gateway route a new install redeems its enrollment code at.
 pub const ENROLL_PATH: &str = "/__node/enroll";
 
 fn append_wire_log(direction: &str, bytes: &[u8]) {
@@ -54,6 +55,7 @@ pub struct RemoteControllerService {
 }
 
 impl RemoteControllerService {
+    /// Serves requests from managed installs with `state`, saving it to `state_file` after each change when set.
     pub fn new(state: Arc<Mutex<RemoteControllerState>>, state_file: Option<PathBuf>) -> Self {
         Self { state, state_file }
     }
@@ -124,6 +126,7 @@ pub struct RemoteManagedService {
 }
 
 impl RemoteManagedService {
+    /// Serves the controller's requests with `agent`, acting through `handler`.
     pub fn new(agent: Arc<Mutex<RemoteManagedAgent>>, handler: Arc<dyn RemoteHostHandler>) -> Self {
         Self { agent, handler }
     }

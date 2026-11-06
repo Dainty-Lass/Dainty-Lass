@@ -84,8 +84,11 @@ fn field_text(body: &Value, name: &str) -> Option<String> {
 fn whole_in(text: &str, range: std::ops::RangeInclusive<f64>) -> Option<u32> {
     let n = js::number(Some(&Value::from(text)));
     let whole = n.is_finite() && n.fract() == 0.0 && n.abs() <= MAX_SAFE;
-    // Whole and inside a small range, so the cast is exact
-    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+    #[allow(
+        clippy::cast_possible_truncation,
+        clippy::cast_sign_loss,
+        reason = "whole and inside a small range, so the cast is exact"
+    )]
     (whole && range.contains(&n)).then_some(n as u32)
 }
 
@@ -223,6 +226,7 @@ macro_rules! answer {
     };
 }
 
+/// Adds the character and loadout routes (spec §3) to the backend.
 pub fn register(handlers: &mut Handlers) {
     let b = Service::Backend;
     handlers.on(b, Method::Get, "/character", get_character);

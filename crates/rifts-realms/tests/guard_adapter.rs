@@ -4,7 +4,7 @@
 //! `RealmsHuntSessions` and `SqlGuardStore` over one `RealmsDb`: Guard's view of realms' hunts and hubs, and Guard
 //! itself running on both. SQLite, and Postgres when configured.
 
-#![allow(clippy::unwrap_used, clippy::expect_used)]
+#![allow(clippy::unwrap_used, clippy::expect_used, reason = "a panic is how a test fails")]
 
 mod common;
 

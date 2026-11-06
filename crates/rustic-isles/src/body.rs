@@ -107,6 +107,7 @@ pub async fn read_body_parts_limit(parts: &Parts, body: Body, limit: usize) -> R
         .map_err(|e| service_kit::body::error_page(e.status()))
 }
 
+/// [`read_body_parts_limit`] at the default limit.
 pub async fn read_body_parts(parts: &Parts, body: Body) -> Result<Option<Value>, Response> {
     read_body_parts_limit(parts, body, BODY_LIMIT).await
 }

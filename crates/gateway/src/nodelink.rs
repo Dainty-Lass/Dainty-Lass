@@ -3,7 +3,7 @@
 
 //! Node links on the public port (DN3, DD16): the gateway terminates mutual TLS for the other nodes of a
 //! network on the listener it already has. A client that offers the node ALPN name
-//! ([`NODE_ALPN`](network_plugin::cluster::NODE_ALPN)) is shown the node certificate and must present one
+//! ([`NODE_ALPN`]) is shown the node certificate and must present one
 //! that chains to the cluster CA; every other client gets the gateway's public certificate and the public
 //! policy, unchanged, and `/__node` stays refused for it (`modules.rs`). On a node connection only
 //! `/__node/*` is served: nothing reaches the game, content or chat, and a peer's calls are never
@@ -29,6 +29,7 @@ pub struct NodeLinks {
 /// Who is on the other end of a node connection, as its certificate says.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct NodeCaller {
+    /// The caller's node id.
     pub node: NodeId,
 }
 
@@ -68,6 +69,7 @@ impl NodeLinks {
         &self.endpoint
     }
 
+    /// Sets or clears what redeems `POST /__node/enroll`.
     pub fn set_enroll_handler(&self, handler: Option<crate::network::EnrollHandler>) {
         *self
             .enroll_handler
@@ -75,6 +77,7 @@ impl NodeLinks {
             .unwrap_or_else(std::sync::PoisonError::into_inner) = handler;
     }
 
+    /// What redeems `POST /__node/enroll`, if set.
     pub fn enroll_handler(&self) -> Option<crate::network::EnrollHandler> {
         self.enroll_handler
             .read()
@@ -82,10 +85,12 @@ impl NodeLinks {
             .clone()
     }
 
+    /// TLS server settings for node connections.
     pub fn server_config(&self) -> &Arc<rustls::ServerConfig> {
         &self.tls
     }
 
+    /// The node certificate's details.
     pub fn certificate(&self) -> &NodeCertInfo {
         &self.info
     }

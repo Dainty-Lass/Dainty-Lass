@@ -18,28 +18,47 @@ use crate::request::ReplayHttpResponse;
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(tag = "kind")]
 pub enum DiffKind {
+    /// The statuses differ.
     StatusDiff {
+        /// Left status.
         left: u16,
+        /// Right status.
         right: u16,
     },
+    /// A normalized header differs or is on one side only.
     HeaderDiff {
+        /// Lower-case header name.
         header: String,
+        /// Left value, `None` when absent.
         left: Option<String>,
+        /// Right value, `None` when absent.
         right: Option<String>,
     },
+    /// Normalized JSON bodies differ at a path.
     ValueDiff {
+        /// Where the values differ.
         path: String,
+        /// Left value.
         left: Value,
+        /// Right value.
         right: Value,
     },
+    /// JSON equal in value but not in text, or non-JSON bodies differ.
     TextDiff {
+        /// Left text, normalized.
         left: String,
+        /// Right text, normalized.
         right: String,
     },
+    /// A chat connection's normalized server stanza differs at an index.
     ChatStanzaDiff {
+        /// Capture connection number.
         conn: u64,
+        /// Stanza index after filtering.
         index: usize,
+        /// Left stanza, `None` past its end.
         left: Option<String>,
+        /// Right stanza, `None` past its end.
         right: Option<String>,
     },
 }

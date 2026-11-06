@@ -17,11 +17,13 @@ use serde_json::Value;
 macro_rules! wire_enum {
     ($(#[$meta:meta])* $name:ident { $($variant:ident = $word:literal,)+ }) => {
         $(#[$meta])*
+        #[allow(missing_docs, reason = "the variant table takes no attributes; each variant is its wire word")]
         pub enum $name {
             $($variant,)+
         }
 
         impl $name {
+            /// The variant's wire word.
             pub const fn as_str(self) -> &'static str {
                 match self {
                     $(Self::$variant => $word,)+
@@ -33,6 +35,7 @@ macro_rules! wire_enum {
         wire_enum!($(#[$meta])* $name { $($variant = $word,)+ });
 
         impl $name {
+            /// The variant for a wire word; `None` for a word it does not know.
             $reader fn parse(text: &str) -> Option<Self> {
                 [$(Self::$variant,)+].into_iter().find(|known| known.as_str() == text)
             }
@@ -68,13 +71,19 @@ pub use crate::{
 /// What every relay operation resolves to.
 type Answer<'a, T> = seam::BoxFuture<'a, Result<T, RelayError>>;
 
+/// Why a relay operation failed.
 #[derive(Clone, Debug, Eq, PartialEq)]
 #[non_exhaustive]
 pub enum RelayError {
+    /// The operation is not written yet.
     Unimplemented(seam::Unimplemented),
+    /// A refusal with a status code, answered to the caller.
     Refused(seam::Refusal),
+    /// The relay provider failed.
     Provider(ProviderFailure),
+    /// The store failed.
     Store(seam::StoreError),
+    /// The system random source failed.
     Random,
 }
 
@@ -123,20 +132,30 @@ relay_error_from! {
     Store <- seam::StoreError,
 }
 
+/// A TURN credential for one account.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct RelayCredential {
+    /// The TURN username.
     pub username: String,
+    /// The TURN password; never logged.
     pub credential: Secret,
+    /// The TURN URLs it works on.
     pub urls: Vec<String>,
+    /// When it stops working.
     pub expires_at: UnixMillis,
 }
 
+/// Issues TURN credentials from the configured provider.
 pub trait CredentialIssuer: Send + Sync {
+    /// The provider it issues from.
     fn provider(&self) -> TurnProvider;
+    /// A credential for `to`, valid for `ttl_seconds` from `at`.
     fn issue(&self, to: AccountId, ttl_seconds: u32, at: UnixMillis) -> Answer<'_, IssuedCredential>;
 }
 
+/// Gives a host and a joiner the key their transports share.
 pub trait PairKeys: Send + Sync {
+    /// The key for this host and joiner in this session's generation; a refusal when the server has no transport key secret.
     fn pair_key(
         &self,
         session: &str,
@@ -168,9 +187,13 @@ impl PairKeys for TransportKeys {
     }
 }
 
+/// The relay's operations, as the routes call them.
 pub trait IceService: Send + Sync {
+    /// The ICE servers, relay credential and peers `who` uses in the hunt; refused when hosting is stopped, the hunt is not live or `who` is not in it.
     fn transport_config(&self, who: AccountId, hunt: SessionId, generation: Option<i64>) -> Answer<'_, Json>;
+    /// Validates an ICE signal from `who` and queues it for its addressee.
     fn submit_signal(&self, who: AccountId, hunt: SessionId, body: Value) -> Answer<'_, Json>;
+    /// The admin switch between co-op transports; answers 400, 200 or 409 itself.
     fn set_coop_transport(&self, admin: String, body: Value) -> Answer<'_, Reply>;
 }
 

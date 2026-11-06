@@ -46,7 +46,10 @@ pub(crate) fn log_capture(sink: impl Fn(&str) + Send + Sync + 'static) -> LogCap
 }
 
 #[cfg(test)]
-pub(crate) struct LogCapture(#[allow(dead_code)] std::sync::MutexGuard<'static, ()>);
+pub(crate) struct LogCapture(
+    #[allow(dead_code, reason = "held only so the log lock lasts as long as the capture")]
+    std::sync::MutexGuard<'static, ()>,
+);
 
 #[cfg(test)]
 impl Drop for LogCapture {

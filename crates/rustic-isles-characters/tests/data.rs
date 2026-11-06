@@ -4,7 +4,7 @@
 //! The pure rules: normalise, the progression guard, triggers, fresh onboarding and the starter manifest
 //! (spec §13.2).
 
-#![allow(clippy::unwrap_used, clippy::expect_used)]
+#![allow(clippy::unwrap_used, clippy::expect_used, reason = "a panic is how a test fails")]
 
 mod common;
 

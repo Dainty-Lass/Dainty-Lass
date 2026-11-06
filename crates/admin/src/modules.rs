@@ -30,14 +30,18 @@ pub const CALL_TIMEOUT: Duration = Duration::from_secs(5);
 /// A loaded game module that answers admin actions, as the admin API sees it.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AdminModule {
+    /// The module's id.
     pub id: ModuleId,
+    /// The game version it serves.
     pub game_version: GameVersion,
     /// "Rustic Isles 1.14.7", "Dauntless Revived" (DD4)
     pub display_name: String,
+    /// The admin actions it answers.
     pub actions: BTreeSet<AdminAction>,
 }
 
 impl AdminModule {
+    /// Whether it answers `action`.
     pub fn answers(&self, action: AdminAction) -> bool {
         self.actions.contains(&action)
     }
@@ -46,6 +50,7 @@ impl AdminModule {
 /// The controller's side (DF3): one admin call to one loaded module, through its driver
 /// (`ModuleDriverExt::admin`), compiled in or out of process.
 pub trait AdminCalls: Send + Sync {
+    /// Makes one admin call to `module`.
     fn admin<'a>(&'a self, module: &'a ModuleId, call: AdminCall) -> BoxFuture<'a, Result<AdminResponse, ModuleError>>;
 }
 
@@ -80,6 +85,7 @@ pub struct AdminPlugin {
 }
 
 impl AdminPlugin {
+    /// A plugin that calls modules through `calls`.
     pub fn new(calls: Arc<dyn AdminCalls>) -> Self {
         Self {
             attached: Mutex::new(BTreeMap::new()),

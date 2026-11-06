@@ -40,6 +40,7 @@ use crate::home::protocol::CleanText;
 use crate::home::{KeyError, SigningKey};
 use crate::link::{Clock, LinkError, MAX_MESSAGE, NodeService, PeerLink, Service};
 
+/// The `version` every log-ship message carries.
 pub const LOG_SHIP_VERSION: u32 = 1;
 
 /// Magic header prepended to peer-shipped objects encrypted at rest (`DLENC1\0` + 12-byte random nonce + AES-256-GCM ciphertext + 16-byte tag).
@@ -62,10 +63,12 @@ impl std::fmt::Debug for LogShipKey {
 }
 
 impl LogShipKey {
+    /// A key from its raw 32 bytes.
     pub fn from_bytes(bytes: [u8; 32]) -> Self {
         Self(bytes)
     }
 
+    /// A random key; errors only when the system's random source fails.
     pub fn generate() -> Result<Self, KeyError> {
         let mut bytes = [0u8; 32];
         rand::fill(&mut bytes).map_err(|_| KeyError::Random)?;
@@ -82,6 +85,7 @@ impl LogShipKey {
         Self(bytes)
     }
 
+    /// The key's id: 16 lowercase hex characters of its SHA-256. Safe to log.
     pub fn kid(&self) -> String {
         crate::home::keys::hex(&Sha256::digest(self.0)[..8])
     }
@@ -132,6 +136,7 @@ impl LogShipKey {
     }
 }
 
+/// Whether `bytes` start with [`ENCRYPTED_MAGIC`].
 pub fn is_encrypted_object(bytes: &[u8]) -> bool {
     bytes.starts_with(ENCRYPTED_MAGIC)
 }
@@ -145,21 +150,29 @@ pub const MAX_LOG_SHIP_WIRE: usize = MAX_MESSAGE;
 
 const META_EXT: &str = ".meta.json";
 
+/// Why a log-ship message was refused on the wire.
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 pub enum LogShipDecodeError {
+    /// Over [`MAX_LOG_SHIP_WIRE`] bytes, or a body over [`MAX_LOG_SHIP_OBJECT_BYTES`]; holds the size.
     #[error("log-ship message is {0} bytes; max is {MAX_LOG_SHIP_WIRE}")]
     TooLarge(usize),
+    /// Not the expected JSON.
     #[error("invalid JSON: {0}")]
     Json(String),
+    /// A field is out of bounds or malformed.
     #[error("invalid field: {0}")]
     Field(String),
 }
 
+/// One object a node ships to a storage peer.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct LogShipPutRequest {
+    /// [`LOG_SHIP_VERSION`].
     pub version: u32,
+    /// The object key: `<origin>/` then a segment or snapshot name.
     pub key: String,
+    /// The object's MIME type.
     pub content_type: String,
     /// Base64-encoded (standard alphabet) segment or snapshot bytes (encrypted `DLENC1\0...` envelope when shipped via [`PeerBucket`]).
     pub body_b64: String,
@@ -169,6 +182,7 @@ pub struct LogShipPutRequest {
 }
 
 impl LogShipPutRequest {
+    /// Checks the key, content type and size; sets `wire_sha256` for an encrypted body.
     pub fn new(
         key: impl Into<String>,
         content_type: impl Into<String>,
@@ -189,6 +203,7 @@ impl LogShipPutRequest {
         Ok(req)
     }
 
+    /// The body's bytes; errors when it is not base64 or is too large.
     pub fn decode_body(&self) -> Result<Vec<u8>, LogShipDecodeError> {
         let bytes = BASE64
             .decode(&self.body_b64)
@@ -225,48 +240,75 @@ impl LogShipPutRequest {
     }
 }
 
+/// Why a storage peer refused an object.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, thiserror::Error)]
 #[serde(rename_all = "snake_case", tag = "reason", deny_unknown_fields)]
 pub enum LogShipRefusal {
     #[error("log-ship protocol {supported} is required")]
-    UnsupportedVersion { supported: u32 },
+    /// The request's version is not this node's.
+    UnsupportedVersion {
+        /// The version this node speaks.
+        supported: u32,
+    },
+    /// The message could not be read.
     #[error("the log-ship message could not be read")]
     Malformed,
+    /// Larger than the link allows.
     #[error("the log-ship message is larger than the link allows")]
     TooLarge,
+    /// The caller is not a peer this node lists.
     #[error("the caller is not a peer this node lists")]
     UnknownPeer,
     #[error("a peer may only ship objects under its own prefix ({expected_prefix})")]
-    WrongPrefix { expected_prefix: CleanText },
+    /// The key is outside the caller's own prefix.
+    WrongPrefix {
+        /// `<caller>/`.
+        expected_prefix: CleanText,
+    },
+    /// The key is not a valid segment or snapshot name.
     #[error("the object key is not a valid segment or snapshot name")]
     InvalidKey,
+    /// The body does not match the SHA-256 in its key.
     #[error("the object body does not match the SHA-256 in its key")]
     HashMismatch,
     #[error("could not store the shipped object: {message}")]
-    Storage { message: CleanText },
+    /// Writing the object failed.
+    Storage {
+        /// The I/O error.
+        message: CleanText,
+    },
 }
 
+/// A storage peer's answer to a put.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", tag = "status", deny_unknown_fields)]
 pub enum LogShipReply {
+    /// The object is on disk.
     Stored {
         /// True when the object was written now; false when the identical content-addressed object was already present.
         created: bool,
+        /// Unix milliseconds by the storage peer's clock.
         received_at: i64,
     },
+    /// The object was not stored.
     Refused {
+        /// Why.
         refusal: LogShipRefusal,
     },
 }
 
+/// A storage peer's answer as sent: [`LogShipReply`] with the version.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct LogShipPutResponse {
+    /// [`LOG_SHIP_VERSION`].
     pub version: u32,
+    /// The answer.
     pub reply: LogShipReply,
 }
 
 impl LogShipPutResponse {
+    /// An answer that the object is stored.
     pub fn stored(created: bool, received_at: i64) -> Self {
         Self {
             version: LOG_SHIP_VERSION,
@@ -274,6 +316,7 @@ impl LogShipPutResponse {
         }
     }
 
+    /// An answer that the object was refused.
     pub fn refused(refusal: LogShipRefusal) -> Self {
         Self {
             version: LOG_SHIP_VERSION,
@@ -282,6 +325,7 @@ impl LogShipPutResponse {
     }
 }
 
+/// A request checked and encoded.
 pub fn encode_put_request(request: &LogShipPutRequest) -> Result<Vec<u8>, LogShipDecodeError> {
     request.validate_fields()?;
     let bytes = serde_json::to_vec(request).map_err(|e| LogShipDecodeError::Json(e.to_string()))?;
@@ -291,6 +335,7 @@ pub fn encode_put_request(request: &LogShipPutRequest) -> Result<Vec<u8>, LogShi
     Ok(bytes)
 }
 
+/// A request decoded and checked.
 pub fn decode_put_request(bytes: &[u8]) -> Result<LogShipPutRequest, LogShipDecodeError> {
     if bytes.len() > MAX_LOG_SHIP_WIRE {
         return Err(LogShipDecodeError::TooLarge(bytes.len()));
@@ -301,6 +346,7 @@ pub fn decode_put_request(bytes: &[u8]) -> Result<LogShipPutRequest, LogShipDeco
     Ok(request)
 }
 
+/// An answer encoded.
 pub fn encode_put_response(response: &LogShipPutResponse) -> Result<Vec<u8>, LogShipDecodeError> {
     let bytes = serde_json::to_vec(response).map_err(|e| LogShipDecodeError::Json(e.to_string()))?;
     if bytes.len() > MAX_LOG_SHIP_WIRE {
@@ -309,6 +355,7 @@ pub fn encode_put_response(response: &LogShipPutResponse) -> Result<Vec<u8>, Log
     Ok(bytes)
 }
 
+/// An answer decoded; the version is the caller's to check.
 pub fn decode_put_response(bytes: &[u8]) -> Result<LogShipPutResponse, LogShipDecodeError> {
     if bytes.len() > MAX_LOG_SHIP_WIRE {
         return Err(LogShipDecodeError::TooLarge(bytes.len()));
@@ -355,10 +402,12 @@ impl PeerBucket {
         }
     }
 
+    /// The storage peer.
     pub fn peer(&self) -> &NodeId {
         &self.peer
     }
 
+    /// The key objects are encrypted with, if any.
     pub fn key(&self) -> Option<&LogShipKey> {
         self.key.as_ref()
     }
@@ -446,6 +495,7 @@ pub struct PeerLogStore {
 }
 
 impl PeerLogStore {
+    /// A store under `root` that accepts objects from `peers` only, with no decryption key.
     pub fn new(root: impl Into<PathBuf>, peers: impl IntoIterator<Item = NodeId>, clock: Arc<Clock>) -> Self {
         Self {
             root: root.into(),
@@ -465,6 +515,7 @@ impl PeerLogStore {
         cloned
     }
 
+    /// The folder every origin's objects are under.
     pub fn root(&self) -> &Path {
         &self.root
     }
@@ -738,7 +789,7 @@ impl BucketRead for PeerLogStore {
 
 #[cfg(test)]
 mod tests {
-    #![allow(clippy::unwrap_used)]
+    #![allow(clippy::unwrap_used, reason = "a panic is how a test fails")]
 
     use super::*;
 

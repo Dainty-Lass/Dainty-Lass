@@ -50,14 +50,17 @@ const HOME_OPERATIONS: [&str; 11] = [
 pub struct SharedCell(RwLock<Option<Weak<Shared>>>);
 
 impl SharedCell {
+    /// An empty cell; the first start-up fills it.
     pub fn new() -> Self {
         Self::default()
     }
 
+    /// Points the cell at the module's `Shared`, holding it weakly.
     pub fn fill(&self, shared: &Arc<Shared>) {
         *self.0.write().unwrap_or_else(PoisonError::into_inner) = Some(Arc::downgrade(shared));
     }
 
+    /// The module's `Shared`, or `None` before start-up or once it is dropped.
     pub fn get(&self) -> Option<Arc<Shared>> {
         self.0
             .read()
@@ -93,6 +96,7 @@ impl VersionComposer {
         Self { source: Source::File }
     }
 
+    /// Uses the given version data instead of reading `version_data.json`.
     pub fn with_data(data: VersionData) -> Self {
         Self {
             source: Source::Given(Arc::new(data)),

@@ -19,6 +19,7 @@ pub fn peer_text(request: &Request) -> String {
         .map_or_else(|| "unknown".to_owned(), |info| info.0.peer.ip().to_string())
 }
 
+/// The request's client address, as [`client_ip_from`] reads it from the peer and headers.
 pub fn client_ip(request: &Request) -> String {
     client_ip_from(&peer_text(request), request.headers())
 }

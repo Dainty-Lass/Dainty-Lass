@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Silent Spud
 
+//! Windows Firewall rules for the gateway's port and the game ports, applied with netsh and written as a script.
+
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -9,11 +11,15 @@ use crate::hostconfig::{HostConfig, ServerMode, game_ports, gateway_port};
 use crate::paths::{Paths, game_exe_relative};
 use crate::run::{RunOptions, run};
 
+/// The public server's game-port rule, made disabled: the allowlist opens the ports only for players who logged in.
 pub const ALLOWLIST_RULE_NAME: &str = "DaintyLass-GamePorts-Allowlist";
 
+/// What [`apply_windows_firewall_rules`] did.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct FirewallRules {
+    /// The rules added.
     pub applied: Vec<String>,
+    /// The rules netsh refused.
     pub failed: Vec<String>,
 }
 
@@ -21,6 +27,7 @@ fn ps_quote(s: &str) -> String {
     format!("'{}'", s.replace('\'', "''"))
 }
 
+/// The PowerShell script that adds the server's inbound rules, letting `gateway_program` through.
 #[must_use]
 pub fn firewall_script(config: &HostConfig, gateway_program: &str) -> String {
     let mut lines = vec![
@@ -74,6 +81,7 @@ pub fn firewall_script(config: &HostConfig, gateway_program: &str) -> String {
     out
 }
 
+/// Adds the inbound rules for the gateway's TCP port and the game ports with netsh, logging to `log_file`.
 pub fn apply_windows_firewall_rules(config: &HostConfig, log_file: &Path) -> Result<FirewallRules, HostError> {
     let gw = gateway_port(config);
     let (first, last) = game_ports(config);
@@ -125,6 +133,7 @@ pub fn apply_windows_firewall_rules(config: &HostConfig, log_file: &Path) -> Res
     Ok(out)
 }
 
+/// Writes the script as `firewall.ps1` in the config folder; returns its path.
 pub fn write_firewall_script(p: &Paths, config: &HostConfig, gateway_program: &str) -> Result<PathBuf, HostError> {
     fs::create_dir_all(&p.config).map_err(|e| HostError::io(&p.config, e))?;
     let ps_path = p.config.join("firewall.ps1");

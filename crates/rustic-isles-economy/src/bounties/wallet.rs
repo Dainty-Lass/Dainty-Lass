@@ -34,17 +34,25 @@ pub fn starter_balances(shared: &Shared) -> Vec<(String, f64)> {
     }
 }
 
+/// Why a wallet change was refused.
 #[derive(Debug, thiserror::Error)]
 pub enum WalletError {
+    /// The change would take the balance below 0.
     #[error("Insufficient balance: user {account} has {} of {catalog_id}, cannot apply delta {}", jsjson::number(*current), jsjson::number(*delta))]
     Insufficient {
+        /// The wallet's account.
         account: AccountId,
+        /// The currency.
         catalog_id: String,
+        /// The change asked for.
         delta: f64,
+        /// The balance before it.
         current: f64,
     },
+    /// The catalog id is not one a balance may be stored under.
     #[error("Refusing currency change: unsafe balance catalogId {}", jsjson::stringify(&Value::String(.0.clone())))]
     UnsafeCatalogId(String),
+    /// The store failed.
     #[error(transparent)]
     Repo(#[from] RepoError),
 }

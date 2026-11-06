@@ -20,18 +20,28 @@ pub type Doc = Vec<(String, Value)>;
 /// Subset of BSON values needed for `hello`, `replSetGetStatus`, `replSetInitiate`, and `count`.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Value {
+    /// A BSON double.
     Double(f64),
+    /// A BSON string.
     Str(String),
+    /// An embedded document.
     Doc(Doc),
+    /// An array, its index keys dropped.
     Array(Vec<Value>),
+    /// A boolean.
     Bool(bool),
+    /// Null, or undefined.
     Null,
+    /// A 32-bit integer.
     Int32(i32),
+    /// A 64-bit integer.
     Int64(i64),
+    /// A value of another BSON type, skipped; the byte is its type tag.
     Other(u8),
 }
 
 impl Value {
+    /// The string, if it is one.
     #[must_use]
     pub fn as_str(&self) -> Option<&str> {
         match self {
@@ -40,6 +50,7 @@ impl Value {
         }
     }
 
+    /// The number, if it is a double or an integer.
     #[must_use]
     pub fn as_f64(&self) -> Option<f64> {
         match self {
@@ -50,6 +61,7 @@ impl Value {
         }
     }
 
+    /// The number as an integer, a double truncated.
     #[must_use]
     pub fn as_i64(&self) -> Option<i64> {
         match self {
@@ -60,6 +72,7 @@ impl Value {
         }
     }
 
+    /// The value as a boolean: a boolean, or a number other than zero.
     #[must_use]
     pub fn as_bool(&self) -> Option<bool> {
         match self {
@@ -71,6 +84,7 @@ impl Value {
         }
     }
 
+    /// The document, if it is one.
     #[must_use]
     pub fn as_doc(&self) -> Option<&Doc> {
         match self {
@@ -79,6 +93,7 @@ impl Value {
         }
     }
 
+    /// The array, if it is one.
     #[must_use]
     pub fn as_array(&self) -> Option<&[Value]> {
         match self {
@@ -90,6 +105,7 @@ impl Value {
 
 /// Helper trait allowing `as_str`, `as_f64`, and `as_bool` to accept either `&Value` or `Option<&Value>`.
 pub trait ValueLookup<'a> {
+    /// The value, if there is one.
     fn into_value(self) -> Option<&'a Value>;
 }
 
@@ -485,34 +501,47 @@ pub struct Document(pub Vec<(String, Bson)>);
 /// BSON value variants corresponding to [`Document`].
 #[derive(Debug, Clone, PartialEq)]
 pub enum Bson {
+    /// A BSON double.
     Double(f64),
+    /// A BSON string.
     String(String),
+    /// An embedded document.
     Document(Document),
+    /// An array.
     Array(Vec<Bson>),
+    /// A boolean.
     Bool(bool),
+    /// Null, or undefined.
     Null,
+    /// A 32-bit integer.
     Int32(i32),
+    /// A 64-bit integer.
     Int64(i64),
+    /// A value of another BSON type, skipped; the byte is its type tag.
     Other(u8),
 }
 
 impl Document {
+    /// An empty document.
     #[must_use]
     pub fn new() -> Self {
         Self(Vec::new())
     }
 
+    /// Appends `key` with `val`.
     #[must_use]
     pub fn with(mut self, key: impl Into<String>, val: Bson) -> Self {
         self.0.push((key.into(), val));
         self
     }
 
+    /// The first value under `key`.
     #[must_use]
     pub fn get(&self, key: &str) -> Option<&Bson> {
         self.0.iter().find(|(k, _)| k == key).map(|(_, v)| v)
     }
 
+    /// The string under `key`, if it is one.
     #[must_use]
     pub fn str(&self, key: &str) -> Option<&str> {
         match self.get(key)? {
@@ -594,7 +623,7 @@ pub fn write_reply(stream: &mut impl Write, response_to: i32, doc: &Document) ->
 
 #[cfg(test)]
 mod tests {
-    #![allow(clippy::unwrap_used, clippy::expect_used)]
+    #![allow(clippy::unwrap_used, clippy::expect_used, reason = "a panic is how a test fails")]
 
     use super::*;
     use std::net::TcpListener;

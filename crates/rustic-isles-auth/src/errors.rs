@@ -12,14 +12,18 @@ use crate::util;
 /// A launcher route's refusal: `{"error":{<details>,"code","message","requestId"}}`.
 #[derive(Debug, Clone, PartialEq)]
 pub struct LauncherError {
+    /// The machine code, such as `AUTH_VALIDATION_FAILED`; it picks the status.
     pub code: String,
+    /// The English text the launcher shows.
     pub message: String,
     /// The error's own status; `None` takes the table's
     pub status: Option<u16>,
+    /// Extra members written before the fixed ones, in order.
     pub details: Vec<(String, Value)>,
 }
 
 impl LauncherError {
+    /// A refusal with the code's own status and no details.
     pub fn new(code: &str, message: impl Into<String>) -> Self {
         Self {
             code: code.to_owned(),
@@ -29,24 +33,29 @@ impl LauncherError {
         }
     }
 
+    /// The same refusal answered with `status`.
     pub fn with_status(mut self, status: u16) -> Self {
         self.status = Some(status);
         self
     }
 
+    /// The same refusal with one more detail member.
     pub fn with_detail(mut self, name: &str, value: Value) -> Self {
         self.details.push((name.to_owned(), value));
         self
     }
 
+    /// The generic `INTERNAL` refusal, for a failure the caller must not see.
     pub fn internal() -> Self {
         Self::new("INTERNAL", "Something went wrong. Please try again.")
     }
 
+    /// An `AUTH_VALIDATION_FAILED` refusal with `message`.
     pub fn validation(message: impl Into<String>) -> Self {
         Self::new("AUTH_VALIDATION_FAILED", message)
     }
 
+    /// The HTTP status: its own, else the code's in the table.
     pub fn status(&self) -> u16 {
         self.status.unwrap_or_else(|| status_for(&self.code))
     }
@@ -65,6 +74,7 @@ impl LauncherError {
         Value::Object(outer)
     }
 
+    /// The JSON response for this refusal.
     pub fn response(&self, request_id: &str) -> Response {
         let status = StatusCode::from_u16(self.status()).unwrap_or(StatusCode::INTERNAL_SERVER_ERROR);
         util::json(status, self.body(request_id))

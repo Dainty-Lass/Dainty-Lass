@@ -5,10 +5,12 @@
 
 use std::net::{IpAddr, Ipv4Addr};
 
+/// The port chat listens on unless the env file says otherwise.
 pub const DEFAULT_PORT: u16 = 61006;
 /// The paths the game's client opens its WebSocket on
 pub const WS_PATHS: [&str; 3] = ["//", "/", "/__ws/xmpp"];
 
+/// What chat does with a room nick that does not name its sender (`nick.rs`).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum NickCheck {
     /// A nick that doesn't name its sender is refused
@@ -18,6 +20,7 @@ pub enum NickCheck {
 }
 
 impl NickCheck {
+    /// The env file's name for it.
     pub fn as_str(self) -> &'static str {
         match self {
             Self::Enforce => "enforce",
@@ -26,12 +29,18 @@ impl NickCheck {
     }
 }
 
+/// Chat's settings from its env file.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Settings {
+    /// The address to listen on; loopback only.
     pub host: IpAddr,
+    /// The port, 0 for any.
     pub port: u16,
+    /// The secret the gateway sends in `x-reforged-gateway`, so its `x-forwarded-for` is trusted. Never logged.
     pub gateway_secret: Option<String>,
+    /// What a wrong nick does.
     pub nick_check: NickCheck,
+    /// Whether to log every stanza in and out, with credentials redacted.
     pub trace: bool,
     /// Room messages a joiner gets
     pub history_on_join: i64,
@@ -54,6 +63,7 @@ impl Default for Settings {
 }
 
 impl Settings {
+    /// What is wrong with the settings, as sentences for the host; empty when they work.
     pub fn problems(&self) -> Vec<String> {
         let mut problems = Vec::new();
         if !self.host.is_loopback() {

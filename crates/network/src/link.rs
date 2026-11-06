@@ -41,6 +41,7 @@ pub enum Service {
 }
 
 impl Service {
+    /// Every service, in route order.
     pub const ALL: [Service; 8] = [
         Self::Directory,
         Self::Home,
@@ -54,6 +55,7 @@ impl Service {
 }
 
 impl Service {
+    /// The route name: `/__node/<name>`.
     pub fn as_str(self) -> &'static str {
         match self {
             Self::Directory => "directory",
@@ -73,32 +75,67 @@ impl Service {
     }
 }
 
+/// Why a call over a node link failed.
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 pub enum LinkError {
     /// This server is not in a network: it has no one to call
     #[error("this server is not in a network")]
     NoPeers,
+    /// The node is not one this node lists.
     #[error("{0} is not a peer of this node")]
     UnknownPeer(NodeId),
+    /// The call could not be made or got no answer.
     #[error("{node} did not answer: {reason}")]
-    Unreachable { node: NodeId, reason: String },
+    Unreachable {
+        /// The peer.
+        node: NodeId,
+        /// The transport's error.
+        reason: String,
+    },
+    /// The request or the answer is over [`MAX_MESSAGE`] bytes.
     #[error("a node-link message is over {MAX_MESSAGE} bytes")]
     TooLarge,
+    /// The peer has nothing attached for that service.
     #[error("{node} does not serve {}", .service.as_str())]
-    NoService { node: NodeId, service: Service },
+    NoService {
+        /// The peer.
+        node: NodeId,
+        /// The service asked for.
+        service: Service,
+    },
     /// The peer's clock and this node's differ by more than [`MAX_CLOCK_SKEW`] (DN3): its minus ours, in ms
     #[error("{node}'s clock is {skew_ms} ms off this node's (the most allowed is {} ms)", MAX_CLOCK_SKEW.as_millis())]
-    ClockSkew { node: NodeId, skew_ms: i64 },
+    ClockSkew {
+        /// The peer.
+        node: NodeId,
+        /// Its clock minus this node's, in milliseconds.
+        skew_ms: i64,
+    },
     /// The peer refused this node: it doesn't list it as a peer, or didn't accept its certificate
     #[error("{node} refused this node: {reason}")]
-    Refused { node: NodeId, reason: String },
+    Refused {
+        /// The peer.
+        node: NodeId,
+        /// What it said.
+        reason: String,
+    },
     /// What answered at the peer's address isn't that peer on this cluster: a certificate from another CA, or
     /// another node's name
     #[error("what answered for {node} is not it: {reason}")]
-    Untrusted { node: NodeId, reason: String },
+    Untrusted {
+        /// The peer that was meant to answer.
+        node: NodeId,
+        /// What failed the check.
+        reason: String,
+    },
     /// The peer answered something a node link doesn't say
     #[error("{node} broke the node-link protocol: {reason}")]
-    Protocol { node: NodeId, reason: String },
+    Protocol {
+        /// The peer.
+        node: NodeId,
+        /// What was wrong with its answer.
+        reason: String,
+    },
 }
 
 /// The calling side of a node link.
@@ -111,6 +148,7 @@ pub trait PeerLink: Send + Sync {
 /// The answering side: what a link hands a call it received. `from` is the caller as the link
 /// authenticated it (DN3: the node certificate's name).
 pub trait NodeService: Send + Sync {
+    /// Answers one call from `from` for `service`, returning the answer's body.
     fn serve<'a>(
         &'a self,
         from: &'a NodeId,
@@ -162,6 +200,7 @@ pub struct Clock {
 }
 
 impl Clock {
+    /// Unix milliseconds by the system clock plus any skew set; 0 before the epoch.
     pub fn now_ms(&self) -> i64 {
         let system = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
@@ -183,6 +222,7 @@ pub struct ServiceMux {
 }
 
 impl ServiceMux {
+    /// An empty mux for `node`: every call answers `NoService` until a service is added.
     pub fn new(node: NodeId) -> Self {
         Self {
             node,
@@ -190,6 +230,7 @@ impl ServiceMux {
         }
     }
 
+    /// Hands calls for `service` to `handler`, replacing any earlier one.
     pub fn with(mut self, service: Service, handler: std::sync::Arc<dyn NodeService>) -> Self {
         self.services.insert(service.as_str(), handler);
         self

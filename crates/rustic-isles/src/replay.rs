@@ -13,9 +13,12 @@ use std::sync::atomic::{AtomicU64, Ordering};
 
 use sha2::{Digest, Sha256};
 
+/// The header pinning a request's clock: Unix ms or any text `Date.parse` reads.
 pub const REPLAY_NOW_HEADER: &str = "x-isles-replay-now-ms";
+/// The header seeding a request's generated ids.
 pub const REPLAY_SEED_HEADER: &str = "x-isles-replay-seed";
 
+/// A request's pinned clock and id seed, set by the shadow replay harness (§9.1).
 #[derive(Debug, Clone, Default)]
 pub struct ReplayScope {
     now: Option<i64>,
@@ -61,10 +64,12 @@ impl ReplayScope {
         Self::new(now, text(REPLAY_SEED_HEADER).as_deref())
     }
 
+    /// Whether the clock or the ids are pinned.
     pub fn is_active(&self) -> bool {
         self.now.is_some() || self.seed.is_some()
     }
 
+    /// The pinned time, Unix ms.
     pub fn now(&self) -> Option<i64> {
         self.now
     }
@@ -112,6 +117,7 @@ pub fn with_replay_scope<F: Future>(scope: ReplayScope, future: F) -> impl Futur
     TASK_SCOPE.scope(scope, future)
 }
 
+/// The current task's or thread's scope, none when nothing is pinned.
 pub fn current_replay_scope() -> Option<ReplayScope> {
     let task = TASK_SCOPE.try_with(Clone::clone).ok();
     task.or_else(|| THREAD_SCOPE.with(|cell| cell.borrow().clone()))
@@ -139,6 +145,7 @@ pub fn replay_now_ms() -> Option<i64> {
     current_replay_scope().and_then(|s| s.now)
 }
 
+/// Whether the clock is pinned by a replay header or a test.
 pub fn is_replay_pinned() -> bool {
     replay_now_ms().is_some() || test_pin().is_some()
 }

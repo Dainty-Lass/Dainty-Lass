@@ -20,7 +20,9 @@ use crate::util::{
 
 pub use crate::util::encode_uri_component;
 
+/// `cache-control` for feeds and manifests.
 pub const NO_CACHE: &str = "no-cache, no-store, must-revalidate";
+/// `cache-control` for versioned files.
 pub const IMMUTABLE: &str = "public, max-age=31536000, immutable";
 const DEFAULT_BASE: &str = "https://paradox.mysticfox.dev";
 const DEFAULT_PREFIXES: &str = "https://github.com/pranav158/Mystic-Paradox/releases/download/";
@@ -349,11 +351,13 @@ async fn runtime_manifest(call: Call, target: &str) -> Response {
     }
 }
 
+/// `GET /launcher/v1/runtime/:target/:channel/:platform`: a target's runtime manifest.
 pub async fn runtime_by_target(call: Call) -> Response {
     let target = param(&call, "target").to_owned();
     runtime_manifest(call, &target).await
 }
 
+/// `GET /launcher/v1/runtime/:channel/:platform`: the client's runtime manifest.
 pub async fn runtime_client(call: Call) -> Response {
     runtime_manifest(call, "client").await
 }
@@ -388,15 +392,18 @@ async fn runtime_download(call: Call, target: &str) -> Response {
     serve_file(&dir.join(version).join(file), IMMUTABLE, None).await
 }
 
+/// `GET /launcher/v1/runtime/:target/:channel/:platform/download`: a target's runtime package.
 pub async fn download_by_target(call: Call) -> Response {
     let target = param(&call, "target").to_owned();
     runtime_download(call, &target).await
 }
 
+/// `GET /launcher/v1/runtime/:channel/:platform/download`: the client's runtime package.
 pub async fn download_client(call: Call) -> Response {
     runtime_download(call, "client").await
 }
 
+/// `GET /launcher/v1/runtime/:target/:channel/:platform/extra/:filename`: a published extra file.
 pub async fn extra_download(call: Call) -> Response {
     if download_limited(&call) {
         return too_many();
@@ -496,6 +503,7 @@ async fn take_upload(mut call: Call) -> Result<Upload, Response> {
     Ok(Upload { call, body })
 }
 
+/// `POST /launcher/v1/admin/updates/runtime/:target/:channel/:platform`: publishes a runtime package.
 pub async fn publish_runtime(call: Call) -> Response {
     let Upload { call, body } = match take_upload(call).await {
         Ok(upload) => upload,
@@ -608,6 +616,7 @@ enum ExtraOutcome {
     NotPublished,
 }
 
+/// `POST /launcher/v1/admin/updates/runtime/:target/:channel/:platform/extra`: publishes an extra file.
 pub async fn publish_extra(call: Call) -> Response {
     let Upload { call, body } = match take_upload(call).await {
         Ok(upload) => upload,
@@ -719,6 +728,7 @@ fn not_allowed() -> Response {
     error(StatusCode::FORBIDDEN, "Not allowed from this address.")
 }
 
+/// `POST /launcher/v1/admin/guard-manifests/:channel/:platform`: publishes a signed Guard manifest.
 pub async fn publish_guard(mut call: Call) -> Response {
     // Core's reader holds the body to 100 KiB, the error page on a parse failure
     let body = match util::read_json(&mut call.request).await {
@@ -811,6 +821,7 @@ pub async fn publish_guard(mut call: Call) -> Response {
     }
 }
 
+/// `GET /launcher/v1/guard-manifests/:channel/:platform`: the published Guard manifest.
 pub async fn guard_manifest_route(call: Call) -> Response {
     let channel = param(&call, "channel").to_owned();
     let platform = param(&call, "platform").to_owned();
@@ -836,6 +847,7 @@ pub async fn guard_manifest_route(call: Call) -> Response {
 
 // ------------------------------------------------------------------ the serving switch (§6.6)
 
+/// `GET /launcher/v1/admin/updates/serving`: whether runtime downloads are served.
 pub async fn serving_get(call: Call) -> Response {
     if !publisher_address_ok(&call) {
         return not_allowed();
@@ -847,6 +859,7 @@ pub async fn serving_get(call: Call) -> Response {
     util::ok(&object(vec![("runtimeEnabled", Value::Bool(enabled))]))
 }
 
+/// `POST /launcher/v1/admin/updates/serving`: turns runtime serving on or off.
 pub async fn serving_post(mut call: Call) -> Response {
     let body = match util::read_json(&mut call.request).await {
         Ok(body) => body,
@@ -945,7 +958,9 @@ pub fn launcher_installer_path(target: &str, arch: &str, version: &str, file: &s
 /// The feed's answer: offered with the manifest's Tauri keys, or not offered and why.
 #[derive(Debug, Clone, PartialEq)]
 pub enum LauncherDecision {
+    /// Offered, with the update's JSON.
     Offered(Value),
+    /// Not offered: no manifest, or the reason.
     NotOffered(Option<&'static str>),
 }
 
@@ -1009,6 +1024,7 @@ pub fn decide_launcher_update(
     LauncherDecision::Offered(Value::Object(offered))
 }
 
+/// `GET /launcher/v1/updates/:target/:arch/:currentVersion`: the launcher update feed; 204 when none.
 pub async fn launcher_update(call: Call) -> Response {
     let target = param(&call, "target").to_owned();
     let arch = param(&call, "arch").to_owned();
@@ -1041,6 +1057,7 @@ pub async fn launcher_update(call: Call) -> Response {
     }
 }
 
+/// `GET /launcher/v1/updates/:target/:arch/download`: the latest launcher installer.
 pub async fn launcher_download(call: Call) -> Response {
     if download_limited(&call) {
         return too_many();
@@ -1086,6 +1103,7 @@ pub async fn launcher_download(call: Call) -> Response {
     }
 }
 
+/// `GET /launcher/v1/updates/:target/:arch/files/:version/:file`: a versioned launcher file.
 pub async fn launcher_file(call: Call) -> Response {
     if download_limited(&call) {
         return too_many();

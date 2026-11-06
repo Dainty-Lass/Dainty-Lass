@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Silent Spud
 
+//! Setup's options turned into a [`HostConfig`], each one left out keeping the file's value.
+
 use std::path::{Path, PathBuf};
 
 use serde_json::{Map, Value, json};
@@ -15,10 +17,14 @@ use crate::hostconfig::{
 };
 use crate::paths::{GAME_VERSION_TEXT, MAX_HUNTS, game_exe_relative};
 
+/// The server's name on a first setup.
 pub const DEFAULT_NAME: &str = "DaintyLass server";
+/// The most hunts at once on a first setup.
 pub const DEFAULT_MAX_HUNT_SERVERS: u32 = 3;
+/// The host.toml version setup writes.
 pub const HOST_CONFIG_VERSION: u32 = 1;
 
+/// Fails on words setup did not expect, with a hint to quote values with spaces.
 pub fn check_unexpected_args(args: &SetupArgs) -> Result<(), HostError> {
     if let Some(first) = args.unexpected.first() {
         return Err(HostError::message(format!(
@@ -28,6 +34,7 @@ pub fn check_unexpected_args(args: &SetupArgs) -> Result<(), HostError> {
     Ok(())
 }
 
+/// The public port host.toml keeps: `None` for 443 or a private server; fails on a bad `--public-port`.
 pub fn public_port_from_args(
     args: &SetupArgs,
     mode: ServerMode,
@@ -74,6 +81,7 @@ fn parse_ram_mb(flag: &str, raw: &str, min_mb: u32) -> Result<u32, HostError> {
     Ok(mb)
 }
 
+/// The game-server options: `existing` (or the defaults) with the options given laid over; fails on a bad value.
 pub fn performance_from_args(
     args: &SetupArgs,
     existing: Option<PerformanceOptions>,
@@ -144,6 +152,7 @@ pub fn performance_from_args(
     Ok(perf)
 }
 
+/// The game-server settings in one line, as setup prints them.
 #[must_use]
 pub fn performance_summary(c: &HostConfig) -> String {
     let perf = performance_options(c);
@@ -191,6 +200,7 @@ fn is_valid_iface(name: &str) -> bool {
             .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'-' | b'_' | b'.'))
 }
 
+/// The Linux options: `existing` (or the defaults) with the options given laid over; fails on a bad value.
 pub fn linux_from_args(
     args: &SetupArgs,
     existing: Option<&LinuxOptions>,
@@ -294,6 +304,7 @@ fn parse_multiplier_arg(flag: &str, raw: &str) -> Result<f64, HostError> {
     Ok(val)
 }
 
+/// The config setup writes: the options given over `existing`, checked as host.toml is.
 pub fn host_config_from_args(
     args: &SetupArgs,
     existing: Option<&HostConfig>,
@@ -613,6 +624,7 @@ pub fn host_config_from_args(
     Ok(parsed)
 }
 
+/// The first common Dauntless folder that holds the pinned 1.14.7 build.
 pub fn detect_default_game_dir() -> Option<String> {
     let candidates = [
         r"C:\Program Files\Epic Games\Dauntless",

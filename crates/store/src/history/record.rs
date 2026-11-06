@@ -20,14 +20,19 @@ pub const MAX_RECORD: usize = 64 << 20;
 /// The operations the log writes.
 pub const OPS: [&str; 6] = ["insert", "update", "delete", "soft_delete", "restore", "migrate"];
 
+/// Why a change-log record could not be written or read.
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 pub enum RecordError {
+    /// A record over [`MAX_RECORD`] bytes.
     #[error("a change-log record over {MAX_RECORD} bytes")]
     TooLong,
+    /// The record is not valid JSON of the record's shape.
     #[error("not a change-log record: {0}")]
     Json(String),
+    /// A field is missing or out of range; names the problem.
     #[error("not a change-log record: {0}")]
     Invalid(&'static str),
+    /// The entry has no hash yet, so it can't be shipped.
     #[error("entry {0} has no hash yet, so it can't be shipped")]
     Unsealed(i64),
 }

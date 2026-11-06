@@ -27,13 +27,16 @@ const HEADER: &str = r#"{"alg":"RS256","typ":"JWT"}"#;
 /// Bigger is not a token this crate signed (a 8192-bit signature is under 1.4 KB)
 const MAX_TOKEN_LEN: usize = 16 * 1024;
 
+/// Why a token could not be signed or validated.
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 pub enum TokenError {
     /// The signing keys can't be read: `not base64`, `no RSA private key` or `no RSA public key`
     #[error("the token signing keys can't be read: {0}")]
     Keys(&'static str),
+    /// The signer refused.
     #[error("the token could not be signed")]
     Sign,
+    /// Malformed, wrongly signed, expired, or not this kind of token.
     #[error("invalid token")]
     Invalid,
 }
@@ -41,9 +44,13 @@ pub enum TokenError {
 /// A store purchase token's claims.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct StorePurchase {
+    /// The buyer's userId.
     pub user_id: String,
+    /// The character the purchase is for.
     pub character_id: String,
+    /// The SKU bought.
     pub sku_id: String,
+    /// The store the SKU was listed in, when the client named one.
     pub store_tag: Option<String>,
 }
 

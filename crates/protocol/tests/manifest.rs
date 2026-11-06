@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Silent Spud
 
-#![allow(clippy::unwrap_used, clippy::expect_used)] // test helpers
+//! Runtime manifest fixtures.
+
+#![allow(clippy::unwrap_used, clippy::expect_used, reason = "a panic is how a test fails")]
 
 use protocol::manifest::{DEFAULT_CHANGELIST, RUNTIME_BUILD_NAME, RuntimeFile, RuntimeManifest};
 use protocol::text::js_trim;

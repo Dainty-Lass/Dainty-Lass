@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Silent Spud
 
+//! `dainty-host invite`: an invite link for the launcher with a new invite code, or the list of codes.
+
 use std::process::ExitCode;
 use std::time::Duration;
 
@@ -17,10 +19,13 @@ use crate::invite::{
 };
 use crate::paths::{PORTS, Paths};
 
+/// Runs `dainty-host invite`, printing to stdout.
 pub fn run(paths: &Paths, args: &InviteArgs) -> Result<ExitCode, HostError> {
     run_with(paths, args, PORTS.backend, &mut |l| println!("{l}"))
 }
 
+/// Makes an invite code on the backend at `backend_port` and prints the invite link through `out`, or lists the codes.
+/// A public server's link is refused while the gateway serves another certificate than the one on disk.
 pub fn run_with(
     paths: &Paths,
     args: &InviteArgs,
@@ -219,7 +224,7 @@ fn run_list(paths: &Paths, as_json: bool, backend_port: u16, out: &mut dyn FnMut
 
 #[cfg(test)]
 mod tests {
-    #![allow(clippy::unwrap_used)]
+    #![allow(clippy::unwrap_used, reason = "a panic is how a test fails")]
 
     use super::*;
     use crate::hostconfig::save_host_config;

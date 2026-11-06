@@ -41,35 +41,51 @@ use crate::error::HostError;
 
 /// Keys of `[modules]` that aren't a module's settings, so no module can be named after them.
 pub const RESERVED_KEYS: [&str; 2] = ["compiled", "external"];
+/// The most `[[modules.external]]` tables.
 pub const MAX_EXTERNAL: usize = 32;
+/// The most arguments one external module may be given.
 pub const MAX_ARGS: usize = 64;
+/// The most bytes one argument may have.
 pub const MAX_ARG: usize = 1024;
+/// The most `[modules.<id>.<section>]` tables one module may have.
 pub const MAX_SECTIONS: usize = 32;
+/// The most keys one section may hold.
 pub const MAX_KEYS: usize = 64;
+/// The most bytes one string setting may have.
 pub const MAX_VALUE: usize = 4096;
 
+/// One `[[modules.external]]`: a program the server runs as a module.
 #[derive(Debug, Clone, PartialEq)]
 pub struct ExternalModuleEntry {
+    /// The module's id.
     pub id: ModuleId,
     /// As written; relative to the server folder (the one that holds `.workspace/`)
     pub path: String,
+    /// The SHA-256 the file must have (DD5).
     pub sha256: Sha256Hex,
+    /// The arguments it is started with.
     pub args: Vec<String>,
+    /// Loaded when the server starts; otherwise from the console only.
     pub autoload: bool,
 }
 
+/// `[modules]`.
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct ModulesConfig {
     /// The compiled-in modules to load at start; `None` loads every one this binary has
     pub compiled: Option<Vec<ModuleId>>,
+    /// The external modules.
     pub external: Vec<ExternalModuleEntry>,
     /// `[modules.<id>.<section>]`, by module id
     pub settings: BTreeMap<ModuleId, BTreeMap<String, BTreeMap<String, Value>>>,
 }
 
+/// `[network]`: this node and the other nodes it links to.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct NetworkConfig {
+    /// This node's id.
     pub node: NodeId,
+    /// This node's region.
     pub region: Region,
     /// Optional explicit directory leader; when `None`, [`Self::effective_leader`] picks the
     /// lexicographically smallest node id across `node` and `nodes`.
@@ -303,6 +319,7 @@ fn external_entry(item: &Value) -> Result<ExternalModuleEntry, HostError> {
 }
 
 impl NetworkConfig {
+    /// Reads `[network]`; fails on a missing or malformed field.
     pub fn from_json(value: &Value) -> Result<Self, HostError> {
         let m = value
             .as_object()
@@ -381,6 +398,7 @@ impl NetworkConfig {
             .unwrap_or_else(|| self.node.clone())
     }
 
+    /// The table host.toml writes.
     pub fn to_json(&self) -> Value {
         let mut out = Map::new();
         out.insert("node".into(), Value::String(self.node.to_string()));
@@ -405,7 +423,7 @@ impl NetworkConfig {
 
 #[cfg(test)]
 mod tests {
-    #![allow(clippy::unwrap_used)]
+    #![allow(clippy::unwrap_used, reason = "a panic is how a test fails")]
 
     use super::*;
     use crate::hostconfig::HostConfig;

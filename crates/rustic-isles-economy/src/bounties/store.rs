@@ -27,34 +27,46 @@ pub const SECTION_ORDER: [&str; 9] = [
     "fountain_daily_free_bundle",
 ];
 
+/// The daily free bundle's section, claimed once per game day.
 pub const DAILY_SECTION: &str = "fountain_daily_free_bundle";
 const PLATINUM_SECTIONS: [&str; 4] = ["webstore", "dyes", "hp_level_skip_rank", "huntpass_store"];
 const DAY_MS: i64 = 86_400_000;
 const RESET_OFFSET_MS: i64 = 17 * 3_600_000;
 
+/// Whether the section is the daily free bundle.
 pub fn is_daily_section(tag: &str) -> bool {
     tag == DAILY_SECTION
 }
 
+/// One item an offer grants.
 #[derive(Debug, Clone, PartialEq)]
 pub struct SkuItem {
+    /// The item's catalog id.
     pub catalog_id: String,
     /// As written, or `null`
     pub quantity: Value,
+    /// Whether each unit is its own instance rather than a stack.
     pub instanced: bool,
 }
 
 /// One offer: the file's object kept whole for the listing, and the fields the purchase reads.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Sku {
+    /// The SKU id.
     pub id: String,
+    /// The file's object, kept whole for the listing.
     pub raw: Map<String, Value>,
+    /// The section tags it is listed under.
     pub tags: Vec<String>,
     /// `(currencyId as String(..), price as written or null)`
     pub prices: Vec<(String, Value)>,
+    /// `maxAllowed` as written; 1 is a one-time purchase.
     pub max_allowed: Value,
+    /// The items it grants.
     pub items: Vec<SkuItem>,
+    /// `(name, duration as written)` of each entitlement it grants.
     pub entitlements: Vec<(String, Value)>,
+    /// `skuProgression`, when set and not null.
     pub sku_progression: Option<Value>,
 }
 
@@ -111,6 +123,7 @@ impl Sku {
         })
     }
 
+    /// Whether the offer can be bought once only (`maxAllowed` 1).
     pub fn is_one_time(&self) -> bool {
         self.max_allowed.as_f64() == Some(1.0)
     }
@@ -474,6 +487,7 @@ impl Catalog {
         })
     }
 
+    /// The offers in a section; empty for an unknown tag.
     pub fn skus(&self, tag: &str) -> &[Sku] {
         self.sections
             .iter()
@@ -481,6 +495,7 @@ impl Catalog {
             .map_or(&[], |(_, offers)| offers.as_slice())
     }
 
+    /// The offer with that id in that section.
     pub fn from_section(&self, tag: &str, sku_id: &str) -> Option<&Sku> {
         self.skus(tag).iter().find(|s| s.id == sku_id)
     }
@@ -621,6 +636,7 @@ pub fn transaction_scope(tag: &str) -> (String, String) {
     }
 }
 
+/// The deterministic transaction id of one daily claim: one per section, user, SKU and window.
 pub fn daily_claim_transaction_id(tag: &str, user_id: &str, sku_id: &str, window_key: &str) -> String {
     sha_upper(
         &format!("{}:{user_id}:{sku_id}:{window_key}", transaction_scope(tag).0),
@@ -641,16 +657,23 @@ pub fn wallet_currency(currency_id: &str) -> String {
     }
 }
 
+/// Why a store purchase failed.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PurchaseReason {
+    /// No offer with that id.
     UnknownSku,
+    /// The wallet cannot pay the price.
     InsufficientBalance,
+    /// Another purchase changed the inventory first.
     Conflict,
+    /// The transaction id was used by a purchase with a different request.
     AlreadyPurchasedDifferentRequest,
+    /// Anything else, such as an invalid price or a store failure.
     TransactionFailed,
 }
 
 impl PurchaseReason {
+    /// The reason as the answer writes it.
     pub fn as_str(self) -> &'static str {
         match self {
             Self::UnknownSku => "unknown_sku",
@@ -661,6 +684,7 @@ impl PurchaseReason {
         }
     }
 
+    /// The HTTP status the reason is answered with.
     pub fn status(self) -> u16 {
         match self {
             Self::UnknownSku => 404,
@@ -674,22 +698,31 @@ impl PurchaseReason {
 /// The SKU's entitlement and progression grants.
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct SkuGrants {
+    /// `(name, duration)` of each entitlement; an unreadable duration is 0.
     pub entitlements: Vec<(String, f64)>,
+    /// `skuProgression`, when the offer has one.
     pub progression: Option<Value>,
 }
 
 impl SkuGrants {
+    /// True when the offer grants neither.
     pub fn is_empty(&self) -> bool {
         self.entitlements.is_empty() && self.progression.is_none()
     }
 }
 
+/// A store purchase planned as one inventory transaction.
 #[derive(Debug, Clone, PartialEq)]
 pub struct PurchasePlan {
+    /// The transaction id: derived for a daily claim or a one-time offer, fresh otherwise.
     pub transaction_id: String,
+    /// Instances to add, each with an id derived from the purchase.
     pub add_instanced: Vec<Value>,
+    /// Stacks to add.
     pub add_stacked: Vec<Value>,
+    /// The price, as stacks to remove from the wallet.
     pub remove_stacked: Vec<Value>,
+    /// The entitlement and progression grants.
     pub grants: SkuGrants,
     /// A daily section's window key
     pub window_key: Option<String>,
@@ -731,7 +764,7 @@ pub fn plan_purchase(
             let count = item.quantity.as_f64().unwrap_or(0.0);
             let mut i = 0u64;
             // Each instance has its own derived id, so a replayed purchase builds the identical request
-            #[allow(clippy::cast_precision_loss)]
+            #[allow(clippy::cast_precision_loss, reason = "the index stops at 1000")]
             while (i as f64) < count && i < 1000 {
                 let mut stable = format!("{instance_scope}:{user_id}:{}:{}:{i}", sku.id, item.catalog_id);
                 if let Some(key) = &window_key {

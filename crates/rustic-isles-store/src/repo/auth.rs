@@ -14,22 +14,32 @@ use crate::{AccountId, AnyConnection, RepoError, RepoResult, Tx, UserId};
 
 // ------------------------------------------------------------------ records
 
+/// An `accounts` row: the game-facing account.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AccountRecord {
+    /// The network-wide account id.
     pub id: AccountId,
+    /// The userId the game and its tokens carry.
     pub user_id: UserId,
+    /// The display name the game shows.
     pub name: String,
+    /// The `notes` counter; 0 for a new account.
     pub notes: i64,
 }
 
+/// `launcher_accounts.approval_status`: a closed-test access request's state.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ApprovalStatus {
+    /// Waiting for staff.
     Pending,
+    /// Let in.
     Approved,
+    /// Turned down.
     Rejected,
 }
 
 impl ApprovalStatus {
+    /// The stored text.
     pub fn as_str(self) -> &'static str {
         match self {
             Self::Pending => "pending",
@@ -38,6 +48,7 @@ impl ApprovalStatus {
         }
     }
 
+    /// The state a stored text names; None for any other text.
     pub fn parse(text: &str) -> Option<Self> {
         match text {
             "pending" => Some(Self::Pending),
@@ -48,14 +59,19 @@ impl ApprovalStatus {
     }
 }
 
+/// `launcher_accounts.status`: whether an account may sign in at all.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum OperationalStatus {
+    /// In good standing.
     Active,
+    /// Banned by staff.
     Banned,
+    /// Disabled by staff.
     Disabled,
 }
 
 impl OperationalStatus {
+    /// The stored text.
     pub fn as_str(self) -> &'static str {
         match self {
             Self::Active => "active",
@@ -64,6 +80,7 @@ impl OperationalStatus {
         }
     }
 
+    /// The status a stored text names; None for any other text.
     pub fn parse(text: &str) -> Option<Self> {
         match text {
             "active" => Some(Self::Active),
@@ -74,49 +91,83 @@ impl OperationalStatus {
     }
 }
 
+/// The Terms and Privacy versions an account accepted.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct LauncherConsent {
+    /// The Terms of Use version accepted.
     pub terms_version: String,
+    /// The Privacy Policy version accepted.
     pub privacy_version: String,
+    /// When, as ISO text.
     pub accepted_at: String,
 }
 
+/// A scheduled account deletion.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct LauncherDeletion {
+    /// When it was asked for, as ISO text.
     pub requested_at: String,
+    /// When the erasure is due, as ISO text.
     pub scheduled_for: String,
 }
 
+/// A staff timeout.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AccountTimeout {
+    /// When it ends, as ISO text.
     pub until: String,
+    /// When it began, as ISO text.
     pub since: String,
+    /// The reason shown to the player, if staff gave one.
     pub reason: Option<String>,
 }
 
+/// A live `launcher_accounts` row joined to its `accounts` row; Debug leaves out the password hash.
 #[derive(Clone, PartialEq, Eq)]
 pub struct LauncherAccountRecord {
+    /// The account.
     pub account: AccountId,
+    /// The userId, from `accounts`.
     pub user_id: UserId,
+    /// The address, normalized; None for a Discord-only account.
     pub email: Option<String>,
+    /// The username normalized for uniqueness.
     pub display_name_normalized: String,
+    /// The username as chosen.
     pub display_name: String,
+    /// The Argon2id hash; None for a Discord-only account.
     pub password_hash: Option<String>,
+    /// Whether the account may sign in.
     pub status: OperationalStatus,
+    /// The access request's state; None is a legacy row, read as approved.
     pub approval_status: Option<ApprovalStatus>,
+    /// When staff last changed the access state, as ISO text.
     pub approval_updated_at: Option<String>,
+    /// Who last changed the access state.
     pub approval_updated_by: Option<String>,
+    /// The reason staff gave.
     pub approval_reason: Option<String>,
+    /// Staff roles, such as `admin`.
     pub roles: Vec<String>,
+    /// When the roles last changed, as ISO text.
     pub roles_updated_at: Option<String>,
+    /// Who last changed the roles.
     pub roles_updated_by: Option<String>,
+    /// When the account was registered, as ISO text.
     pub created_at: String,
+    /// The last launcher sign-in, as ISO text.
     pub last_login_at: Option<String>,
+    /// Whether a username was chosen; None is a legacy row, read as set.
     pub username_set: Option<bool>,
+    /// The accepted consent, if any.
     pub consent: Option<LauncherConsent>,
+    /// The scheduled deletion, if any.
     pub deletion: Option<LauncherDeletion>,
+    /// When the address was verified, as ISO text.
     pub email_verified_at: Option<String>,
+    /// When a required verification began, as ISO text.
     pub email_verification_pending_since: Option<String>,
+    /// The staff timeout, if any; it may have ended.
     pub timeout: Option<AccountTimeout>,
 }
 
@@ -142,51 +193,84 @@ impl fmt::Debug for LauncherAccountRecord {
     }
 }
 
+/// The admin list's filters and page; an unset filter matches every account.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct AdminAccountFilter {
+    /// Only accounts in this access state (a legacy row reads as approved).
     pub approval_status: Option<ApprovalStatus>,
+    /// Only accounts with this status.
     pub status: Option<OperationalStatus>,
+    /// Only accounts timed out at this ISO time.
     pub timed_out_at: Option<String>,
+    /// Text matched case-insensitively against the username, address and userId.
     pub search: Option<String>,
+    /// Matching accounts to skip, newest first.
     pub skip: u32,
+    /// The page's size; 0 is every match.
     pub limit: u32,
 }
 
+/// A staff change of an account's access.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AccessChange {
+    /// The new access state; None keeps it.
     pub approval_status: Option<ApprovalStatus>,
+    /// The new status; None keeps it.
     pub status: Option<OperationalStatus>,
+    /// When, as ISO text.
     pub approval_updated_at: String,
+    /// The staff member who made it.
     pub approval_updated_by: String,
+    /// The reason given.
     pub approval_reason: Option<String>,
 }
 
+/// What creating or renaming a launcher account did.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum CreateOutcome {
+    /// The account was written.
     Created,
+    /// Another live account has the address.
     EmailTaken,
+    /// Another live account has the username.
     DisplayNameTaken,
 }
 
+/// An `auth_identities` row: a linked Discord account.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AuthIdentityRecord {
+    /// The Discord user id.
     pub provider_subject: String,
+    /// The linked account.
     pub account: AccountId,
+    /// The Discord username when linked.
     pub provider_username: String,
+    /// The avatar URL when linked.
     pub provider_avatar_url: Option<String>,
+    /// When it was linked, as ISO text.
     pub linked_at: String,
 }
 
+/// A `refresh_sessions` row: one launcher refresh token; Debug leaves out the hash.
 #[derive(Clone, PartialEq, Eq)]
 pub struct RefreshSessionRecord {
+    /// The session's UUID.
     pub id: String,
+    /// SHA-256 of the refresh token.
     pub token_hash: String,
+    /// The account it signs in.
     pub account: AccountId,
+    /// The rotation family.
     pub family_id: String,
+    /// The device id.
     pub device_id: String,
+    /// The device name.
     pub device_name: String,
+    /// When it was issued, as ISO text.
     pub created_at: String,
+    /// When it lapses, as ISO text.
     pub expires_at: String,
+    /// When it was revoked, as ISO text.
     pub revoked_at: Option<String>,
 }
 
@@ -201,14 +285,19 @@ impl fmt::Debug for RefreshSessionRecord {
     }
 }
 
+/// A runtime release channel.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum RuntimeChannel {
+    /// The released runtime.
     Stable,
+    /// The beta runtime.
     Beta,
+    /// The development runtime.
     Dev,
 }
 
 impl RuntimeChannel {
+    /// The stored text.
     pub fn as_str(self) -> &'static str {
         match self {
             Self::Stable => "stable",
@@ -217,6 +306,7 @@ impl RuntimeChannel {
         }
     }
 
+    /// The channel a stored text names; None for any other text.
     pub fn parse(text: &str) -> Option<Self> {
         match text {
             "stable" => Some(Self::Stable),
@@ -227,20 +317,34 @@ impl RuntimeChannel {
     }
 }
 
+/// A `game_exchange_codes` row: the one-time code the launcher hands the game; Debug leaves out the hash.
 #[derive(Clone, PartialEq, Eq)]
 pub struct GameExchangeCodeRecord {
+    /// SHA-256 of the code.
     pub code_hash: String,
+    /// The account it signs in.
     pub account: AccountId,
+    /// The launcher refresh family that asked for it.
     pub launcher_session_id: String,
+    /// The game build's changelist.
     pub build_changelist: u32,
+    /// The game executable's SHA-256.
     pub executable_sha256: String,
+    /// The runtime's channel.
     pub runtime_channel: RuntimeChannel,
+    /// The runtime's main DLL hash.
     pub runtime_sha256: String,
+    /// The runtime manifest's version.
     pub runtime_manifest_version: String,
+    /// The approved artifact set's digest.
     pub runtime_artifact_set_sha256: String,
+    /// The realm the game joins, if one was named.
     pub realm_id: Option<String>,
+    /// When it was issued, as ISO text.
     pub created_at: String,
+    /// When it lapses, as ISO text.
     pub expires_at: String,
+    /// When it was used, as ISO text.
     pub consumed_at: Option<String>,
 }
 
@@ -259,17 +363,28 @@ impl fmt::Debug for GameExchangeCodeRecord {
     }
 }
 
+/// A `discord_oauth_transactions` row: one Discord sign-in or link; Debug leaves out the secrets.
 #[derive(Clone, PartialEq, Eq)]
 pub struct DiscordOAuthTransactionRecord {
+    /// The OAuth `state`.
     pub state: String,
+    /// The PKCE verifier.
     pub code_verifier: String,
+    /// When it began, as ISO text.
     pub created_at: String,
+    /// When the `state` lapses, as ISO text.
     pub expires_at: String,
+    /// When the callback used the `state`, as ISO text.
     pub consumed_at: Option<String>,
+    /// SHA-256 of the completion code the launcher redeems.
     pub completion_code_hash: Option<String>,
+    /// When the completion code lapses, as ISO text.
     pub completion_expires_at: Option<String>,
+    /// When the completion code was used, as ISO text.
     pub completion_consumed_at: Option<String>,
+    /// The account a sign-in completed for.
     pub account: Option<AccountId>,
+    /// The signed-in account a link transaction links.
     pub link_account: Option<AccountId>,
 }
 
@@ -283,14 +398,19 @@ impl fmt::Debug for DiscordOAuthTransactionRecord {
     }
 }
 
+/// What an emailed code is for.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum EmailCodePurpose {
+    /// Verifying the address.
     Verify,
+    /// Resetting the password.
     Reset,
+    /// Unlinking Discord.
     Unlink,
 }
 
 impl EmailCodePurpose {
+    /// The stored text.
     pub fn as_str(self) -> &'static str {
         match self {
             Self::Verify => "verify",
@@ -299,6 +419,7 @@ impl EmailCodePurpose {
         }
     }
 
+    /// The purpose a stored text names; None for any other text.
     pub fn parse(text: &str) -> Option<Self> {
         match text {
             "verify" => Some(Self::Verify),
@@ -309,13 +430,20 @@ impl EmailCodePurpose {
     }
 }
 
+/// An `email_codes` row; Debug leaves out the hash.
 #[derive(Clone, PartialEq, Eq)]
 pub struct EmailCodeRecord {
+    /// The account it was sent for.
     pub account: AccountId,
+    /// What it is for.
     pub purpose: EmailCodePurpose,
+    /// The code's keyed hash.
     pub code_hash: String,
+    /// Wrong entries so far.
     pub attempts: u32,
+    /// When it was sent, as ISO text.
     pub created_at: String,
+    /// When it lapses, as ISO text.
     pub expires_at: String,
 }
 
@@ -334,7 +462,9 @@ impl fmt::Debug for EmailCodeRecord {
 /// Node's record shape: `id` is the row's 0-based position in the read, `key_hash` always some.
 #[derive(Clone, PartialEq, Eq)]
 pub struct GameServerKeyHash {
+    /// The row's 0-based position in the read.
     pub id: i64,
+    /// The key's hash.
     pub key_hash: Option<String>,
 }
 
@@ -346,9 +476,12 @@ impl fmt::Debug for GameServerKeyHash {
     }
 }
 
+/// A `user_api_keys` row; Debug leaves out the hash.
 #[derive(Clone, PartialEq, Eq)]
 pub struct UserKeyHash {
+    /// The account the key signs in.
     pub account: AccountId,
+    /// The key's hash.
     pub key_hash: String,
 }
 
@@ -363,25 +496,37 @@ impl fmt::Debug for UserKeyHash {
 // ------------------------------------------------------------------ traits
 
 store_trait! {
+    /// Game accounts (`accounts`).
     pub trait AccountRepository = "accounts" {
+        /// The live account with that userId.
         fn find_by_user_id(&self, conn: &mut AnyConnection, user_id: &UserId) -> Option<AccountRecord>;
+        /// The live account with that id.
         fn find(&self, conn: &mut AnyConnection, id: &AccountId) -> Option<AccountRecord>;
+        /// Writes a new account.
         fn create(&self, tx: &mut Tx<'_>, record: &AccountRecord) -> ();
     }
 }
 
 store_trait! {
+    /// Launcher accounts (`launcher_accounts`); every read sees live rows only.
     pub trait LauncherAccountRepository = "launcherAccounts" {
+        /// The account with that userId.
         fn find_by_user_id(&self, conn: &mut AnyConnection, user_id: &UserId) -> Option<LauncherAccountRecord>;
+        /// The account's launcher row.
         fn find_by_account(&self, conn: &mut AnyConnection, account: &AccountId) -> Option<LauncherAccountRecord>;
+        /// The account with that normalized address.
         fn find_by_email(&self, conn: &mut AnyConnection, normalized: &str) -> Option<LauncherAccountRecord>;
+        /// The account with that normalized username.
         fn find_by_display_name_normalized(
             &self,
             conn: &mut AnyConnection,
             normalized: &str,
         ) -> Option<LauncherAccountRecord>;
+        /// Writes the account, and its game account unless one exists; refuses a taken address, then a taken username.
         fn create(&self, tx: &mut Tx<'_>, record: &LauncherAccountRecord) -> CreateOutcome;
+        /// Records a launcher sign-in at `when`.
         fn update_last_login(&self, tx: &mut Tx<'_>, account: &AccountId, when: &str) -> ();
+        /// Sets the username and the game account's name, and marks it chosen; refuses a name another live account holds.
         fn set_username(
             &self,
             tx: &mut Tx<'_>,
@@ -391,35 +536,46 @@ store_trait! {
         ) -> CreateOutcome;
         /// The admin bootstrap's rename: refuses an address another live account holds
         fn set_email(&self, tx: &mut Tx<'_>, account: &AccountId, email: &str) -> CreateOutcome;
+        /// Records the accepted consent.
         fn set_consent(&self, tx: &mut Tx<'_>, account: &AccountId, consent: &LauncherConsent) -> ();
+        /// Sets or (with None) clears the scheduled deletion.
         fn set_deletion(&self, tx: &mut Tx<'_>, account: &AccountId, deletion: Option<&LauncherDeletion>) -> ();
+        /// Accounts whose deletion is due at `now`, oldest scheduled first; `limit` 0 is no limit.
         fn list_deletions_due(&self, conn: &mut AnyConnection, now: &str, limit: u32) -> Vec<LauncherAccountRecord>;
+        /// Marks the address verified and clears the pending mark.
         fn set_email_verified(&self, tx: &mut Tx<'_>, account: &AccountId, verified_at: &str) -> ();
+        /// Replaces the password hash.
         fn set_password_hash(&self, tx: &mut Tx<'_>, account: &AccountId, hash: &str) -> ();
+        /// Unverified accounts pending since before `pending_before`, oldest first; `limit` 0 is no limit.
         fn list_unverified_registrations(
             &self,
             conn: &mut AnyConnection,
             pending_before: &str,
             limit: u32,
         ) -> Vec<LauncherAccountRecord>;
+        /// Soft-deletes the account and its game account if still unverified and pending since before `pending_before`; returns whether it did.
         fn delete_unverified_registration(&self, tx: &mut Tx<'_>, account: &AccountId, pending_before: &str) -> bool;
+        /// The admin list's page, newest first, and the total that matched.
         fn list_for_admin(
             &self,
             conn: &mut AnyConnection,
             filter: &AdminAccountFilter,
         ) -> (Vec<LauncherAccountRecord>, u64);
+        /// Applies a staff access change; returns the account after it, or None when there is no live account.
         fn set_access_state(
             &self,
             tx: &mut Tx<'_>,
             account: &AccountId,
             change: &AccessChange,
         ) -> Option<LauncherAccountRecord>;
+        /// Sets or (with None) clears the timeout; returns the account after it, or None when there is no live account.
         fn set_timeout(
             &self,
             tx: &mut Tx<'_>,
             account: &AccountId,
             timeout: Option<&AccountTimeout>,
         ) -> Option<LauncherAccountRecord>;
+        /// Replaces the roles; returns the account after it, or None when there is no live account.
         fn update_roles(
             &self,
             tx: &mut Tx<'_>,
@@ -428,47 +584,71 @@ store_trait! {
             at: &str,
             by: &str,
         ) -> Option<LauncherAccountRecord>;
+        /// Soft-deletes the launcher and game accounts; returns whether either was live.
         fn erase(&self, tx: &mut Tx<'_>, account: &AccountId) -> bool;
     }
 }
 
 store_trait! {
+    /// Linked Discord identities (`auth_identities`).
     pub trait AuthIdentityRepository = "authIdentities" {
+        /// The identity with that Discord user id.
         fn find_by_provider_subject(&self, conn: &mut AnyConnection, subject: &str) -> Option<AuthIdentityRecord>;
+        /// The account's identity.
         fn find_by_account(&self, conn: &mut AnyConnection, account: &AccountId) -> Option<AuthIdentityRecord>;
+        /// Links the identity; false when the subject or the account is linked already.
         fn create(&self, tx: &mut Tx<'_>, record: &AuthIdentityRecord) -> bool;
+        /// Unlinks the account's identities; returns how many.
         fn delete_for_account(&self, tx: &mut Tx<'_>, account: &AccountId) -> u64;
     }
 }
 
 store_trait! {
+    /// Launcher refresh sessions (`refresh_sessions`).
     pub trait RefreshSessionRepository = "refreshSessions" {
+        /// Writes a new session.
         fn create(&self, tx: &mut Tx<'_>, record: &RefreshSessionRecord) -> ();
+        /// The session with that token hash, revoked or not.
         fn find_by_token_hash(&self, conn: &mut AnyConnection, hash: &str) -> Option<RefreshSessionRecord>;
+        /// Revokes the session at `now`.
         fn revoke_by_id(&self, tx: &mut Tx<'_>, id: &str, now: &str) -> ();
         /// How many rows it revoked (the count is the adapter's, spec §16 item 16)
         fn revoke_family(&self, tx: &mut Tx<'_>, family_id: &str, now: &str) -> u64;
+        /// Revokes the account's unrevoked sessions at `now`; returns how many.
         fn revoke_all_for_account(&self, tx: &mut Tx<'_>, account: &AccountId, now: &str) -> u64;
+        /// Deletes every session of the account; returns how many.
         fn delete_all_for_account(&self, tx: &mut Tx<'_>, account: &AccountId) -> u64;
+        /// Whether the family has an unrevoked session of the account that lapses after `now`.
         fn is_family_active(&self, conn: &mut AnyConnection, family_id: &str, account: &AccountId, now: &str) -> bool;
+        /// Deletes sessions that lapsed before `now`; returns how many.
         fn purge_expired(&self, tx: &mut Tx<'_>, now: &str) -> u64;
     }
 }
 
 store_trait! {
+    /// One-time codes from the launcher to the game (`game_exchange_codes`).
     pub trait GameExchangeCodeRepository = "gameExchangeCodes" {
+        /// Writes a new code.
         fn create(&self, tx: &mut Tx<'_>, record: &GameExchangeCodeRecord) -> ();
+        /// Marks the code used if unused and unexpired; returns the code, or None when it was not.
         fn consume_by_code_hash(&self, tx: &mut Tx<'_>, hash: &str, now: &str) -> Option<GameExchangeCodeRecord>;
+        /// Marks every unused code of the account used at `now`.
         fn revoke_unused_for_account(&self, tx: &mut Tx<'_>, account: &AccountId, now: &str) -> ();
+        /// Deletes every code of the account; returns how many.
         fn delete_for_account(&self, tx: &mut Tx<'_>, account: &AccountId) -> u64;
+        /// Deletes codes that lapsed before `now`; returns how many.
         fn purge_expired(&self, tx: &mut Tx<'_>, now: &str) -> u64;
     }
 }
 
 store_trait! {
+    /// Discord sign-in transactions (`discord_oauth_transactions`).
     pub trait DiscordOAuthTransactionRepository = "discordOAuthTransactions" {
+        /// Writes a new transaction.
         fn create(&self, tx: &mut Tx<'_>, record: &DiscordOAuthTransactionRecord) -> ();
+        /// Marks the `state` used if unused and unexpired; returns the transaction, or None when it was not.
         fn consume_by_state(&self, tx: &mut Tx<'_>, state: &str, now: &str) -> Option<DiscordOAuthTransactionRecord>;
+        /// Attaches the completion code and the signed-in account to the `state`'s transaction.
         fn attach_completion_code(
             &self,
             tx: &mut Tx<'_>,
@@ -477,20 +657,26 @@ store_trait! {
             expires_at: &str,
             account: &AccountId,
         ) -> ();
+        /// Marks the completion code used if unused and unexpired; returns the transaction, or None when it was not.
         fn consume_by_completion_code_hash(
             &self,
             tx: &mut Tx<'_>,
             code_hash: &str,
             now: &str,
         ) -> Option<DiscordOAuthTransactionRecord>;
+        /// Deletes transactions whose `state` and completion code both lapsed before `before`; returns how many.
         fn purge_expired(&self, tx: &mut Tx<'_>, before: &str) -> u64;
+        /// Deletes every transaction of the account, signed in or linked; returns how many.
         fn delete_for_account(&self, tx: &mut Tx<'_>, account: &AccountId) -> u64;
     }
 }
 
 store_trait! {
+    /// Emailed one-time codes (`email_codes`), one per account and purpose.
     pub trait EmailCodeRepository = "emailCodes" {
+        /// Writes the code, replacing the account's code for that purpose.
         fn replace(&self, tx: &mut Tx<'_>, record: &EmailCodeRecord) -> ();
+        /// The account's code for the purpose while unexpired and with tries left.
         fn peek_live(
             &self,
             conn: &mut AnyConnection,
@@ -499,6 +685,7 @@ store_trait! {
             now: &str,
             max_tries: u32,
         ) -> Option<EmailCodeRecord>;
+        /// Deletes the code if it has this hash, is unexpired and has tries left; returns whether it did.
         fn consume(
             &self,
             tx: &mut Tx<'_>,
@@ -508,6 +695,7 @@ store_trait! {
             now: &str,
             max_tries: u32,
         ) -> bool;
+        /// Counts a try on a live code and returns the tries so far; a dead code is deleted and None returned.
         fn reserve_try(
             &self,
             tx: &mut Tx<'_>,
@@ -516,25 +704,36 @@ store_trait! {
             now: &str,
             max_tries: u32,
         ) -> Option<u32>;
+        /// Deletes the code if it has this hash; returns whether it did.
         fn remove(&self, tx: &mut Tx<'_>, account: &AccountId, purpose: EmailCodePurpose, code_hash: &str) -> bool;
+        /// Deletes every code of the account; returns how many.
         fn delete_for_account(&self, tx: &mut Tx<'_>, account: &AccountId) -> u64;
+        /// Deletes codes that lapsed before `now`; returns how many.
         fn purge_expired(&self, tx: &mut Tx<'_>, now: &str) -> u64;
     }
 }
 
 store_trait! {
+    /// Game server and user API key hashes.
     pub trait ApiKeyRepository = "apiKeys" {
+        /// Every game server key hash.
         fn find_all_game_server_key_hashes(&self, conn: &mut AnyConnection) -> Vec<GameServerKeyHash>;
+        /// Adds a game server key hash, if new.
         fn insert_game_server_key_hash(&self, tx: &mut Tx<'_>, hash: &str) -> ();
+        /// Makes the stored game server key hashes exactly `hashes`.
         fn replace_game_server_key_hashes(&self, tx: &mut Tx<'_>, hashes: &[String]) -> ();
+        /// Every user key hash.
         fn find_all_user_key_hashes(&self, conn: &mut AnyConnection) -> Vec<UserKeyHash>;
+        /// Sets the account's one user key hash, replacing any.
         fn insert_user_key_hash(&self, tx: &mut Tx<'_>, account: &AccountId, hash: &str) -> ();
+        /// Deletes the account's user key hash; returns whether there was one.
         fn delete_user_key_hash(&self, tx: &mut Tx<'_>, account: &AccountId) -> bool;
     }
 }
 
 // ------------------------------------------------------------------ accounts
 
+/// [`AccountRepository`] in SQL.
 pub struct SqlAccounts;
 
 #[derive(QueryableByName)]
@@ -609,6 +808,7 @@ pub(crate) fn account_row_exists(conn: &mut AnyConnection, id: &AccountId) -> Re
 
 // ------------------------------------------------------------------ launcher accounts
 
+/// [`LauncherAccountRepository`] in SQL.
 pub struct SqlLauncherAccounts;
 
 #[derive(QueryableByName)]
@@ -1162,6 +1362,7 @@ pub(crate) fn soft_delete_launcher_account(tx: &mut Tx<'_>, account: &AccountId)
 
 // ------------------------------------------------------------------ identities
 
+/// [`AuthIdentityRepository`] in SQL.
 pub struct SqlAuthIdentities;
 
 #[derive(QueryableByName)]
@@ -1248,6 +1449,7 @@ impl AuthIdentityRepository for SqlAuthIdentities {
 
 // ------------------------------------------------------------------ refresh sessions
 
+/// [`RefreshSessionRepository`] in SQL.
 pub struct SqlRefreshSessions;
 
 #[derive(QueryableByName)]
@@ -1371,6 +1573,7 @@ impl RefreshSessionRepository for SqlRefreshSessions {
 
 // ------------------------------------------------------------------ exchange codes
 
+/// [`GameExchangeCodeRepository`] in SQL.
 pub struct SqlGameExchangeCodes;
 
 #[derive(QueryableByName)]
@@ -1508,6 +1711,7 @@ impl GameExchangeCodeRepository for SqlGameExchangeCodes {
 
 // ------------------------------------------------------------------ Discord transactions
 
+/// [`DiscordOAuthTransactionRepository`] in SQL.
 pub struct SqlDiscordOAuthTransactions;
 
 #[derive(QueryableByName)]
@@ -1673,6 +1877,7 @@ impl DiscordOAuthTransactionRepository for SqlDiscordOAuthTransactions {
 
 // ------------------------------------------------------------------ email codes
 
+/// [`EmailCodeRepository`] in SQL.
 pub struct SqlEmailCodes;
 
 #[derive(QueryableByName)]
@@ -1843,6 +2048,7 @@ impl EmailCodeRepository for SqlEmailCodes {
 
 // ------------------------------------------------------------------ keys
 
+/// [`ApiKeyRepository`] in SQL.
 pub struct SqlApiKeys;
 
 #[derive(QueryableByName)]

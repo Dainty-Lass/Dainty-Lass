@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Silent Spud
 
+//! `dainty-host doctor`: every check printed by area, with a summary; fails when a check fails.
+
 use std::process::ExitCode;
 
 use crate::cli::DoctorArgs;
@@ -8,6 +10,7 @@ use crate::doctor::{DoctorOptions, print_checks, run_doctor};
 use crate::error::HostError;
 use crate::paths::Paths;
 
+/// Runs every check and prints them through `say`; returns a failing exit code when a check failed.
 pub fn run_with(paths: &Paths, args: &DoctorArgs, mut say: impl FnMut(&str)) -> Result<ExitCode, HostError> {
     let opts = DoctorOptions {
         hash_exe: !args.no_hash,
@@ -22,6 +25,7 @@ pub fn run_with(paths: &Paths, args: &DoctorArgs, mut say: impl FnMut(&str)) -> 
     }
 }
 
+/// Runs `dainty-host doctor`, printing to stdout; an error is printed and gives a failing exit code.
 #[must_use]
 pub fn run(paths: &Paths, args: &DoctorArgs) -> ExitCode {
     match run_with(paths, args, |line| println!("{line}")) {
@@ -35,7 +39,7 @@ pub fn run(paths: &Paths, args: &DoctorArgs) -> ExitCode {
 
 #[cfg(test)]
 mod tests {
-    #![allow(clippy::unwrap_used)]
+    #![allow(clippy::unwrap_used, reason = "a panic is how a test fails")]
 
     use super::*;
 

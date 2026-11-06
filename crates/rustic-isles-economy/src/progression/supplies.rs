@@ -82,8 +82,7 @@ pub fn apply_session_supplies(stacked: &[Value], targets: &[(String, i64)]) -> O
             changed = true;
             continue;
         }
-        // Targets are at most 1000000
-        #[allow(clippy::cast_precision_loss)]
+        #[allow(clippy::cast_precision_loss, reason = "targets are at most 1000000")]
         let target_f = *target as f64;
         if entry.get("quantity").and_then(Value::as_f64) != Some(target_f) {
             changed = true;

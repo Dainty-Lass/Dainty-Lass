@@ -13,7 +13,9 @@ use service_kit::js;
 
 use crate::hunt::js_entries;
 
+/// The export folder's name when none is given.
 pub const DEFAULT_EXPORT: &str = "hunts_1_14_7";
+/// Game versions an export may come from.
 pub const SUPPORTED_VERSIONS: [&str; 2] = ["1.12.0", "1.14.7"];
 
 const PLAYER_TABLE: &str = "player_hunts_table";
@@ -104,43 +106,66 @@ const MATCHMAKER_ORDER: [&str; 17] = [
 const MAP_ORDER: [&str; 4] = ["MapName", "MapAssetName", "Biome", "Weighting"];
 const BEHEMOTH_ORDER: [&str; 4] = ["BehemothName", "BehemothAsset", "PowerOverride", "Weighting"];
 
+/// What to import and how.
 #[derive(Debug, Clone)]
 pub struct ImportHuntTablesOptions {
+    /// The CatalogExporter capture's folder.
     pub export_dir: PathBuf,
+    /// The Director's vendored tables, written in place.
     pub vendor_dir: PathBuf,
     /// Only to show the export folder relative to it
     pub repo_root: Option<PathBuf>,
     /// Else a dry run
     pub apply: bool,
+    /// Rewrite rows the vendor already has; otherwise only new rows are added.
     pub update_existing: bool,
+    /// List each updated row's changes.
     pub verbose: bool,
+    /// The suffix of the `.bak` copies; the current time when none.
     pub backup_stamp: Option<String>,
 }
 
+/// What the merge did to one table.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct TableMergeSummary {
+    /// The table's name.
     pub name: String,
+    /// The vendored file.
     pub path: PathBuf,
+    /// Whether the vendor had no such file.
     pub new_file: bool,
+    /// Rows the export adds.
     pub added: Vec<String>,
     /// Each updated row with its changes
     pub updated: Vec<(String, Vec<String>)>,
+    /// Vendor-only rows whose numeric `MatchmakingGameType` gets its name.
     pub normalised: Vec<String>,
+    /// Rows the export holds but that could not be converted, with the reason.
     pub rejected: Vec<String>,
+    /// Vendored rows the export does not hold.
     pub vendor_only: Vec<String>,
     /// Each change with its count, most first
     pub changes: Vec<(String, usize)>,
+    /// Rows the export left as they were.
     pub unchanged: usize,
+    /// Rows in the vendored file before the merge.
     pub vendored_rows: usize,
+    /// Rows in the export.
     pub export_rows: usize,
+    /// Rows in the vendored file after the merge.
     pub rows_after: usize,
 }
 
+/// What an import did, or would do on a dry run.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct ImportHuntTablesReport {
+    /// The game version the export's manifest names.
     pub export_version: String,
+    /// Each table merged.
     pub tables: Vec<TableMergeSummary>,
+    /// Export rows or values that could not be converted.
     pub conversion_problems: Vec<String>,
+    /// The terminal text the host is shown.
     pub output: String,
 }
 

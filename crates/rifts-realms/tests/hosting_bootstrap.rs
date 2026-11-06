@@ -4,7 +4,7 @@
 //! One realm hub end to end: a realm, its Ramsgate hub started, host ready and route ready, a member routed in,
 //! admitted through rifts-admission with a ticket, its route ready, the hosting status, and the stop.
 
-#![allow(clippy::unwrap_used, clippy::expect_used)]
+#![allow(clippy::unwrap_used, clippy::expect_used, reason = "a panic is how a test fails")]
 
 mod common;
 

@@ -4,7 +4,7 @@
 //! A hunt against a backend that takes 400 ms for every call but host-ready (spec §5.3 "Slow backend"): the session
 //! thread never waits on it, so gameplay keeps its latency.
 
-#![allow(clippy::unwrap_used, clippy::expect_used)] // test helpers
+#![allow(clippy::unwrap_used, clippy::expect_used, reason = "a panic is how a test fails")]
 
 mod common;
 

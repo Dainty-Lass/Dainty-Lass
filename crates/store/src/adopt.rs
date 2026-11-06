@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Silent Spud
 
+//! Bringing a SQLite file up to a service's schema, adopting one the Node services' Drizzle migrations made.
+
 use diesel::connection::SimpleConnection;
 use diesel::migration::MigrationSource;
 use diesel::prelude::*;
@@ -10,16 +12,23 @@ use diesel_migrations::{EmbeddedMigrations, MigrationHarness};
 
 use crate::{Connection, Error, drizzle, schema_snapshot};
 
+/// A service's SQLite schema for [`crate::Store::open`].
 #[derive(Clone, Copy)]
 pub struct Schema {
+    /// The service's `embed_migrations!` set, as a function since `EmbeddedMigrations` cannot be copied.
     pub migrations: fn() -> EmbeddedMigrations,
+    /// The Drizzle state a Node database must be at to be adopted; `None` refuses such a database.
     pub drizzle: Option<DrizzleBaseline>,
 }
 
+/// The last Drizzle migration a Node database must have applied to be adopted.
 #[derive(Debug, Clone, Copy)]
 pub struct DrizzleBaseline {
+    /// Its `created_at` in `__drizzle_migrations`.
     pub created_at: i64,
+    /// Its SQL, whose hash must match the recorded one.
     pub sql: &'static str,
+    /// The schema snapshot the live database must match.
     pub snapshot: &'static str,
 }
 

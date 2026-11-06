@@ -3,7 +3,12 @@
 
 //! A module's sign-in area on a memory store, driven through `Auth::router()` as the launcher and game would.
 
-#![allow(dead_code, clippy::unwrap_used, clippy::expect_used)]
+#![allow(
+    dead_code,
+    clippy::unwrap_used,
+    clippy::expect_used,
+    reason = "shared by several test binaries, each using only some; a panic is how a test fails"
+)]
 
 use std::net::SocketAddr;
 use std::sync::Arc;

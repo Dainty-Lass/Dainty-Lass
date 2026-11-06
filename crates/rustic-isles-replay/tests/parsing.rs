@@ -3,7 +3,7 @@
 
 //! Capture parsing (spec §13.2 P1-P7).
 
-#![allow(clippy::unwrap_used, clippy::expect_used)]
+#![allow(clippy::unwrap_used, clippy::expect_used, reason = "a panic is how a test fails")]
 
 use rustic_isles_replay::{CaptureBody, CaptureRecord, load_corpus, parse_capture_line, parse_capture_str};
 use serde_json::{Value, json};

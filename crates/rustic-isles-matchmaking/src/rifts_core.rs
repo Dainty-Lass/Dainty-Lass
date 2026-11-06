@@ -46,6 +46,7 @@ fn seam_party(record: &PartyRecord) -> Result<Party, SeamError> {
     })
 }
 
+/// The core rifts asks for accounts, parties and candidates; what it does not answer goes to `fallback`.
 pub struct MatchmakingCore {
     store: Option<IslesStore>,
     node: NodeId,
@@ -54,6 +55,7 @@ pub struct MatchmakingCore {
 }
 
 impl MatchmakingCore {
+    /// A core over the module's store (none without a database), node and state.
     pub fn new(
         store: Option<IslesStore>,
         node: NodeId,

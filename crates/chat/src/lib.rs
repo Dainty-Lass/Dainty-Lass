@@ -47,13 +47,18 @@ use crate::server::{Chat, Event, Parts};
 /// How long the listener waits for its requests once told to stop
 const DRAIN: Duration = Duration::from_secs(1);
 
+/// Why [`ChatPlugin::start`] failed.
 #[derive(Debug, thiserror::Error)]
 pub enum StartError {
+    /// The settings were refused; the problems joined with `; `.
     #[error("chat settings: {0}")]
     Settings(String),
+    /// The listener could not bind.
     #[error("chat could not listen on {address} ({source})")]
     Listen {
+        /// The address it tried.
         address: SocketAddr,
+        /// The bind error.
         source: std::io::Error,
     },
 }
@@ -65,14 +70,17 @@ pub struct ChatPlugin {
 }
 
 impl ChatPlugin {
+    /// A plugin that answers for no module yet.
     pub fn new() -> Self {
         Self::default()
     }
 
+    /// The modules attached that answer chat.
     pub fn modules(&self) -> BTreeSet<ModuleId> {
         self.modules.lock().unwrap_or_else(PoisonError::into_inner).clone()
     }
 
+    /// Checks the settings, binds the listener and starts the chat task. Errors before anything is spawned.
     pub async fn start(
         &self,
         settings: &Settings,
@@ -171,6 +179,7 @@ impl CorePlugin for ChatPlugin {
 
 /// A started chat.
 pub struct Running {
+    /// The port it listens on: the one actually bound when the settings asked for 0.
     pub port: u16,
     /// The most unsent output any connection has held, bytes
     pub largest_backlog: Arc<AtomicUsize>,
@@ -181,10 +190,13 @@ pub struct Running {
 }
 
 impl Running {
+    /// Chat's database.
     pub fn history(&self) -> &History {
         &self.shared.history
     }
 
+    /// Mutes `account` until `until` (unix milliseconds, none for until lifted): stored, applied to live sessions and
+    /// pushed to the other nodes.
     pub async fn mute(
         &self,
         account: &GlobalId,
@@ -195,14 +207,17 @@ impl Running {
         self.shared.mute(account, until, reason, actor).await
     }
 
+    /// Lifts the mute on `account` everywhere; returns whether there was one.
     pub async fn unmute(&self, account: &GlobalId, actor: store::Actor) -> Result<bool, store::Error> {
         self.shared.unmute(account, actor).await
     }
 
+    /// Runs the periodic work now and waits for it.
     pub async fn tick(&self) {
         self.shared.tick().await;
     }
 
+    /// Ends every session, stops the task and then the listener.
     pub async fn stop(self) {
         _ = self.shared.events.send(Event::Shutdown);
         _ = self.task.await;

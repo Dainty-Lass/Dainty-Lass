@@ -50,17 +50,27 @@ const RULES: [(&str, &str); 3] = [
     ("revokeGuard", "REFORGED_GUARD_REVOKE"),
 ];
 
+/// What a `*_guard` setting may say.
 pub const RULE_WORDS: [&str; 3] = ["off", "delay", "approval"];
 
+/// `[guard]`, each setting `None` when host.toml leaves it out (the admin API's default then holds).
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct GuardConfig {
+    /// Bans and timeouts one key may make in the window before the next is held.
     pub ban_limit: Option<u32>,
+    /// The window `ban_limit` counts over, in minutes.
     pub ban_window_minutes: Option<u32>,
+    /// What holds a ban over the limit: `off`, `delay` or `approval`.
     pub ban_guard: Option<String>,
+    /// A revert of more changes than this is held.
     pub revert_limit: Option<u32>,
+    /// What holds such a revert: `off`, `delay` or `approval`.
     pub revert_guard: Option<String>,
+    /// What holds the revoking of an admin or owner key: `off`, `delay` or `approval`.
     pub revoke_guard: Option<String>,
+    /// How long a delay waits, in minutes.
     pub delay_minutes: Option<u32>,
+    /// How long a held action nobody approved stays before it expires, in hours.
     pub expire_hours: Option<u32>,
 }
 
@@ -91,6 +101,7 @@ pub fn validate(guard: &Value) -> Result<(), HostError> {
 }
 
 impl GuardConfig {
+    /// Reads a validated `guard` table.
     pub fn from_json(g: &Map<String, Value>) -> Self {
         let number = |key: &str| g.get(key).and_then(Value::as_u64).map(|n| n as u32);
         let word = |key: &str| g.get(key).and_then(Value::as_str).map(str::to_owned);

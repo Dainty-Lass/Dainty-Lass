@@ -11,6 +11,7 @@ use service_kit::jsjson;
 
 use crate::util::{num, utf16_len};
 
+/// Mastery credit a newly completed objective earns on each of its tracks.
 pub const MASTERY_CREDIT_PER_OBJECTIVE: i64 = 1;
 const MAX_REPORT_UNITS: usize = 131_072;
 const PLAYER_TRACK: &str = "MasteryTrack_PlayerLevel";
@@ -62,11 +63,15 @@ pub fn report_is_valid(report: &Value) -> bool {
 /// An objective id's mastery card.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Card {
+    /// Not a `MasteryObjective_` id.
     NotMastery,
+    /// A mastery objective with no known track.
     Unmapped,
+    /// The mastery track the objective credits.
     Track(String),
 }
 
+/// The mastery card an objective id credits; weapon codes are mapped to the game's track names.
 pub fn card_track(objective_id: &str) -> Card {
     let Some(rest) = objective_id.strip_prefix("MasteryObjective_") else {
         return Card::NotMastery;
@@ -116,8 +121,11 @@ pub fn matches_id_grammar(id: &str) -> bool {
 /// A host's limits on one report.
 #[derive(Debug, Clone, PartialEq)]
 pub struct HostLimits {
+    /// The most new objectives one report may complete.
     pub max_new: usize,
+    /// The largest objective value kept; more is clamped.
     pub max_value: i64,
+    /// The largest objective count kept; more is clamped.
     pub max_count: i64,
     /// `mastery_objectives.json`'s ids; none falls back to the grammar
     pub known: Option<HashSet<String>>,
@@ -126,6 +134,7 @@ pub struct HostLimits {
 }
 
 impl HostLimits {
+    /// The standard limits: 64 new objectives, values to 100000000, counts to 10.
     pub fn standard(known: Option<HashSet<String>>, caps: HashMap<String, (i64, i64)>) -> Self {
         Self {
             max_new: 64,
@@ -167,20 +176,30 @@ fn floor_of(value: Option<&Value>) -> i64 {
     }
 }
 
+/// What one objective report does.
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct MasteryPlan {
     /// `(id, value, count)` merged with the stored state, in report order (over-limit ones only when stored)
     pub merged: Vec<(String, i64, i64)>,
     /// What `merge_objectives` gets
     pub writes: Vec<(String, i64, i64)>,
+    /// `(track, amount)` of mastery credit to grant.
     pub credits: Vec<(String, i64)>,
+    /// `(track, progress)` the report claims for each mastery track; credit never exceeds it.
     pub claimed: Vec<(String, i64)>,
+    /// Objectives completed by this report.
     pub newly: Vec<String>,
+    /// Credits cut to what the report claimed, as `track amount->allowed`.
     pub capped: Vec<String>,
+    /// New mastery objectives with no known track.
     pub unmapped: Vec<String>,
+    /// `(id, reason)` of objectives a host's report may not write.
     pub ignored: Vec<(String, &'static str)>,
+    /// New objectives past the host's limit, left out.
     pub over_limit: Vec<String>,
+    /// Values and counts clamped to the host's limits, as text.
     pub clamped: Vec<String>,
+    /// Credits cut to a capped track's room, as text.
     pub at_cap: Vec<String>,
 }
 

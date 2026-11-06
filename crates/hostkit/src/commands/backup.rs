@@ -21,6 +21,7 @@ use crate::paths::Paths;
 
 /// What backup needs from this PC: the dump program, and running it.
 pub trait BackupEnv {
+    /// The `mongodump` to run, when one is installed.
     fn find_mongodump(&self, config: &HostConfig) -> Result<Option<PathBuf>, HostError>;
     /// Runs the program to its end, its output into `log_file`: the exit code and the last line.
     fn run(&self, program: &Path, args: &[String], log_file: &Path) -> Result<(i32, Option<String>), HostError>;
@@ -28,6 +29,7 @@ pub trait BackupEnv {
     fn stamp(&self) -> String;
 }
 
+/// [`BackupEnv`] on this PC.
 pub struct System;
 
 impl BackupEnv for System {
@@ -71,10 +73,13 @@ pub fn find_mongodump_in(
         .or_else(|| mongod?.parent().map(|dir| dir.join(exe)).filter(|f| f.is_file()))
 }
 
+/// Runs `dainty-host backup`, printing to stdout.
 pub fn run(paths: &Paths) -> Outcome {
     run_with(paths, &System, &mut |line| println!("{line}"))
 }
 
+/// Backs up the server's database into `.workspace/backups`, printing through `out`: a copy of the SQLite file,
+/// or a `mongodump` archive.
 pub fn run_with(paths: &Paths, env: &dyn BackupEnv, out: &mut dyn FnMut(&str)) -> Outcome {
     let config =
         load_host_config(paths)?.ok_or_else(|| HostError::message("not set up yet: run dainty-host setup first"))?;

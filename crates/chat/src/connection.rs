@@ -39,6 +39,7 @@ use crate::server::{Event, FRAME_LIMIT, Out, Writer, now_ms};
 use crate::settings::WS_PATHS;
 use crate::xmpp::{DEFAULT_DOMAIN, NS_BIND, NS_FRAMING, NS_MUC, NS_SASL, escape};
 
+/// Carries the gateway's secret; with it, a loopback peer's `x-forwarded-for` names the player's address.
 pub const GATEWAY_HEADER: &str = "x-reforged-gateway";
 /// How long a connection waits for its other half, or for the client to finish closing
 const LINGER: Duration = Duration::from_secs(30);
@@ -788,7 +789,7 @@ async fn read_frames(mut read: tokio::net::tcp::OwnedReadHalf, frames: Arc<Mutex
 
 #[cfg(test)]
 mod tests {
-    #![allow(clippy::unwrap_used)]
+    #![allow(clippy::unwrap_used, reason = "a panic is how a test fails")]
     use super::*;
 
     #[test]

@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Silent Spud
 
+//! Fixed-window rate limits as express-rate-limit applies them, with its draft-8 `RateLimit` headers.
+
 use std::collections::HashMap;
 use std::fmt::Write;
 use std::future::Future;
@@ -18,10 +20,14 @@ use base64::engine::general_purpose::STANDARD as BASE64;
 use serde_json::Value;
 use sha2::{Digest, Sha256};
 
+/// The outcome of one hit.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Decision {
+    /// Hits left in the window.
     pub remaining: u64,
+    /// Seconds until the window resets, rounded up.
     pub reset_secs: u64,
+    /// Whether this hit is over the limit.
     pub limited: bool,
     reset_at: Instant,
 }
@@ -31,6 +37,7 @@ struct Bucket {
     reset_at: Instant,
 }
 
+/// Counts hits per key in fixed windows.
 pub struct Limiter {
     limit: u64,
     window: Duration,
@@ -73,6 +80,7 @@ fn partition_key(key: &str) -> String {
 }
 
 impl Limiter {
+    /// Allows `limit` hits per key every `window`; `reply` is the JSON body of a 429.
     pub fn new(limit: u64, window: Duration, reply: Value) -> Self {
         let name = format!("{limit}-in-{}", format_window_name(window));
         Self {
@@ -85,15 +93,18 @@ impl Limiter {
         }
     }
 
+    /// Takes a hit back when the response is under 400.
     pub fn skip_successful(mut self) -> Self {
         self.skip_successful = true;
         self
     }
 
+    /// The policy name in the headers, such as `100-in-15min`.
     pub fn name(&self) -> &str {
         &self.name
     }
 
+    /// Counts a hit for `key` at `now`, starting a new window when the last one ended.
     pub fn hit(&self, key: &str, now: Instant) -> Decision {
         let mut map = self.buckets.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
 
@@ -124,6 +135,7 @@ impl Limiter {
         }
     }
 
+    /// Takes back the hit `decision` counted, if its window is still current.
     pub fn undo(&self, key: &str, decision: &Decision, now: Instant) {
         if now >= decision.reset_at {
             return;
@@ -136,11 +148,13 @@ impl Limiter {
         }
     }
 
+    /// Drops the windows that ended by `now`.
     pub fn sweep(&self, now: Instant) {
         let mut map = self.buckets.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
         map.retain(|_, b| b.reset_at > now);
     }
 
+    /// Sweeps once per window (at least every second) until aborted.
     pub fn spawn_sweeper(self: &Arc<Self>) -> tokio::task::JoinHandle<()> {
         let limiter = Arc::clone(self);
         let period = limiter.window.max(Duration::from_secs(1));
@@ -154,6 +168,7 @@ impl Limiter {
         })
     }
 
+    /// The `RateLimit` and `RateLimit-Policy` headers for `decision`; the key appears only as a hash.
     pub fn headers(&self, key: &str, decision: &Decision) -> [(HeaderName, String); 2] {
         let pk = partition_key(key);
         [
@@ -174,6 +189,7 @@ impl Limiter {
     }
 }
 
+/// The key for a client address: IPv4 as is, IPv6 by its /56, mapped IPv4 as IPv4.
 pub fn ip_key(address: &str) -> String {
     match address.parse::<IpAddr>() {
         Ok(IpAddr::V4(v4)) => v4.to_string(),
@@ -191,6 +207,7 @@ pub fn ip_key(address: &str) -> String {
 
 type KeyFn = dyn Fn(&Request) -> Option<String> + Send + Sync;
 
+/// A limiter and how a request picks its key, for [`enforce`].
 #[derive(Clone)]
 pub struct Limited {
     limiter: Arc<Limiter>,
@@ -198,6 +215,7 @@ pub struct Limited {
 }
 
 impl Limited {
+    /// Limits requests by the key `key` returns; `None` lets a request through uncounted.
     pub fn new(limiter: Arc<Limiter>, key: impl Fn(&Request) -> Option<String> + Send + Sync + 'static) -> Self {
         Self {
             limiter,
@@ -206,11 +224,13 @@ impl Limited {
     }
 }
 
+/// Middleware applying a [`Limited`].
 pub async fn enforce(State(limited): State<Limited>, request: Request, next: Next) -> Response {
     let key = (limited.key)(&request);
     around(&limited.limiter, key.as_deref(), next.run(request)).await
 }
 
+/// Runs `handler` under `limiter` for `key`: a 429 with `Retry-After` when over, the headers on every reply.
 pub async fn around(limiter: &Limiter, key: Option<&str>, handler: impl Future<Output = Response>) -> Response {
     let Some(key) = key else {
         return handler.await;

@@ -16,16 +16,22 @@ pub const MAX_NODES: usize = 16;
 /// to `fingerprint`.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct NodeEntry {
+    /// Region id, checked by [`is_region_id`].
     pub region: String,
+    /// The node gateway's host.
     pub host: String,
+    /// The node gateway's port, never 0.
     pub port: u16,
+    /// SHA-256 of the node gateway's certificate.
     pub fingerprint: String,
 }
 
+/// What the home's node list said.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum NodeList {
     /// Empty when the server is in no network
     Nodes(Vec<NodeEntry>),
+    /// A 200 without a `nodes` array, or any status but 200 and 404.
     BadAnswer,
 }
 

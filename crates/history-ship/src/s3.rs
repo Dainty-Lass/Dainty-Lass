@@ -36,11 +36,14 @@ pub struct S3Config {
     pub endpoint: String,
     /// `us-east-1` and so on; R2 takes `auto`.
     pub region: String,
+    /// The bucket's name: 3 to 63 lower-case letters, digits, `-` and `.`.
     pub bucket: String,
     /// `https://endpoint/bucket/key` instead of `https://bucket.endpoint/key`: MinIO, and R2 or B2 if
     /// asked; AWS wants virtual-hosted names.
     pub path_style: bool,
+    /// The key id of the S3 credentials.
     pub access_key_id: String,
+    /// The secret half of the credentials. Never logged.
     pub secret_access_key: String,
 }
 
@@ -67,6 +70,7 @@ fn valid_bucket(name: &str) -> bool {
         && name.bytes().last().is_some_and(|b| b.is_ascii_alphanumeric())
 }
 
+/// A bucket reached over the S3 API with SigV4-signed requests.
 #[derive(Clone)]
 pub struct S3Bucket {
     config: Arc<S3Config>,
@@ -81,6 +85,7 @@ pub struct S3Bucket {
 }
 
 impl S3Bucket {
+    /// Checks the endpoint and bucket name: `https`, or `http` to a local address only.
     pub fn new(config: S3Config) -> Result<Self, Error> {
         let url = url::Url::parse(&config.endpoint)
             .map_err(|e| Error::Config(format!("the bucket endpoint {:?}: {e}", config.endpoint)))?;
@@ -385,8 +390,11 @@ pub(crate) fn sign(
 /// One page of ListObjectsV2.
 #[derive(Debug, Default, PartialEq, Eq)]
 pub struct ListPage {
+    /// The objects on this page.
     pub objects: Vec<ObjectInfo>,
+    /// Whether more pages follow.
     pub truncated: bool,
+    /// The continuation token for the next page.
     pub next: Option<String>,
 }
 
@@ -462,7 +470,7 @@ pub fn parse_list(xml: &str) -> Result<ListPage, String> {
 
 #[cfg(test)]
 mod tests {
-    #![allow(clippy::unwrap_used)]
+    #![allow(clippy::unwrap_used, reason = "a panic is how a test fails")]
 
     use super::*;
 

@@ -15,10 +15,12 @@ use crate::Error;
 use crate::bucket::Bucket;
 use crate::layout::{SnapshotName, check_prefix, encode_segment, gzip, sha256_hex};
 
+/// Where and how often a [`Shipper`] ships.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ShipSettings {
     /// Keys start with this (`` or `server-name/`), so one bucket can hold several databases.
     pub prefix: String,
+    /// The local file the shipper keeps its [`ShipState`] in.
     pub state_file: PathBuf,
     /// How often the log is shipped: the most a stopped server loses.
     pub interval: Duration,
@@ -45,7 +47,7 @@ impl ShipSettings {
 }
 
 /// What the shipper has done, as its state file holds it. Times are unix milliseconds by the database's
-/// clock. Read by [`crate::lag`] in whatever process shows the status.
+/// clock. Read by [`crate::lag()`] in whatever process shows the status.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct ShipState {
@@ -53,16 +55,19 @@ pub struct ShipState {
     pub last_shipped_id: i64,
     /// Its hash (DH5): the head shipped. The next segment must chain onto it, or the local log was rewritten.
     pub last_shipped_hash: Option<String>,
+    /// When the newest entry shipped was written.
     pub last_shipped_entry_at: Option<i64>,
     /// When the last segment went up.
     pub last_upload_at: Option<i64>,
     /// The last snapshot uploaded: when it was taken and the log it holds.
     pub last_snapshot_at: Option<i64>,
+    /// The id of the newest log entry that snapshot holds.
     pub last_snapshot_id: Option<i64>,
     /// Every tick, whatever it managed: a stopped shipper stops this.
     pub heartbeat_at: Option<i64>,
     /// The last tick's failure, cleared by a tick that succeeds.
     pub last_error: Option<String>,
+    /// When the last failure happened.
     pub last_error_at: Option<i64>,
     /// Set while the local log fails the hash chain, whatever else the tick did.
     pub chain_broken: Option<String>,
@@ -101,6 +106,7 @@ impl ShipState {
 const PAGE: i64 = 1000;
 const CONTENT_TYPE: &str = "application/gzip";
 
+/// Ships the change log and snapshots into a write-only bucket, one tick at a time.
 pub struct Shipper<B> {
     db: Database,
     bucket: B,
@@ -109,6 +115,7 @@ pub struct Shipper<B> {
 }
 
 impl<B: Bucket> Shipper<B> {
+    /// Loads the state file; errors on a bad prefix, a zero interval or segment size, or an unreadable state file.
     pub fn new(db: Database, bucket: B, settings: ShipSettings) -> Result<Self, Error> {
         check_prefix(&settings.prefix)?;
         if settings.segment_entries == 0 || settings.interval.is_zero() || settings.snapshot_every.is_zero() {
@@ -125,6 +132,7 @@ impl<B: Bucket> Shipper<B> {
         })
     }
 
+    /// What the shipper has done so far, as last saved.
     pub fn state(&self) -> &ShipState {
         &self.state
     }

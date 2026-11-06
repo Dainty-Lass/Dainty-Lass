@@ -21,6 +21,7 @@ pub struct Jid {
     resource: Option<String>,
 }
 
+/// Text that is not a JID this crate accepts.
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 #[error("a JID is local@domain or local@domain/resource, each part 1 to {MAX_JID_PART} bytes")]
 pub struct JidError;
@@ -35,6 +36,7 @@ fn check_part(part: &str) -> Result<(), JidError> {
 }
 
 impl Jid {
+    /// A JID from its parts, when each part fits.
     pub fn new(local: &str, domain: &str, resource: Option<&str>) -> Result<Self, JidError> {
         check_part(local)?;
         check_part(domain)?;
@@ -48,14 +50,17 @@ impl Jid {
         })
     }
 
+    /// The part before `@`.
     pub fn local(&self) -> &str {
         &self.local
     }
 
+    /// The part between `@` and `/`.
     pub fn domain(&self) -> &str {
         &self.domain
     }
 
+    /// The part after `/`, if any.
     pub fn resource(&self) -> Option<&str> {
         self.resource.as_deref()
     }
@@ -101,9 +106,13 @@ impl fmt::Display for Jid {
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub enum RoomKind {
+    /// The whole network's room.
     Network,
+    /// One region's room.
     Region(Region),
+    /// A party's room, by the party's id.
     Party(GlobalId),
+    /// A hunt's room, by the hunt's id.
     Hunt(GlobalId),
 }
 
@@ -111,7 +120,9 @@ pub enum RoomKind {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct RoomRules {
+    /// The player may enter the room.
     pub may_join: bool,
+    /// The player may post in the room.
     pub may_speak: bool,
     /// Whether the room's history is kept with its owner
     pub history: bool,
@@ -124,8 +135,11 @@ pub const PRESENCE_EVENT: &str = "chat.presence";
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct PresenceEvent {
+    /// The player's account.
     pub account: GlobalId,
+    /// The player's id inside the game module.
     pub user_id: String,
+    /// Whether the player is now online.
     pub online: bool,
 }
 
@@ -136,7 +150,9 @@ pub const HEADLINE_EVENT: &str = "isles.party.headline";
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct HeadlineRecipient {
+    /// The player's account.
     pub account: GlobalId,
+    /// The player's id inside the game module.
     pub user_id: String,
 }
 
@@ -144,8 +160,11 @@ pub struct HeadlineRecipient {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Headline {
+    /// The stanza's id.
     pub id: String,
+    /// Who it goes to.
     pub recipients: Vec<HeadlineRecipient>,
+    /// The message body.
     pub body: String,
 }
 
@@ -154,30 +173,70 @@ pub struct Headline {
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub enum ChatQuery {
     /// The JID a player has in this game
-    Jid { account: GlobalId },
+    Jid {
+        /// The player.
+        account: GlobalId,
+    },
     /// What a player may do in a room
-    Room { room: RoomKind, account: GlobalId },
+    Room {
+        /// The room.
+        room: RoomKind,
+        /// The player.
+        account: GlobalId,
+    },
     /// Verifies a SASL `PLAIN` login token and returns the player's account and display name
-    Login { authcid: String, token: String },
+    Login {
+        /// The SASL authentication identity.
+        authcid: String,
+        /// The login token the client presented.
+        token: String,
+    },
     /// Accepted friends of `account` for initial presence fan-out
-    Friends { account: GlobalId },
+    Friends {
+        /// The player whose friends are asked for.
+        account: GlobalId,
+    },
     /// Whether `from` may send a direct message to `to` (neither player blocked the other)
-    MayWhisper { from: GlobalId, to: GlobalId },
+    MayWhisper {
+        /// The sender.
+        from: GlobalId,
+        /// The recipient.
+        to: GlobalId,
+    },
     /// Parses a module-specific MUC room localpart (such as `Party-<id>` or `City-<id>`) into a [`RoomKind`]
-    RoomOf { name: String },
+    RoomOf {
+        /// The room's localpart.
+        name: String,
+    },
     /// Resolves a JID localpart (`userId` or display name) to a local player's account id on this node
-    AccountOf { local: String },
+    AccountOf {
+        /// The JID localpart.
+        local: String,
+    },
 }
 
+/// A game module's answer to a [`ChatQuery`], the variant matching the query's.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub enum ChatAnswer {
+    /// The player's JID.
     Jid(Jid),
+    /// What the player may do in the room.
     Room(RoomRules),
-    Login { account: GlobalId, name: String },
+    /// The token was valid.
+    Login {
+        /// The player's account.
+        account: GlobalId,
+        /// The player's display name.
+        name: String,
+    },
+    /// The player's accepted friends.
     Friends(Vec<GlobalId>),
+    /// Whether the whisper may be sent.
     MayWhisper(bool),
+    /// The room the localpart names, if any.
     RoomOf(Option<RoomKind>),
+    /// The local player the localpart names, if any.
     AccountOf(Option<GlobalId>),
 }
 

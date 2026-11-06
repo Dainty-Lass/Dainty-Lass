@@ -6,7 +6,7 @@
 //! On a server outside a network, chat runs with [`LocalOnly`]: every account and room is this node's, and
 //! nothing leaves it.
 //!
-//! In a network, [`ChatFederation`] implements [`Federation`] (called by [`crate::server::Chat`]) and
+//! In a network, [`ChatFederation`] implements [`Federation`] (called by `crate::server::Chat`) and
 //! [`network::NodeService`] (attached to `Service::Chat` on the node link):
 //! - **Presence and account resolution:** when a player binds or ends their last session on a node, the node
 //!   informs the player's home (`account.owner()`) and peers over `Service::Chat`. A whisper to a JID local
@@ -46,8 +46,11 @@ use crate::naming::room_key;
 use crate::server::{BODY_LIMIT, Clock, Event, is_authcid_shape};
 use crate::xmpp::{DEFAULT_DOMAIN, has_control_character};
 
+/// The `version` every chat request and response carries; another is refused.
 pub const CHAT_FEDERATION_VERSION: u32 = 1;
+/// The most bytes one encoded chat request or response may take.
 pub const MAX_CHAT_WIRE: usize = MAX_MESSAGE;
+/// The most direct or room messages one pull returns.
 pub const MAX_HISTORY_PULL: u32 = 100;
 const MAX_MID_LEN: usize = 128;
 const MAX_STANZA_ID_LEN: usize = 128;
@@ -63,13 +66,18 @@ const OUTBOX_BATCH: i64 = 64;
 pub enum Envelope {
     /// A direct message. DD21 stores it at both players' homes and routes it to the recipient's node.
     Direct {
+        /// The id every node knows it by (DN10b); empty until assigned.
         #[serde(default)]
         mid: String,
+        /// The sender's account.
         from: GlobalId,
         /// The sender's JID local part, which the recipient's client shows
         from_local: String,
+        /// The recipient's account.
         to: GlobalId,
+        /// Message text.
         body: String,
+        /// The client's stanza id, if it sent one.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         id: Option<String>,
         /// Unix milliseconds
@@ -79,61 +87,94 @@ pub enum Envelope {
     },
     /// A room message. DD21 keeps a room's history with its owner and replicates it to the nodes that read it.
     Room {
+        /// The id every node knows it by (DN10b); empty until assigned.
         #[serde(default)]
         mid: String,
+        /// The room it was posted in.
         room: RoomKind,
+        /// The sender's account.
         from: GlobalId,
+        /// The sender's nick in the room.
         nick: String,
+        /// Message text.
         body: String,
+        /// The client's stanza id, if it sent one.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         id: Option<String>,
+        /// Unix milliseconds.
         at: i64,
+        /// Whether the room keeps history, so the owner stores it.
         #[serde(default)]
         history: bool,
     },
 }
 
+/// A direct message on the wire between nodes.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct DirectWire {
+    /// The id every node knows it by (DN10b).
     pub mid: String,
+    /// The sender's account.
     pub from: GlobalId,
+    /// The sender's JID local part, which the recipient's client shows.
     pub from_local: String,
+    /// The recipient's account.
     pub to: GlobalId,
+    /// Message text.
     pub body: String,
+    /// The client's stanza id, if it sent one.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub stanza_id: Option<String>,
+    /// Unix milliseconds.
     pub at: i64,
+    /// Whether a session on the sending node took it.
     pub delivered: bool,
 }
 
+/// A room message on the wire between nodes.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct RoomWire {
+    /// The id every node knows it by (DN10b).
     pub mid: String,
+    /// The room it was posted in.
     pub room: RoomKind,
+    /// The sender's account.
     pub from: GlobalId,
+    /// The sender's nick in the room.
     pub nick: String,
+    /// Message text.
     pub body: String,
+    /// The client's stanza id, if it sent one.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub stanza_id: Option<String>,
+    /// Unix milliseconds.
     pub at: i64,
+    /// Whether the room keeps history, so the owner stores it.
     pub history: bool,
 }
 
+/// A mute on the wire, pushed from the account's home.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct MuteWire {
+    /// The muted account.
     pub account: GlobalId,
+    /// Unix milliseconds; none means until lifted.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub until: Option<i64>,
+    /// Shown to the muted player.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reason: Option<String>,
+    /// The actor that set it, as the change log writes actors.
     pub by: String,
+    /// Unix milliseconds: when it was set.
     pub at: i64,
 }
 
 impl MuteWire {
+    /// The wire form of `mute` on `account`.
     pub fn from_mute(account: GlobalId, mute: &Mute) -> Self {
         Self {
             account,
@@ -144,6 +185,7 @@ impl MuteWire {
         }
     }
 
+    /// The stored form; the account becomes its string id.
     pub fn into_mute(self) -> Mute {
         Mute {
             account: self.account.to_string(),
@@ -155,104 +197,162 @@ impl MuteWire {
     }
 }
 
+/// A call one node makes to another over `Service::Chat`.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "op", rename_all = "snake_case", deny_unknown_fields)]
 pub enum ChatOp {
+    /// Which account a JID local part names. Answered with [`ChatReply::Resolved`].
     Resolve {
+        /// The JID local part.
         local: String,
     },
+    /// To the account's home: whether it has a bound session on the calling node.
     Presence {
+        /// The account.
         account: GlobalId,
+        /// Its JID local part.
         local: String,
+        /// Whether it now has a bound session there.
         online: bool,
     },
+    /// To a player's home: keep a copy of a direct message, stored as delivered.
     StoreDirect {
+        /// The message.
         message: DirectWire,
     },
+    /// To the recipient's home: route a direct message to where the recipient is online, or keep it waiting.
     RouteDirect {
+        /// The message.
         message: DirectWire,
     },
+    /// Deliver a direct message to the recipient's sessions on this node. Answered with [`ChatReply::Direct`].
     DeliverDirect {
+        /// The message.
         message: DirectWire,
     },
+    /// To the account's home: the direct messages waiting for it. Answered with [`ChatReply::Waiting`].
     PullWaiting {
+        /// The account that logged in.
         account: GlobalId,
+        /// The most messages to return.
         limit: u32,
     },
+    /// To the account's home: mark pulled messages delivered.
     AckWaiting {
+        /// The account.
         account: GlobalId,
+        /// The `mid`s the caller delivered.
         mids: Vec<String>,
+        /// Unix milliseconds: when.
         at: i64,
     },
+    /// To the room's owner: subscribe the caller. Answered with [`ChatReply::RoomHistory`].
     RoomJoin {
+        /// The room.
         room: RoomKind,
+        /// The most history messages to return; 0 for none.
         history_limit: u32,
     },
+    /// To the room's owner: unsubscribe the caller.
     RoomLeave {
+        /// The room.
         room: RoomKind,
     },
+    /// To the room's owner: store if the room keeps history, then fan out to subscribers.
     RoomPost {
+        /// The message.
         message: RoomWire,
     },
+    /// From the room's owner: deliver to this node's occupants.
     RoomFanout {
+        /// The message.
         message: RoomWire,
     },
+    /// To the account's home: its mute, if one holds. Answered with [`ChatReply::Mute`].
     GetMute {
+        /// The account.
         account: GlobalId,
     },
+    /// Record or lift a mute and apply it to live sessions.
     SetMute {
+        /// The account.
         account: GlobalId,
+        /// The mute, or none to lift it.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         mute: Option<MuteWire>,
+        /// The actor that set it, as the change log writes actors.
         actor: String,
     },
 }
 
+/// A chat call as sent: [`ChatOp`] with the wire version.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ChatRequest {
+    /// [`CHAT_FEDERATION_VERSION`].
     pub version: u32,
+    /// The call.
     pub op: ChatOp,
 }
 
+/// The answer to a [`ChatOp`].
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "reply", rename_all = "snake_case", deny_unknown_fields)]
 pub enum ChatReply {
+    /// Done, with nothing to return.
     Ack,
+    /// The answer to [`ChatOp::Resolve`].
     Resolved {
+        /// The account, if the node knows one.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         account: Option<GlobalId>,
     },
+    /// The answer to a direct message routed or delivered.
     Direct {
+        /// Whether a session took it.
         delivered: bool,
     },
+    /// The answer to [`ChatOp::PullWaiting`].
     Waiting {
+        /// The waiting messages, oldest first.
         messages: Vec<DirectWire>,
     },
+    /// The answer to [`ChatOp::RoomJoin`].
     RoomHistory {
+        /// The room's recent messages, oldest first.
         messages: Vec<RoomWire>,
     },
+    /// The answer to [`ChatOp::GetMute`].
     Mute {
+        /// The mute, if one holds.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         mute: Option<MuteWire>,
     },
 }
 
+/// A chat answer as sent: [`ChatReply`] with the wire version.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ChatResponse {
+    /// [`CHAT_FEDERATION_VERSION`].
     pub version: u32,
+    /// The answer.
     pub reply: ChatReply,
 }
 
+/// Why a chat request or response was refused on the wire.
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 pub enum ChatWireError {
+    /// The encoded message is over [`MAX_CHAT_WIRE`] bytes.
     #[error("chat federation message is {0} bytes; max is {MAX_CHAT_WIRE}")]
     TooLarge(usize),
+    /// The bytes are not the expected JSON.
     #[error("invalid JSON: {0}")]
     Json(String),
+    /// The message carries another [`CHAT_FEDERATION_VERSION`].
     #[error("unsupported version {0}")]
     Version(u32),
+    /// A field is out of bounds or malformed.
     #[error("invalid field: {0}")]
     Field(String),
 }
@@ -324,6 +424,7 @@ fn check_mute_wire(mute: &MuteWire) -> Result<(), ChatWireError> {
     Ok(())
 }
 
+/// Checks an envelope's ids, lengths and times before it leaves this node.
 pub fn validate_envelope(envelope: &Envelope) -> Result<(), ChatWireError> {
     match envelope {
         Envelope::Direct {
@@ -371,6 +472,7 @@ pub fn validate_envelope(envelope: &Envelope) -> Result<(), ChatWireError> {
     }
 }
 
+/// Checks a call's ids, names, lengths and counts, both ways.
 pub fn validate_op(op: &ChatOp) -> Result<(), ChatWireError> {
     match op {
         ChatOp::Resolve { local } => {
@@ -430,6 +532,7 @@ pub fn validate_op(op: &ChatOp) -> Result<(), ChatWireError> {
     }
 }
 
+/// Checks an answer's counts and the messages it carries.
 pub fn validate_reply(reply: &ChatReply) -> Result<(), ChatWireError> {
     match reply {
         ChatReply::Ack | ChatReply::Resolved { .. } | ChatReply::Direct { .. } => Ok(()),
@@ -460,6 +563,7 @@ pub fn validate_reply(reply: &ChatReply) -> Result<(), ChatWireError> {
     }
 }
 
+/// A call checked and encoded with the current version.
 pub fn encode_request(op: &ChatOp) -> Result<Vec<u8>, ChatWireError> {
     validate_op(op)?;
     let req = ChatRequest {
@@ -473,6 +577,7 @@ pub fn encode_request(op: &ChatOp) -> Result<Vec<u8>, ChatWireError> {
     Ok(bytes)
 }
 
+/// A call decoded and checked; refuses another version.
 pub fn decode_request(bytes: &[u8]) -> Result<ChatRequest, ChatWireError> {
     if bytes.len() > MAX_CHAT_WIRE {
         return Err(ChatWireError::TooLarge(bytes.len()));
@@ -485,6 +590,7 @@ pub fn decode_request(bytes: &[u8]) -> Result<ChatRequest, ChatWireError> {
     Ok(req)
 }
 
+/// An answer checked and encoded with the current version.
 pub fn encode_response(reply: &ChatReply) -> Result<Vec<u8>, ChatWireError> {
     validate_reply(reply)?;
     let resp = ChatResponse {
@@ -498,6 +604,7 @@ pub fn encode_response(reply: &ChatReply) -> Result<Vec<u8>, ChatWireError> {
     Ok(bytes)
 }
 
+/// An answer decoded and checked; refuses another version.
 pub fn decode_response(bytes: &[u8]) -> Result<ChatResponse, ChatWireError> {
     if bytes.len() > MAX_CHAT_WIRE {
         return Err(ChatWireError::TooLarge(bytes.len()));
@@ -510,12 +617,15 @@ pub fn decode_response(bytes: &[u8]) -> Result<ChatResponse, ChatWireError> {
     Ok(resp)
 }
 
+/// Why a federated chat call failed.
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 pub enum FederationError {
+    /// The node that owns the account or room did not answer.
     #[error("the node that owns it did not answer: {0}")]
     Unreachable(String),
 }
 
+/// What chat asks of the other nodes: implemented by [`LocalOnly`] alone and [`ChatFederation`] in a network.
 pub trait Federation: Send + Sync {
     /// Whether this server federates chat with peer nodes (`false` for [`LocalOnly`]).
     fn is_federated(&self) -> bool {
@@ -602,14 +712,19 @@ struct AttachedLocal {
     clock: Clock,
 }
 
+/// Who this node is and who its peers are.
 #[derive(Clone)]
 pub struct ChatFederationConfig {
+    /// This node.
     pub node: NodeIdentity,
+    /// The node that owns the network room; the lowest `NodeId` when none is set.
     pub leader: Option<NodeId>,
+    /// Every peer and its region.
     pub peers: Vec<(NodeId, Region)>,
 }
 
 impl ChatFederationConfig {
+    /// No leader set: the lowest `NodeId` leads.
     pub fn new(node: NodeIdentity, peers: impl IntoIterator<Item = (NodeId, Region)>) -> Self {
         Self {
             node,
@@ -618,6 +733,7 @@ impl ChatFederationConfig {
         }
     }
 
+    /// Sets the node that owns the network room.
     pub fn with_leader(mut self, leader: NodeId) -> Self {
         self.leader = Some(leader);
         self
@@ -640,6 +756,7 @@ pub struct ChatFederation {
 }
 
 impl ChatFederation {
+    /// Builds the federation; peers equal to this node are dropped.
     pub fn new(config: ChatFederationConfig, link: Arc<dyn PeerLink>) -> Self {
         let mut all_nodes = BTreeMap::new();
         let mut peers = BTreeSet::new();
@@ -1465,7 +1582,7 @@ impl Federation for ChatFederation {
 
 #[cfg(test)]
 mod tests {
-    #![allow(clippy::unwrap_used)]
+    #![allow(clippy::unwrap_used, reason = "a panic is how a test fails")]
 
     use module_api::IdKind;
 

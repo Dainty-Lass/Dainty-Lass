@@ -31,7 +31,9 @@ use crate::policy::{
 /// A route group the gateway serves itself rather than a module.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct RouteGroup {
+    /// Path prefix of the group.
     pub prefix: &'static str,
+    /// Whether it is refused from off this machine.
     pub host_only: bool,
 }
 
@@ -116,6 +118,7 @@ pub fn stand_in(version: &GameVersion) -> Result<(ModuleManifest, Registration),
 /// Where one request goes: the policy's decision, and for a request bound for a module, its endpoint.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Routed {
+    /// What the policy decided.
     pub decision: Decision,
     /// `None` for the content server and the chat listener, which the gateway's config names
     pub endpoint: Option<Endpoint>,

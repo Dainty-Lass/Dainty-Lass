@@ -4,7 +4,7 @@
 //! The gateway service, run by the core as `host` would (`controller::service_library::gateway`), answers every
 //! recorded script as the Node one did (RD27; the harness says how), compiled in and loaded as a library alike.
 //! `cargo build -p gateway-plugin` first.
-#![allow(clippy::unwrap_used, clippy::expect_used)] // test helpers
+#![allow(clippy::unwrap_used, clippy::expect_used, reason = "a panic is how a test fails")]
 
 #[path = "../../gateway/tests/common/mod.rs"]
 mod common;

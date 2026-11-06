@@ -37,6 +37,7 @@ const LOGICAL_VERSION: u32 = 1;
 const BACKUP_DEADLINE: Duration = Duration::from_secs(15 * 60);
 const SQLITE_MAGIC: &[u8] = b"SQLite format 3\0";
 
+/// What a [`Snapshot`]'s data holds.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SnapshotKind {
     /// A SQLite database file.
@@ -46,6 +47,7 @@ pub enum SnapshotKind {
 }
 
 impl SnapshotKind {
+    /// The name used in files and on the command line.
     pub fn as_str(self) -> &'static str {
         match self {
             Self::Sqlite => "sqlite",
@@ -53,6 +55,7 @@ impl SnapshotKind {
         }
     }
 
+    /// Reads a name [`SnapshotKind::as_str`] writes.
     pub fn parse(text: &str) -> Option<Self> {
         match text {
             "sqlite" => Some(Self::Sqlite),
@@ -65,23 +68,30 @@ impl SnapshotKind {
 /// A whole database at one moment, uncompressed.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Snapshot {
+    /// What the data holds.
     pub kind: SnapshotKind,
     /// The newest change-log entry it holds (0: none). A restore replays the entries after it.
     pub last_id: i64,
     /// Unix milliseconds once the copy's view was fixed: every entry it holds is older.
     pub taken_at: i64,
+    /// The snapshot bytes.
     pub data: Vec<u8>,
 }
 
+/// First line of a logical snapshot.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct LogicalHeader {
+    /// Always [`LOGICAL_FORMAT`].
     pub format: String,
+    /// Format version; only 1 is read.
     pub version: u32,
     /// The engine it was read from.
     pub engine: String,
     /// The migrations applied, oldest first.
     pub migrations: Vec<String>,
+    /// The newest change-log entry it holds (0: none).
     pub last_id: i64,
+    /// When the copy's view was fixed, in Unix milliseconds.
     pub taken_at: i64,
 }
 
@@ -535,11 +545,13 @@ fn apply(
 pub struct RestoreReport {
     /// The snapshot's newest entry.
     pub snapshot_last_id: i64,
+    /// When the snapshot was taken, in Unix milliseconds.
     pub snapshot_taken_at: i64,
     /// Entries replayed after it.
     pub replayed: usize,
     /// The newest entry in the restored database, and its time.
     pub last_id: i64,
+    /// When the newest entry was made, in Unix milliseconds, if there is one.
     pub last_at: Option<i64>,
     /// Deletes whose row a cascade had taken already.
     pub cascaded_deletes: usize,
@@ -657,7 +669,10 @@ pub fn restore(
 }
 
 /// A connection to the restore's target; for SQLite, to a file beside it that becomes it once complete.
-#[allow(clippy::type_complexity)]
+#[allow(
+    clippy::type_complexity,
+    reason = "a one-off return: the connection and, for SQLite, the temporary and final paths"
+)]
 fn open_target(target: &DatabaseConfig) -> Result<(AnyConnection, Option<(PathBuf, PathBuf)>), Error> {
     match target {
         DatabaseConfig::Sqlite { file } => {

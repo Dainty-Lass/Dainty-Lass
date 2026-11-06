@@ -18,20 +18,31 @@ pub fn now_iso() -> String {
 
 // ------------------------------------------------------------------ records
 
+/// A weapon reforge, stored as JSON on the weapon's experience track row.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct WeaponReforge {
+    /// The reforge's UUID.
     pub reforge_id: String,
+    /// True until the reset's banked restore and +1 are done or it goes stale.
     pub open: bool,
+    /// The track's progress before the reset.
     pub prior_progress: i64,
+    /// The track's cap XP at the reset.
     pub cap: i64,
+    /// The XP above the cap, owed back as a banked restore.
     pub banked: i64,
+    /// How much of `banked` has been restored.
     pub banked_restored: i64,
+    /// Whether the prestige track's +1 was granted.
     pub prestige_granted: bool,
+    /// When the reset happened, as ISO text.
     pub opened_at: String,
+    /// When it was closed, as ISO text.
     pub closed_at: Option<String>,
 }
 
 impl WeaponReforge {
+    /// The stored JSON object; it has `closedAt` only once closed.
     pub fn to_json(&self) -> Json {
         let mut out = Map::new();
         out.insert("reforgeId".into(), self.reforge_id.clone().into());
@@ -70,73 +81,120 @@ impl WeaponReforge {
     }
 }
 
+/// A live `progression_tracks` row: one account's progress on one track.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ProgressionTrackRecord {
+    /// The account.
     pub account: AccountId,
+    /// The track's id.
     pub progression_id: String,
+    /// The XP on the track.
     pub progress: i64,
+    /// The highest free rank the client confirmed.
     pub confirmed_fremium_rank: i64,
+    /// The highest premium rank the client confirmed.
     pub confirmed_premium_rank: i64,
+    /// Bumped on every change.
     pub update_version: i64,
+    /// When the row was created, as ISO text.
     pub created_at: String,
+    /// When it last changed, as ISO text.
     pub updated_at: String,
+    /// The weapon's reforge record, for an experience track.
     pub reforge: Option<WeaponReforge>,
+    /// Prestige levels already paid out; None is 0.
     pub prestige_claimed: Option<i64>,
 }
 
+/// A live `progression_objectives` row.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ProgressionObjectiveRecord {
+    /// The account.
     pub account: AccountId,
+    /// The objective's id.
     pub objective_id: String,
+    /// Its value; it only goes up.
     pub value: i64,
+    /// How many times it was completed; it only goes up.
     pub completed_count: i64,
+    /// When it last changed, as ISO text.
     pub updated_at: String,
 }
 
+/// A `progression_grants` row: one applied idempotent XP grant.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ProgressionGrantRecord {
+    /// The grant's idempotency id.
     pub grant_id: String,
+    /// The account.
     pub account: AccountId,
+    /// The track it granted to.
     pub progression_id: String,
+    /// The XP granted.
     pub amount: i64,
+    /// SHA-256 of the request, to refuse a reused id with a different body.
     pub request_hash: String,
+    /// The track after the grant, served again on a replay.
     pub result: ProgressionTrackRecord,
+    /// When it was applied, as ISO text.
     pub created_at: String,
 }
 
+/// A live `escalation_progress` row: one account's progress in one escalation season.
 #[derive(Debug, Clone, PartialEq)]
 pub struct EscalationProgressRecord {
+    /// The account.
     pub account: AccountId,
+    /// The season.
     pub season_id: String,
+    /// The level reached.
     pub escalation_level: i64,
+    /// The XP toward the next level.
     pub next_level_xp: i64,
+    /// The client's talent entries.
     pub talents_progress: Vec<Json>,
+    /// The client's unlock entries.
     pub unlock_progress: Vec<Json>,
+    /// Bumped on every save; a save names the version it read.
     pub update_version: i64,
+    /// When the row was created, as ISO text.
     pub created_at: String,
+    /// When it was last saved, as ISO text.
     pub updated_at: String,
 }
 
+/// A live `player_journey` row: an account's Slayer's Path.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PlayerJourneyRecord {
+    /// The account.
     pub account: AccountId,
+    /// The nodes, JSON object text.
     pub nodes: String,
+    /// The client's version of the nodes.
     pub update_version: i64,
+    /// Bumped on every write; a write names the revision it read.
     pub revision: i64,
 }
 
+/// A live `breadcrumbs` row.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct BreadcrumbsRecord {
+    /// The character.
     pub character_id: String,
+    /// The owning account.
     pub account: AccountId,
     /// Stored in the `items` column
     pub breadcrumbs: String,
+    /// The client's version.
     pub update_version: i64,
 }
 
+/// A live `encountered_content` row.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct EncounteredContentRecord {
+    /// The character.
     pub character_id: String,
+    /// The owning account.
     pub account: AccountId,
     /// Stored in the `content` column
     pub encountered_content: String,
@@ -145,10 +203,15 @@ pub struct EncounteredContentRecord {
 // ------------------------------------------------------------------ traits
 
 store_trait! {
+    /// Progression tracks and objectives (`progression_tracks`, `progression_objectives`).
     pub trait ProgressionTrackRepository = "progressionTracks" {
+        /// The account's live tracks, in creation order.
         fn get_all_for_account(&self, conn: &mut AnyConnection, account: &AccountId) -> Vec<ProgressionTrackRecord>;
+        /// The account's live track.
         fn get(&self, conn: &mut AnyConnection, account: &AccountId, id: &str) -> Option<ProgressionTrackRecord>;
+        /// Adds XP to the track, creating it at 0 first; returns the track after.
         fn increment(&self, tx: &mut Tx<'_>, account: &AccountId, id: &str, amount: i64) -> ProgressionTrackRecord;
+        /// Raises the track's progress to `value` if higher, creating the track first; returns the track after.
         fn set_progress_if_greater(
             &self,
             tx: &mut Tx<'_>,
@@ -156,6 +219,7 @@ store_trait! {
             id: &str,
             value: i64,
         ) -> ProgressionTrackRecord;
+        /// Raises the confirmed free rank to `rank` if higher, creating the track first; returns the track after.
         fn set_confirmed_fremium_rank(
             &self,
             tx: &mut Tx<'_>,
@@ -163,12 +227,15 @@ store_trait! {
             id: &str,
             rank: i64,
         ) -> ProgressionTrackRecord;
+        /// Keeps an objective report's raw body, for diagnosis.
         fn append_objective_event(&self, tx: &mut Tx<'_>, account: &AccountId, raw_body: &str, received_at: &str) -> ();
+        /// The account's live objectives, in creation order.
         fn get_all_objectives_for_account(
             &self,
             conn: &mut AnyConnection,
             account: &AccountId,
         ) -> Vec<ProgressionObjectiveRecord>;
+        /// Raises an objective's value and count if higher, creating it first; returns the objective after.
         fn set_objective_if_greater(
             &self,
             tx: &mut Tx<'_>,
@@ -179,12 +246,14 @@ store_trait! {
         ) -> ProgressionObjectiveRecord;
         /// `(objective id, value, completed count)` merged in the order given, at one `now`
         fn merge_objectives(&self, tx: &mut Tx<'_>, account: &AccountId, rows: &[(String, i64, i64)]) -> ();
+        /// The account's live objectives among `ids`.
         fn get_objectives(
             &self,
             conn: &mut AnyConnection,
             account: &AccountId,
             ids: &[String],
         ) -> Vec<ProgressionObjectiveRecord>;
+        /// Resets the track to 0 and opens `reforge` if progress and version are still the expected ones and no reforge is open; returns the track after, or None when a condition failed.
         fn begin_reforge(
             &self,
             tx: &mut Tx<'_>,
@@ -204,6 +273,7 @@ store_trait! {
             expected: &Json,
             set: &Json,
         ) -> bool;
+        /// Raises the prestige levels paid from `claimed_before` by `levels` if still unchanged and progress is at least `min_progress`; returns whether it did.
         fn claim_prestige_levels(
             &self,
             tx: &mut Tx<'_>,
@@ -213,15 +283,19 @@ store_trait! {
             levels: i64,
             min_progress: i64,
         ) -> bool;
+        /// Takes `amount` XP off the track; None when it has less.
         fn spend(&self, tx: &mut Tx<'_>, account: &AccountId, id: &str, amount: i64) -> Option<ProgressionTrackRecord>;
     }
 }
 
 store_trait! {
+    /// The applied XP grant ledger (`progression_grants`).
     pub trait ProgressionGrantRepository = "progressionGrants" {
+        /// The grant with that id.
         fn find_by_grant_id(&self, conn: &mut AnyConnection, grant_id: &str) -> Option<ProgressionGrantRecord>;
         /// A replayed grant id is a database error: the caller then serves the stored result
         fn insert_applied(&self, tx: &mut Tx<'_>, record: &ProgressionGrantRecord) -> ();
+        /// The account's latest grants, newest first.
         fn list_recent_for_account(
             &self,
             conn: &mut AnyConnection,
@@ -232,8 +306,11 @@ store_trait! {
 }
 
 store_trait! {
+    /// Escalation progress (`escalation_progress`).
     pub trait EscalationProgressRepository = "escalationProgress" {
+        /// The account's live progress in the season.
         fn get(&self, conn: &mut AnyConnection, account: &AccountId, season_id: &str) -> Option<EscalationProgressRecord>;
+        /// Writes `record` if the stored version is still `expected` (None when there is no row); returns the record, or None when another save won.
         fn save_if_version(
             &self,
             tx: &mut Tx<'_>,
@@ -244,10 +321,13 @@ store_trait! {
 }
 
 store_trait! {
+    /// Slayer's Path journeys (`player_journey`).
     pub trait PlayerJourneyRepository = "playerJourney" {
+        /// The account's live journey.
         fn find(&self, conn: &mut AnyConnection, account: &AccountId) -> Option<PlayerJourneyRecord>;
         /// `false` when any row of the account exists, a soft-deleted one included
         fn create_if_absent(&self, tx: &mut Tx<'_>, record: &PlayerJourneyRecord) -> bool;
+        /// Replaces the nodes if the revision is still `expected`, bumping it; returns whether it did.
         fn update_if_revision(
             &self,
             tx: &mut Tx<'_>,
@@ -260,9 +340,13 @@ store_trait! {
 }
 
 store_trait! {
+    /// Breadcrumbs (`breadcrumbs`).
     pub trait BreadcrumbRepository = "breadcrumbs" {
+        /// The character's live breadcrumbs, when it is the account's.
         fn find(&self, conn: &mut AnyConnection, character_id: &str, account: &AccountId) -> Option<BreadcrumbsRecord>;
+        /// Writes new breadcrumbs.
         fn create(&self, tx: &mut Tx<'_>, record: &BreadcrumbsRecord) -> ();
+        /// Replaces the breadcrumbs and their version.
         fn update(
             &self,
             tx: &mut Tx<'_>,
@@ -275,18 +359,23 @@ store_trait! {
 }
 
 store_trait! {
+    /// Encountered content (`encountered_content`).
     pub trait EncounteredContentRepository = "encounteredContent" {
+        /// The character's live encountered content, when it is the account's.
         fn find(
             &self,
             conn: &mut AnyConnection,
             character_id: &str,
             account: &AccountId,
         ) -> Option<EncounteredContentRecord>;
+        /// Writes new encountered content.
         fn create(&self, tx: &mut Tx<'_>, record: &EncounteredContentRecord) -> ();
+        /// Replaces the encountered content.
         fn update_content(&self, tx: &mut Tx<'_>, character_id: &str, account: &AccountId, json: &str) -> ();
     }
 }
 
+/// Every progression trait in SQL.
 pub struct SqlProgression;
 
 // ------------------------------------------------------------------ tracks

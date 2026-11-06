@@ -11,6 +11,7 @@ use store::Database;
 use crate::Error;
 use crate::ship::ShipState;
 
+/// How far behind shipping may fall before [`assess`] raises an alert.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct LagLimits {
     /// The oldest entry not shipped yet may be this old.
@@ -32,32 +33,59 @@ impl Default for LagLimits {
     }
 }
 
+/// Why shipping counts as behind or broken.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum LagAlert {
     /// Entries since `since` (the oldest one's time) are only on this server.
-    Unshipped { since: i64, oldest_id: i64 },
+    Unshipped {
+        /// The oldest unshipped entry's time.
+        since: i64,
+        /// Its id.
+        oldest_id: i64,
+    },
     /// The shipper hasn't run since `since`, or never has.
-    Silent { since: Option<i64> },
+    Silent {
+        /// The last heartbeat, `None` if there never was one.
+        since: Option<i64>,
+    },
     /// No snapshot since `since`, or never.
-    SnapshotStale { since: Option<i64> },
+    SnapshotStale {
+        /// When the last snapshot was taken, `None` if never.
+        since: Option<i64>,
+    },
     /// The local log fails the hash chain (DH5): the shipper refused to ship it on. Always an alert.
-    HistoryBroken { error: String },
+    HistoryBroken {
+        /// Where the chain breaks.
+        error: String,
+    },
     /// The last round failed (shown, not counted as behind by itself).
-    Failing { error: String, at: Option<i64> },
+    Failing {
+        /// The last round's error.
+        error: String,
+        /// When it failed.
+        at: Option<i64>,
+    },
 }
 
 /// What the status page and the admin API show. Times are unix milliseconds.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct Lag {
+    /// The id of the newest entry in the bucket.
     pub last_shipped_id: i64,
+    /// When that entry was written.
     pub last_shipped_at: Option<i64>,
+    /// The id of the newest entry in the local log.
     pub newest_id: i64,
+    /// When the oldest entry not shipped yet was written.
     pub oldest_unshipped_at: Option<i64>,
+    /// The shipper's last tick, whether or not it succeeded.
     pub heartbeat_at: Option<i64>,
+    /// When the last snapshot uploaded was taken.
     pub last_snapshot_at: Option<i64>,
     /// The hash of the newest entry shipped (DH5): the head to compare with the owner's own copy.
     pub shipped_head_hash: Option<String>,
+    /// What is wrong, empty when shipping is on time.
     pub alerts: Vec<LagAlert>,
 }
 

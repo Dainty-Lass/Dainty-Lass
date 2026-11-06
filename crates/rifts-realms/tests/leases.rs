@@ -3,7 +3,7 @@
 
 //! Host leases and the lifecycle monitor, on SQLite and (when configured) Postgres.
 
-#![allow(clippy::unwrap_used, clippy::expect_used)]
+#![allow(clippy::unwrap_used, clippy::expect_used, reason = "a panic is how a test fails")]
 
 mod common;
 

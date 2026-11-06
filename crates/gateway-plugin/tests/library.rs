@@ -6,7 +6,7 @@
 //! let in, the core's enroll handler answers `POST /__node/enroll`, a loaded module's UDP range joins the in-process
 //! allowlist's rule, and a player the ring admits is let through it. The script runs compiled in and loaded as a
 //! library alike. `cargo build -p gateway-plugin` first.
-#![allow(clippy::unwrap_used, clippy::expect_used)] // test helpers
+#![allow(clippy::unwrap_used, clippy::expect_used, reason = "a panic is how a test fails")]
 
 #[path = "../../gateway/tests/common/mod.rs"]
 mod common;

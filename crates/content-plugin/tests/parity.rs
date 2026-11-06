@@ -3,7 +3,7 @@
 
 //! The content server built as a library, run by the core as `host` would (`controller::service_library`), answers
 //! every recorded script as the Node one did (RD27; the harness says how).
-#![allow(clippy::unwrap_used, clippy::expect_used)] // test helpers
+#![allow(clippy::unwrap_used, clippy::expect_used, reason = "a panic is how a test fails")]
 
 #[path = "../../content/tests/parity/harness.rs"]
 mod harness;

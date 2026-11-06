@@ -8,8 +8,10 @@ use subtle::ConstantTimeEq as _;
 
 use crate::util;
 
+/// The error text for a short `API_KEY_HASH_SECRET`.
 pub const SECRET_TOO_SHORT: &str = "API_KEY_HASH_SECRET must contain at least 32 characters.";
 
+/// `API_KEY_HASH_SECRET` is unset or shorter than 32 characters.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
 #[error("API_KEY_HASH_SECRET must contain at least 32 characters.")]
 pub struct SecretError;
@@ -36,14 +38,17 @@ pub fn keyed_hash(secret: &str, parts: &[&str]) -> String {
     util::hex(context.sign().as_ref())
 }
 
+/// The stored hash of a game server key.
 pub fn gameserver_key_hash(secret: &str, key: &str) -> String {
     keyed_hash(secret, &["gameserver", key])
 }
 
+/// The stored hash of a user's account key.
 pub fn user_key_hash(secret: &str, key: &str) -> String {
     keyed_hash(secret, &["user", key])
 }
 
+/// The stored hash of an emailed code, bound to its purpose and user.
 pub fn email_code_hash(secret: &str, purpose: &str, user_id: &str, code: &str) -> String {
     keyed_hash(secret, &["email-code", purpose, user_id, code])
 }

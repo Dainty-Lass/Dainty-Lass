@@ -75,14 +75,17 @@ pub fn load_capture(env: &Env) -> Result<Option<Capture>, String> {
     Ok(Some(Capture::new(writer)))
 }
 
+/// Serves standalone until stopped.
 pub async fn run(config: Config, capture: Option<Capture>) -> Result<(), String> {
     run_with_context(config, capture, ServiceContext::standalone("gateway")).await
 }
 
+/// Serves until `ctx` says stop.
 pub async fn run_with_context(config: Config, capture: Option<Capture>, ctx: ServiceContext) -> Result<(), String> {
     run_with_network(config, capture, None, ctx, None, None, None).await
 }
 
+/// Serves `routes`' modules until `ctx` says stop.
 pub async fn run_with_routes(
     config: Config,
     capture: Option<Capture>,
@@ -92,6 +95,7 @@ pub async fn run_with_routes(
     run_with_network(config, capture, None, ctx, Some(routes), None, None).await
 }
 
+/// Serves until `ctx` says stop, putting its node links in `node_link_slot` once loaded.
 pub async fn run_with_node_links(
     config: Config,
     capture: Option<Capture>,
@@ -107,7 +111,10 @@ fn rate(spec: crate::ratelimit::BucketSpec) -> serde_json::Value {
 }
 
 /// Section 16 of the front page: start, serve until the context stops, shut down.
-#[allow(clippy::too_many_arguments)]
+#[allow(
+    clippy::too_many_arguments,
+    reason = "each argument is an optional part the host composes in"
+)]
 pub async fn run_with_network(
     config: Config,
     capture: Option<Capture>,

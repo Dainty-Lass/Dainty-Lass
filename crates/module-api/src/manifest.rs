@@ -12,18 +12,29 @@ use crate::version::{ApiVersion, GameVersion};
 /// Bounds on what a manifest may hold. It arrives from an external module's process (DD5), so every list
 /// and string has a ceiling.
 pub mod limits {
+    /// Longest display name, in bytes.
     pub const DISPLAY_NAME: usize = 64;
+    /// Most invite aliases.
     pub const ALIASES: usize = 8;
+    /// Most default ports.
     pub const PORTS: usize = 32;
     /// The widest port range a module may ask for
     pub const PORT_RANGE: u32 = 1024;
+    /// Most client arguments, and most environment variables.
     pub const ARGUMENTS: usize = 64;
+    /// Longest argument, environment value or ini text, in bytes.
     pub const TEXT: usize = 1024;
+    /// Most ini edits.
     pub const INI_EDITS: usize = 256;
+    /// Most Epic manifest sources.
     pub const SOURCES: usize = 8;
+    /// Longest manifest source URL, in bytes.
     pub const URL: usize = 2048;
+    /// Longest relative path, in bytes (Windows' `MAX_PATH`).
     pub const PATH: usize = 260;
+    /// Most entries in a patch set's lists and pinned files.
     pub const LIST: usize = 256;
+    /// Most palette colours.
     pub const PALETTE: usize = 64;
 }
 
@@ -32,14 +43,19 @@ pub mod limits {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ModuleKind {
+    /// Serves a game version.
     Game,
+    /// Extends the game module of its version.
     Plugin,
 }
 
+/// A port's protocol.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Transport {
+    /// TCP.
     Tcp,
+    /// UDP.
     Udp,
 }
 
@@ -47,11 +63,14 @@ pub enum Transport {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct PortRange {
+    /// First port.
     pub first: u16,
+    /// Last port, inclusive.
     pub last: u16,
 }
 
 impl PortRange {
+    /// The one port `port`.
     pub fn single(port: u16) -> Self {
         Self {
             first: port,
@@ -59,14 +78,17 @@ impl PortRange {
         }
     }
 
+    /// Number of ports in the range.
     pub fn width(self) -> u32 {
         u32::from(self.last).saturating_sub(u32::from(self.first)) + 1
     }
 
+    /// Starts above 0, is not reversed, and is at most [`limits::PORT_RANGE`] wide.
     pub fn is_valid(self) -> bool {
         self.first != 0 && self.first <= self.last && self.width() <= limits::PORT_RANGE
     }
 
+    /// The two ranges share a port.
     pub fn overlaps(self, other: PortRange) -> bool {
         self.first <= other.last && other.first <= self.last
     }
@@ -77,8 +99,11 @@ impl PortRange {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct PortDefault {
+    /// Name the module and `host.toml` use for it.
     pub name: String,
+    /// Its protocol.
     pub transport: Transport,
+    /// The ports it takes unless moved.
     pub range: PortRange,
 }
 
@@ -89,13 +114,17 @@ pub struct PortDefault {
 pub enum PatchSetCapability {
     /// A game module that lets a plugin patch its game servers
     Accepts,
+    /// A plugin with this set of patches.
     Provides(PatchSet),
 }
 
+/// A plugin's gameplay patches, by name.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct PatchSet {
+    /// Patch set id, a name.
     pub id: String,
+    /// Name shown in the UI.
     pub display_name: String,
     /// Runtime patches the game servers' runtime is built with, by name
     #[serde(default)]
@@ -110,11 +139,14 @@ pub struct PatchSet {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ThemeCapability {
+    /// Theme id, a name.
     pub id: String,
+    /// Name shown in the UI.
     pub display_name: String,
     /// Colour tokens by name, as the UI's CSS variables take them
     #[serde(default)]
     pub palette: BTreeMap<String, String>,
+    /// A layout the UI offers, by name.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub layout: Option<String>,
     /// A file the module registers with content
@@ -122,6 +154,7 @@ pub struct ThemeCapability {
     pub logo: Option<String>,
 }
 
+/// What a module does beyond serving its game, which decides what the UI shows for it.
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Capabilities {
@@ -134,8 +167,10 @@ pub struct Capabilities {
     /// Gives the chat plugin JIDs and room rules (DD21)
     #[serde(default)]
     pub chat: bool,
+    /// Patch sets accepted or provided.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub patch_set: Option<PatchSetCapability>,
+    /// The plugin's theme.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub theme: Option<ThemeCapability>,
 }
@@ -152,6 +187,7 @@ pub enum IniRoot {
 }
 
 impl IniRoot {
+    /// The file is relative to the install folder.
     pub fn is_install(&self) -> bool {
         matches!(self, Self::Install)
     }
@@ -163,6 +199,7 @@ impl IniRoot {
 pub struct PinnedFile {
     /// Relative to the install folder, `/`-separated
     pub path: String,
+    /// Its pinned SHA-256.
     pub sha256: Sha256Hex,
 }
 
@@ -170,11 +207,16 @@ pub struct PinnedFile {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct IniEdit {
+    /// The folder `file` is relative to.
     #[serde(default, skip_serializing_if = "IniRoot::is_install")]
     pub root: IniRoot,
+    /// The ini file, a relative `/`-separated path.
     pub file: String,
+    /// Section, without brackets.
     pub section: String,
+    /// Key in the section.
     pub key: String,
+    /// Value written.
     pub value: String,
 }
 
@@ -185,9 +227,11 @@ pub struct IniEdit {
 pub struct EpicBuild {
     /// Epic's build version string for it
     pub version: String,
+    /// The manifest's SHA-1, which the fetched manifest must hash to.
     pub manifest_sha1: Sha1Hex,
     /// `https` URLs to try in order, after the joined server's copy (DD22)
     pub manifest_sources: Vec<String>,
+    /// The shipping executable's SHA-256 after install.
     pub executable_sha256: Sha256Hex,
 }
 
@@ -197,15 +241,19 @@ pub struct EpicBuild {
 pub struct ClientProfile {
     /// The executable, relative to the install folder, `/`-separated
     pub executable: String,
+    /// The executable's SHA-256, checked before launch.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub executable_sha256: Option<Sha256Hex>,
     /// Other files inside the install folder pinned by SHA-256
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub files: Vec<PinnedFile>,
+    /// Command-line arguments.
     #[serde(default)]
     pub arguments: Vec<String>,
+    /// Environment variables set for the game.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub environment: BTreeMap<String, String>,
+    /// Ini lines written before launch.
     #[serde(default)]
     pub ini_edits: Vec<IniEdit>,
     /// None for a version that can't come from Epic (1.4.4: locate your folder)
@@ -213,10 +261,13 @@ pub struct ClientProfile {
     pub epic: Option<EpicBuild>,
 }
 
+/// What a module says about itself, checked by [`ModuleManifest::validate`] before it runs.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ModuleManifest {
+    /// Module id.
     pub id: ModuleId,
+    /// Game module or plugin.
     pub kind: ModuleKind,
     /// "Rustic Isles 1.14.7", "Dauntless Revived" (DD4)
     pub display_name: String,
@@ -225,18 +276,23 @@ pub struct ModuleManifest {
     /// Other names an invite's `version` may give this game (`reforged`, `revived`)
     #[serde(default)]
     pub invite_aliases: Vec<String>,
+    /// The module API it was built against.
     pub api: ApiVersion,
+    /// Ports it listens on by default.
     #[serde(default)]
     pub ports: Vec<PortDefault>,
+    /// What it does beyond serving its game.
     #[serde(default)]
     pub capabilities: Capabilities,
     /// Built but not checked against recorded traffic (DD9); the UI says so
     #[serde(default)]
     pub unverified: bool,
+    /// What the launcher needs to start the game, for a game module.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub client: Option<ClientProfile>,
 }
 
+/// Why a manifest fails [`ModuleManifest::validate`].
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 #[error("manifest: {0}")]
 pub struct ManifestError(pub String);
@@ -443,12 +499,21 @@ impl ModuleManifest {
 /// Why a plugin can't extend a game module.
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 pub enum FitError {
+    /// The `plugin` manifest is not a plugin.
     #[error("{0} is not a plugin")]
     NotAPlugin(ModuleId),
+    /// The `game` manifest is not a game module.
     #[error("{0} is not a game module")]
     NotAGame(ModuleId),
+    /// The plugin is for another game version.
     #[error("the plugin extends {plugin}, the module serves {game}")]
-    OtherVersion { plugin: GameVersion, game: GameVersion },
+    OtherVersion {
+        /// The version the plugin extends.
+        plugin: GameVersion,
+        /// The version the game module serves.
+        game: GameVersion,
+    },
+    /// The plugin provides a patch set the game module does not accept.
     #[error("{0} takes no patch set")]
     NoPatchSets(ModuleId),
 }

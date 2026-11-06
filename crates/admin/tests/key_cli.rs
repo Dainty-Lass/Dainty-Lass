@@ -1,6 +1,6 @@
 //! `dainty-host admin key issue|list|revoke` against the admin.env setup writes (DH2).
 
-#![allow(clippy::unwrap_used, clippy::expect_used)] // test helpers
+#![allow(clippy::unwrap_used, clippy::expect_used, reason = "a panic is how a test fails")]
 
 use std::path::Path;
 

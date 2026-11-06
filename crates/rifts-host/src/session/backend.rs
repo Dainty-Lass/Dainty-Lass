@@ -24,18 +24,23 @@ type Hosted = (HostBootstrapSpec, TransportConfig);
 ///
 /// Signalling is optional: a backend without it keeps the defaults, which list no peers and drop every signal.
 pub trait HostBackend: Send + Sync {
+    /// The host bootstrap and transport config for hosting this hunt.
     fn host_bootstrap(&self, account: &AccountId, session: &SessionId) -> Result<Hosted, HostError>;
 
+    /// The joiner bootstrap and transport config for joining this hunt.
     fn join_bootstrap(
         &self,
         account: &AccountId,
         session: &SessionId,
     ) -> Result<(JoinBootstrapSpec, TransportConfig), HostError>;
 
+    /// Starts a hub on the backend and returns its host bootstrap and transport config.
     fn start_hub(&self, account: &AccountId, kind: HubKind, limits: &HubLimits) -> Result<Hosted, HostError>;
 
+    /// Stops this account's hub of this kind; the session it named, if any.
     fn stop_hub(&self, account: &AccountId, kind: HubKind) -> Result<Option<SessionId>, HostError>;
 
+    /// Tells the backend the session's local route is ready on `port`.
     fn route_ready(
         &self,
         account: &AccountId,
@@ -44,10 +49,12 @@ pub trait HostBackend: Send + Sync {
         port: u16,
     ) -> Result<(), HostError>;
 
+    /// Whether the backend relays peers and signals; the default says no.
     fn supports_signalling(&self) -> bool {
         false
     }
 
+    /// The peers the session should link with now; the default lists none.
     fn poll_peers(
         &self,
         account: &AccountId,
@@ -59,6 +66,7 @@ pub trait HostBackend: Send + Sync {
         Ok(vec![])
     }
 
+    /// Relays one signal to a peer; the default drops it.
     fn send_signal(
         &self,
         account: &AccountId,
@@ -239,10 +247,12 @@ fn local_hub_session(account: &AccountId, kind: HubKind) -> Result<SessionId, Ho
 }
 
 impl DefaultHostBackend {
+    /// A backend with no hubs and no routes recorded.
     pub fn new() -> Self {
         Default::default()
     }
 
+    /// The port a session last reported ready on.
     pub fn recorded_route(&self, session: &SessionId) -> Option<u16> {
         held(&self.ready_ports).get(session).copied()
     }
@@ -287,6 +297,7 @@ impl HostBackend for DefaultHostBackend {
 
 /// Starts a process with exactly the environment given and nothing else (RD9: no injection).
 pub trait ServerSpawner: Send + Sync {
+    /// Starts `program` and returns its process id.
     fn spawn(
         &self,
         program: &Path,
@@ -295,6 +306,7 @@ pub trait ServerSpawner: Send + Sync {
         environment: &BTreeMap<String, String>,
     ) -> Result<u32, HostError>;
 
+    /// Stops the process started under `pid`.
     fn stop(&self, pid: u32);
 }
 
@@ -314,14 +326,17 @@ impl NoopServerSpawner {
     // The pid every pretend launch reports.
     const PID: u32 = 4242;
 
+    /// A spawner with nothing recorded.
     pub fn new() -> Self {
         Self::default()
     }
 
+    /// The environment of the last launch.
     pub fn last_environment(&self) -> Option<BTreeMap<String, String>> {
         held(&self.last).clone().map(|launch| launch.environment)
     }
 
+    /// The arguments of the last launch.
     pub fn last_arguments(&self) -> Option<Vec<String>> {
         held(&self.last).clone().map(|launch| launch.arguments)
     }

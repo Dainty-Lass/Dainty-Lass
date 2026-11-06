@@ -46,6 +46,7 @@ pub struct StubModule {
 }
 
 impl StubModule {
+    /// A stub with nothing recorded.
     pub fn new() -> Self {
         Self::default()
     }
@@ -255,6 +256,7 @@ pub struct RecordingHost {
 }
 
 impl RecordingHost {
+    /// A host for the node `identity`, with nothing recorded.
     pub fn new(identity: NodeIdentity) -> Self {
         Self {
             home: StandaloneHome { identity },
@@ -262,10 +264,12 @@ impl RecordingHost {
         }
     }
 
+    /// Every call so far, oldest first, with the module that made it.
     pub fn calls(&self) -> Vec<(ModuleId, HostCall)> {
         lock(&self.calls).clone()
     }
 
+    /// The home API the host answers home calls with.
     pub fn home(&self) -> &dyn HomeApi {
         &self.home
     }
@@ -290,6 +294,7 @@ pub struct RecordingPlugin {
 }
 
 impl RecordingPlugin {
+    /// Each attached module's registration.
     pub fn attached(&self) -> BTreeMap<ModuleId, Registration> {
         lock(&self.attached).clone()
     }

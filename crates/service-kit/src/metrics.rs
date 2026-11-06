@@ -17,10 +17,14 @@ use std::time::Instant;
 /// Milliseconds, as the backend's own histograms bucket them (`observability/metrics.ts`).
 pub const BUCKETS_MS: [f64; 10] = [5.0, 10.0, 25.0, 50.0, 100.0, 250.0, 500.0, 1_000.0, 2_500.0, 5_000.0];
 
+/// What a metric family measures.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Kind {
+    /// A count that only goes up.
     Counter,
+    /// A value that goes up and down.
     Gauge,
+    /// A distribution over [`BUCKETS_MS`].
     Histogram,
 }
 
@@ -138,6 +142,7 @@ pub fn collector(key: impl Into<String>, refresh: impl Fn() + Send + Sync + 'sta
     with(|r| r.collectors.insert(key.into(), Arc::new(refresh)));
 }
 
+/// Drops the collector registered under `key`.
 pub fn remove_collector(key: &str) {
     with(|r| r.collectors.remove(key));
 }

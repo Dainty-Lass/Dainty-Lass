@@ -29,13 +29,22 @@ pub const TEST_USER_HEADER: &str = "x-test-user";
 /// What the fake answers a launch.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum FakeLaunch {
-    Online { host: String, port: i64 },
+    /// Launches, ready at this address.
+    Online {
+        /// The server's address.
+        host: String,
+        /// The server's port.
+        port: i64,
+    },
+    /// Refuses the launch, with its reason.
     Refused(Option<String>),
+    /// The launch call fails with this error.
     Fails(String),
 }
 
 /// A Director in memory.
 pub struct FakeDirector {
+    /// Whether a dedicated server is configured.
     pub configured: bool,
     answer: Mutex<FakeLaunch>,
     ramsgate: Mutex<Option<LiveHub>>,
@@ -44,6 +53,7 @@ pub struct FakeDirector {
 }
 
 impl FakeDirector {
+    /// A configured fake whose launches come up at `host:port`.
     pub fn online(host: &str, port: i64) -> Arc<Self> {
         Self::answering(FakeLaunch::Online {
             host: host.to_owned(),
@@ -51,6 +61,7 @@ impl FakeDirector {
         })
     }
 
+    /// A configured fake answering every launch with `answer`.
     pub fn answering(answer: FakeLaunch) -> Arc<Self> {
         Arc::new(Self {
             configured: true,
@@ -61,18 +72,22 @@ impl FakeDirector {
         })
     }
 
+    /// Changes the answer later launches get.
     pub fn set_answer(&self, answer: FakeLaunch) {
         *self.answer.lock().unwrap_or_else(PoisonError::into_inner) = answer;
     }
 
+    /// Sets the live Ramsgate hub the fake reports, or none.
     pub fn set_ramsgate(&self, hub: Option<LiveHub>) {
         *self.ramsgate.lock().unwrap_or_else(PoisonError::into_inner) = hub;
     }
 
+    /// How many times the hub status was asked for.
     pub fn hub_asks(&self) -> usize {
         self.hub_asks.load(Ordering::SeqCst)
     }
 
+    /// Every launch asked for, in order.
     pub fn launches(&self) -> Vec<LaunchRequest> {
         self.launches.lock().unwrap_or_else(PoisonError::into_inner).clone()
     }
@@ -162,6 +177,7 @@ impl VersionHooks for DestinationHooks {
     }
 }
 
+/// Core's sample version with 1.14.7's candidate destination.
 pub fn test_version() -> IslesVersion {
     IslesVersion {
         hooks: Arc::new(DestinationHooks),
@@ -173,17 +189,23 @@ pub fn test_version() -> IslesVersion {
 /// A bare module with `MATCHMAKING_MODE=DEPLOYSERVER` under `settings`, this crate's handlers, and the state, the
 /// store and a hub-session registry in its slots.
 pub struct TestModule {
+    /// The module's shared state.
     pub shared: Arc<Shared>,
+    /// Matchmaking's state, also in a slot.
     pub state: Arc<MatchmakingState>,
+    /// The hub-session registry, also in a slot.
     pub hubs: Arc<HubSessions>,
+    /// This crate's handlers.
     pub handlers: Handlers,
 }
 
 impl TestModule {
+    /// A test module with rifts serving dedicated servers only.
     pub fn new(store: Option<IslesStore>, settings: Settings) -> Self {
         Self::with_rifts(store, settings, rifts_seam::Rifts::dedicated_only())
     }
 
+    /// A test module over the given rifts.
     pub fn with_rifts(store: Option<IslesStore>, settings: Settings, rifts: rifts_seam::Rifts) -> Self {
         let state = Arc::new(MatchmakingState::new());
         let hubs = Arc::new(HubSessions::new());
@@ -201,7 +223,10 @@ impl TestModule {
         parts.slots = slots;
         parts.rifts = rifts;
         parts.handlers = handlers.clone();
-        #[allow(clippy::expect_used)]
+        #[allow(
+            clippy::expect_used,
+            reason = "test fixture over the crate's own sample data; a panic is how a test fails"
+        )]
         let shared = Shared::new(parts).expect("the sample version's game version parses");
         state.bind_shared(&shared);
         Self {
@@ -214,7 +239,10 @@ impl TestModule {
 
     /// The backend app behind the stand-in auth layer.
     pub fn app(&self) -> axum::Router {
-        #[allow(clippy::expect_used)]
+        #[allow(
+            clippy::expect_used,
+            reason = "test fixture over the crate's own sample data; a panic is how a test fails"
+        )]
         let app = rustic_isles::app(Arc::clone(&self.shared), rustic_isles::Service::Backend, &self.handlers)
             .expect("this crate's rows are in the table");
         with_test_auth(app)

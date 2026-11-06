@@ -1,9 +1,13 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Silent Spud
 
+//! `start`'s process supervision: each service a child process with its env, its log and a readiness probe,
+//! restarted when it exits and killed with its whole process tree on stop.
+
+/// A child's whole process tree, killed together: a job object on Windows, a process group on Unix.
 pub mod tree {
     #[cfg(windows)]
-    #[allow(unsafe_code)]
+    #[allow(unsafe_code, reason = "Win32 job objects")]
     mod imp {
         use std::ffi::c_void;
         use std::io;
@@ -18,6 +22,7 @@ pub mod tree {
         };
         use windows::core::PCWSTR;
 
+        /// A job object holding the child and everything it starts; closing it kills them all.
         pub struct Tree {
             job: OwnedHandle,
         }
@@ -27,6 +32,7 @@ pub mod tree {
         }
 
         impl Tree {
+            /// Puts `child` and what it starts from now on in a new job object.
             pub fn adopt(child: &Child) -> io::Result<Self> {
                 let process = child.as_raw_handle();
                 // SAFETY: no security attributes and no name; the handle is owned from here on.
@@ -50,6 +56,7 @@ pub mod tree {
                 Ok(Self { job })
             }
 
+            /// Kills every process in the job.
             pub fn kill(&self) {
                 // SAFETY: the job handle is open while `self` lives.
                 _ = unsafe { TerminateJobObject(HANDLE(self.job.as_raw_handle()), 1) };
@@ -58,22 +65,25 @@ pub mod tree {
     }
 
     #[cfg(unix)]
-    #[allow(unsafe_code)]
+    #[allow(unsafe_code, reason = "kill(2) on the process group")]
     mod imp {
         use std::io;
         use std::process::Child;
 
+        /// The child's process group; the child must have been spawned as its leader.
         pub struct Tree {
             group: libc::pid_t,
         }
 
         impl Tree {
+            /// Takes `child`'s process group as its tree.
             pub fn adopt(child: &Child) -> io::Result<Self> {
                 let id = child.id();
                 let group = libc::pid_t::try_from(id).map_err(|_| io::Error::other("process id out of range"))?;
                 Ok(Self { group })
             }
 
+            /// Sends SIGKILL to the whole group.
             pub fn kill(&self) {
                 // SAFETY: kill(2) with a negative pid signals the group; no memory is involved.
                 _ = unsafe { libc::kill(-self.group, libc::SIGKILL) };
@@ -92,13 +102,16 @@ pub mod tree {
         use std::io;
         use std::process::Child;
 
+        /// No process tree on this OS: only the child itself is killed.
         pub struct Tree;
 
         impl Tree {
+            /// Holds nothing.
             pub fn adopt(_child: &Child) -> io::Result<Self> {
                 Ok(Self)
             }
 
+            /// Does nothing.
             pub fn kill(&self) {}
         }
     }
@@ -117,15 +130,30 @@ use std::time::{Duration, Instant};
 use crate::envfile::parse_env;
 use crate::error::HostError;
 
+/// Prints one line of a service's output: (service name, line).
 pub type Printer = Arc<dyn Fn(&str, &str) + Send + Sync>;
 
+/// How to tell that a service is up.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Ready {
-    Http { port: u16, path: String },
-    Tcp { host: String, port: u16 },
+    /// An HTTP GET of `path` on 127.0.0.1:`port` answers with a status from 200 to 499.
+    Http {
+        /// The port, on 127.0.0.1.
+        port: u16,
+        /// The path asked for.
+        path: String,
+    },
+    /// A TCP connection to `host`:`port` is accepted.
+    Tcp {
+        /// The host connected to.
+        host: String,
+        /// The port.
+        port: u16,
+    },
 }
 
 impl Ready {
+    /// Ready when GET `path` on 127.0.0.1:`port` answers.
     #[must_use]
     pub fn http(port: u16, path: impl Into<String>) -> Self {
         Self::Http {
@@ -134,6 +162,7 @@ impl Ready {
         }
     }
 
+    /// Ready when `host`:`port` accepts a connection.
     #[must_use]
     pub fn tcp(host: impl Into<String>, port: u16) -> Self {
         Self::Tcp {
@@ -142,6 +171,7 @@ impl Ready {
         }
     }
 
+    /// The port probed.
     #[must_use]
     pub fn port(&self) -> u16 {
         match self {
@@ -149,6 +179,7 @@ impl Ready {
         }
     }
 
+    /// The host probed; 127.0.0.1 for HTTP.
     #[must_use]
     pub fn host(&self) -> &str {
         match self {
@@ -158,18 +189,28 @@ impl Ready {
     }
 }
 
+/// One service as `start` runs it.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ServiceSpec {
+    /// Its name, which names its log file.
     pub name: String,
+    /// The folder it runs in.
     pub cwd: PathBuf,
+    /// The executable.
     pub command: PathBuf,
+    /// Its arguments.
     pub args: Vec<String>,
+    /// The env file it is given, laid over the shell's environment.
     pub env_file: Option<PathBuf>,
+    /// Variables laid over the env file's.
     pub extra_env: Vec<(String, String)>,
+    /// How to tell it is up; up as soon as it starts when `None`.
     pub ready: Option<Ready>,
 }
 
+/// A name and value of an environment variable.
 pub trait EnvPair {
+    /// The name and value as owned strings.
     fn into_pair(self) -> (String, String);
 }
 
@@ -200,6 +241,7 @@ fn upsert_env(vars: &mut Vec<(String, String)>, key: String, val: String) {
     }
 }
 
+/// `base`, then `from_file`, then `extra`, each overriding the one before it; names match without case on Windows.
 #[must_use]
 pub fn service_environment<I1, P1, I2, P2>(base: I1, from_file: I2, extra: &[(String, String)]) -> Vec<(String, String)>
 where
@@ -236,6 +278,7 @@ fn tcp_connect(host: &str, port: u16, timeout: Duration) -> Option<TcpStream> {
     None
 }
 
+/// Whether `ready` answers within `timeout`.
 #[must_use]
 pub fn answers(ready: &Ready, timeout: Duration) -> bool {
     match ready {
@@ -266,11 +309,13 @@ pub fn answers(ready: &Ready, timeout: Duration) -> bool {
     }
 }
 
+/// Whether `ready` answers right now (a 100 ms probe).
 #[must_use]
 pub fn check_ready(ready: &Ready) -> bool {
     answers(ready, Duration::from_millis(100))
 }
 
+/// Whether `ready` answers before `timeout`; false as soon as `cancel` says so.
 pub fn wait_for_ready(ready: &Ready, timeout: Duration, cancel: &dyn Fn() -> bool) -> bool {
     let deadline = Instant::now() + timeout;
     while Instant::now() < deadline {
@@ -291,6 +336,9 @@ struct ManagedChild {
     tree: Option<tree::Tree>,
 }
 
+/// Runs services as child processes, writes each one's output to its log and to the printer, and restarts one that
+/// exits.
+/// Dropping it stops them all.
 pub struct Supervisor {
     log_dir: PathBuf,
     printer: Printer,
@@ -300,6 +348,7 @@ pub struct Supervisor {
 }
 
 impl Supervisor {
+    /// A supervisor that writes logs to `log_dir` and prints each output line through `printer`.
     #[must_use]
     pub fn new(log_dir: impl Into<PathBuf>, printer: Printer) -> Self {
         Self {
@@ -311,12 +360,14 @@ impl Supervisor {
         }
     }
 
+    /// Stops waiting for readiness and stops restarting once `cancel` is set.
     #[must_use]
     pub fn with_cancel(mut self, cancel: Arc<AtomicBool>) -> Self {
         self.cancel = cancel;
         self
     }
 
+    /// The folder the logs are written to.
     #[must_use]
     pub fn log_dir(&self) -> &Path {
         &self.log_dir
@@ -422,6 +473,8 @@ impl Supervisor {
         Ok((log_shared, pid))
     }
 
+    /// Spawns `spec` and waits up to `ready_timeout` for it to be ready; returns whether it was.
+    /// One that got ready is restarted 4 s after each exit until the supervisor stops.
     pub fn start(&self, spec: ServiceSpec, ready_timeout: Duration) -> Result<bool, HostError> {
         let (log_shared, _pid) = Self::spawn_one(&self.log_dir, &self.printer, &self.children, &spec)?;
 
@@ -504,6 +557,7 @@ impl Supervisor {
         Ok(ready_ok)
     }
 
+    /// The first child that exited, with its exit code; `None` while all run.
     pub fn any_stopped(&self) -> Option<(String, Option<i32>)> {
         let mut guard = self.children.lock().ok()?;
         for mc in guard.iter_mut() {
@@ -514,6 +568,7 @@ impl Supervisor {
         None
     }
 
+    /// Whether every child has exited.
     #[must_use]
     pub fn all_stopped(&self) -> bool {
         let Ok(mut guard) = self.children.lock() else {
@@ -522,6 +577,7 @@ impl Supervisor {
         guard.iter_mut().all(|mc| matches!(mc.child.try_wait(), Ok(Some(_))))
     }
 
+    /// Kills every child and its process tree; nothing restarts after.
     pub fn stop_all(&self) {
         self.stopping.store(true, Ordering::SeqCst);
         let Ok(mut guard) = self.children.lock() else {

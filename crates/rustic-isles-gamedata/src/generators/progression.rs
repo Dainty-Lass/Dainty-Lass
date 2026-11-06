@@ -24,6 +24,7 @@ pub(crate) fn read_source(path: &Path, what: &str) -> Result<Value, String> {
     parse(drop_bom(&text)).map_err(invalid)
 }
 
+/// Generates `progression_config.json` (§5.2) from `progression_config.source.json` in `raw_dir`; without `apply` it is a dry run that only reports.
 pub fn generate_progression_config(raw_dir: &Path, out_dir: &Path, apply: bool) -> Result<String, String> {
     let source = read_source(&raw_dir.join("progression_config.source.json"), "progression")?;
     let Some(paths) = source.pointer("/payload/paths").and_then(Value::as_array) else {

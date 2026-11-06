@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Silent Spud
 
 //! Parties, invites and the outbox (spec §11.2): rows Y1-Y8 of §15.2.
-#![allow(clippy::unwrap_used, clippy::expect_used)]
+#![allow(clippy::unwrap_used, clippy::expect_used, reason = "a panic is how a test fails")]
 
 mod common;
 

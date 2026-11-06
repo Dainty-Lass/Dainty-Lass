@@ -3,4 +3,9 @@
 
 //! Chat as a library the core loads (RD27): the same service the core can compile in (`chat::service`).
 
+#![allow(
+    missing_docs,
+    reason = "the exported entry symbol is the macro's and carries no doc; an attribute on the invocation is ignored"
+)]
+
 service_plugin::export_service!(chat::service::ChatService::default());

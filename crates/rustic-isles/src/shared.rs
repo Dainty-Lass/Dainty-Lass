@@ -29,15 +29,18 @@ pub type IslesAuth = Auth<Arc<dyn AuthStore>>;
 pub struct Slots(HashMap<TypeId, Arc<dyn Any + Send + Sync>>);
 
 impl Slots {
+    /// Fills the slot for `T`, replacing what it held.
     pub fn insert<T: Any + Send + Sync>(&mut self, value: Arc<T>) {
         self.0.insert(TypeId::of::<T>(), value);
     }
 
+    /// [`Slots::insert`], chained.
     pub fn with<T: Any + Send + Sync>(mut self, value: Arc<T>) -> Self {
         self.insert(value);
         self
     }
 
+    /// The value in `T`'s slot, none when empty.
     pub fn get<T: Any + Send + Sync>(&self) -> Option<Arc<T>> {
         self.0.get(&TypeId::of::<T>()).cloned()?.downcast().ok()
     }
@@ -52,18 +55,22 @@ impl Presence {
         self.0.lock().unwrap_or_else(PoisonError::into_inner)
     }
 
+    /// Marks the user online.
     pub fn set_online(&self, user_id: &str) {
         self.set().insert(user_id.to_owned());
     }
 
+    /// Marks the user offline.
     pub fn set_offline(&self, user_id: &str) {
         self.set().remove(user_id);
     }
 
+    /// Whether the user is online.
     pub fn is_online(&self, user_id: &str) -> bool {
         self.set().contains(user_id)
     }
 
+    /// Every user online, sorted.
     pub fn online_user_ids(&self) -> Vec<String> {
         self.set().iter().cloned().collect()
     }
@@ -77,6 +84,7 @@ impl Presence {
 /// Who an admin caller is, as the Reforged API's admin auth found them.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AdminCaller {
+    /// The admin key's id.
     pub key_id: String,
 }
 
@@ -84,11 +92,15 @@ pub struct AdminCaller {
 /// target and body, so the body is read before it is asked (reforged-admin spec §3.5).
 #[derive(Debug, Clone, Copy)]
 pub struct AdminRequestHead<'a> {
+    /// The HTTP method.
     pub method: &'a str,
     /// The path and query as the handler sees them
     pub target: &'a str,
+    /// The caller's address.
     pub peer: Option<std::net::IpAddr>,
+    /// The request's headers.
     pub headers: &'a http::HeaderMap,
+    /// The request's body.
     pub body: &'a [u8],
 }
 
@@ -110,20 +122,33 @@ pub fn admin_refusal() -> axum::response::Response {
 
 /// The inputs [`Shared::new`] builds from.
 pub struct SharedParts {
+    /// The game version.
     pub version: IslesVersion,
+    /// The module's settings.
     pub settings: Settings,
+    /// The node the module runs on.
     pub node: NodeIdentity,
+    /// The module's game data folders.
     pub game_data: GameDataRoot,
+    /// Whether a database is configured (`REFORGED_DB_FILE` or `REFORGED_DB_ENGINE`).
     pub database_wanted: bool,
+    /// The rifts seam.
     pub rifts: rifts_seam::Rifts,
+    /// Whether the admin API is on.
     pub admin_api: bool,
+    /// The store auth signs in against; none without a database.
     pub auth_store: Option<Arc<dyn AuthStore>>,
+    /// What auth calls outside itself; core fills its home.
     pub auth_seams: Seams,
+    /// Whether the store is Postgres.
     pub engine_is_postgres: bool,
     /// The module's context, for the home and for areas that emit; none in a bare module
     pub context: Option<ModuleContext>,
+    /// The areas' typed state.
     pub slots: Slots,
+    /// Watches every request.
     pub observer: Arc<dyn Observer>,
+    /// The admin auth in front of the `/admin/` rifts rows, none until the Reforged unit fills it.
     pub admin_authenticator: Option<Arc<dyn AdminAuthenticator>>,
     /// The backend's handlers
     pub handlers: Handlers,
@@ -153,6 +178,7 @@ impl SharedParts {
     }
 }
 
+/// What every handler shares, one per module (§5.1).
 pub struct Shared {
     version: IslesVersion,
     settings: Arc<Settings>,
@@ -173,6 +199,7 @@ pub struct Shared {
 }
 
 impl Shared {
+    /// Builds the shared state and its auth from the parts; fails when the tables' game version does not parse.
     pub fn new(parts: SharedParts) -> Result<Arc<Self>, ModuleError> {
         let tables = parts.version.tables;
         let game_version: GameVersion = tables
@@ -226,66 +253,82 @@ impl Shared {
         Self::new(SharedParts::bare(version))
     }
 
+    /// The game version's tables, hooks and route set.
     pub fn version(&self) -> &IslesVersion {
         &self.version
     }
 
+    /// The module's settings.
     pub fn settings(&self) -> &Settings {
         &self.settings
     }
 
+    /// The node the module runs on.
     pub fn node(&self) -> &NodeIdentity {
         &self.node
     }
 
+    /// The module's game data folders.
     pub fn game_data(&self) -> &GameDataRoot {
         &self.game_data
     }
 
+    /// Whether a database is configured.
     pub fn database_wanted(&self) -> bool {
         self.database_wanted
     }
 
+    /// The rifts seam.
     pub fn rifts(&self) -> &rifts_seam::Rifts {
         &self.rifts
     }
 
+    /// Whether the admin API is on.
     pub fn admin_api(&self) -> bool {
         self.admin_api
     }
 
+    /// The module's sign-in area.
     pub fn auth(&self) -> &Arc<IslesAuth> {
         &self.auth
     }
 
+    /// Home calls for accounts, through the module context or standalone.
     pub fn home(&self) -> Arc<dyn HomeApi> {
         Arc::clone(&self.home)
     }
 
+    /// Who the chat plugin reports online.
     pub fn presence(&self) -> &Presence {
         &self.presence
     }
 
+    /// The Director slot; unconfigured until one fills it.
     pub fn dedicated_servers(&self) -> Arc<dyn DedicatedServers> {
         Arc::clone(&self.dedicated.read().unwrap_or_else(PoisonError::into_inner))
     }
 
+    /// Fills the Director slot.
     pub fn set_dedicated_servers(&self, servers: Arc<dyn DedicatedServers>) {
         *self.dedicated.write().unwrap_or_else(PoisonError::into_inner) = servers;
     }
 
+    /// The area state of type `T`, none when no area filled it.
     pub fn slot<T: Any + Send + Sync>(&self) -> Option<Arc<T>> {
         self.slots.get::<T>()
     }
 
+    /// The module context, none in a bare module.
     pub fn context(&self) -> Option<&ModuleContext> {
         self.context.as_ref()
     }
 
+    /// Watches every request.
     pub fn observer(&self) -> &Arc<dyn Observer> {
         &self.observer
     }
 
+    /// The admin auth, none until the Reforged unit fills it.
     pub fn admin_authenticator(&self) -> Option<Arc<dyn AdminAuthenticator>> {
         self.admin_authenticator
             .read()
@@ -293,6 +336,7 @@ impl Shared {
             .clone()
     }
 
+    /// Fills the admin auth slot.
     pub fn set_admin_authenticator(&self, authenticator: Arc<dyn AdminAuthenticator>) {
         *self.admin_authenticator.write().unwrap_or_else(PoisonError::into_inner) = Some(authenticator);
     }

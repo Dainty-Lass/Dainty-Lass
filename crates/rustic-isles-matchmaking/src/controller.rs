@@ -19,15 +19,21 @@ use crate::party::{Parties, PartyError};
 use crate::rules::{self, GoNowWindow, ReleaseKind};
 use crate::state::{MatchmakingState, PartyInstance, Queue};
 
+/// Status reason when no dedicated server is configured.
 pub const NO_DEDICATED_SERVERS_REASON: &str = "NO_DEDICATED_SERVERS";
+/// Status reason for a Gauntlet hunt while `RUSTIC_ISLES_GAUNTLET` is off.
 pub const GAUNTLET_DISABLED_REASON: &str = "GAUNTLET_DISABLED";
+/// Status reason when the Director refuses a hunt without saying why.
 pub const DEDICATED_HUNT_DISABLED_REASON: &str = "DEDICATED_HUNT_DISABLED";
+/// Status reason on the search of the player who cancelled.
 pub const PLAYER_CANCELED_REASON: &str = "PLAYER_CANCELED";
+/// Status reason on a party member's search when another member cancelled.
 pub const PARTY_MEMBER_CANCELED_REASON: &str = "PARTY_MEMBER_CANCELED";
 /// A full queue launches at once.
 pub const QUEUE_SIZE: usize = 4;
 /// After the last add, checked by the next poll that finds the queue.
 pub const QUEUE_WAIT_MS: i64 = 20_000;
+/// How long (ms) a party's hunt instance is reused for members joining the same hunt.
 pub const PARTY_INSTANCE_REUSE_MS: i64 = 120_000;
 /// 2.5 realm presence heartbeats of 30 s, shorter than the 2 min release gate, so a member who just closed the game
 /// is not frozen into a roster.
@@ -40,8 +46,11 @@ pub type Failure = String;
 /// The party a join travels with, as the resolution left it.
 #[derive(Debug, Clone, Default)]
 pub struct JoinParty {
+    /// The party's id, when the player travels with one.
     pub party_id: Option<String>,
+    /// The members who travel along, the requester included.
     pub members: Option<Vec<String>>,
+    /// The party's revision when it was resolved.
     pub revision: Option<i64>,
     /// Only when the resolution kept the party
     pub global_id: Option<GlobalId>,
@@ -50,27 +59,41 @@ pub struct JoinParty {
 /// One join's request fields.
 #[derive(Debug, Clone, Default)]
 pub struct JoinRequest {
+    /// The joining player's userId.
     pub player: String,
+    /// The client's matchmaking mode, such as `CITY` or `ISLAND`.
     pub mode: Option<String>,
+    /// The client's travel arguments, which may name the map.
     pub args: Option<String>,
+    /// The hunt id the client asked for, possibly blank.
     pub hunt: Option<String>,
+    /// The client's build id.
     pub build_id: Option<String>,
+    /// The party as the resolution left it.
     pub party: JoinParty,
 }
 
 /// What a leave did (`CancelMatchmakingForLeave`).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct LeaveOutcome {
+    /// What happened: `canceled`, `already-canceled`, `already-ended`, `too-late`, `hub-not-cancelled` or
+    /// `no-candidate`.
     pub outcome: String,
+    /// The search's state afterwards.
     pub state: String,
+    /// The search's candidate id, when there was one.
     pub candidate_id: Option<String>,
 }
 
 /// One request's view of the module.
 pub struct Ctx {
+    /// The module's shared state.
     pub shared: Arc<Shared>,
+    /// Matchmaking's own state.
     pub state: Arc<MatchmakingState>,
+    /// The request's id, carried into store writes.
     pub request_id: Option<String>,
+    /// The client's address, from the peer or the forwarded header.
     pub client: Option<String>,
 }
 
@@ -93,14 +116,17 @@ fn launch_kind(is_hub: bool) -> &'static str {
 }
 
 impl Ctx {
+    /// Matchmaking's clock, in Unix ms.
     pub fn now(&self) -> i64 {
         self.state.now_ms()
     }
 
+    /// The module's store, when a database is configured.
     pub fn store(&self) -> Option<Arc<IslesStore>> {
         self.shared.slot::<IslesStore>()
     }
 
+    /// The party operations for this request over `store`.
     pub fn parties<'a>(&'a self, store: Option<&'a IslesStore>) -> Parties<'a> {
         Parties {
             store,
@@ -213,6 +239,8 @@ impl Ctx {
         Ok(Some(candidate))
     }
 
+    /// The player's candidate as the client may see it, `None` without a search. Pops a hunt queue whose wait has run
+    /// out.
     pub async fn poll(&self, player: &str) -> Result<Option<MatchCandidate>, Failure> {
         let Some(current) = self.current_or_restored(player).await? else {
             return Ok(None);
@@ -323,6 +351,8 @@ impl Ctx {
 
     // ---------------------------------------------------------------- the leave (`CancelMatchmakingForLeave`)
 
+    /// `CancelMatchmakingForLeave`: cancels the player's search and the party members' searches with it, unless one was
+    /// already told to travel.
     pub async fn cancel_for_leave(&self, player: &str) -> Result<LeaveOutcome, Failure> {
         let outcome = |outcome: &str, state: &str, id: Option<&str>| LeaveOutcome {
             outcome: outcome.to_owned(),

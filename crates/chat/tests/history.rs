@@ -3,7 +3,7 @@
 
 //! Chat's database on both engines (DD15). `REFORGED_TEST_POSTGRES_URL` names a server the test may create a
 //! database on, as `store`'s tests read it; without it the Postgres half is skipped.
-#![allow(clippy::unwrap_used, clippy::expect_used)] // test helpers
+#![allow(clippy::unwrap_used, clippy::expect_used, reason = "a panic is how a test fails")]
 
 use chat::History;
 use chat::history::{Mute, NewDirect};

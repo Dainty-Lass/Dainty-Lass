@@ -30,18 +30,22 @@ pub fn effective_hunt_id(mode: Option<&str>, args: Option<&str>, hunt: Option<&s
     hunt.unwrap_or("").to_owned()
 }
 
+/// Whether a hunt waits in a queue to fill instead of launching at once (the `CR19` hunts).
 pub fn needs_queue(hunt: &str) -> bool {
     hunt.contains("CR19")
 }
 
+/// Whether the hunt id names a hub: Ramsgate or the training dojo.
 pub fn is_hub_hunt_id(hunt: &str) -> bool {
     hunt.contains("ReturnToRamsgate") || hunt.contains("TrainingDojo")
 }
 
+/// Whether a join goes to a hub: the `CITY` mode or a hub hunt id.
 pub fn is_hub_destination(mode: Option<&str>, hunt: &str) -> bool {
     mode == Some("CITY") || is_hub_hunt_id(hunt)
 }
 
+/// Whether the hunt id names a Gauntlet hunt, any case.
 pub fn is_gauntlet_hunt_id(hunt: &str) -> bool {
     hunt.to_ascii_lowercase().contains("gauntlet")
 }
@@ -56,18 +60,26 @@ pub fn gauntlet_enabled(settings: &Settings) -> bool {
 /// The resolution's answer (`ResolveMatchmakingParty`).
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct PartyResolution {
+    /// The party's id, when one was kept.
     pub party_id: Option<String>,
+    /// The members kept, the requester always among them.
     pub members: Option<Vec<String>>,
+    /// The party's revision as read.
     pub revision: Option<i64>,
+    /// Members left behind: offline, or the whole party on a mismatch.
     pub excluded: Vec<String>,
+    /// Whether an `ISLAND` request named a different party than the store holds.
     pub mismatch: bool,
 }
 
 /// The party as the store holds it.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ResolvableParty<'a> {
+    /// The party's id.
     pub party_id: &'a str,
+    /// Every member's userId.
     pub members: &'a [String],
+    /// The party's revision.
     pub revision: i64,
 }
 
@@ -152,20 +164,27 @@ fn uuid_bits(uuid: &str) -> u128 {
 /// Which window a release is drawn from.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ReleaseKind {
+    /// A hub's release, which spreads out returning players.
     Hub,
+    /// A hunt's release, which masks the server's spin-up.
     Hunt,
 }
 
 /// The Go Now settings, read once per draw.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct GoNowWindow {
+    /// Shortest delay (ms) before the client may travel.
     pub min: i64,
+    /// Longest delay (ms) before padding.
     pub max: i64,
+    /// Padding (ms) added per release still in flight.
     pub per_joiner: i64,
+    /// Most padding (ms) in all.
     pub cap: i64,
 }
 
 impl GoNowWindow {
+    /// The window for `kind` from the `*_GO_NOW_*` settings, with Node's defaults.
     pub fn from_settings(settings: &Settings, kind: ReleaseKind) -> Self {
         let read = |name: &str, default: i64| read_delay_ms(settings.raw(name), default);
         let (min, max) = match kind {
@@ -244,7 +263,9 @@ pub fn make_party_id(id: &GlobalId, build_id: &str) -> String {
 /// The QoS listener's plan: the public port, or none with the problem when the value is not one.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct QosPlan {
+    /// The public QoS port.
     pub port: Option<u16>,
+    /// Why the configured value is not a port.
     pub problem: Option<String>,
 }
 

@@ -19,6 +19,7 @@ const SCAN_LIMIT: usize = 65_536;
 const SCAN_KEEP: usize = 4_096;
 /// The pipes are read to their end after the exit; a stray holder is killed with the tree first
 const PIPE_DRAIN: Duration = Duration::from_secs(5);
+/// What a ready server prints on stdout, followed by its launch id and port.
 pub const READY_MARKER: &str = "RUSTIC_ISLES_GAMESERVER_READY";
 
 /// `RUSTIC_ISLES_GAMESERVER_READY launchId={id} port={port}` (JS-trimmed): the id and port when well-formed.
@@ -44,6 +45,7 @@ pub struct ReadinessScanner {
 }
 
 impl ReadinessScanner {
+    /// A scanner for this launch id and port.
     pub fn new(launch_id: &str, port: u16) -> Self {
         Self {
             launch_id: launch_id.to_owned(),
@@ -77,6 +79,7 @@ impl ReadinessScanner {
         false
     }
 
+    /// Bytes held of an unfinished line.
     pub fn buffered(&self) -> usize {
         self.buffer.len()
     }
@@ -84,20 +87,25 @@ impl ReadinessScanner {
 
 /// A process and its exit, shared by the server, the registry and the exit watcher.
 pub struct Proc {
+    /// The process id, when the OS gave one.
     pub pid: Option<u32>,
+    /// Stops its process tree.
     pub tree: Arc<dyn TreeControl>,
     exit: watch::Receiver<Option<Exit>>,
 }
 
 impl Proc {
+    /// Whether it is still running.
     pub fn alive(&self) -> bool {
         self.exit.borrow().is_none()
     }
 
+    /// How it exited; none while it runs.
     pub fn exit(&self) -> Option<Exit> {
         self.exit.borrow().clone()
     }
 
+    /// Waits for the exit; a default [`Exit`] if the watcher is gone.
     pub async fn exited(&self) -> Exit {
         let mut exit = self.exit.clone();
         match exit.wait_for(Option::is_some).await {

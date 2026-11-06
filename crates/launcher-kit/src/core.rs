@@ -6,10 +6,12 @@
 pub mod pins;
 pub mod text;
 
+/// The invite parser, shared with the servers through `protocol`.
 pub mod invite {
     pub use protocol::invite::*;
 }
 
+/// The username rules, shared with the servers through `protocol`.
 pub mod username {
     pub use protocol::account::*;
 }

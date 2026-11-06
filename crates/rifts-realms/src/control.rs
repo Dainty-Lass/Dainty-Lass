@@ -32,21 +32,33 @@ const MAX_SAFE_INTEGER: f64 = 9_007_199_254_740_991.0;
 #[derive(Clone, Debug, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ControlMessageView {
+    /// The message's id, as `_id`.
     #[serde(rename = "_id")]
     pub id: String,
+    /// The account it is for.
     pub account_id: String,
+    /// The message type, such as `ICE_SIGNAL`.
     pub message_type: String,
+    /// The session it is about, if any.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub session_id: Option<String>,
+    /// That session's generation.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub generation: Option<i64>,
+    /// The message body.
     pub payload: Value,
+    /// When it was queued, as ISO 8601.
     pub created_at: String,
+    /// When it is dropped undelivered, as ISO 8601.
     pub expires_at: String,
+    /// Its place in the account's queue.
     pub sequence: i64,
+    /// The expiry again, as the stored documents had it.
     pub ttl_at: String,
+    /// When the launcher acknowledged it, as ISO 8601.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub acknowledged_at: Option<String>,
+    /// The message's id again.
     pub message_id: String,
 }
 
@@ -71,18 +83,24 @@ impl From<&ControlMessageRecord> for ControlMessageView {
     }
 }
 
+/// The answer to a control poll.
 #[derive(Clone, Debug, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PollReply {
+    /// Messages after the cursor, in sequence order.
     pub messages: Vec<ControlMessageView>,
+    /// True when the cursor was past the account's last message, so the answer starts over with unacknowledged ones.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub stale_cursor: Option<bool>,
 }
 
+/// The answer to acknowledging a message.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AckReply {
+    /// Always true.
     pub acknowledged: bool,
+    /// The message acknowledged.
     pub message_id: String,
 }
 
@@ -108,12 +126,14 @@ fn uuid_shaped(id: &str) -> bool {
     id.len() == 36 && id.bytes().all(|b| b == b'-' || b.is_ascii_hexdigit())
 }
 
+/// The queue of control messages each launcher polls.
 pub struct ControlChannel {
     hunts: HuntRepository,
     clock: Arc<dyn Clock>,
 }
 
 impl ControlChannel {
+    /// A channel over the hunt tables.
     pub fn new(db: RealmsDb, clock: Arc<dyn Clock>) -> Self {
         let hunts = HuntRepository::new(db);
         Self { clock, hunts }
@@ -159,6 +179,7 @@ impl ControlChannel {
         }
     }
 
+    /// Acknowledges one of the account's messages; refused for a malformed or unknown id.
     pub async fn ack(&self, account: &str, message_id: &str) -> Result<AckReply, RealmsError> {
         if !uuid_shaped(message_id) {
             return Err(refusal(BAD_MESSAGE_ID));

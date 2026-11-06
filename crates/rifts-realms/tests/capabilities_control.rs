@@ -3,7 +3,7 @@
 
 //! Host capabilities and the launcher's control channel, on SQLite and (when configured) Postgres.
 
-#![allow(clippy::unwrap_used, clippy::expect_used)]
+#![allow(clippy::unwrap_used, clippy::expect_used, reason = "a panic is how a test fails")]
 
 mod common;
 

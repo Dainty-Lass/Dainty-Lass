@@ -12,15 +12,20 @@ use tokio::io::AsyncRead;
 
 /// What to start. No `Debug`: the gameserver key is an argument (§15).
 pub struct Command {
+    /// The executable.
     pub program: String,
+    /// Its arguments.
     pub args: Vec<String>,
     /// The whole environment: the child gets this and nothing else
     pub env: Vec<(String, String)>,
+    /// Hide its window on Windows.
     pub windows_hide: bool,
 }
 
+/// How a process exited.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct Exit {
+    /// The exit code, none when a signal ended it.
     pub code: Option<i32>,
     /// `SIGTERM` and the like (Unix)
     pub signal: Option<String>,
@@ -42,20 +47,30 @@ impl<T: std::fmt::Display> std::fmt::Display for OrNull<'_, T> {
 pub trait TreeControl: Send + Sync {
     /// Asks the tree to stop (SIGTERM to the group; the job ended on Windows).
     fn terminate(&self) -> io::Result<()>;
+    /// Kills the whole tree at once.
     fn kill(&self);
 }
 
+/// One of the child's output streams.
 pub type Pipe = Pin<Box<dyn AsyncRead + Send>>;
 
+/// A started child.
 pub struct Started {
+    /// The process id, when the OS gave one.
     pub pid: Option<u32>,
+    /// Its standard output.
     pub stdout: Pipe,
+    /// Its standard error.
     pub stderr: Pipe,
+    /// Resolves when it exits.
     pub wait: BoxFuture<'static, Exit>,
+    /// Stops its process tree.
     pub tree: Arc<dyn TreeControl>,
 }
 
+/// Starts game servers: the operating system's, or a test's.
 pub trait Launcher: Send + Sync {
+    /// Starts the command; an error when the OS refuses.
     fn start(&self, command: &Command) -> io::Result<Started>;
 }
 

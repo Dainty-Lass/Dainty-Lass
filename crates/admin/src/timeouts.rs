@@ -7,17 +7,22 @@ use std::path::{Path, PathBuf};
 use serde::{Deserialize, Serialize};
 use tokio::sync::Mutex;
 
+/// One timeout the admin API will lift.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Timeout {
+    /// The account id.
     pub user_id: String,
+    /// The player's name when it was set.
     pub username: String,
     /// When it ends, ms since 1970.
     pub until: i64,
     /// The ban reason the backend holds. A different one at the end means someone banned the player
     /// again since, so the ban is left alone.
     pub reason: String,
+    /// `manager:<operator id>`.
     pub by: String,
+    /// When it was set, ms since 1970.
     pub at: i64,
 }
 
@@ -27,6 +32,7 @@ struct File {
     timeouts: Vec<Timeout>,
 }
 
+/// The timeouts file, held in memory and rewritten whole on each change.
 pub struct Timeouts {
     file: PathBuf,
     entries: Mutex<Vec<Timeout>>,
@@ -66,6 +72,7 @@ impl Timeouts {
         })
     }
 
+    /// The player's timeout, if one is held.
     pub async fn get(&self, user_id: &str) -> Option<Timeout> {
         self.entries.lock().await.iter().find(|t| t.user_id == user_id).cloned()
     }
@@ -84,6 +91,7 @@ impl Timeouts {
         Ok(())
     }
 
+    /// Drops the player's timeout; no write when there was none.
     pub async fn remove(&self, user_id: &str) -> Result<(), String> {
         let mut entries = self.entries.lock().await;
         if !entries.iter().any(|t| t.user_id == user_id) {

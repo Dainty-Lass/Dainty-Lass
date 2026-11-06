@@ -1,4 +1,4 @@
-#![allow(clippy::unwrap_used, clippy::expect_used)] // tests
+#![allow(clippy::unwrap_used, clippy::expect_used, reason = "a panic is how a test fails")]
 
 //! The cluster CA and node certificates (DN3): what a CA issues, what a node accepts, and mutual TLS between
 //! two nodes in memory.

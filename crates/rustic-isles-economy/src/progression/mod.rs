@@ -25,10 +25,13 @@ pub use tracks::{curves, resolve_track_id};
 
 /// The Reforged API's activity counters (monitoring only, never failing a request).
 pub trait Activity: Send + Sync {
+    /// Counts `amount` XP granted on a track.
     fn xp(&self, _user_id: &str, _track: &str, _amount: f64) {}
+    /// Counts Slayer's Path nodes newly unlocked, with the route that saved them.
     fn slayers_path_unlocks(&self, _user_id: &str, _node_keys: &[String], _source: &str) {}
 }
 
+/// An [`Activity`] that counts nothing.
 #[derive(Debug, Default, Clone, Copy)]
 pub struct NoActivity;
 
@@ -95,11 +98,16 @@ impl CharacterChecks for StoreCharacters {
     }
 }
 
+/// The progression part's ports; `Default` is production's.
 #[derive(Clone)]
 pub struct ProgressionPorts {
+    /// The characters area's checks.
     pub characters: Arc<dyn CharacterChecks>,
+    /// The Reforged API's counters.
     pub activity: Arc<dyn Activity>,
+    /// Where a player is hunting.
     pub ring: Arc<dyn RingInstances>,
+    /// The inventory part's ports, for reward grants.
     pub inventory: InventoryPorts,
 }
 

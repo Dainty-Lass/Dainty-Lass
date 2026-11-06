@@ -10,7 +10,9 @@ use std::time::{Duration, Instant};
 
 use crate::seal::FrameType;
 
+/// The largest piece of a fragmented message, in bytes.
 pub const PIECE_BYTES: usize = 1100;
+/// The most pieces one message may take.
 pub const MAX_PIECES: usize = 4;
 const PIECE_HEADER: usize = 5;
 const MAX_PARTIAL: usize = 32;
@@ -56,14 +58,18 @@ impl Partial {
     }
 }
 
+/// What one Fragment frame did to its message.
 #[derive(Debug, PartialEq, Eq)]
 pub enum Piece {
     /// Not a valid piece: counts `frames_rejected`.
     Rejected,
+    /// A valid piece; the message still lacks others.
     Pending,
+    /// The last piece arrived: the inner frame type and the whole message.
     Complete(FrameType, Vec<u8>),
 }
 
+/// Puts fragmented messages back together, keeping a few partial ones for up to a second.
 #[derive(Default)]
 pub struct Reassembler {
     partial: VecDeque<Partial>,
@@ -72,6 +78,7 @@ pub struct Reassembler {
 }
 
 impl Reassembler {
+    /// Takes one Fragment frame's plaintext.
     pub fn add(&mut self, plain: &[u8], now: Instant) -> Piece {
         if plain.len() <= PIECE_HEADER {
             return Piece::Rejected;

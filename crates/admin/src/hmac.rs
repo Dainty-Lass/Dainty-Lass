@@ -5,6 +5,7 @@ use sha2::{Digest, Sha256};
 
 const BLOCK: usize = 64;
 
+/// HMAC-SHA256 of `message` under `key`.
 pub fn hmac_sha256(key: &[u8], message: &[u8]) -> Vec<u8> {
     let mut block = [0u8; BLOCK];
     if key.len() > BLOCK {
@@ -23,6 +24,7 @@ pub fn hmac_sha256(key: &[u8], message: &[u8]) -> Vec<u8> {
     outer.finalize().to_vec()
 }
 
+/// `bytes` as lowercase hex.
 pub fn hex(bytes: &[u8]) -> String {
     bytes
         .iter()
@@ -31,6 +33,7 @@ pub fn hex(bytes: &[u8]) -> String {
         .collect()
 }
 
+/// Lowercase hex SHA-256 of `data`.
 pub fn sha256_hex(data: &[u8]) -> String {
     hex(&Sha256::digest(data))
 }

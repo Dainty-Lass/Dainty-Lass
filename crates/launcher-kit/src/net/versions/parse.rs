@@ -19,7 +19,9 @@ pub const MAX_VERSIONS: usize = 16;
 /// ignored.
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 pub struct ServedVersion {
+    /// The game version.
     pub game_version: GameVersion,
+    /// Name shown to the player.
     pub display_name: String,
     /// The module has a client profile at `/versions/<version>/client`
     #[serde(default)]

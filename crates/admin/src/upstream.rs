@@ -25,14 +25,21 @@ const PAGE: usize = 100;
 /// 10,000 accounts: past that a name search gives up rather than hold the bot's command.
 const MAX_PAGES: usize = 100;
 
+/// The time source: unix milliseconds, for signatures and timeouts.
 pub type Clock = Arc<dyn Fn() -> i64 + Send + Sync>;
 
+/// Why a backend or Director call failed.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum UpstreamError {
     /// Not reachable, timed out, or an answer that is not what the service sends.
     Unavailable(String),
     /// An answer other than 2xx: the status and the backend's error code, when it gave one.
-    Refused { status: u16, code: Option<String> },
+    Refused {
+        /// The HTTP status.
+        status: u16,
+        /// The backend's error code, when it gave one.
+        code: Option<String>,
+    },
 }
 
 impl std::fmt::Display for UpstreamError {
@@ -50,6 +57,7 @@ impl std::fmt::Display for UpstreamError {
 pub struct Operator(String);
 
 impl Operator {
+    /// The id for the host's own tools.
     pub const HOST: &'static str = "0";
 
     /// 1-32 digits, as the backend's operator id; anything else is `None`.
@@ -57,10 +65,12 @@ impl Operator {
         (!id.is_empty() && id.len() <= 32 && id.bytes().all(|b| b.is_ascii_digit())).then(|| Self(id.to_owned()))
     }
 
+    /// The operator for the host's own tools, id `0`.
     pub fn host() -> Self {
         Self(Self::HOST.to_owned())
     }
 
+    /// The id, 1 to 32 digits.
     pub fn id(&self) -> &str {
         &self.0
     }
@@ -70,16 +80,25 @@ impl Operator {
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Account {
+    /// The account id.
     pub user_id: String,
+    /// The display name.
     pub display_name: String,
+    /// `active`, `banned` or `disabled`.
     #[serde(default)]
     pub status: String,
+    /// Roles the backend gives it, such as `admin`.
     #[serde(default)]
     pub roles: Vec<String>,
+    /// When it was made, as the backend writes it.
     pub created_at: Option<String>,
+    /// The last login, as the backend writes it.
     pub last_login_at: Option<String>,
+    /// When its approval state last changed.
     pub approval_updated_at: Option<String>,
+    /// Who changed it: `manager:<id>` or an account id.
     pub approval_updated_by: Option<String>,
+    /// The reason given then.
     pub approval_reason: Option<String>,
 }
 
@@ -95,10 +114,13 @@ struct AccountAnswer {
     account: Account,
 }
 
+/// A player the backend counts as online.
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct OnlinePlayer {
+    /// The account id.
     pub user_id: String,
+    /// The display name.
     pub display_name: String,
 }
 
@@ -111,8 +133,11 @@ struct OnlineAnswer {
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct Kicked {
+    /// The account id.
     pub user_id: String,
+    /// The display name.
     pub username: String,
+    /// Chat connections closed.
     pub closed: u32,
 }
 
@@ -120,18 +145,26 @@ pub struct Kicked {
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Status {
+    /// The server's name.
     pub name: String,
+    /// The server's version.
     pub version: String,
+    /// The source commit; empty when unknown.
     #[serde(default)]
     pub commit: String,
+    /// `INVITECODE`, `OPEN` or `NONE`.
     pub registration: String,
+    /// Seconds since the backend started.
     pub uptime_seconds: u64,
+    /// Whether chat is running.
     #[serde(default)]
     pub chat: bool,
+    /// `real`, `synthetic` or `missing`.
     #[serde(default)]
     pub game_data: String,
 }
 
+/// The backend's and the Director's HTTP APIs on loopback, signed as the backend expects.
 pub struct Upstream {
     backend: String,
     director: String,
@@ -174,6 +207,7 @@ pub fn operator_signature(
 }
 
 impl Upstream {
+    /// Calls the backend and Director at these base URLs with the admin key and operator secret.
     pub fn new(backend: &str, director: &str, admin_key: &str, operator_secret: &str, clock: Clock) -> Self {
         Self {
             backend: backend.to_owned(),
@@ -349,12 +383,14 @@ impl Upstream {
         Ok(answer.account)
     }
 
+    /// Kicks the player by name; answers what was closed.
     pub async fn kick(&self, username: &str) -> Result<Kicked, UpstreamError> {
         let url = format!("{}/reforged/api/Kick", self.backend);
         let body = json!({"Username": username});
         decode(&self.plain(Method::POST, url.clone(), true, Some(&body)).await?, &url)
     }
 
+    /// The server's keyless status.
     pub async fn status(&self) -> Result<Status, UpstreamError> {
         let url = format!("{}/reforged/api/ServerStatus", self.backend);
         decode(&self.plain(Method::GET, url.clone(), false, None).await?, &url)

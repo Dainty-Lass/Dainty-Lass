@@ -24,6 +24,7 @@ pub enum ManifestOrigin {
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 #[error("no source gave the pinned manifest")]
 pub struct ManifestUnavailable {
+    /// Each source asked and why it failed, in the order asked.
     pub tried: Vec<(ManifestOrigin, String)>,
 }
 

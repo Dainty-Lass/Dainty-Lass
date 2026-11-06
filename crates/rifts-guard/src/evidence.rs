@@ -15,11 +15,17 @@ use crate::store::{
     BatchRecord, ChainRecord, ChainUpdate, CompletionMode, CompletionRecord, Disposition, EncounterState, FindingRecord,
 };
 
+/// The only batch `schema` accepted.
 pub const BATCH_SCHEMA: i64 = 1;
+/// The most events one batch carries.
 pub const MAX_BATCH_EVENTS: usize = 128;
+/// The most bytes one event's payload takes as JSON.
 pub const MAX_PAYLOAD_BYTES: usize = 8192;
+/// The most bytes one batch's events take as JSON.
 pub const MAX_BATCH_EVENT_BYTES: u64 = 65_536;
+/// The most events one hunt generation's chain accepts.
 pub const MAX_CHAIN_EVENTS: u64 = 262_144;
+/// The most event bytes one hunt generation's chain accepts.
 pub const MAX_CHAIN_EVENT_BYTES: u64 = 67_108_864;
 
 /// Prefixed to the body's canonical text before hashing; a database's chains carry hashes made with it.
@@ -46,34 +52,51 @@ pub(crate) const NOT_REQUESTED: &str = "The Guard chain has not requested comple
 const NO_COMPLETION: &str = "This hunt generation has no Guard completion.";
 const COMPLETION_CONFLICT: &str = "The Guard completion does not match this hunt generation's chain.";
 
+/// One event of a batch.
 #[derive(Debug, Clone, PartialEq)]
 pub struct EvidenceEvent {
+    /// The event's place in the chain, counting from 1 with no gaps.
     pub sequence: u64,
+    /// The runtime's monotonic clock in milliseconds; never goes back within a chain.
     pub monotonic_ms: u64,
+    /// The event type, such as `COMPLETION_REQUESTED`.
     pub kind: String,
+    /// The account the event is about, when it names one.
     pub actor: Option<String>,
+    /// The event's payload object.
     pub payload: Value,
 }
 
+/// A parsed evidence batch.
 #[derive(Debug, Clone, PartialEq)]
 pub struct EvidenceBatch {
+    /// The transport's id for the batch.
     pub batch_id: String,
+    /// The first event's sequence.
     pub first_sequence: u64,
+    /// The last event's sequence.
     pub last_sequence: u64,
+    /// The chain head this batch continues, as 64 hex digits.
     pub previous_hash: String,
+    /// The events in sequence order.
     pub events: Vec<EvidenceEvent>,
+    /// The events' total size as JSON, in bytes.
     pub event_bytes: u64,
+    /// The hash of the labelled canonical body, which becomes the chain's head.
     pub batch_hash: String,
 }
 
 /// Why a batch body was refused; the text is a diagnostic only.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum BatchProblem {
+    /// Over the batch's event count or byte bound.
     TooLarge,
+    /// Malformed; the text names the field, for diagnostics only.
     Invalid(&'static str),
 }
 
 impl BatchProblem {
+    /// The refusal sent for this problem.
     pub fn into_error(self) -> GuardError {
         match self {
             Self::TooLarge => GuardError::refused("GUARD_BATCH_TOO_LARGE", TOO_LARGE),
@@ -85,13 +108,18 @@ impl BatchProblem {
 /// A refusal of a batch, with the finding it leaves on the chain when it leaves one: `(code, detail)`.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ChainRefusal {
+    /// The refusal sent.
     pub error: GuardError,
+    /// The finding recorded on the chain, if any.
     pub finding: Option<(String, String)>,
 }
 
+/// A parsed completion body.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CompletionRequest {
+    /// The last event's sequence, the chain's last sequence when it matches.
     pub final_sequence: u64,
+    /// The chain's head hash, 64 hex digits.
     pub final_hash: String,
 }
 
@@ -394,6 +422,7 @@ pub fn finding_update(chain: &ChainRecord, code: &str, detail: &str, now: UnixMi
     }
 }
 
+/// Reads a completion body; anything but `finalSequence` above zero and a 64-digit `finalHash` is refused.
 pub fn parse_completion(body: Option<&Value>) -> Result<CompletionRequest, GuardError> {
     let read = || {
         let object = body?

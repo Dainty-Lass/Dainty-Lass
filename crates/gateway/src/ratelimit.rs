@@ -12,9 +12,12 @@ use service_kit::js;
 const MAX_KEYS: usize = 100_000;
 const MAX_VALUE: f64 = 1_000_000.0;
 
+/// A token bucket's size and refill rate.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct BucketSpec {
+    /// Tokens a full bucket holds.
     pub burst: f64,
+    /// Tokens added per minute.
     pub per_minute: f64,
 }
 
@@ -41,11 +44,14 @@ pub fn parse_bucket_spec(text: &str, name: &str) -> Result<BucketSpec, String> {
     Ok(BucketSpec { burst, per_minute })
 }
 
+/// Whether a request may go.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Take {
+    /// A token was taken.
     Allowed,
-    /// Seconds until a token is back
+    /// The bucket is empty.
     Limited {
+        /// Seconds until a token is back, at least 1.
         retry_after: u64,
     },
 }
@@ -64,6 +70,7 @@ struct Buckets {
     next: u64,
 }
 
+/// Token buckets per key, at most 100 000 keys.
 pub struct RateLimiter {
     spec: BucketSpec,
     start: Instant,
@@ -71,6 +78,7 @@ pub struct RateLimiter {
 }
 
 impl RateLimiter {
+    /// Buckets of `spec`, full for a new key.
     pub fn new(spec: BucketSpec) -> Self {
         Self {
             spec,
@@ -79,6 +87,7 @@ impl RateLimiter {
         }
     }
 
+    /// Its bucket spec.
     pub fn spec(&self) -> BucketSpec {
         self.spec
     }
@@ -92,6 +101,7 @@ impl RateLimiter {
         (bucket.tokens + gained).min(self.spec.burst)
     }
 
+    /// Takes one token for `key` now.
     pub fn take(&self, key: &str) -> Take {
         self.take_at(key, self.now_ms())
     }
@@ -158,15 +168,18 @@ impl RateLimiter {
         self.sweep_at(self.now_ms());
     }
 
+    /// [`RateLimiter::sweep`] at `now_ms` on the limiter's clock.
     pub fn sweep_at(&self, now_ms: f64) {
         let mut guard = self.buckets.lock().unwrap_or_else(PoisonError::into_inner);
         self.sweep_locked(&mut guard, now_ms);
     }
 
+    /// How many keys have a bucket.
     pub fn len(&self) -> usize {
         self.buckets.lock().unwrap_or_else(PoisonError::into_inner).by_key.len()
     }
 
+    /// Whether no key has one.
     pub fn is_empty(&self) -> bool {
         self.len() == 0
     }

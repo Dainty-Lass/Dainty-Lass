@@ -19,14 +19,19 @@ use crate::util::now_iso;
 pub const STALE_REFORGE_MS: i64 = 120_000;
 const DUPLICATE_WINDOW_MS: i64 = 15 * 60_000;
 
+/// `RUSTIC_ISLES_REFORGE`: whether the reforge rules run.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ReforgeMode {
+    /// The rules run.
     On,
+    /// The rules do not run, as with `off`, but the log names the mode `log`.
     Log,
+    /// The rules do not run: grants pass as normal and a reset is refused.
     Off,
 }
 
 impl ReforgeMode {
+    /// The setting's text.
     pub fn as_str(self) -> &'static str {
         match self {
             Self::On => "on",
@@ -55,21 +60,31 @@ pub fn reforge_mode(shared: &Shared) -> ReforgeMode {
     }
 }
 
+/// What an XP grant may do against the weapon's reforge record (P2).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ReforgePlan {
+    /// An ordinary grant.
     Normal,
+    /// The reforge's one +1 on the prestige track.
     Prestige {
+        /// The weapon's experience track.
         experience_track: String,
+        /// The open reforge, as read.
         reforge: WeaponReforge,
     },
+    /// The banked XP returned to the experience track.
     Restore {
+        /// The weapon's experience track.
         experience_track: String,
+        /// The open reforge, as read.
         reforge: WeaponReforge,
     },
+    /// Refused; the text says why.
     Refuse(String),
 }
 
 impl ReforgePlan {
+    /// The plan's name, for the log.
     pub fn kind(&self) -> &'static str {
         match self {
             Self::Normal => "normal",
@@ -79,6 +94,7 @@ impl ReforgePlan {
         }
     }
 
+    /// The reforge a prestige or restore plan marks.
     pub fn reforge(&self) -> Option<&WeaponReforge> {
         match self {
             Self::Prestige { reforge, .. } | Self::Restore { reforge, .. } => Some(reforge),
@@ -92,6 +108,7 @@ fn opened_ms(reforge: &WeaponReforge) -> Option<i64> {
     js::date_parse(&reforge.opened_at)
 }
 
+/// Whether the reforge was opened at least [`STALE_REFORGE_MS`] ago, or its time is unreadable.
 pub fn is_stale(reforge: &WeaponReforge, now_ms: i64) -> bool {
     opened_ms(reforge).is_none_or(|opened| now_ms - opened >= STALE_REFORGE_MS)
 }
@@ -126,8 +143,7 @@ pub fn classify_grant(
         && let Some(r) = reforge.filter(|r| r.banked > 0)
     {
         let remaining = r.banked - r.banked_restored;
-        // Reforge counters are far below 2^53
-        #[allow(clippy::cast_precision_loss)]
+        #[allow(clippy::cast_precision_loss, reason = "reforge counters are far below 2^53")]
         let (remaining_f, banked_f) = (remaining as f64, r.banked as f64);
         if r.open && remaining > 0 && amount == remaining_f {
             return ReforgePlan::Restore {

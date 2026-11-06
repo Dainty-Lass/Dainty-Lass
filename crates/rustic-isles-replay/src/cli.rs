@@ -9,6 +9,7 @@ use std::process::ExitCode;
 
 use crate::options::{ReplayOptions, run_replay_cli};
 
+/// The help text `--help` prints.
 pub const USAGE: &str = "\
 Usage: replay --corpus <path> --left <url|recorded> --right <url> [options]
 
@@ -42,13 +43,18 @@ Replay Options:
 /// A parsed command line.
 #[derive(Debug, Clone)]
 pub enum CliCommand {
+    /// `-h`/`--help`: print [`USAGE`].
     Help,
+    /// Replay with these options.
     Run(Box<CliArgs>),
 }
 
+/// A replay run's options and output format.
 #[derive(Debug, Clone)]
 pub struct CliArgs {
+    /// The run's options.
     pub options: ReplayOptions,
+    /// Print the report as JSON (`--json`).
     pub json: bool,
 }
 

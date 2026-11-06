@@ -9,11 +9,13 @@ use serde::{Deserialize, Serialize};
 /// The longest name a [`ModuleId`] and the other names in this crate may be.
 pub const MAX_NAME_LEN: usize = 64;
 
+/// A name broke the naming rule.
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 #[error(
     "{what} must be 1 to {MAX_NAME_LEN} characters of a-z, 0-9 and '-', starting with a letter and not ending with '-'"
 )]
 pub struct NameError {
+    /// What the name was for, such as "a module id".
     pub what: &'static str,
 }
 
@@ -39,12 +41,14 @@ macro_rules! name_type {
         pub struct $name(String);
 
         impl $name {
+            /// `text` as a name, when it follows the naming rule.
             pub fn new(text: impl Into<String>) -> Result<Self, $crate::ids::NameError> {
                 let text = text.into();
                 $crate::ids::check_name(&text, $what)?;
                 Ok(Self(text))
             }
 
+            /// The name's text.
             pub fn as_str(&self) -> &str {
                 &self.0
             }
@@ -87,6 +91,7 @@ name_type!(
     "a module id"
 );
 
+/// Text that is not a digest of the expected length in lowercase hex.
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 #[error("a SHA-{bits} digest is {len} lowercase hex characters")]
 pub struct DigestError {
@@ -105,10 +110,12 @@ pub type Sha1Hex = HexDigest<20>;
 pub type Sha256Hex = HexDigest<32>;
 
 impl<const BYTES: usize> HexDigest<BYTES> {
+    /// The digest of these raw bytes.
     pub fn from_bytes(bytes: [u8; BYTES]) -> Self {
         Self(bytes)
     }
 
+    /// The raw digest bytes.
     pub fn as_bytes(&self) -> &[u8; BYTES] {
         &self.0
     }

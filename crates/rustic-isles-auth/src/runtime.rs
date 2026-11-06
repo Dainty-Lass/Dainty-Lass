@@ -12,7 +12,9 @@ use crate::errors::LauncherError;
 use crate::store::Channel;
 use crate::util;
 
+/// The runtime's main DLL, which the manifest's top-level hash names.
 pub const CORE_DLL: &str = "Rustic-Isles.dll";
+/// The proxy DLL every approved artifact set must hold.
 pub const PROXY_DLL: &str = "winmm.dll";
 
 /// Every account runs `stable` (the tester role no longer moves a launcher).
@@ -20,6 +22,7 @@ pub fn expected_channel() -> Channel {
     Channel::Stable
 }
 
+/// `AUTH_CHANNEL_MISMATCH` unless `requested` is the channel the account must run.
 pub fn assert_channel(requested: Channel) -> Result<(), LauncherError> {
     let expected = expected_channel();
     if requested != expected {
@@ -141,6 +144,7 @@ pub fn assert_main_hash(
 pub struct ApprovedRuntime {
     /// The main DLL's hash
     pub runtime_sha256: String,
+    /// The published manifest's version.
     pub manifest_version: String,
     /// `{lower name}:{sha256}` lines in locale order, joined by `\n`, SHA-256 hex
     pub artifact_set_sha256: String,
@@ -249,6 +253,7 @@ pub fn assert_artifact_set(
     })
 }
 
+/// The artifact set's digest: `{lower name}:{sha256}` lines in locale order, joined by `\n`, SHA-256 hex.
 pub fn artifact_set_digest(files: &[(String, String)]) -> String {
     let mut sorted: Vec<&(String, String)> = files.iter().collect();
     sorted.sort_by(|a, b| service_kit::collate::locale_compare(&a.0, &b.0));

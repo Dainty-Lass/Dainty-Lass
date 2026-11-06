@@ -1,7 +1,7 @@
 //! The keys on both engines (DD15, DH2). `REFORGED_TEST_POSTGRES_URL` names a server the test may create a
 //! database on (`postgres://user:pw@127.0.0.1:5432/postgres`); without it only SQLite runs.
 
-#![allow(clippy::unwrap_used, clippy::expect_used)] // test helpers
+#![allow(clippy::unwrap_used, clippy::expect_used, reason = "a panic is how a test fails")]
 
 use admin::keys::{Action, AuthError, Keys, Role};
 use diesel::Connection;

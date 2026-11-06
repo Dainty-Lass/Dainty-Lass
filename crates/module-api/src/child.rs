@@ -17,12 +17,16 @@ use crate::ids::ModuleId;
 use crate::module::{BoxFuture, ErrorKind, GameModule, HostAnswer, HostCall, HostLink, ModuleContext, ModuleError};
 use crate::peer::{self, MAX_IN_FLIGHT, Pending, Resolved, Writer};
 
+/// Why serving the host stopped with an error.
 #[derive(Debug, thiserror::Error)]
 pub enum ServeError {
+    /// The host refused this module's hello; holds the host's reason.
     #[error("the host refused this module: {0}")]
     Refused(String),
+    /// The host sent something the protocol does not allow at that point.
     #[error("the host broke the frame protocol: {0}")]
     Protocol(String),
+    /// Reading or writing a frame failed.
     #[error("{0}")]
     Frame(#[from] FrameError),
 }

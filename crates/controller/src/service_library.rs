@@ -39,8 +39,11 @@ const STOP_TIMEOUT: Duration = Duration::from_secs(10);
 /// A service library as `host.toml` pins it.
 #[derive(Debug, Clone)]
 pub struct ServiceLibrary {
+    /// The service's name, also its component name.
     pub name: &'static str,
+    /// The library file.
     pub path: PathBuf,
+    /// The SHA-256 `host.toml` pins it to; a file that doesn't match is refused.
     pub sha256: Sha256Hex,
     /// What it serves as a core plugin, checked against its hello; empty for a service that takes no registration
     pub serves: &'static [CoreCapability],
@@ -99,7 +102,9 @@ pub trait Extension: Send + Sync {
     fn prepare<'a>(&'a self, _run: &'a RunLink) -> BoxFuture<'a, Result<(), String>> {
         Box::pin(async { Ok(()) })
     }
+    /// Called once the run has ended.
     fn closed(&self);
+    /// What to send before attaching `_module`.
     fn before_attach(&self, _module: &ModuleManifest) -> Vec<ToService> {
         Vec::new()
     }
@@ -113,6 +118,7 @@ pub trait Extension: Send + Sync {
 pub struct RunLink(Arc<Run>);
 
 impl RunLink {
+    /// Sends `message` to the open instance; one that cannot be encoded is logged and dropped.
     pub fn send(&self, message: &ToService) {
         self.0.send(message);
     }

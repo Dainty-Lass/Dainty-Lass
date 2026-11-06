@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Silent Spud
 
+//! `dainty-host start`'s pieces: the checks before the server starts, the database, the plan of front services
+//! and their supervised start, and the stop.
+
 pub mod binaries;
 pub mod control;
 
@@ -26,6 +29,7 @@ use std::sync::Arc;
 use self::binaries::{FrontService, Launch, Programs};
 use self::control::Control;
 
+/// Prints each service's output line as `name | line` on stdout.
 #[must_use]
 pub fn console_printer() -> Printer {
     Arc::new(|name: &str, line: &str| {
@@ -33,28 +37,38 @@ pub fn console_printer() -> Printer {
     })
 }
 
+/// One service to start, and how long it may take.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Planned {
+    /// What to run.
     pub spec: ServiceSpec,
+    /// How long it may take to be ready.
     pub ready_timeout: Duration,
+    /// A start that is not ready in time stops the server; otherwise it runs on without it.
     pub required: bool,
 }
 
+/// [`Planned`] under the name the plan's callers use.
 pub type PlannedService = Planned;
 
+/// Where `start` writes what it says.
 pub trait StartEnv {
+    /// Writes one line.
     fn say(&mut self, line: &str);
 }
 
+/// Prints `line` on stdout.
 pub fn say(line: &str) {
     println!("{line}");
 }
 
+/// The service's env file, `<name>.env` in the config folder.
 #[must_use]
 pub fn env_file(paths: &Paths, name: &str) -> PathBuf {
     paths.config.join(format!("{name}.env"))
 }
 
+/// Fails, naming them, when any of the services' env files is missing.
 pub fn require_env_files(paths: &Paths, names: &[&str]) -> Result<(), HostError> {
     let missing: Vec<String> = names
         .iter()
@@ -72,6 +86,7 @@ pub fn require_env_files(paths: &Paths, names: &[&str]) -> Result<(), HostError>
     }
 }
 
+/// The spec that runs `launch` as `name`, given its env file unless `launch` passes it as an argument.
 #[must_use]
 pub fn spec_from(name: &str, launch: Launch, env_file_path: PathBuf, ready: Ready) -> ServiceSpec {
     ServiceSpec {
@@ -85,10 +100,12 @@ pub fn spec_from(name: &str, launch: Launch, env_file_path: PathBuf, ready: Read
     }
 }
 
+/// Whether something already answers on the service's port.
 pub fn port_in_use(ready: &Ready) -> Result<bool, HostError> {
     Ok(check_ready(ready) || raw_port_in_use(ready.port(), Some(ready.host()))?)
 }
 
+/// The workspace's host.toml; an error says to run setup, or to migrate the MongoDB data first.
 pub fn load_config(paths: &Paths) -> Result<HostConfig, HostError> {
     if let Some(cfg) = load_host_config(paths)? {
         return Ok(cfg);
@@ -107,6 +124,7 @@ pub fn load_config(paths: &Paths) -> Result<HostConfig, HostError> {
     ))
 }
 
+/// The line printed once the server is up.
 #[must_use]
 pub fn up_line(config: &HostConfig) -> String {
     let port = gateway_port(config);
@@ -119,6 +137,8 @@ pub fn up_line(config: &HostConfig) -> String {
     )
 }
 
+/// The services to start, in order: the allowlist on a public server (unless it runs as its own unit), the Node
+/// backend and Director in a `paradox` build, the content server, then the gateway.
 pub fn service_plan(
     p: &Paths,
     config: &HostConfig,
@@ -200,9 +220,13 @@ pub fn service_plan(
     Ok(plan)
 }
 
+/// Prepares the database before the services start; `false` stops the start.
 pub type PrepareDbFn<'a> = &'a dyn Fn(&Supervisor) -> Result<bool, HostError>;
+/// Whether something already holds a service's port.
 pub type PortTakenFn<'a> = &'a dyn Fn(&Ready) -> Result<bool, HostError>;
 
+/// Prepares the database, then starts each planned service in order; `false` when a stop was asked meanwhile.
+/// Fails when a port is taken or a required service is not ready in time.
 pub fn start_services(
     supervisor: &Supervisor,
     control: &Control,
@@ -243,6 +267,7 @@ pub fn start_services(
     Ok(!control.asked())
 }
 
+/// Prints that the server is up and waits for a stop when `started`, then stops every service and runs `after_stop`.
 pub fn finish(
     started: bool,
     supervisor: &Supervisor,
@@ -268,6 +293,7 @@ pub fn finish(
     Ok(std::process::ExitCode::SUCCESS)
 }
 
+/// The doctor's network and Linux checks; fails on the first failing one.
 pub fn host_checks(paths: &Paths, config: &HostConfig, external_allowlist: bool) -> Result<(), HostError> {
     let platform = Platform::current();
     let mut checks = network_checks(paths, config, platform)?;
@@ -305,10 +331,13 @@ pub fn host_checks(paths: &Paths, config: &HostConfig, external_allowlist: bool)
     Ok(())
 }
 
+/// [`preflight_with`] with the allowlist run by `start`.
 pub fn preflight(paths: &Paths, config: &HostConfig) -> Result<(), HostError> {
     preflight_with(paths, config, false)
 }
 
+/// What runs before the services: the MongoDB data check, the host checks, the preset and game data,
+/// the game folder with its runtime, and the store check. Fails on what would stop the server from running.
 pub fn preflight_with(paths: &Paths, config: &HostConfig, external_allowlist: bool) -> Result<(), HostError> {
     if !cfg!(feature = "paradox") {
         crate::commands::update::check_unmigrated_mongo_data(paths, config)?;
@@ -345,6 +374,8 @@ pub fn preflight_with(paths: &Paths, config: &HostConfig, external_allowlist: bo
     Ok(())
 }
 
+/// Brings up the managed MongoDB's replica set, starting mongod under `supervisor` when it does not answer.
+/// `false` when `cancel` stopped it.
 pub fn prepare_database(
     paths: &Paths,
     config: &HostConfig,
@@ -430,6 +461,7 @@ pub fn prepare_database(
     }
 }
 
+/// Writes the game server wrapper if it is missing and makes the Wine prefix.
 pub fn linux_wine(paths: &Paths, config: &HostConfig) -> Result<(), HostError> {
     if !crate::wine::is_executable(&paths.gameserver_wrapper) {
         write_gameserver_wrapper(paths)?;
@@ -440,6 +472,7 @@ pub fn linux_wine(paths: &Paths, config: &HostConfig) -> Result<(), HostError> {
     Ok(())
 }
 
+/// Waits up to 30 s for the allowlist systemd unit to answer on a public server; `false` when a stop was asked.
 pub fn linux_external_allowlist(control: &Control, config: &HostConfig) -> Result<bool, HostError> {
     if config.mode != ServerMode::Public {
         return Ok(true);
@@ -466,13 +499,14 @@ pub fn linux_external_allowlist(control: &Control, config: &HostConfig) -> Resul
     )))
 }
 
+/// Runs `dainty-host start`: the server without a console.
 pub fn run(paths: &Paths) -> Outcome {
     crate::serve::run(paths, &crate::serve::ServeOptions::start())
 }
 
 #[cfg(test)]
 mod tests {
-    #![allow(clippy::unwrap_used)]
+    #![allow(clippy::unwrap_used, reason = "a panic is how a test fails")]
 
     use super::*;
     use serde_json::json;

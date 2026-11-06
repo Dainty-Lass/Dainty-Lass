@@ -31,12 +31,14 @@ use crate::ring::{RingError, RingNode};
 /// Sessions a node holds tickets for at once.
 pub const MAX_HELD: usize = 4096;
 
+/// How a [`NetworkedHome`] asks homes.
 #[derive(Debug, Clone)]
 pub struct NetworkedConfig {
     /// The game version this network serves (DD16: 1.14.7 at first): tickets made here are for it
     pub game: GameVersion,
     /// Times a request is sent when the home can't be reached or is busy, with the same key
     pub attempts: u32,
+    /// How long to wait before sending again.
     pub retry_after: Duration,
     /// A held ticket with less than this left is renewed before it is used
     pub renew_within: Duration,
@@ -45,6 +47,7 @@ pub struct NetworkedConfig {
 }
 
 impl NetworkedConfig {
+    /// Three attempts 200 ms apart, renewing a ticket in its last minute.
     pub fn new(game: GameVersion) -> Self {
         Self {
             game,
@@ -63,6 +66,7 @@ struct Held {
     since: i64,
 }
 
+/// The [`HomeApi`] of a node in a network: finds homes, makes and checks tickets and runs operations remotely.
 pub struct NetworkedHome {
     me: NodeIdentity,
     regions: BTreeMap<NodeId, Region>,
@@ -166,17 +170,20 @@ impl NetworkedHome {
         }
     }
 
+    /// Runs forwarded operations on accounts homed here through `router` instead of the link.
     pub fn with_local_router(mut self, router: Arc<HomeRouter>) -> Self {
         self.local_router = Some(router);
         self
     }
 
+    /// Registers usernames through the directory instead of refusing.
     #[cfg(feature = "directory")]
     pub fn with_directory(mut self, directory: Arc<crate::directory::Directory>) -> Self {
         self.directory = Some(directory);
         self
     }
 
+    /// The matchmaking ring that account key hashes are registered with. Set once; later calls are ignored.
     pub fn set_ring(&self, ring: &Arc<RingNode>) {
         let _ = self.ring.set(Arc::downgrade(ring));
     }
@@ -188,6 +195,7 @@ impl NetworkedHome {
             .ok_or_else(|| unreachable("the matchmaking ring is not running"))
     }
 
+    /// The tickets this node makes and checks.
     pub fn tickets(&self) -> &Arc<Tickets> {
         &self.tickets
     }

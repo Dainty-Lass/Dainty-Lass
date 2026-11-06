@@ -5,7 +5,10 @@
 //! `tree.rs` does it.
 
 #[cfg(windows)]
-#[allow(unsafe_code)] // Win32 process creation inside a job, the exit poll, the pid check and the memory query
+#[allow(
+    unsafe_code,
+    reason = "Win32 process creation inside a job, the exit poll, the pid check and the memory query"
+)]
 mod imp {
     use std::ffi::c_void;
     use std::io;
@@ -255,6 +258,7 @@ mod imp {
         })
     }
 
+    /// Whether a process with this id is running.
     pub fn pid_alive(pid: u32) -> bool {
         // SAFETY: a query-only handle, closed below by OwnedHandle.
         let Ok(raw) = (unsafe { OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid) }) else {
@@ -268,6 +272,7 @@ mod imp {
         read.is_ok() && code == STILL_ACTIVE.0 as u32
     }
 
+    /// Free physical memory in bytes; none when it cannot be read.
     pub fn free_physical_bytes() -> Option<u64> {
         let mut status = MEMORYSTATUSEX {
             dwLength: size_of::<MEMORYSTATUSEX>() as u32,
@@ -280,7 +285,10 @@ mod imp {
 }
 
 #[cfg(unix)]
-#[allow(unsafe_code)] // kill(2) on the process group, the parent-death signal and the free-pages query
+#[allow(
+    unsafe_code,
+    reason = "kill(2) on the process group, the parent-death signal and the free-pages query"
+)]
 mod imp {
     use std::io;
     use std::os::unix::process::ExitStatusExt;
@@ -388,6 +396,7 @@ mod imp {
         })
     }
 
+    /// Whether a process with this id exists (signal 0; `EPERM` counts).
     pub fn pid_alive(pid: u32) -> bool {
         let Ok(pid) = libc::pid_t::try_from(pid) else {
             return false;
@@ -397,6 +406,7 @@ mod imp {
         sent || io::Error::last_os_error().raw_os_error() == Some(libc::EPERM)
     }
 
+    /// Free physical memory in bytes; none when it cannot be read.
     pub fn free_physical_bytes() -> Option<u64> {
         #[cfg(target_os = "linux")]
         {

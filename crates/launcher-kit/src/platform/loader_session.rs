@@ -75,6 +75,7 @@ impl SessionError {
 /// What a session placed, so it can be undone, now or at the next start.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct LoaderSession {
+    /// Which tool the session loads.
     pub kind: SessionKind,
     /// The game's Win64 folder, where the loader is
     pub dir: PathBuf,

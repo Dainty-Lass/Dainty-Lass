@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Silent Spud
 
-#![allow(clippy::unwrap_used, clippy::expect_used)] // tests
+#![allow(clippy::unwrap_used, clippy::expect_used, reason = "a panic is how a test fails")]
 
 //! Node links on the gateway's public port (DN3): several nodes on 127.0.0.1:0, each a real gateway, call
 //! each other through `TlsPeerLink` over mutual TLS under one cluster CA.

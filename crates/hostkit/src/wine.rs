@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Silent Spud
 
+//! The hidden `dainty-host gameserver` command on Linux: Dauntless-Win64-Shipping.exe run under Wine or Proton,
+//! and under xvfb-run when there is no display, from the variables the Director's env file sets.
+
 use std::collections::BTreeMap;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -8,20 +11,33 @@ use std::process::Command;
 
 use crate::error::HostError;
 
+/// The game executable's absolute path.
 pub const ENV_EXE: &str = "REFORGED_GAME_EXE";
+/// The Wine executable; found on PATH when unset.
 pub const ENV_WINE: &str = "REFORGED_WINE";
+/// The Proton executable; when set, Proton runs the game instead of Wine.
 pub const ENV_PROTON: &str = "REFORGED_PROTON";
+/// The Wine prefix's absolute path.
 pub const ENV_PREFIX: &str = "REFORGED_WINEPREFIX";
+/// Proton's compat data folder, an absolute path.
 pub const ENV_PROTON_DATA: &str = "REFORGED_PROTON_DATA";
+/// `0` runs the game without xvfb-run.
 pub const ENV_XVFB: &str = "REFORGED_XVFB";
+/// The xvfb-run executable; found on PATH when unset.
 pub const ENV_XVFB_RUN: &str = "REFORGED_XVFB_RUN";
 
+/// How a game server is launched.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct LaunchSpec {
+    /// The program run.
     pub command: String,
+    /// Its arguments.
     pub args: Vec<String>,
+    /// The folder it runs in: the executable's.
     pub cwd: PathBuf,
+    /// Its whole environment.
     pub env: BTreeMap<String, String>,
+    /// What runs it, as the log says: `Wine`, `Proton (<build>)`, or either followed by ` on xvfb-run`.
     pub runtime: String,
 }
 
@@ -62,6 +78,7 @@ fn split_path_entries(path_var: &str) -> Vec<PathBuf> {
     out
 }
 
+/// Whether `file` is a file this user may run (any file off Unix).
 pub fn is_executable(file: &Path) -> bool {
     let Ok(meta) = fs::metadata(file) else {
         return false;
@@ -80,6 +97,7 @@ pub fn is_executable(file: &Path) -> bool {
     }
 }
 
+/// The first of `names` that is executable in one of `path_var`'s folders.
 pub fn find_on_path_in(names: &[&str], path_var: &str) -> Option<String> {
     let dirs = split_path_entries(path_var);
     for &name in names {
@@ -96,15 +114,18 @@ pub fn find_on_path_in(names: &[&str], path_var: &str) -> Option<String> {
     None
 }
 
+/// The first of `names` on this process's PATH.
 pub fn find_on_path(names: &[&str]) -> Result<Option<String>, HostError> {
     let path_var = std::env::var("PATH").unwrap_or_default();
     Ok(find_on_path_in(names, &path_var))
 }
 
+/// `wine64` or `wine` on `path_var`.
 pub fn find_wine(path_var: &str) -> Result<Option<String>, HostError> {
     Ok(find_on_path_in(&["wine64", "wine"], path_var))
 }
 
+/// `existing`'s `WINEDLLOVERRIDES` with `winmm`, `mscoree` and `mshtml` set as the runtime needs.
 pub fn dll_overrides(existing: Option<&str>) -> String {
     let mut parts = Vec::new();
     if let Some(raw) = existing {
@@ -145,6 +166,8 @@ fn infer_steam_client_install_path(proton: &Path) -> Option<String> {
     None
 }
 
+/// The launch for the game with `game_args`, from the `REFORGED_*` variables in `env`.
+/// Fails when a variable is missing or not an absolute path, or a program is not found.
 pub fn build_launch(game_args: &[String], env: &BTreeMap<String, String>) -> Result<LaunchSpec, HostError> {
     let exe = env
         .get(ENV_EXE)
@@ -284,10 +307,12 @@ pub fn build_launch(game_args: &[String], env: &BTreeMap<String, String>) -> Res
     })
 }
 
+/// Whether `prefix` holds an initialized Wine prefix.
 pub fn wine_prefix_ready(prefix: &Path) -> bool {
     prefix.join("system.reg").is_file() && prefix.join("drive_c").is_dir()
 }
 
+/// Launches the game server with `args` and waits for it; returns its exit code.
 pub fn run_game_server(args: &[String]) -> Result<i32, HostError> {
     let env: BTreeMap<String, String> = std::env::vars().collect();
     let spec = build_launch(args, &env)?;
@@ -308,7 +333,7 @@ pub fn run_game_server(args: &[String]) -> Result<i32, HostError> {
 
 #[cfg(test)]
 mod tests {
-    #![allow(clippy::unwrap_used, clippy::expect_used)]
+    #![allow(clippy::unwrap_used, clippy::expect_used, reason = "a panic is how a test fails")]
 
     use super::*;
     use tempfile::TempDir;

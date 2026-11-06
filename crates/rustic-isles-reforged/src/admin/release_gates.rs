@@ -15,10 +15,14 @@ use serde_json::Value;
 use crate::state::ReforgedState;
 use crate::util::{self, object};
 
+/// One release gate's result.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Gate {
+    /// The gate's name.
     pub name: &'static str,
+    /// Whether it passes.
     pub ok: bool,
+    /// Counts, modes and booleans that explain it; never a value.
     pub detail: String,
 }
 
@@ -141,6 +145,7 @@ pub fn collect_release_gates(shared: &Shared) -> Vec<Gate> {
     gates
 }
 
+/// The status (200 when every gate passes, else 503) and the JSON body.
 pub fn gates_body(gates: &[Gate]) -> (StatusCode, Value) {
     let ok = !gates.is_empty() && gates.iter().all(|g| g.ok);
     let list: Vec<Value> = gates
@@ -164,6 +169,7 @@ pub fn gates_body(gates: &[Gate]) -> (StatusCode, Value) {
     )
 }
 
+/// `GET /health/release-gates`: loopback only, refused through a proxy.
 pub async fn release_gates(call: Call) -> Response {
     let peer = util::peer_text(&call.request);
     let headers = call.request.headers();

@@ -6,12 +6,15 @@
 use axum::extract::Request;
 use http::StatusCode;
 
+/// Watches requests as the pipeline handles them.
 pub trait Observer: Send + Sync {
     /// Called with the request as received (before the origin strip) and its id.
     fn begin(&self, request: &Request, request_id: &str) -> Box<dyn Observation>;
 }
 
+/// One request being watched.
 pub trait Observation: Send {
+    /// Called once with the status answered.
     fn finish(self: Box<Self>, status: StatusCode);
 }
 

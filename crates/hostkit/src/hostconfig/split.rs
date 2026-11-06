@@ -28,6 +28,7 @@ pub enum SplitRole {
 }
 
 impl SplitRole {
+    /// The name host.toml spells it with.
     pub fn as_str(self) -> &'static str {
         match self {
             Self::Metagame => "metagame",
@@ -44,8 +45,10 @@ impl SplitRole {
     }
 }
 
+/// `[split]`: this server as one half of a split server.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SplitConfig {
+    /// Which half this is.
     pub role: SplitRole,
     /// The other half: a node of `[[network.nodes]]`
     pub peer: NodeId,
@@ -59,6 +62,7 @@ fn bad(text: impl Into<String>) -> HostError {
 }
 
 impl SplitConfig {
+    /// Reads `[split]`; fails on a key it doesn't know or a value it doesn't take.
     pub fn from_json(value: &Value) -> Result<Self, HostError> {
         let obj = value.as_object().ok_or_else(|| bad("split must be a table"))?;
         for key in obj.keys() {
@@ -94,6 +98,7 @@ impl SplitConfig {
         })
     }
 
+    /// The table host.toml writes.
     #[must_use]
     pub fn to_json(&self) -> Value {
         let mut out = Map::new();

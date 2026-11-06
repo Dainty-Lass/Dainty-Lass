@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Silent Spud
 
+//! The `dainty-host` commands, one module each, and [`dispatch`] from a parsed command to its module.
+
 pub mod backup;
 pub mod db;
 pub mod doctor;
@@ -24,6 +26,7 @@ use crate::Outcome;
 use crate::cli::Command;
 use crate::paths::Paths;
 
+/// Runs `command` in the server folder `paths`.
 pub fn dispatch(command: &Command, paths: &Paths) -> Outcome {
     match command {
         Command::Setup(args) => Ok(setup::run(paths, args)),
@@ -72,7 +75,7 @@ pub fn dispatch(command: &Command, paths: &Paths) -> Outcome {
 
 #[cfg(test)]
 mod tests {
-    #![allow(clippy::unwrap_used)]
+    #![allow(clippy::unwrap_used, reason = "a panic is how a test fails")]
 
     use super::*;
     use crate::cli::DoctorArgs;

@@ -50,6 +50,7 @@ pub struct AuditLog {
 }
 
 impl AuditLog {
+    /// An audit log appending to `file`.
     pub fn new(file: PathBuf) -> Self {
         Self {
             file,
@@ -57,10 +58,12 @@ impl AuditLog {
         }
     }
 
+    /// The log file.
     pub fn file(&self) -> &std::path::Path {
         &self.file
     }
 
+    /// Appends `event` with `fields` and a timestamp, and logs it at info.
     pub fn write(&self, event: &str, fields: Value) {
         let mut line = Map::new();
         line.insert("t".into(), json!(crate::iso_ms(crate::now_ms())));
@@ -181,11 +184,13 @@ fn shown(value: Option<&Value>) -> String {
 
 /// The helper's run: what stops it.
 pub struct Running {
+    /// Address it listens on.
     pub addr: SocketAddr,
     stop: watch::Sender<bool>,
     tasks: Vec<JoinHandle<()>>,
 }
 
+/// The allowlist helper: the admitted set, the firewall sync and its HTTP API.
 pub struct Helper {
     config: AllowlistConfig,
     backend: Arc<Backend>,
@@ -276,22 +281,27 @@ impl Helper {
         self.state.lock().unwrap_or_else(PoisonError::into_inner)
     }
 
+    /// Its settings.
     pub fn config(&self) -> &AllowlistConfig {
         &self.config
     }
 
+    /// The port guard.
     pub fn guard(&self) -> &Arc<Guard> {
         &self.guard
     }
 
+    /// The firewall sync.
     pub fn sync(&self) -> &FirewallSync {
         &self.sync
     }
 
+    /// The audit log.
     pub fn audit(&self) -> &AuditLog {
         &self.audit
     }
 
+    /// Admitted addresses, canonical.
     pub fn list(&self) -> Vec<String> {
         self.lock().list()
     }
@@ -419,6 +429,7 @@ impl Helper {
         self.guard.covers_port(port) && self.allow_ip(ip)
     }
 
+    /// Whether `ip` is admitted and `port` is a guarded game port; does not admit anyone.
     pub fn is_admitted(&self, ip: &str, port: u16) -> bool {
         match check_allowlist_ip(Some(ip), self.config.allow_private) {
             AllowlistCheck::Allowed(parsed) => self.guard.covers_port(port) && self.lock().contains(&parsed.canonical),
@@ -650,6 +661,7 @@ impl Helper {
 pub struct HelperSink(pub Weak<Helper>);
 
 impl HelperSink {
+    /// The sink the gateway's feed calls; admits nothing once the helper is gone.
     pub fn into_sink(self) -> InProcessSink {
         Arc::new(move |ip: &str| self.0.upgrade().is_some_and(|helper| helper.allow_ip(ip)))
     }

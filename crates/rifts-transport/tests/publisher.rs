@@ -3,7 +3,7 @@
 
 //! The Guard publisher against a fake backend (spec §5.1 "Publisher"), with a 200 ms window and 20→80 ms retries.
 
-#![allow(clippy::unwrap_used, clippy::expect_used)] // test helpers
+#![allow(clippy::unwrap_used, clippy::expect_used, reason = "a panic is how a test fails")]
 
 mod common;
 

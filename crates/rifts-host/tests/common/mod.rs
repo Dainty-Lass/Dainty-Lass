@@ -4,7 +4,7 @@
 //! A scripted transport (the part of the old fake library the session flows see), a recording spawner and backends
 //! that wrap the default one.
 
-#![allow(dead_code)]
+#![allow(dead_code, reason = "shared by several test binaries, each using only some")]
 
 use std::collections::{BTreeMap, HashSet, VecDeque};
 use std::path::Path;

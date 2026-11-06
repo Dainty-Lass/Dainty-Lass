@@ -15,7 +15,7 @@
 //! cancelled or killed picks up where it was. [`Control`] pauses, resumes and cancels a running one.
 //!
 //! The client speaks HTTPS only and follows no redirect: a chunk comes from these hosts or not at all
-//! ([`cdn`]). Written from Epic's formats and Legendary's documented behaviour, not from Dauntless Revived's
+//! (`cdn`). Written from Epic's formats and Legendary's documented behaviour, not from Dauntless Revived's
 //! downloader, which the launcher's AGPL job around this keeps (DD26).
 
 mod cdn;
@@ -69,6 +69,7 @@ pub fn chunk_url(base: &str, manifest: &Manifest, chunk: &ChunkInfo) -> String {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[non_exhaustive]
 pub enum Refusal {
+    /// The account does not own Dauntless.
     NotOwned,
     /// No Epic session, or Epic refused the stored one
     SignedOut,
@@ -79,6 +80,7 @@ pub enum Refusal {
 /// Whether the account may install: asked before anything is created or fetched. The launcher's refreshes the
 /// session and asks DE3's cached ownership check; [`Owned`] is the same for a session in hand.
 pub trait Gate {
+    /// Resolves once the account may install, or says why not.
     fn require(&self) -> impl Future<Output = Result<(), Refusal>> + Send;
 }
 
@@ -99,37 +101,71 @@ impl<L: Library> Gate for Owned<'_, L> {
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 #[non_exhaustive]
 pub enum DownloadError {
+    /// The account does not own Dauntless.
     #[error("the account does not own Dauntless")]
     NotOwned,
+    /// There is no Epic session, or Epic refused it.
     #[error("there is no Epic session")]
     SignedOut,
+    /// The Epic library could not be read.
     #[error("the Epic library could not be read")]
     Library,
+    /// The drive has too little free space for the install.
     #[error("{needed} bytes are needed and {available} are free")]
-    NoSpace { needed: u64, available: u64 },
+    NoSpace {
+        /// Bytes the install still needs.
+        needed: u64,
+        /// Bytes free on the drive.
+        available: u64,
+    },
+    /// A symlink or junction sits in the install folder.
     #[error("{name:?} is a symlink or junction inside the install folder")]
-    LinkInFolder { name: String },
+    LinkInFolder {
+        /// Its path, as the manifest names it.
+        name: String,
+    },
+    /// Reading or writing a file failed.
     #[error("{}: {message}", name.as_deref().unwrap_or("install folder"))]
     Io {
+        /// The file, as the manifest names it; `None` for the install folder.
         name: Option<String>,
+        /// The error's kind.
         kind: io::ErrorKind,
+        /// The error's text.
         message: String,
     },
+    /// No CDN host gave a chunk after every round.
     #[error("no CDN host gave chunk {guid} ({})", reasons.join("; "))]
     ChunkUnavailable {
+        /// The chunk's GUID.
         guid: Guid,
         /// Every host answered 403 or 404: Epic has deleted it, and the version can't be installed
         deleted: bool,
+        /// What each host answered.
         reasons: Vec<String>,
     },
+    /// A written file does not match the manifest.
     #[error("{name:?} does not match the manifest")]
-    FileMismatch { name: String },
+    FileMismatch {
+        /// The file, as the manifest names it.
+        name: String,
+    },
+    /// The client profile's executable is not in the manifest.
     #[error("the client profile's executable {name:?} is not in the manifest")]
-    ExecutableMissing { name: String },
+    ExecutableMissing {
+        /// The executable's path.
+        name: String,
+    },
+    /// The executable is not the one the client profile pins.
     #[error("{name:?} is not the executable the client profile pins")]
-    ExecutableHash { name: String },
+    ExecutableHash {
+        /// The executable's path.
+        name: String,
+    },
+    /// The install was cancelled through [`Control`].
     #[error("cancelled")]
     Cancelled,
+    /// The manifest could not be fetched.
     #[error(transparent)]
     Fetch(#[from] FetchError),
 }
@@ -145,8 +181,11 @@ fn io_error(name: Option<&InstallPath>) -> impl Fn(io::Error) -> DownloadError +
 /// What [`Control`] asks of a running install.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Mode {
+    /// Keep going.
     Run,
+    /// Stop fetching until resumed.
     Pause,
+    /// Stop for good.
     Cancel,
 }
 
@@ -162,6 +201,7 @@ impl Default for Control {
 }
 
 impl Control {
+    /// What the install was last asked to do.
     pub fn mode(&self) -> Mode {
         *self.0.borrow()
     }
@@ -176,6 +216,7 @@ impl Control {
         self.set(Mode::Pause, Mode::Run)
     }
 
+    /// Asks the install to stop for good; false when it already was.
     pub fn cancel(&self) -> bool {
         self.0.send_if_modified(|mode| {
             let changed = *mode != Mode::Cancel;
@@ -200,52 +241,69 @@ impl Control {
 pub enum Stage {
     /// Checking the space and creating the files
     Preparing,
+    /// Fetching chunks and writing files.
     Downloading,
+    /// Paused through [`Control`].
     Paused,
     /// Checking the executable
     Finishing,
+    /// Every file matches and the executable checked out.
     Done,
 }
 
+/// How far an install is, reported as it goes.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Progress {
+    /// What it is doing.
     pub stage: Stage,
     /// `.chunk` bytes, of the chunks the files use
     pub download_total: u64,
+    /// `.chunk` bytes fetched so far.
     pub downloaded: u64,
+    /// Chunks the files use.
     pub chunks_total: usize,
+    /// Chunks written.
     pub chunks_done: usize,
+    /// Files in the manifest.
     pub files_total: usize,
     /// Files checked against the manifest
     pub files_done: usize,
+    /// Bytes the installed files take.
     pub install_total: u64,
 }
 
 /// The executable the client profile pins (DE4): checked by SHA-256 once every file matches the manifest.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Executable {
+    /// Its path in the install.
     pub path: InstallPath,
+    /// The SHA-256 the profile pins.
     pub sha256: [u8; 32],
 }
 
 /// One version to install.
 pub struct Target<'a> {
+    /// The parsed manifest of the version.
     pub manifest: &'a Manifest,
     /// The pin `manifest` was parsed under; it names the resume file's download
     pub manifest_sha1: Sha1Digest,
     /// This version's own folder (one folder per version)
     pub folder: PathBuf,
+    /// The executable to check once the files match; `None` checks none.
     pub executable: Option<Executable>,
     /// In the launcher's or the host kit's data folder
     pub resume_file: PathBuf,
 }
 
+/// The wait before retry pass `n` (from 1).
 pub type Backoff = Arc<dyn Fn(u32) -> Duration + Send + Sync>;
 /// Free bytes on the drive that holds a folder (or its nearest existing parent).
 pub type SpaceProbe = Arc<dyn Fn(&Path) -> io::Result<u64> + Send + Sync>;
 
+/// How an install fetches chunks.
 #[derive(Clone)]
 pub struct Options {
+    /// CDN base URLs, tried in order; [`CDN_BASES`] by default.
     pub bases: Vec<String>,
     /// Chunks fetched at once, 1 to 32
     pub parallel: usize,
@@ -257,10 +315,12 @@ pub struct Options {
     pub timeout: Duration,
     /// The tests' own CA instead of the webpki roots
     pub tls: Option<Arc<rustls::ClientConfig>>,
+    /// Measures free space on the target drive.
     pub available_space: SpaceProbe,
 }
 
 impl Options {
+    /// The defaults: Epic's CDNs, 8 at once, 3 rounds with waits doubling from 1 s up to 8 s, 60 s per request.
     pub fn new(available_space: SpaceProbe) -> Self {
         Self {
             bases: CDN_BASES.iter().map(|base| (*base).to_owned()).collect(),
@@ -277,8 +337,11 @@ impl Options {
 /// A finished install.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Installed {
+    /// The version's folder.
     pub folder: PathBuf,
+    /// Files installed.
     pub files: usize,
+    /// Bytes they take.
     pub bytes: u64,
 }
 

@@ -20,16 +20,26 @@ const DAY_MS: i64 = 86_400_000;
 
 // ------------------------------------------------------------------ admin
 
+/// An `admin_sessions` row: one signed-in admin dashboard session; Debug leaves out the secrets.
 #[derive(Clone, PartialEq, Eq)]
 pub struct AdminSessionRecord {
+    /// The session's id.
     pub id: String,
+    /// SHA-256 of the session token.
     pub token_hash: String,
+    /// The admin's account.
     pub account: AccountId,
+    /// The CSRF token the dashboard must echo.
     pub csrf_token: String,
+    /// When it began, as ISO text.
     pub created_at: String,
+    /// When it lapses, as ISO text.
     pub expires_at: String,
+    /// The client address it began from.
     pub ip: String,
+    /// The browser's user agent.
     pub user_agent: String,
+    /// When it was revoked, as ISO text.
     pub revoked_at: Option<String>,
 }
 
@@ -47,47 +57,74 @@ impl fmt::Debug for AdminSessionRecord {
     }
 }
 
+/// An `admin_audit` row: one admin action.
 #[derive(Debug, Clone, PartialEq)]
 pub struct AdminAuditRecord {
+    /// The record's id.
     pub id: String,
+    /// The admin's userId.
     pub actor_user_id: String,
+    /// The player acted on, if any.
     pub target_user_id: Option<String>,
+    /// What was done.
     pub action: String,
+    /// The state before, if recorded.
     pub old_state: Option<Json>,
+    /// The state after, if recorded.
     pub new_state: Option<Json>,
+    /// The reason given.
     pub reason: Option<String>,
+    /// The admin's client address.
     pub ip: String,
+    /// The request's id.
     pub request_id: String,
+    /// When, as ISO text.
     pub created_at: String,
 }
 
+/// The operations policy, one row.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct OperationsPolicyRecord {
+    /// The guard's mode, such as `ENFORCE`.
     pub guard_enforcement: String,
+    /// `PRODUCTION`, or `DEVELOPMENT` for admins' diagnostics.
     pub diagnostics_profile: String,
+    /// Bumped on every change; a change names the version it read.
     pub version: u64,
+    /// When it last changed, as ISO text.
     pub updated_at: Option<String>,
+    /// Who last changed it.
     pub updated_by: Option<String>,
+    /// When development diagnostics lapse, as ISO text.
     pub diagnostics_expires_at: Option<String>,
 }
 
+/// What deleting a player's data removed.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct PlayerDeletion {
+    /// `(area, rows)` for every table touched, in order.
     pub deleted_counts: Vec<(String, u64)>,
+    /// How many characters were deleted.
     pub character_count: u64,
 }
 
 store_trait! {
+    /// The Reforged API's admin data.
     pub trait AdminRepository = "admin" {
+        /// Writes a new admin session.
         fn create_session(&self, tx: &mut Tx<'_>, record: &AdminSessionRecord) -> ();
+        /// The unrevoked, unexpired session with that token hash.
         fn find_active_session_by_token_hash(
             &self,
             conn: &mut AnyConnection,
             hash: &str,
             now: &str,
         ) -> Option<AdminSessionRecord>;
+        /// Revokes the session at `at`.
         fn revoke_session(&self, tx: &mut Tx<'_>, id: &str, at: &str) -> ();
+        /// Writes an audit record.
         fn append_audit(&self, tx: &mut Tx<'_>, record: &AdminAuditRecord) -> ();
+        /// The audit page, newest first, of every record or those for `target`, and the total that matched.
         fn list_audit(
             &self,
             conn: &mut AnyConnection,
@@ -95,7 +132,9 @@ store_trait! {
             skip: u32,
             limit: u32,
         ) -> (Vec<AdminAuditRecord>, u64);
+        /// The operations policy, if one was ever written.
         fn read_operations_policy(&self, conn: &mut AnyConnection) -> Option<OperationsPolicyRecord>;
+        /// Writes the policy if the stored version is still `expected`; returns whether it did.
         fn update_operations_policy(&self, tx: &mut Tx<'_>, expected: u64, record: &OperationsPolicyRecord) -> bool;
         /// One write: the player's rows of every area, then the audit record (`user_id` is unused)
         fn delete_player_data(
@@ -108,32 +147,46 @@ store_trait! {
     }
 }
 
+/// The launcher's notices, one row.
 #[derive(Debug, Clone, PartialEq)]
 pub struct LauncherNoticesRecord {
+    /// Bumped on every change; a change names the version it read.
     pub version: u64,
+    /// When they last changed, as ISO text.
     pub updated_at: Option<String>,
+    /// Who last changed them.
     pub updated_by: Option<String>,
+    /// The announcement objects.
     pub announcements: Vec<Json>,
+    /// The tag objects.
     pub tags: Vec<Json>,
 }
 
 store_trait! {
+    /// The launcher's notices (`launcher_notices`).
     pub trait LauncherNoticesRepository = "launcherNotices" {
+        /// The notices, if ever written.
         fn get(&self, conn: &mut AnyConnection) -> Option<LauncherNoticesRecord>;
+        /// Writes the notices if the stored version is still `expected` (0 when none were written); returns whether it did.
         fn replace_if_version(&self, tx: &mut Tx<'_>, record: &LauncherNoticesRecord, expected: u64) -> bool;
     }
 }
 
 // ------------------------------------------------------------------ activity
 
+/// Where a hunt ran.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum HuntKind {
+    /// On the dedicated server.
     Dedicated,
+    /// In a realm.
     Realm,
+    /// On a player's own host.
     PlayerHosted,
 }
 
 impl HuntKind {
+    /// The stored text.
     pub fn as_str(self) -> &'static str {
         match self {
             Self::Dedicated => "dedicated",
@@ -142,6 +195,7 @@ impl HuntKind {
         }
     }
 
+    /// The kind a stored text names; None for any other text.
     pub fn parse(text: &str) -> Option<Self> {
         match text {
             "dedicated" => Some(Self::Dedicated),
@@ -152,13 +206,17 @@ impl HuntKind {
     }
 }
 
+/// How a hunt ended.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum HuntResult {
+    /// The hunt was finished.
     Completed,
+    /// The hunt was left before the end.
     Abandoned,
 }
 
 impl HuntResult {
+    /// The stored text.
     pub fn as_str(self) -> &'static str {
         match self {
             Self::Completed => "completed",
@@ -166,6 +224,7 @@ impl HuntResult {
         }
     }
 
+    /// The result a stored text names; None for any other text.
     pub fn parse(text: &str) -> Option<Self> {
         match text {
             "completed" => Some(Self::Completed),
@@ -175,51 +234,85 @@ impl HuntResult {
     }
 }
 
+/// An `activity_hunts` row: one account's part in one hunt.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ActivityHuntRecord {
+    /// The record's id.
     pub id: String,
+    /// The account.
     pub account: AccountId,
+    /// Whether the account hosted it.
     pub host: bool,
+    /// Where it ran.
     pub kind: HuntKind,
+    /// The hunt's id.
     pub hunt_id: String,
+    /// The id the hunt is known by where it ran.
     pub hunt_ref: String,
+    /// When it started, as ISO text.
     pub started_at: String,
+    /// When it ended, as ISO text.
     pub ended_at: Option<String>,
+    /// Why it ended.
     pub end_reason: Option<String>,
+    /// How it ended.
     pub result: Option<HuntResult>,
+    /// Kills counted so far.
     pub kills: u64,
+    /// When the record is purged, in Unix milliseconds.
     pub ttl_at: i64,
 }
 
+/// A `slayers_path_unlocks` row: one node an account unlocked.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SlayersPathUnlockRecord {
+    /// The record's id.
     pub id: String,
+    /// The account.
     pub account: AccountId,
+    /// The node.
     pub node_id: String,
+    /// When, as ISO text.
     pub unlocked_at: String,
+    /// The route that saved it.
     pub source: String,
+    /// When the record is purged, in Unix milliseconds.
     pub ttl_at: i64,
 }
 
+/// An `activity_flags` row: an economy or activity threshold an account crossed.
 #[derive(Debug, Clone, PartialEq)]
 pub struct ActivityFlagRecord {
+    /// The flag's id.
     pub id: String,
+    /// Which threshold.
     pub kind: String,
+    /// How serious it is.
     pub severity: String,
+    /// The account.
     pub account: AccountId,
+    /// The UTC day, `YYYY-MM-DD`.
     pub day: String,
     /// Stored as compact JSON
     pub detail: Json,
+    /// Whether staff looked at it.
     pub acknowledged: bool,
+    /// When it was raised, as ISO text.
     pub created_at: String,
+    /// When it was acknowledged, as ISO text.
     pub acknowledged_at: Option<String>,
+    /// The userId of the staff member who acknowledged it.
     pub acknowledged_by: Option<String>,
+    /// Their note.
     pub note: Option<String>,
+    /// When the record is purged, in Unix milliseconds.
     pub ttl_at: i64,
 }
 
 store_trait! {
+    /// Activity records: daily counters, hunts, Slayer's Path unlocks and flags.
     pub trait ActivityRepository = "activity" {
+        /// Adds each `(dotted path, amount)` to the account's day document; returns the document after.
         fn add_to_daily(
             &self,
             tx: &mut Tx<'_>,
@@ -230,17 +323,25 @@ store_trait! {
         ) -> Json;
         /// `fields`' top-level keys set on the day's document
         fn set_daily_fields(&self, tx: &mut Tx<'_>, account: &AccountId, day: &str, fields: &Json, ttl_at: i64) -> Json;
+        /// The account's day documents from `from` to `to`, oldest first.
         fn find_daily_rows(&self, conn: &mut AnyConnection, account: &AccountId, from: &str, to: &str, limit: u32)
             -> Vec<Json>;
         /// Every account's documents by day, then account
         fn find_daily_rows_in_range(&self, conn: &mut AnyConnection, from: &str, to: &str, limit: u32)
             -> Vec<(AccountId, Json)>;
+        /// Writes the hunt unless its id exists; returns whether it did.
         fn insert_hunt_if_absent(&self, tx: &mut Tx<'_>, record: &ActivityHuntRecord) -> bool;
+        /// Writes the unlock unless its id exists; returns whether it did.
         fn insert_unlock_if_absent(&self, tx: &mut Tx<'_>, record: &SlayersPathUnlockRecord) -> bool;
+        /// Writes the flag unless its id exists; returns whether it did.
         fn insert_flag_if_absent(&self, tx: &mut Tx<'_>, record: &ActivityFlagRecord) -> bool;
+        /// The hunt with that id.
         fn find_hunt(&self, conn: &mut AnyConnection, id: &str) -> Option<ActivityHuntRecord>;
+        /// The flag with that id.
         fn find_flag(&self, conn: &mut AnyConnection, id: &str) -> Option<ActivityFlagRecord>;
+        /// The account's dedicated hunts still open, newest first (at most 50).
         fn find_open_dedicated_hunts(&self, conn: &mut AnyConnection, account: &AccountId) -> Vec<ActivityHuntRecord>;
+        /// The account's dedicated hunts that started between `not_before` and `at` and were open at `grace_floor`, newest first (at most 10).
         fn find_dedicated_hunts_covering(
             &self,
             conn: &mut AnyConnection,
@@ -249,6 +350,7 @@ store_trait! {
             not_before: &str,
             grace_floor: &str,
         ) -> Vec<ActivityHuntRecord>;
+        /// Ends the hunt if it is still open; returns whether it did.
         fn close_hunt_if_open(
             &self,
             tx: &mut Tx<'_>,
@@ -257,11 +359,15 @@ store_trait! {
             reason: &str,
             result: Option<HuntResult>,
         ) -> bool;
+        /// Adds kills to the hunt.
         fn add_hunt_kills(&self, tx: &mut Tx<'_>, id: &str, kills: u64) -> ();
+        /// The account's hunts, newest first.
         fn find_hunts_for_account(&self, conn: &mut AnyConnection, account: &AccountId, limit: u32)
             -> Vec<ActivityHuntRecord>;
+        /// The account's unlocks, newest first.
         fn find_unlocks_for_account(&self, conn: &mut AnyConnection, account: &AccountId, limit: u32)
             -> Vec<SlayersPathUnlockRecord>;
+        /// The flags page, newest first, all or by acknowledged state, and the total that matched.
         fn list_flags(
             &self,
             conn: &mut AnyConnection,
@@ -269,8 +375,10 @@ store_trait! {
             skip: u32,
             limit: u32,
         ) -> (Vec<ActivityFlagRecord>, u64);
+        /// The account's flags, newest first.
         fn find_flags_for_account(&self, conn: &mut AnyConnection, account: &AccountId, limit: u32)
             -> Vec<ActivityFlagRecord>;
+        /// Acknowledges the flag once, naming the operator by userId; returns the flag after, or None when there is none.
         fn acknowledge_flag(
             &self,
             tx: &mut Tx<'_>,
@@ -284,17 +392,24 @@ store_trait! {
 
 // ------------------------------------------------------------------ Launcher Guard
 
+/// Heartbeat history entries kept per guard session.
 pub const GUARD_HISTORY_LIMIT: usize = 20;
+/// Accounts listed per guard finding.
 pub const GUARD_FINDING_ACCOUNT_LIMIT: usize = 1000;
+/// Days guard rows are kept after they lapse.
 pub const GUARD_RETENTION_DAYS: i64 = 90;
 
+/// Which launcher a guard session watches.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum GuardRole {
+    /// A player's launcher.
     Client,
+    /// A host's launcher.
     Host,
 }
 
 impl GuardRole {
+    /// The stored text.
     pub fn as_str(self) -> &'static str {
         match self {
             Self::Client => "client",
@@ -308,16 +423,23 @@ impl GuardRole {
     }
 }
 
+/// A guard session's state.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum GuardStatus {
+    /// Opened, waiting for its first heartbeat.
     Challenged,
+    /// The last heartbeat reported healthy.
     Healthy,
+    /// The last heartbeat reported degraded.
     Degraded,
+    /// Revoked; no heartbeat is accepted.
     Revoked,
+    /// Lapsed; no heartbeat is accepted.
     Expired,
 }
 
 impl GuardStatus {
+    /// The stored text.
     pub fn as_str(self) -> &'static str {
         match self {
             Self::Challenged => "CHALLENGED",
@@ -328,6 +450,7 @@ impl GuardStatus {
         }
     }
 
+    /// The status a stored text names; None for any other text.
     pub fn parse(text: &str) -> Option<Self> {
         match text {
             "CHALLENGED" => Some(Self::Challenged),
@@ -339,6 +462,7 @@ impl GuardStatus {
         }
     }
 
+    /// Whether heartbeats may still advance the session.
     pub fn is_live(self) -> bool {
         matches!(self, Self::Challenged | Self::Healthy | Self::Degraded)
     }
@@ -346,25 +470,44 @@ impl GuardStatus {
 
 const LIVE_GUARD_STATUSES: &str = "('CHALLENGED', 'HEALTHY', 'DEGRADED')";
 
+/// A `launcher_guard_sessions` row: a launcher's signed heartbeat session; Debug leaves out the key and challenge.
 #[derive(Clone, PartialEq)]
 pub struct LauncherGuardSessionRecord {
+    /// The session's id.
     pub guard_session_id: String,
+    /// The account.
     pub account: AccountId,
+    /// Which launcher.
     pub role: GuardRole,
+    /// The launcher's public signing key, base64.
     pub public_key_base64: String,
+    /// The guard manifest the launcher runs.
     pub manifest_id: String,
+    /// The manifest's sequence number.
     pub manifest_sequence: u64,
+    /// The launcher's release channel.
     pub channel: String,
+    /// The launcher's version.
     pub launcher_version: String,
+    /// The challenge the next heartbeat must sign.
     pub challenge: String,
+    /// The last heartbeat's sequence number.
     pub last_sequence: u64,
+    /// The session's state.
     pub status: GuardStatus,
+    /// The last heartbeat's risk score.
     pub risk_score: f64,
+    /// When it was opened, as ISO text.
     pub created_at: String,
+    /// When it lapses without a heartbeat, as ISO text.
     pub expires_at: String,
+    /// When the last heartbeat came, as ISO text.
     pub last_heartbeat_at: Option<String>,
+    /// The last heartbeat's signals.
     pub last_signals: Option<Json>,
+    /// The last heartbeat's reasons.
     pub reasons: Vec<String>,
+    /// Recent heartbeat entries, newest first.
     pub history: Vec<Json>,
 }
 
@@ -389,19 +532,32 @@ impl fmt::Debug for LauncherGuardSessionRecord {
     }
 }
 
+/// One accepted heartbeat to apply; Debug leaves out the challenges.
 #[derive(Clone, PartialEq)]
 pub struct GuardHeartbeat {
+    /// The session's id.
     pub guard_session_id: String,
+    /// The account it must belong to.
     pub account: AccountId,
+    /// The challenge the session must still hold.
     pub expected_challenge: String,
+    /// The heartbeat's sequence; it must be above the last.
     pub sequence: u64,
+    /// The challenge for the next heartbeat.
     pub next_challenge: String,
+    /// The session's new state.
     pub status: GuardStatus,
+    /// The new risk score.
     pub risk_score: f64,
+    /// When the heartbeat came, as ISO text.
     pub heartbeat_at: String,
+    /// When the session now lapses, as ISO text.
     pub expires_at: String,
+    /// The heartbeat's signals.
     pub signals: Json,
+    /// The heartbeat's reasons.
     pub reasons: Vec<String>,
+    /// The history entry it adds.
     pub history_entry: Json,
 }
 
@@ -420,33 +576,54 @@ impl fmt::Debug for GuardHeartbeat {
     }
 }
 
+/// One file guard sessions have reported, summed.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct GuardFinding {
+    /// The file's name.
     pub file_name: String,
+    /// The file's SHA-256.
     pub sha256: String,
+    /// The signer the launcher read.
     pub signer: String,
+    /// The file's size in bytes.
     pub size: u64,
+    /// When it was first reported, as ISO text.
     pub first_seen_at: String,
+    /// When it was last reported, as ISO text.
     pub last_seen_at: String,
+    /// How many sessions reported it.
     pub session_count: u64,
+    /// How many accounts reported it.
     pub account_count: u64,
 }
 
+/// One report of a file by a guard session.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct GuardSighting {
+    /// The file's name.
     pub file_name: String,
+    /// The file's SHA-256.
     pub sha256: String,
+    /// The signer the launcher read.
     pub signer: String,
+    /// The file's size in bytes.
     pub size: u64,
+    /// The account that reported it.
     pub account: AccountId,
+    /// When, as ISO text.
     pub seen_at: String,
+    /// Whether this session reports it for the first time.
     pub new_in_session: bool,
 }
 
 store_trait! {
+    /// Launcher Guard sessions and findings.
     pub trait LauncherGuardRepository = "launcherGuard" {
+        /// Writes a new session.
         fn create(&self, tx: &mut Tx<'_>, record: &LauncherGuardSessionRecord) -> ();
+        /// The session with that id.
         fn find(&self, conn: &mut AnyConnection, id: &str) -> Option<LauncherGuardSessionRecord>;
+        /// The session if it belongs to the account and role, is healthy, unexpired, and had a heartbeat in the last 45 seconds.
         fn find_healthy_for_account(
             &self,
             conn: &mut AnyConnection,
@@ -455,8 +632,11 @@ store_trait! {
             role: GuardRole,
             now: &str,
         ) -> Option<LauncherGuardSessionRecord>;
+        /// Applies the heartbeat if the session is live, belongs to the account, holds the expected challenge and its last sequence is below the heartbeat's; returns the session after, or None otherwise.
         fn advance(&self, tx: &mut Tx<'_>, heartbeat: &GuardHeartbeat) -> Option<LauncherGuardSessionRecord>;
+        /// Revokes every live session of the account in that role.
         fn revoke_for_account(&self, tx: &mut Tx<'_>, account: &AccountId, role: GuardRole, at: &str) -> ();
+        /// The sessions page, newest first, by status and minimum risk, and the total that matched.
         fn list_sessions(
             &self,
             conn: &mut AnyConnection,
@@ -465,6 +645,7 @@ store_trait! {
             skip: u32,
             limit: u32,
         ) -> (Vec<LauncherGuardSessionRecord>, u64);
+        /// The findings page, most reported first, by signer text, and the total that matched.
         fn list_findings(
             &self,
             conn: &mut AnyConnection,
@@ -472,34 +653,46 @@ store_trait! {
             skip: u32,
             limit: u32,
         ) -> (Vec<GuardFinding>, u64);
+        /// Adds a sighting to its file's finding, creating it on the first.
         fn record_finding_sighting(&self, tx: &mut Tx<'_>, sighting: &GuardSighting) -> ();
     }
 }
 
 // ------------------------------------------------------------------ invites
 
+/// A `reforged_invites` row: a code that lets a player register.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct InviteRecord {
+    /// The code.
     pub code: String,
+    /// Registrations left.
     pub uses_remaining: i64,
+    /// Whether the code never runs out.
     pub infinite_uses: bool,
+    /// The note staff left on it.
     pub note: Option<String>,
+    /// When it was made, as ISO text.
     pub created_at: String,
 }
 
 store_trait! {
+    /// Registration invite codes (`reforged_invites`).
     pub trait InviteRepository = "reforgedInvites" {
         /// A taken code answers `false`; on Postgres that spoils the transaction, so the caller retries in a new
         /// one (spec §16 item 14)
         fn insert_if_absent(&self, tx: &mut Tx<'_>, record: &InviteRecord) -> bool;
+        /// Uses the code once; false when it does not exist or is used up.
         fn spend(&self, tx: &mut Tx<'_>, code: &str) -> bool;
+        /// The newest codes, at most `limit`.
         fn list(&self, conn: &mut AnyConnection, limit: u32) -> Vec<InviteRecord>;
+        /// Deletes the code; returns whether it existed.
         fn delete(&self, tx: &mut Tx<'_>, code: &str) -> bool;
     }
 }
 
 // ------------------------------------------------------------------ SQL: admin
 
+/// [`AdminRepository`] in SQL.
 pub struct SqlAdmin;
 
 #[derive(QueryableByName)]
@@ -821,6 +1014,7 @@ fn like_escape(text: &str) -> String {
 
 // ------------------------------------------------------------------ SQL: notices
 
+/// [`LauncherNoticesRepository`] in SQL.
 pub struct SqlLauncherNotices;
 
 #[derive(QueryableByName)]
@@ -896,6 +1090,7 @@ impl LauncherNoticesRepository for SqlLauncherNotices {
 
 // ------------------------------------------------------------------ SQL: activity
 
+/// [`ActivityRepository`] in SQL.
 pub struct SqlActivity;
 
 #[derive(QueryableByName)]
@@ -1459,6 +1654,7 @@ impl ActivityRepository for SqlActivity {
 
 // ------------------------------------------------------------------ SQL: Launcher Guard
 
+/// [`LauncherGuardRepository`] in SQL.
 pub struct SqlLauncherGuard;
 
 /// `Date.parse(time)` (unparseable 0) + the retention.
@@ -1859,6 +2055,7 @@ impl LauncherGuardRepository for SqlLauncherGuard {
 
 // ------------------------------------------------------------------ SQL: invites
 
+/// [`InviteRepository`] in SQL.
 pub struct SqlInvites;
 
 #[derive(QueryableByName)]

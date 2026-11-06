@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Silent Spud
 
 //! export-mongo's round trip (spec §11.3, §16.2 D11) and the opt-in rehearsal on real servers (D12).
-#![allow(clippy::unwrap_used, clippy::expect_used)]
+#![allow(clippy::unwrap_used, clippy::expect_used, reason = "a panic is how a test fails")]
 
 mod common;
 

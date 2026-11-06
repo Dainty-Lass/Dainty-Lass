@@ -32,10 +32,15 @@ const FORM: &AsciiSet = &NON_ALPHANUMERIC.remove(b'-').remove(b'.').remove(b'_')
 /// and keys.
 #[derive(Clone, PartialEq)]
 pub struct PreparedHttpRequest {
+    /// HTTP method.
     pub method: String,
+    /// Path and query, placeholders filled.
     pub target: String,
+    /// Headers to send, in order.
     pub headers: Vec<(String, String)>,
+    /// Body to send, placeholders filled.
     pub body: Vec<u8>,
+    /// Whether the request only approximates what the client sent.
     pub inexact: bool,
 }
 
@@ -53,6 +58,7 @@ impl std::fmt::Debug for PreparedHttpRequest {
 }
 
 impl PreparedHttpRequest {
+    /// The first header named `name` (exact case).
     pub fn header(&self, name: &str) -> Option<&str> {
         self.headers.iter().find(|(n, _)| n == name).map(|(_, v)| v.as_str())
     }
@@ -171,8 +177,11 @@ pub fn prepare_http_request(
 /// One side's answer: lowercased header names, the body as text.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct ReplayHttpResponse {
+    /// HTTP status.
     pub status: u16,
+    /// Headers by lower-case name.
     pub headers: BTreeMap<String, String>,
+    /// Body as text.
     pub body_text: String,
 }
 

@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Silent Spud
 
+//! Short-lived external commands (`git`, `npm`, `netsh`, `tailscale`...): run with their output streamed to a log, or
+//! captured.
+
 use std::io::{BufRead, BufReader, Write};
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
@@ -12,21 +15,31 @@ use crate::error::HostError;
 
 const MAX_OUTPUT_BYTES: usize = 64 * 1024;
 
+/// How [`run`] runs a command.
 #[derive(Debug, Clone, Default)]
 pub struct RunOptions {
+    /// The folder it runs in.
     pub cwd: PathBuf,
+    /// Its whole environment; the inherited one when `None`.
     pub env: Option<Vec<(String, String)>>,
+    /// A file each output line is appended to, after a header naming the command.
     pub log_file: Option<PathBuf>,
+    /// Prints only error lines instead of every line.
     pub quiet: bool,
 }
 
+/// What a command did.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct RunResult {
+    /// Its exit code; 1 when it had none (killed by a signal).
     pub code: i32,
+    /// Its last non-blank output line.
     pub last_line: Option<String>,
+    /// The end of its output, at most 64 KiB.
     pub output: String,
 }
 
+/// Whether `line` starts with a JavaScript error name (`TypeError: ...`, `Uncaught Error ...`).
 #[must_use]
 pub fn is_error_line(line: &str) -> bool {
     let trimmed = js::trim(line);
@@ -95,6 +108,8 @@ fn retain_tail(buf: &mut String, addition: &str) {
     }
 }
 
+/// Runs `command` and waits for it, streaming its stdout and stderr to the log and the console as `options` say.
+/// Fails when it cannot be started; a failing exit is in the result.
 pub fn run(command: &str, args: &[&str], options: &RunOptions) -> Result<RunResult, HostError> {
     let mut log_handle = match &options.log_file {
         Some(file) => {
@@ -198,6 +213,7 @@ pub fn run(command: &str, args: &[&str], options: &RunOptions) -> Result<RunResu
     Ok(final_res)
 }
 
+/// The command's trimmed stdout; `None` when it can't start, fails or prints nothing.
 pub fn capture(command: &str, args: &[&str], cwd: Option<&Path>) -> Result<Option<String>, HostError> {
     let program = resolve_windows_command(command, None);
     let mut cmd = Command::new(&program);

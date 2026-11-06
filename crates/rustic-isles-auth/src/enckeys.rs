@@ -8,21 +8,28 @@ use std::sync::{Mutex, PoisonError};
 
 use crate::util;
 
+/// How long an issued key can be fetched: 30 minutes.
 pub const KEY_TTL_MS: i64 = 30 * 60 * 1000;
 
+/// A key issued to a player for the hub's network encryption.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct IssuedKey {
+    /// The key: 32 random bytes as hex.
     pub key: String,
+    /// The nonce: 32 random bytes as base64url.
     pub nonce: String,
     /// The token as the player sent it
     pub token: String,
+    /// When it was issued, in Unix milliseconds.
     pub at: i64,
+    /// The account it was issued to, when the caller named one.
     pub account: Option<String>,
 }
 
 /// A lookup's key and why it may be doubtful.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct KeyLookup {
+    /// The key found, if any.
     pub key: Option<IssuedKey>,
     /// The most recent key answered a token nothing was issued under (it may be another player's)
     pub unknown_token: bool,
@@ -37,6 +44,7 @@ struct Keys {
     recent: Option<IssuedKey>,
 }
 
+/// The issued keys, by candidate and by token, plus the most recent.
 #[derive(Default)]
 pub struct EncryptionKeys {
     keys: Mutex<Keys>,
@@ -69,6 +77,7 @@ fn live(key: &IssuedKey, now: i64) -> bool {
 }
 
 impl EncryptionKeys {
+    /// A fresh key, kept under `candidate` and the normalized token (each when non-empty) and as the most recent.
     pub fn issue(&self, candidate: &str, token: &str, account: Option<&str>, now: i64) -> IssuedKey {
         let issued = IssuedKey {
             key: util::random_hex::<32>(),

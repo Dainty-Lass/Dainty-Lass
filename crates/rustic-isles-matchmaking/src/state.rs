@@ -21,10 +21,13 @@ pub const PRESENCE_PRUNE_AT: usize = 100_000;
 
 /// The activity rows a dedicated hunt leaves (the Reforged unit implements it); never awaited by a launch.
 pub trait HuntActivity: Send + Sync {
+    /// A dedicated hunt started for `users`.
     fn dedicated_hunt_starts(&self, users: &[String], hunt_id: &str, hunt_ref: &str);
+    /// A dedicated hunt ended for `users`, with the reason (such as `RETURNED`).
     fn dedicated_hunt_ends(&self, users: &[String], end_reason: &str);
 }
 
+/// A [`HuntActivity`] that records nothing.
 #[derive(Debug, Clone, Copy, Default)]
 pub struct NoHuntActivity;
 
@@ -41,10 +44,12 @@ pub struct MatchClock {
 }
 
 impl MatchClock {
+    /// The replay-aware time plus the test offset, in Unix ms.
     pub fn now_ms(&self) -> i64 {
         rustic_isles::replay::now_ms().saturating_add(self.offset.load(Ordering::Relaxed))
     }
 
+    /// Moves the clock forward by `ms`.
     #[cfg(feature = "test-support")]
     pub fn advance(&self, ms: i64) {
         self.offset.fetch_add(ms, Ordering::Relaxed);
@@ -73,6 +78,7 @@ impl GamePresence {
         }
     }
 
+    /// Whether the user's game touched the backend within `within` ms of `now`.
     pub fn is_recently_active(&self, user: &str, within: i64, now: i64) -> bool {
         self.seen()
             .get(user)
@@ -91,15 +97,18 @@ impl GamePresence {
         users
     }
 
+    /// Drops users not seen for the stale window.
     pub fn forget_stale(&self, now: i64) {
         self.seen()
             .retain(|_, last| now.saturating_sub(*last) <= PRESENCE_STALE_MS);
     }
 
+    /// How many users are tracked.
     pub fn len(&self) -> usize {
         self.seen().len()
     }
 
+    /// Whether no user is tracked.
     pub fn is_empty(&self) -> bool {
         self.len() == 0
     }
@@ -184,6 +193,7 @@ impl std::fmt::Debug for MatchmakingState {
 }
 
 impl MatchmakingState {
+    /// Empty state with no hunt activity bound.
     pub fn new() -> Self {
         Self::default()
     }
@@ -193,18 +203,22 @@ impl MatchmakingState {
         self.tables.lock().unwrap_or_else(PoisonError::into_inner)
     }
 
+    /// The clock every matchmaking time comes from.
     pub fn clock(&self) -> &MatchClock {
         &self.clock
     }
 
+    /// Matchmaking's current time, Unix ms.
     pub fn now_ms(&self) -> i64 {
         self.clock.now_ms()
     }
 
+    /// When each user's game last touched the backend.
     pub fn presence(&self) -> &GamePresence {
         &self.presence
     }
 
+    /// Sets where dedicated hunt starts and ends are recorded.
     pub fn set_hunt_activity(&self, activity: Arc<dyn HuntActivity>) {
         *self.activity.write().unwrap_or_else(PoisonError::into_inner) = Some(activity);
     }
@@ -252,6 +266,7 @@ impl MatchmakingState {
         self.tables().candidates.contains_key(user)
     }
 
+    /// Stores or replaces the user's candidate.
     pub fn set_candidate(&self, user: &str, candidate: MatchCandidate) {
         self.tables().candidates.insert(user.to_owned(), candidate);
     }
@@ -267,6 +282,7 @@ impl MatchmakingState {
         self.tables().hub_game_session_id(host, port)
     }
 
+    /// Whether the id is one of the live hubs' game sessions.
     pub fn is_hub_game_session_id(&self, id: &str) -> bool {
         self.tables().hub_sessions.values().any(|v| v == id)
     }

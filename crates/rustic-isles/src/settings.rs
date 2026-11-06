@@ -14,8 +14,11 @@ use serde_json::Value;
 /// A `[switches]` key and the setting it writes.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct SharedSwitch {
+    /// The setting it writes, such as `QOS_PORT`.
     pub env: &'static str,
+    /// The `[switches]` key.
     pub key: &'static str,
+    /// One line for the host kit's help.
     pub help: &'static str,
 }
 
@@ -66,12 +69,14 @@ pub const OPTIONAL_SWITCHES: [SharedSwitch; 6] = [
     ),
 ];
 
+/// A settings file could not be read or a value is not allowed.
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 #[error("{0}")]
 pub struct SettingsError(pub String);
 
 type Map = BTreeMap<String, String>;
 
+/// A module's settings: forced values over the env file over the `[switches]` section. `Debug` shows names only.
 #[derive(Clone, Default)]
 pub struct Settings {
     forced: Map,
@@ -106,6 +111,7 @@ fn is_off_word(value: &str) -> bool {
 }
 
 impl Settings {
+    /// Settings from the env file and the switches, nothing forced.
     pub fn new(env: BTreeMap<String, String>, switches: BTreeMap<String, String>) -> Self {
         Self {
             forced: Map::new(),
@@ -174,6 +180,7 @@ impl Settings {
         out
     }
 
+    /// The env file's values alone.
     pub fn env_map(&self) -> &BTreeMap<String, String> {
         &self.env
     }
@@ -201,18 +208,22 @@ impl Settings {
         BudgetConfig::from_settings(self)
     }
 
+    /// Whether the request budget is on (`RUSTIC_ISLES_RATE_LIMIT`).
     pub fn rate_limit_enabled(&self) -> bool {
         self.budget().enabled
     }
 
+    /// A client's requests per minute (`RUSTIC_ISLES_RATE_LIMIT_PER_MINUTE`, default 600).
     pub fn rate_limit_per_minute(&self) -> u64 {
         self.budget().client_per_minute
     }
 
+    /// A game server's requests per minute (default 6000).
     pub fn gameserver_rate_limit_per_minute(&self) -> u64 {
         self.budget().gameserver_per_minute
     }
 
+    /// A player host's requests per minute (default 6000).
     pub fn host_rate_limit_per_minute(&self) -> u64 {
         self.budget().host_per_minute
     }

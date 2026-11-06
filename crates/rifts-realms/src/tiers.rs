@@ -17,6 +17,7 @@ macro_rules! hosting_policy {
         pub struct HostingPolicy { $( $(#[$doc])* pub $field: $ty, )* }
 
         impl HostingPolicy {
+            /// Reads every gate from the settings; a missing or invalid value is the closed default.
             pub fn from_settings($s: &dyn Settings) -> Self {
                 Self { $( $field: $read, )* }
             }
@@ -25,27 +26,43 @@ macro_rules! hosting_policy {
 }
 
 hosting_policy!(|s| {
+    /// Whether player-hosted hunts are on.
     enabled: bool = flag(s, "P2P_HUNTS_ENABLED"),
+    /// Accounts allowed to play hosted hunts.
     allowed_accounts: BTreeSet<String> = list(s, "P2P_ALLOWED_ACCOUNTS"),
+    /// Whether every account is allowed.
     allow_all_accounts: bool = flag(s, "P2P_ALLOW_ALL_ACCOUNTS"),
+    /// Hunt ids allowed to be hosted.
     allowed_hunts: BTreeSet<String> = list(s, "P2P_ALLOWED_HUNTS"),
+    /// Whether every hunt with a manifest is allowed.
     allow_all_resolvable_hunts: bool = flag(s, "P2P_ALLOW_ALL_RESOLVABLE_HUNTS"),
+    /// Whether trials, arenas and other competitive classes may be hosted.
     allow_high_risk_hunt_classes: bool = flag(s, "P2P_ALLOW_HIGH_RISK_HUNT_CLASSES"),
-    // Only an explicit "false" opens public parties.
+    /// Whether only private parties are hosted; only an explicit `false` opens public parties.
     private_parties_only: bool = !trimmed(s, "P2P_PRIVATE_PARTIES_ONLY").is_some_and(|v| v.eq_ignore_ascii_case("false")),
+    /// The largest party a hosted hunt takes, 1 to 4.
     max_party_size: i64 = numeric(s, "P2P_MAX_PARTY_SIZE", |n| n.fract() == 0.0 && (1.0..=4.0).contains(&n))
         .map_or(4, |n| n as i64),
+    /// The share of parties that get player hosting, 0 to 100.
     percent_rollout: f64 = numeric(s, "P2P_PERCENT_ROLLOUT", |n| n.is_finite() && (0.0..=100.0).contains(&n))
         .unwrap_or_default(),
+    /// Whether hunt traffic must go through the relay.
     force_sdr: bool = flag(s, "P2P_FORCE_SDR"),
+    /// Whether the tier-0 canary is on.
     canary_enabled: bool = flag(s, "P2P_TIER0_CANARY_ENABLED"),
     /// 0 is no-reward transport; 1 decides rewards from Guard's evidence.
     trust_tier: u8 = if trimmed(s, "P2P_TRUST_TIER") == Some("1") { 1 } else { 0 },
+    /// Whether tier 1 may grant rewards.
     tier1_rewards_enabled: bool = flag(s, "P2P_TIER1_REWARDS_ENABLED"),
+    /// Whether tier 1's shadow comparison was approved.
     tier1_shadow_approved: bool = flag(s, "P2P_TIER1_SHADOW_APPROVED"),
+    /// Accounts allowed at tier 1.
     tier1_allowed_accounts: BTreeSet<String> = list(s, "P2P_TIER1_ALLOWED_ACCOUNTS"),
+    /// Hunt ids allowed at tier 1.
     tier1_allowed_hunts: BTreeSet<String> = list(s, "P2P_TIER1_ALLOWED_HUNTS"),
+    /// Whether no dedicated servers take hunts, either by the setting or because none is configured.
     dedicated_hunts_disabled: bool = flag(s, "P2P_DISABLE_DEDICATED_HUNTS") || !dedicated_servers_configured(s),
+    /// Whether the training dojo may be hosted.
     training_enabled: bool = flag(s, "P2P_TRAINING_ENABLED"),
 });
 
@@ -72,14 +89,17 @@ fn numeric(settings: &dyn Settings, name: &str, valid: impl Fn(f64) -> bool) -> 
     settings.get(name).and_then(js_number).filter(|n| valid(*n))
 }
 
+/// Whether `DEPLOYSERVER_URL` names a dedicated server deployer.
 pub fn dedicated_servers_configured(settings: &dyn Settings) -> bool {
     trimmed(settings, "DEPLOYSERVER_URL").is_some_and(|url| !url.is_empty())
 }
 
+/// Whether the hunt id is the training dojo.
 pub fn is_training_hunt_id(hunt_id: &str) -> bool {
     hunt_id.contains("TrainingDojo")
 }
 
+/// Whether this is a dojo request player hosting takes: `SHARED` mode, with hosting and training on.
 pub fn is_p2p_training_request(game_mode: &str, hunt_id: &str, policy: &HostingPolicy) -> bool {
     game_mode == "SHARED" && policy.enabled && policy.training_enabled && is_training_hunt_id(hunt_id)
 }
@@ -91,6 +111,7 @@ fn is_player_hosted_shape(game_mode: &str, hunt_id: &str, policy: &HostingPolicy
     mode_ok && hunt_ok && training_ok
 }
 
+/// Whether the hunt is a trial, arena, gauntlet, escalation, race or other competitive class.
 pub fn is_high_risk_hunt(hunt_id: &str) -> bool {
     let lower = hunt_id.to_lowercase();
     [
@@ -124,28 +145,40 @@ pub fn rollout_bucket(account_ids: &[String], hunt_id: &str) -> f64 {
     f64::from(u32::from_be_bytes(head)) * 100.0 / 4_294_967_296.0
 }
 
+/// What a hunt request is routed on.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RouteInput {
+    /// The game mode asked for.
     pub game_mode: String,
+    /// The hunt id asked for.
     pub hunt_id: String,
+    /// Every account that would play.
     pub account_ids: Vec<String>,
+    /// How many play.
     pub party_size: i64,
+    /// Whether the party is private.
     pub is_private_party: bool,
 }
 
+/// Where a hunt is sent.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum HuntRoute {
+    /// A dedicated server.
     Dedicated,
+    /// A player's PC.
     PlayerHosted,
 }
 
 /// One table gives the variants, in order, and their wire codes.
 macro_rules! route_reasons {
     ($( $variant:ident = $code:literal ),* $(,)?) => {
+        /// Why a hunt went where it did: the gate that sent it to a dedicated server, or [`RouteReason::Eligible`].
         #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+        #[allow(missing_docs, reason = "the reason table takes no attributes; each variant is its wire code")]
         pub enum RouteReason { $( $variant, )* }
 
         impl RouteReason {
+            /// The reason's wire code.
             pub const fn as_str(self) -> &'static str {
                 match self { $( Self::$variant => $code, )* }
             }
@@ -166,10 +199,14 @@ route_reasons! {
     PlayerHostedNotImplemented = "PLAYER_HOSTED_NOT_IMPLEMENTED", Eligible = "ELIGIBLE",
 }
 
+/// Where a hunt goes, and why.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct RouteDecision {
+    /// Where it goes.
     pub route: HuntRoute,
+    /// The gate that decided, or [`RouteReason::Eligible`].
     pub reason: RouteReason,
+    /// The party's rollout bucket, 0 to 100, once every gate passed.
     pub rollout_bucket: Option<f64>,
 }
 

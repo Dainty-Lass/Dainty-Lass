@@ -4,7 +4,7 @@
 //! The hosting and joining flows against a scripted transport (spec §8.2 item 7 and the additions): files, bytes,
 //! environment, failure cleanup, stopping, snapshots and the pumps.
 
-#![allow(clippy::unwrap_used, clippy::expect_used)]
+#![allow(clippy::unwrap_used, clippy::expect_used, reason = "a panic is how a test fails")]
 
 mod common;
 

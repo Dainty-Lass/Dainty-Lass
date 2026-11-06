@@ -52,7 +52,9 @@ const RAMSGATE_HUNT: &str = "ShatteredIsles_ReturnToRamsgate";
 pub trait PortService: Send + Sync {
     /// The port's name in the manifest
     fn port(&self) -> &'static str;
+    /// The service's router over the module's shared state.
     fn app(&self, shared: Arc<Shared>) -> Result<axum::Router, ModuleError>;
+    /// Called once the service listens.
     fn started(&self) {}
     /// The Director lets go of its game servers here.
     fn stopping(&self) -> BoxFuture<'_, ()> {
@@ -75,24 +77,38 @@ impl PortService for BackendService {
     }
 }
 
+/// The ports a module takes unless the config assigns others.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct DefaultPorts {
+    /// The backend's port.
     pub backend: u16,
+    /// The Director's port.
     pub director: u16,
+    /// The region-ping listener's port.
     pub qos: u16,
+    /// The game servers' ports.
     pub game: PortRange,
 }
 
+/// Everything a game version's module is built from.
 pub struct ModuleSpec {
+    /// The module's id, kept in `host.toml` and invites.
     pub id: ModuleId,
+    /// The name hosts and the launcher show.
     pub display_name: String,
+    /// Other names an invite may give the module.
     pub invite_aliases: Vec<String>,
+    /// What the module offers (realms, network, chat, patch sets).
     pub capabilities: Capabilities,
+    /// Built but not checked against recorded traffic (DD9); the UI says so.
     pub unverified: bool,
+    /// The ports it takes by default.
     pub ports: DefaultPorts,
+    /// The version's tables, hooks and route set.
     pub version: IslesVersion,
     /// In start order; the backend is usually first
     pub services: Vec<Arc<dyn PortService>>,
+    /// Builds the areas at start.
     pub composer: Arc<dyn Composer>,
 }
 
@@ -111,6 +127,7 @@ struct State {
     running: Option<Running>,
 }
 
+/// A game version's module as the controller runs it (`module_api::GameModule`).
 pub struct IslesModule {
     spec: ModuleSpec,
     game_version: GameVersion,
@@ -169,6 +186,7 @@ impl IslesModule {
         })
     }
 
+    /// The spec it was built from.
     pub fn spec(&self) -> &ModuleSpec {
         &self.spec
     }

@@ -1,6 +1,6 @@
 //! Shipping a node's change log and database snapshots to a peer region's node over `Service::LogShip`
 //! (DH7, DD23 layer 2; docs/security/{history,network}.md).
-#![allow(clippy::unwrap_used, clippy::expect_used)]
+#![allow(clippy::unwrap_used, clippy::expect_used, reason = "a panic is how a test fails")]
 
 mod common;
 

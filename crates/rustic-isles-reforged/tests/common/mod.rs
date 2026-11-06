@@ -4,7 +4,12 @@
 //! A module over a temporary store with both halves of the Reforged API, driven through core's `app()`. Every value
 //! is synthetic; the Guard and update tests sign with their own key pairs.
 
-#![allow(dead_code, clippy::unwrap_used, clippy::expect_used)]
+#![allow(
+    dead_code,
+    clippy::unwrap_used,
+    clippy::expect_used,
+    reason = "shared by several test binaries, each using only some; a panic is how a test fails"
+)]
 
 use std::net::SocketAddr;
 use std::sync::Arc;

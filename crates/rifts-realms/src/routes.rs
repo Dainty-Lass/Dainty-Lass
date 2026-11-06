@@ -231,15 +231,23 @@ pub fn stub_routes() -> StubRoutes {
     }
 }
 
+/// What the realms routes answer from; an absent part answers its routes as unimplemented.
 pub struct RealmsRoutesParts {
+    /// The realm directory.
     pub directory: Option<Arc<RealmDirectory>>,
+    /// The launcher control channel.
     pub control: Option<Arc<ControlChannel>>,
+    /// Player hosting.
     pub hosting: Option<Arc<Hosting>>,
+    /// Host capabilities.
     pub capabilities: Option<Arc<HostCapabilities>>,
+    /// The time now.
     pub clock: Arc<dyn Clock>,
+    /// Whether the realms module is on; the realm routes refuse with `REALMS_DISABLED` when it is off.
     pub realms_enabled: bool,
 }
 
+/// Answers the realms, control and hosting routes.
 #[derive(Clone)]
 pub struct RealmsRoutes {
     parts: Arc<RealmsRoutesParts>,
@@ -341,6 +349,7 @@ fn ok(value: &impl Serialize) -> Result<Reply, RealmsError> {
 }
 
 impl RealmsRoutes {
+    /// Routes over these parts.
     pub fn new(parts: RealmsRoutesParts) -> Self {
         Self { parts: Arc::new(parts) }
     }

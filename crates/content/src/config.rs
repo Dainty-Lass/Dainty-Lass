@@ -12,26 +12,42 @@ use serde_json::Value;
 use service_kit::env::Env;
 use service_kit::js;
 
+/// Port served on when `PORT` is unset.
 pub const DEFAULT_PORT: u16 = 61002;
+/// Host bound when `BIND_HOST` is unset.
 pub const DEFAULT_BIND: &str = "127.0.0.1";
+/// Backend reached when `BACKEND_URL` is unset.
 pub const DEFAULT_BACKEND: &str = "http://127.0.0.1:61000";
 
+/// The content server's settings, from `content.env`.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Config {
+    /// Game version served (`CONTENT_GAME`).
     pub version: GameVersion,
+    /// TCP port (`PORT`).
     pub port: u16,
+    /// Loopback hosts to bind (`BIND_HOST`).
     pub bind_hosts: Vec<String>,
+    /// Backend base URL for account lookups (`BACKEND_URL`).
     pub backend_url: String,
+    /// Folder holding the runtime and `runtime.json` (`CONTENT_RUNTIME_DIR`).
     pub runtime_dir: Option<PathBuf>,
+    /// Art pack folder (`CONTENT_BRANDING_DIR`).
     pub branding_dir: Option<PathBuf>,
+    /// News file (`CONTENT_NEWS_FILE`).
     pub news_file: Option<PathBuf>,
+    /// GitHub raw URL of the news, which wins over the file once fetched (`CONTENT_NEWS_URL`).
     pub news_url: Option<String>,
+    /// Concurrent downloads one account may hold, 1 to 64 (`CONTENT_MAX_STREAMS_PER_ACCOUNT`).
     pub max_streams_per_account: usize,
+    /// Concurrent downloads in all, 1 to 1024 (`CONTENT_MAX_STREAMS_TOTAL`).
     pub max_streams_total: usize,
+    /// Seconds an account lookup stays cached, 0 to 3600 (`CONTENT_AUTH_CACHE_SECONDS`).
     pub auth_cache_seconds: u64,
 }
 
 impl Config {
+    /// Reads the settings; the error names the first bad one.
     pub fn from_env(env: &Env) -> Result<Config, String> {
         let version = game(env.raw("CONTENT_GAME"))?;
         let port = whole(env, "PORT", f64::from(DEFAULT_PORT), 1.0, 65535.0)? as u16;
@@ -159,7 +175,7 @@ fn folder(raw: Option<&str>) -> Option<PathBuf> {
 
 #[cfg(test)]
 mod tests {
-    #![allow(clippy::unwrap_used)]
+    #![allow(clippy::unwrap_used, reason = "a panic is how a test fails")]
     use super::*;
 
     fn config(pairs: &[(&str, &str)]) -> Result<Config, String> {

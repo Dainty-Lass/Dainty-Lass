@@ -3,7 +3,7 @@
 
 //! Realm presence, its two-second cache and the touch rule, through the directory.
 
-#![allow(clippy::unwrap_used, clippy::expect_used)]
+#![allow(clippy::unwrap_used, clippy::expect_used, reason = "a panic is how a test fails")]
 
 mod common;
 

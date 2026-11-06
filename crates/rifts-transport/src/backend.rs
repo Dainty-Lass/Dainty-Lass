@@ -25,12 +25,16 @@ use crate::text::{is_hex64, safe_str};
 
 /// Umbrella spec D3: the Rustic header names, user agent and route prefix.
 pub const CAPABILITY_HEADER: &str = "x-rustic-host-capability";
+/// The header carrying each call's request id (umbrella spec D3).
 pub const REQUEST_ID_HEADER: &str = "X-Rustic-Request-Id";
+/// The user agent every backend call sends (umbrella spec D3).
 pub const USER_AGENT: &str = "RusticTransport/1";
+/// The path every hunt route starts with, before the session id (umbrella spec D3).
 pub const ROUTE_PREFIX: &str = "/rustic/v1/hunts/";
 const TIMEOUT: Duration = Duration::from_secs(5);
 const MAX_RESPONSE: usize = 16 * 1024;
 const MAX_BODY: usize = 8192;
+/// The largest Guard batch body the host posts, in bytes.
 pub const MAX_BATCH_BODY: usize = 57344;
 
 #[derive(Debug)]
@@ -131,7 +135,9 @@ fn parse_base(url: &str) -> Result<BaseUrl, String> {
 /// A backend answer: the status and up to 16 KiB of body.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Answer {
+    /// The HTTP status.
     pub status: u16,
+    /// The body, lossily decoded as UTF-8.
     pub body: String,
 }
 
@@ -147,6 +153,7 @@ pub fn find_hex64(body: &str, name: &str) -> Option<String> {
 
 type Https = hyper_rustls::HttpsConnector<HttpConnector>;
 
+/// The host's HTTP client for one hunt session's backend routes, sending its capability on every call.
 pub struct BackendClient {
     base: BaseUrl,
     capability: String,
@@ -163,34 +170,54 @@ impl std::fmt::Debug for BackendClient {
     }
 }
 
+/// The backend's answer to a ticket consume.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ConsumeAnswer {
+    /// `ok`, or why the ticket was refused, such as `backend_unavailable` or `backend_http_403`.
     pub code: String,
+    /// The admission's 64-hex id, empty when refused.
     pub admission_id: String,
+    /// The ticket had already been consumed for this connection.
     pub idempotent: bool,
 }
 
+/// How a lease renewal went.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum LeaseOutcome {
+    /// The backend renewed the lease.
     Renewed,
+    /// The backend refused this generation's lease.
     Rejected,
+    /// The backend could not be reached or was busy.
     Unavailable,
 }
 
+/// A lease renewal's outcome and its diagnostic.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct LeaseAnswer {
+    /// How the renewal went.
     pub outcome: LeaseOutcome,
+    /// Why it was not renewed, empty when it was.
     pub error: String,
 }
 
 /// A Guard batch's answer: taken with the backend's hash, retryable, or refused for good.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum BatchAnswer {
+    /// Accepted; the backend's batch hash.
     Accepted(String),
+    /// Worth sending again later; the text says why.
     Retry(String),
-    Refused { status: u16, error: String },
+    /// Refused for good.
+    Refused {
+        /// The HTTP status, 0 when the batch was never sent.
+        status: u16,
+        /// Why, for the diagnostics.
+        error: String,
+    },
 }
 
+/// Reads a lease answer: renewed, rejected (an emergency stop or a 4xx) or unavailable (a transport error, 408, 429 or 5xx).
 pub fn classify_lease(answer: Result<Answer, String>) -> LeaseAnswer {
     let (outcome, error) = match answer {
         Err(error) => (LeaseOutcome::Unavailable, error),
@@ -211,6 +238,7 @@ pub fn classify_lease(answer: Result<Answer, String>) -> LeaseAnswer {
     LeaseAnswer { outcome, error }
 }
 
+/// Reads a batch answer: accepted with its hash, retryable on a transport error, 408, 429 or 5xx, refused otherwise.
 pub fn classify_batch(answer: Result<Answer, String>) -> BatchAnswer {
     match answer {
         Err(error) => BatchAnswer::Retry(error),
@@ -234,6 +262,8 @@ pub fn classify_batch(answer: Result<Answer, String>) -> BatchAnswer {
 }
 
 impl BackendClient {
+    /// A client for `url`'s hunt routes; fails on a malformed capability or a URL that is not HTTPS or loopback HTTP.
+    /// Only a loopback backend's certificate goes unchecked.
     pub fn new(url: &str, capability: &str, session_id: &str, runtime: tokio::runtime::Handle) -> Result<Self, String> {
         if capability.len() != 43 || !safe_str(capability, 43, b"_-") {
             return Err("host capability must be a 32-byte base64url secret".to_owned());
@@ -316,10 +346,12 @@ impl BackendClient {
         format!("{ROUTE_PREFIX}{}/{tail}", self.session_id)
     }
 
+    /// Whether the session id is safe to put in a route.
     pub fn session_ok(&self) -> bool {
         safe_str(&self.session_id, 64, b"-")
     }
 
+    /// Consumes a joiner's ticket for this connection and peer; blocks the caller on the network.
     pub fn consume(
         &self,
         ticket: &str,
@@ -359,6 +391,7 @@ impl BackendClient {
         }
     }
 
+    /// Tells the backend the host's bridge is listening on `virtual_port`.
     pub fn host_ready(&self, virtual_port: u16, bridge_instance_id: &str, request_id: &str) -> Result<(), String> {
         if !self.session_ok() || !safe_str(bridge_instance_id, 96, b"._:-") || virtual_port == 0 {
             return Err("invalid host-ready request".to_owned());
@@ -377,6 +410,7 @@ impl BackendClient {
         }
     }
 
+    /// Renews this generation's lease with the admitted count and queue pressure (0 to 100).
     pub fn lease(&self, sequence: u64, admitted: u32, queue_pressure: u32, request_id: &str) -> LeaseAnswer {
         if sequence == 0 || admitted > 64 || queue_pressure > 100 || !self.session_ok() {
             return LeaseAnswer {
@@ -391,6 +425,7 @@ impl BackendClient {
         classify_lease(self.post(&self.route("lease"), request_id, body, MAX_BODY))
     }
 
+    /// Posts one Guard event batch body.
     pub fn event_batch(&self, body: String, request_id: &str) -> BatchAnswer {
         if body.len() > MAX_BATCH_BODY {
             return BatchAnswer::Refused {
@@ -401,6 +436,7 @@ impl BackendClient {
         classify_batch(self.post(&self.route("event-batches"), request_id, body, MAX_BATCH_BODY))
     }
 
+    /// Completes the Guard chain at its final sequence and hash; an answer applying progression is refused.
     pub fn completion(&self, final_sequence: u64, final_hash: &str, request_id: &str) -> Result<(), String> {
         if !self.session_ok() || final_sequence == 0 || !is_hex64(final_hash) {
             return Err("invalid Guard completion request".to_owned());
@@ -453,6 +489,7 @@ pub struct Lane {
 }
 
 impl Lane {
+    /// Starts the worker thread; at most `capacity` jobs are held at once.
     pub fn start(client: Arc<BackendClient>, capacity: usize) -> Self {
         let shared: Arc<(Mutex<LaneState>, Condvar)> = Arc::default();
         let worker_shared = shared.clone();
@@ -552,13 +589,16 @@ impl Drop for Lane {
 /// The lease rule: two refusals in a row fail it, and so does 30 s without a renewal while unavailable.
 #[derive(Debug, Clone, Copy)]
 pub struct LeaseTracker {
+    /// When the lease was last renewed.
     pub last_renewal: Instant,
     refusals: u32,
 }
 
+/// How long the lease may go unrenewed while the backend is unavailable.
 pub const LEASE_GRACE: Duration = Duration::from_secs(30);
 
 impl LeaseTracker {
+    /// A tracker counting from a renewal at `now`.
     pub fn new(now: Instant) -> Self {
         Self {
             last_renewal: now,
@@ -585,6 +625,7 @@ impl LeaseTracker {
         }
     }
 
+    /// Whole seconds since the last renewal.
     pub fn seconds_since_renewal(&self, now: Instant) -> u64 {
         now.saturating_duration_since(self.last_renewal).as_secs()
     }

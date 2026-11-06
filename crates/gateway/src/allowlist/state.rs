@@ -11,10 +11,14 @@ use serde_json::{Value, json};
 
 use crate::ip::{AllowlistCheck, ParsedIp, check_allowlist_ip, parse_ip};
 
+/// What [`AllowlistState::refresh`] did.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Refresh {
+    /// A new address was admitted.
     Added,
+    /// An admitted address's expiry was pushed back.
     Refreshed,
+    /// The set is full; the address was not admitted.
     Full,
 }
 
@@ -25,6 +29,7 @@ struct Entry {
     bytes: Vec<u8>,
 }
 
+/// The admitted addresses and when each expires.
 #[derive(Debug, Clone)]
 pub struct AllowlistState {
     ttl_ms: i64,
@@ -33,6 +38,7 @@ pub struct AllowlistState {
 }
 
 impl AllowlistState {
+    /// An empty set keeping addresses `ttl_ms` and holding at most `max`.
     pub fn new(ttl_ms: i64, max: usize) -> Self {
         Self {
             ttl_ms,
@@ -41,10 +47,12 @@ impl AllowlistState {
         }
     }
 
+    /// How many addresses are admitted.
     pub fn len(&self) -> usize {
         self.entries.len()
     }
 
+    /// Whether no one is admitted.
     pub fn is_empty(&self) -> bool {
         self.entries.is_empty()
     }
@@ -108,14 +116,17 @@ impl AllowlistState {
             .collect()
     }
 
+    /// Whether the canonical address is admitted.
     pub fn contains(&self, canonical: &str) -> bool {
         self.entries.contains_key(canonical)
     }
 
+    /// The earliest expiry, in Unix milliseconds.
     pub fn next_expiry(&self) -> Option<i64> {
         self.entries.values().map(|e| e.expires_at).min()
     }
 
+    /// The set as the state file and `/status` write it.
     pub fn to_json(&self) -> Value {
         let entries: Vec<Value> = self
             .entries()

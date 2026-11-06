@@ -3,7 +3,7 @@
 
 //! The run (spec §13.2 U1-U7) against small targets built here.
 
-#![allow(clippy::unwrap_used, clippy::expect_used)]
+#![allow(clippy::unwrap_used, clippy::expect_used, reason = "a panic is how a test fails")]
 
 mod common;
 

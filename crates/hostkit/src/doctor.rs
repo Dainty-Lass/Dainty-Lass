@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Silent Spud
 
+//! `dainty-host doctor`'s checks: the tools, the configuration, Rustic Isles' sources and builds, the game data,
+//! the runtime, the game install, memory, Linux, the network, the database and the running services.
+
 use std::fs::{self, File};
 use std::io::Read;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr, TcpStream};
@@ -18,22 +21,33 @@ use crate::mongo::{MongoCheck, MongoProblem, ReplicaSetOptions, ensure_replica_s
 use crate::paths::{GAME_VERSION_TEXT, PINNED_EXE_SHA256, PORTS, Paths, RUNTIME_FILE_NAMES, game_exe_relative};
 use crate::run::capture;
 
+/// How a check came out.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Level {
+    /// Passed.
     Ok,
+    /// Works, but something is worth fixing.
     Warn,
+    /// The server won't run right until it is fixed.
     Fail,
+    /// Something worth knowing, neither good nor bad.
     Info,
 }
 
+/// One check's result.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Check {
+    /// The group it is printed under.
     pub area: &'static str,
+    /// How it came out.
     pub level: Level,
+    /// What was found.
     pub text: String,
+    /// What to do about it, when there is something to do.
     pub fix: Option<String>,
 }
 
+/// A check with no fix.
 pub fn check(area: &'static str, level: Level, text: impl Into<String>) -> Check {
     Check {
         area,
@@ -43,6 +57,7 @@ pub fn check(area: &'static str, level: Level, text: impl Into<String>) -> Check
     }
 }
 
+/// A check with what to do about it.
 pub fn fix(area: &'static str, level: Level, text: impl Into<String>, fix_text: impl Into<String>) -> Check {
     Check {
         area,
@@ -52,25 +67,36 @@ pub fn fix(area: &'static str, level: Level, text: impl Into<String>, fix_text: 
     }
 }
 
+/// How [`run_doctor`] checks.
 #[derive(Debug, Clone, Copy, Default)]
 pub struct DoctorOptions {
+    /// Hashes the game executable against the pinned build (slow).
     pub hash_exe: bool,
 }
 
+/// The patches the built runtime DLL carries.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct CpuPatches {
+    /// The CPU fixes.
     pub cpu_fixes: bool,
+    /// The frame cap.
     pub frame_cap: bool,
 }
 
+/// The game build a folder must hold.
 #[derive(Debug, Clone, Copy)]
 pub struct GameBuild<'a> {
+    /// The version string the executable carries.
     pub version_text: &'a str,
+    /// The executable's SHA-256, lowercase hex.
     pub exe_sha256: &'a str,
+    /// The build's name, as the checks say it.
     pub name: &'a str,
+    /// How the host gets it, as the fix says it.
     pub get_it: &'a str,
 }
 
+/// The pinned Dauntless 1.14.7 build.
 pub const REBORN_BUILD: GameBuild<'static> = GameBuild {
     version_text: GAME_VERSION_TEXT,
     exe_sha256: PINNED_EXE_SHA256,
@@ -78,8 +104,10 @@ pub const REBORN_BUILD: GameBuild<'static> = GameBuild {
     get_it: "run dainty-host install-game",
 };
 
+/// Memory the services take, in MB, before any hunt.
 pub const SERVICES_MEMORY_MB: i64 = 1536;
 
+/// This PC's Tailscale IPv4 address, from `tailscale ip -4`; `None` when Tailscale is not running.
 pub fn tailscale_ipv4() -> Option<String> {
     let mut candidates = vec!["tailscale".to_owned()];
     if cfg!(windows) {
@@ -102,6 +130,7 @@ pub fn tailscale_ipv4() -> Option<String> {
     None
 }
 
+/// Whether something accepts TCP connections on `port` at `host` (127.0.0.1 when `None` or 0.0.0.0).
 pub fn port_in_use(port: u16, host: Option<&str>) -> Result<bool, HostError> {
     let host_str = host.unwrap_or("127.0.0.1");
     let ip: IpAddr = if host_str == "0.0.0.0" || host_str.trim().is_empty() {
@@ -113,12 +142,14 @@ pub fn port_in_use(port: u16, host: Option<&str>) -> Result<bool, HostError> {
     Ok(TcpStream::connect_timeout(&addr, Duration::from_millis(250)).is_ok())
 }
 
+/// What holds `port`, as the OS's tools tell it; `None` when they don't say.
 pub fn port_owner_hint(port: u16) -> Option<String> {
     port_owner_hint_with(port, Platform::current(), |cmd, args| {
         capture(cmd, args, None).ok().flatten()
     })
 }
 
+/// The command the host can run to see what holds `port`.
 pub fn port_owner_hint_for(port: u16, platform: Platform) -> String {
     match platform {
         Platform::Linux => format!("ss -tlnp 'sport = :{port}'"),
@@ -126,6 +157,7 @@ pub fn port_owner_hint_for(port: u16, platform: Platform) -> String {
     }
 }
 
+/// [`port_owner_hint`] with `run_cmd` in place of running the OS's tools.
 pub fn port_owner_hint_with(
     port: u16,
     platform: Platform,
@@ -181,6 +213,7 @@ pub fn port_owner_hint_with(
     }
 }
 
+/// Whether `path` on `port` answers with a status below 500 within `timeout`.
 pub fn wait_for_http(port: u16, path: &str, timeout: Duration) -> bool {
     let deadline = Instant::now() + timeout;
     loop {
@@ -202,6 +235,7 @@ pub fn wait_for_http(port: u16, path: &str, timeout: Duration) -> bool {
     }
 }
 
+/// The file's SHA-256, lowercase hex.
 pub fn sha256_file(file: &Path) -> Result<String, HostError> {
     let mut f = File::open(file)?;
     let mut hasher = Sha256::new();
@@ -222,6 +256,7 @@ pub fn sha256_file(file: &Path) -> Result<String, HostError> {
     Ok(hex)
 }
 
+/// Whether a `node --version` is 20.19 or newer.
 pub fn node_version_ok(version: &str) -> bool {
     let trimmed = version.trim();
     let stripped = trimmed.strip_prefix('v').unwrap_or(trimmed);
@@ -242,6 +277,7 @@ pub fn node_version_ok(version: &str) -> bool {
     major > 20 || (major == 20 && minor >= 19)
 }
 
+/// How many `*_functions.cpp` files the generated SDK folder holds.
 pub fn count_function_files(sdk_dir: &Path) -> usize {
     let Ok(entries) = fs::read_dir(sdk_dir) else {
         return 0;
@@ -252,10 +288,12 @@ pub fn count_function_files(sdk_dir: &Path) -> usize {
         .count()
 }
 
+/// The checks of the game folder against the pinned 1.14.7 build.
 pub fn game_checks(game_dir: Option<&str>, hash_exe: bool) -> Result<Vec<Check>, HostError> {
     game_exe_checks(game_dir, hash_exe, &REBORN_BUILD)
 }
 
+/// The checks of the game folder against `build`: the folder, the executable and, with `hash_exe`, its SHA-256.
 pub fn game_exe_checks(game_dir: Option<&str>, hash_exe: bool, build: &GameBuild<'_>) -> Result<Vec<Check>, HostError> {
     let area = "game";
     let mut out = Vec::new();
@@ -335,6 +373,7 @@ fn contains_subslice(haystack: &[u8], needle: &[u8]) -> bool {
     haystack.windows(needle.len()).any(|w| w == needle)
 }
 
+/// The patches the runtime DLL at `dll_path` carries, from the strings it holds; `None` when it can't be read.
 pub fn runtime_cpu_patches(dll_path: &Path) -> Option<CpuPatches> {
     let bytes = fs::read(dll_path).ok()?;
     let walk_flag_utf16le: Vec<u8> = "LEGACY_EXPECTED_PLAYER_WALK.flag"
@@ -346,6 +385,7 @@ pub fn runtime_cpu_patches(dll_path: &Path) -> Option<CpuPatches> {
     Some(CpuPatches { cpu_fixes, frame_cap })
 }
 
+/// How many hunts fit in `total_mb` of memory beside the services, two hunts' headroom and the memory kept free.
 pub fn hunts_that_fit(total_mb: u64, perf: &PerformanceOptions) -> u64 {
     if perf.hunt_memory_mb == 0 {
         return 0;
@@ -362,6 +402,7 @@ pub fn hunts_that_fit(total_mb: u64, perf: &PerformanceOptions) -> u64 {
     }
 }
 
+/// This machine's memory in MB; `None` when the OS doesn't say.
 pub fn total_memory_mb() -> Option<u64> {
     if let Ok(meminfo) = fs::read_to_string("/proc/meminfo") {
         for line in meminfo.lines() {
@@ -389,6 +430,7 @@ pub fn total_memory_mb() -> Option<u64> {
     None
 }
 
+/// The game-server settings in one line, for the doctor's output.
 pub fn performance_summary_line(config: &HostConfig) -> String {
     let perf = performance_options(config);
     let fps_part = if perf.idle_fps == 0 || perf.idle_fps >= perf.server_fps {
@@ -434,6 +476,7 @@ pub fn performance_summary_line(config: &HostConfig) -> String {
     )
 }
 
+/// The checks of the game-server settings against the runtime's patches and this machine's memory.
 pub fn performance_checks(
     config: &HostConfig,
     runtime_dll: Option<&Path>,
@@ -501,6 +544,8 @@ pub fn performance_checks(
     out
 }
 
+/// The Linux checks: Wine or Proton and its prefix, xvfb-run, the game server wrapper, nftables and the gateway port's
+/// capability.
 pub fn linux_checks(p: &Paths, config: &HostConfig) -> Result<Vec<Check>, HostError> {
     let area = "linux";
     let mut out = Vec::new();
@@ -636,6 +681,7 @@ pub fn linux_checks(p: &Paths, config: &HostConfig) -> Result<Vec<Check>, HostEr
     Ok(out)
 }
 
+/// The checks of the Tailscale address against `game_address`, the gateway certificate and the node certificates.
 pub fn network_checks(p: &Paths, config: &HostConfig, _platform: Platform) -> Result<Vec<Check>, HostError> {
     let area = "network";
     let mut out = Vec::new();
@@ -727,6 +773,7 @@ pub fn network_checks(p: &Paths, config: &HostConfig, _platform: Platform) -> Re
     Ok(out)
 }
 
+/// The check of the MongoDB the server migrates from, by what `mongo` found.
 pub fn database_check(mongo: &MongoCheck, _uri: &str, managed: bool) -> Check {
     let area = "database";
     match mongo {
@@ -768,6 +815,7 @@ pub fn database_check(mongo: &MongoCheck, _uri: &str, managed: bool) -> Check {
     }
 }
 
+/// The check of the store, and of MongoDB data not migrated yet.
 pub fn store_database_check(p: &Paths, config: &HostConfig) -> Check {
     let area = "database";
     if let Some(text) = crate::commands::update::unmigrated_mongo_problem(p, config) {
@@ -821,6 +869,7 @@ pub fn store_database_check(p: &Paths, config: &HostConfig) -> Check {
     }
 }
 
+/// Every check, in the order printed.
 pub fn run_doctor(p: &Paths, opts: &DoctorOptions) -> Result<Vec<Check>, HostError> {
     let mut checks = Vec::new();
     let platform = Platform::current();
@@ -954,6 +1003,7 @@ pub fn run_doctor(p: &Paths, opts: &DoctorOptions) -> Result<Vec<Check>, HostErr
     Ok(checks)
 }
 
+/// Prints the checks grouped by area through `say`; returns the counts of failures and warnings.
 pub fn print_checks(checks: &[Check], say: &mut dyn FnMut(&str)) -> (usize, usize) {
     let mut current_area: Option<&str> = None;
     let mut fails = 0usize;
@@ -989,7 +1039,7 @@ pub fn print_checks(checks: &[Check], say: &mut dyn FnMut(&str)) -> (usize, usiz
 
 #[cfg(test)]
 mod tests {
-    #![allow(clippy::unwrap_used, clippy::expect_used)]
+    #![allow(clippy::unwrap_used, clippy::expect_used, reason = "a panic is how a test fails")]
 
     use super::*;
     use tempfile::TempDir;

@@ -99,6 +99,7 @@ pub fn validate_inventory_transaction_body(body: &Value) -> Option<String> {
     None
 }
 
+/// The instanced item update body's first problem, as the 400's text; None when it passes.
 pub fn validate_instanced_item_update_body(body: &Value) -> Option<String> {
     for field in ["characterId", "instanceId", "catalogId"] {
         if !non_empty_string(body.get(field)) {

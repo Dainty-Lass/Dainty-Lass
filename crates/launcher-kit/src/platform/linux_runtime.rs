@@ -12,9 +12,13 @@ use serde::{Deserialize, Serialize};
 /// Snapshot of environment variables and filesystem roots used to probe Linux runtimes.
 #[derive(Debug, Clone, Default)]
 pub struct Env {
+    /// `HOME`, or the OS's home directory.
     pub home: Option<PathBuf>,
+    /// `PATH`'s directories, in order.
     pub path: Vec<PathBuf>,
+    /// The launcher runs inside Flatpak.
     pub flatpak: bool,
+    /// Every environment variable.
     pub vars: HashMap<String, String>,
 }
 
@@ -60,38 +64,54 @@ pub fn current_env() -> Env {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum RuntimeKind {
+    /// Valve's Proton, run through its `proton` script.
     Proton,
+    /// UMU (ULWGL), Proton outside Steam.
     Umu,
+    /// Plain Wine.
     Wine,
 }
 
+/// The compatibility runner family.
 pub type RunnerKind = RuntimeKind;
 
 /// A discovered Linux compatibility runtime on disk.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DetectedRuntime {
+    /// Which family.
     pub kind: RuntimeKind,
+    /// The executable to run.
     pub binary: PathBuf,
+    /// Name shown to the player, such as the Proton version.
     pub label: String,
+    /// The Steam install it came from, for Proton.
     pub steam_root: Option<PathBuf>,
 }
 
 /// Prepared command, prefix, and environment variables for launching the game on Linux.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PreparedLaunch {
+    /// The runner executable.
     pub program: PathBuf,
+    /// Arguments before the game executable (Proton's `waitforexitandrun`).
     pub args_before_exe: Vec<OsString>,
+    /// Environment to set: the prefix and DLL overrides, plus Proton's Steam variables.
     pub env: Vec<(OsString, OsString)>,
+    /// Which family.
     pub kind: RuntimeKind,
+    /// The Wine prefix (Proton's compatdata), created if missing.
     pub prefix: PathBuf,
+    /// Name shown to the player.
     pub label: String,
 }
 
+/// A launch ready to run.
 pub type LaunchRuntime = PreparedLaunch;
 
 /// Returned when no suitable Proton, ULWGL, or Wine runtime could be found.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RuntimeMissing {
+    /// Every place searched, for the error.
     pub searched: Vec<PathBuf>,
 }
 
@@ -428,17 +448,24 @@ pub fn prepare_linux_launch(env: &Env, data_dir: &Path, _exe: &Path) -> Result<P
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum DependencyKind {
+    /// Wine, to run the game.
     Wine,
+    /// Tailscale, for private servers.
     Tailscale,
+    /// `secret-tool`, so the account key can be kept in the desktop's key store.
     SecretTool,
 }
 
 /// Planned command for installing a system package on Linux.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct InstallPlan {
+    /// The package manager, or the privilege escalator (`pkexec` or `sudo`) that runs it.
     pub program: PathBuf,
+    /// Its arguments.
     pub args: Vec<String>,
+    /// The command as shown to the player before it runs.
     pub display_command: String,
+    /// The command runs through `pkexec` or `sudo`.
     pub needs_privilege_escalation: bool,
 }
 

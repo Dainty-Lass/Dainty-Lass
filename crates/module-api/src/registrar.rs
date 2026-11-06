@@ -11,14 +11,23 @@ use crate::module::{CoreCapability, EventName};
 
 /// Bounds on a registration, which arrives from an external module's process.
 pub mod limits {
+    /// Most routes.
     pub const ROUTES: usize = 64;
+    /// Longest route prefix, in bytes.
     pub const PREFIX: usize = 256;
+    /// Most content files.
     pub const CONTENT_FILES: usize = 1024;
+    /// Most commands.
     pub const COMMANDS: usize = 64;
+    /// Most arguments per command.
     pub const ARGS: usize = 16;
+    /// Longest summary or help text, in bytes.
     pub const HELP: usize = 256;
+    /// Most events emitted, and most subscribed to.
     pub const EVENTS: usize = 128;
+    /// Most config sections.
     pub const SECTIONS: usize = 32;
+    /// Most keys per config section.
     pub const KEYS: usize = 64;
 }
 
@@ -27,9 +36,11 @@ pub mod limits {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct RouteSpec {
+    /// Absolute path prefix, such as `/isles`.
     pub prefix: String,
     /// A TCP port named in the manifest
     pub port: String,
+    /// Served only to the host's own tools, never from outside.
     #[serde(default)]
     pub host_only: bool,
     /// A WebSocket upgrade route (such as a module's own XMPP-over-WebSocket listener)
@@ -45,15 +56,20 @@ pub struct ContentFile {
     pub path: String,
     /// Where it is, relative to the module's folder
     pub source: String,
+    /// Its media type, such as `application/json`.
     pub media_type: String,
 }
 
+/// One argument of a [`CommandSpec`].
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ArgSpec {
+    /// Argument name.
     pub name: String,
+    /// The command refuses to run without it.
     #[serde(default)]
     pub required: bool,
+    /// One-line help.
     pub help: String,
 }
 
@@ -61,13 +77,17 @@ pub struct ArgSpec {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct CommandSpec {
+    /// Command name.
     pub name: String,
+    /// One-line summary.
     pub summary: String,
+    /// Its arguments, in the order the command reads them.
     #[serde(default)]
     pub args: Vec<ArgSpec>,
 }
 
 impl CommandSpec {
+    /// A command with no arguments.
     pub fn new(name: impl Into<String>, summary: impl Into<String>) -> Self {
         Self {
             name: name.into(),
@@ -76,6 +96,7 @@ impl CommandSpec {
         }
     }
 
+    /// Adds an argument after the others.
     pub fn arg(mut self, name: impl Into<String>, required: bool, help: impl Into<String>) -> Self {
         self.args.push(ArgSpec {
             name: name.into(),
@@ -86,21 +107,31 @@ impl CommandSpec {
     }
 }
 
+/// A moderation action a module can carry out on its players.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum AdminAction {
+    /// Disconnect a player.
     Kick,
+    /// Ban a player.
     Ban,
+    /// Lift a ban.
     Unban,
+    /// End a timeout early.
     LiftTimeout,
+    /// Look a player up.
     Lookup,
 }
 
+/// One setting in a [`ConfigSection`].
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ConfigKey {
+    /// Key name, snake_case.
     pub name: String,
+    /// Its default; a value set in `host.toml` must have the same JSON type.
     pub default: serde_json::Value,
+    /// One-line help.
     pub help: String,
 }
 
@@ -108,12 +139,15 @@ pub struct ConfigKey {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ConfigSection {
+    /// Section name, snake_case.
     pub name: String,
+    /// Its keys.
     #[serde(default)]
     pub keys: Vec<ConfigKey>,
 }
 
 impl ConfigSection {
+    /// An empty section.
     pub fn new(name: impl Into<String>) -> Self {
         Self {
             name: name.into(),
@@ -121,6 +155,7 @@ impl ConfigSection {
         }
     }
 
+    /// Adds a key with its default.
     pub fn key(mut self, name: impl Into<String>, default: serde_json::Value, help: impl Into<String>) -> Self {
         self.keys.push(ConfigKey {
             name: name.into(),
@@ -135,25 +170,33 @@ impl ConfigSection {
 #[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Registration {
+    /// Gateway routes to the module's ports.
     #[serde(default)]
     pub routes: Vec<RouteSpec>,
     /// UDP ports named in the manifest that the allowlist opens to admitted players
     #[serde(default)]
     pub udp_ports: Vec<String>,
+    /// Files content serves for the module.
     #[serde(default)]
     pub content: Vec<ContentFile>,
+    /// Console commands.
     #[serde(default)]
     pub commands: Vec<CommandSpec>,
+    /// Events the module emits.
     #[serde(default)]
     pub emits: Vec<EventName>,
+    /// Events the module wants delivered.
     #[serde(default)]
     pub subscribes: Vec<EventName>,
+    /// Moderation actions the module carries out.
     #[serde(default)]
     pub admin_actions: Vec<AdminAction>,
+    /// `host.toml` sections the module reads.
     #[serde(default)]
     pub config: Vec<ConfigSection>,
 }
 
+/// Why a registration fails [`Registration::check`].
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 #[error("registration: {0}")]
 pub struct RegistrationError(pub String);
@@ -335,6 +378,7 @@ pub struct Registrar {
 }
 
 impl Registrar {
+    /// An empty registration for the module with `manifest`.
     pub fn new(manifest: ModuleManifest) -> Self {
         Self {
             manifest,
@@ -342,10 +386,12 @@ impl Registrar {
         }
     }
 
+    /// The module's manifest.
     pub fn manifest(&self) -> &ModuleManifest {
         &self.manifest
     }
 
+    /// A route the gateway sends to the named TCP port.
     pub fn route(&mut self, prefix: impl Into<String>, port: impl Into<String>) -> &mut Self {
         self.registration.routes.push(RouteSpec {
             prefix: prefix.into(),
@@ -378,11 +424,13 @@ impl Registrar {
         self
     }
 
+    /// Opens the named UDP port to admitted players.
     pub fn udp_ports(&mut self, port: impl Into<String>) -> &mut Self {
         self.registration.udp_ports.push(port.into());
         self
     }
 
+    /// A file content serves at `path`, read from `source` in the module's folder.
     pub fn content_file(
         &mut self,
         path: impl Into<String>,
@@ -397,31 +445,37 @@ impl Registrar {
         self
     }
 
+    /// Offers a command.
     pub fn command(&mut self, command: CommandSpec) -> &mut Self {
         self.registration.commands.push(command);
         self
     }
 
+    /// Declares an event the module emits.
     pub fn emits(&mut self, event: EventName) -> &mut Self {
         self.registration.emits.push(event);
         self
     }
 
+    /// Asks for an event to be delivered.
     pub fn subscribes(&mut self, event: EventName) -> &mut Self {
         self.registration.subscribes.push(event);
         self
     }
 
+    /// Offers a moderation action.
     pub fn admin_action(&mut self, action: AdminAction) -> &mut Self {
         self.registration.admin_actions.push(action);
         self
     }
 
+    /// Declares a `host.toml` section the module reads.
     pub fn config_section(&mut self, section: ConfigSection) -> &mut Self {
         self.registration.config.push(section);
         self
     }
 
+    /// The registration, checked against the manifest.
     pub fn finish(self) -> Result<Registration, RegistrationError> {
         self.registration.check(&self.manifest)?;
         Ok(self.registration)

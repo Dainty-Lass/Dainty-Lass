@@ -17,44 +17,68 @@ use crate::realm::{
 };
 use crate::time::Later as _;
 
+/// How storing a new realm went.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum InsertRealmResult {
+    /// Stored.
     Inserted,
+    /// Another realm has the name.
     NameTaken,
+    /// The host already has a realm.
     HostHasRealm,
 }
 
+/// How adding a member went.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum AddMemberResult {
+    /// Added.
     Added,
+    /// The account is a member already.
     AlreadyMember,
+    /// The account is banned from the realm.
     Banned,
+    /// The realm is at its member limit.
     Full,
+    /// No such realm.
     NotFound,
 }
 
+/// How adding a ban went.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum AddBanResult {
+    /// Banned.
     Banned,
+    /// The account was banned already.
     AlreadyBanned,
+    /// The realm is at its ban limit.
     Full,
+    /// No such realm.
     NotFound,
 }
 
+/// How adding a join request or player invite went.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum AddEntryResult {
+    /// Added.
     Added,
     /// Already requested, or already invited.
     Already,
+    /// The account is banned from the realm.
     Banned,
+    /// The account is a member already.
     AlreadyMember,
+    /// The realm's list is at its limit.
     Full,
+    /// No such realm.
     NotFound,
 }
 
+/// How storing an invite code went.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum InsertInviteResult {
+    /// Stored.
     Inserted,
+    /// Another invite has the code.
     Duplicate,
 }
 
@@ -408,6 +432,7 @@ pub struct RealmsRepository {
 }
 
 impl RealmsRepository {
+    /// The realm tables in `db`.
     pub fn new(db: RealmsDb) -> Self {
         Self { db }
     }
@@ -417,18 +442,22 @@ impl RealmsRepository {
         self.db.read(move |conn| first_realm(conn, tail, binds![value])).await
     }
 
+    /// The realm with this id.
     pub async fn find_by_id(&self, realm_id: &str) -> Result<Option<RealmRecord>, RepoError> {
         self.first("WHERE realm_id = ?", realm_id).await
     }
 
+    /// The realm with this canonical name.
     pub async fn find_by_name(&self, name: &str) -> Result<Option<RealmRecord>, RepoError> {
         self.first("WHERE name = ?", name).await
     }
 
+    /// The realm this account hosts.
     pub async fn find_by_host(&self, host: &str) -> Result<Option<RealmRecord>, RepoError> {
         self.first("WHERE host_account_id = ?", host).await
     }
 
+    /// The realm whose hub has this room id.
     pub async fn find_by_hub_room_id(&self, room_id: &str) -> Result<Option<RealmRecord>, RepoError> {
         let tail = "WHERE realm_id IN (SELECT realm_id FROM rifts_realm_hub_rooms WHERE room_id = ?)";
         self.first(tail, room_id).await
@@ -451,6 +480,7 @@ impl RealmsRepository {
         self.having_child(MEMBERS, account_id, limit).await
     }
 
+    /// Realms that invited the account, by name, at most `limit`.
     pub async fn find_by_player_invite(&self, account_id: &str, limit: u32) -> Result<Vec<RealmRecord>, RepoError> {
         self.having_child(PLAYER_INVITES, account_id, limit).await
     }
@@ -501,6 +531,7 @@ impl RealmsRepository {
             .await
     }
 
+    /// Deletes the realm and its rows if `host` hosts it; returns whether it did.
     pub async fn delete_realm_of_host(&self, actor: &Actor, realm_id: &str, host: &str) -> Result<bool, RepoError> {
         let (realm_id, host) = (realm_id.to_owned(), host.to_owned());
         self.db
@@ -721,6 +752,7 @@ impl RealmsRepository {
             .await
     }
 
+    /// Lifts a ban; returns whether there was one.
     pub async fn remove_ban(&self, actor: &Actor, realm_id: &str, account_id: &str) -> Result<bool, RepoError> {
         self.drop_child(actor, BANS, realm_id, account_id).await
     }
@@ -760,6 +792,7 @@ impl RealmsRepository {
             .await
     }
 
+    /// Adds a join request, refusing past `max_requests`.
     pub async fn add_join_request(
         &self,
         actor: &Actor,
@@ -771,6 +804,7 @@ impl RealmsRepository {
             .await
     }
 
+    /// Removes a join request; returns whether there was one.
     pub async fn remove_join_request(
         &self,
         actor: &Actor,
@@ -780,6 +814,7 @@ impl RealmsRepository {
         self.drop_child(actor, JOIN_REQUESTS, realm_id, account_id).await
     }
 
+    /// Adds a player invite, refusing past `max_invites`.
     pub async fn add_player_invite(
         &self,
         actor: &Actor,
@@ -791,6 +826,7 @@ impl RealmsRepository {
             .await
     }
 
+    /// Removes a player invite; returns whether there was one.
     pub async fn remove_player_invite(
         &self,
         actor: &Actor,
@@ -826,6 +862,7 @@ impl RealmsRepository {
             .await
     }
 
+    /// The invite with this code, whatever its state.
     pub async fn find_invite(&self, code: &str) -> Result<Option<RealmInviteRecord>, RepoError> {
         let code = code.to_owned();
         self.db.read(move |conn| invite_by_code(conn, &code)).await
@@ -950,6 +987,7 @@ pub struct RealmPresenceRepository {
 }
 
 impl RealmPresenceRepository {
+    /// The realm presence table in `db`.
     pub fn new(db: RealmsDb) -> Self {
         Self { db }
     }
@@ -1012,6 +1050,7 @@ impl RealmPresenceRepository {
             .await
     }
 
+    /// Removes every presence row in the realm; returns how many it removed.
     pub async fn remove_for_realm(&self, actor: &Actor, realm_id: &str) -> Result<usize, RepoError> {
         let args = binds![realm_id];
         self.db

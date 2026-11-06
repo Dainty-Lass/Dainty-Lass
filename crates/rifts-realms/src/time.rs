@@ -20,6 +20,7 @@ impl Later for UnixMillis {
 
 const DAY_MS: i64 = 86_400_000;
 
+/// The system time, in milliseconds since the Unix epoch; 0 before it.
 pub fn now() -> UnixMillis {
     UnixMillis(
         SystemTime::now()

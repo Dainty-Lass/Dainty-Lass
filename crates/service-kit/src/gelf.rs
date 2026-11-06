@@ -41,8 +41,16 @@ thread_local! {
 /// Where the records go.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum GelfTarget {
-    Http { url: String },
-    Tcp { authority: String },
+    /// GELF over HTTP, POSTed to `url`.
+    Http {
+        /// The collector's GELF HTTP input URL.
+        url: String,
+    },
+    /// GELF over TCP, NUL-delimited, to `authority`.
+    Tcp {
+        /// `host:port` of the collector's GELF TCP input.
+        authority: String,
+    },
 }
 
 /// Loopback, a private or link-local address, or a name with no dot (a Docker or LAN service name).

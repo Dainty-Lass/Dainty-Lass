@@ -34,6 +34,7 @@ const ENTERED_RAMSGATE: u32 = 3;
 /// 2^20 UTF-16 units (Node's cap, unreachable under the 100 KiB body limit).
 pub const MAX_LOADOUT_DATA_UNITS: usize = 1_048_576;
 
+/// Character data that is not a JSON object, or a series that does not parse; the text says which.
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 #[error("{0}")]
 pub struct DataError(pub String);

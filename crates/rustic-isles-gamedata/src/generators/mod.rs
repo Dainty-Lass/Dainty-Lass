@@ -63,28 +63,41 @@ pub mod fuzzing {
 /// hostkit's `GeneratorKind` minus `HuntTables` (the Director's, which the host maps itself).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum BackendStep {
+    /// `progression_config.json` from the raw source.
     ProgressionConfig,
+    /// `slayers_path.json` from the journey node export.
     SlayersPath,
+    /// `slayers_path_definitions.json` from the journey node export.
     SlayersPathDefinitions,
+    /// The Reward Cache store, then the storage policy.
     RewardCache,
+    /// Lady Luck's store from the raw source.
     LadyLuckGenerate,
+    /// Lady Luck's store from the live capture, then the storage policy.
     LadyLuckEnrich,
+    /// The platinum store, then the storage policy.
     PlatinumAndStoragePolicy,
 }
 
 /// hostkit's `Paths` fields of the same names.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct GeneratorPaths {
+    /// The host's raw game data sources (`*.source.json`).
     pub raw_game_data: PathBuf,
+    /// The backend's game data directory every step writes into.
     pub backend_game_data: PathBuf,
+    /// The catalog and journey exports (`*_1_14_7.jsonl`).
     pub exports: PathBuf,
+    /// The store captures, which hold `Store/Product/Skus`.
     pub store_captures: PathBuf,
 }
 
 /// What only the version knows.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct VersionInputs {
+    /// The version's curated Reward Cache selections.
     pub reward_cache: RewardCachePlan,
+    /// Where the storage policy finds the version's token ids.
     pub storage_tokens: TokenSource,
 }
 

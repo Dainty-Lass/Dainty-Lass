@@ -10,6 +10,7 @@ use serde_json::{Map, Value};
 use crate::sql::{account_id, sql};
 use crate::{AccountId, AnyConnection, Json, RepoError, RepoResult, Tx};
 
+/// This file's soft-delete tables.
 pub const SOFT_DELETE_TABLES: &[&str] = &[
     "bounty_states",
     "cooldown_states",
@@ -18,15 +19,21 @@ pub const SOFT_DELETE_TABLES: &[&str] = &[
     "wallet_balances",
 ];
 
+/// Which draft a stored bounty belongs to.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum BountyGroup {
+    /// The base draft.
     Base,
+    /// The daily draft.
     Daily,
+    /// The weekly season challenges.
     Weekly,
+    /// An imported row with no group; it is inferred from the bounty id.
     Unassigned,
 }
 
 impl BountyGroup {
+    /// The stored text.
     pub fn as_str(self) -> &'static str {
         match self {
             Self::Base => "base",
@@ -36,6 +43,7 @@ impl BountyGroup {
         }
     }
 
+    /// The group a stored text names; None for any other text.
     pub fn parse(text: &str) -> Option<Self> {
         match text {
             "base" => Some(Self::Base),
@@ -47,81 +55,127 @@ impl BountyGroup {
     }
 }
 
+/// The seasonal coin credited for a claimed challenge (one per claim).
 #[derive(Debug, Clone, PartialEq)]
 pub struct RewardCredit {
+    /// The coin's catalog id.
     pub catalog_id: String,
+    /// The amount credited.
     pub amount: f64,
+    /// The inventory transaction that carried it.
     pub transaction_id: String,
+    /// When it was credited, as ISO text.
     pub at: String,
 }
 
+/// One bounty in the state.
 #[derive(Debug, Clone, PartialEq)]
 pub struct StoredBounty {
+    /// The draft it belongs to.
     pub group: BountyGroup,
+    /// The bounty object as the client saved it.
     pub bounty: Json,
+    /// When it was first saved claimed, as ISO text.
     pub claimed_at: Option<String>,
+    /// The reward credited for it, once claimed and paid.
     pub reward_credit: Option<RewardCredit>,
 }
 
+/// The client's draft objects, by group.
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct DraftData {
+    /// `draft_data`.
     pub base: Option<Json>,
+    /// `draft_data_daily`.
     pub daily: Option<Json>,
+    /// `draft_data_weekly`.
     pub weekly: Option<Json>,
 }
 
+/// A `bounty_states` row: an account's bounties and drafts.
 #[derive(Debug, Clone, PartialEq)]
 pub struct BountyStateRecord {
+    /// The account.
     pub account: AccountId,
+    /// Its bounties.
     pub bounties: Vec<StoredBounty>,
+    /// Its drafts.
     pub draft_data: DraftData,
+    /// The game day (ISO text) whose daily reward was credited.
     pub daily_reward_credited_on: Option<String>,
+    /// The game day (ISO text) whose premium draft token was granted.
     pub daily_premium_draft_granted_on: Option<String>,
+    /// Bumped on every save; a save names the version it read.
     pub update_version: i64,
+    /// When the row was created, as ISO text.
     pub created_at: String,
+    /// When it was last saved, as ISO text.
     pub updated_at: String,
 }
 
+/// One saved cooldown.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CooldownEntry {
+    /// The cooldown id.
     pub id: String,
+    /// When it started, as the client wrote it.
     pub started_date: String,
+    /// When it was last saved, as ISO text.
     pub updated_at: String,
 }
 
+/// A `cooldown_states` row: an account's cooldowns.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CooldownStateRecord {
+    /// The account.
     pub account: AccountId,
+    /// Its cooldowns.
     pub entries: Vec<CooldownEntry>,
+    /// Bumped on every save; a save names the version it read.
     pub update_version: i64,
+    /// When the row was created, as ISO text.
     pub created_at: String,
+    /// When it was last saved, as ISO text.
     pub updated_at: String,
 }
 
+/// One granted entitlement.
 #[derive(Debug, Clone, PartialEq)]
 pub struct EntitlementEntry {
+    /// The entitlement's name.
     pub name: String,
+    /// How long it lasts; 0 is permanent.
     pub duration: f64,
+    /// When a timed entitlement started, as ISO text.
     pub activated_date: Option<String>,
+    /// When it was granted, as ISO text.
     pub granted_at: Option<String>,
+    /// The SKU whose purchase granted it.
     pub source_sku_id: Option<String>,
 }
 
+/// An account's live entitlements.
 #[derive(Debug, Clone, PartialEq)]
 pub struct EntitlementRecord {
+    /// The account.
     pub account: AccountId,
+    /// Its entitlements, by name.
     pub entitlements: Vec<EntitlementEntry>,
 }
 
+/// A live wallet and its balances.
 #[derive(Debug, Clone, PartialEq)]
 pub struct WalletRecord {
+    /// The account.
     pub account: AccountId,
     /// `(catalog id, balance)` in first-written order
     pub balances: Vec<(String, f64)>,
+    /// The starter wallet version it was created from.
     pub bootstrap_version: Option<String>,
 }
 
 impl WalletRecord {
+    /// The balance of a currency, when the wallet holds it.
     pub fn balance(&self, catalog_id: &str) -> Option<f64> {
         self.balances.iter().find(|(id, _)| id == catalog_id).map(|(_, b)| *b)
     }
@@ -141,8 +195,11 @@ pub fn is_valid_balance_catalog_id(id: &str) -> bool {
 }
 
 store_trait! {
+    /// Bounty states (`bounty_states`).
     pub trait BountyStateRepository = "bountyStates" {
+        /// The account's live state.
         fn get(&self, conn: &mut AnyConnection, account: &AccountId) -> Option<BountyStateRecord>;
+        /// Writes `record` if the stored version is still `expected` (None when there is no row); returns the record, or None when another save won.
         fn save_if_version(
             &self,
             tx: &mut Tx<'_>,
@@ -153,8 +210,11 @@ store_trait! {
 }
 
 store_trait! {
+    /// Cooldown states (`cooldown_states`).
     pub trait CooldownStateRepository = "cooldownStates" {
+        /// The account's live state.
         fn get(&self, conn: &mut AnyConnection, account: &AccountId) -> Option<CooldownStateRecord>;
+        /// Writes `record` if the stored version is still `expected` (None when there is no row); returns the record, or None when another save won.
         fn save_if_version(
             &self,
             tx: &mut Tx<'_>,
@@ -165,17 +225,25 @@ store_trait! {
 }
 
 store_trait! {
+    /// Entitlements (`entitlements`).
     pub trait EntitlementRepository = "entitlements" {
+        /// The account's live entitlements; None when it has none.
         fn find(&self, conn: &mut AnyConnection, account: &AccountId) -> Option<EntitlementRecord>;
+        /// Grants the entitlement unless the account has it; returns whether it did. An unsafe name is an error.
         fn grant_if_missing(&self, tx: &mut Tx<'_>, account: &AccountId, entry: &EntitlementEntry) -> bool;
     }
 }
 
 store_trait! {
+    /// Wallets (`wallets`, `wallet_balances`).
     pub trait WalletRepository = "wallets" {
+        /// The account's live wallet.
         fn find(&self, conn: &mut AnyConnection, account: &AccountId) -> Option<WalletRecord>;
+        /// Writes a new wallet and its balances.
         fn create(&self, tx: &mut Tx<'_>, wallet: &WalletRecord) -> ();
+        /// Writes the wallet unless the account has one; returns the stored wallet either way.
         fn create_if_missing(&self, tx: &mut Tx<'_>, wallet: &WalletRecord) -> WalletRecord;
+        /// Adds `delta` to a balance; None without a wallet, or when a debit would go below 0.
         fn increment_balance(
             &self,
             tx: &mut Tx<'_>,
@@ -187,7 +255,9 @@ store_trait! {
 }
 
 store_trait! {
+    /// The economy monitor's daily counters (`economy_rollup_counters`).
     pub trait EconomyRollupRepository = "economyRollups" {
+        /// Adds each `(dotted path, amount)` to the day's counters for the currency; returns the day's counters as one document.
         fn add_to_rollup(
             &self,
             tx: &mut Tx<'_>,
@@ -202,7 +272,9 @@ store_trait! {
 
 // ------------------------------------------------------------------ bounty and cooldown state
 
+/// [`BountyStateRepository`] in SQL.
 pub struct SqlBountyStates;
+/// [`CooldownStateRepository`] in SQL.
 pub struct SqlCooldownStates;
 
 fn text_field(value: &Value, key: &str) -> Option<String> {
@@ -472,6 +544,7 @@ impl CooldownStateRepository for SqlCooldownStates {
 
 // ------------------------------------------------------------------ entitlements
 
+/// [`EntitlementRepository`] in SQL.
 pub struct SqlEntitlements;
 
 #[derive(QueryableByName)]
@@ -530,6 +603,7 @@ impl EntitlementRepository for SqlEntitlements {
 
 // ------------------------------------------------------------------ wallets
 
+/// [`WalletRepository`] in SQL.
 pub struct SqlWallets;
 
 #[derive(QueryableByName)]
@@ -664,6 +738,7 @@ impl WalletRepository for SqlWallets {
 
 // ------------------------------------------------------------------ rollups
 
+/// [`EconomyRollupRepository`] in SQL.
 pub struct SqlEconomyRollups;
 
 #[derive(QueryableByName)]

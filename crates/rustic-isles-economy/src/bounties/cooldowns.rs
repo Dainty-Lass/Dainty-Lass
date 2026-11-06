@@ -14,11 +14,14 @@ use service_kit::js;
 
 use crate::util::{iso, obj, utf16_len};
 
+/// The most cooldowns one save may carry.
 pub const MAX_SAVED: usize = 256;
+/// The most cooldowns kept per account; the oldest beyond it are dropped.
 pub const MAX_STORED: usize = 1024;
 const AHEAD_MS: i64 = 48 * 3_600_000;
 const LIST_CAP: usize = 20;
 
+/// A cooldown save the validation refused; the text says why.
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 #[error("{0}")]
 pub struct CooldownSaveError(pub String);
@@ -125,16 +128,27 @@ pub fn merge_cooldowns(
 /// What a host's batch did (§4.6.3); the lists keep at most 20 entries, the counts are exact.
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct HostCooldownChanges {
+    /// Cooldowns in the batch.
     pub received: usize,
+    /// Cooldowns already stored with the same date.
     pub unchanged: usize,
+    /// The new cooldowns stored: `{id, to}`.
     pub added: Vec<Value>,
+    /// How many new cooldowns were stored.
     pub added_count: usize,
+    /// Cooldowns moved to a later date: `{id, from, to}`.
     pub raised: Vec<Value>,
+    /// How many cooldowns moved later.
     pub raised_count: usize,
+    /// Cooldowns whose stored date was later and stays: `{id, stored, attempted}`.
     pub kept_later: Vec<Value>,
+    /// How many stored dates were kept.
     pub kept_later_count: usize,
+    /// New cooldowns dropped because the account's list was full.
     pub dropped_new: usize,
+    /// Dates too far ahead, refused: `{id, attempted, latest, stored?}`.
     pub refused_future: Vec<Value>,
+    /// How many dates were refused.
     pub refused_future_count: usize,
 }
 

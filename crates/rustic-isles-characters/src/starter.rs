@@ -14,6 +14,7 @@ use service_kit::jsjson;
 use crate::StarterKit;
 
 const ALPHABET: &[u8; 36] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+/// The length of an instance id: 26 characters from A-Z and 0-9.
 pub const INSTANCE_ID_LEN: usize = 26;
 /// 7 x 36: a byte at or above it is skipped, so every character is equally likely
 const REJECT_AT: u8 = 252;
@@ -21,9 +22,13 @@ const REJECT_AT: u8 = 252;
 /// What a new character starts with.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Manifest {
+    /// One item per starter catalog id, each with a fresh instance id.
     pub instanced_items: Vec<Value>,
+    /// The version's stacked starter items.
     pub stacked_items: Vec<Value>,
+    /// The one starter loadout slot, `persistent` nested.
     pub loadout_slot: Value,
+    /// The account-wide `persistent` object.
     pub persistent: Value,
 }
 
@@ -149,6 +154,7 @@ pub fn slot_for(kit: &StarterKit, ids: &HashMap<String, String>, persistent: Val
     Ok(Value::Object(slot))
 }
 
+/// The version's stacked starter items, in its table's order.
 pub fn stacked_items(tables: &VersionTables) -> Vec<Value> {
     tables
         .starter_manifest
@@ -242,12 +248,17 @@ pub fn missing_stacked(stacked: &[Value], tables: &VersionTables) -> Vec<&'stati
 /// Both lists with the missing defaults appended (fresh ids unique against the list's), and what was added.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Reconciled {
+    /// The instanced items, missing default weapon parts appended.
     pub instanced: Vec<Value>,
+    /// The stacked items, missing starter stacks appended.
     pub stacked: Vec<Value>,
+    /// The catalog ids of the weapon parts appended.
     pub added_parts: Vec<String>,
+    /// The catalog ids of the stacked items appended.
     pub added_stacked: Vec<String>,
 }
 
+/// Both stored lists (JSON text) with the kit's missing default weapon parts and stacked items appended.
 pub fn reconcile(instanced: &str, stacked: &str, kit: &StarterKit, tables: &VersionTables) -> Reconciled {
     let mut items = parse_items(instanced);
     let mut stacks = parse_items(stacked);
@@ -277,8 +288,11 @@ pub fn reconcile(instanced: &str, stacked: &str, kit: &StarterKit, tables: &Vers
 /// The repaired list, the instance id of every `instanced` catalog id, and whether anything changed.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Repaired {
+    /// The items after the repair.
     pub items: Vec<Value>,
+    /// Catalog id to instance id for every `instanced` catalog id.
     pub ids: HashMap<String, String>,
+    /// Whether the repair changed the list.
     pub changed: bool,
 }
 

@@ -3,7 +3,7 @@
 
 //! The three `/character` rows and the entry, black-box through core's `app()` (spec §13.2).
 
-#![allow(clippy::unwrap_used, clippy::expect_used)]
+#![allow(clippy::unwrap_used, clippy::expect_used, reason = "a panic is how a test fails")]
 
 mod common;
 

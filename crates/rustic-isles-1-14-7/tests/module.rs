@@ -4,7 +4,7 @@
 //! The composed module (spec §12.2): driven with no database in and out of process, chat, the version data at
 //! start, and the accounts core and realms adapter.
 
-#![allow(clippy::unwrap_used, clippy::expect_used)]
+#![allow(clippy::unwrap_used, clippy::expect_used, reason = "a panic is how a test fails")]
 
 use std::path::{Path, PathBuf};
 use std::sync::Arc;

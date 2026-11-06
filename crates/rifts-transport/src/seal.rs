@@ -14,23 +14,33 @@ use rand::TryRng as _;
 
 /// Umbrella spec D3: `RX` in place of the old magic, same length.
 pub const MAGIC: [u8; 2] = *b"RX";
+/// The frame format version.
 pub const VERSION: u8 = 1;
+/// The header's size: magic, version, type and an 8-byte counter.
 pub const HEADER_BYTES: usize = 12;
+/// The AES-GCM tag's size.
 pub const TAG_BYTES: usize = 16;
+/// What sealing adds to a payload, in bytes.
 pub const OVERHEAD: usize = HEADER_BYTES + TAG_BYTES;
+/// The largest payload one frame carries, in bytes.
 pub const MAX_PLAINTEXT: usize = 65536;
 const WINDOW: u64 = 1024;
 const HOST_TO_JOINER: [u8; 4] = *b"HJ\0\x01";
 const JOINER_TO_HOST: [u8; 4] = *b"JH\0\x01";
 
+/// What a frame carries.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum FrameType {
+    /// Admission requests and results.
     Control = 1,
+    /// Game datagrams, once admitted.
     Gameplay = 2,
+    /// One piece of a message too big for one frame.
     Fragment = 3,
 }
 
 impl FrameType {
+    /// The frame type with this byte, `None` for any other.
     pub fn from_byte(byte: u8) -> Option<Self> {
         match byte {
             1 => Some(Self::Control),
@@ -41,9 +51,12 @@ impl FrameType {
     }
 }
 
+/// Which end of a host-joiner pair a cipher is.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Side {
+    /// The host; it seals host-to-joiner frames.
     Host,
+    /// The joiner; it seals joiner-to-host frames.
     Joiner,
 }
 
@@ -218,6 +231,7 @@ pub struct PairCipher {
 }
 
 impl PairCipher {
+    /// A cipher for this side of the pair; fails unless `key` is 32 bytes or with no random source for the counter.
     pub fn new(key: &[u8], side: Side) -> Result<Self, &'static str> {
         if key.len() != 32 {
             return Err("pair key must be 32 bytes");
@@ -242,10 +256,12 @@ impl PairCipher {
         })
     }
 
+    /// Seals one frame with the next counter; `None` when the payload is empty or too big.
     pub fn seal(&self, kind: FrameType, payload: &[u8]) -> Option<Vec<u8>> {
         self.sealer.lock().ok()?.seal(kind, payload)
     }
 
+    /// Opens one frame; `None` when it is malformed, fails its tag or replays a counter seen in the 1024-frame window.
     pub fn open(&self, frame: &[u8]) -> Option<(FrameType, Vec<u8>)> {
         self.opener.lock().ok()?.open(frame)
     }

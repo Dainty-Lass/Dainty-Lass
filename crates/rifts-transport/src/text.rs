@@ -8,6 +8,7 @@ pub fn safe_token(text: &[u8], max: usize, extra: &[u8]) -> bool {
     (1..=max).contains(&text.len()) && text.iter().all(|b| b.is_ascii_alphanumeric() || extra.contains(b))
 }
 
+/// [`safe_token`] over a string's bytes.
 pub fn safe_str(text: &str, max: usize, extra: &[u8]) -> bool {
     safe_token(text.as_bytes(), max, extra)
 }
@@ -29,6 +30,7 @@ pub fn truncate(text: &str, max: usize) -> &str {
     &text[..end]
 }
 
+/// Exactly 64 lowercase hex digits.
 pub fn is_hex64(text: &str) -> bool {
     text.len() == 64 && text.bytes().all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
 }

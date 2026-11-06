@@ -12,7 +12,9 @@ use module_api::{Actor, ActorContext, BoxFuture, Event, EventName, ModuleContext
 use rustic_isles_store::repo::parties::PartyOutboxRecord;
 use rustic_isles_store::{IslesStore, RepoError};
 
+/// How often the outbox is polled.
 pub const OUTBOX_POLL: Duration = Duration::from_millis(250);
+/// Most records published per poll.
 pub const OUTBOX_BATCH: usize = 64;
 /// A claim older than this is taken over, so a crash between claim and publish loses nothing.
 pub const OUTBOX_STALE_CLAIM_MS: i64 = 30_000;
@@ -21,6 +23,7 @@ const FAILURE_LOG_EVERY: u64 = 120;
 
 /// Where headlines go: the module context's event bus in production.
 pub trait HeadlineSink: Send + Sync {
+    /// Publishes one headline; an error leaves the record to be retried.
     fn emit<'a>(&'a self, headline: &'a Headline) -> BoxFuture<'a, Result<(), String>>;
 }
 

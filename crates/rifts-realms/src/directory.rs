@@ -29,14 +29,23 @@ use crate::repo::realms::{AddBanResult, AddEntryResult, AddMemberResult, InsertI
 use crate::repo::realms::{RealmPresenceRepository, RealmsRepository};
 use crate::time::{Later as _, iso};
 
+/// What the realm directory runs on.
 pub struct DirectoryParts {
+    /// The realms database.
     pub db: RealmsDb,
+    /// Display names and account lookups.
     pub accounts: Arc<dyn Accounts>,
+    /// Where realm events go; none are sent when absent.
     pub events: Option<Arc<dyn RealmEventSink>>,
+    /// The time now.
     pub clock: Arc<dyn Clock>,
+    /// Per-account rate limits on directory calls.
     pub limiter: Arc<dyn RateLimiter>,
+    /// Ids and random codes.
     pub ids: Arc<dyn IdSource>,
+    /// How many of each thing a realm may hold.
     pub limits: RealmLimits,
+    /// The directory's log.
     pub log: Arc<dyn RealmsLog>,
 }
 
@@ -47,6 +56,7 @@ const EPOCH_LIMIT: usize = 50_000;
 const LIST_LIMIT: u32 = 100;
 /// Tries at an unused invite code.
 const INVITE_ATTEMPTS: usize = 5;
+/// How far back the lapsed-host sweep looks for realms that went offline, in milliseconds.
 pub const SWEEP_LOOKBACK_MS: i64 = 600_000;
 const SWEEP_LIMIT: u32 = 100;
 const HEARTBEAT_TTL_SECONDS: i64 = 90;
@@ -216,55 +226,89 @@ fn changed(target: &str, status: &'static str, changed: bool) -> ChangedReply {
     }
 }
 
+/// A realm host's name as a viewer sees it.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct HostName {
+    /// The host's display name, if it has one.
     pub display_name: Option<String>,
 }
 
+/// A realm as any player sees it.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RealmPublicInfo {
+    /// The realm's id.
     pub realm_id: String,
+    /// The realm's name.
     pub name: String,
+    /// The host.
     pub host: HostName,
+    /// The host's public key.
     pub host_public_key: String,
+    /// Who may join, as its wire name.
     pub join_policy: &'static str,
+    /// Whether the realm is listed publicly.
     pub listed: bool,
+    /// Whether the host is online.
     pub online: bool,
+    /// Whether the realm serves this viewer: hub running, host online, and not another host's solo realm.
     pub serving: bool,
+    /// Whether the realm's Ramsgate hub is running.
     pub hub_ready: bool,
+    /// Players present in the realm now.
     pub player_count: i64,
+    /// The host's reported version.
     pub version: Option<String>,
+    /// Members, the host included.
     pub member_count: usize,
+    /// The viewer's role in the realm, if a member.
     pub membership: Option<&'static str>,
+    /// Whether the viewer asked to join.
     pub requested: bool,
+    /// Whether the host invited the viewer.
     pub invited: bool,
+    /// Whether someone else now holds the name, when the viewer gave the host key it knew.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub ownership_changed: Option<bool>,
 }
 
+/// A realm as its host sees it.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RealmHostView {
+    /// What any player sees.
     #[serde(flatten)]
     pub info: RealmPublicInfo,
+    /// When the realm was made, as ISO 8601.
     pub created_at: String,
+    /// When the host was last online, as ISO 8601.
     pub last_online_at: Option<String>,
+    /// Until when the realm counts as online, as ISO 8601.
     pub online_until: Option<String>,
+    /// When the realm's name may be released, as ISO 8601.
     pub name_release_at: String,
+    /// The members.
     pub members: Vec<MemberView>,
+    /// The bans.
     pub bans: Vec<BanView>,
+    /// Pending join requests.
     pub join_request_count: usize,
+    /// Players the host invited, newest first.
     pub player_invites: Vec<AccountAtView>,
 }
 
+/// A realm member as the host sees it.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct MemberView {
+    /// The member's account.
     pub account_id: String,
+    /// The member's display name, if it has one.
     pub display_name: Option<String>,
+    /// Host or member, as its wire name.
     pub role: &'static str,
+    /// When they joined, as ISO 8601.
     pub joined_at: String,
 }
 
@@ -272,161 +316,243 @@ pub struct MemberView {
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AccountAtView {
+    /// The account.
     pub account_id: String,
+    /// Its display name, if it has one.
     pub display_name: Option<String>,
+    /// When it was made, as ISO 8601.
     pub at: String,
 }
 
+/// A ban as the host sees it.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct BanView {
+    /// The banned account.
     pub account_id: String,
+    /// Its display name, if it has one.
     pub display_name: Option<String>,
+    /// The host's reason, if given.
     pub reason: Option<String>,
+    /// When the ban was made, as ISO 8601.
     pub at: String,
 }
 
+/// An invite code as the host sees it.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct InviteView {
+    /// The code.
     pub code: String,
+    /// When it was made, as ISO 8601.
     pub created_at: String,
+    /// When it expires, as ISO 8601.
     pub expires_at: String,
+    /// How many joins it allows.
     pub max_uses: i64,
+    /// How many joins it gave.
     pub uses: i64,
+    /// When it was revoked, as ISO 8601.
     pub revoked_at: Option<String>,
+    /// Whether it can still be used, as an [`InviteState`] name.
     pub state: &'static str,
 }
 
+/// The realm an account's login is bound to.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PresenceView {
+    /// The realm, or `None` for no realm.
     pub realm: Option<PresenceRealm>,
+    /// When the binding lapses, as ISO 8601.
     pub expires_at: Option<String>,
 }
 
+/// The realm a presence is bound to.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PresenceRealm {
+    /// The realm's name.
     pub name: String,
+    /// Whether the realm serves the account.
     pub serving: bool,
+    /// Whether the realm's Ramsgate hub is running.
     pub hub_ready: bool,
+    /// Whether the host is online.
     pub host_online: bool,
 }
 
+/// The realms an account hosts and belongs to.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct MineReply {
+    /// The realm it hosts, if any.
     pub hosted: Option<RealmHostView>,
+    /// The realms it is a member of, its own excluded.
     pub member_of: Vec<RealmPublicInfo>,
 }
 
+/// A host's own realm.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 pub struct HostedReply {
+    /// The realm.
     pub realm: RealmHostView,
 }
 
+/// One realm.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 pub struct RealmReply {
+    /// The realm.
     pub realm: RealmPublicInfo,
 }
 
+/// The answer to a join.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 pub struct JoinReply {
+    /// The realm.
     pub realm: RealmPublicInfo,
+    /// Whether the account was added; false when it was already a member or only asked to join.
     pub joined: bool,
 }
 
+/// A list of realms.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 pub struct RealmsReply {
+    /// The realms.
     pub realms: Vec<RealmPublicInfo>,
 }
 
+/// One invite code.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 pub struct InviteReply {
+    /// The invite.
     pub invite: InviteView,
 }
 
+/// A realm's invite codes.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 pub struct InvitesReply {
+    /// The invites, newest first.
     pub invites: Vec<InviteView>,
 }
 
+/// A realm that invited the player.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 pub struct PlayerInviteEntry {
+    /// The realm.
     pub realm: RealmPublicInfo,
+    /// When the invite came, as ISO 8601.
     pub at: String,
 }
 
+/// The realms that invited the player.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 pub struct PlayerInvitesReply {
+    /// The invites, newest first.
     pub invites: Vec<PlayerInviteEntry>,
 }
 
+/// A realm's pending join requests.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 pub struct RequestsReply {
+    /// The requests, newest first.
     pub requests: Vec<AccountAtView>,
 }
 
+/// What a host's action did to an account.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct StatusReply {
+    /// The account acted on.
     pub account_id: String,
+    /// What it did, such as `KICKED` or `CANCELLED`.
     pub status: &'static str,
 }
 
+/// What a host's action did to an account, and whether anything changed.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ChangedReply {
+    /// The account acted on.
     pub account_id: String,
+    /// What it did, such as `BANNED` or `UNBANNED`.
     pub status: &'static str,
+    /// Whether anything changed.
     pub changed: bool,
 }
 
+/// A player added to a realm.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AddedReply {
+    /// The account.
     pub account_id: String,
+    /// Its display name.
     pub display_name: String,
+    /// Whether it was added; false when it was already a member.
     pub added: bool,
 }
 
+/// A player the host invited.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct InvitedReply {
+    /// The account.
     pub account_id: String,
+    /// Its display name.
     pub display_name: String,
+    /// `INVITED`, or `MEMBER` when the player is in the realm already.
     pub status: &'static str,
 }
 
+/// The answer to leaving.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 pub struct LeftReply {
+    /// Always true.
     pub left: bool,
 }
 
+/// The answer to declining an invite.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 pub struct DeclinedReply {
+    /// Always true.
     pub declined: bool,
 }
 
+/// The answer to releasing a realm.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 pub struct ReleasedReply {
+    /// Always true.
     pub released: bool,
 }
 
+/// The answer to a host heartbeat.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct HeartbeatReply {
+    /// Whether the realm is online after it.
     pub online: bool,
+    /// When the host was last online, as ISO 8601.
     pub last_online_at: String,
+    /// Until when the realm counts as online, as ISO 8601.
     pub online_until: String,
+    /// How long one heartbeat keeps the realm online, in seconds.
     pub ttl_seconds: i64,
+    /// The host's reported version.
     pub version: Option<String>,
 }
 
+/// Whether an account may enter the realm it asked for when it plays.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum EntryAuthorization {
-    Ok { realm_id: String, is_host: bool },
+    /// Allowed.
+    Ok {
+        /// The realm entered.
+        realm_id: String,
+        /// Whether the account hosts it.
+        is_host: bool,
+    },
+    /// Refused with this code.
     Refused(&'static str),
 }
 
@@ -489,6 +615,7 @@ enum Admitted {
     AlreadyMember,
 }
 
+/// Realms, their members and invites, and where each player's login is bound.
 pub struct RealmDirectory {
     parts: DirectoryParts,
     realms: RealmsRepository,
@@ -567,6 +694,7 @@ fn invite_view(invite: &RealmInviteRecord, now: UnixMillis) -> InviteView {
 }
 
 impl RealmDirectory {
+    /// A directory over these parts.
     pub fn new(parts: DirectoryParts) -> Self {
         let realms = RealmsRepository::new(parts.db.clone());
         let presence = RealmPresenceRepository::new(parts.db.clone());
@@ -899,6 +1027,7 @@ impl RealmDirectory {
         Ok(asked.clone())
     }
 
+    /// Makes the account's realm; refused when it already hosts one, the name is taken or invalid, or it is rate-limited.
     pub async fn create_realm(&self, account: &str, input: &CreateRealmInput) -> Result<HostedReply, RealmsError> {
         self.spend(account, CREATE)?;
         if self.realms.find_by_host(account).await?.is_some() {
@@ -958,6 +1087,7 @@ impl RealmDirectory {
         }
     }
 
+    /// The realm the account hosts and the realms it belongs to.
     pub async fn get_mine(&self, account: &str) -> Result<MineReply, RealmsError> {
         self.spend(account, READ)?;
         let own = self.realms.find_by_host(account).await?;
@@ -971,6 +1101,7 @@ impl RealmDirectory {
         Ok(MineReply { hosted, member_of })
     }
 
+    /// The realm with this name; a known host key tells the viewer whether its owner changed.
     pub async fn get_by_name(
         &self,
         account: &str,
@@ -1008,6 +1139,7 @@ impl RealmDirectory {
         Ok(RealmsReply { realms: infos })
     }
 
+    /// Changes the host's join policy and listing.
     pub async fn update_settings(&self, account: &str, input: &SettingsInput) -> Result<HostedReply, RealmsError> {
         let realm = self.own_realm(WRITE, account).await?;
         let (policy, listed) = (input.join_policy, input.listed);
@@ -1029,6 +1161,7 @@ impl RealmDirectory {
         Ok(HostedReply { realm: view })
     }
 
+    /// Makes an invite code for the host's realm; refused past the active-invite limit.
     pub async fn create_invite(&self, account: &str, input: &InviteInput) -> Result<InviteReply, RealmsError> {
         let realm = self.own_realm(INVITE, account).await?;
         let now = self.now();
@@ -1061,6 +1194,7 @@ impl RealmDirectory {
         )))
     }
 
+    /// The host realm's invite codes.
     pub async fn list_invites(&self, account: &str) -> Result<InvitesReply, RealmsError> {
         let realm = self.own_realm(READ, account).await?;
         let now = self.now();
@@ -1085,6 +1219,7 @@ impl RealmDirectory {
         })
     }
 
+    /// Joins a realm as a member, by invite or because it is public, or asks to join.
     pub async fn join(&self, account: &str, input: &JoinInput) -> Result<JoinReply, RealmsError> {
         self.spend(account, JOIN)?;
         let invite = match input.invite_code.as_deref() {
@@ -1204,6 +1339,7 @@ impl RealmDirectory {
         Ok(EntryAuthorization::Ok { realm_id, is_host })
     }
 
+    /// Leaves a realm; the host cannot.
     pub async fn leave(&self, account: &str, name: &str) -> Result<LeftReply, RealmsError> {
         self.spend(account, WRITE)?;
         let realm = self.named_realm(name).await?;
@@ -1233,6 +1369,7 @@ impl RealmDirectory {
         Ok(status(target, "KICKED"))
     }
 
+    /// Bans an account from the host's realm, removing it as a member.
     pub async fn ban(&self, account: &str, target: &str, reason: Option<String>) -> Result<ChangedReply, RealmsError> {
         let realm = self.own_realm(WRITE, account).await?;
         or_refuse(target != account, BAN_SELF)?;
@@ -1271,6 +1408,7 @@ impl RealmDirectory {
         Ok(changed(target, "UNBANNED", lifted))
     }
 
+    /// The host realm's pending join requests.
     pub async fn list_join_requests(&self, account: &str) -> Result<RequestsReply, RealmsError> {
         let realm = self.own_realm(READ, account).await?;
         let newest_first = sort_newest_first(&realm.join_requests);
@@ -1293,6 +1431,7 @@ impl RealmDirectory {
         })
     }
 
+    /// Admits an account that asked to join.
     pub async fn approve_join_request(&self, account: &str, target: &str) -> Result<StatusReply, RealmsError> {
         let realm = self.own_realm(WRITE, account).await?;
         or_refuse(
@@ -1368,6 +1507,7 @@ impl RealmDirectory {
         })
     }
 
+    /// Invites a player by username, or lets them in at once when they had asked to join.
     pub async fn invite_player_by_username(&self, account: &str, username: &str) -> Result<InvitedReply, RealmsError> {
         let realm = self.own_realm(INVITE, account).await?;
         let (target, display_name) = self.resolve_player(username).await?;
@@ -1414,6 +1554,7 @@ impl RealmDirectory {
         }
     }
 
+    /// Withdraws an invite the host sent a player.
     pub async fn cancel_player_invite(&self, account: &str, target: &str) -> Result<StatusReply, RealmsError> {
         let realm = self.own_realm(WRITE, account).await?;
         let removed = self
@@ -1425,6 +1566,7 @@ impl RealmDirectory {
         Ok(status(target, "CANCELLED"))
     }
 
+    /// The realms that invited the account.
     pub async fn list_my_player_invites(&self, account: &str) -> Result<PlayerInvitesReply, RealmsError> {
         self.spend(account, READ)?;
         let realms = self.realms.find_by_player_invite(account, LIST_LIMIT).await?;
@@ -1443,6 +1585,7 @@ impl RealmDirectory {
         Ok(PlayerInvitesReply { invites })
     }
 
+    /// Joins a realm that invited the account.
     pub async fn accept_player_invite(&self, account: &str, name: &str) -> Result<JoinReply, RealmsError> {
         self.spend(account, WRITE)?;
         let realm = self.named_realm(name).await?;
@@ -1468,6 +1611,7 @@ impl RealmDirectory {
         })
     }
 
+    /// Declines a realm's invite.
     pub async fn decline_player_invite(&self, account: &str, name: &str) -> Result<DeclinedReply, RealmsError> {
         self.spend(account, WRITE)?;
         let realm = self.named_realm(name).await?;
@@ -1553,6 +1697,7 @@ impl RealmDirectory {
         })
     }
 
+    /// Keeps the account's realm presence alive and answers where it is bound.
     pub async fn presence_heartbeat(&self, account: &str) -> Result<PresenceView, RealmsError> {
         self.spend(account, HEARTBEAT)?;
         let touched = self.touch_presence(account).await?;
@@ -1565,6 +1710,7 @@ impl RealmDirectory {
         self.leave_presence(account).await.map(|()| LeftReply { left: true })
     }
 
+    /// Where the account's login is bound.
     pub async fn presence_status(&self, account: &str) -> Result<PresenceView, RealmsError> {
         self.spend(account, READ)?;
         let current = self.presence_of(account).await?;
@@ -1592,6 +1738,7 @@ impl RealmDirectory {
         Ok(read)
     }
 
+    /// Binds the account's login to a realm, or clears the binding for `None`.
     pub async fn bind_presence(&self, account: &str, realm_id: Option<&str>) -> Result<(), RealmsError> {
         let actor = as_account(account);
         if let Some(realm_id) = realm_id {
@@ -1634,6 +1781,7 @@ impl RealmDirectory {
         Ok(touched)
     }
 
+    /// Clears the account's realm binding.
     pub async fn leave_presence(&self, account: &str) -> Result<(), RealmsError> {
         self.presence.remove(&as_account(account), account, None).await?;
         self.cache().invalidate(account);
@@ -1668,6 +1816,7 @@ impl RealmDirectory {
         }
     }
 
+    /// Binds or clears the account's realm at game login while the module is on; a failed clear is logged, not returned.
     pub async fn bind_presence_at_login(
         &self,
         account: &str,
@@ -1687,6 +1836,7 @@ impl RealmDirectory {
         Ok(())
     }
 
+    /// Applies a hosting patch to the realm and returns whether a realm was written. An invalid patch is an error.
     pub async fn set_hosting(&self, realm_id: &str, patch: &HostingPatch) -> Result<bool, RealmsError> {
         if let Some(field) = validate_hosting_patch(patch) {
             return Err(RealmsError::Database(format!("setHosting: invalid {field}")));
@@ -1704,6 +1854,7 @@ impl RealmDirectory {
         Ok(marked)
     }
 
+    /// The realm whose hub has this room id.
     pub async fn find_by_hub_room_id(&self, room: &str) -> Result<Option<RealmRecord>, RealmsError> {
         match normalize_hub_room_id(room) {
             Some(room) => Ok(self.realms.find_by_hub_room_id(&room).await?),
@@ -1711,21 +1862,25 @@ impl RealmDirectory {
         }
     }
 
+    /// The realm with this id.
     pub async fn get_realm(&self, realm_id: &str) -> Result<Option<RealmRecord>, RealmsError> {
         let found = self.realms.find_by_id(realm_id).await?;
         Ok(found)
     }
 
+    /// The realm this account hosts.
     pub async fn get_realm_by_host(&self, host: &str) -> Result<Option<RealmRecord>, RealmsError> {
         let found = self.realms.find_by_host(host).await?;
         Ok(found)
     }
 
+    /// Whether the account is a member of the realm.
     pub async fn is_member(&self, realm_id: &str, account: &str) -> Result<bool, RealmsError> {
         let realm = self.get_realm(realm_id).await?;
         Ok(realm.is_some_and(|found| found.members.iter().any(|member| member.account_id == account)))
     }
 
+    /// Whether the account is banned from the realm.
     pub async fn is_banned(&self, realm_id: &str, account: &str) -> Result<bool, RealmsError> {
         let realm = self.get_realm(realm_id).await?;
         Ok(realm.is_some_and(|found| found.bans.iter().any(|ban| ban.account_id == account)))

@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Silent Spud
 
+//! Installing the services setup runs: checking or repairing a release's files, or building a checkout's.
+
 use std::path::{Path, PathBuf};
 
 use crate::commands::setup::paradox::Layout;
@@ -12,24 +14,33 @@ use crate::selfupdate::{
     verify_attestation,
 };
 
+/// Where the services come from.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ServiceSource {
+    /// A checkout: built here.
     Checkout,
+    /// A release, with its manifest.
     Release(Manifest),
 }
 
+/// One Node service to install in a checkout.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ServiceInstall {
+    /// Its name.
     pub name: &'static str,
+    /// Its folder.
     pub dir: PathBuf,
+    /// What its build writes, checked after it.
     pub build_output: Option<PathBuf>,
 }
 
+/// The reference backend's and Director's folders, with their names.
 #[must_use]
 pub fn services(l: &Layout) -> [(&Path, &'static str); 2] {
     [(&l.backend_dir, "backend"), (&l.director_dir, "director")]
 }
 
+/// A release when the server folder has a release.json, else a checkout.
 pub fn service_source(p: &Paths) -> Result<ServiceSource, HostError> {
     match read_manifest(&p.repo)? {
         Some(m) => Ok(ServiceSource::Release(m)),
@@ -37,6 +48,7 @@ pub fn service_source(p: &Paths) -> Result<ServiceSource, HostError> {
     }
 }
 
+/// The reference backend and Director, as a `paradox` build installs them.
 #[must_use]
 pub fn services_to_install(p: &Paths) -> Vec<ServiceInstall> {
     vec![
@@ -57,6 +69,7 @@ fn npm_program() -> &'static str {
     if cfg!(windows) { "npm.cmd" } else { "npm" }
 }
 
+/// Runs `npm ci` (or `npm install`) and the build in the service's folder, logging to `log_file`.
 pub fn install_service(svc: &ServiceInstall, log_file: &Path) -> Result<(), HostError> {
     let opts = RunOptions {
         cwd: svc.dir.clone(),
@@ -102,6 +115,7 @@ pub fn install_service(svc: &ServiceInstall, log_file: &Path) -> Result<(), Host
     Ok(())
 }
 
+/// Checks a release's files and puts back from `source` any that are missing or changed; does nothing without one.
 pub fn install_from_release(
     root: &Path,
     manifest: Option<&Manifest>,
@@ -149,6 +163,7 @@ pub fn install_from_release(
     Ok(())
 }
 
+/// Puts back the release's damaged files; returns how many there were.
 pub fn repair_release(p: &Paths, manifest: &Manifest, log_file: &Path) -> Result<usize, HostError> {
     let damaged = damaged_files(&p.repo, manifest)?;
     if damaged.is_empty() {

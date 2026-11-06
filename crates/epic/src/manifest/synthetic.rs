@@ -1,7 +1,11 @@
 //! Synthetic manifests, written the way Epic's writer lays them out. The archived ones are Epic's files and stay out
 //! of the repository; `tests/archive.rs` fetches them by pinned URL and SHA-1 when asked to. Shared with the host
 //! kit's tests through the `test-support` feature (DE6).
-#![allow(clippy::unwrap_used, clippy::expect_used)]
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    reason = "test fixtures, built only for tests and test-support; a panic is how a test fails"
+)]
 
 use std::io::Write;
 
@@ -10,33 +14,49 @@ use flate2::write::ZlibEncoder;
 
 use super::*;
 
+/// A chunk of a synthetic build.
 pub struct TestChunk {
+    /// Its GUID.
     pub guid: Guid,
+    /// Its unpacked data.
     pub data: Vec<u8>,
+    /// Its CDN group.
     pub group: u8,
+    /// Its rolling hash.
     pub rolling_hash: u64,
 }
 
+/// A file of a synthetic build.
 pub struct TestFile {
+    /// Name in the manifest.
     pub name: String,
+    /// Symlink target; empty for a regular file.
     pub symlink: String,
     /// (chunk index, offset, size)
     pub parts: Vec<(usize, u32, u32)>,
 }
 
+/// A synthetic build, written as Epic's writer lays a manifest out.
 pub struct Build {
+    /// Its chunks.
     pub chunks: Vec<TestChunk>,
+    /// Its files.
     pub files: Vec<TestFile>,
+    /// Custom fields, written after the files.
     pub custom: Vec<(String, String)>,
+    /// Writes names as UTF-16 instead of ASCII.
     pub utf16_names: bool,
     /// Bytes a newer writer might add at the end of each section
     pub section_padding: usize,
+    /// Chunk count written in the chunk list; the real count when `None`.
     pub chunk_count: Option<u32>,
+    /// Whether the manifest data is zlib-packed.
     pub compress: bool,
     /// This file's listed SHA-1 matches no data (the installer's second-failure case)
     pub wrong_sha1: Option<usize>,
 }
 
+/// Chunk `n` with `len` bytes of data derived from `n`.
 pub fn chunk(n: u8, len: usize) -> TestChunk {
     TestChunk {
         guid: Guid([
@@ -51,6 +71,7 @@ pub fn chunk(n: u8, len: usize) -> TestChunk {
     }
 }
 
+/// A regular file built from `parts`.
 pub fn file(name: &str, parts: &[(usize, u32, u32)]) -> TestFile {
     TestFile {
         name: name.to_owned(),
@@ -77,6 +98,7 @@ impl Default for Build {
     }
 }
 
+/// Writes `s` as Epic's `FString`: a signed length with the terminator, negative for UTF-16.
 pub fn fstring(out: &mut Vec<u8>, s: &str, utf16: bool) {
     if s.is_empty() {
         out.extend(0i32.to_le_bytes());
@@ -91,10 +113,12 @@ pub fn fstring(out: &mut Vec<u8>, s: &str, utf16: bool) {
     }
 }
 
+/// Writes `g` as four little-endian `u32`s.
 pub fn guid(out: &mut Vec<u8>, g: Guid) {
     g.0.iter().for_each(|v| out.extend(v.to_le_bytes()));
 }
 
+/// Writes a section: its size, `version`, `body`, then `padding` filler bytes.
 pub fn section(out: &mut Vec<u8>, version: u8, body: &[u8], padding: usize) {
     out.extend((4 + 1 + body.len() as u32 + padding as u32).to_le_bytes());
     out.push(version);
@@ -103,6 +127,7 @@ pub fn section(out: &mut Vec<u8>, version: u8, body: &[u8], padding: usize) {
 }
 
 impl Build {
+    /// The bytes `file` holds, its parts' slices of the chunks.
     pub fn file_data(&self, file: &TestFile) -> Vec<u8> {
         file.parts
             .iter()
@@ -197,6 +222,7 @@ impl Build {
         out
     }
 
+    /// The whole manifest file: header and data.
     pub fn bytes(&self) -> Vec<u8> {
         pack(&self.data(), self.compress)
     }
@@ -230,6 +256,7 @@ pub fn pack(data: &[u8], compress: bool) -> Vec<u8> {
     out
 }
 
+/// Parses `bytes` pinned to their own SHA-1.
 pub fn parse(bytes: &[u8]) -> Result<Manifest, ManifestError> {
     Manifest::parse(bytes, &Sha1Digest::of(bytes))
 }

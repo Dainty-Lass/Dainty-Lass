@@ -33,28 +33,44 @@ const MAX_LIST: i64 = 100;
 
 /// What a guarded action asks of [`Admin::gate`]: enough to decide, to describe it and to run it later.
 pub enum Gate<'a> {
+    /// A ban, held when the key is past its ban limit.
     Ban {
+        /// The player's name.
         name: &'a str,
+        /// The ban reason.
         reason: &'a str,
+        /// The game named, if any.
         game: Option<&'a str>,
     },
+    /// A timeout, held when the key is past its ban limit.
     Timeout {
+        /// The player's name.
         name: &'a str,
+        /// Minutes from now, or none when `until` is given.
         minutes: Option<i64>,
+        /// When it ends, or none when `minutes` is given.
         until: Option<&'a str>,
+        /// The timeout reason.
         reason: &'a str,
+        /// The game named, if any.
         game: Option<&'a str>,
     },
+    /// Revoking a key, held when the key is an admin's or owner's.
     RevokeKey {
+        /// The key's id.
         id: &'a str,
     },
     /// DH3b: a revert whose dry run planned `actions` changes. `selection` is the filter as DH3b writes it
     /// back to run the plan again; `plan_id` is `RevertPlan::id`, which stays the same while nothing else
     /// changed, so the same plan asked twice waits once and a changed database refuses a stale plan.
     Revert {
+        /// The selection as DH3b writes it.
         selection: Value,
+        /// The plan's id (`RevertPlan::id`).
         plan_id: &'a str,
+        /// Changes the plan makes.
         actions: usize,
+        /// One line describing it.
         summary: &'a str,
     },
 }
@@ -68,12 +84,15 @@ pub struct GuardedAction {
     pub kind: String,
     /// One line of what it will do.
     pub summary: String,
+    /// Waiting, running or finished.
     pub state: State,
+    /// Delay or approval.
     pub mode: Mode,
     /// The key that asked: `owner` or a key id.
     pub initiated_by: String,
     /// The lowest role that may approve it.
     pub needs_role: Role,
+    /// When it was asked for (RFC 3339).
     pub created_at: String,
     /// When a delay ends and the action runs by itself; null when it waits for an approval.
     pub release_at: Option<String>,
@@ -81,7 +100,9 @@ pub struct GuardedAction {
     pub expires_at: String,
     /// The second operator key (`host` for the host kit). The action ran as the key that asked.
     pub approved_by: Option<String>,
+    /// The key that canceled it (`host` for the host kit).
     pub canceled_by: Option<String>,
+    /// When it finished (RFC 3339).
     pub ended_at: Option<String>,
     /// What it did, or why it did not: the action own refusal, or that the key that asked was revoked.
     pub result: Option<String>,

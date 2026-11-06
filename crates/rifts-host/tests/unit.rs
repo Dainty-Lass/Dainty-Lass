@@ -3,7 +3,7 @@
 
 //! The pure rules, the host PC's files, the result codes and the stub (spec §8.2 items 2, 3, 6, 8 and the additions).
 
-#![allow(clippy::unwrap_used, clippy::expect_used)]
+#![allow(clippy::unwrap_used, clippy::expect_used, reason = "a panic is how a test fails")]
 
 use std::collections::{BTreeMap, HashSet};
 use std::path::Path;

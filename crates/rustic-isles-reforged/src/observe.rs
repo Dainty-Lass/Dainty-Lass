@@ -83,6 +83,7 @@ pub struct RequestObserver {
 }
 
 impl RequestObserver {
+    /// An observer recording into the module's metrics.
     pub fn new(state: Arc<ReforgedState>) -> Self {
         Self { state }
     }
@@ -166,7 +167,7 @@ impl Observation for Seen {
             &[("class", self.class), ("status", &bucket)],
         );
         let ms = self.started.elapsed().as_millis();
-        #[allow(clippy::cast_precision_loss)]
+        #[allow(clippy::cast_precision_loss, reason = "a request duration in ms, far below 2^53")]
         metrics.observe(
             "rustic_isles_http_request_duration_ms",
             ms as f64,

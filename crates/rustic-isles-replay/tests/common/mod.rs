@@ -3,7 +3,12 @@
 
 //! Fixtures written from the spec (§13.1: nothing copied): capture lines, a small pinned target and raw servers.
 
-#![allow(dead_code, clippy::unwrap_used, clippy::expect_used)]
+#![allow(
+    dead_code,
+    clippy::unwrap_used,
+    clippy::expect_used,
+    reason = "shared by several test binaries, each using only some; a panic is how a test fails"
+)]
 
 use std::net::SocketAddr;
 

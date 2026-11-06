@@ -29,10 +29,12 @@ pub fn deterministic_ulid(namespace: &str, node: &str, key: &str) -> String {
     out
 }
 
+/// The store's account id for a MongoDB userId on `node`: the same input always gives the same id (DD18).
 pub fn derived_account_id(node: &str, user_id: &str) -> String {
     format!("account:{}@{node}", deterministic_ulid("account", node, user_id))
 }
 
+/// The store's party id for a MongoDB party id on `node`, derived like [`derived_account_id`].
 pub fn derived_party_id(node: &str, party_id: &str) -> String {
     format!("party:{}@{node}", deterministic_ulid("party", node, party_id))
 }

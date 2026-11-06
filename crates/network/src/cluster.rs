@@ -33,12 +33,16 @@ pub const NODE_ALPN: &[u8] = b"dainty-lass-node/1";
 const NODE_URI: &str = "urn:dainty-lass:node:";
 const REGION_URI: &str = "urn:dainty-lass:region:";
 const CA_NAME: &str = "DaintyLass cluster CA";
+/// How long the cluster CA's certificate is valid, in days.
 pub const CA_DAYS: u32 = 3650;
+/// A node certificate's validity when none is asked for, in days.
 pub const DEFAULT_NODE_DAYS: u32 = 365;
+/// The longest validity a node certificate may be issued for, in days.
 pub const MAX_NODE_DAYS: u32 = 3650;
 /// Peers one node lists; the launcher reads at most 16 nodes of a network, this node included (DN7)
 pub const MAX_PEERS: usize = 15;
 
+/// Why a certificate, key or peer was refused; the message names the file or field for the host.
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 #[error("{0}")]
 pub struct CertError(pub String);
@@ -55,9 +59,13 @@ type Result<T> = std::result::Result<T, CertError>;
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Peer {
+    /// The node that answers there.
     pub id: NodeId,
+    /// The node's region.
     pub region: Region,
+    /// The gateway's IP address or lower-case DNS name.
     pub host: String,
+    /// The gateway's port.
     pub port: u16,
     /// SHA-256 of the peer's public gateway certificate, 64 lowercase hex: what the launcher pins when it
     /// pings that region (DN7). A peer without one is a peer of this node, but not listed to players.
@@ -81,6 +89,7 @@ pub fn is_host(text: &str) -> bool {
 }
 
 impl Peer {
+    /// Checks the host, the fingerprint's form and the names; errors name the node.
     pub fn check(&self) -> Result<()> {
         let id = &self.id;
         if !is_host(&self.host) {
@@ -228,6 +237,7 @@ impl ClusterCa {
         })
     }
 
+    /// Reads and parses the CA file; errors name the file.
     pub fn read(file: &Path) -> Result<Self> {
         let text = std::fs::read_to_string(file).map_err(|e| fail(format!("{}: {e}", file.display())))?;
         Self::parse(&text).map_err(|e| fail(format!("{}: {e}", file.display())))
@@ -281,18 +291,25 @@ impl ClusterCa {
 /// What a node certificate is for.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct NodeCertRequest {
+    /// The node the certificate names.
     pub node: NodeId,
+    /// The region it names.
     pub region: Region,
     /// The IP addresses and DNS names the node's gateway answers on, as `[[network.nodes]]` lists them
     pub hosts: Vec<String>,
+    /// Validity in days, up to [`MAX_NODE_DAYS`].
     pub days: u32,
 }
 
 /// A node's files: the certificate, its key (secret) and the CA certificate.
 pub struct IssuedNodeCert {
+    /// The node certificate.
     pub cert_pem: String,
+    /// Its private key. Secret.
     pub key_pem: String,
+    /// The cluster CA's certificate, without its key.
     pub ca_cert_pem: String,
+    /// What the issued certificate says.
     pub info: NodeCertInfo,
 }
 
@@ -325,6 +342,7 @@ fn host_names(hosts: &[String]) -> Result<Vec<SanType>> {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct NodeCertInfo {
+    /// The node and region it names.
     pub identity: NodeIdentity,
     /// The IP addresses and DNS names it answers on
     pub hosts: Vec<String>,
@@ -334,6 +352,7 @@ pub struct NodeCertInfo {
     pub fingerprint: String,
     /// Unix seconds
     pub not_before: i64,
+    /// Unix seconds.
     pub not_after: i64,
 }
 
@@ -433,6 +452,7 @@ fn provider() -> Arc<rustls::crypto::CryptoProvider> {
 }
 
 impl NodeCredentials {
+    /// Reads the three PEM files and checks them as [`NodeCredentials::from_pem`] does.
     pub fn load(cert_file: &Path, key_file: &Path, ca_file: &Path) -> Result<Self> {
         let read = |file: &Path| std::fs::read(file).map_err(|e| fail(format!("{}: {e}", file.display())));
         Self::from_pem(&read(cert_file)?, &read(key_file)?, &read(ca_file)?)
@@ -474,10 +494,12 @@ impl NodeCredentials {
         Ok(credentials)
     }
 
+    /// The node and region the certificate names.
     pub fn identity(&self) -> &NodeIdentity {
         &self.info.identity
     }
 
+    /// What the certificate says.
     pub fn info(&self) -> &NodeCertInfo {
         &self.info
     }

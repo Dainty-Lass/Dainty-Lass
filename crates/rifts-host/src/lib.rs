@@ -52,18 +52,28 @@ pub use crate::transport::{
 #[derive(Clone, Debug, Eq, PartialEq)]
 #[non_exhaustive]
 pub enum HostError {
+    /// A route or call that is not implemented yet.
     Unimplemented(Unimplemented),
+    /// A file or folder could not be read or written.
     Io(String),
     /// Kept for the launcher's error mapping; the in-process transport has no file to check (D1).
     HashMismatch {
+        /// The digest the manifest pins.
         expected: [u8; 32],
+        /// The digest found.
         actual: [u8; 32],
     },
+    /// The transport lacks this call.
     MissingExport(&'static str),
+    /// The transport speaks another ABI version.
     UnsupportedAbi(u32),
+    /// A value was refused before anything was done; the text says which.
     InvalidInput(String),
+    /// The transport or a backend call failed.
     Transport(String),
+    /// No such session, hub or handle.
     NotFound(String),
+    /// The session is already running; the text names it.
     Busy(String),
 }
 

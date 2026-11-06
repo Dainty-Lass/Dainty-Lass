@@ -169,6 +169,8 @@ tokio-tungstenite = { version = "0.29", default-features = false, features = ["c
 [workspace.lints.rust]
 unsafe_code = "deny"
 unused_must_use = "deny"
+# Every public item carries rustdoc; tests are exempt (rustc skips the harness).
+missing_docs = "warn"
 
 [workspace.lints.clippy]
 # A panic in a request handler is caught (CatchPanicLayer), but it still drops the request.
@@ -176,6 +178,8 @@ unwrap_used = "deny"
 expect_used = "deny"
 dbg_macro = "deny"
 todo = "deny"
+# An allow says why, in its reason.
+allow_attributes_without_reason = "warn"
 
 # Section 2: servers catch a panicking request instead of dying, so panics unwind.
 [profile.release]

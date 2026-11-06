@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Silent Spud
 
-#![allow(clippy::unwrap_used, clippy::expect_used)] // test helpers
+//! Invite parsing and formatting against the shared cases.
+
+#![allow(clippy::unwrap_used, clippy::expect_used, reason = "a panic is how a test fails")]
 
 use protocol::invite::{
     Invite, InviteError, ServerMode, format_invite, is_private_mode_host, is_tailscale_ipv4, is_valid_fingerprint,

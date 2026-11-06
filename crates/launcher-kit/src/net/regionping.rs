@@ -29,18 +29,24 @@ use super::http::{Endpoint, HttpError, RequestOptions, host_header, parse_json_b
 use super::pinned::{ConnectError, PinnedTarget, pinned_connect};
 use crate::bridge::types::{ErrorCode, LauncherError, RegionPing, RegionProblem, RegionRtt};
 
+/// The home's node list route.
 pub const NODES_PATH: &str = "/network/v1/nodes";
+/// The route each node's gateway answers a ping on.
 pub const PING_PATH: &str = "/network/v1/ping";
+/// The route the order is reported to, with the account key.
 pub const REPORT_PATH: &str = "/network/v1/regions";
 
 const HOME_TIMEOUT: Duration = Duration::from_secs(5);
 const NODES_MAX_BYTES: usize = 16 * 1024;
 
+/// How the nodes are timed.
 #[derive(Debug, Clone)]
 pub struct PingSettings {
     /// Requests timed per node; the median is kept
     pub samples: usize,
+    /// Longest wait for a node's TLS connection.
     pub connect_timeout: Duration,
+    /// Longest wait for one ping's answer.
     pub sample_timeout: Duration,
     /// For one node from connect to the last answer: a slow node keeps what it answered by then
     pub node_deadline: Duration,
@@ -143,6 +149,7 @@ async fn time_node(node: &NodeEntry, settings: &PingSettings) -> Result<Vec<Dura
     if times.is_empty() { Err(problem) } else { Ok(times) }
 }
 
+/// The median of `times`, which it sorts; the mean of the middle two for an even count, none when empty.
 pub fn median(times: &mut [Duration]) -> Option<Duration> {
     times.sort_unstable();
     let middle = times.len() / 2;

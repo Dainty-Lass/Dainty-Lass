@@ -26,10 +26,12 @@ fn random_bytes() -> [u8; 16] {
     bytes
 }
 
+/// A random version 4 UUID, lower-case.
 pub fn random_uuid() -> String {
     uuid_text(version_4(random_bytes()))
 }
 
+/// Lower-case hex.
 pub fn hex(bytes: &[u8]) -> String {
     let mut out = String::with_capacity(bytes.len() * 2);
     for byte in bytes {
@@ -46,6 +48,7 @@ pub fn new_session_ulid(at: UnixMillis) -> u128 {
     version_4(bytes)
 }
 
+/// The 128 bits as a lower-case hyphenated UUID.
 pub fn uuid_text(bits: u128) -> String {
     let mut out = hex(&bits.to_be_bytes());
     for at in DASHES {
@@ -95,18 +98,22 @@ pub fn global_session_id(wire: &str, hub: bool, node: &NodeId) -> Option<GlobalI
     format!("{kind}:{}@{node}", Ulid(session_bits(wire)?)).parse().ok()
 }
 
+/// The seam's id for a stored session id, on `node`; `None` when the text is not a lower-case UUID.
 pub fn seam_session_id(wire: &str, node: &NodeId) -> Option<SessionId> {
     seam_global(wire, node).map(SessionId)
 }
 
+/// The stored spelling of a seam session id.
 pub fn wire_session_id(session: &SessionId) -> String {
     uuid_text(session.0.ulid.0)
 }
 
+/// The seam's id for a stored realm id, on `node`; `None` when the text is not a lower-case UUID.
 pub fn seam_realm_id(wire: &str, node: &NodeId) -> Option<RealmId> {
     seam_global(wire, node).map(RealmId)
 }
 
+/// The stored spelling of a seam realm id.
 pub fn wire_realm_id(realm: &RealmId) -> String {
     uuid_text(realm.0.ulid.0)
 }

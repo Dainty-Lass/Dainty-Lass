@@ -9,14 +9,19 @@ use diesel::sql_types::{Bool, Nullable, Text};
 use crate::sql::{account_id, count, sql};
 use crate::{AccountId, AnyConnection, RepoError, RepoResult, Tx, UserId};
 
+/// A friendship's state.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum FriendshipStatus {
+    /// Friends.
     Accepted,
+    /// A request not yet answered.
     Pending,
+    /// Blocked.
     Blocked,
 }
 
 impl FriendshipStatus {
+    /// The stored text.
     pub fn as_str(self) -> &'static str {
         match self {
             Self::Accepted => "ACCEPTED",
@@ -25,6 +30,7 @@ impl FriendshipStatus {
         }
     }
 
+    /// The state a stored text names; None for any other text.
     pub fn parse(text: &str) -> Option<Self> {
         match text {
             "ACCEPTED" => Some(Self::Accepted),
@@ -35,13 +41,17 @@ impl FriendshipStatus {
     }
 }
 
+/// Who sent a pending request.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum FriendshipDirection {
+    /// The other account asked the owner.
     Inbound,
+    /// The owner asked the other account.
     Outbound,
 }
 
 impl FriendshipDirection {
+    /// The stored text.
     pub fn as_str(self) -> &'static str {
         match self {
             Self::Inbound => "INBOUND",
@@ -49,6 +59,7 @@ impl FriendshipDirection {
         }
     }
 
+    /// The direction a stored text names; None for any other text.
     pub fn parse(text: &str) -> Option<Self> {
         match text {
             "INBOUND" => Some(Self::Inbound),
@@ -58,27 +69,42 @@ impl FriendshipDirection {
     }
 }
 
+/// One side of a friendship (`friend_edges`): what the owner sees of the other account.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct FriendEdgeRecord {
+    /// The account whose list it is in.
     pub owner: AccountId,
+    /// The other account.
     pub other: AccountId,
+    /// The other account's userId.
     pub other_user_id: UserId,
+    /// The friendship's state.
     pub status: FriendshipStatus,
+    /// Who asked, for a pending request.
     pub direction: Option<FriendshipDirection>,
+    /// When it was made, as the API wrote it.
     pub created: String,
+    /// Whether the owner marked it a favorite.
     pub favorite: bool,
 }
 
 store_trait! {
+    /// Friendships (`friend_edges`).
     pub trait FriendshipRepository = "friendships" {
+        /// The owner's edges, oldest first.
         fn list_for_owner(&self, conn: &mut AnyConnection, owner: &AccountId) -> Vec<FriendEdgeRecord>;
+        /// The owner's edge to `other`.
         fn find(&self, conn: &mut AnyConnection, owner: &AccountId, other: &AccountId) -> Option<FriendEdgeRecord>;
+        /// Writes the edge, replacing the owner's edge to the same account.
         fn upsert(&self, tx: &mut Tx<'_>, record: &FriendEdgeRecord) -> ();
+        /// Deletes the owner's edge to `other`.
         fn remove(&self, tx: &mut Tx<'_>, owner: &AccountId, other: &AccountId) -> ();
+        /// Deletes every edge the account is on, either side; returns how many.
         fn remove_all_for_account(&self, tx: &mut Tx<'_>, account: &AccountId) -> u64;
     }
 }
 
+/// [`FriendshipRepository`] in SQL.
 pub struct SqlFriendships;
 
 #[derive(QueryableByName)]

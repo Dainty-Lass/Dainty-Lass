@@ -24,38 +24,52 @@ mod p2p {
     pub const DISTRIBUTED: &str = "P2P_DISTRIBUTED_TRAFFIC_LIMITER";
 }
 
+/// Whether host policy refuses what it finds or only logs it (`RUSTIC_RIFTS_HOST_POLICY`).
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub enum HostPolicyMode {
+    /// Would-be refusals are logged as `[HostPolicyObserve]` and the request goes through.
     #[default]
     Observe,
+    /// Grants of denied item classes, grants over the draft token cap and disallowed write kinds are refused.
     Enforce,
 }
 
 impl HostPolicyMode {
+    /// The setting's word, `observe` or `enforce`.
     pub fn as_str(self) -> &'static str {
         if self == Self::Enforce { "enforce" } else { "observe" }
     }
 }
 
+/// The resolved host policy setting.
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct HostPolicySetting {
+    /// The mode in effect; an unrecognised value reads as observe.
     pub mode: HostPolicyMode,
     /// Only for an empty value.
     pub is_default: bool,
+    /// The startup warning for an unrecognised value.
     pub warning: Option<String>,
 }
 
+/// The resolved Hunt Guard evidence setting (`RUSTIC_RIFTS_HUNT_EVIDENCE`).
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct HuntEvidenceSetting {
+    /// Whether hosted hunts send evidence.
     pub enabled: bool,
+    /// The value was empty, so the trust tier's default applies.
     pub is_default: bool,
+    /// The startup warning for an unrecognised value.
     pub warning: Option<String>,
 }
 
+/// The P2P trust tier (`P2P_TRUST_TIER`).
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub enum TrustTier {
+    /// The default: hosted hunts earn no Guard-backed rewards.
     #[default]
     Tier0,
+    /// Set by exactly `1`: rewards may be granted under the tier 1 policy.
     Tier1,
 }
 
@@ -68,27 +82,41 @@ impl TrustTier {
         }
     }
 
+    /// The tier as a number, 0 or 1.
     pub fn number(self) -> u8 {
         u8::from(self == Self::Tier1)
     }
 }
 
+/// Tier 1's reward gates.
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct Tier1Policy {
+    /// On only when `P2P_TIER1_REWARDS_ENABLED` is exactly `true`.
     pub rewards_enabled: bool,
+    /// On only when `P2P_TIER1_SHADOW_APPROVED` is exactly `true`.
     pub shadow_approved: bool,
+    /// `P2P_TIER1_ALLOWED_ACCOUNTS`: the accounts tier 1 may reward; empty allows none.
     pub allowed_accounts: BTreeSet<String>,
+    /// `P2P_TIER1_ALLOWED_HUNTS`: the hunts tier 1 may reward; empty allows none.
     pub allowed_hunts: BTreeSet<String>,
 }
 
+/// Guard's settings as read from the env file.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct GuardConfig {
+    /// Whether host policy enforces or observes.
     pub host_policy: HostPolicySetting,
+    /// Whether hosted hunts send evidence.
     pub hunt_evidence: HuntEvidenceSetting,
+    /// The P2P trust tier.
     pub trust_tier: TrustTier,
+    /// Tier 1's reward gates.
     pub tier1: Tier1Policy,
+    /// Whether the host route census counts (`RUSTIC_RIFTS_HOST_ROUTE_CENSUS`, on unless switched off).
     pub census: bool,
+    /// Whether hosts may write player state (`P2P_HOST_WRITES`, on unless switched off).
     pub host_writes: bool,
+    /// Whether traffic limits are kept in the store for every instance (`P2P_DISTRIBUTED_TRAFFIC_LIMITER`).
     pub distributed_traffic: bool,
 }
 
@@ -127,6 +155,7 @@ fn word_of(value: Option<&str>) -> String {
     value.map_or_else(String::new, |text| text.trim().to_lowercase())
 }
 
+/// Reads `RUSTIC_RIFTS_HOST_POLICY`: `observe`, `enforce` or empty; anything else observes with a warning.
 pub fn resolve_host_policy(value: Option<&str>) -> HostPolicySetting {
     let word = word_of(value);
     let mut setting = HostPolicySetting::default();
@@ -145,6 +174,7 @@ pub fn resolve_host_policy(value: Option<&str>) -> HostPolicySetting {
     setting
 }
 
+/// Reads `RUSTIC_RIFTS_HUNT_EVIDENCE`: `on`, `off` or empty for the tier's default (on at tier 1).
 pub fn resolve_hunt_evidence(value: Option<&str>, tier: TrustTier) -> HuntEvidenceSetting {
     let tier_default = tier == TrustTier::Tier1;
     let word = word_of(value);
@@ -172,6 +202,7 @@ fn warn_startup(warning: Option<&String>, log: &dyn GuardLog) {
     }
 }
 
+/// Logs the host policy's startup lines, the warning first.
 pub fn log_host_policy(setting: &HostPolicySetting, log: &dyn GuardLog) {
     warn_startup(setting.warning.as_ref(), log);
     let (source, effect) = match (setting.mode, setting.is_default) {
@@ -190,6 +221,7 @@ pub fn log_host_policy(setting: &HostPolicySetting, log: &dyn GuardLog) {
     ));
 }
 
+/// Logs the Hunt Guard evidence setting's startup lines, the warning first.
 pub fn log_hunt_evidence(setting: &HuntEvidenceSetting, log: &dyn GuardLog) {
     warn_startup(setting.warning.as_ref(), log);
     let source = if setting.is_default {
@@ -208,6 +240,7 @@ pub fn log_hunt_evidence(setting: &HuntEvidenceSetting, log: &dyn GuardLog) {
 }
 
 impl GuardConfig {
+    /// Reads every Guard setting; absent ones take their defaults.
     pub fn from_settings(settings: &dyn Settings) -> Self {
         let read = |key: &str| settings.get(key);
         let trust_tier = TrustTier::from_setting(read(p2p::TRUST_TIER));
@@ -228,6 +261,7 @@ impl GuardConfig {
         }
     }
 
+    /// Whether host policy refuses rather than only logging.
     pub fn host_policy_refuses(&self) -> bool {
         matches!(self.host_policy.mode, HostPolicyMode::Enforce)
     }

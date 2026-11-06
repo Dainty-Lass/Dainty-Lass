@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Silent Spud
 
+//! The Node services' JSON log lines (`{"t","level","msg",...}`), for ports whose log lines are a contract.
+
 use std::collections::HashMap;
 use std::io::Write;
 use std::sync::atomic::{AtomicU8, Ordering};
@@ -9,12 +11,17 @@ use std::sync::{Arc, Mutex, OnceLock};
 use chrono::Utc;
 use serde_json::{Map, Value};
 
+/// A log line's level, ordered by severity.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 #[repr(u8)]
 pub enum Level {
+    /// Detail for debugging.
     Debug = 10,
+    /// Normal operation.
     Info = 20,
+    /// Something to look at.
     Warn = 30,
+    /// A failure.
     Error = 40,
 }
 
@@ -39,6 +46,7 @@ impl Level {
     }
 }
 
+/// Takes each formatted line and its level instead of stdout and stderr.
 pub type Sink = Box<dyn Fn(&str, Level) + Send + Sync>;
 
 static LEVEL_OVERRIDE: AtomicU8 = AtomicU8::new(0);
@@ -70,15 +78,18 @@ fn current_level() -> Level {
     Level::from_u8(LEVEL_OVERRIDE.load(Ordering::Relaxed)).unwrap_or_else(env_level)
 }
 
+/// Sends lines to `sink`, or back to stdout and stderr with `None`.
 pub fn set_sink(sink: Option<Sink>) {
     let mut guard = sink_cell().lock().unwrap_or_else(std::sync::PoisonError::into_inner);
     *guard = sink.map(Arc::new);
 }
 
+/// Overrides the level from `LOG_LEVEL`.
 pub fn set_level(level: Level) {
     LEVEL_OVERRIDE.store(level as u8, Ordering::Relaxed);
 }
 
+/// Writes `msg` with `fields` merged in, when `level` is at or above the current one.
 pub fn log(level: Level, msg: &str, fields: Value) {
     if level < current_level() {
         return;
@@ -126,18 +137,22 @@ pub fn log(level: Level, msg: &str, fields: Value) {
     }
 }
 
+/// [`log`] at [`Level::Info`].
 pub fn info(msg: &str, fields: Value) {
     log(Level::Info, msg, fields);
 }
 
+/// [`log`] at [`Level::Warn`].
 pub fn warn(msg: &str, fields: Value) {
     log(Level::Warn, msg, fields);
 }
 
+/// [`log`] at [`Level::Error`].
 pub fn error(msg: &str, fields: Value) {
     log(Level::Error, msg, fields);
 }
 
+/// [`log`] at [`Level::Debug`].
 pub fn debug(msg: &str, fields: Value) {
     log(Level::Debug, msg, fields);
 }
@@ -149,12 +164,14 @@ struct ThrottleEntry {
     suppressed: u64,
 }
 
+/// Lets one line per key through per interval and counts the rest.
 pub struct Throttle {
     interval_ms: i64,
     entries: Mutex<HashMap<String, ThrottleEntry>>,
 }
 
 impl Throttle {
+    /// A throttle letting one line per key through every `interval_ms`.
     pub fn new(interval_ms: i64) -> Self {
         Self {
             interval_ms,
@@ -162,6 +179,7 @@ impl Throttle {
         }
     }
 
+    /// `Some(suppressed since the last one)` when a line for `key` may go out at `now` (ms), `None` to drop it.
     pub fn allow(&self, key: &str, now: i64) -> Option<u64> {
         let mut map = self.entries.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
 

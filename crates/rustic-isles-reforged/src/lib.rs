@@ -12,9 +12,14 @@
 //! [`RequestObserver`] over the state as core's observer; calls [`register_public`] and [`register_admin`]; and adds
 //! [`public_startups`] and [`admin::admin_startups`].
 
-#![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used))]
-// A refusal is the answer itself (an axum `Response`), as in core and the other areas
-#![allow(clippy::result_large_err)]
+#![cfg_attr(
+    test,
+    allow(clippy::unwrap_used, clippy::expect_used, reason = "a panic is how a test fails")
+)]
+#![allow(
+    clippy::result_large_err,
+    reason = "a refusal is the answer itself (an axum `Response`), as in core and the other areas"
+)]
 
 pub mod activity;
 pub mod admin;

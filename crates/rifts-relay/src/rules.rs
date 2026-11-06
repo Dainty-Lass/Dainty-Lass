@@ -11,31 +11,49 @@ use serde_json::Value;
 
 use crate::wire::{js_trim, safe_integer};
 
+/// The most joiners a realm hub's host connects to.
 pub const MAXIMUM_HUB_PEERS: usize = 64;
+/// The longest signal payload accepted, in bytes.
 pub const MAX_SIGNAL_BYTES: usize = 4096;
 
 // Umbrella spec D3: the Rustic label. The transport derives nothing itself; it takes the key from the config.
 const PAIR_KEY_LABEL: &str = "rustic-ice-pair-v1";
 
+/// Where a player-hosted session is in its lifecycle.
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub enum HuntState {
+    /// Asked for; no host chosen yet.
     Requested,
+    /// Choosing a host.
     HostSelecting,
+    /// A host was offered the session and has not accepted yet.
     HostOffered,
+    /// The host accepted and its runtime is starting.
     Starting,
+    /// The host's runtime is ready for players.
     HostReady,
+    /// Players are being admitted.
     Admitting,
+    /// Under way with players in it.
     Running,
+    /// A superseded Tier 0 hunt whose server still serves its players.
     Draining,
+    /// The host's lease lapsed; waiting for it to come back.
     Suspect,
+    /// The host was fenced out and may change nothing.
     Fenced,
+    /// Being aborted.
     Aborting,
+    /// Recovering after losing its host.
     Recovering,
+    /// Ended normally.
     Completed,
+    /// Ended without completing.
     Aborted,
 }
 
 impl HuntState {
+    /// Whether players may be issued admission tickets in this state.
     pub const fn is_ticketable(self) -> bool {
         matches!(self, Self::HostReady | Self::Admitting | Self::Running)
     }
@@ -46,13 +64,17 @@ impl HuntState {
     }
 }
 
+/// What a player-hosted session is.
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub enum SessionKind {
+    /// A hunt.
     Hunt,
+    /// A realm's hub.
     RealmHub,
 }
 
 wire_enum! {
+    /// How a session's co-op transport connects players.
     #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
     CoopTransport, read by pub parse {
         Ice = "ICE",
@@ -61,6 +83,7 @@ wire_enum! {
 }
 
 wire_enum! {
+    /// Where a member's presence in a realm hub stands.
     #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
     PresenceState {
         Pending = "PENDING",
@@ -74,12 +97,14 @@ wire_enum! {
 }
 
 impl PresenceState {
+    /// Whether the member still counts as present in the hub.
     pub const fn is_live(self) -> bool {
         matches!(self, Self::Pending | Self::Ticketed | Self::Admitted)
     }
 }
 
 wire_enum! {
+    /// Which side of a host-joiner pair a peer is.
     #[derive(Clone, Copy, Debug, Eq, PartialEq)]
     IceRole {
         Host = "HOST",
@@ -88,6 +113,7 @@ wire_enum! {
 }
 
 wire_enum! {
+    /// What an ICE signal carries.
     #[derive(Clone, Copy, Debug, Eq, PartialEq)]
     SignalKind, read by parse {
         Description = "DESCRIPTION",
@@ -96,40 +122,60 @@ wire_enum! {
     }
 }
 
+/// One seat in a hunt's roster.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct RosterEntry {
+    /// The member.
     pub account: AccountId,
+    /// The member's transport peer id.
     pub peer: PeerId,
+    /// Whether the member went back to the hub, leaving the hunt.
     pub returned_to_hub: bool,
 }
 
+/// One member's presence in a realm hub.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct PresenceRow {
+    /// The member.
     pub account: AccountId,
+    /// The member's transport peer id.
     pub peer: PeerId,
+    /// Where the member's presence stands.
     pub state: PresenceState,
 }
 
+/// What the relay needs to know of a hunt or hub session.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct HuntSnapshot {
+    /// The session id as the wire spells it.
     pub wire_session: String,
+    /// The session's current generation.
     pub generation: u64,
+    /// Where the session is in its lifecycle.
     pub state: HuntState,
+    /// Hunt or hub.
     pub kind: SessionKind,
+    /// The realm the session belongs to, if any.
     pub realm: Option<String>,
     /// Frozen when the hunt was created.
     pub coop_transport: CoopTransport,
+    /// The player hosting the session.
     pub host_account: AccountId,
+    /// The host's transport peer id.
     pub host_peer: PeerId,
+    /// When the session expires.
     pub expires_at: UnixMillis,
+    /// The hunt's seats; empty for a hub, whose members are in its presence rows.
     pub roster: Vec<RosterEntry>,
 }
 
 impl HuntSnapshot {
+    /// Whether the session is a realm hub.
     pub fn is_hub(&self) -> bool {
         matches!(self.kind, SessionKind::RealmHub)
     }
 
+    /// Whether the session belongs to a realm.
     pub fn is_realm_session(&self) -> bool {
         self.realm.is_some()
     }
@@ -140,18 +186,27 @@ impl HuntSnapshot {
     }
 }
 
+/// One peer a transport connects to.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct IcePeer {
+    /// The peer's account.
     pub account: AccountId,
+    /// The peer's role towards the caller.
     pub role: IceRole,
+    /// The key the caller and this peer share.
     pub transport_key: Secret,
 }
 
+/// An ICE signal one peer sends another through the relay.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct IceSignal {
+    /// The generation the signal is for.
     pub generation: i64,
+    /// The account it is addressed to.
     pub to: AccountId,
+    /// What it carries.
     pub kind: SignalKind,
+    /// The payload: SDP text, empty for [`SignalKind::GatheringDone`].
     pub data: String,
 }
 
@@ -174,6 +229,7 @@ pub fn resolve_role(hunt: &HuntSnapshot, account: &AccountId, presence: Option<&
     }
 }
 
+/// The joiners the host connects to: the hunt's seated members, or at most [`MAXIMUM_HUB_PEERS`] live hub members.
 pub fn active_joiners(hunt: &HuntSnapshot, presence: Option<&[PresenceRow]>) -> Vec<AccountId> {
     let not_host = |account: &&AccountId| **account != hunt.host_account;
     if !hunt.is_hub() {
@@ -196,6 +252,7 @@ pub fn active_joiners(hunt: &HuntSnapshot, presence: Option<&[PresenceRow]>) -> 
     members
 }
 
+/// The account's transport peer id in this session, if it has one.
 pub fn peer_id_of(hunt: &HuntSnapshot, account: &AccountId, presence: Option<&[PresenceRow]>) -> Option<PeerId> {
     if *account == hunt.host_account {
         Some(hunt.host_peer)
@@ -258,6 +315,7 @@ fn sdp_safe(text: &str) -> bool {
     text.len() <= MAX_SIGNAL_BYTES && text.chars().all(|c| matches!(c, ' '..='~' | '\r' | '\n'))
 }
 
+/// Reads an ICE signal from a request body; `None` when any field is missing or invalid.
 pub fn parse_ice_signal(body: &Value) -> Option<IceSignal> {
     let generation = safe_integer(body.get("generation")?)?;
     let to = body.get("toAccountId")?.as_str()?;

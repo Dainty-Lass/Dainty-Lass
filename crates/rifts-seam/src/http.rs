@@ -14,11 +14,16 @@ pub type BoxFuture<'a, T> = Pin<Box<dyn Future<Output = T> + Send + 'a>>;
 /// Carries the hosted runtime's capability token (umbrella spec D3: the Rustic name).
 pub const HOST_CAPABILITY_HEADER: &str = "x-rustic-host-capability";
 
+/// The HTTP verb a route answers.
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub enum Method {
+    /// `GET`.
     Get,
+    /// `POST`.
     Post,
+    /// `PATCH`.
     Patch,
+    /// Every verb, as Express's `app.all`.
     All,
 }
 
@@ -33,18 +38,24 @@ impl Method {
 /// Where the module mounts a route.
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub enum Mount {
+    /// Before the module's own middleware.
     Early,
+    /// With the module's own routes.
     Normal,
+    /// On the admin API, behind the admin key.
     Admin,
+    /// On the director.
     Director,
 }
 
 /// A route as data: the module registers it and calls the handler that declared it.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct Route {
+    /// The verb it answers.
     pub method: Method,
     /// An Express pattern (`/a/:id`).
     pub path: &'static str,
+    /// Where the module mounts it.
     pub mount: Mount,
     /// Also the operation name an unwritten handler reports.
     pub handler: &'static str,
@@ -55,18 +66,23 @@ pub struct Route {
 pub struct Json(pub String);
 
 impl Json {
+    /// `{}`.
     pub fn empty_object() -> Self {
         Self(String::from("{}"))
     }
 }
 
+/// A status and JSON body for the module to send.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Reply {
+    /// The HTTP status code.
     pub status: u16,
+    /// The response body.
     pub body: Json,
 }
 
 impl Reply {
+    /// The 501 `NOT_IMPLEMENTED` envelope for an unwritten operation, carrying the request id.
     pub fn not_implemented(unimplemented: &Unimplemented, request_id: &str) -> Self {
         let message = json_string(&unimplemented.to_string());
         let request = json_string(request_id);
@@ -106,12 +122,16 @@ fn json_string(text: &str) -> String {
     quoted
 }
 
+/// What a hook sees of an incoming request.
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct RequestInfo {
+    /// The request path, without the query.
     pub path: String,
     /// Names in lower case.
     pub headers: Vec<(String, String)>,
+    /// The client's address, when known.
     pub remote: Option<IpAddr>,
+    /// The module's id for the request, echoed in error envelopes.
     pub request_id: String,
 }
 
@@ -126,58 +146,92 @@ impl RequestInfo {
 /// What a hosted runtime's capability lets it call.
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub enum CapabilityScope {
+    /// Report that the host is ready.
     HostReady,
+    /// Keep the hosting lease alive.
     LeaseHeartbeat,
+    /// Report a peer the host admitted.
     PeerAdmitted,
+    /// Call the game-server runtime routes, player-state writes included.
     GameServerRuntime,
+    /// Submit hunt evidence events.
     EventsWrite,
+    /// Ask for the hunt to be completed.
     CompleteRequest,
+    /// Abort the hosted session.
     Abort,
 }
 
 /// A hosted runtime authenticated by its capability.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct RuntimeAuth {
+    /// The capability's id, safe to log; never the token.
     pub capability_id: String,
+    /// The hosted session the capability belongs to.
     pub session: SessionId,
+    /// The session's generation the capability was issued for.
     pub generation: u64,
+    /// The player hosting the session.
     pub host_account: AccountId,
+    /// What the runtime may call.
     pub scopes: Vec<CapabilityScope>,
+    /// The accounts admitted to the session.
     pub roster: Vec<AccountId>,
+    /// The host's peer id, when known.
     pub host_peer: Option<PeerId>,
+    /// The bridge instance the capability was issued to.
     pub bridge_instance: Option<String>,
+    /// The session id as the wire and the runtime spell it.
     pub wire_session: Option<String>,
 }
 
 /// Who a route call comes from, as the module authenticated it.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum Caller {
+    /// No credential.
     Anonymous,
+    /// A player through the launcher.
     Launcher(AccountId),
-    Admin { key_id: String },
+    /// An operator with an admin key.
+    Admin {
+        /// The admin key's id, never the key.
+        key_id: String,
+    },
+    /// A hosted runtime with a capability.
     HostRuntime(RuntimeAuth),
 }
 
+/// One call to a declared route.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct RouteCall {
+    /// The route that matched.
     pub route: Route,
     /// Express params in the order they appear in the path.
     pub params: Vec<(String, String)>,
+    /// The raw query string, without the `?`.
     pub query: String,
+    /// The request it came in on.
     pub request: RequestInfo,
+    /// Who is calling.
     pub caller: Caller,
+    /// The raw request body.
     pub body: Vec<u8>,
 }
 
+/// A component that declares routes and answers them.
 pub trait RouteHandler: Send + Sync {
+    /// The routes it declares, in registration order.
     fn routes(&self) -> &'static [Route];
+    /// Answers a call to one of its routes.
     fn handle(&self, call: RouteCall) -> BoxFuture<'_, Result<Reply, SeamError>>;
 }
 
 /// Declares routes whose handlers are not written yet: each call answers `Unimplemented` named after its handler.
 #[derive(Clone, Copy, Debug)]
 pub struct StubRoutes {
+    /// The component the routes belong to.
     pub component: Component,
+    /// The routes declared.
     pub routes: &'static [Route],
 }
 

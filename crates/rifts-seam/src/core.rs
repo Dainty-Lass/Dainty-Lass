@@ -15,19 +15,26 @@ use crate::{
 
 type Fut<'a, T> = BoxFuture<'a, Result<T, SeamError>>;
 
+/// A party as the module stores it.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Party {
+    /// The party's id.
     pub id: PartyId,
+    /// The member who leads it.
     pub leader: AccountId,
+    /// Every member, the leader included.
     pub members: Vec<AccountId>,
+    /// Bumped on every change to the party.
     pub revision: u64,
 }
 
 /// Whether Guard only records what it would refuse, or refuses it.
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub enum GuardMode {
+    /// Log what would be refused and let it through.
     #[default]
     Observe,
+    /// Refuse it.
     Enforce,
 }
 
@@ -44,33 +51,52 @@ impl GuardMode {
 
 /// What the module's item catalog says about the items a host may grant.
 pub trait HostGrantCatalog: Send + Sync {
+    /// The catalog tags of an item, or `None` for an item the catalog does not know.
     fn tags_of(&self, catalog_id: &str) -> Option<Vec<String>>;
+    /// Whether the item is a prestige reward.
     fn is_prestige_reward(&self, catalog_id: &str) -> bool;
+    /// Whether granting the item needs prestige.
     fn is_prestige_gated(&self, catalog_id: &str) -> bool;
     /// `name` is lower case.
     fn is_entitlement_name(&self, name: &str) -> bool;
 }
 
+/// What rifts calls into the module for: accounts, parties, matchmaking, game sessions and operations.
 pub trait IslesCore: Send + Sync {
     // Accounts and parties.
+    /// The account's display name, if it has one.
     fn display_name(&self, account: AccountId) -> Fut<'_, Option<String>>;
+    /// The account with this display name, if any.
     fn find_by_display_name(&self, name: String) -> Fut<'_, Option<AccountId>>;
+    /// Whether the account may use the launcher's rifts features.
     fn launcher_account_eligible(&self, account: AccountId) -> Fut<'_, bool>;
+    /// The party with this id, if it exists.
     fn party(&self, party: PartyId) -> Fut<'_, Option<Party>>;
+    /// The account's party, made for it alone when it has none.
     fn get_or_create_party(&self, account: AccountId) -> Fut<'_, Party>;
 
     // Matchmaking and game sessions.
+    /// Whether the server has dedicated game servers to route hunts to.
     fn dedicated_servers_configured(&self) -> bool;
+    /// Stores the account's matchmaking candidate.
     fn set_candidate(&self, account: AccountId, candidate: Candidate) -> Result<(), SeamError>;
+    /// Cancels the accounts' travel to a hunt, with the reason given; whether any travel was canceled.
     fn cancel_travel(&self, hunt_id: &str, accounts: &[AccountId], reason: &str) -> Result<bool, SeamError>;
+    /// Keeps the account's game session alive.
     fn touch_game_session(&self, account: AccountId) -> Fut<'_, ()>;
+    /// Records activity on a hosted hunt session.
     fn record_hunt_activity(&self, session: SessionId, activity: Json) -> Fut<'_, ()>;
 
     // Guard and operations.
+    /// Whether Guard observes or enforces.
     fn guard_mode(&self) -> GuardMode;
+    /// The account's Guard session when it is healthy, as JSON.
     fn healthy_guard_session(&self, account: AccountId) -> Fut<'_, Option<Json>>;
+    /// The Guard artifacts the server publishes, as JSON.
     fn published_guard_artifacts(&self) -> Fut<'_, Json>;
+    /// The operations policy record, as JSON.
     fn operations_policy(&self) -> Fut<'_, Json>;
+    /// Whether the step-up code is valid for the admin key.
     fn verify_operations_step_up(&self, key_id: String, step_up: String) -> Fut<'_, bool>;
 
     /// Absent: Guard then refuses every catalog-dependent grant.
@@ -78,11 +104,13 @@ pub trait IslesCore: Send + Sync {
         None
     }
 
+    /// The character's stacked items, as JSON; `None` for a character with none.
     fn stacked_items(&self, character_id: String) -> Fut<'_, Option<Json>> {
         drop(character_id);
         stub(Component::Isles, "stacked_items")
     }
 
+    /// Whether the transaction is a replay of one already accepted.
     fn accepted_inventory_replay(&self, transaction: InventoryTransaction) -> Fut<'_, bool> {
         drop(transaction);
         stub(Component::Isles, "accepted_inventory_replay")

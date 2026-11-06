@@ -29,14 +29,22 @@ pub enum ReplayEndpoint {
     /// The capture's own answers
     #[default]
     Recorded,
+    /// A live server over HTTP.
     Http {
+        /// The backend's base URL.
         base_url: String,
+        /// The Director's base URL, if it is replayed.
         director_url: Option<String>,
         /// `host:port` of a plain XMPP-over-TCP listener
         chat_addr: Option<String>,
     },
     /// In-process routers, each served on a fresh loopback listener per request
-    Router { backend: Router, director: Option<Router> },
+    Router {
+        /// The backend's router.
+        backend: Router,
+        /// The Director's router, if it is replayed.
+        director: Option<Router>,
+    },
 }
 
 impl std::fmt::Debug for ReplayEndpoint {
@@ -75,16 +83,21 @@ impl ReplayEndpoint {
     }
 }
 
+/// One side of a replay.
 #[derive(Debug, Clone)]
 pub struct ReplayTarget {
+    /// The side's name in the report.
     pub name: String,
+    /// Where its answers come from.
     pub endpoint: ReplayEndpoint,
+    /// Credentials for its placeholders.
     pub auth: ReplayTargetAuth,
     /// Send core's replay headers; always off for a recorded side
     pub pin_clock: bool,
 }
 
 impl ReplayTarget {
+    /// The capture's own answers, named `recorded`, with no clock pinning.
     pub fn recorded() -> Self {
         Self {
             name: "recorded".into(),
@@ -94,6 +107,7 @@ impl ReplayTarget {
         }
     }
 
+    /// A live server at `base_url`, with clock pinning.
     pub fn http(name: impl Into<String>, base_url: impl Into<String>, auth: ReplayTargetAuth) -> Self {
         Self {
             name: name.into(),
@@ -107,6 +121,7 @@ impl ReplayTarget {
         }
     }
 
+    /// In-process routers, with clock pinning.
     pub fn router(name: impl Into<String>, backend: Router, director: Option<Router>, auth: ReplayTargetAuth) -> Self {
         Self {
             name: name.into(),
@@ -121,54 +136,88 @@ impl ReplayTarget {
     }
 }
 
+/// What a replay run compares.
 #[derive(Debug, Clone)]
 pub struct ReplayConfig {
+    /// The left side.
     pub left: ReplayTarget,
+    /// The right side.
     pub right: ReplayTarget,
+    /// Normalization switches.
     pub normalizer: NormalizerConfig,
     /// Keeps HTTP records whose raw target or route contains it
     pub filter: Option<String>,
 }
 
+/// What a report entry replayed.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "lowercase")]
 pub enum EntryKind {
+    /// One HTTP record.
     Http,
+    /// One chat connection.
     Chat,
 }
 
+/// One replayed record or chat connection in the report (§10.6).
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct ReplayEntryResult {
+    /// Number of entries before this one.
     pub index: usize,
+    /// HTTP or chat.
     pub kind: EntryKind,
+    /// Capture connection number.
     pub conn: u64,
+    /// Request sequence number; 0 for chat.
     pub seq: u64,
+    /// HTTP method; `XMPP` for chat.
     pub method: String,
+    /// The record's raw target; `chat:conn:<conn>` for chat.
     pub target: String,
+    /// The gateway's route label; `chat` for chat.
     pub route: String,
+    /// Whether either side's request was inexact.
     pub inexact: bool,
+    /// Left status; none for chat.
     pub left_status: Option<u16>,
+    /// Right status; none for chat.
     pub right_status: Option<u16>,
+    /// Differences in comparison order.
     pub diffs: Vec<DiffKind>,
 }
 
 /// §10.6, fields in the report's order.
 #[derive(Debug, Clone, Default, PartialEq, Serialize)]
 pub struct ReplayReport {
+    /// Records parsed, skipped ones included.
     pub total_records: usize,
+    /// HTTP records replayed.
     pub http_replayed: usize,
+    /// Chat connections replayed.
     pub chat_connections_replayed: usize,
+    /// Records skipped by the filter or the route rules.
     pub skipped_records: usize,
+    /// Entries with no differences and exact requests.
     pub exact_matched: usize,
+    /// Entries with no differences but inexact requests.
     pub inexact_matched: usize,
+    /// Entries with differences and inexact requests.
     pub inexact_diffed: usize,
+    /// Entries with differences and exact requests; any fails the run.
     pub unexplained_diffed: usize,
+    /// `StatusDiff`s over the run.
     pub status_diffs: usize,
+    /// `HeaderDiff`s over the run.
     pub header_diffs: usize,
+    /// `ValueDiff`s over the run.
     pub value_diffs: usize,
+    /// `TextDiff`s over the run.
     pub text_diffs: usize,
+    /// `ChatStanzaDiff`s over the run.
     pub chat_stanza_diffs: usize,
+    /// Wall time of the run, ms.
     pub duration_ms: u64,
+    /// Each replayed entry in order.
     pub entries: Vec<ReplayEntryResult>,
     /// Printed to stderr as they happen; not part of the JSON report
     #[serde(skip)]

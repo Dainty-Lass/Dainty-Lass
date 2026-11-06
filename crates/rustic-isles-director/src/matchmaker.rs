@@ -35,11 +35,13 @@ fn length(value: Option<&Value>) -> Option<usize> {
 
 /// `map?Key=Value?...`: the map, and a key's first value (`Key` alone is empty).
 pub struct TravelArgs<'a> {
+    /// The map, everything before the first `?`.
     pub map: &'a str,
     parts: Vec<&'a str>,
 }
 
 impl<'a> TravelArgs<'a> {
+    /// Splits travel arguments; never fails.
     pub fn parse(text: &'a str) -> Self {
         let mut pieces = text.split('?');
         let map = pieces.next().unwrap_or("");
@@ -49,6 +51,7 @@ impl<'a> TravelArgs<'a> {
         }
     }
 
+    /// The first value of `key`: empty when it has no `=`, `None` when the key is absent.
     pub fn get(&self, key: &str) -> Option<&'a str> {
         self.parts.iter().find_map(|part| match part.split_once('=') {
             Some((k, v)) if k == key => Some(v),

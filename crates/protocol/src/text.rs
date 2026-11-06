@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Silent Spud
 
+//! String handling that matches JavaScript's: UTF-16 lengths, `trim` and `\s`, and the control and bidi
+//! characters stripped from display text.
+
 /// Returns `true` if `c` is considered whitespace by ECMAScript (`String.prototype.trim` / `\s`).
 #[must_use]
 pub fn is_js_space(c: char) -> bool {

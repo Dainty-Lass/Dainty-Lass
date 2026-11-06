@@ -23,15 +23,22 @@ use crate::observe::{NoObserver, Observer};
 use crate::settings::Settings;
 use crate::shared::{AdminAuthenticator, Shared, Slots};
 
+/// The error every database-backed call answers in a module without a database.
 pub fn no_database() -> ModuleError {
     ModuleError::new(ErrorKind::Unavailable, "the module has no database")
 }
 
+/// What a [`Composer`] is given at start.
 pub struct ComposeInputs {
+    /// The module's settings.
     pub settings: Settings,
+    /// The node the module runs on.
     pub node: NodeIdentity,
+    /// The module's id.
     pub module_id: ModuleId,
+    /// The module context, for events, home calls and logs.
     pub context: ModuleContext,
+    /// The module's game data folders.
     pub game_data: GameDataRoot,
     /// Open the database (off the async threads) only when this is set
     pub database_wanted: bool,
@@ -43,25 +50,33 @@ pub struct ComposeInputs {
 pub struct StartedListener {
     /// `(name, address)` in the order `isles.listening` lists them
     pub addresses: Vec<(String, String)>,
+    /// Stops the listener.
     pub stop: Box<dyn FnOnce() + Send>,
+    /// The listener's task, awaited at stop.
     pub task: JoinHandle<()>,
 }
 
+/// What a [`Startup`] began: tasks and listeners stopped with the module, and lines to log.
 #[derive(Default)]
 pub struct Started {
+    /// Background tasks aborted at stop.
     pub tasks: Vec<JoinHandle<()>>,
+    /// Listeners stopped at stop.
     pub listeners: Vec<StartedListener>,
     /// Logged at info through the module context
     pub logs: Vec<String>,
 }
 
+/// Work an area runs once the module's services are up.
 pub trait Startup: Send + Sync {
+    /// Starts the work; an error fails the module start.
     fn start<'a>(&'a self, shared: &'a Arc<Shared>) -> BoxFuture<'a, Result<Started, String>>;
 }
 
 /// The module calls the areas make (core spec §7.5-§7.8). Each default answers as a module with no database, or
 /// does nothing.
 pub trait ModuleHooks: Send + Sync {
+    /// A chat plugin query (§7.5).
     fn chat<'a>(
         &'a self,
         _shared: &'a Arc<Shared>,
@@ -131,17 +146,25 @@ pub struct NoHooks;
 
 impl ModuleHooks for NoHooks {}
 
+/// What the composer hands core: the areas' state, handlers and hooks.
 pub struct Composition {
+    /// The areas' typed state.
     pub slots: Slots,
+    /// The store auth signs in against; none without a database.
     pub auth_store: Option<Arc<dyn AuthStore>>,
+    /// What auth calls outside itself.
     pub auth_seams: Seams,
+    /// Whether the store is Postgres, which changes auth's consent default.
     pub engine_is_postgres: bool,
+    /// The rifts seam; dedicated-only when rustic-rifts is not loaded.
     pub rifts: rifts_seam::Rifts,
     /// The backend's; this crate adds the auth routes under them
     pub handlers: Handlers,
+    /// Watches every request (the Reforged API's log and metrics).
     pub observer: Arc<dyn Observer>,
     /// In front of the `/admin/` rifts rows
     pub admin_authenticator: Option<Arc<dyn AdminAuthenticator>>,
+    /// The areas' answers to the module's calls.
     pub hooks: Arc<dyn ModuleHooks>,
     /// Run in order at start
     pub startups: Vec<Arc<dyn Startup>>,
@@ -165,7 +188,9 @@ impl Composition {
     }
 }
 
+/// Builds a module's areas from its inputs; restricted's composer until the areas are ported (§11.4).
 pub trait Composer: Send + Sync + 'static {
+    /// The areas' composition, or the error that fails the module start.
     fn compose(&self, inputs: ComposeInputs) -> BoxFuture<'_, Result<Composition, ModuleError>>;
 }
 

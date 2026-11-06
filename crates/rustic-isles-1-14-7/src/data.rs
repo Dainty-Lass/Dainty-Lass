@@ -13,6 +13,7 @@ use rustic_isles_db::LegacyStarter;
 use rustic_isles_gamedata::{RewardCachePlan, TokenSource, VersionInputs};
 use serde_json::{Map, Value};
 
+/// The version data file's name in the backend game data folder.
 pub const DATA_FILE: &str = "version_data.json";
 
 const MEMBERS: [&str; 7] = [
@@ -25,6 +26,7 @@ const MEMBERS: [&str; 7] = [
     "storageTokenSeeds",
 ];
 
+/// 1.14.7's checked `version_data.json`: character data, the starter kit and the reward and token tables.
 #[derive(Clone, PartialEq)]
 pub struct VersionData {
     character_data: CharacterData,
@@ -287,10 +289,12 @@ impl VersionData {
         Self::from_json(&value)
     }
 
+    /// The character data new characters start from.
     pub fn character_data(&self) -> CharacterData {
         self.character_data.clone()
     }
 
+    /// The kit a new account is granted.
     pub fn starter_kit(&self) -> StarterKit {
         self.starter_kit.clone()
     }

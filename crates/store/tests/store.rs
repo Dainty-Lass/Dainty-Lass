@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Silent Spud
 
-#![allow(clippy::unwrap_used, clippy::expect_used)]
+//! The SQLite `Store`: transactions, WAL settings, Drizzle adoption, backups and read-only access.
+
+#![allow(clippy::unwrap_used, clippy::expect_used, reason = "a panic is how a test fails")]
 
 use std::sync::Arc;
 use std::time::Duration;

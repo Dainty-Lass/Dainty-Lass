@@ -10,21 +10,33 @@ use std::time::{Duration, Instant};
 
 use crate::router::MessageTransport;
 
+/// The largest game datagram carried, in bytes; anything bigger is dropped.
 pub const MAX_DATAGRAM: usize = 2048;
+/// The most datagrams or messages each direction moves per pump.
 pub const PER_PUMP: usize = 64;
 const REPIN_SILENCE: Duration = Duration::from_secs(2);
 const MAX_ERROR_REPORTS: u32 = 8;
 
+/// What a bridge moved and dropped, reported in `UDP_STATS` lines.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct BridgeCounters {
+    /// Datagrams read from the game's loopback socket.
     pub local_datagrams_received: u64,
+    /// Datagrams written to the game's loopback socket.
     pub local_datagrams_sent: u64,
+    /// Messages read from the peer link.
     pub transport_messages_received: u64,
+    /// Messages written to the peer link.
     pub transport_messages_sent: u64,
+    /// Datagrams or messages over `MAX_DATAGRAM`, or empty messages.
     pub oversized_datagrams_dropped: u64,
+    /// Datagrams from a loopback source other than the pinned one, or with none pinned yet.
     pub unexpected_local_sources_dropped: u64,
+    /// Messages from a peer the bridge does not serve, or past the peer limit.
     pub unknown_peers_dropped: u64,
+    /// Messages the link refused for want of room.
     pub transport_backpressure_drops: u64,
+    /// Socket reads and writes that failed.
     pub socket_errors: u64,
 }
 
@@ -84,10 +96,12 @@ pub struct JoinerBridge {
     socket: UdpSocket,
     host_peer: u64,
     pinned: Option<SocketAddr>,
+    /// What this bridge moved and dropped.
     pub counters: BridgeCounters,
 }
 
 impl JoinerBridge {
+    /// Binds 127.0.0.1:`port` (0 for any) for the game client, relaying to `host_peer`.
     pub fn bind(port: u16, host_peer: u64) -> io::Result<Self> {
         Ok(Self {
             socket: bind_loopback(port)?,
@@ -97,10 +111,12 @@ impl JoinerBridge {
         })
     }
 
+    /// The loopback port the game client should send to, 0 if unknown.
     pub fn port(&self) -> u16 {
         self.socket.local_addr().map_or(0, |a| a.port())
     }
 
+    /// Moves one round of datagrams each way; the first loopback source to send is pinned as the client.
     pub fn pump(&mut self, network: &mut dyn MessageTransport) {
         let mut buffer = [0_u8; MAX_DATAGRAM + 1];
         for _ in 0..PER_PUMP {
@@ -156,10 +172,12 @@ pub struct HostRemoteBridge {
     server_port: u16,
     max_peers: usize,
     sockets: BTreeMap<u64, UdpSocket>,
+    /// What this bridge moved and dropped.
     pub counters: BridgeCounters,
 }
 
 impl HostRemoteBridge {
+    /// A bridge to the game server on `server_port`, serving at most `max_peers` joiners.
     pub fn new(server_port: u16, max_peers: usize) -> Self {
         Self {
             server_port,
@@ -169,14 +187,17 @@ impl HostRemoteBridge {
         }
     }
 
+    /// Closes the joiner's socket.
     pub fn disconnect(&mut self, peer: u64) {
         self.sockets.remove(&peer);
     }
 
+    /// How many joiners have a socket open.
     pub fn slots(&self) -> usize {
         self.sockets.len()
     }
 
+    /// Moves one round of datagrams each way, opening a socket for a new joiner while there is room.
     pub fn pump(&mut self, network: &mut dyn MessageTransport) {
         for (peer, message) in network.receive(PER_PUMP) {
             self.counters.transport_messages_received += 1;
@@ -249,10 +270,12 @@ pub struct HostLocalBridge {
     last_heard: Instant,
     reports: u32,
     last_report: Option<(&'static str, i32)>,
+    /// What this bridge moved and dropped.
     pub counters: BridgeCounters,
 }
 
 impl HostLocalBridge {
+    /// Binds the client-facing loopback socket and a socket connected to the game server on `server_port`.
     pub fn new(server_port: u16) -> io::Result<Self> {
         Ok(Self {
             client: bind_loopback(0)?,
@@ -266,6 +289,7 @@ impl HostLocalBridge {
         })
     }
 
+    /// The loopback port the host's game client should send to, 0 if unknown.
     pub fn port(&self) -> u16 {
         self.client.local_addr().map_or(0, |a| a.port())
     }
@@ -281,6 +305,7 @@ impl HostLocalBridge {
         diagnostics.push(format!("HOST_UDP_SOCKET_ERROR path=local op={op} wsa={code}"));
     }
 
+    /// Moves one round of datagrams each way; socket errors are reported to `diagnostics`, a few at most.
     pub fn pump(&mut self, diagnostics: &mut Vec<String>) {
         let mut buffer = [0_u8; MAX_DATAGRAM + 1];
         for _ in 0..PER_PUMP {

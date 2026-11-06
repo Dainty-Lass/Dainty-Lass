@@ -4,17 +4,29 @@
 //! XMPP text: the frame parser (ltx's behaviour, not XML's), escaping, JIDs, the token bucket and the trace's
 //! redaction.
 
+/// RFC 7395's WebSocket framing (`<open/>`, `<close/>`).
 pub const NS_FRAMING: &str = "urn:ietf:params:xml:ns:xmpp-framing";
+/// SASL, for the login.
 pub const NS_SASL: &str = "urn:ietf:params:xml:ns:xmpp-sasl";
+/// Resource binding.
 pub const NS_BIND: &str = "urn:ietf:params:xml:ns:xmpp-bind";
+/// The legacy session establishment the client still asks for.
 pub const NS_SESSION: &str = "urn:ietf:params:xml:ns:xmpp-session";
+/// The `stream:` prefix.
 pub const NS_STREAMS: &str = "http://etherx.jabber.org/streams";
+/// Stream error conditions.
 pub const NS_STREAM_ERRORS: &str = "urn:ietf:params:xml:ns:xmpp-streams";
+/// Stanza error conditions.
 pub const NS_STANZAS: &str = "urn:ietf:params:xml:ns:xmpp-stanzas";
+/// The client's default namespace.
 pub const NS_CLIENT: &str = "jabber:client";
+/// XEP-0199 ping.
 pub const NS_PING: &str = "urn:xmpp:ping";
+/// XEP-0045 multi-user chat, on join.
 pub const NS_MUC: &str = "http://jabber.org/protocol/muc";
+/// XEP-0045 multi-user chat, on presence and messages.
 pub const NS_MUC_USER: &str = "http://jabber.org/protocol/muc#user";
+/// XEP-0203 delayed delivery, on history.
 pub const NS_DELAY: &str = "urn:xmpp:delay";
 /// The 1.14.7 client's built-in XMPP domain
 pub const DEFAULT_DOMAIN: &str = "prod.ol.epicgames.com";
@@ -22,20 +34,28 @@ pub const DEFAULT_DOMAIN: &str = "prod.ol.epicgames.com";
 /// The longest trace line, in UTF-16 units
 const TRACE_LIMIT: usize = 2048;
 
+/// A child of an element.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Node {
+    /// A nested element.
     Element(Element),
+    /// Text, unescaped.
     Text(String),
 }
 
+/// An element as the frame parser reads it.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct Element {
+    /// The tag name as written, prefix included.
     pub name: String,
+    /// Attributes in document order, values unescaped.
     pub attrs: Vec<(String, String)>,
+    /// Children in document order.
     pub children: Vec<Node>,
 }
 
 impl Element {
+    /// The value of the attribute named exactly `name`.
     pub fn attr(&self, name: &str) -> Option<&str> {
         self.attrs.iter().find(|(n, _)| n == name).map(|(_, v)| v.as_str())
     }
@@ -51,10 +71,12 @@ impl Element {
         out
     }
 
+    /// The first child element whose local name, lower-cased, is `name`.
     pub fn child(&self, name: &str) -> Option<&Element> {
         self.elements().find(|e| local_name(&e.name) == name)
     }
 
+    /// The child elements, skipping text.
     pub fn elements(&self) -> impl Iterator<Item = &Element> {
         self.children.iter().filter_map(|node| match node {
             Node::Element(e) => Some(e),
@@ -63,6 +85,7 @@ impl Element {
     }
 }
 
+/// The element's own text, or empty for `None`.
 pub fn text_of(element: Option<&Element>) -> String {
     element.map(Element::text).unwrap_or_default()
 }
@@ -281,6 +304,7 @@ fn xml_char(code: i64) -> Option<char> {
     char::from_u32(u32::try_from(code).ok()?)
 }
 
+/// `text` with `& < > " '` escaped, for text and attribute values alike.
 pub fn escape(text: &str) -> String {
     let mut out = String::with_capacity(text.len());
     for c in text.chars() {
@@ -314,6 +338,7 @@ pub fn log_text(text: &str, max: usize) -> String {
     out
 }
 
+/// Whether `text` is 1 to 253 ASCII letters, digits, `.` and `-`.
 pub fn is_host_name(text: &str) -> bool {
     (1..=253).contains(&text.len())
         && text
@@ -337,10 +362,14 @@ pub fn is_xmpp_domain(text: &str) -> bool {
     }
 }
 
+/// A JID split into its parts.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Jid {
+    /// The local part, before `@`.
     pub local: String,
+    /// The domain, between `@` and the first `/`.
     pub domain: String,
+    /// Everything after the first `/`.
     pub resource: Option<String>,
 }
 
@@ -361,6 +390,7 @@ pub fn parse_jid(text: &str) -> Option<Jid> {
     })
 }
 
+/// Whether `text` holds any Unicode control character.
 pub fn has_control_character(text: &str) -> bool {
     text.chars().any(char::is_control)
 }
@@ -373,6 +403,7 @@ pub struct Bucket {
 }
 
 impl Bucket {
+    /// A bucket holding `burst` tokens at `now` (unix milliseconds).
     pub fn new(burst: u32, now: i64) -> Self {
         Self {
             tokens: f64::from(burst),
@@ -380,8 +411,9 @@ impl Bucket {
         }
     }
 
+    /// Takes a token if one is left after refilling one per `refill_ms` up to `burst`; `false` when empty.
     pub fn take(&mut self, burst: u32, refill_ms: f64, now: i64) -> bool {
-        #[allow(clippy::cast_precision_loss)]
+        #[allow(clippy::cast_precision_loss, reason = "ms between two clock reads, far below 2^53")]
         let elapsed = now.saturating_sub(self.at).max(0) as f64;
         self.tokens = (self.tokens + elapsed / refill_ms).min(f64::from(burst));
         self.at = now;
@@ -460,7 +492,7 @@ fn redact_tag(text: &str, tag: &str) -> String {
 
 #[cfg(test)]
 mod tests {
-    #![allow(clippy::unwrap_used)]
+    #![allow(clippy::unwrap_used, reason = "a panic is how a test fails")]
     use super::*;
 
     fn el(name: &str) -> Element {

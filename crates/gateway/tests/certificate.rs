@@ -4,7 +4,7 @@
 //! `make-cert` makes a certificate the gateway loads, reads a fingerprint, and never replaces one without
 //! `--force`. (The Node host kit's certificate, key and invite vectors stay in dainty-restricted until the
 //! integration pass copies them in; docs/port/clean-room/gateway.md.)
-#![allow(clippy::unwrap_used, clippy::expect_used)]
+#![allow(clippy::unwrap_used, clippy::expect_used, reason = "a panic is how a test fails")]
 
 use std::process::ExitCode;
 

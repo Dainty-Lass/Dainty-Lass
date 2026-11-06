@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Silent Spud
 
 //! The `AuthStore` adapter (spec §12): row U1 of §15.2.
-#![allow(clippy::unwrap_used, clippy::expect_used)]
+#![allow(clippy::unwrap_used, clippy::expect_used, reason = "a panic is how a test fails")]
 
 mod common;
 

@@ -6,7 +6,10 @@
 //! `rustic-isles-*` area and dainty-lass's Rustic Rifts crates into one module. The game-derived inputs that are not
 //! wire facts come from `version_data.json` ([`VersionData`]).
 
-#![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used))]
+#![cfg_attr(
+    test,
+    allow(clippy::unwrap_used, clippy::expect_used, reason = "a panic is how a test fails")
+)]
 
 mod accounts;
 mod composer;
@@ -36,9 +39,11 @@ pub use rifts::rifts_with_core;
 
 /// Kept from restricted: `host.toml`, the gateway's routing and invites name it (core §15 item 13).
 pub const ID: &str = "isles-1-14-7";
+/// The module's name as hosts and the launcher show it.
 pub const DISPLAY_NAME: &str = "Rustic Isles 1.14.7";
 /// The manifest's game version answers `1.14.7` itself.
 pub const INVITE_ALIASES: &[&str] = &["reforged"];
+/// The backend, director, QoS and game server ports a host gets unless it sets its own.
 pub const DEFAULT_PORTS: DefaultPorts = DefaultPorts {
     backend: 61_000,
     director: 61_001,
@@ -179,6 +184,7 @@ pub fn capabilities() -> Capabilities {
     }
 }
 
+/// 1.14.7's hooks, tables and route set.
 pub fn version() -> IslesVersion {
     IslesVersion {
         hooks: Arc::new(Hooks),
@@ -212,6 +218,7 @@ pub fn spec_with(data: VersionData) -> Result<ModuleSpec, ModuleError> {
     spec_over(VersionComposer::with_data(data))
 }
 
+/// The module, its spec reading `version_data.json`.
 pub fn module() -> Result<IslesModule, ModuleError> {
     IslesModule::new(spec()?)
 }

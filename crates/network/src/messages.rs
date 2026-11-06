@@ -23,25 +23,42 @@ pub const MAX_PULL: u32 = 256;
 pub enum DirectoryChange {
     /// A new account, homed on the node that owns its id, claiming a username
     Register {
+        /// The new account.
         account: GlobalId,
+        /// The name it claims.
         username: Username,
+        /// Its home node.
         home: NodeId,
     },
     /// A joining server's account whose username clashed with an earlier-registered account and was given a
     /// temporary suffixed name (DN13); prompts for a free rename at next login
     RegisterClash {
+        /// The joining account.
         account: GlobalId,
+        /// The temporary suffixed name it was given.
         username: Username,
+        /// Its home node.
         home: NodeId,
     },
     /// An account's new username; the old one is free from this entry on
-    Rename { account: GlobalId, username: Username },
+    Rename {
+        /// The account renamed.
+        account: GlobalId,
+        /// Its new name.
+        username: Username,
+    },
     /// An existing account whose username clashed with an earlier-registered joining account and was given a
     /// temporary suffixed name (DN13); prompts for a free rename at next login
-    RenameClash { account: GlobalId, username: Username },
+    RenameClash {
+        /// The account renamed.
+        account: GlobalId,
+        /// The temporary suffixed name it was given.
+        username: Username,
+    },
 }
 
 impl DirectoryChange {
+    /// The account the change is about.
     pub fn account(&self) -> &GlobalId {
         match self {
             Self::Register { account, .. }
@@ -51,6 +68,7 @@ impl DirectoryChange {
         }
     }
 
+    /// The username the change gives it.
     pub fn username(&self) -> &Username {
         match self {
             Self::Register { username, .. }
@@ -60,6 +78,7 @@ impl DirectoryChange {
         }
     }
 
+    /// The home node, for a registration.
     pub fn home(&self) -> Option<&NodeId> {
         match self {
             Self::Register { home, .. } | Self::RegisterClash { home, .. } => Some(home),
@@ -77,7 +96,9 @@ impl DirectoryChange {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct JoiningAccount {
+    /// The account's global id.
     pub account: GlobalId,
+    /// Its username on the joining server, checked by the leader.
     pub username: String,
     /// When the account was registered on its server, in unix milliseconds; the earlier registration keeps
     /// the name on a clash
@@ -88,9 +109,13 @@ pub struct JoiningAccount {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ClashedAccount {
+    /// The account renamed.
     pub account: GlobalId,
+    /// Its home node.
     pub home: NodeId,
+    /// The name it held.
     pub old_username: Username,
+    /// The temporary suffixed name it now holds.
     pub new_username: Username,
 }
 
@@ -98,7 +123,9 @@ pub struct ClashedAccount {
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct JoinOutcome {
+    /// The log entries the join wrote, registrations and clash renames alike.
     pub entries: Vec<DirectoryEntry>,
+    /// The accounts given a temporary name.
     pub clashed: Vec<ClashedAccount>,
 }
 
@@ -106,57 +133,78 @@ pub struct JoinOutcome {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct DirectoryEntry {
+    /// The entry's number.
     pub seq: u64,
     /// When the leader wrote it, in unix milliseconds
     pub at: i64,
+    /// What it changed.
     pub change: DirectoryChange,
 }
 
+/// A directory call as sent: [`DirectoryCall`] with the protocol version.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct DirectoryRequest {
+    /// [`DIRECTORY_VERSION`].
     pub version: u32,
+    /// The call.
     pub call: DirectoryCall,
 }
 
+/// What a node asks the directory's leader.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub enum DirectoryCall {
     /// From the account's home. `username` is checked by the leader, so a refusal says why. `actor` is
     /// who asked at the home, as `store`'s change log writes it, recorded in the leader's log too.
     Register {
+        /// The account, homed on the caller.
         account: GlobalId,
+        /// The username asked for.
         username: String,
+        /// Who asked, as the change log writes actors.
         actor: String,
     },
     /// From the account's home.
     Rename {
+        /// The account, homed on the caller.
         account: GlobalId,
+        /// The new username.
         username: String,
+        /// Who asked, as the change log writes actors.
         actor: String,
     },
     /// Join an existing server's accounts to the directory with the caller as their home (DN13).
     Join {
+        /// The accounts to register.
         accounts: Vec<JoiningAccount>,
+        /// Who asked, as the change log writes actors.
         actor: String,
     },
     /// The entries after `after`, at most `limit` (capped at [`MAX_PULL`]). `last` is the puller's entry
     /// `after`, which the leader must hold the same, or the two logs have diverged.
     Pull {
+        /// The number of the puller's newest entry.
         after: u64,
+        /// The puller's entry `after`, none when `after` is 0.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         last: Option<DirectoryEntry>,
+        /// The most entries wanted.
         limit: u32,
     },
 }
 
+/// A directory answer as sent: [`DirectoryReply`] with the protocol version.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct DirectoryResponse {
+    /// [`DIRECTORY_VERSION`].
     pub version: u32,
+    /// The answer.
     pub reply: DirectoryReply,
 }
 
+/// The leader's answer to a [`DirectoryCall`].
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub enum DirectoryReply {
@@ -166,9 +214,12 @@ pub enum DirectoryReply {
     Joined(JoinOutcome),
     /// A page of the log, and the leader's newest entry
     Changes {
+        /// The entries, oldest first.
         entries: Vec<DirectoryEntry>,
+        /// The leader's newest entry.
         head: u64,
     },
+    /// The call was refused.
     Refused(Refusal),
 }
 
@@ -176,29 +227,46 @@ pub enum DirectoryReply {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, thiserror::Error)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub enum Refusal {
+    /// The username fails the shared username rules.
     #[error("not a username ({})", .check.as_str())]
-    InvalidUsername { check: UsernameCheck },
+    InvalidUsername {
+        /// The rule it fails.
+        check: UsernameCheck,
+    },
     /// Another account holds the name, in any case
     #[error("the username is taken")]
     UsernameTaken,
+    /// The account is already registered.
     #[error("the account is already registered")]
     AccountExists,
+    /// The directory holds no such account.
     #[error("the directory has no such account")]
     UnknownAccount,
+    /// The id is not an account's.
     #[error("that is not an account id")]
     NotAnAccount,
     /// Only an account's home registers or renames it
     #[error("only the account's home node can change it")]
     NotHome,
+    /// The node asked is not the leader.
     #[error("this node is not the directory's leader")]
-    NotLeader { leader: Option<NodeId> },
+    NotLeader {
+        /// The leader it knows of, if any.
+        leader: Option<NodeId>,
+    },
     /// The puller's log isn't a prefix of the leader's
     #[error("the logs have diverged")]
     Diverged,
+    /// The actor is not one the change log can record.
     #[error("not an actor the change log can record")]
     BadActor,
+    /// The request's version is not the leader's.
     #[error("directory protocol {supported} only")]
-    UnsupportedVersion { supported: u32 },
+    UnsupportedVersion {
+        /// The version the leader speaks.
+        supported: u32,
+    },
+    /// The message is not a directory message.
     #[error("not a directory message")]
     Malformed,
     /// The leader failed to answer (its database); ask again later
@@ -206,12 +274,16 @@ pub enum Refusal {
     Unavailable,
 }
 
+/// Why a directory message could not be decoded or encoded.
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 pub enum DecodeError {
+    /// Over the node link's message limit.
     #[error("a node-link message is over {MAX_MESSAGE} bytes")]
     TooLarge,
+    /// Another protocol version; holds the one received.
     #[error("directory protocol {0}")]
     Version(u32),
+    /// Not the expected JSON.
     #[error("{0}")]
     Json(String),
 }
@@ -237,14 +309,17 @@ fn decode<T: DeserializeOwned>(bytes: &[u8], version_of: impl Fn(&T) -> u32) -> 
     }
 }
 
+/// A request decoded; refuses another version.
 pub fn decode_request(bytes: &[u8]) -> Result<DirectoryRequest, DecodeError> {
     decode(bytes, |r: &DirectoryRequest| r.version)
 }
 
+/// A response decoded; refuses another version.
 pub fn decode_response(bytes: &[u8]) -> Result<DirectoryResponse, DecodeError> {
     decode(bytes, |r: &DirectoryResponse| r.version)
 }
 
+/// `message` as JSON; errors when over the node link's message limit.
 pub fn encode<T: Serialize>(message: &T) -> Result<Vec<u8>, DecodeError> {
     let bytes = serde_json::to_vec(message).map_err(|e| DecodeError::Json(e.to_string()))?;
     if bytes.len() > MAX_MESSAGE {
@@ -255,7 +330,7 @@ pub fn encode<T: Serialize>(message: &T) -> Result<Vec<u8>, DecodeError> {
 
 #[cfg(test)]
 mod tests {
-    #![allow(clippy::unwrap_used)]
+    #![allow(clippy::unwrap_used, reason = "a panic is how a test fails")]
 
     use super::*;
 

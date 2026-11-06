@@ -6,9 +6,14 @@
 //! party headline body, the `chat.*` home operations, and the chat area's 11 backend routes. It never depends on the
 //! `chat` plugin crate: a game module talks to chat only through `module-api`.
 
-#![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used))]
-// A refusal is the answer itself (an axum `Response`), as in core and rustic-isles-auth, so it is not boxed
-#![allow(clippy::result_large_err)]
+#![cfg_attr(
+    test,
+    allow(clippy::unwrap_used, clippy::expect_used, reason = "a panic is how a test fails")
+)]
+#![allow(
+    clippy::result_large_err,
+    reason = "a refusal is the answer itself (an axum `Response`), as in core and rustic-isles-auth, so it is not boxed"
+)]
 
 pub mod headline;
 mod home;
@@ -73,8 +78,11 @@ impl ChatSettings {
 /// A chat player: the account, the userId the client sees, and `accounts.name`.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Player {
+    /// The account the player logged in as.
     pub account: GlobalId,
+    /// The game token's `userId`.
     pub user_id: String,
+    /// The display name, from `accounts.name`.
     pub name: String,
 }
 
@@ -91,8 +99,10 @@ pub trait TokenCheck: Send + Sync {
 /// What the rules read (spec §5.1). Every lookup answers `Unsupported` without a database, `Invalid` for an id of
 /// another kind where an account is needed and `Unavailable` for a store failure.
 pub trait ChatSource: Send + Sync {
+    /// The node this module serves, which names its rooms and JIDs.
     fn node(&self) -> &NodeIdentity;
 
+    /// The `REALTIME_XMPP_*` switches.
     fn settings(&self) -> ChatSettings;
 
     /// None without a store.

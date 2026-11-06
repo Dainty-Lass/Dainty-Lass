@@ -13,15 +13,22 @@ use tokio::sync::watch;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum ComponentPhase {
+    /// Not running.
     Stopped,
+    /// Starting up.
     Starting,
+    /// Running and serving.
     Ready,
+    /// Shutting down.
     Stopping,
+    /// Stopped with an error.
     Failed,
+    /// Turned off by configuration.
     Disabled,
 }
 
 impl ComponentPhase {
+    /// The lowercase name, as serialized.
     pub const fn as_str(self) -> &'static str {
         match self {
             Self::Stopped => "stopped",
@@ -38,20 +45,32 @@ impl ComponentPhase {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ComponentStatus {
+    /// Component name.
     pub name: String,
+    /// Game edition it serves, if any.
     pub edition: Option<String>,
+    /// Current phase.
     pub phase: ComponentPhase,
+    /// Address it listens on, `host:port`.
     pub listen_addr: Option<String>,
+    /// Port it listens on.
     pub port: Option<u16>,
+    /// OS process id, for a component in its own process.
     pub pid: Option<u32>,
+    /// Times it was restarted.
     pub restarts: u32,
+    /// When it became ready, in Unix milliseconds.
     pub started_at_ms: Option<i64>,
+    /// Seconds it has been up, filled in by the reader of the snapshot.
     pub uptime_secs: u64,
+    /// The last failure's text.
     pub last_error: Option<String>,
+    /// Free-form status text.
     pub detail: String,
 }
 
 impl ComponentStatus {
+    /// A stopped component.
     pub fn new(name: impl Into<String>, edition: Option<String>) -> Self {
         Self {
             name: name.into(),
@@ -73,18 +92,28 @@ impl ComponentStatus {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ServerSnapshot {
+    /// Phase of the server as a whole.
     pub overall_phase: ComponentPhase,
+    /// `private` or `public`.
     pub mode: String,
+    /// Game editions served.
     pub editions: Vec<String>,
+    /// Every component, in registration order.
     pub components: Vec<ComponentStatus>,
+    /// Invite link to share, once known.
     pub invite_url: Option<String>,
+    /// Gateway certificate SHA-256, public mode.
     pub cert_fingerprint: Option<String>,
+    /// Players online.
     pub online_players: u32,
+    /// Hunts running.
     pub active_hunts: u32,
+    /// Hunt capacity.
     pub max_hunts: u32,
 }
 
 impl ServerSnapshot {
+    /// The component called `name`.
     pub fn get(&self, name: &str) -> Option<&ComponentStatus> {
         self.components.iter().find(|c| c.name == name)
     }
@@ -128,6 +157,7 @@ impl Default for StatusRegistry {
 }
 
 impl StatusRegistry {
+    /// An empty registry in `mode` serving `editions`.
     pub fn new(mode: impl Into<String>, editions: Vec<String>) -> Self {
         let initial = ServerSnapshot {
             overall_phase: ComponentPhase::Stopped,
@@ -147,6 +177,7 @@ impl StatusRegistry {
         }
     }
 
+    /// Registers `name` as starting and returns its context and the sender that stops it.
     pub fn service_context(&self, name: &str) -> (ServiceContext, watch::Sender<bool>) {
         let reporter = self.register_component(name, None);
         reporter.starting();
@@ -154,14 +185,17 @@ impl StatusRegistry {
         (ServiceContext::new(name, reporter, stop_rx), stop_tx)
     }
 
+    /// The current state.
     pub fn snapshot(&self) -> ServerSnapshot {
         lock(&self.state).clone()
     }
 
+    /// Receives every change.
     pub fn subscribe(&self) -> watch::Receiver<ServerSnapshot> {
         self.tx.subscribe()
     }
 
+    /// Sets the overall phase and notifies subscribers.
     pub fn set_overall_phase(&self, phase: ComponentPhase) {
         let snap = {
             let mut st = lock(&self.state);
@@ -171,6 +205,7 @@ impl StatusRegistry {
         let _ = self.tx.send_replace(snap);
     }
 
+    /// Sets the invite link and certificate fingerprint and notifies subscribers.
     pub fn set_invite_info(&self, invite_url: Option<String>, cert_fingerprint: Option<String>) {
         let snap = {
             let mut st = lock(&self.state);
@@ -181,6 +216,7 @@ impl StatusRegistry {
         let _ = self.tx.send_replace(snap);
     }
 
+    /// Adds `name` if it is new, and returns its reporter.
     pub fn register_component(&self, name: &str, edition: Option<&str>) -> StatusReporter {
         {
             let mut st = lock(&self.state);
@@ -220,16 +256,19 @@ pub struct StatusReporter {
 }
 
 impl StatusReporter {
+    /// A reporter on a registry of its own, for a service run standalone.
     pub fn noop(name: impl Into<String>) -> Self {
         let name = name.into();
         let registry = StatusRegistry::default();
         registry.register_component(&name, None)
     }
 
+    /// The component's name.
     pub fn name(&self) -> &str {
         &self.name
     }
 
+    /// Marks it starting and clears the last error.
     pub fn starting(&self) {
         self.registry.update_component(&self.name, |c| {
             c.phase = ComponentPhase::Starting;
@@ -237,6 +276,7 @@ impl StatusReporter {
         });
     }
 
+    /// As [`StatusReporter::starting`], with `detail`.
     pub fn report_starting(&self, detail: impl Into<String>) {
         let detail = detail.into();
         self.registry.update_component(&self.name, |c| {
@@ -246,6 +286,7 @@ impl StatusReporter {
         });
     }
 
+    /// Marks it ready on `listen_addr` (port taken from it), now.
     pub fn ready(&self, listen_addr: Option<String>, detail: Option<String>) {
         let now = now_ms();
         let port = listen_addr
@@ -264,6 +305,7 @@ impl StatusReporter {
         });
     }
 
+    /// Marks it ready on loopback `port`, now.
     pub fn report_ready(&self, port: Option<u16>, detail: impl Into<String>) {
         let now = now_ms();
         let detail = detail.into();
@@ -277,12 +319,14 @@ impl StatusReporter {
         });
     }
 
+    /// Marks it stopping.
     pub fn stopping(&self) {
         self.registry.update_component(&self.name, |c| {
             c.phase = ComponentPhase::Stopping;
         });
     }
 
+    /// As [`StatusReporter::stopping`], with `detail`.
     pub fn report_stopping(&self, detail: impl Into<String>) {
         let detail = detail.into();
         self.registry.update_component(&self.name, |c| {
@@ -291,6 +335,7 @@ impl StatusReporter {
         });
     }
 
+    /// Marks it stopped and clears its process id.
     pub fn stopped(&self) {
         self.registry.update_component(&self.name, |c| {
             c.phase = ComponentPhase::Stopped;
@@ -298,6 +343,7 @@ impl StatusReporter {
         });
     }
 
+    /// As [`StatusReporter::stopped`], with `detail`.
     pub fn report_stopped(&self, detail: impl Into<String>) {
         let detail = detail.into();
         self.registry.update_component(&self.name, |c| {
@@ -307,6 +353,7 @@ impl StatusReporter {
         });
     }
 
+    /// Marks it failed with `error` as detail and last error.
     pub fn failed(&self, error: impl Into<String>) {
         let err = error.into();
         self.registry.update_component(&self.name, |c| {
@@ -316,6 +363,7 @@ impl StatusReporter {
         });
     }
 
+    /// Marks it disabled, with `reason` as detail.
     pub fn disabled(&self, reason: impl Into<String>) {
         self.registry.update_component(&self.name, |c| {
             c.phase = ComponentPhase::Disabled;
@@ -323,12 +371,14 @@ impl StatusReporter {
         });
     }
 
+    /// Records its process id.
     pub fn set_pid(&self, pid: Option<u32>) {
         self.registry.update_component(&self.name, |c| {
             c.pid = pid;
         });
     }
 
+    /// Counts one restart.
     pub fn inc_restarts(&self) {
         self.registry.update_component(&self.name, |c| {
             c.restarts += 1;
@@ -339,12 +389,16 @@ impl StatusReporter {
 /// Execution context passed to each in-process service library (`gateway`, `content`, `admin`, `backend`, `director`).
 #[derive(Clone)]
 pub struct ServiceContext {
+    /// Component name.
     pub name: String,
+    /// Where it reports its phase.
     pub status: StatusReporter,
+    /// Becomes true when the service should stop.
     pub stop: watch::Receiver<bool>,
 }
 
 impl ServiceContext {
+    /// A context reporting to `status` that stops when `stop` turns true.
     pub fn new(name: impl Into<String>, status: StatusReporter, stop: watch::Receiver<bool>) -> Self {
         Self {
             name: name.into(),
@@ -373,10 +427,12 @@ impl ServiceContext {
         let _ = self.stop.wait_for(|stopped| *stopped).await;
     }
 
+    /// Where it reports its phase.
     pub fn status(&self) -> &StatusReporter {
         &self.status
     }
 
+    /// A receiver that turns true when the service should stop.
     pub fn stop_receiver(&self) -> watch::Receiver<bool> {
         self.stop.clone()
     }

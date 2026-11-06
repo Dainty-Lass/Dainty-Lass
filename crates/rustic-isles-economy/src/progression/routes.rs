@@ -76,6 +76,7 @@ pub fn routes() -> &'static [(Method, &'static str)] {
     &ROUTES
 }
 
+/// Mounts the progression routes on the backend.
 pub fn register(handlers: &mut Handlers, ports: ProgressionPorts) {
     let ports = Arc::new(ports);
     let b = Service::Backend;
@@ -557,8 +558,7 @@ async fn get_objectives(call: Call, ports: Arc<ProgressionPorts>) -> Response {
         None => Vec::new(),
     };
     let hooks = &entry.shared.version().hooks;
-    // Stored counters are far below 2^53
-    #[allow(clippy::cast_precision_loss)]
+    #[allow(clippy::cast_precision_loss, reason = "stored counters are far below 2^53")]
     let rows: Vec<Value> = records
         .iter()
         .map(|r| {
@@ -631,8 +631,7 @@ fn host_ceiling(shared: &Shared, track: &str, amount: f64) -> Option<Ceiling> {
     } else {
         return None;
     };
-    // The limits are small integers
-    #[allow(clippy::cast_precision_loss)]
+    #[allow(clippy::cast_precision_loss, reason = "the limits are small integers")]
     let over = amount > limit as f64;
     over.then_some(Ceiling {
         reason,
@@ -727,7 +726,10 @@ enum GrantStop {
     Repo(#[from] RepoError),
 }
 
-#[allow(clippy::too_many_lines)]
+#[allow(
+    clippy::too_many_lines,
+    reason = "one route, its checks kept in the order they answer"
+)]
 async fn post_grant(call: Call, ports: Arc<ProgressionPorts>) -> Response {
     let entry = answer!(enter(call, ports).await);
     let (user, track, raw) = (
@@ -1013,8 +1015,7 @@ async fn post_grant(call: Call, ports: Arc<ProgressionPorts>) -> Response {
         && entry.shared.settings().on_unless_off("RUSTIC_ISLES_ECONOMY_MONITOR")
     {
         let curves = curves(&entry.shared);
-        // Track progress is far below 2^53
-        #[allow(clippy::cast_precision_loss)]
+        #[allow(clippy::cast_precision_loss, reason = "track progress is far below 2^53")]
         let (new, old) = (record.progress as f64, record.progress as f64 - amount);
         let rank = |x: f64| {
             curves
@@ -1212,7 +1213,10 @@ fn mastery_summary(plan: &mastery::MasteryPlan) -> Value {
     Value::Object(map)
 }
 
-#[allow(clippy::too_many_lines)]
+#[allow(
+    clippy::too_many_lines,
+    reason = "one route, its checks kept in the order they answer"
+)]
 async fn post_report(call: Call, ports: Arc<ProgressionPorts>) -> Response {
     let entry = answer!(enter(call, ports).await);
     let target = entry.resolved_user();
@@ -1504,8 +1508,7 @@ async fn post_confirm(call: Call, ports: Arc<ProgressionPorts>) -> Response {
                 return Ok(Confirmed::Rejected("rank_out_of_range"));
             };
             let progress = stored.as_ref().map_or(0, |r| r.progress);
-            // Track progress is far below 2^53
-            #[allow(clippy::cast_precision_loss)]
+            #[allow(clippy::cast_precision_loss, reason = "track progress is far below 2^53")]
             let gap = required - progress as f64;
             if required > 0.0 && gap > 0.0 {
                 if t.starts_with("MasteryTrack_") && gap <= 1.0 {
@@ -2225,7 +2228,10 @@ struct JourneySave {
     plan: Option<journey::HostJourneyPlan>,
 }
 
-#[allow(clippy::too_many_lines)]
+#[allow(
+    clippy::too_many_lines,
+    reason = "one route, its checks kept in the order they answer"
+)]
 async fn post_journey(call: Call, ports: Arc<ProgressionPorts>) -> Response {
     let entry = answer!(enter(call, ports).await);
     let target = entry.param("userId");
@@ -2287,8 +2293,7 @@ async fn post_journey(call: Call, ports: Arc<ProgressionPorts>) -> Response {
                 }
                 Some(row) => {
                     let stored = journey::as_map(&jsjson::parse(&row.nodes).unwrap_or(Value::Null));
-                    // Stored versions are small
-                    #[allow(clippy::cast_precision_loss)]
+                    #[allow(clippy::cast_precision_loss, reason = "stored versions are small")]
                     let (mut merged, version, stale) =
                         journey::merge_nodes(&stored, row.update_version as f64, &incoming, v);
                     journey::restore_masked(&mut merged, &stored, &masked);
@@ -2394,6 +2399,7 @@ pub struct SessionSupplies {
 }
 
 impl SessionSupplies {
+    /// The seam over the module and the ports.
     pub fn new(shared: Arc<Shared>, ports: ProgressionPorts) -> Self {
         Self { shared, ports }
     }

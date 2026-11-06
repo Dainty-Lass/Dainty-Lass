@@ -1,42 +1,60 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Silent Spud
 
+//! Account registration: the request and reply bodies, username rules and account key extraction.
+
 use serde::{Deserialize, Serialize};
 
 use crate::text::{is_js_space, js_length, js_trim};
 
+/// Route the launcher posts a [`RegisterRequest`] to.
 pub const REGISTER_PATH: &str = "/reforged/api/Register";
+/// Prefix of every account key the server issues.
 pub const ACCOUNT_KEY_PREFIX: &str = "RRK_";
+/// Shortest accepted username, in bytes (usernames are ASCII).
 pub const USERNAME_MIN: usize = 3;
+/// Longest accepted username, in bytes.
 pub const USERNAME_MAX: usize = 16;
 
 const MAX_KEY_EXTRACT_UTF16_LEN: usize = 8192;
 
+/// Body of a registration request, PascalCase on the wire.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct RegisterRequest {
+    /// Requested username, checked with [`check_username`].
     pub username: String,
+    /// Invite code from the player's invite.
     pub invite_code: String,
 }
 
+/// Successful registration reply.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Registered {
+    /// The new account key (`RRK_...`), sent as `UUK`.
     #[serde(rename = "UUK")]
     pub key: String,
 }
 
+/// Outcome of [`check_username`], serialized as the snake_case code the launcher translates.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum UsernameCheck {
+    /// The username is acceptable.
     Ok,
+    /// Nothing was entered.
     Empty,
+    /// Shorter than [`USERNAME_MIN`].
     TooShort,
+    /// Longer than [`USERNAME_MAX`].
     TooLong,
+    /// Holds a character other than an ASCII letter, digit or underscore.
     #[serde(rename = "bad_chars")]
     Chars,
 }
 
 impl UsernameCheck {
+    /// The wire code, as serialized.
     #[must_use]
     pub const fn as_str(self) -> &'static str {
         match self {

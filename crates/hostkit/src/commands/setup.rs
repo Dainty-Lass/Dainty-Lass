@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Silent Spud
 
+//! `dainty-host setup`: host.toml from the options and the file already there, secrets.env, the env files,
+//! the gateway certificate, the firewall rules and, on Linux, Wine and the systemd units.
+
 pub mod database;
 pub mod firewall;
 pub mod install;
@@ -35,26 +38,40 @@ use self::install::{ServiceSource, install_from_release, install_service, servic
 use self::options::{host_config_from_args, performance_summary};
 use self::paradox::{Layout, missing_paradox};
 
+/// The refusal setup gives when run as root on Linux.
 pub const NOT_AS_ROOT: &str =
     "dainty-host setup should not be run as root (or with sudo): run it as the user that owns this folder";
 
+/// What setup needs of the machine, so a test can stand in for it.
 pub trait SetupEnv {
+    /// The OS the env files are written for.
     fn platform(&self) -> Platform;
+    /// Whether setup runs as root (only checked on Linux).
     fn is_root(&self) -> Result<bool, HostError>;
+    /// This PC's Tailscale IPv4 address, when Tailscale runs.
     fn tailscale_ipv4(&self) -> Result<Option<String>, HostError>;
+    /// The mongod executable, when one is installed.
     fn find_mongod(&self) -> Result<Option<String>, HostError>;
+    /// The executable `name` on PATH.
     fn find_on_path(&self, name: &str) -> Result<Option<String>, HostError>;
+    /// The short commit of the release or checkout at `repo`; empty when unknown.
     fn source_commit(&self, repo: &Path) -> Result<String, HostError>;
+    /// Applies the checkout's preset without overwriting the host's own game data.
     fn apply_preset(&self, paths: &Paths) -> Result<Option<PresetApplied>, HostError>;
+    /// Installs or checks the services, printing what it does through `out`.
     fn install_services(&self, layout: &Layout, log_file: &Path, out: &mut dyn FnMut(&str)) -> Result<(), HostError>;
+    /// Writes the gateway's self-signed certificate and key for `hosts` into `tls`.
     fn make_certificate(&self, layout: &Layout, hosts: &[String], tls: &Path, log_file: &Path)
     -> Result<(), HostError>;
+    /// The program the firewall rules let through: the gateway's.
     fn gateway_program(&self) -> String;
+    /// Whether a checkout must hold Rustic Isles' sources.
     fn require_checkout_sources(&self) -> bool {
         true
     }
 }
 
+/// The real machine.
 #[derive(Default)]
 pub struct RealSetupEnv;
 
@@ -151,6 +168,7 @@ impl SetupEnv for RealSetupEnv {
     }
 }
 
+/// Runs `dainty-host setup`, printing to stdout; an error is printed and gives a failing exit code.
 #[must_use]
 pub fn run(paths: &Paths, args: &SetupArgs) -> ExitCode {
     let env = RealSetupEnv;
@@ -163,6 +181,7 @@ pub fn run(paths: &Paths, args: &SetupArgs) -> ExitCode {
     }
 }
 
+/// Runs setup, printing through `out`; fails before writing anything on a bad option.
 pub fn run_with(
     p: &Paths,
     args: &SetupArgs,

@@ -58,6 +58,7 @@ const ROUTES: [(Method, &str); 17] = [
     (Method::Post, "/notification/:currency"),
 ];
 
+/// The bounties part's 17 routes, method and Express path.
 pub fn routes() -> &'static [(Method, &'static str)] {
     &ROUTES
 }
@@ -1164,8 +1165,7 @@ fn grant_hook(shared: &Arc<Shared>, account: &AccountId, sku_id: &str, grants: S
                     .progression_tracks
                     .get(tx.conn(), &id, &track)?
                     .map_or(0, |r| r.progress);
-                // Track progress is far below 2^53
-                #[allow(clippy::cast_precision_loss)]
+                #[allow(clippy::cast_precision_loss, reason = "track progress is far below 2^53")]
                 let progress_f = progress as f64;
                 let rank = curve.rank_for_progress(progress_f).unwrap_or(0);
                 if rank < curve.max_rank() {

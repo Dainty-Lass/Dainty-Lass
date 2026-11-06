@@ -14,29 +14,44 @@ use crate::hub::{
     next_presence_state,
 };
 
+/// One account's row in one realm hub session.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct HubPresenceRecord {
+    /// The hub session.
     pub session_id: String,
+    /// The hub generation the row belongs to.
     pub generation: i64,
+    /// The hub's realm.
     pub realm_id: String,
+    /// The account.
     pub account_id: String,
     /// The transport peer id the ticket and the link carry.
     pub peer_id: String,
+    /// Where the row stands.
     pub state: PresenceState,
     /// The matchmaking candidate of the current entry.
     pub candidate_id: String,
     /// 1 for the first entry, one more per re-entry.
     pub entry_epoch: i64,
+    /// The account's local bridge port, once it reported.
     pub local_bridge_port: Option<i64>,
+    /// When its local bridge reported ready.
     pub local_bridge_ready_at: Option<UnixMillis>,
+    /// The admission of the current connection.
     pub admission_id: Option<String>,
     /// `relay` or `direct`.
     pub route: Option<String>,
+    /// When the current entry was asked for.
     pub requested_at: UnixMillis,
+    /// When a ticket was issued.
     pub ticketed_at: Option<UnixMillis>,
+    /// When the host admitted the account.
     pub admitted_at: Option<UnixMillis>,
+    /// When the connection was lost.
     pub lost_at: Option<UnixMillis>,
+    /// When the account left or was removed.
     pub left_at: Option<UnixMillis>,
+    /// Why it left, such as `REMOVED` or `REALM_RELEASED`.
     pub left_reason: Option<String>,
     /// Waiting rows expire then.
     pub expires_at: UnixMillis,
@@ -44,35 +59,55 @@ pub struct HubPresenceRecord {
     pub purge_at: Option<UnixMillis>,
 }
 
+/// What a hub entry request did to the account's row.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum EntryOutcome {
+    /// Made a new row.
     Created,
+    /// Kept a waiting row still valid.
     Reused,
+    /// Started a new entry on an old row.
     Reentered,
 }
 
+/// One account asking to enter a hub.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct HubEntryRequest {
+    /// The account.
     pub account_id: String,
+    /// Its transport peer id.
     pub peer_id: String,
+    /// Its matchmaking candidate.
     pub candidate_id: String,
 }
 
+/// The hub and time an entry request is for.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct EntryAt {
+    /// The hub session.
     pub session_id: String,
+    /// Its generation.
     pub generation: i64,
+    /// Its realm.
     pub realm_id: String,
+    /// The time now.
     pub now: UnixMillis,
+    /// When a new waiting entry expires.
     pub expires_at: UnixMillis,
 }
 
+/// How a batch of hub entry requests went.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum HubEntryBatch {
     /// (account id, row, outcome), in request order.
     Placed(Vec<(String, HubPresenceRecord, EntryOutcome)>),
-    /// Nothing was written.
-    Full { live: i64, max_peers: i64 },
+    /// The hub is full; nothing was written.
+    Full {
+        /// Live rows in the hub.
+        live: i64,
+        /// The hub's player limit.
+        max_peers: i64,
+    },
 }
 
 const TABLE: &str = "rifts_hub_presence";
@@ -269,6 +304,7 @@ pub struct RealmHubRepository {
 }
 
 impl RealmHubRepository {
+    /// The hub presence table in `db`.
     pub fn new(db: RealmsDb) -> Self {
         Self { db }
     }
@@ -340,7 +376,7 @@ impl RealmHubRepository {
     }
 
     /// The host's own row at hub start, created or replaced as connected.
-    #[allow(clippy::too_many_arguments)]
+    #[allow(clippy::too_many_arguments, reason = "each argument is one column of the row")]
     pub async fn admit_host(
         &self,
         actor: &Actor,
@@ -378,6 +414,7 @@ impl RealmHubRepository {
             .await
     }
 
+    /// The account's row in the session, if any.
     pub async fn find_presence(
         &self,
         session_id: &str,
@@ -419,6 +456,7 @@ impl RealmHubRepository {
         self.db.read(move |conn| rows_where(conn, &tail, args)).await
     }
 
+    /// Rows of the generation in one of `states`.
     pub async fn count_by_state(
         &self,
         session_id: &str,
@@ -487,7 +525,10 @@ impl RealmHubRepository {
     }
 
     /// Records the loopback port only; the state stays.
-    #[allow(clippy::too_many_arguments)]
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "the arguments are the row's key (session, generation, account) and its new values"
+    )]
     pub async fn mark_route_ready(
         &self,
         actor: &Actor,
@@ -512,7 +553,11 @@ impl RealmHubRepository {
         .await
     }
 
-    #[allow(clippy::too_many_arguments)]
+    /// Marks the account admitted under `admission_id`, unless its waiting entry expired; a report without a route keeps the known one.
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "the arguments are the row's key (session, generation, account) and its new values"
+    )]
     pub async fn mark_admitted(
         &self,
         actor: &Actor,
@@ -545,7 +590,10 @@ impl RealmHubRepository {
     }
 
     /// Only the current connection's report ends it.
-    #[allow(clippy::too_many_arguments)]
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "the arguments are the row's key (session, generation, account) and its new values"
+    )]
     pub async fn mark_lost(
         &self,
         actor: &Actor,
@@ -577,7 +625,10 @@ impl RealmHubRepository {
     }
 
     /// `reason` is `TRAVEL` when the member went into a realm hunt.
-    #[allow(clippy::too_many_arguments)]
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "the arguments are the row's key (session, generation, account) and its new values"
+    )]
     pub async fn mark_left(
         &self,
         actor: &Actor,
@@ -637,6 +688,7 @@ impl RealmHubRepository {
         self.remove_where(actor, selected, "REMOVED", at, purge_at).await
     }
 
+    /// Removes every row in the realm's hubs, as when the realm is released.
     pub async fn remove_realm(
         &self,
         actor: &Actor,

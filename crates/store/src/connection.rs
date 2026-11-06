@@ -3,6 +3,7 @@
 
 //! The connection every repository on two engines queries through (DD15). Its own module because the
 //! derive puts `MultiBackend` and friends next to it.
+#![allow(missing_docs, reason = "the MultiBackend derive's generated parts cannot carry docs")]
 
 use std::any::Any;
 use std::borrow::Cow;
@@ -167,11 +168,14 @@ impl TransactionManager<PgConnection> for PgTransactionManager {
 /// `establish` on this enum tries each variant in turn and hides the Postgres error (DF7 spike).
 #[derive(diesel::MultiConnection)]
 pub enum AnyConnection {
+    /// A SQLite database.
     Sqlite(SqliteConnection),
+    /// A Postgres database.
     Postgres(PgConnection),
 }
 
 impl AnyConnection {
+    /// Which engine this connection is on.
     pub fn engine(&self) -> crate::Engine {
         match self {
             Self::Sqlite(_) => crate::Engine::Sqlite,
@@ -195,7 +199,10 @@ impl BlockOn for PgRuntime {
         park_on(tokio::task::unconstrained(f))
     }
 
-    #[allow(clippy::expect_used)] // the trait gives no way to fail; only the OS refusing threads gets here
+    #[allow(
+        clippy::expect_used,
+        reason = "the trait gives no way to fail; only the OS refusing threads gets here"
+    )]
     fn get_runtime() -> Self {
         static RUNTIME: OnceLock<tokio::runtime::Runtime> = OnceLock::new();
         let runtime = RUNTIME.get_or_init(|| {

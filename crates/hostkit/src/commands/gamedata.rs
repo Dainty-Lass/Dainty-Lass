@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Silent Spud
 
+//! `dainty-host gamedata`: generate the game data, seed the examples, or move it between servers as a pack.
+
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
@@ -16,10 +18,13 @@ use crate::gamepack::{default_pack_file, export_game_data_pack, import_game_data
 use crate::paths::Paths;
 use crate::progression::{SourceWritten, write_progression_source};
 
+/// Runs `dainty-host gamedata`, printing to stdout.
 pub fn run(paths: &Paths, args: &GamedataArgs) -> Result<ExitCode, HostError> {
     run_with(paths, args, &mut |line| println!("{line}"))
 }
 
+/// Imports, exports, builds the progression source, copies supplied sources, seeds the examples or generates
+/// the game data, as `args` asks; prints through `out`.
 pub fn run_with(paths: &Paths, args: &GamedataArgs, out: &mut dyn FnMut(&str)) -> Result<ExitCode, HostError> {
     if let Some(ref import_path) = args.import {
         let pack_file = Path::new(import_path.trim());
@@ -134,7 +139,7 @@ fn resolve_export_path(paths: &Paths, raw: &str, now: chrono::DateTime<Utc>) -> 
 
 #[cfg(test)]
 mod tests {
-    #![allow(clippy::unwrap_used)]
+    #![allow(clippy::unwrap_used, reason = "a panic is how a test fails")]
 
     use super::*;
     use tempfile::TempDir;

@@ -7,6 +7,7 @@
 /// The display name the client falls back to when it has none
 pub const FALLBACK_NAME: &str = "InvalidMCPUser";
 
+/// Why a room nick was refused or logged.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum NickReason {
     /// Names another account, or none
@@ -20,6 +21,7 @@ pub enum NickReason {
 }
 
 impl NickReason {
+    /// The code logged for it.
     pub fn as_str(self) -> &'static str {
         match self {
             Self::Account => "nick-account",
@@ -50,6 +52,8 @@ pub fn url_encode_like_client(text: &str) -> String {
     out
 }
 
+/// The inverse of [`url_encode_like_client`]: `None` for a bad escape, a byte the client would have encoded, or
+/// bytes that are not UTF-8.
 pub fn decode_name_part(part: &str) -> Option<String> {
     let bytes = part.as_bytes();
     let mut out = Vec::with_capacity(bytes.len());

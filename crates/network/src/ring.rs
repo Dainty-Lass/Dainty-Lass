@@ -118,7 +118,9 @@ impl RingSchedule {
 /// Home-owned record of a player's matchmaking ticket (DN8).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct HomeTicket {
+    /// The ticket as published to regional pools.
     pub published: PublishedTicket,
+    /// Waiting, claimed or cancelled.
     pub state: TicketState,
 }
 
@@ -126,15 +128,22 @@ pub struct HomeTicket {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub enum ClaimOutcome {
+    /// The claim holds.
     Granted {
+        /// A ticket for the claiming node to act for the player; none when the home claims for itself.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         session_ticket: Option<SessionTicket>,
     },
+    /// Another match holds the ticket.
     AlreadyClaimed {
+        /// That match.
         match_id: GlobalId,
+        /// The node hosting it.
         hosting_node: NodeId,
     },
+    /// The player cancelled the ticket.
     Cancelled,
+    /// The home holds no such ticket.
     UnknownTicket,
 }
 
@@ -142,35 +151,56 @@ pub enum ClaimOutcome {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct RingRequest {
+    /// The ring protocol's version.
     pub version: u32,
+    /// The call.
     pub call: RingCall,
 }
 
+/// What one node asks another over [`Service::Ring`].
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub enum RingCall {
     /// Look up an instance owned by the target node (DN6).
-    LookupInstance { instance: GlobalId },
+    LookupInstance {
+        /// The instance.
+        instance: GlobalId,
+    },
     /// Publish or widen a home-owned matchmaking ticket to a regional node (DN8).
-    PublishTicket { ticket: PublishedTicket },
+    PublishTicket {
+        /// The ticket.
+        ticket: PublishedTicket,
+    },
     /// Withdraw a ticket from a regional pool once claimed or cancelled (DN8).
-    WithdrawTicket { ticket: GlobalId },
+    WithdrawTicket {
+        /// The ticket.
+        ticket: GlobalId,
+    },
     /// Compare-and-set claim of a ticket at its home node (DN8).
     ClaimTicket {
+        /// The ticket.
         ticket: GlobalId,
+        /// The node that found the match.
         claiming_node: NodeId,
+        /// The match.
         match_id: GlobalId,
     },
     /// Release a previously granted claim if another player in the candidate match could not be claimed (DN8).
     ReleaseTicket {
+        /// The ticket.
         ticket: GlobalId,
+        /// The node that held the claim.
         claiming_node: NodeId,
+        /// The match.
         match_id: GlobalId,
     },
     /// Assign a player to a regional Ramsgate shard on the target region's node (DN9).
     AssignHub {
+        /// The player's account.
         account: GlobalId,
+        /// The player's address, for the hub's UDP allowlist.
         client_ip: String,
+        /// The game version to place a hub for.
         game: GameVersion,
     },
 }
@@ -179,17 +209,25 @@ pub enum RingCall {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct RingReply {
+    /// The ring protocol's version.
     pub version: u32,
+    /// The answer.
     pub outcome: RingOutcome,
 }
 
+/// The answer to a [`RingCall`].
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub enum RingOutcome {
+    /// Done, with nothing to return.
     Ack,
+    /// The instance, if the node owns it.
     Instance(Option<InstanceRecord>),
+    /// The answer to a claim or release.
     Claim(ClaimOutcome),
+    /// The hub the player was assigned to.
     HubAssigned(InstanceRecord),
+    /// The call was refused; the message says why.
     Refused(String),
 }
 
@@ -204,26 +242,37 @@ pub enum DirectorPlacementError {
     Failed(String),
 }
 
+/// Why a ring call or message failed.
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 pub enum RingError {
+    /// Over the ring's message limit.
     #[error("ring message exceeds {MAX_RING_MESSAGE} bytes")]
     TooLarge,
+    /// A field holds something shaped like an account key.
     #[error("ring message holds something shaped like an account key")]
     AccountKey,
+    /// A field is out of bounds or malformed, or the version is another.
     #[error("invalid ring message: {0}")]
     Invalid(String),
+    /// No node owns that instance.
     #[error("unknown instance {0}")]
     UnknownInstance(GlobalId),
+    /// The node is not a listed peer.
     #[error("unknown peer node {0}")]
     UnknownPeer(NodeId),
+    /// No node serves that region.
     #[error("unknown region {0}")]
     UnknownRegion(Region),
+    /// A region report with neither a known account key nor a valid session ticket.
     #[error("unauthorized region report")]
     Unauthorized,
+    /// The node link failed.
     #[error("link error: {0}")]
     Link(#[from] LinkError),
+    /// The home API failed.
     #[error("home error: {0}")]
     Home(#[from] HomeError),
+    /// The Director could not place the instance.
     #[error("director placement failed: {0}")]
     Director(#[from] DirectorPlacementError),
 }
@@ -268,6 +317,7 @@ fn validate_published_ticket(t: &PublishedTicket) -> Result<(), RingError> {
     Ok(())
 }
 
+/// A call checked and encoded at the current version.
 pub fn encode_request(call: RingCall) -> Result<Vec<u8>, RingError> {
     let req = RingRequest {
         version: RING_VERSION,
@@ -281,6 +331,7 @@ pub fn encode_request(call: RingCall) -> Result<Vec<u8>, RingError> {
     Ok(bytes)
 }
 
+/// A call decoded and checked; refuses another version.
 pub fn decode_request(bytes: &[u8]) -> Result<RingRequest, RingError> {
     if bytes.len() > MAX_RING_MESSAGE {
         return Err(RingError::TooLarge);
@@ -318,6 +369,7 @@ fn validate_request(req: &RingRequest) -> Result<(), RingError> {
     }
 }
 
+/// An answer checked and encoded at the current version.
 pub fn encode_reply(outcome: RingOutcome) -> Result<Vec<u8>, RingError> {
     let reply = RingReply {
         version: RING_VERSION,
@@ -331,6 +383,7 @@ pub fn encode_reply(outcome: RingOutcome) -> Result<Vec<u8>, RingError> {
     Ok(bytes)
 }
 
+/// An answer decoded and checked; refuses another version.
 pub fn decode_reply(bytes: &[u8]) -> Result<RingReply, RingError> {
     if bytes.len() > MAX_RING_MESSAGE {
         return Err(RingError::TooLarge);
@@ -412,6 +465,7 @@ pub struct DriverDirectorRouter {
 }
 
 impl DriverDirectorRouter {
+    /// Places hunts and hubs for `driver`'s game version, replacing an earlier driver for it.
     pub fn register(&self, driver: Arc<dyn ModuleDriver>) {
         let game = driver.manifest().game_version.clone();
         self.drivers
@@ -420,6 +474,7 @@ impl DriverDirectorRouter {
             .insert(game, driver);
     }
 
+    /// Drops every game version `module` placed for.
     pub fn unregister(&self, module: &ModuleId) {
         self.drivers
             .write()
@@ -487,21 +542,29 @@ impl DirectorPlacement for DriverDirectorRouter {
 
 /// Seam for admitting matched or hub-assigned players' IP addresses into the hosting node's UDP allowlist (DN8, DN9).
 pub trait AllowlistSink: Send + Sync {
+    /// Lets `client_ip` reach `instance`'s UDP port for `account`.
     fn admit_player(&self, instance: &GlobalId, account: &GlobalId, client_ip: &str, udp_port: u16);
 }
 
 /// Configuration for [`RingNode`].
 #[derive(Debug, Clone)]
 pub struct RingConfig {
+    /// This node.
     pub identity: NodeIdentity,
+    /// What a join at the wrong node gets.
     pub wrong_node_policy: WrongNodePolicy,
+    /// How fast a waiting ticket widens to further regions.
     pub schedule: RingSchedule,
+    /// Players in one hunt.
     pub match_size: usize,
+    /// Players per hub shard before another is started.
     pub max_hub_players: u16,
+    /// The other nodes' gateways.
     pub peers: Vec<PeerGateway>,
 }
 
 impl RingConfig {
+    /// Refuses wrong-node joins, with four-player hunts, the default hub size and no peers.
     pub fn new(identity: NodeIdentity) -> Self {
         Self {
             identity,
@@ -554,6 +617,7 @@ fn is_pinned_fingerprint(fp: Option<&str>) -> bool {
 }
 
 impl RingNode {
+    /// A node with no instances, tickets or region reports yet.
     pub fn new(
         config: RingConfig,
         clock: Arc<Clock>,
@@ -579,10 +643,12 @@ impl RingNode {
         })
     }
 
+    /// This node.
     pub fn identity(&self) -> &NodeIdentity {
         &self.config.identity
     }
 
+    /// What a join at the wrong node gets.
     pub fn wrong_node_policy(&self) -> WrongNodePolicy {
         self.config.wrong_node_policy
     }

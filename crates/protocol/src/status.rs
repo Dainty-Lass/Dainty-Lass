@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Silent Spud
 
+//! The public server status (`/reforged/api/ServerStatus`) and its sanitizing parser for untrusted replies.
+
 use chrono::{Datelike, FixedOffset, NaiveDate, TimeZone, Timelike, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -8,6 +10,7 @@ use url::Url;
 
 use crate::text::{clean_display_text, js_trim};
 
+/// Route answering with a [`ServerStatus`].
 pub const STATUS_PATH: &str = "/reforged/api/ServerStatus";
 
 const MAX_NAME_CHARS: usize = 64;
@@ -28,99 +31,152 @@ const MAX_UPTIME_SECONDS: u64 = 3_153_600_000;
 const MAX_CHANGELIST: u64 = 100_000_000;
 const MAX_STARTED_AT_RAW_LEN: usize = 64;
 
+/// Who may register, serialized uppercase.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[serde(rename_all = "UPPERCASE")]
 pub enum RegistrationMode {
+    /// Anyone may register.
     Open,
+    /// Registration needs an invite code.
     Invitecode,
+    /// Registration is closed.
     None,
 }
 
+/// Where a player is, as the status reports it.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[serde(rename_all = "lowercase")]
 pub enum PlayerWhere {
+    /// In the menus, not in an instance.
     Menu,
+    /// In a city instance.
     City,
+    /// On a hunt.
     Hunt,
+    /// In the dojo.
     Dojo,
+    /// In the tutorial.
     Tutorial,
+    /// Unrecognised or missing in the reply.
     Unknown,
 }
 
+/// Kind of a running game instance.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[serde(rename_all = "lowercase")]
 pub enum InstanceKind {
+    /// City (Ramsgate).
     City,
+    /// Hunt.
     Hunt,
+    /// Dojo.
     Dojo,
+    /// Tutorial.
     Tutorial,
 }
 
+/// Where the server's game data comes from.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[serde(rename_all = "lowercase")]
 pub enum GameDataKind {
+    /// Captured from the real game.
     Real,
+    /// Generated in place of missing captures.
     Synthetic,
+    /// Not installed.
     Missing,
+    /// Unrecognised or missing in the reply.
     Unknown,
 }
 
+/// An online player in the status.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[serde(rename_all = "camelCase")]
 pub struct StatusPlayer {
+    /// Display name, at most 32 characters.
     pub name: String,
+    /// Where the player is, `where` on the wire.
     #[serde(rename = "where")]
     pub location: PlayerWhere,
+    /// Id of the player's instance, if any.
     pub instance: Option<String>,
 }
 
+/// A running game instance in the status.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[serde(rename_all = "camelCase")]
 pub struct StatusInstance {
+    /// Instance id, at most 64 characters.
     pub id: String,
+    /// What kind of instance it is.
     pub kind: InstanceKind,
+    /// Display title, empty when the server sends none.
     pub title: String,
+    /// Map name, empty when the server sends none.
     pub map: String,
+    /// Behemoth being hunted, if any.
     pub behemoth: Option<String>,
+    /// Players in the instance, clamped to 1000.
     pub players: u32,
+    /// Instance capacity, clamped to 1000.
     pub max_players: u32,
+    /// Start time as an ISO 8601 UTC string, when valid.
     pub started_at: Option<String>,
 }
 
+/// Game build the server runs.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[serde(rename_all = "camelCase")]
 pub struct StatusGame {
+    /// Build name.
     pub build: String,
+    /// Game changelist, if reported.
     #[cfg_attr(feature = "ts", ts(type = "number | null"))]
     pub changelist: Option<u32>,
 }
 
+/// Public server status, camelCase on the wire; every field is sanitized by [`parse_server_status`].
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[serde(rename_all = "camelCase")]
 pub struct ServerStatus {
+    /// Server name, at most 64 characters.
     pub name: String,
+    /// Whether the game backend is up; false when missing.
     pub online: bool,
+    /// Server software version, empty when missing.
     pub version: String,
+    /// Server software commit, empty when missing.
     pub commit: String,
+    /// Source code link, `https` only.
     pub source_url: Option<String>,
+    /// Registration mode, if reported.
     pub registration: Option<RegistrationMode>,
+    /// Count of online players, zero in a limited view.
     pub players_online: u32,
+    /// Online players, at most 500; empty in a limited view.
     pub players: Vec<StatusPlayer>,
+    /// Running instances, at most 100; empty in a limited view.
     pub instances: Vec<StatusInstance>,
+    /// Seconds since the server started.
     #[cfg_attr(feature = "ts", ts(type = "number"))]
     pub uptime_seconds: u32,
+    /// Game build, if reported.
     pub game: Option<StatusGame>,
+    /// Where the game data comes from.
     pub game_data: GameDataKind,
+    /// Whether the server runs chat.
     pub chat: bool,
+    /// Port of the content server, when it is published separately.
     pub content_port: Option<u16>,
+    /// Whether player and instance lists were withheld (see [`limited_view`]).
     pub limited: bool,
 }
 

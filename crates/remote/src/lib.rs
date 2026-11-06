@@ -37,34 +37,59 @@ pub use wire::{
     encode_enroll_answer, encode_enroll_request, encode_request, encode_response,
 };
 
+/// Why a remote-management step was refused or failed.
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 pub enum RemoteError {
+    /// A field, URL, label or message failed validation; says which.
     #[error("invalid remote-management input: {0}")]
     InvalidInput(String),
+    /// A wire message over [`MAX_REMOTE_WIRE`] bytes.
     #[error("remote wire message is {0} bytes (maximum is {MAX_REMOTE_WIRE})")]
     TooLarge(usize),
+    /// A message carried a secret or raw database material; names the pattern.
     #[error("refused secret or raw database material on remote wire: {0}")]
     SecretLeakRefused(String),
+    /// The controller's certificate is not the one the invite pins.
     #[error("controller certificate fingerprint mismatch: expected {expected}, got {actual}")]
-    CertificateMismatch { expected: String, actual: String },
+    CertificateMismatch {
+        /// The invite's fingerprint.
+        expected: String,
+        /// The certificate's fingerprint.
+        actual: String,
+    },
+    /// The enrollment token is malformed or unknown.
     #[error("invalid enrollment token")]
     InvalidEnrollmentToken,
+    /// The enrollment token was already redeemed.
     #[error("enrollment token has already been used")]
     EnrollmentTokenUsed,
+    /// The enrollment token is past its expiry.
     #[error("enrollment token has expired")]
     EnrollmentTokenExpired,
+    /// No enrolled install has this node id.
     #[error("unknown managed install: {0}")]
     UnknownInstall(String),
+    /// The install was revoked or detached.
     #[error("managed install {0} has been revoked")]
     RevokedPeer(String),
+    /// The node a request names is not the one its mTLS certificate names.
     #[error("mTLS peer certificate node {cert_node} does not match request node {body_node}")]
-    PeerIdentityMismatch { cert_node: String, body_node: String },
+    PeerIdentityMismatch {
+        /// Node id the certificate names.
+        cert_node: String,
+        /// Node id the request names.
+        body_node: String,
+    },
+    /// The caller may not do this; says why.
     #[error("permission denied: {0}")]
     PermissionDenied(String),
+    /// A guarded command needs its delay to pass or a second operator's approval.
     #[error("guarded action approval required: {0}")]
     GuardedApprovalRequired(String),
+    /// Key or certificate work failed.
     #[error("cryptographic error: {0}")]
     Crypto(String),
+    /// Reading or writing the state file failed.
     #[error("I/O error: {0}")]
     Io(String),
 }

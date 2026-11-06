@@ -61,14 +61,17 @@ pub mod in_process {
     }
 
     impl InProcessTransport {
+        /// Wraps a new transport.
         pub fn new() -> Self {
             Self::default()
         }
 
+        /// Wraps an existing transport.
         pub fn from_transport(transport: Transport) -> Self {
             Self { transport }
         }
 
+        /// The transport underneath.
         pub fn transport(&self) -> &Transport {
             &self.transport
         }

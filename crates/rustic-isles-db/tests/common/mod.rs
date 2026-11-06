@@ -2,7 +2,12 @@
 // Copyright (c) 2026 Silent Spud
 
 //! An authored 1.14.7-shaped source (no recorded data) on the mock server, and the options around it.
-#![allow(clippy::unwrap_used, clippy::expect_used, dead_code)]
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    dead_code,
+    reason = "shared by several test binaries, each using only some; a panic is how a test fails"
+)]
 
 use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};

@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Silent Spud
 
 //! The schema facts an existing database already has (spec §4): versions, the column order and the seed row.
-#![allow(clippy::unwrap_used, clippy::expect_used)]
+#![allow(clippy::unwrap_used, clippy::expect_used, reason = "a panic is how a test fails")]
 
 mod common;
 

@@ -11,8 +11,11 @@ use crate::json::js_string;
 #[derive(Clone, Debug, Eq, PartialEq)]
 #[non_exhaustive]
 pub enum GuardError {
+    /// A route or operation that is not implemented yet.
     Unimplemented(Unimplemented),
+    /// Refused with a code and message the caller sees.
     Refused(Refusal),
+    /// An internal fault; the text is logged, never sent.
     Internal(String),
 }
 
@@ -20,6 +23,7 @@ pub(crate) const INTERNAL_CODE: &str = "INTERNAL";
 pub(crate) const INTERNAL_MESSAGE: &str = "The player-hosted hunt request failed.";
 
 impl GuardError {
+    /// A refusal with this code and message.
     pub fn refused(code: &str, message: &str) -> Self {
         let refusal = Refusal {
             code: code.into(),
@@ -28,6 +32,7 @@ impl GuardError {
         refusal.into()
     }
 
+    /// The refusal's code, `None` for any other failure.
     pub fn code(&self) -> Option<&str> {
         let Self::Refused(refusal) = self else {
             return None;

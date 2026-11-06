@@ -15,22 +15,33 @@ use rand::TryRng as _;
 use crate::backend::{BackendClient, BatchAnswer, MAX_BATCH_BODY};
 use crate::text::safe_str;
 
+/// The event type that asks for completion; it closes the chain and sends its batch at once.
 pub const COMPLETION_REQUESTED: &str = "COMPLETION_REQUESTED";
+/// The event type for an aborted hunt; it closes the chain and sends its batch at once.
 pub const HUNT_ABORTED: &str = "HUNT_ABORTED";
 const ZERO_HASH: &str = "0000000000000000000000000000000000000000000000000000000000000000";
 const MAX_EVENTS_HARD: usize = 128;
 const EVENT_OVERHEAD: usize = 112;
 const BATCH_OVERHEAD: usize = 256;
 
+/// The publisher's batching, retry and completion timing.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct PublisherConfig {
+    /// How long the oldest event may wait before its batch is sent.
     pub window: Duration,
+    /// The first retry delay after a lost batch; it doubles each time.
     pub first_retry: Duration,
+    /// The longest retry delay.
     pub retry_ceiling: Duration,
+    /// Events per batch before it is sent early.
     pub max_events: usize,
+    /// The body size, in bytes, past which a batch is cut.
     pub body_estimate: usize,
+    /// Events held before new ones are dropped as evidence loss.
     pub queue: usize,
+    /// Completion attempts before giving up.
     pub completion_attempts: u32,
+    /// The wait before the second completion attempt; it doubles each time.
     pub completion_first_wait: Duration,
 }
 
@@ -78,13 +89,20 @@ impl Batch {
     }
 }
 
+/// How a publisher's evidence went.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct PublisherStats {
+    /// Batches or completions that failed and were retried or refused.
     pub publish_failures: u64,
+    /// Events dropped: queue overflow or after a refusal.
     pub evidence_loss: u64,
+    /// Batches the backend accepted.
     pub accepted_batches: u64,
+    /// The chain was completed.
     pub completed: bool,
+    /// Some evidence was lost, so the chain will not complete.
     pub incomplete: bool,
+    /// A batch was refused, ending the hunt's evidence.
     pub refused: bool,
 }
 
@@ -134,8 +152,10 @@ impl State {
     }
 }
 
+/// Where the publisher writes its diagnostic lines.
 pub type Sink = Arc<dyn Fn(String) + Send + Sync>;
 
+/// Sends one generation's Guard evidence from a worker thread; stopped on drop.
 pub struct Publisher {
     shared: Arc<(Mutex<State>, Condvar)>,
     started: Instant,
@@ -205,6 +225,7 @@ fn check_batch(session_ok: bool, batch: &Batch) -> Result<(), &'static str> {
 }
 
 impl Publisher {
+    /// Starts the worker thread for this generation's chain.
     pub fn start(client: Arc<BackendClient>, generation: u32, config: PublisherConfig, sink: Sink) -> Self {
         let state = State {
             config,
@@ -287,6 +308,7 @@ impl Publisher {
         true
     }
 
+    /// The counters so far.
     pub fn stats(&self) -> PublisherStats {
         self.lock().map(|s| s.stats).unwrap_or_default()
     }
@@ -314,6 +336,7 @@ impl Publisher {
         self.stop();
     }
 
+    /// Stops the worker after the call in progress; queued events are dropped.
     pub fn stop(&mut self) {
         if let Some(mut state) = self.lock() {
             state.stopping = true;
@@ -324,6 +347,7 @@ impl Publisher {
         }
     }
 
+    /// The diagnostic sink, for callers reporting alongside the publisher.
     pub fn sink(&self) -> Sink {
         self.sink.clone()
     }

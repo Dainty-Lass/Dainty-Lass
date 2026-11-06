@@ -4,7 +4,7 @@
 //! The 18 rows black-box through core's `app()` (spec §17.2 "Routes"): a temp store with alice, bob and carol, the
 //! fake Director online with a ready Ramsgate, every Go Now delay 40 ms and padding 1 ms.
 
-#![allow(clippy::unwrap_used, clippy::expect_used)]
+#![allow(clippy::unwrap_used, clippy::expect_used, reason = "a panic is how a test fails")]
 
 mod common;
 

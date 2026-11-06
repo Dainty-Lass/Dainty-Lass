@@ -26,12 +26,17 @@ pub struct PortBook {
     held: Vec<Held>,
 }
 
+/// Returned by [`PortBook::assign`] when moving a port up past every clash runs out of port numbers.
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 #[error("no free {transport:?} range of {width} for port {name} above {first}")]
 pub struct NoFreePort {
+    /// The manifest's name for the port.
     pub name: String,
+    /// The protocol the port is for.
     pub transport: Transport,
+    /// The first port the manifest asked for.
     pub first: u16,
+    /// How many consecutive ports it needs.
     pub width: u32,
 }
 
@@ -99,6 +104,7 @@ impl PortBook {
             .map(|held| held.range)
     }
 
+    /// Frees every port `owner` holds.
     pub fn release(&mut self, owner: &ModuleId) {
         self.held.retain(|held| held.owner.as_ref() != Some(owner));
     }

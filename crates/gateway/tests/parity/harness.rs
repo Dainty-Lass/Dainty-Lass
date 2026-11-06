@@ -6,7 +6,12 @@
 //! listed headers, the body and the access lines (less `t` and `ms`), then the addresses the helper was sent. How the
 //! gateway runs is the caller's (`run`'s `start`). Written at integration from the spec and the fixtures
 //! (docs/port/clean-room/gateway.md section 7).
-#![allow(dead_code, clippy::unwrap_used, clippy::expect_used)]
+#![allow(
+    dead_code,
+    clippy::unwrap_used,
+    clippy::expect_used,
+    reason = "shared by several test binaries, each using only some; a panic is how a test fails"
+)]
 
 use std::collections::BTreeMap;
 use std::convert::Infallible;

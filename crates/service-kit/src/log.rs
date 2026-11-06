@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Silent Spud
 
+//! Logging as pino writes it: one JSON object per line with pino's numeric levels, or tracing's pretty form.
+
 use std::fmt;
 use std::io::Write;
 use std::sync::OnceLock;
@@ -14,11 +16,13 @@ use tracing_subscriber::filter::LevelFilter;
 use tracing_subscriber::layer::{Context, SubscriberExt};
 use tracing_subscriber::util::SubscriberInitExt;
 
+/// Logs an `error!` event marked fatal, which the pino layer writes at level 60.
 #[macro_export]
 macro_rules! fatal {
     ($($arg:tt)+) => { ::tracing::error!(fatal = true, $($arg)+) };
 }
 
+/// Reads a pino level name; unset or empty is `info`, `fatal` is error and `silent` turns logging off.
 pub fn parse_level(text: Option<&str>) -> Result<LevelFilter, String> {
     match text.map(str::trim) {
         None | Some("" | "info") => Ok(LevelFilter::INFO),
@@ -31,6 +35,7 @@ pub fn parse_level(text: Option<&str>) -> Result<LevelFilter, String> {
     }
 }
 
+/// Installs the global subscriber at `level`: tracing's pretty form, or pino JSON on stdout; a second call does nothing.
 pub fn init(level: LevelFilter, pretty: bool) {
     if pretty {
         let _ = tracing_subscriber::registry()
@@ -122,11 +127,13 @@ impl Visit for PinoVisitor {
     }
 }
 
+/// Writes each event as a pino JSON line to the writer `make` returns.
 pub struct PinoLayer<W> {
     make: W,
 }
 
 impl<W> PinoLayer<W> {
+    /// A layer writing to what `make` returns for each line.
     pub fn new(make: W) -> Self {
         Self { make }
     }

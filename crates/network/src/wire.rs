@@ -10,6 +10,7 @@ use crate::link::{LinkError, MAX_MESSAGE, Service};
 
 /// Every node-link route lives under this prefix, which the gateway refuses from anyone but a peer.
 pub const PREFIX: &str = "/__node";
+/// The health check's route.
 pub const PING_PATH: &str = "/__node/ping";
 /// The sender's clock in unix milliseconds, on every request and answer
 pub const TIME_HEADER: &str = "x-node-time";
@@ -21,11 +22,14 @@ pub const MAX_SMALL: usize = 4096;
 /// What a node-link request is for.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Target {
+    /// The health check.
     Ping,
+    /// A call for a service.
     Service(Service),
 }
 
 impl Target {
+    /// The route: `/__node/ping` or `/__node/<service>`.
     pub fn path(self) -> String {
         match self {
             Self::Ping => PING_PATH.to_owned(),
@@ -57,6 +61,7 @@ pub fn skew_ms(local_ms: i64, remote_ms: i64) -> i64 {
     remote_ms.saturating_sub(local_ms)
 }
 
+/// Whether a skew is within `max`, either way.
 pub fn within(skew_ms: i64, max: std::time::Duration) -> bool {
     u128::from(skew_ms.unsigned_abs()) <= max.as_millis()
 }
@@ -65,13 +70,18 @@ pub fn within(skew_ms: i64, max: std::time::Duration) -> bool {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct PingAnswer {
+    /// [`VERSION`].
     pub version: u32,
+    /// The node that answered.
     pub node: NodeId,
+    /// Its region.
     pub region: Region,
+    /// Its clock, unix milliseconds.
     pub time_ms: i64,
 }
 
 impl PingAnswer {
+    /// The answer as JSON.
     pub fn encode(&self) -> Vec<u8> {
         serde_json::to_vec(self).unwrap_or_default()
     }
@@ -94,13 +104,21 @@ impl PingAnswer {
 
 /// The codes an error body carries: why a request was refused, for the caller's [`LinkError`].
 pub mod code {
+    /// The caller is not a listed peer.
     pub const NOT_A_PEER: &str = "not_a_peer";
+    /// No such route.
     pub const NOT_FOUND: &str = "not_found";
+    /// The route takes another method.
     pub const METHOD: &str = "method_not_allowed";
+    /// The request is malformed.
     pub const BAD_REQUEST: &str = "bad_request";
+    /// The clocks differ by more than allowed; the body carries `skewMs`.
     pub const CLOCK_SKEW: &str = "clock_skew";
+    /// Over the size limit.
     pub const TOO_LARGE: &str = "too_large";
+    /// Nothing is attached for that service.
     pub const NO_SERVICE: &str = "no_service";
+    /// The service failed.
     pub const FAILED: &str = "service_failed";
 }
 
@@ -108,12 +126,15 @@ pub mod code {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ErrorBody {
+    /// One of the [`code`] values.
     pub error: String,
+    /// The caller's clock minus the answering node's, in milliseconds, for a clock refusal.
     #[serde(rename = "skewMs", default, skip_serializing_if = "Option::is_none")]
     pub skew_ms: Option<i64>,
 }
 
 impl ErrorBody {
+    /// A body with no skew.
     pub fn new(error: &str) -> Self {
         Self {
             error: error.to_owned(),
@@ -121,10 +142,12 @@ impl ErrorBody {
         }
     }
 
+    /// The body as JSON.
     pub fn encode(&self) -> Vec<u8> {
         serde_json::to_vec(self).unwrap_or_default()
     }
 
+    /// The body, or `None` when it is over [`MAX_SMALL`] bytes or is not an error body.
     pub fn decode(bytes: &[u8]) -> Option<Self> {
         if bytes.len() > MAX_SMALL {
             return None;
@@ -192,7 +215,7 @@ pub fn too_large(len: u64) -> bool {
 
 #[cfg(test)]
 mod tests {
-    #![allow(clippy::unwrap_used)]
+    #![allow(clippy::unwrap_used, reason = "a panic is how a test fails")]
 
     use super::*;
 

@@ -33,7 +33,9 @@ pub fn open(env_file: Option<&Path>) -> Result<Guards, String> {
 /// A failure with a stable code (`not_found`, `not_waiting`, `bad_id`, `failed`) for tools, and the words.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Failure {
+    /// `not_found`, `not_waiting`, `bad_id` or `failed`.
     pub code: &'static str,
+    /// What went wrong, for people.
     pub message: String,
 }
 
@@ -93,15 +95,18 @@ pub fn record_json(r: &Record) -> Value {
     })
 }
 
+/// The waiting actions; with `all`, the latest finished ones too.
 pub async fn list(guards: &Guards, all: bool) -> Result<Vec<Record>, Failure> {
     Ok(guards.list(all, LIST_MAX).await?)
 }
 
+/// Approves `id` as the host kit; the server runs it as the key that asked.
 pub async fn approve(guards: &Guards, id: &str) -> Result<Record, Failure> {
     let id = checked(id)?;
     Ok(guards.approve(id, Who::host("approve"), crate::now_ms()).await?)
 }
 
+/// Cancels `id` as the host kit.
 pub async fn cancel(guards: &Guards, id: &str) -> Result<Record, Failure> {
     let id = checked(id)?;
     Ok(guards.cancel(id, Who::host("cancel"), crate::now_ms()).await?)
@@ -186,6 +191,7 @@ fn show(json_output: bool, done: Done) -> Result<(), String> {
     }
 }
 
+/// Runs one `admin guarded` command; prints JSON with `--json`.
 pub fn run(command: GuardedCommand) -> ExitCode {
     let (json_output, env_file) = match &command {
         GuardedCommand::List { json, env_file, .. }

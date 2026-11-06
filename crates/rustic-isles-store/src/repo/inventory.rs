@@ -11,24 +11,34 @@ use service_kit::jsjson;
 use crate::sql::{account_id, limit_clause, opt_account_id, sql};
 use crate::{AccountId, AnyConnection, Json, RepoError, RepoResult, Tx};
 
+/// A live `inventories` row: one character's items.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct InventoryRecord {
+    /// The character.
     pub character_id: String,
     /// None on rows from before it was tracked
     pub account: Option<AccountId>,
+    /// The instanced items, JSON array text.
     pub instanced_items: String,
+    /// The stacked items, JSON array text.
     pub stacked_items: String,
+    /// Bumped on every write; a write names the revision it read; None reads as 0.
     pub revision: Option<i64>,
+    /// The starter kit version the row was created from.
     pub bootstrap_version: Option<String>,
 }
 
+/// An inventory transaction's state in the ledger.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum LedgerStatus {
+    /// Begun, not yet completed.
     Pending,
+    /// Completed; its result is stored.
     Completed,
 }
 
 impl LedgerStatus {
+    /// The stored text.
     pub fn as_str(self) -> &'static str {
         match self {
             Self::Pending => "pending",
@@ -46,39 +56,61 @@ impl LedgerStatus {
     }
 }
 
+/// An `inventory_transactions` row: one client transaction, kept so a repeat replays it.
 #[derive(Debug, Clone, PartialEq)]
 pub struct InventoryTransactionRecord {
+    /// The client's transaction id.
     pub transaction_id: String,
+    /// The owning account.
     pub account: AccountId,
+    /// The character whose inventory it changed.
     pub character_id: String,
+    /// SHA-256 of the request, to refuse a reused id with a different body.
     pub request_hash: Option<String>,
+    /// Whether it completed.
     pub status: LedgerStatus,
+    /// The answer's body, once completed.
     pub result: Option<Json>,
+    /// When it began, as ISO text.
     pub created_at: String,
+    /// When it completed, as ISO text.
     pub completed_at: Option<String>,
+    /// The economy monitor's source name.
     pub economy_source: Option<String>,
+    /// The P2P session the grant came from.
     pub economy_session_id: Option<String>,
+    /// Any other annotation fields.
     pub extra: Option<Json>,
 }
 
+/// What starting a ledger entry found.
 #[derive(Debug, Clone, PartialEq)]
 pub enum TryBegin {
+    /// No entry existed; a pending one was written.
     Begun,
+    /// The entry for that id already exists.
     Existing(Box<InventoryTransactionRecord>),
 }
 
+/// A ledger entry's key.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct LedgerKey<'a> {
+    /// The owning account.
     pub account: &'a AccountId,
+    /// The character.
     pub character_id: &'a str,
+    /// The client's transaction id.
     pub transaction_id: &'a str,
 }
 
 store_trait! {
+    /// Inventories (`inventories`).
     pub trait InventoryRepository = "inventories" {
         /// Any account's row: the caller checks ownership
         fn find_by_character_id(&self, conn: &mut AnyConnection, character_id: &str) -> Option<InventoryRecord>;
+        /// Writes a new inventory.
         fn create(&self, tx: &mut Tx<'_>, record: &InventoryRecord) -> ();
+        /// Replaces both item lists if the revision is still `expected`, bumping it; returns the row after, or None when another write won.
         fn update_both_if_revision_matches(
             &self,
             tx: &mut Tx<'_>,
@@ -91,8 +123,11 @@ store_trait! {
 }
 
 store_trait! {
+    /// The inventory transaction ledger (`inventory_transactions`).
     pub trait InventoryTransactionRepository = "inventoryTransactions" {
+        /// Writes a pending entry unless one exists for the key; otherwise reports the existing entry.
         fn try_begin(&self, tx: &mut Tx<'_>, key: LedgerKey<'_>, request_hash: Option<&str>, created_at: &str) -> TryBegin;
+        /// Marks the entry completed with its result; `economySource` and `economySessionId` in `extra_fields` get their own columns.
         fn complete(
             &self,
             tx: &mut Tx<'_>,
@@ -101,13 +136,16 @@ store_trait! {
             extra_fields: Option<&Json>,
             completed_at: &str,
         ) -> ();
+        /// The entry for the key.
         fn find_record(&self, conn: &mut AnyConnection, key: LedgerKey<'_>) -> Option<InventoryTransactionRecord>;
+        /// The account's latest entries as summary objects, newest first; `limit` 0 returns none.
         fn list_recent_for_account(&self, conn: &mut AnyConnection, account: &AccountId, limit: u32) -> Vec<Json>;
     }
 }
 
 // ------------------------------------------------------------------ inventories
 
+/// [`InventoryRepository`] in SQL.
 pub struct SqlInventories;
 
 #[derive(QueryableByName)]
@@ -199,6 +237,7 @@ impl InventoryRepository for SqlInventories {
 
 // ------------------------------------------------------------------ ledger
 
+/// [`InventoryTransactionRepository`] in SQL.
 pub struct SqlInventoryTransactions;
 
 #[derive(QueryableByName)]

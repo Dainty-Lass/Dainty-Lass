@@ -12,9 +12,12 @@ pub const P2P_MAX_HTTP_BODY_BYTES: usize = 73_728;
 
 const MAX_SAFE_INTEGER: f64 = 9_007_199_254_740_991.0;
 
+/// Why a hunt route's body was refused.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum BodyError {
+    /// Over the routes' body limit.
     TooLarge,
+    /// Not strict JSON, or not JSON at all.
     Invalid,
 }
 

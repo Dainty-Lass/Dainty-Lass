@@ -130,37 +130,55 @@ pub fn cert_pem_fingerprint(cert_pem: &str) -> Result<String, RemoteError> {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum EnrolledInstallState {
+    /// Seen within the offline threshold and running normally.
     Online,
+    /// Seen recently, but its last report says degraded or stopped.
     Degraded,
+    /// Not seen within the offline threshold, or never.
     Offline,
+    /// Revoked by the controller.
     Revoked,
 }
 
 /// Controller-side record for an enrolled install.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct EnrolledInstallRecord {
+    /// Its node id.
     pub node: NodeId,
+    /// Its region.
     pub region: Region,
+    /// Display label.
     pub label: String,
+    /// When it enrolled, in Unix milliseconds.
     pub enrolled_at_ms: i64,
+    /// When it last synced, in Unix milliseconds.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub last_seen_ms: Option<i64>,
+    /// SHA-256 of the node certificate the controller signed for it.
     pub cert_fp: String,
+    /// Its gateway's public URL, if it reported one.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub gateway_url: Option<String>,
+    /// SHA-256 of its gateway certificate, if reported.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub gateway_cert_fp: Option<String>,
+    /// Whether it was revoked.
     pub revoked: bool,
+    /// Config revision it last applied.
     pub applied_revision: u64,
+    /// Its last status report.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub last_report: Option<InstallReport>,
+    /// Commands waiting for its next sync.
     #[serde(default)]
     pub queued_commands: Vec<QueuedRemoteCommand>,
+    /// Outcomes of commands it ran, the last 100.
     #[serde(default)]
     pub completed_outcomes: Vec<CommandOutcome>,
 }
 
 impl EnrolledInstallRecord {
+    /// Its state at `now_ms`; unseen for longer than `offline_threshold_ms` is offline.
     pub fn state(&self, now_ms: i64, offline_threshold_ms: i64) -> EnrolledInstallState {
         if self.revoked {
             return EnrolledInstallState::Revoked;
@@ -186,27 +204,43 @@ impl EnrolledInstallRecord {
 /// Pending guarded remote action awaiting a second operator's approval (`DH6`).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PendingGuardedRemoteAction {
+    /// Command id.
     pub id: String,
+    /// Installs it runs on.
     pub target_nodes: Vec<NodeId>,
+    /// What it does.
     pub command: RemoteCommand,
+    /// Who asked for it.
     pub requested_by: OperatorEnvelope,
+    /// When it was asked for, in Unix milliseconds.
     pub created_at_ms: i64,
+    /// Earliest time it may run, in Unix milliseconds.
     pub execute_after_ms: i64,
+    /// Whether a second operator must approve it.
     pub requires_second_approver: bool,
+    /// Who approved it, once approved.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub approved_by: Option<OperatorEnvelope>,
+    /// Whether it was cancelled.
     pub canceled: bool,
+    /// Whether it was approved and queued to the installs.
     pub executed: bool,
 }
 
+/// What submitting a command did.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "status", rename_all = "snake_case")]
 pub enum SubmitCommandResult {
+    /// Queued for the target installs.
     Queued {
+        /// Command id.
         command_id: String,
+        /// Installs it was queued for.
         target_nodes: Vec<NodeId>,
     },
+    /// Held as a guarded action until another operator approves it after its delay.
     PendingGuarded {
+        /// The held action.
         guarded: Box<PendingGuardedRemoteAction>,
     },
 }
@@ -214,22 +248,32 @@ pub enum SubmitCommandResult {
 /// Persistent controller state (`<workspace>/.workspace/remote/controller-state.json`).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RemoteControllerState {
+    /// The controller's node id.
     pub controller_node: NodeId,
+    /// The controller's region.
     pub controller_region: Region,
+    /// The controller's URL, as invites carry it.
     pub controller_url: String,
+    /// SHA-256 of the controller's certificate.
     pub controller_cert_fp: String,
+    /// Configuration every managed install applies.
     pub config_bundle: SharedConfigBundle,
+    /// Enrollment invites not yet redeemed.
     #[serde(default)]
     pub pending_enrollments: Vec<PendingEnrollment>,
+    /// Enrolled installs by node id.
     #[serde(default)]
     pub installs: BTreeMap<String, EnrolledInstallRecord>,
+    /// Guarded actions not yet run or cancelled.
     #[serde(default)]
     pub pending_guarded: Vec<PendingGuardedRemoteAction>,
+    /// Sequence number the next command id takes.
     #[serde(default)]
     pub next_command_seq: u64,
 }
 
 impl RemoteControllerState {
+    /// A controller with revision 1 of `initial_shared_host_toml`, no installs and no invites.
     pub fn new(
         controller_node: NodeId,
         controller_region: Region,
@@ -262,11 +306,13 @@ impl RemoteControllerState {
         })
     }
 
+    /// Reads the state file.
     pub fn load(path: &Path) -> Result<Self, RemoteError> {
         let text = std::fs::read_to_string(path).map_err(|e| RemoteError::Io(format!("{}: {e}", path.display())))?;
         serde_json::from_str(&text).map_err(|e| RemoteError::InvalidInput(format!("{}: {e}", path.display())))
     }
 
+    /// Writes the state file through a temporary file and a rename, creating its folder.
     pub fn save(&self, path: &Path) -> Result<(), RemoteError> {
         if let Some(parent) = path.parent() {
             std::fs::create_dir_all(parent).map_err(|e| RemoteError::Io(format!("{}: {e}", parent.display())))?;
@@ -676,10 +722,15 @@ impl RemoteControllerState {
 /// Trait implemented by the host runtime (`crates/host` / `crates/hostkit` / `launcher`) so
 /// `crates/remote` can execute commands and read local status without depending on AGPL crates.
 pub trait RemoteHostHandler: Send + Sync {
+    /// This install's status report at `applied_revision`.
     fn build_report(&self, applied_revision: u64) -> Result<InstallReport, RemoteError>;
+    /// This install's `host.toml`.
     fn read_local_host_toml(&self) -> Result<String, RemoteError>;
+    /// Writes the merged `host.toml` as `revision`.
     fn write_merged_host_toml(&self, merged_toml: &str, revision: u64) -> Result<(), RemoteError>;
+    /// Runs one command and reports how it went.
     fn execute_command(&self, cmd: &QueuedRemoteCommand) -> Result<CommandOutcome, RemoteError>;
+    /// Log entries after `since_seq`, at most `limit`, and the sequence number to ask from next.
     fn fetch_logs(&self, since_seq: u64, limit: u32) -> Result<(u64, Vec<RemoteLogEntry>), RemoteError>;
 }
 
@@ -696,15 +747,22 @@ pub fn offline_backoff_delay_ms(consecutive_failures: u32) -> u64 {
 
 /// Managed-install agent state (`docs/remote-management.md` §§2, 4, 7).
 pub struct RemoteManagedAgent {
+    /// This install's node id.
     pub node: NodeId,
+    /// The controller's node id; only it may call.
     pub controller_node: NodeId,
+    /// Config revision last applied.
     pub applied_revision: u64,
+    /// `host.toml` keys this install keeps over the shared config.
     pub local_overrides: Vec<String>,
+    /// Set once the install detached or was revoked; it then refuses the controller.
     pub detached: bool,
+    /// Syncs in a row that could not reach the controller, for the backoff.
     pub consecutive_unreachable: u32,
 }
 
 impl RemoteManagedAgent {
+    /// An attached agent at `applied_revision`.
     pub fn new(node: NodeId, controller_node: NodeId, applied_revision: u64, local_overrides: Vec<String>) -> Self {
         Self {
             node,

@@ -17,20 +17,40 @@ const STORED_ENCRYPTED: u8 = 0x02;
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 #[non_exhaustive]
 pub enum ChunkError {
+    /// The file does not start with a chunk header.
     #[error("not an Epic chunk")]
     NotAChunk,
+    /// The header's sizes or fields disagree.
     #[error("the chunk's header is inconsistent")]
     BadHeader,
+    /// The chunk's header names another GUID.
     #[error("the chunk is {actual}, not {expected}")]
-    WrongChunk { expected: Guid, actual: Guid },
+    WrongChunk {
+        /// The GUID asked for.
+        expected: Guid,
+        /// The GUID in the header.
+        actual: Guid,
+    },
+    /// The chunk is stored encrypted.
     #[error("the chunk is encrypted")]
     Encrypted,
+    /// The chunk's data is over the largest size accepted.
     #[error("the chunk is larger than any game's")]
     TooLarge,
+    /// The data does not unpack to the manifest's size.
     #[error("the chunk's data does not unpack to its {expected} bytes")]
-    Size { expected: u32 },
+    Size {
+        /// The manifest's unpacked size, in bytes.
+        expected: u32,
+    },
+    /// The unpacked data's SHA-1 is not the manifest's.
     #[error("the chunk's SHA-1 is {actual}, not the manifest's {expected}")]
-    Hash { expected: Sha1Digest, actual: Sha1Digest },
+    Hash {
+        /// The manifest's SHA-1.
+        expected: Sha1Digest,
+        /// The data's SHA-1.
+        actual: Sha1Digest,
+    },
 }
 
 /// The chunk's data, once it is the one `expected` describes, whole and unchanged.
@@ -91,7 +111,10 @@ fn u32_at(raw: &[u8], at: usize) -> u32 {
 
 /// A `.chunk` file as Epic's writer lays it out, for the tests (and the host kit's, through `test-support`).
 #[cfg(any(test, feature = "test-support"))]
-#[allow(clippy::unwrap_used)]
+#[allow(
+    clippy::unwrap_used,
+    reason = "test fixtures, built only for tests and test-support; a panic is how a test fails"
+)]
 pub mod synthetic {
     use std::io::Write;
 
@@ -100,6 +123,7 @@ pub mod synthetic {
 
     use super::*;
 
+    /// `data` as a `.chunk` file for `guid`, zlib-packed when `compress`, with header `version`.
     pub fn encode(guid: Guid, data: &[u8], compress: bool, version: u32) -> Vec<u8> {
         let payload = if compress {
             let mut z = ZlibEncoder::new(Vec::new(), Compression::default());

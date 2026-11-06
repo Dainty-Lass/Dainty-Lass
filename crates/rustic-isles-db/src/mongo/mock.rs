@@ -17,6 +17,7 @@ use super::{OP_MSG, decode_document, encode_document};
 
 type Collections = BTreeMap<String, Vec<Map<String, Value>>>;
 
+/// An in-memory MongoDB server on loopback for tests; it stops accepting when dropped.
 pub struct MockMongoServer {
     address: SocketAddr,
     collections: Arc<Mutex<Collections>>,
@@ -53,6 +54,7 @@ impl MockMongoServer {
         })
     }
 
+    /// Where the server listens, for a `mongodb://` URI.
     pub fn address(&self) -> SocketAddr {
         self.address
     }
@@ -69,6 +71,7 @@ impl MockMongoServer {
         docs.extend(documents.into_iter().filter_map(|d| d.as_object().cloned()));
     }
 
+    /// Every collection's documents as they stand now.
     pub fn snapshot(&self) -> BTreeMap<String, Vec<Map<String, Value>>> {
         lock(&self.collections).clone()
     }

@@ -22,6 +22,7 @@ use crate::store::{GameAccount, LauncherAccount};
 
 /// Activity monitor and matchmaking presence.
 pub trait Activity: Send + Sync {
+    /// Records that the user started a game session at `at_ms`.
     fn touch_game_session<'a>(&'a self, _user_id: &'a str, _at_ms: i64) -> BoxFuture<'a, ()> {
         Box::pin(async {})
     }
@@ -29,6 +30,7 @@ pub trait Activity: Send + Sync {
     fn classify_launcher_build<'a>(&'a self, _report: Option<&'a LauncherReport>) -> BoxFuture<'a, LauncherVerdict> {
         Box::pin(async { LauncherVerdict::Unknown })
     }
+    /// Records the launcher build the user reported and its verdict.
     fn record_launcher_build<'a>(
         &'a self,
         _user_id: &'a str,
@@ -37,15 +39,20 @@ pub trait Activity: Send + Sync {
     ) -> BoxFuture<'a, ()> {
         Box::pin(async {})
     }
+    /// Marks the user present for matchmaking at `at_ms`.
     fn touch_matchmaking_presence<'a>(&'a self, _user_id: &'a str, _at_ms: i64) -> BoxFuture<'a, ()> {
         Box::pin(async {})
     }
 }
 
+/// The operations settings the launcher policy reports.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct OperationsPolicy {
+    /// The guard's mode, such as `ENFORCE`.
     pub guard_enforcement: String,
+    /// `PRODUCTION`, or `DEVELOPMENT` for admins' diagnostics.
     pub diagnostics_profile: String,
+    /// Bumped on every change; part of the policy version.
     pub version: u64,
 }
 
@@ -59,7 +66,9 @@ impl Default for OperationsPolicy {
     }
 }
 
+/// The operations settings, from the Reforged API.
 pub trait Operations: Send + Sync {
+    /// The current settings; the default is enforcing and production.
     fn policy(&self) -> BoxFuture<'_, OperationsPolicy> {
         Box::pin(async { OperationsPolicy::default() })
     }
@@ -94,6 +103,7 @@ impl RuntimeCaller {
         &self.roster
     }
 
+    /// The realms seam's opaque record of the runtime.
     pub fn handle(&self) -> Option<&Arc<dyn Any + Send + Sync>> {
         self.handle.as_ref()
     }
@@ -128,13 +138,18 @@ impl PartialEq for RuntimeCaller {
 
 impl Eq for RuntimeCaller {}
 
+/// What the realms seam made of a request that may come from a player host's runtime.
 pub enum RuntimeAuth {
+    /// A runtime the seam recognised.
     Authenticated(RuntimeCaller),
     /// Answered with its status and JSON body
     Refused {
+        /// The HTTP status to answer.
         status: u16,
+        /// The JSON body to answer.
         body: Value,
     },
+    /// Not a runtime call; the game auth goes on.
     NotMine,
 }
 
@@ -142,19 +157,31 @@ pub enum RuntimeAuth {
 #[derive(Debug, Clone, PartialEq)]
 pub enum RealmError {
     /// A rustic-rifts code and message, answered with the table's status
-    Refused { code: String, message: String },
+    Refused {
+        /// The rustic-rifts error code.
+        code: String,
+        /// The English text the launcher shows.
+        message: String,
+    },
     /// Anything else (`NOT_IMPLEMENTED`)
     Failed(String),
 }
 
+/// The parts of a game request the realms seam reads.
 pub struct RuntimeRequest<'a> {
+    /// The request path.
     pub path: &'a str,
+    /// The request headers.
     pub headers: &'a HeaderMap,
+    /// The connecting peer, when known.
     pub peer: Option<SocketAddr>,
+    /// The gateway's `x-rustic-isles-request-id`.
     pub request_id: Option<&'a str>,
 }
 
+/// The realms area (rustic-rifts), as the auth area calls it.
 pub trait Realms: Send + Sync {
+    /// Recognises a player host's runtime call; the default recognises none.
     fn authenticate_runtime<'a>(&'a self, _request: RuntimeRequest<'a>) -> BoxFuture<'a, Result<RuntimeAuth, String>> {
         Box::pin(async { Ok(RuntimeAuth::NotMine) })
     }
@@ -196,6 +223,7 @@ pub trait Realms: Send + Sync {
     }
 }
 
+/// The Reforged API's notices.
 pub trait Notices: Send + Sync {
     /// The Reforged API's public view
     fn public_view(&self, now_ms: i64) -> BoxFuture<'_, Result<Value, String>> {
@@ -203,6 +231,7 @@ pub trait Notices: Send + Sync {
     }
 }
 
+/// The notices view with no announcements and no tags.
 pub fn empty_notices(now_ms: i64) -> Value {
     crate::util::object(vec![
         ("announcements", Value::Array(Vec::new())),
@@ -211,6 +240,7 @@ pub fn empty_notices(now_ms: i64) -> Value {
     ])
 }
 
+/// What the game's `POST /login` triggers outside auth.
 pub trait GameLogin: Send + Sync {
     /// The session supplies refill at `POST /login`
     fn session_supplies<'a>(&'a self, _account: &'a GameAccount) -> BoxFuture<'a, ()> {
@@ -218,11 +248,13 @@ pub trait GameLogin: Send + Sync {
     }
 }
 
+/// Erasure's checks and clean-up outside the auth store.
 pub trait Erasure: Send + Sync {
     /// Live activity that keeps an account for the next run
     fn blockers<'a>(&'a self, _account: &'a LauncherAccount) -> BoxFuture<'a, Result<Vec<String>, String>> {
         Box::pin(async { Ok(Vec::new()) })
     }
+    /// Removes the logs the account uploaded; a failure is logged and the erasure stands.
     fn remove_uploaded_logs<'a>(&'a self, _account: &'a LauncherAccount) -> BoxFuture<'a, Result<(), String>> {
         Box::pin(async { Ok(()) })
     }
@@ -239,15 +271,25 @@ impl Notices for Defaults {}
 impl GameLogin for Defaults {}
 impl Erasure for Defaults {}
 
+/// Everything the auth area calls outside itself; the defaults do nothing.
 pub struct Seams {
+    /// Session and launcher activity.
     pub activity: Arc<dyn Activity>,
+    /// The operations settings.
     pub operations: Arc<dyn Operations>,
+    /// The realms area.
     pub realms: Arc<dyn Realms>,
+    /// The notices.
     pub notices: Arc<dyn Notices>,
+    /// The game login's side effects.
     pub game_login: Arc<dyn GameLogin>,
+    /// The erasure checks.
     pub erasure: Arc<dyn Erasure>,
+    /// The home node's API.
     pub home: Arc<dyn HomeApi>,
+    /// How codes are mailed.
     pub mail: Arc<dyn MailTransport>,
+    /// The Discord calls.
     pub discord: Arc<dyn DiscordApi>,
 }
 

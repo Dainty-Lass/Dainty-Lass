@@ -37,6 +37,7 @@ const fn swept(spec: TableSpec, column: &'static str) -> TableSpec {
     }
 }
 
+/// Guard's tables, with the Node collection each replaces and its key.
 pub const TABLES: &[TableSpec] = &[
     table("rifts_hunt_guard", "p2pHuntSessions.guard*", "session + generation"),
     table(
@@ -77,12 +78,14 @@ pub const TABLES: &[TableSpec] = &[
 macro_rules! stored_as {
     ($name:ident: $($variant:ident = $text:literal),+ $(,)?) => {
         impl $name {
+            /// The text stored for this value.
             pub fn as_str(self) -> &'static str {
                 match self {
                     $(Self::$variant => $text,)+
                 }
             }
 
+            /// The value stored as `text`, `None` for any other text.
             pub fn parse(text: &str) -> Option<Self> {
                 [$(Self::$variant),+].into_iter().find(|value| value.as_str() == text)
             }
@@ -90,10 +93,14 @@ macro_rules! stored_as {
     };
 }
 
+/// When a hunt pays its completion.
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub enum CompletionMode {
+    /// At the first behemoth defeat.
     FirstDefeat,
+    /// At the end of the hunt.
     EndOfHunt,
+    /// Never: the hunt pays no rewards.
     NoCompletion,
 }
 
@@ -102,13 +109,20 @@ stored_as!(CompletionMode: FirstDefeat = "FIRST_DEFEAT", EndOfHunt = "END_OF_HUN
 /// Where a hunt's encounter is; it only moves forward.
 #[derive(Clone, Copy, Debug, Default, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub enum EncounterState {
+    /// No event yet.
     #[default]
     Created,
+    /// The hosted session started.
     SessionStarted,
+    /// The world finished loading.
     WorldReady,
+    /// The encounter began.
     EncounterActive,
+    /// The behemoth was defeated.
     BehemothDefeated,
+    /// The runtime asked for completion; the chain takes no more batches.
     CompletionRequested,
+    /// The hunt was aborted; the chain takes no more batches.
     Aborted,
 }
 
@@ -137,23 +151,30 @@ impl EncounterState {
         ]
     };
 
+    /// Whether the chain is closed to further batches.
     pub fn is_terminal(self) -> bool {
         self >= Self::CompletionRequested
     }
 }
 
+/// What observe mode concluded of a chain.
 #[derive(Clone, Copy, Debug, Default, Eq, Hash, PartialEq)]
 pub enum Disposition {
+    /// No finding so far.
     #[default]
     ObserveClear,
+    /// At least one finding was recorded.
     ObserveFlagged,
 }
 
 stored_as!(Disposition: ObserveClear = "OBSERVE_CLEAR", ObserveFlagged = "OBSERVE_FLAGGED");
 
+/// Which traffic window a charge counts against.
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub enum TrafficScope {
+    /// The host account's window.
     Host,
+    /// The hunt session's window.
     Session,
 }
 
@@ -162,67 +183,111 @@ stored_as!(TrafficScope: Host = "host", Session = "session");
 /// One player-state write a hosted runtime made, as Guard records it.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct HostWriteRecord {
+    /// What was written.
     pub kind: HostWriteKind,
+    /// The player whose state it was.
     pub target: AccountId,
     /// Empty when the hunt has no host.
     pub host: AccountId,
+    /// The hunt or hub session.
     pub session: SessionId,
+    /// The session's generation.
     pub generation: u64,
+    /// The realm, if any.
     pub realm: Option<RealmId>,
+    /// `REALM_HUB` for a hub.
     pub session_kind: Option<String>,
+    /// The hub's kind, for a hub.
     pub hub_kind: Option<String>,
+    /// The write's summary JSON, cut to 400 characters in logs.
     pub summary: Json,
+    /// When the write was recorded.
     pub at: UnixMillis,
 }
 
+/// One traffic window as stored.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct TrafficWindowRecord {
+    /// The window's id: the scope, window start and hashed key.
     pub window_id: String,
+    /// Whether the window is a host's or a session's.
     pub scope: TrafficScope,
+    /// When the window began.
     pub window_start: UnixMillis,
+    /// Requests counted in the window.
     pub requests: u64,
+    /// Bytes counted in the window.
     pub bytes: u64,
+    /// When the sweeper may drop the window.
     pub expires_at: UnixMillis,
 }
 
 /// One key's charge against one window; the key itself is only in the id's hash.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct TrafficReservation {
+    /// The window to charge.
     pub window_id: String,
+    /// Whether the window is a host's or a session's.
     pub scope: TrafficScope,
+    /// When the window began.
     pub window_start: UnixMillis,
+    /// When the sweeper may drop the window.
     pub expires_at: UnixMillis,
+    /// The request's size in bytes.
     pub bytes: u64,
+    /// The window's request bound.
     pub max_requests: u64,
+    /// The window's byte bound.
     pub max_bytes: u64,
 }
 
+/// How a chain was completed.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct CompletionRecord {
+    /// The sequence the completion named.
     pub final_sequence: u64,
+    /// The head hash the completion named.
     pub final_hash: String,
+    /// When the chain was completed.
     pub at: UnixMillis,
 }
 
 /// One hunt generation's evidence chain.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ChainRecord {
+    /// The hunt session.
     pub session: SessionId,
+    /// The hunt generation.
     pub generation: u64,
+    /// Bumped on every write, for optimistic concurrency.
     pub revision: u64,
+    /// When the hunt pays its completion, if known.
     pub completion_mode: Option<CompletionMode>,
+    /// The last event's sequence, 0 at genesis.
     pub last_sequence: u64,
+    /// The chain's head hash, the genesis hash before any batch.
     pub head_hash: String,
+    /// How far the encounter got.
     pub encounter_state: EncounterState,
+    /// Whether observe mode found anything.
     pub disposition: Disposition,
+    /// Findings recorded so far.
     pub finding_count: u64,
+    /// Batches accepted so far.
     pub batch_count: u64,
+    /// Events accepted so far.
     pub event_count: u64,
+    /// Event bytes accepted so far.
     pub event_bytes: u64,
+    /// The last event's monotonic clock in milliseconds.
     pub last_monotonic_ms: Option<u64>,
+    /// Events accepted so far, by type.
     pub event_types: BTreeMap<String, u64>,
+    /// Whether a damage event named no actor.
     pub has_unattributed_damage: bool,
+    /// When the last batch arrived.
     pub last_received_at: Option<UnixMillis>,
+    /// The completion, once the chain is closed by one.
     pub completion: Option<CompletionRecord>,
 }
 
@@ -251,71 +316,113 @@ impl ChainRecord {
     }
 }
 
+/// One accepted batch, kept so a replayed batch id answers the same.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct BatchRecord {
+    /// The hunt session.
     pub session: SessionId,
+    /// The hunt generation.
     pub generation: u64,
+    /// The transport's batch id.
     pub batch_id: String,
+    /// The head the batch continued.
     pub previous_hash: String,
+    /// The batch's hash, the chain's head after it.
     pub batch_hash: String,
+    /// The batch's first event sequence.
     pub first_sequence: u64,
+    /// The batch's last event sequence.
     pub last_sequence: u64,
+    /// How many events the batch carried.
     pub event_count: u64,
+    /// The events' size as JSON, in bytes.
     pub event_bytes: u64,
     /// The batch's distinct types, in byte order.
     pub event_types: Vec<String>,
+    /// When the batch arrived.
     pub received_at: UnixMillis,
 }
 
+/// One thing observe mode would have refused.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct FindingRecord {
+    /// The hunt session.
     pub session: SessionId,
+    /// The hunt generation.
     pub generation: u64,
+    /// The event it concerns, if one.
     pub sequence: Option<u64>,
+    /// The finding's code, such as `ACTOR_NOT_ROSTERED`.
     pub code: String,
+    /// Details for the log, possibly empty.
     pub detail: String,
+    /// When it was found.
     pub at: UnixMillis,
 }
 
 /// A chain write: the new chain, the batch that moved it (if any) and the findings, stored together.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ChainUpdate {
+    /// The chain as written.
     pub chain: ChainRecord,
+    /// The batch that moved it, if any.
     pub batch: Option<BatchRecord>,
+    /// Findings to add.
     pub findings: Vec<FindingRecord>,
 }
 
+/// A member's XP summary of a hosted hunt, kept for 400 days.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct XpSummaryRecord {
+    /// The hunt session.
     pub session: SessionId,
+    /// The member.
     pub member: AccountId,
+    /// The hunt's host.
     pub host: AccountId,
+    /// The realm, if any.
     pub realm: Option<RealmId>,
+    /// Minutes the member spent in the hunt.
     pub minutes: u32,
+    /// The XP grants, as JSON.
     pub grants: Json,
+    /// Whether the summary was flagged.
     pub flagged: bool,
+    /// When the summary was written.
     pub created_at: UnixMillis,
 }
 
+/// One operator alert.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct AlertRecord {
+    /// The alert's id.
     pub alert_id: String,
+    /// The alert's code.
     pub code: String,
+    /// The alert's severity.
     pub severity: String,
+    /// The alert's message.
     pub message: String,
+    /// Details, as JSON.
     pub details: Json,
+    /// When the alert was raised.
     pub created_at: UnixMillis,
+    /// When it was acknowledged, if it was.
     pub acknowledged_at: Option<UnixMillis>,
+    /// Who acknowledged it, if anyone did.
     pub acknowledged_by: Option<String>,
 }
 
 /// Guard's storage; each method is one transaction.
 pub trait GuardStore: Send + Sync {
     // Evidence chains.
+    /// The chain of this hunt generation, `None` before it is opened.
     fn chain(&self, session: &SessionId, generation: u64) -> Result<Option<ChainRecord>, StoreError>;
     /// `false`, writing nothing, when the stored revision is not `expected_revision` or the batch id is taken.
     fn apply_chain(&self, actor: &Actor, update: &ChainUpdate, expected_revision: u64) -> Result<bool, StoreError>;
+    /// A stored batch by id, `None` when the id was not used.
     fn batch(&self, session: &SessionId, generation: u64, batch_id: &str) -> Result<Option<BatchRecord>, StoreError>;
+    /// The generation's findings, oldest first.
     fn findings(&self, session: &SessionId, generation: u64) -> Result<Vec<FindingRecord>, StoreError>;
 
     // Traffic and host writes.
@@ -326,11 +433,15 @@ pub trait GuardStore: Send + Sync {
         host: &TrafficReservation,
         session: &TrafficReservation,
     ) -> Result<bool, StoreError>;
+    /// Records one player-state write a hosted runtime made.
     fn record_host_write(&self, actor: &Actor, write: &HostWriteRecord) -> Result<(), StoreError>;
+    /// Writes a member's XP summary, replacing an earlier one.
     fn put_xp_summary(&self, actor: &Actor, summary: &XpSummaryRecord) -> Result<(), StoreError>;
 
     // Operator alerts.
+    /// Raises an operator alert.
     fn insert_alert(&self, actor: &Actor, alert: &AlertRecord) -> Result<(), StoreError>;
+    /// Marks an open alert acknowledged; `false` when it is missing or already acknowledged.
     fn acknowledge_alert(&self, actor: &Actor, alert_id: &str, at: UnixMillis) -> Result<bool, StoreError>;
 }
 
@@ -402,15 +513,18 @@ impl MemoryGuardStore {
         self.inner.lock().unwrap_or_else(PoisonError::into_inner)
     }
 
+    /// Every recorded host write, oldest first.
     pub fn host_writes(&self) -> Vec<HostWriteRecord> {
         self.tables().host_writes.clone()
     }
 
+    /// Every traffic window, by id.
     pub fn windows(&self) -> Vec<TrafficWindowRecord> {
         let tables = self.tables();
         tables.windows.values().cloned().collect()
     }
 
+    /// One operator alert, `None` when there is none by that id.
     pub fn alert(&self, alert_id: &str) -> Option<AlertRecord> {
         let tables = self.tables();
         tables.alerts.get(alert_id).cloned()

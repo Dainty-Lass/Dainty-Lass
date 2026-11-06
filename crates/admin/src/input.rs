@@ -9,6 +9,7 @@ use crate::upstream::Operator;
 
 /// The biggest request body read: a query and its variables, never more.
 pub const MAX_BODY: usize = 16 * 1024;
+/// The header naming the Discord user an action is for, 1 to 32 digits; without it, the action is the host's.
 pub const OPERATOR_HEADER: &str = "x-reforged-operator-id";
 /// What reaches a ban's reason, which the player reads in the launcher.
 pub const MAX_REASON: usize = 400;
@@ -37,6 +38,7 @@ pub enum Refusal {
 }
 
 impl Refusal {
+    /// The HTTP status to answer with.
     pub fn status(self) -> u16 {
         match self {
             Self::Forwarded => 403,
@@ -47,6 +49,7 @@ impl Refusal {
         }
     }
 
+    /// The `code` in the refusal's body.
     pub fn code(self) -> &'static str {
         match self {
             Self::Forwarded => "FORWARDED",
@@ -94,6 +97,7 @@ pub fn operator(headers: &HeaderMap) -> Result<Operator, Refusal> {
     }
 }
 
+/// Whether the one `content-type` header is `application/json`.
 pub fn is_json(headers: &HeaderMap) -> bool {
     one_header(headers, "content-type").ok().flatten().is_some_and(|value| {
         value
@@ -177,6 +181,7 @@ pub fn module_message(given: &str) -> String {
     one_line.trim().to_owned()
 }
 
+/// Unix milliseconds as RFC 3339 to the second, in UTC; empty when out of range.
 pub fn iso(ms: i64) -> String {
     chrono::DateTime::from_timestamp_millis(ms)
         .map(|t| t.to_rfc3339_opts(chrono::SecondsFormat::Secs, true))
@@ -185,24 +190,39 @@ pub fn iso(ms: i64) -> String {
 
 // ------------------------------------------------------------------ the Director's instances
 
+/// What a Director instance runs.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum InstanceKind {
+    /// Ramsgate.
     City,
+    /// A hunt.
     Hunt,
+    /// The Training Grounds.
     Dojo,
+    /// The tutorial.
     Tutorial,
 }
 
+/// A game server as the Director lists it, checked and clipped.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Instance {
+    /// The Director's instance id.
     pub id: String,
+    /// What it runs.
     pub kind: InstanceKind,
+    /// "Ramsgate", "Training Grounds", or the hunt's behemoth or island.
     pub title: String,
+    /// The map's name.
     pub map: String,
+    /// The behemoth, for a hunt.
     pub behemoth: Option<String>,
+    /// Players in it now.
     pub players: u32,
+    /// The most it takes.
     pub max_players: u32,
+    /// Account ids of the players in it.
     pub player_ids: Vec<String>,
+    /// When it started, as the Director gives it.
     pub started_at: Option<String>,
 }
 

@@ -11,35 +11,51 @@ use rustic_isles_store::{IslesStore, RepoError};
 use super::user_id_of;
 use crate::util::{self, iso, system_now_ms};
 
+/// The bootstrap's usage text, shown on a bad command line.
 pub const USAGE: &str = "Usage: dainty-host admin bootstrap --email=you@example.com [--from-email=old@example.com | \
                          --username=ExistingName] --confirm=GRANT_ADMIN_ROLE";
 
+/// `dainty-host admin bootstrap`'s options.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct BootstrapAdminRequest {
+    /// The email the administrator signs in with.
     pub email: String,
+    /// The account's current email, when it is to be renamed to `email`.
     pub from_email: Option<String>,
+    /// The account's username, to find it by name instead.
     pub username: Option<String>,
+    /// Must be `GRANT_ADMIN_ROLE`.
     pub confirm: String,
 }
 
+/// The account made administrator.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct BootstrapAdminOutcome {
+    /// Its userId.
     pub user_id: String,
+    /// Its email after the bootstrap.
     pub email: String,
 }
 
+/// Why the bootstrap refused.
 #[derive(Debug, thiserror::Error)]
 pub enum BootstrapError {
+    /// The options are missing or `--confirm` is wrong.
     #[error("{USAGE}")]
     Usage,
+    /// No launcher account matches; the text says by what.
     #[error("Launcher account not found by {0}.")]
     NotFound(String),
+    /// The account signs in with Discord, not a password.
     #[error("Matched account is not a password-based launcher account.")]
     NotPasswordBased,
+    /// The account has no username yet.
     #[error("The launcher account must have a username before becoming an admin.")]
     NoUsername,
+    /// The new email belongs to another account.
     #[error("Cannot rename account: {0} is already in use.")]
     EmailInUse(String),
+    /// The store failed.
     #[error(transparent)]
     Store(RepoError),
 }

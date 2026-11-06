@@ -17,25 +17,41 @@ use crate::{ReplayError, load_corpus};
 /// set (D2).
 #[derive(Clone)]
 pub struct ReplayOptions {
+    /// Capture file, or a directory of `*.jsonl` capture files.
     pub corpus: PathBuf,
     /// A base URL, or `recorded`/`corpus` (any case) for the capture's own answers
     pub left: String,
+    /// The right side's base URL.
     pub right: String,
+    /// The left side's Director base URL.
     pub left_director: Option<String>,
+    /// The right side's Director base URL.
     pub right_director: Option<String>,
+    /// The left side's chat `host:port`.
     pub left_chat: Option<String>,
+    /// The right side's chat `host:port`.
     pub right_chat: Option<String>,
+    /// The left side's HS256 secret.
     pub left_jwt_secret: Option<String>,
+    /// The right side's HS256 secret.
     pub right_jwt_secret: Option<String>,
+    /// The left side's base64 RSA signing key.
     pub left_signing_key: Option<String>,
+    /// The right side's base64 RSA signing key.
     pub right_signing_key: Option<String>,
+    /// The left side's game-server key.
     pub left_gs_key: Option<String>,
+    /// The right side's game-server key.
     pub right_gs_key: Option<String>,
     /// Both sides
     pub gateway_secret: Option<String>,
+    /// A JSON file of account key hashes to raw keys.
     pub key_map_path: Option<PathBuf>,
+    /// Send core's replay clock headers (default on).
     pub pin_clock: bool,
+    /// Keep only HTTP records whose raw target or route contains this.
     pub filter: Option<String>,
+    /// Where the JSON report is also written.
     pub out_path: Option<PathBuf>,
 }
 

@@ -19,7 +19,9 @@ use super::{AdminCaller, AdminRequest, BodyFacts, ReforgedAdmin, Via, admin_erro
 use crate::reforged_api::is_account_eligible;
 use crate::util::{self, hex, hmac_sha256, iso, sha256_hex, system_now_ms};
 
+/// The admin session cookie's name.
 pub const SESSION_COOKIE: &str = "rustic_isles_admin";
+/// How long (ms) a used operator signature is remembered, so a replay is refused.
 pub const NONCE_TTL_MS: i64 = 120_000;
 const OPERATOR_PREFIX: &str = "x-paradox-operator-";
 const EMPTY_SHA256: &str = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
@@ -79,6 +81,7 @@ pub fn has_operator_headers(headers: &HeaderMap) -> bool {
     headers.keys().any(|name| name.as_str().starts_with(OPERATOR_PREFIX))
 }
 
+/// Whether the manager's operator credential is accepted (`RUSTIC_ISLES_MANAGER_ADMIN=on`).
 pub fn manager_admin_on(settings: &rustic_isles::Settings) -> bool {
     settings
         .raw("RUSTIC_ISLES_MANAGER_ADMIN")
@@ -111,20 +114,35 @@ pub fn operator_signature(secret: &str, method: &str, target: &str, timestamp: &
 
 /// What the operator verifier reads (a pure function of these, the settings and the nonce set).
 pub struct OperatorRequest<'a> {
+    /// The HTTP method.
     pub method: &'a str,
+    /// Path and query as received; part of what is signed.
     pub target: &'a str,
+    /// The socket peer; only loopback is accepted.
     pub peer: Option<IpAddr>,
+    /// The request's headers.
     pub headers: &'a HeaderMap,
+    /// The body's bytes, whose digest is signed.
     pub body: &'a [u8],
+    /// Whether the request declares a body.
     pub body_declared: bool,
+    /// Whether the body was read as JSON.
     pub json_read: bool,
+    /// The system clock, Unix ms.
     pub now_ms: i64,
 }
 
 /// The operator's verdict: accepted (id, display name) or refused (status, code, message).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum OperatorVerdict {
-    Accepted { id: String, name: String },
+    /// The signature checks out.
+    Accepted {
+        /// The operator id.
+        id: String,
+        /// The operator's display name.
+        name: String,
+    },
+    /// Refused with the status, error code and message.
     Refused(u16, &'static str, &'static str),
 }
 
@@ -239,12 +257,19 @@ fn manager_caller(id: &str, name: String, now_ms: i64) -> AdminCaller {
 
 /// The parts of a request authentication reads.
 pub struct Presented<'a> {
+    /// The HTTP method.
     pub method: &'a Method,
+    /// Path and query as received.
     pub target: &'a str,
+    /// The path alone.
     pub path: &'a str,
+    /// The socket peer.
     pub peer: Option<IpAddr>,
+    /// The request's headers.
     pub headers: &'a HeaderMap,
+    /// The body's bytes.
     pub body: &'a [u8],
+    /// What the body declared and how it was read.
     pub facts: &'a BodyFacts,
 }
 
@@ -382,6 +407,7 @@ pub struct AdminAuthenticatorSlot {
 }
 
 impl AdminAuthenticatorSlot {
+    /// A slot over the module, held weakly.
     pub fn new(shared: &Arc<Shared>) -> Self {
         Self {
             shared: Arc::downgrade(shared),

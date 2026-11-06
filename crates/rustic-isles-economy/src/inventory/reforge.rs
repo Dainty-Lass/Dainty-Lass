@@ -21,22 +21,33 @@ use crate::progression::tracks::{
 use crate::tx::guarded;
 use crate::util::{iso, now_iso, number_value, obj, trunc_i64};
 
+/// What a reforge reset did.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ResetOutcome {
+    /// Reforge mode is not on; refused.
     Disabled,
+    /// The track is not reforgeable or has no row.
     NoTrack,
+    /// A reset is already open: a duplicate request, answered as the first.
     Replay,
+    /// A stale open reset was finished instead; ask again.
     StaleFinished,
+    /// The track is below its cap; refused.
     BelowCap,
+    /// The track was reset and its excess banked.
     Reset,
+    /// Concurrent writes won every attempt; refused.
     Contended,
 }
 
+/// A reset's outcome and the row to answer with.
 #[derive(Debug, Clone, PartialEq)]
 pub struct ResetResult {
+    /// What happened.
     pub outcome: ResetOutcome,
     /// 200 or 409
     pub status: u16,
+    /// The track row after the reset, when there is one.
     pub row: Option<ProgressionTrackRecord>,
 }
 
@@ -50,7 +61,10 @@ fn result(outcome: ResetOutcome, row: Option<ProgressionTrackRecord>) -> ResetRe
 }
 
 /// The reset (§5.2.1) at `now_ms`, for the account of `user_id`.
-#[allow(clippy::too_many_arguments)]
+#[allow(
+    clippy::too_many_arguments,
+    reason = "each argument is one input of the reset (§5.2.1)"
+)]
 pub async fn reforge_reset(
     shared: &Arc<Shared>,
     store: &IslesStore,
@@ -164,17 +178,22 @@ pub fn single_track_payload(user_id: &str, track: &str, row: Option<&Progression
     ])
 }
 
+/// How a store purchase of a banked restore is handled.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum PurchasePlan {
     /// The banked restore, with its grant id and the plan to mark
     Restore {
+        /// The restore's grant id, `reforge-<id>-banked`.
         grant_id: String,
+        /// The plan the grant marks.
         plan: ReforgePlan,
     },
     /// A retry of an applied restore: the ledger replays it
     Normal {
+        /// The restore's grant id.
         grant_id: String,
     },
+    /// Refused; the text says why.
     Refuse(String),
 }
 
@@ -197,8 +216,7 @@ pub fn plan_purchase_restore(
     if let ReforgePlan::Restore { .. } = plan {
         return PurchasePlan::Restore { grant_id, plan };
     }
-    // Banked counters are far below 2^53
-    #[allow(clippy::cast_precision_loss)]
+    #[allow(clippy::cast_precision_loss, reason = "banked counters are far below 2^53")]
     let banked = reforge.banked as f64;
     if reforge.banked_restored >= reforge.banked && amount == banked {
         return PurchasePlan::Normal { grant_id };
@@ -216,28 +234,40 @@ pub fn plan_purchase_restore(
 /// The banked restore's inputs.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RestoreGrant {
+    /// The idempotency id of the grant.
     pub grant_id: String,
+    /// The player's userId.
     pub user_id: String,
+    /// The weapon's progression track.
     pub track: String,
+    /// The XP to restore.
     pub amount: i64,
     /// `Normal` marks nothing
     pub plan: ReforgePlan,
 }
 
+/// A banked restore's result.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct GrantResult {
+    /// The track row after the grant.
     pub record: ProgressionTrackRecord,
+    /// True when the grant id was applied before and this is its stored result.
     pub replayed: bool,
 }
 
+/// Why a banked restore was refused.
 #[derive(Debug, thiserror::Error)]
 pub enum GrantFailure {
+    /// The reforge's state refused the restore.
     #[error("{0}")]
     ReforgeConflict(String),
+    /// The grant id was used with a different request.
     #[error("{0}")]
     GrantConflict(String),
+    /// An unsupported track or an invalid amount or grant id.
     #[error("{0}")]
     Data(String),
+    /// The store failed.
     #[error(transparent)]
     Repo(#[from] RepoError),
 }
@@ -256,8 +286,7 @@ pub async fn grant_banked_restore(
             grant.track
         )));
     }
-    // An amount the route already bounded
-    #[allow(clippy::cast_precision_loss)]
+    #[allow(clippy::cast_precision_loss, reason = "an amount the route already bounded")]
     let amount_f = grant.amount as f64;
     if !(grant.amount > 0 && amount_f <= MAX_PROGRESSION_GRANT_AMOUNT && is_valid_grant_id(&grant.grant_id)) {
         return Err(GrantFailure::Data("Invalid authoritative progression grant.".into()));

@@ -14,7 +14,9 @@ use crate::module::{
 use crate::network::NodeIdentity;
 use crate::registrar::{Registrar, Registration};
 
+/// A loaded module as the host drives it.
 pub trait ModuleDriver: Send + Sync {
+    /// The module's manifest, as loaded.
     fn manifest(&self) -> &ModuleManifest;
 
     /// Runs one call. Everything else on this trait is a typed wrapper around it.
@@ -32,6 +34,7 @@ fn wrong(answer: &ModuleAnswer) -> ModuleError {
 /// The typed calls, for any driver. The registration is checked against the manifest here, so a
 /// compiled-in module is held to the same rules as an external one.
 pub trait ModuleDriverExt: ModuleDriver {
+    /// What the module registers, checked against its manifest; a mismatch is [`ErrorKind::Invalid`].
     fn register(&self) -> impl Future<Output = Result<Registration, ModuleError>> + Send {
         async move {
             match self.call(ModuleCall::Register).await? {
@@ -46,6 +49,7 @@ pub trait ModuleDriverExt: ModuleDriver {
         }
     }
 
+    /// Starts the module with its configuration.
     fn start(&self, config: ModuleConfig) -> impl Future<Output = Result<(), ModuleError>> + Send {
         async move {
             match self.call(ModuleCall::Start(config)).await? {
@@ -55,6 +59,7 @@ pub trait ModuleDriverExt: ModuleDriver {
         }
     }
 
+    /// Stops the module; it can be started again.
     fn stop(&self) -> impl Future<Output = Result<(), ModuleError>> + Send {
         async move {
             match self.call(ModuleCall::Stop).await? {
@@ -64,6 +69,7 @@ pub trait ModuleDriverExt: ModuleDriver {
         }
     }
 
+    /// The module's current status.
     fn status(&self) -> impl Future<Output = Result<ModuleStatus, ModuleError>> + Send {
         async move {
             match self.call(ModuleCall::Status).await? {
@@ -73,6 +79,7 @@ pub trait ModuleDriverExt: ModuleDriver {
         }
     }
 
+    /// Runs a console command the module registered.
     fn command(&self, request: CommandRequest) -> impl Future<Output = Result<CommandOutput, ModuleError>> + Send {
         async move {
             match self.call(ModuleCall::Command(request)).await? {
@@ -82,6 +89,7 @@ pub trait ModuleDriverExt: ModuleDriver {
         }
     }
 
+    /// Runs an admin action the module registered.
     fn admin(&self, call: AdminCall) -> impl Future<Output = Result<AdminResponse, ModuleError>> + Send {
         async move {
             match self.call(ModuleCall::Admin(call)).await? {
@@ -91,6 +99,7 @@ pub trait ModuleDriverExt: ModuleDriver {
         }
     }
 
+    /// Delivers an event the module subscribed to.
     fn event(&self, event: Event) -> impl Future<Output = Result<(), ModuleError>> + Send {
         async move {
             match self.call(ModuleCall::Event(event)).await? {
@@ -100,6 +109,7 @@ pub trait ModuleDriverExt: ModuleDriver {
         }
     }
 
+    /// Asks the module's chat hooks about a message or channel.
     fn chat(&self, query: ChatQuery) -> impl Future<Output = Result<ChatAnswer, ModuleError>> + Send {
         async move {
             match self.call(ModuleCall::Chat(query)).await? {

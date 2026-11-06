@@ -4,11 +4,17 @@
 //! The control frames two transports exchange to admit a joiner: the joiner's ticket, and the host's verdict. A
 //! 12-byte big-endian header (magic, version, type, two zero bytes, payload length), then the payload.
 
+/// The magic every control frame starts with.
 pub const CONTROL_MAGIC: &[u8; 4] = b"RPC1";
+/// The control frame format version.
 pub const CONTROL_VERSION: u8 = 1;
+/// The frame type of a joiner's admission request.
 pub const ADMISSION_REQUEST: u8 = 1;
+/// The frame type of the host's admission result.
 pub const ADMISSION_RESULT: u8 = 2;
+/// The header's size: magic, version, type, two zero bytes and the payload length.
 pub const HEADER_BYTES: usize = 12;
+/// The largest control frame accepted, in bytes.
 pub const MAX_CONTROL_FRAME: usize = 4608;
 
 const MAX_TICKET: usize = 4096;
@@ -17,10 +23,14 @@ const MAX_ADMISSION_ID: usize = 64;
 /// An admitted result carries the 64-hex-digit admission id.
 const ADMITTED_ID: usize = 64;
 
+/// The host's verdict on a joiner's ticket.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AdmissionResult {
+    /// Whether the joiner was let in.
     pub admitted: bool,
+    /// `ok` or the refusal code, 1 to 64 bytes.
     pub code: Vec<u8>,
+    /// The 64-hex-digit admission id when admitted, else empty.
     pub admission_id: Vec<u8>,
 }
 
@@ -50,6 +60,7 @@ fn payload_of(input: &[u8], kind: u8) -> Option<&[u8]> {
     header_ok.then_some(payload)
 }
 
+/// The request frame carrying `ticket`; `None` when it is empty or over 4096 bytes.
 pub fn encode_admission_request(ticket: &[u8]) -> Option<Vec<u8>> {
     if ticket.is_empty() || ticket.len() > MAX_TICKET {
         return None;
@@ -86,6 +97,7 @@ pub fn encode_admission_result(result: &AdmissionResult) -> Option<Vec<u8>> {
     frame(ADMISSION_RESULT, &payload)
 }
 
+/// The result a well-formed result frame carries; `None` for anything malformed.
 pub fn decode_admission_result(input: &[u8]) -> Option<AdmissionResult> {
     let payload = payload_of(input, ADMISSION_RESULT)?;
     if payload.len() < 5 || payload[0] > 1 || payload[3] != 0 {

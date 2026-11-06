@@ -80,30 +80,46 @@ pub fn parse_artifacts(value: Option<&Value>) -> Option<ArtifactHashes> {
     })
 }
 
+/// The answer to a host presence report.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PresenceReply {
+    /// Always true.
     pub accepted: bool,
+    /// The stored report's revision.
     pub revision: i64,
+    /// When the report stops counting, as ISO 8601.
     pub expires_at: String,
+    /// Whether the reported artifact hashes matched the published ones.
     pub artifacts_verified: bool,
+    /// Whether Guard verified the player's session.
     pub guard_verified: bool,
 }
 
+/// The answer to a host's reply to an offer.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct OfferReply {
+    /// Whether the host accepted.
     pub accepted: bool,
+    /// The offer.
     pub offer_id: String,
+    /// The session offered.
     pub session_id: String,
+    /// The generation it was for.
     pub generation: i64,
 }
 
+/// A candidate host, as ranked for an offer.
 #[derive(Clone, Debug, PartialEq)]
 pub struct RankedHost {
+    /// The host.
     pub account_id: String,
+    /// Its transport peer id.
     pub steam_id: String,
+    /// Its score, 0 to 100; lower is better.
     pub score: f64,
+    /// The parts of that score.
     pub breakdown: ScoreBreakdown,
 }
 
@@ -579,7 +595,10 @@ impl Hosting {
     }
 
     /// Node's `RankRealmHost`: the realm's host is the only candidate; `Err(())` is REALM_FULL.
-    #[allow(clippy::result_unit_err)]
+    #[allow(
+        clippy::result_unit_err,
+        reason = "`Err(())` is REALM_FULL, as Node's RankRealmHost has it"
+    )]
     pub async fn rank_realm_host(&self, hunt: &HuntSession) -> Result<Result<Vec<RankedHost>, ()>, RealmsError> {
         let nobody = Ok(Ok(Vec::new()));
         let Some(realm_id) = hunt.realm_id.as_deref() else {

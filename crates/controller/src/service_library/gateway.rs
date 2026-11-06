@@ -28,6 +28,7 @@ use crate::{LoadHook, Module, ModuleRegistry, WeakRegistry};
 /// How the core composes the gateway, sent before each start.
 #[derive(Debug, Clone)]
 pub struct GatewayOptions {
+    /// Whether and where the allowlist runs, which decides how modules' UDP ports are guarded.
     pub allowlist: AllowlistMode,
     /// The chat listener's port, when the core runs chat on the backend's
     pub ws_port: Option<u16>,

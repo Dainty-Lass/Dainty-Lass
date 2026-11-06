@@ -3,7 +3,7 @@
 
 //! The clean-room rewrite's own black-box tests (RD27), over real sockets: ghost replacement and the loopback
 //! `/__chat/*` API, which `tests/chat.rs` doesn't reach.
-#![allow(clippy::unwrap_used, clippy::expect_used)]
+#![allow(clippy::unwrap_used, clippy::expect_used, reason = "a panic is how a test fails")]
 
 use std::collections::HashMap;
 use std::sync::Arc;

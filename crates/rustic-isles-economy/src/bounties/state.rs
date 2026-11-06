@@ -14,13 +14,18 @@ use service_kit::js;
 
 use crate::util::{num0, number_value, obj, utf16_len};
 
+/// The most bounties one save or delete may name.
 pub const MAX_SAVED_BOUNTIES: usize = 512;
+/// The most bounties kept per account; the oldest unprotected beyond it are dropped.
 pub const MAX_STORED_BOUNTIES: usize = 1000;
+/// The most weekly challenges a host may file in one season window.
 pub const MAX_WEEKLY_PER_WINDOW: usize = 110;
+/// The highest objective progress a host may save; more is clamped to it.
 pub const MAX_HOST_PROGRESS: f64 = 100_000_000.0;
 const WEEK_MS: i64 = 7 * 86_400_000;
 const ROLL_GRACE_MS: i64 = 2 * 3_600_000;
 
+/// A bounty save or delete the validation refused; the text says why.
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 #[error("{0}")]
 pub struct BountySaveError(pub String);
@@ -40,6 +45,7 @@ pub fn infer_group(id: &str) -> BountyGroup {
     }
 }
 
+/// The entry's `bounty_id`, when it has a string one.
 pub fn bounty_id(entry: &StoredBounty) -> Option<&str> {
     entry.bounty.get("bounty_id").and_then(Value::as_str)
 }
@@ -52,6 +58,7 @@ pub fn effective_group(entry: &StoredBounty) -> BountyGroup {
     }
 }
 
+/// Whether the client marked the entry claimed.
 pub fn is_claimed(entry: &StoredBounty) -> bool {
     claimed(&entry.bounty)
 }
@@ -69,6 +76,7 @@ const DRAFT_KEYS: [(&str, BountyGroup); 3] = [
 /// A save that passed [`validate_bounty_save`].
 #[derive(Debug, Clone, PartialEq)]
 pub struct BountySave {
+    /// The bounty objects sent, as the client wrote them.
     pub bounties: Vec<Value>,
     /// The draft keys present, in key order
     pub drafts: Vec<(BountyGroup, Value)>,
@@ -264,22 +272,34 @@ fn set_draft(drafts: &mut DraftData, group: BountyGroup, value: Value) {
 /// What a save did, for the answer, the logs and a host's tag.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Merged {
+    /// The record to store.
     pub record: BountyStateRecord,
+    /// `replace` when one daily or weekly draft replaced its group, else `upsert`.
     pub mode: &'static str,
+    /// The one draft group the save carried, if exactly one.
     pub group: Option<BountyGroup>,
+    /// How many bounties the save carried.
     pub incoming: usize,
+    /// How many stored bounties a replace removed.
     pub removed: usize,
+    /// Bounty ids claimed by this save.
     pub newly_claimed: Vec<String>,
+    /// What a host's save refused or clamped; None for a client's save.
     pub host: Option<HostChanges>,
 }
 
 /// A host save's refused entries and clamps (§4.3).
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct HostChanges {
+    /// Claimed weekly challenges kept against the host's save.
     pub kept_claimed_weekly: usize,
+    /// Weekly challenges the host sent that were ignored.
     pub ignored_weekly: usize,
+    /// Objective progress values clamped to [`MAX_HOST_PROGRESS`].
     pub clamped_progress: usize,
+    /// A sample of the kept ids.
     pub kept_claimed_weekly_ids: Vec<String>,
+    /// A sample of the ignored ids.
     pub ignored_weekly_ids: Vec<String>,
 }
 
@@ -436,14 +456,20 @@ pub fn newly_claimed(record: &BountyStateRecord) -> Vec<String> {
 /// `<season>_<week>_<slot>_Challenge_Season_<name>-season<season2>-<index>`.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct WeeklyId {
+    /// The season number, as digits.
     pub season: String,
+    /// The week, 1 to 11.
     pub week: u32,
+    /// The slot in the week, 1 to 10.
     pub slot: u32,
+    /// The challenge's name.
     pub name: String,
+    /// The season in the name's `-season` suffix.
     pub season2: String,
 }
 
 impl WeeklyId {
+    /// The id as the game writes it.
     pub fn text(&self) -> String {
         format!(
             "{}_{}_{}_Challenge_Season_{}-season{}-{}",
@@ -464,6 +490,7 @@ fn canonical(text: &str, range: std::ops::RangeInclusive<u32>) -> Option<u32> {
     text.parse::<u32>().ok().filter(|n| range.contains(n))
 }
 
+/// The parts of a weekly challenge id; None unless it has exactly the canonical form.
 pub fn parse_weekly_id(id: &str) -> Option<WeeklyId> {
     let mut parts = id.splitn(4, '_');
     let (season, week, slot, rest) = (parts.next()?, parts.next()?, parts.next()?, parts.next()?);
@@ -665,9 +692,12 @@ pub fn host_summary(merged: &Merged) -> Value {
 
 // ------------------------------------------------------------------ deletes
 
+/// Which bounties a delete names.
 #[derive(Debug, Clone, PartialEq)]
 pub struct DeleteRequest {
+    /// The bounty ids named, without duplicates.
     pub ids: Vec<String>,
+    /// Also delete every claimed bounty (`delete_claimed_bounties`).
     pub delete_claimed: bool,
 }
 
@@ -685,6 +715,7 @@ pub fn names_nothing(body: Option<&Value>) -> bool {
     }
 }
 
+/// The delete request a body names; refused when it is not an object, a list is malformed, or it names nothing.
 pub fn parse_delete(body: Option<&Value>) -> Result<DeleteRequest, BountySaveError> {
     let Some(Value::Object(map)) = body else {
         return fail("body must be an object");
@@ -719,10 +750,14 @@ pub fn parse_delete(body: Option<&Value>) -> Result<DeleteRequest, BountySaveErr
     Ok(DeleteRequest { ids, delete_claimed })
 }
 
+/// What a delete did.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Deleted {
+    /// The record to store.
     pub record: BountyStateRecord,
+    /// The ids deleted.
     pub deleted: Vec<String>,
+    /// The ids named but kept (season challenges and ids not stored).
     pub kept: Vec<String>,
 }
 

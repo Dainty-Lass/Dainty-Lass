@@ -11,11 +11,13 @@ use serde::{Deserialize, Serialize};
 #[serde(try_from = "String", into = "String")]
 pub struct Username(String);
 
+/// A name that fails [`check_username`]; holds the rule it fails.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
 #[error("not a username ({})", .0.as_str())]
 pub struct InvalidUsername(pub UsernameCheck);
 
 impl Username {
+    /// Refuses a name that fails [`check_username`].
     pub fn new(text: impl Into<String>) -> Result<Self, InvalidUsername> {
         let text = text.into();
         match check_username(&text) {
@@ -69,7 +71,7 @@ impl fmt::Display for Username {
 
 #[cfg(test)]
 mod tests {
-    #![allow(clippy::unwrap_used)]
+    #![allow(clippy::unwrap_used, reason = "a panic is how a test fails")]
 
     use super::*;
 

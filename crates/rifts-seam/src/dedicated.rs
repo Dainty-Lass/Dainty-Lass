@@ -231,9 +231,13 @@ impl RealmsEntry for DedicatedOnly {
 
 /// The component crates' answers, handed to [`Rifts::new`].
 pub struct RiftsParts {
+    /// The realms hooks.
     pub realms: Arc<dyn RealmsHooks>,
+    /// The game-session entry hooks.
     pub entry: Arc<dyn RealmsEntry>,
+    /// Guard's hooks.
     pub guard: Arc<dyn GuardHooks>,
+    /// The route handlers, registered in this order.
     pub routes: Vec<Arc<dyn RouteHandler>>,
 }
 
@@ -257,6 +261,7 @@ pub struct Rifts {
 }
 
 impl Rifts {
+    /// Holds only the dedicated-server answers, as a server with the module off.
     pub fn dedicated_only() -> Self {
         Self {
             parts: Arc::new(RiftsParts::dedicated()),
@@ -264,6 +269,7 @@ impl Rifts {
         }
     }
 
+    /// Holds the component crates' answers.
     pub fn new(parts: RiftsParts) -> Self {
         Self {
             parts: Arc::new(parts),
@@ -279,18 +285,22 @@ impl Rifts {
         }
     }
 
+    /// Whether the component crates are loaded, rather than the dedicated-server answers.
     pub fn loaded(&self) -> bool {
         self.loaded
     }
 
+    /// The realms hooks.
     pub fn realms(&self) -> &dyn RealmsHooks {
         &*self.parts.realms
     }
 
+    /// The game-session entry hooks.
     pub fn entry(&self) -> &dyn RealmsEntry {
         &*self.parts.entry
     }
 
+    /// Guard's hooks.
     pub fn guard(&self) -> &dyn GuardHooks {
         &*self.parts.guard
     }

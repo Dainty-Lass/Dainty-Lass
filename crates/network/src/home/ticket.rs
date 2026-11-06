@@ -24,6 +24,7 @@ use serde::{Deserialize, Serialize};
 use super::keys::{KeyRing, MAX_KEYS_PER_NODE, SIGNATURE_LEN, SigningKey, VerifyingKey, random_hex};
 use crate::link::{Clock, MAX_CLOCK_SKEW};
 
+/// The `v` every ticket's claims carry; another is malformed.
 pub const TICKET_VERSION: u32 = 1;
 const TOKEN_PREFIX: &str = "dlt1";
 const SIGN_CONTEXT: &[u8] = b"dainty-lass/session-ticket/v1\n";
@@ -46,37 +47,52 @@ fn ms(duration: Duration) -> i64 {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, thiserror::Error)]
 #[serde(rename_all = "snake_case")]
 pub enum TicketError {
+    /// The token does not parse as a `dlt1` ticket.
     #[error("not a session ticket")]
     Malformed,
+    /// Signed with a key this node does not hold for the issuer.
     #[error("signed with a key this node does not know")]
     UnknownKey,
+    /// The signature does not verify.
     #[error("the signature is not the issuer's")]
     BadSignature,
+    /// Not issued by the account's home.
     #[error("not issued by the account's home")]
     WrongIssuer,
+    /// Made for another node.
     #[error("made for another node")]
     WrongAudience,
+    /// Made for another game version.
     #[error("made for another game version")]
     WrongGame,
+    /// Made for another account.
     #[error("made for another account")]
     WrongAccount,
+    /// Issued later than this node's clock allows.
     #[error("issued in the future")]
     NotYetValid,
+    /// Its `exp` has passed.
     #[error("expired")]
     Expired,
+    /// Its lifetime is over [`MAX_TTL`].
     #[error("claims a longer life than a ticket may have")]
     TooLong,
+    /// This node already admitted it.
     #[error("already used")]
     Replayed,
     /// Issued before this node started, so it can't tell whether it was used already
     #[error("issued before this node started; ask for a new one")]
     BeforeStart,
+    /// The replay cache holds [`MAX_REPLAY_ENTRIES`]: refused rather than forgotten.
     #[error("this node cannot remember more tickets just now")]
     ReplayCacheFull,
+    /// The home ended the session.
     #[error("the session was ended at its home")]
     Revoked,
+    /// The login began longer ago than renewals allow.
     #[error("the login is older than a session may be renewed for")]
     SessionTooOld,
+    /// The home cannot issue a ticket just now.
     #[error("this node cannot make a ticket just now")]
     Unavailable,
 }
@@ -85,7 +101,9 @@ pub enum TicketError {
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 #[error("could not persist ticket revocation for {account}: {reason}")]
 pub struct RevocationPersistError {
+    /// The account whose revocation was not saved.
     pub account: GlobalId,
+    /// The store's error.
     pub reason: String,
 }
 
@@ -93,17 +111,25 @@ pub struct RevocationPersistError {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Claims {
+    /// [`TICKET_VERSION`].
     pub v: u32,
     /// The id of the key that signed it
     pub kid: String,
+    /// The issuing node: the account's home.
     pub iss: NodeId,
+    /// The node the ticket is for.
     pub aud: NodeId,
+    /// The account it acts for.
     pub sub: GlobalId,
+    /// The game version it is for.
     pub game: GameVersion,
+    /// Issued at, unix milliseconds.
     pub iat: i64,
+    /// Expires at, unix milliseconds.
     pub exp: i64,
     /// When the login this ticket belongs to began: the first ticket's `iat`, kept by renewals
     pub since: i64,
+    /// A random 32-hex-character id, for replay checks.
     pub jti: String,
 }
 
@@ -177,14 +203,18 @@ pub struct Expect<'a> {
     pub audience: &'a NodeId,
     /// The game version the checking module serves; none for a check that doesn't depend on a game
     pub game: Option<&'a GameVersion>,
+    /// The account it must be for; none for any.
     pub account: Option<&'a GlobalId>,
 }
 
 /// How long tickets live and how far clocks may differ.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct TicketConfig {
+    /// How long a new ticket lives, at most [`MAX_TTL`].
     pub ttl: Duration,
+    /// How long after a login began it may still be renewed.
     pub max_session: Duration,
+    /// How far a peer's clock may differ from this node's.
     pub skew: Duration,
 }
 
@@ -248,6 +278,7 @@ impl std::fmt::Debug for Tickets {
 }
 
 impl Tickets {
+    /// Signs with `key` and stamps tickets with `clock`; replay checks refuse tickets issued before now.
     pub fn new(me: &NodeIdentity, key: SigningKey, clock: Arc<Clock>, config: TicketConfig) -> Self {
         let tickets = Self {
             me: me.node.clone(),
@@ -322,14 +353,17 @@ impl Tickets {
         Ok(())
     }
 
+    /// This node.
     pub fn node(&self) -> &NodeId {
         &self.me
     }
 
+    /// Ticket lifetimes and allowed skew.
     pub fn config(&self) -> &TicketConfig {
         &self.config
     }
 
+    /// The clock tickets are stamped and checked with.
     pub fn clock(&self) -> &Arc<Clock> {
         &self.clock
     }
@@ -380,10 +414,12 @@ impl Tickets {
         node != &self.me && self.ring.replace(node, keys)
     }
 
+    /// Whether any key of `node` is known.
     pub fn knows_keys_of(&self, node: &NodeId) -> bool {
         self.ring.knows(node)
     }
 
+    /// Whether `node`'s key `kid` is known.
     pub fn knows_key(&self, node: &NodeId, kid: &str) -> bool {
         self.ring.find(node, kid).is_some()
     }
@@ -526,7 +562,10 @@ impl Tickets {
     /// reinstate banned sessions.
     pub async fn revoke(&self, account: &GlobalId) -> Result<(), RevocationPersistError> {
         let now = self.clock.now_ms();
-        #[cfg_attr(not(feature = "directory"), allow(unused_variables))]
+        #[cfg_attr(
+            not(feature = "directory"),
+            allow(unused_variables, reason = "only the directory persists it")
+        )]
         let floor = {
             let mut revoked = self.revoked.lock().unwrap_or_else(PoisonError::into_inner);
             let entry = revoked.entry(account.clone()).or_insert(now);
@@ -590,7 +629,10 @@ impl Tickets {
 
     /// Clears an earlier [`Self::revoke`] for `account` (after an unban or lifted timeout).
     pub async fn allow(&self, account: &GlobalId) -> Result<(), RevocationPersistError> {
-        #[cfg_attr(not(feature = "directory"), allow(unused_variables))]
+        #[cfg_attr(
+            not(feature = "directory"),
+            allow(unused_variables, reason = "only the directory persists it")
+        )]
         let previous_floor = self
             .revoked
             .lock()
@@ -666,7 +708,7 @@ impl Tickets {
 
 #[cfg(test)]
 mod tests {
-    #![allow(clippy::unwrap_used)]
+    #![allow(clippy::unwrap_used, reason = "a panic is how a test fails")]
 
     use super::*;
 
