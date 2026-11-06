@@ -1,4 +1,4 @@
-//! `isles-core/tests/golden/inventory/` (Rustic Isles' Node inventory and reforge routes, `record.cjs`) against the
+//! `tests/golden/inventory/` (Rustic Isles' Node inventory and reforge routes, `record.cjs`) against the
 //! MIT module: the seed written through the store (accounts named `Hunter <userId>`, characters with their
 //! inventories at revision 0, wallets with exactly the seeded balances, progression tracks), the golden game data,
 //! `GAMESERVER_NO_PLAYER_USER_ID=u1`, and status, content type and body compared after the recorder's `normalize`.
@@ -12,8 +12,8 @@ mod common;
 
 use std::path::Path;
 
+use common::normalise::normalize_inventory as normalize;
 use common::{Caller, Mit, Tally, credentials, seed_account, seed_character, seed_track, seed_wallet, send};
-use isles_core::areas::inventory::testkit::normalize;
 use serde_json::{Value, json};
 
 /// The recording stubbed the characters area's starter bootstrap (an existing inventory served as it is); the composed
@@ -65,7 +65,7 @@ fn without_starter_items(actual: &str, recorded: &str) -> (String, usize) {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn inventory() {
-    let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("../isles-core/tests/golden/inventory");
+    let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/golden/inventory");
     let scenarios: Value = serde_json::from_str(&std::fs::read_to_string(dir.join("scenarios.json")).unwrap()).unwrap();
     let expected: Vec<Value> =
         serde_json::from_str(&std::fs::read_to_string(dir.join("expected.json")).unwrap()).unwrap();

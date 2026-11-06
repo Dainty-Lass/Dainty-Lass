@@ -3,6 +3,9 @@
 //! and the per-suite tally written to `target/tmp/mit-parity/<suite>.json`.
 #![allow(clippy::unwrap_used, clippy::expect_used, dead_code)] // test helpers
 
+pub mod normalise;
+pub mod reward_cache;
+pub mod starter;
 pub mod version_data;
 
 use std::collections::BTreeMap;

@@ -1,4 +1,4 @@
-//! `isles-core/tests/golden/game_data.json` (the game-data group under Node 22, `capture.mjs`) against the MIT module:
+//! `tests/golden/game_data.json` (the game-data group under Node 22, `capture.mjs`) against the MIT module:
 //! status, content type and body text, as restricted's `game_data::golden::check` compares them. The clock is the
 //! recording's; a player's game token rides on every case, as restricted's does.
 #![allow(clippy::unwrap_used, clippy::expect_used)]
@@ -9,7 +9,7 @@ use common::{Caller, Mit, Tally, credentials, send};
 use serde_json::{Value, json};
 
 fn golden_dir() -> std::path::PathBuf {
-    std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../isles-core/tests/golden")
+    std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/golden")
 }
 
 /// Every `description` text and every `list` entry becomes `<prose>`; the rest (keys, order, titles, types) stays.

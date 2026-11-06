@@ -1,4 +1,4 @@
-//! `isles-core/tests/golden/auth/` (the reference backend's auth answers, `run.sh`) against the MIT module: restricted's
+//! `tests/golden/auth/` (the reference backend's auth answers, `run.sh`) against the MIT module: restricted's
 //! `auth_golden.rs` loop and normalisation, the module restarted on the same database where an `env` step changes the
 //! settings, the code mails read from the recording mail.
 #![allow(clippy::unwrap_used, clippy::expect_used)]
@@ -13,7 +13,7 @@ use regex::{Captures, Regex};
 use serde_json::{Map, Value, json};
 
 fn golden_dir() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../isles-core/tests/golden/auth")
+    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/golden/auth")
 }
 
 fn read(name: &str) -> Value {

@@ -1,4 +1,4 @@
-//! `isles-core/tests/golden/chat/chat.json` (`routes/friends.ts` and `routes/guild.ts` on Node 22, `run.sh`) against
+//! `tests/golden/chat/chat.json` (`routes/friends.ts` and `routes/guild.ts` on Node 22, `run.sh`) against
 //! the MIT module: status, content type and body text. Restricted's stand-in auth (`x-test-user`) becomes the real
 //! credential: a user is that player's game token, an empty one a game server key naming no player, absent nothing.
 //!
@@ -15,7 +15,7 @@ use serde_json::{Value, json};
 
 #[tokio::test(flavor = "multi_thread")]
 async fn chat() {
-    let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../isles-core/tests/golden/chat/chat.json");
+    let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/golden/chat/chat.json");
     let steps: Vec<Value> = serde_json::from_str(&std::fs::read_to_string(path).unwrap()).unwrap();
     let mit = Mit::start(&[], |_| {}).await;
     let store = mit.store();

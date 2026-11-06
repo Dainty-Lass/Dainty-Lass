@@ -1,4 +1,4 @@
-//! `isles-core/tests/golden/scenario.json` against `matchmaking-parties.json` (`routes/matchmaking.ts` and
+//! `tests/golden/scenario.json` against `matchmaking-parties.json` (`routes/matchmaking.ts` and
 //! `routes/party.ts` on Node 22, `capture.cjs`): status, content type, `X-Mystic-Party-Revision` and body, with
 //! restricted's id normalisation. Restricted's fake Director becomes a fake DeployServer on 127.0.0.1:0 answering the
 //! two calls the module makes (every launch on 203.0.113.10:7777, Ramsgate ready there).
@@ -91,7 +91,7 @@ async fn fake_deployserver() -> std::net::SocketAddr {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn matchmaking_parties() {
-    let golden_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../isles-core/tests/golden");
+    let golden_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/golden");
     let steps: Vec<Value> =
         serde_json::from_str(&std::fs::read_to_string(golden_dir.join("scenario.json")).unwrap()).unwrap();
     let golden: Vec<Value> =

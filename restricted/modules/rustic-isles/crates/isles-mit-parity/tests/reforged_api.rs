@@ -1,4 +1,4 @@
-//! `isles-core/tests/golden/reforged_api.json` (the Reforged API routers under Node 22, `reforged_api_capture.mts`)
+//! `tests/golden/reforged_api.json` (the Reforged API routers under Node 22, `reforged_api_capture.mts`)
 //! against the MIT module, a fresh module per case as restricted's `reforged_api_golden.rs` does: status, the headers
 //! a client sees and the body, with ids and the uptime normalised the same way.
 #![allow(clippy::unwrap_used, clippy::expect_used)]
@@ -46,7 +46,7 @@ fn write_files(dir: &Path, files: &Map<String, Value>) {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn reforged_api() {
-    let path = Path::new(env!("CARGO_MANIFEST_DIR")).join("../isles-core/tests/golden/reforged_api.json");
+    let path = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/golden/reforged_api.json");
     let cases: Value = serde_json::from_str(&std::fs::read_to_string(path).unwrap()).unwrap();
     let mut tally = Tally::new("reforged_api");
     for (n, case) in cases.as_array().unwrap().iter().enumerate() {
