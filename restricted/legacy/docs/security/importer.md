@@ -18,7 +18,7 @@ Whoever made the file chose every byte of it: a player's offline save in particu
   and an old checkout's `host.json`, `secrets.env`, `backend.env` and folders.
 - **In, trusted:** the command's arguments, from the host's console or the host's own command line.
 - **Out:** rows in the 1.14.7 database (`accounts`, `launcher_accounts`, `auth_identities`, `reforged_invites`), files
-  moved inside the old checkout, `host.toml`, the `.mongo-migrated` marker, and `reforged-host db` (`--db-tool`) run as a child process.
+  moved inside the old checkout, `host.toml`, the `.mongo-migrated` marker, and `dainty-host db` (`--db-tool`) run as a child process.
 - **Process:** the plugin runs as its own process (DD5); stdout is the frame pipe, so it never prints there.
 
 Code: `revived/source.rs` (copy and bring forward), `revived/read.rs`, `revived/drsave.rs`, `target.rs`,
@@ -81,7 +81,7 @@ Fuzz targets: `database_readers` (arbitrary bytes as a server database, an offli
 - [ ] A MongoDB URI's password is redacted in every message, the marker and the report (test `an_old_kit_is_upgraded`).
 - [ ] An env file given as `--env-file` may hold the Postgres password: `PostgresConfig`'s `Debug` leaves it out
       (test `an_env_file_gives_the_backend_s_database`).
-- [ ] Known gap: `reforged-host db` takes the MongoDB URI and a Postgres target on its command line, where another user of
+- [ ] Known gap: `dainty-host db` takes the MongoDB URI and a Postgres target on its command line, where another user of
       the machine can read them while it runs. Run the Reforged upgrade on a machine only the host uses.
 
 ### The old checkout

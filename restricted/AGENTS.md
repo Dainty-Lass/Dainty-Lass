@@ -19,7 +19,7 @@ via relative path dependencies (`path = "../crates/<name>"` in `Cargo.toml`, `[w
 
 | Path | What it is |
 | --- | --- |
-| `restricted/` | One cargo workspace, every package of its own in `crates/<package name>`: `host` (the AGPL shell around `../crates/hostkit`, whose `compose.rs` composes the services into the controller), `gateway-plugin`, `content-plugin` and `chat-plugin` (the libraries of the MIT `gateway`, `content` and `chat`), `server-console` (which builds `dainty-lass-server-console` and `reforged-host`) and `server-minimal`. Also `launcher/src-tauri` (the Tauri launcher backend: `dainty-lass-client`, and `dainty-lass-manager` with the `server-gui` feature, kept where Tauri expects it) and the game modules' crates |
+| `restricted/` | One cargo workspace, every package of its own in `crates/<package name>`: `host` (the AGPL shell around `../crates/hostkit`, whose `compose.rs` composes the services into the controller), `gateway-plugin`, `content-plugin` and `chat-plugin` (the libraries of the MIT `gateway`, `content` and `chat`), `server-console` (which builds `dainty-server` and `dainty-host`) and `server-minimal`. Also `launcher/src-tauri` (the Tauri launcher backend: `dainty-launcher`, and `dainty-manager` with the `server-gui` feature, kept where Tauri expects it) and the game modules' crates |
 | `modules/rustic-isles/` | The library the core loads for the 1.14.7 module (`crates/isles-1-14-7-plugin`, over the root's MIT `rustic-isles-1-14-7`), its version data (`version-data/1.14.7`), the recorded Node goldens replayed against it (`crates/isles-mit-parity`), the C++ game runtime (`native/runtime`) and CatalogExporter (`native/catalog-exporter`), and the Node reference tree (`reference/1.14.7`). In-tree since RD27, members of this workspace |
 | `modules/rustic-rifts/` | Peer-to-peer realms' AGPL remainder: `ParadoxTransport.dll` (`src/`), and `oracle` (Mystic Paradox's Node vectors replayed against the MIT crates). The `rifts-*` crates themselves are the root's MIT clean-room ones (`../crates/rifts-*`, RD27) |
 | `legacy/` | dainty-legacy: the 1.4.4 importer, a workspace of its own (an external plugin `host.toml` pins) |
@@ -42,9 +42,9 @@ opt-in `paradox` Cargo feature on `host` retains Rustic Isles's Node backend and
 
 The server is one executable (RD26). Every service is a module of the root's `controller`, composed by
 `host::serve` (the AGPL ones through `crates/host/src/compose.rs`) from the files `setup` writes, and still runnable
-alone as a hidden `reforged-host <service>` subcommand (the root's `crates/hostkit/src/cli.rs`), which Docker
+alone as a hidden `dainty-host <service>` subcommand (the root's `crates/hostkit/src/cli.rs`), which Docker
 and `start` use.
-The same services also build as libraries the MIT core `dainty-lass-server` loads (RD27 phase 2, the `*-plugin`
+The same services also build as libraries the MIT core `dainty-core` loads (RD27 phase 2, the `*-plugin`
 crates); `compose.rs` links them into restricted's own binaries.
 
 **Which workspace a change goes in** follows its licence: anything ported from DR, Paradox or the Reforged Revival
@@ -131,14 +131,14 @@ Rules that read like overcaution:
 
 No game files, generated SDKs (`CppSDK/`, `SDK.hpp`), exported game data beyond the services' examples, or
 `.workspace/`. Lady Luck's Store and the platinum store are built on each server from
-`modules/rustic-isles/reference/1.14.7/ParadoxBackend/store-captures.json`. A server preset (`reforged-host preset`)
+`modules/rustic-isles/reference/1.14.7/ParadoxBackend/store-captures.json`. A server preset (`dainty-host preset`)
 is a host's own and is never committed.
 
 ## Configuration
 
 Every service reads one env file, given with `--env-file`, and nothing from its working directory
 (the root's `crates/service-kit/src/env.rs`, DR X7). As with Node's `--env-file`, the process environment wins over the file.
-**The env files are the host kit's output, not hand-written:** `reforged-host setup` writes them from
+**The env files are the host kit's output, not hand-written:** `dainty-host setup` writes them from
 `host.toml` and `secrets.env` (the root's `crates/hostkit/src/hostconfig.rs`, `hosttoml.rs`), and `start` hands each
 service its own. So a new setting is a field in `host.toml` (in `HostConfig`, and in `hosttoml.rs`'s key
 table with a snake_case name and a comment for new files), a `setup` option where a host should choose it,

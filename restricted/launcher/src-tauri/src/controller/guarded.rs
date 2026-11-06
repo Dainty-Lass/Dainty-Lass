@@ -1,5 +1,5 @@
 //! The guarded admin actions for the server GUI (DD23, DH6): the destructive and bulk actions that wait for a
-//! delay or a second operator, listed and decided by the host in this process, as `reforged-host admin
+//! delay or a second operator, listed and decided by the host in this process, as `dainty-host admin
 //! guarded` does. The host is an owner no admin key can be, so it approves or cancels what any key asked;
 //! the running server carries an approved action out within 30 seconds. Only the server GUI links the host
 //! kit, so only it has these.

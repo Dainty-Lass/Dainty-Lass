@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Silent Spud
 
-//! `reforged-host install-game` (DE6, DD22): installs Dauntless from the host's own Epic library for the game
+//! `dainty-host install-game` (DE6, DD22): installs Dauntless from the host's own Epic library for the game
 //! servers (`crate::epicinstall`), then points host.toml's `game_dir` at the new folder and rewrites the env files,
 //! so the Director's `GAMESERVER_BINARY_PATH` follows (the same two steps `multipliers` takes).
 //!
@@ -176,9 +176,9 @@ pub async fn run_with<L: Library>(
             ));
             if env_files {
                 out("The env files are rewritten, so the Director's GAMESERVER_BINARY_PATH names the new game.");
-                out("Restart the server for it to take effect. `reforged-host doctor` checks the game folder.");
+                out("Restart the server for it to take effect. `dainty-host doctor` checks the game folder.");
             } else {
-                out("Run reforged-host setup to write the env files from it.");
+                out("Run dainty-host setup to write the env files from it.");
             }
         }
         Configured::Unchanged => out("host.toml already names this folder."),

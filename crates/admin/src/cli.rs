@@ -3,7 +3,7 @@
 //! and ends the per-person keys (DH2). `admin guarded list|approve|cancel` is the host side of the destructive
 //! and bulk actions that wait (DH6).
 //!
-//! The command line, run by `reforged-host <service>` (RD26: one binary runs every service).
+//! The command line, run by `dainty-host <service>` (RD26: one binary runs every service).
 
 use std::path::PathBuf;
 use std::process::ExitCode;

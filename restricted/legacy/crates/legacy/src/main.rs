@@ -22,7 +22,7 @@ fn main() -> ExitCode {
             .enable_all()
             .build()
             .map_err(|e| legacy_import::ImportError::Io(format!("the async runtime: {e}")))?;
-        // Outside a network a server is its own accounts' home, `local` (as `reforged-host db migrate`)
+        // Outside a network a server is its own accounts' home, `local` (as `dainty-host db migrate`)
         let local = "local"
             .parse()
             .map_err(|e| legacy_import::ImportError::Usage(format!("{e}")))?;

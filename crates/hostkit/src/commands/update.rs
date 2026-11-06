@@ -200,7 +200,7 @@ pub fn unmigrated_mongo_problem(p: &Paths, config: &HostConfig) -> Option<String
     // An install already on host.toml never meets dainty-legacy's host.json check, so it is caught here
     has_unmigrated_mongo_dir(p).then(|| {
         format!(
-            "unmigrated MongoDB data was found in {}: move it with `reforged-host db migrate` and `db verify` (or `dainty-legacy import reforged <checkout>`), or pass --fresh-start to setup to start on a fresh database",
+            "unmigrated MongoDB data was found in {}: move it with `dainty-host db migrate` and `db verify` (or `dainty-legacy import reforged <checkout>`), or pass --fresh-start to setup to start on a fresh database",
             p.mongo_data.display()
         )
     })
@@ -269,7 +269,7 @@ pub fn run_with(
     if args.check {
         if interrupted {
             out(&format!(
-                "The last update stopped before it was complete: run reforged-host update to finish installing servers {} ({platform}).",
+                "The last update stopped before it was complete: run dainty-host update to finish installing servers {} ({platform}).",
                 candidate.version
             ));
             if args.json {
@@ -402,15 +402,13 @@ pub fn run_with(
             let host_bin = p
                 .repo
                 .join("bin")
-                .join(format!("reforged-host{}", std::env::consts::EXE_SUFFIX));
+                .join(format!("dainty-host{}", std::env::consts::EXE_SUFFIX));
             let code = env.run_setup(&host_bin, &p.repo)?;
             if code != 0 {
-                return Err(HostError::message(format!(
-                    "reforged-host setup exited with code {code}"
-                )));
+                return Err(HostError::message(format!("dainty-host setup exited with code {code}")));
             }
         } else {
-            out("Now run reforged-host setup.");
+            out("Now run dainty-host setup.");
         }
     }
 

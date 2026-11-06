@@ -1,5 +1,5 @@
 # Builds the launcher release (MIGRATION_PLAN.md RA14, RD7; from Dauntless Revived's L45–L48): DaintyLass Launcher
-# (dainty-lass-client) and DaintyLass Manager (dainty-lass-manager), each as
+# (dainty-launcher) and DaintyLass Manager (dainty-manager), each as
 #  - DaintyLass{Launcher,Manager}_<version>_x64-setup.exe   NSIS, per user, built on windows-msvc
 #  - DaintyLass{Launcher,Manager}_<version>_amd64.AppImage, .deb and _x86_64.rpm   built on Ubuntu 22.04, so the
 #                                                           packages run on its glibc and anything newer

@@ -53,7 +53,7 @@ pub const RESERVED_PORTS: [u16; 8] = [
     61004,
 ];
 /// `edition` is read only to refuse the 1.4.4 ones; `reborn` is dropped when the file is next written
-pub const EDITION_REMOVED: &str = "edition \"legacy\" and \"both\" ran Dauntless Revived's 1.4.4, which this server no longer runs: remove edition from host.toml (an old 1.4.4 server's accounts import with reforged-host legacy import revived)";
+pub const EDITION_REMOVED: &str = "edition \"legacy\" and \"both\" ran Dauntless Revived's 1.4.4, which this server no longer runs: remove edition from host.toml (an old 1.4.4 server's accounts import with dainty-host legacy import revived)";
 pub const MAX_HOST_CONFIG_BYTES: u64 = 256 * 1024;
 pub const SECRET_FILE: &str = "secrets.env";
 pub const SECRET_KEYS: [&str; 12] = [

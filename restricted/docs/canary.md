@@ -24,7 +24,7 @@ CAPTURE_RETENTION_DAYS=14
 CAPTURE_MAX_BODY_BYTES=262144
 ```
 
-Restart the server (`reforged-host start`, `reforged-host serve`, or `systemctl restart reforged.service`). At start the gateway logs:
+Restart the server (`dainty-host start`, `dainty-host serve`, or `systemctl restart reforged.service`). At start the gateway logs:
 
 ```text
 traffic capture is on: every request and answer is recorded, redacted, for the shadow replay (personal data; see dainty-lass's docs/security/gateway.md)
@@ -47,7 +47,7 @@ The gateway writes one file per UTC day named `gateway-YYYY-MM-DD.jsonl` inside 
 
 ## 2. Replaying a capture against a second server (`RU8`, `RB2`)
 
-Shadow replay is built into `reforged-host db replay` (backed by dainty-lass's `rustic_isles_replay::run_replay_cli`) with a wrapper in dainty-lass, `scripts/replay-capture.mjs`.
+Shadow replay is built into `dainty-host db replay` (backed by dainty-lass's `rustic_isles_replay::run_replay_cli`) with a wrapper in dainty-lass, `scripts/replay-capture.mjs`.
 
 ### 2.1 Preparing the target server (`--right`)
 
@@ -65,11 +65,11 @@ Shadow replay is built into `reforged-host db replay` (backed by dainty-lass's `
        "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef": "RRK_51e9d7eb..."
      }
      ```
-3. Run `reforged-host db replay` (or dainty-lass's `node scripts/replay-capture.mjs`) from the target server's directory (so it automatically reads `AUTH_SIGNING_PRIVKEY_B64`, `JWT_SECRET`, `GAMESERVER_API_KEY`, and `GATEWAY_SECRET` from `.workspace/config/secrets.env`), or pass the credentials explicitly on the command line:
+3. Run `dainty-host db replay` (or dainty-lass's `node scripts/replay-capture.mjs`) from the target server's directory (so it automatically reads `AUTH_SIGNING_PRIVKEY_B64`, `JWT_SECRET`, `GAMESERVER_API_KEY`, and `GATEWAY_SECRET` from `.workspace/config/secrets.env`), or pass the credentials explicitly on the command line:
 
 ```bash
 # Replay recorded gateway capture against a running local target server on port 61000:
-reforged-host db replay \
+dainty-host db replay \
   --corpus /path/to/capture \
   --left recorded \
   --right http://127.0.0.1:61000 \
@@ -91,10 +91,10 @@ A capture can also be replayed live against two servers at once (for example, th
 
 ### 2.2 Reading the diff report
 
-`reforged-host db replay` prints a summary line and exits with code `0` when `unexplained_diffed == 0` (`PASS`) or code `2` when any unexplained diff is found (`DIFF`):
+`dainty-host db replay` prints a summary line and exits with code `0` when `unexplained_diffed == 0` (`PASS`) or code `2` when any unexplained diff is found (`DIFF`):
 
 ```text
-reforged-host db replay: PASS (records=32, http=25, chat_conns=1, skipped=0, exact_matched=26, inexact_matched=0, inexact_diffed=0, unexplained_diffed=0)
+dainty-host db replay: PASS (records=32, http=25, chat_conns=1, skipped=0, exact_matched=26, inexact_matched=0, inexact_diffed=0, unexplained_diffed=0)
   diffs by kind: status=0, header=0, value=0, text=0, chat_stanza=0
 ```
 
@@ -124,17 +124,17 @@ Until `RB15` removes the Node reference trees after the 7-day canary window, ope
 
 ### 3.1 Step 1: export SQLite or PostgreSQL player data back to MongoDB
 
-Before starting the Node services, export the current SQLite (`dainty-lass.db`) or PostgreSQL store back into the MongoDB `reforged` database using `reforged-host db export-mongo`:
+Before starting the Node services, export the current SQLite (`dainty-lass.db`) or PostgreSQL store back into the MongoDB `reforged` database using `dainty-host db export-mongo`:
 
 ```bash
 # Dry-run first to inspect collection document counts:
-reforged-host db export-mongo \
+dainty-host db export-mongo \
   --from /opt/reforged/.workspace/config/dainty-lass.db \
   --to mongodb://127.0.0.1:27017/reforged \
   --dry-run
 
 # Perform the live export into MongoDB:
-reforged-host db export-mongo \
+dainty-host db export-mongo \
   --from /opt/reforged/.workspace/config/dainty-lass.db \
   --to mongodb://127.0.0.1:27017/reforged
 ```
@@ -157,12 +157,12 @@ COMPOSE_PROFILES=public,rollback docker compose up -d
 
 On a native host installation:
 
-1. Build `reforged-host` with the `paradox` cargo feature enabled:
+1. Build `dainty-host` with the `paradox` cargo feature enabled:
    ```bash
    cargo build --release -p server-console --features paradox --locked
    ```
-2. Ensure MongoDB (`mongod`) and Node.js (`>= 20.19`) are installed (`reforged-host doctor` checks both when built with `--features paradox`).
-3. Run `reforged-host setup` and `reforged-host start` (or `reforged-host serve`). When compiled with `--features paradox`, `hostkit::serve::compose` supervises `mongod`, the Node `ParadoxBackend` (`build/server.js`), and the Node `ParadoxDirector` in place of the in-process Rust `isles-1-14-7` module.
+2. Ensure MongoDB (`mongod`) and Node.js (`>= 20.19`) are installed (`dainty-host doctor` checks both when built with `--features paradox`).
+3. Run `dainty-host setup` and `dainty-host start` (or `dainty-host serve`). When compiled with `--features paradox`, `hostkit::serve::compose` supervises `mongod`, the Node `ParadoxBackend` (`build/server.js`), and the Node `ParadoxDirector` in place of the in-process Rust `isles-1-14-7` module.
 
 ---
 
@@ -174,7 +174,7 @@ Per `docs/dainty-lass-plan.md` (`RU9`) and `MIGRATION_PLAN.md` (`RB12`, `RB15`),
 2. During those 7 days:
    - Zero unhandled panics in server logs (`server.log`).
    - Zero account, character, inventory, loadout, progression, quest, or guild data corruption incidents.
-   - Shadow replay (`reforged-host db replay`) of the captured daily `.jsonl` files reports `unexplained_diffed: 0` (`PASS`).
+   - Shadow replay (`dainty-host db replay`) of the captured daily `.jsonl` files reports `unexplained_diffed: 0` (`PASS`).
    - No rollback (`--features paradox` / `--profile rollback`) triggered during the 7-day window (if a fix requires restarting or rolling back, the 7-day clock resets once the fix is deployed).
 3. Once the gate passes, `RB15` deletes the Node reference trees (`modules/rustic-isles/reference/1.14.7/{ParadoxBackend,ParadoxDirector,shared}`) and removes the `paradox` cargo feature and the `rollback` Docker profile.
 
@@ -216,7 +216,7 @@ The end-to-end pipeline (live `Server A` with `CAPTURE_DIR` enabled in `.workspa
 ### 5.2 Recorded proof output
 
 ```text
-=== 1. Running reforged-host setup in server-a ===
+=== 1. Running dainty-host setup in server-a ===
 === 2. Starting server-a to seed CanarySlayer account ===
 Seeded CanarySlayer: {
   userId: '52c7ed2e-99e4-463c-8d08-7f509bc9de02',
@@ -230,7 +230,7 @@ Captured JSONL lines: 32
 Redaction verified: <key:...>, <token:...>, <plain:...> present: { hasKeyTag: true, hasTokenTag: true, hasPlainTag: true }
 === 6. Starting server-b and running shadow replay ===
 Replay stdout:
-reforged-host db replay: PASS (records=32, http=25, chat_conns=1, skipped=0, exact_matched=26, inexact_matched=0, inexact_diffed=0, unexplained_diffed=0)
+dainty-host db replay: PASS (records=32, http=25, chat_conns=1, skipped=0, exact_matched=26, inexact_matched=0, inexact_diffed=0, unexplained_diffed=0)
   diffs by kind: status=0, header=0, value=0, text=0, chat_stanza=0
 
 Replay exit code: 0

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Silent Spud
 
-//! `reforged-host install-game` (DD22, DE6): the game servers' Dauntless installed from the host's own Epic library,
+//! `dainty-host install-game` (DD22, DE6): the game servers' Dauntless installed from the host's own Epic library,
 //! on `crates/epic` (DE1 to DE5), the launcher's installer. Epic's account service, the library and the CDN are
 //! behind the crate's own seams, so the tests put doubles and a fake CDN in their place.
 //!
@@ -90,8 +90,8 @@ pub fn save_session(file: &Path, session: &Session) -> Result<(), HostError> {
     ];
     let text = format_env(
         &[
-            "DaintyLass: the Epic session `reforged-host install-game` signed in with. SECRET: whoever has this file can act",
-            "as the Epic account for weeks. Never share or commit it; `reforged-host install-game --sign-out` ends it.",
+            "DaintyLass: the Epic session `dainty-host install-game` signed in with. SECRET: whoever has this file can act",
+            "as the Epic account for weeks. Never share or commit it; `dainty-host install-game --sign-out` ends it.",
         ],
         &entries,
     )?;

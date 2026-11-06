@@ -290,7 +290,7 @@ pub fn create_preset(p: &Paths, opts: &CreateOptions, now: DateTime<Utc>) -> Res
 
     if staged.is_empty() {
         return Err(HostError::message(
-            "no generated game data to make a preset from yet (reforged-host gamedata first, or pass --generate)",
+            "no generated game data to make a preset from yet (dainty-host gamedata first, or pass --generate)",
         ));
     }
 
@@ -334,7 +334,7 @@ pub fn create_preset(p: &Paths, opts: &CreateOptions, now: DateTime<Utc>) -> Res
     let manifest = PresetManifest {
         comment: vec![
             format!(
-                "Server preset \"{name}\": the game data every server set up from this project starts from (reforged-host preset)."
+                "Server preset \"{name}\": the game data every server set up from this project starts from (dainty-host preset)."
             ),
             format!(
                 "Read from an installed Dauntless {} client for interoperability: identifiers and tuning values (item catalogue, store, progression and hunt tables), no game assets.",

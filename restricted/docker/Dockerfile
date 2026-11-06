@@ -5,10 +5,10 @@
 #   docker build -f restricted/docker/Dockerfile --target server .   (from the monorepo root)
 #
 # Two images, both laid out as the server release is (RD8, .forgejo/workflows/server-release.yml), under
-# /opt/reforged, so every path reforged-host writes into the env files is the same in every container:
+# /opt/reforged, so every path dainty-host writes into the env files is the same in every container:
 #   front   the internet-facing Rust services on Debian slim: gateway, allowlist (with nftables), content,
-#           admin API, each a container running `reforged-host <service>` from the one server binary (RD26)
-#   server  reforged-host (with the Rust 1.14.7 backend and Director compiled in, RU9/RB14), the libraries
+#           admin API, each a container running `dainty-host <service>` from the one server binary (RD26)
+#   server  dainty-host (with the Rust 1.14.7 backend and Director compiled in, RU9/RB14), the libraries
 #           host.toml can pin in plugins/ (RD27), and Wine for the game servers on Debian slim; also the image the
 #           host kit's commands run in
 #   netem   iproute2 alone, for the `network` profile's injected latency (DN12)
@@ -52,7 +52,7 @@ WORKDIR /src/restricted
 COPY restricted/rust-toolchain.toml ./
 RUN rustup show active-toolchain || rustup toolchain install
 COPY --from=rust-sources /src/ /src/
-# The release workflow's build: the server in one binary, reforged-host, with the gateway, allowlist, content server
+# The release workflow's build: the server in one binary, dainty-host, with the gateway, allowlist, content server
 # and admin API inside it, and the game modules (all-modules, DF5). The launcher is a workspace member but is not
 # built (only the lock file is read).
 # REFORGED_MODULES: the server-console features that link the game modules; empty builds none, which still serves.
@@ -65,7 +65,7 @@ RUN --mount=type=cache,id=reforged-cargo-registry,target=/usr/local/cargo/regist
  && for f in $(echo "$features" | tr , ' '); do set -- "$@" --features "server-console/$f"; done \
  && cargo build --release --locked -p server-console "$@" --bins \
  && mkdir -p /out/bin \
- && cp target/release/reforged-host /out/bin/
+ && cp target/release/dainty-host /out/bin/
 # The libraries host.toml can pin (RD27), as the release ships them in plugins/; a service's crate joins the list by
 # being in the workspace
 RUN --mount=type=cache,id=reforged-cargo-registry,target=/usr/local/cargo/registry \
@@ -94,7 +94,7 @@ RUN apt-get update \
  && groupadd --gid 1000 reforged \
  && useradd --uid 1000 --gid 1000 --home-dir /opt/reforged --no-create-home --shell /usr/sbin/nologin reforged \
  && mkdir -p /opt/reforged/.workspace && chown reforged:reforged /opt/reforged/.workspace
-COPY --from=rust-build /out/bin/reforged-host /opt/reforged/bin/
+COPY --from=rust-build /out/bin/dainty-host /opt/reforged/bin/
 COPY --chmod=0755 restricted/docker/healthcheck.sh /opt/reforged/bin/reforged-healthcheck
 ENV PATH=/opt/reforged/bin:$PATH
 WORKDIR /opt/reforged/.workspace
@@ -129,7 +129,7 @@ COPY --chown=reforged:reforged restricted/${ISLES}/ParadoxDirector/game-data/ ${
 COPY --from=rust-build /out/bin/ bin/
 COPY --from=rust-build /out/plugins/ plugins/
 COPY --chmod=0755 restricted/docker/director-entrypoint.sh bin/reforged-director
-COPY --chmod=0755 restricted/docker/host-entrypoint.sh bin/reforged-host-docker
+COPY --chmod=0755 restricted/docker/host-entrypoint.sh bin/dainty-host-docker
 COPY --chmod=0755 restricted/docker/healthcheck.sh bin/reforged-healthcheck
 # The network profile's one-shot (compose.yaml network-init, DN12)
 COPY --chmod=0755 restricted/docker/network/init.sh bin/reforged-network-init
@@ -142,7 +142,7 @@ ENV REFORGED_SOURCE_COMMIT=${REFORGED_COMMIT} \
     PATH=/opt/reforged/bin:$PATH
 USER reforged
 ENTRYPOINT ["/usr/bin/tini", "--"]
-CMD ["reforged-host", "--help"]
+CMD ["dainty-host", "--help"]
 LABEL org.opencontainers.image.title="DaintyLass server" \
       org.opencontainers.image.licenses="AGPL-3.0-only" \
       org.opencontainers.image.source="https://git.silentspud.com/silentspud/dainty-lass"
@@ -219,7 +219,7 @@ COPY --chown=node:node restricted/modules/rustic-isles/native/ modules/rustic-is
 COPY --chown=node:node --from=node-build /src/modules/rustic-isles/reference/1.14.7/ modules/rustic-isles/reference/1.14.7/
 COPY --from=rust-build /out/bin/ bin/
 COPY --chmod=0755 restricted/docker/director-entrypoint.sh bin/reforged-director
-COPY --chmod=0755 restricted/docker/host-entrypoint.sh bin/reforged-host-docker
+COPY --chmod=0755 restricted/docker/host-entrypoint.sh bin/dainty-host-docker
 COPY --chmod=0755 restricted/docker/healthcheck.sh bin/reforged-healthcheck
 COPY --chmod=0755 restricted/docker/network/init.sh bin/reforged-network-init
 ARG ISLES=modules/rustic-isles/reference/1.14.7
@@ -234,7 +234,7 @@ ENV REFORGED_SOURCE_COMMIT=${REFORGED_COMMIT} \
     PATH=/opt/reforged/bin:$PATH
 USER node
 ENTRYPOINT ["/usr/bin/tini", "--"]
-CMD ["reforged-host", "--help"]
+CMD ["dainty-host", "--help"]
 LABEL org.opencontainers.image.title="DaintyLass server (Node rollback)" \
       org.opencontainers.image.licenses="AGPL-3.0-only" \
       org.opencontainers.image.source="https://git.silentspud.com/silentspud/dainty-lass"

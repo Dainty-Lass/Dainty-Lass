@@ -9,7 +9,7 @@ use std::path::{Path, PathBuf};
 #[derive(Debug, thiserror::Error)]
 pub enum HostError {
     /// A command or helper the skeleton (RH1) registered and a later row fills.
-    #[error("{what} is not written yet in reforged-host (MIGRATION_PLAN.md {row})")]
+    #[error("{what} is not written yet in dainty-host (MIGRATION_PLAN.md {row})")]
     NotImplemented { what: &'static str, row: &'static str },
     /// A problem told to the host.
     #[error("{0}")]

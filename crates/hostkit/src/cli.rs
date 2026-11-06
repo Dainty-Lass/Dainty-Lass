@@ -7,7 +7,7 @@ use std::path::PathBuf;
 use clap::{Args, Parser, Subcommand};
 
 #[derive(Debug, Clone, Parser)]
-#[command(name = "reforged-host", disable_version_flag = true)]
+#[command(name = "dainty-host", disable_version_flag = true)]
 pub struct Cli {
     #[command(subcommand)]
     pub command: Command,
@@ -761,7 +761,7 @@ mod tests {
 
     #[test]
     fn parses_core_commands_and_flags() {
-        let cli = Cli::parse_from(["reforged-host", "setup", "--mode", "private", "--fresh-start"]);
+        let cli = Cli::parse_from(["dainty-host", "setup", "--mode", "private", "--fresh-start"]);
         assert_eq!(cli.command.name(), "setup");
         if let Command::Setup(s) = cli.command {
             assert_eq!(s.mode.as_deref(), Some("private"));
@@ -770,7 +770,7 @@ mod tests {
             panic!("expected Setup");
         }
 
-        let cli = Cli::parse_from(["reforged-host", "gateway", "serve", "--env-file", "g.env"]);
+        let cli = Cli::parse_from(["dainty-host", "gateway", "serve", "--env-file", "g.env"]);
         assert_eq!(cli.command.name(), "gateway");
         if let Command::Gateway { args } = cli.command {
             assert_eq!(args, vec!["serve", "--env-file", "g.env"]);
@@ -779,7 +779,7 @@ mod tests {
         }
 
         let cli = Cli::parse_from([
-            "reforged-host",
+            "dainty-host",
             "db",
             "replay",
             "--corpus",

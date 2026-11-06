@@ -25,10 +25,10 @@ pub use crate::bridge::types::{HostComponentPhase, HostInvite, HostServerCompone
 use crate::platform::hostkit::parse::{clean_line, cut, failure_line};
 use crate::platform::hostkit::{WorkspacePaths, find_host_binary};
 
-/// Environment variable telling `reforged-host start` to accept control commands on stdin.
+/// Environment variable telling `dainty-host start` to accept control commands on stdin.
 pub const CONTROL_ENV: &str = "REFORGED_CONTROL";
 
-/// Output line emitted by `reforged-host start` when all server listeners are ready.
+/// Output line emitted by `dainty-host start` when all server listeners are ready.
 pub const SERVER_READY_LINE: &str = "REFORGED_SERVER_READY";
 
 /// Default local TCP port for the backend service.
@@ -92,7 +92,7 @@ pub trait EmbeddedServer: Send + Sync {
     }
 }
 
-/// Resolved command invocation for `reforged-host`.
+/// Resolved command invocation for `dainty-host`.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct HostTool {
     pub program: PathBuf,
@@ -100,7 +100,7 @@ pub struct HostTool {
 }
 
 impl HostTool {
-    /// Locates the `reforged-host` executable inside `workspace`.
+    /// Locates the `dainty-host` executable inside `workspace`.
     pub fn find(workspace: &Path) -> Option<Self> {
         find_host_binary(workspace).map(|program| Self {
             program,
@@ -130,7 +130,7 @@ impl HostKitError {
     }
 }
 
-/// Captured result of a one-shot `reforged-host` CLI subcommand.
+/// Captured result of a one-shot `dainty-host` CLI subcommand.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CommandOutput {
     pub code: i32,
@@ -335,7 +335,7 @@ impl HostServer {
         }
     }
 
-    /// Runs a one-shot `reforged-host` subcommand, streaming non-redacted lines to the view and log file.
+    /// Runs a one-shot `dainty-host` subcommand, streaming non-redacted lines to the view and log file.
     pub async fn command(
         &self,
         tool: &HostTool,
@@ -472,7 +472,7 @@ impl HostServer {
         }
     }
 
-    /// Starts the host server (either embedded or as a `reforged-host start` child process).
+    /// Starts the host server (either embedded or as a `dainty-host start` child process).
     pub async fn start(&self, tool: &HostTool, workspace: &Path) -> Result<(), HostKitError> {
         {
             let Ok(mut guard) = self.inner.lock() else {

@@ -28,7 +28,7 @@ pub fn run_with(
     out: &mut dyn FnMut(&str),
 ) -> Result<ExitCode, HostError> {
     let config =
-        load_host_config(paths)?.ok_or_else(|| HostError::message("not set up yet: run reforged-host setup first"))?;
+        load_host_config(paths)?.ok_or_else(|| HostError::message("not set up yet: run dainty-host setup first"))?;
 
     let target_game = resolve_game_version(args.game.as_deref())?;
 
@@ -136,7 +136,7 @@ fn read_admin_key(paths: &Paths) -> Result<String, HostError> {
         }
     }
     Err(HostError::message(
-        "REFORGED_ADMIN_KEY is missing from .workspace/config/secrets.env (run reforged-host setup)",
+        "REFORGED_ADMIN_KEY is missing from .workspace/config/secrets.env (run dainty-host setup)",
     ))
 }
 

@@ -2,7 +2,7 @@
 
 # Logging
 
-`reforged-host start` and `serve` log every in-process service, and every process they supervise, through one
+`dainty-host start` and `serve` log every in-process service, and every process they supervise, through one
 `tracing` subscriber (`crates/service-kit/src/telemetry.rs`). Every record is redacted first: account keys, secrets,
 tokens and auth headers never reach the console, the file or a collector.
 
@@ -82,6 +82,6 @@ needed. Each change is audited on the dashboard and can be undone from its activ
 
 ## Not covered yet
 
-- `reforged-host <service>` run alone (the per-service Docker containers) still logs pino-style JSON
+- `dainty-host <service>` run alone (the per-service Docker containers) still logs pino-style JSON
   (`crates/service-kit/src/log.rs`), not this format, and ships nothing. Docker's own `gelf` log driver ships those.
 - GELF over UDP, and an auth header for a collector behind a proxy.

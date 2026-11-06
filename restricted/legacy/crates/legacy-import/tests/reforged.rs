@@ -1,4 +1,4 @@
-//! A Reforged Revival Node-kit install upgraded in place: its MongoDB first (a stand-in for reforged-host db here), then the
+//! A Reforged Revival Node-kit install upgraded in place: its MongoDB first (a stand-in for dainty-host db here), then the
 //! old folders, secrets.env and host.json.
 
 #![allow(clippy::unwrap_used, clippy::expect_used)]
@@ -134,7 +134,7 @@ fn nothing_changes_when_mongodb_is_not_moved() {
     );
     unchanged(&l);
 
-    // reforged-host db verify found a difference
+    // dainty-host db verify found a difference
     let config = target(dir.path());
     let db_tool = FakeDbTool {
         differ: vec!["accounts".into()],

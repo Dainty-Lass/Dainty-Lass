@@ -35,7 +35,7 @@ AGPL parts and builds the full server, the Tauri launcher and the Docker images,
 
 | Folder | What |
 | --- | --- |
-| [`.`](.) | Independent AGPL-3.0-only Cargo workspace: `crates/` (`host`, the libraries of the MIT gateway, content and chat, and the server executables), `launcher/src-tauri` (Tauri: `dainty-lass-client` and `dainty-lass-manager`), and the game modules' crates |
+| [`.`](.) | Independent AGPL-3.0-only Cargo workspace: `crates/` (`host`, the libraries of the MIT gateway, content and chat, and the server executables), `launcher/src-tauri` (Tauri: `dainty-launcher` and `dainty-manager`), and the game modules' crates |
 | [`modules/rustic-isles/`](modules/rustic-isles) | The library the core loads for the 1.14.7 module (`isles-1-14-7-plugin`), its version data and the Node goldens replayed against it (`isles-mit-parity`), the runtime's C++ source and CatalogExporter (`native/`), and the Node reference sources (`reference/1.14.7`) |
 | [`modules/rustic-rifts/`](modules/rustic-rifts) | The realm transport (`ParadoxTransport.dll`) and `oracle`, which replays Mystic Paradox's answers against the root's MIT `rifts-*` crates |
 | [`legacy/`](legacy) | The importer for Dauntless Revived 1.4.4 and Reforged Revival installs |
@@ -51,8 +51,8 @@ The restricted Rust workspace, from `restricted/` (the toolchain is pinned in `r
 cargo build --release -p server-console --features all-modules --bins
 ```
 
-The desktop apps live in `launcher` (`bun install && bun run build:client` for `dainty-lass-client` and
-`bun run build:manager` for `dainty-lass-manager`, which build the pages from `../ui/`, dainty-dash). The bridge
+The desktop apps live in `launcher` (`bun install && bun run build:client` for `dainty-launcher` and
+`bun run build:manager` for `dainty-manager`, which build the pages from `../ui/`, dainty-dash). The bridge
 tests are in `../launcher` (`bun run test`). The runtime and the CatalogExporter need a host's own SDK
 ([../docs/sdk-and-game-data.md](../docs/sdk-and-game-data.md)).
 `bash docker/run-tests.sh` from `restricted/` builds the images and runs every server suite inside them.

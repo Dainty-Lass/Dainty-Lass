@@ -97,7 +97,7 @@ fn says_how_many_hunts_fit_in_this_machines_memory() {
     assert_eq!(unguarded[1].level, Level::Warn);
     assert_eq!(
         unguarded[1].fix.as_deref(),
-        Some("reforged-host setup --memory-guard, or --max-hunts 7")
+        Some("dainty-host setup --memory-guard, or --max-hunts 7")
     );
     assert_eq!(
         performance_checks(&eight, None, Some(32 * 1024), Platform::Linux).len(),

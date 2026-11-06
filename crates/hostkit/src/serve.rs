@@ -43,7 +43,7 @@ pub struct ServeOptions {
 }
 
 impl ServeOptions {
-    /// `reforged-host start`: no console.
+    /// `dainty-host start`: no console.
     pub fn start() -> Self {
         Self {
             config_file: None,
@@ -814,7 +814,7 @@ fn load_config(paths: &Paths, config_file: Option<&Path>) -> Result<HostConfig, 
                 && crate::commands::update::has_unmigrated_mongo_dir(paths)
             {
                 return Err(HostError::message(format!(
-                    "unmigrated MongoDB data was found in {}: move it with `reforged-host db migrate` and `db verify` (or `dainty-legacy import reforged <checkout>`), or pass --fresh-start to setup to start on a fresh database",
+                    "unmigrated MongoDB data was found in {}: move it with `dainty-host db migrate` and `db verify` (or `dainty-legacy import reforged <checkout>`), or pass --fresh-start to setup to start on a fresh database",
                     paths.mongo_data.display()
                 )));
             }
@@ -941,7 +941,7 @@ pub fn run(paths: &Paths, options: &ServeOptions) -> Outcome {
         } else if interactive {
             say("Type `help` for the console's commands; `stop` or Ctrl+C stops everything.");
         } else {
-            say("Make an invite in another terminal: reforged-host invite --for \"Alex\"");
+            say("Make an invite in another terminal: dainty-host invite --for \"Alex\"");
             say("Ctrl+C stops everything.");
         }
         if let Some(ring) = tui_ring {
@@ -1008,7 +1008,7 @@ pub fn minimal_main() -> ExitCode {
             },
             "--help" | "-h" => {
                 println!(
-                    "Usage: dainty-lass-server-minimal [OPTIONS]\n  -c, --config <FILE>      host.toml, .yaml, .yml or .json (the workspace's otherwise)\n      --root <DIR>         The server folder (holds .workspace/); found from this binary otherwise\n      --log-level <LEVEL>  error, warn, info, debug or trace (default: info)"
+                    "Usage: dainty-server-minimal [OPTIONS]\n  -c, --config <FILE>      host.toml, .yaml, .yml or .json (the workspace's otherwise)\n      --root <DIR>         The server folder (holds .workspace/); found from this binary otherwise\n      --log-level <LEVEL>  error, warn, info, debug or trace (default: info)"
                 );
                 return ExitCode::SUCCESS;
             }

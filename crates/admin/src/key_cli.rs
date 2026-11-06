@@ -1,4 +1,4 @@
-//! `admin key issue|list|revoke` (run as `reforged-host admin key ...`): the owner's way to give each person a
+//! `admin key issue|list|revoke` (run as `dainty-host admin key ...`): the owner's way to give each person a
 //! key of their own and to take one away (DD23 layer 4, DH2). The host kit has the machine and `admin.env`, so
 //! these need no key; each change is logged under `host:admin key <command>`.
 
@@ -61,7 +61,7 @@ fn issue(keys: &Keys, name: &str, role: &str) -> Result<(), String> {
         info.name
     );
     println!(
-        "They send it as Authorization: Bearer <key>. Revoke it with: reforged-host admin key revoke {}",
+        "They send it as Authorization: Bearer <key>. Revoke it with: dainty-host admin key revoke {}",
         info.id
     );
     Ok(())

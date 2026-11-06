@@ -1,6 +1,6 @@
-# DaintyLass server in Docker (docs/hosting-docker.md). The same services `reforged-host start`
+# DaintyLass server in Docker (docs/hosting-docker.md). The same services `dainty-host start`
 # runs (dainty-lass's crates/hostkit/src/serve.rs), one container each, with compose doing the supervision: start order,
-# health checks, restarts, logs, one clean stop. Each Rust service is `reforged-host <service>`, so every container
+# health checks, restarts, logs, one clean stop. Each Rust service is `dainty-host <service>`, so every container
 # keeps only the privileges its service needs (the allowlist alone has NET_ADMIN).
 #
 #   cp .env.example .env               then edit it
@@ -111,7 +111,7 @@ x-network-configure: &network-configure
   profiles: [network]
   network_mode: none
   restart: "no"
-  entrypoint: ["/usr/bin/tini", "--", "reforged-host-docker"]
+  entrypoint: ["/usr/bin/tini", "--", "dainty-host-docker"]
   command: ["apply"]
   # Not read-only: setup writes the game-data folders of the image, which a node with no game never reads
   security_opt: [no-new-privileges:true]
@@ -124,7 +124,7 @@ x-network-gateway: &network-gateway
     dockerfile: restricted/docker/Dockerfile
     target: front
   profiles: [network]
-  command: ["reforged-host", "gateway", "serve", "--env-file", "/opt/reforged/.workspace/config/gateway.env"]
+  command: ["dainty-host", "gateway", "serve", "--env-file", "/opt/reforged/.workspace/config/gateway.env"]
   restart: unless-stopped
   init: true
   read_only: true
@@ -148,7 +148,7 @@ x-network-node: &network-node
   environment:
     REFORGED_NETWORK_FULL_NODE: "1"
     REFORGED_WRONG_NODE_POLICY: ${REFORGED_WRONG_NODE_POLICY:-refuse}
-  command: ["reforged-host", "gateway", "serve", "--env-file", "/opt/reforged/.workspace/config/gateway.env"]
+  command: ["dainty-host", "gateway", "serve", "--env-file", "/opt/reforged/.workspace/config/gateway.env"]
   restart: unless-stopped
   init: true
   security_opt: [no-new-privileges:true]
@@ -204,7 +204,7 @@ services:
       - mongo-data:/data/db
       - mongo-config:/data/configdb
     healthcheck:
-      # Initiates the replica set the first time, as `reforged-host start` does; healthy once it is primary
+      # Initiates the replica set the first time, as `dainty-host start` does; healthy once it is primary
       test:
         - CMD
         - mongosh
@@ -259,7 +259,7 @@ services:
     <<: *server
     profiles: [toml]
     restart: "no"
-    entrypoint: ["/usr/bin/tini", "--", "reforged-host-docker"]
+    entrypoint: ["/usr/bin/tini", "--", "dainty-host-docker"]
     command: ["apply"]
     volumes:
       - workspace:/opt/reforged/.workspace
@@ -280,7 +280,7 @@ services:
 
   backend:
     <<: *server
-    command: ["reforged-host", "backend", "serve", "--env-file", "/opt/reforged/.workspace/config/backend.env"]
+    command: ["dainty-host", "backend", "serve", "--env-file", "/opt/reforged/.workspace/config/backend.env"]
     healthcheck:
       test: ["CMD", "reforged-healthcheck", "backend"]
       interval: 5s
@@ -366,7 +366,7 @@ services:
 
   content:
     <<: *front
-    command: ["reforged-host", "content", "serve", "--env-file", "/opt/reforged/.workspace/config/content.env"]
+    command: ["dainty-host", "content", "serve", "--env-file", "/opt/reforged/.workspace/config/content.env"]
     volumes:
       - workspace:/opt/reforged/.workspace:ro
     healthcheck:
@@ -381,7 +381,7 @@ services:
   # (docs/admin-api.md). It writes its timeouts next to secrets.env, so the workspace is mounted writable.
   admin:
     <<: *front
-    command: ["reforged-host", "admin", "serve", "--env-file", "/opt/reforged/.workspace/config/admin.env"]
+    command: ["dainty-host", "admin", "serve", "--env-file", "/opt/reforged/.workspace/config/admin.env"]
     volumes:
       - workspace:/opt/reforged/.workspace
     healthcheck:
@@ -396,7 +396,7 @@ services:
   allowlist:
     <<: *front
     profiles: [public]
-    command: ["reforged-host", "allowlist", "--env-file", "/opt/reforged/.workspace/config/allowlist.env"]
+    command: ["dainty-host", "allowlist", "--env-file", "/opt/reforged/.workspace/config/allowlist.env"]
     # nft's file capability: the helper itself runs unprivileged (Dockerfile, front)
     security_opt: []
     cap_add: [NET_ADMIN]
@@ -416,7 +416,7 @@ services:
   # Started last, as by the host kit: no player request reaches a service that is not up yet
   gateway:
     <<: *front
-    command: ["reforged-host", "gateway", "serve", "--env-file", "/opt/reforged/.workspace/config/gateway.env"]
+    command: ["dainty-host", "gateway", "serve", "--env-file", "/opt/reforged/.workspace/config/gateway.env"]
     volumes:
       - workspace:/opt/reforged/.workspace:ro
     healthcheck:
@@ -438,7 +438,7 @@ services:
   remote-agent:
     <<: *server
     profiles: [managed]
-    command: ["reforged-host", "remote-agent"]
+    command: ["dainty-host", "remote-agent"]
     depends_on:
       gateway:
         condition: service_healthy
@@ -448,7 +448,7 @@ services:
     <<: *server
     profiles: [tools]
     restart: "no"
-    entrypoint: ["/usr/bin/tini", "--", "reforged-host-docker"]
+    entrypoint: ["/usr/bin/tini", "--", "dainty-host-docker"]
     command: ["doctor"]
     volumes:
       - workspace:/opt/reforged/.workspace
@@ -717,8 +717,8 @@ services:
     entrypoint: ["/usr/bin/tini", "--", "sh", "-ec"]
     command:
       - |
-        reforged-host-docker setup --mode public --host controller.cluster.test --game-address 203.0.113.20 --name "Fleet Controller" --wine /nonexistent/wine --xvfb --fresh-start
-        reforged-host remote init-controller --node controller --region oregon --url https://${REFORGED_NETWORK_SUBNET:-172.28.77}.20:443
+        dainty-host-docker setup --mode public --host controller.cluster.test --game-address 203.0.113.20 --name "Fleet Controller" --wine /nonexistent/wine --xvfb --fresh-start
+        dainty-host remote init-controller --node controller --region oregon --url https://${REFORGED_NETWORK_SUBNET:-172.28.77}.20:443
     volumes:
       - remote-controller:/opt/reforged/.workspace
 
@@ -768,7 +768,7 @@ services:
     entrypoint: ["/usr/bin/tini", "--", "sh", "-ec"]
     command:
       - |
-        reforged-host-docker setup --mode public --host alpha.cluster.test --game-address 203.0.113.21 --name "Install Alpha" --wine /nonexistent/wine --xvfb --fresh-start
+        dainty-host-docker setup --mode public --host alpha.cluster.test --game-address 203.0.113.21 --name "Install Alpha" --wine /nonexistent/wine --xvfb --fresh-start
     volumes:
       - remote-alpha:/opt/reforged/.workspace
 
@@ -776,7 +776,7 @@ services:
     <<: *server
     profiles: [remote]
     network_mode: service:net-alpha
-    command: ["reforged-host", "backend", "serve", "--env-file", "/opt/reforged/.workspace/config/backend.env"]
+    command: ["dainty-host", "backend", "serve", "--env-file", "/opt/reforged/.workspace/config/backend.env"]
     volumes:
       - remote-alpha:/opt/reforged/.workspace
     healthcheck:
@@ -794,7 +794,7 @@ services:
     <<: *front
     profiles: [remote]
     network_mode: service:net-alpha
-    command: ["reforged-host", "content", "serve", "--env-file", "/opt/reforged/.workspace/config/content.env"]
+    command: ["dainty-host", "content", "serve", "--env-file", "/opt/reforged/.workspace/config/content.env"]
     volumes:
       - remote-alpha:/opt/reforged/.workspace:ro
     healthcheck:
@@ -853,7 +853,7 @@ services:
     entrypoint: ["/usr/bin/tini", "--", "sh", "-ec"]
     command:
       - |
-        reforged-host-docker setup --mode public --host bravo.cluster.test --game-address 203.0.113.22 --name "Install Bravo" --wine /nonexistent/wine --xvfb --fresh-start
+        dainty-host-docker setup --mode public --host bravo.cluster.test --game-address 203.0.113.22 --name "Install Bravo" --wine /nonexistent/wine --xvfb --fresh-start
     volumes:
       - remote-bravo:/opt/reforged/.workspace
 
@@ -861,7 +861,7 @@ services:
     <<: *server
     profiles: [remote]
     network_mode: service:net-bravo
-    command: ["reforged-host", "backend", "serve", "--env-file", "/opt/reforged/.workspace/config/backend.env"]
+    command: ["dainty-host", "backend", "serve", "--env-file", "/opt/reforged/.workspace/config/backend.env"]
     volumes:
       - remote-bravo:/opt/reforged/.workspace
     healthcheck:
@@ -879,7 +879,7 @@ services:
     <<: *front
     profiles: [remote]
     network_mode: service:net-bravo
-    command: ["reforged-host", "content", "serve", "--env-file", "/opt/reforged/.workspace/config/content.env"]
+    command: ["dainty-host", "content", "serve", "--env-file", "/opt/reforged/.workspace/config/content.env"]
     volumes:
       - remote-bravo:/opt/reforged/.workspace:ro
     healthcheck:

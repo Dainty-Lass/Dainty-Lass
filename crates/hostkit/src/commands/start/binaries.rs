@@ -94,7 +94,7 @@ impl Programs {
     /// This binary, and the folders with other Rust binaries: next to it (the server release), then the
     /// workspace's `target/release` and `debug`. `node` is left as the bare name.
     pub fn find_rust(paths: &Paths) -> Self {
-        let exe = std::env::current_exe().unwrap_or_else(|_| PathBuf::from("reforged-host"));
+        let exe = std::env::current_exe().unwrap_or_else(|_| PathBuf::from("dainty-host"));
         let mut rust_dirs = Vec::new();
         if let Some(dir) = exe.parent() {
             rust_dirs.push(dir.to_path_buf());
@@ -137,10 +137,10 @@ impl Programs {
 }
 
 /// The binary a service runs from on its own (`<it> gateway serve ...`): this one when it has the host
-/// kit's command line, else `reforged-host` (or `dainty-lass-server-console`) in the release's `bin/` or a
-/// build. `dainty-lass-server-minimal` and the server GUI have no such commands.
+/// kit's command line, else `dainty-host` (or `dainty-server`) in the release's `bin/` or a
+/// build. `dainty-server-minimal` and the server GUI have no such commands.
 fn host_cli(exe: &Path, paths: &Paths, rust_dirs: &[PathBuf]) -> PathBuf {
-    const CLIS: [&str; 2] = ["reforged-host", "dainty-lass-server-console"];
+    const CLIS: [&str; 2] = ["dainty-host", "dainty-server"];
     let stem = exe
         .file_stem()
         .map(|s| s.to_string_lossy().into_owned())
@@ -204,7 +204,7 @@ mod tests {
     fn programs(dir: &Path) -> Programs {
         Programs {
             node: PathBuf::from("node"),
-            host: dir.join("reforged-host"),
+            host: dir.join("dainty-host"),
             rust_dirs: vec![dir.join("release"), dir.join("debug")],
         }
     }
@@ -218,7 +218,7 @@ mod tests {
             assert!(rust_ported(service));
             let env_file = paths.config.join(format!("{}.env", service.bin_name()));
             let launch = p.launch(service, &paths, &env_file);
-            assert_eq!(launch.command, dir.path().join("reforged-host"));
+            assert_eq!(launch.command, dir.path().join("dainty-host"));
             assert_eq!(launch.cwd, paths.workspace);
             assert_eq!(launch.args, service.rust_args(&env_file));
             assert!(launch.env_file_in_args);

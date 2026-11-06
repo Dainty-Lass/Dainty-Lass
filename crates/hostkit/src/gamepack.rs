@@ -149,7 +149,7 @@ pub fn export_game_data_pack(p: &Paths, out_file: &Path, now: DateTime<Utc>) -> 
 
     if pack_files.is_empty() {
         return Err(HostError::message(
-            "no generated game data to export (only the example files, or nothing at all): run reforged-host gamedata first",
+            "no generated game data to export (only the example files, or nothing at all): run dainty-host gamedata first",
         ));
     }
 

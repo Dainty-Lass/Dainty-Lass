@@ -9,8 +9,8 @@ it. What it trusts and why is in [security/admin-api.md](security/admin-api.md).
 
 ## Running it
 
-`reforged-host setup` makes its key and writes `.workspace/config/admin.env`. `reforged-host start` runs it in its
-own process after the content server (every release's binary has it; `reforged-host admin serve --env-file <file>`
+`dainty-host setup` makes its key and writes `.workspace/config/admin.env`. `dainty-host start` runs it in its
+own process after the content server (every release's binary has it; `dainty-host admin serve --env-file <file>`
 runs it alone). In Docker it is the `admin` service in `compose.yaml`. Nothing needs setting in `host.toml`.
 
 What it needs, all written by setup:
@@ -134,9 +134,9 @@ changes, and the log gets the key's id.
 From the host (no key needed; run it on the server):
 
 ```bash
-reforged-host admin key issue --name Maya --role moderator   # prints RRA_<id>_<secret> once
-reforged-host admin key list                                  # id, role, name, who issued it, active or revoked
-reforged-host admin key revoke 58ef5419                       # its next request is refused
+dainty-host admin key issue --name Maya --role moderator   # prints RRA_<id>_<secret> once
+dainty-host admin key list                                  # id, role, name, who issued it, active or revoked
+dainty-host admin key revoke 58ef5419                       # its next request is refused
 ```
 
 The key is shown once and only its SHA-256 is kept, so a lost key is revoked and a new one issued. One active key per
@@ -212,9 +212,9 @@ out a delay. An id is 16 hex digits.
 From the host, which counts as an owner no key can be (so it may approve what an owner asked, and cancel anything):
 
 ```bash
-reforged-host admin guarded list [--all] [--json]   # what waits, and for what
-reforged-host admin guarded approve 3f9c1a07d2b4e865
-reforged-host admin guarded cancel 3f9c1a07d2b4e865
+dainty-host admin guarded list [--all] [--json]   # what waits, and for what
+dainty-host admin guarded approve 3f9c1a07d2b4e865
+dainty-host admin guarded cancel 3f9c1a07d2b4e865
 ```
 
 These only record the decision, as `host:admin guarded approve` or `cancel` in the change log; the running server
@@ -239,14 +239,14 @@ The settings, in `host.toml` (each is left out for its default; nothing needs se
 | `expire_hours` | 48 | How long an action nobody approved stays, 1 to 720 |
 
 `approval` needs a second person with a key; on a server with one owner key nothing can approve, so it expires.
-Leave the rules on `delay` until the team has two keys of the right role. `reforged-host setup` writes the settings
+Leave the rules on `delay` until the team has two keys of the right role. `dainty-host setup` writes the settings
 into `admin.env` as `REFORGED_GUARD_BAN_LIMIT`, `_BAN_WINDOW_MINUTES`, `_BAN`, `_REVERT_LIMIT`, `_REVERT`, `_REVOKE`,
 `_DELAY_MINUTES` and `_EXPIRE_HOURS`, only the ones `host.toml` sets.
 
 ## History and revert
 
 The change logs (DD23) behind a server's databases, read and undone through the API; the same engine as
-`reforged-host history` and `revert` (`restricted/docs/hosting.md`, "Undoing a change"). Reading the logs needs the
+`dainty-host history` and `revert` (`restricted/docs/hosting.md`, "Undoing a change"). Reading the logs needs the
 `admin` role, since a row's before and after are in them; a revert needs the `owner`.
 
 ```graphql

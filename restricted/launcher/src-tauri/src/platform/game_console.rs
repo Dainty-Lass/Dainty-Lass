@@ -7,7 +7,7 @@
 //! Unreal prints the command line at start, and the command line carries the account key, so every line
 //! is redacted (`redact`) before it is kept or sent to the page. Windows only; elsewhere nothing is read.
 
-/// `dainty-lass-client --read-game-console <pid> [--hide]`: the helper (`helper_main`).
+/// `dainty-launcher --read-game-console <pid> [--hide]`: the helper (`helper_main`).
 pub const HELPER_FLAG: &str = "--read-game-console";
 
 /// The lines kept for the page: the newest, a session's worth of a busy log.

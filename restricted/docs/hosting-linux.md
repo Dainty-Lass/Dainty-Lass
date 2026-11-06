@@ -1,7 +1,7 @@
 # Hosting a server on Linux
 
-The same server as on Windows ([hosting.md](hosting.md), where **DaintyLass Manager** (`dainty-lass-manager`) or
-`reforged-host` runs it), with the game servers under **Wine** or **Proton** on
+The same server as on Windows ([hosting.md](hosting.md), where **DaintyLass Manager** (`dainty-manager`) or
+`dainty-host` runs it), with the game servers under **Wine** or **Proton** on
 a virtual display. A public server on a VPS (Debian 13 is what this is tested on) is the main use. The
 containers in [hosting-docker.md](hosting-docker.md) are this page with the packages baked in.
 
@@ -13,14 +13,14 @@ containers in [hosting-docker.md](hosting-docker.md) are this page with the pack
 
 - Debian 13 (or any distribution with the same packages): `wine wine64 xvfb xauth nftables`. No Node.js or MongoDB is
   needed on the default path: the 1.14.7 backend, Director, gateway, content server, allowlist helper and admin API
-  are compiled into `reforged-host` and store player data in `.workspace/config/dainty-lass.db` (SQLite) or Postgres
+  are compiled into `dainty-host` and store player data in `.workspace/config/dainty-lass.db` (SQLite) or Postgres
   (`[database]`).
 - Your **Dauntless 1.14.7** folder (about 15 GB), writable by the user the server runs as: the game servers write
   logs and a switch file next to the executable. Copy it from a PC that has it, or let the server fetch it from
   your own Epic library with `install-game` ([below](#getting-the-game-from-epic)).
 - The **runtime** (`Rustic-Isles.dll`, `winmm.dll`) and the **game data**, made on a Windows PC with your own
   game ([sdk-and-game-data.md](https://git.silentspud.com/silentspud/dainty-lass/src/branch/main/docs/sdk-and-game-data.md)) and brought over: the DLLs as a folder, the game data as
-  a pack (`reforged-host gamedata --export`).
+  a pack (`dainty-host gamedata --export`).
 - The **server release** (`ReforgedRevivalServer-<version>-linux-x64.tar.gz`).
 - Public: TCP 443 and UDP 8770-8777 open at the provider's firewall.
 
@@ -30,7 +30,7 @@ A server with no Dauntless folder installs one from the owner's Epic library, as
 As the same ordinary user, from the unpacked release (the server need not be set up yet):
 
 ```bash
-bin/reforged-host install-game --dir /srv/dauntless          # 1.14.7, into /srv/dauntless/1.14.7
+bin/dainty-host install-game --dir /srv/dauntless          # 1.14.7, into /srv/dauntless/1.14.7
 ```
 
 It prints Epic's login address. Open it in a browser on your own PC, sign in, and paste the `authorizationCode`
@@ -46,11 +46,11 @@ Files are written as the server's user, so the game servers can write next to th
 As an ordinary user (`reforged`, say), from the unpacked release:
 
 ```bash
-bin/reforged-host setup --mode public --host play.example.org --game-address 203.0.113.10 \
+bin/dainty-host setup --mode public --host play.example.org --game-address 203.0.113.10 \
     --name "Friday Hunts" --game /srv/dauntless
-bin/reforged-host publish-runtime --from /srv/import/runtime
-bin/reforged-host gamedata --import /srv/import/gamedata.zip
-bin/reforged-host doctor
+bin/dainty-host publish-runtime --from /srv/import/runtime
+bin/dainty-host gamedata --import /srv/import/gamedata.zip
+bin/dainty-host doctor
 ```
 
 `setup` makes the Wine prefix in `.workspace/wine` and writes two systemd units and a firewall script into
@@ -58,14 +58,14 @@ bin/reforged-host doctor
 
 | File | What |
 | --- | --- |
-| `systemd/reforged.service` | The server (`reforged-host start` with `Environment=REFORGED_ALLOWLIST=external`), as your user, at boot |
-| `systemd/reforged-allowlist.service` | Public: the allowlist helper (`reforged-host allowlist`) with `CAP_NET_ADMIN` only, for its nftables table `reforged_revival` |
+| `systemd/reforged.service` | The server (`dainty-host start` with `Environment=REFORGED_ALLOWLIST=external`), as your user, at boot |
+| `systemd/reforged-allowlist.service` | Public: the allowlist helper (`dainty-host allowlist`) with `CAP_NET_ADMIN` only, for its nftables table `reforged_revival` |
 | `systemd/install.sh` | Installs and starts the units (needs root once) |
 | `config/firewall.sh` | Lets a host firewall (ufw) pass TCP 443 and the game's UDP ports |
 
 Run `sudo .workspace/systemd/install.sh`, then `systemctl status reforged`. Without systemd, start the allowlist helper
 with `CAP_NET_ADMIN` (for example under `sudo` with `.workspace/config/allowlist.env`) and run
-`REFORGED_ALLOWLIST=external bin/reforged-host start` in the foreground as your user.
+`REFORGED_ALLOWLIST=external bin/dainty-host start` in the foreground as your user.
 
 Linux options of `setup`: `--wine <path>` or `--proton <script>` (a Proton or GE-Proton script instead of
 Wine; `--no-proton` goes back), `--xvfb` (the default) or `--no-xvfb`, and `--firewall-interface eth0`
@@ -98,28 +98,28 @@ controller over pinned mTLS ([hosting.md](hosting.md#managing-several-installs),
 
 ```bash
 # On the controller (or in DaintyLass Manager -> Host -> Managed installs):
-bin/reforged-host remote init-controller --node controller --region oregon --url https://ctrl.example.org
-bin/reforged-host remote invite --node eu-west-1 --region eu-west --label "EU West 1"
+bin/dainty-host remote init-controller --node controller --region oregon --url https://ctrl.example.org
+bin/dainty-host remote invite --node eu-west-1 --region eu-west --label "EU West 1"
 
 # On the managed Linux install:
-bin/reforged-host remote enroll "dainty-lass-remote://enroll?v=1&..."
-bin/reforged-host remote sync
-bin/reforged-host remote status
+bin/dainty-host remote enroll "dainty-lass-remote://enroll?v=1&..."
+bin/dainty-host remote sync
+bin/dainty-host remote status
 ```
 
 The managed install keeps its local `host`, `game_address`, `[linux]` (`wine`, `proton`, `xvfb`, `interface`),
 `[database]`, `secrets.env` and any keys listed in `[remote].local_overrides`, while pulling shared settings and
 reporting health over `POST /__node/remote`. If the controller is unreachable, the Linux install continues running
-with its last applied configuration. `bin/reforged-host remote leave` detaches it back to standalone mode.
+with its last applied configuration. `bin/dainty-host remote leave` detaches it back to standalone mode.
 
 ## Running it
 
 ```bash
-bin/reforged-host invite --for "Alex"
+bin/dainty-host invite --for "Alex"
 journalctl -u reforged -f                      # the services
 ls .workspace/logs/gameservers                  # the game servers
-bin/reforged-host update                        # a newer release, then setup again
-bin/reforged-host backup                        # SQLite/Postgres backup into .workspace/backups
+bin/dainty-host update                        # a newer release, then setup again
+bin/dainty-host backup                        # SQLite/Postgres backup into .workspace/backups
 ```
 
 ## What to expect
@@ -131,14 +131,14 @@ bin/reforged-host backup                        # SQLite/Postgres backup into .w
 - The allowlist's nftables table is swapped in one transaction and filters only the game's UDP ports; it
   touches no other rule on the machine.
 
-## Updating and rollback (`reforged-host db export-mongo` and `paradox`)
+## Updating and rollback (`dainty-host db export-mongo` and `paradox`)
 
-On a Linux host that previously ran the Node backend with MongoDB data, run `bin/reforged-host db migrate` and then
-`bin/reforged-host db verify` after `update`: they move the data into the configured store
+On a Linux host that previously ran the Node backend with MongoDB data, run `bin/dainty-host db migrate` and then
+`bin/dainty-host db verify` after `update`: they move the data into the configured store
 (`.workspace/config/dainty-lass.db` or Postgres) and leave `.workspace/mongodb` untouched, and `start` refuses until
 `verify` has found no difference. An old Node kit (`host.json`) is upgraded by dainty-legacy's `import reforged`
 ([hosting.md](hosting.md#live-server-cutover-checklist-backup-update-smoke-rollback)).
 For one release after the cutover (until RB15), you can roll back to the Node backend and MongoDB by exporting the store
-back to MongoDB with `bin/reforged-host db export-mongo --to mongodb://127.0.0.1:27017/reforged` (defaulting the source
-and target from `host.toml`) and running a `reforged-host` binary built with `--features paradox`
+back to MongoDB with `bin/dainty-host db export-mongo --to mongodb://127.0.0.1:27017/reforged` (defaulting the source
+and target from `host.toml`) and running a `dainty-host` binary built with `--features paradox`
 ([hosting.md](hosting.md#rollback-to-the-node-backend-and-mongodb-paradox-feature)).

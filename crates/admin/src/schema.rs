@@ -150,7 +150,7 @@ fn upstream(service: &str, error: UpstreamError) -> async_graphql::Error {
         UpstreamError::Refused { status, code } => {
             let code = code.unwrap_or_default();
             let hint = if code.starts_with("ADMIN_OPERATOR") || matches!(status, 401 | 403 | 503) {
-                ": the admin API's credentials do not match the backend's; run reforged-host setup and restart the server"
+                ": the admin API's credentials do not match the backend's; run dainty-host setup and restart the server"
             } else {
                 ""
             };

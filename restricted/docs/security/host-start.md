@@ -1,6 +1,6 @@
 <!-- markdownlint-configure-file { "MD013": { "line_length": 120, "tables": false } } -->
 
-# Security checklist: `reforged-host start` (RX3)
+# Security checklist: `dainty-host start` (RX3)
 
 The checklist for `start` in `crates/host` (MIGRATION_PLAN.md RH2, RD3, RD23): the supervisor that runs every
 server process. `SECURITY_REVIEW.md` indexes it.

@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Silent Spud
 //
-// Convenience wrapper for `reforged-host db replay` (or `cargo run -p isles-db -- replay`).
+// Convenience wrapper for `dainty-host db replay` (or `cargo run -p isles-db -- replay`).
 // Usage:
 //   node scripts/replay-capture.mjs --corpus <path> [--left recorded|<url>] [--right <url>] [--key-map <file.json>] [--out <report.json>] [--json]
 
@@ -44,9 +44,9 @@ Options:
 const isWin = process.platform === 'win32';
 const exeSuffix = isWin ? '.exe' : '';
 const candidates = [
-  path.join(repoRoot, `reforged-host${exeSuffix}`),
-  path.join(repoRoot, 'rust', 'target', 'release', `reforged-host${exeSuffix}`),
-  path.join(repoRoot, 'rust', 'target', 'debug', `reforged-host${exeSuffix}`),
+  path.join(repoRoot, `dainty-host${exeSuffix}`),
+  path.join(repoRoot, 'rust', 'target', 'release', `dainty-host${exeSuffix}`),
+  path.join(repoRoot, 'rust', 'target', 'debug', `dainty-host${exeSuffix}`),
 ];
 
 const hostBin = candidates.find((p) => fs.existsSync(p));
@@ -66,7 +66,7 @@ if (hostBin) {
       '-p',
       'server-console',
       '--bin',
-      'reforged-host',
+      'dainty-host',
       '--locked',
       '--',
       'db',

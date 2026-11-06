@@ -33,11 +33,11 @@ Moved to `crates/legacy-import/src/reforged/hostjson.rs` and `reforged/mod.rs`.
 - `src/commands/update.rs`: `has_prior_old_kit_artifacts`'s host.json and host.json.bak checks.
 - `src/paths.rs`: `Paths::host_json` and its test line.
 - Setup should refuse a checkout that still has `.workspace/config/host.json` and no host.toml, with "run
-  `reforged-host legacy import reforged <checkout>` first", instead of reading it.
+  `dainty-host legacy import reforged <checkout>` first", instead of reading it.
 
 ### The Node kit's MongoDB
 
-Moved to `crates/legacy-import/src/reforged/mongo.rs`, which runs the host kit's `reforged-host db migrate` and
+Moved to `crates/legacy-import/src/reforged/mongo.rs`, which runs the host kit's `dainty-host db migrate` and
 `db verify` (`--db-tool`, dainty-lass's MIT `rustic-isles-db` since isles-db was retired in RD27) as a child process
 and writes the same `.workspace/config/.mongo-migrated` marker.
 
@@ -60,7 +60,7 @@ and writes the same `.workspace/config/.mongo-migrated` marker.
 
 ## What dainty-lass adds
 
-- `reforged-host legacy import <revived|offline-save|reforged> ...`: while DaintyLass runs, `module run legacy
+- `dainty-host legacy import <revived|offline-save|reforged> ...`: while DaintyLass runs, `module run legacy
   import-<kind> <args>` (the console only: the plugin refuses an admin API caller). Before it first runs (a Reforged
   upgrade), the executable directly: `dainty-legacy import reforged <checkout> ...`. The arguments are the same; see
   `crates/legacy-import/src/cli.rs` or the README.

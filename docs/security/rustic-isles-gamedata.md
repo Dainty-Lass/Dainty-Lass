@@ -13,7 +13,7 @@ date and the commit reviewed. An item that does not hold is a bug to fix first, 
 
 The crate answers 29 backend rows (the login, Ramsgate and Gauntlet stubs, the patch notes, the tuning answers and
 the served progression config; `areas.rs`) inside the Rustic Isles backend (port 61000, loopback behind the
-gateway), and holds the eight generators `reforged-host gamedata` runs on the host (`generators/`).
+gateway), and holds the eight generators `dainty-host gamedata` runs on the host (`generators/`).
 
 - **In (routes):** path params, echoed into JSON by the writer; one request body, `POST /trials/leaderboards/all`'s,
   through core's bounded reader (100 KiB); the replay-aware clock. Nothing is stored.

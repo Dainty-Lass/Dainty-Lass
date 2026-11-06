@@ -8,8 +8,8 @@ under [security/](security) go through each trust boundary line by line; the AGP
 
 | Part | Runs on | Code | Listens on |
 | --- | --- | --- | --- |
-| Launcher & Manager | each player's or host's PC | `restricted/launcher/src-tauri` (Tauri: `dainty-lass-client` and `dainty-lass-manager`) over `crates/launcher-kit`, with `launcher/` (the isolation hook and scripts) and pages from `ui/apps/web` (dainty-dash, built with `DAINTY_MODE=launcher` or `manager`) | relay `127.0.0.1:61100` for the game (`dainty-lass-client`) |
-| Controller | the server | `crates/controller` over `crates/module-api` | the one process tree `start`, the console and `dainty-lass-manager` (`server-gui`) run |
+| Launcher & Manager | each player's or host's PC | `restricted/launcher/src-tauri` (Tauri: `dainty-launcher` and `dainty-manager`) over `crates/launcher-kit`, with `launcher/` (the isolation hook and scripts) and pages from `ui/apps/web` (dainty-dash, built with `DAINTY_MODE=launcher` or `manager`) | relay `127.0.0.1:61100` for the game (`dainty-launcher`) |
+| Controller | the server | `crates/controller` over `crates/module-api` | the one process tree `start`, the console and `dainty-manager` (`server-gui`) run |
 | Gateway (core plugin) | the server | `crates/gateway` | public: TLS 443 (or `public_port`); private: HTTP 61000 on the Tailscale address; node links `/__node/*` with mTLS |
 | Allowlist helper (core plugin) | the server, public mode | `crates/gateway`, bin `allowlist` | loopback; edits nftables (Linux) or Windows Firewall for the union of loaded modules' UDP port ranges |
 | Content server (core plugin) | the server | `crates/content` | `127.0.0.1:61002`; keys runtime manifests, client profiles and Epic manifests by `GameVersion` |
@@ -21,7 +21,7 @@ under [security/](security) go through each trust boundary line by line; the AGP
 | Game modules | the server (in-process or child process) | `crates/rustic-isles-1-14-7` composing the `rustic-isles-*` areas (MIT), with `restricted/`'s version data | loopback ports assigned by the controller (`61000`/`61001` by default, shifted on collision) |
 | Realms & TURN relay | the server & realm hosts' PCs | `crates/rifts-*` (`rifts-admission`, `rifts-relay`, `rifts-realms`, `rifts-guard`, `rifts-host`, `rifts-transport`), `restricted/modules/rustic-rifts` (`ParadoxTransport.dll`) and `turn-rs` | `turn-rs` on UDP/TCP 3478, TLS 5349 and its UDP relay range (the one listener exception, DD24) |
 | Game servers | the server | the game executable, with the host's runtime | UDP 8770-8777 (down to 8766 with ten hunts), guarded by the allowlist |
-| Host kit | the server | `crates/hostkit` and `restricted/crates/host`, bin `reforged-host` | nothing; writes `.workspace/config`, manages modules, certs and history, runs `start` |
+| Host kit | the server | `crates/hostkit` and `restricted/crates/host`, bin `dainty-host` | nothing; writes `.workspace/config`, manages modules, certs and history, runs `start` |
 
 **The gateway is the only listener off loopback, with one written exception for the TURN relay (DD24).**
 Every HTTP and control service binds `127.0.0.1`, and the gateway refuses the host-only routes (`/admin`,
@@ -50,7 +50,7 @@ DaintyLass separates **core plugins** from **game modules** ([`crates/module-api
   `lookup`) and `host.toml` config sections. The controller refuses a second game module for a `GameVersion` that
   is already loaded and shifts colliding loopback ports automatically.
 - **In-process and out-of-process loading.** The same `GameModule` trait runs compiled into the server binaries
-  (`server-minimal`, `server-console`, `dainty-lass-manager` with `server-gui`) or as an external child process (`module_api::child::main`)
+  (`server-minimal`, `server-console`, `dainty-manager` with `server-gui`) or as an external child process (`module_api::child::main`)
   speaking length-prefixed JSON frames over stdin/stdout ([writing-a-module.md](writing-a-module.md),
   [security/module-host.md](security/module-host.md)). Only external executables listed in `host.toml` with their
   pinned SHA-256 are ever started. A module can also be a library (`[[modules.external]]` with a `.dll` or `.so`
@@ -64,7 +64,7 @@ DaintyLass separates **core plugins** from **game modules** ([`crates/module-api
 
 ## Joining a server
 
-1. **Invite.** The host makes one with `reforged-host invite`:
+1. **Invite.** The host makes one with `dainty-host invite`:
    `reforged-revival://join?v=1&host=<Tailscale IP>&port=61000&code=..&name=..[&share=..]` for a private
    server, `reforged-revival://join?v=2&mode=public&host=<IP or DNS>&port=443&fp=<certificate SHA-256>&code=..&name=..`
    for a public one. The `dauntless://` scheme carries the same fields plus `version` (`reforged` for 1.14.7;

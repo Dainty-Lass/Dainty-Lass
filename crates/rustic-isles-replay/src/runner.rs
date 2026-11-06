@@ -205,7 +205,7 @@ impl ReplayReport {
         serde_json::to_string_pretty(self).map_err(|e| ReplayError::Json(e.to_string()))
     }
 
-    /// The text form of §10.6 under `prefix` (`isles-db replay:`, `reforged-host db replay:`).
+    /// The text form of §10.6 under `prefix` (`isles-db replay:`, `dainty-host db replay:`).
     pub fn to_text(&self, prefix: &str) -> String {
         let mut out = String::new();
         let _ = writeln!(

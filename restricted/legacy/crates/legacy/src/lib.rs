@@ -20,7 +20,7 @@ pub const DISPLAY_NAME: &str = "Legacy import";
 /// The game version the plugin extends: the one an import upgrades to
 pub const GAME_VERSION: &str = "1.14.7";
 
-/// The commands, `module run legacy <command> ...`; `reforged-host legacy import <kind>` maps onto them
+/// The commands, `module run legacy <command> ...`; `dainty-host legacy import <kind>` maps onto them
 pub mod commands {
     pub const REVIVED: &str = "import-revived";
     pub const OFFLINE_SAVE: &str = "import-offline-save";

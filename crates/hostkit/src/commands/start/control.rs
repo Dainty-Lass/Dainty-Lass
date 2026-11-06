@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Silent Spud
 
-//! Shutdown signal and stdin control watcher for `reforged-host start` and `reforged-host serve`.
+//! Shutdown signal and stdin control watcher for `dainty-host start` and `dainty-host serve`.
 
 use std::io::BufRead;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -11,7 +11,7 @@ use std::time::Duration;
 use crate::error::HostError;
 
 /// Environment variable set to `"stdin"` when a parent process (such as the Electron launcher)
-/// controls `reforged-host` over standard input.
+/// controls `dainty-host` over standard input.
 pub const CONTROL_ENV: &str = "REFORGED_CONTROL";
 
 /// Marker line printed to stdout once all required services are ready.

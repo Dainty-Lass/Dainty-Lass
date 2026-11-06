@@ -48,7 +48,7 @@ pub fn run_with(
     out: &mut dyn FnMut(&str),
 ) -> Result<ExitCode, HostError> {
     let mut config =
-        load_host_config(paths)?.ok_or_else(|| HostError::message("not set up yet: run reforged-host setup first"))?;
+        load_host_config(paths)?.ok_or_else(|| HostError::message("not set up yet: run dainty-host setup first"))?;
 
     if !asked(args) {
         if let Some(m) = config.multipliers.filter(|_| multipliers_on(&config)) {

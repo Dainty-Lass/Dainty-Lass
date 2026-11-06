@@ -36,7 +36,7 @@ its cache, DE3), `download.rs` (the installer and its `Gate`), `download/cdn.rs`
 ownership gate, the `game_install_*` commands) and `net/epic_install.rs` (DR's job: pause, resume, cancel,
 progress).
 
-The host kit installs through the same crate: `reforged-host install-game` (DE6) signs in with the pasted-code flow,
+The host kit installs through the same crate: `dainty-host install-game` (DE6) signs in with the pasted-code flow,
 keeps the session in `.workspace/config/epic-session.env`, and installs one folder per version for the game servers.
 Its extra boundaries are the **stdin or `--code-file` input** (the code, as in the launcher's paste fallback) and
 the **session file**, a secret like the account key. `epic::builds` (the pins) is shared by the launcher and the host.

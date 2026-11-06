@@ -5,7 +5,7 @@ Draft, 2026-10-24, kept as a design record: nothing here is open work. **Superse
 What shipped differs: two server binaries and the launcher's two, not twelve crates; `protocol::Game` and the
 `legacy` feature, not Refined and Reforged editions; the host kit's `secrets.env` and env files, not secrets the
 controller makes; the backend and Director as Rustic Isles's Node processes, not Rust listeners; and each service
-still runnable alone as a `reforged-host` subcommand.
+still runnable alone as a `dainty-host` subcommand.
 
 This document specifies the architectural conversion of the DaintyLass Rust codebase into:
 1. **Pure Library Service Crates (`services/*`)**: Converting `gateway` (including `allowlist`), `content`, `admin`, `host`, `backend`, and `director` into pure library crates (`lib.rs` only, removing standalone `src/main.rs` binaries).

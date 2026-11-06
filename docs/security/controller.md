@@ -2,12 +2,12 @@
 
 # Security checklist: the server controller and its console (RX3)
 
-The checklist for the server as one process (RD26): the controller in `crates/controller`, `reforged-host
+The checklist for the server as one process (RD26): the controller in `crates/controller`, `dainty-host
 serve` in `crates/hostkit/src/serve.rs`, its console (`repl.rs`) and dashboard (`tui.rs`), the settings readers
 it loads (`hostconfig.rs`, `hostconfig/yaml.rs`) and the server GUI's embedded server
 (`launcher/src-tauri/src/server_gui.rs`). `SECURITY_REVIEW.md` indexes it.
 
-How to use it: before `serve` replaces `reforged-host start` for hosts, copy this list into the cutover PR, check
+How to use it: before `serve` replaces `dainty-host start` for hosts, copy this list into the cutover PR, check
 each item in the code (not from memory), link the code or test that shows it, and sign at the end with the date and
 the commit reviewed. An item that does not hold is a bug to fix before the cutover, not a box to leave open.
 
@@ -93,7 +93,7 @@ as `plain` prints it carries none either).
       neighbour stays stopped. Tests: `starts_in_order_and_stops_in_reverse`,
       `a_restart_leaves_a_stopped_neighbour_stopped`.
 - [ ] Ctrl+C, the other stop signals, and `stop` or a closed stdin when the launcher's Host page runs the kit, stop
-      the server through the same `shutdown` (`Control::begin`, `watch_stop_input`, as `reforged-host start` does).
+      the server through the same `shutdown` (`Control::begin`, `watch_stop_input`, as `dainty-host start` does).
 - [ ] A build with no modules says so and serves nothing (`empty_build_message`, `an_empty_build_says_so`): it never
       binds a port.
 
@@ -140,7 +140,7 @@ These do not block Phase 6 but must be settled, or accepted in writing, before t
 - **The console's own log file.** Dashboard mode writes `logs/server.log` with every event at the levels the host
   chose; the file's permissions are the workspace's. Check them on Linux (`hosting-linux.md`).
 - **Supervised restarts.** A Node service that dies is restarted by the supervisor without limit; a crash loop
-  fills the log. `reforged-host start` behaves the same.
+  fills the log. `dainty-host start` behaves the same.
 
 ## Fuzzing
 
@@ -158,7 +158,7 @@ cargo +nightly fuzz run host_console -- -max_total_time=86400
 Seeding `corpus/host_config` with the kit's host.json fixtures, each prefixed with the byte `0x02`, gets the run to
 the write-back check in seconds.
 
-## Changes from `reforged-host start`
+## Changes from `dainty-host start`
 
 - One process runs the Rust services as modules; `start` runs each as its own process. The Node services and MongoDB
   are supervised processes in both.

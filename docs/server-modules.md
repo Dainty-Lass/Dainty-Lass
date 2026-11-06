@@ -4,8 +4,8 @@
 
 The game module, Rustic Isles for 1.14.7, is MIT (`crates/rustic-isles-1-14-7` and the `rustic-isles-*` areas it
 composes, RD27). The binaries that compile it in are `restricted/`'s, because the host shell they wrap is AGPL:
-`dainty-lass-server-console`, `reforged-host` (same crate, `restricted/crates/server-console`) and
-`dainty-lass-server-minimal` link game modules by Cargo feature (DD12). The root's `crates/dainty-lass-server` links
+`dainty-server`, `dainty-host` (same crate, `restricted/crates/server-console`) and
+`dainty-server-minimal` link game modules by Cargo feature (DD12). The root's `crates/dainty-lass-server` links
 none; it loads the modules and services `host.toml` lists as libraries (RD27). A build with no module feature starts
 and serves the core plugins only; each feature adds one module to `restricted/crates/host/src/compose.rs`'s
 `game_modules()`, on top of `controller::modules::game_modules()`, and `serve` lists them at start (`[modules]` in

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Silent Spud
 
-//! The guarded actions for the server GUI (DD23 layer 4, DH6): what `reforged-host admin guarded` does, in the
+//! The guarded actions for the server GUI (DD23 layer 4, DH6): what `dainty-host admin guarded` does, in the
 //! GUI process, for a workspace. The decision is the host: it may approve or cancel what any admin key asked
 //! (an owner no key can be), and the server carries an approved action out within 30 seconds.
 

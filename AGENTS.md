@@ -28,13 +28,13 @@ dependencies.
 | `launcher/` | The launcher's JavaScript side (RD27): the isolation hook, the scripts the Tauri shells and the release run, and their tests. The Rust shell (`restricted/launcher/src-tauri`) is in `restricted/` |
 | `scripts/` | `replay-capture.mjs` |
 | `docs/` | `architecture.md`, the plans, `port/` (the migration guide, delta and catch-up lists), `security/` for the MIT components (indexed in [`SECURITY_REVIEW.md`](SECURITY_REVIEW.md)) |
-| `restricted/` | The AGPL-3.0-only workspace (`restricted/Cargo.toml`): `crates/` (`host` = the AGPL shell around `hostkit` that composes the services in `compose.rs`, the `*-plugin` crates, and the server executables `server-console` and `server-minimal`), `launcher/src-tauri` (Tauri: `dainty-lass-client`, `dainty-lass-manager`), `modules/rustic-isles` and `modules/rustic-rifts`, `legacy/` (the 1.4.4 importer), `native/runtime-loader`, `docker/`, `compose.yaml`, the Tauri backend's language catalogs (`restricted/ui/`), and the hosting, player and Paradox docs. [`restricted/AGENTS.md`](restricted/AGENTS.md) covers them |
+| `restricted/` | The AGPL-3.0-only workspace (`restricted/Cargo.toml`): `crates/` (`host` = the AGPL shell around `hostkit` that composes the services in `compose.rs`, the `*-plugin` crates, and the server executables `server-console` and `server-minimal`), `launcher/src-tauri` (Tauri: `dainty-launcher`, `dainty-manager`), `modules/rustic-isles` and `modules/rustic-rifts`, `legacy/` (the 1.4.4 importer), `native/runtime-loader`, `docker/`, `compose.yaml`, the Tauri backend's language catalogs (`restricted/ui/`), and the hosting, player and Paradox docs. [`restricted/AGENTS.md`](restricted/AGENTS.md) covers them |
 
 **Which workspace a change goes in** follows its licence: anything ported from DR, Paradox or the Reforged Revival
 line, or linking such code, goes under `restricted/`. A crate in root `crates/` is MIT and depends on nothing in
 `restricted/` or AGPL; CI fails a root package that is not MIT or Apache-2.0 or that references `restricted/`.
 `restricted/crates/host` composes the services into the controller in-process, and the MIT core
-`dainty-lass-server` loads the same services as libraries named in `host.toml`'s `[services.<name>]` (RD27 phase 2,
+`dainty-core` (`crates/dainty-lass-server`) loads the same services as libraries named in `host.toml`'s `[services.<name>]` (RD27 phase 2,
 `crates/plugin-host`).
 
 DaintyLass serves one game, Dauntless 1.14.7 (2026-10-31). On the default path (since the RU9 code cutover,
@@ -43,7 +43,7 @@ the backend on port 61000 and `rustic-isles-director` on port 61001, on `store` 
 restricted's `isles-1-14-7-plugin` builds the same module as a library with restricted's version data.
 
 The server is one executable (RD26). Every service is a module of `crates/controller`, composed by `host::serve` from
-the files `setup` writes, and still runnable alone as a hidden `reforged-host <service>` subcommand
+the files `setup` writes, and still runnable alone as a hidden `dainty-host <service>` subcommand
 (`crates/hostkit/src/cli.rs`).
 
 `docs/architecture.md` is the reference for how the parts talk and what each trusts. Section 3 of the plan,
@@ -129,14 +129,14 @@ Rules that read like overcaution:
 
 No game files, generated SDKs (`CppSDK/`, `SDK.hpp`), exported game data beyond the services' examples, or
 `.workspace/`. Lady Luck's Store and the platinum store are built on each server from
-`restricted/modules/rustic-isles/reference/1.14.7/ParadoxBackend/store-captures.json`. A server preset (`reforged-host preset`)
+`restricted/modules/rustic-isles/reference/1.14.7/ParadoxBackend/store-captures.json`. A server preset (`dainty-host preset`)
 is a host's own and is never committed.
 
 ## Configuration
 
 Every service reads one env file, given with `--env-file`, and nothing from its working directory
 (`crates/service-kit/src/env.rs`, DR X7). As with Node's `--env-file`, the process environment wins over the file.
-**The env files are the host kit's output, not hand-written:** `reforged-host setup` writes them from
+**The env files are the host kit's output, not hand-written:** `dainty-host setup` writes them from
 `host.toml` and `secrets.env` (`crates/hostkit/src/hostconfig.rs`, `hosttoml.rs`), and `start` hands each
 service its own. So a new setting is a field in `host.toml` (in `HostConfig`, and in `hosttoml.rs`'s key
 table with a snake_case name and a comment for new files), a `setup` option where a host should choose it,

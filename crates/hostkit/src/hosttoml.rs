@@ -459,7 +459,7 @@ fn scalar(value: &Value, key: &str) -> Result<toml_edit::Value, HostError> {
 }
 
 const HEADER: &str = "\
-# This server's settings (reforged-host). Edit them here, then run `reforged-host setup` again to
+# This server's settings (dainty-host). Edit them here, then run `dainty-host setup` again to
 # apply them; setup keeps your comments and every value it does not change. A setting that is left
 # out takes its default. The secrets are not here: they are in secrets.env, next to this file.
 ";
@@ -487,8 +487,8 @@ fn comment(path: &str) -> &'static str {
              DASHBOARD_INGEST_KEY from secrets.env (the dashboard's own DASHBOARD_INGEST_KEY)."
         }
         "mongo" => "The database.",
-        "mongo.manage" => "true: reforged-host starts mongod itself.",
-        "mongo.mongod" => "The mongod program when reforged-host starts it.",
+        "mongo.manage" => "true: dainty-host starts mongod itself.",
+        "mongo.mongod" => "The mongod program when dainty-host starts it.",
         "multipliers" => {
             "Private test servers only: multiply the XP and the loot the game grants, 1 to 100 (1 is off)."
         }

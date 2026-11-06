@@ -1,6 +1,6 @@
 #![allow(clippy::unwrap_used, clippy::expect_used)] // tests
 
-//! `reforged-host history` and `revert` (DD23, DH3b): a partner's mass delete in the game's database is
+//! `dainty-host history` and `revert` (DD23, DH3b): a partner's mass delete in the game's database is
 //! reverted by one command, and a row changed since stays as it is and is reported.
 
 use clap::Parser as _;
@@ -249,12 +249,12 @@ async fn a_revert_needs_a_selection_and_a_server_that_has_run() {
     let err = run(&Paths::new(empty.path()), &Job::Verify, Surface::Cli)
         .await
         .unwrap_err();
-    assert!(err.contains("run reforged-host setup"), "{err}");
+    assert!(err.contains("run dainty-host setup"), "{err}");
 }
 
 #[test]
 fn the_command_line_and_the_console_say_the_same_thing() {
-    let parse = |args: &[&str]| Cli::try_parse_from(std::iter::once("reforged-host").chain(args.iter().copied()));
+    let parse = |args: &[&str]| Cli::try_parse_from(std::iter::once("dainty-host").chain(args.iter().copied()));
     let Command::History(h) = parse(&["history", "--actor", "admin:ab12cd34", "--limit", "10"])
         .unwrap()
         .command

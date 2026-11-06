@@ -10,7 +10,7 @@ on a Windows PC with the game installed:
    makes inside the game.
 
 The launcher's **Host page** (a build with the host tools) has a button for each step and shows what is
-missing; `reforged-host doctor` says the same on the command line. A Linux host does these on a Windows PC and
+missing; `dainty-host doctor` says the same on the command line. A Linux host does these on a Windows PC and
 brings the results over (`restricted/docs/hosting-linux.md`). Every path below is under `restricted/`.
 
 ## 1. The SDK
@@ -38,8 +38,8 @@ player-hosted module. The runtime reads the backend's address from the environme
 serves every server and every player of yours. Publish it:
 
 ```powershell
-bin\reforged-host publish-runtime                  # from this checkout's builds
-bin\reforged-host publish-runtime --from C:\dlls   # or from a folder with both DLLs
+bin\dainty-host publish-runtime                  # from this checkout's builds
+bin\dainty-host publish-runtime --from C:\dlls   # or from a folder with both DLLs
 ```
 
 The content server then lists the two files with their hashes; players accept them once in the launcher. A
@@ -52,9 +52,9 @@ game, loaded through the runtime loader like the runtime, and writes the catalog
 `modules/rustic-isles/reference/1.14.7/Items_Analysis/`. The progression export comes from the game the same way. Then:
 
 ```powershell
-bin\reforged-host gamedata                         # generate ParadoxBackend\game-data and ParadoxDirector\game-data in modules\rustic-isles\reference\1.14.7
-bin\reforged-host gamedata --progression-only      # only the progression config
-bin\reforged-host gamedata --examples              # the shipped examples: the services start, nobody can play
+bin\dainty-host gamedata                         # generate ParadoxBackend\game-data and ParadoxDirector\game-data in modules\rustic-isles\reference\1.14.7
+bin\dainty-host gamedata --progression-only      # only the progression config
+bin\dainty-host gamedata --examples              # the shipped examples: the services start, nobody can play
 ```
 
 `gamedata` runs the in-process Rust game-data generators (`isles_core::areas::game_data::generators` and
@@ -66,9 +66,9 @@ or example data.
 Move the result as a pack, for a Linux host or a second PC:
 
 ```powershell
-bin\reforged-host gamedata --export gamedata.zip
-bin\reforged-host gamedata --import gamedata.zip
+bin\dainty-host gamedata --export gamedata.zip
+bin\dainty-host gamedata --import gamedata.zip
 ```
 
-`reforged-host preset --create` keeps your generated data as a preset in `preset/` of your checkout, and
+`dainty-host preset --create` keeps your generated data as a preset in `preset/` of your checkout, and
 `setup` applies it to a new server; it is yours and is never committed.

@@ -1,4 +1,4 @@
-//! `reforged-host install-game` (DE6) against a double for Epic's account service and library and a fake CDN
+//! `dainty-host install-game` (DE6) against a double for Epic's account service and library and a fake CDN
 //! (`epic::testing`): three HTTPS hosts on 127.0.0.1:0 with the tests' own CA. Nothing reaches Epic, and no real
 //! account or game file is involved. The fresh Linux host that installs for real is the maintainer's check.
 

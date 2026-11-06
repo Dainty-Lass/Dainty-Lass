@@ -2,7 +2,7 @@
 // `rust/crates/hostkit/src/commands/update.rs` and `db.rs` (plan `fb46a4a`), MIT, Copyright (c) 2026 Silent Spud;
 // LICENSE-MIT.txt there.
 
-//! The Node kit's MongoDB, moved into the 1.14.7 database by the host kit's `reforged-host db migrate` and checked
+//! The Node kit's MongoDB, moved into the 1.14.7 database by the host kit's `dainty-host db migrate` and checked
 //! by `db verify` before anything else of the old install changes. A verified move leaves the
 //! `.mongo-migrated` marker, which DaintyLass reads, and MongoDB's own files untouched.
 
@@ -101,7 +101,7 @@ pub fn has_unmigrated_mongo_dir(l: &Layout) -> bool {
     entries.flatten().any(|e| e.file_name().to_str() != Some("mongod.lock"))
 }
 
-/// The `--to` argument of `reforged-host db` for a store database (hostkit's `store_target_for_migration`).
+/// The `--to` argument of `dainty-host db` for a store database (hostkit's `store_target_for_migration`).
 #[must_use]
 pub fn db_tool_target(config: &DatabaseConfig) -> (String, bool) {
     match config {
@@ -120,7 +120,7 @@ pub fn db_tool_target(config: &DatabaseConfig) -> (String, bool) {
     }
 }
 
-/// Moves a MongoDB into a 1.14.7 database and checks the result: `reforged-host db migrate` and `verify`.
+/// Moves a MongoDB into a 1.14.7 database and checks the result: `dainty-host db migrate` and `verify`.
 pub trait MongoMigrator {
     /// Copies every document; nothing in MongoDB changes.
     fn migrate(&self, uri: &str, target: &DatabaseConfig) -> Result<()>;
@@ -129,7 +129,7 @@ pub trait MongoMigrator {
 }
 
 /// What `--db-tool` names when it isn't given, from `PATH`.
-pub const DEFAULT_DB_TOOL: &str = "reforged-host";
+pub const DEFAULT_DB_TOOL: &str = "dainty-host";
 
 /// The host kit's database tool, run as `<program> db ...` (dainty-lass's MIT `rustic-isles-db`), from a path or
 /// `PATH`. It finds its server folder from the working directory or its own location.
@@ -162,7 +162,7 @@ impl MongoMigrator for DbTool {
         if !out.status.success() {
             // The tool's own messages redact the URI; its exit status is what counts here
             return Err(ImportError::invalid(format!(
-                "reforged-host db migrate from {} failed ({}): is MongoDB running?",
+                "dainty-host db migrate from {} failed ({}): is MongoDB running?",
                 redact_mongo_uri(uri),
                 out.status
             )));
@@ -174,7 +174,7 @@ impl MongoMigrator for DbTool {
         let (to, remote) = db_tool_target(target);
         let out = self.run(&Self::common("verify", "--against", uri, &to, remote))?;
         let report: serde_json::Value = serde_json::from_slice(&out.stdout)
-            .map_err(|_| ImportError::invalid(format!("reforged-host db verify gave no report ({})", out.status)))?;
+            .map_err(|_| ImportError::invalid(format!("dainty-host db verify gave no report ({})", out.status)))?;
         let differ = report["collections"]
             .as_array()
             .map(|list| {
@@ -186,7 +186,7 @@ impl MongoMigrator for DbTool {
             .unwrap_or_default();
         if !out.status.success() && Vec::<String>::is_empty(&differ) {
             return Err(ImportError::invalid(format!(
-                "reforged-host db verify failed ({})",
+                "dainty-host db verify failed ({})",
                 out.status
             )));
         }
@@ -243,7 +243,7 @@ pub fn upgrade(
         MongoPlan::Migrate { target, migrator } => {
             if dry_run {
                 report.note(format!(
-                    "MongoDB ({redacted}) would be moved with reforged-host db migrate and verify"
+                    "MongoDB ({redacted}) would be moved with dainty-host db migrate and verify"
                 ));
                 return Ok(());
             }
@@ -251,7 +251,7 @@ pub fn upgrade(
             let differ = migrator.verify(&uri, target)?;
             if !differ.is_empty() {
                 return Err(ImportError::invalid(format!(
-                    "reforged-host db verify found differences in [{}]: nothing else of the old install was changed, and \
+                    "dainty-host db verify found differences in [{}]: nothing else of the old install was changed, and \
                      MongoDB was not modified",
                     differ.join(", ")
                 )));

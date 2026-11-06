@@ -3,7 +3,7 @@
 # the server image with the cluster CA volume and the four nodes' workspace volumes, and leaves each node
 #  - its public gateway certificate (the fingerprint the launcher pins when it measures a region),
 #  - its node certificate and key and the CA's certificate (node-cert.pem, node-key.pem, cluster-ca-cert.pem),
-#  - a host.toml naming it and listing the other three, for `reforged-host-docker apply` to run setup from.
+#  - a host.toml naming it and listing the other three, for `dainty-host-docker apply` to run setup from.
 # The CA file (its key) stays in /ca, which no other service mounts. Run again, it keeps what it made: the CA, every
 # certificate and so every fingerprint; only host.toml is written each time.
 #   NETWORK_NODES="oregon=oregon-1@172.28.77.11 new-york=new-york-1@172.28.77.12 ..."   region=node-id@address
@@ -15,7 +15,7 @@ nodes="${NETWORK_NODES:?NETWORK_NODES is the list region=node-id@address}"
 fingerprints="$(mktemp -d)"
 
 if [ ! -f "$ca" ]; then
-	reforged-host network ca-init --out "$ca" >/dev/null
+	dainty-host network ca-init --out "$ca" >/dev/null
 	echo "cluster CA made in the network-ca volume"
 fi
 
@@ -27,13 +27,13 @@ for entry in $nodes; do
 	tls="/nodes/$region/tls"
 	mkdir -p "$tls" "/nodes/$region/config"
 	if [ ! -f "$tls/gateway-cert.pem" ]; then
-		reforged-host gateway make-cert --host "$region.cluster.test" --host "$address" --out "$tls" >/dev/null
+		dainty-host gateway make-cert --host "$region.cluster.test" --host "$address" --out "$tls" >/dev/null
 	fi
 	if [ ! -f "$tls/node-cert.pem" ]; then
-		reforged-host network issue-node-cert --ca "$ca" --node "$id" --region "$region" \
+		dainty-host network issue-node-cert --ca "$ca" --node "$id" --region "$region" \
 			--host "$address" --host "$region.cluster.test" --out "$tls" >/dev/null
 	fi
-	reforged-host gateway make-cert --fingerprint "$tls/gateway-cert.pem" | sed -n 's/^Fingerprint: *//p' >"$fingerprints/$region"
+	dainty-host gateway make-cert --fingerprint "$tls/gateway-cert.pem" | sed -n 's/^Fingerprint: *//p' >"$fingerprints/$region"
 done
 
 for entry in $nodes; do

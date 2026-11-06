@@ -27,7 +27,7 @@ by Mystic (0006, 0009, 0019, 0032, 0034) are not listed: `21b9ff5` has them.
 | --- | --- | --- |
 | 0004 | A hub stays up when its phantom player's data cannot load | runtime |
 | 0005 | The XP and objectives a game server reports are stored (the objectives through Mystic's own mastery report) | backend |
-| 0007 | XP and reward multipliers for private test servers (`REFORGED_XP_MULTIPLIER`, `REFORGED_REWARD_MULTIPLIER`; `reforged-host multipliers`) | backend |
+| 0007 | XP and reward multipliers for private test servers (`REFORGED_XP_MULTIPLIER`, `REFORGED_REWARD_MULTIPLIER`; `dainty-host multipliers`) | backend |
 | 0008 | The progression config is queried once at server start, so a hunt's loading screen does not wait a minute | runtime |
 | 0010 | Claiming a completed bounty deletes it (`POST /bounty/delete/:userId`) | backend |
 | 0011 | A hunt client is not forced ready after 3 s | runtime |

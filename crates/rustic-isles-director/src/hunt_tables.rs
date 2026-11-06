@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Silent Spud
 
-//! The hunt-table importer (spec §10, `reforged-host gamedata`, RB11): merges a CatalogExporter `EXPORT_HUNTS=1`
+//! The hunt-table importer (spec §10, `dainty-host gamedata`, RB11): merges a CatalogExporter `EXPORT_HUNTS=1`
 //! capture of the host's own install into the Director's tables. Its terminal output is English (AGENTS.md).
 
 use std::collections::{BTreeMap, HashMap};

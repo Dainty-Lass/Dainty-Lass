@@ -1,4 +1,4 @@
-//! `reforged-host admin guarded list|approve|cancel` against the admin.env setup writes (DH6): the host kit
+//! `dainty-host admin guarded list|approve|cancel` against the admin.env setup writes (DH6): the host kit
 //! records a decision, as the host, and the server carries it out.
 
 #![allow(clippy::unwrap_used, clippy::expect_used)] // test helpers

@@ -1,7 +1,7 @@
 #!/bin/bash
 # DaintyLass: compose.yaml's health check for a service, `reforged-healthcheck <name>`.
 # Healthy once its port takes a connection, the port and address read as the service reads them: the
-# process environment first, then its env file (written by reforged-host setup). The host kit's `start`
+# process environment first, then its env file (written by dainty-host setup). The host kit's `start`
 # waits the same way (dainty-lass's crates/hostkit/src/services.rs, Ready).
 set -u
 name="${1:?usage: reforged-healthcheck gateway|content|admin|allowlist|backend|director}"

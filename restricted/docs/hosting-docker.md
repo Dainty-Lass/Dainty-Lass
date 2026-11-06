@@ -1,6 +1,6 @@
 # Hosting in Docker
 
-The whole server in containers, with Docker Compose: the same services `reforged-host start` runs, one
+The whole server in containers, with Docker Compose: the same services `dainty-host start` runs, one
 container each, from two images built from this repository. A public server on a Linux VPS is the main use;
 a private server over Tailscale works too.
 
@@ -13,19 +13,19 @@ a private server over Tailscale works too.
 | Container | Image | What it is |
 | --- | --- | --- |
 | `net` | front | Holds the network namespace every other container joins, and the published ports |
-| `backend` | server | The 1.14.7 Rust backend (`reforged-host backend serve`), 127.0.0.1:61000 |
-| `director` | server | The 1.14.7 Rust Director (`reforged-host director serve`), 127.0.0.1:61001; starts Ramsgate, the Training Grounds and hunts through Wine |
-| `content` | front | The content server, 127.0.0.1:61002 (`reforged-host content serve`) |
-| `allowlist` | front | Public servers: opens the game ports to players who logged in (nftables; `reforged-host allowlist`) |
-| `gateway` | front | The front door: TLS on 443 (public) or HTTP on the Tailscale address (private; `reforged-host gateway serve`) |
-| `host` | server | Not a service: `docker compose run --rm host <command>` runs `reforged-host` |
+| `backend` | server | The 1.14.7 Rust backend (`dainty-host backend serve`), 127.0.0.1:61000 |
+| `director` | server | The 1.14.7 Rust Director (`dainty-host director serve`), 127.0.0.1:61001; starts Ramsgate, the Training Grounds and hunts through Wine |
+| `content` | front | The content server, 127.0.0.1:61002 (`dainty-host content serve`) |
+| `allowlist` | front | Public servers: opens the game ports to players who logged in (nftables; `dainty-host allowlist`) |
+| `gateway` | front | The front door: TLS on 443 (public) or HTTP on the Tailscale address (private; `dainty-host gateway serve`) |
+| `host` | server | Not a service: `docker compose run --rm host <command>` runs `dainty-host` |
 | `configure` | server | The `toml` profile only: runs setup from `host.toml` and exits, before the others start |
 | `postgres` | `postgres:17` | The `postgres` profile only: Postgres on 127.0.0.1:5432 for a `host.toml` whose `[database]` picks it |
 | `mongo`, `backend-rollback`, `director-rollback` | `mongo:8.0`, server-rollback | The `rollback` profile only: MongoDB (`rs0`) and the Node 1.14.7 backend and Director for one release after RU9/RB14 ([below](#migrating-existing-mongodb-data-and-rollback-rollback-profile)) |
 | `net-*`, `netem-*`, `gateway-*`, `configure-*`, `network-init`, `network` | front, server, netem | The `network` profile only: four nodes of a network with injected latency, for tests ([below](#the-network-profile-four-nodes-on-one-machine)) |
 
 **One network namespace.** Every container joins `net`'s, so they reach each other on 127.0.0.1 exactly as
-the env files `reforged-host setup` writes say, and nothing but the gateway and the game ports is reachable
+the env files `dainty-host setup` writes say, and nothing but the gateway and the game ports is reachable
 from outside, not even from other containers. The allowlist's nftables table lives in that namespace too: it
 filters the game servers' traffic without any privilege on the host and without touching the host's firewall.
 Only the allowlist has `CAP_NET_ADMIN`, and only through `nft`'s file capability.
@@ -133,7 +133,7 @@ docker compose run --rm host invite --for "Alex"
 logs are in the `workspace` volume, `logs/gameservers/`. `docker compose run --rm host doctor` checks the
 setup from inside the server's network. It checks for a plain Linux host, so in Docker a few of its lines
 are expected and harmless: git, nftables and the systemd units are not in the `host` container, and the
-gateway and content server count as "not built" because they run from `reforged-host` in the `front` image instead.
+gateway and content server count as "not built" because they run from `dainty-host` in the `front` image instead.
 
 **Another port than 443** (`setup --public-port 4443`): set `REFORGED_GATEWAY_PORT=4443` and
 `REFORGED_GATEWAY_PUBLISH=4443` in `.env` too, and allow TCP 4443 in the provider's firewall. **More than six
@@ -229,7 +229,7 @@ what the harness checks. The other services have no profile, so name the target 
 | `configure-<region>` | One-shot: `setup` from that `host.toml` (the `toml` profile's `apply`), then exits |
 | `net-<region>` | The node's network namespace and published port, at a fixed address in the private network |
 | `netem-<region>` | `tc` with CAP_NET_ADMIN in that namespace, the only container with it: shapes the node's outgoing traffic (below) |
-| `gateway-<region>` | The node's gateway (`reforged-host gateway serve`), healthy once it listens |
+| `gateway-<region>` | The node's gateway (`dainty-host gateway serve`), healthy once it listens |
 | `network` | Nothing: it waits for the four gateways, so `up --wait network` is the whole cluster |
 
 The regions are `oregon`, `new-york`, `uk` and `germany` (nodes `oregon-1` and so on), at `172.28.77.11` to `.14`
@@ -254,7 +254,7 @@ per peer and filters by address; ARP is never delayed.
 **The test**, `bash docker/network/test.sh` from the repository root (about two minutes once the images are built):
 
 1. Builds the images and checks that this Docker can add a `netem` qdisc in a container.
-2. Starts the profile, waits for the four gateways, and runs `reforged-host network status` inside each node: it
+2. Starts the profile, waits for the four gateways, and runs `dainty-host network status` inside each node: it
    pings each peer over the node link (mutual TLS under the cluster CA) and prints its state, round trip and clock
    skew. The test needs three peers `up` and each round trip from the injected one to 25 ms above it
    (`NETWORK_TOLERANCE_MS`).
@@ -275,7 +275,7 @@ To look around, start it and run what the test runs:
 
 ```bash
 docker compose --profile network up -d --wait network
-docker compose --profile network exec gateway-uk reforged-host network status \
+docker compose --profile network exec gateway-uk dainty-host network status \
   --env-file /opt/reforged/.workspace/config/gateway.env
 curl -k https://127.0.0.1:18441/network/v1/nodes       # what the launcher is told about the other regions
 docker compose --profile network exec netem-oregon tc qdisc show dev eth0
@@ -327,7 +327,7 @@ namespace and the optional dependencies depend on Compose's own behaviour. Rootl
 | --- | --- |
 | Stop, start | `docker compose stop`, `docker compose up -d`; a clean stop includes the game servers |
 | Change a setting | `docker compose run --rm host setup …` (or `multipliers`), then `docker compose up -d --force-recreate`. With the `toml` profile: edit `config/host.toml`, then the same `up` |
-| Update | `git pull`, `docker compose build`, `docker compose up -d`. On a server updating from the pre-RU9 Node backend with existing `mongo-data`, run the one-time migration below first (`backend` refuses to start while `mongo-data` is unmigrated). `reforged-host update` is not used in Docker |
+| Update | `git pull`, `docker compose build`, `docker compose up -d`. On a server updating from the pre-RU9 Node backend with existing `mongo-data`, run the one-time migration below first (`backend` refuses to start while `mongo-data` is unmigrated). `dainty-host update` is not used in Docker |
 | Back up | `docker compose run --rm host backup` (into the `workspace` volume, `backups/`), and keep a copy of the `workspace` volume: it holds the certificate every invite names and the secrets |
 | A shell | `docker compose run --rm --entrypoint bash host` |
 
@@ -363,7 +363,7 @@ A fourth step, `docker/network/test.sh`, starts the `network` profile and checks
 Stop the systemd units, then copy the host's `.workspace` into the `workspace` volume and its game data into
 the game-data volumes (`docker compose run --rm -v /home/reforged/Reforged:/old:ro --entrypoint bash host`,
 then `cp -a` from `/old`). If the host still has pre-RU9 MongoDB data, copy its `mongodb` folder into the
-`mongo-data` volume (or run `reforged-host setup` on the host before moving `.workspace`). Run `setup` in
+`mongo-data` volume (or run `dainty-host setup` on the host before moving `.workspace`). Run `setup` in
 the container once, so the env files name the container's paths; if `mongo-data` was copied unmigrated, migrate it as
 below before starting it.
 

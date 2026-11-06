@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Silent Spud
 
-//! `reforged-host db migrate | verify | export-mongo | replay`: MongoDB-to-SQLite/Postgres
+//! `dainty-host db migrate | verify | export-mongo | replay`: MongoDB-to-SQLite/Postgres
 //! migration, verification, and shadow replay commands.
 
 use std::path::Path;
@@ -18,12 +18,12 @@ use crate::hostconfig::{
 };
 use crate::paths::Paths;
 
-/// Runs `reforged-host db <subcommand>` printing to stdout.
+/// Runs `dainty-host db <subcommand>` printing to stdout.
 pub fn run(paths: &Paths, args: &DbArgs) -> Outcome {
     run_with(paths, args, &mut |line| println!("{line}"))
 }
 
-/// Runs `reforged-host db <subcommand>` sending output lines to `out`.
+/// Runs `dainty-host db <subcommand>` sending output lines to `out`.
 pub fn run_with(paths: &Paths, args: &DbArgs, out: &mut dyn FnMut(&str)) -> Outcome {
     if let Some(res) = crate::hooks::get().run_db_command(paths, args, out) {
         return res;

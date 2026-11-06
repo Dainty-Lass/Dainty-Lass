@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Silent Spud
 
-//! `reforged-host history` and `revert` (DD23, DH3b), and the console's and dashboard's `history` and `revert`:
+//! `dainty-host history` and `revert` (DD23, DH3b), and the console's and dashboard's `history` and `revert`:
 //! one [`Job`] for all of them, run by [`run`] against the server's databases (`admin::history`).
 //!
 //! The host kit has the machine and `admin.env`, so these need no key, as `admin key` does not. A change they
@@ -130,12 +130,12 @@ pub async fn run(paths: &Paths, job: &Job, surface: Surface) -> Result<Done, Str
         until: select.until.clone(),
     };
     let prefix = match surface {
-        Surface::Cli => "reforged-host ",
+        Surface::Cli => "dainty-host ",
         Surface::Console => "",
     };
     let env = paths.config.join("admin.env");
     if !env.is_file() {
-        return Err("there is no admin.env yet: run reforged-host setup first".into());
+        return Err("there is no admin.env yet: run dainty-host setup first".into());
     }
     let node = history::node_database(Some(&env))?;
     let set = HistorySet::open(&node).await.map_err(|e| e.to_string())?;

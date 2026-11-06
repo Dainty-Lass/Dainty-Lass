@@ -1,6 +1,6 @@
 [package]
 name = "host"
-description = "The host kit: the reforged-host command line (MIGRATION_PLAN.md RH rows)"
+description = "The host kit: the dainty-host command line (MIGRATION_PLAN.md RH rows)"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -25,7 +25,7 @@ stub-module = ["controller/stub-module"]
 # dainty-lass's clean-room module (RD27), with restricted's version data compiled in (version_data.rs)
 isles-1-14-7 = ["db-tools", "dep:rustic-isles", "dep:rustic-isles-director", "dep:rustic-isles-gamedata"]
 realms = ["rustic-isles-1-14-7?/realms"]
-# `reforged-host db`, which takes the legacy starter from the version data
+# `dainty-host db`, which takes the legacy starter from the version data
 db-tools = ["dep:rustic-isles-1-14-7", "dep:rustic-isles-db", "dep:rustic-isles-replay"]
 # Opt-in rollback path for one release until RB15 deletes it: Rustic Isles's Node backend and Director
 # and MongoDB
@@ -53,7 +53,7 @@ flate2.workspace = true
 epic.workspace = true
 # Free space for it, as the launcher checks (launcher/src-tauri); hoist into [workspace.dependencies] with the next pass
 fs4 = "1"
-# The services built into this binary (`reforged-host gateway|allowlist|content|admin`, RD26), and the
+# The services built into this binary (`dainty-host gateway|allowlist|content|admin`, RD26), and the
 # public gateway's certificate on a first `serve`
 admin = { workspace = true, optional = true }
 content = { workspace = true, optional = true }

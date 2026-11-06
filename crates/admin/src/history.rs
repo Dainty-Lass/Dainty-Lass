@@ -307,7 +307,7 @@ pub fn sources(node: &DatabaseConfig) -> Vec<Source> {
     }
 }
 
-/// The game's database settings from `admin.env`, which `reforged-host setup` writes: the other databases are
+/// The game's database settings from `admin.env`, which `dainty-host setup` writes: the other databases are
 /// beside it.
 pub fn node_database(env_file: Option<&std::path::Path>) -> Result<DatabaseConfig, String> {
     let env = service_kit::env::Env::load(env_file).map_err(|e| e.to_string())?;

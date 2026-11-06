@@ -102,7 +102,7 @@ impl SetupEnv for Mock {
 }
 
 fn setup_args(args: &[&str]) -> SetupArgs {
-    let mut argv = vec!["reforged-host", "setup"];
+    let mut argv = vec!["dainty-host", "setup"];
     argv.extend_from_slice(args);
     match Cli::try_parse_from(argv).unwrap().command {
         Command::Setup(s) => s,
@@ -655,7 +655,7 @@ fn a_fresh_private_setup_then_again() {
     assert!(text.contains("- secrets: made (kept from now on) in "));
     assert!(text.contains("- env files: backend.env, director.env, content.env, gateway.env, admin.env in "));
     assert!(!text.contains("! No "), "the game folder is there: {text}");
-    assert!(text.ends_with("  reforged-host doctor shows what is still missing."));
+    assert!(text.ends_with("  dainty-host doctor shows what is still missing."));
     assert_eq!(*env.installs.borrow(), 1);
 
     let config = read_host_config(&p.host_toml).unwrap().unwrap();
@@ -663,7 +663,7 @@ fn a_fresh_private_setup_then_again() {
     assert_eq!(config.game_dir.as_deref(), Some(game_arg.as_str()));
     assert!(!p.config.join("host.json").exists(), "host.toml only");
     let toml = read(&p.host_toml);
-    assert!(toml.starts_with("# This server's settings (reforged-host)."), "{toml}");
+    assert!(toml.starts_with("# This server's settings (dainty-host)."), "{toml}");
     assert!(
         toml.contains("\nversion = 1\n") && toml.contains("\nmode = \"private\"\n"),
         "{toml}"
@@ -848,7 +848,7 @@ fn setup_refuses_an_unquoted_value_and_an_incomplete_checkout() {
 
 #[test]
 fn setup_help_hides_paradox_rollback_flags_on_the_default_build_and_keeps_mongo_uri_for_migration() {
-    let err = Cli::try_parse_from(["reforged-host", "setup", "--help"]).unwrap_err();
+    let err = Cli::try_parse_from(["dainty-host", "setup", "--help"]).unwrap_err();
     let help = err.to_string();
     assert!(help.contains("--mongo-uri <uri>"), "{help}");
     assert!(help.contains("migrate pre-cutover player data from"), "{help}");
@@ -865,7 +865,7 @@ fn setup_help_hides_paradox_rollback_flags_on_the_default_build_and_keeps_mongo_
 // ------------------------------------------------------------------ multipliers
 
 fn multipliers(p: &Paths, args: &[&str]) -> (Result<std::process::ExitCode, String>, Vec<String>) {
-    let mut argv = vec!["reforged-host", "multipliers"];
+    let mut argv = vec!["dainty-host", "multipliers"];
     argv.extend_from_slice(args);
     let Command::Multipliers(m) = Cli::try_parse_from(argv).unwrap().command else {
         unreachable!()
@@ -882,7 +882,7 @@ fn multipliers_change_only_the_multipliers_in_host_toml_and_the_backends_env() {
     let (r, lines) = multipliers(&p, &[]);
     assert_eq!(
         r.unwrap_err(),
-        "not set up yet: run reforged-host setup first",
+        "not set up yet: run dainty-host setup first",
         "{lines:?}"
     );
     setup(&p, &["--mode", "private", "--skip-install"], &Mock::new())

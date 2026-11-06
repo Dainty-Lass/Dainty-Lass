@@ -4,7 +4,7 @@
 # Brings up compose.yaml's `network` profile (four nodes, the canary's regions, tc/netem between them) in throwaway
 # volumes and checks that
 #  1. every node reaches its three peers over the node link (mutual TLS) with a round trip near the injected one:
-#     `reforged-host network status` run inside each node
+#     `dainty-host network status` run inside each node
 #  2. the launcher's region ping, the real `region_ping` of launcher (a cargo test, ignored by default), sees the
 #     regions in the order the injected latencies give, from a player in NETEM_PLAYER_REGION, with each node as home
 # Then it tears everything down. Environment:
@@ -92,7 +92,7 @@ within() { awk -v v="$1" -v want="$2" -v tol="$3" 'BEGIN { exit !(v >= want - 2 
 
 step "every node reaches its peers, with the injected round trips"
 for region in "${regions[@]}"; do
-	out="$(compose exec -T "gateway-$region" reforged-host network status --count 5 \
+	out="$(compose exec -T "gateway-$region" dainty-host network status --count 5 \
 		--env-file /opt/reforged/.workspace/config/gateway.env)" || { echo "$out"; fail "$region: a peer is not up"; }
 	echo "$out"
 	peers=0
@@ -130,7 +130,7 @@ fi
 if [ "$run_region_ping" = 1 ]; then
 	for home in "${regions[@]}"; do
 		published="$(compose port "net-$home" 443)"
-		pin="$(compose exec -T "gateway-$home" reforged-host gateway make-cert --fingerprint \
+		pin="$(compose exec -T "gateway-$home" dainty-host gateway make-cert --fingerprint \
 			/opt/reforged/.workspace/tls/gateway-cert.pem | sed -n 's/^Fingerprint: *//p')"
 		# The other regions, nearest to the player first, each with the round trip injected to it
 		expect="$(for r in "${regions[@]}"; do

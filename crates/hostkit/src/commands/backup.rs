@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Silent Spud
 
-//! `reforged-host backup`: new in the Rust kit: a backup of the server's database into
+//! `dainty-host backup`: new in the Rust kit: a backup of the server's database into
 //! `.workspace/backups/`. Until the backend cutover (RB14) the database is MongoDB and this runs
 //! `mongodump` (MongoDB Database Tools) into one gzipped archive, which `mongorestore` reads back.
 //!
@@ -77,7 +77,7 @@ pub fn run(paths: &Paths) -> Outcome {
 
 pub fn run_with(paths: &Paths, env: &dyn BackupEnv, out: &mut dyn FnMut(&str)) -> Outcome {
     let config =
-        load_host_config(paths)?.ok_or_else(|| HostError::message("not set up yet: run reforged-host setup first"))?;
+        load_host_config(paths)?.ok_or_else(|| HostError::message("not set up yet: run dainty-host setup first"))?;
     match database(&config) {
         Database::Sqlite => {
             let db_file = paths.config.join(crate::hostconfig::DATABASE_FILE);

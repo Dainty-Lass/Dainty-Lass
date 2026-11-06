@@ -1,4 +1,4 @@
-//! `admin guarded list|approve|cancel` (run as `reforged-host admin guarded ...`): the host side of the guarded
+//! `admin guarded list|approve|cancel` (run as `dainty-host admin guarded ...`): the host side of the guarded
 //! actions (DD23 layer 4, DH6). The host kit has the machine and `admin.env`, so these need no key, and the
 //! host counts as an owner no key can be: it may approve what any key asked, or cancel it. It only records
 //! the decision. The running server carries an approved action out within 30 seconds, as the key that asked;
