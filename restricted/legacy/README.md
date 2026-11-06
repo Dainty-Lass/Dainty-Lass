@@ -30,7 +30,7 @@ API. The same executable runs an import from the command line, which is how an o
 DaintyLass first starts:
 
 ```text
-dainty-legacy import reforged /srv/old-kit --to /srv/dainty/isles.db --isles-db /usr/local/bin/isles-db
+dainty-legacy import reforged /srv/old-kit --to /srv/dainty/isles.db --db-tool /srv/dainty/reforged-host
 dainty-legacy import reforged /srv/old-kit --fresh-start
 ```
 
@@ -41,8 +41,9 @@ Then run `reforged-host setup`. The options:
 - `--node <id>`: the node imported accounts are homed on (DD18); the running node by default, `local` on the command
   line.
 - `--fresh-start` (`reforged` only): start 1.14.7 on a new database; MongoDB's files are kept as they are.
-- `--isles-db <program>` (`reforged` only): rustic-isles' `isles-db`, which moves and verifies MongoDB; `PATH` by
-  default.
+- `--db-tool <program>` (`reforged` only): the host kit's `reforged-host`, whose `db migrate` and `db verify` move and
+  verify MongoDB; `reforged-host` from `PATH` by default. It finds the server folder from the working directory or its
+  own location, so name the one in the new install. `--isles-db` is refused since isles-db was retired (RD27).
 
 Every path is absolute. Only SQLite 1.4.4 databases are read: a 1.4.4 metagame that ran on Postgres is moved to
 SQLite first (DaintyLass's `store::transfer::move_database`).

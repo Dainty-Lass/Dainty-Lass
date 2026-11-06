@@ -1,4 +1,4 @@
-//! A Reforged Revival Node-kit install upgraded in place: its MongoDB first (a stand-in for isles-db here), then the
+//! A Reforged Revival Node-kit install upgraded in place: its MongoDB first (a stand-in for reforged-host db here), then the
 //! old folders, secrets.env and host.json.
 
 #![allow(clippy::unwrap_used, clippy::expect_used)]
@@ -40,12 +40,12 @@ fn old_install(root: &Path) -> Layout {
 }
 
 #[derive(Default)]
-struct FakeIslesDb {
+struct FakeDbTool {
     differ: Vec<String>,
     calls: RefCell<Vec<String>>,
 }
 
-impl MongoMigrator for FakeIslesDb {
+impl MongoMigrator for FakeDbTool {
     fn migrate(&self, uri: &str, _target: &DatabaseConfig) -> legacy_import::Result<()> {
         self.calls.borrow_mut().push(format!("migrate {uri}"));
         Ok(())
@@ -74,21 +74,21 @@ fn an_old_kit_is_upgraded() {
     let dir = tempfile::tempdir().unwrap();
     let l = old_install(dir.path());
     let config = target(dir.path());
-    let islesdb = FakeIslesDb::default();
+    let db_tool = FakeDbTool::default();
     let plan = MongoPlan::Migrate {
         target: &config,
-        migrator: &islesdb,
+        migrator: &db_tool,
     };
 
     let dry = reforged::upgrade(dir.path(), &plan, true).unwrap();
-    assert!(islesdb.calls.borrow().is_empty(), "a dry run moves no MongoDB");
+    assert!(db_tool.calls.borrow().is_empty(), "a dry run moves no MongoDB");
     assert_eq!(dry.imported("host.toml"), 1);
     unchanged(&l);
 
     let report = reforged::upgrade(dir.path(), &plan, false).unwrap();
     let text = report.text();
     assert_eq!(
-        *islesdb.calls.borrow(),
+        *db_tool.calls.borrow(),
         [
             "migrate mongodb://kit:hunter2@127.0.0.1:27017/reforged",
             "verify mongodb://kit:hunter2@127.0.0.1:27017/reforged"
@@ -118,7 +118,7 @@ fn an_old_kit_is_upgraded() {
     assert!(again.imported.is_empty(), "{}", again.text());
     assert_eq!(again.unchanged.get("host.toml"), Some(&1));
     assert_eq!(again.unchanged.get("mongodb"), Some(&1));
-    assert_eq!(islesdb.calls.borrow().len(), 2);
+    assert_eq!(db_tool.calls.borrow().len(), 2);
 }
 
 #[test]
@@ -134,15 +134,15 @@ fn nothing_changes_when_mongodb_is_not_moved() {
     );
     unchanged(&l);
 
-    // isles-db verify found a difference
+    // reforged-host db verify found a difference
     let config = target(dir.path());
-    let islesdb = FakeIslesDb {
+    let db_tool = FakeDbTool {
         differ: vec!["accounts".into()],
-        ..FakeIslesDb::default()
+        ..FakeDbTool::default()
     };
     let plan = MongoPlan::Migrate {
         target: &config,
-        migrator: &islesdb,
+        migrator: &db_tool,
     };
     let failed = reforged::upgrade(dir.path(), &plan, false);
     assert!(

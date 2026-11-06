@@ -4,7 +4,7 @@
 //! ```text
 //! revived      <database>  (--to <1.14.7 database file> | --env-file <backend env file>) [--node <id>] [--dry-run]
 //! offline-save <save>      (--to <1.14.7 database file> | --env-file <backend env file>) [--node <id>] [--dry-run]
-//! reforged     <checkout>  [--to <file> | --env-file <file>] [--fresh-start] [--isles-db <program>] [--dry-run]
+//! reforged     <checkout>  [--to <file> | --env-file <file>] [--fresh-start] [--db-tool <program>] [--dry-run]
 //! ```
 //!
 //! Every path is absolute: a module's working directory is not the host's.
@@ -16,7 +16,7 @@ use module_api::NodeId;
 use store::DatabaseConfig;
 
 use crate::error::{ImportError, Result};
-use crate::reforged::mongo::{IslesDb, MongoPlan};
+use crate::reforged::mongo::{DEFAULT_DB_TOOL, DbTool, MongoPlan};
 use crate::report::Report;
 use crate::revived::Options;
 use crate::target::Target;
@@ -25,7 +25,7 @@ pub const USAGE: &str = "\
 usage:
   import revived      <database> (--to <1.14.7 database> | --env-file <backend env file>) [--node <id>] [--dry-run]
   import offline-save <.drsave or database> (--to <file> | --env-file <file>) [--node <id>] [--dry-run]
-  import reforged     <checkout> [--to <file> | --env-file <file>] [--fresh-start] [--isles-db <program>] [--dry-run]
+  import reforged     <checkout> [--to <file> | --env-file <file>] [--fresh-start] [--db-tool <program>] [--dry-run]
 every path is absolute";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -62,7 +62,7 @@ pub struct Request {
     pub node: Option<NodeId>,
     pub dry_run: bool,
     pub fresh_start: bool,
-    pub isles_db: Option<PathBuf>,
+    pub db_tool: Option<PathBuf>,
 }
 
 fn usage(message: impl Into<String>) -> ImportError {
@@ -88,7 +88,7 @@ pub fn parse(kind: Kind, args: &[String]) -> Result<Request> {
         node: None,
         dry_run: false,
         fresh_start: false,
-        isles_db: None,
+        db_tool: None,
     };
     let mut args = args.iter();
     while let Some(arg) = args.next() {
@@ -105,8 +105,15 @@ pub fn parse(kind: Kind, args: &[String]) -> Result<Request> {
                 let text = value("--node")?;
                 request.node = Some(text.parse().map_err(|e| usage(format!("--node: {e}")))?);
             }
+            "--db-tool" if kind == Kind::Reforged => {
+                request.db_tool = Some(absolute(value("--db-tool")?, "--db-tool")?);
+            }
+            // isles-db was retired for `reforged-host db` (RD27): a script still naming it gets told, not misrun
             "--isles-db" if kind == Kind::Reforged => {
-                request.isles_db = Some(absolute(value("--isles-db")?, "--isles-db")?);
+                return Err(usage(
+                    "--isles-db is gone: the database steps run through reforged-host db; name that program with \
+                     --db-tool <program> (reforged-host from PATH by default)",
+                ));
             }
             flag if flag.starts_with("--") => return Err(usage(format!("unknown option {flag}"))),
             path if source.is_none() => source = Some(absolute(path, "the source")?),
@@ -161,7 +168,7 @@ pub fn database_config(target: &TargetArg) -> Result<DatabaseConfig> {
 }
 
 /// Runs `request`. `default_node` is the node accounts are homed on when `--node` isn't given: the running node's
-/// as a module command, `local` from the command line (as `isles-db migrate` does).
+/// as a module command, `local` from the command line (as `reforged-host db migrate` does).
 pub async fn run(request: &Request, default_node: &NodeId) -> Result<Report> {
     let node = request.node.clone().unwrap_or_else(|| default_node.clone());
     let options = Options::now(request.dry_run);
@@ -179,14 +186,17 @@ pub async fn run(request: &Request, default_node: &NodeId) -> Result<Report> {
         }
         Kind::Reforged => {
             let config = request.target.as_ref().map(database_config).transpose()?;
-            let isles_db = IslesDb {
-                program: request.isles_db.clone().unwrap_or_else(|| PathBuf::from("isles-db")),
+            let db_tool = DbTool {
+                program: request
+                    .db_tool
+                    .clone()
+                    .unwrap_or_else(|| PathBuf::from(DEFAULT_DB_TOOL)),
             };
             let plan = match &config {
                 _ if request.fresh_start => MongoPlan::FreshStart,
                 Some(target) => MongoPlan::Migrate {
                     target,
-                    migrator: &isles_db,
+                    migrator: &db_tool,
                 },
                 None => MongoPlan::Refuse,
             };
@@ -242,6 +252,29 @@ mod tests {
             parse(
                 Kind::Reforged,
                 &args(&format!("{ROOT}srv/kit --fresh-start --to {ROOT}x.db"))
+            )
+            .is_err()
+        );
+        let tool = parse(
+            Kind::Reforged,
+            &args(&format!(
+                "{ROOT}srv/kit --to {ROOT}x.db --db-tool {ROOT}srv/reforged-host"
+            )),
+        )
+        .unwrap();
+        assert_eq!(tool.db_tool, Some(PathBuf::from(format!("{ROOT}srv/reforged-host"))));
+        let ImportError::Usage(message) = parse(
+            Kind::Reforged,
+            &args(&format!("{ROOT}srv/kit --to {ROOT}x.db --isles-db {ROOT}bin/isles-db")),
+        )
+        .unwrap_err() else {
+            panic!("a usage error")
+        };
+        assert!(message.contains("--db-tool"), "{message}");
+        assert!(
+            parse(
+                Kind::Revived,
+                &args(&format!("{ROOT}a.db --to {ROOT}b.db --db-tool {ROOT}t"))
             )
             .is_err()
         );

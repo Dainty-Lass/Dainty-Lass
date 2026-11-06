@@ -34,8 +34,9 @@ Moved to `crates/legacy-import/src/reforged/hostjson.rs` and `reforged/mod.rs`.
 
 ### The Node kit's MongoDB
 
-Moved to `crates/legacy-import/src/reforged/mongo.rs`, which runs rustic-isles' `isles-db migrate` and `verify` as a
-child process and writes the same `.workspace/config/.mongo-migrated` marker.
+Moved to `crates/legacy-import/src/reforged/mongo.rs`, which runs the host kit's `reforged-host db migrate` and
+`db verify` (`--db-tool`, dainty-lass's MIT `rustic-isles-db` since isles-db was retired in RD27) as a child process
+and writes the same `.workspace/config/.mongo-migrated` marker.
 
 - `src/commands/update.rs`: `migrate_existing_mongo_data`, `migrate_existing_mongo_data_for_setup`,
   `UpdateEnv::migrate_mongo_data` and its call in `run_with`, `has_external_mongo_evidence`,
@@ -44,14 +45,15 @@ child process and writes the same `.workspace/config/.mongo-migrated` marker.
   `check_unmigrated_mongo_data`, and their tests. `redact_mongo_uri` goes when nothing else uses it.
 - `src/commands/setup.rs`: both MongoDB migration calls and `args.fresh_start`'s marker (`legacy import reforged
   --fresh-start` writes it now).
-- `src/commands/db.rs`: `resolve_mongo_uri`, and the `db migrate` and `db verify` subcommands. **Maintainer's call:**
-  `db export-mongo` (the rollback to MongoDB) is the only tool left that writes MongoDB; keep it for one release or
-  move it here.
+- `src/commands/db.rs`: `resolve_mongo_uri`. The `db migrate` and `db verify` subcommands stay: the importer runs
+  them, with `--from`/`--against`, `--to`, `--json` and `--allow-remote-postgres`, and reads `verify`'s JSON report
+  (`collections[].name`, `.ok`). **Maintainer's call:** `db export-mongo` (the rollback to MongoDB) is the only tool
+  left that writes MongoDB; keep it for one release or move it here.
 - `src/doctor.rs` and `start`: the unmigrated-MongoDB check. `legacy import reforged` refuses to convert host.json
   while MongoDB has data it hasn't moved, so a DaintyLass install never has unmigrated data.
 - `src/hooks.rs` and `rust/services/host/src/lib.rs`: `mongo_has_documents`, `db_migrate` and `db_verify`, which link
-  `isles-db` into the host kit. `src/mongo.rs`, `src/mongo/wire.rs` and `[mongo]` in host.toml go if the managed
-  `mongod` serves nothing else.
+  the database tool (now `rustic-isles-db`) into the host kit, except what `db migrate` and `db verify` above need.
+  `src/mongo.rs`, `src/mongo/wire.rs` and `[mongo]` in host.toml go if the managed `mongod` serves nothing else.
 
 ## What dainty-lass adds
 
@@ -72,6 +74,8 @@ child process and writes the same `.workspace/config/.mongo-migrated` marker.
   rustic-isles `af9c125` makes them, and a 1.4.4 timed ban as a timeout (`launcher_accounts.timeout_*`, migration
   `0610` on rustic-isles `feat/timed-bans`) where the server has it, and puts back isles-core's soft-delete set (`db.rs`). A change to either there is
   a change here.
-- **Account ids.** `target::account_id` is `isles-db`'s `deterministic_account_id`; if isles-db changes its
-  derivation, change both.
+- **Account ids.** `target::account_id` is `rustic-isles-db`'s `ids::derived_account_id` (isles-db's
+  `deterministic_account_id` before RD27); if it changes its derivation, change both.
+- **The database tool's interface.** `reforged/mongo.rs` runs `<--db-tool> db migrate|verify` with the flags above;
+  a change to them in `hostkit`'s `cli.rs` is a change here.
 - **The pinned rev.** `module-api` and `store` come from dainty-lass at `fb46a4a`; bump with the rest of the modules.

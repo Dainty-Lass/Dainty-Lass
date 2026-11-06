@@ -50,7 +50,7 @@ and none of them endorses it. Every change is recorded in the commit history. It
 - Used here: the 1.14.7 account tables an import writes (`crates/legacy-import/src/target.rs` writes them as
   `isles-core`'s migrations `0001_accounts`, `0020_auth` and `0200_reforged_invites` make them, and
   `crates/legacy-import/src/testing/isles-1-14-7.sql` copies those migrations for the tests), isles-core's soft-delete
-  table list, and `isles-db`'s account-id derivation.
+  table list, and `isles-db`'s account-id derivation (which dainty-lass's MIT `rustic-isles-db` keeps).
 
 ### DaintyLass
 
