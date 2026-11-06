@@ -2572,6 +2572,7 @@ dependencies = [
  "tokio-util",
  "toml_edit",
  "tracing",
+ "tracing-log",
  "tracing-subscriber",
  "ts-rs",
  "url",
