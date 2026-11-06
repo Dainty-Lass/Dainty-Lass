@@ -5,6 +5,7 @@ import { requirePage } from "@/lib/auth/guard";
 import { can } from "@/lib/auth/permissions";
 import { config } from "@/lib/config";
 import { getController } from "@/lib/fleet/controllers";
+import { readLogSettings } from "@/lib/fleet/log-settings";
 import { currentScope } from "@/lib/fleet/scope";
 import { fleetPerformance, recentSamples, viewOf } from "@/lib/fleet/status";
 import { reportCounts } from "@/lib/reports/store";
@@ -34,9 +35,13 @@ export default async function ControllerPage({ params }: { params: Promise<{ id:
       hunts: Math.max(cur.hunts, s.huntsRunning),
     });
   }
+  const canWrite = can(me.role, "controllers:write");
+  // Only for those who may change them: the collector's address is the host's business
+  const view = viewOf(controller);
+  const logs = canWrite && view.state !== "pending" ? await readLogSettings(me, id) : null;
   return (
     <ControllerDetailClient
-      controller={viewOf(controller)}
+      controller={view}
       perf={fleetPerformance([id], can(me.role, "chat:read"))}
       history={Array.from({ length: 168 }, (_, i) => {
         const at = Math.floor(Date.now() / 3_600_000) * 3_600_000 - (167 - i) * 3_600_000;
@@ -47,7 +52,8 @@ export default async function ControllerPage({ params }: { params: Promise<{ id:
         can(me.role, "audit:read") ? queryAudit({ controllerIds: [id], pageSize: 25 }).events : null
       }
       inScope={scope.kind === "one" && scope.id === id}
-      canWrite={can(me.role, "controllers:write")}
+      canWrite={canWrite}
+      logs={logs}
       canRevert={can(me.role, "audit:revert")}
       dashboardUrl={config.baseUrl}
       insecure={!config.baseUrl.startsWith("https:")}

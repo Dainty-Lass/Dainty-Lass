@@ -84,3 +84,11 @@ export interface Operator {
   id: string;
   name: string;
 }
+
+/** host.toml's `[logs]` on one controller; the server takes a change at its next start. */
+export interface LogSettings {
+  format: "text" | "json";
+  color: "auto" | "always" | "never";
+  gelfUrl: string | null;
+  restartNeeded: boolean;
+}

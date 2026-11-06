@@ -106,7 +106,8 @@ Errors are GraphQL errors with a code in `extensions.code`: `BAD_INPUT`, `NOT_FO
 didn't answer), `BACKEND_REFUSED` (its message says when the secrets don't match: run `setup` and restart),
 `STATE_NOT_SAVED`, `AMBIGUOUS_PLAYER`, `UNKNOWN_GAME`, `NOT_SUPPORTED` (the player's module can't do that yet),
 `FORBIDDEN` (the key's role is too low; see above), `GUARDED` (the action was held, not done: see Guarded actions),
-`NOT_WAITING` (a guarded action that is not waiting), and for the history `PLAN_CHANGED`, `PLAN_EXPIRED`,
+`NOT_WAITING` (a guarded action that is not waiting), `SETTINGS_UNAVAILABLE`, `SETTINGS_UNREADABLE` and
+`SETTINGS_REFUSED` (`logSettings` and `setLogSettings`: see [logging.md](logging.md#from-the-dashboard)), and for the history `PLAN_CHANGED`, `PLAN_EXPIRED`,
 `HISTORY_UNAVAILABLE` and `PARTIAL_REVERT` (see [History and revert](#history-and-revert)). A
 request refused before any GraphQL runs gets a 4xx with the same shape: 401 `UNAUTHENTICATED`, 403 `FORWARDED`,
 400 `BAD_OPERATOR` or `BAD_REQUEST`, 415 `NOT_JSON`, 503 `KEYS_UNAVAILABLE` (the keys' database didn't answer; the
@@ -123,8 +124,8 @@ nobody else's key changes.
 | --- | --- |
 | `viewer` | Read: `player`, `serverStatus`, `huntStatus`, `activeTimeouts`, `modules`, `module` |
 | `moderator` | Viewer, and `kick`, `timeout`, `ban`, and `guarded`, `approve`, `cancel` (a held action: see Guarded actions) |
-| `admin` | Moderator, and `unban`, `liftTimeout`, `loadModule`, `unloadModule`, `restartModule`, `adminKeys`, `issueKey` for viewer and moderator keys, and reading the change logs: `history`, `historyCheck` |
-| `owner` | Everything: `issueKey` for any role, `revokeKey`, and the history revert: `revertPlan`, `revertApply` (a big one is held first: see Guarded actions) |
+| `admin` | Moderator, and `unban`, `liftTimeout`, `loadModule`, `unloadModule`, `restartModule`, `adminKeys`, `issueKey` for viewer and moderator keys, `logSettings`, and reading the change logs: `history`, `historyCheck` |
+| `owner` | Everything: `issueKey` for any role, `revokeKey`, `setLogSettings` (a collector receives every line the server logs), and the history revert: `revertPlan`, `revertApply` (a big one is held first: see Guarded actions) |
 
 A call above the key's role is refused with `FORBIDDEN`; the message names the role it needs
 (`unban needs the admin role; this key's role is moderator`) and `extensions.requiredRole` carries it. Nothing

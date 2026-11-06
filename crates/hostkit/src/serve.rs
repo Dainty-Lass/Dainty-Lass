@@ -463,8 +463,14 @@ pub fn compose(
     // The admin API has no Node build; it runs when setup wrote its env file (an older setup did not)
     #[cfg(feature = "admin")]
     if !game_half && start_cmd::env_file(paths, "admin").is_file() {
-        controller
-            .add(modules::admin(&module_env(paths, "admin")?, Some(registry.clone())).map_err(HostError::message)?);
+        let host: Arc<dyn admin::host_settings::HostSettings> = Arc::new(hostconfig::logs::LogsFile {
+            file: paths.host_toml.clone(),
+            started: config.logs.clone().unwrap_or_default(),
+        });
+        controller.add(
+            modules::admin(&module_env(paths, "admin")?, Some(registry.clone()), Some(host))
+                .map_err(HostError::message)?,
+        );
     }
     for library in libraries {
         hooks.compose_service_library(&mut controller, paths, config, &registry, library)?;

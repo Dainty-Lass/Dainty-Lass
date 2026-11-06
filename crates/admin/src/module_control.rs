@@ -46,6 +46,10 @@ pub trait ModuleControl: Send + Sync {
     fn load<'a>(&'a self, id: &'a str) -> Pending<'a, Module>;
     fn unload<'a>(&'a self, id: &'a str) -> Pending<'a, Module>;
     fn restart<'a>(&'a self, id: &'a str) -> Pending<'a, Module>;
+    /// host.toml's settings the dashboard edits, when the host kit handed the file in
+    fn host_settings(&self) -> Option<Arc<dyn crate::host_settings::HostSettings>> {
+        None
+    }
 }
 
 /// The registry, when the admin API runs inside the server.

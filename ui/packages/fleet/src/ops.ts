@@ -18,6 +18,9 @@ export const ADMIN_OPS = {
   liftTimeout: `mutation($u: String!) { liftTimeout(username: $u) { ${PLAYER} } }`,
   ban: `mutation($u: String!, $r: String!) { ban(username: $u, reason: $r) { ${PLAYER} } }`,
   unban: `mutation($u: String!, $r: String) { unban(username: $u, reason: $r) { ${PLAYER} } }`,
+  logSettings: "{ logSettings { format color gelfUrl restartNeeded } }",
+  setLogSettings:
+    "mutation($i: LogSettingsInput!) { setLogSettings(input: $i) { format color gelfUrl restartNeeded } }",
 } as const;
 
 export type AdminOp = keyof typeof ADMIN_OPS;

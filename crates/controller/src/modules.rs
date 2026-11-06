@@ -35,9 +35,14 @@ pub fn game_modules() -> Vec<crate::registry::ModuleFactory> {
     modules
 }
 
-/// The admin API (`admin.env`), with the server's module registry when it has one (DF3).
+/// The admin API (`admin.env`), with the server's module registry when it has one (DF3), and host.toml's settings
+/// the dashboard edits when the host kit hands them in.
 #[cfg(feature = "admin")]
-pub fn admin(env: &Env, registry: Option<crate::ModuleRegistry>) -> Result<Module, String> {
+pub fn admin(
+    env: &Env,
+    registry: Option<crate::ModuleRegistry>,
+    host: Option<Arc<dyn admin::host_settings::HostSettings>>,
+) -> Result<Module, String> {
     let config = admin::config::Config::from_env(env)?;
     let (plugin, control, services) = match registry {
         Some(registry) => {
@@ -47,7 +52,7 @@ pub fn admin(env: &Env, registry: Option<crate::ModuleRegistry>) -> Result<Modul
             registry.add_plugin(plugin.clone());
             let services = registry.node_services().clone();
             let control = admin::module_control::Modules(Some(
-                Arc::new(AdminModules(registry)) as Arc<dyn admin::module_control::ModuleControl>
+                Arc::new(AdminModules(registry, host)) as Arc<dyn admin::module_control::ModuleControl>
             ));
             (plugin, control, Some(services))
         }
@@ -127,7 +132,10 @@ impl admin::relay::AdminNetwork for NodeServicesNetwork {
 
 /// The registry as the admin API reads and drives it.
 #[cfg(feature = "admin")]
-struct AdminModules(crate::ModuleRegistry);
+struct AdminModules(
+    crate::ModuleRegistry,
+    Option<Arc<dyn admin::host_settings::HostSettings>>,
+);
 
 #[cfg(feature = "admin")]
 fn admin_module(info: crate::ModuleInfo) -> admin::module_control::Module {
@@ -187,6 +195,10 @@ impl admin::module_control::ModuleControl for AdminModules {
             let id = id.parse().map_err(|e: module_api::ids::NameError| e.to_string())?;
             self.0.restart(&id).await.map(admin_module).map_err(|e| e.to_string())
         })
+    }
+
+    fn host_settings(&self) -> Option<Arc<dyn admin::host_settings::HostSettings>> {
+        self.1.clone()
     }
 }
 

@@ -20,7 +20,7 @@ import { TextArea } from "@astryxdesign/core/TextArea";
 import { TextInput } from "@astryxdesign/core/TextInput";
 import { Timestamp } from "@astryxdesign/core/Timestamp";
 import { Token } from "@astryxdesign/core/Token";
-import type { Hunt } from "@dainty/fleet";
+import type { Hunt, LogSettings } from "@dainty/fleet";
 import { StatTiles } from "@dainty/theme";
 import { Crosshair } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -43,6 +43,7 @@ import {
   updateControllerAction,
 } from "../actions";
 import { PairingInstructions } from "../PairingInstructions";
+import { LogSettingsCard } from "./LogSettingsCard";
 
 const SERVICE_DOT = { ok: "success", down: "error", not_configured: "neutral" } as const;
 type HuntRow = Hunt & Record<string, unknown>;
@@ -58,6 +59,7 @@ export function ControllerDetailClient({
   canRevert,
   dashboardUrl,
   insecure,
+  logs,
 }: {
   controller: ControllerView;
   perf: Performance;
@@ -70,6 +72,8 @@ export function ControllerDetailClient({
   canRevert: boolean;
   dashboardUrl: string;
   insecure: boolean;
+  // Null for readers, and when the controller could not answer
+  logs: LogSettings | null;
 }) {
   const t = useTranslations("fleet");
   const to = useTranslations("overview");
@@ -352,6 +356,8 @@ export function ControllerDetailClient({
       </Card>
 
       {c.state !== "pending" && <PerformanceSection perf={perf} single />}
+
+      {canWrite && c.state !== "pending" && <LogSettingsCard controllerId={c.id} logs={logs} />}
 
       {audit && (
         <Card padding={0}>
