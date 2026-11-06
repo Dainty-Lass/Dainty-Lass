@@ -19,11 +19,12 @@ internet, or in Docker.
 
 The launcher on a player's PC talks to the host's **gateway**, the one thing the server exposes: TLS on 443 with a
 pinned certificate for a public server, plain HTTP inside the tailnet for a private one. Behind it sit the
-**backend** (Rustic Isles's 1.14.7 backend and launcher API, ported to Rust in `modules/rustic-isles`, on SQLite or
-Postgres), the **content server** (the game runtime, news and art) and the
-**allowlist**, which opens the game's UDP ports only to players who have logged in. The **Director** (`isles-director`)
-starts Ramsgate, the Training Grounds and the hunts. The game itself loads the host's runtime (`Rustic-Isles.dll`
-through `winmm.dll`) and reaches the backend through a relay the launcher runs on `127.0.0.1:61100`.
+**backend** (Rustic Isles's 1.14.7 backend and launcher API: dainty-lass's clean-room `rustic-isles-1-14-7` with
+`modules/rustic-isles`' version data, on SQLite or Postgres), the **content server** (the game runtime, news and
+art) and the **allowlist**, which opens the game's UDP ports only to players who have logged in. The **Director**
+(`rustic-isles-director`) starts Ramsgate, the Training Grounds and the hunts. The game itself loads the host's
+runtime (`Rustic-Isles.dll` through `winmm.dll`) and reaches the backend through a relay the launcher runs on
+`127.0.0.1:61100`.
 [../docs/architecture.md](../docs/architecture.md) has the trust boundaries.
 
 ## What is in this directory
@@ -35,7 +36,7 @@ AGPL parts and builds the full server, the Tauri launcher and the Docker images,
 | Folder | What |
 | --- | --- |
 | [`.`](.) | Independent AGPL-3.0-only Cargo workspace: `crates/` (`host`, the libraries of the MIT gateway, content and chat, and the server executables), `launcher/src-tauri` (Tauri: `dainty-lass-client` and `dainty-lass-manager`), and the game modules' crates |
-| [`modules/rustic-isles/`](modules/rustic-isles) | The Dauntless 1.14.7 game module (`isles-1-14-7`), `isles-core`, `isles-director`, `isles-chat`, the runtime's C++ source and CatalogExporter (`native/`), and the Node reference sources (`reference/1.14.7`) |
+| [`modules/rustic-isles/`](modules/rustic-isles) | The library the core loads for the 1.14.7 module (`isles-1-14-7-plugin`), its version data and the Node goldens replayed against it (`isles-mit-parity`), the runtime's C++ source and CatalogExporter (`native/`), and the Node reference sources (`reference/1.14.7`) |
 | [`modules/rustic-rifts/`](modules/rustic-rifts) | Peer-to-peer realms and the realm transport |
 | [`legacy/`](legacy) | The importer for Dauntless Revived 1.4.4 and Reforged Revival installs |
 | [`native/`](native) | The runtime loader (`runtime-loader`, Rust `winmm.dll` proxy) |

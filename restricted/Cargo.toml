@@ -8,9 +8,10 @@ members = [
     # content, gateway and chat, built here where they ship
     "crates/*",
     "launcher/src-tauri",
-    # The game module and its crates (DD6, DD8), and realms (DD14)
+    # The game module and its crates (DD6, DD8)
     "modules/rustic-isles/crates/*",
-    "modules/rustic-rifts/crates/*",
+    # Mystic Paradox's answers replayed against dainty-lass's MIT rifts crates (spec-rd27-rifts 4.3)
+    "modules/rustic-rifts/oracle",
 ]
 # Workspaces of their own: the fuzz targets (nightly), the 1.4.4 importer (an external plugin, host.toml pins it), the
 # runtime loader (Apache-2.0) and the launcher's host fixture
@@ -21,7 +22,7 @@ version = "0.0.0"
 edition = "2024"
 rust-version = "1.99"
 license = "AGPL-3.0-only"
-repository = "https://git.silentspud.com/silentspud/dainty-restricted"
+repository = "https://git.silentspud.com/silentspud/dainty-lass"
 publish = false
 
 [workspace.dependencies]
@@ -46,21 +47,22 @@ admin = { path = "../crates/admin" }
 chat = { path = "../crates/chat" }
 content = { path = "../crates/content" }
 epic = { path = "../crates/epic" }
-# The game modules compiled into the server (DF5): Cargo features of the controller and the bins
-isles-1-14-7 = { path = "modules/rustic-isles/crates/isles-1-14-7", default-features = false }
-isles-core = { path = "modules/rustic-isles/crates/isles-core" }
-isles-db = { path = "modules/rustic-isles/crates/isles-db" }
-isles-director = { path = "modules/rustic-isles/crates/isles-director" }
-hmac = "0.13"
-isles-chat = { path = "modules/rustic-isles/crates/isles-chat" }
-# Realms (DD14, RF2): the seam always, the server crates behind isles-1-14-7's realms feature, rifts-host behind the
+# The game modules compiled into the server (DF5), a Cargo feature of the host and the bins: dainty-lass's clean-room
+# 1.14.7 module (RD27) with its db tool, replay, generators and hunt-table import; also isles-mit-parity's replay
+rustic-isles = { path = "../crates/rustic-isles" }
+rustic-isles-1-14-7 = { path = "../crates/rustic-isles-1-14-7", default-features = false }
+rustic-isles-auth = { path = "../crates/rustic-isles-auth" }
+rustic-isles-db = { path = "../crates/rustic-isles-db" }
+rustic-isles-director = { path = "../crates/rustic-isles-director" }
+rustic-isles-gamedata = { path = "../crates/rustic-isles-gamedata" }
+rustic-isles-replay = { path = "../crates/rustic-isles-replay" }
+rustic-isles-store = { path = "../crates/rustic-isles-store" }
+# Realms (DD14, RF2): the seam always, admission and relay for the oracle, rifts-host behind the
 # launcher's
-rifts-seam = { path = "modules/rustic-rifts/crates/rifts-seam" }
-rifts-admission = { path = "modules/rustic-rifts/crates/rifts-admission" }
-rifts-relay = { path = "modules/rustic-rifts/crates/rifts-relay" }
-rifts-realms = { path = "modules/rustic-rifts/crates/rifts-realms" }
-rifts-guard = { path = "modules/rustic-rifts/crates/rifts-guard" }
-rifts-host = { path = "modules/rustic-rifts/crates/rifts-host" }
+rifts-seam = { path = "../crates/rifts-seam" }
+rifts-admission = { path = "../crates/rifts-admission" }
+rifts-relay = { path = "../crates/rifts-relay" }
+rifts-host = { path = "../crates/rifts-host" }
 gateway = { path = "../crates/gateway" }
 host = { path = "crates/host" }
 launcher = { path = "launcher/src-tauri" }
@@ -70,7 +72,6 @@ ratatui = { version = "0.30", default-features = false, features = ["crossterm"]
 
 # RSA token keys and CSPRNG (D10: aws-lc-rs, already in the tree through rustls and rcgen)
 aws-lc-rs = "1.18"
-axum = { version = "0.8", default-features = false, features = ["http1", "json", "query", "tokio", "form", "ws"] }
 aes-gcm = "0.11"
 # The admin API's GraphQL schema (crates/admin); no web framework integration, no playground
 async-graphql = { version = "7", default-features = false }
@@ -80,7 +81,6 @@ chrono = { version = "0.4", default-features = false, features = ["clock", "std"
 clap = { version = "4", features = ["derive"] }
 diesel = { version = "2.3", default-features = false, features = ["sqlite", "postgres_backend", "r2d2", "returning_clauses_for_sqlite_3_35", "32-column-tables"] }
 diesel_migrations = { version = "2.3", features = ["sqlite", "postgres"] }
-dotenvy = "0.15"
 flate2 = "1"
 futures-util = { version = "0.3", default-features = false, features = ["sink", "std"] }
 gethostname = "1"
@@ -122,20 +122,15 @@ rand = "0.10"
 tempfile = "3"
 # Network-wide ids, tagged with the owning node (DD18, crates/module-api)
 ulid = "3"
-# Constant-time comparisons, and WebSocket clients (the version axum's ws uses)
-subtle = "2"
+# WebSocket clients
 tokio-tungstenite = { version = "0.29", default-features = false, features = ["connect", "handshake"] }
 
 # rustic-isles' and rustic-rifts' own (RU5 auth, RU6 Director, RF4 admission and relay)
-argon2 = "0.5"
-ed25519-dalek = { version = "2", default-features = false, features = ["std"] }
 getrandom = "0.4"
-jsonwebtoken = { version = "11", default-features = false, features = ["use_pem", "aws_lc_rs"] }
 libc = "0.2.191"
 libloading = "0.7"
 p256 = { version = "0.14", default-features = false, features = ["ecdsa", "pem", "pkcs8", "std"] }
 tokio-rustls = { version = "0.26", default-features = false, features = ["aws_lc_rs", "tls12"] }
-uuid = { version = "1", features = ["v4"] }
 webpki-roots = "1"
 windows = { version = "0.62.2", features = ["Win32_Foundation", "Win32_Security", "Win32_Storage_FileSystem", "Win32_System_JobObjects", "Win32_System_Pipes", "Win32_System_SystemInformation", "Win32_System_Threading"] }
 

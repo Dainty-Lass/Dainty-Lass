@@ -1,0 +1,36 @@
+[package]
+name = "rustic-isles-characters"
+description = "Rustic Isles' characters and loadouts area: GET, PUT and POST /character, the five /loadout routes, the character-data rules and the starter records a new character is seeded with"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+# Clean-room rewrite from docs/port/spec-rustic-isles-characters.md (RD27, docs/port/clean-room/rustic-isles-characters.md)
+license = "MIT"
+repository.workspace = true
+publish.workspace = true
+
+[dependencies]
+axum.workspace = true
+http.workspace = true
+module-api.workspace = true
+rifts-seam.workspace = true
+rustic-isles.workspace = true
+rustic-isles-auth.workspace = true
+rustic-isles-store.workspace = true
+serde_json = { workspace = true, features = ["preserve_order"] }
+service-kit.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+
+[dev-dependencies]
+# A test removes a starter row outright
+diesel.workspace = true
+http-body-util.workspace = true
+rustic-isles = { workspace = true, features = ["test-support"] }
+rustic-isles-auth = { workspace = true, features = ["test-support"] }
+rustic-isles-store = { workspace = true, features = ["test-support"] }
+tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
+tower.workspace = true
+
+[lints]
+workspace = true

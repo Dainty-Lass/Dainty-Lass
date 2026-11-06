@@ -50,6 +50,38 @@ rifts-admission = { path = "../crates/rifts-admission" }
 # guard_evidence, guard_grants: what a host's transport and inventory transactions hand Rustic Rifts' Guard (RD27)
 rifts-guard = { path = "../crates/rifts-guard" }
 rifts-seam = { path = "../crates/rifts-seam" }
+# rustic_isles_auth_text, rustic_isles_auth_tokens: what Rustic Isles' sign-in area reads from players (RD27)
+rustic-isles-auth = { path = "../crates/rustic-isles-auth", features = ["test-support"] }
+# rustic_isles_routes, rustic_isles_pipeline_text: the paths and text Rustic Isles' pipeline reads (RD27)
+rustic-isles = { path = "../crates/rustic-isles", features = ["test-support"] }
+service-kit = { path = "../crates/service-kit" }
+# rustic_isles_gamedata_windows, rustic_isles_gamedata_formats: the window rewrite and what the generators read (RD27)
+rustic-isles-gamedata = { path = "../crates/rustic-isles-gamedata" }
+# rustic_isles_director_{cmdline,matchmaking,tag_query,lines,hunt_import}: what the Director reads from the backend, the
+# game servers and a capture (RD27)
+rustic-isles-director = { path = "../crates/rustic-isles-director" }
+# rustic_isles_store_decode: what Rustic Isles' store reads back from its columns (RD27)
+rustic-isles-store = { path = "../crates/rustic-isles-store" }
+# rustic_isles_chat_names: the room names, ids, query and bodies Rustic Isles' chat rules read (RD27)
+rustic-isles-chat = { path = "../crates/rustic-isles-chat" }
+# rustic_isles_replay_input: the capture lines, target answers and key maps the shadow replay harness reads (RD27)
+rustic-isles-replay = { path = "../crates/rustic-isles-replay" }
+# rustic_isles_characters_data: the character data, loadout writes and stored items Rustic Isles' characters read (RD27)
+rustic-isles-characters = { path = "../crates/rustic-isles-characters" }
+# rustic_isles_economy_{inventory,progression_report,journey,escalation,bounties,cooldowns,store_data,text}: what
+# Rustic Isles' economy reads from game servers, hosts, its rows and the store files (RD27)
+rustic-isles-economy = { path = "../crates/rustic-isles-economy" }
+# rustic_isles_matchmaking_{inputs,director_answer}: what Rustic Isles' matchmaking reads from players, the realms side
+# and the Director over HTTP (RD27)
+rustic-isles-matchmaking = { path = "../crates/rustic-isles-matchmaking" }
+# rustic_isles_db_{bson,reply,uri,extract,scram}: what the database tool reads from MongoDB, a host and its documents (RD27)
+rustic-isles-db = { path = "../crates/rustic-isles-db" }
+# rustic_isles_reforged_{guard,text,paths,admin_auth,admin_text}: what Rustic Isles' Reforged API reads from
+# launchers, the release tooling, the dashboard, the admin service and the host (RD27)
+rustic-isles-reforged = { path = "../crates/rustic-isles-reforged", features = ["test-support"] }
+# rustic_isles_1_14_7_version_data: the version data document and the hook inputs the 1.14.7 module reads (RD27)
+rustic-isles-1-14-7 = { path = "../crates/rustic-isles-1-14-7", default-features = false }
+axum = { version = "0.8", default-features = false }
 # transport_frame, transport_files, transport_pipe: what a peer, the launcher's files and the game server hand the
 # co-op transport (RD27)
 rifts-transport = { path = "../crates/rifts-transport" }
@@ -66,7 +98,7 @@ toml_edit = { version = "0.25", default-features = false, features = ["parse", "
 store = { path = "../crates/store" }
 url = "2"
 # plugin_bytes: the stream reader runs on a runtime
-tokio = { version = "1", features = ["rt", "sync", "io-util"] }
+tokio = { version = "1", features = ["rt", "sync", "io-util", "time"] }
 
 [[bin]]
 name = "admin_request"
@@ -342,6 +374,258 @@ bench = false
 [[bin]]
 name = "host_transport_config"
 path = "fuzz_targets/host_transport_config.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "rustic_isles_auth_text"
+path = "fuzz_targets/rustic_isles_auth_text.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "rustic_isles_auth_tokens"
+path = "fuzz_targets/rustic_isles_auth_tokens.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "rustic_isles_routes"
+path = "fuzz_targets/rustic_isles_routes.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "rustic_isles_pipeline_text"
+path = "fuzz_targets/rustic_isles_pipeline_text.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "rustic_isles_gamedata_windows"
+path = "fuzz_targets/rustic_isles_gamedata_windows.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "rustic_isles_gamedata_formats"
+path = "fuzz_targets/rustic_isles_gamedata_formats.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "rustic_isles_director_cmdline"
+path = "fuzz_targets/rustic_isles_director_cmdline.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "rustic_isles_director_matchmaking"
+path = "fuzz_targets/rustic_isles_director_matchmaking.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "rustic_isles_director_tag_query"
+path = "fuzz_targets/rustic_isles_director_tag_query.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "rustic_isles_director_lines"
+path = "fuzz_targets/rustic_isles_director_lines.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "rustic_isles_director_hunt_import"
+path = "fuzz_targets/rustic_isles_director_hunt_import.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "rustic_isles_store_decode"
+path = "fuzz_targets/rustic_isles_store_decode.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "rustic_isles_chat_names"
+path = "fuzz_targets/rustic_isles_chat_names.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "rustic_isles_replay_input"
+path = "fuzz_targets/rustic_isles_replay_input.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "rustic_isles_characters_data"
+path = "fuzz_targets/rustic_isles_characters_data.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "rustic_isles_economy_inventory"
+path = "fuzz_targets/rustic_isles_economy_inventory.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "rustic_isles_economy_progression_report"
+path = "fuzz_targets/rustic_isles_economy_progression_report.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "rustic_isles_economy_journey"
+path = "fuzz_targets/rustic_isles_economy_journey.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "rustic_isles_economy_escalation"
+path = "fuzz_targets/rustic_isles_economy_escalation.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "rustic_isles_economy_bounties"
+path = "fuzz_targets/rustic_isles_economy_bounties.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "rustic_isles_economy_cooldowns"
+path = "fuzz_targets/rustic_isles_economy_cooldowns.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "rustic_isles_economy_store_data"
+path = "fuzz_targets/rustic_isles_economy_store_data.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "rustic_isles_economy_text"
+path = "fuzz_targets/rustic_isles_economy_text.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "rustic_isles_matchmaking_inputs"
+path = "fuzz_targets/rustic_isles_matchmaking_inputs.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "rustic_isles_db_bson"
+path = "fuzz_targets/rustic_isles_db_bson.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "rustic_isles_matchmaking_director_answer"
+path = "fuzz_targets/rustic_isles_matchmaking_director_answer.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "rustic_isles_db_reply"
+path = "fuzz_targets/rustic_isles_db_reply.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "rustic_isles_db_uri"
+path = "fuzz_targets/rustic_isles_db_uri.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "rustic_isles_db_extract"
+path = "fuzz_targets/rustic_isles_db_extract.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "rustic_isles_db_scram"
+path = "fuzz_targets/rustic_isles_db_scram.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "rustic_isles_reforged_guard"
+path = "fuzz_targets/rustic_isles_reforged_guard.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "rustic_isles_reforged_text"
+path = "fuzz_targets/rustic_isles_reforged_text.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "rustic_isles_reforged_paths"
+path = "fuzz_targets/rustic_isles_reforged_paths.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "rustic_isles_reforged_admin_auth"
+path = "fuzz_targets/rustic_isles_reforged_admin_auth.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "rustic_isles_reforged_admin_text"
+path = "fuzz_targets/rustic_isles_reforged_admin_text.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "rustic_isles_1_14_7_version_data"
+path = "fuzz_targets/rustic_isles_1_14_7_version_data.rs"
 test = false
 doc = false
 bench = false

@@ -1,0 +1,403 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Silent Spud
+
+//! Rustic Isles' sign-in area (RD27, written clean-room from `docs/port/spec-rustic-isles-auth.md`): the game
+//! client's sign-in stubs and Epic stand-in, the hub's encryption keys, and the launcher API (accounts, sessions,
+//! email codes, Discord, consent, deletion, game launches). The crate owns the routes and rules; isles owns the
+//! pipeline, the tables ([`AuthStore`]) and the neighbours ([`Seams`]).
+
+#![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used))]
+// A refusal is the answer itself (§11.2 hands isles a `Response`), so it is not boxed
+#![allow(clippy::result_large_err)]
+
+use std::collections::HashSet;
+use std::sync::atomic::AtomicBool;
+use std::sync::{Arc, Mutex, PoisonError, Weak};
+
+use axum::response::Response;
+use module_api::{Actor, ActorContext, GameVersion, NodeIdentity};
+use serde_json::{Map, Value};
+
+mod client;
+pub mod discord;
+pub mod email;
+pub mod enckeys;
+mod errors;
+mod game;
+pub mod hashes;
+mod jobs;
+mod launcher;
+pub mod launcher_build;
+mod limiter;
+pub mod mail;
+pub mod password;
+pub mod policy;
+mod routes;
+pub mod runtime;
+mod seams;
+mod store;
+#[cfg(any(test, feature = "test-support"))]
+pub mod test_support;
+mod tokens;
+pub mod totp;
+mod util;
+
+pub use client::{client_ip, client_ip_from, rate_limit_key};
+pub use discord::{DiscordApi, DiscordConfig, DiscordFailure, DiscordUser, HttpsDiscord};
+pub use enckeys::{EncryptionKeys, IssuedKey, KeyLookup};
+pub use errors::{LauncherError, status_for};
+pub use hashes::pseudonymous_account_id;
+pub use jobs::{ErasureOutcome, StartError};
+pub use launcher::{Cors, LauncherAuth};
+pub use launcher_build::{LauncherReport, LauncherVerdict};
+pub use limiter::{BudgetConfig, BudgetVerdict, RateLimiter};
+pub use mail::{MailError, MailMessage, MailTransport, SmtpConfig, SmtpTransport};
+pub use password::{hash_password, verify_password};
+pub use policy::{assert_account_admitted, is_account_eligible};
+pub use routes::{Route, RouteId, routes};
+pub use seams::{
+    Activity, Defaults, Erasure, GameLogin, Notices, Operations, OperationsPolicy, RealmError, Realms, RuntimeAuth,
+    RuntimeCaller, RuntimeRequest, Seams, empty_notices,
+};
+pub use store::{
+    Approval, AuthStore, Channel, Consent, CreateOutcome, Deletion, DiscordTransaction, EmailCode, ErasureCounts,
+    ExchangeCode, GameAccount, Identity, LauncherAccount, NewLauncherAccount, Purpose, RefreshSession, Status,
+    StoreError, StoreResult, Timeout,
+};
+pub use tokens::{StorePurchase, TokenError};
+pub use totp::verify_totp;
+pub use util::{iso, query_pairs};
+
+/// The module's settings, read at each use (Node read `process.env`).
+pub trait AuthSettings: Send + Sync {
+    /// The value as set, empty included.
+    fn raw(&self, name: &str) -> Option<&str>;
+}
+
+impl AuthSettings for std::collections::HashMap<String, String> {
+    fn raw(&self, name: &str) -> Option<&str> {
+        self.get(name).map(String::as_str)
+    }
+}
+
+/// Unix milliseconds; isles passes its replay-aware clock.
+pub type Clock = Arc<dyn Fn() -> i64 + Send + Sync>;
+/// A UUID v4 text; isles passes its replay-seeded source.
+pub type IdSource = Arc<dyn Fn() -> String + Send + Sync>;
+
+/// Who a bearer-less game server call is, and what the `INVALID` sentinel becomes (§4.1, §4.1.1).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum NoPlayerPolicy {
+    /// `INVALID` stays, and a bearer-less game server has no user
+    Off,
+    /// `GAMESERVER_NO_PLAYER_USER_ID`, else `DEV_USER_ID` (1.14.7)
+    ConfiguredAccount,
+}
+
+pub struct AuthConfig {
+    pub target_changelist: u32,
+    pub game_version: GameVersion,
+    pub node: NodeIdentity,
+    pub no_player: NoPlayerPolicy,
+    /// The `/gamesession/epic` payload for a session token
+    pub session_payload: fn(&str) -> Value,
+    /// For `RUSTIC_ISLES_CONSENT_REQUIRED`'s blank default
+    pub engine_is_postgres: bool,
+    pub clock: Clock,
+    pub ids: IdSource,
+}
+
+impl AuthConfig {
+    /// Dauntless 1.14.7 (changelist 647472) on `node`, with the system clock and random ids.
+    pub fn for_1_14_7(node: NodeIdentity) -> Self {
+        Self {
+            target_changelist: 647_472,
+            game_version: GameVersion::release(1, 14, 7),
+            node,
+            no_player: NoPlayerPolicy::ConfiguredAccount,
+            session_payload: session_payload_1_14_7,
+            engine_is_postgres: false,
+            clock: Arc::new(|| chrono::Utc::now().timestamp_millis()),
+            ids: Arc::new(util::random_uuid),
+        }
+    }
+}
+
+/// 1.14.7's session payload.
+pub fn session_payload_1_14_7(token: &str) -> Value {
+    util::object(vec![
+        ("error_code", Value::Null),
+        ("sessionid", Value::String(token.to_owned())),
+        ("sessiontoken", Value::String(token.to_owned())),
+        ("sessionToken", Value::String(token.to_owned())),
+    ])
+}
+
+/// The game caller (§4.1), in the request's extensions for other areas to read.
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct AuthData {
+    pub user_id: Option<String>,
+    pub is_gameserver: bool,
+    pub claims: Map<String, Value>,
+    pub runtime: Option<RuntimeCaller>,
+}
+
+/// Which auth stands in front of a relayed rustic-rifts route (§4.4).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CallerKind {
+    /// Anonymous
+    None,
+    /// Launcher auth; then the active-account check with (`Some(true)`) or without (`Some(false)`) consent
+    Launcher { active: Option<bool> },
+    /// Anonymous here; rifts checks the host capability
+    HostCapability,
+    /// The Reforged API's admin auth
+    Admin,
+}
+
+pub fn rifts_caller_kind(method: &str, route_path: &str) -> CallerKind {
+    let post = method.eq_ignore_ascii_case("POST");
+    let p = route_path;
+    if p.starts_with("/admin/") {
+        return CallerKind::Admin;
+    }
+    if p.starts_with("/launcher/v1/realms") {
+        let with_consent = post && (p == "/launcher/v1/realms" || p.starts_with("/launcher/v1/realms/mine/"));
+        let without = post
+            && (p == "/launcher/v1/realms/join"
+                || p == "/launcher/v1/realms/presence/heartbeat"
+                || (p.starts_with("/launcher/v1/realms/player-invites/") && p.ends_with("/accept")));
+        let active = if with_consent {
+            Some(true)
+        } else if without {
+            Some(false)
+        } else {
+            None
+        };
+        return CallerKind::Launcher { active };
+    }
+    if p.starts_with("/launcher/v1/realm-hosting/hubs/start") {
+        return CallerKind::Launcher { active: Some(true) };
+    }
+    if p.starts_with("/launcher/v1/p2p/") || p.starts_with("/launcher/v1/realm-hosting/") {
+        let without = p == "/launcher/v1/p2p/host-presence"
+            || (p.starts_with("/launcher/v1/p2p/host-offers/") && p.ends_with("/respond"))
+            || p.ends_with("/host-bootstrap")
+            || p.ends_with("/join-bootstrap")
+            || p.ends_with("/peers");
+        return CallerKind::Launcher {
+            active: without.then_some(false),
+        };
+    }
+    if p.starts_with("/launcher/v1/guard/") {
+        return CallerKind::Launcher { active: None };
+    }
+    // D3: rifts' hunt routes are /rustic/v1/hunts, no alias
+    if p.starts_with("/rustic/v1/hunts/") {
+        if p.ends_with("/tickets/self") || p.ends_with("/status") || p.ends_with("/reward/self") {
+            return CallerKind::Launcher { active: None };
+        }
+        return CallerKind::HostCapability;
+    }
+    CallerKind::None
+}
+
+/// One module's sign-in area.
+pub struct Auth<S: AuthStore> {
+    config: AuthConfig,
+    settings: Arc<dyn AuthSettings>,
+    store: Option<S>,
+    seams: Seams,
+    limiter: RateLimiter,
+    keys: EncryptionKeys,
+    token_keys: tokens::KeyCache,
+    warned_official: Mutex<HashSet<String>>,
+    notices_failing: AtomicBool,
+    this: Weak<Self>,
+}
+
+impl<S: AuthStore> Auth<S> {
+    /// `None` store: no database (the skeleton module).
+    pub fn new(config: AuthConfig, settings: Arc<dyn AuthSettings>, store: Option<S>, seams: Seams) -> Arc<Self> {
+        Arc::new_cyclic(|this| Self {
+            config,
+            settings,
+            store,
+            seams,
+            limiter: RateLimiter::new(),
+            keys: EncryptionKeys::default(),
+            token_keys: tokens::KeyCache::default(),
+            warned_official: Mutex::new(HashSet::new()),
+            notices_failing: AtomicBool::new(false),
+            this: this.clone(),
+        })
+    }
+
+    pub fn config(&self) -> &AuthConfig {
+        &self.config
+    }
+
+    pub fn limiter(&self) -> &RateLimiter {
+        &self.limiter
+    }
+
+    pub fn encryption_keys(&self) -> &EncryptionKeys {
+        &self.keys
+    }
+
+    pub fn store_ref(&self) -> Option<&S> {
+        self.store.as_ref()
+    }
+
+    fn now(&self) -> i64 {
+        (self.config.clock)()
+    }
+
+    fn now_iso(&self) -> String {
+        util::iso(self.now())
+    }
+
+    fn uuid(&self) -> String {
+        (self.config.ids)()
+    }
+
+    fn raw(&self, name: &str) -> Option<&str> {
+        self.settings.raw(name)
+    }
+
+    fn store(&self) -> StoreResult<&S> {
+        self.store
+            .as_ref()
+            .ok_or_else(|| StoreError::new("no database is configured"))
+    }
+
+    fn secret(&self) -> Result<&str, hashes::SecretError> {
+        hashes::read_secret(self.raw("API_KEY_HASH_SECRET"))
+    }
+
+    fn system_actor(&self) -> ActorContext {
+        ActorContext::new(Actor::System)
+    }
+
+    /// DD17: a player's write is refused unless the id is a network id (and the store checks the home).
+    fn player_actor(&self, account_id: &str) -> StoreResult<ActorContext> {
+        let account = account_id
+            .parse()
+            .map_err(|_| StoreError::new("the account id is not a network id"))?;
+        Ok(ActorContext::new(Actor::Player { account }))
+    }
+
+    fn error_response(&self, error: &LauncherError) -> Response {
+        error.response(&self.uuid())
+    }
+
+    fn token_keys(&self) -> Result<Arc<tokens::TokenKeys>, TokenError> {
+        self.token_keys.get(
+            self.raw("AUTH_SIGNING_PRIVKEY_B64").unwrap_or(""),
+            self.raw("AUTH_SIGNING_PUBKEY_B64").unwrap_or(""),
+        )
+    }
+
+    fn sign_seconds(&self) -> i64 {
+        self.now().div_euclid(1000)
+    }
+
+    // Validation runs on the system clock (spec §14 item 13)
+    fn system_seconds() -> i64 {
+        chrono::Utc::now().timestamp()
+    }
+
+    pub fn sign_game_token(&self, user_id: &str) -> Result<String, TokenError> {
+        tokens::sign_game(&*self.token_keys()?, user_id, self.sign_seconds())
+    }
+
+    pub fn validate_game_token(&self, token: &str) -> Result<Map<String, Value>, TokenError> {
+        tokens::validate_game(&*self.token_keys()?, token, Self::system_seconds())
+    }
+
+    pub fn sign_launcher_token(&self, user_id: &str, sid: &str) -> Result<String, TokenError> {
+        tokens::sign_launcher(&*self.token_keys()?, user_id, sid, self.sign_seconds())
+    }
+
+    pub fn validate_launcher_token(&self, token: &str) -> Result<(String, String), TokenError> {
+        tokens::validate_launcher(&*self.token_keys()?, token, Self::system_seconds())
+    }
+
+    pub fn sign_store_token(&self, purchase: &StorePurchase) -> Result<String, TokenError> {
+        tokens::sign_store(&*self.token_keys()?, purchase, self.sign_seconds())
+    }
+
+    pub fn validate_store_token(&self, token: &str) -> Result<StorePurchase, TokenError> {
+        tokens::validate_store(&*self.token_keys()?, token, Self::system_seconds())
+    }
+
+    /// `(available, message)` of official play, warning once per distinct unrecognised value.
+    fn official_play(&self) -> bool {
+        let (available, unrecognised) =
+            policy::official_play(self.raw("RUSTIC_ISLES_OFFICIAL_PLAY"), self.raw("DEPLOYSERVER_URL"));
+        if let Some(value) = unrecognised {
+            let mut warned = self.warned_official.lock().unwrap_or_else(PoisonError::into_inner);
+            if warned.insert(value.clone()) {
+                tracing::warn!(
+                    "RUSTIC_ISLES_OFFICIAL_PLAY must be on or off (got \"{value}\"); official play is treated as off"
+                );
+            }
+        }
+        available
+    }
+
+    fn verification_required(&self) -> bool {
+        policy::email_verification(self.raw("RUSTIC_ISLES_EMAIL_VERIFICATION")).0
+    }
+
+    fn smtp(&self) -> Result<SmtpConfig, Vec<&'static str>> {
+        SmtpConfig::from_settings(self.settings.as_ref())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn rifts_callers() {
+        let launcher = |active| CallerKind::Launcher { active };
+        for (method, path, kind) in [
+            ("GET", "/admin/realms", CallerKind::Admin),
+            ("POST", "/launcher/v1/realms", launcher(Some(true))),
+            ("POST", "/launcher/v1/realms/mine/invites", launcher(Some(true))),
+            ("GET", "/launcher/v1/realms", launcher(None)),
+            ("POST", "/launcher/v1/realms/join", launcher(Some(false))),
+            ("POST", "/launcher/v1/realms/presence/heartbeat", launcher(Some(false))),
+            (
+                "POST",
+                "/launcher/v1/realms/player-invites/:id/accept",
+                launcher(Some(false)),
+            ),
+            ("POST", "/launcher/v1/realm-hosting/hubs/start", launcher(Some(true))),
+            ("POST", "/launcher/v1/p2p/host-presence", launcher(Some(false))),
+            (
+                "POST",
+                "/launcher/v1/p2p/host-offers/:id/respond",
+                launcher(Some(false)),
+            ),
+            ("POST", "/launcher/v1/p2p/sessions/:id/peers", launcher(Some(false))),
+            ("POST", "/launcher/v1/realm-hosting/hubs/:id/stop", launcher(None)),
+            ("POST", "/launcher/v1/guard/batches", launcher(None)),
+            ("GET", "/rustic/v1/hunts/:id/status", launcher(None)),
+            ("POST", "/rustic/v1/hunts/:id/evidence", CallerKind::HostCapability),
+            ("GET", "/launcher/v1/legal", CallerKind::None),
+            ("GET", "/mystic/v1/hunts/:id/status", CallerKind::None),
+        ] {
+            assert_eq!(rifts_caller_kind(method, path), kind, "{method} {path}");
+        }
+    }
+
+    #[test]
+    fn the_session_payload_repeats_the_token() {
+        assert_eq!(
+            service_kit::jsjson::stringify(&session_payload_1_14_7("t")),
+            r#"{"error_code":null,"sessionid":"t","sessiontoken":"t","sessionToken":"t"}"#
+        );
+    }
+}

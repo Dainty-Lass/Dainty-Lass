@@ -184,6 +184,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "argon2"
+version = "0.5.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3c3610892ee6e0cbce8ae2700349fcf8f98adb0dbfbee85aec3c9179d29cc072"
+dependencies = [
+ "base64ct",
+ "blake2",
+ "cpufeatures 0.2.17",
+ "password-hash",
+]
+
+[[package]]
 name = "asn1-rs"
 version = "0.7.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -469,6 +481,15 @@ name = "bitflags"
 version = "2.13.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3ded4057c258ba199e2d26386d3af3780957ecaee6c4ef4041c6b4b8b97c0b06"
+
+[[package]]
+name = "blake2"
+version = "0.10.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "46502ad458c9a52b69d4d4d32775c788b7a1b85e8bc9d482d92250fc0e3f8efe"
+dependencies = [
+ "digest 0.10.7",
+]
 
 [[package]]
 name = "block-buffer"
@@ -3112,6 +3133,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "password-hash"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "346f04948ba92c43e8469c1ee6736c7563d71012b17d40745260fe106aac2166"
+dependencies = [
+ "base64ct",
+ "rand_core 0.6.4",
+ "subtle",
+]
+
+[[package]]
 name = "pem"
 version = "4.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4039,6 +4071,341 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cfcb3a22ef46e85b45de6ee7e79d063319ebb6594faafcf1c225ea92ab6e9b92"
 dependencies = [
  "semver",
+]
+
+[[package]]
+name = "rustic-isles"
+version = "0.0.0"
+dependencies = [
+ "axum",
+ "chrono",
+ "dotenvy",
+ "http",
+ "http-body-util",
+ "module-api",
+ "rand 0.10.3",
+ "regex",
+ "rifts-seam",
+ "rustic-isles",
+ "rustic-isles-auth",
+ "serde",
+ "serde_json",
+ "service-kit",
+ "sha2",
+ "tempfile",
+ "thiserror 2.0.21",
+ "tokio",
+ "tower",
+ "tracing",
+ "tracing-subscriber",
+]
+
+[[package]]
+name = "rustic-isles-1-14-7"
+version = "0.0.0"
+dependencies = [
+ "axum",
+ "http",
+ "module-api",
+ "rifts-admission",
+ "rifts-guard",
+ "rifts-realms",
+ "rifts-relay",
+ "rifts-seam",
+ "rustic-isles",
+ "rustic-isles-1-14-7",
+ "rustic-isles-auth",
+ "rustic-isles-characters",
+ "rustic-isles-chat",
+ "rustic-isles-db",
+ "rustic-isles-director",
+ "rustic-isles-economy",
+ "rustic-isles-gamedata",
+ "rustic-isles-matchmaking",
+ "rustic-isles-reforged",
+ "rustic-isles-store",
+ "serde_json",
+ "service-kit",
+ "store",
+ "tempfile",
+ "thiserror 2.0.21",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
+name = "rustic-isles-1-14-7-plugin"
+version = "0.0.0"
+dependencies = [
+ "module-api",
+ "plugin-host",
+ "rustic-isles",
+ "rustic-isles-1-14-7",
+ "serde_json",
+ "tokio",
+]
+
+[[package]]
+name = "rustic-isles-auth"
+version = "0.0.0"
+dependencies = [
+ "argon2",
+ "aws-lc-rs",
+ "axum",
+ "base64 0.23.1",
+ "bytes",
+ "chrono",
+ "http",
+ "http-body-util",
+ "hyper",
+ "hyper-rustls",
+ "hyper-util",
+ "module-api",
+ "rand 0.10.3",
+ "rustic-isles-auth",
+ "rustls",
+ "serde",
+ "serde_json",
+ "service-kit",
+ "subtle",
+ "tempfile",
+ "thiserror 2.0.21",
+ "tokio",
+ "tokio-rustls",
+ "tower",
+ "tracing",
+ "webpki-roots",
+]
+
+[[package]]
+name = "rustic-isles-characters"
+version = "0.0.0"
+dependencies = [
+ "axum",
+ "diesel",
+ "http",
+ "http-body-util",
+ "module-api",
+ "rifts-seam",
+ "rustic-isles",
+ "rustic-isles-auth",
+ "rustic-isles-store",
+ "serde_json",
+ "service-kit",
+ "thiserror 2.0.21",
+ "tokio",
+ "tower",
+ "tracing",
+]
+
+[[package]]
+name = "rustic-isles-chat"
+version = "0.0.0"
+dependencies = [
+ "axum",
+ "http",
+ "http-body-util",
+ "module-api",
+ "percent-encoding",
+ "rustic-isles",
+ "rustic-isles-auth",
+ "rustic-isles-store",
+ "serde_json",
+ "service-kit",
+ "store",
+ "tempfile",
+ "tokio",
+ "tower",
+ "tracing",
+ "ulid",
+]
+
+[[package]]
+name = "rustic-isles-db"
+version = "0.0.0"
+dependencies = [
+ "base64 0.23.1",
+ "chrono",
+ "diesel",
+ "hmac 0.13.0",
+ "module-api",
+ "percent-encoding",
+ "rand 0.10.3",
+ "rustic-isles",
+ "rustic-isles-characters",
+ "rustic-isles-db",
+ "rustic-isles-economy",
+ "rustic-isles-store",
+ "serde",
+ "serde_json",
+ "sha2",
+ "store",
+ "tempfile",
+ "thiserror 2.0.21",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
+name = "rustic-isles-director"
+version = "0.0.0"
+dependencies = [
+ "axum",
+ "chrono",
+ "futures-util",
+ "http",
+ "libc",
+ "module-api",
+ "rand 0.10.3",
+ "rustic-isles",
+ "serde_json",
+ "service-kit",
+ "tempfile",
+ "tokio",
+ "tracing",
+ "windows 0.62.2",
+]
+
+[[package]]
+name = "rustic-isles-economy"
+version = "0.0.0"
+dependencies = [
+ "axum",
+ "http",
+ "http-body-util",
+ "module-api",
+ "rifts-seam",
+ "rustic-isles",
+ "rustic-isles-auth",
+ "rustic-isles-characters",
+ "rustic-isles-economy",
+ "rustic-isles-gamedata",
+ "rustic-isles-store",
+ "serde_json",
+ "service-kit",
+ "sha2",
+ "tempfile",
+ "thiserror 2.0.21",
+ "tokio",
+ "tower",
+ "tracing",
+]
+
+[[package]]
+name = "rustic-isles-gamedata"
+version = "0.0.0"
+dependencies = [
+ "axum",
+ "chrono",
+ "http",
+ "http-body-util",
+ "regex",
+ "rustic-isles",
+ "rustic-isles-auth",
+ "serde_json",
+ "service-kit",
+ "sha2",
+ "tempfile",
+ "tokio",
+ "tower",
+ "tracing",
+]
+
+[[package]]
+name = "rustic-isles-matchmaking"
+version = "0.0.0"
+dependencies = [
+ "axum",
+ "base64 0.23.1",
+ "http",
+ "http-body-util",
+ "module-api",
+ "rifts-seam",
+ "rustic-isles",
+ "rustic-isles-auth",
+ "rustic-isles-chat",
+ "rustic-isles-economy",
+ "rustic-isles-matchmaking",
+ "rustic-isles-store",
+ "serde_json",
+ "service-kit",
+ "tokio",
+ "tower",
+ "tracing",
+]
+
+[[package]]
+name = "rustic-isles-reforged"
+version = "0.0.0"
+dependencies = [
+ "admin",
+ "aws-lc-rs",
+ "axum",
+ "base64 0.23.1",
+ "chrono",
+ "diesel",
+ "http",
+ "http-body-util",
+ "module-api",
+ "rand 0.10.3",
+ "regex",
+ "rifts-seam",
+ "rustic-isles",
+ "rustic-isles-auth",
+ "rustic-isles-chat",
+ "rustic-isles-economy",
+ "rustic-isles-matchmaking",
+ "rustic-isles-reforged",
+ "rustic-isles-store",
+ "serde_json",
+ "service-kit",
+ "subtle",
+ "tempfile",
+ "thiserror 2.0.21",
+ "tokio",
+ "tower",
+ "tracing",
+]
+
+[[package]]
+name = "rustic-isles-replay"
+version = "0.0.0"
+dependencies = [
+ "aws-lc-rs",
+ "axum",
+ "base64 0.23.1",
+ "module-api",
+ "percent-encoding",
+ "regex",
+ "rustic-isles",
+ "rustic-isles-auth",
+ "rustic-isles-replay",
+ "serde",
+ "serde_json",
+ "service-kit",
+ "sha2",
+ "tempfile",
+ "thiserror 2.0.21",
+ "tokio",
+]
+
+[[package]]
+name = "rustic-isles-store"
+version = "0.0.0"
+dependencies = [
+ "diesel",
+ "diesel_migrations",
+ "module-api",
+ "rustic-isles",
+ "rustic-isles-auth",
+ "rustic-isles-store",
+ "serde_json",
+ "service-kit",
+ "store",
+ "tempfile",
+ "thiserror 2.0.21",
+ "tokio",
+ "url",
 ]
 
 [[package]]

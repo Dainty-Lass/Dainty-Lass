@@ -1,0 +1,32 @@
+[package]
+name = "rustic-isles-1-14-7-plugin"
+description = "Rustic Isles for Dauntless 1.14.7 as a library the DaintyLass core loads"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+# Clean-room rewrite from docs/port/spec-rustic-isles-1-14-7.md §9.4 (RD27)
+license = "MIT"
+repository.workspace = true
+publish.workspace = true
+
+[lib]
+name = "rustic_isles_1_14_7_plugin"
+crate-type = ["cdylib"]
+
+[features]
+default = ["realms"]
+realms = ["rustic-isles-1-14-7/realms"]
+
+[dependencies]
+module-api.workspace = true
+rustic-isles.workspace = true
+rustic-isles-1-14-7 = { workspace = true, default-features = false }
+
+[dev-dependencies]
+module-api.workspace = true
+plugin-host.workspace = true
+serde_json.workspace = true
+tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
+
+[lints]
+workspace = true

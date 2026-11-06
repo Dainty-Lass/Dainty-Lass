@@ -579,10 +579,13 @@ fn generates_all_seven_game_data_steps_in_rust_without_node() {
     );
 
     let mut catalog_rows: Vec<Value> = Vec::new();
-    for (idx, item_id) in isles_core::gamedata::reward_cache_selection_ids()
-        .into_iter()
-        .enumerate()
-    {
+    let version_data: Value = serde_json::from_str(host::version_data::DOCUMENT).unwrap();
+    let selection_ids = version_data["rewardCachePlan"]["selections"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|s| s["catalogId"].as_str().unwrap());
+    for (idx, item_id) in selection_ids.enumerate() {
         let is_stackable = item_id.starts_with("CURRENCY_") || item_id.starts_with("PATROL_KEY");
         let item_data = json!({
             "RarityLevel": 4,

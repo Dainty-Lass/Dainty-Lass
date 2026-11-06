@@ -5,9 +5,9 @@
 //! migrations of its own, so every row written here is in the change log under `host:legacy-import` (DD23) and an
 //! import can be reverted like any other write.
 //!
-//! An account's global id is derived the way `isles-db migrate` derives it (`transforms::deterministic_account_id`),
-//! so a second run finds what the first one wrote, and a userId that both a Mongo migration and this import carry
-//! lands on one account.
+//! An account's global id is derived the way `reforged-host db migrate` derives it (dainty-lass's `rustic-isles-db`
+//! `ids::derived_account_id`, isles-db's `deterministic_account_id` before RD27), so a second run finds what the
+//! first one wrote, and a userId that both a Mongo migration and this import carry lands on one account.
 
 use std::collections::BTreeSet;
 
@@ -107,7 +107,8 @@ enum TxError {
     DryRun(Box<Report>),
 }
 
-/// A 26-character Crockford Base32 ULID from `SHA-256("isles-db:<ns>:<node>:<key>")` (isles-db `transforms.rs`).
+/// A 26-character Crockford Base32 ULID from `SHA-256("isles-db:<ns>:<node>:<key>")` (`rustic-isles-db`'s `ids.rs`; the
+/// `isles-db:` prefix is a value every derived id depends on, not a program name).
 fn deterministic_ulid(namespace: &str, node: &NodeId, key: &str) -> String {
     const CROCKFORD: &[u8; 32] = b"0123456789ABCDEFGHJKMNPQRSTVWXYZ";
     let mut hasher = Sha256::new();
@@ -127,7 +128,7 @@ fn deterministic_ulid(namespace: &str, node: &NodeId, key: &str) -> String {
         .collect()
 }
 
-/// The account's global id on `node` (DD18), as `isles-db migrate` derives it.
+/// The account's global id on `node` (DD18), as `reforged-host db migrate` derives it.
 pub fn account_id(node: &NodeId, user_id: &str) -> Result<GlobalId> {
     let raw = format!("account:{}@{node}", deterministic_ulid("account", node, user_id.trim()));
     raw.parse::<GlobalId>()

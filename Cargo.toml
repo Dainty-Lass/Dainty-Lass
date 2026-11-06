@@ -42,6 +42,35 @@ rifts-guard = { path = "crates/rifts-guard" }
 rifts-realms = { path = "crates/rifts-realms" }
 rifts-transport = { path = "crates/rifts-transport" }
 rifts-host = { path = "crates/rifts-host" }
+# The Rustic Isles sign-in area, clean-room MIT (RD27, spec-rustic-isles-auth)
+rustic-isles-auth = { path = "crates/rustic-isles-auth" }
+# The Rustic Isles module skeleton, clean-room MIT (RD27, spec-rustic-isles-core)
+rustic-isles = { path = "crates/rustic-isles" }
+# The Rustic Isles Director, clean-room MIT (RD27, spec-rustic-isles-director)
+rustic-isles-director = { path = "crates/rustic-isles-director" }
+# The Rustic Isles game-data area and generators, clean-room MIT (RD27, spec-rustic-isles-gamedata)
+rustic-isles-gamedata = { path = "crates/rustic-isles-gamedata" }
+# The Rustic Isles database layer, clean-room MIT (RD27, spec-rustic-isles-store)
+rustic-isles-store = { path = "crates/rustic-isles-store" }
+# The Rustic Isles chat rules and chat area routes, clean-room MIT (RD27, spec-rustic-isles-chat)
+rustic-isles-chat = { path = "crates/rustic-isles-chat" }
+# The Rustic Isles shadow replay harness, clean-room MIT (RD27, spec-rustic-isles-replay)
+rustic-isles-replay = { path = "crates/rustic-isles-replay" }
+# The Rustic Isles characters and loadouts area, clean-room MIT (RD27, spec-rustic-isles-characters)
+rustic-isles-characters = { path = "crates/rustic-isles-characters" }
+# The Rustic Isles economy: inventory, progression, bounties and the stores, clean-room MIT (RD27,
+# spec-rustic-isles-economy-*)
+rustic-isles-economy = { path = "crates/rustic-isles-economy" }
+# The Rustic Isles Reforged API: probes, metrics, the launcher API, updates, logs, notices, operations, activity,
+# Launcher Guard and the admin API, clean-room MIT (RD27, spec-rustic-isles-reforged-*)
+rustic-isles-reforged = { path = "crates/rustic-isles-reforged" }
+# The Rustic Isles matchmaking and parties, clean-room MIT (RD27, spec-rustic-isles-matchmaking)
+rustic-isles-matchmaking = { path = "crates/rustic-isles-matchmaking" }
+# The Rustic Isles database tool: migrate, verify and export-mongo, clean-room MIT (RD27, spec-rustic-isles-db)
+rustic-isles-db = { path = "crates/rustic-isles-db" }
+# Rustic Isles for Dauntless 1.14.7, the version crate and its plugin, clean-room MIT (RD27, spec-rustic-isles-1-14-7)
+rustic-isles-1-14-7 = { path = "crates/rustic-isles-1-14-7" }
+rustic-isles-1-14-7-plugin = { path = "crates/rustic-isles-1-14-7-plugin" }
 # The transport's ICE agent and TURN client, sans-IO (spec-rd27-rifts D2)
 rtc-ice = { version = "0.21.1", default-features = false, features = ["crypto-aws-lc-rs"] }
 rtc-turn = { version = "0.21.1", default-features = false, features = ["crypto-aws-lc-rs"] }
@@ -60,6 +89,8 @@ ratatui = { version = "0.30", default-features = false, features = ["crossterm"]
 aws-lc-rs = "1.18"
 axum = { version = "0.8", default-features = false, features = ["http1", "json", "query", "tokio", "form", "ws"] }
 aes-gcm = "0.11"
+# Launcher passwords: reads the Argon2id PHC hashes accounts already have (rustic-isles-auth)
+argon2 = { version = "0.5", default-features = false, features = ["alloc", "password-hash"] }
 # ES256 admission tickets (rifts-admission). Its types are in that crate's public API, so dainty-restricted resolves
 # the same line
 p256 = { version = "0.14", features = ["ecdsa", "pem", "pkcs8", "std"] }
@@ -87,6 +118,8 @@ hyper-util = { version = "0.1", default-features = false, features = ["tokio", "
 # HTTPS for the services' outgoing requests (D10: aws-lc-rs)
 hyper-rustls = { version = "0.27", default-features = false, features = ["http1", "aws-lc-rs", "webpki-tokio", "tls12"] }
 rustls = { version = "0.23", default-features = false, features = ["aws_lc_rs", "std", "tls12"] }
+# The roots rustic-isles-auth's SMTP client verifies against (hyper-rustls already pulls this line)
+webpki-roots = "1"
 # Bundled: one SQLite, built with the options in .cargo/config.toml, shared by Diesel and rusqlite (M17).
 libsqlite3-sys = { version = "0.38", features = ["bundled"] }
 percent-encoding = "2"

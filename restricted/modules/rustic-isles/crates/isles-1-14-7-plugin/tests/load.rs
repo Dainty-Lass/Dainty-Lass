@@ -1,4 +1,4 @@
-//! The core loads the built library and it is the module the executable and the compiled-in build are (RD27).
+//! The core loads the built library and it is the MIT module the compiled-in build is (RD27).
 #![allow(clippy::unwrap_used, clippy::expect_used)] // test helpers
 
 use std::path::PathBuf;
@@ -29,7 +29,7 @@ async fn the_core_loads_the_library_and_it_is_the_1_14_7_module() {
         "{} is missing: run `cargo build -p isles-1-14-7-plugin` before the tests (CI does)",
         path.display()
     );
-    let compiled_in = isles_1_14_7::module().manifest();
+    let compiled_in = rustic_isles_1_14_7::module().unwrap().manifest();
     let module = ExternalModule {
         sha256: file_sha256(&path).await.unwrap(),
         path,

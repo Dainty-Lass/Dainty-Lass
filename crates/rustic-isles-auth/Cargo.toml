@@ -1,0 +1,48 @@
+[package]
+name = "rustic-isles-auth"
+description = "Rustic Isles' sign-in area: game and launcher sign-in, sessions, codes, keys and their policy rules, behind store and seam traits the isles module implements"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+# Clean-room rewrite from docs/port/spec-rustic-isles-auth.md (RD27, docs/port/clean-room/rustic-isles-auth.md)
+license = "MIT"
+repository.workspace = true
+publish.workspace = true
+
+[features]
+# MemoryStore, RecordingMail, StubDiscord and MapSettings for tests (here and in the isles adapter)
+test-support = []
+
+[dependencies]
+argon2.workspace = true
+aws-lc-rs.workspace = true
+axum.workspace = true
+base64.workspace = true
+bytes.workspace = true
+chrono.workspace = true
+http.workspace = true
+http-body-util.workspace = true
+hyper.workspace = true
+hyper-rustls.workspace = true
+hyper-util = { workspace = true, features = ["client-legacy", "http1"] }
+module-api.workspace = true
+rand.workspace = true
+rustls.workspace = true
+serde.workspace = true
+serde_json = { workspace = true, features = ["preserve_order"] }
+service-kit.workspace = true
+subtle.workspace = true
+thiserror.workspace = true
+tokio = { workspace = true, features = ["net", "rt", "sync", "time", "io-util", "macros"] }
+tokio-rustls.workspace = true
+tracing.workspace = true
+webpki-roots.workspace = true
+
+[dev-dependencies]
+rustic-isles-auth = { path = ".", features = ["test-support"] }
+tempfile.workspace = true
+tokio = { workspace = true, features = ["rt-multi-thread"] }
+tower.workspace = true
+
+[lints]
+workspace = true

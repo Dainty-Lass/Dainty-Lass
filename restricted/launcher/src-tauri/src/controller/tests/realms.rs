@@ -1,217 +1,130 @@
 //! Realm hosting and joining tests (`realms` feature, RF7): drives `Controller::realm_host`,
-//! `realm_join`, `realm_stop`, and `realm_get` against a dynamically compiled C ABI transport cdylib,
-//! checks RD9 (no injection or loader `.ini` written by realms, and leftover loader files refused by
-//! both `realm_host` and `play`), and verifies that the account key in `KeyStore` never reaches
-//! `rifts-host`, `p2p-sessions/`, or the dedicated server launch environment.
+//! `realm_join`, `realm_stop`, and `realm_get` against a scripted [`TransportAbi`] (the MIT `rifts-host` links its
+//! transport in, RD27, so there is no C ABI to fake), checks RD9 (no injection or loader `.ini` written by realms,
+//! and leftover loader files refused by both `realm_host` and `play`), and verifies that the account key in
+//! `KeyStore` never reaches `rifts-host`, `p2p-sessions/`, or the dedicated server launch environment.
 
-use std::process::Command;
+use std::sync::atomic::{AtomicBool, AtomicI32, Ordering};
 
 use rifts_host::{
-    ADMISSION_PUBLIC_KEY_FILE, DefaultHostBackend, HostBackend, NativeTransportLoader, NoopServerSpawner,
-    SESSION_FILES, ServerSpawner, TRANSPORT_DLL, TransportLoader, sha256_file,
+    ADMISSION_PUBLIC_KEY_FILE, DefaultHostBackend, Handle, HostBackend, HostError, HostOpen, JoinOpen,
+    NoopServerSpawner, ReadyState, SESSION_FILES, ServerSpawner, SessionResult, Signal, TRANSPORT_DLL, TransportAbi,
+    TransportLoader, sha256_file,
 };
+use rifts_seam::{AccountId, PeerId, Secret};
 
 use super::*;
 use crate::bridge::types::{RealmKind, RealmOutcome, RealmState};
 use crate::controller::realms::RealmsSeams;
 use crate::platform::loader_session::LOADER_INI;
 
-fn build_fake_transport_dll(out_path: &Path) {
-    let dir = out_path.parent().unwrap();
-    let src = dir.join("fake_launcher_transport.rs");
-    let code = r#"
-#![allow(non_snake_case, clippy::missing_safety_doc)]
-use std::sync::atomic::{AtomicBool, AtomicI32, Ordering};
-
-static NEXT_HANDLE: AtomicI32 = AtomicI32::new(1);
-static IS_JOIN: AtomicBool = AtomicBool::new(false);
-static SIGNAL_PENDING: AtomicBool = AtomicBool::new(false);
-
-fn write_cstr(buf: *mut u8, size: u32, text: &[u8]) {
-    if buf.is_null() || size == 0 {
-        return;
-    }
-    let max = (size as usize).saturating_sub(1).min(text.len());
-    unsafe {
-        std::ptr::copy_nonoverlapping(text.as_ptr(), buf, max);
-        *buf.add(max) = 0;
-    }
+/// The launcher still looks for the transport file beside the game and checks its digest; any bytes do.
+fn write_transport_placeholder(out_path: &Path) {
+    std::fs::write(out_path, b"placeholder transport, never loaded (RD27)").unwrap();
 }
 
-#[unsafe(no_mangle)]
-pub extern "C" fn MysticTransport_AbiVersion() -> i32 { 3 }
-
-#[unsafe(no_mangle)]
-pub extern "C" fn MysticTransport_Initialize(_err: *mut u8, _size: u32) -> i32 { 1 }
-
-#[unsafe(no_mangle)]
-pub extern "C" fn MysticTransport_Shutdown() {}
-
-#[unsafe(no_mangle)]
-pub extern "C" fn MysticTransport_PeerId() -> u64 { 0xCAFE_1234_5678 }
-
-#[unsafe(no_mangle)]
-pub extern "C" fn MysticTransport_NetworkingReady() -> i32 { 1 }
-
-#[unsafe(no_mangle)]
-pub extern "C" fn MysticTransport_StartHost(
-    _pk: *const i8, _cfg: *const i8, _cap: *const i8, _ticket: *const i8, err: *mut u8, size: u32
-) -> i32 {
-    write_cstr(err, size, b"v1 unsupported");
-    0
+/// A transport whose sessions are ready at once: a host answers `HOST_READY`, a join `ROUTE_READY` and one offer to
+/// the host's account.
+#[derive(Default)]
+struct FakeTransport {
+    next_handle: AtomicI32,
+    is_join: AtomicBool,
+    signal_pending: AtomicBool,
 }
 
-#[unsafe(no_mangle)]
-pub extern "C" fn MysticTransport_StartJoin(
-    _pk: *const i8, _cfg: *const i8, _ticket: *const i8, err: *mut u8, size: u32
-) -> i32 {
-    write_cstr(err, size, b"v1 unsupported");
-    0
-}
-
-#[unsafe(no_mangle)]
-pub extern "C" fn MysticTransport_StartHostV2(
-    _pk: *const i8, _cfg: *const i8, _cap: *const i8, _ticket: *const i8, _sec: *const i8, _err: *mut u8, _size: u32
-) -> i32 { 1 }
-
-#[unsafe(no_mangle)]
-pub extern "C" fn MysticTransport_StartJoinV2(
-    _pk: *const i8, _cfg: *const i8, _ticket: *const i8, _sec: *const i8, _err: *mut u8, _size: u32
-) -> i32 { 1 }
-
-#[unsafe(no_mangle)]
-pub extern "C" fn MysticTransport_WaitReady(_timeout: u32, buf: *mut u8, size: u32) -> i32 {
-    write_cstr(buf, size, b"HOST_READY localHost=127.0.0.1 localPort=8791 transport=ice routePolicy=AUTOMATIC");
-    1
-}
-
-#[unsafe(no_mangle)]
-pub extern "C" fn MysticTransport_SessionRunning() -> i32 { 1 }
-
-#[unsafe(no_mangle)]
-pub extern "C" fn MysticTransport_LastSessionResult() -> i32 { 0 }
-
-#[unsafe(no_mangle)]
-pub extern "C" fn MysticTransport_StopSession() {}
-
-#[unsafe(no_mangle)]
-pub extern "C" fn MysticTransport_ReadDiagnostic(_buf: *mut u8, _size: u32) -> i32 { 0 }
-
-#[unsafe(no_mangle)]
-pub extern "C" fn MysticTransport_ReadSignal(
-    _to: *mut u8, _to_sz: u32, _kind: *mut u8, _kind_sz: u32, _data: *mut u8, _data_sz: u32
-) -> i32 { 0 }
-
-#[unsafe(no_mangle)]
-pub extern "C" fn MysticTransport_SubmitSignal(_from: *const i8, _kind: *const i8, _data: *const i8) -> i32 { 1 }
-
-#[unsafe(no_mangle)]
-pub extern "C" fn MysticTransport_ReadPeerEvent(_buf: *mut u8, _size: u32) -> i32 { 0 }
-
-#[unsafe(no_mangle)]
-pub extern "C" fn MysticTransport_HostOpen(
-    _pk: *const i8, _cfg: *const i8, _cap: *const i8, _ticket: *const i8, _sec: *const i8, _err: *mut u8, _size: u32
-) -> i32 {
-    IS_JOIN.store(false, Ordering::SeqCst);
-    NEXT_HANDLE.fetch_add(1, Ordering::SeqCst)
-}
-
-#[unsafe(no_mangle)]
-pub extern "C" fn MysticTransport_JoinOpen(
-    _pk: *const i8, _cfg: *const i8, _ticket: *const i8, _sec: *const i8, _err: *mut u8, _size: u32
-) -> i32 {
-    IS_JOIN.store(true, Ordering::SeqCst);
-    SIGNAL_PENDING.store(true, Ordering::SeqCst);
-    NEXT_HANDLE.fetch_add(1, Ordering::SeqCst)
-}
-
-#[unsafe(no_mangle)]
-pub extern "C" fn MysticTransport_WaitReadyH(handle: i32, _timeout: u32, buf: *mut u8, size: u32) -> i32 {
-    if handle <= 0 {
-        return -1;
-    }
-    if IS_JOIN.load(Ordering::SeqCst) {
-        write_cstr(
-            buf,
-            size,
-            b"ROUTE_READY localHost=127.0.0.1 localPort=29100 transport=ice routePolicy=AUTOMATIC route=direct",
-        );
+fn known(handle: Handle) -> Result<(), HostError> {
+    if handle.0 > 0 {
+        Ok(())
     } else {
-        write_cstr(
-            buf,
-            size,
-            b"HOST_READY localHost=127.0.0.1 localPort=8791 transport=ice routePolicy=AUTOMATIC",
-        );
-    }
-    1
-}
-
-#[unsafe(no_mangle)]
-pub extern "C" fn MysticTransport_SessionRunningH(handle: i32) -> i32 {
-    i32::from(handle > 0)
-}
-
-#[unsafe(no_mangle)]
-pub extern "C" fn MysticTransport_StopSessionH(handle: i32) -> i32 {
-    i32::from(handle > 0)
-}
-
-#[unsafe(no_mangle)]
-pub extern "C" fn MysticTransport_LastSessionResultH(handle: i32) -> i32 {
-    if handle > 0 { 0 } else { -1 }
-}
-
-#[unsafe(no_mangle)]
-pub extern "C" fn MysticTransport_ReadSignalH(
-    handle: i32, to: *mut u8, to_sz: u32, kind: *mut u8, kind_sz: u32, data: *mut u8, data_sz: u32
-) -> i32 {
-    if handle > 0 && SIGNAL_PENDING.swap(false, Ordering::SeqCst) {
-        write_cstr(to, to_sz, b"user-slayer-1");
-        write_cstr(kind, kind_sz, b"DESCRIPTION");
-        write_cstr(data, data_sz, b"v=0\r\na=ice-ufrag:daintylass\r\n");
-        1
-    } else {
-        0
+        Err(HostError::NotFound(format!("unknown session handle {}", handle.0)))
     }
 }
 
-#[unsafe(no_mangle)]
-pub extern "C" fn MysticTransport_SubmitSignalH(
-    handle: i32, _from: *const i8, _kind: *const i8, _data: *const i8
-) -> i32 {
-    i32::from(handle > 0)
+impl FakeTransport {
+    fn open(&self) -> Handle {
+        Handle(self.next_handle.fetch_add(1, Ordering::SeqCst) + 1)
+    }
 }
 
-#[unsafe(no_mangle)]
-pub extern "C" fn MysticTransport_ReadPeerEventH(_handle: i32, _buf: *mut u8, _size: u32) -> i32 { 0 }
-
-#[unsafe(no_mangle)]
-pub extern "C" fn MysticTransport_ReadDiagnosticH(_handle: i32, _buf: *mut u8, _size: u32) -> i32 { 0 }
-
-#[unsafe(no_mangle)]
-pub extern "C" fn MysticTransport_AddPeerH(
-    handle: i32, _account_id: *const i8, _peer_id: u64, _pair_key: *const i8
-) -> i32 {
-    i32::from(handle > 0)
+impl TransportAbi for FakeTransport {
+    fn abi_version(&self) -> Result<u32, HostError> {
+        Ok(3)
+    }
+    fn initialize(&self) -> Result<(), HostError> {
+        Ok(())
+    }
+    fn networking_ready(&self) -> Result<bool, HostError> {
+        Ok(true)
+    }
+    fn peer_id(&self) -> Result<PeerId, HostError> {
+        Ok(PeerId(0xCAFE_1234_5678))
+    }
+    fn shutdown(&self) -> Result<(), HostError> {
+        Ok(())
+    }
+    fn host_open(&self, _: &HostOpen) -> Result<Handle, HostError> {
+        self.is_join.store(false, Ordering::SeqCst);
+        Ok(self.open())
+    }
+    fn join_open(&self, _: &JoinOpen) -> Result<Handle, HostError> {
+        self.is_join.store(true, Ordering::SeqCst);
+        self.signal_pending.store(true, Ordering::SeqCst);
+        Ok(self.open())
+    }
+    fn wait_ready(&self, handle: Handle, _: u32) -> Result<ReadyState, HostError> {
+        known(handle)?;
+        let line = if self.is_join.load(Ordering::SeqCst) {
+            "ROUTE_READY localHost=127.0.0.1 localPort=29100 transport=ice routePolicy=AUTOMATIC route=direct"
+        } else {
+            "HOST_READY localHost=127.0.0.1 localPort=8791 transport=ice routePolicy=AUTOMATIC"
+        };
+        Ok(ReadyState::Ready(line.to_owned()))
+    }
+    fn session_running(&self, handle: Handle) -> Result<bool, HostError> {
+        Ok(handle.0 > 0)
+    }
+    fn last_session_result(&self, handle: Handle) -> Result<SessionResult, HostError> {
+        known(handle).map(|()| SessionResult::Clean)
+    }
+    fn stop_session(&self, handle: Handle) -> Result<(), HostError> {
+        known(handle)
+    }
+    fn read_peer_event(&self, _: Handle) -> Result<Option<String>, HostError> {
+        Ok(None)
+    }
+    fn read_diagnostic(&self, _: Handle) -> Result<Option<String>, HostError> {
+        Ok(None)
+    }
+    fn read_signal(&self, handle: Handle) -> Result<Option<Signal>, HostError> {
+        if handle.0 > 0 && self.signal_pending.swap(false, Ordering::SeqCst) {
+            return Ok(Some(Signal {
+                to_account: AccountId("user-slayer-1".to_owned()),
+                kind: "DESCRIPTION".to_owned(),
+                data: "v=0\r\na=ice-ufrag:daintylass\r\n".to_owned(),
+            }));
+        }
+        Ok(None)
+    }
+    fn submit_signal(&self, handle: Handle, _: &AccountId, _: &str, _: &str) -> Result<(), HostError> {
+        known(handle)
+    }
+    fn add_peer(&self, handle: Handle, _: &AccountId, _: PeerId, _: &Secret) -> Result<(), HostError> {
+        known(handle)
+    }
+    fn remove_peer(&self, handle: Handle, _: &AccountId, _: &str) -> Result<(), HostError> {
+        known(handle)
+    }
+    fn update_relay_credential(&self, handle: Handle, _: &str, _: &Secret) -> Result<(), HostError> {
+        known(handle)
+    }
 }
 
-#[unsafe(no_mangle)]
-pub extern "C" fn MysticTransport_RemovePeerH(
-    handle: i32, _account_id: *const i8, _reason: *const i8
-) -> i32 {
-    i32::from(handle > 0)
-}
-"#;
-    std::fs::write(&src, code).unwrap();
-    let status = Command::new("rustc")
-        .arg("--crate-type=cdylib")
-        .arg(&src)
-        .arg("-o")
-        .arg(out_path)
-        .status()
-        .unwrap();
-    assert!(status.success(), "rustc failed to compile fake transport cdylib");
-    let _ = std::fs::remove_file(&src);
+struct FakeLoader;
+
+impl TransportLoader for FakeLoader {
+    fn load(&self, _: &Path, _: [u8; 32]) -> Result<Box<dyn TransportAbi>, HostError> {
+        Ok(Box::new(FakeTransport::default()))
+    }
 }
 
 #[tokio::test]
@@ -232,7 +145,7 @@ async fn realm_commands_host_join_stop_keep_rd9_and_never_expose_account_key() {
     let game_root = hx.game();
     let win64 = game_root.join("Archon").join("Binaries").join("Win64");
     let dll_path = win64.join(TRANSPORT_DLL);
-    build_fake_transport_dll(&dll_path);
+    write_transport_placeholder(&dll_path);
     std::fs::write(win64.join(ADMISSION_PUBLIC_KEY_FILE), [0x11u8; 64]).unwrap();
     let dll_sha = sha256_file(&dll_path).unwrap();
 
@@ -241,7 +154,7 @@ async fn realm_commands_host_join_stop_keep_rd9_and_never_expose_account_key() {
 
     let spawner = Arc::new(NoopServerSpawner::new());
     hx.c.set_realms_seams(RealmsSeams {
-        loader: Arc::new(NativeTransportLoader) as Arc<dyn TransportLoader>,
+        loader: Arc::new(FakeLoader) as Arc<dyn TransportLoader>,
         expected_sha256: Some(dll_sha),
         backend: Arc::new(DefaultHostBackend::new()) as Arc<dyn HostBackend>,
         spawner: spawner.clone() as Arc<dyn ServerSpawner>,
@@ -345,22 +258,7 @@ async fn realm_commands_host_join_stop_keep_rd9_and_never_expose_account_key() {
     );
     std::fs::remove_file(win64.join(LOADER_INI)).unwrap();
 
-    // SHA-256 mismatch on ParadoxTransport.dll refuses before loading.
-    hx.c.realms_shutdown().await;
-    hx.c.set_realms_seams(RealmsSeams {
-        loader: Arc::new(NativeTransportLoader) as Arc<dyn TransportLoader>,
-        expected_sha256: Some([0xAA; 32]),
-        backend: Arc::new(DefaultHostBackend::new()) as Arc<dyn HostBackend>,
-        spawner: spawner as Arc<dyn ServerSpawner>,
-    });
-    assert_eq!(
-        hx.c.realm_host(RealmKind::Hub).await,
-        RealmOutcome::Err(LauncherError {
-            code: ErrorCode::RealmUnavailable,
-            detail: Some("transport_hash_mismatch".to_owned()),
-        })
-    );
-
+    // No SHA-256 mismatch case: the linked transport has no file to check (spec-rd27-rifts D1)
     hx.c.shutdown().await;
 }
 
@@ -373,7 +271,7 @@ pub(super) fn handle_realms_route(
     key: Option<&str>,
     _body: &[u8],
 ) -> Option<Response<Full<Bytes>>> {
-    if !path.starts_with("/launcher/v1/") && !path.starts_with("/mystic/v1/") {
+    if !path.starts_with("/launcher/v1/") && !path.starts_with("/rustic/v1/") {
         return None;
     }
     let user = {
@@ -459,7 +357,7 @@ pub(super) fn handle_realms_route(
             }),
         )),
         _ => {
-            if let Some(rest) = path.strip_prefix("/mystic/v1/hunts/") {
+            if let Some(rest) = path.strip_prefix("/rustic/v1/hunts/") {
                 if rest.ends_with("/host-ready") {
                     return Some(reply(
                         200,
@@ -557,7 +455,7 @@ async fn server_host_backend_drives_realm_hub_and_join_across_two_launchers() {
     let host_game = host_hx.game();
     let host_win64 = host_game.join("Archon").join("Binaries").join("Win64");
     let host_dll = host_win64.join(TRANSPORT_DLL);
-    build_fake_transport_dll(&host_dll);
+    write_transport_placeholder(&host_dll);
     std::fs::write(host_win64.join(ADMISSION_PUBLIC_KEY_FILE), [0x22u8; 64]).unwrap();
     let dll_bytes = std::fs::read(&host_dll).unwrap();
 
@@ -584,7 +482,17 @@ async fn server_host_backend_drives_realm_hub_and_join_across_two_launchers() {
         assert_eq!(hx.c.trust_runtime().await, ActionResult::Ok);
     }
 
-    // Host launcher starts a realm hub through the default ServerHostBackend (no seams overridden).
+    // The live ServerHostBackend against the server; only the transport is scripted (the linked one needs a peer)
+    for hx in [&host_hx, &join_hx] {
+        hx.c.set_realms_seams(RealmsSeams {
+            loader: Arc::new(FakeLoader) as Arc<dyn TransportLoader>,
+            expected_sha256: None,
+            backend: hx.c.live_host_backend(),
+            spawner: Arc::new(NoopServerSpawner::new()) as Arc<dyn ServerSpawner>,
+        });
+    }
+
+    // Host launcher starts a realm hub through the default ServerHostBackend.
     let outcome = host_hx.c.realm_host(RealmKind::Hub).await;
     let RealmOutcome::Ok(hosted_view) = outcome else {
         panic!("expected RealmOutcome::Ok from host_hx.c.realm_host(Hub), got {outcome:?}");
@@ -618,8 +526,8 @@ async fn server_host_backend_drives_realm_hub_and_join_across_two_launchers() {
         "/launcher/v1/realms/mine/heartbeat",
         "/launcher/v1/p2p/host-presence",
         "/launcher/v1/realm-hosting/hubs/start",
-        &format!("/mystic/v1/hunts/{TEST_HUB_SESSION_UUID}/host-ready"),
-        &format!("/mystic/v1/hunts/{TEST_HUB_SESSION_UUID}/tickets/consume"),
+        &format!("/rustic/v1/hunts/{TEST_HUB_SESSION_UUID}/host-ready"),
+        &format!("/rustic/v1/hunts/{TEST_HUB_SESSION_UUID}/tickets/consume"),
         &format!("/launcher/v1/p2p/hunts/{TEST_HUB_SESSION_UUID}/transport-config"),
         &format!("/launcher/v1/p2p/hunts/{TEST_HUB_SESSION_UUID}/route-ready"),
         "/launcher/v1/realms/listed",

@@ -1,6 +1,7 @@
 //! The host kit (`reforged-host`): thin AGPL shell wiring `hostkit` (MIT) to the compiled-in
-//! services (`gateway`, `allowlist`, `content`, `admin`, `isles-1-14-7`), `isles-db` migration,
-//! `isles-core` / `isles-director` generators, and the `legacy` 1.4.4 stack.
+//! services (`gateway`, `allowlist`, `content`, `admin`, and `isles-1-14-7` from dainty-lass's
+//! `rustic-isles-1-14-7`), the `rustic-isles-db` and `rustic-isles-replay` tools, the
+//! `rustic-isles-gamedata` / `rustic-isles-director` generators, and the `legacy` 1.4.4 stack.
 
 pub use hostkit::{
     HostError, Outcome, captures, cli, envfile, epicinstall, error, gamepack, guarded, hooks, hostconfig, hosttoml,
@@ -9,6 +10,8 @@ pub use hostkit::{
 };
 
 pub mod compose;
+#[cfg(feature = "db-tools")]
+pub mod version_data;
 
 pub mod run {
     pub use hostkit::run::*;
@@ -47,7 +50,7 @@ pub fn ensure_hooks() {
     hostkit::hooks::set_hooks(&SERVICES_HOST_HOOKS);
 }
 
-#[cfg(any(feature = "isles-1-14-7", feature = "paradox"))]
+#[cfg(feature = "db-tools")]
 fn db_cfg_to_target(db_cfg: &store::DatabaseConfig) -> (String, bool) {
     match db_cfg {
         store::DatabaseConfig::Sqlite { file } => (file.to_string_lossy().into_owned(), false),
@@ -68,72 +71,48 @@ fn db_cfg_to_target(db_cfg: &store::DatabaseConfig) -> (String, bool) {
 #[cfg(feature = "isles-1-14-7")]
 fn execute_rust_generator(p: &paths::Paths, generator: hostkit::gamedata::GeneratorKind) -> Result<String, String> {
     use hostkit::gamedata::GeneratorKind;
-    match generator {
-        GeneratorKind::ProgressionConfig => {
-            isles_core::gamedata::generate_progression_config(&p.raw_game_data, &p.backend_game_data, true)
-        }
+    use rustic_isles_gamedata::generators::{BackendStep, GeneratorPaths};
+    let step = match generator {
         GeneratorKind::HuntTables => {
-            isles_director::hunt_tables::import_hunt_tables(&isles_director::hunt_tables::ImportHuntTablesOptions {
-                export_dir: p.exports.join("hunts_1_14_7"),
-                vendor_dir: p.director_game_data.clone(),
-                repo_root: Some(p.repo.clone()),
-                apply: true,
-                update_existing: false,
-                verbose: false,
-                backup_stamp: None,
-            })
-            .map(|report| report.output)
+            return rustic_isles_director::hunt_tables::import_hunt_tables(
+                &rustic_isles_director::hunt_tables::ImportHuntTablesOptions {
+                    export_dir: p.exports.join("hunts_1_14_7"),
+                    vendor_dir: p.director_game_data.clone(),
+                    repo_root: Some(p.repo.clone()),
+                    apply: true,
+                    update_existing: false,
+                    verbose: false,
+                    backup_stamp: None,
+                },
+            )
+            .map(|report| report.output);
         }
-        GeneratorKind::SlayersPath => isles_core::gamedata::generate_slayers_path(
-            &p.exports.join("slayers_path_1_14_7").join("player_journey_nodes.jsonl"),
-            &p.backend_game_data.join("slayers_path.json"),
-            true,
-        ),
-        GeneratorKind::SlayersPathDefinitions => isles_core::gamedata::generate_slayers_path_definitions(
-            &p.exports.join("slayers_path_1_14_7").join("player_journey_nodes.jsonl"),
-            &p.backend_game_data.join("slayers_path_definitions.json"),
-            "1_14_7",
-            true,
-        ),
-        GeneratorKind::RewardCache => {
-            let catalog = p.exports.join("catalog_1_14_7.jsonl");
-            let out = p.backend_game_data.join("reward_cache_store.json");
-            let a = isles_core::gamedata::generate_reward_cache_store(&catalog, &out)?;
-            let b = isles_core::gamedata::generate_inventory_storage_policy(&catalog, None, &p.backend_game_data)?;
-            Ok(format!("{a}\n{b}"))
-        }
-        GeneratorKind::LadyLuckGenerate => {
-            isles_core::gamedata::generate_ladyluck_store(&p.raw_game_data, &p.backend_game_data, true)
-        }
-        GeneratorKind::LadyLuckEnrich => {
-            let catalog = p.exports.join("catalog_1_14_7.jsonl");
-            let live = p
-                .store_captures
-                .join("Store")
-                .join("Product")
-                .join("Skus")
-                .join("ladyluckstore.json");
-            let store = p.backend_game_data.join("ladyluck_store.json");
-            let a = isles_core::gamedata::enrich_ladyluck_store(&catalog, &live, &store)?;
-            let b = isles_core::gamedata::generate_inventory_storage_policy(&catalog, None, &p.backend_game_data)?;
-            Ok(format!("{a}\n{b}"))
-        }
-        GeneratorKind::PlatinumAndStoragePolicy => {
-            let catalog = isles_core::gamedata::resolve_platinum_export_file(&p.exports, "catalog");
-            let store_images = isles_core::gamedata::resolve_platinum_export_file(&p.exports, "store_item_images");
-            let captures = p.store_captures.join("Store").join("Product").join("Skus");
-            let a = isles_core::gamedata::generate_platinum_store(
-                &catalog,
-                &store_images,
-                &captures,
-                &p.backend_game_data,
-            )?;
-            let policy_catalog = p.exports.join("catalog_1_14_7.jsonl");
-            let b =
-                isles_core::gamedata::generate_inventory_storage_policy(&policy_catalog, None, &p.backend_game_data)?;
-            Ok(format!("{a}\n{b}"))
-        }
-    }
+        GeneratorKind::ProgressionConfig => BackendStep::ProgressionConfig,
+        GeneratorKind::SlayersPath => BackendStep::SlayersPath,
+        GeneratorKind::SlayersPathDefinitions => BackendStep::SlayersPathDefinitions,
+        GeneratorKind::RewardCache => BackendStep::RewardCache,
+        GeneratorKind::LadyLuckGenerate => BackendStep::LadyLuckGenerate,
+        GeneratorKind::LadyLuckEnrich => BackendStep::LadyLuckEnrich,
+        GeneratorKind::PlatinumAndStoragePolicy => BackendStep::PlatinumAndStoragePolicy,
+    };
+    // Beside the files it generates, for the module as a library or child (spec-rustic-isles-1-14-7 decision 7)
+    version_data::install(&p.backend_game_data).map_err(|e| {
+        format!(
+            "could not install {} in {}: {e}",
+            rustic_isles_1_14_7::DATA_FILE,
+            p.backend_game_data.display()
+        )
+    })?;
+    let inputs = version_data::load()?
+        .generator_inputs()
+        .ok_or_else(|| "the compiled-in version_data.json has no rewardCachePlan or storageTokenSeeds".to_owned())?;
+    let paths = GeneratorPaths {
+        raw_game_data: p.raw_game_data.clone(),
+        backend_game_data: p.backend_game_data.clone(),
+        exports: p.exports.clone(),
+        store_captures: p.store_captures.clone(),
+    };
+    rustic_isles_gamedata::generators::run(step, &paths, &inputs)
 }
 
 #[cfg(not(feature = "isles-1-14-7"))]
@@ -144,8 +123,9 @@ fn execute_rust_generator(_p: &paths::Paths, generator: hostkit::gamedata::Gener
     ))
 }
 
-#[cfg(any(feature = "isles-1-14-7", feature = "paradox"))]
+#[cfg(feature = "db-tools")]
 mod db_impl {
+    use std::collections::BTreeSet;
     use std::path::PathBuf;
     use std::process::ExitCode;
 
@@ -157,14 +137,14 @@ mod db_impl {
     use hostkit::commands::db::{redact_credentials_in_text, resolve_mongo_uri, resolve_store_target};
     use hostkit::commands::update::{MONGO_MIGRATED_MARKER, redact_uri_password};
 
-    fn parse_areas(raw_areas: &[String]) -> Result<Vec<isles_db::MigrateArea>, HostError> {
-        let mut areas = Vec::new();
+    fn parse_areas(raw_areas: &[String]) -> Result<BTreeSet<rustic_isles_db::Area>, HostError> {
+        let mut areas = BTreeSet::new();
         for item in raw_areas {
             for part in item.split(',') {
                 let trimmed = part.trim();
                 if !trimmed.is_empty() {
-                    let area = isles_db::MigrateArea::parse(trimmed).map_err(|e| HostError::message(e.to_string()))?;
-                    areas.push(area);
+                    let area = rustic_isles_db::Area::parse(trimmed).map_err(|e| HostError::message(e.to_string()))?;
+                    areas.insert(area);
                 }
             }
         }
@@ -227,7 +207,7 @@ mod db_impl {
             let _ = std::fs::create_dir_all(parent);
         }
 
-        let opts = isles_db::MigrateOptions {
+        let opts = rustic_isles_db::MigrateOptions {
             from_uri: from_uri.clone(),
             to_target: to_target.clone(),
             node,
@@ -236,6 +216,7 @@ mod db_impl {
             skip_invalid: args.skip_invalid,
             game_data_dir,
             allow_remote_postgres,
+            starter: crate::version_data::legacy_starter().map_err(HostError::message)?,
         };
 
         let runtime = tokio::runtime::Builder::new_current_thread()
@@ -243,7 +224,7 @@ mod db_impl {
             .build()
             .map_err(|e| HostError::message(format!("could not start runtime for db migrate: {e}")))?;
 
-        let report = runtime.block_on(isles_db::run_migrate(&opts)).map_err(|e| {
+        let report = runtime.block_on(rustic_isles_db::run_migrate(&opts)).map_err(|e| {
             let msg = redact_credentials_in_text(&e.to_string(), &[&from_uri, &to_target]);
             HostError::message(format!("db migrate failed: {msg}"))
         })?;
@@ -292,7 +273,7 @@ mod db_impl {
         let game_data_dir = resolve_game_data_dir(paths, args.game_data_dir.as_deref());
         let all_areas = areas.is_empty();
 
-        let opts = isles_db::MigrateOptions {
+        let opts = rustic_isles_db::MigrateOptions {
             from_uri: from_uri.clone(),
             to_target: to_target.clone(),
             node,
@@ -301,6 +282,7 @@ mod db_impl {
             skip_invalid: args.skip_invalid,
             game_data_dir,
             allow_remote_postgres,
+            starter: crate::version_data::legacy_starter().map_err(HostError::message)?,
         };
 
         let runtime = tokio::runtime::Builder::new_current_thread()
@@ -308,7 +290,7 @@ mod db_impl {
             .build()
             .map_err(|e| HostError::message(format!("could not start runtime for db verify: {e}")))?;
 
-        let report = runtime.block_on(isles_db::run_verify(&opts)).map_err(|e| {
+        let report = runtime.block_on(rustic_isles_db::run_verify(&opts)).map_err(|e| {
             let msg = redact_credentials_in_text(&e.to_string(), &[&from_uri, &to_target]);
             HostError::message(format!("db verify failed: {msg}"))
         })?;
@@ -372,7 +354,7 @@ mod db_impl {
         let to_uri = resolve_mongo_uri(paths, config, args.to.as_deref());
         let areas = parse_areas(&args.area)?;
 
-        let opts = isles_db::ExportOptions {
+        let opts = rustic_isles_db::ExportOptions {
             from_source: from_source.clone(),
             to_uri: to_uri.clone(),
             areas,
@@ -385,10 +367,12 @@ mod db_impl {
             .build()
             .map_err(|e| HostError::message(format!("could not start runtime for db export-mongo: {e}")))?;
 
-        let report = runtime.block_on(isles_db::run_export_mongo(&opts)).map_err(|e| {
-            let msg = redact_credentials_in_text(&e.to_string(), &[&from_source, &to_uri]);
-            HostError::message(format!("db export-mongo failed: {msg}"))
-        })?;
+        let report = runtime
+            .block_on(rustic_isles_db::run_export_mongo(&opts))
+            .map_err(|e| {
+                let msg = redact_credentials_in_text(&e.to_string(), &[&from_source, &to_uri]);
+                HostError::message(format!("db export-mongo failed: {msg}"))
+            })?;
 
         if args.json {
             if let Ok(s) = serde_json::to_string_pretty(&report) {
@@ -469,7 +453,7 @@ mod db_impl {
         let gateway_secret = args.gateway_secret.clone().or(default_gateway_secret);
         let pin_clock = !args.no_pin_clock || args.pin_clock;
 
-        let opts = isles_db::ReplayOptions {
+        let opts = rustic_isles_replay::ReplayOptions {
             corpus: PathBuf::from(&args.corpus),
             left: args.left.clone(),
             right: args.right.clone(),
@@ -496,7 +480,7 @@ mod db_impl {
             .map_err(|e| HostError::message(format!("could not start runtime for db replay: {e}")))?;
 
         let report = runtime
-            .block_on(isles_db::run_replay_cli(&opts))
+            .block_on(rustic_isles_replay::run_replay_cli(&opts))
             .map_err(|e| HostError::message(format!("db replay failed: {e}")))?;
 
         if args.json {
@@ -557,6 +541,20 @@ impl hooks::HostHooks for ServicesHostHooks {
         BUILT_IN_SERVICES
     }
 
+    // setup's and start's install step: version_data.json for the 1.14.7 module loaded as a library (RD27); the
+    // compiled-in one is handed the values instead
+    fn install_director_runner(&self, paths: &paths::Paths) -> Result<(), HostError> {
+        #[cfg(feature = "isles-1-14-7")]
+        if paths.backend_game_data.is_dir() {
+            version_data::install(&paths.backend_game_data).map_err(|e| {
+                HostError::message(format!("could not install {}: {e}", rustic_isles_1_14_7::DATA_FILE))
+            })?;
+        }
+        #[cfg(not(feature = "isles-1-14-7"))]
+        let _ = paths;
+        Ok(())
+    }
+
     fn run_generator(
         &self,
         paths: &paths::Paths,
@@ -596,32 +594,33 @@ impl hooks::HostHooks for ServicesHostHooks {
         db_cfg: &store::DatabaseConfig,
         dry_run: bool,
     ) -> Result<(Vec<(String, usize)>, Vec<(String, String)>), HostError> {
-        #[cfg(any(feature = "isles-1-14-7", feature = "paradox"))]
+        #[cfg(feature = "db-tools")]
         {
             let (to_target, allow_remote_postgres) = db_cfg_to_target(db_cfg);
-            let opts = isles_db::MigrateOptions {
+            let opts = rustic_isles_db::MigrateOptions {
                 from_uri: source_uri.to_owned(),
                 to_target,
                 node: "local"
                     .parse::<module_api::NodeId>()
                     .map_err(|e| HostError::message(e.to_string()))?,
                 dry_run,
-                areas: Vec::new(),
+                areas: Default::default(),
                 skip_invalid: false,
                 game_data_dir: None,
                 allow_remote_postgres,
+                starter: version_data::legacy_starter().map_err(HostError::message)?,
             };
             let runtime = tokio::runtime::Builder::new_current_thread()
                 .enable_all()
                 .build()
                 .map_err(|e| HostError::message(format!("could not start runtime: {e}")))?;
             let report = runtime
-                .block_on(isles_db::run_migrate(&opts))
+                .block_on(rustic_isles_db::run_migrate(&opts))
                 .map_err(|e| HostError::message(e.to_string()))?;
             let counts: Vec<(String, usize)> = report.counts.into_iter().collect();
             Ok((counts, Vec::new()))
         }
-        #[cfg(not(any(feature = "isles-1-14-7", feature = "paradox")))]
+        #[cfg(not(feature = "db-tools"))]
         {
             let _ = (source_uri, db_cfg, dry_run);
             Err(HostError::message("database migration is not compiled in"))
@@ -629,26 +628,27 @@ impl hooks::HostHooks for ServicesHostHooks {
     }
 
     fn db_verify(&self, source_uri: &str, db_cfg: &store::DatabaseConfig) -> Result<Vec<(String, String)>, HostError> {
-        #[cfg(any(feature = "isles-1-14-7", feature = "paradox"))]
+        #[cfg(feature = "db-tools")]
         {
             let (to_target, allow_remote_postgres) = db_cfg_to_target(db_cfg);
-            let opts = isles_db::MigrateOptions {
+            let opts = rustic_isles_db::MigrateOptions {
                 from_uri: source_uri.to_owned(),
                 to_target,
                 node: "local"
                     .parse::<module_api::NodeId>()
                     .map_err(|e| HostError::message(e.to_string()))?,
                 dry_run: false,
-                areas: Vec::new(),
+                areas: Default::default(),
                 skip_invalid: false,
                 game_data_dir: None,
                 allow_remote_postgres,
+                starter: version_data::legacy_starter().map_err(HostError::message)?,
             };
             let runtime = tokio::runtime::Builder::new_current_thread()
                 .enable_all()
                 .build()
                 .map_err(|e| HostError::message(format!("could not start runtime: {e}")))?;
-            match runtime.block_on(isles_db::run_verify(&opts)) {
+            match runtime.block_on(rustic_isles_db::run_verify(&opts)) {
                 Ok(report) => {
                     let mismatches = report
                         .collections
@@ -666,13 +666,13 @@ impl hooks::HostHooks for ServicesHostHooks {
                         .collect();
                     Ok(mismatches)
                 }
-                Err(isles_db::DbError::VerificationFailed(n)) => {
+                Err(rustic_isles_db::DbError::VerificationFailed(n)) => {
                     Ok(vec![(format!("{n} collection(s)"), "verification failed".to_owned())])
                 }
                 Err(e) => Err(HostError::message(e.to_string())),
             }
         }
-        #[cfg(not(any(feature = "isles-1-14-7", feature = "paradox")))]
+        #[cfg(not(feature = "db-tools"))]
         {
             let _ = (source_uri, db_cfg);
             Err(HostError::message("database verification is not compiled in"))
@@ -680,12 +680,12 @@ impl hooks::HostHooks for ServicesHostHooks {
     }
 
     fn db_export_mongo(&self, uri: &str, out: &Path) -> Result<Vec<(String, usize)>, HostError> {
-        #[cfg(any(feature = "isles-1-14-7", feature = "paradox"))]
+        #[cfg(feature = "db-tools")]
         {
-            let opts = isles_db::ExportOptions {
+            let opts = rustic_isles_db::ExportOptions {
                 from_source: out.to_string_lossy().into_owned(),
                 to_uri: uri.to_owned(),
-                areas: Vec::new(),
+                areas: Default::default(),
                 dry_run: false,
                 allow_remote_postgres: false,
             };
@@ -694,11 +694,11 @@ impl hooks::HostHooks for ServicesHostHooks {
                 .build()
                 .map_err(|e| HostError::message(format!("could not start runtime: {e}")))?;
             let report = runtime
-                .block_on(isles_db::run_export_mongo(&opts))
+                .block_on(rustic_isles_db::run_export_mongo(&opts))
                 .map_err(|e| HostError::message(e.to_string()))?;
             Ok(report.counts.into_iter().collect())
         }
-        #[cfg(not(any(feature = "isles-1-14-7", feature = "paradox")))]
+        #[cfg(not(feature = "db-tools"))]
         {
             let _ = (uri, out);
             Err(HostError::message("MongoDB export is not compiled in"))
@@ -706,11 +706,11 @@ impl hooks::HostHooks for ServicesHostHooks {
     }
 
     fn run_db_command(&self, paths: &paths::Paths, args: &cli::DbArgs, out: &mut dyn FnMut(&str)) -> Option<Outcome> {
-        #[cfg(any(feature = "isles-1-14-7", feature = "paradox"))]
+        #[cfg(feature = "db-tools")]
         {
             Some(db_impl::run_with(paths, args, out))
         }
-        #[cfg(not(any(feature = "isles-1-14-7", feature = "paradox")))]
+        #[cfg(not(feature = "db-tools"))]
         {
             let _ = (paths, args, out);
             Some(Err(HostError::message(
@@ -1456,15 +1456,28 @@ fn isles_service_main(name: &'static str, args: &[String]) -> ExitCode {
                 region: n.region.clone(),
             });
 
-    let mut spec = isles_1_14_7::spec();
+    let mut spec =
+        match version_data::load().and_then(|data| rustic_isles_1_14_7::spec_with(data).map_err(|e| e.message)) {
+            Ok(spec) => spec,
+            Err(error) => {
+                eprintln!("Configuration: {error}");
+                return ExitCode::FAILURE;
+            }
+        };
     spec.services = match name {
-        "backend" => vec![std::sync::Arc::new(isles_core::module::BackendService)],
-        "director" => vec![std::sync::Arc::new(isles_director::DirectorService::new(
-            isles_1_14_7::DIRECTOR,
+        "backend" => vec![std::sync::Arc::new(rustic_isles::BackendService)],
+        "director" => vec![std::sync::Arc::new(rustic_isles_director::DirectorService::new(
+            rustic_isles_1_14_7::DIRECTOR,
         ))],
         _ => Vec::new(),
     };
-    let module = isles_core::module::IslesModule::new(spec);
+    let module = match rustic_isles::IslesModule::new(spec) {
+        Ok(module) => module,
+        Err(error) => {
+            eprintln!("Configuration: {error}");
+            return ExitCode::FAILURE;
+        }
+    };
     let manifest = module.manifest();
     let mut registrar = module_api::Registrar::new(manifest.clone());
     if let Err(error) = module.register(&mut registrar) {
@@ -1848,34 +1861,33 @@ mod tests {
         assert!(parse_service_env_file("backend", &["--env-file".into()], None).is_err());
     }
 
-    #[cfg(any(feature = "isles-1-14-7", feature = "paradox"))]
+    #[cfg(feature = "db-tools")]
     #[test]
     fn db_migrate_verify_and_export_mongo_work_with_host_toml_defaults() {
         use crate::cli::{DbArgs, DbCommand, DbExportMongoArgs, DbMigrateArgs, DbVerifyArgs};
         use crate::hostconfig::{
             DatabaseSettings, FileForm, HostConfig, MongoConfig, Registration, ServerMode, save_host_config,
         };
-        use isles_db::mongo::MockMongoServer;
-        use serde_json::{Map, Value, json};
-        use std::collections::BTreeMap;
+        use rustic_isles_db::mongo::MockMongoServer;
+        use serde_json::json;
 
         ensure_hooks();
-        let mut cols: BTreeMap<String, Vec<Map<String, Value>>> = BTreeMap::new();
-        if let Value::Object(acc) = json!({
-            "_id": "user-m3-01",
-            "userId": "user-m3-01",
-            "name": "SlayerM3",
-            "displayName": "SlayerM3",
-            "displayNameNormalized": "slayerm3",
-            "status": "active",
-            "approvalStatus": "approved",
-            "roles": ["player"],
-            "usernameSet": 1,
-            "createdAt": "2026-03-01T10:00:00.000Z"
-        }) {
-            cols.insert("accounts".into(), vec![acc]);
-        }
-        let mock = MockMongoServer::start(cols, 50).unwrap();
+        let mock = MockMongoServer::start(50).unwrap();
+        mock.seed(
+            "accounts",
+            vec![json!({
+                "_id": "user-m3-01",
+                "userId": "user-m3-01",
+                "name": "SlayerM3",
+                "displayName": "SlayerM3",
+                "displayNameNormalized": "slayerm3",
+                "status": "active",
+                "approvalStatus": "approved",
+                "roles": ["player"],
+                "usernameSet": 1,
+                "createdAt": "2026-03-01T10:00:00.000Z"
+            })],
+        );
         let mongo_uri = mock.uri("reforged");
 
         let tmp = tempfile::tempdir().unwrap();

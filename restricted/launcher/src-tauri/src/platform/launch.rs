@@ -117,8 +117,8 @@ pub fn runtime_profile_name(profile: RuntimeProfile) -> &'static str {
 }
 
 /// The prefixes of the variables that point a runtime somewhere; `MYSTICPARADOX_` is a runtime's from before the
-/// Rustic Isles rename, read for one release (DX4)
-pub const RUNTIME_ENV_PREFIXES: [&str; 3] = ["REFORGED_", "RUSTIC_ISLES_", "MYSTICPARADOX_"];
+/// Rustic Isles rename, read for one release (DX4), and `RUSTIC_RIFTS_` names the realms ones since (D3)
+pub const RUNTIME_ENV_PREFIXES: [&str; 4] = ["REFORGED_", "RUSTIC_ISLES_", "RUSTIC_RIFTS_", "MYSTICPARADOX_"];
 
 /// Whether the game must not inherit `name` (any case)
 pub fn is_runtime_env(name: &OsStr) -> bool {
@@ -488,6 +488,7 @@ mod tests {
                 ("RUSTIC_ISLES_LOG", "1"),
                 ("MYSTICPARADOX_LOG", "1"),
                 ("mysticparadox_backend_url", "https://evil.example"),
+                ("RUSTIC_RIFTS_BIND_ADDRESS", "0.0.0.0"),
                 ("reforged_other", "y"),
             ]),
             "http://127.0.0.1:61100",
@@ -501,6 +502,7 @@ mod tests {
         assert_eq!(get(&out, "RUSTIC_ISLES_LOG"), None);
         assert_eq!(get(&out, "MYSTICPARADOX_LOG"), None);
         assert_eq!(get(&out, "mysticparadox_backend_url"), None);
+        assert_eq!(get(&out, "RUSTIC_RIFTS_BIND_ADDRESS"), None);
         assert_eq!(get(&out, "reforged_other"), None);
         assert_eq!(out.len(), 4, "the inherited REFORGED_BACKEND_URL is gone, not doubled");
         for bad in [

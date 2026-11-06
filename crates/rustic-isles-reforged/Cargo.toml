@@ -1,0 +1,58 @@
+[package]
+name = "rustic-isles-reforged"
+description = "Rustic Isles' Reforged API: probes, metrics and the request log, the launcher API, update feeds and Guard manifests, launcher logs, notices, operations, activity, Launcher Guard, and the admin API"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+# Clean-room rewrite from docs/port/spec-rustic-isles-reforged-{public,admin}.md (RD27,
+# docs/port/clean-room/rustic-isles-reforged.md)
+license = "MIT"
+repository.workspace = true
+publish.workspace = true
+
+[features]
+# Trusted::with_keys, a fixed-time helper, a recording MatchmakingPresence, a TesterFunding fake and an operator
+# signer (here and in the composer's tests)
+test-support = []
+
+[dependencies]
+aws-lc-rs.workspace = true
+axum.workspace = true
+base64.workspace = true
+chrono.workspace = true
+# Only to tell a unique-constraint violation from other store errors (Register's 409)
+diesel.workspace = true
+http.workspace = true
+http-body-util.workspace = true
+module-api.workspace = true
+rand.workspace = true
+regex.workspace = true
+rifts-seam.workspace = true
+rustic-isles.workspace = true
+rustic-isles-auth.workspace = true
+rustic-isles-chat.workspace = true
+rustic-isles-economy.workspace = true
+# The dedicated-hunt activity hook and the presence and candidates the slots read
+rustic-isles-matchmaking.workspace = true
+rustic-isles-store.workspace = true
+serde_json = { workspace = true, features = ["preserve_order"] }
+service-kit.workspace = true
+subtle.workspace = true
+thiserror.workspace = true
+tokio = { workspace = true, features = ["fs", "io-util", "macros", "net", "rt", "sync", "time"] }
+tracing.workspace = true
+
+[dev-dependencies]
+# crates/admin signs /admin/v1 calls as the manager operator: a request it signs must be admitted
+admin = { path = "../admin" }
+rustic-isles = { workspace = true, features = ["test-support"] }
+rustic-isles-auth = { workspace = true, features = ["test-support"] }
+rustic-isles-economy = { workspace = true, features = ["test-support"] }
+rustic-isles-reforged = { path = ".", features = ["test-support"] }
+rustic-isles-store = { workspace = true, features = ["test-support"] }
+tempfile.workspace = true
+tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
+tower.workspace = true
+
+[lints]
+workspace = true

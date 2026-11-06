@@ -125,7 +125,7 @@ impl GameModule for LegacyPlugin {
                 .arg(
                     "options",
                     false,
-                    "--to/--env-file, --fresh-start, --isles-db <program>, --dry-run",
+                    "--to/--env-file, --fresh-start, --db-tool <program>, --dry-run",
                 ),
             );
         Ok(())

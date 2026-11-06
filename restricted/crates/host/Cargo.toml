@@ -22,11 +22,14 @@ admin = ["controller/admin", "dep:admin", "hostkit/admin"]
 chat = ["dep:chat"]
 # The game modules compiled in (DF5); 1.14.7 and realms are on by default (RU9/RB14)
 stub-module = ["controller/stub-module"]
-isles-1-14-7 = ["dep:isles-1-14-7", "dep:isles-db", "dep:isles-core", "dep:isles-director"]
-realms = ["isles-1-14-7?/realms"]
+# dainty-lass's clean-room module (RD27), with restricted's version data compiled in (version_data.rs)
+isles-1-14-7 = ["db-tools", "dep:rustic-isles", "dep:rustic-isles-director", "dep:rustic-isles-gamedata"]
+realms = ["rustic-isles-1-14-7?/realms"]
+# `reforged-host db`, which takes the legacy starter from the version data
+db-tools = ["dep:rustic-isles-1-14-7", "dep:rustic-isles-db", "dep:rustic-isles-replay"]
 # Opt-in rollback path for one release until RB15 deletes it: Rustic Isles's Node backend and Director
 # and MongoDB
-paradox = ["dep:isles-db", "hostkit/paradox"]
+paradox = ["db-tools", "hostkit/paradox"]
 
 [dependencies]
 hostkit = { workspace = true, default-features = false }
@@ -58,10 +61,12 @@ gateway = { workspace = true, optional = true }
 chat = { workspace = true, optional = true }
 # The peer log shipping the network module runs (DH7)
 history-ship = { workspace = true, optional = true }
-isles-1-14-7 = { workspace = true, optional = true }
-isles-core = { workspace = true, optional = true }
-isles-db = { workspace = true, optional = true }
-isles-director = { workspace = true, optional = true }
+rustic-isles = { workspace = true, optional = true }
+rustic-isles-1-14-7 = { workspace = true, optional = true }
+rustic-isles-db = { workspace = true, optional = true }
+rustic-isles-director = { workspace = true, optional = true }
+rustic-isles-gamedata = { workspace = true, optional = true }
+rustic-isles-replay = { workspace = true, optional = true }
 http-body-util.workspace = true
 hyper.workspace = true
 hyper-rustls.workspace = true
@@ -108,6 +113,8 @@ async-graphql.workspace = true
 admin.workspace = true
 # A game database to revert in, made without the game module's migrations
 diesel.workspace = true
+# db migrate's tests: a MongoDB stand-in
+rustic-isles-db = { workspace = true, features = ["test-support"] }
 service-kit.workspace = true
 
 # Fake services in child processes: the test binary runs itself in their roles (RH2)

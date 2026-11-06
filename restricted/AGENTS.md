@@ -21,8 +21,8 @@ via relative path dependencies (`path = "../crates/<name>"` in `Cargo.toml`, `[w
 | Path | What it is |
 | --- | --- |
 | `restricted/` | One cargo workspace, every package of its own in `crates/<package name>`: `host` (the AGPL shell around `../crates/hostkit`, whose `compose.rs` composes the services into the controller), `gateway-plugin`, `content-plugin` and `chat-plugin` (the libraries of the MIT `gateway`, `content` and `chat`), `server-console` (which builds `dainty-lass-server-console` and `reforged-host`) and `server-minimal`. Also `launcher/src-tauri` (the Tauri launcher backend: `dainty-lass-client`, and `dainty-lass-manager` with the `server-gui` feature, kept where Tauri expects it) and the game modules' crates |
-| `modules/rustic-isles/` | The 1.14.7 game module (`crates/isles-1-14-7`), `isles-core`, `isles-db`, `isles-director`, `isles-chat`, the C++ game runtime (`native/runtime`) and CatalogExporter (`native/catalog-exporter`), and the Node reference tree (`reference/1.14.7`). In-tree since RD27, members of this workspace |
-| `modules/rustic-rifts/` | Peer-to-peer realms: `rifts-seam`, `rifts-admission`, `rifts-relay`, `rifts-realms`, `rifts-guard`, `rifts-host` (the launcher's side), and `ParadoxTransport.dll` (`src/`) |
+| `modules/rustic-isles/` | The library the core loads for the 1.14.7 module (`crates/isles-1-14-7-plugin`, over dainty-lass's MIT `rustic-isles-1-14-7`), its version data (`version-data/1.14.7`), the recorded Node goldens replayed against it (`crates/isles-mit-parity`), the C++ game runtime (`native/runtime`) and CatalogExporter (`native/catalog-exporter`), and the Node reference tree (`reference/1.14.7`). In-tree since RD27, members of this workspace |
+| `modules/rustic-rifts/` | Peer-to-peer realms' AGPL remainder: `ParadoxTransport.dll` (`src/`), and `oracle` (Mystic Paradox's Node vectors replayed against the MIT crates). The `rifts-*` crates themselves are dainty-lass's MIT clean-room ones (`../crates/rifts-*`, RD27) |
 | `legacy/` | dainty-legacy: the 1.4.4 importer, a workspace of its own (an external plugin `host.toml` pins) |
 | `ui/` | The UI's two AGPL inputs only: the language catalogs (`packages/i18n/catalogs`) and the bridge types the launcher generates (`packages/bridge/src/generated`); `../ui/` (dainty-dash) copies the bridge types in at build time |
 | `fuzz/` | `cargo fuzz` targets for the AGPL components, a workspace of its own |
@@ -32,8 +32,12 @@ via relative path dependencies (`path = "../crates/<name>"` in `Cargo.toml`, `[w
 
 DaintyLass serves one game, Dauntless 1.14.7 (2026-10-31). On the default path (since the RU9 code cutover,
 maintainer decision 2026-10-28), `host::serve` runs the compiled-in Rust `isles-1-14-7` backend (port 61000) and
-in-process `isles-director` (port 61001) on `store` (SQLite by default, or Postgres), with `isles-1-14-7` and realms
-linked in by the server binaries' `all-modules` feature (DF5). For one release after the cutover (until RB15), the
+in-process Director (port 61001) on `store` (SQLite by default, or Postgres), with `isles-1-14-7` and realms
+linked in by the server binaries' `all-modules` feature (DF5). The module is dainty-lass's clean-room
+`rustic-isles-1-14-7` (RD27), handed restricted's version data
+(`modules/rustic-isles/version-data/1.14.7/version_data.json`, kept current by isles-mit-parity's `version_data` test);
+the AGPL Rust ports it replaced (`isles-core`, `isles-db`, `isles-director`, `isles-chat`) were removed and stay in the
+history. For one release after the cutover (until RB15), the
 opt-in `paradox` Cargo feature on `host` retains Rustic Isles's Node backend and Director from
 `modules/rustic-isles/reference/1.14.7/` and MongoDB as a rollback path.
 
@@ -197,7 +201,9 @@ and the compose smoke test inside them.
 Not obvious from reading the suites:
 
 - **Parity tests are the contract, not a snapshot.** The gateway's and content's, with the replies recorded from
-  the Node services, are dainty-lass's since those crates went MIT (RD27). When one fails, fix the Rust side.
+  the Node services, are dainty-lass's since those crates went MIT (RD27). When one fails, fix the Rust side. So
+  are Rustic Isles' goldens in `modules/rustic-isles/crates/isles-mit-parity/tests/golden`, replayed against the MIT
+  module (890 of 890 replayed steps match; `docs/mit-parity-report.md` there).
 - **dainty-lass's `crates/protocol/tests/cases/*.json` are shared tables**: the launcher and the servers check the same
   invites, statuses and usernames against them. A new case goes in the table, not in one crate's test.
 - **Tests that read the shared log take `serial()`** (dainty-lass's `crates/gateway/tests/common`). A test that passes alone and fails in

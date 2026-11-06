@@ -148,7 +148,7 @@ struct ServerContext {
     username: String,
 }
 
-/// Live [`HostBackend`] that drives the connected server's `/launcher/v1/*` and `/mystic/v1/*` realm,
+/// Live [`HostBackend`] that drives the connected server's `/launcher/v1/*` and `/rustic/v1/*` realm,
 /// admission, and ICE relay routes over HTTP while keeping the player's account key inside the
 /// launcher's `net` layer (RD9 / RF7). Falls back to [`DefaultHostBackend`] when no server is configured.
 struct ServerHostBackend {
@@ -436,23 +436,23 @@ impl ServerHostBackend {
     ) -> Result<TransportConfig, HostError> {
         let wire_session = wire_session_id(&spec.common.session_id);
         let cap_header = [
-            ("x-mystic-host-capability", spec.capability.expose()),
+            ("x-rustic-host-capability", spec.capability.expose()),
             ("x-rustic-isles-host-capability", spec.capability.expose()),
         ];
         let ready_body = json!({
             "lobbyId": "ICE",
             "virtualPort": spec.common.virtual_port,
         });
-        let ready_path = format!("/mystic/v1/hunts/{wire_session}/host-ready");
+        let ready_path = format!("/rustic/v1/hunts/{wire_session}/host-ready");
         let (ready_status, ready_val) =
             Self::request_json(ctx, Method::POST, &ready_path, &cap_header, Some(&ready_body)).await?;
         Self::check_status(ready_status, &ready_val, &ready_path)?;
 
         if let Some(ticket) = &spec.host_ticket {
-            let consume_path = format!("/mystic/v1/hunts/{wire_session}/tickets/consume");
+            let consume_path = format!("/rustic/v1/hunts/{wire_session}/tickets/consume");
             let req_id = format!("host-local-{}", spec.common.generation);
             let consume_headers = [
-                ("x-mystic-host-capability", spec.capability.expose()),
+                ("x-rustic-host-capability", spec.capability.expose()),
                 ("x-rustic-isles-host-capability", spec.capability.expose()),
                 ("x-rustic-isles-request-id", req_id.as_str()),
             ];
@@ -856,6 +856,12 @@ impl Controller {
     #[cfg(test)]
     pub fn set_realms_seams(&self, seams: RealmsSeams) {
         *lock(&self.realms.seams) = Some(seams);
+    }
+
+    /// The backend realms use when no seams are installed, for tests that script only the transport.
+    #[cfg(test)]
+    pub fn live_host_backend(&self) -> Arc<dyn HostBackend> {
+        Arc::new(ServerHostBackend::new(self.me.clone()))
     }
 
     /// Stops any active realm sessions and shuts down the loaded transport on launcher exit, logout or server switch.
