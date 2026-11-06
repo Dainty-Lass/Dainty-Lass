@@ -4,7 +4,7 @@
 # Linux host (docs/hosting-linux.md), with these differences (docs/hosting-docker.md):
 #  - setup: the services are in the image already (--skip-install), the game folder is the one mounted at /game,
 #    and if the mongo-data volume mounted at /opt/dainty-lass/.workspace/mongodb holds pre-cutover MongoDB data,
-#    setup migrates and verifies it from the rollback profile's mongo service at 127.0.0.1:27017 into store.
+#    setup migrates and verifies it from the mongo profile's service at 127.0.0.1:27017 into store.
 #    Each default is added only when the command line does not say otherwise.
 #  - install-game: the versions go in the mounted game folder (--dir /game, unless given), so the Director's
 #    containers, which mount it at the same path, see them.

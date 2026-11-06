@@ -1,7 +1,7 @@
 #!/bin/sh
 # DaintyLass: the Director's container (compose.yaml). Does what `dainty-host start` does
 # before the Director on Linux (crates/host/src/commands/start/mod.rs: preflight, linux_steps), then
-# runs the Rust Director with its env file (or the Node Director when REFORGED_ROLLBACK=1). The Director starts
+# runs the Rust Director with its env file. The Director starts
 # each game server through .workspace/bin/dainty-gameserver (`dainty-host gameserver`, Wine on a virtual
 # display), in this container, so the game servers stop with it.
 set -eu
@@ -35,11 +35,6 @@ if [ -n "$exe" ] && [ -f "$exe" ]; then
 else
 	echo "director | ! no game executable at ${exe:-(none)}: the Director runs, but no game server can start." >&2
 	echo "director |   Mount your Dauntless 1.14.7 folder (REFORGED_GAME_DIR) and run setup with --game /game" >&2
-fi
-
-if [ "${REFORGED_ROLLBACK:-0}" = 1 ]; then
-	cd "$root/modules/rustic-isles/reference/1.14.7/ParadoxDirector"
-	exec node --env-file="$env_file" dist/server.js
 fi
 
 exec dainty-host director serve --env-file "$env_file"

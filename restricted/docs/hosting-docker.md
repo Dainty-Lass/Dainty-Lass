@@ -21,7 +21,7 @@ a private server over Tailscale works too.
 | `host` | server | Not a service: `docker compose run --rm host <command>` runs `dainty-host` |
 | `configure` | server | The `toml` profile only: runs setup from `host.toml` and exits, before the others start |
 | `postgres` | `postgres:17` | The `postgres` profile only: Postgres on 127.0.0.1:5432 for a `host.toml` whose `[database]` picks it |
-| `mongo`, `backend-rollback`, `director-rollback` | `mongo:8.0`, server-rollback | The `rollback` profile only: MongoDB (`rs0`) and the Node 1.14.7 backend and Director for one release after RU9/RB14 ([below](#migrating-existing-mongodb-data-and-rollback-rollback-profile)) |
+| `mongo` | `mongo:8.0` | The `mongo` profile only: MongoDB (`rs0`), to import a pre-cutover server's data into `store` ([below](#migrating-existing-mongodb-data-mongo-profile)) |
 | `net-*`, `netem-*`, `gateway-*`, `configure-*`, `network-init`, `network` | front, server, netem | The `network` profile only: four nodes of a network with injected latency, for tests ([below](#the-network-profile-four-nodes-on-one-machine)) |
 
 **One network namespace.** Every container joins `net`'s, so they reach each other on 127.0.0.1 exactly as
@@ -39,7 +39,7 @@ the host kit's, unchanged, and a `.workspace` can move between a container host 
 | `workspace` | `/opt/dainty-lass/.workspace` | Configuration and secrets, the certificate, the published runtime, branding, logs, the Wine prefix |
 | `backend-game-data`, `director-game-data` | `/opt/dainty-lass/modules/rustic-isles/reference/1.14.7/*/game-data` | Your game data |
 | `exports`, `captures` | `/opt/dainty-lass/modules/rustic-isles/reference/1.14.7/Items_Analysis`, `…/DauntlessEndpointDocumentation` | CatalogExporter exports and store captures, for `gamedata` |
-| `mongo-data`, `mongo-config` | `/data/db` in `mongo`, `/opt/dainty-lass/.workspace/mongodb` in `server` | Pre-cutover MongoDB data (moved into `store` by `host db migrate` and `host db verify`, and used by the `rollback` profile) |
+| `mongo-data`, `mongo-config` | `/data/db` in `mongo`, `/opt/dainty-lass/.workspace/mongodb` in `server` | Pre-cutover MongoDB data (moved into `store` by `host db migrate` and `host db verify`) |
 | `postgres-data` | Postgres's | The `postgres` profile's database |
 | bind mount `REFORGED_GAME_DIR` | `/game` | Your Dauntless 1.14.7 folder (the one with `Archon`), or the folder `install-game` makes `1.14.7` in |
 | bind mount `REFORGED_IMPORT_DIR` | `/import` (read-only, `host` only) | Files to bring in: the runtime's DLLs, game data packs |
@@ -367,7 +367,7 @@ then `cp -a` from `/old`). If the host still has pre-RU9 MongoDB data, copy its 
 the container once, so the env files name the container's paths; if `mongo-data` was copied unmigrated, migrate it as
 below before starting it.
 
-## Migrating existing MongoDB data and rollback (`rollback` profile)
+## Migrating existing MongoDB data (`mongo` profile)
 
 The `mongo-data` volume is mounted at `/opt/dainty-lass/.workspace/mongodb` inside `backend`, `configure` and `host`.
 While `mongo-data` is non-empty and `/opt/dainty-lass/.workspace/.mongo-migrated` has not been written, `backend`
@@ -375,9 +375,9 @@ refuses to start so an updated server never comes up silently on an empty databa
 
 To migrate an existing `mongo-data` volume from the pre-RU9 Node backend:
 
-1. Start `mongo` from the `rollback` profile for the duration of the migration:
-   `docker compose --profile rollback up -d --wait mongo`
-2. Run `docker compose run --rm host setup` (or `COMPOSE_PROFILES=public,toml,rollback docker compose run --rm configure`
+1. Start `mongo` from the `mongo` profile for the duration of the migration:
+   `docker compose --profile mongo up -d --wait mongo`
+2. Run `docker compose run --rm host setup` (or `COMPOSE_PROFILES=public,toml,mongo docker compose run --rm configure`
    when using the `toml` profile), then `docker compose run --rm host db migrate` and
    `docker compose run --rm host db verify`. `db migrate` moves every collection from `mongo` into the configured
    store (SQLite in `/opt/dainty-lass/.workspace/config/dainty-lass.db` or the `postgres` profile); `db verify` checks
@@ -385,11 +385,7 @@ To migrate an existing `mongo-data` volume from the pre-RU9 Node backend:
    (To start on a fresh empty database without migrating, pass `--fresh-start` to `host setup` or set
    `fresh_start = true` under `[database]` in `host.toml`.)
 3. Stop `mongo` and bring up the Rust services:
-   `docker compose --profile rollback rm -sf mongo && docker compose up -d`
+   `docker compose --profile mongo rm -sf mongo && docker compose up -d`
 
-For one release after the RU9/RB14 cutover (until RB15), rolling back to the Node backend and MongoDB in Docker uses
-the `rollback` Compose profile (`mongo`, `backend-rollback` and `director-rollback`, built from the `server-rollback`
-Dockerfile stage): start `mongo` (`docker compose --profile rollback up -d --wait mongo`), export the store back to
-MongoDB with `docker compose run --rm host db export-mongo --to mongodb://127.0.0.1:27017/reforged` (source and target
-default from `host.toml`), and start `mongo`, `backend-rollback` and `director-rollback` in place of `backend` and
-`director` ([hosting.md](hosting.md#rollback-to-the-node-backend-and-mongodb-paradox-feature)).
+The Node rollback services (`backend-rollback`, `director-rollback`) are gone: since the 2026-11-06 protocol rename the
+Node stack no longer speaks the launcher's protocol.

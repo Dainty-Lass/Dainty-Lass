@@ -487,6 +487,11 @@ When cutting a live 1.14.7 server over from the Node backend to the Rust backend
 
 ## Rollback to the Node backend and MongoDB (`paradox` feature)
 
+> [!WARNING]
+> Since the 2026-11-06 protocol rename (`/dainty/api`, `x-dainty-*` headers), the Node backend and Director no
+> longer speak the launcher's protocol, so a rollback to them cannot serve a current launcher. Docker's `rollback`
+> profile is gone; RB15 removes the rest.
+
 For one release after the RU9/RB14 cutover (until RB15 deletes the reference Node services), building the server with
 the opt-in `paradox` Cargo feature (`cargo build --release -p server-console --features paradox`) runs Mystic
 Paradox's Node `ParadoxBackend` and `ParadoxDirector` from `modules/rustic-isles/reference/1.14.7/` against MongoDB

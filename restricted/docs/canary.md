@@ -120,7 +120,12 @@ Report counters and diff classifications in `--out <replay-report.json>`:
 
 ## 3. Rolling back to the pre-cutover Node and MongoDB stack (`RB12`)
 
-Until `RB15` removes the Node reference trees after the 7-day canary window, operators can roll back to the legacy Node backend + Director + MongoDB stack without losing player progress earned on the Rust server.
+> [!WARNING]
+> Since the 2026-11-06 protocol rename (`/dainty/api`, `x-dainty-*` headers), the Node backend and Director no
+> longer speak the launcher's protocol, so a rollback to them cannot serve a current launcher. Docker's `rollback`
+> profile is gone; RB15 removes the rest.
+
+Until `RB15` removes the Node reference trees after the 7-day canary window, operators could roll back to the legacy Node backend + Director + MongoDB stack without losing player progress earned on the Rust server.
 
 ### 3.1 Step 1: export SQLite or PostgreSQL player data back to MongoDB
 
@@ -141,19 +146,7 @@ dainty-host db export-mongo \
 
 `db export-mongo` reverses the `RB11` schema transforms (`accounts`, `launcher_accounts`, `api_keys`, `characters`, `loadouts`, `inventories`, `progressions`, `huntpasses`, `escalations`, `bounties`, `quests`, `Guilds`, `moderation`, `invites`, `friendships`, `social_blocks`) idempotently into MongoDB.
 
-### 3.2 Step 2A: rollback in Docker (`--profile rollback`)
-
-In `compose.yaml`, the default stack runs the Rust `backend` and `director` on SQLite with no MongoDB or Node containers. To switch to the rollback stack:
-
-```bash
-# 1. Stop the default Rust stack:
-docker compose down
-
-# 2. Start the rollback profile (mongo, the Node backend-rollback and director-rollback, with the gateway, content and allowlist):
-COMPOSE_PROFILES=public,rollback docker compose up -d
-```
-
-### 3.3 Step 2B: rollback on a native Windows or Linux host (`--features paradox`)
+### 3.2 Step 2: rollback on a native Windows or Linux host (`--features paradox`)
 
 On a native host installation:
 
@@ -175,7 +168,7 @@ Per `docs/dainty-lass-plan.md` (`RU9`) and `MIGRATION_PLAN.md` (`RB12`, `RB15`),
    - Zero unhandled panics in server logs (`server.log`).
    - Zero account, character, inventory, loadout, progression, quest, or guild data corruption incidents.
    - Shadow replay (`dainty-host db replay`) of the captured daily `.jsonl` files reports `unexplained_diffed: 0` (`PASS`).
-   - No rollback (`--features paradox` / `--profile rollback`) triggered during the 7-day window (if a fix requires restarting or rolling back, the 7-day clock resets once the fix is deployed).
+   - No rollback (`--features paradox`) triggered during the 7-day window (if a fix requires restarting or rolling back, the 7-day clock resets once the fix is deployed).
 3. Once the gate passes, `RB15` deletes the Node reference trees (`modules/rustic-isles/reference/1.14.7/{ParadoxBackend,ParadoxDirector,shared}`) and removes the `paradox` cargo feature and the `rollback` Docker profile.
 
 ---

@@ -23,7 +23,7 @@ cleanup() {
 		compose ps -a || true
 		compose logs --no-color --tail 80 || true
 	fi
-	COMPOSE_PROFILES=public,toml,rollback compose down --volumes --remove-orphans >/dev/null 2>&1 || true
+	COMPOSE_PROFILES=public,toml,mongo compose down --volumes --remove-orphans >/dev/null 2>&1 || true
 	rm -rf "$smoke_dir"
 	exit "$status"
 }
@@ -49,8 +49,8 @@ compose run --rm --entrypoint sh host -c 'cat /opt/dainty-lass/.workspace/config
 compose down --volumes --remove-orphans >/dev/null 2>&1
 
 step "seed pre-cutover mongo-data volume"
-COMPOSE_PROFILES=public,rollback compose up -d --wait mongo
-COMPOSE_PROFILES=public,rollback compose exec -T mongo mongosh --quiet "mongodb://127.0.0.1:27017/reforged?replicaSet=rs0" --eval '
+COMPOSE_PROFILES=public,mongo compose up -d --wait mongo
+COMPOSE_PROFILES=public,mongo compose exec -T mongo mongosh --quiet "mongodb://127.0.0.1:27017/reforged?replicaSet=rs0" --eval '
 	db.accounts.insertOne({
 		_id: ObjectId("507f1f77bcf86cd799439011"),
 		userId: "user-docker-01",
@@ -96,7 +96,7 @@ compose run --rm host setup --mode public --host smoke.example.org --game-addres
 # setup no longer moves it (dainty-legacy's `import reforged` does, or these two by hand); verify writes the marker
 compose run --rm host db migrate
 compose run --rm host db verify
-COMPOSE_PROFILES=public,rollback compose rm -sf mongo
+COMPOSE_PROFILES=public,mongo compose rm -sf mongo
 
 step "the toml profile applies host.toml alone"
 compose run --rm --entrypoint sh host -c 'cat /opt/dainty-lass/.workspace/config/host.toml' 	| sed 's/^name = .*/name = "Smoke Toml"/' >"$REFORGED_CONFIG_DIR/host.toml"

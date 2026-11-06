@@ -12,14 +12,9 @@
 #           host.toml can pin in plugins/ (RD27), and Wine for the game servers on Debian slim; also the image the
 #           host kit's commands run in
 #   netem   iproute2 alone, for the `network` profile's injected latency (DN12)
-#
-# `server-rollback` keeps the Node backend and Director and MongoDB's dump tools for the `rollback` Compose profile
-# for one release until RB15 deletes it (docs/hosting-docker.md).
 
 ARG RUST_IMAGE=rust:1-slim-trixie
-ARG NODE_IMAGE=node:22-trixie-slim
 ARG DEBIAN_IMAGE=debian:trixie-slim
-ARG MONGO_IMAGE=mongo:8.0
 
 # ------------------------------------------------------------------ the workspace's Rust sources
 # What cargo reads: the MIT crates at crates/, the restricted workspace's members (the game modules are in-tree, RD27)
@@ -188,53 +183,3 @@ RUN cargo test --locked --no-run \
 COPY --chown=dainty:dainty restricted/modules/rustic-isles/reference/1.14.7/ParadoxBackend/src/routes/reforgedApi.ts modules/rustic-isles/reference/1.14.7/ParadoxBackend/src/routes/reforgedApi.ts
 ENTRYPOINT ["/usr/bin/tini", "--", "dainty-test"]
 CMD []
-
-# ------------------------------------------------------------------ rollback: Node services and MongoDB tools (until RB15)
-FROM ${NODE_IMAGE} AS node-build
-WORKDIR /src
-ARG ISLES=modules/rustic-isles/reference/1.14.7
-COPY restricted/${ISLES}/ParadoxBackend/package.json restricted/${ISLES}/ParadoxBackend/package-lock.json ${ISLES}/ParadoxBackend/
-COPY restricted/${ISLES}/ParadoxDirector/package.json restricted/${ISLES}/ParadoxDirector/package-lock.json ${ISLES}/ParadoxDirector/
-RUN --mount=type=cache,id=dainty-npm,target=/root/.npm \
-    (cd "$ISLES/ParadoxBackend" && npm ci --no-audit --no-fund) \
- && (cd "$ISLES/ParadoxDirector" && npm ci --no-audit --no-fund)
-COPY restricted/${ISLES}/ ${ISLES}/
-RUN (cd "$ISLES/ParadoxBackend" && npm run build) \
- && (cd "$ISLES/ParadoxDirector" && npm run build) \
- && find . -type d -name .bin -path '*/node_modules/*' -prune -exec rm -rf {} +
-
-FROM ${MONGO_IMAGE} AS mongo-tools
-
-FROM ${NODE_IMAGE} AS server-rollback
-RUN apt-get update \
- && apt-get install -y --no-install-recommends ca-certificates wine wine64 xvfb xauth tini \
- && rm -rf /var/lib/apt/lists/*
-COPY --from=mongo-tools /usr/bin/mongodump /usr/bin/mongorestore /usr/bin/
-WORKDIR /opt/dainty-lass
-COPY --chown=node:node restricted/LICENSE.txt restricted/NOTICE.md restricted/ADDITIONAL_TERMS.md restricted/README.md ./
-COPY --chown=node:node restricted/native/ native/
-COPY --chown=node:node restricted/Cargo.toml ./
-COPY --chown=node:node restricted/modules/rustic-isles/ADDITIONAL_TERMS.md restricted/modules/rustic-isles/LICENSE restricted/modules/rustic-isles/NOTICE.md modules/rustic-isles/
-COPY --chown=node:node restricted/modules/rustic-isles/native/ modules/rustic-isles/native/
-COPY --chown=node:node --from=node-build /src/modules/rustic-isles/reference/1.14.7/ modules/rustic-isles/reference/1.14.7/
-COPY --from=rust-build /out/bin/ bin/
-COPY --chmod=0755 restricted/docker/director-entrypoint.sh bin/dainty-director
-COPY --chmod=0755 restricted/docker/host-entrypoint.sh bin/dainty-host-docker
-COPY --chmod=0755 restricted/docker/healthcheck.sh bin/dainty-healthcheck
-COPY --chmod=0755 restricted/docker/network/init.sh bin/dainty-network-init
-ARG ISLES=modules/rustic-isles/reference/1.14.7
-RUN mkdir -p .workspace "$ISLES/Items_Analysis" "$ISLES/DauntlessEndpointDocumentation" \
- && chown node:node .workspace "$ISLES/Items_Analysis" "$ISLES/DauntlessEndpointDocumentation"
-ARG REFORGED_COMMIT=""
-ENV REFORGED_SOURCE_COMMIT=${REFORGED_COMMIT} \
-    MONGODB_URI=mongodb://127.0.0.1:27017/?replicaSet=rs0 \
-    MONGODB_DB=reforged \
-    MONGODB_APP_NAME=dainty-backend \
-    MONGODB_TRANSACTION_MAX_COMMIT_TIME_MS=15000 \
-    PATH=/opt/dainty-lass/bin:$PATH
-USER node
-ENTRYPOINT ["/usr/bin/tini", "--"]
-CMD ["dainty-host", "--help"]
-LABEL org.opencontainers.image.title="DaintyLass server (Node rollback)" \
-      org.opencontainers.image.licenses="AGPL-3.0-only" \
-      org.opencontainers.image.source="https://git.silentspud.com/silentspud/dainty-lass"
