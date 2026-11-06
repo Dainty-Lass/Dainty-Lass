@@ -100,11 +100,41 @@ spelling, and that it writes back as the same message.
 
 ### Still open
 
-- **The leader is fixed by configuration.** There is no election; if the leader is down, registrations and renames
-  everywhere wait for it, and reads go on. Moving the leader is an operator's step: the new one must hold the whole
-  log first.
-- **A diverged replica stays stopped** until an operator resets it (a fresh table, pulled again from 1). No command
-  does that yet.
+- **With a fixed leader** (`failover` off, the default) there is no election; if the leader is down, registrations
+  and renames everywhere wait for it, and reads go on. `[network] failover = true` elects it instead (below).
+- **A diverged replica stays stopped** with a fixed leader until an operator resets it (a fresh table, pulled again
+  from 1). No command does that yet. Under failover it drops the tail the elected leader doesn't hold (below).
+
+### Election and failover (`docs/distributed-mode.md`)
+
+`election.rs` and the failover half of `directory.rs`. Raft's election and commit rule over `Service::Election`
+(`/__node/election`) and `DirectoryCall::Notify`.
+
+- [ ] The candidate and the leader are the caller the link authenticated; no node name in an election or notify body
+      is read. A caller that isn't in `[[network.nodes]]` is refused (`Refused`, `Malformed`). Test:
+      `a_voter_refuses_an_older_log_and_a_stranger`.
+- [ ] One vote per term, saved (`FileTermStore`: written, synced, renamed) before the answer leaves; a restart keeps
+      it. Test: `a_vote_is_kept_across_a_restart`.
+- [ ] A vote goes only to a log at least as new as the voter's (newest entry's term, then number), so a new leader
+      holds every acknowledged entry. Same test.
+- [ ] Pre-vote, leader stickiness and check-quorum: an isolated node's term doesn't climb, a node that comes back
+      doesn't unseat the leader, and a leader cut off from a majority steps down. Tests:
+      `a_minority_never_elects`, `three_nodes_agree_on_one_leader_and_replace_it_when_it_goes`.
+- [ ] A write is acknowledged only once a majority holds it and an entry of the leader's own term (`lead`) is on a
+      majority (Raft's figure 8); otherwise `no_quorum`, and asking again answers the same entry. Tests:
+      `an_acknowledged_name_outlives_its_leader`, `a_cut_off_leader_acknowledges_nothing_and_drops_it_when_back`.
+- [ ] A notify from an older term is refused (`superseded`), so a deposed leader can't count a node towards a
+      majority.
+- [ ] Log repair drops only entries after the newest one both logs hold identically (term included), and rebuilds
+      the accounts table from the log in the same write. Only under failover; with a fixed leader a divergence still
+      stops replication.
+- [ ] Without a majority no node leads and nothing is written anywhere (`Electing`, `NoLeader`). Test:
+      `without_a_majority_nothing_is_written_anywhere`.
+- [ ] Fuzz target: `network_election`.
+
+Still open: chat's network rooms still belong to the fixed leader (`effective_leader`), not the elected one; voters
+are every node of `[[network.nodes]]`, so adding or removing a node is a restart of every node with the new list,
+one at a time (no joint consensus); a node's game data stays on its home (only the directory fails over).
 - **Wired in the controller (`controller::modules::network`):** `Directory` opens on the node database, attaches to
   `Service::Directory` on `NodeServices`, and spawns `spawn_replication` from `[network]` in `host.toml`.
 - **Joining an existing server** (DN13): `dainty-host network join` registers existing accounts through the leader

@@ -69,6 +69,7 @@ fn build_node(
     port: u16,
     peers: Vec<Peer>,
     library: Option<controller::ServiceLibrary>,
+    election: Option<network_plugin::ElectionConfig>,
 ) -> TestNode {
     let dir = tempfile::tempdir().unwrap();
     let node_id: NodeId = node.parse().unwrap();
@@ -156,6 +157,7 @@ fn build_node(
         peer_log_dir: Some(peer_log_dir),
         ship_to_peer,
         wrong_node_policy: None,
+        election: election.map(|config| (config, dir.path().join("network-election.json"))),
     };
     controller.add(modules::network(options).unwrap());
     controller.add(gateway);
@@ -193,6 +195,7 @@ async fn two_nodes(through_library: bool) {
         host: "127.0.0.1".into(),
         port: port1,
         fingerprint: None,
+        link: None,
     };
     let peer2 = Peer {
         id: "uk-1".parse().unwrap(),
@@ -200,6 +203,7 @@ async fn two_nodes(through_library: bool) {
         host: "127.0.0.1".into(),
         port: port2,
         fingerprint: None,
+        link: None,
     };
 
     let mut node1 = build_node(
@@ -208,8 +212,9 @@ async fn two_nodes(through_library: bool) {
         port1,
         vec![peer2],
         library.clone(),
+        None,
     );
-    let mut node2 = build_node(&ca, ("uk-1", "uk", "oregon-1"), port2, vec![peer1], library);
+    let mut node2 = build_node(&ca, ("uk-1", "uk", "oregon-1"), port2, vec![peer1], library, None);
 
     node1.controller.start_all().await.unwrap();
     node2.controller.start_all().await.unwrap();
@@ -311,4 +316,117 @@ async fn two_nodes(through_library: bool) {
             .node_services()
             .is_attached(network_plugin::Service::LogShip)
     );
+}
+
+fn peer(id: &str, region: &str, port: u16) -> Peer {
+    Peer {
+        id: id.parse().unwrap(),
+        region: region.parse().unwrap(),
+        host: "127.0.0.1".into(),
+        port,
+        fingerprint: None,
+        link: None,
+    }
+}
+
+/// docs/distributed-mode.md: three controllers elect a leader over the gateways' mTLS node links, and when the
+/// leader's controller stops the other two elect another and go on registering.
+#[tokio::test(flavor = "multi_thread")]
+async fn three_composed_controllers_elect_and_fail_over() {
+    let ca = ClusterCa::create(30).unwrap();
+    let names = [("oregon-1", "oregon"), ("uk-1", "uk"), ("germany-1", "germany")];
+    let ports: Vec<u16> = names.iter().map(|_| free_port()).collect();
+    let mut nodes = Vec::new();
+    for (index, (node, region)) in names.iter().enumerate() {
+        let peers: Vec<Peer> = names
+            .iter()
+            .zip(&ports)
+            .filter(|((other, _), _)| other != node)
+            .map(|((other, other_region), port)| peer(other, other_region, *port))
+            .collect();
+        let election = network_plugin::ElectionConfig {
+            node: node.parse().unwrap(),
+            peers: peers.iter().map(|p| p.id.clone()).collect(),
+            election_timeout: (Duration::from_millis(400), Duration::from_millis(800)),
+            heartbeat: Duration::from_millis(80),
+            call_timeout: Duration::from_millis(200),
+        };
+        let mut built = build_node(&ca, (node, region, node), ports[index], peers, None, Some(election));
+        built.controller.start_all().await.unwrap();
+        nodes.push((*node, built));
+    }
+
+    let leader_of = |among: &[&(&str, TestNode)]| -> Option<&'static str> {
+        let roles: Vec<_> = among
+            .iter()
+            .map(|(name, node)| (*name, node.registry.node_services().directory().unwrap().role()))
+            .collect();
+        let leaders: Vec<_> = roles
+            .iter()
+            .filter(|(_, r)| *r == network_plugin::Role::Leader)
+            .collect();
+        let [(leader, _)] = leaders.as_slice() else {
+            return None;
+        };
+        let follow = network_plugin::Role::Replica {
+            leader: leader.parse().unwrap(),
+        };
+        roles
+            .iter()
+            .all(|(name, role)| name == leader || *role == follow)
+            .then(|| names.iter().map(|(n, _)| *n).find(|n| n == leader).unwrap())
+    };
+    let mut leader = None;
+    for _ in 0..100 {
+        leader = leader_of(&nodes.iter().collect::<Vec<_>>());
+        if leader.is_some() {
+            break;
+        }
+        tokio::time::sleep(Duration::from_millis(50)).await;
+    }
+    let leader = leader.expect("three nodes elect one leader");
+
+    let (home, home_node) = nodes.iter().find(|(name, _)| *name != leader).unwrap();
+    let account = GlobalId::new(IdKind::Account, &home.parse().unwrap());
+    let dir = home_node.registry.node_services().directory().unwrap();
+    dir.register(Actor::System("test".into()), &account, "slayer_one")
+        .await
+        .unwrap();
+
+    let index = nodes.iter().position(|(name, _)| *name == leader).unwrap();
+    let (_, mut gone) = nodes.remove(index);
+    gone.controller.shutdown().await;
+
+    let mut next = None;
+    for _ in 0..100 {
+        next = leader_of(&nodes.iter().collect::<Vec<_>>());
+        if next.is_some() {
+            break;
+        }
+        tokio::time::sleep(Duration::from_millis(50)).await;
+    }
+    let next = next.expect("the other two elect a new leader");
+    assert_ne!(next, leader);
+    for (_, node) in &nodes {
+        let dir = node.registry.node_services().directory().unwrap();
+        let found = dir
+            .find("SLAYER_ONE")
+            .await
+            .unwrap()
+            .expect("the acknowledged name survives");
+        assert_eq!(found.account, account);
+    }
+    let (other, other_node) = nodes.iter().find(|(name, _)| *name != next).unwrap();
+    let second = GlobalId::new(IdKind::Account, &other.parse().unwrap());
+    other_node
+        .registry
+        .node_services()
+        .directory()
+        .unwrap()
+        .register(Actor::System("test".into()), &second, "slayer_two")
+        .await
+        .unwrap();
+    for (_, node) in &mut nodes {
+        node.controller.shutdown().await;
+    }
 }

@@ -9,8 +9,16 @@
 //!
 //! Both the log and what it adds up to are tables in `store` ([`SCHEMA`]), written through
 //! [`Database::write`] so the change log (DD23) holds every directory write too.
+//!
+//! **Failover** ([`DirectoryConfig::failover`], `docs/distributed-mode.md`): the leader is whoever
+//! [`crate::election`] elected, followed through [`Directory::follow`]. Every entry carries the term it was
+//! written in, a new leader first writes a [`DirectoryChange::Lead`] entry, and a write is acknowledged only
+//! once a majority of the nodes holds it (Raft's commit rule), so no acknowledged change is lost when the leader
+//! goes down. A node that comes back holding entries the new leader doesn't have drops them and pulls again:
+//! they were never acknowledged.
 
-use std::sync::Arc;
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::{Arc, Mutex, PoisonError, RwLock};
 use std::time::Duration;
 
 use diesel::prelude::*;
@@ -19,6 +27,7 @@ use module_api::BoxFuture;
 use module_api::network::{GlobalId, IdKind, NodeId};
 use store::{Actor, AnyConnection, Database, DatabaseSchema, Tx};
 
+use crate::election::{Leadership, LogPosition, LogSource};
 use crate::link::{LinkError, NodeService, PeerLink, Service};
 use crate::messages::{
     ClashedAccount, DIRECTORY_VERSION, DecodeError, DirectoryCall, DirectoryChange, DirectoryEntry, DirectoryReply,
@@ -40,8 +49,10 @@ diesel::table! {
         account -> Text,
         /// The username the entry gives it.
         username -> Text,
-        /// The account's home node, for a registration.
+        /// The account's home node, for a registration; the leader, for a `lead` entry.
         home -> Nullable<Text>,
+        /// The election term the entry was written in; 0 outside failover.
+        term -> BigInt,
     }
 }
 
@@ -128,6 +139,24 @@ pub enum Role {
         /// The node it pulls from.
         leader: NodeId,
     },
+    /// Under failover, while no leader is known: reads go on, writes wait for the election
+    Electing,
+}
+
+/// How a directory under failover reaches agreement (`docs/distributed-mode.md`).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Failover {
+    /// Every other node of the network: the voters a write must reach a majority of.
+    pub peers: Vec<NodeId>,
+    /// How long a write waits for a majority before it answers [`Refusal::NoQuorum`].
+    pub commit_timeout: Duration,
+}
+
+impl Failover {
+    /// Nodes that must hold an entry before it is acknowledged, this one included.
+    pub fn quorum(&self) -> usize {
+        self.peers.len().div_ceil(2) + 1
+    }
 }
 
 /// How a [`Directory`] is set up.
@@ -139,6 +168,8 @@ pub struct DirectoryConfig {
     pub leader: Option<NodeId>,
     /// Entries a replica asks for per pull
     pub page: u32,
+    /// The leader is elected rather than configured; none for a fixed leader
+    pub failover: Option<Failover>,
 }
 
 impl DirectoryConfig {
@@ -148,6 +179,7 @@ impl DirectoryConfig {
             node,
             leader: None,
             page: MAX_PULL,
+            failover: None,
         }
     }
 
@@ -157,6 +189,21 @@ impl DirectoryConfig {
             node,
             leader: Some(leader),
             page: MAX_PULL,
+            failover: None,
+        }
+    }
+
+    /// In a network whose leader is elected among `node` and `peers`; [`Directory::follow`] says who it is.
+    /// A write waits up to 5 s for a majority.
+    pub fn failover(node: NodeId, peers: Vec<NodeId>) -> Self {
+        Self {
+            node,
+            leader: None,
+            page: MAX_PULL,
+            failover: Some(Failover {
+                peers,
+                commit_timeout: Duration::from_secs(5),
+            }),
         }
     }
 
@@ -167,6 +214,9 @@ impl DirectoryConfig {
     }
 
     fn role(&self) -> Role {
+        if self.failover.is_some() {
+            return Role::Electing;
+        }
         match &self.leader {
             None => Role::Standalone,
             Some(leader) if *leader == self.node => Role::Leader,
@@ -204,6 +254,9 @@ pub enum DirectoryError {
     /// replication stops until an operator resets one of them
     #[error("this node's directory has diverged from the leader's: {0}")]
     Diverged(String),
+    /// Under failover, no node leads just now: an election is running
+    #[error("an election is running: no node leads the directory yet")]
+    NoLeader,
     /// The database failed.
     #[error(transparent)]
     Store(#[from] store::Error),
@@ -229,15 +282,28 @@ fn from_seq(value: u64) -> Result<i64, DirectoryError> {
 
 // ------------------------------------------------------------------ the tables
 
-type LogRow = (i64, i64, String, String, String, Option<String>);
+type LogRow = (i64, i64, String, String, String, Option<String>, i64);
 type AccountRow = (String, String, String, i64);
 
 const REGISTER: &str = "register";
 const REGISTER_CLASH: &str = "register_clash";
 const RENAME: &str = "rename";
 const RENAME_CLASH: &str = "rename_clash";
+const LEAD: &str = "lead";
 
-fn entry_from_row((seq, at, op, account, username, home): LogRow) -> Result<DirectoryEntry, DirectoryError> {
+fn entry_from_row((seq, at, op, account, username, home, term): LogRow) -> Result<DirectoryEntry, DirectoryError> {
+    let term = to_seq(term)?;
+    if op == LEAD {
+        let node = home.ok_or_else(|| corrupt("a lead entry without its leader"))?;
+        return Ok(DirectoryEntry {
+            seq: to_seq(seq)?,
+            at,
+            term,
+            change: DirectoryChange::Lead {
+                node: NodeId::new(node).map_err(corrupt)?,
+            },
+        });
+    }
     let account: GlobalId = account
         .parse()
         .map_err(|_| corrupt(format!("the account id {account:?}")))?;
@@ -260,6 +326,7 @@ fn entry_from_row((seq, at, op, account, username, home): LogRow) -> Result<Dire
     Ok(DirectoryEntry {
         seq: to_seq(seq)?,
         at,
+        term,
         change,
     })
 }
@@ -275,8 +342,23 @@ fn record_from_row((account, home, username, seq): AccountRow) -> Result<Account
     })
 }
 
-const LOG_COLUMNS: (log::seq, log::at, log::op, log::account, log::username, log::home) =
-    (log::seq, log::at, log::op, log::account, log::username, log::home);
+const LOG_COLUMNS: (
+    log::seq,
+    log::at,
+    log::op,
+    log::account,
+    log::username,
+    log::home,
+    log::term,
+) = (
+    log::seq,
+    log::at,
+    log::op,
+    log::account,
+    log::username,
+    log::home,
+    log::term,
+);
 const ACCOUNT_COLUMNS: (accounts::account, accounts::home, accounts::username, accounts::seq) =
     (accounts::account, accounts::home, accounts::username, accounts::seq);
 
@@ -329,7 +411,9 @@ fn holder(conn: &mut AnyConnection, username: &Username) -> Result<Option<Accoun
 /// Whether `change` can follow what the tables hold: the leader's rules, which a replica checks again on
 /// every entry it applies.
 fn check_change(conn: &mut AnyConnection, change: &DirectoryChange) -> Result<(), DirectoryError> {
-    let account = change.account();
+    let (Some(account), Some(username)) = (change.account(), change.username()) else {
+        return Ok(());
+    };
     if account.kind() != IdKind::Account {
         return Err(Refusal::NotAnAccount.into());
     }
@@ -356,8 +440,9 @@ fn check_change(conn: &mut AnyConnection, change: &DirectoryChange) -> Result<()
                 return Err(Refusal::UnknownAccount.into());
             }
         }
+        DirectoryChange::Lead { .. } => {}
     }
-    match holder(conn, change.username())? {
+    match holder(conn, username)? {
         Some(other) if other.account != *account => Err(Refusal::UsernameTaken.into()),
         _ => Ok(()),
     }
@@ -365,31 +450,57 @@ fn check_change(conn: &mut AnyConnection, change: &DirectoryChange) -> Result<()
 
 /// Writes `entry` to the log and to what it adds up to. Checked already.
 fn apply(tx: &mut Tx<'_>, entry: &DirectoryEntry) -> Result<(), DirectoryError> {
-    let seq = from_seq(entry.seq)?;
     let (op, account, username, home) = match &entry.change {
         DirectoryChange::Register {
             account,
             username,
             home,
-        } => (REGISTER, account, username, Some(home)),
+        } => (REGISTER, account.to_string(), username.as_str(), Some(home)),
         DirectoryChange::RegisterClash {
             account,
             username,
             home,
-        } => (REGISTER_CLASH, account, username, Some(home)),
-        DirectoryChange::Rename { account, username } => (RENAME, account, username, None),
-        DirectoryChange::RenameClash { account, username } => (RENAME_CLASH, account, username, None),
+        } => (REGISTER_CLASH, account.to_string(), username.as_str(), Some(home)),
+        DirectoryChange::Rename { account, username } => (RENAME, account.to_string(), username.as_str(), None),
+        DirectoryChange::RenameClash { account, username } => {
+            (RENAME_CLASH, account.to_string(), username.as_str(), None)
+        }
+        DirectoryChange::Lead { node } => (LEAD, String::new(), "", Some(node)),
     };
+    let term = i64::try_from(entry.term).map_err(|_| DirectoryError::Protocol(format!("the term {}", entry.term)))?;
     diesel::insert_into(log::table)
         .values((
-            log::seq.eq(seq),
+            log::seq.eq(from_seq(entry.seq)?),
             log::at.eq(entry.at),
             log::op.eq(op),
-            log::account.eq(account.to_string()),
-            log::username.eq(username.as_str()),
+            log::account.eq(account),
+            log::username.eq(username),
             log::home.eq(home.map(NodeId::as_str)),
+            log::term.eq(term),
         ))
         .execute(tx.conn())?;
+    apply_account(tx.conn(), entry)
+}
+
+/// What `entry` does to the accounts table.
+fn apply_account(conn: &mut AnyConnection, entry: &DirectoryEntry) -> Result<(), DirectoryError> {
+    let seq = from_seq(entry.seq)?;
+    let (account, username, home) = match &entry.change {
+        DirectoryChange::Register {
+            account,
+            username,
+            home,
+        }
+        | DirectoryChange::RegisterClash {
+            account,
+            username,
+            home,
+        } => (account, username, Some(home)),
+        DirectoryChange::Rename { account, username } | DirectoryChange::RenameClash { account, username } => {
+            (account, username, None)
+        }
+        DirectoryChange::Lead { .. } => return Ok(()),
+    };
     match home {
         Some(home) => {
             diesel::insert_into(accounts::table)
@@ -400,7 +511,7 @@ fn apply(tx: &mut Tx<'_>, entry: &DirectoryEntry) -> Result<(), DirectoryError> 
                     accounts::username_key.eq(username.key()),
                     accounts::seq.eq(seq),
                 ))
-                .execute(tx.conn())?;
+                .execute(conn)?;
         }
         None => {
             let changed = diesel::update(accounts::table.find(account.to_string()))
@@ -409,13 +520,43 @@ fn apply(tx: &mut Tx<'_>, entry: &DirectoryEntry) -> Result<(), DirectoryError> 
                     accounts::username_key.eq(username.key()),
                     accounts::seq.eq(seq),
                 ))
-                .execute(tx.conn())?;
+                .execute(conn)?;
             if changed != 1 {
                 return Err(Refusal::UnknownAccount.into());
             }
         }
     }
     Ok(())
+}
+
+/// Drops every entry after `keep` and rebuilds the accounts table from what is left (failover: entries a new
+/// leader doesn't hold were never acknowledged). Returns how many entries went.
+fn truncate_after(tx: &mut Tx<'_>, keep: u64) -> Result<usize, DirectoryError> {
+    let dropped = diesel::delete(log::table.filter(log::seq.gt(from_seq(keep)?))).execute(tx.conn())?;
+    diesel::delete(accounts::table).execute(tx.conn())?;
+    let mut after = 0;
+    loop {
+        let page = entries_after(tx.conn(), after, MAX_PULL)?;
+        let Some(last) = page.last() else {
+            break;
+        };
+        after = last.seq;
+        for entry in &page {
+            apply_account(tx.conn(), entry)?;
+        }
+    }
+    Ok(dropped)
+}
+
+/// The newest entry's term and number: what an election compares.
+fn position(conn: &mut AnyConnection) -> Result<LogPosition, DirectoryError> {
+    let index = head(conn)?;
+    let term = if index == 0 {
+        0
+    } else {
+        entry_at(conn, index)?.map_or(0, |entry| entry.term)
+    };
+    Ok(LogPosition { term, index })
 }
 
 /// When `account` was first registered in the log, or its ULID timestamp if no register row is present.
@@ -447,7 +588,12 @@ fn next_free_suffix(conn: &mut AnyConnection, base: &Username) -> Result<Usernam
 /// the name; every other account with that normalized name gets a temporary suffixed name (`Fox_2`, shortened
 /// to fit 16 characters) and is marked as clashed (`RegisterClash` / `RenameClash`) so its next login prompts
 /// for a free rename.
-fn join_batch(tx: &mut Tx<'_>, from: &NodeId, items: Vec<JoiningAccount>) -> Result<JoinOutcome, DirectoryError> {
+fn join_batch(
+    tx: &mut Tx<'_>,
+    from: &NodeId,
+    items: Vec<JoiningAccount>,
+    term: u64,
+) -> Result<JoinOutcome, DirectoryError> {
     let mut validated = Vec::with_capacity(items.len());
     for item in items {
         if item.account.kind() != IdKind::Account {
@@ -474,6 +620,7 @@ fn join_batch(tx: &mut Tx<'_>, from: &NodeId, items: Vec<JoiningAccount>) -> Res
                 let entry = DirectoryEntry {
                     seq: head(tx.conn())? + 1,
                     at: reg_at,
+                    term,
                     change: DirectoryChange::Register {
                         account,
                         username: desired,
@@ -492,6 +639,7 @@ fn join_batch(tx: &mut Tx<'_>, from: &NodeId, items: Vec<JoiningAccount>) -> Res
                     let rename_entry = DirectoryEntry {
                         seq: head(tx.conn())? + 1,
                         at: tx.at(),
+                        term,
                         change: DirectoryChange::RenameClash {
                             account: other.account.clone(),
                             username: fallback.clone(),
@@ -509,6 +657,7 @@ fn join_batch(tx: &mut Tx<'_>, from: &NodeId, items: Vec<JoiningAccount>) -> Res
                     let register_entry = DirectoryEntry {
                         seq: head(tx.conn())? + 1,
                         at: reg_at,
+                        term,
                         change: DirectoryChange::Register {
                             account,
                             username: desired,
@@ -523,6 +672,7 @@ fn join_batch(tx: &mut Tx<'_>, from: &NodeId, items: Vec<JoiningAccount>) -> Res
                     let register_entry = DirectoryEntry {
                         seq: head(tx.conn())? + 1,
                         at: reg_at,
+                        term,
                         change: DirectoryChange::RegisterClash {
                             account: account.clone(),
                             username: fallback.clone(),
@@ -553,7 +703,7 @@ enum Proposal {
 
 /// The leader's side of a register or rename, in its write: answers a repeat with the entry that made
 /// the state asked for, so a home that lost the answer can ask again.
-fn propose(tx: &mut Tx<'_>, from: &NodeId, proposal: Proposal) -> Result<DirectoryEntry, DirectoryError> {
+fn propose(tx: &mut Tx<'_>, from: &NodeId, proposal: Proposal, term: u64) -> Result<DirectoryEntry, DirectoryError> {
     let change = match proposal {
         Proposal::Register { account, username } => DirectoryChange::Register {
             account,
@@ -562,22 +712,25 @@ fn propose(tx: &mut Tx<'_>, from: &NodeId, proposal: Proposal) -> Result<Directo
         },
         Proposal::Rename { account, username } => DirectoryChange::Rename { account, username },
     };
-    let account = change.account();
+    let (account, username) = match &change {
+        DirectoryChange::Register { account, username, .. } | DirectoryChange::Rename { account, username } => {
+            (account, username)
+        }
+        _ => return Err(Refusal::Malformed.into()),
+    };
     if account.kind() != IdKind::Account {
         return Err(Refusal::NotAnAccount.into());
     }
     let existing = account_record(tx.conn(), account)?;
     let home = match &change {
-        DirectoryChange::Register { .. } | DirectoryChange::RegisterClash { .. } => account.owner(),
-        DirectoryChange::Rename { .. } | DirectoryChange::RenameClash { .. } => {
-            existing.as_ref().map_or(from, |record| &record.home)
-        }
+        DirectoryChange::Register { .. } => account.owner(),
+        _ => existing.as_ref().map_or(from, |record| &record.home),
     };
     if home != from {
         return Err(Refusal::NotHome.into());
     }
     if let Some(record) = existing
-        && record.username == *change.username()
+        && record.username == *username
         && record.home == *from
     {
         return entry_at(tx.conn(), record.seq)?.ok_or_else(|| corrupt("an account without its entry"));
@@ -586,6 +739,7 @@ fn propose(tx: &mut Tx<'_>, from: &NodeId, proposal: Proposal) -> Result<Directo
     let entry = DirectoryEntry {
         seq: head(tx.conn())? + 1,
         at: tx.at(),
+        term,
         change,
     };
     apply(tx, &entry)?;
@@ -598,10 +752,19 @@ fn propose(tx: &mut Tx<'_>, from: &NodeId, proposal: Proposal) -> Result<Directo
 pub struct Directory {
     db: Database,
     node: NodeId,
-    role: Role,
+    role: RwLock<Role>,
     page: u32,
     link: Arc<dyn PeerLink>,
+    failover: Option<Failover>,
+    /// The newest election term this node knows; 0 outside failover
+    term: AtomicU64,
+    /// This node's `lead` entry as leader: its term and number
+    lead: Mutex<Option<(u64, u64)>>,
 }
+
+/// How many times one pull may drop a diverged tail before it gives up: a second one means the leader moved
+/// mid-pull, a third something is wrong
+const MAX_HEALS: usize = 3;
 
 impl Directory {
     /// The directory on `db`, which must hold [`SCHEMA`]'s tables. `link` reaches the leader; a
@@ -610,10 +773,13 @@ impl Directory {
         db.read(|conn| head(conn).map(drop)).await?;
         Ok(Self {
             db,
-            role: config.role(),
+            role: RwLock::new(config.role()),
             node: config.node,
             page: config.page.clamp(1, MAX_PULL),
             link,
+            failover: config.failover,
+            term: AtomicU64::new(0),
+            lead: Mutex::new(None),
         })
     }
 
@@ -622,9 +788,19 @@ impl Directory {
         &self.node
     }
 
-    /// Whether this node leads, replicates or stands alone.
-    pub fn role(&self) -> &Role {
-        &self.role
+    /// Whether this node leads, replicates or stands alone; under failover it changes with each election.
+    pub fn role(&self) -> Role {
+        self.role.read().unwrap_or_else(PoisonError::into_inner).clone()
+    }
+
+    /// The election term this node knows; 0 outside failover.
+    pub fn term(&self) -> u64 {
+        self.term.load(Ordering::SeqCst)
+    }
+
+    /// Whether the leader is elected (`docs/distributed-mode.md`).
+    pub fn has_failover(&self) -> bool {
+        self.failover.is_some()
     }
 
     /// The newest entry this node holds.
@@ -690,18 +866,22 @@ impl Directory {
             }
             Self::username(&item.username)?;
         }
-        let Role::Replica { leader } = &self.role else {
-            let from = self.node.clone();
-            return self.db.write(actor, move |tx| join_batch(tx, &from, accounts)).await;
+        let leader = match self.role() {
+            Role::Replica { leader } => leader,
+            Role::Electing => return Err(DirectoryError::NoLeader),
+            Role::Leader | Role::Standalone => {
+                let from = self.node.clone();
+                return self.join_here(actor, from, accounts).await;
+            }
         };
         let call = DirectoryCall::Join {
             accounts,
             actor: actor.as_text(),
         };
-        let outcome = match self.call_leader(leader, call).await? {
+        let outcome = match self.call_leader(&leader, call).await? {
             DirectoryReply::Joined(outcome) => outcome,
             DirectoryReply::Refused(refusal) => return Err(refusal.into()),
-            DirectoryReply::Applied(_) | DirectoryReply::Changes { .. } => {
+            DirectoryReply::Applied(_) | DirectoryReply::Changes { .. } | DirectoryReply::Caught { .. } => {
                 return Err(DirectoryError::Protocol("unexpected reply for a join".into()));
             }
         };
@@ -775,21 +955,33 @@ impl Directory {
         proposal: Proposal,
         call: DirectoryCall,
     ) -> Result<DirectoryEntry, DirectoryError> {
-        let Role::Replica { leader } = &self.role else {
-            return self.propose_here(actor, self.node.clone(), proposal).await;
+        let mut leader = match self.role() {
+            Role::Replica { leader } => leader,
+            Role::Electing => return Err(DirectoryError::NoLeader),
+            Role::Leader | Role::Standalone => return self.propose_here(actor, self.node.clone(), proposal).await,
         };
-        let entry = match self.call_leader(leader, call).await? {
+        let mut reply = self.call_leader(&leader, call.clone()).await?;
+        // An election may have moved the leader since this node last heard: follow the hint once
+        if self.failover.is_some()
+            && let DirectoryReply::Refused(Refusal::NotLeader { leader: Some(hint) }) = &reply
+            && *hint != leader
+            && *hint != self.node
+        {
+            leader = hint.clone();
+            reply = self.call_leader(&leader, call).await?;
+        }
+        let entry = match reply {
             DirectoryReply::Applied(entry) => entry,
             DirectoryReply::Refused(refusal) => return Err(refusal.into()),
-            DirectoryReply::Changes { .. } | DirectoryReply::Joined(_) => {
+            DirectoryReply::Changes { .. } | DirectoryReply::Joined(_) | DirectoryReply::Caught { .. } => {
                 return Err(DirectoryError::Protocol("changes for a write".into()));
             }
         };
         let (account, username) = match &proposal {
             Proposal::Register { account, username } | Proposal::Rename { account, username } => (account, username),
         };
-        let asked = entry.change.account() == account
-            && entry.change.username() == username
+        let asked = entry.change.account() == Some(account)
+            && entry.change.username() == Some(username)
             && match (&proposal, &entry.change) {
                 (Proposal::Register { .. }, DirectoryChange::Register { home, .. }) => *home == self.node,
                 (Proposal::Register { .. }, _) => false,
@@ -803,7 +995,7 @@ impl Directory {
             )));
         }
         // Done at the leader; this copy catches up now or on the next pull
-        if let Err(error) = self.sync().await {
+        if let Err(error) = self.sync_from(&leader).await {
             tracing::debug!(%error, "directory: no pull after a change");
         }
         Ok(entry)
@@ -815,7 +1007,137 @@ impl Directory {
         from: NodeId,
         proposal: Proposal,
     ) -> Result<DirectoryEntry, DirectoryError> {
-        self.db.write(actor, move |tx| propose(tx, &from, proposal)).await
+        self.write_here(actor, move |tx, term| {
+            let entry = propose(tx, &from, proposal, term)?;
+            let seq = entry.seq;
+            Ok((entry, seq))
+        })
+        .await
+    }
+
+    async fn join_here(
+        &self,
+        actor: Actor,
+        from: NodeId,
+        accounts: Vec<JoiningAccount>,
+    ) -> Result<JoinOutcome, DirectoryError> {
+        self.write_here(actor, move |tx, term| {
+            let outcome = join_batch(tx, &from, accounts, term)?;
+            let newest = outcome.entries.iter().map(|entry| entry.seq).max().unwrap_or(0);
+            Ok((outcome, newest))
+        })
+        .await
+    }
+
+    /// A write on the leader or a standalone server. `write` gets the term to stamp its entries with and
+    /// returns the newest entry it needs on a majority; under failover the answer waits until it is there.
+    async fn write_here<T, F>(&self, actor: Actor, write: F) -> Result<T, DirectoryError>
+    where
+        T: Send + 'static,
+        F: FnOnce(&mut Tx<'_>, u64) -> Result<(T, u64), DirectoryError> + Send + 'static,
+    {
+        if self.failover.is_none() {
+            return self
+                .db
+                .write(actor, move |tx| write(tx, 0).map(|(value, _)| value))
+                .await;
+        }
+        let term = self.term();
+        match self.role() {
+            Role::Leader => {}
+            Role::Replica { leader } => return Err(Refusal::NotLeader { leader: Some(leader) }.into()),
+            Role::Electing | Role::Standalone => return Err(DirectoryError::NoLeader),
+        }
+        let lead = *self.lead.lock().unwrap_or_else(PoisonError::into_inner);
+        let wrote_lead = lead.is_none_or(|(lead_term, _)| lead_term != term);
+        let node = self.node.clone();
+        let (value, newest, lead_seq) = self
+            .db
+            .write(actor, move |tx| {
+                let lead_seq = if wrote_lead {
+                    let entry = DirectoryEntry {
+                        seq: head(tx.conn())? + 1,
+                        at: tx.at(),
+                        term,
+                        change: DirectoryChange::Lead { node },
+                    };
+                    apply(tx, &entry)?;
+                    Some(entry.seq)
+                } else {
+                    None
+                };
+                let (value, newest) = write(tx, term)?;
+                Ok::<_, DirectoryError>((value, newest, lead_seq))
+            })
+            .await?;
+        let lead_seq = match lead_seq {
+            Some(seq) => {
+                *self.lead.lock().unwrap_or_else(PoisonError::into_inner) = Some((term, seq));
+                seq
+            }
+            None => lead.map_or(0, |(_, seq)| seq),
+        };
+        // Raft's commit rule: nothing is acknowledged before an entry of this term is on a majority
+        self.replicate(term, newest.max(lead_seq)).await?;
+        Ok(value)
+    }
+
+    /// Asks every peer to pull from this leader, and returns once a majority, this node included, holds entry
+    /// `upto`: [`Refusal::NoQuorum`] if that takes longer than the commit timeout.
+    async fn replicate(&self, term: u64, upto: u64) -> Result<(), DirectoryError> {
+        let Some(failover) = &self.failover else {
+            return Ok(());
+        };
+        let quorum = failover.quorum();
+        if quorum <= 1 {
+            return Ok(());
+        }
+        let request = DirectoryRequest {
+            version: DIRECTORY_VERSION,
+            call: DirectoryCall::Notify { term },
+        };
+        let body = encode(&request).map_err(|e| DirectoryError::Protocol(e.to_string()))?;
+        let mut calls = tokio::task::JoinSet::new();
+        for peer in &failover.peers {
+            let (link, peer, body) = (self.link.clone(), peer.clone(), body.clone());
+            calls.spawn(async move {
+                let answer = link.call(&peer, Service::Directory, body).await;
+                (peer, answer)
+            });
+        }
+        let mut holding = 1;
+        let deadline = tokio::time::Instant::now() + failover.commit_timeout;
+        while holding < quorum {
+            let Ok(next) = tokio::time::timeout_at(deadline, calls.join_next()).await else {
+                break;
+            };
+            let (peer, answer) = match next {
+                None => break,
+                Some(Err(_)) => continue,
+                Some(Ok(done)) => done,
+            };
+            match answer.map(|body| decode_response(&body).map(|response| response.reply)) {
+                Ok(Ok(DirectoryReply::Caught { head })) if head >= upto => holding += 1,
+                Ok(Ok(DirectoryReply::Refused(Refusal::Superseded { term: newer }))) => {
+                    tracing::info!(peer = %peer, term = newer, "directory: a newer leader is elected");
+                }
+                Ok(Ok(reply)) => tracing::debug!(peer = %peer, ?reply, "directory: a replica didn't catch up"),
+                Ok(Err(error)) => tracing::debug!(peer = %peer, %error, "directory: a replica's answer is broken"),
+                Err(error) => tracing::debug!(peer = %peer, %error, "directory: a replica didn't answer"),
+            }
+        }
+        if holding >= quorum {
+            Ok(())
+        } else {
+            tracing::warn!(
+                term,
+                upto,
+                holding,
+                quorum,
+                "directory: no majority holds the change yet"
+            );
+            Err(Refusal::NoQuorum.into())
+        }
     }
 
     async fn call_leader(&self, leader: &NodeId, call: DirectoryCall) -> Result<DirectoryReply, DirectoryError> {
@@ -836,10 +1158,17 @@ impl Directory {
     /// A replica pulls the leader's entries after its own until it holds them all. Returns how many it
     /// applied; nothing to do on the leader or a standalone server.
     pub async fn sync(&self) -> Result<u64, DirectoryError> {
-        let Role::Replica { leader } = &self.role else {
+        let Role::Replica { leader } = self.role() else {
             return Ok(0);
         };
+        self.sync_from(&leader).await
+    }
+
+    /// Pulls from `leader` until this node holds everything it does. Under failover a tail `leader` doesn't hold
+    /// is dropped first; with a fixed leader replication stops there.
+    async fn sync_from(&self, leader: &NodeId) -> Result<u64, DirectoryError> {
         let mut applied = 0;
+        let mut heals = 0;
         loop {
             let (after, last) = self
                 .db
@@ -856,13 +1185,18 @@ impl Directory {
             };
             let (entries, leader_head) = match self.call_leader(leader, call).await? {
                 DirectoryReply::Changes { entries, head } => (entries, head),
+                DirectoryReply::Refused(Refusal::Diverged) if self.failover.is_some() && heals < MAX_HEALS => {
+                    heals += 1;
+                    self.heal(leader, after).await?;
+                    continue;
+                }
                 DirectoryReply::Refused(Refusal::Diverged) => {
                     let error = DirectoryError::Diverged(format!("{leader} doesn't hold this node's entry {after}"));
                     tracing::warn!(%error, "directory: replication stopped");
                     return Err(error);
                 }
                 DirectoryReply::Refused(refusal) => return Err(refusal.into()),
-                DirectoryReply::Applied(_) | DirectoryReply::Joined(_) => {
+                DirectoryReply::Applied(_) | DirectoryReply::Joined(_) | DirectoryReply::Caught { .. } => {
                     return Err(DirectoryError::Protocol("an entry for a pull".into()));
                 }
             };
@@ -879,6 +1213,11 @@ impl Directory {
                     )));
                 }
                 if leader_head < after {
+                    if self.failover.is_some() && heals < MAX_HEALS {
+                        heals += 1;
+                        self.heal(leader, after).await?;
+                        continue;
+                    }
                     return Err(DirectoryError::Diverged(format!(
                         "{leader}'s newest entry is {leader_head}, this node's {after}"
                     )));
@@ -929,10 +1268,60 @@ impl Directory {
         }
     }
 
+    /// Whether `leader` holds this node's entry `seq` as it is here.
+    async fn agrees(&self, leader: &NodeId, seq: u64) -> Result<bool, DirectoryError> {
+        if seq == 0 {
+            return Ok(true);
+        }
+        let last = self.db.read(move |conn| entry_at(conn, seq)).await?;
+        let call = DirectoryCall::Pull {
+            after: seq,
+            last,
+            limit: 1,
+        };
+        match self.call_leader(leader, call).await? {
+            DirectoryReply::Changes { .. } => Ok(true),
+            DirectoryReply::Refused(Refusal::Diverged) => Ok(false),
+            DirectoryReply::Refused(refusal) => Err(refusal.into()),
+            _ => Err(DirectoryError::Protocol("not a page for a pull".into())),
+        }
+    }
+
+    /// Under failover: finds the newest entry this node shares with `leader` (below `after`, which it doesn't)
+    /// and drops everything after it. Raft's log repair: what goes was never on a majority, so never acknowledged.
+    async fn heal(&self, leader: &NodeId, after: u64) -> Result<(), DirectoryError> {
+        // Gallop down from the tail, then halve: a diverged tail is a few unacknowledged writes, not the log
+        let (mut good, mut bad) = (0, after);
+        let mut step = 1;
+        while step < after {
+            let probe = after - step;
+            if self.agrees(leader, probe).await? {
+                good = probe;
+                break;
+            }
+            bad = probe;
+            step = step.saturating_mul(2);
+        }
+        while bad - good > 1 {
+            let middle = good + (bad - good) / 2;
+            if self.agrees(leader, middle).await? {
+                good = middle;
+            } else {
+                bad = middle;
+            }
+        }
+        let dropped = self
+            .db
+            .write(Actor::System(REPLICATION.into()), move |tx| truncate_after(tx, good))
+            .await?;
+        tracing::warn!(%leader, kept = good, dropped, "directory: dropped entries the elected leader doesn't hold");
+        Ok(())
+    }
+
     /// Pulls every `every` on a replica, for as long as the directory lives. Nothing on the leader or a
-    /// standalone server.
+    /// standalone server; under failover it runs whatever the role, and pulls only while following.
     pub fn spawn_replication(self: &Arc<Self>, every: Duration) -> Option<tokio::task::JoinHandle<()>> {
-        if !matches!(self.role, Role::Replica { .. }) {
+        if self.failover.is_none() && !matches!(self.role(), Role::Replica { .. }) {
             return None;
         }
         let directory = Arc::downgrade(self);
@@ -950,18 +1339,89 @@ impl Directory {
                     Err(error @ DirectoryError::LeaderUnreachable(_)) => {
                         tracing::debug!(%error, "directory: pull failed");
                     }
+                    // The leader moved; the election says where soon
+                    Err(error @ DirectoryError::Refused(Refusal::NotLeader { .. })) => {
+                        tracing::debug!(%error, "directory: pull failed");
+                    }
                     Err(error) => tracing::warn!(%error, "directory: pull failed"),
                 }
             }
         }))
     }
 
+    /// Under failover: takes `leadership` as who leads now, unless this node already knows a newer term.
+    /// Returns whether this node has just become the leader.
+    pub fn observe(&self, leadership: &Leadership) -> bool {
+        if self.failover.is_none() {
+            return false;
+        }
+        let mut role = self.role.write().unwrap_or_else(PoisonError::into_inner);
+        if leadership.term < self.term.load(Ordering::SeqCst) {
+            return false;
+        }
+        self.term.store(leadership.term, Ordering::SeqCst);
+        let next = match &leadership.leader {
+            Some(leader) if *leader == self.node => Role::Leader,
+            Some(leader) => Role::Replica { leader: leader.clone() },
+            None => Role::Electing,
+        };
+        let became = next == Role::Leader && *role != Role::Leader;
+        *role = next;
+        became
+    }
+
+    /// Follows an election's decisions for as long as the directory lives. On winning, this node writes its
+    /// `lead` entry and pushes it to a majority, which settles whatever the old leader left unacknowledged.
+    pub fn follow(
+        self: &Arc<Self>,
+        mut leadership: tokio::sync::watch::Receiver<Leadership>,
+    ) -> tokio::task::JoinHandle<()> {
+        let directory = Arc::downgrade(self);
+        tokio::spawn(async move {
+            loop {
+                let now = leadership.borrow_and_update().clone();
+                let Some(dir) = directory.upgrade() else {
+                    break;
+                };
+                if dir.observe(&now) {
+                    match dir.establish().await {
+                        Ok(()) => tracing::info!(term = now.term, "directory: leading"),
+                        Err(error) => {
+                            tracing::warn!(term = now.term, %error, "directory: leading, but no majority yet")
+                        }
+                    }
+                }
+                drop(dir);
+                if leadership.changed().await.is_err() {
+                    break;
+                }
+            }
+        })
+    }
+
+    /// The first write of a new leader: its `lead` entry, on a majority.
+    pub async fn establish(&self) -> Result<(), DirectoryError> {
+        self.write_here(Actor::System(REPLICATION.into()), |_, _| Ok(((), 0)))
+            .await
+    }
+
     /// Answers a peer's call. `from` is the caller as its link authenticated it.
     pub async fn handle(&self, from: &NodeId, call: DirectoryCall) -> DirectoryReply {
-        if let Role::Replica { leader } = &self.role {
-            return DirectoryReply::Refused(Refusal::NotLeader {
-                leader: Some(leader.clone()),
+        if let DirectoryCall::Notify { term } = call {
+            return self.serve_notify(from, term).await.unwrap_or_else(|error| match error {
+                DirectoryError::Refused(refusal) => DirectoryReply::Refused(refusal),
+                other => {
+                    tracing::warn!(error = %other, %from, "directory: a leader's notify failed");
+                    DirectoryReply::Refused(Refusal::Unavailable)
+                }
             });
+        }
+        match self.role() {
+            Role::Replica { leader } => {
+                return DirectoryReply::Refused(Refusal::NotLeader { leader: Some(leader) });
+            }
+            Role::Electing => return DirectoryReply::Refused(Refusal::NotLeader { leader: None }),
+            Role::Leader | Role::Standalone => {}
         }
         let result = match call {
             DirectoryCall::Register {
@@ -976,13 +1436,39 @@ impl Directory {
             } => self.serve_proposal(from, &actor, account, &username, false).await,
             DirectoryCall::Join { accounts, actor } => self.serve_join(from, &actor, accounts).await,
             DirectoryCall::Pull { after, last, limit } => self.serve_pull(after, last, limit).await,
+            DirectoryCall::Notify { .. } => Err(Refusal::Malformed.into()),
         };
         result.unwrap_or_else(|error| match error {
             DirectoryError::Refused(refusal) => DirectoryReply::Refused(refusal),
+            DirectoryError::NoLeader => DirectoryReply::Refused(Refusal::NotLeader { leader: None }),
             other => {
                 tracing::error!(error = %other, %from, "directory: a peer's call failed");
                 DirectoryReply::Refused(Refusal::Unavailable)
             }
+        })
+    }
+
+    /// A leader of `term` asks this node to pull from it: the caller is the node its link authenticated, and a
+    /// term older than this node's is refused, so a deposed leader can't count it towards a majority.
+    async fn serve_notify(&self, from: &NodeId, term: u64) -> Result<DirectoryReply, DirectoryError> {
+        let Some(failover) = &self.failover else {
+            return Err(Refusal::Malformed.into());
+        };
+        if !failover.peers.contains(from) {
+            return Err(Refusal::Malformed.into());
+        }
+        let known = self.term();
+        if term < known {
+            return Ok(DirectoryReply::Refused(Refusal::Superseded { term: known }));
+        }
+        // Only the elected leader of a term notifies for it, so the caller leads; the election hears soon too
+        self.observe(&Leadership {
+            term,
+            leader: Some(from.clone()),
+        });
+        self.sync_from(from).await?;
+        Ok(DirectoryReply::Caught {
+            head: self.head().await?,
         })
     }
 
@@ -1012,8 +1498,7 @@ impl Directory {
         accounts: Vec<JoiningAccount>,
     ) -> Result<DirectoryReply, DirectoryError> {
         let actor = Actor::parse(actor).ok_or(Refusal::BadActor)?;
-        let from = from.clone();
-        let outcome = self.db.write(actor, move |tx| join_batch(tx, &from, accounts)).await?;
+        let outcome = self.join_here(actor, from.clone(), accounts).await?;
         Ok(DirectoryReply::Joined(outcome))
     }
 
@@ -1040,6 +1525,12 @@ impl Directory {
                 })
             })
             .await
+    }
+}
+
+impl LogSource for Directory {
+    fn position(&self) -> BoxFuture<'_, Result<LogPosition, String>> {
+        Box::pin(async move { self.db.read(position).await.map_err(|e: DirectoryError| e.to_string()) })
     }
 }
 

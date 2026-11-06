@@ -38,11 +38,13 @@ pub enum Service {
     Remote,
     /// HTTP between the halves of a split server: the backend's and the Director's loopback ports (`docs/split-roles.md`)
     Tunnel,
+    /// Leader election: pre-votes, votes and the leader's heartbeats (`docs/distributed-mode.md`)
+    Election,
 }
 
 impl Service {
     /// Every service, in route order.
-    pub const ALL: [Service; 8] = [
+    pub const ALL: [Service; 9] = [
         Self::Directory,
         Self::Home,
         Self::Admin,
@@ -51,6 +53,7 @@ impl Service {
         Self::Ring,
         Self::Remote,
         Self::Tunnel,
+        Self::Election,
     ];
 }
 
@@ -66,6 +69,7 @@ impl Service {
             Self::Ring => "ring",
             Self::Remote => "remote",
             Self::Tunnel => "tunnel",
+            Self::Election => "election",
         }
     }
 

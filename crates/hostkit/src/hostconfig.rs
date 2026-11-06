@@ -833,6 +833,7 @@ impl RemoteConfig {
             host,
             port,
             fingerprint: None,
+            link: None,
         })
     }
 }

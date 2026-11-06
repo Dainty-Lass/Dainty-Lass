@@ -12,8 +12,10 @@ use protocol::account::is_valid_username;
 fuzz_target!(|data: &[u8]| {
     if let Ok(request) = decode_request(data) {
         assert!(data.len() <= MAX_MESSAGE);
-        if let DirectoryCall::Pull { last: Some(last), .. } = &request.call {
-            assert!(is_valid_username(last.change.username().as_str()));
+        if let DirectoryCall::Pull { last: Some(last), .. } = &request.call
+            && let Some(name) = last.change.username()
+        {
+            assert!(is_valid_username(name.as_str()));
         }
         let again = decode_request(&encode(&request).expect("writes back")).expect("reads back");
         assert_eq!(again, request);
@@ -21,8 +23,11 @@ fuzz_target!(|data: &[u8]| {
     if let Ok(response) = decode_response(data) {
         if let DirectoryReply::Changes { entries, .. } = &response.reply {
             for entry in entries {
-                assert!(is_valid_username(entry.change.username().as_str()));
-                let account = entry.change.account().to_string();
+                let (Some(name), Some(account)) = (entry.change.username(), entry.change.account()) else {
+                    continue;
+                };
+                assert!(is_valid_username(name.as_str()));
+                let account = account.to_string();
                 assert_eq!(
                     account
                         .parse::<module_api::GlobalId>()

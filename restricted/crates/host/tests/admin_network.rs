@@ -824,6 +824,7 @@ async fn real_mtls_gateway_node_links_carry_admin_relay() {
         host: "127.0.0.1".into(),
         port: oregon_port,
         fingerprint: None,
+        link: None,
     };
     let germany_peer = Peer {
         id: germany_id.node.clone(),
@@ -831,6 +832,7 @@ async fn real_mtls_gateway_node_links_carry_admin_relay() {
         host: "127.0.0.1".into(),
         port: germany_port,
         fingerprint: None,
+        link: None,
     };
 
     let cert_dir = tempfile::tempdir().unwrap();

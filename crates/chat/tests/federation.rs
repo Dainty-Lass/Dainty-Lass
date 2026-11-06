@@ -720,6 +720,7 @@ async fn federation_works_end_to_end_over_mutual_tls_node_links() {
         host: "127.0.0.1".into(),
         port: or_port,
         fingerprint: None,
+        link: None,
     };
     let de_peer = Peer {
         id: frankfurt_id.node.clone(),
@@ -727,6 +728,7 @@ async fn federation_works_end_to_end_over_mutual_tls_node_links() {
         host: "127.0.0.1".into(),
         port: de_port,
         fingerprint: None,
+        link: None,
     };
 
     let or_link = Arc::new(TlsPeerLink::new(TlsLinkConfig::new(or_creds, vec![de_peer.clone()])).unwrap());

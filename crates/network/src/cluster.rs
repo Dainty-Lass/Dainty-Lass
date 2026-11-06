@@ -71,6 +71,11 @@ pub struct Peer {
     /// pings that region (DN7). A peer without one is a peer of this node, but not listed to players.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub fingerprint: Option<String>,
+    /// Where node links dial instead of `host` and `port`, as `host:port` (`[v6]:port`): a private back channel
+    /// such as the node's Tailscale address or MagicDNS name. Its certificate must carry that host too
+    /// (`docs/distributed-mode.md`); players still use `host`
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub link: Option<String>,
 }
 
 /// A DNS name as a certificate may carry it: letters, digits and hyphens in dot-separated labels, at
@@ -101,6 +106,13 @@ impl Peer {
         if self.port == 0 {
             return Err(fail(format!("node {id}: port must be from 1 to 65535")));
         }
+        if let Some(link) = &self.link
+            && split_link(link).is_none()
+        {
+            return Err(fail(format!(
+                "node {id}: link must be host:port, with an IP address or a lower-case DNS name, not {link:?}"
+            )));
+        }
         if let Some(fingerprint) = &self.fingerprint
             && !(fingerprint.len() == 64
                 && fingerprint
@@ -113,6 +125,24 @@ impl Peer {
         }
         Ok(())
     }
+}
+
+impl Peer {
+    /// The host and port node links dial: `link` when set, the gateway's public address otherwise.
+    pub fn dial(&self) -> (&str, u16) {
+        self.link
+            .as_deref()
+            .and_then(split_link)
+            .unwrap_or((self.host.as_str(), self.port))
+    }
+}
+
+/// `host:port` or `[v6]:port`, the host one a certificate can carry and the port not 0.
+fn split_link(text: &str) -> Option<(&str, u16)> {
+    let (host, port) = text.rsplit_once(':')?;
+    let host = host.strip_prefix('[').and_then(|h| h.strip_suffix(']')).unwrap_or(host);
+    let port: u16 = port.parse().ok().filter(|p| *p != 0)?;
+    (is_host(host) && (!host.contains(':') || text.starts_with('['))).then_some((host, port))
 }
 
 /// `peers` as a node `own` may list them: each valid, each id once, none of them itself, at most

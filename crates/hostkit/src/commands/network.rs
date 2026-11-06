@@ -413,8 +413,12 @@ fn join(a: &JoinArgs, paths: Option<&Paths>) -> Outcome {
     let link = Arc::new(
         TlsPeerLink::new(TlsLinkConfig::new(credentials, network.nodes.clone())).map_err(|e| bad(e.to_string()))?,
     );
-    let leader = network.effective_leader();
-    let dir_config = DirectoryConfig::in_network(network.node.clone(), leader);
+    // With failover nobody here knows the leader: ask the peers in turn and follow a NotLeader hint
+    let mut candidates: std::collections::VecDeque<module_api::network::NodeId> = if network.failover {
+        network.nodes.iter().map(|peer| peer.id.clone()).collect()
+    } else {
+        [network.effective_leader()].into()
+    };
     let db_config = node_database_config(&config, paths)?;
     let runtime = tokio::runtime::Builder::new_current_thread()
         .enable_all()
@@ -427,15 +431,41 @@ fn join(a: &JoinArgs, paths: Option<&Paths>) -> Outcome {
             &network_plugin::directory::SCHEMA,
         )
         .map_err(|e| bad(format!("database: {e}")))?;
-        let dir = Directory::new(db.clone(), dir_config, link)
-            .await
-            .map_err(|e| bad(format!("directory: {e}")))?;
-        let outcome = dir
-            .join_host_database(store::Actor::Host(crate::commands::history::ACTOR.into()), &db)
-            .await
-            .map_err(|e| bad(format!("join: {e}")))?;
-        let head = dir.head().await.unwrap_or(0);
-        Ok::<_, HostError>((outcome, head))
+        let mut tried = std::collections::BTreeSet::new();
+        let mut last = None;
+        while let Some(leader) = candidates.pop_front() {
+            if leader == network.node || !tried.insert(leader.clone()) {
+                continue;
+            }
+            let dir_config = DirectoryConfig::in_network(network.node.clone(), leader.clone());
+            let link: Arc<dyn network_plugin::PeerLink> = link.clone();
+            let dir = Directory::new(db.clone(), dir_config, link)
+                .await
+                .map_err(|e| bad(format!("directory: {e}")))?;
+            match dir
+                .join_host_database(store::Actor::Host(crate::commands::history::ACTOR.into()), &db)
+                .await
+            {
+                Ok(outcome) => {
+                    let head = dir.head().await.unwrap_or(0);
+                    return Ok::<_, HostError>((outcome, head));
+                }
+                Err(network_plugin::DirectoryError::Refused(network_plugin::Refusal::NotLeader { leader: hint }))
+                    if network.failover =>
+                {
+                    candidates.extend(hint);
+                    last = Some(format!("{leader} doesn't lead the directory"));
+                }
+                Err(e @ network_plugin::DirectoryError::LeaderUnreachable(_)) if network.failover => {
+                    last = Some(e.to_string());
+                }
+                Err(e) => return Err(bad(format!("join: {e}"))),
+            }
+        }
+        Err(bad(format!(
+            "join: no node leads the directory just now ({})",
+            last.unwrap_or_else(|| "no peers".into())
+        )))
     })?;
     if a.json {
         let clashes: Vec<_> = outcome

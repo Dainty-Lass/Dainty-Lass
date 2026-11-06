@@ -253,3 +253,36 @@ fn hosts_are_ip_addresses_and_lower_case_dns_names() {
     }
     assert!(!network::cluster::is_dns_name(&format!("{}.example", "a".repeat(64))));
 }
+
+#[test]
+fn a_peer_dials_its_back_channel_link_when_it_has_one() {
+    let mut peer = network::cluster::Peer {
+        id: "uk-1".parse().unwrap(),
+        region: "uk".parse().unwrap(),
+        host: "198.51.100.2".into(),
+        port: 443,
+        fingerprint: None,
+        link: None,
+    };
+    assert_eq!(peer.dial(), ("198.51.100.2", 443));
+    for (link, dial) in [
+        ("100.64.0.2:61443", ("100.64.0.2", 61443)),
+        ("uk-1.tail1234.ts.net:443", ("uk-1.tail1234.ts.net", 443)),
+        ("[fd7a:115c:a1e0::2]:443", ("fd7a:115c:a1e0::2", 443)),
+    ] {
+        peer.link = Some(link.into());
+        peer.check().unwrap();
+        assert_eq!(peer.dial(), dial, "{link}");
+    }
+    for bad in [
+        "100.64.0.2",
+        "100.64.0.2:0",
+        "UK-1.ts.net:443",
+        "fd7a::2:443",
+        ":443",
+        "a b:443",
+    ] {
+        peer.link = Some(bad.into());
+        assert!(peer.check().is_err(), "{bad}");
+    }
+}

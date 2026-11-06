@@ -264,15 +264,12 @@ impl TlsPeerLink {
         let inner = &self.inner;
         let node = &peer.id;
         let timed_out = || unreachable(node, "the connection timed out");
-        let tcp = tokio::time::timeout(
-            inner.connect_timeout,
-            TcpStream::connect((peer.host.as_str(), peer.port)),
-        )
-        .await
-        .map_err(|_| timed_out())?
-        .map_err(|e| unreachable(node, e.to_string()))?;
+        let tcp = tokio::time::timeout(inner.connect_timeout, TcpStream::connect(peer.dial()))
+            .await
+            .map_err(|_| timed_out())?
+            .map_err(|e| unreachable(node, e.to_string()))?;
         let _ = tcp.set_nodelay(true);
-        let name = ServerName::try_from(peer.host.clone()).map_err(|e| unreachable(node, e.to_string()))?;
+        let name = ServerName::try_from(peer.dial().0.to_owned()).map_err(|e| unreachable(node, e.to_string()))?;
         let tls = tokio::time::timeout(inner.connect_timeout, inner.connector.connect(name, tcp))
             .await
             .map_err(|_| timed_out())?
@@ -306,10 +303,11 @@ impl TlsPeerLink {
     }
 
     fn request(&self, peer: &Peer, method: Method, target: Target, body: Vec<u8>) -> Request<Full<Bytes>> {
-        let host = if peer.host.contains(':') {
-            format!("[{}]:{}", peer.host, peer.port)
+        let (dial_host, dial_port) = peer.dial();
+        let host = if dial_host.contains(':') {
+            format!("[{dial_host}]:{dial_port}")
         } else {
-            format!("{}:{}", peer.host, peer.port)
+            format!("{dial_host}:{dial_port}")
         };
         let mut request = Request::builder()
             .method(method)

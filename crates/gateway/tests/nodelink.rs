@@ -100,6 +100,7 @@ fn peer(id_text: &str, region: &str, port: u16) -> Peer {
         host: "127.0.0.1".into(),
         port,
         fingerprint: None,
+        link: None,
     }
 }
 
