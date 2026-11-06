@@ -262,6 +262,7 @@ mod tests {
             switches: None,
             modules: None,
             services: None,
+            env: None,
             network: None,
             remote: None,
             file: FileForm::default(),

@@ -870,6 +870,16 @@ pub fn run_doctor(p: &Paths, opts: &DoctorOptions) -> Result<Vec<Check>, HostErr
         fix: None,
     });
 
+    // Listed so a tunable set through [env] is never a surprise (docs/config-toml-plan.md)
+    for (service, entries) in config.env.iter().flatten() {
+        let keys: Vec<&str> = entries.keys().map(String::as_str).collect();
+        checks.push(check(
+            "config",
+            Level::Info,
+            format!("[env.{service}] passes {} to {service}.env", keys.join(", ")),
+        ));
+    }
+
     let mut all_rt = true;
     for name in RUNTIME_FILE_NAMES {
         if !p.runtime_publish.join(name).is_file() {

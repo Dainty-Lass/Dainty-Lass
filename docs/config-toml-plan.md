@@ -6,8 +6,10 @@ Draft, 2026-10-24. Scope: DaintyLass first; Dauntless Revived at the end.
 projects in `legacy/`. The file and function names below come from the Node kit; the Rust port keeps the same
 ones (`hostconfig.rs`, `buildEnvFiles` → `build_env_files`, and so on).
 
-**Status:** Phase 1 is merged into `plan`; phases 2 and 3 are not started and are listed in `MIGRATION_PLAN.md`'s
-"What's left". `hosttoml.rs` reads and patches the file with `toml_edit`, so the
+**Status:** Phase 1 is merged into `plan`. Phase 2's `[env.<service>]` passthrough and its denylist are in
+`hostkit/src/hostconfig/env.rs` (a variable `setup` already writes is refused too, not only the listed ones); the
+typed `[gateway.*]`, `[content]`, `[allowlist]`, `[backend]` and `[director]` tables, the early validation and the
+environment overrides are not started, nor is phase 3. `hosttoml.rs` reads and patches the file with `toml_edit`, so the
 host's own comments survive setup. MIGRATION_PLAN.md decision RD24 records this plan and amends section 6.
 
 ## Where configuration lives today

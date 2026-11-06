@@ -11,8 +11,9 @@
 //! spacing stay. A new file (setup's first run, or a host.json being moved over) is written from a
 //! template that says what each key does.
 //!
-//! `[modules]` (DF3) and `[services]` (RD27) have lists and tables of their own (`hostconfig/modules.rs`,
-//! `hostconfig/services.rs`): they are read as they are and, when they changed, written back whole.
+//! `[modules]` (DF3), `[services]` (RD27) and `[env]` (RD24 phase 2) have lists and tables of their own
+//! (`hostconfig/modules.rs`, `services.rs`, `env.rs`): they are read as they are and, when they changed, written
+//! back whole.
 
 use serde_json::{Map, Number, Value};
 use toml_edit::{DocumentMut, Item, Table, TableLike};
@@ -47,10 +48,11 @@ const TOP: &[Field] = &[
     ("remote", "remote", false),
     ("modules", "modules", false),
     ("services", "services", false),
+    ("env", "env", false),
 ];
 
-/// The top-level keys whose tables and lists are read as they are (`hostconfig/modules.rs`, `services.rs`).
-const FREE_FORM: [&str; 2] = ["modules", "services"];
+/// The top-level keys whose tables and lists are read as they are (`hostconfig/modules.rs`, `services.rs`, `env.rs`).
+const FREE_FORM: [&str; 3] = ["modules", "services", "env"];
 
 /// `network.nodes` is a list of tables (`[[network.nodes]]`), read as it is like `[modules]`
 const NETWORK: &[Field] = &[
@@ -593,6 +595,11 @@ fn comment(path: &str) -> &'static str {
             "Services the core loads as libraries (RD27), one [services.<name>] each: library (its path, from this\n\
              folder) and sha256. A service listed here replaces the one built into this binary; left out: the\n\
              built-in ones. content, chat and gateway are known by name; another names what it serves (serves)."
+        }
+        "env" => {
+            "Extra variables for one service's env file, one [env.<service>] table each (backend, director, content,\n\
+             gateway, admin, allowlist), for a tunable with no setting above: GATEWAY_RATE_WS = \"40/24\". Secrets,\n\
+             ports, bind addresses and anything setup already writes are refused."
         }
         "database.allow_remote" => {
             "true: accept a Postgres server on another machine, over a network you trust (private, not the internet)."

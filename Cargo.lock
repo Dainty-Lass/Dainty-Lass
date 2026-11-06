@@ -434,10 +434,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "backend"
-version = "0.0.0"
-
-[[package]]
 name = "base16ct"
 version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1364,10 +1360,6 @@ dependencies = [
  "crypto-common 0.2.2",
  "ctutils",
 ]
-
-[[package]]
-name = "director"
-version = "0.0.0"
 
 [[package]]
 name = "dirs"

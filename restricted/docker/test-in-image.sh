@@ -33,7 +33,7 @@ run_suite() {
 		fi
 		cd "$root" && cargo test --locked --no-fail-fast \
 			-p protocol -p proxy -p remote -p service-kit -p store -p gateway -p content -p admin -p hostkit -p host \
-			-p controller -p backend -p director
+			-p controller
 		;;
 	backend) cd "$root/modules/rustic-isles/reference/1.14.7/ParadoxBackend" && npm test ;;
 	director) cd "$root/modules/rustic-isles/reference/1.14.7/ParadoxDirector" && npm test ;;

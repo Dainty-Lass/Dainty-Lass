@@ -183,7 +183,7 @@ USER reforged
 # built; the fuzz targets are a workspace of their own.
 RUN cargo test --locked --no-run \
       -p protocol -p proxy -p remote -p service-kit -p store -p gateway -p content -p admin -p hostkit -p host \
-      -p controller -p backend -p director
+      -p controller
 # gateway's route-policy tests check /reforged/api against the reference route file
 COPY --chown=reforged:reforged restricted/modules/rustic-isles/reference/1.14.7/ParadoxBackend/src/routes/reforgedApi.ts modules/rustic-isles/reference/1.14.7/ParadoxBackend/src/routes/reforgedApi.ts
 ENTRYPOINT ["/usr/bin/tini", "--", "reforged-test"]
