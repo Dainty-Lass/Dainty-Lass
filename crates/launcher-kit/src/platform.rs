@@ -8,5 +8,7 @@ pub mod hostkit;
 pub mod hostserver;
 pub mod linux_runtime;
 pub mod loader_session;
+pub mod log;
+pub mod paths;
 pub mod requirements;
 pub mod system;
