@@ -999,6 +999,7 @@ mod tests {
             history: None,
             modules: None,
             services: None,
+            env: None,
             network: None,
             remote: None,
             switches: Default::default(),

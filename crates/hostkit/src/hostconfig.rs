@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Silent Spud
 
+pub mod env;
 pub mod guard;
 pub mod modules;
 pub mod services;
@@ -769,6 +770,8 @@ pub struct HostConfig {
     pub modules: Option<ModulesConfig>,
     /// `[services.<name>]`: services loaded as libraries (RD27); `None` composes the compiled-in ones
     pub services: Option<ServicesConfig>,
+    /// `[env.<service>]`: variables appended to a service's env file (RD24 phase 2)
+    pub env: Option<env::EnvPassthrough>,
     pub network: Option<NetworkConfig>,
     pub remote: Option<RemoteConfig>,
     pub file: FileForm,
@@ -907,6 +910,10 @@ impl HostConfig {
             Some(s) if !s.is_null() => Some(services::from_json(s)?),
             _ => None,
         };
+        let env = match obj.get("env") {
+            Some(e) if !e.is_null() => Some(env::from_json(e)?),
+            _ => None,
+        };
         let network = match obj.get("network") {
             Some(n) if !n.is_null() => Some(NetworkConfig::from_json(n)?),
             _ => None,
@@ -937,6 +944,7 @@ impl HostConfig {
             switches,
             modules,
             services,
+            env,
             network,
             remote,
             file: FileForm {
@@ -967,6 +975,9 @@ impl HostConfig {
             }
             if self.services.is_none() {
                 self.services = prev.services.clone();
+            }
+            if self.env.is_none() {
+                self.env = prev.env.clone();
             }
             if self.network.is_none() {
                 self.network = prev.network.clone();
@@ -1143,6 +1154,9 @@ impl HostConfig {
         if let Some(s) = &self.services {
             canonical.insert("services".into(), services::to_json(s));
         }
+        if let Some(e) = &self.env {
+            canonical.insert("env".into(), env::to_json(e));
+        }
         merge_document_order(&self.file.document, canonical)
     }
 
@@ -1223,6 +1237,8 @@ pub struct EnvFiles {
     pub gateway: EnvEntries,
     pub admin: EnvEntries,
     pub allowlist: Option<EnvEntries>,
+    /// `[env.<service>]` lines not written, each with why; `setup` refuses while there are any
+    pub passthrough_refused: Vec<String>,
 }
 
 impl EnvFiles {
@@ -1923,6 +1939,10 @@ pub fn validate(document: &Value) -> Result<Value, HostError> {
         Some(s) => Some(services::from_json(s)?),
         None => None,
     };
+    let env_cfg = match obj.get("env").filter(|v| !v.is_null()) {
+        Some(e) => Some(env::from_json(e)?),
+        None => None,
+    };
     let network_cfg = match obj.get("network").filter(|v| !v.is_null()) {
         Some(n) => {
             let net = NetworkConfig::from_json(n)?;
@@ -2057,6 +2077,9 @@ pub fn validate(document: &Value) -> Result<Value, HostError> {
     if let Some(s) = services_cfg {
         canonical.insert("services".into(), services::to_json(&s));
     }
+    if let Some(e) = env_cfg {
+        canonical.insert("env".into(), env::to_json(&e));
+    }
     Ok(Value::Object(merge_document_order(obj, canonical)))
 }
 
@@ -2079,6 +2102,7 @@ fn merge_document_order(orig: &Map<String, Value>, canonical: Map<String, Value>
         "remote",
         "modules",
         "services",
+        "env",
     ];
     let mut out = Map::new();
     for (k, orig_v) in orig {
@@ -2769,14 +2793,19 @@ pub fn build_env_files(c: &HostConfig, s: &Secrets, p: &Paths, source_commit: &s
         push(&mut gateway, "CHAT_DASHBOARD_INGEST_KEY", &s.dashboard_ingest_key);
     }
 
-    EnvFiles {
+    let mut files = EnvFiles {
         backend,
         director,
         content,
         gateway,
         admin,
         allowlist,
+        passthrough_refused: Vec::new(),
+    };
+    if let Some(passthrough) = &c.env {
+        files.passthrough_refused = env::apply(&mut files, passthrough);
     }
+    files
 }
 
 pub fn node_database_config(c: &HostConfig, p: &Paths) -> Result<store::DatabaseConfig, HostError> {
@@ -2945,5 +2974,64 @@ mod tests {
         }
         let backend = read_env_file(&p.config.join("backend.env")).unwrap();
         assert_eq!(backend.get("RUSTIC_ISLES_METRICS_TOKEN").map(str::len), Some(64));
+    }
+
+    /// RD24 phase 2: `[env.<service>]` reaches the service's file, keeps its comments and types through a rewrite,
+    /// and never replaces a line setup writes.
+    #[test]
+    fn env_passthrough_reaches_the_service_file() {
+        let text = "version = 1
+mode = \"private\"
+name = \"Friday Hunts\"
+host = \"100.101.102.103\"
+            game_address = \"100.101.102.103\"
+registration = \"INVITECODE\"
+max_hunt_servers = 3
+
+            [env.gateway]
+# busy VPS
+GATEWAY_RATE_WS = \"40/24\"
+GATEWAY_MAX_CONNECTIONS = 4096
+";
+        let cfg = HostConfig::from_toml(text).unwrap();
+        let mut renamed = cfg.clone();
+        renamed.name = "Saturday Hunts".into();
+        let rewritten = renamed.to_toml().unwrap();
+        assert!(
+            rewritten.contains(
+                "# busy VPS
+GATEWAY_RATE_WS = \"40/24\"
+GATEWAY_MAX_CONNECTIONS = 4096"
+            ),
+            "{rewritten}"
+        );
+
+        let dir = tempfile::tempdir().unwrap();
+        let p = Paths::new(dir.path());
+        let files = build_env_files(&cfg, &Secrets::default(), &p, "", Platform::Windows);
+        assert!(files.passthrough_refused.is_empty(), "{:?}", files.passthrough_refused);
+        let gateway: Vec<_> = files.gateway.iter().map(|(k, v)| format!("{k}={v}")).collect();
+        assert!(gateway.contains(&"GATEWAY_RATE_WS=40/24".to_owned()), "{gateway:?}");
+        assert!(
+            gateway.contains(&"GATEWAY_MAX_CONNECTIONS=4096".to_owned()),
+            "{gateway:?}"
+        );
+
+        let clash = HostConfig::from_toml(&text.replace("GATEWAY_RATE_WS", "GATEWAY_TLS")).unwrap();
+        let files = build_env_files(&clash, &Secrets::default(), &p, "", Platform::Windows);
+        assert_eq!(files.gateway.iter().filter(|(k, _)| k == "GATEWAY_TLS").count(), 1);
+        assert!(
+            files.passthrough_refused[0].contains("env.gateway.GATEWAY_TLS"),
+            "{:?}",
+            files.passthrough_refused
+        );
+
+        let secret = text.replace("GATEWAY_RATE_WS", "GATEWAY_SECRET");
+        assert!(
+            HostConfig::from_toml(&secret)
+                .unwrap_err()
+                .to_string()
+                .contains("env.gateway.GATEWAY_SECRET")
+        );
     }
 }

@@ -255,6 +255,16 @@ pub fn run_with(
         std::fs::write(&p.news_file, "{\n  \"items\": []\n}\n").map_err(|e| HostError::io(&p.news_file, e))?;
     }
     let env_files = build_env_files(&config, &sec, p, &commit, platform);
+    if !env_files.passthrough_refused.is_empty() {
+        return Err(HostError::message(format!(
+            "host.toml's [env] tables can't be applied:
+  {}",
+            env_files.passthrough_refused.join(
+                "
+  "
+            )
+        )));
+    }
     write_env_files(p, &env_files)?;
     for (name, entries) in env_files.files() {
         if entries.is_some() {
