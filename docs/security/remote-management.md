@@ -40,7 +40,7 @@ checks), `crates/remote/src/merge.rs` (`host.toml` merger preserving per-host id
 
 Fuzz target: `remote_wire` in `fuzz/fuzz_targets/remote_wire.rs` (enrollment URIs, `EnrollRequest`, `EnrollAnswer`,
 `RemoteRequest`, `RemoteResponse`, secret-leak detection, and `merge_managed_host_toml`). It checks that no malformed or
-oversized frame panics, that any payload carrying a secret key (`RRK_`, `RRA_`, `secrets.env` variables, PEM private
+oversized frame panics, that any payload carrying a secret key (`DLK_`, `DLA_`, `secrets.env` variables, PEM private
 keys, password hashes, or SQLite database headers) is refused, and that every accepted message round-trips identically.
 
 ## Checklist
@@ -77,8 +77,8 @@ keys, password hashes, or SQLite database headers) is refused, and that every ac
       `bytes.len() <= MAX_REMOTE_WIRE` (`1 MiB`) before parsing JSON (`wire::check_wire_slice`).
 - [x] Every wire encoder and decoder runs `wire::contains_forbidden_secret_bytes` / `contains_forbidden_secret_value`,
       which refuses any payload containing:
-      - player account keys (`RRK_...`, case-insensitive);
-      - admin secret keys (`RRA_...`, case-insensitive);
+      - player account keys (`DLK_...`, case-insensitive);
+      - admin secret keys (`DLA_...`, case-insensitive);
       - `secrets.env` variables (`DAINTY_ADMIN_API_KEY`, `JWT_SECRET`, `SESSION_SECRET`, `TURN_STATIC_AUTH_SECRET`,
         `AUTH_SIGNING_PRIVKEY_B64`);
       - PEM private keys (`-----BEGIN PRIVATE KEY-----`, `EC PRIVATE KEY`, `RSA PRIVATE KEY`, `OPENSSH PRIVATE KEY`);
@@ -97,7 +97,7 @@ keys, password hashes, or SQLite database headers) is refused, and that every ac
 ### Roles (`DH2`), guarded actions (`DH6`), and audit actor (`DD23`)
 
 - [x] Every `QueuedRemoteCommand` carries an `OperatorEnvelope { controller_node, key_id, role, issued_at_ms }`, where
-      `key_id` is an identifier (never `RRA_...` and never `"system"`), and maps to the change-log actor
+      `key_id` is an identifier (never `DLA_...` and never `"system"`), and maps to the change-log actor
       `"remote:<controller_node>:<key_id>"` (`OperatorEnvelope::actor_string`).
 - [x] Every `RemoteCommand` enforces its minimum `RemoteRole` (`Viewer` for read-only queries/doctor/lookup,
       `Moderator` for kick/timeout/ban, `Admin` for lifecycle/setup/modules/backup/db, `Owner` for `fresh_start`,

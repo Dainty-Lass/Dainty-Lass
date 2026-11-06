@@ -166,9 +166,9 @@ mod dpapi {
 
         #[test]
         fn a_round_trip_for_this_user() {
-            let sealed = Dpapi.encrypt("RRK2\n-\nRRK_x").unwrap();
-            assert_ne!(sealed, b"RRK2\n-\nRRK_x");
-            assert_eq!(Dpapi.decrypt(&sealed).as_deref(), Some("RRK2\n-\nRRK_x"));
+            let sealed = Dpapi.encrypt("DLK2\n-\nDLK_x").unwrap();
+            assert_ne!(sealed, b"DLK2\n-\nDLK_x");
+            assert_eq!(Dpapi.decrypt(&sealed).as_deref(), Some("DLK2\n-\nDLK_x"));
             assert_eq!(Dpapi.decrypt(b"not a blob"), None);
         }
     }
@@ -248,9 +248,9 @@ mod tests {
     #[test]
     fn sealed_files_open_only_with_their_key() {
         let sealed = SealedKey { key: [1; 32] };
-        let data = sealed.encrypt("RRK2\n-\nRRK_x").unwrap();
+        let data = sealed.encrypt("DLK2\n-\nDLK_x").unwrap();
         assert!(data.starts_with(b"rr1"));
-        assert_eq!(sealed.decrypt(&data).as_deref(), Some("RRK2\n-\nRRK_x"));
+        assert_eq!(sealed.decrypt(&data).as_deref(), Some("DLK2\n-\nDLK_x"));
         assert_eq!(SealedKey { key: [2; 32] }.decrypt(&data), None);
         assert_ne!(
             sealed.encrypt("same").unwrap(),

@@ -1474,7 +1474,7 @@ mod roles {
         let w = world().await;
         let (_, body) = w.gql_as(API_KEY, ISSUE, json!({"name": "Mo", "role": "VIEWER"})).await;
         let key = body["data"]["issueKey"]["key"].as_str().unwrap().to_owned();
-        assert!(key.starts_with("RRA_") && key.len() == 77, "{key}");
+        assert!(key.starts_with("DLA_") && key.len() == 77, "{key}");
         let listed = w.gql(KEYS, json!({})).await.to_string();
         assert!(!listed.contains(&key) && !listed.contains("key_hash"));
         w.admin.keys.database().checkpoint().await.unwrap();
@@ -1499,9 +1499,9 @@ mod roles {
         let secret_changed = format!("{}{last}", &key[..key.len() - 1]);
         for bad in [
             secret_changed,
-            format!("RRA_{id}_{}", "0".repeat(64)),
-            format!("RRA_ffffffff_{}", "0".repeat(64)),
-            "RRA_".to_owned(),
+            format!("DLA_{id}_{}", "0".repeat(64)),
+            format!("DLA_ffffffff_{}", "0".repeat(64)),
+            "DLA_".to_owned(),
             key.to_uppercase(),
         ] {
             let (status, body) = w.gql_as(&bad, STATUS, json!({})).await;

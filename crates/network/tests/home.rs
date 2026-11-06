@@ -737,11 +737,11 @@ async fn the_account_key_never_crosses_a_node_link() {
     assert!(sent >= 12, "{sent} messages on the wire");
     for message in cluster.wire.lock().unwrap().iter() {
         let text = String::from_utf8_lossy(message).to_ascii_lowercase();
-        assert!(!text.contains("rrk_"), "{text}");
+        assert!(!text.contains("dlk_"), "{text}");
     }
 
     // A module that tries to write one is refused before anything is sent, wherever it hides it
-    let key = format!("RRK_{}", "ab".repeat(24));
+    let key = format!("DLK_{}", "ab".repeat(24));
     for body in [
         json!({ "note": key }),
         json!({ "nested": [{ "deep": [format!("my key is {key}")] }] }),

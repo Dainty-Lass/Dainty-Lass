@@ -14,7 +14,8 @@ fn pattern(text: &str) -> Regex {
 }
 
 static JWT: LazyLock<Regex> = LazyLock::new(|| pattern(r"eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]*"));
-static ACCOUNT_KEY: LazyLock<Regex> = LazyLock::new(|| pattern(r"RRK_[A-Za-z0-9]+"));
+// RRK_/RRA_: the prefixes before the 2026-11-06 rename, scrubbed as well so an old key never leaks
+static ACCOUNT_KEY: LazyLock<Regex> = LazyLock::new(|| pattern(r"(?:DLK|RRK)_[A-Za-z0-9]+"));
 static HEX_RUN: LazyLock<Regex> = LazyLock::new(|| pattern(r"[0-9A-Fa-f]{40,}"));
 static WORD_RUN: LazyLock<Regex> = LazyLock::new(|| pattern(r"[A-Za-z0-9_-]{64,}"));
 
@@ -120,7 +121,8 @@ mod tests {
     #[test]
     fn text() {
         assert_eq!(redact_text("eyJ eyJa. eyJa.b eyJa.b. x"), "eyJ eyJa. eyJa.b <token> x");
-        assert_eq!(redact_text("RRK_ab12 RRK_"), "<key> RRK_");
+        assert_eq!(redact_text("DLK_ab12 DLK_"), "<key> DLK_");
+        assert_eq!(redact_text("RRK_ab12"), "<key>", "a key from before the rename");
         assert_eq!(redact_text(&"a".repeat(40)), "<redacted>");
         assert_eq!(redact_text(&"z".repeat(63)), "z".repeat(63));
         assert_eq!(redact_text(&"z".repeat(64)), "<redacted>");
@@ -138,7 +140,7 @@ mod tests {
         assert_eq!(redact_target("/a\r\nforged"), "/a??forged");
         assert_eq!(redact_target("/x/eyJa%2Eb%2Ec"), "/x/<token>");
         assert_eq!(redact_target("/x?"), "/x?");
-        assert_eq!(redact_target("/k/RRK_abc"), "/k/<key>");
+        assert_eq!(redact_target("/k/DLK_abc"), "/k/<key>");
         let long = format!("/{}", "a/".repeat(300));
         let clipped = redact_target(&long);
         assert_eq!(clipped.len(), 403);
@@ -147,7 +149,7 @@ mod tests {
 
     #[test]
     fn user_agent() {
-        assert_eq!(redact_user_agent(b"Game/1.0\x01 RRK_x"), "Game/1.0? <key>");
+        assert_eq!(redact_user_agent(b"Game/1.0\x01 DLK_x"), "Game/1.0? <key>");
         assert_eq!(redact_user_agent(&[0xe9]), "\u{e9}");
         assert!(redact_user_agent(&b"a ".repeat(100)).ends_with("..."));
     }

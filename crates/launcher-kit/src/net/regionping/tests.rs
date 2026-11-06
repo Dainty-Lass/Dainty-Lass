@@ -20,7 +20,7 @@ use crate::net::pinned::certificate_fingerprint;
 use crate::net::pinned::tests::{acceptor, certificate};
 
 // Built from pieces, so the repository's secret check never sees a whole key
-const KEY: &str = concat!("RRK_", "dddddddddddddddd", "dddddddddddddddd", "dddddddddddddddd");
+const KEY: &str = concat!("DLK_", "dddddddddddddddd", "dddddddddddddddd", "dddddddddddddddd");
 
 #[derive(Debug, Clone)]
 struct Seen {

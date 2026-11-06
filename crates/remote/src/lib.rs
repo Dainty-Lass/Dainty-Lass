@@ -347,8 +347,8 @@ idle_timeout_secs = 900
 
     #[test]
     fn secret_leak_check_refuses_secrets_env_account_keys_private_keys_and_sqlite_headers() {
-        assert!(contains_forbidden_secret_str("RRK_1234567890abcdef"));
-        assert!(contains_forbidden_secret_str("rra_abcdef1234567890"));
+        assert!(contains_forbidden_secret_str("DLK_1234567890abcdef"));
+        assert!(contains_forbidden_secret_str("dla_abcdef1234567890"));
         assert!(contains_forbidden_secret_str("DAINTY_ADMIN_API_KEY=secret"));
         assert!(contains_forbidden_secret_str("JWT_SECRET=supersecret"));
         assert!(contains_forbidden_secret_str("-----BEGIN PRIVATE KEY-----"));
@@ -358,7 +358,7 @@ idle_timeout_secs = 900
             command_id: "cmd-1".to_string(),
             ok: true,
             code: None,
-            message: "player key is RRK_abcdef0123456789".to_string(),
+            message: "player key is DLK_abcdef0123456789".to_string(),
             data: None,
         };
         assert!(matches!(bad_outcome.validate(), Err(RemoteError::SecretLeakRefused(_))));

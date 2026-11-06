@@ -110,9 +110,9 @@ pub fn invite_note(value: Option<&Value>) -> Option<String> {
     (!note.is_empty()).then_some(note)
 }
 
-/// `RRK_` and 48 lower-case hex digits.
+/// `DLK_` and 48 lower-case hex digits.
 pub fn make_account_key() -> String {
-    format!("RRK_{}", util::random_hex::<24>())
+    format!("DLK_{}", util::random_hex::<24>())
 }
 
 /// 8 to 128 bytes of ASCII letters, digits, `_`, `-`.
@@ -881,7 +881,7 @@ mod tests {
         assert_eq!(invite_note(Some(&json!("x".repeat(100)))).map(|n| n.len()), Some(64));
         assert_eq!(invite_note(Some(&json!(5))), None);
         let key = make_account_key();
-        assert!(key.starts_with("RRK_") && key.len() == 52 && looks_like_account_key(&key));
+        assert!(key.starts_with("DLK_") && key.len() == 52 && looks_like_account_key(&key));
         assert!(!looks_like_account_key("short") && !looks_like_account_key("a b c d e f g"));
     }
 

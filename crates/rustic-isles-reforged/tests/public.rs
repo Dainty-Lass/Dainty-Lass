@@ -108,7 +108,7 @@ async fn registration() {
     let keys: Vec<&String> = body.as_object().unwrap().keys().collect();
     assert_eq!(keys, ["UUK"]);
     let key = body["UUK"].as_str().unwrap().to_owned();
-    assert!(key.starts_with("RRK_") && key.len() == 52);
+    assert!(key.starts_with("DLK_") && key.len() == 52);
     assert!(made.header("x-dainty-account-id").unwrap().starts_with("account:"));
     assert_eq!(
         register(&open, json!({"Username": "fox_9"})).await.code(),

@@ -3,7 +3,7 @@
 //! Fuzz target for `Service::Ring` wire messages (DN6, DN8, DN9): instance registry lookups,
 //! home-owned ticket publications, compare-and-set ticket claims, and regional Ramsgate assignments.
 //! Ensures `decode_request` and `decode_reply` never panic, enforce `RING_VERSION` and bounds, and
-//! never accept a payload containing an `RRK_` account key.
+//! never accept a payload containing an `DLK_` account key.
 
 use libfuzzer_sys::fuzz_target;
 use network::home::protocol::looks_like_account_key;

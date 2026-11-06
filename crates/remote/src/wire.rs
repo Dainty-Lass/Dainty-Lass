@@ -45,8 +45,8 @@ fn is_key_body_char(b: u8) -> bool {
     b.is_ascii_alphanumeric() || b == b'_' || b == b'-'
 }
 
-/// Returns `true` if `text` contains a token shaped like a player account key (`RRK_...`) or an
-/// admin secret key (`RRA_...`).
+/// Returns `true` if `text` contains a token shaped like a player account key (`DLK_...`) or an
+/// admin secret key (`DLA_...`).
 pub fn contains_prefixed_key_token(text: &str) -> bool {
     let bytes = text.as_bytes();
     if bytes.len() < 8 {
@@ -54,11 +54,11 @@ pub fn contains_prefixed_key_token(text: &str) -> bool {
     }
     for i in 0..=bytes.len().saturating_sub(8) {
         let p = &bytes[i..i + 4];
-        let is_rrk = p[0].eq_ignore_ascii_case(&b'r')
-            && p[1].eq_ignore_ascii_case(&b'r')
-            && (p[2].eq_ignore_ascii_case(&b'k') || p[2].eq_ignore_ascii_case(&b'a'))
-            && p[3] == b'_';
-        if !is_rrk {
+        // DLK_/DLA_, and RRK_/RRA_ from before the 2026-11-06 rename
+        let lead = (p[0].eq_ignore_ascii_case(&b'd') && p[1].eq_ignore_ascii_case(&b'l'))
+            || (p[0].eq_ignore_ascii_case(&b'r') && p[1].eq_ignore_ascii_case(&b'r'));
+        let is_key = lead && (p[2].eq_ignore_ascii_case(&b'k') || p[2].eq_ignore_ascii_case(&b'a')) && p[3] == b'_';
+        if !is_key {
             continue;
         }
         if i > 0 && is_key_body_char(bytes[i - 1]) {
@@ -73,7 +73,7 @@ pub fn contains_prefixed_key_token(text: &str) -> bool {
 }
 
 /// Returns `true` if `text` contains any secret material that is forbidden on the remote wire
-/// (`secrets.env` keys, `RRK_` account keys, `RRA_` admin keys, PEM private keys, password hashes,
+/// (`secrets.env` keys, `DLK_` account keys, `DLA_` admin keys, PEM private keys, password hashes,
 /// or SQLite database headers).
 pub fn contains_forbidden_secret_str(text: &str) -> bool {
     if contains_prefixed_key_token(text) {
@@ -256,7 +256,7 @@ impl RemoteRole {
 }
 
 /// Authenticated operator identity attached to every remote command (`DD23`, `DH2`).
-/// Never carries the raw admin key secret (`RRA_...`); carries only the key's identifier (`key_id`).
+/// Never carries the raw admin key secret (`DLA_...`); carries only the key's identifier (`key_id`).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct OperatorEnvelope {

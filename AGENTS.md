@@ -116,7 +116,7 @@ Rules that read like overcaution:
 
 - **The gateway is the only listener off loopback.** Every other service binds 127.0.0.1. Host-only routes and
   headers stay refused at the gateway.
-- **The account key (`RRK_...`) goes only to the server and certificate it was made for.** In public mode the
+- **The account key (`DLK_...`) goes only to the server and certificate it was made for.** In public mode the
   certificate's SHA-256 from the invite is checked before any byte is sent. The gateway loads its existing
   certificate and never regenerates it, because every invite's `fp` depends on it.
 - **Secrets and keys are never logged.** Keep the redaction in the gateway, the launcher and the content server.

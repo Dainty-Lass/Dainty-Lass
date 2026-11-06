@@ -71,7 +71,7 @@ DaintyLass separates **core plugins** from **game modules** ([`crates/module-api
    `revived`, a Dauntless Revived 1.4.4 server, is refused with its own error). The parser accepts nothing it does
    not recognise (`crates/protocol`, `tests/cases/invite.json`).
 2. **Registration.** The launcher posts the chosen name and the code to `POST /dainty/api/Register` and gets
-   an **account key** (`RRK_` and 48 hex digits). The key is stored in the OS keystore and never shown again
+   an **account key** (`DLK_` and 48 hex digits). The key is stored in the OS keystore and never shown again
    unless the player backs it up. In public mode the launcher connects only over TLS pinned to the `fp` from
    the invite, and the key goes only to that server and certificate.
 3. **Status and identity.** `GET /dainty/api/ServerStatus` (with the key, the full view: players and
@@ -124,7 +124,7 @@ added there without a policy decision fails CI.
   ([remote-management.md](remote-management.md), [security/remote-management.md](security/remote-management.md)).
   Enrollment redeems a single-use token over TLS pinned to the controller's SHA-256 certificate fingerprint;
   subsequent syncs ride mTLS on `/__node/remote` with the controller's cluster CA. Secrets (`secrets.env`),
-  account keys (`RRK_*`), private keys and database files never cross the wire in either direction, local
+  account keys (`DLK_*`), private keys and database files never cross the wire in either direction, local
   identity keys and `[remote].local_overrides` are preserved locally, and remote actions run through the same
   `DH2` role checks, `DH6` guarded approval rules and `DD23` change-log attribution (`remote:<controller>:<key>`)
   as local ones.

@@ -14,7 +14,7 @@
 #  5. revoking one install (`dainty-host remote revoke bravo`) causes the controller to refuse bravo's sync and
 #     commands while alpha continues syncing
 #  6. inspecting the captured wire logs (`wire.jsonl`) from the controller and both managed installs proves that the
-#     expected JSON protocol messages crossed the wire and zero secrets (`secrets.env` values, `RRK_`, `PRIVATE KEY`,
+#     expected JSON protocol messages crossed the wire and zero secrets (`secrets.env` values, `DLK_`, `PRIVATE KEY`,
 #     `SQLite format 3`, password hashes) ever crossed
 # Environment:
 #   REMOTE_NO_BUILD=1       the images are built already
@@ -132,7 +132,7 @@ bravo_secrets_sha_after="$(compose exec -T host-bravo sha256sum /opt/dainty-lass
 [ "$alpha_secrets_sha_after" != "$bravo_secrets_sha_after" ] || fail "alpha and bravo should have distinct local secrets.env files"
 
 step "3. run a remote ban from the controller and verify it applies on alpha with the remote operator actor"
-# Create a player invite on alpha so an RRK_ key also exists locally on alpha (and must never cross the wire)
+# Create a player invite on alpha so an DLK_ key also exists locally on alpha (and must never cross the wire)
 player_invite_alpha="$(compose exec -T host-alpha dainty-host invite --for Griefer99 --json)"
 echo "$player_invite_alpha"
 
@@ -227,7 +227,7 @@ for marker in \
 	"ALLOWLIST_SECRET" \
 	"RUSTIC_ISLES_MANAGER_OPERATOR_SECRET" \
 	"DAINTY_DB_PASSWORD" \
-	"RRK_" \
+	"DLK_" \
 	"PRIVATE KEY" \
 	"SQLite format 3" \
 	"\$argon2" \

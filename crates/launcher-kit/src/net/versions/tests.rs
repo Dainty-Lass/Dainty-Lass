@@ -172,7 +172,7 @@ fn compiled_in() -> Vec<KnownProfile> {
 // ---------------------------------------------------------------- stand-in sources
 
 // Built from pieces, so the repository's secret check never sees a whole key
-const KEY: &str = concat!("RRK_", "dddddddddddddddd", "dddddddddddddddd", "dddddddddddddddd");
+const KEY: &str = concat!("DLK_", "dddddddddddddddd", "dddddddddddddddd", "dddddddddddddddd");
 
 /// What a joined server's content holds, as DF4b's routes give it; each request is written down by its
 /// route, so the tests see which routes were asked in which order.
@@ -428,7 +428,7 @@ fn a_server_without_the_key_is_never_asked_to_prove_a_manifest_it_would_refuse()
 #[test]
 fn a_joined_server_prints_without_its_key() {
     let shown = format!("{:?}", server("home"));
-    assert!(shown.contains("<redacted>") && !shown.contains("RRK_"), "{shown}");
+    assert!(shown.contains("<redacted>") && !shown.contains("DLK_"), "{shown}");
 }
 
 #[test]

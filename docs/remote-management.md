@@ -228,7 +228,7 @@ never secrets, and a managed install reports status and summaries, never secrets
    - `.workspace/config/secrets.env` or any variable in `SECRET_KEYS` (`DAINTY_ADMIN_API_KEY`, `JWT_SECRET`,
      `SESSION_SECRET`, `TURN_STATIC_AUTH_SECRET`, `AUTH_SIGNING_PRIVKEY_B64`, S3 credentials, Postgres passwords,
      MongoDB URI passwords);
-   - Player account keys (`RRK_...`), OAuth tokens, refresh tokens, or password/key hashes;
+   - Player account keys (`DLK_...`), OAuth tokens, refresh tokens, or password/key hashes;
    - Raw SQLite database files (`dainty-lass.db`, `chat.db`), Postgres dumps, or legacy MongoDB BSON documents;
    - The install's TLS private key (`node.key`).
 2. **How a managed install gets the secrets it needs**:

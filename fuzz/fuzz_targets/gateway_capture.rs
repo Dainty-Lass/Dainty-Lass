@@ -15,7 +15,7 @@ use libfuzzer_sys::fuzz_target;
 /// Every account key in `text`, whole.
 fn keys(text: &str) -> Vec<String> {
     let mut found = Vec::new();
-    for prefix in ["RRK_", "UUK_"] {
+    for prefix in ["DLK_", "UUK_"] {
         let mut rest = text;
         while let Some(at) = rest.find(prefix) {
             let len = rest[at + 4..].bytes().take_while(u8::is_ascii_alphanumeric).count();

@@ -192,7 +192,7 @@ mod tests {
 
         let legacy_keys = docs_root.join(LEGACY_RECOVERY_FOLDER).join("Account Keys");
         std::fs::create_dir_all(&legacy_keys).unwrap();
-        std::fs::write(legacy_keys.join("abc.txt"), b"RRK_legacy_1").unwrap();
+        std::fs::write(legacy_keys.join("abc.txt"), b"DLK_legacy_1").unwrap();
 
         // 1. Fresh migration moves legacy folders into DaintyLass names
         migrate_legacy_folders(&new_user_data, Some(&docs_root));
@@ -205,7 +205,7 @@ mod tests {
         let new_keys = docs_root.join(RECOVERY_FOLDER).join("Account Keys");
         assert_eq!(
             std::fs::read_to_string(new_keys.join("abc.txt")).unwrap(),
-            "RRK_legacy_1"
+            "DLK_legacy_1"
         );
 
         // 2. If both legacy and new folders exist, missing files merge without overwriting newer files
@@ -213,8 +213,8 @@ mod tests {
         std::fs::write(legacy_user_data.join("keys/abc.key2"), b"stale-key").unwrap();
         std::fs::write(legacy_user_data.join("keys/def.key2"), b"encrypted-key-2").unwrap();
         std::fs::create_dir_all(&legacy_keys).unwrap();
-        std::fs::write(legacy_keys.join("abc.txt"), b"RRK_stale").unwrap();
-        std::fs::write(legacy_keys.join("def.txt"), b"RRK_legacy_2").unwrap();
+        std::fs::write(legacy_keys.join("abc.txt"), b"DLK_stale").unwrap();
+        std::fs::write(legacy_keys.join("def.txt"), b"DLK_legacy_2").unwrap();
 
         migrate_legacy_folders(&new_user_data, Some(&docs_root));
         assert_eq!(
@@ -227,11 +227,11 @@ mod tests {
         );
         assert_eq!(
             std::fs::read_to_string(new_keys.join("abc.txt")).unwrap(),
-            "RRK_legacy_1"
+            "DLK_legacy_1"
         );
         assert_eq!(
             std::fs::read_to_string(new_keys.join("def.txt")).unwrap(),
-            "RRK_legacy_2"
+            "DLK_legacy_2"
         );
     }
 }

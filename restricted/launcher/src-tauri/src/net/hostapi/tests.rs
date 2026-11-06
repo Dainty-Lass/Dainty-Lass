@@ -15,7 +15,7 @@ use tokio::net::TcpListener;
 use tokio_rustls::TlsAcceptor;
 
 // Built from pieces, so the repository's secret check never sees a whole key
-const KEY: &str = concat!("RRK_", "eeeeeeeeeeeeeeee", "eeeeeeeeeeeeeeee", "eeeeeeeeeeeeeeee");
+const KEY: &str = concat!("DLK_", "eeeeeeeeeeeeeeee", "eeeeeeeeeeeeeeee", "eeeeeeeeeeeeeeee");
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -311,7 +311,7 @@ fn the_key_is_never_sent_outside_the_tailnet_without_a_pin() {
     };
     assert_eq!(key_headers(&pinned, Some(KEY)), vec![(KEY_HEADER, KEY.to_owned())]);
     assert!(key_headers(&pinned, Some("short")).is_empty());
-    assert!(key_headers(&pinned, Some("RRK_ with space")).is_empty());
+    assert!(key_headers(&pinned, Some("DLK_ with space")).is_empty());
     assert!(key_headers(&pinned, None).is_empty());
     let tailnet = Endpoint {
         host: "100.64.0.1".into(),
@@ -398,7 +398,7 @@ impl Fake {
                     return (401, serde_json::json!({ "error": "invite_invalid" }));
                 }
                 self.registrations += 1;
-                let key = format!("RRK_{:048x}", self.registrations);
+                let key = format!("DLK_{:048x}", self.registrations);
                 self.users
                     .insert(key.clone(), (username, format!("uid-{}", self.registrations)));
                 (200, serde_json::json!({ "UUK": key }))
@@ -592,7 +592,7 @@ async fn register_and_user_info_over_the_pin_and_nothing_sent_to_a_mismatching_s
     let RegisterResult::Ok { key } = register_account(&endpoint, "Borealis", "GOOD-CODE").await else {
         panic!("registration failed");
     };
-    assert!(key.starts_with("RRK_") && key.len() == 52 && key[4..].bytes().all(|b| b.is_ascii_hexdigit()));
+    assert!(key.starts_with("DLK_") && key.len() == 52 && key[4..].bytes().all(|b| b.is_ascii_hexdigit()));
     let info = fetch_user_info(&endpoint, &key).await.unwrap();
     assert_eq!(info.username, "Borealis");
     assert_eq!(

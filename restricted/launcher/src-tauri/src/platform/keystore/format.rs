@@ -1,5 +1,5 @@
 //! What the key store reads from disk before and after decryption, with no crypto: the key file text
-//! (`RRK2`, or a bare key) and the Electron launcher's framing (`Local State`, `v10`/`v11` blobs). Built
+//! (`DLK2`, or a bare key) and the Electron launcher's framing (`Local State`, `v10`/`v11` blobs). Built
 //! on `protocol` and `serde_json` only, so the fuzz target (`fuzz`, `launcher_files`) compiles this
 //! file as it is. The decryption itself is in `legacy.rs` and `os.rs`.
 
@@ -7,10 +7,12 @@ use protocol::account::is_plausible_account_key;
 use protocol::invite::is_valid_fingerprint;
 use serde_json::Value;
 
-/// What a key file holds after decryption: `RRK2\n<fingerprint or ->\n<key>`, as Reforged's Electron
+/// What a key file holds after decryption: `DLK2\n<fingerprint or ->\n<key>`, as Reforged's Electron
 /// launcher writes it (and this one, in its own files). The first format was the key alone; such a key is
 /// not tied to any certificate. DR's `DRK2` was never written on a Reforged PC and is not read (RD22).
-pub const FORMAT: &str = "RRK2";
+pub const FORMAT: &str = "DLK2";
+/// The same framing as the Reforged Revival launcher wrote it, read so its keys migrate
+pub const LEGACY_FORMAT: &str = "RRK2";
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Stored {
@@ -29,7 +31,7 @@ impl Stored {
 /// A decrypted key file (or a Documents copy). None: not a key this launcher can use.
 pub fn parse_stored(text: &str) -> Option<Stored> {
     let parts: Vec<&str> = text.split('\n').collect();
-    if parts.len() == 3 && parts[0] == FORMAT {
+    if parts.len() == 3 && (parts[0] == FORMAT || parts[0] == LEGACY_FORMAT) {
         let fp = (parts[1] != "-").then(|| parts[1].to_owned());
         if fp.as_deref().is_some_and(|fp| !is_valid_fingerprint(fp)) {
             return None;
@@ -85,7 +87,7 @@ pub fn linux_blob(blob: &[u8]) -> Option<(LinuxPassword, &[u8])> {
 mod tests {
     use super::*;
 
-    const KEY: &str = concat!("RRK_", "abababababababababababab", "abababababababababababab");
+    const KEY: &str = concat!("DLK_", "abababababababababababab", "abababababababababababab");
 
     fn fp() -> String {
         "a1".repeat(32)
@@ -94,14 +96,14 @@ mod tests {
     #[test]
     fn rrk2_and_bare_keys_only() {
         assert_eq!(
-            parse_stored(&format!("RRK2\n{}\n{KEY}", fp())),
+            parse_stored(&format!("DLK2\n{}\n{KEY}", fp())),
             Some(Stored {
                 key: KEY.into(),
                 fp: Some(fp())
             })
         );
         assert_eq!(
-            parse_stored(&format!("RRK2\n-\n{KEY}")),
+            parse_stored(&format!("DLK2\n-\n{KEY}")),
             Some(Stored {
                 key: KEY.into(),
                 fp: None
@@ -117,17 +119,17 @@ mod tests {
         );
         for bad in [
             format!("DRK2\n{}\n{KEY}", fp()),
-            format!("RRK2\nABC\n{KEY}"),
-            format!("RRK2\n{}\n{KEY}\n", fp()),
-            "RRK2\n-\nkey with spaces".into(),
-            format!("RRK2\n-\n{KEY}\r"),
+            format!("DLK2\nABC\n{KEY}"),
+            format!("DLK2\n{}\n{KEY}\n", fp()),
+            "DLK2\n-\nkey with spaces".into(),
+            format!("DLK2\n-\n{KEY}\r"),
             format!("{KEY}\n"),
             String::new(),
             "short".into(),
         ] {
             assert_eq!(parse_stored(&bad), None, "{bad:?}");
         }
-        let stored = parse_stored(&format!("RRK2\n{}\n{KEY}", fp())).unwrap();
+        let stored = parse_stored(&format!("DLK2\n{}\n{KEY}", fp())).unwrap();
         assert_eq!(parse_stored(&stored.text()), Some(stored));
     }
 

@@ -6,7 +6,7 @@
 //! `HomeApi` modules reach all of it through. The plugin never reads an operation: a module's name, an
 //! operation name and a JSON body travel to the module's [`module_api::HomeBackend`] at the home.
 //!
-//! The account key (`RRK_...`) never crosses a node link: [`protocol`] refuses it in every field.
+//! The account key (`DLK_...`) never crosses a node link: [`protocol`] refuses it in every field.
 
 pub mod client;
 pub mod keys;

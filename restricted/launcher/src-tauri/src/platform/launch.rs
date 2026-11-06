@@ -400,7 +400,7 @@ pub fn game_exit_detail(code: i32) -> String {
 mod tests {
     use super::*;
 
-    const KEY: &str = concat!("RRK_", "cccccccccccccccc", "cccccccccccccccc", "cccccccccccccccc");
+    const KEY: &str = concat!("DLK_", "cccccccccccccccc", "cccccccccccccccc", "cccccccccccccccc");
     const USER_ID: &str = "0b7c2f6e-1d2a-4c55-9d6f-7a1e2b3c4d5e";
 
     fn settings<'a>(key: &'a str, user_id: &'a str, username: &'a str, windowed: bool) -> LaunchSettings<'a> {

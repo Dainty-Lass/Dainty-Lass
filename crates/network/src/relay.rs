@@ -10,7 +10,7 @@
 //! Each receiving node verifies that the caller (`from`, authenticated by the node link) is a listed
 //! peer, checks its idempotency cache for `(from, key)`, revokes session tickets on [`Tickets`] when
 //! `revoke_tickets` is set, and hands the [`RelayedAction`] to its [`AdminAuthority`]. Neither an
-//! account key (`RRK_...`) nor an admin secret key (`RRA_...`) may appear anywhere in a relay message.
+//! account key (`DLK_...`) nor an admin secret key (`DLA_...`) may appear anywhere in a relay message.
 
 use std::collections::{BTreeSet, HashMap, VecDeque};
 use std::sync::{Arc, Mutex, PoisonError, RwLock};
@@ -49,13 +49,14 @@ pub mod operations {
     pub const REVOKE_KEY: &str = "admin.revoke_key";
 }
 
-/// Refuses anything shaped like an issued admin secret key (`RRA_<id>_<secret>`), so only the public
+/// Refuses anything shaped like an issued admin secret key (`DLA_<id>_<secret>`), so only the public
 /// key id (`owner` or 8 lower-case hex digits) ever crosses a node link.
 pub fn looks_like_admin_key(text: &str) -> bool {
     let bytes = text.as_bytes();
     let is_key_char = |b: u8| b.is_ascii_alphanumeric() || b == b'_' || b == b'-';
     for (i, window) in bytes.windows(4).enumerate() {
-        if window.eq_ignore_ascii_case(b"rra_") {
+        // rra_ too: the prefix before the 2026-11-06 rename
+        if window.eq_ignore_ascii_case(b"dla_") || window.eq_ignore_ascii_case(b"rra_") {
             let before_ok = i == 0 || !is_key_char(bytes[i - 1]);
             let tail = bytes[i + 4..].iter().take_while(|&&b| is_key_char(b)).count();
             if before_ok && tail >= 16 {
@@ -66,7 +67,7 @@ pub fn looks_like_admin_key(text: &str) -> bool {
     false
 }
 
-/// Whether any string inside `value` looks like an account key (`RRK_...`) or an admin secret key (`RRA_...`).
+/// Whether any string inside `value` looks like an account key (`DLK_...`) or an admin secret key (`DLA_...`).
 pub fn holds_secret_key(value: &Value) -> bool {
     if holds_account_key(value) {
         return true;
@@ -794,10 +795,10 @@ mod tests {
         let decoded = decode_request(&bytes).unwrap();
         assert_eq!(decoded.action, action);
 
-        // Neither an account key (RRK_) nor an admin secret key (RRA_) may cross a node link
+        // Neither an account key (DLK_) nor an admin secret key (DLA_) may cross a node link
         for secret in [
-            "RRK_0123456789abcdef0123456789abcdef",
-            "RRA_ab12cd34_0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+            "DLK_0123456789abcdef0123456789abcdef",
+            "DLA_ab12cd34_0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
         ] {
             let raw = serde_json::to_vec(&json!({
                 "version": ADMIN_RELAY_VERSION,

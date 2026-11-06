@@ -190,7 +190,7 @@ in DD5's frames, and the library is in the core's process, so what crosses is a 
 ### The traffic capture (RD19)
 
 - [ ] Off unless `CAPTURE_DIR` is set; when on, the start logs a warning that says so.
-- [ ] Bearer tokens become `<token:subject>` (read without the signature), account keys (`RRK_`, DR's `UUK_`) become
+- [ ] Bearer tokens become `<token:subject>` (read without the signature), account keys (`DLK_`, DR's `UUK_`) become
       `<key:sha256>`, the game-server key `<gskey>`, and every field or header whose name looks secret (`key`,
       `token`, `secret`, `pass`, `auth`, `jwt`, `sig`, `cred`, `recovery`, `invite`, `cookie`) `<redacted>`; hex runs
       of 40 or more and other long tokens are cut; cookies and `x-dainty-gateway` are dropped (`capture.rs`).

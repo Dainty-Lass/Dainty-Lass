@@ -1037,7 +1037,7 @@ mod tests {
         let ticket = s.ticket();
         let payload = URL_SAFE_NO_PAD.decode(ticket.token.split('.').nth(1).unwrap()).unwrap();
         let text = String::from_utf8(payload).unwrap();
-        assert!(!text.to_ascii_lowercase().contains("rrk_"));
+        assert!(!text.to_ascii_lowercase().contains("dlk_"));
         let shown = format!("{:?}", s.home);
         assert!(shown.contains("germany-1") && !shown.contains(s.home.public_keys()[0].kid()));
     }

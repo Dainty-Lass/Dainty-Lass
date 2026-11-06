@@ -8,7 +8,7 @@
 //! Files: `keys/<id>.key2`, encrypted by this launcher (`os.rs`: DPAPI on Windows, AES-256-GCM with a key
 //! held by the Secret Service or KWallet on Linux). The Electron launcher's `keys/<id>.key` (safeStorage)
 //! is read once through `legacy.rs`, written in the new format, read back, and left in place for a
-//! rollback to 1.5.x until 3.0.0 (D7, RD7). Both hold `RRK2` text or a bare key (`format.rs`, RD22). A
+//! rollback to 1.5.x until 3.0.0 (D7, RD7). Both hold `DLK2` text or a bare key (`format.rs`, RD22). A
 //! plain-text copy sits in the player's Documents (the recovery folder, `Paths::recovery_dir`), as the
 //! Electron launcher keeps one. Keys of saved 1.4.4 servers stay on disk like any other (RD22).
 //!
@@ -339,7 +339,7 @@ mod tests {
         }
     }
 
-    const KEY: &str = concat!("RRK_", "abababababababababababab", "abababababababababababab");
+    const KEY: &str = concat!("DLK_", "abababababababababababab", "abababababababababababab");
 
     fn store(dir: &Path) -> KeyStore {
         KeyStore::new(dir.to_path_buf(), Arc::new(Fake), Some(Arc::new(Old)), None)
@@ -455,7 +455,7 @@ mod tests {
         keys.save(&public(Some(&fp("a1"))), KEY).unwrap();
         std::fs::write(
             keys.legacy_file(&public(None)),
-            Old.encrypt(&format!("RRK2\n{}\n{KEY}", fp("a1"))).unwrap(),
+            Old.encrypt(&format!("DLK2\n{}\n{KEY}", fp("a1"))).unwrap(),
         )
         .unwrap();
         keys.remove(&public(Some(&fp("b2"))));
@@ -473,7 +473,7 @@ mod tests {
         keys.save(&public(Some(&a)), KEY).unwrap();
         assert_eq!(
             std::fs::read_to_string(recovery.join(format!("{}.txt", public(None).id()))).unwrap(),
-            format!("RRK2\n{a}\n{KEY}"),
+            format!("DLK2\n{a}\n{KEY}"),
             "the Electron launcher's Documents file, byte for byte"
         );
         std::fs::remove_dir_all(&primary).unwrap();
@@ -491,11 +491,11 @@ mod tests {
         let slot = public(Some(&a));
         let keys = store(dir.path());
         let old = keys.legacy_file(&slot);
-        std::fs::write(&old, Old.encrypt(&format!("RRK2\n{a}\n{KEY}")).unwrap()).unwrap();
+        std::fs::write(&old, Old.encrypt(&format!("DLK2\n{a}\n{KEY}")).unwrap()).unwrap();
         assert_eq!(keys.load(&slot).unwrap().as_deref(), Some(KEY));
         assert_eq!(
             Fake.decrypt(&std::fs::read(keys.file(&slot)).unwrap()).unwrap(),
-            format!("RRK2\n{a}\n{KEY}")
+            format!("DLK2\n{a}\n{KEY}")
         );
         assert!(old.exists(), "the Electron file stays for a rollback");
         // Without the old encryptor the new file still loads
@@ -507,7 +507,7 @@ mod tests {
         assert_eq!(keys.load(&bare).unwrap().as_deref(), Some(KEY));
         assert_eq!(
             Fake.decrypt(&std::fs::read(keys.file(&bare)).unwrap()).unwrap(),
-            format!("RRK2\n-\n{KEY}")
+            format!("DLK2\n-\n{KEY}")
         );
     }
 
@@ -534,7 +534,7 @@ mod tests {
     fn a_read_key_is_hidden_in_the_log() {
         let dir = tempfile::tempdir().unwrap();
         let keys = store(dir.path());
-        let key = concat!("RRK_", "0f0f0f0f0f0f0f0f0f0f0f0f", "0f0f0f0f0f0f0f0f0f0f0f0f");
+        let key = concat!("DLK_", "0f0f0f0f0f0f0f0f0f0f0f0f", "0f0f0f0f0f0f0f0f0f0f0f0f");
         std::fs::write(keys.legacy_file(&private("100.64.0.4")), Old.encrypt(key).unwrap()).unwrap();
         assert_eq!(keys.load(&private("100.64.0.4")).unwrap().as_deref(), Some(key));
         let line = log::redact(&format!("argument {} and {}", key, &key[4..]));
@@ -669,7 +669,7 @@ mod tests {
         // backupFileText's output for the same values, from Node
         assert_eq!(
             text,
-            "DaintyLass account key\r\n\r\nServer: Hunts (play.example.org:443)\r\nCertificate: ab\r\nUsername: -\r\nSaved: 2026-10-21\r\nKey: RRK_abababababababababababababababababababababababab\r\n\r\nKeep this file private: anyone who has this key can play as you on this server.\r\nTo use it on another PC: DaintyLass Launcher > Register > I already have a key > Load a backup file.\r\n"
+            "DaintyLass account key\r\n\r\nServer: Hunts (play.example.org:443)\r\nCertificate: ab\r\nUsername: -\r\nSaved: 2026-10-21\r\nKey: DLK_abababababababababababababababababababababababab\r\n\r\nKeep this file private: anyone who has this key can play as you on this server.\r\nTo use it on another PC: DaintyLass Launcher > Register > I already have a key > Load a backup file.\r\n"
         );
         assert_eq!(protocol::account::extract_account_key(&text), Some(KEY));
     }

@@ -71,7 +71,7 @@ fn pattern(text: &str) -> Regex {
 }
 
 static JWT: LazyLock<Regex> = LazyLock::new(|| pattern(r"eyJ[A-Za-z0-9_-]+\.([A-Za-z0-9_-]+)\.[A-Za-z0-9_-]+"));
-static ACCOUNT_KEY: LazyLock<Regex> = LazyLock::new(|| pattern(r"(?:RRK_|UUK_)[A-Za-z0-9]+"));
+static ACCOUNT_KEY: LazyLock<Regex> = LazyLock::new(|| pattern(r"(?:DLK_|RRK_|UUK_)[A-Za-z0-9]+"));
 static HEX_RUN: LazyLock<Regex> = LazyLock::new(|| pattern(r"[0-9A-Fa-f]{40,}"));
 static LONG_RUN: LazyLock<Regex> = LazyLock::new(|| pattern(r"[A-Za-z0-9_+/=-]{100,}"));
 static MARK: LazyLock<Regex> = LazyLock::new(|| pattern("\u{1}([0-9]+)\u{1}"));
@@ -820,7 +820,7 @@ mod tests {
         assert_eq!(redact_capture_text(&jwt(r#"{"sub":"abc"}"#)), "<token:abc>");
         assert_eq!(redact_capture_text(&jwt(r#"{"sub":null}"#)), "<token>");
         assert_eq!(redact_capture_text(&jwt(r#"{"userId":"a b"}"#)), "<token>");
-        let key = "RRK_abc123";
+        let key = "DLK_abc123";
         assert_eq!(
             redact_capture_text(key),
             format!("<key:{}>", crate::hex(&Sha256::digest(key.as_bytes())))
@@ -858,13 +858,13 @@ mod tests {
         h.insert("user-agent", "Game/1".parse().unwrap());
         h.insert("cookie", "a=b".parse().unwrap());
         h.insert("x-dainty-gateway", "s".parse().unwrap());
-        h.insert("x-dainty-user-api-key", "RRK_abc".parse().unwrap());
+        h.insert("x-dainty-user-api-key", "DLK_abc".parse().unwrap());
         h.insert("x-dainty-admin-key", "adm".parse().unwrap());
         h.insert("x-rustic-isles-gameserver-key", "g".parse().unwrap());
         h.append("accept", "a".parse().unwrap());
         h.append("accept", "b".parse().unwrap());
         let v = redact_capture_headers(&h);
-        let hash = crate::hex(&Sha256::digest(b"RRK_abc"));
+        let hash = crate::hex(&Sha256::digest(b"DLK_abc"));
         assert_eq!(
             v,
             json!({"user-agent":"Game/1","x-dainty-user-api-key":format!("<key:{hash}>"),

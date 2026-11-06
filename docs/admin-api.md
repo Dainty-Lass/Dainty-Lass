@@ -134,7 +134,7 @@ changes, and the log gets the key's id.
 From the host (no key needed; run it on the server):
 
 ```bash
-dainty-host admin key issue --name Maya --role moderator   # prints RRA_<id>_<secret> once
+dainty-host admin key issue --name Maya --role moderator   # prints DLA_<id>_<secret> once
 dainty-host admin key list                                  # id, role, name, who issued it, active or revoked
 dainty-host admin key revoke 58ef5419                       # its next request is refused
 ```

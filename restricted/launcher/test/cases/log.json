@@ -1,15 +1,15 @@
 {
   "secrets": [
-    "RRK_0123456789abcdef0123456789abcdef0123456789abcdef",
+    "DLK_0123456789abcdef0123456789abcdef0123456789abcdef",
     "hunter2secret",
     "short",
-    "RRK_xxxxxxxxxxxxxxx",
-    "RRK_yyyyyyyyyyyyyyyy"
+    "DLK_xxxxxxxxxxxxxxx",
+    "DLK_yyyyyyyyyyyyyyyy"
   ],
-  "removed": "RRK_0123456789abcdef0123456789abcdef0123456789abcdef",
+  "removed": "DLK_0123456789abcdef0123456789abcdef0123456789abcdef",
   "cases": [
     {
-      "line": "raw RRK_0123456789abcdef0123456789abcdef0123456789abcdef end",
+      "line": "raw DLK_0123456789abcdef0123456789abcdef0123456789abcdef end",
       "redacted": "raw <hidden> end"
     },
     {
@@ -25,7 +25,7 @@
       "redacted": "short is not a secret"
     },
     {
-      "line": "RRK_xxxxxxxxxxxxxxx and yyyyyyyyyyyyyyyy",
+      "line": "DLK_xxxxxxxxxxxxxxx and yyyyyyyyyyyyyyyy",
       "redacted": "<hidden> and <hidden>"
     },
     {
@@ -57,8 +57,8 @@
       "redacted": "-AUTH_PASSWORD=<hidden>　b"
     },
     {
-      "line": "RRK_ab-_cd!rest",
-      "redacted": "RRK_<hidden>!rest"
+      "line": "DLK_ab-_cd!rest",
+      "redacted": "DLK_<hidden>!rest"
     },
     {
       "line": "nothing here",
@@ -73,8 +73,8 @@
       "redacted": "x-undaunted-user-api-key: not-ours"
     },
     {
-      "line": "after removal 0123456789abcdef0123456789abcdef0123456789abcdef RRK_0123456789abcdef0123456789abcdef0123456789abcdef",
-      "redacted": "after removal 0123456789abcdef0123456789abcdef0123456789abcdef RRK_<hidden>"
+      "line": "after removal 0123456789abcdef0123456789abcdef0123456789abcdef DLK_0123456789abcdef0123456789abcdef0123456789abcdef",
+      "redacted": "after removal 0123456789abcdef0123456789abcdef0123456789abcdef DLK_<hidden>"
     }
   ]
 }

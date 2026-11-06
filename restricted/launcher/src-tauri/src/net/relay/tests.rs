@@ -1095,7 +1095,7 @@ async fn repoint_requires_ticket_off_home_strips_key_and_restores_home_forwardin
         relay.port(),
         "GET",
         "/session",
-        &[("x-dainty-user-api-key", "RRK_home_secret_key_123456")],
+        &[("x-dainty-user-api-key", "DLK_home_secret_key_123456")],
         None,
     )
     .await;
@@ -1103,7 +1103,7 @@ async fn repoint_requires_ticket_off_home_strips_key_and_restores_home_forwardin
     let home_seen = home_upstream.seen().last().cloned().unwrap();
     assert_eq!(
         values(&home_seen.headers, "x-dainty-user-api-key"),
-        ["RRK_home_secret_key_123456"]
+        ["DLK_home_secret_key_123456"]
     );
     assert!(!home_seen.headers.contains_key("x-dainty-session-ticket"));
 
@@ -1136,7 +1136,7 @@ async fn repoint_requires_ticket_off_home_strips_key_and_restores_home_forwardin
         relay.port(),
         "GET",
         "/hunt/join",
-        &[("x-dainty-user-api-key", "RRK_home_secret_key_123456")],
+        &[("x-dainty-user-api-key", "DLK_home_secret_key_123456")],
         None,
     )
     .await;
@@ -1158,7 +1158,7 @@ async fn repoint_requires_ticket_off_home_strips_key_and_restores_home_forwardin
         relay.port(),
         "GET",
         "/session/after-hunt",
-        &[("x-dainty-user-api-key", "RRK_home_secret_key_123456")],
+        &[("x-dainty-user-api-key", "DLK_home_secret_key_123456")],
         None,
     )
     .await;
@@ -1167,7 +1167,7 @@ async fn repoint_requires_ticket_off_home_strips_key_and_restores_home_forwardin
     assert_eq!(home_seen_after.uri.as_str(), "/session/after-hunt");
     assert_eq!(
         values(&home_seen_after.headers, "x-dainty-user-api-key"),
-        ["RRK_home_secret_key_123456"]
+        ["DLK_home_secret_key_123456"]
     );
     assert!(!home_seen_after.headers.contains_key("x-dainty-session-ticket"));
 
@@ -1186,7 +1186,7 @@ async fn redirect_response_headers_automatically_repoint_relay_and_strip_account
         "POST",
         "/redirect-me",
         &[
-            ("x-dainty-user-api-key", "RRK_home_secret_key_123456"),
+            ("x-dainty-user-api-key", "DLK_home_secret_key_123456"),
             ("x-test-redirect-host", "127.0.0.1"),
             ("x-test-redirect-port", &peer_port_str),
             ("x-test-redirect-fingerprint", &peer_upstream.fingerprint),
@@ -1210,7 +1210,7 @@ async fn redirect_response_headers_automatically_repoint_relay_and_strip_account
         relay.port(),
         "GET",
         "/matchmaking/instance-info",
-        &[("x-dainty-user-api-key", "RRK_home_secret_key_123456")],
+        &[("x-dainty-user-api-key", "DLK_home_secret_key_123456")],
         None,
     )
     .await;

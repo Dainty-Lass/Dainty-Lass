@@ -35,7 +35,7 @@ traffic capture is on: every request and answer is recorded, redacted, for the s
 The gateway writes one file per UTC day named `gateway-YYYY-MM-DD.jsonl` inside `CAPTURE_DIR`. Each line is a single JSON object with `"kind": "http"` (an HTTP request/response pair) or `"kind": "chat"` (an XMPP WebSocket lifecycle event or frame):
 
 - Session tokens (JWTs) are never written in cleartext. Any JWT (`eyJ...`) in headers, bodies, or query strings is replaced with `<token:UID-...>` (preserving only the unverified `userId` / `sub` claim so the replay runner can mint a fresh token for the target server) or `<token>` when no subject claim is present.
-- Launcher account keys (`RRK_...`, `UUK_...`) become `<key:<sha256-hex>>` (the lowercase 64-character SHA-256 digest of the raw key).
+- Launcher account keys (`DLK_...`, `UUK_...`) become `<key:<sha256-hex>>` (the lowercase 64-character SHA-256 digest of the raw key).
 - Game-server API keys (`x-rustic-isles-gameserver-apikey`) become `<gskey>`.
 - XMPP SASL `PLAIN` frames (`<auth ...>...</auth>`) become `<plain:UID-...>` so the replay runner can synthesize a valid base64 `\0<userId>\0<fresh-jwt>` frame for the target server.
 - Any other JSON or form field whose name matches `(?i)(key|token|secret|pass|auth|jwt|sig|cred|recovery|invite|cookie)` (unless already converted to `<token:...>` or `<key:...>`) and any 40+ character hex string or 100+ character token string is replaced with `<redacted>`.
@@ -52,17 +52,17 @@ Shadow replay is built into `dainty-host db replay` (backed by dainty-lass's `ru
 ### 2.1 Preparing the target server (`--right`)
 
 1. Start from a database snapshot (`dainty-lass.db` or PostgreSQL dump) taken before the captured session began, so account state, character `updateVersion`, inventory instances, and progression tracks start from the same baseline.
-2. If the captured session includes `/account/api/oauth/token` (`grant_type=exchange_code`), `/dainty/api/ServerStatus`, or `/dainty/api/GetUserInfo` calls authenticated with a launcher account key (`RRK_...` or `UUK_...`), provide a `--key-map <keymap.json>` file so `<key:<sha256>>` placeholders resolve to the raw key registered on the target server:
+2. If the captured session includes `/account/api/oauth/token` (`grant_type=exchange_code`), `/dainty/api/ServerStatus`, or `/dainty/api/GetUserInfo` calls authenticated with a launcher account key (`DLK_...` or `UUK_...`), provide a `--key-map <keymap.json>` file so `<key:<sha256>>` placeholders resolve to the raw key registered on the target server:
    - Either a JSON array of raw keys (the runner computes each key's SHA-256 automatically):
      ```json
      [
-       "RRK_51e9d7eb..."
+       "DLK_51e9d7eb..."
      ]
      ```
    - Or a JSON object mapping lowercase SHA-256 hex digests to raw keys:
      ```json
      {
-       "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef": "RRK_51e9d7eb..."
+       "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef": "DLK_51e9d7eb..."
      }
      ```
 3. Run `dainty-host db replay` (or dainty-lass's `node scripts/replay-capture.mjs`) from the target server's directory (so it automatically reads `AUTH_SIGNING_PRIVKEY_B64`, `JWT_SECRET`, `GAMESERVER_API_KEY`, and `GATEWAY_SECRET` from `.workspace/config/secrets.env`), or pass the credentials explicitly on the command line:
@@ -180,9 +180,9 @@ The end-to-end pipeline (live `Server A` with `CAPTURE_DIR` enabled in `.workspa
 ### 5.1 Captured routes exercised through the gateway
 
 1. `GET /dainty/api/RegistrationStatus`
-2. `GET /dainty/api/ServerStatus` (with `x-dainty-user-api-key: RRK_...` -> redacted to `<key:sha256>`)
-3. `GET /dainty/api/GetUserInfo` (with `x-dainty-user-api-key: RRK_...` -> redacted to `<key:sha256>`)
-4. `POST /account/api/oauth/token` (`grant_type=exchange_code&exchange_code=RRK_...` -> redacted to `<key:sha256>`, response `access_token` redacted to `<token:52c7ed2e-99e4-463c-8d08-7f509bc9de02>`)
+2. `GET /dainty/api/ServerStatus` (with `x-dainty-user-api-key: DLK_...` -> redacted to `<key:sha256>`)
+3. `GET /dainty/api/GetUserInfo` (with `x-dainty-user-api-key: DLK_...` -> redacted to `<key:sha256>`)
+4. `POST /account/api/oauth/token` (`grant_type=exchange_code&exchange_code=DLK_...` -> redacted to `<key:sha256>`, response `access_token` redacted to `<token:52c7ed2e-99e4-463c-8d08-7f509bc9de02>`)
 5. `POST /login` (with `Authorization: Bearer <jwt>` -> redacted to `Bearer <token:52c7ed2e-99e4-463c-8d08-7f509bc9de02>`)
 6. `GET /accountinfo`
 7. `GET /tags`
@@ -213,7 +213,7 @@ The end-to-end pipeline (live `Server A` with `CAPTURE_DIR` enabled in `.workspa
 === 2. Starting server-a to seed CanarySlayer account ===
 Seeded CanarySlayer: {
   userId: '52c7ed2e-99e4-463c-8d08-7f509bc9de02',
-  uukPrefix: 'RRK_51e9d7eb...'
+  uukPrefix: 'DLK_51e9d7eb...'
 }
 === 3. Cloning pre-session snapshot to server-b and writing keymap.json ===
 === 4. Enabling CAPTURE_DIR on server-a and running synthetic session ===

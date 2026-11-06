@@ -411,7 +411,7 @@ impl From<KeyInfo> for AdminKey {
 /// A key just made. The key itself is shown here once and is not kept.
 #[derive(SimpleObject, Clone)]
 pub struct IssuedKey {
-    /// `RRA_<id>_<secret>`: send it as `Authorization: Bearer <key>`. Keep it; it cannot be shown again.
+    /// `DLA_<id>_<secret>`: send it as `Authorization: Bearer <key>`. Keep it; it cannot be shown again.
     pub key: String,
     /// What the key may do, as listed.
     pub info: AdminKey,

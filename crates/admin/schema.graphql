@@ -379,7 +379,7 @@ A key just made. The key itself is shown here once and is not kept.
 """
 type IssuedKey {
 	"""
-	`RRA_<id>_<secret>`: send it as `Authorization: Bearer <key>`. Keep it; it cannot be shown again.
+	`DLA_<id>_<secret>`: send it as `Authorization: Bearer <key>`. Keep it; it cannot be shown again.
 	"""
 	key: String!
 	"""

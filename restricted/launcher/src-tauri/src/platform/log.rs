@@ -20,7 +20,7 @@ static SECRETS: Mutex<Vec<String>> = Mutex::new(Vec::new());
 static SINK: Mutex<Option<PathBuf>> = Mutex::new(None);
 
 static ACCOUNT_KEY: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new("RRK_[A-Za-z0-9_-]+").unwrap_or_else(|_| unreachable_regex()));
+    LazyLock::new(|| Regex::new("(?:DLK|RRK)_[A-Za-z0-9_-]+").unwrap_or_else(|_| unreachable_regex()));
 static AUTH_ARGUMENT: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(&format!(r#"(?i)(-AUTH_PASSWORD=)[^{JS_SPACE}"']*"#)).unwrap_or_else(|_| unreachable_regex())
 });
@@ -47,7 +47,7 @@ fn remember(value: &str) {
     }
 }
 
-/// Registers a value that must never reach the log; a server-made key without its `RRK_` too.
+/// Registers a value that must never reach the log; a server-made key without its `DLK_` too.
 pub fn add_secret(value: &str) {
     if js_length(value) >= 6 {
         remember(value);
@@ -70,7 +70,7 @@ pub fn redact(text: &str) -> String {
     for secret in secrets().iter() {
         out = out.replace(secret.as_str(), "<hidden>");
     }
-    let out = ACCOUNT_KEY.replace_all(&out, "RRK_<hidden>");
+    let out = ACCOUNT_KEY.replace_all(&out, "DLK_<hidden>");
     let out = AUTH_ARGUMENT.replace_all(&out, "${1}<hidden>");
     KEY_HEADER.replace_all(&out, "${1}<hidden>").into_owned()
 }
@@ -222,7 +222,7 @@ mod tests {
         let _file = FILE_TESTS.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
         let dir = tempfile::tempdir().unwrap();
         log_to_file(dir.path().to_path_buf());
-        let key = concat!("RRK_", "fedcba9876543210", "fedcba9876543210", "fedcba9876543210");
+        let key = concat!("DLK_", "fedcba9876543210", "fedcba9876543210", "fedcba9876543210");
         add_secret(key);
         info(&format!("launching with -AUTH_PASSWORD={key} and {}", &key[4..]));
         tracing::subscriber::with_default(

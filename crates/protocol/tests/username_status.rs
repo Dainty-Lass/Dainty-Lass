@@ -36,11 +36,11 @@ fn username_rules() {
 
 #[test]
 fn account_keys() {
-    let key = format!("RRK_{}", "ab".repeat(24));
+    let key = format!("DLK_{}", "ab".repeat(24));
     assert!(is_plausible_account_key(&key));
     assert!(!is_plausible_account_key("short"));
-    assert!(!is_plausible_account_key("RRK_has space"));
-    assert!(!is_plausible_account_key("RRK_\"quote\""));
+    assert!(!is_plausible_account_key("DLK_has space"));
+    assert!(!is_plausible_account_key("DLK_\"quote\""));
     assert_eq!(extract_account_key(&format!("  {key}\r\n")), Some(key.as_str()));
     assert_eq!(
         extract_account_key(&format!(

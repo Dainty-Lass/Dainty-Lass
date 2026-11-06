@@ -215,7 +215,7 @@ async fn handle(host: Shared, request: Request<Incoming>) -> Response<Full<Bytes
             }
             h.registrations.push((username.clone(), code));
             h.counter += 1;
-            let key = format!("RRK_{:048x}", h.counter);
+            let key = format!("DLK_{:048x}", h.counter);
             let id = format!("uid-{}", h.counter);
             h.users.insert(key.clone(), (username, id));
             return reply(200, json!({ "UUK": key }));
@@ -708,7 +708,7 @@ async fn public_mode_end_to_end_join_register_game_check_runtime_trust_and_insta
     assert_eq!(dir, win64);
     assert!(args.iter().any(|a| a == "-AUTH_TYPE=exchangecode"));
     let password = arg(&args, "-AUTH_PASSWORD=").unwrap();
-    assert!(password.starts_with("RRK_") && password.len() == 52, "{password}");
+    assert!(password.starts_with("DLK_") && password.len() == 52, "{password}");
     assert_eq!(arg(&args, "-epicusername="), Some("Slayer_42"));
     assert_eq!(
         arg(&args, "-epiclocale="),
@@ -889,7 +889,7 @@ async fn a_private_server_at_a_new_address_the_account_goes_along_only_when_the_
 
 #[tokio::test(flavor = "multi_thread")]
 async fn a_banned_account_is_told_why() {
-    let key = format!("RRK_{}", "b".repeat(48));
+    let key = format!("DLK_{}", "b".repeat(48));
     let mut host = Host::new("Strict");
     host.registration = "OPEN";
     host.users.insert(key.clone(), ("ghost".into(), "uid-ghost".into()));

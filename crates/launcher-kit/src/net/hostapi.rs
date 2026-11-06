@@ -5,7 +5,7 @@
 
 use crate::net::http::{Endpoint, check_endpoint};
 
-/// Header that carries the account key (`RRK_...`) to the server it was made for.
+/// Header that carries the account key (`DLK_...`) to the server it was made for.
 pub const KEY_HEADER: &str = "x-dainty-user-api-key";
 
 /// The routes and key header of one server family's launcher API.

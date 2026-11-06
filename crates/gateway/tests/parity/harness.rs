@@ -83,7 +83,7 @@ fn echo_record(name: &str, method: &str, url: &str, headers: &http::HeaderMap, b
         if n == "connection" {
             continue;
         }
-        let value = String::from_utf8_lossy(v.as_bytes()).into_owned();
+        let value = protocol::renamed::as_recorded(&String::from_utf8_lossy(v.as_bytes()));
         // Named as the Node recording names them, so the echo's length matches it too (protocol::renamed)
         seen.entry(protocol::renamed::as_recorded(n.as_str()))
             .and_modify(|old| {

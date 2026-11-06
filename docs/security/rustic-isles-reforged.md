@@ -17,7 +17,7 @@ loopback behind the gateway. The gateway refuses `/admin` and the host-only `/da
 (core's `HOST_ONLY_PREFIXES`); the admin API is off unless `RUSTIC_ISLES_ADMIN_API` or `RUSTIC_ISLES_MANAGER_ADMIN`
 is on (core §6.3).
 
-- **In:** core's handler calls; launcher bearers (auth's `launcher_auth_bearer`), account keys (`RRK_`), the update
+- **In:** core's handler calls; launcher bearers (auth's `launcher_auth_bearer`), account keys (`DLK_`), the update
   publisher's address and key, the sync token, the metrics token, admin session cookies with CSRF tokens, the manager
   operator credential, the host admin key, Discord OAuth callbacks, Guard reports and envelopes, uploads.
 - **Out:** the store (`IslesStore`; player and admin writes are `account_write`s with the home check), the home API's

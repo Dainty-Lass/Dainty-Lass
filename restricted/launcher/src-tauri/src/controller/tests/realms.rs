@@ -130,7 +130,7 @@ impl TransportLoader for FakeLoader {
 #[tokio::test]
 async fn realm_commands_host_join_stop_keep_rd9_and_never_expose_account_key() {
     let hx = Harness::new();
-    let secret_key = "RRK_super_secret_account_key_never_in_realms_998877";
+    let secret_key = "DLK_super_secret_account_key_never_in_realms_998877";
     let mut host = Host::new("RealmsSrv");
     host.registration = "OPEN";
     host.users
@@ -449,8 +449,8 @@ pub(super) fn handle_realms_route(
 async fn server_host_backend_drives_realm_hub_and_join_across_two_launchers() {
     let host_hx = Harness::new();
     let join_hx = Harness::new();
-    let host_key = "RRK_host_account_key_for_server_realms_1122334455";
-    let join_key = "RRK_join_account_key_for_server_realms_6677889900";
+    let host_key = "DLK_host_account_key_for_server_realms_1122334455";
+    let join_key = "DLK_join_account_key_for_server_realms_6677889900";
 
     let host_game = host_hx.game();
     let host_win64 = host_game.join("Archon").join("Binaries").join("Win64");

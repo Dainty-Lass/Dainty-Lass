@@ -54,7 +54,7 @@ id, so a change in a module's log leads back to the request and the person who a
 | admin | + `unban`, `liftTimeout`, `loadModule`, `unloadModule`, `restartModule`, `adminKeys`, `issueKey` for viewer and moderator |
 | owner | + `issueKey` for admin and owner, `revokeKey`; the history revert (DH3b) requires `Role::Owner` through `schema::allow` |
 
-- `DAINTY_ADMIN_API_KEY` (`secrets.env`) is the owner's key, id `owner`. Every other key is `RRA_<8 hex id>_<64 hex
+- `DAINTY_ADMIN_API_KEY` (`secrets.env`) is the owner's key, id `owner`. Every other key is `DLA_<8 hex id>_<64 hex
   secret>` (256 random bits), stored as the SHA-256 of the whole key in `admin_keys` in the admin API's own database
   (`admin.db` beside the node's SQLite file; the node's database on Postgres). The key is printed once by
   `dainty-host admin key issue` (or returned once by `issueKey`) and is not recoverable.
@@ -82,7 +82,7 @@ Fuzz target in `fuzz`:
   request passes the header check only with exactly one `Bearer <key>` and no proxy header. Checks that an accepted
   name, reason or timeout end is within its rule, that an accepted game has one spelling, that a module's text comes
   out one capped line, and that an instance's fields stay within their caps. It also feeds the key parser: only a
-  77-character `RRA_<8 hex>_<64 hex>` key has an id to look up, a key's name is one capped line and a role name
+  77-character `DLA_<8 hex>_<64 hex>` key has an id to look up, a key's name is one capped line and a role name
   round-trips. Also that a guarded action is found only by 16 lower-case hex digits and that a guard rule is one of
   `off`, `delay` or `approval` (DH6).
 

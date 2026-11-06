@@ -498,14 +498,14 @@ async fn apikey_mode() {
     let t = Harness::with(&[("AUTH_MODE", "APIKEY")], false).await;
     let (_, _, user_id) = t.account("Slayer1", "slayer1@example.test").await;
     let account = t.store().launcher_account_by_user_id(&user_id).await.unwrap().unwrap();
-    let hash = rustic_isles_auth::hashes::user_key_hash(common::SECRET, "RRK_x");
+    let hash = rustic_isles_auth::hashes::user_key_hash(common::SECRET, "DLK_x");
     t.store().insert_user_key(&account.account_id, &hash);
     let login = t
-        .post("/account/api/oauth/token", &[], json!({"exchange_code": "RRK_x"}))
+        .post("/account/api/oauth/token", &[], json!({"exchange_code": "DLK_x"}))
         .await;
     assert_eq!(login.json()["account_id"], json!(user_id));
     let wrong = t
-        .post("/account/api/oauth/token", &[], json!({"exchange_code": "RRK_y"}))
+        .post("/account/api/oauth/token", &[], json!({"exchange_code": "DLK_y"}))
         .await;
     assert_eq!(wrong.status, StatusCode::BAD_REQUEST);
     let service = t
@@ -518,7 +518,7 @@ async fn apikey_mode() {
     assert_eq!(service.status, StatusCode::OK);
     t.store().update_account(&user_id, |a| a.status = Status::Disabled);
     let disabled = t
-        .post("/account/api/oauth/token", &[], json!({"exchange_code": "RRK_x"}))
+        .post("/account/api/oauth/token", &[], json!({"exchange_code": "DLK_x"}))
         .await;
     assert_eq!(disabled.status, StatusCode::FORBIDDEN);
 }

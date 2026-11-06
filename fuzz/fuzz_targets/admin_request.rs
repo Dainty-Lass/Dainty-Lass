@@ -56,7 +56,7 @@ fuzz_target!(|request: Request<'_>| {
     // A key is looked up only when it has the shape of an issued one: its id is 8 hex digits and the whole
     // key is 77 characters
     if let Some(id) = key_id(request.key) {
-        assert!(is_key_id(id) && request.key.len() == 77 && request.key.starts_with("RRA_"));
+        assert!(is_key_id(id) && request.key.len() == 77 && request.key.starts_with("DLA_"));
         assert_eq!(hash_key(request.key).len(), 64);
     }
     if let Some(name) = clean_name(request.name) {

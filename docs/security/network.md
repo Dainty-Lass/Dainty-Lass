@@ -296,7 +296,7 @@ writes verifies, a changed byte of a real ticket never verifies; public keys fro
 #### The account key
 
 - [ ] No field of any home message can hold an account key. Typed fields are names and ids checked as read; the
-      free-form ones (`HomeBody`, `WireActor`, `RequestKey`, `CleanText`) refuse anything shaped like `RRK_` and eight
+      free-form ones (`HomeBody`, `WireActor`, `RequestKey`, `CleanText`) refuse anything shaped like `DLK_` and eight
       more key characters, in any case, in a string or an object key, when built and when deserialised; a ticket's
       token is bounded base64url whose claims are typed. `encode_*` and `decode_*` run `Validate` over what they
       carry. Tests: `no_message_type_can_carry_an_account_key` (every message type),
@@ -377,7 +377,7 @@ writes verifies, a changed byte of a real ticket never verifies; public keys fro
 - **Trust boundary**: instance lookups, matchmaking ring ticket publications, compare-and-set ticket claims, and regional Ramsgate assignments cross `/__node/ring` (`Service::Ring`) between mTLS-authenticated peer nodes. The caller identity (`from`) comes from the verified client certificate's SAN/CN, never from the wire body.
 - **Wire protocol (`network::ring`)**:
   - [ ] Versioned JSON (`RING_VERSION = 1`), `#[serde(deny_unknown_fields)]` on every request, reply, ticket, and instance record struct, bounded to `MAX_RING_MESSAGE = 64 KiB` and `MAX_RING_TEXT = 256` bytes.
-  - [ ] Every free-form string (`queue`, `server_host`, `client_ip`, refusal text) and forwarded reward JSON body (`xp_grant`, `loot_write`, `objective_write`) is checked by `looks_like_account_key` / `holds_account_key`, refusing anything shaped like an `RRK_` account key (`RingError::AccountKey`). Test: `ring_wire_refuses_account_keys_and_bad_versions`.
+  - [ ] Every free-form string (`queue`, `server_host`, `client_ip`, refusal text) and forwarded reward JSON body (`xp_grant`, `loot_write`, `objective_write`) is checked by `looks_like_account_key` / `holds_account_key`, refusing anything shaped like an `DLK_` account key (`RingError::AccountKey`). Test: `ring_wire_refuses_account_keys_and_bad_versions`.
   - [ ] `PublishTicket` requires `ticket.home_node == from` and `ticket.ticket.owner() == from`; `ClaimTicket` and `ReleaseTicket` require `claiming_node == from`, so a peer cannot publish tickets for another home or claim/release tickets under another node's name.
 - **Instance registry, redirects, and launcher relay re-pointing (DN6, DD18)**:
   - [ ] Every instance (`IdKind::Hunt`, `IdKind::HubInstance`, `IdKind::Party`, `IdKind::Ticket`) carries its owning node in `GlobalId::owner()`. When a join reaches a non-owning node, `RingNode::resolve_join` either mints a home-signed `SessionTicket` for `audience = instance.owner()` and returns `JoinDecision::Redirect` (`WrongNodePolicy::Redirect`, only when the peer gateway has a pinned 64-hex SHA-256 certificate fingerprint; unpinned peers are refused) or refuses with a message naming the owning node and region (`WrongNodePolicy::Refuse`, DN1 kill criterion). Test: `dn6_instance_registry_resolves_owners_and_redirects_or_refuses_wrong_node_joins`.
@@ -442,7 +442,7 @@ writes verifies, a changed byte of a real ticket never verifies; public keys fro
 - **Trust boundary**: an admin action relay message arrives over `/__node/admin` (`Service::Admin`) from an mTLS-authenticated peer node in `[[network.nodes]]`. The caller identity (`from`) comes from the verified client certificate's SAN/CN, never from the wire body.
 - **Wire protocol (`network::relay`)**:
   - [ ] Versioned JSON (`ADMIN_RELAY_VERSION = 1`), `#[serde(deny_unknown_fields)]` on every request, response, action, and refusal struct, bounded to `MAX_ADMIN_WIRE = 64 KiB` inside `MAX_MESSAGE`.
-  - [ ] Every free-form string (`reason`, `request_key`, `actor`, `approved_by`, refusal message) and JSON body (`HomeBody`) is scanned on both encode and decode by `holds_secret_key` (`looks_like_account_key` and `looks_like_admin_key`), refusing anything shaped like an account key (`RRK_...`) or an admin secret key (`RRA_...`) in any case.
+  - [ ] Every free-form string (`reason`, `request_key`, `actor`, `approved_by`, refusal message) and JSON body (`HomeBody`) is scanned on both encode and decode by `holds_secret_key` (`looks_like_account_key` and `looks_like_admin_key`), refusing anything shaped like an account key (`DLK_...`) or an admin secret key (`DLA_...`) in any case.
   - [ ] Actor fields (`actor`, `approved_by`) carry only the public 8-hex key id (`^[0-9a-f]{8}$`) or `owner`, never a bearer secret or raw token.
   - [ ] Requests from a node not listed in `[[network.nodes]]` (`!is_peer(from)`) are refused with `AdminRelayRefusal::NotAPeer` before any state or ticket table is touched.
 - **Authority, session revocation, and audit**:

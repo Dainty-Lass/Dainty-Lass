@@ -12,7 +12,7 @@ An item that does not hold is a bug to fix before the cutover, not a box to leav
 
 ## What it is and where the boundary is
 
-An account key (`RRK_<48 hex>`, or any 8 to 128 plain characters a player pasted) is the player's password on one
+An account key (`DLK_<48 hex>`, or any 8 to 128 plain characters a player pasted) is the player's password on one
 server. Whoever has it plays as that player there. The launcher sends it in the `x-dainty-user-api-key` header and
 on the game's command line (`-AUTH_PASSWORD=`), and to nothing else.
 
@@ -20,12 +20,12 @@ on the game's command line (`-AUTH_PASSWORD=`), and to nothing else.
   (`CryptProtectData`). Linux: AES-256-GCM (`rr1` + nonce + ciphertext) with a random key the desktop's Secret Service
   keeps (gnome-keyring, or KWallet on Plasma 6), found by the attributes `application` =
   `io.github.freezamotoqueiro.dauntlessreforgedrevival` and `purpose` = `account-key-files`. Decrypted, a file is
-  `RRK2\n<fingerprint or ->\n<key>`.
+  `DLK2\n<fingerprint or ->\n<key>`.
 - **At rest, the Electron launcher:** `userData/keys/<server id>.key`, `safeStorage` (Windows: `v10` + nonce +
   AES-256-GCM with the key in `userData/Local State`, itself DPAPI-wrapped; Linux, never shipped: `v10`/`v11`
   AES-128-CBC). Read once, written again as `.key2`, read back, and left in place for a rollback to 1.5.x until
   3.0.0 deletes it (RD7, RA16).
-- **Plain copies:** `Documents/DaintyLass/Account Keys/<server id>.txt` (migrated automatically on first start from `Documents/Dauntless Reforged Revival/Account Keys/<server id>.txt`; the same `RRK2` text, mode
+- **Plain copies:** `Documents/DaintyLass/Account Keys/<server id>.txt` (migrated automatically on first start from `Documents/Dauntless Reforged Revival/Account Keys/<server id>.txt`; the same `DLK2` text, mode
   0600 on Linux), kept so a player finds the key after reinstalling the system, as the Electron launcher does; and
   the backup file the player chooses to save.
 - **Trust:** anything running as the player can read the plain copies and rewrite every file here. The store
@@ -62,7 +62,7 @@ Node code), and `an_electron_profile_reads_back` with the harness in `launcher/t
 
 ### Reading the Electron launcher's keys (`legacy.rs`)
 
-- [ ] Only `RRK2` text and bare keys are read (RD22). `DRK2` or any other tag reads as no key, and nothing is
+- [ ] Only `DLK2` text and bare keys are read (RD22). `DRK2` or any other tag reads as no key, and nothing is
       written for it (`only_rrk2_and_bare_electron_keys_are_read`).
 - [ ] A file that does not decrypt (another user, another PC, damaged) is no key, never an error that stops the
       launcher; the import flow takes over.
@@ -81,9 +81,9 @@ Node code), and `an_electron_profile_reads_back` with the harness in `launcher/t
 - [ ] No bridge type holds a key: `bridge/types.rs` has none, and the page learns only `hasKey`. The backup file is
       written by the backend after the save dialog; its text never goes to the page. A key the player pastes goes
       page to backend only (`register`/import), never back.
-- [ ] Every key read or saved is registered with `log::add_secret` (with and without `RRK_`) before anything can log
+- [ ] Every key read or saved is registered with `log::add_secret` (with and without `DLK_`) before anything can log
       it, including a key moved from the Electron files.
-- [ ] Every log line passes `redact`: registered secrets, `RRK_...`, `-AUTH_PASSWORD=...` and the
+- [ ] Every log line passes `redact`: registered secrets, `DLK_...`, `-AUTH_PASSWORD=...` and the
       `x-dainty-user-api-key` header are hidden, also in library (`tracing`) events and panics
       (`a_registered_key_never_reaches_the_file`, the shared table).
 - [ ] Error values from the store (`KeyStoreError`) carry no key and no path.

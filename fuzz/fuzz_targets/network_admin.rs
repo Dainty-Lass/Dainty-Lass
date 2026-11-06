@@ -1,6 +1,6 @@
 //! The admin relay's node-link messages (docs/dainty-lass-plan.md DN11, DX2; docs/security/network.md):
 //! an admin relay request or response from another node is read whole or refused, never panics, holds
-//! nothing shaped like an account key (`RRK_`) or admin secret key (`RRA_`) in any field or body, stays
+//! nothing shaped like an account key (`DLK_`) or admin secret key (`DLA_`) in any field or body, stays
 //! inside `MAX_ADMIN_WIRE`, and round-trips through `encode_*` / `decode_*`.
 #![no_main]
 

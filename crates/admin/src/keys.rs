@@ -1,6 +1,6 @@
 //! One admin key per person, each with a role (DD23 layer 4, DH2). `DAINTY_ADMIN_API_KEY` in `secrets.env`
 //! is the owner's key and stays there, so a server set up before this works unchanged: the single key is
-//! the owner. Every other key is `RRA_<id>_<64 hex>`: the id is public (the log names it, `admin key list`
+//! the owner. Every other key is `DLA_<id>_<64 hex>`: the id is public (the log names it, `admin key list`
 //! shows it) and the rest is 256 random bits. Only the SHA-256 of the whole key is stored, in the admin
 //! API's own database; a key is shown once, when it is issued.
 //!
@@ -34,8 +34,8 @@ pub const SCHEMA: DatabaseSchema = DatabaseSchema {
 /// The SQLite file's name beside the node's database.
 pub const FILE_NAME: &str = "admin.db";
 
-/// What every issued key starts with: `RRA_<8 hex id>_<64 hex secret>`.
-pub const KEY_PREFIX: &str = "RRA_";
+/// What every issued key starts with: `DLA_<8 hex id>_<64 hex secret>`.
+pub const KEY_PREFIX: &str = "DLA_";
 const ID_HEX: usize = 8;
 const SECRET_HEX: usize = 64;
 /// The most characters of a key's name (who it is for).
@@ -148,7 +148,7 @@ fn is_lower_hex(text: &str, len: usize) -> bool {
     text.len() == len && text.bytes().all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
 }
 
-/// A key id: what an issued key has after `RRA_`.
+/// A key id: what an issued key has after `DLA_`.
 pub fn is_key_id(id: &str) -> bool {
     is_lower_hex(id, ID_HEX)
 }
@@ -550,8 +550,8 @@ mod tests {
         let upper = key.to_uppercase();
         for bad in [
             "",
-            "RRA_",
-            "RRK_0123abcd_00",
+            "DLA_",
+            "DLK_0123abcd_00",
             "0123456789abcdef0123456789abcdef",
             &key[..key.len() - 1],
             &longer,

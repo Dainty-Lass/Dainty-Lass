@@ -12,7 +12,7 @@ use common::*;
 use gateway::network::NetworkNode;
 use serde_json::json;
 
-const FAKE_KEY: &str = "RRK_fedcba9876543210fedcba9876543210fedcba9876543210";
+const FAKE_KEY: &str = "DLK_fedcba9876543210fedcba9876543210fedcba9876543210";
 
 struct World {
     _cert: TestCert,
@@ -305,7 +305,7 @@ async fn region_report_handler_reaches_ring_node_record_region_pings_authenticat
     );
 
     // Unknown API key is refused with 401 when the handler is attached
-    let unknown_key = "RRK_000000000000000000000000000000000000000000000000";
+    let unknown_key = "DLK_000000000000000000000000000000000000000000000000";
     let denied = https_request(port, "/network/v1/regions", post(report, Some(unknown_key)))
         .await
         .unwrap();

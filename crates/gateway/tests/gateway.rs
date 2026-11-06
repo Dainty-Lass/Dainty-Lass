@@ -25,7 +25,7 @@ async fn proxies_with_the_secret_set_and_the_policy_applied() {
     let at = log_len();
 
     // Backend routing, path and query untouched; claims replaced; the user's key passes byte for byte
-    let key = "RRK_abcdefgh12345678";
+    let key = "DLK_abcdefgh12345678";
     let a = request(
         gw.port,
         fp,
@@ -249,7 +249,7 @@ async fn the_capture_records_requests_redacted() {
     let dir = tempfile::tempdir().unwrap();
     let extra = [("CAPTURE_DIR", dir.path().display().to_string())];
     let gw = start(&env(None, backend.port, backend.port, None, &extra)).await;
-    let key = "RRK_abcdefgh12345678";
+    let key = "DLK_abcdefgh12345678";
     request(
         gw.port,
         None,

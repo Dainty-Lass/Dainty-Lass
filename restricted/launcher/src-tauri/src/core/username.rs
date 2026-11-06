@@ -1,6 +1,6 @@
 //! Usernames and pasted account keys (row L12): `protocol::account` (RS1), which reads
 //! `src/shared/username.ts` answer for answer. Reforged's registration rule, also for stored usernames
-//! (RD22); keys a Reforged server makes are `RRK_<48 hex>`. Both sides run
+//! (RD22); keys a Reforged server makes are `DLK_<48 hex>`. Both sides run
 //! dainty-lass's `crates/protocol/tests/cases/username.json`.
 
 #[allow(unused_imports, reason = "the controller (RA13) and the keystore (RA8) use the rest")]

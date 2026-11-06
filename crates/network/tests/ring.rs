@@ -342,7 +342,7 @@ async fn dn8_four_region_matchmaking_ring_never_double_books_and_bounds_wait_tim
     for (idx, home_name) in home_keys.iter().enumerate() {
         let node = &cluster[*home_name];
         let account = GlobalId::new(IdKind::Account, &node.identity.node);
-        let api_key = format!("RRK_valid_key_player_{idx}_abcdef");
+        let api_key = format!("DLK_valid_key_player_{idx}_abcdef");
         node.ring.register_local_account_key(api_key.clone(), account.clone());
         let authed = node
             .ring
@@ -565,7 +565,7 @@ fn ring_wire_refuses_account_keys_and_bad_versions() {
     let account = GlobalId::new(IdKind::Account, &node);
     let bad_call = RingCall::AssignHub {
         account,
-        client_ip: "RRK_leaked_account_key_123456".into(),
+        client_ip: "DLK_leaked_account_key_123456".into(),
         game: "1.14.7".parse().unwrap(),
     };
     assert_eq!(encode_request(bad_call), Err(RingError::AccountKey));
