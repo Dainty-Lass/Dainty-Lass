@@ -86,6 +86,8 @@ crossterm = "0.29"
 ratatui = { version = "0.30", default-features = false, features = ["crossterm"] }
 
 # RSA token keys and CSPRNG (D10: aws-lc-rs, already in the tree through rustls and rcgen)
+# Console colors, with the legacy Windows console (already in the tree through clap)
+anstream = "1"
 aws-lc-rs = "1.18"
 axum = { version = "0.8", default-features = false, features = ["http1", "json", "query", "tokio", "form", "ws"] }
 aes-gcm = "0.11"

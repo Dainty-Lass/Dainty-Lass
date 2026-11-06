@@ -54,9 +54,16 @@ impl ServeOptions {
     }
 }
 
-/// The console's `name           | line`, as the stdout layer prints the in-process services.
+/// A process's lines as the in-process services' are: through the log, under its own name (`docs/logging.md`).
 pub fn table_printer() -> Printer {
-    Arc::new(|name: &str, line: &str| println!("{name:<14} | {}", crate::repl::plain(line)))
+    Arc::new(|name: &str, line: &str| {
+        let line = crate::repl::plain(line);
+        if service_kit::telemetry::tracing_bridge_active() {
+            tracing::info!(target: "process", service = name, "{line}");
+        } else {
+            println!("{name:<14} | {line}");
+        }
+    })
 }
 
 /// The dashboard's: a process's lines into its log pane as that service's, never printed over it.
@@ -837,6 +844,25 @@ fn fingerprint(paths: &Paths, config: &HostConfig) -> Option<String> {
         .flatten()
 }
 
+/// `[logs]` as the subscriber takes it: the console's style, and the GELF shipper started when a collector is named.
+fn log_outputs(config: &HostConfig) -> service_kit::telemetry::LogOutputs {
+    let logs = config.logs.clone().unwrap_or_default();
+    let gelf = logs.gelf_target().and_then(|target| {
+        let mut extra = vec![("server".to_owned(), config.name.clone())];
+        if let Some(network) = &config.network {
+            extra.push(("node".to_owned(), network.node.to_string()));
+        }
+        service_kit::gelf::GelfSink::start(target, extra)
+            .map_err(|e| say(&format!("- logs are not shipped: {e}")))
+            .ok()
+    });
+    service_kit::telemetry::LogOutputs {
+        format: logs.format,
+        color: logs.color,
+        gelf,
+    }
+}
+
 /// `serve` and `start`.
 pub fn run(paths: &Paths, options: &ServeOptions) -> Outcome {
     let config = load_config(paths, options.config_file.as_deref())?;
@@ -845,12 +871,20 @@ pub fn run(paths: &Paths, options: &ServeOptions) -> Outcome {
     let interactive = options.interactive && !controlled;
     let level = service_kit::telemetry::parse_level_filter(&options.log_filter)
         .unwrap_or(tracing::level_filters::LevelFilter::INFO);
+    let outputs = log_outputs(&config);
     let (tui_ring, reload_handle) = if interactive && options.tui {
-        let (ring, handle) =
-            service_kit::telemetry::init_tui_subscriber(level, 2000, Some(paths.logs.join("server.log")));
+        let (ring, handle) = service_kit::telemetry::init_tui_subscriber_with(
+            level,
+            2000,
+            Some(paths.logs.join("server.log")),
+            outputs.gelf,
+        );
         (Some(ring), Some(handle))
     } else {
-        (None, Some(service_kit::telemetry::init_table_stdout_subscriber(level)))
+        (
+            None,
+            Some(service_kit::telemetry::init_console_subscriber(level, outputs)),
+        )
     };
     let control = Control::begin(controlled)?;
     if cfg!(target_os = "linux") {
@@ -1033,6 +1067,7 @@ mod tests {
             network: None,
             remote: None,
             split: None,
+            logs: None,
             switches: Default::default(),
             file: FileForm::default(),
         }

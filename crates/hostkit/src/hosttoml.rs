@@ -50,6 +50,7 @@ const TOP: &[Field] = &[
     ("services", "services", false),
     ("env", "env", false),
     ("split", "split", false),
+    ("logs", "logs", false),
 ];
 
 /// The top-level keys whose tables and lists are read as they are (`hostconfig/modules.rs`, `services.rs`, `env.rs`).
@@ -88,6 +89,12 @@ const SPLIT: &[Field] = &[
     ("role", "role", false),
     ("peer", "peer", false),
     ("openGamePorts", "open_game_ports", false),
+];
+
+const LOGS: &[Field] = &[
+    ("format", "format", false),
+    ("color", "color", false),
+    ("gelfUrl", "gelf_url", false),
 ];
 
 const MONGO: &[Field] = &[
@@ -170,6 +177,7 @@ fn table_fields(json_key: &str) -> Option<&'static [Field]> {
         "network" => Some(NETWORK),
         "remote" => Some(REMOTE),
         "split" => Some(SPLIT),
+        "logs" => Some(LOGS),
         _ => None,
     }
 }
@@ -608,6 +616,17 @@ fn comment(path: &str) -> &'static str {
             "Extra variables for one service's env file, one [env.<service>] table each (backend, director, content,\n\
              gateway, admin, allowlist), for a tunable with no setting above: GATEWAY_RATE_WS = \"40/24\". Secrets,\n\
              ports, bind addresses and anything setup already writes are refused."
+        }
+        "logs" => {
+            "The server's console log and where it is shipped (docs/logging.md). Left out: colored text, kept here."
+        }
+        "logs.format" => {
+            "\"text\" (Docker-like lines: service | time LEVEL module: message key=value) or \"json\" (one object a line)."
+        }
+        "logs.color" => "\"auto\" (on a terminal, unless NO_COLOR is set), \"always\" or \"never\".",
+        "logs.gelf_url" => {
+            "A GELF collector (Graylog) to ship every record to: https://host:12201/gelf, or http:// or tcp://host:port\n\
+             to this machine or a private network."
         }
         "split" => {
             "This server as one half of two (docs/split-roles.md): the metagame on one machine or container, the game

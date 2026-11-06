@@ -1926,6 +1926,7 @@ mod tests {
             network: None,
             remote: None,
             split: None,
+            logs: None,
             file: FileForm::default(),
         };
         save_host_config(&paths, &cfg).unwrap();
@@ -2010,6 +2011,7 @@ mod tests {
             network: None,
             remote: None,
             split: None,
+            logs: None,
             switches: Default::default(),
             file: FileForm::default(),
         };
@@ -2099,6 +2101,7 @@ mod tests {
             network: None,
             remote: None,
             split: None,
+            logs: None,
             switches: Default::default(),
             file: FileForm::default(),
         };
