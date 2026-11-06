@@ -22,7 +22,7 @@ version = "0.0.0"
 edition = "2024"
 rust-version = "1.99"
 license = "AGPL-3.0-only"
-repository = "https://git.silentspud.com/silentspud/dainty-restricted"
+repository = "https://git.silentspud.com/silentspud/dainty-lass"
 publish = false
 
 [workspace.dependencies]

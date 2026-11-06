@@ -8,7 +8,7 @@ records where each part of `restricted/` comes from.
 
 ## Modification notice
 
-This repository, `silentspud/dainty-restricted` on `git.silentspud.com`, combines and modifies two AGPL-3.0-only
+This subtree, `restricted/` of `silentspud/dainty-lass` on `git.silentspud.com`, combines and modifies two AGPL-3.0-only
 projects to run Dauntless 1.14.7 (`rel-1.14.7-Archon`, changelist 647472) on private servers. Every change is
 recorded in the commit history. It is **not** an official release of Mystic Paradox, Dauntless Revived,
 Undaunted or any other project named here, and none of them endorses it.

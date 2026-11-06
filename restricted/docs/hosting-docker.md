@@ -66,8 +66,8 @@ the host kit's, unchanged, and a `.workspace` can move between a container host 
 ## A public server
 
 ```bash
-git clone ssh://git@git.silentspud.com:222/silentspud/dainty-restricted.git
-cd dainty-restricted
+git clone ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git
+cd dainty-lass/restricted
 cp .env.example .env
 ```
 
