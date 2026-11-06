@@ -2572,6 +2572,7 @@ dependencies = [
  "tokio-util",
  "toml_edit",
  "tracing",
+ "tracing-subscriber",
  "ts-rs",
  "url",
  "webpki-roots",

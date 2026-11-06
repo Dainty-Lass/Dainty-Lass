@@ -1,0 +1,189 @@
+{
+  "about": "Log redaction cases written from docs/port/spec-rd27-launcher.md §2.7.4 (RL3, L5). Each case registers then unregisters its secrets on a fresh redactor, then redacts input. 'registered' lists values that must be remembered afterwards, 'not_registered' values that must not.",
+  "cases": [
+    {
+      "name": "a remembered secret is hidden everywhere it appears",
+      "register": ["hunter22"],
+      "input": "pw hunter22 again hunter22hunter22",
+      "expected": "pw <hidden> again <hidden><hidden>"
+    },
+    {
+      "name": "a secret is matched literally, not as a pattern",
+      "register": ["a.b*c+d"],
+      "input": "a.b*c+d axbbbcd",
+      "expected": "<hidden> axbbbcd"
+    },
+    {
+      "name": "five units is too short to remember",
+      "register": ["abcde"],
+      "not_registered": ["abcde"],
+      "input": "abcde",
+      "expected": "abcde"
+    },
+    {
+      "name": "six units is long enough",
+      "register": ["abcdef"],
+      "registered": ["abcdef"],
+      "input": "xabcdefx",
+      "expected": "x<hidden>x"
+    },
+    {
+      "name": "length counts UTF-16 units: three emoji are six units",
+      "register": ["😀😀😀"],
+      "registered": ["😀😀😀"],
+      "input": "[😀😀😀]",
+      "expected": "[<hidden>]"
+    },
+    {
+      "name": "length counts UTF-16 units: five BMP characters are five units",
+      "register": ["ééé€€"],
+      "not_registered": ["ééé€€"],
+      "input": "ééé€€",
+      "expected": "ééé€€"
+    },
+    {
+      "name": "an account key also remembers its rest of sixteen units",
+      "register": ["RRK_0123456789abcdef"],
+      "registered": ["RRK_0123456789abcdef", "0123456789abcdef"],
+      "input": "full RRK_0123456789abcdef rest 0123456789abcdef",
+      "expected": "full <hidden> rest <hidden>"
+    },
+    {
+      "name": "a rest of fifteen units is not remembered on its own",
+      "register": ["RRK_0123456789abcde"],
+      "registered": ["RRK_0123456789abcde"],
+      "not_registered": ["0123456789abcde"],
+      "input": "rest 0123456789abcde",
+      "expected": "rest 0123456789abcde"
+    },
+    {
+      "name": "a rest with a line feed is not remembered on its own",
+      "register": ["RRK_0123456789\nabcdefgh"],
+      "registered": ["RRK_0123456789\nabcdefgh"],
+      "not_registered": ["0123456789\nabcdefgh"],
+      "input": "0123456789\nabcdefgh",
+      "expected": "0123456789\nabcdefgh"
+    },
+    {
+      "name": "a rest with a carriage return is not remembered on its own",
+      "register": ["RRK_0123456789\rabcdefgh"],
+      "not_registered": ["0123456789\rabcdefgh"]
+    },
+    {
+      "name": "unregistering forgets the key and its rest",
+      "register": ["RRK_0123456789abcdef", "other-secret"],
+      "unregister": ["RRK_0123456789abcdef"],
+      "registered": ["other-secret"],
+      "not_registered": ["RRK_0123456789abcdef", "0123456789abcdef"],
+      "input": "rest 0123456789abcdef other-secret",
+      "expected": "rest 0123456789abcdef <hidden>"
+    },
+    {
+      "name": "remembered secrets are replaced before the key pattern runs",
+      "register": ["abcdef"],
+      "input": "RRK_xxabcdefyy",
+      "expected": "RRK_<hidden><hidden>yy"
+    },
+    {
+      "name": "a whole key is replaced before its rest",
+      "register": ["RRK_0123456789abcdef"],
+      "input": "RRK_0123456789abcdef!",
+      "expected": "<hidden>!"
+    },
+    {
+      "name": "an unregistered account key is masked after its prefix",
+      "input": "key=RRK_abc-DEF_123.next",
+      "expected": "key=RRK_<hidden>.next"
+    },
+    {
+      "name": "the key prefix is case-sensitive and needs a key character",
+      "input": "rrk_abc RRK_ RRK_!x",
+      "expected": "rrk_abc RRK_ RRK_!x"
+    },
+    {
+      "name": "every key on a line is masked",
+      "input": "RRK_a RRK_b",
+      "expected": "RRK_<hidden> RRK_<hidden>"
+    },
+    {
+      "name": "the game's password argument is masked up to white space",
+      "input": "-AUTH_TYPE=exchangecode -AUTH_PASSWORD=s3cr3t! -epicapp=Archon",
+      "expected": "-AUTH_TYPE=exchangecode -AUTH_PASSWORD=<hidden> -epicapp=Archon"
+    },
+    {
+      "name": "the password argument matches in any case and keeps its spelling",
+      "input": "-auth_Password=abc",
+      "expected": "-auth_Password=<hidden>"
+    },
+    {
+      "name": "the password value stops at a double quote",
+      "input": "\"-AUTH_PASSWORD=abc\" next",
+      "expected": "\"-AUTH_PASSWORD=<hidden>\" next"
+    },
+    {
+      "name": "the password value stops at a single quote",
+      "input": "'-AUTH_PASSWORD=abc' next",
+      "expected": "'-AUTH_PASSWORD=<hidden>' next"
+    },
+    {
+      "name": "the password value stops at tab, no-break space and byte order mark (JavaScript white space)",
+      "input": "-AUTH_PASSWORD=a\tb -AUTH_PASSWORD=c d -AUTH_PASSWORD=e﻿f",
+      "expected": "-AUTH_PASSWORD=<hidden>\tb -AUTH_PASSWORD=<hidden> d -AUTH_PASSWORD=<hidden>﻿f"
+    },
+    {
+      "name": "U+0085 is not JavaScript white space, so the value runs through it",
+      "input": "-AUTH_PASSWORD=a\u0085b c",
+      "expected": "-AUTH_PASSWORD=<hidden> c"
+    },
+    {
+      "name": "a password that is an account key is fully hidden",
+      "input": "-AUTH_PASSWORD=RRK_abcdef",
+      "expected": "-AUTH_PASSWORD=<hidden>"
+    },
+    {
+      "name": "the API key header with a colon",
+      "input": "x-reforged-user-api-key: abc123 rest",
+      "expected": "x-reforged-user-api-key: <hidden> rest"
+    },
+    {
+      "name": "the API key header in JSON",
+      "input": "{\"x-reforged-user-api-key\":\"abc123\",\"a\":1}",
+      "expected": "{\"x-reforged-user-api-key\":\"<hidden>\",\"a\":1}"
+    },
+    {
+      "name": "the API key header in any case, with an equals sign and spaces",
+      "input": "X-Reforged-User-API-Key  =  'v4lue' x",
+      "expected": "X-Reforged-User-API-Key  =  '<hidden>' x"
+    },
+    {
+      "name": "the header value stops at a comma",
+      "input": "x-reforged-user-api-key=abc,next",
+      "expected": "x-reforged-user-api-key=<hidden>,next"
+    },
+    {
+      "name": "the header value stops at a closing brace",
+      "input": "{x-reforged-user-api-key:abc}",
+      "expected": "{x-reforged-user-api-key:<hidden>}"
+    },
+    {
+      "name": "a header value that is an account key is fully hidden",
+      "input": "x-reforged-user-api-key: RRK_abcdef",
+      "expected": "x-reforged-user-api-key: <hidden>"
+    },
+    {
+      "name": "case folding is ASCII only: the Kelvin sign is not k",
+      "input": "x-reforged-user-api-Key: abc",
+      "expected": "x-reforged-user-api-Key: abc"
+    },
+    {
+      "name": "a header name without a separator is left alone",
+      "input": "x-reforged-user-api-key abc",
+      "expected": "x-reforged-user-api-key abc"
+    },
+    {
+      "name": "text with nothing secret is unchanged",
+      "input": "Connected to 127.0.0.1:61100 in 12 ms",
+      "expected": "Connected to 127.0.0.1:61100 in 12 ms"
+    }
+  ]
+}
