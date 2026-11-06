@@ -1,4 +1,4 @@
-//! `isles-core/tests/golden/characters/` (the Node 1.14.7 backend's characters-loadouts answers, `record.sh`) against
+//! `tests/golden/characters/` (the Node 1.14.7 backend's characters-loadouts answers, `record.sh`) against
 //! the MIT module over HTTP: restricted's `areas::characters::golden` replay and normalisation (ids numbered by first
 //! appearance, clock-bound dates masked). `setEnv` restarts the module on the same database; `setup: journey` writes
 //! the Slayer's Path row through the store. `as` becomes the real credential: `player:<u>` that player's token,
@@ -9,11 +9,11 @@ mod common;
 
 use std::collections::BTreeMap;
 
+use common::normalise::Normalizer;
 use common::{Caller, Mit, Tally, credentials, send, system};
-use isles_core::areas::characters::golden::Normalizer;
 use serde_json::{Value, json};
 
-const DIR: &str = "../isles-core/tests/golden/characters";
+const DIR: &str = "tests/golden/characters";
 
 fn read(name: &str) -> Value {
     let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join(DIR).join(name);

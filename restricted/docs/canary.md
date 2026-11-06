@@ -47,7 +47,7 @@ The gateway writes one file per UTC day named `gateway-YYYY-MM-DD.jsonl` inside 
 
 ## 2. Replaying a capture against a second server (`RU8`, `RB2`)
 
-Shadow replay is built into `reforged-host db replay` (backed by `isles_db::run_replay_cli` and `isles_core::replay`) with a wrapper in dainty-lass, `scripts/replay-capture.mjs`.
+Shadow replay is built into `reforged-host db replay` (backed by dainty-lass's `rustic_isles_replay::run_replay_cli`) with a wrapper in dainty-lass, `scripts/replay-capture.mjs`.
 
 ### 2.1 Preparing the target server (`--right`)
 
@@ -170,7 +170,7 @@ On a native host installation:
 
 Per `docs/dainty-lass-plan.md` (`RU9`) and `MIGRATION_PLAN.md` (`RB12`, `RB15`), the maintainer's canary gate requires:
 
-1. Run the default Rust `1.14.7` stack (`isles-1-14-7` + `isles-director` + `store` + `gateway` + `chat`) on the maintainer's live canary server for 7 days in a row with real players and `CAPTURE_DIR` enabled.
+1. Run the default Rust `1.14.7` stack (`isles-1-14-7`, dainty-lass's `rustic-isles-1-14-7` with its Director, + `store` + `gateway` + `chat`) on the maintainer's live canary server for 7 days in a row with real players and `CAPTURE_DIR` enabled.
 2. During those 7 days:
    - Zero unhandled panics in server logs (`server.log`).
    - Zero account, character, inventory, loadout, progression, quest, or guild data corruption incidents.

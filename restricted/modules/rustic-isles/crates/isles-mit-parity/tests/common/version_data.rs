@@ -1,21 +1,24 @@
-//! `version_data.json` as restricted holds it: isles-core's `areas/characters/data.rs` and `starter.rs` (1.14.7's
-//! character data and starter kit), isles-db's legacy starter defaults, isles-core's Reward Cache plan and
-//! `src_tokens.txt`, in the MIT document's shape (spec-rustic-isles-1-14-7 §4.3). The values isles-core keeps inline in
-//! its normalise and bootstrap code (the series fill, the trigger node, the banner customization) are written out
-//! here. `tests/version_data.rs` keeps the copy the host ships equal to it.
+//! `version_data.json` as restricted holds it: 1.14.7's character data and starter kit (`starter.rs`), the legacy
+//! starter's banner defaults, the Reward Cache plan (`reward_cache.rs`) and `src_tokens.txt`, in the MIT document's
+//! shape (spec-rustic-isles-1-14-7 §4.3), all from the retired isles-core and isles-db (RD27). The values isles-core
+//! kept inline in its normalise and bootstrap code (the series fill, the trigger node, the banner customization) are
+//! written out here. `tests/version_data.rs` keeps the copy the host ships equal to it.
 #![allow(clippy::unwrap_used, clippy::expect_used, dead_code)] // test helpers
 
-use isles_core::areas::characters::data::{
-    DEFAULT_CHARACTER_FLAGS, NO_RECENT_PLAYERS, TUTORIAL_SLATE_FLAGS, default_appearance, dojo_series_data,
-};
-use isles_core::areas::characters::starter::{
-    DEFAULT_QUICK_CHATS, LOADOUT_EQUIPMENT, STARTER_BANNER_CATALOG_ID, STARTER_DEFAULT_WEAPON_PART_CATALOG_IDS,
-    STARTER_FLASK_CATALOG_ID, STARTER_GLIDER_CATALOG_ID, STARTER_INSTANCED_CATALOG_IDS, STARTER_WALLET,
-    STARTER_WEAPON_CATALOG_ID, build_instance_data,
-};
 use serde_json::{Value, json};
 
-const SRC_TOKENS: &str = include_str!("../../../isles-core/src/game_data/src_tokens.txt");
+use super::reward_cache::reward_cache_plan_document;
+use super::starter::{
+    DEFAULT_CHARACTER_FLAGS, DEFAULT_QUICK_CHATS, LOADOUT_EQUIPMENT, NO_RECENT_PLAYERS, STARTER_BANNER_CATALOG_ID,
+    STARTER_DEFAULT_WEAPON_PART_CATALOG_IDS, STARTER_FLASK_CATALOG_ID, STARTER_GLIDER_CATALOG_ID,
+    STARTER_INSTANCED_CATALOG_IDS, STARTER_WALLET, STARTER_WEAPON_CATALOG_ID, TUTORIAL_SLATE_FLAGS,
+    build_instance_data, default_appearance, dojo_series_data,
+};
+
+// isles-db's (`transforms.rs`): what a migrated banner without a dye or sigil gets
+const DEFAULT_BANNER_DYE_ID: &str = "DYE_DEFAULT";
+const DEFAULT_BANNER_SIGIL_ID: &str = "BN_SIGIL_BEGINNER_00";
+const SRC_TOKENS: &str = include_str!("src_tokens.txt");
 
 fn parsed(text: &str) -> Value {
     serde_json::from_str(text).unwrap()
@@ -76,10 +79,10 @@ pub fn document() -> Value {
             "wallet": wallet
         },
         "legacyStarter": {
-            "defaultDye": isles_db::transforms::DEFAULT_BANNER_DYE_ID,
-            "defaultSigil": isles_db::transforms::DEFAULT_BANNER_SIGIL_ID
+            "defaultDye": DEFAULT_BANNER_DYE_ID,
+            "defaultSigil": DEFAULT_BANNER_SIGIL_ID
         },
-        "rewardCachePlan": isles_core::gamedata::reward_cache_plan_document(),
+        "rewardCachePlan": reward_cache_plan_document(),
         "storageTokenSeeds": SRC_TOKENS.lines().collect::<Vec<_>>()
     })
 }

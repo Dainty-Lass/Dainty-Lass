@@ -35,7 +35,6 @@ COPY restricted/ui/ /src/restricted/ui/
 COPY restricted/modules/rustic-isles/crates/ /src/restricted/modules/rustic-isles/crates/
 # The 1.14.7 version data the host and the module library compile in (RD27)
 COPY restricted/modules/rustic-isles/version-data/ /src/restricted/modules/rustic-isles/version-data/
-COPY restricted/modules/rustic-isles/docs/ /src/restricted/modules/rustic-isles/docs/
 COPY restricted/modules/rustic-isles/reference/1.14.7/ParadoxBackend/game-data/ /src/restricted/modules/rustic-isles/reference/1.14.7/ParadoxBackend/game-data/
 COPY restricted/modules/rustic-isles/reference/1.14.7/ParadoxBackend/store-captures.json /src/restricted/modules/rustic-isles/reference/1.14.7/ParadoxBackend/
 COPY restricted/modules/rustic-isles/reference/1.14.7/ParadoxDirector/game-data/ /src/restricted/modules/rustic-isles/reference/1.14.7/ParadoxDirector/game-data/

@@ -1,4 +1,4 @@
-//! `isles-core/tests/golden/bounties_store/1.14.7.json` (Node's bounty, cooldown, entitlement, wallet and store routers,
+//! `tests/golden/bounties_store/1.14.7.json` (Node's bounty, cooldown, entitlement, wallet and store routers,
 //! `record.cjs`) against the MIT module: restricted's `bounties_store::harness::replay_golden` comparison (status,
 //! content type and body text; a token answer as `<token>`; Express's error page by its start), at the recording's
 //! pinned clock, over the golden's game data.
@@ -16,7 +16,7 @@ use serde_json::{Value, json};
 
 #[tokio::test(flavor = "multi_thread")]
 async fn bounties_store() {
-    let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../isles-core/tests/golden/bounties_store");
+    let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/golden/bounties_store");
     let golden: Value = serde_json::from_str(&std::fs::read_to_string(dir.join("1.14.7.json")).unwrap()).unwrap();
     rustic_isles::replay::pin_now_for_tests(Some(1_793_016_000_000));
     let source = dir.join("game-data");

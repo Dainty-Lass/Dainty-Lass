@@ -8,7 +8,7 @@ records where each part of `restricted/` comes from.
 
 ## Modification notice
 
-This repository, `silentspud/dainty-restricted` on `git.silentspud.com`, combines and modifies two AGPL-3.0-only
+This subtree, `restricted/` of `silentspud/dainty-lass` on `git.silentspud.com`, combines and modifies two AGPL-3.0-only
 projects to run Dauntless 1.14.7 (`rel-1.14.7-Archon`, changelist 647472) on private servers. Every change is
 recorded in the commit history. It is **not** an official release of Mystic Paradox, Dauntless Revived,
 Undaunted or any other project named here, and none of them endorses it.
@@ -34,9 +34,11 @@ dainty-lass-ui.
   [modules/rustic-isles/NOTICE.md](modules/rustic-isles/NOTICE.md), its licence
   [modules/rustic-isles/LICENSE](modules/rustic-isles/LICENSE) and its additional terms
   [modules/rustic-isles/ADDITIONAL_TERMS.md](modules/rustic-isles/ADDITIONAL_TERMS.md).
-- Its backend and Director reference sources and Rust ports (`isles-core`, `isles-director`, `isles-chat`,
-  `isles-1-14-7`, `isles-1-12-0`) are in [`modules/rustic-isles`](modules/rustic-isles) (from `ParadoxBackend/`
-  and `ParadoxDirector/` at commit `21b9ff5` and tag `dauntless-1.12.0` at `4d5dfaa`), and its co-op transport
+- Its backend and Director reference sources, and the Node goldens recorded from them (`crates/isles-mit-parity`),
+  are in [`modules/rustic-isles`](modules/rustic-isles) (from `ParadoxBackend/` and `ParadoxDirector/` at commit
+  `21b9ff5` and tag `dauntless-1.12.0` at `4d5dfaa`; their Rust ports `isles-core`, `isles-director`, `isles-chat`,
+  `isles-db`, `isles-1-14-7` and `isles-1-12-0` were replaced by dainty-lass's MIT clean-room `rustic-isles-*` crates,
+  RD27, and removed; they stay in this repository's history), and its co-op transport
   (`ParadoxTransport/`) and the Node vectors recorded from its realm modules are in
   [`modules/rustic-rifts`](modules/rustic-rifts) (its Rust realm and Guard ports were replaced by dainty-lass's MIT
   clean-room `rifts-*` crates, RD27, and removed; they stay in this repository's history);

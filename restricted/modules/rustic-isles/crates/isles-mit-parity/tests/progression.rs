@@ -1,4 +1,4 @@
-//! `isles-core/tests/golden/progression/scenarios-1.14.7.json` (the Node progression services, `capture.ts`) against
+//! `tests/golden/progression/scenarios-1.14.7.json` (the Node progression services, `capture.ts`) against
 //! the MIT module over the golden's game data: status and body text after restricted's normalisation (dates, minted
 //! grant ids), Express's own 404 page answered by the unstubbed 404. Accounts and their characters are written
 //! through the store; `reforge-open` opens the reforge row as restricted's replay does.
@@ -14,8 +14,8 @@ mod common;
 use std::collections::HashMap;
 use std::path::Path;
 
+use common::normalise::normalise_progression as normalise;
 use common::{Caller, Mit, Tally, credentials, seed_account, seed_character, send, system};
-use isles_core::areas::progression::testkit::golden::normalise;
 use serde_json::{Value, json};
 
 fn now_ms() -> i64 {
@@ -27,7 +27,7 @@ fn now_ms() -> i64 {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn progression() {
-    let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("../isles-core/tests/golden/progression");
+    let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/golden/progression");
     let recording: Value =
         serde_json::from_str(&std::fs::read_to_string(dir.join("scenarios-1.14.7.json")).unwrap()).unwrap();
     let source = dir.join("game-data");
