@@ -2908,4 +2908,42 @@ mod tests {
         doc["dashboardUrl"] = json!("");
         assert_eq!(HostConfig::from_json(&doc).unwrap().dashboard_url, None);
     }
+
+    /// D3: the rifts crates read only `RUSTIC_RIFTS_*`, so setup must leave no `MYSTICPARADOX_*` in an env file, even
+    /// over one an older kit or a hand edit left it in.
+    #[test]
+    fn setup_rewrites_env_files_without_the_names_from_before_the_rename() {
+        let dir = tempfile::tempdir().unwrap();
+        let p = Paths::new(dir.path());
+        std::fs::create_dir_all(&p.config).unwrap();
+        for name in ["backend", "director", "admin"] {
+            std::fs::write(
+                p.config.join(format!("{name}.env")),
+                "MYSTICPARADOX_REALMS_MODULE=on\nMYSTICPARADOX_HOST_POLICY=enforce\n",
+            )
+            .unwrap();
+        }
+        let doc = json!({
+            "version": 1,
+            "mode": "private",
+            "host": "100.101.102.103",
+            "gameAddress": "100.101.102.103",
+            "name": "Friday Hunts",
+            "registration": "INVITECODE",
+            "maxHuntServers": 4
+        });
+        let cfg = HostConfig::from_json(&doc).unwrap();
+        let secrets = Secrets {
+            metrics_token: "m".repeat(64),
+            operator_secret: "o".repeat(64),
+            ..Secrets::default()
+        };
+        let files = build_env_files(&cfg, &secrets, &p, "", Platform::Windows);
+        for path in write_env_files(&p, &files).unwrap() {
+            let text = std::fs::read_to_string(&path).unwrap();
+            assert!(!text.contains("MYSTICPARADOX_"), "{}: {text}", path.display());
+        }
+        let backend = read_env_file(&p.config.join("backend.env")).unwrap();
+        assert_eq!(backend.get("RUSTIC_ISLES_METRICS_TOKEN").map(str::len), Some(64));
+    }
 }
