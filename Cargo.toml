@@ -91,6 +91,11 @@ anstream = "1"
 aws-lc-rs = "1.18"
 axum = { version = "0.8", default-features = false, features = ["http1", "json", "query", "tokio", "form", "ws"] }
 aes-gcm = "0.11"
+# The launcher's key store (RL5): the old Electron key files (AES-CBC, PBKDF2) and the Secret Service on Linux
+aes = "0.9"
+cbc = { version = "0.2", features = ["alloc"] }
+dbus-secret-service = { version = "4.1", features = ["crypto-rust"] }
+pbkdf2 = { version = "0.13", default-features = false, features = ["hmac"] }
 # Launcher passwords: reads the Argon2id PHC hashes accounts already have (rustic-isles-auth)
 argon2 = { version = "0.5", default-features = false, features = ["alloc", "password-hash"] }
 # ES256 admission tickets (rifts-admission). Its types are in that crate's public API, so dainty-restricted resolves
