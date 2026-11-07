@@ -112,6 +112,7 @@ dotenvy = "0.15"
 flate2 = "1"
 futures-util = { version = "0.3", default-features = false, features = ["sink", "std"] }
 gethostname = "1"
+hex = "0.4.3"
 http = "1"
 http-body = "1"
 http-body-util = "0.1"

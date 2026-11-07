@@ -10,6 +10,7 @@ publish.workspace = true
 
 [dependencies]
 base64.workspace = true
+hex.workspace = true
 hmac.workspace = true
 # The system random source (rand's SysRng is getrandom's), for signal and request ids
 rand.workspace = true

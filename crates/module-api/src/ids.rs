@@ -168,10 +168,7 @@ impl<const BYTES: usize> From<HexDigest<BYTES>> for String {
 
 impl<const BYTES: usize> fmt::Display for HexDigest<BYTES> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        for byte in self.0 {
-            write!(f, "{byte:02x}")?;
-        }
-        Ok(())
+        f.write_str(&hex::encode(self.0))
     }
 }
 

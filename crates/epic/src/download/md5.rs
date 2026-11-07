@@ -99,11 +99,7 @@ mod tests {
         for piece in data.chunks(7) {
             md5.update(piece);
         }
-        md5.finish()
-            .iter()
-            .flat_map(|&b| [b >> 4, b & 15])
-            .filter_map(|n| char::from_digit(u32::from(n), 16))
-            .collect()
+        ::hex::encode(md5.finish())
     }
 
     #[test]

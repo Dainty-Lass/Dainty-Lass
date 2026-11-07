@@ -17,6 +17,7 @@ chrono.workspace = true
 clap.workspace = true
 diesel.workspace = true
 diesel_migrations.workspace = true
+hex.workspace = true
 http-body-util.workspace = true
 hyper.workspace = true
 hyper-util = { workspace = true, features = ["client-legacy", "http1"] }

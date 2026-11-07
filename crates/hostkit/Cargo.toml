@@ -34,6 +34,7 @@ crossterm.workspace = true
 epic.workspace = true
 flate2.workspace = true
 fs4 = "1"
+hex.workspace = true
 http-body-util.workspace = true
 hyper.workspace = true
 hyper-rustls.workspace = true

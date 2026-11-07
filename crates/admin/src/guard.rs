@@ -478,11 +478,7 @@ fn clip(text: &str) -> String {
 fn new_id() -> String {
     let mut bytes = [0u8; 8];
     rand::rng().fill(&mut bytes[..]);
-    bytes
-        .iter()
-        .flat_map(|&b| [b >> 4, b & 15])
-        .filter_map(|n| char::from_digit(u32::from(n), 16))
-        .collect()
+    hex::encode(bytes)
 }
 
 /// An id as `new_id` makes it: 16 lower-case hex digits.

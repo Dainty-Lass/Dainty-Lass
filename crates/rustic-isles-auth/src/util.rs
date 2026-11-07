@@ -24,13 +24,7 @@ pub fn iso(ms: i64) -> String {
 }
 
 pub fn hex(bytes: &[u8]) -> String {
-    const DIGITS: &[u8; 16] = b"0123456789abcdef";
-    let mut out = String::with_capacity(bytes.len() * 2);
-    for b in bytes {
-        out.push(char::from(DIGITS[usize::from(b >> 4)]));
-        out.push(char::from(DIGITS[usize::from(b & 15)]));
-    }
-    out
+    ::hex::encode(bytes)
 }
 
 fn hex_digit(b: u8) -> Option<u8> {
@@ -43,13 +37,7 @@ fn hex_digit(b: u8) -> Option<u8> {
 }
 
 pub fn unhex(text: &str) -> Option<Vec<u8>> {
-    if !text.len().is_multiple_of(2) {
-        return None;
-    }
-    text.as_bytes()
-        .chunks(2)
-        .map(|pair| Some((hex_digit(pair[0])? << 4) | hex_digit(pair[1])?))
-        .collect()
+    ::hex::decode(text).ok()
 }
 
 pub fn is_hex64(text: &str) -> bool {

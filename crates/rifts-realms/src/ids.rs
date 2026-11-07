@@ -4,8 +4,6 @@
 //! A session's three spellings: the wire UUID the tables, tickets and `bridge.conf` hold, its 128 bits read as a
 //! ULID, and the node-tagged seam and module-api ids built from those bits (DD18).
 
-use std::fmt::Write as _;
-
 use module_api::{GlobalId, NodeId};
 use rand::RngExt as _;
 use rifts_seam::{RealmId, SessionId, Ulid, UnixMillis};
@@ -33,11 +31,7 @@ pub fn random_uuid() -> String {
 
 /// Lower-case hex.
 pub fn hex(bytes: &[u8]) -> String {
-    let mut out = String::with_capacity(bytes.len() * 2);
-    for byte in bytes {
-        let _ = write!(out, "{byte:02x}");
-    }
-    out
+    ::hex::encode(bytes)
 }
 
 /// Creation time in the top 48 bits, so ids sort by age as ULIDs do.

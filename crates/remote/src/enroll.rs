@@ -84,13 +84,7 @@ pub fn generate_enrollment_token() -> String {
 
 /// Compute lowercase 64-character hex SHA-256 of arbitrary bytes.
 pub fn sha256_hex(bytes: &[u8]) -> String {
-    let digest = Sha256::digest(bytes);
-    let mut out = String::with_capacity(64);
-    for b in digest {
-        use std::fmt::Write as _;
-        let _ = write!(&mut out, "{b:02x}");
-    }
-    out
+    hex::encode(Sha256::digest(bytes))
 }
 
 /// Check that a string is a 64-character lowercase hexadecimal SHA-256 fingerprint.

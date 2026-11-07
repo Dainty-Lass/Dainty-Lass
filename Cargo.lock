@@ -25,6 +25,7 @@ dependencies = [
  "clap",
  "diesel",
  "diesel_migrations",
+ "hex",
  "http-body-util",
  "hyper",
  "hyper-util",
@@ -607,6 +608,7 @@ dependencies = [
  "diesel",
  "diesel_migrations",
  "futures-util",
+ "hex",
  "http-body-util",
  "hyper",
  "hyper-rustls",
@@ -792,6 +794,7 @@ dependencies = [
  "chrono",
  "clap",
  "futures-util",
+ "hex",
  "http",
  "http-body",
  "http-body-util",
@@ -1524,6 +1527,7 @@ dependencies = [
  "bytes",
  "egs-api",
  "flate2",
+ "hex",
  "http-body-util",
  "hyper",
  "hyper-rustls",
@@ -1761,6 +1765,7 @@ dependencies = [
  "bytes",
  "chrono",
  "futures-util",
+ "hex",
  "http",
  "http-body-util",
  "hyper",
@@ -1981,6 +1986,7 @@ dependencies = [
  "diesel",
  "diesel_migrations",
  "flate2",
+ "hex",
  "http-body-util",
  "hyper",
  "hyper-rustls",
@@ -2030,6 +2036,7 @@ dependencies = [
  "epic",
  "flate2",
  "fs4",
+ "hex",
  "http-body-util",
  "hyper",
  "hyper-rustls",
@@ -2549,6 +2556,7 @@ dependencies = [
  "epic",
  "fs4",
  "futures-util",
+ "hex",
  "http-body-util",
  "hyper",
  "hyper-rustls",
@@ -2792,6 +2800,7 @@ dependencies = [
 name = "module-api"
 version = "0.1.0"
 dependencies = [
+ "hex",
  "libc",
  "serde",
  "serde_json",
@@ -2835,6 +2844,7 @@ dependencies = [
  "bytes",
  "diesel",
  "diesel_migrations",
+ "hex",
  "history-ship",
  "http-body-util",
  "hyper",
@@ -3721,6 +3731,7 @@ dependencies = [
  "base64 0.23.1",
  "bytes",
  "chrono",
+ "hex",
  "http",
  "http-body-util",
  "hyper",
@@ -3820,6 +3831,7 @@ version = "0.0.0"
 dependencies = [
  "diesel",
  "diesel_migrations",
+ "hex",
  "rifts-seam",
  "serde_json",
  "sha2",
@@ -3833,6 +3845,7 @@ dependencies = [
 name = "rifts-host"
 version = "0.0.0"
 dependencies = [
+ "hex",
  "p256",
  "rand 0.10.3",
  "rifts-admission",
@@ -3850,6 +3863,7 @@ version = "0.0.0"
 dependencies = [
  "diesel",
  "diesel_migrations",
+ "hex",
  "module-api",
  "rand 0.10.3",
  "rifts-admission",
@@ -3871,6 +3885,7 @@ name = "rifts-relay"
 version = "0.0.0"
 dependencies = [
  "base64 0.23.1",
+ "hex",
  "hmac 0.13.0",
  "rand 0.10.3",
  "rifts-seam",
@@ -3891,6 +3906,7 @@ dependencies = [
  "aes-gcm",
  "base64 0.23.1",
  "bytes",
+ "hex",
  "http",
  "http-body-util",
  "hyper",
@@ -4147,6 +4163,7 @@ dependencies = [
  "base64 0.23.1",
  "bytes",
  "chrono",
+ "hex",
  "http",
  "http-body-util",
  "hyper",
@@ -4219,6 +4236,7 @@ dependencies = [
  "base64 0.23.1",
  "chrono",
  "diesel",
+ "hex",
  "hmac 0.13.0",
  "module-api",
  "percent-encoding",
@@ -4263,6 +4281,7 @@ name = "rustic-isles-economy"
 version = "0.0.0"
 dependencies = [
  "axum",
+ "hex",
  "http",
  "http-body-util",
  "module-api",
@@ -4289,6 +4308,7 @@ version = "0.0.0"
 dependencies = [
  "axum",
  "chrono",
+ "hex",
  "http",
  "http-body-util",
  "regex",
@@ -4336,6 +4356,7 @@ dependencies = [
  "base64 0.23.1",
  "chrono",
  "diesel",
+ "hex",
  "http",
  "http-body-util",
  "module-api",
@@ -4366,6 +4387,7 @@ dependencies = [
  "aws-lc-rs",
  "axum",
  "base64 0.23.1",
+ "hex",
  "module-api",
  "percent-encoding",
  "regex",

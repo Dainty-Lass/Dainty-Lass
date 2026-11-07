@@ -16,6 +16,7 @@ test-support = []
 
 [dependencies]
 axum.workspace = true
+hex.workspace = true
 http.workspace = true
 module-api.workspace = true
 rifts-seam.workspace = true

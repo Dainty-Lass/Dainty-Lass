@@ -578,13 +578,7 @@ impl RingConfig {
 }
 
 fn sha256_hex_str(s: &str) -> String {
-    let digest = Sha256::digest(s.as_bytes());
-    let mut out = String::with_capacity(64);
-    for b in digest {
-        use std::fmt::Write as _;
-        let _ = write!(&mut out, "{b:02x}");
-    }
-    out
+    hex::encode(Sha256::digest(s.as_bytes()))
 }
 
 struct State {

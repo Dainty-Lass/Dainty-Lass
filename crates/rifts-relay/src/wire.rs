@@ -256,23 +256,20 @@ pub fn random_uuid() -> Result<String, rand::rngs::SysError> {
 
 /// The 16 bytes as a lower-case hyphenated UUID.
 pub fn format_uuid(bytes: &[u8; 16]) -> String {
-    let mut text = String::with_capacity(36);
-    for (index, byte) in bytes.iter().enumerate() {
-        if matches!(index, 4 | 6 | 8 | 10) {
-            text.push('-');
-        }
-        let _ = write!(text, "{byte:02x}");
-    }
-    text
+    let text = hex(bytes);
+    format!(
+        "{}-{}-{}-{}-{}",
+        &text[..8],
+        &text[8..12],
+        &text[12..16],
+        &text[16..20],
+        &text[20..]
+    )
 }
 
 /// Lower-case hex.
 pub fn hex(bytes: &[u8]) -> String {
-    bytes
-        .iter()
-        .flat_map(|&b| [b >> 4, b & 15])
-        .filter_map(|n| char::from_digit(u32::from(n), 16))
-        .collect()
+    ::hex::encode(bytes)
 }
 
 #[cfg(test)]

@@ -405,18 +405,8 @@ pub fn describe(der: &[u8]) -> Result<NodeCertInfo> {
     Ok(NodeCertInfo {
         identity: NodeIdentity { node, region },
         hosts,
-        serial: cert
-            .tbs_certificate
-            .raw_serial()
-            .iter()
-            .flat_map(|&b| [b >> 4, b & 15])
-            .filter_map(|n| char::from_digit(u32::from(n), 16))
-            .collect(),
-        fingerprint: Sha256::digest(der)
-            .iter()
-            .flat_map(|&b| [b >> 4, b & 15])
-            .filter_map(|n| char::from_digit(u32::from(n), 16))
-            .collect(),
+        serial: hex::encode(cert.tbs_certificate.raw_serial()),
+        fingerprint: hex::encode(Sha256::digest(der)),
         not_before: cert.validity().not_before.timestamp(),
         not_after: cert.validity().not_after.timestamp(),
     })

@@ -175,13 +175,7 @@ pub fn invite_for_game(
 }
 
 fn sha256_hex(bytes: &[u8]) -> String {
-    let digest = Sha256::digest(bytes);
-    let mut out = String::with_capacity(64);
-    for b in digest {
-        use std::fmt::Write as _;
-        let _ = write!(out, "{b:02x}");
-    }
-    out
+    hex::encode(Sha256::digest(bytes))
 }
 
 /// Computes the lowercase 64-character hex SHA-256 fingerprint of the first PEM certificate in `cert_file`.

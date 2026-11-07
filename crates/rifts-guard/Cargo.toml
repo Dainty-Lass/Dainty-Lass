@@ -11,6 +11,7 @@ publish.workspace = true
 [dependencies]
 diesel.workspace = true
 diesel_migrations.workspace = true
+hex.workspace = true
 rifts-seam.workspace = true
 # The batch hash covers the body's JSON text in document order (spec-rd27-rifts §2 D5)
 serde_json = { workspace = true, features = ["preserve_order"] }

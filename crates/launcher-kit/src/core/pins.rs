@@ -85,13 +85,7 @@ pub fn is_lower_hex(s: &str, expected_len: usize) -> bool {
 
 /// `bytes` as lowercase hex.
 pub fn lower_hex(bytes: &[u8]) -> String {
-    const HEX: &[u8; 16] = b"0123456789abcdef";
-    let mut out = String::with_capacity(bytes.len() * 2);
-    for &b in bytes {
-        out.push(HEX[(b >> 4) as usize] as char);
-        out.push(HEX[(b & 0x0f) as usize] as char);
-    }
-    out
+    hex::encode(bytes)
 }
 
 /// SHA-256 of `data` as lowercase hex.

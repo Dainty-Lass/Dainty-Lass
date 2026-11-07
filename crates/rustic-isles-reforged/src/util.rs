@@ -155,11 +155,7 @@ pub fn random_uuid() -> String {
 
 /// The bytes as lower-case hex.
 pub fn hex(bytes: &[u8]) -> String {
-    let mut out = String::with_capacity(bytes.len() * 2);
-    for b in bytes {
-        out.push_str(&format!("{b:02x}"));
-    }
-    out
+    ::hex::encode(bytes)
 }
 
 fn hex_digit(b: u8) -> Option<u8> {

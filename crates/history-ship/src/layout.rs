@@ -64,11 +64,7 @@ pub fn sha256_hex(data: &[u8]) -> String {
 }
 
 pub(crate) fn hex(bytes: &[u8]) -> String {
-    bytes
-        .iter()
-        .flat_map(|&b| [b >> 4, b & 15])
-        .filter_map(|n| char::from_digit(u32::from(n), 16))
-        .collect()
+    ::hex::encode(bytes)
 }
 
 fn digits(text: &str, width: usize) -> Option<i64> {

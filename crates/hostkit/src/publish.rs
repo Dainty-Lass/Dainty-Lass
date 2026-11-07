@@ -91,13 +91,7 @@ pub struct InstalledRuntime {
 }
 
 fn sha256_bytes(bytes: &[u8]) -> String {
-    let digest = Sha256::digest(bytes);
-    let mut out = String::with_capacity(64);
-    for b in digest {
-        use std::fmt::Write as _;
-        let _ = write!(out, "{b:02x}");
-    }
-    out
+    hex::encode(Sha256::digest(bytes))
 }
 
 /// `YYYYMMDD-` and the first 8 hex digits of the SHA-256 of the files' hashes.

@@ -111,13 +111,7 @@ pub(crate) fn sha256_hex(text: &str) -> String {
 }
 
 pub(crate) fn hex(bytes: &[u8]) -> String {
-    const DIGITS: &[u8; 16] = b"0123456789abcdef";
-    let mut out = String::with_capacity(bytes.len() * 2);
-    for b in bytes {
-        out.push(char::from(DIGITS[usize::from(b >> 4)]));
-        out.push(char::from(DIGITS[usize::from(b & 15)]));
-    }
-    out
+    ::hex::encode(bytes)
 }
 
 /// The first `n` hex digits of a SHA-256, upper-cased.

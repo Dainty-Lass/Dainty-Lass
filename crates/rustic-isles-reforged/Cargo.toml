@@ -22,6 +22,7 @@ base64.workspace = true
 chrono.workspace = true
 # Only to tell a unique-constraint violation from other store errors (Register's 409)
 diesel.workspace = true
+hex.workspace = true
 http.workspace = true
 http-body-util.workspace = true
 module-api.workspace = true
