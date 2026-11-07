@@ -22,6 +22,6 @@ Normalisation, in order:
    with the line break just before it when that line break follows other text on its line, since ts-rs adds
    that break only before a documented field or variant. A doc comment that starts a line (a documented type)
    is removed with the line break after it.
-4. `app-commands.toml` only: the line starting `description = ` is dropped.
+4. `app-commands.toml` only: the `[[set]]`'s `description` line (`description = "..."`) is dropped.
 
 With this rule, the same types with 64 and with 233 doc comments normalise to identical bytes.
