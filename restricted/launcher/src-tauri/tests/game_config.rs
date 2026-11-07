@@ -286,10 +286,8 @@ fn remove_ini_section_drops_one_section() {
     );
 }
 
-/// The shell's section match ignored spaces inside the brackets (`[ OnlineSubsystemPhoenix ]`); launcher-kit
-/// matches the trimmed header as it is.
+/// Spaces inside the brackets still name the Phoenix section (spec §2.7.6, RL9 3d58e9e2).
 #[test]
-#[ignore = "real difference: launcher-kit keeps a `[ OnlineSubsystemPhoenix ]` section with spaces inside the brackets"]
 fn a_phoenix_header_with_inner_spaces_is_removed() {
     assert_eq!(
         kit::remove_phoenix(&lines(&["  [ OnlineSubsystemPhoenix ]  ", "#x=1", "  y = 2", "[B]"])),
