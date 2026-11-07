@@ -107,6 +107,11 @@ impl Controller {
         self.epic_dir().join(format!("{version}.resume"))
     }
 
+    /// Names the folder an install made for itself: only that one is deleted when the download is discarded.
+    fn created_file(&self, version: &str) -> PathBuf {
+        self.epic_dir().join(format!("{version}.created"))
+    }
+
     /// The folder versions install into, one folder each: the player's choice, or `~/Games/Dauntless`.
     fn install_root(&self) -> Option<PathBuf> {
         std::fs::read_to_string(self.epic_dir().join("install-root"))
@@ -187,6 +192,13 @@ impl Controller {
         let Some(this) = self.me.upgrade() else {
             return InstallOutcome::Err(LauncherError::new(ErrorCode::Unknown));
         };
+        if !folder.exists() {
+            let made = std::fs::create_dir_all(self.epic_dir())
+                .and_then(|()| std::fs::write(self.created_file(version), folder.to_string_lossy().as_bytes()));
+            if let Err(error) = made {
+                log::warn(&format!("the install's folder record was not saved: {error}"));
+            }
+        }
         let job = {
             let mut entries = lock(&self.installs.entries);
             let running = entries
@@ -236,6 +248,8 @@ impl Controller {
         });
         match outcome {
             Ok(()) => {
+                // An installed game is never the discard's to delete
+                let _ = std::fs::remove_file(self.created_file(&version));
                 lock(&self.installs.entries).remove(&version);
                 log::info(&format!("installed {version} from Epic"));
                 self.set_notice(Some(NoticeCode::InstallDone));
@@ -325,6 +339,54 @@ impl Controller {
     /// Stops the download; its resume file stays, so starting again picks it up.
     pub fn game_install_cancel(&self, version: &str) -> ActionResult {
         self.with_job(version, InstallJob::cancel)
+    }
+
+    /// Cancels the download altogether: stops it if it runs, then deletes what it downloaded and its resume
+    /// record, so the version is not installed again. The folder goes only if this install made it; one that was
+    /// there before keeps its files.
+    pub async fn game_install_discard(&self, version: &str) -> ActionResult {
+        if self.installed_folder(version).is_some() {
+            return ActionResult::err(ErrorCode::Busy);
+        }
+        let running = match lock(&self.installs.entries).get(version) {
+            Some(Entry::Running { job, .. }) => {
+                job.cancel();
+                true
+            }
+            _ => false,
+        };
+        // The job ends between chunks; until it has, its files are still being written
+        for _ in 0..300 {
+            if !running || !matches!(lock(&self.installs.entries).get(version), Some(Entry::Running { .. })) {
+                break;
+            }
+            tokio::time::sleep(Duration::from_millis(100)).await;
+        }
+        if matches!(lock(&self.installs.entries).get(version), Some(Entry::Running { .. })) {
+            return ActionResult::err(ErrorCode::Busy);
+        }
+        let made = std::fs::read_to_string(self.created_file(version))
+            .ok()
+            .map(PathBuf::from);
+        let folder = self.install_folder(version);
+        let removed = match (made, folder) {
+            (Some(made), Some(folder)) if made == folder && folder.is_dir() => {
+                tokio::task::spawn_blocking(move || std::fs::remove_dir_all(&folder))
+                    .await
+                    .unwrap_or_else(|_| Err(std::io::Error::other("the delete stopped")))
+            }
+            _ => Ok(()),
+        };
+        if let Err(error) = removed {
+            log::warn(&format!("the download of {version} was not deleted: {error}"));
+            return ActionResult::err(ErrorCode::DownloadFailed);
+        }
+        let _ = std::fs::remove_file(self.resume_file(version));
+        let _ = std::fs::remove_file(self.created_file(version));
+        lock(&self.installs.entries).remove(version);
+        log::info(&format!("the download of {version} was cancelled and deleted"));
+        self.publish();
+        ActionResult::Ok
     }
 
     pub fn game_install_get(&self, version: &str) -> InstallOutcome {

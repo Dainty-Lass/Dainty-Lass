@@ -647,6 +647,14 @@ pub fn game_install_get(version: String, app: AppHandle) -> InstallOutcome {
 }
 
 #[tauri::command]
+pub async fn game_install_discard(version: String, app: AppHandle) -> ActionResult {
+    match game_version(&version) {
+        Some(version) => controller(&app).game_install_discard(version).await,
+        None => ActionResult::err(ErrorCode::Unknown),
+    }
+}
+
+#[tauri::command]
 pub async fn game_install_choose_folder(app: AppHandle) -> ActionResult {
     controller(&app).game_install_choose_folder().await
 }

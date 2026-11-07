@@ -278,9 +278,14 @@
       "pause": "Pausar",
       "resume": "Retomar",
       "cancel": "Parar",
-      "use": "Usar esta instalação"
+      "use": "Usar esta instalação",
+      "discard": "Cancelar download"
     },
     "changeFolder": "Mudar pasta",
-    "folderHidden": "oculta"
+    "folderHidden": "oculta",
+    "discardTitle": "Cancelar este download?",
+    "discardHint": "O que já foi baixado será apagado. Instalar de novo começa do início.",
+    "discardConfirm": "Apagar download",
+    "discardKeep": "Manter"
   }
 }

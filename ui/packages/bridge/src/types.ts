@@ -104,6 +104,8 @@ export interface LauncherApi {
   gameInstallGet(version: string): Promise<InstallOutcome>;
   /** A folder dialog for where versions install; refused (busy) while an install runs or waits to continue. */
   gameInstallChooseFolder(): Promise<ActionResult>;
+  /** Cancels a download altogether: stops it and deletes what it downloaded. */
+  gameInstallDiscard(version: string): Promise<ActionResult>;
   onSnapshot(fn: (snapshot: Snapshot) => void): void;
   onProgress(fn: (progress: TaskProgress) => void): void;
   onHostKit(fn: (kit: HostKit) => void): void;

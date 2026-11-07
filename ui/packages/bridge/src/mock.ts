@@ -559,6 +559,11 @@ export function mockLauncher(): LauncherApi {
       return OK;
     },
     gameInstallGet: async () => ({ ok: true, install }),
+    gameInstallDiscard: async () => {
+      stopInstall();
+      install = { ...install, state: "not_installed", progress: null, error: null };
+      return OK;
+    },
     gameInstallChooseFolder: async () => {
       if (installTimer || install.state === "paused" || install.state === "resumable")
         return { ok: false, error: { code: "busy" } };

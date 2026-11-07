@@ -36,11 +36,11 @@ test("an install needs a signed-in account that owns the game", () => {
 });
 
 test("each state offers its own buttons", () => {
-  expect(versionActions(entry, info("downloading"), ctx).actions).toEqual(["pause", "cancel"]);
-  expect(versionActions(entry, info("paused"), ctx).actions).toEqual(["resume", "cancel"]);
+  expect(versionActions(entry, info("downloading"), ctx).actions).toEqual(["pause", "cancel", "discard"]);
+  expect(versionActions(entry, info("paused"), ctx).actions).toEqual(["resume", "cancel", "discard"]);
   expect(versionActions(entry, info("finishing"), ctx).actions).toEqual([]);
-  expect(versionActions(entry, info("resumable"), ctx).actions).toEqual(["continue"]);
-  expect(versionActions(entry, info("failed"), ctx).actions).toEqual(["retry"]);
+  expect(versionActions(entry, info("resumable"), ctx).actions).toEqual(["continue", "discard"]);
+  expect(versionActions(entry, info("failed"), ctx).actions).toEqual(["retry", "discard"]);
   expect(versionActions(entry, info("installed"), ctx).actions).toEqual(["use"]);
   expect(versionActions(entry, info("installed"), { ...ctx, inUse: true }).actions).toEqual([]);
 });
@@ -48,7 +48,7 @@ test("each state offers its own buttons", () => {
 test("a manifest that is not ready offers no install, but a part-way one can continue", () => {
   const bad = { ...entry, epic: { ...entry.epic!, manifest: "unreachable" as const } };
   expect(versionActions(bad, null, ctx).actions).toEqual([]);
-  expect(versionActions(bad, info("resumable"), ctx).actions).toEqual(["continue"]);
+  expect(versionActions(bad, info("resumable"), ctx).actions).toEqual(["continue", "discard"]);
   expect(versionActions({ ...entry, install: "locate", epic: null }, null, ctx).actions).toEqual(
     [],
   );

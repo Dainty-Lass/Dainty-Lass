@@ -66,7 +66,7 @@ export function installProgress(
   return info.progress;
 }
 
-type Action = "install" | "continue" | "retry" | "pause" | "resume" | "cancel" | "use";
+type Action = "install" | "continue" | "retry" | "pause" | "resume" | "cancel" | "discard" | "use";
 type Hint = "signInFirst" | "notOwned" | "otherRunning" | null;
 
 /** The buttons one version offers, and why an install button is off. */
@@ -79,8 +79,8 @@ export function versionActions(
   const state = info?.state ?? "not_installed";
   if (state === "installed") return { actions: ctx.inUse ? [] : ["use"], hint: null };
   if (state === "finishing") return { actions: [], hint: null };
-  if (state === "paused") return { actions: ["resume", "cancel"], hint: null };
-  if (isRunning(state)) return { actions: ["pause", "cancel"], hint: null };
+  if (state === "paused") return { actions: ["resume", "cancel", "discard"], hint: null };
+  if (isRunning(state)) return { actions: ["pause", "cancel", "discard"], hint: null };
   if (entry.epic.manifest !== "ready" && state !== "resumable") return { actions: [], hint: null };
   const action: Action =
     state === "resumable" ? "continue" : state === "failed" ? "retry" : "install";
@@ -91,7 +91,9 @@ export function versionActions(
       : ctx.otherRunning
         ? "otherRunning"
         : null;
-  return { actions: [action], hint };
+  // A download stopped part-way can be thrown away instead of continued
+  const discard: Action[] = state === "resumable" || state === "failed" ? ["discard"] : [];
+  return { actions: [action, ...discard], hint };
 }
 
 /** Runs a bridge action and toasts its refusal in the catalog's words. */
@@ -236,6 +238,9 @@ function useEpic(api: LauncherApi | null) {
           break;
         case "cancel":
           report(await api!.gameInstallCancel(version));
+          break;
+        case "discard":
+          report(await api!.gameInstallDiscard(version));
           break;
         case "use": {
           const folder = installsRef.current[version]?.folder;
@@ -401,6 +406,7 @@ function VersionCard({
     inUse: sameFolder(info?.folder ?? null, snapshot.game.root),
   });
   const progress = installProgress(info, channel);
+  const [confirming, setConfirming] = useState(false);
   const gb = (bytes: number) => format.number(bytes / 1e9, { maximumFractionDigits: 1 });
   const hide = snapshot.settings.streamerMode;
   const manifest = entry.epic?.manifest ?? "ready";
@@ -482,6 +488,29 @@ function VersionCard({
         {state === "installed" && actions.length === 0 && (
           <Text type="supporting">{t("inUse")}</Text>
         )}
+        {confirming && actions.includes("discard") && (
+          <Banner
+            status="warning"
+            title={t("discardTitle")}
+            description={t("discardHint")}
+            collapsible={false}
+            endContent={
+              <Stack direction="horizontal" gap={2}>
+                <Button label={t("discardKeep")} size="sm" variant="ghost" onClick={() => setConfirming(false)} />
+                <Button
+                  label={t("discardConfirm")}
+                  size="sm"
+                  variant="destructive"
+                  isLoading={epic.working === entry.version}
+                  onClick={async () => {
+                    await epic.act(entry.version, "discard");
+                    setConfirming(false);
+                  }}
+                />
+              </Stack>
+            }
+          />
+        )}
         {(actions.length > 0 || hint) && (
           <Stack direction="horizontal" gap={2} align="center" justify="end" wrap="wrap">
             {hint && <Text type="supporting">{t(`hints.${hint}`)}</Text>}
@@ -490,9 +519,12 @@ function VersionCard({
                 key={action}
                 label={t(`actions.${action}`)}
                 variant={i === 0 && action !== "cancel" ? "primary" : "ghost"}
-                isDisabled={hint !== null}
+                // Signing in matters only to download; discarding needs no account
+                isDisabled={hint !== null && action !== "discard"}
                 isLoading={epic.working === entry.version && i === 0}
-                onClick={() => void epic.act(entry.version, action)}
+                onClick={() =>
+                  action === "discard" ? setConfirming(true) : void epic.act(entry.version, action)
+                }
               />
             ))}
           </Stack>

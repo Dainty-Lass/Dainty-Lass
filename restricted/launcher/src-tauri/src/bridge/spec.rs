@@ -526,6 +526,11 @@ pub const COMMANDS: &[Command] = &[
     command("game_install_get", &[("version", Arg::Text { max: GAME_VERSION_MAX })]),
     // Where versions install: a folder dialog, refused while an install runs or waits to continue
     command("game_install_choose_folder", &[]),
+    // Cancels a download altogether, deleting what it downloaded
+    command(
+        "game_install_discard",
+        &[("version", Arg::Text { max: GAME_VERSION_MAX })],
+    ),
     // Round trip to every node, in order (DN7; every build)
     command("region_ping", &[]),
     // Module panels drawn from manifests, load and unload (DU3, DF4d; server GUI): by manifest id, never

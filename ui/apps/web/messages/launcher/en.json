@@ -278,9 +278,14 @@
       "pause": "Pause",
       "resume": "Resume",
       "cancel": "Stop",
-      "use": "Use this install"
+      "use": "Use this install",
+      "discard": "Cancel download"
     },
     "changeFolder": "Change folder",
-    "folderHidden": "hidden"
+    "folderHidden": "hidden",
+    "discardTitle": "Cancel this download?",
+    "discardHint": "What has been downloaded so far is deleted. Installing again starts from the beginning.",
+    "discardConfirm": "Delete download",
+    "discardKeep": "Keep it"
   }
 }

@@ -70,6 +70,7 @@ window.__RR_COMMANDS__ = {
   "game_install_cancel": { "version": { kind: "text", max: 64 } },
   "game_install_get": { "version": { kind: "text", max: 64 } },
   "game_install_choose_folder": {},
+  "game_install_discard": { "version": { kind: "text", max: 64 } },
   "region_ping": {},
   "module_list": {},
   "module_get": { "module": { kind: "text", max: 64 } },

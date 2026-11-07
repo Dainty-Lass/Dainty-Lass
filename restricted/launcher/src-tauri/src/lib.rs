@@ -176,6 +176,7 @@ fn run_app(embedded: Embedded) -> tauri::Result<()> {
             commands::game_install_cancel,
             commands::game_install_get,
             commands::game_install_choose_folder,
+            commands::game_install_discard,
             commands::region_ping,
             commands::module_list,
             commands::module_get,

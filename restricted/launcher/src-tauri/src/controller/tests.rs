@@ -980,6 +980,40 @@ async fn the_epic_install_folder_is_chosen_and_kept_while_an_install_waits() {
     hx.c.shutdown().await;
 }
 
+#[tokio::test(flavor = "multi_thread")]
+async fn a_cancelled_download_deletes_only_the_folder_it_made() {
+    let hx = Harness::new();
+    hx.c.init().await;
+    let games = tempfile::tempdir().unwrap();
+    hx.pick("game_install", games.path());
+    assert_eq!(hx.c.game_install_choose_folder().await, ActionResult::Ok);
+    let epic = hx.user.path().join("epic");
+    let folder = games.path().join("1.14.7");
+    let stopped_part_way = |made: bool| {
+        std::fs::create_dir_all(folder.join("Archon")).unwrap();
+        std::fs::write(folder.join("Archon").join("part.pak"), b"x").unwrap();
+        std::fs::write(epic.join("1.14.7.resume"), b"{}").unwrap();
+        if made {
+            std::fs::write(epic.join("1.14.7.created"), folder.to_string_lossy().as_bytes()).unwrap();
+        }
+    };
+
+    stopped_part_way(true);
+    assert_eq!(hx.c.game_install_discard("1.14.7").await, ActionResult::Ok);
+    assert!(!folder.exists() && !epic.join("1.14.7.resume").exists() && !epic.join("1.14.7.created").exists());
+    let InstallOutcome::Ok(info) = hx.c.game_install_get("1.14.7") else {
+        panic!("no install info");
+    };
+    assert_eq!(info.state, InstallState::NotInstalled);
+
+    // A folder that was there before the install keeps its files; only the resume record goes
+    stopped_part_way(false);
+    assert_eq!(hx.c.game_install_discard("1.14.7").await, ActionResult::Ok);
+    assert!(folder.join("Archon").join("part.pak").exists());
+    assert!(!epic.join("1.14.7.resume").exists());
+    hx.c.shutdown().await;
+}
+
 // ---------------------------------------------------------------- the game folder
 
 #[tokio::test(flavor = "multi_thread")]
