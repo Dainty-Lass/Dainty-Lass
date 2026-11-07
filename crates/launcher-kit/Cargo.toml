@@ -11,6 +11,14 @@ license = "MIT"
 repository.workspace = true
 publish.workspace = true
 
+# The tests' stand-in for `dainty-host` (RD27 spec §2.10)
+[[bin]]
+name = "fake-host-kit"
+path = "tests/fixtures/host/fake_host_kit.rs"
+test = false
+doc = false
+bench = false
+
 [dependencies]
 protocol.workspace = true
 epic.workspace = true

@@ -40,7 +40,6 @@ impl Controller {
     }
 
     /// Begins a loader session in `win64` for `dll`; the page's error when it cannot.
-    #[allow(dead_code, reason = "the Host page controller (RL12b) begins sessions")]
     pub(crate) fn begin_loader_session(
         &self,
         kind: SessionKind,

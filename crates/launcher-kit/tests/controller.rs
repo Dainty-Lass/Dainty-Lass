@@ -914,8 +914,14 @@ async fn the_moved_modules_answer_without_a_server() {
         error(guarded, "not_in_this_build", Some("guarded_list"));
     }
     let host = serde_json::to_value(controller.host_server_start().await).unwrap();
-    error(host, "host_failed", Some("host_tools_unavailable"));
     assert!(!controller.host_kit().await.workspace_ok);
-    ok(&controller.ensure_host_workspace(false).await);
+    let ensured = serde_json::to_value(controller.ensure_host_workspace(false).await).unwrap();
+    if cfg!(feature = "host") {
+        error(host, "host_failed", Some("workspace"));
+        error(ensured, "host_failed", Some("project_no_game"));
+    } else {
+        error(host, "host_failed", Some("host_tools_unavailable"));
+        assert_eq!(ensured, json!({ "ok": true }));
+    }
     controller.shutdown().await;
 }
