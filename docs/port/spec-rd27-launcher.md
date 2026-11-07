@@ -1128,7 +1128,8 @@ error's source chain for a pin error and answers the fingerprint seen.
   to 48); each file an object whose `name` is one of the protocol's runtime file slots (either name of the runtime
   DLL counts as its slot), each slot once, `sha256` exactly 64 lower-case hex, `size` a safe integer (read through a
   double: `1.0` counts, beyond ±(2^53−1) does not) from 1 to 64 MiB; exactly two files; sorted by name; the
-  changelist is `build.changelist` when a safe integer (negative ones included), else none; anything else refuses the whole manifest.
+  changelist is `build.changelist` when a safe integer (negative ones included), else none; anything else refuses
+  the whole manifest.
 - **News**: GET `/content/v1/news`, 10 s, 512 KiB; 200 → parse, else the fallback. Up to 30 items, each needing a
   title (cleaned to 120) and a body: CR LF and CR become LF, unsafe characters other than LF removed, at most two
   LFs in a row, trimmed, non-empty, cut to 4000 UTF-16 units plus `…`; `date` an ISO date or none.
@@ -1350,8 +1351,8 @@ A progress and control wrapper around MIT `epic::download::install` (DE5):
 - **Reading**: UTF-16 LE with BOM, or UTF-8 (BOM dropped); lines split on CR LF, LF or CR; a final empty line
   dropped. **Writing**: lines each followed by CR LF; ASCII when possible, else UTF-16 LE with a BOM. Atomic through
   `<file>.rr-tmp` and rename.
-- **Game.ini**: when present, remove the section `OnlineSubsystemPhoenix` (header matched trimmed, with the name inside the brackets
-  trimmed too, so `[ OnlineSubsystemPhoenix ]` counts, and in any case,
+- **Game.ini**: when present, remove the section `OnlineSubsystemPhoenix` (header matched trimmed, with the name
+  inside the brackets trimmed too, so `[ OnlineSubsystemPhoenix ]` counts, and in any case,
   through the next header); count its key lines (not comments `;`/`#` or blanks, containing `=`); when anything was
   removed, copy the old file to `Game.ini.before-reforged` and write the rest.
 - **Engine.ini**: drop the sections `[SystemSettings]` and `[OnlineSubsystemMcp.XMPP]` (headers matched by prefix, any
