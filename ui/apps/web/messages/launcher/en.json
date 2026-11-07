@@ -223,8 +223,8 @@
     "empty": "Nothing yet. The game's console appears here once the game opens one."
   },
   "install": {
-    "nav": "Get the game",
-    "title": "Get the game",
+    "nav": "Game management",
+    "title": "Game management",
     "description": "Download Dauntless 1.14.7 from your own Epic Games account. The launcher checks every file against the archived manifest.",
     "fromEpic": "Download from Epic",
     "accountTitle": "Epic Games account",

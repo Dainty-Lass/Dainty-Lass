@@ -223,8 +223,8 @@
     "empty": "Nada ainda. O console do jogo aparece aqui quando o jogo abrir um."
   },
   "install": {
-    "nav": "Obter o jogo",
-    "title": "Obter o jogo",
+    "nav": "Gerenciamento do jogo",
+    "title": "Gerenciamento do jogo",
     "description": "Baixe o Dauntless 1.14.7 da sua própria conta da Epic Games. O launcher confere cada arquivo com o manifesto arquivado.",
     "fromEpic": "Baixar da Epic",
     "accountTitle": "Conta da Epic Games",
