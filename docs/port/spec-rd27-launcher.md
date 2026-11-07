@@ -1159,7 +1159,8 @@ error's source chain for a pin error and answers the fingerprint seen.
   `not_local`; the Host header absent, not text, or whose host part (port and IPv6 brackets stripped) is not
   `localhost`, `::1` or a dotted `127.x.y.z` → `host`; a non-upgrade request with any `sec-fetch-*` header →
   `browser`; an Origin that is unreadable, or whose host (scheme optional, port optional, trailing `/` allowed) is
-  not loopback → `origin`. A refused request answers 403 `{"error":"forbidden"}` (upgrades: bare 403) and logs.
+  not loopback → `origin`. A refused request answers 403 `{"error":"forbidden"}` (upgrades: bare 403) and logs;
+  **on the QoS listener it answers 404 `{"error":"not_found"}`**, as for any other path there.
 - **QoS**: GET or HEAD whose target matches `^/qos(?:[/?]|$)` case-insensitively answers 200 `text/html`, the
   content length, `cache-control: no-store`, and the body
   `<!DOCTYPE html><html><body>pong</body></html>` (no body for HEAD); counted. The QoS listener answers the same for
@@ -1180,8 +1181,8 @@ error's source chain for a pin error and answers the fingerprint seen.
 - **Re-pointing** (born here, DN): the relay can be re-pointed to another node with a session ticket, or back home.
   Away from home (or with a ticket) `x-reforged-user-api-key` is removed and `x-reforged-session-ticket` set. A
   response carrying `x-reforged-redirect-host` and a numeric `x-reforged-redirect-port` (optionally
-  `x-reforged-redirect-fingerprint` and a ticket) re-points it; a ticket is required for any non-home target; bad
-  headers are logged and ignored.
+  `x-reforged-redirect-fingerprint` and a ticket) re-points it; a ticket is required for any non-home target,
+  **a blank one (empty once trimmed) counting as none**; bad headers are logged and ignored.
 - **Counters**: requests, upgrades, failures, QoS answers, upstream connections opened. **Stop** cancels every
   listener, connection and tunnel and frees both ports.
 
