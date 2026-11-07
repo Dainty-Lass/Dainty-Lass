@@ -62,7 +62,7 @@ const WINDOW_KEYS: [&str; 5] = [
 ];
 const MAX_DIMENSION: f64 = 16384.0;
 const ENGINE_DROPPED: [&str; 2] = ["[systemsettings]", "[onlinesubsystemmcp.xmpp]"];
-const PHOENIX_HEADER: &str = "[onlinesubsystemphoenix]";
+const PHOENIX_SECTION: &str = "OnlineSubsystemPhoenix";
 const TMP_SUFFIX: &str = ".rr-tmp";
 
 /// The config folder on Windows, from a variable lookup.
@@ -165,6 +165,15 @@ fn is_key_line(line: &str) -> bool {
     !trimmed.is_empty() && !trimmed.starts_with(';') && !trimmed.starts_with('#') && trimmed.contains('=')
 }
 
+// `[ OnlineSubsystemPhoenix ]` counts too: the name is trimmed inside the brackets.
+fn is_phoenix_header(line: &str) -> bool {
+    let trimmed = line.trim();
+    trimmed
+        .strip_prefix('[')
+        .and_then(|h| h.strip_suffix(']'))
+        .is_some_and(|name| name.trim().eq_ignore_ascii_case(PHOENIX_SECTION))
+}
+
 /// Game.ini without its `[OnlineSubsystemPhoenix]` sections, and how many keys they held; none when there were none.
 #[must_use]
 pub fn remove_phoenix<S: AsRef<str>>(lines: &[S]) -> Option<(Vec<String>, usize)> {
@@ -173,7 +182,7 @@ pub fn remove_phoenix<S: AsRef<str>>(lines: &[S]) -> Option<(Vec<String>, usize)
     for line in lines {
         let line = line.as_ref();
         if is_header(line) {
-            inside = line.trim().eq_ignore_ascii_case(PHOENIX_HEADER);
+            inside = is_phoenix_header(line);
             found |= inside;
         }
         if inside {
