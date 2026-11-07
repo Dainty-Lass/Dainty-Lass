@@ -582,6 +582,8 @@ mod tests {
     vs {theirs:?}"
             ));
         }
+        // An AppImage path is a Unix one: `/home/...` is not absolute on Windows, so the MIT side refuses it there
+        #[cfg(unix)]
         for appimage in [
             "/home/a/Apps/DaintyLass.AppImage",
             "/home/a/my $app/x%y.AppImage",
