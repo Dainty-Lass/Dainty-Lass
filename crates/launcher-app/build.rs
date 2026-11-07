@@ -2,19 +2,20 @@
 // SPDX-License-Identifier: MIT
 
 //! Tauri's app manifest from launcher-kit's command table (RD27 spec §2.1.4): each command gets its
-//! `allow-`/`deny-` permissions, and the `app-commands` set grants exactly the table.
+//! `allow-`/`deny-` permissions, and the `app-commands` set grants exactly the table. The set and the isolation
+//! hook's table are launcher-kit's generated files.
 
 use std::error::Error;
-use std::fmt::Write as _;
 use std::path::{Path, PathBuf};
 
 const SPEC: &str = "../launcher-kit/src/bridge/spec.rs";
-/// launcher-kit's generator test keeps this equal to its `commands.js`, banner aside (L4).
-const COMMANDS_FIXTURE: &str = "../launcher-kit/tests/fixtures/bridge/commands.js";
+/// launcher-kit's generator output; its `generated` test keeps both current.
+const COMMANDS: &str = "../launcher-kit/generated/commands.js";
+const PERMISSIONS: &str = "../launcher-kit/generated/app-commands.toml";
 /// Tauri inlines the isolation page's scripts at compile time, so the hook's table must exist before it.
 const ISOLATION_COMMANDS: &str = "../../launcher/isolation/commands.js";
-const BANNER: &str =
-    "// Generated from launcher-kit's command table (crates/launcher-kit/src/bridge/spec.rs); do not edit.\n";
+/// The manager's differences from tauri.conf.json, for the compiled-in context.
+const MANAGER_CONFIG: &str = "tauri.server-gui.conf.json";
 
 /// The names in `COMMANDS`, in order. A build script cannot use launcher-kit, so the table is read as text; a
 /// name may sit on the line after its `cmd(`.
@@ -38,45 +39,37 @@ fn command_names(spec: &str) -> Vec<String> {
     names
 }
 
-/// The permission set, in the generated file's form (§2.3.6 item 3).
-fn permission_set(names: &[String]) -> String {
-    let mut out = String::from(
-        "# Generated from launcher-kit's command table by launcher-app's build script; do not edit.\n\n\
-         [[set]]\nidentifier = \"app-commands\"\n\
-         description = \"Every command in src/bridge/spec.rs, and nothing else.\"\npermissions = [\n",
-    );
-    for name in names {
-        let _ = writeln!(out, "  \"allow-{}\",", name.replace('_', "-"));
-    }
-    out.push_str("]\n");
-    out
-}
-
-/// The file without its leading comment lines, as the fixture is normalised.
-fn without_banner(text: &str) -> String {
-    let text = text.replace("\r\n", "\n");
-    let body: Vec<&str> = text.lines().skip_while(|line| line.starts_with("//")).collect();
-    let mut out = body.join("\n");
-    if text.ends_with('\n') {
-        out.push('\n');
-    }
-    out
+fn unix_lines(text: &str) -> String {
+    text.replace("\r\n", "\n")
 }
 
 /// Writes the hook's table unless an equal one (from this or from `bun run restricted-data`) is there.
 fn isolation_commands() -> Result<(), Box<dyn Error>> {
-    let table = std::fs::read_to_string(COMMANDS_FIXTURE)?;
-    let current = std::fs::read_to_string(ISOLATION_COMMANDS).unwrap_or_default();
-    if without_banner(&current) != without_banner(&table) {
-        std::fs::write(ISOLATION_COMMANDS, format!("{BANNER}{table}"))?;
+    let table = unix_lines(&std::fs::read_to_string(COMMANDS)?);
+    let current = unix_lines(&std::fs::read_to_string(ISOLATION_COMMANDS).unwrap_or_default());
+    if current != table {
+        std::fs::write(ISOLATION_COMMANDS, table)?;
+    }
+    Ok(())
+}
+
+/// The manager build's context: Tauri's codegen merges `TAURI_CONFIG` over tauri.conf.json, and the value set
+/// here wins over one the CLI passes, whose paths are relative to restricted's crate.
+fn manager_config() -> Result<(), Box<dyn Error>> {
+    println!("cargo:rerun-if-changed={MANAGER_CONFIG}");
+    if std::env::var_os("CARGO_FEATURE_SERVER_GUI").is_some() {
+        let patch: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(MANAGER_CONFIG)?)?;
+        println!("cargo:rustc-env=TAURI_CONFIG={patch}");
     }
     Ok(())
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
     println!("cargo:rerun-if-changed={SPEC}");
-    println!("cargo:rerun-if-changed={COMMANDS_FIXTURE}");
+    println!("cargo:rerun-if-changed={COMMANDS}");
+    println!("cargo:rerun-if-changed={PERMISSIONS}");
     isolation_commands()?;
+    manager_config()?;
     println!("cargo:rerun-if-changed=capabilities");
     println!("cargo:rerun-if-changed=../../launcher/isolation");
     let names = command_names(&std::fs::read_to_string(SPEC)?);
@@ -86,7 +79,10 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let dir = PathBuf::from(std::env::var("OUT_DIR")?).join("permissions");
     std::fs::create_dir_all(&dir)?;
-    std::fs::write(dir.join("app-commands.toml"), permission_set(&names))?;
+    std::fs::write(
+        dir.join("app-commands.toml"),
+        unix_lines(&std::fs::read_to_string(PERMISSIONS)?),
+    )?;
     let pattern = format!("{}/*.toml", slashes(&dir));
 
     // Tauri keeps both for the whole build

@@ -21,6 +21,7 @@ name = "dainty-launcher"
 path = "src/main.rs"
 
 [build-dependencies]
+serde_json.workspace = true
 tauri-build.workspace = true
 
 [dependencies]

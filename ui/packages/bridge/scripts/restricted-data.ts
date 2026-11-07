@@ -1,15 +1,13 @@
-// Copies the bridge types the launcher generates from spec.rs (RR_UPDATE_GENERATED=1) from restricted/.
-// They are AGPL, so they stay in restricted/ (RD27).
-// The folder is DAINTY_RESTRICTED_DIR, or restricted/ in the repository root. Run after any bridge change:
+// Copies the bridge types launcher-kit generates from its command table (crates/launcher-kit/generated, MIT since
+// RL13; RR_UPDATE_GENERATED=1 cargo test -p launcher-kit generated). They are generated output, so only the copy
+// in src/generated is kept out of git. Run after any bridge change:
 //   bun run restricted-data
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 
-const restricted = resolve(
-  process.env.DAINTY_RESTRICTED_DIR ?? join(import.meta.dir, "../../../../restricted"),
-);
+const generated = resolve(join(import.meta.dir, "../../../../crates/launcher-kit/generated"));
 const sources = {
-  "generated/types.ts": join(restricted, "ui/packages/bridge/src/generated/types.ts"),
+  "generated/types.ts": join(generated, "types.ts"),
 };
 const out = join(import.meta.dir, "../src");
 
@@ -19,7 +17,7 @@ const rewrite = (text: string) =>
 
 for (const [to, from] of Object.entries(sources)) {
   if (!existsSync(from)) {
-    console.error(`missing ${from}: set DAINTY_RESTRICTED_DIR to the restricted/ folder`);
+    console.error(`missing ${from}: run RR_UPDATE_GENERATED=1 cargo test -p launcher-kit generated`);
     process.exit(1);
   }
   mkdirSync(dirname(join(out, to)), { recursive: true });

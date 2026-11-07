@@ -10,5 +10,5 @@ coverage/
 !.env.example
 apps/web/data/
 .claude/
-# The launcher's generated bridge types, AGPL, copied from dainty-restricted (bun run restricted-data, RD27)
+# The launcher's generated bridge types, copied from crates/launcher-kit/generated (bun run restricted-data)
 packages/bridge/src/generated/
