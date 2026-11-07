@@ -52,9 +52,24 @@ aes.workspace = true
 aes-gcm.workspace = true
 cbc.workspace = true
 pbkdf2.workspace = true
+# The realm adapter (controller/realms.rs)
+rifts-host = { workspace = true, optional = true }
+rifts-seam = { workspace = true, optional = true }
+# The server manager's guarded actions (controller/guarded.rs)
+hostkit = { workspace = true, optional = true, default-features = false, features = ["admin"] }
 
 [target."cfg(windows)".dependencies]
-windows = { workspace = true, features = ["Win32_Foundation", "Win32_Security_Cryptography"] }
+windows = { workspace = true, features = [
+    "Win32_Foundation",
+    "Win32_Security",
+    "Win32_Security_Cryptography",
+    "Win32_Storage_FileSystem",
+    "Win32_System_Console",
+    "Win32_System_DataExchange",
+    "Win32_System_Memory",
+    "Win32_System_Threading",
+    "Win32_UI_WindowsAndMessaging",
+] }
 
 [target.'cfg(target_os = "linux")'.dependencies]
 dbus-secret-service.workspace = true
@@ -72,8 +87,8 @@ ts-rs.workspace = true
 [features]
 default = ["host"]
 host = []
-server-gui = ["host"]
-realms = []
+server-gui = ["host", "dep:hostkit"]
+realms = ["dep:rifts-host", "dep:rifts-seam"]
 ts = ["dep:ts-rs", "protocol/ts"]
 
 [lints]

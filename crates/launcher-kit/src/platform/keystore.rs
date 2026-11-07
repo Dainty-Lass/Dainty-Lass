@@ -6,6 +6,7 @@
 //! read or saved is registered as a log secret; log lines name a slot by its id, never its key. The calls block
 //! (see [`os`]).
 
+pub mod epic;
 pub mod format;
 pub mod legacy;
 pub mod os;

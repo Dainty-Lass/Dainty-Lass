@@ -7,25 +7,30 @@
 //! All mutable state sits behind one mutex that is never held across an await, so concurrent commands interleave
 //! only between steps. The settings store and the hash cache have async locks of their own.
 //!
-//! `guarded`, `host`, `install`, `loader`, `realms`, `region`, `revived` and `versions` are seams: today they answer
-//! as a build without them does, and the modules born in this project replace them.
+//! `host_off` answers the Host page as a build without the host kit does, until RL12b's Host page controller.
 
 mod account;
 mod connect;
 mod game;
 pub mod guarded;
-pub mod host;
+mod host_off;
 pub mod install;
 mod join;
 pub mod loader;
 pub mod platform;
 mod play;
+#[cfg(feature = "realms")]
 pub mod realms;
+#[cfg(not(feature = "realms"))]
+mod realms_off;
 pub mod region;
 pub mod revived;
 mod runtime;
 pub mod stored;
 pub mod versions;
+
+#[cfg(not(feature = "realms"))]
+use realms_off as realms;
 
 use std::collections::VecDeque;
 use std::path::{Path, PathBuf};
@@ -54,6 +59,7 @@ use crate::net::verify::{Abort, HashCache};
 use crate::platform::keystore::os::Encryptor;
 use crate::platform::keystore::{KeyStore, KeyStoreError, legacy::LegacyReader};
 use crate::platform::launch::GameProcess;
+use crate::platform::loader_session::LoaderSession;
 use crate::platform::log;
 use crate::platform::paths::{Migrated, Paths};
 use crate::platform::settings::{Os, SettingsStore};
@@ -168,17 +174,18 @@ pub(crate) struct State {
     pub(crate) relay: Option<Relay>,
     pub(crate) shutting_down: bool,
     pub(crate) game_log: VecDeque<String>,
-    pub(crate) host: host::HostFlags,
-    #[allow(
-        dead_code,
-        reason = "the realm adapter and the install module fill these when they move in"
-    )]
-    pub(crate) realms: realms::RealmsState,
-    #[allow(
-        dead_code,
-        reason = "the realm adapter and the install module fill these when they move in"
-    )]
-    pub(crate) installs: install::Installs,
+    pub(crate) host: HostFlags,
+}
+
+/// The Host page's flags the controller keeps (§2.4.2).
+#[derive(Debug, Default)]
+pub struct HostFlags {
+    /// The Host page's server is starting, running, stopping or answers from outside.
+    pub server_up: bool,
+    /// The game runs for a Dumper-7 dump, so its exit code is no launch failure.
+    pub dumping: bool,
+    /// The loader session placed for a dump or an export.
+    pub loader_session: Option<LoaderSession>,
 }
 
 impl State {
@@ -227,9 +234,7 @@ impl State {
             relay: None,
             shutting_down: false,
             game_log: VecDeque::new(),
-            host: host::HostFlags::default(),
-            realms: realms::RealmsState::default(),
-            installs: install::Installs::default(),
+            host: HostFlags::default(),
         }
     }
 
@@ -259,6 +264,13 @@ pub(crate) struct Shared {
     pub(crate) keys: Arc<KeyStore>,
     pub(crate) game: GameProcess,
     tasks: Mutex<Vec<JoinHandle<()>>>,
+    // Their own locks, outside the state's
+    pub(crate) installs: install::Installs,
+    #[cfg_attr(
+        not(feature = "realms"),
+        allow(dead_code, reason = "a build without realms keeps nothing")
+    )]
+    pub(crate) realms: realms::RealmsState,
 }
 
 /// The one controller of an app; clones share it.
@@ -302,6 +314,8 @@ impl Controller {
                 keys: Arc::new(keys),
                 game,
                 tasks: Mutex::new(Vec::new()),
+                installs: install::Installs::default(),
+                realms: realms::RealmsState::default(),
             }),
         }
     }
@@ -385,6 +399,13 @@ impl Controller {
         self.lock().last_error = Some(error.clone());
         self.publish();
         ActionResult::Err(error)
+    }
+
+    /// Sets the last error and publishes; answers the error, for callers that answer something else.
+    pub(crate) fn refuse(&self, error: LauncherError) -> LauncherError {
+        self.lock().last_error = Some(error.clone());
+        self.publish();
+        error
     }
 
     /// Marks busy unless something already runs; clears the last error and publishes.
@@ -532,7 +553,7 @@ impl Controller {
     /// connection and a verify in the background.
     pub async fn init(&self) {
         self.refresh_key_flag().await;
-        self.recover_loader_session();
+        self.recover_loader_session().await;
         self.look_at_game(true).await;
         self.look_at_runtime().await;
         let _ = self.ensure_host_workspace(true).await;

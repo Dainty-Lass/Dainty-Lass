@@ -3,8 +3,12 @@
 
 //! Platform discovery, host workspace tools, server lifecycle, and OS integration helpers.
 
+pub mod clipboard;
 pub mod dialogs;
+pub mod epic_library;
+pub mod epic_session;
 pub mod game_config;
+pub mod game_console;
 pub mod game_folder;
 pub mod hostkit;
 pub mod hostserver;

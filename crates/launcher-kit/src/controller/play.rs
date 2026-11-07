@@ -112,7 +112,7 @@ impl Controller {
             if let Some(relay) = relay {
                 relay.stop().await;
             }
-            self.end_loader_session();
+            self.end_current_loader_session().await;
             return Err(failed);
         }
         Ok(())
@@ -316,7 +316,7 @@ impl Controller {
                 &exit_code_hex(code),
             ));
         }
-        self.end_loader_session();
+        self.end_current_loader_session().await;
         let relay = self.lock().relay.take();
         if let Some(relay) = relay {
             let counts = relay.stop().await;
