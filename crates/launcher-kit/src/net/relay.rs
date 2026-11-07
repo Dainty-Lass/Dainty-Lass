@@ -434,8 +434,8 @@ impl Shared {
     }
 
     fn repoint(&self, node: Endpoint, ticket: Option<String>) -> Result<(), RepointError> {
-        let ticket = match ticket {
-            Some(t) if t.is_empty() || t.len() > MAX_TICKET_BYTES => return Err(RepointError::BadTicket),
+        let ticket = match ticket.filter(|t| !t.trim().is_empty()) {
+            Some(t) if t.len() > MAX_TICKET_BYTES => return Err(RepointError::BadTicket),
             Some(t) => Some(HeaderValue::from_str(&t).map_err(|_| RepointError::BadTicket)?),
             None => None,
         };
@@ -610,7 +610,10 @@ async fn handle(
             Level::Warn,
             &format!("relay refused a request from {peer}: {}", refusal.as_str()),
         );
-        return if upgrade {
+        // The QoS listener answers nothing but its page, so a refusal there looks like any unknown path
+        return if qos_only {
+            json_error(StatusCode::NOT_FOUND, "not_found")
+        } else if upgrade {
             bare(StatusCode::FORBIDDEN)
         } else {
             json_error(StatusCode::FORBIDDEN, "forbidden")
