@@ -13,7 +13,7 @@ use crate::bridge::spec::fits;
 use crate::bridge::types::ExternalTarget;
 
 /// This project's repository; also the server source when a status names none.
-pub const PROJECT_URL: &str = "https://git.silentspud.com/silentspud/dainty-lass";
+pub const PROJECT_URL: &str = "https://github.com/SilentSpud/DaintyLass";
 /// Longest URL opened, in UTF-16 units.
 pub const MAX_URL: usize = 1024;
 /// The one host any of whose pages may open: Tailscale share links are minted per server.
@@ -25,10 +25,7 @@ const DUMPER7_URL: &str = "https://github.com/Encryqed/Dumper-7";
 // A file on the repository's main branch.
 macro_rules! project_file {
     ($path:literal) => {
-        concat!(
-            "https://git.silentspud.com/silentspud/dainty-lass/src/branch/main/",
-            $path
-        )
+        concat!("https://github.com/SilentSpud/DaintyLass/blob/main/", $path)
     };
 }
 
@@ -42,7 +39,7 @@ pub fn fixed_url(target: ExternalTarget) -> Option<&'static str> {
         T::VcRedist => "https://aka.ms/vs/17/release/vc_redist.x64.exe",
         T::ProjectSource => PROJECT_URL,
         T::ProjectLicense => project_file!("LICENSE.txt"),
-        T::ProjectIssues => "https://git.silentspud.com/silentspud/dainty-lass/issues",
+        T::ProjectIssues => "https://github.com/SilentSpud/DaintyLass/issues",
         T::ProjectDocsPlayers => {
             project_file!("restricted/docs/players.md")
         }
@@ -53,7 +50,7 @@ pub fn fixed_url(target: ExternalTarget) -> Option<&'static str> {
             project_file!("docs/sdk-and-game-data.md")
         }
         T::InstallingGuide => "https://github.com/pranav158/Mystic-Paradox/blob/main/docs/INSTALLING_DAUNTLESS.md",
-        T::Legendary => "https://github.com/derrod/legendary/releases/latest",
+        T::Legendary => "https://github.com/legendary-gl/legendary/releases/latest",
         T::Dumper7 => DUMPER7_URL,
         T::Dumper7Zip => "https://github.com/Encryqed/Dumper-7/archive/refs/heads/main.zip",
         T::VisualStudio => "https://visualstudio.microsoft.com/downloads/",
@@ -62,7 +59,7 @@ pub fn fixed_url(target: ExternalTarget) -> Option<&'static str> {
         T::RustInstaller => "https://win.rustup.rs/x86_64",
         T::Nodejs => "https://nodejs.org/en/download",
         T::Mongodb => "https://www.mongodb.com/try/download/community",
-        T::Git => "https://git-scm.com/downloads",
+        T::Git => "https://git-scm.com/download/win",
         T::RevivedSource => "https://github.com/mixutin/dauntless-revived",
         T::MysticSource => MYSTIC_URL,
         T::UndauntedSource => "https://github.com/SyST3MDeV/Undaunted",
@@ -200,8 +197,6 @@ mod tests {
     use super::*;
     use crate::bridge::spec::EXTERNAL_TARGETS;
 
-    const PROJECT_FILES: &str = "https://git.silentspud.com/silentspud/dainty-lass/src/branch/main";
-
     fn target(name: &str) -> ExternalTarget {
         serde_json::from_value(serde_json::json!(name)).unwrap()
     }
@@ -220,26 +215,29 @@ mod tests {
         let expected = [
             ("tailscale_download", "https://tailscale.com/download"),
             ("vc_redist", "https://aka.ms/vs/17/release/vc_redist.x64.exe"),
-            ("project_source", PROJECT_URL),
-            ("project_license", &format!("{PROJECT_FILES}/LICENSE.txt")),
-            ("project_issues", &format!("{PROJECT_URL}/issues")),
+            ("project_source", "https://github.com/SilentSpud/DaintyLass"),
+            (
+                "project_license",
+                "https://github.com/SilentSpud/DaintyLass/blob/main/LICENSE.txt",
+            ),
+            ("project_issues", "https://github.com/SilentSpud/DaintyLass/issues"),
             (
                 "project_docs_players",
-                &format!("{PROJECT_FILES}/restricted/docs/players.md"),
+                "https://github.com/SilentSpud/DaintyLass/blob/main/restricted/docs/players.md",
             ),
             (
                 "project_docs_hosting",
-                &format!("{PROJECT_FILES}/restricted/docs/hosting.md"),
+                "https://github.com/SilentSpud/DaintyLass/blob/main/restricted/docs/hosting.md",
             ),
             (
                 "project_docs_sdk",
-                &format!("{PROJECT_FILES}/docs/sdk-and-game-data.md"),
+                "https://github.com/SilentSpud/DaintyLass/blob/main/docs/sdk-and-game-data.md",
             ),
             (
                 "installing_guide",
                 &format!("{MYSTIC_URL}/blob/main/docs/INSTALLING_DAUNTLESS.md"),
             ),
-            ("legendary", "https://github.com/derrod/legendary/releases/latest"),
+            ("legendary", "https://github.com/legendary-gl/legendary/releases/latest"),
             ("dumper7", DUMPER7_URL),
             ("dumper7_zip", &format!("{DUMPER7_URL}/archive/refs/heads/main.zip")),
             ("visual_studio", "https://visualstudio.microsoft.com/downloads/"),
@@ -251,7 +249,7 @@ mod tests {
             ("rust_installer", "https://win.rustup.rs/x86_64"),
             ("nodejs", "https://nodejs.org/en/download"),
             ("mongodb", "https://www.mongodb.com/try/download/community"),
-            ("git", "https://git-scm.com/downloads"),
+            ("git", "https://git-scm.com/download/win"),
             ("revived_source", "https://github.com/mixutin/dauntless-revived"),
             ("mystic_source", MYSTIC_URL),
             ("undaunted_source", "https://github.com/SyST3MDeV/Undaunted"),
