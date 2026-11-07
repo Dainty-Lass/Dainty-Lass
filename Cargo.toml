@@ -96,6 +96,13 @@ aes = "0.9"
 cbc = { version = "0.2", features = ["alloc"] }
 dbus-secret-service = { version = "4.1", features = ["crypto-rust"] }
 pbkdf2 = { version = "0.13", default-features = false, features = ["hmac"] }
+# The launcher's MIT Tauri shell (RL13), at the versions restricted's launcher uses
+open = { version = "5.4", features = ["shellexecute-on-windows"] }
+sys-locale = "0.3"
+tauri = { version = "2.12", features = ["isolation", "tray-icon"] }
+tauri-build = { version = "2.7", features = ["isolation"] }
+tauri-plugin-dialog = "2.8"
+tauri-plugin-updater = { version = "2.14", default-features = false, features = ["rustls-tls", "system-proxy"] }
 # Launcher passwords: reads the Argon2id PHC hashes accounts already have (rustic-isles-auth)
 argon2 = { version = "0.5", default-features = false, features = ["alloc", "password-hash"] }
 # ES256 admission tickets (rifts-admission). Its types are in that crate's public API, so dainty-restricted resolves
