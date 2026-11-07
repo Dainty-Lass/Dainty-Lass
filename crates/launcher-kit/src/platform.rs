@@ -4,9 +4,12 @@
 //! Platform discovery, host workspace tools, server lifecycle, and OS integration helpers.
 
 pub mod dialogs;
+pub mod game_config;
+pub mod game_folder;
 pub mod hostkit;
 pub mod hostserver;
 pub mod keystore;
+pub mod launch;
 pub mod linux_runtime;
 pub mod loader_session;
 pub mod log;
