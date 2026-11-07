@@ -1,0 +1,237 @@
+{
+  "about": "Game config cases written from docs/port/spec-rd27-launcher.md §2.7.6 (RL9, L5). 'engine' cases edit Engine.ini (host defaults to 127.0.0.1, port to 61099, graphics to -1; input null is a missing file), 'user_settings' cases repair GameUserSettings.ini (safe_window defaults to false), 'game' cases remove Game.ini's Phoenix sections (expected null: nothing removed). Every expected text is the file's exact output, CR LF line ends.",
+  "engine": [
+    {
+      "name": "an empty file gets only the XMPP section",
+      "input": "",
+      "expected": "[OnlineSubsystemMcp.XMPP]\r\nServerAddr=\"ws://127.0.0.1\"\r\nServerPort=61099\r\nbUseSSL=false\r\n\r\n"
+    },
+    {
+      "name": "a missing file reads as empty",
+      "input": null,
+      "expected": "[OnlineSubsystemMcp.XMPP]\r\nServerAddr=\"ws://127.0.0.1\"\r\nServerPort=61099\r\nbUseSSL=false\r\n\r\n"
+    },
+    {
+      "name": "the launcher's sections are dropped, the rest kept in order, leading blanks dropped",
+      "input": "\n\n[SystemSettings]\nr.Foo=1\n\n[Core.Log]\nLogNet=Log\n[OnlineSubsystemMcp.XMPP]\nServerAddr=\"ws://old\"\n[URL]\nPort=7777\n",
+      "expected": "[OnlineSubsystemMcp.XMPP]\r\nServerAddr=\"ws://127.0.0.1\"\r\nServerPort=61099\r\nbUseSSL=false\r\n\r\n[Core.Log]\r\nLogNet=Log\r\n[URL]\r\nPort=7777\r\n"
+    },
+    {
+      "name": "headers match by prefix in any case; a longer section name is another section",
+      "input": "[systemsettings] ; old\nsg.ShadowQuality=0\n[SYSTEMSETTINGSEDITOR]\nx=1\n[onlinesubsystemmcp.xmpp]\nbUseSSL=true\n",
+      "expected": "[OnlineSubsystemMcp.XMPP]\r\nServerAddr=\"ws://127.0.0.1\"\r\nServerPort=61099\r\nbUseSSL=false\r\n\r\n[SYSTEMSETTINGSEDITOR]\r\nx=1\r\n"
+    },
+    {
+      "name": "a forced preset writes SystemSettings first",
+      "input": "[Core.System]\nPaths=../../../Engine\n",
+      "graphics": 3,
+      "expected": "[SystemSettings]\r\nsg.ViewDistanceQuality=3\r\nsg.AntiAliasingQuality=3\r\nsg.ShadowQuality=3\r\nsg.PostProcessQuality=3\r\nsg.TextureQuality=3\r\nsg.EffectsQuality=3\r\nsg.FoliageQuality=3\r\nsg.ShadingQuality=3\r\nsg.ResolutionQuality=100\r\nr.ScreenPercentage=100\r\n\r\n[OnlineSubsystemMcp.XMPP]\r\nServerAddr=\"ws://127.0.0.1\"\r\nServerPort=61099\r\nbUseSSL=false\r\n\r\n[Core.System]\r\nPaths=../../../Engine\r\n"
+    },
+    {
+      "name": "preset zero is forced too",
+      "input": "",
+      "graphics": 0,
+      "expected": "[SystemSettings]\r\nsg.ViewDistanceQuality=0\r\nsg.AntiAliasingQuality=0\r\nsg.ShadowQuality=0\r\nsg.PostProcessQuality=0\r\nsg.TextureQuality=0\r\nsg.EffectsQuality=0\r\nsg.FoliageQuality=0\r\nsg.ShadingQuality=0\r\nsg.ResolutionQuality=100\r\nr.ScreenPercentage=100\r\n\r\n[OnlineSubsystemMcp.XMPP]\r\nServerAddr=\"ws://127.0.0.1\"\r\nServerPort=61099\r\nbUseSSL=false\r\n\r\n"
+    },
+    {
+      "name": "the highest preset",
+      "input": "",
+      "graphics": 4,
+      "host": "localhost",
+      "port": 5222,
+      "expected": "[SystemSettings]\r\nsg.ViewDistanceQuality=4\r\nsg.AntiAliasingQuality=4\r\nsg.ShadowQuality=4\r\nsg.PostProcessQuality=4\r\nsg.TextureQuality=4\r\nsg.EffectsQuality=4\r\nsg.FoliageQuality=4\r\nsg.ShadingQuality=4\r\nsg.ResolutionQuality=100\r\nr.ScreenPercentage=100\r\n\r\n[OnlineSubsystemMcp.XMPP]\r\nServerAddr=\"ws://localhost\"\r\nServerPort=5222\r\nbUseSSL=false\r\n\r\n"
+    },
+    {
+      "name": "CR, LF and CR LF all end lines; the last line needs none",
+      "input": "[A]\r\nk=v\rz=1\nw=2",
+      "expected": "[OnlineSubsystemMcp.XMPP]\r\nServerAddr=\"ws://127.0.0.1\"\r\nServerPort=61099\r\nbUseSSL=false\r\n\r\n[A]\r\nk=v\r\nz=1\r\nw=2\r\n"
+    },
+    {
+      "name": "blank lines after the first kept line stay, and a final blank line",
+      "input": "[A]\n\n\nb=1\n\n",
+      "expected": "[OnlineSubsystemMcp.XMPP]\r\nServerAddr=\"ws://127.0.0.1\"\r\nServerPort=61099\r\nbUseSSL=false\r\n\r\n[A]\r\n\r\n\r\nb=1\r\n\r\n"
+    },
+    {
+      "name": "only blank lines leave nothing to keep",
+      "input": "\n \n\t\n",
+      "expected": "[OnlineSubsystemMcp.XMPP]\r\nServerAddr=\"ws://127.0.0.1\"\r\nServerPort=61099\r\nbUseSSL=false\r\n\r\n"
+    },
+    {
+      "name": "a dropped section runs to the next header, comments included",
+      "input": "[SystemSettings]\n; note\n# other\nr.X=1\n[Keep]\n;kept comment\n",
+      "expected": "[OnlineSubsystemMcp.XMPP]\r\nServerAddr=\"ws://127.0.0.1\"\r\nServerPort=61099\r\nbUseSSL=false\r\n\r\n[Keep]\r\n;kept comment\r\n"
+    },
+    {
+      "name": "a UTF-8 BOM is dropped",
+      "input": "﻿[A]\nx=1\n",
+      "expected": "[OnlineSubsystemMcp.XMPP]\r\nServerAddr=\"ws://127.0.0.1\"\r\nServerPort=61099\r\nbUseSSL=false\r\n\r\n[A]\r\nx=1\r\n"
+    },
+    {
+      "name": "a host with a space refuses",
+      "input": "",
+      "host": "bad host",
+      "error": "invalid_host"
+    },
+    {
+      "name": "an empty host refuses",
+      "input": "",
+      "host": "",
+      "error": "invalid_host"
+    },
+    {
+      "name": "a host with a port refuses",
+      "input": "",
+      "host": "127.0.0.1:80",
+      "error": "invalid_host"
+    },
+    {
+      "name": "port zero refuses",
+      "input": "",
+      "port": 0,
+      "error": "invalid_port"
+    }
+  ],
+  "user_settings": [
+    {
+      "name": "sane sizes are left alone",
+      "input": "[/Script/Engine.GameUserSettings]\nResolutionSizeX=1920\nResolutionSizeY=1080\n",
+      "repaired": false,
+      "expected": "[/Script/Engine.GameUserSettings]\r\nResolutionSizeX=1920\r\nResolutionSizeY=1080\r\n"
+    },
+    {
+      "name": "a zero width repairs both sections and drops their size and window keys",
+      "input": "[/Script/Engine.GameUserSettings]\nbUseVSync=False\nResolutionSizeX=0\nResolutionSizeY=720\nFullscreenMode=0\n\n[/Script/Archon.ArchonGameUserSettings]\nWindowPosX=50\nLastUserConfirmedDesiredScreenWidth=2560\nbFoo=True\n",
+      "repaired": true,
+      "expected": "[/Script/Engine.GameUserSettings]\r\nResolutionSizeX=1280\r\nResolutionSizeY=720\r\nLastUserConfirmedResolutionSizeX=1280\r\nLastUserConfirmedResolutionSizeY=720\r\nFullscreenMode=2\r\nLastConfirmedFullscreenMode=2\r\nPreferredFullscreenMode=2\r\nWindowPosX=-1\r\nWindowPosY=-1\r\nbUseVSync=False\r\n\r\n[/Script/Archon.ArchonGameUserSettings]\r\nResolutionSizeX=1280\r\nResolutionSizeY=720\r\nLastUserConfirmedResolutionSizeX=1280\r\nLastUserConfirmedResolutionSizeY=720\r\nFullscreenMode=2\r\nLastConfirmedFullscreenMode=2\r\nPreferredFullscreenMode=2\r\nWindowPosX=-1\r\nWindowPosY=-1\r\nbFoo=True\r\n"
+    },
+    {
+      "name": "values parse as JavaScript numbers up to a semicolon",
+      "input": "[/Script/Engine.GameUserSettings]\nResolutionSizeX=1280 ; set by hand\nResolutionSizeY=0x2D0\nDesiredScreenWidth=1e3\nDesiredScreenHeight=16384\nLastUserConfirmedResolutionSizeX= 1 \nLastUserConfirmedResolutionSizeY=1.5\n",
+      "repaired": false,
+      "expected": "[/Script/Engine.GameUserSettings]\r\nResolutionSizeX=1280 ; set by hand\r\nResolutionSizeY=0x2D0\r\nDesiredScreenWidth=1e3\r\nDesiredScreenHeight=16384\r\nLastUserConfirmedResolutionSizeX= 1 \r\nLastUserConfirmedResolutionSizeY=1.5\r\n"
+    },
+    {
+      "name": "above 16384 is bad",
+      "input": "[/Script/Engine.GameUserSettings]\nDesiredScreenHeight=16385\n",
+      "repaired": true,
+      "expected": "[/Script/Engine.GameUserSettings]\r\nResolutionSizeX=1280\r\nResolutionSizeY=720\r\nLastUserConfirmedResolutionSizeX=1280\r\nLastUserConfirmedResolutionSizeY=720\r\nFullscreenMode=2\r\nLastConfirmedFullscreenMode=2\r\nPreferredFullscreenMode=2\r\nWindowPosX=-1\r\nWindowPosY=-1\r\n"
+    },
+    {
+      "name": "text that is not a number is bad",
+      "input": "[/Script/Engine.GameUserSettings]\nResolutionSizeX=wide\nOther=1\n",
+      "repaired": true,
+      "expected": "[/Script/Engine.GameUserSettings]\r\nResolutionSizeX=1280\r\nResolutionSizeY=720\r\nLastUserConfirmedResolutionSizeX=1280\r\nLastUserConfirmedResolutionSizeY=720\r\nFullscreenMode=2\r\nLastConfirmedFullscreenMode=2\r\nPreferredFullscreenMode=2\r\nWindowPosX=-1\r\nWindowPosY=-1\r\nOther=1\r\n"
+    },
+    {
+      "name": "an empty value is zero, so bad",
+      "input": "[/Script/Engine.GameUserSettings]\nResolutionSizeY=\n",
+      "repaired": true,
+      "expected": "[/Script/Engine.GameUserSettings]\r\nResolutionSizeX=1280\r\nResolutionSizeY=720\r\nLastUserConfirmedResolutionSizeX=1280\r\nLastUserConfirmedResolutionSizeY=720\r\nFullscreenMode=2\r\nLastConfirmedFullscreenMode=2\r\nPreferredFullscreenMode=2\r\nWindowPosX=-1\r\nWindowPosY=-1\r\n"
+    },
+    {
+      "name": "Infinity is not finite",
+      "input": "[/Script/Engine.GameUserSettings]\nResolutionSizeY=Infinity\n",
+      "repaired": true,
+      "expected": "[/Script/Engine.GameUserSettings]\r\nResolutionSizeX=1280\r\nResolutionSizeY=720\r\nLastUserConfirmedResolutionSizeX=1280\r\nLastUserConfirmedResolutionSizeY=720\r\nFullscreenMode=2\r\nLastConfirmedFullscreenMode=2\r\nPreferredFullscreenMode=2\r\nWindowPosX=-1\r\nWindowPosY=-1\r\n"
+    },
+    {
+      "name": "a negative value is bad; key names match in any case",
+      "input": "[GameUserSettings]\nresolutionsizey=-5\nWINDOWPOSX=3\n",
+      "repaired": true,
+      "expected": "[GameUserSettings]\r\nResolutionSizeX=1280\r\nResolutionSizeY=720\r\nLastUserConfirmedResolutionSizeX=1280\r\nLastUserConfirmedResolutionSizeY=720\r\nFullscreenMode=2\r\nLastConfirmedFullscreenMode=2\r\nPreferredFullscreenMode=2\r\nWindowPosX=-1\r\nWindowPosY=-1\r\n"
+    },
+    {
+      "name": "a bad size outside those sections does not count",
+      "input": "[Other]\nResolutionSizeX=0\n[/Script/Engine.Game_UserSettings]\nResolutionSizeX=0\n",
+      "repaired": false,
+      "expected": "[Other]\r\nResolutionSizeX=0\r\n[/Script/Engine.Game_UserSettings]\r\nResolutionSizeX=0\r\n"
+    },
+    {
+      "name": "the safe window adds both sections when none exist",
+      "input": "[Other]\nA=1\n",
+      "safe_window": true,
+      "repaired": true,
+      "expected": "[Other]\r\nA=1\r\n\r\n[/Script/Engine.GameUserSettings]\r\nResolutionSizeX=1280\r\nResolutionSizeY=720\r\nLastUserConfirmedResolutionSizeX=1280\r\nLastUserConfirmedResolutionSizeY=720\r\nFullscreenMode=2\r\nLastConfirmedFullscreenMode=2\r\nPreferredFullscreenMode=2\r\nWindowPosX=-1\r\nWindowPosY=-1\r\n\r\n[/Script/Archon.ArchonGameUserSettings]\r\nResolutionSizeX=1280\r\nResolutionSizeY=720\r\nLastUserConfirmedResolutionSizeX=1280\r\nLastUserConfirmedResolutionSizeY=720\r\nFullscreenMode=2\r\nLastConfirmedFullscreenMode=2\r\nPreferredFullscreenMode=2\r\nWindowPosX=-1\r\nWindowPosY=-1\r\n"
+    },
+    {
+      "name": "the safe window on an empty file",
+      "input": "",
+      "safe_window": true,
+      "repaired": true,
+      "expected": "[/Script/Engine.GameUserSettings]\r\nResolutionSizeX=1280\r\nResolutionSizeY=720\r\nLastUserConfirmedResolutionSizeX=1280\r\nLastUserConfirmedResolutionSizeY=720\r\nFullscreenMode=2\r\nLastConfirmedFullscreenMode=2\r\nPreferredFullscreenMode=2\r\nWindowPosX=-1\r\nWindowPosY=-1\r\n\r\n[/Script/Archon.ArchonGameUserSettings]\r\nResolutionSizeX=1280\r\nResolutionSizeY=720\r\nLastUserConfirmedResolutionSizeX=1280\r\nLastUserConfirmedResolutionSizeY=720\r\nFullscreenMode=2\r\nLastConfirmedFullscreenMode=2\r\nPreferredFullscreenMode=2\r\nWindowPosX=-1\r\nWindowPosY=-1\r\n"
+    },
+    {
+      "name": "the safe window rewrites sane sizes too, only in the existing sections",
+      "input": "[/Script/Engine.GameUserSettings]\nResolutionSizeX=1920\nResolutionSizeY=1080\n",
+      "safe_window": true,
+      "repaired": true,
+      "expected": "[/Script/Engine.GameUserSettings]\r\nResolutionSizeX=1280\r\nResolutionSizeY=720\r\nLastUserConfirmedResolutionSizeX=1280\r\nLastUserConfirmedResolutionSizeY=720\r\nFullscreenMode=2\r\nLastConfirmedFullscreenMode=2\r\nPreferredFullscreenMode=2\r\nWindowPosX=-1\r\nWindowPosY=-1\r\n"
+    },
+    {
+      "name": "a window already safe is not repaired again",
+      "input": "[/Script/Engine.GameUserSettings]\nResolutionSizeX=1280\nResolutionSizeY=720\nLastUserConfirmedResolutionSizeX=1280\nLastUserConfirmedResolutionSizeY=720\nFullscreenMode=2\nLastConfirmedFullscreenMode=2\nPreferredFullscreenMode=2\nWindowPosX=-1\nWindowPosY=-1\n\n[/Script/Archon.ArchonGameUserSettings]\nResolutionSizeX=1280\nResolutionSizeY=720\nLastUserConfirmedResolutionSizeX=1280\nLastUserConfirmedResolutionSizeY=720\nFullscreenMode=2\nLastConfirmedFullscreenMode=2\nPreferredFullscreenMode=2\nWindowPosX=-1\nWindowPosY=-1\n",
+      "safe_window": true,
+      "repaired": false,
+      "expected": "[/Script/Engine.GameUserSettings]\r\nResolutionSizeX=1280\r\nResolutionSizeY=720\r\nLastUserConfirmedResolutionSizeX=1280\r\nLastUserConfirmedResolutionSizeY=720\r\nFullscreenMode=2\r\nLastConfirmedFullscreenMode=2\r\nPreferredFullscreenMode=2\r\nWindowPosX=-1\r\nWindowPosY=-1\r\n\r\n[/Script/Archon.ArchonGameUserSettings]\r\nResolutionSizeX=1280\r\nResolutionSizeY=720\r\nLastUserConfirmedResolutionSizeX=1280\r\nLastUserConfirmedResolutionSizeY=720\r\nFullscreenMode=2\r\nLastConfirmedFullscreenMode=2\r\nPreferredFullscreenMode=2\r\nWindowPosX=-1\r\nWindowPosY=-1\r\n"
+    },
+    {
+      "name": "a forced preset rewrites the quality lines whose key matches in any case",
+      "input": "[ScalabilityGroups]\nsg.ShadowQuality=3\nSG.TEXTUREQUALITY=0\nsg.ResolutionQuality=70\nsg.ShadowQualityX=1\nsg.FoliageQuality=4 ; x\n",
+      "graphics": 2,
+      "repaired": false,
+      "expected": "[ScalabilityGroups]\r\nsg.ShadowQuality=2\r\nSG.TEXTUREQUALITY=2\r\nsg.ResolutionQuality=70\r\nsg.ShadowQualityX=1\r\nsg.FoliageQuality=2\r\n"
+    },
+    {
+      "name": "an unset preset leaves the quality lines",
+      "input": "[ScalabilityGroups]\nsg.ShadowQuality=3\n",
+      "graphics": -1,
+      "repaired": false,
+      "expected": "[ScalabilityGroups]\r\nsg.ShadowQuality=3\r\n"
+    },
+    {
+      "name": "a repair and a preset together",
+      "input": "[ScalabilityGroups]\nsg.EffectsQuality=1\n[/Script/Engine.GameUserSettings]\nResolutionSizeX=99999\n",
+      "graphics": 0,
+      "repaired": true,
+      "expected": "[ScalabilityGroups]\r\nsg.EffectsQuality=0\r\n[/Script/Engine.GameUserSettings]\r\nResolutionSizeX=1280\r\nResolutionSizeY=720\r\nLastUserConfirmedResolutionSizeX=1280\r\nLastUserConfirmedResolutionSizeY=720\r\nFullscreenMode=2\r\nLastConfirmedFullscreenMode=2\r\nPreferredFullscreenMode=2\r\nWindowPosX=-1\r\nWindowPosY=-1\r\n"
+    }
+  ],
+  "game": [
+    {
+      "name": "no Phoenix section: nothing removed",
+      "input": "[Core]\na=1\n",
+      "expected": null,
+      "keys_removed": 0
+    },
+    {
+      "name": "the section goes through the next header; only key lines count",
+      "input": "[Core]\na=1\n[OnlineSubsystemPhoenix]\nEndpoint=1\n; c=2\n# d=3\n\nnokey\nE=2\n[After]\nb=2\n",
+      "expected": "[Core]\r\na=1\r\n[After]\r\nb=2\r\n",
+      "keys_removed": 2
+    },
+    {
+      "name": "the header matches trimmed and in any case",
+      "input": "  [onlinesubsystemPHOENIX]  \nX=1\n",
+      "expected": "",
+      "keys_removed": 1
+    },
+    {
+      "name": "every Phoenix section is removed",
+      "input": "[OnlineSubsystemPhoenix]\nA=1\n[Keep]\nk=v\n[OnlineSubsystemPhoenix]\nB=2\nC=3\n",
+      "expected": "[Keep]\r\nk=v\r\n",
+      "keys_removed": 3
+    },
+    {
+      "name": "a longer section name is another section",
+      "input": "[OnlineSubsystemPhoenix.Extra]\nX=1\n",
+      "expected": null,
+      "keys_removed": 0
+    },
+    {
+      "name": "an empty Phoenix section is still removed",
+      "input": "[OnlineSubsystemPhoenix]\n[A]\n",
+      "expected": "[A]\r\n",
+      "keys_removed": 0
+    }
+  ]
+}
