@@ -44,6 +44,8 @@ base64.workspace = true
 url.workspace = true
 # The pooled client's connector (net/connector.rs)
 tower.workspace = true
+# The relay's header rules and tunnel (net/relay.rs)
+proxy.workspace = true
 ts-rs = { workspace = true, optional = true }
 # The key store (platform/keystore): AES-GCM files, and the old Electron launcher's AES-CBC files
 aes.workspace = true
