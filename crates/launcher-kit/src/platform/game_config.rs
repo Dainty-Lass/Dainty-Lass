@@ -346,20 +346,15 @@ pub fn repair_user_settings<S: AsRef<str>>(
     let mut out = lines.clone();
     if bad || safe_window {
         if !has_section {
-            for header in USER_SETTINGS_SECTIONS {
-                if out.last().is_some_and(|l| !l.trim().is_empty()) {
-                    out.push(String::new());
-                }
-                out.push(header.to_owned());
-            }
+            out.extend(USER_SETTINGS_SECTIONS.iter().map(|h| (*h).to_owned()));
         }
         out = rewrite_window(&out);
     }
     let repaired = out != lines;
     if let Some(level) = forced_level(graphics) {
         for line in &mut out {
-            if let Some(key) = quality_key(line) {
-                *line = format!("{key}={level}");
+            if let Some(group) = quality_group(line) {
+                *line = format!("sg.{group}Quality={level}");
             }
         }
     }
@@ -387,16 +382,13 @@ fn rewrite_window(lines: &[String]) -> Vec<String> {
     out
 }
 
-// The line's `sg.<group>Quality` key as written, when it is one of the forced groups.
-fn quality_key(line: &str) -> Option<&str> {
+// The forced group a `sg.<group>Quality=` line sets, matched in any case; the rewrite spells it canonically.
+fn quality_group(line: &str) -> Option<&'static str> {
     let (key, _) = line.split_once('=')?;
     QUALITY_GROUPS
         .iter()
-        .any(|g| {
-            let name = format!("sg.{g}Quality");
-            key.get(..name.len()).is_some_and(|k| k.eq_ignore_ascii_case(&name)) && key.len() == name.len()
-        })
-        .then_some(key)
+        .copied()
+        .find(|g| key.eq_ignore_ascii_case(&format!("sg.{g}Quality")))
 }
 
 /// What writing the config did.

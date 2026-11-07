@@ -147,18 +147,25 @@
       "expected": "[Other]\r\nResolutionSizeX=0\r\n[/Script/Engine.Game_UserSettings]\r\nResolutionSizeX=0\r\n"
     },
     {
-      "name": "the safe window adds both sections when none exist",
+      "name": "the safe window adds both sections straight after the last line, no blank line before either",
       "input": "[Other]\nA=1\n",
       "safe_window": true,
       "repaired": true,
-      "expected": "[Other]\r\nA=1\r\n\r\n[/Script/Engine.GameUserSettings]\r\nResolutionSizeX=1280\r\nResolutionSizeY=720\r\nLastUserConfirmedResolutionSizeX=1280\r\nLastUserConfirmedResolutionSizeY=720\r\nFullscreenMode=2\r\nLastConfirmedFullscreenMode=2\r\nPreferredFullscreenMode=2\r\nWindowPosX=-1\r\nWindowPosY=-1\r\n\r\n[/Script/Archon.ArchonGameUserSettings]\r\nResolutionSizeX=1280\r\nResolutionSizeY=720\r\nLastUserConfirmedResolutionSizeX=1280\r\nLastUserConfirmedResolutionSizeY=720\r\nFullscreenMode=2\r\nLastConfirmedFullscreenMode=2\r\nPreferredFullscreenMode=2\r\nWindowPosX=-1\r\nWindowPosY=-1\r\n"
+      "expected": "[Other]\r\nA=1\r\n[/Script/Engine.GameUserSettings]\r\nResolutionSizeX=1280\r\nResolutionSizeY=720\r\nLastUserConfirmedResolutionSizeX=1280\r\nLastUserConfirmedResolutionSizeY=720\r\nFullscreenMode=2\r\nLastConfirmedFullscreenMode=2\r\nPreferredFullscreenMode=2\r\nWindowPosX=-1\r\nWindowPosY=-1\r\n[/Script/Archon.ArchonGameUserSettings]\r\nResolutionSizeX=1280\r\nResolutionSizeY=720\r\nLastUserConfirmedResolutionSizeX=1280\r\nLastUserConfirmedResolutionSizeY=720\r\nFullscreenMode=2\r\nLastConfirmedFullscreenMode=2\r\nPreferredFullscreenMode=2\r\nWindowPosX=-1\r\nWindowPosY=-1\r\n"
     },
     {
-      "name": "the safe window on an empty file",
+      "name": "the safe window turns an empty file into just the two sections",
       "input": "",
       "safe_window": true,
       "repaired": true,
-      "expected": "[/Script/Engine.GameUserSettings]\r\nResolutionSizeX=1280\r\nResolutionSizeY=720\r\nLastUserConfirmedResolutionSizeX=1280\r\nLastUserConfirmedResolutionSizeY=720\r\nFullscreenMode=2\r\nLastConfirmedFullscreenMode=2\r\nPreferredFullscreenMode=2\r\nWindowPosX=-1\r\nWindowPosY=-1\r\n\r\n[/Script/Archon.ArchonGameUserSettings]\r\nResolutionSizeX=1280\r\nResolutionSizeY=720\r\nLastUserConfirmedResolutionSizeX=1280\r\nLastUserConfirmedResolutionSizeY=720\r\nFullscreenMode=2\r\nLastConfirmedFullscreenMode=2\r\nPreferredFullscreenMode=2\r\nWindowPosX=-1\r\nWindowPosY=-1\r\n"
+      "expected": "[/Script/Engine.GameUserSettings]\r\nResolutionSizeX=1280\r\nResolutionSizeY=720\r\nLastUserConfirmedResolutionSizeX=1280\r\nLastUserConfirmedResolutionSizeY=720\r\nFullscreenMode=2\r\nLastConfirmedFullscreenMode=2\r\nPreferredFullscreenMode=2\r\nWindowPosX=-1\r\nWindowPosY=-1\r\n[/Script/Archon.ArchonGameUserSettings]\r\nResolutionSizeX=1280\r\nResolutionSizeY=720\r\nLastUserConfirmedResolutionSizeX=1280\r\nLastUserConfirmedResolutionSizeY=720\r\nFullscreenMode=2\r\nLastConfirmedFullscreenMode=2\r\nPreferredFullscreenMode=2\r\nWindowPosX=-1\r\nWindowPosY=-1\r\n"
+    },
+    {
+      "name": "the safe window after a section of another name",
+      "input": "[Something]\na=1\n",
+      "safe_window": true,
+      "repaired": true,
+      "expected": "[Something]\r\na=1\r\n[/Script/Engine.GameUserSettings]\r\nResolutionSizeX=1280\r\nResolutionSizeY=720\r\nLastUserConfirmedResolutionSizeX=1280\r\nLastUserConfirmedResolutionSizeY=720\r\nFullscreenMode=2\r\nLastConfirmedFullscreenMode=2\r\nPreferredFullscreenMode=2\r\nWindowPosX=-1\r\nWindowPosY=-1\r\n[/Script/Archon.ArchonGameUserSettings]\r\nResolutionSizeX=1280\r\nResolutionSizeY=720\r\nLastUserConfirmedResolutionSizeX=1280\r\nLastUserConfirmedResolutionSizeY=720\r\nFullscreenMode=2\r\nLastConfirmedFullscreenMode=2\r\nPreferredFullscreenMode=2\r\nWindowPosX=-1\r\nWindowPosY=-1\r\n"
     },
     {
       "name": "the safe window rewrites sane sizes too, only in the existing sections",
@@ -175,11 +182,18 @@
       "expected": "[/Script/Engine.GameUserSettings]\r\nResolutionSizeX=1280\r\nResolutionSizeY=720\r\nLastUserConfirmedResolutionSizeX=1280\r\nLastUserConfirmedResolutionSizeY=720\r\nFullscreenMode=2\r\nLastConfirmedFullscreenMode=2\r\nPreferredFullscreenMode=2\r\nWindowPosX=-1\r\nWindowPosY=-1\r\n\r\n[/Script/Archon.ArchonGameUserSettings]\r\nResolutionSizeX=1280\r\nResolutionSizeY=720\r\nLastUserConfirmedResolutionSizeX=1280\r\nLastUserConfirmedResolutionSizeY=720\r\nFullscreenMode=2\r\nLastConfirmedFullscreenMode=2\r\nPreferredFullscreenMode=2\r\nWindowPosX=-1\r\nWindowPosY=-1\r\n"
     },
     {
-      "name": "a forced preset rewrites the quality lines whose key matches in any case",
+      "name": "a forced preset rewrites the quality lines whose key matches in any case, in the key's own spelling",
       "input": "[ScalabilityGroups]\nsg.ShadowQuality=3\nSG.TEXTUREQUALITY=0\nsg.ResolutionQuality=70\nsg.ShadowQualityX=1\nsg.FoliageQuality=4 ; x\n",
       "graphics": 2,
       "repaired": false,
-      "expected": "[ScalabilityGroups]\r\nsg.ShadowQuality=2\r\nSG.TEXTUREQUALITY=2\r\nsg.ResolutionQuality=70\r\nsg.ShadowQualityX=1\r\nsg.FoliageQuality=2\r\n"
+      "expected": "[ScalabilityGroups]\r\nsg.ShadowQuality=2\r\nsg.TextureQuality=2\r\nsg.ResolutionQuality=70\r\nsg.ShadowQualityX=1\r\nsg.FoliageQuality=2\r\n"
+    },
+    {
+      "name": "a forced preset writes the key in its own spelling",
+      "input": "[ScalabilityGroups]\nsg.ShadowQuality=3\nSG.TEXTUREQUALITY=1\nsg.ResolutionQuality=100\nother=1\n",
+      "graphics": 2,
+      "repaired": false,
+      "expected": "[ScalabilityGroups]\r\nsg.ShadowQuality=2\r\nsg.TextureQuality=2\r\nsg.ResolutionQuality=100\r\nother=1\r\n"
     },
     {
       "name": "an unset preset leaves the quality lines",
