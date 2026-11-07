@@ -237,10 +237,10 @@ fn runtime_manifests_name_the_two_files_only() {
     assert_eq!(kit::parse_runtime_manifest(&Value::Null), None);
 }
 
-/// The shell kept a negative changelist, as spec §2.6.3 has it ("`build.changelist` when a safe integer");
-/// launcher-kit replaces it with the default.
+/// The shell kept a negative changelist; launcher-kit replaces it with the default, as L8 decided (no server
+/// writes one: protocol's changelist is a u64).
 #[test]
-#[ignore = "real difference: launcher-kit drops a negative changelist (spec §2.6.3 keeps any safe integer)"]
+#[ignore = "accepted difference (L8): launcher-kit replaces a negative changelist with the default"]
 fn a_negative_changelist_is_kept() {
     let mut raw = manifest();
     raw["build"]["changelist"] = (-3).into();

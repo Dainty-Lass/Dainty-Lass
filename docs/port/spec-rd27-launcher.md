@@ -1128,8 +1128,8 @@ error's source chain for a pin error and answers the fingerprint seen.
   to 48); each file an object whose `name` is one of the protocol's runtime file slots (either name of the runtime
   DLL counts as its slot), each slot once, `sha256` exactly 64 lower-case hex, `size` a safe integer (read through a
   double: `1.0` counts, beyond ±(2^53−1) does not) from 1 to 64 MiB; exactly two files; sorted by name; the
-  changelist is `build.changelist` when a safe integer (negative ones included), else none; anything else refuses
-  the whole manifest.
+  changelist is `build.changelist` when a non-negative safe integer (protocol's `u64`: no server writes a
+  negative one; L8), else the default; anything else refuses the whole manifest.
 - **News**: GET `/content/v1/news`, 10 s, 512 KiB; 200 → parse, else the fallback. Up to 30 items, each needing a
   title (cleaned to 120) and a body: CR LF and CR become LF, unsafe characters other than LF removed, at most two
   LFs in a row, trimmed, non-empty, cut to 4000 UTF-16 units plus `…`; `date` an ISO date or none.
