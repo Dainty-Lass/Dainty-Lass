@@ -106,7 +106,7 @@ impl VersionHooks for Hooks {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use service_kit::jsjson::stringify;
+    use dainty_service_kit::jsjson::stringify;
 
     #[test]
     fn payloads_byte_for_byte() {

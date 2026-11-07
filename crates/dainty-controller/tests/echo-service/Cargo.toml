@@ -1,0 +1,19 @@
+# A service library for controller's tests (tests/service_library.rs): they build it into target/plugin-fixtures. A
+# workspace of its own, so `cargo test --workspace` neither builds it nor waits on it.
+[package]
+name = "echo-service"
+version = "0.0.0"
+edition = "2024"
+license = "MIT"
+publish = false
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+dainty-module-api = { path = "../../../dainty-module-api" }
+dainty-service-kit = { path = "../../../dainty-service-kit" }
+dainty-service-plugin = { path = "../../../dainty-service-plugin" }
+tracing = "0.1"
+
+[workspace]

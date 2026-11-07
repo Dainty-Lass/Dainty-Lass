@@ -5,11 +5,11 @@
 #![no_main]
 
 use libfuzzer_sys::fuzz_target;
-use module_api::NodeIdentity;
-use network::cluster::{self, Peer};
-use network::endpoint::{Head, NodeEndpoint};
-use network::link::MAX_MESSAGE;
-use network::wire::{self, ErrorBody, PingAnswer, Target};
+use dainty_module_api::NodeIdentity;
+use dainty_network::cluster::{self, Peer};
+use dainty_network::endpoint::{Head, NodeEndpoint};
+use dainty_network::link::MAX_MESSAGE;
+use dainty_network::wire::{self, ErrorBody, PingAnswer, Target};
 
 fuzz_target!(|data: &[u8]| {
     let text = String::from_utf8_lossy(data);
@@ -30,7 +30,7 @@ fuzz_target!(|data: &[u8]| {
     }
     let node = "uk-1".parse().expect("a node id");
     for status in [400, 403, 404, 409, 413, 502, 503] {
-        let _ = wire::link_error(&node, Some(network::Service::Directory), status, data);
+        let _ = wire::link_error(&node, Some(dainty_network::Service::Directory), status, data);
     }
 
     if let Ok(peer) = serde_json::from_slice::<Peer>(data) {
@@ -60,7 +60,7 @@ fuzz_target!(|data: &[u8]| {
     );
     let length = parts.next().and_then(|n| n.parse::<u64>().ok());
     let me = NodeIdentity::standalone();
-    let peer: module_api::network::NodeId = "uk-1".parse().expect("a node id");
+    let peer: dainty_module_api::network::NodeId = "uk-1".parse().expect("a node id");
     let endpoint = NodeEndpoint::new(me, [peer.clone()]);
     let head = Head {
         method,
@@ -78,9 +78,9 @@ fuzz_target!(|data: &[u8]| {
         let theirs = wire::parse_time(time).expect("a time");
         assert!(wire::within(
             wire::skew_ms(endpoint.clock().now_ms(), theirs),
-            network::link::MAX_CLOCK_SKEW + std::time::Duration::from_secs(5)
+            dainty_network::link::MAX_CLOCK_SKEW + std::time::Duration::from_secs(5)
         ));
     }
-    let stranger: module_api::network::NodeId = "de-1".parse().expect("a node id");
+    let stranger: dainty_module_api::network::NodeId = "de-1".parse().expect("a node id");
     assert!(endpoint.admit(&stranger, &head).is_err());
 });

@@ -5,8 +5,8 @@
 
 use std::sync::Arc;
 
+use dainty_service_kit::js;
 use serde_json::Value;
-use service_kit::js;
 
 use crate::gameservers::{Details, Director, RosterEntry, ServerKind, TRAINING_DOJO_HUNT_ID};
 

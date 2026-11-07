@@ -1,10 +1,10 @@
 <!-- markdownlint-configure-file { "MD013": { "line_length": 120, "tables": false, "code_blocks": false } } -->
 
-# Clean-Room Behaviour Specification: `rifts-realms`, persistence and wiring (RD27)
+# Clean-Room Behaviour Specification: `rustic-rifts-realms`, persistence and wiring (RD27)
 
-> **Scope and purpose (RD27).** This is one of two part specs for the crate `rifts-realms` (umbrella:
+> **Scope and purpose (RD27).** This is one of two part specs for the crate `rustic-rifts-realms` (umbrella:
 > [`spec-rd27-rifts.md`](spec-rd27-rifts.md)). It covers the persistence and wiring half: the manifest, the crate root,
-> the database handle, the three repositories, the route dispatcher, the service that answers `rifts-seam`'s hooks,
+> the database handle, the three repositories, the route dispatcher, the service that answers `rustic-rifts-seam`'s hooks,
 > the ports, the stub, both migration sets and their tests. The domain half (realm, directory, hub, hunt, lifecycle,
 > leases, selection, tiers, host policy, capabilities, control, input, ids, time, hosting) is
 > [`spec-rd27-rifts-realms.md`](spec-rd27-rifts-realms.md). This file states no rule that one owns: where a repository
@@ -15,8 +15,8 @@
 > API that callers outside the crate use, and the tests. No implementation code is reproduced and no private helper
 > is named.
 >
-> Source: dainty-restricted `4efc8b5` (`plan`), `modules/rustic-rifts/crates/rifts-realms`; dainty-lass `49197a8`
-> for `crates/store`.
+> Source: dainty-restricted `4efc8b5` (`plan`), `modules/rustic-rifts/crates/rustic-rifts-realms`; dainty-lass `49197a8`
+> for `crates/dainty-store`.
 
 ---
 
@@ -30,13 +30,13 @@
   `P2PHuntRepository`, `p2pErrors.ts`) or the RF/RD row that built it.
 - The tests name the Node contract suites they port (`realmsRepositoryContract.ts`,
   `realmPresenceRepositoryContract.ts`, `realmHubRepositoryContract.ts`, `realmsTestKit.ts`).
-- The migrations are DaintyLass's own tables, but their shape is Node's collections flattened (RF1 section 7).
+- The migrations are Dainty Lass's own tables, but their shape is Node's collections flattened (RF1 section 7).
 
 With that, nothing in this half is Category A. Every file is rewritten from this document.
 
 ### 1.2 Files
 
-| Path (in `crates/rifts-realms`) | Lines | Cat. | What it is |
+| Path (in `crates/rustic-rifts-realms`) | Lines | Cat. | What it is |
 | --- | ---: | :-: | --- |
 | `Cargo.toml` | 37 | B | Manifest (§8) |
 | `src/lib.rs` | 189 | B | Module list, re-exports, `RealmsError`, `TABLES` (§2.2, §2.3) |
@@ -138,7 +138,7 @@ p2pParticipantObservations, p2pHuntTransitions, realmHubPresence` has an entry; 
 
 ## 3. The database handle (`db`)
 
-### 3.1 What `store` gives (dainty-lass `crates/store`)
+### 3.1 What `store` gives (dainty-lass `crates/dainty-store`)
 
 The crate uses only this much of `store`:
 
@@ -1216,13 +1216,13 @@ The MIT crate embeds the route table's expected (method, path) list from §9.1 i
 
 ## 14. Target MIT crate
 
-- `crates/rifts-realms`, package `rifts-realms`, `license = "MIT"`, lints from the workspace.
+- `crates/rustic-rifts-realms`, package `rustic-rifts-realms`, `license = "MIT"`, lints from the workspace.
 - Dependencies, all `workspace = true`: `diesel`, `diesel_migrations`, `module-api`, `rand`, `serde`, `serde_json`
   **with `features = ["preserve_order"]`** (restricted's workspace turns it on globally, dainty-lass's does not;
   control payloads, `detail` and every reply rely on insertion order), `sha2`, `store`, `thiserror`, `tokio`
-  (`rt`, `rt-multi-thread`, `time`), and the MIT `rifts-seam`, `rifts-admission`, `rifts-relay`, `rifts-guard`.
+  (`rt`, `rt-multi-thread`, `time`), and the MIT `rustic-rifts-seam`, `rustic-rifts-admission`, `rustic-rifts-relay`, `rustic-rifts-guard`.
   Dev: `tempfile`, `tokio` (`rt-multi-thread`, `macros`), `url`.
-- **Seam change:** `[workspace.dependencies]` entries for the five `rifts-*` crates (umbrella D4). Nothing else is
+- **Seam change:** `[workspace.dependencies]` entries for the five `rustic-rifts-*` crates (umbrella D4). Nothing else is
   new; restricted's `diesel` adds `32-column-tables`, which nothing here needs (no row type exceeds 20 columns and
   all queries are by name).
 - Files: `src/db.rs`, `src/repo/{mod,realms,hub,hunts}.rs`, `src/routes.rs`, `src/service.rs`, `src/ports.rs`,

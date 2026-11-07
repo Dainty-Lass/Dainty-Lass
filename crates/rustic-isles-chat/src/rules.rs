@@ -4,8 +4,8 @@
 //! The answer to each `ChatQuery` for 1.14.7 (spec §5.2-§5.8). Each query is one method with its default, so
 //! another version can override one and keep the rest.
 
-use module_api::chat::{ChatAnswer, ChatQuery, Jid, RoomKind, RoomRules};
-use module_api::{BoxFuture, ErrorKind, GlobalId, IdKind, ModuleError, NodeIdentity, Region};
+use dainty_module_api::chat::{ChatAnswer, ChatQuery, Jid, RoomKind, RoomRules};
+use dainty_module_api::{BoxFuture, ErrorKind, GlobalId, IdKind, ModuleError, NodeIdentity, Region};
 use rustic_isles::replay;
 
 use crate::hubs::HubSessions;

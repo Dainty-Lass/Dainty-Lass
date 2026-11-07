@@ -1,0 +1,46 @@
+[package]
+name = "dainty-epic"
+description = "Installing Dauntless from the player's Epic library: sign-in, library, manifests, chunks, download (docs/dainty-lass-plan.md DD22, DE1)"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+# Born MIT (DD26): written from Epic's documented manifest and chunk formats, from none of DR, Paradox or Reforged
+license = "MIT"
+repository.workspace = true
+publish.workspace = true
+
+[features]
+# The synthetic manifests and chunks and the fake CDN (`testing`), for the host kit's tests (DE6)
+test-support = ["dep:rcgen", "dep:tokio-rustls", "hyper/server", "tokio/net", "tokio/io-util", "tokio/rt-multi-thread"]
+
+[dependencies]
+# The CDN client (download/cdn.rs): HTTPS only, no redirect followed
+bytes = "1"
+egs-api.workspace = true
+flate2.workspace = true
+http-body-util.workspace = true
+hyper.workspace = true
+hyper-rustls.workspace = true
+hyper-util = { workspace = true, features = ["client-legacy", "http1"] }
+rustls.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+sha1.workspace = true
+# The executable's SHA-256 from the client profile, and a manifest's own where it carries them
+sha2.workspace = true
+thiserror.workspace = true
+tokio = { workspace = true, features = ["rt", "time", "sync", "fs", "macros"] }
+# test-support only
+rcgen = { version = "0.14.10", optional = true, default-features = false, features = ["aws_lc_rs", "pem", "crypto"] }
+tokio-rustls = { version = "0.26", optional = true, default-features = false, features = ["aws_lc_rs", "tls12"] }
+
+[dev-dependencies]
+hyper = { workspace = true, features = ["server"] }
+# The fake CDN's certificate and listeners (download/tests.rs)
+rcgen = { version = "0.14.10", default-features = false, features = ["aws_lc_rs", "pem", "crypto"] }
+tempfile.workspace = true
+tokio = { workspace = true, features = ["rt-multi-thread", "net", "io-util"] }
+tokio-rustls = { version = "0.26", default-features = false, features = ["aws_lc_rs", "tls12"] }
+
+[lints]
+workspace = true

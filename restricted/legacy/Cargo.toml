@@ -1,6 +1,6 @@
-# DaintyLass's legacy plugin: imports old installs and upgrades them to DaintyLass (Dauntless 1.14.7 on rustic-isles).
-# crates/legacy-import holds the importers, crates/legacy the Plugin module DaintyLass runs out of process (DD5), so
-# this AGPL code never links into DaintyLass's MIT core. fuzz/ is a workspace of its own.
+# Dainty Lass's legacy plugin: imports old installs and upgrades them to Dainty Lass (Dauntless 1.14.7 on rustic-isles).
+# crates/dainty-legacy-import holds the importers, crates/dainty-legacy the Plugin module Dainty Lass runs out of process (DD5), so
+# this AGPL code never links into Dainty Lass's MIT core. fuzz/ is a workspace of its own.
 [workspace]
 resolver = "3"
 members = ["crates/*"]
@@ -16,13 +16,13 @@ repository = "https://git.silentspud.com/silentspud/dainty-legacy"
 publish = false
 
 [workspace.dependencies]
-legacy-import = { path = "crates/legacy-import" }
+dainty-legacy-import = { path = "crates/dainty-legacy-import" }
 
-# DaintyLass's MIT crates in the root workspace
-module-api = { path = "../../crates/module-api" }
-store = { path = "../../crates/store" }
+# Dainty Lass's MIT crates in the root workspace
+dainty-module-api = { path = "../../crates/dainty-module-api" }
+dainty-store = { path = "../../crates/dainty-store" }
 
-# The versions DaintyLass's workspace asks for, so one copy of each lands in its tree
+# The versions Dainty Lass's workspace asks for, so one copy of each lands in its tree
 chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
 diesel = { version = "2.3", default-features = false, features = ["sqlite", "postgres_backend", "r2d2", "returning_clauses_for_sqlite_3_35", "i-implement-a-third-party-backend-and-opt-into-breaking-changes"] }
 diesel-async = { version = "0.9", default-features = false, features = ["postgres", "async-connection-wrapper", "r2d2"] }
@@ -40,7 +40,7 @@ unsafe_code = "deny"
 unused_must_use = "deny"
 
 [workspace.lints.clippy]
-# Same as DaintyLass (AGENTS.md): a panic in a request handler still drops the request
+# Same as Dainty Lass (AGENTS.md): a panic in a request handler still drops the request
 unwrap_used = "deny"
 expect_used = "deny"
 dbg_macro = "deny"

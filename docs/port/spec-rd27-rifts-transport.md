@@ -24,13 +24,13 @@
 | --- | --- |
 | `modules/rustic-rifts/NOTICE.md` | The repository root is Mystic Paradox's `ParadoxTransport/` folder with its history (to `c1c5dca`, 17 Oct 2026): `src/`, `src/test/`, the build and dependency scripts and `tools/`; files keep Mystic Paradox's headers |
 | File headers | Every `src/**` file and `tools/mint-relay-test-file.cjs` carries "Copyright (C) 2026 MysticFox / Pranav Karande", AGPL-3.0-only |
-| `git log` | `src/` authored by pranav158 (5935cde, fbecfe1, 56596fe, a8e49c1, 62f64dd); one DaintyLass change, ae3deaa (RF4, 31 Oct: plain HTTP and lax TLS for a loopback backend in the admission client); `.forgejo/workflows/transport.yml` born in 68a5126 (RF3, Silent Spud); README licence section 5ea3a5d (RF3) |
+| `git log` | `src/` authored by pranav158 (5935cde, fbecfe1, 56596fe, a8e49c1, 62f64dd); one Dainty Lass change, ae3deaa (RF4, 31 Oct: plain HTTP and lax TLS for a loopback backend in the admission client); `.forgejo/workflows/transport.yml` born in 68a5126 (RF3, Silent Spud); README licence section 5ea3a5d (RF3) |
 | `README.md` "Provider-neutral files copied from `SteamBridge/src`" | `admission_ticket.*`, `admission_client.*`, `guard_event_pipe.*`, `message_transport.*`, `udp_bridge.*` came from Mystic Paradox's private Steam bridge |
-| Callers | `crates/rifts-host/src/{transport.rs,ffi.rs,session.rs}` load the DLL with `libloading`, write its files and parse its lines; rustic-isles' `release-runtime-extras.yml` builds and ships it |
+| Callers | `crates/rustic-rifts-host/src/{transport.rs,ffi.rs,session.rs}` load the DLL with `libloading`, write its files and parse its lines; rustic-isles' `release-runtime-extras.yml` builds and ships it |
 
 ### 1.2 Categories
 
-- **A**: born in DaintyLass, free of Mystic Paradox derivation; moves as is (or is retired).
+- **A**: born in Dainty Lass, free of Mystic Paradox derivation; moves as is (or is retired).
 - **B**: derived from Mystic Paradox; rewritten clean-room from §2–§4. A B file with born-here parts says so.
 - **D**: data recorded from Mystic Paradox's programs (oracle). None in this part.
 - **G**: generated. None in this part.
@@ -65,7 +65,7 @@
 | `build.ps1` | 61 | Retire | MP | `cargo build -p <crate> --release` |
 | `prepare-dependencies.ps1` | 54 | Retire | MP; pins libjuice v1.7.4 (SHA-256 `02CCA696…78FD`) | none |
 | `run-relay-selftest.ps1` | 26 | Retire | MP | an `#[ignore]` test reading a relay file (§5.4) |
-| `tools/mint-relay-test-file.cjs` | 102 | B, retire | MP header | already covered by `crates/rifts-relay/examples/mint-relay-file.rs` (another spec) |
+| `tools/mint-relay-test-file.cjs` | 102 | B, retire | MP header | already covered by `crates/rustic-rifts-relay/examples/mint-relay-file.rs` (another spec) |
 | `.forgejo/workflows/transport.yml` | 52 | A | RF3 (68a5126) | retire; the Rust family of dainty-lass CI (RR3 owns it) |
 | `README.md` transport sections | 226 (file) | B | MP text with RF3 licence section (A) | a new page `docs/rifts-transport.md` in dainty-lass, written from this spec |
 
@@ -155,7 +155,7 @@ ABI 2 calls act on one **default handle** (initially 0 = none). They are wrapper
 | `MysticTransport_AddPeerH` | `int (int h, const char* account, uint64_t peer_id, const char* pair_key_b64url)` | `1` queued, `0` refused |
 | `MysticTransport_RemovePeerH` | `int (int h, const char* account, const char* reason)` | `1` queued, `0` refused |
 
-Not exported: `MysticTransport_UpdateRelayCredentialH`. The caller (`rifts-host`) looks it up as optional with the
+Not exported: `MysticTransport_UpdateRelayCredentialH`. The caller (`rustic-rifts-host`) looks it up as optional with the
 signature `int (int h, const char* user, const char* credential)`; the MIT DLL must not export it unless a decision
 row adds it (§7).
 
@@ -309,7 +309,7 @@ Joiner:
 ROUTE_READY localHost=127.0.0.1 localPort=<port> session=<session_id> generation=<generation> transport=ice routePolicy=<RELAY_ONLY|AUTOMATIC> route=<relay|direct>
 ```
 
-`rifts-host` parses these as whitespace tokens of `key=value` with unique keys and checks `localHost`, `transport`,
+`rustic-rifts-host` parses these as whitespace tokens of `key=value` with unique keys and checks `localHost`, `transport`,
 `routePolicy`, `route` (joiner, relay-only) and `localPort` (non-zero exactly when the host plays a local client).
 
 #### 2.4.2 Peer events
@@ -351,7 +351,7 @@ Links, signals and roster:
 
 Admission:
 
-- `ADMISSION_ACCEPTED role=host peer=<host peer id> source=local` (the host's own client; `rifts-host` looks for
+- `ADMISSION_ACCEPTED role=host peer=<host peer id> source=local` (the host's own client; `rustic-rifts-host` looks for
   the tokens `role=host` and `source=local`)
 - `ADMISSION_ACCEPTED role=<host|join> peer=<id> source=ice route=<relay|direct>`
 - `ADMISSION_REJECTED role=host peer=<id> code=<code ≤ 64>`, `ADMISSION_REJECTED role=join peer=<host id> code=<code>`
@@ -365,7 +365,7 @@ UDP:
 UDP_STATS role=<host|join> path=<local|remote> localRx=<n> localTx=<n> transportRx=<n> transportTx=<n> oversized=<n> foreign=<n> unknownPeers=<n> backpressure=<n> socketErrors=<n> admitted=<n> rejected=<n> disconnected=<n> signalsRejected=<n> guardPublishFailures=<n> guardEvidenceLoss=<n>
 ```
 
-(the first ten numbers are the bridge's counters, §2.16; the rest the session's, §2.7.7; `rifts-host` reads
+(the first ten numbers are the bridge's counters, §2.16; the rest the session's, §2.7.7; `rustic-rifts-host` reads
 `localRx` to detect an idle game), `LOCAL_CLIENT_REPINNED role=host path=local`,
 `HOST_UDP_SOCKET_ERROR path=local op=<client_recvfrom|client_send|server_recv|server_sendto> wsa=<os error code>`.
 
@@ -1146,11 +1146,11 @@ flushing.
 
 | Contract | Used by | Rule |
 | --- | --- | --- |
-| DLL file name `ParadoxTransport.dll` | `rifts-host` loader, Guard manifest role `TRANSPORT_MODULE`, `release-runtime-extras.yml` | Keep the name (§7) |
-| The 29 export names and signatures (§2.1) | `rifts-host/src/transport.rs` `EXPORTS`, `ffi.rs` | All resolved before first call; `AbiVersion` must be 3 |
-| Optional `MysticTransport_UpdateRelayCredentialH` | `rifts-host` | Absent |
-| Config keys of §2.3 | `rifts-host/src/session.rs` writes `bridge.conf`, `transport.secret`, `capability.secret`, `ticket.secret` | Same keys, same rules |
-| Ready lines §2.4.1, peer events §2.4.2, `ADMISSION_ACCEPTED … role=host … source=local`, `UDP_STATS … localRx=` | `rifts-host` `parse_ice_ready`, `parse_peer_event`, `is_local_admission`, `udp_stats_local_rx` | Token names and values exactly |
+| DLL file name `ParadoxTransport.dll` | `rustic-rifts-host` loader, Guard manifest role `TRANSPORT_MODULE`, `release-runtime-extras.yml` | Keep the name (§7) |
+| The 29 export names and signatures (§2.1) | `rustic-rifts-host/src/transport.rs` `EXPORTS`, `ffi.rs` | All resolved before first call; `AbiVersion` must be 3 |
+| Optional `MysticTransport_UpdateRelayCredentialH` | `rustic-rifts-host` | Absent |
+| Config keys of §2.3 | `rustic-rifts-host/src/session.rs` writes `bridge.conf`, `transport.secret`, `capability.secret`, `ticket.secret` | Same keys, same rules |
+| Ready lines §2.4.1, peer events §2.4.2, `ADMISSION_ACCEPTED … role=host … source=local`, `UDP_STATS … localRx=` | `rustic-rifts-host` `parse_ice_ready`, `parse_peer_event`, `is_local_admission`, `udp_stats_local_rx` | Token names and values exactly |
 | Signal kinds and texts §2.9 | the launcher's relay, the backend's relay-only filter, C++ peers | Byte-compatible |
 | Sealed frame, MPC1, fragments | C++ peers (mixed versions) | Byte-compatible |
 | MPT2 ticket, raw X‖Y key file | the backend issuer (rustic-isles / rifts-admission) | As §2.13 |
@@ -1298,7 +1298,7 @@ chain; the first batch starts `SESSION_STARTED`, `WORLD_READY`; the last event i
 ### 5.4 Opt-in
 
 `ice --relay-file`: an `#[ignore]` test reading `ice_stun_urls`, `ice_turn_urls`, `turn_username`, `turn_credential`
-from a file named by an env variable (minted by `rifts-relay`'s example), deleting nothing it did not create, printing
+from a file named by an env variable (minted by `rustic-rifts-relay`'s example), deleting nothing it did not create, printing
 no secret.
 
 ### 5.5 Interop oracle (reviewer, in dainty-restricted)
@@ -1353,7 +1353,7 @@ that the crate's callbacks take while calling into the crate.
 | Test-only ES256 signer | `aws-lc-rs` `EcdsaKeyPair` (`ECDSA_P256_SHA256_FIXED_SIGNING`) | present |
 
 **`unsafe`.** The workspace denies `unsafe_code`; the crate needs scoped `#[allow(unsafe_code)]` as
-`crates/gateway/src/allowlist/windows.rs` does, in exactly two places: `ffi` (`#[unsafe(no_mangle)] extern "C"`
+`crates/dainty-gateway/src/allowlist/windows.rs` does, in exactly two places: `ffi` (`#[unsafe(no_mangle)] extern "C"`
 exports in edition 2024, reading `const char*` with `CStr::from_ptr`, writing caller buffers) and `pipe` (Win32
 calls: SDDL conversion, `CreateNamedPipeW`, `ConnectNamedPipe`, `PeekNamedPipe`, `ReadFile`,
 `GetNamedPipeClientProcessId`, `DisconnectNamedPipe`, `LocalFree`). BCrypt (AES, ECDSA, SHA-256, RNG), WinHTTP,
@@ -1391,7 +1391,7 @@ confirmed from a primary source.
 
 ### 6.4 What dainty-restricted needs afterwards
 
-`rifts-host` keeps loading `ParadoxTransport.dll` by path with `libloading`; nothing changes on its side if the export
+`rustic-rifts-host` keeps loading `ParadoxTransport.dll` by path with `libloading`; nothing changes on its side if the export
 table, ready lines and file formats are kept. The C++ tree, its MSBuild projects, scripts and `transport.yml` stay in
 restricted as the interop oracle until the maintainer retires them; rustic-isles' `release-runtime-extras.yml`
 switches to the cargo-built DLL (the release workflow belongs to RH6/RA14; not this row).
@@ -1431,9 +1431,9 @@ switches to the cargo-built DLL (the release workflow belongs to RH6/RA14; not t
    stated as a design rule in §6.1 for any callback-based crate.
 10. **Known limit in the README is stale**: it says consumes are synchronous on the session thread; since 17 Oct they
    go through the work lane (§3.2). Follow this spec.
-11. **`UpdateRelayCredentialH`**: `rifts-host` probes it as optional (RF1 decision 6); the C++ DLL does not export
+11. **`UpdateRelayCredentialH`**: `rustic-rifts-host` probes it as optional (RF1 decision 6); the C++ DLL does not export
    it. Adding it is a new feature, not part of the port.
-12. **Joiner result 5** reuses "lease failed" for a link lost after admission; `rifts-host` may read it as a lease
+12. **Joiner result 5** reuses "lease failed" for a link lost after admission; `rustic-rifts-host` may read it as a lease
    failure. Kept (observable).
 13. **ABI 2 `WaitReady` with no default handle returns 0, not -1**, and `LastSessionResult` clamps -1 to 0; keep.
 14. **Session id case**: the ticket's session id is compared as lowercase hex; an uppercase `session_id` in the config

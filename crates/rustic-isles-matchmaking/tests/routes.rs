@@ -210,7 +210,7 @@ async fn the_scenario() {
     let party_id = party["partyId"].as_str().unwrap().to_owned();
     assert!(party_id.ends_with("_NjQ3NDcy"), "{party_id}");
     assert_eq!(
-        service_kit::jsjson::stringify(&party["playerStates"]),
+        dainty_service_kit::jsjson::stringify(&party["playerStates"]),
         r#"[{"consoleSessionId":null,"displayName":"alice name","isMemberOfCandidate":true,"platform":"win","playerId":"alice"}]"#
     );
     let invite = r#"{"recipientPlayerId":"bob","buildId":"647472"}"#;

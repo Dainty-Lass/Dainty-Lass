@@ -4,9 +4,9 @@
 //! a host.toml that reads as the same settings.
 #![no_main]
 
-use host::hostconfig::{HostConfig, yaml};
+use dainty_host::hostconfig::{HostConfig, yaml};
 use libfuzzer_sys::fuzz_target;
-use service_kit::jsjson;
+use dainty_service_kit::jsjson;
 
 fuzz_target!(|data: &[u8]| {
     let Some((&form, rest)) = data.split_first() else {

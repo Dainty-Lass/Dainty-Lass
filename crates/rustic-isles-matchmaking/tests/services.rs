@@ -11,9 +11,8 @@ mod common;
 use std::net::SocketAddr;
 use std::sync::{Arc, Mutex};
 
-use module_api::chat::Headline;
-use module_api::{BoxFuture, GlobalId, IdKind, NodeId};
-use rifts_seam::{AccountId as RealmAccount, Candidate, IslesCore, Json, NoCore, PartyId, SeamError};
+use dainty_module_api::chat::Headline;
+use dainty_module_api::{BoxFuture, GlobalId, IdKind, NodeId};
 use rustic_isles::{DedicatedServers, Launch, LaunchRequest, Settings, Startup, Unconfigured};
 use rustic_isles_matchmaking::test_support::{FakeDirector, TestModule};
 use rustic_isles_matchmaking::{
@@ -23,6 +22,7 @@ use rustic_isles_matchmaking::{
 use rustic_isles_store::repo::parties::{PartyEvent, PartyEventType};
 use rustic_isles_store::test_support::TempStore;
 use rustic_isles_store::{IslesStore, UserId};
+use rustic_rifts_seam::{AccountId as RealmAccount, Candidate, IslesCore, Json, NoCore, PartyId, SeamError};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
 // -------------------------------------------------------------------- the outbox
@@ -99,7 +99,7 @@ async fn the_outbox_publishes_in_order_once() {
         3,
         &serde_json::json!({"accountId": "bob"}),
     );
-    assert_eq!(sent[0].body, service_kit::jsjson::stringify(&expected));
+    assert_eq!(sent[0].body, dainty_service_kit::jsjson::stringify(&expected));
 }
 
 #[tokio::test(flavor = "multi_thread")]

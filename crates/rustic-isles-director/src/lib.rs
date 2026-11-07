@@ -29,7 +29,7 @@ pub mod process;
 
 use std::sync::{Arc, Mutex, PoisonError};
 
-use module_api::{BoxFuture, ModuleError};
+use dainty_module_api::{BoxFuture, ModuleError};
 use rustic_isles::{DedicatedServers, Launch, LaunchRequest, LiveHub, LiveHubStatus, PortService, Settings, Shared};
 use tokio::task::JoinHandle;
 

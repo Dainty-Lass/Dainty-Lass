@@ -71,7 +71,7 @@ async function main(): Promise<void> {
         process.env.E2E_BUNDLE_DIR || path.join(restricted, "target", "release", "bundle", "nsis")
       mkdirSync(installDir, { recursive: true })
       installed = true
-      exe = install(installer(bundles, "DaintyLass Manager"), installDir, "dainty-manager.exe")
+      exe = install(installer(bundles, "Dainty Lass Manager"), installDir, "dainty-manager.exe")
     }
 
     step(3, "copying the controller's workspace")

@@ -19,8 +19,9 @@ use axum::body::Body;
 use axum::extract::{ConnectInfo, Request};
 use base64::Engine as _;
 use base64::engine::general_purpose::STANDARD;
+use dainty_module_api::{Actor, ActorContext};
+use dainty_service_kit::serve::ConnectionInfo;
 use http_body_util::BodyExt;
-use module_api::{Actor, ActorContext};
 use rustic_isles::handlers::auth_handlers;
 use rustic_isles::testing::sample_version;
 use rustic_isles::{GameDataRoot, Service, Settings, Shared, SharedParts, Slots};
@@ -36,7 +37,6 @@ use rustic_isles_store::repo::reforged::AdminSessionRecord;
 use rustic_isles_store::test_support::TempStore;
 use rustic_isles_store::{AccountId, IslesAuthStore, IslesStore, UserId};
 use serde_json::Value;
-use service_kit::serve::ConnectionInfo;
 use tower::ServiceExt;
 
 pub const SECRET: &str = "a-test-secret-that-is-long-enough-1234";

@@ -4,7 +4,7 @@
 //! Party and hunt ids inside room names (spec §4.3): a `GlobalId`'s own text cannot sit in a JID, so a room spells
 //! it `<ULID>.<node>`; the party area appends `_<build id>` to make the client-facing party id.
 
-use module_api::{GlobalId, IdKind, NodeId};
+use dainty_module_api::{GlobalId, IdKind, NodeId};
 use ulid::Ulid;
 
 /// The longest id text read, before the `_` suffix.

@@ -6,7 +6,7 @@
 //! split.
 #![no_main]
 
-use gateway::capture::{
+use dainty_gateway::capture::{
     FrameReader, redact_capture_body, redact_capture_headers, redact_capture_target, redact_chat_frame,
 };
 use http::{HeaderMap, HeaderValue};

@@ -4,11 +4,11 @@
 //! The XP route's half of the weapon reforge (progression spec §4.5, §4.6; inventory's P1 to P5): which grants a
 //! stored reforge record allows, the compare-and-set marks, and the stale-reforge repair.
 
+use dainty_service_kit::js;
 use rustic_isles::Shared;
 use rustic_isles_store::repo::progression::{ProgressionTrackRecord, WeaponReforge};
 use rustic_isles_store::{AccountId, RepoResult, Repositories, Tx};
 use serde_json::{Map, Value};
-use service_kit::js;
 
 use crate::progression::tracks::{
     experience_track_for_prestige, is_prestige_track, is_reforgeable_track, prestige_track_for,
@@ -134,7 +134,7 @@ pub fn classify_grant(
             Some(_) if amount == 1.0 => ReforgePlan::Refuse("this reforge's +1 was already granted".into()),
             Some(_) => ReforgePlan::Refuse(format!(
                 "prestige amount {} is not 1",
-                service_kit::jsjson::number(amount)
+                dainty_service_kit::jsjson::number(amount)
             )),
             None => ReforgePlan::Refuse("no open reforge for this weapon".into()),
         };

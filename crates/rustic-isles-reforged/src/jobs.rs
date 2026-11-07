@@ -7,7 +7,7 @@
 use std::sync::Arc;
 use std::time::Duration;
 
-use module_api::{Actor, ActorContext, BoxFuture};
+use dainty_module_api::{Actor, ActorContext, BoxFuture};
 use rustic_isles::{Shared, Started, Startup};
 
 use crate::activity::ActivityHooks;

@@ -4,9 +4,9 @@
 //! `ApplyCurrencyDeltas` (spec §9.1), the prestige gate (§9.2) and the Sparkforge conversion, on the bounties
 //! part's wallet primitives (W1 to W6), all inside the inventory transaction.
 
+use dainty_service_kit::{js, jsjson};
 use rustic_isles_store::{AccountId, Repositories, Tx};
 use serde_json::Value;
-use service_kit::{js, jsjson};
 
 use crate::bounties::{challenge_rewards, platinum, wallet};
 use crate::inventory::ports::{CurrencyChange, WalletError};

@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 #
-# DaintyLass server images (docs/hosting-docker.md). Built with the monorepo root as context:
+# Dainty Lass server images (docs/hosting-docker.md). Built with the monorepo root as context:
 #   docker compose build            (from restricted/, compose.yaml), or
 #   docker build -f restricted/docker/Dockerfile --target server .   (from the monorepo root)
 #
@@ -55,15 +55,15 @@ COPY --from=rust-sources /src/ /src/
 # The release workflow's build: the server in one binary, dainty-host, with the gateway, allowlist, content server
 # and admin API inside it, and the game modules (all-modules, DF5). The launcher is a workspace member but is not
 # built (only the lock file is read).
-# REFORGED_MODULES: the server-console features that link the game modules; empty builds none, which still serves.
+# REFORGED_MODULES: the dainty-server features that link the game modules; empty builds none, which still serves.
 ARG REFORGED_MODULES=all-modules
 RUN --mount=type=cache,id=reforged-cargo-registry,target=/usr/local/cargo/registry \
     --mount=type=cache,id=reforged-cargo-git,target=/usr/local/cargo/git \
     --mount=type=cache,id=reforged-cargo-target,target=/src/restricted/target \
     features="$REFORGED_MODULES" \
  && set -- \
- && for f in $(echo "$features" | tr , ' '); do set -- "$@" --features "server-console/$f"; done \
- && cargo build --release --locked -p server-console "$@" --bins \
+ && for f in $(echo "$features" | tr , ' '); do set -- "$@" --features "dainty-server/$f"; done \
+ && cargo build --release --locked -p dainty-server "$@" --bins \
  && mkdir -p /out/bin \
  && cp target/release/dainty-host /out/bin/
 # The libraries host.toml can pin (RD27), as the release ships them in plugins/; a service's crate joins the list by
@@ -72,15 +72,15 @@ RUN --mount=type=cache,id=reforged-cargo-registry,target=/usr/local/cargo/regist
     --mount=type=cache,id=reforged-cargo-git,target=/usr/local/cargo/git \
     --mount=type=cache,id=reforged-cargo-target,target=/src/restricted/target \
     set -- \
- && for pkg in isles-1-14-7-plugin content-plugin chat-plugin gateway-plugin; do \
+ && for pkg in rustic-isles-plugin dainty-content-plugin dainty-chat-plugin dainty-gateway-plugin; do \
       if cargo pkgid --locked -p "$pkg" > /dev/null 2>&1; then set -- "$@" -p "$pkg"; fi; \
     done \
  && cargo build --release --locked "$@" --lib \
  && mkdir -p /out/plugins \
- && for lib in isles_1_14_7_plugin content_plugin chat_plugin gateway_plugin; do \
+ && for lib in rustic_isles_plugin dainty_content_plugin dainty_chat_plugin dainty_gateway_plugin; do \
       if [ -f "target/release/lib$lib.so" ]; then cp "target/release/lib$lib.so" /out/plugins/; fi; \
     done \
- && test -f /out/plugins/libisles_1_14_7_plugin.so
+ && test -f /out/plugins/librustic_isles_plugin.so
 
 # ------------------------------------------------------------------ front: gateway, allowlist, content, admin API
 FROM ${DEBIAN_IMAGE} AS front
@@ -99,7 +99,7 @@ COPY --chmod=0755 restricted/docker/healthcheck.sh /opt/reforged/bin/reforged-he
 ENV PATH=/opt/reforged/bin:$PATH
 WORKDIR /opt/reforged/.workspace
 USER reforged
-LABEL org.opencontainers.image.title="DaintyLass front door" \
+LABEL org.opencontainers.image.title="Dainty Lass front door" \
       org.opencontainers.image.licenses="AGPL-3.0-only" \
       org.opencontainers.image.source="https://git.silentspud.com/silentspud/dainty-lass"
 
@@ -143,7 +143,7 @@ ENV REFORGED_SOURCE_COMMIT=${REFORGED_COMMIT} \
 USER reforged
 ENTRYPOINT ["/usr/bin/tini", "--"]
 CMD ["dainty-host", "--help"]
-LABEL org.opencontainers.image.title="DaintyLass server" \
+LABEL org.opencontainers.image.title="Dainty Lass server" \
       org.opencontainers.image.licenses="AGPL-3.0-only" \
       org.opencontainers.image.source="https://git.silentspud.com/silentspud/dainty-lass"
 
@@ -153,7 +153,7 @@ FROM ${DEBIAN_IMAGE} AS netem
 RUN apt-get update && apt-get install -y --no-install-recommends iproute2 && rm -rf /var/lib/apt/lists/*
 COPY --chmod=0755 restricted/docker/network/netem.sh /usr/local/bin/reforged-netem
 ENTRYPOINT ["/usr/local/bin/reforged-netem"]
-LABEL org.opencontainers.image.title="DaintyLass network harness latency" \
+LABEL org.opencontainers.image.title="Dainty Lass network harness latency" \
       org.opencontainers.image.licenses="AGPL-3.0-only" \
       org.opencontainers.image.source="https://git.silentspud.com/silentspud/dainty-lass"
 
@@ -182,8 +182,8 @@ USER reforged
 # rebuilds nothing and needs no network). The launcher (Tauri, WebKitGTK) is not a server crate and is not
 # built; the fuzz targets are a workspace of their own.
 RUN cargo test --locked --no-run \
-      -p protocol -p proxy -p remote -p service-kit -p store -p gateway -p content -p admin -p hostkit -p host \
-      -p controller
+      -p dainty-protocol -p dainty-proxy -p dainty-remote -p dainty-service-kit -p dainty-store -p dainty-gateway -p dainty-content -p dainty-admin -p dainty-hostkit -p dainty-host \
+      -p dainty-controller
 # gateway's route-policy tests check /reforged/api against the reference route file
 COPY --chown=reforged:reforged restricted/modules/rustic-isles/reference/1.14.7/ParadoxBackend/src/routes/reforgedApi.ts modules/rustic-isles/reference/1.14.7/ParadoxBackend/src/routes/reforgedApi.ts
 ENTRYPOINT ["/usr/bin/tini", "--", "reforged-test"]
@@ -235,6 +235,6 @@ ENV REFORGED_SOURCE_COMMIT=${REFORGED_COMMIT} \
 USER node
 ENTRYPOINT ["/usr/bin/tini", "--"]
 CMD ["dainty-host", "--help"]
-LABEL org.opencontainers.image.title="DaintyLass server (Node rollback)" \
+LABEL org.opencontainers.image.title="Dainty Lass server (Node rollback)" \
       org.opencontainers.image.licenses="AGPL-3.0-only" \
       org.opencontainers.image.source="https://git.silentspud.com/silentspud/dainty-lass"

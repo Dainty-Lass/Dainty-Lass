@@ -70,7 +70,7 @@ impl Policy {
 
 fn lease_running(expires: Option<&str>, now_ms: i64) -> bool {
     expires
-        .and_then(service_kit::js::date_parse)
+        .and_then(dainty_service_kit::js::date_parse)
         .is_some_and(|at| at > now_ms)
 }
 
@@ -154,7 +154,7 @@ pub async fn current_policy(shared: &Shared) -> Option<Policy> {
 /// rustic-rifts' adapter: the current policy (or the default) as JSON text.
 pub async fn operations_policy_json(shared: &Shared) -> String {
     let policy = current_policy(shared).await.unwrap_or_else(default_policy);
-    service_kit::jsjson::stringify(&policy.to_json())
+    dainty_service_kit::jsjson::stringify(&policy.to_json())
 }
 
 /// The break-glass code: the window not exhausted, a secret set, and auth's TOTP check.
@@ -235,7 +235,7 @@ enum Changed {
 }
 
 fn whole_version(value: Option<&Value>) -> Option<u64> {
-    let n = service_kit::js::number(value);
+    let n = dainty_service_kit::js::number(value);
     (n.is_finite() && n.fract() == 0.0 && (0.0..=MAX_SAFE).contains(&n)).then(|| {
         #[allow(
             clippy::cast_possible_truncation,
@@ -400,14 +400,14 @@ mod tests {
 
     #[test]
     fn normalizing() {
-        let now = service_kit::js::date_parse("2026-10-26T12:00:00Z").unwrap();
+        let now = dainty_service_kit::js::date_parse("2026-10-26T12:00:00Z").unwrap();
         let (kept, bad) = normalize(
             &policy_row(Some("2026-10-26T13:00:00.000Z"), "DEVELOPMENT", "OBSERVE"),
             now,
         );
         assert!(!bad);
         assert_eq!(
-            service_kit::jsjson::stringify(&kept.to_json()),
+            dainty_service_kit::jsjson::stringify(&kept.to_json()),
             r#"{"guardEnforcement":"OBSERVE","diagnosticsProfile":"DEVELOPMENT","version":3,"updatedAt":"u","updatedBy":"b","diagnosticsExpiresAt":"2026-10-26T13:00:00.000Z"}"#
         );
         let (lapsed, _) = normalize(
@@ -434,7 +434,7 @@ mod tests {
             ("ENFORCE", "PRODUCTION", 3)
         );
         assert_eq!(
-            service_kit::jsjson::stringify(&default_policy().to_json()),
+            dainty_service_kit::jsjson::stringify(&default_policy().to_json()),
             r#"{"guardEnforcement":"ENFORCE","diagnosticsProfile":"PRODUCTION","version":0}"#
         );
         let over = resolve(
@@ -456,7 +456,7 @@ mod tests {
         let mut loose = base.clone();
         loose.guard_enforcement = "OBSERVE".into();
         assert!(weakening_codes(&loose, "ENFORCE", "PRODUCTION").is_empty());
-        let now = service_kit::js::date_parse("2026-10-26T12:00:00Z").unwrap();
+        let now = dainty_service_kit::js::date_parse("2026-10-26T12:00:00Z").unwrap();
         assert_eq!(diagnostics_expiry(&base, "PRODUCTION", now), None);
         assert_eq!(
             diagnostics_expiry(&base, "DEVELOPMENT", now).unwrap(),

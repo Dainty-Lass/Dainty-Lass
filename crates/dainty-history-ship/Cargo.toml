@@ -1,0 +1,38 @@
+[package]
+name = "dainty-history-ship"
+description = "The change log and snapshots shipped off the server to an object-locked S3-compatible bucket, and restore to a moment (DD23, DH4)"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+# Born here: nothing ported from Dauntless Revived, Paradox or the Reforged Revival line
+license = "MIT"
+repository.workspace = true
+publish.workspace = true
+
+[dependencies]
+# HMAC-SHA256 for SigV4 (D10: aws-lc-rs)
+aws-lc-rs.workspace = true
+base64.workspace = true
+chrono.workspace = true
+flate2.workspace = true
+http-body-util.workspace = true
+hyper.workspace = true
+hyper-rustls.workspace = true
+hyper-util = { workspace = true, features = ["client-legacy", "http1"] }
+rustls.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
+dainty-store.workspace = true
+thiserror.workspace = true
+tokio = { workspace = true, features = ["time", "fs"] }
+url.workspace = true
+
+[dev-dependencies]
+diesel.workspace = true
+diesel_migrations.workspace = true
+tempfile.workspace = true
+tokio = { workspace = true, features = ["rt-multi-thread", "time", "fs"] }
+
+[lints]
+workspace = true

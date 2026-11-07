@@ -58,8 +58,8 @@ async function main(): Promise<void> {
     step(2, "installing both bundles")
     const bundles =
       process.env.E2E_BUNDLE_DIR || path.join(restrictedDir(), "target", "release", "bundle", "nsis")
-    const clientExe = install(installer(bundles, "DaintyLass Launcher"), installClient, "dainty-launcher.exe")
-    const managerExe = install(installer(bundles, "DaintyLass Manager"), installServer, "dainty-manager.exe")
+    const clientExe = install(installer(bundles, "Dainty Lass Launcher"), installClient, "dainty-launcher.exe")
+    const managerExe = install(installer(bundles, "Dainty Lass Manager"), installServer, "dainty-manager.exe")
 
     step(3, "launching the manager and the client")
     manager = await launch(managerExe, { profile: profileServer, port: 9321, label: "manager" })
@@ -70,7 +70,7 @@ async function main(): Promise<void> {
     check(kit.workspaceOk === true, "manager workspace not ok", kit)
     const download = await manager.invoke("host_download_project")
     check(download?.ok === false && download.error?.code === "not_in_this_build", "host_download_project", download)
-    check((await manager.page.title()) === "DaintyLass Manager", "manager title")
+    check((await manager.page.title()) === "Dainty Lass Manager", "manager title")
     const first = await client.invoke("get_snapshot")
     check(first?.app?.serverGui === false && first.phase === "join", "client snapshot", first)
     await client.shots("client-join")

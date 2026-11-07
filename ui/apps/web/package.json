@@ -1,7 +1,7 @@
 {
   "name": "@dainty/web",
   "version": "0.1.0",
-  "description": "DaintyLass's pages from one source: the staff dashboard, the launcher page and the server manager page, picked by DAINTY_MODE",
+  "description": "Dainty Lass's pages from one source: the staff dashboard, the launcher page and the server manager page, picked by DAINTY_MODE",
   "type": "module",
   "private": true,
   "license": "MIT",

@@ -8,6 +8,7 @@
 mod common;
 
 use common::{account, log, player, system, targets};
+use dainty_store::KeyValue;
 use rustic_isles_store::repo::bounties::*;
 use rustic_isles_store::repo::characters::*;
 use rustic_isles_store::repo::chat::*;
@@ -15,7 +16,6 @@ use rustic_isles_store::repo::inventory::*;
 use rustic_isles_store::repo::progression::*;
 use rustic_isles_store::{AccountId, RepoError, UserId};
 use serde_json::json;
-use store::KeyValue;
 
 fn character(id: &str, account: &AccountId) -> CharacterRecord {
     CharacterRecord {
@@ -175,7 +175,7 @@ async fn c2_c3_loadouts_are_revision_guarded() {
     }
 }
 
-fn rustic_isles_store_test_sql(tx: &mut store::Tx<'_>, text: &str) -> rustic_isles_store::RepoResult<()> {
+fn rustic_isles_store_test_sql(tx: &mut dainty_store::Tx<'_>, text: &str) -> rustic_isles_store::RepoResult<()> {
     use diesel::RunQueryDsl;
     diesel::sql_query(text).execute(tx.conn())?;
     Ok(())

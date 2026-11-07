@@ -1,5 +1,5 @@
 //! Where the launcher keeps its files (row L26). Tauri's own app data folder would be
-//! `…/io.github.freezamotoqueiro.dauntlessreforgedrevival`; it is not used. The folders use the DaintyLass
+//! `…/io.github.freezamotoqueiro.dauntlessreforgedrevival`; it is not used. The folders use the Dainty Lass
 //! product names (`DaintyLass Launcher` and `Documents/DaintyLass/Account Keys`), and automatically migrate
 //! existing `Dauntless Reforged Revival Launcher` and `Documents/Dauntless Reforged Revival` folders on first start.
 
@@ -194,7 +194,7 @@ mod tests {
         std::fs::create_dir_all(&legacy_keys).unwrap();
         std::fs::write(legacy_keys.join("abc.txt"), b"RRK_legacy_1").unwrap();
 
-        // 1. Fresh migration moves legacy folders into DaintyLass names
+        // 1. Fresh migration moves legacy folders into Dainty Lass names
         migrate_legacy_folders(&new_user_data, Some(&docs_root));
         assert!(new_user_data.join("settings.json").is_file());
         assert_eq!(

@@ -6,8 +6,8 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
 
+use dainty_service_kit::js;
 use serde_json::{Map, Value, json};
-use service_kit::js;
 
 use super::io::{back_up, create_parent, drop_bom, parse, read_text, show, write_file};
 use super::pretty::stringify_pretty;
@@ -195,7 +195,7 @@ pub fn generate_slayers_path_definitions(
         .unwrap_or_default();
     let added: Vec<&String> = next.keys().filter(|k| !existing.contains_key(*k)).collect();
     let removed: BTreeSet<&String> = existing.keys().filter(|k| !next.contains_key(*k)).collect();
-    let compact = service_kit::jsjson::stringify;
+    let compact = dainty_service_kit::jsjson::stringify;
     let changed: Vec<&String> = next
         .iter()
         .filter(|(k, v)| existing.get(*k).is_some_and(|old| compact(old) != compact(v)))

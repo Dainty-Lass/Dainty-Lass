@@ -1,0 +1,28 @@
+[package]
+name = "rustic-rifts-guard"
+description = "Rustic Rifts' Guard in observe mode: hunt evidence chains, host write and grant policy, traffic bounds, the host route census"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license = "MIT"
+repository.workspace = true
+publish.workspace = true
+
+[dependencies]
+diesel.workspace = true
+diesel_migrations.workspace = true
+rustic-rifts-seam.workspace = true
+# The batch hash covers the body's JSON text in document order (spec-rd27-rifts §2 D5)
+serde_json = { workspace = true, features = ["preserve_order"] }
+sha2.workspace = true
+dainty-store.workspace = true
+tokio = { workspace = true, features = ["rt", "rt-multi-thread"] }
+
+[dev-dependencies]
+tempfile.workspace = true
+tokio = { workspace = true, features = ["rt", "rt-multi-thread", "macros"] }
+# REFORGED_TEST_POSTGRES_URL, for the Postgres half of the store tests
+url.workspace = true
+
+[lints]
+workspace = true

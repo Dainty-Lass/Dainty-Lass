@@ -4,7 +4,7 @@
 //! `rustic_isles_auth::AuthStore` over [`IslesStore`] (spec §12). A player actor's write is an account write for
 //! that player (the home check); any other actor's is a plain write.
 
-use module_api::{Actor, ActorContext, BoxFuture};
+use dainty_module_api::{Actor, ActorContext, BoxFuture};
 use rustic_isles_auth::email::CODE_MAX_ATTEMPTS;
 use rustic_isles_auth::{
     Approval, AuthStore, Channel, Consent, CreateOutcome, Deletion, DiscordTransaction, EmailCode, ErasureCounts,

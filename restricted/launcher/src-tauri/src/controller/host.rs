@@ -155,7 +155,7 @@ impl Controller {
         }
     }
 
-    /// `ensureHostWorkspace`: the project folder a host's server runs from (or, in DaintyLass Manager,
+    /// `ensureHostWorkspace`: the project folder a host's server runs from (or, in Dainty Lass Manager,
     /// the server's data folder under app data). With Host tools on and none chosen yet, the one beside
     /// the game is taken when it is there. `auto` never shows an error.
     pub(super) async fn ensure_host_workspace(&self, auto: bool) -> ActionResult {
@@ -1216,10 +1216,10 @@ impl Controller {
                 }
             };
 
-            let paths = host::paths::Paths::new(&ws_buf);
-            let outcome: host::Outcome = match cmd_name.as_str() {
+            let paths = dainty_host::paths::Paths::new(&ws_buf);
+            let outcome: dainty_host::Outcome = match cmd_name.as_str() {
                 "setup" => {
-                    let mut setup_args = host::cli::SetupArgs::default();
+                    let mut setup_args = dainty_host::cli::SetupArgs::default();
                     let mut i = 1;
                     while i < arg_vec.len() {
                         match arg_vec[i].as_str() {
@@ -1246,10 +1246,10 @@ impl Controller {
                             _ => i += 1,
                         }
                     }
-                    host::commands::setup::run_with(&paths, &setup_args, &InProcessSetupEnv, &mut emit)
+                    dainty_host::commands::setup::run_with(&paths, &setup_args, &InProcessSetupEnv, &mut emit)
                 }
                 "invite" => {
-                    let mut invite_args = host::cli::InviteArgs {
+                    let mut invite_args = dainty_host::cli::InviteArgs {
                         uses: "1".to_owned(),
                         ..Default::default()
                     };
@@ -1267,10 +1267,15 @@ impl Controller {
                             _ => i += 1,
                         }
                     }
-                    host::commands::invite::run_with(&paths, &invite_args, host::paths::PORTS.backend, &mut emit)
+                    dainty_host::commands::invite::run_with(
+                        &paths,
+                        &invite_args,
+                        dainty_host::paths::PORTS.backend,
+                        &mut emit,
+                    )
                 }
                 "multipliers" => {
-                    let mut mult_args = host::cli::MultipliersArgs::default();
+                    let mut mult_args = dainty_host::cli::MultipliersArgs::default();
                     let mut i = 1;
                     while i < arg_vec.len() {
                         match arg_vec[i].as_str() {
@@ -1289,17 +1294,17 @@ impl Controller {
                             _ => i += 1,
                         }
                     }
-                    let commit = |_repo: &Path| -> Result<String, host::HostError> { Ok(String::new()) };
-                    host::commands::multipliers::run_with(
+                    let commit = |_repo: &Path| -> Result<String, dainty_host::HostError> { Ok(String::new()) };
+                    dainty_host::commands::multipliers::run_with(
                         &paths,
                         &mult_args,
-                        host::hostconfig::Platform::current(),
+                        dainty_host::hostconfig::Platform::current(),
                         &commit,
                         &mut emit,
                     )
                 }
                 "gamedata" => {
-                    let mut gd_args = host::cli::GamedataArgs::default();
+                    let mut gd_args = dainty_host::cli::GamedataArgs::default();
                     let mut i = 1;
                     while i < arg_vec.len() {
                         match arg_vec[i].as_str() {
@@ -1324,19 +1329,19 @@ impl Controller {
                         }
                     }
                     if !paths.backend_dir.exists() && !paths.host_toml.exists() {
-                        let _ = host::gamedata::seed_embedded_examples(&paths);
+                        let _ = dainty_host::gamedata::seed_embedded_examples(&paths);
                     }
-                    host::commands::gamedata::run_with(&paths, &gd_args, &mut emit)
+                    dainty_host::commands::gamedata::run_with(&paths, &gd_args, &mut emit)
                 }
                 "publish-runtime" => {
-                    let pr_args = host::cli::PublishRuntimeArgs::default();
-                    host::commands::publish_runtime::run_with(&paths, &pr_args, &mut emit)
+                    let pr_args = dainty_host::cli::PublishRuntimeArgs::default();
+                    dainty_host::commands::publish_runtime::run_with(&paths, &pr_args, &mut emit)
                 }
                 "update" => {
                     emit(r#"{"ok":true,"behind":0,"head":"embedded"}"#);
                     Ok(std::process::ExitCode::SUCCESS)
                 }
-                other => Err(host::HostError::message(format!("unsupported command: {other}"))),
+                other => Err(dainty_host::HostError::message(format!("unsupported command: {other}"))),
             };
 
             let code = match outcome {
@@ -1378,8 +1383,8 @@ impl Controller {
             return ServerDoctorOutcome::Err(self.fail(ErrorCode::HostFailed, Some(self.workspace_detail().into())));
         };
         let res = tokio::task::spawn_blocking(move || {
-            let paths = host::paths::Paths::new(ws);
-            host::doctor::run_doctor(&paths, &host::doctor::DoctorOptions { hash_exe: false })
+            let paths = dainty_host::paths::Paths::new(ws);
+            dainty_host::doctor::run_doctor(&paths, &dainty_host::doctor::DoctorOptions { hash_exe: false })
         })
         .await;
         let checks = match res {
@@ -1396,12 +1401,12 @@ impl Controller {
         let mut views = Vec::with_capacity(checks.len());
         for c in checks {
             let level = match c.level {
-                host::doctor::Level::Ok | host::doctor::Level::Info => DoctorLevel::Ok,
-                host::doctor::Level::Warn => {
+                dainty_host::doctor::Level::Ok | dainty_host::doctor::Level::Info => DoctorLevel::Ok,
+                dainty_host::doctor::Level::Warn => {
                     warnings += 1;
                     DoctorLevel::Warning
                 }
-                host::doctor::Level::Fail => {
+                dainty_host::doctor::Level::Fail => {
                     problems += 1;
                     DoctorLevel::Problem
                 }
@@ -1459,8 +1464,8 @@ impl Controller {
                     lines.push(clean);
                 }
             };
-            let paths = host::paths::Paths::new(ws);
-            match host::commands::backup::run_with(&paths, &host::commands::backup::System, &mut emit) {
+            let paths = dainty_host::paths::Paths::new(ws);
+            match dainty_host::commands::backup::run_with(&paths, &dainty_host::commands::backup::System, &mut emit) {
                 Ok(code) if code == std::process::ExitCode::SUCCESS => Ok(lines.last().cloned()),
                 Ok(_) => Err(lines.last().cloned().unwrap_or_else(|| "backup".into())),
                 Err(error) => {
@@ -1504,8 +1509,8 @@ impl Controller {
             return ServerConfigOutcome::Err(self.fail(ErrorCode::HostFailed, Some(self.workspace_detail().into())));
         };
         let res = tokio::task::spawn_blocking(move || -> Result<crate::bridge::types::ServerConfigView, String> {
-            let paths = host::paths::Paths::new(&ws);
-            let mut config = host::hostconfig::load_host_config(&paths)
+            let paths = dainty_host::paths::Paths::new(&ws);
+            let mut config = dainty_host::hostconfig::load_host_config(&paths)
                 .map_err(|e| e.to_string())?
                 .ok_or_else(|| "not_configured".to_owned())?;
             let reg_norm = if registration == "INVITE" {
@@ -1514,39 +1519,40 @@ impl Controller {
                 registration.as_str()
             };
             config.registration =
-                host::hostconfig::Registration::parse(reg_norm).ok_or_else(|| "registration".to_owned())?;
+                dainty_host::hostconfig::Registration::parse(reg_norm).ok_or_else(|| "registration".to_owned())?;
             config.max_hunt_servers = max_hunts.clamp(1, 128);
             let db = config.database.get_or_insert_with(Default::default);
             db.engine = Some(database);
             db.fresh_start = if fresh_start { Some(true) } else { None };
             let _ = max_hubs;
-            host::hostconfig::save_host_config(&paths, &config).map_err(|e| e.to_string())?;
+            dainty_host::hostconfig::save_host_config(&paths, &config).map_err(|e| e.to_string())?;
             if fresh_start {
-                host::commands::update::confirm_fresh_start(&paths).map_err(|e| e.to_string())?;
+                dainty_host::commands::update::confirm_fresh_start(&paths).map_err(|e| e.to_string())?;
             } else {
-                let marker = paths.config.join(host::commands::update::MONGO_MIGRATED_MARKER);
-                if host::commands::update::is_fresh_start_marker(&marker) {
+                let marker = paths.config.join(dainty_host::commands::update::MONGO_MIGRATED_MARKER);
+                if dainty_host::commands::update::is_fresh_start_marker(&marker) {
                     let _ = std::fs::remove_file(&marker);
                 }
             }
-            if let Ok((secrets, _)) =
-                host::hostconfig::load_or_create_secrets(&paths.config, host::commands::setup::secrets::new_secrets)
-            {
-                let envs = host::hostconfig::build_env_files(
+            if let Ok((secrets, _)) = dainty_host::hostconfig::load_or_create_secrets(
+                &paths.config,
+                dainty_host::commands::setup::secrets::new_secrets,
+            ) {
+                let envs = dainty_host::hostconfig::build_env_files(
                     &config,
                     &secrets,
                     &paths,
                     "",
-                    host::hostconfig::Platform::current(),
+                    dainty_host::hostconfig::Platform::current(),
                 );
-                let _ = host::hostconfig::write_env_files(&paths, &envs);
+                let _ = dainty_host::hostconfig::write_env_files(&paths, &envs);
             }
             if config
                 .remote
                 .as_ref()
                 .is_some_and(|r| r.role.as_deref() == Some("controller"))
             {
-                let _ = host::commands::remote::set_shared_config_from_host_toml(&paths);
+                let _ = dainty_host::commands::remote::set_shared_config_from_host_toml(&paths);
             }
             read_server_config_view(&ws)
         })
@@ -1598,21 +1604,25 @@ impl Controller {
                     lines.push(clean);
                 }
             };
-            let paths = host::paths::Paths::new(ws);
-            host::hostconfig::load_host_config(&paths)
+            let paths = dainty_host::paths::Paths::new(ws);
+            dainty_host::hostconfig::load_host_config(&paths)
                 .map_err(|e| e.to_string())?
                 .ok_or_else(|| "not_configured".to_owned())?;
             // As a host would by hand: verify writes the marker start waits for, and only with no difference
-            let run = |command| host::cli::DbArgs { command };
-            let res = host::commands::db::run_with(
+            let run = |command| dainty_host::cli::DbArgs { command };
+            let res = dainty_host::commands::db::run_with(
                 &paths,
-                &run(host::cli::DbCommand::Migrate(host::cli::DbMigrateArgs::default())),
+                &run(dainty_host::cli::DbCommand::Migrate(
+                    dainty_host::cli::DbMigrateArgs::default(),
+                )),
                 &mut emit,
             )
             .and_then(|_| {
-                host::commands::db::run_with(
+                dainty_host::commands::db::run_with(
                     &paths,
-                    &run(host::cli::DbCommand::Verify(host::cli::DbVerifyArgs::default())),
+                    &run(dainty_host::cli::DbCommand::Verify(
+                        dainty_host::cli::DbVerifyArgs::default(),
+                    )),
                     &mut emit,
                 )
             });
@@ -1644,8 +1654,8 @@ impl Controller {
             return ServerConfigOutcome::Err(self.fail(ErrorCode::HostFailed, Some(self.workspace_detail().into())));
         };
         let res = tokio::task::spawn_blocking(move || -> Result<crate::bridge::types::ServerConfigView, String> {
-            let paths = host::paths::Paths::new(&ws);
-            host::commands::update::confirm_fresh_start(&paths).map_err(|e| e.to_string())?;
+            let paths = dainty_host::paths::Paths::new(&ws);
+            dainty_host::commands::update::confirm_fresh_start(&paths).map_err(|e| e.to_string())?;
             read_server_config_view(&ws)
         })
         .await;
@@ -1672,27 +1682,30 @@ impl Controller {
             return ServerInviteListOutcome::Err(self.fail(ErrorCode::ServerStopped, None));
         }
         let res = tokio::task::spawn_blocking(move || -> Result<Vec<ServerInviteEntry>, String> {
-            let paths = host::paths::Paths::new(&ws);
-            let config = host::hostconfig::load_host_config(&paths)
+            let paths = dainty_host::paths::Paths::new(&ws);
+            let config = dainty_host::hostconfig::load_host_config(&paths)
                 .map_err(|e| e.to_string())?
                 .ok_or_else(|| "not_configured".to_owned())?;
-            let (secrets, _) =
-                host::hostconfig::load_or_create_secrets(&paths.config, host::commands::setup::secrets::new_secrets)
-                    .map_err(|e| e.to_string())?;
+            let (secrets, _) = dainty_host::hostconfig::load_or_create_secrets(
+                &paths.config,
+                dainty_host::commands::setup::secrets::new_secrets,
+            )
+            .map_err(|e| e.to_string())?;
             let fp = match config.mode {
-                host::hostconfig::ServerMode::Public => {
-                    Some(host::invite::certificate_fingerprint(&paths.cert_file).map_err(|e| e.to_string())?)
+                dainty_host::hostconfig::ServerMode::Public => {
+                    Some(dainty_host::invite::certificate_fingerprint(&paths.cert_file).map_err(|e| e.to_string())?)
                 }
-                host::hostconfig::ServerMode::Private => None,
+                dainty_host::hostconfig::ServerMode::Private => None,
             };
-            let items = host::invite::list_invite_codes(host::paths::PORTS.backend, &secrets.admin_key)
+            let items = dainty_host::invite::list_invite_codes(dainty_host::paths::PORTS.backend, &secrets.admin_key)
                 .map_err(|e| e.to_string())?;
             let mut out = Vec::with_capacity(items.len());
             for item in items {
                 let Some(code) = item.get("code").and_then(|v| v.as_str()) else {
                     continue;
                 };
-                let link = host::invite::invite_for(&config, code, fp.as_deref()).unwrap_or_else(|_| code.to_owned());
+                let link =
+                    dainty_host::invite::invite_for(&config, code, fp.as_deref()).unwrap_or_else(|_| code.to_owned());
                 let for_name = item
                     .get("note")
                     .and_then(|v| v.as_str())
@@ -1749,14 +1762,14 @@ impl Controller {
             return RemoteStatusOutcome::Err(self.fail(ErrorCode::HostFailed, Some(self.workspace_detail().into())));
         };
         let res = tokio::task::spawn_blocking(move || -> Result<crate::bridge::types::RemoteStatusView, String> {
-            let paths = host::paths::Paths::new(&ws);
-            let args = host::cli::RemoteInitControllerArgs {
+            let paths = dainty_host::paths::Paths::new(&ws);
+            let args = dainty_host::cli::RemoteInitControllerArgs {
                 node,
                 region,
                 url,
                 json: true,
             };
-            host::commands::remote::init_controller(&paths, &args).map_err(|e| e.to_string())?;
+            dainty_host::commands::remote::init_controller(&paths, &args).map_err(|e| e.to_string())?;
             read_remote_status_view(&ws)
         })
         .await;
@@ -1781,8 +1794,8 @@ impl Controller {
             return RemoteInviteOutcome::Err(self.fail(ErrorCode::HostFailed, Some(self.workspace_detail().into())));
         };
         let res = tokio::task::spawn_blocking(move || -> Result<RemoteInviteView, String> {
-            let paths = host::paths::Paths::new(&ws);
-            let args = host::cli::RemoteInviteArgs {
+            let paths = dainty_host::paths::Paths::new(&ws);
+            let args = dainty_host::cli::RemoteInviteArgs {
                 node,
                 region,
                 label,
@@ -1790,7 +1803,7 @@ impl Controller {
                 ttl_secs: None,
                 json: true,
             };
-            let (_uri, val) = host::commands::remote::create_invite(&paths, &args).map_err(|e| e.to_string())?;
+            let (_uri, val) = dainty_host::commands::remote::create_invite(&paths, &args).map_err(|e| e.to_string())?;
             Ok(RemoteInviteView {
                 uri: val.get("uri").and_then(|v| v.as_str()).unwrap_or_default().to_owned(),
                 node: val.get("node").and_then(|v| v.as_str()).unwrap_or_default().to_owned(),
@@ -1828,14 +1841,14 @@ impl Controller {
             return RemoteStatusOutcome::Err(self.fail(ErrorCode::HostFailed, Some(self.workspace_detail().into())));
         };
         let res = tokio::task::spawn_blocking(move || -> Result<crate::bridge::types::RemoteStatusView, String> {
-            let paths = host::paths::Paths::new(&ws);
-            let args = host::cli::RemoteEnrollArgs {
+            let paths = dainty_host::paths::Paths::new(&ws);
+            let args = dainty_host::cli::RemoteEnrollArgs {
                 uri,
                 label,
                 gateway_url: None,
                 json: true,
             };
-            host::commands::remote::enroll(&paths, &args).map_err(|e| e.to_string())?;
+            dainty_host::commands::remote::enroll(&paths, &args).map_err(|e| e.to_string())?;
             read_remote_status_view(&ws)
         })
         .await;
@@ -1854,8 +1867,8 @@ impl Controller {
             return RemoteStatusOutcome::Err(self.fail(ErrorCode::HostFailed, Some(self.workspace_detail().into())));
         };
         let res = tokio::task::spawn_blocking(move || -> Result<crate::bridge::types::RemoteStatusView, String> {
-            let paths = host::paths::Paths::new(&ws);
-            host::commands::remote::revoke(&paths, &node).map_err(|e| e.to_string())?;
+            let paths = dainty_host::paths::Paths::new(&ws);
+            dainty_host::commands::remote::revoke(&paths, &node).map_err(|e| e.to_string())?;
             read_remote_status_view(&ws)
         })
         .await;
@@ -1873,8 +1886,8 @@ impl Controller {
             return RemoteStatusOutcome::Err(self.fail(ErrorCode::HostFailed, Some(self.workspace_detail().into())));
         };
         let res = tokio::task::spawn_blocking(move || -> Result<crate::bridge::types::RemoteStatusView, String> {
-            let paths = host::paths::Paths::new(&ws);
-            host::commands::remote::leave(&paths).map_err(|e| e.to_string())?;
+            let paths = dainty_host::paths::Paths::new(&ws);
+            dainty_host::commands::remote::leave(&paths).map_err(|e| e.to_string())?;
             read_remote_status_view(&ws)
         })
         .await;
@@ -1899,8 +1912,8 @@ impl Controller {
             return RemoteExecOutcome::Err(self.fail(ErrorCode::HostFailed, Some(self.workspace_detail().into())));
         };
         let res = tokio::task::spawn_blocking(move || -> Result<RemoteExecView, String> {
-            let paths = host::paths::Paths::new(&ws);
-            let args = host::cli::RemoteExecArgs {
+            let paths = dainty_host::paths::Paths::new(&ws);
+            let args = dainty_host::cli::RemoteExecArgs {
                 node,
                 action,
                 account: target.clone(),
@@ -1910,7 +1923,7 @@ impl Controller {
                 actor: "manager-gui".to_owned(),
                 json: true,
             };
-            let val = host::commands::remote::exec_command(&paths, &args).map_err(|e| e.to_string())?;
+            let val = dainty_host::commands::remote::exec_command(&paths, &args).map_err(|e| e.to_string())?;
             Ok(RemoteExecView {
                 command_id: val
                     .get("command_id")
@@ -1943,8 +1956,8 @@ impl Controller {
 fn read_remote_status_view(ws: &Path) -> Result<crate::bridge::types::RemoteStatusView, String> {
     use crate::bridge::types::{ManagedInstallView, RemoteStatusView};
 
-    let paths = host::paths::Paths::new(ws);
-    let val = host::commands::remote::status_json(&paths).map_err(|e| e.to_string())?;
+    let paths = dainty_host::paths::Paths::new(ws);
+    let val = dainty_host::commands::remote::status_json(&paths).map_err(|e| e.to_string())?;
     let role = val
         .get("role")
         .and_then(|v| v.as_str())
@@ -2006,11 +2019,11 @@ fn read_remote_status_view(ws: &Path) -> Result<crate::bridge::types::RemoteStat
 #[cfg(feature = "server-gui")]
 fn read_server_config_view(ws: &Path) -> Result<crate::bridge::types::ServerConfigView, String> {
     use crate::bridge::types::{MongoMigrationState, MongoMigrationView, ServerConfigView};
-    use host::commands::update::MongoMigrationStatus;
+    use dainty_host::commands::update::MongoMigrationStatus;
 
-    let paths = host::paths::Paths::new(ws);
-    let config = host::hostconfig::load_host_config(&paths).map_err(|e| e.to_string())?;
-    let mongo_migration = match host::commands::update::inspect_mongo_migration(&paths) {
+    let paths = dainty_host::paths::Paths::new(ws);
+    let config = dainty_host::hostconfig::load_host_config(&paths).map_err(|e| e.to_string())?;
+    let mongo_migration = match dainty_host::commands::update::inspect_mongo_migration(&paths) {
         MongoMigrationStatus::None => MongoMigrationView {
             state: MongoMigrationState::None,
             source: None,
@@ -2049,10 +2062,10 @@ fn read_server_config_view(ws: &Path) -> Result<crate::bridge::types::ServerConf
         });
     };
     let mode = match c.mode {
-        host::hostconfig::ServerMode::Private => HostServerMode::Private,
-        host::hostconfig::ServerMode::Public => HostServerMode::Public,
+        dainty_host::hostconfig::ServerMode::Private => HostServerMode::Private,
+        dainty_host::hostconfig::ServerMode::Public => HostServerMode::Public,
     };
-    let public_host = (c.mode == host::hostconfig::ServerMode::Public).then(|| c.host.clone());
+    let public_host = (c.mode == dainty_host::hostconfig::ServerMode::Public).then(|| c.host.clone());
     let database = c
         .database
         .as_ref()
@@ -2079,54 +2092,57 @@ fn read_server_config_view(ws: &Path) -> Result<crate::bridge::types::ServerConf
 struct InProcessSetupEnv;
 
 #[cfg(feature = "server-gui")]
-impl host::commands::setup::SetupEnv for InProcessSetupEnv {
-    fn platform(&self) -> host::hostconfig::Platform {
-        host::hostconfig::Platform::current()
+impl dainty_host::commands::setup::SetupEnv for InProcessSetupEnv {
+    fn platform(&self) -> dainty_host::hostconfig::Platform {
+        dainty_host::hostconfig::Platform::current()
     }
 
-    fn is_root(&self) -> Result<bool, host::HostError> {
-        host::linux::is_root()
+    fn is_root(&self) -> Result<bool, dainty_host::HostError> {
+        dainty_host::linux::is_root()
     }
 
-    fn tailscale_ipv4(&self) -> Result<Option<String>, host::HostError> {
-        Ok(host::doctor::tailscale_ipv4().or_else(|| Some("100.64.0.1".to_owned())))
+    fn tailscale_ipv4(&self) -> Result<Option<String>, dainty_host::HostError> {
+        Ok(dainty_host::doctor::tailscale_ipv4().or_else(|| Some("100.64.0.1".to_owned())))
     }
 
-    fn find_mongod(&self) -> Result<Option<String>, host::HostError> {
+    fn find_mongod(&self) -> Result<Option<String>, dainty_host::HostError> {
         Ok(None)
     }
 
-    fn find_on_path(&self, name: &str) -> Result<Option<String>, host::HostError> {
-        host::wine::find_on_path(&[name])
+    fn find_on_path(&self, name: &str) -> Result<Option<String>, dainty_host::HostError> {
+        dainty_host::wine::find_on_path(&[name])
     }
 
-    fn source_commit(&self, repo: &Path) -> Result<String, host::HostError> {
-        if let Some(release) = host::selfupdate::read_manifest(repo)? {
+    fn source_commit(&self, repo: &Path) -> Result<String, dainty_host::HostError> {
+        if let Some(release) = dainty_host::selfupdate::read_manifest(repo)? {
             return Ok(release.short_commit().to_owned());
         }
         Ok(String::new())
     }
 
-    fn apply_preset(&self, paths: &host::paths::Paths) -> Result<Option<host::preset::PresetApplied>, host::HostError> {
-        host::preset::apply_preset(paths, false)
+    fn apply_preset(
+        &self,
+        paths: &dainty_host::paths::Paths,
+    ) -> Result<Option<dainty_host::preset::PresetApplied>, dainty_host::HostError> {
+        dainty_host::preset::apply_preset(paths, false)
     }
 
     fn install_services(
         &self,
-        _layout: &host::commands::setup::paradox::Layout,
+        _layout: &dainty_host::commands::setup::paradox::Layout,
         _log_file: &Path,
         _out: &mut dyn FnMut(&str),
-    ) -> Result<(), host::HostError> {
+    ) -> Result<(), dainty_host::HostError> {
         Ok(())
     }
 
     fn make_certificate(
         &self,
-        _layout: &host::commands::setup::paradox::Layout,
+        _layout: &dainty_host::commands::setup::paradox::Layout,
         hosts: &[String],
         tls: &Path,
         _log_file: &Path,
-    ) -> Result<(), host::HostError> {
+    ) -> Result<(), dainty_host::HostError> {
         let mut args = vec!["make-cert".to_owned()];
         for host in hosts {
             args.extend(["--host".to_owned(), host.clone()]);
@@ -2136,9 +2152,11 @@ impl host::commands::setup::SetupEnv for InProcessSetupEnv {
             tls.to_string_lossy().into_owned(),
             "--json".to_owned(),
         ]);
-        let code = host::service_main("gateway", &args);
+        let code = dainty_host::service_main("gateway", &args);
         if code != std::process::ExitCode::SUCCESS {
-            return Err(host::HostError::message("could not make the gateway certificate"));
+            return Err(dainty_host::HostError::message(
+                "could not make the gateway certificate",
+            ));
         }
         Ok(())
     }

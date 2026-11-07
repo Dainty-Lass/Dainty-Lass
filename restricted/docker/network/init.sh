@@ -1,5 +1,5 @@
 #!/bin/sh
-# DaintyLass: the network profile's one-shot (compose.yaml network-init, DN12, docs/security/network.md). Runs as root in
+# Dainty Lass: the network profile's one-shot (compose.yaml network-init, DN12, docs/security/network.md). Runs as root in
 # the server image with the cluster CA volume and the four nodes' workspace volumes, and leaves each node
 #  - its public gateway certificate (the fingerprint the launcher pins when it measures a region),
 #  - its node certificate and key and the CA's certificate (node-cert.pem, node-key.pem, cluster-ca-cert.pem),

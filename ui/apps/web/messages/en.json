@@ -1,7 +1,7 @@
 {
   "common": {
     "appTitle": "{server} dashboard",
-    "metaDescription": "Remote management for a DaintyLass server",
+    "metaDescription": "Remote management for a Dainty Lass server",
     "refresh": "Refresh",
     "open": "Open",
     "cancel": "Cancel",
@@ -936,7 +936,7 @@
     "title": "Performance",
     "updated": "Updated",
     "none": "No metrics yet",
-    "noneHint": "The admin service's /metrics has not answered. It needs a DaintyLass server that serves metrics and the admin key; another controller also needs an agent recent enough to report them.",
+    "noneHint": "The admin service's /metrics has not answered. It needs a Dainty Lass server that serves metrics and the admin key; another controller also needs an agent recent enough to report them.",
     "requests": "Requests",
     "requestsLabel": "Requests per minute over the last hour, with server errors in red",
     "cpu": "CPU",

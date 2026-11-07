@@ -277,7 +277,7 @@ impl rustic_isles_auth::Erasure for Busy {
     fn blockers<'a>(
         &'a self,
         _account: &'a rustic_isles_auth::LauncherAccount,
-    ) -> module_api::BoxFuture<'a, Result<Vec<String>, String>> {
+    ) -> dainty_module_api::BoxFuture<'a, Result<Vec<String>, String>> {
         Box::pin(async { Ok(vec!["online".to_owned()]) })
     }
 }
@@ -295,15 +295,15 @@ async fn blockers_keep_the_account() {
         ..Seams::default()
     };
     let auth = Auth::new(
-        AuthConfig::for_1_14_7(module_api::NodeIdentity::standalone()),
+        AuthConfig::for_1_14_7(dainty_module_api::NodeIdentity::standalone()),
         settings,
         Some(MemoryStore::new()),
         seams,
     );
     let mut account = rustic_isles_auth::LauncherAccount {
-        account_id: module_api::GlobalId::new(
-            module_api::IdKind::Account,
-            &module_api::NodeIdentity::standalone().node,
+        account_id: dainty_module_api::GlobalId::new(
+            dainty_module_api::IdKind::Account,
+            &dainty_module_api::NodeIdentity::standalone().node,
         )
         .to_string(),
         user_id: "u1".into(),
@@ -341,7 +341,7 @@ async fn start_up_refuses_bad_secrets_and_missing_smtp() {
     let make = |pairs: &[(&str, &str)]| {
         let settings = Arc::new(MapSettings::new(pairs));
         Auth::new(
-            AuthConfig::for_1_14_7(module_api::NodeIdentity::standalone()),
+            AuthConfig::for_1_14_7(dainty_module_api::NodeIdentity::standalone()),
             settings,
             Some(MemoryStore::new()),
             Seams::default(),
@@ -368,7 +368,7 @@ async fn start_up_refuses_bad_secrets_and_missing_smtp() {
          RUSTIC_ISLES_SMTP_USER and RUSTIC_ISLES_SMTP_PASSWORD)"
     );
     let without_store: Arc<Auth<MemoryStore>> = Auth::new(
-        AuthConfig::for_1_14_7(module_api::NodeIdentity::standalone()),
+        AuthConfig::for_1_14_7(dainty_module_api::NodeIdentity::standalone()),
         Arc::new(MapSettings::default()),
         None,
         Seams::default(),
@@ -380,7 +380,7 @@ async fn start_up_refuses_bad_secrets_and_missing_smtp() {
 async fn an_arc_dyn_store_is_a_store() {
     let store: Arc<dyn AuthStore> = Arc::new(MemoryStore::new());
     let auth = Auth::new(
-        AuthConfig::for_1_14_7(module_api::NodeIdentity::standalone()),
+        AuthConfig::for_1_14_7(dainty_module_api::NodeIdentity::standalone()),
         Arc::new(MapSettings::default()),
         Some(store),
         Seams::default(),

@@ -6,7 +6,7 @@
 use std::sync::{Arc, Mutex, OnceLock};
 
 use libfuzzer_sys::fuzz_target;
-use module_api::PortRange;
+use dainty_module_api::PortRange;
 use rustic_isles::Settings;
 use rustic_isles_director::hunt::{Tables, load_tables};
 use rustic_isles_director::{

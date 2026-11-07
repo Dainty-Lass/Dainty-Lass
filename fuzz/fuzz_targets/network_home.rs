@@ -4,11 +4,11 @@
 #![no_main]
 
 use libfuzzer_sys::fuzz_target;
-use network::home::protocol::{
+use dainty_network::home::protocol::{
     HomeReply, HomeRequestCall, MAX_BODY, decode_request, decode_response, encode_request, encode_response,
     holds_account_key, looks_like_account_key,
 };
-use network::link::MAX_MESSAGE;
+use dainty_network::link::MAX_MESSAGE;
 
 fuzz_target!(|data: &[u8]| {
     let text = String::from_utf8_lossy(data);

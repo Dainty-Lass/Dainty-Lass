@@ -280,7 +280,7 @@ fn js_number_text(n: f64) -> String {
     if n.is_nan() {
         "NaN".to_owned()
     } else {
-        service_kit::jsjson::number(n)
+        dainty_service_kit::jsjson::number(n)
     }
 }
 
@@ -304,7 +304,7 @@ pub fn roster_argument(roster: Option<&[RosterEntry]>) -> String {
         None => "NO_EXPECTED_PLAYERS".to_owned(),
         Some(roster) => roster
             .iter()
-            .map(|(id, hunt)| format!("{}:{hunt}", service_kit::js::string(Some(id))))
+            .map(|(id, hunt)| format!("{}:{hunt}", dainty_service_kit::js::string(Some(id))))
             .collect::<Vec<_>>()
             .join(","),
     }
@@ -859,7 +859,7 @@ impl Director {
     /// Public hunt reuse (§5.10): keyed on the player hunt id, not the matchmaker row, which is picked at random and
     /// would split a party.
     pub(crate) fn reuse_public_hunt(&self, hunt_id: &str, expected: &Value) -> Option<Details> {
-        if !self.config.public_reuse || service_kit::js::trim(hunt_id).is_empty() {
+        if !self.config.public_reuse || dainty_service_kit::js::trim(hunt_id).is_empty() {
             return None;
         }
         let max = self.config.public_max_players;

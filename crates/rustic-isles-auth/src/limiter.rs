@@ -231,7 +231,7 @@ impl BudgetConfig {
 
 /// An optional `+`, then the leading digits; under 1 or unreadable falls back.
 fn per_minute(raw: Option<&str>, fallback: u64) -> u64 {
-    let text = service_kit::js::trim(raw.unwrap_or(""));
+    let text = dainty_service_kit::js::trim(raw.unwrap_or(""));
     let text = text.strip_prefix('+').unwrap_or(text);
     let digits: String = text.chars().take_while(char::is_ascii_digit).collect();
     match digits.parse::<u64>() {

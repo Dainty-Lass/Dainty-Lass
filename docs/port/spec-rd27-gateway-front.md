@@ -149,7 +149,7 @@ usage: gateway make-cert --host <public IP or DNS name> [--host ...] (--out <dir
   breaks every invite already sent; add --force if that is what you want`.
 - The certificate: self-signed RSA 2048 with SHA-256; serial 16 random bytes made positive and non-zero (top bit
   cleared, lowest bit of the first byte set); not-before now minus one day; not-after ten calendar years after
-  not-before; subject CN = the first host, O = `DaintyLass server`; not a CA (explicit); key usage digital signature
+  not-before; subject CN = the first host, O = `Dainty Lass server`; not a CA (explicit); key usage digital signature
   and key encipherment; extended key usage server authentication; the alternative names in order. The key is PKCS#8
   PEM.
 - Writing: the folders are made; the key is written first, mode 0600 where the file system has modes; then the

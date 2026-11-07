@@ -69,7 +69,7 @@ pub(crate) fn header_text(value: &Value) -> String {
     match value {
         Value::String(s) => s.clone(),
         Value::Array(items) => items.iter().filter_map(Value::as_str).collect::<Vec<_>>().join(", "),
-        other => service_kit::jsjson::stringify(other),
+        other => dainty_service_kit::jsjson::stringify(other),
     }
 }
 
@@ -130,7 +130,7 @@ pub fn prepare_http_request(
             if !has_header(&record.req_headers, "content-type") {
                 headers.push(("content-type".into(), "application/json".into()));
             }
-            service_kit::jsjson::stringify(&sub.value).into_bytes()
+            dainty_service_kit::jsjson::stringify(&sub.value).into_bytes()
         }
         CaptureBody::Form(pairs) => {
             let encoded: Vec<String> = pairs
@@ -200,7 +200,7 @@ impl ReplayHttpResponse {
                 .or_insert(value);
         }
         let body_text = match &record.res_body {
-            CaptureBody::Json(v) => service_kit::jsjson::stringify(v),
+            CaptureBody::Json(v) => dainty_service_kit::jsjson::stringify(v),
             CaptureBody::Form(pairs) => pairs
                 .iter()
                 .map(|(k, v)| format!("{k}={v}"))

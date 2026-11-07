@@ -6,11 +6,11 @@
 use std::sync::{Arc, OnceLock};
 
 use libfuzzer_sys::fuzz_target;
-use module_api::NodeIdentity;
-use module_api::network::{GlobalId, IdKind, SessionTicket};
-use network::Clock;
-use network::home::ticket::MAX_TOKEN;
-use network::home::{Expect, SigningKey, TicketConfig, TicketError, Tickets, VerifyingKey};
+use dainty_module_api::NodeIdentity;
+use dainty_module_api::network::{GlobalId, IdKind, SessionTicket};
+use dainty_network::Clock;
+use dainty_network::home::ticket::MAX_TOKEN;
+use dainty_network::home::{Expect, SigningKey, TicketConfig, TicketError, Tickets, VerifyingKey};
 
 struct Fixture {
     tickets: Tickets,

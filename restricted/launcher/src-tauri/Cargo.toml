@@ -1,6 +1,6 @@
 [package]
-name = "launcher"
-description = "DaintyLass Launcher: the Tauri backend (MIGRATION_PLAN.md section 4.6)"
+name = "dainty-launcher"
+description = "Dainty Lass Launcher: the Tauri backend (MIGRATION_PLAN.md section 4.6)"
 # The launcher's own version, not the workspace's: kept equal to ../package.json's (a test checks it).
 version = "2.0.0-beta"
 edition.workspace = true
@@ -10,7 +10,7 @@ repository.workspace = true
 publish.workspace = true
 
 [lib]
-name = "launcher"
+name = "dainty_launcher"
 
 # One binary, as `tauri build` packages one and names it from the config's mainBinaryName (RD26):
 #   tauri build                                    dainty-launcher: the players' launcher, no server crate in it
@@ -25,12 +25,12 @@ serde_json = { version = "1", features = ["preserve_order"] }
 tauri-build = { version = "2.7", features = ["isolation"] }
 
 [dependencies]
-launcher-kit.workspace = true
-protocol.workspace = true
+dainty-launcher-kit.workspace = true
+dainty-protocol.workspace = true
 # Epic sign-in, ownership and installs (DD22)
-epic.workspace = true
+dainty-epic.workspace = true
 # The client profiles (DE4, DD12): by path, as fuzz takes module-api; its workspace entry names the silentspud registry
-module-api.workspace = true
+dainty-module-api.workspace = true
 serde.workspace = true
 # preserve_order: settings.json keeps its key order (L28); workspace builds unify it on anyway
 serde_json = { workspace = true, features = ["preserve_order"] }
@@ -53,7 +53,7 @@ rustls.workspace = true
 tokio = { workspace = true, features = ["net", "time", "io-util", "sync", "macros", "rt", "process", "fs"] }
 tokio-rustls = { version = "0.26", default-features = false, features = ["aws_lc_rs", "tls12"] }
 tokio-util.workspace = true
-proxy.workspace = true
+dainty-proxy.workspace = true
 hyper-rustls.workspace = true
 webpki-roots = "1"
 percent-encoding.workspace = true
@@ -73,20 +73,20 @@ tauri-plugin-dialog = "2.8"
 # v1-style archives, and the updater artifacts here are the bundles themselves.
 tauri-plugin-updater = { version = "2.14", default-features = false, features = ["rustls-tls", "system-proxy"] }
 url.workspace = true
-admin = { workspace = true, optional = true }
+dainty-admin = { workspace = true, optional = true }
 server-controller = { workspace = true, optional = true }
-service-kit = { workspace = true, optional = true }
-host = { workspace = true, optional = true }
-rifts-host = { workspace = true, optional = true }
-rifts-seam = { workspace = true, optional = true }
+dainty-service-kit = { workspace = true, optional = true }
+dainty-host = { workspace = true, optional = true }
+rustic-rifts-host = { workspace = true, optional = true }
+rustic-rifts-seam = { workspace = true, optional = true }
 
 [dev-dependencies]
-launcher-kit = { workspace = true, features = ["ts"] }
+dainty-launcher-kit = { workspace = true, features = ["ts"] }
 sha1_smol = "1"
 tokio-stream = "0.1"
 tempfile.workspace = true
 rcgen = { version = "0.14.10", default-features = false, features = ["aws_lc_rs", "pem", "crypto"] }
-protocol = { workspace = true, features = ["ts", "test-data"] }
+dainty-protocol = { workspace = true, features = ["ts", "test-data"] }
 ts-rs.workspace = true
 
 [target.'cfg(windows)'.dependencies]
@@ -108,14 +108,14 @@ dbus-secret-service = { version = "4.1", features = ["crypto-rust"] }
 
 [features]
 # The Host tools page (RA12). Without it, a player-only launcher: join, connect and play on a server
-# someone else hosts (`cargo build -p launcher --no-default-features`)
+# someone else hosts (`cargo build -p dainty-launcher --no-default-features`)
 default = ["host"]
-host = ["dep:toml_edit", "launcher-kit/host"]
-server-gui = ["host", "dep:admin", "dep:server-controller", "dep:service-kit", "dep:host", "isles-1-14-7", "host?/realms", "launcher-kit/server-gui"]
+host = ["dep:toml_edit", "dainty-launcher-kit/host"]
+server-gui = ["host", "dep:dainty-admin", "dep:server-controller", "dep:dainty-service-kit", "dep:dainty-host", "isles-1-14-7", "dainty-host?/realms", "dainty-launcher-kit/server-gui"]
 # The game modules the server GUI links in, as the server binaries' (DF5)
-stub-module = ["host?/stub-module"]
-isles-1-14-7 = ["host?/isles-1-14-7"]
-realms = ["dep:rifts-host", "dep:rifts-seam", "host?/realms", "launcher-kit/realms"]
+stub-module = ["dainty-host?/stub-module"]
+isles-1-14-7 = ["dainty-host?/isles-1-14-7"]
+realms = ["dep:rustic-rifts-host", "dep:rustic-rifts-seam", "dainty-host?/realms", "dainty-launcher-kit/realms"]
 all-modules = ["isles-1-14-7", "realms"]
 # Set by `tauri build`: serve the built page from the binary instead of the Vite dev server
 custom-protocol = ["tauri/custom-protocol"]

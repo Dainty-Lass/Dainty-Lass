@@ -6,7 +6,7 @@
 
 use std::collections::HashMap;
 
-use module_api::GlobalId;
+use dainty_module_api::GlobalId;
 use rustic_isles::AccountId;
 use sha2::{Digest as _, Sha256};
 

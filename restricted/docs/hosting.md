@@ -3,7 +3,7 @@
 One PC runs the whole server: the gateway, the 1.14.7 Rust backend and Director (`isles-1-14-7`), the content
 server, the admin API, the SQLite (or Postgres) store and the game servers. A **private** server is reachable by
 friends on your tailnet; a **public** one by anyone with an invite, over TLS. The host kit, `dainty-host`, does
-the setting up from a terminal; **DaintyLass Manager** (`dainty-manager`, or the client launcher's Host page)
+the setting up from a terminal; **Dainty Lass Manager** (`dainty-manager`, or the client launcher's Host page)
 drives the same server and setup with a graphical interface.
 
 Linux: [hosting-linux.md](hosting-linux.md). Docker: [hosting-docker.md](hosting-docker.md).
@@ -60,7 +60,7 @@ bin\dainty-host invite --for "Alex"       # an invite link to send
 bin\dainty-host invite --list
 ```
 
-`start` runs one process tree and stops all of it on Ctrl+C. **DaintyLass Manager** (`dainty-manager`, built
+`start` runs one process tree and stops all of it on Ctrl+C. **Dainty Lass Manager** (`dainty-manager`, built
 with the `server-gui` feature) runs the same server in-process from its Host page. Logs are in `.workspace\logs` (the game servers' in `logs\gameservers`).
 
 | Command | What |
@@ -86,7 +86,7 @@ with the `server-gui` feature) runs the same server in-process from its Host pag
 ## Getting the game from Epic
 
 The game servers run your own Dauntless. If you own it on Epic, the host kit installs it from Epic's servers, as
-the launcher does for players (DaintyLass never hosts or mirrors game files):
+the launcher does for players (Dainty Lass never hosts or mirrors game files):
 
 ```powershell
 bin\dainty-host install-game                       # 1.14.7, into .workspace\game\1.14.7
@@ -145,7 +145,7 @@ bin\dainty-host history verify                                  # is the log its
   removed. It exits 1 when one is broken. The head it prints is what to keep somewhere off the server.
 
 The same commands are in the `serve` console and the dashboard (`history --actor ...`, `revert ... --apply ...`;
-a long list is cut off at 200 lines, so read a mass revert in a terminal), in **DaintyLass Manager** (`dainty-manager`, History tab) and in the admin API for the owner's key ([admin-api.md](https://git.silentspud.com/silentspud/dainty-lass/src/branch/main/docs/admin-api.md)). In Docker:
+a long list is cut off at 200 lines, so read a mass revert in a terminal), in **Dainty Lass Manager** (`dainty-manager`, History tab) and in the admin API for the owner's key ([admin-api.md](https://git.silentspud.com/silentspud/dainty-lass/src/branch/main/docs/admin-api.md)). In Docker:
 `docker compose run --rm host history --actor admin:58ef5419`.
 
 ## Settings
@@ -183,7 +183,7 @@ servers' key) lives only in `secrets.env`.
 
 ### Secrets (`secrets.env`)
 
-`setup` creates `.workspace/config/secrets.env` once (`SECRET_KEYS` in dainty-lass's `crates/hostkit/src/hostconfig.rs`) and never rotates an existing secret when `setup` runs again:
+`setup` creates `.workspace/config/secrets.env` once (`SECRET_KEYS` in dainty-lass's `crates/dainty-hostkit/src/hostconfig.rs`) and never rotates an existing secret when `setup` runs again:
 
 | Variable | Copied to | What |
 | --- | --- | --- |
@@ -229,7 +229,7 @@ periodic database snapshots to an S3-compatible bucket with object lock (`histor
 Backblaze B2, MinIO, Cloudflare R2):
 
 - **Write-only server credentials.** Create the bucket with object lock enabled (`S3Bucket::create_locked` in
-  `crates/history-ship`, retention mode `COMPLIANCE` or `GOVERNANCE`) using the owner's credentials off the
+  `crates/dainty-history-ship`, retention mode `COMPLIANCE` or `GOVERNANCE`) using the owner's credentials off the
   server, and give the server a write-only key (`s3:PutObject` only) in `secrets.env`. Even an attacker or rogue
   operator with root on the server cannot delete or overwrite already-shipped segments or snapshots.
 - **Restoring to a point in time.** `history_ship::restore_to` downloads the latest snapshot at or before the
@@ -246,10 +246,10 @@ On Dauntless 1.14.7 (`isles-1-14-7` with `modules/rustic-rifts`), players can ho
 (**realms**, DD14) and let friends join directly over ICE (`ParadoxTransport.dll` on `libjuice`) or through a TURN
 relay when NAT traversal needs one:
 
-- **Admission keys.** Generate an ES256 admission key pair (`rifts-admission` / `generate-admission-key`) so the
+- **Admission keys.** Generate an ES256 admission key pair (`rustic-rifts-admission` / `generate-admission-key`) so the
   backend can sign short-lived `RPT2` admission tickets and per-pair AES-256-GCM transport keys.
 - **The TURN relay (`turn-rs`, DD24).** The host kit configures, starts and stops `turn-rs` as its own child process
-  (`../crates/rifts-transport/src/turn.rs`) with `static-auth-secret` set to `P2P_TURN_REST_SECRET`
+  (`../crates/rustic-rifts-transport/src/turn.rs`) with `static-auth-secret` set to `P2P_TURN_REST_SECRET`
   from `secrets.env`. `turn-rs` listens on UDP and TCP 3478 (plus TLS 5349 when a certificate is configured) and
   allocates relay ports from its configured UDP `port-range`, which the allowlist firewall rules open while the
   server runs ([security/turn-relay.md](security/turn-relay.md)).
@@ -274,7 +274,7 @@ ban_guard = "approval"    # "delay" (the default), "approval" or "off"
 delay_minutes = 30
 ```
 
-`dainty-host admin guarded list`, `approve <id>` and `cancel <id>` decide as the host, and **DaintyLass Manager** (`dainty-manager`)
+`dainty-host admin guarded list`, `approve <id>` and `cancel <id>` decide as the host, and **Dainty Lass Manager** (`dainty-manager`)
 lists what waits. A rule on `"approval"` on a server with one owner key waits for nobody and expires after
 `expire_hours`: use it once the team has a second key. How it works, and what a bot sees, is in
 [admin-api.md](https://git.silentspud.com/silentspud/dainty-lass/src/branch/main/docs/admin-api.md#guarded-actions-dh6).
@@ -299,15 +299,15 @@ sha256 = "<the file's SHA-256: certutil -hashfile <file> SHA256, or sha256sum>"
 [modules.rustic-freeza.tuning]  # a module's own settings: the ones it says it reads
 ```
 
-The 1.14.7 module ships as a library too, in the release's `plugins/` folder (`isles_1_14_7_plugin.dll`, or
-`libisles_1_14_7_plugin.so` on Linux): list it under `[[modules.external]]` with that path and its SHA-256, and leave
+The 1.14.7 module ships as a library too, in the release's `plugins/` folder (`rustic_isles_plugin.dll`, or
+`librustic_isles_plugin.so` on Linux): list it under `[[modules.external]]` with that path and its SHA-256, and leave
 it out of `compiled`. It carries the same version data as the compiled-in module; `setup`, `start` and `gamedata`
 also install it as `version_data.json` in the backend game data folder, for the module run as a child. A service can be a library the same way (RD27), in place of the one compiled in; a library
 whose SHA-256 is not the one written here is never loaded:
 
 ```toml
 [services.content]
-library = "plugins/content_plugin.dll"
+library = "plugins/dainty_content_plugin.dll"
 sha256 = "<the file's SHA-256>"
 ```
 
@@ -396,18 +396,18 @@ the hash chain and any off-server `trusted_head`.
 
 ### Managing several installs
 
-One **DaintyLass Manager** (`dainty-manager`) install or headless controller can manage several enrolled server
+One **Dainty Lass Manager** (`dainty-manager`) install or headless controller can manage several enrolled server
 installs over pinned mTLS ([remote-management.md](https://git.silentspud.com/silentspud/dainty-lass/src/branch/main/docs/remote-management.md), [security/remote-management.md](https://git.silentspud.com/silentspud/dainty-lass/src/branch/main/docs/security/remote-management.md)).
 The player launcher (`dainty-launcher`) has no remote-management surface.
 
-1. **Initialize the controller.** In **DaintyLass Manager** -> **Host** -> **Managed installs**, click **Enable
+1. **Initialize the controller.** In **Dainty Lass Manager** -> **Host** -> **Managed installs**, click **Enable
    Controller Mode** (or run `bin\dainty-host remote init-controller --node controller --region oregon --url https://203.0.113.10:443`).
    This creates `.workspace\tls\remote-cluster-ca.pem` (kept on the controller only) and writes `[remote] role = "controller"` in `host.toml`.
 2. **Mint a single-use enrollment invite.** In the Manager's **Managed installs** panel, enter the target node ID,
    region and optional label and click **Create Enrollment Invite** (or run `bin\dainty-host remote invite --node us-east-1 --region us-east --label "US East 1"`).
    The URI (`dainty-lass-remote://enroll?v=1&url=...&fp=<sha256>&node=...&region=...&token=...`) is single-use and
    expires in 15 minutes (`--ttl-secs`).
-3. **Enroll the managed install.** On the target machine, paste the URI in **DaintyLass Manager** -> **Managed installs**
+3. **Enroll the managed install.** On the target machine, paste the URI in **Dainty Lass Manager** -> **Managed installs**
    or run `bin\dainty-host remote enroll "dainty-lass-remote://enroll?..."`. The install connects over TLS pinned to
    `fp`, generates its own ECDSA P-256 private key locally (`.workspace\tls\node-key.pem` never leaves the machine),
    receives a signed leaf certificate from the controller on `POST /__node/enroll`, and syncs over mTLS on
@@ -488,7 +488,7 @@ When cutting a live 1.14.7 server over from the Node backend to the Rust backend
 ## Rollback to the Node backend and MongoDB (`paradox` feature)
 
 For one release after the RU9/RB14 cutover (until RB15 deletes the reference Node services), building the server with
-the opt-in `paradox` Cargo feature (`cargo build --release -p server-console --features paradox`) runs Mystic
+the opt-in `paradox` Cargo feature (`cargo build --release -p dainty-server --features paradox`) runs Mystic
 Paradox's Node `ParadoxBackend` and `ParadoxDirector` from `modules/rustic-isles/reference/1.14.7/` against MongoDB
 instead of the compiled-in `isles-1-14-7` Rust module. To export a server's SQLite or Postgres store back to MongoDB
 before starting a `paradox` build, run `dainty-host db export-mongo --to <mongodb-uri>` (and optionally

@@ -9,7 +9,7 @@ use std::sync::Arc;
 
 use axum::extract::Request;
 use axum::response::Response;
-use module_api::BoxFuture;
+use dainty_module_api::BoxFuture;
 
 use crate::pattern::{Params, Pattern, PatternError};
 use crate::routes::{self, Group, Method, RouteDef, Service};

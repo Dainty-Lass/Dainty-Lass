@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# DaintyLass: the network harness's test (DN12, docs/hosting-docker.md). From the repository root:
+# Dainty Lass: the network harness's test (DN12, docs/hosting-docker.md). From the repository root:
 #   bash docker/network/test.sh
 # Brings up compose.yaml's `network` profile (four nodes, the canary's regions, tc/netem between them) in throwaway
 # volumes and checks that
@@ -140,7 +140,7 @@ if [ "$run_region_ping" = 1 ]; then
 		(
 			RR_HARNESS_HOME="${published/0.0.0.0/127.0.0.1}" RR_HARNESS_PIN="$pin" RR_HARNESS_EXPECT="$expect" \
 				RR_HARNESS_TOLERANCE_MS="$tolerance" \
-				cargo test -p launcher --lib --locked -- --ignored --nocapture the_region_order_follows
+				cargo test -p dainty-launcher --lib --locked -- --ignored --nocapture the_region_order_follows
 		) || fail "region ping with $home as the home"
 	done
 fi

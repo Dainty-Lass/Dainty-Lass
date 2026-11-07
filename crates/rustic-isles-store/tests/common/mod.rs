@@ -13,13 +13,13 @@
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU32, Ordering};
 
+use dainty_module_api::network::StandaloneHome;
+use dainty_module_api::{Actor, ActorContext, NodeIdentity};
+use dainty_store::{DatabaseConfig, DatabaseOptions, PgConnection, PostgresConfig, portable};
 use diesel::Connection;
 use diesel::connection::SimpleConnection;
-use module_api::network::StandaloneHome;
-use module_api::{Actor, ActorContext, NodeIdentity};
 use rustic_isles_store::repo::auth::{AccountRecord, LauncherAccountRecord, OperationalStatus};
 use rustic_isles_store::{AccountId, IslesStore, UserId};
-use store::{DatabaseConfig, DatabaseOptions, PgConnection, PostgresConfig, portable};
 
 pub struct PgDatabase {
     server: PostgresConfig,

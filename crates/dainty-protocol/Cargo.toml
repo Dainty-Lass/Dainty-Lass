@@ -1,0 +1,26 @@
+[package]
+name = "dainty-protocol"
+description = "Shared wire types and validation for Dainty Lass servers and launchers"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license = "MIT"
+repository.workspace = true
+publish.workspace = true
+
+[dependencies]
+chrono.workspace = true
+dainty-module-api.workspace = true
+percent-encoding.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+url.workspace = true
+ts-rs = { workspace = true, optional = true }
+
+[lints]
+workspace = true
+
+[features]
+ts = ["dep:ts-rs"]
+# The shared tables and fixtures (tests/cases, tests/fixtures), for dainty-restricted's tests of the same rules (RD27)
+test-data = []

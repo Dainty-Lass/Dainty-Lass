@@ -12,11 +12,11 @@
 use std::collections::HashSet;
 use std::sync::{Arc, Mutex};
 
-use module_api::network::HomeError;
-use module_api::{Actor, ActorContext, BoxFuture, GlobalId, HomeApi, NodeId, NodeIdentity, Region};
+use dainty_module_api::network::HomeError;
+use dainty_module_api::{Actor, ActorContext, BoxFuture, GlobalId, HomeApi, NodeId, NodeIdentity, Region};
+use dainty_store::{DatabaseConfig, DatabaseOptions};
 use rustic_isles_store::repo::auth::{AccountRecord, LauncherAccountRecord, OperationalStatus};
 use rustic_isles_store::{AccountId, IslesStore, UserId};
-use store::{DatabaseConfig, DatabaseOptions};
 
 pub fn system() -> ActorContext {
     ActorContext::new(Actor::System)
@@ -114,7 +114,7 @@ impl HomeApi for SplitHome {
         &'a self,
         _account: &'a GlobalId,
         _audience: &'a NodeId,
-    ) -> BoxFuture<'a, Result<module_api::network::SessionTicket, HomeError>> {
+    ) -> BoxFuture<'a, Result<dainty_module_api::network::SessionTicket, HomeError>> {
         Box::pin(async { Err(HomeError::NotInNetwork) })
     }
 }

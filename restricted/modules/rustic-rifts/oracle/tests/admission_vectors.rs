@@ -8,9 +8,9 @@
 
 use std::collections::HashMap;
 
-use rifts_admission::ticket::{decode_claims, encode_claims, hash_jti};
-use rifts_admission::{Es256Tickets, TicketClaims, TicketError, derive_ice_peer_id};
-use rifts_seam::AccountId;
+use rustic_rifts_admission::ticket::{decode_claims, encode_claims, hash_jti};
+use rustic_rifts_admission::{Es256Tickets, TicketClaims, TicketError, derive_ice_peer_id};
+use rustic_rifts_seam::AccountId;
 use serde_json::{Value, json};
 
 fn vectors() -> Value {

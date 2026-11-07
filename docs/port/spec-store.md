@@ -1,8 +1,8 @@
-# Clean-room Behaviour Specification: `store` (`crates/store` SQLite / Drizzle Layer)
+# Clean-room Behaviour Specification: `store` (`crates/dainty-store` SQLite / Drizzle Layer)
 
 ## 1. Purpose and Scope
 
-`store` (`crates/store`) provides the database persistence layer for DaintyLass services. Thirteen of its nineteen source files (`connection.rs`, `database.rs`, `declared.rs`, `engine.rs`, `history.rs`, `portable.rs`, `recovery.rs`, `revert.rs`, `transfer.rs`, and submodules) were authored from scratch for DaintyLass (`DD15`, `DD23`, `DH3`, `DR4`) and remain untouched.
+`store` (`crates/dainty-store`) provides the database persistence layer for Dainty Lass services. Thirteen of its nineteen source files (`connection.rs`, `database.rs`, `declared.rs`, `engine.rs`, `history.rs`, `portable.rs`, `recovery.rs`, `revert.rs`, `transfer.rs`, and submodules) were authored from scratch for Dainty Lass (`DD15`, `DD23`, `DH3`, `DR4`) and remain untouched.
 
 This specification defines only the public API and observable behaviour of the six source files and one integration test file that provide single-engine SQLite connection pooling, Drizzle-to-Diesel baseline adoption, online SQLite backups, read-only SQLite inspection, and schema snapshots:
 - `src/lib.rs`

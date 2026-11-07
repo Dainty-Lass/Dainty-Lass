@@ -1,0 +1,30 @@
+[package]
+name = "dainty-chat-plugin"
+description = "The chat core plugin as a library the core loads (RD27)"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license = "MIT"
+repository.workspace = true
+publish.workspace = true
+
+[lib]
+name = "dainty_chat_plugin"
+crate-type = ["cdylib"]
+
+[dependencies]
+dainty-chat.workspace = true
+# export_service! names them
+dainty-module-api.workspace = true
+dainty-service-plugin.workspace = true
+
+[dev-dependencies]
+dainty-service-kit.workspace = true
+dainty-controller = { workspace = true, default-features = false }
+tempfile.workspace = true
+tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
+tokio-tungstenite.workspace = true
+futures-util.workspace = true
+
+[lints]
+workspace = true

@@ -1,0 +1,33 @@
+[package]
+name = "dainty-legacy-import"
+description = "Imports old installs into Dainty Lass: Dauntless Revived 1.4.4 servers and offline saves, and Reforged Node kits"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+[dependencies]
+chrono.workspace = true
+diesel.workspace = true
+diesel_migrations.workspace = true
+dainty-module-api.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
+dainty-store.workspace = true
+tempfile.workspace = true
+thiserror.workspace = true
+toml_edit.workspace = true
+
+[dev-dependencies]
+dainty-legacy-import = { path = ".", features = ["test-support"] }
+tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
+
+[features]
+# Database fixtures built at test time, here and in the module crate
+test-support = []
+
+[lints]
+workspace = true

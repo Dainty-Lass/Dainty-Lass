@@ -6,17 +6,17 @@
 use std::sync::Arc;
 
 use axum::response::Response;
+use dainty_module_api::network::HuntRewards;
+use dainty_module_api::{GlobalId, IdKind, ModuleId};
+use dainty_service_kit::{js, jsjson};
 use http::StatusCode;
-use module_api::network::HuntRewards;
-use module_api::{GlobalId, IdKind, ModuleId};
-use rifts_seam::{
+use rustic_isles::{Call, Handlers, Method, NoPlayerPolicy, Params, Service, Shared, read_body};
+use rustic_isles_store::{AccountId, IslesStore, RepoError, UserId};
+use rustic_rifts_seam::{
     HostWrite, HostWriteKind, HostWriteOptions, InventoryDecision, InventoryFence, InventoryTransaction, RuntimeAuth,
     SeamError, TransactionPhase,
 };
-use rustic_isles::{Call, Handlers, Method, NoPlayerPolicy, Params, Service, Shared, read_body};
-use rustic_isles_store::{AccountId, IslesStore, RepoError, UserId};
 use serde_json::{Map, Value};
-use service_kit::{js, jsjson};
 
 use crate::bounties::challenge_rewards::is_challenge_reward_grant;
 use crate::inventory::ports::{AuthRequest, Authentication, Caller, InventoryPorts};
@@ -237,7 +237,7 @@ async fn authenticate(
 fn seam_error(error: &SeamError, request_id: &str) -> Response {
     match error {
         SeamError::Unimplemented(missing) => {
-            crate::util::reply(&rifts_seam::Reply::not_implemented(missing, request_id))
+            crate::util::reply(&rustic_rifts_seam::Reply::not_implemented(missing, request_id))
         }
         SeamError::Refused(refusal) => json(
             StatusCode::BAD_REQUEST,
@@ -519,10 +519,10 @@ async fn post_inventory(call: Call, ports: Arc<InventoryPorts>) -> Response {
             return no_capability("This runtime cannot mutate inventory.");
         };
         let transaction = InventoryTransaction {
-            user: rifts_seam::AccountId(user.clone().unwrap_or_default()),
+            user: rustic_rifts_seam::AccountId(user.clone().unwrap_or_default()),
             character_id: character.clone(),
             transaction_id: transaction_id.clone(),
-            body: Some(rifts_seam::Json(body_value.to_string())),
+            body: Some(rustic_rifts_seam::Json(body_value.to_string())),
         };
         match entry
             .shared
@@ -608,13 +608,15 @@ async fn post_inventory(call: Call, ports: Arc<InventoryPorts>) -> Response {
     let grant_hook: Option<crate::inventory::GrantHook> = fence.clone().map(|fence| {
         let grant = jsjson::stringify(&Value::Object(body.clone()));
         let hook: crate::inventory::GrantHook =
-            Box::new(move |_tx, _repos| match fence.on_grant(&rifts_seam::Json(grant)) {
-                Ok(()) => Ok(None),
-                Err(reply) => Err(TxError::Denied {
-                    status: reply.status,
-                    body: jsjson::parse(&reply.body.0).unwrap_or(Value::Null),
-                }),
-            });
+            Box::new(
+                move |_tx, _repos| match fence.on_grant(&rustic_rifts_seam::Json(grant)) {
+                    Ok(()) => Ok(None),
+                    Err(reply) => Err(TxError::Denied {
+                        status: reply.status,
+                        body: jsjson::parse(&reply.body.0).unwrap_or(Value::Null),
+                    }),
+                },
+            );
         hook
     });
     let request = TxRequest {
@@ -687,7 +689,7 @@ async fn post_instanced_item(call: Call, ports: Arc<InventoryPorts>) -> Response
         let asked = entry.shared.rifts().guard().authorize_host_write(
             cap.clone(),
             HostWriteKind::ItemSave,
-            rifts_seam::AccountId(target),
+            rustic_rifts_seam::AccountId(target),
             HostWriteOptions::default(),
         );
         match asked.await {
@@ -763,8 +765,8 @@ async fn post_instanced_item(call: Call, ports: Arc<InventoryPorts>) -> Response
 async fn record(shared: &Shared, capability: RuntimeAuth, kind: HostWriteKind, target: &str, summary: &Value) {
     let write = HostWrite {
         kind,
-        target: rifts_seam::AccountId(target.to_owned()),
-        summary: rifts_seam::Json(jsjson::stringify(summary)),
+        target: rustic_rifts_seam::AccountId(target.to_owned()),
+        summary: rustic_rifts_seam::Json(jsjson::stringify(summary)),
     };
     if let Err(e) = shared.rifts().guard().record_host_write(capability, write).await {
         tracing::warn!(
@@ -786,7 +788,7 @@ async fn authorize_reforge(entry: &Entry, user: &str) -> Result<Option<RuntimeAu
         let asked = entry.shared.rifts().guard().authorize_host_write(
             cap.clone(),
             HostWriteKind::Reforge,
-            rifts_seam::AccountId(user.to_owned()),
+            rustic_rifts_seam::AccountId(user.to_owned()),
             HostWriteOptions::default(),
         );
         return match asked.await {

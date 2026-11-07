@@ -2,7 +2,7 @@
 
 # Split roles: the metagame and the game servers on two machines
 
-One DaintyLass server can run as two halves, each its own `dainty-host start` (one process, so one container):
+One Dainty Lass server can run as two halves, each its own `dainty-host start` (one process, so one container):
 
 | Half | `split.role` | Runs | Its other port |
 | --- | --- | --- | --- |
@@ -18,7 +18,7 @@ Left out, `[split]` changes nothing: one server runs both, as before.
 
 Both halves are nodes of one `[network]` (DD16), so they already share a node link: mutual TLS under the cluster CA,
 on each gateway's port (`docs/security/network.md`). The split adds one node-link service, `Service::Tunnel`
-(`crates/network/src/tunnel.rs`):
+(`crates/dainty-network/src/tunnel.rs`):
 
 - On the metagame half, `127.0.0.1:61001` is a listener that carries each request to the game half, which replays it
   on its own `127.0.0.1:61001`, the Director. The backend's `DEPLOYSERVER_URL` is unchanged.

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Silent Spud
 
-//! Express 5's matching for the table's two kinds of path (core spec §4.1). `service_kit::routing` refuses empty
+//! Express 5's matching for the table's two kinds of path (core spec §4.1). `dainty_service_kit::routing` refuses empty
 //! segments and regex rows, both of which the table has, so the crate keeps its own.
 
 use std::fmt;
@@ -86,7 +86,7 @@ fn trim_one_slash(path: &str) -> &str {
 
 /// `decodeURIComponent` without `+` handling, as Express decodes params.
 pub fn decode_param(raw: &str) -> Result<String, BadParam> {
-    service_kit::js::decode_uri_component(raw).ok_or_else(|| BadParam { value: raw.to_owned() })
+    dainty_service_kit::js::decode_uri_component(raw).ok_or_else(|| BadParam { value: raw.to_owned() })
 }
 
 impl Pattern {

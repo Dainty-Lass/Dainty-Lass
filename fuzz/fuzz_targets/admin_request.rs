@@ -4,12 +4,12 @@
 //! passes its check is one the backend and the player's launcher can take as it is.
 #![no_main]
 
-use admin::guard::{Rule, is_id};
-use admin::input::{
+use dainty_admin::guard::{Rule, is_id};
+use dainty_admin::input::{
     MAX_MODULE_MESSAGE, MAX_REASON, MAX_TIMEOUT_MS, OPERATOR_HEADER, bearer, game, is_account_id, is_json,
     module_message, operator, parse_body, parse_instances, reason, timeout_end, username,
 };
-use admin::keys::{MAX_NAME, Role, clean_name, hash_key, is_key_id, key_id};
+use dainty_admin::keys::{MAX_NAME, Role, clean_name, hash_key, is_key_id, key_id};
 use http::{HeaderMap, HeaderName, HeaderValue};
 use libfuzzer_sys::arbitrary::{self, Arbitrary};
 use libfuzzer_sys::fuzz_target;
@@ -80,7 +80,7 @@ fuzz_target!(|request: Request<'_>| {
     }
     let _ = is_json(&headers);
     if let Ok(parsed) = parse_body(request.body) {
-        assert!(request.body.len() <= admin::input::MAX_BODY);
+        assert!(request.body.len() <= dainty_admin::input::MAX_BODY);
         let _ = async_graphql::parser::parse_query(&parsed.query);
     }
 

@@ -1,6 +1,6 @@
 # Hosting a server on Linux
 
-The same server as on Windows ([hosting.md](hosting.md), where **DaintyLass Manager** (`dainty-manager`) or
+The same server as on Windows ([hosting.md](hosting.md), where **Dainty Lass Manager** (`dainty-manager`) or
 `dainty-host` runs it), with the game servers under **Wine** or **Proton** on
 a virtual display. A public server on a VPS (Debian 13 is what this is tested on) is the main use. The
 containers in [hosting-docker.md](hosting-docker.md) are this page with the packages baked in.
@@ -93,11 +93,11 @@ Debian's package listens on localhost only, which is what `setup` wants: the con
 
 ## Managing several installs
 
-A Linux server can act as a remote-management controller or enroll under a Windows or Linux **DaintyLass Manager**
+A Linux server can act as a remote-management controller or enroll under a Windows or Linux **Dainty Lass Manager**
 controller over pinned mTLS ([hosting.md](hosting.md#managing-several-installs), [remote-management.md](https://git.silentspud.com/silentspud/dainty-lass/src/branch/main/docs/remote-management.md)):
 
 ```bash
-# On the controller (or in DaintyLass Manager -> Host -> Managed installs):
+# On the controller (or in Dainty Lass Manager -> Host -> Managed installs):
 bin/dainty-host remote init-controller --node controller --region oregon --url https://ctrl.example.org
 bin/dainty-host remote invite --node eu-west-1 --region eu-west --label "EU West 1"
 

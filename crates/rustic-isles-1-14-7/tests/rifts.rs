@@ -8,13 +8,13 @@
 
 use std::sync::Arc;
 
-use rifts_seam::{
-    AccountId, BoxFuture, Caller, Candidate, GuardMode, IslesCore, Json, NoCore, Party, PartyId, Refusal, RequestInfo,
-    Rifts, RouteCall, SeamError, SessionId,
-};
 use rustic_isles::Settings;
 use rustic_isles::routes::{Service, When, all};
 use rustic_isles_1_14_7::rifts_with_core;
+use rustic_rifts_seam::{
+    AccountId, BoxFuture, Caller, Candidate, GuardMode, IslesCore, Json, NoCore, Party, PartyId, Refusal, RequestInfo,
+    Rifts, RouteCall, SeamError, SessionId,
+};
 
 type Fut<'a, T> = BoxFuture<'a, Result<T, SeamError>>;
 
@@ -76,7 +76,7 @@ async fn call(
     caller: Caller,
     params: &[(&str, &str)],
     body: &str,
-) -> Result<rifts_seam::Reply, SeamError> {
+) -> Result<rustic_rifts_seam::Reply, SeamError> {
     let (route, handler) = rifts
         .routes()
         .find(|(route, _)| route.path == path && route.method.as_str() == method)
@@ -93,7 +93,7 @@ async fn call(
         .await
 }
 
-fn code(answer: Result<rifts_seam::Reply, SeamError>) -> String {
+fn code(answer: Result<rustic_rifts_seam::Reply, SeamError>) -> String {
     match answer {
         Err(SeamError::Refused(Refusal { code, .. })) => code,
         other => format!("{other:?}"),

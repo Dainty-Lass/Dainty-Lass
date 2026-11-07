@@ -1,6 +1,6 @@
 # NOTICE
 
-`restricted/` is the AGPL subtree of DaintyLass (RD27), licensed under the GNU Affero General Public License,
+`restricted/` is the AGPL subtree of Dainty Lass (RD27), licensed under the GNU Affero General Public License,
 version 3 only (`AGPL-3.0-only`); see [LICENSE.txt](LICENSE.txt). Additional terms under AGPLv3 section 7 apply to the
 Mystic Paradox material only; see [ADDITIONAL_TERMS.md](ADDITIONAL_TERMS.md). It builds on the MIT crates of
 [`../crates/`](../crates); a program built from both is distributed under the AGPL-3.0-only as a whole. This file
@@ -34,14 +34,14 @@ dainty-lass-ui.
   [modules/rustic-isles/NOTICE.md](modules/rustic-isles/NOTICE.md), its licence
   [modules/rustic-isles/LICENSE](modules/rustic-isles/LICENSE) and its additional terms
   [modules/rustic-isles/ADDITIONAL_TERMS.md](modules/rustic-isles/ADDITIONAL_TERMS.md).
-- Its backend and Director reference sources, and the Node goldens recorded from them (`crates/isles-mit-parity`),
+- Its backend and Director reference sources, and the Node goldens recorded from them (`crates/rustic-isles-mit-parity`),
   are in [`modules/rustic-isles`](modules/rustic-isles) (from `ParadoxBackend/` and `ParadoxDirector/` at commit
   `21b9ff5` and tag `dauntless-1.12.0` at `4d5dfaa`; their Rust ports `isles-core`, `isles-director`, `isles-chat`,
   `isles-db`, `isles-1-14-7` and `isles-1-12-0` were replaced by dainty-lass's MIT clean-room `rustic-isles-*` crates,
   RD27, and removed; they stay in this repository's history), and its co-op transport
   (`ParadoxTransport/`) and the Node vectors recorded from its realm modules are in
   [`modules/rustic-rifts`](modules/rustic-rifts) (its Rust realm and Guard ports were replaced by dainty-lass's MIT
-  clean-room `rifts-*` crates, RD27, and removed; they stay in this repository's history);
+  clean-room `rustic-rifts-*` crates, RD27, and removed; they stay in this repository's history);
   its game runtime (`ParadoxRuntime/`) and CatalogExporter (`tools/CatalogExporter/`) are in
   [`modules/rustic-isles/native`](modules/rustic-isles/native), and the runtime's loader (`tools/RuntimeLoader/`)
   is in [`native/runtime-loader`](native/runtime-loader). Its launcher, deployment scripts and self-hosting guide
@@ -64,7 +64,7 @@ dainty-lass-ui.
   Dauntless Revived is itself a modified version of Undaunted.
 - The workspace files and the fuzz targets `http_body` and `proxy_headers` are modified versions of its `rust/` folder at commit `e1c5fec`
   (dainty-lass's [docs/port/migration-guide.md](https://git.silentspud.com/silentspud/dainty-lass/src/branch/main/docs/port/migration-guide.md) section 2 says how); `launcher/src-tauri`
-  carries the DR-derived core of its launcher's Rust side alongside `crates/launcher-kit`. (`crates/protocol`,
+  carries the DR-derived core of its launcher's Rust side alongside `crates/dainty-launcher-kit`. (`crates/dainty-protocol`,
   `proxy`, `service-kit`, the SQLite helpers of `store`, and `gateway`, `content` and `chat` were rewritten clean-room from behaviour specs under MIT in
   `DL3b`/`DD26`; see `docs/port/clean-room/`.)
 - Files and functions taken over say so in their comments.
@@ -79,11 +79,11 @@ dainty-lass-ui.
 
 ### This project
 
-By the DaintyLass contributors (`Copyright (c) 2026 Silent Spud`), AGPL-3.0-only: `crates/host` (the shell that wires
+By the Dainty Lass contributors (`Copyright (c) 2026 Silent Spud`), AGPL-3.0-only: `crates/dainty-host` (the shell that wires
 dainty-lass's `hostkit` to `gateway`, `content`, `chat` and `isles-1-14-7`; its `compose.rs` is MIT code moved from
-dainty-lass's `controller::modules` and keeps its MIT header); the one-line library crates `crates/gateway-plugin`, `crates/content-plugin` and
-`crates/chat-plugin`, over dainty-lass's MIT `gateway`, `content` and `chat`; the DR-derived Tauri shell in `launcher/src-tauri` (including `net/epic_install.rs`, which keeps DR's
-downloader structure); `crates/server-console` and `crates/server-minimal`; the fuzz targets in `fuzz/` (`http_body` and `proxy_headers` from DR's `rust/`).
+dainty-lass's `controller::modules` and keeps its MIT header); the one-line library crates `crates/dainty-gateway-plugin`, `crates/dainty-content-plugin` and
+`crates/dainty-chat-plugin`, over dainty-lass's MIT `gateway`, `content` and `chat`; the DR-derived Tauri shell in `launcher/src-tauri` (including `net/epic_install.rs`, which keeps DR's
+downloader structure); `crates/dainty-server` and `crates/dainty-server-minimal`; the fuzz targets in `fuzz/` (`http_body` and `proxy_headers` from DR's `rust/`).
 `docker/`, `docs/`, the workflows, the launcher's language catalogs (`ui/packages/i18n/catalogs`) and
 `launcher/src-tauri/gen/strings.json` carry the repository licence.
 

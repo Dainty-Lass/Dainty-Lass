@@ -1,4 +1,4 @@
-# DaintyLass
+# Dainty Lass
 
 A private-server kit for **Dauntless 1.14.7**: a launcher for players, a server and host kit for whoever runs it,
 and a module framework that is growing to hold more than one version of the game. Players join with one invite
@@ -28,7 +28,7 @@ through `winmm.dll`) and reaches the backend through a relay the launcher runs o
 
 ## What is in this repository
 
-DaintyLass is a monorepo with a strict licence boundary (RD27): the root workspace and everything outside
+Dainty Lass is a monorepo with a strict licence boundary (RD27): the root workspace and everything outside
 [`restricted/`](restricted) is **MIT** ([LICENSE.txt](LICENSE.txt)); [`restricted/`](restricted) is a separate
 Cargo workspace licensed under **GNU AGPL-3.0-only** ([restricted/LICENSE.txt](restricted/LICENSE.txt),
 [restricted/NOTICE.md](restricted/NOTICE.md)) holding the host shell, the Tauri launcher, the game runtime and the
@@ -37,12 +37,12 @@ player guides. No MIT crate at the root depends on anything in `restricted/`.
 
 | Folder | Licence | What |
 | --- | --- | --- |
-| [root](.) (`crates/`, `fuzz/`) | MIT | The MIT Cargo workspace, every package in `crates/<package name>` (libraries, the gateway, content, admin and chat services, core plugins, the Rustic Isles game module and the Rustic Rifts crates, and the `dainty-lass-server` binary), and `fuzz/` |
+| [root](.) (`crates/`, `fuzz/`) | MIT | The MIT Cargo workspace, every package in `crates/<package name>` (libraries, the gateway, content, admin and chat services, core plugins, the Rustic Isles game module and the Rustic Rifts crates, and `dainty-lass`, the core binary), and `fuzz/` |
 | [`ui/`](ui) | MIT | dainty-dash: the staff dashboard, the launcher and server-manager pages the Tauri shells serve, and the fleet agent (Astryx on Next.js through vinext, built with Bun); its generated bridge types are copied from `restricted/ui` at build time |
 | [`launcher/`](launcher) | MIT | The launcher's JavaScript side: the isolation hook, the scripts the Tauri shells and the release run, and their tests |
 | [`scripts/`](scripts) | MIT | `replay-capture.mjs`, the shadow-replay wrapper |
 | [`docs/`](docs) | MIT | The architecture, the plans and the MIT components' security checklists ([SECURITY_REVIEW.md](SECURITY_REVIEW.md)) |
-| [`restricted/`](restricted) | AGPL-3.0-only | Separate Cargo workspace: the host shell (`restricted/crates/host`), the Tauri launcher (`restricted/launcher/src-tauri`), Rustic Isles' runtime, Node reference, version data and parity replay and Rustic Rifts' `ParadoxTransport` (`restricted/modules/`), the 1.4.4 importer (`restricted/legacy/`), the Apache-2.0 runtime loader (`restricted/native/`), the server executables, Docker (`restricted/docker/`, `restricted/compose.yaml`), and the host and player guides ([restricted/SECURITY_REVIEW.md](restricted/SECURITY_REVIEW.md)) |
+| [`restricted/`](restricted) | AGPL-3.0-only | Separate Cargo workspace: the host shell (`restricted/crates/dainty-host`), the Tauri launcher (`restricted/launcher/src-tauri`), Rustic Isles' runtime, Node reference, version data and parity replay and Rustic Rifts' `ParadoxTransport` (`restricted/modules/`), the 1.4.4 importer (`restricted/legacy/`), the Apache-2.0 runtime loader (`restricted/native/`), the server executables, Docker (`restricted/docker/`, `restricted/compose.yaml`), and the host and player guides ([restricted/SECURITY_REVIEW.md](restricted/SECURITY_REVIEW.md)) |
 
 What is left to do: [MIGRATION_PLAN.md](MIGRATION_PLAN.md). The design record behind it:
 [docs/dainty-lass-plan.md](docs/dainty-lass-plan.md).
@@ -64,12 +64,12 @@ cd ui && bun install --frozen-lockfile && bun run restricted-data && bun run bui
 The full server, the Tauri launcher and the Docker images are built in [`restricted/`](restricted):
 
 ```bash
-cd restricted && cargo build --release -p server-console --features all-modules --bins
+cd restricted && cargo build --release -p dainty-server --features all-modules --bins
 ```
 
 ## Credits and licence
 
-DaintyLass stands on [Mystic Paradox](https://github.com/pranav158/Mystic-Paradox) (Pranav Karande), whose runtime
+Dainty Lass stands on [Mystic Paradox](https://github.com/pranav158/Mystic-Paradox) (Pranav Karande), whose runtime
 and Node backend and Director (the behaviour the Rust port follows) live in `restricted/modules/rustic-isles`; on [Dauntless Revived](https://github.com/mixutin/dauntless-revived)
 (mixutin and contributors), whose Rust crates the workspace started from and whose invite and account-key design
 the launcher follows; and on [Undaunted](https://github.com/SyST3MDeV/Undaunted) (gwog and contributors), which both

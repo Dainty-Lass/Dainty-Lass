@@ -197,7 +197,7 @@ mod tests {
             assert!(!is_challenge_reward_grant(coin, id, q));
         }
         assert!(!is_challenge_reward_grant(None, "CURRENCY_SEASONAL_COIN", 5.0));
-        let at = service_kit::js::date_parse("2026-10-10T16:59:59.999Z").unwrap();
+        let at = dainty_service_kit::js::date_parse("2026-10-10T16:59:59.999Z").unwrap();
         assert_eq!(game_day_key(at), "2026-10-09T17:00:00.000Z");
         assert_eq!(game_day_key(at + 1), "2026-10-10T17:00:00.000Z");
     }

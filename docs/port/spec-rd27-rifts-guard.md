@@ -1,9 +1,9 @@
 <!-- markdownlint-configure-file { "MD013": { "line_length": 120, "tables": false, "code_blocks": false } } -->
 
-# RD27 Clean-Room Specification: `rifts-guard` (Rustic Rifts' Guard in observe mode)
+# RD27 Clean-Room Specification: `rustic-rifts-guard` (Rustic Rifts' Guard in observe mode)
 
 > **Scope and purpose (RD27):** the behaviour specification from which an implementer who never sees the AGPL code
-> writes an MIT `rifts-guard`. In dainty-restricted the crate lives at `modules/rustic-rifts/crates/rifts-guard`, with
+> writes an MIT `rustic-rifts-guard`. In dainty-restricted the crate lives at `modules/rustic-rifts/crates/rustic-rifts-guard`, with
 > two fuzz targets in `modules/rustic-rifts/fuzz/fuzz_targets/` and its checklist in
 > `modules/rustic-rifts/docs/security/guard.md`. It is Guard on stubs: the Hunt Guard evidence chain intake, host
 > write authorization, the native inventory fence, the host grant policy and the daily premium draft token cap, the
@@ -23,14 +23,14 @@
 
 | Source | What it says |
 | --- | --- |
-| `modules/rustic-rifts/NOTICE.md` | Every Rust crate of rustic-rifts, `rifts-guard` included, ports Mystic Paradox's `p2p/`, realms, Guard and launcher modules (`21b9ff5`, AGPL-3.0-only) |
+| `modules/rustic-rifts/NOTICE.md` | Every Rust crate of rustic-rifts, `rustic-rifts-guard` included, ports Mystic Paradox's `p2p/`, realms, Guard and launcher modules (`21b9ff5`, AGPL-3.0-only) |
 | Crate doc of `src/lib.rs` | Names the Node files the crate ports (the anticheat stub side, host writes, hub authorization, inventory transactions and authorization, grant policy, draft premium, host policy mode, traffic, evidence setting, census, operations alerts) |
-| `git log` of the crate | `aac3fb5` (RF6, the port), `b5c25ff` (SHA-256 from `sha2`), `64853ca` (seams), `210eb22` (`SqlGuardStore`, the migrations and `tests/sql_store.rs` written on DaintyLass's `store`), `748fe84` (capability route resolution), `a10c21d` (migration moved here), `ca76df9` (enforce mode) |
+| `git log` of the crate | `aac3fb5` (RF6, the port), `b5c25ff` (SHA-256 from `sha2`), `64853ca` (seams), `210eb22` (`SqlGuardStore`, the migrations and `tests/sql_store.rs` written on Dainty Lass's `store`), `748fe84` (capability route resolution), `a10c21d` (migration moved here), `ca76df9` (enforce mode) |
 | `modules/rustic-rifts/docs/inventory.json` | The Node route inventory; the route-order test of `routes.rs` reads it |
 
 ### 1.2 Categories
 
-- **A**: born in DaintyLass, free of Mystic Paradox derivation; moves as is (with the edits named).
+- **A**: born in Dainty Lass, free of Mystic Paradox derivation; moves as is (with the edits named).
 - **B**: ported from Mystic Paradox, or written inside the ported structure; rewritten clean-room from this document.
 - **D**: data recorded from Mystic Paradox's programs; stays in dainty-restricted as an oracle.
 - **G**: generated.
@@ -39,29 +39,29 @@
 
 | Path (under `modules/rustic-rifts/`) | Lines | Cat. | Note |
 | --- | ---: | :---: | --- |
-| `crates/rifts-guard/Cargo.toml` | 27 | A | Moves with `license = "MIT"`, `rifts-seam` from its MIT home, `serde_json` with `preserve_order` (§7) |
-| `crates/rifts-guard/migrations/sqlite/2026-10-26-000002_rifts_guard/up.sql` | 106 | A | Born in `210eb22` on `store` (DD15); DDL is a contract existing databases carry (§4). Byte-identical |
-| `crates/rifts-guard/migrations/sqlite/2026-10-26-000002_rifts_guard/down.sql` | 7 | A | Same |
-| `crates/rifts-guard/migrations/postgres/2026-10-26-000002_rifts_guard/up.sql` | 106 | A | Same |
-| `crates/rifts-guard/migrations/postgres/2026-10-26-000002_rifts_guard/down.sql` | 7 | A | Same |
-| `crates/rifts-guard/tests/sql_store.rs` | 559 | A | Born in `210eb22`; black-box over the public store API only (§6.1). Reused as is |
-| `crates/rifts-guard/src/lib.rs` | 1294 | B | `Guard`, `Stub`, the hooks, the evidence flow, the fence, the operations flows |
-| `crates/rifts-guard/src/evidence.rs` | 745 | B | Batch and completion readers, chain application, replies |
-| `crates/rifts-guard/src/json.rs` | 355 | B | The P2P body parser and JavaScript text helpers |
-| `crates/rifts-guard/src/config.rs` | 451 | B | Settings |
-| `crates/rifts-guard/src/errors.rs` | 145 | B | `GuardError`, the status table |
-| `crates/rifts-guard/src/digest.rs` | 73 | B | SHA-256 hex |
-| `crates/rifts-guard/src/census.rs` | 360 | B | Host route census |
-| `crates/rifts-guard/src/routes.rs` | 345 | B | The six routes |
-| `crates/rifts-guard/src/traffic.rs` | 367 | B | Windows and the in-flight budget |
-| `crates/rifts-guard/src/operations.rs` | 331 | B | Admin operations rules and replies |
-| `crates/rifts-guard/src/ports.rs` | 444 | B | Ports, clocks, logs, ISO time |
-| `crates/rifts-guard/src/store.rs` | 599 | B | Records, `GuardStore`, in-memory and stub stores |
-| `crates/rifts-guard/src/sql.rs` | 1040 | B | `SqlGuardStore`. Written here (`210eb22`) but on the ported record shapes; the lowest-risk B file, and its SQL text is contract (§4) |
-| `crates/rifts-guard/src/grants.rs` | 1118 | B | Grant classes, the draft token decision |
-| `crates/rifts-guard/src/writes.rs` | 627 | B | Who a host may write for |
-| `crates/rifts-guard/src/tests.rs` | 1162 | B | Unit tests on in-memory parts (rewrite from §6.2) |
-| `crates/rifts-guard/src/testkit.rs` | 164 | B | Test fixtures |
+| `crates/rustic-rifts-guard/Cargo.toml` | 27 | A | Moves with `license = "MIT"`, `rustic-rifts-seam` from its MIT home, `serde_json` with `preserve_order` (§7) |
+| `crates/rustic-rifts-guard/migrations/sqlite/2026-10-26-000002_rifts_guard/up.sql` | 106 | A | Born in `210eb22` on `store` (DD15); DDL is a contract existing databases carry (§4). Byte-identical |
+| `crates/rustic-rifts-guard/migrations/sqlite/2026-10-26-000002_rifts_guard/down.sql` | 7 | A | Same |
+| `crates/rustic-rifts-guard/migrations/postgres/2026-10-26-000002_rifts_guard/up.sql` | 106 | A | Same |
+| `crates/rustic-rifts-guard/migrations/postgres/2026-10-26-000002_rifts_guard/down.sql` | 7 | A | Same |
+| `crates/rustic-rifts-guard/tests/sql_store.rs` | 559 | A | Born in `210eb22`; black-box over the public store API only (§6.1). Reused as is |
+| `crates/rustic-rifts-guard/src/lib.rs` | 1294 | B | `Guard`, `Stub`, the hooks, the evidence flow, the fence, the operations flows |
+| `crates/rustic-rifts-guard/src/evidence.rs` | 745 | B | Batch and completion readers, chain application, replies |
+| `crates/rustic-rifts-guard/src/json.rs` | 355 | B | The P2P body parser and JavaScript text helpers |
+| `crates/rustic-rifts-guard/src/config.rs` | 451 | B | Settings |
+| `crates/rustic-rifts-guard/src/errors.rs` | 145 | B | `GuardError`, the status table |
+| `crates/rustic-rifts-guard/src/digest.rs` | 73 | B | SHA-256 hex |
+| `crates/rustic-rifts-guard/src/census.rs` | 360 | B | Host route census |
+| `crates/rustic-rifts-guard/src/routes.rs` | 345 | B | The six routes |
+| `crates/rustic-rifts-guard/src/traffic.rs` | 367 | B | Windows and the in-flight budget |
+| `crates/rustic-rifts-guard/src/operations.rs` | 331 | B | Admin operations rules and replies |
+| `crates/rustic-rifts-guard/src/ports.rs` | 444 | B | Ports, clocks, logs, ISO time |
+| `crates/rustic-rifts-guard/src/store.rs` | 599 | B | Records, `GuardStore`, in-memory and stub stores |
+| `crates/rustic-rifts-guard/src/sql.rs` | 1040 | B | `SqlGuardStore`. Written here (`210eb22`) but on the ported record shapes; the lowest-risk B file, and its SQL text is contract (§4) |
+| `crates/rustic-rifts-guard/src/grants.rs` | 1118 | B | Grant classes, the draft token decision |
+| `crates/rustic-rifts-guard/src/writes.rs` | 627 | B | Who a host may write for |
+| `crates/rustic-rifts-guard/src/tests.rs` | 1162 | B | Unit tests on in-memory parts (rewrite from §6.2) |
+| `crates/rustic-rifts-guard/src/testkit.rs` | 164 | B | Test fixtures |
 | `fuzz/fuzz_targets/guard_evidence.rs` | 62 | B | Rewrite from §6.3 into dainty-lass `fuzz/` |
 | `fuzz/fuzz_targets/guard_grants.rs` | 65 | B | Same |
 | `docs/security/guard.md` | 195 | B | Rewrite as `docs/security/guard.md` in dainty-lass, `relay.md`'s structure, test names of the new crate |
@@ -83,7 +83,7 @@ dependency. "Ext" says who outside the crate uses each: **R** rifts-realms (src)
 isles-1-14-7 (src and tests), **F** the fuzz targets, **T** `tests/sql_store.rs`. Items marked "—" are public today
 but used by no caller; keep them (cheap) unless the umbrella spec decides otherwise.
 
-Types from `rifts-seam` (`AccountId`, `SessionId`, `RealmId`, `UnixMillis`, `Json`, `Reply`, `Refusal`, `SeamError`,
+Types from `rustic-rifts-seam` (`AccountId`, `SessionId`, `RealmId`, `UnixMillis`, `Json`, `Reply`, `Refusal`, `SeamError`,
 `StoreError`, `Unimplemented`, `Component`, `Actor`, `RuntimeAuth`, `CapabilityScope`, `HubKind`, `HostWriteKind`,
 `HostWrite`, `HostWriteOptions`, `InventoryTransaction`, `InventoryDecision`, `InventoryFence`, `TransactionReads`,
 `TransactionPhase`, `HostGrantCatalog`, `IslesCore`, `GuardHooks`, `Lifecycle`, `RouteHandler`, `RouteCall`, `Route`,
@@ -1044,9 +1044,9 @@ with `FromStr`); the chain's `event_types` as a JSON object of counts with keys 
 
 ---
 
-## 5. Hooks isles calls through `rifts-seam`
+## 5. Hooks isles calls through `rustic-rifts-seam`
 
-Isles never names `rifts-guard`; it holds the `Arc<dyn GuardHooks>` that `isles-1-14-7::rifts_with_core` builds from
+Isles never names `rustic-rifts-guard`; it holds the `Arc<dyn GuardHooks>` that `isles-1-14-7::rifts_with_core` builds from
 `Guard::new` and the `GuardRoutes::with_store(guard, has_store)` route handler (`has_store` false when no database is
 configured, with `StubGuardStore` and `NoHuntSessions`). What isles calls:
 
@@ -1074,9 +1074,9 @@ census counts nothing and only `stop` would flush (risk 4). Realms writes the ch
   chain revision guard, duplicate batch id refusal leaving chain and findings untouched, findings order, completion
   update; XP summary upsert and `purge_expired` (returns 4 in the async suite); alert insert-if-absent and single
   acknowledgement; reopen preserves rows; Postgres when `REFORGED_TEST_POSTGRES_URL` is set.
-- Outside the crate, as oracles in dainty-restricted: `rifts-realms/tests/guard_adapter.rs` (Guard over
+- Outside the crate, as oracles in dainty-restricted: `rustic-rifts-realms/tests/guard_adapter.rs` (Guard over
   `RealmsHuntSessions` and `SqlGuardStore`: authorize/record host writes, inventory decisions, rate-limit bucket,
-  fresh and existing migrations), `rifts-realms/tests/stubbed.rs` and `isles-1-14-7/tests/{module.rs,
+  fresh and existing migrations), `rustic-rifts-realms/tests/stubbed.rs` and `isles-1-14-7/tests/{module.rs,
   inventory_reforge_host.rs}` (stub routes, `rifts.guard()`).
 
 ### 6.2 Rewritten from this document (B)
@@ -1145,19 +1145,19 @@ Each unit test of the B files names the behaviour it pins; the rewrite needs at 
 
 ## 7. The target MIT crate
 
-- **Where:** `crates/rifts-guard` in dainty-lass (flat layout), package `rifts-guard`, `license = "MIT"`, lints from
+- **Where:** `crates/rustic-rifts-guard` in dainty-lass (flat layout), package `rustic-rifts-guard`, `license = "MIT"`, lints from
   the workspace. Fuzz targets in dainty-lass `fuzz/fuzz_targets/` with `[[bin]]` entries; the checklist at
   `docs/security/guard.md`.
 - **Dependencies** (all already in dainty-lass `[workspace.dependencies]` unless noted): `diesel`, `diesel_migrations`,
   `serde_json` **with `features = ["preserve_order"]`** at the crate (as `service-kit` does), `sha2`, `store`,
   `thiserror`, `tokio` with `rt` and `rt-multi-thread`; dev: `tempfile`, `url`, `tokio` with `macros`. Fuzz:
   `libfuzzer-sys`, `serde_json`.
-- **Seam changes to flag:** (1) `rifts-seam` must be a dainty-lass workspace dependency (its own MIT port is another
+- **Seam changes to flag:** (1) `rustic-rifts-seam` must be a dainty-lass workspace dependency (its own MIT port is another
   RD27 spec); (2) restricted's workspace `diesel` has `32-column-tables` and dainty-lass's does not. The chain row
   binds 22 parameters and reads 19 columns by name; with boxed raw SQL and `QueryableByName` this should not need the
   feature, but if the implementer's design uses typed tuples above 16 it does: a workspace seam change, report it.
 - **dainty-restricted afterwards:** replace the path dependency with the git dependency at the new rev, delete
-  `modules/rustic-rifts/crates/rifts-guard`, the two fuzz bins and the security page there. `rifts-realms` and
+  `modules/rustic-rifts/crates/rustic-rifts-guard`, the two fuzz bins and the security page there. `rustic-rifts-realms` and
   `isles-1-14-7` change no source.
 
 ## 8. Acceptance criteria
@@ -1206,7 +1206,7 @@ Each unit test of the B files names the behaviour it pins; the rewrite needs at 
    would take them. Integers beyond 2^53 in payloads are canonicalized through `f64`.
 10. **`AUTH_UNAUTHORIZED`'s status** is not in `ERROR_STATUSES` (`status_of` would say 500); isles supplies its own.
 11. **Classification of `sql.rs`, the migrations and `tests/sql_store.rs`.** Git history shows all three were
-    written on DaintyLass's `store` (`210eb22`), with no Mystic Paradox counterpart (Node used MongoDB). This spec
+    written on Dainty Lass's `store` (`210eb22`), with no Mystic Paradox counterpart (Node used MongoDB). This spec
     takes the DDL and the black-box test as A and `sql.rs` as B because its record shapes are the ported ones; the
     reviewer may move `sql.rs` to A.
 12. **`block_on_store` from a current-thread runtime** spawns a scoped OS thread per call; fine for tests, slow if a

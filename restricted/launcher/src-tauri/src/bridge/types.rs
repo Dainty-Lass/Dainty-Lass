@@ -4,15 +4,15 @@
 //! The TypeScript declarations in `ui/packages/bridge/src/generated/types.ts` are generated from these
 //! (`generate.rs`), so the page and the backend cannot drift apart.
 
-use protocol::GameVersion;
-use protocol::invite::ServerMode;
-use protocol::status::ServerStatus;
+use dainty_protocol::GameVersion;
+use dainty_protocol::invite::ServerMode;
+use dainty_protocol::status::ServerStatus;
 use serde::{Deserialize, Serialize, Serializer};
 
 /// The launcher's languages, made from the page's strings by build.rs (L14; RA3 makes them `en` and
 /// `pt-BR`).
 pub use crate::core::i18n::Language;
-pub use launcher_kit::bridge::types::*;
+pub use dainty_launcher_kit::bridge::types::*;
 
 /// The game the launcher plays, as settings.json's `gameEdition` and the page name it (`reborn` 1.14.7,
 /// `legacy` 1.4.4). The launcher's own setting, not the servers' vocabulary: invites and modules name a
@@ -29,7 +29,7 @@ pub enum Game {
 impl Game {
     /// The edition that plays `version`: legacy for 1.4.4, reborn for every other.
     pub fn of(version: &GameVersion) -> Self {
-        if protocol::invite::is_revived(version) {
+        if dainty_protocol::invite::is_revived(version) {
             Self::Legacy
         } else {
             Self::Reborn
@@ -503,7 +503,7 @@ pub struct SnapshotApp {
     pub host_tools_available: bool,
     /// Always false since the legacy edition went (1.4.4, RD5): the page offers no edition setting
     pub legacy_available: bool,
-    /// The game versions an invite may name in this build (`protocol::invite::played_versions`)
+    /// The game versions an invite may name in this build (`dainty_protocol::invite::played_versions`)
     pub game_versions: Vec<String>,
     /// The server GUI (`server-gui` feature): the page shows the server screens (DU3)
     pub server_gui: bool,

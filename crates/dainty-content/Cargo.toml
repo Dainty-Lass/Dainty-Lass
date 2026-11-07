@@ -1,0 +1,44 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 Silent Spud
+[package]
+name = "dainty-content"
+description = "The content server: the game runtime, news and art pack players download (clean-room, RD27)"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license = "MIT"
+repository.workspace = true
+publish.workspace = true
+
+[dependencies]
+bytes.workspace = true
+chrono.workspace = true
+clap.workspace = true
+futures-util.workspace = true
+http.workspace = true
+http-body.workspace = true
+http-body-util.workspace = true
+hyper.workspace = true
+hyper-rustls.workspace = true
+hyper-util = { workspace = true, features = ["client-legacy", "http1", "server", "tokio"] }
+dainty-module-api.workspace = true
+dainty-protocol.workspace = true
+rustls.workspace = true
+serde.workspace = true
+# Every body is written in the field order the Node server wrote
+serde_json = { workspace = true, features = ["preserve_order"] }
+dainty-service-kit.workspace = true
+dainty-service-plugin.workspace = true
+sha1.workspace = true
+sha2.workspace = true
+tokio = { workspace = true, features = ["rt-multi-thread", "net", "fs", "time", "sync", "signal", "io-util"] }
+tokio-util.workspace = true
+url.workspace = true
+
+[dev-dependencies]
+dainty-protocol = { workspace = true, features = ["test-data"] }
+tempfile.workspace = true
+tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
+
+[lints]
+workspace = true

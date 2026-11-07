@@ -7,7 +7,7 @@
 use axum::extract::Request;
 use axum::http::{HeaderMap, HeaderName, HeaderValue, Method, StatusCode, header};
 use axum::response::{IntoResponse, Response};
-use module_api::{BoxFuture, GlobalId, IdKind};
+use dainty_module_api::{BoxFuture, GlobalId, IdKind};
 use serde_json::{Map, Value, json};
 
 use crate::discord::DiscordConfig;
@@ -149,7 +149,7 @@ impl<S: AuthStore> Auth<S> {
         let allowed = ["http://localhost:1420", "https://tauri.localhost"].contains(&origin.as_str())
             || configured
                 .split(',')
-                .map(service_kit::js::trim)
+                .map(dainty_service_kit::js::trim)
                 .any(|o| !o.is_empty() && o == origin);
         if !allowed {
             tracing::warn!("[CORS] Rejected launcher origin");
@@ -228,7 +228,7 @@ impl<S: AuthStore> Auth<S> {
                 return self.bearer_inner(&authorization).await;
             }
             let key = util::header(headers, "x-reforged-user-api-key")
-                .map(|k| service_kit::js::trim(&k).to_owned())
+                .map(|k| dainty_service_kit::js::trim(&k).to_owned())
                 .filter(|k| !k.is_empty());
             let Some(key) = key else {
                 return Err(unauthorized(MSG_SIGN_IN));
@@ -353,7 +353,7 @@ impl<S: AuthStore> Auth<S> {
         let recent = account
             .last_login_at
             .as_deref()
-            .and_then(service_kit::js::date_parse)
+            .and_then(dainty_service_kit::js::date_parse)
             .is_some_and(|at| (0..SIGN_IN_NOTE_MS).contains(&(now - at)));
         if recent {
             return Ok(());
@@ -493,7 +493,7 @@ impl<S: AuthStore> Auth<S> {
         )?;
         let name = match field(body, "displayName") {
             None | Some(Value::Null) => None,
-            Some(Value::String(s)) if service_kit::js::trim(s).is_empty() => None,
+            Some(Value::String(s)) if dainty_service_kit::js::trim(s).is_empty() => None,
             Some(value) => {
                 let name = policy::validate_username_format(Some(value))?;
                 let blocklist = policy::parse_blocklist(self.raw("RUSTIC_ISLES_USERNAME_BLOCKLIST"));
@@ -1175,7 +1175,7 @@ impl<S: AuthStore> Auth<S> {
     pub(crate) async fn deletion_post(&self, caller: &LauncherAuth, body: Option<Value>) -> Answer {
         let account = self.account_of(&caller.user_id).await?;
         let confirm = match field(body.as_ref(), "confirmUsername") {
-            Some(Value::String(c)) => service_kit::js::trim(c).to_owned(),
+            Some(Value::String(c)) => dainty_service_kit::js::trim(c).to_owned(),
             _ => String::new(),
         };
         if confirm.is_empty() || confirm.to_lowercase() != account.display_name.to_lowercase() {
@@ -1205,7 +1205,7 @@ impl<S: AuthStore> Auth<S> {
             return Ok(ok(Self::deletion_state(None)));
         };
         let now = self.now();
-        let ended = match service_kit::js::date_parse(&deletion.scheduled_for) {
+        let ended = match dainty_service_kit::js::date_parse(&deletion.scheduled_for) {
             Some(at) => at <= now,
             None => deletion.scheduled_for <= util::iso(now),
         };
@@ -1309,7 +1309,7 @@ impl<S: AuthStore> Auth<S> {
         let channel = field(body, "runtimeChannel")
             .and_then(Value::as_str)
             .and_then(Channel::parse);
-        let changelist = service_kit::js::number(field(body, "buildChangelist"));
+        let changelist = dainty_service_kit::js::number(field(body, "buildChangelist"));
         let executable = util::non_empty_str(field(body, "executableSha256"));
         let Some(channel) = channel else {
             return Err(LauncherError::validation(
@@ -1360,7 +1360,7 @@ impl<S: AuthStore> Auth<S> {
                 "This Dauntless build isn't supported. Verify or repair your installation.",
             ));
         }
-        let executable = service_kit::js::trim(executable).to_lowercase();
+        let executable = dainty_service_kit::js::trim(executable).to_lowercase();
         let approved_executables: Vec<String> = self
             .raw("APPROVED_EXECUTABLE_SHA256")
             .unwrap_or("")
@@ -1387,7 +1387,7 @@ impl<S: AuthStore> Auth<S> {
                 "This launcher isn't an official Rustic Isles build. Install the official launcher to play on Rustic Isles.",
             ));
         }
-        let realm_text = realm.map(service_kit::jsjson::stringify);
+        let realm_text = realm.map(dainty_service_kit::jsjson::stringify);
         let realm_id = match self
             .seams
             .realms

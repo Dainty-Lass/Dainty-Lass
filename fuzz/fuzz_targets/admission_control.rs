@@ -6,7 +6,7 @@
 #![no_main]
 
 use libfuzzer_sys::fuzz_target;
-use rifts_admission::control::{
+use rustic_rifts_admission::control::{
     MAX_CONTROL_FRAME, decode_admission_request, decode_admission_result, encode_admission_request,
     encode_admission_result,
 };

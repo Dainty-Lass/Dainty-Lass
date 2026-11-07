@@ -11,7 +11,7 @@ use rustic_isles_1_14_7::{Hooks, VersionData};
 use serde_json::Value;
 
 fn check_document(text: &str) {
-    let Ok(value) = service_kit::jsjson::parse(text) else {
+    let Ok(value) = dainty_service_kit::jsjson::parse(text) else {
         return;
     };
     match VersionData::from_json(&value) {
@@ -62,7 +62,7 @@ fn check_hooks(text: &str) {
         ["phx_account_id", "objective_id", "progress", "completed_count", "created_date", "last_modified_date"]
     );
     assert_eq!(written["objective_id"], Value::from(text));
-    let _ = service_kit::jsjson::stringify(&written);
+    let _ = dainty_service_kit::jsjson::stringify(&written);
 }
 
 fuzz_target!(|bytes: &[u8]| {

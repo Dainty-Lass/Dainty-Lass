@@ -2,7 +2,7 @@
 
 # Security checklist: installing the game from Epic (RX3)
 
-The checklist for `crates/epic`, which the launcher and the host kit use to install Dauntless from the player's
+The checklist for `crates/dainty-epic`, which the launcher and the host kit use to install Dauntless from the player's
 own Epic library (docs/dainty-lass-plan.md DD22, rows DE1 to DE7, DX2). `SECURITY_REVIEW.md` indexes it.
 
 How to use it: before the first release that installs from Epic, copy this list into the release notes' review,
@@ -10,7 +10,7 @@ check each item in the code (not from memory), link the code or test that shows 
 date and the commit reviewed. An item that does not hold is a bug to fix before that release, not a box to leave
 open. DE1 wrote the manifest and chunk readers, DE2 the sign-in, DE3 the ownership check, DE5 the installer
 (`download.rs` and `download/`, and the launcher's `net/epic_install.rs` and `controller/install.rs`), DE6 the host
-kit's `install-game` (`crates/host`: `epicinstall.rs`, `commands/install_game.rs`).
+kit's `install-game` (`crates/dainty-host`: `epicinstall.rs`, `commands/install_game.rs`).
 
 ## What it is and where the boundary is
 

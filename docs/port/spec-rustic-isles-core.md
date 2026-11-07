@@ -29,15 +29,15 @@
 | Source | What it says |
 | --- | --- |
 | `modules/rustic-isles/NOTICE.md` | The module is a modified Mystic Paradox (up to `21b9ff5`); "every crate and file" of it is AGPL-3.0-only with Mystic Paradox's section 7 terms, which apply to the Mystic Paradox contributions only |
-| File headers (`//!`) | Which TypeScript each file ports, or which DaintyLass row it was written for (table below) |
+| File headers (`//!`) | Which TypeScript each file ports, or which Dainty Lass row it was written for (table below) |
 | `git log` of each file | Every commit is the maintainer's (37 commits, one author); born in `19ee75d` (RU4 skeleton), with `0a29728` (RU8 replay), `2824b6d` (RB11 generators, bootstrap), `8ad8443`/`c0482b0` (RU5 game data), `9ad97c6` (Rustic Isles rename, legacy names), `7cd9db0` (QoS) |
 | `docs/inventory/routes-1.14.7.md` and `.json` (RU3a) | The 290 registrations of `ParadoxBackend` and `ParadoxDirector` in registration order, with the pipeline of `app.ts`, mount conditions and shadowed registrations |
 | `docs/ru5-game-data.md`, `docs/GENERATING_GAME_DATA.md`, `docs/shadow-replay.md` | The game data files and loader, the replay pinning headers |
-| `crates/isles-1-14-7`, `isles-1-14-7-plugin`, `isles-director`, `isles-db`, `isles-chat` | How the skeleton is used (read for the seam only; §16) |
+| `crates/isles-1-14-7`, `rustic-isles-plugin`, `isles-director`, `isles-db`, `isles-chat` | How the skeleton is used (read for the seam only; §16) |
 
 ### 1.2 Classification and what is rewritten
 
-Category A is code written for DaintyLass (RU4, RU8, DN rows) with no Paradox code in it; Category B ports Paradox
+Category A is code written for Dainty Lass (RU4, RU8, DN rows) with no Paradox code in it; Category B ports Paradox
 TypeScript. The maintainer holds the copyright of A and may relicense it, but the MIT crate's shape differs (no
 `repo`, no `areas`; §11), and several A files call B, so **this spec covers every file and the implementer writes
 all of it** (§15 item 11).
@@ -69,7 +69,7 @@ all of it** (§15 item 11).
 ### 1.3 What stays in dainty-restricted
 
 - `src/areas/*`, `src/repo/*`, the migrations, `crates/isles-chat`, `isles-director`, `isles-db`, `isles-1-14-7`,
-  `isles-1-14-7-plugin`, `native/`, `tools/RuntimeLoader`, `reference/`, and every golden under `tests/golden/`.
+  `rustic-isles-plugin`, `native/`, `tools/RuntimeLoader`, `reference/`, and every golden under `tests/golden/`.
 - The **composition** (§11.4): restricted's version crate implements this crate's `Composer` with today's areas,
   `IslesStore`, the auth store adapter, rifts, chat rules, the QoS listener and the party outbox, until each is
   ported (§16).
@@ -743,7 +743,7 @@ What auth §11.3 asks of isles, as this crate does it:
 ### 11.1 Shape
 
 One crate, `rustic-isles` (lib), MIT, in dainty-lass `crates/rustic-isles`. It depends only on dainty-lass MIT crates
-(`module-api`, `service-kit`, `rifts-seam`, `rustic-isles-auth`) and workspace dependencies (`axum`, `http`,
+(`module-api`, `service-kit`, `rustic-rifts-seam`, `rustic-isles-auth`) and workspace dependencies (`axum`, `http`,
 `tokio`, `tracing`, `serde`, `serde_json` with `preserve_order`, `sha2`, `uuid`, `regex`, `percent-encoding`,
 `dotenvy`, `chrono`, `thiserror`). It does not depend on `store`: the database is the composer's.
 
@@ -963,7 +963,7 @@ matchmaking's deploy seam (now §5.6 here); `isles-1-14-7` composes everything.
 | 9 | `rustic-isles-reforged` | `areas/reforged_api*` (probes, metrics, request log as the `Observer`, launcher API, updates, logs, notices, activity, operations, guard, admin API and admin Discord, tester max, release gates), the admin actions and home operations of §7.6 and §7.8, `bootstrap.rs` if kept | everything above; auth's `Seams` are implemented here |
 | 10 | `rustic-isles-replay` | `replay.rs` and `isles-db`'s replay CLI (§9.3) | core replay headers, auth test keys |
 | 11 | `rustic-isles-db` | `isles-db` migrate, verify, export-mongo (until RB15 removes Mongo) | store, characters (starter ids), economy (storage policy) |
-| 12 | `rustic-isles-1-14-7` and its plugin | `isles-1-14-7` (hooks' wire payloads, `TABLES`, `DIRECTOR`, the module spec, rifts composition over dainty-lass's MIT `rifts-*`), `isles-1-14-7-plugin` (one line: `export_plugin!`) | all; the composer then lives here and restricted keeps nothing of the module but `native/`, `tools/RuntimeLoader`, `reference/` and the goldens |
+| 12 | `rustic-isles-1-14-7` and its plugin | `isles-1-14-7` (hooks' wire payloads, `TABLES`, `DIRECTOR`, the module spec, rifts composition over dainty-lass's MIT `rustic-rifts-*`), `rustic-isles-plugin` (one line: `export_plugin!`) | all; the composer then lives here and restricted keeps nothing of the module but `native/`, `tools/RuntimeLoader`, `reference/` and the goldens |
 
 Order: 0 and 1 now; 2 next (every area needs it, and auth's store adapter moves with it); 3 and 4 in parallel with
 2 (they need only core); then 5, 6, 7, 8, 9 in that order (9 last because auth's seams and the admin hooks land
@@ -1283,7 +1283,7 @@ These settle §15 and override anything above that disagrees.
 - **Item 2: no legacy names.** No `MYSTICPARADOX_*` env aliases and no `x-mysticparadox-*` header copies, as auth
   §15 item 9.
 - **Item 8: not a seam change.** Every crate that needs key order enables `serde_json`'s `preserve_order` in its own
-  manifest, as `service-kit`, `content` and `rifts-realms` already do.
+  manifest, as `service-kit`, `content` and `rustic-rifts-realms` already do.
 - **Item 9:** `rustic-isles-auth` provides `impl<T: AuthStore + ?Sized> AuthStore for Arc<T>` (requested of the auth
   implementer).
 - **Item 10:** `bootstrap.rs` is not in this crate; the Reforged unit decides its fate.

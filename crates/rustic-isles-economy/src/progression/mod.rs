@@ -14,7 +14,7 @@ pub mod tracks;
 
 use std::sync::Arc;
 
-use module_api::{Actor, ActorContext, BoxFuture};
+use dainty_module_api::{Actor, ActorContext, BoxFuture};
 use rustic_isles::Shared;
 use rustic_isles_store::{AccountId, IslesStore};
 

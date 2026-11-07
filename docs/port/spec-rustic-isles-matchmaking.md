@@ -37,11 +37,11 @@
 | `git log` of the files | 12 commits, one author (the maintainer): born in `19ee75d` (RU4 seams) and `1728e5a` (RU5 matchmaking-parties), with `ab07f6c` (one `AuthData`, Express body readers), `9ad97c6` (rename), `7cd9db0` (QoS on a loopback port) |
 | `reference/1.14.7/ParadoxBackend/src/{controllers,routes}` | The Node files named above (provenance only; not read for this spec beyond file names) |
 | `crates/isles-core/tests/matchmaking_routes.rs`, `matchmaking_controller.rs`, the unit tests, `tests/golden/{scenario.json,matchmaking-parties.json}` | What the routes answered under Node 22 and the controller rules (described in §13, never copied) |
-| dainty-lass `crates/rifts-seam`, `crates/module-api/src/{network.rs,chat.rs,module.rs}`, the core, store, auth, chat and director specs | The contracts this crate answers and calls |
+| dainty-lass `crates/rustic-rifts-seam`, `crates/dainty-module-api/src/{network.rs,chat.rs,module.rs}`, the core, store, auth, chat and director specs | The contracts this crate answers and calls |
 
 ### 1.2 Per file: category and where it goes
 
-All of it is Category B (Paradox behaviour, or DaintyLass code wrapped around it). The implementer writes every part
+All of it is Category B (Paradox behaviour, or Dainty Lass code wrapped around it). The implementer writes every part
 from this spec.
 
 | Restricted file | Rewritten as |
@@ -657,7 +657,7 @@ region at all. Node opened it on every interface at `QOS_PORT` (80); a game modu
 
 - **Plan** from `QOS_PORT` (the env file, else the switch `qos_port`, else the version's switch default): blank or
   unset is the default 80; `off` (any case) or `0` starts none (`0` is the host kit's spelling, written under
-  DaintyLass, where `QOS_TARGET_URL` points at the launcher's relay, which answers the pings on the player's machine);
+  Dainty Lass, where `QOS_TARGET_URL` points at the launcher's relay, which answers the pings on the player's machine);
   digits only from 1 to 65535 are that public port; anything else starts none with the problem `QOS_PORT='{value}' is
   not a port number or 'off'` (trimmed value; not fatal).
 - **Start-up**: none planned: warn `QoS listener not started: {problem}`, or info `QoS latency-test listener off
@@ -777,7 +777,7 @@ dainty-lass MIT crates `rustic-isles` (core: `Shared`, `Handlers`, `Call`, `read
 `DedicatedServers` and its types, `Settings`, `replay`, `season::to_iso_string`, `Presence`, slots, `Composer`'s
 start-up and hook types), `rustic-isles-store` (`IslesStore`, `repo::parties`, the account repositories,
 `RepoError`), `rustic-isles-auth` (`AuthData`), `rustic-isles-chat` (`ids::room_id_text`, `headline::public_event`,
-`HubSessions`, the re-exported `Headline` types), `rifts-seam`, `module-api` (`GlobalId`, `IdKind`, `NodeId`,
+`HubSessions`, the re-exported `Headline` types), `rustic-rifts-seam`, `module-api` (`GlobalId`, `IdKind`, `NodeId`,
 `ActorContext`, the `ring_*` home calls and records, `chat::HEADLINE_EVENT`, `Event`), `service-kit` (`serve`); and
 workspace `axum`, `http`, `tokio`, `tracing`, `serde`, `serde_json` (own `preserve_order`), `uuid`, `thiserror`. It
 does not depend on economy: the "items" dependency of core §16 row 8 was `multipliers.rs`, which is economy's (§1.2).

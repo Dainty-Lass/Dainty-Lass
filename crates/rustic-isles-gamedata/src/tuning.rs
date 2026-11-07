@@ -103,9 +103,9 @@ mod tests {
     fn texts_parse_and_keep_their_order() {
         for text in [SCHEDULE, HUNTPASS_XP, ISLAND_CONTENT, BOUNTY, DAILY, WEEKLY] {
             let value: Value = serde_json::from_str(text).unwrap();
-            assert_eq!(service_kit::jsjson::stringify(&value), text);
+            assert_eq!(dainty_service_kit::jsjson::stringify(&value), text);
         }
         let payload = &bounty_game_data(&[])["payload"];
-        assert_eq!(service_kit::jsjson::stringify(payload), BOUNTY);
+        assert_eq!(dainty_service_kit::jsjson::stringify(payload), BOUNTY);
     }
 }

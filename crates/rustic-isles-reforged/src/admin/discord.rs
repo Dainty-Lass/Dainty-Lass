@@ -6,8 +6,8 @@
 use axum::response::Response;
 use base64::Engine as _;
 use base64::engine::general_purpose::URL_SAFE_NO_PAD;
+use dainty_module_api::{Actor, ActorContext};
 use http::{HeaderValue, StatusCode};
-use module_api::{Actor, ActorContext};
 use rustic_isles::UserId;
 use rustic_isles_auth::DiscordConfig;
 use rustic_isles_store::repo::auth::{

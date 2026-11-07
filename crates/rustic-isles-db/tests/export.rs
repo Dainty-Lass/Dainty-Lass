@@ -51,7 +51,7 @@ async fn register(file: &std::path::Path) {
         timeout: None,
     };
     let outcome = db
-        .write(store::Actor::Host("test".into()), move |tx| {
+        .write(dainty_store::Actor::Host("test".into()), move |tx| {
             let repos = Repositories::on_store();
             repos.accounts.create(tx, &record)?;
             repos.launcher_accounts.create(tx, &launcher)
@@ -137,13 +137,13 @@ async fn export_round_trips_through_a_fresh_store() {
 }
 
 struct PgDatabase {
-    server: store::PostgresConfig,
+    server: dainty_store::PostgresConfig,
     url: String,
 }
 
 impl Drop for PgDatabase {
     fn drop(&mut self) {
-        if let Ok(mut admin) = store::PgConnection::establish(&self.server.conninfo()) {
+        if let Ok(mut admin) = dainty_store::PgConnection::establish(&self.server.conninfo()) {
             let name = self.url.rsplit('/').next().unwrap_or_default();
             let _ = admin.batch_execute(&format!("DROP DATABASE IF EXISTS \"{name}\" WITH (FORCE)"));
         }
@@ -154,7 +154,7 @@ fn new_postgres() -> Option<PgDatabase> {
     let url = std::env::var("REFORGED_TEST_POSTGRES_URL").ok()?;
     let server = rustic_isles_db::parse_postgres_url(&url, false).expect("a postgres:// URL");
     let name = format!("isles_db_test_{}", std::process::id());
-    store::PgConnection::establish(&server.conninfo())
+    dainty_store::PgConnection::establish(&server.conninfo())
         .expect("REFORGED_TEST_POSTGRES_URL is reachable")
         .batch_execute(&format!("CREATE DATABASE \"{name}\""))
         .unwrap();

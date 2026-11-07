@@ -4,7 +4,7 @@
 //! and the dashboard print it, carries none either.
 #![no_main]
 
-use host::repl::{ConsoleCommand, LEVELS, MAX_LINE, is_service_name, parse_command, plain};
+use dainty_host::repl::{ConsoleCommand, LEVELS, MAX_LINE, is_service_name, parse_command, plain};
 use libfuzzer_sys::fuzz_target;
 
 fuzz_target!(|data: &[u8]| {

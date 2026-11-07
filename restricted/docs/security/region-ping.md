@@ -25,7 +25,7 @@ and nothing a node could use is sent to it. The account key goes only to the hom
 - **Launcher, out:** to each node, TLS pinned to its listed fingerprint, then `GET /network/v1/ping` with only `host`
   in the headers. To the home, the report with the account key header.
 
-Code: dainty-lass's `crates/gateway/src/network.rs` (the node list's body, the report's parser), `policy.rs`
+Code: dainty-lass's `crates/dainty-gateway/src/network.rs` (the node list's body, the report's parser), `policy.rs`
 (`NetworkRoute`), `gateway.rs` (`Gateway::network`); `launcher/src-tauri/src/net/regionping.rs` (fetching,
 timing, ordering, the report) and `net/regionping/parse.rs` (the node list's reader), `controller/region.rs`.
 
@@ -76,7 +76,7 @@ fingerprints, each region once, at most 16). dainty-lass's `gateway_policy` cove
 - **The node list is empty everywhere** until DN2 and DF3 add `[network]` to `host.toml` and the gateway reads it.
   Whoever fills it decides whether a node lists itself.
 - **Two copies of the shapes.** The region id rule and the routes are written in the gateway and the launcher; a
-  launcher test reads the gateway's source to keep them equal until DN2's `crates/module-api` defines them once.
+  launcher test reads the gateway's source to keep them equal until DN2's `crates/dainty-module-api` defines them once.
 
 ## Fuzzing
 

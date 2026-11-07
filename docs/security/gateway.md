@@ -2,7 +2,7 @@
 
 # Security checklist: gateway policy and TLS (RX3)
 
-The checklist for the gateway, the `gateway` binary of `crates/gateway` (MIGRATION_PLAN.md RS3, RD10, RD19,
+The checklist for the gateway, the `gateway` binary of `crates/dainty-gateway` (MIGRATION_PLAN.md RS3, RD10, RD19,
 RD20). `SECURITY_REVIEW.md` indexes it. The allowlist helper, the crate's other service, has its own list in
 [allowlist.md](allowlist.md).
 
@@ -30,10 +30,10 @@ listens on loopback and trusts that the gateway already refused what must not re
 - **Files:** the certificate and key (read only), the `.env` the host kit writes (trusted), and when the capture is
   on, the capture folder (`CAPTURE_DIR`, written).
 
-Code: `crates/gateway/src/` (`policy.rs`, `modules.rs`, `gateway.rs`, `guard.rs`, `ip.rs`, `ratelimit.rs`, `redact.rs`,
+Code: `crates/dainty-gateway/src/` (`policy.rs`, `modules.rs`, `gateway.rs`, `guard.rs`, `ip.rs`, `ratelimit.rs`, `redact.rs`,
 `feed.rs`, `capture.rs`, `cert.rs`, `config.rs`, `server.rs`, `main.rs`), and as a service of the core, compiled in
-or as the library `crates/gateway-plugin` exports, `service.rs` with dainty-lass's
-`crates/service-plugin/src/gateway.rs` and `crates/controller/src/service_library/gateway.rs` (RD27).
+or as the library `crates/dainty-gateway-plugin` exports, `service.rs` with dainty-lass's
+`crates/dainty-service-plugin/src/gateway.rs` and `crates/dainty-controller/src/service_library/gateway.rs` (RD27).
 
 Fuzz targets in `fuzz`:
 
@@ -57,7 +57,7 @@ Fuzz targets in `fuzz`:
       invite is the one the gateway serves (`tests/certificate.rs`, fixture in `tests/fixtures/node-kit`).
 - [ ] `gateway make-cert` refuses to replace an existing certificate or key without `--force`, and says that a new
       one breaks every invite (`cert.rs`, `make_cert_main`). The key is written 0600 where the file system has
-      modes. On Windows the folder's ACL is left to the host kit, which sets none today (`crates/hostkit`).
+      modes. On Windows the folder's ACL is left to the host kit, which sets none today (`crates/dainty-hostkit`).
 - [ ] TLS 1.2 and 1.3 only, aws-lc-rs, ALPN `http/1.1` only (`cert::server_config`). The handshake has its own
       timeout (`GATEWAY_HANDSHAKE_TIMEOUT_MS`, 10 s) and counts against the per-address connection rate.
 - [ ] A public config without a certificate, or a private one with one, does not start (`Gateway::new`).
@@ -124,7 +124,7 @@ first, and content and chat stay the gateway's own upstreams, so a module's rout
 ### The library's boundary (RD27)
 
 The gateway and the allowlist run as one service of the core (`gateway::service`, RD27): compiled in, or as the
-library `crates/gateway-plugin` exports (a cdylib, which `plugin-host` loads only at the SHA-256 `host.toml` pins;
+library `crates/dainty-gateway-plugin` exports (a cdylib, which `plugin-host` loads only at the SHA-256 `host.toml` pins;
 dainty-lass's `docs/security/plugin-host.md`), through `controller::service_library::gateway` either way. Compiled in,
 the same messages cross in-memory streams, and the service has a runtime of its own as a library's instance does. The library is the gateway: the listener, TLS and the
 certificate, the policy, the proxying to backends, the node-link endpoint's admission and the capture all stay in
@@ -132,7 +132,7 @@ it, and every item above holds there unchanged. Only control traffic crosses, as
 in DD5's frames, and the library is in the core's process, so what crosses is a question of shape, not of trust.
 
 - [ ] The data plane never crosses: no request, answer or header of a player goes to the core. The parity tests pass
-      against the service compiled in and loaded as a library (`crates/gateway-plugin/tests/parity.rs`, the same
+      against the service compiled in and loaded as a library (`crates/dainty-gateway-plugin/tests/parity.rs`, the same
       harness as `tests/parity.rs`).
 - [ ] A peer's call reaches the core (`NodeCall`) only after the library's endpoint admitted it: a listed or added
       peer, by its verified certificate, on a node link's route and method, the clocks agreeing and the body within

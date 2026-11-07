@@ -5,7 +5,7 @@
 use std::sync::{Arc, Mutex, MutexGuard};
 use std::time::Duration;
 
-use ::epic::auth::{self, Accounts, AuthError, AuthorizationCode, Session};
+use ::dainty_epic::auth::{self, Accounts, AuthError, AuthorizationCode, Session};
 
 use crate::bridge::types::{ActionResult, EpicView, ErrorCode, LauncherError};
 use crate::platform::keystore::epic::EpicSessionStore;
@@ -205,7 +205,7 @@ impl Epic {
 mod tests {
     use std::sync::Mutex as StdMutex;
 
-    use ::epic::auth::{Grant, Pending, Token};
+    use ::dainty_epic::auth::{Grant, Pending, Token};
 
     use super::*;
     use crate::platform::keystore::epic::FILE_NAME;
@@ -438,7 +438,7 @@ mod tests {
             );
             drop(rt.block_on(epic.fresh_session()).unwrap());
             assert_eq!(rt.block_on(epic.sign_out()), ActionResult::Ok);
-            tracing::warn!(target: "launcher::check", "the capture works");
+            tracing::warn!(target: "dainty_launcher::check", "the capture works");
         });
         let captured = capture.0.lock().unwrap().clone();
         let file = std::fs::read_to_string(logs.path().join("launcher.log")).unwrap_or_default();

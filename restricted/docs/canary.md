@@ -6,7 +6,7 @@ The production shadow replay, the rollback to the pre-cutover Node and MongoDB s
 
 ## 1. Turning on gateway traffic capture (`RD19`, `RB2`)
 
-The Rust gateway (dainty-lass's `crates/gateway`) has a traffic capture tap (`gateway::capture::CaptureWriter`). It is off unless `CAPTURE_DIR` is set in `.workspace/config/gateway.env`.
+The Rust gateway (dainty-lass's `crates/dainty-gateway`) has a traffic capture tap (`gateway::capture::CaptureWriter`). It is off unless `CAPTURE_DIR` is set in `.workspace/config/gateway.env`.
 
 ### 1.1 Configuration in `.workspace/config/gateway.env`
 
@@ -159,7 +159,7 @@ On a native host installation:
 
 1. Build `dainty-host` with the `paradox` cargo feature enabled:
    ```bash
-   cargo build --release -p server-console --features paradox --locked
+   cargo build --release -p dainty-server --features paradox --locked
    ```
 2. Ensure MongoDB (`mongod`) and Node.js (`>= 20.19`) are installed (`dainty-host doctor` checks both when built with `--features paradox`).
 3. Run `dainty-host setup` and `dainty-host start` (or `dainty-host serve`). When compiled with `--features paradox`, `hostkit::serve::compose` supervises `mongod`, the Node `ParadoxBackend` (`build/server.js`), and the Node `ParadoxDirector` in place of the in-process Rust `isles-1-14-7` module.

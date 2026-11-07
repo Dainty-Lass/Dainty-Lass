@@ -7,11 +7,11 @@
 use axum::body::{Body, Bytes};
 use axum::extract::Request;
 use axum::response::{IntoResponse, Response};
+use dainty_service_kit::body::{BodyError, ExpressBody};
 use http::header;
 use http::request::Parts;
 use http_body_util::BodyExt;
 use serde_json::{Map, Value};
-use service_kit::body::{BodyError, ExpressBody};
 
 /// 100 KiB, Express's default.
 pub const BODY_LIMIT: usize = 100 * 1024;
@@ -65,7 +65,7 @@ fn parse_json(text: &str) -> Result<Value, BodyError> {
     if !first.starts_with(['{', '[']) {
         return Err(BodyError::Malformed);
     }
-    service_kit::jsjson::parse(text).map_err(|_| BodyError::Malformed)
+    dainty_service_kit::jsjson::parse(text).map_err(|_| BodyError::Malformed)
 }
 
 async fn parse(parts: &Parts, body: Body, limit: usize) -> Result<(Option<Value>, Bytes), BodyError> {
@@ -91,7 +91,7 @@ async fn parse(parts: &Parts, body: Body, limit: usize) -> Result<(Option<Value>
     let text = std::str::from_utf8(&bytes).map_err(|_| BodyError::Malformed)?;
     let value = match kind {
         Kind::Json => parse_json(text)?,
-        Kind::Form => service_kit::body::parse_form(text)?,
+        Kind::Form => dainty_service_kit::body::parse_form(text)?,
     };
     Ok((Some(value), bytes))
 }
@@ -104,7 +104,7 @@ pub async fn read_body_parts_limit(parts: &Parts, body: Body, limit: usize) -> R
     parse(parts, body, limit)
         .await
         .map(|(value, _)| value)
-        .map_err(|e| service_kit::body::error_page(e.status()))
+        .map_err(|e| dainty_service_kit::body::error_page(e.status()))
 }
 
 /// [`read_body_parts_limit`] at the default limit.

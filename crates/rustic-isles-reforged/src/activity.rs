@@ -8,8 +8,8 @@ use std::future::Future;
 use std::sync::{Arc, OnceLock, Weak};
 
 use axum::response::Response;
+use dainty_module_api::{Actor, ActorContext};
 use http::StatusCode;
-use module_api::{Actor, ActorContext};
 use rustic_isles::{Settings, Shared, UserId};
 use rustic_isles_economy::inventory::CommittedTransaction;
 use rustic_isles_store::repo::reforged::{
@@ -98,7 +98,7 @@ fn midnight(day: &str) -> Option<i64> {
     if !shape {
         return None;
     }
-    let at = service_kit::js::date_parse(&format!("{day}T00:00:00.000Z"))?;
+    let at = dainty_service_kit::js::date_parse(&format!("{day}T00:00:00.000Z"))?;
     (day_of(at) == day).then_some(at)
 }
 
@@ -1475,7 +1475,7 @@ mod tests {
         ];
         let maps: Vec<Map<String, Value>> = docs.iter().map(|d| d.as_object().unwrap().clone()).collect();
         assert_eq!(
-            service_kit::jsjson::stringify(&totals(maps.iter())),
+            dainty_service_kit::jsjson::stringify(&totals(maps.iter())),
             r#"{"playtimeMinutes":1.5,"sessions":0,"hostingMinutes":0,"huntsHosted":0,"challengesClaimed":0,"slayersPathUnlocks":0,"reforges":0,"huntsStarted":{"dedicated":1,"realm":0,"playerHosted":0},"huntsCompleted":{"dedicated":0,"realm":0,"playerHosted":0},"huntsAbandoned":{"dedicated":0,"realm":0,"playerHosted":0},"kills":{"a":2},"xp":{},"itemsGained":{},"platinumSpendsByItem":{},"currency":{"C":{"credited":3,"debited":0}}}"#
         );
     }

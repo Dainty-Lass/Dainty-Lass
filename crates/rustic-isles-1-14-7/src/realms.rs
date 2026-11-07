@@ -5,11 +5,11 @@
 
 use std::sync::Arc;
 
-use module_api::BoxFuture;
-use rifts_seam::{AuthOutcome, RealmId, RequestInfo, Rifts, SeamError};
+use dainty_module_api::BoxFuture;
 use rustic_isles_auth::{
     LauncherAccount, LauncherError, RealmError, Realms, RuntimeAuth, RuntimeCaller, RuntimeRequest,
 };
+use rustic_rifts_seam::{AuthOutcome, RealmId, RequestInfo, Rifts, SeamError};
 use serde_json::Value;
 
 /// Auth's [`Realms`] answered by rifts: launcher accounts and runtime callers go through the seam.
@@ -92,8 +92,8 @@ impl Realms for RealmsAdapter {
         realm: Option<&'a str>,
     ) -> BoxFuture<'a, Result<Option<String>, RealmError>> {
         Box::pin(async move {
-            let user = rifts_seam::AccountId(account.user_id.clone());
-            let realm = realm.map(|text| rifts_seam::Json(text.to_owned()));
+            let user = rustic_rifts_seam::AccountId(account.user_id.clone());
+            let realm = realm.map(|text| rustic_rifts_seam::Json(text.to_owned()));
             match self.rifts.entry().authorize_game_session_realm(user, realm).await {
                 Ok(entry) => Ok(entry.map(|e| e.realm.to_string())),
                 Err(SeamError::Refused(refusal)) => Err(RealmError::Refused {
@@ -115,7 +115,7 @@ impl Realms for RealmsAdapter {
                 Some(text) => Some(text.parse::<RealmId>().map_err(|e| e.to_string())?),
                 None => None,
             };
-            let user = rifts_seam::AccountId(account.user_id.clone());
+            let user = rustic_rifts_seam::AccountId(account.user_id.clone());
             self.rifts
                 .entry()
                 .bind_realm_presence_at_login(user, realm)

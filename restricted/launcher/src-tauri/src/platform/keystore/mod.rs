@@ -23,8 +23,8 @@ pub mod os;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
-use protocol::account::is_plausible_account_key;
-use protocol::invite::is_valid_fingerprint;
+use dainty_protocol::account::is_plausible_account_key;
+use dainty_protocol::invite::is_valid_fingerprint;
 use sha2::{Digest, Sha256};
 
 use self::format::{Stored, parse_stored};
@@ -279,7 +279,7 @@ pub struct BackupFile<'a> {
 /// which the import reads back, so they are not translated.
 pub fn backup_file_text(file: &BackupFile<'_>) -> String {
     let mut lines = vec![
-        "DaintyLass account key".to_owned(),
+        "Dainty Lass account key".to_owned(),
         String::new(),
         format!("Server: {} ({}:{})", file.server_name, file.host, file.port),
     ];
@@ -292,7 +292,7 @@ pub fn backup_file_text(file: &BackupFile<'_>) -> String {
     lines.push(String::new());
     lines.push("Keep this file private: anyone who has this key can play as you on this server.".into());
     lines.push(
-        "To use it on another PC: DaintyLass Launcher > Register > I already have a key > Load a backup file.".into(),
+        "To use it on another PC: Dainty Lass Launcher > Register > I already have a key > Load a backup file.".into(),
     );
     lines.push(String::new());
     lines.join("\r\n")
@@ -669,8 +669,8 @@ mod tests {
         // backupFileText's output for the same values, from Node
         assert_eq!(
             text,
-            "DaintyLass account key\r\n\r\nServer: Hunts (play.example.org:443)\r\nCertificate: ab\r\nUsername: -\r\nSaved: 2026-10-21\r\nKey: RRK_abababababababababababababababababababababababab\r\n\r\nKeep this file private: anyone who has this key can play as you on this server.\r\nTo use it on another PC: DaintyLass Launcher > Register > I already have a key > Load a backup file.\r\n"
+            "Dainty Lass account key\r\n\r\nServer: Hunts (play.example.org:443)\r\nCertificate: ab\r\nUsername: -\r\nSaved: 2026-10-21\r\nKey: RRK_abababababababababababababababababababababababab\r\n\r\nKeep this file private: anyone who has this key can play as you on this server.\r\nTo use it on another PC: Dainty Lass Launcher > Register > I already have a key > Load a backup file.\r\n"
         );
-        assert_eq!(protocol::account::extract_account_key(&text), Some(KEY));
+        assert_eq!(dainty_protocol::account::extract_account_key(&text), Some(KEY));
     }
 }

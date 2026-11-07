@@ -1,11 +1,11 @@
 /*
- * Copyright (C) 2026 DaintyLass contributors
+ * Copyright (C) 2026 Dainty Lass contributors
  * SPDX-License-Identifier: AGPL-3.0-only
  *
  * New to this backend: nothing in this file comes from Mystic Paradox.
  */
 
-// The launcher API: how the DaintyLass launcher, the content server, the admin service and the host kit talk to
+// The launcher API: how the Dainty Lass launcher, the content server, the admin service and the host kit talk to
 // this backend. Modelled on Dauntless Revived's /undaunted/api: invite codes, one account key per player and a
 // live server status. The paths and names are ones installs depend on (docs/dainty-lass-plan.md, DD1).
 //
@@ -122,7 +122,7 @@ function Eligible(holder: KeyHolder): boolean {
 
 function ServerName(): string {
     const Name = (process.env.REFORGED_SERVER_NAME ?? "").replace(/[\u0000-\u001f\u007f-\u009f]/g, " ").trim();
-    return Name === "" ? "DaintyLass server" : Name.slice(0, 64);
+    return Name === "" ? "Dainty Lass server" : Name.slice(0, 64);
 }
 
 function ServerVersion(): string {
@@ -188,7 +188,7 @@ function ForgetStatus(): void {
     StatusSeen.clear();
 }
 
-/** The status body (crates/protocol status.rs, field for field). The limited view hides who is online. */
+/** The status body (crates/dainty-protocol status.rs, field for field). The limited view hides who is online. */
 export async function ServerStatusBody(view: View): Promise<unknown> {
     const Seen = StatusSeen.get(view);
     if (Seen && Date.now() - Seen.at < STATUS_CACHE_MS) return Seen.body;

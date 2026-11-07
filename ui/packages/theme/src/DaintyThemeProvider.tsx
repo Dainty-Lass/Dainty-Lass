@@ -71,7 +71,7 @@ function setAttr(name: string, value: string | undefined) {
 }
 
 /**
- * The one theme wrapper for every DaintyLass app. `initialMode` and `initialAppearance` come from what
+ * The one theme wrapper for every Dainty Lass app. `initialMode` and `initialAppearance` come from what
  * the server read, so the first client render matches `<html>`; static pages pass neither and read
  * local storage. `accent` is the server's (Settings, or a server's launcher branding).
  */

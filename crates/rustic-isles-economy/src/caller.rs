@@ -5,9 +5,9 @@
 
 use axum::extract::Request;
 use axum::response::Response;
-use rifts_seam::RuntimeAuth;
 use rustic_isles::Shared;
 use rustic_isles_auth::{AuthData, RuntimeCaller};
+use rustic_rifts_seam::RuntimeAuth;
 
 /// The realms seam's handle, when it is rifts' runtime (decision item 2 of the inventory spec).
 pub(crate) fn capability(runtime: &RuntimeCaller) -> Option<RuntimeAuth> {
@@ -23,6 +23,6 @@ pub(crate) async fn game_auth(shared: &Shared, request: &mut Request) -> Result<
 }
 
 /// A `HostWriteKind`'s name as the logs and tags write it.
-pub(crate) fn kind_name(kind: rifts_seam::HostWriteKind) -> String {
+pub(crate) fn kind_name(kind: rustic_rifts_seam::HostWriteKind) -> String {
     format!("{kind:?}")
 }

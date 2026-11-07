@@ -7,7 +7,7 @@
 use std::sync::Arc;
 use std::time::Duration;
 
-use module_api::BoxFuture;
+use dainty_module_api::BoxFuture;
 use rustic_isles::{DedicatedServers, Launch, LaunchRequest, LiveHub, LiveHubStatus, Settings, Unconfigured};
 use serde_json::Value;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
@@ -155,7 +155,7 @@ impl HttpDirector {
     }
 
     async fn launch_inner(&self, request: LaunchRequest) -> Result<Launch, String> {
-        let body = service_kit::jsjson::stringify(&request.body());
+        let body = dainty_service_kit::jsjson::stringify(&request.body());
         let mut headers = vec![("Content-Type", "application/json")];
         if let Some(id) = request.request_id.as_deref() {
             headers.push((rustic_isles::REQUEST_ID_HEADER, id));

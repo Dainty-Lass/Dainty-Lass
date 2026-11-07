@@ -25,7 +25,7 @@ fuzz_target!(|data: &[u8]| {
     if let Ok(parsed) = invite::parse_invite(&text) {
         // An invite that parses names a host the key may go to: never empty, and a public one is pinned
         assert!(!parsed.host.is_empty() && parsed.port != 0);
-        assert!(parsed.mode != protocol::invite::ServerMode::Public || parsed.fp.is_some());
+        assert!(parsed.mode != dainty_protocol::invite::ServerMode::Public || parsed.fp.is_some());
     }
     let _ = username::check_username(&text);
     if let Some(key) = username::extract_account_key(&text) {

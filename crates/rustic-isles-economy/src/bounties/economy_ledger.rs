@@ -7,11 +7,11 @@
 use std::collections::HashSet;
 use std::sync::Arc;
 
-use module_api::{Actor, ActorContext};
+use dainty_module_api::{Actor, ActorContext};
+use dainty_service_kit::{js, jsjson};
 use rustic_isles::{GameDataRoot, Settings, Shared};
 use rustic_isles_store::{AccountId, IslesStore};
 use serde_json::Value;
-use service_kit::{js, jsjson};
 
 use crate::bounties::platinum::{PLATINUM_AGGREGATE_ID, is_platinum_catalog_id};
 use crate::inventory::CommittedTransaction;

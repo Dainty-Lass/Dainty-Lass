@@ -1,5 +1,5 @@
 #!/bin/bash
-# DaintyLass: every server test suite, run inside the test image (docker/Dockerfile, target test),
+# Dainty Lass: every server test suite, run inside the test image (docker/Dockerfile, target test),
 # which is the server image plus the Rust toolchain: `reforged-test [rust] [backend] [director]` (all three by
 # default). docker/run-tests.sh runs it, then the compose smoke test; `docker compose run --rm test` runs it with
 # the server's game-data volumes mounted, so the *.gamedata.test.ts files check your real data too.
@@ -32,8 +32,8 @@ run_suite() {
 			echo "(nftables test: off; run with --cap-add NET_ADMIN to include it)"
 		fi
 		cd "$root" && cargo test --locked --no-fail-fast \
-			-p protocol -p proxy -p remote -p service-kit -p store -p gateway -p content -p admin -p hostkit -p host \
-			-p controller
+			-p dainty-protocol -p dainty-proxy -p dainty-remote -p dainty-service-kit -p dainty-store -p dainty-gateway -p dainty-content -p dainty-admin -p dainty-hostkit -p dainty-host \
+			-p dainty-controller
 		;;
 	backend) cd "$root/modules/rustic-isles/reference/1.14.7/ParadoxBackend" && npm test ;;
 	director) cd "$root/modules/rustic-isles/reference/1.14.7/ParadoxDirector" && npm test ;;

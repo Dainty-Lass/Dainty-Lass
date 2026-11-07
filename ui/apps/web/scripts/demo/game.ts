@@ -240,7 +240,7 @@ export function startDemoGame(opts: {
       );
     }
     const procs = [
-      [4100 + opts.seed, "dainty-core", "host", 6 + random() * 8, 420e6],
+      [4100 + opts.seed, "dainty-lass", "host", 6 + random() * 8, 420e6],
       [4200 + opts.seed, "mongod", "child", 2 + random() * 3, 310e6],
       ...hunts.map(
         (h, i) =>

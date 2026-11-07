@@ -1,0 +1,20 @@
+[package]
+name = "dainty-gateway-plugin"
+description = "The gateway and the allowlist as one library the core loads (RD27)"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+[lib]
+name = "dainty_gateway_plugin"
+crate-type = ["cdylib"]
+
+[dependencies]
+dainty-gateway.workspace = true
+# export_service! names it
+dainty-module-api.workspace = true
+dainty-service-plugin.workspace = true
+

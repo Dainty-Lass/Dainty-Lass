@@ -1,6 +1,6 @@
 # dainty-dash
 
-The DaintyLass user interfaces on one theme: a **remote management dashboard** for a server's staff, the
+The Dainty Lass user interfaces on one theme: a **remote management dashboard** for a server's staff, the
 **launcher** page players use, and the **server manager** page hosts use. All three are Astryx on Next.js
 (through vinext) on Bun, and share `@dainty/theme`.
 

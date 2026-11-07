@@ -60,7 +60,7 @@ fuzz_target!(|data: &[u8]| {
     for status in STATUSES {
         if let parse::RegisterResult::Ok { key } = parse::read_register(status, Some(&value)) {
             // Only a key that may go on the command line is ever stored
-            assert!(status == 200 && protocol::account::is_plausible_account_key(&key));
+            assert!(status == 200 && dainty_protocol::account::is_plausible_account_key(&key));
         }
         if let Ok(info) = parse::read_user_info(status, Some(&value)) {
             assert!(status == 200 && parse::is_valid_user_id(&info.user_id));
@@ -72,11 +72,11 @@ fuzz_target!(|data: &[u8]| {
         let names: Vec<&str> = manifest
             .files
             .iter()
-            .filter_map(|file| protocol::manifest::runtime_file_slot(&file.name))
+            .filter_map(|file| dainty_protocol::manifest::runtime_file_slot(&file.name))
             .collect();
-        assert_eq!(names, protocol::manifest::RUNTIME_FILE_NAMES);
+        assert_eq!(names, dainty_protocol::manifest::RUNTIME_FILE_NAMES);
         for file in &manifest.files {
-            assert!((1..=protocol::manifest::MAX_RUNTIME_FILE_BYTES).contains(&file.size));
+            assert!((1..=dainty_protocol::manifest::MAX_RUNTIME_FILE_BYTES).contains(&file.size));
             assert!(file.sha256.len() == 64 && file.sha256.bytes().all(|b| matches!(b, b'0'..=b'9' | b'a'..=b'f')));
         }
         assert!(!manifest.version.is_empty() && manifest.version.chars().count() <= 48);

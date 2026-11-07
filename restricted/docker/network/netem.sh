@@ -1,5 +1,5 @@
 #!/bin/sh
-# DaintyLass: the network harness's latency (DN12, docs/hosting-docker.md). Runs in a node's network namespace
+# Dainty Lass: the network harness's latency (DN12, docs/hosting-docker.md). Runs in a node's network namespace
 # (compose.yaml's netem-* services) and shapes its egress with tc/netem:
 #  - to each other node: half the round trip the table says, so the two directions add up to the table's value
 #  - to everything else (the Docker host, which plays a player): the whole round trip between the player's region

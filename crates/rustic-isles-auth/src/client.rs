@@ -7,7 +7,7 @@ use std::net::{IpAddr, Ipv6Addr};
 
 use axum::extract::{ConnectInfo, Request};
 use axum::http::HeaderMap;
-use service_kit::serve::ConnectionInfo;
+use dainty_service_kit::serve::ConnectionInfo;
 
 use crate::util;
 

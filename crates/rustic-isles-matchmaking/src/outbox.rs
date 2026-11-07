@@ -7,8 +7,8 @@
 use std::sync::Arc;
 use std::time::Duration;
 
-use module_api::chat::{HEADLINE_EVENT, Headline, HeadlineRecipient};
-use module_api::{Actor, ActorContext, BoxFuture, Event, EventName, ModuleContext};
+use dainty_module_api::chat::{HEADLINE_EVENT, Headline, HeadlineRecipient};
+use dainty_module_api::{Actor, ActorContext, BoxFuture, Event, EventName, ModuleContext};
 use rustic_isles_store::repo::parties::PartyOutboxRecord;
 use rustic_isles_store::{IslesStore, RepoError};
 
@@ -77,7 +77,7 @@ async fn headline(store: &IslesStore, event: &PartyOutboxRecord) -> Result<Headl
     Ok(Headline {
         id: event.event_id.clone(),
         recipients: found,
-        body: service_kit::jsjson::stringify(&body),
+        body: dainty_service_kit::jsjson::stringify(&body),
     })
 }
 

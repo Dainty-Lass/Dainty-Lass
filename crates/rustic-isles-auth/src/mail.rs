@@ -9,7 +9,7 @@ use std::time::Duration;
 
 use base64::Engine as _;
 use base64::engine::general_purpose::STANDARD;
-use module_api::BoxFuture;
+use dainty_module_api::BoxFuture;
 use tokio::io::{AsyncRead, AsyncReadExt as _, AsyncWrite, AsyncWriteExt as _};
 use tokio::net::TcpStream;
 
@@ -66,7 +66,7 @@ impl std::fmt::Debug for SmtpConfig {
 impl SmtpConfig {
     /// The settings, or the keys that are missing or invalid (names only, never values).
     pub fn from_settings(settings: &dyn AuthSettings) -> Result<Self, Vec<&'static str>> {
-        let trimmed = |name: &str| service_kit::js::trim(settings.raw(name).unwrap_or("")).to_owned();
+        let trimmed = |name: &str| dainty_service_kit::js::trim(settings.raw(name).unwrap_or("")).to_owned();
         let mut problems = Vec::new();
         let host = trimmed("RUSTIC_ISLES_SMTP_HOST");
         if host.is_empty() {
@@ -96,7 +96,7 @@ impl SmtpConfig {
             problems.push("RUSTIC_ISLES_SMTP_USER");
         }
         let password = settings.raw("RUSTIC_ISLES_SMTP_PASSWORD").unwrap_or("").to_owned();
-        if service_kit::js::trim(&password).is_empty() {
+        if dainty_service_kit::js::trim(&password).is_empty() {
             problems.push("RUSTIC_ISLES_SMTP_PASSWORD");
         }
         let from = trimmed("RUSTIC_ISLES_MAIL_FROM");

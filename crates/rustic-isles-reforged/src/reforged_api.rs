@@ -332,7 +332,7 @@ pub async fn register(call: Call) -> Response {
     let hash = rustic_isles_auth::hashes::user_key_hash(secret, &key);
     let account = AccountId::new(&shared.node().node);
     let user_id = UserId::random();
-    let actor = module_api::ActorContext::new(module_api::Actor::Player {
+    let actor = dainty_module_api::ActorContext::new(dainty_module_api::Actor::Player {
         account: account.global().clone(),
     });
     let normalized = username.to_lowercase();
@@ -477,7 +477,7 @@ fn server_name(raw: Option<&str>) -> String {
     let cleaned = util::controls_to_spaces(raw.unwrap_or(""));
     let name = trim(&cleaned);
     if name.is_empty() {
-        "DaintyLass server".to_owned()
+        "Dainty Lass server".to_owned()
     } else {
         util::take_chars(name, 64)
     }
@@ -656,7 +656,7 @@ pub fn status_instances(answer: &Value) -> (Vec<Value>, HashMap<String, String>)
         let started = map
             .get("startedAt")
             .and_then(Value::as_str)
-            .and_then(service_kit::js::date_parse)
+            .and_then(dainty_service_kit::js::date_parse)
             .map(iso);
         let title = instance_title(kind, &map_leaf, behemoth.as_deref());
         if kind == "hunt"
@@ -776,7 +776,7 @@ async fn online_players(shared: &Shared, store: &IslesStore, map: &HashMap<Strin
             (name, body)
         })
         .collect();
-    players.sort_by(|a, b| service_kit::collate::locale_compare(&a.0, &b.0));
+    players.sort_by(|a, b| dainty_service_kit::collate::locale_compare(&a.0, &b.0));
     players.into_iter().map(|(_, v)| v).collect()
 }
 
@@ -898,7 +898,7 @@ mod tests {
         ]);
         let (list, players) = status_instances(&answer);
         assert_eq!(
-            service_kit::jsjson::stringify(&list[0]),
+            dainty_service_kit::jsjson::stringify(&list[0]),
             r#"{"id":"h1","kind":"hunt","title":"Skarn Prime","map":"foo_persistent","behemoth":"BPC_Skarn_Prime","players":3,"maxPlayers":5,"startedAt":"2026-10-20T00:00:00.000Z"}"#
         );
         assert_eq!(players.get("a").map(String::as_str), Some("h1"));
@@ -924,7 +924,7 @@ mod tests {
         assert_eq!(source_url(Some("Https://example.com")), None);
         assert_eq!(source_url(Some("https://u@x/")), None);
         assert_eq!(source_url(Some("https:///x")), None);
-        assert_eq!(server_name(Some("")), "DaintyLass server");
+        assert_eq!(server_name(Some("")), "Dainty Lass server");
         assert_eq!(server_name(Some(" Fox\u{1}hold ")), "Fox hold");
     }
 

@@ -4,7 +4,7 @@
 
 use std::collections::HashMap;
 
-use protocol::invite::{Invite, ServerMode};
+use dainty_protocol::invite::{Invite, ServerMode};
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 

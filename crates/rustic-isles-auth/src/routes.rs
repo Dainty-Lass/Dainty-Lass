@@ -9,9 +9,9 @@ use axum::extract::Request;
 use axum::http::{Method, StatusCode};
 use axum::middleware::Next;
 use axum::response::{IntoResponse, Response};
-use module_api::BoxFuture;
+use dainty_module_api::BoxFuture;
+use dainty_service_kit::routing::Params;
 use serde_json::Value;
-use service_kit::routing::Params;
 
 use crate::launcher::{Cors, LauncherAuth};
 use crate::store::Purpose;
@@ -410,9 +410,9 @@ impl<S: AuthStore> Auth<S> {
         }
     }
 
-    /// Every route on `service_kit::routing` (Express matching) behind the CORS gate.
+    /// Every route on `dainty_service_kit::routing` (Express matching) behind the CORS gate.
     pub fn router(self: Arc<Self>) -> axum::Router {
-        let mut router = service_kit::routing::Router::<()>::new();
+        let mut router = dainty_service_kit::routing::Router::<()>::new();
         for route in routes() {
             let auth = Arc::clone(&self);
             let id = route.id;
@@ -436,7 +436,7 @@ impl<S: AuthStore> Auth<S> {
             };
             router = router.route(route.method.clone(), route.path, handler);
         }
-        let service = router.into_service((), service_kit::json::not_found);
+        let service = router.into_service((), dainty_service_kit::json::not_found);
         let gate = Arc::clone(&self);
         axum::Router::new()
             .fallback_service(service)

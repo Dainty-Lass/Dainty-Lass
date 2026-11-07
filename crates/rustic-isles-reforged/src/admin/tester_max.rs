@@ -6,15 +6,15 @@
 use std::sync::Arc;
 
 use axum::response::Response;
+use dainty_module_api::{Actor, ActorContext, BoxFuture};
+use dainty_service_kit::js::safe_integer;
 use http::StatusCode;
-use module_api::{Actor, ActorContext, BoxFuture};
 use rustic_isles::Shared;
 use rustic_isles_store::repo::auth::LauncherAccountRecord;
 use rustic_isles_store::repo::progression::ProgressionGrantRecord;
 use rustic_isles_store::repo::reforged::AdminAuditRecord;
 use rustic_isles_store::{AccountId, IslesStore, RepoError};
 use serde_json::Value;
-use service_kit::js::safe_integer;
 
 use super::{AdminContext, ReforgedAdmin, admin_actor, admin_error, fresh_id, player_not_found};
 use crate::util::{self, iso, json, now_ms, object};
@@ -181,7 +181,7 @@ pub fn is_run_id(text: &str) -> bool {
 }
 
 fn js_string(value: Option<&Value>) -> String {
-    service_kit::js::string(value)
+    dainty_service_kit::js::string(value)
 }
 
 /// The kit's problems, in order; none is a kit that can run.
@@ -737,7 +737,7 @@ pub async fn tester_max(ctx: AdminContext) -> Response {
     };
     let text = String::from_utf8_lossy(&bytes);
     let text = text.strip_prefix('\u{feff}').unwrap_or(&text);
-    let Ok(kit) = service_kit::jsjson::parse(text) else {
+    let Ok(kit) = dainty_service_kit::jsjson::parse(text) else {
         return kit_invalid(vec!["tester_max_kit.json is not valid JSON".to_owned()]);
     };
     let admin = ReforgedAdmin::of(&ctx.shared);

@@ -1,6 +1,6 @@
 <!-- markdownlint-configure-file { "MD013": { "line_length": 120, "tables": false } } -->
 
-# Security checklist: the split server's tunnel (`crates/network/src/tunnel.rs`, RX3)
+# Security checklist: the split server's tunnel (`crates/dainty-network/src/tunnel.rs`, RX3)
 
 The checklist for `Service::Tunnel`, which carries HTTP between the two halves of a split server
 (`docs/split-roles.md`). `SECURITY_REVIEW.md` indexes it.
@@ -35,7 +35,7 @@ with the date and the commit reviewed. An item that does not hold is a bug to fi
 - [ ] Bodies are capped at 512 KiB both ways before encoding, so a message stays under the link's limit
       (`MAX_BODY`; test `round_trip_and_limits`).
 - [ ] The game server key travels only inside the node link; the public gateway's refusal of its header is unchanged
-      (`crates/gateway/src/policy.rs`, `HOST_ONLY_HEADERS`).
+      (`crates/dainty-gateway/src/policy.rs`, `HOST_ONLY_HEADERS`).
 - [ ] Nothing logs a request's headers or body: failures log the peer, the port and the error only.
 - [ ] A public game half runs with open game ports only when `split.open_game_ports = true` says so
       (`SplitConfig::check`; test `split_reaches_the_backend_file`).

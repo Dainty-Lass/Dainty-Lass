@@ -381,7 +381,7 @@ impl Fake {
                     return (400, serde_json::json!({ "error": "bad_request" }));
                 };
                 let username = parsed["Username"].as_str().unwrap_or_default().to_owned();
-                if !protocol::account::is_valid_username(&username) {
+                if !dainty_protocol::account::is_valid_username(&username) {
                     return (400, serde_json::json!({ "error": "username_invalid" }));
                 }
                 if self

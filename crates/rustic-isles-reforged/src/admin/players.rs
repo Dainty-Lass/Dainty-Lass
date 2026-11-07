@@ -58,7 +58,7 @@ pub async fn online(ctx: AdminContext) -> Response {
         Ok(players) => players,
         Err(e) => return admin_internal(e),
     };
-    players.sort_by(|a, b| service_kit::collate::locale_compare(&a.1, &b.1));
+    players.sort_by(|a, b| dainty_service_kit::collate::locale_compare(&a.1, &b.1));
     let list: Vec<Value> = players
         .into_iter()
         .map(|(id, name)| object(vec![("userId", Value::from(id)), ("displayName", Value::from(name))]))

@@ -6,19 +6,19 @@
 #![no_main]
 
 use libfuzzer_sys::fuzz_target;
-use rifts_guard::ChainRecord;
-use rifts_guard::evidence::{
+use rustic_rifts_guard::ChainRecord;
+use rustic_rifts_guard::evidence::{
     CompletionRequest, MAX_BATCH_EVENT_BYTES, MAX_BATCH_EVENTS, apply_batch, apply_completion, parse_batch,
     parse_completion,
 };
-use rifts_guard::json::parse_p2p_body;
-use rifts_seam::{AccountId, SessionId, UnixMillis};
+use rustic_rifts_guard::json::parse_p2p_body;
+use rustic_rifts_seam::{AccountId, SessionId, UnixMillis};
 
 fn is_hex64(text: &str) -> bool {
     text.len() == 64 && text.bytes().all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
 }
 
-fn guard_code(error: &rifts_guard::GuardError) -> bool {
+fn guard_code(error: &rustic_rifts_guard::GuardError) -> bool {
     error.code().is_some_and(|code| code.starts_with("GUARD_"))
 }
 

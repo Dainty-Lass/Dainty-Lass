@@ -6,7 +6,7 @@
 #![no_main]
 
 use libfuzzer_sys::fuzz_target;
-use rifts_host::{SessionLive, apply_peer_line, parse_peer_event};
+use rustic_rifts_host::{SessionLive, apply_peer_line, parse_peer_event};
 
 fuzz_target!(|data: &[u8]| {
     let text = String::from_utf8_lossy(data);

@@ -30,10 +30,10 @@
 | File headers and `git log` | Every file of this half is the maintainer's (one author); `admin.rs`, `admin_discord.rs`, `tester_max.rs`, `release_gates.rs`, `host_routes.rs` port `routes/admin.ts`, `controllers/admin.ts`, `middleware/HasAdminAuth.ts`, `controllers/adminDiscordAuth.ts`, `controllers/testerMax*.ts`, `observability/releaseGates.ts`, `routes/reforgedApi.ts` (`HostOnly`); `bootstrap.rs` ports `scripts/bootstrap_admin.ts` (RB11, `2824b6d`); `module.rs`'s admin and home wiring is DN2, DN5 and RD25 |
 | `tests/reforged_admin.rs` (restricted) | The authored tests of the admin routes (the notices, Guard, player-logs, operations and activity tests in the same file are the public half's) |
 | `security/managerOperator.ts`, `HasAdminAuth.ts`, `routes/admin.ts`, `app.ts` (Node reference) | The manager operator credential, which restricted's Rust does not have yet ("Not here yet" in `admin.rs`'s header), and the router-wide admin middleware |
-| dainty-lass `crates/admin/src/upstream.rs`, `ui/apps/web/src/lib/game/backend.ts`, `crates/hostkit/src/hostconfig.rs`, `crates/hostkit/src/invite.rs` | The MIT clients of this half: the admin service and the dashboard sign every `/admin/v1` call as the manager operator; `setup` writes `RUSTIC_ISLES_MANAGER_ADMIN=on` and `RUSTIC_ISLES_MANAGER_OPERATOR_SECRET` into `backend.env`; `reforged-host invite` calls the host-only invite routes |
+| dainty-lass `crates/dainty-admin/src/upstream.rs`, `ui/apps/web/src/lib/game/backend.ts`, `crates/dainty-hostkit/src/hostconfig.rs`, `crates/dainty-hostkit/src/invite.rs` | The MIT clients of this half: the admin service and the dashboard sign every `/admin/v1` call as the manager operator; `setup` writes `RUSTIC_ISLES_MANAGER_ADMIN=on` and `RUSTIC_ISLES_MANAGER_OPERATOR_SECRET` into `backend.env`; `reforged-host invite` calls the host-only invite routes |
 | `spec-rustic-isles-core.md`, `-auth.md`, `-store.md`, `-chat.md` | The pipeline and admin gate (core §3.2), §7.6 and §7.8, auth's TOTP, passwords, limiter and Discord client, the repositories, the `chat.*` home operations |
 
-Consequence of the third row: on a DaintyLass host today, restricted answers every manager-signed `/admin/v1` call 401
+Consequence of the third row: on a Dainty Lass host today, restricted answers every manager-signed `/admin/v1` call 401
 `ADMIN_UNAUTHORIZED`, so the dashboard's game pages and the admin bot's moderation cannot reach the backend. The
 rewrite implements the credential (§3.3). This is parity with Node, where the Rust port is the bug (AGENTS.md).
 
@@ -59,8 +59,8 @@ path starts `/admin/` (B240-B243) are relayed by core with this half's authentic
 
 ### 1.3 Classification
 
-All of this half is Category B (ports Paradox TypeScript) except `module.rs`'s wiring (Category A, DaintyLass's
-DN rows) and `release_gates.rs`'s active-play gate (DaintyLass's). The implementer writes all of it from this spec
+All of this half is Category B (ports Paradox TypeScript) except `module.rs`'s wiring (Category A, Dainty Lass's
+DN rows) and `release_gates.rs`'s active-play gate (Dainty Lass's). The implementer writes all of it from this spec
 (core §17 item 11).
 
 ### 1.4 What stays in dainty-restricted
@@ -187,7 +187,7 @@ When the manager credential does not apply (§3.3 step 0):
 
 ### 3.3 The manager operator credential (Node `managerOperator.ts`; missing in restricted)
 
-The admin service (`crates/admin`) and the dashboard sign `/admin/v1` calls for a staff member; no cookie, no CSRF
+The admin service (`crates/dainty-admin`) and the dashboard sign `/admin/v1` calls for a staff member; no cookie, no CSRF
 token. Step 0: the credential applies when the request carries **any** header whose lower-cased name starts
 `x-paradox-operator-` **and** `RUSTIC_ISLES_MANAGER_ADMIN` reads on (trimmed, lower-cased `on`; any other value,
 blank included, is off at request time). Otherwise the request goes to §3.2 and the operator headers are ignored.
@@ -210,7 +210,7 @@ Checks, in this order; the first that fails answers (admin envelope, admin heade
 (path and query exactly as received; §20 item 5); the timestamp as sent (trimmed); the operator id as sent
 (trimmed); the lower-case SHA-256 hex of the raw body bytes (no body:
 `e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855`). This is byte for byte what
-`crates/admin`'s `operator_signature` computes.
+`crates/dainty-admin`'s `operator_signature` computes.
 
 **Accepted**: the caller is a synthetic administrator, never stored: userId `manager:<id>`; display name = the name
 header with U+0000-U+001F and U+007F removed, cut to 64 UTF-16 units, JS-trimmed, `operator` when empty; normalized
@@ -279,7 +279,7 @@ From a launcher account and a userId, keys in this order, optional ones left out
 `approved`), `status` (`active`/`banned`/`disabled`), `roles`, `rolesUpdatedAt`?, `rolesUpdatedBy`?, `usernameSet`
 (true unless stored false), `createdAt`, `lastLoginAt`?, `approvalUpdatedAt`?, `approvalUpdatedBy`?,
 `approvalReason`?, then only while a timeout is in force at now (store's `timeout_at`): `timeoutUntil`,
-`timeoutSince`, `timeoutReason`? (the timeout keys are DaintyLass's addition over Node, kept).
+`timeoutSince`, `timeoutReason`? (the timeout keys are Dainty Lass's addition over Node, kept).
 
 The manager's synthetic account reads
 `{"userId":"manager:<id>","displayName":<name>,"email":"","approvalStatus":"approved","status":"active","roles":["admin"],"usernameSet":true,"createdAt":<now>}`.
@@ -844,7 +844,7 @@ admin API on.
 | Tester max | non-tester → 409 `ADMIN_TESTER_REQUIRED`; `MAX fox_9` → 400 `ADMIN_TESTER_MAX_CONFIRMATION`; `runId` `short` → 400 `ADMIN_TESTER_MAX_RUN_ID`; no kit → 503 `ADMIN_TESTER_MAX_KIT_MISSING`; a kit with a fake funding port: a full run `done` with grants per block, a re-run with the same runId grants nothing new and reports the same totals; no character → 409 `ADMIN_TESTER_MAX_NO_CHARACTER` with an audit `player.tester_max.failed`; two concurrent runs → one 409 `ADMIN_TESTER_MAX_BUSY` |
 | Tester units | plan `(0, 250000, 100000)` → `(0,100000) (1,100000) (2,50000)`; `(200000, 250000)` → `(2,50000)`; equal → none; `(1234, 100000)` → `(0,98766)`; derived id deterministic, 45 characters, `tmax-` prefix; run ids `abcdefgh` ok, `abcdefg` and `-leading-hyphen` refused; a good kit has no problems; `slayersPath` gives exactly its one problem; `CURRENCY_PLATINUM` gives one Platinum-aggregate problem and `CURRENCY_SEASONAL_COIN` none |
 | Release gates | aggregate ok only with gates and all ok, keys `ok, gates`; guard mode texts (` Observe ` → `mode=observe`, `sometimes` not ok without echoing it); registration texts (`maybe` not echoed; auto-approve note); TLS: `off` text; `on` with `127.0.0.1`, `::1`, `localhost` ok; `0.0.0.0`, `203.0.113.9`, unset not ok (the address not echoed); `perhaps` not ok; legacy `MYSTPAX_B`, `MYSTPAX_A` → `2 MYSTPAX_ key(s): MYSTPAX_A, MYSTPAX_B` (the value never shown); core gates in order; active play `nobody in game`, 3 held with the 2-minute text, 3 with the override ok; the route from a non-loopback peer or with `x-forwarded-for` → empty 404 |
-| Manager operator (new) | Secret `s`×40, switch on, operator `111111111111111111`: a signed `GET /admin/v1/me` → 200, `csrfToken` null, account `manager:111111111111111111`, name `admin-api`; signed `PATCH .../access` with a JSON body → 200 and the audit's actor `manager:...` (no CSRF needed); the same signature again → 401 `ADMIN_OPERATOR_REPLAY`; timestamp 61 s old → `ADMIN_OPERATOR_STALE`, 6 s ahead → stale, 5 s ahead → ok; a tampered target, body or method → `ADMIN_OPERATOR_SIGNATURE`; upper-case signature hex accepted; id `abc`, missing timestamp, two id headers → `ADMIN_OPERATOR_INVALID`; `x-forwarded-for` or `via` present → 403 `ADMIN_OPERATOR_FORWARDED`; a non-loopback peer → 403 `ADMIN_OPERATOR_PEER_REFUSED` (checked before the format); secret of 31 characters → 503 `ADMIN_OPERATOR_NOT_CONFIGURED`; a form body → 400 `ADMIN_OPERATOR_BODY`; switch off → the operator headers are ignored and the request is 401 `ADMIN_UNAUTHORIZED`; start with the switch on and no secret → `Failed` with §3.3's text; the canonical string and signature agree with `crates/admin`'s `operator_signature` for a fixed input |
+| Manager operator (new) | Secret `s`×40, switch on, operator `111111111111111111`: a signed `GET /admin/v1/me` → 200, `csrfToken` null, account `manager:111111111111111111`, name `admin-api`; signed `PATCH .../access` with a JSON body → 200 and the audit's actor `manager:...` (no CSRF needed); the same signature again → 401 `ADMIN_OPERATOR_REPLAY`; timestamp 61 s old → `ADMIN_OPERATOR_STALE`, 6 s ahead → stale, 5 s ahead → ok; a tampered target, body or method → `ADMIN_OPERATOR_SIGNATURE`; upper-case signature hex accepted; id `abc`, missing timestamp, two id headers → `ADMIN_OPERATOR_INVALID`; `x-forwarded-for` or `via` present → 403 `ADMIN_OPERATOR_FORWARDED`; a non-loopback peer → 403 `ADMIN_OPERATOR_PEER_REFUSED` (checked before the format); secret of 31 characters → 503 `ADMIN_OPERATOR_NOT_CONFIGURED`; a form body → 400 `ADMIN_OPERATOR_BODY`; switch off → the operator headers are ignored and the request is 401 `ADMIN_UNAUTHORIZED`; start with the switch on and no secret → `Failed` with §3.3's text; the canonical string and signature agree with `crates/dainty-admin`'s `operator_signature` for a fixed input |
 | Host routes | without the key or with `x-reforged-gateway` or `x-forwarded-for` or a 31-character key → 403 `{"error":"forbidden"}`; CreateInvite defaults to 1 use, `uses: 0`, `uses: 1001`, `name: 5`, `name: null` refused with the exact body; a made code matches `^[A-HJ-NP-Z2-9]{4}(-[A-HJ-NP-Z2-9]{4}){2}$`; InviteCodes lists it with `note` null; DELETE `a` → 400, unknown → empty 404, known → empty 200; SetAccountStatus bad status, bad name → 400 exact, unknown → 404 not-found body, `banned` → 200 keys `UserId, Username, Status`; Kick → 200 keys `UserId, Username, Closed`, refresh sessions revoked |
 | Admin actions | (core's validation is core's test) `Kick` keeps refresh sessions and revokes codes; a timeout keeps the player out until it ends or is lifted and `Lookup` shows `Timeout` with since and until; a ban clears it and `Lookup` shows `Ban` with the reason; `Unban` leaves a timeout; resolution by global id, by userId, by name in any case; empty or unknown text → `NotFound` |
 | Home operations | `progression.grant` `{"xp":-5}` → progress unchanged, version + 1; `inventory.write` `["A:2","A","B:x"]` on an account without characters → a `Slayer` character, stacks `A` 3, `B` 1, `loot_applied` 3; `inventory.read` without a character has no `character_id`; `bounty.write` twice → versions 1, 2, `bounty.read` count 2; `character.load` echo; `nope.op` → `NotFound` |
@@ -948,7 +948,7 @@ The admin API is a trust boundary: it can ban, delete and fund any account.
    sessions. Proposed as specified; a candidate decision row.
 2. **The manager operator credential** (§3.3) is implemented from Node because restricted lacks it and dainty-lass's
    admin service and dashboard depend on it. Proposed as specified; confirm.
-3. **Header name `x-paradox-operator-*`** keeps a Paradox name. It is the wire contract `crates/admin` and the
+3. **Header name `x-paradox-operator-*`** keeps a Paradox name. It is the wire contract `crates/dainty-admin` and the
    dashboard already send, not a legacy alias, so it stays; renaming is a coordinated change across three crates.
 4. **`OPTIONS` and unmatched `/admin/v1` paths.** Node's admin router answered `OPTIONS` on any `/admin/v1` path with
    204 after the origin check, and put the admin headers (and the origin refusal) on unmatched paths and on routes
@@ -985,10 +985,10 @@ The admin API is a trust boundary: it can ban, delete and fund any account.
 These settle §20 and override anything above that disagrees.
 
 - **Item 2: the manager operator credential is implemented (§3.3).** Restricted's lack of it is the bug (AGENTS.md:
-  where Node and Rust differ the Rust side is wrong); `crates/admin` and the dashboard already sign every `/admin/v1`
+  where Node and Rust differ the Rust side is wrong); `crates/dainty-admin` and the dashboard already sign every `/admin/v1`
   call this way.
 - **Item 1:** admin trust decisions read the system clock (security); a candidate decision row.
-- **Item 3:** the `x-paradox-operator-*` names stay (live contract with `crates/admin`).
+- **Item 3:** the `x-paradox-operator-*` names stay (live contract with `crates/dainty-admin`).
 - **Items 4-5:** as proposed (no `OPTIONS`, per core §15 item 3; the signature covers the stripped target).
 - **Item 6:** core defines an `AdminAuthenticator` slot trait and consults it for rifts' `Admin` caller kind; this
   crate implements it (requested of the core implementer).

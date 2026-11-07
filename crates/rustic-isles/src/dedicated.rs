@@ -4,7 +4,7 @@
 //! The dedicated-server seam (core spec §5.6): matchmaking's DeployServer client, which the Director's service
 //! fills when it runs in-process.
 
-use module_api::BoxFuture;
+use dainty_module_api::BoxFuture;
 use serde_json::{Map, Value};
 
 /// A Director launch (§5.6).
@@ -116,13 +116,13 @@ mod tests {
             ..LaunchRequest::default()
         };
         assert_eq!(
-            service_kit::jsjson::stringify(&request.body()),
+            dainty_service_kit::jsjson::stringify(&request.body()),
             r#"{"HuntId":"h","ExpectedPlayers":["u1"]}"#
         );
         request.game_mode = Some("ISLAND".into());
         request.game_args = Some(String::new());
         assert_eq!(
-            service_kit::jsjson::stringify(&request.body()),
+            dainty_service_kit::jsjson::stringify(&request.body()),
             r#"{"GameMode":"ISLAND","GameArgs":"","HuntId":"h","ExpectedPlayers":["u1"]}"#
         );
     }

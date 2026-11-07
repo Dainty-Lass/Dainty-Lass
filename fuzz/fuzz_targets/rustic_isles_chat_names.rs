@@ -5,8 +5,8 @@
 #![no_main]
 
 use libfuzzer_sys::fuzz_target;
-use module_api::chat::Jid;
-use module_api::{IdKind, NodeIdentity};
+use dainty_module_api::chat::Jid;
+use dainty_module_api::{IdKind, NodeIdentity};
 use rustic_isles_chat::headline::frame;
 use rustic_isles_chat::ids::{MAX_ID_TEXT, instance_id, room_id_text};
 use rustic_isles_chat::{

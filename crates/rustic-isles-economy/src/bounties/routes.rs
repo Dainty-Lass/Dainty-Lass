@@ -6,16 +6,16 @@
 use std::sync::Arc;
 
 use axum::response::Response;
+use dainty_module_api::network::HuntRewards;
+use dainty_module_api::{Actor, ActorContext, GlobalId, IdKind};
+use dainty_service_kit::jsjson;
 use http::StatusCode;
-use module_api::network::HuntRewards;
-use module_api::{Actor, ActorContext, GlobalId, IdKind};
-use rifts_seam::{HostWrite, HostWriteKind, HostWriteOptions, RuntimeAuth};
 use rustic_isles::{Call, Handlers, Method, Params, RouteDef, Service, Shared, not_implemented, read_body};
 use rustic_isles_auth::StorePurchase;
 use rustic_isles_store::repo::bounties::{BountyStateRecord, CooldownStateRecord};
 use rustic_isles_store::{AccountId, IslesStore, RepoError, Repositories, Tx, UserId};
+use rustic_rifts_seam::{HostWrite, HostWriteKind, HostWriteOptions, RuntimeAuth};
 use serde_json::{Map, Value};
-use service_kit::jsjson;
 
 use crate::bounties::cooldowns::{
     self, cooldown_payload, is_valid_cooldown_id, merge_cooldowns, plan_host_cooldowns, validate_cooldown_save,
@@ -231,7 +231,7 @@ impl Entry {
         let asked = self.shared.rifts().guard().authorize_host_write(
             capability,
             kind,
-            rifts_seam::AccountId(account.to_string()),
+            rustic_rifts_seam::AccountId(account.to_string()),
             HostWriteOptions::default(),
         );
         match asked.await {
@@ -250,8 +250,8 @@ impl Entry {
         };
         let write = HostWrite {
             kind,
-            target: rifts_seam::AccountId(account.to_string()),
-            summary: rifts_seam::Json(jsjson::stringify(summary)),
+            target: rustic_rifts_seam::AccountId(account.to_string()),
+            summary: rustic_rifts_seam::Json(jsjson::stringify(summary)),
         };
         if let Err(e) = self.shared.rifts().guard().record_host_write(capability, write).await {
             tracing::warn!("hostWrites.record: {e}");
@@ -1255,8 +1255,8 @@ async fn purchase(entry: &Entry, store: &IslesStore, claims: &StorePurchase, tag
                         .map(|i| {
                             format!(
                                 "{} x{}",
-                                crate::util::log_token(&service_kit::js::string(i.get("catalogId"))),
-                                service_kit::js::string(i.get("quantity"))
+                                crate::util::log_token(&dainty_service_kit::js::string(i.get("catalogId"))),
+                                dainty_service_kit::js::string(i.get("quantity"))
                             )
                         })
                         .collect::<Vec<_>>()

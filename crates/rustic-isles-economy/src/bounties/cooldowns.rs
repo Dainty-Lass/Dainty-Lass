@@ -6,11 +6,11 @@
 
 use std::collections::HashMap;
 
+use dainty_service_kit::js;
 use rustic_isles::season;
 use rustic_isles_store::AccountId;
 use rustic_isles_store::repo::bounties::{CooldownEntry, CooldownStateRecord};
 use serde_json::{Map, Value};
-use service_kit::js;
 
 use crate::util::{iso, obj, utf16_len};
 
@@ -113,7 +113,7 @@ pub fn merge_cooldowns(
         }
     }
     if entries.len() > MAX_STORED {
-        entries.sort_by(|a, b| service_kit::collate::locale_compare(&b.updated_at, &a.updated_at));
+        entries.sort_by(|a, b| dainty_service_kit::collate::locale_compare(&b.updated_at, &a.updated_at));
         entries.truncate(MAX_STORED);
     }
     CooldownStateRecord {
@@ -352,7 +352,7 @@ mod tests {
     #[test]
     fn dedicated_merge() {
         let a = account();
-        let now = service_kit::js::date_parse("2026-11-01T00:00:00.000Z").unwrap();
+        let now = dainty_service_kit::js::date_parse("2026-11-01T00:00:00.000Z").unwrap();
         let old = "2026-10-01T00:00:00.000Z";
         let gather = "0123456789abcdef0123456789abcdef";
         let first = merge_cooldowns(
@@ -383,7 +383,7 @@ mod tests {
     #[test]
     fn host_merge() {
         let a = account();
-        let now = service_kit::js::date_parse("2026-11-01T00:00:00.000Z").unwrap();
+        let now = dainty_service_kit::js::date_parse("2026-11-01T00:00:00.000Z").unwrap();
         let stored = merge_cooldowns(
             None,
             &a,

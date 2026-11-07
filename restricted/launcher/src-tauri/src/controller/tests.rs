@@ -14,13 +14,13 @@ use std::time::Duration;
 
 use base64::Engine as _;
 use bytes::Bytes;
+use dainty_protocol::invite::{Invite, ServerMode, format_invite};
+use dainty_protocol::status::GameDataKind;
 use http_body_util::{BodyExt, Full};
 use hyper::body::Incoming;
 use hyper::service::service_fn;
 use hyper::{Request, Response};
 use hyper_util::rt::TokioIo;
-use protocol::invite::{Invite, ServerMode, format_invite};
-use protocol::status::GameDataKind;
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
 use tokio::net::TcpListener;
@@ -351,7 +351,7 @@ fn invite(mode: ServerMode, host: &str, port: u16, fp: Option<&str>, code: &str,
         name: name.into(),
         share: None,
         fp: fp.map(str::to_owned),
-        version: protocol::invite::reforged_version(),
+        version: dainty_protocol::invite::reforged_version(),
     })
     .unwrap()
 }

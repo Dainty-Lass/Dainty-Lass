@@ -16,7 +16,7 @@ use rustic_isles_characters::data::{
 use rustic_isles_characters::starter::{is_instance_id, repair};
 use rustic_isles_characters::{CharacterData, StarterKit};
 use serde_json::{Map, Value, json};
-use service_kit::jsjson;
+use dainty_service_kit::jsjson;
 
 fn object(value: Value) -> Map<String, Value> {
     match value {

@@ -9,11 +9,11 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, PoisonError};
 use std::time::Duration;
 
-use module_api::chat::{ChatAnswer, ChatQuery, HEADLINE_EVENT, PRESENCE_EVENT, PresenceEvent};
-use module_api::manifest::{PortDefault, Transport};
-use module_api::network::{DirectorInvocation, HomeInvocation};
-use module_api::registrar::ConfigSection;
-use module_api::{
+use dainty_module_api::chat::{ChatAnswer, ChatQuery, HEADLINE_EVENT, PRESENCE_EVENT, PresenceEvent};
+use dainty_module_api::manifest::{PortDefault, Transport};
+use dainty_module_api::network::{DirectorInvocation, HomeInvocation};
+use dainty_module_api::registrar::ConfigSection;
+use dainty_module_api::{
     API_VERSION, Actor, ActorContext, AdminAction, AdminCall, AdminRequest, AdminResponse, BoxFuture, Capabilities,
     CommandOutput, CommandRequest, ErrorKind, Event, EventName, GameModule, GameVersion, LogLevel, ModuleConfig,
     ModuleContext, ModuleError, ModuleId, ModuleKind, ModuleManifest, ModuleStatus, Phase, PortRange, Registrar,
@@ -127,7 +127,7 @@ struct State {
     running: Option<Running>,
 }
 
-/// A game version's module as the controller runs it (`module_api::GameModule`).
+/// A game version's module as the controller runs it (`dainty_module_api::GameModule`).
 pub struct IslesModule {
     spec: ModuleSpec,
     game_version: GameVersion,
@@ -342,9 +342,9 @@ impl IslesModule {
             let signal = async move {
                 let _ = stop.wait_for(|stopped| *stopped).await;
             };
-            running
-                .servers
-                .push(tokio::spawn(service_kit::serve::serve(listener, app, signal, DRAIN)));
+            running.servers.push(tokio::spawn(dainty_service_kit::serve::serve(
+                listener, app, signal, DRAIN,
+            )));
         }
         for listener in &running.listeners {
             addresses.extend(listener.addresses.iter().cloned());
@@ -617,7 +617,7 @@ impl GameModule for IslesModule {
                     for (name, address) in addresses {
                         listening.insert(name, Value::String(address));
                     }
-                    let text = service_kit::jsjson::stringify(&Value::Object(listening));
+                    let text = dainty_service_kit::jsjson::stringify(&Value::Object(listening));
                     if let Some(event) = event(LISTENING_EVENT, Value::String(text)) {
                         let _ = ctx.emit(event).await;
                     }

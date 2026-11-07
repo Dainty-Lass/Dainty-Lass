@@ -21,7 +21,7 @@ base64.workspace = true
 chrono.workspace = true
 diesel.workspace = true
 hmac.workspace = true
-module-api.workspace = true
+dainty-module-api.workspace = true
 percent-encoding.workspace = true
 rand.workspace = true
 rustic-isles.workspace = true
@@ -31,7 +31,7 @@ rustic-isles-store.workspace = true
 serde.workspace = true
 serde_json = { workspace = true, features = ["preserve_order", "float_roundtrip"] }
 sha2.workspace = true
-store.workspace = true
+dainty-store.workspace = true
 thiserror.workspace = true
 tokio = { workspace = true, features = ["rt"] }
 tracing.workspace = true

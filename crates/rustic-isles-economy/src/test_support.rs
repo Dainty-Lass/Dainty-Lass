@@ -10,7 +10,7 @@ use serde_json::{Value, json};
 
 /// Writes `value` as `dir/name`.
 pub fn write_json(dir: &Path, name: &str, value: &Value) -> std::io::Result<()> {
-    std::fs::write(dir.join(name), service_kit::jsjson::stringify(value))
+    std::fs::write(dir.join(name), dainty_service_kit::jsjson::stringify(value))
 }
 
 /// A storage policy naming one instanced weapon, one stackable material and one owned cosmetic.

@@ -8,15 +8,15 @@
 //! - `src-tauri/gen/strings.json`: the language catalogs in `ui/packages/i18n/catalogs` (DU2),
 //!   from which build.rs makes `Language` and the backend's own text.
 //!
-//! The test fails when a file is stale; `RR_UPDATE_GENERATED=1 cargo test -p launcher generated`
+//! The test fails when a file is stale; `RR_UPDATE_GENERATED=1 cargo test -p dainty-launcher generated`
 //! rewrites them.
 
 use std::collections::BTreeMap;
 use std::fmt::Write as _;
 use std::path::{Path, PathBuf};
 
-use protocol::invite::ServerMode;
-use protocol::status::{
+use dainty_protocol::invite::ServerMode;
+use dainty_protocol::status::{
     GameDataKind, InstanceKind, PlayerWhere, RegistrationMode, ServerStatus, StatusGame, StatusInstance, StatusPlayer,
 };
 use ts_rs::{Config, TS};
@@ -25,7 +25,7 @@ use super::spec::{Arg, COMMANDS, SETTINGS_KEYS};
 use super::types::*;
 
 const HEADER: &str = "Generated from the launcher backend (launcher/src-tauri/src/bridge); do not edit.\n\
-Regenerate with: RR_UPDATE_GENERATED=1 cargo test -p launcher generated";
+Regenerate with: RR_UPDATE_GENERATED=1 cargo test -p dainty-launcher generated";
 
 fn declarations() -> String {
     let config = Config::new().with_large_int("number");
@@ -382,7 +382,7 @@ fn generated_files_are_current() {
     }
     assert!(
         stale.is_empty(),
-        "stale generated files (run RR_UPDATE_GENERATED=1 cargo test -p launcher generated): {stale:?}"
+        "stale generated files (run RR_UPDATE_GENERATED=1 cargo test -p dainty-launcher generated): {stale:?}"
     );
 }
 
@@ -417,7 +417,7 @@ fn generated_isolation_hook_is_dainty_lass_s() {
     }
     assert!(
         stale.is_empty(),
-        "isolation files differ from {} (run RR_UPDATE_GENERATED=1 cargo test -p launcher generated): {stale:?}",
+        "isolation files differ from {} (run RR_UPDATE_GENERATED=1 cargo test -p dainty-launcher generated): {stale:?}",
         from.display()
     );
 }

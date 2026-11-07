@@ -24,7 +24,7 @@ pub const READY_MARKER: &str = "RUSTIC_ISLES_GAMESERVER_READY";
 
 /// `RUSTIC_ISLES_GAMESERVER_READY launchId={id} port={port}` (JS-trimmed): the id and port when well-formed.
 pub fn parse_marker(line: &str) -> Option<(&str, &str)> {
-    let rest = service_kit::js::trim(line)
+    let rest = dainty_service_kit::js::trim(line)
         .strip_prefix(READY_MARKER)?
         .strip_prefix(" launchId=")?;
     let (id, port) = rest.split_once(" port=")?;
@@ -68,7 +68,7 @@ impl ReadinessScanner {
                 tracing::warn!(
                     "Ignoring mismatched gameserver readiness marker on port {}: {}",
                     self.port,
-                    service_kit::js::trim(&line)
+                    dainty_service_kit::js::trim(&line)
                 );
             }
         }

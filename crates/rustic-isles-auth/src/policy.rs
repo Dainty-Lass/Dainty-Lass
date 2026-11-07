@@ -256,7 +256,7 @@ pub const MSG_USERNAME_RESERVED: &str = "That username is reserved. Choose anoth
 /// The format rules on the JS-trimmed text (a non-string is `""`); the trimmed name when they pass.
 pub fn validate_username_format(value: Option<&Value>) -> Result<String, LauncherError> {
     let text = match value {
-        Some(Value::String(s)) => service_kit::js::trim(s),
+        Some(Value::String(s)) => dainty_service_kit::js::trim(s),
         _ => "",
     };
     let len = util::utf16_len(text);
@@ -275,7 +275,7 @@ pub fn validate_username_format(value: Option<&Value>) -> Result<String, Launche
 /// `RUSTIC_ISLES_USERNAME_BLOCKLIST`: JS white space and commas split it; terms of 2 to 32 `a-z0-9` are kept.
 pub fn parse_blocklist(raw: Option<&str>) -> Vec<String> {
     raw.unwrap_or("")
-        .split(|c: char| c == ',' || service_kit::js::is_space(c))
+        .split(|c: char| c == ',' || dainty_service_kit::js::is_space(c))
         .map(|t| t.trim().to_lowercase())
         .filter(|t| (2..=32).contains(&t.len()) && t.bytes().all(|b| b.is_ascii_lowercase() || b.is_ascii_digit()))
         .collect()
@@ -381,7 +381,7 @@ pub fn registration_approval(raw: Option<&str>) -> (bool, Option<String>) {
     match value.as_str() {
         "" | "off" => (false, None),
         "required" => (true, None),
-        _ => (true, Some(service_kit::js::trim(raw.unwrap_or("")).to_owned())),
+        _ => (true, Some(dainty_service_kit::js::trim(raw.unwrap_or("")).to_owned())),
     }
 }
 
@@ -394,7 +394,10 @@ pub fn official_play(raw: Option<&str>, deployserver_url: Option<&str>) -> (bool
     match value.as_str() {
         "on" => (true, None),
         "off" => (false, None),
-        "" => (!service_kit::js::trim(deployserver_url.unwrap_or("")).is_empty(), None),
+        "" => (
+            !dainty_service_kit::js::trim(deployserver_url.unwrap_or("")).is_empty(),
+            None,
+        ),
         _ => (false, Some(value)),
     }
 }

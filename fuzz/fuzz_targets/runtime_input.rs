@@ -5,13 +5,13 @@
 #![no_main]
 
 use libfuzzer_sys::fuzz_target;
-use protocol::manifest::{MAX_RUNTIME_FILE_BYTES, RUNTIME_FILE_NAMES, runtime_file_slot};
+use dainty_protocol::manifest::{MAX_RUNTIME_FILE_BYTES, RUNTIME_FILE_NAMES, runtime_file_slot};
 use serde_json::Value;
 
-#[path = "../../crates/launcher-kit/src/net/runtime_files/manifest.rs"]
+#[path = "../../crates/dainty-launcher-kit/src/net/runtime_files/manifest.rs"]
 mod manifest;
 
-#[path = "../../crates/launcher-kit/src/net/verify/cache_file.rs"]
+#[path = "../../crates/dainty-launcher-kit/src/net/verify/cache_file.rs"]
 mod cache_file;
 
 fuzz_target!(|data: &[u8]| {

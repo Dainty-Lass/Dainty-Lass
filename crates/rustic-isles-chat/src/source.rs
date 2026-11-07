@@ -6,8 +6,8 @@
 use std::fmt;
 use std::sync::Arc;
 
-use module_api::network::SessionTicket;
-use module_api::{
+use dainty_module_api::network::SessionTicket;
+use dainty_module_api::{
     Actor, ActorContext, BoxFuture, ErrorKind, GlobalId, HomeApi, HomeForward, IdKind, ModuleError, ModuleId,
     NodeIdentity, OperationName,
 };
@@ -246,7 +246,7 @@ impl ChatSource for StoreChat {
             if let Some(player) = self.player_by_user_id(local).await? {
                 return Ok(Some(player.account));
             }
-            let normalized = service_kit::js::trim(local).to_ascii_lowercase();
+            let normalized = dainty_service_kit::js::trim(local).to_ascii_lowercase();
             if normalized.is_empty() {
                 return Ok(None);
             }

@@ -7,7 +7,7 @@
 mod common;
 
 use common::{account, log, player, system, targets};
-use module_api::{GlobalId, IdKind};
+use dainty_module_api::{GlobalId, IdKind};
 use rustic_isles_store::repo::parties::*;
 use rustic_isles_store::{AccountId, IslesStore, RepoError};
 

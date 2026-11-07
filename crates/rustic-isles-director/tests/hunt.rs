@@ -85,7 +85,7 @@ fn manifests_and_errors() {
         .resolve_manifest(Some(&json!("Plain_Hunt")), Some(&json!(["acc-1"])))
         .unwrap();
     assert_eq!(
-        service_kit::jsjson::stringify(&manifest),
+        dainty_service_kit::jsjson::stringify(&manifest),
         r#"{"huntId":"Plain_Hunt","matchmakerHuntId":"MM_Plain","mapPath":"/Game/Maps/test/plain","behemothPath":"NO_BEHEMOTH","expectedPlayerString":"acc-1:Plain_Hunt"}"#
     );
     let boss = r

@@ -4,10 +4,10 @@
 //! JavaScript value habits and the answers the three parts share.
 
 use axum::response::{IntoResponse, Response};
+use dainty_service_kit::json::JSON_UTF8;
+use dainty_service_kit::{js, jsjson};
 use http::{StatusCode, header};
 use serde_json::{Map, Number, Value};
-use service_kit::json::JSON_UTF8;
-use service_kit::{js, jsjson};
 use sha2::{Digest, Sha256};
 
 pub(crate) const MAX_SAFE: f64 = 9_007_199_254_740_991.0;
@@ -177,7 +177,7 @@ pub(crate) fn empty(status: StatusCode) -> Response {
 }
 
 pub(crate) fn page500() -> Response {
-    service_kit::body::error_page(StatusCode::INTERNAL_SERVER_ERROR)
+    dainty_service_kit::body::error_page(StatusCode::INTERNAL_SERVER_ERROR)
 }
 
 pub(crate) fn json_text(status: StatusCode, body: String) -> Response {
@@ -238,7 +238,7 @@ pub(crate) fn not_implemented(message: &str, request_id: &str) -> Response {
 }
 
 /// A rifts hook's reply, answered as it is.
-pub(crate) fn reply(reply: &rifts_seam::Reply) -> Response {
+pub(crate) fn reply(reply: &rustic_rifts_seam::Reply) -> Response {
     let status = StatusCode::from_u16(reply.status).unwrap_or(StatusCode::INTERNAL_SERVER_ERROR);
     json_text(status, reply.body.0.clone())
 }

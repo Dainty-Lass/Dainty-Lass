@@ -1,0 +1,43 @@
+[package]
+name = "dainty-admin"
+description = "The admin API: moderation and status over GraphQL for the host's tools, such as a Discord bot (loopback only)"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license = "MIT"
+repository.workspace = true
+publish.workspace = true
+
+[dependencies]
+dainty-protocol.workspace = true
+async-graphql.workspace = true
+axum.workspace = true
+bytes = "1"
+chrono.workspace = true
+clap.workspace = true
+diesel.workspace = true
+diesel_migrations.workspace = true
+http-body-util.workspace = true
+hyper.workspace = true
+hyper-util = { workspace = true, features = ["client-legacy", "http1"] }
+# Kick, ban and lookup sent to the module of the player's game (DF4c). A path, as fuzz has it: the
+# workspace entry names the silentspud registry, which .cargo/config.toml doesn't configure yet
+dainty-module-api = { path = "../../crates/dainty-module-api" }
+network_plugin = { package = "dainty-network", path = "../../crates/dainty-network" }
+percent-encoding.workspace = true
+rand.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+# The node's database settings (DD15), read as every service reads them
+dainty-store.workspace = true
+dainty-service-kit.workspace = true
+sha2.workspace = true
+thiserror.workspace = true
+tokio = { workspace = true, features = ["rt-multi-thread", "net", "fs", "time", "sync", "signal", "io-util"] }
+url.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
+
+[lints]
+workspace = true

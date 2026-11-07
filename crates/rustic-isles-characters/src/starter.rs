@@ -6,10 +6,10 @@
 
 use std::collections::{HashMap, HashSet};
 
+use dainty_service_kit::jsjson;
 use rustic_isles::{VersionTables, replay};
 use rustic_isles_store::{RepoError, RepoResult};
 use serde_json::{Map, Value, json};
-use service_kit::jsjson;
 
 use crate::StarterKit;
 

@@ -7,7 +7,7 @@
 use std::collections::{HashMap, VecDeque};
 use std::sync::{Mutex, MutexGuard, PoisonError};
 
-use module_api::{GlobalId, Region};
+use dainty_module_api::{GlobalId, Region};
 
 /// Seven days: a record exactly this old is still live.
 pub const HUB_SESSION_TTL_MS: i64 = 7 * 24 * 60 * 60 * 1000;
@@ -135,7 +135,7 @@ impl HubSessions {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use module_api::{IdKind, NodeId};
+    use dainty_module_api::{IdKind, NodeId};
 
     fn someone() -> GlobalId {
         GlobalId::new(IdKind::Account, &NodeId::new("local").unwrap())

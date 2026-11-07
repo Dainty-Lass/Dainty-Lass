@@ -848,7 +848,7 @@ with `multipliers` beside it. The crate depends on dainty-lass MIT crates only: 
 `Handlers`, `Call`, `Service`, `Method`, `VersionTables`, `VersionHooks`, `NoPlayerPolicy`, `AccountId`, `UserId`,
 `GameDataRoot`, the replay clock and ids, `read_body_parts`), `rustic-isles-store` (`IslesStore`, `Repositories`,
 `RepoError`, the records), `rustic-isles-auth` (`AuthData`, `Auth::game_auth`), `rustic-isles-characters` (§11.3),
-`rifts-seam` (guard calls, `RuntimeAuth`, `Reply`, `SeamError`), `module-api` (`ActorContext`, `GlobalId`,
+`rustic-rifts-seam` (guard calls, `RuntimeAuth`, `Reply`, `SeamError`), `module-api` (`ActorContext`, `GlobalId`,
 `HuntRewards`, `HomeApi`), `service-kit` (`js`, `jsjson`, `json`, `body`), and workspace `axum`, `http`, `serde_json`
 (own `preserve_order`, core §17 item 8), `sha2`, `tokio`, `tracing`, `thiserror`, `uuid` (v4 for the reforge id).
 

@@ -9,19 +9,19 @@
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
-use module_api::chat::{ChatQuery, PRESENCE_EVENT};
-use module_api::host::file_sha256;
-use module_api::stub::RecordingHost;
-use module_api::{
+use dainty_module_api::chat::{ChatQuery, PRESENCE_EVENT};
+use dainty_module_api::host::file_sha256;
+use dainty_module_api::stub::RecordingHost;
+use dainty_module_api::{
     ChildModule, ChildOptions, ErrorKind, ExternalModule, GameModule, GlobalId, IdKind, InProcessModule, ModuleConfig,
     ModuleContext, ModuleId, NodeIdentity, Phase, PortRange,
 };
-use rifts_seam::{AccountId, GuardMode, IslesCore};
 use rustic_isles::routes::all;
 use rustic_isles::testing::{self, Mounts};
 use rustic_isles::{IslesModule, Settings};
 use rustic_isles_1_14_7::test_support::{area_handlers, synthetic_document};
 use rustic_isles_1_14_7::{AccountsCore, RealmsAdapter, module, spec, spec_with};
+use rustic_rifts_seam::{AccountId, GuardMode, IslesCore};
 
 fn mounts(admin_api: bool, rifts_loaded: bool) -> Mounts {
     let areas = area_handlers();
@@ -47,7 +47,7 @@ fn env_file(dir: &Path, lines: &[&str]) -> PathBuf {
 async fn drive_without_a_database_in_process() {
     let dir = tempfile::tempdir().unwrap();
     let env = env_file(dir.path(), &["RUSTIC_ISLES_ADMIN_API=on"]);
-    let host = module_api::stub::recording_host();
+    let host = dainty_module_api::stub::recording_host();
     let driver = InProcessModule::new(Arc::new(module().unwrap()), NodeIdentity::standalone(), host.clone()).unwrap();
     testing::drive(&driver, &host, Some(&env), &mounts(true, cfg!(feature = "realms")))
         .await
@@ -65,7 +65,7 @@ async fn drive_without_a_database_out_of_process() {
         args: vec![],
         expected: Some(ModuleId::new("isles-1-14-7").unwrap()),
     };
-    let host = module_api::stub::recording_host();
+    let host = dainty_module_api::stub::recording_host();
     let driver = ChildModule::spawn(
         &external,
         NodeIdentity::standalone(),
@@ -89,7 +89,7 @@ fn context(host: &Arc<RecordingHost>) -> ModuleContext {
 
 /// Every port 0, the env file and the backend game data folder.
 fn config(module: &IslesModule, env: &Path, backend_dir: Option<&Path>) -> ModuleConfig {
-    let mut registrar = module_api::Registrar::new(module.manifest());
+    let mut registrar = dainty_module_api::Registrar::new(module.manifest());
     module.register(&mut registrar).unwrap();
     let registration = registrar.finish().unwrap();
     let mut config = ModuleConfig::defaults(&module.manifest(), &registration);
@@ -114,7 +114,7 @@ fn config(module: &IslesModule, env: &Path, backend_dir: Option<&Path>) -> Modul
 async fn chat_before_during_and_after() {
     let dir = tempfile::tempdir().unwrap();
     let env = env_file(dir.path(), &["RUSTIC_RIFTS_P2P_MODULE=off"]);
-    let host = module_api::stub::recording_host();
+    let host = dainty_module_api::stub::recording_host();
     let module = rustic_isles_1_14_7::module().unwrap();
     let ctx = context(&host);
     let account = GlobalId::new(IdKind::Account, &NodeIdentity::standalone().node);
@@ -127,8 +127,8 @@ async fn chat_before_during_and_after() {
     let running = module.chat(ctx.clone(), query()).await.unwrap_err();
     assert_eq!(running.kind, ErrorKind::Unsupported, "{running:?}");
     // A presence event for an unknown player is harmless without a database
-    let event = module_api::Event {
-        name: module_api::EventName::new(PRESENCE_EVENT).unwrap(),
+    let event = dainty_module_api::Event {
+        name: dainty_module_api::EventName::new(PRESENCE_EVENT).unwrap(),
         payload: serde_json::json!({ "user_id": "nobody", "online": false }),
     };
     module.event(ctx.clone(), event).await.unwrap();
@@ -163,7 +163,7 @@ async fn version_data_at_start() {
     );
     let data = dir.path().join("data");
     std::fs::create_dir_all(&data).unwrap();
-    let host = module_api::stub::recording_host();
+    let host = dainty_module_api::stub::recording_host();
 
     // A database wanted and no file
     let module = rustic_isles_1_14_7::module().unwrap();
@@ -254,7 +254,7 @@ async fn accounts_core_without_a_store() {
 #[tokio::test]
 async fn realms_adapter_dedicated_only() {
     use rustic_isles_auth::{Realms, RuntimeAuth, RuntimeRequest};
-    let adapter = RealmsAdapter::new(rifts_seam::Rifts::dedicated_only());
+    let adapter = RealmsAdapter::new(rustic_rifts_seam::Rifts::dedicated_only());
     let headers = http::HeaderMap::new();
     let request = RuntimeRequest {
         path: "/x",
@@ -298,7 +298,7 @@ async fn full_composition_on_sqlite() {
     let db = dir.path().join("isles.sqlite");
     let lines = database_lines(&db, &["RUSTIC_ISLES_ADMIN_API=on"]);
     let env = env_file(dir.path(), &lines.iter().map(String::as_str).collect::<Vec<_>>());
-    let host = module_api::stub::recording_host();
+    let host = dainty_module_api::stub::recording_host();
     let given = rustic_isles_1_14_7::test_support::synthetic();
     let module = IslesModule::new(spec_with(given).unwrap()).unwrap();
     module.start(context(&host), config(&module, &env, None)).await.unwrap();

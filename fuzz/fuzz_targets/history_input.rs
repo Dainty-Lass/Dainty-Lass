@@ -4,7 +4,7 @@
 //! its end, a cursor that passes is at most the longest cursor and survives being written back.
 #![no_main]
 
-use admin::history::{MAX_CURSOR, Selection, normalize_cursor, parse_actor, parse_time};
+use dainty_admin::history::{MAX_CURSOR, Selection, normalize_cursor, parse_actor, parse_time};
 use libfuzzer_sys::arbitrary::{self, Arbitrary};
 use libfuzzer_sys::fuzz_target;
 
@@ -20,7 +20,7 @@ struct Input<'a> {
 
 fuzz_target!(|input: Input<'_>| {
     if let Ok(actor) = parse_actor(input.actor.unwrap_or_default()) {
-        assert_eq!(store::Actor::parse(&actor.as_text()), Some(actor));
+        assert_eq!(dainty_store::Actor::parse(&actor.as_text()), Some(actor));
     }
     let _ = parse_time(input.since.unwrap_or_default(), input.now);
     let selection = Selection {

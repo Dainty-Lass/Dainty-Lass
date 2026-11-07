@@ -2,7 +2,7 @@
 
 # Security checklist: admin API (RX3)
 
-The checklist for the admin API, `crates/admin` ([admin-api.md](../admin-api.md)). It is a new trust boundary:
+The checklist for the admin API, `crates/dainty-admin` ([admin-api.md](../admin-api.md)). It is a new trust boundary:
 a caller holding its key can kick, time out and ban players. `SECURITY_REVIEW.md` indexes it.
 
 How to use it: before the admin API ships in a server release, copy this list into the release's review, check each
@@ -69,7 +69,7 @@ id, so a change in a module's log leads back to the request and the person who a
   row is written after the action succeeded; a write that fails is logged with all its fields rather than hiding the
   action.
 
-Code: `crates/admin/src/` (`input.rs` holds every check of outside input, `app.rs` the HTTP side, `schema.rs`
+Code: `crates/dainty-admin/src/` (`input.rs` holds every check of outside input, `app.rs` the HTTP side, `schema.rs`
 the fields and what they call, `upstream.rs` the calls and the signature, `modules.rs` the module registry side,
 `hmac.rs`, `timeouts.rs`, `config.rs`, `server.rs`). Tests: `tests/api.rs` runs the API end to end against a fake
 backend and Director that check the signature and the admin key as the Node code does, and runs RD25's lookup, kick
@@ -227,7 +227,7 @@ and input checks (`schema.rs`; `guarded.rs`, `guard.rs`). Not guarded, with the 
 
 - [ ] `RUSTIC_ISLES_MANAGER_ADMIN=on` in `backend.env` makes `/admin/v1/*` accept the signed credential: from
       loopback only, with no forwarding header, a timestamp within 60 s, and a signature not seen in 120 s. The
-      gateway already refuses `/admin` (`crates/gateway/src/policy.rs`).
+      gateway already refuses `/admin` (`crates/dainty-gateway/src/policy.rs`).
 - [ ] `RUSTIC_ISLES_MANAGER_OPERATOR_SECRET` is in `secrets.env` (owner-only), `backend.env` and `admin.env`;
       `setup` moves it from `MYSTICPARADOX_MANAGER_OPERATOR_SECRET` with the same value, and the admin API reads
       the old name for one release. The

@@ -41,17 +41,17 @@ trimmed and empty means unset. Whole numbers are read as Node reads a number:
 | `ALLOWLIST_PORTS` | `8770-8777` | Section 2 (the host kit widens it for `--max-hunts`) |
 | `ALLOWLIST_AUDIT_LOG` | `allowlist-audit.log` | Made absolute |
 | `ALLOWLIST_STATE_FILE` | `allowlist-state.json` | Made absolute |
-| `ALLOWLIST_RULE_NAME` | `DaintyLass game ports (allowlist)` | Below |
+| `ALLOWLIST_RULE_NAME` | `Dainty Lass game ports (allowlist)` | Below |
 
 Order of the checks: dry run, bind, firewall, nft path, table, interface, then port, secret, TTL, interval, max
 entries, ports, rule name.
 
 **The rule name** (`check_rule_name`): the Windows Firewall rule this helper finds and changes; a second helper names
-its own. It must start with `DaintyLass ` or `Dauntless Reforged Revival ` (each with its trailing space), be at most
+its own. It must start with `Dainty Lass ` or `Dauntless Reforged Revival ` (each with its trailing space), be at most
 80 bytes, and hold only ASCII letters, digits, spaces and `(`, `)`, `-`, `.`, `_`. Else
-`ALLOWLIST_RULE_NAME must start with "DaintyLass " (or legacy "Dauntless Reforged Revival ") and hold only letters,
-digits, spaces and ()-._, at most 80 (got <JSON string>)`. So `DaintyLass`, `DaintyLass *`, a name with a quote, a
-newline or `ö`, and 81 characters are refused; `DaintyLass 1.4.4 game ports (allowlist)` passes.
+`ALLOWLIST_RULE_NAME must start with "Dainty Lass " (or legacy "Dauntless Reforged Revival ") and hold only letters,
+digits, spaces and ()-._, at most 80 (got <JSON string>)`. So `Dainty Lass`, `Dainty Lass *`, a name with a quote, a
+newline or `ö`, and 81 characters are refused; `Dainty Lass 1.4.4 game ports (allowlist)` passes.
 
 ## 2. Ports
 
@@ -237,8 +237,8 @@ Example, addresses `203.0.113.7`, `2001:db8::1`, `198.51.100.2`, ports `8770-877
 
 - Through COM (`INetFwPolicy2`), never PowerShell. Every call runs off the async threads, inside a COM apartment
   (multithreaded) set up and torn down around it; COM errors read `COM: <error>` and `Windows Firewall: <error>`.
-- The rule constants: id `DaintyLass-GamePorts-Allowlist`, display name `DaintyLass game ports (allowlist)` (or
-  `ALLOWLIST_RULE_NAME`), grouping `DaintyLass`, description `Opens the game ports to players who logged in through the
+- The rule constants: id `DaintyLass-GamePorts-Allowlist`, display name `Dainty Lass game ports (allowlist)` (or
+  `ALLOWLIST_RULE_NAME`), grouping `Dainty Lass`, description `Opens the game ports to players who logged in through the
   gateway. Managed by the allowlist helper.` Rules are found by display name.
 - `windows_change(plan, name)`: a plan without addresses is "close"; otherwise "open" with display name, description,
   grouping, direction `in`, action `allow`, protocol `udp`, local ports the plan's text as it is (`8770-8777` or

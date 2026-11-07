@@ -12,13 +12,13 @@ publish.workspace = true
 [dependencies]
 axum.workspace = true
 http.workspace = true
-module-api.workspace = true
-rifts-seam.workspace = true
+dainty-module-api.workspace = true
+rustic-rifts-seam.workspace = true
 rustic-isles.workspace = true
 rustic-isles-auth.workspace = true
 rustic-isles-store.workspace = true
 serde_json = { workspace = true, features = ["preserve_order"] }
-service-kit.workspace = true
+dainty-service-kit.workspace = true
 thiserror.workspace = true
 tracing.workspace = true
 

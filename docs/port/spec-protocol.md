@@ -1,8 +1,8 @@
-# Clean-room Behaviour Specification: `protocol` (`crates/protocol`)
+# Clean-room Behaviour Specification: `protocol` (`crates/dainty-protocol`)
 
 ## 1. Purpose and Scope
 
-`protocol` (`crates/protocol`) is a pure, synchronous validation and wire-contract crate shared by the launcher, host kit, controller, and module seams. It has no network, filesystem, or database side effects.
+`protocol` (`crates/dainty-protocol`) is a pure, synchronous validation and wire-contract crate shared by the launcher, host kit, controller, and module seams. It has no network, filesystem, or database side effects.
 
 - **Package name**: `protocol`
 - **Edition**: `2024`

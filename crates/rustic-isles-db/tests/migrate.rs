@@ -275,10 +275,10 @@ async fn verify_passes_twice_and_catches_a_change() {
     assert!(run_verify(&opts).await.unwrap().ok);
 
     let db = common::open(&file);
-    db.write(store::Actor::Host("test".into()), |tx| {
+    db.write(dainty_store::Actor::Host("test".into()), |tx| {
         use diesel::RunQueryDsl as _;
         diesel::sql_query("UPDATE characters SET name = 'Changed'").execute(tx.conn())?;
-        Ok::<_, store::Error>(())
+        Ok::<_, dainty_store::Error>(())
     })
     .await
     .unwrap();
@@ -303,7 +303,7 @@ async fn existing_ids_and_names_survive_later_runs() {
         name: "Before".into(),
         notes: 0,
     };
-    db.write(store::Actor::Host("test".into()), move |tx| {
+    db.write(dainty_store::Actor::Host("test".into()), move |tx| {
         Repositories::on_store().accounts.create(tx, &record)
     })
     .await

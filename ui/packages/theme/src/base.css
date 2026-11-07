@@ -1,5 +1,5 @@
 /*
- * The whole CSS stack every DaintyLass app loads, in one import, so the three apps cannot drift apart.
+ * The whole CSS stack every Dainty Lass app loads, in one import, so the three apps cannot drift apart.
  * An app's globals.css is `@import "@dainty/theme/base.css";` plus `@source` lines for its own files.
  */
 

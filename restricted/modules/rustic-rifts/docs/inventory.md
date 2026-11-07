@@ -3,8 +3,8 @@
 # Inventory of realms (RF1)
 
 What rustic-rifts takes over from Mystic Paradox's 1.14.7 line, item by item, with the DD2 crate that should own
-it: `rifts-admission`, `rifts-relay`, `rifts-realms`, `rifts-guard` (server side, linked by `isles-1-14-7`) and
-`rifts-host` (client side, linked by DaintyLass's launcher).
+it: `rustic-rifts-admission`, `rustic-rifts-relay`, `rustic-rifts-realms`, `rustic-rifts-guard` (server side, linked by `isles-1-14-7`) and
+`rustic-rifts-host` (client side, linked by Dainty Lass's launcher).
 
 Read from rustic-isles `main` at `ce1c42e` (Mystic Paradox `21b9ff5` plus Reforged's patches) and this repository's
 `src/` at `c1c5dca`, which is byte for byte rustic-isles' `ParadoxTransport/src`. Paths below are relative to
@@ -211,7 +211,7 @@ used for the one route in section 1, and two realm-related switches of its own, 
 ## 3. The runtime's hosting hooks
 
 `ParadoxRuntime/P2PHooks.h`, implemented in `ParadoxRuntime/p2p/PlayerHost.cpp` (stub `P2PHooksStub.cpp`). It lives
-in rustic-isles' runtime; its contract is with `rifts-host`, which starts the process.
+in rustic-isles' runtime; its contract is with `rustic-rifts-host`, which starts the process.
 
 | Hook | Call site | Does |
 | --- | --- | --- |
@@ -258,7 +258,7 @@ Environment the launcher gives the hosted server (`ParadoxLauncher/src-tauri/src
 
 Cleared from the inherited environment: `MYSTICPARADOX_ALLOW_DAMAGE_DEBUG`, `MYSTICPARADOX_DEBUG_DAMAGE_MULTIPLIER`.
 
-The launcher code RF7 ports into `rifts-host` (`ParadoxLauncher/src-tauri/src/`, lines): `p2p/mod.rs` (337, the
+The launcher code RF7 ports into `rustic-rifts-host` (`ParadoxLauncher/src-tauri/src/`, lines): `p2p/mod.rs` (337, the
 co-op switch and files), `p2p/transport.rs` (1812, loading the DLL, ABI 1 to 3), `p2p/session.rs` (2153),
 `p2p/session/host.rs` (579), `p2p/session/hub.rs` (926), `p2p/session/ice.rs` (790), `p2p/control.rs` (1261, the
 control poll, host presence, offers), `p2p/realm.rs` (2973, the hosting panel, hubs, limits),
@@ -268,7 +268,7 @@ control poll, host presence, offers), `p2p/realm.rs` (2973, the hosting panel, h
 
 `src/paradox_transport_api.hpp`: every export is `extern "C" __declspec(dllexport) ... __cdecl`;
 `MysticTransport_AbiVersion` answers 3. Version 1's start functions stay exported but always fail, because an ICE
-session needs its secrets file. Every version 2 function is a wrapper over a default handle. Consumer: `rifts-host`.
+session needs its secrets file. Every version 2 function is a wrapper over a default handle. Consumer: `rustic-rifts-host`.
 
 | Export | Signature | Since |
 | --- | --- | --- |
@@ -452,7 +452,7 @@ Nothing in the transport persists: it reads the session files and writes no file
 | `realm-host.log` | `%LOCALAPPDATA%\MysticParadox\Logs\` | kept | rifts-host |
 | `p2p-host-settings.json`: `control_cursors` (account to last control sequence) | app config dir | kept | rifts-host |
 | `realm-host-limits.json`: `version`, per server `max_players`, `max_servers`, `afk_seconds` (`.tmp`, `.bad` beside it) | app config dir | kept | rifts-host |
-| realm entries in `servers.json`: kind `ParadoxRealm`, `realm_name`, `host_public_key` | app config dir | kept | rifts-host (server list is DaintyLass's) |
+| realm entries in `servers.json`: kind `ParadoxRealm`, `realm_name`, `host_public_key` | app config dir | kept | rifts-host (server list is Dainty Lass's) |
 | `DISABLE_COOP_TRANSPORT.flag` | `%LOCALAPPDATA%\MysticParadox\` | test override, by hand | rifts-host |
 | `guard-rollback.json` (Guard manifest anti-rollback floor); the Launcher Guard Ed25519 key lives in memory only | app config dir | kept | rifts-guard (shared) |
 | `host-log-offsets.json` | launcher log dir | kept | launcher log upload, not rifts |
@@ -513,13 +513,13 @@ in the tree; RF6 defines its own for the evidence chain intake.
 1. **Launcher Guard and Guard manifests.** RU3a marks `/launcher/v1/guard/*`, `/admin/v1/guard/*` and the two
    `guard-manifests` routes rifts, and this list follows. But they are core files (`controllers/launcherGuard.ts`,
    `routes/launcherUpdates.ts`) that every Play uses, and the manifest covers core roles (`GAME`, `LAUNCHER`,
-   `CONTENT`, `INTERNAL_SERVER`, `UDP_PROXY`). Either `rifts-guard` owns them and isles calls it on every Play, or
+   `CONTENT`, `INTERNAL_SERVER`, `UDP_PROXY`). Either `rustic-rifts-guard` owns them and isles calls it on every Play, or
    isles keeps them and rifts reads `launcherGuardSessions` through the seam. `MYSTICPARADOX_GUARD_MODE`
    (`services/guardMode.ts`) goes with that choice.
 2. **The Director's route.** `POST /api/matchmaker/resolve-hunt-launch-manifest` is rifts code inside the Director,
    and its rule lives in `shared/hunt-manifest/p2p/completionMode.js`, which the backend's local manifest also uses.
    The backend's default source is `local`, so the route is used only with
-   `MYSTICPARADOX_HUNT_MANIFEST_SOURCE=director`. Port it into `rifts-realms` behind the Director's hook, or drop the `director` source.
+   `MYSTICPARADOX_HUNT_MANIFEST_SOURCE=director`. Port it into `rustic-rifts-realms` behind the Director's hook, or drop the `director` source.
 3. **Hooks spread through the core.** Host writes touch nine core files (section 2.1). The `HostWriteKind`
    checks stay in isles' handlers either way; only `authorize` and `record` cross. The realm deletion steps for
    `realms`, `realmInvites` and `realmPresence` sit in the core's `accountDeletionPlan.ts`, not behind the hook as the
@@ -528,7 +528,7 @@ in the tree; RF6 defines its own for the evidence chain intake.
    `/launcher/v1/p2p/hunts/:sessionId/peers` (hub admission, carries pair keys), `coop-transport` (relay or realms),
    the census and host writes (guard or realms), `P2P_FORCE_SDR` and `P2P_TRUST_TIER`. The tables pick one.
 5. **The runtime hooks** stay in isles' native runtime (`MysticParadox.dll` per version), but their contract is
-   `rifts-host`'s. A change to the launch environment or the pipes is a change to both repositories.
+   `rustic-rifts-host`'s. A change to the launch environment or the pipes is a change to both repositories.
 6. **`MysticTransport_UpdateRelayCredentialH`** is expected by the launcher and exported by no transport; RF3 or RF7
    either adds it (ABI 3 stays, the export is optional) or the launcher drops the probe.
 7. **`ParadoxBackend/.env.p2p.example`** is named by `docs/SELF_HOSTING.md` and missing; section 5.1 is its content.

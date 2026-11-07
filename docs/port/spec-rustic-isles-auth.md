@@ -28,7 +28,7 @@
 | Root `NOTICE.md` (dainty-restricted) | `isles-core` is the Rust port of `ParadoxBackend/` at `21b9ff5` |
 | File headers (`//!`) | Every area file but three names the TypeScript it ports: `routes/login.ts`, `routes/eos.ts`, `routes/matchmaking.ts` (keys), `routes/launcherAuth.ts`, `controllers/{launcherAuth,launcherAccount,launcherPolicy,launcherNotices,launcherEmail,emailCodes,discordAuth,apikeys,auth}.ts`, `security/{launcherErrors,launcherTokens,apiKeyHash,emailCodes,passwords,accountEligibility,accountConsent,usernamePolicy,unofficialLauncherPolicy,launcherVersion,runtimeAuthorization,rateLimit,totp,testerFeatures}.ts`, `legal/{legalPolicy,retentionPolicy}.ts`, `config/*.ts`, `mail/{mailConfig,codeEmail,mailSender}.ts`, `accountDeletion/erasure.ts`, `encryptionKeyStore.ts` |
 | `docs/inventory/routes-1.14.7.md` (RU3a) | 49 rows in group `auth`, side `isles`, all from `reference/1.14.7/ParadoxBackend/src/routes/{login,eos,matchmaking,launcherAuth}.ts` |
-| `git log` of the area | Born in `1cd9f84` (RU5 auth, 2026-10-27) and `0c6747b` (`totp.rs`, `wiring.rs`); DaintyLass additions in `66601f2` (session tickets, account-key registration with the home, DN5), `cad9d44` (`x-reforged-user-api-key`, RF5), `9e5afc1` (request budget, key cap), `e33dff5` (timeouts), `b909a45` (chat login), `9ad97c6` (Paradox to Rustic Isles rename, legacy names) |
+| `git log` of the area | Born in `1cd9f84` (RU5 auth, 2026-10-27) and `0c6747b` (`totp.rs`, `wiring.rs`); Dainty Lass additions in `66601f2` (session tickets, account-key registration with the home, DN5), `cad9d44` (`x-reforged-user-api-key`, RF5), `9e5afc1` (request budget, key cap), `e33dff5` (timeouts), `b909a45` (chat login), `9ad97c6` (Paradox to Rustic Isles rename, legacy names) |
 
 The 3+-line similarity method of `clean-room/similarity.md` §1 does not apply to the source (TypeScript ported to
 Rust); it applies to the rewrite, measured against the restricted files of §1.2 at `e0e238b` (§11.4).
@@ -1100,7 +1100,7 @@ routing order, the pipeline, the tables and the neighbours. The crate depends on
 workspace dependencies (`axum`, `http`, `serde`, `serde_json` with `preserve_order`, `tokio`, `tracing`, `sha2`,
 `hmac`, `subtle`, `base64`, `rand`, `aws-lc-rs` for RS256 and HMAC-SHA1, `percent-encoding`, `regex`, `chrono`,
 `thiserror`, `hyper`, `hyper-util`, `hyper-rustls`, `http-body-util`, `rustls`, `tokio-rustls`). It does not depend
-on `rifts-seam`: restricted's rifts types are its own crate, so the crate defines the four realm calls it needs and
+on `rustic-rifts-seam`: restricted's rifts types are its own crate, so the crate defines the four realm calls it needs and
 restricted adapts them.
 
 **Seam changes for the integration pass** (not this row's): `argon2` (0.5, to read the PHC hashes accounts already
@@ -1331,7 +1331,7 @@ fixed manifest never panics and accepts only sets matching the manifest.
 7. **The code mail's copy and HTML.** Mystic Paradox's mail template is expressive text and layout, so §7.4 fixes
    only what tests and users depend on and leaves the rest to the implementer. The tested subjects and phrases are
    kept verbatim.
-8. **The default From address** is `Rustic Isles <no-reply@mysticfox.dev>`, a domain DaintyLass does not control. A
+8. **The default From address** is `Rustic Isles <no-reply@mysticfox.dev>`, a domain Dainty Lass does not control. A
    host that sets no `RUSTIC_ISLES_MAIL_FROM` sends as someone else's domain (and fails SPF). Proposed: keep for parity
    in the rewrite, and decide separately to require the setting or change the default (a behaviour change, so a row).
 9. **Pre-rename names** (`crate::legacy`, "remove with the release after" 2026-11-01): launcher tokens with audience

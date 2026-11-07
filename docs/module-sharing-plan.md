@@ -12,8 +12,8 @@ form. This version keeps what exists, cuts what duplicates it, and lists only th
 **One game.** Dauntless 1.14.7 on rustic-isles (`crates/rustic-isles-1-14-7`) and nothing else. No
 Dauntless Revived 1.4.4 or Rustic Isles 1.12 modules, so nothing here is per edition.
 
-**Words.** A *server* is one DaintyLass install: a `ServerController` (`crates/controller/src/controller.rs`) with its
-`ModuleRegistry` (`crates/controller/src/registry.rs`). The *fleet controller* is the install with
+**Words.** A *server* is one Dainty Lass install: a `ServerController` (`crates/dainty-controller/src/controller.rs`) with its
+`ModuleRegistry` (`crates/dainty-controller/src/registry.rs`). The *fleet controller* is the install with
 `[remote] role = "controller"` (DD27, `docs/remote-management.md`). dainty-dash calls a server a "controller";
 this doc doesn't.
 
@@ -28,22 +28,22 @@ this doc doesn't.
 
 | Need | Already there | Where |
 | --- | --- | --- |
-| A module, its identity and what it needs | `GameModule` (game or plugin, keyed by `GameVersion`), `ModuleManifest`, `Registrar` / `Registration` (routes, UDP ports, content, commands, emitted and subscribed events, admin actions, config sections) | `crates/module-api/src/module.rs`, `manifest.rs`, `registrar.rs` |
-| Built-in services as parts of one process | `Module` started in order, stopped in reverse, phase in `StatusRegistry`; gateway, allowlist, content, admin, chat, network, remote are constructors | `crates/controller/src/controller.rs`, `modules.rs` |
-| A registry of loaded modules | `ModuleRegistry`: `list`, `info`, `load`, `unload`, `restart`, `command`, `admin(version, call)`, `for_invite` | `crates/controller/src/registry.rs` |
+| A module, its identity and what it needs | `GameModule` (game or plugin, keyed by `GameVersion`), `ModuleManifest`, `Registrar` / `Registration` (routes, UDP ports, content, commands, emitted and subscribed events, admin actions, config sections) | `crates/dainty-module-api/src/module.rs`, `manifest.rs`, `registrar.rs` |
+| Built-in services as parts of one process | `Module` started in order, stopped in reverse, phase in `StatusRegistry`; gateway, allowlist, content, admin, chat, network, remote are constructors | `crates/dainty-controller/src/controller.rs`, `modules.rs` |
+| A registry of loaded modules | `ModuleRegistry`: `list`, `info`, `load`, `unload`, `restart`, `command`, `admin(version, call)`, `for_invite` | `crates/dainty-controller/src/registry.rs` |
 | Compiled-in plugins that serve modules | `CorePlugin` with `CoreCapability` (routes, UDP ports, content, commands, events, admin actions, config, chat, network) | `module-api/src/module.rs` |
 | Events | One `broadcast` bus on the registry: `HostCall::Emit` from a module, `ModuleRegistry::emit` from the host (`server.ready`), delivered to subscribers through `GameModule::event`, readable by anyone through `subscribe_events` | `registry.rs` (`publish`), `module.rs` (`Event`, `EventName`) |
-| Out-of-process modules ("sidecars") | `[[modules.external]]` in `host.toml`; `ChildModule` checks the SHA-256, runs the executable with only `system_environment`, speaks length-prefixed JSON frames (`Hello`/`Welcome`, `ModuleCall`/`ModuleAnswer`), kills its process tree on unload, and the registry shows a dead child as `Failed` | `module-api/src/host.rs`, `frame.rs`, `child.rs`; `crates/hostkit/src/hostconfig/modules.rs`; `docs/security/module-host.md` |
+| Out-of-process modules ("sidecars") | `[[modules.external]]` in `host.toml`; `ChildModule` checks the SHA-256, runs the executable with only `system_environment`, speaks length-prefixed JSON frames (`Hello`/`Welcome`, `ModuleCall`/`ModuleAnswer`), kills its process tree on unload, and the registry shows a dead child as `Failed` | `module-api/src/host.rs`, `frame.rs`, `child.rs`; `crates/dainty-hostkit/src/hostconfig/modules.rs`; `docs/security/module-host.md` |
 | Per-module configuration | `[modules.<id>.<section>]` laid over registered defaults into `ModuleConfig.sections`; `ModuleRegistry::update_settings`; ports placed by `PortBook` into `ModuleConfig.ports` | `registry.rs`, `ports.rs`, `hostconfig/modules.rs` |
-| Secrets for built-in services | Each built-in reads its own env file that `setup` writes from `host.toml` and `secrets.env` (`SECRET_KEYS`) | `crates/hostkit/src/hostconfig.rs`, `controller/src/modules.rs` |
-| Moderation across modules | `AdminRequest` (kick, ban, unban, lift timeout, lookup) routed to the player's game; admin GraphQL `modules`, `loadModule`, `unloadModule`, `restartModule` | `crates/admin/src/modules.rs`, `module_control.rs`, `schema.graphql` |
+| Secrets for built-in services | Each built-in reads its own env file that `setup` writes from `host.toml` and `secrets.env` (`SECRET_KEYS`) | `crates/dainty-hostkit/src/hostconfig.rs`, `controller/src/modules.rs` |
+| Moderation across modules | `AdminRequest` (kick, ban, unban, lift timeout, lookup) routed to the player's game; admin GraphQL `modules`, `loadModule`, `unloadModule`, `restartModule` | `crates/dainty-admin/src/modules.rs`, `module_control.rs`, `schema.graphql` |
 | The hub's readiness | `DedicatedServers::hub_status()` → `LiveHubStatus { ramsgate: Option<LiveHub { ready, host, port }>, .. }` from the Director's `GET /api/hub-status` | `crates/rustic-isles/src/dedicated.rs` |
-| Every game server on one server | The Director's `GET /api/instances`: city (hub), hunt, dojo, tutorial, with players. Admin parses it (`input::Instance`, `InstanceKind`) but `huntStatus` keeps only hunts | `crates/admin/src/upstream.rs` (`instances`), `input.rs` |
+| Every game server on one server | The Director's `GET /api/instances`: city (hub), hunt, dojo, tutorial, with players. Admin parses it (`input::Instance`, `InstanceKind`) but `huntStatus` keeps only hunts | `crates/dainty-admin/src/upstream.rs` (`instances`), `input.rs` |
 | Invites | Host-only `POST /reforged/api/CreateInvite` in the game module (uses, infinite, note; no expiry) | `crates/rustic-isles-reforged/src/admin/host_routes.rs` |
-| Many servers, one place | `crates/remote` (DD27, MIT): enrollment, mTLS `POST /__node/remote`, 15 s `Sync` with `InstallReport` (counts of players, hunts, hubs, realms; component health; doctor; history), queued `RemoteCommand`s with roles and `DH6` approval, `SharedConfigBundle` revisions | `crates/remote/src/wire.rs`, `state.rs`, `transport.rs` |
-| Game servers across a network | `InstanceRecord` and the ring (DN6, DN8, DN9), the directory (DD17) | `crates/network/src/ring.rs`, `directory.rs`; `module-api/src/network.rs` |
-| History of every database write | `store`'s hash-chained change log (DD23, DH1–DH5), on SQLite (default) or Postgres (DD15) | `crates/store/src/history.rs`, `engine.rs` |
-| Server identity | `ServerSnapshot.invite_url`, `cert_fingerprint` via `ServerController::set_invite_info`; `protocol::invite::format_invite` | `service-kit/src/context.rs`, `crates/protocol/src/invite.rs` |
+| Many servers, one place | `crates/dainty-remote` (DD27, MIT): enrollment, mTLS `POST /__node/remote`, 15 s `Sync` with `InstallReport` (counts of players, hunts, hubs, realms; component health; doctor; history), queued `RemoteCommand`s with roles and `DH6` approval, `SharedConfigBundle` revisions | `crates/dainty-remote/src/wire.rs`, `state.rs`, `transport.rs` |
+| Game servers across a network | `InstanceRecord` and the ring (DN6, DN8, DN9), the directory (DD17) | `crates/dainty-network/src/ring.rs`, `directory.rs`; `module-api/src/network.rs` |
+| History of every database write | `store`'s hash-chained change log (DD23, DH1–DH5), on SQLite (default) or Postgres (DD15) | `crates/dainty-store/src/history.rs`, `engine.rs` |
+| Server identity | `ServerSnapshot.invite_url`, `cert_fingerprint` via `ServerController::set_invite_info`; `protocol::invite::format_invite` | `service-kit/src/context.rs`, `crates/dainty-protocol/src/invite.rs` |
 
 ## What the first draft proposed, and what happens to it
 
@@ -55,7 +55,7 @@ this doc doesn't.
 | `accounts.verifyKey`, `players.lookup` | **Cut** | Content and admin already reach the game module; admin's lookup is `AdminRequest::Lookup` |
 | Module API on `127.0.0.1:61007`, per-module bearer tokens, scopes, SSE | **Cut** | Out-of-process modules already have a channel, the frame protocol over the child's pipes, with no listener to protect |
 | Sidecar supervisor (spawn, env, process tree, heartbeats, log capture) | **Mostly there**: `ChildModule`. **Kept**: restart with backoff (A2) | A dead child stays `Failed` today; "the controller starts sidecars" also means it brings them back |
-| Fleet agent as a sidecar reading the module API | **Superseded by `crates/remote`**, pending D1 | Both dial out, report every 15 s and run an allowlist of commands; remote already does it over mTLS with roles and audit inside DaintyLass |
+| Fleet agent as a sidecar reading the module API | **Superseded by `crates/dainty-remote`**, pending D1 | Both dial out, report every 15 s and run an allowlist of commands; remote already does it over mTLS with roles and audit inside Dainty Lass |
 | `dashboard.signup` provided by the agent | **Replaced**: the bot reads a public dashboard endpoint (A8), pending D3 | The signup link is public anyway; no agent needed to carry it |
 | Postgres-only `modules.events`, waiting for RB3 and RB14 | **Replaced**: an events database in `store`, on whichever engine `[database]` picks (A5), pending D2 | `store` runs SQLite by default and Postgres when chosen (DD15); there is nothing to wait for |
 | Discord bot as a built-in Rust module | **Kept**: a built-in service like chat (A7) | Built-ins get secrets through their env file; a `GameModule` has no secret channel |
@@ -296,7 +296,7 @@ start. Dashed boxes are additions.
 | Configuration | **At load**: `ModuleConfig` (ports, `[modules.<id>.*]`) or the built-in's env file | A change is `update_settings` and a reload, as today |
 | Secrets | **Only a built-in's env file**, from `secrets.env` | A `GameModule`, in process or not, is never handed one (D5) |
 | Another server | **`remote`** over mTLS node links, and the network plugin for a network | One trust model for every cross-host call |
-| A contract outside DaintyLass (Paradox's HTTP, the dashboard's ingest API, Discord) | **Stays HTTP** at its edge | Its shape is fixed elsewhere |
+| A contract outside Dainty Lass (Paradox's HTTP, the dashboard's ingest API, Discord) | **Stays HTTP** at its edge | Its shape is fixed elsewhere |
 
 ### Each interaction, today and in the plan
 
@@ -360,13 +360,13 @@ One agent, one worktree and branch each (RD18). MS1 is a seam and lands first.
 
 | Row | What | Owns | Needs |
 | --- | --- | --- | --- |
-| **MS1** | `module_api::game` (A1): `GameCall`, `GameAnswer`, `Availability`, `UnavailableReason`, `GameServer`, `GameServerKind`, the event-name constants; `GameModule::game`; `ModuleCall::Game` / `ModuleAnswer::Game`; `Registrar::game_call`; `API_VERSION`; the stub module answers it; the `module_frame` fuzz target covers the new frames; `docs/writing-a-module.md` and `docs/security/module-host.md` | `crates/module-api` (seam: through the integration pass) | — |
-| **MS2** | Controller (A2): `ModuleRegistry::game`, `game_servers`; restart with backoff for external modules; `restart` in `hostconfig/modules.rs` and `hosttoml.rs`; `docs/hosting.md` row | `crates/controller`, `crates/hostkit/src/hostconfig/modules.rs` | MS1 |
+| **MS1** | `module_api::game` (A1): `GameCall`, `GameAnswer`, `Availability`, `UnavailableReason`, `GameServer`, `GameServerKind`, the event-name constants; `GameModule::game`; `ModuleCall::Game` / `ModuleAnswer::Game`; `Registrar::game_call`; `API_VERSION`; the stub module answers it; the `module_frame` fuzz target covers the new frames; `docs/writing-a-module.md` and `docs/security/module-host.md` | `crates/dainty-module-api` (seam: through the integration pass) | — |
+| **MS2** | Controller (A2): `ModuleRegistry::game`, `game_servers`; restart with backoff for external modules; `restart` in `hostconfig/modules.rs` and `hosttoml.rs`; `docs/hosting.md` row | `crates/dainty-controller`, `crates/dainty-hostkit/src/hostconfig/modules.rs` | MS1 |
 | **MS3** | rustic-isles (A3): `game()` on the isles module, the hub-status watch and its events, invite expiry per D4 | `crates/rustic-isles`, `crates/rustic-isles-1-14-7`, through `docs/port/spec-rustic-isles-*.md` | MS1 |
-| **MS4** | Admin (A4): `gameServers`, `availability`, `events`; `schema.graphql`; `docs/admin-api.md` | `crates/admin` | MS2, MS5 for `events` |
-| **MS5** | Event recorder (A5): subscriber, table, `events.lagged`, retention, `[events]` in host.toml; the schema reported to `store`'s owner | `crates/controller` (recorder only), `crates/hostkit` (`[events]`) | MS2; D2 |
-| **MS6** | Remote (A6): `InstallReport` fields, last report per node, admin `installs` and `node` on moderation; upgrade order in `docs/remote-management.md`; `remote_wire` fuzz target | `crates/remote`, `crates/admin` (fleet fields only, after MS4) | MS2, MS4; D1 |
-| **MS7** | Discord bot (A7): `plugins/discord`, `controller::modules::discord`, `[discord]` and the token through `setup`, `/key` and `/status`, catalog in `en` and `pt-BR`, `docs/security/discord.md` and a fuzz target for interaction parsing, the hosting docs | new `plugins/discord`; `crates/hostkit` (`[discord]`, secret) | MS2, MS3; MS5 for its audit (D6) |
+| **MS4** | Admin (A4): `gameServers`, `availability`, `events`; `schema.graphql`; `docs/admin-api.md` | `crates/dainty-admin` | MS2, MS5 for `events` |
+| **MS5** | Event recorder (A5): subscriber, table, `events.lagged`, retention, `[events]` in host.toml; the schema reported to `store`'s owner | `crates/dainty-controller` (recorder only), `crates/dainty-hostkit` (`[events]`) | MS2; D2 |
+| **MS6** | Remote (A6): `InstallReport` fields, last report per node, admin `installs` and `node` on moderation; upgrade order in `docs/remote-management.md`; `remote_wire` fuzz target | `crates/dainty-remote`, `crates/dainty-admin` (fleet fields only, after MS4) | MS2, MS4; D1 |
+| **MS7** | Discord bot (A7): `plugins/discord`, `controller::modules::discord`, `[discord]` and the token through `setup`, `/key` and `/status`, catalog in `en` and `pt-BR`, `docs/security/discord.md` and a fuzz target for interaction parsing, the hosting docs | new `plugins/discord`; `crates/dainty-hostkit` (`[discord]`, secret) | MS2, MS3; MS5 for its audit (D6) |
 | **MS8** | dainty-dash (A8): the account-creation setting and `GET /api/public/signup`; game-server views; the fleet from `installs` (or, per D1, the agent's report gains `gameServers`) | `ui/` | MS4, MS6; D1, D3 |
 
 MS3, MS4 and MS5 can run side by side once MS2 is merged. Nothing here edits `MIGRATION_PLAN.md`; the integration
@@ -387,8 +387,8 @@ pass adds the rows and the decisions.
 
 ## For the maintainer
 
-- **D1. Does `crates/remote` replace dainty-dash's agent?** They overlap: outbound connection, a 15 s report, an
-  allowlist of commands, a one-time pairing code. Remote does it inside DaintyLass over mTLS with roles, `DH6` and
+- **D1. Does `crates/dainty-remote` replace dainty-dash's agent?** They overlap: outbound connection, a 15 s report, an
+  allowlist of commands, a one-time pairing code. Remote does it inside Dainty Lass over mTLS with roles, `DH6` and
   audit; the agent is a second path with its own token and the admin key copied into `agent.env` by hand.
   *Recommended:* yes. The dashboard runs beside the fleet controller and reads the fleet from its admin API (A6), and
   the agent is retired once MS8 lands. If not, MS8 takes the agent branch and the two stay side by side.
