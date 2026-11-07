@@ -224,7 +224,7 @@ fn manifest_parses_only_the_two_runtime_files() {
     });
     assert!(parse_runtime_manifest(&control_only_version).is_none());
 
-    let out_of_range_cl = json!({
+    let wide_cl = json!({
         "version": "1.0.0",
         "build": { "changelist": u64::from(u32::MAX) + 5 },
         "files": [
@@ -232,8 +232,9 @@ fn manifest_parses_only_the_two_runtime_files() {
             { "name": "winmm.dll", "size": 512, "sha256": sha_b }
         ]
     });
-    let parsed_cl = parse_runtime_manifest(&out_of_range_cl).expect("valid with default cl");
-    assert_eq!(parsed_cl.build.changelist, DEFAULT_CHANGELIST);
+    // Any safe integer is kept (spec §2.6.3)
+    let parsed_cl = parse_runtime_manifest(&wide_cl).expect("valid with its changelist");
+    assert_eq!(parsed_cl.build.changelist, u64::from(u32::MAX) + 5);
 }
 
 #[tokio::test]

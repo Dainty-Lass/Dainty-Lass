@@ -26,7 +26,7 @@ pub use protocol::manifest::{
 use crate::bridge::types::{RuntimeFileInfo, RuntimeState};
 use crate::core::pins::{DISK_MARGIN_BYTES, sha256_hex};
 use crate::net::http::to_file::{FileRequestError, FileRequestOptions, request_to_file};
-use crate::net::http::{Endpoint, HttpError, RequestOptions, parse_json_body, request};
+use crate::net::http::{Endpoint, HttpError};
 use crate::net::verify::{Abort, VerifyError, hash_file};
 use crate::platform::system::free_bytes;
 
@@ -38,8 +38,6 @@ pub const DOWNLOAD_SUFFIX: &str = ".rr-download";
 pub const ASIDE_MARK: &str = ".rr-old-";
 
 const DOWNLOAD_IDLE_TIMEOUT: Duration = Duration::from_secs(30);
-const MANIFEST_TIMEOUT: Duration = Duration::from_secs(10);
-const MANIFEST_MAX_BYTES: usize = 64 * 1024;
 const MAX_TRUSTED_SETS: usize = 8;
 
 /// What the server's runtime manifest route answered.
@@ -221,22 +219,9 @@ pub fn accept(trusted: &mut Vec<String>, files: &[RuntimeFile]) -> String {
     id
 }
 
-/// The joined server's runtime manifest.
+/// The joined server's runtime manifest (`hostapi::fetch_runtime_manifest`).
 pub async fn fetch_runtime_manifest(endpoint: &Endpoint) -> RuntimeManifestResult {
-    let options = RequestOptions::get(MANIFEST_TIMEOUT, MANIFEST_MAX_BYTES);
-    match request(endpoint, RUNTIME_MANIFEST_PATH, options).await {
-        Ok(res) => match res.status {
-            200 => match parse_json_body(&res).and_then(|v| parse_runtime_manifest(&v)) {
-                Some(manifest) => RuntimeManifestResult::Ok(manifest),
-                None => RuntimeManifestResult::BadAnswer,
-            },
-            404 => RuntimeManifestResult::None,
-            _ => RuntimeManifestResult::BadAnswer,
-        },
-        Err(HttpError::Pin { .. }) => RuntimeManifestResult::CertMismatch,
-        Err(HttpError::TooLarge) => RuntimeManifestResult::BadAnswer,
-        Err(_) => RuntimeManifestResult::Unreachable,
-    }
+    crate::net::hostapi::fetch_runtime_manifest(endpoint).await
 }
 
 /// `name`'s file in `dir`; the runtime may still be there under its name from before the Rustic Isles rename (DX4)
