@@ -596,9 +596,11 @@ mod tests {
     }
 
     #[test]
-    fn the_crate_version_is_the_launchers_package() {
+    fn the_version_is_the_launchers_package() {
         let package: serde_json::Value = serde_json::from_str(include_str!("../../../launcher/package.json")).unwrap();
-        assert_eq!(package["version"], env!("CARGO_PKG_VERSION"));
+        assert_eq!(package["version"], launcher_kit::VERSION);
+        let context: tauri::Context<tauri::Wry> = tauri::generate_context!();
+        assert_eq!(context.package_info().version.to_string(), launcher_kit::VERSION);
         let config: serde_json::Value = serde_json::from_str(include_str!("../tauri.conf.json")).unwrap();
         assert_eq!(config["version"], "../../launcher/package.json");
     }

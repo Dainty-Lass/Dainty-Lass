@@ -331,7 +331,7 @@ impl ServerHostBackend {
             "runtimeSupported": true,
             "transportReady": true,
             "peerId": "100001",
-            "launcherVersion": env!("CARGO_PKG_VERSION"),
+            "launcherVersion": crate::VERSION,
             "freePhysicalMemoryMiB": 8192,
             "commitHeadroomMiB": 8192,
             "logicalCpuCount": 8,

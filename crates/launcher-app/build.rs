@@ -8,6 +8,8 @@
 use std::error::Error;
 use std::path::{Path, PathBuf};
 
+use serde_json::Value;
+
 const SPEC: &str = "../launcher-kit/src/bridge/spec.rs";
 /// launcher-kit's generator output; its `generated` test keeps both current.
 const COMMANDS: &str = "../launcher-kit/generated/commands.js";
@@ -16,6 +18,9 @@ const PERMISSIONS: &str = "../launcher-kit/generated/app-commands.toml";
 const ISOLATION_COMMANDS: &str = "../../launcher/isolation/commands.js";
 /// The manager's differences from tauri.conf.json, for the compiled-in context.
 const MANAGER_CONFIG: &str = "tauri.server-gui.conf.json";
+const CLIENT_CONFIG: &str = "tauri.conf.json";
+/// What a `custom-protocol` build embeds when its page was never built.
+const NO_PAGE: &str = "no-page";
 
 /// The names in `COMMANDS`, in order. A build script cannot use launcher-kit, so the table is read as text; a
 /// name may sit on the line after its `cmd(`.
@@ -53,12 +58,47 @@ fn isolation_commands() -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-/// The manager build's context: Tauri's codegen merges `TAURI_CONFIG` over tauri.conf.json, and the value set
-/// here wins over one the CLI passes, whose paths are relative to restricted's crate.
-fn manager_config() -> Result<(), Box<dyn Error>> {
+/// The compiled-in context's config. Tauri's codegen merges `TAURI_CONFIG` over tauri.conf.json, and the value
+/// set here wins over one the CLI passes. The manager build sets its own (the CLI's paths are relative to
+/// restricted's crate); a `custom-protocol` build whose page is missing (`--all-features`) embeds [`NO_PAGE`].
+fn context_config() -> Result<(), Box<dyn Error>> {
     println!("cargo:rerun-if-changed={MANAGER_CONFIG}");
-    if std::env::var_os("CARGO_FEATURE_SERVER_GUI").is_some() {
-        let patch: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(MANAGER_CONFIG)?)?;
+    let mut patch = if std::env::var_os("CARGO_FEATURE_SERVER_GUI").is_some() {
+        Some(serde_json::from_str::<Value>(&std::fs::read_to_string(
+            MANAGER_CONFIG,
+        )?)?)
+    } else {
+        None
+    };
+    if std::env::var_os("CARGO_FEATURE_CUSTOM_PROTOCOL").is_some() {
+        let base = serde_json::from_str::<Value>(&std::fs::read_to_string(CLIENT_CONFIG)?)?;
+        let page = [patch.as_ref(), Some(&base)]
+            .into_iter()
+            .flatten()
+            .find_map(|config| config.pointer("/build/frontendDist")?.as_str())
+            .unwrap_or_default()
+            .to_owned();
+        println!("cargo:rerun-if-changed={page}");
+        if !Path::new(&page).is_dir() {
+            println!("cargo:warning={page} is not built; this binary shows a placeholder page");
+            // Kept whole when not the manager: it carries the CLI's release overlay
+            let config = patch.get_or_insert_with(|| {
+                std::env::var("TAURI_CONFIG")
+                    .ok()
+                    .and_then(|env| serde_json::from_str(&env).ok())
+                    .unwrap_or_else(|| Value::Object(serde_json::Map::new()))
+            });
+            if let Some(config) = config.as_object_mut() {
+                let build = config
+                    .entry("build")
+                    .or_insert_with(|| Value::Object(serde_json::Map::new()));
+                if let Some(build) = build.as_object_mut() {
+                    build.insert("frontendDist".to_owned(), Value::from(NO_PAGE));
+                }
+            }
+        }
+    }
+    if let Some(patch) = patch {
         println!("cargo:rustc-env=TAURI_CONFIG={patch}");
     }
     Ok(())
@@ -69,7 +109,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     println!("cargo:rerun-if-changed={COMMANDS}");
     println!("cargo:rerun-if-changed={PERMISSIONS}");
     isolation_commands()?;
-    manager_config()?;
+    context_config()?;
     println!("cargo:rerun-if-changed=capabilities");
     println!("cargo:rerun-if-changed=../../launcher/isolation");
     let names = command_names(&std::fs::read_to_string(SPEC)?);

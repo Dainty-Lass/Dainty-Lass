@@ -19,6 +19,9 @@ test = false
 doc = false
 bench = false
 
+[build-dependencies]
+serde_json.workspace = true
+
 [dependencies]
 protocol.workspace = true
 epic.workspace = true
