@@ -1,12 +1,57 @@
 // Copyright (c) 2026 Silent Spud
 // SPDX-License-Identifier: MIT
 
-//! The launcher API's routes, and where the account key may go (AGENTS.md: only to its own server).
+//! The launcher's requests to a server: status, register, user info, the runtime manifest, news and branding
+//! (spec §2.6.3). The account key goes only to the server it was made for (AGENTS.md).
 
-use crate::net::http::{Endpoint, check_endpoint};
+use std::time::Duration;
+
+use hyper::Method;
+use protocol::account::{REGISTER_PATH, RegisterRequest, is_plausible_account_key};
+use protocol::manifest::RUNTIME_MANIFEST_PATH;
+use protocol::status::{STATUS_PATH, ServerStatus};
+
+use crate::bridge::types::{ErrorCode, LauncherError};
+use crate::net::http::{Endpoint, HttpError, HttpResponse, RequestOptions, check_endpoint, request};
+use crate::net::runtime_files::RuntimeManifestResult;
+
+pub mod parse;
+
+#[cfg(test)]
+mod tests;
+
+pub use parse::{
+    Background, Branding, BrandingImage, ImageType, NewsItem, StatusReply, UserInfo, is_branding_path, sniff_image,
+};
 
 /// Header that carries the account key (`RRK_...`) to the server it was made for.
 pub const KEY_HEADER: &str = "x-reforged-user-api-key";
+/// Asked when the status route is missing: an older server answers it.
+pub const PROBE_PATH: &str = "/dauntless-status";
+/// The account lookup route.
+pub const USER_INFO_PATH: &str = "/reforged/api/GetUserInfo";
+/// The content server's news.
+pub const NEWS_PATH: &str = "/content/v1/news";
+/// The content server's branding index.
+pub const BRANDING_PATH: &str = "/content/v1/branding";
+
+const KIB: usize = 1024;
+/// Status's deadline when the caller gives none.
+pub const STATUS_TIMEOUT: Duration = Duration::from_secs(5);
+const STATUS_MAX_BYTES: usize = 1024 * KIB;
+const PROBE_MAX_BYTES: usize = 64 * KIB;
+const REGISTER_TIMEOUT: Duration = Duration::from_secs(20);
+const REGISTER_MAX_BYTES: usize = 64 * KIB;
+const USER_INFO_TIMEOUT: Duration = Duration::from_secs(10);
+const USER_INFO_MAX_BYTES: usize = 64 * KIB;
+const MANIFEST_TIMEOUT: Duration = Duration::from_secs(10);
+const MANIFEST_MAX_BYTES: usize = 64 * KIB;
+const NEWS_TIMEOUT: Duration = Duration::from_secs(10);
+const NEWS_MAX_BYTES: usize = 512 * KIB;
+const BRANDING_TIMEOUT: Duration = Duration::from_secs(10);
+const BRANDING_MAX_BYTES: usize = 64 * KIB;
+const IMAGE_TIMEOUT: Duration = Duration::from_secs(30);
+const IMAGE_MAX_BYTES: usize = 15 * 1024 * KIB;
 
 /// The routes and key header of one server family's launcher API.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -33,11 +78,11 @@ pub struct Flavor {
 pub const REFORGED: Flavor = Flavor {
     id: "reforged",
     key_header: KEY_HEADER,
-    status_path: "/api/launcher/status",
-    register_path: "/api/launcher/register",
-    account_path: "/api/launcher/account",
+    status_path: STATUS_PATH,
+    register_path: REGISTER_PATH,
+    account_path: USER_INFO_PATH,
     versions_path: "/content/v1/versions",
-    runtime_manifest_path: "/api/launcher/runtime-files",
+    runtime_manifest_path: RUNTIME_MANIFEST_PATH,
     region_ping_path: "/network/v1/nodes",
 };
 
@@ -46,17 +91,142 @@ pub fn key_headers(endpoint: &Endpoint, key: Option<&str>) -> Vec<(&'static str,
     key_headers_as(REFORGED, endpoint, key)
 }
 
-/// [`key_headers`] with `flavor`'s key header. A key goes only to a pinned endpoint, or a private or loopback one.
+/// [`key_headers`] with `flavor`'s key header. A plausible key goes only to a pinned endpoint or a private-mode
+/// host, never in clear to anyone else.
 pub fn key_headers_as(flavor: Flavor, endpoint: &Endpoint, key: Option<&str>) -> Vec<(&'static str, String)> {
-    let Some(raw) = key else {
-        return Vec::new();
+    match key {
+        Some(key) if is_plausible_account_key(key) && check_endpoint(endpoint).is_ok() => {
+            vec![(flavor.key_header, key.to_owned())]
+        }
+        _ => Vec::new(),
+    }
+}
+
+/// What asking a server's status came to.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum StatusOutcome {
+    /// The server's status.
+    Status(Box<ServerStatus>),
+    /// An older server this launcher cannot play on.
+    Unsupported,
+    /// It answered, but not with anything usable.
+    BadAnswer,
+    /// Its certificate is not the pinned one.
+    CertMismatch {
+        /// The fingerprint it presented.
+        actual: String,
+    },
+    /// No answer.
+    Unreachable,
+}
+
+fn get(timeout: Duration, max_bytes: usize, headers: Vec<(&'static str, String)>) -> RequestOptions {
+    RequestOptions {
+        headers,
+        ..RequestOptions::get(timeout, max_bytes)
+    }
+}
+
+fn transport_outcome(err: HttpError) -> StatusOutcome {
+    match err {
+        HttpError::Pin { actual } => StatusOutcome::CertMismatch { actual },
+        _ => StatusOutcome::Unreachable,
+    }
+}
+
+/// The transport failures every account route shares.
+fn account_error(err: &HttpError) -> LauncherError {
+    match err {
+        HttpError::Pin { .. } => LauncherError::new(ErrorCode::CertMismatch),
+        _ => LauncherError::new(ErrorCode::ServerUnreachable),
+    }
+}
+
+/// The server's status, with the key when there is one so the server may show more; 404 falls back to the
+/// older probe route, sent without the key.
+pub async fn fetch_status(endpoint: &Endpoint, key: Option<&str>, timeout: Option<Duration>) -> StatusOutcome {
+    let timeout = timeout.unwrap_or(STATUS_TIMEOUT);
+    let options = get(timeout, STATUS_MAX_BYTES, key_headers(endpoint, key));
+    let reply = match request(endpoint, REFORGED.status_path, options).await {
+        Ok(res) => parse::status_reply(res.status, &res.body),
+        Err(err) => return transport_outcome(err),
     };
-    let trimmed = raw.trim();
-    if trimmed.is_empty() || trimmed.bytes().any(|b| b < 0x20 || b == 0x7f) {
-        return Vec::new();
+    match reply {
+        StatusReply::Status(status) => StatusOutcome::Status(status),
+        StatusReply::BadAnswer => StatusOutcome::BadAnswer,
+        StatusReply::Probe => match request(endpoint, PROBE_PATH, get(timeout, PROBE_MAX_BYTES, Vec::new())).await {
+            Ok(res) if parse::probe_reply(res.status, &res.body) => StatusOutcome::Unsupported,
+            Ok(_) => StatusOutcome::BadAnswer,
+            Err(err) => transport_outcome(err),
+        },
     }
-    if check_endpoint(endpoint).is_err() {
-        return Vec::new();
+}
+
+/// Registers `body.username` and answers the new account key.
+pub async fn register(endpoint: &Endpoint, body: &RegisterRequest) -> Result<String, LauncherError> {
+    let json = serde_json::to_string(body).map_err(|_| LauncherError::new(ErrorCode::BadRequest))?;
+    let options = RequestOptions {
+        method: Method::POST,
+        body: Some(json),
+        ..RequestOptions::get(REGISTER_TIMEOUT, REGISTER_MAX_BYTES)
+    };
+    match request(endpoint, REFORGED.register_path, options).await {
+        Ok(res) => parse::register_reply(res.status, &res.body),
+        Err(err) => Err(account_error(&err)),
     }
-    vec![(flavor.key_header, trimmed.to_owned())]
+}
+
+/// The account `key` belongs to. An implausible key is refused without asking.
+pub async fn fetch_user_info(endpoint: &Endpoint, key: &str) -> Result<UserInfo, LauncherError> {
+    if !is_plausible_account_key(key) {
+        return Err(LauncherError::new(ErrorCode::KeyRejected));
+    }
+    let options = get(USER_INFO_TIMEOUT, USER_INFO_MAX_BYTES, key_headers(endpoint, Some(key)));
+    match request(endpoint, REFORGED.account_path, options).await {
+        Ok(res) => parse::user_info_reply(res.status, &res.body),
+        Err(err) => Err(account_error(&err)),
+    }
+}
+
+/// The server's runtime manifest; it is public, so no key is sent.
+pub async fn fetch_runtime_manifest(endpoint: &Endpoint) -> RuntimeManifestResult {
+    let options = RequestOptions::get(MANIFEST_TIMEOUT, MANIFEST_MAX_BYTES);
+    match request(endpoint, REFORGED.runtime_manifest_path, options).await {
+        Ok(res) => parse::runtime_manifest_reply(res.status, &res.body),
+        Err(HttpError::Pin { .. }) => RuntimeManifestResult::CertMismatch,
+        Err(_) => RuntimeManifestResult::Unreachable,
+    }
+}
+
+/// The server's news, or `fallback` when it has none to give.
+pub async fn fetch_news(endpoint: &Endpoint, fallback: &[NewsItem]) -> Vec<NewsItem> {
+    request(endpoint, NEWS_PATH, RequestOptions::get(NEWS_TIMEOUT, NEWS_MAX_BYTES))
+        .await
+        .ok()
+        .and_then(|res| parse::news_reply(res.status, &res.body))
+        .unwrap_or_else(|| fallback.to_vec())
+}
+
+/// The server's branding index; empty when it has none or does not answer.
+pub async fn fetch_branding(endpoint: &Endpoint) -> Branding {
+    match request(
+        endpoint,
+        BRANDING_PATH,
+        RequestOptions::get(BRANDING_TIMEOUT, BRANDING_MAX_BYTES),
+    )
+    .await
+    {
+        Ok(res) => parse::branding_reply(res.status, &res.body),
+        Err(_) => Branding::default(),
+    }
+}
+
+/// One background named by the branding index. Any other path is never asked for.
+pub async fn fetch_branding_image(endpoint: &Endpoint, path: &str) -> Option<BrandingImage> {
+    if !is_branding_path(path) {
+        return None;
+    }
+    let options = RequestOptions::get(IMAGE_TIMEOUT, IMAGE_MAX_BYTES);
+    let HttpResponse { status, body } = request(endpoint, path, options).await.ok()?;
+    parse::branding_image_reply(status, body)
 }
