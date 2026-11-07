@@ -34,7 +34,7 @@ relicensed (spec §3): the page's language catalogs, DR's recorded test tables
 | L1 | The backend's strings (12 when asked; the tray made them 14) | §3.1 | **Rewrite them**, en and pt-BR, compiled into the MIT backend from a new MIT catalog. The close dialog's, the pickers' and the Epic window's wording changes slightly. The page's 1,171 other keys stay in `restricted/` as they are |
 | L2 | The 15 icons | §3.5 | **Origin unknown: treat them as restricted.** They stay in `restricted/`, and new icons are drawn before an MIT client ships |
 | L3 | The key backup file's two advisory sentences | §3.3 | **Write new ones** |
-| L4 | Comparing the generator's output against today's `types.ts`, `commands.js` and `app-commands.toml` | §3.4 | **The implementer compares**: the three files go into RL8's brief as fixtures |
+| L4 | Comparing the generator's output against today's `types.ts`, `commands.js` and `app-commands.toml` | §3.4 | **The implementer compares, ignoring doc comments** (amended 2026-11-06): `types.ts` carries ts-rs copies of the Rust types' rustdoc, much of it restricted's prose, so the comparison is on a normalised form without doc comments, banners or the permission set's description. The normalised files are `crates/launcher-kit/tests/fixtures/bridge/` (its README has the rule); the MIT types get their own doc comments |
 | L5 | DR's recorded test tables | §3.2 | **Keep them in `restricted/`, running against the MIT crates, and also write new MIT cases** from the spec, so the root has its own tables |
 
 ## 3. How each row runs

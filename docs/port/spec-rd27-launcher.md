@@ -1630,7 +1630,10 @@ exercises an MIT crate does not change that crate's licence. A clean replacement
 ### 3.4 Generated interface files
 
 `ui/packages/bridge/src/generated/types.ts`, `isolation/commands.js` and `permissions/app-commands.toml` are
-generated from AGPL sources and carry no prose: names, shapes and limits. Their **bytes must not change** (§2.3.6).
+generated from AGPL sources. Their names, shapes and limits must not change (§2.3.6). **Amended (L4, 2026-11-06):**
+`types.ts` is not prose-free after all: ts-rs copies each Rust type's rustdoc into it, much of it the AGPL shell's.
+The comparison is therefore on a normalised form, without doc comments, banners or the permission set's
+`description` (`crates/launcher-kit/tests/fixtures/bridge/README.md`), and the MIT types carry their own docs.
 This document reproduces their content as an interface (§2.3), and the implementer may compare the generator's
 output against them. Treating interface declarations this way is the same footing the earlier clean rooms gave the
 shared test tables in `crates/protocol/tests/cases`; if the maintainer prefers a stricter line, the implementer
@@ -1747,8 +1750,9 @@ decision can be taken at any point; it only gates the client binary's licence.
 
 ## 6. Acceptance for the implementers
 
-- `RR_UPDATE_GENERATED` unset, the generator's test passes against today's `types.ts`, `commands.js` and
-  `app-commands.toml` (byte-identical). `strings.json` stays generated in `restricted/` (L1).
+- `RR_UPDATE_GENERATED` unset, the generator's test passes: its `types.ts`, `commands.js` and `app-commands.toml`,
+  normalised, equal `crates/launcher-kit/tests/fixtures/bridge/` byte for byte (L4 as amended). `strings.json`
+  stays generated in `restricted/` (L1).
 - A reviewer outside the clean room runs `restricted/`'s suites against the MIT crates, unchanged; they pass: the
   controller flow, the relay, the host API and game-config tables, settings and log tables, `bun run test` in
   `launcher/`, and the fuzz targets build.
