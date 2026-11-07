@@ -64,3 +64,31 @@ test("the event reader splits events across chunk boundaries and drops comments"
     { event: "hello", data: "x" },
   ]);
 });
+
+test("the event reader handles CRLF split across chunks and lone CR line endings", async () => {
+  const crlfChunks = ["event: command\r", '\ndata: {"id":"b"}\r', "\n\r", "\n"];
+  const crlfStream = new ReadableStream<Uint8Array>({
+    start(c) {
+      for (const s of crlfChunks) c.enqueue(new TextEncoder().encode(s));
+      c.close();
+    },
+  });
+  const crlfEvents = [];
+  for await (const e of readEvents(crlfStream)) crlfEvents.push(e);
+  expect(crlfEvents).toEqual([{ event: "command", data: '{"id":"b"}' }]);
+
+  const crStream = new ReadableStream<Uint8Array>({
+    start(c) {
+      c.enqueue(
+        new TextEncoder().encode(": comment\r\rdata: unnamed\r\revent: ping\rdata: ok\r\r: end\n"),
+      );
+      c.close();
+    },
+  });
+  const crEvents = [];
+  for await (const e of readEvents(crStream)) crEvents.push(e);
+  expect(crEvents).toEqual([
+    { event: "message", data: "unnamed" },
+    { event: "ping", data: "ok" },
+  ]);
+});
