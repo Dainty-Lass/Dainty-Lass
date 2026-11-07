@@ -12,10 +12,8 @@ const WIRE_LEN: usize = 36;
 const DASHES: [usize; 4] = [8, 13, 18, 23];
 
 /// Keeps the text a valid version 4 UUID whatever the other bits hold.
-fn version_4(mut bytes: [u8; 16]) -> u128 {
-    bytes[6] = (bytes[6] & 0x0f) | 0x40;
-    bytes[8] = (bytes[8] & 0x3f) | 0x80;
-    u128::from_be_bytes(bytes)
+fn version_4(bytes: [u8; 16]) -> u128 {
+    uuid::Builder::from_random_bytes(bytes).into_uuid().as_u128()
 }
 
 fn random_bytes() -> [u8; 16] {
@@ -44,11 +42,7 @@ pub fn new_session_ulid(at: UnixMillis) -> u128 {
 
 /// The 128 bits as a lower-case hyphenated UUID.
 pub fn uuid_text(bits: u128) -> String {
-    let mut out = hex(&bits.to_be_bytes());
-    for at in DASHES {
-        out.insert(at, '-');
-    }
-    out
+    uuid::Uuid::from_u128(bits).to_string()
 }
 
 /// Lower-case `8-4-4-4-12` hex only.

@@ -39,6 +39,7 @@ thiserror.workspace = true
 tokio = { workspace = true, features = ["net", "rt", "sync", "time", "macros", "io-util"] }
 tracing.workspace = true
 ulid.workspace = true
+uuid.workspace = true
 
 [dev-dependencies]
 tempfile.workspace = true

@@ -162,18 +162,8 @@ pub fn random_uuid() -> String {
     format_uuid(rand::random())
 }
 
-fn format_uuid(mut b: [u8; 16]) -> String {
-    b[6] = (b[6] & 0x0f) | 0x40;
-    b[8] = (b[8] & 0x3f) | 0x80;
-    let hex: String = b.iter().map(|x| format!("{x:02x}")).collect();
-    format!(
-        "{}-{}-{}-{}-{}",
-        &hex[0..8],
-        &hex[8..12],
-        &hex[12..16],
-        &hex[16..20],
-        &hex[20..32]
-    )
+fn format_uuid(b: [u8; 16]) -> String {
+    uuid::Builder::from_random_bytes(b).into_uuid().to_string()
 }
 
 #[cfg(test)]

@@ -12,7 +12,6 @@ publish.workspace = true
 aes-gcm.workspace = true
 base64.workspace = true
 bytes.workspace = true
-hex.workspace = true
 http.workspace = true
 http-body-util.workspace = true
 hyper.workspace = true
@@ -28,6 +27,7 @@ rtc-turn.workspace = true
 rustls.workspace = true
 sansio.workspace = true
 tokio = { workspace = true, features = ["rt", "rt-multi-thread", "net", "time", "sync", "io-util"] }
+uuid.workspace = true
 
 [dev-dependencies]
 serde_json.workspace = true

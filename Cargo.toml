@@ -154,6 +154,7 @@ rand = "0.10"
 tempfile = "3"
 # Network-wide ids, tagged with the owning node (DD18, crates/module-api)
 ulid = "3"
+uuid = { version = "1.28.0", default-features = false }
 # The chat plugin's (crates/chat): constant-time comparisons, and the WebSocket clients
 # of its parity tests (the version axum's ws uses)
 subtle = "2"

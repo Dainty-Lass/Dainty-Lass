@@ -166,21 +166,7 @@ pub struct Publisher {
 fn uuid_v4() -> Option<String> {
     let mut bytes = [0_u8; 16];
     rand::rngs::SysRng.try_fill_bytes(&mut bytes).ok()?;
-    bytes[6] = (bytes[6] & 0x0f) | 0x40;
-    bytes[8] = (bytes[8] & 0x3f) | 0x80;
-    Some(format_uuid(&bytes))
-}
-
-fn format_uuid(bytes: &[u8; 16]) -> String {
-    let hex = hex::encode(bytes);
-    format!(
-        "{}-{}-{}-{}-{}",
-        &hex[..8],
-        &hex[8..12],
-        &hex[12..16],
-        &hex[16..20],
-        &hex[20..]
-    )
+    Some(uuid::Builder::from_random_bytes(bytes).into_uuid().to_string())
 }
 
 fn event_json(sequence: u64, event: &Event) -> String {

@@ -248,23 +248,12 @@ pub fn safe_integer(value: &Value) -> Option<i64> {
 pub fn random_uuid() -> Result<String, rand::rngs::SysError> {
     let mut bytes = [0_u8; 16];
     rand::rngs::SysRng.try_fill_bytes(&mut bytes)?;
-    // RFC 4122: version 4 in the high nibble of byte 6, variant 10 in the top bits of byte 8.
-    bytes[6] = 0x40 | (bytes[6] & 0x0f);
-    bytes[8] = 0x80 | (bytes[8] & 0x3f);
-    Ok(format_uuid(&bytes))
+    Ok(uuid::Builder::from_random_bytes(bytes).into_uuid().to_string())
 }
 
 /// The 16 bytes as a lower-case hyphenated UUID.
 pub fn format_uuid(bytes: &[u8; 16]) -> String {
-    let text = hex(bytes);
-    format!(
-        "{}-{}-{}-{}-{}",
-        &text[..8],
-        &text[8..12],
-        &text[12..16],
-        &text[16..20],
-        &text[20..]
-    )
+    uuid::Uuid::from_bytes(*bytes).to_string()
 }
 
 /// Lower-case hex.

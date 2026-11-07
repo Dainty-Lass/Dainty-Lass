@@ -60,18 +60,9 @@ pub fn random_base64url<const N: usize>() -> String {
 
 /// `crypto.randomUUID()`.
 pub fn random_uuid() -> String {
-    let mut b = random_bytes::<16>();
-    b[6] = (b[6] & 0x0f) | 0x40;
-    b[8] = (b[8] & 0x3f) | 0x80;
-    let h = hex(&b);
-    format!(
-        "{}-{}-{}-{}-{}",
-        &h[0..8],
-        &h[8..12],
-        &h[12..16],
-        &h[16..20],
-        &h[20..32]
-    )
+    uuid::Builder::from_random_bytes(random_bytes::<16>())
+        .into_uuid()
+        .to_string()
 }
 
 /// Six uniform digits, leading zeros kept (§7.3).
