@@ -818,10 +818,9 @@ async fn the_qos_listener_answers_qos_and_the_root_only_and_closes_with_the_rela
     );
 }
 
-/// The shell's QoS listener answered a request the local rules refuse as any other non-QoS request; launcher-kit
-/// refuses it as the game's port does (spec §2.6.4 has the local rules "also on the QoS listener").
+/// On the QoS listener a request the local rules refuse answers 404, as any other path there (spec §2.6.4, RL11
+/// d31a4096).
 #[tokio::test]
-#[ignore = "real difference: launcher-kit's QoS listener answers 403 forbidden where the shell answered 404 not_found"]
 async fn the_qos_listener_answers_refused_requests_as_not_found() {
     let upstream = upstream().await;
     let mut options = options_for(&upstream, None);
@@ -1235,9 +1234,8 @@ async fn repoint_requires_ticket_off_home_strips_key_and_restores_home_forwardin
     relay.stop().await;
 }
 
-/// The shell took a blank ticket as none; launcher-kit sends it.
+/// A blank ticket is none, so a non-home target still needs a real one (spec §2.6.4, RL11 d31a4096).
 #[tokio::test]
-#[ignore = "real difference: launcher-kit re-points to another node with a blank ticket (\"   \")"]
 async fn a_blank_ticket_is_no_ticket() {
     let (home, peer) = (upstream().await, upstream().await);
     let (relay, _) = relay_for(&home, None).await;
