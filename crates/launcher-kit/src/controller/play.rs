@@ -1,0 +1,331 @@
+// Copyright (c) 2026 Silent Spud
+// SPDX-License-Identifier: MIT
+
+//! PLAY (RD27 spec §2.4.7): every check, then the relay, the game's config, its arguments and environment, and
+//! the game itself. The key reaches the game only as its launch argument and the server only through the relay.
+
+use std::collections::BTreeMap;
+use std::path::{Path, PathBuf};
+use std::sync::Arc;
+
+use protocol::invite::ServerMode;
+
+use super::platform::{PreparedGame, RelayOwner};
+use super::stored::{StoredServer, mode_name};
+use super::{Controller, game_language_code};
+use crate::bridge::types::{ActionResult, ErrorCode, LauncherError, RuntimeState};
+use crate::core::game_language;
+use crate::net::hostapi::{self, UserInfo};
+use crate::net::relay::{LogSink, PinSink, Relay, RelayConfig, RelayError};
+use crate::net::relay_owner::game_owner_check;
+use crate::net::runtime_files::{RuntimeErrorCode, install_local_runtime};
+use crate::net::verify::Abort;
+use crate::platform::game_config::{ConfigRequest, write_game_config};
+use crate::platform::game_folder;
+use crate::platform::launch::{
+    CONSOLE_CLOSED_EXIT, GameEvent, LaunchArgs, LaunchPlan, exit_code_hex, launch_args, launch_env,
+};
+use crate::platform::log;
+
+fn error(code: ErrorCode) -> LauncherError {
+    LauncherError::new(code)
+}
+
+impl Controller {
+    /// `play`.
+    pub async fn play(&self) -> ActionResult {
+        {
+            let state = self.lock();
+            if state.shutting_down || state.busy {
+                return ActionResult::err(ErrorCode::Busy);
+            }
+        }
+        if self.shared.game.is_running() {
+            return ActionResult::err(ErrorCode::AlreadyRunning);
+        }
+        let Some(server) = self.server() else {
+            return ActionResult::err(ErrorCode::ServerUnreachable);
+        };
+        if let Err(refused) = self.begin_busy() {
+            return ActionResult::Err(refused);
+        }
+        let result = self.play_steps(&server).await;
+        self.finish(result)
+    }
+
+    async fn play_steps(&self, server: &StoredServer) -> Result<(), LauncherError> {
+        let missing = self.platform().missing_files();
+        if !missing.visual_cpp.is_empty() {
+            log::warn(format!("Visual C++ files missing: {}", missing.visual_cpp.join(", ")));
+        }
+        if !self.platform().running_clients().await.is_empty() {
+            return Err(error(ErrorCode::AlreadyRunning));
+        }
+
+        let key = self.load_key().await.ok_or_else(|| error(ErrorCode::KeyInvalid))?;
+        let user = match hostapi::fetch_user_info(&server.endpoint(), &key).await {
+            Ok(user) => user,
+            Err(refused) => {
+                if matches!(refused.code, ErrorCode::KeyRejected | ErrorCode::AccountBanned) {
+                    self.mark_refused();
+                }
+                return Err(refused);
+            }
+        };
+        self.lock().key_refused = false;
+
+        let win64 = self.checked_game().await?;
+
+        let leftovers = self.loader_leftovers(&win64);
+        if !leftovers.is_empty() {
+            let files = leftovers.join(", ");
+            log::warn(format!("refusing PLAY: loader files left beside the game: {files}"));
+            return Err(LauncherError::with_detail(ErrorCode::LoaderLeftovers, &files));
+        }
+
+        if let Some(local) = self.stored().local_runtime_dir().map(PathBuf::from) {
+            install_local_runtime(&local, &win64).await.map_err(|failed| {
+                error(if failed.code == RuntimeErrorCode::InUse {
+                    ErrorCode::RuntimeInUse
+                } else {
+                    ErrorCode::LocalRuntimeInvalid
+                })
+            })?;
+        }
+
+        self.look_at_runtime().await;
+        let (playable, state) = {
+            let state = self.lock();
+            (state.runtime_playable, state.runtime.state)
+        };
+        if !playable {
+            return Err(error(match state {
+                RuntimeState::Untrusted => ErrorCode::RuntimeUntrusted,
+                RuntimeState::Unavailable => ErrorCode::RuntimeUnavailable,
+                _ => ErrorCode::RuntimeFailed,
+            }));
+        }
+
+        self.start_relay(server).await?;
+        if let Err(failed) = self.launch(server, &win64, &key, &user).await {
+            let relay = self.lock().relay.take();
+            if let Some(relay) = relay {
+                relay.stop().await;
+            }
+            self.end_loader_session();
+            return Err(failed);
+        }
+        Ok(())
+    }
+
+    /// The game folder's Win64 folder, once its executable is the pinned one.
+    async fn checked_game(&self) -> Result<PathBuf, LauncherError> {
+        let not_found = || error(ErrorCode::GameFolderNotFound);
+        let root = self.lock().game.root.clone().map(PathBuf::from).ok_or_else(not_found)?;
+        let win64 = self.win64().ok_or_else(not_found)?;
+        let exe = game_folder::exe_path(&root);
+        let hashed = {
+            let mut hashes = self.shared.hashes.lock().await;
+            let hashed = hashes.hash(&exe, Abort::new(), Arc::new(|_| {})).await;
+            if let Err(failed) = hashes.save().await {
+                log::warn(format!("could not save the hash cache: {failed}"));
+            }
+            hashed
+        };
+        match hashed {
+            Ok(hash) if hash.eq_ignore_ascii_case(&self.config().exe_pin) => Ok(win64),
+            Ok(_) => Err(error(ErrorCode::GameWrongVersion)),
+            Err(_) => {
+                self.look_at_game(false).await;
+                Err(not_found())
+            }
+        }
+    }
+
+    async fn start_relay(&self, server: &StoredServer) -> Result<(), LauncherError> {
+        let running = self.lock().relay.take();
+        if let Some(relay) = running {
+            relay.stop().await;
+        }
+        let port = self.config().relay_port;
+        let failed = || LauncherError::with_detail(ErrorCode::RelayFailed, &port.to_string());
+        if server.mode == ServerMode::Public && server.fp.is_none() {
+            return Err(failed());
+        }
+        let game = self.shared.game.clone();
+        let owner = match &self.shared.seams.relay_owner {
+            RelayOwner::Game => game_owner_check(move || game.pid()),
+            RelayOwner::Anyone => None,
+            RelayOwner::Custom(check) => Some(Arc::clone(check)),
+        };
+        let log_sink: LogSink = Arc::new(|level, line| log::write(level, &format!("relay: {line}")));
+        let me = self.weak();
+        let on_pin: PinSink = Arc::new(move |_seen| {
+            if let Some(me) = Controller::from_weak(&me) {
+                me.lock().last_error = Some(error(ErrorCode::CertMismatch));
+                me.publish();
+            }
+        });
+        let config = RelayConfig {
+            port,
+            qos_port: self.shared.seams.qos_port,
+            target: server.endpoint(),
+            owner,
+            log: log_sink,
+            on_pin_mismatch: on_pin,
+        };
+        match Relay::start(config).await {
+            Ok(relay) => {
+                self.lock().relay = Some(relay);
+                Ok(())
+            }
+            Err(RelayError::PortBusy(busy)) => {
+                Err(LauncherError::with_detail(ErrorCode::RelayPortBusy, &busy.to_string()))
+            }
+            Err(other) => {
+                log::warn(format!("the relay did not start: {other:?}"));
+                Err(failed())
+            }
+        }
+    }
+
+    fn base_environment(&self) -> BTreeMap<String, String> {
+        self.shared
+            .seams
+            .game_env
+            .clone()
+            .unwrap_or_else(|| std::env::vars().collect())
+    }
+
+    async fn launch(
+        &self,
+        server: &StoredServer,
+        win64: &Path,
+        key: &str,
+        user: &UserInfo,
+    ) -> Result<(), LauncherError> {
+        let prepared = self
+            .platform()
+            .prepare_launch(self.user_data(), self.config().development_build)
+            .await;
+        let runner = match prepared {
+            PreparedGame::Native => None,
+            PreparedGame::Runner(runner) => Some(runner),
+            PreparedGame::Missing => return Err(error(ErrorCode::CompatRuntimeMissing)),
+        };
+        let config_dir = runner.as_ref().map_or_else(
+            || self.config().game_config_dir.clone(),
+            |runner| runner.config_dir.clone(),
+        );
+        let stored = self.stored();
+        let port = self.config().relay_port;
+        let written = write_game_config(
+            &config_dir,
+            &ConfigRequest {
+                host: "127.0.0.1",
+                port,
+                graphics: stored.graphics(),
+                safe_window: stored.windowed(),
+                clean_phoenix: true,
+            },
+        )
+        .map_err(|failed| {
+            log::warn(format!("could not write the game's config: {failed:?}"));
+            error(ErrorCode::ConfigFailed)
+        })?;
+        if written.phoenix_keys_removed > 0 {
+            log::info(format!(
+                "removed {} Phoenix endpoints from Game.ini",
+                written.phoenix_keys_removed
+            ));
+        }
+
+        let setting = game_language_code(stored.game_language());
+        let locale = game_language::resolve(setting, Some(&self.config().os_locale));
+        let launch_failed = |why: &dyn std::fmt::Debug| {
+            log::warn(format!("could not start the game: {why:?}"));
+            error(ErrorCode::LaunchFailed)
+        };
+        let args = launch_args(&LaunchArgs {
+            key,
+            user_id: &user.user_id,
+            username: &user.username,
+            windowed: stored.windowed() || written.display_repaired,
+            locale,
+        })
+        .map_err(|failed| launch_failed(&failed))?;
+        let env = launch_env(
+            self.base_environment(),
+            &format!("http://127.0.0.1:{port}"),
+            stored.runtime_profile(),
+        )
+        .map_err(|failed| launch_failed(&failed))?;
+        let plan = LaunchPlan::new(win64, runner.as_ref(), &args, env);
+        log::info(format!(
+            "starting {} for {}:{} ({})",
+            plan.describe(),
+            server.host,
+            server.port,
+            mode_name(server.mode)
+        ));
+
+        self.lock().game_log.clear();
+        let me = self.clone();
+        self.shared
+            .game
+            .start(&plan, move |event| me.on_game_event(event))
+            .map_err(|failed| launch_failed(&failed))?;
+        Ok(())
+    }
+
+    fn on_game_event(&self, event: GameEvent) {
+        match event {
+            GameEvent::Started(pid) => {
+                if let Some(pid) = pid {
+                    let hide = !self.stored().show_game_console();
+                    let me = self.weak();
+                    self.platform().watch_game_console(
+                        pid,
+                        hide,
+                        Arc::new(move |lines| {
+                            if let Some(me) = Controller::from_weak(&me) {
+                                me.take_console_lines(lines);
+                            }
+                        }),
+                    );
+                }
+                self.publish();
+            }
+            GameEvent::Exited(code) => {
+                let me = self.clone();
+                self.spawn(async move { me.on_game_exit(code).await });
+            }
+        }
+    }
+
+    async fn on_game_exit(&self, code: Option<i32>) {
+        log::info(format!("the game exited with code {code:?}"));
+        let dumping = std::mem::take(&mut self.lock().host.dumping);
+        if let Some(code) = code
+            && code != 0
+            && code.cast_unsigned() != CONSOLE_CLOSED_EXIT
+            && !dumping
+        {
+            self.lock().last_error = Some(LauncherError::with_detail(
+                ErrorCode::LaunchFailed,
+                &exit_code_hex(code),
+            ));
+        }
+        self.end_loader_session();
+        let relay = self.lock().relay.take();
+        if let Some(relay) = relay {
+            let counts = relay.stop().await;
+            log::info(format!(
+                "relay stopped: {} requests, {} upgrades, {} failures, {} QoS",
+                counts.requests, counts.upgrades, counts.failures, counts.qos
+            ));
+        }
+        self.look_at_runtime().await;
+        self.publish();
+    }
+}

@@ -5,6 +5,7 @@
 //! types, server and content networking, game file checks, and the host kit's platform helpers.
 
 pub mod bridge;
+pub mod controller;
 pub mod core;
 pub mod net;
 pub mod platform;
