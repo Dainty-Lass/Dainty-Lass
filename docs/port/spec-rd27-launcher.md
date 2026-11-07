@@ -1431,12 +1431,15 @@ A progress and control wrapper around MIT `epic::download::install` (DE5):
 - Fixed targets and URLs: `tailscale_download` `https://tailscale.com/download`; `vc_redist`
   `https://aka.ms/vs/17/release/vc_redist.x64.exe`; `project_source`, `project_license`, `project_issues`,
   `project_docs_players`, `project_docs_hosting`, `project_docs_sdk`: the project repository, its `LICENSE.txt`, its
-  issues, and its `docs/players.md`, `docs/hosting.md`, `docs/sdk-and-game-data.md` (today the upstream project's
-  GitHub addresses; the maintainer chooses DaintyLass's); `installing_guide` Mystic Paradox's
-  `docs/INSTALLING_DAUNTLESS.md`; `legendary` Legendary's latest release; `dumper7` and `dumper7_zip` Dumper-7's
+  issues, and its players, hosting and SDK guides. **Decided (L6, 2026-11-06)**: the repository
+  `https://github.com/SilentSpud/DaintyLass`, and under it `/blob/main/LICENSE.txt`, `/issues`, `/blob/main/restricted/docs/players.md`,
+  `/blob/main/restricted/docs/hosting.md` and `/blob/main/docs/sdk-and-game-data.md` (they answer once DX5
+  publishes the repository); `installing_guide` Mystic Paradox's `docs/INSTALLING_DAUNTLESS.md`; `legendary`
+  `https://github.com/legendary-gl/legendary/releases/latest`; `dumper7` and `dumper7_zip` Dumper-7's
   repository and its `main` archive; `visual_studio` and `visual_studio_installer` the Visual Studio downloads page
   and the Community installer; `rust` and `rust_installer` the Rust install page and `https://win.rustup.rs/x86_64`;
-  `nodejs`, `mongodb`, `git` their download pages; `revived_source`, `mystic_source`, `undaunted_source` the three
+  `nodejs` and `mongodb` their download pages, `git` `https://git-scm.com/download/win`; `revived_source`,
+  `mystic_source`, `undaunted_source` the three
   upstream repositories. `tailscale_share` and `server_source` come from the server side.
 - **Check**: at most 1024 units; parses as a URL; `https`, no user or password; no explicit port. Allowed: one of the
   fixed URLs exactly, or any URL on host `login.tailscale.com`; or the server's source URL exactly, where an
