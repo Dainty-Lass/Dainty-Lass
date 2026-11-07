@@ -30,3 +30,11 @@ updates:
         update-types:
           - minor
           - patch
+
+  # The Trivy image the workflows run (.github/trivy/Dockerfile, never built)
+  - package-ecosystem: docker
+    directory: /.github/trivy
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7

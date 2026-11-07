@@ -1,0 +1,78 @@
+# Audits that look past one commit (RR3): zizmor on the workflows, Trivy on the whole tree once a week (new
+# advisories land on code that didn't change), and dependency review on pull requests. Results go to code scanning
+# when the repository variable CODE_SCANNING is true (a public repository, or one with Advanced Security); without
+# it zizmor fails on a finding instead, and dependency review is skipped. Actions are pinned by commit.
+name: Audit
+
+on:
+  push:
+    branches: [main, plan]
+    paths:
+      - .github/**
+  pull_request:
+  # Monday 11:00 UTC
+  schedule:
+    - cron: "0 11 * * 1"
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: audit-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  zizmor:
+    name: Audit the workflows (zizmor)
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: zizmorcore/zizmor-action@85b2b9fb8e3325e7a23d7d0a9d7ba5ae0f999e3e # v0.7.1
+        with:
+          advanced-security: ${{ vars.CODE_SCANNING == 'true' }}
+          version: 1.31.1
+
+  trivy:
+    name: Trivy (the whole tree)
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Scan the tree
+        run: .github/scripts/trivy.sh fs --scanners vuln,secret,misconfig --format sarif --output trivy-tree.sarif .
+      - name: Upload to code scanning
+        if: vars.CODE_SCANNING == 'true'
+        uses: github/codeql-action/upload-sarif@6f2ac81f5cd81fe351a197ba0b00d91d03cd2aee # v4.39.0
+        with:
+          category: trivy-tree
+          sarif_file: trivy-tree.sarif
+      # Without code scanning the findings are only in the log, so list the serious ones there
+      - name: The high and critical findings
+        run: .github/scripts/trivy.sh fs --skip-db-update --scanners vuln,secret --severity HIGH,CRITICAL .
+
+  dependency-review:
+    name: Dependency review
+    if: github.event_name == 'pull_request' && vars.CODE_SCANNING == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294 # v5.0.0

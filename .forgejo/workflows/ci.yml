@@ -13,7 +13,8 @@
 #    injected latency, their links and the launcher's region ping (restricted/docker/network/test.sh, DN12)
 #
 # Forgejo Actions (DX3). Runner labels: docker (a job container), linux-host (the runner's own Docker) and
-# windows-msvc; docs/ci-runners.md sets them up. Actions are pinned by commit.
+# windows-msvc; docs/ci-runners.md sets them up. Actions are pinned by commit. .github/workflows/ci.yml is GitHub's
+# copy of this file, with the same families: a change to one is made to the other in the same commit.
 name: CI
 
 on:
@@ -28,7 +29,12 @@ permissions:
 # group, so none of them is ever cancelled or replaced.
 concurrency:
   group: ci-${{ github.ref }}-${{ github.ref == 'refs/heads/main' && github.run_id || 'latest' }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  # Line tables keep test backtraces readable at about half the target folder (and cache) of full debug info
+  CARGO_PROFILE_DEV_DEBUG: line-tables-only
 
 jobs:
   # Which code families a change touches. The filters are generous: a family's jobs also run when a folder they
@@ -77,6 +83,7 @@ jobs:
           filters: |
             workflow:
               - .forgejo/workflows/**
+              - scripts/ci/**
             rust:
               - Cargo.toml
               - Cargo.lock
@@ -226,9 +233,12 @@ jobs:
           $sudo su - postgres -c "psql -c \"ALTER USER postgres WITH PASSWORD 'postgres';\""
           echo "REFORGED_TEST_POSTGRES_URL=postgres://postgres:postgres@127.0.0.1:5432/postgres" >> "$GITHUB_ENV"
 
+      # The same on every platform, so once
       - name: Format
+        if: runner.os == 'Linux'
         run: cargo fmt --all --check
 
+      # Before the build: clippy's build scripts and proc macros are the ones the tests reuse
       - name: Clippy
         run: cargo clippy --workspace --all-targets --locked -- -D warnings
 
@@ -317,15 +327,9 @@ jobs:
           rustup toolchain install "$NIGHTLY" --profile minimal
           cargo "+$NIGHTLY" install cargo-fuzz --version 0.13.2 --locked
 
+      # As many targets at once as the runner has cores: one at a time, the root's dozens outlast the timeout
       - name: Run every target for 45 seconds
-        run: |
-          set -euo pipefail
-          for target in $(cargo "+$NIGHTLY" fuzz list); do
-            echo "::group::$target"
-            mkdir -p "corpus/$target"
-            cargo "+$NIGHTLY" fuzz run "$target" "corpus/$target" -- -max_total_time=45 -max_len=4096
-            echo "::endgroup::"
-          done
+        run: bash ../scripts/ci/fuzz.sh
 
       # Stock upload-artifact v4+ refuses any host but github.com; Forgejo's fork drops that check
       - name: Keep the inputs that crashed
@@ -355,6 +359,12 @@ jobs:
         with:
           # launcher/package.json's packageManager; ui/ names only bun in devEngines
           bun-version: 1.4.4
+      # setup-bun caches Bun itself, not the packages
+      - uses: https://github.com/actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5.1.0
+        with:
+          path: ~/.bun/install/cache
+          key: bun-${{ runner.os }}-ui-${{ hashFiles('ui/bun.lock') }}
+          restore-keys: bun-${{ runner.os }}-ui-
       - run: bun install --frozen-lockfile
       - run: bun run typecheck
       - run: bun run test
@@ -403,6 +413,11 @@ jobs:
           workspaces: restricted
           key: rust-restricted
 
+      # windows-msvc is the maintainer's PC, where restricted/ builds with 6 jobs or fewer (AGENTS.md)
+      - name: Six build jobs on the maintainer's PC
+        if: runner.os == 'Windows'
+        run: echo "CARGO_BUILD_JOBS=6" >> "$GITHUB_ENV"
+
       - name: Install the launcher's Linux build dependencies
         if: runner.os == 'Linux' && needs.changes.outputs.rust-tauri == 'true'
         run: |
@@ -427,7 +442,9 @@ jobs:
           $sudo su - postgres -c "psql -c \"ALTER USER postgres WITH PASSWORD 'postgres';\""
           echo "REFORGED_TEST_POSTGRES_URL=postgres://postgres:postgres@127.0.0.1:5432/postgres" >> "$GITHUB_ENV"
 
+      # The same on every platform, so once
       - name: Format
+        if: runner.os == 'Linux'
         run: cargo fmt --all --check
 
       - name: Clippy
@@ -494,14 +511,7 @@ jobs:
           cargo "+$NIGHTLY" install cargo-fuzz --version 0.13.2 --locked
 
       - name: Run every target for 45 seconds
-        run: |
-          set -euo pipefail
-          for target in $(cargo "+$NIGHTLY" fuzz list); do
-            echo "::group::$target"
-            mkdir -p "corpus/$target"
-            cargo "+$NIGHTLY" fuzz run "$target" "corpus/$target" -- -max_total_time=45 -max_len=4096
-            echo "::endgroup::"
-          done
+        run: bash ../../scripts/ci/fuzz.sh
 
       - name: Keep the inputs that crashed
         if: failure()
@@ -532,6 +542,8 @@ jobs:
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 22
+          cache: npm
+          cache-dependency-path: restricted/modules/rustic-isles/reference/1.14.7/${{ matrix.package }}/package-lock.json
       - run: npm ci --no-audit --no-fund
       - run: npm test
 
@@ -572,7 +584,10 @@ jobs:
 
       - name: Install the pinned toolchain
         working-directory: restricted
-        run: rustup show active-toolchain || rustup toolchain install
+        run: |
+          rustup show active-toolchain || rustup toolchain install
+          # The maintainer's PC: restricted/ builds with 6 jobs or fewer (AGENTS.md)
+          echo "CARGO_BUILD_JOBS=6" >> "$GITHUB_ENV"
 
       - uses: https://github.com/Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
@@ -586,6 +601,12 @@ jobs:
       - uses: https://github.com/oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
           bun-version: 1.4.4
+
+      - uses: https://github.com/actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5.1.0
+        with:
+          path: ~/.bun/install/cache
+          key: bun-${{ runner.os }}-launcher-${{ hashFiles('launcher/bun.lock', 'restricted/launcher/bun.lock', 'ui/bun.lock') }}
+          restore-keys: bun-${{ runner.os }}-launcher-
 
       - name: Bridge tests
         working-directory: launcher
@@ -660,6 +681,7 @@ jobs:
     if: always()
     runs-on: docker
     timeout-minutes: 5
+    permissions: {}
     steps:
       # Node, not jq: the docker label's image is only sure to have Node
       - name: Every selected job passed

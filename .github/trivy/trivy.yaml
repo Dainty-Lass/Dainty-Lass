@@ -1,0 +1,17 @@
+# Settings every Trivy scan shares; run them through .github/scripts/trivy.sh, from the repository root.
+db:
+  no-progress: true
+ignorefile: .github/trivy/trivyignore.yaml
+scan:
+  disable-telemetry: true
+  skip-dirs:
+    # Test inputs, not code that ships
+    - crates/gateway/tests/parity
+    - crates/content/tests/parity
+    - crates/protocol/tests/cases
+    - fuzz/corpus
+    - restricted/fuzz/corpus
+timeout: 15m
+vulnerability:
+  # A finding with no fixed version has nothing to upgrade to; cargo-deny's advisories cover the Rust side.
+  ignore-unfixed: true
