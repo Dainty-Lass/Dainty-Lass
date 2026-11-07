@@ -536,6 +536,10 @@ JavaScript does).
 
 #### 2.3.4 What each command checks before it reaches the controller
 
+- **Every object argument is an object.** A settings patch, and every argument whose kind is *object*, is refused
+  when the JSON is anything else, an array included (serde's derived `Deserialize` takes a sequence for a struct
+  unless told not to; RL1 gap, found in the RL8 switch).
+
 The isolation hook (§2.3.7) checks shapes for the page; every command checks again (the hook guards the page, the
 commands guard the backend). Refusals are `ActionResult`-style `{ ok: false, error: { code, detail } }` unless said
 otherwise. Codes are launcher-kit's `ErrorCode` names.

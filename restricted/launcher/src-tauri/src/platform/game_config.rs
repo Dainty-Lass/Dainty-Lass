@@ -15,6 +15,7 @@
 use std::path::{Path, PathBuf};
 
 use crate::bridge::types::GraphicsPreset;
+use crate::bridge::types::GraphicsPresetExt as _;
 use crate::core::invite::is_valid_host;
 use crate::core::text::{is_js_space, js_number, js_trim};
 

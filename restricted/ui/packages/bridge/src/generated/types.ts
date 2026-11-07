@@ -143,80 +143,179 @@ code: ErrorCode,
  */
 detail?: string, };
 export type TaskKind = "verify" | "runtime" | "download" | "dlls" | "install";
-export type TaskProgress = { kind: TaskKind, totalBytes: number, doneBytes: number, filesTotal: number, filesDone: number, bytesPerSecond: number, etaSeconds: number | null, currentFile: string | null, };
-export type ServerInfo = { game: ServerGame, mode: ServerMode, host: string, port: number, name: string, hasShare: boolean, 
+export type TaskProgress = { 
 /**
- * An invite code is stored and not used yet
+ * The task.
  */
-hasPendingInvite: boolean, loopback: boolean, 
+kind: TaskKind, 
 /**
- * Public mode: the pinned certificate fingerprint (not secret)
+ * Bytes in all.
+ */
+totalBytes: number, 
+/**
+ * Bytes done.
+ */
+doneBytes: number, 
+/**
+ * Files in all.
+ */
+filesTotal: number, 
+/**
+ * Files done.
+ */
+filesDone: number, 
+/**
+ * Recent speed.
+ */
+bytesPerSecond: number, 
+/**
+ * Seconds left, once the speed is known.
+ */
+etaSeconds: number | null, 
+/**
+ * The file being worked on.
+ */
+currentFile: string | null, };
+export type ServerInfo = { 
+/**
+ * The game it runs.
+ */
+game: ServerGame, 
+/**
+ * Private or public.
+ */
+mode: ServerMode, 
+/**
+ * Its address.
+ */
+host: string, 
+/**
+ * Its port.
+ */
+port: number, 
+/**
+ * Its name.
+ */
+name: string, 
+/**
+ * The invite carried a Tailscale share link.
+ */
+hasShare: boolean, 
+/**
+ * An invite is waiting to be used for registration.
+ */
+hasPendingInvite: boolean, 
+/**
+ * It runs on this PC.
+ */
+loopback: boolean, 
+/**
+ * The pinned certificate's SHA-256, in public mode.
  */
 fingerprint: string | null, };
 export type SavedServerInfo = { 
 /**
- * The account key slot id (not secret)
+ * Its id, 24 lower-case hex digits.
  */
-id: string, game: ServerGame, mode: ServerMode, host: string, port: number, name: string, current: boolean, username: string | null, 
+id: string, 
 /**
- * A Dauntless Revived (1.4.4) server in a build without the `legacy` feature: listed with its key
- * kept, never joined (RD5, RD22)
+ * The game it runs.
+ */
+game: ServerGame, 
+/**
+ * Private or public.
+ */
+mode: ServerMode, 
+/**
+ * Its address.
+ */
+host: string, 
+/**
+ * Its port.
+ */
+port: number, 
+/**
+ * Its name.
+ */
+name: string, 
+/**
+ * The one joined now.
+ */
+current: boolean, 
+/**
+ * The account's name there, when known.
+ */
+username: string | null, 
+/**
+ * This build cannot play on it.
  */
 unsupported: boolean, };
 export type GameSource = "epic" | "legendary" | "heroic" | "chosen" | "revived";
-export type DetectedGame = { root: string, source: GameSource, 
+export type DetectedGame = { 
 /**
- * What the store says (Legendary, Heroic), or Version.txt
+ * The folder.
+ */
+root: string, 
+/**
+ * Where it was found.
+ */
+source: GameSource, 
+/**
+ * Its version, when it could be read.
  */
 version: string | null, };
 export type GameInfo = { 
 /**
- * The "Dauntless" folder, the one that holds Archon\
+ * The folder, once chosen.
  */
-root: string | null, problem: GameProblem | null, 
+root: string | null, 
 /**
- * Version.txt, e.g. dauntless_rel-1.14.7_Shipping_2024-04-01_14-59-21_647472
+ * What is wrong with it.
+ */
+problem: GameProblem | null, 
+/**
+ * The version it reports.
  */
 versionText: string | null, 
 /**
- * Version.txt names 1.14.7, changelist 647472
+ * The version is the server's.
  */
 versionOk: boolean, 
 /**
- * The executable's SHA-256 is the 1.14.7 one (checked once per file change)
+ * The executable's hash is known.
  */
 exeVerified: boolean, 
 /**
- * Installs found on this PC (Epic, Legendary, Heroic)
+ * Other folders found.
  */
 detected: Array<DetectedGame>, };
 export type RevivedInfo = { 
 /**
- * The chosen folder, or where a download goes when none is chosen
+ * Its folder.
  */
 root: string, 
 /**
- * The player chose it (or it was found), rather than the default
+ * The player chose it.
  */
 chosen: boolean, 
 /**
- * `not_set`: nothing there yet; `unverified`: there, but not every file checked
+ * What is wrong with it.
  */
 problem: GameProblem | null, 
 /**
- * Files to download, as far as a look by size knows
+ * Files still to fetch.
  */
 missingFiles: number, 
 /**
- * The whole game
+ * Bytes still to fetch.
  */
 totalBytes: number, 
 /**
- * The pinned Undaunted DLLs are next to the game
+ * Its DLLs are in place.
  */
 dllsOk: boolean, 
 /**
- * 1.4.4 installs found on this PC (Dauntless Revived's launcher)
+ * Other folders found.
  */
 detected: Array<DetectedGame>, };
 export type InstallMode = "install" | "repair";
@@ -233,80 +332,240 @@ size: number,
  * Lowercase hex SHA-256 of the contents.
  */
 sha256: string, };
-export type RuntimeInfo = { state: RuntimeState, 
+export type RuntimeInfo = { 
 /**
- * The server's runtime version
+ * Whether it can be used.
+ */
+state: RuntimeState, 
+/**
+ * Its version, when known.
  */
 version: string | null, 
 /**
- * What the server offers (shown when the player is asked to trust it)
+ * Its files.
  */
-files: Array<RuntimeFileInfo>, localDir: string | null, };
-export type Settings = { graphics: GraphicsPreset, windowed: boolean, language: Language, gameLanguage: GameLanguage, runtimeProfile: RuntimeProfile, 
+files: Array<RuntimeFileInfo>, 
 /**
- * Hide addresses, fingerprints, paths and player names on screen
+ * A local runtime folder that replaces the server's.
+ */
+localDir: string | null, };
+export type Settings = { 
+/**
+ * Graphics preset written to the game's config.
+ */
+graphics: GraphicsPreset, 
+/**
+ * Windowed rather than full screen.
+ */
+windowed: boolean, 
+/**
+ * The launcher's language.
+ */
+language: Language, 
+/**
+ * The game's language.
+ */
+gameLanguage: GameLanguage, 
+/**
+ * Which runtime build to load.
+ */
+runtimeProfile: RuntimeProfile, 
+/**
+ * Hide addresses and names on screen.
  */
 streamerMode: boolean, 
 /**
- * Show the Host page in the rail
+ * Show the Host page.
  */
 hostTools: boolean, 
 /**
- * Which game the launcher plays: its folder, pins and PLAY. Always `reborn` without the `legacy` feature
+ * The game edition.
  */
 gameEdition: Game, 
 /**
- * Minimising hides the window to the tray
+ * Minimising hides the window in the tray.
  */
 minimizeToTray: boolean, 
 /**
- * Closing hides the window to the tray; the tray's Quit closes it
+ * Closing hides the window in the tray.
  */
 closeToTray: boolean, 
 /**
- * Leave the game's console window on screen; hidden otherwise, its lines read into Game log
+ * Show the game's console window.
  */
 showGameConsole: boolean, };
-export type SnapshotConnect = { checking: boolean, problem: ConnectProblem | null, tailscaleInstalled: boolean, lastCheckedAt: string | null, };
-export type SnapshotAccount = { username: string | null, hasKey: boolean, offerBackup: boolean, };
-export type SnapshotRunning = { game: boolean, relayPort: number | null, };
-export type SnapshotApp = { version: string, packaged: boolean, updateReady: boolean, 
+export type SnapshotConnect = { 
 /**
- * `process.platform`: "win32" or "linux"
+ * A check is running.
+ */
+checking: boolean, 
+/**
+ * Why the last check failed.
+ */
+problem: ConnectProblem | null, 
+/**
+ * Tailscale is installed.
+ */
+tailscaleInstalled: boolean, 
+/**
+ * When the server last answered (ISO 8601).
+ */
+lastCheckedAt: string | null, };
+export type SnapshotAccount = { 
+/**
+ * Its name.
+ */
+username: string | null, 
+/**
+ * A key is stored for it.
+ */
+hasKey: boolean, 
+/**
+ * The page should offer a key backup.
+ */
+offerBackup: boolean, };
+export type SnapshotRunning = { 
+/**
+ * The game.
+ */
+game: boolean, 
+/**
+ * The local relay's port.
+ */
+relayPort: number | null, };
+export type SnapshotApp = { 
+/**
+ * Its version.
+ */
+version: string, 
+/**
+ * An installed release rather than a development run.
+ */
+packaged: boolean, 
+/**
+ * An update is downloaded and waiting.
+ */
+updateReady: boolean, 
+/**
+ * `win32` or `linux`.
  */
 platform: string, 
 /**
- * False in a player-only build (no `host` feature): the page offers no Host tools
+ * This build has the Host page.
  */
 hostToolsAvailable: boolean, 
 /**
- * Always false since the legacy edition went (1.4.4, RD5): the page offers no edition setting
+ * This build plays 1.4.4.
  */
 legacyAvailable: boolean, 
 /**
- * The game versions an invite may name in this build (`protocol::invite::played_versions`)
+ * Game versions this build plays.
  */
 gameVersions: Array<string>, 
 /**
- * The server GUI (`server-gui` feature): the page shows the server screens (DU3)
+ * This build is the server manager.
  */
 serverGui: boolean, };
-export type Snapshot = { phase: Phase, busy: boolean, server: ServerInfo | null, savedServers: Array<SavedServerInfo>, connect: SnapshotConnect, account: SnapshotAccount, game: GameInfo, 
+export type Snapshot = { 
 /**
- * The current server is a Dauntless Revived one, in the legacy edition
+ * Where the launcher is.
  */
-revived: RevivedInfo | null, runtime: RuntimeInfo, task: TaskProgress | null, running: SnapshotRunning, settings: Settings, app: SnapshotApp, status: ServerStatus | null, 
+phase: Phase, 
 /**
- * The host answers but has no ServerStatus endpoint
+ * A command is running.
  */
-statusUnsupported: boolean, lastError: LauncherError | null, notice: NoticeCode | null, };
-export type NewsItem = { date: string | null, title: string, body: string, };
+busy: boolean, 
+/**
+ * The joined server.
+ */
+server: ServerInfo | null, 
+/**
+ * The saved servers.
+ */
+savedServers: Array<SavedServerInfo>, 
+/**
+ * The connection.
+ */
+connect: SnapshotConnect, 
+/**
+ * The account.
+ */
+account: SnapshotAccount, 
+/**
+ * The game folder.
+ */
+game: GameInfo, 
+/**
+ * The 1.4.4 install.
+ */
+revived: RevivedInfo | null, 
+/**
+ * The runtime.
+ */
+runtime: RuntimeInfo, 
+/**
+ * The running task.
+ */
+task: TaskProgress | null, 
+/**
+ * What is running.
+ */
+running: SnapshotRunning, 
+/**
+ * The settings.
+ */
+settings: Settings, 
+/**
+ * This launcher.
+ */
+app: SnapshotApp, 
+/**
+ * The server's last status.
+ */
+status: ServerStatus | null, 
+/**
+ * The server has no status route.
+ */
+statusUnsupported: boolean, 
+/**
+ * The last failure, until dismissed.
+ */
+lastError: LauncherError | null, 
+/**
+ * The last notice, until dismissed.
+ */
+notice: NoticeCode | null, };
+export type NewsItem = { 
+/**
+ * When it was posted.
+ */
+date: string | null, 
+/**
+ * Its title.
+ */
+title: string, 
+/**
+ * Its text.
+ */
+body: string, };
 export type Background = { 
 /**
- * An app-internal `rr-art://` URL
+ * Where it is.
  */
-url: string, credit: string | null, };
-export type Branding = { backgrounds: Array<Background>, accent: string | null, };
+url: string, 
+/**
+ * Who made it.
+ */
+credit: string | null, };
+export type Branding = { 
+/**
+ * Background pictures.
+ */
+backgrounds: Array<Background>, 
+/**
+ * Accent colour.
+ */
+accent: string | null, };
 export type GameDataState = "real" | "synthetic" | "missing";
 export type HostUpstream = { 
 /**
@@ -664,52 +923,100 @@ install: GameVersionInstall,
  * Epic download details, for versions installed through Epic.
  */
 epic: EpicVersionInfo | null, };
-export type EpicView = { signedIn: boolean, 
+export type EpicView = { 
 /**
- * The account's Epic display name; null when signed out or Epic gave none
+ * Signed in.
+ */
+signedIn: boolean, 
+/**
+ * The Epic account's name.
  */
 displayName: string | null, 
 /**
- * The sign-in window is open, or a code is being exchanged
+ * The sign-in window is open.
  */
 signingIn: boolean, };
 export type InstallState = "not_installed" | "resumable" | "preparing" | "downloading" | "paused" | "finishing" | "installed" | "failed";
-export type InstallInfo = { version: string, state: InstallState, 
+export type InstallInfo = { 
 /**
- * The version's own folder
+ * The version.
  */
-folder: string | null, progress: TaskProgress | null, 
+version: string, 
 /**
- * Why the last attempt stopped
+ * Where it stands.
+ */
+state: InstallState, 
+/**
+ * Its folder.
+ */
+folder: string | null, 
+/**
+ * How far it has got.
+ */
+progress: TaskProgress | null, 
+/**
+ * Why it failed.
  */
 error: LauncherError | null, };
 export type GuardedState = "pending" | "approved" | "running" | "done" | "failed" | "canceled" | "expired";
 export type GuardedMode = "delay" | "approval";
 export type GuardedActionInfo = { 
 /**
- * 16 hex digits
+ * Its id, 16 lower-case hex digits.
  */
 id: string, 
 /**
- * `ban`, `timeout`, `revokeKey` or `revert`
+ * What it does.
  */
 kind: string, 
 /**
- * One line of what it will do, in English: it comes from the admin API
+ * One line for the list.
  */
-summary: string, state: GuardedState, mode: GuardedMode, 
+summary: string, 
 /**
- * The admin key that asked: `owner` or a key id
+ * Where it stands.
+ */
+state: GuardedState, 
+/**
+ * What releases it.
+ */
+mode: GuardedMode, 
+/**
+ * Who asked for it.
  */
 initiatedBy: string, 
 /**
- * The lowest admin role that may approve it
+ * The role an approver needs.
  */
-needsRole: string, createdAt: string, 
+needsRole: string, 
 /**
- * When a delay ends; null for an approval
+ * When it was asked for.
  */
-releaseAt: string | null, expiresAt: string, approvedBy: string | null, canceledBy: string | null, endedAt: string | null, result: string | null, };
+createdAt: string, 
+/**
+ * When its delay ends.
+ */
+releaseAt: string | null, 
+/**
+ * When it lapses.
+ */
+expiresAt: string, 
+/**
+ * Who approved it.
+ */
+approvedBy: string | null, 
+/**
+ * Who cancelled it.
+ */
+canceledBy: string | null, 
+/**
+ * When it finished.
+ */
+endedAt: string | null, 
+/**
+ * What it reported.
+ */
+result: string | null, };
 export type ModuleRole = "game" | "plugin";
 export type ModuleOrigin = "compiled_in" | "external";
 export type ModuleRunState = "not_loaded" | "starting" | "ready" | "failed";
@@ -896,99 +1203,331 @@ commands: Array<ModuleCommandView>,
  * Settings it registered, with their values.
  */
 settings: Array<ModuleSectionView>, };
-export type HistoryEntryView = { id: string, 
+export type HistoryEntryView = { 
 /**
- * `node` (the game), `admin` or `chat`
+ * Its id.
+ */
+id: string, 
+/**
+ * The database.
  */
 database: string, 
 /**
- * RFC 3339
+ * When (ISO 8601).
  */
 at: string, 
 /**
- * `player:<account>`, `admin:<key id>`, `host:<command>` or `system:<task>`
+ * Who made it.
  */
-actor: string, table: string, 
+actor: string, 
 /**
- * The row's key, as JSON
+ * The table.
+ */
+table: string, 
+/**
+ * The row's key.
  */
 key: string, 
 /**
- * `insert`, `update`, `delete`, `soft_delete`, `restore` or `migrate`
+ * Insert, update or delete.
  */
-op: string, before: string | null, after: string | null, };
-export type HistoryPageView = { entries: Array<HistoryEntryView>, 
+op: string, 
 /**
- * Pass it back as the filter's `cursor` for the next, older page; null at the end
+ * The row before, as JSON.
+ */
+before: string | null, 
+/**
+ * The row after, as JSON.
+ */
+after: string | null, };
+export type HistoryPageView = { 
+/**
+ * The changes, newest first.
+ */
+entries: Array<HistoryEntryView>, 
+/**
+ * The cursor of the next page.
  */
 next: string | null, };
-export type RevertRowView = { database: string, table: string, key: string, 
+export type RevertRowView = { 
 /**
- * `insert` (a deleted row put back), `update`, `delete` (an added row removed) or `soft_delete`
+ * The database.
+ */
+database: string, 
+/**
+ * The table.
+ */
+table: string, 
+/**
+ * The row's key.
+ */
+key: string, 
+/**
+ * Insert, update or delete.
  */
 kind: string, 
 /**
- * The row now and as the revert leaves it, as JSON
+ * The row now, as JSON.
  */
-current: string | null, target: string | null, };
-export type RevertConflictView = { database: string, table: string, key: string, 
+current: string | null, 
 /**
- * `changed_since`, `not_as_logged`, `key_changed` or `schema_changed`
+ * The row after the revert, as JSON.
+ */
+target: string | null, };
+export type RevertConflictView = { 
+/**
+ * The database.
+ */
+database: string, 
+/**
+ * The table.
+ */
+table: string, 
+/**
+ * The row's key.
+ */
+key: string, 
+/**
+ * Why.
  */
 reason: string, 
 /**
- * `changed_since`: the newer entry, who made it and when
+ * The later change in the way.
  */
-entry: string | null, by: string | null, at: string | null, detail: string | null, };
-export type RevertPlanView = { id: string, 
+entry: string | null, 
 /**
- * Log entries the selection matches
+ * Who made it.
  */
-entries: number, actionCount: number, conflictCount: number, unchangedCount: number, 
+by: string | null, 
 /**
- * The first rows of each list; `truncated` says the counts are higher
+ * When.
  */
-actions: Array<RevertRowView>, conflicts: Array<RevertConflictView>, truncated: boolean, };
-export type RevertedInView = { database: string, rows: number, };
+at: string | null, 
+/**
+ * More words.
+ */
+detail: string | null, };
+export type RevertPlanView = { 
+/**
+ * The plan's id, for `history_revert_apply`.
+ */
+id: string, 
+/**
+ * Changes selected.
+ */
+entries: number, 
+/**
+ * Rows it would write.
+ */
+actionCount: number, 
+/**
+ * Rows it would skip.
+ */
+conflictCount: number, 
+/**
+ * Rows already as they were.
+ */
+unchangedCount: number, 
+/**
+ * The rows it would write (perhaps cut short).
+ */
+actions: Array<RevertRowView>, 
+/**
+ * The rows it would skip (perhaps cut short).
+ */
+conflicts: Array<RevertConflictView>, 
+/**
+ * The lists were cut short.
+ */
+truncated: boolean, };
+export type RevertedInView = { 
+/**
+ * The database.
+ */
+database: string, 
+/**
+ * Rows changed.
+ */
+rows: number, };
 export type RevertDoneView = { 
 /**
- * RFC 3339; the revert's own entries carry it
+ * When (ISO 8601).
  */
-at: string | null, rowsChanged: number, databases: Array<RevertedInView>, 
+at: string | null, 
 /**
- * Rows left as they are
+ * Rows changed.
  */
-conflicts: Array<RevertConflictView>, conflictCount: number, truncated: boolean, };
+rowsChanged: number, 
+/**
+ * Per database.
+ */
+databases: Array<RevertedInView>, 
+/**
+ * Rows skipped (perhaps cut short).
+ */
+conflicts: Array<RevertConflictView>, 
+/**
+ * Rows skipped.
+ */
+conflictCount: number, 
+/**
+ * The list was cut short.
+ */
+truncated: boolean, };
 export type RealmState = "starting" | "ready" | "running" | "ended";
-export type RealmSessionView = { session: string, kind: RealmKind, hosting: boolean, generation: number, state: RealmState, 
+export type RealmSessionView = { 
 /**
- * Local UDP port the game or server routes through when ready
+ * Its id.
+ */
+session: string, 
+/**
+ * Hub or hunt.
+ */
+kind: RealmKind, 
+/**
+ * This PC hosts it.
+ */
+hosting: boolean, 
+/**
+ * Bumped each time it restarts.
+ */
+generation: number, 
+/**
+ * Where it stands.
+ */
+state: RealmState, 
+/**
+ * The local port the game connects to.
  */
 localPort: number | null, 
 /**
- * Clean exit or failure code when `state` is `ended`
+ * How it ended.
  */
 result: string | null, };
 export type RealmView = { 
 /**
- * Whether this build and PC can host or join a realm (`ParadoxTransport.dll` present and co-op not disabled)
+ * The server offers realms.
  */
 available: boolean, 
 /**
- * Active or most recently ended session on this PC
+ * The session in use.
  */
 active: RealmSessionView | null, 
 /**
- * All tracked local sessions
+ * Every known session.
  */
 sessions: Array<RealmSessionView>, };
 export type DoctorLevel = "ok" | "warning" | "problem";
-export type DoctorCheckView = { level: DoctorLevel, label: string, detail: string, };
-export type DoctorReportView = { checks: Array<DoctorCheckView>, warnings: number, problems: number, };
+export type DoctorCheckView = { 
+/**
+ * How it came out.
+ */
+level: DoctorLevel, 
+/**
+ * What was checked.
+ */
+label: string, 
+/**
+ * What was found.
+ */
+detail: string, };
+export type DoctorReportView = { 
+/**
+ * The checks.
+ */
+checks: Array<DoctorCheckView>, 
+/**
+ * How many warned.
+ */
+warnings: number, 
+/**
+ * How many failed.
+ */
+problems: number, };
 export type MongoMigrationState = "none" | "migrated" | "skipped" | "unmigrated" | "unreachable";
-export type MongoMigrationView = { state: MongoMigrationState, source: string | null, detail: string | null, };
-export type ServerConfigView = { configured: boolean, name: string, mode: HostServerMode, publicHost: string | null, registration: string, database: string, maxHubs: number, maxHunts: number, freshStart: boolean, mongoMigration: MongoMigrationView, configFile: string | null, };
-export type ServerInviteEntry = { code: string, link: string, for: string | null, usesRemaining: number, infiniteUses: boolean, createdAt: string, };
+export type MongoMigrationView = { 
+/**
+ * Where it stands.
+ */
+state: MongoMigrationState, 
+/**
+ * The database found.
+ */
+source: string | null, 
+/**
+ * More words.
+ */
+detail: string | null, };
+export type ServerConfigView = { 
+/**
+ * A config exists.
+ */
+configured: boolean, 
+/**
+ * The server's name.
+ */
+name: string, 
+/**
+ * Private or public.
+ */
+mode: HostServerMode, 
+/**
+ * The public address.
+ */
+publicHost: string | null, 
+/**
+ * Who may register.
+ */
+registration: string, 
+/**
+ * The database engine.
+ */
+database: string, 
+/**
+ * Most hubs at once.
+ */
+maxHubs: number, 
+/**
+ * Most hunts at once.
+ */
+maxHunts: number, 
+/**
+ * The next start wipes the data.
+ */
+freshStart: boolean, 
+/**
+ * The MongoDB migration.
+ */
+mongoMigration: MongoMigrationView, 
+/**
+ * The config file's path.
+ */
+configFile: string | null, };
+export type ServerInviteEntry = { 
+/**
+ * Its code.
+ */
+code: string, 
+/**
+ * The link to hand out. A secret: never logged.
+ */
+link: string, 
+/**
+ * Who it is meant for.
+ */
+for: string | null, 
+/**
+ * Uses left.
+ */
+usesRemaining: number, 
+/**
+ * It never runs out.
+ */
+infiniteUses: boolean, 
+/**
+ * When it was made.
+ */
+createdAt: string, };
 export type AdminActionKind = "lookup" | "kick" | "timeout" | "ban" | "unban";
 export type AdminPlayerView = { 
 /**
@@ -1044,18 +1583,142 @@ message: string | null,
  * The player after the action.
  */
 player: AdminPlayerView | null, };
-export type ManagedInstallView = { node: string, region: string, label: string | null, 
+export type ManagedInstallView = { 
 /**
- * `"online"`, `"degraded"`, `"offline"` or `"revoked"`
+ * Its node id.
  */
-state: string, enrolledAtMs: number, lastSeenMs: number, revoked: boolean, appliedRevision: number, playersOnline: number, activeHunts: number, version: string | null, queuedCommands: number, };
+node: string, 
+/**
+ * Its region.
+ */
+region: string, 
+/**
+ * The host's label for it.
+ */
+label: string | null, 
+/**
+ * Its state.
+ */
+state: string, 
+/**
+ * When it enrolled (Unix ms).
+ */
+enrolledAtMs: number, 
+/**
+ * When it last reported (Unix ms).
+ */
+lastSeenMs: number, 
+/**
+ * Its access was taken away.
+ */
+revoked: boolean, 
+/**
+ * The config revision it runs.
+ */
+appliedRevision: number, 
+/**
+ * Players on it.
+ */
+playersOnline: number, 
+/**
+ * Hunts running on it.
+ */
+activeHunts: number, 
+/**
+ * Its version.
+ */
+version: string | null, 
+/**
+ * Commands waiting for it.
+ */
+queuedCommands: number, };
 export type RemoteStatusView = { 
 /**
- * `"standalone"`, `"controller"` or `"managed"`
+ * Controller, node or neither.
  */
-role: string, node: string | null, region: string | null, controllerUrl: string | null, controllerCertFp: string | null, controllerNode: string | null, revision: number, pendingEnrollments: number, installs: Array<ManagedInstallView>, detached: boolean, };
-export type RemoteInviteView = { uri: string, node: string, region: string, label: string | null, controllerUrl: string, controllerFp: string, expiresAtMs: number, };
-export type RemoteExecView = { commandId: string, node: string, action: string, status: string, };
+role: string, 
+/**
+ * Its node id.
+ */
+node: string | null, 
+/**
+ * Its region.
+ */
+region: string | null, 
+/**
+ * The controller's address.
+ */
+controllerUrl: string | null, 
+/**
+ * The controller certificate's SHA-256.
+ */
+controllerCertFp: string | null, 
+/**
+ * The controller's node id.
+ */
+controllerNode: string | null, 
+/**
+ * The config revision.
+ */
+revision: number, 
+/**
+ * Invites not used yet.
+ */
+pendingEnrollments: number, 
+/**
+ * Managed installs, for a controller.
+ */
+installs: Array<ManagedInstallView>, 
+/**
+ * The node left its controller.
+ */
+detached: boolean, };
+export type RemoteInviteView = { 
+/**
+ * The URI to give the node. A secret: never logged.
+ */
+uri: string, 
+/**
+ * The node id it is for.
+ */
+node: string, 
+/**
+ * The node's region.
+ */
+region: string, 
+/**
+ * The host's label.
+ */
+label: string | null, 
+/**
+ * The controller's address.
+ */
+controllerUrl: string, 
+/**
+ * The controller certificate's SHA-256.
+ */
+controllerFp: string, 
+/**
+ * When it lapses (Unix ms).
+ */
+expiresAtMs: number, };
+export type RemoteExecView = { 
+/**
+ * Its id.
+ */
+commandId: string, 
+/**
+ * The node.
+ */
+node: string, 
+/**
+ * What it asks.
+ */
+action: string, 
+/**
+ * Where it stands.
+ */
+status: string, };
 export type GraphicsPreset = -1 | 0 | 1 | 2 | 3 | 4;
 export type ActionResult = { ok: true } | { ok: false; error: LauncherError };
 export type InviteCheck = { ok: true; certificateChanged: boolean; previousFingerprint: string | null; movedFrom: string | null } | { ok: false; error: LauncherError };

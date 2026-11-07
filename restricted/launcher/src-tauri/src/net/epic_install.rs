@@ -23,8 +23,8 @@ fn task(progress: kit::InstallProgress) -> TaskProgress {
         done_bytes: progress.done_bytes,
         files_total: progress.files_total,
         files_done: progress.files_done,
-        bytes_per_second: progress.bytes_per_second as f64,
-        eta_seconds: progress.eta_seconds.map(|seconds| seconds as f64),
+        bytes_per_second: progress.bytes_per_second,
+        eta_seconds: progress.eta_seconds,
         current_file: progress.current_file,
     }
 }

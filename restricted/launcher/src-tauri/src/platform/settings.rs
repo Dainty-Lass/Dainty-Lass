@@ -1,5 +1,5 @@
 //! The settings file (row L28) over launcher-kit's `platform::settings` (RL6), which sanitises and writes it
-//! byte for byte. Here: the shell's names, and its `Language` (the bridge's) mapped to the MIT catalog's.
+//! byte for byte. Here: the shell's names.
 
 use std::path::Path;
 
@@ -33,21 +33,17 @@ impl Platform {
     }
 }
 
-fn kit_language(language: Language) -> launcher_kit::core::i18n::Language {
-    launcher_kit::core::i18n::Language::from_code(language.code()).unwrap_or_default()
-}
-
 /// A saved Dauntless Revived (1.4.4) server: listed, not playable (RD5).
 pub fn is_revived(server: &Map<String, Value>) -> bool {
     server.get("game").and_then(Value::as_str) == Some(REVIVED)
 }
 
 pub fn default_settings(language: Language) -> Map<String, Value> {
-    kit::defaults(kit_language(language))
+    kit::defaults(language)
 }
 
 pub fn sanitize_settings(raw: &Value, language: Language, platform: Platform) -> Map<String, Value> {
-    kit::sanitize(raw, kit_language(language), platform.os())
+    kit::sanitize(raw, language, platform.os())
 }
 
 /// The file text, as `JSON.stringify(settings, null, 2)`.
@@ -59,7 +55,7 @@ pub struct SettingsStore(kit::SettingsStore);
 
 impl SettingsStore {
     pub fn load(dir: &Path, language: Language, platform: Platform) -> Self {
-        Self(kit::SettingsStore::load(dir, kit_language(language), platform.os()))
+        Self(kit::SettingsStore::load(dir, language, platform.os()))
     }
 
     pub fn get(&self) -> &Map<String, Value> {

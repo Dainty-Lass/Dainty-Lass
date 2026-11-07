@@ -1,6 +1,5 @@
 //! The backend's own text (rows L14, RA3): the dialogs and menus the backend shows, in the player's language.
-//! The text is launcher-kit's MIT catalog (RL4, L1); `Language` stays the page's list, made by build.rs from
-//! `gen/strings.json`'s codes, because it crosses the bridge as a setting.
+//! The text and `Language` are launcher-kit's (RL4, L1; RL8 gave `Language` its wire form).
 #![cfg_attr(
     not(test),
     allow(
@@ -13,27 +12,13 @@ use launcher_kit::core::i18n as kit;
 
 pub use kit::{APP_TITLE, CLOSE_ANYWAY, CLOSE_KEEP, CLOSE_TEXT, CLOSE_TITLE, EPIC_SIGN_IN_TITLE, TRAY_OPEN, TRAY_QUIT};
 
-include!(concat!(env!("OUT_DIR"), "/languages.rs"));
+pub use kit::Language;
 
-impl Language {
-    pub fn from_code(code: &str) -> Option<Self> {
-        Self::ALL.into_iter().find(|language| language.code() == code)
-    }
-
-    /// The MIT catalog's language; one the catalog lacks reads as English there.
-    fn kit(self) -> kit::Language {
-        kit::Language::from_code(self.code()).unwrap_or_default()
-    }
-}
-
-/// The language's text, else English, else the key itself, with each `{name}` replaced.
-pub fn translate(language: Language, key: &str, vars: &[(&str, &str)]) -> String {
-    kit::translate(language.kit(), key, vars)
-}
+pub use kit::translate;
 
 /// The language a first start picks from the operating system's locale ("pt-BR", "pt_PT", "en-US"...).
 pub fn system_language(locale: &str) -> Language {
-    Language::from_code(kit::Language::from_system(locale).code()).unwrap_or(Language::En)
+    Language::from_system(locale)
 }
 
 /// The operating system's language, as `system_language` reads it.
@@ -58,11 +43,7 @@ mod tests {
     #[test]
     fn every_page_language_is_one_the_catalog_has() {
         for language in Language::ALL {
-            assert!(
-                kit::Language::from_code(language.code()).is_some(),
-                "{}",
-                language.code()
-            );
+            assert_eq!(Language::from_code(language.code()), Some(language));
         }
     }
 

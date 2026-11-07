@@ -28,6 +28,7 @@ use tokio_rustls::TlsAcceptor;
 
 use super::platform::{Boxed, Platform, Prepared};
 use super::{Config, Controller, ControllerHandle, Seams};
+use crate::bridge::types::GraphicsPresetExt as _;
 use crate::bridge::types::{
     ActionResult, ErrorCode, GameProblem, HostKit, HostServerView, InviteCheck, Language, LauncherError, NoticeCode,
     Phase, RegisterOutcome, RuntimeState, Snapshot, TaskProgress,

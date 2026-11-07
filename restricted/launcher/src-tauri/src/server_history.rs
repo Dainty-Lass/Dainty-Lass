@@ -82,8 +82,8 @@ fn conflict_view(database: &str, conflict: &RowConflict) -> RevertConflictView {
     }
 }
 
-fn count(n: usize) -> u32 {
-    u32::try_from(n).unwrap_or(u32::MAX)
+fn count(n: usize) -> u64 {
+    u64::try_from(n).unwrap_or(u64::MAX)
 }
 
 fn conflicts_of(plan: &history::Plan) -> Vec<RevertConflictView> {

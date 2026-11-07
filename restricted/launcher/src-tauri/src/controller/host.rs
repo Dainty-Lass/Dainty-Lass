@@ -1810,7 +1810,7 @@ impl Controller {
                     .and_then(|v| v.as_str())
                     .unwrap_or_default()
                     .to_owned(),
-                expires_at_ms: val.get("expires_at_ms").and_then(|v| v.as_i64()).unwrap_or(0),
+                expires_at_ms: val.get("expires_at_ms").and_then(|v| v.as_u64()).unwrap_or(0),
             })
         })
         .await;
@@ -1976,8 +1976,8 @@ fn read_remote_status_view(ws: &Path) -> Result<crate::bridge::types::RemoteStat
                         .and_then(|v| v.as_str())
                         .unwrap_or("offline")
                         .to_owned(),
-                    enrolled_at_ms: item.get("enrolled_at_ms").and_then(|v| v.as_i64()).unwrap_or(0),
-                    last_seen_ms: item.get("last_seen_ms").and_then(|v| v.as_i64()).unwrap_or(0),
+                    enrolled_at_ms: item.get("enrolled_at_ms").and_then(|v| v.as_u64()).unwrap_or(0),
+                    last_seen_ms: item.get("last_seen_ms").and_then(|v| v.as_u64()).unwrap_or(0),
                     revoked: item.get("revoked").and_then(|v| v.as_bool()).unwrap_or(false),
                     applied_revision: item.get("applied_revision").and_then(|v| v.as_u64()).unwrap_or(0),
                     players_online: item.get("players_online").and_then(|v| v.as_u64()).unwrap_or(0) as u32,

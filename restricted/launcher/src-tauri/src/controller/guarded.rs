@@ -64,7 +64,7 @@ impl Controller {
                         action.id,
                         if approve { "approved" } else { "canceled" }
                     ));
-                    GuardedOutcome::Ok(Box::new(action))
+                    GuardedOutcome::Ok(action)
                 }
                 Err(error) => GuardedOutcome::Err(error),
             },

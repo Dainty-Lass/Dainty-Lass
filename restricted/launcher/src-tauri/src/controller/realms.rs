@@ -844,7 +844,7 @@ fn session_view(hosting: &LocalRealmHosting, local: &LocalSession) -> RealmSessi
         session: local.session.to_string(),
         kind,
         hosting: local.hosting,
-        generation: u32::try_from(local.generation).unwrap_or(u32::MAX),
+        generation: local.generation,
         state,
         local_port,
         result,

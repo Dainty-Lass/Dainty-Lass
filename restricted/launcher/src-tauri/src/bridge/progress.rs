@@ -43,7 +43,7 @@ mod tests {
             done_bytes: done,
             files_total: 2,
             files_done: u32::from(done >= 100) * 2,
-            bytes_per_second: 0.0,
+            bytes_per_second: 0,
             eta_seconds: None,
             current_file: None,
         }

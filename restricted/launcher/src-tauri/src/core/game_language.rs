@@ -6,9 +6,14 @@ use launcher_kit::core::game_language as kit;
 
 use crate::bridge::types::GameLanguage;
 
-impl GameLanguage {
-    /// The culture name, or None for "auto".
-    pub fn locale(self) -> Option<&'static str> {
+/// The culture name of a Game language setting.
+pub trait GameLanguageExt {
+    /// None for "auto".
+    fn locale(self) -> Option<&'static str>;
+}
+
+impl GameLanguageExt for GameLanguage {
+    fn locale(self) -> Option<&'static str> {
         Some(match self {
             Self::Auto => return None,
             Self::EnUs => "en-US",

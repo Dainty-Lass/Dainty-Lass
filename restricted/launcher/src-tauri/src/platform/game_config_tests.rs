@@ -8,6 +8,7 @@ use super::game_config::*;
 use super::game_folder::{clean_game_folder_input, game_root_candidates};
 use super::settings::Platform;
 use crate::bridge::types::GraphicsPreset;
+use crate::bridge::types::GraphicsPresetExt as _;
 
 fn cases() -> Value {
     let path = concat!(env!("CARGO_MANIFEST_DIR"), "/../test/cases/game-config.json");
@@ -24,7 +25,7 @@ fn strings(value: &Value) -> Vec<String> {
 }
 
 fn graphics(value: &Value) -> GraphicsPreset {
-    GraphicsPreset::try_from(value.as_i64().unwrap() as i8).unwrap()
+    GraphicsPreset::try_from(value.as_i64().unwrap()).unwrap()
 }
 
 fn lines(list: &[&str]) -> Vec<String> {
@@ -32,7 +33,7 @@ fn lines(list: &[&str]) -> Vec<String> {
 }
 
 fn preset(level: i8) -> GraphicsPreset {
-    GraphicsPreset::try_from(level).unwrap()
+    GraphicsPreset::try_from(i64::from(level)).unwrap()
 }
 
 fn bytes(value: &Value) -> Vec<u8> {

@@ -77,6 +77,7 @@ use crate::bridge::types::{
     ServerInfo, Settings, SettingsPatch, Snapshot, SnapshotAccount, SnapshotApp, SnapshotConnect, SnapshotRunning,
     TaskProgress,
 };
+use crate::bridge::types::{GameExt as _, GraphicsPresetExt as _};
 use crate::core::game_language::game_locale;
 use crate::core::invite::{InviteError, is_loopback_host, parse_invite};
 use crate::core::pins::{EXE_NAME, WIN64_RELATIVE_DIR};

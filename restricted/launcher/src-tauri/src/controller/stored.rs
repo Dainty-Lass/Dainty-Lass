@@ -9,6 +9,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 
 use crate::bridge::types::{Game, GameLanguage, GraphicsPreset, Language, RuntimeProfile, ServerGame};
+use crate::bridge::types::{GameExt as _, GraphicsPresetExt as _};
 use crate::net::http::Endpoint;
 use crate::platform::keystore::{KeySlot, server_id};
 use crate::platform::settings::{REFORGED, REVIVED};

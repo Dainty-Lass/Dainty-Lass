@@ -141,7 +141,7 @@ impl Controller {
             done_bytes: done,
             files_total: 1,
             files_done: 0,
-            bytes_per_second: 0.0,
+            bytes_per_second: 0,
             eta_seconds: None,
             current_file: Some(EXE_NAME.to_owned()),
         };

@@ -163,7 +163,7 @@ impl Controller {
                 done_bytes: 0,
                 files_total: manifest.files.len() as u32,
                 files_done: 0,
-                bytes_per_second: 0.0,
+                bytes_per_second: 0,
                 eta_seconds: None,
                 current_file: None,
             });
@@ -179,9 +179,9 @@ impl Controller {
                 done_bytes: progress.done_bytes,
                 files_total: progress.files_total as u32,
                 files_done: progress.files_done as u32,
-                bytes_per_second: rate,
+                bytes_per_second: rate.round() as u64,
                 eta_seconds: (rate > 0.0)
-                    .then(|| progress.total_bytes.saturating_sub(progress.done_bytes) as f64 / rate),
+                    .then(|| (progress.total_bytes.saturating_sub(progress.done_bytes) as f64 / rate).ceil() as u64),
                 current_file: progress.current_file,
             });
         };
