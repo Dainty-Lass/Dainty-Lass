@@ -3467,6 +3467,7 @@ dependencies = [
  "tokio-rustls",
  "tokio-stream",
  "tracing",
+ "tracing-log",
  "tracing-subscriber",
  "ts-rs",
  "url",
