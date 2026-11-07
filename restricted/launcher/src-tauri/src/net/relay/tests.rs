@@ -1225,3 +1225,112 @@ async fn redirect_response_headers_automatically_repoint_relay_and_strip_account
 
     relay.stop().await;
 }
+
+/// The relay's pure rules from launcher-kit (RL11) against this shell's over a grid: the local-request
+/// refusals, the QoS paths, the port override and the owner table. Every difference is listed at once.
+#[test]
+fn launcher_kit_applies_the_same_local_rules() {
+    use hyper::header::{HeaderMap, HeaderValue};
+    use launcher_kit::net::relay::{self as kit, local as kit_local};
+    use launcher_kit::net::relay_owner::table::{Owner, owner};
+    use std::net::{IpAddr, SocketAddr, SocketAddrV4};
+
+    let mut wrong: Vec<String> = Vec::new();
+    let peers: [IpAddr; 4] = ["127.0.0.1", "127.5.6.7", "::1", "192.168.1.2"].map(|ip| ip.parse().unwrap());
+    let hosts: [Option<&[u8]>; 6] = [
+        None,
+        Some(b"127.0.0.1:61100"),
+        Some(b"localhost"),
+        Some(b"LOCALHOST:80"),
+        Some(b"evil.example"),
+        Some(b"\xff\xfe"),
+    ];
+    let origins: [Option<&[u8]>; 6] = [
+        None,
+        Some(b"http://127.0.0.1:61100"),
+        Some(b"null"),
+        Some(b"https://evil.example"),
+        Some(b"http://localhost"),
+        Some(b"\xff"),
+    ];
+    for peer in peers {
+        for host in hosts {
+            for origin in origins {
+                for fetch in [false, true] {
+                    for upgrade in [false, true] {
+                        let mut headers = HeaderMap::new();
+                        if let Some(host) = host {
+                            headers.insert("host", HeaderValue::from_bytes(host).unwrap());
+                        }
+                        if let Some(origin) = origin {
+                            headers.insert("origin", HeaderValue::from_bytes(origin).unwrap());
+                        }
+                        if fetch {
+                            headers.insert("sec-fetch-mode", HeaderValue::from_static("cors"));
+                        }
+                        let ours = local_request_problem(SocketAddr::new(peer, 50000), &headers, upgrade);
+                        let theirs = kit_local::check(peer, &headers, upgrade).err();
+                        if ours.is_some() != theirs.is_some() {
+                            wrong.push(format!(
+                                "{peer} host={host:?} origin={origin:?} fetch={fetch} upgrade={upgrade}: {ours:?} vs {:?}",
+                                theirs.map(kit_local::Refusal::as_str)
+                            ));
+                        }
+                    }
+                }
+            }
+        }
+    }
+    for path in ["/qos", "/QOS?x=1", "/qos/", "/qosx", "/q", "", "/api/qos"] {
+        if super::is_qos_path(path) != kit_local::is_qos_target(path) {
+            wrong.push(format!("qos {path:?}"));
+        }
+    }
+    for value in ["61100", " 1024 ", "1023", "0800", "65535", "65536", "abc", "", "123456"] {
+        if super::relay_port_override(Some(value)) != kit::port_override(value) {
+            wrong.push(format!("port {value:?}"));
+        }
+    }
+    let client: SocketAddrV4 = "127.0.0.1:50000".parse().unwrap();
+    let server: SocketAddrV4 = "127.0.0.1:61100".parse().unwrap();
+    let row = |pid: &str| {
+        format!(
+            "  TCP    {client}    {server}    ESTABLISHED    {pid}
+"
+        )
+    };
+    for table in [
+        String::new(),
+        row("4242"),
+        format!("{}{}", row("4242"), row("4243")),
+        row("x1"),
+        format!(
+            "  TCP    {server}    {client}    ESTABLISHED    7
+"
+        ),
+        format!(
+            "  UDP    {client}    {server}    ESTABLISHED    4242
+"
+        ),
+    ] {
+        let ours = super::super::relay_owner::table_peer_pid_for_tests(&table, server.into(), client.into());
+        let theirs = match owner(&table, client, server) {
+            Owner::NotFound => None,
+            Owner::Pid(pid) => Some(i64::from(pid)),
+            Owner::Refused => Some(-1),
+        };
+        if ours != theirs {
+            wrong.push(format!("table {table:?}: {ours:?} vs {theirs:?}"));
+        }
+    }
+    assert!(
+        wrong.is_empty(),
+        "{} differences:
+{}",
+        wrong.len(),
+        wrong.join(
+            "
+"
+        )
+    );
+}

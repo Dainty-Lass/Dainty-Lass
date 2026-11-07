@@ -33,6 +33,11 @@ pub fn tcp_table_owns_peer(table: &str, local: SocketAddr, remote: SocketAddr, p
     pid > 0 && peer_pid(table, local, remote) == Some(i64::from(pid))
 }
 
+#[cfg(test)]
+pub(crate) fn table_peer_pid_for_tests(table: &str, local: SocketAddr, remote: SocketAddr) -> Option<i64> {
+    peer_pid(table, local, remote)
+}
+
 pub type ReadTable = Arc<dyn Fn() -> Pin<Box<dyn Future<Output = Option<String>> + Send>> + Send + Sync>;
 
 struct Pending {
