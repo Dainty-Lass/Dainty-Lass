@@ -248,14 +248,15 @@ pub fn multipliers(value: &Value) -> Result<Option<HostMultipliers>, LauncherErr
     Ok((!off).then_some(set))
 }
 
-/// `host_create_invite`: absent, null or `""` is nobody; else non-empty plain text ≤40.
+/// `host_create_invite`: absent, null or empty once trimmed is nobody; else plain text ≤40.
 pub fn invite_for(value: Option<&Value>) -> Result<Option<String>, LauncherError> {
     match value {
         None | Some(Value::Null) => Ok(None),
-        Some(Value::String(s)) if s.is_empty() => Ok(None),
-        Some(Value::String(s)) => required_text(s, INVITE_FOR_MAX)
-            .map(|t| Some(t.to_owned()))
-            .ok_or_else(|| fail(ErrorCode::Unknown)),
+        Some(Value::String(s)) => match plain_text(s, INVITE_FOR_MAX) {
+            Some("") => Ok(None),
+            Some(t) => Ok(Some(t.to_owned())),
+            None => Err(fail(ErrorCode::Unknown)),
+        },
         Some(_) => Err(fail(ErrorCode::Unknown)),
     }
 }
@@ -316,7 +317,8 @@ fn history(value: &Value, command: &str) -> Result<HistoryFilter, LauncherError>
         ) => *fields,
         _ => return Err(bad()),
     };
-    if !spec::fits_fields(fields, value) {
+    // fits_fields takes null as `{}` for argument lists; a filter must be an object.
+    if !value.is_object() || !spec::fits_fields(fields, value) {
         return Err(bad());
     }
     let field = |key: &str, max: usize| optional_text(value.get(key), max).map_err(|()| bad());
@@ -689,7 +691,10 @@ mod tests {
         assert_eq!(invite_for(None).unwrap(), None);
         assert_eq!(invite_for(Some(&json!(""))).unwrap(), None);
         assert_eq!(invite_for(Some(&json!(" Ann "))).unwrap().as_deref(), Some("Ann"));
-        assert_eq!(code(invite_for(Some(&json!("  ")))), ErrorCode::Unknown);
+        assert_eq!(invite_for(Some(&json!("  "))).unwrap(), None);
+        assert_eq!(invite_for(Some(&json!(" \t\u{a0}"))).unwrap(), None);
+        assert_eq!(code(invite_for(Some(&json!(" a\u{1}b ")))), ErrorCode::Unknown);
+        assert_eq!(code(invite_for(Some(&json!(7)))), ErrorCode::Unknown);
         assert_eq!(code(invite_for(Some(&json!("x".repeat(41))))), ErrorCode::Unknown);
         assert_eq!(realm_id(" r1 ").unwrap(), "r1");
         assert_eq!(code(realm_id("r\n1")), ErrorCode::Unknown);
@@ -702,6 +707,11 @@ mod tests {
         assert_eq!(filter.actor, None);
         assert_eq!(filter.cursor.as_deref(), Some("c"));
         assert_eq!(code(revert_selection(&json!({"cursor": "c"}))), ErrorCode::Unknown);
+        for not_object in [json!(null), json!([]), json!([{"account": "a"}]), json!("a"), json!(1)] {
+            assert_eq!(code(history_filter(&not_object)), ErrorCode::Unknown, "{not_object}");
+            assert_eq!(code(revert_selection(&not_object)), ErrorCode::Unknown, "{not_object}");
+        }
+        assert_eq!(history_filter(&json!({})).unwrap(), HistoryFilter::default());
         assert_eq!(
             code(history_filter(&json!({"since": "x".repeat(41)}))),
             ErrorCode::Unknown
