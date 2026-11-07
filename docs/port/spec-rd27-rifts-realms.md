@@ -1,9 +1,9 @@
 <!-- markdownlint-configure-file { "MD013": { "line_length": 120, "tables": false, "code_blocks": false } } -->
 
-# Clean-Room Behaviour Specification: `rifts-realms`, the domain half (RD27)
+# Clean-Room Behaviour Specification: `rustic-rifts-realms`, the domain half (RD27)
 
 > **Scope and purpose (RD27):** this is the clean-room behaviour specification for the *domain* modules of
-> `modules/rustic-rifts/crates/rifts-realms` in dainty-restricted: the realm directory and its rules, the realm hub and
+> `modules/rustic-rifts/crates/rustic-rifts-realms` in dainty-restricted: the realm directory and its rules, the realm hub and
 > hunt state machines, leases and the lifecycle monitor, host selection, hosting and trust tiers, host policy, host
 > capabilities, the launcher's control channel, strict input parsing, id and time spellings, and the session routes in
 > `hosting.rs`. The persistence half (`repo/`, `db.rs`, migrations, `routes.rs`, `service.rs`, `ports.rs`, `stub.rs`,
@@ -26,7 +26,7 @@
 
 | Source | What it says |
 | --- | --- |
-| `modules/rustic-rifts/NOTICE.md` §"Mystic Paradox: ParadoxTransport and realms" | The Rust workspace, `rifts-realms` included, "ports Mystic Paradox's `p2p/`, `realms/`, Guard and launcher realm-hosting modules (`21b9ff5`, `AGPL-3.0-only`)" |
+| `modules/rustic-rifts/NOTICE.md` §"Mystic Paradox: ParadoxTransport and realms" | The Rust workspace, `rustic-rifts-realms` included, "ports Mystic Paradox's `p2p/`, `realms/`, Guard and launcher realm-hosting modules (`21b9ff5`, `AGPL-3.0-only`)" |
 | File headers (`//!`) | Every source file names the Node module it ports (`realms/realmRules.ts`, `realms/realmsService.ts`, `p2p/realm/realmHubRules.ts`, `p2p/controllers/p2pHostLifecycle.ts`, `p2p/config/p2pPolicy.ts`, `p2p/config/p2pHostPolicy.ts`, `p2p/security/hostCapabilities.ts`, `p2p/controllers/p2pControl.ts`, `realms/realmInput.ts`); each test file names the Node test it ports |
 | Commits `b3f9cd3` (RF2), `39859ba` (RF5), `97853a5` (RF4/RF5) | The seams, the port onto `store`, and the hub/bootstrap/admission/relay wiring |
 | Umbrella §1.2 | No Category A in rifts; files without a Paradox source of their own are rewritten too |
@@ -34,8 +34,8 @@
 ### 1.2 Files of this half
 
 All files are **B** (rewritten clean-room from this document). `ids.rs` and `time.rs` have no direct Paradox
-counterpart (they translate Node's spellings onto DaintyLass's seams) but are rewritten with the rest, per the
-umbrella. There is no D (no recorded vectors in `rifts-realms`) and no G.
+counterpart (they translate Node's spellings onto Dainty Lass's seams) but are rewritten with the rest, per the
+umbrella. There is no D (no recorded vectors in `rustic-rifts-realms`) and no G.
 
 | Path | Lines | Cat. | Ports | Notes |
 | --- | ---: | --- | --- | --- |
@@ -2106,7 +2106,7 @@ Golden values the rewrite must reproduce (computed from the rules above): §2.3 
 
 ### 5.2 Oracles kept in dainty-restricted
 
-`rifts-realms` has no recorded vectors. Restricted keeps its own copies of these tests and runs them against the MIT
+`rustic-rifts-realms` has no recorded vectors. Restricted keeps its own copies of these tests and runs them against the MIT
 crate by git dependency before switching: `hosting_bootstrap.rs` (it ties realms to the admission and relay crates)
 and the isles-1-14-7 suites that drive the crate (`tests/module.rs`: lease with an unhealthy heartbeat fenced,
 recovery to ABORTED, presence and hub start through the mounted routes; `tests/inventory_reforge_host.rs`), plus
@@ -2116,10 +2116,10 @@ recovery to ABORTED, presence and hub start through the mounted routes; `tests/i
 
 ## 6. Target MIT crate shape
 
-- Package `rifts-realms` at `crates/rifts-realms` in dainty-lass, `license = "MIT"`, as umbrella D4. Modules as today
+- Package `rustic-rifts-realms` at `crates/rustic-rifts-realms` in dainty-lass, `license = "MIT"`, as umbrella D4. Modules as today
   (`realm`, `directory`, `hub`, `hunt`, `lifecycle`, `leases`, `selection`, `tiers`, `host_policy`, `capabilities`,
   `control`, `input`, `ids`, `time`, `hosting`) so the paths of §2.1 hold; private helpers are free.
-- Dependencies of this half: `rifts-seam`, `rifts-admission`, `rifts-relay`, `rifts-guard` (the MIT rewrites, umbrella
+- Dependencies of this half: `rustic-rifts-seam`, `rustic-rifts-admission`, `rustic-rifts-relay`, `rustic-rifts-guard` (the MIT rewrites, umbrella
   D4), `module-api`, `store` (through the store half), `rand`, `serde`, `serde_json`, `sha2`, `thiserror`, `tokio`
   (`time` for the poll's sleep). All are in dainty-lass's `[workspace.dependencies]` except the four rifts crates,
   which the umbrella adds.

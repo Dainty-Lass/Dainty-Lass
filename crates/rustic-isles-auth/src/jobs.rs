@@ -69,7 +69,7 @@ impl<S: AuthStore> Auth<S> {
                 "RUSTIC_ISLES_REGISTRATION_APPROVAL is not off or required (got \"{value}\"); treating it as required"
             );
         }
-        if !service_kit::js::trim(self.raw("RUSTIC_ISLES_REGISTRATION_AUTO_APPROVE").unwrap_or("")).is_empty() {
+        if !dainty_service_kit::js::trim(self.raw("RUSTIC_ISLES_REGISTRATION_AUTO_APPROVE").unwrap_or("")).is_empty() {
             tracing::warn!(
                 "RUSTIC_ISLES_REGISTRATION_AUTO_APPROVE has no effect; use RUSTIC_ISLES_REGISTRATION_APPROVAL"
             );
@@ -154,7 +154,7 @@ impl<S: AuthStore> Auth<S> {
         let Some(deletion) = &account.deletion else {
             return Err(LauncherError::internal());
         };
-        let due = service_kit::js::date_parse(&deletion.scheduled_for).is_some_and(|at| at <= self.now());
+        let due = dainty_service_kit::js::date_parse(&deletion.scheduled_for).is_some_and(|at| at <= self.now());
         if !due {
             return Err(LauncherError::new(
                 "DELETION_HOLD_EXPIRED",

@@ -7,10 +7,10 @@
 use axum::extract::{ConnectInfo, Request};
 use axum::http::{Method, StatusCode, Uri};
 use axum::response::Response;
-use module_api::network::SessionTicket;
-use module_api::{BoxFuture, GlobalId, IdKind};
+use dainty_module_api::network::SessionTicket;
+use dainty_module_api::{BoxFuture, GlobalId, IdKind};
+use dainty_service_kit::serve::ConnectionInfo;
 use serde_json::{Map, Value, json};
-use service_kit::serve::ConnectionInfo;
 
 use crate::seams::{RuntimeAuth, RuntimeRequest};
 use crate::store::{GameAccount, StoreError};
@@ -41,7 +41,7 @@ impl<S: AuthStore> Auth<S> {
             .raw("GAMESERVER_NO_PLAYER_USER_ID")
             .or_else(|| self.raw("DEV_USER_ID"));
         let account = match configured {
-            Some(value) => service_kit::js::trim(value).to_owned(),
+            Some(value) => dainty_service_kit::js::trim(value).to_owned(),
             None if sentinel => "mystpax".to_owned(),
             None => String::new(),
         };
@@ -181,7 +181,7 @@ impl<S: AuthStore> Auth<S> {
         }
 
         if let Some(ticket) = util::header(&headers, "x-reforged-session-ticket") {
-            let ticket = service_kit::js::trim(&ticket).to_owned();
+            let ticket = dainty_service_kit::js::trim(&ticket).to_owned();
             if !ticket.is_empty() {
                 let Ok((ticket, _)) = SessionTicket::from_token(&ticket) else {
                     return GameAuth::Refused(empty(StatusCode::UNAUTHORIZED));
@@ -316,7 +316,7 @@ impl<S: AuthStore> Auth<S> {
         let token = match util::header(headers, "authorization") {
             Some(authorization) => util::drop_bytes(&authorization, 7),
             None => match util::header(headers, "x-reforged-session-ticket") {
-                Some(ticket) => service_kit::js::trim(&ticket).to_owned(),
+                Some(ticket) => dainty_service_kit::js::trim(&ticket).to_owned(),
                 None => return page(StatusCode::INTERNAL_SERVER_ERROR),
             },
         };
@@ -694,8 +694,8 @@ impl<S: AuthStore> Auth<S> {
             Err(response) => return response,
         };
         let candidate = util::field(body.as_ref(), "candidateId");
-        let candidate = if service_kit::js::truthy(candidate) {
-            service_kit::js::string(candidate)
+        let candidate = if dainty_service_kit::js::truthy(candidate) {
+            dainty_service_kit::js::string(candidate)
         } else {
             String::new()
         };
@@ -711,7 +711,7 @@ impl<S: AuthStore> Auth<S> {
             Err(response) => return response,
         };
         let read = |name: &str| match util::field(body.as_ref(), name) {
-            Some(value) if !value.is_null() => service_kit::js::string(Some(value)),
+            Some(value) if !value.is_null() => dainty_service_kit::js::string(Some(value)),
             _ => match util::query_value(&pairs, name) {
                 util::QueryValue::One(v) => v,
                 _ => String::new(),

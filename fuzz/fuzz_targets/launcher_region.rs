@@ -7,7 +7,7 @@
 use libfuzzer_sys::fuzz_target;
 use serde_json::Value;
 
-#[path = "../../crates/launcher-kit/src/net/regionping/parse.rs"]
+#[path = "../../crates/dainty-launcher-kit/src/net/regionping/parse.rs"]
 mod parse;
 
 const STATUSES: [u16; 5] = [200, 204, 404, 429, 500];
@@ -25,8 +25,8 @@ fuzz_target!(|data: &[u8]| {
         for (at, node) in nodes.iter().enumerate() {
             // Only a pinned TLS target the launcher can name is ever connected to
             assert!(parse::is_region_id(&node.region));
-            assert!(protocol::invite::is_valid_host(&node.host) && node.port >= 1);
-            assert!(protocol::invite::is_valid_fingerprint(&node.fingerprint));
+            assert!(dainty_protocol::invite::is_valid_host(&node.host) && node.port >= 1);
+            assert!(dainty_protocol::invite::is_valid_fingerprint(&node.fingerprint));
             assert!(nodes[..at].iter().all(|seen| seen.region != node.region));
         }
     }

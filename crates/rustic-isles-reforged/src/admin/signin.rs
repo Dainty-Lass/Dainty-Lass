@@ -4,8 +4,8 @@
 //! Sign-in, sign-out and `me` (admin spec §4).
 
 use axum::response::Response;
+use dainty_module_api::{Actor, ActorContext};
 use http::StatusCode;
-use module_api::{Actor, ActorContext};
 use rustic_isles_store::IslesStore;
 use rustic_isles_store::repo::auth::LauncherAccountRecord;
 use rustic_isles_store::repo::reforged::AdminSessionRecord;

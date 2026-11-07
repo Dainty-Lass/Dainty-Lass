@@ -23,7 +23,7 @@ fn in_order(row: &Value, order: &[&str]) -> bool {
 
 fuzz_target!(|data: &[u8]| {
     let text = String::from_utf8_lossy(data);
-    let rows: Vec<Value> = text.lines().filter_map(|l| service_kit::jsjson::parse(l).ok()).collect();
+    let rows: Vec<Value> = text.lines().filter_map(|l| dainty_service_kit::jsjson::parse(l).ok()).collect();
     let (players, matchmakers) = rows.split_at(rows.len() / 2);
     let player_count = players.iter().filter(|r| r.is_object()).count();
     let converted = convert_rows_for_fuzz(players, matchmakers, "1.14.7");

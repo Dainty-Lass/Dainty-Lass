@@ -12,16 +12,16 @@ and cite its section rather than re-deriving the mapping in a brief or a commit.
 
 ## Repository layout
 
-`restricted/` is the AGPL-3.0-only subtree and Cargo workspace of the DaintyLass monorepo (RD27). It holds every AGPL
+`restricted/` is the AGPL-3.0-only subtree and Cargo workspace of the Dainty Lass monorepo (RD27). It holds every AGPL
 component and everything that links one; the monorepo root holds the MIT crates (`../crates/`), the UI (`../ui/`) and
 the plan (`../MIGRATION_PLAN.md`, `../docs/port/`, `../docs/architecture.md`). This workspace takes the root MIT crates
 via relative path dependencies (`path = "../crates/<name>"` in `Cargo.toml`, `[workspace.dependencies]`).
 
 | Path | What it is |
 | --- | --- |
-| `restricted/` | One cargo workspace, every package of its own in `crates/<package name>`: `host` (the AGPL shell around `../crates/hostkit`, whose `compose.rs` composes the services into the controller), `gateway-plugin`, `content-plugin` and `chat-plugin` (the libraries of the MIT `gateway`, `content` and `chat`), `server-console` (which builds `dainty-server` and `dainty-host`) and `server-minimal`. Also `launcher/src-tauri` (the Tauri launcher backend: `dainty-launcher`, and `dainty-manager` with the `server-gui` feature, kept where Tauri expects it) and the game modules' crates |
-| `modules/rustic-isles/` | The library the core loads for the 1.14.7 module (`crates/isles-1-14-7-plugin`, over the root's MIT `rustic-isles-1-14-7`), its version data (`version-data/1.14.7`), the recorded Node goldens replayed against it (`crates/isles-mit-parity`), the C++ game runtime (`native/runtime`) and CatalogExporter (`native/catalog-exporter`), and the Node reference tree (`reference/1.14.7`). In-tree since RD27, members of this workspace |
-| `modules/rustic-rifts/` | Peer-to-peer realms' AGPL remainder: `ParadoxTransport.dll` (`src/`), and `oracle` (Mystic Paradox's Node vectors replayed against the MIT crates). The `rifts-*` crates themselves are the root's MIT clean-room ones (`../crates/rifts-*`, RD27) |
+| `restricted/` | One cargo workspace, every package of its own in `crates/<package name>`: `host` (the AGPL shell around `../crates/dainty-hostkit`, whose `compose.rs` composes the services into the controller), `gateway-plugin`, `content-plugin` and `chat-plugin` (the libraries of the MIT `gateway`, `content` and `chat`), `server-console` (which builds `dainty-server` and `dainty-host`) and `server-minimal`. Also `launcher/src-tauri` (the Tauri launcher backend: `dainty-launcher`, and `dainty-manager` with the `server-gui` feature, kept where Tauri expects it) and the game modules' crates |
+| `modules/rustic-isles/` | The library the core loads for the 1.14.7 module (`crates/rustic-isles-plugin`, over the root's MIT `rustic-isles-1-14-7`), its version data (`version-data/1.14.7`), the recorded Node goldens replayed against it (`crates/rustic-isles-mit-parity`), the C++ game runtime (`native/runtime`) and CatalogExporter (`native/catalog-exporter`), and the Node reference tree (`reference/1.14.7`). In-tree since RD27, members of this workspace |
+| `modules/rustic-rifts/` | Peer-to-peer realms' AGPL remainder: `ParadoxTransport.dll` (`src/`), and `oracle` (Mystic Paradox's Node vectors replayed against the MIT crates). The `rustic-rifts-*` crates themselves are the root's MIT clean-room ones (`../crates/rustic-rifts-*`, RD27) |
 | `legacy/` | dainty-legacy: the 1.4.4 importer, a workspace of its own (an external plugin `host.toml` pins) |
 | `ui/` | The UI's two AGPL inputs only: the language catalogs (`packages/i18n/catalogs`) and the bridge types the launcher generates (`packages/bridge/src/generated`); `../ui/` (dainty-dash) copies the bridge types in at build time |
 | `fuzz/` | `cargo fuzz` targets for the AGPL components, a workspace of its own |
@@ -29,22 +29,22 @@ via relative path dependencies (`path = "../crates/<name>"` in `Cargo.toml`, `[w
 | `docker/`, `compose.yaml` | Container deployment (RX4), laid out as the server release |
 | `docs/` | Host and player guides, `paradox-patches.md`, and `security/` for the AGPL components |
 
-DaintyLass serves one game, Dauntless 1.14.7 (2026-10-31). On the default path (since the RU9 code cutover,
+Dainty Lass serves one game, Dauntless 1.14.7 (2026-10-31). On the default path (since the RU9 code cutover,
 maintainer decision 2026-10-28), `host::serve` runs the compiled-in Rust `isles-1-14-7` backend (port 61000) and
 in-process Director (port 61001) on `store` (SQLite by default, or Postgres), with `isles-1-14-7` and realms
 linked in by the server binaries' `all-modules` feature (DF5). The module is the root's clean-room
 `rustic-isles-1-14-7` (RD27), handed restricted's version data
-(`modules/rustic-isles/version-data/1.14.7/version_data.json`, kept current by isles-mit-parity's `version_data` test);
+(`modules/rustic-isles/version-data/1.14.7/version_data.json`, kept current by rustic-isles-mit-parity's `version_data` test);
 the AGPL Rust ports it replaced (`isles-core`, `isles-db`, `isles-director`, `isles-chat`) were removed and stay in the
 history. For one release after the cutover (until RB15), the
 opt-in `paradox` Cargo feature on `host` retains Rustic Isles's Node backend and Director from
 `modules/rustic-isles/reference/1.14.7/` and MongoDB as a rollback path.
 
 The server is one executable (RD26). Every service is a module of the root's `controller`, composed by
-`host::serve` (the AGPL ones through `crates/host/src/compose.rs`) from the files `setup` writes, and still runnable
-alone as a hidden `dainty-host <service>` subcommand (the root's `crates/hostkit/src/cli.rs`), which Docker
+`host::serve` (the AGPL ones through `crates/dainty-host/src/compose.rs`) from the files `setup` writes, and still runnable
+alone as a hidden `dainty-host <service>` subcommand (the root's `crates/dainty-hostkit/src/cli.rs`), which Docker
 and `start` use.
-The same services also build as libraries the MIT core `dainty-core` loads (RD27 phase 2, the `*-plugin`
+The same services also build as libraries the MIT core `dainty-lass` loads (RD27 phase 2, the `*-plugin`
 crates); `compose.rs` links them into restricted's own binaries.
 
 **Which workspace a change goes in** follows its licence: anything ported from DR, Paradox or the Reforged Revival
@@ -61,7 +61,7 @@ the commit SHA, and open no pull request.** The integration pass merges branches
 dependency order, runs the checks and strikes the rows.
 
 - **Stay inside your row's files.** The ownership table in section 5.1 says who owns each shared file. If the
-  row needs a change to a seam (the workspace `Cargo.toml`, `crates/protocol`, the bridge spec, `store`
+  row needs a change to a seam (the workspace `Cargo.toml`, `crates/dainty-protocol`, the bridge spec, `store`
   migrations, the `clap` tree, `.forgejo/`) or to a file another row owns, stop and report it. Don't make the
   change yourself.
 - **Never edit** `MIGRATION_PLAN.md`, `README.md`, `NOTICE.md`, `SECURITY_REVIEW.md` or the `docs/` index pages
@@ -72,7 +72,7 @@ dependency order, runs the checks and strikes the rows.
   and publishing, the cut-off date. Write down the steps and leave them for the maintainer.
 - `modules/rustic-isles/reference/1.14.7/` takes any change, with fixes as the baseline (RD2): keep a change small,
   and list a new or changed route in RU3's inventory (`modules/rustic-isles/docs/inventory/`). It reaches the MIT
-  `rustic-isles-*` crates only through their specs (`../docs/port/spec-rustic-isles-*.md`), and `isles-mit-parity`
+  `rustic-isles-*` crates only through their specs (`../docs/port/spec-rustic-isles-*.md`), and `rustic-isles-mit-parity`
   replays the goldens against the result. The catch-up lists (`../docs/port/catchup-*.md`) are closed records.
 - **An upstream change is placed before it is ported.** Section 4 of the migration guide says where each kind
   goes (a runtime patch, a backend patch, game data, a Mystic Paradox update);
@@ -104,7 +104,7 @@ The page talks to Rust only through the commands in `launcher/src-tauri/src/brid
 (`ui/packages/bridge/src/generated/types.ts`), the isolation hook's command list (`launcher/isolation/commands.js`)
 and the permission set (`launcher/src-tauri/permissions/app-commands.toml`) are generated from it and checked by a
 test; the root's `ui/` and `launcher/` copy the first two in with `bun run restricted-data`. Never edit them by
-hand: `RR_UPDATE_GENERATED=1 cargo test -p launcher generated` rewrites them. The page's method for each command is
+hand: `RR_UPDATE_GENERATED=1 cargo test -p dainty-launcher generated` rewrites them. The page's method for each command is
 the root's `ui/packages/bridge/src/api.ts`; the root's `launcher` tests (`bun run test`) drive it through the
 isolation hook and fail a command no method calls. The account key never crosses the bridge.
 
@@ -137,9 +137,9 @@ is a host's own and is never committed.
 ## Configuration
 
 Every service reads one env file, given with `--env-file`, and nothing from its working directory
-(the root's `crates/service-kit/src/env.rs`, DR X7). As with Node's `--env-file`, the process environment wins over the file.
+(the root's `crates/dainty-service-kit/src/env.rs`, DR X7). As with Node's `--env-file`, the process environment wins over the file.
 **The env files are the host kit's output, not hand-written:** `dainty-host setup` writes them from
-`host.toml` and `secrets.env` (the root's `crates/hostkit/src/hostconfig.rs`, `hosttoml.rs`), and `start` hands each
+`host.toml` and `secrets.env` (the root's `crates/dainty-hostkit/src/hostconfig.rs`, `hosttoml.rs`), and `start` hands each
 service its own. So a new setting is a field in `host.toml` (in `HostConfig`, and in `hosttoml.rs`'s key
 table with a snake_case name and a comment for new files), a `setup` option where a host should choose it,
 and a line in the service's file. It is never a variable the host is told to export.
@@ -154,7 +154,7 @@ It's never a one-file change:
   today's behaviour.
 - **Use one of the server prefixes** (`REFORGED_`, `GATEWAY_`, `ALLOWLIST_`, `CONTENT_`, `GAMESERVER_`...).
   `start` hands each service the shell's environment and then its env file, and the file wins
-  (`service_environment` in the root's `crates/hostkit/src/services.rs`). The clean-room host kit has no
+  (`service_environment` in the root's `crates/dainty-hostkit/src/services.rs`). The clean-room host kit has no
   `SERVER_PREFIXES` list, so a stale server setting left in the shell reaches a service whose file doesn't set it.
   Only the controller's registry filters, keeping the OS's own variables for an external module
   (`system_environment`).
@@ -202,11 +202,11 @@ Not obvious from reading the suites:
 
 - **Parity tests are the contract, not a snapshot.** The gateway's and content's, with the replies recorded from
   the Node services, are at the root since those crates went MIT (RD27). When one fails, fix the Rust side. So
-  are Rustic Isles' goldens in `modules/rustic-isles/crates/isles-mit-parity/tests/golden`, replayed against the MIT
+  are Rustic Isles' goldens in `modules/rustic-isles/crates/rustic-isles-mit-parity/tests/golden`, replayed against the MIT
   module (890 of 890 replayed steps match; `docs/mit-parity-report.md` there).
-- **the root's `crates/protocol/tests/cases/*.json` are shared tables**: the launcher and the servers check the same
+- **the root's `crates/dainty-protocol/tests/cases/*.json` are shared tables**: the launcher and the servers check the same
   invites, statuses and usernames against them. A new case goes in the table, not in one crate's test.
-- **Tests that read the shared log take `serial()`** (the root's `crates/gateway/tests/common`). A test that passes alone and fails in
+- **Tests that read the shared log take `serial()`** (the root's `crates/dainty-gateway/tests/common`). A test that passes alone and fails in
   the suite is usually one that doesn't.
 - **Bind test listeners to `127.0.0.1:0`.** On the maintainer's Windows PC fixed ports can fall in Windows'
   reserved range, which is why two of Content's Node tests fail there.
@@ -277,9 +277,9 @@ AGPL-3.0-only, with additional terms for the Mystic Paradox material (`ADDITIONA
 Code copied from DR or Paradox keeps its attribution, and the integration pass records each new source in
 `NOTICE.md`.
 
-The MIT crates (`controller`, `module-api`, `hostkit`, `gateway`, `content`, `chat`, `rifts-*`, `rustic-isles-*`, ...)
+The MIT crates (`dainty-controller`, `dainty-module-api`, `dainty-hostkit`, `dainty-gateway`, `dainty-content`, `dainty-chat`, `rustic-rifts-*`, `rustic-isles-*`, ...)
 are the root's. Here,
-`crates/host`, the `*-plugin` crates, `server-console`, `server-minimal` (their binaries link `host` and the
+`crates/dainty-host`, the `*-plugin` crates, `server-console`, `server-minimal` (their binaries link `host` and the
 modules), `launcher/src-tauri` and the game modules' crates inherit the workspace's AGPL
 (`license.workspace = true`); `fuzz` and `legacy` set `AGPL-3.0-only` themselves, and `native/runtime-loader` is Apache-2.0. A new
 crate is MIT only when nothing in it is ported from DR, Paradox or the Reforged Revival line: no file from those

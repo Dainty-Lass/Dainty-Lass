@@ -7,9 +7,11 @@
 
 use std::path::PathBuf;
 
-use module_api::host::file_sha256;
-use module_api::{ChildOptions, ExternalModule, GameModule, ModuleDriver, ModuleDriverExt, ModuleId, NodeIdentity};
-use plugin_host::{DylibModule, is_library};
+use dainty_module_api::host::file_sha256;
+use dainty_module_api::{
+    ChildOptions, ExternalModule, GameModule, ModuleDriver, ModuleDriverExt, ModuleId, NodeIdentity,
+};
+use dainty_plugin_host::{DylibModule, is_library};
 
 /// Cargo builds this crate's cdylib beside the test binary's `deps` folder; a nested cargo would wait on the outer
 /// one's lock, so the test does not build it itself.
@@ -40,7 +42,7 @@ async fn the_library_is_the_compiled_in_module() {
         args: vec![],
         expected: Some(ModuleId::new("isles-1-14-7").unwrap()),
     };
-    let host = module_api::stub::recording_host();
+    let host = dainty_module_api::stub::recording_host();
     let driver = DylibModule::load(&external, NodeIdentity::standalone(), host, ChildOptions::default())
         .await
         .unwrap();

@@ -48,7 +48,7 @@ fn level_free(value: &Value) -> Value {
             map.iter()
                 .map(|(k, v)| match (k.as_str(), v) {
                     ("itemData", Value::String(text)) => {
-                        let parsed = service_kit::jsjson::parse(text).ok();
+                        let parsed = dainty_service_kit::jsjson::parse(text).ok();
                         let cleared = parsed.map(|mut p| {
                             if let Some(m) = p.as_object_mut() {
                                 m.remove("CurrentLevel");
@@ -145,7 +145,7 @@ fuzz_target!(|data: &[u8]| {
         let id = entry.get("catalogId").and_then(Value::as_str).unwrap_or("");
         assert!(!id.starts_with("CURRENCY_"));
         if removes.as_array().is_some_and(|r| !r.is_empty()) {
-            assert!(service_kit::js::number(entry.get("quantity")) > 0.0);
+            assert!(dainty_service_kit::js::number(entry.get("quantity")) > 0.0);
         }
     }
 });

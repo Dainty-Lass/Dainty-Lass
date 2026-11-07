@@ -7,7 +7,7 @@
 mod common;
 
 use common::{account, admin, launcher, log, system, targets};
-use module_api::NodeId;
+use dainty_module_api::NodeId;
 use rustic_isles::replay::{ReplayScope, with_replay_scope};
 use rustic_isles_store::repo::auth::*;
 use rustic_isles_store::repo::progression::now_iso;
@@ -88,7 +88,7 @@ async fn s3_stubs_answer_unimplemented() {
 async fn s4_closures_run_in_the_callers_replay_scope() {
     let t = targets().remove(0);
     let store = t.store.clone();
-    let pinned = service_kit::js::date_parse("2026-10-27T00:00:00.000Z").unwrap();
+    let pinned = dainty_service_kit::js::date_parse("2026-10-27T00:00:00.000Z").unwrap();
     let seen = with_replay_scope(ReplayScope::new(Some(pinned), None), async move {
         store.read(|_, _| Ok(now_iso())).await
     })

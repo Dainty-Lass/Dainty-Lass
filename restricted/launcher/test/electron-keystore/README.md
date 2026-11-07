@@ -15,7 +15,7 @@ Run it as the same user on the same PC (DPAPI keys belong to both), on Windows, 
 npm i --no-save --no-package-lock electron@44.4.3 typescript@6.0.3 @types/node@24
 npx tsc -p .
 npx electron . "$TEMP/rrk-profile"
-REFORGED_ELECTRON_PROFILE="$TEMP/rrk-profile" cargo test -p launcher --lib an_electron_profile_reads_back -- --ignored
+REFORGED_ELECTRON_PROFILE="$TEMP/rrk-profile" cargo test -p dainty-launcher --lib an_electron_profile_reads_back -- --ignored
 ```
 
 The last line runs from the repository root. Never point the harness or the test at a real launcher profile: the harness

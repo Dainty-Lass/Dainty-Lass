@@ -332,7 +332,7 @@ pub fn grant_request_hash(user_id: &str, progression_id: &str, amount: f64) -> S
         ("progressionId", Value::from(progression_id)),
         ("amount", crate::util::number_value(amount)),
     ]);
-    sha256_hex(&service_kit::jsjson::stringify(&body))
+    sha256_hex(&dainty_service_kit::jsjson::stringify(&body))
 }
 
 /// `^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$`

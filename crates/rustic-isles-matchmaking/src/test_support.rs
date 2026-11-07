@@ -8,7 +8,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex, PoisonError};
 
 use axum::extract::Request;
-use module_api::BoxFuture;
+use dainty_module_api::BoxFuture;
 use rustic_isles::testing::{SAMPLE_TABLES, SampleHooks};
 use rustic_isles::{
     DedicatedServers, Destination, Entitlement, GameMode, Handlers, IslesVersion, Launch, LaunchRequest, LiveHub,
@@ -202,11 +202,11 @@ pub struct TestModule {
 impl TestModule {
     /// A test module with rifts serving dedicated servers only.
     pub fn new(store: Option<IslesStore>, settings: Settings) -> Self {
-        Self::with_rifts(store, settings, rifts_seam::Rifts::dedicated_only())
+        Self::with_rifts(store, settings, rustic_rifts_seam::Rifts::dedicated_only())
     }
 
     /// A test module over the given rifts.
-    pub fn with_rifts(store: Option<IslesStore>, settings: Settings, rifts: rifts_seam::Rifts) -> Self {
+    pub fn with_rifts(store: Option<IslesStore>, settings: Settings, rifts: rustic_rifts_seam::Rifts) -> Self {
         let state = Arc::new(MatchmakingState::new());
         let hubs = Arc::new(HubSessions::new());
         let mut slots = Slots::default()

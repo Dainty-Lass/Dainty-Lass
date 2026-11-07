@@ -259,7 +259,7 @@ pub(crate) fn slug(id: &str) -> String {
 }
 
 fn trimmed(text: Option<&str>) -> Option<String> {
-    text.map(|t| service_kit::js::trim(t).to_owned())
+    text.map(|t| dainty_service_kit::js::trim(t).to_owned())
         .filter(|t| !t.is_empty())
 }
 

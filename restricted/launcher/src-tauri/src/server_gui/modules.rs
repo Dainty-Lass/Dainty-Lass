@@ -8,7 +8,9 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
 
-use module_api::{Actor, ActorContext, AdminCall, AdminRequest, AdminResponse, CommandRequest, ModuleId, ModuleKind};
+use dainty_module_api::{
+    Actor, ActorContext, AdminCall, AdminRequest, AdminResponse, CommandRequest, ModuleId, ModuleKind,
+};
 use server_controller::{ModuleInfo, ModuleRegistry, ModuleState, RegistryError};
 
 use super::{Slot, lock};
@@ -81,8 +83,8 @@ impl Panel {
             .ok_or_else(|| LauncherError::new(ErrorCode::ServerStopped))
     }
 
-    fn paths(&self) -> Option<host::paths::Paths> {
-        lock(&self.workspace).clone().map(host::paths::Paths::new)
+    fn paths(&self) -> Option<dainty_host::paths::Paths> {
+        lock(&self.workspace).clone().map(dainty_host::paths::Paths::new)
     }
 
     /// What host.toml sets, by module; empty when the server has no host.toml yet.
@@ -90,7 +92,7 @@ impl Panel {
         let Some(paths) = self.paths() else {
             return Ok(BTreeMap::new());
         };
-        let read = tauri::async_runtime::spawn_blocking(move || host::hostconfig::load_host_config(&paths))
+        let read = tauri::async_runtime::spawn_blocking(move || dainty_host::hostconfig::load_host_config(&paths))
             .await
             .map_err(host_toml_error)?
             .map_err(host_toml_error)?;
@@ -164,13 +166,13 @@ impl Panel {
         let key = id.clone();
         // The file is read and written in one step, so two saves can't undo each other
         let merged = tauri::async_runtime::spawn_blocking(move || -> Result<Settings, LauncherError> {
-            let mut config = host::hostconfig::load_host_config(&paths)
+            let mut config = dainty_host::hostconfig::load_host_config(&paths)
                 .map_err(host_toml_error)?
                 .ok_or_else(|| host_toml_error("the server has no host.toml yet"))?;
             let modules = config.modules.get_or_insert_with(Default::default);
             let merged = merge_settings(&schema, modules.settings.get(&key).unwrap_or(&Settings::new()), &values)?;
             modules.settings.insert(key, merged.clone());
-            host::hostconfig::save_host_config(&paths, &config).map_err(host_toml_error)?;
+            dainty_host::hostconfig::save_host_config(&paths, &config).map_err(host_toml_error)?;
             Ok(merged)
         })
         .await

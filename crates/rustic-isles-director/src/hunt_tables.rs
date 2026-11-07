@@ -8,8 +8,8 @@ use std::collections::{BTreeMap, HashMap};
 use std::fmt::Write as _;
 use std::path::{Path, PathBuf};
 
+use dainty_service_kit::js;
 use serde_json::{Map, Value};
-use service_kit::js;
 
 use crate::hunt::js_entries;
 
@@ -228,7 +228,7 @@ impl Enum {
 }
 
 fn json_text(value: Option<&Value>) -> String {
-    value.map_or_else(|| "undefined".to_owned(), service_kit::jsjson::stringify)
+    value.map_or_else(|| "undefined".to_owned(), dainty_service_kit::jsjson::stringify)
 }
 
 fn present(value: Option<&Value>) -> Option<&Value> {
@@ -744,7 +744,7 @@ fn merge_row(
 fn read_json(path: &Path) -> Result<Value, String> {
     let text = std::fs::read_to_string(path).map_err(|e| format!("failed to read {}: {e}", path.display()))?;
     let text = text.strip_prefix('\u{feff}').unwrap_or(&text);
-    service_kit::jsjson::parse(text).map_err(|e| format!("invalid JSON in {}: {e}", path.display()))
+    dainty_service_kit::jsjson::parse(text).map_err(|e| format!("invalid JSON in {}: {e}", path.display()))
 }
 
 fn read_jsonl(path: &Path) -> Result<Vec<Value>, String> {
@@ -756,7 +756,7 @@ fn read_jsonl(path: &Path) -> Result<Vec<Value>, String> {
         if line.is_empty() {
             continue;
         }
-        let row = service_kit::jsjson::parse(line)
+        let row = dainty_service_kit::jsjson::parse(line)
             .map_err(|e| format!("malformed JSON on line {} of {}: {e}", n + 1, path.display()))?;
         rows.push(row);
     }
@@ -784,7 +784,7 @@ pub fn stringify_pretty(value: &Value) -> String {
                 for (n, (k, v)) in js_entries(map).into_iter().enumerate() {
                     out.push_str(if n == 0 { "\n" } else { ",\n" });
                     pad(out, depth + 1);
-                    out.push_str(&service_kit::jsjson::stringify(&Value::String(k.clone())));
+                    out.push_str(&dainty_service_kit::jsjson::stringify(&Value::String(k.clone())));
                     out.push_str(": ");
                     write(out, v, depth + 1);
                 }
@@ -792,7 +792,7 @@ pub fn stringify_pretty(value: &Value) -> String {
                 pad(out, depth);
                 out.push('}');
             }
-            other => out.push_str(&service_kit::jsjson::stringify(other)),
+            other => out.push_str(&dainty_service_kit::jsjson::stringify(other)),
         }
     }
     let mut out = String::new();
@@ -987,7 +987,7 @@ fn merge_table(
             }
             None => problems.push(format!(
                 "{row_name}: vendored MatchmakingGameType={} does not decode for {own}",
-                service_kit::jsjson::stringify(game_type)
+                dainty_service_kit::jsjson::stringify(game_type)
             )),
         }
     }

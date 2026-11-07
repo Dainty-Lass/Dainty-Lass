@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# DaintyLass: end-to-end Docker test for remote management (RM1-RM5, docs/remote-management.md).
+# Dainty Lass: end-to-end Docker test for remote management (RM1-RM5, docs/remote-management.md).
 # From the repository root:
 #   bash docker/remote/test.sh
 # Brings up compose.yaml's `remote` profile (one controller and two managed installs, alpha and bravo) in throwaway

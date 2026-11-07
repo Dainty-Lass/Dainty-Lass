@@ -1,10 +1,10 @@
 <!-- markdownlint-configure-file { "MD013": { "line_length": 120, "tables": false, "code_blocks": false } } -->
 
-# Clean-Room Behaviour Specification: `rifts-seam`, `rifts-admission`, `rifts-relay` (RD27)
+# Clean-Room Behaviour Specification: `rustic-rifts-seam`, `rustic-rifts-admission`, `rustic-rifts-relay` (RD27)
 
 > **Scope and purpose (RD27):** the clean-room behaviour specification for relicensing three crates of Rustic Rifts
-> to MIT. They live in dainty-restricted (AGPL) at `modules/rustic-rifts/crates/rifts-seam`, `crates/rifts-admission`
-> and `crates/rifts-relay`. Rustic Rifts' `NOTICE.md` says the Rust workspace "ports Mystic Paradox's `p2p/`,
+> to MIT. They live in dainty-restricted (AGPL) at `modules/rustic-rifts/crates/rustic-rifts-seam`, `crates/rustic-rifts-admission`
+> and `crates/rustic-rifts-relay`. Rustic Rifts' `NOTICE.md` says the Rust workspace "ports Mystic Paradox's `p2p/`,
 > `realms/`, Guard and launcher realm-hosting modules", so every source file is rewritten here, from this document
 > alone, by an implementer who never sees the AGPL code.
 >
@@ -25,11 +25,11 @@
 | Source | What it says |
 | --- | --- |
 | `modules/rustic-rifts/NOTICE.md` | The Rust workspace ports Mystic Paradox's `p2p/`, `realms/`, Guard and launcher modules (`21b9ff5`, AGPL-3.0-only); every port stays AGPL |
-| Crate headers (`//!`) | `rifts-admission`: ported from `p2p/security/admissionTickets.ts`, `p2p/controllers/p2pAdmission.ts`, `realmHubAdmission.ts`, `p2pLauncher.ts`, `p2p/security/transportPeerIds.ts`, `scripts/p2p/generate-admission-key.mjs`, and the transport's `src/admission_ticket.cpp`, `src/control_codec.cpp`. `rifts-relay`: `p2p/config/p2pIcePolicy.ts`, `p2p/services/relayCredentials.ts`, `p2p/security/iceSessionRules.ts`, `p2p/controllers/p2pIce.ts`, `p2pAdminOperations.ts`. `rifts-seam`: Node's `P2PExtension` hook object (`extensions/p2p.ts`), the `realms/` exports and `p2p/antiCheat.ts` |
+| Crate headers (`//!`) | `rustic-rifts-admission`: ported from `p2p/security/admissionTickets.ts`, `p2p/controllers/p2pAdmission.ts`, `realmHubAdmission.ts`, `p2pLauncher.ts`, `p2p/security/transportPeerIds.ts`, `scripts/p2p/generate-admission-key.mjs`, and the transport's `src/admission_ticket.cpp`, `src/control_codec.cpp`. `rustic-rifts-relay`: `p2p/config/p2pIcePolicy.ts`, `p2p/services/relayCredentials.ts`, `p2p/security/iceSessionRules.ts`, `p2p/controllers/p2pIce.ts`, `p2pAdminOperations.ts`. `rustic-rifts-seam`: Node's `P2PExtension` hook object (`extensions/p2p.ts`), the `realms/` exports and `p2p/antiCheat.ts` |
 | Commits | `b3f9cd3` (RF2, seam), `e61e8e4` (RF4, admission and relay), `58525cd` (fuzz targets), `c695cb2` (security checklists), `64853ca`, `210eb22`, `97853a5` (routes, seams), `ca76df9` (seam: host grant catalog) |
 | `tests/vectors/make-vectors.mts` | Runs Mystic Paradox's own Node modules in `node:22` and records their answers into `node-admission.json` and `node-relay.json` |
 
-Category definitions follow `spec-rd27-launcher.md` §1.2: **A** born in DaintyLass and moves as is (with the edits
+Category definitions follow `spec-rd27-launcher.md` §1.2: **A** born in Dainty Lass and moves as is (with the edits
 named), **B** derived and rewritten clean-room from this spec, **D** data recorded from Mystic Paradox's programs (and
 the harness that replays it), stays in dainty-restricted as an oracle, **G** generated (none here).
 
@@ -39,46 +39,46 @@ Line counts are `wc -l` at `4efc8b5`. Paths are relative to `modules/rustic-rift
 
 | Path | Lines | Cat. | Evidence | Target |
 | --- | ---: | --- | --- | --- |
-| `crates/rifts-seam/Cargo.toml` | 15 | A | Manifest; only `thiserror` | MIT crate, `license = "MIT"` |
-| `crates/rifts-seam/src/lib.rs` | 50 | B | Hook object re-shaped, `stub`, `poll_once` | §2 |
-| `crates/rifts-seam/src/core.rs` | 186 | B | `IslesCore`, Node function names per method | §2.1.3 |
-| `crates/rifts-seam/src/dedicated.rs` | 382 | B | Node's `DEDICATED_ONLY`, `LoadP2PExtension` | §2.3 |
-| `crates/rifts-seam/src/error.rs` | 67 | B | `LauncherApiError` codes | §2.1.1 |
-| `crates/rifts-seam/src/hooks.rs` | 307 | B | `P2PExtension` hooks | §2.1.4 |
-| `crates/rifts-seam/src/http.rs` | 231 | B | Routes as data, `p2pErrors.ts` envelope | §2.1.5 |
-| `crates/rifts-seam/src/id.rs` | 211 | B | Global ids (DD18); in a ported crate | §2.1.6 |
-| `crates/rifts-seam/src/store.rs` | 101 | B | Table shapes of Node's collections | §2.1.7 |
-| `crates/rifts-admission/Cargo.toml` | 23 | A | Manifest | MIT crate, `license = "MIT"`, description without "MPT2" if renamed (§9) |
-| `crates/rifts-admission/src/lib.rs` | 260 | B | Traits, `DeriveIcePeerId` | §3.1 |
-| `crates/rifts-admission/src/ticket.rs` | 526 | B | `admissionTickets.ts`, `admission_ticket.cpp` | §3.2 |
-| `crates/rifts-admission/src/ticket/tests.rs` | 402 | B | Unit tests | rewrite from §6.1 |
-| `crates/rifts-admission/src/keys.rs` | 372 | B | `generate-admission-key.mjs`, key loading | §3.3 |
-| `crates/rifts-admission/src/control.rs` | 178 | B | `control_codec.cpp` | §3.4 |
-| `crates/rifts-admission/src/store.rs` | 485 | B | `p2pSteamLinks`, `p2pAdmissionTickets`, `p2pPeerAdmissions`, in-memory repository | §3.5 |
-| `crates/rifts-admission/src/service.rs` | 785 | B | `p2pAdmission.ts`, `realmHubAdmission.ts`, `p2pLauncher.ts` | §3.6 |
-| `crates/rifts-admission/src/service/tests.rs` | 532 | B | Unit tests | rewrite from §6.1 |
-| `crates/rifts-admission/src/routes.rs` | 281 | B | Route table and dispatch | §3.7 |
-| `crates/rifts-admission/examples/generate-admission-key.rs` | 42 | B | `generate-admission-key.mjs` as a command | §3.8 |
-| `crates/rifts-admission/examples/mint-ticket.rs` | 100 | B | Defaults from `admissionTickets.test.ts` | §3.8 |
-| `crates/rifts-admission/tests/node_vectors.rs` | 129 | D | Replays `node-admission.json` | stays in restricted (§6.2) |
-| `crates/rifts-admission/tests/vectors/node-admission.json` | 5931 | D | Node's output | stays in restricted |
-| `crates/rifts-admission/tests/vectors/make-vectors.mts` | 186 | D | Drives Mystic's Node modules | stays in restricted |
-| `crates/rifts-relay/Cargo.toml` | 23 | A | Manifest | MIT crate, `license = "MIT"` |
-| `crates/rifts-relay/src/lib.rs` | 207 | B | Traits, `TransportKeys` | §4.1 |
-| `crates/rifts-relay/src/wire.rs` | 333 | B | `JSON.stringify`, `toISOString`, `Number` rules | §4.2 |
-| `crates/rifts-relay/src/config.rs` | 420 | B | `p2pIcePolicy.ts` | §4.3 |
-| `crates/rifts-relay/src/credentials.rs` | 971 | B | `relayCredentials.ts` | §4.4 |
-| `crates/rifts-relay/src/rules.rs` | 649 | B | `iceSessionRules.ts` | §4.5 |
-| `crates/rifts-relay/src/service.rs` | 368 | B | `p2pIce.ts`, `UpdateCoopTransport` | §4.6 |
-| `crates/rifts-relay/src/service/tests.rs` | 373 | B | Unit tests | rewrite from §6.1 |
-| `crates/rifts-relay/src/routes.rs` | 214 | B | Route table and dispatch | §4.7 |
-| `crates/rifts-relay/examples/mint-relay-file.rs` | 95 | B | `tools/mint-relay-test-file.cjs` | §4.8 |
-| `crates/rifts-relay/tests/node_vectors.rs` | 160 | D | Replays `node-relay.json` | stays in restricted (§6.2) |
-| `crates/rifts-relay/tests/vectors/node-relay.json` | 596 | D | Node's output | stays in restricted |
+| `crates/rustic-rifts-seam/Cargo.toml` | 15 | A | Manifest; only `thiserror` | MIT crate, `license = "MIT"` |
+| `crates/rustic-rifts-seam/src/lib.rs` | 50 | B | Hook object re-shaped, `stub`, `poll_once` | §2 |
+| `crates/rustic-rifts-seam/src/core.rs` | 186 | B | `IslesCore`, Node function names per method | §2.1.3 |
+| `crates/rustic-rifts-seam/src/dedicated.rs` | 382 | B | Node's `DEDICATED_ONLY`, `LoadP2PExtension` | §2.3 |
+| `crates/rustic-rifts-seam/src/error.rs` | 67 | B | `LauncherApiError` codes | §2.1.1 |
+| `crates/rustic-rifts-seam/src/hooks.rs` | 307 | B | `P2PExtension` hooks | §2.1.4 |
+| `crates/rustic-rifts-seam/src/http.rs` | 231 | B | Routes as data, `p2pErrors.ts` envelope | §2.1.5 |
+| `crates/rustic-rifts-seam/src/id.rs` | 211 | B | Global ids (DD18); in a ported crate | §2.1.6 |
+| `crates/rustic-rifts-seam/src/store.rs` | 101 | B | Table shapes of Node's collections | §2.1.7 |
+| `crates/rustic-rifts-admission/Cargo.toml` | 23 | A | Manifest | MIT crate, `license = "MIT"`, description without "MPT2" if renamed (§9) |
+| `crates/rustic-rifts-admission/src/lib.rs` | 260 | B | Traits, `DeriveIcePeerId` | §3.1 |
+| `crates/rustic-rifts-admission/src/ticket.rs` | 526 | B | `admissionTickets.ts`, `admission_ticket.cpp` | §3.2 |
+| `crates/rustic-rifts-admission/src/ticket/tests.rs` | 402 | B | Unit tests | rewrite from §6.1 |
+| `crates/rustic-rifts-admission/src/keys.rs` | 372 | B | `generate-admission-key.mjs`, key loading | §3.3 |
+| `crates/rustic-rifts-admission/src/control.rs` | 178 | B | `control_codec.cpp` | §3.4 |
+| `crates/rustic-rifts-admission/src/store.rs` | 485 | B | `p2pSteamLinks`, `p2pAdmissionTickets`, `p2pPeerAdmissions`, in-memory repository | §3.5 |
+| `crates/rustic-rifts-admission/src/service.rs` | 785 | B | `p2pAdmission.ts`, `realmHubAdmission.ts`, `p2pLauncher.ts` | §3.6 |
+| `crates/rustic-rifts-admission/src/service/tests.rs` | 532 | B | Unit tests | rewrite from §6.1 |
+| `crates/rustic-rifts-admission/src/routes.rs` | 281 | B | Route table and dispatch | §3.7 |
+| `crates/rustic-rifts-admission/examples/generate-admission-key.rs` | 42 | B | `generate-admission-key.mjs` as a command | §3.8 |
+| `crates/rustic-rifts-admission/examples/mint-ticket.rs` | 100 | B | Defaults from `admissionTickets.test.ts` | §3.8 |
+| `crates/rustic-rifts-admission/tests/node_vectors.rs` | 129 | D | Replays `node-admission.json` | stays in restricted (§6.2) |
+| `crates/rustic-rifts-admission/tests/vectors/node-admission.json` | 5931 | D | Node's output | stays in restricted |
+| `crates/rustic-rifts-admission/tests/vectors/make-vectors.mts` | 186 | D | Drives Mystic's Node modules | stays in restricted |
+| `crates/rustic-rifts-relay/Cargo.toml` | 23 | A | Manifest | MIT crate, `license = "MIT"` |
+| `crates/rustic-rifts-relay/src/lib.rs` | 207 | B | Traits, `TransportKeys` | §4.1 |
+| `crates/rustic-rifts-relay/src/wire.rs` | 333 | B | `JSON.stringify`, `toISOString`, `Number` rules | §4.2 |
+| `crates/rustic-rifts-relay/src/config.rs` | 420 | B | `p2pIcePolicy.ts` | §4.3 |
+| `crates/rustic-rifts-relay/src/credentials.rs` | 971 | B | `relayCredentials.ts` | §4.4 |
+| `crates/rustic-rifts-relay/src/rules.rs` | 649 | B | `iceSessionRules.ts` | §4.5 |
+| `crates/rustic-rifts-relay/src/service.rs` | 368 | B | `p2pIce.ts`, `UpdateCoopTransport` | §4.6 |
+| `crates/rustic-rifts-relay/src/service/tests.rs` | 373 | B | Unit tests | rewrite from §6.1 |
+| `crates/rustic-rifts-relay/src/routes.rs` | 214 | B | Route table and dispatch | §4.7 |
+| `crates/rustic-rifts-relay/examples/mint-relay-file.rs` | 95 | B | `tools/mint-relay-test-file.cjs` | §4.8 |
+| `crates/rustic-rifts-relay/tests/node_vectors.rs` | 160 | D | Replays `node-relay.json` | stays in restricted (§6.2) |
+| `crates/rustic-rifts-relay/tests/vectors/node-relay.json` | 596 | D | Node's output | stays in restricted |
 | `fuzz/fuzz_targets/admission_control.rs` | 22 | A | RX3 target born here (Mystic has no fuzzing); asserts over the public API only | dainty-lass `fuzz/` |
 | `fuzz/fuzz_targets/admission_ticket.rs` | 58 | A | As above | dainty-lass `fuzz/` |
 | `fuzz/fuzz_targets/relay_signal.rs` | 50 | A | As above | dainty-lass `fuzz/` |
-| `fuzz/Cargo.toml` (three `[[bin]]` entries and the `rifts-admission`, `rifts-relay`, `rifts-seam` deps) | — | A | Born here | dainty-lass `fuzz/Cargo.toml` (a seam file; §7.2) |
+| `fuzz/Cargo.toml` (three `[[bin]]` entries and the `rustic-rifts-admission`, `rustic-rifts-relay`, `rustic-rifts-seam` deps) | — | A | Born here | dainty-lass `fuzz/Cargo.toml` (a seam file; §7.2) |
 | `docs/security/admission.md` | 122 | A | RX3 checklist written here | dainty-lass `docs/security/`, with the edits in §7.3 |
 | `docs/security/relay-credentials.md` | 106 | A | RX3 checklist written here | dainty-lass `docs/security/`, with the edits in §7.3 |
 
@@ -92,8 +92,8 @@ module paths are part of the public API (§2-§4) and the checklist references a
 ### 1.3 Tests: what is rewritten, what stays as an oracle
 
 - **Rewritten with the B code** (from §6.1): every `#[cfg(test)]` module inside the B sources, and the three test
-  files `rifts-admission/src/ticket/tests.rs`, `rifts-admission/src/service/tests.rs`,
-  `rifts-relay/src/service/tests.rs`. The two `routes_match_the_inventory` tests read
+  files `rustic-rifts-admission/src/ticket/tests.rs`, `rustic-rifts-admission/src/service/tests.rs`,
+  `rustic-rifts-relay/src/service/tests.rs`. The two `routes_match_the_inventory` tests read
   `modules/rustic-rifts/docs/inventory.json`, which is not in these crates; the MIT rewrite checks `ROUTES` against
   the tables in §3.7 and §4.7 instead.
 - **Stay in dainty-restricted as oracles** (D): both `tests/node_vectors.rs`, both JSON files and
@@ -101,7 +101,7 @@ module paths are part of the public API (§2-§4) and the checklist references a
 
 ---
 
-## 2. `rifts-seam`
+## 2. `rustic-rifts-seam`
 
 The seam between the 1.14.7 module (`isles-core`, `isles-1-14-7`) and the rifts component crates: the hooks isles
 calls, what isles provides back, routes as data, ids, storage shapes, and the dedicated-only default isles runs when
@@ -119,15 +119,15 @@ the player-hosted module is off. It names no web framework and depends only on `
 ### 2.1 Public API (complete)
 
 Every item below is `pub` at the crate root (the crate's modules are private; everything is re-exported from the
-root). Callers outside the crate (grep at `4efc8b5`): `isles-core`, `isles-1-14-7`, `rifts-admission`, `rifts-relay`,
-`rifts-realms`, `rifts-guard`, `rifts-host`, `launcher/src-tauri/src/controller/realms.rs` (which uses `AccountId`,
+root). Callers outside the crate (grep at `4efc8b5`): `isles-core`, `isles-1-14-7`, `rustic-rifts-admission`, `rustic-rifts-relay`,
+`rustic-rifts-realms`, `rustic-rifts-guard`, `rustic-rifts-host`, `launcher/src-tauri/src/controller/realms.rs` (which uses `AccountId`,
 `GlobalId`, `HubKind`, `NodeId`, `Secret`, `SessionId`, `Ulid`).
 
 #### 2.1.1 Errors
 
 | Item | Shape | Derives / traits | Behaviour |
 | --- | --- | --- | --- |
-| `Component` | enum `Admission`, `Relay`, `Realms`, `Guard`, `Host`, `Isles` | Debug, Clone, Copy, PartialEq, Eq, Hash, Display | Display: `rifts-admission`, `rifts-relay`, `rifts-realms`, `rifts-guard`, `rifts-host`, `isles` |
+| `Component` | enum `Admission`, `Relay`, `Realms`, `Guard`, `Host`, `Isles` | Debug, Clone, Copy, PartialEq, Eq, Hash, Display | Display: `rustic-rifts-admission`, `rustic-rifts-relay`, `rustic-rifts-realms`, `rustic-rifts-guard`, `rustic-rifts-host`, `isles` |
 | `Unimplemented` | struct, pub fields `component: Component`, `operation: &'static str` | Debug, Clone, Copy, PartialEq, Eq, `std::error::Error` | `const fn new(component, operation)`. Display: `{component}: {operation} is not implemented yet` |
 | `Refusal` | struct, pub fields `code: String`, `message: String` | Debug, Clone, PartialEq, Eq, Error | Display: `{code}: {message}` |
 | `SeamError` | `#[non_exhaustive]` enum `Unimplemented(Unimplemented)`, `Refused(Refusal)` | Debug, Clone, PartialEq, Eq, Error; `From<Unimplemented>`, `From<Refusal>` | Display is the inner value's (transparent). `const fn unimplemented(component, operation) -> Self`; `fn is_unimplemented(&self) -> bool` |
@@ -432,13 +432,13 @@ Every async answer is an immediately ready future. Exact answers:
 
 ---
 
-## 3. `rifts-admission`
+## 3. `rustic-rifts-admission`
 
 Admission: who may join a hosted hunt or hub. A joiner's launcher gets a signed ticket (MPT2); the joiner's transport
 sends it to the host's transport in an MPC1 control frame; the host's transport checks the signature against the
 public key file and asks the backend to consume it once.
 
-Dependencies: `base64`, `getrandom`, `p256`, `rifts-relay`, `rifts-seam`, `serde_json`, `sha2`, `thiserror`.
+Dependencies: `base64`, `getrandom`, `p256`, `rustic-rifts-relay`, `rustic-rifts-seam`, `serde_json`, `sha2`, `thiserror`.
 
 ### 3.1 Public API (complete)
 
@@ -449,7 +449,7 @@ re-exported at the root.
 Used outside the crate (grep): `isles-1-14-7` (`Admission`, `AdmissionError`, `AdmissionHunts`, `AdmissionRoutes`,
 `AdmissionService`, `AdmissionStore`, `CapabilityResolver`, `Es256Tickets` with `from_settings`, `HostCapability`,
 `KeyId`, `MemoryAdmissionStore`, `P256KeyGenerator::generate_with_pems`, `TicketAuthority`, `derive_ice_peer_id`,
-`stub_routes`); `rifts-realms` (those plus `AdmissionHunt`, `JOIN_TICKET_LIFETIME_SECONDS`, `LinkStatus`,
+`stub_routes`); `rustic-rifts-realms` (those plus `AdmissionHunt`, `JOIN_TICKET_LIFETIME_SECONDS`, `LinkStatus`,
 `PeerAdmissionRecord`, `PeerLinkRecord`, `SessionUuid`, `TicketBindings`, `TicketRecord`, `TicketStatus`,
 `AdmissionStore::put_peer_link`); fuzz (`control::*`, `ticket::{decode_claims, encode_claims, parse_unverified}`,
 `keys::signing_key_from_pem`, `Es256Tickets` fields, `KeyId`, `P256KeyGenerator`, `TicketClaims`, `TicketError`).
@@ -1134,25 +1134,25 @@ Both find a flag by its first occurrence among the arguments and take the next a
 
 ---
 
-## 4. `rifts-relay`
+## 4. `rustic-rifts-relay`
 
 The ICE servers and TURN credentials a session's transports use, the pair keys that bind a joiner to its host, the
 ICE signal relay, and the admin `coop-transport` switch. It listens on nothing; Cloudflare is reached through
 `ProviderHttp`, which isles implements.
 
-Dependencies: `base64`, `getrandom`, `hmac`, `rifts-seam`, `serde_json`, `sha1`, `sha2`, `thiserror`.
+Dependencies: `base64`, `getrandom`, `hmac`, `rustic-rifts-seam`, `serde_json`, `sha1`, `sha2`, `thiserror`.
 
 ### 4.1 Public API (complete)
 
-Public modules `rules` and `wire` (imported by path by `rifts-admission`, `rifts-realms` and the fuzz target);
+Public modules `rules` and `wire` (imported by path by `rustic-rifts-admission`, `rustic-rifts-realms` and the fuzz target);
 `config`, `credentials`, `routes`, `service` are private and re-exported at the root.
 
 Used outside (grep): `isles-1-14-7` (`Ice`, `IceHunts`, `IceService`, `OperationsPolicy`, `ProviderAnswer`,
 `ProviderHttp`, `ProviderRequest`, `ProviderUnreachable`, `RelayConfig` with `from_settings` and the
-`transport_key_secret` field, `RelayGrants`, `RelayRoutes`, `RelayUsageCache`, `stub_routes`); `rifts-realms` (those
+`transport_key_secret` field, `RelayGrants`, `RelayRoutes`, `RelayUsageCache`, `stub_routes`); `rustic-rifts-realms` (those
 plus `ControlMessage`, `CoopTransportOutcome`, `P2PGate`, `RelayError`, `TurnProvider`, `TurnRest`, and
 `rules::{CoopTransport, HuntSnapshot, HuntState, PresenceRow, PresenceState, RosterEntry, SessionKind}`);
-`rifts-admission` (`HourlyCounter`, `P2PGate`, `rules::{HuntSnapshot, PresenceRow, derive_pair_key}`,
+`rustic-rifts-admission` (`HourlyCounter`, `P2PGate`, `rules::{HuntSnapshot, PresenceRow, derive_pair_key}`,
 `wire::{JsonObject, hex, iso_time, json_array, json_string, js_number, format_uuid}`); fuzz
 (`rules::{MAX_SIGNAL_BYTES, SignalKind, filter_relay_only, parse_ice_signal}`, `wire::js_trim`).
 
@@ -1613,7 +1613,7 @@ these crates use:
 
 Each line is one test the MIT crate carries, stated as its assertion; the values are the ones above.
 
-`rifts-seam`:
+`rustic-rifts-seam`:
 
 - `GuardMode::from_setting`: `None`, ` observe `, `OBSERVE` → Observe; `enforce`, `off` → Enforce.
 - `NoCore::display_name` yields `Unimplemented(Isles, "display_name")`; `set_candidate` errors.
@@ -1627,7 +1627,7 @@ Each line is one test the MIT crate carries, stated as its assertion; the values
   `U` and a 25-character string refused; `GlobalId` without `@` → `BadGlobal`; node `-x` and `New-York` → `BadNode`.
 - `Secret` Debug is `Secret(<redacted>)`.
 
-`rifts-admission`:
+`rustic-rifts-admission`:
 
 - Round trip of every binding through mint and verify; the payload layout bytes of §3.2.2's example; signature text
   86 characters; `decode_claims(payload) == claims`.
@@ -1674,7 +1674,7 @@ Each line is one test the MIT crate carries, stated as its assertion; the values
   operation names of §3.1.1. `ROUTES` equals §3.7's table; `stub_routes()` answers every route with
   `Unimplemented(Admission, handler)`.
 
-`rifts-relay`:
+`rustic-rifts-relay`:
 
 - Config defaults and bounds (§4.3 examples), providers needing their keys (`" TURN-REST "` with a short secret is
   TurnRest without config; Cloudflare keys ignored under turn-rest; `none`; `coturn` → Cloudflare), URL patterns
@@ -1709,9 +1709,9 @@ They need no change to run against the MIT crates; only their crate's dev-depend
 `serde_json` and, for admission, `base64`). The JSON is loaded with `include_str!("vectors/<file>.json")`, so each
 harness must stay beside its `vectors/` folder: keep them as `tests/` of a small oracle package in dainty-restricted
 (for example `modules/rustic-rifts/crates/rifts-oracles`, `publish = false`, AGPL) whose dev-dependencies are the MIT
-`rifts-admission`, `rifts-relay` and `rifts-seam`.
+`rustic-rifts-admission`, `rustic-rifts-relay` and `rustic-rifts-seam`.
 
-`rifts-admission/tests/node_vectors.rs` (4 tests; 5 issued tickets, 349 verdicts, 3 jti digests, 4 ICE peer ids):
+`rustic-rifts-admission/tests/node_vectors.rs` (4 tests; 5 issued tickets, 349 verdicts, 3 jti digests, 4 ICE peer ids):
 
 - `rifts_admission::Es256Tickets::from_settings(&HashMap<String, String>)` with only `P2P_ADMISSION_KEY_ID` and
   `P2P_ADMISSION_VERIFY_PUBKEY_B64`; `.public_xy().0` (64 bytes, hex compared); inherent `.verify(&str, u64)`.
@@ -1722,7 +1722,7 @@ harness must stay beside its `vectors/` folder: keep them as `tests/` of a small
   verbatim against Node's messages) and the variant `TicketError::NoncanonicalPayload`.
 - `rifts_admission::derive_ice_peer_id(&AccountId).0`; `rifts_seam::AccountId`.
 
-`rifts-relay/tests/node_vectors.rs` (6 tests):
+`rustic-rifts-relay/tests/node_vectors.rs` (6 tests):
 
 - `rifts_relay::relay_account_tag`, `mint_turn_rest` (fields `username`, `credential.expose()`, `urls`),
   `TurnRest { urls, secret }`, `derive_pair_key`, `normalize_provider_ice_servers` (fields `stun_urls`,
@@ -1757,15 +1757,15 @@ and runs only in dainty-restricted.
 ### 7.1 Where they go and what they depend on
 
 Three packages in dainty-lass, keeping their package and crate names so dainty-restricted switches by changing only
-`[workspace.dependencies]` to git deps at one rev: `crates/rifts-seam`, `crates/rifts-admission`,
-`crates/rifts-relay`, each `license = "MIT"`, `version/edition/rust-version/repository/publish` from the workspace,
+`[workspace.dependencies]` to git deps at one rev: `crates/rustic-rifts-seam`, `crates/rustic-rifts-admission`,
+`crates/rustic-rifts-relay`, each `license = "MIT"`, `version/edition/rust-version/repository/publish` from the workspace,
 `[lints] workspace = true`.
 
 | Crate | Dependencies (all `workspace = true`) |
 | --- | --- |
-| `rifts-seam` | `thiserror` |
-| `rifts-relay` | `base64`, `getrandom`, `hmac`, `rifts-seam`, `serde_json`, `sha1`, `sha2`, `thiserror` |
-| `rifts-admission` | `base64`, `getrandom`, `p256`, `rifts-relay`, `rifts-seam`, `serde_json`, `sha2`, `thiserror` |
+| `rustic-rifts-seam` | `thiserror` |
+| `rustic-rifts-relay` | `base64`, `getrandom`, `hmac`, `rustic-rifts-seam`, `serde_json`, `sha1`, `sha2`, `thiserror` |
+| `rustic-rifts-admission` | `base64`, `getrandom`, `p256`, `rustic-rifts-relay`, `rustic-rifts-seam`, `serde_json`, `sha2`, `thiserror` |
 
 dainty-lass's `[workspace.dependencies]` already has `base64 = "0.23"`, `hmac = "0.13"`, `serde_json` (with
 `float_roundtrip`), `sha1 = "0.11"`, `sha2 = "0.11"`, `thiserror = "2"`.
@@ -1777,7 +1777,7 @@ dainty-lass's `[workspace.dependencies]` already has `base64 = "0.23"`, `hmac = 
    "std"] }`, matching dainty-restricted's (`p256` 0.14.0, `getrandom` 0.4.3 in its lock). `p256` types are in the
    public API (`Es256Tickets` fields, `parse_signed`'s closure, `signing_key_from_pem`), so both repositories must
    resolve the same `p256` major version.
-2. **Three workspace members** and path entries `rifts-seam`, `rifts-relay`, `rifts-admission` in
+2. **Three workspace members** and path entries `rustic-rifts-seam`, `rustic-rifts-relay`, `rustic-rifts-admission` in
    `[workspace.dependencies]`.
 3. **`fuzz/Cargo.toml`**: dependencies on the three crates and `serde_json` (with `float_roundtrip`), and three
    `[[bin]]` entries (`admission_control`, `admission_ticket`, `relay_signal`, `test = false`, `doc = false`,
@@ -1789,7 +1789,7 @@ dainty-lass's `[workspace.dependencies]` already has `base64 = "0.23"`, `hmac = 
 
 ### 7.3 Edits to the A files when they move
 
-- Manifests: `license = "MIT"` instead of `license.workspace = true`; `rifts-admission`'s description may keep
+- Manifests: `license = "MIT"` instead of `license.workspace = true`; `rustic-rifts-admission`'s description may keep
   "MPT2" (a wire name) or drop it (§9).
 - `docs/security/admission.md` and `relay-credentials.md`: replace the private test-function names they cite with the
   MIT tests' names, point "tests/node_vectors.rs" at the restricted oracle package, and keep the rest. They become
@@ -1810,7 +1810,7 @@ the B files. The reviewer measures each new file against the B file it replaces 
 1. The three crates build in dainty-lass with `cargo clippy --workspace --all-targets --locked -- -D warnings`, no
    `unsafe`, no `unwrap`/`expect` outside tests, `license = "MIT"`.
 2. Every public item of §2.1, §3.1 and §4.1 exists with the stated name, path, signature, field names and derives;
-   dainty-restricted builds `isles-core`, `isles-1-14-7`, `rifts-realms`, `rifts-guard`, `rifts-host` and the
+   dainty-restricted builds `isles-core`, `isles-1-14-7`, `rustic-rifts-realms`, `rustic-rifts-guard`, `rustic-rifts-host` and the
    launcher against them with only the dependency switch.
 3. §6.1's tests pass in dainty-lass.
 4. §6.2's oracles pass unchanged in dainty-restricted against the MIT crates: all 349 ticket verdicts message for

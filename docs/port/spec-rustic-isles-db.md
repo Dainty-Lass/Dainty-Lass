@@ -35,13 +35,13 @@
 | `git log` of `crates/isles-db` | 15 commits, one author (the maintainer), `ed35716` (2026-10-27, RU7/RB11) to `47c5498`; RB13 in `692a816`, `07b21a5`, `a1ebe14`, `ee30229`; the limit-1 probe in `14c371d`; replay in `0a29728` |
 | `modules/rustic-isles/docs/db-migrate.md` | The host-facing description: flags, area-to-collection table, DD18 ids and idempotence, the five RB11 repairs |
 | `crates/isles-db/tests/migrate.rs` | Authored integration tests (described in §16, not copied) |
-| `crates/host/src/lib.rs` (restricted) | Read for the seam only: how `reforged-host db` calls the library (§14.4) |
-| dainty-lass `crates/hostkit/src/commands/db.rs`, `cli.rs`, `hooks.rs` | The MIT host kit's `db` command and its hook trait (§14.4) |
-| dainty-lass `crates/store/src/engine.rs`, `history.rs` | `PostgresConfig` (its own redacted `Debug`, `check_address`), `Actor` |
+| `crates/dainty-host/src/lib.rs` (restricted) | Read for the seam only: how `reforged-host db` calls the library (§14.4) |
+| dainty-lass `crates/dainty-hostkit/src/commands/db.rs`, `cli.rs`, `hooks.rs` | The MIT host kit's `db` command and its hook trait (§14.4) |
+| dainty-lass `crates/dainty-store/src/engine.rs`, `history.rs` | `PostgresConfig` (its own redacted `Debug`, `check_address`), `Actor` |
 
 ### 1.2 Classification and what is rewritten
 
-Category A is code written for DaintyLass with no Paradox code in it; Category B ports Paradox TypeScript.
+Category A is code written for Dainty Lass with no Paradox code in it; Category B ports Paradox TypeScript.
 
 | Restricted file (`crates/isles-db/`) | Lines | Cat. | Source | Rewritten as |
 | --- | ---: | :-: | --- | --- |
@@ -58,7 +58,7 @@ Category A is code written for DaintyLass with no Paradox code in it; Category B
 ### 1.3 What stays in dainty-restricted
 
 - The `isles-db` binary until the composer uses this crate, the 1.14.7 starter values (the version crate's
-  `StarterKit` and the two banner defaults, §14.3), `crates/host`'s `reforged-host db` wiring (it switches its calls to
+  `StarterKit` and the two banner defaults, §14.3), `crates/dainty-host`'s `reforged-host db` wiring (it switches its calls to
   this crate), the replay CLI (unit 10), and the restricted tests' sample collections.
 - When this crate lands and restricted's host calls it, `crates/isles-db` is deleted there except what unit 10 keeps.
 
@@ -1130,7 +1130,7 @@ A constructor from a `StarterKit` plus the two defaults is offered. Tests use sy
 | feature `export-mongo` (default on) | §11; RB15 turns it off and deletes it |
 | feature `test-support` | `MockMongoServer` (§16.1) |
 
-**Restricted's host wiring** (`crates/host`'s `run_db_command` and the `db_migrate`/`db_verify`/`db_export_mongo`
+**Restricted's host wiring** (`crates/dainty-host`'s `run_db_command` and the `db_migrate`/`db_verify`/`db_export_mongo`
 hooks of dainty-lass's `hostkit::hooks`) builds the options from `host.toml` and calls `run_*`; it switches from
 `isles_db` to this crate and passes the 1.14.7 `LegacyStarter`. That file is restricted's; this crate does not change
 `hostkit`.

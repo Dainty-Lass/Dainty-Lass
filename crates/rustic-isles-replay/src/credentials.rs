@@ -99,7 +99,7 @@ fn times(now_ms: i64) -> (i64, i64) {
 }
 
 fn encode_part(value: &Value) -> String {
-    URL_SAFE_NO_PAD.encode(service_kit::jsjson::stringify(value))
+    URL_SAFE_NO_PAD.encode(dainty_service_kit::jsjson::stringify(value))
 }
 
 /// The HS256 token of §4.2 (claims `userId`, `sub`, `iat`, `exp`, `iss`, `aud`).

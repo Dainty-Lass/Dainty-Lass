@@ -6,11 +6,11 @@
 
 use std::fmt;
 
+use dainty_service_kit::js::date_parse;
 use diesel::QueryableByName;
 use diesel::result::{DatabaseErrorKind, Error as DieselError};
 use diesel::sql_types::{BigInt, Bool, Double, Nullable, Text};
 use serde_json::{Map, Value};
-use service_kit::js::date_parse;
 
 use crate::repo::{bounties, chat, parties};
 use crate::sql::{account_id, count, page_clause, sql};

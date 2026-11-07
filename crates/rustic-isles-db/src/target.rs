@@ -5,7 +5,7 @@
 
 use std::path::PathBuf;
 
-use store::{Database, DatabaseConfig, DatabaseOptions, PostgresConfig};
+use dainty_store::{Database, DatabaseConfig, DatabaseOptions, PostgresConfig};
 
 use crate::DbError;
 
@@ -88,7 +88,7 @@ pub(crate) async fn open(target: &str, allow_remote: bool, existing: bool) -> Re
         Database::open(&config, &DatabaseOptions::default(), &rustic_isles_store::SCHEMA).map_err(DbError::Store)
     })
     .await
-    .map_err(|_| DbError::Store(store::Error::Panicked))?
+    .map_err(|_| DbError::Store(dainty_store::Error::Panicked))?
 }
 
 #[cfg(test)]

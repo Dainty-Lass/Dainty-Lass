@@ -466,9 +466,9 @@ async fn delete_player_data_erases_every_area_and_purge_drops_ttl_rows() {
                     &w,
                     "b",
                     &rustic_isles_store::repo::parties::NewParty {
-                        id: module_api::GlobalId::new(
-                            module_api::IdKind::Party,
-                            &module_api::NodeId::new("local").unwrap(),
+                        id: dainty_module_api::GlobalId::new(
+                            dainty_module_api::IdKind::Party,
+                            &dainty_module_api::NodeId::new("local").unwrap(),
                         ),
                         party_id: "p".into(),
                     },

@@ -8,7 +8,7 @@ use std::collections::{HashMap, HashSet};
 use std::sync::atomic::{AtomicI64, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError, RwLock, Weak};
 
-use module_api::{GlobalId, HomeApi};
+use dainty_module_api::{GlobalId, HomeApi};
 use rustic_isles::Shared;
 use rustic_isles_economy::inventory::{RingInstances, RingInstancesSlot};
 
@@ -321,7 +321,7 @@ pub fn ring_instances_slot(state: &Arc<MatchmakingState>) -> RingInstancesSlot {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use module_api::{IdKind, NodeId};
+    use dainty_module_api::{IdKind, NodeId};
 
     #[test]
     fn presence_moves_forward_and_forgets() {

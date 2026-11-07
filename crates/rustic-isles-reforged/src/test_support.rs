@@ -12,7 +12,7 @@
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
-use module_api::BoxFuture;
+use dainty_module_api::BoxFuture;
 use rustic_isles::Shared;
 
 use crate::admin::tester_max::{RankRequirement, StackOutcome, TesterFunding};
@@ -33,7 +33,7 @@ impl MatchmakingPresence for RecordingPresence {
     }
 }
 
-/// Signs as `crates/admin` does: the operator headers for a request.
+/// Signs as `crates/dainty-admin` does: the operator headers for a request.
 pub fn operator_headers(
     secret: &str,
     method: &str,

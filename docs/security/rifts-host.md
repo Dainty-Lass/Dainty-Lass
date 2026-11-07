@@ -2,7 +2,7 @@
 
 # Security checklist: Rustic Rifts' realm hosting on the launcher (RD27)
 
-The checklist for `crates/rifts-host`, the launcher's side of realms: the co-op transport behind the `TransportAbi`
+The checklist for `crates/rustic-rifts-host`, the launcher's side of realms: the co-op transport behind the `TransportAbi`
 trait, the two JSON files the host PC keeps, and the host and join flows that write a session folder, start the hosted
 game server, open a transport session and pump signals and the roster. Written with the clean-room MIT rewrite from
 `docs/port/spec-rd27-rifts-host.md` (and the umbrella's D1 and D3). It replaces nothing in this repository; the old
@@ -26,7 +26,7 @@ commit reviewed.
   server's command line and environment, and calls into the backend port and the transport.
 
 There is no listener, no HTTP client and no account key here: the launcher's backend holds the key and makes every
-call. There is no dynamic loading and no `unsafe` (D1): the transport is the linked `rifts-transport` crate, so the
+call. There is no dynamic loading and no `unsafe` (D1): the transport is the linked `rustic-rifts-transport` crate, so the
 old checks on a loaded file (its SHA-256 against the Guard manifest, the export table, the ABI handshake) have nothing
 to check. `NativeTransportLoader::load` ignores the path and digest it is given.
 

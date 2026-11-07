@@ -3,8 +3,8 @@
 //! on `protocol` and `serde_json` only, so the fuzz target (`fuzz`, `launcher_files`) compiles this
 //! file as it is. The decryption itself is in `legacy.rs` and `os.rs`.
 
-use protocol::account::is_plausible_account_key;
-use protocol::invite::is_valid_fingerprint;
+use dainty_protocol::account::is_plausible_account_key;
+use dainty_protocol::invite::is_valid_fingerprint;
 use serde_json::Value;
 
 /// What a key file holds after decryption: `RRK2\n<fingerprint or ->\n<key>`, as Reforged's Electron

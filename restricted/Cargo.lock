@@ -15,35 +15,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "320119579fcad9c21884f5c4861d16174d0e06250625266f50fe6898340abefa"
 
 [[package]]
-name = "admin"
-version = "0.0.0"
-dependencies = [
- "async-graphql",
- "axum",
- "bytes",
- "chrono",
- "clap",
- "diesel",
- "diesel_migrations",
- "http-body-util",
- "hyper",
- "hyper-util",
- "module-api",
- "network",
- "percent-encoding",
- "protocol",
- "rand 0.10.3",
- "serde",
- "serde_json",
- "service-kit",
- "sha2 0.11.1",
- "store",
- "thiserror 2.0.21",
- "tokio",
- "url",
-]
-
-[[package]]
 name = "aead"
 version = "0.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -846,48 +817,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "chat"
-version = "0.0.0"
-dependencies = [
- "axum",
- "base64 0.23.1",
- "chrono",
- "diesel",
- "diesel_migrations",
- "futures-util",
- "http-body-util",
- "hyper",
- "hyper-rustls",
- "hyper-util",
- "module-api",
- "network",
- "protocol",
- "rand 0.10.3",
- "regex",
- "rustls",
- "serde",
- "serde_json",
- "service-kit",
- "service-plugin",
- "sha2 0.11.1",
- "store",
- "subtle",
- "thiserror 2.0.21",
- "tokio",
- "tracing",
- "ulid",
-]
-
-[[package]]
-name = "chat-plugin"
-version = "0.0.0"
-dependencies = [
- "chat",
- "module-api",
- "service-plugin",
-]
-
-[[package]]
 name = "chrono"
 version = "0.4.45"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1021,65 +950,6 @@ name = "const-oid"
 version = "0.10.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a6ef517f0926dd24a1582492c791b6a4818a4d94e789a334894aa15b0d12f55c"
-
-[[package]]
-name = "content"
-version = "0.0.0"
-dependencies = [
- "bytes",
- "chrono",
- "clap",
- "futures-util",
- "http",
- "http-body",
- "http-body-util",
- "hyper",
- "hyper-rustls",
- "hyper-util",
- "module-api",
- "protocol",
- "rustls",
- "serde",
- "serde_json",
- "service-kit",
- "service-plugin",
- "sha1 0.11.0",
- "sha2 0.11.1",
- "tokio",
- "tokio-util",
- "url",
-]
-
-[[package]]
-name = "content-plugin"
-version = "0.0.0"
-dependencies = [
- "content",
- "module-api",
- "service-plugin",
-]
-
-[[package]]
-name = "controller"
-version = "0.0.0"
-dependencies = [
- "admin",
- "history-ship",
- "module-api",
- "network",
- "plugin-host",
- "protocol",
- "remote",
- "serde",
- "serde_json",
- "service-kit",
- "service-plugin",
- "store",
- "sysinfo",
- "thiserror 2.0.21",
- "tokio",
- "tracing",
-]
 
 [[package]]
 name = "convert_case"
@@ -1358,6 +1228,602 @@ checksum = "38d28fb6aa7dd680b3ffd1a3e64e115c177bdba63c0ae7f9cd48129ff05c4fa0"
 dependencies = [
  "cmov",
  "subtle",
+]
+
+[[package]]
+name = "dainty-admin"
+version = "0.0.0"
+dependencies = [
+ "async-graphql",
+ "axum",
+ "bytes",
+ "chrono",
+ "clap",
+ "dainty-module-api",
+ "dainty-network",
+ "dainty-protocol",
+ "dainty-service-kit",
+ "dainty-store",
+ "diesel",
+ "diesel_migrations",
+ "http-body-util",
+ "hyper",
+ "hyper-util",
+ "percent-encoding",
+ "rand 0.10.3",
+ "serde",
+ "serde_json",
+ "sha2 0.11.1",
+ "thiserror 2.0.21",
+ "tokio",
+ "url",
+]
+
+[[package]]
+name = "dainty-chat"
+version = "0.0.0"
+dependencies = [
+ "axum",
+ "base64 0.23.1",
+ "chrono",
+ "dainty-module-api",
+ "dainty-network",
+ "dainty-protocol",
+ "dainty-service-kit",
+ "dainty-service-plugin",
+ "dainty-store",
+ "diesel",
+ "diesel_migrations",
+ "futures-util",
+ "http-body-util",
+ "hyper",
+ "hyper-rustls",
+ "hyper-util",
+ "rand 0.10.3",
+ "regex",
+ "rustls",
+ "serde",
+ "serde_json",
+ "sha2 0.11.1",
+ "subtle",
+ "thiserror 2.0.21",
+ "tokio",
+ "tracing",
+ "ulid",
+]
+
+[[package]]
+name = "dainty-chat-plugin"
+version = "0.0.0"
+dependencies = [
+ "dainty-chat",
+ "dainty-module-api",
+ "dainty-service-plugin",
+]
+
+[[package]]
+name = "dainty-content"
+version = "0.0.0"
+dependencies = [
+ "bytes",
+ "chrono",
+ "clap",
+ "dainty-module-api",
+ "dainty-protocol",
+ "dainty-service-kit",
+ "dainty-service-plugin",
+ "futures-util",
+ "http",
+ "http-body",
+ "http-body-util",
+ "hyper",
+ "hyper-rustls",
+ "hyper-util",
+ "rustls",
+ "serde",
+ "serde_json",
+ "sha1 0.11.0",
+ "sha2 0.11.1",
+ "tokio",
+ "tokio-util",
+ "url",
+]
+
+[[package]]
+name = "dainty-content-plugin"
+version = "0.0.0"
+dependencies = [
+ "dainty-content",
+ "dainty-module-api",
+ "dainty-service-plugin",
+]
+
+[[package]]
+name = "dainty-controller"
+version = "0.0.0"
+dependencies = [
+ "dainty-admin",
+ "dainty-history-ship",
+ "dainty-module-api",
+ "dainty-network",
+ "dainty-plugin-host",
+ "dainty-protocol",
+ "dainty-remote",
+ "dainty-service-kit",
+ "dainty-service-plugin",
+ "dainty-store",
+ "serde",
+ "serde_json",
+ "sysinfo",
+ "thiserror 2.0.21",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
+name = "dainty-epic"
+version = "0.0.0"
+dependencies = [
+ "bytes",
+ "egs-api",
+ "flate2",
+ "http-body-util",
+ "hyper",
+ "hyper-rustls",
+ "hyper-util",
+ "rcgen",
+ "rustls",
+ "serde",
+ "serde_json",
+ "sha1 0.11.0",
+ "sha2 0.11.1",
+ "thiserror 2.0.21",
+ "tokio",
+ "tokio-rustls",
+]
+
+[[package]]
+name = "dainty-gateway"
+version = "0.0.0"
+dependencies = [
+ "aws-lc-rs",
+ "bytes",
+ "chrono",
+ "dainty-module-api",
+ "dainty-network",
+ "dainty-protocol",
+ "dainty-proxy",
+ "dainty-service-kit",
+ "dainty-service-plugin",
+ "http",
+ "http-body-util",
+ "hyper",
+ "hyper-util",
+ "rcgen",
+ "regex",
+ "rustls",
+ "serde",
+ "serde_json",
+ "sha2 0.11.1",
+ "tempfile",
+ "time",
+ "tokio",
+ "tokio-rustls",
+ "tracing",
+ "url",
+ "windows 0.62.2",
+ "x509-parser",
+]
+
+[[package]]
+name = "dainty-gateway-plugin"
+version = "0.0.0"
+dependencies = [
+ "dainty-gateway",
+ "dainty-module-api",
+ "dainty-service-plugin",
+]
+
+[[package]]
+name = "dainty-history-ship"
+version = "0.0.0"
+dependencies = [
+ "aws-lc-rs",
+ "base64 0.23.1",
+ "chrono",
+ "dainty-store",
+ "flate2",
+ "http-body-util",
+ "hyper",
+ "hyper-rustls",
+ "hyper-util",
+ "rustls",
+ "serde",
+ "serde_json",
+ "sha2 0.11.1",
+ "thiserror 2.0.21",
+ "tokio",
+ "url",
+]
+
+[[package]]
+name = "dainty-host"
+version = "0.0.0"
+dependencies = [
+ "async-graphql",
+ "aws-lc-rs",
+ "base64 0.23.1",
+ "bytes",
+ "chrono",
+ "clap",
+ "crossterm",
+ "dainty-admin",
+ "dainty-chat",
+ "dainty-content",
+ "dainty-controller",
+ "dainty-epic",
+ "dainty-gateway",
+ "dainty-history-ship",
+ "dainty-hostkit",
+ "dainty-module-api",
+ "dainty-network",
+ "dainty-protocol",
+ "dainty-remote",
+ "dainty-service-kit",
+ "dainty-service-plugin",
+ "dainty-store",
+ "diesel",
+ "flate2",
+ "fs4",
+ "http-body-util",
+ "hyper",
+ "hyper-rustls",
+ "hyper-util",
+ "libc",
+ "ratatui",
+ "rcgen",
+ "rustic-isles",
+ "rustic-isles-1-14-7",
+ "rustic-isles-db",
+ "rustic-isles-director",
+ "rustic-isles-gamedata",
+ "rustic-isles-replay",
+ "rustls",
+ "serde_json",
+ "sha2 0.11.1",
+ "tar",
+ "tempfile",
+ "thiserror 2.0.21",
+ "tokio",
+ "toml_edit 0.25.17+spec-1.1.0",
+ "tracing",
+ "url",
+ "windows 0.62.2",
+ "zip",
+]
+
+[[package]]
+name = "dainty-hostkit"
+version = "0.0.0"
+dependencies = [
+ "aws-lc-rs",
+ "base64 0.23.1",
+ "bytes",
+ "chrono",
+ "clap",
+ "crossterm",
+ "dainty-admin",
+ "dainty-controller",
+ "dainty-epic",
+ "dainty-module-api",
+ "dainty-network",
+ "dainty-protocol",
+ "dainty-remote",
+ "dainty-service-kit",
+ "dainty-service-plugin",
+ "dainty-store",
+ "flate2",
+ "fs4",
+ "http-body-util",
+ "hyper",
+ "hyper-rustls",
+ "hyper-util",
+ "libc",
+ "ratatui",
+ "rustls",
+ "serde",
+ "serde_json",
+ "sha2 0.11.1",
+ "tar",
+ "thiserror 2.0.21",
+ "tokio",
+ "toml_edit 0.25.17+spec-1.1.0",
+ "tracing",
+ "url",
+ "windows 0.62.2",
+ "zip",
+]
+
+[[package]]
+name = "dainty-launcher"
+version = "2.0.0-beta"
+dependencies = [
+ "aes 0.9.3",
+ "aes-gcm 0.11.1",
+ "base64 0.23.1",
+ "bytes",
+ "cbc 0.2.1",
+ "chrono",
+ "dainty-admin",
+ "dainty-controller",
+ "dainty-epic",
+ "dainty-host",
+ "dainty-launcher-kit",
+ "dainty-module-api",
+ "dainty-protocol",
+ "dainty-proxy",
+ "dainty-service-kit",
+ "dbus-secret-service",
+ "dirs 6.0.0",
+ "fs4",
+ "futures-util",
+ "http-body-util",
+ "hyper",
+ "hyper-rustls",
+ "hyper-util",
+ "open",
+ "pbkdf2",
+ "percent-encoding",
+ "rand 0.10.3",
+ "rcgen",
+ "regex",
+ "rustic-rifts-host",
+ "rustic-rifts-seam",
+ "rustls",
+ "serde",
+ "serde_json",
+ "sha1 0.11.0",
+ "sha1_smol",
+ "sha2 0.11.1",
+ "sys-locale",
+ "tauri",
+ "tauri-build",
+ "tauri-plugin-dialog",
+ "tauri-plugin-updater",
+ "tempfile",
+ "tokio",
+ "tokio-rustls",
+ "tokio-stream",
+ "tokio-util",
+ "toml_edit 0.25.17+spec-1.1.0",
+ "tower-service",
+ "tracing",
+ "tracing-log",
+ "tracing-subscriber",
+ "ts-rs",
+ "url",
+ "webpki-roots",
+ "windows 0.62.2",
+]
+
+[[package]]
+name = "dainty-launcher-kit"
+version = "0.0.0"
+dependencies = [
+ "base64 0.23.1",
+ "bytes",
+ "chrono",
+ "dainty-epic",
+ "dainty-module-api",
+ "dainty-protocol",
+ "dirs 6.0.0",
+ "fs4",
+ "futures-util",
+ "http-body-util",
+ "hyper",
+ "hyper-rustls",
+ "hyper-util",
+ "percent-encoding",
+ "rand 0.10.3",
+ "regex",
+ "rustls",
+ "serde",
+ "serde_json",
+ "sha1 0.11.0",
+ "sha2 0.11.1",
+ "tokio",
+ "tokio-rustls",
+ "tokio-util",
+ "toml_edit 0.25.17+spec-1.1.0",
+ "tracing",
+ "ts-rs",
+ "url",
+ "webpki-roots",
+]
+
+[[package]]
+name = "dainty-module-api"
+version = "0.1.0"
+dependencies = [
+ "libc",
+ "serde",
+ "serde_json",
+ "sha2 0.11.1",
+ "thiserror 2.0.21",
+ "tokio",
+ "tracing",
+ "ulid",
+ "windows 0.62.2",
+]
+
+[[package]]
+name = "dainty-network"
+version = "0.0.0"
+dependencies = [
+ "aws-lc-rs",
+ "base64 0.23.1",
+ "bytes",
+ "dainty-history-ship",
+ "dainty-module-api",
+ "dainty-protocol",
+ "dainty-store",
+ "diesel",
+ "diesel_migrations",
+ "http-body-util",
+ "hyper",
+ "hyper-util",
+ "rcgen",
+ "rustls",
+ "serde",
+ "serde_json",
+ "sha2 0.11.1",
+ "thiserror 2.0.21",
+ "time",
+ "tokio",
+ "tokio-rustls",
+ "tracing",
+ "x509-parser",
+]
+
+[[package]]
+name = "dainty-plugin-host"
+version = "0.0.0"
+dependencies = [
+ "dainty-module-api",
+ "libloading",
+ "tokio",
+]
+
+[[package]]
+name = "dainty-protocol"
+version = "0.0.0"
+dependencies = [
+ "chrono",
+ "dainty-module-api",
+ "percent-encoding",
+ "serde",
+ "serde_json",
+ "ts-rs",
+ "url",
+]
+
+[[package]]
+name = "dainty-proxy"
+version = "0.0.0"
+dependencies = [
+ "http",
+ "tokio",
+]
+
+[[package]]
+name = "dainty-remote"
+version = "0.0.0"
+dependencies = [
+ "base64 0.23.1",
+ "bytes",
+ "chrono",
+ "dainty-module-api",
+ "dainty-network",
+ "dainty-protocol",
+ "dainty-service-kit",
+ "http",
+ "http-body-util",
+ "hyper",
+ "hyper-util",
+ "percent-encoding",
+ "rand 0.10.3",
+ "rcgen",
+ "rustls",
+ "serde",
+ "serde_json",
+ "sha2 0.11.1",
+ "subtle",
+ "thiserror 2.0.21",
+ "tokio",
+ "tokio-rustls",
+ "toml_edit 0.25.17+spec-1.1.0",
+ "tracing",
+ "url",
+]
+
+[[package]]
+name = "dainty-server"
+version = "0.0.0"
+dependencies = [
+ "dainty-controller",
+ "dainty-host",
+ "tokio",
+]
+
+[[package]]
+name = "dainty-server-minimal"
+version = "0.0.0"
+dependencies = [
+ "dainty-controller",
+ "dainty-host",
+ "tokio",
+]
+
+[[package]]
+name = "dainty-service-kit"
+version = "0.0.0"
+dependencies = [
+ "anstream",
+ "axum",
+ "base64 0.23.1",
+ "bytes",
+ "chrono",
+ "dotenvy",
+ "flate2",
+ "gethostname",
+ "http-body-util",
+ "hyper",
+ "hyper-rustls",
+ "hyper-util",
+ "percent-encoding",
+ "regex",
+ "rustls",
+ "serde",
+ "serde_json",
+ "sha2 0.11.1",
+ "thiserror 2.0.21",
+ "tokio",
+ "tower",
+ "tracing",
+ "tracing-log",
+ "tracing-subscriber",
+ "url",
+]
+
+[[package]]
+name = "dainty-service-plugin"
+version = "0.0.0"
+dependencies = [
+ "base64 0.23.1",
+ "dainty-module-api",
+ "dainty-service-kit",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
+]
+
+[[package]]
+name = "dainty-store"
+version = "0.0.0"
+dependencies = [
+ "dainty-module-api",
+ "diesel",
+ "diesel-async",
+ "diesel_migrations",
+ "libsqlite3-sys",
+ "rusqlite",
+ "serde",
+ "serde_json",
+ "sha2 0.11.1",
+ "thiserror 2.0.21",
+ "tokio",
 ]
 
 [[package]]
@@ -1932,28 +2398,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "epic"
-version = "0.0.0"
-dependencies = [
- "bytes",
- "egs-api",
- "flate2",
- "http-body-util",
- "hyper",
- "hyper-rustls",
- "hyper-util",
- "rcgen",
- "rustls",
- "serde",
- "serde_json",
- "sha1 0.11.0",
- "sha2 0.11.1",
- "thiserror 2.0.21",
- "tokio",
- "tokio-rustls",
-]
-
-[[package]]
 name = "equivalent"
 version = "1.0.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2204,48 +2648,6 @@ dependencies = [
  "memchr",
  "pin-project-lite",
  "slab",
-]
-
-[[package]]
-name = "gateway"
-version = "0.0.0"
-dependencies = [
- "aws-lc-rs",
- "bytes",
- "chrono",
- "http",
- "http-body-util",
- "hyper",
- "hyper-util",
- "module-api",
- "network",
- "protocol",
- "proxy",
- "rcgen",
- "regex",
- "rustls",
- "serde",
- "serde_json",
- "service-kit",
- "service-plugin",
- "sha2 0.11.1",
- "tempfile",
- "time",
- "tokio",
- "tokio-rustls",
- "tracing",
- "url",
- "windows 0.62.2",
- "x509-parser",
-]
-
-[[package]]
-name = "gateway-plugin"
-version = "0.0.0"
-dependencies = [
- "gateway",
- "module-api",
- "service-plugin",
 ]
 
 [[package]]
@@ -2663,28 +3065,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7f24254aa9a54b5c858eaee2f5bccdb46aaf0e486a595ed5fd8f86ba55232a70"
 
 [[package]]
-name = "history-ship"
-version = "0.0.0"
-dependencies = [
- "aws-lc-rs",
- "base64 0.23.1",
- "chrono",
- "flate2",
- "http-body-util",
- "hyper",
- "hyper-rustls",
- "hyper-util",
- "rustls",
- "serde",
- "serde_json",
- "sha2 0.11.1",
- "store",
- "thiserror 2.0.21",
- "tokio",
- "url",
-]
-
-[[package]]
 name = "hkdf"
 version = "0.12.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2709,104 +3089,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6303bc9732ae41b04cb554b844a762b4115a61bfaa81e3e83050991eeb56863f"
 dependencies = [
  "digest 0.11.3",
-]
-
-[[package]]
-name = "host"
-version = "0.0.0"
-dependencies = [
- "admin",
- "async-graphql",
- "aws-lc-rs",
- "base64 0.23.1",
- "bytes",
- "chat",
- "chrono",
- "clap",
- "content",
- "controller",
- "crossterm",
- "diesel",
- "epic",
- "flate2",
- "fs4",
- "gateway",
- "history-ship",
- "hostkit",
- "http-body-util",
- "hyper",
- "hyper-rustls",
- "hyper-util",
- "libc",
- "module-api",
- "network",
- "protocol",
- "ratatui",
- "rcgen",
- "remote",
- "rustic-isles",
- "rustic-isles-1-14-7",
- "rustic-isles-db",
- "rustic-isles-director",
- "rustic-isles-gamedata",
- "rustic-isles-replay",
- "rustls",
- "serde_json",
- "service-kit",
- "service-plugin",
- "sha2 0.11.1",
- "store",
- "tar",
- "tempfile",
- "thiserror 2.0.21",
- "tokio",
- "toml_edit 0.25.17+spec-1.1.0",
- "tracing",
- "url",
- "windows 0.62.2",
- "zip",
-]
-
-[[package]]
-name = "hostkit"
-version = "0.0.0"
-dependencies = [
- "admin",
- "aws-lc-rs",
- "base64 0.23.1",
- "bytes",
- "chrono",
- "clap",
- "controller",
- "crossterm",
- "epic",
- "flate2",
- "fs4",
- "http-body-util",
- "hyper",
- "hyper-rustls",
- "hyper-util",
- "libc",
- "module-api",
- "network",
- "protocol",
- "ratatui",
- "remote",
- "rustls",
- "serde",
- "serde_json",
- "service-kit",
- "service-plugin",
- "sha2 0.11.1",
- "store",
- "tar",
- "thiserror 2.0.21",
- "tokio",
- "toml_edit 0.25.17+spec-1.1.0",
- "tracing",
- "url",
- "windows 0.62.2",
- "zip",
 ]
 
 [[package]]
@@ -3189,37 +3471,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a6cb138bb79a146c1bd460005623e142ef0181e3d0219cb493e02f7d08a35695"
 
 [[package]]
-name = "isles-1-14-7-plugin"
-version = "0.0.0"
-dependencies = [
- "module-api",
- "plugin-host",
- "rustic-isles",
- "rustic-isles-1-14-7",
- "serde_json",
- "tokio",
-]
-
-[[package]]
-name = "isles-mit-parity"
-version = "0.0.0"
-dependencies = [
- "aws-lc-rs",
- "base64 0.23.1",
- "module-api",
- "regex",
- "rusqlite",
- "rustic-isles",
- "rustic-isles-1-14-7",
- "rustic-isles-auth",
- "rustic-isles-store",
- "serde_json",
- "service-kit",
- "tempfile",
- "tokio",
-]
-
-[[package]]
 name = "itertools"
 version = "0.14.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3447,103 +3698,6 @@ checksum = "0fbe853b403ae61a04233030ae8a79d94975281ed9770a1f9e246732b534b28d"
 dependencies = [
  "bitflags 2.13.2",
  "serde",
-]
-
-[[package]]
-name = "launcher"
-version = "2.0.0-beta"
-dependencies = [
- "admin",
- "aes 0.9.3",
- "aes-gcm 0.11.1",
- "base64 0.23.1",
- "bytes",
- "cbc 0.2.1",
- "chrono",
- "controller",
- "dbus-secret-service",
- "dirs 6.0.0",
- "epic",
- "fs4",
- "futures-util",
- "host",
- "http-body-util",
- "hyper",
- "hyper-rustls",
- "hyper-util",
- "launcher-kit",
- "module-api",
- "open",
- "pbkdf2",
- "percent-encoding",
- "protocol",
- "proxy",
- "rand 0.10.3",
- "rcgen",
- "regex",
- "rifts-host",
- "rifts-seam",
- "rustls",
- "serde",
- "serde_json",
- "service-kit",
- "sha1 0.11.0",
- "sha1_smol",
- "sha2 0.11.1",
- "sys-locale",
- "tauri",
- "tauri-build",
- "tauri-plugin-dialog",
- "tauri-plugin-updater",
- "tempfile",
- "tokio",
- "tokio-rustls",
- "tokio-stream",
- "tokio-util",
- "toml_edit 0.25.17+spec-1.1.0",
- "tower-service",
- "tracing",
- "tracing-log",
- "tracing-subscriber",
- "ts-rs",
- "url",
- "webpki-roots",
- "windows 0.62.2",
-]
-
-[[package]]
-name = "launcher-kit"
-version = "0.0.0"
-dependencies = [
- "base64 0.23.1",
- "bytes",
- "chrono",
- "dirs 6.0.0",
- "epic",
- "fs4",
- "futures-util",
- "http-body-util",
- "hyper",
- "hyper-rustls",
- "hyper-util",
- "module-api",
- "percent-encoding",
- "protocol",
- "rand 0.10.3",
- "regex",
- "rustls",
- "serde",
- "serde_json",
- "sha1 0.11.0",
- "sha2 0.11.1",
- "tokio",
- "tokio-rustls",
- "tokio-util",
- "toml_edit 0.25.17+spec-1.1.0",
- "tracing",
- "ts-rs",
- "url",
- "webpki-roots",
 ]
 
 [[package]]
@@ -3809,21 +3963,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "module-api"
-version = "0.1.0"
-dependencies = [
- "libc",
- "serde",
- "serde_json",
- "sha2 0.11.1",
- "thiserror 2.0.21",
- "tokio",
- "tracing",
- "ulid",
- "windows 0.62.2",
-]
-
-[[package]]
 name = "muda"
 version = "0.20.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3895,35 +4034,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ee6cda3051665f1fb8d9e08fc35c96d5a244fb1be711a03b71118828afc9a873"
 dependencies = [
  "jni-sys 0.3.1",
-]
-
-[[package]]
-name = "network"
-version = "0.0.0"
-dependencies = [
- "aws-lc-rs",
- "base64 0.23.1",
- "bytes",
- "diesel",
- "diesel_migrations",
- "history-ship",
- "http-body-util",
- "hyper",
- "hyper-util",
- "module-api",
- "protocol",
- "rcgen",
- "rustls",
- "serde",
- "serde_json",
- "sha2 0.11.1",
- "store",
- "thiserror 2.0.21",
- "time",
- "tokio",
- "tokio-rustls",
- "tracing",
- "x509-parser",
 ]
 
 [[package]]
@@ -4611,15 +4721,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "plugin-host"
-version = "0.0.0"
-dependencies = [
- "libloading",
- "module-api",
- "tokio",
-]
-
-[[package]]
 name = "png"
 version = "0.18.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4830,27 +4931,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "985e7ec9bb745e6ce6535b544d84d6cd6f7ad8bd711c398938ae983b91a766d9"
 dependencies = [
  "unicode-ident",
-]
-
-[[package]]
-name = "protocol"
-version = "0.0.0"
-dependencies = [
- "chrono",
- "module-api",
- "percent-encoding",
- "serde",
- "serde_json",
- "ts-rs",
- "url",
-]
-
-[[package]]
-name = "proxy"
-version = "0.0.0"
-dependencies = [
- "http",
- "tokio",
 ]
 
 [[package]]
@@ -5195,37 +5275,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d6f6ff9a378485b298a5286656da665ba74413d36db0979633275d2e708145d4"
 
 [[package]]
-name = "remote"
-version = "0.0.0"
-dependencies = [
- "base64 0.23.1",
- "bytes",
- "chrono",
- "http",
- "http-body-util",
- "hyper",
- "hyper-util",
- "module-api",
- "network",
- "percent-encoding",
- "protocol",
- "rand 0.10.3",
- "rcgen",
- "rustls",
- "serde",
- "serde_json",
- "service-kit",
- "sha2 0.11.1",
- "subtle",
- "thiserror 2.0.21",
- "tokio",
- "tokio-rustls",
- "toml_edit 0.25.17+spec-1.1.0",
- "tracing",
- "url",
-]
-
-[[package]]
 name = "reqwest"
 version = "0.13.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5303,118 +5352,6 @@ dependencies = [
  "wasm-bindgen-futures",
  "web-sys",
  "windows-sys 0.60.2",
-]
-
-[[package]]
-name = "rifts-admission"
-version = "0.0.0"
-dependencies = [
- "base64 0.23.1",
- "p256",
- "rand 0.10.3",
- "rifts-relay",
- "rifts-seam",
- "serde_json",
- "sha2 0.11.1",
- "thiserror 2.0.21",
-]
-
-[[package]]
-name = "rifts-guard"
-version = "0.0.0"
-dependencies = [
- "diesel",
- "diesel_migrations",
- "rifts-seam",
- "serde_json",
- "sha2 0.11.1",
- "store",
- "tokio",
-]
-
-[[package]]
-name = "rifts-host"
-version = "0.0.0"
-dependencies = [
- "rand 0.10.3",
- "rifts-seam",
- "rifts-transport",
- "serde",
- "serde_json",
- "sha2 0.11.1",
-]
-
-[[package]]
-name = "rifts-oracle"
-version = "0.0.0"
-dependencies = [
- "base64 0.23.1",
- "rifts-admission",
- "rifts-relay",
- "rifts-seam",
- "serde_json",
-]
-
-[[package]]
-name = "rifts-realms"
-version = "0.0.0"
-dependencies = [
- "diesel",
- "diesel_migrations",
- "module-api",
- "rand 0.10.3",
- "rifts-admission",
- "rifts-guard",
- "rifts-relay",
- "rifts-seam",
- "serde",
- "serde_json",
- "sha2 0.11.1",
- "store",
- "thiserror 2.0.21",
- "tokio",
-]
-
-[[package]]
-name = "rifts-relay"
-version = "0.0.0"
-dependencies = [
- "base64 0.23.1",
- "hmac 0.13.0",
- "rand 0.10.3",
- "rifts-seam",
- "serde_json",
- "sha1 0.11.0",
- "sha2 0.11.1",
- "thiserror 2.0.21",
-]
-
-[[package]]
-name = "rifts-seam"
-version = "0.0.0"
-
-[[package]]
-name = "rifts-transport"
-version = "0.0.0"
-dependencies = [
- "aes-gcm 0.11.1",
- "base64 0.23.1",
- "bytes",
- "http",
- "http-body-util",
- "hyper",
- "hyper-rustls",
- "hyper-util",
- "p256",
- "rand 0.10.3",
- "rifts-admission",
- "rifts-seam",
- "rtc-ice",
- "rtc-shared",
- "rtc-turn",
- "rustls",
- "sansio",
- "tokio",
 ]
 
 [[package]]
@@ -5576,17 +5513,17 @@ version = "0.0.0"
 dependencies = [
  "axum",
  "chrono",
+ "dainty-module-api",
+ "dainty-service-kit",
  "dotenvy",
  "http",
  "http-body-util",
- "module-api",
  "rand 0.10.3",
  "regex",
- "rifts-seam",
  "rustic-isles-auth",
+ "rustic-rifts-seam",
  "serde",
  "serde_json",
- "service-kit",
  "sha2 0.11.1",
  "thiserror 2.0.21",
  "tokio",
@@ -5598,13 +5535,10 @@ name = "rustic-isles-1-14-7"
 version = "0.0.0"
 dependencies = [
  "axum",
+ "dainty-module-api",
+ "dainty-service-kit",
+ "dainty-store",
  "http",
- "module-api",
- "rifts-admission",
- "rifts-guard",
- "rifts-realms",
- "rifts-relay",
- "rifts-seam",
  "rustic-isles",
  "rustic-isles-auth",
  "rustic-isles-characters",
@@ -5616,9 +5550,12 @@ dependencies = [
  "rustic-isles-matchmaking",
  "rustic-isles-reforged",
  "rustic-isles-store",
+ "rustic-rifts-admission",
+ "rustic-rifts-guard",
+ "rustic-rifts-realms",
+ "rustic-rifts-relay",
+ "rustic-rifts-seam",
  "serde_json",
- "service-kit",
- "store",
  "thiserror 2.0.21",
  "tokio",
  "tracing",
@@ -5634,17 +5571,17 @@ dependencies = [
  "base64 0.23.1",
  "bytes",
  "chrono",
+ "dainty-module-api",
+ "dainty-service-kit",
  "http",
  "http-body-util",
  "hyper",
  "hyper-rustls",
  "hyper-util",
- "module-api",
  "rand 0.10.3",
  "rustls",
  "serde",
  "serde_json",
- "service-kit",
  "subtle",
  "thiserror 2.0.21",
  "tokio",
@@ -5658,14 +5595,14 @@ name = "rustic-isles-characters"
 version = "0.0.0"
 dependencies = [
  "axum",
+ "dainty-module-api",
+ "dainty-service-kit",
  "http",
- "module-api",
- "rifts-seam",
  "rustic-isles",
  "rustic-isles-auth",
  "rustic-isles-store",
+ "rustic-rifts-seam",
  "serde_json",
- "service-kit",
  "thiserror 2.0.21",
  "tracing",
 ]
@@ -5675,15 +5612,15 @@ name = "rustic-isles-chat"
 version = "0.0.0"
 dependencies = [
  "axum",
+ "dainty-module-api",
+ "dainty-service-kit",
  "http",
  "http-body-util",
- "module-api",
  "percent-encoding",
  "rustic-isles",
  "rustic-isles-auth",
  "rustic-isles-store",
  "serde_json",
- "service-kit",
  "tracing",
  "ulid",
 ]
@@ -5694,9 +5631,10 @@ version = "0.0.0"
 dependencies = [
  "base64 0.23.1",
  "chrono",
+ "dainty-module-api",
+ "dainty-store",
  "diesel",
  "hmac 0.13.0",
- "module-api",
  "percent-encoding",
  "rand 0.10.3",
  "rustic-isles",
@@ -5706,7 +5644,6 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2 0.11.1",
- "store",
  "thiserror 2.0.21",
  "tokio",
  "tracing",
@@ -5718,14 +5655,14 @@ version = "0.0.0"
 dependencies = [
  "axum",
  "chrono",
+ "dainty-module-api",
+ "dainty-service-kit",
  "futures-util",
  "http",
  "libc",
- "module-api",
  "rand 0.10.3",
  "rustic-isles",
  "serde_json",
- "service-kit",
  "tokio",
  "tracing",
  "windows 0.62.2",
@@ -5736,16 +5673,16 @@ name = "rustic-isles-economy"
 version = "0.0.0"
 dependencies = [
  "axum",
+ "dainty-module-api",
+ "dainty-service-kit",
  "http",
- "module-api",
- "rifts-seam",
  "rustic-isles",
  "rustic-isles-auth",
  "rustic-isles-characters",
  "rustic-isles-gamedata",
  "rustic-isles-store",
+ "rustic-rifts-seam",
  "serde_json",
- "service-kit",
  "sha2 0.11.1",
  "thiserror 2.0.21",
  "tokio",
@@ -5758,12 +5695,12 @@ version = "0.0.0"
 dependencies = [
  "axum",
  "chrono",
+ "dainty-service-kit",
  "http",
  "regex",
  "rustic-isles",
  "rustic-isles-auth",
  "serde_json",
- "service-kit",
  "sha2 0.11.1",
  "tracing",
 ]
@@ -5774,18 +5711,49 @@ version = "0.0.0"
 dependencies = [
  "axum",
  "base64 0.23.1",
+ "dainty-module-api",
+ "dainty-service-kit",
  "http",
- "module-api",
- "rifts-seam",
  "rustic-isles",
  "rustic-isles-auth",
  "rustic-isles-chat",
  "rustic-isles-economy",
  "rustic-isles-store",
+ "rustic-rifts-seam",
  "serde_json",
- "service-kit",
  "tokio",
  "tracing",
+]
+
+[[package]]
+name = "rustic-isles-mit-parity"
+version = "0.0.0"
+dependencies = [
+ "aws-lc-rs",
+ "base64 0.23.1",
+ "dainty-module-api",
+ "dainty-service-kit",
+ "regex",
+ "rusqlite",
+ "rustic-isles",
+ "rustic-isles-1-14-7",
+ "rustic-isles-auth",
+ "rustic-isles-store",
+ "serde_json",
+ "tempfile",
+ "tokio",
+]
+
+[[package]]
+name = "rustic-isles-plugin"
+version = "0.0.0"
+dependencies = [
+ "dainty-module-api",
+ "dainty-plugin-host",
+ "rustic-isles",
+ "rustic-isles-1-14-7",
+ "serde_json",
+ "tokio",
 ]
 
 [[package]]
@@ -5796,21 +5764,21 @@ dependencies = [
  "axum",
  "base64 0.23.1",
  "chrono",
+ "dainty-module-api",
+ "dainty-service-kit",
  "diesel",
  "http",
  "http-body-util",
- "module-api",
  "rand 0.10.3",
  "regex",
- "rifts-seam",
  "rustic-isles",
  "rustic-isles-auth",
  "rustic-isles-chat",
  "rustic-isles-economy",
  "rustic-isles-matchmaking",
  "rustic-isles-store",
+ "rustic-rifts-seam",
  "serde_json",
- "service-kit",
  "subtle",
  "thiserror 2.0.21",
  "tokio",
@@ -5824,12 +5792,12 @@ dependencies = [
  "aws-lc-rs",
  "axum",
  "base64 0.23.1",
+ "dainty-service-kit",
  "percent-encoding",
  "regex",
  "rustic-isles",
  "serde",
  "serde_json",
- "service-kit",
  "sha2 0.11.1",
  "thiserror 2.0.21",
  "tokio",
@@ -5839,15 +5807,127 @@ dependencies = [
 name = "rustic-isles-store"
 version = "0.0.0"
 dependencies = [
+ "dainty-module-api",
+ "dainty-service-kit",
+ "dainty-store",
  "diesel",
  "diesel_migrations",
- "module-api",
  "rustic-isles",
  "rustic-isles-auth",
  "serde_json",
- "service-kit",
- "store",
  "thiserror 2.0.21",
+]
+
+[[package]]
+name = "rustic-rifts-admission"
+version = "0.0.0"
+dependencies = [
+ "base64 0.23.1",
+ "p256",
+ "rand 0.10.3",
+ "rustic-rifts-relay",
+ "rustic-rifts-seam",
+ "serde_json",
+ "sha2 0.11.1",
+ "thiserror 2.0.21",
+]
+
+[[package]]
+name = "rustic-rifts-guard"
+version = "0.0.0"
+dependencies = [
+ "dainty-store",
+ "diesel",
+ "diesel_migrations",
+ "rustic-rifts-seam",
+ "serde_json",
+ "sha2 0.11.1",
+ "tokio",
+]
+
+[[package]]
+name = "rustic-rifts-host"
+version = "0.0.0"
+dependencies = [
+ "rand 0.10.3",
+ "rustic-rifts-seam",
+ "rustic-rifts-transport",
+ "serde",
+ "serde_json",
+ "sha2 0.11.1",
+]
+
+[[package]]
+name = "rustic-rifts-oracle"
+version = "0.0.0"
+dependencies = [
+ "base64 0.23.1",
+ "rustic-rifts-admission",
+ "rustic-rifts-relay",
+ "rustic-rifts-seam",
+ "serde_json",
+]
+
+[[package]]
+name = "rustic-rifts-realms"
+version = "0.0.0"
+dependencies = [
+ "dainty-module-api",
+ "dainty-store",
+ "diesel",
+ "diesel_migrations",
+ "rand 0.10.3",
+ "rustic-rifts-admission",
+ "rustic-rifts-guard",
+ "rustic-rifts-relay",
+ "rustic-rifts-seam",
+ "serde",
+ "serde_json",
+ "sha2 0.11.1",
+ "thiserror 2.0.21",
+ "tokio",
+]
+
+[[package]]
+name = "rustic-rifts-relay"
+version = "0.0.0"
+dependencies = [
+ "base64 0.23.1",
+ "hmac 0.13.0",
+ "rand 0.10.3",
+ "rustic-rifts-seam",
+ "serde_json",
+ "sha1 0.11.0",
+ "sha2 0.11.1",
+ "thiserror 2.0.21",
+]
+
+[[package]]
+name = "rustic-rifts-seam"
+version = "0.0.0"
+
+[[package]]
+name = "rustic-rifts-transport"
+version = "0.0.0"
+dependencies = [
+ "aes-gcm 0.11.1",
+ "base64 0.23.1",
+ "bytes",
+ "http",
+ "http-body-util",
+ "hyper",
+ "hyper-rustls",
+ "hyper-util",
+ "p256",
+ "rand 0.10.3",
+ "rtc-ice",
+ "rtc-shared",
+ "rtc-turn",
+ "rustic-rifts-admission",
+ "rustic-rifts-seam",
+ "rustls",
+ "sansio",
+ "tokio",
 ]
 
 [[package]]
@@ -6302,69 +6382,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "server-console"
-version = "0.0.0"
-dependencies = [
- "controller",
- "host",
- "tokio",
-]
-
-[[package]]
-name = "server-minimal"
-version = "0.0.0"
-dependencies = [
- "controller",
- "host",
- "tokio",
-]
-
-[[package]]
-name = "service-kit"
-version = "0.0.0"
-dependencies = [
- "anstream",
- "axum",
- "base64 0.23.1",
- "bytes",
- "chrono",
- "dotenvy",
- "flate2",
- "gethostname",
- "http-body-util",
- "hyper",
- "hyper-rustls",
- "hyper-util",
- "percent-encoding",
- "regex",
- "rustls",
- "serde",
- "serde_json",
- "sha2 0.11.1",
- "thiserror 2.0.21",
- "tokio",
- "tower",
- "tracing",
- "tracing-log",
- "tracing-subscriber",
- "url",
-]
-
-[[package]]
-name = "service-plugin"
-version = "0.0.0"
-dependencies = [
- "base64 0.23.1",
- "module-api",
- "serde",
- "serde_json",
- "service-kit",
- "tokio",
- "tracing",
- "tracing-subscriber",
-]
-
-[[package]]
 name = "servo_arc"
 version = "0.4.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6652,23 +6669,6 @@ name = "static_vcruntime"
 version = "3.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ff7589a1859b09232522bb9edf076ca7fcf14ded96685d3fa629db73023ffbb7"
-
-[[package]]
-name = "store"
-version = "0.0.0"
-dependencies = [
- "diesel",
- "diesel-async",
- "diesel_migrations",
- "libsqlite3-sys",
- "module-api",
- "rusqlite",
- "serde",
- "serde_json",
- "sha2 0.11.1",
- "thiserror 2.0.21",
- "tokio",
-]
 
 [[package]]
 name = "string_cache"

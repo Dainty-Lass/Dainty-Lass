@@ -9,8 +9,8 @@ use std::sync::{LazyLock, Mutex, MutexGuard};
 
 use regex::Regex;
 
-use protocol::account::ACCOUNT_KEY_PREFIX;
-use protocol::text::js_length;
+use dainty_protocol::account::ACCOUNT_KEY_PREFIX;
+use dainty_protocol::text::js_length;
 
 /// JavaScript's `\s` (ECMAScript white space and line terminators), for the patterns below.
 const JS_SPACE: &str =
@@ -124,8 +124,8 @@ pub fn describe_error(error: &dyn std::error::Error) -> String {
 pub(crate) fn is_muted(event: &tracing::Event<'_>) -> bool {
     use tracing_log::NormalizeEvent as _;
     event.normalized_metadata().map_or_else(
-        || epic::is_egs_api_target(event.metadata().target()),
-        |meta| epic::is_egs_api_target(meta.target()),
+        || dainty_epic::is_egs_api_target(event.metadata().target()),
+        |meta| dainty_epic::is_egs_api_target(meta.target()),
     )
 }
 

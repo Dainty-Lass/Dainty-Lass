@@ -216,4 +216,4 @@ pub fn register_public(handlers: &mut Handlers) {
 }
 
 /// An admin-gated handler as the registry keeps it.
-pub type AdminHandler = fn(admin::AdminContext) -> module_api::BoxFuture<'static, axum::response::Response>;
+pub type AdminHandler = fn(admin::AdminContext) -> dainty_module_api::BoxFuture<'static, axum::response::Response>;

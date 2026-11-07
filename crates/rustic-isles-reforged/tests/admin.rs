@@ -8,7 +8,7 @@
 mod common;
 
 use common::{ADMIN_KEY, CSRF, OPERATOR_SECRET, RAW_SESSION, Request1, Rig, now_ms, options, settings};
-use module_api::{Actor, ActorContext, AdminCall, AdminRequest, AdminResponse, RestrictionKind};
+use dainty_module_api::{Actor, ActorContext, AdminCall, AdminRequest, AdminResponse, RestrictionKind};
 use rustic_isles_reforged::admin::bootstrap::{BootstrapAdminRequest, BootstrapError, bootstrap_admin};
 use rustic_isles_reforged::test_support::{FakeFunding, operator_headers};
 use rustic_isles_store::AccountId;
@@ -550,11 +550,12 @@ async fn manager_operator() {
 #[tokio::test]
 async fn a_request_crates_admin_signs_is_admitted() {
     let t = rig().await;
-    let operator = admin::upstream::Operator::parse(OPERATOR).unwrap();
+    let operator = dainty_admin::upstream::Operator::parse(OPERATOR).unwrap();
     let body = serde_json::to_vec(&json!({"approvalStatus": "approved", "reason": "bot check"})).unwrap();
     let target = "/admin/v1/players/fox-user/access";
     let timestamp = now_ms().to_string();
-    let theirs = admin::upstream::operator_signature(OPERATOR_SECRET, "PATCH", target, &timestamp, &operator, &body);
+    let theirs =
+        dainty_admin::upstream::operator_signature(OPERATOR_SECRET, "PATCH", target, &timestamp, &operator, &body);
     let ours = rustic_isles_reforged::admin::auth::operator_signature(
         OPERATOR_SECRET,
         "PATCH",

@@ -105,12 +105,12 @@ fn extension_roles(shared: &Shared) -> &'static [&'static str] {
 
 fn read_json_file(path: &Path) -> Option<Value> {
     let text = std::fs::read_to_string(path).ok()?;
-    service_kit::jsjson::parse(&text).ok()
+    dainty_service_kit::jsjson::parse(&text).ok()
 }
 
 /// `JSON.stringify(value, null, 2)` and one newline.
 pub fn pretty(value: &Value) -> String {
-    let mut text = serde_json::to_string_pretty(&service_kit::jsjson::to_js(value)).unwrap_or_default();
+    let mut text = serde_json::to_string_pretty(&dainty_service_kit::jsjson::to_js(value)).unwrap_or_default();
     text.push('\n');
     text
 }
@@ -141,7 +141,7 @@ fn locate_runtime(
     }
     let legacy = root.join("runtime").join(target).join(channel).join(platform);
     let manifest = read_json_file(&legacy.join("latest.json"))?;
-    let same = service_kit::js::safe_integer(manifest.get("targetChangelist")) == Some(i64::from(changelist));
+    let same = dainty_service_kit::js::safe_integer(manifest.get("targetChangelist")) == Some(i64::from(changelist));
     same.then_some((manifest, legacy))
 }
 
@@ -174,7 +174,7 @@ fn signed_for_other(envelope: &Value, changelist: u32, trusted: &Trusted) -> boo
         return false;
     }
     let body: Option<Value> = serde_json::from_slice(&payload).ok();
-    body.and_then(|b| service_kit::js::safe_integer(b.get("targetChangelist")))
+    body.and_then(|b| dainty_service_kit::js::safe_integer(b.get("targetChangelist")))
         .is_some_and(|c| c != i64::from(changelist))
 }
 
@@ -518,7 +518,7 @@ pub async fn publish_runtime(call: Call) -> Response {
     let version = header(&call, "x-update-version");
     let c = changelist(&call.shared);
     let changelist_ok =
-        service_kit::js::number(Some(&Value::String(header(&call, "x-update-changelist")))) == f64::from(c);
+        dainty_service_kit::js::number(Some(&Value::String(header(&call, "x-update-changelist")))) == f64::from(c);
     let metadata_ok = [&target, &channel, &platform, &version].iter().all(|s| is_segment(s))
         && is_target(&target)
         && platform == PLATFORM

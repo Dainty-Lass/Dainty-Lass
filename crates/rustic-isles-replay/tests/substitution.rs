@@ -125,7 +125,7 @@ async fn s8_rs256_is_accepted_by_the_game_token_check() {
         ("AUTH_SIGNING_PUBKEY_B64", &public),
     ]);
     let target = Auth::<MemoryStore>::new(
-        AuthConfig::for_1_14_7(module_api::NodeIdentity::standalone()),
+        AuthConfig::for_1_14_7(dainty_module_api::NodeIdentity::standalone()),
         Arc::new(settings),
         None,
         Seams::default(),

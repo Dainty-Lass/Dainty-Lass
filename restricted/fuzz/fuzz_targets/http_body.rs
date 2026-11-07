@@ -1,12 +1,12 @@
 //! Request bodies and query strings (MIGRATION_PLAN.md M8, X9): every service reads JSON and form bodies
-//! with `service_kit::body` before routing, and decodes URL components with Node's rules. None of it may
+//! with `dainty_service_kit::body` before routing, and decodes URL components with Node's rules. None of it may
 //! panic, and a body that parses must survive the JSON round trip the services answer with.
 #![no_main]
 
 use libfuzzer_sys::fuzz_target;
-use service_kit::body::{parse_form, parse_json};
-use service_kit::js::{date_parse, decode_uri_component};
-use service_kit::jsjson;
+use dainty_service_kit::body::{parse_form, parse_json};
+use dainty_service_kit::js::{date_parse, decode_uri_component};
+use dainty_service_kit::jsjson;
 
 fuzz_target!(|data: &[u8]| {
     let text = String::from_utf8_lossy(data);

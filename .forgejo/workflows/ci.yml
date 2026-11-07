@@ -234,7 +234,7 @@ jobs:
 
       # cargo test builds no cdylib for a crate's own tests; the plugins' load tests load the library (RD27)
       - name: The service libraries
-        run: cargo build --locked -p content-plugin -p rustic-isles-1-14-7-plugin
+        run: cargo build --locked -p dainty-content-plugin -p rustic-isles-1-14-7-plugin
 
       - name: Tests
         run: cargo test --workspace --locked --no-fail-fast
@@ -434,7 +434,7 @@ jobs:
         run: cargo clippy --workspace --all-targets --locked -- -D warnings
 
       - name: The module and service libraries
-        run: cargo build --locked -p isles-1-14-7-plugin -p gateway-plugin -p content-plugin -p chat-plugin
+        run: cargo build --locked -p rustic-isles-plugin -p dainty-gateway-plugin -p dainty-content-plugin -p dainty-chat-plugin
 
       - name: Tests
         run: cargo test --workspace --locked --no-fail-fast
@@ -593,7 +593,7 @@ jobs:
           bun install --frozen-lockfile
           bun run test
 
-      - name: Build unsigned NSIS installers (DaintyLass Launcher and DaintyLass Manager)
+      - name: Build unsigned NSIS installers (Dainty Lass Launcher and Dainty Lass Manager)
         working-directory: restricted/launcher
         run: |
           bun install --frozen-lockfile

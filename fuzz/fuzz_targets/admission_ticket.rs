@@ -9,9 +9,9 @@
 use std::sync::OnceLock;
 
 use libfuzzer_sys::fuzz_target;
-use rifts_admission::keys::signing_key_from_pem;
-use rifts_admission::ticket::{decode_claims, encode_claims, parse_unverified};
-use rifts_admission::{Es256Tickets, KeyId, P256KeyGenerator, TicketClaims};
+use rustic_rifts_admission::keys::signing_key_from_pem;
+use rustic_rifts_admission::ticket::{decode_claims, encode_claims, parse_unverified};
+use rustic_rifts_admission::{Es256Tickets, KeyId, P256KeyGenerator, TicketClaims};
 
 fn authority() -> &'static Es256Tickets {
     static TICKETS: OnceLock<Es256Tickets> = OnceLock::new();

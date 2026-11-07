@@ -7,7 +7,7 @@
 #![no_main]
 
 use libfuzzer_sys::fuzz_target;
-use rifts_host::{FilesFor, TransportConfig, ice_files};
+use rustic_rifts_host::{FilesFor, TransportConfig, ice_files};
 
 const ROLES: [FilesFor; 4] = [FilesFor::Joiner, FilesFor::HuntHost, FilesFor::AwayHuntHost, FilesFor::HubHost];
 

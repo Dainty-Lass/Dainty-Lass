@@ -8,11 +8,11 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
-use epic::download::{
+use dainty_epic::download::{
     DownloadError, Executable, Gate, Https, ManifestOrigin, Options, Refusal, Stage, Target, fetch_manifest,
 };
-use epic::manifest::{InstallPath, Sha1Digest};
-use module_api::GameVersion;
+use dainty_epic::manifest::{InstallPath, Sha1Digest};
+use dainty_module_api::GameVersion;
 
 use super::{Controller, lock};
 use crate::bridge::types::{
@@ -314,7 +314,7 @@ impl Controller {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use epic::manifest::Guid;
+    use dainty_epic::manifest::Guid;
 
     #[test]
     fn the_compiled_in_profiles_name_what_an_install_needs() {

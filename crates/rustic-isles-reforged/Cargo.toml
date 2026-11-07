@@ -24,10 +24,10 @@ chrono.workspace = true
 diesel.workspace = true
 http.workspace = true
 http-body-util.workspace = true
-module-api.workspace = true
+dainty-module-api.workspace = true
 rand.workspace = true
 regex.workspace = true
-rifts-seam.workspace = true
+rustic-rifts-seam.workspace = true
 rustic-isles.workspace = true
 rustic-isles-auth.workspace = true
 rustic-isles-chat.workspace = true
@@ -36,15 +36,15 @@ rustic-isles-economy.workspace = true
 rustic-isles-matchmaking.workspace = true
 rustic-isles-store.workspace = true
 serde_json = { workspace = true, features = ["preserve_order"] }
-service-kit.workspace = true
+dainty-service-kit.workspace = true
 subtle.workspace = true
 thiserror.workspace = true
 tokio = { workspace = true, features = ["fs", "io-util", "macros", "net", "rt", "sync", "time"] }
 tracing.workspace = true
 
 [dev-dependencies]
-# crates/admin signs /admin/v1 calls as the manager operator: a request it signs must be admitted
-admin = { path = "../admin" }
+# crates/dainty-admin signs /admin/v1 calls as the manager operator: a request it signs must be admitted
+dainty-admin = { path = "../dainty-admin" }
 rustic-isles = { workspace = true, features = ["test-support"] }
 rustic-isles-auth = { workspace = true, features = ["test-support"] }
 rustic-isles-economy = { workspace = true, features = ["test-support"] }

@@ -7,7 +7,7 @@ Row RX1 of [`MIGRATION_PLAN.md`](../../MIGRATION_PLAN.md), the launcher controll
 
 Each section compares one Reforged file with its counterpart in Dauntless Revived's Node launcher at `e1c5fec`
 (`legacy/UndauntedLauncher` there), then names the Rust module of DR's Tauri launcher
-(`legacy/UndauntedLauncher/src-tauri` there) or the `protocol` crate (`crates/protocol`) the behavior lands in.
+(`legacy/UndauntedLauncher/src-tauri` there) or the `protocol` crate (`crates/dainty-protocol`) the behavior lands in.
 The rows that port it are RS1 (protocol), RA1 (copy of `src-tauri`), RA2 (bridge), RA3 (languages) and RA13
 (controller).
 
@@ -32,7 +32,7 @@ The rows that port it are RS1 (protocol), RA1 (copy of `src-tauri`), RA2 (bridge
 | `src/preload.ts`, `src/renderer/global.d.ts` | `src/preload.ts`, `src/renderer/api.ts`, `src/renderer/backend.ts` | `bridge/spec.rs`, `bridge/commands.rs`, `bridge/generate.rs`, `isolation/hook.js` | 69 (+47 −22); `global.d.ts` new | RA2 |
 | `src/main.ts` | `src/main.ts` | `lib.rs`, `window.rs`, `controller/platform.rs` (`TauriPlatform`), `platform/dialogs.rs`, `platform/invite_link.rs`, `platform/art.rs` | 503 (+151 −352) | RA1, RA2, RA11 |
 | `src/shared/types.ts` | `src/shared/types.ts` | `bridge/types.rs` (TS made from it by `bridge/generate.rs`) | 464 (+321 −143) | RA2 |
-| `src/shared/invite.ts` | `src/shared/invite.ts` | `protocol::invite` (`crates/protocol/src/invite.rs`), launcher `core/invite.rs` | 32 (+22 −10) | RS1, RA4 |
+| `src/shared/invite.ts` | `src/shared/invite.ts` | `protocol::invite` (`crates/dainty-protocol/src/invite.rs`), launcher `core/invite.rs` | 32 (+22 −10) | RS1, RA4 |
 | `src/shared/status.ts` | `src/shared/status.ts` | `protocol::status`, launcher `core/status.rs` | 33 (+28 −5) | RS1, RA4 |
 | `src/shared/i18n.ts` | `src/shared/i18n/index.ts`, `en.ts`, `pt.ts` (+ 7 more languages) | `core/i18n.rs`, `core/text.rs`, `build.rs` (`gen/strings.json`) | key-level, see section 8 | RA3 |
 | `src/shared/username.ts`, `format.ts`, `ui-model.ts`, `credits.ts`, `text.ts` | same names | `core/username.rs`, `core/text.rs`; the rest stays TS | 8, 50, 114, 97, 0 | RA3, RA13 |
@@ -314,7 +314,7 @@ Behavior changes:
 ## 6. `src/shared/invite.ts`
 
 - Reforged: `ReforgedLauncher/src/shared/invite.ts` (246 lines). DR Node: `src/shared/invite.ts` (234).
-- DR Rust: `protocol::invite` (`crates/protocol/src/invite.rs`, `INVITE_SCHEME = "dauntless-revived"` at line
+- DR Rust: `protocol::invite` (`crates/dainty-protocol/src/invite.rs`, `INVITE_SCHEME = "dauntless-revived"` at line
   15) and the launcher's `core/invite.rs`.
 - Changed lines: 32 (+22 −10). Rows: **RS1** (protocol), RA4 (launcher use).
 

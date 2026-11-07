@@ -125,7 +125,7 @@ impl MatchCandidate {
 
     /// Node's object as text, as `JSON.stringify` writes it.
     pub fn to_json_text(&self) -> String {
-        service_kit::jsjson::stringify(&self.to_json())
+        dainty_service_kit::jsjson::stringify(&self.to_json())
     }
 
     /// None unless an object with string `HuntId`, `CandidateId` and `GameSessionId`.

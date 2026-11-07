@@ -79,7 +79,7 @@ Fuzz targets in `fuzz`: `rustic_isles_reforged_guard`, `rustic_isles_reforged_te
 - An expired current Guard manifest blocks the next publish (§21 item 10).
 - Attempt windows are in memory and per module (a restart resets them).
 - The defaults `../MysticLauncherLogs`, `https://paradox.mysticfox.dev` and the `pranav158` release prefix are kept for
-  parity: a host that sets nothing advertises and allows domains DaintyLass does not control.
+  parity: a host that sets nothing advertises and allows domains Dainty Lass does not control.
 
 ## Admin half
 
@@ -91,7 +91,7 @@ Fuzz targets in `fuzz`: `rustic_isles_reforged_guard`, `rustic_isles_reforged_te
 - [ ] The manager operator credential: loopback peer, no forwarding header, the five-line HMAC-SHA256 (method,
       target, timestamp, operator id, body SHA-256) in constant time, 60 s back and 5 s ahead, a 120 s per-module
       nonce set, a JSON body only; checked before any handler (`admin::auth::verify_operator`). A request signed by
-      `crates/admin`'s `operator_signature` is admitted (test `a_request_crates_admin_signs_is_admitted`).
+      `crates/dainty-admin`'s `operator_signature` is admitted (test `a_request_crates_admin_signs_is_admitted`).
 - [ ] With the manager switch on, the module refuses to start without a 32-character secret.
 - [ ] The host routes: `REFORGED_ADMIN_KEY` of 32 units or more, a loopback peer, no `x-reforged-gateway` or
       `x-forwarded-for`, the key compared by SHA-256 in constant time.

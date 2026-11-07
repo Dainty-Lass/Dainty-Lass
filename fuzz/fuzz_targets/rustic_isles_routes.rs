@@ -23,7 +23,7 @@ fn model(row: &str, path: &str) -> Option<bool> {
             if g.is_empty() {
                 return None;
             }
-            decodes &= service_kit::js::decode_uri_component(g).is_some();
+            decodes &= dainty_service_kit::js::decode_uri_component(g).is_some();
         } else if !w.eq_ignore_ascii_case(g) {
             return None;
         }

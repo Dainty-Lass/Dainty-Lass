@@ -1,14 +1,14 @@
 //! The job around one install from Epic (DE5, DD22): Dauntless Revived's `net/downloader.rs` (DR L23, at
 //! `e1c5fec`) brought back for it, as RD22's amendment says. DR's structure is kept where it fits: the shared
 //! `Inner` and its locked `State`, `pause` / `resume` / `cancel` that are no-ops when they don't apply, the
-//! `SpeedMeter` and the progress ticker. What DR's job did per file, the MIT `epic::download::install` does per
+//! `SpeedMeter` and the progress ticker. What DR's job did per file, the MIT `dainty_epic::download::install` does per
 //! chunk (fetching, checking, writing, the resume file); this AGPL module only drives it (DD26).
 
 use std::collections::VecDeque;
 use std::sync::{Arc, Mutex, MutexGuard};
 use std::time::{Duration, Instant};
 
-use epic::download::{Control, DownloadError, Gate, Installed, Progress, Stage, Target};
+use dainty_epic::download::{Control, DownloadError, Gate, Installed, Progress, Stage, Target};
 
 use crate::bridge::types::{TaskKind, TaskProgress};
 
@@ -165,7 +165,7 @@ impl InstallJob {
     pub async fn run(
         &self,
         target: &Target<'_>,
-        options: &epic::download::Options,
+        options: &dainty_epic::download::Options,
         gate: &impl Gate,
     ) -> Result<Installed, DownloadError> {
         let inner = &self.inner;
@@ -181,7 +181,7 @@ impl InstallJob {
             })
         };
         let on_progress = |progress: &Progress| inner.update(progress);
-        let result = epic::download::install(target, options, gate, &inner.control, &on_progress).await;
+        let result = dainty_epic::download::install(target, options, gate, &inner.control, &on_progress).await;
         ticker.abort();
         inner.emit();
         result

@@ -25,12 +25,12 @@ http-body-util.workspace = true
 hyper.workspace = true
 hyper-rustls.workspace = true
 hyper-util = { workspace = true, features = ["client-legacy", "http1"] }
-module-api.workspace = true
+dainty-module-api.workspace = true
 rand.workspace = true
 rustls.workspace = true
 serde.workspace = true
 serde_json = { workspace = true, features = ["preserve_order"] }
-service-kit.workspace = true
+dainty-service-kit.workspace = true
 subtle.workspace = true
 thiserror.workspace = true
 tokio = { workspace = true, features = ["net", "rt", "sync", "time", "io-util", "macros"] }

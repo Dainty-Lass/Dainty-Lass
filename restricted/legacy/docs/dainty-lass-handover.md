@@ -1,6 +1,6 @@
 # Handing old installs over from dainty-lass
 
-dainty-legacy now carries everything DaintyLass did for old installs. This page lists what dainty-lass deletes once
+dainty-legacy now carries everything Dainty Lass did for old installs. This page lists what dainty-lass deletes once
 it depends on this module, what it adds to reach it, and what the two must keep in step. dainty-legacy edits nothing
 in dainty-lass; the 1.4.4 removal there does these.
 
@@ -11,9 +11,9 @@ Paths are dainty-lass `plan` at `fb46a4a`, the rev dainty-legacy pinned when it 
 
 ## What dainty-lass deletes
 
-### Old `.workspace` layout (`rust/crates/hostkit`)
+### Old `.workspace` layout (`rust/crates/dainty-hostkit`)
 
-Moved to `crates/legacy-import/src/reforged/layout.rs`.
+Moved to `crates/dainty-legacy-import/src/reforged/layout.rs`.
 
 - `src/commands/setup/paradox.rs`: `old_workspace_items`, `pre_submodule_items`, `old_folders`,
   `migrate_old_workspace` and the test `migrate_old_workspace_moves_legacy_dirs`; the `Layout` fields `old_upstream`,
@@ -22,9 +22,9 @@ Moved to `crates/legacy-import/src/reforged/layout.rs`.
   "migrated legacy folder" lines.
 - `src/paths.rs`: `Paths::old_upstream` (`.workspace/Mystic-Paradox`), and `Paths::revived` with 1.4.4.
 
-### host.json → host.toml (`rust/crates/hostkit`)
+### host.json → host.toml (`rust/crates/dainty-hostkit`)
 
-Moved to `crates/legacy-import/src/reforged/hostjson.rs` and `reforged/mod.rs`.
+Moved to `crates/dainty-legacy-import/src/reforged/hostjson.rs` and `reforged/mod.rs`.
 
 - `src/hostconfig.rs`: `load_host_config`'s fallback to `p.host_json`; `has_host_config`'s `p.host_json`;
   `save_host_config`'s host.json → host.json.bak rename and its `had_json_only` result; `write_host_config`'s `.json`
@@ -37,7 +37,7 @@ Moved to `crates/legacy-import/src/reforged/hostjson.rs` and `reforged/mod.rs`.
 
 ### The Node kit's MongoDB
 
-Moved to `crates/legacy-import/src/reforged/mongo.rs`, which runs the host kit's `dainty-host db migrate` and
+Moved to `crates/dainty-legacy-import/src/reforged/mongo.rs`, which runs the host kit's `dainty-host db migrate` and
 `db verify` (`--db-tool`, dainty-lass's MIT `rustic-isles-db` since isles-db was retired in RD27) as a child process
 and writes the same `.workspace/config/.mongo-migrated` marker.
 
@@ -53,17 +53,17 @@ and writes the same `.workspace/config/.mongo-migrated` marker.
   (`collections[].name`, `.ok`). **Maintainer's call:** `db export-mongo` (the rollback to MongoDB) is the only tool
   left that writes MongoDB; keep it for one release or move it here.
 - `src/doctor.rs` and `start`: the unmigrated-MongoDB check. `legacy import reforged` refuses to convert host.json
-  while MongoDB has data it hasn't moved, so a DaintyLass install never has unmigrated data.
+  while MongoDB has data it hasn't moved, so a Dainty Lass install never has unmigrated data.
 - `src/hooks.rs` and `rust/services/host/src/lib.rs`: `mongo_has_documents`, `db_migrate` and `db_verify`, which link
   the database tool (now `rustic-isles-db`) into the host kit, except what `db migrate` and `db verify` above need.
   `src/mongo.rs`, `src/mongo/wire.rs` and `[mongo]` in host.toml go if the managed `mongod` serves nothing else.
 
 ## What dainty-lass adds
 
-- `dainty-host legacy import <revived|offline-save|reforged> ...`: while DaintyLass runs, `module run legacy
+- `dainty-host legacy import <revived|offline-save|reforged> ...`: while Dainty Lass runs, `module run legacy
   import-<kind> <args>` (the console only: the plugin refuses an admin API caller). Before it first runs (a Reforged
   upgrade), the executable directly: `dainty-legacy import reforged <checkout> ...`. The arguments are the same; see
-  `crates/legacy-import/src/cli.rs` or the README.
+  `crates/dainty-legacy-import/src/cli.rs` or the README.
 - An external module entry for `legacy` (`[[modules.external]]`), loaded after `isles-1-14-7`: a plugin needs the game
   module of its version loaded first (`controller/src/registry.rs`, `NoGameFor`).
 - `--env-file` points at the 1.14.7 backend's env file setup writes; nothing else is needed for the target.

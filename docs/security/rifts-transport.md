@@ -2,7 +2,7 @@
 
 # Security checklist: Rustic Rifts' co-op transport (RD27)
 
-The checklist for `crates/rifts-transport`, the co-op transport the launcher links in process (umbrella D1): ICE links
+The checklist for `crates/rustic-rifts-transport`, the co-op transport the launcher links in process (umbrella D1): ICE links
 between a host and its joiners, the sealed frames on them, admission over the link, the host's backend calls, the
 Guard pipe from the hosted game server and the UDP bridges the game sees. Written with the clean-room MIT rewrite from
 `docs/port/spec-rd27-rifts-transport.md` (and the umbrella's D3 renames). `SECURITY_REVIEW.md` indexes it.
@@ -27,7 +27,7 @@ commit reviewed.
 
 Fuzz targets in `fuzz`: `transport_frame` (sealed-frame open and fragment reassembly), `transport_files` (the
 key=value parser, ICE material, the relay-only filter), `transport_pipe` (the `RGE1` parser). Tickets and `RPC1`
-frames are `rifts-admission`'s parsers, fuzzed by `admission_ticket` and `admission_control`.
+frames are `rustic-rifts-admission`'s parsers, fuzzed by `admission_ticket` and `admission_control`.
 
 ## Checklist
 

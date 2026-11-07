@@ -275,12 +275,12 @@ The flow, with numbered progress lines (`[n/8] ...`):
 
 1. A temporary root (`dl-e2e-desktop-` in the OS temp folder) with `install-client`, `install-server`,
    `profile-client/User Data` and `profile-server/User Data`.
-2. Install both bundles (`DaintyLass Launcher` → `dainty-lass-client.exe`, `DaintyLass Manager` →
+2. Install both bundles (`Dainty Lass Launcher` → `dainty-lass-client.exe`, `Dainty Lass Manager` →
    `dainty-lass-manager.exe`) from `<restricted>/target/release/bundle/nsis`, or `E2E_BUNDLE_DIR`.
 3. Launch the manager (CDP port 9321) and the client (9322). Wait until the manager's `get_snapshot` has
    `app.serverGui === true`. Assert: the manager's `host_get` workspace ends with `Server` and `workspaceOk` is true;
    `host_download_project` answers `ok: false` with error code `not_in_this_build`; the manager's `document.title` is
-   `DaintyLass Manager`; the client's snapshot has `app.serverGui === false` and `phase === "join"`. Screenshots:
+   `Dainty Lass Manager`; the client's snapshot has `app.serverGui === false` and `phase === "join"`. Screenshots:
    `client-join-*`; and `server-gui-setup-*` with the manager's `main > div` scrolled to 620 px (then back to 0).
 4. Manager: `host_action { action: "synthetic_data" }`; `host_setup { request: { name: "Desktop E2E Hunts", mode:
    "private", publicHost: null } }`; `server_config_get` shows `configured` and that name; `server_doctor` returns at
@@ -313,7 +313,7 @@ restricted checkout).
 
 1. A temporary root `dl-e2e-remote-`; the manager's workspace is `profile-server/User Data/Server`.
 2. The manager exe: `<restricted>/target/release/dainty-lass-manager.exe` when it exists, otherwise install the
-   `DaintyLass Manager` bundle (§4.1) into the temporary root.
+   `Dainty Lass Manager` bundle (§4.1) into the temporary root.
 3. Copy the controller's workspace: first run `reforged-host remote sync` in service `host-alpha` (so alpha's last
    contact is inside the 60 s online window), then read from service `host-controller` with `cat` through
    `docker compose exec -T`: `config/host.toml`, `secrets.env`, `remote-controller.json` and `tls/gateway-cert.pem`,

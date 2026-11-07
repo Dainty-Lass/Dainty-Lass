@@ -13,13 +13,13 @@ publish.workspace = true
 axum.workspace = true
 http.workspace = true
 http-body-util.workspace = true
-module-api.workspace = true
+dainty-module-api.workspace = true
 percent-encoding.workspace = true
 rustic-isles.workspace = true
 rustic-isles-auth.workspace = true
 rustic-isles-store.workspace = true
 serde_json = { workspace = true, features = ["preserve_order"] }
-service-kit.workspace = true
+dainty-service-kit.workspace = true
 tracing.workspace = true
 # A UUID read as the ULID with the same bits (spec §4.3)
 ulid.workspace = true
@@ -28,7 +28,7 @@ ulid.workspace = true
 rustic-isles = { workspace = true, features = ["test-support"] }
 rustic-isles-auth = { workspace = true, features = ["test-support"] }
 rustic-isles-store = { workspace = true, features = ["test-support"] }
-store.workspace = true
+dainty-store.workspace = true
 tempfile.workspace = true
 tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
 tower.workspace = true

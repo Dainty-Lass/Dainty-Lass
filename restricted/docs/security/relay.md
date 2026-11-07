@@ -27,7 +27,7 @@ and whoever gets the relay to send to the wrong server gets the key.
 
 Code: `net/relay.rs` (listeners, forwarding, upgrades), `net/relay/local.rs` (the local-request rules, the QoS path,
 the port override), `net/relay_owner.rs` and `net/relay_owner/table.rs` (the owner check). Shared rules from
-`crates/proxy` (hop-by-hop headers, the tunnel).
+`crates/dainty-proxy` (hop-by-hop headers, the tunnel).
 
 Fuzz target: `relay_input` in `fuzz` (the peer address, Host, Origin and `Sec-Fetch-*` checks, the QoS path,
 the port override, and the TCP table rows the owner check reads). It checks that nothing the local rules accept

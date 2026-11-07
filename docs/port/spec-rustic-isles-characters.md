@@ -662,7 +662,7 @@ One crate, `rustic-isles-characters` (lib), MIT, in dainty-lass `crates/rustic-i
 dainty-lass MIT crates `rustic-isles` (core: `Shared`, `Call`, `Handlers`, `Service`, `Method`, `read_body`,
 `not_implemented`, `VersionTables`, `NoPlayerPolicy`, `replay`), `rustic-isles-store` (`IslesStore`, `Repositories`,
 `Tx`, `AnyConnection`, the records, `repo::characters::slots`, `RepoError`, `AccountId`, `UserId`),
-`rustic-isles-auth` (`AuthData`, `game_auth`), `rifts-seam` (`HostWriteKind`, `HostWrite`, `HostWriteOptions`,
+`rustic-isles-auth` (`AuthData`, `game_auth`), `rustic-rifts-seam` (`HostWriteKind`, `HostWrite`, `HostWriteOptions`,
 `AccountId`, `Json`, `RuntimeAuth`), `module-api` (`Actor`, `ActorContext`), `service-kit` (`json`, `jsjson`, `js`,
 `body::error_page`), and workspace `axum`, `http`, `serde_json` (its own `preserve_order`, core §17), `tracing`,
 `thiserror`. No new workspace dependency.

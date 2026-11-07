@@ -1,8 +1,8 @@
 # Plan: configuration in TOML
 
-Draft, 2026-10-24. Scope: DaintyLass first; Dauntless Revived at the end.
+Draft, 2026-10-24. Scope: Dainty Lass first; Dauntless Revived at the end.
 
-**Target: the Rust host kit on `plan`** (`crates/host`, the launcher's `platform/hostkit`), not the Node
+**Target: the Rust host kit on `plan`** (`crates/dainty-host`, the launcher's `platform/hostkit`), not the Node
 projects in `legacy/`. The file and function names below come from the Node kit; the Rust port keeps the same
 ones (`hostconfig.rs`, `buildEnvFiles` → `build_env_files`, and so on).
 
@@ -54,7 +54,7 @@ In the Rust port: `toml_edit` (already in the lockfile through Tauri). A new fil
 Sketch:
 
 ```toml
-# DaintyLass server. Written by `npm run setup`; safe to edit by hand,
+# Dainty Lass server. Written by `npm run setup`; safe to edit by hand,
 # then run `npm run setup` again to apply. Your own comments are not kept.
 version = 1
 mode = "public"                 # "private" (Tailscale) or "public"

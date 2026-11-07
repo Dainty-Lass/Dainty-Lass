@@ -203,7 +203,7 @@ mod secret_service {
         let key: [u8; 32] = rand::random();
         collection
             .create_item(
-                "DaintyLass Launcher account keys",
+                "Dainty Lass Launcher account keys",
                 attributes,
                 &key,
                 true,

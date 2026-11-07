@@ -1,8 +1,8 @@
 # Rustic Isles goldens against the MIT module
 
 What the composed clean-room module (`rustic-isles-1-14-7` at dainty-lass `3d0a64a8`, `spec_with` and restricted's
-version data) answers to every recorded golden under `crates/isles-mit-parity/tests/golden/`, compared with the recorded
-answers after each golden's own normalisation. The replay is `crates/isles-mit-parity` (AGPL test crate, a member of
+version data) answers to every recorded golden under `crates/rustic-isles-mit-parity/tests/golden/`, compared with the recorded
+answers after each golden's own normalisation. The replay is `crates/rustic-isles-mit-parity` (AGPL test crate, a member of
 restricted's workspace; see "How it runs"). Run on 2026-11-05, SQLite only, and again after the move into the
 workspace with the same result.
 
@@ -99,8 +99,8 @@ replay.
 
 ## How it runs
 
-`crates/isles-mit-parity` is a member of restricted's workspace. It was a workspace of its own until restricted
-switched to dainty-lass's MIT `rifts-*` crates (RD27): before that, restricted's `modules/rustic-rifts` members had the
+`crates/rustic-isles-mit-parity` is a member of restricted's workspace. It was a workspace of its own until restricted
+switched to dainty-lass's MIT `rustic-rifts-*` crates (RD27): before that, restricted's `modules/rustic-rifts` members had the
 same package names and versions, and one lockfile couldn't hold both. Since the AGPL isles-core and isles-db were
 removed (RD27) it holds everything it took from them: the goldens (`tests/golden/`, isles-core's `tests/golden/` before),
 the characters normaliser, the inventory recorder's `normalize` and the progression replay's `normalise`
@@ -117,7 +117,7 @@ number, method and path, and both normalised answers. A mismatch never fails the
 end.
 
 ```
-cargo test -p isles-mit-parity -j 6 --locked
+cargo test -p rustic-isles-mit-parity -j 6 --locked
 ```
 
 It also runs with the rest of `cargo test --workspace`.

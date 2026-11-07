@@ -6,7 +6,7 @@
 
 use std::sync::{Arc, Mutex};
 
-use ::epic::auth::{AuthorizationCode, LOGIN_URL, REDIRECT_ORIGIN, REDIRECT_PATH};
+use ::dainty_epic::auth::{AuthorizationCode, LOGIN_URL, REDIRECT_ORIGIN, REDIRECT_PATH};
 use tauri::webview::NewWindowResponse;
 use tauri::{AppHandle, Manager, WebviewUrl, WebviewWindowBuilder, WindowEvent};
 use url::Url;

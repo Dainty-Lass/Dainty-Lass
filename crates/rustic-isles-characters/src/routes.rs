@@ -9,17 +9,17 @@ use std::sync::Arc;
 
 use axum::extract::Request;
 use axum::response::{IntoResponse, Response};
+use dainty_module_api::{Actor, ActorContext};
+use dainty_service_kit::json::JSON_UTF8;
+use dainty_service_kit::{js, jsjson};
 use http::{StatusCode, header};
-use module_api::{Actor, ActorContext};
-use rifts_seam::{HostWrite, HostWriteKind, HostWriteOptions, RuntimeAuth};
 use rustic_isles::{Call, Handlers, Method, NoPlayerPolicy, RouteDef, Service, Shared, not_implemented, read_body};
 use rustic_isles_auth::{AuthData, RuntimeCaller};
 use rustic_isles_store::IslesStore;
 use rustic_isles_store::repo::auth::AccountRecord;
 use rustic_isles_store::repo::characters::slots;
+use rustic_rifts_seam::{HostWrite, HostWriteKind, HostWriteOptions, RuntimeAuth};
 use serde_json::{Value, json};
-use service_kit::json::JSON_UTF8;
-use service_kit::{js, jsjson};
 
 use crate::controller::{INVALID, Write, journey_total, lookup};
 use crate::{Characters, CharactersError, empty_loadout_payload, loadout_payload};
@@ -42,7 +42,7 @@ fn empty(status: StatusCode) -> Response {
 }
 
 fn page500() -> Response {
-    service_kit::body::error_page(StatusCode::INTERNAL_SERVER_ERROR)
+    dainty_service_kit::body::error_page(StatusCode::INTERNAL_SERVER_ERROR)
 }
 
 fn json_text(status: StatusCode, body: String) -> Response {
@@ -420,7 +420,7 @@ async fn host_gate(ctx: &Ctx, runtime: &RuntimeCaller, target: &str) -> Result<(
         let message = "This runtime cannot write player state.";
         return Err(refusal(StatusCode::FORBIDDEN, "forbidden", message));
     };
-    let target_id = rifts_seam::AccountId(account.id.to_string());
+    let target_id = rustic_rifts_seam::AccountId(account.id.to_string());
     let verdict = ctx
         .shared
         .rifts()
@@ -502,8 +502,8 @@ async fn unlock_slots(call: Call) -> Response {
         let summary = json!({"gameserverDelta": f64::from(requested), "authoritativeTotalSlots": total});
         let write = HostWrite {
             kind: HostWriteKind::LoadoutUnlock,
-            target: rifts_seam::AccountId(account.id.to_string()),
-            summary: rifts_seam::Json(summary.to_string()),
+            target: rustic_rifts_seam::AccountId(account.id.to_string()),
+            summary: rustic_rifts_seam::Json(summary.to_string()),
         };
         if let Err(e) = ctx.shared.rifts().guard().record_host_write(auth, write).await {
             tracing::error!("[HostWrite] tag failed kind=LOADOUT_UNLOCK target={target:?}: {e}");

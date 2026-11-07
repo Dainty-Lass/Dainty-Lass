@@ -1,6 +1,6 @@
 {
   "name": "dainty-lass-launcher",
-  "productName": "DaintyLass Launcher",
+  "productName": "Dainty Lass Launcher",
   "version": "2.0.0-beta",
   "description": "The Tauri CLI for the two desktop apps. Their scripts, isolation hook and bridge tests are MIT in dainty-lass's launcher/ (RD27), run through scripts/lass.ts.",
   "private": true,

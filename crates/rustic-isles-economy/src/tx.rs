@@ -6,7 +6,7 @@
 
 use std::sync::{Arc, Mutex, PoisonError};
 
-use module_api::ActorContext;
+use dainty_module_api::ActorContext;
 use rustic_isles_store::{AccountId, IslesStore, RepoError, Repositories, Tx};
 
 /// `f` in one `account_write` (with `account`) or plain `write`; an `Err` from `f` rolls everything back.

@@ -13,11 +13,11 @@ fuzz_target!(|headers: Vec<(&[u8], &[u8])>| {
             map.append(name, value);
         }
     }
-    let named = proxy::connection_tokens(&map);
-    let forwarded = proxy::end_to_end(&map, |_| false);
+    let named = dainty_proxy::connection_tokens(&map);
+    let forwarded = dainty_proxy::end_to_end(&map, |_| false);
     for name in forwarded.keys() {
         let name = name.as_str();
-        assert!(!proxy::is_hop_by_hop(name), "{name} is hop-by-hop");
+        assert!(!dainty_proxy::is_hop_by_hop(name), "{name} is hop-by-hop");
         assert!(!named.contains(name), "{name} is named by Connection");
     }
 });

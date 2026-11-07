@@ -2,9 +2,9 @@
 //! code and a JSON body, so the fuzz target `launcher_net` compiles them in without the network stack.
 //! Every value comes from the network: anything unexpected is refused or dropped, never trusted.
 
-use protocol::manifest::{MAX_RUNTIME_FILE_BYTES, RUNTIME_FILE_NAMES, runtime_file_slot};
-use protocol::status::{clean_text, iso_date};
-use protocol::text::{is_unsafe_char, js_length, js_trim};
+use dainty_protocol::manifest::{MAX_RUNTIME_FILE_BYTES, RUNTIME_FILE_NAMES, runtime_file_slot};
+use dainty_protocol::status::{clean_text, iso_date};
+use dainty_protocol::text::{is_unsafe_char, js_length, js_trim};
 use serde_json::{Map, Value};
 
 use crate::bridge::types::{ErrorCode, NewsItem, RuntimeFileInfo};
@@ -39,7 +39,9 @@ pub fn read_register(status: u16, body: Option<&Value>) -> RegisterResult {
     let message = body.and_then(|body| clean_text(body.get("message"), 200));
     match status {
         200 => match body.and_then(|body| body.get("UUK")).and_then(Value::as_str) {
-            Some(key) if protocol::account::is_plausible_account_key(key) => RegisterResult::Ok { key: key.to_owned() },
+            Some(key) if dainty_protocol::account::is_plausible_account_key(key) => {
+                RegisterResult::Ok { key: key.to_owned() }
+            }
             _ => failed(ErrorCode::ServerError),
         },
         400 => {
@@ -108,7 +110,7 @@ pub fn read_user_info(status: u16, body: Option<&Value>) -> Result<UserInfo, (Er
 // ---------------------------------------------------------------- the game runtime
 
 /// The runtime a server offers, as the launcher keeps it (Reforged's `RuntimeManifest`). Read more
-/// loosely than `protocol::manifest::RuntimeManifest` is written: `build.name` is not read and an
+/// loosely than `dainty_protocol::manifest::RuntimeManifest` is written: `build.name` is not read and an
 /// unreadable changelist is null, as the TypeScript has it.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RuntimeManifest {

@@ -1,17 +1,17 @@
 //! Realm hosting and joining tests (`realms` feature, RF7): drives `Controller::realm_host`,
-//! `realm_join`, `realm_stop`, and `realm_get` against a scripted [`TransportAbi`] (the MIT `rifts-host` links its
+//! `realm_join`, `realm_stop`, and `realm_get` against a scripted [`TransportAbi`] (the MIT `rustic-rifts-host` links its
 //! transport in, RD27, so there is no C ABI to fake), checks RD9 (no injection or loader `.ini` written by realms,
 //! and leftover loader files refused by both `realm_host` and `play`), and verifies that the account key in
-//! `KeyStore` never reaches `rifts-host`, `p2p-sessions/`, or the dedicated server launch environment.
+//! `KeyStore` never reaches `rustic-rifts-host`, `p2p-sessions/`, or the dedicated server launch environment.
 
 use std::sync::atomic::{AtomicBool, AtomicI32, Ordering};
 
-use rifts_host::{
+use rustic_rifts_host::{
     ADMISSION_PUBLIC_KEY_FILE, DefaultHostBackend, Handle, HostBackend, HostError, HostOpen, JoinOpen,
     NoopServerSpawner, ReadyState, SESSION_FILES, ServerSpawner, SessionResult, Signal, TRANSPORT_DLL, TransportAbi,
     TransportLoader, sha256_file,
 };
-use rifts_seam::{AccountId, PeerId, Secret};
+use rustic_rifts_seam::{AccountId, PeerId, Secret};
 
 use super::*;
 use crate::bridge::types::{RealmKind, RealmOutcome, RealmState};

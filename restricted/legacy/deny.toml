@@ -1,5 +1,5 @@
-# cargo-deny, on DaintyLass's rules (rust/deny.toml there): licences that can ship in an AGPL-3.0-only release,
-# known advisories, and only crates.io, the silentspud registry and, until it serves them, DaintyLass's repository.
+# cargo-deny, on Dainty Lass's rules (rust/deny.toml there): licences that can ship in an AGPL-3.0-only release,
+# known advisories, and only crates.io, the silentspud registry and, until it serves them, Dainty Lass's repository.
 [graph]
 all-features = true
 
@@ -34,7 +34,7 @@ multiple-versions = "warn"
 wildcards = "deny"
 allow-wildcard-paths = true
 deny = [
-    # rustls with aws-lc-rs everywhere, as in DaintyLass (D10); no OpenSSL.
+    # rustls with aws-lc-rs everywhere, as in Dainty Lass (D10); no OpenSSL.
     { name = "openssl-sys" },
 ]
 

@@ -7,7 +7,7 @@
 mod common;
 
 use common::{player, system, targets};
-use module_api::NodeId;
+use dainty_module_api::NodeId;
 use rustic_isles_auth::{
     AuthStore, Channel, CreateOutcome, EmailCode, ErasureCounts, ExchangeCode, GameAccount, Identity, LauncherAccount,
     NewLauncherAccount, Purpose, RefreshSession, Status,

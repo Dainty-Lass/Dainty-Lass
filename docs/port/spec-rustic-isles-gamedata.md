@@ -6,7 +6,7 @@
 > and on the Gauntlet host, and the served progression config) and holds the eight backend game-data generators that
 > `reforged-host gamedata` runs. Its source is dainty-restricted's `modules/rustic-isles/crates/isles-core`
 > (`src/areas/game_data.rs`, `src/game_data/{progression_config,tuning,gauntlet,patchnotes,generators}.rs`,
-> `src/game_data/src_tokens.txt`) and the generator mapping in restricted's `crates/host`, all AGPL-3.0-only with
+> `src/game_data/src_tokens.txt`) and the generator mapping in restricted's `crates/dainty-host`, all AGPL-3.0-only with
 > Mystic Paradox's section 7 terms; an implementer who never sees them writes the MIT crate from this document alone.
 >
 > Everything below is stated from observable contracts: the routes and their bytes, the input and output file
@@ -33,8 +33,8 @@
 | `docs/inventory/routes-1.14.7.md` (RU3a) | The 29 `game-data` rows, their gates (`HasParadoxBackendAuth` or none) and statuses |
 | `docs/ru5-game-data.md`, `docs/GENERATING_GAME_DATA.md` | The route group, the scripts' disposition, the generator inputs and the host's steps |
 | `tests/golden/game_data.json` (48 cases, `now` = `1793016000000`) | Read to confirm status, content type and body shape only; not copied (§10.1) |
-| `tests/gamedata_generators.rs`, restricted `crates/host/tests/gamedata.rs` | The generators' byte-for-byte check against the Node scripts on synthetic fixtures; the host's step runner |
-| dainty-lass `crates/hostkit/src/gamedata.rs`, `hooks.rs`, `paths.rs` (MIT) | The `reforged-host gamedata` orchestration this crate plugs into (§5.10) |
+| `tests/gamedata_generators.rs`, restricted `crates/dainty-host/tests/gamedata.rs` | The generators' byte-for-byte check against the Node scripts on synthetic fixtures; the host's step runner |
+| dainty-lass `crates/dainty-hostkit/src/gamedata.rs`, `hooks.rs`, `paths.rs` (MIT) | The `reforged-host gamedata` orchestration this crate plugs into (§5.10) |
 
 ### 1.2 Per file: category, data class, where it goes
 
@@ -49,7 +49,7 @@ Every source file is Category B (a port of Paradox TypeScript) or written inside
 | `game_data/progression_config.rs` | B | Four window constants: functional contract | §3.7 |
 | `game_data/generators.rs` | B (eight scripts) | Output shapes, rules, client tab tags and price rules (contract); the Reward Cache selection of 178 catalog ids with prices and overrides and two family orders (**authored data over game identifiers**, §5.4) | §4, §5 |
 | `game_data/src_tokens.txt` | — | 2946 tokens mechanically extracted from `ParadoxBackend/src` (§6): **derived from AGPL source**, its effective part game identifiers | §6; not carried |
-| restricted `crates/host/src/lib.rs` (`execute_rust_generator`) | A (RB11 glue) | Which export and capture paths each step reads | §5.10 |
+| restricted `crates/dainty-host/src/lib.rs` (`execute_rust_generator`) | A (RB11 glue) | Which export and capture paths each step reads | §5.10 |
 | `game_data/{loader,season_window}.rs`, `game_data.rs` | — | Core's (spec-rustic-isles-core §8) | Not here |
 | `game_data/golden.rs`, `tests/golden/*` | A | Recorded Node answers | Stay in restricted (§10.1) |
 | `areas/inventory/progression_config.rs` | B | Inventory's reader of the same file | Unit 7 (economy), not here |
@@ -295,7 +295,7 @@ season60,season43"`: `season60` is added twice. A config whose only path is `Exp
 
 ### 4.1 Inputs (exported from the host's own install or supplied by the host; never committed)
 
-Layout as hostkit's `Paths` (dainty-lass `crates/hostkit/src/paths.rs`): `raw_game_data` (the supplied sources),
+Layout as hostkit's `Paths` (dainty-lass `crates/dainty-hostkit/src/paths.rs`): `raw_game_data` (the supplied sources),
 `backend_game_data` (outputs), `exports` (`Items_Analysis`), `store_captures` (`DauntlessEndpointDocumentation`).
 
 | Input | Where | Format and fields read |
@@ -642,13 +642,13 @@ A step that runs two generators reports both texts joined with `\n`; the first e
 
 ### 5.10 The `reforged-host gamedata` entry
 
-The command and its orchestration are dainty-lass hostkit's (MIT, `crates/hostkit/src/gamedata.rs`,
+The command and its orchestration are dainty-lass hostkit's (MIT, `crates/dainty-hostkit/src/gamedata.rs`,
 `commands/gamedata.rs`): it builds the progression source from the export, fetches the pinned store captures,
 decides each step's skip (missing export or source), seeds examples where a generator needs an existing file, picks
 `LadyLuckGenerate` when `raw/ladyluck_store.source.json` exists and `LadyLuckEnrich` otherwise, and calls
 `HostHooks::run_generator(paths, step)` for each step. This crate provides what that hook runs:
 `generators::run(step, paths, inputs) -> Result<String, String>` (§8.2) for every backend step. The host's hook
-(restricted's `crates/host` today) answers hostkit with code 0 and the report's last non-empty trimmed line (first
+(restricted's `crates/dainty-host` today) answers hostkit with code 0 and the report's last non-empty trimmed line (first
 300 characters) on success, code 1 and the error's first non-empty trimmed line on failure; hostkit prints
 `- {title}: ok` or `- {title}: failed: {line}` and runs the other steps.
 
@@ -760,7 +760,7 @@ One crate, `rustic-isles-gamedata` (lib), MIT, in dainty-lass `crates/rustic-isl
 
 Nothing recorded and nothing exported: `tests/golden/game_data.json`, `progression_config.synthetic.json` and any
 example or capture stay in restricted. The unit tests beside the restricted files, `tests/gamedata_generators.rs` and
-restricted `crates/host/tests/gamedata.rs` are **authored test code**: described here only. Every fixture the MIT
+restricted `crates/dainty-host/tests/gamedata.rs` are **authored test code**: described here only. Every fixture the MIT
 tests use is synthetic (made-up ids such as `CURRENCY_RAMS`, `WP_SWORD_00`, `/Game/UI/Icons/Icon_0.Icon_0`), never a
 row of a real catalog, capture or plan (AGENTS.md "Nothing from the game is committed").
 

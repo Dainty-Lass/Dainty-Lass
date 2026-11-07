@@ -4,8 +4,8 @@
 //! The host kit's own `/reforged/api/*` calls (admin spec §9): loopback, no gateway stamp, the host key.
 
 use axum::response::Response;
+use dainty_module_api::{Actor, ActorContext};
 use http::{HeaderMap, StatusCode};
-use module_api::{Actor, ActorContext};
 use rustic_isles::Call;
 use rustic_isles_store::repo::auth::{AccessChange, LauncherAccountRecord, OperationalStatus};
 use rustic_isles_store::repo::reforged::InviteRecord;
@@ -72,7 +72,7 @@ pub async fn create_invite(mut call: Call) -> Response {
     let body = body.as_ref();
     let uses = match util::field(body, "uses") {
         None | Some(Value::Null) => Some(1),
-        value => service_kit::js::safe_integer(value).filter(|n| (1..=1000).contains(n)),
+        value => dainty_service_kit::js::safe_integer(value).filter(|n| (1..=1000).contains(n)),
     };
     let name = util::field(body, "name");
     let (Some(uses), true) = (uses, name.is_none_or(Value::is_string)) else {

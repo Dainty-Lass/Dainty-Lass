@@ -10,14 +10,14 @@
 use std::sync::Arc;
 
 use arbitrary::Arbitrary;
-use gateway::modules::{ManifestDefaults, ModuleRoutes, NODE_LINKS};
-use gateway::policy::{HOST_ONLY_PREFIXES, canonical_path, split_target, unwrap_origin};
+use dainty_gateway::modules::{ManifestDefaults, ModuleRoutes, NODE_LINKS};
+use dainty_gateway::policy::{HOST_ONLY_PREFIXES, canonical_path, split_target, unwrap_origin};
 use http::{HeaderMap, HeaderName, HeaderValue};
 use libfuzzer_sys::fuzz_target;
-use module_api::registrar::RouteSpec;
-use module_api::stub::StubModule;
-use module_api::{CorePlugin, GameModule, Registration};
-use protocol::invite::reforged_version;
+use dainty_module_api::registrar::RouteSpec;
+use dainty_module_api::stub::StubModule;
+use dainty_module_api::{CorePlugin, GameModule, Registration};
+use dainty_protocol::invite::reforged_version;
 
 #[derive(Arbitrary, Debug)]
 struct Input<'a> {

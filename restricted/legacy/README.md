@@ -1,6 +1,6 @@
 # dainty-legacy
 
-Old installs, carried into [DaintyLass](https://git.silentspud.com/silentspud/dainty-lass). DaintyLass serves one
+Old installs, carried into [Dainty Lass](https://git.silentspud.com/silentspud/dainty-lass). Dainty Lass serves one
 game, Dauntless 1.14.7 on [rustic-isles](https://git.silentspud.com/silentspud/rustic-isles); this plugin is what is
 left of everything older:
 
@@ -17,8 +17,8 @@ what it skipped and why, and what it left behind; `--dry-run` writes nothing. So
 
 ## Running it
 
-It is a DaintyLass plugin (`ModuleKind::Plugin`, id `legacy`, for 1.14.7) that runs as its own process (DD5), so its
-AGPL code never links into DaintyLass's MIT core. From the host's console, while DaintyLass runs:
+It is a Dainty Lass plugin (`ModuleKind::Plugin`, id `legacy`, for 1.14.7) that runs as its own process (DD5), so its
+AGPL code never links into Dainty Lass's MIT core. From the host's console, while Dainty Lass runs:
 
 ```text
 dainty-host legacy import revived      /srv/revived/metagame.db --env-file /srv/dainty/.workspace/config/backend.env
@@ -27,7 +27,7 @@ dainty-host legacy import offline-save /home/sam/Sam.drsave     --to /srv/dainty
 
 `dainty-host legacy import <kind>` is `module run legacy import-<kind>`; only the console may run one, not the admin
 API. The same executable runs an import from the command line, which is how an old Node kit is upgraded before
-DaintyLass first starts:
+Dainty Lass first starts:
 
 ```text
 dainty-legacy import reforged /srv/old-kit --to /srv/dainty/isles.db --db-tool /srv/dainty/dainty-host
@@ -46,7 +46,7 @@ Then run `dainty-host setup`. The options:
   own location, so name the one in the new install. `--isles-db` is refused since isles-db was retired (RD27).
 
 Every path is absolute. Only SQLite 1.4.4 databases are read: a 1.4.4 metagame that ran on Postgres is moved to
-SQLite first (DaintyLass's `store::transfer::move_database`).
+SQLite first (Dainty Lass's `store::transfer::move_database`).
 
 ## Building
 
@@ -56,7 +56,7 @@ cargo clippy --workspace --all-targets --locked -- -D warnings
 cargo test --workspace --locked --no-fail-fast
 ```
 
-The toolchain is pinned in `rust-toolchain.toml`. DaintyLass's `module-api` and `store` are path dependencies on the
+The toolchain is pinned in `rust-toolchain.toml`. Dainty Lass's `module-api` and `store` are path dependencies on the
 monorepo root's crates (`../../crates/`). Fuzz targets are in `fuzz/` (`cargo +nightly fuzz run
 database_readers`); the security checklist is [docs/security/importer.md](docs/security/importer.md), and what
 dainty-lass removes now that this exists is [docs/dainty-lass-handover.md](docs/dainty-lass-handover.md).
@@ -65,13 +65,13 @@ dainty-lass removes now that this exists is [docs/dainty-lass-handover.md](docs/
 
 | Path | What it is |
 | --- | --- |
-| `crates/legacy-import` | The importers: `revived` (1.4.4 databases and saves), `reforged` (Node kits), `target` (1.14.7 accounts), `cli` |
-| `crates/legacy-import/sql`, `migrations` | Dauntless Revived's frozen Drizzle history and Diesel baseline, byte for byte |
-| `crates/legacy` | The plugin and the `dainty-legacy` executable |
+| `crates/dainty-legacy-import` | The importers: `revived` (1.4.4 databases and saves), `reforged` (Node kits), `target` (1.14.7 accounts), `cli` |
+| `crates/dainty-legacy-import/sql`, `migrations` | Dauntless Revived's frozen Drizzle history and Diesel baseline, byte for byte |
+| `crates/dainty-legacy` | The plugin and the `dainty-legacy` executable |
 | `fuzz/` | `cargo fuzz` targets, a workspace of its own |
 
 ## Licence
 
 `AGPL-3.0-only` ([LICENSE](LICENSE)), with Mystic Paradox's additional terms for its material
-([ADDITIONAL_TERMS.md](ADDITIONAL_TERMS.md)) and DaintyLass's MIT notice for the host-kit code ported here
+([ADDITIONAL_TERMS.md](ADDITIONAL_TERMS.md)) and Dainty Lass's MIT notice for the host-kit code ported here
 ([LICENSE-MIT.txt](LICENSE-MIT.txt)). Where each part comes from: [NOTICE.md](NOTICE.md).

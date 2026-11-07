@@ -1,0 +1,55 @@
+[package]
+name = "dainty-network"
+description = "The network core plugin (DD16-DD18): node links over mutual TLS (DN3), the directory of accounts, homes and usernames (DN4), and the home API with session tickets (DN5)"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+# Born MIT (DD26): written here from nothing, from none of the upstream trees
+license = "MIT"
+repository.workspace = true
+publish.workspace = true
+
+[features]
+default = ["directory", "log-ship"]
+# The directory and its tables. The gateway takes the node links without it, so it doesn't build Diesel (DN3)
+directory = ["dep:diesel", "dep:diesel_migrations", "dep:dainty-protocol", "dep:dainty-store"]
+# The change log shipped to a peer node (DH7): PeerBucket and the folder a peer keeps. Pulls in `store` through history-ship
+log-ship = ["dep:dainty-history-ship"]
+
+[dependencies]
+# Ed25519 for session tickets and the CSPRNG for their ids (DN5); aws-lc-rs is already the tree's crypto
+aws-lc-rs.workspace = true
+base64.workspace = true
+diesel = { workspace = true, optional = true }
+diesel_migrations = { workspace = true, optional = true }
+bytes = "1"
+dainty-history-ship = { workspace = true, optional = true }
+http-body-util.workspace = true
+hyper.workspace = true
+hyper-util.workspace = true
+# By path: the workspace entry names registry = "silentspud", which .cargo/config.toml doesn't define yet
+dainty-module-api = { path = "../../crates/dainty-module-api" }
+dainty-protocol = { workspace = true, optional = true }
+# The cluster CA and node certificates, made as the gateway makes its own (no OpenSSL). The same versions
+# as crates/dainty-gateway, until the workspace table lists them
+rcgen = { version = "0.14.10", default-features = false, features = ["aws_lc_rs", "pem", "crypto", "x509-parser"] }
+rustls.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
+dainty-store = { workspace = true, optional = true }
+thiserror.workspace = true
+time = { version = "0.3.55", features = ["parsing"] }
+tokio = { workspace = true, features = ["rt", "time", "net", "sync", "io-util"] }
+tokio-rustls = { version = "0.26", default-features = false, features = ["aws_lc_rs", "tls12"] }
+tracing.workspace = true
+x509-parser = "0.18.1"
+
+[dev-dependencies]
+tempfile.workspace = true
+tokio = { workspace = true, features = ["macros", "rt-multi-thread", "time"] }
+# REFORGED_TEST_POSTGRES_URL, for the Postgres half of the tests
+url.workspace = true
+
+[lints]
+workspace = true

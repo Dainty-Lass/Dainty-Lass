@@ -29,7 +29,7 @@ pub fn list_entitlements(
             activated: e.activated_date,
         })
         .collect();
-    list.sort_by(|a, b| service_kit::collate::locale_compare(&a.name, &b.name));
+    list.sort_by(|a, b| dainty_service_kit::collate::locale_compare(&a.name, &b.name));
     Ok(list)
 }
 
@@ -57,7 +57,7 @@ pub fn grant_entitlements_in_transaction(
     if let Some((name, _)) = grants.iter().find(|(name, _)| !is_valid_entitlement_name(name)) {
         return Err(RepoError::Data(format!(
             "Refusing entitlement grant for {account}: unsafe or missing entitlement name {}",
-            service_kit::jsjson::stringify(&Value::String(name.clone()))
+            dainty_service_kit::jsjson::stringify(&Value::String(name.clone()))
         )));
     }
     let now = now_iso();

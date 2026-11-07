@@ -5,11 +5,11 @@
 #![no_main]
 
 use libfuzzer_sys::fuzz_target;
-use module_api::chat::Jid;
-use module_api::frame::{self, MAX_FRAME, MAX_HELLO_FRAME, ModuleAnswer, ToHost, ToModule, check_hello};
-use module_api::ids::{ModuleId, Sha256Hex};
-use module_api::stub::StubModule;
-use module_api::{EventName, GameModule, GameVersion, GlobalId};
+use dainty_module_api::chat::Jid;
+use dainty_module_api::frame::{self, MAX_FRAME, MAX_HELLO_FRAME, ModuleAnswer, ToHost, ToModule, check_hello};
+use dainty_module_api::ids::{ModuleId, Sha256Hex};
+use dainty_module_api::stub::StubModule;
+use dainty_module_api::{EventName, GameModule, GameVersion, GlobalId};
 use serde::Serialize;
 use serde::de::DeserializeOwned;
 

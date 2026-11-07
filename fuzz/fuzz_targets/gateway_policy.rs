@@ -5,7 +5,7 @@
 //! and nothing it lets through can reach the host's own routes.
 #![no_main]
 
-use gateway::policy::{
+use dainty_gateway::policy::{
     Decision, FeedKind, HOST_ONLY_HEADERS, HOST_ONLY_PREFIXES, PUBLIC_REFORGED_API, Upstream, canonical_path,
     check_path, classify, split_target, under, unwrap_origin,
 };

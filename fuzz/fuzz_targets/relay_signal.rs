@@ -7,8 +7,8 @@
 #![no_main]
 
 use libfuzzer_sys::fuzz_target;
-use rifts_relay::rules::{MAX_SIGNAL_BYTES, SignalKind, filter_relay_only, parse_ice_signal};
-use rifts_relay::wire::js_trim;
+use rustic_rifts_relay::rules::{MAX_SIGNAL_BYTES, SignalKind, filter_relay_only, parse_ice_signal};
+use rustic_rifts_relay::wire::js_trim;
 
 const KINDS: [SignalKind; 3] = [
     SignalKind::Description,

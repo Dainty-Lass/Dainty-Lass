@@ -3,7 +3,7 @@
 This specification is the clean-room input for **DL4b** (`docs/dainty-lass-plan.md`, decision **DD26**). It:
 
 1. Classifies every source file under `launcher/src-tauri/src/` across three provenance groups (**Born-MIT**, **DL4 Rewrite / Freeza-Consent**, and **AGPL DR Core**).
-2. Defines the crate boundary and dependency seams between the new MIT crate (`crates/launcher-kit`, or equivalent workspace member with `license = "MIT"`) and the AGPL-3.0-only `launcher/src-tauri` binary/Tauri shell.
+2. Defines the crate boundary and dependency seams between the new MIT crate (`crates/dainty-launcher-kit`, or equivalent workspace member with `license = "MIT"`) and the AGPL-3.0-only `launcher/src-tauri` binary/Tauri shell.
 3. Specifies the complete clean-room behaviour, public types, constants, traits, function signatures, bridge commands/events, file-system invariants, RD9 no-injection rules, and test expectations for the 8 **DL4 Rewrite** modules and the **Born-MIT / DL4** modules that interact with them.
 
 > **Clean-room rule for DL4b:** Every file placed in the MIT crate must be written from this specification (or moved intact if Born-MIT with zero external derivation) and must contain **no** source comments, identifiers, or docstrings naming external launcher repositories, commits, or TypeScript source files.
@@ -14,7 +14,7 @@ This specification is the clean-room input for **DL4b** (`docs/dainty-lass-plan.
 
 All 95 `.rs` files in `launcher/src-tauri/src/` are classified below into three categories:
 
-- **Born-MIT**: Written originally for DaintyLass (rows RD9, DU2–DU5, DE2–DE5, DN7, DH3b, DH6, RF7, RD26) without derivation from Dauntless Revived or external launcher code. Moves into the MIT crate (or stays at the Tauri boundary if it is a `#[tauri::command]` wrapper, with its pure logic in the MIT crate).
+- **Born-MIT**: Written originally for Dainty Lass (rows RD9, DU2–DU5, DE2–DE5, DN7, DH3b, DH6, RF7, RD26) without derivation from Dauntless Revived or external launcher code. Moves into the MIT crate (or stays at the Tauri boundary if it is a `#[tauri::command]` wrapper, with its pure logic in the MIT crate).
 - **DL4 Rewrite (Freeza-Consent / Clean-Room)**: The 8 module groups specified in Section 2 (`net/runtime_files`, `net/verify`, `platform/hostkit`, `platform/hostserver`, `platform/requirements`, `platform/dialogs`, `controller/host` + `host_off`, `controller/runtime`). Rewritten from Section 2 into the MIT crate under `license = "MIT"`.
 - **AGPL DR Core**: Files derived from Dauntless Revived at `e1c5fec` / `24b7624` (or keeping its state-machine/downloader/HTTP/relay/keystore structure). These remain in `launcher/src-tauri` under `AGPL-3.0-only`.
 
@@ -127,7 +127,7 @@ During the file-by-file provenance audit of the files listed in row DL4, seven f
 | `controller/loader.rs` | Born-MIT | — | MIT crate | RD9 `LoaderSession` lifecycle methods on controller (`loader_leftovers`, `clean_loader_session`, `begin_loader_session`, `end_loader_session`). Spec in §3.4. |
 | `controller/guarded.rs` | Born-MIT | `server-gui` | MIT crate | Guarded admin action list/approve/cancel (`guarded_list`, `guarded_decide`, DD23, DH6). Spec in §3.5. |
 | `controller/install.rs` | Born-MIT | — | MIT crate | Epic version installer (`EpicGate`, `Installs`, `game_install_start/pause/resume/cancel/get`, DE5). Spec in §3.8. |
-| `controller/realms.rs` | Born-MIT | `realms` | MIT crate | Local realm hosting and joining over `rifts-host` (`RealmsState`, `realm_host`, `realm_join`, `realm_stop`, `realm_get`, RF7, DU5). Spec in §3.6. |
+| `controller/realms.rs` | Born-MIT | `realms` | MIT crate | Local realm hosting and joining over `rustic-rifts-host` (`RealmsState`, `realm_host`, `realm_join`, `realm_stop`, `realm_get`, RF7, DU5). Spec in §3.6. |
 | `controller/realms_off.rs` | Born-MIT | `not(realms)` | MIT crate | Stub returning `ErrorCode::NotInThisBuild` when `realms` is disabled. Spec in §3.6. |
 | `controller/region.rs` | Born-MIT | — | MIT crate | `region_ping` controller entry point (DN7). Spec in §3.9. |
 | `controller/versions.rs` | Born-MIT | — | MIT crate | `game_version_list` and `joined_servers` collector (DE4). Spec in §3.10. |
@@ -144,7 +144,7 @@ During the file-by-file provenance audit of the files listed in row DL4, seven f
 
 To allow the MIT crate (e.g. `launcher-kit`, `license = "MIT"`) to compile without depending on the AGPL `launcher` (`src-tauri`) crate:
 
-1. **Direction of dependency**: `launcher` (`src-tauri`, AGPL-3.0-only) depends on `launcher-kit` (MIT), `protocol` (MIT), `epic` (MIT), `module-api` (MIT), `service-kit` (MIT), `server-controller` (MIT), `host` (MIT), `admin` (MIT), `rifts-host` (MIT), `rifts-seam` (MIT). `launcher-kit` **never** depends on `launcher`.
+1. **Direction of dependency**: `launcher` (`src-tauri`, AGPL-3.0-only) depends on `launcher-kit` (MIT), `protocol` (MIT), `epic` (MIT), `module-api` (MIT), `service-kit` (MIT), `server-controller` (MIT), `host` (MIT), `admin` (MIT), `rustic-rifts-host` (MIT), `rustic-rifts-seam` (MIT). `launcher-kit` **never** depends on `launcher`.
 2. **Shared Wire Types & Pins**: `bridge::types`, `bridge::spec`, `bridge::modules`, `core::pins`, `core::text`, and `core::i18n` live in `launcher-kit` (and are re-exported by `launcher::bridge::*` and `launcher::core::*` so existing imports in `src-tauri` continue to work).
 3. **HTTP / Host-API Seam for `net::runtime_files`, `net::regionping`, and `net::versions`**:
    - Define a lightweight MIT transport trait or struct in `launcher-kit` (or pass callbacks/trait objects implemented by `src-tauri`'s `net::http`, `net::http::to_file`, `net::pinned`, and `net::hostapi`):
@@ -465,13 +465,13 @@ pub async fn check_game_exe(
 
 ### 2.3 Module 3: `platform::hostkit` (`hostkit.rs`, `hostkit/parse.rs`, `hostkit/tests.rs`)
 
-Inspects a DaintyLass checkout ("workspace"), discovers the host toolchain (Visual Studio / MSBuild via `vswhere.exe` and Rust `cargo`), scans Dumper-7 outputs, imports CppSDK headers/functions into `ParadoxRuntime`, reads `.workspace/config/host.toml` (or legacy `host.json`), and runs logged build/host commands.
+Inspects a Dainty Lass checkout ("workspace"), discovers the host toolchain (Visual Studio / MSBuild via `vswhere.exe` and Rust `cargo`), scans Dumper-7 outputs, imports CppSDK headers/functions into `ParadoxRuntime`, reads `.workspace/config/host.toml` (or legacy `host.json`), and runs logged build/host commands.
 
 #### Constants
 - `pub const RUNTIME_FILE_NAMES: [&str; 2] = ["Rustic-Isles.dll", "winmm.dll"]`
 - `pub const BACKEND_GAME_DATA: [&str; 7] = ["progression_config.json", "slayers_path.json", "slayers_path_definitions.json", "ladyluck_store.json", "platinum_store.json", "reward_cache_store.json", "inventory_storage_policy.json"]`
 - `pub const DIRECTOR_GAME_DATA: [&str; 7] = ["player_hunts_table.json", "matchmaker_hunts_table.json", "arena_easy_matchmaker_hunts.json", "arena_hard_matchmaker_hunts.json", "arena_elite_matchmaker_hunts.json", "arena_hard_matchmaker_hunts_new.json", "arena_elite_matchmaker_hunts_new.json"]`
-- `pub const EXPORT_FLAGS: &str = "# Written by the DaintyLass launcher (Host page). See docs/sdk-and-game-data.md.\r\nEXPORT_CATALOG=1\r\nEXPORT_SLAYERS_PATH=1\r\nEXPORT_HUNTS=1\r\nEXPORT_STORE_RUNTIME=1\r\nEXPORT_PROGRESSION=1\r\nEXPORT_COMBAT=0\r\nEXPORT_SKINS=0\r\nEXPORT_SKINS_RESOLVE_STRINGTABLE=0\r\nEXPORT_WEAPON_SLOTS=0\r\nEXPORT_TABLE_INVENTORY=0\r\nEXPORT_CELLS=0\r\nEXPORT_DROP_TABLES=0\r\nEXPORT_CURRENCY_NAMES=0\r\n"`
+- `pub const EXPORT_FLAGS: &str = "# Written by the Dainty Lass launcher (Host page). See docs/sdk-and-game-data.md.\r\nEXPORT_CATALOG=1\r\nEXPORT_SLAYERS_PATH=1\r\nEXPORT_HUNTS=1\r\nEXPORT_STORE_RUNTIME=1\r\nEXPORT_PROGRESSION=1\r\nEXPORT_COMBAT=0\r\nEXPORT_SKINS=0\r\nEXPORT_SKINS_RESOLVE_STRINGTABLE=0\r\nEXPORT_WEAPON_SLOTS=0\r\nEXPORT_TABLE_INVENTORY=0\r\nEXPORT_CELLS=0\r\nEXPORT_DROP_TABLES=0\r\nEXPORT_CURRENCY_NAMES=0\r\n"`
 - `pub const DUMPER_OUTPUT_ROOT: &str = "C:\\Dumper-7"`
 - `pub const HOST_BINARY: &str = "reforged-host.exe"` (Windows) / `"reforged-host"` (non-Windows)
 - `pub const MAX_MULTIPLIER: f64 = 100.0` (in `parse.rs`)
@@ -1078,7 +1078,7 @@ Implements **RD9** (zero process injection):
 
 ### 3.5 Local Realms (`controller/realms.rs`, `controller/realms_off.rs`)
 
-- Links `rifts-host` and `rifts-seam` behind `#[cfg(feature = "realms")]`.
+- Links `rustic-rifts-host` and `rustic-rifts-seam` behind `#[cfg(feature = "realms")]`.
 - Enforces RD9 before loading `ParadoxTransport.dll`: refuses with `ErrorCode::LoaderLeftovers` if `loader_leftovers(&win64)` is non-empty, requires `ParadoxTransport.dll` and `ADMISSION_PUBLIC_KEY_FILE` in `Win64`, and verifies `ParadoxTransport.dll`'s SHA-256 against the offered `RuntimeManifest` (or local runtime).
 - Derives `AccountId` strictly from the public username (`[A-Za-z0-9._-]{1,64}`, defaulting to `"local-player"`), never reading `KeyStore`.
 
@@ -1113,11 +1113,11 @@ Implements **RD9** (zero process injection):
 
 ## 4. Post-cutover and Tauri App Updates (`Part B`, `T1`–`T5`, `DL4b`)
 
-### 4.1 `DaintyLass Manager` (`dainty-lass-manager`) & Default Workspace (`Part B`)
+### 4.1 `Dainty Lass Manager` (`dainty-lass-manager`) & Default Workspace (`Part B`)
 
 1. **Product & Binary Identity**:
-   - Client launcher binary: `dainty-lass-client` (`DaintyLass`).
-   - Server GUI binary (`--features server-gui`): `dainty-lass-manager` (`DaintyLass Manager`, identifier `com.silentspud.daintylass.manager`, separate `userData` folder).
+   - Client launcher binary: `dainty-lass-client` (`Dainty Lass`).
+   - Server GUI binary (`--features server-gui`): `dainty-lass-manager` (`Dainty Lass Manager`, identifier `com.silentspud.daintylass.manager`, separate `userData` folder).
 2. **Default Server Workspace (`ensure_host_workspace`)**:
    - In `server-gui` mode (or when `auto` is true), if no workspace is configured in `settings.json`, defaults to `<userData>/Server`, creates `.workspace/config`, `.workspace/data`, and `.workspace/logs`, and writes a starter `.workspace/config/host.toml` if absent so `HostKit::workspace_ok` is `true` on a fresh Manager install without requiring a git checkout.
 3. **`host_download_project` Retired**:
@@ -1163,9 +1163,9 @@ In addition to the module, history, and guarded-action commands, `spec::SERVER_G
 - When `/undaunted/api/verify` (or `/undaunted/api/register`) returns HTTP 403 with `"error": "account_banned"`:
   - `VerifyOutcome::Banned { reason }` marks `ServerView::key_rejected = true`, sets the snapshot's `last_error` to `LauncherError::new(ErrorCode::AccountBanned)` (with optional ban reason detail), and transitions the launcher phase to `Phase::Register` so the player sees the ban error banner and can enter a different key.
 
-### 4.6 Target Crate Split (`crates/launcher-kit` vs `launcher/src-tauri`, `DL4b`)
+### 4.6 Target Crate Split (`crates/dainty-launcher-kit` vs `launcher/src-tauri`, `DL4b`)
 
-1. **`crates/launcher-kit` (`license = "MIT"`, `Copyright (c) 2026 Silent Spud`)**:
+1. **`crates/dainty-launcher-kit` (`license = "MIT"`, `Copyright (c) 2026 Silent Spud`)**:
    - Contains the pure, clean-room and born-here launcher modules that do not depend on `tauri::AppHandle` or DR's `controller`/`keystore`/`proxy` core:
      - `bridge/spec.rs` (command/event/arg specifications and `arg_accepts` validator)
      - `bridge/modules.rs` (module panel validation and sanitisation)
@@ -1176,7 +1176,7 @@ In addition to the module, history, and guarded-action commands, `spec::SERVER_G
      - `platform/loader_session.rs` (RD9 `mystic_loader.ini` dump/export session management)
      - `platform/linux_runtime.rs` (Linux Wine/Proton/Heroic/Legendary discovery)
      - `platform/requirements.rs` (host prerequisite checks)
-   - Has **zero** normal dependencies on any AGPL crate (`launcher`, `host`, `rifts-host`, `rifts-seam`, `gateway`, `content`, `chat`, `isles-*`, `revived-1-4-4`).
+   - Has **zero** normal dependencies on any AGPL crate (`launcher`, `host`, `rustic-rifts-host`, `rustic-rifts-seam`, `gateway`, `content`, `chat`, `isles-*`, `revived-1-4-4`).
 2. **`launcher/src-tauri` (`license = "AGPL-3.0-only"`)**:
    - Thin Tauri shell and DR state machine (`controller`, `keystore`, `localproxy`, `singleinstance`, `game`, Tauri window/dialog/command glue) that depends on `launcher-kit` and re-exports its modules at their existing paths so all unit, integration, and fuzz targets compile and pass unchanged.
 
@@ -1184,14 +1184,14 @@ In addition to the module, history, and guarded-action commands, `spec::SERVER_G
 
 ## 5. Verification & Acceptance Checklist for DL4b
 
-1. **Zero Prohibited Provenance in `crates/launcher-kit`**:
-   - `crates/launcher-kit/Cargo.toml` sets `license = "MIT"`.
-   - Grepping `crates/launcher-kit` for `ReforgedLauncher`, `Dauntless-Reforged-Revival`, `dauntless-revived`, `mixutin`, `Freeza`, `e1c5fec`, `24b7624`, or `.ts` source citations returns **0 matches**.
-   - `cargo tree -e normal -p launcher-kit` has **zero** paths to any AGPL crate.
+1. **Zero Prohibited Provenance in `crates/dainty-launcher-kit`**:
+   - `crates/dainty-launcher-kit/Cargo.toml` sets `license = "MIT"`.
+   - Grepping `crates/dainty-launcher-kit` for `ReforgedLauncher`, `Dauntless-Reforged-Revival`, `dauntless-revived`, `mixutin`, `Freeza`, `e1c5fec`, `24b7624`, or `.ts` source citations returns **0 matches**.
+   - `cargo tree -e normal -p dainty-launcher-kit` has **zero** paths to any AGPL crate.
 2. **RD9 No-Injection Check**:
-   - Grepping both `crates/launcher-kit` and `src-tauri` for `OpenProcess`, `VirtualAllocEx`, `WriteProcessMemory`, `CreateRemoteThread`, or `LoadLibrary` injection calls returns **0 matches**.
+   - Grepping both `crates/dainty-launcher-kit` and `src-tauri` for `OpenProcess`, `VirtualAllocEx`, `WriteProcessMemory`, `CreateRemoteThread`, or `LoadLibrary` injection calls returns **0 matches**.
 3. **Bridge & Generated File Parity**:
-   - `cargo test -p launcher-kit` and `cargo test -p launcher` pass all unit and integration tests across default features, `--features server-gui`, and `--no-default-features`.
+   - `cargo test -p dainty-launcher-kit` and `cargo test -p dainty-launcher` pass all unit and integration tests across default features, `--features server-gui`, and `--no-default-features`.
    - `every_command_is_served_and_nothing_else`, `name_lists_are_the_enums`, and `generated_files_are_current` pass without diff under both default features and `--features server-gui`.
 4. **Fuzz Target Compatibility**:
    - `fuzz/fuzz_targets/launcher_host.rs` and `fuzz/fuzz_targets/launcher_region.rs` compile cleanly against `launcher-kit`.

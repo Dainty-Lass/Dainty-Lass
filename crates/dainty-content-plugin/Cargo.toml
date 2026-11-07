@@ -1,0 +1,36 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 Silent Spud
+[package]
+name = "dainty-content-plugin"
+description = "The content server as a library the core loads (RD27)"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license = "MIT"
+repository.workspace = true
+publish.workspace = true
+
+[lib]
+name = "dainty_content_plugin"
+crate-type = ["cdylib"]
+
+[dependencies]
+dainty-content.workspace = true
+# export_service! names them
+dainty-module-api.workspace = true
+dainty-service-plugin.workspace = true
+
+[dev-dependencies]
+# The parity harness content's own tests run (crates/dainty-content/tests/parity/harness.rs)
+axum.workspace = true
+dainty-content.workspace = true
+dainty-controller.workspace = true
+dainty-module-api.workspace = true
+serde_json.workspace = true
+dainty-service-kit.workspace = true
+sha2.workspace = true
+tempfile.workspace = true
+tokio = { workspace = true, features = ["macros", "rt-multi-thread", "net", "io-util", "time", "sync"] }
+
+[lints]
+workspace = true

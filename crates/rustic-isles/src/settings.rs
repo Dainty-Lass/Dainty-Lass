@@ -100,7 +100,7 @@ pub fn config_text(value: &Value) -> Option<String> {
     match value {
         Value::Null => None,
         Value::String(text) => Some(text.clone()),
-        other => Some(service_kit::jsjson::stringify(other)),
+        other => Some(dainty_service_kit::jsjson::stringify(other)),
     }
 }
 
@@ -269,7 +269,7 @@ impl AuthSettings for Settings {
     }
 }
 
-impl rifts_seam::Settings for Settings {
+impl rustic_rifts_seam::Settings for Settings {
     fn get(&self, name: &str) -> Option<&str> {
         Settings::raw(self, name)
     }

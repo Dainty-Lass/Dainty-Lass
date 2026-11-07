@@ -6,7 +6,7 @@
 
 use serde_json::{Map, Value};
 
-pub use module_api::chat::{HEADLINE_EVENT, Headline, HeadlineRecipient};
+pub use dainty_module_api::chat::{HEADLINE_EVENT, Headline, HeadlineRecipient};
 
 /// The outbox's event types and the names the 1.14.7 client reads.
 const NAMES: [(&str, &str); 7] = [
@@ -93,12 +93,12 @@ mod tests {
             &json!({"accountId": "bob", "action": "KICK"}),
         );
         assert_eq!(
-            service_kit::jsjson::stringify(&body),
+            dainty_service_kit::jsjson::stringify(&body),
             r#"{"eventId":"e1","eventType":"party.invited","schemaVersion":1,"occurredAt":"2026-10-20T12:00:00.000Z","partyId":"p1_QnVpbGQ=","partyRevision":3,"payload":{"accountId":"bob","action":"KICK"}}"#
         );
         let unknown = public_event("e2", "PARTY_GONE", "t", "p", 1, &json!(null));
         assert_eq!(
-            service_kit::jsjson::stringify(&unknown),
+            dainty_service_kit::jsjson::stringify(&unknown),
             r#"{"eventId":"e2","schemaVersion":1,"occurredAt":"t","partyId":"p","partyRevision":1,"payload":null}"#
         );
     }

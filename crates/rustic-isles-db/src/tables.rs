@@ -4,18 +4,18 @@
 //! The tables the tool copies, declared here from the store spec §4 (spec §14.2: the repositories' revision
 //! guards are wrong for a bulk copy), and the two things done with them: the one-transaction write of §9 and
 //! the read-back of §10.2. Columns are listed rather than `table!`-declared, and every value is bound
-//! (`store::portable`'s `?` numbering), so both engines run the same SQL.
+//! (`dainty_store::portable`'s `?` numbering), so both engines run the same SQL.
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
 
+use dainty_store::portable::quote_ident;
+use dainty_store::{AnyConnection, MultiBackend};
 use diesel::QueryableByName;
 use diesel::prelude::*;
 use diesel::query_builder::{BoxedSqlQuery, SqlQuery};
 use diesel::sql_types::{BigInt, Bool, Double, Nullable, Text};
 use serde_json::{Map, Value};
-use store::portable::quote_ident;
-use store::{AnyConnection, MultiBackend};
 
 use crate::{Area, DbError};
 
@@ -295,7 +295,7 @@ fn param(ty: Ty, value: Option<&Value>) -> Param {
 }
 
 fn query(text: &str, params: Vec<Param>) -> Result<BoxedSqlQuery<'static, MultiBackend, SqlQuery>, DbError> {
-    let text = store::portable::numbered(text).map_err(DbError::Config)?;
+    let text = dainty_store::portable::numbered(text).map_err(DbError::Config)?;
     let mut q = diesel::sql_query(text).into_boxed::<MultiBackend>();
     for p in params {
         q = match p {

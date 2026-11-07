@@ -11,8 +11,10 @@
 
 use std::sync::{Arc, Mutex};
 
-use module_api::network::{HomeError, InstanceRecord, JoinDecision, PublishedTicket, SessionTicket, TicketState};
-use module_api::{Actor, ActorContext, BoxFuture, GameVersion, GlobalId, HomeApi, NodeId, NodeIdentity};
+use dainty_module_api::network::{
+    HomeError, InstanceRecord, JoinDecision, PublishedTicket, SessionTicket, TicketState,
+};
+use dainty_module_api::{Actor, ActorContext, BoxFuture, GameVersion, GlobalId, HomeApi, NodeId, NodeIdentity};
 use rustic_isles::Settings;
 use rustic_isles_matchmaking::test_support::{FakeDirector, TestModule};
 use rustic_isles_matchmaking::{Ctx, HuntActivity, JoinParty, JoinRequest};

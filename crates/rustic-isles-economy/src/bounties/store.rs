@@ -7,9 +7,9 @@
 use std::collections::HashSet;
 use std::sync::Arc;
 
+use dainty_service_kit::{js, jsjson};
 use rustic_isles::{GameDataRoot, Settings, Shared};
 use serde_json::{Map, Value};
-use service_kit::{js, jsjson};
 
 use crate::bounties::platinum::effective_price;
 use crate::util::{iso, num, obj, sha_upper};

@@ -7,15 +7,15 @@
 use std::cmp::Ordering;
 
 use axum::response::Response;
+use dainty_module_api::{Actor, ActorContext};
+use dainty_service_kit::js::safe_integer;
 use http::StatusCode;
-use module_api::{Actor, ActorContext};
 use rustic_isles::Call;
 use rustic_isles_store::repo::reforged::{
     GuardHeartbeat, GuardRole, GuardSighting, GuardStatus, LauncherGuardSessionRecord,
 };
 use rustic_isles_store::{AccountId, RepoError};
 use serde_json::{Map, Value};
-use service_kit::js::safe_integer;
 
 use crate::admin::{AdminContext, admin_error, limit_of, page_of, skip_of, user_id_of};
 use crate::guard_manifest::{GuardPayload, PLATFORM, ed25519_verify, is_version};
@@ -119,7 +119,7 @@ impl Signals {
         let started = map
             .get("gameStartedAt")?
             .as_str()
-            .filter(|t| service_kit::js::date_parse(t).is_some())?;
+            .filter(|t| dainty_service_kit::js::date_parse(t).is_some())?;
         let digest = map.get("moduleSetDigest")?.as_str().filter(|d| util::is_hex(d, 64))?;
         let debugger = map.get("debuggerPresent")?.as_bool()?;
         let modules = match map.get("unexpectedModules") {
@@ -153,7 +153,7 @@ impl Signals {
     }
 
     fn js(&self, name: &str) -> String {
-        service_kit::js::string(self.raw.get(name))
+        dainty_service_kit::js::string(self.raw.get(name))
     }
 }
 
@@ -412,7 +412,7 @@ fn player(account: &AccountId) -> ActorContext {
 
 fn current_manifest(shared: &rustic_isles::Shared, channel: &str) -> Option<GuardPayload> {
     let (_, payload) = crate::updates::published_guard_manifest(shared, channel, PLATFORM)?;
-    let expires = service_kit::js::date_parse(&payload.expires_at)?;
+    let expires = dainty_service_kit::js::date_parse(&payload.expires_at)?;
     (expires > now_ms()).then_some(payload)
 }
 
@@ -507,7 +507,7 @@ pub async fn start(mut call: Call) -> Response {
 }
 
 fn whole_sequence(value: Option<&Value>) -> Option<u64> {
-    let n = service_kit::js::number(value);
+    let n = dainty_service_kit::js::number(value);
     (n.is_finite() && n.fract() == 0.0 && (1.0..=MAX_SAFE).contains(&n)).then(|| {
         #[allow(
             clippy::cast_possible_truncation,
@@ -534,7 +534,7 @@ pub async fn heartbeat(mut call: Call) -> Response {
     let session_id = util::str_field(body, "guardSessionId").unwrap_or("").to_owned();
     let sequence = whole_sequence(util::field(body, "sequence"));
     let observed = util::str_field(body, "observedAt").map(str::to_owned);
-    let observed_ms = observed.as_deref().and_then(service_kit::js::date_parse);
+    let observed_ms = observed.as_deref().and_then(dainty_service_kit::js::date_parse);
     let signature = util::str_field(body, "signature").unwrap_or("").to_owned();
     let (Some(sequence), Some(observed), Some(observed_ms)) = (sequence, observed, observed_ms) else {
         return invalid();
@@ -570,7 +570,7 @@ pub async fn heartbeat(mut call: Call) -> Response {
     let live = session.account == entered.account
         && session.last_sequence < sequence
         && !matches!(session.status, GuardStatus::Revoked | GuardStatus::Expired)
-        && service_kit::js::date_parse(&session.expires_at).is_some_and(|at| at > now);
+        && dainty_service_kit::js::date_parse(&session.expires_at).is_some_and(|at| at > now);
     if !live {
         return session_invalid();
     }
@@ -809,7 +809,7 @@ pub async fn sessions(ctx: AdminContext) -> Response {
     let min_risk = if risk_text.is_empty() {
         None
     } else {
-        let n = service_kit::js::number(Some(&Value::String(risk_text)));
+        let n = dainty_service_kit::js::number(Some(&Value::String(risk_text)));
         if !(n.is_finite() && n.fract() == 0.0 && (0.0..=100.0).contains(&n)) {
             return query_invalid("minRisk must be a whole number from 0 to 100");
         }

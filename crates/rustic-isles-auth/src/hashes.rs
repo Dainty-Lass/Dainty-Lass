@@ -18,7 +18,7 @@ pub struct SecretError;
 
 /// The JS-trimmed secret, refused under 32 UTF-16 units.
 pub fn read_secret(raw: Option<&str>) -> Result<&str, SecretError> {
-    let secret = service_kit::js::trim(raw.unwrap_or(""));
+    let secret = dainty_service_kit::js::trim(raw.unwrap_or(""));
     if util::utf16_len(secret) < 32 {
         return Err(SecretError);
     }
@@ -84,7 +84,7 @@ pub fn first_match<'a>(candidate: &str, records: impl IntoIterator<Item = Option
 /// `GAMESERVER_API_KEYS`: a comma list, JS-trimmed, empties dropped, de-duplicated in order.
 pub fn parse_gameserver_keys(raw: Option<&str>) -> Vec<String> {
     let mut keys: Vec<String> = Vec::new();
-    for key in raw.unwrap_or("").split(',').map(service_kit::js::trim) {
+    for key in raw.unwrap_or("").split(',').map(dainty_service_kit::js::trim) {
         if !key.is_empty() && !keys.iter().any(|k| k == key) {
             keys.push(key.to_owned());
         }

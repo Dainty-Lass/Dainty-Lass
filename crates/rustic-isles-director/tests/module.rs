@@ -11,7 +11,9 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use common::{DIRECTOR_1_14_7, port_band, send, udp_free, wait_for};
-use module_api::{Capabilities, InProcessModule, ModuleConfig, ModuleDriver, ModuleDriverExt, ModuleId, NodeIdentity};
+use dainty_module_api::{
+    Capabilities, InProcessModule, ModuleConfig, ModuleDriver, ModuleDriverExt, ModuleId, NodeIdentity,
+};
 use rustic_isles::testing::{listening, sample_version};
 use rustic_isles::{BackendService, BareComposer, DefaultPorts, IslesModule, ModuleSpec, PortService};
 use rustic_isles_director::DirectorService;
@@ -71,7 +73,7 @@ async fn the_module_runs_the_director() {
             composer: Arc::new(BareComposer),
         };
         let module = Arc::new(IslesModule::new(spec).unwrap());
-        let host = module_api::stub::recording_host();
+        let host = dainty_module_api::stub::recording_host();
         let driver = InProcessModule::new(module, NodeIdentity::standalone(), host.clone()).unwrap();
         let registration = driver.register().await.unwrap();
         let mut config = ModuleConfig::defaults(driver.manifest(), &registration);
@@ -79,7 +81,7 @@ async fn the_module_runs_the_director() {
             *ports = if name == "game" {
                 range
             } else {
-                module_api::PortRange::single(0)
+                dainty_module_api::PortRange::single(0)
             };
         }
         let sections = &mut config.sections;

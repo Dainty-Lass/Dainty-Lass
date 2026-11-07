@@ -8,7 +8,7 @@ use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, PoisonError};
 
-use module_api::ModuleConfig;
+use dainty_module_api::ModuleConfig;
 use serde_json::Value;
 
 use crate::settings::config_text;
@@ -96,7 +96,7 @@ fn read(path: &Path) -> Result<Option<Value>, LoadError> {
     };
     let text = String::from_utf8_lossy(&bytes);
     let text = text.strip_prefix('\u{feff}').unwrap_or(&text);
-    service_kit::jsjson::parse(text)
+    dainty_service_kit::jsjson::parse(text)
         .map(Some)
         .map_err(|e| LoadError::Unreadable(format!("{}: {e}", path.display())))
 }
@@ -184,7 +184,7 @@ mod tests {
         .unwrap();
         let value = root.load_backend("a.json").unwrap();
         assert_eq!(
-            service_kit::jsjson::stringify(&value),
+            dainty_service_kit::jsjson::stringify(&value),
             r#"{"n":1,"big":12345678901234567000}"#
         );
         assert_eq!(root.try_load_backend("none.json"), Ok(None));

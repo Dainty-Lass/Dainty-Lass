@@ -2,8 +2,8 @@
 
 # Security checklist: the legacy importer
 
-The checklist for dainty-legacy's importers, `crates/legacy-import` and the `legacy` plugin in `crates/legacy`,
-in the shape of DaintyLass's `docs/security/*.md` (RX3).
+The checklist for dainty-legacy's importers, `crates/dainty-legacy-import` and the `legacy` plugin in `crates/dainty-legacy`,
+in the shape of Dainty Lass's `docs/security/*.md` (RX3).
 
 How to use it: before a release, check each item in the code (not from memory), link the code or test that shows it,
 and sign at the end with the date and the commit reviewed. An item that does not hold is a bug to fix before the
@@ -22,7 +22,7 @@ Whoever made the file chose every byte of it: a player's offline save in particu
 - **Process:** the plugin runs as its own process (DD5); stdout is the frame pipe, so it never prints there.
 
 Code: `revived/source.rs` (copy and bring forward), `revived/read.rs`, `revived/drsave.rs`, `target.rs`,
-`reforged/*.rs`, `cli.rs`, and `crates/legacy/src/lib.rs` (who may run a command).
+`reforged/*.rs`, `cli.rs`, and `crates/dainty-legacy/src/lib.rs` (who may run a command).
 
 Fuzz targets: `database_readers` (arbitrary bytes as a server database, an offline database and a `.drsave`) and
 `host_json` (arbitrary text as a host.json), in `fuzz/`.
@@ -48,7 +48,7 @@ Fuzz targets: `database_readers` (arbitrary bytes as a server database, an offli
       the schema exactly what that prefix makes; a table, index or trigger of its own is refused (test
       `a_tampered_or_foreign_database_is_refused`).
 - [ ] After the bring-forward: the final 1.4.4 schema, `integrity_check` ok, Diesel's table present.
-- [ ] DaintyLass's change log (`__store_*`) is dropped from the copy before comparing, never from the source.
+- [ ] Dainty Lass's change log (`__store_*`) is dropped from the copy before comparing, never from the source.
 - [ ] A `.drsave`: magic, version, sizes, metadata rules, the database's SHA-256 and the trailer digest all checked;
       the payload bounded to 512 MiB and the metadata to 64 KiB; nothing named in the file is used as a path
       (`drsave::read_save`; tests in `drsave.rs`).

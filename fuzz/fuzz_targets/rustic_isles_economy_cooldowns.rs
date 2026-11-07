@@ -10,7 +10,7 @@ use rustic_isles_economy::bounties::cooldowns::{
 };
 use rustic_isles_store::AccountId;
 use serde_json::Value;
-use service_kit::js::date_parse;
+use dainty_service_kit::js::date_parse;
 
 fuzz_target!(|data: &[u8]| {
     let text = String::from_utf8_lossy(data);

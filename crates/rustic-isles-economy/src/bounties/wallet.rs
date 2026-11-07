@@ -4,11 +4,11 @@
 //! The wallet (bounties spec §4.8.1, inventory's W1 to W4): an account's currency balances, never stored in an
 //! inventory blob. Every write is inside the caller's transaction.
 
+use dainty_service_kit::jsjson;
 use rustic_isles::Shared;
 use rustic_isles_store::repo::bounties::{WalletRecord, is_valid_balance_catalog_id};
 use rustic_isles_store::{AccountId, AnyConnection, RepoError, Repositories, Tx};
 use serde_json::{Map, Value};
-use service_kit::jsjson;
 
 use crate::bounties::platinum;
 use crate::util::{number_value, obj};

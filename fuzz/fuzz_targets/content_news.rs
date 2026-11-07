@@ -6,12 +6,12 @@
 
 use std::sync::Once;
 
-use content::input::{MAX_BODY, MAX_NEWS_ITEMS, MAX_TITLE, parse_news};
+use dainty_content::input::{MAX_BODY, MAX_NEWS_ITEMS, MAX_TITLE, parse_news};
 use libfuzzer_sys::fuzz_target;
 
 fuzz_target!(|data: &[u8]| {
     static QUIET: Once = Once::new();
-    QUIET.call_once(|| content::log::set_sink(Some(Box::new(|_, _| {}))));
+    QUIET.call_once(|| dainty_content::log::set_sink(Some(Box::new(|_, _| {}))));
     let Ok(doc) = serde_json::from_slice::<serde_json::Value>(data) else {
         return;
     };

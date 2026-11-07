@@ -12,7 +12,9 @@ use tokio::sync::oneshot;
 use crate::core::i18n::{self, Language, translate};
 use crate::window::MAIN;
 
-pub use launcher_kit::platform::dialogs::{DIALOG_DUMPER_DLL, DIALOG_GAMEDATA_PACK, FolderPurpose, folder_title};
+pub use dainty_launcher_kit::platform::dialogs::{
+    DIALOG_DUMPER_DLL, DIALOG_GAMEDATA_PACK, FolderPurpose, folder_title,
+};
 
 fn path_of(picked: Option<FilePath>) -> Option<PathBuf> {
     picked?.into_path().ok()

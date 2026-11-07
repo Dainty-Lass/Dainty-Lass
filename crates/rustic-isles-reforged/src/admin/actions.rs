@@ -5,8 +5,8 @@
 
 use std::sync::Arc;
 
-use module_api::network::HomeInvocation;
-use module_api::{
+use dainty_module_api::network::HomeInvocation;
+use dainty_module_api::{
     Actor, ActorContext, AdminCall, AdminRequest, AdminResponse, ModuleError, PlayerInfo, PlayerRestriction,
     RestrictionKind,
 };
@@ -27,7 +27,7 @@ fn failed(error: RepoError) -> ModuleError {
 }
 
 fn no_store() -> ModuleError {
-    ModuleError::new(module_api::ErrorKind::Unavailable, "the module has no database")
+    ModuleError::new(dainty_module_api::ErrorKind::Unavailable, "the module has no database")
 }
 
 /// The player an admin text names.
@@ -230,7 +230,7 @@ impl ReforgedAdmin {
             let Some(chat) = self.chat() else {
                 return Ok(None);
             };
-            let Ok(operation) = module_api::network::OperationName::new(name) else {
+            let Ok(operation) = dainty_module_api::network::OperationName::new(name) else {
                 return Ok(None);
             };
             let invocation = HomeInvocation {
@@ -465,7 +465,7 @@ fn write_loot(
             ])),
         }
     }
-    let stacked_text = service_kit::jsjson::stringify(&Value::Array(stacked));
+    let stacked_text = dainty_service_kit::jsjson::stringify(&Value::Array(stacked));
     match existing {
         None => repos.inventories.create(
             tx,
@@ -562,7 +562,7 @@ impl rustic_isles::ModuleHooks for ReforgedHooks {
         &'a self,
         shared: &'a Arc<Shared>,
         call: AdminCall,
-    ) -> module_api::BoxFuture<'a, Result<AdminResponse, ModuleError>> {
+    ) -> dainty_module_api::BoxFuture<'a, Result<AdminResponse, ModuleError>> {
         Box::pin(self.0.admin_action(shared, call))
     }
 
@@ -573,7 +573,7 @@ impl rustic_isles::ModuleHooks for ReforgedHooks {
         account: &'a AccountId,
         actor: ActorContext,
         body: Value,
-    ) -> module_api::BoxFuture<'a, Result<Option<Value>, ModuleError>> {
+    ) -> dainty_module_api::BoxFuture<'a, Result<Option<Value>, ModuleError>> {
         Box::pin(self.0.home_operation(shared, operation, account, actor, body))
     }
 }

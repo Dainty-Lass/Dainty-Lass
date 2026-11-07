@@ -4,7 +4,7 @@
 #![no_main]
 
 use libfuzzer_sys::fuzz_target;
-use store::history::{Chain, GENESIS, entry_hash, record};
+use dainty_store::history::{Chain, GENESIS, entry_hash, record};
 
 fuzz_target!(|data: &[u8]| {
     let mut chain = Chain::genesis();

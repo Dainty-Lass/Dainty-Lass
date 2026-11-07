@@ -4,8 +4,8 @@
 //! The character-data rules (spec §5.4 to §5.8) and the loadout write check (§5.12): pure functions over the JSON
 //! text the client and the store hold, for the area, its tests and the fuzz target.
 
+use dainty_service_kit::{js, jsjson};
 use serde_json::{Map, Value};
-use service_kit::{js, jsjson};
 
 use crate::CharacterData;
 

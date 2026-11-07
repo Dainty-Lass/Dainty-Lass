@@ -7,8 +7,8 @@
 use std::collections::BTreeMap;
 use std::sync::Arc;
 
-use module_api::chat::{ChatAnswer, ChatQuery};
-use module_api::{
+use dainty_module_api::chat::{ChatAnswer, ChatQuery};
+use dainty_module_api::{
     ActorContext, AdminCall, AdminResponse, BoxFuture, ErrorKind, GlobalId, ModuleContext, ModuleError, ModuleId,
     NodeIdentity, PortRange,
 };
@@ -157,7 +157,7 @@ pub struct Composition {
     /// Whether the store is Postgres, which changes auth's consent default.
     pub engine_is_postgres: bool,
     /// The rifts seam; dedicated-only when rustic-rifts is not loaded.
-    pub rifts: rifts_seam::Rifts,
+    pub rifts: rustic_rifts_seam::Rifts,
     /// The backend's; this crate adds the auth routes under them
     pub handlers: Handlers,
     /// Watches every request (the Reforged API's log and metrics).
@@ -178,7 +178,7 @@ impl Composition {
             auth_store: None,
             auth_seams: Seams::default(),
             engine_is_postgres: false,
-            rifts: rifts_seam::Rifts::dedicated_only(),
+            rifts: rustic_rifts_seam::Rifts::dedicated_only(),
             handlers: Handlers::new(),
             observer: Arc::new(NoObserver),
             admin_authenticator: None,

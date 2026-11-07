@@ -5,13 +5,13 @@
 
 use std::sync::Arc;
 
-use module_api::GlobalId;
-use rifts_seam::{
-    AccountId, BoxFuture, Candidate, GuardMode, IslesCore, Json, NoCore, Party, PartyId, Refusal, SeamError, SessionId,
-};
+use dainty_module_api::GlobalId;
 use rustic_isles::Settings;
 use rustic_isles_auth::{AuthStore, LauncherAccount, StoreError};
 use rustic_isles_store::{IslesAuthStore, IslesStore};
+use rustic_rifts_seam::{
+    AccountId, BoxFuture, Candidate, GuardMode, IslesCore, Json, NoCore, Party, PartyId, Refusal, SeamError, SessionId,
+};
 use serde_json::Value;
 
 use crate::composer::SharedCell;
@@ -161,7 +161,9 @@ impl IslesCore for AccountsCore {
         Box::pin(async move {
             let text = match self.shared.get() {
                 Some(shared) => rustic_isles_reforged::operations::operations_policy_json(&shared).await,
-                None => service_kit::jsjson::stringify(&rustic_isles_reforged::operations::default_policy().to_json()),
+                None => dainty_service_kit::jsjson::stringify(
+                    &rustic_isles_reforged::operations::default_policy().to_json(),
+                ),
             };
             Ok(Json(text))
         })

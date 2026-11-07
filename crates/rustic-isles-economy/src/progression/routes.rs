@@ -7,10 +7,10 @@ use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
 use axum::response::Response;
+use dainty_module_api::network::HuntRewards;
+use dainty_module_api::{Actor, ActorContext, BoxFuture, GlobalId, IdKind};
+use dainty_service_kit::{js, jsjson};
 use http::StatusCode;
-use module_api::network::HuntRewards;
-use module_api::{Actor, ActorContext, BoxFuture, GlobalId, IdKind};
-use rifts_seam::{HostWrite, HostWriteKind, HostWriteOptions, RuntimeAuth};
 use rustic_isles::{Call, Handlers, Method, ObjectiveRow, Params, Service, Shared, read_body};
 use rustic_isles_auth::{GameAccount, GameLogin};
 use rustic_isles_store::repo::progression::{
@@ -18,8 +18,8 @@ use rustic_isles_store::repo::progression::{
     ProgressionTrackRecord,
 };
 use rustic_isles_store::{AccountId, IslesStore, RepoError, Repositories, Tx, UserId};
+use rustic_rifts_seam::{HostWrite, HostWriteKind, HostWriteOptions, RuntimeAuth};
 use serde_json::{Map, Value};
-use service_kit::{js, jsjson};
 
 use crate::caller;
 use crate::inventory::{TxContext, TxOptions, TxOutcome, TxRequest, get_inventory, run_inventory_transaction};
@@ -307,7 +307,7 @@ impl Entry {
         let asked = self.shared.rifts().guard().authorize_host_write(
             capability,
             kind,
-            rifts_seam::AccountId(target.to_owned()),
+            rustic_rifts_seam::AccountId(target.to_owned()),
             options,
         );
         match asked.await {
@@ -334,8 +334,8 @@ impl Entry {
         };
         let write = HostWrite {
             kind,
-            target: rifts_seam::AccountId(target.to_owned()),
-            summary: rifts_seam::Json(jsjson::stringify(summary)),
+            target: rustic_rifts_seam::AccountId(target.to_owned()),
+            summary: rustic_rifts_seam::Json(jsjson::stringify(summary)),
         };
         if let Err(e) = self.shared.rifts().guard().record_host_write(capability, write).await {
             tracing::warn!(

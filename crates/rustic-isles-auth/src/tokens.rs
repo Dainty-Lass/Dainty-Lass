@@ -89,7 +89,7 @@ impl TokenKeys {
     }
 
     fn sign(&self, claims: &Map<String, Value>) -> Result<String, TokenError> {
-        let payload = service_kit::jsjson::stringify(&Value::Object(claims.clone()));
+        let payload = dainty_service_kit::jsjson::stringify(&Value::Object(claims.clone()));
         let input = format!("{}.{}", URL_SAFE_NO_PAD.encode(HEADER), URL_SAFE_NO_PAD.encode(payload));
         let mut signature = vec![0u8; self.private.public_modulus_len()];
         self.private

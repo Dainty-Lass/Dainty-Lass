@@ -1,12 +1,12 @@
 /*
- * Copyright (C) 2026 DaintyLass contributors
+ * Copyright (C) 2026 Dainty Lass contributors
  * SPDX-License-Identifier: AGPL-3.0-only
  *
  * New to this backend: nothing in this file comes from Mystic Paradox.
  */
 
 // The rules of the launcher API (routes/reforgedApi.ts), kept away from the database and the environment so
-// they are tested on their own. The contract they implement is the Rust side's: crates/protocol (account.rs,
+// they are tested on their own. The contract they implement is the Rust side's: crates/dainty-protocol (account.rs,
 // status.rs), the launcher's net/hostapi, the content server's auth and the admin service's upstream.
 
 import crypto from "node:crypto";

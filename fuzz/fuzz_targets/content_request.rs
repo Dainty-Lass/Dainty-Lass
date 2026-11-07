@@ -5,7 +5,7 @@
 //! its account key and its version query. The first line is the path, the rest header values.
 #![no_main]
 
-use content::input::{
+use dainty_content::input::{
     Route, VersionKey, header_text, if_none_match_hits, is_plausible_key, is_runtime_file_name, is_version_segment,
     version_query,
 };

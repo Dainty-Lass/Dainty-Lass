@@ -17,7 +17,7 @@ use std::sync::{Mutex, OnceLock, PoisonError, RwLock};
 use aws_lc_rs::encoding::AsDer as _;
 use base64::Engine as _;
 use base64::engine::general_purpose::STANDARD;
-use module_api::{ActorContext, BoxFuture};
+use dainty_module_api::{ActorContext, BoxFuture};
 
 use crate::AuthSettings;
 use crate::discord::{DiscordApi, DiscordConfig, DiscordFailure, DiscordUser};

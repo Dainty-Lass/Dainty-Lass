@@ -12,10 +12,10 @@
 use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
 
+use dainty_store::{Database, DatabaseConfig, DatabaseOptions};
 use rustic_isles_db::mongo::MockMongoServer;
 use rustic_isles_db::{Area, ExportOptions, LegacyStarter, MigrateOptions};
 use serde_json::{Value, json};
-use store::{Database, DatabaseConfig, DatabaseOptions};
 
 pub fn starter() -> LegacyStarter {
     LegacyStarter {

@@ -23,7 +23,7 @@ use crate::core::invite::{is_private_mode_host, is_valid_host};
 /// `request_to_file`, RA7's (its own file, so RA5 and RA7 do not share this one)
 pub mod to_file;
 
-pub use launcher_kit::net::http::Endpoint;
+pub use dainty_launcher_kit::net::http::Endpoint;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum HttpError {
@@ -104,7 +104,7 @@ pub fn check_endpoint(endpoint: &Endpoint) -> Result<(), HttpError> {
         return Err(HttpError::BadUrl("invalid endpoint"));
     }
     match &endpoint.pin {
-        Some(pin) if !protocol::invite::is_valid_fingerprint(pin) => {
+        Some(pin) if !dainty_protocol::invite::is_valid_fingerprint(pin) => {
             Err(HttpError::BadUrl("invalid certificate fingerprint"))
         }
         // Plain HTTP (private mode) only into the tailnet or to this PC; anything else must be pinned TLS

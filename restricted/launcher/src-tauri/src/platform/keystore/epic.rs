@@ -6,7 +6,7 @@
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
-use ::epic::auth::{Session, Token};
+use ::dainty_epic::auth::{Session, Token};
 use serde_json::{Value, json};
 
 use super::{Encryptor, KeyStoreError};

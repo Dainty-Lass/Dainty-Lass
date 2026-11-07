@@ -1,5 +1,5 @@
 // Generated from the launcher backend (launcher/src-tauri/src/bridge); do not edit.
-// Regenerate with: RR_UPDATE_GENERATED=1 cargo test -p launcher generated
+// Regenerate with: RR_UPDATE_GENERATED=1 cargo test -p dainty-launcher generated
 window.__RR_COMMANDS__ = {
   "get_snapshot": {},
   "check_invite": { "text": { kind: "text", max: 2048 } },

@@ -21,15 +21,15 @@ pub mod test_support;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
+use dainty_module_api::network::HomeError;
+use dainty_module_api::{Actor as ApiActor, ActorContext, HomeApi, NodeId, NodeIdentity};
+use dainty_store::{Database, DatabaseConfig, DatabaseOptions, DatabaseSchema};
 use diesel_migrations::{EmbeddedMigrations, embed_migrations};
-use module_api::network::HomeError;
-use module_api::{Actor as ApiActor, ActorContext, HomeApi, NodeId, NodeIdentity};
-use store::{Database, DatabaseConfig, DatabaseOptions, DatabaseSchema};
 
 pub use adapter::IslesAuthStore;
+pub use dainty_store::{AnyConnection, Tx};
 pub use repo::{Repositories, Stub};
 pub use rustic_isles::{AccountId, UserId};
-pub use store::{AnyConnection, Tx};
 
 /// A JSON value as the repositories read and write it.
 pub type Json = serde_json::Value;
@@ -88,7 +88,7 @@ pub enum RepoError {
     Home(String),
     /// A `store` call failed.
     #[error(transparent)]
-    Store(#[from] store::Error),
+    Store(#[from] dainty_store::Error),
     /// A query failed.
     #[error("database: {0}")]
     Query(#[from] diesel::result::Error),
@@ -112,13 +112,13 @@ impl RepoError {
 pub type RepoResult<T> = Result<T, RepoError>;
 
 /// The change log's name for an actor (spec §2.3).
-pub fn store_actor(actor: &ActorContext) -> store::Actor {
+pub fn store_actor(actor: &ActorContext) -> dainty_store::Actor {
     match &actor.actor {
-        ApiActor::System => store::Actor::System("isles".into()),
-        ApiActor::Console => store::Actor::Host("console".into()),
-        ApiActor::Admin { key } => store::Actor::Admin(key.clone()),
-        ApiActor::Player { account } => store::Actor::Player(account.to_string()),
-        ApiActor::Module { module } => store::Actor::System(module.to_string()),
+        ApiActor::System => dainty_store::Actor::System("isles".into()),
+        ApiActor::Console => dainty_store::Actor::Host("console".into()),
+        ApiActor::Admin { key } => dainty_store::Actor::Admin(key.clone()),
+        ApiActor::Player { account } => dainty_store::Actor::Player(account.to_string()),
+        ApiActor::Module { module } => dainty_store::Actor::System(module.to_string()),
     }
 }
 
@@ -159,7 +159,7 @@ impl IslesStore {
             return Ok(None);
         }
         let config = DatabaseConfig::from_lookup(&lookup, PathBuf::from(file.unwrap_or_default()))
-            .map_err(|e| RepoError::Store(store::Error::Config(e)))?;
+            .map_err(|e| RepoError::Store(dainty_store::Error::Config(e)))?;
         if let DatabaseConfig::Sqlite { file } = &config
             && let Some(parent) = file.parent().filter(|p| !p.as_os_str().is_empty())
         {
@@ -253,5 +253,5 @@ impl IslesStore {
 
 fn create_folder(folder: &Path) -> RepoResult<()> {
     std::fs::create_dir_all(folder)
-        .map_err(|e| RepoError::Store(store::Error::Config(format!("{}: {e}", folder.display()))))
+        .map_err(|e| RepoError::Store(dainty_store::Error::Config(format!("{}: {e}", folder.display()))))
 }

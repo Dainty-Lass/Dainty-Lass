@@ -157,7 +157,7 @@ pub enum CaptureRecord {
 }
 
 fn time_ms(t: &str) -> Option<i64> {
-    service_kit::js::date_parse(t)
+    dainty_service_kit::js::date_parse(t)
 }
 
 impl HttpRecord {

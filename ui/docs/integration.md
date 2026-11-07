@@ -1,4 +1,4 @@
-# Wiring the dashboard and the pages into a DaintyLass server
+# Wiring the dashboard and the pages into a Dainty Lass server
 
 What the dashboard needs from the server, the API the server's backend uses to send it chat and reports,
 and where the launcher and server manager pages plug into the Tauri shells.

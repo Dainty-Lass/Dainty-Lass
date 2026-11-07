@@ -8,8 +8,8 @@ use std::time::Duration;
 use base64::Engine as _;
 use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use bytes::Bytes;
+use dainty_module_api::BoxFuture;
 use http_body_util::{BodyExt as _, Full};
-use module_api::BoxFuture;
 use serde_json::Value;
 
 use crate::AuthSettings;

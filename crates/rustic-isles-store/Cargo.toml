@@ -16,12 +16,12 @@ test-support = ["dep:tempfile"]
 [dependencies]
 diesel.workspace = true
 diesel_migrations.workspace = true
-module-api.workspace = true
+dainty-module-api.workspace = true
 rustic-isles.workspace = true
 rustic-isles-auth.workspace = true
 serde_json = { workspace = true, features = ["preserve_order", "float_roundtrip"] }
-service-kit.workspace = true
-store.workspace = true
+dainty-service-kit.workspace = true
+dainty-store.workspace = true
 tempfile = { workspace = true, optional = true }
 thiserror.workspace = true
 

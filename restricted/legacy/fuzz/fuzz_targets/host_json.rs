@@ -2,7 +2,7 @@
 //! whatever converts must be TOML that parses.
 #![no_main]
 
-use legacy_import::reforged::hostjson::convert;
+use dainty_legacy_import::reforged::hostjson::convert;
 use libfuzzer_sys::fuzz_target;
 
 fuzz_target!(|data: &[u8]| {

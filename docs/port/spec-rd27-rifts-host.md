@@ -1,13 +1,13 @@
 <!-- markdownlint-configure-file { "MD013": { "line_length": 120, "tables": false, "code_blocks": false } } -->
 
-# Clean-Room Behaviour Specification: `rifts-host` (RD27)
+# Clean-Room Behaviour Specification: `rustic-rifts-host` (RD27)
 
 > **Scope (RD27, part of [`spec-rd27-rifts.md`](spec-rd27-rifts.md)):** the launcher's side of realms. It is
-> dainty-restricted's `modules/rustic-rifts/crates/rifts-host` (AGPL, a Rust port of Mystic Paradox's launcher
+> dainty-restricted's `modules/rustic-rifts/crates/rustic-rifts-host` (AGPL, a Rust port of Mystic Paradox's launcher
 > `p2p/` modules), plus the module's top-level files, `docs/inventory.*`, `docs/security/host.md` and the module's
 > fuzz workspace files, which this part classifies. The transport DLL itself (`src/`, the C++ ABI's other side) is
 > [`spec-rd27-rifts-transport.md`](spec-rd27-rifts-transport.md); the shared id and secret types are
-> `rifts-seam`'s ([`spec-rd27-rifts-admission-relay.md`](spec-rd27-rifts-admission-relay.md)).
+> `rustic-rifts-seam`'s ([`spec-rd27-rifts-admission-relay.md`](spec-rd27-rifts-admission-relay.md)).
 >
 > Everything below is stated from observable contracts: the C export names and signatures, the buffer sizes passed
 > across them, the readiness and peer-event line formats, the files written and their exact key order, the hosted
@@ -25,8 +25,8 @@
 
 | Source | What it says |
 | --- | --- |
-| `modules/rustic-rifts/NOTICE.md` | The Rust workspace, `crates/rifts-host` included, "ports Mystic Paradox's `p2p/`, `realms/`, Guard and launcher realm-hosting modules (`21b9ff5`)" |
-| `docs/inventory.md` §3 | The launcher code RF7 ports into `rifts-host`: Mystic Paradox's `ParadoxLauncher/src-tauri/src/p2p/{mod,transport,session,control,realm}.rs`, `p2p/session/{host,hub,ice}.rs`, `servers/realm_*.rs` |
+| `modules/rustic-rifts/NOTICE.md` | The Rust workspace, `crates/rustic-rifts-host` included, "ports Mystic Paradox's `p2p/`, `realms/`, Guard and launcher realm-hosting modules (`21b9ff5`)" |
+| `docs/inventory.md` §3 | The launcher code RF7 ports into `rustic-rifts-host`: Mystic Paradox's `ParadoxLauncher/src-tauri/src/p2p/{mod,transport,session,control,realm}.rs`, `p2p/session/{host,hub,ice}.rs`, `servers/realm_*.rs` |
 | File headers | `transport.rs` and `ffi.rs` name `src/paradox_transport_api.hpp`; `files.rs` names `p2p/{realm,control,mod}.rs`; `session.rs` names `ParadoxLauncher/src-tauri/src/p2p/` and cites a Mystic Paradox function by name on most pure rules |
 | History | `b3f9cd3` RF2 (seam stubs, 2026-10-26), `d02a680` RF7 (loader and hosting, 2026-10-27), `fc5289f`, `ae3deaa` RF4 (signal and roster pumps, 2026-10-31) |
 
@@ -35,7 +35,7 @@ alone settle it.
 
 ### 1.2 Categories
 
-- **A**: born in DaintyLass, free of Mystic Paradox derivation.
+- **A**: born in Dainty Lass, free of Mystic Paradox derivation.
 - **B**: derived; rewritten clean-room from §2–§6 of this document.
 - **D**: reference data recorded from Mystic Paradox's tree; stays in dainty-restricted.
 - **G**: generated.
@@ -45,16 +45,16 @@ alone settle it.
 
 | Path (under `modules/rustic-rifts/`) | Lines | Cat. | What it is | Fate |
 | --- | ---: | --- | --- | --- |
-| `crates/rifts-host/Cargo.toml` | 24 | A | Manifest (RF2) | Rewritten trivially for dainty-lass (§7.1): `license = "MIT"`, workspace deps |
-| `crates/rifts-host/src/lib.rs` | 926 | B | `HostError`, `Stub`, re-exports; ~175 lines of code, ~750 of unit tests (§8.2) | Rewrite |
-| `crates/rifts-host/src/transport.rs` | 144 | B | `TransportAbi`, `TransportLoader`, ABI types and the export list | Rewrite (§3) |
-| `crates/rifts-host/src/ffi.rs` | 432 | B | `NativeTransportLoader`, `sha256_file`, the C bindings; the only `unsafe` | Rewrite (§4) |
-| `crates/rifts-host/src/files.rs` | 283 | B | `HostState`, `FileHostState`, file name constants, `validate_hub_limits` | Rewrite (§5) |
-| `crates/rifts-host/src/session.rs` | 2,075 | B | `RealmHosting`, `LocalRealmHosting`, `HostBackend`, the pure rules, launch environment, session folder | Rewrite (§6) |
+| `crates/rustic-rifts-host/Cargo.toml` | 24 | A | Manifest (RF2) | Rewritten trivially for dainty-lass (§7.1): `license = "MIT"`, workspace deps |
+| `crates/rustic-rifts-host/src/lib.rs` | 926 | B | `HostError`, `Stub`, re-exports; ~175 lines of code, ~750 of unit tests (§8.2) | Rewrite |
+| `crates/rustic-rifts-host/src/transport.rs` | 144 | B | `TransportAbi`, `TransportLoader`, ABI types and the export list | Rewrite (§3) |
+| `crates/rustic-rifts-host/src/ffi.rs` | 432 | B | `NativeTransportLoader`, `sha256_file`, the C bindings; the only `unsafe` | Rewrite (§4) |
+| `crates/rustic-rifts-host/src/files.rs` | 283 | B | `HostState`, `FileHostState`, file name constants, `validate_hub_limits` | Rewrite (§5) |
+| `crates/rustic-rifts-host/src/session.rs` | 2,075 | B | `RealmHosting`, `LocalRealmHosting`, `HostBackend`, the pure rules, launch environment, session folder | Rewrite (§6) |
 | `docs/security/host.md` | 79 | B | RF7's checklist. Born here, but it describes the AGPL code and is wrong in several places (§10, R6) | Replaced by a fresh `docs/security/rifts-host.md` (umbrella §4.5) |
-| `docs/inventory.md` | 534 | D | RF1's inventory of Mystic Paradox's realms: routes, settings, runtime hooks, the ABI table, the host PC's files, backend tables, decisions | Stays. This spec restates as contracts what `rifts-host` needs from its §3, §4, §6 |
+| `docs/inventory.md` | 534 | D | RF1's inventory of Mystic Paradox's realms: routes, settings, runtime hooks, the ABI table, the host PC's files, backend tables, decisions | Stays. This spec restates as contracts what `rustic-rifts-host` needs from its §3, §4, §6 |
 | `docs/inventory.json` | 983 | D | The 68 routes of the inventory, machine-readable | Stays |
-| `fuzz/Cargo.toml` | 64 | A | The rifts fuzz workspace (RF4); five targets, none for `rifts-host` | Stays until the umbrella's §4.4 moves the targets; `rifts-host` adds its own in dainty-lass's `fuzz/` (§8.4) |
+| `fuzz/Cargo.toml` | 64 | A | The rifts fuzz workspace (RF4); five targets, none for `rustic-rifts-host` | Stays until the umbrella's §4.4 moves the targets; `rustic-rifts-host` adds its own in dainty-lass's `fuzz/` (§8.4) |
 | `fuzz/Cargo.lock` | 1,568 | G | Lock file of that workspace | Follows its manifest |
 | `fuzz/.gitignore` | 4 | A | `target/ corpus/ artifacts/ coverage/` | Stays |
 | `LICENSE` | 661 | L | The AGPL-3.0 text | Stays |
@@ -73,7 +73,7 @@ against the MIT crate with only a dependency change.
 
 ## 2. Overview and conventions
 
-`rifts-host` is a library linked into the launcher behind its `realms` feature. It:
+`rustic-rifts-host` is a library linked into the launcher behind its `realms` feature. It:
 
 1. loads the realm transport (a native library with a C ABI, today `ParadoxTransport.dll`) after checking its SHA-256,
    and wraps it as a Rust trait (§3, §4);
@@ -271,9 +271,9 @@ for the rewrite's own `// SAFETY:` lines:
   callee writes at most that many bytes including the NUL.
 
 dainty-lass's workspace denies `unsafe_code` (`[workspace.lints.rust] unsafe_code = "deny"`, root `Cargo.toml`). The
-existing exemptions: `crates/plugin-host/src/lib.rs` opens with a crate-level `#![allow(unsafe_code)]` and its module
-doc says it is "the only crate in dainty-lass allowed unsafe code"; `crates/service-plugin` puts an item-level
-`#[allow(unsafe_code)]` on the `#[unsafe(no_mangle)]` entry point its macro generates. The MIT `rifts-host` puts a
+existing exemptions: `crates/dainty-plugin-host/src/lib.rs` opens with a crate-level `#![allow(unsafe_code)]` and its module
+doc says it is "the only crate in dainty-lass allowed unsafe code"; `crates/dainty-service-plugin` puts an item-level
+`#[allow(unsafe_code)]` on the `#[unsafe(no_mangle)]` entry point its macro generates. The MIT `rustic-rifts-host` puts a
 **module-level** `#![allow(unsafe_code)]` at the top of `ffi.rs` and nowhere else; the rest of the crate keeps the
 deny. Under umbrella D1's recommended option `ffi` is still built (for older runtime feeds) but may sit behind a
 default-on feature (§7.1). plugin-host's "only crate" sentence then needs the integration pass's edit (R2).
@@ -584,7 +584,7 @@ and `ROUTE_READY localHost=127.0.0.1 localPort=29100 transport=ice routePolicy=A
 | `send_signal` | `(&AccountId, &SessionId, generation: u64, &Signal) -> Result<(), HostError>` | `Ok(())` |
 | `poll_signals` | `(&AccountId, &SessionId, generation: u64) -> Result<Vec<(AccountId, Signal)>, HostError>` | `Ok(vec![])` |
 
-`rifts-host` itself makes **no HTTP call**. For the record (it is the launcher's code, specified by the launcher
+`rustic-rifts-host` itself makes **no HTTP call**. For the record (it is the launcher's code, specified by the launcher
 spec): the launcher's `ServerHostBackend` maps these to `POST /launcher/v1/p2p/hunts/{wire}/host-bootstrap` then
 `POST /mystic/v1/hunts/{wire}/host-ready` (`{"lobbyId":"ICE","virtualPort"}`, headers `x-mystic-host-capability`
 and `x-rustic-isles-host-capability`), `.../tickets/consume` when there is a host ticket, and
@@ -594,7 +594,7 @@ and `x-rustic-isles-host-capability`), `.../tickets/consume` when there is a hos
 (hunt) for `poll_peers`; `.../signal` (`{"generation","toAccountId","kind","data"}`); and
 `GET /launcher/v1/p2p/control?afterSequence=N&waitMs=0` with `POST /launcher/v1/p2p/control/{id}/ack` for
 `poll_signals` (`ICE_SIGNAL` messages, `payload.fromAccountId/kind/data`). It returns `Signal`s with an empty
-`to_account`; `rifts-host` ignores that field on incoming signals.
+`to_account`; `rustic-rifts-host` ignores that field on incoming signals.
 
 **`DefaultHostBackend`** (`#[derive(Debug, Default)]`, `new()`, `recorded_route(&self, &SessionId) -> Option<u16>`): a
 deterministic local backend. The launcher uses it as its fallback whenever no server is configured, and its tests
@@ -802,17 +802,17 @@ On a poll error, skip the roster this round. Then one signal pass, then sleep 50
 
 ### 7.1 Shape
 
-`crates/rifts-host` in dainty-lass, `license = "MIT"`, `[lints] workspace = true`, modules `transport` (pub), `ffi`
+`crates/rustic-rifts-host` in dainty-lass, `license = "MIT"`, `[lints] workspace = true`, modules `transport` (pub), `ffi`
 (private, the only `#![allow(unsafe_code)]`), `files` (pub), `session` (pub), with the root re-exports of §9.
 
-Dependencies: `rifts-seam` (MIT rewrite, umbrella D4), `serde`, `serde_json`, `sha2`, `thiserror` (all in dainty-lass's
+Dependencies: `rustic-rifts-seam` (MIT rewrite, umbrella D4), `serde`, `serde_json`, `sha2`, `thiserror` (all in dainty-lass's
 `[workspace.dependencies]`); dev `tempfile` (in it). **Seam changes** for the integration pass:
 
-- `libloading = "0.7"` as a workspace entry (today pinned only in `crates/plugin-host/Cargo.toml`); plugin-host would
+- `libloading = "0.7"` as a workspace entry (today pinned only in `crates/dainty-plugin-host/Cargo.toml`); plugin-host would
   switch to `workspace = true`.
 - OS randomness: restricted uses `getrandom` 0.4, which dainty-lass does not list. Use the workspace's `rand` (0.10)
   OS-backed generator instead and avoid the seam change; or add `getrandom`.
-- Umbrella D1: an optional `rifts-transport` dependency behind a feature `in-process` providing a second
+- Umbrella D1: an optional `rustic-rifts-transport` dependency behind a feature `in-process` providing a second
   `TransportLoader`; the FFI path could sit behind a default feature `ffi` so an in-process-only build has no `unsafe`.
 
 ### 7.2 Clean-room notes
@@ -877,7 +877,7 @@ The real transport, a real hosted server and a real 1.14.7 client. Say so when o
 
 ### 8.4 Fuzz targets (new)
 
-`rifts-host` parses transport output and backend JSON but has no target today. Add in dainty-lass's `fuzz/`:
+`rustic-rifts-host` parses transport output and backend JSON but has no target today. Add in dainty-lass's `fuzz/`:
 `host_ready_line` (`parse_ice_ready` with all flag combinations), `host_peer_line` (`apply_peer_line` on a
 `SessionLive`) and `host_transport_config` (`TransportConfig` JSON into `ice_files` for each `FilesFor`; the output
 must never contain CR or NUL inside a value). Seam change: `[[bin]]` entries in `fuzz/Cargo.toml`.
@@ -889,7 +889,7 @@ must never contain CR or NUL inside a value). Seam change: `[[bin]]` entries in 
 ### 9.1 Used outside the crate (must keep name and signature)
 
 From `controller/realms.rs` and `controller/tests/realms.rs` (the only callers; isles-core and isles-1-14-7 do not use
-`rifts-host`):
+`rustic-rifts-host`):
 
 | Item | How it is used |
 | --- | --- |
@@ -933,7 +933,7 @@ Size: about 120 public items (49 functions and methods, 25 types and traits, 18 
 2. `unsafe` appears only in `ffi.rs`, under its module-level allowance, each block with a `// SAFETY:` line.
 3. §8.2's tests (rewritten) and §8.2's additions pass on Windows and Linux.
 4. Restricted's two launcher tests (§8.1) pass with only `Cargo.toml` changed.
-5. Similarity under 30% per file against restricted `4efc8b5`'s `crates/rifts-host/src/*.rs`
+5. Similarity under 30% per file against restricted `4efc8b5`'s `crates/rustic-rifts-host/src/*.rs`
    (`clean-room/similarity.md`).
 6. A fresh `docs/security/rifts-host.md` in `relay.md`'s structure, correcting the old checklist's errors: 29 exports
    (not 14), `MysticTransport_AbiVersion` (not `ParadoxTransport_GetAbiVersion`), `ROUTE_READY` (not `JOIN_READY`),
@@ -949,7 +949,7 @@ Size: about 120 public items (49 functions and methods, 25 types and traits, 18 
   folder `MysticParadox` in the flag-file lookup, the file name `ParadoxTransport.dll`, and the `x-mystic-*` header
   the launcher sends. All are contracts with AGPL peers (the C++ transport, the rustic-isles runtime's `ReadLaunch`,
   the backend). Keep them verbatim unless the umbrella decides otherwise; renaming any is a change to both sides.
-- **R2. `unsafe` exemption.** plugin-host's module doc claims the only `unsafe` crate. The MIT `rifts-host` needs a
+- **R2. `unsafe` exemption.** plugin-host's module doc claims the only `unsafe` crate. The MIT `rustic-rifts-host` needs a
   second, module-level exemption unless D1's in-process path replaces FFI entirely. A maintainer decision and a
   doc edit for the integration pass.
 - **R3. Library names per OS.** There are none: the loader takes a path and the launcher always passes
@@ -979,6 +979,6 @@ Size: about 120 public items (49 functions and methods, 25 types and traits, 18 
 - **R11. `sessions()` cleans folders as a side effect** of a status read, and an ended session stays listed until
   `stop`, whose `stop_session` then answers `NotFound`. The launcher depends on `realm_stop` succeeding overall;
   keep the behaviour.
-- **R12. `rifts-seam` types** (`AccountId`, `PeerId`, `Secret`, `SessionId`, `GlobalId`, `Ulid::from_parts`,
+- **R12. `rustic-rifts-seam` types** (`AccountId`, `PeerId`, `Secret`, `SessionId`, `GlobalId`, `Ulid::from_parts`,
   `NodeId::new`, `HubKind`, `BoxFuture`, `Unimplemented`, `Component::Host`, `stub`, `poll_once`) come from the seam
-  part's rewrite; `rifts-host` cannot start before it lands (umbrella §4.2).
+  part's rewrite; `rustic-rifts-host` cannot start before it lands (umbrella §4.2).

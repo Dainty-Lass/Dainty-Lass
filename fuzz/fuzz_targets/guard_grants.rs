@@ -6,7 +6,7 @@
 #![no_main]
 
 use libfuzzer_sys::fuzz_target;
-use rifts_guard::grants::{
+use rustic_rifts_guard::grants::{
     Allowances, GrantSession, HOST_DRAFT_PREMIUM_BALANCE_CAP, HOST_DRAFT_PREMIUM_ID, NoGameData, classify,
     decide_draft_premium, grant_denial, stacked_balance_of, violations,
 };

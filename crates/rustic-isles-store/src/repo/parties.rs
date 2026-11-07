@@ -4,9 +4,9 @@
 //! Parties, invites and the party outbox (spec §11.2, `PartyRepository.ts`). Every party change bumps its
 //! revision (or fails with [`REVISION_CONFLICT`]) and writes its event in the same transaction.
 
+use dainty_module_api::GlobalId;
 use diesel::QueryableByName;
 use diesel::sql_types::{BigInt, Nullable, Text};
-use module_api::GlobalId;
 use serde_json::{Map, Value};
 
 use crate::sql::{account_id, count, sql};

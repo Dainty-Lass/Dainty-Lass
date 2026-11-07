@@ -7,8 +7,8 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use axum::response::IntoResponse;
+use dainty_module_api::BoxFuture;
 use http::{StatusCode, header};
-use module_api::BoxFuture;
 use rustic_isles::{Shared, Started, StartedListener, Startup};
 use rustic_isles_store::IslesStore;
 
@@ -80,7 +80,7 @@ impl Startup for QosListener {
                 let signal = async move {
                     let _ = stopped.await;
                 };
-                if let Err(e) = service_kit::serve::serve(listener, qos_app(), signal, QOS_DRAIN).await {
+                if let Err(e) = dainty_service_kit::serve::serve(listener, qos_app(), signal, QOS_DRAIN).await {
                     tracing::warn!("QoS listener failed: {e}");
                 }
             });

@@ -171,7 +171,7 @@ fn compare_bodies(
     if diffs.len() > before || !left_norm.config().check_raw_json_text {
         return;
     }
-    let stringify = service_kit::jsjson::stringify;
+    let stringify = dainty_service_kit::jsjson::stringify;
     let (l_text, r_text) = (stringify(&l), stringify(&r));
     // Whitespace, number spelling or escapes the parse hid
     let l_odd = left != stringify(&left_raw);

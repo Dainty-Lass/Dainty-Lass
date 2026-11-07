@@ -27,8 +27,8 @@ fill in the page.
 Code, in `launcher/src-tauri/src`:
 
 - `core/invite.rs`, `core/status.rs`, `core/username.rs`: re-exports of `protocol::invite`, `protocol::status` and
-  `protocol::account` (`crates/protocol`, RS1). The launcher has no parser of its own for these; it answers
-  exactly as the servers' crate does, and both run `crates/protocol/tests/cases/*.json`.
+  `protocol::account` (`crates/dainty-protocol`, RS1). The launcher has no parser of its own for these; it answers
+  exactly as the servers' crate does, and both run `crates/dainty-protocol/tests/cases/*.json`.
 - `net/pinned.rs`: the pinned TLS connection. `net/connector.rs`: the same, pooled, for the relay.
 - `net/http.rs`: `request`, the only way the launcher sends HTTP to a server.
 - `net/hostapi.rs`: the calls; `net/hostapi/parse.rs`: reading their answers, without the network.

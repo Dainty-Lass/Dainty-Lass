@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2026 DaintyLass contributors
+ * Copyright (C) 2026 Dainty Lass contributors
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 

@@ -114,19 +114,19 @@ jobs:
           rustup target add "$TARGET"
 
       # No build cache in a release: every file is built from this commit alone.
-      # The 1.14.7 Rust backend, Director and `dainty-host db` commands are compiled into server-console and
-      # server-minimal (with all-modules). For one release after RU9/RB14 (until RB15), the archive also carries
+      # The 1.14.7 Rust backend, Director and `dainty-host db` commands are compiled into dainty-server and
+      # dainty-server-minimal (with all-modules). For one release after RU9/RB14 (until RB15), the archive also carries
       # the Node ParadoxBackend and ParadoxDirector bundle below as the documented rollback artefact.
       # REFORGED_RELEASE_REPOSITORY stays .cargo/config.toml's: the releases are on GitHub until DX5
       - name: Build the release binaries
-        run: cargo build --release --locked --target "$TARGET" -p server-console -p server-minimal --features server-console/all-modules,server-minimal/all-modules --bins
+        run: cargo build --release --locked --target "$TARGET" -p dainty-server -p dainty-server-minimal --features dainty-server/all-modules,dainty-server-minimal/all-modules --bins
 
       # The libraries the core loads (RD27); a service's crate joins the list by being in the workspace
       - name: Build the libraries
         run: |
           set -euo pipefail
           packages=()
-          for pkg in isles-1-14-7-plugin content-plugin chat-plugin gateway-plugin; do
+          for pkg in rustic-isles-plugin dainty-content-plugin dainty-chat-plugin dainty-gateway-plugin; do
             if cargo pkgid --locked -p "$pkg" > /dev/null 2>&1; then packages+=(-p "$pkg"); fi
           done
           cargo build --release --locked --target "$TARGET" "${packages[@]}" --lib
@@ -163,11 +163,11 @@ jobs:
           # The libraries beside them, under the names host.toml's paths give (RD27)
           mkdir -p "$out/plugins"
           if [ "$RUNNER_OS" = Windows ]; then prefix=""; suffix=".dll"; else prefix="lib"; suffix=".so"; fi
-          for lib in isles_1_14_7_plugin content_plugin chat_plugin gateway_plugin; do
+          for lib in rustic_isles_plugin dainty_content_plugin dainty_chat_plugin dainty_gateway_plugin; do
             file="target/$TARGET/release/$prefix$lib$suffix"
             if [ -f "$file" ]; then cp "$file" "$out/plugins/"; fi
           done
-          [ -f "$out/plugins/${prefix}isles_1_14_7_plugin$suffix" ] || { echo "::error::the 1.14.7 library was not built"; exit 1; }
+          [ -f "$out/plugins/${prefix}rustic_isles_plugin$suffix" ] || { echo "::error::the 1.14.7 library was not built"; exit 1; }
           # Kept for one release only as the documented RB13/RU9 rollback artefact (until RB15)
           isles=modules/rustic-isles/reference/1.14.7
           cp -R "$isles/ParadoxBackend/build" "$isles/ParadoxBackend/node_modules" "$out/$isles/ParadoxBackend/"

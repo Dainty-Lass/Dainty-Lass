@@ -6,11 +6,11 @@
 
 use std::collections::{HashMap, HashSet};
 
+use dainty_service_kit::js;
 use rustic_isles::season;
 use rustic_isles_store::AccountId;
 use rustic_isles_store::repo::bounties::{BountyGroup, BountyStateRecord, DraftData, StoredBounty};
 use serde_json::{Map, Value};
-use service_kit::js;
 
 use crate::util::{num0, number_value, obj, utf16_len};
 

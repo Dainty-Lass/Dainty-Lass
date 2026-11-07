@@ -11,7 +11,7 @@ use crate::bridge::types::{ErrorCode, GuardedActionInfo, GuardedList, GuardedOut
 use crate::platform::log;
 
 /// A failure of the store as the page hears it: the codes it has words for, else a host failure.
-fn refuse(failure: host::guarded::Failure) -> LauncherError {
+fn refuse(failure: dainty_host::guarded::Failure) -> LauncherError {
     match failure.code {
         "not_found" => err(ErrorCode::GuardedNotFound, None),
         "not_waiting" => err(ErrorCode::GuardedNotWaiting, None),
@@ -37,7 +37,7 @@ impl Controller {
         let Some(workspace) = self.workspace() else {
             return GuardedList::Err(err(ErrorCode::HostFailed, Some("workspace".to_owned())));
         };
-        match host::guarded::list(&workspace).await {
+        match dainty_host::guarded::list(&workspace).await {
             Ok(actions) => match actions.iter().map(info).collect() {
                 Ok(actions) => GuardedList::Ok(actions),
                 Err(error) => GuardedList::Err(error),
@@ -52,9 +52,9 @@ impl Controller {
             return GuardedOutcome::Err(err(ErrorCode::HostFailed, Some("workspace".to_owned())));
         };
         let decided = if approve {
-            host::guarded::approve(&workspace, id).await
+            dainty_host::guarded::approve(&workspace, id).await
         } else {
-            host::guarded::cancel(&workspace, id).await
+            dainty_host::guarded::cancel(&workspace, id).await
         };
         match decided {
             Ok(action) => match info(&action) {

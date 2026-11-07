@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Silent Spud
 //
-// Convenience wrapper for `dainty-host db replay` (or `cargo run -p isles-db -- replay`).
+// Convenience wrapper for `dainty-host db replay` (or `cargo run -p rustic-isles-db -- replay`).
 // Usage:
 //   node scripts/replay-capture.mjs --corpus <path> [--left recorded|<url>] [--right <url>] [--key-map <file.json>] [--out <report.json>] [--json]
 
@@ -64,7 +64,7 @@ if (hostBin) {
       '--manifest-path',
       path.join(repoRoot, 'rust', 'Cargo.toml'),
       '-p',
-      'server-console',
+      'dainty-server',
       '--bin',
       'dainty-host',
       '--locked',

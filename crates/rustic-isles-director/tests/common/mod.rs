@@ -17,7 +17,7 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicU16, Ordering};
 use std::time::Duration;
 
-use module_api::PortRange;
+use dainty_module_api::PortRange;
 use rustic_isles::testing::sample_version;
 use rustic_isles::{GameDataRoot, Settings, Shared, SharedParts};
 use rustic_isles_director::{Config, Director, DirectorConfig, GameserverArgs, MemoryAdmission, OsLauncher, hunt};

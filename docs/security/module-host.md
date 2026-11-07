@@ -3,7 +3,7 @@
 # Security checklist: the module host and its frame protocol (DX2)
 
 The checklist for loading game modules and plugins out of process (DD5): the frame protocol in
-`crates/module-api/src/frame.rs`, the host side in `host.rs`, the module side in `child.rs`, the call plumbing
+`crates/dainty-module-api/src/frame.rs`, the host side in `host.rs`, the module side in `child.rs`, the call plumbing
 both share in `peer.rs`, and the checks on what a module declares (`manifest.rs`, `registrar.rs`). The controller
 that decides which modules to load and restarts them (DF3) keeps `controller.md`. `SECURITY_REVIEW.md` indexes it.
 

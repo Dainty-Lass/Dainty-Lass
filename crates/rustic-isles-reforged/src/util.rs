@@ -8,11 +8,11 @@ use axum::extract::Request;
 use axum::response::{IntoResponse, Response};
 use base64::Engine as _;
 use base64::engine::general_purpose::{STANDARD, STANDARD_NO_PAD, URL_SAFE_NO_PAD};
+use dainty_service_kit::json::JSON_UTF8;
 use http::{HeaderMap, HeaderValue, StatusCode, header};
 use http_body_util::BodyExt as _;
 use rand::RngExt as _;
 use serde_json::{Map, Value};
-use service_kit::json::JSON_UTF8;
 use subtle::ConstantTimeEq as _;
 
 /// 2^53 - 1, JavaScript's largest safe integer.
@@ -31,7 +31,7 @@ pub fn json(status: StatusCode, value: &Value) -> Response {
     (
         status,
         [(header::CONTENT_TYPE, JSON_UTF8)],
-        service_kit::jsjson::stringify(value),
+        dainty_service_kit::jsjson::stringify(value),
     )
         .into_response()
 }
@@ -64,7 +64,7 @@ pub fn status_text(status: StatusCode) -> Response {
 
 /// Express's HTML error page for the status.
 pub fn error_page(status: StatusCode) -> Response {
-    service_kit::body::error_page(status)
+    dainty_service_kit::body::error_page(status)
 }
 
 /// `{"error":{"code","message","requestId"}}` with the status auth's table gives the code.
@@ -273,7 +273,7 @@ pub fn controls_to_spaces(text: &str) -> String {
 
 /// JavaScript's `String.prototype.trim`.
 pub fn trim(text: &str) -> &str {
-    service_kit::js::trim(text)
+    dainty_service_kit::js::trim(text)
 }
 
 /// A non-empty text of ASCII letters, digits, `.`, `_`, `-`, and neither `.` nor `..`.
@@ -396,7 +396,7 @@ pub fn peer_text(request: &Request) -> String {
 pub fn peer_ip(request: &Request) -> Option<std::net::IpAddr> {
     request
         .extensions()
-        .get::<axum::extract::ConnectInfo<service_kit::serve::ConnectionInfo>>()
+        .get::<axum::extract::ConnectInfo<dainty_service_kit::serve::ConnectionInfo>>()
         .map(|info| info.0.peer.ip())
 }
 

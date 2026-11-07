@@ -11,6 +11,7 @@ use std::sync::Arc;
 
 use axum::body::Body;
 use axum::extract::{ConnectInfo, Request};
+use dainty_service_kit::serve::ConnectionInfo;
 use http_body_util::BodyExt;
 use rustic_isles::handlers::auth_handlers;
 use rustic_isles::testing::{GAUNTLET_ORIGIN, SAMPLE_TABLES, SampleHooks, sample_path};
@@ -21,7 +22,6 @@ use rustic_isles::{
 };
 use rustic_isles_auth::test_support::{MemoryStore, throwaway_signing_keys};
 use serde_json::{Value, json};
-use service_kit::serve::ConnectionInfo;
 use tower::ServiceExt;
 
 static GRANTS: [BountyItemGrant; 1] = [BountyItemGrant {
@@ -544,7 +544,7 @@ async fn patch_notes() {
     });
     let p = h.send("GET", "/patchnotes/fr/9.9", &[], None).await.payload();
     assert_eq!(
-        service_kit::jsjson::stringify(&p),
+        dainty_service_kit::jsjson::stringify(&p),
         r#"{"date":"2024-12-19T18:00:00.000+00:00","description":"Welcome to Rustic Isles!","language":"fr","notes":[],"permalink":"/patch-notes/rusticisles/","release_version":"9.9","title":"Rustic Isles"}"#
     );
 }
@@ -589,7 +589,7 @@ async fn progression_config() {
     assert_eq!(paths.len(), 2);
     assert_eq!(paths[0]["start_date"], "2026-07-30T17:00:00+00:00");
     assert_eq!(
-        service_kit::jsjson::stringify(&paths[1]),
+        dainty_service_kit::jsjson::stringify(&paths[1]),
         r#"{"progression_id":"season44","start_date":"2099-01-02T00:00:00+00:00","end_date":"2099-12-31T00:00:00+00:00","tracks":[1,2]}"#
     );
     // The cached read is kept, and each request rewrites from it at its own time

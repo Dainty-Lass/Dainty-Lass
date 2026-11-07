@@ -225,7 +225,7 @@ pub fn plan_purchase_restore(
         ReforgePlan::Refuse(reason) => PurchasePlan::Refuse(reason),
         _ => PurchasePlan::Refuse(format!(
             "amount {} is not the banked {}",
-            service_kit::jsjson::number(amount),
+            dainty_service_kit::jsjson::number(amount),
             reforge.banked - reforge.banked_restored
         )),
     }
@@ -392,7 +392,7 @@ mod tests {
 
     #[test]
     fn purchase_plans() {
-        let now = service_kit::js::date_parse("2026-11-01T00:01:00.000Z").unwrap();
+        let now = dainty_service_kit::js::date_parse("2026-11-01T00:01:00.000Z").unwrap();
         let on = ReforgeMode::On;
         let t = "ExperienceTrack_Weapon_Axe";
         assert_eq!(

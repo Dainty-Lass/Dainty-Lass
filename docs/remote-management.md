@@ -2,9 +2,9 @@
 
 # Remote management design (R0: DD27, RM1–RM5)
 
-This document specifies how one **DaintyLass Manager** install (or a headless controller) manages multiple **DaintyLass**
+This document specifies how one **Dainty Lass Manager** install (or a headless controller) manages multiple **Dainty Lass**
 server installs across machines, containers, and regions. All code for remote management is written fresh under the MIT
-licence (`Copyright (c) 2026 Silent Spud`) in `crates/remote` with zero dependencies on AGPL crates.
+licence (`Copyright (c) 2026 Silent Spud`) in `crates/dainty-remote` with zero dependencies on AGPL crates.
 
 ---
 
@@ -12,8 +12,8 @@ licence (`Copyright (c) 2026 Silent Spud`) in `crates/remote` with zero dependen
 
 | Role | What runs it | `host.toml` `[remote]` setting | Description |
 | --- | --- | --- | --- |
-| **Controller** | A `DaintyLass Manager` desktop install (or a headless `dainty-host` / `dainty-server` install) with remote management enabled | `role = "controller"` | Holds the cluster/management CA (or enrollment issuer), maintains the authoritative shared configuration revision, displays the status/logs/history of every enrolled install, and dispatches operator commands to one install or a group. |
-| **Managed install** | Any DaintyLass server install enrolled with the controller: headless servers (`dainty-host`, `dainty-server`, `dainty-server-minimal`), Docker containers (`reforged-revival-server`), other `DaintyLass Manager` installs, or the regional nodes of a network (`DD16`) | `role = "managed"` | Enrolls once with the controller using a one-time enrollment code, pulls shared settings and runtime/gamedata packs from the controller, reports health/logs/doctor/migration/history back, and executes authenticated remote operator commands through the same local code paths (`DH2`, `DH6`, `DD23`). |
+| **Controller** | A `Dainty Lass Manager` desktop install (or a headless `dainty-host` / `dainty-server` install) with remote management enabled | `role = "controller"` | Holds the cluster/management CA (or enrollment issuer), maintains the authoritative shared configuration revision, displays the status/logs/history of every enrolled install, and dispatches operator commands to one install or a group. |
+| **Managed install** | Any Dainty Lass server install enrolled with the controller: headless servers (`dainty-host`, `dainty-server`, `dainty-server-minimal`), Docker containers (`reforged-revival-server`), other `Dainty Lass Manager` installs, or the regional nodes of a network (`DD16`) | `role = "managed"` | Enrolls once with the controller using a one-time enrollment code, pulls shared settings and runtime/gamedata packs from the controller, reports health/logs/doctor/migration/history back, and executes authenticated remote operator commands through the same local code paths (`DH2`, `DH6`, `DD23`). |
 | **Standalone install** *(default)* | Any install that has not enabled controller mode or enrolled with a controller | `role = "standalone"` *(or `[remote]` omitted)* | Operates locally with zero network or remote-management traffic, exactly as before. |
 
 ### Can a player client (`dainty-launcher`) also be a managed install?
@@ -75,7 +75,7 @@ shared `host.toml` bundle into the managed install's local `host.toml`, the mana
      managed install is locked to the local value and ignored during controller merges.
 4. **Per-install controller overrides**:
    - On the controller, the operator can also set per-install overrides keyed by `NodeId` (for example, giving node
-     `eu-de-1` `server.name = "DaintyLass (Frankfurt)"` and `paradox.max_hunts = 8` while `us-or-1` gets
+     `eu-de-1` `server.name = "Dainty Lass (Frankfurt)"` and `paradox.max_hunts = 8` while `us-or-1` gets
      `paradox.max_hunts = 4`). Precedence from highest to lowest is:
      1. Managed install's per-host identity fields and `[remote] local_overrides`;
      2. Controller's per-install override for `<node_id>`;
@@ -102,7 +102,7 @@ On every `Sync` heartbeat (and on demand when queried by the controller), each m
 
 ## 4. What the controller can do remotely
 
-Everything `DaintyLass Manager` does locally today works remotely against **one managed install** or **a group of
+Everything `Dainty Lass Manager` does locally today works remotely against **one managed install** or **a group of
 managed installs**:
 
 | Operation | Remote command | Behaviour on the managed install |
@@ -142,7 +142,7 @@ Remote execution never bypasses local safety controls:
 Remote management introduces **no new cryptographic protocol or listener**:
 
 - **mTLS node links (`DN3`, `DD16`)**: All post-enrollment communication between the controller and managed installs
-  runs over `crates/network`'s mutual-TLS HTTP/1.1 node links (`POST /__node/remote`, added as `Service::Remote` in
+  runs over `crates/dainty-network`'s mutual-TLS HTTP/1.1 node links (`POST /__node/remote`, added as `Service::Remote` in
   `network::link::Service`), with `x-node-time` clock-skew enforcement (`<= 30s`), `MAX_MESSAGE` (`1 MiB`) body caps,
   and peer `NodeId` extracted from the client certificate verified by `ClusterCa`.
 - **Cluster CA (`network::cluster::ClusterCa`)**: When remote management is enabled on a controller that does not yet
@@ -156,7 +156,7 @@ Remote management introduces **no new cryptographic protocol or listener**:
 ### 5.2 Enrollment flow (one-time enrollment code -> mTLS certificate)
 
 1. **Minting the enrollment code (on the controller)**:
-   - In `DaintyLass Manager` ("Managed installs" -> "Enroll install") or via CLI
+   - In `Dainty Lass Manager` ("Managed installs" -> "Enroll install") or via CLI
      `dainty-host remote invite --node <id> --region <region>`, the controller generates a one-time enrollment code:
      ```text
      dainty-lass-remote://enroll?v=1&url=https%3A%2F%2Fhost.example.org%3A61000&fp=<sha256-hex>&node=<id>&region=<region>&token=<32-byte-base64url>
@@ -263,19 +263,19 @@ restarting):
 ## 8. Licensing (`MIT` from the first line)
 
 - All remote-management protocol types, enrollment logic, sync engine, and command dispatch live in a new crate:
-  `crates/remote` (`package.name = "remote"`, `license = "MIT"`, `Copyright (c) 2026 Silent Spud`).
-- `crates/remote` depends only on MIT workspace crates (`module-api`, `network`, and, once `L2`/`L3` land, the MIT
+  `crates/dainty-remote` (`package.name = "remote"`, `license = "MIT"`, `Copyright (c) 2026 Silent Spud`).
+- `crates/dainty-remote` depends only on MIT workspace crates (`module-api`, `network`, and, once `L2`/`L3` land, the MIT
   `protocol`, `service-kit`, `store`, `server-controller`, `admin`, and `hostkit`) plus standard third-party MIT/Apache
   crates (`serde`, `serde_json`, `sha2`, `base64`, `rcgen`, `rustls`, `thiserror`, `tokio`, `tracing`).
-- Where `crates/remote` invokes host-kit operations (`setup`, `doctor`, `backup`, `update`, `db`, `invite`), it defines
-  a clean `RemoteHostHandler` trait in `crates/remote` so `crates/remote` never depends on `crates/host`.
-- `cargo tree -e normal -i <AGPL-crate>` from `crates/remote` must return no path to any AGPL crate.
+- Where `crates/dainty-remote` invokes host-kit operations (`setup`, `doctor`, `backup`, `update`, `db`, `invite`), it defines
+  a clean `RemoteHostHandler` trait in `crates/dainty-remote` so `crates/dainty-remote` never depends on `crates/dainty-host`.
+- `cargo tree -e normal -i <AGPL-crate>` from `crates/dainty-remote` must return no path to any AGPL crate.
 
 ---
 
 ## 9. User interface and CLI surface
 
-### 9.1 `DaintyLass Manager` UI (`ui/apps/web`)
+### 9.1 `Dainty Lass Manager` UI (`ui/apps/web`)
 
 1. **Managed installs view & target switcher**:
    - On the Manager's **Host** screen (and navigation rail), a **Managed installs** panel lists every enrolled install
@@ -310,17 +310,17 @@ dainty-host remote leave
 | Row | Summary | Verify |
 | --- | --- | --- |
 | **RM1** | Design (`docs/remote-management.md`), security checklist (`docs/security/remote-management.md`), `SECURITY_REVIEW.md` entry, and fuzz target `remote_wire` (`R0`, `R1`) | Checklist covers enrollment token pinning/single-use, mTLS peer identity, secret non-export, guarded actions, and payload bounds; `cargo check --manifest-path fuzz/Cargo.toml --bins --locked` passes |
-| **RM2** | `crates/remote` (`license = "MIT"`): enrollment token mint/redeem over gateway `POST /__node/enroll`, `Service::Remote` (`POST /__node/remote`) over `crates/network` mTLS links, config revision sync + local override merger, `InstallReport` telemetry, remote command dispatch with `DH6` guarded approval and `DD23` remote operator actor, and `RemoteHostHandler` trait (`R2`) | Unit and integration tests for enrollment, token replay refusal, cert fingerprint mismatch refusal, config merge preserving per-host overrides, guarded two-person approval, and offline fallback; `cargo tree -e normal` shows zero AGPL dependencies |
-| **RM3** | Wire `crates/remote` into `controller` (`remote` feature), `host::serve`, `host::commands::setup`, `dainty-host remote` CLI subcommands, Docker entrypoint (`REFORGED_REMOTE_ENROLL_TOKEN`), Manager bridge commands (`spec.rs` + `api.ts`), and `ui/` Managed Installs UI with `en`/`pt-BR` catalog keys (`R2`) | Bridge staleness tests, `npm test`, `bun run test` (including new Managed Installs UI tests in `en` and `pt-BR`), and CLI round-trip tests pass |
+| **RM2** | `crates/dainty-remote` (`license = "MIT"`): enrollment token mint/redeem over gateway `POST /__node/enroll`, `Service::Remote` (`POST /__node/remote`) over `crates/dainty-network` mTLS links, config revision sync + local override merger, `InstallReport` telemetry, remote command dispatch with `DH6` guarded approval and `DD23` remote operator actor, and `RemoteHostHandler` trait (`R2`) | Unit and integration tests for enrollment, token replay refusal, cert fingerprint mismatch refusal, config merge preserving per-host overrides, guarded two-person approval, and offline fallback; `cargo tree -e normal` shows zero AGPL dependencies |
+| **RM3** | Wire `crates/dainty-remote` into `controller` (`remote` feature), `host::serve`, `host::commands::setup`, `dainty-host remote` CLI subcommands, Docker entrypoint (`REFORGED_REMOTE_ENROLL_TOKEN`), Manager bridge commands (`spec.rs` + `api.ts`), and `ui/` Managed Installs UI with `en`/`pt-BR` catalog keys (`R2`) | Bridge staleness tests, `npm test`, `bun run test` (including new Managed Installs UI tests in `en` and `pt-BR`), and CLI round-trip tests pass |
 | **RM4** | Docker multi-install harness (`docker/remote/test.sh` and `docker/run-tests.sh`) + Windows Manager E2E verification and screenshots in `en` and `pt-BR` (`R3`) | 1 controller + 2 managed installs enroll, sync a setting change, apply a remote ban, survive controller stop, enforce revocation, and prove by wire inspection that zero secrets/account keys/DB files crossed; Manager desktop screenshots captured in both languages |
-| **RM5** | Documentation sweep (`docs/hosting.md`, `docs/hosting-linux.md`, `docs/hosting-docker.md`, `docs/architecture.md`, `README.md`, `AGENTS.md`, `NOTICE.md`, and handoff ledger) (`R4`) | All hosting guides include "Managing several installs", `NOTICE.md` lists `crates/remote` under MIT, and all workspace checks pass |
+| **RM5** | Documentation sweep (`docs/hosting.md`, `docs/hosting-linux.md`, `docs/hosting-docker.md`, `docs/architecture.md`, `README.md`, `AGENTS.md`, `NOTICE.md`, and handoff ledger) (`R4`) | All hosting guides include "Managing several installs", `NOTICE.md` lists `crates/dainty-remote` under MIT, and all workspace checks pass |
 
 ---
 
 ## 10. Resolved maintainer decisions (`R0` gate)
 
 1. **Client launcher scope**: **Confirmed (`Recommended: no remote management in client launcher`)**: remote
-   management applies strictly to server and `DaintyLass Manager` installs; `dainty-launcher` has no remote
+   management applies strictly to server and `Dainty Lass Manager` installs; `dainty-launcher` has no remote
    management surface.
 2. **Single controller ownership**: **Confirmed (`true`)**: each managed install has at most one active controller at a
    time (`remote leave` is required before enrolling with a different controller), while multiple human operators share

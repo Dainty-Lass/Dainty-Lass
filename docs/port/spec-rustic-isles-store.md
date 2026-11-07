@@ -34,11 +34,11 @@
 | `git log` of the files | 27 commits, one author (the maintainer): `19ee75d` (RU4 seams), `7ab8e4e` .. `0c6747b` (RU5 areas), `0a29728` (RU8 replay scope), `66601f2`, `e33dff5`, `b909a45` (DN5, timeouts), `2ae16c9` (merge of timeouts) |
 | `crates/isles-core/tests/{store,auth_repos,characters,friendships,inventory_store,progression_repo,bounties_repos,parties}.rs` | The authored tests (described in §15, not copied) |
 | `crates/isles-core/src/module.rs` (`open_store`), `areas/auth/*` (how each store call is made), `areas/auth/erasure.rs` (the erasure transaction) | Read for the seam only: how the store is opened and which actor and write path each auth call uses (§12) |
-| `legacy/crates/legacy-import/src/target.rs` | Requires the migration versions `0001`, `0020`, `0200` and `0610` in `__diesel_schema_migrations` (§4.1) |
+| `legacy/crates/dainty-legacy-import/src/target.rs` | Requires the migration versions `0001`, `0020`, `0200` and `0610` in `__diesel_schema_migrations` (§4.1) |
 
 ### 1.2 Classification and what is rewritten
 
-Category A is code written for DaintyLass with no Paradox code in it; Category B ports Paradox TypeScript. The schema
+Category A is code written for Dainty Lass with no Paradox code in it; Category B ports Paradox TypeScript. The schema
 is an interface fact (existing databases have it) and is restated here as facts; everything else is rewritten.
 
 | Restricted file (`crates/isles-core/`) | Lines | Cat. | Source | Rewritten as |
@@ -53,7 +53,7 @@ is an interface fact (existing databases have it) and is restated here as facts;
 | `src/repo/bounties.rs` | 832 | B | bounty/cooldown state, entitlements, wallets, economy rollups | §11.1 |
 | `src/repo/parties.rs`, `parties/sql.rs` | 271 + 921 | B | `PartyRepository.ts`, `SqlitePartyRepository` | §11.2 |
 | `src/repo/reforged.rs` | 2423 | B | admin, notices, operations policy, activity, Launcher Guard, invites | §11.3 |
-| `migrations/{sqlite,postgres}/*/{up,down}.sql` | 1196 (30 files) | schema facts | DaintyLass tables shaped after Node's collections | §4 (restated as tables) |
+| `migrations/{sqlite,postgres}/*/{up,down}.sql` | 1196 (30 files) | schema facts | Dainty Lass tables shaped after Node's collections | §4 (restated as tables) |
 | (none: new) | | | auth spec §11.3 | §12, the `AuthStore` adapter, specified fresh (restricted has none yet) |
 
 ### 1.3 What stays in dainty-restricted

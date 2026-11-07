@@ -7,8 +7,8 @@
 #![no_main]
 
 use libfuzzer_sys::fuzz_target;
-use rifts_transport::files::{Fields, ice_material};
-use rifts_transport::filter::{CANDIDATE, DESCRIPTION, GATHERING_DONE, relay_only};
+use rustic_rifts_transport::files::{Fields, ice_material};
+use rustic_rifts_transport::filter::{CANDIDATE, DESCRIPTION, GATHERING_DONE, relay_only};
 
 const KINDS: [&str; 3] = [DESCRIPTION, CANDIDATE, GATHERING_DONE];
 

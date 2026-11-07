@@ -13,17 +13,17 @@ use std::thread::ThreadId;
 use axum::body::Body;
 use axum::extract::{ConnectInfo, Request};
 use axum::response::IntoResponse;
+use dainty_service_kit::serve::ConnectionInfo;
 use http::StatusCode;
 use http_body_util::BodyExt;
-use rifts_seam::{
+use rustic_isles::handlers::auth_handlers;
+use rustic_isles::testing::sample_version;
+use rustic_isles::{Handlers, Method, MountError, Service, Settings, Shared, SharedParts, Side, When, routes};
+use rustic_rifts_seam::{
     BoxFuture, Component, DedicatedOnly, GuardHooks, HostRouteSample, HostWrite, HostWriteKind, HostWriteOptions,
     InventoryDecision, InventoryTransaction, Json, Lifecycle, Reply, RequestInfo, RiftsParts, RuntimeAuth, SeamError,
     StubRoutes, TableSpec,
 };
-use rustic_isles::handlers::auth_handlers;
-use rustic_isles::testing::sample_version;
-use rustic_isles::{Handlers, Method, MountError, Service, Settings, Shared, SharedParts, Side, When, routes};
-use service_kit::serve::ConnectionInfo;
 use tower::ServiceExt;
 
 struct Answer {
@@ -122,13 +122,13 @@ impl Lifecycle for Guard {
     fn startup_summary(&self, role: &str) -> Result<Option<Json>, SeamError> {
         DedicatedOnly.startup_summary(role)
     }
-    fn runtime_safety_issues(&self, settings: &dyn rifts_seam::Settings) -> Result<Vec<String>, SeamError> {
+    fn runtime_safety_issues(&self, settings: &dyn rustic_rifts_seam::Settings) -> Result<Vec<String>, SeamError> {
         DedicatedOnly.runtime_safety_issues(settings)
     }
     fn tables(&self) -> &'static [TableSpec] {
         &[]
     }
-    fn account_deletion_steps(&self) -> Vec<rifts_seam::DeletionStep> {
+    fn account_deletion_steps(&self) -> Vec<rustic_rifts_seam::DeletionStep> {
         vec![]
     }
 }
@@ -163,7 +163,7 @@ impl GuardHooks for Guard {
         &self,
         _: RuntimeAuth,
         _: HostWriteKind,
-        _: rifts_seam::AccountId,
+        _: rustic_rifts_seam::AccountId,
         _: HostWriteOptions,
     ) -> BoxFuture<'_, Result<Option<Reply>, SeamError>> {
         Box::pin(async { Ok(None) })
@@ -186,24 +186,24 @@ impl GuardHooks for Guard {
 }
 
 /// Rifts loaded, with a stub answering every `rifts` row "not implemented".
-fn rifts() -> rifts_seam::Rifts {
-    let routes: Vec<rifts_seam::Route> = routes::all()
+fn rifts() -> rustic_rifts_seam::Rifts {
+    let routes: Vec<rustic_rifts_seam::Route> = routes::all()
         .iter()
         .filter(|r| r.when == When::Rifts)
-        .map(|r| rifts_seam::Route {
+        .map(|r| rustic_rifts_seam::Route {
             method: match r.method {
-                Method::Get => rifts_seam::Method::Get,
-                Method::Patch => rifts_seam::Method::Patch,
-                _ => rifts_seam::Method::Post,
+                Method::Get => rustic_rifts_seam::Method::Get,
+                Method::Patch => rustic_rifts_seam::Method::Patch,
+                _ => rustic_rifts_seam::Method::Post,
             },
             path: r.path,
-            mount: rifts_seam::Mount::Normal,
+            mount: rustic_rifts_seam::Mount::Normal,
             handler: "stub.route",
         })
         .collect();
-    let routes: &'static [rifts_seam::Route] = Box::leak(routes.into_boxed_slice());
+    let routes: &'static [rustic_rifts_seam::Route] = Box::leak(routes.into_boxed_slice());
     let dedicated = Arc::new(DedicatedOnly);
-    rifts_seam::Rifts::new(RiftsParts {
+    rustic_rifts_seam::Rifts::new(RiftsParts {
         realms: dedicated.clone(),
         entry: dedicated,
         guard: Arc::new(Guard),

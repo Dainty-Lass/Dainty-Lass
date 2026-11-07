@@ -8,8 +8,8 @@
 use std::time::{Duration, Instant};
 
 use libfuzzer_sys::fuzz_target;
-use rifts_transport::fragment::{MAX_PIECES, PIECE_BYTES, Piece, Reassembler};
-use rifts_transport::seal::{FrameType, PairCipher, Side};
+use rustic_rifts_transport::fragment::{MAX_PIECES, PIECE_BYTES, Piece, Reassembler};
+use rustic_rifts_transport::seal::{FrameType, PairCipher, Side};
 
 fuzz_target!(|data: &[u8]| {
     let Ok(cipher) = PairCipher::new(&[7; 32], Side::Host) else {

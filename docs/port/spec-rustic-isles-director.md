@@ -30,17 +30,17 @@
 | Source | What it says |
 | --- | --- |
 | `modules/rustic-isles/NOTICE.md` | The whole module, every crate and file, is AGPL-3.0-only with Mystic Paradox's section 7 terms |
-| File headers (`//!`) | Which TypeScript each file ports (`ParadoxDirector/src/...`, `shared/hunt-manifest`, `scripts/import_hunt_tables.cjs`) or which DaintyLass row it was written for |
+| File headers (`//!`) | Which TypeScript each file ports (`ParadoxDirector/src/...`, `shared/hunt-manifest`, `scripts/import_hunt_tables.cjs`) or which Dainty Lass row it was written for |
 | `git log` of the crate | Every commit is the maintainer's: `9c6f786` (RU6), `aaaffcb`, `28b6128` (Windows spawn in the job), `dcad4c1`, `3691abc` (RU9 in-process Director), `2824b6d` (RB11 importer), `9ad97c6` (rename), `04992f5`, `4efc8b5` (flat crates) |
 | `crates/isles-1-14-7/src/lib.rs` | The 1.14.7 `DIRECTOR` values (§12.4) and how the module composes the service |
-| `crates/host/src/lib.rs` (restricted) | The two callers outside the module: the hidden `director` subcommand and `reforged-host gamedata`'s hunt-table step |
-| dainty-lass `crates/hostkit/src/hostconfig.rs` | What `setup` writes into `director.env` (§11) |
+| `crates/dainty-host/src/lib.rs` (restricted) | The two callers outside the module: the hidden `director` subcommand and `reforged-host gamedata`'s hunt-table step |
+| dainty-lass `crates/dainty-hostkit/src/hostconfig.rs` | What `setup` writes into `director.env` (§11) |
 | `native/runtime` and `native/catalog-exporter/HuntExporter.cpp` (restricted) | Only to confirm wire facts: the runtime prints the new readiness marker and reads the new env names; the exporter writes handles as `{"table","rowName"}` |
 
 ### 1.2 Classification and what is rewritten
 
-Category A is code written for DaintyLass with no Paradox code in it; Category B ports Paradox TypeScript or a
-DaintyLass patch to Paradox (the "Director patch 00xx" files are patches to Paradox, so B). As for core (§15 item 11
+Category A is code written for Dainty Lass with no Paradox code in it; Category B ports Paradox TypeScript or a
+Dainty Lass patch to Paradox (the "Director patch 00xx" files are patches to Paradox, so B). As for core (§15 item 11
 there), **the implementer writes every file from this spec**; nothing moves as it is.
 
 | Restricted file (`crates/isles-director/`) | Cat. | Source | Rewritten as |
@@ -998,7 +998,7 @@ ids and picks), `windows` (Windows: job objects, threading, pipes, file system, 
 Dev: `tempfile`, `tokio` (macros, net, rt-multi-thread).
 
 **Seam changes for the integration pass**: the member and `rustic-isles-director` in `[workspace.dependencies]`;
-`libc` in `[workspace.dependencies]` (today `module-api` and `hostkit` pin it themselves); nothing in `crates/protocol`,
+`libc` in `[workspace.dependencies]` (today `module-api` and `hostkit` pin it themselves); nothing in `crates/dainty-protocol`,
 `store` or the `clap` tree. Restricted's 1.14.7 crate and `host` switch their imports (§1.3); dainty-lass hostkit's
 generator label, if it should name the new path, is hostkit's row.
 

@@ -7,7 +7,7 @@ use std::process::ExitCode;
 
 fn main() -> ExitCode {
     match rustic_isles_1_14_7::module() {
-        Ok(module) => module_api::child::main(module),
+        Ok(module) => dainty_module_api::child::main(module),
         Err(error) => {
             eprintln!("rustic-isles-1-14-7: {error}");
             ExitCode::FAILURE

@@ -7,16 +7,16 @@
 //! is one token; a guard attach either succeeds with the text grown or leaves it unchanged.
 #![no_main]
 
-use gateway::allowlist::firewall::{WindowsChange, plan, windows_change};
-use gateway::allowlist::guard::Guard;
-use gateway::allowlist::helper::{allow_body, declared_length};
-use gateway::allowlist::nft::{NftSettings, check_interface, check_nft_table, nft_script};
-use gateway::allowlist::ports::{check_port_list, check_ports};
-use gateway::allowlist::state::AllowlistState;
-use gateway::ip::{AllowlistCheck, check_allowlist_ip};
+use dainty_gateway::allowlist::firewall::{WindowsChange, plan, windows_change};
+use dainty_gateway::allowlist::guard::Guard;
+use dainty_gateway::allowlist::helper::{allow_body, declared_length};
+use dainty_gateway::allowlist::nft::{NftSettings, check_interface, check_nft_table, nft_script};
+use dainty_gateway::allowlist::ports::{check_port_list, check_ports};
+use dainty_gateway::allowlist::state::AllowlistState;
+use dainty_gateway::ip::{AllowlistCheck, check_allowlist_ip};
 use http::{HeaderMap, HeaderValue};
 use libfuzzer_sys::fuzz_target;
-use module_api::PortRange;
+use dainty_module_api::PortRange;
 
 fn one_token(text: &str) -> bool {
     !text.is_empty() && !text.contains(|c: char| c.is_whitespace() || matches!(c, '"' | ';' | '{' | '}' | '#'))
@@ -36,7 +36,7 @@ fuzz_target!(|input: (Vec<u8>, String, Vec<(u16, u16)>)| {
         // 3 table lines, 2 sets of 3 lines, 8 chain lines, one elements line
         assert_eq!(script.lines().count(), 3 + 6 + 8 + 1);
         assert_eq!(script.matches(&format!(" {} ", ip.canonical)).count(), 1);
-        match windows_change(&rule, "DaintyLass x") {
+        match windows_change(&rule, "Dainty Lass x") {
             WindowsChange::Open(open) => assert_eq!(open.remote_addresses, ip.canonical),
             WindowsChange::Close => unreachable!("an address opens the rule"),
         }
@@ -60,7 +60,7 @@ fuzz_target!(|input: (Vec<u8>, String, Vec<(u16, u16)>)| {
     for name in checked.into_iter().flatten() {
         assert!(one_token(&name), "{name:?}");
     }
-    if let (Ok(guard), Ok(module)) = (Guard::new("8770-8777"), "m".parse::<module_api::ModuleId>()) {
+    if let (Ok(guard), Ok(module)) = (Guard::new("8770-8777"), "m".parse::<dainty_module_api::ModuleId>()) {
         let before = guard.text();
         let ranges: Vec<PortRange> = ranges.iter().map(|&(first, last)| PortRange { first, last }).collect();
         match guard.attach(&module, &ranges) {

@@ -11,11 +11,11 @@ parts share, gives the target MIT design and the acceptance criteria, and indexe
 | Part | Spec | Source in dainty-restricted |
 | --- | --- | --- |
 | Transport (the DLL) | [`spec-rd27-rifts-transport.md`](spec-rd27-rifts-transport.md) | `src/`, `src/test/`, build scripts, `tools/` |
-| Seam, admission, relay | [`spec-rd27-rifts-admission-relay.md`](spec-rd27-rifts-admission-relay.md) | `crates/rifts-seam`, `rifts-admission`, `rifts-relay` |
-| Realms: rules and hosting | [`spec-rd27-rifts-realms.md`](spec-rd27-rifts-realms.md) | `crates/rifts-realms` (domain modules) |
-| Realms: store, routes, service | [`spec-rd27-rifts-realms-store.md`](spec-rd27-rifts-realms-store.md) | `crates/rifts-realms` (persistence and wiring) |
-| Guard | [`spec-rd27-rifts-guard.md`](spec-rd27-rifts-guard.md) | `crates/rifts-guard` |
-| Host (launcher side) | [`spec-rd27-rifts-host.md`](spec-rd27-rifts-host.md) | `crates/rifts-host`, the module's top-level files |
+| Seam, admission, relay | [`spec-rd27-rifts-admission-relay.md`](spec-rd27-rifts-admission-relay.md) | `crates/rustic-rifts-seam`, `rustic-rifts-admission`, `rustic-rifts-relay` |
+| Realms: rules and hosting | [`spec-rd27-rifts-realms.md`](spec-rd27-rifts-realms.md) | `crates/rustic-rifts-realms` (domain modules) |
+| Realms: store, routes, service | [`spec-rd27-rifts-realms-store.md`](spec-rd27-rifts-realms-store.md) | `crates/rustic-rifts-realms` (persistence and wiring) |
+| Guard | [`spec-rd27-rifts-guard.md`](spec-rd27-rifts-guard.md) | `crates/rustic-rifts-guard` |
+| Host (launcher side) | [`spec-rd27-rifts-host.md`](spec-rd27-rifts-host.md) | `crates/rustic-rifts-host`, the module's top-level files |
 
 Source: dainty-restricted `4efc8b5` (`plan`); dainty-lass `49197a8`. Measurement follows
 [`clean-room/similarity.md`](clean-room/similarity.md).
@@ -40,19 +40,19 @@ Source: dainty-restricted `4efc8b5` (`plan`); dainty-lass `49197a8`. Measurement
 - **Headers.** Every C++ file carries Mystic Paradox's copyright header. Almost every Rust file's `//!` names the
   TypeScript module it ports (`p2p/security/admissionTickets.ts`, `realms/realmsService.ts`, ...) or the C++ file
   whose bytes it matches.
-- **History.** The crates were written in DaintyLass's rows RF1–RF7 (2026-10-26 to 2026-11-01), each as a port.
-- **Callers.** `isles-core` and `isles-1-14-7` (rustic-isles, AGPL) take `rifts-seam` always and the four server
+- **History.** The crates were written in Dainty Lass's rows RF1–RF7 (2026-10-26 to 2026-11-01), each as a port.
+- **Callers.** `isles-core` and `isles-1-14-7` (rustic-isles, AGPL) take `rustic-rifts-seam` always and the four server
   crates behind `isles-1-14-7`'s `realms` feature. The launcher (`launcher/src-tauri`, feature `realms`) takes
-  `rifts-host` and `rifts-seam`.
+  `rustic-rifts-host` and `rustic-rifts-seam`.
 
 ### 1.2 Categories
 
 - **B**: derived from Mystic Paradox, by copy (the C++) or by port (the Rust). Rewritten clean room from the part
   specs. This is every source file, test, example, migration and fuzz target. The few files with no Paradox source
-  of their own (for example `rifts-guard/src/digest.rs` or `rifts-seam/src/id.rs`) are rewritten too. They are small,
+  of their own (for example `rustic-rifts-guard/src/digest.rs` or `rustic-rifts-seam/src/id.rs`) are rewritten too. They are small,
   and moving them would leave the reviewer to argue each one's provenance.
-- **D**: data recorded from Mystic Paradox's programs: `rifts-admission/tests/vectors/node-admission.json`,
-  `rifts-relay/tests/vectors/node-relay.json` and their generator `make-vectors.mts`. These stay in dainty-restricted
+- **D**: data recorded from Mystic Paradox's programs: `rustic-rifts-admission/tests/vectors/node-admission.json`,
+  `rustic-rifts-relay/tests/vectors/node-relay.json` and their generator `make-vectors.mts`. These stay in dainty-restricted
   as oracles. The vector tests (`tests/node_vectors.rs` in both crates) stay with them and run against the MIT
   crates by git dependency (§5).
 - **K**: kept in dainty-restricted and not carried: `LICENSE`, `ADDITIONAL_TERMS.md`, `NOTICE.md`, `README.md`,
@@ -62,7 +62,7 @@ Source: dainty-restricted `4efc8b5` (`plan`); dainty-lass `49197a8`. Measurement
   `.forgejo/workflows/transport.yml` and the fuzz workspace's lock file. Once restricted switches, the C++ files and
   their scripts are deleted with the crates.
 
-- **A**: written here for DaintyLass with no Paradox counterpart, moved with MIT headers. The part specs class as A
+- **A**: written here for Dainty Lass with no Paradox counterpart, moved with MIT headers. The part specs class as A
   only the crate manifests (with `license = "MIT"`), the five fuzz targets (RF4; Mystic Paradox has no fuzzing, and
   the targets call only the public API), Guard's two migration sets and `tests/sql_store.rs` (DD15 and DF7 shapes on
   `store`). The realms store spec classes its migrations as B but gives the DDL exactly; either way the schema comes
@@ -85,12 +85,12 @@ umbrella overrides it: the checklists are rewritten fresh (§4.5), because restr
 | Part | Files | Code lines (approx.) |
 | --- | ---: | ---: |
 | `ParadoxTransport.dll` (`src/`, with its self-test) | 30 | 8,700 |
-| `rifts-seam` | 8 | 1,500 |
-| `rifts-admission` | 13 | 4,100 (+ 5,900 lines of vectors, D) |
-| `rifts-relay` | 11 | 3,800 (+ 600 lines of vectors, D) |
-| `rifts-realms` | 46 | 27,700 |
-| `rifts-guard` | 21 | 10,200 |
-| `rifts-host` | 6 | 3,900 |
+| `rustic-rifts-seam` | 8 | 1,500 |
+| `rustic-rifts-admission` | 13 | 4,100 (+ 5,900 lines of vectors, D) |
+| `rustic-rifts-relay` | 11 | 3,800 (+ 600 lines of vectors, D) |
+| `rustic-rifts-realms` | 46 | 27,700 |
+| `rustic-rifts-guard` | 21 | 10,200 |
+| `rustic-rifts-host` | 6 | 3,900 |
 | `fuzz/` targets | 5 | 260 |
 | **Total** | | **≈ 60,000** |
 
@@ -104,7 +104,7 @@ Rustic ones.
 
 ### D1. The transport is a Rust library linked into the launcher, not a DLL (recommended)
 
-`ParadoxTransport.dll` is not loaded into the game. The launcher loads it: `rifts-host`'s `ffi` module checks
+`ParadoxTransport.dll` is not loaded into the game. The launcher loads it: `rustic-rifts-host`'s `ffi` module checks
 the file's SHA-256 against the signed Guard manifest's `TRANSPORT_MODULE` entry, opens it with `libloading`,
 resolves its 29 ABI 3 exports and wraps them in the `TransportAbi` trait. The game sees only a UDP socket on
 127.0.0.1 (the bridge). The C ABI exists because the transport was C++ and shipped and signed apart from the
@@ -112,22 +112,22 @@ launcher.
 
 Once the transport is Rust, the launcher can call it directly:
 
-- **Recommended:** a library crate `rifts-transport` (MIT, in dainty-lass's workspace) that implements
+- **Recommended:** a library crate `rustic-rifts-transport` (MIT, in dainty-lass's workspace) that implements
   `rifts_host::transport::TransportAbi` in process: the same handles, lines, signals, roster commands and results as
-  ABI 3, as Rust calls. It needs no `unsafe`, no `cdylib` and no exemption. `rifts-host` keeps the `TransportAbi`
+  ABI 3, as Rust calls. It needs no `unsafe`, no `cdylib` and no exemption. `rustic-rifts-host` keeps the `TransportAbi`
   trait and gains an in-process loader next to the FFI one. The behaviour the launcher sees is ABI 3's, byte for
   byte in every line (spec-rd27-rifts-transport.md).
   - Cost: the transport now updates with the launcher, not through the runtime feed's `TRANSPORT_MODULE` role. The
     Guard manifest entry and the SHA-256 check go for the in-process path. That is a change to how the launcher is
     released, so it needs a decision row.
-  - The MIT `rifts-host` then has no FFI loader and no `unsafe` at all. D3 rules out talking to the old DLL, so
+  - The MIT `rustic-rifts-host` then has no FFI loader and no `unsafe` at all. D3 rules out talking to the old DLL, so
     restricted drops its loader at the cutover too.
   - The transport part spec (its §6) was written for a `cdylib` that keeps the C ABI. Under this option its §2.1
     export table becomes the `TransportAbi` methods' contract, and everything else in it holds as written.
 - **If the separate channel must stay:** a second crate, `rifts-transport-abi` (`cdylib`), exports the C ABI over
-  `rifts-transport`. It is the only code that needs `unsafe`, either inside the workspace with a
+  `rustic-rifts-transport`. It is the only code that needs `unsafe`, either inside the workspace with a
   crate-level `#![allow(unsafe_code)]` as `plugin-host` has, or outside it as `native/runtime-loader` was. In the
-  workspace is better: it gets the workspace's lints, CI and dependency pins. `rifts-host`'s FFI loader also needs
+  workspace is better: it gets the workspace's lints, CI and dependency pins. `rustic-rifts-host`'s FFI loader also needs
   `unsafe`; it already carries a module-level allowance in restricted, and the MIT rewrite needs the same exemption
   (one module, `ffi`).
 - The first option is the one accepted, so the second is kept only as a record.
@@ -213,16 +213,16 @@ dependencies. Every crate goes in `crates/<package>`, MIT, `Copyright (c) 2026 S
 
 | Package | Folder | Kind | Depends on (MIT) |
 | --- | --- | --- | --- |
-| `rifts-seam` | `crates/rifts-seam` | lib | — |
-| `rifts-relay` | `crates/rifts-relay` | lib | `rifts-seam` |
-| `rifts-admission` | `crates/rifts-admission` | lib | `rifts-seam`, `rifts-relay` |
-| `rifts-guard` | `crates/rifts-guard` | lib | `rifts-seam`, `store` |
-| `rifts-realms` | `crates/rifts-realms` | lib | `rifts-seam`, `-admission`, `-relay`, `-guard`, `store`, `module-api` |
-| `rifts-transport` | `crates/rifts-transport` | lib (new) | `rifts-seam`, `rifts-admission` (ticket and control codecs) |
-| `rifts-host` | `crates/rifts-host` | lib | `rifts-seam`, optionally `rifts-transport` (feature `in-process`) |
+| `rustic-rifts-seam` | `crates/rustic-rifts-seam` | lib | — |
+| `rustic-rifts-relay` | `crates/rustic-rifts-relay` | lib | `rustic-rifts-seam` |
+| `rustic-rifts-admission` | `crates/rustic-rifts-admission` | lib | `rustic-rifts-seam`, `rustic-rifts-relay` |
+| `rustic-rifts-guard` | `crates/rustic-rifts-guard` | lib | `rustic-rifts-seam`, `store` |
+| `rustic-rifts-realms` | `crates/rustic-rifts-realms` | lib | `rustic-rifts-seam`, `-admission`, `-relay`, `-guard`, `store`, `module-api` |
+| `rustic-rifts-transport` | `crates/rustic-rifts-transport` | lib (new) | `rustic-rifts-seam`, `rustic-rifts-admission` (ticket and control codecs) |
+| `rustic-rifts-host` | `crates/rustic-rifts-host` | lib | `rustic-rifts-seam`, optionally `rustic-rifts-transport` (feature `in-process`) |
 | `rifts-transport-abi` | `crates/rifts-transport-abi` | cdylib | only if D1's second option is taken |
 
-`rifts-transport` reuses `rifts-admission`'s ticket verifier and MPC1 codec instead of having its own, as the C++
+`rustic-rifts-transport` reuses `rustic-rifts-admission`'s ticket verifier and MPC1 codec instead of having its own, as the C++
 had to. The two sides of one format then share one implementation.
 
 ### D5. Crypto without new dependencies where possible
@@ -230,10 +230,10 @@ had to. The two sides of one format then share one implementation.
 | Need | Today | MIT crate uses |
 | --- | --- | --- |
 | AES-256-GCM (pair frames) | Windows BCrypt (C++) | `aes-gcm` (in the workspace) |
-| ES256 tickets: sign (backend), verify (host) | `p256` (Rust), BCrypt (C++) | `p256` 0.14 (`ecdsa`, `pem`, `pkcs8`, `std`): its types are in `rifts-admission`'s public API, so both repositories must share one version. **New workspace entry.** The transport may verify with `aws-lc-rs` instead. Both must accept high-S signatures |
+| ES256 tickets: sign (backend), verify (host) | `p256` (Rust), BCrypt (C++) | `p256` 0.14 (`ecdsa`, `pem`, `pkcs8`, `std`): its types are in `rustic-rifts-admission`'s public API, so both repositories must share one version. **New workspace entry.** The transport may verify with `aws-lc-rs` instead. Both must accept high-S signatures |
 | SHA-256, HMAC-SHA1 (turn-rest), HMAC-SHA256 | `sha2`, `sha1`, `hmac` | the same (all in the workspace) |
 | Random | `getrandom`, BCryptGenRandom | `rand` or `aws-lc-rs::rand` (in the workspace); `getrandom` would be new |
-| Dynamic loading (`rifts-host` FFI path) | `libloading 0.7` | `libloading` is pinned only in `plugin-host`'s own manifest; a workspace entry is a seam change |
+| Dynamic loading (`rustic-rifts-host` FFI path) | `libloading 0.7` | `libloading` is pinned only in `plugin-host`'s own manifest; a workspace entry is a seam change |
 | HTTPS from the transport to the backend | WinHTTP | `hyper` + `hyper-rustls` (in the workspace), on a small tokio runtime of the transport's own |
 | Named pipe from the game server (Guard events) | Win32 | `tokio::net::windows::named_pipe` (safe API) |
 
@@ -241,7 +241,7 @@ Each crate's spec says where it differs. Seam changes for the integration pass:
 
 - the ICE crate and a TURN server dev-dependency (D2);
 - `p256`;
-- the `rifts-*` entries in `[workspace.dependencies]`;
+- the `rustic-rifts-*` entries in `[workspace.dependencies]`;
 - `getrandom` only if `rand` cannot stand in;
 - `libloading` only if D1 keeps an FFI path in an MIT crate;
 - `zeroize` if key wiping is kept;
@@ -285,11 +285,11 @@ and the callers (rustic-isles, the launcher's realm adapter), which are AGPL for
 
 ### 4.2 Order
 
-1. `rifts-seam` (every other crate and isles-core depend on it).
-2. `rifts-relay`, then `rifts-admission` (vectors: admission needs relay's pair keys).
-3. `rifts-guard`.
-4. `rifts-realms` (both halves, one implementer or two working one after the other: the store half first).
-5. `rifts-transport`, then `rifts-host` (its tests drive the transport in process).
+1. `rustic-rifts-seam` (every other crate and isles-core depend on it).
+2. `rustic-rifts-relay`, then `rustic-rifts-admission` (vectors: admission needs relay's pair keys).
+3. `rustic-rifts-guard`.
+4. `rustic-rifts-realms` (both halves, one implementer or two working one after the other: the store half first).
+5. `rustic-rifts-transport`, then `rustic-rifts-host` (its tests drive the transport in process).
 6. The fuzz targets, each with the crate it covers.
 
 Steps 2–3 and 5 can run in parallel once step 1 has landed.
@@ -297,10 +297,10 @@ Steps 2–3 and 5 can run in parallel once step 1 has landed.
 ### 4.3 What dainty-restricted does afterwards (integration, not this row)
 
 - Delete `modules/rustic-rifts/crates/*`, `src/`, the build scripts and the transport workflow. Point
-  `[workspace.dependencies]`' six `rifts-*` entries at dainty-lass by git rev.
+  `[workspace.dependencies]`' six `rustic-rifts-*` entries at dainty-lass by git rev.
 - Keep `tests/vectors/` and the two `node_vectors.rs` tests in a small test-only crate (for example
   `modules/rustic-rifts/oracle`) that runs them against the MIT crates.
-- Launcher: build `rifts-host` with `in-process`, drop `ParadoxTransport.dll` from the runtime feed and the Guard
+- Launcher: build `rustic-rifts-host` with `in-process`, drop `ParadoxTransport.dll` from the runtime feed and the Guard
   manifest's `TRANSPORT_MODULE` role, and delete the FFI loader.
 - The D3 renames in isles-core, the runtime's `PlayerHost.cpp` and the launcher's realm adapter, in the same cutover.
 - NOTICE: rifts moves to "Clean-room MIT rewrites" in dainty-lass's NOTICE, with a truthful line that it replaces a
@@ -333,7 +333,7 @@ written from the part specs' threat notes in `relay.md`'s structure, not copied 
 4. A reviewer outside the clean room runs the D oracles (`node_vectors.rs` for admission and relay) against the MIT
    crates unchanged, and they pass.
 5. A reviewer outside the clean room measures every rewritten file against dainty-restricted `4efc8b5`'s rifts
-   tree (the Rust against the crate it replaces, `rifts-transport` against `src/*.cpp`): under 30% per file by
+   tree (the Rust against the crate it replaces, `rustic-rifts-transport` against `src/*.cpp`): under 30% per file by
    `similarity.md`'s measure, with every file at or above 25% explained (wire constants, DDL, public signatures).
 6. Restricted builds and passes its suites (isles-core, isles-1-14-7, the launcher's `controller/tests/realms.rs`)
    with only its dependency lines changed.
@@ -355,7 +355,7 @@ As `clean-room/chat.md` and `hostkit.md` record:
 2. It writes the crate from its part spec, with the crate's tests and fuzz targets, and records in
    `docs/port/clean-room/<crate>.md` the session, the files it read and wrote, and its test, clippy and
    `cargo tree -e normal -p <crate>` output.
-3. The workspace `members` glob takes the new folders; adding `rifts-*` to `[workspace.dependencies]` and the ICE
+3. The workspace `members` glob takes the new folders; adding `rustic-rifts-*` to `[workspace.dependencies]` and the ICE
    crate are seam changes the implementer reports rather than makes on `plan`.
 4. The reviewer (outside the clean room) measures similarity (§5.5) and adds the files to `similarity.md`.
 

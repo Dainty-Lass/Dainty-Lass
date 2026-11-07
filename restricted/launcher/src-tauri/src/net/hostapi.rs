@@ -10,9 +10,9 @@
 use std::time::Duration;
 
 use bytes::Bytes;
+use dainty_protocol::account::REGISTER_PATH;
+use dainty_protocol::manifest::RUNTIME_MANIFEST_PATH;
 use hyper::Method;
-use protocol::account::REGISTER_PATH;
-use protocol::manifest::RUNTIME_MANIFEST_PATH;
 use serde_json::Value;
 
 use super::http::{Endpoint, HttpError, HttpResponse, RequestOptions, parse_json_body, request};
@@ -170,7 +170,7 @@ pub async fn register_account_as(
         format!("{}/Register", flavor.api)
     };
     let mut request_options = options(Method::POST, 20000, 64 * 1024);
-    let body = protocol::account::RegisterRequest {
+    let body = dainty_protocol::account::RegisterRequest {
         username: username.to_owned(),
         invite_code: invite_code.to_owned(),
     };

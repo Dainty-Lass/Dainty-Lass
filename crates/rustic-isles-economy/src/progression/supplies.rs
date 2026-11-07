@@ -19,13 +19,13 @@ fn catalog_ok(id: &str) -> bool {
 
 /// The file's text (one BOM already dropped); `instanced` says whether the storage policy keeps an id instanced.
 pub fn parse_session_supplies(text: &str, instanced: &dyn Fn(&str) -> bool) -> Result<SuppliesFile, String> {
-    let document = service_kit::jsjson::parse(text).map_err(|e| e.to_string())?;
+    let document = dainty_service_kit::jsjson::parse(text).map_err(|e| e.to_string())?;
     let Some(accounts) = document.get("accounts").and_then(Value::as_object) else {
         return Err(SHAPE.into());
     };
     let mut out = Vec::new();
     for (user, items) in accounts {
-        let quoted = service_kit::jsjson::stringify(&Value::String(user.clone()));
+        let quoted = dainty_service_kit::jsjson::stringify(&Value::String(user.clone()));
         let Some(items) = items.as_object().filter(|_| !user.is_empty()) else {
             return Err(format!(
                 "account {quoted}: expected an object of catalog ids and quantities"
@@ -36,7 +36,7 @@ pub fn parse_session_supplies(text: &str, instanced: &dyn Fn(&str) -> bool) -> R
             if !catalog_ok(id) {
                 return Err(format!(
                     "account {user}: invalid catalog id {}",
-                    service_kit::jsjson::stringify(&Value::String(id.clone()))
+                    dainty_service_kit::jsjson::stringify(&Value::String(id.clone()))
                 ));
             }
             if id.starts_with("CURRENCY_") {

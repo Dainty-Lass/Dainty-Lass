@@ -24,10 +24,10 @@ Paradox does not endorse it. Every change is recorded in the commit history.
 - The repository root is Mystic Paradox's `ParadoxTransport/` folder, taken with its history (up to `c1c5dca`,
   17 October 2026): the transport (`src/`), its self-test (`src/test/`), the build and dependency scripts and
   `tools/`. Its files keep Mystic Paradox's copyright headers.
-- The Rust workspace (`crates/rifts-seam`, `crates/rifts-admission`, `crates/rifts-relay`, `crates/rifts-realms`,
-  `crates/rifts-guard`, `crates/rifts-host`) ported Mystic Paradox's `p2p/`, `realms/`, Guard and launcher realm-hosting
-  modules (`21b9ff5`, `AGPL-3.0-only`) to Rust on `store`. Those crates were removed on 2026-11-05 (RD27): DaintyLass
-  now builds dainty-lass's clean-room MIT `rifts-*` crates in their place, which contain none of this code. The
+- The Rust workspace (`crates/rustic-rifts-seam`, `crates/rustic-rifts-admission`, `crates/rustic-rifts-relay`, `crates/rustic-rifts-realms`,
+  `crates/rustic-rifts-guard`, `crates/rustic-rifts-host`) ported Mystic Paradox's `p2p/`, `realms/`, Guard and launcher realm-hosting
+  modules (`21b9ff5`, `AGPL-3.0-only`) to Rust on `store`. Those crates were removed on 2026-11-05 (RD27): Dainty Lass
+  now builds dainty-lass's clean-room MIT `rustic-rifts-*` crates in their place, which contain none of this code. The
   removed crates stay in the history, under `AGPL-3.0-only` and Mystic Paradox's additional terms.
 - `oracle/tests/vectors/` (`node-admission.json`, `node-relay.json` and their generator `make-vectors.mts`) are data
   recorded from Mystic Paradox's own admission, relay and ICE modules, and `oracle/tests/*.rs` the ported tests that

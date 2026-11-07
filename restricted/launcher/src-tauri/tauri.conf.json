@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "DaintyLass Launcher",
+  "productName": "Dainty Lass Launcher",
   "mainBinaryName": "dainty-launcher",
   "version": "../package.json",
   "identifier": "io.github.freezamotoqueiro.dauntlessreforgedrevival",
@@ -39,12 +39,12 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ],
-    "publisher": "DaintyLass contributors",
+    "publisher": "Dainty Lass contributors",
     "homepage": "https://git.silentspud.com/silentspud/dainty-lass",
     "license": "AGPL-3.0-only",
     "category": "Game",
-    "shortDescription": "Launcher for DaintyLass community servers",
-    "longDescription": "Join a DaintyLass community server from an invite, check your Dauntless 1.14.7 install, install the host's game runtime and play, on Windows or on Linux through Proton.",
+    "shortDescription": "Launcher for Dainty Lass community servers",
+    "longDescription": "Join a Dainty Lass community server from an invite, check your Dauntless 1.14.7 install, install the host's game runtime and play, on Windows or on Linux through Proton.",
     "windows": {
       "webviewInstallMode": {
         "type": "embedBootstrapper"

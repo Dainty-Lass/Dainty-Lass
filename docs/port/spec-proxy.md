@@ -1,8 +1,8 @@
-# Clean-room Behaviour Specification: `proxy` (`crates/proxy`)
+# Clean-room Behaviour Specification: `proxy` (`crates/dainty-proxy`)
 
 ## 1. Purpose and Scope
 
-`proxy` (`crates/proxy`) provides RFC 9110 hop-by-hop HTTP header filtering and idle-timed bidirectional stream tunnelling shared by the server TLS gateway and the launcher local proxy.
+`proxy` (`crates/dainty-proxy`) provides RFC 9110 hop-by-hop HTTP header filtering and idle-timed bidirectional stream tunnelling shared by the server TLS gateway and the launcher local proxy.
 
 - **Package name**: `proxy`
 - **Edition**: `2024`

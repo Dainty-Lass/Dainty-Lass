@@ -7,13 +7,13 @@
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
-use rifts_relay::rules::{SignalKind, filter_relay_only, parse_ice_signal};
-use rifts_relay::{
+use rustic_rifts_relay::rules::{SignalKind, filter_relay_only, parse_ice_signal};
+use rustic_rifts_relay::{
     CloudflareAnalytics, ProviderAnswer, ProviderHttp, ProviderRequest, ProviderUnreachable, RelayConfig, TurnRest,
     derive_pair_key, mint_turn_rest, normalize_provider_ice_servers, read_monthly_relay_egress_bytes,
     relay_account_tag,
 };
-use rifts_seam::{AccountId, BoxFuture, Secret, UnixMillis, poll_once};
+use rustic_rifts_seam::{AccountId, BoxFuture, Secret, UnixMillis, poll_once};
 use serde_json::{Value, json};
 
 fn vectors() -> Value {

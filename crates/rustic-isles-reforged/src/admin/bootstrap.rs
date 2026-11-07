@@ -4,7 +4,7 @@
 //! The administrator bootstrap (admin spec §12): makes an existing password account an administrator, the only way
 //! to a password administrator. A library function; the `dainty-host admin bootstrap` subcommand is a clap row.
 
-use module_api::{Actor, ActorContext};
+use dainty_module_api::{Actor, ActorContext};
 use rustic_isles_store::repo::auth::{AccessChange, ApprovalStatus, CreateOutcome, OperationalStatus};
 use rustic_isles_store::{IslesStore, RepoError};
 

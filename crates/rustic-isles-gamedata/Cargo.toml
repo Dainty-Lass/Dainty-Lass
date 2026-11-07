@@ -17,7 +17,7 @@ regex.workspace = true
 rustic-isles.workspace = true
 rustic-isles-auth.workspace = true
 serde_json = { workspace = true, features = ["preserve_order"] }
-service-kit.workspace = true
+dainty-service-kit.workspace = true
 sha2.workspace = true
 tracing.workspace = true
 

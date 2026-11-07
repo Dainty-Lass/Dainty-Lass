@@ -6,9 +6,9 @@
 
 use std::net::Ipv4Addr;
 
+use dainty_service_kit::js;
 use rustic_isles::Settings;
 use serde_json::Value;
-use service_kit::js;
 
 use crate::util::{is_whole, js_number_text, num, number_value};
 
@@ -48,8 +48,8 @@ impl TestMultipliers {
             return String::from("[TestMultiplier] off (not set)");
         }
         let (xp, rewards) = (
-            service_kit::jsjson::number(self.xp),
-            service_kit::jsjson::number(self.rewards),
+            dainty_service_kit::jsjson::number(self.xp),
+            dainty_service_kit::jsjson::number(self.rewards),
         );
         format!("[TestMultiplier] ON: XP x{xp}, rewards x{rewards} (private Tailscale server)")
     }

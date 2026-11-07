@@ -5,9 +5,9 @@
 //! files players are told to write next to the game.
 #![no_main]
 
-use content::input::parse_runtime_json;
+use dainty_content::input::parse_runtime_json;
 use libfuzzer_sys::fuzz_target;
-use protocol::manifest::{MAX_RUNTIME_FILE_BYTES, RUNTIME_FILE_NAMES, runtime_file_slot};
+use dainty_protocol::manifest::{MAX_RUNTIME_FILE_BYTES, RUNTIME_FILE_NAMES, runtime_file_slot};
 
 fuzz_target!(|data: &[u8]| {
     let Ok(manifest) = parse_runtime_json(data) else {

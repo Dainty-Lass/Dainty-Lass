@@ -4,7 +4,7 @@
 //! The rows the area reads and writes (spec §9) and the store trait isles implements over its tables.
 //! Times are ISO text (§2.1); every read sees live rows only.
 
-use module_api::{ActorContext, BoxFuture};
+use dainty_module_api::{ActorContext, BoxFuture};
 use serde::Serialize;
 
 /// A store failure: logged, and answered as `INTERNAL` (or a 500 page on a game route).

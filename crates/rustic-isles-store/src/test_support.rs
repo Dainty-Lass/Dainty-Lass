@@ -5,9 +5,9 @@
 
 use std::sync::Arc;
 
-use module_api::NodeIdentity;
-use module_api::network::StandaloneHome;
-use store::{DatabaseConfig, DatabaseOptions};
+use dainty_module_api::NodeIdentity;
+use dainty_module_api::network::StandaloneHome;
+use dainty_store::{DatabaseConfig, DatabaseOptions};
 
 use crate::{IslesStore, RepoResult};
 
@@ -28,7 +28,7 @@ impl TempStore {
     /// A store in a fresh temporary folder, as node `identity`.
     pub fn open_as(identity: NodeIdentity) -> RepoResult<Self> {
         let dir = tempfile::tempdir()
-            .map_err(|e| crate::RepoError::Store(store::Error::Config(format!("temporary folder: {e}"))))?;
+            .map_err(|e| crate::RepoError::Store(dainty_store::Error::Config(format!("temporary folder: {e}"))))?;
         let config = DatabaseConfig::Sqlite {
             file: dir.path().join("isles.db"),
         };

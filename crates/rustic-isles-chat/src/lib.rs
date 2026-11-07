@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Silent Spud
 
 //! Rustic Isles' chat (RD27, written clean-room from `docs/port/spec-rustic-isles-chat.md`): the answers a 1.14.7
-//! module gives the chat plugin through `module_api::chat`, the hub-session registry that opens region rooms, the
+//! module gives the chat plugin through `dainty_module_api::chat`, the hub-session registry that opens region rooms, the
 //! party headline body, the `chat.*` home operations, and the chat area's 11 backend routes. It never depends on the
 //! `chat` plugin crate: a game module talks to chat only through `module-api`.
 
@@ -24,14 +24,14 @@ mod routes;
 mod rules;
 mod source;
 
-use module_api::{BoxFuture, GlobalId, ModuleError, NodeIdentity};
+use dainty_module_api::{BoxFuture, GlobalId, ModuleError, NodeIdentity};
 use rustic_isles::Settings;
 use serde_json::{Map, Value};
 
+pub use dainty_module_api::chat::{ChatAnswer, ChatQuery, Jid, RoomKind, RoomRules};
 pub use home::home_operation;
 pub use hubs::{HUB_SESSION_TTL_MS, HubSessions, MAX_ACCOUNTS};
 pub use login::{Refusal, authenticate};
-pub use module_api::chat::{ChatAnswer, ChatQuery, Jid, RoomKind, RoomRules};
 pub use routes::{
     Clock, SLAYER_LINK_MAX_ACCOUNTS, include_pending, register, register_with, slayer_link_availability,
     slayer_link_status,
@@ -67,7 +67,7 @@ impl Default for ChatSettings {
 impl ChatSettings {
     /// City on only for `true` (RU3c; Node's was on unless `false`), hunt off only for `false` (Node's).
     pub fn from_settings(settings: &Settings) -> Self {
-        let read = |name: &str| settings.raw(name).map(service_kit::js::trim);
+        let read = |name: &str| settings.raw(name).map(dainty_service_kit::js::trim);
         Self {
             dev_city_muc: read("REALTIME_XMPP_DEV_CITY_MUC") == Some("true"),
             dev_hunt_muc: read("REALTIME_XMPP_DEV_HUNT_MUC") != Some("false"),

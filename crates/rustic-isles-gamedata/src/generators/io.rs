@@ -7,9 +7,9 @@ use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::LazyLock;
 
+use dainty_service_kit::js;
 use regex::Regex;
 use serde_json::Value;
-use service_kit::js;
 
 pub(crate) fn show(path: &Path) -> String {
     path.display().to_string()
@@ -25,7 +25,7 @@ pub(crate) fn drop_bom(text: &str) -> &str {
 }
 
 pub(crate) fn parse(text: &str) -> Result<Value, String> {
-    service_kit::jsjson::parse(text).map_err(|e| e.to_string())
+    dainty_service_kit::jsjson::parse(text).map_err(|e| e.to_string())
 }
 
 /// JSON lines: split on `\n`, a trailing `\r` dropped, blank lines skipped, no BOM stripping.
@@ -201,7 +201,7 @@ pub(crate) fn create_parent(path: &Path) -> Result<(), String> {
 
 /// A JS number as a JSON value, an integer when it is one.
 pub(crate) fn number(n: f64) -> Value {
-    service_kit::jsjson::to_js(&serde_json::Number::from_f64(n).map_or(Value::Null, Value::Number))
+    dainty_service_kit::jsjson::to_js(&serde_json::Number::from_f64(n).map_or(Value::Null, Value::Number))
 }
 
 #[cfg(test)]

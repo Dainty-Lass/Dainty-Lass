@@ -57,13 +57,13 @@ describe("release-config's merge", () => {
 })
 
 describe("release-config as a process", () => {
-  const serverGui = { productName: "DaintyLass Manager", bundle: { active: true, targets: ["nsis"] } }
+  const serverGui = { productName: "Dainty Lass Manager", bundle: { active: true, targets: ["nsis"] } }
 
   function tauriDir(name: string, pubkey?: string): string {
     const dir = path.join(temp, name)
     mkdirSync(dir, { recursive: true })
     const plugins = pubkey === undefined ? {} : { updater: { pubkey } }
-    writeFileSync(path.join(dir, "tauri.conf.json"), JSON.stringify({ productName: "DaintyLass Launcher", plugins }))
+    writeFileSync(path.join(dir, "tauri.conf.json"), JSON.stringify({ productName: "Dainty Lass Launcher", plugins }))
     writeFileSync(path.join(dir, "tauri.server-gui.conf.json"), JSON.stringify(serverGui))
     return dir
   }
@@ -111,7 +111,7 @@ describe("release-config as a process", () => {
     }
     expect(read(path.join(out, "client.json"))).toEqual(overlay)
     expect(read(path.join(out, "manager.json"))).toEqual({
-      productName: "DaintyLass Manager",
+      productName: "Dainty Lass Manager",
       bundle: { active: true, targets: ["nsis"], ...overlay.bundle },
     })
     expect(result.stdout).not.toContain("secret")
