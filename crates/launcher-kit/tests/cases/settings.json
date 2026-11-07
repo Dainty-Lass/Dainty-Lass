@@ -1,0 +1,3966 @@
+{
+  "about": "MIT settings table written from spec §2.7.2 (L5). `expected` lists the keys that differ from `base` (the defaults in English); a key not in `base` is appended in the order given. os is the folder-path rule; language the OS language.",
+  "base": {
+    "version": 1,
+    "server": null,
+    "savedServers": [],
+    "gameRoot": null,
+    "graphics": -1,
+    "windowed": false,
+    "streamerMode": false,
+    "language": "en",
+    "gameLanguage": "auto",
+    "runtimeProfile": "production",
+    "hostTools": false,
+    "usernames": {},
+    "backupOffered": {},
+    "trustedRuntimes": {},
+    "localRuntimeDir": null,
+    "hostWorkspace": null,
+    "dumperDll": null
+  },
+  "cases": [
+    {
+      "name": "not an object gives the defaults",
+      "os": "windows",
+      "language": "en",
+      "input": 42,
+      "expected": {}
+    },
+    {
+      "name": "null gives the defaults",
+      "os": "windows",
+      "language": "en",
+      "input": null,
+      "expected": {}
+    },
+    {
+      "name": "an array gives the defaults",
+      "os": "windows",
+      "language": "en",
+      "input": [
+        1,
+        2
+      ],
+      "expected": {}
+    },
+    {
+      "name": "empty object gives the defaults",
+      "os": "windows",
+      "language": "en",
+      "input": {},
+      "expected": {}
+    },
+    {
+      "name": "defaults use the OS language",
+      "os": "windows",
+      "language": "pt-BR",
+      "input": {},
+      "expected": {
+        "language": "pt-BR"
+      }
+    },
+    {
+      "name": "version is always 1",
+      "os": "windows",
+      "language": "en",
+      "input": {
+        "version": 7
+      },
+      "expected": {}
+    },
+    {
+      "name": "unknown keys are dropped",
+      "os": "windows",
+      "language": "en",
+      "input": {
+        "foo": 1,
+        "gameEdition": "legacy",
+        "bar": {
+          "a": 1
+        }
+      },
+      "expected": {}
+    },
+    {
+      "name": "keys come out in the fixed order whatever the input order",
+      "os": "windows",
+      "language": "en",
+      "input": {
+        "dumperDll": "C:\\x\\d.dll",
+        "version": 1,
+        "hostTools": true,
+        "language": "pt-BR",
+        "graphics": 2
+      },
+      "expected": {
+        "graphics": 2,
+        "language": "pt-BR",
+        "hostTools": true,
+        "dumperDll": "C:\\x\\d.dll"
+      }
+    },
+    {
+      "name": "a known language is kept over the OS language",
+      "os": "windows",
+      "language": "pt-BR",
+      "input": {
+        "language": "en"
+      },
+      "expected": {
+        "language": "en"
+      }
+    },
+    {
+      "name": "language codes are exact",
+      "os": "windows",
+      "language": "pt-BR",
+      "input": {
+        "language": "pt-br"
+      },
+      "expected": {
+        "language": "pt-BR"
+      }
+    },
+    {
+      "name": "an unknown language falls back to the OS language",
+      "os": "windows",
+      "language": "en",
+      "input": {
+        "language": "fr"
+      },
+      "expected": {}
+    },
+    {
+      "name": "a non-string language falls back",
+      "os": "windows",
+      "language": "pt-BR",
+      "input": {
+        "language": 1
+      },
+      "expected": {
+        "language": "pt-BR"
+      }
+    },
+    {
+      "name": "gameLanguage auto is kept",
+      "os": "windows",
+      "language": "en",
+      "input": {
+        "gameLanguage": "auto"
+      },
+      "expected": {
+        "gameLanguage": "auto"
+      }
+    },
+    {
+      "name": "gameLanguage en-US is kept",
+      "os": "windows",
+      "language": "en",
+      "input": {
+        "gameLanguage": "en-US"
+      },
+      "expected": {
+        "gameLanguage": "en-US"
+      }
+    },
+    {
+      "name": "gameLanguage de-DE is kept",
+      "os": "windows",
+      "language": "en",
+      "input": {
+        "gameLanguage": "de-DE"
+      },
+      "expected": {
+        "gameLanguage": "de-DE"
+      }
+    },
+    {
+      "name": "gameLanguage es-ES is kept",
+      "os": "windows",
+      "language": "en",
+      "input": {
+        "gameLanguage": "es-ES"
+      },
+      "expected": {
+        "gameLanguage": "es-ES"
+      }
+    },
+    {
+      "name": "gameLanguage fr-FR is kept",
+      "os": "windows",
+      "language": "en",
+      "input": {
+        "gameLanguage": "fr-FR"
+      },
+      "expected": {
+        "gameLanguage": "fr-FR"
+      }
+    },
+    {
+      "name": "gameLanguage it-IT is kept",
+      "os": "windows",
+      "language": "en",
+      "input": {
+        "gameLanguage": "it-IT"
+      },
+      "expected": {
+        "gameLanguage": "it-IT"
+      }
+    },
+    {
+      "name": "gameLanguage ja-JP is kept",
+      "os": "windows",
+      "language": "en",
+      "input": {
+        "gameLanguage": "ja-JP"
+      },
+      "expected": {
+        "gameLanguage": "ja-JP"
+      }
+    },
+    {
+      "name": "gameLanguage pt-BR is kept",
+      "os": "windows",
+      "language": "en",
+      "input": {
+        "gameLanguage": "pt-BR"
+      },
+      "expected": {
+        "gameLanguage": "pt-BR"
+      }
+    },
+    {
+      "name": "gameLanguage ru-RU is kept",
+      "os": "windows",
+      "language": "en",
+      "input": {
+        "gameLanguage": "ru-RU"
+      },
+      "expected": {
+        "gameLanguage": "ru-RU"
+      }
+    },
+    {
+      "name": "gameLanguage is exact",
+      "os": "windows",
+      "language": "en",
+      "input": {
+        "gameLanguage": "en-us"
+      },
+      "expected": {}
+    },
+    {
+      "name": "an unknown gameLanguage is auto",
+      "os": "windows",
+      "language": "en",
+      "input": {
+        "gameLanguage": "pt-PT"
+      },
+      "expected": {}
+    },
+    {
+      "name": "runtimeProfile development is kept",
+      "os": "windows",
+      "language": "en",
+      "input": {
+        "runtimeProfile": "development"
+      },
+      "expected": {
+        "runtimeProfile": "development"
+      }
+    },
+    {
+      "name": "runtimeProfile production is kept",
+      "os": "windows",
+      "language": "en",
+      "input": {
+        "runtimeProfile": "production"
+      },
+      "expected": {}
+    },
+    {
+      "name": "an unknown runtimeProfile is production",
+      "os": "windows",
+      "language": "en",
+      "input": {
+        "runtimeProfile": "Development"
+      },
+      "expected": {}
+    },
+    {
+      "name": "graphics -1 is kept",
+      "os": "windows",
+      "language": "en",
+      "input": {
+        "graphics": -1
+      },
+      "expected": {
+        "graphics": -1
+      }
+    },
+    {
+      "name": "graphics 0 is kept",
+      "os": "windows",
+      "language": "en",
+      "input": {
+        "graphics": 0
+      },
+      "expected": {
+        "graphics": 0
+      }
+    },
+    {
+      "name": "graphics 1 is kept",
+      "os": "windows",
+      "language": "en",
+      "input": {
+        "graphics": 1
+      },
+      "expected": {
+        "graphics": 1
+      }
+    },
+    {
+      "name": "graphics 2 is kept",
+      "os": "windows",
+      "language": "en",
+      "input": {
+        "graphics": 2
+      },
+      "expected": {
+        "graphics": 2
+      }
+    },
+    {
+      "name": "graphics 3 is kept",
+      "os": "windows",
+      "language": "en",
+      "input": {
+        "graphics": 3
+      },
+      "expected": {
+        "graphics": 3
+      }
+    },
+    {
+      "name": "graphics 4 is kept",
+      "os": "windows",
+      "language": "en",
+      "input": {
+        "graphics": 4
+      },
+      "expected": {
+        "graphics": 4
+      }
+    },
+    {
+      "name": "graphics below -1 is the default",
+      "os": "windows",
+      "language": "en",
+      "input": {
+        "graphics": -2
+      },
+      "expected": {}
+    },
+    {
+      "name": "graphics above 4 is the default",
+      "os": "windows",
+      "language": "en",
+      "input": {
+        "graphics": 5
+      },
+      "expected": {}
+    },
+    {
+      "name": "graphics with a fraction is the default",
+      "os": "windows",
+      "language": "en",
+      "input": {
+        "graphics": 1.5
+      },
+      "expected": {}
+    },
+    {
+      "name": "graphics as a string is the default",
+      "os": "windows",
+      "language": "en",
+      "input": {
+        "graphics": "2"
+      },
+      "expected": {}
+    },
+    {
+      "name": "graphics true is the default",
+      "os": "windows",
+      "language": "en",
+      "input": {
+        "graphics": true
+      },
+      "expected": {}
+    },
+    {
+      "name": "windowed, streamerMode, hostTools true are kept",
+      "os": "windows",
+      "language": "en",
+      "input": {
+        "windowed": true,
+        "streamerMode": true,
+        "hostTools": true
+      },
+      "expected": {
+        "windowed": true,
+        "streamerMode": true,
+        "hostTools": true
+      }
+    },
+    {
+      "name": "truthy non-booleans are false",
+      "os": "windows",
+      "language": "en",
+      "input": {
+        "windowed": 1,
+        "streamerMode": "true",
+        "hostTools": {}
+      },
+      "expected": {}
+    },
+    {
+      "name": "tray flags absent stay absent",
+      "os": "windows",
+      "language": "en",
+      "input": {
+        "minimizeToTray": false,
+        "closeToTray": false,
+        "showGameConsole": false
+      },
+      "expected": {}
+    },
+    {
+      "name": "minimizeToTray true is written after dumperDll",
+      "os": "windows",
+      "language": "en",
+      "input": {
+        "minimizeToTray": true
+      },
+      "expected": {
+        "minimizeToTray": true
+      }
+    },
+    {
+      "name": "closeToTray true alone",
+      "os": "windows",
+      "language": "en",
+      "input": {
+        "closeToTray": true
+      },
+      "expected": {
+        "closeToTray": true
+      }
+    },
+    {
+      "name": "showGameConsole true alone",
+      "os": "windows",
+      "language": "en",
+      "input": {
+        "showGameConsole": true
+      },
+      "expected": {
+        "showGameConsole": true
+      }
+    },
+    {
+      "name": "all three flags in fixed order",
+      "os": "windows",
+      "language": "en",
+      "input": {
+        "showGameConsole": true,
+        "closeToTray": true,
+        "minimizeToTray": true
+      },
+      "expected": {
+        "minimizeToTray": true,
+        "closeToTray": true,
+        "showGameConsole": true
+      }
+    },
+    {
+      "name": "flags that are not JSON true are absent",
+      "os": "windows",
+      "language": "en",
+      "input": {
+        "minimizeToTray": 1,
+        "closeToTray": "true",
+        "showGameConsole": null
+      },
+      "expected": {}
+    },
+    {
+      "name": "only the true flags are written",
+      "os": "windows",
+      "language": "en",
+      "input": {
+        "minimizeToTray": false,
+        "closeToTray": true,
+        "showGameConsole": false
+      },
+      "expected": {
+        "closeToTray": true
+      }
+    },
+    {
+      "name": "Windows gameRoot with backslash",
+      "os": "windows",
+      "language": "en",
+      "input": {
+        "gameRoot": "C:\\Games\\Dauntless"
+      },
+      "expected": {
+        "gameRoot": "C:\\Games\\Dauntless"
+      }
+    },
+    {
+      "name": "Windows gameRoot with forward slash and lower-case drive",
+      "os": "windows",
+      "language": "en",
+      "input": {
+        "gameRoot": "d:/Games"
+      },
+      "expected": {
+        "gameRoot": "d:/Games"
+      }
+    },
+    {
+      "name": "Windows gameRoot of four units is the shortest kept",
+      "os": "windows",
+      "language": "en",
+      "input": {
+        "gameRoot": "C:\\a"
+      },
+      "expected": {
+        "gameRoot": "C:\\a"
+      }
+    },
+    {
+      "name": "Windows gameRoot of three units is refused",
+      "os": "windows",
+      "language": "en",
+      "input": {
+        "gameRoot": "C:\\"
+      },
+      "expected": {}
+    },
+    {
+      "name": "Windows gameRoot without a drive is refused",
+      "os": "windows",
+      "language": "en",
+      "input": {
+        "gameRoot": "\\\\server\\share"
+      },
+      "expected": {}
+    },
+    {
+      "name": "Windows gameRoot with a digit drive is refused",
+      "os": "windows",
+      "language": "en",
+      "input": {
+        "gameRoot": "1:\\Games"
+      },
+      "expected": {}
+    },
+    {
+      "name": "Windows gameRoot without a separator is refused",
+      "os": "windows",
+      "language": "en",
+      "input": {
+        "gameRoot": "C:Games"
+      },
+      "expected": {}
+    },
+    {
+      "name": "Linux path on Windows is refused",
+      "os": "windows",
+      "language": "en",
+      "input": {
+        "gameRoot": "/home/p/games"
+      },
+      "expected": {}
+    },
+    {
+      "name": "gameRoot with NUL is refused",
+      "os": "windows",
+      "language": "en",
+      "input": {
+        "gameRoot": "C:\\Ga\u0000mes"
+      },
+      "expected": {}
+    },
+    {
+      "name": "gameRoot of 199 units is kept",
+      "os": "windows",
+      "language": "en",
+      "input": {
+        "gameRoot": "C:\\aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "expected": {
+        "gameRoot": "C:\\aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      }
+    },
+    {
+      "name": "gameRoot of 200 units is refused",
+      "os": "windows",
+      "language": "en",
+      "input": {
+        "gameRoot": "C:\\aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "expected": {}
+    },
+    {
+      "name": "gameRoot length counts UTF-16 units",
+      "os": "windows",
+      "language": "en",
+      "input": {
+        "gameRoot": "C:\\😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀"
+      },
+      "expected": {}
+    },
+    {
+      "name": "gameRoot of 199 units with astral characters is kept",
+      "os": "windows",
+      "language": "en",
+      "input": {
+        "gameRoot": "C:\\😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀ab"
+      },
+      "expected": {
+        "gameRoot": "C:\\😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀ab"
+      }
+    },
+    {
+      "name": "gameRoot not a string is null",
+      "os": "windows",
+      "language": "en",
+      "input": {
+        "gameRoot": 5
+      },
+      "expected": {}
+    },
+    {
+      "name": "localRuntimeDir of 259 units is kept",
+      "os": "windows",
+      "language": "en",
+      "input": {
+        "localRuntimeDir": "C:\\rrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr"
+      },
+      "expected": {
+        "localRuntimeDir": "C:\\rrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr"
+      }
+    },
+    {
+      "name": "localRuntimeDir of 260 units is refused",
+      "os": "windows",
+      "language": "en",
+      "input": {
+        "localRuntimeDir": "C:\\rrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr"
+      },
+      "expected": {}
+    },
+    {
+      "name": "hostWorkspace of 199 units is kept",
+      "os": "windows",
+      "language": "en",
+      "input": {
+        "hostWorkspace": "E:\\wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww"
+      },
+      "expected": {
+        "hostWorkspace": "E:\\wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww"
+      }
+    },
+    {
+      "name": "hostWorkspace of 200 units is refused",
+      "os": "windows",
+      "language": "en",
+      "input": {
+        "hostWorkspace": "E:\\wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww"
+      },
+      "expected": {}
+    },
+    {
+      "name": "dumperDll ending in .dll is kept",
+      "os": "windows",
+      "language": "en",
+      "input": {
+        "dumperDll": "C:\\tools\\Dumper-7.dll"
+      },
+      "expected": {
+        "dumperDll": "C:\\tools\\Dumper-7.dll"
+      }
+    },
+    {
+      "name": "dumperDll ending in .DLL is kept",
+      "os": "windows",
+      "language": "en",
+      "input": {
+        "dumperDll": "C:\\tools\\Dumper-7.DLL"
+      },
+      "expected": {
+        "dumperDll": "C:\\tools\\Dumper-7.DLL"
+      }
+    },
+    {
+      "name": "dumperDll not ending in .dll is refused",
+      "os": "windows",
+      "language": "en",
+      "input": {
+        "dumperDll": "C:\\tools\\Dumper-7.exe"
+      },
+      "expected": {}
+    },
+    {
+      "name": "dumperDll of 260 units is refused",
+      "os": "windows",
+      "language": "en",
+      "input": {
+        "dumperDll": "C:\\ddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd.dll"
+      },
+      "expected": {}
+    },
+    {
+      "name": "dumperDll of 259 units is kept",
+      "os": "windows",
+      "language": "en",
+      "input": {
+        "dumperDll": "C:\\dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd.dll"
+      },
+      "expected": {
+        "dumperDll": "C:\\dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd.dll"
+      }
+    },
+    {
+      "name": "Linux gameRoot absolute is kept",
+      "os": "linux",
+      "language": "en",
+      "input": {
+        "gameRoot": "/home/p/Games"
+      },
+      "expected": {
+        "gameRoot": "/home/p/Games"
+      }
+    },
+    {
+      "name": "Linux gameRoot of four units is kept",
+      "os": "linux",
+      "language": "en",
+      "input": {
+        "gameRoot": "/abc"
+      },
+      "expected": {
+        "gameRoot": "/abc"
+      }
+    },
+    {
+      "name": "Linux gameRoot of three units is refused",
+      "os": "linux",
+      "language": "en",
+      "input": {
+        "gameRoot": "/ab"
+      },
+      "expected": {}
+    },
+    {
+      "name": "Linux gameRoot relative is refused",
+      "os": "linux",
+      "language": "en",
+      "input": {
+        "gameRoot": "home/p/Games"
+      },
+      "expected": {}
+    },
+    {
+      "name": "Windows path on Linux is refused",
+      "os": "linux",
+      "language": "en",
+      "input": {
+        "gameRoot": "C:\\Games"
+      },
+      "expected": {}
+    },
+    {
+      "name": "Linux dumperDll is kept",
+      "os": "linux",
+      "language": "en",
+      "input": {
+        "dumperDll": "/opt/dumper.dll"
+      },
+      "expected": {
+        "dumperDll": "/opt/dumper.dll"
+      }
+    },
+    {
+      "name": "Linux every folder field",
+      "os": "linux",
+      "language": "en",
+      "input": {
+        "localRuntimeDir": "/srv/rt",
+        "hostWorkspace": "/srv/ws"
+      },
+      "expected": {
+        "localRuntimeDir": "/srv/rt",
+        "hostWorkspace": "/srv/ws"
+      }
+    },
+    {
+      "name": "usernames with valid ids and names are kept in order",
+      "os": "windows",
+      "language": "en",
+      "input": {
+        "usernames": {
+          "abcdefabcdefabcdefabcdef": "Slayer_1",
+          "0123456789abcdef01234567": "abc"
+        }
+      },
+      "expected": {
+        "usernames": {
+          "abcdefabcdefabcdefabcdef": "Slayer_1",
+          "0123456789abcdef01234567": "abc"
+        }
+      }
+    },
+    {
+      "name": "usernames with bad keys are dropped",
+      "os": "windows",
+      "language": "en",
+      "input": {
+        "usernames": {
+          "0123456789ABCDEF01234567": "abc",
+          "123456789abcdef01234567": "abc",
+          "0123456789abcdef012345670": "abc",
+          "g123456789abcdef01234567": "abc"
+        }
+      },
+      "expected": {}
+    },
+    {
+      "name": "usernames with bad names are dropped",
+      "os": "windows",
+      "language": "en",
+      "input": {
+        "usernames": {
+          "0123456789abcdef01234567": "a b",
+          "abcdefabcdefabcdefabcdef": 7
+        }
+      },
+      "expected": {}
+    },
+    {
+      "name": "usernames not an object is empty",
+      "os": "windows",
+      "language": "en",
+      "input": {
+        "usernames": [
+          "abc"
+        ]
+      },
+      "expected": {}
+    },
+    {
+      "name": "backupOffered keeps only true",
+      "os": "windows",
+      "language": "en",
+      "input": {
+        "backupOffered": {
+          "0123456789abcdef01234567": true,
+          "abcdefabcdefabcdefabcdef": false
+        }
+      },
+      "expected": {
+        "backupOffered": {
+          "0123456789abcdef01234567": true
+        }
+      }
+    },
+    {
+      "name": "backupOffered truthy non-booleans are dropped",
+      "os": "windows",
+      "language": "en",
+      "input": {
+        "backupOffered": {
+          "0123456789abcdef01234567": 1,
+          "abcdefabcdefabcdefabcdef": "true"
+        }
+      },
+      "expected": {}
+    },
+    {
+      "name": "backupOffered with bad keys is dropped",
+      "os": "windows",
+      "language": "en",
+      "input": {
+        "backupOffered": {
+          "abc": true
+        }
+      },
+      "expected": {}
+    },
+    {
+      "name": "trustedRuntimes keeps valid ids",
+      "os": "windows",
+      "language": "en",
+      "input": {
+        "trustedRuntimes": {
+          "0123456789abcdef01234567": [
+            "0101010101010101010101010101010101010101010101010101010101010101",
+            "0202020202020202020202020202020202020202020202020202020202020202"
+          ]
+        }
+      },
+      "expected": {
+        "trustedRuntimes": {
+          "0123456789abcdef01234567": [
+            "0101010101010101010101010101010101010101010101010101010101010101",
+            "0202020202020202020202020202020202020202020202020202020202020202"
+          ]
+        }
+      }
+    },
+    {
+      "name": "trustedRuntimes drops invalid ids",
+      "os": "windows",
+      "language": "en",
+      "input": {
+        "trustedRuntimes": {
+          "0123456789abcdef01234567": [
+            "0101010101010101010101010101010101010101010101010101010101010101",
+            "ABABABABABABABABABABABABABABABABABABABABABABABABABABABABABABABAB",
+            "303030303030303030303030303030303030303030303030303030303030303",
+            5,
+            null,
+            "0404040404040404040404040404040404040404040404040404040404040404"
+          ]
+        }
+      },
+      "expected": {
+        "trustedRuntimes": {
+          "0123456789abcdef01234567": [
+            "0101010101010101010101010101010101010101010101010101010101010101",
+            "0404040404040404040404040404040404040404040404040404040404040404"
+          ]
+        }
+      }
+    },
+    {
+      "name": "trustedRuntimes keeps the first occurrence",
+      "os": "windows",
+      "language": "en",
+      "input": {
+        "trustedRuntimes": {
+          "0123456789abcdef01234567": [
+            "0101010101010101010101010101010101010101010101010101010101010101",
+            "0202020202020202020202020202020202020202020202020202020202020202",
+            "0101010101010101010101010101010101010101010101010101010101010101",
+            "0303030303030303030303030303030303030303030303030303030303030303"
+          ]
+        }
+      },
+      "expected": {
+        "trustedRuntimes": {
+          "0123456789abcdef01234567": [
+            "0101010101010101010101010101010101010101010101010101010101010101",
+            "0202020202020202020202020202020202020202020202020202020202020202",
+            "0303030303030303030303030303030303030303030303030303030303030303"
+          ]
+        }
+      }
+    },
+    {
+      "name": "trustedRuntimes keeps the last 8",
+      "os": "windows",
+      "language": "en",
+      "input": {
+        "trustedRuntimes": {
+          "0123456789abcdef01234567": [
+            "0101010101010101010101010101010101010101010101010101010101010101",
+            "0202020202020202020202020202020202020202020202020202020202020202",
+            "0303030303030303030303030303030303030303030303030303030303030303",
+            "0404040404040404040404040404040404040404040404040404040404040404",
+            "0505050505050505050505050505050505050505050505050505050505050505",
+            "0606060606060606060606060606060606060606060606060606060606060606",
+            "0707070707070707070707070707070707070707070707070707070707070707",
+            "0808080808080808080808080808080808080808080808080808080808080808",
+            "0909090909090909090909090909090909090909090909090909090909090909",
+            "0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a"
+          ]
+        }
+      },
+      "expected": {
+        "trustedRuntimes": {
+          "0123456789abcdef01234567": [
+            "0303030303030303030303030303030303030303030303030303030303030303",
+            "0404040404040404040404040404040404040404040404040404040404040404",
+            "0505050505050505050505050505050505050505050505050505050505050505",
+            "0606060606060606060606060606060606060606060606060606060606060606",
+            "0707070707070707070707070707070707070707070707070707070707070707",
+            "0808080808080808080808080808080808080808080808080808080808080808",
+            "0909090909090909090909090909090909090909090909090909090909090909",
+            "0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a"
+          ]
+        }
+      }
+    },
+    {
+      "name": "trustedRuntimes dedup comes before the cut",
+      "os": "windows",
+      "language": "en",
+      "input": {
+        "trustedRuntimes": {
+          "0123456789abcdef01234567": [
+            "0101010101010101010101010101010101010101010101010101010101010101",
+            "0202020202020202020202020202020202020202020202020202020202020202",
+            "0303030303030303030303030303030303030303030303030303030303030303",
+            "0404040404040404040404040404040404040404040404040404040404040404",
+            "0505050505050505050505050505050505050505050505050505050505050505",
+            "0606060606060606060606060606060606060606060606060606060606060606",
+            "0707070707070707070707070707070707070707070707070707070707070707",
+            "0808080808080808080808080808080808080808080808080808080808080808",
+            "0101010101010101010101010101010101010101010101010101010101010101",
+            "0909090909090909090909090909090909090909090909090909090909090909"
+          ]
+        }
+      },
+      "expected": {
+        "trustedRuntimes": {
+          "0123456789abcdef01234567": [
+            "0202020202020202020202020202020202020202020202020202020202020202",
+            "0303030303030303030303030303030303030303030303030303030303030303",
+            "0404040404040404040404040404040404040404040404040404040404040404",
+            "0505050505050505050505050505050505050505050505050505050505050505",
+            "0606060606060606060606060606060606060606060606060606060606060606",
+            "0707070707070707070707070707070707070707070707070707070707070707",
+            "0808080808080808080808080808080808080808080808080808080808080808",
+            "0909090909090909090909090909090909090909090909090909090909090909"
+          ]
+        }
+      }
+    },
+    {
+      "name": "trustedRuntimes empty after filtering is dropped",
+      "os": "windows",
+      "language": "en",
+      "input": {
+        "trustedRuntimes": {
+          "0123456789abcdef01234567": [],
+          "abcdefabcdefabcdefabcdef": [
+            "nope"
+          ]
+        }
+      },
+      "expected": {}
+    },
+    {
+      "name": "trustedRuntimes not an array is dropped",
+      "os": "windows",
+      "language": "en",
+      "input": {
+        "trustedRuntimes": {
+          "0123456789abcdef01234567": "0101010101010101010101010101010101010101010101010101010101010101"
+        }
+      },
+      "expected": {}
+    },
+    {
+      "name": "trustedRuntimes bad key is dropped",
+      "os": "windows",
+      "language": "en",
+      "input": {
+        "trustedRuntimes": {
+          "short": [
+            "0101010101010101010101010101010101010101010101010101010101010101"
+          ]
+        }
+      },
+      "expected": {}
+    },
+    {
+      "name": "a private server on a Tailscale address",
+      "os": "windows",
+      "language": "en",
+      "input": {
+        "server": {
+          "mode": "private",
+          "host": "100.64.0.1",
+          "port": 7777,
+          "name": "Alpha"
+        }
+      },
+      "expected": {
+        "server": {
+          "game": "reforged",
+          "mode": "private",
+          "host": "100.64.0.1",
+          "port": 7777,
+          "name": "Alpha",
+          "share": null,
+          "fp": null,
+          "code": null
+        },
+        "savedServers": [
+          {
+            "game": "reforged",
+            "mode": "private",
+            "host": "100.64.0.1",
+            "port": 7777,
+            "name": "Alpha",
+            "share": null,
+            "fp": null,
+            "code": null
+          }
+        ]
+      }
+    },
+    {
+      "name": "a private server on loopback",
+      "os": "windows",
+      "language": "en",
+      "input": {
+        "savedServers": [
+          {
+            "mode": "private",
+            "host": "127.0.0.1",
+            "port": 1,
+            "name": "L"
+          },
+          {
+            "mode": "private",
+            "host": "localhost",
+            "port": 65535,
+            "name": "L2"
+          }
+        ]
+      },
+      "expected": {
+        "savedServers": [
+          {
+            "game": "reforged",
+            "mode": "private",
+            "host": "127.0.0.1",
+            "port": 1,
+            "name": "L",
+            "share": null,
+            "fp": null,
+            "code": null
+          },
+          {
+            "game": "reforged",
+            "mode": "private",
+            "host": "localhost",
+            "port": 65535,
+            "name": "L2",
+            "share": null,
+            "fp": null,
+            "code": null
+          }
+        ]
+      }
+    },
+    {
+      "name": "a private server on MagicDNS",
+      "os": "windows",
+      "language": "en",
+      "input": {
+        "savedServers": [
+          {
+            "mode": "private",
+            "host": "box.tail1234.ts.net",
+            "port": 7777,
+            "name": "M"
+          }
+        ]
+      },
+      "expected": {
+        "savedServers": [
+          {
+            "game": "reforged",
+            "mode": "private",
+            "host": "box.tail1234.ts.net",
+            "port": 7777,
+            "name": "M",
+            "share": null,
+            "fp": null,
+            "code": null
+          }
+        ]
+      }
+    },
+    {
+      "name": "a private server on a public host is refused",
+      "os": "windows",
+      "language": "en",
+      "input": {
+        "server": {
+          "mode": "private",
+          "host": "example.com",
+          "port": 7777,
+          "name": "X"
+        },
+        "savedServers": [
+          {
+            "mode": "private",
+            "host": "8.8.8.8",
+            "port": 7777,
+            "name": "X"
+          }
+        ]
+      },
+      "expected": {}
+    },
+    {
+      "name": "a mode other than public is private",
+      "os": "windows",
+      "language": "en",
+      "input": {
+        "savedServers": [
+          {
+            "mode": "other",
+            "host": "127.0.0.1",
+            "port": 80,
+            "name": "O"
+          },
+          {
+            "mode": "other",
+            "host": "example.com",
+            "port": 80,
+            "name": "O"
+          }
+        ]
+      },
+      "expected": {
+        "savedServers": [
+          {
+            "game": "reforged",
+            "mode": "private",
+            "host": "127.0.0.1",
+            "port": 80,
+            "name": "O",
+            "share": null,
+            "fp": null,
+            "code": null
+          }
+        ]
+      }
+    },
+    {
+      "name": "an entry without mode is private",
+      "os": "windows",
+      "language": "en",
+      "input": {
+        "savedServers": [
+          {
+            "host": "127.0.0.1",
+            "port": 80,
+            "name": "N"
+          }
+        ]
+      },
+      "expected": {
+        "savedServers": [
+          {
+            "game": "reforged",
+            "mode": "private",
+            "host": "127.0.0.1",
+            "port": 80,
+            "name": "N",
+            "share": null,
+            "fp": null,
+            "code": null
+          }
+        ]
+      }
+    },
+    {
+      "name": "a public server with a fingerprint",
+      "os": "windows",
+      "language": "en",
+      "input": {
+        "savedServers": [
+          {
+            "mode": "public",
+            "host": "play.example.com",
+            "port": 443,
+            "name": "Pub",
+            "fp": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+          }
+        ]
+      },
+      "expected": {
+        "savedServers": [
+          {
+            "game": "reforged",
+            "mode": "public",
+            "host": "play.example.com",
+            "port": 443,
+            "name": "Pub",
+            "share": null,
+            "fp": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+            "code": null
+          }
+        ]
+      }
+    },
+    {
+      "name": "a public server without a fingerprint is refused",
+      "os": "windows",
+      "language": "en",
+      "input": {
+        "savedServers": [
+          {
+            "mode": "public",
+            "host": "play.example.com",
+            "port": 443,
+            "name": "Pub"
+          }
+        ]
+      },
+      "expected": {}
+    },
+    {
+      "name": "a public server with a bad fingerprint is refused",
+      "os": "windows",
+      "language": "en",
+      "input": {
+        "savedServers": [
+          {
+            "mode": "public",
+            "host": "play.example.com",
+            "port": 443,
+            "name": "Pub",
+            "fp": "0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF"
+          }
+        ]
+      },
+      "expected": {}
+    },
+    {
+      "name": "a public server may use a private-mode host",
+      "os": "windows",
+      "language": "en",
+      "input": {
+        "savedServers": [
+          {
+            "mode": "public",
+            "host": "127.0.0.1",
+            "port": 443,
+            "name": "Pub",
+            "fp": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+          }
+        ]
+      },
+      "expected": {
+        "savedServers": [
+          {
+            "game": "reforged",
+            "mode": "public",
+            "host": "127.0.0.1",
+            "port": 443,
+            "name": "Pub",
+            "share": null,
+            "fp": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+            "code": null
+          }
+        ]
+      }
+    },
+    {
+      "name": "an invalid host is refused",
+      "os": "windows",
+      "language": "en",
+      "input": {
+        "savedServers": [
+          {
+            "mode": "public",
+            "host": "Play.Example.com",
+            "port": 443,
+            "name": "P",
+            "fp": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+          },
+          {
+            "mode": "public",
+            "host": "",
+            "port": 443,
+            "name": "P",
+            "fp": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+          },
+          {
+            "mode": "public",
+            "host": 5,
+            "port": 443,
+            "name": "P",
+            "fp": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+          }
+        ]
+      },
+      "expected": {}
+    },
+    {
+      "name": "ports outside 1..65535 are refused",
+      "os": "windows",
+      "language": "en",
+      "input": {
+        "savedServers": [
+          {
+            "mode": "private",
+            "host": "127.0.0.1",
+            "port": 0,
+            "name": "A"
+          },
+          {
+            "mode": "private",
+            "host": "127.0.0.2",
+            "port": 65536,
+            "name": "B"
+          },
+          {
+            "mode": "private",
+            "host": "127.0.0.3",
+            "port": -1,
+            "name": "C"
+          }
+        ]
+      },
+      "expected": {}
+    },
+    {
+      "name": "a port with a fraction is refused",
+      "os": "windows",
+      "language": "en",
+      "input": {
+        "savedServers": [
+          {
+            "mode": "private",
+            "host": "127.0.0.1",
+            "port": 80.5,
+            "name": "A"
+          }
+        ]
+      },
+      "expected": {}
+    },
+    {
+      "name": "a port as a string is refused",
+      "os": "windows",
+      "language": "en",
+      "input": {
+        "savedServers": [
+          {
+            "mode": "private",
+            "host": "127.0.0.1",
+            "port": "80",
+            "name": "A"
+          }
+        ]
+      },
+      "expected": {}
+    },
+    {
+      "name": "a missing port is refused",
+      "os": "windows",
+      "language": "en",
+      "input": {
+        "savedServers": [
+          {
+            "mode": "private",
+            "host": "127.0.0.1",
+            "name": "A"
+          }
+        ]
+      },
+      "expected": {}
+    },
+    {
+      "name": "the name is stored cleaned",
+      "os": "windows",
+      "language": "en",
+      "input": {
+        "savedServers": [
+          {
+            "mode": "private",
+            "host": "127.0.0.1",
+            "port": 80,
+            "name": "  My   Server  "
+          }
+        ]
+      },
+      "expected": {
+        "savedServers": [
+          {
+            "game": "reforged",
+            "mode": "private",
+            "host": "127.0.0.1",
+            "port": 80,
+            "name": "My Server",
+            "share": null,
+            "fp": null,
+            "code": null
+          }
+        ]
+      }
+    },
+    {
+      "name": "an empty name is refused",
+      "os": "windows",
+      "language": "en",
+      "input": {
+        "savedServers": [
+          {
+            "mode": "private",
+            "host": "127.0.0.1",
+            "port": 80,
+            "name": "   "
+          }
+        ]
+      },
+      "expected": {}
+    },
+    {
+      "name": "a missing name is refused",
+      "os": "windows",
+      "language": "en",
+      "input": {
+        "savedServers": [
+          {
+            "mode": "private",
+            "host": "127.0.0.1",
+            "port": 80
+          }
+        ]
+      },
+      "expected": {}
+    },
+    {
+      "name": "a name with a control character is refused",
+      "os": "windows",
+      "language": "en",
+      "input": {
+        "savedServers": [
+          {
+            "mode": "private",
+            "host": "127.0.0.1",
+            "port": 80,
+            "name": "Bad\u0007Name"
+          }
+        ]
+      },
+      "expected": {}
+    },
+    {
+      "name": "a name with a bidi override is refused",
+      "os": "windows",
+      "language": "en",
+      "input": {
+        "savedServers": [
+          {
+            "mode": "private",
+            "host": "127.0.0.1",
+            "port": 80,
+            "name": "Bad‮Name"
+          }
+        ]
+      },
+      "expected": {}
+    },
+    {
+      "name": "a name over the limit is refused",
+      "os": "windows",
+      "language": "en",
+      "input": {
+        "savedServers": [
+          {
+            "mode": "private",
+            "host": "127.0.0.1",
+            "port": 80,
+            "name": "nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn"
+          }
+        ]
+      },
+      "expected": {}
+    },
+    {
+      "name": "a name at the limit is kept",
+      "os": "windows",
+      "language": "en",
+      "input": {
+        "savedServers": [
+          {
+            "mode": "private",
+            "host": "127.0.0.1",
+            "port": 80,
+            "name": "nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn"
+          }
+        ]
+      },
+      "expected": {
+        "savedServers": [
+          {
+            "game": "reforged",
+            "mode": "private",
+            "host": "127.0.0.1",
+            "port": 80,
+            "name": "nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn",
+            "share": null,
+            "fp": null,
+            "code": null
+          }
+        ]
+      }
+    },
+    {
+      "name": "game revived is kept",
+      "os": "windows",
+      "language": "en",
+      "input": {
+        "savedServers": [
+          {
+            "mode": "private",
+            "host": "127.0.0.1",
+            "port": 80,
+            "name": "Old",
+            "game": "revived"
+          }
+        ]
+      },
+      "expected": {
+        "savedServers": [
+          {
+            "game": "revived",
+            "mode": "private",
+            "host": "127.0.0.1",
+            "port": 80,
+            "name": "Old",
+            "share": null,
+            "fp": null,
+            "code": null
+          }
+        ]
+      }
+    },
+    {
+      "name": "any other game is reforged",
+      "os": "windows",
+      "language": "en",
+      "input": {
+        "savedServers": [
+          {
+            "mode": "private",
+            "host": "127.0.0.1",
+            "port": 80,
+            "name": "A",
+            "game": "Revived"
+          },
+          {
+            "mode": "private",
+            "host": "127.0.0.2",
+            "port": 80,
+            "name": "B",
+            "game": "reforged"
+          }
+        ]
+      },
+      "expected": {
+        "savedServers": [
+          {
+            "game": "reforged",
+            "mode": "private",
+            "host": "127.0.0.1",
+            "port": 80,
+            "name": "A",
+            "share": null,
+            "fp": null,
+            "code": null
+          },
+          {
+            "game": "reforged",
+            "mode": "private",
+            "host": "127.0.0.2",
+            "port": 80,
+            "name": "B",
+            "share": null,
+            "fp": null,
+            "code": null
+          }
+        ]
+      }
+    },
+    {
+      "name": "a private share URL is kept",
+      "os": "windows",
+      "language": "en",
+      "input": {
+        "savedServers": [
+          {
+            "mode": "private",
+            "host": "127.0.0.1",
+            "port": 80,
+            "name": "A",
+            "share": "https://login.tailscale.com/admin/invite/abcDEF123"
+          }
+        ]
+      },
+      "expected": {
+        "savedServers": [
+          {
+            "game": "reforged",
+            "mode": "private",
+            "host": "127.0.0.1",
+            "port": 80,
+            "name": "A",
+            "share": "https://login.tailscale.com/admin/invite/abcDEF123",
+            "fp": null,
+            "code": null
+          }
+        ]
+      }
+    },
+    {
+      "name": "an invalid share URL is null",
+      "os": "windows",
+      "language": "en",
+      "input": {
+        "savedServers": [
+          {
+            "mode": "private",
+            "host": "127.0.0.1",
+            "port": 80,
+            "name": "A",
+            "share": "https://evil.example.com/x"
+          }
+        ]
+      },
+      "expected": {
+        "savedServers": [
+          {
+            "game": "reforged",
+            "mode": "private",
+            "host": "127.0.0.1",
+            "port": 80,
+            "name": "A",
+            "share": null,
+            "fp": null,
+            "code": null
+          }
+        ]
+      }
+    },
+    {
+      "name": "a public share URL is null",
+      "os": "windows",
+      "language": "en",
+      "input": {
+        "savedServers": [
+          {
+            "mode": "public",
+            "host": "play.example.com",
+            "port": 443,
+            "name": "P",
+            "fp": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+            "share": "https://login.tailscale.com/admin/invite/abcDEF123"
+          }
+        ]
+      },
+      "expected": {
+        "savedServers": [
+          {
+            "game": "reforged",
+            "mode": "public",
+            "host": "play.example.com",
+            "port": 443,
+            "name": "P",
+            "share": null,
+            "fp": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+            "code": null
+          }
+        ]
+      }
+    },
+    {
+      "name": "a private fingerprint is null",
+      "os": "windows",
+      "language": "en",
+      "input": {
+        "savedServers": [
+          {
+            "mode": "private",
+            "host": "127.0.0.1",
+            "port": 80,
+            "name": "A",
+            "fp": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+          }
+        ]
+      },
+      "expected": {
+        "savedServers": [
+          {
+            "game": "reforged",
+            "mode": "private",
+            "host": "127.0.0.1",
+            "port": 80,
+            "name": "A",
+            "share": null,
+            "fp": null,
+            "code": null
+          }
+        ]
+      }
+    },
+    {
+      "name": "a valid invite code is kept",
+      "os": "windows",
+      "language": "en",
+      "input": {
+        "savedServers": [
+          {
+            "mode": "private",
+            "host": "127.0.0.1",
+            "port": 80,
+            "name": "A",
+            "code": "Abc-123"
+          }
+        ]
+      },
+      "expected": {
+        "savedServers": [
+          {
+            "game": "reforged",
+            "mode": "private",
+            "host": "127.0.0.1",
+            "port": 80,
+            "name": "A",
+            "share": null,
+            "fp": null,
+            "code": "Abc-123"
+          }
+        ]
+      }
+    },
+    {
+      "name": "invalid invite codes are null",
+      "os": "windows",
+      "language": "en",
+      "input": {
+        "savedServers": [
+          {
+            "mode": "private",
+            "host": "127.0.0.1",
+            "port": 80,
+            "name": "A",
+            "code": "abc"
+          },
+          {
+            "mode": "private",
+            "host": "127.0.0.2",
+            "port": 80,
+            "name": "B",
+            "code": "a_b_c"
+          },
+          {
+            "mode": "private",
+            "host": "127.0.0.3",
+            "port": 80,
+            "name": "C",
+            "code": "ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+          }
+        ]
+      },
+      "expected": {
+        "savedServers": [
+          {
+            "game": "reforged",
+            "mode": "private",
+            "host": "127.0.0.1",
+            "port": 80,
+            "name": "A",
+            "share": null,
+            "fp": null,
+            "code": null
+          },
+          {
+            "game": "reforged",
+            "mode": "private",
+            "host": "127.0.0.2",
+            "port": 80,
+            "name": "B",
+            "share": null,
+            "fp": null,
+            "code": null
+          },
+          {
+            "game": "reforged",
+            "mode": "private",
+            "host": "127.0.0.3",
+            "port": 80,
+            "name": "C",
+            "share": null,
+            "fp": null,
+            "code": null
+          }
+        ]
+      }
+    },
+    {
+      "name": "entry fields come out in order and unknown fields go",
+      "os": "windows",
+      "language": "en",
+      "input": {
+        "savedServers": [
+          {
+            "code": "abcd",
+            "fp": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+            "share": null,
+            "name": "P",
+            "port": 443,
+            "host": "play.example.com",
+            "mode": "public",
+            "game": "reforged",
+            "extra": 1
+          }
+        ]
+      },
+      "expected": {
+        "savedServers": [
+          {
+            "game": "reforged",
+            "mode": "public",
+            "host": "play.example.com",
+            "port": 443,
+            "name": "P",
+            "share": null,
+            "fp": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+            "code": "abcd"
+          }
+        ]
+      }
+    },
+    {
+      "name": "savedServers not an array is empty",
+      "os": "windows",
+      "language": "en",
+      "input": {
+        "savedServers": {
+          "a": 1
+        }
+      },
+      "expected": {}
+    },
+    {
+      "name": "non-object entries are skipped",
+      "os": "windows",
+      "language": "en",
+      "input": {
+        "savedServers": [
+          null,
+          1,
+          "x",
+          [],
+          {
+            "mode": "private",
+            "host": "127.0.0.1",
+            "port": 80,
+            "name": "A"
+          }
+        ]
+      },
+      "expected": {
+        "savedServers": [
+          {
+            "game": "reforged",
+            "mode": "private",
+            "host": "127.0.0.1",
+            "port": 80,
+            "name": "A",
+            "share": null,
+            "fp": null,
+            "code": null
+          }
+        ]
+      }
+    },
+    {
+      "name": "duplicates by mode, host and port keep the first",
+      "os": "windows",
+      "language": "en",
+      "input": {
+        "savedServers": [
+          {
+            "mode": "private",
+            "host": "127.0.0.1",
+            "port": 80,
+            "name": "First"
+          },
+          {
+            "mode": "private",
+            "host": "127.0.0.1",
+            "port": 80,
+            "name": "Second"
+          },
+          {
+            "mode": "private",
+            "host": "127.0.0.1",
+            "port": 81,
+            "name": "Other"
+          }
+        ]
+      },
+      "expected": {
+        "savedServers": [
+          {
+            "game": "reforged",
+            "mode": "private",
+            "host": "127.0.0.1",
+            "port": 80,
+            "name": "First",
+            "share": null,
+            "fp": null,
+            "code": null
+          },
+          {
+            "game": "reforged",
+            "mode": "private",
+            "host": "127.0.0.1",
+            "port": 81,
+            "name": "Other",
+            "share": null,
+            "fp": null,
+            "code": null
+          }
+        ]
+      }
+    },
+    {
+      "name": "same host and port in another mode is another server",
+      "os": "windows",
+      "language": "en",
+      "input": {
+        "savedServers": [
+          {
+            "mode": "private",
+            "host": "127.0.0.1",
+            "port": 80,
+            "name": "Priv"
+          },
+          {
+            "mode": "public",
+            "host": "127.0.0.1",
+            "port": 80,
+            "name": "Pub",
+            "fp": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+          }
+        ]
+      },
+      "expected": {
+        "savedServers": [
+          {
+            "game": "reforged",
+            "mode": "private",
+            "host": "127.0.0.1",
+            "port": 80,
+            "name": "Priv",
+            "share": null,
+            "fp": null,
+            "code": null
+          },
+          {
+            "game": "reforged",
+            "mode": "public",
+            "host": "127.0.0.1",
+            "port": 80,
+            "name": "Pub",
+            "share": null,
+            "fp": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+            "code": null
+          }
+        ]
+      }
+    },
+    {
+      "name": "the list is cut to 20",
+      "os": "windows",
+      "language": "en",
+      "input": {
+        "savedServers": [
+          {
+            "mode": "private",
+            "host": "127.0.0.1",
+            "port": 80,
+            "name": "S1"
+          },
+          {
+            "mode": "private",
+            "host": "127.0.0.2",
+            "port": 80,
+            "name": "S2"
+          },
+          {
+            "mode": "private",
+            "host": "127.0.0.3",
+            "port": 80,
+            "name": "S3"
+          },
+          {
+            "mode": "private",
+            "host": "127.0.0.4",
+            "port": 80,
+            "name": "S4"
+          },
+          {
+            "mode": "private",
+            "host": "127.0.0.5",
+            "port": 80,
+            "name": "S5"
+          },
+          {
+            "mode": "private",
+            "host": "127.0.0.6",
+            "port": 80,
+            "name": "S6"
+          },
+          {
+            "mode": "private",
+            "host": "127.0.0.7",
+            "port": 80,
+            "name": "S7"
+          },
+          {
+            "mode": "private",
+            "host": "127.0.0.8",
+            "port": 80,
+            "name": "S8"
+          },
+          {
+            "mode": "private",
+            "host": "127.0.0.9",
+            "port": 80,
+            "name": "S9"
+          },
+          {
+            "mode": "private",
+            "host": "127.0.0.10",
+            "port": 80,
+            "name": "S10"
+          },
+          {
+            "mode": "private",
+            "host": "127.0.0.11",
+            "port": 80,
+            "name": "S11"
+          },
+          {
+            "mode": "private",
+            "host": "127.0.0.12",
+            "port": 80,
+            "name": "S12"
+          },
+          {
+            "mode": "private",
+            "host": "127.0.0.13",
+            "port": 80,
+            "name": "S13"
+          },
+          {
+            "mode": "private",
+            "host": "127.0.0.14",
+            "port": 80,
+            "name": "S14"
+          },
+          {
+            "mode": "private",
+            "host": "127.0.0.15",
+            "port": 80,
+            "name": "S15"
+          },
+          {
+            "mode": "private",
+            "host": "127.0.0.16",
+            "port": 80,
+            "name": "S16"
+          },
+          {
+            "mode": "private",
+            "host": "127.0.0.17",
+            "port": 80,
+            "name": "S17"
+          },
+          {
+            "mode": "private",
+            "host": "127.0.0.18",
+            "port": 80,
+            "name": "S18"
+          },
+          {
+            "mode": "private",
+            "host": "127.0.0.19",
+            "port": 80,
+            "name": "S19"
+          },
+          {
+            "mode": "private",
+            "host": "127.0.0.20",
+            "port": 80,
+            "name": "S20"
+          },
+          {
+            "mode": "private",
+            "host": "127.0.0.21",
+            "port": 80,
+            "name": "S21"
+          },
+          {
+            "mode": "private",
+            "host": "127.0.0.22",
+            "port": 80,
+            "name": "S22"
+          },
+          {
+            "mode": "private",
+            "host": "127.0.0.23",
+            "port": 80,
+            "name": "S23"
+          },
+          {
+            "mode": "private",
+            "host": "127.0.0.24",
+            "port": 80,
+            "name": "S24"
+          },
+          {
+            "mode": "private",
+            "host": "127.0.0.25",
+            "port": 80,
+            "name": "S25"
+          }
+        ]
+      },
+      "expected": {
+        "savedServers": [
+          {
+            "game": "reforged",
+            "mode": "private",
+            "host": "127.0.0.1",
+            "port": 80,
+            "name": "S1",
+            "share": null,
+            "fp": null,
+            "code": null
+          },
+          {
+            "game": "reforged",
+            "mode": "private",
+            "host": "127.0.0.2",
+            "port": 80,
+            "name": "S2",
+            "share": null,
+            "fp": null,
+            "code": null
+          },
+          {
+            "game": "reforged",
+            "mode": "private",
+            "host": "127.0.0.3",
+            "port": 80,
+            "name": "S3",
+            "share": null,
+            "fp": null,
+            "code": null
+          },
+          {
+            "game": "reforged",
+            "mode": "private",
+            "host": "127.0.0.4",
+            "port": 80,
+            "name": "S4",
+            "share": null,
+            "fp": null,
+            "code": null
+          },
+          {
+            "game": "reforged",
+            "mode": "private",
+            "host": "127.0.0.5",
+            "port": 80,
+            "name": "S5",
+            "share": null,
+            "fp": null,
+            "code": null
+          },
+          {
+            "game": "reforged",
+            "mode": "private",
+            "host": "127.0.0.6",
+            "port": 80,
+            "name": "S6",
+            "share": null,
+            "fp": null,
+            "code": null
+          },
+          {
+            "game": "reforged",
+            "mode": "private",
+            "host": "127.0.0.7",
+            "port": 80,
+            "name": "S7",
+            "share": null,
+            "fp": null,
+            "code": null
+          },
+          {
+            "game": "reforged",
+            "mode": "private",
+            "host": "127.0.0.8",
+            "port": 80,
+            "name": "S8",
+            "share": null,
+            "fp": null,
+            "code": null
+          },
+          {
+            "game": "reforged",
+            "mode": "private",
+            "host": "127.0.0.9",
+            "port": 80,
+            "name": "S9",
+            "share": null,
+            "fp": null,
+            "code": null
+          },
+          {
+            "game": "reforged",
+            "mode": "private",
+            "host": "127.0.0.10",
+            "port": 80,
+            "name": "S10",
+            "share": null,
+            "fp": null,
+            "code": null
+          },
+          {
+            "game": "reforged",
+            "mode": "private",
+            "host": "127.0.0.11",
+            "port": 80,
+            "name": "S11",
+            "share": null,
+            "fp": null,
+            "code": null
+          },
+          {
+            "game": "reforged",
+            "mode": "private",
+            "host": "127.0.0.12",
+            "port": 80,
+            "name": "S12",
+            "share": null,
+            "fp": null,
+            "code": null
+          },
+          {
+            "game": "reforged",
+            "mode": "private",
+            "host": "127.0.0.13",
+            "port": 80,
+            "name": "S13",
+            "share": null,
+            "fp": null,
+            "code": null
+          },
+          {
+            "game": "reforged",
+            "mode": "private",
+            "host": "127.0.0.14",
+            "port": 80,
+            "name": "S14",
+            "share": null,
+            "fp": null,
+            "code": null
+          },
+          {
+            "game": "reforged",
+            "mode": "private",
+            "host": "127.0.0.15",
+            "port": 80,
+            "name": "S15",
+            "share": null,
+            "fp": null,
+            "code": null
+          },
+          {
+            "game": "reforged",
+            "mode": "private",
+            "host": "127.0.0.16",
+            "port": 80,
+            "name": "S16",
+            "share": null,
+            "fp": null,
+            "code": null
+          },
+          {
+            "game": "reforged",
+            "mode": "private",
+            "host": "127.0.0.17",
+            "port": 80,
+            "name": "S17",
+            "share": null,
+            "fp": null,
+            "code": null
+          },
+          {
+            "game": "reforged",
+            "mode": "private",
+            "host": "127.0.0.18",
+            "port": 80,
+            "name": "S18",
+            "share": null,
+            "fp": null,
+            "code": null
+          },
+          {
+            "game": "reforged",
+            "mode": "private",
+            "host": "127.0.0.19",
+            "port": 80,
+            "name": "S19",
+            "share": null,
+            "fp": null,
+            "code": null
+          },
+          {
+            "game": "reforged",
+            "mode": "private",
+            "host": "127.0.0.20",
+            "port": 80,
+            "name": "S20",
+            "share": null,
+            "fp": null,
+            "code": null
+          }
+        ]
+      }
+    },
+    {
+      "name": "invalid and duplicate entries do not count toward 20",
+      "os": "windows",
+      "language": "en",
+      "input": {
+        "savedServers": [
+          {
+            "mode": "private",
+            "host": "8.8.8.8",
+            "port": 80,
+            "name": "Bad"
+          },
+          {
+            "mode": "private",
+            "host": "127.0.0.1",
+            "port": 80,
+            "name": "S1"
+          },
+          {
+            "mode": "private",
+            "host": "127.0.0.1",
+            "port": 80,
+            "name": "Dup"
+          },
+          {
+            "mode": "private",
+            "host": "127.0.0.2",
+            "port": 80,
+            "name": "S2"
+          },
+          {
+            "mode": "private",
+            "host": "127.0.0.3",
+            "port": 80,
+            "name": "S3"
+          },
+          {
+            "mode": "private",
+            "host": "127.0.0.4",
+            "port": 80,
+            "name": "S4"
+          },
+          {
+            "mode": "private",
+            "host": "127.0.0.5",
+            "port": 80,
+            "name": "S5"
+          },
+          {
+            "mode": "private",
+            "host": "127.0.0.6",
+            "port": 80,
+            "name": "S6"
+          },
+          {
+            "mode": "private",
+            "host": "127.0.0.7",
+            "port": 80,
+            "name": "S7"
+          },
+          {
+            "mode": "private",
+            "host": "127.0.0.8",
+            "port": 80,
+            "name": "S8"
+          },
+          {
+            "mode": "private",
+            "host": "127.0.0.9",
+            "port": 80,
+            "name": "S9"
+          },
+          {
+            "mode": "private",
+            "host": "127.0.0.10",
+            "port": 80,
+            "name": "S10"
+          },
+          {
+            "mode": "private",
+            "host": "127.0.0.11",
+            "port": 80,
+            "name": "S11"
+          },
+          {
+            "mode": "private",
+            "host": "127.0.0.12",
+            "port": 80,
+            "name": "S12"
+          },
+          {
+            "mode": "private",
+            "host": "127.0.0.13",
+            "port": 80,
+            "name": "S13"
+          },
+          {
+            "mode": "private",
+            "host": "127.0.0.14",
+            "port": 80,
+            "name": "S14"
+          },
+          {
+            "mode": "private",
+            "host": "127.0.0.15",
+            "port": 80,
+            "name": "S15"
+          },
+          {
+            "mode": "private",
+            "host": "127.0.0.16",
+            "port": 80,
+            "name": "S16"
+          },
+          {
+            "mode": "private",
+            "host": "127.0.0.17",
+            "port": 80,
+            "name": "S17"
+          },
+          {
+            "mode": "private",
+            "host": "127.0.0.18",
+            "port": 80,
+            "name": "S18"
+          },
+          {
+            "mode": "private",
+            "host": "127.0.0.19",
+            "port": 80,
+            "name": "S19"
+          },
+          {
+            "mode": "private",
+            "host": "127.0.0.20",
+            "port": 80,
+            "name": "S20"
+          },
+          {
+            "mode": "private",
+            "host": "127.0.0.21",
+            "port": 80,
+            "name": "S21"
+          }
+        ]
+      },
+      "expected": {
+        "savedServers": [
+          {
+            "game": "reforged",
+            "mode": "private",
+            "host": "127.0.0.1",
+            "port": 80,
+            "name": "S1",
+            "share": null,
+            "fp": null,
+            "code": null
+          },
+          {
+            "game": "reforged",
+            "mode": "private",
+            "host": "127.0.0.2",
+            "port": 80,
+            "name": "S2",
+            "share": null,
+            "fp": null,
+            "code": null
+          },
+          {
+            "game": "reforged",
+            "mode": "private",
+            "host": "127.0.0.3",
+            "port": 80,
+            "name": "S3",
+            "share": null,
+            "fp": null,
+            "code": null
+          },
+          {
+            "game": "reforged",
+            "mode": "private",
+            "host": "127.0.0.4",
+            "port": 80,
+            "name": "S4",
+            "share": null,
+            "fp": null,
+            "code": null
+          },
+          {
+            "game": "reforged",
+            "mode": "private",
+            "host": "127.0.0.5",
+            "port": 80,
+            "name": "S5",
+            "share": null,
+            "fp": null,
+            "code": null
+          },
+          {
+            "game": "reforged",
+            "mode": "private",
+            "host": "127.0.0.6",
+            "port": 80,
+            "name": "S6",
+            "share": null,
+            "fp": null,
+            "code": null
+          },
+          {
+            "game": "reforged",
+            "mode": "private",
+            "host": "127.0.0.7",
+            "port": 80,
+            "name": "S7",
+            "share": null,
+            "fp": null,
+            "code": null
+          },
+          {
+            "game": "reforged",
+            "mode": "private",
+            "host": "127.0.0.8",
+            "port": 80,
+            "name": "S8",
+            "share": null,
+            "fp": null,
+            "code": null
+          },
+          {
+            "game": "reforged",
+            "mode": "private",
+            "host": "127.0.0.9",
+            "port": 80,
+            "name": "S9",
+            "share": null,
+            "fp": null,
+            "code": null
+          },
+          {
+            "game": "reforged",
+            "mode": "private",
+            "host": "127.0.0.10",
+            "port": 80,
+            "name": "S10",
+            "share": null,
+            "fp": null,
+            "code": null
+          },
+          {
+            "game": "reforged",
+            "mode": "private",
+            "host": "127.0.0.11",
+            "port": 80,
+            "name": "S11",
+            "share": null,
+            "fp": null,
+            "code": null
+          },
+          {
+            "game": "reforged",
+            "mode": "private",
+            "host": "127.0.0.12",
+            "port": 80,
+            "name": "S12",
+            "share": null,
+            "fp": null,
+            "code": null
+          },
+          {
+            "game": "reforged",
+            "mode": "private",
+            "host": "127.0.0.13",
+            "port": 80,
+            "name": "S13",
+            "share": null,
+            "fp": null,
+            "code": null
+          },
+          {
+            "game": "reforged",
+            "mode": "private",
+            "host": "127.0.0.14",
+            "port": 80,
+            "name": "S14",
+            "share": null,
+            "fp": null,
+            "code": null
+          },
+          {
+            "game": "reforged",
+            "mode": "private",
+            "host": "127.0.0.15",
+            "port": 80,
+            "name": "S15",
+            "share": null,
+            "fp": null,
+            "code": null
+          },
+          {
+            "game": "reforged",
+            "mode": "private",
+            "host": "127.0.0.16",
+            "port": 80,
+            "name": "S16",
+            "share": null,
+            "fp": null,
+            "code": null
+          },
+          {
+            "game": "reforged",
+            "mode": "private",
+            "host": "127.0.0.17",
+            "port": 80,
+            "name": "S17",
+            "share": null,
+            "fp": null,
+            "code": null
+          },
+          {
+            "game": "reforged",
+            "mode": "private",
+            "host": "127.0.0.18",
+            "port": 80,
+            "name": "S18",
+            "share": null,
+            "fp": null,
+            "code": null
+          },
+          {
+            "game": "reforged",
+            "mode": "private",
+            "host": "127.0.0.19",
+            "port": 80,
+            "name": "S19",
+            "share": null,
+            "fp": null,
+            "code": null
+          },
+          {
+            "game": "reforged",
+            "mode": "private",
+            "host": "127.0.0.20",
+            "port": 80,
+            "name": "S20",
+            "share": null,
+            "fp": null,
+            "code": null
+          }
+        ]
+      }
+    },
+    {
+      "name": "the current server goes first when not listed",
+      "os": "windows",
+      "language": "en",
+      "input": {
+        "server": {
+          "mode": "private",
+          "host": "100.64.0.9",
+          "port": 80,
+          "name": "Cur"
+        },
+        "savedServers": [
+          {
+            "mode": "private",
+            "host": "127.0.0.1",
+            "port": 80,
+            "name": "S1"
+          },
+          {
+            "mode": "private",
+            "host": "127.0.0.2",
+            "port": 80,
+            "name": "S2"
+          }
+        ]
+      },
+      "expected": {
+        "server": {
+          "game": "reforged",
+          "mode": "private",
+          "host": "100.64.0.9",
+          "port": 80,
+          "name": "Cur",
+          "share": null,
+          "fp": null,
+          "code": null
+        },
+        "savedServers": [
+          {
+            "game": "reforged",
+            "mode": "private",
+            "host": "100.64.0.9",
+            "port": 80,
+            "name": "Cur",
+            "share": null,
+            "fp": null,
+            "code": null
+          },
+          {
+            "game": "reforged",
+            "mode": "private",
+            "host": "127.0.0.1",
+            "port": 80,
+            "name": "S1",
+            "share": null,
+            "fp": null,
+            "code": null
+          },
+          {
+            "game": "reforged",
+            "mode": "private",
+            "host": "127.0.0.2",
+            "port": 80,
+            "name": "S2",
+            "share": null,
+            "fp": null,
+            "code": null
+          }
+        ]
+      }
+    },
+    {
+      "name": "the current server replaces its entry in place",
+      "os": "windows",
+      "language": "en",
+      "input": {
+        "server": {
+          "mode": "private",
+          "host": "127.0.0.2",
+          "port": 80,
+          "name": "Renamed",
+          "code": "abcd"
+        },
+        "savedServers": [
+          {
+            "mode": "private",
+            "host": "127.0.0.1",
+            "port": 80,
+            "name": "S1"
+          },
+          {
+            "mode": "private",
+            "host": "127.0.0.2",
+            "port": 80,
+            "name": "S2"
+          },
+          {
+            "mode": "private",
+            "host": "127.0.0.3",
+            "port": 80,
+            "name": "S3"
+          }
+        ]
+      },
+      "expected": {
+        "server": {
+          "game": "reforged",
+          "mode": "private",
+          "host": "127.0.0.2",
+          "port": 80,
+          "name": "Renamed",
+          "share": null,
+          "fp": null,
+          "code": "abcd"
+        },
+        "savedServers": [
+          {
+            "game": "reforged",
+            "mode": "private",
+            "host": "127.0.0.1",
+            "port": 80,
+            "name": "S1",
+            "share": null,
+            "fp": null,
+            "code": null
+          },
+          {
+            "game": "reforged",
+            "mode": "private",
+            "host": "127.0.0.2",
+            "port": 80,
+            "name": "Renamed",
+            "share": null,
+            "fp": null,
+            "code": "abcd"
+          },
+          {
+            "game": "reforged",
+            "mode": "private",
+            "host": "127.0.0.3",
+            "port": 80,
+            "name": "S3",
+            "share": null,
+            "fp": null,
+            "code": null
+          }
+        ]
+      }
+    },
+    {
+      "name": "the current server inserted into a full list pushes the last out",
+      "os": "windows",
+      "language": "en",
+      "input": {
+        "server": {
+          "mode": "private",
+          "host": "100.64.0.9",
+          "port": 80,
+          "name": "Cur"
+        },
+        "savedServers": [
+          {
+            "mode": "private",
+            "host": "127.0.0.1",
+            "port": 80,
+            "name": "S1"
+          },
+          {
+            "mode": "private",
+            "host": "127.0.0.2",
+            "port": 80,
+            "name": "S2"
+          },
+          {
+            "mode": "private",
+            "host": "127.0.0.3",
+            "port": 80,
+            "name": "S3"
+          },
+          {
+            "mode": "private",
+            "host": "127.0.0.4",
+            "port": 80,
+            "name": "S4"
+          },
+          {
+            "mode": "private",
+            "host": "127.0.0.5",
+            "port": 80,
+            "name": "S5"
+          },
+          {
+            "mode": "private",
+            "host": "127.0.0.6",
+            "port": 80,
+            "name": "S6"
+          },
+          {
+            "mode": "private",
+            "host": "127.0.0.7",
+            "port": 80,
+            "name": "S7"
+          },
+          {
+            "mode": "private",
+            "host": "127.0.0.8",
+            "port": 80,
+            "name": "S8"
+          },
+          {
+            "mode": "private",
+            "host": "127.0.0.9",
+            "port": 80,
+            "name": "S9"
+          },
+          {
+            "mode": "private",
+            "host": "127.0.0.10",
+            "port": 80,
+            "name": "S10"
+          },
+          {
+            "mode": "private",
+            "host": "127.0.0.11",
+            "port": 80,
+            "name": "S11"
+          },
+          {
+            "mode": "private",
+            "host": "127.0.0.12",
+            "port": 80,
+            "name": "S12"
+          },
+          {
+            "mode": "private",
+            "host": "127.0.0.13",
+            "port": 80,
+            "name": "S13"
+          },
+          {
+            "mode": "private",
+            "host": "127.0.0.14",
+            "port": 80,
+            "name": "S14"
+          },
+          {
+            "mode": "private",
+            "host": "127.0.0.15",
+            "port": 80,
+            "name": "S15"
+          },
+          {
+            "mode": "private",
+            "host": "127.0.0.16",
+            "port": 80,
+            "name": "S16"
+          },
+          {
+            "mode": "private",
+            "host": "127.0.0.17",
+            "port": 80,
+            "name": "S17"
+          },
+          {
+            "mode": "private",
+            "host": "127.0.0.18",
+            "port": 80,
+            "name": "S18"
+          },
+          {
+            "mode": "private",
+            "host": "127.0.0.19",
+            "port": 80,
+            "name": "S19"
+          },
+          {
+            "mode": "private",
+            "host": "127.0.0.20",
+            "port": 80,
+            "name": "S20"
+          }
+        ]
+      },
+      "expected": {
+        "server": {
+          "game": "reforged",
+          "mode": "private",
+          "host": "100.64.0.9",
+          "port": 80,
+          "name": "Cur",
+          "share": null,
+          "fp": null,
+          "code": null
+        },
+        "savedServers": [
+          {
+            "game": "reforged",
+            "mode": "private",
+            "host": "100.64.0.9",
+            "port": 80,
+            "name": "Cur",
+            "share": null,
+            "fp": null,
+            "code": null
+          },
+          {
+            "game": "reforged",
+            "mode": "private",
+            "host": "127.0.0.1",
+            "port": 80,
+            "name": "S1",
+            "share": null,
+            "fp": null,
+            "code": null
+          },
+          {
+            "game": "reforged",
+            "mode": "private",
+            "host": "127.0.0.2",
+            "port": 80,
+            "name": "S2",
+            "share": null,
+            "fp": null,
+            "code": null
+          },
+          {
+            "game": "reforged",
+            "mode": "private",
+            "host": "127.0.0.3",
+            "port": 80,
+            "name": "S3",
+            "share": null,
+            "fp": null,
+            "code": null
+          },
+          {
+            "game": "reforged",
+            "mode": "private",
+            "host": "127.0.0.4",
+            "port": 80,
+            "name": "S4",
+            "share": null,
+            "fp": null,
+            "code": null
+          },
+          {
+            "game": "reforged",
+            "mode": "private",
+            "host": "127.0.0.5",
+            "port": 80,
+            "name": "S5",
+            "share": null,
+            "fp": null,
+            "code": null
+          },
+          {
+            "game": "reforged",
+            "mode": "private",
+            "host": "127.0.0.6",
+            "port": 80,
+            "name": "S6",
+            "share": null,
+            "fp": null,
+            "code": null
+          },
+          {
+            "game": "reforged",
+            "mode": "private",
+            "host": "127.0.0.7",
+            "port": 80,
+            "name": "S7",
+            "share": null,
+            "fp": null,
+            "code": null
+          },
+          {
+            "game": "reforged",
+            "mode": "private",
+            "host": "127.0.0.8",
+            "port": 80,
+            "name": "S8",
+            "share": null,
+            "fp": null,
+            "code": null
+          },
+          {
+            "game": "reforged",
+            "mode": "private",
+            "host": "127.0.0.9",
+            "port": 80,
+            "name": "S9",
+            "share": null,
+            "fp": null,
+            "code": null
+          },
+          {
+            "game": "reforged",
+            "mode": "private",
+            "host": "127.0.0.10",
+            "port": 80,
+            "name": "S10",
+            "share": null,
+            "fp": null,
+            "code": null
+          },
+          {
+            "game": "reforged",
+            "mode": "private",
+            "host": "127.0.0.11",
+            "port": 80,
+            "name": "S11",
+            "share": null,
+            "fp": null,
+            "code": null
+          },
+          {
+            "game": "reforged",
+            "mode": "private",
+            "host": "127.0.0.12",
+            "port": 80,
+            "name": "S12",
+            "share": null,
+            "fp": null,
+            "code": null
+          },
+          {
+            "game": "reforged",
+            "mode": "private",
+            "host": "127.0.0.13",
+            "port": 80,
+            "name": "S13",
+            "share": null,
+            "fp": null,
+            "code": null
+          },
+          {
+            "game": "reforged",
+            "mode": "private",
+            "host": "127.0.0.14",
+            "port": 80,
+            "name": "S14",
+            "share": null,
+            "fp": null,
+            "code": null
+          },
+          {
+            "game": "reforged",
+            "mode": "private",
+            "host": "127.0.0.15",
+            "port": 80,
+            "name": "S15",
+            "share": null,
+            "fp": null,
+            "code": null
+          },
+          {
+            "game": "reforged",
+            "mode": "private",
+            "host": "127.0.0.16",
+            "port": 80,
+            "name": "S16",
+            "share": null,
+            "fp": null,
+            "code": null
+          },
+          {
+            "game": "reforged",
+            "mode": "private",
+            "host": "127.0.0.17",
+            "port": 80,
+            "name": "S17",
+            "share": null,
+            "fp": null,
+            "code": null
+          },
+          {
+            "game": "reforged",
+            "mode": "private",
+            "host": "127.0.0.18",
+            "port": 80,
+            "name": "S18",
+            "share": null,
+            "fp": null,
+            "code": null
+          },
+          {
+            "game": "reforged",
+            "mode": "private",
+            "host": "127.0.0.19",
+            "port": 80,
+            "name": "S19",
+            "share": null,
+            "fp": null,
+            "code": null
+          }
+        ]
+      }
+    },
+    {
+      "name": "the current server beyond the first 20 is moved to the front",
+      "os": "windows",
+      "language": "en",
+      "input": {
+        "server": {
+          "mode": "private",
+          "host": "127.0.0.22",
+          "port": 80,
+          "name": "S22"
+        },
+        "savedServers": [
+          {
+            "mode": "private",
+            "host": "127.0.0.1",
+            "port": 80,
+            "name": "S1"
+          },
+          {
+            "mode": "private",
+            "host": "127.0.0.2",
+            "port": 80,
+            "name": "S2"
+          },
+          {
+            "mode": "private",
+            "host": "127.0.0.3",
+            "port": 80,
+            "name": "S3"
+          },
+          {
+            "mode": "private",
+            "host": "127.0.0.4",
+            "port": 80,
+            "name": "S4"
+          },
+          {
+            "mode": "private",
+            "host": "127.0.0.5",
+            "port": 80,
+            "name": "S5"
+          },
+          {
+            "mode": "private",
+            "host": "127.0.0.6",
+            "port": 80,
+            "name": "S6"
+          },
+          {
+            "mode": "private",
+            "host": "127.0.0.7",
+            "port": 80,
+            "name": "S7"
+          },
+          {
+            "mode": "private",
+            "host": "127.0.0.8",
+            "port": 80,
+            "name": "S8"
+          },
+          {
+            "mode": "private",
+            "host": "127.0.0.9",
+            "port": 80,
+            "name": "S9"
+          },
+          {
+            "mode": "private",
+            "host": "127.0.0.10",
+            "port": 80,
+            "name": "S10"
+          },
+          {
+            "mode": "private",
+            "host": "127.0.0.11",
+            "port": 80,
+            "name": "S11"
+          },
+          {
+            "mode": "private",
+            "host": "127.0.0.12",
+            "port": 80,
+            "name": "S12"
+          },
+          {
+            "mode": "private",
+            "host": "127.0.0.13",
+            "port": 80,
+            "name": "S13"
+          },
+          {
+            "mode": "private",
+            "host": "127.0.0.14",
+            "port": 80,
+            "name": "S14"
+          },
+          {
+            "mode": "private",
+            "host": "127.0.0.15",
+            "port": 80,
+            "name": "S15"
+          },
+          {
+            "mode": "private",
+            "host": "127.0.0.16",
+            "port": 80,
+            "name": "S16"
+          },
+          {
+            "mode": "private",
+            "host": "127.0.0.17",
+            "port": 80,
+            "name": "S17"
+          },
+          {
+            "mode": "private",
+            "host": "127.0.0.18",
+            "port": 80,
+            "name": "S18"
+          },
+          {
+            "mode": "private",
+            "host": "127.0.0.19",
+            "port": 80,
+            "name": "S19"
+          },
+          {
+            "mode": "private",
+            "host": "127.0.0.20",
+            "port": 80,
+            "name": "S20"
+          },
+          {
+            "mode": "private",
+            "host": "127.0.0.21",
+            "port": 80,
+            "name": "S21"
+          },
+          {
+            "mode": "private",
+            "host": "127.0.0.22",
+            "port": 80,
+            "name": "S22"
+          },
+          {
+            "mode": "private",
+            "host": "127.0.0.23",
+            "port": 80,
+            "name": "S23"
+          },
+          {
+            "mode": "private",
+            "host": "127.0.0.24",
+            "port": 80,
+            "name": "S24"
+          },
+          {
+            "mode": "private",
+            "host": "127.0.0.25",
+            "port": 80,
+            "name": "S25"
+          }
+        ]
+      },
+      "expected": {
+        "server": {
+          "game": "reforged",
+          "mode": "private",
+          "host": "127.0.0.22",
+          "port": 80,
+          "name": "S22",
+          "share": null,
+          "fp": null,
+          "code": null
+        },
+        "savedServers": [
+          {
+            "game": "reforged",
+            "mode": "private",
+            "host": "127.0.0.22",
+            "port": 80,
+            "name": "S22",
+            "share": null,
+            "fp": null,
+            "code": null
+          },
+          {
+            "game": "reforged",
+            "mode": "private",
+            "host": "127.0.0.1",
+            "port": 80,
+            "name": "S1",
+            "share": null,
+            "fp": null,
+            "code": null
+          },
+          {
+            "game": "reforged",
+            "mode": "private",
+            "host": "127.0.0.2",
+            "port": 80,
+            "name": "S2",
+            "share": null,
+            "fp": null,
+            "code": null
+          },
+          {
+            "game": "reforged",
+            "mode": "private",
+            "host": "127.0.0.3",
+            "port": 80,
+            "name": "S3",
+            "share": null,
+            "fp": null,
+            "code": null
+          },
+          {
+            "game": "reforged",
+            "mode": "private",
+            "host": "127.0.0.4",
+            "port": 80,
+            "name": "S4",
+            "share": null,
+            "fp": null,
+            "code": null
+          },
+          {
+            "game": "reforged",
+            "mode": "private",
+            "host": "127.0.0.5",
+            "port": 80,
+            "name": "S5",
+            "share": null,
+            "fp": null,
+            "code": null
+          },
+          {
+            "game": "reforged",
+            "mode": "private",
+            "host": "127.0.0.6",
+            "port": 80,
+            "name": "S6",
+            "share": null,
+            "fp": null,
+            "code": null
+          },
+          {
+            "game": "reforged",
+            "mode": "private",
+            "host": "127.0.0.7",
+            "port": 80,
+            "name": "S7",
+            "share": null,
+            "fp": null,
+            "code": null
+          },
+          {
+            "game": "reforged",
+            "mode": "private",
+            "host": "127.0.0.8",
+            "port": 80,
+            "name": "S8",
+            "share": null,
+            "fp": null,
+            "code": null
+          },
+          {
+            "game": "reforged",
+            "mode": "private",
+            "host": "127.0.0.9",
+            "port": 80,
+            "name": "S9",
+            "share": null,
+            "fp": null,
+            "code": null
+          },
+          {
+            "game": "reforged",
+            "mode": "private",
+            "host": "127.0.0.10",
+            "port": 80,
+            "name": "S10",
+            "share": null,
+            "fp": null,
+            "code": null
+          },
+          {
+            "game": "reforged",
+            "mode": "private",
+            "host": "127.0.0.11",
+            "port": 80,
+            "name": "S11",
+            "share": null,
+            "fp": null,
+            "code": null
+          },
+          {
+            "game": "reforged",
+            "mode": "private",
+            "host": "127.0.0.12",
+            "port": 80,
+            "name": "S12",
+            "share": null,
+            "fp": null,
+            "code": null
+          },
+          {
+            "game": "reforged",
+            "mode": "private",
+            "host": "127.0.0.13",
+            "port": 80,
+            "name": "S13",
+            "share": null,
+            "fp": null,
+            "code": null
+          },
+          {
+            "game": "reforged",
+            "mode": "private",
+            "host": "127.0.0.14",
+            "port": 80,
+            "name": "S14",
+            "share": null,
+            "fp": null,
+            "code": null
+          },
+          {
+            "game": "reforged",
+            "mode": "private",
+            "host": "127.0.0.15",
+            "port": 80,
+            "name": "S15",
+            "share": null,
+            "fp": null,
+            "code": null
+          },
+          {
+            "game": "reforged",
+            "mode": "private",
+            "host": "127.0.0.16",
+            "port": 80,
+            "name": "S16",
+            "share": null,
+            "fp": null,
+            "code": null
+          },
+          {
+            "game": "reforged",
+            "mode": "private",
+            "host": "127.0.0.17",
+            "port": 80,
+            "name": "S17",
+            "share": null,
+            "fp": null,
+            "code": null
+          },
+          {
+            "game": "reforged",
+            "mode": "private",
+            "host": "127.0.0.18",
+            "port": 80,
+            "name": "S18",
+            "share": null,
+            "fp": null,
+            "code": null
+          },
+          {
+            "game": "reforged",
+            "mode": "private",
+            "host": "127.0.0.19",
+            "port": 80,
+            "name": "S19",
+            "share": null,
+            "fp": null,
+            "code": null
+          }
+        ]
+      }
+    },
+    {
+      "name": "an invalid current server is null and not listed",
+      "os": "windows",
+      "language": "en",
+      "input": {
+        "server": {
+          "mode": "private",
+          "host": "example.com",
+          "port": 80,
+          "name": "Bad"
+        },
+        "savedServers": [
+          {
+            "mode": "private",
+            "host": "127.0.0.1",
+            "port": 80,
+            "name": "S1"
+          }
+        ]
+      },
+      "expected": {
+        "savedServers": [
+          {
+            "game": "reforged",
+            "mode": "private",
+            "host": "127.0.0.1",
+            "port": 80,
+            "name": "S1",
+            "share": null,
+            "fp": null,
+            "code": null
+          }
+        ]
+      }
+    },
+    {
+      "name": "a current 1.4.4 server stays listed but is not current",
+      "os": "windows",
+      "language": "en",
+      "input": {
+        "server": {
+          "mode": "private",
+          "host": "127.0.0.5",
+          "port": 80,
+          "name": "Old",
+          "game": "revived"
+        },
+        "savedServers": [
+          {
+            "mode": "private",
+            "host": "127.0.0.1",
+            "port": 80,
+            "name": "S1"
+          }
+        ]
+      },
+      "expected": {
+        "savedServers": [
+          {
+            "game": "revived",
+            "mode": "private",
+            "host": "127.0.0.5",
+            "port": 80,
+            "name": "Old",
+            "share": null,
+            "fp": null,
+            "code": null
+          },
+          {
+            "game": "reforged",
+            "mode": "private",
+            "host": "127.0.0.1",
+            "port": 80,
+            "name": "S1",
+            "share": null,
+            "fp": null,
+            "code": null
+          }
+        ]
+      }
+    },
+    {
+      "name": "a current 1.4.4 server replaces its entry",
+      "os": "windows",
+      "language": "en",
+      "input": {
+        "server": {
+          "mode": "private",
+          "host": "127.0.0.1",
+          "port": 80,
+          "name": "Old",
+          "game": "revived"
+        },
+        "savedServers": [
+          {
+            "mode": "private",
+            "host": "127.0.0.1",
+            "port": 80,
+            "name": "S1"
+          },
+          {
+            "mode": "private",
+            "host": "127.0.0.2",
+            "port": 80,
+            "name": "S2"
+          }
+        ]
+      },
+      "expected": {
+        "savedServers": [
+          {
+            "game": "revived",
+            "mode": "private",
+            "host": "127.0.0.1",
+            "port": 80,
+            "name": "Old",
+            "share": null,
+            "fp": null,
+            "code": null
+          },
+          {
+            "game": "reforged",
+            "mode": "private",
+            "host": "127.0.0.2",
+            "port": 80,
+            "name": "S2",
+            "share": null,
+            "fp": null,
+            "code": null
+          }
+        ]
+      }
+    },
+    {
+      "name": "a public current server",
+      "os": "windows",
+      "language": "en",
+      "input": {
+        "server": {
+          "mode": "public",
+          "host": "play.example.com",
+          "port": 443,
+          "name": "Pub",
+          "fp": "fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210",
+          "share": "https://login.tailscale.com/admin/invite/abcDEF123"
+        }
+      },
+      "expected": {
+        "server": {
+          "game": "reforged",
+          "mode": "public",
+          "host": "play.example.com",
+          "port": 443,
+          "name": "Pub",
+          "share": null,
+          "fp": "fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210",
+          "code": null
+        },
+        "savedServers": [
+          {
+            "game": "reforged",
+            "mode": "public",
+            "host": "play.example.com",
+            "port": 443,
+            "name": "Pub",
+            "share": null,
+            "fp": "fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210",
+            "code": null
+          }
+        ]
+      }
+    },
+    {
+      "name": "a complete file is kept as it is",
+      "os": "windows",
+      "language": "en",
+      "input": {
+        "version": 1,
+        "server": {
+          "game": "reforged",
+          "mode": "private",
+          "host": "100.64.0.1",
+          "port": 7777,
+          "name": "Alpha",
+          "share": "https://login.tailscale.com/admin/invite/abcDEF123",
+          "fp": null,
+          "code": "invite-1"
+        },
+        "savedServers": [
+          {
+            "game": "reforged",
+            "mode": "private",
+            "host": "100.64.0.1",
+            "port": 7777,
+            "name": "Alpha",
+            "share": "https://login.tailscale.com/admin/invite/abcDEF123",
+            "fp": null,
+            "code": "invite-1"
+          },
+          {
+            "game": "reforged",
+            "mode": "public",
+            "host": "play.example.com",
+            "port": 443,
+            "name": "Pub",
+            "share": null,
+            "fp": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+            "code": null
+          }
+        ],
+        "gameRoot": "C:\\Games\\Dauntless",
+        "graphics": 3,
+        "windowed": true,
+        "streamerMode": false,
+        "language": "pt-BR",
+        "gameLanguage": "de-DE",
+        "runtimeProfile": "development",
+        "hostTools": true,
+        "usernames": {
+          "0123456789abcdef01234567": "Slayer"
+        },
+        "backupOffered": {
+          "0123456789abcdef01234567": true
+        },
+        "trustedRuntimes": {
+          "0123456789abcdef01234567": [
+            "0101010101010101010101010101010101010101010101010101010101010101"
+          ]
+        },
+        "localRuntimeDir": "C:\\rt",
+        "hostWorkspace": "C:\\ws",
+        "dumperDll": "C:\\d\\Dumper.dll",
+        "minimizeToTray": true,
+        "showGameConsole": true
+      },
+      "expected": {
+        "server": {
+          "game": "reforged",
+          "mode": "private",
+          "host": "100.64.0.1",
+          "port": 7777,
+          "name": "Alpha",
+          "share": "https://login.tailscale.com/admin/invite/abcDEF123",
+          "fp": null,
+          "code": "invite-1"
+        },
+        "savedServers": [
+          {
+            "game": "reforged",
+            "mode": "private",
+            "host": "100.64.0.1",
+            "port": 7777,
+            "name": "Alpha",
+            "share": "https://login.tailscale.com/admin/invite/abcDEF123",
+            "fp": null,
+            "code": "invite-1"
+          },
+          {
+            "game": "reforged",
+            "mode": "public",
+            "host": "play.example.com",
+            "port": 443,
+            "name": "Pub",
+            "share": null,
+            "fp": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+            "code": null
+          }
+        ],
+        "gameRoot": "C:\\Games\\Dauntless",
+        "graphics": 3,
+        "windowed": true,
+        "language": "pt-BR",
+        "gameLanguage": "de-DE",
+        "runtimeProfile": "development",
+        "hostTools": true,
+        "usernames": {
+          "0123456789abcdef01234567": "Slayer"
+        },
+        "backupOffered": {
+          "0123456789abcdef01234567": true
+        },
+        "trustedRuntimes": {
+          "0123456789abcdef01234567": [
+            "0101010101010101010101010101010101010101010101010101010101010101"
+          ]
+        },
+        "localRuntimeDir": "C:\\rt",
+        "hostWorkspace": "C:\\ws",
+        "dumperDll": "C:\\d\\Dumper.dll",
+        "minimizeToTray": true,
+        "showGameConsole": true
+      }
+    }
+  ]
+}

@@ -11,4 +11,5 @@ pub mod loader_session;
 pub mod log;
 pub mod paths;
 pub mod requirements;
+pub mod settings;
 pub mod system;
