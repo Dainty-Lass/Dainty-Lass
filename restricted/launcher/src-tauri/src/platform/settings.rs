@@ -1,34 +1,19 @@
-//! Launcher settings in `userData/settings.json` (row L28): `src/main/settings.ts`. No secrets in here:
-//! the key lives in the key store. Every value is checked when read, an unknown or wrong one falls back
-//! to its default, and the file is written as the Electron launcher writes it (same key order, two-space
-//! indent), so an upgraded profile reads and saves to the same bytes, but for the 1.4.4 parts (RD5,
-//! RD22): `revivedRoot` and `revivedVerified` are read and not written again, and a saved 1.4.4 server
-//! (`game: "revived"`) stays in the list, with its key, but is never the current server.
-//!
-//! Built on `protocol` and `serde_json` only, so the fuzz target (`fuzz`, `launcher_files`) compiles
-//! this file as it is.
+//! The settings file (row L28) over launcher-kit's `platform::settings` (RL6), which sanitises and writes it
+//! byte for byte. Here: the shell's names, and its `Language` (the bridge's) mapped to the MIT catalog's.
 
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
-use protocol::account::is_valid_username;
-use protocol::invite::{
-    clean_server_name, is_private_mode_host, is_valid_fingerprint, is_valid_host, is_valid_invite_code,
-    is_valid_share_url,
-};
-use protocol::text::js_length;
+use launcher_kit::platform::settings as kit;
 use serde_json::{Map, Value};
 
 use crate::core::i18n::Language;
-
-pub const MAX_SAVED_SERVERS: usize = 20;
-/// Runtime file sets kept per server, the newest last
-const MAX_TRUSTED_PER_SERVER: usize = 8;
 
 /// `game` of a Dauntless Revived server (Dauntless 1.4.4), which 2.0.0 no longer plays (RD5)
 pub const REVIVED: &str = "revived";
 /// `game` of every other server; older settings have none
 pub const REFORGED: &str = "reforged";
 
+/// Which folder-path rule applies.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Platform {
     Windows,
@@ -39,93 +24,17 @@ impl Platform {
     pub fn current() -> Self {
         if cfg!(windows) { Self::Windows } else { Self::Linux }
     }
-}
 
-/// A server id (`server_id`): 24 lower-case hex.
-fn is_slot(key: &str) -> bool {
-    key.len() == 24 && key.bytes().all(|byte| matches!(byte, b'0'..=b'9' | b'a'..=b'f'))
-}
-
-/// A runtime file set id: 64 lower-case hex.
-fn is_runtime_set(id: &str) -> bool {
-    id.len() == 64 && id.bytes().all(|byte| matches!(byte, b'0'..=b'9' | b'a'..=b'f'))
-}
-
-/// `validDir(value, platform, max)`: longer than 3 and shorter than `max` (UTF-16 units), no NUL; a
-/// drive-letter path on Windows, any absolute POSIX path elsewhere.
-fn valid_dir(value: Option<&Value>, platform: Platform, max: usize) -> Option<&str> {
-    let text = value?.as_str()?;
-    let length = js_length(text);
-    if length <= 3 || length >= max || text.contains('\0') {
-        return None;
-    }
-    let bytes = text.as_bytes();
-    let ok = match platform {
-        Platform::Windows => {
-            bytes[0].is_ascii_alphabetic() && bytes[1] == b':' && (bytes[2] == b'\\' || bytes[2] == b'/')
+    fn os(self) -> kit::Os {
+        match self {
+            Self::Windows => kit::Os::Windows,
+            Self::Linux => kit::Os::Linux,
         }
-        Platform::Linux => text.starts_with('/'),
-    };
-    ok.then_some(text)
-}
-
-/// `validDll`: a folder-like path under 260 characters that names a `.dll`.
-fn valid_dll(value: Option<&Value>, platform: Platform) -> Option<&str> {
-    valid_dir(value, platform, 260).filter(|path| {
-        path.len() >= 4 && path.is_char_boundary(path.len() - 4) && path[path.len() - 4..].eq_ignore_ascii_case(".dll")
-    })
-}
-
-fn text_or_null(value: Option<&str>) -> Value {
-    value.map_or(Value::Null, |text| Value::String(text.to_owned()))
-}
-
-/// A server entry, or None when it could never be reached safely.
-fn sanitize_server(value: Option<&Value>) -> Option<Map<String, Value>> {
-    let server = value?.as_object()?;
-    let name = server.get("name").and_then(Value::as_str).and_then(clean_server_name)?;
-    let public = server.get("mode").and_then(Value::as_str) == Some("public");
-    let host = server.get("host").and_then(Value::as_str)?;
-    // Private mode is plain HTTP: only into the tailnet (or loopback), as parse_invite enforces
-    if !is_valid_host(host) || !public && !is_private_mode_host(host) {
-        return None;
     }
-    let port = server
-        .get("port")
-        .and_then(Value::as_f64)
-        .filter(|port| port.fract() == 0.0 && (1.0..=65535.0).contains(port))?;
-    let fp = server
-        .get("fp")
-        .and_then(Value::as_str)
-        .filter(|fp| is_valid_fingerprint(fp));
-    // A public server without a valid fingerprint is dropped
-    if public && fp.is_none() {
-        return None;
-    }
-    let share = server
-        .get("share")
-        .and_then(Value::as_str)
-        .filter(|share| !public && is_valid_share_url(share));
-    let code = server
-        .get("code")
-        .and_then(Value::as_str)
-        .filter(|code| is_valid_invite_code(code));
-    let revived = server.get("game").and_then(Value::as_str) == Some(REVIVED);
-    let mut out = Map::new();
-    out.insert("game".into(), Value::from(if revived { REVIVED } else { REFORGED }));
-    out.insert("mode".into(), Value::from(if public { "public" } else { "private" }));
-    out.insert("host".into(), Value::String(host.to_owned()));
-    out.insert("port".into(), Value::from(port as u64));
-    out.insert("name".into(), Value::String(name));
-    out.insert("share".into(), text_or_null(share));
-    out.insert("fp".into(), if public { text_or_null(fp) } else { Value::Null });
-    out.insert("code".into(), text_or_null(code));
-    Some(out)
 }
 
-/// The same server (and the same account key slot): mode, host and port.
-pub fn same_server(a: &Map<String, Value>, b: &Map<String, Value>) -> bool {
-    a.get("mode") == b.get("mode") && a.get("host") == b.get("host") && a.get("port") == b.get("port")
+fn kit_language(language: Language) -> launcher_kit::core::i18n::Language {
+    launcher_kit::core::i18n::Language::from_code(language.code()).unwrap_or_default()
 }
 
 /// A saved Dauntless Revived (1.4.4) server: listed, not playable (RD5).
@@ -134,210 +43,33 @@ pub fn is_revived(server: &Map<String, Value>) -> bool {
 }
 
 pub fn default_settings(language: Language) -> Map<String, Value> {
-    let mut out = Map::new();
-    out.insert("version".into(), Value::from(1));
-    out.insert("server".into(), Value::Null);
-    out.insert("savedServers".into(), Value::Array(Vec::new()));
-    out.insert("gameRoot".into(), Value::Null);
-    out.insert("graphics".into(), Value::from(DEFAULT_GRAPHICS));
-    out.insert("windowed".into(), Value::Bool(false));
-    out.insert("streamerMode".into(), Value::Bool(false));
-    out.insert("language".into(), Value::from(language.code()));
-    out.insert("gameLanguage".into(), Value::from("auto"));
-    out.insert("runtimeProfile".into(), Value::from("production"));
-    out.insert("hostTools".into(), Value::Bool(false));
-    out.insert("usernames".into(), Value::Object(Map::new()));
-    out.insert("backupOffered".into(), Value::Object(Map::new()));
-    out.insert("trustedRuntimes".into(), Value::Object(Map::new()));
-    out.insert("localRuntimeDir".into(), Value::Null);
-    out.insert("hostWorkspace".into(), Value::Null);
-    out.insert("dumperDll".into(), Value::Null);
-    out
+    kit::defaults(kit_language(language))
 }
 
-/// `DEFAULT_GRAPHICS`: leave graphics to the in-game menu
-const DEFAULT_GRAPHICS: i64 = -1;
-
-const GAME_LANGUAGES: [&str; 9] = [
-    "auto", "en-US", "de-DE", "es-ES", "fr-FR", "it-IT", "ja-JP", "pt-BR", "ru-RU",
-];
-
-const RUNTIME_PROFILES: [&str; 2] = ["production", "development"];
-
-/// The entries of an object field, or none.
-fn entries<'a>(raw: &'a Map<String, Value>, field: &str) -> impl Iterator<Item = (&'a String, &'a Value)> {
-    raw.get(field).and_then(Value::as_object).into_iter().flatten()
-}
-
-/// `sanitizeSettings`: the settings as they will be used and written, in the file's key order.
 pub fn sanitize_settings(raw: &Value, language: Language, platform: Platform) -> Map<String, Value> {
-    let mut out = default_settings(language);
-    let Some(raw) = raw.as_object() else { return out };
-    let mut server = sanitize_server(raw.get("server"));
-    let mut saved: Vec<Map<String, Value>> = Vec::new();
-    for entry in raw.get("savedServers").and_then(Value::as_array).into_iter().flatten() {
-        if let Some(entry) = sanitize_server(Some(entry))
-            && !saved.iter().any(|other| same_server(other, &entry))
-            && saved.len() < MAX_SAVED_SERVERS
-        {
-            saved.push(entry);
-        }
-    }
-    // The current server is always in the list, as it is now (a newer invite or name replaces the old entry)
-    if let Some(current) = &server {
-        match saved.iter().position(|other| same_server(other, current)) {
-            Some(index) => saved[index] = current.clone(),
-            None => saved.insert(0, current.clone()),
-        }
-        saved.truncate(MAX_SAVED_SERVERS);
-    }
-    // A 1.4.4 server stays in the list (shown disabled, its key kept) but is not the current one
-    if server.as_ref().is_some_and(is_revived) {
-        server = None;
-    }
-    out.insert("server".into(), server.map_or(Value::Null, Value::Object));
-    out.insert(
-        "savedServers".into(),
-        Value::Array(saved.into_iter().map(Value::Object).collect()),
-    );
-    out.insert(
-        "gameRoot".into(),
-        text_or_null(valid_dir(raw.get("gameRoot"), platform, 200)),
-    );
-    // `GRAPHICS_PRESETS.includes(graphics)`: 4.0 is 4, -0 is 0
-    if let Some(graphics) = raw
-        .get("graphics")
-        .and_then(Value::as_f64)
-        .filter(|graphics| graphics.fract() == 0.0 && (-1.0..=4.0).contains(graphics))
-    {
-        out.insert("graphics".into(), Value::from(graphics as i64));
-    }
-    for flag in ["windowed", "streamerMode", "hostTools"] {
-        out.insert(flag.into(), Value::Bool(raw.get(flag) == Some(&Value::Bool(true))));
-    }
-    // DaintyLass's own, kept only when on, so a file without them stays Reforged's byte for byte
-    for flag in ["minimizeToTray", "closeToTray", "showGameConsole"] {
-        if raw.get(flag) == Some(&Value::Bool(true)) {
-            out.insert(flag.into(), Value::Bool(true));
-        }
-    }
-    if let Some(chosen) = raw
-        .get("language")
-        .and_then(Value::as_str)
-        .and_then(Language::from_code)
-    {
-        out.insert("language".into(), Value::from(chosen.code()));
-    }
-    for (field, allowed) in [
-        ("gameLanguage", GAME_LANGUAGES.as_slice()),
-        ("runtimeProfile", RUNTIME_PROFILES.as_slice()),
-    ] {
-        if let Some(value) = raw
-            .get(field)
-            .and_then(Value::as_str)
-            .filter(|value| allowed.contains(value))
-        {
-            out.insert(field.into(), Value::from(value));
-        }
-    }
-    // The registration rule (RD22): a name an admin changed to something else is not shown
-    let mut usernames = Map::new();
-    for (slot, name) in entries(raw, "usernames") {
-        if is_slot(slot)
-            && let Some(name) = name.as_str().filter(|name| is_valid_username(name))
-        {
-            usernames.insert(slot.clone(), Value::from(name));
-        }
-    }
-    out.insert("usernames".into(), Value::Object(usernames));
-    let mut offered = Map::new();
-    for (slot, value) in entries(raw, "backupOffered") {
-        if is_slot(slot) && value == &Value::Bool(true) {
-            offered.insert(slot.clone(), Value::Bool(true));
-        }
-    }
-    out.insert("backupOffered".into(), Value::Object(offered));
-    let mut trusted = Map::new();
-    for (slot, value) in entries(raw, "trustedRuntimes") {
-        let Some(list) = value.as_array().filter(|_| is_slot(slot)) else {
-            continue;
-        };
-        // `[...new Set(ids)].slice(-8)`: the first of each, the last eight
-        let mut ids: Vec<&str> = Vec::new();
-        for id in list.iter().filter_map(Value::as_str).filter(|id| is_runtime_set(id)) {
-            if !ids.contains(&id) {
-                ids.push(id);
-            }
-        }
-        if !ids.is_empty() {
-            let keep = &ids[ids.len().saturating_sub(MAX_TRUSTED_PER_SERVER)..];
-            trusted.insert(
-                slot.clone(),
-                Value::Array(keep.iter().map(|id| Value::from(*id)).collect()),
-            );
-        }
-    }
-    out.insert("trustedRuntimes".into(), Value::Object(trusted));
-    out.insert(
-        "localRuntimeDir".into(),
-        text_or_null(valid_dir(raw.get("localRuntimeDir"), platform, 260)),
-    );
-    out.insert(
-        "hostWorkspace".into(),
-        text_or_null(valid_dir(raw.get("hostWorkspace"), platform, 200)),
-    );
-    out.insert(
-        "dumperDll".into(),
-        text_or_null(valid_dll(raw.get("dumperDll"), platform)),
-    );
-    out
+    kit::sanitize(raw, kit_language(language), platform.os())
 }
 
 /// The file text, as `JSON.stringify(settings, null, 2)`.
 pub fn settings_text(settings: &Map<String, Value>) -> String {
-    serde_json::to_string_pretty(settings).unwrap_or_default()
+    String::from_utf8(kit::to_bytes(settings)).unwrap_or_default()
 }
 
-pub struct SettingsStore {
-    file: PathBuf,
-    data: Map<String, Value>,
-    platform: Platform,
-}
+pub struct SettingsStore(kit::SettingsStore);
 
 impl SettingsStore {
     pub fn load(dir: &Path, language: Language, platform: Platform) -> Self {
-        let file = dir.join("settings.json");
-        let raw = std::fs::read(&file)
-            .ok()
-            .and_then(|bytes| serde_json::from_slice(&bytes).ok())
-            .unwrap_or(Value::Null);
-        let data = sanitize_settings(&raw, language, platform);
-        Self { file, data, platform }
+        Self(kit::SettingsStore::load(dir, kit_language(language), platform.os()))
     }
 
     pub fn get(&self) -> &Map<String, Value> {
-        &self.data
+        self.0.map()
     }
 
-    /// Changes a copy, checks it again, and writes it atomically (temporary file, then rename). The file is
-    /// a few kilobytes, so it is written in place rather than on a blocking pool.
+    /// Changes a copy, checks it again, and writes it atomically.
     pub fn update(&mut self, change: impl FnOnce(&mut Map<String, Value>)) -> std::io::Result<&Map<String, Value>> {
-        let mut copy = self.data.clone();
-        change(&mut copy);
-        let language = copy
-            .get("language")
-            .and_then(Value::as_str)
-            .and_then(Language::from_code)
-            .unwrap_or(Language::En);
-        self.data = sanitize_settings(&Value::Object(copy), language, self.platform);
-        if let Some(parent) = self.file.parent() {
-            std::fs::create_dir_all(parent)?;
-        }
-        let mut temporary = self.file.clone().into_os_string();
-        temporary.push(".tmp");
-        std::fs::write(&temporary, settings_text(&self.data))?;
-        std::fs::rename(&temporary, &self.file)?;
-        Ok(&self.data)
+        self.0.update(change)?;
+        Ok(self.0.map())
     }
 }
 
