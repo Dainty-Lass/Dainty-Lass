@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-game-install-start"
+description = "Enables the game_install_start command without any pre-configured scope."
+commands.allow = ["game_install_start"]
+
+[[permission]]
+identifier = "deny-game-install-start"
+description = "Denies the game_install_start command without any pre-configured scope."
+commands.deny = ["game_install_start"]

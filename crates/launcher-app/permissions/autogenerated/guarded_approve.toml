@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-guarded-approve"
+description = "Enables the guarded_approve command without any pre-configured scope."
+commands.allow = ["guarded_approve"]
+
+[[permission]]
+identifier = "deny-guarded-approve"
+description = "Denies the guarded_approve command without any pre-configured scope."
+commands.deny = ["guarded_approve"]

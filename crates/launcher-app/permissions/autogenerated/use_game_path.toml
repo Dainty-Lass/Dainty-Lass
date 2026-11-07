@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-use-game-path"
+description = "Enables the use_game_path command without any pre-configured scope."
+commands.allow = ["use_game_path"]
+
+[[permission]]
+identifier = "deny-use-game-path"
+description = "Denies the use_game_path command without any pre-configured scope."
+commands.deny = ["use_game_path"]

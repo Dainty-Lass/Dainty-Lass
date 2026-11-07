@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-host-server-stop"
+description = "Enables the host_server_stop command without any pre-configured scope."
+commands.allow = ["host_server_stop"]
+
+[[permission]]
+identifier = "deny-host-server-stop"
+description = "Denies the host_server_stop command without any pre-configured scope."
+commands.deny = ["host_server_stop"]

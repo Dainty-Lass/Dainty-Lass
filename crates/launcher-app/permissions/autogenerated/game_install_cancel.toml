@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-game-install-cancel"
+description = "Enables the game_install_cancel command without any pre-configured scope."
+commands.allow = ["game_install_cancel"]
+
+[[permission]]
+identifier = "deny-game-install-cancel"
+description = "Denies the game_install_cancel command without any pre-configured scope."
+commands.deny = ["game_install_cancel"]

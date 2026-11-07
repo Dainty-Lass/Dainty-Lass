@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-guarded-cancel"
+description = "Enables the guarded_cancel command without any pre-configured scope."
+commands.allow = ["guarded_cancel"]
+
+[[permission]]
+identifier = "deny-guarded-cancel"
+description = "Denies the guarded_cancel command without any pre-configured scope."
+commands.deny = ["guarded_cancel"]

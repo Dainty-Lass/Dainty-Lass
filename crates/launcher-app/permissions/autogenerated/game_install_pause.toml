@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-game-install-pause"
+description = "Enables the game_install_pause command without any pre-configured scope."
+commands.allow = ["game_install_pause"]
+
+[[permission]]
+identifier = "deny-game-install-pause"
+description = "Denies the game_install_pause command without any pre-configured scope."
+commands.deny = ["game_install_pause"]

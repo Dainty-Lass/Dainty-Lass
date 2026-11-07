@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-remote-init-controller"
+description = "Enables the remote_init_controller command without any pre-configured scope."
+commands.allow = ["remote_init_controller"]
+
+[[permission]]
+identifier = "deny-remote-init-controller"
+description = "Denies the remote_init_controller command without any pre-configured scope."
+commands.deny = ["remote_init_controller"]
