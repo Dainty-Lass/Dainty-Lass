@@ -1364,13 +1364,16 @@ A progress and control wrapper around MIT `epic::download::install` (DE5):
   (`ResolutionSizeX/Y`, `LastUserConfirmedResolutionSizeX/Y`, `DesiredScreenWidth/Height`,
   `LastUserConfirmedDesiredScreenWidth/Height`, any case) whose value (up to `;`, parsed as JavaScript `Number`) is
   not finite or not 1..16384 makes it bad. Bad or safe window: add the two sections
-  `[/Script/Engine.GameUserSettings]` and `[/Script/Archon.ArchonGameUserSettings]` when none exist; under each such
+  `[/Script/Engine.GameUserSettings]` and `[/Script/Archon.ArchonGameUserSettings]` when none exist, straight after
+  the last line with **no blank line before either** (an empty file becomes just the two sections); under each such
   section put `ResolutionSizeX=1280`, `ResolutionSizeY=720`, `LastUserConfirmedResolutionSizeX=1280`,
   `LastUserConfirmedResolutionSizeY=720`, `FullscreenMode=2`, `LastConfirmedFullscreenMode=2`,
   `PreferredFullscreenMode=2`, `WindowPosX=-1`, `WindowPosY=-1` and drop its other size and window keys (also
   `FullscreenMode`, `LastConfirmedFullscreenMode`, `PreferredFullscreenMode`, `WindowPosX`, `WindowPosY`). Repaired
   when the text changed; then the old file is copied to `GameUserSettings.ini.before-display-repair-<ms since
-  epoch>`. A forced graphics level also rewrites each `sg.<group>Quality=` line (prefix any case) to the level.
+  epoch>`. A forced graphics level also rewrites each `sg.<group>Quality=` line (prefix any case) to the level,
+  **writing the key in its own spelling** (`SG.TEXTUREQUALITY=1` becomes `sg.TextureQuality=2`). (Both bold rules:
+  RL1 gaps, found in the RL9 check against the recorded table.)
 - Answers the Engine.ini path, whether the display was repaired, and the Phoenix keys removed.
 - `test/cases/game-config.json` is the oracle (§3.2).
 

@@ -619,4 +619,68 @@ mod tests {
         assert_eq!(rx.recv().await, Some((false, Some(3))));
         assert!(!game.running());
     }
+
+    /// The same launches from launcher-kit's `platform::launch` (RL9), which the shell moves to at RL12.
+    #[test]
+    fn launcher_kit_builds_the_same_launch() {
+        use launcher_kit::platform::launch as kit;
+        let key = concat!("RRK_", "0123456789abcdef", "0123456789abcdef");
+        let users = [("4f1e2d3c4b5a69788796a5b4", "Hunter_01"), ("", "x"), ("abc", "")];
+        let locales = [None, Some("pt-BR"), Some("xx-YY"), Some("ja-JP")];
+        for (user_id, username) in users {
+            for windowed in [false, true] {
+                for locale in locales {
+                    let ours = build_launch_args(&LaunchSettings {
+                        key,
+                        user_id,
+                        username,
+                        windowed,
+                        game_locale: locale,
+                    });
+                    let theirs = kit::launch_args(&kit::LaunchArgs {
+                        key,
+                        user_id,
+                        username,
+                        windowed,
+                        locale: locale.unwrap_or("en-US"),
+                    });
+                    assert_eq!(
+                        ours.is_ok(),
+                        theirs.is_ok(),
+                        "{user_id:?} {username:?} {windowed} {locale:?}"
+                    );
+                    if let (Ok(ours), Ok(theirs)) = (ours, theirs) {
+                        assert_eq!(ours, theirs, "{user_id:?} {username:?} {windowed} {locale:?}");
+                        assert_eq!(mask_args(&ours), kit::mask_args(&theirs));
+                        assert_eq!(
+                            describe_launch("Dauntless-Win64-Shipping.exe", &ours),
+                            kit::describe(Path::new("Dauntless-Win64-Shipping.exe"), &theirs)
+                        );
+                    }
+                }
+            }
+        }
+        let base = [
+            ("PATH", "/usr/bin"),
+            ("REFORGED_BACKEND_URL", "http://evil.example"),
+            ("rustic_isles_log", "1"),
+            ("RUSTIC_RIFTS_BIND_ADDRESS", "0.0.0.0"),
+            ("MysticParadox_x", "y"),
+            ("HOME", "/home/a"),
+        ];
+        for url in ["http://127.0.0.1:61100", "http://127.0.0.1:0", "http://localhost:61100"] {
+            for profile in [RuntimeProfile::Production, RuntimeProfile::Development] {
+                let ours = launch_environment(base.map(|(k, v)| (OsString::from(k), OsString::from(v))), url, profile);
+                let theirs = kit::launch_env(base, url, profile);
+                assert_eq!(ours.is_ok(), theirs.is_ok(), "{url}");
+                if let (Ok(ours), Ok(theirs)) = (ours, theirs) {
+                    let ours: std::collections::BTreeMap<String, String> = ours
+                        .into_iter()
+                        .map(|(k, v)| (k.to_string_lossy().into_owned(), v.to_string_lossy().into_owned()))
+                        .collect();
+                    assert_eq!(ours, theirs, "{url}");
+                }
+            }
+        }
+    }
 }

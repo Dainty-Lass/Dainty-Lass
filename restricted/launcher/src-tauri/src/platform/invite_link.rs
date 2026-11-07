@@ -548,4 +548,91 @@ mod tests {
         assert_eq!(exec("/a/b\nExec=evil"), None);
         assert_eq!(exec("relative.AppImage"), None);
     }
+
+    /// What players and the OS see from launcher-kit's modules (RL10) against this shell's: the channel a
+    /// second launcher finds, the schemes' registry values and desktop entry, the links in arguments, and
+    /// every external target's URL. Every difference is listed at once.
+    #[test]
+    fn launcher_kit_matches_what_players_and_the_os_see() {
+        use launcher_kit::platform::{invite_link as kit, links as kit_links};
+        let mut wrong: Vec<String> = Vec::new();
+
+        let base = if cfg!(feature = "server-gui") {
+            kit::MANAGER_ID
+        } else {
+            kit::CLIENT_ID
+        };
+        let args: Vec<std::ffi::OsString> = std::env::args_os().collect();
+        let theirs = kit::Channel::current(base, &args);
+        let theirs = theirs.address().to_string_lossy().into_owned();
+        if channel_name() != theirs {
+            wrong.push(format!("channel: {} vs {theirs}", channel_name()));
+        }
+
+        let exe = Path::new(r"C:\Games\DaintyLass\dainty-launcher.exe");
+        let ours: Vec<(String, Option<&str>, String)> = registry_entries(exe);
+        let theirs: Vec<(String, Option<&str>, String)> = kit::registry_values(exe)
+            .unwrap_or_default()
+            .into_iter()
+            .map(|v| (v.key, v.name, v.data))
+            .collect();
+        if ours != theirs {
+            wrong.push(format!(
+                "registry: {ours:?}
+    vs {theirs:?}"
+            ));
+        }
+        for appimage in [
+            "/home/a/Apps/DaintyLass.AppImage",
+            "/home/a/my $app/x%y.AppImage",
+            "relative.AppImage",
+        ] {
+            let (ours, theirs) = (
+                desktop_entry(Path::new(appimage)),
+                kit::desktop_entry(Path::new(appimage)),
+            );
+            if ours != theirs {
+                wrong.push(format!(
+                    "desktop entry for {appimage}: {ours:?}
+    vs {theirs:?}"
+                ));
+            }
+        }
+
+        for args in [
+            vec!["launcher.exe"],
+            vec!["launcher.exe", "dauntless://join?v=1&h=100.64.0.7&p=61000"],
+            vec!["launcher.exe", "--flag", "reforged-revival://join?x"],
+            vec!["launcher.exe", "dauntless-revived://join?x"],
+            vec!["launcher.exe", "https://example.org"],
+            vec!["launcher.exe", "DAUNTLESS://JOIN"],
+        ] {
+            let os: Vec<std::ffi::OsString> = args.iter().map(std::ffi::OsString::from).collect();
+            let (ours, theirs) = (invite_from_args(&args), kit::invite_in_args(&os));
+            if ours != theirs {
+                wrong.push(format!("invite in {args:?}: {ours:?} vs {theirs:?}"));
+            }
+        }
+
+        for name in crate::bridge::spec::EXTERNAL_TARGETS {
+            let target: crate::bridge::types::ExternalTarget = serde_json::from_value(serde_json::json!(name)).unwrap();
+            let (ours, theirs) = (
+                crate::platform::links::fixed_link_url(target),
+                kit_links::fixed_url(target),
+            );
+            if ours != theirs {
+                wrong.push(format!("{name}: {ours:?} vs {theirs:?}"));
+            }
+        }
+        assert!(
+            wrong.is_empty(),
+            "{} differences:
+{}",
+            wrong.len(),
+            wrong.join(
+                "
+"
+            )
+        );
+    }
 }

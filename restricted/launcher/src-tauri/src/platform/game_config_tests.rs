@@ -74,6 +74,70 @@ fn game_user_settings_and_encodings() {
     }
 }
 
+/// The same recorded table against launcher-kit's modules (RL9), which the shell moves to at RL12.
+#[test]
+fn the_shared_table_against_launcher_kit() {
+    use launcher_kit::platform::{game_config as kit, game_folder as kit_folder};
+    let cases = cases();
+    let mut wrong: Vec<String> = Vec::new();
+    let mut check = |ok: bool, case: &Value, got: String| {
+        if !ok {
+            wrong.push(format!(
+                "{case}
+  got: {got}"
+            ));
+        }
+    };
+    for case in cases["gus"].as_array().unwrap() {
+        let edit = kit::repair_user_settings(&strings(&case["lines"]), false, graphics(&case["graphics"]));
+        check(edit.lines == strings(&case["out"]), case, format!("{:?}", edit.lines));
+    }
+    for case in cases["split"].as_array().unwrap() {
+        let got = kit::split_lines(case["text"].as_str().unwrap());
+        check(got == strings(&case["lines"]), case, format!("{got:?}"));
+    }
+    for case in cases["encode"].as_array().unwrap() {
+        let got = kit::encode(&kit::join_lines(&strings(&case["lines"])));
+        check(got == bytes(&case["bytes"]), case, format!("{got:?}"));
+    }
+    for case in cases["decode"].as_array().unwrap() {
+        let got = kit::decode(&bytes(&case["bytes"]));
+        check(got == case["text"].as_str().unwrap(), case, format!("{got:?}"));
+    }
+    for case in cases["display"].as_array().unwrap() {
+        let edit = kit::repair_user_settings(
+            &strings(&case["lines"]),
+            case["force"].as_bool().unwrap(),
+            GraphicsPreset::GAME_MENU,
+        );
+        let want = (
+            strings(&case["out"]["lines"]),
+            case["out"]["repaired"].as_bool().unwrap(),
+        );
+        check((edit.lines.clone(), edit.repaired) == want, case, format!("{edit:?}"));
+    }
+    for case in cases["folders"].as_array().unwrap() {
+        let windows = case["platform"] == "win32";
+        let input = case["input"].as_str().unwrap();
+        let clean = kit_folder::normalize(input, windows);
+        check(clean.as_deref() == case["clean"].as_str(), case, format!("{clean:?}"));
+        if let Some(clean) = case["clean"].as_str() {
+            let got = kit_folder::candidates(clean, windows);
+            check(got == Some(strings(&case["candidates"])), case, format!("{got:?}"));
+        }
+    }
+    assert!(
+        wrong.is_empty(),
+        "{} cases differ:
+{}",
+        wrong.len(),
+        wrong.join(
+            "
+"
+        )
+    );
+}
+
 #[test]
 fn display_repair() {
     for case in cases()["display"].as_array().unwrap() {
