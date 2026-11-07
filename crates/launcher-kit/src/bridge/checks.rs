@@ -608,6 +608,43 @@ mod tests {
     }
 
     #[test]
+    fn arrays_are_not_objects() {
+        for array in [json!([]), json!([1, true, "en"]), json!([[]])] {
+            assert!(
+                serde_json::from_value::<SettingsPatch>(array.clone()).is_err(),
+                "{array}"
+            );
+            assert!(
+                serde_json::from_value::<HostSetupRequest>(array.clone()).is_err(),
+                "{array}"
+            );
+            assert!(
+                serde_json::from_value::<HostMultipliers>(array.clone()).is_err(),
+                "{array}"
+            );
+            assert_eq!(settings_patch(&array), SettingsPatch::default());
+            assert_eq!(host_setup(&array).unwrap_err(), host_failed(SETUP_FORM));
+            assert_eq!(multipliers(&array).unwrap_err(), host_failed(MULTIPLIERS_FORM));
+            assert!(server_config(&array).is_err() && admin_request(&array).is_err() && remote_exec(&array).is_err());
+            assert!(remote_init(&array).is_err() && remote_invite(&array).is_err() && remote_enroll(&array).is_err());
+            assert!(history_filter(&array).is_err() && revert_selection(&array).is_err());
+        }
+        assert!(serde_json::from_str::<SettingsPatch>("[-1, true]").is_err());
+        assert!(serde_json::from_str::<HostSetupRequest>(r#"["A", "private", null]"#).is_err());
+        let patch: SettingsPatch = serde_json::from_str(r#"{"windowed": true}"#).unwrap();
+        assert_eq!(patch.windowed, Some(true));
+        assert_eq!(serde_json::to_value(&patch).unwrap(), json!({"windowed": true}));
+        let setup: HostSetupRequest =
+            serde_json::from_value(json!({"name": "A", "mode": "public", "publicHost": "h"})).unwrap();
+        assert_eq!(
+            serde_json::to_value(&setup).unwrap(),
+            json!({"name": "A", "mode": "public", "publicHost": "h"})
+        );
+        let set: HostMultipliers = serde_json::from_value(json!({"xp": 2, "rewards": 3})).unwrap();
+        assert!((set.xp - 2.0).abs() < 1e-9);
+    }
+
+    #[test]
     fn setup_form() {
         let private = host_setup(&json!({"name": "  Isles ", "mode": "private", "publicHost": "x y"})).unwrap();
         assert_eq!(private.name, "Isles");
