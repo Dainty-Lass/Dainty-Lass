@@ -673,4 +673,45 @@ mod tests {
         );
         assert_eq!(protocol::account::extract_account_key(&text), Some(KEY));
     }
+
+    /// A key this store saved loads in launcher-kit's (RL5), and the other way round, through this user's DPAPI:
+    /// the files players already have keep working when the shell moves to the MIT store.
+    #[cfg(windows)]
+    #[tokio::test]
+    async fn launcher_kit_reads_these_files_and_these_read_its() {
+        use launcher_kit::platform::keystore as kit;
+        use protocol::invite::ServerMode;
+
+        let dir = tempfile::tempdir().unwrap();
+        let (keys, recovery) = (dir.path().join("keys"), dir.path().join("recovery"));
+        let (crypto, _) = os::encryptors(dir.path()).await;
+        let ours = KeyStore::new(keys.clone(), crypto, None, Some(recovery.clone()));
+        let theirs = kit::KeyStore::new(keys, recovery, kit::os::platform_encryptor(), None);
+        let fp = "ab".repeat(32);
+
+        let private = KeySlot {
+            host: "100.64.0.7".into(),
+            port: 61000,
+            public: false,
+            fp: None,
+        };
+        let kit_private = kit::Slot::new(ServerMode::Private, "100.64.0.7", 61000);
+        assert_eq!(server_id("100.64.0.7", 61000, false), kit_private.id());
+        let key = concat!("RRK_", "0123456789abcdef", "0123456789abcdef", "0123456789abcdef");
+        ours.save(&private, key).unwrap();
+        assert_eq!(theirs.load(&kit_private, None).unwrap().as_deref(), Some(key));
+
+        let public = KeySlot {
+            host: "play.example.org".into(),
+            port: 443,
+            public: true,
+            fp: Some(fp.clone()),
+        };
+        let kit_public = kit::Slot::new(ServerMode::Public, "play.example.org", 443);
+        assert_eq!(server_id("play.example.org", 443, true), kit_public.id());
+        let other = concat!("RRK_", "fedcba9876543210", "fedcba9876543210", "fedcba9876543210");
+        theirs.save(&kit_public, other, Some(&fp)).unwrap();
+        assert_eq!(ours.load(&public).unwrap().as_deref(), Some(other));
+        assert_eq!(ours.certificate_of(&public), Some(Some(fp.clone())));
+    }
 }

@@ -78,6 +78,48 @@ fn the_shared_table() {
     }
 }
 
+/// The same recorded table against launcher-kit's parsers (RL7), which the shell moves to at RL12.
+#[test]
+fn the_shared_table_against_launcher_kit() {
+    use launcher_kit::net::hostapi::parse as kit;
+    let path = concat!(env!("CARGO_MANIFEST_DIR"), "/../test/cases/hostapi.json");
+    let cases: Cases = serde_json::from_str(&std::fs::read_to_string(path).unwrap()).unwrap();
+    for case in cases.news {
+        assert_eq!(
+            serde_json::to_value(kit::parse_news(&case.input).unwrap_or_default()).unwrap(),
+            case.expected,
+            "{}",
+            case.input
+        );
+    }
+    for case in cases.branding {
+        let branding = kit::parse_branding(&case.input);
+        let backgrounds: Vec<Value> = branding
+            .backgrounds
+            .iter()
+            .map(|background| serde_json::json!({ "path": background.url, "credit": background.credit }))
+            .collect();
+        assert_eq!(
+            serde_json::json!({ "backgrounds": backgrounds, "accent": branding.accent }),
+            case.expected,
+            "{}",
+            case.input
+        );
+    }
+    for case in cases.images {
+        assert_eq!(
+            kit::sniff_image(&case.bytes).map(kit::ImageType::content_type),
+            case.kind.as_deref(),
+            "{:?}",
+            case.bytes
+        );
+    }
+    for case in cases.news_body {
+        let cleaned = case.input.as_str().and_then(kit::clean_news_body);
+        assert_eq!(serde_json::to_value(cleaned).unwrap(), case.expected, "{}", case.input);
+    }
+}
+
 #[test]
 fn branding_paths_with_other_characters_are_refused_without_panicking() {
     assert!(is_branding_path("/content/v1/branding/a.jpg"));
