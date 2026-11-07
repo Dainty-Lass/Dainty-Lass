@@ -24,8 +24,8 @@ use tokio::sync::Notify;
 use tokio_rustls::TlsAcceptor;
 
 use launcher_kit::bridge::types::{
-    ActionResult, ConnectProblem, ErrorCode, GameProblem, InviteCheck, NoticeCode, Phase, RegisterOutcome,
-    RuntimeState, SettingsPatch, Snapshot, TaskProgress,
+    ActionResult, ConnectProblem, ErrorCode, GameProblem, InstallOutcome, InstallState, InviteCheck, NoticeCode, Phase,
+    RegisterOutcome, RuntimeState, SettingsPatch, Snapshot, TaskProgress,
 };
 use launcher_kit::controller::{
     ConsoleSink, Controller, ControllerConfig, FileFilter, FolderPurpose, Platform, PreparedGame, RelayOwner, Seams,
@@ -871,33 +871,51 @@ async fn saved_1_4_4_servers_are_shown_disabled() {
 }
 
 #[tokio::test]
-async fn seams_answer_as_a_build_without_them() {
+async fn the_moved_modules_answer_without_a_server() {
     let pc = pc().await;
     let platform = Arc::new(FakePlatform::default());
     let spawner = Arc::new(FakeSpawner::default());
     let controller = launcher(&pc, &platform, &spawner);
     controller.init().await;
-    let not_here = |value: serde_json::Value, command: &str| {
-        assert_eq!(value["ok"], json!(false));
-        assert_eq!(value["error"]["code"], json!("not_in_this_build"));
-        assert_eq!(value["error"]["detail"], json!(command));
+    let error = |value: serde_json::Value, code: &str, detail: Option<&str>| {
+        assert_eq!(value["ok"], json!(false), "{value}");
+        assert_eq!(value["error"]["code"], json!(code), "{value}");
+        assert_eq!(value["error"].get("detail").and_then(|d| d.as_str()), detail, "{value}");
     };
-    not_here(serde_json::to_value(controller.realm_get()).unwrap(), "realm_get");
-    not_here(
+    let realms = serde_json::to_value(controller.realm_get().await).unwrap();
+    if cfg!(feature = "realms") {
+        assert_eq!(
+            realms,
+            json!({ "ok": true, "realm": { "available": false, "active": null, "sessions": [] } })
+        );
+    } else {
+        error(realms, "not_in_this_build", Some("realm_get"));
+    }
+    error(
         serde_json::to_value(controller.region_ping().await).unwrap(),
-        "region_ping",
+        "server_unreachable",
+        None,
     );
-    not_here(
-        serde_json::to_value(controller.game_install_get("1.14.7")).unwrap(),
-        "game_install_get",
+    match controller.game_install_get("1.14.7") {
+        InstallOutcome::Ok(info) => assert_eq!(info.state, InstallState::NotInstalled),
+        InstallOutcome::Err(error) => panic!("{error:?}"),
+    }
+    error(
+        serde_json::to_value(controller.game_install_get("9.9.9")).unwrap(),
+        "game_version_unknown",
+        Some("9.9.9"),
     );
-    not_here(serde_json::to_value(controller.guarded_list()).unwrap(), "guarded_list");
-    assert!(controller.game_version_list().await.versions.is_empty());
-    assert!(!controller.game_install_pause("1.14.7"));
+    assert_eq!(refused(&controller.game_install_pause("1.14.7")), ErrorCode::Unknown);
+    assert_eq!(refused(&controller.revived_choose_folder().await), ErrorCode::Unknown);
+    let guarded = serde_json::to_value(controller.guarded_list().await).unwrap();
+    if cfg!(feature = "server-gui") {
+        error(guarded, "host_failed", Some("workspace"));
+    } else {
+        error(guarded, "not_in_this_build", Some("guarded_list"));
+    }
     let host = serde_json::to_value(controller.host_server_start().await).unwrap();
-    assert_eq!(host["error"]["code"], json!("host_failed"));
-    assert_eq!(host["error"]["detail"], json!("host_tools_unavailable"));
-    assert!(!controller.host_kit().workspace_ok);
+    error(host, "host_failed", Some("host_tools_unavailable"));
+    assert!(!controller.host_kit().await.workspace_ok);
     ok(&controller.ensure_host_workspace(false).await);
     controller.shutdown().await;
 }

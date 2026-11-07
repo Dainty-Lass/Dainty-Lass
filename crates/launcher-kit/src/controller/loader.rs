@@ -1,51 +1,111 @@
 // Copyright (c) 2026 Silent Spud
 // SPDX-License-Identifier: MIT
 
-//! The runtime loader's sessions (RD9), on launcher-kit's `loader_session`. The project's own loader module
-//! replaces this one; until then no session begins here, but PLAY still refuses leftovers.
+//! The runtime loader's sessions (RD9), for PLAY and the Host tools alike: PLAY refuses while a leftover
+//! ini or a Host tools DLL sits beside the loader, so this is in every build, `host` feature or not.
 
 use std::path::{Path, PathBuf};
-
-use crate::platform::loader_session::{self, EXPORTER_DLL, RECORD_FILE};
-use crate::platform::log;
+use std::time::Duration;
 
 use super::Controller;
+use crate::bridge::types::{ErrorCode, LauncherError};
+use crate::platform::loader_session::{self, EXPORTER_DLL, LoaderSession, RECORD_FILE, SessionError, SessionKind};
+use crate::platform::log;
 
 impl Controller {
+    /// Where the session record is kept.
     fn loader_record(&self) -> PathBuf {
         self.user_data().join(RECORD_FILE)
     }
 
-    /// Undoes a session a closed launcher left.
-    pub(crate) fn recover_loader_session(&self) {
-        match loader_session::recover(&self.loader_record()) {
-            Some(Ok(())) => log::info("undid the loader session a closed launcher left"),
-            Some(Err(error)) => log::warn(format!("could not undo the last loader session: {error}")),
-            None => {}
+    /// The Host tools' DLL names a PLAY refuses beside the loader: the host's Dumper-7 and CatalogExporter.
+    fn loader_known(&self) -> Vec<String> {
+        let mut known = vec![EXPORTER_DLL.to_owned()];
+        if let Some(dll) = self.stored().dumper_dll() {
+            known.push(
+                Path::new(dll)
+                    .file_name()
+                    .map(|n| n.to_string_lossy().into_owned())
+                    .unwrap_or_default(),
+            );
         }
+        known
     }
 
-    /// What must not sit beside the loader when PLAY starts the game.
+    /// The pre-launch check (RD9): what must not be beside the loader for an ordinary PLAY.
     pub(crate) fn loader_leftovers(&self, win64: &Path) -> Vec<String> {
-        let dumper = self.stored().dumper_dll().and_then(|dll| {
-            Path::new(dll)
-                .file_name()
-                .map(|name| name.to_string_lossy().into_owned())
-        });
-        let mut known: Vec<&str> = vec![EXPORTER_DLL];
-        if let Some(dumper) = dumper.as_deref() {
-            known.push(dumper);
-        }
+        let known = self.loader_known();
+        let known: Vec<&str> = known.iter().map(String::as_str).collect();
         loader_session::leftovers(win64, &self.loader_record(), &known)
     }
 
+    /// Begins a loader session in `win64` for `dll`; the page's error when it cannot.
+    #[allow(dead_code, reason = "the Host page controller (RL12b) begins sessions")]
+    pub(crate) fn begin_loader_session(
+        &self,
+        kind: SessionKind,
+        win64: &Path,
+        dll: &Path,
+    ) -> Result<LoaderSession, LauncherError> {
+        let known = self.loader_known();
+        let known: Vec<&str> = known.iter().map(String::as_str).collect();
+        loader_session::begin(kind, win64, dll, &self.loader_record(), &known).map_err(|error| {
+            log::warn(format!("host: loader session not begun: {}", error.detail()));
+            self.refuse(match error {
+                SessionError::Leftovers(files) => {
+                    LauncherError::with_detail(ErrorCode::LoaderLeftovers, &files.join(", "))
+                }
+                other => LauncherError::with_detail(ErrorCode::HostFailed, &other.detail()),
+            })
+        })
+    }
+
     /// Ends the session the game ran with, if any.
-    pub(crate) fn end_loader_session(&self) {
+    pub(crate) async fn end_current_loader_session(&self) {
         let session = self.lock().host.loader_session.take();
-        if let Some(session) = session
-            && let Err(error) = session.end()
-        {
-            log::warn(format!("could not end the loader session: {error}"));
+        if let Some(session) = session {
+            self.end_loader_session(session).await;
+        }
+    }
+
+    /// Ends a session: the ini and the DLL go, the runtime comes back. A DLL the game just let go of may
+    /// still be held for a moment, so it is tried a few times.
+    pub(crate) async fn end_loader_session(&self, session: LoaderSession) {
+        let mut last = None;
+        for attempt in 0..5 {
+            if attempt > 0 {
+                tokio::time::sleep(Duration::from_millis(400)).await;
+            }
+            let try_end = session.clone();
+            match tokio::task::spawn_blocking(move || try_end.end()).await {
+                Ok(Ok(())) => {
+                    log::info(format!(
+                        "host: {} and {} removed",
+                        loader_session::LOADER_INI,
+                        session.dll
+                    ));
+                    return;
+                }
+                Ok(Err(error)) => last = Some(log::describe_error(&error)),
+                Err(error) => last = Some(error.to_string()),
+            }
+        }
+        log::error(format!(
+            "host: the loader session's files were not removed ({}); PLAY refuses until they are",
+            last.unwrap_or_default()
+        ));
+    }
+
+    /// A session a closed launcher did not finish is undone at the next start.
+    pub(crate) async fn recover_loader_session(&self) {
+        let record = self.loader_record();
+        match tokio::task::spawn_blocking(move || loader_session::recover(&record)).await {
+            Ok(Some(Ok(()))) => log::info("host: an unfinished loader session was undone"),
+            Ok(Some(Err(error))) => log::warn(format!(
+                "host: an unfinished loader session could not be undone: {}",
+                log::describe_error(&error)
+            )),
+            _ => {}
         }
     }
 }

@@ -1,28 +1,25 @@
 // Copyright (c) 2026 Silent Spud
 // SPDX-License-Identifier: MIT
 
-//! The 1.4.4 commands, refused (RD5). The project's own refusal module replaces this one.
-
-use crate::bridge::checks::not_in_this_build;
-use crate::bridge::types::{ActionResult, InstallMode};
+//! The page's Dauntless 1.4.4 calls (the bridge still names them), refused: a Dauntless Revived server is
+//! listed but never current (`settings.rs`), so nothing here plays (RD5, RD22).
 
 use super::Controller;
+use crate::bridge::types::{ActionResult, ErrorCode, InstallMode};
 
 impl Controller {
     /// `revived_install`.
-    pub async fn revived_install(&self, mode: InstallMode) -> ActionResult {
-        let _ = mode;
-        ActionResult::Err(not_in_this_build("revived_install"))
+    pub async fn revived_install(&self, _mode: InstallMode) -> ActionResult {
+        ActionResult::err(ErrorCode::Unknown)
     }
 
     /// `revived_choose_folder`.
     pub async fn revived_choose_folder(&self) -> ActionResult {
-        ActionResult::Err(not_in_this_build("revived_choose_folder"))
+        ActionResult::err(ErrorCode::Unknown)
     }
 
     /// `revived_use_detected`.
-    pub async fn revived_use_detected(&self, index: usize) -> ActionResult {
-        let _ = index;
-        ActionResult::Err(not_in_this_build("revived_use_detected"))
+    pub async fn revived_use_detected(&self, _index: u32) -> ActionResult {
+        ActionResult::err(ErrorCode::Unknown)
     }
 }
