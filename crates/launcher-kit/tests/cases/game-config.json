@@ -230,6 +230,18 @@
       "keys_removed": 1
     },
     {
+      "name": "the name inside the brackets is trimmed too",
+      "input": "[Core]\na=1\n[ OnlineSubsystemPhoenix ]\nEndpoint=1\nB=2\n[After]\nb=2\n",
+      "expected": "[Core]\r\na=1\r\n[After]\r\nb=2\r\n",
+      "keys_removed": 2
+    },
+    {
+      "name": "tabs and spaces around and inside the brackets, in any case",
+      "input": "\t[\t onlinesubsystemphoenix  ] \nX=1\n",
+      "expected": "",
+      "keys_removed": 1
+    },
+    {
       "name": "every Phoenix section is removed",
       "input": "[OnlineSubsystemPhoenix]\nA=1\n[Keep]\nk=v\n[OnlineSubsystemPhoenix]\nB=2\nC=3\n",
       "expected": "[Keep]\r\nk=v\r\n",
