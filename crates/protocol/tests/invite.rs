@@ -54,7 +54,7 @@ fn invite(
         name: name.into(),
         share: share.map(Into::into),
         fp: fp.map(Into::into),
-        version: protocol::invite::reforged_version(),
+        version: protocol::invite::dainty_version(),
     }
 }
 

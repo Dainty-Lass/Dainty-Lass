@@ -974,8 +974,8 @@ dependencies = [
  "rustic-isles-director",
  "rustic-isles-economy",
  "rustic-isles-gamedata",
+ "rustic-isles-launcher-api",
  "rustic-isles-matchmaking",
- "rustic-isles-reforged",
  "rustic-isles-replay",
  "rustic-isles-store",
  "rustls",
@@ -3574,8 +3574,8 @@ dependencies = [
  "rustic-isles-director",
  "rustic-isles-economy",
  "rustic-isles-gamedata",
+ "rustic-isles-launcher-api",
  "rustic-isles-matchmaking",
- "rustic-isles-reforged",
  "rustic-isles-store",
  "serde_json",
  "service-kit",
@@ -3730,27 +3730,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "rustic-isles-matchmaking"
-version = "0.0.0"
-dependencies = [
- "axum",
- "base64 0.23.1",
- "http",
- "module-api",
- "rifts-seam",
- "rustic-isles",
- "rustic-isles-auth",
- "rustic-isles-chat",
- "rustic-isles-economy",
- "rustic-isles-store",
- "serde_json",
- "service-kit",
- "tokio",
- "tracing",
-]
-
-[[package]]
-name = "rustic-isles-reforged"
+name = "rustic-isles-launcher-api"
 version = "0.0.0"
 dependencies = [
  "aws-lc-rs",
@@ -3774,6 +3754,26 @@ dependencies = [
  "service-kit",
  "subtle",
  "thiserror",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
+name = "rustic-isles-matchmaking"
+version = "0.0.0"
+dependencies = [
+ "axum",
+ "base64 0.23.1",
+ "http",
+ "module-api",
+ "rifts-seam",
+ "rustic-isles",
+ "rustic-isles-auth",
+ "rustic-isles-chat",
+ "rustic-isles-economy",
+ "rustic-isles-store",
+ "serde_json",
+ "service-kit",
  "tokio",
  "tracing",
 ]

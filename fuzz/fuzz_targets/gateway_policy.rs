@@ -6,7 +6,7 @@
 #![no_main]
 
 use gateway::policy::{
-    Decision, FeedKind, HOST_ONLY_HEADERS, HOST_ONLY_PREFIXES, PUBLIC_REFORGED_API, Upstream, canonical_path,
+    Decision, FeedKind, HOST_ONLY_HEADERS, HOST_ONLY_PREFIXES, PUBLIC_LAUNCHER_API, Upstream, canonical_path,
     check_path, classify, split_target, under, unwrap_origin,
 };
 use http::{HeaderMap, HeaderName, HeaderValue};
@@ -38,7 +38,7 @@ fuzz_target!(|input: (String, String, Vec<(String, Vec<u8>)>, bool)| {
     let method = method.to_ascii_uppercase();
     if under(&canonical, "/reforged") {
         let name = canonical.strip_prefix("/dainty/api/").expect("only the public API");
-        let (_, methods) = PUBLIC_REFORGED_API
+        let (_, methods) = PUBLIC_LAUNCHER_API
             .iter()
             .find(|(n, _)| *n == name)
             .expect("a public route");

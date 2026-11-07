@@ -97,7 +97,7 @@ pub fn is_loopback_host(host: &str) -> bool {
 fn game(raw: Option<&str>) -> Result<GameVersion, String> {
     let value = raw.map(|r| js::trim(r).to_ascii_lowercase()).unwrap_or_default();
     match value.as_str() {
-        "" | "reborn" => Ok(protocol::invite::reforged_version()),
+        "" | "reborn" => Ok(protocol::invite::dainty_version()),
         "legacy" => Err(
             "CONTENT_GAME=legacy (Dauntless Revived's 1.4.4) is no longer served; this content server serves reborn only"
                 .to_owned(),
@@ -185,7 +185,7 @@ mod tests {
     #[test]
     fn c1_defaults() {
         let c = config(&[]).unwrap();
-        assert_eq!(c.version, protocol::invite::reforged_version());
+        assert_eq!(c.version, protocol::invite::dainty_version());
         assert_eq!(c.port, 61002);
         assert_eq!(c.bind_hosts, ["127.0.0.1"]);
         assert_eq!(c.backend_url, "http://127.0.0.1:61000");

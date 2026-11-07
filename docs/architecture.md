@@ -90,7 +90,7 @@ DaintyLass separates **core plugins** from **game modules** ([`crates/module-api
 ## The launcher API
 
 The backend's `/dainty/api` is the one contract between the launcher, the content server, the admin API and
-the host kit (`crates/rustic-isles-reforged/src/reforged_api.rs`, written clean-room from the behaviour of
+the host kit (`crates/rustic-isles-launcher-api/src/reforged_api.rs`, written clean-room from the behaviour of
 `restricted/modules/rustic-isles/reference/1.14.7/ParadoxBackend/src/routes/reforgedApi.ts`).
 
 | Route | Who calls it | Through the gateway |

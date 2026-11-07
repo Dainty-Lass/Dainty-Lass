@@ -61,9 +61,9 @@ rustic-isles-characters = { path = "crates/rustic-isles-characters" }
 # The Rustic Isles economy: inventory, progression, bounties and the stores, clean-room MIT (RD27,
 # spec-rustic-isles-economy-*)
 rustic-isles-economy = { path = "crates/rustic-isles-economy" }
-# The Rustic Isles Reforged API: probes, metrics, the launcher API, updates, logs, notices, operations, activity,
+# The Rustic Isles launcher API: probes, metrics, the launcher API, updates, logs, notices, operations, activity,
 # Launcher Guard and the admin API, clean-room MIT (RD27, spec-rustic-isles-reforged-*)
-rustic-isles-reforged = { path = "crates/rustic-isles-reforged" }
+rustic-isles-launcher-api = { path = "crates/rustic-isles-launcher-api" }
 # The Rustic Isles matchmaking and parties, clean-room MIT (RD27, spec-rustic-isles-matchmaking)
 rustic-isles-matchmaking = { path = "crates/rustic-isles-matchmaking" }
 # The Rustic Isles database tool: migrate, verify and export-mongo, clean-room MIT (RD27, spec-rustic-isles-db)

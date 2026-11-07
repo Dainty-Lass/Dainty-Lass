@@ -831,7 +831,7 @@ impl hooks::HostHooks for ServicesHostHooks {
             let signing_key = network_plugin::home::SigningKey::load_or_create(&key_path)
                 .map_err(|e| HostError::message(format!("network session key {}: {e}", key_path.display())))?;
             let database = hostconfig::node_database_config(config, paths)?;
-            let game = protocol::invite::reforged_version();
+            let game = protocol::invite::dainty_version();
             let peer_log_dir = Some(paths.workspace.join("peer-logs"));
             let ship_to_peer = config
                 .history

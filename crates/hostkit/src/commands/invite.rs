@@ -14,8 +14,8 @@ use crate::hostconfig::{
     HostConfig, Registration, SECRET_FILE, ServerMode, gateway_port, load_host_config, read_env_file, stringify_pretty,
 };
 use crate::invite::{
-    CodeOptions, GameVersion, certificate_fingerprint, create_invite_code, invite_for_game, list_invite_codes,
-    parse_game_version, reforged_version, served_fingerprint,
+    CodeOptions, GameVersion, certificate_fingerprint, create_invite_code, dainty_version, invite_for_game,
+    list_invite_codes, parse_game_version, served_fingerprint,
 };
 use crate::paths::{PORTS, Paths};
 
@@ -116,7 +116,7 @@ pub fn run_with(
 
 fn resolve_game_version(game_arg: Option<&str>) -> Result<GameVersion, HostError> {
     let Some(raw) = game_arg.map(str::trim).filter(|s| !s.is_empty()) else {
-        return Ok(reforged_version());
+        return Ok(dainty_version());
     };
     parse_game_version(raw).ok_or_else(|| {
         HostError::message(format!(

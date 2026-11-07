@@ -351,7 +351,7 @@ fn invite(mode: ServerMode, host: &str, port: u16, fp: Option<&str>, code: &str,
         name: name.into(),
         share: None,
         fp: fp.map(str::to_owned),
-        version: protocol::invite::reforged_version(),
+        version: protocol::invite::dainty_version(),
     })
     .unwrap()
 }

@@ -9,7 +9,7 @@ use http::HeaderMap;
 use service_kit::js;
 
 /// The public `/dainty/api` routes by canonical name, with their methods; the rest of the API is the host's.
-pub const PUBLIC_REFORGED_API: &[(&str, &[&str])] = &[
+pub const PUBLIC_LAUNCHER_API: &[(&str, &[&str])] = &[
     ("register", &["POST"]),
     ("getuserinfo", &["GET", "HEAD"]),
     ("serverstatus", &["GET", "HEAD"]),
@@ -378,7 +378,7 @@ pub fn classify(method: &str, target: &str, headers: &HeaderMap, is_upgrade: boo
         let public = canonical
             .strip_prefix("/dainty/api/")
             .filter(|name| !name.is_empty() && !name.contains('/'))
-            .and_then(|name| PUBLIC_REFORGED_API.iter().find(|(n, _)| *n == name))
+            .and_then(|name| PUBLIC_LAUNCHER_API.iter().find(|(n, _)| *n == name))
             .is_some_and(|(_, methods)| !is_upgrade && methods.contains(&method.as_str()));
         if !public {
             return Decision::reject(403, "forbidden", "admin_route", class);

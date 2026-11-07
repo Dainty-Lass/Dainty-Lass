@@ -360,7 +360,7 @@ pub fn compose(
     if !node_runs {
         crate::commands::update::check_unmigrated_mongo_data(paths, config)?;
     }
-    let games = vec![protocol::invite::reforged_version().to_string()];
+    let games = vec![protocol::invite::dainty_version().to_string()];
     let mut controller = ServerController::new(config.mode.as_str(), games);
     // Made first, so the admin API can hold it; its modules are listed after the services
     let registry = new_registry(config, &controller);
@@ -610,7 +610,7 @@ pub fn new_registry(config: &HostConfig, controller: &ServerController) -> Modul
         .collect();
     // The Node backend, when it runs, holds 1.14.7 itself
     options.taken_versions = if cfg!(feature = "paradox") {
-        let version = protocol::invite::reforged_version();
+        let version = protocol::invite::dainty_version();
         let by = format!("this server's own {version} stack");
         vec![(version, by)]
     } else {
@@ -1183,7 +1183,7 @@ mod tests {
                 fn manifest(&self) -> module_api::ModuleManifest {
                     module_api::ModuleManifest {
                         id: "isles-1-14-7".parse().unwrap(),
-                        game_version: protocol::invite::reforged_version(),
+                        game_version: protocol::invite::dainty_version(),
                         ..self.0.manifest()
                     }
                 }

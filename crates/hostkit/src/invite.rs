@@ -24,10 +24,10 @@ use crate::hostconfig::{HostConfig, ServerMode, gateway_port};
 pub use protocol::GameVersion;
 pub use protocol::invite::{
     DEFAULT_PUBLIC_PORT, FormatError, INVITE_SCHEME, Invite, InviteError, MAX_INVITE_LENGTH, REVIVED_INVITE_SCHEME,
-    ServerMode as InviteServerMode, UNIFIED_INVITE_SCHEME, clean_server_name, format_invite, invite_schemes,
-    is_loopback_host, is_magic_dns_name, is_private_mode_host, is_tailscale_ipv4, is_valid_fingerprint, is_valid_host,
-    is_valid_invite_code, is_valid_ipv4, is_valid_port, is_valid_share_url, named_version, parse_invite,
-    parse_invite_for, played_versions, reforged_version, version_alias,
+    ServerMode as InviteServerMode, UNIFIED_INVITE_SCHEME, clean_server_name, dainty_version, format_invite,
+    invite_schemes, is_loopback_host, is_magic_dns_name, is_private_mode_host, is_tailscale_ipv4, is_valid_fingerprint,
+    is_valid_host, is_valid_invite_code, is_valid_ipv4, is_valid_port, is_valid_share_url, named_version, parse_invite,
+    parse_invite_for, played_versions, version_alias,
 };
 
 /// Default game version string for standard 1.14.7 invites.
@@ -98,12 +98,12 @@ fn encode_uri_component(s: &str) -> String {
 
 /// Formats an invite URL for the default 1.14.7 game version from [`InviteParts`].
 pub fn format_invite_parts(parts: &InviteParts) -> Result<String, HostError> {
-    format_game_invite(parts, &reforged_version())
+    format_game_invite(parts, &dainty_version())
 }
 
 /// Formats an invite URL for a specific [`GameVersion`] from [`InviteParts`].
 pub fn format_game_invite(parts: &InviteParts, game: &GameVersion) -> Result<String, HostError> {
-    let scheme = if *game == reforged_version() {
+    let scheme = if *game == dainty_version() {
         INVITE_SCHEME
     } else {
         UNIFIED_INVITE_SCHEME
@@ -152,7 +152,7 @@ pub fn format_game_invite(parts: &InviteParts, game: &GameVersion) -> Result<Str
 
 /// Formats an invite URL for `config` on 1.14.7.
 pub fn invite_for(config: &HostConfig, code: &str, cert_fingerprint: Option<&str>) -> Result<String, HostError> {
-    invite_for_game(config, code, cert_fingerprint, &reforged_version())
+    invite_for_game(config, code, cert_fingerprint, &dainty_version())
 }
 
 /// Formats an invite URL for `config` and an explicit [`GameVersion`].
@@ -600,8 +600,8 @@ mod tests {
 
     #[test]
     fn formats_private_and_public_invites_and_parses_versions() {
-        assert_eq!(parse_game_version("1.14.7"), Some(reforged_version()));
-        assert_eq!(parse_game_version("reforged"), Some(reforged_version()));
+        assert_eq!(parse_game_version("1.14.7"), Some(dainty_version()));
+        assert_eq!(parse_game_version("reforged"), Some(dainty_version()));
         assert_eq!(parse_game_version("9.9.9"), None);
 
         let priv_parts = InviteParts {

@@ -63,7 +63,7 @@ mod tests {
             name: "Aether & Ember".into(),
             share: None,
             fp: Some("3f".repeat(32)),
-            version: protocol::invite::reforged_version(),
+            version: protocol::invite::dainty_version(),
         };
         let link = format_invite(&invite).unwrap();
         assert!(link.starts_with("dainty://join?v=2&"));

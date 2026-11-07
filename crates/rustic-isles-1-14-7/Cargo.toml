@@ -41,7 +41,7 @@ rustic-isles-director.workspace = true
 rustic-isles-economy.workspace = true
 rustic-isles-gamedata.workspace = true
 rustic-isles-matchmaking.workspace = true
-rustic-isles-reforged.workspace = true
+rustic-isles-launcher-api.workspace = true
 rustic-isles-store.workspace = true
 serde_json = { workspace = true, features = ["preserve_order"] }
 service-kit.workspace = true

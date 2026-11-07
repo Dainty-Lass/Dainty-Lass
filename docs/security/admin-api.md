@@ -234,7 +234,7 @@ and input checks (`schema.rs`; `guarded.rs`, `guard.rs`). Not guarded, with the 
       env files are owner-only too (`write_secret_file`).
 - [ ] `POST /dainty/api/Kick` sits behind `HasAdminKey` (the admin key, a loopback peer, no gateway or
       `X-Forwarded-For` header). The gateway refuses it like every `/dainty/api` route not on its public list
-      (`PUBLIC_REFORGED_API`).
+      (`PUBLIC_LAUNCHER_API`).
 
 ## paradox/ change
 
