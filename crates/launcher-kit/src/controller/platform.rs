@@ -8,6 +8,7 @@ use std::collections::BTreeMap;
 use std::io;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
+use std::time::Duration;
 
 use futures_util::future::BoxFuture;
 use url::Url;
@@ -17,6 +18,7 @@ use crate::core::i18n::Language;
 use crate::net::hostapi::ImageType;
 use crate::net::relay_owner::OwnerCheck;
 use crate::platform::game_folder::StoreFolders;
+use crate::platform::hostserver::HostTool;
 use crate::platform::launch::{MissingFiles, Spawner};
 use crate::platform::linux_runtime::PreparedLaunch;
 
@@ -201,6 +203,10 @@ pub struct Seams {
     pub dumper_root: PathBuf,
     /// The relay's owner check.
     pub relay_owner: RelayOwner,
+    /// The host kit to run instead of the workspace's `dainty-host`.
+    pub host_tool: Option<HostTool>,
+    /// How long a stopped Host page server gets before its processes are ended.
+    pub host_stop_timeout: Duration,
 }
 
 impl Default for Seams {
@@ -213,6 +219,8 @@ impl Default for Seams {
             host_server_probe: None,
             dumper_root: PathBuf::from(r"C:\Dumper-7"),
             relay_owner: RelayOwner::Game,
+            host_tool: None,
+            host_stop_timeout: crate::platform::hostserver::STOP_TIMEOUT,
         }
     }
 }

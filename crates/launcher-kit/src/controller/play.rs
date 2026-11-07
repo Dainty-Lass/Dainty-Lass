@@ -25,6 +25,7 @@ use crate::platform::game_folder;
 use crate::platform::launch::{
     CONSOLE_CLOSED_EXIT, GameEvent, LaunchArgs, LaunchPlan, exit_code_hex, launch_args, launch_env,
 };
+use crate::platform::loader_session::SessionKind;
 use crate::platform::log;
 
 fn error(code: ErrorCode) -> LauncherError {
@@ -34,6 +35,11 @@ fn error(code: ErrorCode) -> LauncherError {
 impl Controller {
     /// `play`.
     pub async fn play(&self) -> ActionResult {
+        self.play_with(None).await
+    }
+
+    /// PLAY, with CatalogExporter beside the loader for the Host page's export session.
+    pub(crate) async fn play_with(&self, exporter: Option<&Path>) -> ActionResult {
         {
             let state = self.lock();
             if state.shutting_down || state.busy {
@@ -49,11 +55,11 @@ impl Controller {
         if let Err(refused) = self.begin_busy() {
             return ActionResult::Err(refused);
         }
-        let result = self.play_steps(&server).await;
+        let result = self.play_steps(&server, exporter).await;
         self.finish(result)
     }
 
-    async fn play_steps(&self, server: &StoredServer) -> Result<(), LauncherError> {
+    async fn play_steps(&self, server: &StoredServer, exporter: Option<&Path>) -> Result<(), LauncherError> {
         let missing = self.platform().missing_files();
         if !missing.visual_cpp.is_empty() {
             log::warn(format!("Visual C++ files missing: {}", missing.visual_cpp.join(", ")));
@@ -106,7 +112,15 @@ impl Controller {
             }));
         }
 
-        self.start_relay(server).await?;
+        if let Some(dll) = exporter {
+            let session = self.begin_loader_session(SessionKind::Export, &win64, dll)?;
+            self.lock().host.loader_session = Some(session);
+        }
+
+        if let Err(failed) = self.start_relay(server).await {
+            self.end_current_loader_session().await;
+            return Err(failed);
+        }
         if let Err(failed) = self.launch(server, &win64, &key, &user).await {
             let relay = self.lock().relay.take();
             if let Some(relay) = relay {
@@ -189,7 +203,7 @@ impl Controller {
         }
     }
 
-    fn base_environment(&self) -> BTreeMap<String, String> {
+    pub(crate) fn base_environment(&self) -> BTreeMap<String, String> {
         self.shared
             .seams
             .game_env
@@ -278,7 +292,7 @@ impl Controller {
         Ok(())
     }
 
-    fn on_game_event(&self, event: GameEvent) {
+    pub(crate) fn on_game_event(&self, event: GameEvent) {
         match event {
             GameEvent::Started(pid) => {
                 if let Some(pid) = pid {

@@ -7,12 +7,15 @@
 //! All mutable state sits behind one mutex that is never held across an await, so concurrent commands interleave
 //! only between steps. The settings store and the hash cache have async locks of their own.
 //!
-//! `host_off` answers the Host page as a build without the host kit does, until RL12b's Host page controller.
+//! The Host page is `host` with the `host` feature and `host_off`'s refusals without it.
 
 mod account;
 mod connect;
 mod game;
 pub mod guarded;
+#[cfg(feature = "host")]
+mod host;
+#[cfg(not(feature = "host"))]
 mod host_off;
 pub mod install;
 mod join;
@@ -271,6 +274,8 @@ pub(crate) struct Shared {
         allow(dead_code, reason = "a build without realms keeps nothing")
     )]
     pub(crate) realms: realms::RealmsState,
+    #[cfg(feature = "host")]
+    pub(crate) host: host::HostState,
 }
 
 /// The one controller of an app; clones share it.
@@ -303,7 +308,9 @@ impl Controller {
             .clone()
             .map_or_else(GameProcess::new, GameProcess::with_spawner);
         let state = State::new(Stored(settings.map().clone()));
-        Self {
+        #[cfg(feature = "host")]
+        let host = host::HostState::new(&seams);
+        let controller = Self {
             shared: Arc::new(Shared {
                 config,
                 seams,
@@ -316,8 +323,13 @@ impl Controller {
                 tasks: Mutex::new(Vec::new()),
                 installs: install::Installs::default(),
                 realms: realms::RealmsState::default(),
+                #[cfg(feature = "host")]
+                host,
             }),
-        }
+        };
+        #[cfg(feature = "host")]
+        controller.attach_host_server();
+        controller
     }
 
     pub(crate) fn lock(&self) -> MutexGuard<'_, State> {
