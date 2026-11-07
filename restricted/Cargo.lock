@@ -3451,9 +3451,12 @@ dependencies = [
  "launcher-app",
  "launcher-kit",
  "module-api",
+ "percent-encoding",
  "protocol",
  "proxy",
  "rcgen",
+ "rifts-host",
+ "rifts-seam",
  "rustls",
  "serde",
  "serde_json",
@@ -3467,7 +3470,9 @@ dependencies = [
  "tokio-rustls",
  "tokio-stream",
  "tracing",
+ "tracing-log",
  "tracing-subscriber",
+ "ts-rs",
  "url",
 ]
 
