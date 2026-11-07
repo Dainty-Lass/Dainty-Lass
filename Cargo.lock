@@ -2059,6 +2059,7 @@ dependencies = [
  "tar",
  "tempfile",
  "thiserror 2.0.21",
+ "time",
  "tokio",
  "toml_edit",
  "tracing",

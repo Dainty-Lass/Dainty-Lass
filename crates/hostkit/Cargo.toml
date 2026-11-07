@@ -43,6 +43,7 @@ module-api.workspace = true
 network_plugin = { package = "network", path = "../../crates/network", default-features = false, features = ["directory"] }
 protocol.workspace = true
 ratatui.workspace = true
+rcgen.workspace = true
 remote.workspace = true
 rustls.workspace = true
 serde.workspace = true
@@ -52,6 +53,7 @@ sha2.workspace = true
 store.workspace = true
 tar = { version = "0.4.46", default-features = false }
 thiserror.workspace = true
+time.workspace = true
 tokio = { workspace = true, features = ["signal", "time", "net", "io-std", "io-util", "rt-multi-thread", "sync"] }
 toml_edit.workspace = true
 tracing.workspace = true
@@ -68,7 +70,6 @@ libc = "0.2.191"
 admin.workspace = true
 diesel.workspace = true
 epic = { workspace = true, features = ["test-support"] }
-rcgen = { version = "0.14.10", default-features = false, features = ["aws_lc_rs", "pem", "crypto"] }
 service-kit.workspace = true
 tempfile.workspace = true
 
