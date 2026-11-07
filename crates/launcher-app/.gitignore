@@ -1,0 +1,4 @@
+# Tauri's generated schemas and per-command permissions, and the built page
+/gen/
+/permissions/
+/dist/

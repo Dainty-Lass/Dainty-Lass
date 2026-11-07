@@ -1,0 +1,68 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "DaintyLass Launcher",
+  "mainBinaryName": "dainty-launcher",
+  "version": "../../launcher/package.json",
+  "identifier": "io.github.freezamotoqueiro.dauntlessreforgedrevival",
+  "build": {
+    "devUrl": "http://localhost:4321",
+    "frontendDist": "dist/launcher",
+    "beforeDevCommand": "bun scripts/page.ts dev launcher",
+    "beforeBuildCommand": "bun scripts/page.ts build launcher"
+  },
+  "app": {
+    "windows": [],
+    "withGlobalTauri": false,
+    "security": {
+      "csp": "default-src 'none'; script-src 'self'; style-src 'self'; font-src 'self'; connect-src 'self'; img-src 'self' rr-art: http://rr-art.localhost data:; base-uri 'none'; form-action 'none'; frame-ancestors 'none'; object-src 'none'",
+      "freezePrototype": true,
+      "pattern": {
+        "use": "isolation",
+        "options": {
+          "dir": "../../launcher/isolation"
+        }
+      }
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["nsis", "appimage", "deb", "rpm"],
+    "icon": ["icons/32x32.png", "icons/128x128.png", "icons/128x128@2x.png", "icons/icon.png", "icons/icon.ico"],
+    "publisher": "DaintyLass contributors",
+    "homepage": "https://github.com/SilentSpud/DaintyLass",
+    "license": "MIT",
+    "category": "Game",
+    "shortDescription": "Join DaintyLass servers and play Dauntless",
+    "longDescription": "The DaintyLass launcher joins a server from an invite, keeps your account key, checks your Dauntless install and starts the game through the server's runtime.",
+    "windows": {
+      "nsis": {
+        "installMode": "currentUser",
+        "installerIcon": "icons/icon.ico"
+      }
+    },
+    "linux": {
+      "appimage": {
+        "bundleMediaFramework": false
+      },
+      "deb": {
+        "depends": ["libwebkit2gtk-4.1-0"],
+        "recommends": ["gnome-keyring", "pkexec"],
+        "section": "games",
+        "desktopTemplate": "linux/launcher.desktop"
+      },
+      "rpm": {
+        "depends": ["webkit2gtk4.1"],
+        "desktopTemplate": "linux/launcher.desktop"
+      }
+    }
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "",
+      "endpoints": ["https://github.com/SilentSpud/DaintyLass/releases/download/launcher-updates/latest.json"],
+      "windows": {
+        "installMode": "passive"
+      }
+    }
+  }
+}
