@@ -17,7 +17,9 @@ const rewrite = (text: string) =>
 
 for (const [to, from] of Object.entries(sources)) {
   if (!existsSync(from)) {
-    console.error(`missing ${from}: run RR_UPDATE_GENERATED=1 cargo test -p launcher-kit generated`);
+    console.error(
+      `missing ${from}: run RR_UPDATE_GENERATED=1 cargo test -p launcher-kit generated`,
+    );
     process.exit(1);
   }
   mkdirSync(dirname(join(out, to)), { recursive: true });
