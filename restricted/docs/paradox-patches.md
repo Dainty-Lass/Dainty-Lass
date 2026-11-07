@@ -54,6 +54,7 @@ by Mystic (0006, 0009, 0019, 0032, 0034) are not listed: `21b9ff5` has them.
 | 0037 | The loadout slot repair re-applies cells, parts, dye and transmog | runtime |
 | 0038 | Game servers answer a 1920x1080 viewport size, for aiming | runtime |
 | 0039 | An RPC on an unbound controller channel is dropped (`DISABLE_RPC_UNBOUND_CHANNEL_GUARD.flag` turns the guard off) | runtime |
+| 0040 | The runtime reads `DAINTY_BACKEND_URL`, `DAINTY_SERVER_MAX_FPS` and `DAINTY_SERVER_IDLE_FPS` (the 2026-11-06 rename from `REFORGED_`) | runtime |
 
 0035 (an A/B flag for the controller-channel guard, diagnostics only) was removed on 2026-10-26. 0013, 0014
 and 0026 are logging only and can go the same way once the runtime is rebuilt and checked with a client; they
