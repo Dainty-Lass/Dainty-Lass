@@ -708,13 +708,27 @@ async fn the_qos_page_on_both_listeners() {
     )
     .await;
     assert_eq!(post.status, 404);
-    // The QoS listener keeps the local rules too
-    let foreign = send(
-        qos_port,
+    // The QoS listener keeps the local rules too, and a refusal there is its 404
+    for raw in [
         "GET / HTTP/1.1\r\nhost: example.com\r\nconnection: close\r\n\r\n",
+        "GET /QoS HTTP/1.1\r\nhost: evil.example\r\nconnection: close\r\n\r\n",
+        "GET /QoS HTTP/1.1\r\nhost: localhost\r\nsec-fetch-mode: no-cors\r\nconnection: close\r\n\r\n",
+        "GET /qos HTTP/1.1\r\nhost: localhost\r\norigin: https://evil.example\r\nconnection: close\r\n\r\n",
+        "GET /qos HTTP/1.1\r\nhost: evil.example\r\nupgrade: websocket\r\nconnection: Upgrade\r\n\r\n",
+    ] {
+        let refused = send(qos_port, raw).await;
+        assert_eq!(refused.status, 404, "{raw}");
+        assert_eq!(refused.text(), r#"{"error":"not_found"}"#);
+        assert_eq!(refused.header("content-type"), Some("application/json"));
+    }
+    // The game's port keeps its 403 for the same requests
+    let game_port = send(
+        relay.port(),
+        "GET /QoS HTTP/1.1\r\nhost: localhost\r\nsec-fetch-mode: no-cors\r\nconnection: close\r\n\r\n",
     )
     .await;
-    assert_eq!(foreign.status, 403);
+    assert_eq!(game_port.status, 403);
+    assert_eq!(game_port.text(), r#"{"error":"forbidden"}"#);
 
     assert!(fake.seen().is_empty(), "QoS never reaches the server");
     assert_eq!(relay.counters().qos, 5);
@@ -973,6 +987,13 @@ async fn bad_redirects_are_logged_and_ignored() {
             (REDIRECT_PORT_HEADER, "1".into()),
             (REDIRECT_FINGERPRINT_HEADER, pin.clone()),
         ],
+        // A blank ticket is none
+        vec![
+            (REDIRECT_HOST_HEADER, "127.0.0.1".into()),
+            (REDIRECT_PORT_HEADER, "1".into()),
+            (REDIRECT_FINGERPRINT_HEADER, pin.clone()),
+            (SESSION_TICKET_HEADER, "   ".into()),
+        ],
         vec![
             (REDIRECT_HOST_HEADER, "127.0.0.1".into()),
             (REDIRECT_PORT_HEADER, "port".into()),
@@ -1034,10 +1055,14 @@ async fn repoint_needs_a_ticket_away_from_home() {
         relay.repoint(node.clone(), None),
         Err(RepointError::TicketRequired)
     ));
-    assert!(matches!(
-        relay.repoint(node.clone(), Some(String::new())),
-        Err(RepointError::BadTicket)
-    ));
+    // A blank ticket is no ticket
+    for blank in ["", "   ", "\t "] {
+        assert!(matches!(
+            relay.repoint(node.clone(), Some(blank.into())),
+            Err(RepointError::TicketRequired)
+        ));
+        assert!(relay.is_home());
+    }
     assert!(matches!(
         relay.repoint(node.clone(), Some("a\nb".into())),
         Err(RepointError::BadTicket)

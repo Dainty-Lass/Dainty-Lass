@@ -62,8 +62,9 @@ Fuzz targets in `fuzz` (to be added by the integration pass; RL11 does not touch
 - [ ] Every request, on both listeners, passes the local rules first, in order (`relay/local.rs`, `check`):
       loopback peer (IPv4-mapped counts); exactly one Host whose host part is `localhost`, `::1` or a dotted
       `127.x.y.z` (DNS rebinding names fail here); no `sec-fetch-*` header on a plain request (a browser's fetch); no
-      Origin, or one Origin whose host is loopback. A refusal is 403 `{"error":"forbidden"}` (upgrades: bare) and a
-      log line naming the rule (`every_local_refusal`).
+      Origin, or one Origin whose host is loopback. A refusal is 403 `{"error":"forbidden"}` (upgrades: bare) on
+      the game's port and 404 `{"error":"not_found"}` on the QoS listener, with a log line naming the rule
+      (`every_local_refusal`, `the_qos_page_on_both_listeners`).
 - [ ] `CONNECT` is never forwarded (405).
 
 ### What reaches the server
@@ -88,8 +89,9 @@ Fuzz targets in `fuzz` (to be added by the integration pass; RL11 does not touch
 - [ ] The key goes only home. Away from home, or with a ticket, `x-reforged-user-api-key` is removed and
       `x-reforged-session-ticket` set (`a_redirect_re_points_mid_session_with_a_ticket_and_home_takes_the_key_again`).
 - [ ] A redirect needs `x-reforged-redirect-host` and a numeric `x-reforged-redirect-port`; any other node than home
-      needs a ticket; a pinned relay never moves to a node without a pin; a bad value is logged and ignored
-      (`bad_redirects_are_logged_and_ignored`). "Home" is the same host and port, with the same pin or none.
+      needs a ticket, a blank one (empty once trimmed) counting as none; a pinned relay never moves to a node without
+      a pin; a bad value is logged and ignored (`bad_redirects_are_logged_and_ignored`,
+      `repoint_needs_a_ticket_away_from_home`). "Home" is the same host and port, with the same pin or none.
 - [ ] The redirect headers and the ticket are stripped from the answer before the game sees it.
 - [ ] No relay log line carries a header value: not the key, not the ticket, not a cookie. Lines name peers, rules,
       hosts, ports and the fingerprint seen (`the_account_key_never_reaches_the_log`). Upstream errors go through
