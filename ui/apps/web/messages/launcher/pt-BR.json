@@ -279,6 +279,8 @@
       "resume": "Retomar",
       "cancel": "Parar",
       "use": "Usar esta instalação"
-    }
+    },
+    "changeFolder": "Mudar pasta",
+    "folderHidden": "oculta"
   }
 }

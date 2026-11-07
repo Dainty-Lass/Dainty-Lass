@@ -29,8 +29,8 @@ use tokio_rustls::TlsAcceptor;
 use super::platform::{Boxed, Platform, Prepared};
 use super::{Config, Controller, ControllerHandle, Seams};
 use crate::bridge::types::{
-    ActionResult, ErrorCode, GameProblem, HostKit, HostServerView, InviteCheck, Language, LauncherError, NoticeCode,
-    Phase, RegisterOutcome, RuntimeState, Snapshot, TaskProgress,
+    ActionResult, ErrorCode, GameProblem, HostKit, HostServerView, InstallOutcome, InstallState, InviteCheck, Language,
+    LauncherError, NoticeCode, Phase, RegisterOutcome, RuntimeState, Snapshot, TaskProgress,
 };
 #[cfg(feature = "host")]
 use crate::bridge::types::{HostAction, HostFolder, HostServerState, HostSetupRequest};
@@ -373,6 +373,7 @@ fn purpose_name(purpose: FolderPurpose) -> &'static str {
         FolderPurpose::Runtime => "runtime",
         FolderPurpose::Sdk => "sdk",
         FolderPurpose::Workspace => "workspace",
+        FolderPurpose::GameInstall => "game_install",
     }
 }
 
@@ -951,6 +952,31 @@ async fn a_banned_account_is_told_why() {
         s.last_error,
         Some(LauncherError::with_detail(ErrorCode::AccountBanned, "griefing"))
     );
+    hx.c.shutdown().await;
+}
+
+// ---------------------------------------------------------------- the Epic install folder
+
+#[tokio::test(flavor = "multi_thread")]
+async fn the_epic_install_folder_is_chosen_and_kept_while_an_install_waits() {
+    let hx = Harness::new();
+    hx.c.init().await;
+    assert_eq!(hx.c.game_install_choose_folder().await, error(ErrorCode::Cancelled));
+    let games = tempfile::tempdir().unwrap();
+    hx.pick("game_install", games.path());
+    assert_eq!(hx.c.game_install_choose_folder().await, ActionResult::Ok);
+    let InstallOutcome::Ok(info) = hx.c.game_install_get("1.14.7") else {
+        panic!("no install info");
+    };
+    assert_eq!(info.state, InstallState::NotInstalled);
+    assert_eq!(
+        info.folder,
+        Some(games.path().join("1.14.7").to_string_lossy().into_owned())
+    );
+
+    // A stopped install continues where it began: no other folder until it is finished or gone
+    std::fs::write(hx.user.path().join("epic").join("1.14.7.resume"), b"{}").unwrap();
+    assert_eq!(hx.c.game_install_choose_folder().await, error(ErrorCode::Busy));
     hx.c.shutdown().await;
 }
 

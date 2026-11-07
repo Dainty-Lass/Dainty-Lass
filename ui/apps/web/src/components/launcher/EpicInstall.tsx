@@ -23,6 +23,7 @@ import type {
   TaskProgress,
 } from "@dainty/bridge";
 import { useBridge } from "@dainty/bridge/react";
+import { FolderOpen } from "lucide-react";
 import { useFormatter, useTranslations } from "next-intl";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -246,9 +247,18 @@ function useEpic(api: LauncherApi | null) {
       await refreshInstall(version);
     });
 
+  // Every version's folder moves with it, so the list is read again
+  const chooseFolder = () =>
+    guard("folder", async () => {
+      const r = await api!.gameInstallChooseFolder();
+      if (r.ok || r.error.code !== "cancelled") report(r);
+      if (r.ok) await loadList();
+    });
+
   return {
     account,
     library: signedIn ? library : null,
+    chooseFolder,
     list,
     installs,
     working,
@@ -394,6 +404,10 @@ function VersionCard({
   const gb = (bytes: number) => format.number(bytes / 1e9, { maximumFractionDigits: 1 });
   const hide = snapshot.settings.streamerMode;
   const manifest = entry.epic?.manifest ?? "ready";
+  // A stopped install continues in the folder it began in, so only a fresh start can move
+  const movable =
+    (state === "not_installed" || state === "failed") &&
+    !Object.values(epic.installs).some((i) => isRunning(i.state) || i.state === "resumable");
 
   return (
     <Card padding={5}>
@@ -423,8 +437,24 @@ function VersionCard({
         {manifest !== "ready" && state !== "resumable" && entry.install === "epic" && (
           <Banner status="warning" title={t(`manifest.${manifest}`)} collapsible={false} />
         )}
-        {info?.folder && !hide && (
-          <Text type="supporting">{t("folder", { folder: info.folder })}</Text>
+        {entry.install === "epic" && (info?.folder || movable) && (
+          <Stack direction="horizontal" gap={2} align="center" justify="between" wrap="wrap">
+            {info?.folder && (
+              <Text type="supporting">
+                {t("folder", { folder: hide ? t("folderHidden") : info.folder })}
+              </Text>
+            )}
+            {movable && (
+              <Button
+                label={t("changeFolder")}
+                size="sm"
+                variant="ghost"
+                icon={<FolderOpen size={16} />}
+                isLoading={epic.working === "folder"}
+                onClick={() => void epic.chooseFolder()}
+              />
+            )}
+          </Stack>
         )}
         {progress && (
           <Stack gap={1}>

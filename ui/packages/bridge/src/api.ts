@@ -221,6 +221,7 @@ export const api: LauncherApi = {
   gameInstallCancel: (version) => act("game_install_cancel", { version: String(version) }),
   gameInstallGet: (version) =>
     act<InstallOutcome>("game_install_get", { version: String(version) }),
+  gameInstallChooseFolder: () => act("game_install_choose_folder", {}, LONG_TIMEOUT_MS),
   onSnapshot: (fn) => on<Snapshot>("snapshot", fn),
   // Progress comes over a channel of its own, already throttled by the backend
   onProgress: (fn) => {

@@ -646,6 +646,11 @@ pub fn game_install_get(version: String, app: AppHandle) -> InstallOutcome {
     }
 }
 
+#[tauri::command]
+pub async fn game_install_choose_folder(app: AppHandle) -> ActionResult {
+    controller(&app).game_install_choose_folder().await
+}
+
 /// The joined server's regions, nearest first, reported to it as well (DN7).
 #[tauri::command]
 pub async fn region_ping(app: AppHandle) -> RegionPing {

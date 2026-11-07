@@ -593,7 +593,7 @@ pub enum InstallState {
 pub struct InstallInfo {
     pub version: String,
     pub state: InstallState,
-    /// The version's own folder
+    /// The version's own folder: where it is, or where it would install
     pub folder: Option<String>,
     pub progress: Option<TaskProgress>,
     /// Why the last attempt stopped

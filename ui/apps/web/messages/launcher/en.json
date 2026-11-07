@@ -279,6 +279,8 @@
       "resume": "Resume",
       "cancel": "Stop",
       "use": "Use this install"
-    }
+    },
+    "changeFolder": "Change folder",
+    "folderHidden": "hidden"
   }
 }

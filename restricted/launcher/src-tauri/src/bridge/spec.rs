@@ -524,6 +524,8 @@ pub const COMMANDS: &[Command] = &[
         &[("version", Arg::Text { max: GAME_VERSION_MAX })],
     ),
     command("game_install_get", &[("version", Arg::Text { max: GAME_VERSION_MAX })]),
+    // Where versions install: a folder dialog, refused while an install runs or waits to continue
+    command("game_install_choose_folder", &[]),
     // Round trip to every node, in order (DN7; every build)
     command("region_ping", &[]),
     // Module panels drawn from manifests, load and unload (DU3, DF4d; server GUI): by manifest id, never

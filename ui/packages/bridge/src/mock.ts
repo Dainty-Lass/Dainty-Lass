@@ -189,7 +189,7 @@ export function mockLauncher(): LauncherApi {
   let install: InstallInfo = {
     version: "1.14.7",
     state: "not_installed",
-    folder: null,
+    folder: "C:\\Users\\slayer\\Games\\Dauntless\\1.14.7",
     progress: null,
     error: null,
   };
@@ -537,7 +537,7 @@ export function mockLauncher(): LauncherApi {
       install = {
         version,
         state: "preparing",
-        folder: "C:\\Games\\DaintyLass\\1.14.7",
+        folder: install.folder,
         progress: install.progress,
         error: null,
       };
@@ -559,6 +559,12 @@ export function mockLauncher(): LauncherApi {
       return OK;
     },
     gameInstallGet: async () => ({ ok: true, install }),
+    gameInstallChooseFolder: async () => {
+      if (installTimer || install.state === "paused" || install.state === "resumable")
+        return { ok: false, error: { code: "busy" } };
+      install = { ...install, folder: "D:\\Games\\Dauntless\\1.14.7" };
+      return OK;
+    },
     onSnapshot: (fn) => void snapshotListeners.add(fn),
     onProgress: (fn) => void progressListeners.add(fn),
     onHostKit: (fn) => void kitListeners.add(fn),

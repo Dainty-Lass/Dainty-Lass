@@ -1183,5 +1183,6 @@
   "hrem_leave": "Disable remote management",
   "hrem_queued": "Queued {action} on {node} ({id})",
   "tray_open": "Open",
-  "tray_quit": "Quit"
+  "tray_quit": "Quit",
+  "dialog_game_install_folder": "Where Dauntless versions install"
 }

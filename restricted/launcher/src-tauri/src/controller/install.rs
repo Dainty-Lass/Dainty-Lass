@@ -12,6 +12,7 @@ use dainty_epic::download::{
     DownloadError, Executable, Gate, Https, ManifestOrigin, Options, Refusal, Stage, Target, fetch_manifest,
 };
 use dainty_epic::manifest::{InstallPath, Sha1Digest};
+use dainty_launcher_kit::platform::dialogs::FolderPurpose;
 use dainty_module_api::GameVersion;
 
 use super::{Controller, lock};
@@ -57,9 +58,9 @@ fn known_profile(version: &str) -> Option<KnownProfile> {
         .find(|profile| profile.game_version == version && profile.client.epic.is_some())
 }
 
-/// Where versions go until DE7 lets the player choose: `~/Games/Dauntless/<version>`.
-fn install_folder(version: &str) -> Option<PathBuf> {
-    Some(dirs::home_dir()?.join("Games").join("Dauntless").join(version))
+/// Where versions go until the player chooses a folder: `~/Games/Dauntless`.
+fn default_install_root() -> Option<PathBuf> {
+    Some(dirs::home_dir()?.join("Games").join("Dauntless"))
 }
 
 /// What the page is told when an install stops.
@@ -106,6 +107,68 @@ impl Controller {
         self.epic_dir().join(format!("{version}.resume"))
     }
 
+    /// The folder versions install into, one folder each: the player's choice, or `~/Games/Dauntless`.
+    fn install_root(&self) -> Option<PathBuf> {
+        std::fs::read_to_string(self.epic_dir().join("install-root"))
+            .ok()
+            .map(|text| PathBuf::from(text.trim()))
+            .filter(|path| path.is_absolute())
+            .or_else(default_install_root)
+    }
+
+    fn install_folder(&self, version: &str) -> Option<PathBuf> {
+        Some(self.install_root()?.join(version))
+    }
+
+    /// Whether an install runs, or one stopped part-way waits to continue in the folder it began in.
+    fn install_pending(&self) -> bool {
+        let stopped = lock(&self.installs.entries)
+            .values()
+            .any(|entry| matches!(entry, Entry::Running { .. } | Entry::Stopped { .. }));
+        let resumable = std::fs::read_dir(self.epic_dir())
+            .map(|dir| {
+                dir.flatten()
+                    .any(|e| e.path().extension().is_some_and(|x| x == "resume"))
+            })
+            .unwrap_or(false);
+        stopped || resumable
+    }
+
+    /// "Change folder": a folder dialog for where versions install. Refused while an install runs or waits to
+    /// continue, since its resume record is for the folder it began in.
+    pub async fn game_install_choose_folder(&self) -> ActionResult {
+        if self.install_pending() {
+            return ActionResult::err(ErrorCode::Busy);
+        }
+        let start = self.install_root().unwrap_or_default();
+        let Some(picked) = self
+            .p
+            .choose_folder(self.language(), FolderPurpose::GameInstall, start)
+            .await
+        else {
+            return ActionResult::err(ErrorCode::Cancelled);
+        };
+        if !picked.is_absolute() || !picked.is_dir() {
+            return ActionResult::err(ErrorCode::FolderInvalid);
+        }
+        if self.install_pending() {
+            return ActionResult::err(ErrorCode::Busy);
+        }
+        let saved = std::fs::create_dir_all(self.epic_dir()).and_then(|()| {
+            std::fs::write(
+                self.epic_dir().join("install-root"),
+                picked.to_string_lossy().as_bytes(),
+            )
+        });
+        match saved {
+            Ok(()) => ActionResult::Ok,
+            Err(error) => {
+                log::warn(&format!("the install folder was not saved: {error}"));
+                ActionResult::err(ErrorCode::FolderInvalid)
+            }
+        }
+    }
+
     /// Starts (or picks up) the install of `version`. An account that doesn't own Dauntless, or no session, is
     /// refused here, before anything is created.
     pub async fn game_install_start(&self, version: &str, gate: Arc<EpicGate>) -> InstallOutcome {
@@ -118,7 +181,7 @@ impl Controller {
         if let Err(error) = gate.check().await {
             return InstallOutcome::Err(error);
         }
-        let Some(folder) = install_folder(version) else {
+        let Some(folder) = self.install_folder(version) else {
             return InstallOutcome::Err(LauncherError::new(ErrorCode::FolderInvalid));
         };
         let Some(this) = self.me.upgrade() else {
@@ -301,10 +364,15 @@ impl Controller {
                 Some(folder) => info(InstallState::Installed, Some(folder), None),
                 None if self.resume_file(version).exists() => info(
                     InstallState::Resumable,
-                    install_folder(version).map(|f| f.to_string_lossy().into_owned()),
+                    self.install_folder(version).map(|f| f.to_string_lossy().into_owned()),
                     None,
                 ),
-                None => info(InstallState::NotInstalled, None, None),
+                // Where it would go, so the page can show it before anything is downloaded
+                None => info(
+                    InstallState::NotInstalled,
+                    self.install_folder(version).map(|f| f.to_string_lossy().into_owned()),
+                    None,
+                ),
             },
         };
         InstallOutcome::Ok(found)

@@ -175,6 +175,7 @@ const methodArgs: Record<keyof LauncherApi, unknown[]> = {
   gameInstallResume: ["1.14.7"],
   gameInstallCancel: ["1.14.7"],
   gameInstallGet: ["1.14.7"],
+  gameInstallChooseFolder: [],
   onSnapshot: [noop],
   onProgress: [noop],
   onHostKit: [noop],
