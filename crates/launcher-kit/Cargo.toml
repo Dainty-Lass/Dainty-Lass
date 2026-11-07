@@ -45,6 +45,17 @@ url.workspace = true
 # The pooled client's connector (net/connector.rs)
 tower.workspace = true
 ts-rs = { workspace = true, optional = true }
+# The key store (platform/keystore): AES-GCM files, and the old Electron launcher's AES-CBC files
+aes.workspace = true
+aes-gcm.workspace = true
+cbc.workspace = true
+pbkdf2.workspace = true
+
+[target."cfg(windows)".dependencies]
+windows = { workspace = true, features = ["Win32_Foundation", "Win32_Security_Cryptography"] }
+
+[target.'cfg(target_os = "linux")'.dependencies]
+dbus-secret-service.workspace = true
 
 [dev-dependencies]
 # The fake CDN and synthetic versions for the install job (net/epic_install.rs)
