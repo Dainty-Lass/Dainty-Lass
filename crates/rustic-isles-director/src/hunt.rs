@@ -10,9 +10,9 @@ use std::path::Path;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, PoisonError};
 
+use dainty_service_kit::js;
 use rand::RngExt as _;
 use serde_json::{Map, Value};
-use service_kit::js;
 
 use crate::hub::Level;
 
@@ -78,7 +78,7 @@ fn load_rows(path: &Path) -> Result<Map<String, Value>, String> {
         .map_err(|_| format!("[hunt-manifest] Required hunt table is missing: {}", path.display()))?;
     let text = String::from_utf8_lossy(&bytes);
     let text = text.strip_prefix('\u{feff}').unwrap_or(&text);
-    let value = service_kit::jsjson::parse(text).map_err(|e| format!("{}: {e}", path.display()))?;
+    let value = dainty_service_kit::jsjson::parse(text).map_err(|e| format!("{}: {e}", path.display()))?;
     match value.get(0).and_then(|first| first.get("Rows")) {
         Some(Value::Object(rows)) => Ok(rows.clone()),
         _ => Err(format!(
@@ -987,7 +987,7 @@ mod tests {
             "[HuntTableGap] 2 hunt id(s) requested but missing from player_hunts_table: B x2, A x1"
         );
         assert_eq!(
-            service_kit::jsjson::stringify(&registry.to_json()),
+            dainty_service_kit::jsjson::stringify(&registry.to_json()),
             r#"[{"huntId":"B","count":2,"firstSeen":"1970-01-01T00:00:01.000Z","lastSeen":"1970-01-01T00:00:02.000Z"},{"huntId":"A","count":1,"firstSeen":"1970-01-01T00:00:00.000Z","lastSeen":"1970-01-01T00:00:00.000Z"}]"#
         );
     }

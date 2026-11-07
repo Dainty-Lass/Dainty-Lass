@@ -29,7 +29,7 @@ fn read(path: &Path) -> String {
 }
 
 fn read_json(path: &Path) -> Value {
-    service_kit::jsjson::parse(&read(path)).unwrap()
+    dainty_service_kit::jsjson::parse(&read(path)).unwrap()
 }
 
 fn backups(dir: &Path) -> Vec<String> {
@@ -169,7 +169,7 @@ fn slayers_path() {
     assert!(report.contains("Wrote    : slayers_path.json (3 nodes)"));
     let doc = read_json(&target);
     assert_eq!(
-        service_kit::jsjson::stringify(&doc),
+        dainty_service_kit::jsjson::stringify(&doc),
         r#"{"code":null,"payload":{"nodes":{"Slayer_09":{"node_id":"Slayer_09","node_status":0,"objectives":[]},"Slayer_10":{"node_id":"Slayer_10","node_status":0,"objectives":[]},"Slayer_11":{"node_id":"Slayer_11","node_status":0,"objectives":[]}},"x":1}}"#
     );
 
@@ -307,7 +307,7 @@ fn reward_cache() {
         ]
     );
     assert_eq!(
-        service_kit::jsjson::stringify(&skus[0]),
+        dainty_service_kit::jsjson::stringify(&skus[0]),
         format!(
             r#"{{"id":"season19_rewardcache_general_ej_r3","displayName":"Custom name","displayDescription":"EJ_R3 text","displayPriority":1,"prices":[{{"currencyId":"id_currency_seasonal_coin","price":700}}],"maxAllowed":1,"images":{{"standard":"Engine.Texture2D'{ICON}'"}},"tags":["season_store","season_store_general","season_store_feature","season19","reward_cache_reconstructed","reward_cache_rarity_3"],"items":[{{"catalogId":"EJ_R3","quantity":1,"instanced":true}}],"duplicateInstancedItems":["EJ_R3"]}}"#
         )
@@ -458,7 +458,7 @@ fn ladyluck_from_source() {
     let text = read(&out.join("ladyluck_store.json"));
     assert!(!text.ends_with('\n'));
     assert_eq!(
-        service_kit::jsjson::stringify(&service_kit::jsjson::parse(&text).unwrap()),
+        dainty_service_kit::jsjson::stringify(&dainty_service_kit::jsjson::parse(&text).unwrap()),
         r#"[{"id":"a","displayName":"","displayDescription":"","displayPriority":0,"prices":[{"currencyId":"c","price":1}],"maxAllowed":0,"tags":[],"items":[],"duplicateInstancedItems":[]}]"#
     );
     generate_ladyluck_store(&raw, &out, true).unwrap();
@@ -527,19 +527,19 @@ fn ladyluck_from_live() {
     );
     let text = read(&store);
     assert!(text.ends_with("]\n"));
-    let skus = service_kit::jsjson::parse(&text).unwrap();
+    let skus = dainty_service_kit::jsjson::parse(&text).unwrap();
     assert_eq!(
-        service_kit::jsjson::stringify(&skus[0]),
+        dainty_service_kit::jsjson::stringify(&skus[0]),
         r#"{"id":"keep","displayName":"Keep","prices":[{"currencyId":"id_currency_marks_steel","price":10}],"maxAllowed":null,"images":{"standard":"old"},"tags":["ladyluckstore"],"items":[{"catalogId":"DYE_KEEP","quantity":2,"instanced":false}],"duplicateInstancedItems":[]}"#
     );
     assert_eq!(
-        service_kit::jsjson::stringify(&skus[1]),
+        dainty_service_kit::jsjson::stringify(&skus[1]),
         format!(
             r#"{{"id":"art","prices":[{{"currencyId":"id_currency_marks_gilded","price":5}}],"maxAllowed":null,"images":{{"feature":"f","standard":"Engine.Texture2D'{ICON}'"}},"tags":["ladyluckstore"],"items":[{{"catalogId":"AR_ART","instanced":true}}],"duplicateInstancedItems":[]}}"#
         )
     );
     assert_eq!(
-        service_kit::jsjson::stringify(&skus[2]),
+        dainty_service_kit::jsjson::stringify(&skus[2]),
         r#"{"id":"fresh","displayPriority":3,"prices":[{"currencyId":"id_currency_marks_steel","price":7}],"maxAllowed":null,"tags":["ladyluckstore"],"items":[{"catalogId":"EM_NEW","quantity":1,"instanced":true}],"duplicateInstancedItems":[]}"#
     );
 
@@ -680,7 +680,7 @@ fn platinum_store() {
     let report = generate_platinum_store(&catalog, &images, &captures, &data).unwrap();
     let text = read(&data.join("platinum_store.json"));
     assert!(text.ends_with("]\n"));
-    let skus = service_kit::jsjson::parse(&text).unwrap();
+    let skus = dainty_service_kit::jsjson::parse(&text).unwrap();
     let ids: Vec<&str> = skus
         .as_array()
         .unwrap()
@@ -707,7 +707,7 @@ fn platinum_store() {
         "platinum_store.json: 10 SKUs (7 captured price, 3 reconstructed price)"
     );
     let find = |id: &str| skus.as_array().unwrap().iter().find(|s| s["id"] == id).unwrap().clone();
-    let compact = |id: &str| service_kit::jsjson::stringify(&find(id));
+    let compact = |id: &str| dainty_service_kit::jsjson::stringify(&find(id));
     assert_eq!(
         compact("cap"),
         r#"{"id":"cap","displayName":"cap","displayDescription":"","displayPriority":12,"prices":[{"currencyId":"id_currency_platinum","price":900}],"maxAllowed":null,"images":{},"tags":["webstore","skin_armour","platinum_store_captured"],"items":[{"catalogId":"AR_CAP","quantity":1,"instanced":true}],"duplicateInstancedItems":["AR_CAP"],"skuProgression":{"x":1}}"#
@@ -823,7 +823,7 @@ fn storage_policy() {
     let written = read(&target);
     assert!(written.ends_with("}\n"));
     assert_eq!(
-        service_kit::jsjson::stringify(&service_kit::jsjson::parse(&written).unwrap()),
+        dainty_service_kit::jsjson::stringify(&dainty_service_kit::jsjson::parse(&written).unwrap()),
         format!(
             r#"{{"schema":1,"targetVersion":"1.14.7","catalogSha256":"{sha}","generatedAt":"2026-10-08","referencedCatalogIds":2,"sourceScope":["src/**/*.ts","src/**/*.json","game-data/*.json"],"entries":{{"CURRENCY_RAMS":{{"storage":"stacked","maxQuantity":999999999,"tags":["Currency"]}},"WP_SWORD_00":{{"storage":"instanced","maxQuantity":1,"tags":[]}}}}}}"#
         )

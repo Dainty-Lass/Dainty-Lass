@@ -64,19 +64,19 @@ fuzz_target!(|data: &[u8]| {
                     assert!(
                         server["fp"]
                             .as_str()
-                            .is_some_and(protocol::invite::is_valid_fingerprint)
+                            .is_some_and(dainty_protocol::invite::is_valid_fingerprint)
                     );
                 }
             }
             for name in settings["usernames"].as_object().unwrap().values() {
-                assert!(protocol::account::is_valid_username(name.as_str().unwrap()));
+                assert!(dainty_protocol::account::is_valid_username(name.as_str().unwrap()));
             }
         }
     }
 
     if let Some(stored) = format::parse_stored(&text) {
         // A key that reads is a key the game's command line can take, and is written back the same
-        assert!(protocol::account::is_plausible_account_key(&stored.key));
+        assert!(dainty_protocol::account::is_plausible_account_key(&stored.key));
         assert_eq!(format::parse_stored(&stored.text()), Some(stored));
     }
     let _ = format::local_state_key(&text);

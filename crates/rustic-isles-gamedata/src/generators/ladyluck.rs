@@ -6,8 +6,8 @@
 use std::collections::{BTreeSet, HashMap, HashSet};
 use std::path::Path;
 
+use dainty_service_kit::js;
 use serde_json::{Map, Value, json};
-use service_kit::js;
 
 use super::io::{
     Catalog, back_up, checked_texture, create_dir, drop_bom, parse, read_catalog, read_text, show, write_file,
@@ -235,7 +235,9 @@ pub fn enrich_ladyluck_store(catalog: &Path, live: &Path, store: &Path) -> Resul
     let (mut steel, mut gilded) = (0, 0);
     for sku in &skus {
         let label = js::string(sku.get("id"));
-        if !ids.insert(service_kit::jsjson::stringify(sku.get("id").unwrap_or(&Value::Null))) {
+        if !ids.insert(dainty_service_kit::jsjson::stringify(
+            sku.get("id").unwrap_or(&Value::Null),
+        )) {
             return Err(format!("Duplicate Lady Luck SKU id: {label}"));
         }
         let prices = sku

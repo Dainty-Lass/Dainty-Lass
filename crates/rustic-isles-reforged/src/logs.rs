@@ -7,8 +7,8 @@
 use std::path::{Path, PathBuf};
 
 use axum::response::{IntoResponse, Response};
+use dainty_module_api::{Actor, ActorContext};
 use http::{StatusCode, header};
-use module_api::{Actor, ActorContext};
 use rustic_isles::{Call, Settings};
 use rustic_isles_store::repo::reforged::AdminAuditRecord;
 use serde_json::Value;
@@ -99,7 +99,7 @@ fn marker_text(session: &Path) -> Option<String> {
 /// The marker's time when it parses, else the folder's modification time.
 fn upload_time(session: &Path) -> Option<i64> {
     marker_text(session)
-        .and_then(|t| service_kit::js::date_parse(&t))
+        .and_then(|t| dainty_service_kit::js::date_parse(&t))
         .or_else(|| modified_ms(session))
 }
 
@@ -335,7 +335,7 @@ pub async fn upload(mut call: Call) -> Response {
         let at = iso(now);
         let marker = format!(
             "{}\n",
-            service_kit::jsjson::stringify(&object(vec![("lastUploadedAt", Value::from(at.clone()))]))
+            dainty_service_kit::jsjson::stringify(&object(vec![("lastUploadedAt", Value::from(at.clone()))]))
         );
         std::fs::write(folder.join(MARKER), marker)?;
         Ok(Saved::Done(at))
@@ -380,7 +380,7 @@ pub async fn sync_list(mut call: Call) -> Response {
         return refused;
     }
     let pairs = util::query_pairs(call.request.uri().query());
-    let since = util::single(&pairs, "since").and_then(service_kit::js::date_parse);
+    let since = util::single(&pairs, "since").and_then(dainty_service_kit::js::date_parse);
     let root = log_storage_root(call.shared.settings());
     let sessions = tokio::task::spawn_blocking(move || {
         let mut rows: Vec<(String, Value)> = Vec::new();
@@ -400,7 +400,7 @@ pub async fn sync_list(mut call: Call) -> Response {
                 let uploaded = marker_text(&path)
                     .or_else(|| modified_ms(&path).map(iso))
                     .unwrap_or_default();
-                if let (Some(at), Some(since)) = (service_kit::js::date_parse(&uploaded), since)
+                if let (Some(at), Some(since)) = (dainty_service_kit::js::date_parse(&uploaded), since)
                     && at <= since
                 {
                     continue;
@@ -419,7 +419,7 @@ pub async fn sync_list(mut call: Call) -> Response {
                 rows.push((uploaded, row));
             }
         }
-        rows.sort_by(|a, b| service_kit::collate::locale_compare(&a.0, &b.0));
+        rows.sort_by(|a, b| dainty_service_kit::collate::locale_compare(&a.0, &b.0));
         rows
     })
     .await
@@ -494,7 +494,7 @@ fn is_before(text: &str) -> bool {
         || tail
             .strip_prefix('.')
             .is_some_and(|d| (1..=3).contains(&d.len()) && d.bytes().all(|c| c.is_ascii_digit()));
-    fraction_ok && service_kit::js::date_parse(text).is_some()
+    fraction_ok && dainty_service_kit::js::date_parse(text).is_some()
 }
 
 /// `GET /admin/v1/player-logs`: the dashboard's listing.
@@ -530,7 +530,7 @@ pub async fn list_player_logs(ctx: AdminContext) -> Response {
     }
     let before = match util::single(query, "before") {
         None => None,
-        Some(text) if is_before(text) => service_kit::js::date_parse(text),
+        Some(text) if is_before(text) => dainty_service_kit::js::date_parse(text),
         Some(_) => return query_error(before_message),
     };
     let root = log_storage_root(ctx.shared.settings());
@@ -812,7 +812,7 @@ mod tests {
             &[("launcher.log", "x")],
         );
         std::fs::create_dir_all(root.join("not an account").join("cccccccc-1")).unwrap();
-        let now = service_kit::js::date_parse("2026-10-26T00:00:00Z").unwrap();
+        let now = dainty_service_kit::js::date_parse("2026-10-26T00:00:00Z").unwrap();
         assert_eq!(
             purge_expired(root, now, RETENTION_DAYS),
             PurgeReport {

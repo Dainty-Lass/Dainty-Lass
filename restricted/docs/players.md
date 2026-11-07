@@ -1,6 +1,6 @@
-# Playing on a DaintyLass server
+# Playing on a Dainty Lass server
 
-You need **Dauntless 1.14.7** on your PC, the **DaintyLass launcher**, and an **invite** from the server's host.
+You need **Dauntless 1.14.7** on your PC, the **Dainty Lass launcher**, and an **invite** from the server's host.
 The launcher speaks English and Brazilian Portuguese.
 
 ## 1. The game
@@ -43,7 +43,7 @@ certificate changed.
 
 ## Dauntless Revived servers
 
-DaintyLass plays Dauntless 1.14.7 only. A `dauntless-revived://` invite (a Dauntless Revived 1.4.4 server) is
+Dainty Lass plays Dauntless 1.14.7 only. A `dauntless-revived://` invite (a Dauntless Revived 1.4.4 server) is
 refused, and a 1.4.4 server saved by an older launcher stays in the list, greyed out, with its key kept.
 
 ## If something is wrong

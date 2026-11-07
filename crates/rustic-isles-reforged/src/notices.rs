@@ -30,12 +30,12 @@ pub fn parse_instant(value: &Value) -> Option<String> {
         let zone = caps.get(3)?.as_str();
         format!("{}:00{zone}", &text[..text.len() - zone.len()])
     };
-    service_kit::js::date_parse(&with_seconds).map(iso)
+    dainty_service_kit::js::date_parse(&with_seconds).map(iso)
 }
 
 fn bound_ok(value: Option<&Value>, now_ms: i64, after: bool) -> bool {
     match value {
-        Some(Value::String(text)) => match service_kit::js::date_parse(text) {
+        Some(Value::String(text)) => match dainty_service_kit::js::date_parse(text) {
             Some(at) if after => now_ms >= at,
             Some(at) => now_ms < at,
             None => false,
@@ -163,7 +163,7 @@ fn window(map: &Map<String, Value>, label: &str) -> Result<(Option<String>, Opti
     let from = time_field(map, "showFrom", label)?;
     let until = time_field(map, "showUntil", label)?;
     if let (Some(f), Some(u)) = (&from, &until)
-        && service_kit::js::date_parse(u) < service_kit::js::date_parse(f)
+        && dainty_service_kit::js::date_parse(u) < dainty_service_kit::js::date_parse(f)
     {
         return Err(format!("{label}.showUntil is before showFrom."));
     }
@@ -312,7 +312,7 @@ pub fn validate_reason(value: Option<&Value>) -> Result<String, String> {
 /// A JSON number that is a safe integer, 0 or more.
 pub fn validate_expected_version(value: Option<&Value>) -> Result<u64, String> {
     match value {
-        Some(Value::Number(_)) => service_kit::js::safe_integer(value)
+        Some(Value::Number(_)) => dainty_service_kit::js::safe_integer(value)
             .and_then(|n| u64::try_from(n).ok())
             .ok_or_else(|| "expectedVersion must be the version you loaded (a whole number, 0 or more).".into()),
         _ => Err("expectedVersion must be the version you loaded (a whole number, 0 or more).".into()),
@@ -548,11 +548,11 @@ mod tests {
         });
         let (a, t) = validate_input(Some(&body), &mut ids).unwrap();
         assert_eq!(
-            service_kit::jsjson::stringify(&a[0]),
+            dainty_service_kit::jsjson::stringify(&a[0]),
             r#"{"text":"Maintenance at {time}","tone":"warning","eventAt":"2026-10-16T12:00:00.000Z","showUntil":"2026-10-17T00:00:00.000Z","id":"gen"}"#
         );
         assert_eq!(
-            service_kit::jsjson::stringify(&t[0]),
+            dainty_service_kit::jsjson::stringify(&t[0]),
             r#"{"id":"kept","text":"Hello","tone":"info"}"#
         );
         assert_eq!(
@@ -565,7 +565,7 @@ mod tests {
         for bad in [json!(-1), json!(1.5), json!("1"), json!(null)] {
             assert!(validate_expected_version(Some(&bad)).is_err());
         }
-        let now = service_kit::js::date_parse("2026-10-20T00:00:00Z").unwrap();
+        let now = dainty_service_kit::js::date_parse("2026-10-20T00:00:00Z").unwrap();
         let record = LauncherNoticesRecord {
             version: 1,
             updated_at: None,
@@ -583,7 +583,7 @@ mod tests {
         let keys: Vec<&String> = view.as_object().unwrap().keys().collect();
         assert_eq!(keys, ["announcements", "tags", "serverTime"]);
         assert_eq!(
-            service_kit::jsjson::stringify(&admin_view(None, now)),
+            dainty_service_kit::jsjson::stringify(&admin_view(None, now)),
             r#"{"version":0,"updatedAt":null,"updatedBy":null,"announcements":[],"tags":[],"serverTime":"2026-10-20T00:00:00.000Z"}"#
         );
     }

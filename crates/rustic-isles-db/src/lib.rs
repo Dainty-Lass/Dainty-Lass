@@ -30,10 +30,10 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
 use std::path::{Path, PathBuf};
 
-use module_api::NodeId;
+use dainty_module_api::NodeId;
+use dainty_store::Database;
 use rustic_isles_economy::inventory::storage_policy::{POLICY_FILE, StoragePolicy};
 use serde::{Deserialize, Serialize};
-use store::Database;
 
 pub use cli::{Command, main_with, parse_args, print_export_report, print_migrate_report, print_verify_report};
 #[cfg(feature = "export-mongo")]
@@ -55,7 +55,7 @@ pub enum DbError {
     Mongo(#[from] MongoError),
     /// The store failed to open, read or write.
     #[error("store: {0}")]
-    Store(#[from] store::Error),
+    Store(#[from] dainty_store::Error),
     /// A query against the store failed.
     #[error("diesel: {0}")]
     Diesel(#[from] diesel::result::Error),
@@ -304,7 +304,7 @@ fn load_policy(dir: Option<&Path>) -> Option<StoragePolicy> {
 async fn blocking<T: Send + 'static>(f: impl FnOnce() -> Result<T, DbError> + Send + 'static) -> Result<T, DbError> {
     tokio::task::spawn_blocking(f)
         .await
-        .map_err(|_| DbError::Store(store::Error::Panicked))?
+        .map_err(|_| DbError::Store(dainty_store::Error::Panicked))?
 }
 
 async fn resolver(database: Option<&Database>, node: &NodeId) -> Result<Resolver, DbError> {
@@ -373,7 +373,7 @@ pub async fn run_migrate(opts: &MigrateOptions) -> Result<MigrateReport, DbError
     let report = migrate_report(false, &extraction);
     let state = extraction.state;
     database
-        .write(store::Actor::System("migrate".into()), move |tx| {
+        .write(dainty_store::Actor::System("migrate".into()), move |tx| {
             tables::write_state(tx.conn(), &state)
         })
         .await?;

@@ -1,7 +1,7 @@
 # Writing a game module or plugin
 
-Every game version DaintyLass serves (today `1.14.7`) is packaged as a **`GameModule`** on
-[`crates/module-api`](../crates/module-api). The same `GameModule` implementation runs compiled into
+Every game version Dainty Lass serves (today `1.14.7`) is packaged as a **`GameModule`** on
+[`crates/dainty-module-api`](../crates/dainty-module-api). The same `GameModule` implementation runs compiled into
 `restricted/`'s server binaries (`server-minimal`, `server-console`, and the launcher's `server-gui`) or out of
 process as a standalone executable speaking length-prefixed JSON frames over stdin and stdout (`module_api::child`).
 
@@ -152,7 +152,7 @@ fn main() -> std::process::ExitCode {
 }
 ```
 
-When the controller starts the child process (`crates/module-api/src/host.rs`), it performs the `Hello` /
+When the controller starts the child process (`crates/dainty-module-api/src/host.rs`), it performs the `Hello` /
 `Welcome` handshake, checks `ModuleApiVersion::CURRENT` and the manifest's `id` and `sha256`, replays `register`,
 and forwards `start`, `command`, `admin`, `status` and `stop` over length-prefixed frames (capped at `MAX_FRAME_LEN`,
 4 MiB; see [security/module-host.md](security/module-host.md)).

@@ -6,7 +6,8 @@
 
 use std::sync::Arc;
 
-use module_api::ActorContext;
+use dainty_module_api::ActorContext;
+use dainty_service_kit::{js, jsjson};
 use rustic_isles::{VersionTables, replay};
 use rustic_isles_store::repo::auth::AccountRecord;
 use rustic_isles_store::repo::bounties::WalletRecord;
@@ -14,7 +15,6 @@ use rustic_isles_store::repo::characters::{CharacterRecord, LoadoutRecord, slots
 use rustic_isles_store::repo::inventory::InventoryRecord;
 use rustic_isles_store::{AccountId, AnyConnection, IslesStore, RepoError, RepoResult, Repositories, Tx, UserId};
 use serde_json::{Value, json};
-use service_kit::{js, jsjson};
 
 use crate::{CharacterData, CharactersError, EnsureError, StarterKit, data, starter};
 

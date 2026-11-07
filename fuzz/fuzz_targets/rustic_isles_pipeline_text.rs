@@ -37,7 +37,7 @@ fuzz_target!(|data: &[u8]| {
 
     let _ = is_admin_path(&text);
     let _ = is_hunts_path(&text);
-    let _ = service_kit::js::decode_uri_component(&text);
+    let _ = dainty_service_kit::js::decode_uri_component(&text);
 
     let value = serde_json::from_str::<Value>(&text).unwrap_or(Value::String(text.to_string()));
     let section = BTreeMap::from([("qos_port".to_owned(), value.clone()), ("rate_limit".to_owned(), value)]);

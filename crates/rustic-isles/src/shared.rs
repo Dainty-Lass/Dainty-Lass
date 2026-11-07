@@ -7,11 +7,11 @@ use std::any::{Any, TypeId};
 use std::collections::{BTreeSet, HashMap};
 use std::sync::{Arc, Mutex, PoisonError, RwLock};
 
-use module_api::network::{
+use dainty_module_api::network::{
     HomeError, HomeForward, HuntRewards, InstanceRecord, JoinDecision, PublishedTicket, SessionTicket, StandaloneHome,
     TicketState,
 };
-use module_api::{BoxFuture, GameVersion, GlobalId, HomeApi, ModuleContext, ModuleError, NodeId, NodeIdentity};
+use dainty_module_api::{BoxFuture, GameVersion, GlobalId, HomeApi, ModuleContext, ModuleError, NodeId, NodeIdentity};
 use rustic_isles_auth::{Auth, AuthConfig, AuthStore, Seams};
 
 use crate::dedicated::{DedicatedServers, Unconfigured};
@@ -133,7 +133,7 @@ pub struct SharedParts {
     /// Whether a database is configured (`REFORGED_DB_FILE` or `REFORGED_DB_ENGINE`).
     pub database_wanted: bool,
     /// The rifts seam.
-    pub rifts: rifts_seam::Rifts,
+    pub rifts: rustic_rifts_seam::Rifts,
     /// Whether the admin API is on.
     pub admin_api: bool,
     /// The store auth signs in against; none without a database.
@@ -164,7 +164,7 @@ impl SharedParts {
             node: NodeIdentity::standalone(),
             game_data: GameDataRoot::default(),
             database_wanted: false,
-            rifts: rifts_seam::Rifts::dedicated_only(),
+            rifts: rustic_rifts_seam::Rifts::dedicated_only(),
             admin_api: false,
             auth_store: None,
             auth_seams: Seams::default(),
@@ -185,7 +185,7 @@ pub struct Shared {
     node: NodeIdentity,
     game_data: GameDataRoot,
     database_wanted: bool,
-    rifts: rifts_seam::Rifts,
+    rifts: rustic_rifts_seam::Rifts,
     admin_api: bool,
     auth: Arc<IslesAuth>,
     home: Arc<dyn HomeApi>,
@@ -279,7 +279,7 @@ impl Shared {
     }
 
     /// The rifts seam.
-    pub fn rifts(&self) -> &rifts_seam::Rifts {
+    pub fn rifts(&self) -> &rustic_rifts_seam::Rifts {
         &self.rifts
     }
 

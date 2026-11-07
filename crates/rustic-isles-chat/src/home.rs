@@ -4,7 +4,7 @@
 //! The `chat.*` home operations (spec §5.9, core §7.8), run on the account's home for another node's chat.
 //! dainty-lass's plugin calls `chat.login` with actor System too, so the actor is not checked.
 
-use module_api::{ErrorKind, HomeInvocation, ModuleError};
+use dainty_module_api::{ErrorKind, HomeInvocation, ModuleError};
 use rustic_isles::AccountId;
 use serde_json::{Map, Value, json};
 

@@ -1,15 +1,15 @@
 <!-- markdownlint-configure-file { "MD013": { "line_length": 120, "tables": false, "code_blocks": false } } -->
 
-# RD27 Clean-Room Specification: the host shell (`crates/host` in dainty-restricted)
+# RD27 Clean-Room Specification: the host shell (`crates/dainty-host` in dainty-restricted)
 
 This is the specification writer's output for relicensing what is left of dainty-restricted's host shell to MIT. It
 follows the format of [`spec-dl3-hostkit.md`](spec-dl3-hostkit.md) (DL3a) and the measurement rules of
-[`clean-room/similarity.md`](clean-room/similarity.md). It covers every file under `crates/host/` in
+[`clean-room/similarity.md`](clean-room/similarity.md). It covers every file under `crates/dainty-host/` in
 dainty-restricted at branch `feat/rd27-plugin-abi`, commit `849f45e`.
 
 > **Clean-room rule.** The implementer of a Category B item reads this document, the MIT crates in dainty-lass
-> (`crates/hostkit`, `crates/controller`, `crates/module-api`, `crates/remote`, `crates/store`, `crates/protocol`)
-> and nothing else: not `crates/host` or `rust/services/host` at any commit of either repository, not
+> (`crates/dainty-hostkit`, `crates/dainty-controller`, `crates/dainty-module-api`, `crates/dainty-remote`, `crates/dainty-store`, `crates/dainty-protocol`)
+> and nothing else: not `crates/dainty-host` or `rust/services/host` at any commit of either repository, not
 > `legacy/ReforgedHost` (Reforged's Node kit). Category A files are moved, not rewritten. Nothing written from this
 > document names Reforged's Node files, DR commits or Node identifiers in comments.
 
@@ -19,16 +19,16 @@ The launcher half of RD27's relicensing is [`spec-rd27-launcher.md`](spec-rd27-l
 
 ## 0. What is left of the shell
 
-DL3b already moved the host kit's behaviour into `crates/hostkit` under MIT. Every area this row was asked to
+DL3b already moved the host kit's behaviour into `crates/dainty-hostkit` under MIT. Every area this row was asked to
 cover is there, not in the shell:
 
 | Area | Where it lives now | Specified by |
 | --- | --- | --- |
-| The `reforged-host` command line: every subcommand, its options, outputs and exit codes (`setup`, `start`, `serve`, `invite`, `doctor`, `gamedata`, `publish-runtime`, `install-game`, `preset`, `multipliers`, `update`, `backup`, `db`, `network`, `remote`, `history`, `revert`, `legacy`, the hidden service subcommands, `gameserver`) | `crates/hostkit/src/cli.rs`, `commands/*` | DL3 §2.20–2.22 (B) and §1.1 (A) |
-| `serve`: the in-process controller, its registry, the `[services.*]` libraries (RD27) | `crates/hostkit/src/serve.rs` (A) | DL3 §1.1; `controller::service_library` |
-| `gamedata`, `preset`, `publish-runtime`, game-data packs, captures, progression | `crates/hostkit/src/{gamedata,gamepack,preset,progression,publish,captures}.rs` | DL3 §2.9–2.16 |
-| The console and dashboard (`repl`, `tui`) and `console_main` | `crates/hostkit/src/{repl,tui,lib}.rs` (A) | DL3 §1.1 |
-| The seam the shell plugs into | `crates/hostkit/src/hooks.rs` (`HostHooks`, `set_hooks`, `get`) (A) | this document §3 |
+| The `reforged-host` command line: every subcommand, its options, outputs and exit codes (`setup`, `start`, `serve`, `invite`, `doctor`, `gamedata`, `publish-runtime`, `install-game`, `preset`, `multipliers`, `update`, `backup`, `db`, `network`, `remote`, `history`, `revert`, `legacy`, the hidden service subcommands, `gameserver`) | `crates/dainty-hostkit/src/cli.rs`, `commands/*` | DL3 §2.20–2.22 (B) and §1.1 (A) |
+| `serve`: the in-process controller, its registry, the `[services.*]` libraries (RD27) | `crates/dainty-hostkit/src/serve.rs` (A) | DL3 §1.1; `controller::service_library` |
+| `gamedata`, `preset`, `publish-runtime`, game-data packs, captures, progression | `crates/dainty-hostkit/src/{gamedata,gamepack,preset,progression,publish,captures}.rs` | DL3 §2.9–2.16 |
+| The console and dashboard (`repl`, `tui`) and `console_main` | `crates/dainty-hostkit/src/{repl,tui,lib}.rs` (A) | DL3 §1.1 |
+| The seam the shell plugs into | `crates/dainty-hostkit/src/hooks.rs` (`HostHooks`, `set_hooks`, `get`) (A) | this document §3 |
 
 What remains in dainty-restricted is the code that **links an AGPL crate** (`gateway`, `content`, `chat`,
 `isles-1-14-7`, `isles-core`, `isles-db`, `isles-director`) and installs itself into hostkit through `HostHooks`,
@@ -36,7 +36,7 @@ plus the host kit's test suite. That is 2 source files (`src/lib.rs`, `src/compo
 files and 99 fixture files.
 
 The licence question for this code is mostly about **linkage, not provenance**. Most of it was written for
-DaintyLass, but it exists to call AGPL APIs, so the binaries it builds are AGPL whatever its source licence, and
+Dainty Lass, but it exists to call AGPL APIs, so the binaries it builds are AGPL whatever its source licence, and
 RD27's repository rule ("anything ... linking such code is this repository's", restricted `AGENTS.md`) keeps it in
 dainty-restricted until the AGPL services are libraries the MIT core loads (RD27 phase 2). Section 4 is the plan.
 
@@ -48,10 +48,10 @@ dainty-restricted until the AGPL services are libraries the MIT core loads (RD27
 
 - **History.** dainty-restricted keeps the full history since the new root (`7338b10`, 2026-10-26); dainty-lass
   keeps the objects of the earlier `plan` history (`b190010`, `758f8a3`). The shell's `lib.rs` was rewritten as a
-  thin hooks implementation in `758f8a3` ("DL3b+DD26: swap crates/host to clean-room MIT hostkit crate") after the
+  thin hooks implementation in `758f8a3` ("DL3b+DD26: swap crates/dainty-host to clean-room MIT hostkit crate") after the
   clean room, then extended by RM2/RM5 (`4bc4b15`), RU9 (`bbe936e`, `19f220f`), DN5–DN10 (`728d44c`, `1bd902d`),
   DD1/DD9 and RD27 (`62d56c6`, which also moved `compose.rs` from dainty-lass's `controller::modules`).
-- **NOTICE.** restricted `NOTICE.md`, "This project": `crates/host` is "the shell that wires dainty-lass's
+- **NOTICE.** restricted `NOTICE.md`, "This project": `crates/dainty-host` is "the shell that wires dainty-lass's
   `hostkit` to `gateway`, `content`, `chat` and `isles-1-14-7`; its `compose.rs` is MIT code moved from
   dainty-lass's `controller::modules` and keeps its MIT header".
 - **DL3.** `spec-dl3-hostkit.md` §1.3 classified the old `lib.rs` as the AGPL shell because it *links* AGPL
@@ -69,26 +69,26 @@ dainty-restricted until the AGPL services are libraries the MIT core loads (RD27
 
 ### 1.2 Categories
 
-- **Category A**: born in DaintyLass, no DR, Reforged or Paradox derivation. Moves to MIT as it is (its SPDX
+- **Category A**: born in Dainty Lass, no DR, Reforged or Paradox derivation. Moves to MIT as it is (its SPDX
   header changes to MIT, or keeps the one it has). The table notes what it depends on, because a dependency on an
   AGPL crate decides where it can go, not its licence.
 - **Category B**: derived from DR, Reforged's Node kit or Paradox. Rewritten clean-room from §2.
 - **A with a B part**: an A file holding one derived piece; only that piece is rewritten.
 - **B-data**: test data produced by, or copied from, a derived program. Not code; see §4.
 
-### 1.3 `crates/host/` file by file
+### 1.3 `crates/dainty-host/` file by file
 
 | Path | Category | Evidence | Depends on | Target (§5) |
 | --- | --- | --- | --- | --- |
-| `Cargo.toml` | A | Written in DL3b and RD27; features name only DaintyLass crates and the AGPL services | — | restricted, shrinks with phase 2 |
+| `Cargo.toml` | A | Written in DL3b and RD27; features name only Dainty Lass crates and the AGPL services | — | restricted, shrinks with phase 2 |
 | `src/compose.rs` | A | SPDX MIT header; moved by RD27 from dainty-lass `controller::modules` (8.7% vs `b190010`, the matches are that file) | **AGPL**: `gateway`, `content`, `chat`; MIT: `controller`, `service-kit`, `network_plugin`, `store`, `module-api` | restricted until phase 2 deletes it |
 | `src/lib.rs` | A with a B part | Written in `758f8a3` after the clean room, then RM/RU/DN rows; B part: the generator dispatch carried from the pre-clean-room `gamedata.rs` (DL3 §1.2 item 11) | **AGPL**: `gateway`, `content`, `isles-1-14-7`, `isles-core`, `isles-db`, `isles-director`; MIT: `hostkit`, `controller`, `remote`, `network_plugin`, `service-kit`, `module-api`, `store`, `protocol` | split, §5.1 |
 | `tests/admin_network.rs` | A | DN11/DD16/DD23 three-node admin tests; 1.0% vs `b190010` | `admin`, `controller`, `store` (MIT); `host` | restricted (links the shell) or dainty-lass once it targets the core |
 | `tests/controller_allowlist.rs` | A | DF4d; 2.6% | `gateway` (AGPL) through `host::compose` | restricted |
 | `tests/controller_network_wiring.rs` | A | DN3/DN13 wiring; 2.2% | `gateway` (AGPL) through `host::compose` | restricted |
-| `tests/history.rs` | A | DH3b (born here); moved unchanged (99.6% vs `b190010`, which already had it) | `hostkit`, `admin`, `diesel` | dainty-lass `crates/hostkit/tests` |
-| `tests/install_game.rs` | A | DE6 (born here) | `hostkit`, `epic` | dainty-lass `crates/hostkit/tests` |
-| `tests/network.rs` | A | DN3 (born here) | `hostkit` | dainty-lass `crates/hostkit/tests` |
+| `tests/history.rs` | A | DH3b (born here); moved unchanged (99.6% vs `b190010`, which already had it) | `hostkit`, `admin`, `diesel` | dainty-lass `crates/dainty-hostkit/tests` |
+| `tests/install_game.rs` | A | DE6 (born here) | `hostkit`, `epic` | dainty-lass `crates/dainty-hostkit/tests` |
+| `tests/network.rs` | A | DN3 (born here) | `hostkit` | dainty-lass `crates/dainty-hostkit/tests` |
 | `tests/config.rs` | B | Header: "The Node kit's tests of host.json, the secrets and the service env files"; ported in RH1 | `hostkit` + Node fixtures | restricted (§4.2) |
 | `tests/doctor.rs` | B | "the Node kit's tests for its checks"; RH3 | `hostkit` | restricted |
 | `tests/gamedata.rs` | B | "The Node kit's tests of the game-data commands", compared byte for byte with Node output | `hostkit` + Node fixtures | restricted |
@@ -266,13 +266,13 @@ The AGPL services as `controller::Module`s, each built from its env file through
 ### 4.1 The AGPL links
 
 `lib.rs` and `compose.rs` call into `gateway`, `content`, `chat` and the 1.14.7 module crates. Their *source* is
-DaintyLass's own (but for §2.1) and could carry an MIT header, but:
+Dainty Lass's own (but for §2.1) and could carry an MIT header, but:
 
 - every binary that links them is AGPL, so an MIT header buys nothing while they link;
 - the repository rule of RD27 keeps linking code in dainty-restricted.
 
 So the shell is not relicensed; it is **emptied** (§5): its generic parts move into hostkit, and its linking parts
-move into the AGPL libraries themselves as phase 2 lands, after which `crates/host` has nothing left.
+move into the AGPL libraries themselves as phase 2 lands, after which `crates/dainty-host` has nothing left.
 
 ### 4.2 The Reforged-derived tests and the Node fixtures
 
@@ -280,7 +280,7 @@ The 9 Category B tests are ports of the Node kit's tests, and the 94 fixture fil
 (the env files carry the Node kit's header line, `host.json` its key order and number text). They are the evidence
 that hostkit writes the same bytes as the kit hosts already run (plan section 6, "Host kit"). A clean-room path:
 
-1. write new tests in `crates/hostkit/tests` from DL3's behaviour sections, with expected values computed from the
+1. write new tests in `crates/dainty-hostkit/tests` from DL3's behaviour sections, with expected values computed from the
    spec (for example a whole env file written out in the test from DL3 §2.3's template table);
 2. keep these tests in dainty-restricted, running against the MIT hostkit, until (1) covers the same cases;
 3. then delete them, or keep them as an AGPL parity suite.
@@ -292,7 +292,7 @@ constant, a precedent DL3 set.
 
 ### 4.3 The fixture scripts
 
-`gen.ts`, `gen-gamedata.mjs` and `rh3/gen.ts` are DaintyLass's, but they only work by importing the Node kit's
+`gen.ts`, `gen-gamedata.mjs` and `rh3/gen.ts` are Dainty Lass's, but they only work by importing the Node kit's
 AGPL sources. They stay with the fixtures.
 
 ---
@@ -301,34 +301,34 @@ AGPL sources. They stay with the fixtures.
 
 ### 5.1 Where each part of the shell goes
 
-| Part (today in `crates/host`) | Category | Goes to | Notes |
+| Part (today in `crates/dainty-host`) | Category | Goes to | Notes |
 | --- | --- | --- | --- |
-| Env-file resolution of a service, server-folder inference from an env file | A | dainty-lass `crates/hostkit` (`serve` or a new `service` module), used by `hostkit::service_main` | Generic; no AGPL dependency |
-| `remote-agent` service main | A | dainty-lass `crates/hostkit` (`service_main` answers `remote-agent` itself; `BUILT_IN_SERVICES` includes it) | Depends on `remote` (MIT) only |
-| Remote enrolment handler of the gateway service | A | dainty-lass `crates/remote` as a function over `RemoteControllerState`, `ClusterCa` and a peer-adding callback; the gateway library calls it | The gateway call itself stays AGPL |
-| `backend`/`director` standalone mains | A | dainty-lass `crates/hostkit`: a generic "run one external module's service" over `plugin-host` and `[[modules.external]]`, so no build links the module | Replaces the in-tree link to `isles-1-14-7` |
+| Env-file resolution of a service, server-folder inference from an env file | A | dainty-lass `crates/dainty-hostkit` (`serve` or a new `service` module), used by `hostkit::service_main` | Generic; no AGPL dependency |
+| `remote-agent` service main | A | dainty-lass `crates/dainty-hostkit` (`service_main` answers `remote-agent` itself; `BUILT_IN_SERVICES` includes it) | Depends on `remote` (MIT) only |
+| Remote enrolment handler of the gateway service | A | dainty-lass `crates/dainty-remote` as a function over `RemoteControllerState`, `ClusterCa` and a peer-adding callback; the gateway library calls it | The gateway call itself stays AGPL |
+| `backend`/`director` standalone mains | A | dainty-lass `crates/dainty-hostkit`: a generic "run one external module's service" over `plugin-host` and `[[modules.external]]`, so no build links the module | Replaces the in-tree link to `isles-1-14-7` |
 | `ensure_gateway_cert` | A | the gateway library (restricted) | Calls the gateway's certificate maker |
 | `compose_in_process_*`, `compose.rs` | A | deleted when the content, chat and gateway libraries land (RD27 phase 2); until then restricted | `controller::service_library` already composes a library from its env file |
 | `db_*` hooks, `run_db_command`, the `db` output | A | the 1.14.7 module (restricted), exposed as module commands or a module-provided hook | `isles_db` is AGPL |
 | Generator dispatch (§2.1) | B | the 1.14.7 module (restricted) | Clean-room rewrite optional: its destination is AGPL |
-| Full-node harness | A | restricted test support, or dainty-lass `crates/dainty-lass-server` tests once libraries are loadable | Test-only |
-| Wrapper modules (`ensure_hooks` then delegate) | A | deleted: `crates/dainty-lass-server` already sets its hooks once in `main` | — |
-| Category A tests that use only MIT crates (`history.rs`, `install_game.rs`, `network.rs`) | A | dainty-lass `crates/hostkit/tests` | Move as they are |
+| Full-node harness | A | restricted test support, or dainty-lass `crates/dainty-lass` tests once libraries are loadable | Test-only |
+| Wrapper modules (`ensure_hooks` then delegate) | A | deleted: `crates/dainty-lass` already sets its hooks once in `main` | — |
+| Category A tests that use only MIT crates (`history.rs`, `install_game.rs`, `network.rs`) | A | dainty-lass `crates/dainty-hostkit/tests` | Move as they are |
 | Category A tests that compose AGPL services | A | restricted | Until phase 2 |
 | Category B tests and fixtures | B / B-data | restricted, run against MIT hostkit | §4.2 |
 
 ### 5.2 What dainty-restricted keeps
 
 After phase 2: the AGPL libraries (gateway with allowlist, content, chat), the 1.14.7 module library with its
-generators and `db` commands, the B tests and fixtures as a parity suite, and nothing named `crates/host`. The
-server binaries become dainty-lass's `dainty-lass-server` plus pinned libraries.
+generators and `db` commands, the B tests and fixtures as a parity suite, and nothing named `crates/dainty-host`. The
+server binaries become dainty-lass's `dainty-lass` plus pinned libraries.
 
 ### 5.3 Seams this needs (reported, not made here)
 
-- `crates/hostkit`: a public "service env file" helper and `remote-agent` in `service_main` (hostkit is
+- `crates/dainty-hostkit`: a public "service env file" helper and `remote-agent` in `service_main` (hostkit is
   dainty-lass's; a row owns it).
-- `crates/remote`: the enrolment handler as a library function.
-- `crates/module-api` or `plugin-host`: a way for a module library to offer the game-data generators and the `db`
+- `crates/dainty-remote`: the enrolment handler as a library function.
+- `crates/dainty-module-api` or `plugin-host`: a way for a module library to offer the game-data generators and the `db`
   tools to hostkit (a module command per `GeneratorKind`, or a `HostHooks`-like entry exported by the library).
 
 ---
@@ -353,7 +353,7 @@ module hooks with phase 2, and the test replacement last, if at all.
 
 - The rewritten generator hook passes §2.1's tests, and a reviewer outside the clean room runs the restricted
   `tests/gamedata.rs` suite against it unchanged.
-- Similarity of the rewritten function against `crates/host/src/lib.rs` at `849f45e`, by `similarity.md`'s measure: below 30%, with no run longer than 6 lines outside import lists and match
+- Similarity of the rewritten function against `crates/dainty-host/src/lib.rs` at `849f45e`, by `similarity.md`'s measure: below 30%, with no run longer than 6 lines outside import lists and match
   arms that name the same `GeneratorKind` variants.
 - No AGPL crate appears in the dependency tree of any dainty-lass crate (`cargo tree` per crate, as
   `clean-room/launcher-kit.md` §4 records it).

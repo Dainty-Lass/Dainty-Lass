@@ -8,9 +8,9 @@
 mod common;
 
 use common::{Harness, NOW_MS, Options, PASS, Who, settings};
-use rifts_seam::HostWriteKind;
 use rustic_isles_auth::{GameAccount, GameLogin};
 use rustic_isles_economy::progression::{ProgressionPorts, SessionSupplies};
+use rustic_rifts_seam::HostWriteKind;
 use serde_json::{Value, json};
 
 const GS: Who = Who::Gameserver;

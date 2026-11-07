@@ -109,7 +109,7 @@ fn parse_now(text: &str) -> Option<i64> {
     if !digits.is_empty() && digits.bytes().all(|b| b.is_ascii_digit()) {
         return text.parse().ok();
     }
-    service_kit::js::date_parse(text)
+    dainty_service_kit::js::date_parse(text)
 }
 
 /// Runs `future` with `scope` in force for every await inside it.

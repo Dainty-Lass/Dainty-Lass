@@ -4,8 +4,8 @@
 //! Weapons at base level (spec §7.7, Reforged patch 0036): the 1.14.7 paks carry no per-level power tables, so a
 //! weapon is served at item level 0; the stored level is untouched.
 
+use dainty_service_kit::jsjson;
 use serde_json::Value;
-use service_kit::jsjson;
 
 /// A levelled `WP_` item's data with `CurrentLevel` set to 0 in place; anything else none.
 pub fn weapon_item_data_at_base_level(catalog_id: &Value, item_data: &Value) -> Option<String> {

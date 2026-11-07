@@ -1,4 +1,4 @@
-# DaintyLass
+# Dainty Lass
 
 A private-server kit for **Dauntless 1.14.7**: a launcher for players, a server and host kit for whoever runs it,
 and a module framework that is growing to hold more than one version of the game. Players join with one invite
@@ -29,15 +29,15 @@ runtime (`Rustic-Isles.dll` through `winmm.dll`) and reaches the backend through
 
 ## What is in this directory
 
-`restricted/` is the **AGPL-3.0-only** subtree and Cargo workspace of the DaintyLass monorepo (RD27): it holds the
+`restricted/` is the **AGPL-3.0-only** subtree and Cargo workspace of the Dainty Lass monorepo (RD27): it holds the
 AGPL parts and builds the full server, the Tauri launcher and the Docker images, taking the MIT crates from
 [`../crates/`](../crates) as path dependencies.
 
 | Folder | What |
 | --- | --- |
 | [`.`](.) | Independent AGPL-3.0-only Cargo workspace: `crates/` (`host`, the libraries of the MIT gateway, content and chat, and the server executables), `launcher/src-tauri` (Tauri: `dainty-launcher` and `dainty-manager`), and the game modules' crates |
-| [`modules/rustic-isles/`](modules/rustic-isles) | The library the core loads for the 1.14.7 module (`isles-1-14-7-plugin`), its version data and the Node goldens replayed against it (`isles-mit-parity`), the runtime's C++ source and CatalogExporter (`native/`), and the Node reference sources (`reference/1.14.7`) |
-| [`modules/rustic-rifts/`](modules/rustic-rifts) | The realm transport (`ParadoxTransport.dll`) and `oracle`, which replays Mystic Paradox's answers against the root's MIT `rifts-*` crates |
+| [`modules/rustic-isles/`](modules/rustic-isles) | The library the core loads for the 1.14.7 module (`rustic-isles-plugin`), its version data and the Node goldens replayed against it (`rustic-isles-mit-parity`), the runtime's C++ source and CatalogExporter (`native/`), and the Node reference sources (`reference/1.14.7`) |
+| [`modules/rustic-rifts/`](modules/rustic-rifts) | The realm transport (`ParadoxTransport.dll`) and `oracle`, which replays Mystic Paradox's answers against the root's MIT `rustic-rifts-*` crates |
 | [`legacy/`](legacy) | The importer for Dauntless Revived 1.4.4 and Reforged Revival installs |
 | [`native/`](native) | The runtime loader (`runtime-loader`, Rust `winmm.dll` proxy) |
 | [`docker/`](docker), `compose.yaml` | The server as containers |
@@ -48,7 +48,7 @@ AGPL parts and builds the full server, the Tauri launcher and the Docker images,
 The restricted Rust workspace, from `restricted/` (the toolchain is pinned in `rust-toolchain.toml`):
 
 ```bash
-cargo build --release -p server-console --features all-modules --bins
+cargo build --release -p dainty-server --features all-modules --bins
 ```
 
 The desktop apps live in `launcher` (`bun install && bun run build:client` for `dainty-launcher` and
@@ -59,7 +59,7 @@ tests are in `../launcher` (`bun run test`). The runtime and the CatalogExporter
 
 ## Credits and licence
 
-DaintyLass stands on [Mystic Paradox](https://github.com/pranav158/Mystic-Paradox) (Pranav Karande), whose backend,
+Dainty Lass stands on [Mystic Paradox](https://github.com/pranav158/Mystic-Paradox) (Pranav Karande), whose backend,
 Director and runtime live in `modules/rustic-isles`; on [Dauntless Revived](https://github.com/mixutin/dauntless-revived)
 (mixutin and contributors), whose Rust crates the workspace started from and whose invite and account-key design
 the launcher follows; and on [Undaunted](https://github.com/SyST3MDeV/Undaunted) (gwog and contributors), which both

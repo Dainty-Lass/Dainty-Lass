@@ -2,10 +2,10 @@
 
 # Clean-room behaviour specification: the gateway and the allowlist helper (RD27)
 
-This is the clean-room specification for relicensing dainty-restricted's AGPL gateway (`crates/gateway`, which
-holds the allowlist helper too) and its library wrapper (`crates/gateway-plugin`) under MIT in dainty-lass. The
+This is the clean-room specification for relicensing dainty-restricted's AGPL gateway (`crates/dainty-gateway`, which
+holds the allowlist helper too) and its library wrapper (`crates/dainty-gateway-plugin`) under MIT in dainty-lass. The
 writer read the AGPL code; the implementer never does, and rebuilds the crate from these pages, the MIT crates it
-already has (`proxy`, `service-kit`, `protocol`, `module-api`, `crates/network`, `hostkit`, `service-plugin`,
+already has (`proxy`, `service-kit`, `protocol`, `module-api`, `crates/dainty-network`, `hostkit`, `service-plugin`,
 `controller`) and the black-box test vectors named in section 5.
 
 The gateway is the only listener off loopback and a trust boundary, and the allowlist helper runs with the most rights
@@ -32,15 +32,15 @@ error answer (front page, section 13).
 
 ## 1. Scope
 
-In: everything under restricted's `crates/gateway/` (`src/`, `tests/`, `Cargo.toml`) and
-`crates/gateway-plugin/` (`src/lib.rs`, `tests/`, `Cargo.toml`), and the five fuzz targets that exercise them
+In: everything under restricted's `crates/dainty-gateway/` (`src/`, `tests/`, `Cargo.toml`) and
+`crates/dainty-gateway-plugin/` (`src/lib.rs`, `tests/`, `Cargo.toml`), and the five fuzz targets that exercise them
 (`gateway_policy`, `gateway_capture`, `gateway_modules`, `gateway_network`, `allowlist_input`).
 
-Out, already MIT and only consumed: `crates/proxy` (hop-by-hop filtering and the idle-timed tunnel), `service-kit`
+Out, already MIT and only consumed: `crates/dainty-proxy` (hop-by-hop filtering and the idle-timed tunnel), `service-kit`
 (`env::Env`, `js` helpers, `linelog` with its `Throttle`, `metrics::http_request`, `context::ServiceContext`,
 `serve::stop_requested`), `protocol` (`invite::reforged_version`, `invite::version_alias`,
 `account::is_plausible_account_key`, `GameVersion`), `module-api` (manifests, registrations, `CorePlugin`,
-`PortRange`, `NodeIdentity`), `crates/network` (`cluster`, `endpoint`, `wire`, `link::MAX_MESSAGE`), `hostkit::tls`
+`PortRange`, `NodeIdentity`), `crates/dainty-network` (`cluster`, `endpoint`, `wire`, `link::MAX_MESSAGE`), `hostkit::tls`
 (self-signed certificate generation), `service-plugin::gateway` (the seam, section 3) and
 `controller::service_library::gateway` (the core side of the seam).
 
@@ -48,11 +48,11 @@ Out, already MIT and only consumed: `crates/proxy` (hop-by-hop filtering and the
 
 Evidence used: restricted's history was given a new root on 2026-10-26 (`7338b10`, "a new root without the Dauntless
 Reforged Revival line"). A file present at that root came down the DR to Reforged line, and the migration guide
-section 2.3 maps each to the DR or Reforged Node file it ports. A file first added after it by a DaintyLass row
+section 2.3 maps each to the DR or Reforged Node file it ports. A file first added after it by a Dainty Lass row
 (DF4a, DF4d, DN3, DN5, DN7, RD27) is born here. Two files that moved after the root (`cli.rs` from `main.rs`,
 `allowlist/cli.rs` from `bin/allowlist.rs`, commit `52eaddd`) keep their origin.
 
-### 2.1 Category A: born in DaintyLass, may move to MIT as they are (17 files)
+### 2.1 Category A: born in Dainty Lass, may move to MIT as they are (17 files)
 
 | File | Row and commit that added it | Note for the move |
 | --- | --- | --- |
@@ -128,8 +128,8 @@ treatment section 5.1 sets.
 
 ## 3. The seam: the gateway library's messages
 
-The gateway and the allowlist run as one library the core loads (`crates/gateway-plugin`, a cdylib). The messages
-are dainty-lass's `crates/service-plugin/src/gateway.rs` (already MIT); the library's side is Category A. This is the
+The gateway and the allowlist run as one library the core loads (`crates/dainty-gateway-plugin`, a cdylib). The messages
+are dainty-lass's `crates/dainty-service-plugin/src/gateway.rs` (already MIT); the library's side is Category A. This is the
 contract the rewritten crate must serve, through the public API of section 4.
 
 Only control traffic crosses. Each message is a JSON object tagged by `type` (snake_case names) that refuses unknown
@@ -192,8 +192,8 @@ when the second refuses, detaches the first and refuses; `detach` detaches both 
 
 ## 4. The public API restricted and the library need
 
-The rewrite keeps these module paths and names: restricted's `crates/host/src/compose.rs` and `lib.rs`,
-`crates/chat/tests/federation.rs`, `crates/host/tests/*`, the Category A files and the fuzz targets use them.
+The rewrite keeps these module paths and names: restricted's `crates/dainty-host/src/compose.rs` and `lib.rs`,
+`crates/dainty-chat/tests/federation.rs`, `crates/dainty-host/tests/*`, the Category A files and the fuzz targets use them.
 Signatures may change shape only where every caller is updated in the same change. Everything not listed is private
 to the crate.
 
@@ -317,9 +317,9 @@ to the backend still fails a build.
 
 ## 6. Target MIT design
 
-- **Where.** A new crate `crates/gateway` in dainty-lass (package `gateway`, `license = "MIT"`, SPDX MIT headers,
+- **Where.** A new crate `crates/dainty-gateway` in dainty-lass (package `gateway`, `license = "MIT"`, SPDX MIT headers,
   `Copyright (c) 2026 Silent Spud`), a library with the module tree of section 4. The Category A files go in at their
-  paths. `crates/gateway-plugin` moves to dainty-lass beside it (it then depends on MIT crates only). The three
+  paths. `crates/dainty-gateway-plugin` moves to dainty-lass beside it (it then depends on MIT crates only). The three
   rewritten and two moved fuzz targets go to dainty-lass's `fuzz/`. The security checklists `gateway.md`,
   `allowlist.md` and `region-ping.md` move with the code to dainty-lass's `docs/security/` (the integration pass
   indexes them).
@@ -330,7 +330,7 @@ to the backend still fails a build.
   list, it does not edit the workspace `Cargo.toml`.
 - **`unsafe_code`.** The Windows Firewall module needs COM calls. It is the only module that allows `unsafe_code`,
   with a one-line reason, as in restricted.
-- **restricted after the move.** `crates/gateway` and `crates/gateway-plugin` are deleted there; `host`, the chat
+- **restricted after the move.** `crates/dainty-gateway` and `crates/dainty-gateway-plugin` are deleted there; `host`, the chat
   plugin's tests and anything else take `gateway` (and the library, for its tests) from dainty-lass as a git
   dependency at the workspace rev. `compose.rs`, `lib.rs` (`gateway_service_main`, the `allowlist` subcommand,
   `ensure_gateway_cert`) change only their imports. The policy test of section 5.5 stays in restricted.
@@ -340,7 +340,7 @@ to the backend still fails a build.
 - **Provenance record.** A `docs/port/clean-room/gateway.md` like `clean-room/hostkit.md`: the spec commit, the
   implementer's worktree with a sparse checkout that excludes restricted entirely (dainty-lass has no AGPL tree to
   exclude), the files each implementer session read and wrote, and the similarity measurement of `similarity.md` run
-  against restricted's `crates/gateway` at the spec's commit (pairs file to file).
+  against restricted's `crates/dainty-gateway` at the spec's commit (pairs file to file).
 
 ## 7. The riskiest parts
 

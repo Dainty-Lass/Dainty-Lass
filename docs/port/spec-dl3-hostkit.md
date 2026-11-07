@@ -1,6 +1,6 @@
-# Clean-Room Behaviour Specification: `crates/hostkit` (DL3a)
+# Clean-Room Behaviour Specification: `crates/dainty-hostkit` (DL3a)
 
-> **Scope & Purpose (DD26 / DL3a):** This document is the clean-room behaviour specification for extracting and reimplementing the MIT-licensed `crates/hostkit` crate in row **DL3b**, leaving a thin AGPL-3.0-or-later shell in `crates/host` for features that link or invoke Dauntless Revived (`DR`) services.
+> **Scope & Purpose (DD26 / DL3a):** This document is the clean-room behaviour specification for extracting and reimplementing the MIT-licensed `crates/dainty-hostkit` crate in row **DL3b**, leaving a thin AGPL-3.0-or-later shell in `crates/dainty-host` for features that link or invoke Dauntless Revived (`DR`) services.
 >
 > All types, function signatures, CLI flags, configuration schemas (`host.toml`, `host.yaml`, `host.json`, `secrets.env`, `<service>.env`), file paths, wire formats, exit codes, error strings, and test invariants are specified below from observable contracts (`docs/hosting.md`, `docs/hosting-linux.md`, `docs/app-structure-plan.md`, and the integration/unit test suite) without copying implementation code or referencing prior Node host-kit internals.
 
@@ -8,39 +8,39 @@
 
 ## 1. Module Provenance & Licensing Classification
 
-Every source file currently in `crates/host/src/` falls into one of three categories under **DD26**:
+Every source file currently in `crates/dainty-host/src/` falls into one of three categories under **DD26**:
 
-### 1.1 Category A — Original DaintyLass Modules (Already MIT-Eligible; Move or Keep as-is)
+### 1.1 Category A — Original Dainty Lass Modules (Already MIT-Eligible; Move or Keep as-is)
 
-These modules were written originally for DaintyLass in Rust with no `ReforgedHost` or `Dauntless Revived` (`DR`) derivation. They may move into `crates/hostkit` (or remain shared) without clean-room reimplementation:
+These modules were written originally for Dainty Lass in Rust with no `ReforgedHost` or `Dauntless Revived` (`DR`) derivation. They may move into `crates/dainty-hostkit` (or remain shared) without clean-room reimplementation:
 
-| Current Path in `crates/host/src/` | Purpose & Provenance | Destination in DL3b |
+| Current Path in `crates/dainty-host/src/` | Purpose & Provenance | Destination in DL3b |
 | --- | --- | --- |
-| `error.rs` | `HostError` (`Message`, `Io`, `NotImplemented`) and `Result<T, HostError>` wrapper | `crates/hostkit` |
-| `hosttoml.rs` | Round-trip TOML <-> JSON structural converter (`document`, `to_toml`, `key_in_toml`, `key_to_toml`, `check_keys`) | `crates/hostkit` |
-| `hostconfig/yaml.rs` | YAML <-> JSON structural converter (`document`, `to_yaml`) for `host.yaml` / `host.yml` | `crates/hostkit` |
-| `hostconfig/guard.rs` | `[guard]` configuration section (`GuardConfig`) for rate-limiting, bans, and trusted proxies (DH4) | `crates/hostkit` |
-| `hostconfig/modules.rs` | `[modules]` and `[[modules.external]]` configuration section (`ModulesConfig`, `ExternalModuleConfig`) (DF3) | `crates/hostkit` |
-| `epicinstall.rs` | Epic Games Store Dauntless 1.14.7 manifest downloader, chunk verifier, and resume state (`Plan`, `Files`, `Env`, `install_game`, `sign_out`) (DE6 / DD22) | `crates/hostkit` |
-| `guarded.rs` | Helper checking whether the in-process allowlist guards game module UDP ports (`allowlist_guards_modules`) (DF4d) | `crates/hostkit` |
-| `repl.rs` | Interactive console parser and executor (`ConsoleCommand`, `parse_command`, `execute_command`, `run_repl`, `plain`) including `module ...` commands | `crates/hostkit` |
-| `tui.rs` | `ratatui` terminal dashboard (`TuiState`, `KeyAction`, `on_key`, `run_tui`) | `crates/hostkit` |
-| `serve.rs` | Unified in-process `ServerController` composition (`ServeOptions`, `compose`, `new_registry`, `list_modules`, `ensure_server_files`, `run`, `prepare_embedded`, `minimal_main`) — *Note: `legacy` hooks and AGPL feature-gated service constructors (`gateway`, `allowlist`, `content`, `admin`) cross the shell boundary via traits/callbacks* | Split: controller/module orchestration in `crates/hostkit`; AGPL service wiring in `crates/host` |
-| `commands/backup.rs` | `backup` subcommand (`BackupEnv`, `find_mongodump_in`, `run`, `run_with`) | `crates/hostkit` |
-| `commands/history.rs` | `history` and `revert` subcommands (`Select`, `Job`, `Surface`, `Done`, `parse_console`, `run`, `run_history`, `run_revert`) (DD23 / DH3b) | `crates/hostkit` (or wired via `admin` feature) |
-| `commands/install_game.rs` | `install-game` subcommand (`Configured`, `Deps`, `run`, `run_with`, `configure`) (DE6) | `crates/hostkit` |
-| `commands/network.rs` | `network` subcommand (`ca-init`, `issue-node-cert`, `list`, `status`, `join`) (DN3 / DN13) | `crates/hostkit` |
-| `commands/setup/database.rs` | Database seam (`Database::Mongo`, `database`, `database_notes`) | `crates/hostkit` |
-| `commands/setup/secrets.rs` | Cryptographic secret generator (`new_secrets`, `pem`) using `aws-lc-rs` | `crates/hostkit` |
-| `commands/start/binaries.rs` | Service binary locator and Rust/Node switch (`FrontService`, `rust_ported`, `Launch`, `Programs`, `find_node`) | `crates/hostkit` |
+| `error.rs` | `HostError` (`Message`, `Io`, `NotImplemented`) and `Result<T, HostError>` wrapper | `crates/dainty-hostkit` |
+| `hosttoml.rs` | Round-trip TOML <-> JSON structural converter (`document`, `to_toml`, `key_in_toml`, `key_to_toml`, `check_keys`) | `crates/dainty-hostkit` |
+| `hostconfig/yaml.rs` | YAML <-> JSON structural converter (`document`, `to_yaml`) for `host.yaml` / `host.yml` | `crates/dainty-hostkit` |
+| `hostconfig/guard.rs` | `[guard]` configuration section (`GuardConfig`) for rate-limiting, bans, and trusted proxies (DH4) | `crates/dainty-hostkit` |
+| `hostconfig/modules.rs` | `[modules]` and `[[modules.external]]` configuration section (`ModulesConfig`, `ExternalModuleConfig`) (DF3) | `crates/dainty-hostkit` |
+| `epicinstall.rs` | Epic Games Store Dauntless 1.14.7 manifest downloader, chunk verifier, and resume state (`Plan`, `Files`, `Env`, `install_game`, `sign_out`) (DE6 / DD22) | `crates/dainty-hostkit` |
+| `guarded.rs` | Helper checking whether the in-process allowlist guards game module UDP ports (`allowlist_guards_modules`) (DF4d) | `crates/dainty-hostkit` |
+| `repl.rs` | Interactive console parser and executor (`ConsoleCommand`, `parse_command`, `execute_command`, `run_repl`, `plain`) including `module ...` commands | `crates/dainty-hostkit` |
+| `tui.rs` | `ratatui` terminal dashboard (`TuiState`, `KeyAction`, `on_key`, `run_tui`) | `crates/dainty-hostkit` |
+| `serve.rs` | Unified in-process `ServerController` composition (`ServeOptions`, `compose`, `new_registry`, `list_modules`, `ensure_server_files`, `run`, `prepare_embedded`, `minimal_main`) — *Note: `legacy` hooks and AGPL feature-gated service constructors (`gateway`, `allowlist`, `content`, `admin`) cross the shell boundary via traits/callbacks* | Split: controller/module orchestration in `crates/dainty-hostkit`; AGPL service wiring in `crates/dainty-host` |
+| `commands/backup.rs` | `backup` subcommand (`BackupEnv`, `find_mongodump_in`, `run`, `run_with`) | `crates/dainty-hostkit` |
+| `commands/history.rs` | `history` and `revert` subcommands (`Select`, `Job`, `Surface`, `Done`, `parse_console`, `run`, `run_history`, `run_revert`) (DD23 / DH3b) | `crates/dainty-hostkit` (or wired via `admin` feature) |
+| `commands/install_game.rs` | `install-game` subcommand (`Configured`, `Deps`, `run`, `run_with`, `configure`) (DE6) | `crates/dainty-hostkit` |
+| `commands/network.rs` | `network` subcommand (`ca-init`, `issue-node-cert`, `list`, `status`, `join`) (DN3 / DN13) | `crates/dainty-hostkit` |
+| `commands/setup/database.rs` | Database seam (`Database::Mongo`, `database`, `database_notes`) | `crates/dainty-hostkit` |
+| `commands/setup/secrets.rs` | Cryptographic secret generator (`new_secrets`, `pem`) using `aws-lc-rs` | `crates/dainty-hostkit` |
+| `commands/start/binaries.rs` | Service binary locator and Rust/Node switch (`FrontService`, `rust_ported`, `Launch`, `Programs`, `find_node`) | `crates/dainty-hostkit` |
 
-> **Note on Planned Module Names in `dainty-lass-plan.md`:** Row DL3a in `docs/dainty-lass-plan.md` also lists `commands/modules.rs`, `postgres.rs`, and `turn.rs` as MIT-eligible modules if present. In the current tree, module console commands live in `repl.rs` and `hostconfig/modules.rs`, database setup lives in `commands/setup/database.rs` and `hostconfig.rs` (`DatabaseSettings` / `node_database_config`), and relay/network configuration lives in `commands/network.rs` and `hostconfig.rs` (`NetworkConfig`). All of those are Category A original DaintyLass code and are MIT-eligible.
+> **Note on Planned Module Names in `dainty-lass-plan.md`:** Row DL3a in `docs/dainty-lass-plan.md` also lists `commands/modules.rs`, `postgres.rs`, and `turn.rs` as MIT-eligible modules if present. In the current tree, module console commands live in `repl.rs` and `hostconfig/modules.rs`, database setup lives in `commands/setup/database.rs` and `hostconfig.rs` (`DatabaseSettings` / `node_database_config`), and relay/network configuration lives in `commands/network.rs` and `hostconfig.rs` (`NetworkConfig`). All of those are Category A original Dainty Lass code and are MIT-eligible.
 
 ---
 
 ### 1.2 Category B — The 22 Ported Host-Kit Modules (Subject to DL2 Relicensing or DL3b Clean-Room Reimplementation)
 
-These 22 modules were ported during rows RH1–RH5 and must be reimplemented from this clean-room specification in `crates/hostkit` under `MIT` (unless re-licensed upstream under DL2):
+These 22 modules were ported during rows RH1–RH5 and must be reimplemented from this clean-room specification in `crates/dainty-hostkit` under `MIT` (unless re-licensed upstream under DL2):
 
 1. `paths` (`src/paths.rs`)
 2. `envfile` (`src/envfile.rs`)
@@ -67,11 +67,11 @@ These 22 modules were ported during rows RH1–RH5 and must be reimplemented fro
 
 ---
 
-### 1.3 Category C — AGPL-3.0-or-later Shell Modules (Cite `DR` / Link AGPL Crates; Remain in `crates/host`)
+### 1.3 Category C — AGPL-3.0-or-later Shell Modules (Cite `DR` / Link AGPL Crates; Remain in `crates/dainty-host`)
 
-These files directly cite Dauntless Revived (`DR`) or link AGPL-3.0-or-later service crates and therefore **remain in `crates/host`** under `AGPL-3.0-or-later`:
+These files directly cite Dauntless Revived (`DR`) or link AGPL-3.0-or-later service crates and therefore **remain in `crates/dainty-host`** under `AGPL-3.0-or-later`:
 
-| Path in `crates/host/src/` | Why it Remains in the AGPL Shell (`crates/host`) |
+| Path in `crates/dainty-host/src/` | Why it Remains in the AGPL Shell (`crates/dainty-host`) |
 | --- | --- |
 | `legacy/mod.rs` & `legacy/off.rs` | Implements the Dauntless 1.4.4 (`legacy` / `both` edition) stack: generates `metagame.env` and `deploy.env` for `DR`'s `metagame` and `deploy` servers, runs `DR` SQLite migrations (`modules/legacy-revived/rust/crates/database/migrations`), inserts 1.4.4 invite codes into `metagame.sqlite`'s `invite_codes` table, checks `UndauntedInternalServer.dll` and `mystic_loader.ini`, and plans the 1.4.4 supervised processes. |
 | `lib.rs` (service entrypoints & `BUILT_IN_SERVICES`) | Links the `gateway`, `allowlist`, `content`, and `admin` service crates (`service_main`, `console_main`, `minimal_main`) and dispatches to `hostkit`. |
@@ -158,7 +158,7 @@ pub const BOTH_LEGACY_PORTS: LegacyPorts = LegacyPorts {
   - Let `hunts = max_hunts.clamp(1, MAX_HUNTS) as u16`.
   - Returns `(PORTS.game_first.min(PORTS.game_last - 1 - hunts), PORTS.game_last)` (i.e. `(8770, 8777)` for `1..=6` hunts, and `(8776 - hunts, 8777)` for `7..=10` hunts, down to `(8766, 8777)` at `10`).
 - `pub fn find_repo_root(start: &Path) -> Result<PathBuf, HostError>`:
-  Walks `start` (canonicalized if possible) and up to 8 parent directories (`0..=8`). Returns `Ok(dir)` for the first directory containing either `crates/host/Cargo.toml` or `release.json`. If none matches, returns `Err(HostError::message(format!("could not find the project root from {}", start.display())))`.
+  Walks `start` (canonicalized if possible) and up to 8 parent directories (`0..=8`). Returns `Ok(dir)` for the first directory containing either `crates/dainty-host/Cargo.toml` or `release.json`. If none matches, returns `Err(HostError::message(format!("could not find the project root from {}", start.display())))`.
 - `pub fn locate_repo_root() -> Result<PathBuf, HostError>`:
   Tries `std::env::current_dir()` via `find_repo_root`, then `std::env::current_exe()`'s parent directory via `find_repo_root`.
 - `#[derive(Debug, Clone, PartialEq, Eq)] pub struct Paths`:
@@ -166,8 +166,8 @@ pub const BOTH_LEGACY_PORTS: LegacyPorts = LegacyPorts {
   - `repo`: `<repo>`
   - `preset`: `<repo>/preset`
   - `host_kit`: `<repo>/rust/services/host`
-  - `gateway_dir`: `<repo>/crates/gateway`
-  - `content_dir`: `<repo>/crates/content`
+  - `gateway_dir`: `<repo>/crates/dainty-gateway`
+  - `content_dir`: `<repo>/crates/dainty-content`
   - `workspace`: `<repo>/.workspace`
   - `paradox`: `<repo>/modules/rustic-isles/reference/1.14.7`
   - `isles`: `<repo>/modules/rustic-isles`
@@ -317,8 +317,8 @@ pub const RESERVED_PORTS: [u16; 8] = [
     61003,
     61004,
 ];
-pub const LEGACY_UNSUPPORTED: &str = "this server runs Dauntless Revived's 1.4.4 (edition = \"legacy\" or \"both\"), and this reforged-host was built without it: use a build with the legacy feature (cargo build --release -p server-console --features legacy), or setup --edition reborn";
-pub const LEGACY_RULE_NAME: &str = "DaintyLass 1.4.4 game ports (allowlist)";
+pub const LEGACY_UNSUPPORTED: &str = "this server runs Dauntless Revived's 1.4.4 (edition = \"legacy\" or \"both\"), and this reforged-host was built without it: use a build with the legacy feature (cargo build --release -p dainty-server --features legacy), or setup --edition reborn";
+pub const LEGACY_RULE_NAME: &str = "Dainty Lass 1.4.4 game ports (allowlist)";
 pub const MAX_HOST_CONFIG_BYTES: u64 = 256 * 1024;
 pub const SECRET_FILE: &str = "secrets.env";
 pub const SECRET_KEYS: [&str; 11] = [
@@ -1115,7 +1115,7 @@ pub const TRACK_EXPORTS: [&str; 4] = [
 ];
 pub const HUNT_PASS_EXPORT: &str = "huntpass-season-table.jsonl";
 pub const ACTIVE_HUNT_PASS: &str = "season43";
-pub const GENERATED_BY: &str = "DaintyLass host kit, from the CatalogExporter progression export";
+pub const GENERATED_BY: &str = "Dainty Lass host kit, from the CatalogExporter progression export";
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct ProgressionBuild {
@@ -1544,9 +1544,9 @@ pub fn migrate_old_workspace(l: &Layout, repo: &Path) -> Result<Vec<String>, Hos
 
 ---
 
-## 3. Target Crate Architecture for DL3b (`crates/hostkit` vs `crates/host`)
+## 3. Target Crate Architecture for DL3b (`crates/dainty-hostkit` vs `crates/dainty-host`)
 
-1. **`crates/hostkit` (`license = "MIT"`, `Copyright (c) 2026 Silent Spud`):**
+1. **`crates/dainty-hostkit` (`license = "MIT"`, `Copyright (c) 2026 Silent Spud`):**
    - Contains all Category A (MIT-eligible original modules) and Category B (clean-room reimplemented modules from Section 2 and Section 4).
    - Exposes `pub mod hooks` with `pub trait HostHooks: Send + Sync` and `set_hooks` / `get`:
      ```rust
@@ -1604,10 +1604,10 @@ pub fn migrate_old_workspace(l: &Layout, repo: &Path) -> Result<Vec<String>, Hos
          ) -> Result<Vec<Check>, HostError>;
      }
      ```
-   - Has **zero** normal or dev dependencies on `gateway`, `allowlist`, `content`, `chat`, `isles-core`, `isles-db`, `isles-director`, `isles-1-14-7`, `isles-1-12-0`, `rifts-host`, `rifts-seam`, or `revived-1-4-4`.
-2. **`crates/host` (`license = "AGPL-3.0-only"`):**
+   - Has **zero** normal or dev dependencies on `gateway`, `allowlist`, `content`, `chat`, `isles-core`, `isles-db`, `isles-director`, `isles-1-14-7`, `isles-1-12-0`, `rustic-rifts-host`, `rustic-rifts-seam`, or `revived-1-4-4`.
+2. **`crates/dainty-host` (`license = "AGPL-3.0-only"`):**
    - Thin binary/library shell that depends on `hostkit` and the AGPL module/service crates (`isles-core`, `isles-db`, `isles-director`, `isles-1-14-7`, `gateway`, `allowlist`, `content`, `revived-1-4-4`).
-   - Implements `HostHooks`, registers it via `Once`, and re-exports `hostkit` modules so all existing integration tests in `crates/host/tests/*.rs` and workspace binaries (`reforged-host`, `dainty-lass-server-console`, `dainty-lass-server-minimal`, `launcher`) continue to compile and pass unchanged.
+   - Implements `HostHooks`, registers it via `Once`, and re-exports `hostkit` modules so all existing integration tests in `crates/dainty-host/tests/*.rs` and workspace binaries (`reforged-host`, `dainty-lass-server-console`, `dainty-lass-server-minimal`, `launcher`) continue to compile and pass unchanged.
 
 ---
 

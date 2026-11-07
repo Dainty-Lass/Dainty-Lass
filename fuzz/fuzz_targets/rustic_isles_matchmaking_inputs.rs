@@ -5,7 +5,7 @@
 #![no_main]
 
 use libfuzzer_sys::fuzz_target;
-use module_api::{GlobalId, IdKind, NodeId};
+use dainty_module_api::{GlobalId, IdKind, NodeId};
 use rustic_isles_matchmaking::rules::{body_keys, field_shape, log_text};
 use rustic_isles_matchmaking::{MatchCandidate, client_address, effective_hunt_id, make_party_id, qos_plan};
 

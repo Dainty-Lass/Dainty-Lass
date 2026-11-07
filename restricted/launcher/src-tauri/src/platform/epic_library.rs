@@ -1,11 +1,11 @@
 //! Whether the signed-in Epic account owns Dauntless (DE3, DD22), for `epic_library_check` and for a download's
-//! start (DE5, through [`require`]). `epic::library` does the check and keeps the answer a while, in memory and in
+//! start (DE5, through [`require`]). `dainty_epic::library` does the check and keeps the answer a while, in memory and in
 //! `epic-ownership.json` in the user data folder; this turns its answers into the bridge's codes.
 
 use std::path::PathBuf;
 
-use epic::auth::Session;
-use epic::library::{EgsLibrary, Library, LibraryError, Ownership, OwnershipError};
+use dainty_epic::auth::Session;
+use dainty_epic::library::{EgsLibrary, Library, LibraryError, Ownership, OwnershipError};
 
 use crate::bridge::types::{EpicLibraryCheck, ErrorCode, LauncherError};
 
@@ -34,7 +34,7 @@ pub async fn check<L: Library>(ownership: &Ownership<L>, session: Option<&Sessio
 #[cfg_attr(not(test), allow(dead_code, reason = "DE5's game_install_start calls it"))]
 pub async fn require<L: Library>(ownership: &Ownership<L>, session: Option<&Session>) -> Result<(), LauncherError> {
     let session = session.ok_or_else(|| LauncherError::new(ErrorCode::EpicSignedOut))?;
-    epic::library::require_ownership(ownership, session)
+    dainty_epic::library::require_ownership(ownership, session)
         .await
         .map_err(|error| match error {
             OwnershipError::NotOwned => LauncherError::new(ErrorCode::EpicNotOwned),
@@ -65,8 +65,8 @@ mod tests {
     use std::sync::Mutex;
     use std::sync::atomic::{AtomicI64, Ordering};
 
-    use epic::auth::Token;
-    use epic::library::{APP_NAME, OWNED_FOR, Record};
+    use dainty_epic::auth::Token;
+    use dainty_epic::library::{APP_NAME, OWNED_FOR, Record};
     use serde_json::json;
 
     use super::*;

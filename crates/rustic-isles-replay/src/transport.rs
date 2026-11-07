@@ -168,7 +168,7 @@ pub async fn serve_ephemeral(router: Router) -> std::io::Result<EphemeralServer>
     let listener = TcpListener::bind("127.0.0.1:0").await?;
     let addr = listener.local_addr()?;
     let (stop, stopped) = oneshot::channel::<()>();
-    let task = tokio::spawn(service_kit::serve::serve(
+    let task = tokio::spawn(dainty_service_kit::serve::serve(
         listener,
         router,
         async move {

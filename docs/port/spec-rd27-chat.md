@@ -1,15 +1,15 @@
-# Clean-Room Behaviour Specification: `crates/chat` (RD27)
+# Clean-Room Behaviour Specification: `crates/dainty-chat` (RD27)
 
-> **Scope and purpose (RD27, DD26):** this is the clean-room behaviour specification for relicensing DaintyLass's
-> chat core plugin to MIT. Chat lives in dainty-restricted (AGPL) at `crates/chat` (crate `chat`) and
-> `crates/chat-plugin` (crate `chat-plugin`, the `cdylib` the core loads). Part of it is a port of Dauntless
+> **Scope and purpose (RD27, DD26):** this is the clean-room behaviour specification for relicensing Dainty Lass's
+> chat core plugin to MIT. Chat lives in dainty-restricted (AGPL) at `crates/dainty-chat` (crate `chat`) and
+> `crates/dainty-chat-plugin` (crate `chat-plugin`, the `cdylib` the core loads). Part of it is a port of Dauntless
 > Revived's (DR) metagame chat at `e1c5fec`; that part is rewritten here from this document alone by an implementer
-> who never sees the AGPL code. The rest was written for DaintyLass and moves as it is.
+> who never sees the AGPL code. The rest was written for Dainty Lass and moves as it is.
 >
 > Everything below is stated from observable contracts: the XMPP stanzas a client sends and gets, the HTTP routes,
 > the database rows, the node-link wire format, the env settings, the public Rust API other crates and the moved
 > Category A files call, the error texts and the test suite. No implementation code is reproduced, no private helper
-> is named, and the Mystic Paradox realtime gateway, which DR and DaintyLass read for the 1.14.7 client's subset, is
+> is named, and the Mystic Paradox realtime gateway, which DR and Dainty Lass read for the 1.14.7 client's subset, is
 > cited only for the names it gives (paths, room prefixes), never for code.
 >
 > Spec written against dainty-restricted `849f45e` (branch `feat/rd27-plugin-abi`) and dainty-lass `92e797a`.
@@ -22,9 +22,9 @@
 
 | Source | What it says |
 | --- | --- |
-| dainty-restricted `NOTICE.md` (lines 79-81) | `crates/chat` is DN10a, a port of DR's metagame chat at `e1c5fec`, with behaviour (no code) from Mystic Paradox's realtime gateway |
+| dainty-restricted `NOTICE.md` (lines 79-81) | `crates/dainty-chat` is DN10a, a port of DR's metagame chat at `e1c5fec`, with behaviour (no code) from Mystic Paradox's realtime gateway |
 | `docs/port/agpl-inventory.md` §1.3.13 | 8 DR-derived source files (`lib.rs`, `connection.rs`, `muc.rs`, `nick.rs`, `redact.rs`, `server.rs`, `settings.rs`, `xmpp.rs`); `federation.rs`, `history.rs`, `hooks.rs`, `naming.rs` and the three test files born here |
-| `docs/port/migration-guide.md` §2 row `crates/chat` | Source: DR `services/metagame/src/chat/` at `e1c5fec` |
+| `docs/port/migration-guide.md` §2 row `crates/dainty-chat` | Source: DR `services/metagame/src/chat/` at `e1c5fec` |
 | Commit `0a3017b` (DN10a) body | "keeps its structure: one task owns all of chat, DR's limits, throttles, pings, ghost replacement, nickname rules, frame parser and redaction. `xmpp.rs`, `nick.rs` and `redact.rs` are DR's unchanged but for helper paths and `NS_DELAY`" |
 | Commits `023b6d6` (DN10b), `8346fd4`, `ac5cf47`, `d4d8d5c` (RD27) | Federation, the dashboard moderation, the env reader and the library written here |
 | File headers (`//!`) | Each DR-derived file opens "From Dauntless Revived's metagame chat at `e1c5fec`"; each born file says "New here" or names its row |
@@ -56,39 +56,39 @@ keep DR's structure and DR's functions, so the whole file is rewritten (§1.5).
 
 | Path (dainty-restricted) | Born in | What it is |
 | --- | --- | --- |
-| `crates/chat/Cargo.toml` | `0a3017b` | The manifest. Moves with three edits: `license = "MIT"`, a description without "from Dauntless Revived", and no `gateway` dev-dependency (§6.3) |
-| `crates/chat/migrations/sqlite/0001_chat/{up,down}.sql` | `0a3017b` | Chat's schema (§3.2) |
-| `crates/chat/migrations/postgres/0001_chat/{up,down}.sql` | `0a3017b` | The same in Postgres |
-| `crates/chat/migrations/sqlite/0002_federation/{up,down}.sql` | `023b6d6` | `mid` columns and `chat_outbox` |
-| `crates/chat/migrations/postgres/0002_federation/{up,down}.sql` | `023b6d6` | The same in Postgres |
-| `crates/chat/src/env.rs` | `d4d8d5c` | Chat's settings from its env file; moved from host's `compose.rs`, itself MIT (§3.3) |
-| `crates/chat/src/federation.rs` | `0a3017b` (seam), `023b6d6` (body) | `Federation`, `LocalOnly`, `ChatFederation`, the node-link wire format (§3.1) |
-| `crates/chat/src/history.rs` | `0a3017b` | `History`: chat's database on `store` |
-| `crates/chat/src/hooks.rs` | `0a3017b` | `ChatHost`, `Login`, `Player`, `LoginRefusal`, `Drivers`, the defaults (§3.4) |
-| `crates/chat/src/moderation.rs` | `8346fd4`, `ac5cf47` | The staff dashboard's filter, chat log and reports |
-| `crates/chat/src/naming.rs` | `0a3017b` | Room names to `RoomKind` (DD21) |
-| `crates/chat/tests/chat.rs` | `0a3017b` | One-node black-box tests (§5) |
-| `crates/chat/tests/federation.rs` | `023b6d6` | Two-node tests; one of them needs the AGPL gateway (§6.3) |
-| `crates/chat/tests/history.rs` | `0a3017b` | `History` on SQLite and Postgres |
-| `crates/chat/tests/dashboard_live.rs` | `ac5cf47` | `Moderation` against a live dashboard (ignored) |
-| `crates/chat-plugin/Cargo.toml` | `ee7d90b` | The library's manifest; moves with `license = "MIT"` |
-| `crates/chat-plugin/src/lib.rs` | `d4d8d5c` | `ChatService`: chat as a `service_plugin::Service`, `LibraryChatHost` over the `ChatLink` |
-| `crates/chat-plugin/tests/load.rs` | `d4d8d5c` | Loads the built library through `controller` |
+| `crates/dainty-chat/Cargo.toml` | `0a3017b` | The manifest. Moves with three edits: `license = "MIT"`, a description without "from Dauntless Revived", and no `gateway` dev-dependency (§6.3) |
+| `crates/dainty-chat/migrations/sqlite/0001_chat/{up,down}.sql` | `0a3017b` | Chat's schema (§3.2) |
+| `crates/dainty-chat/migrations/postgres/0001_chat/{up,down}.sql` | `0a3017b` | The same in Postgres |
+| `crates/dainty-chat/migrations/sqlite/0002_federation/{up,down}.sql` | `023b6d6` | `mid` columns and `chat_outbox` |
+| `crates/dainty-chat/migrations/postgres/0002_federation/{up,down}.sql` | `023b6d6` | The same in Postgres |
+| `crates/dainty-chat/src/env.rs` | `d4d8d5c` | Chat's settings from its env file; moved from host's `compose.rs`, itself MIT (§3.3) |
+| `crates/dainty-chat/src/federation.rs` | `0a3017b` (seam), `023b6d6` (body) | `Federation`, `LocalOnly`, `ChatFederation`, the node-link wire format (§3.1) |
+| `crates/dainty-chat/src/history.rs` | `0a3017b` | `History`: chat's database on `store` |
+| `crates/dainty-chat/src/hooks.rs` | `0a3017b` | `ChatHost`, `Login`, `Player`, `LoginRefusal`, `Drivers`, the defaults (§3.4) |
+| `crates/dainty-chat/src/moderation.rs` | `8346fd4`, `ac5cf47` | The staff dashboard's filter, chat log and reports |
+| `crates/dainty-chat/src/naming.rs` | `0a3017b` | Room names to `RoomKind` (DD21) |
+| `crates/dainty-chat/tests/chat.rs` | `0a3017b` | One-node black-box tests (§5) |
+| `crates/dainty-chat/tests/federation.rs` | `023b6d6` | Two-node tests; one of them needs the AGPL gateway (§6.3) |
+| `crates/dainty-chat/tests/history.rs` | `0a3017b` | `History` on SQLite and Postgres |
+| `crates/dainty-chat/tests/dashboard_live.rs` | `ac5cf47` | `Moderation` against a live dashboard (ignored) |
+| `crates/dainty-chat-plugin/Cargo.toml` | `ee7d90b` | The library's manifest; moves with `license = "MIT"` |
+| `crates/dainty-chat-plugin/src/lib.rs` | `d4d8d5c` | `ChatService`: chat as a `service_plugin::Service`, `LibraryChatHost` over the `ChatLink` |
+| `crates/dainty-chat-plugin/tests/load.rs` | `d4d8d5c` | Loads the built library through `controller` |
 
 Outside the two folders, three more born-here files go with chat: `fuzz/fuzz_targets/chat_stanza.rs` (`0a3017b`),
 `fuzz/fuzz_targets/chat_federation.rs` (`023b6d6`) and `docs/security/chat.md` (`0a3017b`, `8346fd4`).
 
 ### 1.3 Category B: derived from DR, rewritten clean-room (8 files)
 
-1. `crates/chat/src/lib.rs`: the crate root, `ChatPlugin`, `Running`, `StartError` (§2.1, §2.3)
-2. `crates/chat/src/settings.rs`: `Settings`, `NickCheck`, the port and paths (§2.2)
-3. `crates/chat/src/connection.rs`: the listener, the WebSocket connections, the gateway check, the loopback API
+1. `crates/dainty-chat/src/lib.rs`: the crate root, `ChatPlugin`, `Running`, `StartError` (§2.1, §2.3)
+2. `crates/dainty-chat/src/settings.rs`: `Settings`, `NickCheck`, the port and paths (§2.2)
+3. `crates/dainty-chat/src/connection.rs`: the listener, the WebSocket connections, the gateway check, the loopback API
    (§2.4, §2.5)
-4. `crates/chat/src/server.rs`: the chat task, sessions, login, bind, IQs, presence, whispers, limits (§2.6-§2.12)
-5. `crates/chat/src/muc.rs`: rooms (§2.13)
-6. `crates/chat/src/nick.rs`: nickname rules (§2.14)
-7. `crates/chat/src/xmpp.rs`: the frame parser, escaping, JIDs, the token bucket, trace redaction (§2.15-§2.17)
-8. `crates/chat/src/redact.rs`: credential redaction for logs (§2.18)
+4. `crates/dainty-chat/src/server.rs`: the chat task, sessions, login, bind, IQs, presence, whispers, limits (§2.6-§2.12)
+5. `crates/dainty-chat/src/muc.rs`: rooms (§2.13)
+6. `crates/dainty-chat/src/nick.rs`: nickname rules (§2.14)
+7. `crates/dainty-chat/src/xmpp.rs`: the frame parser, escaping, JIDs, the token bucket, trace redaction (§2.15-§2.17)
+8. `crates/dainty-chat/src/redact.rs`: credential redaction for logs (§2.18)
 
 ### 1.4 Dependencies between the categories
 
@@ -981,9 +981,9 @@ Option<GlobalId>` (none), `presence(account, local, online)` (nothing). `LoginRe
 join and speak everywhere, history for party and hunt rooms only. `Drivers` answers `ask` from a map of
 `ModuleDriver`s (an unknown module answers `Unsupported`).
 
-In-process, restricted's `crates/host/src/compose.rs` implements `ChatHost` over the controller (`ControllerChatHost`).
+In-process, restricted's `crates/dainty-host/src/compose.rs` implements `ChatHost` over the controller (`ControllerChatHost`).
 As a library, `chat-plugin` (A) implements it over dainty-lass's `service_plugin::chat::ChatLink`
-(`crates/service-plugin/src/chat.rs`, MIT, unchanged by this work): the core sends `ToChat::{Setup, Loaded,
+(`crates/dainty-service-plugin/src/chat.rs`, MIT, unchanged by this work): the core sends `ToChat::{Setup, Loaded,
 Unloaded, Answer, HomeLoggedIn, Account, PeerAnswer, PeerServe}` and chat sends `FromChat::{Ask, HomeLogin,
 FindAccount, Presence, PeerCall, PeerServed}`, tagged `op` in snake case, each request with an id the asker chose, at
 most 256 pending a side, 30 s for an answer, strings bounded (`MAX_LOCAL` 256, `MAX_TOKEN` 16 KiB, `MAX_REASON` 512,
@@ -1068,8 +1068,8 @@ every accepted request and reply round-trips (A code; see §7 item 2). Both move
 
 | dainty-restricted today | dainty-lass after |
 | --- | --- |
-| `crates/chat/` (crate `chat`) | `crates/chat/`, `license = "MIT"`, `Copyright (c) 2026 Silent Spud` and `// SPDX-License-Identifier: MIT` on every source file. Category A files moved as they are; Category B files written from §2 |
-| `crates/chat-plugin/` (crate `chat-plugin`, `cdylib`) | `crates/chat-plugin/`, MIT, moved as it is. Whether the MIT core builds chat in (as it does admin and remote) or keeps loading the library is the maintainer's call (RD27 row); the library form needs no core change |
+| `crates/dainty-chat/` (crate `chat`) | `crates/dainty-chat/`, `license = "MIT"`, `Copyright (c) 2026 Silent Spud` and `// SPDX-License-Identifier: MIT` on every source file. Category A files moved as they are; Category B files written from §2 |
+| `crates/dainty-chat-plugin/` (crate `chat-plugin`, `cdylib`) | `crates/dainty-chat-plugin/`, MIT, moved as it is. Whether the MIT core builds chat in (as it does admin and remote) or keeps loading the library is the maintainer's call (RD27 row); the library form needs no core change |
 | `fuzz/fuzz_targets/chat_{stanza,federation}.rs` | dainty-lass `fuzz/fuzz_targets/`, with their `[[bin]]` entries |
 | `docs/security/chat.md` | dainty-lass `docs/security/chat.md` (indexed in `SECURITY_REVIEW.md` by the integration pass) |
 
@@ -1077,7 +1077,7 @@ Every dependency is already in dainty-lass's workspace and MIT: `module-api`, `n
 (`ACCOUNT_KEY_PREFIX`), `service-kit` (`js::trim`, `serve`, `env`, `metrics`), `store` (`Database`, `portable`,
 `Actor`), `service-plugin`; the external crates (`axum` with `ws`, `diesel`, `diesel_migrations`, `regex`, `sha2`,
 `subtle`, `ulid`, `rand`, `chrono`, `hyper*`, `rustls`, `tokio-tungstenite` for tests) are workspace dependencies
-already. Adding `crates/chat` and `crates/chat-plugin` to the workspace `members` and `chat` to
+already. Adding `crates/dainty-chat` and `crates/dainty-chat-plugin` to the workspace `members` and `chat` to
 `[workspace.dependencies]` are seam changes for the integration pass.
 
 ### 6.2 What dainty-restricted needs afterwards
@@ -1085,7 +1085,7 @@ already. Adding `crates/chat` and `crates/chat-plugin` to the workspace `members
 Restricted deletes both folders and takes `chat` and `chat-plugin` from dainty-lass by git rev, like the other MIT
 crates. Its remaining callers use only this public API:
 
-- `crates/host/src/compose.rs` (in-process chat; MIT code that stays there): `chat::settings::DEFAULT_PORT`,
+- `crates/dainty-host/src/compose.rs` (in-process chat; MIT code that stays there): `chat::settings::DEFAULT_PORT`,
   `chat::env::{settings, dashboard}`, `ChatPlugin::{new, start, modules}` and its `CorePlugin` impl, `Drivers::{default,
   insert, remove, module_ids, ask}`, `ChatHost`, `Login`, `Player`, `LoginRefusal`, `History::{open, beside}`,
   `Federation`, `ChatFederation::new` (and its `NodeService` impl), `ChatFederationConfig::{new, with_leader}`,
@@ -1101,7 +1101,7 @@ No game module calls the chat crate: `rustic-isles` talks to chat only through `
 
 `tests/federation.rs::federation_works_end_to_end_over_mutual_tls_gateways` runs two chats behind two real
 `gateway::Gateway`s (AGPL) with mutual TLS. It cannot stay in an MIT crate's tests, and `gateway` must leave chat's
-`[dev-dependencies]`. Move that one test to restricted (for example `crates/gateway/tests/`) against `chat` as a git
+`[dev-dependencies]`. Move that one test to restricted (for example `crates/dainty-gateway/tests/`) against `chat` as a git
 dependency, or rewrite it on `network`'s `TlsPeerLink` and `ServiceMux` without the gateway. The file's other five tests
 use `network::inprocess` and move with it.
 
@@ -1113,9 +1113,9 @@ As `docs/port/clean-room/hostkit.md` records for DL3b:
    manifest edits) and remove `gateway` from the dev-dependencies.
 2. The implementer works in a worktree whose sparse checkout excludes every AGPL tree and has no dainty-restricted
    checkout reachable; it reads this spec, the moved A files, the MIT workspace crates and `docs/`.
-3. Record the session, the files read and written, and the test, clippy and `cargo tree -e normal -p chat` results in
+3. Record the session, the files read and written, and the test, clippy and `cargo tree -e normal -p dainty-chat` results in
    `docs/port/clean-room/chat.md`, and add the files to `docs/port/clean-room/similarity.md` measured against
-   restricted `849f45e` `crates/chat/src/` and DR's `services/metagame/src/chat/` (legacy-revived `cfcad3eb`). Explain
+   restricted `849f45e` `crates/dainty-chat/src/` and DR's `services/metagame/src/chat/` (legacy-revived `cfcad3eb`). Explain
    every file at or above 25 % as §3 of that report does (wire templates, public signatures and the pinned constants
    are expected to match).
 4. The integration pass records chat under "Clean-room MIT rewrites" in dainty-lass `NOTICE.md` and removes it from

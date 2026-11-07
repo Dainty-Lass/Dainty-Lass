@@ -8,10 +8,10 @@
 use std::path::Path;
 use std::sync::Arc;
 
-use module_api::chat::{PRESENCE_EVENT, PresenceEvent};
-use module_api::network::HomeInvocation;
-use module_api::stub::RecordingHost;
-use module_api::{
+use dainty_module_api::chat::{PRESENCE_EVENT, PresenceEvent};
+use dainty_module_api::network::HomeInvocation;
+use dainty_module_api::stub::RecordingHost;
+use dainty_module_api::{
     Actor, ActorContext, AdminCall, AdminRequest, Capabilities, CommandRequest, ErrorKind, Event, EventName,
     GameModule, GlobalId, HostCall, IdKind, InProcessModule, LogLevel, ModuleConfig, ModuleContext, ModuleId, NodeId,
     NodeIdentity, OperationName, Phase, PortRange,
@@ -55,7 +55,7 @@ fn context(host: &Arc<RecordingHost>) -> ModuleContext {
 
 /// Every port 0 and the env file, as `drive` configures them.
 fn config(module: &IslesModule, env_file: Option<&Path>) -> ModuleConfig {
-    let mut registrar = module_api::Registrar::new(module.manifest());
+    let mut registrar = dainty_module_api::Registrar::new(module.manifest());
     module.register(&mut registrar).unwrap();
     let registration = registrar.finish().unwrap();
     let mut config = ModuleConfig::defaults(&module.manifest(), &registration);
@@ -80,7 +80,7 @@ fn write(dir: &Path, name: &str, text: &str) -> std::path::PathBuf {
 
 #[tokio::test]
 async fn drive_a_bare_module() {
-    let host = module_api::stub::recording_host();
+    let host = dainty_module_api::stub::recording_host();
     let driver = InProcessModule::new(module(), NodeIdentity::standalone(), host.clone()).unwrap();
     testing::drive(&driver, &host, None, &Mounts::default()).await.unwrap();
     let logs: Vec<String> = host
@@ -109,7 +109,7 @@ async fn the_manifest_and_registration() {
     let names: Vec<&str> = manifest.ports.iter().map(|p| p.name.as_str()).collect();
     assert_eq!(names, ["backend", "director", "qos", "game"]);
     assert_eq!(manifest.game_version.to_string(), "1.14.7");
-    let mut registrar = module_api::Registrar::new(manifest.clone());
+    let mut registrar = dainty_module_api::Registrar::new(manifest.clone());
     module.register(&mut registrar).unwrap();
     let registration = registrar.finish().unwrap();
     registration.check(&manifest).unwrap();
@@ -125,7 +125,7 @@ async fn the_manifest_and_registration() {
 
 #[tokio::test]
 async fn start_twice_and_bad_settings() {
-    let host = module_api::stub::recording_host();
+    let host = dainty_module_api::stub::recording_host();
     let module = module();
     let ctx = context(&host);
     module.start(ctx.clone(), config(&module, None)).await.unwrap();
@@ -208,7 +208,7 @@ fn env_files_merge() {
 
 #[tokio::test]
 async fn admin_actions() {
-    let host = module_api::stub::recording_host();
+    let host = dainty_module_api::stub::recording_host();
     let module = module();
     let ctx = context(&host);
     let call = |request| AdminCall {
@@ -264,7 +264,7 @@ fn home_command(account: &GlobalId) -> CommandRequest {
 
 #[tokio::test]
 async fn commands_and_events() {
-    let host = module_api::stub::recording_host();
+    let host = dainty_module_api::stub::recording_host();
     let module = module();
     let ctx = context(&host);
     let unknown = || CommandRequest {
@@ -304,7 +304,7 @@ async fn commands_and_events() {
     let bare = module.command(ctx.clone(), home_command(&local)).await.unwrap_err();
     assert_eq!(bare.kind, ErrorKind::Unavailable);
 
-    let director = module_api::network::DirectorInvocation::PlaceHunt {
+    let director = dainty_module_api::network::DirectorInvocation::PlaceHunt {
         match_id: hunt.clone(),
         queue: "q".into(),
         game: "1.14.7".parse().unwrap(),

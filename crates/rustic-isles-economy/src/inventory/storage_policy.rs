@@ -7,9 +7,9 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
+use dainty_service_kit::js;
 use rustic_isles::{LoadError, Shared};
 use serde_json::Value;
-use service_kit::js;
 
 use crate::util::{MAX_SAFE, num, num0, number_value, obj, sha_upper};
 
@@ -185,7 +185,7 @@ impl Correction {
             self.catalog_id,
             self.from.as_str(),
             self.to.as_str(),
-            service_kit::jsjson::number(self.quantity)
+            dainty_service_kit::jsjson::number(self.quantity)
         )
     }
 }

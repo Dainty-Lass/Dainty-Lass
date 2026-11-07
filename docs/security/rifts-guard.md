@@ -2,7 +2,7 @@
 
 # Security checklist: Rustic Rifts' Guard (RD27)
 
-The checklist for `crates/rifts-guard`, Guard in observe mode: the Hunt Guard evidence chain a host's transport
+The checklist for `crates/rustic-rifts-guard`, Guard in observe mode: the Hunt Guard evidence chain a host's transport
 posts, whom a hosted runtime may write player state for, which items a player host may grant, the bounds on Guard
 traffic, the host route census and two admin operations routes. Written with the clean-room MIT rewrite from
 `docs/port/spec-rd27-rifts-guard.md` (and the umbrella's D3 renames). `SECURITY_REVIEW.md` indexes it.

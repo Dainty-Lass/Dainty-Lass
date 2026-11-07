@@ -8,8 +8,8 @@ use std::net::SocketAddr;
 use std::path::Path;
 use std::sync::Arc;
 
-use module_api::stub::RecordingHost;
-use module_api::{HostCall, ModuleConfig, ModuleDriver, ModuleDriverExt, Phase, PortRange};
+use dainty_module_api::stub::RecordingHost;
+use dainty_module_api::{HostCall, ModuleConfig, ModuleDriver, ModuleDriverExt, Phase, PortRange};
 use rustic_isles_auth::CallerKind;
 use serde_json::Value;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
@@ -265,7 +265,7 @@ pub async fn sweep(service: Service, address: SocketAddr, mounts: &Mounts) -> Re
                 let message = format!("isles: {} {} is not implemented yet", taker.method.as_str(), taker.path);
                 let body =
                     serde_json::json!({"error": {"code": "NOT_IMPLEMENTED", "message": message, "requestId": id}});
-                if reply.status != 501 || reply.body != service_kit::jsjson::stringify(&body) {
+                if reply.status != 501 || reply.body != dainty_service_kit::jsjson::stringify(&body) {
                     return Err(fail("expected the 501 envelope"));
                 }
             }

@@ -2,7 +2,7 @@
 //! channel without `rr:` (in snake_case). Each checks its arguments again, whatever the isolation hook let
 //! through: the hook guards the page, these guard the backend (`ipc-validate.ts` and the handlers in
 //! `main.ts`, with the same refusals). Then it hands over to the controller (RA13, RA12), whose stubs
-//! answer until those rows land; this file does not change when they do. The DaintyLass commands at the
+//! answer until those rows land; this file does not change when they do. The Dainty Lass commands at the
 //! end (DF8) are refused by `planned` until their rows replace them.
 
 use std::sync::{Arc, LazyLock};

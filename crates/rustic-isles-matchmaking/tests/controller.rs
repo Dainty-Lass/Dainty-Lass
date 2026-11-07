@@ -349,7 +349,7 @@ async fn status_answers() {
     let queued = c.status_answer("q", c.poll("q").await.unwrap().as_ref()).await;
     let body = status_of(&queued);
     assert_eq!(
-        service_kit::jsjson::stringify(body).replace(body["candidateId"].as_str().unwrap(), "ID"),
+        dainty_service_kit::jsjson::stringify(body).replace(body["candidateId"].as_str().unwrap(), "ID"),
         r#"{"candidateId":"ID","candidateStatusPeriodMillis":1000,"gameMode":"ISLAND","huntId":"CR19_PlayerHunt_X","playerStates":{"q":{}},"status":"MATCHING","statusDuration":0,"statusReason":null}"#
     );
     m.state.cancel_hunt(ISLAND, &["w".into()], "WHY");
@@ -399,7 +399,7 @@ async fn ramsgate_is_verified_against_the_director() {
     assert_eq!(body["status"], "IN_PROGRESS");
     assert_eq!(body["candidateStatusPeriodMillis"], 10_000);
     assert_eq!(
-        service_kit::jsjson::stringify(&body["serverInfo"]),
+        dainty_service_kit::jsjson::stringify(&body["serverInfo"]),
         r#"{"buildId":"647472_1.14.7_shipping","gameSessionId":"hub-room","host":"198.51.100.9","port":8791}"#
     );
     let keys: Vec<&str> = body.as_object().unwrap().keys().map(String::as_str).collect();

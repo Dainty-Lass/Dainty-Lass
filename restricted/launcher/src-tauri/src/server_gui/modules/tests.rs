@@ -1,14 +1,14 @@
-//! The module panel against a registry holding the stub module (`module_api::stub`), and a host.toml in a
+//! The module panel against a registry holding the stub module (`dainty_module_api::stub`), and a host.toml in a
 //! temporary server folder.
 #![allow(clippy::unwrap_used, clippy::expect_used)]
 
 use std::sync::Arc;
 
-use module_api::GameModule;
-use module_api::stub::StubModule;
+use dainty_module_api::GameModule;
+use dainty_module_api::stub::StubModule;
+use dainty_service_kit::context::StatusRegistry;
 use serde_json::json;
 use server_controller::{ModuleEntry, ModuleRegistry, ModuleSource, RegistryOptions};
-use service_kit::context::StatusRegistry;
 
 use super::*;
 use crate::bridge::types::{ModuleSettingValue, ModuleView};
@@ -24,7 +24,7 @@ struct Fixture {
 
 impl Fixture {
     fn host_toml(&self) -> std::path::PathBuf {
-        host::paths::Paths::new(self.dir.path()).host_toml
+        dainty_host::paths::Paths::new(self.dir.path()).host_toml
     }
 }
 

@@ -3,10 +3,10 @@
 
 //! Inventories and POST /inventory's idempotency ledger (spec §9).
 
+use dainty_service_kit::jsjson;
 use diesel::QueryableByName;
 use diesel::sql_types::{BigInt, Nullable, Text};
 use serde_json::{Map, Value};
-use service_kit::jsjson;
 
 use crate::sql::{account_id, limit_clause, opt_account_id, sql};
 use crate::{AccountId, AnyConnection, Json, RepoError, RepoResult, Tx};

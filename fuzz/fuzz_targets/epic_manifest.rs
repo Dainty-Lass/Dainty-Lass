@@ -9,9 +9,9 @@
 use std::path::Path;
 
 use arbitrary::Arbitrary;
-use epic::chunk;
-use epic::download::resume;
-use epic::manifest::{ChunkInfo, Guid, InstallPath, Manifest, ManifestError, Sha1Digest};
+use dainty_epic::chunk;
+use dainty_epic::download::resume;
+use dainty_epic::manifest::{ChunkInfo, Guid, InstallPath, Manifest, ManifestError, Sha1Digest};
 use libfuzzer_sys::fuzz_target;
 
 #[derive(Arbitrary, Debug)]
@@ -73,7 +73,7 @@ fn check_manifest(bytes: &[u8]) {
 
 fuzz_target!(|input: Input<'_>| match input {
     Input::Pasted(text) => {
-        if let Ok(code) = epic::auth::AuthorizationCode::from_pasted(text) {
+        if let Ok(code) = dainty_epic::auth::AuthorizationCode::from_pasted(text) {
             let code = code.expose();
             assert!(!code.is_empty() && code.len() <= 256 && code.bytes().all(|b| b.is_ascii_alphanumeric()));
         }

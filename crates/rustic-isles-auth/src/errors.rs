@@ -233,7 +233,7 @@ mod tests {
             .with_detail("scheduledFor", json!("2026-11-01T00:00:00.000Z"))
             .with_detail("code", json!("mine"));
         assert_eq!(
-            service_kit::jsjson::stringify(&error.body("rid")),
+            dainty_service_kit::jsjson::stringify(&error.body("rid")),
             r#"{"error":{"scheduledFor":"2026-11-01T00:00:00.000Z","code":"ACCOUNT_DEACTIVATED","message":"gone","requestId":"rid"}}"#
         );
     }

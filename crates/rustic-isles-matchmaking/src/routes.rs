@@ -7,17 +7,17 @@ use std::sync::Arc;
 
 use axum::extract::ConnectInfo;
 use axum::response::{IntoResponse, Response};
+use dainty_module_api::network::{HomeError, JoinDecision};
+use dainty_module_api::{GlobalId, IdKind};
+use dainty_service_kit::json::JSON_UTF8;
+use dainty_service_kit::serve::ConnectionInfo;
 use http::{HeaderMap, HeaderName, HeaderValue, StatusCode, header};
-use module_api::network::{HomeError, JoinDecision};
-use module_api::{GlobalId, IdKind};
-use rifts_seam::AccountId as RealmAccount;
 use rustic_isles::{Call, Handlers, Method, RouteDef, Service, Shared, not_implemented, read_body};
 use rustic_isles_auth::AuthData;
 use rustic_isles_chat::HubSessions;
 use rustic_isles_store::UserId;
+use rustic_rifts_seam::AccountId as RealmAccount;
 use serde_json::{Map, Value};
-use service_kit::json::JSON_UTF8;
-use service_kit::serve::ConnectionInfo;
 
 use crate::candidate::MatchCandidate;
 use crate::controller::{Ctx, JoinParty, JoinRequest, PARTY_ONLINE_WINDOW_MS};
@@ -33,7 +33,7 @@ fn json(status: StatusCode, value: &Value) -> Response {
     (
         status,
         [(header::CONTENT_TYPE, JSON_UTF8)],
-        service_kit::jsjson::stringify(value),
+        dainty_service_kit::jsjson::stringify(value),
     )
         .into_response()
 }
@@ -49,7 +49,7 @@ fn empty_object() -> Value {
 /// Express's error page, after the route's error log.
 fn page500(route: &RouteDef, error: &str) -> Response {
     tracing::error!("{}: {error}", route.name());
-    service_kit::body::error_page(StatusCode::INTERNAL_SERVER_ERROR)
+    dainty_service_kit::body::error_page(StatusCode::INTERNAL_SERVER_ERROR)
 }
 
 fn object(pairs: Vec<(&str, Value)>) -> Value {
@@ -366,7 +366,7 @@ async fn join(mut call: Call) -> Response {
     let hunt = string_field(&body, "playerHuntId").map(str::to_owned);
     let build_id = string_field(&body, "buildId").map(str::to_owned);
     let requested = string_field(&body, "partyId")
-        .filter(|id| !service_kit::js::trim(id).is_empty())
+        .filter(|id| !dainty_service_kit::js::trim(id).is_empty())
         .map(str::to_owned);
     if let Some(response) = ring_join(&ctx, &user, &body, echo.as_ref()).await {
         return response;

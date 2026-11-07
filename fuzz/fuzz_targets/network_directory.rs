@@ -4,10 +4,10 @@
 #![no_main]
 
 use libfuzzer_sys::fuzz_target;
-use network::Username;
-use network::link::MAX_MESSAGE;
-use network::messages::{DirectoryCall, DirectoryReply, decode_request, decode_response, encode};
-use protocol::account::is_valid_username;
+use dainty_network::Username;
+use dainty_network::link::MAX_MESSAGE;
+use dainty_network::messages::{DirectoryCall, DirectoryReply, decode_request, decode_response, encode};
+use dainty_protocol::account::is_valid_username;
 
 fuzz_target!(|data: &[u8]| {
     if let Ok(request) = decode_request(data) {
@@ -25,7 +25,7 @@ fuzz_target!(|data: &[u8]| {
                 let account = entry.change.account().to_string();
                 assert_eq!(
                     account
-                        .parse::<module_api::GlobalId>()
+                        .parse::<dainty_module_api::GlobalId>()
                         .expect("one spelling")
                         .to_string(),
                     account

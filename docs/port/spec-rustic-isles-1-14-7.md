@@ -3,11 +3,11 @@
 > **Scope and purpose (RD27):** this is the clean-room behaviour specification for unit 12 of
 > [`spec-rustic-isles-core.md`](spec-rustic-isles-core.md) §16: the MIT **version crate** `rustic-isles-1-14-7`
 > (1.14.7's tables, hooks and Director values, the module spec, the composer that wires every `rustic-isles-*` area
-> crate and dainty-lass's MIT `rifts-*` crates into one module, its start-ups and its `ModuleHooks`) and the MIT
+> crate and dainty-lass's MIT `rustic-rifts-*` crates into one module, its start-ups and its `ModuleHooks`) and the MIT
 > **plugin crate** `rustic-isles-1-14-7-plugin` (the same module as a library the core loads). Its sources are
-> dainty-restricted's `modules/rustic-isles/crates/isles-1-14-7` and `isles-1-14-7-plugin`, the module skeleton of
+> dainty-restricted's `modules/rustic-isles/crates/isles-1-14-7` and `rustic-isles-plugin`, the module skeleton of
 > `isles-core/src/module.rs` that composes the areas today, `areas/auth/wiring.rs`'s rifts core, and how
-> restricted's `crates/host` loads the module. All are AGPL-3.0-only with Mystic Paradox's section 7 terms; an
+> restricted's `crates/dainty-host` loads the module. All are AGPL-3.0-only with Mystic Paradox's section 7 terms; an
 > implementer who never sees them writes the MIT crates from this document and the area specs alone.
 >
 > Everything below is stated from observable contracts: the manifest, the wire payloads of every hook, the table
@@ -29,19 +29,19 @@
 | Source | What it says |
 | --- | --- |
 | `modules/rustic-isles/NOTICE.md` | Every crate and file of the module is AGPL-3.0-only with Mystic Paradox's section 7 terms |
-| File headers (`//!`) and comments of `isles-1-14-7/src/lib.rs` | DaintyLass rows (DD4, DD8, DD14, DD16, DD25, RU3c, RF2) for the shape; Node provenance for values: `controllers/candidateStatus.ts` (Ramsgate), `weaponBaseLevel.ts`, `tuning.ts`'s `BountyGrantWindows`, `listenerPlan.ts` (QoS 80), the captured `epiceos` contract |
+| File headers (`//!`) and comments of `isles-1-14-7/src/lib.rs` | Dainty Lass rows (DD4, DD8, DD14, DD16, DD25, RU3c, RF2) for the shape; Node provenance for values: `controllers/candidateStatus.ts` (Ramsgate), `weaponBaseLevel.ts`, `tuning.ts`'s `BountyGrantWindows`, `listenerPlan.ts` (QoS 80), the captured `epiceos` contract |
 | `git log` of both crates | One author (the maintainer); history flattened by the 2026-11-01 merge and the `4efc8b5` move |
 | `isles-1-14-7/tests/*.rs`, `isles-1-14-7-plugin/tests/load.rs` | Authored tests (manifest, 501 sweeps in and out of process, Director arguments, game-data goldens, realms with a database, chat before and after start, the library load) and the golden replays of five areas (described only, §12) |
 | `isles-core/src/module.rs` (`start_services`, `chat`, `admin`, `event`, `stop`) | The composition order restricted runs today |
 | `isles-core/src/areas/auth/wiring.rs` (`AuthReforgedCore`) | The rifts fallback core (§5.6) |
 | `isles-core/src/areas/characters/{data,starter}.rs`, `areas/bounties_store/wallet.rs`, `game_data/generators.rs`, `isles-db/src/transforms.rs` | Where the game-derived inputs of §4 live today (read for classification only; no value is copied here) |
-| `crates/host/src/compose.rs`, `crates/host/src/lib.rs` (`isles_service_main`) | How restricted's server links the module and builds the hidden `backend` and `director` subcommands |
-| `launcher/src-tauri/src/controller/realms.rs`, `native/runtime/p2p/PlayerHost.cpp`, `modules/rustic-rifts/src/admission_client.cpp`, `modules/rustic-rifts/crates/rifts-seam/src/http.rs`, `isles-core/src/http.rs` | Which host-capability header each side sends or reads (§7) |
-| dainty-lass `crates/rifts-*`, `crates/rustic-isles`, `crates/module-api` (`plugin.rs`, `child.rs`), `crates/plugin-host`, `crates/controller/src/registry.rs`, `docs/port/spec-rd27-rifts.md` D3 | The MIT side the composition is written against |
+| `crates/dainty-host/src/compose.rs`, `crates/dainty-host/src/lib.rs` (`isles_service_main`) | How restricted's server links the module and builds the hidden `backend` and `director` subcommands |
+| `launcher/src-tauri/src/controller/realms.rs`, `native/runtime/p2p/PlayerHost.cpp`, `modules/rustic-rifts/src/admission_client.cpp`, `modules/rustic-rifts/crates/rustic-rifts-seam/src/http.rs`, `isles-core/src/http.rs` | Which host-capability header each side sends or reads (§7) |
+| dainty-lass `crates/rustic-rifts-*`, `crates/rustic-isles`, `crates/dainty-module-api` (`plugin.rs`, `child.rs`), `crates/dainty-plugin-host`, `crates/dainty-controller/src/registry.rs`, `docs/port/spec-rd27-rifts.md` D3 | The MIT side the composition is written against |
 
 ### 1.2 Per file: category and where it goes
 
-Category A is code written for DaintyLass with no Paradox code in it; B ports Paradox TypeScript. As core decided
+Category A is code written for Dainty Lass with no Paradox code in it; B ports Paradox TypeScript. As core decided
 (core §17 item 11), everything is rewritten from this spec; nothing moves as it is.
 
 | Restricted file | Cat. | Rewritten as |
@@ -66,9 +66,9 @@ Category A is code written for DaintyLass with no Paradox code in it; B ports Pa
   in (§9.2).
 - The runtime patch and launcher change of the host-capability cutover (§7.4): `PlayerHost.cpp`, the rustic-rifts
   native client and `launcher/src-tauri/src/controller/realms.rs` are restricted's.
-- `crates/host`'s compile-in and the hidden `reforged-host backend` / `director` subcommands, now over the MIT crate
+- `crates/dainty-host`'s compile-in and the hidden `reforged-host backend` / `director` subcommands, now over the MIT crate
   (§9.2); the gamedata and db host hooks until hostkit calls the MIT crates.
-- Restricted's AGPL `isles-1-14-7`, `isles-1-14-7-plugin`, `isles-core`, `isles-chat`, `isles-director`, `isles-db`
+- Restricted's AGPL `isles-1-14-7`, `rustic-isles-plugin`, `isles-core`, `isles-chat`, `isles-director`, `isles-db`
   and rustic-rifts' server crates are deleted once restricted's host links this crate (the integration pass's call).
 
 ---
@@ -96,14 +96,14 @@ Category A is code written for DaintyLass with no Paradox code in it; B ports Pa
 
 | Item | Value | Class (§4) |
 | --- | --- | --- |
-| Module id | `isles-1-14-7` (kept, core §15 item 13: `host.toml`, the gateway's routing and invites name it) | (c) DaintyLass |
-| Display name | `Rustic Isles 1.14.7` | (c) DaintyLass |
+| Module id | `isles-1-14-7` (kept, core §15 item 13: `host.toml`, the gateway's routing and invites name it) | (c) Dainty Lass |
+| Display name | `Rustic Isles 1.14.7` | (c) Dainty Lass |
 | Game version | `1.14.7` | (a) |
-| Invite aliases | `reforged` (the manifest answers both `reforged` and `1.14.7`) | (c) DaintyLass, live contract |
+| Invite aliases | `reforged` (the manifest answers both `reforged` and `1.14.7`) | (c) Dainty Lass, live contract |
 | Kind | Game; `api` is `module_api::API_VERSION`; no client profile | — |
 | Capabilities | `realms`: true when built with the `realms` feature (default on), else false; `network` true; `chat` true; `patch_set` `Accepts` (rustic-freeza registers against it, DD25); `theme` none | (c) |
 | `unverified` | false | (c) |
-| Ports, in this order | `backend` TCP 61000, `director` TCP 61001, `qos` TCP 61010 (the QoS pong's loopback side), `game` UDP 8770-8777 | (c) DaintyLass |
+| Ports, in this order | `backend` TCP 61000, `director` TCP 61001, `qos` TCP 61010 (the QoS pong's loopback side), `game` UDP 8770-8777 | (c) Dainty Lass |
 | Services, in start order | core's `BackendService`, then `rustic-isles-director`'s `DirectorService` over §3.4's config | — |
 
 The manifest must pass `ModuleManifest::validate`; core builds it from the spec (core §7.1).
@@ -117,13 +117,13 @@ The manifest must pass `ModuleManifest::validate`; core builds it from the spec 
 | `active_huntpass_id` | `season43` | (a) the client's season id | gamedata, progression |
 | `recent_huntpass_seasons` | `season43`, `season44`, `season45`, `season46`, `season47`, `season48`, `season49`, `season50`, in that order | (a) | gamedata |
 | `patchnotes_release_version` | empty text (the 1.14.7 runtime collapses the line) | (a) | gamedata |
-| `bounty_item_grant_data` | two windows, in order: `TOKEN_BOUNTY_DRAFT_PREMIUM` amount 1, and `CURRENCY_PRESTIGE` amount 5, each from `2026-01-01T00:00:00.000Z` to `2027-12-31T00:00:00.000Z` | ids (a); amounts and dates (c) upstream `tuning.ts`, dates moved forward for DaintyLass | gamedata, bounties |
+| `bounty_item_grant_data` | two windows, in order: `TOKEN_BOUNTY_DRAFT_PREMIUM` amount 1, and `CURRENCY_PRESTIGE` amount 5, each from `2026-01-01T00:00:00.000Z` to `2027-12-31T00:00:00.000Z` | ids (a); amounts and dates (c) upstream `tuning.ts`, dates moved forward for Dainty Lass | gamedata, bounties |
 | `store_sections` | `ladyluckstore`, `season_store`, `webstore`, `dyes`, `hp_level_skip_rank`, `huntpass_store`, `exchange_vendor_slot_2`, `exchange_vendor_slot_3`, `fountain_daily_free_bundle`, in that order | (a) section tags the client asks for | bounties |
 | `seasonal_coin` | catalog id `CURRENCY_SEASONAL_COIN`, at most 1000 per claim | id (a); cap (c) upstream | inventory, bounties |
-| `masked_journey_nodes` | one: node `Gauntlet_Unlock`, unmasked by the setting `RUSTIC_ISLES_GAUNTLET` | node (a); switch (c) DaintyLass | progression |
+| `masked_journey_nodes` | one: node `Gauntlet_Unlock`, unmasked by the setting `RUSTIC_ISLES_GAUNTLET` | node (a); switch (c) Dainty Lass | progression |
 | `starter_manifest.bootstrap_version` | `starter-1.12-v5` (stored in existing rows; must stay byte-equal) | (a) a stored-data contract | characters, db |
 | `starter_manifest` item lists | 24 stacked catalog ids and a nine-entry quick-emoji wheel (eight ids then one empty text) | **disputed**, §4.2 and §15 item 1; values not in this spec | characters |
-| `switch_defaults` (core §6.2 keys) | `qos_port` `80` (the 1.14.7 QoS fix: unset is 80), `reforge` `on`, `mastery_persistence` `on`, `bounty_persistence` `on`, `cooldown_persistence` `on` | (c) DaintyLass | core settings |
+| `switch_defaults` (core §6.2 keys) | `qos_port` `80` (the 1.14.7 QoS fix: unset is 80), `reforge` `on`, `mastery_persistence` `on`, `bounty_persistence` `on`, `cooldown_persistence` `on` | (c) Dainty Lass | core settings |
 | `session_payload` | §3.3 row 1 | (a) | auth |
 
 Core's `quick_emoji_wheel` field is `Option<&'static str>` at `d54366d`, but characters §6.2 and §6.3 read nine texts.
@@ -178,10 +178,10 @@ Checked in this order:
 - **(a) Wire constant the 1.14.7 client (or data the client already wrote) requires**: an identifier or a fixed
   protocol shape, small and functional, which the client sends, asks for or reads back exactly. May be committed,
   each with a one-line justification beside it (the comment points here). Precedent in dainty-lass: the 1.14.7
-  executable's SHA-256 is already committed in `crates/epic`, `hostkit`, `launcher-kit` and `rifts-realms`.
+  executable's SHA-256 is already committed in `crates/dainty-epic`, `hostkit`, `launcher-kit` and `rustic-rifts-realms`.
 - **(b) Game data**: read out of the game's own files (exports, captures, asset GUIDs, a captured preset). Never
   committed; generated on the host from its own install or supplied at run time.
-- **(c) Authored data**: a choice someone made. **DaintyLass-authored** values (the maintainer's rows) may be
+- **(c) Authored data**: a choice someone made. **Dainty Lass-authored** values (the maintainer's rows) may be
   committed. **Upstream-authored** values (Paradox or the Reforged Revival line, in the AGPL tree) reach dainty-lass
   only as run-time inputs restricted supplies, unless the maintainer rules otherwise.
 
@@ -190,8 +190,8 @@ Checked in this order:
 | Value (spec) | What it is | Class | How the MIT crate gets it |
 | --- | --- | --- | --- |
 | §3.1-§3.4 identifiers and payloads (core §5.2, director §12.4) | build, season, section, node and catalog ids the client uses; payload shapes; engine switches | (a) | Committed in the version crate (core §5.2 already ruled the tables wire facts) |
-| Grant window amounts and dates, seasonal coin cap, `LogCmds`, switch defaults, ports, identity | policy and DaintyLass choices | (c) DaintyLass (dates moved by DaintyLass; amounts and cap from upstream `tuning.ts`, small policy numbers) | Committed, as core §5.2 has them |
-| The 1.14.7 executable SHA-256 `f3f95fbf...fbb66b` (§6 step 9) | a hash of the shipped client | (a) | Committed (already in dainty-lass); `rifts-realms`' `KNOWN_GAME_EXE_SHA256` may be the source |
+| Grant window amounts and dates, seasonal coin cap, `LogCmds`, switch defaults, ports, identity | policy and Dainty Lass choices | (c) Dainty Lass (dates moved by Dainty Lass; amounts and cap from upstream `tuning.ts`, small policy numbers) | Committed, as core §5.2 has them |
+| The 1.14.7 executable SHA-256 `f3f95fbf...fbb66b` (§6 step 9) | a hash of the shipped client | (a) | Committed (already in dainty-lass); `rustic-rifts-realms`' `KNOWN_GAME_EXE_SHA256` may be the source |
 | `starter_manifest` item lists (24 stacked ids, nine quick emojis) | catalog and emoji ids a new account must hold | (a) by core §5.2's ruling, but the same kind as `StarterKit` (characters decision item 3) | **Disputed** (§15 item 1). Until ruled: an input (`version_data.json` `starterManifest`), which needs the core seam change of §15 item 1 |
 | `CharacterData` (characters §6.1): the fill list, forced flags, forced login flag, Dojo series key, blob, node and trigger | save-data key names and default blobs (protocol shapes), client flag names, quest-series GUIDs from the game's data, upstream defaults | mixed (a)/(b)/(c upstream); one input as the coordinator decided (characters decisions item 3) | Input: `version_data.json` `characterData` (§4.3) |
 | `CharacterData.default_appearance` | a character-creator preset as the client writes it (mesh slots, colour values) | (b) captured | Input (§4.3) |
@@ -507,9 +507,9 @@ rifts on until core's table is renamed (§7.3).
 | Game server runtime (`native/runtime/p2p/PlayerHost.cpp`, a runtime patch shipped into hosts' installs) | `x-mystic-host-capability` | — |
 | rustic-rifts native transport (`admission_client.cpp`) | `X-Mystic-Host-Capability` | — |
 | Launcher (`launcher/src-tauri/src/controller/realms.rs`, host-ready and ticket consume to `/mystic/v1/hunts/...`) | both `x-mystic-host-capability` and `x-rustic-isles-host-capability` | — |
-| Restricted backend (`isles-core/src/http.rs` budget bucket; auth through rifts) and restricted rifts (`rifts-seam` `HOST_CAPABILITY_HEADER`, admission, guard, realms) | — | `x-mystic-host-capability` only |
+| Restricted backend (`isles-core/src/http.rs` budget bucket; auth through rifts) and restricted rifts (`rustic-rifts-seam` `HOST_CAPABILITY_HEADER`, admission, guard, realms) | — | `x-mystic-host-capability` only |
 | Node reference (`hostCapabilities.ts`, `hostRuntimeAuth.ts`, `hostRouteCensus.ts`) | — | `x-mystic-host-capability` |
-| dainty-lass rifts (`rifts-seam` `HOST_CAPABILITY_HEADER`, `rifts-transport` `CAPABILITY_HEADER`) | `x-rustic-host-capability` | `x-rustic-host-capability`; routes `/rustic/v1/hunts/...` |
+| dainty-lass rifts (`rustic-rifts-seam` `HOST_CAPABILITY_HEADER`, `rustic-rifts-transport` `CAPABILITY_HEADER`) | `x-rustic-host-capability` | `x-rustic-host-capability`; routes `/rustic/v1/hunts/...` |
 | dainty-lass core `rustic-isles` (`pipeline.rs`) | — | `x-mystic-host-capability` for the budget bucket, passed to the guard under that name; table rows and the budget prefix `/mystic/v1/hunts` |
 
 Nothing reads `x-rustic-isles-host-capability`. Nothing sends `x-rustic-host-capability` today. spec-rd27-rifts D3
@@ -620,9 +620,9 @@ is checked against its pinned SHA-256 before anything in it runs, and the module
 Two crates, MIT, in dainty-lass `crates/rustic-isles-1-14-7` (lib and bin) and `crates/rustic-isles-1-14-7-plugin`
 (cdylib). The version crate depends on dainty-lass MIT crates only: `rustic-isles`, `rustic-isles-auth`,
 `rustic-isles-store`, `rustic-isles-gamedata`, `rustic-isles-director`, `rustic-isles-characters`,
-`rustic-isles-chat`, `rustic-isles-economy`, `rustic-isles-matchmaking`, `rustic-isles-reforged`, `rifts-seam`,
-`module-api`, `store`, `service-kit`, and with the `realms` feature (default) `rifts-admission`, `rifts-relay`,
-`rifts-realms`, `rifts-guard`; workspace `serde_json` (`preserve_order` in its own manifest), `tokio`, `tracing`,
+`rustic-isles-chat`, `rustic-isles-economy`, `rustic-isles-matchmaking`, `rustic-isles-reforged`, `rustic-rifts-seam`,
+`module-api`, `store`, `service-kit`, and with the `realms` feature (default) `rustic-rifts-admission`, `rustic-rifts-relay`,
+`rustic-rifts-realms`, `rustic-rifts-guard`; workspace `serde_json` (`preserve_order` in its own manifest), `tokio`, `tracing`,
 `thiserror`. The plugin depends on the version crate (`default-features = false`) and `module-api`.
 
 **Seam changes for the integration pass** (not this row's): both crates as workspace members and in

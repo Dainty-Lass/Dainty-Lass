@@ -5,7 +5,7 @@
 //! The first launcher listens on a per-user channel (a named pipe on Windows, a socket in
 //! `$XDG_RUNTIME_DIR` on Linux); a second one sends it its arguments and exits, and the first focuses its
 //! window and takes the invite link from them. In a packaged build every invite scheme the build opens
-//! (`protocol::invite::invite_schemes`: `dauntless:` and `reforged-revival:`) points at this launcher (the current user's registry on Windows, a desktop entry for the AppImage on Linux;
+//! (`dainty_protocol::invite::invite_schemes`: `dauntless:` and `reforged-revival:`) points at this launcher (the current user's registry on Windows, a desktop entry for the AppImage on Linux;
 //! deb and rpm install their own).
 
 use std::future::Future;
@@ -19,7 +19,7 @@ use crate::core::invite::parse_invite;
 use crate::core::text::js_trim;
 use crate::platform::log;
 
-use protocol::invite::{INVITE_SCHEME, invite_schemes};
+use dainty_protocol::invite::{INVITE_SCHEME, invite_schemes};
 
 /// The invite link among a launcher's arguments, if it is a valid one.
 pub fn invite_from_args<S: AsRef<str>>(args: &[S]) -> Option<String> {
@@ -216,7 +216,7 @@ pub async fn claim(name: &str, args: &[String], on_args: OnArgs) -> Claim {
 /// The name Windows shows for a scheme.
 fn scheme_label(scheme: &str) -> &'static str {
     match scheme {
-        INVITE_SCHEME => "URL:DaintyLass invite",
+        INVITE_SCHEME => "URL:Dainty Lass invite",
         _ => "URL:Dauntless invite",
     }
 }
@@ -311,7 +311,7 @@ pub fn desktop_entry(appimage: &Path) -> Option<String> {
         .map(|scheme| format!("x-scheme-handler/{scheme};"))
         .collect();
     Some(format!(
-        "[Desktop Entry]\nType=Application\nName=DaintyLass Launcher\nExec={} %u\nMimeType={mime}\nNoDisplay=true\nTerminal=false\n",
+        "[Desktop Entry]\nType=Application\nName=Dainty Lass Launcher\nExec={} %u\nMimeType={mime}\nNoDisplay=true\nTerminal=false\n",
         exec_argument(path)
     ))
 }
@@ -474,7 +474,7 @@ mod tests {
         assert_eq!(
             registry.values[3..6],
             [
-                (key.to_owned(), None, "URL:DaintyLass invite".to_owned()),
+                (key.to_owned(), None, "URL:Dainty Lass invite".to_owned()),
                 (key.to_owned(), Some("URL Protocol".to_owned()), String::new()),
                 (
                     format!(r"{key}\shell\open\command"),
@@ -520,7 +520,7 @@ mod tests {
         assert_eq!(
             std::fs::read_to_string(applications.join(DESKTOP_FILE)).unwrap(),
             format!(
-                "[Desktop Entry]\nType=Application\nName=DaintyLass Launcher\nExec=\"/home/me/Apps/Reforged Launcher.AppImage\" %u\nMimeType={}\nNoDisplay=true\nTerminal=false\n",
+                "[Desktop Entry]\nType=Application\nName=Dainty Lass Launcher\nExec=\"/home/me/Apps/Reforged Launcher.AppImage\" %u\nMimeType={}\nNoDisplay=true\nTerminal=false\n",
                 mimes.iter().map(|mime| format!("{mime};")).collect::<String>()
             )
         );

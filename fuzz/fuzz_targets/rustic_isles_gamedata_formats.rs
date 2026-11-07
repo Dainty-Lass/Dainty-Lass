@@ -33,7 +33,7 @@ fuzz_target!(|data: &[u8]| {
         assert_eq!(reference.matches('\'').count(), 2);
     }
 
-    let Ok(value) = service_kit::jsjson::parse(&text) else {
+    let Ok(value) = dainty_service_kit::jsjson::parse(&text) else {
         return;
     };
     let _ = journey_definition(&value);
@@ -42,7 +42,7 @@ fuzz_target!(|data: &[u8]| {
         assert_eq!(skus.len(), entries.len());
     }
     for indent in 0..=4 {
-        let back = service_kit::jsjson::parse(&stringify_pretty(&value, indent));
-        assert!(back.is_ok_and(|b| service_kit::jsjson::deep_equal(&b, &value)));
+        let back = dainty_service_kit::jsjson::parse(&stringify_pretty(&value, indent));
+        assert!(back.is_ok_and(|b| dainty_service_kit::jsjson::deep_equal(&b, &value)));
     }
 });

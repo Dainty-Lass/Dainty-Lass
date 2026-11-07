@@ -2,7 +2,7 @@
 
 # Launcher release
 
-How DaintyLass Launcher and DaintyLass Manager are packaged, signed and checked (RA14, RD7). This page is the
+How Dainty Lass Launcher and Dainty Lass Manager are packaged, signed and checked (RA14, RD7). This page is the
 maintainer's: the keys, the secrets and the checks on real machines are not an agent's job.
 
 ## What a run builds
@@ -108,7 +108,7 @@ The row's checks, on the artifact of a signed run. Nothing here runs in CI.
 On one deb and one rpm system, also the update of step 4 above: the launcher asks for the password through `pkexec`
 and comes back at the new version. And on SteamOS, the AppImage's update in place.
 
-Repeat the install and start on one system per format with DaintyLass Manager.
+Repeat the install and start on one system per format with Dainty Lass Manager.
 
 Note what failed against the row (RA14) and the platform; a distribution that needs another dependency is a change to
 `tauri.conf.json`'s `bundle.linux` lists.

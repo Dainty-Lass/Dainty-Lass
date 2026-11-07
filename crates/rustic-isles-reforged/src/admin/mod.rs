@@ -22,9 +22,9 @@ use std::sync::{Arc, Mutex, PoisonError};
 
 use axum::body::Bytes;
 use axum::response::Response;
+use dainty_module_api::{Actor, ActorContext};
 use http::{HeaderMap, HeaderValue, Method, StatusCode};
 use http_body_util::BodyExt as _;
-use module_api::{Actor, ActorContext};
 use rustic_isles::{Call, Params, Shared, UserId};
 use rustic_isles_auth::DiscordApi;
 use rustic_isles_store::repo::auth::LauncherAccountRecord;
@@ -297,7 +297,7 @@ pub fn player_not_found() -> Response {
 
 /// `Number.parseInt(text, 10)`: leading white space, an optional sign, leading digits; none is NaN (`None`).
 pub fn parse_int(text: &str) -> Option<i64> {
-    let t = text.trim_start_matches(service_kit::js::is_space);
+    let t = text.trim_start_matches(dainty_service_kit::js::is_space);
     let (sign, digits) = match t.as_bytes().first() {
         Some(b'-') => (-1, &t[1..]),
         Some(b'+') => (1, &t[1..]),
@@ -577,7 +577,7 @@ pub fn fresh_id() -> String {
 
 // ------------------------------------------------------------------ registration and start-up
 
-type Run = fn(AdminContext) -> module_api::BoxFuture<'static, Response>;
+type Run = fn(AdminContext) -> dainty_module_api::BoxFuture<'static, Response>;
 
 /// The admin half's 18 rows (§1.2), at the route table's exact paths.
 pub fn register_admin(handlers: &mut rustic_isles::Handlers) {
@@ -641,7 +641,7 @@ impl rustic_isles::Startup for AdminStartup {
     fn start<'a>(
         &'a self,
         shared: &'a Arc<Shared>,
-    ) -> module_api::BoxFuture<'a, Result<rustic_isles::Started, String>> {
+    ) -> dainty_module_api::BoxFuture<'a, Result<rustic_isles::Started, String>> {
         Box::pin(async move {
             auth::check_operator_config(shared.settings())?;
             shared.set_admin_authenticator(Arc::new(AdminAuthenticatorSlot::new(shared)));

@@ -5,8 +5,8 @@
 
 #![allow(clippy::unwrap_used, clippy::expect_used, reason = "a panic is how a test fails")]
 
-use module_api::GameModule;
-use module_api::manifest::{PatchSetCapability, Transport};
+use dainty_module_api::GameModule;
+use dainty_module_api::manifest::{PatchSetCapability, Transport};
 use rustic_isles::routes::all;
 use rustic_isles::{Group, Service, Settings, When};
 use rustic_isles_1_14_7::test_support::{area_handlers, synthetic, synthetic_document};
@@ -50,7 +50,8 @@ fn manifest() {
 #[cfg(not(feature = "realms"))]
 #[test]
 fn without_realms_the_module_is_dedicated_only() {
-    let rifts = rustic_isles_1_14_7::rifts_with_core(&Settings::default(), std::sync::Arc::new(rifts_seam::NoCore));
+    let rifts =
+        rustic_isles_1_14_7::rifts_with_core(&Settings::default(), std::sync::Arc::new(rustic_rifts_seam::NoCore));
     assert!(!rifts.loaded());
     assert!(!rustic_isles_1_14_7::capabilities().realms);
 }
@@ -99,7 +100,7 @@ fn tables() {
     assert_eq!(t.switch_default("cooldown_persistence"), "on");
     assert_eq!(t.switch_default("nope"), "");
     assert_eq!(
-        service_kit::jsjson::stringify(&(t.session_payload)("abc")),
+        dainty_service_kit::jsjson::stringify(&(t.session_payload)("abc")),
         r#"{"error_code":null,"sessionid":"abc","sessiontoken":"abc","sessionToken":"abc"}"#
     );
 }

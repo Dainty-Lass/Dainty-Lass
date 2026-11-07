@@ -10,9 +10,10 @@ use std::sync::Arc;
 use axum::body::Body;
 use axum::extract::Request;
 use axum::response::{IntoResponse, Response};
+use dainty_module_api::{Actor, ActorContext};
+use dainty_service_kit::json::Json;
 use http::{StatusCode, header};
 use http_body_util::BodyExt;
-use module_api::{Actor, ActorContext};
 use percent_encoding::percent_decode_str;
 use rustic_isles::{Call, Handlers, Method, RouteDef, Service, not_implemented, replay, season};
 use rustic_isles_auth::AuthData;
@@ -20,7 +21,6 @@ use rustic_isles_store::repo::auth::AccountRecord;
 use rustic_isles_store::repo::chat::{FriendEdgeRecord, FriendshipDirection, FriendshipStatus};
 use rustic_isles_store::{IslesStore, RepoError, RepoResult, UserId};
 use serde_json::{Value, json};
-use service_kit::json::Json;
 
 /// The ISO text of now; tests pass a counting one.
 pub type Clock = Arc<dyn Fn() -> String + Send + Sync>;
@@ -371,7 +371,9 @@ async fn read_body(request: &mut Request) -> Result<Option<Value>, StatusCode> {
     };
     let text = std::str::from_utf8(&bytes).map_err(|_| StatusCode::BAD_REQUEST)?;
     if form {
-        return service_kit::body::parse_form(text).map(Some).map_err(|e| e.status());
+        return dainty_service_kit::body::parse_form(text)
+            .map(Some)
+            .map_err(|e| e.status());
     }
     if text.is_empty() {
         return Ok(Some(json!({})));
@@ -379,7 +381,7 @@ async fn read_body(request: &mut Request) -> Result<Option<Value>, StatusCode> {
     if !text.trim_start_matches([' ', '\t', '\n', '\r']).starts_with(['{', '[']) {
         return Err(StatusCode::BAD_REQUEST);
     }
-    service_kit::jsjson::parse(text)
+    dainty_service_kit::jsjson::parse(text)
         .map(Some)
         .map_err(|_| StatusCode::BAD_REQUEST)
 }

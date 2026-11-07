@@ -35,22 +35,22 @@
 | File headers (`//!`) | `isles-chat` ports `realtime/XMPPAuth.ts`, `RoomService.ts#authorizeJoin`, `cityRooms.ts` (Reforged patch 0025) and `PartyOutboxDispatcher.ts`'s event shape, recast for DD21; `areas/chat.rs` ports `routes/friends.ts`, `routes/guild.ts` and `/vivox/login` of `routes/system.ts` |
 | `git log` of the files | 12 commits, one author (the maintainer): born in `579c822` (RU5 routes) and `245cfdc` (RU5 rules), with `b909a45` (DN10b cross-node login and home forwarding), `ab07f6c` (one `AuthData`, Express body readers), `0a29728` (replay clock), `9ad97c6` (rename) |
 | `crates/isles-core/tests/chat_golden.rs`, `chat_rules.rs`, `friendships.rs`, `tests/golden/chat/` | What the routes answered under Node 22 with a fixed clock, and the rules over a real store (described in §11, never copied) |
-| dainty-lass `crates/module-api/src/chat.rs`, `crates/chat` (`naming.rs`, `hooks.rs`, `muc.rs`, `server.rs`, `service.rs`), `docs/port/spec-rd27-chat.md` | The contract this crate answers and how the plugin uses each answer |
+| dainty-lass `crates/dainty-module-api/src/chat.rs`, `crates/dainty-chat` (`naming.rs`, `hooks.rs`, `muc.rs`, `server.rs`, `service.rs`), `docs/port/spec-rd27-chat.md` | The contract this crate answers and how the plugin uses each answer |
 
 ### 1.2 Per file: category and where it goes
 
-All of it is Category B (Paradox behaviour, or DaintyLass code wrapped around it). The implementer writes every part
+All of it is Category B (Paradox behaviour, or Dainty Lass code wrapped around it). The implementer writes every part
 from this spec.
 
 | Restricted file | Source | Rewritten as |
 | --- | --- | --- |
 | `isles-chat/src/lib.rs` | DD21 dispatch of `ChatQuery` | §5 |
-| `isles-chat/src/ids.rs` | DaintyLass (DD18 ids in room names) | §4.3, §5.3 |
+| `isles-chat/src/ids.rs` | Dainty Lass (DD18 ids in room names) | §4.3, §5.3 |
 | `isles-chat/src/rooms.rs` | `XMPPAuth.ts` JID, `RoomService.ts#authorizeJoin` | §5.2, §5.3, §5.4 |
 | `isles-chat/src/login.rs` | `XMPPAuth.ts#authenticateSasl` | §5.5 |
 | `isles-chat/src/hubs.rs` | `cityRooms.ts` (patch 0025) | §5.10 |
 | `isles-chat/src/headline.rs` | `PartyOutboxDispatcher.ts` (`PublicEvent`, `HeadlineFrame`) | §4.4, §5.11 |
-| `isles-chat/src/source.rs` | DaintyLass (what the rules read) | §5.1, §9 |
+| `isles-chat/src/source.rs` | Dainty Lass (what the rules read) | §5.1, §9 |
 | `isles-chat/src/fake.rs` | test support | §11 (described only) |
 | `isles-core/src/areas/chat/rules.rs` | the rules' source over the store; dev switches of `RoomService.ts` | §5.1, §7, §8 |
 | `isles-core/src/areas/chat.rs` | `routes/friends.ts`, `routes/guild.ts`, `/vivox/login` | §6 |
@@ -90,7 +90,7 @@ from this spec.
 | Owner | What | This crate |
 | --- | --- | --- |
 | `module_api::chat` | `Jid` (parts 1 to 255 bytes, no `@`, `/`, whitespace or control), `RoomKind { Network, Region, Party, Hunt }`, `RoomRules { may_join, may_speak, history }`, `ChatQuery`, `ChatAnswer`, `PRESENCE_EVENT` + `PresenceEvent`, `HEADLINE_EVENT` (`isles.party.headline`) + `Headline { id, recipients, body }` + `HeadlineRecipient { account, user_id }` | Answers the queries with these types; may re-export them; never defines its own JID, room kind or headline type |
-| `crates/chat` (the plugin) | XMPP, SASL framing and `not-authorized`/`temporary-auth-failure`, bind and resources, MUC (occupants, nicknames, history, eviction sweep), whispers, presence emission (`chat.presence`), the default JID and default rules for a module that answers `Unsupported`, and its **own** room naming (`naming::room_kind_of`: `General*`, `City-<id>`, `Region-<name>`, `Party-<id>`, `Hunt-<id>`, ids at most 64 bytes) | Nothing of it. The crate never depends on `chat`: a game module talks to chat only through `module-api` (spec-rd27-chat §6.2) |
+| `crates/dainty-chat` (the plugin) | XMPP, SASL framing and `not-authorized`/`temporary-auth-failure`, bind and resources, MUC (occupants, nicknames, history, eviction sweep), whispers, presence emission (`chat.presence`), the default JID and default rules for a module that answers `Unsupported`, and its **own** room naming (`naming::room_kind_of`: `General*`, `City-<id>`, `Region-<name>`, `Party-<id>`, `Hunt-<id>`, ids at most 64 bytes) | Nothing of it. The crate never depends on `chat`: a game module talks to chat only through `module-api` (spec-rd27-chat §6.2) |
 | `rustic-isles` (core) | presence set (§5.5), `chat.presence` handling (§7.7), the `ModuleHooks::chat` slot (§7.5, §11.4), home invocations (§7.8), `Handlers`, `not_implemented`, the body reader (§3.9), the ISO clock | Uses them; does not keep a presence set or its own ISO formatter |
 | `rustic-isles-auth` | game auth (`Auth::game_auth`, `AuthData`), `Auth::validate_game_token`, `is_account_eligible(&LauncherAccount, now_iso)` | Uses them; does not define its own `AuthData` (restricted's chat area had a two-field copy: drop it) |
 | `rustic-isles-store` | `IslesStore`, `Repositories` (`accounts`, `launcher_accounts`, `friendships`, `parties`), `RepoError` | §7 |

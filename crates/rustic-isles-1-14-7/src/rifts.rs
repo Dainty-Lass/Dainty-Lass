@@ -6,8 +6,8 @@
 
 use std::sync::Arc;
 
-use rifts_seam::{IslesCore, Rifts};
 use rustic_isles::Settings;
+use rustic_rifts_seam::{IslesCore, Rifts};
 
 /// The rifts parts over `core`, or dedicated-only when `RUSTIC_RIFTS_P2P_MODULE` says no.
 #[cfg(feature = "realms")]
@@ -26,37 +26,37 @@ mod wired {
     use std::path::PathBuf;
     use std::sync::Arc;
 
-    use module_api::{NodeId, NodeIdentity};
-    use rifts_admission::{
+    use dainty_module_api::{NodeId, NodeIdentity};
+    use dainty_store::{DatabaseConfig, DatabaseOptions};
+    use rustic_isles::Settings;
+    use rustic_rifts_admission::{
         Admission, AdmissionError, AdmissionHunts, AdmissionRoutes, CapabilityResolver, Es256Tickets, HostCapability,
         MemoryAdmissionStore, P256KeyGenerator,
     };
-    use rifts_guard::{
+    use rustic_rifts_guard::{
         CoreOperationsPolicy, Guard, GuardConfig, GuardParts, GuardRoutes, NoHuntSessions, StubGuardStore,
     };
-    use rifts_realms::capabilities::{HostCapabilities, generate_capability_secret};
-    use rifts_realms::control::ControlChannel;
-    use rifts_realms::db::RealmsDb;
-    use rifts_realms::directory::{DirectoryParts, RealmDirectory};
-    use rifts_realms::host_policy::{ArtifactSources, KNOWN_GAME_EXE_SHA256, read_artifact_policy};
-    use rifts_realms::hunt::ArtifactHashes;
-    use rifts_realms::ids::seam_session_id;
-    use rifts_realms::leases::{Hosting, HostingParts, HostingRuntime, HostingSettings};
-    use rifts_realms::ports::{
+    use rustic_rifts_realms::capabilities::{HostCapabilities, generate_capability_secret};
+    use rustic_rifts_realms::control::ControlChannel;
+    use rustic_rifts_realms::db::RealmsDb;
+    use rustic_rifts_realms::directory::{DirectoryParts, RealmDirectory};
+    use rustic_rifts_realms::host_policy::{ArtifactSources, KNOWN_GAME_EXE_SHA256, read_artifact_policy};
+    use rustic_rifts_realms::hunt::ArtifactHashes;
+    use rustic_rifts_realms::ids::seam_session_id;
+    use rustic_rifts_realms::leases::{Hosting, HostingParts, HostingRuntime, HostingSettings};
+    use rustic_rifts_realms::ports::{
         Clock, CoreAccounts, CoreGuardSessions, CoreOperationsView, RandomIds, RateLimiter, RealmEventSink, StderrLog,
         SystemClock,
     };
-    use rifts_realms::realm::RealmLimits;
-    use rifts_realms::tiers::HostingPolicy;
-    use rifts_realms::{RealmsError, RealmsRoutes, RealmsRoutesParts, RealmsService, RealmsServiceParts};
-    use rifts_relay::{Ice, IceHunts, ProviderAnswer, ProviderHttp, ProviderRequest, ProviderUnreachable};
-    use rifts_relay::{RelayConfig, RelayGrants, RelayRoutes, RelayUsageCache};
-    use rifts_seam::{
+    use rustic_rifts_realms::realm::RealmLimits;
+    use rustic_rifts_realms::tiers::HostingPolicy;
+    use rustic_rifts_realms::{RealmsError, RealmsRoutes, RealmsRoutesParts, RealmsService, RealmsServiceParts};
+    use rustic_rifts_relay::{Ice, IceHunts, ProviderAnswer, ProviderHttp, ProviderRequest, ProviderUnreachable};
+    use rustic_rifts_relay::{RelayConfig, RelayGrants, RelayRoutes, RelayUsageCache};
+    use rustic_rifts_seam::{
         AccountId, BoxFuture, CapabilityScope, GuardMode, IslesCore, PeerId, Refusal, RiftsParts, RouteHandler,
         UnixMillis,
     };
-    use rustic_isles::Settings;
-    use store::{DatabaseConfig, DatabaseOptions};
 
     const DEFAULT_BACKEND_URL: &str = "http://127.0.0.1:61000";
     const DEFAULT_HOST_UDP_PORT: u16 = 8791;
@@ -65,7 +65,7 @@ mod wired {
 
     /// rifts-seam's view: `raw`, so a set-but-empty value counts (§14 item 10).
     fn get<'a>(settings: &'a Settings, name: &str) -> Option<&'a str> {
-        rifts_seam::Settings::get(settings, name)
+        rustic_rifts_seam::Settings::get(settings, name)
     }
 
     fn node(settings: &Settings) -> NodeId {
@@ -74,8 +74,8 @@ mod wired {
             .unwrap_or_else(|| NodeIdentity::standalone().node)
     }
 
-    fn standalone_seam_node() -> rifts_seam::NodeId {
-        match rifts_seam::NodeId::new(NodeIdentity::standalone().node.as_str()) {
+    fn standalone_seam_node() -> rustic_rifts_seam::NodeId {
+        match rustic_rifts_seam::NodeId::new(NodeIdentity::standalone().node.as_str()) {
             Ok(node) => node,
             // `local` is a valid name in both id types
             Err(_) => unreachable!("the standalone node name parses"),
@@ -98,13 +98,16 @@ mod wired {
         if let Ok(tickets) = Es256Tickets::from_settings(settings) {
             return Some(tickets);
         }
-        let key_id = rifts_admission::KeyId(GENERATED_KEY_ID.to_owned());
+        let key_id = rustic_rifts_admission::KeyId(GENERATED_KEY_ID.to_owned());
         let (pair, _, _) = P256KeyGenerator.generate_with_pems(key_id).ok()?;
         let generated = settings
             .clone()
-            .forced(rifts_admission::keys::KEY_ID_SETTING, GENERATED_KEY_ID)
-            .forced(rifts_admission::keys::SIGNING_KEY_SETTING, pair.signing_key.expose())
-            .forced(rifts_admission::keys::VERIFY_KEY_SETTING, &pair.verify_key);
+            .forced(rustic_rifts_admission::keys::KEY_ID_SETTING, GENERATED_KEY_ID)
+            .forced(
+                rustic_rifts_admission::keys::SIGNING_KEY_SETTING,
+                pair.signing_key.expose(),
+            )
+            .forced(rustic_rifts_admission::keys::VERIFY_KEY_SETTING, &pair.verify_key);
         Es256Tickets::from_settings(&generated).ok()
     }
 
@@ -198,11 +201,11 @@ mod wired {
                     .ok()
                     .filter(|_| !record.host_steam_id.is_empty())
                     .or_else(|| {
-                        rifts_realms::selection::derive_ice_peer_id(&record.host_account_id)
+                        rustic_rifts_realms::selection::derive_ice_peer_id(&record.host_account_id)
                             .parse::<u64>()
                             .ok()
                     })
-                    .map_or_else(|| rifts_admission::derive_ice_peer_id(&host_account), PeerId);
+                    .map_or_else(|| rustic_rifts_admission::derive_ice_peer_id(&host_account), PeerId);
                 let Some(seam_session) = seam_session_id(&record.session_id, &node) else {
                     return Err(refusal(
                         "P2P_VALIDATION_FAILED",
@@ -224,10 +227,10 @@ mod wired {
     pub(super) fn parts(settings: &Settings, core: Arc<dyn IslesCore>) -> RiftsParts {
         let node = node(settings);
         // The admission and relay routes name nodes in rifts-seam's own type
-        let seam_node = rifts_seam::NodeId::new(node.as_str()).unwrap_or_else(|_| standalone_seam_node());
+        let seam_node = rustic_rifts_seam::NodeId::new(node.as_str()).unwrap_or_else(|_| standalone_seam_node());
         let db = open_db(settings, &node);
         let clock: Arc<dyn Clock> = Arc::new(SystemClock);
-        let realms_enabled = rifts_realms::realms_enabled_or_default(settings);
+        let realms_enabled = rustic_rifts_realms::realms_enabled_or_default(settings);
         let mut policy = HostingPolicy::from_settings(settings);
         // The hosting switches give way to the realms switch unless they are set (§14 item 1)
         if get(settings, "RUSTIC_RIFTS_P2P_HOSTING").is_none() {
@@ -264,7 +267,7 @@ mod wired {
                     clock: Arc::clone(&clock),
                     operations: Arc::new(CoreOperationsView(Arc::clone(&core))),
                     guard: Arc::new(CoreGuardSessions(Arc::clone(&core))),
-                    recovery: Arc::new(rifts_realms::RealmsRecovery::new(
+                    recovery: Arc::new(rustic_rifts_realms::RealmsRecovery::new(
                         db.clone(),
                         Arc::clone(&core),
                         Arc::clone(&clock),
@@ -323,7 +326,7 @@ mod wired {
                 let ice = Ice::new(
                     Arc::clone(&hosted) as Arc<dyn IceHunts>,
                     grants,
-                    Arc::clone(&hosted) as Arc<dyn rifts_relay::OperationsPolicy>,
+                    Arc::clone(&hosted) as Arc<dyn rustic_rifts_relay::OperationsPolicy>,
                     now,
                 );
                 routes.push(Arc::new(RelayRoutes::new(Arc::new(ice), seam_node.clone())));
@@ -333,27 +336,29 @@ mod wired {
                 capabilities = Some(caps);
             }
             _ => {
-                routes.push(Arc::new(rifts_admission::stub_routes()));
-                routes.push(Arc::new(rifts_relay::stub_routes()));
+                routes.push(Arc::new(rustic_rifts_admission::stub_routes()));
+                routes.push(Arc::new(rustic_rifts_relay::stub_routes()));
             }
         }
         let with_db = directory.is_some();
-        let (guard_store, hunts): (Arc<dyn rifts_guard::GuardStore>, Arc<dyn rifts_guard::HuntSessions>) =
-            match (&db, &capabilities) {
-                (Some(db), Some(caps)) if with_db => (
-                    Arc::new(db.guard_store()),
-                    Arc::new(caps.hunt_sessions(Arc::clone(&clock))),
-                ),
-                _ => (Arc::new(StubGuardStore), Arc::new(NoHuntSessions)),
-            };
+        let (guard_store, hunts): (
+            Arc<dyn rustic_rifts_guard::GuardStore>,
+            Arc<dyn rustic_rifts_guard::HuntSessions>,
+        ) = match (&db, &capabilities) {
+            (Some(db), Some(caps)) if with_db => (
+                Arc::new(db.guard_store()),
+                Arc::new(caps.hunt_sessions(Arc::clone(&clock))),
+            ),
+            _ => (Arc::new(StubGuardStore), Arc::new(NoHuntSessions)),
+        };
         let guard = Arc::new(Guard::new(GuardParts {
             config: GuardConfig::from_settings(settings),
             store: guard_store,
             hunts,
             operations: Arc::new(CoreOperationsPolicy::new(Arc::clone(&core))),
             core: Arc::clone(&core),
-            clock: Arc::new(rifts_guard::SystemClock::default()),
-            log: Arc::new(rifts_guard::StderrLog),
+            clock: Arc::new(rustic_rifts_guard::SystemClock::default()),
+            log: Arc::new(rustic_rifts_guard::StderrLog),
         }));
         let service = Arc::new(RealmsService::new(RealmsServiceParts {
             directory: directory.clone(),

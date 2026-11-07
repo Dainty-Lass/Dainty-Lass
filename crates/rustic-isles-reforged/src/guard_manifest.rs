@@ -6,9 +6,9 @@
 
 use std::sync::LazyLock;
 
+use dainty_service_kit::js::safe_integer;
 use regex::Regex;
 use serde_json::Value;
-use service_kit::js::safe_integer;
 
 use crate::util::{is_hex, lenient_base64};
 
@@ -132,8 +132,8 @@ const INVALID_MEMORY: &str = "Invalid Guard executable-memory policy.";
 /// The issue and expiry times at `now`.
 pub fn validate_window(issued_at: &str, expires_at: &str, now_ms: i64) -> Result<(), &'static str> {
     let (Some(issued), Some(expires)) = (
-        service_kit::js::date_parse(issued_at),
-        service_kit::js::date_parse(expires_at),
+        dainty_service_kit::js::date_parse(issued_at),
+        dainty_service_kit::js::date_parse(expires_at),
     ) else {
         return Err("Guard manifest timestamps are invalid.");
     };
@@ -336,7 +336,7 @@ mod tests {
     const NOW: &str = "2026-10-20T00:00:00Z";
 
     fn now() -> i64 {
-        service_kit::js::date_parse(NOW).unwrap()
+        dainty_service_kit::js::date_parse(NOW).unwrap()
     }
 
     #[test]

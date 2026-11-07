@@ -1,7 +1,7 @@
 #![no_main]
 
 //! Fuzzes the peer log shipping (`Service::LogShip`, DH7) wire codec and object key parser
-//! (`network::logship::{decode_put_request, encode_put_request, decode_put_response, encode_put_response, parse_peer_object_key}`):
+//! (`dainty_network::logship::{decode_put_request, encode_put_request, decode_put_response, encode_put_response, parse_peer_object_key}`):
 //! - Neither decoder may panic on any byte slice, regardless of length or UTF-8 validity.
 //! - Every decoded `LogShipPutRequest` must round-trip identically through `encode_put_request` -> `decode_put_request`,
 //!   and if `decode_body()` succeeds, the decoded body must be at most `MAX_LOG_SHIP_OBJECT_BYTES`.
@@ -10,8 +10,8 @@
 //!   or `<from>/snapshot/` with a 64-character lowercase hex SHA-256 digest and no path traversal components.
 
 use libfuzzer_sys::fuzz_target;
-use module_api::network::NodeId;
-use network::logship::{
+use dainty_module_api::network::NodeId;
+use dainty_network::logship::{
     LOG_SHIP_VERSION, MAX_LOG_SHIP_OBJECT_BYTES, MAX_LOG_SHIP_WIRE, decode_put_request, decode_put_response,
     encode_put_request, encode_put_response, parse_peer_object_key,
 };

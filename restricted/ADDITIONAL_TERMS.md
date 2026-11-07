@@ -1,6 +1,6 @@
 # Additional terms (Mystic Paradox material only)
 
-DaintyLass is licensed as a whole under the GNU Affero General Public License, version 3 only
+Dainty Lass is licensed as a whole under the GNU Affero General Public License, version 3 only
 (`AGPL-3.0-only`); see [LICENSE.txt](LICENSE.txt).
 
 Mystic Paradox material is in two places: the rustic-isles submodule at
@@ -23,9 +23,9 @@ As those terms require, this repository and the launcher preserve the attributio
 
 Mystic Paradox's own NOTICE.md is part of its source at that commit
 (<https://github.com/pranav158/Mystic-Paradox/blob/21b9ff5/NOTICE.md>); this repository's
-[NOTICE.md](NOTICE.md) records what DaintyLass changes.
+[NOTICE.md](NOTICE.md) records what Dainty Lass changes.
 
-DaintyLass is a modified version and is **not** an official release of the Mystic Paradox project, and the
+Dainty Lass is a modified version and is **not** an official release of the Mystic Paradox project, and the
 Mystic Paradox name is used here only for truthful attribution.
 
 ---

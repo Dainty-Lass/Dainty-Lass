@@ -4,7 +4,7 @@
 //! Parties (spec §7, store §11.2): membership, revisions and the outbox live in the database under global ids
 //! (DD18); the client keeps seeing Node's `partyId` and userIds.
 
-use module_api::{Actor, ActorContext, GlobalId, IdKind, NodeId};
+use dainty_module_api::{Actor, ActorContext, GlobalId, IdKind, NodeId};
 use rustic_isles_store::repo::parties::{AcceptInvite, NewInvite, NewParty, PartyRecord, REVISION_CONFLICT};
 use rustic_isles_store::{AccountId, IslesStore, RepoError, Repositories, Tx, UserId};
 

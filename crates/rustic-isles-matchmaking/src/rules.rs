@@ -7,7 +7,7 @@
 use std::net::IpAddr;
 
 use base64::Engine as _;
-use module_api::GlobalId;
+use dainty_module_api::GlobalId;
 use rustic_isles::Settings;
 use serde_json::Value;
 
@@ -18,7 +18,7 @@ const DIA_MOSS_MAP: &str = "/Game/Maps/islands/1705/dia_moss_triforce";
 
 /// `GetFallbackHuntId`: a blank hunt id stays as given unless the mode or the map names the destination.
 pub fn effective_hunt_id(mode: Option<&str>, args: Option<&str>, hunt: Option<&str>) -> String {
-    if let Some(hunt) = hunt.filter(|h| !service_kit::js::trim(h).is_empty()) {
+    if let Some(hunt) = hunt.filter(|h| !dainty_service_kit::js::trim(h).is_empty()) {
         return hunt.to_owned();
     }
     if mode == Some("CITY") {
@@ -324,9 +324,9 @@ pub fn field_shape(value: Option<&Value>) -> String {
     match value {
         Some(Value::String(text)) => {
             let cut: String = text.chars().take(40).collect();
-            service_kit::jsjson::stringify(&Value::String(cut))
+            dainty_service_kit::jsjson::stringify(&Value::String(cut))
         }
-        Some(value @ (Value::Bool(_) | Value::Number(_))) => service_kit::jsjson::stringify(value),
+        Some(value @ (Value::Bool(_) | Value::Number(_))) => dainty_service_kit::jsjson::stringify(value),
         _ => "absent".to_owned(),
     }
 }
@@ -358,7 +358,7 @@ pub fn body_keys(body: Option<&Value>) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use module_api::{IdKind, NodeId};
+    use dainty_module_api::{IdKind, NodeId};
 
     #[test]
     fn effective_hunt_ids() {

@@ -142,12 +142,12 @@ pub fn local_request_problem(remote: SocketAddr, headers: &HeaderMap, upgrade: b
 }
 
 fn is_upgrade(headers: &HeaderMap) -> bool {
-    headers.contains_key(UPGRADE) && proxy::connection_tokens(headers).contains("upgrade")
+    headers.contains_key(UPGRADE) && dainty_proxy::connection_tokens(headers).contains("upgrade")
 }
 
 /// The headers that cross: end to end only, never Host (set from the target) or HTTP/2's settings.
 fn forwarded(headers: &HeaderMap) -> HeaderMap {
-    proxy::end_to_end(headers, |name| name == "host" || name == "http2-settings")
+    dainty_proxy::end_to_end(headers, |name| name == "host" || name == "http2-settings")
 }
 
 /// The request target as the client sent it (origin form), `/` when there is none.
@@ -181,7 +181,7 @@ fn build_active_upstream(
             }),
             "pinned TLS",
         ),
-        None if protocol::invite::is_private_mode_host(&target.host) => (
+        None if dainty_protocol::invite::is_private_mode_host(&target.host) => (
             Host::Plain {
                 host: target.host.clone(),
                 port: target.port,
@@ -715,7 +715,7 @@ async fn handle_upgrade(mut request: Request<Incoming>, remote: SocketAddr, shar
         *response.status_mut() = StatusCode::SWITCHING_PROTOCOLS;
         for (name, value) in answer.headers() {
             let lower = name.as_str();
-            if lower == "connection" || lower == "upgrade" || !proxy::is_hop_by_hop(lower) {
+            if lower == "connection" || lower == "upgrade" || !dainty_proxy::is_hop_by_hop(lower) {
                 response.headers_mut().append(name.clone(), value.clone());
             }
         }
@@ -727,7 +727,7 @@ async fn handle_upgrade(mut request: Request<Incoming>, remote: SocketAddr, shar
                 return;
             };
             tokio::select! {
-                _ = proxy::tunnel(TokioIo::new(client), TokioIo::new(server), TUNNEL_IDLE) => {}
+                _ = dainty_proxy::tunnel(TokioIo::new(client), TokioIo::new(server), TUNNEL_IDLE) => {}
                 () = stop.cancelled() => {}
             }
         });
@@ -736,7 +736,7 @@ async fn handle_upgrade(mut request: Request<Incoming>, remote: SocketAddr, shar
 
     // The server did not switch protocols: pass its answer on and close
     let status = answer.status();
-    let headers = proxy::end_to_end(answer.headers(), |name| name == "content-length");
+    let headers = dainty_proxy::end_to_end(answer.headers(), |name| name == "content-length");
     let mut body = Vec::new();
     let mut incoming = answer.into_body();
     while let Some(Ok(frame)) = incoming.frame().await {

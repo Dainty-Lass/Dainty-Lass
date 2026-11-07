@@ -9,7 +9,7 @@ use serde_json::Value;
 fuzz_target!(|data: &[u8]| {
     let text = String::from_utf8_lossy(data);
     let (query, tags) = text.split_once('\n').unwrap_or((&text, ""));
-    let Ok(query) = service_kit::jsjson::parse(query) else {
+    let Ok(query) = dainty_service_kit::jsjson::parse(query) else {
         return;
     };
     let tags: Vec<&str> = tags.split(',').collect();

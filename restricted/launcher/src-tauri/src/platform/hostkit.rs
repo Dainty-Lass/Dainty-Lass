@@ -1,6 +1,6 @@
 //! Host tools (`RA12`), re-exported from `launcher_kit`.
 
-pub use launcher_kit::platform::hostkit::*;
+pub use dainty_launcher_kit::platform::hostkit::*;
 
 /// The Host page's test stand-in (`fixtures/host`): built once per test run with this toolchain.
 #[cfg(test)]

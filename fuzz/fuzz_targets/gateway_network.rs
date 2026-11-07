@@ -6,7 +6,7 @@
 //! panic, and what is read holds only region ids and round trips in range, each region once.
 #![no_main]
 
-use gateway::network::{MAX_REPORT_BYTES, MAX_REPORT_REGIONS, MAX_RTT_MS, is_region_id, parse_region_report};
+use dainty_gateway::network::{MAX_REPORT_BYTES, MAX_REPORT_REGIONS, MAX_RTT_MS, is_region_id, parse_region_report};
 use libfuzzer_sys::fuzz_target;
 
 fuzz_target!(|data: &[u8]| {

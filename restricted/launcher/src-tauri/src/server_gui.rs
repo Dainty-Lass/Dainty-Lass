@@ -6,9 +6,9 @@
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex as StdMutex};
 
+use dainty_service_kit::context::{ComponentPhase, ServerSnapshot};
+use dainty_service_kit::telemetry::{ChannelLogLayer, HostLogEntry};
 use server_controller::ServerController;
-use service_kit::context::{ComponentPhase, ServerSnapshot};
-use service_kit::telemetry::{ChannelLogLayer, HostLogEntry};
 use tokio::sync::{Mutex, mpsc, watch};
 
 use crate::bridge::modules::ModulePanel;
@@ -95,11 +95,11 @@ impl EmbeddedServer for EmbeddedServerState {
                 return Ok(());
             }
             *lock(&panel.workspace) = Some(workspace.clone());
-            let printer: host::services::Printer =
+            let printer: dainty_host::services::Printer =
                 Arc::new(move |name: &str, line: &str| lines(format!("{name:<14} | {line}")));
             // Setup's checks and files, and the 1.4.4 stack's migrations, block: off the async threads
             let mut server = tokio::task::spawn_blocking(move || {
-                host::serve::prepare_embedded(&host::paths::Paths::new(workspace), printer)
+                dainty_host::serve::prepare_embedded(&dainty_host::paths::Paths::new(workspace), printer)
             })
             .await
             .map_err(|e| e.to_string())??;
@@ -173,7 +173,7 @@ pub fn init_telemetry() -> mpsc::UnboundedReceiver<HostLogEntry> {
         .with(channel)
         .try_init();
     if installed.is_ok() {
-        service_kit::telemetry::set_tracing_bridge_active(true);
+        dainty_service_kit::telemetry::set_tracing_bridge_active(true);
     }
     rx
 }

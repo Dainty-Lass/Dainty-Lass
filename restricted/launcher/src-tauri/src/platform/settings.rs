@@ -10,12 +10,12 @@
 
 use std::path::{Path, PathBuf};
 
-use protocol::account::is_valid_username;
-use protocol::invite::{
+use dainty_protocol::account::is_valid_username;
+use dainty_protocol::invite::{
     clean_server_name, is_private_mode_host, is_valid_fingerprint, is_valid_host, is_valid_invite_code,
     is_valid_share_url,
 };
-use protocol::text::js_length;
+use dainty_protocol::text::js_length;
 use serde_json::{Map, Value};
 
 use crate::core::i18n::Language;
@@ -215,7 +215,7 @@ pub fn sanitize_settings(raw: &Value, language: Language, platform: Platform) ->
     for flag in ["windowed", "streamerMode", "hostTools"] {
         out.insert(flag.into(), Value::Bool(raw.get(flag) == Some(&Value::Bool(true))));
     }
-    // DaintyLass's own, kept only when on, so a file without them stays Reforged's byte for byte
+    // Dainty Lass's own, kept only when on, so a file without them stays Reforged's byte for byte
     for flag in ["minimizeToTray", "closeToTray", "showGameConsole"] {
         if raw.get(flag) == Some(&Value::Bool(true)) {
             out.insert(flag.into(), Value::Bool(true));

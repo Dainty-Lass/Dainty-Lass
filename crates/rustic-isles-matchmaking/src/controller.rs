@@ -6,13 +6,13 @@
 
 use std::sync::Arc;
 
-use module_api::network::{HomeError, InstanceRecord, TicketState};
-use module_api::{GameVersion, GlobalId, IdKind};
-use rifts_seam::{
-    AccountId as RealmAccount, CandidateLeave, CandidateLeaveOutcome, HuntRouteContext, HuntRouteOutcome,
-};
+use dainty_module_api::network::{HomeError, InstanceRecord, TicketState};
+use dainty_module_api::{GameVersion, GlobalId, IdKind};
 use rustic_isles::{Launch, LaunchRequest, Shared};
 use rustic_isles_store::{IslesStore, UserId};
+use rustic_rifts_seam::{
+    AccountId as RealmAccount, CandidateLeave, CandidateLeaveOutcome, HuntRouteContext, HuntRouteOutcome,
+};
 
 use crate::candidate::MatchCandidate;
 use crate::party::{Parties, PartyError};
@@ -106,7 +106,7 @@ fn party_failure(error: PartyError) -> Failure {
 }
 
 /// Isles' `party:<ULID>@<node>` as rifts' `<ULID>@<node>`.
-pub fn rifts_party_id(id: &GlobalId) -> Option<rifts_seam::PartyId> {
+pub fn rifts_party_id(id: &GlobalId) -> Option<rustic_rifts_seam::PartyId> {
     let text = id.to_string();
     text.split_once(':')?.1.parse().ok()
 }
@@ -205,7 +205,7 @@ impl Ctx {
             (Some(id), true) => Some((id.clone(), everyone.clone())),
             _ => None,
         };
-        let blank = service_kit::js::trim(&hunt).is_empty();
+        let blank = dainty_service_kit::js::trim(&hunt).is_empty();
         if let (false, false, Some((party_id, members))) = (is_hub, blank, &party) {
             return self.party_hunt(&request.player, &hunt, party_id, members).await;
         }
@@ -245,7 +245,7 @@ impl Ctx {
         let Some(current) = self.current_or_restored(player).await? else {
             return Ok(None);
         };
-        let seam = rifts_seam::Candidate(rifts_seam::Json(current.to_json_text()));
+        let seam = rustic_rifts_seam::Candidate(rustic_rifts_seam::Json(current.to_json_text()));
         let realm = self
             .shared
             .rifts()
@@ -363,7 +363,7 @@ impl Ctx {
             return Ok(outcome("no-candidate", "none", None));
         };
         let id = Some(current.candidate_id.as_str());
-        let seam = rifts_seam::Candidate(rifts_seam::Json(current.to_json_text()));
+        let seam = rustic_rifts_seam::Candidate(rustic_rifts_seam::Json(current.to_json_text()));
         let realm = self
             .shared
             .rifts()

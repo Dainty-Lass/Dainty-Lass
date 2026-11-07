@@ -4,8 +4,8 @@
 
 use std::sync::LazyLock;
 
-use legacy_import::revived::drsave::read_save;
-use legacy_import::revived::source::{Origin, prepare};
+use dainty_legacy_import::revived::drsave::read_save;
+use dainty_legacy_import::revived::source::{Origin, prepare};
 use libfuzzer_sys::fuzz_target;
 use tempfile::TempDir;
 

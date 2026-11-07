@@ -15,7 +15,7 @@ fn auth() -> &'static Arc<Auth<MemoryStore>> {
     AUTH.get_or_init(|| {
         let (private, public) = throwaway_signing_keys();
         let settings = MapSettings::new(&[("AUTH_SIGNING_PRIVKEY_B64", &private), ("AUTH_SIGNING_PUBKEY_B64", &public)]);
-        let config = AuthConfig::for_1_14_7(module_api::NodeIdentity::standalone());
+        let config = AuthConfig::for_1_14_7(dainty_module_api::NodeIdentity::standalone());
         Auth::new(config, Arc::new(settings), None, Seams::default())
     })
 }

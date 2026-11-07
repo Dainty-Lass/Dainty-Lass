@@ -1,10 +1,10 @@
-//! Realm hosting and joining (RF7, DD12, DU5): links `rifts-host` behind the `realms` feature and serves
+//! Realm hosting and joining (RF7, DD12, DU5): links `rustic-rifts-host` behind the `realms` feature and serves
 //! `realm_host`, `realm_join`, `realm_stop`, and `realm_get`.
 //!
 //! RD9 holds throughout: realm hosting and joining never inject into the game process or place a redirect
 //! `.ini` or DLL beside the runtime loader, and any leftover loader files in `Win64` refuse realm startup
 //! just as `PLAY` refuses them. The player's account key stays inside `KeyStore` and never reaches
-//! `rifts-host`, `p2p-sessions/`, or the spawned dedicated server's environment.
+//! `rustic-rifts-host`, `p2p-sessions/`, or the spawned dedicated server's environment.
 
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -12,14 +12,14 @@ use std::sync::{Arc, Mutex, Weak};
 use std::time::Duration;
 
 use hyper::Method;
-use rifts_host::{
+use rustic_rifts_host::{
     ADMISSION_PUBLIC_KEY_FILE, CommonBootstrapConfig, DefaultHostBackend, FileHostState, HostBackend,
     HostBootstrapSpec, HostError, HostState as _, HostedRole, HubLimits, JoinBootstrapSpec, LocalRealmHosting,
     LocalSession, LocalState, NativeTransportLoader, NoopServerSpawner, PeerListEntry, RealmHosting, ServerSpawner,
     SessionResult, Signal, TRANSPORT_DLL, TransportAbi, TransportConfig, TransportLoader, default_max_servers,
     wire_session_id,
 };
-use rifts_seam::{AccountId, GlobalId, HubKind, NodeId, Secret, SessionId, Ulid};
+use rustic_rifts_seam::{AccountId, GlobalId, HubKind, NodeId, Secret, SessionId, Ulid};
 use serde_json::{Value, json};
 
 use super::{Controller, err, lock, now_iso, under};
@@ -852,7 +852,7 @@ fn session_view(hosting: &LocalRealmHosting, local: &LocalSession) -> RealmSessi
 }
 
 impl Controller {
-    /// Installs test seams for `rifts-host` (transport loader, pinned SHA-256, backend and server spawner).
+    /// Installs test seams for `rustic-rifts-host` (transport loader, pinned SHA-256, backend and server spawner).
     #[cfg(test)]
     pub fn set_realms_seams(&self, seams: RealmsSeams) {
         *lock(&self.realms.seams) = Some(seams);
@@ -937,7 +937,7 @@ impl Controller {
             return Ok(sha);
         }
         if local_or_installed {
-            return rifts_host::sha256_file(dll_path).map_err(|error| {
+            return rustic_rifts_host::sha256_file(dll_path).map_err(|error| {
                 let (code, detail) = map_host_error(error);
                 self.fail(code, Some(detail))
             });
@@ -1027,7 +1027,11 @@ impl Controller {
             let available = self.game_win64().is_some_and(|win64| {
                 win64.join(TRANSPORT_DLL).is_file()
                     && win64.join(ADMISSION_PUBLIC_KEY_FILE).is_file()
-                    && !self.c.user_data.join(rifts_host::DISABLE_COOP_FLAG_FILE).is_file()
+                    && !self
+                        .c
+                        .user_data
+                        .join(rustic_rifts_host::DISABLE_COOP_FLAG_FILE)
+                        .is_file()
             });
             return Ok(RealmView {
                 available,

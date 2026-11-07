@@ -8,10 +8,10 @@
 use std::io::Write;
 use std::path::Path;
 
-use host::captures::parse_capture_pin;
-use host::gamepack::{pack_entries, parse_game_data_pack, sha256_hex};
-use host::paths::Paths;
-use host::progression::{ACTIVE_HUNT_PASS, build_from_rows, parse_jsonl};
+use dainty_host::captures::parse_capture_pin;
+use dainty_host::gamepack::{pack_entries, parse_game_data_pack, sha256_hex};
+use dainty_host::paths::Paths;
+use dainty_host::progression::{ACTIVE_HUNT_PASS, build_from_rows, parse_jsonl};
 use libfuzzer_sys::fuzz_target;
 
 fn gzip(data: &[u8]) -> Vec<u8> {

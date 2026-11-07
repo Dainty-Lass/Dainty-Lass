@@ -11,7 +11,7 @@
 use std::path::Path;
 use std::sync::LazyLock;
 
-use admin::history::{self, HistoryError, HistorySet, PlanCache, RowConflict, Selection};
+use dainty_admin::history::{self, HistoryError, HistorySet, PlanCache, RowConflict, Selection};
 
 use crate::bridge::types::{
     ErrorCode, HistoryEntryView, HistoryOutcome, HistoryPageView, LauncherError, RevertApplyOutcome,
@@ -60,7 +60,7 @@ fn failed(why: &str) -> LauncherError {
 }
 
 async fn open(workspace: &Path) -> Result<HistorySet, LauncherError> {
-    let env = host::paths::Paths::new(workspace).config.join("admin.env");
+    let env = dainty_host::paths::Paths::new(workspace).config.join("admin.env");
     if !env.is_file() {
         return Err(LauncherError::new(ErrorCode::HistoryUnavailable));
     }
@@ -126,7 +126,7 @@ fn plan_view(plan: &history::Plan) -> RevertPlanView {
 
 pub async fn query(workspace: &Path, args: HistoryArgs) -> HistoryOutcome {
     let run = async {
-        let filter = args.selection().to_filter(admin::now_ms()).map_err(failure)?;
+        let filter = args.selection().to_filter(dainty_admin::now_ms()).map_err(failure)?;
         let set = open(workspace).await?;
         set.query(&filter, args.cursor.as_deref(), history::DEFAULT_PAGE)
             .await
@@ -140,7 +140,7 @@ pub async fn query(workspace: &Path, args: HistoryArgs) -> HistoryOutcome {
                 .map(|e| HistoryEntryView {
                     id: e.entry.id.to_string(),
                     database: e.database,
-                    at: admin::input::iso(e.entry.at),
+                    at: dainty_admin::input::iso(e.entry.at),
                     actor: e.entry.actor,
                     key: e.entry.row_key,
                     op: e.entry.op,
@@ -157,7 +157,7 @@ pub async fn query(workspace: &Path, args: HistoryArgs) -> HistoryOutcome {
 
 pub async fn dry_run(workspace: &Path, args: HistoryArgs) -> RevertPlanOutcome {
     let run = async {
-        let filter = args.selection().to_filter(admin::now_ms()).map_err(failure)?;
+        let filter = args.selection().to_filter(dainty_admin::now_ms()).map_err(failure)?;
         let set = open(workspace).await?;
         set.dry_run(&filter).await.map_err(failure)
     };
@@ -185,7 +185,7 @@ pub async fn apply(workspace: &Path, plan_id: &str) -> RevertApplyOutcome {
             PLANS.forget(plan_id);
             let rows: usize = applied.done.iter().map(|(_, o)| o.plan.actions.len()).sum();
             RevertApplyOutcome::Ok(RevertDoneView {
-                at: applied.done.first().map(|(_, o)| admin::input::iso(o.at)),
+                at: applied.done.first().map(|(_, o)| dainty_admin::input::iso(o.at)),
                 rows_changed: count(rows),
                 databases: applied
                     .done
@@ -208,15 +208,15 @@ pub async fn apply(workspace: &Path, plan_id: &str) -> RevertApplyOutcome {
 mod tests {
     #![allow(clippy::unwrap_used, clippy::expect_used)] // tests
 
-    use admin::history::Actor;
-    use admin::keys::{Keys, Role};
+    use dainty_admin::history::Actor;
+    use dainty_admin::keys::{Keys, Role};
 
     use super::*;
 
     /// A workspace with the admin API's database: two moderators, and a partner who revoked both.
     async fn workspace() -> (tempfile::TempDir, Vec<String>, String) {
         let dir = tempfile::tempdir().unwrap();
-        let paths = host::paths::Paths::new(dir.path());
+        let paths = dainty_host::paths::Paths::new(dir.path());
         std::fs::create_dir_all(&paths.config).unwrap();
         let slashed = |p: &Path| format!("\"{}\"", p.to_string_lossy().replace(std::path::MAIN_SEPARATOR, "/"));
         let key = "0123456789abcdef0123456789abcdef";

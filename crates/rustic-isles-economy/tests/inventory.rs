@@ -8,7 +8,7 @@
 mod common;
 
 use common::{Harness, NOW_MS, Options, Who, host_as, settings};
-use rifts_seam::{HostWriteKind, Json, Reply};
+use rustic_rifts_seam::{HostWriteKind, Json, Reply};
 use serde_json::{Value, json};
 
 const GS: Who = Who::Gameserver;

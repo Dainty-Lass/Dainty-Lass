@@ -2,10 +2,10 @@
 
 # Security checklist: admission tickets (RX3)
 
-> **Retired** (RD27): this checklist is for the AGPL `rifts-*` crate, which was replaced by the root's MIT
+> **Retired** (RD27): this checklist is for the AGPL `rustic-rifts-*` crate, which was replaced by the root's MIT
 > clean-room crate and removed. Kept for reference; the root's `docs/security/rifts-*.md` is the live checklist.
 
-The checklist for `crates/rifts-admission` (DaintyLass plan RF4, DD14, DX2): the MPT2 admission ticket, the P-256
+The checklist for `crates/rustic-rifts-admission` (Dainty Lass plan RF4, DD14, DX2): the MPT2 admission ticket, the P-256
 key pair and its generator, the MPC1 control frames and the admission routes (self ticket, join bootstrap,
 consume, disconnect, the hub's peer list).
 
@@ -27,7 +27,7 @@ get one accepted for another binding joins a game they were not admitted to, and
   with a host capability isles checked (`HostCapability`). The ticket text, the authenticated peer id, the bridge
   instance and the connection handle come from the host's PC, which the host controls.
 - **In, peers:** MPC1 frames (`control.rs`), which reach the transport inside sealed control frames; the Rust codec
-  is the transport's, for `rifts-host` (RF7).
+  is the transport's, for `rustic-rifts-host` (RF7).
 - **Secret:** `P2P_ADMISSION_SIGNING_PRIVKEY_B64` in `secrets.env`.
 - **Out:** the ticket text (a bearer credential until consumed) to the joiner's launcher, the store
   (`AdmissionStore`, the jti's digest only), realms' hunt and presence records (`AdmissionHunts`).

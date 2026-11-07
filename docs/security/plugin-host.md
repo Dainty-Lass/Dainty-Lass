@@ -3,8 +3,8 @@
 # Security checklist: module libraries and the plugin host (RD27)
 
 The checklist for loading a game module or a service as a library the core loads at start: the C ABI and the
-library side in `crates/module-api/src/plugin.rs`, the loader in `crates/plugin-host`, and the registry's choice of
-driver (`crates/controller/src/registry.rs`, `bring_up`). The frame protocol a library speaks is `module-host.md`'s;
+library side in `crates/dainty-module-api/src/plugin.rs`, the loader in `crates/dainty-plugin-host`, and the registry's choice of
+driver (`crates/dainty-controller/src/registry.rs`, `bring_up`). The frame protocol a library speaks is `module-host.md`'s;
 everything that checklist says about what a module sends holds here unchanged. `SECURITY_REVIEW.md` indexes it.
 
 How to use it: before the first module library ships to hosts, copy this list into the cutover commit, check each

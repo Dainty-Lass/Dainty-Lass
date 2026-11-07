@@ -15,13 +15,10 @@ use std::sync::{Arc, Mutex};
 
 use axum::body::Body;
 use axum::extract::{ConnectInfo, Request};
+use dainty_module_api::{Actor, ActorContext, BoxFuture as ApiFuture};
+use dainty_service_kit::jsjson;
+use dainty_service_kit::serve::ConnectionInfo;
 use http_body_util::BodyExt;
-use module_api::{Actor, ActorContext, BoxFuture as ApiFuture};
-use rifts_seam::{
-    BoxFuture, CapabilityScope, Component, DedicatedOnly, GuardHooks, HostRouteSample, HostWrite, HostWriteKind,
-    HostWriteOptions, InventoryDecision, InventoryTransaction, Json, Lifecycle, Reply, RequestInfo, RiftsParts,
-    RuntimeAuth, SeamError, StubRoutes, TableSpec,
-};
 use rustic_isles::handlers::auth_handlers;
 use rustic_isles::testing::{SAMPLE_TABLES, SampleHooks};
 use rustic_isles::{
@@ -38,9 +35,12 @@ use rustic_isles_store::repo::inventory::InventoryRecord;
 use rustic_isles_store::repo::progression::PlayerJourneyRecord;
 use rustic_isles_store::test_support::TempStore;
 use rustic_isles_store::{AccountId, IslesAuthStore, IslesStore, UserId};
+use rustic_rifts_seam::{
+    BoxFuture, CapabilityScope, Component, DedicatedOnly, GuardHooks, HostRouteSample, HostWrite, HostWriteKind,
+    HostWriteOptions, InventoryDecision, InventoryTransaction, Json, Lifecycle, Reply, RequestInfo, RiftsParts,
+    RuntimeAuth, SeamError, StubRoutes, TableSpec,
+};
 use serde_json::{Map, Value, json};
-use service_kit::jsjson;
-use service_kit::serve::ConnectionInfo;
 use tower::ServiceExt;
 
 pub const NOW_MS: &str = "1792000000000";
@@ -190,9 +190,9 @@ struct HostRealms;
 pub fn runtime_auth() -> RuntimeAuth {
     RuntimeAuth {
         capability_id: "cap-1".into(),
-        session: rifts_seam::SessionId("01ARZ3NDEKTSV4RRFFQ69G5FAV@n".parse().unwrap()),
+        session: rustic_rifts_seam::SessionId("01ARZ3NDEKTSV4RRFFQ69G5FAV@n".parse().unwrap()),
         generation: 1,
-        host_account: rifts_seam::AccountId("host".into()),
+        host_account: rustic_rifts_seam::AccountId("host".into()),
         scopes: vec![CapabilityScope::GameServerRuntime],
         roster: vec![],
         host_peer: None,
@@ -208,7 +208,7 @@ impl Realms for HostRealms {
     ) -> ApiFuture<'a, Result<rustic_isles_auth::RuntimeAuth, String>> {
         let capability = request
             .headers
-            .get(rifts_seam::HOST_CAPABILITY_HEADER)
+            .get(rustic_rifts_seam::HOST_CAPABILITY_HEADER)
             .and_then(|v| v.to_str().ok())
             .unwrap_or("")
             .to_owned();
@@ -242,13 +242,13 @@ impl Lifecycle for FakeGuard {
     fn startup_summary(&self, role: &str) -> Result<Option<Json>, SeamError> {
         DedicatedOnly.startup_summary(role)
     }
-    fn runtime_safety_issues(&self, settings: &dyn rifts_seam::Settings) -> Result<Vec<String>, SeamError> {
+    fn runtime_safety_issues(&self, settings: &dyn rustic_rifts_seam::Settings) -> Result<Vec<String>, SeamError> {
         DedicatedOnly.runtime_safety_issues(settings)
     }
     fn tables(&self) -> &'static [TableSpec] {
         &[]
     }
-    fn account_deletion_steps(&self) -> Vec<rifts_seam::DeletionStep> {
+    fn account_deletion_steps(&self) -> Vec<rustic_rifts_seam::DeletionStep> {
         vec![]
     }
 }
@@ -276,7 +276,7 @@ impl GuardHooks for FakeGuard {
         &self,
         _: RuntimeAuth,
         kind: HostWriteKind,
-        target: rifts_seam::AccountId,
+        target: rustic_rifts_seam::AccountId,
         _: HostWriteOptions,
     ) -> BoxFuture<'_, Result<Option<Reply>, SeamError>> {
         self.asked.lock().unwrap().push((kind, target.0));
@@ -292,29 +292,29 @@ impl GuardHooks for FakeGuard {
         _: RuntimeAuth,
         _: InventoryTransaction,
     ) -> BoxFuture<'_, Result<InventoryDecision, SeamError>> {
-        rifts_seam::stub(Component::Guard, "authorize_inventory")
+        rustic_rifts_seam::stub(Component::Guard, "authorize_inventory")
     }
 }
 
 /// Rifts loaded with the fake guard, a stub answering every `rifts` row.
-fn rifts(guard: Arc<FakeGuard>) -> rifts_seam::Rifts {
-    let routes: Vec<rifts_seam::Route> = routes::all()
+fn rifts(guard: Arc<FakeGuard>) -> rustic_rifts_seam::Rifts {
+    let routes: Vec<rustic_rifts_seam::Route> = routes::all()
         .iter()
         .filter(|r| r.when == When::Rifts)
-        .map(|r| rifts_seam::Route {
+        .map(|r| rustic_rifts_seam::Route {
             method: match r.method {
-                Method::Get => rifts_seam::Method::Get,
-                Method::Patch => rifts_seam::Method::Patch,
-                _ => rifts_seam::Method::Post,
+                Method::Get => rustic_rifts_seam::Method::Get,
+                Method::Patch => rustic_rifts_seam::Method::Patch,
+                _ => rustic_rifts_seam::Method::Post,
             },
             path: r.path,
-            mount: rifts_seam::Mount::Normal,
+            mount: rustic_rifts_seam::Mount::Normal,
             handler: "stub.route",
         })
         .collect();
-    let routes: &'static [rifts_seam::Route] = Box::leak(routes.into_boxed_slice());
+    let routes: &'static [rustic_rifts_seam::Route] = Box::leak(routes.into_boxed_slice());
     let dedicated = Arc::new(DedicatedOnly);
-    rifts_seam::Rifts::new(RiftsParts {
+    rustic_rifts_seam::Rifts::new(RiftsParts {
         realms: dedicated.clone(),
         entry: dedicated,
         guard,
@@ -485,7 +485,7 @@ impl Harness {
             Who::Host(capability) => {
                 builder = builder
                     .header("authorization", "Host runtime")
-                    .header(rifts_seam::HOST_CAPABILITY_HEADER, *capability);
+                    .header(rustic_rifts_seam::HOST_CAPABILITY_HEADER, *capability);
             }
         }
         for (name, value) in extra {

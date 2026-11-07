@@ -6,7 +6,7 @@
 
 use std::sync::Arc;
 
-use module_api::{BoxFuture, GlobalId};
+use dainty_module_api::{BoxFuture, GlobalId};
 use rustic_isles::Shared;
 use rustic_isles_store::{AccountId, IslesStore};
 

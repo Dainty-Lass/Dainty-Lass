@@ -17,37 +17,37 @@ publish = false
 cargo-fuzz = true
 
 [dependencies]
-admin = { path = "../../crates/admin" }
+dainty-admin = { path = "../../crates/dainty-admin" }
 # admin_request: the query parser the admin API runs
 async-graphql = { version = "7", default-features = false }
 libfuzzer-sys = { version = "0.4", features = ["arbitrary-derive"] }
 arbitrary = { version = "1", features = ["derive"] }
 chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
 # epic_manifest: Epic's download manifests and CDN chunks
-epic = { path = "../../crates/epic" }
+dainty-epic = { path = "../../crates/dainty-epic" }
 flate2 = "1"
 # history_bucket: what a restore reads back from the history bucket (DH4)
-history-ship = { path = "../../crates/history-ship" }
-host = { path = "../crates/host", default-features = false, features = ["gateway", "content", "admin"] }
+dainty-history-ship = { path = "../../crates/dainty-history-ship" }
+dainty-host = { path = "../crates/dainty-host", default-features = false, features = ["gateway", "content", "admin"] }
 # module_frame: the module framework's frame protocol (DF2); gateway_modules: the stub as a module (DF4a)
-module-api = { path = "../../crates/module-api" }
+dainty-module-api = { path = "../../crates/dainty-module-api" }
 http = "1"
 # network_directory: the directory's node-link messages (DN4); network_home, network_ticket: the home API's (DN5); network_admin: the admin relay's (DN11); network_logship: peer log shipping (DH7)
-network = { path = "../../crates/network", features = ["log-ship"] }
+dainty-network = { path = "../../crates/dainty-network", features = ["log-ship"] }
 # network_link: the certificate names the node link reads
 rustls = { version = "0.23", default-features = false, features = ["aws_lc_rs", "std", "tls12"] }
-protocol = { path = "../../crates/protocol" }
-proxy = { path = "../../crates/proxy" }
-remote = { path = "../../crates/remote" }
+dainty-protocol = { path = "../../crates/dainty-protocol" }
+dainty-proxy = { path = "../../crates/dainty-proxy" }
+dainty-remote = { path = "../../crates/dainty-remote" }
 serde = "1"
 serde_json = "1"
 # The SHA-256 several targets check (runtime files, history buckets, log shipping)
 sha2 = "0.11"
 # launcher_host: the launcher's host.toml reader
 toml_edit = { version = "0.25", default-features = false, features = ["parse", "display"] }
-service-kit = { path = "../../crates/service-kit" }
+dainty-service-kit = { path = "../../crates/dainty-service-kit" }
 # history_record: change-log records read back during a restore (DH5)
-store = { path = "../../crates/store" }
+dainty-store = { path = "../../crates/dainty-store" }
 url = "2"
 
 [[bin]]

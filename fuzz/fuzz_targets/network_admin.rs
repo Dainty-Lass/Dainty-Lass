@@ -5,8 +5,8 @@
 #![no_main]
 
 use libfuzzer_sys::fuzz_target;
-use network::home::protocol::looks_like_account_key;
-use network::relay::{
+use dainty_network::home::protocol::looks_like_account_key;
+use dainty_network::relay::{
     AdminRelayReply, MAX_ADMIN_WIRE, decode_request, decode_response, encode_request, encode_response,
     holds_secret_key, looks_like_admin_key,
 };

@@ -4,9 +4,9 @@
 //! `GET /progression/config`'s served file and the Hunt Pass window rewrite (spec §3.7): the client picks the
 //! active pass by date, so the served pass is opened over the current season and every other pass is ended.
 
+use dainty_service_kit::js;
 use rustic_isles::{ProgressionConfigRule, Settings, VersionTables, season};
 use serde_json::{Map, Value};
-use service_kit::js;
 
 /// The live service's last pass cutoff (`Date.parse` = 1733184000000).
 pub const ENDED_END: &str = "2024-12-03T00:00:00+00:00";
@@ -217,7 +217,7 @@ mod tests {
         );
         assert_eq!((&p[6], &p[7]), (&Value::Null, &json!(5)));
         assert_eq!(
-            service_kit::jsjson::stringify(&p[8]),
+            dainty_service_kit::jsjson::stringify(&p[8]),
             r#"{"progression_id":"season44","start_date":"2099-01-02T00:00:00+00:00","end_date":"2099-12-31T00:00:00+00:00","tracks":[1,2]}"#
         );
         assert_eq!(p[9]["progression_id"], "season45");

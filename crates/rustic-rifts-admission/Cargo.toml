@@ -1,0 +1,26 @@
+[package]
+name = "rustic-rifts-admission"
+description = "Rustic Rifts' admission: signed join tickets, their keys and control frames, and the admission service"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license = "MIT"
+repository.workspace = true
+publish.workspace = true
+
+[dependencies]
+base64.workspace = true
+p256.workspace = true
+# The system random source (rand's SysRng is getrandom's), for jtis, bridge instance ids and new keys
+rand.workspace = true
+rustic-rifts-relay.workspace = true
+rustic-rifts-seam.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
+
+[lints]
+workspace = true

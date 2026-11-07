@@ -17,4 +17,4 @@ fn module() -> rustic_isles::IslesModule {
     }
 }
 
-module_api::export_plugin!(module());
+dainty_module_api::export_plugin!(module());

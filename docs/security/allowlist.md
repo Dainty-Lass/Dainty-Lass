@@ -2,7 +2,7 @@
 
 # Security checklist: allowlist helper and its IPC (RX3)
 
-The checklist for the allowlist helper of `crates/gateway`, run as `dainty-host allowlist` (MIGRATION_PLAN.md RS4,
+The checklist for the allowlist helper of `crates/dainty-gateway`, run as `dainty-host allowlist` (MIGRATION_PLAN.md RS4,
 RD10, RD20). `SECURITY_REVIEW.md` indexes it.
 
 How to use it: before the helper's cutover, copy this list into the cutover PR, check each item in the code (not
@@ -25,7 +25,7 @@ ports to everyone defeats the allowlist.
 - **Files:** the `.env` the host kit writes (trusted: whoever can write it chooses what runs elevated), the audit log
   and the state file (written by the helper, read back at start).
 
-Code: `crates/gateway/src/allowlist/` (`config.rs`, `ports.rs`, `guard.rs`, `modules.rs`, `nft.rs`,
+Code: `crates/dainty-gateway/src/allowlist/` (`config.rs`, `ports.rs`, `guard.rs`, `modules.rs`, `nft.rs`,
 `firewall.rs`, `windows.rs`, `helper.rs`, `state.rs`, `sync.rs`), `src/ip.rs` (`check_allowlist_ip`) and `src/allowlist/cli.rs`.
 
 Fuzz target: `allowlist_input` in `fuzz` (the `/allow` body and its `Content-Length`, the state file, and the
@@ -65,7 +65,7 @@ the nftables script or the Windows rule.
       characters from `[A-Za-z0-9_.@-]`, starting with a letter or digit. Neither can close a quote or a brace in the
       script.
 - [ ] `ALLOWLIST_RULE_NAME` (the Windows Firewall rule the helper finds and changes; a second helper on a server
-      running both games names its own) starts with `DaintyLass ` (or legacy `Dauntless Reforged Revival `), holds only letters, digits,
+      running both games names its own) starts with `Dainty Lass ` (or legacy `Dauntless Reforged Revival `), holds only letters, digits,
       spaces and `()-._`, and is at most 80 characters (`config.rs`, `check_rule_name`; the `allowlist_input` fuzz
       target). The helper can never be pointed at a rule that is not the server's own.
 - [ ] At most `ALLOWLIST_MAX_ENTRIES` addresses (default 256, at most 1000); past that, `/allow` answers 503 and
@@ -98,7 +98,7 @@ The set is held in `guard.rs`, outside the helper, so a restarted allowlist modu
 ### In the gateway library (RD27)
 
 The allowlist runs inside the gateway service (`gateway::service`, [gateway.md](gateway.md)), compiled in or in the
-library `crates/gateway-plugin` exports, on `allowlist.env` (`AllowlistMode::InProcess`), so the gateway's player
+library `crates/dainty-gateway-plugin` exports, on `allowlist.env` (`AllowlistMode::InProcess`), so the gateway's player
 admits reach the helper directly, and the core's ring admits a player with an `AdmitUdp` message. The helper
 runs in the core's process, as the in-process allowlist module did: that process holds its rights.
 
@@ -136,7 +136,7 @@ runs in the core's process, as the in-process allowlist module did: that process
 
 ### Windows Firewall
 
-- [ ] The helper touches only rules whose display name is `DaintyLass game ports (allowlist)` (or the configured `ALLOWLIST_RULE_NAME`). The first one is set to the plan and any other is disabled, so exactly one is in effect; a
+- [ ] The helper touches only rules whose display name is `Dainty Lass game ports (allowlist)` (or the configured `ALLOWLIST_RULE_NAME`). The first one is set to the plan and any other is disabled, so exactly one is in effect; a
       Node-made rule is taken over, not duplicated.
 - [ ] The rule is inbound, Allow, UDP, the game ports only, remote addresses exactly the plan's, every profile
       (`windows_change`, pinned by a unit test). An empty plan disables it, so Windows drops the game ports' traffic
@@ -186,7 +186,7 @@ Debian 13, as root, with nftables installed (the result says whether nft read th
 ```bash
 sudo apt install nftables
 cd rust
-sudo -E env "PATH=$PATH" REFORGED_TEST_NFT=1 cargo test -p gateway --lib nftables_for_real -- --nocapture
+sudo -E env "PATH=$PATH" REFORGED_TEST_NFT=1 cargo test -p dainty-gateway --lib nftables_for_real -- --nocapture
 sudo nft list tables
 ```
 
@@ -197,8 +197,8 @@ Windows, in an elevated prompt:
 ```powershell
 cd rust
 $env:REFORGED_TEST_WINDOWS_FIREWALL = "1"
-cargo test -p gateway --lib windows_firewall_for_real -- --nocapture
-Get-NetFirewallRule -DisplayName "DaintyLass allowlist test (delete me)" -ErrorAction SilentlyContinue
+cargo test -p dainty-gateway --lib windows_firewall_for_real -- --nocapture
+Get-NetFirewallRule -DisplayName "Dainty Lass allowlist test (delete me)" -ErrorAction SilentlyContinue
 ```
 
 The last command must print nothing.

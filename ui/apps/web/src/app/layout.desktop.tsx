@@ -5,7 +5,7 @@ import { MODE } from "@/mode";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: MODE === "manager" ? "DaintyLass Server" : "DaintyLass",
+  title: MODE === "manager" ? "Dainty Lass Server" : "Dainty Lass",
 };
 export const viewport: Viewport = { colorScheme: "light dark" };
 

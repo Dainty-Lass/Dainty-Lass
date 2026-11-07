@@ -1,0 +1,20 @@
+# A chat service library for controller's tests (tests/chat_library.rs): every chat message once. A workspace of its
+# own, as tests/echo-service is.
+[package]
+name = "chat-service"
+version = "0.0.0"
+edition = "2024"
+license = "MIT"
+publish = false
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+dainty-module-api = { path = "../../../dainty-module-api" }
+serde_json = "1"
+dainty-service-kit = { path = "../../../dainty-service-kit" }
+dainty-service-plugin = { path = "../../../dainty-service-plugin" }
+tokio = { version = "1", features = ["rt", "time"] }
+
+[workspace]

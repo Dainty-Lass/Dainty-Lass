@@ -4,13 +4,13 @@
 //! spellings `naming.rs` allows.
 #![no_main]
 
-use chat::naming::{room_id_text, room_kind_of};
-use chat::nick::{check_nickname, name_part_of};
-use chat::server::is_authcid_shape;
-use chat::xmpp::{Element, Node, escape, has_markup_declaration, log_text, parse_frame, parse_jid, redact_frame};
+use dainty_chat::naming::{room_id_text, room_kind_of};
+use dainty_chat::nick::{check_nickname, name_part_of};
+use dainty_chat::server::is_authcid_shape;
+use dainty_chat::xmpp::{Element, Node, escape, has_markup_declaration, log_text, parse_frame, parse_jid, redact_frame};
 use libfuzzer_sys::fuzz_target;
-use module_api::chat::RoomKind;
-use module_api::{NodeId, Region};
+use dainty_module_api::chat::RoomKind;
+use dainty_module_api::{NodeId, Region};
 
 /// Every name, attribute and text in the tree came from the input, and the tree is no deeper than the input
 /// is long. Walked without recursion.

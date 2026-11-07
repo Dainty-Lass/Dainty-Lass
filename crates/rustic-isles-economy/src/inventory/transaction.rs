@@ -6,12 +6,12 @@
 use std::sync::Arc;
 use std::time::Duration;
 
-use module_api::{Actor, ActorContext};
+use dainty_module_api::{Actor, ActorContext};
+use dainty_service_kit::{js, jsjson};
 use rustic_isles::Shared;
 use rustic_isles_store::repo::inventory::{InventoryRecord, LedgerKey, LedgerStatus, TryBegin};
 use rustic_isles_store::{AccountId, IslesStore, RepoError, RepoResult, Repositories, Tx, UserId};
 use serde_json::{Map, Value};
-use service_kit::{js, jsjson};
 
 use crate::inventory::items::{self, Delta};
 use crate::inventory::ports::{CurrencyChange, InventoryPorts, WalletError};

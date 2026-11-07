@@ -49,7 +49,7 @@ fuzz_target!(|data: &[u8]| {
     let paths_text = parts.next().unwrap_or("");
     let id = parts.next();
     let seasons = parts.next();
-    let Ok(paths) = service_kit::jsjson::parse(paths_text) else {
+    let Ok(paths) = dainty_service_kit::jsjson::parse(paths_text) else {
         return;
     };
     let mut pairs = Vec::new();

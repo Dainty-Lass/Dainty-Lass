@@ -8,9 +8,9 @@ use std::collections::{BTreeMap, BTreeSet, HashSet};
 use std::path::{Path, PathBuf};
 use std::sync::LazyLock;
 
+use dainty_service_kit::js;
 use regex::Regex;
 use serde_json::{Map, Value, json};
-use service_kit::js;
 
 use super::io::{
     Catalog, Item, create_dir, drop_bom, number, parse, read_catalog, read_json_lines, read_text, show,
@@ -646,7 +646,7 @@ pub fn generate_platinum_store(
     tracing::debug!(skips = ?build.skips.0, "platinum store skips");
 
     let mut keyed: Vec<(String, Value)> = build.skus.into_iter().map(|s| (sort_text(&s), s)).collect();
-    keyed.sort_by(|a, b| service_kit::collate::locale_compare(&a.0, &b.0));
+    keyed.sort_by(|a, b| dainty_service_kit::collate::locale_compare(&a.0, &b.0));
     let sorted: Vec<Value> = keyed.into_iter().map(|(_, s)| s).collect();
     create_dir(data_dir)?;
     let target = data_dir.join("platinum_store.json");

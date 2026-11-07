@@ -1,7 +1,7 @@
 #![no_main]
 
 //! Fuzzes the chat federation (`Service::Chat`, DN10b) wire codec and envelope validator
-//! (`chat::federation::{decode_request, encode_request, decode_response, encode_response, validate_envelope, Envelope}`):
+//! (`dainty_chat::federation::{decode_request, encode_request, decode_response, encode_response, validate_envelope, Envelope}`):
 //! - Neither decoder nor validator may panic on any byte slice, regardless of length or UTF-8 validity.
 //! - Every decoded `ChatRequest` must round-trip identically through `encode_request` -> `decode_request`
 //!   and be at most `MAX_CHAT_WIRE` bytes.
@@ -11,12 +11,12 @@
 //!   `MAX_NICK_BYTES`, `is_authcid_shape`, no control characters in identifiers). An envelope's `mid` may be
 //!   empty (an older node sends none) and the body is counted in chars, as chat counts it (spec-rd27-chat §7).
 
-use chat::federation::{
+use dainty_chat::federation::{
     CHAT_FEDERATION_VERSION, Envelope, MAX_CHAT_WIRE, decode_request, decode_response, encode_request, encode_response,
     validate_envelope,
 };
-use chat::muc::MAX_NICK_BYTES;
-use chat::server::{BODY_LIMIT, is_authcid_shape};
+use dainty_chat::muc::MAX_NICK_BYTES;
+use dainty_chat::server::{BODY_LIMIT, is_authcid_shape};
 use libfuzzer_sys::fuzz_target;
 
 fuzz_target!(|data: &[u8]| {

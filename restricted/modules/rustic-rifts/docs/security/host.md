@@ -2,10 +2,10 @@
 
 # Security checklist: realm host and transport loader (RF7)
 
-> **Retired** (RD27): this checklist is for the AGPL `rifts-*` crate, which was replaced by the root's MIT
+> **Retired** (RD27): this checklist is for the AGPL `rustic-rifts-*` crate, which was replaced by the root's MIT
 > clean-room crate and removed. Kept for reference; the root's `docs/security/rifts-*.md` is the live checklist.
 
-The checklist for `crates/rifts-host` (DaintyLass plan RF7, DD12, RD9): loading `ParadoxTransport.dll` via `libloading`,
+The checklist for `crates/rustic-rifts-host` (Dainty Lass plan RF7, DD12, RD9): loading `ParadoxTransport.dll` via `libloading`,
 the per-session folder and `0600` secret files, the hosted server launch environment, and the boundary between realm
 hosting and normal game launch.
 
@@ -15,16 +15,16 @@ date and the commit reviewed. An item that does not hold is a bug to fix before 
 
 ## What it is and where the boundary is
 
-`rifts-host` runs on the player's machine inside the launcher when the optional `realms` Cargo feature is compiled in
+`rustic-rifts-host` runs on the player's machine inside the launcher when the optional `realms` Cargo feature is compiled in
 (DD12). It loads the native C ABI transport (`ParadoxTransport.dll`), writes per-session configuration and short-lived
 bearer credentials to a temporary session folder, spawns the local dedicated server bound to `127.0.0.1`, and bridges
 ICE signaling and peer events between the transport and the realms backend.
 
 - **In, launcher IPC:** `realm_host`, `realm_join`, `realm_stop`, `realm_get`. The launcher authenticates with its
   account key to obtain bootstrap material (`HostBootstrapSpec` / `JoinBootstrapSpec`), but the account key itself never
-  crosses into `rifts-host`, `bridge.conf`, or the dedicated server's environment.
+  crosses into `rustic-rifts-host`, `bridge.conf`, or the dedicated server's environment.
 - **In, transport ABI:** diagnostic lines, peer event lines, signaling frames (`Signal`), and ready lines
-  (`HOST_READY` / `JOIN_READY`) read across the C ABI boundary in `crates/rifts-host/src/ffi.rs`.
+  (`HOST_READY` / `JOIN_READY`) read across the C ABI boundary in `crates/rustic-rifts-host/src/ffi.rs`.
 - **In, local disk:** `ParadoxTransport.dll`, `p2p-admission-public.xy`, `realm-host-limits.json`, and
   `host-settings.json`.
 - **Secrets on disk (ephemeral):** `transport.secret`, `capability.secret`, and `ticket.secret` inside
@@ -48,7 +48,7 @@ Code: `ffi.rs` (`NativeTransportLoader`, `LoadedTransport`, `sha256_file`), `tra
       the library before any session call can run (`transport_loader_verifies_sha256_exports_abi_and_calls_cdylib`).
 - [ ] `ParadoxTransport_UpdateRelayCredential` (`OPTIONAL_EXPORTS`) is resolved optionally; when absent on older builds
       of `ParadoxTransport.dll`, `update_relay_credential` succeeds as a no-op (`real_paradox_transport_dll_loads_when_built`).
-- [ ] `crates/rifts-host/src/ffi.rs` is the only module in `rifts-host` with `#![allow(unsafe_code)]`; every `unsafe`
+- [ ] `crates/rustic-rifts-host/src/ffi.rs` is the only module in `rustic-rifts-host` with `#![allow(unsafe_code)]`; every `unsafe`
       block and function carries a `// SAFETY:` comment explaining pointer validity, lifetime, NUL termination, and
       buffer capacity invariants.
 - [ ] All strings passed across the C ABI are checked for interior NUL bytes (`cstring`) and path/line discipline

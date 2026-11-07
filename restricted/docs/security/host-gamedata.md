@@ -2,7 +2,7 @@
 
 # Security checklist: the host kit's game-data commands (RX3)
 
-The checklist for `dainty-host gamedata`, `preset` and `publish-runtime` in `crates/host` (MIGRATION_PLAN.md
+The checklist for `dainty-host gamedata`, `preset` and `publish-runtime` in `crates/dainty-host` (MIGRATION_PLAN.md
 RH4, RD3, RD23). `SECURITY_REVIEW.md` indexes it.
 
 How to use it: before the host kit's cutover, copy this list into the cutover PR, check each item in the code (not
@@ -25,7 +25,7 @@ here listens on a network. The input that is not the host's own:
 Out: the backend's and the Director's game-data files, `preset/`, `.workspace/runtime/` (the files every player
 downloads and runs) and the runtime DLLs beside the game servers' executable.
 
-Code: `crates/host/src/` (`gamedata.rs`, `gamepack.rs`, `preset.rs`, `progression.rs`, `captures.rs`,
+Code: `crates/dainty-host/src/` (`gamedata.rs`, `gamepack.rs`, `preset.rs`, `progression.rs`, `captures.rs`,
 `publish.rs`, `commands/{gamedata,preset,publish_runtime}.rs`). Fuzz target: `fuzz/fuzz_targets/host_gamedata_input.rs`.
 
 ## Checklist

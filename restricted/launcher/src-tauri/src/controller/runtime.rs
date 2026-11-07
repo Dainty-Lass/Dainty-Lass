@@ -6,7 +6,7 @@
 use std::path::{Path, PathBuf};
 use std::time::Instant;
 
-use protocol::manifest::RUNTIME_FILE_NAMES;
+use dainty_protocol::manifest::RUNTIME_FILE_NAMES;
 use serde_json::Value;
 use tokio_util::sync::CancellationToken;
 

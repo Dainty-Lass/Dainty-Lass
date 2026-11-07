@@ -52,12 +52,12 @@ pub struct EncryptionKeys {
 
 /// JS-trim, drop a leading `bearer` (any case) followed by white space, trim again.
 pub fn normalize_token(token: &str) -> String {
-    let trimmed = service_kit::js::trim(token);
+    let trimmed = dainty_service_kit::js::trim(token);
     let bytes = trimmed.as_bytes();
     if bytes.len() > 6 && trimmed[..6].eq_ignore_ascii_case("bearer") {
         let rest = &trimmed[6..];
-        if rest.starts_with(service_kit::js::is_space) {
-            return service_kit::js::trim(rest).to_owned();
+        if rest.starts_with(dainty_service_kit::js::is_space) {
+            return dainty_service_kit::js::trim(rest).to_owned();
         }
     }
     trimmed.to_owned()

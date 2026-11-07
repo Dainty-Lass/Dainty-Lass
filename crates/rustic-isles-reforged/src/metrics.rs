@@ -140,7 +140,7 @@ pub fn clean_labels(labels: &[(&str, &str)]) -> Vec<(String, String)> {
 /// JavaScript number text; a non-finite value writes `0`.
 pub fn number(value: f64) -> String {
     if value.is_finite() {
-        service_kit::jsjson::number(value)
+        dainty_service_kit::jsjson::number(value)
     } else {
         "0".to_owned()
     }

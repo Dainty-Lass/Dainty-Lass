@@ -2,7 +2,7 @@
 
 # Security checklist: the chat plugin (RX3)
 
-The checklist for the chat core plugin, `crates/chat` (DaintyLass plan DD21, DN10a). It covers one node;
+The checklist for the chat core plugin, `crates/dainty-chat` (Dainty Lass plan DD21, DN10a). It covers one node;
 federation between nodes is DN10b's and goes in `network.md` (DX2).
 
 How to use it: before chat is turned on for players, copy this list into the change that turns it on, check each

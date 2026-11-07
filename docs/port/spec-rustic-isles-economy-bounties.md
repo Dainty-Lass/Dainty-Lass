@@ -948,8 +948,8 @@ progression's reaches the store.
 | `RingInstances::ring_instance_for_player(&GlobalId)` | inventory's slot trait (inventory §11.3; matchmaking fills it) | global id | `Option<GlobalId>`: the hunt instance the player was placed in, else the last ring instance | none | §3.9 step 4 (none: a new hunt id minted on this node, `GlobalId::new(IdKind::Hunt, node)`) |
 | `HomeApi::ring_forward_hunt_rewards(&HuntRewards)` | `module-api` (core §5.4) | `{hunt, module: "isles-<game version with . as ->", account, xp_grant: none, loot_write: none, objective_write: {"bounty_progress": <the body when an object, else {"bounty": <the body or null>}>}}` | ok | error text (500 page; an invalid module id also 500) | §3.9 step 4 |
 | `ClaimActivity::challenges_claimed(user_id, count)` | Reforged API (unit 9), through this part's slot | path `userId`, the newly claimed count | none | none (fire and forget; nothing for 0 or a blank id) | §3.9 step 7 |
-| `rifts.guard().authorize_host_write(runtime, kind, target, options default)` | `rifts-seam` | the runtime, `HostWriteKind::Cooldown` or `Bounty`, the target account's global id text | `Option<Reply>` (some: refused, answered with its status and JSON body) | `SeamError`: 500 page, logged `hostWrites.authorize: {e}` | §3.5, §3.6, §3.9, §3.10 |
-| `rifts.guard().record_host_write(runtime, HostWrite { kind, target, summary })` | `rifts-seam` | the summary as compact JSON text | none | logged `hostWrites.record: {e}`, never fails the answer | after an accepted host write |
+| `rifts.guard().authorize_host_write(runtime, kind, target, options default)` | `rustic-rifts-seam` | the runtime, `HostWriteKind::Cooldown` or `Bounty`, the target account's global id text | `Option<Reply>` (some: refused, answered with its status and JSON body) | `SeamError`: 500 page, logged `hostWrites.authorize: {e}` | §3.5, §3.6, §3.9, §3.10 |
+| `rifts.guard().record_host_write(runtime, HostWrite { kind, target, summary })` | `rustic-rifts-seam` | the summary as compact JSON text | none | logged `hostWrites.record: {e}`, never fails the answer | after an accepted host write |
 
 **What receives the forward** is the home node's ring handling (core §7.8's home operations; the Reforged unit's).
 Restricted's `bounty.write` home operation appends the progress as a raw base entry without this part's merge; that
@@ -1037,7 +1037,7 @@ A purchase token and a signing key never reach a log or a `Debug`. A store failu
 Part of one crate, `rustic-isles-economy` (lib, MIT, `crates/rustic-isles-economy`), as module `bounties` (with
 `wallet`, `platinum`, `challenge_rewards`, `entitlements`, `store`, `economy_ledger` beside it, the names inventory's
 W1 to W9 use). Depends
-on dainty-lass MIT crates `rustic-isles` (core), `rustic-isles-store`, `rustic-isles-auth`, `rifts-seam`,
+on dainty-lass MIT crates `rustic-isles` (core), `rustic-isles-store`, `rustic-isles-auth`, `rustic-rifts-seam`,
 `module-api`, `service-kit`, and workspace `serde_json` (own `preserve_order`), `sha2`, `uuid` (v4) or `rand`,
 `tracing`, `thiserror`, `tokio`, `axum`, `http`. Characters, matchmaking and the Reforged API are reached only through
 inventory's ports and slots and this part's slot (§10.3), so the crate does not depend on units 5, 8 or 9.

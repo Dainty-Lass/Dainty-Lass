@@ -1,6 +1,6 @@
 #!/bin/sh
-# DaintyLass: the Director's container (compose.yaml). Does what `dainty-host start` does
-# before the Director on Linux (crates/host/src/commands/start/mod.rs: preflight, linux_steps), then
+# Dainty Lass: the Director's container (compose.yaml). Does what `dainty-host start` does
+# before the Director on Linux (crates/dainty-host/src/commands/start/mod.rs: preflight, linux_steps), then
 # runs the Rust Director with its env file (or the Node Director when REFORGED_ROLLBACK=1). The Director starts
 # each game server through .workspace/bin/reforged-gameserver (`dainty-host gameserver`, Wine on a virtual
 # display), in this container, so the game servers stop with it.

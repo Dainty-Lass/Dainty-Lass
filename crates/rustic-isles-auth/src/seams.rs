@@ -9,9 +9,9 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 
 use axum::http::HeaderMap;
-use module_api::BoxFuture;
-use module_api::NodeIdentity;
-use module_api::network::{HomeApi, StandaloneHome};
+use dainty_module_api::BoxFuture;
+use dainty_module_api::NodeIdentity;
+use dainty_module_api::network::{HomeApi, StandaloneHome};
 use serde_json::Value;
 
 use crate::discord::{DiscordApi, HttpsDiscord};

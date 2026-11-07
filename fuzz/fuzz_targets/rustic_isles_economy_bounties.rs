@@ -17,7 +17,7 @@ use serde_json::Value;
 /// One drafted instance: the same `drafted_timestamp` by `===`, absent and `null` alike.
 fn same_stamp(a: &Value, b: &Value) -> bool {
     let stamp = |v: &Value| v.get("drafted_timestamp").cloned().unwrap_or(Value::Null);
-    service_kit::js::strict_eq(Some(&stamp(a)), Some(&stamp(b)))
+    dainty_service_kit::js::strict_eq(Some(&stamp(a)), Some(&stamp(b)))
 }
 
 fuzz_target!(|data: &[u8]| {

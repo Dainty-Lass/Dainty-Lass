@@ -6,8 +6,8 @@
 
 use std::collections::{HashMap, HashSet};
 
+use dainty_service_kit::{js, jsjson};
 use serde_json::{Map, Value};
-use service_kit::{js, jsjson};
 use sha2::{Digest, Sha256};
 
 use crate::util::{num, num0};

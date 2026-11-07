@@ -83,7 +83,7 @@ Every crate is in the checkout: the images build with the monorepo root as conte
 `all-modules`, as the release is; to build without any game module, set the build argument
 `REFORGED_MODULES=` (from the root: `docker build -f restricted/docker/Dockerfile --build-arg REFORGED_MODULES= --target server .`).
 The server image also holds the libraries `host.toml` can pin (RD27) in `/opt/reforged/plugins`, so a
-`[[modules.external]]` or `[services.<name>]` path there reads `plugins/libisles_1_14_7_plugin.so` and the like
+`[[modules.external]]` or `[services.<name>]` path there reads `plugins/librustic_isles_plugin.so` and the like
 ([hosting.md](hosting.md#game-modules-and-plugins)).
 
 `setup` takes every option it takes on a Linux host (`--max-hunts`, `--public-port`, `--registration` …;
@@ -258,7 +258,7 @@ per peer and filters by address; ARP is never delayed.
    pings each peer over the node link (mutual TLS under the cluster CA) and prints its state, round trip and clock
    skew. The test needs three peers `up` and each round trip from the injected one to 25 ms above it
    (`NETWORK_TOLERANCE_MS`).
-3. Runs the launcher's real `region_ping` (`cargo test -p launcher`, the ignored test
+3. Runs the launcher's real `region_ping` (`cargo test -p dainty-launcher`, the ignored test
    `the_region_order_follows_the_latency_the_harness_injects`) with each node as the home: the regions must come back
    in the order of the injected latencies from the player's region, each round trip within the same bounds, and
    the home must take the report. This step needs `cargo` and the nodes' private addresses reachable from the
@@ -287,7 +287,7 @@ peer); its exit code is 1 when a peer is not `up`.
 
 ## Managing several installs
 
-A Docker server can enroll under a **DaintyLass Manager** controller (or a headless controller container) over pinned
+A Docker server can enroll under a **Dainty Lass Manager** controller (or a headless controller container) over pinned
 mTLS ([hosting.md](hosting.md#managing-several-installs), [remote-management.md](https://git.silentspud.com/silentspud/dainty-lass/src/branch/main/docs/remote-management.md)):
 
 - **First-boot enrollment (`REFORGED_REMOTE_ENROLL_TOKEN`).** Set `REFORGED_REMOTE_ENROLL_TOKEN="dainty-lass-remote://enroll?v=1&..."`

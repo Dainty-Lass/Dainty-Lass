@@ -4,8 +4,8 @@
 #![no_main]
 
 use libfuzzer_sys::fuzz_target;
-use module_api::frame::{MAX_FRAME, MAX_HELLO_FRAME, ToHost, read_frame};
-use module_api::plugin::ChannelReader;
+use dainty_module_api::frame::{MAX_FRAME, MAX_HELLO_FRAME, ToHost, read_frame};
+use dainty_module_api::plugin::ChannelReader;
 use tokio::io::BufReader;
 
 /// Every frame read from `chunks` sent one by one, until the stream ends or a frame is refused.

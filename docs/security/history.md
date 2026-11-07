@@ -2,9 +2,9 @@
 
 # Security checklist: the change log (DD23)
 
-The checklist for `store`'s change log, `crates/store/src/history.rs` and `database.rs`, its hash chain,
+The checklist for `store`'s change log, `crates/dainty-store/src/history.rs` and `database.rs`, its hash chain,
 `history/chain.rs` and `history/record.rs` (DH5), its history and revert engine, `revert.rs` (DH3a), and its
-shipping off the server and restore, `recovery.rs` with `crates/history-ship` (DH4) (docs/dainty-lass-plan.md
+shipping off the server and restore, `recovery.rs` with `crates/dainty-history-ship` (DH4) (docs/dainty-lass-plan.md
 DD23, DH1, DH3a, DH3b, DH4, DH5, DF7). A stub for DX2 to finish: it covers DH1's layer, the log written in the same
 transaction as each change, DH3a's engine, DH5's chain, DH4's shipping and restore and DH3b's commands.
 
@@ -130,7 +130,7 @@ drop the triggers or edit the database file: DH4 (shipping) and DH5 (the hash ch
 
 ## The commands: host kit, console, launcher and admin API (DH3b)
 
-`crates/admin/src/history.rs` and `history_text.rs` (the engine over a server's databases and its words), the
+`crates/dainty-admin/src/history.rs` and `history_text.rs` (the engine over a server's databases and its words), the
 host kit's `commands/history.rs` (`dainty-host history` and `revert`, the console's and dashboard's `history` and
 `revert`), the admin API's `history`, `historyCheck`, `revertPlan` and `revertApply` (`schema.rs`) and the server GUI's
 `history_query`, `history_revert_dry_run` and `history_revert_apply` (`launcher/src-tauri/src/server_history.rs`).
@@ -209,7 +209,7 @@ the server GUI wants the host's own launcher. The commands trust `store` to writ
 
 ## Shipping off the server and restore (DH4)
 
-`crates/history-ship` (the shipper, the S3 client, restore, lag) and `crates/store/src/recovery.rs`
+`crates/dainty-history-ship` (the shipper, the S3 client, restore, lag) and `crates/dainty-store/src/recovery.rs`
 (snapshots and replay). Fuzz target: `history_bucket` (listings, object names, segment bodies); record lines
 themselves are `history_record`'s.
 
@@ -284,7 +284,7 @@ read it back. Anyone with root on the server has the server's key, so everything
 
 ### Shipping to a peer node (DH7)
 
-`crates/network/src/logship.rs` (`PeerBucket`, `PeerLogStore`, `Service::LogShip` on `/__node/log_ship`). Fuzz
+`crates/dainty-network/src/logship.rs` (`PeerBucket`, `PeerLogStore`, `Service::LogShip` on `/__node/log_ship`). Fuzz
 target: `network_logship` (`fuzz/fuzz_targets/network_logship.rs`).
 
 - [x] `PeerBucket` implements `history_ship::Bucket` over `PeerLink` + `Service::LogShip`, so `history_ship::Shipper`,
@@ -306,7 +306,7 @@ target: `network_logship` (`fuzz/fuzz_targets/network_logship.rs`).
       random nonce, AAD bound to the object key) and `PeerLogStore::with_decryption_key` reads it back. It needs a key
       the host keeps off the node. A key derived from the node's own signing key would die with the node and make
       every copy unreadable, which defeats DH7. Which key, and where hosts back it up, is the maintainer's decision.
-- [x] Tests in `crates/network/tests/logship.rs`:
+- [x] Tests in `crates/dainty-network/tests/logship.rs`:
       `a_destroyed_nodes_database_restores_from_its_peers_folder_with_chain_and_trusted_head_verified`,
       `a_tampered_segment_is_named_and_peer_enforces_prefix_and_append_only`,
       `a_down_peer_makes_lag_alert_fire_and_catch_up_works`,

@@ -1,9 +1,9 @@
 <!-- markdownlint-configure-file { "MD013": { "line_length": 120, "tables": false } } -->
 
-# Security checklist: remote management (`crates/remote`, RX3, DD27, RM1–RM4)
+# Security checklist: remote management (`crates/dainty-remote`, RX3, DD27, RM1–RM4)
 
-The checklist for remote management across a controller (`DaintyLass Manager` or `dainty-host` with
-`[remote] role = "controller"`) and its enrolled managed server installs (`crates/remote`,
+The checklist for remote management across a controller (`Dainty Lass Manager` or `dainty-host` with
+`[remote] role = "controller"`) and its enrolled managed server installs (`crates/dainty-remote`,
 `docs/remote-management.md`, DD27, RM1–RM4). `SECURITY_REVIEW.md` indexes it.
 
 How to use it: before enabling or modifying remote management, check each item in the code (not from memory), link the
@@ -26,17 +26,17 @@ preservation, and `DH6` two-person guarded approval.
   rate-limited at the gateway's registration bucket, carrying a one-time 32-byte token (`dainty-lass-remote://enroll`)
   and the managed install's `SubjectPublicKeyInfo` PEM (`-----BEGIN PUBLIC KEY-----`).
 - **In / Out, remote management (`POST /__node/remote`, `Service::Remote`):** mutual TLS 1.3 (`dainty-lass-node/1` ALPN)
-  over `crates/network` node links (`network::tls::TlsPeerLink` and `network::endpoint::NodeEndpoint`), authenticated
+  over `crates/dainty-network` node links (`network::tls::TlsPeerLink` and `network::endpoint::NodeEndpoint`), authenticated
   by `ClusterCa` client and server certificates and checked for `<= 30s` clock skew (`x-node-time`) and `<= 1 MiB`
   body size (`MAX_REMOTE_WIRE`).
 - **No new public listener:** "The gateway is the only listener off loopback" (`AGENTS.md`, DD3, DD16) holds without
   exception; neither the controller nor a managed install opens a separate TCP or UDP port for remote management.
 - **No player client surface:** `dainty-launcher` has no remote-management commands or listeners (`docs/remote-management.md` §10).
 
-Code: `crates/remote/src/enroll.rs` (enrollment URIs, token validation, SHA-256 fingerprint pinning),
-`crates/remote/src/wire.rs` (wire envelopes, `MAX_REMOTE_WIRE`, secret-leak detector, `DH2` role and `DH6` guarded
-checks), `crates/remote/src/merge.rs` (`host.toml` merger preserving per-host identity and `local_overrides`),
-`crates/remote/src/state.rs` (`RemoteControllerState`, `RemoteManagedAgent`, `sign_enrolled_node_cert`).
+Code: `crates/dainty-remote/src/enroll.rs` (enrollment URIs, token validation, SHA-256 fingerprint pinning),
+`crates/dainty-remote/src/wire.rs` (wire envelopes, `MAX_REMOTE_WIRE`, secret-leak detector, `DH2` role and `DH6` guarded
+checks), `crates/dainty-remote/src/merge.rs` (`host.toml` merger preserving per-host identity and `local_overrides`),
+`crates/dainty-remote/src/state.rs` (`RemoteControllerState`, `RemoteManagedAgent`, `sign_enrolled_node_cert`).
 
 Fuzz target: `remote_wire` in `fuzz/fuzz_targets/remote_wire.rs` (enrollment URIs, `EnrollRequest`, `EnrollAnswer`,
 `RemoteRequest`, `RemoteResponse`, secret-leak detection, and `merge_managed_host_toml`). It checks that no malformed or

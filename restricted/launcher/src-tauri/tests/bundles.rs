@@ -33,14 +33,14 @@ fn client_and_manager_are_distinct_apps() {
     let client = json("tauri.conf.json");
     let manager = json("tauri.server-gui.conf.json");
 
-    assert_eq!(text(&client, "/productName"), "DaintyLass Launcher");
+    assert_eq!(text(&client, "/productName"), "Dainty Lass Launcher");
     assert_eq!(text(&client, "/mainBinaryName"), "dainty-launcher");
     // Unchanged since the Electron launcher, so installs update in place
     assert_eq!(
         text(&client, "/identifier"),
         "io.github.freezamotoqueiro.dauntlessreforgedrevival"
     );
-    assert_eq!(text(&manager, "/productName"), "DaintyLass Manager");
+    assert_eq!(text(&manager, "/productName"), "Dainty Lass Manager");
     assert_eq!(text(&manager, "/mainBinaryName"), "dainty-manager");
     assert_eq!(
         text(&manager, "/identifier"),

@@ -10,7 +10,7 @@
 > normalizes what legitimately differs, and classifies and counts what remains. It is unit 10 of
 > [`spec-rustic-isles-core.md`](spec-rustic-isles-core.md) §16. Its source is dainty-restricted's
 > `modules/rustic-isles/crates/isles-core/src/replay.rs` and the `replay` subcommand of `crates/isles-db`
-> (`src/replay.rs`, the replay parts of `src/lib.rs` and `src/main.rs`), with restricted's `crates/host` wiring of
+> (`src/replay.rs`, the replay parts of `src/lib.rs` and `src/main.rs`), with restricted's `crates/dainty-host` wiring of
 > `reforged-host db replay`; all of it is AGPL-3.0-only. An implementer who never sees them writes the MIT crate from
 > this document alone.
 >
@@ -33,17 +33,17 @@
 | Source | What it says |
 | --- | --- |
 | `modules/rustic-isles/NOTICE.md` | Every crate and file of the module is AGPL-3.0-only |
-| File headers (`//!`) and `git log` | `isles-core/src/replay.rs` and `isles-db/src/replay.rs` are RU8, written for DaintyLass (`0a29728`), changed by `3362df4` (RU9: gateway-redacted field alignment), `9ad97c6` (rename) and `47c5498` (docs). One author, the maintainer. No Paradox TypeScript is ported in them |
+| File headers (`//!`) and `git log` | `isles-core/src/replay.rs` and `isles-db/src/replay.rs` are RU8, written for Dainty Lass (`0a29728`), changed by `3362df4` (RU9: gateway-redacted field alignment), `9ad97c6` (rename) and `47c5498` (docs). One author, the maintainer. No Paradox TypeScript is ported in them |
 | `isles-db/tests/replay_test.rs` | Authored tests: parsing, substitution, request preparation, normalizer and diff classes, id learning, CLI parsing and key maps, two end-to-end runs against a composed 1.14.7 module (described only, §13) |
 | `modules/rustic-isles/docs/shadow-replay.md` | The host-facing description (partly stale: §15 items 1, 2) |
-| dainty-lass `crates/gateway/src/capture.rs`, `docs/port/spec-rd27-gateway-front.md` §12 | The capture's writer: the format this crate reads (MIT, read for the format only) |
-| dainty-lass `crates/hostkit/src/cli.rs` (`DbReplayArgs`), `commands/db.rs` | `reforged-host db replay`'s flags (MIT) and its stub (`shadow replay is not registered in this build`) |
-| dainty-restricted `crates/host/src/lib.rs` (replay command) | How restricted fills the flags' defaults from `secrets.env` and prints the result |
+| dainty-lass `crates/dainty-gateway/src/capture.rs`, `docs/port/spec-rd27-gateway-front.md` §12 | The capture's writer: the format this crate reads (MIT, read for the format only) |
+| dainty-lass `crates/dainty-hostkit/src/cli.rs` (`DbReplayArgs`), `commands/db.rs` | `reforged-host db replay`'s flags (MIT) and its stub (`shadow replay is not registered in this build`) |
+| dainty-restricted `crates/dainty-host/src/lib.rs` (replay command) | How restricted fills the flags' defaults from `secrets.env` and prints the result |
 | dainty-lass `scripts/replay-capture.mjs` | MIT convenience wrapper that runs `reforged-host db replay` (§10.4) |
 
 ### 1.2 Classification
 
-Category A throughout (DaintyLass code, no Paradox code). The maintainer could relicense it, but the MIT crate's
+Category A throughout (Dainty Lass code, no Paradox code). The maintainer could relicense it, but the MIT crate's
 shape differs (it depends on the MIT core and auth, not `isles-core`), so **this spec covers all of it and the
 implementer writes all of it** (core §17 item 11).
 
@@ -52,7 +52,7 @@ implementer writes all of it** (core §17 item 11).
 | `isles-core/src/replay.rs` | §2 to §9 (capture, substitution, id learning, request, transport, normalizer, comparison, chat, runner, report) |
 | `isles-db/src/replay.rs` | §10.1 (options), §10.2 (key map), §10.3 (run) |
 | `isles-db/src/lib.rs` (replay usage and flag parser), `src/main.rs` (replay arm) | §10.5 (the standalone CLI) |
-| `crates/host/src/lib.rs` (replay command) | §10.4 (the `reforged-host db replay` defaults and output) |
+| `crates/dainty-host/src/lib.rs` (replay command) | §10.4 (the `reforged-host db replay` defaults and output) |
 | `isles-db/tests/replay_test.rs` | §13 (described only) |
 
 ### 1.3 What stays in dainty-restricted
@@ -562,7 +562,7 @@ inner message.
 
 ### 10.4 `reforged-host db replay` (the host kit's command)
 
-The flags are `DbReplayArgs` in dainty-lass's `crates/hostkit/src/cli.rs` (the clap tree; unchanged by this row):
+The flags are `DbReplayArgs` in dainty-lass's `crates/dainty-hostkit/src/cli.rs` (the clap tree; unchanged by this row):
 `--corpus` (required), `--left` (default `recorded`), `--right` (default `http://127.0.0.1:61000`),
 `--left-director`, `--right-director`, `--left-chat`, `--right-chat`, `--jwt-secret`, `--left-jwt-secret`,
 `--right-jwt-secret`, `--signing-key`, `--left-signing-key`, `--right-signing-key`, `--gs-key`, `--left-gs-key`,
@@ -646,7 +646,7 @@ only the JSON is printed. `--out` is written in both modes.
   for its throwaway signing keys.
 - **Seam changes for the integration pass** (not this row's): the crate in `[workspace.dependencies]`; the host kit's
   `db replay` (whose stub says `shadow replay is not registered in this build`) calling `run_replay_cli` with §10.4's
-  defaults, which needs `rustic-isles-replay` as a dependency of `crates/hostkit` and moves the defaulting out of
+  defaults, which needs `rustic-isles-replay` as a dependency of `crates/dainty-hostkit` and moves the defaulting out of
   restricted's `run_db_command` hook; restricted's `isles-db replay` and its host hook then become thin calls or go.
 
 ### 11.2 Test keys (from auth)
@@ -887,7 +887,7 @@ Kept as they are (each a candidate decision row for the maintainer):
 15. **Flag precedence differs** between the standalone CLI (argument order) and the host kit (per-side beats
     both-sides).
 16. **`scripts/replay-capture.mjs` is stale**: it looks for `reforged-host` under a `rust/` folder and falls back to
-    `cargo run --manifest-path rust/Cargo.toml -p server-console`, neither of which exists in dainty-lass; it forwards
+    `cargo run --manifest-path rust/Cargo.toml -p dainty-server`, neither of which exists in dainty-lass; it forwards
     its arguments to `reforged-host db replay` and exits with the child's status (1 when it cannot start).
 17. **Live chat is raw TCP with one 50 ms read per sent frame**: a server that answers in two writes, or slowly, loses
     stanzas; WebSocket framing is not spoken, so it works only against a plain XMPP-over-TCP listener. A router side
@@ -915,7 +915,7 @@ Kept as they are (each a candidate decision row for the maintainer):
    captures?
 5. **`x-gateway-secret`.** Drop it, keep it, or send the gateway's real `x-reforged-gateway` mark (which changes how
    the target reads the client address)? Kept as is until decided.
-6. **Hostkit wiring.** Does the integration pass make `crates/hostkit` depend on this crate (the stub becomes the real
+6. **Hostkit wiring.** Does the integration pass make `crates/dainty-hostkit` depend on this crate (the stub becomes the real
    command and restricted's hook drops its replay arm), or keep the replay behind restricted's hook? §11.1 proposes
    the first.
 7. **`replay-capture.mjs`.** Fix its paths (`target/` at the workspace root, `reforged-host` from dainty-restricted's

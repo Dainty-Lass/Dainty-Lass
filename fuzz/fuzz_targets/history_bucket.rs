@@ -6,7 +6,7 @@
 #![no_main]
 
 use arbitrary::Arbitrary;
-use history_ship::layout::{SegmentName, SnapshotName, decode_segment, gzip, sha256_hex};
+use dainty_history_ship::layout::{SegmentName, SnapshotName, decode_segment, gzip, sha256_hex};
 use libfuzzer_sys::fuzz_target;
 
 #[derive(Arbitrary, Debug)]
@@ -34,7 +34,7 @@ fn check(name: &SegmentName, body: &[u8]) {
 
 fuzz_target!(|input: Input<'_>| match input {
     Input::Listing(xml) => {
-        let _ = history_ship::s3::parse_list(xml);
+        let _ = dainty_history_ship::s3::parse_list(xml);
     }
     Input::Key { prefix, key } => {
         if let Some(name) = SegmentName::parse(prefix, key) {

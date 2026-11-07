@@ -1,0 +1,40 @@
+[package]
+name = "dainty-server"
+description = "The server in one binary: every dainty-host command, `serve` with its console or dashboard, and each service alone"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+[[bin]]
+name = "dainty-server"
+path = "src/main.rs"
+
+# The same binary under the host kit's name, without `serve` as its default: `update`, the systemd units and
+# the Director's game-server wrapper run bin/dainty-host (RD23)
+[[bin]]
+name = "dainty-host"
+path = "src/bin/dainty-host.rs"
+
+[features]
+default = ["isles-1-14-7", "realms"]
+# Opt-in rollback path for one release until RB15 deletes it: MongoDB and the Node backend and Director
+paradox = ["dainty-host/paradox"]
+# One feature per compiled-in game module and one for realms (DD12, DF5); the release builds `all-modules` in.
+# `stub-module` is module-api's stub, for tests
+stub-module = ["dainty-host/stub-module"]
+isles-1-14-7 = ["dainty-host/isles-1-14-7"]
+realms = ["dainty-host/realms"]
+all-modules = ["isles-1-14-7", "realms"]
+
+[dependencies]
+dainty-host = { workspace = true, default-features = false, features = ["modules"] }
+
+[dev-dependencies]
+dainty-controller = { workspace = true, default-features = false }
+tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
+
+[lints]
+workspace = true

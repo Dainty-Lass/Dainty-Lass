@@ -1,5 +1,5 @@
 #!/bin/sh
-# DaintyLass: `docker compose run --rm host <command>` (compose.yaml's host service) runs
+# Dainty Lass: `docker compose run --rm host <command>` (compose.yaml's host service) runs
 # dainty-host inside the server image, in the server's network, with its volumes. Every command works as on a
 # Linux host (docs/hosting-linux.md), with these differences (docs/hosting-docker.md):
 #  - setup: the services are in the image already (--skip-install), the game folder is the one mounted at /game,

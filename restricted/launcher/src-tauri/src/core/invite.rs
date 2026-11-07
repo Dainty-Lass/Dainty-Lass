@@ -1,12 +1,12 @@
-//! Invite parsing (row L11): `protocol::invite` (RS1), which reads `src/shared/invite.ts`'s two invite
+//! Invite parsing (row L11): `dainty_protocol::invite` (RS1), which reads `src/shared/invite.ts`'s two invite
 //! shapes answer for answer under `dauntless://` and its per-game aliases, and refuses a 1.4.4 invite
 //! (RD5). The host, port and
 //! fingerprint decide where the account key is sent later, so the launcher has no copy of its own: the
 //! rules here are the servers' rules, and both sides run the same table
-//! (dainty-lass's `crates/protocol/tests/cases/invite.json`).
+//! (dainty-lass's `crates/dainty-protocol/tests/cases/invite.json`).
 
 #[allow(unused_imports, reason = "the controller (RA13) and the platform rows use the rest")]
-pub use protocol::invite::{
+pub use dainty_protocol::invite::{
     DEFAULT_PUBLIC_PORT, INVITE_SCHEME, Invite, InviteError, MAX_INVITE_LENGTH, ServerMode, clean_server_name,
     format_invite, is_loopback_host, is_magic_dns_name, is_private_mode_host, is_tailscale_ipv4, is_valid_fingerprint,
     is_valid_host, is_valid_invite_code, is_valid_ipv4, is_valid_port, is_valid_share_url, parse_invite,
@@ -38,7 +38,7 @@ mod tests {
     /// The servers' table, through the launcher's path: what the launcher refuses is what they refuse.
     #[test]
     fn the_shared_table() {
-        let cases: Cases = serde_json::from_str(protocol::test_data::INVITE_CASES).unwrap();
+        let cases: Cases = serde_json::from_str(dainty_protocol::test_data::INVITE_CASES).unwrap();
         assert!(cases.accept.len() > 30 && cases.reject.len() > 150);
         for case in cases.accept {
             assert_eq!(parse_invite(&case.input), Ok(case.invite), "{:?}", case.input);
@@ -63,7 +63,7 @@ mod tests {
             name: "Aether & Ember".into(),
             share: None,
             fp: Some("3f".repeat(32)),
-            version: protocol::invite::reforged_version(),
+            version: dainty_protocol::invite::reforged_version(),
         };
         let link = format_invite(&invite).unwrap();
         assert!(link.starts_with("reforged-revival://join?v=2&"));

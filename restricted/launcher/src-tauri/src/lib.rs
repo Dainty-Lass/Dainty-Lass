@@ -1,4 +1,4 @@
-//! The DaintyLass Launcher on Tauri 2 (MIGRATION_PLAN.md section 4.6), on Dauntless
+//! The Dainty Lass Launcher on Tauri 2 (MIGRATION_PLAN.md section 4.6), on Dauntless
 //! Revived's launcher backend (e1c5fec). The page is dainty-lass's `ui/` (dainty-dash, DD11); everything the
 //! Electron main process did moves here.
 //!
@@ -80,7 +80,7 @@ fn run_app(embedded: Embedded) -> tauri::Result<()> {
     platform::log::log_to_file(paths.logs_dir());
     let context = tauri::generate_context!();
     let version = context.package_info().version.to_string();
-    platform::log::info(&format!("DaintyLass Launcher {version} starting"));
+    platform::log::info(&format!("Dainty Lass Launcher {version} starting"));
     let encryptors = tauri::async_runtime::block_on(platform::keystore::os::encryptors(&paths.user_data));
     #[cfg(target_os = "linux")]
     if !encryptors.0.is_available() && secure_storage::bootstrap(&args, &paths.home) {
@@ -222,7 +222,7 @@ fn run_app(embedded: Embedded) -> tauri::Result<()> {
                 platform::keystore::epic::EpicSessionStore::new(&paths.user_data.join("keys"), encryptors.0.clone());
             app.manage(Arc::new(platform::epic_session::Epic::new(
                 epic_store,
-                Arc::new(::epic::auth::EpicAccounts),
+                Arc::new(::dainty_epic::auth::EpicAccounts),
             )));
             let controller = make_controller(app.handle(), paths, version, encryptors)?;
             let guard = app.state::<window::CloseGuard>();
@@ -385,12 +385,12 @@ fn make_controller(
 
 /// Entry point of the `online-client*` binaries: the launcher as [`run`] builds it. The command list
 /// is the one the isolation hook allows; without the `host` feature the host commands answer with
-/// `host_off.rs`'s refusals, as `cargo build -p launcher --no-default-features` always did.
+/// `host_off.rs`'s refusals, as `cargo build -p dainty-launcher --no-default-features` always did.
 pub fn run_client() -> tauri::Result<()> {
     run()
 }
 
-/// `dainty-manager`: DaintyLass Manager with the server inside it, which the Host page's server panel
+/// `dainty-manager`: Dainty Lass Manager with the server inside it, which the Host page's server panel
 /// starts, stops and restarts service by service (RD26).
 #[cfg(feature = "server-gui")]
 pub fn run_server_gui() -> tauri::Result<()> {

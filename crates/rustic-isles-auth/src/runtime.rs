@@ -78,7 +78,7 @@ pub fn normalize_sha256(value: Option<&Value>) -> Option<String> {
     let Some(Value::String(text)) = value else {
         return None;
     };
-    let normalized = service_kit::js::trim(text).to_lowercase();
+    let normalized = dainty_service_kit::js::trim(text).to_lowercase();
     util::is_hex64(&normalized).then_some(normalized)
 }
 
@@ -108,7 +108,7 @@ pub fn is_safe_artifact_name(name: &str) -> bool {
 }
 
 fn target_matches(manifest: &Value, target: u32) -> bool {
-    let changelist = service_kit::js::number(manifest.get("targetChangelist"));
+    let changelist = dainty_service_kit::js::number(manifest.get("targetChangelist"));
     changelist == f64::from(target)
 }
 
@@ -161,14 +161,14 @@ pub fn assert_artifact_set(
     reported_artifacts: Option<&Value>,
 ) -> Result<ApprovedRuntime, LauncherError> {
     let version = match reported_version {
-        Some(Value::String(v)) => service_kit::js::trim(v).to_owned(),
+        Some(Value::String(v)) => dainty_service_kit::js::trim(v).to_owned(),
         _ => String::new(),
     };
     if !is_safe_version(&version) {
         return Err(LauncherError::validation("runtimeManifestVersion is invalid."));
     }
     let manifest_version = match manifest.get("version") {
-        Some(Value::String(v)) => service_kit::js::trim(v).to_owned(),
+        Some(Value::String(v)) => dainty_service_kit::js::trim(v).to_owned(),
         _ => String::new(),
     };
     if !is_safe_version(&manifest_version) || !target_matches(manifest, target) {
@@ -256,7 +256,7 @@ pub fn assert_artifact_set(
 /// The artifact set's digest: `{lower name}:{sha256}` lines in locale order, joined by `\n`, SHA-256 hex.
 pub fn artifact_set_digest(files: &[(String, String)]) -> String {
     let mut sorted: Vec<&(String, String)> = files.iter().collect();
-    sorted.sort_by(|a, b| service_kit::collate::locale_compare(&a.0, &b.0));
+    sorted.sort_by(|a, b| dainty_service_kit::collate::locale_compare(&a.0, &b.0));
     let lines: Vec<String> = sorted
         .iter()
         .map(|(name, hash)| format!("{}:{hash}", name.to_lowercase()))

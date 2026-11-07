@@ -60,9 +60,9 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, MutexGuard, Weak};
 use std::time::{Duration, Instant};
 
-use protocol::invite::{Invite, ServerMode};
-use protocol::manifest::RuntimeManifest;
-use protocol::status::limited_view;
+use dainty_protocol::invite::{Invite, ServerMode};
+use dainty_protocol::manifest::RuntimeManifest;
+use dainty_protocol::status::limited_view;
 use serde_json::{Map, Value};
 use sha2::{Digest, Sha256};
 use tokio::task::JoinHandle;
@@ -678,7 +678,7 @@ impl Controller {
                 host_tools_available: cfg!(feature = "host"),
                 server_gui: cfg!(feature = "server-gui"),
                 legacy_available: false,
-                game_versions: protocol::invite::played_versions()
+                game_versions: dainty_protocol::invite::played_versions()
                     .iter()
                     .map(ToString::to_string)
                     .collect(),
@@ -1518,8 +1518,8 @@ impl Controller {
         let id = sv.id();
         let username = self.s().usernames.get(&id).cloned();
         let name = match &username {
-            Some(username) => format!("DaintyLass key - {username}.txt"),
-            None => "DaintyLass key.txt".to_owned(),
+            Some(username) => format!("Dainty Lass key - {username}.txt"),
+            None => "Dainty Lass key.txt".to_owned(),
         };
         let Some(file) = self.p.choose_save_file(name).await else {
             return ActionResult::err(ErrorCode::Cancelled);

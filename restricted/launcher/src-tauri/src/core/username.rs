@@ -1,10 +1,10 @@
-//! Usernames and pasted account keys (row L12): `protocol::account` (RS1), which reads
+//! Usernames and pasted account keys (row L12): `dainty_protocol::account` (RS1), which reads
 //! `src/shared/username.ts` answer for answer. Reforged's registration rule, also for stored usernames
 //! (RD22); keys a Reforged server makes are `RRK_<48 hex>`. Both sides run
-//! dainty-lass's `crates/protocol/tests/cases/username.json`.
+//! dainty-lass's `crates/dainty-protocol/tests/cases/username.json`.
 
 #[allow(unused_imports, reason = "the controller (RA13) and the keystore (RA8) use the rest")]
-pub use protocol::account::{
+pub use dainty_protocol::account::{
     ACCOUNT_KEY_PREFIX, USERNAME_MAX, USERNAME_MIN, UsernameCheck, check_username, extract_account_key,
     is_plausible_account_key, is_valid_username,
 };
@@ -42,7 +42,7 @@ mod tests {
 
     #[test]
     fn the_shared_table() {
-        let cases: Cases = serde_json::from_str(protocol::test_data::USERNAME_CASES).unwrap();
+        let cases: Cases = serde_json::from_str(dainty_protocol::test_data::USERNAME_CASES).unwrap();
         for case in cases.check {
             // The page may send a non-string, which TypeScript reads as empty
             let result = case.input.as_str().map_or(UsernameCheck::Empty, check_username);

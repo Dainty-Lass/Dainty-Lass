@@ -6,7 +6,7 @@
 #![no_main]
 
 use libfuzzer_sys::fuzz_target;
-use rifts_transport::pipe::parse_message;
+use rustic_rifts_transport::pipe::parse_message;
 
 fuzz_target!(|data: &[u8]| {
     if let Some(event) = parse_message(data) {

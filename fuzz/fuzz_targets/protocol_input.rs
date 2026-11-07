@@ -4,10 +4,10 @@
 #![no_main]
 
 use libfuzzer_sys::fuzz_target;
-use protocol::account::{check_username, extract_account_key, is_plausible_account_key};
-use protocol::invite::{ServerMode, format_invite, parse_invite};
-use protocol::manifest::RuntimeManifest;
-use protocol::status::parse_server_status;
+use dainty_protocol::account::{check_username, extract_account_key, is_plausible_account_key};
+use dainty_protocol::invite::{ServerMode, format_invite, parse_invite};
+use dainty_protocol::manifest::RuntimeManifest;
+use dainty_protocol::status::parse_server_status;
 use serde_json::Value;
 
 fuzz_target!(|data: &[u8]| {

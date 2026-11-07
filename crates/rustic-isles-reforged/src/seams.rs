@@ -6,7 +6,7 @@
 
 use std::sync::{Arc, OnceLock, Weak};
 
-use module_api::BoxFuture;
+use dainty_module_api::BoxFuture;
 use rustic_isles::Shared;
 use rustic_isles_auth::{
     Activity, Erasure, LauncherAccount, LauncherReport, LauncherVerdict, Notices, Operations, OperationsPolicy,

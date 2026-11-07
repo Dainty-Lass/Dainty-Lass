@@ -5,10 +5,10 @@
 
 pub mod slots;
 
+use dainty_service_kit::jsjson;
 use diesel::QueryableByName;
 use diesel::sql_types::{BigInt, Nullable, Text};
 use serde_json::Value;
-use service_kit::jsjson;
 
 use crate::sql::{account_id, sql};
 use crate::{AccountId, AnyConnection, RepoResult, Tx};

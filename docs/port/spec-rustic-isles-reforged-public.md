@@ -350,11 +350,11 @@ unset username reads `account_disabled`). Else 200 `{"UserId":..,"Username":..,"
 Answer: 200, `cache-control: no-store`, `vary: x-reforged-user-api-key`, the body for the **full** view when the
 caller is an eligible holder, else the **limited** view.
 
-**The body** (the `ServerStatusBody` of dainty-lass `crates/protocol` `status.rs`, field for field, in this order):
+**The body** (the `ServerStatusBody` of dainty-lass `crates/dainty-protocol` `status.rs`, field for field, in this order):
 
 | Field | Value |
 | --- | --- |
-| `name` | `REFORGED_SERVER_NAME`: control characters (U+0000 to U+001F, U+007F to U+009F) become spaces, JS-trimmed; empty: `DaintyLass server`; else the first 64 characters |
+| `name` | `REFORGED_SERVER_NAME`: control characters (U+0000 to U+001F, U+007F to U+009F) become spaces, JS-trimmed; empty: `Dainty Lass server`; else the first 64 characters |
 | `online` | `true` |
 | `version` | `REFORGED_SERVER_VERSION` JS-trimmed, first 48 characters; empty: `0.1.0` |
 | `commit` | `REFORGED_SOURCE_COMMIT` JS-trimmed, first 64 characters (may be `""`) |
@@ -1166,7 +1166,7 @@ the admin half's `GET /admin/v1/audit` reads them. Attempt windows of both halve
 ### 15.1 Shape
 
 One crate, `rustic-isles-reforged` (lib), MIT, in dainty-lass `crates/rustic-isles-reforged`, holding both halves.
-It depends on dainty-lass MIT crates (`rustic-isles`, `rustic-isles-auth`, `rustic-isles-store`, `rifts-seam`,
+It depends on dainty-lass MIT crates (`rustic-isles`, `rustic-isles-auth`, `rustic-isles-store`, `rustic-rifts-seam`,
 `module-api`, `service-kit`) and workspace dependencies (`axum`, `http`, `tokio`, `tracing`, `serde`, `serde_json`
 with `preserve_order` in its own manifest, `sha2`, `base64`, `regex`, `percent-encoding`, `aws-lc-rs` for Ed25519
 verification and random bytes, `subtle`). No new workspace dependency is needed for this half (restricted's
@@ -1388,7 +1388,7 @@ The crate's checklist is one file shared by the two halves; this half contribute
    `MYSTICPARADOX_METRICS_TOKEN` alias and the header copy. Kept as parity, worth a row each: the default log folder
    `../MysticLauncherLogs` (existing hosts' data lives there), `UPDATE_PUBLIC_BASE_URL`'s default
    `https://paradox.mysticfox.dev` and the default release prefix `https://github.com/pranav158/Mystic-Paradox/...`
-   (a host that sets nothing advertises and allows domains DaintyLass does not control, like auth §14 item 8's mail
+   (a host that sets nothing advertises and allows domains Dainty Lass does not control, like auth §14 item 8's mail
    default). Wire names kept: `ParadoxRuntime`, `MYSTIC-GUARD-2`, `paradox-backend`, `metagame`.
 6. **The upload folder** is the caller's userId unchecked. Proposed: refuse (400 `AUTH_VALIDATION_FAILED`) a userId
    that is not an account folder (§7.1). A behaviour change for no existing account.

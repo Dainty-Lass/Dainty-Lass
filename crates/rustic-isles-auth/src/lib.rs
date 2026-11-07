@@ -20,7 +20,7 @@ use std::sync::atomic::AtomicBool;
 use std::sync::{Arc, Mutex, PoisonError, Weak};
 
 use axum::response::Response;
-use module_api::{Actor, ActorContext, GameVersion, NodeIdentity};
+use dainty_module_api::{Actor, ActorContext, GameVersion, NodeIdentity};
 use serde_json::{Map, Value};
 
 mod client;
@@ -426,7 +426,7 @@ mod tests {
     #[test]
     fn the_session_payload_repeats_the_token() {
         assert_eq!(
-            service_kit::jsjson::stringify(&session_payload_1_14_7("t")),
+            dainty_service_kit::jsjson::stringify(&session_payload_1_14_7("t")),
             r#"{"error_code":null,"sessionid":"t","sessiontoken":"t","sessionToken":"t"}"#
         );
     }

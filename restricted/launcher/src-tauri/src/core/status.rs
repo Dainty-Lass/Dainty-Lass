@@ -1,10 +1,12 @@
-//! Live server status (`GET /reforged/api/ServerStatus`), row L12: `protocol::status` (RS1), which reads
+//! Live server status (`GET /reforged/api/ServerStatus`), row L12: `dainty_protocol::status` (RS1), which reads
 //! `parseServerStatus` in `src/shared/status.ts` answer for answer. The answer comes from the network, so
 //! every field is checked and cleaned before the page sees it. Both sides run
-//! dainty-lass's `crates/protocol/tests/cases/status.json`.
+//! dainty-lass's `crates/dainty-protocol/tests/cases/status.json`.
 
 #[allow(unused_imports, reason = "the controller (RA13) uses the rest")]
-pub use protocol::status::{STATUS_PATH, ServerStatus, clean_https_url, clean_text, iso_date, parse_server_status};
+pub use dainty_protocol::status::{
+    STATUS_PATH, ServerStatus, clean_https_url, clean_text, iso_date, parse_server_status,
+};
 
 #[cfg(test)]
 mod tests {
@@ -22,7 +24,7 @@ mod tests {
 
     #[test]
     fn the_shared_table() {
-        let cases: Vec<Case> = serde_json::from_str(protocol::test_data::STATUS_CASES).unwrap();
+        let cases: Vec<Case> = serde_json::from_str(dainty_protocol::test_data::STATUS_CASES).unwrap();
         assert!(cases.len() > 90);
         for case in cases {
             let parsed = parse_server_status(&case.input);

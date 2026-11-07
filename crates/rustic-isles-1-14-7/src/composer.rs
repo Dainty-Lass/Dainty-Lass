@@ -5,9 +5,11 @@
 
 use std::sync::{Arc, OnceLock, PoisonError, RwLock, Weak};
 
-use module_api::chat::{ChatAnswer, ChatQuery};
-use module_api::network::{HomeInvocation, OperationName};
-use module_api::{ActorContext, AdminCall, AdminResponse, BoxFuture, ErrorKind, GlobalId, ModuleContext, ModuleError};
+use dainty_module_api::chat::{ChatAnswer, ChatQuery};
+use dainty_module_api::network::{HomeInvocation, OperationName};
+use dainty_module_api::{
+    ActorContext, AdminCall, AdminResponse, BoxFuture, ErrorKind, GlobalId, ModuleContext, ModuleError,
+};
 use rustic_isles::{
     AccountId, ComposeInputs, Composer, Composition, ContextHome, Handlers, ModuleHooks, Shared, Slots, Started,
     Startup,
@@ -139,7 +141,7 @@ impl Composer for VersionComposer {
             let store = open_store(&inputs).await?;
             let engine_is_postgres = store
                 .as_ref()
-                .is_some_and(|s| s.database().engine() == store::Engine::Postgres);
+                .is_some_and(|s| s.database().engine() == dainty_store::Engine::Postgres);
             let (character_data, starter_kit) = match &store {
                 Some(_) => {
                     let data = self.version_data(&inputs).await?;
@@ -158,12 +160,12 @@ impl Composer for VersionComposer {
             let seams = ReforgedSeams::new();
 
             // 4-5: the rifts cores, then rifts off the async threads
-            let accounts: Arc<dyn rifts_seam::IslesCore> = Arc::new(AccountsCore::new(
+            let accounts: Arc<dyn rustic_rifts_seam::IslesCore> = Arc::new(AccountsCore::new(
                 store.clone(),
                 inputs.settings.clone(),
                 Arc::clone(&cell),
             ));
-            let core: Arc<dyn rifts_seam::IslesCore> = Arc::new(MatchmakingCore::new(
+            let core: Arc<dyn rustic_rifts_seam::IslesCore> = Arc::new(MatchmakingCore::new(
                 store.clone(),
                 inputs.node.node.clone(),
                 Arc::clone(&matchmaking),
@@ -338,7 +340,7 @@ struct Runtime {
     store: Option<IslesStore>,
     hubs: Arc<HubSessions>,
     matchmaking: Arc<MatchmakingState>,
-    module_id: module_api::ModuleId,
+    module_id: dainty_module_api::ModuleId,
 }
 
 fn not_running() -> ModuleError {

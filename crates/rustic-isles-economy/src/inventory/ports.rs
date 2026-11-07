@@ -6,14 +6,14 @@
 use std::sync::Arc;
 
 use axum::response::Response;
+use dainty_module_api::{ActorContext, BoxFuture, GlobalId};
 use http::{Extensions, HeaderMap};
-use module_api::{ActorContext, BoxFuture, GlobalId};
-use rifts_seam::RuntimeAuth;
 use rustic_isles::Shared;
 use rustic_isles_auth::AuthData;
 use rustic_isles_characters::EnsureError;
 use rustic_isles_store::repo::inventory::InventoryRecord;
 use rustic_isles_store::{AccountId, IslesStore, RepoError, RepoResult, Repositories, Tx, UserId};
+use rustic_rifts_seam::RuntimeAuth;
 use serde_json::Value;
 
 use crate::bounties::wallet::{self as bounty_wallet, WalletError as BountyWalletError};

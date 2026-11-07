@@ -17,11 +17,11 @@ use std::sync::atomic::{AtomicI64, AtomicUsize, Ordering};
 use axum::body::Body;
 use axum::extract::ConnectInfo;
 use axum::http::{HeaderMap, Method, Request, StatusCode};
+use dainty_service_kit::serve::ConnectionInfo;
 use http_body_util::BodyExt as _;
 use rustic_isles_auth::test_support::{MapSettings, MemoryStore, RecordingMail, StubDiscord, throwaway_signing_keys};
 use rustic_isles_auth::{Auth, AuthConfig, Seams};
 use serde_json::{Value, json};
-use service_kit::serve::ConnectionInfo;
 use tower::ServiceExt as _;
 
 pub const SECRET: &str = "test-only-api-key-hash-secret-0123456789abcdef";
@@ -97,7 +97,7 @@ impl Harness {
         pairs.extend_from_slice(extra);
         let settings = Arc::new(MapSettings::new(&pairs));
         let clock = Arc::new(AtomicI64::new(chrono::Utc::now().timestamp_millis()));
-        let mut config = AuthConfig::for_1_14_7(module_api::NodeIdentity::standalone());
+        let mut config = AuthConfig::for_1_14_7(dainty_module_api::NodeIdentity::standalone());
         let c = Arc::clone(&clock);
         config.clock = Arc::new(move || c.load(Ordering::SeqCst));
         config.engine_is_postgres = postgres;

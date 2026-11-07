@@ -1,7 +1,7 @@
 {
   "name": "@dainty/agent",
   "version": "0.1.0",
-  "description": "Runs on each DaintyLass controller the dashboard does not run on: dials the dashboard, runs its allowlisted game calls with this host's secrets, reports status and relays chat",
+  "description": "Runs on each Dainty Lass controller the dashboard does not run on: dials the dashboard, runs its allowlisted game calls with this host's secrets, reports status and relays chat",
   "type": "module",
   "private": true,
   "license": "MIT",

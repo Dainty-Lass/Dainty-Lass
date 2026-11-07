@@ -8,14 +8,14 @@
 mod common;
 
 use common::{EMOJIS, FLASK, Harness, NO_EMOJI_TABLES, Options, PARTS, TABLES, WEAPON, Who, parse};
-use rifts_seam::{HostWriteKind, Json, Reply};
+use dainty_service_kit::jsjson;
 use rustic_isles_auth::AuthData;
 use rustic_isles_characters::starter::is_instance_id;
 use rustic_isles_characters::{
     Characters, CharactersError, empty_loadout_payload, is_fresh_onboarding, loadout_payload,
 };
+use rustic_rifts_seam::{HostWriteKind, Json, Reply};
 use serde_json::{Value, json};
-use service_kit::jsjson;
 
 const EMPTY: &str = "{\"code\":null,\"message\":\"OK\",\"payload\":{\"loadouts\":[],\"persistent\":null,\
 \"num_account_slots\":0,\"max_account_slots\":0,\"num_character_slots\":1,\"max_character_slots\":6,\

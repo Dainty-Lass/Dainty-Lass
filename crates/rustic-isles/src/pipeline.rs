@@ -10,12 +10,12 @@ use std::sync::Arc;
 use axum::body::Body;
 use axum::extract::{ConnectInfo, Request};
 use axum::response::{IntoResponse, Response};
+use dainty_service_kit::json::JSON_UTF8;
+use dainty_service_kit::serve::ConnectionInfo;
 use http::{HeaderMap, HeaderName, HeaderValue, StatusCode, header};
 use http_body_util::BodyExt;
 use rustic_isles_auth::{CallerKind, Cors, LauncherError};
 use serde_json::{Map, Value};
-use service_kit::json::JSON_UTF8;
-use service_kit::serve::ConnectionInfo;
 
 use crate::body::BODY_LIMIT;
 use crate::handlers::{Call, Handler, Handlers, MountError};
@@ -29,7 +29,7 @@ pub const REQUEST_ID_HEADER: &str = "x-rustic-isles-request-id";
 /// Selects the game server budget whether or not the key is good; auth checks it later.
 pub const GAMESERVER_KEY_HEADER: &str = "x-rustic-isles-gameserver-apikey";
 /// A player host's capability, under rifts' name (D3); rifts' guard names its bucket.
-pub const HOST_CAPABILITY_HEADER: &str = rifts_seam::HOST_CAPABILITY_HEADER;
+pub const HOST_CAPABILITY_HEADER: &str = rustic_rifts_seam::HOST_CAPABILITY_HEADER;
 
 const ORIGIN_PREFIX: &str = "/__origin/";
 const APEXES: [&str; 4] = [
@@ -80,7 +80,7 @@ pub fn strip_origin(target: &str) -> OriginStrip {
     if segment.is_empty() {
         return OriginStrip::Unchanged;
     }
-    let Some(decoded) = service_kit::js::decode_uri_component(segment) else {
+    let Some(decoded) = dainty_service_kit::js::decode_uri_component(segment) else {
         return OriginStrip::Refused;
     };
     let host = decoded.to_lowercase();
@@ -146,7 +146,7 @@ fn json(status: StatusCode, value: &Value) -> Response {
     (
         status,
         [(header::CONTENT_TYPE, JSON_UTF8)],
-        service_kit::jsjson::stringify(value),
+        dainty_service_kit::jsjson::stringify(value),
     )
         .into_response()
 }
@@ -174,7 +174,7 @@ enum Answer {
     Handler(Handler),
     NotImplemented,
     /// The position of the rifts route in `Rifts::routes`, which lends its handlers
-    Rifts(usize, &'static rifts_seam::Route),
+    Rifts(usize, &'static rustic_rifts_seam::Route),
 }
 
 struct Mounted {
@@ -192,13 +192,13 @@ struct App {
     admin_mark: usize,
 }
 
-fn rifts_method_matches(theirs: rifts_seam::Method, ours: Method) -> bool {
+fn rifts_method_matches(theirs: rustic_rifts_seam::Method, ours: Method) -> bool {
     matches!(
         (theirs, ours),
-        (rifts_seam::Method::All, _)
-            | (rifts_seam::Method::Get, Method::Get)
-            | (rifts_seam::Method::Post, Method::Post)
-            | (rifts_seam::Method::Patch, Method::Patch)
+        (rustic_rifts_seam::Method::All, _)
+            | (rustic_rifts_seam::Method::Get, Method::Get)
+            | (rustic_rifts_seam::Method::Post, Method::Post)
+            | (rustic_rifts_seam::Method::Patch, Method::Patch)
     )
 }
 
@@ -406,7 +406,7 @@ impl<'a> Walk<'a> {
 
     async fn host_bucket(&self, probe: &Probe) -> Option<String> {
         let capability = probe.capability.clone()?;
-        let summary = rifts_seam::RequestInfo {
+        let summary = rustic_rifts_seam::RequestInfo {
             path: probe.path.clone(),
             headers: vec![(HOST_CAPABILITY_HEADER.to_owned(), capability)],
             remote: probe.peer,
@@ -536,12 +536,12 @@ impl<'a> Walk<'a> {
         parts: &http::request::Parts,
         peer: Option<IpAddr>,
         body: &[u8],
-    ) -> Result<rifts_seam::Caller, Response> {
+    ) -> Result<rustic_rifts_seam::Caller, Response> {
         let auth = self.app.shared.auth();
         let headers = &parts.headers;
         let refuse = |error: LauncherError| error.response(&replay::next_uuid());
         match rustic_isles_auth::rifts_caller_kind(row.method.as_str(), row.path) {
-            CallerKind::None | CallerKind::HostCapability => Ok(rifts_seam::Caller::Anonymous),
+            CallerKind::None | CallerKind::HostCapability => Ok(rustic_rifts_seam::Caller::Anonymous),
             CallerKind::Launcher { active } => {
                 let caller = auth.launcher_auth(headers).await.map_err(refuse)?;
                 if let Some(consent) = active {
@@ -549,7 +549,9 @@ impl<'a> Walk<'a> {
                         .await
                         .map_err(refuse)?;
                 }
-                Ok(rifts_seam::Caller::Launcher(rifts_seam::AccountId(caller.user_id)))
+                Ok(rustic_rifts_seam::Caller::Launcher(rustic_rifts_seam::AccountId(
+                    caller.user_id,
+                )))
             }
             CallerKind::Admin => {
                 let Some(authenticator) = self.app.shared.admin_authenticator() else {
@@ -563,7 +565,7 @@ impl<'a> Walk<'a> {
                     body,
                 };
                 let admin = authenticator.authenticate(head).await?;
-                Ok(rifts_seam::Caller::Admin { key_id: admin.key_id })
+                Ok(rustic_rifts_seam::Caller::Admin { key_id: admin.key_id })
             }
         }
     }
@@ -572,7 +574,7 @@ impl<'a> Walk<'a> {
         &self,
         row: &RouteDef,
         position: usize,
-        route: &'static rifts_seam::Route,
+        route: &'static rustic_rifts_seam::Route,
         params: Params,
         request: Request,
     ) -> Response {
@@ -609,11 +611,11 @@ impl<'a> Walk<'a> {
             },
             (None, None) => Vec::new(),
         };
-        let call = rifts_seam::RouteCall {
+        let call = rustic_rifts_seam::RouteCall {
             route: *route,
             params: params.into_pairs(),
             query: parts.uri.query().unwrap_or("").to_owned(),
-            request: rifts_seam::RequestInfo {
+            request: rustic_rifts_seam::RequestInfo {
                 path: parts.uri.path().to_owned(),
                 headers,
                 remote,
@@ -628,10 +630,10 @@ impl<'a> Walk<'a> {
         };
         let reply = match handler.handle(call).await {
             Ok(reply) => reply,
-            Err(rifts_seam::SeamError::Unimplemented(missing)) => {
-                rifts_seam::Reply::not_implemented(&missing, &self.request_id)
+            Err(rustic_rifts_seam::SeamError::Unimplemented(missing)) => {
+                rustic_rifts_seam::Reply::not_implemented(&missing, &self.request_id)
             }
-            Err(rifts_seam::SeamError::Refused(refusal)) => {
+            Err(rustic_rifts_seam::SeamError::Refused(refusal)) => {
                 let status = rustic_isles_auth::status_for(&refusal.code);
                 let status = StatusCode::from_u16(status).unwrap_or(StatusCode::INTERNAL_SERVER_ERROR);
                 let body = error_envelope(&refusal.code, &refusal.message, &self.request_id);

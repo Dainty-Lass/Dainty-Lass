@@ -159,7 +159,7 @@ pub struct HubSupervisor<T: Clone + PartialEq + Send + Sync + 'static> {
 }
 
 fn seconds(ms: u64) -> String {
-    service_kit::jsjson::number(ms as f64 / 1000.0)
+    dainty_service_kit::jsjson::number(ms as f64 / 1000.0)
 }
 
 impl<T: Clone + PartialEq + Send + Sync + 'static> HubSupervisor<T> {
@@ -329,7 +329,7 @@ impl<T: Clone + PartialEq + Send + Sync + 'static> HubSupervisor<T> {
         }
         let now = self.now();
         let up = now.saturating_sub(state.current_since);
-        let up_s = service_kit::jsjson::number((up as f64 / 1000.0).round());
+        let up_s = dainty_service_kit::jsjson::number((up as f64 / 1000.0).round());
         let label = &self.options.label;
         if up >= self.options.stable_uptime_ms {
             state.failures = 0;
@@ -432,7 +432,7 @@ impl<T: Clone + PartialEq + Send + Sync + 'static> HubSupervisor<T> {
                         format!(
                             "[HubSupervisor] {} stable for {}s - failure count reset",
                             self.options.label,
-                            service_kit::jsjson::number((up as f64 / 1000.0).round())
+                            dainty_service_kit::jsjson::number((up as f64 / 1000.0).round())
                         ),
                         None,
                     );

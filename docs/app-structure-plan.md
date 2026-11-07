@@ -7,9 +7,9 @@ What shipped differs: two server binaries and the launcher's two, not twelve cra
 controller makes; the backend and Director as Rustic Isles's Node processes, not Rust listeners; and each service
 still runnable alone as a `dainty-host` subcommand.
 
-This document specifies the architectural conversion of the DaintyLass Rust codebase into:
+This document specifies the architectural conversion of the Dainty Lass Rust codebase into:
 1. **Pure Library Service Crates (`services/*`)**: Converting `gateway` (including `allowlist`), `content`, `admin`, `host`, `backend`, and `director` into pure library crates (`lib.rs` only, removing standalone `src/main.rs` binaries).
-2. **A Unified `ServerController` (`crates/controller`)**: Orchestrating all services in-process, supporting **concurrent `Refined` + `Reforged` execution** in a single controller instance, and **auto-generating missing secrets/certs/DB schemas on cold boot** from a single `.toml`, `.yaml`, or `.json` config file.
+2. **A Unified `ServerController` (`crates/dainty-controller`)**: Orchestrating all services in-process, supporting **concurrent `Refined` + `Reforged` execution** in a single controller instance, and **auto-generating missing secrets/certs/DB schemas on cold boot** from a single `.toml`, `.yaml`, or `.json` config file.
 3. **A `tracing` + `tracing-subscriber` Logging Pipeline**: Unifying all components into a single span-attributed, secret-redacting logging bus with pluggable target layers (`TableStdoutLayer`, `LauncherGuiLayer`, `TuiRingBufferLayer`, `FileLogLayer`).
 4. **12 Dedicated Binary Crates (`bins/*`)**: Providing `both` (default for releases), `refined`-only, and `reforged`-only binary crates across all four application profiles (`server-minimal`, `server-console`, `server-gui`, and `online-client`).
 
@@ -39,7 +39,7 @@ flowchart TB
     end
 
     subgraph CoreOrchestrators["Orchestrator & Client Libraries"]
-        Controller["crates/controller (lib)\n(ServerController, TOML/YAML/JSON loader,\ncold-boot secret/cert init, concurrent editions)"]
+        Controller["crates/dainty-controller (lib)\n(ServerController, TOML/YAML/JSON loader,\ncold-boot secret/cert init, concurrent editions)"]
         LauncherLib["launcher/src-tauri (lib)\n(Client core/net/platform + optional server-gui module)"]
     end
 
@@ -82,10 +82,10 @@ flowchart TB
 
 | # | Binary Crate Path | Binary Name | Edition Feature Set | Profile & Capabilities |
 | --- | --- | --- | --- | --- |
-| 1 | `crates/server-minimal` | `reforged-server-minimal` | `edition-both` *(Release Default)* | Headless TOML/YAML/JSON runner + cold-boot secret init + `{service:<14} \| {line}` stdout table logger. Can host Refined, Reforged, or both concurrently. |
+| 1 | `crates/dainty-server-minimal` | `reforged-server-minimal` | `edition-both` *(Release Default)* | Headless TOML/YAML/JSON runner + cold-boot secret init + `{service:<14} \| {line}` stdout table logger. Can host Refined, Reforged, or both concurrently. |
 | 2 | `crates/server-minimal-refined` | `refined-server-minimal` | `edition-refined` *(Self-Build)* | Same minimal headless runner compiled strictly with Refined support. |
 | 3 | `crates/server-minimal-reforged` | `reforged-only-server-minimal` | `edition-reforged` *(Self-Build)* | Same minimal headless runner compiled strictly with Reforged support. |
-| 4 | `crates/server-console` | `reforged-server-console` | `edition-both` *(Release Default)* | Full CLI subcommands + interactive console REPL + optional `ratatui` `--tui`. Supports Refined, Reforged, or both concurrently. |
+| 4 | `crates/dainty-server` | `reforged-server-console` | `edition-both` *(Release Default)* | Full CLI subcommands + interactive console REPL + optional `ratatui` `--tui`. Supports Refined, Reforged, or both concurrently. |
 | 5 | `crates/server-console-refined` | `refined-server-console` | `edition-refined` *(Self-Build)* | Full CLI + REPL + optional `--tui` compiled strictly with Refined support. |
 | 6 | `crates/server-console-reforged` | `reforged-only-server-console` | `edition-reforged` *(Self-Build)* | Full CLI + REPL + optional `--tui` compiled strictly with Reforged support. |
 | 7 | `bins/server-gui` | `reforged-server-gui` | `edition-both` *(Release Default)* | Tauri launcher + embedded `ServerController` + direct `LauncherGuiLayer` log stream + live Component Status Page. Supports both editions. |
@@ -155,7 +155,7 @@ To ensure `reforged-server-minimal --config server.yaml` (as well as `server-con
 3. **Automatic TLS Certificate Generation (`cert::load_or_generate_cert`)**:
    - In `public` mode, if `cert.pem` and `key.pem` do not exist yet, generates the self-signed ECDSA P-256 certificate and logs the resulting SHA-256 fingerprint (`fp`) and ready-to-use `reforged-revival://` invite URL via `tracing::info!`.
 4. **Automatic Database Migration & Preset Seeding**:
-   - Runs `crates/store::drizzle::migrate` on the SQLite database files and seeds initial preset data from `preset/` if the database is empty.
+   - Runs `crates/dainty-store::drizzle::migrate` on the SQLite database files and seeds initial preset data from `preset/` if the database is empty.
 
 ---
 
@@ -177,20 +177,20 @@ All components emit logs via `tracing` macros (`tracing::info!`, `warn!`, `error
 
 ### Phase 1: pure service libraries and `tracing` (`service-kit` + `services/*`)
 1. Add `tracing`, `tracing-subscriber` (`registry`, `fmt`, `env-filter`, `reload`), `tracing-log`, and `serde_yaml` to `[workspace.dependencies]` in `Cargo.toml`.
-2. Implement `ServiceContext`, `ComponentPhase`, `ComponentStatus`, `StatusReporter`, `RedactingVisitor`, `TableStdoutLayer` (`{service:<14} | {line}`), and `ChannelLogLayer` in `crates/service-kit`.
+2. Implement `ServiceContext`, `ComponentPhase`, `ComponentStatus`, `StatusReporter`, `RedactingVisitor`, `TableStdoutLayer` (`{service:<14} | {line}`), and `ChannelLogLayer` in `crates/dainty-service-kit`.
 3. Convert `gateway` (and its `allowlist` submodule), `content`, `admin`, `backend`, `director`, and `host` into **pure library crates** (`lib.rs` only, removing `src/main.rs` and `src/bin/allowlist.rs`, and updating integration/parity tests to start the library servers directly in-process).
 4. Add `edition-refined`, `edition-reforged`, and `edition-both` Cargo features across `protocol`, `content`, `backend`, `director`, `host`, and `launcher`.
 
-### Phase 2: `crates/controller` (Multi-Format Config, Cold-Boot Provisioning & Concurrent Editions)
-1. Create `crates/controller` implementing:
+### Phase 2: `crates/dainty-controller` (Multi-Format Config, Cold-Boot Provisioning & Concurrent Editions)
+1. Create `crates/dainty-controller` implementing:
    - `ServerConfig::load` supporting `.toml`, `.yaml`/`.yml`, and `.json`, with single-edition or concurrent `Refined` + `Reforged` stack definitions.
    - Cold-boot auto-provisioning (`ensure_secrets`, `load_or_generate_cert`, and SQLite migration/preset seeding) so a fresh server starts from a single config file with zero prior `setup`.
    - `ServerController` managing in-process async service tasks, hybrid in-process `AllowlistSink`, `StatusRegistry` (`watch::Receiver<ServerSnapshot>`), per-component start/stop/restart, and reverse-order graceful shutdown.
 
 ### Phase 3: server binary crates (`server-minimal*` & `server-console*`, 6 crates)
-1. Create `crates/server-minimal`, `crates/server-minimal-refined`, and `crates/server-minimal-reforged` wired to `ServerController` + `TableStdoutLayer`.
+1. Create `crates/dainty-server-minimal`, `crates/server-minimal-refined`, and `crates/server-minimal-reforged` wired to `ServerController` + `TableStdoutLayer`.
 2. Implement the interactive runtime REPL (`status`, `start/stop/restart <svc>`, `invite`, `players`, `instances`, `doctor`, `backup`, `log`, `stop`) and optional `ratatui` `--tui` dashboard in `host`.
-3. Create `crates/server-console`, `crates/server-console-refined`, and `crates/server-console-reforged`.
+3. Create `crates/dainty-server`, `crates/server-console-refined`, and `crates/server-console-reforged`.
 
 ### Phase 4: client and server GUI binary crates (`online-client*` & `server-gui*`, 6 crates)
 1. Split `launcher/src-tauri` into pure library modules with `server-gui`, `edition-refined`, `edition-reforged`, and `edition-both` feature gates.

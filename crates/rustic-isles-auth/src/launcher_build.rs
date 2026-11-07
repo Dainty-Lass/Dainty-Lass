@@ -128,7 +128,7 @@ impl LauncherPolicy {
         for item in settings
             .raw("RUSTIC_ISLES_LAUNCHER_ALLOWED_HASHES")
             .unwrap_or("")
-            .split(|c: char| c == ',' || service_kit::js::is_space(c))
+            .split(|c: char| c == ',' || dainty_service_kit::js::is_space(c))
             .filter(|t| !t.is_empty())
         {
             let hash = item.to_lowercase();

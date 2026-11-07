@@ -154,7 +154,7 @@ impl IdNormalizer {
             && let Ok(parsed) = serde_json::from_str::<Value>(text)
         {
             let normalized = self.normalize_value(&parsed, None);
-            return service_kit::jsjson::stringify(&normalized);
+            return dainty_service_kit::jsjson::stringify(&normalized);
         }
         let mut out = normalize_jwts_in_str(text);
         if matches!(hint, Some("refresh_token" | "refreshToken" | "challengeSignature")) {

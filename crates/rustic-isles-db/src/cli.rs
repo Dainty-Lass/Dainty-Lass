@@ -8,7 +8,7 @@ use std::collections::BTreeSet;
 use std::path::PathBuf;
 use std::process::ExitCode;
 
-use module_api::NodeId;
+use dainty_module_api::NodeId;
 use serde::Serialize;
 
 #[cfg(feature = "export-mongo")]

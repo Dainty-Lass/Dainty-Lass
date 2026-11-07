@@ -8,10 +8,10 @@ use std::sync::Arc;
 
 use axum::extract::Request;
 use axum::response::{IntoResponse, Response};
+use dainty_service_kit::json::Json;
 use http::{StatusCode, header};
 use rustic_isles::{BODY_LIMIT, Call, Handlers, Method, Params, Service, Shared, read_body_parts_limit, replay};
 use serde_json::{Map, Value, json};
-use service_kit::json::Json;
 
 use crate::{envelope, gauntlet, patchnotes, progression_config, tuning};
 
@@ -190,7 +190,7 @@ fn survey(shared: &Shared) -> Response {
         .then(|| StatusCode::from_u16(reply.status).ok())
         .flatten()
     else {
-        return service_kit::body::error_page(StatusCode::INTERNAL_SERVER_ERROR);
+        return dainty_service_kit::body::error_page(StatusCode::INTERNAL_SERVER_ERROR);
     };
     match reply.body {
         Some(body) => (status, Json(body)).into_response(),
@@ -232,8 +232,8 @@ async fn trials_all(ctx: Ctx) -> Response {
     let trial_id = field("trial_id", json!(""));
     tracing::info!(
         "Trials leaderboard all (stubbed empty) trial_id={:?} difficulty={}",
-        service_kit::js::string(Some(&trial_id)),
-        service_kit::js::string(Some(&difficulty))
+        dainty_service_kit::js::string(Some(&trial_id)),
+        dainty_service_kit::js::string(Some(&difficulty))
     );
     json(envelope(json!({
         "difficulty": difficulty,
@@ -253,7 +253,7 @@ fn progression(shared: &Shared) -> Response {
         Ok(file) => file,
         Err(error) => {
             tracing::error!("GET /progression/config: {error}");
-            return service_kit::body::error_page(StatusCode::INTERNAL_SERVER_ERROR);
+            return dainty_service_kit::body::error_page(StatusCode::INTERNAL_SERVER_ERROR);
         }
     };
     let version = shared.version();

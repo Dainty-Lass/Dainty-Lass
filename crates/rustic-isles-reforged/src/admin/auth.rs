@@ -2,15 +2,15 @@
 // Copyright (c) 2026 Silent Spud
 
 //! Admin authentication (admin spec §3.2 to §3.5): the session cookie with its CSRF token, and the manager operator
-//! credential `crates/admin` and the dashboard sign every `/admin/v1` call with. Trust decisions read the system
+//! credential `crates/dainty-admin` and the dashboard sign every `/admin/v1` call with. Trust decisions read the system
 //! clock, never the replay clock (admin decisions, item 1).
 
 use std::net::IpAddr;
 use std::sync::{Arc, LazyLock, Weak};
 
 use axum::response::Response;
+use dainty_module_api::{Actor, ActorContext, BoxFuture};
 use http::{HeaderMap, Method, StatusCode};
-use module_api::{Actor, ActorContext, BoxFuture};
 use regex::Regex;
 use rustic_isles::{AdminRequestHead, Shared};
 use rustic_isles_store::IslesStore;
@@ -47,7 +47,7 @@ pub fn read_cookie(headers: &HeaderMap, name: &str) -> Result<Option<String>, Un
         let part = part.trim();
         let (key, value) = part.split_once('=').unwrap_or((part, ""));
         if key == name {
-            return service_kit::js::decode_uri_component(value)
+            return dainty_service_kit::js::decode_uri_component(value)
                 .map(Some)
                 .ok_or(UndecodableCookie);
         }

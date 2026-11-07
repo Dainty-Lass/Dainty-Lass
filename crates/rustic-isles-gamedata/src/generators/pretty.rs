@@ -30,7 +30,7 @@ pub(crate) fn ordered(map: &Map<String, Value>) -> Vec<(&String, &Value)> {
 }
 
 fn scalar(value: &Value) -> String {
-    service_kit::jsjson::stringify(value)
+    dainty_service_kit::jsjson::stringify(value)
 }
 
 fn newline(out: &mut String, depth: usize, indent: usize) {
@@ -73,7 +73,7 @@ fn write(out: &mut String, value: &Value, depth: usize, indent: usize) {
 /// `JSON.stringify(value, null, indent)`: compact at 0, no trailing newline.
 pub fn stringify_pretty(value: &Value, indent: usize) -> String {
     if indent == 0 {
-        return service_kit::jsjson::stringify(value);
+        return dainty_service_kit::jsjson::stringify(value);
     }
     let mut out = String::new();
     write(&mut out, value, 0, indent);
@@ -104,10 +104,10 @@ mod tests {
         assert_eq!(stringify_pretty(&json!(1e21), 2), "1e+21");
         assert_eq!(stringify_pretty(&json!([]), 3), "[]");
         for n in 0..=4 {
-            let back = service_kit::jsjson::parse(&stringify_pretty(&nested, n)).unwrap();
-            assert!(service_kit::jsjson::deep_equal(
+            let back = dainty_service_kit::jsjson::parse(&stringify_pretty(&nested, n)).unwrap();
+            assert!(dainty_service_kit::jsjson::deep_equal(
                 &back,
-                &service_kit::jsjson::to_js(&nested)
+                &dainty_service_kit::jsjson::to_js(&nested)
             ));
         }
     }

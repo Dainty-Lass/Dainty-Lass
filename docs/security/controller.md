@@ -2,8 +2,8 @@
 
 # Security checklist: the server controller and its console (RX3)
 
-The checklist for the server as one process (RD26): the controller in `crates/controller`, `dainty-host
-serve` in `crates/hostkit/src/serve.rs`, its console (`repl.rs`) and dashboard (`tui.rs`), the settings readers
+The checklist for the server as one process (RD26): the controller in `crates/dainty-controller`, `dainty-host
+serve` in `crates/dainty-hostkit/src/serve.rs`, its console (`repl.rs`) and dashboard (`tui.rs`), the settings readers
 it loads (`hostconfig.rs`, `hostconfig/yaml.rs`) and the server GUI's embedded server
 (`launcher/src-tauri/src/server_gui.rs`). `SECURITY_REVIEW.md` indexes it.
 
@@ -31,8 +31,8 @@ them, and the files it reads to compose them.
 - **Out:** the host's terminal, `logs/server.log` (dashboard mode), the page's server panel, and the env each
   module gets.
 
-Code: `crates/controller/src/controller.rs` (start, ready timeout, stop grace, restart, shutdown),
-`crates/hostkit/src/serve.rs` (`compose`, `prepare`, `run`, `prepare_embedded`, the printers), `repl.rs`
+Code: `crates/dainty-controller/src/controller.rs` (start, ready timeout, stop grace, restart, shutdown),
+`crates/dainty-hostkit/src/serve.rs` (`compose`, `prepare`, `run`, `prepare_embedded`, the printers), `repl.rs`
 (`parse_command`, `run_command`, `plain`), `tui.rs` (`on_key`, `run_tui`), `hostconfig.rs` (`read_host_config`),
 `hostconfig/yaml.rs`, `services.rs` (`pump`), `launcher/src-tauri/src/server_gui.rs` and `bridge/commands.rs`
 (`host_server_restart`).

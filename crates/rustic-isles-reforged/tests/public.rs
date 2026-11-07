@@ -242,7 +242,7 @@ async fn user_info_and_status() {
         async move {
             store
                 .write(
-                    &module_api::ActorContext::new(module_api::Actor::System),
+                    &dainty_module_api::ActorContext::new(dainty_module_api::Actor::System),
                     move |tx, repos| {
                         let change = rustic_isles_store::repo::auth::AccessChange {
                             approval_status: None,
@@ -301,7 +301,7 @@ async fn user_info_and_status() {
     assert_eq!(body["version"], "1.2.3");
     assert_eq!(body["sourceUrl"], "https://example.com/src");
     assert_eq!(
-        service_kit::jsjson::stringify(&body["game"]),
+        dainty_service_kit::jsjson::stringify(&body["game"]),
         format!(
             r#"{{"build":"rel-1.14.7-Archon","changelist":647472,"executableSha256":"{}"}}"#,
             "ab".repeat(32)
@@ -752,7 +752,7 @@ async fn operator_log_view() {
         .collect();
     assert_eq!(ids, ["aaaaaaaa-1", "bbbbbbbb-2", "cccccccc-3"]);
     assert_eq!(
-        service_kit::jsjson::stringify(&all["sessions"][0]),
+        dainty_service_kit::jsjson::stringify(&all["sessions"][0]),
         r#"{"userId":"u1","launchSessionId":"aaaaaaaa-1","uploadedAt":"2026-10-03T00:00:00.000Z","files":[{"name":"launcher.log","size":4},{"name":"metadata.json","size":2}],"totalBytes":6}"#
     );
     let page = operator(&rig, "GET", "/admin/v1/player-logs?limit=1", None)
@@ -913,7 +913,7 @@ async fn operations_routes() {
         .await
         .json();
     assert_eq!(
-        service_kit::jsjson::stringify(&overview["policy"]),
+        dainty_service_kit::jsjson::stringify(&overview["policy"]),
         r#"{"guardEnforcement":"ENFORCE","diagnosticsProfile":"PRODUCTION","version":0}"#
     );
     let change = |guard: &str, version: i64, reason: &str, code: Option<&str>| {
@@ -1028,7 +1028,7 @@ async fn activity_routes() {
     };
     rig.store
         .write(
-            &module_api::ActorContext::new(module_api::Actor::System),
+            &dainty_module_api::ActorContext::new(dainty_module_api::Actor::System),
             move |tx, repos| repos.activity.insert_flag_if_absent(tx, &flag).map(|_| ()),
         )
         .await

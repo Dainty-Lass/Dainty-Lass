@@ -52,14 +52,14 @@ mod tests {
             json!({"personal_progression": 0, "guild_progression": 0})
         );
         assert_eq!(guild_rewards_payload(), json!(0));
-        let now = service_kit::js::date_parse("2026-10-16T08:30:00Z").unwrap();
+        let now = dainty_service_kit::js::date_parse("2026-10-16T08:30:00Z").unwrap();
         let config = config_payload(now);
         assert_eq!(
-            service_kit::jsjson::stringify(&config),
+            dainty_service_kit::jsjson::stringify(&config),
             r#"{"gauntlet_id":"ESC_SEASON_1","start_at":"2026-07-30T17:00:00+00:00","end_at":"2026-10-22T17:00:00+00:00"}"#
         );
-        let start = service_kit::js::date_parse(config["start_at"].as_str().unwrap()).unwrap();
-        let end = service_kit::js::date_parse(config["end_at"].as_str().unwrap()).unwrap();
+        let start = dainty_service_kit::js::date_parse(config["start_at"].as_str().unwrap()).unwrap();
+        let end = dainty_service_kit::js::date_parse(config["end_at"].as_str().unwrap()).unwrap();
         assert!(start <= now && now < end);
     }
 }

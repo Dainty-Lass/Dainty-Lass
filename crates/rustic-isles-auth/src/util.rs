@@ -9,10 +9,10 @@ use axum::http::{HeaderMap, StatusCode, header};
 use axum::response::{IntoResponse, Response};
 use base64::Engine as _;
 use base64::engine::general_purpose::URL_SAFE_NO_PAD;
+use dainty_service_kit::body::{BodyError, ExpressBody};
 use http_body_util::BodyExt as _;
 use rand::RngExt as _;
 use serde_json::{Map, Value};
-use service_kit::body::{BodyError, ExpressBody};
 
 /// The JSON body limit of the area's routes (Express's `express.json` default).
 pub const BODY_LIMIT: usize = 100 * 1024;
@@ -114,7 +114,7 @@ pub fn utf16_len(text: &str) -> usize {
 
 /// JS trim, then lower-cased (§2.1).
 pub fn normalize_lower(text: &str) -> String {
-    service_kit::js::trim(text).to_lowercase()
+    dainty_service_kit::js::trim(text).to_lowercase()
 }
 
 /// A field of `req.body` (`body?.name`): absent for an array or scalar body.
@@ -172,7 +172,7 @@ pub fn query_pairs(query: Option<&str>) -> Vec<(String, String)> {
 
 pub fn qs_decode(text: &str) -> String {
     let spaced = text.replace('+', " ");
-    service_kit::js::decode_uri_component(&spaced).unwrap_or_else(|| lenient_decode(&spaced))
+    dainty_service_kit::js::decode_uri_component(&spaced).unwrap_or_else(|| lenient_decode(&spaced))
 }
 
 // qs decodes what it can and leaves a bad escape as written
@@ -220,11 +220,11 @@ pub fn empty(status: StatusCode) -> Response {
 }
 
 pub fn page(status: StatusCode) -> Response {
-    service_kit::body::error_page(status)
+    dainty_service_kit::body::error_page(status)
 }
 
 pub fn json(status: StatusCode, value: Value) -> Response {
-    let mut response = service_kit::json::Json(value).into_response();
+    let mut response = dainty_service_kit::json::Json(value).into_response();
     *response.status_mut() = status;
     response
 }
@@ -281,9 +281,9 @@ pub async fn read_body(request: axum::extract::Request) -> Result<Option<Value>,
     let parsed = match kind {
         Kind::Json => {
             let text = text.trim_start_matches([' ', '\t', '\n', '\r']);
-            service_kit::body::parse_json(text.strip_prefix('\u{feff}').unwrap_or(text))
+            dainty_service_kit::body::parse_json(text.strip_prefix('\u{feff}').unwrap_or(text))
         }
-        Kind::Form => service_kit::body::parse_form(text),
+        Kind::Form => dainty_service_kit::body::parse_form(text),
     };
     parsed.map(Some).map_err(IntoResponse::into_response)
 }

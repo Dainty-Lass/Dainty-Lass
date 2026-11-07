@@ -1,15 +1,15 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Silent Spud
 
-//! Bound SQL both engines run alike: written with `?`, numbered to `$1..$n` by `store::portable` (its portable
+//! Bound SQL both engines run alike: written with `?`, numbered to `$1..$n` by `dainty_store::portable` (its portable
 //! rule), every value bound, never spliced. No table declarations, so `launcher_accounts`' 27 columns need no
 //! Diesel column-count feature.
 
+use dainty_store::{AnyConnection, MultiBackend};
 use diesel::QueryableByName;
 use diesel::prelude::*;
 use diesel::query_builder::{BoxedSqlQuery, SqlQuery};
 use diesel::sql_types::{BigInt, Bool, Double, Nullable, Text};
-use store::{AnyConnection, MultiBackend};
 
 use crate::{RepoError, RepoResult};
 
@@ -70,7 +70,7 @@ impl Sql {
     }
 
     fn query(self) -> RepoResult<BoxedSqlQuery<'static, MultiBackend, SqlQuery>> {
-        let text = store::portable::numbered(&self.text).map_err(RepoError::Data)?;
+        let text = dainty_store::portable::numbered(&self.text).map_err(RepoError::Data)?;
         let mut query = diesel::sql_query(text).into_boxed::<MultiBackend>();
         for param in self.params {
             query = match param {

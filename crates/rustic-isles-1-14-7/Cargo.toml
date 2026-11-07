@@ -18,19 +18,19 @@ doc = false
 [features]
 default = ["realms"]
 # Rustic Rifts' realms, admission, relay and guard; off, the module is dedicated-only
-realms = ["dep:rifts-admission", "dep:rifts-relay", "dep:rifts-realms", "dep:rifts-guard"]
+realms = ["dep:rustic-rifts-admission", "dep:rustic-rifts-relay", "dep:rustic-rifts-realms", "dep:rustic-rifts-guard"]
 # A synthetic VersionData (made-up ids, never the real values)
 test-support = []
 
 [dependencies]
 axum.workspace = true
 http.workspace = true
-module-api.workspace = true
-rifts-admission = { workspace = true, optional = true }
-rifts-guard = { workspace = true, optional = true }
-rifts-realms = { workspace = true, optional = true }
-rifts-relay = { workspace = true, optional = true }
-rifts-seam.workspace = true
+dainty-module-api.workspace = true
+rustic-rifts-admission = { workspace = true, optional = true }
+rustic-rifts-guard = { workspace = true, optional = true }
+rustic-rifts-realms = { workspace = true, optional = true }
+rustic-rifts-relay = { workspace = true, optional = true }
+rustic-rifts-seam.workspace = true
 rustic-isles.workspace = true
 rustic-isles-auth.workspace = true
 rustic-isles-characters.workspace = true
@@ -44,8 +44,8 @@ rustic-isles-matchmaking.workspace = true
 rustic-isles-reforged.workspace = true
 rustic-isles-store.workspace = true
 serde_json = { workspace = true, features = ["preserve_order"] }
-service-kit.workspace = true
-store.workspace = true
+dainty-service-kit.workspace = true
+dainty-store.workspace = true
 thiserror.workspace = true
 tokio = { workspace = true, features = ["rt", "sync", "macros"] }
 tracing.workspace = true

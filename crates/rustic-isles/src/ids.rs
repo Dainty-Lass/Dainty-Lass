@@ -6,7 +6,7 @@
 use std::fmt;
 use std::str::FromStr;
 
-use module_api::{GlobalId, IdKind, NodeId};
+use dainty_module_api::{GlobalId, IdKind, NodeId};
 
 /// A `GlobalId` known to name an account; the node in it is the account's home.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]

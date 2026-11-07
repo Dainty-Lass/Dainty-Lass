@@ -2,13 +2,13 @@
 
 # Security checklist: relay credentials (RX3)
 
-> **Retired** (RD27): this checklist is for the AGPL `rifts-*` crate, which was replaced by the root's MIT
+> **Retired** (RD27): this checklist is for the AGPL `rustic-rifts-*` crate, which was replaced by the root's MIT
 > clean-room crate and removed. Kept for reference; the root's `docs/security/rifts-*.md` is the live checklist.
 
-The checklist for `crates/rifts-relay` (DaintyLass plan RF4, DD14, DD24, DX2): TURN credentials (`turn-rest` for
+The checklist for `crates/rustic-rifts-relay` (Dainty Lass plan RF4, DD14, DD24, DX2): TURN credentials (`turn-rest` for
 turn-rs and coturn, Cloudflare TURN), the per-pair transport keys, the ICE transport config and signal routes, and
 the `coop-transport` admin route. The relay process itself (turn-rs, its listener exception and port range) is the
-host kit's and has its page in DaintyLass (`docs/security/turn-relay.md`, DX2).
+host kit's and has its page in Dainty Lass (`docs/security/turn-relay.md`, DX2).
 
 How to use it: before the 1.14.7 module serves realms from Rust, copy this list into the cutover notes, check each
 item in the code (not from memory), link the code or test that shows it, and sign at the end with the date and the
@@ -86,7 +86,7 @@ These do not block RF4 but must be settled, or accepted in writing, before the c
 - **The rate counters are per process**, as Node's: a network with several backend processes multiplies the
   limits. The request rate limiter still covers the routes.
 - **`ProviderHttp`** is isles'; it must apply the 5-second timeout, use rustls with aws-lc-rs
-  (DaintyLass D10), follow no redirects and log neither the bearer token nor the body.
+  (Dainty Lass D10), follow no redirects and log neither the bearer token nor the body.
 - **A hub keeps its credential for up to 24 hours**, because no transport exports `UpdateRelayCredentialH` (RF1,
   decision 6).
 

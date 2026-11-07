@@ -1,5 +1,5 @@
 [package]
-name = "rifts-oracle"
+name = "rustic-rifts-oracle"
 description = "Mystic Paradox's own answers (Node vectors), replayed against dainty-lass's MIT rifts crates (spec-rd27-rifts 4.3)"
 version.workspace = true
 edition.workspace = true
@@ -10,9 +10,9 @@ publish.workspace = true
 
 [dev-dependencies]
 base64.workspace = true
-rifts-admission.workspace = true
-rifts-relay.workspace = true
-rifts-seam.workspace = true
+rustic-rifts-admission.workspace = true
+rustic-rifts-relay.workspace = true
+rustic-rifts-seam.workspace = true
 serde_json.workspace = true
 
 [lints]

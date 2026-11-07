@@ -9,8 +9,8 @@ mod common;
 
 use std::sync::Arc;
 
-use module_api::chat::{ChatAnswer, ChatQuery, RoomKind, RoomRules};
-use module_api::{
+use dainty_module_api::chat::{ChatAnswer, ChatQuery, RoomKind, RoomRules};
+use dainty_module_api::{
     Actor, ActorContext, BoxFuture, ErrorKind, GlobalId, HomeInvocation, IdKind, ModuleError, ModuleId, NodeId,
     NodeIdentity, OperationName, Region,
 };
@@ -597,7 +597,7 @@ async fn home_operations() {
     );
     let player = run(&bob, "chat.player", json!({})).await.unwrap().unwrap();
     assert_eq!(
-        service_kit::jsjson::stringify(&player),
+        dainty_service_kit::jsjson::stringify(&player),
         format!(r#"{{"account":"{bob}","user_id":"bob","name":"bob name"}}"#)
     );
     let unknown = AccountId::new(world.store().node());

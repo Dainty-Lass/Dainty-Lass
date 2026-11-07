@@ -22,8 +22,8 @@ pub mod test_support;
 
 use std::sync::Arc;
 
-use module_api::manifest::PatchSetCapability;
-use module_api::{Capabilities, ModuleError, ModuleId, PortRange};
+use dainty_module_api::manifest::PatchSetCapability;
+use dainty_module_api::{Capabilities, ModuleError, ModuleId, PortRange};
 use rustic_isles::{
     BackendService, BountyItemGrant, DefaultPorts, IslesModule, IslesVersion, MaskedJourneyNode, ModuleSpec, RouteSet,
     SeasonalCoin, StarterManifest, VersionTables,
@@ -54,7 +54,7 @@ pub const DEFAULT_PORTS: DefaultPorts = DefaultPorts {
     },
 };
 
-/// Wire facts the 1.14.7 client sends, asks for or reads back (spec §3.2, §4.2 class (a)), and DaintyLass's policy
+/// Wire facts the 1.14.7 client sends, asks for or reads back (spec §3.2, §4.2 class (a)), and Dainty Lass's policy
 /// values (class (c)).
 pub static TABLES: VersionTables = VersionTables {
     // The client's build
@@ -67,7 +67,7 @@ pub static TABLES: VersionTables = VersionTables {
     ],
     // The 1.14.7 runtime collapses the line
     patchnotes_release_version: "",
-    // Ids the client reads; amounts from upstream tuning, dates moved forward for DaintyLass (§14 item 16)
+    // Ids the client reads; amounts from upstream tuning, dates moved forward for Dainty Lass (§14 item 16)
     bounty_item_grant_data: &[
         BountyItemGrant {
             item_id: "TOKEN_BOUNTY_DRAFT_PREMIUM",

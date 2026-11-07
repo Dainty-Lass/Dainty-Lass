@@ -7,7 +7,7 @@ use std::fmt;
 use std::path::PathBuf;
 use std::time::Duration;
 
-use module_api::PortRange;
+use dainty_module_api::PortRange;
 use rustic_isles::Settings;
 use serde_json::Value;
 
@@ -21,7 +21,7 @@ pub const STOP_GRACE: Duration = Duration::from_secs(10);
 
 fn js_number(settings: &Settings, name: &str) -> f64 {
     match settings.raw(name) {
-        Some(text) => service_kit::js::number(Some(&Value::String(text.to_owned()))),
+        Some(text) => dainty_service_kit::js::number(Some(&Value::String(text.to_owned()))),
         None => f64::NAN,
     }
 }

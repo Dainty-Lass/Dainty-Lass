@@ -4,7 +4,7 @@
 #![no_main]
 
 use libfuzzer_sys::fuzz_target;
-use network::tunnel::{MAX_BODY, Port, TunnelRequest, TunnelResponse, carries};
+use dainty_network::tunnel::{MAX_BODY, Port, TunnelRequest, TunnelResponse, carries};
 
 fuzz_target!(|data: &[u8]| {
     if let Ok(request) = TunnelRequest::decode(data) {
