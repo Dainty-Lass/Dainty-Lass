@@ -2,8 +2,10 @@
 // a believable snapshot and walks the phases the backend would; it never touches a key, a file or a server.
 import type {
   ActionResult,
+  EpicView,
   HostKit,
   HostServerView,
+  InstallInfo,
   NewsItem,
   Settings,
   Snapshot,
@@ -181,6 +183,44 @@ export function mockLauncher(): LauncherApi {
     contentPort: null,
     limited: false,
   });
+
+  let epic: EpicView = { signedIn: false, displayName: null, signingIn: false };
+  const EPIC_TOTAL = 19_800_000_000;
+  let install: InstallInfo = {
+    version: "1.14.7",
+    state: "not_installed",
+    folder: null,
+    progress: null,
+    error: null,
+  };
+  let installTimer: ReturnType<typeof setInterval> | null = null;
+  function stopInstall() {
+    if (installTimer) clearInterval(installTimer);
+    installTimer = null;
+  }
+  // A download that moves while it is not paused, finishing at EPIC_TOTAL
+  function runInstall() {
+    stopInstall();
+    installTimer = setInterval(() => {
+      const done = Math.min(EPIC_TOTAL, (install.progress?.doneBytes ?? 0) + EPIC_TOTAL / 40);
+      const p: TaskProgress = {
+        kind: "install",
+        totalBytes: EPIC_TOTAL,
+        doneBytes: done,
+        filesTotal: 400,
+        filesDone: Math.round((done / EPIC_TOTAL) * 400),
+        bytesPerSecond: 48_000_000,
+        etaSeconds: Math.round((EPIC_TOTAL - done) / 48_000_000),
+        currentFile: "Archon/Content/Paks/pakchunk0-WindowsNoEditor.pak",
+      };
+      for (const fn of progressListeners) fn(p);
+      install =
+        done >= EPIC_TOTAL
+          ? { ...install, state: "installed", progress: null }
+          : { ...install, state: "downloading", progress: p };
+      if (done >= EPIC_TOTAL) stopInstall();
+    }, 400);
+  }
 
   async function task(kind: TaskProgress["kind"], total: number) {
     emit({ busy: true });
@@ -452,6 +492,73 @@ export function mockLauncher(): LauncherApi {
       "[Rustic Isles] runtime 2026.10.30 loaded",
       "LogNet: Browse: 127.0.0.1:61000/Game/Maps/Ramsgate",
     ],
+    epicSignInStart: async () => {
+      epic = { ...epic, signingIn: true };
+      await wait(1_500);
+      epic = { signedIn: true, displayName: "Slayer", signingIn: false };
+      return OK;
+    },
+    epicSignInCode: async (code) => {
+      if (code.trim().length < 8) return { ok: false, error: { code: "epic_code_invalid" } };
+      epic = { signedIn: true, displayName: "Slayer", signingIn: false };
+      return OK;
+    },
+    epicGet: async () => epic,
+    epicSignOut: async () => {
+      epic = { signedIn: false, displayName: null, signingIn: false };
+      return OK;
+    },
+    epicLibraryCheck: async () =>
+      epic.signedIn
+        ? { ok: true, owned: true, checkedAt: new Date().toISOString() }
+        : { ok: false, error: { code: "epic_signed_out" } },
+    gameVersionList: async () => {
+      await wait(600);
+      return {
+        ok: true,
+        versions: [
+          {
+            version: "1.14.7",
+            displayName: "Rustic Isles 1.14.7",
+            origin: "launcher",
+            install: "epic",
+            epic: {
+              buildVersion: "1.14.7.647472",
+              manifest: "ready",
+              downloadBytes: EPIC_TOTAL,
+              installBytes: 31_200_000_000,
+            },
+          },
+        ],
+      };
+    },
+    gameInstallStart: async (version) => {
+      if (!epic.signedIn) return { ok: false, error: { code: "epic_signed_out" } };
+      install = {
+        version,
+        state: "preparing",
+        folder: "C:\\Games\\DaintyLass\\1.14.7",
+        progress: install.progress,
+        error: null,
+      };
+      runInstall();
+      return { ok: true, install };
+    },
+    gameInstallPause: async () => {
+      stopInstall();
+      install = { ...install, state: "paused" };
+      return OK;
+    },
+    gameInstallResume: async () => {
+      runInstall();
+      return OK;
+    },
+    gameInstallCancel: async () => {
+      stopInstall();
+      install = { ...install, state: "resumable" };
+      return OK;
+    },
+    gameInstallGet: async () => ({ ok: true, install }),
     onSnapshot: (fn) => void snapshotListeners.add(fn),
     onProgress: (fn) => void progressListeners.add(fn),
     onHostKit: (fn) => void kitListeners.add(fn),

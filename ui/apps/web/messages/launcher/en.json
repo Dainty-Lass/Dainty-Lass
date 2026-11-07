@@ -89,7 +89,7 @@
   },
   "locate": {
     "title": "Find your Dauntless",
-    "description": "You need your own Dauntless 1.14.7. Nothing is downloaded or copied.",
+    "description": "You need Dauntless 1.14.7: use an install you already have, or download it from your Epic account.",
     "found": "Detected on this computer",
     "use": "Use",
     "choose": "Choose folder",
@@ -221,5 +221,64 @@
     "copy": "Copy the newest lines",
     "copied": "Copied.",
     "empty": "Nothing yet. The game's console appears here once the game opens one."
+  },
+  "install": {
+    "nav": "Get the game",
+    "title": "Get the game",
+    "description": "Download Dauntless 1.14.7 from your own Epic Games account. The launcher checks every file against the archived manifest.",
+    "fromEpic": "Download from Epic",
+    "accountTitle": "Epic Games account",
+    "accountDescription": "Sign in with the Epic account that owns Dauntless. The sign-in stays on this PC and is never sent to a server.",
+    "signIn": "Sign in with Epic",
+    "signingIn": "Waiting for the sign-in window…",
+    "pasteInstead": "Paste a code instead",
+    "pasteHint": "Open this link in your browser, sign in, and paste the code (or the whole page) it shows.",
+    "copyLink": "Copy link",
+    "copied": "Copied.",
+    "codeLabel": "Authorization code",
+    "submitCode": "Sign in",
+    "back": "Back",
+    "signedIn": "Signed in",
+    "signedInAs": "Signed in as {name}",
+    "signOut": "Sign out of Epic",
+    "owned": "Owns Dauntless",
+    "notOwned": "Dauntless not in library",
+    "notOwnedHint": "This account does not own Dauntless, so Epic will not serve its files.",
+    "versionsTitle": "Versions",
+    "reload": "Refresh",
+    "build": "Epic build {build}",
+    "sizes": "{download} GB download, {install} GB on disk",
+    "progress": "{done} of {total} GB",
+    "folder": "Folder: {folder}",
+    "locateOnly": "Not on Epic any more: choose a folder you already have under Play.",
+    "inUse": "This is the game folder the launcher uses.",
+    "states": {
+      "not_installed": "Not installed",
+      "resumable": "Stopped part-way",
+      "preparing": "Preparing",
+      "downloading": "Downloading",
+      "paused": "Paused",
+      "finishing": "Finishing",
+      "installed": "Installed",
+      "failed": "Failed"
+    },
+    "manifest": {
+      "unreachable": "The manifest could not be downloaded. Check your connection and refresh.",
+      "invalid": "The downloaded manifest does not match its pin, so it was not used."
+    },
+    "hints": {
+      "signInFirst": "Sign in with Epic first.",
+      "notOwned": "This Epic account does not own Dauntless.",
+      "otherRunning": "Another version is downloading."
+    },
+    "actions": {
+      "install": "Install",
+      "continue": "Continue",
+      "retry": "Try again",
+      "pause": "Pause",
+      "resume": "Resume",
+      "cancel": "Stop",
+      "use": "Use this install"
+    }
   }
 }

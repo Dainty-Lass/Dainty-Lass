@@ -13,7 +13,8 @@ import { TextArea } from "@astryxdesign/core/TextArea";
 import { TextInput } from "@astryxdesign/core/TextInput";
 import type { ActionResult, Snapshot, TaskProgress } from "@dainty/bridge";
 import { useBridge } from "@dainty/bridge/react";
-import { FolderOpen, Play, ShieldCheck } from "lucide-react";
+import { Download, FolderOpen, Play, ShieldCheck } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useFormatter, useTranslations } from "next-intl";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -224,6 +225,8 @@ export function RegisterStep() {
 
 export function LocateStep({ snapshot }: { snapshot: Snapshot }) {
   const t = useTranslations("launcher.locate");
+  const ti = useTranslations("launcher.install");
+  const router = useRouter();
   const { api } = useBridge();
   const act = useAct();
   const { game } = snapshot;
@@ -257,6 +260,11 @@ export function LocateStep({ snapshot }: { snapshot: Snapshot }) {
         </List>
       )}
       <Stack direction="horizontal" gap={2} justify="end">
+        <Button
+          label={ti("fromEpic")}
+          icon={<Download size={16} />}
+          onClick={() => router.push("/game/")}
+        />
         <Button
           label={t("choose")}
           icon={<FolderOpen size={16} />}
