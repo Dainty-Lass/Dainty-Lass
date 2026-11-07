@@ -15,7 +15,7 @@
     "withGlobalTauri": false,
     "security": {
       "csp": "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' rr-art: http://rr-art.localhost data:; font-src 'self'; connect-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'; object-src 'none'",
-      "freezePrototype": true,
+      "freezePrototype": false,
       "pattern": {
         "use": "isolation",
         "options": {

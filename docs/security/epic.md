@@ -161,6 +161,9 @@ under another manifest's pin.
       third-party login page can't sign the player in to an account of its choosing. The code reaches Rust as a
       navigation to `epic-sign-in.invalid` that is cancelled, never sent. Tests:
       `the_code_is_taken_only_from_epics_redirect_page`, `only_https_loads`.
+- [ ] `freezePrototype` stays off in `tauri.conf.json`: Tauri freezes `Object.prototype` in every webview, and
+      Epic's sign-in page renders grey under it (maintainer, 2026-11-07). The main window keeps the isolation
+      hook's command list and a CSP that runs only bundled scripts, and loads no remote content.
 
 ### Ownership (DE3)
 
