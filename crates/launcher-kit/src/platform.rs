@@ -6,6 +6,7 @@
 pub mod dialogs;
 pub mod hostkit;
 pub mod hostserver;
+pub mod keystore;
 pub mod linux_runtime;
 pub mod loader_session;
 pub mod log;
