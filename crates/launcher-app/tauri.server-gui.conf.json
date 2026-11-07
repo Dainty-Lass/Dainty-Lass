@@ -1,0 +1,35 @@
+{
+  "productName": "DaintyLass Manager",
+  "mainBinaryName": "dainty-manager",
+  "identifier": "io.github.freezamotoqueiro.dauntlessreforgedrevival.server",
+  "build": {
+    "devUrl": "http://localhost:4322",
+    "frontendDist": "dist/server-manager",
+    "beforeDevCommand": "bun scripts/page.ts dev server-manager",
+    "beforeBuildCommand": "bun scripts/page.ts build server-manager"
+  },
+  "bundle": {
+    "icon": ["icons/32x32.png", "icons/128x128.png", "icons/128x128@2x.png", "icons/icon.png", "icons/icon.ico"],
+    "shortDescription": "DaintyLass Manager — community server manager",
+    "longDescription": "Set up, start, stop, migrate, and administer a DaintyLass community server with its services compiled in.",
+    "windows": {
+      "nsis": {
+        "installMode": "currentUser",
+        "installerIcon": "icons/icon.ico"
+      }
+    },
+    "linux": {
+      "deb": {
+        "desktopTemplate": "linux/manager.desktop"
+      },
+      "rpm": {
+        "desktopTemplate": "linux/manager.desktop"
+      }
+    }
+  },
+  "plugins": {
+    "updater": {
+      "endpoints": ["https://github.com/SilentSpud/DaintyLass/releases/download/launcher-updates/latest-manager.json"]
+    }
+  }
+}

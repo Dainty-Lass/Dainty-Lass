@@ -79,6 +79,16 @@ pub const fn hides_on_resize(minimized: bool, minimize_to_tray: bool) -> bool {
     minimized && minimize_to_tray
 }
 
+/// The icon a build handed in, managed by Tauri; none keeps the config's.
+pub struct Icon(pub Option<tauri::image::Image<'static>>);
+
+/// The icon for the window and the tray.
+pub fn icon(app: &AppHandle) -> Option<tauri::image::Image<'static>> {
+    app.try_state::<Icon>()
+        .and_then(|icon| icon.0.clone())
+        .or_else(|| app.default_window_icon().map(|icon| icon.clone().to_owned()))
+}
+
 /// The close guard's state, managed by Tauri.
 #[derive(Default)]
 pub struct CloseGuard {
@@ -94,7 +104,6 @@ impl CloseGuard {
     }
 
     /// The tray's Quit: the next close skips the tray (read once).
-    #[allow(dead_code, reason = "the tray moves in later (§2.2.1) and calls it")]
     pub fn set_quitting(&self) {
         self.quitting.store(true, Ordering::SeqCst);
     }
@@ -150,6 +159,9 @@ pub fn create(app: &AppHandle, flavour: Flavour, data_dir: Option<PathBuf>) -> t
         });
     if let Some(dir) = data_dir {
         builder = builder.data_directory(dir);
+    }
+    if let Some(icon) = app.try_state::<Icon>().and_then(|icon| icon.0.clone()) {
+        builder = builder.icon(icon)?;
     }
     let window = builder.build()?;
 

@@ -11,10 +11,12 @@ use service_kit::context::{ComponentPhase, ServerSnapshot};
 use service_kit::telemetry::{ChannelLogLayer, HostLogEntry};
 use tokio::sync::{Mutex, mpsc, watch};
 
-use crate::bridge::modules::ModulePanel;
-use crate::bridge::types::{HostComponentPhase, HostServerComponent};
-use crate::platform::hostserver::{EmbeddedServer, LineSink};
+use launcher_kit::bridge::modules::ModulePanel;
+use launcher_kit::bridge::types::{HostComponentPhase, HostServerComponent};
+use launcher_kit::platform::hostserver::{EmbeddedServer, LineSink};
+use launcher_kit::platform::server_engine::ServerEngine;
 
+mod engine;
 mod modules;
 
 type Boxed<T> = std::pin::Pin<Box<dyn std::future::Future<Output = T> + Send>>;
@@ -61,7 +63,7 @@ impl EmbeddedServerState {
                         .is_some_and(|snapshot| snapshot.borrow().get(&entry.service).is_some())
                 };
                 let ours = entry.service == "host"
-                    || crate::bridge::spec::HOST_SERVER_COMPONENTS.contains(&entry.service.as_str())
+                    || launcher_kit::bridge::spec::HOST_SERVER_COMPONENTS.contains(&entry.service.as_str())
                     || module();
                 let sink = lock(&sink).clone();
                 if let (true, Some(sink)) = (ours, sink) {
@@ -143,6 +145,10 @@ impl EmbeddedServer for EmbeddedServerState {
         Some(modules::shared(&self.panel))
     }
 
+    fn engine(&self) -> Option<Arc<dyn ServerEngine>> {
+        Some(Arc::new(engine::Engine))
+    }
+
     fn components(&self) -> Vec<HostServerComponent> {
         let Some(snapshot) = lock(&self.snapshot).clone() else {
             return Vec::new();
@@ -160,8 +166,8 @@ impl EmbeddedServer for EmbeddedServerState {
     }
 }
 
-/// The launcher's own log layer and the server's channel, as one subscriber (the launcher's
-/// `platform::log::install` then finds one set and only adds its panic hook).
+/// The launcher's own log layer and the server's channel, as one subscriber (launcher-kit's `log::install` then
+/// finds one set and only adds its panic hook).
 pub fn init_telemetry() -> mpsc::UnboundedReceiver<HostLogEntry> {
     use tracing_subscriber::Layer as _;
     use tracing_subscriber::layer::SubscriberExt as _;
@@ -169,7 +175,8 @@ pub fn init_telemetry() -> mpsc::UnboundedReceiver<HostLogEntry> {
     let (tx, rx) = mpsc::unbounded_channel();
     let channel = ChannelLogLayer::new(tx).with_filter(tracing::level_filters::LevelFilter::INFO);
     let installed = tracing_subscriber::registry()
-        .with(crate::platform::log::Layer)
+        .with(launcher_kit::platform::log::LogFilter)
+        .with(launcher_kit::platform::log::LogLayer)
         .with(channel)
         .try_init();
     if installed.is_ok() {

@@ -88,6 +88,8 @@ pub struct Options {
     /// The manager's in-process server (restricted's host crate until it moves to the root).
     #[cfg(feature = "server-gui")]
     pub embedded_server: Option<Arc<dyn EmbeddedServer>>,
+    /// The window's and the tray's icon in place of the config's placeholders (L2: restricted hands in today's).
+    pub icon: Option<tauri::image::Image<'static>>,
 }
 
 /// Why the app could not start.
@@ -146,7 +148,7 @@ fn wait_for_parent(mut alive: impl FnMut() -> bool, mut sleep: impl FnMut()) {
 /// # Errors
 ///
 /// When the folders cannot be resolved or Tauri cannot start.
-pub fn run(options: Options) -> Result<(), StartError> {
+pub fn run(mut options: Options) -> Result<(), StartError> {
     let flavour = Flavour::current();
     // 1. The arguments, after the restarted-from launcher is gone
     let args: Vec<OsString> = std::env::args_os().collect();
@@ -206,6 +208,7 @@ pub fn run(options: Options) -> Result<(), StartError> {
     let art = Arc::new(ArtStore::default());
     let guard = Arc::new(CloseGuard::default());
     let scheme_art = Arc::clone(&art);
+    let icon = window::Icon(options.icon.take());
     let start = Start {
         flavour,
         paths,
@@ -223,6 +226,7 @@ pub fn run(options: Options) -> Result<(), StartError> {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .manage(Updates::default())
+        .manage(icon)
         .manage(guard)
         .manage(art)
         .manage(backend)
