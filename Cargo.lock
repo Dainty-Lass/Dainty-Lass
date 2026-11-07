@@ -2637,6 +2637,7 @@ dependencies = [
  "pbkdf2",
  "percent-encoding",
  "protocol",
+ "proxy",
  "rand 0.10.3",
  "rcgen",
  "regex",
