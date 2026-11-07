@@ -409,7 +409,7 @@ pub struct Settings {
 
 /// A change to the settings: only the named ones change. Anything else is refused whole (§2.3.4).
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[serde(remote = "Self", rename_all = "camelCase", deny_unknown_fields)]
 pub struct SettingsPatch {
     /// New graphics preset.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -445,6 +445,8 @@ pub struct SettingsPatch {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub show_game_console: Option<bool>,
 }
+
+object_only!(SettingsPatch);
 
 /// The connection's state.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
