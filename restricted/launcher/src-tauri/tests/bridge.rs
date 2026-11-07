@@ -129,10 +129,8 @@ fn who_an_invite_is_for() {
     assert_eq!(invite_for(Some(json!(7))), Err(()));
 }
 
-/// The shell trimmed who an invite is for, so a blank name was nobody; launcher-kit takes only `""` as nobody
-/// (spec §2.3.4) and refuses a blank one.
+/// Who an invite is for is trimmed, so a blank name is nobody (spec §2.3.4, RL8 2db97a7b).
 #[test]
-#[ignore = "real difference: launcher-kit refuses an invite for \"   \" where the shell made one for nobody"]
 fn a_blank_name_is_nobody() {
     assert_eq!(checks::invite_for(Some(&json!("   "))).map_err(drop), Ok(None));
 }
@@ -238,10 +236,8 @@ fn history_commands_check_their_arguments() {
     assert!(checks::revert_selection(&fine).is_err());
 }
 
-/// The shell checked the whole argument against its shape, which refuses a filter that is no object; launcher-kit's
-/// check (what launcher-app's command calls) takes one.
+/// A history filter or selection that is no object is refused (spec §2.3.4, RL8 2db97a7b).
 #[test]
-#[ignore = "real difference: launcher-kit's history_filter and revert_selection accept null and [] as a filter"]
 fn a_filter_that_is_no_object_is_refused() {
     for bad in [json!(null), json!([])] {
         assert!(checks::history_filter(&bad).is_err(), "{bad}");
