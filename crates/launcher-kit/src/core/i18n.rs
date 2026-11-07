@@ -54,12 +54,15 @@ pub const KEYS: [&str; 14] = [
 ];
 
 /// A language the backend's text is written in.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, serde::Serialize, serde::Deserialize)]
+#[cfg_attr(any(test, feature = "ts"), derive(ts_rs::TS))]
 pub enum Language {
     /// English, the fallback.
     #[default]
+    #[serde(rename = "en")]
     En,
     /// Brazilian Portuguese.
+    #[serde(rename = "pt-BR")]
     PtBr,
 }
 

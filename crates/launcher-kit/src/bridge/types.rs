@@ -6,6 +6,12 @@
 
 use serde::{Deserialize, Serialize, Serializer};
 
+mod manager;
+mod player;
+
+pub use manager::*;
+pub use player::*;
+
 /// Whether the server's game runtime is installed and current on this PC.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(any(test, feature = "ts"), derive(ts_rs::TS))]
