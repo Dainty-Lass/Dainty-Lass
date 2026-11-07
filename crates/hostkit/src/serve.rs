@@ -16,6 +16,7 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 
+use clap::Parser as _;
 use controller::{
     Module, ModuleEntry, ModuleRegistry, ModuleSource, RegistryOptions, ServerController, ServiceLibrary, modules,
 };
@@ -974,54 +975,40 @@ pub fn prepare_embedded(paths: &Paths, printer: Printer) -> Result<ServerControl
     Ok(controller)
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, clap::Parser)]
+#[command(name = "dainty-server-minimal", disable_version_flag = true)]
+struct MinimalArgs {
+    /// host.toml, .yaml, .yml or .json (the workspace's otherwise).
+    #[arg(short = 'c', long)]
+    config: Option<PathBuf>,
+    /// The server folder (holds .workspace/); found from this binary otherwise.
+    #[arg(short = 'w', long, alias = "workspace")]
+    root: Option<PathBuf>,
+    /// error, warn, info, debug or trace.
+    #[arg(long = "log-level", default_value = "info")]
+    log_level: String,
+}
+
 /// `server-minimal`: `serve` without a console. `--config <file>`, `--root <dir>` (the folder that
 /// holds `.workspace/`; `--workspace` means the same), `--log-level <filter>`.
 pub fn minimal_main() -> ExitCode {
-    let args: Vec<String> = std::env::args().skip(1).collect();
-    let mut options = ServeOptions::start();
-    let mut root: Option<PathBuf> = None;
-    let mut idx = 0;
-    while idx < args.len() {
-        let value = |idx: &mut usize| -> Option<String> {
-            *idx += 1;
-            args.get(*idx).cloned()
-        };
-        match args[idx].as_str() {
-            "--config" | "-c" => match value(&mut idx) {
-                Some(file) => options.config_file = Some(PathBuf::from(file)),
-                None => {
-                    eprintln!("--config needs a file (.toml, .yaml, .yml or .json)");
-                    return ExitCode::from(2);
-                }
-            },
-            "--root" | "--workspace" | "-w" => match value(&mut idx) {
-                Some(dir) => root = Some(PathBuf::from(dir)),
-                None => {
-                    eprintln!("--root needs a folder");
-                    return ExitCode::from(2);
-                }
-            },
-            "--log-level" => match value(&mut idx) {
-                Some(level) => options.log_filter = level,
-                None => {
-                    eprintln!("--log-level needs a level");
-                    return ExitCode::from(2);
-                }
-            },
-            "--help" | "-h" => {
-                println!(
-                    "Usage: dainty-server-minimal [OPTIONS]\n  -c, --config <FILE>      host.toml, .yaml, .yml or .json (the workspace's otherwise)\n      --root <DIR>         The server folder (holds .workspace/); found from this binary otherwise\n      --log-level <LEVEL>  error, warn, info, debug or trace (default: info)"
-                );
-                return ExitCode::SUCCESS;
-            }
-            other => {
-                eprintln!("Unknown argument: {other}");
-                return ExitCode::from(2);
-            }
+    let args = match MinimalArgs::try_parse() {
+        Ok(args) => args,
+        Err(error) => {
+            let _ = error.print();
+            return if error.use_stderr() {
+                ExitCode::from(2)
+            } else {
+                ExitCode::SUCCESS
+            };
         }
-        idx += 1;
-    }
-    let root = match root {
+    };
+    let options = ServeOptions {
+        config_file: args.config,
+        log_filter: args.log_level,
+        ..ServeOptions::start()
+    };
+    let root = match args.root {
         Some(root) => root,
         None => match crate::paths::locate_repo_root() {
             Ok(root) => root,
@@ -1270,5 +1257,40 @@ mod tests {
     fn an_empty_build_says_so() {
         let text = empty_build_message();
         assert!(text.contains("admin"), "{text}");
+    }
+
+    #[test]
+    fn minimal_args_parse_flags_aliases_and_defaults() {
+        let defaults = MinimalArgs::try_parse_from(["dainty-server-minimal"]).unwrap();
+        assert_eq!(defaults.config, None);
+        assert_eq!(defaults.root, None);
+        assert_eq!(defaults.log_level, "info");
+
+        let parsed = MinimalArgs::try_parse_from([
+            "dainty-server-minimal",
+            "-c",
+            "custom.toml",
+            "--workspace",
+            "/srv/dainty",
+            "--log-level=debug",
+        ])
+        .unwrap();
+        assert_eq!(parsed.config, Some(PathBuf::from("custom.toml")));
+        assert_eq!(parsed.root, Some(PathBuf::from("/srv/dainty")));
+        assert_eq!(parsed.log_level, "debug");
+
+        let short_root = MinimalArgs::try_parse_from(["dainty-server-minimal", "-w", "/srv/w"]).unwrap();
+        assert_eq!(short_root.root, Some(PathBuf::from("/srv/w")));
+
+        assert!(
+            MinimalArgs::try_parse_from(["dainty-server-minimal", "--unknown"])
+                .unwrap_err()
+                .use_stderr()
+        );
+        assert!(
+            !MinimalArgs::try_parse_from(["dainty-server-minimal", "--help"])
+                .unwrap_err()
+                .use_stderr()
+        );
     }
 }
