@@ -562,15 +562,15 @@ otherwise. Codes are launcher-kit's `ErrorCode` names.
   `host_failed` with detail `setup_form`.
 - `host_set_multipliers`: null → off. Otherwise an object with numbers `xp` and `rewards`, each finite and in
   1..100, rounded to two decimals; both equal to 1 → off. Failure → `host_failed` with detail `multipliers_form`.
-- `host_create_invite`: absent, null, or a string that is empty once trimmed (`"   "` too) → nobody; otherwise the plain-text rule above with max 40 →
-  else `unknown`.
+- `host_create_invite`: absent, null, or a string that is empty once trimmed (`"   "` too) → nobody; otherwise
+  the plain-text rule above with max 40 → else `unknown`.
 - `copy_text`: answers `true` only when the text fits 4096 and the clipboard took it (A code, `platform/clipboard.rs`).
 - `epic_sign_in_code`: too long → `epic_code_invalid`; on success also closes the sign-in window.
 - `game_install_*`: version non-empty and ≤64 → else `unknown` (`InstallOutcome` error for start and get).
 - `realm_join`: trimmed, non-empty, ≤128, no control character → else `unknown`.
 - History (`history_query`, `history_revert_dry_run`): the whole argument must be an object (null and arrays
-  refused) and fit its object shape (the hook's rule, §2.3.7); each text field trimmed, empty as absent; then the server GUI's workspace, or `host_failed` with
-  detail `workspace`. `history_revert_apply`: a non-empty string ≤64.
+  refused) and fit its object shape (the hook's rule, §2.3.7); each text field trimmed, empty as absent; then
+  the server GUI's workspace, or `host_failed` with detail `workspace`. `history_revert_apply`: a non-empty string ≤64.
 - `guarded_approve`, `guarded_cancel`: exactly 16 lower-case hex digits → else `unknown`.
 - `server_config_save`, `admin_action`, `remote_init_controller`, `remote_invite`, `remote_enroll`,
   `remote_exec`: the object must fit its shape, then each text field is plain text (trimmed, no control
