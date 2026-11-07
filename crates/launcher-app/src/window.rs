@@ -94,7 +94,6 @@ impl CloseGuard {
     }
 
     /// The tray's Quit: the next close skips the tray (read once).
-    #[allow(dead_code, reason = "the tray moves in later (§2.2.1) and calls it")]
     pub fn set_quitting(&self) {
         self.quitting.store(true, Ordering::SeqCst);
     }

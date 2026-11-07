@@ -388,7 +388,7 @@ pub fn subscribe_progress(backend: State<'_, Arc<Backend>>, on_progress: Channel
 
 #[tauri::command]
 pub async fn epic_sign_in_start(app: AppHandle, c: Ctl<'_>, epic: State<'_, Arc<Epic>>) -> Answer<ActionResult> {
-    Ok(epic_login::open(&app, &epic, c.language()))
+    Ok(epic_login::sign_in(&app, Arc::clone(&epic), c.language()).await)
 }
 
 #[tauri::command]
@@ -399,7 +399,7 @@ pub async fn epic_sign_in_code(app: AppHandle, epic: State<'_, Arc<Epic>>, code:
     };
     let result = epic.sign_in_pasted(code).await;
     if matches!(result, ActionResult::Ok) {
-        epic_login::close(&app, &epic);
+        epic_login::close(&app);
     }
     Ok(result)
 }
