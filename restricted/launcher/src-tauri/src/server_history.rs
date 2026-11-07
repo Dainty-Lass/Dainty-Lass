@@ -13,7 +13,8 @@ use std::sync::LazyLock;
 
 use admin::history::{self, HistoryError, HistorySet, PlanCache, RowConflict, Selection};
 
-use crate::bridge::types::{
+use launcher_kit::bridge::checks::HistoryFilter as HistoryArgs;
+use launcher_kit::bridge::types::{
     ErrorCode, HistoryEntryView, HistoryOutcome, HistoryPageView, LauncherError, RevertApplyOutcome,
     RevertConflictView, RevertDoneView, RevertPlanOutcome, RevertPlanView, RevertRowView, RevertedInView,
 };
@@ -21,24 +22,13 @@ use crate::bridge::types::{
 /// The actor of a revert made from the server GUI.
 const ACTOR: &str = "server-gui";
 
-/// What the page sent: a history filter, or a revert's selection (which has no cursor).
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
-pub struct HistoryArgs {
-    pub account: Option<String>,
-    pub actor: Option<String>,
-    pub since: Option<String>,
-    pub until: Option<String>,
-    pub cursor: Option<String>,
-}
-
-impl HistoryArgs {
-    fn selection(&self) -> Selection {
-        Selection {
-            account: self.account.clone(),
-            actor: self.actor.clone(),
-            since: self.since.clone(),
-            until: self.until.clone(),
-        }
+/// The page's filter or revert selection (checked by launcher-kit's `bridge::checks`) as the engine's.
+fn selection(args: &HistoryArgs) -> Selection {
+    Selection {
+        account: args.account.clone(),
+        actor: args.actor.clone(),
+        since: args.since.clone(),
+        until: args.until.clone(),
     }
 }
 
@@ -126,7 +116,7 @@ fn plan_view(plan: &history::Plan) -> RevertPlanView {
 
 pub async fn query(workspace: &Path, args: HistoryArgs) -> HistoryOutcome {
     let run = async {
-        let filter = args.selection().to_filter(admin::now_ms()).map_err(failure)?;
+        let filter = selection(&args).to_filter(admin::now_ms()).map_err(failure)?;
         let set = open(workspace).await?;
         set.query(&filter, args.cursor.as_deref(), history::DEFAULT_PAGE)
             .await
@@ -157,7 +147,7 @@ pub async fn query(workspace: &Path, args: HistoryArgs) -> HistoryOutcome {
 
 pub async fn dry_run(workspace: &Path, args: HistoryArgs) -> RevertPlanOutcome {
     let run = async {
-        let filter = args.selection().to_filter(admin::now_ms()).map_err(failure)?;
+        let filter = selection(&args).to_filter(admin::now_ms()).map_err(failure)?;
         let set = open(workspace).await?;
         set.dry_run(&filter).await.map_err(failure)
     };

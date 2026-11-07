@@ -1,6 +1,6 @@
 [package]
 name = "launcher"
-description = "DaintyLass Launcher: the Tauri backend (MIGRATION_PLAN.md section 4.6)"
+description = "DaintyLass Launcher's AGPL half (RD27 spec §4.4): today's icons, the manager build and DR's recorded tables"
 # The launcher's own version, not the workspace's: kept equal to ../package.json's (a test checks it).
 version = "2.0.0-beta"
 edition.workspace = true
@@ -13,7 +13,7 @@ publish.workspace = true
 name = "launcher"
 
 # One binary, as `tauri build` packages one and names it from the config's mainBinaryName (RD26):
-#   tauri build                                    dainty-launcher: the players' launcher, no server crate in it
+#   tauri build                                    dainty-launcher: launcher-app with today's icons
 #   tauri build --config src-tauri/tauri.server-gui.conf.json --features server-gui
 #                                                  dainty-manager: the server manager with the server inside
 [[bin]]
@@ -21,104 +21,76 @@ name = "dainty-launcher"
 path = "src/main.rs"
 
 [build-dependencies]
-serde_json = { version = "1", features = ["preserve_order"] }
+# The executable's Windows resources (icon, manifest) from tauri.conf.json; the app's context is launcher-app's
 tauri-build = { version = "2.7", features = ["isolation"] }
 
 [dependencies]
-launcher-kit.workspace = true
-protocol.workspace = true
-# Epic sign-in, ownership and installs (DD22)
-epic.workspace = true
-# The client profiles (DE4, DD12): by path, as fuzz takes module-api; its workspace entry names the silentspud registry
-module-api.workspace = true
-serde.workspace = true
-# preserve_order: settings.json keeps its key order (L28); workspace builds unify it on anyway
-serde_json = { workspace = true, features = ["preserve_order"] }
-# The workspace's host.toml, for the Host page
-toml_edit = { workspace = true, optional = true }
-dirs = "6"
-fs4 = "1"
-regex.workspace = true
-tracing.workspace = true
-tracing-log.workspace = true
-tracing-subscriber = { workspace = true, features = ["registry"] }
-sha2.workspace = true
-chrono.workspace = true
-sys-locale = "0.3"
-bytes = "1"
-http-body-util.workspace = true
-hyper.workspace = true
-hyper-util = { workspace = true, features = ["tokio", "client-legacy", "http1"] }
-rustls.workspace = true
-tokio = { workspace = true, features = ["net", "time", "io-util", "sync", "macros", "rt", "process", "fs"] }
-tokio-rustls = { version = "0.26", default-features = false, features = ["aws_lc_rs", "tls12"] }
-tokio-util.workspace = true
-proxy.workspace = true
-hyper-rustls.workspace = true
-webpki-roots = "1"
-percent-encoding.workspace = true
-rand.workspace = true
-futures-util.workspace = true
-aes-gcm.workspace = true
-aes = "0.9"
-cbc = { version = "0.2", features = ["alloc"] }
-pbkdf2 = { version = "0.13", default-features = false, features = ["hmac"] }
-sha1 = "0.11"
-base64.workspace = true
-tower-service = "0.3"
+launcher-app = { path = "../../../crates/launcher-app", default-features = false }
+launcher-kit = { workspace = true, default-features = false }
 tauri = { version = "2.12", features = ["isolation", "tray-icon"] }
-open = { version = "5.4", features = ["shellexecute-on-windows"] }
-tauri-plugin-dialog = "2.8"
-# Self-update of every bundle (NSIS, AppImage, deb, rpm), each signed (L46, RD7). Without `zip`: that is for
-# v1-style archives, and the updater artifacts here are the bundles themselves.
-tauri-plugin-updater = { version = "2.14", default-features = false, features = ["rustls-tls", "system-proxy"] }
-url.workspace = true
+# The manager's embedded server (RD26) and its in-process host kit
 admin = { workspace = true, optional = true }
+host = { workspace = true, optional = true }
+module-api = { workspace = true, optional = true }
 server-controller = { workspace = true, optional = true }
 service-kit = { workspace = true, optional = true }
-host = { workspace = true, optional = true }
-rifts-host = { workspace = true, optional = true }
-rifts-seam = { workspace = true, optional = true }
+chrono = { workspace = true, optional = true }
+serde_json = { workspace = true, optional = true }
+tokio = { workspace = true, optional = true, features = ["sync", "rt"] }
+tracing = { workspace = true, optional = true }
+tracing-subscriber = { workspace = true, optional = true, features = ["registry"] }
 
 [dev-dependencies]
 launcher-kit = { workspace = true, features = ["ts"] }
-sha1_smol = "1"
-tokio-stream = "0.1"
-tempfile.workspace = true
-rcgen = { version = "0.14.10", default-features = false, features = ["aws_lc_rs", "pem", "crypto"] }
 protocol = { workspace = true, features = ["ts", "test-data"] }
-ts-rs.workspace = true
-
-[target.'cfg(windows)'.dependencies]
-# DataExchange and Memory: copying text to the clipboard (platform/clipboard.rs, RA11). Console,
-# FileSystem, Threading and WindowsAndMessaging: reading the game's console (platform/game_console.rs)
-windows = { version = "0.62", features = [
-    "Win32_Foundation",
-    "Win32_Security_Cryptography",
-    "Win32_Storage_FileSystem",
-    "Win32_System_Console",
-    "Win32_System_DataExchange",
-    "Win32_System_Memory",
-    "Win32_System_Threading",
-    "Win32_UI_WindowsAndMessaging",
-] }
-
-[target.'cfg(target_os = "linux")'.dependencies]
-dbus-secret-service = { version = "4.1", features = ["crypto-rust"] }
+base64.workspace = true
+bytes = "1"
+chrono.workspace = true
+epic.workspace = true
+futures-util.workspace = true
+http-body-util.workspace = true
+hyper.workspace = true
+hyper-util = { workspace = true, features = ["tokio", "client-legacy", "http1", "server"] }
+rcgen = { version = "0.14.10", default-features = false, features = ["aws_lc_rs", "pem", "crypto"] }
+rustls.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+sha1_smol = "1"
+sha2.workspace = true
+tempfile.workspace = true
+tokio = { workspace = true, features = ["net", "time", "io-util", "sync", "macros", "rt", "rt-multi-thread", "process", "fs"] }
+tokio-rustls = { version = "0.26", default-features = false, features = ["aws_lc_rs", "tls12"] }
+tokio-stream = "0.1"
+url.workspace = true
 
 [features]
-# The Host tools page (RA12). Without it, a player-only launcher: join, connect and play on a server
-# someone else hosts (`cargo build -p launcher --no-default-features`)
+# The Host tools page (RA12). Without it, a player-only launcher (`--no-default-features`)
 default = ["host"]
-host = ["dep:toml_edit", "launcher-kit/host"]
-server-gui = ["host", "dep:admin", "dep:server-controller", "dep:service-kit", "dep:host", "isles-1-14-7", "host?/realms", "launcher-kit/server-gui"]
+host = ["launcher-app/host", "launcher-kit/host"]
+server-gui = [
+    "host",
+    "launcher-app/server-gui",
+    "launcher-kit/server-gui",
+    "dep:admin",
+    "dep:chrono",
+    "dep:host",
+    "dep:module-api",
+    "dep:server-controller",
+    "dep:service-kit",
+    "dep:serde_json",
+    "dep:tokio",
+    "dep:tracing",
+    "dep:tracing-subscriber",
+    "isles-1-14-7",
+    "host?/realms",
+]
 # The game modules the server GUI links in, as the server binaries' (DF5)
 stub-module = ["host?/stub-module"]
 isles-1-14-7 = ["host?/isles-1-14-7"]
-realms = ["dep:rifts-host", "dep:rifts-seam", "host?/realms", "launcher-kit/realms"]
+realms = ["launcher-app/realms", "launcher-kit/realms", "host?/realms"]
 all-modules = ["isles-1-14-7", "realms"]
 # Set by `tauri build`: serve the built page from the binary instead of the Vite dev server
-custom-protocol = ["tauri/custom-protocol"]
+custom-protocol = ["launcher-app/custom-protocol"]
 
 [lints]
 workspace = true

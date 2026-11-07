@@ -3,7 +3,7 @@
 
 //! The Host page (RD27 spec §2.5): the host kit's workspace, its requirements, the builds and game data, and
 //! the server a host runs from the launcher, all through the workspace's `dainty-host`. With an embedded
-//! server (the manager) the server runs in process; its host kit commands are not this module's (§4.3).
+//! server (the manager) the server and its host kit run in process (`manager`, §4.3).
 
 use std::future::Future;
 use std::path::{Path, PathBuf};
@@ -31,6 +31,9 @@ use crate::platform::launch::{LaunchPlan, STRIPPED_PREFIXES};
 use crate::platform::loader_session::SessionKind;
 use crate::platform::log;
 use crate::platform::requirements::{Inputs, check_requirements_here};
+
+#[cfg(feature = "server-gui")]
+mod manager;
 
 /// How long a requirements check is reused for one workspace.
 pub const REQUIREMENTS_TTL: Duration = Duration::from_secs(15);
@@ -344,7 +347,9 @@ impl Controller {
     /// One host kit command; the failure is a detail for the page.
     async fn run_kit(&self, workspace: &Path, args: Vec<String>, log_name: &str) -> Result<CommandOutput, String> {
         if self.embedded() {
-            // The manager runs these in process (§4.3), which this module does not carry
+            #[cfg(feature = "server-gui")]
+            return Ok(self.run_kit_in_process(workspace, args, log_name).await);
+            #[cfg(not(feature = "server-gui"))]
             return Err("not_in_this_build".to_owned());
         }
         let tool = self

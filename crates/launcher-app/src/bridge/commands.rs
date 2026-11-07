@@ -15,13 +15,15 @@ use launcher_kit::bridge::spec::{
 };
 use launcher_kit::bridge::types::{
     ActionResult, AdminOutcome, Branding, EpicLibraryCheck, EpicView, ExternalTarget, GameVersionList, GuardedList,
-    GuardedOutcome, HostAction, HostFolder, HostKit, HostServerView, InstallMode, InstallOutcome, InviteCheck,
-    ModuleCommandOutcome, ModuleListOutcome, ModuleOutcome, NewsItem, RealmKind, RealmOutcome, RegionPing,
-    RegisterOutcome, Settings, Snapshot, TaskProgress,
+    GuardedOutcome, HistoryOutcome, HostAction, HostFolder, HostKit, HostServerView, InstallMode, InstallOutcome,
+    InviteCheck, ModuleCommandOutcome, ModuleListOutcome, ModuleOutcome, NewsItem, RealmKind, RealmOutcome, RegionPing,
+    RegisterOutcome, RemoteExecOutcome, RemoteInviteOutcome, RemoteStatusOutcome, RevertApplyOutcome,
+    RevertPlanOutcome, ServerConfigOutcome, ServerDoctorOutcome, ServerInviteListOutcome, Settings, Snapshot,
+    TaskProgress,
 };
 use launcher_kit::controller::Controller;
 use launcher_kit::controller::install::EpicGate;
-use launcher_kit::platform::{clipboard, epic_library, epic_session::Epic, log};
+use launcher_kit::platform::{clipboard, epic_library, epic_session::Epic};
 use serde::Serialize;
 use serde_json::Value;
 use tauri::ipc::Channel;
@@ -37,10 +39,6 @@ pub enum Never {}
 
 type Answer<T> = Result<T, Never>;
 type Ctl<'a> = State<'a, Controller>;
-
-fn refused(command: &str) -> ActionResult {
-    ActionResult::Err(checks::not_in_this_build(command))
-}
 
 #[tauri::command]
 pub fn get_snapshot(c: Ctl<'_>) -> Snapshot {
@@ -555,44 +553,54 @@ pub async fn realm_get(c: Ctl<'_>) -> Answer<RealmOutcome> {
     Ok(c.realm_get().await)
 }
 
-/// The server GUI's commands whose engine is still restricted's (`server_gui`, the history engine): checked here,
-/// then refused until it moves in. Without a module panel (any build but the manager) they are refused first.
-fn server_gui(
-    backend: &Backend,
-    command: &str,
-    check: Result<(), launcher_kit::bridge::types::LauncherError>,
-) -> ActionResult {
-    if backend.panel().is_none() {
-        return refused(command);
-    }
-    match check {
-        Ok(()) => {
-            log::warn(format!(
-                "{command} needs the embedded server's engine, which this build lacks"
-            ));
-            refused(command)
+/// The manager's commands: checked, then the controller's in-process host kit; refused in any other build.
+macro_rules! manager {
+    ($command:literal, $outcome:ident, [$($arg:ident),*], |$c:ident| $body:expr) => {{
+        #[cfg(feature = "server-gui")]
+        {
+            Ok($body)
         }
-        Err(error) => ActionResult::Err(error),
-    }
+        #[cfg(not(feature = "server-gui"))]
+        {
+            let _ = (&$c, $(&$arg),*);
+            Ok($outcome::Err(checks::not_in_this_build($command)))
+        }
+    }};
+}
+
+/// An argument check's refusal as the command's answer.
+#[cfg(feature = "server-gui")]
+macro_rules! checked {
+    ($check:expr, $outcome:ident) => {
+        match $check {
+            Ok(value) => value,
+            Err(error) => return Ok($outcome::Err(error)),
+        }
+    };
 }
 
 #[tauri::command]
-pub fn history_query(backend: State<'_, Arc<Backend>>, filter: Value) -> ActionResult {
-    server_gui(&backend, "history_query", checks::history_filter(&filter).map(drop))
+pub async fn history_query(c: Ctl<'_>, filter: Value) -> Answer<HistoryOutcome> {
+    manager!("history_query", HistoryOutcome, [filter], |c| {
+        let filter = checked!(checks::history_filter(&filter), HistoryOutcome);
+        c.history_query(filter).await
+    })
 }
 
 #[tauri::command]
-pub fn history_revert_dry_run(backend: State<'_, Arc<Backend>>, selection: Value) -> ActionResult {
-    server_gui(
-        &backend,
-        "history_revert_dry_run",
-        checks::revert_selection(&selection).map(drop),
-    )
+pub async fn history_revert_dry_run(c: Ctl<'_>, selection: Value) -> Answer<RevertPlanOutcome> {
+    manager!("history_revert_dry_run", RevertPlanOutcome, [selection], |c| {
+        let selection = checked!(checks::revert_selection(&selection), RevertPlanOutcome);
+        c.history_revert_dry_run(selection).await
+    })
 }
 
 #[tauri::command]
-pub fn history_revert_apply(backend: State<'_, Arc<Backend>>, plan: String) -> ActionResult {
-    server_gui(&backend, "history_revert_apply", checks::revert_plan(&plan).map(drop))
+pub async fn history_revert_apply(c: Ctl<'_>, plan: String) -> Answer<RevertApplyOutcome> {
+    manager!("history_revert_apply", RevertApplyOutcome, [plan], |c| {
+        let plan = checked!(checks::revert_plan(&plan), RevertApplyOutcome).to_owned();
+        c.history_revert_apply(plan).await
+    })
 }
 
 #[tauri::command]
@@ -617,38 +625,49 @@ pub async fn guarded_cancel(c: Ctl<'_>, id: String) -> Answer<GuardedOutcome> {
 }
 
 #[tauri::command]
-pub fn server_doctor(backend: State<'_, Arc<Backend>>) -> ActionResult {
-    server_gui(&backend, "server_doctor", Ok(()))
+pub async fn server_doctor(c: Ctl<'_>) -> Answer<ServerDoctorOutcome> {
+    manager!("server_doctor", ServerDoctorOutcome, [], |c| c.server_doctor().await)
 }
 
 #[tauri::command]
-pub fn server_backup(backend: State<'_, Arc<Backend>>) -> ActionResult {
-    server_gui(&backend, "server_backup", Ok(()))
+pub async fn server_backup(c: Ctl<'_>) -> Answer<ActionResult> {
+    manager!("server_backup", ActionResult, [], |c| c.server_backup().await)
 }
 
 #[tauri::command]
-pub fn server_config_get(backend: State<'_, Arc<Backend>>) -> ActionResult {
-    server_gui(&backend, "server_config_get", Ok(()))
+pub async fn server_config_get(c: Ctl<'_>) -> Answer<ServerConfigOutcome> {
+    manager!("server_config_get", ServerConfigOutcome, [], |c| c
+        .server_config_get()
+        .await)
 }
 
 #[tauri::command]
-pub fn server_config_save(backend: State<'_, Arc<Backend>>, config: Value) -> ActionResult {
-    server_gui(&backend, "server_config_save", checks::server_config(&config).map(drop))
+pub async fn server_config_save(c: Ctl<'_>, config: Value) -> Answer<ServerConfigOutcome> {
+    manager!("server_config_save", ServerConfigOutcome, [config], |c| {
+        let form = checked!(checks::server_config(&config), ServerConfigOutcome);
+        c.server_config_save(form).await
+    })
 }
 
 #[tauri::command]
-pub fn server_migrate_mongo(backend: State<'_, Arc<Backend>>) -> ActionResult {
-    server_gui(&backend, "server_migrate_mongo", Ok(()))
+pub async fn server_migrate_mongo(c: Ctl<'_>) -> Answer<ActionResult> {
+    manager!("server_migrate_mongo", ActionResult, [], |c| c
+        .server_migrate_mongo()
+        .await)
 }
 
 #[tauri::command]
-pub fn server_confirm_fresh_start(backend: State<'_, Arc<Backend>>) -> ActionResult {
-    server_gui(&backend, "server_confirm_fresh_start", Ok(()))
+pub async fn server_confirm_fresh_start(c: Ctl<'_>) -> Answer<ServerConfigOutcome> {
+    manager!("server_confirm_fresh_start", ServerConfigOutcome, [], |c| {
+        c.server_confirm_fresh_start().await
+    })
 }
 
 #[tauri::command]
-pub fn server_invite_list(backend: State<'_, Arc<Backend>>) -> ActionResult {
-    server_gui(&backend, "server_invite_list", Ok(()))
+pub async fn server_invite_list(c: Ctl<'_>) -> Answer<ServerInviteListOutcome> {
+    manager!("server_invite_list", ServerInviteListOutcome, [], |c| c
+        .server_invite_list()
+        .await)
 }
 
 #[tauri::command]
@@ -663,40 +682,51 @@ pub async fn admin_action(backend: State<'_, Arc<Backend>>, request: Value) -> A
 }
 
 #[tauri::command]
-pub fn remote_status(backend: State<'_, Arc<Backend>>) -> ActionResult {
-    server_gui(&backend, "remote_status", Ok(()))
+pub async fn remote_status(c: Ctl<'_>) -> Answer<RemoteStatusOutcome> {
+    manager!("remote_status", RemoteStatusOutcome, [], |c| c.remote_status().await)
 }
 
 #[tauri::command]
-pub fn remote_init_controller(backend: State<'_, Arc<Backend>>, request: Value) -> ActionResult {
-    server_gui(
-        &backend,
-        "remote_init_controller",
-        checks::remote_init(&request).map(drop),
-    )
+pub async fn remote_init_controller(c: Ctl<'_>, request: Value) -> Answer<RemoteStatusOutcome> {
+    manager!("remote_init_controller", RemoteStatusOutcome, [request], |c| {
+        let request = checked!(checks::remote_init(&request), RemoteStatusOutcome);
+        c.remote_init_controller(request).await
+    })
 }
 
 #[tauri::command]
-pub fn remote_invite(backend: State<'_, Arc<Backend>>, request: Value) -> ActionResult {
-    server_gui(&backend, "remote_invite", checks::remote_invite(&request).map(drop))
+pub async fn remote_invite(c: Ctl<'_>, request: Value) -> Answer<RemoteInviteOutcome> {
+    manager!("remote_invite", RemoteInviteOutcome, [request], |c| {
+        let request = checked!(checks::remote_invite(&request), RemoteInviteOutcome);
+        c.remote_invite(request).await
+    })
 }
 
 #[tauri::command]
-pub fn remote_enroll(backend: State<'_, Arc<Backend>>, request: Value) -> ActionResult {
-    server_gui(&backend, "remote_enroll", checks::remote_enroll(&request).map(drop))
+pub async fn remote_enroll(c: Ctl<'_>, request: Value) -> Answer<RemoteStatusOutcome> {
+    manager!("remote_enroll", RemoteStatusOutcome, [request], |c| {
+        let request = checked!(checks::remote_enroll(&request), RemoteStatusOutcome);
+        c.remote_enroll(request).await
+    })
 }
 
 #[tauri::command]
-pub fn remote_revoke(backend: State<'_, Arc<Backend>>, node: String) -> ActionResult {
-    server_gui(&backend, "remote_revoke", checks::remote_node(&node).map(drop))
+pub async fn remote_revoke(c: Ctl<'_>, node: String) -> Answer<RemoteStatusOutcome> {
+    manager!("remote_revoke", RemoteStatusOutcome, [node], |c| {
+        let node = checked!(checks::remote_node(&node), RemoteStatusOutcome).to_owned();
+        c.remote_revoke(node).await
+    })
 }
 
 #[tauri::command]
-pub fn remote_leave(backend: State<'_, Arc<Backend>>) -> ActionResult {
-    server_gui(&backend, "remote_leave", Ok(()))
+pub async fn remote_leave(c: Ctl<'_>) -> Answer<RemoteStatusOutcome> {
+    manager!("remote_leave", RemoteStatusOutcome, [], |c| c.remote_leave().await)
 }
 
 #[tauri::command]
-pub fn remote_exec(backend: State<'_, Arc<Backend>>, request: Value) -> ActionResult {
-    server_gui(&backend, "remote_exec", checks::remote_exec(&request).map(drop))
+pub async fn remote_exec(c: Ctl<'_>, request: Value) -> Answer<RemoteExecOutcome> {
+    manager!("remote_exec", RemoteExecOutcome, [request], |c| {
+        let request = checked!(checks::remote_exec(&request), RemoteExecOutcome);
+        c.remote_exec(request).await
+    })
 }

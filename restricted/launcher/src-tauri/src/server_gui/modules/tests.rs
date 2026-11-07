@@ -11,7 +11,7 @@ use server_controller::{ModuleEntry, ModuleRegistry, ModuleSource, RegistryOptio
 use service_kit::context::StatusRegistry;
 
 use super::*;
-use crate::bridge::types::{ModuleSettingValue, ModuleView};
+use launcher_kit::bridge::types::{ModuleSettingValue, ModuleView};
 
 const HOST_TOML: &str = "version = 1\nmode = \"private\"\nname = \"Friday Hunts\"\nhost = \"100.101.102.103\"\n\
     game_address = \"100.101.102.103\"\nregistration = \"INVITECODE\"\nmax_hunt_servers = 3\n";

@@ -67,8 +67,8 @@ fn build(app: &AppHandle) -> tauri::Result<()> {
                 restore(icon.app_handle());
             }
         });
-    if let Some(icon) = app.default_window_icon() {
-        builder = builder.icon(icon.clone());
+    if let Some(icon) = crate::window::icon(app) {
+        builder = builder.icon(icon);
     }
     builder.build(app)?;
     Ok(())

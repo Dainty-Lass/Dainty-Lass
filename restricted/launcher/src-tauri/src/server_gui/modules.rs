@@ -12,15 +12,15 @@ use module_api::{Actor, ActorContext, AdminCall, AdminRequest, AdminResponse, Co
 use server_controller::{ModuleInfo, ModuleRegistry, ModuleState, RegistryError};
 
 use super::{Slot, lock};
-use crate::bridge::modules::{
+use launcher_kit::bridge::modules::{
     self, DETAIL_MAX, Listed, ModulePanel, OUTPUT_DATA_MAX, Settings, command_args, merge_settings, module_id,
     output_text, plain, refusal,
 };
-use crate::bridge::types::{
+use launcher_kit::bridge::types::{
     AdminActionKind, AdminOutcome, AdminPlayerView, AdminResultView, ErrorCode, LauncherError, ModuleCommandOutcome,
     ModuleListOutcome, ModuleOrigin, ModuleOutcome, ModuleRunState, ModuleView,
 };
-use crate::platform::log;
+use launcher_kit::platform::log;
 
 /// A command that does not answer by now is given up on (the module keeps running; its answer is dropped).
 const COMMAND_TIMEOUT: Duration = Duration::from_secs(120);
@@ -70,7 +70,7 @@ fn registry_error(error: &RegistryError) -> LauncherError {
 }
 
 fn host_toml_error(why: impl std::fmt::Display) -> LauncherError {
-    log::warn(&format!("host: module settings: {why}"));
+    log::warn(format!("host: module settings: {why}"));
     refusal(ErrorCode::ModuleFailed, "host_toml".to_owned())
 }
 
@@ -138,7 +138,7 @@ impl Panel {
             name: spec.name.clone(),
             args,
         };
-        log::info(&format!(
+        log::info(format!(
             "host: module {id} command {} run from the server GUI",
             spec.name
         ));
@@ -177,21 +177,21 @@ impl Panel {
         .map_err(host_toml_error)??;
         // The next load takes them; one that is running keeps what it started with
         registry.update_settings(&id, merged).map_err(|e| registry_error(&e))?;
-        log::info(&format!("host: module {id} settings saved from the server GUI"));
+        log::info(format!("host: module {id} settings saved from the server GUI"));
         self.view_of(&id).await
     }
 
     async fn load(&self, module: &str) -> Result<ModuleView, LauncherError> {
         let id = module_id(module)?;
         self.registry()?.load(&id).await.map_err(|e| registry_error(&e))?;
-        log::info(&format!("host: module {id} loaded from the server GUI"));
+        log::info(format!("host: module {id} loaded from the server GUI"));
         self.view_of(&id).await
     }
 
     async fn unload(&self, module: &str) -> Result<ModuleView, LauncherError> {
         let id = module_id(module)?;
         self.registry()?.unload(&id).await.map_err(|e| registry_error(&e))?;
-        log::info(&format!("host: module {id} unloaded from the server GUI"));
+        log::info(format!("host: module {id} unloaded from the server GUI"));
         self.view_of(&id).await
     }
 
@@ -257,7 +257,7 @@ impl Panel {
             actor: ActorContext::new(Actor::Console),
             request,
         };
-        log::info(&format!(
+        log::info(format!(
             "host: module {id} admin {:?} for {} from the server GUI",
             action,
             plain(player, 64)
