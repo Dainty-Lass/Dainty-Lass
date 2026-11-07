@@ -37,6 +37,7 @@ relicensed (spec §3): the page's language catalogs, DR's recorded test tables
 | L4 | Comparing the generator's output against today's `types.ts`, `commands.js` and `app-commands.toml` | §3.4 | **The implementer compares, ignoring doc comments** (amended 2026-11-06): `types.ts` carries ts-rs copies of the Rust types' rustdoc, much of it restricted's prose, so the comparison is on a normalised form without doc comments, banners or the permission set's description. The normalised files are `crates/launcher-kit/tests/fixtures/bridge/` (its README has the rule); the MIT types get their own doc comments |
 | L5 | DR's recorded test tables | §3.2 | **Keep them in `restricted/`, running against the MIT crates, and also write new MIT cases** from the spec, so the root has its own tables |
 | L6 | The launcher's six project links | §2.7.9 | **`https://github.com/SilentSpud/DaintyLass`** (added 2026-11-06): source, `LICENSE.txt`, issues, and the players, hosting and SDK guides on `main`. They answer once DX5 publishes the repository. Legendary and Git keep today's URLs |
+| L7 | Where the launcher and the manager fetch updates | §2.1.3 | **`https://github.com/SilentSpud/DaintyLass/releases/download/launcher-updates/`** (2026-11-06): `latest.json` and `latest-manager.json`, the feed following the project URL. Builds from now on find no update until DX5 publishes a release there; installed launchers keep their old feed |
 
 ## 3. How each row runs
 
