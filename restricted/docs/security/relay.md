@@ -2,6 +2,10 @@
 
 # Security checklist: the launcher's local relay (RX3)
 
+> **Moved (RL13, RL14):** this code is now the MIT `crates/dainty-launcher-kit` (spec-rd27-launcher.md); the paths below are
+> the shell's before the cutover, kept as the record. Its fuzz targets are in the root's `fuzz/`. The MIT
+> relay's own checklist is the root's `docs/security/launcher-relay.md`.
+
 The checklist for the local relay in the Tauri launcher, `launcher/src-tauri/src/net/relay.rs` and
 `net/relay_owner.rs` (MIGRATION_PLAN.md RA6, RD10, RD21). `SECURITY_REVIEW.md` indexes it.
 
@@ -29,7 +33,7 @@ Code: `net/relay.rs` (listeners, forwarding, upgrades), `net/relay/local.rs` (th
 the port override), `net/relay_owner.rs` and `net/relay_owner/table.rs` (the owner check). Shared rules from
 `crates/dainty-proxy` (hop-by-hop headers, the tunnel).
 
-Fuzz target: `relay_input` in `fuzz` (the peer address, Host, Origin and `Sec-Fetch-*` checks, the QoS path,
+Fuzz target: `relay_input` in the root's `fuzz/` (the peer address, Host, Origin and `Sec-Fetch-*` checks, the QoS path,
 the port override, and the TCP table rows the owner check reads). It checks that nothing the local rules accept
 comes from off the PC, names another host or carries a web page's marks, and that the owner check only ever reads
 one exact client row.
@@ -120,7 +124,7 @@ These do not block RA6 but must be settled, or accepted in writing, before the c
 
 ## Fuzzing
 
-A short run of `relay_input` happens on every PR (CI's `fuzz` job). The run before the cutover, from `fuzz`:
+A short run of `relay_input` happens on every PR (CI's `fuzz` job). The run before the cutover, from the root's `fuzz/`:
 
 ```bash
 cargo +nightly fuzz run relay_input -- -max_total_time=86400

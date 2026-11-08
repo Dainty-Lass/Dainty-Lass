@@ -3,8 +3,15 @@
 
 //! Core constants, text utilities, and protocol re-exports for the launcher.
 
+pub mod game_language;
+pub mod i18n;
 pub mod pins;
 pub mod text;
+
+/// The server status reply, shared with the servers through `protocol`.
+pub mod status {
+    pub use dainty_protocol::status::*;
+}
 
 /// The invite parser, shared with the servers through `protocol`.
 pub mod invite {

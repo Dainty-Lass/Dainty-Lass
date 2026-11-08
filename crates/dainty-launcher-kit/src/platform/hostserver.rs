@@ -97,6 +97,10 @@ pub trait EmbeddedServer: Send + Sync {
     fn modules(&self) -> Option<Arc<dyn crate::bridge::modules::ModulePanel>> {
         None
     }
+    /// The in-process host kit, when the server's crate offers one (the manager, §4.3).
+    fn engine(&self) -> Option<Arc<dyn crate::platform::server_engine::ServerEngine>> {
+        None
+    }
 }
 
 /// Resolved command invocation for `dainty-host`.
@@ -257,6 +261,12 @@ impl HostServer {
             .ok()
             .and_then(|g| g.embedded.as_ref().map(|_| true))
             .unwrap_or(false)
+    }
+
+    /// The embedded server's in-process host kit, if it has one.
+    pub fn engine(&self) -> Option<Arc<dyn crate::platform::server_engine::ServerEngine>> {
+        let embedded = self.inner.lock().ok()?.embedded.clone()?;
+        embedded.engine()
     }
 
     /// Returns the embedded server's [`crate::bridge::modules::ModulePanel`], if available.

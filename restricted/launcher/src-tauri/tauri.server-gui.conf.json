@@ -4,9 +4,9 @@
   "identifier": "io.github.freezamotoqueiro.dauntlessreforgedrevival.server",
   "build": {
     "devUrl": "http://localhost:4322",
-    "frontendDist": "../dist/server-manager",
-    "beforeDevCommand": "bun scripts/lass.ts dashboard-page dev server-manager",
-    "beforeBuildCommand": "bun scripts/lass.ts dashboard-page build server-manager"
+    "frontendDist": "../../../crates/dainty-launcher-app/dist/server-manager",
+    "beforeDevCommand": "bun ../../crates/dainty-launcher-app/scripts/page.ts dev server-manager",
+    "beforeBuildCommand": "bun ../../crates/dainty-launcher-app/scripts/page.ts build server-manager"
   },
   "bundle": {
     "icon": [
@@ -26,17 +26,17 @@
     },
     "linux": {
       "deb": {
-        "desktopTemplate": "linux/manager.desktop"
+        "desktopTemplate": "../../../crates/dainty-launcher-app/linux/manager.desktop"
       },
       "rpm": {
-        "desktopTemplate": "linux/manager.desktop"
+        "desktopTemplate": "../../../crates/dainty-launcher-app/linux/manager.desktop"
       }
     }
   },
   "plugins": {
     "updater": {
       "endpoints": [
-        "https://github.com/FreezaMotoqueiro/Dauntless-Reforged-Revival/releases/download/launcher-updates/latest-manager.json"
+        "https://github.com/SilentSpud/DaintyLass/releases/download/launcher-updates/latest-manager.json"
       ]
     }
   }

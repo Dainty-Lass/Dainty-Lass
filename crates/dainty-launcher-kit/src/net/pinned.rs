@@ -162,13 +162,15 @@ pub async fn pinned_connect(target: &PinnedTarget, timeout: Duration) -> Result<
         provider: Arc::clone(&provider),
     });
 
-    let config = ClientConfig::builder_with_provider(provider)
-        .with_safe_default_protocol_versions()
+    let mut config = ClientConfig::builder_with_provider(provider)
+        .with_protocol_versions(&[&rustls::version::TLS13, &rustls::version::TLS12])
         .map_err(|e| ConnectError::Io(e.to_string()))?
         .dangerous()
         .with_custom_certificate_verifier(verifier)
         .with_no_client_auth();
+    config.alpn_protocols = vec![b"http/1.1".to_vec()];
 
+    // An IP address goes in as `ServerName::IpAddress`, for which rustls sends no SNI
     let connector = TlsConnector::from(Arc::new(config));
     let addr = if host.contains(':') {
         format!("[{host}]:{}", target.port)
@@ -279,6 +281,130 @@ pub(crate) mod tests {
             }
         );
 
+        server.abort();
+    }
+
+    #[derive(Debug)]
+    struct Fixed(Arc<rustls::sign::CertifiedKey>);
+
+    impl rustls::server::ResolvesServerCert for Fixed {
+        fn resolve(&self, _: rustls::server::ClientHello<'_>) -> Option<Arc<rustls::sign::CertifiedKey>> {
+            Some(Arc::clone(&self.0))
+        }
+    }
+
+    type Seen = (Option<String>, Option<Vec<u8>>, Option<rustls::ProtocolVersion>);
+
+    /// Accepts one TLS client and answers its SNI, ALPN and version.
+    async fn serve_once(config: ServerConfig) -> (u16, tokio::task::JoinHandle<Option<Seen>>) {
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let port = listener.local_addr().unwrap().port();
+        let acceptor = TlsAcceptor::from(Arc::new(config));
+        let task = tokio::spawn(async move {
+            let (tcp, _) = listener.accept().await.ok()?;
+            let mut stream = acceptor.accept(tcp).await.ok()?;
+            let (_, conn) = stream.get_ref();
+            let seen = (
+                conn.server_name().map(str::to_owned),
+                conn.alpn_protocol().map(<[u8]>::to_vec),
+                conn.protocol_version(),
+            );
+            let _ = stream.shutdown().await;
+            Some(seen)
+        });
+        (port, task)
+    }
+
+    fn server_config(versions: &[&'static rustls::SupportedProtocolVersion]) -> (ServerConfig, String) {
+        let (cert, key) = certificate();
+        let pin = certificate_fingerprint(cert.as_ref());
+        let provider = Arc::new(rustls::crypto::aws_lc_rs::default_provider());
+        let mut config = ServerConfig::builder_with_provider(provider)
+            .with_protocol_versions(versions)
+            .unwrap()
+            .with_no_client_auth()
+            .with_single_cert(vec![cert], key)
+            .unwrap();
+        config.alpn_protocols = vec![b"http/1.1".to_vec()];
+        (config, pin)
+    }
+
+    #[tokio::test]
+    async fn offers_http11_and_names_only_a_name() {
+        for (host, sni) in [("127.0.0.1", None), ("localhost", Some("localhost".to_owned()))] {
+            let (config, pin) = server_config(&[&rustls::version::TLS13]);
+            let (port, server) = serve_once(config).await;
+            let target = PinnedTarget {
+                host: host.to_owned(),
+                port,
+                fingerprint: pin,
+            };
+            let _stream = pinned_connect(&target, Duration::from_secs(3)).await.unwrap();
+            let (seen_sni, alpn, _) = server.await.unwrap().unwrap();
+            assert_eq!(seen_sni, sni, "{host}");
+            assert_eq!(alpn.as_deref(), Some(&b"http/1.1"[..]));
+        }
+    }
+
+    #[tokio::test]
+    async fn speaks_tls12_and_tls13() {
+        for version in [&rustls::version::TLS12, &rustls::version::TLS13] {
+            let (config, pin) = server_config(&[version]);
+            let (port, server) = serve_once(config).await;
+            let target = PinnedTarget {
+                host: "127.0.0.1".to_owned(),
+                port,
+                fingerprint: pin,
+            };
+            pinned_connect(&target, Duration::from_secs(3)).await.unwrap();
+            let (_, _, seen) = server.await.unwrap().unwrap();
+            assert_eq!(seen, Some(version.version));
+        }
+    }
+
+    #[tokio::test]
+    async fn a_matching_certificate_signed_by_another_key_fails() {
+        let (cert, _) = certificate();
+        let (_, other_key) = certificate();
+        let pin = certificate_fingerprint(cert.as_ref());
+        let provider = Arc::new(rustls::crypto::aws_lc_rs::default_provider());
+        let signing = provider.key_provider.load_private_key(other_key).unwrap();
+        let resolver = Fixed(Arc::new(rustls::sign::CertifiedKey::new(vec![cert], signing)));
+        for version in [&rustls::version::TLS12, &rustls::version::TLS13] {
+            let config = ServerConfig::builder_with_provider(Arc::clone(&provider))
+                .with_protocol_versions(&[version])
+                .unwrap()
+                .with_no_client_auth()
+                .with_cert_resolver(Arc::new(Fixed(Arc::clone(&resolver.0))));
+            let (port, server) = serve_once(config).await;
+            let target = PinnedTarget {
+                host: "127.0.0.1".to_owned(),
+                port,
+                fingerprint: pin.clone(),
+            };
+            let err = pinned_connect(&target, Duration::from_secs(3)).await.unwrap_err();
+            assert!(matches!(err, ConnectError::Io(_)), "{err:?}");
+            server.abort();
+        }
+    }
+
+    #[tokio::test]
+    async fn the_deadline_covers_the_handshake() {
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let port = listener.local_addr().unwrap().port();
+        // Takes the connection and never answers the hello
+        let server = tokio::spawn(async move {
+            let held = listener.accept().await;
+            std::future::pending::<()>().await;
+            drop(held);
+        });
+        let target = PinnedTarget {
+            host: "127.0.0.1".to_owned(),
+            port,
+            fingerprint: "a".repeat(64),
+        };
+        let err = pinned_connect(&target, Duration::from_millis(200)).await.unwrap_err();
+        assert_eq!(err, ConnectError::Timeout);
         server.abort();
     }
 }

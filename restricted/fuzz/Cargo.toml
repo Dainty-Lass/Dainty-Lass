@@ -79,36 +79,8 @@ doc = false
 bench = false
 
 [[bin]]
-name = "launcher_files"
-path = "fuzz_targets/launcher_files.rs"
-test = false
-doc = false
-bench = false
-
-[[bin]]
-name = "launcher_input"
-path = "fuzz_targets/launcher_input.rs"
-test = false
-doc = false
-bench = false
-
-[[bin]]
-name = "launcher_net"
-path = "fuzz_targets/launcher_net.rs"
-test = false
-doc = false
-bench = false
-
-[[bin]]
 name = "proxy_headers"
 path = "fuzz_targets/proxy_headers.rs"
-test = false
-doc = false
-bench = false
-
-[[bin]]
-name = "relay_input"
-path = "fuzz_targets/relay_input.rs"
 test = false
 doc = false
 bench = false

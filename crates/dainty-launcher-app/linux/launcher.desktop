@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Name={{name}}
+{{#if comment}}
+Comment={{comment}}
+{{/if}}
+Exec={{exec}} %u
+Icon={{icon}}
+Categories={{categories}}
+StartupWMClass={{exec}}
+Terminal=false
+MimeType=x-scheme-handler/dauntless;x-scheme-handler/reforged-revival;

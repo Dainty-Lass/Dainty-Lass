@@ -6,6 +6,36 @@
 
 use serde::{Deserialize, Serialize, Serializer};
 
+/// Serde's derived struct `Deserialize` also takes a sequence (`[]` fills the fields in order), but the bridge
+/// refuses anything but an object for an object argument (§2.3.4). These impls read a map first, then decode it
+/// with `$fields`: the type itself under `#[serde(remote = "Self")]`, or a field mirror under
+/// `#[serde(remote = "Type")]` for types ts-rs reads (it cannot parse `remote`).
+macro_rules! object_only {
+    ($ty:ty, $fields:ty) => {
+        impl<'de> serde::Deserialize<'de> for $ty {
+            fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+                let map = <serde_json::Map<String, serde_json::Value>>::deserialize(deserializer)?;
+                <$fields>::deserialize(serde_json::Value::Object(map)).map_err(serde::de::Error::custom)
+            }
+        }
+    };
+    ($ty:ty) => {
+        object_only!($ty, $ty);
+
+        impl serde::Serialize for $ty {
+            fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+                <$ty>::serialize(self, serializer)
+            }
+        }
+    };
+}
+
+mod manager;
+mod player;
+
+pub use manager::*;
+pub use player::*;
+
 /// Whether the server's game runtime is installed and current on this PC.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(any(test, feature = "ts"), derive(ts_rs::TS))]
@@ -385,7 +415,7 @@ pub enum HostServerMode {
 }
 
 /// Progression multipliers the host set for testing.
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize)]
 #[cfg_attr(any(test, feature = "ts"), derive(ts_rs::TS))]
 pub struct HostMultipliers {
     /// Experience multiplier.
@@ -396,6 +426,15 @@ pub struct HostMultipliers {
 
 /// The highest multiplier a host may set.
 pub const MAX_MULTIPLIER: f64 = 100.0;
+
+#[derive(Deserialize)]
+#[serde(remote = "HostMultipliers")]
+struct HostMultipliersFields {
+    xp: f64,
+    rewards: f64,
+}
+
+object_only!(HostMultipliers, HostMultipliersFields);
 
 /// The server settings read from `host.toml`.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -789,7 +828,7 @@ pub enum HostFolder {
 }
 
 /// The page's `setup` form.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[cfg_attr(any(test, feature = "ts"), derive(ts_rs::TS))]
 #[serde(rename_all = "camelCase")]
 pub struct HostSetupRequest {
@@ -800,6 +839,16 @@ pub struct HostSetupRequest {
     /// Public host name, required in public mode.
     pub public_host: Option<String>,
 }
+
+#[derive(Deserialize)]
+#[serde(remote = "HostSetupRequest", rename_all = "camelCase")]
+struct HostSetupRequestFields {
+    name: String,
+    mode: HostServerMode,
+    public_host: Option<String>,
+}
+
+object_only!(HostSetupRequest, HostSetupRequestFields);
 
 /// Which kind of realm.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]

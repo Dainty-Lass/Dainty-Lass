@@ -1,11 +1,11 @@
 # Dainty Lass desktop apps (`dainty-launcher` & `dainty-manager`)
 
-This package contains the Tauri 2 desktop backend (`src-tauri/`) and test cases (`test/`) for both Dainty Lass desktop applications:
+Since RL13 the apps are dainty-lass's MIT Tauri shell, `crates/dainty-launcher-app`, over `crates/dainty-launcher-kit`. This package is their AGPL half (RD27 spec §4.4): `src-tauri/` builds them with today's icons (L2), adds the manager's in-process server (it links `crates/host`), generates `gen/strings.json` from the page's catalogs, and runs the tests that hold dainty-launcher-kit to DR's recorded tables (`test/cases`) and drive its controller, relay and modules. `test/electron-keystore` is the Electron key-store harness.
 
 - **Dainty Lass Launcher (`dainty-launcher`)**: the player launcher (`src-tauri/tauri.conf.json`). Join servers by invite or address, register and sign in (with the account key stored only in the OS keystore), check server status and news, verify Dauntless 1.14.7 installs, download the server runtime, and host or join peer-to-peer realms.
-- **Dainty Lass Manager (`dainty-manager`, Cargo feature `server-gui`)**: the standalone server manager GUI (`src-tauri/tauri.server-gui.conf.json`, built with `--no-default-features --features server-gui`). Embeds `crates/dainty-host`, `server-controller`, `admin`, and the Rust game modules (`isles-1-14-7`) in-process so a host can set up, configure, migrate, run, and administer a community server without a terminal. Keeps the bundle identifier `io.github.freezamotoqueiro.dauntlessreforgedrevival.server` so existing server GUI installations update in place.
+- **Dainty Lass Manager (`dainty-manager`, Cargo feature `server-gui`)**: the standalone server manager GUI (`src-tauri/tauri.server-gui.conf.json`, built with `--no-default-features --features server-gui`). Embeds `crates/host`, `server-controller`, `admin`, and the Rust game modules (`isles-1-14-7`) in-process so a host can set up, configure, migrate, run, and administer a community server without a terminal. Keeps the bundle identifier `io.github.freezamotoqueiro.dauntlessreforgedrevival.server` so existing server GUI installations update in place.
 
-Each app embeds its own page from [dainty-lass's `ui/`](https://git.silentspud.com/silentspud/dainty-lass/src/branch/main/ui) (dainty-dash), whose `apps/web` builds every page from one source: the launcher serves it built with `DAINTY_MODE=launcher`, the manager with `DAINTY_MODE=manager`. `beforeBuildCommand` runs dainty-lass's `launcher/scripts/dashboard-page.ts` (MIT, RD27) through `scripts/lass.ts`, which builds the page's static export with Bun (`apps/web/dist/client`) and copies it to `dist/launcher` or `dist/server-manager` here, the configs' `frontendDist`. dainty-lass is `DAINTY_LASS_DIR`, or `dainty-lass` beside this repository; the dashboard is its `ui/`, or `DAINTY_DASH_DIR`. Tauri hashes the exports' inline scripts into the CSP at build time, so `script-src 'self'` holds. The bridge types stay in `../ui/packages/bridge/src/generated`, generated from `src-tauri/src/bridge/spec.rs`.
+Each app embeds its own page from [dainty-lass's `ui/`](https://git.silentspud.com/silentspud/dainty-lass/src/branch/main/ui) (dainty-dash), whose `apps/web` builds every page from one source: the launcher serves it built with `DAINTY_MODE=launcher`, the manager with `DAINTY_MODE=manager`. `beforeBuildCommand` runs `crates/dainty-launcher-app/scripts/page.ts`, which builds the page's static export with Bun and copies it to `crates/dainty-launcher-app/dist/launcher` or `dist/server-manager`, where dainty-launcher-app's compiled-in context and these configs' `frontendDist` find it. Tauri hashes the exports' inline scripts into the CSP at build time, so `script-src 'self'` holds. The app's context (name, identifier, page, update feed, permissions, isolation hook) is dainty-launcher-app's; these configs give the bundler today's icons and the same identity, which `tests/bundles.rs` checks. The bridge's generated files are dainty-launcher-kit's (`crates/dainty-launcher-kit/generated`).
 
 ## Prerequisites
 
@@ -33,7 +33,7 @@ bun run build:manager
 bun run build:all
 ```
 
-Each build first runs `bun scripts/lass.ts dashboard-page build <page>`: `bun install --frozen-lockfile` and the theme build in the dashboard checkout, then the page's export, copied into `dist/<page>`. `bun run build:pages` does both pages without building the apps. With the checkout elsewhere:
+Each build first runs `bun ../../crates/dainty-launcher-app/scripts/page.ts build <page>`: `bun install --frozen-lockfile` and the theme build in the dashboard checkout, then the page's export, copied into `crates/dainty-launcher-app/dist/<page>`. `bun run build:pages` does both pages without building the apps. With the checkout elsewhere:
 
 ```bash
 DAINTY_LASS_DIR=/path/to/dainty-lass bun run build:client
@@ -64,11 +64,11 @@ bun run dev:manager
 ## Tests and Typechecks
 
 ```bash
-# The bridge and isolation hook tests (dainty-lass's launcher/, against this checkout's generated files)
+# The bridge and isolation hook tests (dainty-lass's launcher/, against dainty-launcher-kit's generated files)
 (cd "${DAINTY_LASS_DIR:-../../dainty-lass}/launcher" && bun install && bun run typecheck && bun run test)
 
 # Run the Rust unit tests for each feature configuration
-cargo test --manifest-path ../Cargo.toml -p dainty-launcher   # includes tests/bundles.rs, the two apps' configs
-cargo test --manifest-path ../Cargo.toml -p dainty-launcher --features realms
-cargo test --manifest-path ../Cargo.toml -p dainty-launcher --no-default-features --features server-gui
+cargo test --manifest-path ../Cargo.toml -p launcher -j 6   # includes tests/bundles.rs, the two apps' configs
+cargo test --manifest-path ../Cargo.toml -p launcher -j 6 --features realms
+cargo test --manifest-path ../Cargo.toml -p launcher -j 6 --features server-gui,realms
 ```

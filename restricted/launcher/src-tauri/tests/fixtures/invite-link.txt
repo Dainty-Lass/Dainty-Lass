@@ -1,0 +1,30 @@
+invite in ["launcher.exe"]: None
+invite in ["launcher.exe", "dauntless://join?v=1&h=100.64.0.7&p=61000"]: None
+invite in ["launcher.exe", "--flag", "reforged-revival://join?x"]: None
+invite in ["launcher.exe", "dauntless-revived://join?x"]: None
+invite in ["launcher.exe", "https://example.org"]: None
+invite in ["launcher.exe", "DAUNTLESS://JOIN"]: None
+tailscale_download: Some("https://tailscale.com/download")
+tailscale_share: None
+vc_redist: Some("https://aka.ms/vs/17/release/vc_redist.x64.exe")
+server_source: None
+project_source: Some("https://github.com/SilentSpud/DaintyLass")
+project_license: Some("https://github.com/SilentSpud/DaintyLass/blob/main/LICENSE.txt")
+project_issues: Some("https://github.com/SilentSpud/DaintyLass/issues")
+project_docs_players: Some("https://github.com/SilentSpud/DaintyLass/blob/main/restricted/docs/players.md")
+project_docs_hosting: Some("https://github.com/SilentSpud/DaintyLass/blob/main/restricted/docs/hosting.md")
+project_docs_sdk: Some("https://github.com/SilentSpud/DaintyLass/blob/main/docs/sdk-and-game-data.md")
+installing_guide: Some("https://github.com/pranav158/Mystic-Paradox/blob/main/docs/INSTALLING_DAUNTLESS.md")
+legendary: Some("https://github.com/legendary-gl/legendary/releases/latest")
+dumper7: Some("https://github.com/Encryqed/Dumper-7")
+visual_studio: Some("https://visualstudio.microsoft.com/downloads/")
+rust: Some("https://www.rust-lang.org/tools/install")
+nodejs: Some("https://nodejs.org/en/download")
+mongodb: Some("https://www.mongodb.com/try/download/community")
+git: Some("https://git-scm.com/download/win")
+visual_studio_installer: Some("https://aka.ms/vs/17/release/vs_community.exe")
+rust_installer: Some("https://win.rustup.rs/x86_64")
+dumper7_zip: Some("https://github.com/Encryqed/Dumper-7/archive/refs/heads/main.zip")
+revived_source: Some("https://github.com/mixutin/dauntless-revived")
+mystic_source: Some("https://github.com/pranav158/Mystic-Paradox")
+undaunted_source: Some("https://github.com/SyST3MDeV/Undaunted")

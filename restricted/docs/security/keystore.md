@@ -2,6 +2,9 @@
 
 # Security checklist: launcher key store and legacy reader (RX3)
 
+> **Moved (RL13, RL14):** this code is now the MIT `crates/dainty-launcher-kit` (spec-rd27-launcher.md); the paths below are
+> the shell's before the cutover, kept as the record. Its fuzz targets are in the root's `fuzz/`.
+
 The checklist for the Tauri launcher's account key store, the reader for keys the Electron launcher (1.5.x) stored
 with `safeStorage`, and the files around them: settings and the log (MIGRATION_PLAN.md RA8, RD7, RD10, RD22,
 section 6). `SECURITY_REVIEW.md` indexes it.
@@ -36,7 +39,7 @@ on the game's command line (`-AUTH_PASSWORD=`), and to nothing else.
 Code: `launcher/src-tauri/src/platform/keystore/` (`mod.rs`, `format.rs`, `legacy.rs`, `os.rs`),
 `platform/settings.rs`, `platform/log.rs`, `platform/paths.rs`.
 
-Fuzz target: `launcher_files` in `fuzz`: `settings.json` (what is written reads back as itself, a 1.4.4 server
+Fuzz target: `launcher_files` in the root's `fuzz/`: `settings.json` (what is written reads back as itself, a 1.4.4 server
 is never current, a public server always has a valid fingerprint, stored usernames pass the registration rule),
 decrypted key text (`parse_stored`, which round-trips) and the Electron framing (`Local State`, the `DPAPI` tag, the
 `v10`/`v11` blobs). The AES, PBKDF2 and DPAPI calls behind the framing are RustCrypto's and Windows', not fuzzed

@@ -2,16 +2,12 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 fn main() -> std::process::ExitCode {
-    // The game console's reader is this executable too (platform/game_console.rs)
-    if let Some(code) = dainty_launcher::game_console_helper() {
+    // The game console's reader is this executable too (dainty-launcher-kit's platform/game_console.rs)
+    if let Some(code) = dainty_launcher_kit::platform::game_console::helper_main() {
         return code;
     }
     // dainty-manager, or dainty-launcher: the feature decides, the config names the file
-    #[cfg(feature = "server-gui")]
-    let started = dainty_launcher::run_server_gui();
-    #[cfg(not(feature = "server-gui"))]
-    let started = dainty_launcher::run_client();
-    if let Err(error) = started {
+    if let Err(error) = dainty_launcher_app::run(dainty_launcher::options()) {
         eprintln!("Dainty Lass could not start: {error}");
         return std::process::ExitCode::FAILURE;
     }

@@ -1558,11 +1558,73 @@ dependencies = [
  "dainty-controller",
  "dainty-epic",
  "dainty-host",
+ "dainty-launcher-app",
  "dainty-launcher-kit",
  "dainty-module-api",
  "dainty-protocol",
  "dainty-proxy",
  "dainty-service-kit",
+ "futures-util",
+ "http-body-util",
+ "hyper",
+ "hyper-util",
+ "percent-encoding",
+ "rcgen",
+ "rustic-rifts-host",
+ "rustic-rifts-seam",
+ "rustls",
+ "serde",
+ "serde_json",
+ "sha1_smol",
+ "sha2 0.11.1",
+ "tauri",
+ "tauri-build",
+ "tempfile",
+ "tokio",
+ "tokio-rustls",
+ "tokio-stream",
+ "tracing",
+ "tracing-log",
+ "tracing-subscriber",
+ "ts-rs",
+ "url",
+]
+
+[[package]]
+name = "dainty-launcher-app"
+version = "0.0.0"
+dependencies = [
+ "dainty-epic",
+ "dainty-launcher-kit",
+ "dainty-protocol",
+ "futures-util",
+ "rustls",
+ "serde",
+ "serde_json",
+ "sys-locale",
+ "tauri",
+ "tauri-build",
+ "tauri-plugin-dialog",
+ "tauri-plugin-updater",
+ "tokio",
+ "url",
+]
+
+[[package]]
+name = "dainty-launcher-kit"
+version = "0.0.0"
+dependencies = [
+ "aes 0.9.3",
+ "aes-gcm 0.11.1",
+ "base64 0.23.1",
+ "bytes",
+ "cbc 0.2.1",
+ "chrono",
+ "dainty-epic",
+ "dainty-hostkit",
+ "dainty-module-api",
+ "dainty-protocol",
+ "dainty-proxy",
  "dbus-secret-service",
  "dirs 6.0.0",
  "fs4",
@@ -1571,11 +1633,9 @@ dependencies = [
  "hyper",
  "hyper-rustls",
  "hyper-util",
- "open",
  "pbkdf2",
  "percent-encoding",
  "rand 0.10.3",
- "rcgen",
  "regex",
  "rustic-rifts-host",
  "rustic-rifts-seam",
@@ -1583,20 +1643,12 @@ dependencies = [
  "serde",
  "serde_json",
  "sha1 0.11.0",
- "sha1_smol",
  "sha2 0.11.1",
- "sys-locale",
- "tauri",
- "tauri-build",
- "tauri-plugin-dialog",
- "tauri-plugin-updater",
- "tempfile",
  "tokio",
  "tokio-rustls",
- "tokio-stream",
  "tokio-util",
  "toml_edit 0.25.17+spec-1.1.0",
- "tower-service",
+ "tower",
  "tracing",
  "tracing-log",
  "tracing-subscriber",
@@ -1604,41 +1656,6 @@ dependencies = [
  "url",
  "webpki-roots",
  "windows 0.62.2",
-]
-
-[[package]]
-name = "dainty-launcher-kit"
-version = "0.0.0"
-dependencies = [
- "base64 0.23.1",
- "bytes",
- "chrono",
- "dainty-epic",
- "dainty-module-api",
- "dainty-protocol",
- "dirs 6.0.0",
- "fs4",
- "futures-util",
- "http-body-util",
- "hyper",
- "hyper-rustls",
- "hyper-util",
- "percent-encoding",
- "rand 0.10.3",
- "regex",
- "rustls",
- "serde",
- "serde_json",
- "sha1 0.11.0",
- "sha2 0.11.1",
- "tokio",
- "tokio-rustls",
- "tokio-util",
- "toml_edit 0.25.17+spec-1.1.0",
- "tracing",
- "ts-rs",
- "url",
- "webpki-roots",
 ]
 
 [[package]]
@@ -3446,25 +3463,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "791930b43c0d5973160d90a8f3894509f2b273430f5c5c73b668636d0287c5c0"
 
 [[package]]
-name = "is-docker"
-version = "0.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "928bae27f42bc99b60d9ac7334e3a21d10ad8f1835a4e12ec3ec0464765ed1b3"
-dependencies = [
- "once_cell",
-]
-
-[[package]]
-name = "is-wsl"
-version = "0.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "173609498df190136aa7dea1a91db051746d339e18476eed5ca40521f02d7aa5"
-dependencies = [
- "is-docker",
- "once_cell",
-]
-
-[[package]]
 name = "is_terminal_polyfill"
 version = "1.70.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4436,17 +4434,6 @@ name = "opaque-debug"
 version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c08d65885ee38876c4f86fa503fb49d7b507c2b62552df7c70b2fce627e06381"
-
-[[package]]
-name = "open"
-version = "5.4.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8d8c8b8e725ad26404d6896eb2f064294a0a7b4f1d9120210d85544684c4ca95"
-dependencies = [
- "dunce",
- "is-wsl",
- "libc",
-]
 
 [[package]]
 name = "openssl-probe"

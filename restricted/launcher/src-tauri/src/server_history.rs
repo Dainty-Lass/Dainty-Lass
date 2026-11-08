@@ -1,6 +1,6 @@
 //! History and revert in the server GUI (DD23, DH3b): `history_query`, `history_revert_dry_run` and
 //! `history_revert_apply` against the databases of the server the launcher hosts, read from its workspace
-//! (`admin::history`, the same engine as `dainty-host history` and `revert`). Whether the server runs
+//! (`dainty_admin::history`, the same engine as `dainty-host history` and `revert`). Whether the server runs
 //! does not matter: the files are the same, and a stopped server's history is the thing to read after a
 //! partner has been in it.
 //!
@@ -13,7 +13,8 @@ use std::sync::LazyLock;
 
 use dainty_admin::history::{self, HistoryError, HistorySet, PlanCache, RowConflict, Selection};
 
-use crate::bridge::types::{
+use dainty_launcher_kit::bridge::checks::HistoryFilter as HistoryArgs;
+use dainty_launcher_kit::bridge::types::{
     ErrorCode, HistoryEntryView, HistoryOutcome, HistoryPageView, LauncherError, RevertApplyOutcome,
     RevertConflictView, RevertDoneView, RevertPlanOutcome, RevertPlanView, RevertRowView, RevertedInView,
 };
@@ -21,24 +22,13 @@ use crate::bridge::types::{
 /// The actor of a revert made from the server GUI.
 const ACTOR: &str = "server-gui";
 
-/// What the page sent: a history filter, or a revert's selection (which has no cursor).
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
-pub struct HistoryArgs {
-    pub account: Option<String>,
-    pub actor: Option<String>,
-    pub since: Option<String>,
-    pub until: Option<String>,
-    pub cursor: Option<String>,
-}
-
-impl HistoryArgs {
-    fn selection(&self) -> Selection {
-        Selection {
-            account: self.account.clone(),
-            actor: self.actor.clone(),
-            since: self.since.clone(),
-            until: self.until.clone(),
-        }
+/// The page's filter or revert selection (checked by dainty-launcher-kit's `bridge::checks`) as the engine's.
+fn selection(args: &HistoryArgs) -> Selection {
+    Selection {
+        account: args.account.clone(),
+        actor: args.actor.clone(),
+        since: args.since.clone(),
+        until: args.until.clone(),
     }
 }
 
@@ -82,8 +72,8 @@ fn conflict_view(database: &str, conflict: &RowConflict) -> RevertConflictView {
     }
 }
 
-fn count(n: usize) -> u32 {
-    u32::try_from(n).unwrap_or(u32::MAX)
+fn count(n: usize) -> u64 {
+    u64::try_from(n).unwrap_or(u64::MAX)
 }
 
 fn conflicts_of(plan: &history::Plan) -> Vec<RevertConflictView> {
@@ -126,7 +116,7 @@ fn plan_view(plan: &history::Plan) -> RevertPlanView {
 
 pub async fn query(workspace: &Path, args: HistoryArgs) -> HistoryOutcome {
     let run = async {
-        let filter = args.selection().to_filter(dainty_admin::now_ms()).map_err(failure)?;
+        let filter = selection(&args).to_filter(dainty_admin::now_ms()).map_err(failure)?;
         let set = open(workspace).await?;
         set.query(&filter, args.cursor.as_deref(), history::DEFAULT_PAGE)
             .await
@@ -157,7 +147,7 @@ pub async fn query(workspace: &Path, args: HistoryArgs) -> HistoryOutcome {
 
 pub async fn dry_run(workspace: &Path, args: HistoryArgs) -> RevertPlanOutcome {
     let run = async {
-        let filter = args.selection().to_filter(dainty_admin::now_ms()).map_err(failure)?;
+        let filter = selection(&args).to_filter(dainty_admin::now_ms()).map_err(failure)?;
         let set = open(workspace).await?;
         set.dry_run(&filter).await.map_err(failure)
     };
