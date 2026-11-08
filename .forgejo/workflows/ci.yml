@@ -214,6 +214,14 @@ jobs:
         with:
           workspaces: .
 
+      # The workspace holds the Tauri shell (WebKitGTK) and the launcher's Secret Service keystore (libdbus)
+      - name: Install the launcher's Linux build dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo=""; [ "$(id -u)" = 0 ] || sudo=sudo
+          $sudo apt-get update
+          $sudo apt-get install -y --no-install-recommends libwebkit2gtk-4.1-dev libgtk-3-dev librsvg2-dev libayatana-appindicator3-dev libdbus-1-dev patchelf
+
       # A patched crate the host's lockfile takes from the registry is a [patch] that went unused, silently (DF1)
       - name: No crate from the silentspud registry in Cargo.lock
         run: |
@@ -244,7 +252,7 @@ jobs:
 
       # cargo test builds no cdylib for a crate's own tests; the plugins' load tests load the library (RD27)
       - name: The service libraries
-        run: cargo build --locked -p dainty-content-plugin -p rustic-isles-1-14-7-plugin
+        run: cargo build --locked -p dainty-content-plugin -p dainty-gateway-plugin -p dainty-chat-plugin -p rustic-isles-1-14-7-plugin
 
       - name: Tests
         run: cargo test --workspace --locked --no-fail-fast
@@ -326,6 +334,13 @@ jobs:
         run: |
           rustup toolchain install "$NIGHTLY" --profile minimal
           cargo "+$NIGHTLY" install cargo-fuzz --version 0.13.2 --locked
+
+      # The launcher's targets link its Secret Service keystore
+      - name: Install libdbus
+        run: |
+          sudo=""; [ "$(id -u)" = 0 ] || sudo=sudo
+          $sudo apt-get update
+          $sudo apt-get install -y --no-install-recommends libdbus-1-dev pkg-config
 
       # As many targets at once as the runner has cores: one at a time, the root's dozens outlast the timeout
       - name: Run every target for 45 seconds

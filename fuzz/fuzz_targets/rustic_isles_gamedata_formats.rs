@@ -1,7 +1,7 @@
 //! What the game-data generators read from host files (spec-rustic-isles-gamedata §4, §11): arbitrary bytes as a
 //! catalog line, a nested `customData`, a store-image row name, a journey row and a Lady Luck source. The readers
 //! and the slug, decode and category rules never panic, a checked texture reference cannot close its quote, and
-//! the pretty writer round-trips through `JSON.parse` at every indent from 0 to 4.
+//! the pretty writer's text parses back to a value it writes the same at every indent from 0 to 4.
 #![no_main]
 
 use libfuzzer_sys::fuzz_target;
@@ -41,8 +41,10 @@ fuzz_target!(|data: &[u8]| {
         let (skus, _) = ladyluck_source(entries);
         assert_eq!(skus.len(), entries.len());
     }
+    // The text, not the value: JSON.stringify writes -0 as 0, as Node does
     for indent in 0..=4 {
-        let back = dainty_service_kit::jsjson::parse(&stringify_pretty(&value, indent));
-        assert!(back.is_ok_and(|b| dainty_service_kit::jsjson::deep_equal(&b, &value)));
+        let text = stringify_pretty(&value, indent);
+        let back = dainty_service_kit::jsjson::parse(&text);
+        assert!(back.is_ok_and(|b| stringify_pretty(&b, indent) == text));
     }
 });
