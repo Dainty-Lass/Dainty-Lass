@@ -133,8 +133,10 @@ pub fn check(peer: IpAddr, headers: &HeaderMap, upgrade: bool) -> Result<(), Ref
 /// `^/qos(?:[/?]|$)`, ignoring case.
 #[must_use]
 pub fn is_qos_target(target: &str) -> bool {
-    let bytes = target.as_bytes();
-    bytes.len() >= 4 && bytes[..4].eq_ignore_ascii_case(b"/qos") && matches!(bytes.get(4), None | Some(b'/' | b'?'))
+    let Some((head, rest)) = target.split_at_checked(4) else {
+        return false;
+    };
+    head.eq_ignore_ascii_case("/qos") && (rest.is_empty() || rest.starts_with(['/', '?']))
 }
 
 #[cfg(test)]
@@ -286,10 +288,20 @@ mod tests {
 
     #[test]
     fn qos_targets() {
-        for yes in ["/qos", "/QoS", "/qos/", "/qos?x=1", "/qos/ping"] {
+        for yes in ["/qos", "/QoS", "/qos/", "/qos?x=1", "/qos/ping", "/QOS?"] {
             assert!(is_qos_target(yes), "{yes}");
         }
-        for no in ["/", "/qo", "/qosx", "/api/qos", "qos", "/q\u{f6}s"] {
+        for no in [
+            "/",
+            "/qo",
+            "/qosx",
+            "/api/qos",
+            "qos",
+            "/q\u{f6}s",
+            "",
+            "/qos#x",
+            "/\u{f6}",
+        ] {
             assert!(!is_qos_target(no), "{no}");
         }
     }

@@ -124,39 +124,55 @@ fn is_executable(path: &Path) -> bool {
     path.is_file()
 }
 
+/// One piece of a name for [`natural_cmp`]: a run of ASCII digits, or a single other character.
+#[derive(Debug, PartialEq, Eq)]
+enum Chunk {
+    /// The run without its leading zeros, so `007` and `7` are the same number.
+    Number(String),
+    Text(char),
+}
+
+impl Chunk {
+    fn order(&self, other: &Self) -> Ordering {
+        match (self, other) {
+            (Self::Number(x), Self::Number(y)) => x.len().cmp(&y.len()).then_with(|| x.cmp(y)),
+            (Self::Text(x), Self::Text(y)) => x.cmp(y),
+            // Any digit sorts against a character as `0` would: the digits are contiguous.
+            (Self::Number(_), Self::Text(c)) => '0'.cmp(c),
+            (Self::Text(c), Self::Number(_)) => c.cmp(&'0'),
+        }
+    }
+}
+
+fn chunks(name: &str) -> Vec<Chunk> {
+    let mut out = Vec::new();
+    let mut digits = String::new();
+    for c in name.chars().flat_map(char::to_lowercase) {
+        if c.is_ascii_digit() {
+            digits.push(c);
+            continue;
+        }
+        if !digits.is_empty() {
+            out.push(Chunk::Number(digits.trim_start_matches('0').to_owned()));
+            digits.clear();
+        }
+        out.push(Chunk::Text(c));
+    }
+    if !digits.is_empty() {
+        out.push(Chunk::Number(digits.trim_start_matches('0').to_owned()));
+    }
+    out
+}
+
 /// Natural, case-insensitive order: `Proton 10.0` after `Proton 9.0`.
 #[must_use]
 pub fn natural_cmp(a: &str, b: &str) -> Ordering {
-    let (mut a, mut b) = (a.chars().peekable(), b.chars().peekable());
-    loop {
-        match (a.peek().copied(), b.peek().copied()) {
-            (None, None) => return Ordering::Equal,
-            (None, Some(_)) => return Ordering::Less,
-            (Some(_), None) => return Ordering::Greater,
-            (Some(x), Some(y)) if x.is_ascii_digit() && y.is_ascii_digit() => {
-                let take = |it: &mut std::iter::Peekable<std::str::Chars<'_>>| {
-                    let mut digits = String::new();
-                    while let Some(d) = it.next_if(char::is_ascii_digit) {
-                        digits.push(d);
-                    }
-                    digits.trim_start_matches('0').to_owned()
-                };
-                let (da, db) = (take(&mut a), take(&mut b));
-                let order = da.len().cmp(&db.len()).then_with(|| da.cmp(&db));
-                if order != Ordering::Equal {
-                    return order;
-                }
-            }
-            (Some(x), Some(y)) => {
-                let order = x.to_lowercase().cmp(y.to_lowercase());
-                if order != Ordering::Equal {
-                    return order;
-                }
-                a.next();
-                b.next();
-            }
-        }
-    }
+    let (left, right) = (chunks(a), chunks(b));
+    left.iter()
+        .zip(&right)
+        .map(|(x, y)| x.order(y))
+        .find(|o| o.is_ne())
+        .unwrap_or_else(|| left.len().cmp(&right.len()))
 }
 
 fn folder_name(path: &Path) -> String {
@@ -703,6 +719,29 @@ mod tests {
             ]
         );
         assert_eq!(natural_cmp("a007", "A7"), Ordering::Equal);
+    }
+
+    #[test]
+    fn natural_order_edge_cases() {
+        // Equal-length numbers compare digit by digit
+        assert_eq!(natural_cmp("v19", "v21"), Ordering::Less);
+        assert_eq!(natural_cmp("v21", "v19"), Ordering::Greater);
+        // Leading zeros don't make a number bigger
+        assert_eq!(natural_cmp("x010", "x9"), Ordering::Greater);
+        assert_eq!(natural_cmp("x0", "x000"), Ordering::Equal);
+        assert_eq!(natural_cmp("x00", "x1"), Ordering::Less);
+        // Case is ignored
+        assert_eq!(natural_cmp("PROTON", "proton"), Ordering::Equal);
+        assert_eq!(natural_cmp("Beta", "alpha"), Ordering::Greater);
+        // Empty names sort first
+        assert_eq!(natural_cmp("", ""), Ordering::Equal);
+        assert_eq!(natural_cmp("", "0"), Ordering::Less);
+        assert_eq!(natural_cmp("a", ""), Ordering::Greater);
+        // Numbers longer than any integer type
+        assert_eq!(
+            natural_cmp("n99999999999999999999999", "n100000000000000000000000"),
+            Ordering::Less
+        );
     }
 
     #[test]

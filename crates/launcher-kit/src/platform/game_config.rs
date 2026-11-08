@@ -565,6 +565,20 @@ mod tests {
     fn read(path: &Path) -> String {
         decode(&std::fs::read(path).unwrap())
     }
+    /// How many display-repair copies of GameUserSettings.ini sit in `dir`.
+    fn repair_backups(dir: &Path) -> usize {
+        let mut count = 0;
+        for entry in std::fs::read_dir(dir).unwrap() {
+            let name = entry.unwrap().file_name();
+            if name
+                .to_string_lossy()
+                .starts_with("GameUserSettings.ini.before-display-repair-")
+            {
+                count += 1;
+            }
+        }
+        count
+    }
 
     #[test]
     fn writes_the_files_and_their_backups() {
@@ -601,12 +615,8 @@ mod tests {
             read(&dir.join("Engine.ini")),
             "[OnlineSubsystemMcp.XMPP]\r\nServerAddr=\"ws://127.0.0.1\"\r\nServerPort=61099\r\nbUseSSL=false\r\n\r\n"
         );
-        let backups: Vec<_> = std::fs::read_dir(&dir)
-            .unwrap()
-            .map(|e| e.unwrap().file_name().to_string_lossy().into_owned())
-            .filter(|n| n.starts_with("GameUserSettings.ini.before-display-repair-"))
-            .collect();
-        assert_eq!(backups.len(), 1);
+        assert_eq!(repair_backups(&dir), 1);
+
         assert!(read(&dir.join("GameUserSettings.ini")).contains("ResolutionSizeX=1280\r\n"));
         assert!(!dir.join("Engine.ini.rr-tmp").exists());
     }
@@ -632,17 +642,7 @@ mod tests {
         assert!(outcome.display_repaired);
         let text = read(&dir.path().join("GameUserSettings.ini"));
         assert!(text.starts_with("[/Script/Engine.GameUserSettings]\r\nResolutionSizeX=1280\r\n"));
-        let backups = std::fs::read_dir(dir.path())
-            .unwrap()
-            .filter(|e| {
-                e.as_ref()
-                    .unwrap()
-                    .file_name()
-                    .to_string_lossy()
-                    .contains("before-display-repair")
-            })
-            .count();
-        assert_eq!(backups, 0);
+        assert_eq!(repair_backups(dir.path()), 0);
     }
 
     #[test]

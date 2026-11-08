@@ -11,26 +11,37 @@ use std::time::Duration;
 /// The link `invite` answers; tests look for it where it must not be.
 const INVITE_LINK: &str = "dauntless://fake-host-kit-invite-secret";
 
+/// How `start` misbehaves, picked by an optional leading argument.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Mode {
+    Normal,
+    Fail,
+    Deaf,
+}
+
 fn main() -> ExitCode {
-    let mut args: Vec<String> = std::env::args().skip(1).collect();
-    let mode = match args.first().map(String::as_str) {
-        Some("fail" | "deaf") => Some(args.remove(0)),
-        _ => None,
+    let all: Vec<String> = std::env::args().skip(1).collect();
+    let (mode, command) = match all.split_first() {
+        Some((first, rest)) if first == "fail" => (Mode::Fail, rest),
+        Some((first, rest)) if first == "deaf" => (Mode::Deaf, rest),
+        _ => (Mode::Normal, all.as_slice()),
     };
-    match args.first().map(String::as_str) {
-        Some("start") => start(mode.as_deref()),
-        Some("invite") => invite(&args[1..]),
-        _ => {
-            println!("Error: the fake host kit has no `{}`", args.join(" "));
-            ExitCode::FAILURE
+    if let [verb, rest @ ..] = command {
+        if verb == "start" {
+            return start(mode);
+        }
+        if verb == "invite" {
+            return invite(rest);
         }
     }
+    println!("Error: the fake host kit has no `{}`", command.join(" "));
+    ExitCode::FAILURE
 }
 
 /// The host kit's control contract: the ready line when stdin controls it, then a `stop` line (or EOF) ends it.
-fn start(mode: Option<&str>) -> ExitCode {
+fn start(mode: Mode) -> ExitCode {
     println!("Starting the services...");
-    if mode == Some("fail") {
+    if mode == Mode::Fail {
         println!("Error: the backend did not start");
         return ExitCode::FAILURE;
     }
@@ -40,7 +51,7 @@ fn start(mode: Option<&str>) -> ExitCode {
         println!("REFORGED_SERVER_READY");
     }
     let _ = std::io::stdout().flush();
-    if mode == Some("deaf") {
+    if mode == Mode::Deaf {
         loop {
             std::thread::sleep(Duration::from_secs(1));
         }
