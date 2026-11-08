@@ -33,7 +33,7 @@ fn tells_whether_the_published_runtime_has_the_game_servers_cpu_patches() {
             .encode_utf16()
             .flat_map(u16::to_le_bytes),
     );
-    bytes.extend_from_slice(b" REFORGED_SERVER_MAX_FPS\0");
+    bytes.extend_from_slice(b" DAINTY_SERVER_MAX_FPS\0");
     std::fs::write(&both, bytes).unwrap();
     let old = dir.path().join("old.dll");
     std::fs::write(&old, "MZ an older runtime").unwrap();

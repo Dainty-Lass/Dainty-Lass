@@ -18,7 +18,7 @@ use rustic_isles_replay::{
 use serde_json::{Value, json};
 
 const NOW: i64 = 1_792_688_400_000;
-const RAW_KEY: &str = "RRK_00112233445566778899aabbccddeeff0011223344556677";
+const RAW_KEY: &str = "DLK_00112233445566778899aabbccddeeff0011223344556677";
 
 fn hs_side() -> (ReplayTargetAuth, String) {
     let mut auth = ReplayTargetAuth {
@@ -65,7 +65,7 @@ fn s3_s4_keys() {
     let on = substitute_str(&unknown, &auth, NOW);
     assert_eq!(
         (on.value.as_str(), on.inexact),
-        ("RRK_replay_ffffffffffffffffffffffff", false)
+        ("DLK_replay_ffffffffffffffffffffffff", false)
     );
 }
 

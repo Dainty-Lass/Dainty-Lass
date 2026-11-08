@@ -153,7 +153,7 @@ async fn with_a_sqlite_database() {
     let dir = tempfile::tempdir().unwrap();
     let file = dir.path().join("realms.sqlite");
     let path = file.display().to_string();
-    let settings = Settings::from_pairs([("REFORGED_DB_FILE", path.as_str())]);
+    let settings = Settings::from_pairs([("DAINTY_DB_FILE", path.as_str())]);
     let rifts = tokio::task::spawn_blocking(move || rifts_with_core(&settings, Arc::new(Named)))
         .await
         .unwrap();

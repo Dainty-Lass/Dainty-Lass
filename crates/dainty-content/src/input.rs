@@ -13,7 +13,7 @@ use serde_json::{Map, Value, json};
 use crate::log;
 
 /// The account key's header (the backend's own name for it).
-pub const KEY_HEADER: &str = "x-reforged-user-api-key";
+pub const KEY_HEADER: &str = "x-dainty-user-api-key";
 
 const MANIFEST: &str = "/content/v1/runtime/manifest";
 const BRANDING: &str = "/content/v1/branding";
@@ -529,17 +529,17 @@ mod tests {
     #[test]
     fn repeated_header_lines_are_joined() {
         let mut headers = http::HeaderMap::new();
-        headers.append(KEY_HEADER, http::HeaderValue::from_static("RRK_a"));
-        headers.append(KEY_HEADER, http::HeaderValue::from_static("RRK_b"));
+        headers.append(KEY_HEADER, http::HeaderValue::from_static("DLK_a"));
+        headers.append(KEY_HEADER, http::HeaderValue::from_static("DLK_b"));
         let joined = header_text(&headers, KEY_HEADER).unwrap();
-        assert_eq!(joined, "RRK_a, RRK_b");
+        assert_eq!(joined, "DLK_a, DLK_b");
         assert!(!is_plausible_key(&joined));
         assert_eq!(header_text(&headers, "if-none-match"), None);
     }
 
     #[test]
     fn keys_are_printable_ascii_up_to_256_bytes() {
-        assert!(is_plausible_key("RRK_abc") && is_plausible_key(&"k".repeat(256)));
+        assert!(is_plausible_key("DLK_abc") && is_plausible_key(&"k".repeat(256)));
         for key in ["", "a b", "a\nb", "\u{e4}"] {
             assert!(!is_plausible_key(key), "{key:?}");
         }

@@ -42,11 +42,11 @@ use crate::window::{CloseGuard, MAIN};
 pub use dainty_launcher_kit::platform::hostserver::EmbeddedServer;
 
 /// Set by a launcher that restarted itself, so the new one waits for the old to exit (§2.1.2 step 1).
-const PARENT_PID_VAR: &str = "REFORGED_PARENT_PID";
+const PARENT_PID_VAR: &str = "DAINTY_PARENT_PID";
 /// `0` turns off installing the secure-storage packages.
-const AUTO_INSTALL_VAR: &str = "REFORGED_AUTO_INSTALL";
+const AUTO_INSTALL_VAR: &str = "DAINTY_AUTO_INSTALL";
 /// Set on the restarted launcher, so it never bootstraps twice.
-const BOOTSTRAPPED_VAR: &str = "REFORGED_STORAGE_BOOTSTRAPPED";
+const BOOTSTRAPPED_VAR: &str = "DAINTY_STORAGE_BOOTSTRAPPED";
 
 /// Which app this build is.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

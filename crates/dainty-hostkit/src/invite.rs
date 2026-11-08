@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Silent Spud
 
 //! Invite link formatting (`dauntless://join?...`), gateway X.509 certificate SHA-256 fingerprint
-//! inspection, and local backend admin API calls (`/reforged/api/CreateInvite` and `/reforged/api/InviteCodes`).
+//! inspection, and local backend admin API calls (`/dainty/api/CreateInvite` and `/dainty/api/InviteCodes`).
 
 use std::io::{Read, Write};
 use std::net::{IpAddr, SocketAddr, TcpStream};
@@ -23,10 +23,10 @@ use crate::hostconfig::{HostConfig, ServerMode, gateway_port};
 pub use dainty_protocol::GameVersion;
 pub use dainty_protocol::invite::{
     DEFAULT_PUBLIC_PORT, FormatError, INVITE_SCHEME, Invite, InviteError, MAX_INVITE_LENGTH, REVIVED_INVITE_SCHEME,
-    ServerMode as InviteServerMode, UNIFIED_INVITE_SCHEME, clean_server_name, format_invite, invite_schemes,
-    is_loopback_host, is_magic_dns_name, is_private_mode_host, is_tailscale_ipv4, is_valid_fingerprint, is_valid_host,
-    is_valid_invite_code, is_valid_ipv4, is_valid_port, is_valid_share_url, named_version, parse_invite,
-    parse_invite_for, played_versions, reforged_version, version_alias,
+    ServerMode as InviteServerMode, UNIFIED_INVITE_SCHEME, clean_server_name, dainty_version, format_invite,
+    invite_schemes, is_loopback_host, is_magic_dns_name, is_private_mode_host, is_tailscale_ipv4, is_valid_fingerprint,
+    is_valid_host, is_valid_invite_code, is_valid_ipv4, is_valid_port, is_valid_share_url, named_version, parse_invite,
+    parse_invite_for, played_versions, version_alias,
 };
 
 /// Default game version string for standard 1.14.7 invites.
@@ -97,12 +97,12 @@ fn encode_uri_component(s: &str) -> String {
 
 /// Formats an invite URL for the default 1.14.7 game version from [`InviteParts`].
 pub fn format_invite_parts(parts: &InviteParts) -> Result<String, HostError> {
-    format_game_invite(parts, &reforged_version())
+    format_game_invite(parts, &dainty_version())
 }
 
 /// Formats an invite URL for a specific [`GameVersion`] from [`InviteParts`].
 pub fn format_game_invite(parts: &InviteParts, game: &GameVersion) -> Result<String, HostError> {
-    let scheme = if *game == reforged_version() {
+    let scheme = if *game == dainty_version() {
         INVITE_SCHEME
     } else {
         UNIFIED_INVITE_SCHEME
@@ -151,7 +151,7 @@ pub fn format_game_invite(parts: &InviteParts, game: &GameVersion) -> Result<Str
 
 /// Formats an invite URL for `config` on 1.14.7.
 pub fn invite_for(config: &HostConfig, code: &str, cert_fingerprint: Option<&str>) -> Result<String, HostError> {
-    invite_for_game(config, code, cert_fingerprint, &reforged_version())
+    invite_for_game(config, code, cert_fingerprint, &dainty_version())
 }
 
 /// Formats an invite URL for `config` and an explicit [`GameVersion`].
@@ -434,11 +434,11 @@ fn error_detail_from_body(body: &str) -> String {
     }
 }
 
-/// Calls `POST /reforged/api/CreateInvite` on `127.0.0.1:port` and returns the created invite code.
+/// Calls `POST /dainty/api/CreateInvite` on `127.0.0.1:port` and returns the created invite code.
 pub fn create_invite_code(admin_key: &str, opts: &CodeOptions, port: u16) -> Result<String, HostError> {
     let key = admin_key.trim();
     if key.is_empty() {
-        return Err(HostError::message("REFORGED_ADMIN_KEY is missing from secrets.env"));
+        return Err(HostError::message("DAINTY_ADMIN_KEY is missing from secrets.env"));
     }
     let mut payload = serde_json::Map::new();
     payload.insert("uses".into(), Value::Number((opts.uses as i64).into()));
@@ -455,8 +455,8 @@ pub fn create_invite_code(admin_key: &str, opts: &CodeOptions, port: u16) -> Res
     let resp = http_request(
         "POST",
         port,
-        "/reforged/api/CreateInvite",
-        &[("x-reforged-admin-key", key), ("Content-Type", "application/json")],
+        "/dainty/api/CreateInvite",
+        &[("x-dainty-admin-key", key), ("Content-Type", "application/json")],
         Some(&body_str),
         Duration::from_millis(5000),
     )
@@ -468,7 +468,7 @@ pub fn create_invite_code(admin_key: &str, opts: &CodeOptions, port: u16) -> Res
 
     if resp.status == 401 || resp.status == 403 {
         return Err(HostError::message(format!(
-            "the backend refused the admin key (HTTP {}): check REFORGED_ADMIN_KEY in secrets.env",
+            "the backend refused the admin key (HTTP {}): check DAINTY_ADMIN_KEY in secrets.env",
             resp.status
         )));
     }
@@ -492,17 +492,17 @@ pub fn create_invite_code(admin_key: &str, opts: &CodeOptions, port: u16) -> Res
     Ok(code.to_owned())
 }
 
-/// Calls `GET /reforged/api/InviteCodes` on `127.0.0.1:port` and returns the invite code objects.
+/// Calls `GET /dainty/api/InviteCodes` on `127.0.0.1:port` and returns the invite code objects.
 pub fn list_invite_codes(port: u16, admin_key: &str) -> Result<Vec<Value>, HostError> {
     let key = admin_key.trim();
     if key.is_empty() {
-        return Err(HostError::message("REFORGED_ADMIN_KEY is missing from secrets.env"));
+        return Err(HostError::message("DAINTY_ADMIN_KEY is missing from secrets.env"));
     }
     let resp = http_request(
         "GET",
         port,
-        "/reforged/api/InviteCodes",
-        &[("x-reforged-admin-key", key)],
+        "/dainty/api/InviteCodes",
+        &[("x-dainty-admin-key", key)],
         None,
         Duration::from_millis(5000),
     )
@@ -585,8 +585,8 @@ mod tests {
 
     #[test]
     fn formats_private_and_public_invites_and_parses_versions() {
-        assert_eq!(parse_game_version("1.14.7"), Some(reforged_version()));
-        assert_eq!(parse_game_version("reforged"), Some(reforged_version()));
+        assert_eq!(parse_game_version("1.14.7"), Some(dainty_version()));
+        assert_eq!(parse_game_version("reforged"), Some(dainty_version()));
         assert_eq!(parse_game_version("9.9.9"), None);
 
         let priv_parts = InviteParts {
@@ -651,8 +651,8 @@ mod tests {
             let mut buf = [0u8; 2048];
             let n = stream.read(&mut buf).unwrap();
             let req = String::from_utf8_lossy(&buf[..n]);
-            assert!(req.contains("POST /reforged/api/CreateInvite HTTP/1.1"));
-            assert!(req.contains("x-reforged-admin-key: secret123"));
+            assert!(req.contains("POST /dainty/api/CreateInvite HTTP/1.1"));
+            assert!(req.contains("x-dainty-admin-key: secret123"));
             let body = r#"{"code":"HUNT-2026"}"#;
             let resp = format!(
                 "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\n\r\n{body}",

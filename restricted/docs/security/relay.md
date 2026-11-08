@@ -15,12 +15,12 @@ item that does not hold is a bug to fix before the cutover, not a box to leave o
 
 ## What it is and where the boundary is
 
-The game runtime sends the 1.14.7 client's backend calls to `REFORGED_BACKEND_URL=http://127.0.0.1:61100`. The relay
+The game runtime sends the 1.14.7 client's backend calls to `DAINTY_BACKEND_URL=http://127.0.0.1:61100`. The relay
 listens there while the game runs and forwards every request, and the chat WebSocket, to the player's server. The
 requests carry the player's account key and tokens, so whoever gets the relay to forward for them acts as the player,
 and whoever gets the relay to send to the wrong server gets the key.
 
-- **In:** plain HTTP/1.1 and WebSocket upgrades on `127.0.0.1:61100` (`REFORGED_RELAY_PORT` changes it), from
+- **In:** plain HTTP/1.1 and WebSocket upgrades on `127.0.0.1:61100` (`DAINTY_RELAY_PORT` changes it), from
   any process on the PC unless the owner check refuses it. Web pages in a browser on the same PC can reach it too
   (DNS rebinding, `fetch`, `new WebSocket`).
 - **In, QoS only:** a second, best-effort listener on `127.0.0.1:80` that answers the QoS page and nothing else.

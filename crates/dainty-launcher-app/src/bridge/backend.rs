@@ -77,12 +77,12 @@ mod tests {
 
     #[test]
     fn the_link_is_taken_once() {
-        let backend = Backend::new(Some("reforged-revival://a".to_owned()));
-        assert_eq!(backend.take_invite_link().as_deref(), Some("reforged-revival://a"));
+        let backend = Backend::new(Some("dainty://a".to_owned()));
+        assert_eq!(backend.take_invite_link().as_deref(), Some("dainty://a"));
         assert_eq!(backend.take_invite_link(), None);
-        backend.set_invite_link("reforged-revival://b".to_owned());
-        backend.set_invite_link("reforged-revival://c".to_owned());
-        assert_eq!(backend.take_invite_link().as_deref(), Some("reforged-revival://c"));
+        backend.set_invite_link("dainty://b".to_owned());
+        backend.set_invite_link("dainty://c".to_owned());
+        assert_eq!(backend.take_invite_link().as_deref(), Some("dainty://c"));
         assert!(backend.panel().is_none());
     }
 }

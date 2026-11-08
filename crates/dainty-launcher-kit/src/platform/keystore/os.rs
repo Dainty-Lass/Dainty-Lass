@@ -315,9 +315,9 @@ mod tests {
     #[cfg(windows)]
     #[test]
     fn dpapi_round_trip() {
-        let sealed = Dpapi.seal(b"RRK2\n-\nkey").unwrap();
-        assert_ne!(sealed, b"RRK2\n-\nkey");
-        assert_eq!(Dpapi.open(&sealed).unwrap(), b"RRK2\n-\nkey");
+        let sealed = Dpapi.seal(b"DLK2\n-\nkey").unwrap();
+        assert_ne!(sealed, b"DLK2\n-\nkey");
+        assert_eq!(Dpapi.open(&sealed).unwrap(), b"DLK2\n-\nkey");
         assert_eq!(Dpapi.open(b"not dpapi"), Err(SealError::Failed));
     }
 }

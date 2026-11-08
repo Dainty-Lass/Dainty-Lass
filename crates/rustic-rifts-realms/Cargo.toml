@@ -30,7 +30,7 @@ uuid.workspace = true
 [dev-dependencies]
 tempfile.workspace = true
 tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
-# REFORGED_TEST_POSTGRES_URL, for the Postgres half of the repository tests
+# DAINTY_TEST_POSTGRES_URL, for the Postgres half of the repository tests
 url.workspace = true
 
 [lints]

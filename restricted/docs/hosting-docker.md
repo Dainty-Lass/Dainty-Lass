@@ -41,9 +41,9 @@ the host kit's, unchanged, and a `.workspace` can move between a container host 
 | `exports`, `captures` | `/opt/reforged/modules/rustic-isles/reference/1.14.7/Items_Analysis`, `…/DauntlessEndpointDocumentation` | CatalogExporter exports and store captures, for `gamedata` |
 | `mongo-data`, `mongo-config` | `/data/db` in `mongo`, `/opt/reforged/.workspace/mongodb` in `server` | Pre-cutover MongoDB data (moved into `store` by `host db migrate` and `host db verify`, and used by the `rollback` profile) |
 | `postgres-data` | Postgres's | The `postgres` profile's database |
-| bind mount `REFORGED_GAME_DIR` | `/game` | Your Dauntless 1.14.7 folder (the one with `Archon`), or the folder `install-game` makes `1.14.7` in |
-| bind mount `REFORGED_IMPORT_DIR` | `/import` (read-only, `host` only) | Files to bring in: the runtime's DLLs, game data packs |
-| bind mount `REFORGED_CONFIG_DIR` | `/config` (read-only, `configure` only) | The `toml` profile's `host.toml` |
+| bind mount `DAINTY_GAME_DIR` | `/game` | Your Dauntless 1.14.7 folder (the one with `Archon`), or the folder `install-game` makes `1.14.7` in |
+| bind mount `DAINTY_IMPORT_DIR` | `/import` (read-only, `host` only) | Files to bring in: the runtime's DLLs, game data packs |
+| bind mount `DAINTY_CONFIG_DIR` | `/config` (read-only, `configure` only) | The `toml` profile's `host.toml` |
 
 ## Before you start
 
@@ -71,17 +71,17 @@ cd dainty-lass/restricted
 cp .env.example .env
 ```
 
-In `.env`, set `REFORGED_GAME_DIR` to your Dauntless folder and leave `COMPOSE_PROFILES=public`. Then:
+In `.env`, set `DAINTY_GAME_DIR` to your Dauntless folder and leave `COMPOSE_PROFILES=public`. Then:
 
 ```bash
-REFORGED_COMMIT=$(git rev-parse --short=12 HEAD) docker compose build
+DAINTY_COMMIT=$(git rev-parse --short=12 HEAD) docker compose build
 docker compose run --rm host setup --mode public --host play.example.org --name "Friday Hunts"
 ```
 
 Every crate is in the checkout: the images build with the monorepo root as context (Compose's `context: ..`), so
 `restricted/` reaches the root's MIT crates by path and the build needs no SSH key. The server binary is built with
 `all-modules`, as the release is; to build without any game module, set the build argument
-`REFORGED_MODULES=` (from the root: `docker build -f restricted/docker/Dockerfile --build-arg REFORGED_MODULES= --target server .`).
+`DAINTY_MODULES=` (from the root: `docker build -f restricted/docker/Dockerfile --build-arg DAINTY_MODULES= --target server .`).
 The server image also holds the libraries `host.toml` can pin (RD27) in `/opt/reforged/plugins`, so a
 `[[modules.external]]` or `[services.<name>]` path there reads `plugins/librustic_isles_plugin.so` and the like
 ([hosting.md](hosting.md#game-modules-and-plugins)).
@@ -94,14 +94,14 @@ a Linux host.
 
 ### Getting the game from Epic
 
-With no Dauntless folder yet, point `REFORGED_GAME_DIR` at an empty one (writable for uid 1000) and install into it
+With no Dauntless folder yet, point `DAINTY_GAME_DIR` at an empty one (writable for uid 1000) and install into it
 from the owner's Epic library, as the launcher does for players:
 
 ```bash
 docker compose run --rm host install-game
 ```
 
-In the container `--dir` is `/game` unless you give it, so 1.14.7 lands in `REFORGED_GAME_DIR/1.14.7` (`/game/1.14.7`).
+In the container `--dir` is `/game` unless you give it, so 1.14.7 lands in `DAINTY_GAME_DIR/1.14.7` (`/game/1.14.7`).
 The command prints Epic's login address; open it in a browser on any computer and paste the `authorizationCode`
 Epic shows when asked (`run` gives it a terminal; with `-T` or a pipe, put the code in `./import` and pass
 `--code-file /import/code.txt`). The session it opens is kept in the `workspace` volume
@@ -109,12 +109,12 @@ Epic shows when asked (`run` gives it a terminal; with `-T` or a pipe, put the c
 `docker compose run --rm host install-game --sign-out` ends and deletes the session, which should be the last thing
 you run. If `host.toml` exists, `install-game` sets `game_dir` to `/game/1.14.7` and rewrites the env files, so the
 `director` container's game servers run from it; if not, give `setup` that folder with `--game /game/1.14.7` (setup
-adds `--game /game` itself only when `/game/Archon` exists). A `toml`-profile `host.toml` in `REFORGED_CONFIG_DIR`
+adds `--game /game` itself only when `/game/Archon` exists). A `toml`-profile `host.toml` in `DAINTY_CONFIG_DIR`
 replaces the workspace's, so put `game_dir = "/game/1.14.7"` in it. The `compose.yaml` needs nothing for this: the
 `host` service already mounts the game folder and reaches the internet through `net`. About 15 GB comes down;
 [hosting.md](hosting.md#getting-the-game-from-epic) has the rest.
 
-The runtime and the game data: put the files in `./import` (or `REFORGED_IMPORT_DIR`), then
+The runtime and the game data: put the files in `./import` (or `DAINTY_IMPORT_DIR`), then
 
 ```bash
 docker compose run --rm host publish-runtime --from /import/runtime
@@ -135,9 +135,9 @@ setup from inside the server's network. It checks for a plain Linux host, so in 
 are expected and harmless: git, nftables and the systemd units are not in the `host` container, and the
 gateway and content server count as "not built" because they run from `dainty-host` in the `front` image instead.
 
-**Another port than 443** (`setup --public-port 4443`): set `REFORGED_GATEWAY_PORT=4443` and
-`REFORGED_GATEWAY_PUBLISH=4443` in `.env` too, and allow TCP 4443 in the provider's firewall. **More than six
-hunts** (`--max-hunts 10`): `REFORGED_GAME_PORTS=8766-8777`.
+**Another port than 443** (`setup --public-port 4443`): set `DAINTY_GATEWAY_PORT=4443` and
+`DAINTY_GATEWAY_PUBLISH=4443` in `.env` too, and allow TCP 4443 in the provider's firewall. **More than six
+hunts** (`--max-hunts 10`): `DAINTY_GAME_PORTS=8766-8777`.
 
 ## A private server (Tailscale)
 
@@ -158,13 +158,13 @@ docker compose run --rm host setup --mode private --host 100.x.y.z --name "Frida
 docker compose up -d
 ```
 
-The node is a machine of its own in your tailnet (`reforged-revival`, or `TS_HOSTNAME`): share that one with
+The node is a machine of its own in your tailnet (`dainty-lass`, or `TS_HOSTNAME`): share that one with
 your friends, and give its share link to setup with `--share`.
 
 ## Managed by host.toml alone
 
 For a server nobody sets up by hand, such as one kept in a repository or deployed by a script: with the
-`toml` profile, `host.toml` in `./config` (or `REFORGED_CONFIG_DIR`) is the server's whole configuration. At
+`toml` profile, `host.toml` in `./config` (or `DAINTY_CONFIG_DIR`) is the server's whole configuration. At
 every `docker compose up` the `configure` container copies it into the `workspace` volume and runs setup from
 it with no options, and nothing else starts unless that worked. A setting is changed by editing the file and
 running `docker compose up -d --force-recreate`. That includes `[guard]`, which holds the bulk admin actions
@@ -203,7 +203,7 @@ engine = "postgres"
 
 Leave `postgres_host`, `postgres_port`, `postgres_user` and `postgres_database` out: the container is
 127.0.0.1:5432 with the role and database `dainty`. Its first start takes the role's password from `secrets.env`
-(`REFORGED_DB_PASSWORD`), so setup has to have run before; the container stops with a message otherwise.
+(`DAINTY_DB_PASSWORD`), so setup has to have run before; the container stops with a message otherwise.
 `POSTGRES_IMAGE` in `.env` picks another image.
 
 ## A network of servers
@@ -233,7 +233,7 @@ what the harness checks. The other services have no profile, so name the target 
 | `network` | Nothing: it waits for the four gateways, so `up --wait network` is the whole cluster |
 
 The regions are `oregon`, `new-york`, `uk` and `germany` (nodes `oregon-1` and so on), at `172.28.77.11` to `.14`
-(`REFORGED_NETWORK_SUBNET`), their gateways published on `127.0.0.1` ports 18441 to 18444. The addresses are fixed
+(`DAINTY_NETWORK_SUBNET`), their gateways published on `127.0.0.1` ports 18441 to 18444. The addresses are fixed
 because the node certificates and the `tc` filters name them.
 
 **The latency** is the canary's round trip between each pair of regions (milliseconds; each node delays its outgoing
@@ -245,9 +245,9 @@ traffic to a peer by half, so a round trip adds up to the table's value):
 | **new-york** | | 75 | 85 |
 | **uk** | | | 20 |
 
-Each pair is a setting, `REFORGED_NETWORK_RTT_<A>_<B>` (`REFORGED_NETWORK_RTT_OREGON_NEW_YORK=70` and so on, listed
+Each pair is a setting, `DAINTY_NETWORK_RTT_<A>_<B>` (`DAINTY_NETWORK_RTT_OREGON_NEW_YORK=70` and so on, listed
 in `.env.example`). The Docker host plays a player: a node delays everything that is not another node by the round
-trip between the player's region (`REFORGED_NETWORK_PLAYER_REGION`, `germany` unless set) and its own, which is what a
+trip between the player's region (`DAINTY_NETWORK_PLAYER_REGION`, `germany` unless set) and its own, which is what a
 launcher running on the host measures. `docker/network/netem.sh` applies it with a `prio` qdisc, one `netem` band
 per peer and filters by address; ARP is never delayed.
 
@@ -290,11 +290,11 @@ peer); its exit code is 1 when a peer is not `up`.
 A Docker server can enroll under a **Dainty Lass Manager** controller (or a headless controller container) over pinned
 mTLS ([hosting.md](hosting.md#managing-several-installs), [remote-management.md](https://git.silentspud.com/silentspud/dainty-lass/src/branch/main/docs/remote-management.md)):
 
-- **First-boot enrollment (`REFORGED_REMOTE_ENROLL_TOKEN`).** Set `REFORGED_REMOTE_ENROLL_TOKEN="dainty-lass-remote://enroll?v=1&..."`
-  (and optional `REFORGED_REMOTE_LABEL`) in `.env` and add the `managed` profile (`COMPOSE_PROFILES=public,managed`).
+- **First-boot enrollment (`DAINTY_REMOTE_ENROLL_TOKEN`).** Set `DAINTY_REMOTE_ENROLL_TOKEN="dainty-lass-remote://enroll?v=1&..."`
+  (and optional `DAINTY_REMOTE_LABEL`) in `.env` and add the `managed` profile (`COMPOSE_PROFILES=public,managed`).
   When `remote-agent` starts (`docker/host-entrypoint.sh`), it redeems the single-use enrollment URI once if
   `remote-managed.json` does not exist yet, writes the issued mTLS leaf certificate into `/opt/reforged/.workspace/tls/`,
-  and syncs shared settings and queued remote commands from the controller every `REFORGED_REMOTE_SYNC_INTERVAL_SECS`
+  and syncs shared settings and queued remote commands from the controller every `DAINTY_REMOTE_SYNC_INTERVAL_SECS`
   (default `15`).
 - **Manual CLI enrollment.** On an already running container, run
   `docker compose run --rm host remote enroll "dainty-lass-remote://enroll?v=1&..."` and
@@ -348,7 +348,7 @@ images:
 3. The compose smoke test (`docker/smoke-test.sh`): a pre-cutover `mongo-data` volume seeded with an account and
    invite, `backend` refusing to start before migration, `host db migrate` and `host db verify` moving the data into
    the SQLite store, the `toml` profile's `configure` applying an edited `host.toml`, every service healthy, the
-   gateway serving setup's certificate and answering `/reforged/api/ServerStatus` and account checks from the
+   gateway serving setup's certificate and answering `/dainty/api/ServerStatus` and account checks from the
    Rust backend, the allowlist's table in place, an invite, a clean stop.
 
 `bash docker/run-tests.sh rust` runs only step 2; `SKIP_SMOKE=1` leaves out step 3. On a server,

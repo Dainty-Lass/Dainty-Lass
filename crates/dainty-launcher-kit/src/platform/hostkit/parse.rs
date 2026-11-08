@@ -23,7 +23,7 @@ pub const MIN_MULTIPLIER: f64 = 1.0;
 pub const MAX_MULTIPLIER: f64 = 100.0;
 
 /// Schemes an invite link from `dainty-host invite` may start with.
-pub const INVITE_LINK_PREFIXES: [&str; 3] = ["dauntless://", "reforged-revival://", "dauntless-revived://"];
+pub const INVITE_LINK_PREFIXES: [&str; 3] = ["dauntless://", "dainty://", "dauntless-revived://"];
 
 /// The invite `dainty-host invite` printed.
 #[derive(Debug, Clone, PartialEq, Eq)]

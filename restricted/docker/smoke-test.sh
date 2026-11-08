@@ -5,15 +5,15 @@
 # shared namespace, the backend makes an invite, and everything stops. Builds the images unless SMOKE_NO_BUILD=1.
 set -euo pipefail
 
-export COMPOSE_PROJECT_NAME="${COMPOSE_PROJECT_NAME:-reforged-smoke}"
+export COMPOSE_PROJECT_NAME="${COMPOSE_PROJECT_NAME:-dainty-smoke}"
 export COMPOSE_PROFILES=public
 export COMPOSE_FILE=compose.yaml
-export REFORGED_GATEWAY_PORT=443
-export REFORGED_GATEWAY_PUBLISH="127.0.0.1:${SMOKE_PORT:-18443}"
-export REFORGED_GAME_PUBLISH_ADDRESS=127.0.0.1
+export DAINTY_GATEWAY_PORT=443
+export DAINTY_GATEWAY_PUBLISH="127.0.0.1:${SMOKE_PORT:-18443}"
+export DAINTY_GAME_PUBLISH_ADDRESS=127.0.0.1
 smoke_dir="$(mktemp -d)"
-export REFORGED_GAME_DIR="$smoke_dir/game" REFORGED_IMPORT_DIR="$smoke_dir/import" REFORGED_CONFIG_DIR="$smoke_dir/config"
-mkdir -p "$REFORGED_GAME_DIR" "$REFORGED_IMPORT_DIR" "$REFORGED_CONFIG_DIR"
+export DAINTY_GAME_DIR="$smoke_dir/game" DAINTY_IMPORT_DIR="$smoke_dir/import" DAINTY_CONFIG_DIR="$smoke_dir/config"
+mkdir -p "$DAINTY_GAME_DIR" "$DAINTY_IMPORT_DIR" "$DAINTY_CONFIG_DIR"
 
 compose() { docker compose "$@"; }
 step() { printf '\n== %s\n' "$*"; }
@@ -23,7 +23,7 @@ cleanup() {
 		compose ps -a || true
 		compose logs --no-color --tail 80 || true
 	fi
-	COMPOSE_PROFILES=public,toml,rollback compose down --volumes --remove-orphans >/dev/null 2>&1 || true
+	COMPOSE_PROFILES=public,toml,mongo compose down --volumes --remove-orphans >/dev/null 2>&1 || true
 	rm -rf "$smoke_dir"
 	exit "$status"
 }
@@ -35,7 +35,7 @@ if [ "${SMOKE_NO_BUILD:-0}" != 1 ]; then
 fi
 
 step "fresh toml profile apply with no MongoDB succeeds"
-cat <<'TOML' >"$REFORGED_CONFIG_DIR/host.toml"
+cat <<'TOML' >"$DAINTY_CONFIG_DIR/host.toml"
 version = 1
 mode = "public"
 host = "smoke.example.org"
@@ -45,12 +45,12 @@ registration = "INVITECODE"
 max_hunt_servers = 1
 TOML
 COMPOSE_PROFILES=public,toml compose run --rm configure
-compose run --rm --entrypoint sh host -c 'cat /opt/reforged/.workspace/config/backend.env' | grep -q 'Fresh Toml Apply'
+compose run --rm --entrypoint sh host -c 'cat /opt/dainty-lass/.workspace/config/backend.env' | grep -q 'Fresh Toml Apply'
 compose down --volumes --remove-orphans >/dev/null 2>&1
 
 step "seed pre-cutover mongo-data volume"
-COMPOSE_PROFILES=public,rollback compose up -d --wait mongo
-COMPOSE_PROFILES=public,rollback compose exec -T mongo mongosh --quiet "mongodb://127.0.0.1:27017/reforged?replicaSet=rs0" --eval '
+COMPOSE_PROFILES=public,mongo compose up -d --wait mongo
+COMPOSE_PROFILES=public,mongo compose exec -T mongo mongosh --quiet "mongodb://127.0.0.1:27017/reforged?replicaSet=rs0" --eval '
 	db.accounts.insertOne({
 		_id: ObjectId("507f1f77bcf86cd799439011"),
 		userId: "user-docker-01",
@@ -96,36 +96,36 @@ compose run --rm host setup --mode public --host smoke.example.org --game-addres
 # setup no longer moves it (dainty-legacy's `import reforged` does, or these two by hand); verify writes the marker
 compose run --rm host db migrate
 compose run --rm host db verify
-COMPOSE_PROFILES=public,rollback compose rm -sf mongo
+COMPOSE_PROFILES=public,mongo compose rm -sf mongo
 
 step "the toml profile applies host.toml alone"
-compose run --rm --entrypoint sh host -c 'cat /opt/reforged/.workspace/config/host.toml' 	| sed 's/^name = .*/name = "Smoke Toml"/' >"$REFORGED_CONFIG_DIR/host.toml"
+compose run --rm --entrypoint sh host -c 'cat /opt/dainty-lass/.workspace/config/host.toml' 	| sed 's/^name = .*/name = "Smoke Toml"/' >"$DAINTY_CONFIG_DIR/host.toml"
 COMPOSE_PROFILES=public,toml compose run --rm configure
-compose run --rm --entrypoint sh host -c 'cat /opt/reforged/.workspace/config/backend.env' | grep -q 'Smoke Toml'
+compose run --rm --entrypoint sh host -c 'cat /opt/dainty-lass/.workspace/config/backend.env' | grep -q 'Smoke Toml'
 
 step "up, configure first"
 COMPOSE_PROFILES=public,toml compose up -d --wait --wait-timeout 300
 compose ps
 
 step "the gateway serves setup's certificate"
-fp_file="$(compose run --rm --entrypoint sh host -c 'cat /opt/reforged/.workspace/tls/gateway-cert.pem')"
-served="$(echo | openssl s_client -connect "$REFORGED_GATEWAY_PUBLISH" -servername smoke.example.org 2>/dev/null | openssl x509 -noout -fingerprint -sha256)"
+fp_file="$(compose run --rm --entrypoint sh host -c 'cat /opt/dainty-lass/.workspace/tls/gateway-cert.pem')"
+served="$(echo | openssl s_client -connect "$DAINTY_GATEWAY_PUBLISH" -servername smoke.example.org 2>/dev/null | openssl x509 -noout -fingerprint -sha256)"
 expected="$(printf '%s\n' "$fp_file" | openssl x509 -noout -fingerprint -sha256)"
 echo "served:   $served"
 echo "expected: $expected"
 [ "$served" = "$expected" ]
 
-step "the gateway proxies /reforged/api/ServerStatus and migrated accounts from the Rust backend"
+step "the gateway proxies /dainty/api/ServerStatus and migrated accounts from the Rust backend"
 printf '%s\n' "$fp_file" >"$smoke_dir/gateway-cert.pem"
-status_json="$(curl -fsS --cacert "$smoke_dir/gateway-cert.pem" --resolve "smoke.example.org:${SMOKE_PORT:-18443}:127.0.0.1" "https://smoke.example.org:${SMOKE_PORT:-18443}/reforged/api/ServerStatus")"
+status_json="$(curl -fsS --cacert "$smoke_dir/gateway-cert.pem" --resolve "smoke.example.org:${SMOKE_PORT:-18443}:127.0.0.1" "https://smoke.example.org:${SMOKE_PORT:-18443}/dainty/api/ServerStatus")"
 echo "ServerStatus: $status_json"
 printf '%s\n' "$status_json" | grep -q '"online":true'
 
-user_taken_json="$(curl -sS --cacert "$smoke_dir/gateway-cert.pem" --resolve "smoke.example.org:${SMOKE_PORT:-18443}:127.0.0.1" -H "Content-Type: application/json" -d '{"Username":"SlayerDocker","InviteCode":"INV-DOCKER-01"}' "https://smoke.example.org:${SMOKE_PORT:-18443}/reforged/api/Register")"
+user_taken_json="$(curl -sS --cacert "$smoke_dir/gateway-cert.pem" --resolve "smoke.example.org:${SMOKE_PORT:-18443}:127.0.0.1" -H "Content-Type: application/json" -d '{"Username":"SlayerDocker","InviteCode":"INV-DOCKER-01"}' "https://smoke.example.org:${SMOKE_PORT:-18443}/dainty/api/Register")"
 echo "Register SlayerDocker (migrated account): $user_taken_json"
 printf '%s\n' "$user_taken_json" | grep -q '"username_taken"'
 
-user_new_json="$(curl -fsS --cacert "$smoke_dir/gateway-cert.pem" --resolve "smoke.example.org:${SMOKE_PORT:-18443}:127.0.0.1" -H "Content-Type: application/json" -d '{"Username":"DockerNewbie","InviteCode":"INV-DOCKER-01"}' "https://smoke.example.org:${SMOKE_PORT:-18443}/reforged/api/Register")"
+user_new_json="$(curl -fsS --cacert "$smoke_dir/gateway-cert.pem" --resolve "smoke.example.org:${SMOKE_PORT:-18443}:127.0.0.1" -H "Content-Type: application/json" -d '{"Username":"DockerNewbie","InviteCode":"INV-DOCKER-01"}' "https://smoke.example.org:${SMOKE_PORT:-18443}/dainty/api/Register")"
 echo "Register DockerNewbie with migrated invite: $user_new_json"
 printf '%s\n' "$user_new_json" | grep -q '"UUK"'
 
@@ -134,12 +134,12 @@ compose run --rm host invite --list | tee "$smoke_dir/invites-list.txt"
 grep -q 'INV-DOCKER-01' "$smoke_dir/invites-list.txt"
 
 step "the allowlist's table closes the game ports"
-compose exec -T allowlist nft list table inet reforged_revival | tee "$smoke_dir/nft.txt"
+compose exec -T allowlist nft list table inet dainty_lass | tee "$smoke_dir/nft.txt"
 grep -q 'udp dport 8770-8777 drop' "$smoke_dir/nft.txt"
 
 step invite
 compose run --rm host invite --for "Smoke" | tee "$smoke_dir/invite.txt"
-grep -q 'reforged-revival://' "$smoke_dir/invite.txt"
+grep -q 'dainty://' "$smoke_dir/invite.txt"
 
 step doctor
 compose run --rm host doctor --no-hash || true

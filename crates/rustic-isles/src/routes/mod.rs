@@ -80,7 +80,7 @@ pub enum Group {
     /// Sign-in and sessions.
     Auth,
     /// The Reforged API.
-    ReforgedApi,
+    LauncherApi,
     /// Characters and loadouts.
     CharactersLoadouts,
     /// Inventory and reforging.
@@ -110,7 +110,7 @@ impl Group {
     pub const fn as_str(self) -> &'static str {
         match self {
             Self::Auth => "auth",
-            Self::ReforgedApi => "reforged-api",
+            Self::LauncherApi => "reforged-api",
             Self::CharactersLoadouts => "characters-loadouts",
             Self::InventoryReforge => "inventory-reforge",
             Self::Progression => "progression",
@@ -206,7 +206,7 @@ pub struct RouteDef {
     pub when: When,
 }
 
-const NODE_PREFIXES: [&str; 4] = ["/launcher/", "/admin/", "/health/", "/reforged/api/"];
+const NODE_PREFIXES: [&str; 4] = ["/launcher/", "/admin/", "/health/", "/dainty/api/"];
 
 impl RouteDef {
     /// [`Scope::Node`] when the path is under a launcher, admin, health or Reforged API prefix, else

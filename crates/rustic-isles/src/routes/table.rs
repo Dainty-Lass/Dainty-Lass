@@ -31,11 +31,11 @@ const fn r(
 
 #[rustfmt::skip]
 pub(super) static TABLE: [RouteDef; 290] = [
-    r(B, Get, r"/", ReforgedApi, Isles, Always), // B1
-    r(B, Get, r"/health/live", ReforgedApi, Isles, Always), // B2
-    r(B, Get, r"/health/ready", ReforgedApi, Isles, Always), // B3
-    r(B, Get, r"/health/release-gates", ReforgedApi, Isles, Admin), // B4
-    r(B, Get, r"/internal/v1/metrics", ReforgedApi, Isles, Always), // B5
+    r(B, Get, r"/", LauncherApi, Isles, Always), // B1
+    r(B, Get, r"/health/live", LauncherApi, Isles, Always), // B2
+    r(B, Get, r"/health/ready", LauncherApi, Isles, Always), // B3
+    r(B, Get, r"/health/release-gates", LauncherApi, Isles, Admin), // B4
+    r(B, Get, r"/internal/v1/metrics", LauncherApi, Isles, Always), // B5
     r(B, Get, r"/features/platform/win", Auth, Isles, Always), // B6
     r(B, Get, r"/account/link/epic/:AccId", Auth, Isles, Always), // B7
     r(B, Post, r"/login", Auth, Isles, Always), // B8
@@ -55,7 +55,7 @@ pub(super) static TABLE: [RouteDef; 290] = [
     r(B, Delete, r"/account/api/oauth/sessions/kill", Auth, Isles, Always), // B22
     r(B, Delete, r"/account/api/oauth/sessions/kill/:AuthToken", Auth, Isles, Always), // B23
     r(B, Get, r"/account/api/public/account", Auth, Isles, Always), // B24
-    r(B, Get, r"/dauntless-status", ReforgedApi, Isles, Always), // B25
+    r(B, Get, r"/dauntless-status", LauncherApi, Isles, Always), // B25
     r(B, Post, r"/heartbeat", GameData, Isles, Always), // B26
     r(B, Post, r"/event", GameData, Isles, Always), // B27
     r(B, Get, r"/crash/CrashReporter/Ping", GameData, Isles, Always), // B28
@@ -94,7 +94,7 @@ pub(super) static TABLE: [RouteDef; 290] = [
     r(B, Delete, r"/bounty/delete/:userId", BountiesStore, Isles, Always), // B61
     r(B, Get, r"/all/", GameData, Isles, Always), // B62
     r(B, Get, r"/patchnotes/:language/:gameversion", GameData, Isles, Always), // B63
-    r(B, Get, r"/maintenance/status", ReforgedApi, Isles, Always), // B64
+    r(B, Get, r"/maintenance/status", LauncherApi, Isles, Always), // B64
     r(B, Get, r"/character", CharactersLoadouts, Isles, Always), // B65
     r(B, Put, r"/character", CharactersLoadouts, Isles, Always), // B66
     r(B, Post, r"/character", CharactersLoadouts, Isles, Always), // B67
@@ -203,58 +203,58 @@ pub(super) static TABLE: [RouteDef; 290] = [
     r(B, Get, r"/launcher/v1/account/deletion", Auth, Isles, Always), // B170
     r(B, Post, r"/launcher/v1/account/deletion", Auth, Isles, Always), // B171
     r(B, Delete, r"/launcher/v1/account/deletion", Auth, Isles, Always), // B172
-    r(B, Post, r"/reforged/api/Register", ReforgedApi, Isles, Always), // B173
-    r(B, Get, r"/reforged/api/GetUserInfo", ReforgedApi, Isles, Always), // B174
-    r(B, Get, r"/reforged/api/ServerStatus", ReforgedApi, Isles, Always), // B175
-    r(B, Get, r"/reforged/api/RegistrationStatus", ReforgedApi, Isles, Always), // B176
-    r(B, Post, r"/reforged/api/CreateInvite", ReforgedApi, Isles, Always), // B177
-    r(B, Get, r"/reforged/api/InviteCodes", ReforgedApi, Isles, Always), // B178
-    r(B, Delete, r"/reforged/api/InviteCode/:code", ReforgedApi, Isles, Always), // B179
-    r(B, Post, r"/reforged/api/SetAccountStatus", ReforgedApi, Isles, Always), // B180
-    r(B, Post, r"/reforged/api/Kick", ReforgedApi, Isles, Always), // B181
-    r(B, Get, r"/launcher/v1/runtime/:target/:channel/:platform", ReforgedApi, Isles, Always), // B182
-    r(B, Get, r"/launcher/v1/runtime/:channel/:platform", ReforgedApi, Isles, Always), // B183
-    r(B, Get, r"/launcher/v1/runtime/:target/:channel/:platform/download", ReforgedApi, Isles, Always), // B184
-    r(B, Get, r"/launcher/v1/runtime/:channel/:platform/download", ReforgedApi, Isles, Always), // B185
+    r(B, Post, r"/dainty/api/Register", LauncherApi, Isles, Always), // B173
+    r(B, Get, r"/dainty/api/GetUserInfo", LauncherApi, Isles, Always), // B174
+    r(B, Get, r"/dainty/api/ServerStatus", LauncherApi, Isles, Always), // B175
+    r(B, Get, r"/dainty/api/RegistrationStatus", LauncherApi, Isles, Always), // B176
+    r(B, Post, r"/dainty/api/CreateInvite", LauncherApi, Isles, Always), // B177
+    r(B, Get, r"/dainty/api/InviteCodes", LauncherApi, Isles, Always), // B178
+    r(B, Delete, r"/dainty/api/InviteCode/:code", LauncherApi, Isles, Always), // B179
+    r(B, Post, r"/dainty/api/SetAccountStatus", LauncherApi, Isles, Always), // B180
+    r(B, Post, r"/dainty/api/Kick", LauncherApi, Isles, Always), // B181
+    r(B, Get, r"/launcher/v1/runtime/:target/:channel/:platform", LauncherApi, Isles, Always), // B182
+    r(B, Get, r"/launcher/v1/runtime/:channel/:platform", LauncherApi, Isles, Always), // B183
+    r(B, Get, r"/launcher/v1/runtime/:target/:channel/:platform/download", LauncherApi, Isles, Always), // B184
+    r(B, Get, r"/launcher/v1/runtime/:channel/:platform/download", LauncherApi, Isles, Always), // B185
     r(B, Get, r"/launcher/v1/guard-manifests/:channel/:platform", Guard, Rifts, Always), // B186
     r(B, Post, r"/launcher/v1/admin/guard-manifests/:channel/:platform", Guard, Rifts, Always), // B187
-    r(B, Post, r"/launcher/v1/admin/updates/runtime/:target/:channel/:platform", ReforgedApi, Isles, Always), // B188
-    r(B, Post, r"/launcher/v1/admin/updates/runtime/:target/:channel/:platform/extra", ReforgedApi, Isles, Always), // B189
-    r(B, Get, r"/launcher/v1/runtime/:target/:channel/:platform/extra/:filename", ReforgedApi, Isles, Always), // B190
-    r(B, Get, r"/launcher/v1/admin/updates/serving", ReforgedApi, Isles, Always), // B191
-    r(B, Post, r"/launcher/v1/admin/updates/serving", ReforgedApi, Isles, Always), // B192
-    r(B, Get, r"/launcher/v1/updates/:target/:arch/download", ReforgedApi, Isles, Always), // B193
-    r(B, Get, r"/launcher/v1/updates/:target/:arch/files/:version/:file", ReforgedApi, Isles, Always), // B194
-    r(B, Get, r"/launcher/v1/updates/:target/:arch/:currentVersion", ReforgedApi, Isles, Always), // B195
-    r(B, Put, r"/launcher/v1/logs/sessions/:launchSessionId/:fileName", ReforgedApi, Isles, Always), // B196
-    r(B, Get, r"/admin/v1/launcher-logs", ReforgedApi, Isles, Admin), // B197
-    r(B, Get, r"/admin/v1/launcher-logs/:userId/:launchSessionId/:fileName", ReforgedApi, Isles, Admin), // B198
-    r(B, Post, r"/admin/v1/auth/login", ReforgedApi, Isles, Admin), // B199
-    r(B, Post, r"/admin/v1/auth/logout", ReforgedApi, Isles, Admin), // B200
-    r(B, Get, r"/admin/v1/auth/discord/start", ReforgedApi, Isles, Admin), // B201
-    r(B, Get, r"/admin/v1/auth/discord/callback", ReforgedApi, Isles, Admin), // B202
-    r(B, Get, r"/admin/v1/me", ReforgedApi, Isles, Admin), // B203
-    r(B, Get, r"/admin/v1/online-players", ReforgedApi, Isles, Admin), // B204
-    r(B, Get, r"/admin/v1/players", ReforgedApi, Isles, Admin), // B205
-    r(B, Patch, r"/admin/v1/players/:userId/access", ReforgedApi, Isles, Admin), // B206
-    r(B, Patch, r"/admin/v1/players/:userId/roles", ReforgedApi, Isles, Admin), // B207
-    r(B, Delete, r"/admin/v1/players/:userId", ReforgedApi, Isles, Admin), // B208
-    r(B, Get, r"/admin/v1/audit", ReforgedApi, Isles, Admin), // B209
-    r(B, Get, r"/admin/v1/operations/overview", ReforgedApi, Isles, Admin), // B210
-    r(B, Patch, r"/admin/v1/operations/policy", ReforgedApi, Isles, Admin), // B211
-    r(B, Get, r"/admin/v1/launcher-notices", ReforgedApi, Isles, Admin), // B212
-    r(B, Put, r"/admin/v1/launcher-notices", ReforgedApi, Isles, Admin), // B213
+    r(B, Post, r"/launcher/v1/admin/updates/runtime/:target/:channel/:platform", LauncherApi, Isles, Always), // B188
+    r(B, Post, r"/launcher/v1/admin/updates/runtime/:target/:channel/:platform/extra", LauncherApi, Isles, Always), // B189
+    r(B, Get, r"/launcher/v1/runtime/:target/:channel/:platform/extra/:filename", LauncherApi, Isles, Always), // B190
+    r(B, Get, r"/launcher/v1/admin/updates/serving", LauncherApi, Isles, Always), // B191
+    r(B, Post, r"/launcher/v1/admin/updates/serving", LauncherApi, Isles, Always), // B192
+    r(B, Get, r"/launcher/v1/updates/:target/:arch/download", LauncherApi, Isles, Always), // B193
+    r(B, Get, r"/launcher/v1/updates/:target/:arch/files/:version/:file", LauncherApi, Isles, Always), // B194
+    r(B, Get, r"/launcher/v1/updates/:target/:arch/:currentVersion", LauncherApi, Isles, Always), // B195
+    r(B, Put, r"/launcher/v1/logs/sessions/:launchSessionId/:fileName", LauncherApi, Isles, Always), // B196
+    r(B, Get, r"/admin/v1/launcher-logs", LauncherApi, Isles, Admin), // B197
+    r(B, Get, r"/admin/v1/launcher-logs/:userId/:launchSessionId/:fileName", LauncherApi, Isles, Admin), // B198
+    r(B, Post, r"/admin/v1/auth/login", LauncherApi, Isles, Admin), // B199
+    r(B, Post, r"/admin/v1/auth/logout", LauncherApi, Isles, Admin), // B200
+    r(B, Get, r"/admin/v1/auth/discord/start", LauncherApi, Isles, Admin), // B201
+    r(B, Get, r"/admin/v1/auth/discord/callback", LauncherApi, Isles, Admin), // B202
+    r(B, Get, r"/admin/v1/me", LauncherApi, Isles, Admin), // B203
+    r(B, Get, r"/admin/v1/online-players", LauncherApi, Isles, Admin), // B204
+    r(B, Get, r"/admin/v1/players", LauncherApi, Isles, Admin), // B205
+    r(B, Patch, r"/admin/v1/players/:userId/access", LauncherApi, Isles, Admin), // B206
+    r(B, Patch, r"/admin/v1/players/:userId/roles", LauncherApi, Isles, Admin), // B207
+    r(B, Delete, r"/admin/v1/players/:userId", LauncherApi, Isles, Admin), // B208
+    r(B, Get, r"/admin/v1/audit", LauncherApi, Isles, Admin), // B209
+    r(B, Get, r"/admin/v1/operations/overview", LauncherApi, Isles, Admin), // B210
+    r(B, Patch, r"/admin/v1/operations/policy", LauncherApi, Isles, Admin), // B211
+    r(B, Get, r"/admin/v1/launcher-notices", LauncherApi, Isles, Admin), // B212
+    r(B, Put, r"/admin/v1/launcher-notices", LauncherApi, Isles, Admin), // B213
     r(B, Get, r"/admin/v1/guard/sessions", Guard, Rifts, Admin), // B214
     r(B, Get, r"/admin/v1/guard/sessions/:guardSessionId", Guard, Rifts, Admin), // B215
     r(B, Get, r"/admin/v1/guard/findings", Guard, Rifts, Admin), // B216
-    r(B, Get, r"/admin/v1/activity/players/:userId", ReforgedApi, Isles, Admin), // B217
-    r(B, Get, r"/admin/v1/activity/overview", ReforgedApi, Isles, Admin), // B218
-    r(B, Get, r"/admin/v1/activity/flags", ReforgedApi, Isles, Admin), // B219
-    r(B, Patch, r"/admin/v1/activity/flags/:id", ReforgedApi, Isles, Admin), // B220
-    r(B, Post, r"/admin/v1/players/:userId/tester-max", ReforgedApi, Isles, Admin), // B221
-    r(B, Get, r"/admin/v1/player-logs", ReforgedApi, Isles, Admin), // B222
-    r(B, Get, r"/admin/v1/player-logs/:userId/:launchSessionId/:fileName", ReforgedApi, Isles, Admin), // B223
-    r(B, Delete, r"/admin/v1/player-logs/:userId/:launchSessionId", ReforgedApi, Isles, Admin), // B224
+    r(B, Get, r"/admin/v1/activity/players/:userId", LauncherApi, Isles, Admin), // B217
+    r(B, Get, r"/admin/v1/activity/overview", LauncherApi, Isles, Admin), // B218
+    r(B, Get, r"/admin/v1/activity/flags", LauncherApi, Isles, Admin), // B219
+    r(B, Patch, r"/admin/v1/activity/flags/:id", LauncherApi, Isles, Admin), // B220
+    r(B, Post, r"/admin/v1/players/:userId/tester-max", LauncherApi, Isles, Admin), // B221
+    r(B, Get, r"/admin/v1/player-logs", LauncherApi, Isles, Admin), // B222
+    r(B, Get, r"/admin/v1/player-logs/:userId/:launchSessionId/:fileName", LauncherApi, Isles, Admin), // B223
+    r(B, Delete, r"/admin/v1/player-logs/:userId/:launchSessionId", LauncherApi, Isles, Admin), // B224
     r(B, Post, r"/launcher/v1/guard/sessions", Guard, Rifts, Always), // B225
     r(B, Post, r"/launcher/v1/guard/heartbeat", Guard, Rifts, Always), // B226
     r(B, Get, r"/launcher/v1/guard/sessions/:guardSessionId", Guard, Rifts, Always), // B227

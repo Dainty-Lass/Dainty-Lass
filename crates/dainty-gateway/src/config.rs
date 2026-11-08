@@ -258,10 +258,10 @@ pub fn check_secret(value: Option<&str>, name: &str) -> Result<String, String> {
 /// `GATEWAY_GAME`: only reborn (1.14.7) is served.
 pub fn parse_game(value: Option<&str>) -> Result<GameVersion, String> {
     let Some(raw) = value else {
-        return Ok(dainty_protocol::invite::reforged_version());
+        return Ok(dainty_protocol::invite::dainty_version());
     };
     match js::trim(raw).to_ascii_lowercase().as_str() {
-        "" | "reborn" => Ok(dainty_protocol::invite::reforged_version()),
+        "" | "reborn" => Ok(dainty_protocol::invite::dainty_version()),
         "legacy" => Err(
             "GATEWAY_GAME=legacy (Dauntless Revived's 1.4.4) is no longer served; this gateway serves reborn only"
                 .to_owned(),

@@ -44,17 +44,17 @@ pub const DEFAULT_PORT: u16 = 61100;
 /// The game's QoS probe port.
 pub const DEFAULT_QOS_PORT: u16 = 80;
 /// Overrides the relay port, when [`port_override`] accepts it.
-pub const PORT_VAR: &str = "REFORGED_RELAY_PORT";
+pub const PORT_VAR: &str = "DAINTY_RELAY_PORT";
 /// The game's account key header, sent only to the home server.
-pub const API_KEY_HEADER: &str = "x-reforged-user-api-key";
+pub const API_KEY_HEADER: &str = "x-dainty-user-api-key";
 /// The session ticket that stands in for the key on another node (DN5).
-pub const SESSION_TICKET_HEADER: &str = "x-reforged-session-ticket";
+pub const SESSION_TICKET_HEADER: &str = "x-dainty-session-ticket";
 /// A response re-pointing the relay names the node's host here...
-pub const REDIRECT_HOST_HEADER: &str = "x-reforged-redirect-host";
+pub const REDIRECT_HOST_HEADER: &str = "x-dainty-redirect-host";
 /// ...its port here...
-pub const REDIRECT_PORT_HEADER: &str = "x-reforged-redirect-port";
+pub const REDIRECT_PORT_HEADER: &str = "x-dainty-redirect-port";
 /// ...and, for a public node, its certificate's SHA-256 here.
-pub const REDIRECT_FINGERPRINT_HEADER: &str = "x-reforged-redirect-fingerprint";
+pub const REDIRECT_FINGERPRINT_HEADER: &str = "x-dainty-redirect-fingerprint";
 /// The QoS page's body.
 pub const QOS_BODY: &str = "<!DOCTYPE html><html><body>pong</body></html>";
 

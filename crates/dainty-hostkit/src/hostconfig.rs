@@ -72,20 +72,24 @@ pub const SECRET_FILE: &str = "secrets.env";
 pub const SECRET_KEYS: [&str; 12] = [
     "GATEWAY_SECRET",
     "ALLOWLIST_SECRET",
-    "REFORGED_ADMIN_KEY",
+    "DAINTY_ADMIN_KEY",
     "GAMESERVER_API_KEY",
     "API_KEY_HASH_SECRET",
     "RUSTIC_ISLES_METRICS_TOKEN",
     "AUTH_SIGNING_PRIVKEY_B64",
     "AUTH_SIGNING_PUBKEY_B64",
-    "REFORGED_ADMIN_API_KEY",
+    "DAINTY_ADMIN_API_KEY",
     "RUSTIC_ISLES_MANAGER_OPERATOR_SECRET",
-    "REFORGED_DB_PASSWORD",
+    "DAINTY_DB_PASSWORD",
     "DASHBOARD_INGEST_KEY",
 ];
 /// Secrets under their names from before the Rustic Isles rename: `setup` moves each to its new name with the same value,
 /// never a fresh one, since a changed secret breaks every signed call (DX4)
-pub const RENAMED_SECRET_KEYS: [(&str, &str); 2] = [
+pub const RENAMED_SECRET_KEYS: [(&str, &str); 5] = [
+    // The prefix before the 2026-11-06 rename (a server the legacy importer carried over)
+    ("REFORGED_ADMIN_KEY", "DAINTY_ADMIN_KEY"),
+    ("REFORGED_ADMIN_API_KEY", "DAINTY_ADMIN_API_KEY"),
+    ("REFORGED_DB_PASSWORD", "DAINTY_DB_PASSWORD"),
     ("MYSTICPARADOX_METRICS_TOKEN", "RUSTIC_ISLES_METRICS_TOKEN"),
     (
         "MYSTICPARADOX_MANAGER_OPERATOR_SECRET",
@@ -1360,7 +1364,7 @@ pub struct Secrets {
     pub gateway_secret: String,
     /// `ALLOWLIST_SECRET`.
     pub allowlist_secret: String,
-    /// `REFORGED_ADMIN_KEY`.
+    /// `DAINTY_ADMIN_KEY`.
     pub admin_key: String,
     /// `GAMESERVER_API_KEY`.
     pub gameserver_key: String,
@@ -1372,11 +1376,11 @@ pub struct Secrets {
     pub jwt_private_key_b64: String,
     /// `AUTH_SIGNING_PUBKEY_B64`: its public key, base64.
     pub jwt_public_key_b64: String,
-    /// `REFORGED_ADMIN_API_KEY`.
+    /// `DAINTY_ADMIN_API_KEY`.
     pub admin_api_key: String,
     /// `RUSTIC_ISLES_MANAGER_OPERATOR_SECRET`.
     pub operator_secret: String,
-    /// `REFORGED_DB_PASSWORD`: the Postgres password.
+    /// `DAINTY_DB_PASSWORD`: the Postgres password.
     pub database_password: String,
     /// What chat sends the staff dashboard with; the dashboard's own `DASHBOARD_INGEST_KEY` is set to it
     pub dashboard_ingest_key: String,
@@ -2523,15 +2527,15 @@ pub fn load_or_create_secrets(
         let entries = [
             ("GATEWAY_SECRET", s.gateway_secret.as_str()),
             ("ALLOWLIST_SECRET", s.allowlist_secret.as_str()),
-            ("REFORGED_ADMIN_KEY", s.admin_key.as_str()),
+            ("DAINTY_ADMIN_KEY", s.admin_key.as_str()),
             ("GAMESERVER_API_KEY", s.gameserver_key.as_str()),
             ("API_KEY_HASH_SECRET", s.api_key_hash_secret.as_str()),
             ("RUSTIC_ISLES_METRICS_TOKEN", s.metrics_token.as_str()),
             ("AUTH_SIGNING_PRIVKEY_B64", s.jwt_private_key_b64.as_str()),
             ("AUTH_SIGNING_PUBKEY_B64", s.jwt_public_key_b64.as_str()),
-            ("REFORGED_ADMIN_API_KEY", s.admin_api_key.as_str()),
+            ("DAINTY_ADMIN_API_KEY", s.admin_api_key.as_str()),
             ("RUSTIC_ISLES_MANAGER_OPERATOR_SECRET", s.operator_secret.as_str()),
-            ("REFORGED_DB_PASSWORD", s.database_password.as_str()),
+            ("DAINTY_DB_PASSWORD", s.database_password.as_str()),
             ("DASHBOARD_INGEST_KEY", s.dashboard_ingest_key.as_str()),
         ];
         let header = [
@@ -2558,15 +2562,15 @@ pub fn load_or_create_secrets(
         let fresh_pairs = [
             ("GATEWAY_SECRET", fresh.gateway_secret.as_str()),
             ("ALLOWLIST_SECRET", fresh.allowlist_secret.as_str()),
-            ("REFORGED_ADMIN_KEY", fresh.admin_key.as_str()),
+            ("DAINTY_ADMIN_KEY", fresh.admin_key.as_str()),
             ("GAMESERVER_API_KEY", fresh.gameserver_key.as_str()),
             ("API_KEY_HASH_SECRET", fresh.api_key_hash_secret.as_str()),
             ("RUSTIC_ISLES_METRICS_TOKEN", fresh.metrics_token.as_str()),
             ("AUTH_SIGNING_PRIVKEY_B64", fresh.jwt_private_key_b64.as_str()),
             ("AUTH_SIGNING_PUBKEY_B64", fresh.jwt_public_key_b64.as_str()),
-            ("REFORGED_ADMIN_API_KEY", fresh.admin_api_key.as_str()),
+            ("DAINTY_ADMIN_API_KEY", fresh.admin_api_key.as_str()),
             ("RUSTIC_ISLES_MANAGER_OPERATOR_SECRET", fresh.operator_secret.as_str()),
-            ("REFORGED_DB_PASSWORD", fresh.database_password.as_str()),
+            ("DAINTY_DB_PASSWORD", fresh.database_password.as_str()),
             ("DASHBOARD_INGEST_KEY", fresh.dashboard_ingest_key.as_str()),
         ];
         for (k, v) in fresh_pairs {
@@ -2582,15 +2586,15 @@ pub fn load_or_create_secrets(
         Secrets {
             gateway_secret: get("GATEWAY_SECRET"),
             allowlist_secret: get("ALLOWLIST_SECRET"),
-            admin_key: get("REFORGED_ADMIN_KEY"),
+            admin_key: get("DAINTY_ADMIN_KEY"),
             gameserver_key: get("GAMESERVER_API_KEY"),
             api_key_hash_secret: get("API_KEY_HASH_SECRET"),
             metrics_token: get("RUSTIC_ISLES_METRICS_TOKEN"),
             jwt_private_key_b64: get("AUTH_SIGNING_PRIVKEY_B64"),
             jwt_public_key_b64: get("AUTH_SIGNING_PUBKEY_B64"),
-            admin_api_key: get("REFORGED_ADMIN_API_KEY"),
+            admin_api_key: get("DAINTY_ADMIN_API_KEY"),
             operator_secret: get("RUSTIC_ISLES_MANAGER_OPERATOR_SECRET"),
-            database_password: get("REFORGED_DB_PASSWORD"),
+            database_password: get("DAINTY_DB_PASSWORD"),
             dashboard_ingest_key: get("DASHBOARD_INGEST_KEY"),
         },
         missing,
@@ -2605,9 +2609,10 @@ fn rename_secrets(doc: &mut EnvDocument) -> Result<bool, HostError> {
         if present(new).is_some() {
             continue;
         }
-        if let Some(value) = present(old) {
-            doc.set(new, &value)?;
-            doc.remove(old);
+        if present(old).is_some() {
+            // In place, so the file keeps its order (and the Node kit's bytes, but for the name)
+            doc.remove(new);
+            doc.rename(old, new)?;
             renamed = true;
         }
     }
@@ -2619,27 +2624,27 @@ fn database_env(c: &HostConfig, s: &Secrets, p: &Paths) -> Vec<(String, String)>
     if let Some(db) = &c.database
         && db.postgres()
     {
-        out.push(("REFORGED_DB_ENGINE".into(), "postgres".into()));
+        out.push(("DAINTY_DB_ENGINE".into(), "postgres".into()));
         out.push((
-            "REFORGED_DB_HOST".into(),
+            "DAINTY_DB_HOST".into(),
             db.postgres_host.clone().unwrap_or_else(|| "127.0.0.1".into()),
         ));
-        out.push(("REFORGED_DB_PORT".into(), db.postgres_port.unwrap_or(5432).to_string()));
+        out.push(("DAINTY_DB_PORT".into(), db.postgres_port.unwrap_or(5432).to_string()));
         out.push((
-            "REFORGED_DB_USER".into(),
+            "DAINTY_DB_USER".into(),
             db.postgres_user.clone().unwrap_or_else(|| "dainty".into()),
         ));
         out.push((
-            "REFORGED_DB_NAME".into(),
+            "DAINTY_DB_NAME".into(),
             db.postgres_database.clone().unwrap_or_else(|| "dainty".into()),
         ));
-        out.push(("REFORGED_DB_PASSWORD".into(), s.database_password.clone()));
+        out.push(("DAINTY_DB_PASSWORD".into(), s.database_password.clone()));
         if db.allow_remote == Some(true) {
-            out.push(("REFORGED_DB_ALLOW_REMOTE".into(), "1".into()));
+            out.push(("DAINTY_DB_ALLOW_REMOTE".into(), "1".into()));
         }
     } else {
-        out.push(("REFORGED_DB_ENGINE".into(), "sqlite".into()));
-        out.push(("REFORGED_DB_FILE".into(), path_text(&p.config.join(DATABASE_FILE))));
+        out.push(("DAINTY_DB_ENGINE".into(), "sqlite".into()));
+        out.push(("DAINTY_DB_FILE".into(), path_text(&p.config.join(DATABASE_FILE))));
     }
     out
 }
@@ -2691,7 +2696,7 @@ pub fn build_env_files(c: &HostConfig, s: &Secrets, p: &Paths, source_commit: &s
     push(&mut backend, "RUSTIC_ISLES_METRICS_TOKEN", &s.metrics_token);
     push(&mut backend, "PORT", PORTS.backend.to_string());
     push(&mut backend, "BIND_HOST", "127.0.0.1");
-    push(&mut backend, "REFORGED_HTTP_ONLY", "true");
+    push(&mut backend, "DAINTY_HTTP_ONLY", "true");
     push(&mut backend, "QOS_PORT", "0");
     push(
         &mut backend,
@@ -2707,7 +2712,7 @@ pub fn build_env_files(c: &HostConfig, s: &Secrets, p: &Paths, source_commit: &s
     if cfg!(feature = "paradox") {
         push(&mut backend, "MONGODB_URI", &c.mongo.uri);
         push(&mut backend, "MONGODB_DB", "reforged");
-        push(&mut backend, "MONGODB_APP_NAME", "reforged-backend");
+        push(&mut backend, "MONGODB_APP_NAME", "dainty-backend");
         push(&mut backend, "MONGODB_TRANSACTION_MAX_COMMIT_TIME_MS", "15000");
     }
     push(&mut backend, "TARGET_CHANGELIST", "647472");
@@ -2725,31 +2730,31 @@ pub fn build_env_files(c: &HostConfig, s: &Secrets, p: &Paths, source_commit: &s
     push(&mut backend, "REALTIME_XMPP_ALLOWED_HOSTS", &c.host);
     push(&mut backend, "REALTIME_XMPP_DEV_CITY_MUC", "false");
     push(&mut backend, "REGISTRATION_MODE", c.registration.as_str());
-    push(&mut backend, "REFORGED_ADMIN_KEY", &s.admin_key);
+    push(&mut backend, "DAINTY_ADMIN_KEY", &s.admin_key);
     push(&mut backend, "RUSTIC_ISLES_MANAGER_ADMIN", "on");
     push(&mut backend, "RUSTIC_ISLES_MANAGER_OPERATOR_SECRET", &s.operator_secret);
-    push(&mut backend, "REFORGED_SERVER_NAME", &c.name);
-    push(&mut backend, "REFORGED_SERVER_VERSION", "0.1.0");
+    push(&mut backend, "DAINTY_SERVER_NAME", &c.name);
+    push(&mut backend, "DAINTY_SERVER_VERSION", "0.1.0");
     push(
         &mut backend,
-        "REFORGED_SOURCE_URL",
-        "https://github.com/FreezaMotoqueiro/Dauntless-Reforged-Revival",
+        "DAINTY_SOURCE_URL",
+        "https://github.com/SilentSpud/DaintyLass",
     );
-    push(&mut backend, "REFORGED_SOURCE_COMMIT", source_commit);
-    push(&mut backend, "REFORGED_SERVER_MODE", c.mode.as_str());
-    push(&mut backend, "REFORGED_SERVER_HOST", &c.host);
+    push(&mut backend, "DAINTY_SOURCE_COMMIT", source_commit);
+    push(&mut backend, "DAINTY_SERVER_MODE", c.mode.as_str());
+    push(&mut backend, "DAINTY_SERVER_HOST", &c.host);
     if multipliers_on(c)
         && let Some(m) = c.multipliers
     {
-        push(&mut backend, "REFORGED_XP_MULTIPLIER", jsjson::number(m.xp));
-        push(&mut backend, "REFORGED_REWARD_MULTIPLIER", jsjson::number(m.rewards));
+        push(&mut backend, "DAINTY_XP_MULTIPLIER", jsjson::number(m.xp));
+        push(&mut backend, "DAINTY_REWARD_MULTIPLIER", jsjson::number(m.rewards));
     }
     for (k, v) in module_switch_env(c) {
         push(&mut backend, &k, v);
     }
     push(
         &mut backend,
-        "REFORGED_SESSION_SUPPLIES_FILE",
+        "DAINTY_SESSION_SUPPLIES_FILE",
         path_text(&p.config.join("session-supplies.json")),
     );
     // The other half's port is the node-link tunnel (docs/split-roles.md)
@@ -2780,16 +2785,16 @@ pub fn build_env_files(c: &HostConfig, s: &Secrets, p: &Paths, source_commit: &s
             path_text(&p.gameserver_wrapper),
         );
         let l_opts = linux_options(c);
-        push(&mut director, "REFORGED_GAME_EXE", &exe_text);
+        push(&mut director, "DAINTY_GAME_EXE", &exe_text);
         if let Some(wine) = l_opts.wine {
-            push(&mut director, "REFORGED_WINE", wine);
+            push(&mut director, "DAINTY_WINE", wine);
         }
         if let Some(proton) = l_opts.proton {
-            push(&mut director, "REFORGED_PROTON", proton);
+            push(&mut director, "DAINTY_PROTON", proton);
         }
-        push(&mut director, "REFORGED_WINEPREFIX", path_text(&p.wine_prefix));
-        push(&mut director, "REFORGED_PROTON_DATA", path_text(&p.proton_data));
-        push(&mut director, "REFORGED_XVFB", if l_opts.xvfb { "1" } else { "0" });
+        push(&mut director, "DAINTY_WINEPREFIX", path_text(&p.wine_prefix));
+        push(&mut director, "DAINTY_PROTON_DATA", path_text(&p.proton_data));
+        push(&mut director, "DAINTY_XVFB", if l_opts.xvfb { "1" } else { "0" });
     } else {
         push(&mut director, "GAMESERVER_BINARY_PATH", &exe_text);
     }
@@ -2837,6 +2842,9 @@ pub fn build_env_files(c: &HostConfig, s: &Secrets, p: &Paths, source_commit: &s
         "GAMESERVER_HUNT_MEMORY_MB",
         perf.hunt_memory_mb.to_string(),
     );
+    push(&mut director, "DAINTY_SERVER_MAX_FPS", perf.server_fps.to_string());
+    push(&mut director, "DAINTY_SERVER_IDLE_FPS", perf.idle_fps.to_string());
+    // The names a runtime built before the 2026-11-06 rename reads; they go once a rebuilt one is published (P5)
     push(&mut director, "REFORGED_SERVER_MAX_FPS", perf.server_fps.to_string());
     push(&mut director, "REFORGED_SERVER_IDLE_FPS", perf.idle_fps.to_string());
     if !perf.verbose_game_logs {
@@ -2847,7 +2855,13 @@ pub fn build_env_files(c: &HostConfig, s: &Secrets, p: &Paths, source_commit: &s
     push(&mut director, "GAMESERVER_LOG_DIR", path_text(&p.gameserver_logs));
     push(
         &mut director,
-        "REFORGED_BACKEND_URL",
+        "DAINTY_BACKEND_URL",
+        format!("http://127.0.0.1:{}", PORTS.backend),
+    );
+    // What the runtime reads first, in every build (dllmain.cpp's kBackendUrlVariables)
+    push(
+        &mut director,
+        "RUSTIC_ISLES_BACKEND_URL",
         format!("http://127.0.0.1:{}", PORTS.backend),
     );
     push(&mut director, "RUSTIC_ISLES_RUNTIME_PROFILE", "production");
@@ -2873,21 +2887,21 @@ pub fn build_env_files(c: &HostConfig, s: &Secrets, p: &Paths, source_commit: &s
     push(&mut admin, "BACKEND_URL", format!("http://127.0.0.1:{}", PORTS.backend));
     push(
         &mut admin,
-        "REFORGED_DIRECTOR_URL",
+        "DAINTY_DIRECTOR_URL",
         format!("http://127.0.0.1:{}", PORTS.director),
     );
-    push(&mut admin, "REFORGED_ADMIN_API_KEY", &s.admin_api_key);
-    push(&mut admin, "REFORGED_ADMIN_KEY", &s.admin_key);
+    push(&mut admin, "DAINTY_ADMIN_API_KEY", &s.admin_api_key);
+    push(&mut admin, "DAINTY_ADMIN_KEY", &s.admin_key);
     push(&mut admin, "RUSTIC_ISLES_MANAGER_OPERATOR_SECRET", &s.operator_secret);
     // `/metrics` adds the backend's own with it
     push(&mut admin, "RUSTIC_ISLES_METRICS_TOKEN", &s.metrics_token);
     push(
         &mut admin,
-        "REFORGED_ADMIN_API_TIMEOUTS_FILE",
+        "DAINTY_ADMIN_API_TIMEOUTS_FILE",
         path_text(&p.config.join("admin-timeouts.json")),
     );
-    push(&mut admin, "REFORGED_MAX_HUNT_SERVERS", c.max_hunt_servers.to_string());
-    push(&mut admin, "REFORGED_SERVER_MODE", c.mode.as_str());
+    push(&mut admin, "DAINTY_MAX_HUNT_SERVERS", c.max_hunt_servers.to_string());
+    push(&mut admin, "DAINTY_SERVER_MODE", c.mode.as_str());
     for (k, v) in database_env(c, s, p) {
         push(&mut admin, &k, v);
     }
@@ -2988,7 +3002,7 @@ pub fn build_env_files(c: &HostConfig, s: &Secrets, p: &Paths, source_commit: &s
                 if linux { "nftables" } else { "windows" },
             );
             if linux {
-                push(&mut al, "ALLOWLIST_NFT_TABLE", "reforged_revival");
+                push(&mut al, "ALLOWLIST_NFT_TABLE", "dainty_lass");
                 if let Some(iface) = linux_options(c).firewall_interface {
                     push(&mut al, "ALLOWLIST_INTERFACE", iface);
                 }

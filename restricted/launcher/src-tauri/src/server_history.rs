@@ -211,8 +211,8 @@ mod tests {
         let slashed = |p: &Path| format!("\"{}\"", p.to_string_lossy().replace(std::path::MAIN_SEPARATOR, "/"));
         let key = "0123456789abcdef0123456789abcdef";
         let env = format!(
-            "REFORGED_ADMIN_API_KEY={key}\nREFORGED_ADMIN_KEY={key}\nRUSTIC_ISLES_MANAGER_OPERATOR_SECRET={key}\n\
-             REFORGED_ADMIN_API_TIMEOUTS_FILE={}\nREFORGED_DB_ENGINE=sqlite\nREFORGED_DB_FILE={}\n",
+            "DAINTY_ADMIN_API_KEY={key}\nDAINTY_ADMIN_KEY={key}\nRUSTIC_ISLES_MANAGER_OPERATOR_SECRET={key}\n\
+             DAINTY_ADMIN_API_TIMEOUTS_FILE={}\nDAINTY_DB_ENGINE=sqlite\nDAINTY_DB_FILE={}\n",
             slashed(&paths.config.join("timeouts.json")),
             slashed(&paths.config.join("dainty-lass.db")),
         );

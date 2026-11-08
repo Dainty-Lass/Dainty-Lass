@@ -96,13 +96,13 @@ mod tests {
 
     #[test]
     fn invites_valid_for_the_tables() {
-        assert!(parse_invite(&private("reforged-revival")).is_ok(), "fixture must parse");
+        assert!(parse_invite(&private("dainty")).is_ok(), "fixture must parse");
         assert!(parse_invite(&public()).is_ok(), "fixture must parse");
     }
 
     #[test]
     fn finds_the_first_link_argument() {
-        let link = private("reforged-revival");
+        let link = private("dainty");
         assert_eq!(
             scan_args(&["launcher.exe", link.as_str()]),
             LinkArg::Invite(link.clone())
@@ -111,7 +111,7 @@ mod tests {
             scan_args(&["launcher.exe", "--flag", &public()]),
             LinkArg::Invite(public())
         );
-        let upper = private("REFORGED-REVIVAL");
+        let upper = private("DAINTY");
         assert_eq!(invite_in_args(&["x", upper.as_str()]), Some(upper.clone()));
         let padded = format!("{link} \r\n");
         assert_eq!(invite_in_args(&[padded.as_str()]), Some(link.clone()));
@@ -133,7 +133,7 @@ mod tests {
             LinkArg::None
         );
         assert_eq!(
-            scan_args(&["dauntless", "reforged-revival", "dauntlessX://join?v=1"]),
+            scan_args(&["dauntless", "dainty", "dauntlessX://join?v=1"]),
             LinkArg::None
         );
         assert_eq!(
@@ -176,7 +176,7 @@ mod tests {
             scan_args(&["dauntless://other?v=1"]),
             LinkArg::Refused(InviteError::NotInvite)
         );
-        let extra = format!("{}&evil=1", private("reforged-revival"));
+        let extra = format!("{}&evil=1", private("dainty"));
         assert_eq!(scan_args(&[extra.as_str()]), LinkArg::Refused(InviteError::Params));
     }
 
@@ -200,7 +200,7 @@ mod tests {
 
     #[test]
     fn labels() {
-        assert_eq!(scheme_label("reforged-revival"), "URL:Dainty Lass invite");
+        assert_eq!(scheme_label("dainty"), "URL:Dainty Lass invite");
         assert_eq!(scheme_label("dauntless"), "URL:Dauntless invite");
     }
 }

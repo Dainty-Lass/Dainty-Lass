@@ -8,8 +8,8 @@
 use dainty_service_kit::js;
 use http::HeaderMap;
 
-/// The public `/reforged/api` routes by canonical name, with their methods; the rest of the API is the host's.
-pub const PUBLIC_REFORGED_API: &[(&str, &[&str])] = &[
+/// The public `/dainty/api` routes by canonical name, with their methods; the rest of the API is the host's.
+pub const PUBLIC_LAUNCHER_API: &[(&str, &[&str])] = &[
     ("register", &["POST"]),
     ("getuserinfo", &["GET", "HEAD"]),
     ("serverstatus", &["GET", "HEAD"]),
@@ -36,6 +36,8 @@ pub const HOST_ONLY_HEADERS: &[&str] = &[
     "x-rustic-isles-gameserver-key",
     "x-mysticparadox-gameserver-apikey",
     "x-mysticparadox-gameserver-key",
+    "x-dainty-admin-key",
+    // The name before the rename, refused too so it never reaches a service
     "x-reforged-admin-key",
     "x-rustic-isles-metrics-token",
     "x-mysticparadox-metrics-token",
@@ -72,7 +74,7 @@ pub enum LimitClass {
     General,
     /// `/content` downloads.
     Content,
-    /// `POST /reforged/api/Register`.
+    /// `POST /dainty/api/Register`.
     Register,
     /// `POST /account/api/oauth/token`.
     Token,
@@ -336,7 +338,7 @@ pub fn classify(method: &str, target: &str, headers: &HeaderMap, is_upgrade: boo
     let content = !wrapped && under(&canonical, "/content");
     let class = if is_upgrade {
         LimitClass::Ws
-    } else if canonical == "/reforged/api/register" {
+    } else if canonical == "/dainty/api/register" {
         LimitClass::Register
     } else if canonical == "/account/api/oauth/token" {
         LimitClass::Token
@@ -368,11 +370,15 @@ pub fn classify(method: &str, target: &str, headers: &HeaderMap, is_upgrade: boo
             limit_class: class,
         };
     }
+    // The launcher API's prefix before the 2026-11-06 rename: nothing serves it, and nothing reaches past here
     if under(&canonical, "/reforged") {
+        return Decision::reject(403, "forbidden", "admin_route", class);
+    }
+    if under(&canonical, "/dainty") {
         let public = canonical
-            .strip_prefix("/reforged/api/")
+            .strip_prefix("/dainty/api/")
             .filter(|name| !name.is_empty() && !name.contains('/'))
-            .and_then(|name| PUBLIC_REFORGED_API.iter().find(|(n, _)| *n == name))
+            .and_then(|name| PUBLIC_LAUNCHER_API.iter().find(|(n, _)| *n == name))
             .is_some_and(|(_, methods)| !is_upgrade && methods.contains(&method.as_str()));
         if !public {
             return Decision::reject(403, "forbidden", "admin_route", class);
@@ -465,8 +471,8 @@ mod tests {
             assert!(!check_path(bad), "{bad:?}");
         }
         assert_eq!(
-            canonical_path("/Reforged/API/Register/").as_deref(),
-            Some("/reforged/api/register")
+            canonical_path("/Dainty/API/Register/").as_deref(),
+            Some("/dainty/api/register")
         );
         assert_eq!(canonical_path("//a///b//").as_deref(), Some("/a/b"));
         assert_eq!(canonical_path("/%41").as_deref(), Some("/a"));
@@ -515,29 +521,37 @@ mod tests {
     #[test]
     fn spelling_tricks_never_reach_the_admin_api() {
         for target in [
+            "/DAINTY/API/CREATEINVITE",
+            "/Dainty/Api/CreateInvite/",
+            "/dainty//api/CreateInvite",
+            "/%64ainty/api/CreateInvite",
+            "/dainty%2fapi/CreateInvite",
+            "/dainty",
             "/REFORGED/API/CREATEINVITE",
-            "/reforged/api/createinvite",
+            "/dainty/api/createinvite",
             "/Reforged/Api/CreateInvite/",
-            "/reforged/api/CreateInvite//",
+            "/dainty/api/CreateInvite//",
             "/reforged//api/CreateInvite",
-            "//reforged/api/CreateInvite",
-            "/reforged/api/%43reateInvite",
+            "//dainty/api/CreateInvite",
+            "/dainty/api/%43reateInvite",
             "/%72eforged/api/CreateInvite",
-            "/reforged/api/CreateInvite?x=/reforged/api/Register",
-            "/reforged/api/Register/../CreateInvite",
-            "/reforged/api/./CreateInvite",
+            "/dainty/api/CreateInvite?x=/dainty/api/Register",
+            "/dainty/api/Register/../CreateInvite",
+            "/dainty/api/./CreateInvite",
             "/reforged%2fapi/CreateInvite",
-            "/reforged/api%2FCreateInvite",
-            "/reforged/api/CreateInvite%00",
-            "/reforged/api\\CreateInvite",
-            "/reforged/api/%2e%2e/api/CreateInvite",
-            "/reforged/api/Register;/CreateInvite",
+            "/dainty/api%2FCreateInvite",
+            "/dainty/api/CreateInvite%00",
+            "/dainty/api\\CreateInvite",
+            "/dainty/api/%2e%2e/api/CreateInvite",
+            "/dainty/api/Register;/CreateInvite",
             "/reforged",
-            "/reforged/api",
-            "/reforged/api/",
-            "/reforged/api/Register/x",
-            "/reforged/api/%zz",
-            "/__origin/x.example/reforged/api/CreateInvite",
+            "/dainty/api",
+            "/dainty/api/",
+            "/dainty/api/Register/x",
+            "/dainty/api/%zz",
+            "/__origin/x.example/dainty/api/CreateInvite",
+            "/reforged/api/Register",
+            "/reforged/api/ServerStatus",
             "/__origin/x.example/admin/users",
         ] {
             match decide("POST", target) {
@@ -545,9 +559,9 @@ mod tests {
                 other => panic!("{target} was {other:?}"),
             }
         }
-        assert!(proxied(&decide("POST", "/reforged/api/Register/")));
-        assert!(proxied(&decide("POST", "/reforged/api/Register")));
-        assert!(proxied(&decide("GET", "/reforged/api/ServerStatus")));
+        assert!(proxied(&decide("POST", "/dainty/api/Register/")));
+        assert!(proxied(&decide("POST", "/dainty/api/Register")));
+        assert!(proxied(&decide("GET", "/dainty/api/ServerStatus")));
     }
 
     /// The backend's own route table (spec section 5.5): exactly the first four are public.
@@ -565,7 +579,7 @@ mod tests {
             ("POST", "Kick", false),
         ];
         for (method, name, public) in routes {
-            let d = decide(method, &format!("/reforged/api/{name}"));
+            let d = decide(method, &format!("/dainty/api/{name}"));
             if public {
                 assert!(proxied(&d), "{name}");
             } else {
@@ -584,13 +598,13 @@ mod tests {
             Decision::Reject { status, reason, .. } => (status, reason),
             other => panic!("{other:?}"),
         };
-        assert_eq!(reason(decide("HEAD", "/reforged/api/Register")), (403, "admin_route"));
+        assert_eq!(reason(decide("HEAD", "/dainty/api/Register")), (403, "admin_route"));
         assert_eq!(
-            reason(decide("POST", "/reforged/api/RegistrationStatus")),
+            reason(decide("POST", "/dainty/api/RegistrationStatus")),
             (403, "admin_route")
         );
         assert_eq!(
-            reason(decide("GET", "/reforged/api/UsernameAvailable?Username=x")),
+            reason(decide("GET", "/dainty/api/UsernameAvailable?Username=x")),
             (403, "admin_route")
         );
         assert_eq!(reason(decide("TRACE", "/heartbeat")), (405, "method"));
@@ -602,7 +616,7 @@ mod tests {
         let ws = headers(&[("upgrade", "websocket")]);
         assert_eq!(reason(classify("POST", "/x", &ws, true)), (400, "unsupported_upgrade"));
         assert_eq!(
-            reason(classify("GET", "/reforged/api/ServerStatus", &ws, true)),
+            reason(classify("GET", "/dainty/api/ServerStatus", &ws, true)),
             (403, "admin_route")
         );
         assert_eq!(
@@ -631,8 +645,10 @@ mod tests {
             reason(classify("GET", "/x", &key, false)),
             (403, "gameserver_key_header")
         );
-        let admin = headers(&[("x-reforged-admin-key", "k")]);
+        let admin = headers(&[("x-dainty-admin-key", "k")]);
         assert_eq!(reason(classify("GET", "/x", &admin, false)), (403, "host_only_header"));
+        let old = headers(&[("x-reforged-admin-key", "k")]);
+        assert_eq!(reason(classify("GET", "/x", &old, false)), (403, "host_only_header"));
         assert_eq!(
             decide("POST", "/Heartbeat/"),
             Decision::Proxy {
@@ -668,7 +684,7 @@ mod tests {
                 ..
             }
         ));
-        assert_eq!(decide("POST", "/reforged/api/Register").class(), LimitClass::Register);
+        assert_eq!(decide("POST", "/dainty/api/Register").class(), LimitClass::Register);
         assert_eq!(
             decide("GET", "/network/v1/nodes"),
             Decision::Network {

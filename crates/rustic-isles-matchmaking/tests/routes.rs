@@ -67,7 +67,7 @@ impl Harness {
         let (content_type, revision, instance) = (
             header("content-type"),
             header("x-mystic-party-revision"),
-            header("x-reforged-instance-id"),
+            header("x-dainty-instance-id"),
         );
         let status = response.status().as_u16();
         let bytes = response.into_body().collect().await.unwrap().to_bytes();

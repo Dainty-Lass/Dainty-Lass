@@ -1,6 +1,6 @@
 //! Calls to the Node services on this machine: the backend's `/admin/v1` routes, signed with the
 //! manager-operator credential (rustic-isles' `ParadoxBackend/src/security/managerOperator.ts` holds the contract),
-//! its `/reforged/api` kick with the admin key, its public status, and the Director's instances.
+//! its `/dainty/api` kick with the admin key, its public status, and the Director's instances.
 
 use std::sync::Arc;
 use std::sync::atomic::{AtomicI64, Ordering};
@@ -129,7 +129,7 @@ struct OnlineAnswer {
     players: Vec<OnlinePlayer>,
 }
 
-/// `POST /reforged/api/Kick`'s answer.
+/// `POST /dainty/api/Kick`'s answer.
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct Kicked {
@@ -141,7 +141,7 @@ pub struct Kicked {
     pub closed: u32,
 }
 
-/// The parts of `/reforged/api/ServerStatus` (its keyless view) the admin API passes on.
+/// The parts of `/dainty/api/ServerStatus` (its keyless view) the admin API passes on.
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Status {
@@ -179,7 +179,7 @@ pub struct Upstream {
 
 fn error_code(body: &[u8]) -> Option<String> {
     let value: Value = serde_json::from_slice(body).ok()?;
-    // `/admin/v1` nests it ({error: {code}}), `/reforged/api` does not ({error: "code"})
+    // `/admin/v1` nests it ({error: {code}}), `/dainty/api` does not ({error: "code"})
     let error = value.get("error")?;
     error
         .get("code")
@@ -306,7 +306,7 @@ impl Upstream {
         let bytes = Self::body(body);
         let mut request = Request::builder().method(method).uri(&url);
         if admin_key {
-            request = request.header("x-reforged-admin-key", &self.admin_key);
+            request = request.header("x-dainty-admin-key", &self.admin_key);
         }
         if !bytes.is_empty() {
             request = request.header("content-type", "application/json");
@@ -385,14 +385,14 @@ impl Upstream {
 
     /// Kicks the player by name; answers what was closed.
     pub async fn kick(&self, username: &str) -> Result<Kicked, UpstreamError> {
-        let url = format!("{}/reforged/api/Kick", self.backend);
+        let url = format!("{}/dainty/api/Kick", self.backend);
         let body = json!({"Username": username});
         decode(&self.plain(Method::POST, url.clone(), true, Some(&body)).await?, &url)
     }
 
     /// The server's keyless status.
     pub async fn status(&self) -> Result<Status, UpstreamError> {
-        let url = format!("{}/reforged/api/ServerStatus", self.backend);
+        let url = format!("{}/dainty/api/ServerStatus", self.backend);
         decode(&self.plain(Method::GET, url.clone(), false, None).await?, &url)
     }
 

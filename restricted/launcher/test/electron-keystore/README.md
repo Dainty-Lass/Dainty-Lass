@@ -15,7 +15,7 @@ Run it as the same user on the same PC (DPAPI keys belong to both), on Windows, 
 npm i --no-save --no-package-lock electron@44.4.3 typescript@6.0.3 @types/node@24
 npx tsc -p .
 npx electron . "$TEMP/rrk-profile"
-REFORGED_ELECTRON_PROFILE="$TEMP/rrk-profile" cargo test -p dainty-launcher --lib an_electron_profile_reads_back -- --ignored
+DAINTY_ELECTRON_PROFILE="$TEMP/rrk-profile" cargo test -p launcher --lib an_electron_profile_reads_back -- --ignored
 ```
 
 The last line runs from the repository root. Never point the harness or the test at a real launcher profile: the harness
@@ -32,7 +32,7 @@ On a PC where Dauntless Reforged Revival Launcher 1.5.1 has joined a server, wit
    `settings.json` (`host`, `port`, `mode`, `fp`, `certificate` = the same `fp` for a public server or null,
    `documents`: true when its `<server id>.txt` is in the Documents copy, and `key`: the key from the
    player's backup file). Keep this file off any shared disk and delete it afterwards.
-3. Run the `cargo test` line above with `REFORGED_ELECTRON_PROFILE=<copy>`.
-4. Once the controller is ported (RA13): start the 2.0.0 build with `REFORGED_DEV_PROFILE=<copy>` (debug builds only) and check the account
+3. Run the `cargo test` line above with `DAINTY_ELECTRON_PROFILE=<copy>`.
+4. Once the controller is ported (RA13): start the 2.0.0 build with `DAINTY_DEV_PROFILE=<copy>` (debug builds only) and check the account
    shows as registered and PLAY reaches the server; a 1.4.4 server, if any, is listed and disabled.
 5. Delete `<copy>`.

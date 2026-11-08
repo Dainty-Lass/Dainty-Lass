@@ -38,7 +38,7 @@ pub struct ReplayTargetAuth {
     pub gateway_secret: Option<String>,
     /// SHA-256 hex of a raw account key → the key
     pub key_map: BTreeMap<String, String>,
-    /// Fill an unmapped `<key:...>` with `RRK_replay_` and the hash's first 24 characters instead of leaving it
+    /// Fill an unmapped `<key:...>` with `DLK_replay_` and the hash's first 24 characters instead of leaving it
     /// inexact.
     pub deterministic_fallback_keys: bool,
 }
@@ -249,7 +249,7 @@ pub fn substitute_str(text: &str, auth: &ReplayTargetAuth, now_ms: i64) -> Subst
                 if let Some(raw) = auth.key_map.get(&hex) {
                     raw.clone()
                 } else if auth.deterministic_fallback_keys {
-                    format!("RRK_replay_{}", &hex[..24])
+                    format!("DLK_replay_{}", &hex[..24])
                 } else {
                     inexact = true;
                     c[0].to_owned()

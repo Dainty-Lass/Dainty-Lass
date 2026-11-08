@@ -160,9 +160,9 @@ impl IslesCore for AccountsCore {
     fn operations_policy(&self) -> Fut<'_, Json> {
         Box::pin(async move {
             let text = match self.shared.get() {
-                Some(shared) => rustic_isles_reforged::operations::operations_policy_json(&shared).await,
+                Some(shared) => rustic_isles_launcher_api::operations::operations_policy_json(&shared).await,
                 None => dainty_service_kit::jsjson::stringify(
-                    &rustic_isles_reforged::operations::default_policy().to_json(),
+                    &rustic_isles_launcher_api::operations::default_policy().to_json(),
                 ),
             };
             Ok(Json(text))
@@ -175,7 +175,7 @@ impl IslesCore for AccountsCore {
                 return Ok(false);
             };
             let code = Value::String(step_up);
-            Ok(rustic_isles_reforged::operations::verify_operations_step_up(
+            Ok(rustic_isles_launcher_api::operations::verify_operations_step_up(
                 &shared,
                 &key_id,
                 Some(&code),

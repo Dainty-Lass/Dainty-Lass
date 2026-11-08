@@ -20,6 +20,8 @@ dainty-service-plugin.workspace = true
 
 [dev-dependencies]
 # The parity harness and helpers the gateway's own tests run (crates/dainty-gateway/tests)
+# dainty_protocol::renamed reads the recordings under the new names
+dainty-protocol.workspace = true
 axum.workspace = true
 base64.workspace = true
 bytes = "1"

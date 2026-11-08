@@ -209,7 +209,7 @@ async fn erasure() {
     let (_, _, user_id) = t.account("Slayer1", "slayer1@example.test").await;
     let (_, _, other) = t.account("Slayer2", "slayer2@example.test").await;
     let account = t.store().launcher_account_by_user_id(&user_id).await.unwrap().unwrap();
-    let hash = rustic_isles_auth::hashes::user_key_hash(common::SECRET, "RRK_gone");
+    let hash = rustic_isles_auth::hashes::user_key_hash(common::SECRET, "DLK_gone");
     t.store().insert_user_key(&account.account_id, &hash);
     let early = Deletion {
         requested_at: rustic_isles_auth::iso(t.now()),
@@ -260,7 +260,7 @@ async fn erasure() {
     assert!(t.store().launcher_account_by_user_id(&user_id).await.unwrap().is_none());
     assert!(t.store().game_account_by_user_id(&user_id).await.unwrap().is_none());
     assert_eq!(
-        t.get("/launcher/v1/me", &[("x-reforged-user-api-key", "RRK_gone")])
+        t.get("/launcher/v1/me", &[("x-dainty-user-api-key", "DLK_gone")])
             .await
             .message(),
         "Sign in required."

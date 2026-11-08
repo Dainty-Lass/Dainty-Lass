@@ -13,7 +13,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex, OnceLock};
 use std::time::Duration;
 
-use dainty_protocol::invite::{Invite, ServerMode, format_invite, reforged_version};
+use dainty_protocol::invite::{Invite, ServerMode, dainty_version, format_invite};
 use dainty_protocol::manifest::{RUNTIME_FILE_NAMES, RuntimeFile, RuntimeManifest};
 use futures_util::future::BoxFuture;
 use rustls::pki_types::{CertificateDer, PrivateKeyDer, PrivatePkcs8KeyDer};
@@ -39,7 +39,7 @@ use dainty_launcher_kit::platform::log;
 use dainty_launcher_kit::platform::paths::Paths;
 use dainty_launcher_kit::platform::settings::Os;
 
-const KEY: &str = "RRK_flowtestaccountkey0123456789abcdef";
+const KEY: &str = "DLK_flowtestaccountkey0123456789abcdef";
 const USER_ID: &str = "user-0001";
 const VERSION_TEXT: &str = "dauntless_rel-1.14.7_Shipping_2024-04-01_14-59-21_647472";
 const WAIT: Duration = Duration::from_secs(10);
@@ -103,18 +103,18 @@ fn answer(answers: &Answers, seen: &Seen) -> Vec<u8> {
     let keyed = seen
         .head
         .to_ascii_lowercase()
-        .contains(&format!("x-reforged-user-api-key: {}", KEY.to_ascii_lowercase()));
+        .contains(&format!("x-dainty-user-api-key: {}", KEY.to_ascii_lowercase()));
     match (seen.method.as_str(), path) {
-        ("GET", "/reforged/api/ServerStatus") => json_response(
+        ("GET", "/dainty/api/ServerStatus") => json_response(
             200,
             &json!({ "name": answers.name, "online": true, "version": "1.0", "commit": "abc" }),
         ),
-        ("POST", "/reforged/api/Register") => json_response(200, &json!({ "UUK": KEY })),
-        ("GET", "/reforged/api/GetUserInfo") if keyed => json_response(
+        ("POST", "/dainty/api/Register") => json_response(200, &json!({ "UUK": KEY })),
+        ("GET", "/dainty/api/GetUserInfo") if keyed => json_response(
             200,
             &json!({ "UserId": USER_ID, "Username": "Player_1", "IsAdmin": false }),
         ),
-        ("GET", "/reforged/api/GetUserInfo") => json_response(401, &json!({ "error": "key" })),
+        ("GET", "/dainty/api/GetUserInfo") => json_response(401, &json!({ "error": "key" })),
         ("GET", "/content/v1/runtime/manifest") => match &answers.manifest {
             Some(manifest) => response(200, "application/json", manifest.to_json().as_bytes()),
             None => json_response(404, &json!({ "error": "not_found" })),
@@ -387,7 +387,7 @@ fn launcher(pc: &Pc, platform: &Arc<FakePlatform>, spawner: &Arc<FakeSpawner>) -
     config.os = Os::current();
     let env = BTreeMap::from([
         ("PATH".to_owned(), "/usr/bin".to_owned()),
-        ("REFORGED_STALE_SETTING".to_owned(), "leak".to_owned()),
+        ("DAINTY_STALE_SETTING".to_owned(), "leak".to_owned()),
         ("rustic_isles_old".to_owned(), "leak".to_owned()),
     ]);
     let seams = Seams {
@@ -407,7 +407,7 @@ fn launcher(pc: &Pc, platform: &Arc<FakePlatform>, spawner: &Arc<FakeSpawner>) -
 
 fn invite(mode: ServerMode, port: u16, fp: Option<String>, name: &str) -> String {
     format_invite(&Invite {
-        version: reforged_version(),
+        version: dainty_version(),
         mode,
         host: "127.0.0.1".to_owned(),
         port,
@@ -512,7 +512,7 @@ async fn private_flow_from_invite_to_the_games_exit() {
             username: "Player_1".to_owned()
         }
     );
-    let register = server.saw("/reforged/api/Register");
+    let register = server.saw("/dainty/api/Register");
     assert_eq!(register.len(), 1);
     let snapshot = controller.snapshot();
     assert!(snapshot.account.has_key);
@@ -522,11 +522,11 @@ async fn private_flow_from_invite_to_the_games_exit() {
     assert_eq!(snapshot.phase, Phase::Locate);
     assert!(
         server
-            .saw("/reforged/api/ServerStatus")
+            .saw("/dainty/api/ServerStatus")
             .last()
             .unwrap()
             .head
-            .contains("x-reforged-user-api-key"),
+            .contains("x-dainty-user-api-key"),
         "the status carries the key once one is stored"
     );
 
@@ -596,14 +596,14 @@ async fn private_flow_from_invite_to_the_games_exit() {
     assert!(args.contains(&"-epiclocale=en-US".to_owned()));
     assert_eq!(plan.working_dir, pc.win64);
     assert_eq!(
-        plan.env.get("REFORGED_BACKEND_URL").map(String::as_str),
+        plan.env.get("DAINTY_BACKEND_URL").map(String::as_str),
         Some(format!("http://127.0.0.1:{}", pc.relay_port).as_str())
     );
     assert_eq!(
         plan.env.get("RUSTIC_ISLES_RUNTIME_PROFILE").map(String::as_str),
         Some("production")
     );
-    assert!(!plan.env.contains_key("REFORGED_STALE_SETTING"));
+    assert!(!plan.env.contains_key("DAINTY_STALE_SETTING"));
     assert!(!plan.env.contains_key("rustic_isles_old"));
     assert_eq!(plan.env.get("PATH").map(String::as_str), Some("/usr/bin"));
 

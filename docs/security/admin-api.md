@@ -16,19 +16,19 @@ backend's admin routes and the Director, so what it can do is bounded by what th
 
 - **In, from callers:** HTTP on `127.0.0.1:61003` only. `POST /graphql` with `Authorization: Bearer <key>` (the
   owner's, or one per person, below), an
-  optional `x-reforged-operator-id` (digits), and a JSON body. `GET /health` answers `{"ok":true}` without a key, for
+  optional `x-dainty-operator-id` (digits), and a JSON body. `GET /health` answers `{"ok":true}` without a key, for
   the host kit's ready probe. It reveals nothing.
 - **In, from the host:** `admin.env` (written by `dainty-host setup` from `host.toml` and `secrets.env`) and the
   timeouts file it names.
 - **In, from this machine's services:** the backend's answers (`/admin/v1/players`, `/admin/v1/online-players`,
-  `/admin/v1/players/<id>/access`, `/reforged/api/Kick`, `/reforged/api/ServerStatus`) and the Director's
+  `/admin/v1/players/<id>/access`, `/dainty/api/Kick`, `/dainty/api/ServerStatus`) and the Director's
   `/api/instances`. They are local and trusted to be what they say, but each one is parsed defensively.
 - **In, from game modules (DF4c):** the answers to kick, ban and lookup (`module_api::AdminResponse` or a
   `ModuleError`), through the controller's driver. A module out of process is another program: its frames are
   checked by `module-api`'s parser (fuzz target `module_frame`), and the admin API treats the text of its errors as
   untrusted.
 - **Out:** signed `/admin/v1` calls (the manager-operator credential,
-  `modules/rustic-isles/reference/1.14.7/ParadoxBackend/src/security/managerOperator.ts`), the admin key to `/reforged/api/Kick`, `AdminCall`s to game
+  `modules/rustic-isles/reference/1.14.7/ParadoxBackend/src/security/managerOperator.ts`), the admin key to `/dainty/api/Kick`, `AdminCall`s to game
   modules, and GraphQL answers to the caller.
 
 ### Which game a player is in
@@ -42,7 +42,7 @@ has the name. A name found in two games is refused (`AMBIGUOUS_PLAYER`) until th
 (`game: "1.4.4"`).
 
 Every call to a module carries `ActorContext { actor: admin { key: "<key id>" }, request: "admin-<ms>-<n>" }`: the id
-of the key that asked (`owner` for `REFORGED_ADMIN_API_KEY`, DD23), and the request id is logged beside the operator
+of the key that asked (`owner` for `DAINTY_ADMIN_API_KEY`, DD23), and the request id is logged beside the operator
 id, so a change in a module's log leads back to the request and the person who asked (DH2).
 
 ### Keys and roles (DH2)
@@ -54,7 +54,7 @@ id, so a change in a module's log leads back to the request and the person who a
 | admin | + `unban`, `liftTimeout`, `loadModule`, `unloadModule`, `restartModule`, `adminKeys`, `issueKey` for viewer and moderator |
 | owner | + `issueKey` for admin and owner, `revokeKey`; the history revert (DH3b) requires `Role::Owner` through `schema::allow` |
 
-- `REFORGED_ADMIN_API_KEY` (`secrets.env`) is the owner's key, id `owner`. Every other key is `RRA_<8 hex id>_<64 hex
+- `DAINTY_ADMIN_API_KEY` (`secrets.env`) is the owner's key, id `owner`. Every other key is `DLA_<8 hex id>_<64 hex
   secret>` (256 random bits), stored as the SHA-256 of the whole key in `admin_keys` in the admin API's own database
   (`admin.db` beside the node's SQLite file; the node's database on Postgres). The key is printed once by
   `dainty-host admin key issue` (or returned once by `issueKey`) and is not recoverable.
@@ -82,7 +82,7 @@ Fuzz target in `fuzz`:
   request passes the header check only with exactly one `Bearer <key>` and no proxy header. Checks that an accepted
   name, reason or timeout end is within its rule, that an accepted game has one spelling, that a module's text comes
   out one capped line, and that an instance's fields stay within their caps. It also feeds the key parser: only a
-  77-character `RRA_<8 hex>_<64 hex>` key has an id to look up, a key's name is one capped line and a role name
+  77-character `DLA_<8 hex>_<64 hex>` key has an id to look up, a key's name is one capped line and a role name
   round-trips. Also that a guarded action is found only by 16 lower-case hex digits and that a guard rule is one of
   `off`, `delay` or `approval` (DH6).
 
@@ -95,7 +95,7 @@ Fuzz target in `fuzz`:
 - [ ] A peer that is not loopback is refused even so (`app.rs`, `graphql`).
 - [ ] The gateway never routes to port 61003: it forwards only to `GATEWAY_BACKEND_URL` and `GATEWAY_CONTENT_URL`.
       In Docker the `admin` service publishes no port (`compose.yaml`).
-- [ ] A request carrying `Forwarded`, `Via`, `X-Real-IP`, `X-Reforged-Gateway` or any `X-Forwarded-*` header is
+- [ ] A request carrying `Forwarded`, `Via`, `X-Real-IP`, `X-Dainty-Gateway` or any `X-Forwarded-*` header is
       403, before the key is looked at (`input.rs`, `check_headers`).
 - [ ] The key is compared as SHA-256 digests with a constant-time fold, so neither its length nor where it differs
       shows (`hmac.rs`, `same_secret`). A repeated `Authorization` header is refused. Keys and roles: below.
@@ -232,9 +232,9 @@ and input checks (`schema.rs`; `guarded.rs`, `guard.rs`). Not guarded, with the 
       `setup` moves it from `MYSTICPARADOX_MANAGER_OPERATOR_SECRET` with the same value, and the admin API reads
       the old name for one release. The
       env files are owner-only too (`write_secret_file`).
-- [ ] `POST /reforged/api/Kick` sits behind `HasAdminKey` (the admin key, a loopback peer, no gateway or
-      `X-Forwarded-For` header). The gateway refuses it like every `/reforged/api` route not on its public list
-      (`PUBLIC_REFORGED_API`).
+- [ ] `POST /dainty/api/Kick` sits behind `HasAdminKey` (the admin key, a loopback peer, no gateway or
+      `X-Forwarded-For` header). The gateway refuses it like every `/dainty/api` route not on its public list
+      (`PUBLIC_LAUNCHER_API`).
 
 ## paradox/ change
 
@@ -242,22 +242,22 @@ RD2 makes fixes the baseline for `paradox/`, not a rule. The kick needs a way to
 the Node backend did that: `SessionRegistry` holds the chat connections, but no route closed them on demand. The Rust
 backend can't start before its gate (RD17). So `paradox/` gained one small route (2026-10-24, decision RD25):
 
-- `modules/rustic-isles/reference/1.14.7/ParadoxBackend/src/routes/reforgedApi.ts`: `POST /reforged/api/Kick {Username}`, behind `HasAdminKey`, answers
+- `modules/rustic-isles/reference/1.14.7/ParadoxBackend/src/routes/reforgedApi.ts`: `POST /dainty/api/Kick {Username}`, behind `HasAdminKey`, answers
   `{UserId, Username, Closed}` (404 `not_found`, 400 `bad_request`).
 - `modules/rustic-isles/reference/1.14.7/ParadoxBackend/src/launcherApiRules.ts`: `DisconnectAccount` revokes the account's refresh sessions and unused exchange
   codes, then closes each chat connection with WebSocket code 1008 `kicked by the host`. Tested in
   `launcherApiRules.test.ts`.
 - The game's access token isn't revocable in the Node backend and stays valid until it expires. The kick doesn't
   ban, so the player can sign straight back in with their key. To keep someone out, use a timeout or a ban.
-- RB7 ports this route with the rest of `/reforged/api`, and RB1's inventory has to list it.
+- RB7 ports this route with the rest of `/dainty/api`, and RB1's inventory has to list it.
 
 ## Changes to section 6
 
 Section 6 keeps the host kit's `.env` files as the Node kit wrote them. This row adds to them and changes nothing
-already there: two keys at the end of `secrets.env`, two lines in `backend.env` (after `REFORGED_ADMIN_KEY`), and a
+already there: two keys at the end of `secrets.env`, two lines in `backend.env` (after `DAINTY_ADMIN_KEY`), and a
 new `admin.env`. `tests/node_fixtures.rs` still checks every Node-kit line byte for byte and leaves out only these.
 
-DH6 changes no existing file: `admin.env` gains the `REFORGED_GUARD_*` lines only when `host.toml` has a `[guard]`
+DH6 changes no existing file: `admin.env` gains the `DAINTY_GUARD_*` lines only when `host.toml` has a `[guard]`
 table, the admin database gains a table and a column through a migration, and the schema gains `guarded`, `approve`
 and `cancel`. What does change for a client is that a ban or timeout over the limit, the revoking of an admin or
 owner key and a big revert answer `GUARDED` instead of running (the owner included): that is the row, and the limits

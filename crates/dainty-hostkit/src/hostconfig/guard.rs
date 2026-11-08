@@ -32,22 +32,22 @@ const MAX_EXPIRE_HOURS: f64 = 720.0;
 
 /// A whole-number setting: its host.json key, the `admin.env` variable and its largest value.
 const NUMBERS: [(&str, &str, f64); 5] = [
-    ("banLimit", "REFORGED_GUARD_BAN_LIMIT", MAX_LIMIT),
+    ("banLimit", "DAINTY_GUARD_BAN_LIMIT", MAX_LIMIT),
     (
         "banWindowMinutes",
-        "REFORGED_GUARD_BAN_WINDOW_MINUTES",
+        "DAINTY_GUARD_BAN_WINDOW_MINUTES",
         MAX_WINDOW_MINUTES,
     ),
-    ("revertLimit", "REFORGED_GUARD_REVERT_LIMIT", MAX_LIMIT),
-    ("delayMinutes", "REFORGED_GUARD_DELAY_MINUTES", MAX_DELAY_MINUTES),
-    ("expireHours", "REFORGED_GUARD_EXPIRE_HOURS", MAX_EXPIRE_HOURS),
+    ("revertLimit", "DAINTY_GUARD_REVERT_LIMIT", MAX_LIMIT),
+    ("delayMinutes", "DAINTY_GUARD_DELAY_MINUTES", MAX_DELAY_MINUTES),
+    ("expireHours", "DAINTY_GUARD_EXPIRE_HOURS", MAX_EXPIRE_HOURS),
 ];
 
 /// A rule setting: what to do with an action over its threshold.
 const RULES: [(&str, &str); 3] = [
-    ("banGuard", "REFORGED_GUARD_BAN"),
-    ("revertGuard", "REFORGED_GUARD_REVERT"),
-    ("revokeGuard", "REFORGED_GUARD_REVOKE"),
+    ("banGuard", "DAINTY_GUARD_BAN"),
+    ("revertGuard", "DAINTY_GUARD_REVERT"),
+    ("revokeGuard", "DAINTY_GUARD_REVOKE"),
 ];
 
 /// What a `*_guard` setting may say.

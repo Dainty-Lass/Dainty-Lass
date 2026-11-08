@@ -219,21 +219,21 @@ async fn account_keys_sign_in() {
     let t = Harness::new().await;
     let (_, _, user_id) = t.account("Slayer1", "slayer1@example.test").await;
     let account = t.store().launcher_account_by_user_id(&user_id).await.unwrap().unwrap();
-    let hash = rustic_isles_auth::hashes::user_key_hash(common::SECRET, "RRK_test");
+    let hash = rustic_isles_auth::hashes::user_key_hash(common::SECRET, "DLK_test");
     t.store().insert_user_key(&account.account_id, &hash);
     let me = t
-        .get("/launcher/v1/me", &[("x-reforged-user-api-key", " RRK_test ")])
+        .get("/launcher/v1/me", &[("x-dainty-user-api-key", " DLK_test ")])
         .await;
     assert_eq!(me.status, StatusCode::OK);
     let wrong = t
-        .get("/launcher/v1/me", &[("x-reforged-user-api-key", "RRK_other")])
+        .get("/launcher/v1/me", &[("x-dainty-user-api-key", "DLK_other")])
         .await;
     assert_eq!(wrong.message(), "Sign in required.");
     // Logout with a key matches no family
     let out = t
         .post(
             "/launcher/v1/auth/logout",
-            &[("x-reforged-user-api-key", "RRK_test")],
+            &[("x-dainty-user-api-key", "DLK_test")],
             json!({}),
         )
         .await;

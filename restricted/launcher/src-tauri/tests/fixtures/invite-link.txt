@@ -1,6 +1,6 @@
 invite in ["launcher.exe"]: None
 invite in ["launcher.exe", "dauntless://join?v=1&h=100.64.0.7&p=61000"]: None
-invite in ["launcher.exe", "--flag", "reforged-revival://join?x"]: None
+invite in ["launcher.exe", "--flag", "dainty://join?x"]: None
 invite in ["launcher.exe", "dauntless-revived://join?x"]: None
 invite in ["launcher.exe", "https://example.org"]: None
 invite in ["launcher.exe", "DAUNTLESS://JOIN"]: None

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Silent Spud
 
-//! The public server status (`/reforged/api/ServerStatus`) and its sanitizing parser for untrusted replies.
+//! The public server status (`/dainty/api/ServerStatus`) and its sanitizing parser for untrusted replies.
 
 use chrono::{Datelike, FixedOffset, NaiveDate, TimeZone, Timelike, Utc};
 use serde::{Deserialize, Serialize};
@@ -11,7 +11,7 @@ use url::Url;
 use crate::text::{clean_display_text, js_trim};
 
 /// Route answering with a [`ServerStatus`].
-pub const STATUS_PATH: &str = "/reforged/api/ServerStatus";
+pub const STATUS_PATH: &str = "/dainty/api/ServerStatus";
 
 const MAX_NAME_CHARS: usize = 64;
 const MAX_VERSION_CHARS: usize = 48;

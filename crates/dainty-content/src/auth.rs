@@ -101,7 +101,7 @@ pub struct Auth {
 impl Auth {
     /// Checks keys against the backend at `backend_url`.
     pub fn backend(backend_url: &str, cache_seconds: u64, clock: Clock) -> Self {
-        let url = format!("{}/reforged/api/GetUserInfo", backend_url.trim_end_matches('/'));
+        let url = format!("{}/dainty/api/GetUserInfo", backend_url.trim_end_matches('/'));
         let lookup: Lookup = Arc::new(move |key| {
             let url = url.clone();
             Box::pin(async move { backend_lookup(&url, &key).await })
@@ -181,7 +181,7 @@ fn failed() -> Check {
     Check::Unavailable("lookup failed".to_owned())
 }
 
-/// `GET <backend>/reforged/api/GetUserInfo` with the key, mapped to a [`Check`].
+/// `GET <backend>/dainty/api/GetUserInfo` with the key, mapped to a [`Check`].
 pub async fn backend_lookup(url: &str, key: &str) -> Check {
     let headers = [(KEY_HEADER, key), ("accept", "application/json")];
     let reply = match client::get(url, &headers, LOOKUP_TIMEOUT, MAX_ANSWER).await {
@@ -261,17 +261,17 @@ mod tests {
     #[tokio::test]
     async fn one_lookup_then_cached_under_the_hash_until_the_ttl() {
         let f = fake(300, |_| account("a"));
-        assert_eq!(f.auth.check("RRK_key").await, account("a"));
-        assert_eq!(f.auth.check("RRK_key").await, account("a"));
+        assert_eq!(f.auth.check("DLK_key").await, account("a"));
+        assert_eq!(f.auth.check("DLK_key").await, account("a"));
         assert_eq!(f.calls.load(Ordering::SeqCst), 1);
         let cached = f.auth.cached();
-        assert_eq!(cached, [sha256_hex(b"RRK_key")]);
-        assert!(!cached.iter().any(|k| k.contains("RRK_key")));
+        assert_eq!(cached, [sha256_hex(b"DLK_key")]);
+        assert!(!cached.iter().any(|k| k.contains("DLK_key")));
         f.now.fetch_add(299_999, Ordering::SeqCst);
-        f.auth.check("RRK_key").await;
+        f.auth.check("DLK_key").await;
         assert_eq!(f.calls.load(Ordering::SeqCst), 1);
         f.now.fetch_add(1, Ordering::SeqCst);
-        f.auth.check("RRK_key").await;
+        f.auth.check("DLK_key").await;
         assert_eq!(f.calls.load(Ordering::SeqCst), 2);
     }
 
@@ -357,8 +357,8 @@ mod tests {
                 let mut buf = vec![0u8; 8192];
                 let n = socket.read(&mut buf).await.unwrap_or(0);
                 let request = String::from_utf8_lossy(&buf[..n]).to_lowercase();
-                assert!(request.starts_with("get /reforged/api/getuserinfo "), "{request}");
-                assert!(request.contains("x-reforged-user-api-key: rrk_k"));
+                assert!(request.starts_with("get /dainty/api/getuserinfo "), "{request}");
+                assert!(request.contains("x-dainty-user-api-key: dlk_k"));
                 let reply = format!(
                     "HTTP/1.1 {status} X\r\ncontent-type: application/json\r\ncontent-length: {}\r\nconnection: close\r\n\r\n{body}",
                     body.len()
@@ -366,7 +366,7 @@ mod tests {
                 _ = socket.write_all(reply.as_bytes()).await;
             }
         });
-        format!("http://{addr}/reforged/api/GetUserInfo")
+        format!("http://{addr}/dainty/api/GetUserInfo")
     }
 
     #[tokio::test]
@@ -407,12 +407,12 @@ mod tests {
         ];
         for (status, body, expected) in cases {
             let url = backend(status, body).await;
-            assert_eq!(backend_lookup(&url, "RRK_k").await, expected, "{status} {body}");
+            assert_eq!(backend_lookup(&url, "DLK_k").await, expected, "{status} {body}");
         }
         let free = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
-        let url = format!("http://{}/reforged/api/GetUserInfo", free.local_addr().unwrap());
+        let url = format!("http://{}/dainty/api/GetUserInfo", free.local_addr().unwrap());
         drop(free);
-        let Check::Unavailable(reason) = backend_lookup(&url, "RRK_k").await else {
+        let Check::Unavailable(reason) = backend_lookup(&url, "DLK_k").await else {
             panic!("a free port answered")
         };
         assert!(reason.starts_with("backend unreachable: fetch failed: "), "{reason}");

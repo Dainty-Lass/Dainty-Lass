@@ -15,7 +15,7 @@ On the server whose traffic you want to record, add to `.workspace/config/gatewa
 ```dotenv
 # Absolute path to the directory where daily capture JSONL files are written.
 # Created with mode 0700 (files 0600 on Unix).
-CAPTURE_DIR="/opt/reforged/.workspace/capture"
+CAPTURE_DIR="/opt/dainty-lass/.workspace/capture"
 
 # Number of days to keep daily capture files before automatic pruning (1..90, default: 14).
 CAPTURE_RETENTION_DAYS=14
@@ -24,7 +24,7 @@ CAPTURE_RETENTION_DAYS=14
 CAPTURE_MAX_BODY_BYTES=262144
 ```
 
-Restart the server (`dainty-host start`, `dainty-host serve`, or `systemctl restart reforged.service`). At start the gateway logs:
+Restart the server (`dainty-host start`, `dainty-host serve`, or `systemctl restart dainty-lass.service`). At start the gateway logs:
 
 ```text
 traffic capture is on: every request and answer is recorded, redacted, for the shadow replay (personal data; see dainty-lass's docs/security/gateway.md)
@@ -35,11 +35,11 @@ traffic capture is on: every request and answer is recorded, redacted, for the s
 The gateway writes one file per UTC day named `gateway-YYYY-MM-DD.jsonl` inside `CAPTURE_DIR`. Each line is a single JSON object with `"kind": "http"` (an HTTP request/response pair) or `"kind": "chat"` (an XMPP WebSocket lifecycle event or frame):
 
 - Session tokens (JWTs) are never written in cleartext. Any JWT (`eyJ...`) in headers, bodies, or query strings is replaced with `<token:UID-...>` (preserving only the unverified `userId` / `sub` claim so the replay runner can mint a fresh token for the target server) or `<token>` when no subject claim is present.
-- Launcher account keys (`RRK_...`, `UUK_...`) become `<key:<sha256-hex>>` (the lowercase 64-character SHA-256 digest of the raw key).
+- Launcher account keys (`DLK_...`, `UUK_...`) become `<key:<sha256-hex>>` (the lowercase 64-character SHA-256 digest of the raw key).
 - Game-server API keys (`x-rustic-isles-gameserver-apikey`) become `<gskey>`.
 - XMPP SASL `PLAIN` frames (`<auth ...>...</auth>`) become `<plain:UID-...>` so the replay runner can synthesize a valid base64 `\0<userId>\0<fresh-jwt>` frame for the target server.
 - Any other JSON or form field whose name matches `(?i)(key|token|secret|pass|auth|jwt|sig|cred|recovery|invite|cookie)` (unless already converted to `<token:...>` or `<key:...>`) and any 40+ character hex string or 100+ character token string is replaced with `<redacted>`.
-- The `cookie`, `set-cookie` and `x-reforged-gateway` headers are stripped before writing.
+- The `cookie`, `set-cookie` and `x-dainty-gateway` headers are stripped before writing.
 
 > Capture files still contain player usernames, account IDs, IP addresses, and play history. Keep `CAPTURE_DIR` on local encrypted storage with `0600` permissions, never commit real capture files to Git, and delete them once replay verification completes.
 
@@ -52,17 +52,17 @@ Shadow replay is built into `dainty-host db replay` (backed by dainty-lass's `ru
 ### 2.1 Preparing the target server (`--right`)
 
 1. Start from a database snapshot (`dainty-lass.db` or PostgreSQL dump) taken before the captured session began, so account state, character `updateVersion`, inventory instances, and progression tracks start from the same baseline.
-2. If the captured session includes `/account/api/oauth/token` (`grant_type=exchange_code`), `/reforged/api/ServerStatus`, or `/reforged/api/GetUserInfo` calls authenticated with a launcher account key (`RRK_...` or `UUK_...`), provide a `--key-map <keymap.json>` file so `<key:<sha256>>` placeholders resolve to the raw key registered on the target server:
+2. If the captured session includes `/account/api/oauth/token` (`grant_type=exchange_code`), `/dainty/api/ServerStatus`, or `/dainty/api/GetUserInfo` calls authenticated with a launcher account key (`DLK_...` or `UUK_...`), provide a `--key-map <keymap.json>` file so `<key:<sha256>>` placeholders resolve to the raw key registered on the target server:
    - Either a JSON array of raw keys (the runner computes each key's SHA-256 automatically):
      ```json
      [
-       "RRK_51e9d7eb..."
+       "DLK_51e9d7eb..."
      ]
      ```
    - Or a JSON object mapping lowercase SHA-256 hex digests to raw keys:
      ```json
      {
-       "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef": "RRK_51e9d7eb..."
+       "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef": "DLK_51e9d7eb..."
      }
      ```
 3. Run `dainty-host db replay` (or dainty-lass's `node scripts/replay-capture.mjs`) from the target server's directory (so it automatically reads `AUTH_SIGNING_PRIVKEY_B64`, `JWT_SECRET`, `GAMESERVER_API_KEY`, and `GATEWAY_SECRET` from `.workspace/config/secrets.env`), or pass the credentials explicitly on the command line:
@@ -111,7 +111,7 @@ Report counters and diff classifications in `--out <replay-report.json>`:
 | `inexact_diffed` | Entries marked `inexact` whose responses differed (expected when an unmapped key or omitted body prevents exact replay). |
 | `unexplained_diffed` | Blocks the release: exact entries whose normalized responses differed. Must be `0` for `PASS`. |
 | `StatusDiff` | HTTP status code mismatch (`left` vs `right`, e.g. `200` vs `500`). |
-| `HeaderDiff` | Normalized response header mismatch (`content-type`, `ratelimit`, custom `x-reforged-*` / `x-mystic-*` headers). Volatile transport headers (`date`, `etag`, `content-length`, `connection`, `transfer-encoding`, `server`, CORS) are stripped automatically. |
+| `HeaderDiff` | Normalized response header mismatch (`content-type`, `ratelimit`, custom `x-dainty-*` / `x-mystic-*` headers). Volatile transport headers (`date`, `etag`, `content-length`, `connection`, `transfer-encoding`, `server`, CORS) are stripped automatically. |
 | `ValueDiff` | JSON value mismatch at a specific JSONPath (`$.payload.loadouts[0]...`) after normalizing timestamps (`<date>`, `<login-time>`, `<display-date>`), JWTs (`<jwt:UID-...>`), gateway-redacted secret fields (`<redacted>`), and first-appearance dynamic IDs (`<uuid#1>`, `<iid#1>`, `<party#1>`, `gs-<uuid#1>`). |
 | `TextDiff` | Raw wire serialization mismatch (such as JSON object key ordering or number formatting) when semantic values match, or non-JSON body text mismatch. |
 | `ChatStanzaDiff` | XMPP server stanza mismatch on connection `conn` at stanza index `index` after normalizing stream IDs (`<stream>`), server stanza IDs (`srv-<id>`), and timestamps, and filtering keepalive pings. |
@@ -120,7 +120,12 @@ Report counters and diff classifications in `--out <replay-report.json>`:
 
 ## 3. Rolling back to the pre-cutover Node and MongoDB stack (`RB12`)
 
-Until `RB15` removes the Node reference trees after the 7-day canary window, operators can roll back to the legacy Node backend + Director + MongoDB stack without losing player progress earned on the Rust server.
+> [!WARNING]
+> Since the 2026-11-06 protocol rename (`/dainty/api`, `x-dainty-*` headers), the Node backend and Director no
+> longer speak the launcher's protocol, so a rollback to them cannot serve a current launcher. Docker's `rollback`
+> profile is gone; RB15 removes the rest.
+
+Until `RB15` removes the Node reference trees after the 7-day canary window, operators could roll back to the legacy Node backend + Director + MongoDB stack without losing player progress earned on the Rust server.
 
 ### 3.1 Step 1: export SQLite or PostgreSQL player data back to MongoDB
 
@@ -129,31 +134,19 @@ Before starting the Node services, export the current SQLite (`dainty-lass.db`) 
 ```bash
 # Dry-run first to inspect collection document counts:
 dainty-host db export-mongo \
-  --from /opt/reforged/.workspace/config/dainty-lass.db \
+  --from /opt/dainty-lass/.workspace/config/dainty-lass.db \
   --to mongodb://127.0.0.1:27017/reforged \
   --dry-run
 
 # Perform the live export into MongoDB:
 dainty-host db export-mongo \
-  --from /opt/reforged/.workspace/config/dainty-lass.db \
+  --from /opt/dainty-lass/.workspace/config/dainty-lass.db \
   --to mongodb://127.0.0.1:27017/reforged
 ```
 
 `db export-mongo` reverses the `RB11` schema transforms (`accounts`, `launcher_accounts`, `api_keys`, `characters`, `loadouts`, `inventories`, `progressions`, `huntpasses`, `escalations`, `bounties`, `quests`, `Guilds`, `moderation`, `invites`, `friendships`, `social_blocks`) idempotently into MongoDB.
 
-### 3.2 Step 2A: rollback in Docker (`--profile rollback`)
-
-In `compose.yaml`, the default stack runs the Rust `backend` and `director` on SQLite with no MongoDB or Node containers. To switch to the rollback stack:
-
-```bash
-# 1. Stop the default Rust stack:
-docker compose down
-
-# 2. Start the rollback profile (mongo, the Node backend-rollback and director-rollback, with the gateway, content and allowlist):
-COMPOSE_PROFILES=public,rollback docker compose up -d
-```
-
-### 3.3 Step 2B: rollback on a native Windows or Linux host (`--features paradox`)
+### 3.2 Step 2: rollback on a native Windows or Linux host (`--features paradox`)
 
 On a native host installation:
 
@@ -175,7 +168,7 @@ Per `docs/dainty-lass-plan.md` (`RU9`) and `MIGRATION_PLAN.md` (`RB12`, `RB15`),
    - Zero unhandled panics in server logs (`server.log`).
    - Zero account, character, inventory, loadout, progression, quest, or guild data corruption incidents.
    - Shadow replay (`dainty-host db replay`) of the captured daily `.jsonl` files reports `unexplained_diffed: 0` (`PASS`).
-   - No rollback (`--features paradox` / `--profile rollback`) triggered during the 7-day window (if a fix requires restarting or rolling back, the 7-day clock resets once the fix is deployed).
+   - No rollback (`--features paradox`) triggered during the 7-day window (if a fix requires restarting or rolling back, the 7-day clock resets once the fix is deployed).
 3. Once the gate passes, `RB15` deletes the Node reference trees (`modules/rustic-isles/reference/1.14.7/{ParadoxBackend,ParadoxDirector,shared}`) and removes the `paradox` cargo feature and the `rollback` Docker profile.
 
 ---
@@ -186,10 +179,10 @@ The end-to-end pipeline (live `Server A` with `CAPTURE_DIR` enabled in `.workspa
 
 ### 5.1 Captured routes exercised through the gateway
 
-1. `GET /reforged/api/RegistrationStatus`
-2. `GET /reforged/api/ServerStatus` (with `x-reforged-user-api-key: RRK_...` -> redacted to `<key:sha256>`)
-3. `GET /reforged/api/GetUserInfo` (with `x-reforged-user-api-key: RRK_...` -> redacted to `<key:sha256>`)
-4. `POST /account/api/oauth/token` (`grant_type=exchange_code&exchange_code=RRK_...` -> redacted to `<key:sha256>`, response `access_token` redacted to `<token:52c7ed2e-99e4-463c-8d08-7f509bc9de02>`)
+1. `GET /dainty/api/RegistrationStatus`
+2. `GET /dainty/api/ServerStatus` (with `x-dainty-user-api-key: DLK_...` -> redacted to `<key:sha256>`)
+3. `GET /dainty/api/GetUserInfo` (with `x-dainty-user-api-key: DLK_...` -> redacted to `<key:sha256>`)
+4. `POST /account/api/oauth/token` (`grant_type=exchange_code&exchange_code=DLK_...` -> redacted to `<key:sha256>`, response `access_token` redacted to `<token:52c7ed2e-99e4-463c-8d08-7f509bc9de02>`)
 5. `POST /login` (with `Authorization: Bearer <jwt>` -> redacted to `Bearer <token:52c7ed2e-99e4-463c-8d08-7f509bc9de02>`)
 6. `GET /accountinfo`
 7. `GET /tags`
@@ -220,7 +213,7 @@ The end-to-end pipeline (live `Server A` with `CAPTURE_DIR` enabled in `.workspa
 === 2. Starting server-a to seed CanarySlayer account ===
 Seeded CanarySlayer: {
   userId: '52c7ed2e-99e4-463c-8d08-7f509bc9de02',
-  uukPrefix: 'RRK_51e9d7eb...'
+  uukPrefix: 'DLK_51e9d7eb...'
 }
 === 3. Cloning pre-session snapshot to server-b and writing keymap.json ===
 === 4. Enabling CAPTURE_DIR on server-a and running synthetic session ===

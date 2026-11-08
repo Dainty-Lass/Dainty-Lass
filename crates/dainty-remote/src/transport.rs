@@ -39,7 +39,7 @@ fn append_wire_log(direction: &str, bytes: &[u8]) {
     options.create(true).append(true);
     #[cfg(unix)]
     std::os::unix::fs::OpenOptionsExt::mode(&mut options, 0o600);
-    if let Ok(path) = std::env::var("REFORGED_REMOTE_WIRE_LOG")
+    if let Ok(path) = std::env::var("DAINTY_REMOTE_WIRE_LOG")
         && !path.is_empty()
         && let Ok(mut file) = options.open(path)
     {

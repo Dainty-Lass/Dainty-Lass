@@ -14,8 +14,8 @@ use crate::text::{collapse_js_whitespace, has_control_or_format, js_length, js_t
 
 /// Scheme of current invites, which may name any played version.
 pub const UNIFIED_INVITE_SCHEME: &str = "dauntless";
-/// Older scheme, pinned to 1.14.7.
-pub const INVITE_SCHEME: &str = "reforged-revival";
+/// DaintyLass's own scheme, pinned to 1.14.7: what `dainty-host invite` prints for it.
+pub const INVITE_SCHEME: &str = "dainty";
 /// Dauntless Revived's scheme, recognised only to refuse it (RD5).
 pub const REVIVED_INVITE_SCHEME: &str = "dauntless-revived";
 /// Port a public invite implies when it names none.
@@ -30,7 +30,7 @@ const TAILSCALE_SHARE_PREFIX: &str = "https://login.tailscale.com/";
 
 /// Returns the default Reforged game version (`1.14.7`).
 #[must_use]
-pub fn reforged_version() -> GameVersion {
+pub fn dainty_version() -> GameVersion {
     GameVersion::release(1, 14, 7)
 }
 
@@ -48,14 +48,14 @@ pub fn is_revived(version: &GameVersion) -> bool {
 /// Returns the game versions this build plays.
 #[must_use]
 pub fn played_versions() -> Vec<GameVersion> {
-    vec![reforged_version()]
+    vec![dainty_version()]
 }
 
 /// Resolves a version string or known alias (`"1.14.7"`, `"reforged"`, `"1.4.4"`, `"revived"`) to a [`GameVersion`].
 #[must_use]
 pub fn named_version(text: &str) -> Option<GameVersion> {
     match text {
-        "1.14.7" | "reforged" => Some(reforged_version()),
+        "1.14.7" | "reforged" => Some(dainty_version()),
         "1.4.4" | "revived" => Some(revived_version()),
         _ => None,
     }
@@ -64,7 +64,7 @@ pub fn named_version(text: &str) -> Option<GameVersion> {
 /// Returns the short version alias (`"reforged"`) for `version`, if one exists.
 #[must_use]
 pub fn version_alias(version: &GameVersion) -> Option<&'static str> {
-    (*version == reforged_version()).then_some("reforged")
+    (*version == dainty_version()).then_some("reforged")
 }
 
 /// Returns the URL schemes that `parse_invite` accepts.
@@ -89,7 +89,7 @@ pub enum ServerMode {
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 pub struct Invite {
     /// Game version the server plays, 1.14.7 when the invite names none.
-    #[serde(default = "reforged_version")]
+    #[serde(default = "dainty_version")]
     #[cfg_attr(feature = "ts", ts(type = "string"))]
     pub version: GameVersion,
     /// Private or public, from the invite format.
@@ -415,7 +415,7 @@ pub fn parse_invite_for(raw: &str, supported: &[GameVersion]) -> Result<Invite, 
     let scheme = scheme_raw.to_ascii_lowercase();
     let scheme_pinned_version = match scheme.as_str() {
         UNIFIED_INVITE_SCHEME => None,
-        INVITE_SCHEME => Some(reforged_version()),
+        INVITE_SCHEME => Some(dainty_version()),
         REVIVED_INVITE_SCHEME => Some(revived_version()),
         _ => return Err(InviteError::NotInvite),
     };
@@ -498,7 +498,7 @@ pub fn parse_invite_for(raw: &str, supported: &[GameVersion]) -> Result<Invite, 
             }
             explicit_ver
         }
-        (None, None) => reforged_version(),
+        (None, None) => dainty_version(),
     };
 
     if !supported.contains(&version) {
@@ -640,7 +640,7 @@ pub fn format_invite(invite: &Invite) -> Result<String, FormatError> {
         return Err(FormatError::Version);
     }
 
-    let (scheme, include_version) = if invite.version == reforged_version() {
+    let (scheme, include_version) = if invite.version == dainty_version() {
         (INVITE_SCHEME, false)
     } else {
         (UNIFIED_INVITE_SCHEME, true)

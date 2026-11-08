@@ -40,7 +40,7 @@ use crate::settings::WS_PATHS;
 use crate::xmpp::{DEFAULT_DOMAIN, NS_BIND, NS_FRAMING, NS_MUC, NS_SASL, escape};
 
 /// Carries the gateway's secret; with it, a loopback peer's `x-forwarded-for` names the player's address.
-pub const GATEWAY_HEADER: &str = "x-reforged-gateway";
+pub const GATEWAY_HEADER: &str = "x-dainty-gateway";
 /// How long a connection waits for its other half, or for the client to finish closing
 const LINGER: Duration = Duration::from_secs(30);
 const FLUSH: Duration = Duration::from_millis(200);

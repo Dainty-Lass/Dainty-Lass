@@ -526,7 +526,7 @@ fn comment(path: &str) -> &'static str {
         }
         "database.postgres_port" => "Postgres: its TCP port (5432 when left out).",
         "database.postgres_user" => {
-            "Postgres: the role to log in as (dainty when left out). Its password is REFORGED_DB_PASSWORD in secrets.env."
+            "Postgres: the role to log in as (dainty when left out). Its password is DAINTY_DB_PASSWORD in secrets.env."
         }
         "database.postgres_database" => "Postgres: the database (dainty when left out).",
         "guard" => {

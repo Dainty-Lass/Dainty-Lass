@@ -51,7 +51,7 @@ An admin key as listed: who it is for and what it may do, never the key itself.
 """
 type AdminKey {
 	"""
-	What the log and `admin:<id>` in the change log call it. `owner` is REFORGED_ADMIN_API_KEY.
+	What the log and `admin:<id>` in the change log call it. `owner` is DAINTY_ADMIN_API_KEY.
 	"""
 	id: String!
 	"""
@@ -379,7 +379,7 @@ A key just made. The key itself is shown here once and is not kept.
 """
 type IssuedKey {
 	"""
-	`RRA_<id>_<secret>`: send it as `Authorization: Bearer <key>`. Keep it; it cannot be shown again.
+	`DLA_<id>_<secret>`: send it as `Authorization: Bearer <key>`. Keep it; it cannot be shown again.
 	"""
 	key: String!
 	"""

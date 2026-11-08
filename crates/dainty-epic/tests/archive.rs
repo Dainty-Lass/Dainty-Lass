@@ -1,8 +1,8 @@
 //! The archived manifests and Epic's CDN, both opt-in, since they reach the network.
 //!
-//! - `REFORGED_TEST_EPIC_MANIFEST=1` fetches the 1.14.7 manifest from the community archive by pinned
+//! - `DAINTY_TEST_EPIC_MANIFEST=1` fetches the 1.14.7 manifest from the community archive by pinned
 //!   commit and SHA-1 and checks what DE5 relies on. They are Epic's files, so they are fetched, not committed.
-//! - `REFORGED_TEST_EPIC_CDN=1` is the maintainer's DE1 step (`docs/port/spike-de1-epic.md`): it fetches a few of
+//! - `DAINTY_TEST_EPIC_CDN=1` is the maintainer's DE1 step (`docs/port/spike-de1-epic.md`): it fetches a few of
 //!   1.14.7's chunks from each CDN host, checks them against the manifest and assembles `Version.txt` from them.
 //!
 //! HTTPS only, no redirect followed, bodies capped.
@@ -83,7 +83,7 @@ async fn fetch_manifest(pinned: &Pinned) -> Result<Manifest, String> {
 
 #[test]
 fn the_archived_manifests_parse_as_the_archive_describes_them() {
-    if !opted_in("REFORGED_TEST_EPIC_MANIFEST", "fetch the archived 1.14.7 manifest") {
+    if !opted_in("DAINTY_TEST_EPIC_MANIFEST", "fetch the archived 1.14.7 manifest") {
         return;
     }
     block_on(async {
@@ -112,7 +112,7 @@ fn the_archived_manifests_parse_as_the_archive_describes_them() {
 #[test]
 fn chunks_from_every_cdn_host_hash_as_the_manifest_says() {
     if !opted_in(
-        "REFORGED_TEST_EPIC_CDN",
+        "DAINTY_TEST_EPIC_CDN",
         "fetch a few 1.14.7 chunks from each Epic CDN host",
     ) {
         return;

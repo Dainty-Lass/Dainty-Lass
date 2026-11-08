@@ -69,4 +69,4 @@ The same three with `-p dainty-server-minimal`. `cargo test --workspace` runs th
 `-p dainty-server -p dainty-server-minimal --features dainty-server/all-modules,dainty-server-minimal/all-modules` and the
 service and module libraries, the launcher's server GUI build (`tauri build ... --features server-gui` in
 `restricted/launcher/src-tauri`) links `isles-1-14-7` and `realms` through `server-gui`, and the Docker image builds
-the features in `REFORGED_MODULES` (`all-modules` by default).
+the features in `DAINTY_MODULES` (`all-modules` by default).

@@ -59,7 +59,7 @@
   ],
   "plausibleKey": [
     {
-      "input": "RRK_abababababababababababababababababababababababab",
+      "input": "DLK_abababababababababababababababababababababababab",
       "ok": true
     },
     {
@@ -67,11 +67,11 @@
       "ok": false
     },
     {
-      "input": "RRK_has space",
+      "input": "DLK_has space",
       "ok": false
     },
     {
-      "input": "RRK_\"quote\"",
+      "input": "DLK_\"quote\"",
       "ok": false
     },
     {
@@ -91,54 +91,54 @@
       "ok": false
     },
     {
-      "input": "RRK_abababababababababababababababababababababababab\n",
+      "input": "DLK_abababababababababababababababababababababababab\n",
       "ok": false
     }
   ],
   "extractKey": [
     {
-      "input": "  RRK_abababababababababababababababababababababababab\r\n",
-      "key": "RRK_abababababababababababababababababababababababab"
+      "input": "  DLK_abababababababababababababababababababababababab\r\n",
+      "key": "DLK_abababababababababababababababababababababababab"
     },
     {
-      "input": "Dauntless Revived account key\r\n\r\nServer: X\r\nKey: RRK_abababababababababababababababababababababababab\r\n\r\nKeep this file private.",
-      "key": "RRK_abababababababababababababababababababababababab"
+      "input": "Dauntless Revived account key\r\n\r\nServer: X\r\nKey: DLK_abababababababababababababababababababababababab\r\n\r\nKeep this file private.",
+      "key": "DLK_abababababababababababababababababababababababab"
     },
     {
       "input": "not a key at all",
       "key": null
     },
     {
-      "input": "Dauntless Revived account key Server: X Key: RRK_abababababababababababababababababababababababab Keep this file private.",
-      "key": "RRK_abababababababababababababababababababababababab"
+      "input": "Dauntless Revived account key Server: X Key: DLK_abababababababababababababababababababababababab Keep this file private.",
+      "key": "DLK_abababababababababababababababababababababababab"
     },
     {
-      "input": "Key:RRK_abababababababababababababababababababababababab",
-      "key": "RRK_abababababababababababababababababababababababab"
+      "input": "Key:DLK_abababababababababababababababababababababababab",
+      "key": "DLK_abababababababababababababababababababababababab"
     },
     {
-      "input": "  Key:   RRK_abababababababababababababababababababababababab   ",
-      "key": "RRK_abababababababababababababababababababababababab"
+      "input": "  Key:   DLK_abababababababababababababababababababababababab   ",
+      "key": "DLK_abababababababababababababababababababababababab"
     },
     {
-      "input": "Key:\nRRK_abababababababababababababababababababababababab",
-      "key": "RRK_abababababababababababababababababababababababab"
+      "input": "Key:\nDLK_abababababababababababababababababababababababab",
+      "key": "DLK_abababababababababababababababababababababababab"
     },
     {
-      "input": "Key: RRK_abababababababababababababababababababababababab\nKey: RRK_cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd",
-      "key": "RRK_abababababababababababababababababababababababab"
+      "input": "Key: DLK_abababababababababababababababababababababababab\nKey: DLK_cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd",
+      "key": "DLK_abababababababababababababababababababababababab"
     },
     {
-      "input": "x Key: RRK_abababababababababababababababababababababababab",
-      "key": "RRK_abababababababababababababababababababababababab"
+      "input": "x Key: DLK_abababababababababababababababababababababababab",
+      "key": "DLK_abababababababababababababababababababababababab"
     },
     {
-      "input": "Key: RRK_ababababababababababababababababababababababababx",
-      "key": "RRK_ababababababababababababababababababababababababx"
+      "input": "Key: DLK_ababababababababababababababababababababababababx",
+      "key": "DLK_ababababababababababababababababababababababababx"
     },
     {
-      "input": "Key: RRK_abababababababababababababababababababababababab x",
-      "key": "RRK_abababababababababababababababababababababababab"
+      "input": "Key: DLK_abababababababababababababababababababababababab x",
+      "key": "DLK_abababababababababababababababababababababababab"
     },
     {
       "input": "Key: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
@@ -153,35 +153,35 @@
       "key": null
     },
     {
-      "input": "Note Key: RRK_ababababababababababababababababababababababababab",
+      "input": "Note Key: DLK_ababababababababababababababababababababababababab",
       "key": null
     },
     {
-      "input": "Note Key: RRK_ababababababababababababababababababababababababz",
-      "key": "RRK_abababababababababababababababababababababababab"
+      "input": "Note Key: DLK_ababababababababababababababababababababababababz",
+      "key": "DLK_abababababababababababababababababababababababab"
     },
     {
-      "input": "Note Key:　RRK_abababababababababababababababababababababababab",
-      "key": "RRK_abababababababababababababababababababababababab"
+      "input": "Note Key:　DLK_abababababababababababababababababababababababab",
+      "key": "DLK_abababababababababababababababababababababababab"
     },
     {
-      "input": "key: RRK_abababababababababababababababababababababababab",
+      "input": "key: DLK_abababababababababababababababababababababababab",
       "key": null
     },
     {
-      "input": " Key: RRK_abababababababababababababababababababababababab ",
-      "key": "RRK_abababababababababababababababababababababababab"
+      "input": " Key: DLK_abababababababababababababababababababababababab ",
+      "key": "DLK_abababababababababababababababababababababababab"
     },
     {
-      "input": "Key: RRK_abababababababababababababababababababababababab",
-      "key": "RRK_abababababababababababababababababababababababab"
+      "input": "Key: DLK_abababababababababababababababababababababababab",
+      "key": "DLK_abababababababababababababababababababababababab"
     },
     {
-      "input": "﻿RRK_abababababababababababababababababababababababab ",
-      "key": "RRK_abababababababababababababababababababababababab"
+      "input": "﻿DLK_abababababababababababababababababababababababab ",
+      "key": "DLK_abababababababababababababababababababababababab"
     },
     {
-      "input": "RRK_abababababababababababababababababababababababab RRK_abababababababababababababababababababababababab",
+      "input": "DLK_abababababababababababababababababababababababab DLK_abababababababababababababababababababababababab",
       "key": null
     },
     {
@@ -189,12 +189,12 @@
       "key": null
     },
     {
-      "input": "                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                RRK_abababababababababababababababababababababababab",
-      "key": "RRK_abababababababababababababababababababababababab"
+      "input": "                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                DLK_abababababababababababababababababababababababab",
+      "key": "DLK_abababababababababababababababababababababababab"
     },
     {
-      "input": "Server: Key: RRK_abababababababababababababababababababababababab",
-      "key": "RRK_abababababababababababababababababababababababab"
+      "input": "Server: Key: DLK_abababababababababababababababababababababababab",
+      "key": "DLK_abababababababababababababababababababababababab"
     },
     {
       "input": "UUK_abababababababababababababababababababababababab",

@@ -1,11 +1,11 @@
 #!/bin/bash
-# Dainty Lass: compose.yaml's health check for a service, `reforged-healthcheck <name>`.
+# DaintyLass: compose.yaml's health check for a service, `dainty-healthcheck <name>`.
 # Healthy once its port takes a connection, the port and address read as the service reads them: the
 # process environment first, then its env file (written by dainty-host setup). The host kit's `start`
 # waits the same way (dainty-lass's crates/dainty-hostkit/src/services.rs, Ready).
 set -u
-name="${1:?usage: reforged-healthcheck gateway|content|admin|allowlist|backend|director}"
-file="/opt/reforged/.workspace/config/$name.env"
+name="${1:?usage: dainty-healthcheck gateway|content|admin|allowlist|backend|director}"
+file="/opt/dainty-lass/.workspace/config/$name.env"
 
 setting() {
 	local value="${!1-}"

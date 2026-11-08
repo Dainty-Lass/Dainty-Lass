@@ -231,7 +231,7 @@ pub struct Paths {
     pub news_file: PathBuf,
     /// `.workspace/bin`.
     pub bin: PathBuf,
-    /// The Linux game server wrapper, `reforged-gameserver`.
+    /// The Linux game server wrapper, `dainty-gameserver`.
     pub gameserver_wrapper: PathBuf,
     /// `.workspace/wine`: the Wine prefix.
     pub wine_prefix: PathBuf,
@@ -289,7 +289,7 @@ impl Paths {
         let branding = workspace.join("branding");
         let news_file = config.join("news.json");
         let bin = workspace.join("bin");
-        let gameserver_wrapper = bin.join("reforged-gameserver");
+        let gameserver_wrapper = bin.join("dainty-gameserver");
         let wine_prefix = workspace.join("wine");
         let proton_data = workspace.join("proton");
         let systemd = workspace.join("systemd");
@@ -369,7 +369,7 @@ mod tests {
         assert_eq!(p.mongo_data, Path::new("/srv/server/.workspace/mongodb"));
         assert_eq!(
             p.gameserver_wrapper,
-            Path::new("/srv/server/.workspace/bin/reforged-gameserver")
+            Path::new("/srv/server/.workspace/bin/dainty-gameserver")
         );
         assert_eq!(
             game_exe_relative(),

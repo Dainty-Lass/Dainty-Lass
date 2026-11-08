@@ -129,10 +129,10 @@ fn with_admin_api_secrets() -> Result<Secrets, dainty_host::error::HostError> {
 
 /// The lines the Rust kit writes that the Node kit never did, which the comparisons leave out.
 const ADMIN_API_LINES: [&str; 5] = [
-    "REFORGED_ADMIN_API_KEY=",
+    "DAINTY_ADMIN_API_KEY=",
     "RUSTIC_ISLES_MANAGER_ADMIN=",
     "RUSTIC_ISLES_MANAGER_OPERATOR_SECRET=",
-    "REFORGED_DB_PASSWORD=",
+    "DAINTY_DB_PASSWORD=",
     "DASHBOARD_INGEST_KEY=",
 ];
 
@@ -148,6 +148,25 @@ fn without_admin_api_lines(text: &str) -> String {
     text.split_inclusive('\n')
         .filter(|line| !ADMIN_API_LINES.iter().any(|start| line.starts_with(start)))
         .collect()
+}
+
+/// What setup writes for a runtime built before the 2026-11-06 rename, until a rebuilt one is published: not the
+/// Node kit's
+const RUNTIME_BRIDGE_LINES: [&str; 3] = [
+    "REFORGED_SERVER_MAX_FPS=",
+    "REFORGED_SERVER_IDLE_FPS=",
+    "RUSTIC_ISLES_BACKEND_URL=",
+];
+
+fn without_runtime_bridge_lines(text: &str) -> String {
+    text.split_inclusive('\n')
+        .filter(|line| !RUNTIME_BRIDGE_LINES.iter().any(|start| line.starts_with(start)))
+        .collect()
+}
+
+/// The Node kit's bytes under the names DAINTY_ gave them (`dainty_protocol::renamed`)
+fn renamed(text: &str) -> String {
+    dainty_protocol::renamed::renamed(text)
 }
 
 fn without_paradox_mongo_lines(text: &str) -> String {
@@ -167,9 +186,9 @@ fn secrets_env_written_by_the_node_kit_is_kept_byte_for_byte() {
     assert_eq!(secrets.admin_key, "c".repeat(64));
     assert_eq!(secrets.admin_api_key, "g".repeat(64));
     let rewritten = text(&copy.path().join("secrets.env"));
-    assert_eq!(without_admin_api_lines(&rewritten), text(&file));
+    assert_eq!(without_admin_api_lines(&rewritten), renamed(&text(&file)));
     assert!(rewritten.ends_with(&format!(
-        "RUSTIC_ISLES_MANAGER_OPERATOR_SECRET={}\nREFORGED_DB_PASSWORD={}\nDASHBOARD_INGEST_KEY={}\n",
+        "RUSTIC_ISLES_MANAGER_OPERATOR_SECRET={}\nDAINTY_DB_PASSWORD={}\nDASHBOARD_INGEST_KEY={}\n",
         "h".repeat(64),
         "p".repeat(64),
         "p".repeat(64)
@@ -234,8 +253,8 @@ fn the_service_env_files_are_the_node_kits_bytes() {
         names.retain(|n| n != "admin.env");
         assert_eq!(names, expected, "{case}");
         for name in &expected {
-            let actual = without_admin_api_lines(&text(&out.path().join(name)));
-            let fixture_text = text(&expected_dir.join(name));
+            let actual = without_runtime_bridge_lines(&without_admin_api_lines(&text(&out.path().join(name))));
+            let fixture_text = renamed(&text(&expected_dir.join(name)));
             if cfg!(feature = "paradox") {
                 assert_eq!(actual, fixture_text, "{case}/{name}");
             } else {

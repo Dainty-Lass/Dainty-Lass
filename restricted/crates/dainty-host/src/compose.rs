@@ -326,17 +326,13 @@ pub fn network(options: NetworkOptions) -> Result<Module, String> {
                 );
                 let mut ring_config = network_plugin::ring::RingConfig::new(node.clone());
                 ring_config.wrong_node_policy = wrong_node_policy
-                    .or_else(|| {
-                        match std::env::var("REFORGED_WRONG_NODE_POLICY")
-                            .ok()
-                            .as_deref()
-                            .map(str::trim)
-                        {
+                    .or_else(
+                        || match std::env::var("DAINTY_WRONG_NODE_POLICY").ok().as_deref().map(str::trim) {
                             Some("redirect") => Some(network_plugin::ring::WrongNodePolicy::Redirect),
                             Some("refuse") => Some(network_plugin::ring::WrongNodePolicy::Refuse),
                             _ => None,
-                        }
-                    })
+                        },
+                    )
                     .unwrap_or_default();
                 ring_config.peers = peers
                     .iter()
@@ -508,13 +504,13 @@ pub fn chat_library(library: dainty_controller::ServiceLibrary, options: ChatOpt
     dainty_controller::service_library::chat_library(library, env, &registry, setup)
 }
 
-/// Chat's env and setup, either way it runs: the node database goes in its env (`REFORGED_DB_*`, as setup writes
+/// Chat's env and setup, either way it runs: the node database goes in its env (`DAINTY_DB_*`, as setup writes
 /// them), the node and network in its setup.
 fn chat_env_and_setup(options: ChatOptions) -> (dainty_service_kit::env::Env, dainty_service_plugin::chat::ChatSetup) {
     let mut env: Vec<(String, String)> = options
         .env
         .vars()
-        .filter(|(key, _)| !key.starts_with("REFORGED_DB_"))
+        .filter(|(key, _)| !key.starts_with("DAINTY_DB_"))
         .map(|(key, value)| (key.to_owned(), value.to_owned()))
         .collect();
     env.extend(database_env(&options.database));
@@ -533,20 +529,20 @@ fn chat_env_and_setup(options: ChatOptions) -> (dainty_service_kit::env::Env, da
 fn database_env(database: &dainty_store::DatabaseConfig) -> Vec<(String, String)> {
     match database {
         dainty_store::DatabaseConfig::Sqlite { file } => vec![
-            ("REFORGED_DB_ENGINE".into(), "sqlite".into()),
-            ("REFORGED_DB_FILE".into(), file.to_string_lossy().into_owned()),
+            ("DAINTY_DB_ENGINE".into(), "sqlite".into()),
+            ("DAINTY_DB_FILE".into(), file.to_string_lossy().into_owned()),
         ],
         dainty_store::DatabaseConfig::Postgres(pg) => {
             let mut out = vec![
-                ("REFORGED_DB_ENGINE".into(), "postgres".into()),
-                ("REFORGED_DB_HOST".into(), pg.host.clone()),
-                ("REFORGED_DB_PORT".into(), pg.port.to_string()),
-                ("REFORGED_DB_USER".into(), pg.user.clone()),
-                ("REFORGED_DB_NAME".into(), pg.database.clone()),
-                ("REFORGED_DB_PASSWORD".into(), pg.password.clone()),
+                ("DAINTY_DB_ENGINE".into(), "postgres".into()),
+                ("DAINTY_DB_HOST".into(), pg.host.clone()),
+                ("DAINTY_DB_PORT".into(), pg.port.to_string()),
+                ("DAINTY_DB_USER".into(), pg.user.clone()),
+                ("DAINTY_DB_NAME".into(), pg.database.clone()),
+                ("DAINTY_DB_PASSWORD".into(), pg.password.clone()),
             ];
             if pg.allow_remote {
-                out.push(("REFORGED_DB_ALLOW_REMOTE".into(), "1".into()));
+                out.push(("DAINTY_DB_ALLOW_REMOTE".into(), "1".into()));
             }
             out
         }

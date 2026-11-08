@@ -7,18 +7,18 @@
 use std::net::IpAddr;
 use std::path::PathBuf;
 
-/// `REFORGED_DB_ENGINE`: `sqlite` (the default) or `postgres`.
-pub const ENV_ENGINE: &str = "REFORGED_DB_ENGINE";
-/// `REFORGED_DB_FILE`: the SQLite file. Absent: the service's default.
-pub const ENV_FILE: &str = "REFORGED_DB_FILE";
-pub const ENV_HOST: &str = "REFORGED_DB_HOST";
-pub const ENV_PORT: &str = "REFORGED_DB_PORT";
-pub const ENV_USER: &str = "REFORGED_DB_USER";
-pub const ENV_NAME: &str = "REFORGED_DB_NAME";
+/// `DAINTY_DB_ENGINE`: `sqlite` (the default) or `postgres`.
+pub const ENV_ENGINE: &str = "DAINTY_DB_ENGINE";
+/// `DAINTY_DB_FILE`: the SQLite file. Absent: the service's default.
+pub const ENV_FILE: &str = "DAINTY_DB_FILE";
+pub const ENV_HOST: &str = "DAINTY_DB_HOST";
+pub const ENV_PORT: &str = "DAINTY_DB_PORT";
+pub const ENV_USER: &str = "DAINTY_DB_USER";
+pub const ENV_NAME: &str = "DAINTY_DB_NAME";
 /// The Postgres password: a secret, made once in `secrets.env`.
-pub const ENV_PASSWORD: &str = "REFORGED_DB_PASSWORD";
+pub const ENV_PASSWORD: &str = "DAINTY_DB_PASSWORD";
 /// `1`: a Postgres address off this machine is accepted, though the connection is plaintext.
-pub const ENV_ALLOW_REMOTE: &str = "REFORGED_DB_ALLOW_REMOTE";
+pub const ENV_ALLOW_REMOTE: &str = "DAINTY_DB_ALLOW_REMOTE";
 
 pub const DEFAULT_POSTGRES_HOST: &str = "127.0.0.1";
 pub const DEFAULT_POSTGRES_PORT: u16 = 5432;

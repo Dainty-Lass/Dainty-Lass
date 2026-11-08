@@ -11,7 +11,7 @@ use common::http;
 use rustic_isles_replay::{IdMap, ReplayHttpResponse, ReplayTargetAuth, prepare_http_request};
 use serde_json::json;
 
-const RAW_KEY: &str = "RRK_aabbccddeeff00112233445566778899aabbccddeeff0011";
+const RAW_KEY: &str = "DLK_aabbccddeeff00112233445566778899aabbccddeeff0011";
 
 fn side() -> (ReplayTargetAuth, String) {
     let mut auth = ReplayTargetAuth {

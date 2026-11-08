@@ -11,7 +11,7 @@ import { install, installer, uninstall } from "./lib/nsis"
 
 const STEPS = 5
 const SNAPSHOT_MS = 20_000
-const CONTAINER_WORKSPACE = "/opt/reforged/.workspace"
+const CONTAINER_WORKSPACE = "/opt/dainty-lass/.workspace"
 
 // The controller's files the manager needs to act as it: config, secrets, the controller state and its TLS
 const WORKSPACE_FILES = [
@@ -43,7 +43,7 @@ async function ignore(work: () => unknown): Promise<void> {
 }
 
 function compose(restricted: string, args: string[]): Buffer {
-  const argv = ["docker", "compose", "-p", "reforged-remote", "--profile", "remote"]
+  const argv = ["docker", "compose", "-p", "dainty-remote", "--profile", "remote"]
   argv.push("-f", path.join(restricted, "compose.yaml"), "exec", "-T", ...args)
   const child = Bun.spawnSync(argv, { stdout: "pipe", stderr: "inherit" })
   if (child.exitCode !== 0) throw new Error(`docker compose exec ${args.slice(0, 2).join(" ")} exited ${child.exitCode}`)

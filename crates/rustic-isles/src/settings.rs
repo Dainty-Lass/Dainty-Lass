@@ -259,7 +259,7 @@ impl Settings {
 
     /// Whether the composer should open a database.
     pub fn database_wanted(&self) -> bool {
-        self.get("REFORGED_DB_FILE").is_some() || self.get("REFORGED_DB_ENGINE").is_some()
+        self.get("DAINTY_DB_FILE").is_some() || self.get("DAINTY_DB_ENGINE").is_some()
     }
 }
 

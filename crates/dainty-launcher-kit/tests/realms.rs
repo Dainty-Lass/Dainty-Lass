@@ -15,7 +15,7 @@ use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, AtomicI32, Ordering};
 use std::sync::{Arc, Mutex};
 
-use dainty_protocol::invite::{Invite, ServerMode, format_invite, reforged_version};
+use dainty_protocol::invite::{Invite, ServerMode, dainty_version, format_invite};
 use dainty_protocol::manifest::{RUNTIME_FILE_NAMES, RuntimeFile, RuntimeManifest};
 use futures_util::future::BoxFuture;
 use rustic_rifts_host::{
@@ -77,13 +77,13 @@ fn reply(status: u16, body: Value) -> Reply {
 fn answer(host: &Shared, method: &str, path: &str, key: Option<&str>) -> Reply {
     let h = host.lock().unwrap();
     match (method, path) {
-        ("GET", "/reforged/api/ServerStatus") => {
+        ("GET", "/dainty/api/ServerStatus") => {
             return reply(
                 200,
                 json!({ "name": h.name, "online": true, "version": "1.0", "commit": "abc" }),
             );
         }
-        ("GET", "/reforged/api/GetUserInfo") => {
+        ("GET", "/dainty/api/GetUserInfo") => {
             return match key.and_then(|k| h.users.get(k)) {
                 Some((name, id)) => reply(200, json!({ "UserId": id, "Username": name, "IsAdmin": false })),
                 None => reply(401, json!({ "error": "key" })),
@@ -317,7 +317,7 @@ async fn serve(mut stream: TcpStream, host: Shared) {
         let method = first.next().unwrap_or("").to_owned();
         let target = first.next().unwrap_or("");
         let path = target.split('?').next().unwrap_or("").to_owned();
-        let key = header("x-reforged-user-api-key");
+        let key = header("x-dainty-user-api-key");
         let out = answer(&host, &method, &path, key.as_deref());
         host.lock().unwrap().seen.push(path);
         let mut bytes = format!(
@@ -364,7 +364,7 @@ fn make_runtime(build: u32) -> (RuntimeManifest, BTreeMap<String, Vec<u8>>) {
 
 fn invite(port: u16, name: &str) -> String {
     format_invite(&Invite {
-        version: reforged_version(),
+        version: dainty_version(),
         mode: ServerMode::Private,
         host: "127.0.0.1".to_owned(),
         port,
@@ -594,7 +594,7 @@ impl TransportLoader for FakeLoader {
 #[tokio::test]
 async fn realm_commands_host_join_stop_keep_rd9_and_never_expose_account_key() {
     let hx = Harness::new().await;
-    let secret_key = "RRK_super_secret_account_key_never_in_realms_998877";
+    let secret_key = "DLK_super_secret_account_key_never_in_realms_998877";
     let mut host = Host {
         name: "RealmsSrv",
         runtime: Some(make_runtime(1)),
@@ -733,8 +733,8 @@ async fn realm_commands_host_join_stop_keep_rd9_and_never_expose_account_key() {
 async fn server_host_backend_drives_realm_hub_and_join_across_two_launchers() {
     let host_hx = Harness::new().await;
     let join_hx = Harness::new().await;
-    let host_key = "RRK_host_account_key_for_server_realms_1122334455";
-    let join_key = "RRK_join_account_key_for_server_realms_6677889900";
+    let host_key = "DLK_host_account_key_for_server_realms_1122334455";
+    let join_key = "DLK_join_account_key_for_server_realms_6677889900";
 
     let host_win64 = host_hx.win64();
     let host_dll = host_win64.join(TRANSPORT_DLL);

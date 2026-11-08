@@ -35,12 +35,12 @@ fn server() -> Server {
         .unwrap();
     let slashed = |p: &std::path::Path| format!("\"{}\"", p.to_string_lossy().replace(std::path::MAIN_SEPARATOR, "/"));
     let env = format!(
-        "REFORGED_ADMIN_API_KEY={KEY}
-REFORGED_ADMIN_KEY={KEY}
+        "DAINTY_ADMIN_API_KEY={KEY}
+DAINTY_ADMIN_KEY={KEY}
 RUSTIC_ISLES_MANAGER_OPERATOR_SECRET={KEY}
-         REFORGED_ADMIN_API_TIMEOUTS_FILE={}
-REFORGED_DB_ENGINE=sqlite
-REFORGED_DB_FILE={}
+         DAINTY_ADMIN_API_TIMEOUTS_FILE={}
+DAINTY_DB_ENGINE=sqlite
+DAINTY_DB_FILE={}
 ",
         slashed(&paths.config.join("timeouts.json")),
         slashed(&file)

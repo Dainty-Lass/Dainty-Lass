@@ -16,7 +16,7 @@ use dainty_launcher_kit::platform::invite_link::{
 use dainty_launcher_kit::platform::links::fixed_url;
 use dainty_protocol::invite::invite_schemes;
 
-const LINK: &str = "reforged-revival://join?v=1&host=100.64.0.1&port=61000&code=abcd&name=x";
+const LINK: &str = "dainty://join?v=1&host=100.64.0.1&port=61000&code=abcd&name=x";
 
 fn invite(args: &[&str]) -> Option<String> {
     invite_in_args(args)
@@ -28,20 +28,20 @@ fn the_invite_link_among_the_arguments() {
     assert_eq!(
         invite(&[
             "launcher.exe",
-            "REFORGED-REVIVAL://join?v=1&host=100.64.0.1&port=61000&code=abcd&name=x "
+            "DAINTY://join?v=1&host=100.64.0.1&port=61000&code=abcd&name=x "
         ])
         .as_deref(),
-        Some("REFORGED-REVIVAL://join?v=1&host=100.64.0.1&port=61000&code=abcd&name=x")
+        Some("DAINTY://join?v=1&host=100.64.0.1&port=61000&code=abcd&name=x")
     );
     assert_eq!(
-        invite(&["launcher.exe", "reforged-revival://join?v=9"]),
+        invite(&["launcher.exe", "dainty://join?v=9"]),
         None,
         "the first link counts, and it must be valid"
     );
     assert_eq!(invite(&["launcher.exe", "--flag"]), None);
-    let unified = LINK.replacen("reforged-revival", "dauntless", 1);
+    let unified = LINK.replacen("dainty", "dauntless", 1);
     assert_eq!(invite(&["launcher.exe", &unified]).as_deref(), Some(unified.as_str()));
-    let revived = LINK.replacen("reforged-revival", "dauntless-revived", 1);
+    let revived = LINK.replacen("dainty", "dauntless-revived", 1);
     assert!(
         invite(&["launcher.exe", &revived]).is_none(),
         "a 1.4.4 invite is no link of ours"
@@ -87,7 +87,7 @@ fn windows_registers_the_scheme_for_the_current_user() {
         (values[0].key.as_str(), values[0].data.as_str()),
         (r"Software\Classes\dauntless", "URL:Dauntless invite")
     );
-    let key = r"Software\Classes\reforged-revival";
+    let key = r"Software\Classes\dainty";
     let row = |v: &kit::RegistryValue| (v.key.clone(), v.name.map(str::to_owned), v.data.clone());
     assert_eq!(
         values[3..6].iter().map(row).collect::<Vec<_>>(),
@@ -187,7 +187,7 @@ fn what_players_and_the_os_see() {
     for args in [
         vec!["launcher.exe"],
         vec!["launcher.exe", "dauntless://join?v=1&h=100.64.0.7&p=61000"],
-        vec!["launcher.exe", "--flag", "reforged-revival://join?x"],
+        vec!["launcher.exe", "--flag", "dainty://join?x"],
         vec!["launcher.exe", "dauntless-revived://join?x"],
         vec!["launcher.exe", "https://example.org"],
         vec!["launcher.exe", "DAUNTLESS://JOIN"],
@@ -210,7 +210,7 @@ fn what_players_and_the_os_see() {
 
 #[test]
 fn the_key_never_survives_a_line() {
-    let key = concat!("RRK_", "abcdefghijklmnop", "abcdefghijklmnop");
+    let key = concat!("DLK_", "abcdefghijklmnop", "abcdefghijklmnop");
     let line = format!("LogInit: Command Line:  -NoEAC -AUTH_PASSWORD={key} -epicapp=Archon");
     let out = redact(&line);
     assert!(!out.contains("abcdefghijklmnop"), "{out}");
@@ -220,7 +220,7 @@ fn the_key_never_survives_a_line() {
     );
     assert_eq!(
         redact(&format!("key {key}, again {key}")),
-        "key RRK_<hidden>, again RRK_<hidden>"
+        "key DLK_<hidden>, again DLK_<hidden>"
     );
     assert_eq!(redact("-auth_password=\"x y\" -next"), "-auth_password=<hidden> -next");
     assert_eq!(redact("nothing here"), "nothing here");

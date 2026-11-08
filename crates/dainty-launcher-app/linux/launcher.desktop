@@ -9,4 +9,4 @@ Icon={{icon}}
 Categories={{categories}}
 StartupWMClass={{exec}}
 Terminal=false
-MimeType=x-scheme-handler/dauntless;x-scheme-handler/reforged-revival;
+MimeType=x-scheme-handler/dauntless;x-scheme-handler/dainty;

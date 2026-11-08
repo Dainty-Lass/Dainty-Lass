@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Silent Spud
 
 //! `Database` on both engines (DD15) and its change log (DD23, DH1). SQLite always; Postgres when
-//! `REFORGED_TEST_POSTGRES_URL` names a server the tests may create databases on (`postgres://user:pw@
+//! `DAINTY_TEST_POSTGRES_URL` names a server the tests may create databases on (`postgres://user:pw@
 //! 127.0.0.1:5432/postgres`), and skipped otherwise, like the nftables test.
 #![allow(clippy::unwrap_used, clippy::expect_used, reason = "a panic is how a test fails")]
 
@@ -79,8 +79,8 @@ impl Drop for PgDatabase {
 }
 
 fn postgres_server() -> Option<PostgresConfig> {
-    let url = std::env::var("REFORGED_TEST_POSTGRES_URL").ok()?;
-    let url = url::Url::parse(&url).expect("REFORGED_TEST_POSTGRES_URL is a postgres:// URL");
+    let url = std::env::var("DAINTY_TEST_POSTGRES_URL").ok()?;
+    let url = url::Url::parse(&url).expect("DAINTY_TEST_POSTGRES_URL is a postgres:// URL");
     Some(PostgresConfig {
         host: url.host_str().unwrap_or("127.0.0.1").to_owned(),
         port: url.port().unwrap_or(5432),
@@ -105,7 +105,7 @@ fn new_postgres() -> Option<PgDatabase> {
             .subsec_nanos()
     );
     PgConnection::establish(&server.conninfo())
-        .expect("REFORGED_TEST_POSTGRES_URL is reachable")
+        .expect("DAINTY_TEST_POSTGRES_URL is reachable")
         .batch_execute(&format!("CREATE DATABASE {}", portable::quote_ident(&name)))
         .unwrap();
     let config = PostgresConfig {
@@ -154,7 +154,7 @@ fn targets() -> Vec<Target> {
     let mut out = vec![sqlite()];
     match new_postgres() {
         Some(pg) => out.push(Target::Postgres(pg)),
-        None => eprintln!("REFORGED_TEST_POSTGRES_URL is not set: the Postgres half is skipped"),
+        None => eprintln!("DAINTY_TEST_POSTGRES_URL is not set: the Postgres half is skipped"),
     }
     out
 }
@@ -544,7 +544,7 @@ async fn a_database_moves_between_engines_and_back_unchanged() {
     keeps_working(&copy).await;
 
     let Some(pg) = new_postgres() else {
-        eprintln!("REFORGED_TEST_POSTGRES_URL is not set: the move to Postgres is skipped");
+        eprintln!("DAINTY_TEST_POSTGRES_URL is not set: the move to Postgres is skipped");
         return;
     };
     let pg = Target::Postgres(pg);

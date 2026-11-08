@@ -17,7 +17,7 @@ use dainty_launcher_kit::platform::linux_runtime::PreparedLaunch;
 use futures_util::future::BoxFuture;
 use tokio::sync::Notify;
 
-const KEY: &str = concat!("RRK_", "cccccccccccccccc", "cccccccccccccccc", "cccccccccccccccc");
+const KEY: &str = concat!("DLK_", "cccccccccccccccc", "cccccccccccccccc", "cccccccccccccccc");
 const USER_ID: &str = "0b7c2f6e-1d2a-4c55-9d6f-7a1e2b3c4d5e";
 
 /// The shell's `LaunchSettings`, whose missing locale is English.
@@ -103,7 +103,7 @@ fn the_runtime_is_pointed_at_the_local_relay_and_nothing_else() {
     let out = launch_env(
         env(&[
             ("PATH", "x"),
-            ("REFORGED_BACKEND_URL", "https://evil.example"),
+            ("DAINTY_BACKEND_URL", "https://evil.example"),
             ("RUSTIC_ISLES_LOG", "1"),
             ("MYSTICPARADOX_LOG", "1"),
             ("mysticparadox_backend_url", "https://evil.example"),
@@ -115,7 +115,7 @@ fn the_runtime_is_pointed_at_the_local_relay_and_nothing_else() {
     )
     .unwrap();
     let get = |name: &str| out.get(name).map(String::as_str);
-    assert_eq!(get("REFORGED_BACKEND_URL"), Some("http://127.0.0.1:61100"));
+    assert_eq!(get("DAINTY_BACKEND_URL"), Some("http://127.0.0.1:61100"));
     assert_eq!(get("RUSTIC_ISLES_RUNTIME_PROFILE"), Some("development"));
     assert_eq!(get("MYSTICPARADOX_RUNTIME_PROFILE"), Some("development"));
     assert_eq!(get("PATH"), Some("x"));
@@ -128,7 +128,7 @@ fn the_runtime_is_pointed_at_the_local_relay_and_nothing_else() {
     ] {
         assert_eq!(get(gone), None, "{gone}");
     }
-    assert_eq!(out.len(), 4, "the inherited REFORGED_BACKEND_URL is gone, not doubled");
+    assert_eq!(out.len(), 4, "the inherited DAINTY_BACKEND_URL is gone, not doubled");
     for bad in [
         "http://192.168.1.2:61100",
         "https://127.0.0.1:61100",
@@ -276,7 +276,7 @@ async fn the_game_process_is_tracked_and_started_once() {
 /// half gone, dainty-launcher-kit's answers are held to the rules both followed.
 #[test]
 fn launcher_kit_builds_the_launch() {
-    let key = concat!("RRK_", "0123456789abcdef", "0123456789abcdef");
+    let key = concat!("DLK_", "0123456789abcdef", "0123456789abcdef");
     let users = [("4f1e2d3c4b5a69788796a5b4", "Hunter_01"), ("", "x"), ("abc", "")];
     for (user_id, username) in users {
         for windowed in [false, true] {
@@ -306,7 +306,7 @@ fn launcher_kit_builds_the_launch() {
     }
     let base = [
         ("PATH", "/usr/bin"),
-        ("REFORGED_BACKEND_URL", "http://evil.example"),
+        ("DAINTY_BACKEND_URL", "http://evil.example"),
         ("rustic_isles_log", "1"),
         ("RUSTIC_RIFTS_BIND_ADDRESS", "0.0.0.0"),
         ("MysticParadox_x", "y"),
@@ -324,7 +324,7 @@ fn launcher_kit_builds_the_launch() {
                         "HOME",
                         "MYSTICPARADOX_RUNTIME_PROFILE",
                         "PATH",
-                        "REFORGED_BACKEND_URL",
+                        "DAINTY_BACKEND_URL",
                         "RUSTIC_ISLES_RUNTIME_PROFILE"
                     ],
                     "{url}"

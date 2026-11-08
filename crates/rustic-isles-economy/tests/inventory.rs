@@ -595,7 +595,7 @@ async fn no_store() {
         ..Options::default()
     })
     .await;
-    let message = "isles: no database is configured (REFORGED_DB_FILE or REFORGED_DB_ENGINE)";
+    let message = "isles: no database is configured (DAINTY_DB_FILE or DAINTY_DB_ENGINE)";
     for (method, uri, body) in [
         ("GET", "/inventory/p1/c1", None),
         (

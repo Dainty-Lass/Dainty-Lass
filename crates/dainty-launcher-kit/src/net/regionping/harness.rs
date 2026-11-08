@@ -12,7 +12,7 @@
 use super::*;
 
 // Built from pieces, so the repository's secret check never sees a whole key
-const KEY: &str = concat!("RRK_", "eeeeeeeeeeeeeeee", "eeeeeeeeeeeeeeee", "eeeeeeeeeeeeeeee");
+const KEY: &str = concat!("DLK_", "eeeeeeeeeeeeeeee", "eeeeeeeeeeeeeeee", "eeeeeeeeeeeeeeee");
 
 fn setting(name: &str) -> String {
     std::env::var(name).unwrap_or_else(|_| panic!("{name} is not set: run docker/network/test.sh"))

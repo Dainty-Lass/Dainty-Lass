@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: MIT
 
 //! The list against synthetic manifests and stand-in sources. The archived manifests are Epic's files: the
-//! opt-in test fetches them (`REFORGED_TEST_EPIC_MANIFEST=1`), as `crates/dainty-epic/tests/archive.rs` does.
+//! opt-in test fetches them (`DAINTY_TEST_EPIC_MANIFEST=1`), as `crates/dainty-epic/tests/archive.rs` does.
 
 use std::collections::HashMap;
 use std::convert::Infallible;
@@ -172,7 +172,7 @@ fn compiled_in() -> Vec<KnownProfile> {
 // ---------------------------------------------------------------- stand-in sources
 
 // Built from pieces, so the repository's secret check never sees a whole key
-const KEY: &str = concat!("RRK_", "dddddddddddddddd", "dddddddddddddddd", "dddddddddddddddd");
+const KEY: &str = concat!("DLK_", "dddddddddddddddd", "dddddddddddddddd", "dddddddddddddddd");
 
 /// What a joined server's content holds, as DF4b's routes give it; each request is written down by its
 /// route, so the tests see which routes were asked in which order.
@@ -428,7 +428,7 @@ fn a_server_without_the_key_is_never_asked_to_prove_a_manifest_it_would_refuse()
 #[test]
 fn a_joined_server_prints_without_its_key() {
     let shown = format!("{:?}", server("home"));
-    assert!(shown.contains("<redacted>") && !shown.contains("RRK_"), "{shown}");
+    assert!(shown.contains("<redacted>") && !shown.contains("DLK_"), "{shown}");
 }
 
 #[test]
@@ -607,7 +607,7 @@ async fn content(request: hyper::Request<Incoming>, seen: Seen, manifest: Vec<u8
     let path = request.uri().path().to_owned();
     let key = request
         .headers()
-        .get("x-reforged-user-api-key")
+        .get("x-dainty-user-api-key")
         .and_then(|value| value.to_str().ok())
         .map(str::to_owned);
     seen.lock().unwrap().push((path.clone(), key.clone()));
@@ -768,11 +768,11 @@ fn with_nothing_reachable_the_list_is_still_the_table() {
     );
 }
 
-/// The real archive over the network: `REFORGED_TEST_EPIC_MANIFEST=1`.
+/// The real archive over the network: `DAINTY_TEST_EPIC_MANIFEST=1`.
 #[test]
 fn the_archived_manifests_give_the_archives_sizes() {
-    if std::env::var("REFORGED_TEST_EPIC_MANIFEST").as_deref() != Ok("1") {
-        eprintln!("set REFORGED_TEST_EPIC_MANIFEST=1 to fetch the archived 1.14.7 manifest");
+    if std::env::var("DAINTY_TEST_EPIC_MANIFEST").as_deref() != Ok("1") {
+        eprintln!("set DAINTY_TEST_EPIC_MANIFEST=1 to fetch the archived 1.14.7 manifest");
         return;
     }
     let list = block_on(list(

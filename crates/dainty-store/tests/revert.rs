@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Silent Spud
 
-//! History and revert (DD23, DH3a) on both engines. Postgres when `REFORGED_TEST_POSTGRES_URL` is set, as in
+//! History and revert (DD23, DH3a) on both engines. Postgres when `DAINTY_TEST_POSTGRES_URL` is set, as in
 //! `database.rs`.
 #![allow(clippy::unwrap_used, clippy::expect_used, reason = "a panic is how a test fails")]
 
@@ -98,8 +98,8 @@ impl Drop for PgDatabase {
 static NEXT: AtomicU32 = AtomicU32::new(0);
 
 fn new_postgres() -> Option<PgDatabase> {
-    let url = std::env::var("REFORGED_TEST_POSTGRES_URL").ok()?;
-    let url = url::Url::parse(&url).expect("REFORGED_TEST_POSTGRES_URL is a postgres:// URL");
+    let url = std::env::var("DAINTY_TEST_POSTGRES_URL").ok()?;
+    let url = url::Url::parse(&url).expect("DAINTY_TEST_POSTGRES_URL is a postgres:// URL");
     let server = PostgresConfig {
         host: url.host_str().unwrap_or("127.0.0.1").to_owned(),
         port: url.port().unwrap_or(5432),
@@ -118,7 +118,7 @@ fn new_postgres() -> Option<PgDatabase> {
             .subsec_nanos()
     );
     PgConnection::establish(&server.conninfo())
-        .expect("REFORGED_TEST_POSTGRES_URL is reachable")
+        .expect("DAINTY_TEST_POSTGRES_URL is reachable")
         .batch_execute(&format!("CREATE DATABASE {}", portable::quote_ident(&name)))
         .unwrap();
     let config = PostgresConfig {
@@ -154,7 +154,7 @@ fn targets() -> Vec<Target> {
     let mut out = vec![Target::Sqlite(tempfile::tempdir().unwrap())];
     match new_postgres() {
         Some(pg) => out.push(Target::Postgres(pg)),
-        None => eprintln!("REFORGED_TEST_POSTGRES_URL is not set: the Postgres half is skipped"),
+        None => eprintln!("DAINTY_TEST_POSTGRES_URL is not set: the Postgres half is skipped"),
     }
     out
 }
@@ -633,7 +633,7 @@ async fn a_revert_needs_a_selection_and_accounts_need_their_columns() {
 #[tokio::test(flavor = "multi_thread")]
 async fn a_delete_logged_on_sqlite_is_reverted_after_moving_to_postgres() {
     let Some(pg) = new_postgres() else {
-        eprintln!("REFORGED_TEST_POSTGRES_URL is not set: the move is skipped");
+        eprintln!("DAINTY_TEST_POSTGRES_URL is not set: the move is skipped");
         return;
     };
     let original = Target::Sqlite(tempfile::tempdir().unwrap());

@@ -12,7 +12,7 @@ use common::*;
 use dainty_gateway::network::NetworkNode;
 use serde_json::json;
 
-const FAKE_KEY: &str = "RRK_fedcba9876543210fedcba9876543210fedcba9876543210";
+const FAKE_KEY: &str = "DLK_fedcba9876543210fedcba9876543210fedcba9876543210";
 
 struct World {
     _cert: TestCert,
@@ -45,7 +45,7 @@ fn post(body: &str, key: Option<&str>) -> Options<'static> {
     Options {
         method: Some("POST"),
         headers: key
-            .map(|key| vec![("x-reforged-user-api-key", key.to_owned())])
+            .map(|key| vec![("x-dainty-user-api-key", key.to_owned())])
             .unwrap_or_default(),
         body: Some(body.as_bytes().to_vec()),
         ..Options::default()
@@ -308,7 +308,7 @@ async fn region_report_handler_reaches_ring_node_record_region_pings_authenticat
     );
 
     // Unknown API key is refused with 401 when the handler is attached
-    let unknown_key = "RRK_000000000000000000000000000000000000000000000000";
+    let unknown_key = "DLK_000000000000000000000000000000000000000000000000";
     let denied = https_request(port, "/network/v1/regions", post(report, Some(unknown_key)))
         .await
         .unwrap();
@@ -317,7 +317,7 @@ async fn region_report_handler_reaches_ring_node_record_region_pings_authenticat
     // Session ticket header is parsed and verified via RingNode::record_region_pings_authenticated
     let ticket_req = Options {
         method: Some("POST"),
-        headers: vec![("x-reforged-session-ticket", session_ticket.token.clone())],
+        headers: vec![("x-dainty-session-ticket", session_ticket.token.clone())],
         body: Some(report.as_bytes().to_vec()),
         ..Options::default()
     };

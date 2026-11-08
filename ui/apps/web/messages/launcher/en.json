@@ -82,7 +82,7 @@
     "create": "Create account",
     "haveKey": "Sign in with an existing account key",
     "key": "Account key",
-    "keyHint": "Starts with RRK_. Only paste it into this launcher.",
+    "keyHint": "Starts with DLK_. Only paste it into this launcher.",
     "useKey": "Sign in with this key",
     "importFile": "Import key file",
     "newAccount": "Create a new account instead"

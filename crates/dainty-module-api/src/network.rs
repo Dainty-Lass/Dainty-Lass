@@ -787,7 +787,7 @@ pub trait HomeApi: Send + Sync {
         self.admit(ticket, game)
     }
 
-    /// Registers the SHA-256 hex digest of a local account's API key (`RRK_...`) for `POST /network/v1/regions`.
+    /// Registers the SHA-256 hex digest of a local account's API key (`DLK_...`) for `POST /network/v1/regions`.
     fn register_account_key_hash<'a>(
         &'a self,
         _key_sha256: &'a str,
@@ -1117,7 +1117,7 @@ mod tests {
             "a..b",
             "a b",
             "a_b",
-            "RRK_abcdef",
+            "DLK_abcdef",
         ] {
             assert!(bad.parse::<OperationName>().is_err(), "{bad:?}");
         }

@@ -70,7 +70,7 @@ drop the triggers or edit the database file: DH4 (shipping) and DH5 (the hash ch
       (tokio-postgres with `NoTls`), so the password and every row would cross the network in clear. Tests:
       `a_postgres_server_off_this_machine_is_refused_before_connecting`,
       `a_postgres_server_off_this_machine_needs_allow_remote`.
-- [ ] The password is `REFORGED_DB_PASSWORD` in `secrets.env`, never in `host.toml`, never logged
+- [ ] The password is `DAINTY_DB_PASSWORD` in `secrets.env`, never in `host.toml`, never logged
       (`PostgresConfig`'s `Debug` leaves it out).
 - [ ] Compose's `postgres` container listens on 127.0.0.1 in the shared namespace and asks for the password on it
       (`--auth-host=scram-sha-256`).

@@ -109,15 +109,15 @@ async fn run(
     Ok(())
 }
 
-/// The node database from the env, as the host kit writes it (`REFORGED_DB_*`, store's `from_lookup`). The core
+/// The node database from the env, as the host kit writes it (`DAINTY_DB_*`, store's `from_lookup`). The core
 /// always names it: nothing falls back to a file in the working directory.
 fn database(env: &Env) -> Result<dainty_store::DatabaseConfig, String> {
-    if env.get("REFORGED_DB_ENGINE").is_none() {
-        return Err(String::from("chat: REFORGED_DB_ENGINE is not set"));
+    if env.get("DAINTY_DB_ENGINE").is_none() {
+        return Err(String::from("chat: DAINTY_DB_ENGINE is not set"));
     }
     let database = dainty_store::DatabaseConfig::from_lookup(|key| env.get(key).map(str::to_owned), PathBuf::new())?;
     if matches!(&database, dainty_store::DatabaseConfig::Sqlite { file } if file.as_os_str().is_empty()) {
-        return Err(String::from("chat: REFORGED_DB_FILE is not set"));
+        return Err(String::from("chat: DAINTY_DB_FILE is not set"));
     }
     Ok(database)
 }

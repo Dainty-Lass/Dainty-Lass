@@ -22,7 +22,7 @@ listens on loopback and trusts that the gateway already refused what must not re
 - **In, private mode (`GATEWAY_TLS=0`):** plain HTTP, default port 61000, only on a Tailscale address
   (100.64.0.0/10) or loopback. Tailscale encrypts the traffic; the gateway refuses to start on any other address.
 - **Out:** plain HTTP to the backend (`GATEWAY_BACKEND_URL`), the content server (`GATEWAY_CONTENT_URL`) and the chat
-  listener (`GATEWAY_WS_URL`), all on loopback only, each request carrying the shared secret `x-reforged-gateway`;
+  listener (`GATEWAY_WS_URL`), all on loopback only, each request carrying the shared secret `x-dainty-gateway`;
   `POST /allow` to the allowlist helper (`ALLOWLIST_URL`, also loopback) with `x-allowlist-secret`. The backend is
   the game module's route (DF4a): a gateway started alone fronts a stand-in for `GATEWAY_GAME` at
   `GATEWAY_BACKEND_URL`, one under the controller the modules it attaches, each at the loopback port the registry
@@ -76,24 +76,26 @@ Fuzz targets in `fuzz`:
 - [ ] Paths are compared the way Express matches routes, and more leniently: percent-decoded, lower case, repeated
       slashes folded, trailing slashes dropped (`canonical_path`).
 - [ ] Under `/reforged`, only `POST register`, `GET`/`HEAD getuserinfo`, `serverstatus` and `registrationstatus` under
-      `/reforged/api/` pass; every other route (invites, account status) is 403 `admin_route`, even with a valid admin
+      `/dainty/api/` pass; every other route (invites, account status) is 403 `admin_route`, even with a valid admin
       key and even as an upgrade. The test reads every route from `modules/rustic-isles/reference/1.14.7/ParadoxBackend/src/routes/reforgedApi.ts`, so a
       route added there is covered (`policy.rs` and `tests/gateway.rs`, `only_the_public_reforged_routes_*`).
 - [ ] `/admin`, `/launcher`, `/internal` and `/health`, and everything under them, are 403 `host_only_route`
       (Rustic Isles's admin API, its own launcher API, metrics and readiness probes).
-- [ ] A request with `x-rustic-isles-gameserver-apikey`, `x-rustic-isles-gameserver-key`, `x-reforged-admin-key` or
+- [ ] A request with `x-rustic-isles-gameserver-apikey`, `x-rustic-isles-gameserver-key`, `x-dainty-admin-key` or
       `x-rustic-isles-metrics-token` is 403, whatever its value, letter case or route. So is each one's
       `x-mysticparadox-` form: the backend still reads those for one release after the Rustic Isles rename (DX4),
-      so a player must not reach it with either (`HOST_ONLY_HEADERS`, `GAMESERVER_KEY_HEADERS`;
+      so a player must not reach it with either. The admin key's name before the 2026-11-06 rename,
+      `x-reforged-admin-key`, is refused too (`HOST_ONLY_HEADERS`, `GAMESERVER_KEY_HEADERS`;
       `refuses_the_admin_key_and_the_metrics_token_headers`, `the_game_server_key_header_is_always_refused`,
       `tests/gateway.rs`). The capture shows any of the game server key's names as `<gskey>` and the rest redacted.
 - [ ] `/content` goes to the content server only when it was not behind `/__origin`.
 - [ ] Only GET, HEAD, POST, PUT, DELETE, PATCH and OPTIONS pass (405 otherwise). An upgrade must be a `GET` with
       `Upgrade: websocket`.
 - [ ] Client claims are dropped and the gateway's own set: `x-forwarded-for` is the real peer, `x-forwarded-proto`
-      the mode, `x-reforged-gateway` the secret; `forwarded`, `x-real-ip`, `cf-connecting-ip` and the like never
+      the mode, `x-dainty-gateway` the secret (a client's `x-reforged-gateway`, the old name, is dropped too);
+      `forwarded`, `x-real-ip`, `cf-connecting-ip` and the like never
       cross; hop-by-hop headers and the headers `Connection` names never cross either way. Answers lose
-      `x-powered-by` and `x-reforged-gateway` (`forward_headers`, `response_headers`).
+      `x-powered-by` and `x-dainty-gateway` (`forward_headers`, `response_headers`).
 - [ ] Upstream URLs must be `http://` on loopback with no path, query or credentials (`parse_loopback_url`), so the
       secret never leaves the machine.
 - [ ] Parity: every reply in `tests/parity/gateway.requests.json` (status, headers, body, access log, allowlist feed)
@@ -188,10 +190,10 @@ in DD5's frames, and the library is in the core's process, so what crosses is a 
 ### The traffic capture (RD19)
 
 - [ ] Off unless `CAPTURE_DIR` is set; when on, the start logs a warning that says so.
-- [ ] Bearer tokens become `<token:subject>` (read without the signature), account keys (`RRK_`, DR's `UUK_`) become
+- [ ] Bearer tokens become `<token:subject>` (read without the signature), account keys (`DLK_`, DR's `UUK_`) become
       `<key:sha256>`, the game-server key `<gskey>`, and every field or header whose name looks secret (`key`,
       `token`, `secret`, `pass`, `auth`, `jwt`, `sig`, `cred`, `recovery`, `invite`, `cookie`) `<redacted>`; hex runs
-      of 40 or more and other long tokens are cut; cookies and `x-reforged-gateway` are dropped (`capture.rs`).
+      of 40 or more and other long tokens are cut; cookies and `x-dainty-gateway` are dropped (`capture.rs`).
 - [ ] The gateway secret and the helper's secret are cut from every line, wherever an answer echoes them.
 - [ ] Chat: a SASL PLAIN login keeps only its account (`<plain:account>`), `<password>` elements are cut, the rest is
       redacted as text. Compressed or oversized messages are kept by size only.

@@ -80,7 +80,7 @@ async fn an_attached_module_gets_its_routes_and_never_its_host_only_ones() {
     let seen = module_upstream.last();
     assert_eq!(seen.url, "/__origin/gamedev-prod.steelyard.ca/party/invites");
     assert_eq!(
-        seen.headers.get("x-reforged-gateway").map(String::as_str),
+        seen.headers.get("x-dainty-gateway").map(String::as_str),
         Some(GATEWAY_SECRET)
     );
 
@@ -102,7 +102,7 @@ async fn an_attached_module_gets_its_routes_and_never_its_host_only_ones() {
     // Content stays the content server's, and the policy's refusals come first
     assert_eq!(get("/content/v1/manifest").await.unwrap().status, 200);
     assert_eq!(content.count(), 1);
-    assert_eq!(get("/reforged/api/CreateInvite").await.unwrap().status, 403);
+    assert_eq!(get("/dainty/api/CreateInvite").await.unwrap().status, 403);
     assert_eq!(backend.count(), 0);
 
     routes.detach(&manifest.id);

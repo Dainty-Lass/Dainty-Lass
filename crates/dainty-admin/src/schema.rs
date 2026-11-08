@@ -378,7 +378,7 @@ pub struct KickResult {
 /// An admin key as listed: who it is for and what it may do, never the key itself.
 #[derive(SimpleObject, Clone, Debug, PartialEq, Eq)]
 pub struct AdminKey {
-    /// What the log and `admin:<id>` in the change log call it. `owner` is REFORGED_ADMIN_API_KEY.
+    /// What the log and `admin:<id>` in the change log call it. `owner` is DAINTY_ADMIN_API_KEY.
     pub id: String,
     /// What the key is for, as its issuer named it.
     pub name: String,
@@ -411,7 +411,7 @@ impl From<KeyInfo> for AdminKey {
 /// A key just made. The key itself is shown here once and is not kept.
 #[derive(SimpleObject, Clone)]
 pub struct IssuedKey {
-    /// `RRA_<id>_<secret>`: send it as `Authorization: Bearer <key>`. Keep it; it cannot be shown again.
+    /// `DLA_<id>_<secret>`: send it as `Authorization: Bearer <key>`. Keep it; it cannot be shown again.
     pub key: String,
     /// What the key may do, as listed.
     pub info: AdminKey,

@@ -60,7 +60,7 @@ export async function runAdminOp<T>(
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${cfg.adminApiKey}`,
-        "x-reforged-operator-id": digits(operatorId),
+        "x-dainty-operator-id": digits(operatorId),
       },
       body: JSON.stringify({ query: ADMIN_OPS[op], variables }),
       signal: AbortSignal.timeout(15_000),

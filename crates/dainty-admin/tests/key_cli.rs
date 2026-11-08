@@ -14,8 +14,8 @@ const SECRET: &str = "0123456789abcdef0123456789abcdef";
 fn write_env(dir: &Path) -> String {
     let file = dir.join("admin.env");
     let text = format!(
-        "REFORGED_ADMIN_API_KEY={SECRET}\nREFORGED_ADMIN_KEY={SECRET}\nRUSTIC_ISLES_MANAGER_OPERATOR_SECRET={SECRET}\n\
-         REFORGED_ADMIN_API_TIMEOUTS_FILE={}\n",
+        "DAINTY_ADMIN_API_KEY={SECRET}\nDAINTY_ADMIN_KEY={SECRET}\nRUSTIC_ISLES_MANAGER_OPERATOR_SECRET={SECRET}\n\
+         DAINTY_ADMIN_API_TIMEOUTS_FILE={}\n",
         dir.join("admin-timeouts.json").display().to_string().replace("\\", "/")
     );
     std::fs::write(&file, text).unwrap();

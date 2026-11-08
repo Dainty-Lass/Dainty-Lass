@@ -113,7 +113,7 @@ async fn a_body_follows_the_callers_headers_with_its_type_and_length() {
     let (port, server) = plain_server(OK_JSON, false).await;
     let options = RequestOptions {
         method: Method::POST,
-        headers: vec![("x-account-key", "RRK_secret".to_owned())],
+        headers: vec![("x-account-key", "DLK_secret".to_owned())],
         body: Some("{\"b\":2}".to_owned()),
         ..RequestOptions::get(SECONDS, 1024)
     };
@@ -125,7 +125,7 @@ async fn a_body_follows_the_callers_headers_with_its_type_and_length() {
         [
             "accept: application/json",
             &format!("host: 127.0.0.1:{port}"),
-            "x-account-key: RRK_secret",
+            "x-account-key: DLK_secret",
             "content-type: application/json",
             "content-length: 7",
         ]
@@ -318,23 +318,23 @@ async fn a_path_must_start_with_a_slash() {
 #[test]
 fn debug_text_never_shows_header_values() {
     let options = RequestOptions {
-        headers: vec![("x-account-key", "RRK_hidden".to_owned())],
-        body: Some("{\"key\":\"RRK_body\"}".to_owned()),
+        headers: vec![("x-account-key", "DLK_hidden".to_owned())],
+        body: Some("{\"key\":\"DLK_body\"}".to_owned()),
         ..RequestOptions::get(SECONDS, 1)
     };
     let text = format!("{options:?}");
     assert!(text.contains("x-account-key"), "{text}");
-    assert!(!text.contains("RRK_"), "{text}");
+    assert!(!text.contains("DLK_"), "{text}");
 
     let file = FileRequestOptions {
-        headers: vec![("x-account-key", "RRK_hidden".to_owned())],
+        headers: vec![("x-account-key", "DLK_hidden".to_owned())],
         idle_timeout: SECONDS,
         max_bytes: 1,
         cancel: None,
         on_bytes: None,
     };
     let text = format!("{file:?}");
-    assert!(text.contains("x-account-key") && !text.contains("RRK_"), "{text}");
+    assert!(text.contains("x-account-key") && !text.contains("DLK_"), "{text}");
 }
 
 #[test]

@@ -132,7 +132,7 @@ impl Area {
             "progression" => Self::Progression,
             "bounties" | "bounties-store" | "bounties_store" | "wallets" => Self::Bounties,
             "parties" | "matchmaking" | "chat" | "friendships" => Self::Parties,
-            "reforged" | "reforged-api" | "reforged_api" | "admin" | "guard" => Self::Reforged,
+            "reforged" | "reforged-api" | "launcher_api" | "admin" | "guard" => Self::Reforged,
             _ => {
                 return Err(DbError::Config(format!(
                     "unknown area {lowered:?}; valid areas: auth, characters, inventory, progression, bounties, \

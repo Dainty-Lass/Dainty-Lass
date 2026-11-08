@@ -26,10 +26,10 @@ use crate::platform::hostkit::parse::{clean_line, cut, failure_line};
 use crate::platform::hostkit::{WorkspacePaths, find_host_binary};
 
 /// Environment variable telling `dainty-host start` to accept control commands on stdin.
-pub const CONTROL_ENV: &str = "REFORGED_CONTROL";
+pub const CONTROL_ENV: &str = "DAINTY_CONTROL";
 
 /// Output line emitted by `dainty-host start` when all server listeners are ready.
-pub const SERVER_READY_LINE: &str = "REFORGED_SERVER_READY";
+pub const SERVER_READY_LINE: &str = "DAINTY_SERVER_READY";
 
 /// Default local TCP port for the backend service.
 pub const BACKEND_PORT: u16 = 61000;

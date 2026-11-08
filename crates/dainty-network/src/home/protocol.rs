@@ -5,7 +5,7 @@
 //! **The account key never crosses a node link, and no field here can hold it.** Every typed field is a
 //! name, id or number that is checked when it is read; the free-form parts are [`HomeBody`] (a module's
 //! operation and answer), [`WireActor`], [`RequestKey`] and [`CleanText`], whose constructors and
-//! deserialisers refuse anything shaped like an `RRK_` key; and a ticket's token is a base64url string of
+//! deserialisers refuse anything shaped like an `DLK_` key; and a ticket's token is a base64url string of
 //! bounded length whose claims are typed (`ticket.rs`). `decode_*` and `encode_*` run [`Validate::validate`] over what
 //! they carry, so a message neither leaves this node nor is believed with one in it.
 
@@ -32,14 +32,15 @@ pub const MIN_KEY: usize = 8;
 /// The longest [`RequestKey`], in characters.
 pub const MAX_KEY: usize = 64;
 
-/// Whether `text` holds something shaped like an account key (`RRK_` and at least eight more of the characters
+/// Whether `text` holds something shaped like an account key (`DLK_` and at least eight more of the characters
 /// a key is written in, in any case). Looser than a real key on purpose: a false alarm costs a refused
 /// message, a miss a leaked key.
 pub fn looks_like_account_key(text: &str) -> bool {
     let bytes = text.as_bytes();
     let mut at = 0;
     while at + 4 <= bytes.len() {
-        if bytes[at..at + 4].eq_ignore_ascii_case(b"rrk_") {
+        // rrk_ too: the prefix before the 2026-11-06 rename
+        if bytes[at..at + 4].eq_ignore_ascii_case(b"dlk_") || bytes[at..at + 4].eq_ignore_ascii_case(b"rrk_") {
             let tail = bytes[at + 4..]
                 .iter()
                 .take_while(|b| b.is_ascii_alphanumeric() || **b == b'_' || **b == b'-')
@@ -659,7 +660,7 @@ mod tests {
 
     #[test]
     fn no_message_type_can_carry_an_account_key() {
-        let key = format!("RRK_{}", "ab".repeat(24));
+        let key = format!("DLK_{}", "ab".repeat(24));
         // Every message, written out: nothing in them looks like a key
         let (requests, responses) = every_message();
         for request in &requests {
@@ -673,7 +674,7 @@ mod tests {
             key.clone(),
             key.to_lowercase(),
             format!("x {key} y"),
-            format!("RRK_{}", "Z".repeat(8)),
+            format!("DLK_{}", "Z".repeat(8)),
         ] {
             assert_eq!(
                 HomeBody::new(serde_json::json!(spelled.clone())),

@@ -71,7 +71,7 @@ fn pattern(text: &str) -> Regex {
 }
 
 static JWT: LazyLock<Regex> = LazyLock::new(|| pattern(r"eyJ[A-Za-z0-9_-]+\.([A-Za-z0-9_-]+)\.[A-Za-z0-9_-]+"));
-static ACCOUNT_KEY: LazyLock<Regex> = LazyLock::new(|| pattern(r"(?:RRK_|UUK_)[A-Za-z0-9]+"));
+static ACCOUNT_KEY: LazyLock<Regex> = LazyLock::new(|| pattern(r"(?:DLK_|RRK_|UUK_)[A-Za-z0-9]+"));
 static HEX_RUN: LazyLock<Regex> = LazyLock::new(|| pattern(r"[0-9A-Fa-f]{40,}"));
 static LONG_RUN: LazyLock<Regex> = LazyLock::new(|| pattern(r"[A-Za-z0-9_+/=-]{100,}"));
 static MARK: LazyLock<Regex> = LazyLock::new(|| pattern("\u{1}([0-9]+)\u{1}"));
@@ -199,7 +199,10 @@ pub fn redact_capture_headers(headers: &HeaderMap) -> Value {
     let mut out = Map::new();
     for name in headers.keys() {
         let name = name.as_str();
-        if matches!(name, "cookie" | "set-cookie" | "x-reforged-gateway") {
+        if matches!(
+            name,
+            "cookie" | "set-cookie" | "x-dainty-gateway" | "x-reforged-gateway"
+        ) {
             continue;
         }
         let joined = headers
@@ -213,7 +216,7 @@ pub fn redact_capture_headers(headers: &HeaderMap) -> Value {
         } else if name == "authorization" {
             redact_capture_text(&joined)
         } else {
-            let short = ["x-reforged-", "x-rustic-isles-", "x-mysticparadox-"]
+            let short = ["x-dainty-", "x-reforged-", "x-rustic-isles-", "x-mysticparadox-"]
                 .iter()
                 .find_map(|p| name.strip_prefix(p))
                 .unwrap_or(name);
@@ -817,7 +820,7 @@ mod tests {
         assert_eq!(redact_capture_text(&jwt(r#"{"sub":"abc"}"#)), "<token:abc>");
         assert_eq!(redact_capture_text(&jwt(r#"{"sub":null}"#)), "<token>");
         assert_eq!(redact_capture_text(&jwt(r#"{"userId":"a b"}"#)), "<token>");
-        let key = "RRK_abc123";
+        let key = "DLK_abc123";
         assert_eq!(
             redact_capture_text(key),
             format!("<key:{}>", crate::hex(&Sha256::digest(key.as_bytes())))
@@ -854,18 +857,18 @@ mod tests {
         let mut h = HeaderMap::new();
         h.insert("user-agent", "Game/1".parse().unwrap());
         h.insert("cookie", "a=b".parse().unwrap());
-        h.insert("x-reforged-gateway", "s".parse().unwrap());
-        h.insert("x-reforged-user-api-key", "RRK_abc".parse().unwrap());
-        h.insert("x-reforged-admin-key", "adm".parse().unwrap());
+        h.insert("x-dainty-gateway", "s".parse().unwrap());
+        h.insert("x-dainty-user-api-key", "DLK_abc".parse().unwrap());
+        h.insert("x-dainty-admin-key", "adm".parse().unwrap());
         h.insert("x-rustic-isles-gameserver-key", "g".parse().unwrap());
         h.append("accept", "a".parse().unwrap());
         h.append("accept", "b".parse().unwrap());
         let v = redact_capture_headers(&h);
-        let hash = crate::hex(&Sha256::digest(b"RRK_abc"));
+        let hash = crate::hex(&Sha256::digest(b"DLK_abc"));
         assert_eq!(
             v,
-            json!({"user-agent":"Game/1","x-reforged-user-api-key":format!("<key:{hash}>"),
-                "x-reforged-admin-key":"<redacted>","x-rustic-isles-gameserver-key":"<gskey>","accept":"a, b"})
+            json!({"user-agent":"Game/1","x-dainty-user-api-key":format!("<key:{hash}>"),
+                "x-dainty-admin-key":"<redacted>","x-rustic-isles-gameserver-key":"<gskey>","accept":"a, b"})
         );
     }
 

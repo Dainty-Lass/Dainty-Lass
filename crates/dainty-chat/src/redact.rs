@@ -7,6 +7,8 @@ use dainty_protocol::account::ACCOUNT_KEY_PREFIX;
 
 /// A Dauntless Revived database's account keys
 const LEGACY_KEY_PREFIX: &str = "UUK_";
+/// The account key's prefix before the 2026-11-06 rename
+const OLD_KEY_PREFIX: &str = "RRK_";
 const KEY_HEX: usize = 48;
 const LONG_RUN: usize = 64;
 
@@ -19,6 +21,7 @@ pub fn redact(text: &str) -> String {
     let text = jwts(text);
     let text = keys(&text, ACCOUNT_KEY_PREFIX);
     let text = keys(&text, LEGACY_KEY_PREFIX);
+    let text = keys(&text, OLD_KEY_PREFIX);
     long_runs(&text)
 }
 
@@ -127,7 +130,7 @@ mod tests {
         assert_eq!(redact(&format!("UUK_{}", "a".repeat(48))), "<redacted>");
         let longer = format!("UUK_{}", "a".repeat(49));
         assert_eq!(redact(&longer), longer);
-        assert_eq!(redact(&format!("key=RRK_{}&x=1", "b".repeat(48))), "key=<redacted>&x=1");
+        assert_eq!(redact(&format!("key=DLK_{}&x=1", "b".repeat(48))), "key=<redacted>&x=1");
         assert_eq!(redact(&"x".repeat(64)), "<redacted>");
         assert_eq!(redact(&"x".repeat(63)), "x".repeat(63));
         assert_eq!(redact(&format!("a {} b", "-".repeat(80))), "a <redacted> b");
@@ -135,7 +138,7 @@ mod tests {
 
     #[test]
     fn credentials_never_reach_the_log() {
-        let key = format!("RRK_{}", "0123456789abcdef".repeat(3));
+        let key = format!("DLK_{}", "0123456789abcdef".repeat(3));
         let jwt = "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJwbGF5ZXIifQ.c2lnbmF0dXJl";
         let line = format!("login key={key} token={jwt} secret={}", "Q".repeat(100));
         let out = redact(&line);

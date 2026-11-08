@@ -211,14 +211,14 @@ jobs:
             exit 1
           fi
 
-      # store's two-engine tests run against Postgres when REFORGED_TEST_POSTGRES_URL is set (DF7). The Ubuntu image
+      # store's two-engine tests run against Postgres when DAINTY_TEST_POSTGRES_URL is set (DF7). The Ubuntu image
       # ships PostgreSQL stopped, so starting it saves the apt install.
       - name: Start Postgres for the two-engine store tests
         if: runner.os == 'Linux'
         run: |
           sudo systemctl start postgresql.service
           sudo -u postgres psql -c "ALTER USER postgres WITH PASSWORD 'postgres';"
-          echo "REFORGED_TEST_POSTGRES_URL=postgres://postgres:postgres@127.0.0.1:5432/postgres" >> "$GITHUB_ENV"
+          echo "DAINTY_TEST_POSTGRES_URL=postgres://postgres:postgres@127.0.0.1:5432/postgres" >> "$GITHUB_ENV"
 
       # The same on every platform, so once
       - name: Format
@@ -415,7 +415,7 @@ jobs:
         run: |
           sudo systemctl start postgresql.service
           sudo -u postgres psql -c "ALTER USER postgres WITH PASSWORD 'postgres';"
-          echo "REFORGED_TEST_POSTGRES_URL=postgres://postgres:postgres@127.0.0.1:5432/postgres" >> "$GITHUB_ENV"
+          echo "DAINTY_TEST_POSTGRES_URL=postgres://postgres:postgres@127.0.0.1:5432/postgres" >> "$GITHUB_ENV"
 
       - name: Format
         if: runner.os == 'Linux'
@@ -538,7 +538,7 @@ jobs:
 
       - name: Build the images and run the full test run
         env:
-          REFORGED_COMMIT: ${{ github.sha }}
+          DAINTY_COMMIT: ${{ github.sha }}
         run: bash docker/run-tests.sh
 
       # Advisory: the images' packages, for code scanning when it is on (the CODE_SCANNING variable)
@@ -656,7 +656,7 @@ jobs:
 
       - name: Build the images and run the harness
         env:
-          REFORGED_COMMIT: ${{ github.sha }}
+          DAINTY_COMMIT: ${{ github.sha }}
           NETWORK_REGION_PING: require
         run: bash docker/network/test.sh
 

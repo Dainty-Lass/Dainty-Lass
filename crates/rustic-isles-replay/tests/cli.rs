@@ -41,20 +41,20 @@ fn k1_k2_k3_key_maps() {
         std::fs::write(&path, text).unwrap();
         path
     };
-    let k1 = load_key_map(&write("k1.json", r#"["RRK_alpha_key","UUK_beta_key",7]"#)).unwrap();
+    let k1 = load_key_map(&write("k1.json", r#"["DLK_alpha_key","UUK_beta_key",7]"#)).unwrap();
     assert_eq!(k1.len(), 2);
-    assert_eq!(k1[&hex("RRK_alpha_key")], "RRK_alpha_key");
+    assert_eq!(k1[&hex("DLK_alpha_key")], "DLK_alpha_key");
     assert_eq!(k1[&hex("UUK_beta_key")], "UUK_beta_key");
 
     let upper = "AB".repeat(32);
     let k2 = load_key_map(&write(
         "k2.json",
-        &json!({upper.clone(): "RRK_a", "name": "RRK_b", "n": 1}).to_string(),
+        &json!({upper.clone(): "DLK_a", "name": "DLK_b", "n": 1}).to_string(),
     ))
     .unwrap();
     assert_eq!(k2.len(), 2);
-    assert_eq!(k2[&upper.to_ascii_lowercase()], "RRK_a");
-    assert_eq!(k2[&hex("RRK_b")], "RRK_b");
+    assert_eq!(k2[&upper.to_ascii_lowercase()], "DLK_a");
+    assert_eq!(k2[&hex("DLK_b")], "DLK_b");
 
     let k3 = write("k3.json", "42");
     assert_eq!(

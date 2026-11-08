@@ -39,11 +39,11 @@ this doc doesn't.
 | Moderation across modules | `AdminRequest` (kick, ban, unban, lift timeout, lookup) routed to the player's game; admin GraphQL `modules`, `loadModule`, `unloadModule`, `restartModule` | `crates/dainty-admin/src/modules.rs`, `module_control.rs`, `schema.graphql` |
 | The hub's readiness | `DedicatedServers::hub_status()` → `LiveHubStatus { ramsgate: Option<LiveHub { ready, host, port }>, .. }` from the Director's `GET /api/hub-status` | `crates/rustic-isles/src/dedicated.rs` |
 | Every game server on one server | The Director's `GET /api/instances`: city (hub), hunt, dojo, tutorial, with players. Admin parses it (`input::Instance`, `InstanceKind`) but `huntStatus` keeps only hunts | `crates/dainty-admin/src/upstream.rs` (`instances`), `input.rs` |
-| Invites | Host-only `POST /reforged/api/CreateInvite` in the game module (uses, infinite, note; no expiry) | `crates/rustic-isles-reforged/src/admin/host_routes.rs` |
+| Invites | Host-only `POST /dainty/api/CreateInvite` in the game module (uses, infinite, note; no expiry) | `crates/rustic-isles-launcher-api/src/admin/host_routes.rs` |
 | Many servers, one place | `crates/dainty-remote` (DD27, MIT): enrollment, mTLS `POST /__node/remote`, 15 s `Sync` with `InstallReport` (counts of players, hunts, hubs, realms; component health; doctor; history), queued `RemoteCommand`s with roles and `DH6` approval, `SharedConfigBundle` revisions | `crates/dainty-remote/src/wire.rs`, `state.rs`, `transport.rs` |
 | Game servers across a network | `InstanceRecord` and the ring (DN6, DN8, DN9), the directory (DD17) | `crates/dainty-network/src/ring.rs`, `directory.rs`; `module-api/src/network.rs` |
 | History of every database write | `store`'s hash-chained change log (DD23, DH1–DH5), on SQLite (default) or Postgres (DD15) | `crates/dainty-store/src/history.rs`, `engine.rs` |
-| Server identity | `ServerSnapshot.invite_url`, `cert_fingerprint` via `ServerController::set_invite_info`; `protocol::invite::format_invite` | `service-kit/src/context.rs`, `crates/dainty-protocol/src/invite.rs` |
+| Server identity | `ServerSnapshot.invite_url`, `cert_fingerprint` via `ServerController::set_invite_info`; `dainty_protocol::invite::format_invite` | `service-kit/src/context.rs`, `crates/dainty-protocol/src/invite.rs` |
 
 ## What the first draft proposed, and what happens to it
 
@@ -347,7 +347,7 @@ with the hub rechecked inside the game module.
 ## Things that must not change
 
 - The gateway is the only listener off loopback. Nothing here adds a listener.
-- `/reforged/api`, the host-only invite routes, admin's existing GraphQL fields and answers, invites and the
+- `/dainty/api`, the host-only invite routes, admin's existing GraphQL fields and answers, invites and the
   certificate `fp` are untouched. New admin fields are additions.
 - Every service still reads one env file that the host kit writes. A child module still gets only
   `system_environment`.

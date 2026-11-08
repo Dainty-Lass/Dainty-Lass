@@ -55,12 +55,12 @@ COPY --from=rust-sources /src/ /src/
 # The release workflow's build: the server in one binary, dainty-host, with the gateway, allowlist, content server
 # and admin API inside it, and the game modules (all-modules, DF5). The launcher is a workspace member but is not
 # built (only the lock file is read).
-# REFORGED_MODULES: the dainty-server features that link the game modules; empty builds none, which still serves.
-ARG REFORGED_MODULES=all-modules
+# DAINTY_MODULES: the dainty-server features that link the game modules; empty builds none, which still serves.
+ARG DAINTY_MODULES=all-modules
 RUN --mount=type=cache,id=reforged-cargo-registry,target=/usr/local/cargo/registry \
     --mount=type=cache,id=reforged-cargo-git,target=/usr/local/cargo/git \
     --mount=type=cache,id=reforged-cargo-target,target=/src/restricted/target \
-    features="$REFORGED_MODULES" \
+    features="$DAINTY_MODULES" \
  && set -- \
  && for f in $(echo "$features" | tr , ' '); do set -- "$@" --features "dainty-server/$f"; done \
  && cargo build --release --locked -p dainty-server "$@" --bins \
@@ -135,10 +135,10 @@ COPY --chmod=0755 restricted/docker/healthcheck.sh bin/reforged-healthcheck
 COPY --chmod=0755 restricted/docker/network/init.sh bin/reforged-network-init
 RUN mkdir -p .workspace "$ISLES/Items_Analysis" "$ISLES/DauntlessEndpointDocumentation" \
  && chown reforged:reforged .workspace "$ISLES/Items_Analysis" "$ISLES/DauntlessEndpointDocumentation"
-# The commit the backend names to players (REFORGED_SOURCE_COMMIT, the AGPL source offer). setup reads it from
+# The commit the backend names to players (DAINTY_SOURCE_COMMIT, the AGPL source offer). setup reads it from
 # git or release.json, neither of which is in the image; the process environment wins over the env file.
-ARG REFORGED_COMMIT=""
-ENV REFORGED_SOURCE_COMMIT=${REFORGED_COMMIT} \
+ARG DAINTY_COMMIT=""
+ENV DAINTY_SOURCE_COMMIT=${DAINTY_COMMIT} \
     PATH=/opt/reforged/bin:$PATH
 USER reforged
 ENTRYPOINT ["/usr/bin/tini", "--"]
@@ -184,7 +184,7 @@ USER reforged
 RUN cargo test --locked --no-run \
       -p dainty-protocol -p dainty-proxy -p dainty-remote -p dainty-service-kit -p dainty-store -p dainty-gateway -p dainty-content -p dainty-admin -p dainty-hostkit -p dainty-host \
       -p dainty-controller
-# gateway's route-policy tests check /reforged/api against the reference route file
+# gateway's route-policy tests check /dainty/api against the reference route file
 COPY --chown=reforged:reforged restricted/modules/rustic-isles/reference/1.14.7/ParadoxBackend/src/routes/reforgedApi.ts modules/rustic-isles/reference/1.14.7/ParadoxBackend/src/routes/reforgedApi.ts
 ENTRYPOINT ["/usr/bin/tini", "--", "reforged-test"]
 CMD []
@@ -225,8 +225,8 @@ COPY --chmod=0755 restricted/docker/network/init.sh bin/reforged-network-init
 ARG ISLES=modules/rustic-isles/reference/1.14.7
 RUN mkdir -p .workspace "$ISLES/Items_Analysis" "$ISLES/DauntlessEndpointDocumentation" \
  && chown node:node .workspace "$ISLES/Items_Analysis" "$ISLES/DauntlessEndpointDocumentation"
-ARG REFORGED_COMMIT=""
-ENV REFORGED_SOURCE_COMMIT=${REFORGED_COMMIT} \
+ARG DAINTY_COMMIT=""
+ENV DAINTY_SOURCE_COMMIT=${DAINTY_COMMIT} \
     MONGODB_URI=mongodb://127.0.0.1:27017/?replicaSet=rs0 \
     MONGODB_DB=reforged \
     MONGODB_APP_NAME=reforged-backend \

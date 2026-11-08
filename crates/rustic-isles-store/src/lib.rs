@@ -154,8 +154,8 @@ impl IslesStore {
         home: Arc<dyn HomeApi>,
         node: &NodeIdentity,
     ) -> RepoResult<Option<Self>> {
-        let file = lookup("REFORGED_DB_FILE");
-        if file.is_none() && lookup("REFORGED_DB_ENGINE").is_none() {
+        let file = lookup("DAINTY_DB_FILE");
+        if file.is_none() && lookup("DAINTY_DB_ENGINE").is_none() {
             return Ok(None);
         }
         let config = DatabaseConfig::from_lookup(&lookup, PathBuf::from(file.unwrap_or_default()))

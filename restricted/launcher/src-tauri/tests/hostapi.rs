@@ -32,7 +32,7 @@ use tokio::net::TcpListener;
 use tokio_rustls::TlsAcceptor;
 
 // Built from pieces, so the repository's secret check never sees a whole key
-const KEY: &str = concat!("RRK_", "eeeeeeeeeeeeeeee", "eeeeeeeeeeeeeeee", "eeeeeeeeeeeeeeee");
+const KEY: &str = concat!("DLK_", "eeeeeeeeeeeeeeee", "eeeeeeeeeeeeeeee", "eeeeeeeeeeeeeeee");
 
 fn bytes(body: &Value) -> Vec<u8> {
     if body.is_null() {
@@ -336,7 +336,7 @@ fn the_key_is_never_sent_outside_the_tailnet_without_a_pin() {
     };
     assert_eq!(key_headers(&pinned, Some(KEY)), vec![(KEY_HEADER, KEY.to_owned())]);
     assert!(key_headers(&pinned, Some("short")).is_empty());
-    assert!(key_headers(&pinned, Some("RRK_ with space")).is_empty());
+    assert!(key_headers(&pinned, Some("DLK_ with space")).is_empty());
     assert!(key_headers(&pinned, None).is_empty());
     let tailnet = Endpoint {
         host: "100.64.0.1".into(),
@@ -376,8 +376,8 @@ impl Fake {
         let user = key.as_ref().and_then(|key| self.users.get(key)).cloned();
         match path {
             "/dauntless-status" => (200, serde_json::json!({ "show-status": true, "name": "Test Server" })),
-            "/reforged/api/ServerStatus" if self.status_missing => (404, serde_json::json!({})),
-            "/reforged/api/ServerStatus" => {
+            "/dainty/api/ServerStatus" if self.status_missing => (404, serde_json::json!({})),
+            "/dainty/api/ServerStatus" => {
                 let full = user.is_some();
                 let players = if full {
                     serde_json::json!([{ "name": "Aurora", "where": "city", "instance": "city-8777" }])
@@ -394,14 +394,14 @@ impl Fake {
                     }),
                 )
             }
-            "/reforged/api/GetUserInfo" => match user {
+            "/dainty/api/GetUserInfo" => match user {
                 Some((username, id)) => (
                     200,
                     serde_json::json!({ "UserId": id, "Username": username, "IsAdmin": false }),
                 ),
                 None => (401, serde_json::json!({ "error": "unauthorized" })),
             },
-            "/reforged/api/Register" if method == hyper::Method::POST => {
+            "/dainty/api/Register" if method == hyper::Method::POST => {
                 let Ok(parsed) = serde_json::from_slice::<Value>(body) else {
                     return (400, serde_json::json!({ "error": "bad_request" }));
                 };
@@ -423,7 +423,7 @@ impl Fake {
                     return (401, serde_json::json!({ "error": "invite_invalid" }));
                 }
                 self.registrations += 1;
-                let key = format!("RRK_{:048x}", self.registrations);
+                let key = format!("DLK_{:048x}", self.registrations);
                 self.users
                     .insert(key.clone(), (username, format!("uid-{}", self.registrations)));
                 (200, serde_json::json!({ "UUK": key }))
@@ -538,8 +538,8 @@ async fn status_over_the_pin_the_full_list_with_the_key_the_limited_view_without
     assert_eq!(
         seen(&fake),
         [
-            ("/reforged/api/ServerStatus".to_owned(), None),
-            ("/reforged/api/ServerStatus".to_owned(), Some(KEY.to_owned())),
+            ("/dainty/api/ServerStatus".to_owned(), None),
+            ("/dainty/api/ServerStatus".to_owned(), Some(KEY.to_owned())),
         ]
     );
 
@@ -585,7 +585,7 @@ async fn an_older_server_is_recognised_through_dauntless_status_which_never_gets
     assert_eq!(
         seen(&fake),
         [
-            ("/reforged/api/ServerStatus".to_owned(), Some(KEY.to_owned())),
+            ("/dainty/api/ServerStatus".to_owned(), Some(KEY.to_owned())),
             ("/dauntless-status".to_owned(), None),
         ]
     );
@@ -612,12 +612,12 @@ async fn register_and_user_info_over_the_pin_and_nothing_sent_to_a_mismatching_s
     assert!(seen(&fake).is_empty());
 
     let key = register(&endpoint, &request("Borealis", "GOOD-CODE")).await.unwrap();
-    assert!(key.starts_with("RRK_") && key.len() == 52 && key[4..].bytes().all(|b| b.is_ascii_hexdigit()));
+    assert!(key.starts_with("DLK_") && key.len() == 52 && key[4..].bytes().all(|b| b.is_ascii_hexdigit()));
     let info = fetch_user_info(&endpoint, &key).await.unwrap();
     assert_eq!(info.username, "Borealis");
     assert_eq!(
         seen(&fake).last().unwrap(),
-        &("/reforged/api/GetUserInfo".to_owned(), Some(key.clone()))
+        &("/dainty/api/GetUserInfo".to_owned(), Some(key.clone()))
     );
     assert_eq!(
         fetch_user_info(&mismatched, &key).await,

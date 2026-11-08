@@ -19,7 +19,7 @@ use crate::net::pinned::certificate_fingerprint;
 use crate::net::pinned::tests::{acceptor, certificate};
 use crate::net::relay_owner::{GameOwnerCheck, TableSource};
 
-const KEY: &str = "RRK_relaytestkey0123456789abcdefghij";
+const KEY: &str = "DLK_relaytestkey0123456789abcdefghij";
 const WAIT: Duration = Duration::from_secs(5);
 
 // ---- the fake server --------------------------------------------------------------------------------------------

@@ -21,10 +21,10 @@ use rustic_isles_economy::EconomyCaches;
 use rustic_isles_economy::bounties::{BountiesSeams, ForeignAccounts};
 use rustic_isles_economy::inventory::{InventoryActivitySlot, InventoryPorts, RingInstances};
 use rustic_isles_economy::progression::{ProgressionPorts, SessionSupplies, StoreCharacters};
+use rustic_isles_launcher_api::activity::ActivityHooks;
+use rustic_isles_launcher_api::admin::{EconomyFunding, LauncherApiAdmin, admin_startups};
+use rustic_isles_launcher_api::{LauncherApiSeams, LauncherApiState, RequestObserver, public_startups};
 use rustic_isles_matchmaking::{HttpDirector, MatchmakingCore, MatchmakingState, ring_instances_slot};
-use rustic_isles_reforged::activity::ActivityHooks;
-use rustic_isles_reforged::admin::{EconomyFunding, ReforgedAdmin, admin_startups};
-use rustic_isles_reforged::{ReforgedSeams, ReforgedState, RequestObserver, public_startups};
 use rustic_isles_store::IslesStore;
 use serde_json::Value;
 
@@ -154,10 +154,10 @@ impl Composer for VersionComposer {
             let characters = Arc::new(Characters::new(character_data, starter_kit));
             let matchmaking = Arc::new(MatchmakingState::new());
             let hubs = Arc::new(HubSessions::new());
-            let reforged = Arc::new(ReforgedState::new());
+            let reforged = Arc::new(LauncherApiState::new());
             let cell = Arc::new(SharedCell::new());
             let activity = Arc::new(ActivityHooks::default());
-            let seams = ReforgedSeams::new();
+            let seams = LauncherApiSeams::new();
 
             // 4-5: the rifts cores, then rifts off the async threads
             let accounts: Arc<dyn rustic_rifts_seam::IslesCore> = Arc::new(AccountsCore::new(
@@ -211,7 +211,7 @@ impl Composer for VersionComposer {
                 .with(Arc::new(EconomyCaches::default()))
                 .with(Arc::new(seams.clone()))
                 .with(Arc::clone(&activity))
-                .with(Arc::new(ReforgedAdmin::new(
+                .with(Arc::new(LauncherApiAdmin::new(
                     Arc::clone(&discord),
                     Arc::new(EconomyFunding),
                 )));
@@ -283,8 +283,8 @@ pub(crate) fn handlers(inventory: InventoryPorts, progression: ProgressionPorts)
     rustic_isles_economy::progression::register(&mut handlers, progression);
     rustic_isles_economy::bounties::register(&mut handlers);
     rustic_isles_matchmaking::register(&mut handlers);
-    rustic_isles_reforged::register_public(&mut handlers);
-    rustic_isles_reforged::register_admin(&mut handlers);
+    rustic_isles_launcher_api::register_public(&mut handlers);
+    rustic_isles_launcher_api::register_admin(&mut handlers);
     handlers
 }
 
@@ -389,7 +389,7 @@ impl ModuleHooks for Runtime {
         shared: &'a Arc<Shared>,
         call: AdminCall,
     ) -> BoxFuture<'a, Result<AdminResponse, ModuleError>> {
-        Box::pin(async move { ReforgedAdmin::of(shared).admin_action(shared, call).await })
+        Box::pin(async move { LauncherApiAdmin::of(shared).admin_action(shared, call).await })
     }
 
     fn home_operation<'a>(
@@ -419,7 +419,7 @@ impl ModuleHooks for Runtime {
                     .await
                     .transpose();
             }
-            ReforgedAdmin::of(shared)
+            LauncherApiAdmin::of(shared)
                 .home_operation(shared, operation, account, actor, body)
                 .await
         })

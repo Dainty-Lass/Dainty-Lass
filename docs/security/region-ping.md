@@ -44,7 +44,7 @@ fingerprints, each region once, at most 16). `gateway_policy` covers the routing
 - [ ] The routes count against the general rate limit, as any public request.
 - [ ] The node list carries no secret: region, host, port and the certificate fingerprint every invite already
       shows. At most 16 nodes are listed.
-- [ ] A report without a key-shaped `x-reforged-user-api-key` is refused with 401 before its body is read; the body
+- [ ] A report without a key-shaped `x-dainty-user-api-key` is refused with 401 before its body is read; the body
       is read up to 4 KiB within the request timeout (413 past it, 408 on the clock) and refused whole unless it is
       exactly `{"regions":[{"region","rttMs"}...]}` with valid ids, round trips from 0 to 60 000 ms or null, each
       region once.

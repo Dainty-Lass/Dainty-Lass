@@ -104,7 +104,7 @@ fn private() -> Slot {
     Slot::new(ServerMode::Private, "100.64.0.1", 61000)
 }
 
-// Unique per test: the log's secrets are process-wide. No `RRK_` prefix, so only registration hides them.
+// Unique per test: the log's secrets are process-wide. No `DLK_` prefix, so only registration hides them.
 fn key(name: &str) -> String {
     format!("plainkey_{name}_0123456789")
 }
@@ -126,7 +126,7 @@ fn save_then_load_writes_both_copies() {
     assert_eq!(&key2[..3], b"rr1");
     assert!(!String::from_utf8_lossy(&key2).contains(&k), "the .key2 file is sealed");
     let plain = std::fs::read_to_string(s.recovery.join(format!("{id}.txt"))).unwrap();
-    assert_eq!(plain, format!("RRK2\n{FP}\n{k}"));
+    assert_eq!(plain, format!("DLK2\n{FP}\n{k}"));
     assert!(!s.keys.join(format!("{id}.key2.tmp")).exists());
 
     assert_eq!(s.store.load(&public(), Some(FP)).unwrap(), Some(k.clone()));
@@ -240,7 +240,7 @@ fn electron_file_is_migrated_and_kept() {
     let k = remember(&key("electron"));
     let id = public().id();
     std::fs::create_dir_all(&s.keys).unwrap();
-    std::fs::write(s.keys.join(format!("{id}.key")), format!("old:RRK2\n{FP}\n{k}")).unwrap();
+    std::fs::write(s.keys.join(format!("{id}.key")), format!("old:DLK2\n{FP}\n{k}")).unwrap();
     assert_eq!(s.store.load(&public(), Some(FP)).unwrap(), Some(k.clone()));
     assert!(s.keys.join(format!("{id}.key")).exists(), "the old file stays");
     let opened = s
@@ -280,7 +280,7 @@ fn unreadable_electron_file_falls_back_to_the_recovery_copy() {
     std::fs::create_dir_all(&s.keys).unwrap();
     std::fs::write(s.keys.join(format!("{id}.key")), b"garbage").unwrap();
     std::fs::create_dir_all(&s.recovery).unwrap();
-    std::fs::write(s.recovery.join(format!("{id}.txt")), format!("RRK2\n-\n{k}")).unwrap();
+    std::fs::write(s.recovery.join(format!("{id}.txt")), format!("DLK2\n-\n{k}")).unwrap();
     assert_eq!(s.store.load(&private(), None).unwrap(), Some(k));
     assert!(
         !s.keys.join(format!("{id}.key2")).exists(),
@@ -306,7 +306,7 @@ fn load_remakes_a_missing_recovery_copy() {
     let copy = s.recovery.join(format!("{}.txt", public().id()));
     std::fs::remove_file(&copy).unwrap();
     assert_eq!(s.store.load(&public(), Some(FP)).unwrap(), Some(k.clone()));
-    assert_eq!(std::fs::read_to_string(&copy).unwrap(), format!("RRK2\n{FP}\n{k}"));
+    assert_eq!(std::fs::read_to_string(&copy).unwrap(), format!("DLK2\n{FP}\n{k}"));
     let seals = s.fake.seals.load(Ordering::SeqCst);
     s.store.load(&public(), Some(FP)).unwrap();
     assert_eq!(
@@ -380,7 +380,7 @@ fn no_key_reaches_the_log() {
     let k = remember(&key("logged"));
     let id = public().id();
     std::fs::create_dir_all(&s.keys).unwrap();
-    std::fs::write(s.keys.join(format!("{id}.key")), format!("old:RRK2\n{FP}\n{k}")).unwrap();
+    std::fs::write(s.keys.join(format!("{id}.key")), format!("old:DLK2\n{FP}\n{k}")).unwrap();
     s.fake.corrupt_seals.store(true, Ordering::SeqCst);
     assert_eq!(s.store.load(&public(), Some(FP)).unwrap(), Some(k.clone()));
     s.fake.corrupt_seals.store(false, Ordering::SeqCst);

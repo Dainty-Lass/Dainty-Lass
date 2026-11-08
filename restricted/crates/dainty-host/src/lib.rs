@@ -847,7 +847,7 @@ impl hooks::HostHooks for ServicesHostHooks {
             let signing_key = network_plugin::home::SigningKey::load_or_create(&key_path)
                 .map_err(|e| HostError::message(format!("network session key {}: {e}", key_path.display())))?;
             let database = hostconfig::node_database_config(config, paths)?;
-            let game = dainty_protocol::invite::reforged_version();
+            let game = dainty_protocol::invite::dainty_version();
             let peer_log_dir = Some(paths.workspace.join("peer-logs"));
             let ship_to_peer = config
                 .history
@@ -1094,7 +1094,7 @@ fn gateway_service_main(args: &[String]) -> ExitCode {
     let Some(p) = paths else {
         return dainty_gateway::cli::main_from(argv);
     };
-    if std::env::var("REFORGED_NETWORK_FULL_NODE").as_deref() == Ok("1")
+    if std::env::var("DAINTY_NETWORK_FULL_NODE").as_deref() == Ok("1")
         && let Ok(Some(hc)) = hostconfig::load_host_config(&p)
     {
         return run_network_full_node(&p, &hc);
@@ -1854,7 +1854,7 @@ mod tests {
             "backend",
             "serve",
             "--env-file",
-            "/opt/reforged/.workspace/config/backend.env",
+            "/opt/dainty-lass/.workspace/config/backend.env",
         ])
         .unwrap();
         assert_eq!(cli.command.name(), "backend");
@@ -1862,7 +1862,7 @@ mod tests {
             "dainty-host",
             "director",
             "serve",
-            "--env-file=/opt/reforged/.workspace/config/director.env",
+            "--env-file=/opt/dainty-lass/.workspace/config/director.env",
         ])
         .unwrap();
         assert_eq!(cli.command.name(), "director");
@@ -1872,13 +1872,13 @@ mod tests {
                 &[
                     "serve".into(),
                     "--env-file".into(),
-                    "/opt/reforged/.workspace/config/backend.env".into()
+                    "/opt/dainty-lass/.workspace/config/backend.env".into()
                 ],
                 None
             )
             .unwrap()
             .as_deref(),
-            Some(std::path::Path::new("/opt/reforged/.workspace/config/backend.env"))
+            Some(std::path::Path::new("/opt/dainty-lass/.workspace/config/backend.env"))
         );
         assert!(parse_service_env_file("backend", &["--env-file".into()], None).is_err());
     }

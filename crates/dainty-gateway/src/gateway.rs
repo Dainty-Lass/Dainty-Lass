@@ -156,7 +156,7 @@ struct Conn {
 /// Request headers without the hop-by-hop ones and the client's address and origin claims, then the forwarded
 /// address and protocol and the gateway secret, set rather than appended.
 pub fn forward_headers(headers: &HeaderMap, ip: &str, tls: bool, secret: &str, upgrade: bool) -> HeaderMap {
-    const CLAIMS: [&str; 12] = [
+    const CLAIMS: [&str; 13] = [
         "x-forwarded-for",
         "x-forwarded-proto",
         "x-forwarded-host",
@@ -167,6 +167,8 @@ pub fn forward_headers(headers: &HeaderMap, ip: &str, tls: bool, secret: &str, u
         "x-client-ip",
         "true-client-ip",
         "cf-connecting-ip",
+        "x-dainty-gateway",
+        // A client's copy of the old name goes too, so no upstream ever sees one
         "x-reforged-gateway",
         "expect",
     ];
@@ -178,7 +180,7 @@ pub fn forward_headers(headers: &HeaderMap, ip: &str, tls: bool, secret: &str, u
     };
     set(&mut out, "x-forwarded-for", ip);
     set(&mut out, "x-forwarded-proto", if tls { "https" } else { "http" });
-    set(&mut out, "x-reforged-gateway", secret);
+    set(&mut out, "x-dainty-gateway", secret);
     if upgrade {
         set(&mut out, "connection", "Upgrade");
         set(&mut out, "upgrade", "websocket");
@@ -1082,7 +1084,7 @@ impl Gateway {
         if let Some(capture) = &mut access.capture {
             capture.res_headers = parts.headers.clone();
         }
-        parts.headers = dainty_proxy::end_to_end(&parts.headers, |n| n == "x-powered-by" || n == "x-reforged-gateway");
+        parts.headers = dainty_proxy::end_to_end(&parts.headers, |n| n == "x-powered-by" || n == "x-dainty-gateway");
         if self.is_closing() {
             parts.headers.insert(CONNECTION, HeaderValue::from_static("close"));
         }
@@ -1121,10 +1123,10 @@ impl Gateway {
             NetworkRoute::Regions => {
                 let header = |name: &str| req.headers().get(name).and_then(|v| v.to_str().ok()).map(str::to_owned);
                 let api_key =
-                    header("x-reforged-user-api-key").filter(|k| dainty_protocol::account::is_plausible_account_key(k));
+                    header("x-dainty-user-api-key").filter(|k| dainty_protocol::account::is_plausible_account_key(k));
                 let ticket = req
                     .headers()
-                    .get("x-reforged-session-ticket")
+                    .get("x-dainty-session-ticket")
                     .filter(|v| (1..=4096).contains(&v.len()))
                     .and_then(|v| v.to_str().ok())
                     .map(str::to_owned);
@@ -1336,7 +1338,7 @@ impl Gateway {
         let status = response.status();
         if status != StatusCode::SWITCHING_PROTOCOLS {
             let mut headers = dainty_proxy::end_to_end(response.headers(), |n| {
-                n == "x-powered-by" || n == "x-reforged-gateway" || n == "content-length"
+                n == "x-powered-by" || n == "x-dainty-gateway" || n == "content-length"
             });
             headers.insert(CONNECTION, HeaderValue::from_static("close"));
             let mut kept = Vec::new();
@@ -1356,7 +1358,7 @@ impl Gateway {
         }
         let mut headers = response.headers().clone();
         headers.remove("x-powered-by");
-        headers.remove("x-reforged-gateway");
+        headers.remove("x-dainty-gateway");
         let upstream_upgrade = hyper::upgrade::on(&mut response);
         let client_upgrade = hyper::upgrade::on(&mut req);
         access.status = 101;
@@ -1424,12 +1426,12 @@ mod tests {
     #[test]
     fn targets_are_judged_as_sent() {
         for (sent, logged) in [
-            ("/reforged/api/Register?x=1", "/reforged/api/Register?x=1"),
+            ("/dainty/api/Register?x=1", "/dainty/api/Register?x=1"),
             ("//", "//"),
             ("*", "*"),
             (
-                "http://evil.example/reforged/api/CreateInvite",
-                "http://evil.example/reforged/api/CreateInvite",
+                "http://evil.example/dainty/api/CreateInvite",
+                "http://evil.example/dainty/api/CreateInvite",
             ),
             (
                 "https://evil.example:443/__node/enroll",
@@ -1463,7 +1465,7 @@ mod tests {
             ("x-forwarded-for", "1.1.1.1"),
             ("forwarded", "for=x"),
             ("x-real-ip", "2.2.2.2"),
-            ("x-reforged-gateway", "fake"),
+            ("x-dainty-gateway", "fake"),
             ("expect", "100-continue"),
             ("connection", "keep-alive, x-hidden"),
             ("x-hidden", "1"),
@@ -1482,12 +1484,12 @@ mod tests {
                 "host",
                 "x-forwarded-for",
                 "x-forwarded-proto",
-                "x-reforged-gateway"
+                "x-dainty-gateway"
             ]
         );
         assert_eq!(out["x-forwarded-for"], "203.0.113.7");
         assert_eq!(out["x-forwarded-proto"], "https");
-        assert_eq!(out["x-reforged-gateway"], "the-secret");
+        assert_eq!(out["x-dainty-gateway"], "the-secret");
         let up = forward_headers(&h, "::1", false, "s", true);
         assert_eq!(up["x-forwarded-proto"], "http");
         assert_eq!(

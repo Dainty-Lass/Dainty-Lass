@@ -37,7 +37,7 @@ through the leader.
 
 Code: `crates/dainty-network/src/directory.rs` (the leader's rules, the replica's pull and checks, the tables),
 `messages.rs` (the messages and their decoder), `username.rs` (the claim's case rule), `link.rs` and `inprocess.rs`.
-Tests: `crates/dainty-network/tests/directory.rs`, on SQLite and, with `REFORGED_TEST_POSTGRES_URL`, Postgres.
+Tests: `crates/dainty-network/tests/directory.rs`, on SQLite and, with `DAINTY_TEST_POSTGRES_URL`, Postgres.
 
 Fuzz target: `network_directory` in `fuzz` (both decoders and the username rule). It checks that a message is
 read whole or refused, that what is read holds only usernames the protocol's rule accepts and account ids of one
@@ -238,7 +238,7 @@ with `docker compose down --volumes`. It keeps the rules above anyway, so what i
   the ones that run. The `host.toml` lists every other node with the SHA-256 of its public gateway certificate.
 - **CAP_NET_ADMIN is the `netem-*` containers' alone**, in each node's namespace; the gateways keep
   `cap_drop: ALL`, `no-new-privileges` and a read-only root. `tc` shapes only that namespace's outgoing traffic.
-- **Published ports** are the gateways' 443 on `127.0.0.1` (`REFORGED_NETWORK_PUBLISH_ADDRESS`); the node links share
+- **Published ports** are the gateways' 443 on `127.0.0.1` (`DAINTY_NETWORK_PUBLISH_ADDRESS`); the node links share
   that port as they do anywhere. Setting the address to `0.0.0.0` exposes four nodes whose CA key anyone with the
   Docker socket can read: don't.
 - **`dainty-host network status`** (the check the harness runs in each node) calls the peers as the node itself, from
@@ -283,7 +283,7 @@ Code: `crates/dainty-network/src/home/` (`ticket.rs`, `keys.rs`, `protocol.rs`, 
 `client.rs` for `NetworkedHome`), `link.rs` (`Service::Home`, `ServiceMux`), and in
 `crates/dainty-module-api/src/network.rs` the seams (`HomeBackend`, `HomeInvocation`, `HomeForward`,
 `HomeApi::forward` and `admit`).
-Tests: `crates/dainty-network/tests/home.rs` (three regions in process, SQLite and, with `REFORGED_TEST_POSTGRES_URL`,
+Tests: `crates/dainty-network/tests/home.rs` (three regions in process, SQLite and, with `DAINTY_TEST_POSTGRES_URL`,
 Postgres), unit tests in `home/ticket.rs`, `keys.rs` and `protocol.rs`, and `crates/dainty-gateway/tests/home.rs` (two
 real gateways over mutual TLS).
 
@@ -296,7 +296,7 @@ writes verifies, a changed byte of a real ticket never verifies; public keys fro
 #### The account key
 
 - [ ] No field of any home message can hold an account key. Typed fields are names and ids checked as read; the
-      free-form ones (`HomeBody`, `WireActor`, `RequestKey`, `CleanText`) refuse anything shaped like `RRK_` and eight
+      free-form ones (`HomeBody`, `WireActor`, `RequestKey`, `CleanText`) refuse anything shaped like `DLK_` and eight
       more key characters, in any case, in a string or an object key, when built and when deserialised; a ticket's
       token is bounded base64url whose claims are typed. `encode_*` and `decode_*` run `Validate` over what they
       carry. Tests: `no_message_type_can_carry_an_account_key` (every message type),
@@ -377,19 +377,19 @@ writes verifies, a changed byte of a real ticket never verifies; public keys fro
 - **Trust boundary**: instance lookups, matchmaking ring ticket publications, compare-and-set ticket claims, and regional Ramsgate assignments cross `/__node/ring` (`Service::Ring`) between mTLS-authenticated peer nodes. The caller identity (`from`) comes from the verified client certificate's SAN/CN, never from the wire body.
 - **Wire protocol (`network::ring`)**:
   - [ ] Versioned JSON (`RING_VERSION = 1`), `#[serde(deny_unknown_fields)]` on every request, reply, ticket, and instance record struct, bounded to `MAX_RING_MESSAGE = 64 KiB` and `MAX_RING_TEXT = 256` bytes.
-  - [ ] Every free-form string (`queue`, `server_host`, `client_ip`, refusal text) and forwarded reward JSON body (`xp_grant`, `loot_write`, `objective_write`) is checked by `looks_like_account_key` / `holds_account_key`, refusing anything shaped like an `RRK_` account key (`RingError::AccountKey`). Test: `ring_wire_refuses_account_keys_and_bad_versions`.
+  - [ ] Every free-form string (`queue`, `server_host`, `client_ip`, refusal text) and forwarded reward JSON body (`xp_grant`, `loot_write`, `objective_write`) is checked by `looks_like_account_key` / `holds_account_key`, refusing anything shaped like an `DLK_` account key (`RingError::AccountKey`). Test: `ring_wire_refuses_account_keys_and_bad_versions`.
   - [ ] `PublishTicket` requires `ticket.home_node == from` and `ticket.ticket.owner() == from`; `ClaimTicket` and `ReleaseTicket` require `claiming_node == from`, so a peer cannot publish tickets for another home or claim/release tickets under another node's name.
 - **Instance registry, redirects, and launcher relay re-pointing (DN6, DD18)**:
   - [ ] Every instance (`IdKind::Hunt`, `IdKind::HubInstance`, `IdKind::Party`, `IdKind::Ticket`) carries its owning node in `GlobalId::owner()`. When a join reaches a non-owning node, `RingNode::resolve_join` either mints a home-signed `SessionTicket` for `audience = instance.owner()` and returns `JoinDecision::Redirect` (`WrongNodePolicy::Redirect`, only when the peer gateway has a pinned 64-hex SHA-256 certificate fingerprint; unpinned peers are refused) or refuses with a message naming the owning node and region (`WrongNodePolicy::Refuse`, DN1 kill criterion). Test: `dn6_instance_registry_resolves_owners_and_redirects_or_refuses_wrong_node_joins`.
-  - [ ] When the launcher's local relay (`127.0.0.1:61100`, `Relay::repoint`) re-points to a non-home node's gateway with a `SessionTicket`, it strips `x-reforged-user-api-key` from every forwarded request and attaches `x-reforged-session-ticket` instead so the account key never leaves its home node (DD17). Test: `repoint_switches_target_attaches_ticket_and_strips_account_key`.
+  - [ ] When the launcher's local relay (`127.0.0.1:61100`, `Relay::repoint`) re-points to a non-home node's gateway with a `SessionTicket`, it strips `x-dainty-user-api-key` from every forwarded request and attaches `x-dainty-session-ticket` instead so the account key never leaves its home node (DD17). Test: `repoint_switches_target_attaches_ticket_and_strips_account_key`.
 - **Matchmaking ring, CAS claim protocol, and regional Ramsgate (DN8, DN9)**:
   - [ ] `POST /network/v1/regions` is wired in production through `Gateway::set_region_handler` (`NodeServices::region_report_handler`) to `RingNode::record_region_pings_authenticated`, authenticating the caller via either a registered home API key or a verified `SessionTicket` (`session_ticket_from_token`) before storing the account's ordered region RTT list. Test: `region_report_handler_reaches_ring_node_record_region_pings_authenticated`.
   - [ ] A ticket is owned by the player's home node, published to the lowest-ping region at step 0, and widened along `RingSchedule` (`DEFAULT_RING_DELAYS_MS`) by `RingNode::spawn_ticker` in `controller::modules::network`. When a regional node forms a match, it claims each candidate ticket at its home node via atomic compare-and-set (`local_claim_ticket`), feeds matched players' IPs and guarded UDP ports into the in-process allowlist (`InProcessAllowlistSink` -> `Helper::admit_udp`), and releases partial claims (`ReleaseTicket`) if any candidate was already claimed or cancelled. Tests: `dn8_four_region_matchmaking_ring_never_double_books_and_bounds_wait_time`, `matched_player_is_admitted_into_in_process_allowlist_and_unmatched_is_not`.
   - [ ] Regional Ramsgate (`assign_ramsgate`, `AssignHub`) places players from any home node into their lowest-ping region's shared Ramsgate shard and starts a new shard on that region's Director when `max_hub_players` is reached. Test: `dn9_regional_ramsgate_places_players_from_different_homes_into_lowest_ping_hub_and_shards`.
 - **Wired end-to-end in `controller::modules::network`, `rustic-isles` (`module.rs`'s `command`), and `launcher::net::relay` (DN5, DN6, DN8, DN9)**:
   - `HomeRouterHook` registers `DriverDirectorRouter` (`DirectorInvocation` over `GameModule::command`) alongside `DriverBackend` (`HomeInvocation` over `GameModule::command`) for each loaded game module, and `NetworkedHome` delegates all ring methods (`ring_register_instance`, `ring_resolve_join`, `ring_submit_ticket`, `ring_try_form_matches`, `ring_ticket_state`, `ring_forward_hunt_rewards`, `ring_assign_ramsgate`, `ring_register_local_account_key`) to `RingNode`.
-  - `WrongNodePolicy` defaults to `WrongNodePolicy::Refuse` (`409 Conflict` with `"error":"WRONG_NODE"`) and can be switched to `WrongNodePolicy::Redirect` (`x-reforged-redirect-*` + `x-reforged-session-ticket` response headers) via `[network] wrong_node_policy` in `host.toml` (`REFORGED_WRONG_NODE_POLICY`).
-  - `launcher::net::relay` inspects upstream responses for `x-reforged-redirect-host`, `x-reforged-redirect-port`, `x-reforged-redirect-fingerprint`, and `x-reforged-session-ticket`, automatically calling `Relay::repoint` when all four are present.
+  - `WrongNodePolicy` defaults to `WrongNodePolicy::Refuse` (`409 Conflict` with `"error":"WRONG_NODE"`) and can be switched to `WrongNodePolicy::Redirect` (`x-dainty-redirect-*` + `x-dainty-session-ticket` response headers) via `[network] wrong_node_policy` in `host.toml` (`DAINTY_WRONG_NODE_POLICY`).
+  - `launcher::net::relay` inspects upstream responses for `x-dainty-redirect-host`, `x-dainty-redirect-port`, `x-dainty-redirect-fingerprint`, and `x-dainty-session-ticket`, automatically calling `Relay::repoint` when all four are present.
 
 ## Chat federation (DN10b)
 
@@ -442,7 +442,7 @@ writes verifies, a changed byte of a real ticket never verifies; public keys fro
 - **Trust boundary**: an admin action relay message arrives over `/__node/admin` (`Service::Admin`) from an mTLS-authenticated peer node in `[[network.nodes]]`. The caller identity (`from`) comes from the verified client certificate's SAN/CN, never from the wire body.
 - **Wire protocol (`network::relay`)**:
   - [ ] Versioned JSON (`ADMIN_RELAY_VERSION = 1`), `#[serde(deny_unknown_fields)]` on every request, response, action, and refusal struct, bounded to `MAX_ADMIN_WIRE = 64 KiB` inside `MAX_MESSAGE`.
-  - [ ] Every free-form string (`reason`, `request_key`, `actor`, `approved_by`, refusal message) and JSON body (`HomeBody`) is scanned on both encode and decode by `holds_secret_key` (`looks_like_account_key` and `looks_like_admin_key`), refusing anything shaped like an account key (`RRK_...`) or an admin secret key (`RRA_...`) in any case.
+  - [ ] Every free-form string (`reason`, `request_key`, `actor`, `approved_by`, refusal message) and JSON body (`HomeBody`) is scanned on both encode and decode by `holds_secret_key` (`looks_like_account_key` and `looks_like_admin_key`), refusing anything shaped like an account key (`DLK_...`) or an admin secret key (`DLA_...`) in any case.
   - [ ] Actor fields (`actor`, `approved_by`) carry only the public 8-hex key id (`^[0-9a-f]{8}$`) or `owner`, never a bearer secret or raw token.
   - [ ] Requests from a node not listed in `[[network.nodes]]` (`!is_peer(from)`) are refused with `AdminRelayRefusal::NotAPeer` before any state or ticket table is touched.
 - **Authority, session revocation, and audit**:

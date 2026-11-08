@@ -160,7 +160,7 @@ async fn a_login_and_a_logout_in_the_script_and_the_windows_rule() {
         let closed = dry.last().unwrap();
         assert_eq!(closed["enabled"], false);
         if firewall == "nftables" {
-            assert_eq!(opened["rule"], "table inet reforged_revival");
+            assert_eq!(opened["rule"], "table inet dainty_lass");
             assert!(
                 opened["script"]
                     .as_str()

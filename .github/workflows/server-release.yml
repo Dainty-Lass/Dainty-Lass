@@ -1,6 +1,6 @@
 # GitHub Actions' copy of .forgejo/workflows/server-release.yml (RR3; MIGRATION_PLAN.md RD8, RH6): the same archives,
 # release.json, SHA256SUMS.txt and install check, on GitHub's hosted runners, plus a CycloneDX SBOM of each archive.
-#  - ReforgedRevivalServer-<version>-windows-x64.zip and -linux-x64.tar.gz hold reforged-revival-server-<version>/
+#  - DaintyLassServer-<version>-windows-x64.zip and -linux-x64.tar.gz hold dainty-lass-server-<version>/
 #    (bin/, plugins/, the Node rollback bundle until RB15, release.json); the Forgejo file says what each holds
 #  - SHA256SUMS.txt for the archives
 #  - server-sbom, a separate artifact: <archive>.cdx.json for each, from Trivy. Not among the release files, which
@@ -147,7 +147,7 @@ jobs:
           rustup show active-toolchain || rustup toolchain install
           rustup target add "$TARGET"
 
-      # REFORGED_RELEASE_REPOSITORY stays .cargo/config.toml's until DX5 moves the releases
+      # DAINTY_RELEASE_REPOSITORY stays .cargo/config.toml's until DX5 moves the releases
       - name: Build the release binaries
         run: cargo build --release --locked --target "$TARGET" -p dainty-server -p dainty-server-minimal --features dainty-server/all-modules,dainty-server-minimal/all-modules --bins
 
@@ -181,7 +181,7 @@ jobs:
         run: |
           set -euo pipefail
           ext=""; [ "$RUNNER_OS" = Windows ] && ext=".exe"
-          name="reforged-revival-server-$VERSION"
+          name="dainty-lass-server-$VERSION"
           out="$WORK/assemble/$name"
           rm -rf "$WORK/assemble" && mkdir -p "$out"
           # The commit's server source, as git has it (no .workspace, nothing git ignores); rustic-isles is in-tree (RD27)
@@ -221,7 +221,7 @@ jobs:
               } else if (e.isSymbolicLink()) throw new Error(`a symbolic link in the release: ${full}`);
             }
           })(root);
-          const manifest = { name: "reforged-revival-server", version, commit, target, platform, repository, files };
+          const manifest = { name: "dainty-lass-server", version, commit, target, platform, repository, files };
           fs.writeFileSync(path.join(root, "release.json"), JSON.stringify(manifest, null, 2) + "\n");
           console.log(`release.json: ${files.length} files`);
           EOF
@@ -230,7 +230,7 @@ jobs:
         run: |
           set -euo pipefail
           ext=""; [ "$RUNNER_OS" = Windows ] && ext=".exe"
-          bin="$WORK/assemble/reforged-revival-server-$VERSION/bin"
+          bin="$WORK/assemble/dainty-lass-server-$VERSION/bin"
           for b in dainty-host dainty-server dainty-server-minimal; do "$bin/$b$ext" --help > /dev/null; done
           # Each service the binary runs alone, as the systemd units and the containers run it
           for service in gateway allowlist content backend director; do "$bin/dainty-host$ext" "$service" --help > /dev/null; done
@@ -241,14 +241,14 @@ jobs:
       - name: Make the archive
         run: |
           set -euo pipefail
-          name="reforged-revival-server-$VERSION"
+          name="dainty-lass-server-$VERSION"
           mkdir -p "$WORK/release"
           cd "$WORK/assemble"
           if [ "$RUNNER_OS" = Windows ]; then
-            archive="ReforgedRevivalServer-$VERSION-$PLATFORM.zip"
+            archive="DaintyLassServer-$VERSION-$PLATFORM.zip"
             7z a -tzip -mx=9 -bd "$WORK/release/$archive" "$name" > /dev/null
           else
-            archive="ReforgedRevivalServer-$VERSION-$PLATFORM.tar.gz"
+            archive="DaintyLassServer-$VERSION-$PLATFORM.tar.gz"
             tar --sort=name --owner=0 --group=0 --numeric-owner -czf "$WORK/release/$archive" "$name"
           fi
           ls -l "$WORK/release"
@@ -286,7 +286,7 @@ jobs:
         run: |
           set -euo pipefail
           cd release
-          expected="$(printf '%s\n' "ReforgedRevivalServer-$VERSION-linux-x64.tar.gz" "ReforgedRevivalServer-$VERSION-windows-x64.zip" | sort)"
+          expected="$(printf '%s\n' "DaintyLassServer-$VERSION-linux-x64.tar.gz" "DaintyLassServer-$VERSION-windows-x64.zip" | sort)"
           actual="$(ls -A | sort)"
           if [ "$actual" != "$expected" ]; then
             echo "::error::these are not the archives of servers $VERSION"
@@ -356,18 +356,18 @@ jobs:
 
       - name: Extract, then check the install with dainty-host update --check
         env:
-          REFORGED_SERVER_RELEASE: ${{ runner.temp }}/release
+          DAINTY_SERVER_RELEASE: ${{ runner.temp }}/release
         run: |
           set -euo pipefail
           ext=""; [ "$RUNNER_OS" = Windows ] && ext=".exe"
           mkdir -p "$RUNNER_TEMP/host"
           cd "$RUNNER_TEMP/host"
           if [ "$RUNNER_OS" = Windows ]; then
-            7z x -bd "$REFORGED_SERVER_RELEASE/ReforgedRevivalServer-$VERSION-$PLATFORM.zip" > /dev/null
+            7z x -bd "$DAINTY_SERVER_RELEASE/DaintyLassServer-$VERSION-$PLATFORM.zip" > /dev/null
           else
-            tar -xzf "$REFORGED_SERVER_RELEASE/ReforgedRevivalServer-$VERSION-$PLATFORM.tar.gz"
+            tar -xzf "$DAINTY_SERVER_RELEASE/DaintyLassServer-$VERSION-$PLATFORM.tar.gz"
           fi
-          root="$RUNNER_TEMP/host/reforged-revival-server-$VERSION"
+          root="$RUNNER_TEMP/host/dainty-lass-server-$VERSION"
           "$root/bin/dainty-host$ext" update --check | tee check.txt
           grep -q "Up to date" check.txt
 
@@ -404,7 +404,7 @@ jobs:
         run: |
           set -euo pipefail
           cd release
-          expected="$(printf '%s\n' "ReforgedRevivalServer-$VERSION-linux-x64.tar.gz" "ReforgedRevivalServer-$VERSION-windows-x64.zip" SHA256SUMS.txt | sort)"
+          expected="$(printf '%s\n' "DaintyLassServer-$VERSION-linux-x64.tar.gz" "DaintyLassServer-$VERSION-windows-x64.zip" SHA256SUMS.txt | sort)"
           [ "$(ls -A | sort)" = "$expected" ] || { echo "::error::these are not the release files of servers $VERSION"; ls -A; exit 1; }
           sha256sum --check --strict SHA256SUMS.txt
 
@@ -419,14 +419,14 @@ jobs:
       - name: Attest the Linux archive's SBOM
         uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
         with:
-          subject-path: release/ReforgedRevivalServer-${{ needs.prepare.outputs.version }}-linux-x64.tar.gz
-          sbom-path: sbom/ReforgedRevivalServer-${{ needs.prepare.outputs.version }}-linux-x64.tar.gz.cdx.json
+          subject-path: release/DaintyLassServer-${{ needs.prepare.outputs.version }}-linux-x64.tar.gz
+          sbom-path: sbom/DaintyLassServer-${{ needs.prepare.outputs.version }}-linux-x64.tar.gz.cdx.json
 
       - name: Attest the Windows archive's SBOM
         uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
         with:
-          subject-path: release/ReforgedRevivalServer-${{ needs.prepare.outputs.version }}-windows-x64.zip
-          sbom-path: sbom/ReforgedRevivalServer-${{ needs.prepare.outputs.version }}-windows-x64.zip.cdx.json
+          subject-path: release/DaintyLassServer-${{ needs.prepare.outputs.version }}-windows-x64.zip
+          sbom-path: sbom/DaintyLassServer-${{ needs.prepare.outputs.version }}-windows-x64.zip.cdx.json
 
       - name: Create the release
         run: |
@@ -439,8 +439,8 @@ jobs:
           DaintyLass servers ${VERSION}: the server in one binary (dainty-server, also as dainty-host, and
           dainty-server-minimal), built from ${COMMIT}. ${note}
 
-          - Windows x64: \`ReforgedRevivalServer-${VERSION}-windows-x64.zip\`
-          - Linux x86_64: \`ReforgedRevivalServer-${VERSION}-linux-x64.tar.gz\`
+          - Windows x64: \`DaintyLassServer-${VERSION}-windows-x64.zip\`
+          - Linux x86_64: \`DaintyLassServer-${VERSION}-linux-x64.tar.gz\`
 
           A server set up from a release moves to this one with \`dainty-host update\`, which downloads it, checks it
           against \`SHA256SUMS.txt\` (and its attestation, when the GitHub CLI is there) and runs setup again. Check a

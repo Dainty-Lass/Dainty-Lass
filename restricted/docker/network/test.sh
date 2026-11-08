@@ -14,10 +14,10 @@
 #                            skip), require (CI) or skip. The addresses are the private network's: a Linux host
 #                            reaches them, Docker Desktop does not
 #   NETWORK_TOLERANCE_MS=    how far above the injected round trip a measurement may be (25)
-#   REFORGED_NETWORK_*       compose.yaml's settings; the table this expects is read back from `docker compose config`
+#   DAINTY_NETWORK_*       compose.yaml's settings; the table this expects is read back from `docker compose config`
 set -euo pipefail
 
-export COMPOSE_PROJECT_NAME="${COMPOSE_PROJECT_NAME:-reforged-network}"
+export COMPOSE_PROJECT_NAME="${COMPOSE_PROJECT_NAME:-dainty-network}"
 export COMPOSE_PROFILES=network
 export COMPOSE_FILE=compose.yaml
 tolerance="${NETWORK_TOLERANCE_MS:-25}"
@@ -93,7 +93,7 @@ within() { awk -v v="$1" -v want="$2" -v tol="$3" 'BEGIN { exit !(v >= want - 2 
 step "every node reaches its peers, with the injected round trips"
 for region in "${regions[@]}"; do
 	out="$(compose exec -T "gateway-$region" dainty-host network status --count 5 \
-		--env-file /opt/reforged/.workspace/config/gateway.env)" || { echo "$out"; fail "$region: a peer is not up"; }
+		--env-file /opt/dainty-lass/.workspace/config/gateway.env)" || { echo "$out"; fail "$region: a peer is not up"; }
 	echo "$out"
 	peers=0
 	while read -r _ node peer state _ rtt unit _; do
@@ -131,7 +131,7 @@ if [ "$run_region_ping" = 1 ]; then
 	for home in "${regions[@]}"; do
 		published="$(compose port "net-$home" 443)"
 		pin="$(compose exec -T "gateway-$home" dainty-host gateway make-cert --fingerprint \
-			/opt/reforged/.workspace/tls/gateway-cert.pem | sed -n 's/^Fingerprint: *//p')"
+			/opt/dainty-lass/.workspace/tls/gateway-cert.pem | sed -n 's/^Fingerprint: *//p')"
 		# The other regions, nearest to the player first, each with the round trip injected to it
 		expect="$(for r in "${regions[@]}"; do
 			[ "$r" = "$home" ] || printf '%s %s\n' "$(injected "$player" "$r")" "$r"
@@ -153,7 +153,7 @@ node_url() {
 
 node_gs_key() {
 	compose exec -T "gateway-$1" sed -n 's/^METAGAME_API_KEY="\{0,1\}\([^"]*\)"\{0,1\}$/\1/p' \
-		/opt/reforged/.workspace/config/director.env | tr -d '\r\n'
+		/opt/dainty-lass/.workspace/config/director.env | tr -d '\r\n'
 }
 
 node_backend_post() {
@@ -193,15 +193,15 @@ oregon_url="$(node_url oregon)"
 germany_url="$(node_url germany)"
 
 step "register and authenticate players on oregon-1 and germany-1"
-reg_a="$(curl -sk -X POST "$oregon_url/reforged/api/Register" \
+reg_a="$(curl -sk -X POST "$oregon_url/dainty/api/Register" \
 	-H 'Content-Type: application/json' \
 	-d '{"Username":"SlayerOregon"}')"
 echo "oregon register: $reg_a"
 key_a="$(printf '%s' "$reg_a" | sed -n 's/.*"UUK":"\([^"]*\)".*/\1/p')"
 [ -n "$key_a" ] || fail "failed to register Player A on oregon-1: $reg_a"
 
-info_a="$(curl -sk -i "$oregon_url/reforged/api/GetUserInfo" \
-	-H "x-reforged-user-api-key: $key_a")"
+info_a="$(curl -sk -i "$oregon_url/dainty/api/GetUserInfo" \
+	-H "x-dainty-user-api-key: $key_a")"
 echo "oregon user info:"
 echo "$info_a"
 uid_a="$(printf '%s' "$info_a" | sed -n 's/.*"UserId":"\([^"]*\)".*/\1/p' | head -n 1)"
@@ -214,15 +214,15 @@ tok_a_json="$(curl -sk -X POST "$oregon_url/account/api/oauth/token" \
 tok_a="$(printf '%s' "$tok_a_json" | sed -n 's/.*"access_token":"\([^"]*\)".*/\1/p')"
 [ -n "$tok_a" ] || fail "failed to obtain access token for Player A: $tok_a_json"
 
-reg_b="$(curl -sk -X POST "$germany_url/reforged/api/Register" \
+reg_b="$(curl -sk -X POST "$germany_url/dainty/api/Register" \
 	-H 'Content-Type: application/json' \
 	-d '{"Username":"SlayerGermany"}')"
 echo "germany register: $reg_b"
 key_b="$(printf '%s' "$reg_b" | sed -n 's/.*"UUK":"\([^"]*\)".*/\1/p')"
 [ -n "$key_b" ] || fail "failed to register Player B on germany-1: $reg_b"
 
-info_b="$(curl -sk -i "$germany_url/reforged/api/GetUserInfo" \
-	-H "x-reforged-user-api-key: $key_b")"
+info_b="$(curl -sk -i "$germany_url/dainty/api/GetUserInfo" \
+	-H "x-dainty-user-api-key: $key_b")"
 echo "germany user info:"
 echo "$info_b"
 uid_b="$(printf '%s' "$info_b" | sed -n 's/.*"UserId":"\([^"]*\)".*/\1/p' | head -n 1)"
@@ -364,13 +364,13 @@ printf '%s' "$refuse_resp" | grep -q '409' || fail "expected 409 Conflict under 
 printf '%s' "$refuse_resp" | grep -q 'WRONG_NODE' || fail "expected WRONG_NODE body under default refuse policy"
 
 compose exec -T gateway-germany sh -c '
-	sed "/^\[network\]$/a wrong_node_policy = \"redirect\"" /opt/reforged/.workspace/config/host.toml >/tmp/host.toml
-	cat /tmp/host.toml >/opt/reforged/.workspace/config/host.toml
+	sed "/^\[network\]$/a wrong_node_policy = \"redirect\"" /opt/dainty-lass/.workspace/config/host.toml >/tmp/host.toml
+	cat /tmp/host.toml >/opt/dainty-lass/.workspace/config/host.toml
 	rm -f /tmp/host.toml
 '
 compose restart gateway-germany
 for _ in $(seq 1 30); do
-	if curl -sk "$germany_url/reforged/api/ServerStatus" | grep -q '"online":true'; then
+	if curl -sk "$germany_url/dainty/api/ServerStatus" | grep -q '"online":true'; then
 		break
 	fi
 	sleep 1
@@ -401,10 +401,10 @@ echo "$redir_resp"
 printf '%s' "$redir_resp" | grep -q '"hostNode":"oregon-1"' \
 	|| fail "expected hostNode oregon-1 in redirect response"
 session_ticket="$(printf '%s' "$redir_resp" | tr -d '\r' | sed -n 's/^[xX]-reforged-session-ticket: *//p' | head -n 1)"
-[ -n "$session_ticket" ] || fail "missing x-reforged-session-ticket header on redirect"
+[ -n "$session_ticket" ] || fail "missing x-dainty-session-ticket header on redirect"
 
 admit_session="$(curl -sk -i -X PUT "$oregon_url/gamesession/epiceos" \
-	-H "x-reforged-session-ticket: $session_ticket" \
+	-H "x-dainty-session-ticket: $session_ticket" \
 	-H 'Content-Type: application/json' \
 	-d '{}')"
 echo "target-node game session with session ticket (no account key):"
@@ -413,7 +413,7 @@ printf '%s' "$admit_session" | head -n 1 | grep -q '200' || fail "target node re
 printf '%s' "$admit_session" | grep -q '"sessiontoken"' || fail "target node did not return session token"
 
 admit_join="$(curl -sk -i -X POST "$oregon_url/candidate/join" \
-	-H "x-reforged-session-ticket: $session_ticket" \
+	-H "x-dainty-session-ticket: $session_ticket" \
 	-H 'Content-Type: application/json' \
 	-d "{\"gameMode\":\"ISLAND\",\"instanceId\":\"$oregon_inst2\"}")"
 echo "target-node instance join with session ticket (no account key):"
@@ -423,7 +423,7 @@ printf '%s' "$admit_join" | grep -q "\"instanceId\":\"$oregon_inst2\"" || fail "
 
 step "DN9: regional Ramsgate places player on the lowest-RTT healthy node"
 regions_de_resp="$(curl -sk -i -X POST "$oregon_url/network/v1/regions" \
-	-H "x-reforged-user-api-key: $key_a" \
+	-H "x-dainty-user-api-key: $key_a" \
 	-H 'Content-Type: application/json' \
 	-d '{"regions":[{"region":"germany","rttMs":12},{"region":"uk","rttMs":35},{"region":"new-york","rttMs":85},{"region":"oregon","rttMs":150}]}')"
 echo "reported regions (germany nearest) response:"
@@ -448,7 +448,7 @@ printf '%s' "$cand_city_de" | grep -q '"host":"203.0.113.14"' \
 	|| fail "expected Germany Ramsgate hub (203.0.113.14), got: $cand_city_de"
 
 regions_or_resp="$(curl -sk -i -X POST "$oregon_url/network/v1/regions" \
-	-H "x-reforged-user-api-key: $key_a" \
+	-H "x-dainty-user-api-key: $key_a" \
 	-H 'Content-Type: application/json' \
 	-d '{"regions":[{"region":"oregon","rttMs":8},{"region":"new-york","rttMs":70},{"region":"uk","rttMs":140},{"region":"germany","rttMs":150}]}')"
 echo "reported regions (oregon nearest) response:"
@@ -527,7 +527,7 @@ echo "germany waiting queue before uk-1 login: $waiting_de"
 printf '%s' "$waiting_de" | grep -q 'waiting while offline' || fail "offline whisper not queued at germany-1: $waiting_de"
 
 uk_url="$(node_url uk)"
-reg_c="$(curl -sk -X POST "$uk_url/reforged/api/Register" \
+reg_c="$(curl -sk -X POST "$uk_url/dainty/api/Register" \
 	-H 'Content-Type: application/json' \
 	-d '{"Username":"SlayerUK"}')"
 key_c="$(printf '%s' "$reg_c" | sed -n 's/.*"UUK":"\([^"]*\)".*/\1/p')"

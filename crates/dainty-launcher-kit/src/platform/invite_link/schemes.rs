@@ -236,7 +236,7 @@ mod tests {
             ]
         };
         let mut want = expect("dauntless", "URL:Dauntless invite");
-        want.extend(expect("reforged-revival", "URL:Dainty Lass invite"));
+        want.extend(expect("dainty", "URL:Dainty Lass invite"));
         assert_eq!(values, want);
         assert!(
             values.iter().all(|v| !v.key.contains("dauntless-revived")),
@@ -310,7 +310,7 @@ mod tests {
             desktop_entry(&path).unwrap(),
             format!(
                 "[Desktop Entry]\nType=Application\nName=Dainty Lass Launcher\nExec={exec} %u\n\
-                 MimeType=x-scheme-handler/dauntless;x-scheme-handler/reforged-revival;\nNoDisplay=true\n\
+                 MimeType=x-scheme-handler/dauntless;x-scheme-handler/dainty;\nNoDisplay=true\n\
                  Terminal=false\n"
             )
         );

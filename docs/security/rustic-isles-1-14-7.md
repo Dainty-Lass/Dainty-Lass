@@ -59,7 +59,7 @@ never a half-built module.
 - The capability resolver echoes an internal error's text as the refusal's message (item 9).
 - A realms database that fails to open degrades silently to the stubs (item 11).
 - In Observe mode, an artifact role with no setting is expected as 64 zeros (item 7).
-- Rifts' node is `REFORGED_NODE_ID` (else `local`), not the module's node identity (item 3).
+- Rifts' node is `DAINTY_NODE_ID` (else `local`), not the module's node identity (item 3).
 - Admissions are in memory and the relay provider is never reachable (items 4, 6).
 
 ## Sign-off

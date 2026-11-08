@@ -36,16 +36,16 @@ fuzz_target!(|data: &[u8]| {
     let mut headers = http::HeaderMap::new();
     for line in lines {
         if let Ok(value) = http::HeaderValue::from_bytes(line.as_bytes()) {
-            headers.append("x-reforged-user-api-key", value.clone());
+            headers.append("x-dainty-user-api-key", value.clone());
             headers.append("if-none-match", value);
         }
     }
-    if let Some(key) = header_text(&headers, "x-reforged-user-api-key")
+    if let Some(key) = header_text(&headers, "x-dainty-user-api-key")
         && is_plausible_key(&key)
     {
         // A key the backend is asked about is one header line of printable ASCII
         assert!(key.len() <= 256 && !key.contains([' ', ',', '\r', '\n']));
-        assert_eq!(headers.get_all("x-reforged-user-api-key").iter().count(), 1);
+        assert_eq!(headers.get_all("x-dainty-user-api-key").iter().count(), 1);
     }
     let condition = header_text(&headers, "if-none-match");
     assert!(!if_none_match_hits(None, "\"x\""));

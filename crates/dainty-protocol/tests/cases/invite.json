@@ -1,7 +1,7 @@
 {
   "accept": [
     {
-      "input": "reforged-revival://join?v=1&host=100.101.102.103&port=61000&code=ABCD-1234&name=Alex%27s%20Ramsgate",
+      "input": "dainty://join?v=1&host=100.101.102.103&port=61000&code=ABCD-1234&name=Alex%27s%20Ramsgate",
       "invite": {
         "mode": "private",
         "host": "100.101.102.103",
@@ -13,7 +13,7 @@
       }
     },
     {
-      "input": "reforged-revival://join?v=2&mode=public&host=203.0.113.10&port=443&fp=3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f&code=ABCD-EFGH-JKLM&name=Friday%20Hunts",
+      "input": "dainty://join?v=2&mode=public&host=203.0.113.10&port=443&fp=3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f&code=ABCD-EFGH-JKLM&name=Friday%20Hunts",
       "invite": {
         "mode": "public",
         "host": "203.0.113.10",
@@ -25,7 +25,7 @@
       }
     },
     {
-      "input": "  REFORGED-REVIVAL://join/?v=1&host=HostPC.tail1234.ts.net&port=61000&code=abcd&name=Friends+Night&share=https%3A%2F%2Flogin.tailscale.com%2Fadmin%2Finvite%2FabcDEF123\n",
+      "input": "  DAINTY://join/?v=1&host=HostPC.tail1234.ts.net&port=61000&code=abcd&name=Friends+Night&share=https%3A%2F%2Flogin.tailscale.com%2Fadmin%2Finvite%2FabcDEF123\n",
       "invite": {
         "mode": "private",
         "host": "hostpc.tail1234.ts.net",
@@ -37,7 +37,7 @@
       }
     },
     {
-      "input": "reforged-revival://join?name=Hunts&code=abcd&fp=3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f&host=Play.Example.ORG&mode=public&v=2",
+      "input": "dainty://join?name=Hunts&code=abcd&fp=3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f&host=Play.Example.ORG&mode=public&v=2",
       "invite": {
         "mode": "public",
         "host": "play.example.org",
@@ -49,7 +49,7 @@
       }
     },
     {
-      "input": "reforged-revival://join?v=2&mode=public&host=198.51.100.7&port=8443&fp=3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f&code=abcd&name=x",
+      "input": "dainty://join?v=2&mode=public&host=198.51.100.7&port=8443&fp=3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f&code=abcd&name=x",
       "invite": {
         "mode": "public",
         "host": "198.51.100.7",
@@ -61,7 +61,7 @@
       }
     },
     {
-      "input": "reforged-revival://join?v=1&host=100.64.0.1&port=61000&code=Code-42&name=Ember%20%26%20Aether&share=https%3A%2F%2Flogin.tailscale.com%2Fx",
+      "input": "dainty://join?v=1&host=100.64.0.1&port=61000&code=Code-42&name=Ember%20%26%20Aether&share=https%3A%2F%2Flogin.tailscale.com%2Fx",
       "invite": {
         "mode": "private",
         "host": "100.64.0.1",
@@ -73,7 +73,7 @@
       }
     },
     {
-      "input": "reforged-revival://join?v=2&mode=public&host=play.example.org&port=8443&fp=3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f&code=XXXX-YYYY&name=Aether%20%26%20Ember",
+      "input": "dainty://join?v=2&mode=public&host=play.example.org&port=8443&fp=3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f&code=XXXX-YYYY&name=Aether%20%26%20Ember",
       "invite": {
         "mode": "public",
         "host": "play.example.org",
@@ -85,7 +85,7 @@
       }
     },
     {
-      "input": "reforged-revival://join?v=1&host=127.0.0.1&port=61000&code=abcd&name=x",
+      "input": "dainty://join?v=1&host=127.0.0.1&port=61000&code=abcd&name=x",
       "invite": {
         "mode": "private",
         "host": "127.0.0.1",
@@ -97,7 +97,7 @@
       }
     },
     {
-      "input": "reforged-revival://join?v=1&host=localhost&port=61000&code=abcd&name=x",
+      "input": "dainty://join?v=1&host=localhost&port=61000&code=abcd&name=x",
       "invite": {
         "mode": "private",
         "host": "localhost",
@@ -109,7 +109,7 @@
       }
     },
     {
-      "input": "reforged-revival://join?v=2&mode=public&host=203.0.113.9&port=443&fp=3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f&code=abcd&name=x",
+      "input": "dainty://join?v=2&mode=public&host=203.0.113.9&port=443&fp=3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f&code=abcd&name=x",
       "invite": {
         "mode": "public",
         "host": "203.0.113.9",
@@ -121,7 +121,7 @@
       }
     },
     {
-      "input": "reforged-revival://join?v=2&mode=public&host=evil.example.com&port=443&fp=3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f&code=abcd&name=x",
+      "input": "dainty://join?v=2&mode=public&host=evil.example.com&port=443&fp=3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f&code=abcd&name=x",
       "invite": {
         "mode": "public",
         "host": "evil.example.com",
@@ -133,7 +133,7 @@
       }
     },
     {
-      "input": "reforged-revival://join?v=2&mode=public&host=hostpc.tail1234.ts.net&port=443&fp=3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f&code=abcd&name=x",
+      "input": "dainty://join?v=2&mode=public&host=hostpc.tail1234.ts.net&port=443&fp=3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f&code=abcd&name=x",
       "invite": {
         "mode": "public",
         "host": "hostpc.tail1234.ts.net",
@@ -145,7 +145,7 @@
       }
     },
     {
-      "input": "﻿reforged-revival://join?v=1&host=100.64.0.1&port=61000&code=abcd&name=x",
+      "input": "﻿dainty://join?v=1&host=100.64.0.1&port=61000&code=abcd&name=x",
       "invite": {
         "mode": "private",
         "host": "100.64.0.1",
@@ -157,7 +157,7 @@
       }
     },
     {
-      "input": " 　reforged-revival://join?v=1&host=100.64.0.1&port=61000&code=abcd&name=x  ",
+      "input": " 　dainty://join?v=1&host=100.64.0.1&port=61000&code=abcd&name=x  ",
       "invite": {
         "mode": "private",
         "host": "100.64.0.1",
@@ -169,7 +169,7 @@
       }
     },
     {
-      "input": "     reforged-revival://join?v=1&host=100.64.0.1&port=61000&code=abcd&name=x\t\u000b\f\r\n",
+      "input": "     dainty://join?v=1&host=100.64.0.1&port=61000&code=abcd&name=x\t\u000b\f\r\n",
       "invite": {
         "mode": "private",
         "host": "100.64.0.1",
@@ -181,7 +181,7 @@
       }
     },
     {
-      "input": "reforged-revival://join?v=1&host=100.64.0.1&port=61000&code=abcd&name=a%C2%A0%E3%80%80b",
+      "input": "dainty://join?v=1&host=100.64.0.1&port=61000&code=abcd&name=a%C2%A0%E3%80%80b",
       "invite": {
         "mode": "private",
         "host": "100.64.0.1",
@@ -193,7 +193,7 @@
       }
     },
     {
-      "input": "reforged-revival://join?v=1&host=100.64.0.1&port=61000&code=abcd&name=a%E2%80%A8b",
+      "input": "dainty://join?v=1&host=100.64.0.1&port=61000&code=abcd&name=a%E2%80%A8b",
       "invite": {
         "mode": "private",
         "host": "100.64.0.1",
@@ -205,7 +205,7 @@
       }
     },
     {
-      "input": "reforged-revival://join?v=1&host=100.64.0.1&port=61000&code=abcd&name=a%E2%80%8Bb",
+      "input": "dainty://join?v=1&host=100.64.0.1&port=61000&code=abcd&name=a%E2%80%8Bb",
       "invite": {
         "mode": "private",
         "host": "100.64.0.1",
@@ -217,7 +217,7 @@
       }
     },
     {
-      "input": "reforged-revival://join?v=1&host=100.64.0.1&port=61000&code=abcd&name=%20%20padded%20%20",
+      "input": "dainty://join?v=1&host=100.64.0.1&port=61000&code=abcd&name=%20%20padded%20%20",
       "invite": {
         "mode": "private",
         "host": "100.64.0.1",
@@ -229,7 +229,7 @@
       }
     },
     {
-      "input": "reforged-revival://join?v=1&host=100.64.0.1&port=61000&code=abcd&name=%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80",
+      "input": "dainty://join?v=1&host=100.64.0.1&port=61000&code=abcd&name=%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80",
       "invite": {
         "mode": "private",
         "host": "100.64.0.1",
@@ -241,7 +241,7 @@
       }
     },
     {
-      "input": "reforged-revival://join?v=1&host=100.64.0.1&port=61000&code=abcd&name=e%CC%81e%CC%81e%CC%81e%CC%81e%CC%81e%CC%81e%CC%81e%CC%81e%CC%81e%CC%81e%CC%81e%CC%81e%CC%81e%CC%81e%CC%81e%CC%81e%CC%81e%CC%81e%CC%81e%CC%81e%CC%81e%CC%81e%CC%81e%CC%81e%CC%81e%CC%81e%CC%81e%CC%81e%CC%81e%CC%81e%CC%81e%CC%81",
+      "input": "dainty://join?v=1&host=100.64.0.1&port=61000&code=abcd&name=e%CC%81e%CC%81e%CC%81e%CC%81e%CC%81e%CC%81e%CC%81e%CC%81e%CC%81e%CC%81e%CC%81e%CC%81e%CC%81e%CC%81e%CC%81e%CC%81e%CC%81e%CC%81e%CC%81e%CC%81e%CC%81e%CC%81e%CC%81e%CC%81e%CC%81e%CC%81e%CC%81e%CC%81e%CC%81e%CC%81e%CC%81e%CC%81",
       "invite": {
         "mode": "private",
         "host": "100.64.0.1",
@@ -253,7 +253,7 @@
       }
     },
     {
-      "input": "reforged-revival://join?v=1&host=100.64.0.1&port=61000&code=abcd&name=a%F0%9F%98%80",
+      "input": "dainty://join?v=1&host=100.64.0.1&port=61000&code=abcd&name=a%F0%9F%98%80",
       "invite": {
         "mode": "private",
         "host": "100.64.0.1",
@@ -265,7 +265,7 @@
       }
     },
     {
-      "input": "reforged-revival://join?v=1&host=100.64.0.1&port=61000&code=abcd&name=Friends+Night",
+      "input": "dainty://join?v=1&host=100.64.0.1&port=61000&code=abcd&name=Friends+Night",
       "invite": {
         "mode": "private",
         "host": "100.64.0.1",
@@ -277,7 +277,7 @@
       }
     },
     {
-      "input": "reforged-revival://join?v=1&host=100.64.0.1&port=61000&code=abcd&name=a%2Bb",
+      "input": "dainty://join?v=1&host=100.64.0.1&port=61000&code=abcd&name=a%2Bb",
       "invite": {
         "mode": "private",
         "host": "100.64.0.1",
@@ -289,7 +289,7 @@
       }
     },
     {
-      "input": "reforged-revival://join?v=1&host=HOSTPC.TAIL1234.TS.NET&port=61000&code=abcd&name=x",
+      "input": "dainty://join?v=1&host=HOSTPC.TAIL1234.TS.NET&port=61000&code=abcd&name=x",
       "invite": {
         "mode": "private",
         "host": "hostpc.tail1234.ts.net",
@@ -301,7 +301,7 @@
       }
     },
     {
-      "input": "reforged-revival://join?v=1&host=hostpcK.tail1234.ts.net&port=61000&code=abcd&name=x",
+      "input": "dainty://join?v=1&host=hostpcK.tail1234.ts.net&port=61000&code=abcd&name=x",
       "invite": {
         "mode": "private",
         "host": "hostpck.tail1234.ts.net",
@@ -313,7 +313,7 @@
       }
     },
     {
-      "input": "reforged-revival://join?v=1&host=127.1.2.3&port=61000&code=abcd&name=x",
+      "input": "dainty://join?v=1&host=127.1.2.3&port=61000&code=abcd&name=x",
       "invite": {
         "mode": "private",
         "host": "127.1.2.3",
@@ -325,7 +325,7 @@
       }
     },
     {
-      "input": "reforged-revival://join?v=1&host=a.ts.net&port=61000&code=abcd&name=x",
+      "input": "dainty://join?v=1&host=a.ts.net&port=61000&code=abcd&name=x",
       "invite": {
         "mode": "private",
         "host": "a.ts.net",
@@ -337,7 +337,7 @@
       }
     },
     {
-      "input": "reforged-revival://join?v=2&mode=public&host=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb.ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc.ddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd&fp=3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f&code=abcd&name=x",
+      "input": "dainty://join?v=2&mode=public&host=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb.ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc.ddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd&fp=3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f&code=abcd&name=x",
       "invite": {
         "mode": "public",
         "host": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb.ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc.ddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
@@ -349,7 +349,7 @@
       }
     },
     {
-      "input": "reforged-revival://join?v=2&mode=public&host=example.com&port=65535&fp=3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f&code=abcd&name=x",
+      "input": "dainty://join?v=2&mode=public&host=example.com&port=65535&fp=3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f&code=abcd&name=x",
       "invite": {
         "mode": "public",
         "host": "example.com",
@@ -361,7 +361,7 @@
       }
     },
     {
-      "input": "reforged-revival://JOIN?v=1&host=100.64.0.1&port=61000&code=abcd&name=x",
+      "input": "dainty://JOIN?v=1&host=100.64.0.1&port=61000&code=abcd&name=x",
       "invite": {
         "mode": "private",
         "host": "100.64.0.1",
@@ -373,7 +373,7 @@
       }
     },
     {
-      "input": "reforged-revival://join?v=1&host=100.64.0.1&port=61000&code=ab%2Dcd&name=x",
+      "input": "dainty://join?v=1&host=100.64.0.1&port=61000&code=ab%2Dcd&name=x",
       "invite": {
         "mode": "private",
         "host": "100.64.0.1",
@@ -385,7 +385,7 @@
       }
     },
     {
-      "input": "reforged-revival://join?v=1&host=100.64.0.1&port=61000&code=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa&name=x",
+      "input": "dainty://join?v=1&host=100.64.0.1&port=61000&code=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa&name=x",
       "invite": {
         "mode": "private",
         "host": "100.64.0.1",
@@ -397,7 +397,7 @@
       }
     },
     {
-      "input": "reforged-revival://join?v=1&host=100.64.0.1&port=61000&code=abcd&name=x&share=https%3A%2F%2FLOGIN.tailscale.com%2Fx",
+      "input": "dainty://join?v=1&host=100.64.0.1&port=61000&code=abcd&name=x&share=https%3A%2F%2FLOGIN.tailscale.com%2Fx",
       "invite": {
         "mode": "private",
         "host": "100.64.0.1",
@@ -409,7 +409,7 @@
       }
     },
     {
-      "input": "reforged-revival://join?v=1&host=100.64.0.1&port=61000&code=abcd&name=x&share=https%3A%2F%2Flogin.tailscale.com%2Faaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "input": "dainty://join?v=1&host=100.64.0.1&port=61000&code=abcd&name=x&share=https%3A%2F%2Flogin.tailscale.com%2Faaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
       "invite": {
         "mode": "private",
         "host": "100.64.0.1",
@@ -421,7 +421,7 @@
       }
     },
     {
-      "input": "reforged-revival://join?v=1&host=100.64.0.1&port=61000&code=abcd&name=x&share=https%3A%2F%2Flogin.tailscale.com%2Fx%20y",
+      "input": "dainty://join?v=1&host=100.64.0.1&port=61000&code=abcd&name=x&share=https%3A%2F%2Flogin.tailscale.com%2Fx%20y",
       "invite": {
         "mode": "private",
         "host": "100.64.0.1",
@@ -433,7 +433,7 @@
       }
     },
     {
-      "input": "reforged-revival://join?v=1&host=100.64.0.1&port=61000&code=abcd&name=x&share=https%3A%2F%2Flogin.tailscale.com%2Fx%23y",
+      "input": "dainty://join?v=1&host=100.64.0.1&port=61000&code=abcd&name=x&share=https%3A%2F%2Flogin.tailscale.com%2Fx%23y",
       "invite": {
         "mode": "private",
         "host": "100.64.0.1",
@@ -445,7 +445,7 @@
       }
     },
     {
-      "input": "reforged-revival://join?v=1&host=100.64.0.1&port=61000&code=abcd&name=x&share=https%3A%2F%2Flogin.tailscale.com%2F%C3%A9",
+      "input": "dainty://join?v=1&host=100.64.0.1&port=61000&code=abcd&name=x&share=https%3A%2F%2Flogin.tailscale.com%2F%C3%A9",
       "invite": {
         "mode": "private",
         "host": "100.64.0.1",
@@ -475,471 +475,471 @@
       "error": "not_invite"
     },
     {
-      "input": "reforged-revival://register?v=1&host=1.2.3.4&port=1&code=abcd&name=x",
+      "input": "dainty://register?v=1&host=1.2.3.4&port=1&code=abcd&name=x",
       "error": "not_invite"
     },
     {
-      "input": "reforged-revival:join?v=1&host=1.2.3.4&port=1&code=abcd&name=x",
+      "input": "dainty:join?v=1&host=1.2.3.4&port=1&code=abcd&name=x",
       "error": "not_invite"
     },
     {
-      "input": "reforged-revival://join?v=3&host=100.64.0.1&port=61000&code=abcd&name=x",
+      "input": "dainty://join?v=3&host=100.64.0.1&port=61000&code=abcd&name=x",
       "error": "version"
     },
     {
-      "input": "reforged-revival://join?v=01&host=100.64.0.1&port=61000&code=abcd&name=x",
+      "input": "dainty://join?v=01&host=100.64.0.1&port=61000&code=abcd&name=x",
       "error": "version"
     },
     {
-      "input": "reforged-revival://join?host=100.64.0.1&port=61000&code=abcd&name=x",
+      "input": "dainty://join?host=100.64.0.1&port=61000&code=abcd&name=x",
       "error": "version"
     },
     {
-      "input": "reforged-revival://join?v=1&port=61000&code=abcd&name=x",
+      "input": "dainty://join?v=1&port=61000&code=abcd&name=x",
       "error": "host"
     },
     {
-      "input": "reforged-revival://join?v=1&host=100.64.0.1&code=abcd&name=x",
+      "input": "dainty://join?v=1&host=100.64.0.1&code=abcd&name=x",
       "error": "port"
     },
     {
-      "input": "reforged-revival://join?v=1&host=100.64.0.1&port=61000&name=x",
+      "input": "dainty://join?v=1&host=100.64.0.1&port=61000&name=x",
       "error": "code"
     },
     {
-      "input": "reforged-revival://join?v=1&host=100.64.0.1&port=61000&code=abcd",
+      "input": "dainty://join?v=1&host=100.64.0.1&port=61000&code=abcd",
       "error": "name"
     },
     {
-      "input": "reforged-revival://join?v=1&host=100.64.0.1&port=61000&code=abcd&name=x&extra=1",
+      "input": "dainty://join?v=1&host=100.64.0.1&port=61000&code=abcd&name=x&extra=1",
       "error": "params"
     },
     {
-      "input": "reforged-revival://join?v=1&v=1&host=100.64.0.1&port=61000&code=abcd&name=x",
+      "input": "dainty://join?v=1&v=1&host=100.64.0.1&port=61000&code=abcd&name=x",
       "error": "params"
     },
     {
-      "input": "reforged-revival://join?v=1&host=100.64.0.1&port=61000&code=abcd&name=x#frag",
+      "input": "dainty://join?v=1&host=100.64.0.1&port=61000&code=abcd&name=x#frag",
       "error": "params"
     },
     {
-      "input": "reforged-revival://join?v=1&host=100.64.0.1&port=61000&code=abcd&name=%E0%A4%A",
+      "input": "dainty://join?v=1&host=100.64.0.1&port=61000&code=abcd&name=%E0%A4%A",
       "error": "params"
     },
     {
-      "input": "reforged-revival://join?v=1&host=100.64.0.1&port=61000&code=abcd&name=x&",
+      "input": "dainty://join?v=1&host=100.64.0.1&port=61000&code=abcd&name=x&",
       "error": "params"
     },
     {
-      "input": "reforged-revival://join?v=1&host=100.64.0.1&port=61000&code=abcd&=x",
+      "input": "dainty://join?v=1&host=100.64.0.1&port=61000&code=abcd&=x",
       "error": "params"
     },
     {
-      "input": "reforged-revival://join?v=1&host=100.64.0.1&port=61000&code=abcd&name=x&fp=3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f",
+      "input": "dainty://join?v=1&host=100.64.0.1&port=61000&code=abcd&name=x&fp=3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f",
       "error": "params"
     },
     {
-      "input": "reforged-revival://join?v=1&mode=public&host=100.64.0.1&port=61000&code=abcd&name=x",
+      "input": "dainty://join?v=1&mode=public&host=100.64.0.1&port=61000&code=abcd&name=x",
       "error": "params"
     },
     {
-      "input": "reforged-revival://join?v=1&host=256.1.1.1&port=61000&code=abcd&name=x",
+      "input": "dainty://join?v=1&host=256.1.1.1&port=61000&code=abcd&name=x",
       "error": "host"
     },
     {
-      "input": "reforged-revival://join?v=1&host=1.2.3&port=61000&code=abcd&name=x",
+      "input": "dainty://join?v=1&host=1.2.3&port=61000&code=abcd&name=x",
       "error": "host"
     },
     {
-      "input": "reforged-revival://join?v=1&host=01.2.3.4&port=61000&code=abcd&name=x",
+      "input": "dainty://join?v=1&host=01.2.3.4&port=61000&code=abcd&name=x",
       "error": "host"
     },
     {
-      "input": "reforged-revival://join?v=1&host=evil.com%2F%40x&port=61000&code=abcd&name=x",
+      "input": "dainty://join?v=1&host=evil.com%2F%40x&port=61000&code=abcd&name=x",
       "error": "host"
     },
     {
-      "input": "reforged-revival://join?v=1&host=user%40host&port=61000&code=abcd&name=x",
+      "input": "dainty://join?v=1&host=user%40host&port=61000&code=abcd&name=x",
       "error": "host"
     },
     {
-      "input": "reforged-revival://join?v=1&host=host.123&port=61000&code=abcd&name=x",
+      "input": "dainty://join?v=1&host=host.123&port=61000&code=abcd&name=x",
       "error": "host"
     },
     {
-      "input": "reforged-revival://join?v=1&host=0x7f.1&port=61000&code=abcd&name=x",
+      "input": "dainty://join?v=1&host=0x7f.1&port=61000&code=abcd&name=x",
       "error": "host"
     },
     {
-      "input": "reforged-revival://join?v=1&host=-bad-.ts.net&port=61000&code=abcd&name=x",
+      "input": "dainty://join?v=1&host=-bad-.ts.net&port=61000&code=abcd&name=x",
       "error": "host"
     },
     {
-      "input": "reforged-revival://join?v=1&host=a..b&port=61000&code=abcd&name=x",
+      "input": "dainty://join?v=1&host=a..b&port=61000&code=abcd&name=x",
       "error": "host"
     },
     {
-      "input": "reforged-revival://join?v=1&host=%5B%3A%3A1%5D&port=61000&code=abcd&name=x",
+      "input": "dainty://join?v=1&host=%5B%3A%3A1%5D&port=61000&code=abcd&name=x",
       "error": "host"
     },
     {
-      "input": "reforged-revival://join?v=1&host=203.0.113.9&port=61000&code=abcd&name=x",
+      "input": "dainty://join?v=1&host=203.0.113.9&port=61000&code=abcd&name=x",
       "error": "host"
     },
     {
-      "input": "reforged-revival://join?v=1&host=evil.example.com&port=61000&code=abcd&name=x",
+      "input": "dainty://join?v=1&host=evil.example.com&port=61000&code=abcd&name=x",
       "error": "host"
     },
     {
-      "input": "reforged-revival://join?v=1&host=192.168.1.10&port=61000&code=abcd&name=x",
+      "input": "dainty://join?v=1&host=192.168.1.10&port=61000&code=abcd&name=x",
       "error": "host"
     },
     {
-      "input": "reforged-revival://join?v=1&host=100.128.0.1&port=61000&code=abcd&name=x",
+      "input": "dainty://join?v=1&host=100.128.0.1&port=61000&code=abcd&name=x",
       "error": "host"
     },
     {
-      "input": "reforged-revival://join?v=1&host=ts.net&port=61000&code=abcd&name=x",
+      "input": "dainty://join?v=1&host=ts.net&port=61000&code=abcd&name=x",
       "error": "host"
     },
     {
-      "input": "reforged-revival://join?v=1&host=hostpc.ts.net.evil.com&port=61000&code=abcd&name=x",
+      "input": "dainty://join?v=1&host=hostpc.ts.net.evil.com&port=61000&code=abcd&name=x",
       "error": "host"
     },
     {
-      "input": "reforged-revival://join?v=1&host=hostpc&port=61000&code=abcd&name=x",
+      "input": "dainty://join?v=1&host=hostpc&port=61000&code=abcd&name=x",
       "error": "host"
     },
     {
-      "input": "reforged-revival://join?v=1&host=100.64.0.1&port=0&code=abcd&name=x",
+      "input": "dainty://join?v=1&host=100.64.0.1&port=0&code=abcd&name=x",
       "error": "port"
     },
     {
-      "input": "reforged-revival://join?v=1&host=100.64.0.1&port=65536&code=abcd&name=x",
+      "input": "dainty://join?v=1&host=100.64.0.1&port=65536&code=abcd&name=x",
       "error": "port"
     },
     {
-      "input": "reforged-revival://join?v=1&host=100.64.0.1&port=061000&code=abcd&name=x",
+      "input": "dainty://join?v=1&host=100.64.0.1&port=061000&code=abcd&name=x",
       "error": "port"
     },
     {
-      "input": "reforged-revival://join?v=1&host=100.64.0.1&port=61000x&code=abcd&name=x",
+      "input": "dainty://join?v=1&host=100.64.0.1&port=61000x&code=abcd&name=x",
       "error": "port"
     },
     {
-      "input": "reforged-revival://join?v=1&host=100.64.0.1&port=61000&code=abc&name=x",
+      "input": "dainty://join?v=1&host=100.64.0.1&port=61000&code=abc&name=x",
       "error": "code"
     },
     {
-      "input": "reforged-revival://join?v=1&host=100.64.0.1&port=61000&code=ab%20cd&name=x",
+      "input": "dainty://join?v=1&host=100.64.0.1&port=61000&code=ab%20cd&name=x",
       "error": "code"
     },
     {
-      "input": "reforged-revival://join?v=1&host=100.64.0.1&port=61000&code=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa&name=x",
+      "input": "dainty://join?v=1&host=100.64.0.1&port=61000&code=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa&name=x",
       "error": "code"
     },
     {
-      "input": "reforged-revival://join?v=1&host=100.64.0.1&port=61000&code=abcd&name=%20%20",
+      "input": "dainty://join?v=1&host=100.64.0.1&port=61000&code=abcd&name=%20%20",
       "error": "name"
     },
     {
-      "input": "reforged-revival://join?v=1&host=100.64.0.1&port=61000&code=abcd&name=a%0Ab",
+      "input": "dainty://join?v=1&host=100.64.0.1&port=61000&code=abcd&name=a%0Ab",
       "error": "name"
     },
     {
-      "input": "reforged-revival://join?v=1&host=100.64.0.1&port=61000&code=abcd&name=%E2%80%AEevil",
+      "input": "dainty://join?v=1&host=100.64.0.1&port=61000&code=abcd&name=%E2%80%AEevil",
       "error": "name"
     },
     {
-      "input": "reforged-revival://join?v=1&host=100.64.0.1&port=61000&code=abcd&name=nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn",
+      "input": "dainty://join?v=1&host=100.64.0.1&port=61000&code=abcd&name=nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn",
       "error": "name"
     },
     {
-      "input": "reforged-revival://join?v=1&host=100.64.0.1&port=61000&code=abcd&name=x&share=http%3A%2F%2Flogin.tailscale.com%2Fx",
+      "input": "dainty://join?v=1&host=100.64.0.1&port=61000&code=abcd&name=x&share=http%3A%2F%2Flogin.tailscale.com%2Fx",
       "error": "share"
     },
     {
-      "input": "reforged-revival://join?v=1&host=100.64.0.1&port=61000&code=abcd&name=x&share=https%3A%2F%2Fevil.com%2F",
+      "input": "dainty://join?v=1&host=100.64.0.1&port=61000&code=abcd&name=x&share=https%3A%2F%2Fevil.com%2F",
       "error": "share"
     },
     {
-      "input": "reforged-revival://join?v=1&host=100.64.0.1&port=61000&code=abcd&name=x&share=https%3A%2F%2Flogin.tailscale.com.evil.com%2F",
+      "input": "dainty://join?v=1&host=100.64.0.1&port=61000&code=abcd&name=x&share=https%3A%2F%2Flogin.tailscale.com.evil.com%2F",
       "error": "share"
     },
     {
-      "input": "reforged-revival://join?v=1&host=100.64.0.1&port=61000&code=abcd&name=x&share=https%3A%2F%2Fa%40login.tailscale.com%2F",
+      "input": "dainty://join?v=1&host=100.64.0.1&port=61000&code=abcd&name=x&share=https%3A%2F%2Fa%40login.tailscale.com%2F",
       "error": "share"
     },
     {
-      "input": "reforged-revival://join?v=1&host=100.64.0.1&port=61000&code=abcd&name=x&share=https%3A%2F%2Flogin.tailscale.com%3A8443%2F",
+      "input": "dainty://join?v=1&host=100.64.0.1&port=61000&code=abcd&name=x&share=https%3A%2F%2Flogin.tailscale.com%3A8443%2F",
       "error": "share"
     },
     {
-      "input": "reforged-revival://join?xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "input": "dainty://join?xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
       "error": "too_long"
     },
     {
-      "input": "reforged-revival://join?v=2&host=203.0.113.10&port=443&fp=3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f&code=abcd&name=x",
+      "input": "dainty://join?v=2&host=203.0.113.10&port=443&fp=3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f&code=abcd&name=x",
       "error": "mode"
     },
     {
-      "input": "reforged-revival://join?v=2&mode=private&host=203.0.113.10&port=443&fp=3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f&code=abcd&name=x",
+      "input": "dainty://join?v=2&mode=private&host=203.0.113.10&port=443&fp=3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f&code=abcd&name=x",
       "error": "mode"
     },
     {
-      "input": "reforged-revival://join?v=2&mode=PUBLIC&host=203.0.113.10&port=443&fp=3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f&code=abcd&name=x",
+      "input": "dainty://join?v=2&mode=PUBLIC&host=203.0.113.10&port=443&fp=3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f&code=abcd&name=x",
       "error": "mode"
     },
     {
-      "input": "reforged-revival://join?v=2&mode=&host=203.0.113.10&port=443&fp=3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f&code=abcd&name=x",
+      "input": "dainty://join?v=2&mode=&host=203.0.113.10&port=443&fp=3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f&code=abcd&name=x",
       "error": "mode"
     },
     {
-      "input": "reforged-revival://join?v=2&mode=public&host=203.0.113.10&port=443&code=abcd&name=x",
+      "input": "dainty://join?v=2&mode=public&host=203.0.113.10&port=443&code=abcd&name=x",
       "error": "fp"
     },
     {
-      "input": "reforged-revival://join?v=2&mode=public&host=203.0.113.10&port=443&fp=3F3F3F3F3F3F3F3F3F3F3F3F3F3F3F3F3F3F3F3F3F3F3F3F3F3F3F3F3F3F3F3F&code=abcd&name=x",
+      "input": "dainty://join?v=2&mode=public&host=203.0.113.10&port=443&fp=3F3F3F3F3F3F3F3F3F3F3F3F3F3F3F3F3F3F3F3F3F3F3F3F3F3F3F3F3F3F3F3F&code=abcd&name=x",
       "error": "fp"
     },
     {
-      "input": "reforged-revival://join?v=2&mode=public&host=203.0.113.10&port=443&fp=3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3&code=abcd&name=x",
+      "input": "dainty://join?v=2&mode=public&host=203.0.113.10&port=443&fp=3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3&code=abcd&name=x",
       "error": "fp"
     },
     {
-      "input": "reforged-revival://join?v=2&mode=public&host=203.0.113.10&port=443&fp=3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3fa&code=abcd&name=x",
+      "input": "dainty://join?v=2&mode=public&host=203.0.113.10&port=443&fp=3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3fa&code=abcd&name=x",
       "error": "fp"
     },
     {
-      "input": "reforged-revival://join?v=2&mode=public&host=203.0.113.10&port=443&fp=3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3fzz&code=abcd&name=x",
+      "input": "dainty://join?v=2&mode=public&host=203.0.113.10&port=443&fp=3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3fzz&code=abcd&name=x",
       "error": "fp"
     },
     {
-      "input": "reforged-revival://join?v=2&mode=public&host=203.0.113.10&port=443&fp=3f:3f:3f:3f:3f:3f:3f:3f:3f:3f:3f:3f:3f:3f:3f:3f:3f:3f:3f:3f:3f:3f:3f:3f:3f:3f:3f:3f:3f:3f:3f:3f&code=abcd&name=x",
+      "input": "dainty://join?v=2&mode=public&host=203.0.113.10&port=443&fp=3f:3f:3f:3f:3f:3f:3f:3f:3f:3f:3f:3f:3f:3f:3f:3f:3f:3f:3f:3f:3f:3f:3f:3f:3f:3f:3f:3f:3f:3f:3f:3f&code=abcd&name=x",
       "error": "fp"
     },
     {
-      "input": "reforged-revival://join?v=2&mode=public&host=203.0.113.10&port=443&fp=sha256%2F3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f&code=abcd&name=x",
+      "input": "dainty://join?v=2&mode=public&host=203.0.113.10&port=443&fp=sha256%2F3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f&code=abcd&name=x",
       "error": "fp"
     },
     {
-      "input": "reforged-revival://join?v=2&mode=public&port=443&fp=3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f&code=abcd&name=x",
+      "input": "dainty://join?v=2&mode=public&port=443&fp=3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f&code=abcd&name=x",
       "error": "host"
     },
     {
-      "input": "reforged-revival://join?v=2&mode=public&host=203.0.113.999&port=443&fp=3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f&code=abcd&name=x",
+      "input": "dainty://join?v=2&mode=public&host=203.0.113.999&port=443&fp=3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f&code=abcd&name=x",
       "error": "host"
     },
     {
-      "input": "reforged-revival://join?v=2&mode=public&host=exa_mple.com&port=443&fp=3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f&code=abcd&name=x",
+      "input": "dainty://join?v=2&mode=public&host=exa_mple.com&port=443&fp=3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f&code=abcd&name=x",
       "error": "host"
     },
     {
-      "input": "reforged-revival://join?v=2&mode=public&host=https%3A%2F%2Fexample.com&port=443&fp=3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f&code=abcd&name=x",
+      "input": "dainty://join?v=2&mode=public&host=https%3A%2F%2Fexample.com&port=443&fp=3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f&code=abcd&name=x",
       "error": "host"
     },
     {
-      "input": "reforged-revival://join?v=2&mode=public&host=203.0.113.10&port=0&fp=3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f&code=abcd&name=x",
+      "input": "dainty://join?v=2&mode=public&host=203.0.113.10&port=0&fp=3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f&code=abcd&name=x",
       "error": "port"
     },
     {
-      "input": "reforged-revival://join?v=2&mode=public&host=203.0.113.10&port=443.0&fp=3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f&code=abcd&name=x",
+      "input": "dainty://join?v=2&mode=public&host=203.0.113.10&port=443.0&fp=3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f&code=abcd&name=x",
       "error": "port"
     },
     {
-      "input": "reforged-revival://join?v=2&mode=public&host=203.0.113.10&port=&fp=3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f&code=abcd&name=x",
+      "input": "dainty://join?v=2&mode=public&host=203.0.113.10&port=&fp=3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f&code=abcd&name=x",
       "error": "port"
     },
     {
-      "input": "reforged-revival://join?v=2&mode=public&host=203.0.113.10&port=443&fp=3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f&name=x",
+      "input": "dainty://join?v=2&mode=public&host=203.0.113.10&port=443&fp=3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f&name=x",
       "error": "code"
     },
     {
-      "input": "reforged-revival://join?v=2&mode=public&host=203.0.113.10&port=443&fp=3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f&code=a+b+c+d&name=x",
+      "input": "dainty://join?v=2&mode=public&host=203.0.113.10&port=443&fp=3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f&code=a+b+c+d&name=x",
       "error": "code"
     },
     {
-      "input": "reforged-revival://join?v=2&mode=public&host=203.0.113.10&port=443&fp=3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f&code=abcd",
+      "input": "dainty://join?v=2&mode=public&host=203.0.113.10&port=443&fp=3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f&code=abcd",
       "error": "name"
     },
     {
-      "input": "reforged-revival://join?v=2&mode=public&host=203.0.113.10&port=443&fp=3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f&code=abcd&name=%09tab",
+      "input": "dainty://join?v=2&mode=public&host=203.0.113.10&port=443&fp=3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f&code=abcd&name=%09tab",
       "error": "name"
     },
     {
-      "input": "reforged-revival://join?v=2&mode=public&host=203.0.113.10&port=443&fp=3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f&code=abcd&name=x&share=https%3A%2F%2Flogin.tailscale.com%2Fx",
+      "input": "dainty://join?v=2&mode=public&host=203.0.113.10&port=443&fp=3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f&code=abcd&name=x&share=https%3A%2F%2Flogin.tailscale.com%2Fx",
       "error": "params"
     },
     {
-      "input": "reforged-revival://join?v=2&mode=public&host=203.0.113.10&port=443&fp=3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f&code=abcd&name=x&extra=1",
+      "input": "dainty://join?v=2&mode=public&host=203.0.113.10&port=443&fp=3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f&code=abcd&name=x&extra=1",
       "error": "params"
     },
     {
-      "input": "reforged-revival://join?v=2&mode=public&host=203.0.113.10&port=443&fp=3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f&code=abcd&name=x&fp=3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f",
+      "input": "dainty://join?v=2&mode=public&host=203.0.113.10&port=443&fp=3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f&code=abcd&name=x&fp=3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f",
       "error": "params"
     },
     {
-      "input": "reforged-revival://join?v=1&host=100.64.0.1&port=61000&code=abcd&name=x",
+      "input": "dainty://join?v=1&host=100.64.0.1&port=61000&code=abcd&name=x",
       "error": "not_invite"
     },
     {
-      "input": "reforged-revival://join?v=1&host=100.64.0.1&port=61000&code=abcd&name=x",
+      "input": "dainty://join?v=1&host=100.64.0.1&port=61000&code=abcd&name=x",
       "error": "name"
     },
     {
-      "input": "reforged-revival://join?v=1&host=100.64.0.1&port=61000&code=abcd&name=a%C2%85b",
+      "input": "dainty://join?v=1&host=100.64.0.1&port=61000&code=abcd&name=a%C2%85b",
       "error": "name"
     },
     {
-      "input": "reforged-revival://join?v=1&host=100.64.0.1&port=61000&code=abcd&name=%E3%80%80",
+      "input": "dainty://join?v=1&host=100.64.0.1&port=61000&code=abcd&name=%E3%80%80",
       "error": "name"
     },
     {
-      "input": "reforged-revival://join?v=1&host=100.64.0.1&port=61000&code=abcd&name=%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80",
+      "input": "dainty://join?v=1&host=100.64.0.1&port=61000&code=abcd&name=%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80%F0%9F%98%80",
       "error": "name"
     },
     {
-      "input": "reforged-revival://join?v=1&host=100.64.0.1&port=61000&code=abcd&name=e%CC%81e%CC%81e%CC%81e%CC%81e%CC%81e%CC%81e%CC%81e%CC%81e%CC%81e%CC%81e%CC%81e%CC%81e%CC%81e%CC%81e%CC%81e%CC%81e%CC%81e%CC%81e%CC%81e%CC%81e%CC%81e%CC%81e%CC%81e%CC%81e%CC%81e%CC%81e%CC%81e%CC%81e%CC%81e%CC%81e%CC%81e%CC%81e%CC%81",
+      "input": "dainty://join?v=1&host=100.64.0.1&port=61000&code=abcd&name=e%CC%81e%CC%81e%CC%81e%CC%81e%CC%81e%CC%81e%CC%81e%CC%81e%CC%81e%CC%81e%CC%81e%CC%81e%CC%81e%CC%81e%CC%81e%CC%81e%CC%81e%CC%81e%CC%81e%CC%81e%CC%81e%CC%81e%CC%81e%CC%81e%CC%81e%CC%81e%CC%81e%CC%81e%CC%81e%CC%81e%CC%81e%CC%81e%CC%81",
       "error": "name"
     },
     {
-      "input": "reforged-revival://join?v=1&host=100.64.0.1&port=61000&code=abcd&name=a%zz",
+      "input": "dainty://join?v=1&host=100.64.0.1&port=61000&code=abcd&name=a%zz",
       "error": "params"
     },
     {
-      "input": "reforged-revival://join?v=1&host=100.64.0.1&port=61000&code=abcd&name=a%",
+      "input": "dainty://join?v=1&host=100.64.0.1&port=61000&code=abcd&name=a%",
       "error": "params"
     },
     {
-      "input": "reforged-revival://join?v=1&host=100.64.0.1&port=61000&code=abcd&name=a%4",
+      "input": "dainty://join?v=1&host=100.64.0.1&port=61000&code=abcd&name=a%4",
       "error": "params"
     },
     {
-      "input": "reforged-revival://join?v=1&host=100.64.0.1&port=61000&code=abcd&name=a%C3",
+      "input": "dainty://join?v=1&host=100.64.0.1&port=61000&code=abcd&name=a%C3",
       "error": "params"
     },
     {
-      "input": "reforged-revival://join?v=1&host=100.64.0.1&port=61000&code=abcd&name=a%C3%28",
+      "input": "dainty://join?v=1&host=100.64.0.1&port=61000&code=abcd&name=a%C3%28",
       "error": "params"
     },
     {
-      "input": "reforged-revival://join?v=1&host=100.64.0.1&port=61000&code=abcd&name=a%ED%A0%80",
+      "input": "dainty://join?v=1&host=100.64.0.1&port=61000&code=abcd&name=a%ED%A0%80",
       "error": "params"
     },
     {
-      "input": "reforged-revival://join?v=1&host=hİ.tail1234.ts.net&port=61000&code=abcd&name=x",
+      "input": "dainty://join?v=1&host=hİ.tail1234.ts.net&port=61000&code=abcd&name=x",
       "error": "host"
     },
     {
-      "input": "reforged-revival://join?v=1&host=100.64.0.01&port=61000&code=abcd&name=x",
+      "input": "dainty://join?v=1&host=100.64.0.01&port=61000&code=abcd&name=x",
       "error": "host"
     },
     {
-      "input": "reforged-revival://join?v=1&host=100.064.0.1&port=61000&code=abcd&name=x",
+      "input": "dainty://join?v=1&host=100.064.0.1&port=61000&code=abcd&name=x",
       "error": "host"
     },
     {
-      "input": "reforged-revival://join?v=1&host=100.63.255.255&port=61000&code=abcd&name=x",
+      "input": "dainty://join?v=1&host=100.63.255.255&port=61000&code=abcd&name=x",
       "error": "host"
     },
     {
-      "input": "reforged-revival://join?v=1&host=100.128.0.0&port=61000&code=abcd&name=x",
+      "input": "dainty://join?v=1&host=100.128.0.0&port=61000&code=abcd&name=x",
       "error": "host"
     },
     {
-      "input": "reforged-revival://join?v=1&host=127.0.0&port=61000&code=abcd&name=x",
+      "input": "dainty://join?v=1&host=127.0.0&port=61000&code=abcd&name=x",
       "error": "host"
     },
     {
-      "input": "reforged-revival://join?v=1&host=-a.b.ts.net&port=61000&code=abcd&name=x",
+      "input": "dainty://join?v=1&host=-a.b.ts.net&port=61000&code=abcd&name=x",
       "error": "host"
     },
     {
-      "input": "reforged-revival://join?v=1&host=abbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb.x.ts.net&port=61000&code=abcd&name=x",
+      "input": "dainty://join?v=1&host=abbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb.x.ts.net&port=61000&code=abcd&name=x",
       "error": "host"
     },
     {
-      "input": "reforged-revival://join?v=1&host=a..b.ts.net&port=61000&code=abcd&name=x",
+      "input": "dainty://join?v=1&host=a..b.ts.net&port=61000&code=abcd&name=x",
       "error": "host"
     },
     {
-      "input": "reforged-revival://join?v=1&host=x.ts.net.&port=61000&code=abcd&name=x",
+      "input": "dainty://join?v=1&host=x.ts.net.&port=61000&code=abcd&name=x",
       "error": "host"
     },
     {
-      "input": "reforged-revival://join?v=2&mode=public&host=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb.ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc.dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd&fp=3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f&code=abcd&name=x",
+      "input": "dainty://join?v=2&mode=public&host=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb.ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc.dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd&fp=3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f&code=abcd&name=x",
       "error": "host"
     },
     {
-      "input": "reforged-revival://join?v=2&mode=public&host=example.0x1f&fp=3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f&code=abcd&name=x",
+      "input": "dainty://join?v=2&mode=public&host=example.0x1f&fp=3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f&code=abcd&name=x",
       "error": "host"
     },
     {
-      "input": "reforged-revival://join?v=2&mode=public&host=example.123&fp=3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f&code=abcd&name=x",
+      "input": "dainty://join?v=2&mode=public&host=example.123&fp=3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f&code=abcd&name=x",
       "error": "host"
     },
     {
-      "input": "reforged-revival://join?v=2&mode=public&host=1.2.3&fp=3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f&code=abcd&name=x",
+      "input": "dainty://join?v=2&mode=public&host=1.2.3&fp=3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f&code=abcd&name=x",
       "error": "host"
     },
     {
-      "input": "reforged-revival://join?v=2&mode=public&host=example.com&port=65536&fp=3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f&code=abcd&name=x",
+      "input": "dainty://join?v=2&mode=public&host=example.com&port=65536&fp=3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f&code=abcd&name=x",
       "error": "port"
     },
     {
-      "input": "reforged-revival://join?v=2&mode=public&host=example.com&port=01&fp=3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f&code=abcd&name=x",
+      "input": "dainty://join?v=2&mode=public&host=example.com&port=01&fp=3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f&code=abcd&name=x",
       "error": "port"
     },
     {
-      "input": "reforged-revival://join?v=2&mode=public&host=example.com&port=%2B1&fp=3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f&code=abcd&name=x",
+      "input": "dainty://join?v=2&mode=public&host=example.com&port=%2B1&fp=3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f&code=abcd&name=x",
       "error": "port"
     },
     {
-      "input": "reforged-revival://join?",
+      "input": "dainty://join?",
       "error": "params"
     },
     {
-      "input": "reforged-revival://join?&v=1",
+      "input": "dainty://join?&v=1",
       "error": "params"
     },
     {
-      "input": "reforged-revival://join?=1",
+      "input": "dainty://join?=1",
       "error": "params"
     },
     {
-      "input": "reforged-revival://join?v",
+      "input": "dainty://join?v",
       "error": "params"
     },
     {
-      "input": "reforged-revival://join//?v=1&host=100.64.0.1&port=61000&code=abcd&name=x",
+      "input": "dainty://join//?v=1&host=100.64.0.1&port=61000&code=abcd&name=x",
       "error": "not_invite"
     },
     {
-      "input": "reforged-revival://join?%76=1&host=100.64.0.1&port=61000&code=abcd&name=x",
+      "input": "dainty://join?%76=1&host=100.64.0.1&port=61000&code=abcd&name=x",
       "error": "params"
     },
     {
-      "input": "reforged-revival://join?v=1&host=100.64.0.1&port=61000&code=abcd&name=x&share=https%3A%2F%2Flogin.tailscale.com",
+      "input": "dainty://join?v=1&host=100.64.0.1&port=61000&code=abcd&name=x&share=https%3A%2F%2Flogin.tailscale.com",
       "error": "share"
     },
     {
-      "input": "reforged-revival://join?v=1&host=100.64.0.1&port=61000&code=abcd&name=x&share=https%3A%2F%2Flogin.tailscale.com%3A443%2Fx",
+      "input": "dainty://join?v=1&host=100.64.0.1&port=61000&code=abcd&name=x&share=https%3A%2F%2Flogin.tailscale.com%3A443%2Fx",
       "error": "share"
     },
     {
-      "input": "reforged-revival://join?v=1&host=100.64.0.1&port=61000&code=abcd&name=x&share=https%3A%2F%2Flogin.tailscale.com%2Faaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "input": "dainty://join?v=1&host=100.64.0.1&port=61000&code=abcd&name=x&share=https%3A%2F%2Flogin.tailscale.com%2Faaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
       "error": "share"
     },
     {
-      "input": "reforged-revival://join?v=1&host=100.64.0.1&port=61000&code=abcd&name=x&share=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "input": "dainty://join?v=1&host=100.64.0.1&port=61000&code=abcd&name=x&share=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
       "error": "share"
     },
     {
-      "input": "reforged-revival://join?v=1&host=100.64.0.1&port=61000&code=abcd&name=x&share=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "input": "dainty://join?v=1&host=100.64.0.1&port=61000&code=abcd&name=x&share=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
       "error": "share"
     },
     {
-      "input": "  reforged-revival://join?v=1&host=100.64.0.1&port=61000&code=abcd&name=x&share=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa  ",
+      "input": "  dainty://join?v=1&host=100.64.0.1&port=61000&code=abcd&name=x&share=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa  ",
       "error": "share"
     },
     {

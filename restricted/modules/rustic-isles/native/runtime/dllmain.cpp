@@ -6989,10 +6989,10 @@ static void MpExpectedPlayerWorldCensus(const char* When) {
 // hook's own work as fast as the CPU allows, which on a small VPS (and under Wine) keeps a core busy per
 // server even with nobody connected. Dauntless Revived's server DLL caps its game thread the same way
 // (DR_SERVER_MAX_FPS, default 30). Here:
-//   REFORGED_SERVER_MAX_FPS   frames per second while a client is connected (default 30, the configured
+//   DAINTY_SERVER_MAX_FPS     frames per second while a client is connected (default 30, the configured
 //                             NetServerMaxTickRate, so replication keeps its rate); 10-240, or 0 for no cap.
-//   REFORGED_SERVER_IDLE_FPS  frames per second once the server has listened with NO client connection for
-//                             15 s straight (default 0 = same as REFORGED_SERVER_MAX_FPS); 1-240. The first
+//   DAINTY_SERVER_IDLE_FPS    frames per second once the server has listened with NO client connection for
+//                             15 s straight (default 0 = same as DAINTY_SERVER_MAX_FPS); 1-240. The first
 //                             connection (the [NetConnEdge] count) switches back to the full rate on the
 //                             next frame. Boot, the map load and the first 15 s after listening always run
 //                             at the full rate.
@@ -7018,13 +7018,13 @@ static void MpPaceServerFrame() {
     static int s_idleFps = -1;
     if (s_activeFps < 0) {
         std::string Note;
-        s_activeFps = MpServerFpsSetting("REFORGED_SERVER_MAX_FPS", 30, 10, 240, Note);
-        s_idleFps = MpServerFpsSetting("REFORGED_SERVER_IDLE_FPS", 0, 1, 240, Note);
+        s_activeFps = MpServerFpsSetting("DAINTY_SERVER_MAX_FPS", 30, 10, 240, Note);
+        s_idleFps = MpServerFpsSetting("DAINTY_SERVER_IDLE_FPS", 0, 1, 240, Note);
         MpLog("[FramePace] server frame cap: "
             + (s_activeFps > 0 ? std::to_string(s_activeFps) + " fps" : std::string("off"))
             + ", idle (no client for 15 s): "
             + (s_idleFps > 0 ? std::to_string(s_idleFps) + " fps" : std::string("same"))
-            + " (REFORGED_SERVER_MAX_FPS / REFORGED_SERVER_IDLE_FPS)" + Note);
+            + " (DAINTY_SERVER_MAX_FPS / DAINTY_SERVER_IDLE_FPS)" + Note);
     }
 
     static constexpr uint64_t kIdleAfterMs = 15000;
@@ -8768,9 +8768,9 @@ static void MpResolveBackendAddress() {
     uint16_t EnvPort = kMpBuiltInXmppPort;
     try {
         char Raw[512] = {};
-        // [DaintyLass] The first of these that is set wins: Mystic's own name, then the one the Dainty Lass launcher
-        // and Director export (REFORGED_BACKEND_URL, a name installs depend on).
-        static const char* const kBackendUrlVariables[] = { "RUSTIC_ISLES_BACKEND_URL", "REFORGED_BACKEND_URL" };
+        // [DaintyLass] The first of these that is set wins: Mystic's own name, then the one the DaintyLass launcher
+        // and Director export (DAINTY_BACKEND_URL; runtime patch 0040 renamed it from REFORGED_BACKEND_URL).
+        static const char* const kBackendUrlVariables[] = { "RUSTIC_ISLES_BACKEND_URL", "DAINTY_BACKEND_URL" };
         DWORD Length = 0;
         for (const char* Name : kBackendUrlVariables) {
             Length = GetEnvironmentVariableA(Name, Raw, static_cast<DWORD>(sizeof(Raw)));

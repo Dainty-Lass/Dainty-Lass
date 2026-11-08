@@ -21,7 +21,7 @@ containers in [hosting-docker.md](hosting-docker.md) are this page with the pack
 - The **runtime** (`Rustic-Isles.dll`, `winmm.dll`) and the **game data**, made on a Windows PC with your own
   game ([sdk-and-game-data.md](https://git.silentspud.com/silentspud/dainty-lass/src/branch/main/docs/sdk-and-game-data.md)) and brought over: the DLLs as a folder, the game data as
   a pack (`dainty-host gamedata --export`).
-- The **server release** (`ReforgedRevivalServer-<version>-linux-x64.tar.gz`).
+- The **server release** (`DaintyLassServer-<version>-linux-x64.tar.gz`).
 - Public: TCP 443 and UDP 8770-8777 open at the provider's firewall.
 
 ## Getting the game from Epic
@@ -43,7 +43,7 @@ Files are written as the server's user, so the game servers can write next to th
 
 ## Setting up
 
-As an ordinary user (`reforged`, say), from the unpacked release:
+As an ordinary user (`dainty`, say), from the unpacked release:
 
 ```bash
 bin/dainty-host setup --mode public --host play.example.org --game-address 203.0.113.10 \
@@ -58,14 +58,14 @@ bin/dainty-host doctor
 
 | File | What |
 | --- | --- |
-| `systemd/reforged.service` | The server (`dainty-host start` with `Environment=REFORGED_ALLOWLIST=external`), as your user, at boot |
-| `systemd/reforged-allowlist.service` | Public: the allowlist helper (`dainty-host allowlist`) with `CAP_NET_ADMIN` only, for its nftables table `reforged_revival` |
+| `systemd/dainty-lass.service` | The server (`dainty-host start` with `Environment=DAINTY_ALLOWLIST=external`), as your user, at boot |
+| `systemd/dainty-lass-allowlist.service` | Public: the allowlist helper (`dainty-host allowlist`) with `CAP_NET_ADMIN` only, for its nftables table `dainty_lass` |
 | `systemd/install.sh` | Installs and starts the units (needs root once) |
 | `config/firewall.sh` | Lets a host firewall (ufw) pass TCP 443 and the game's UDP ports |
 
-Run `sudo .workspace/systemd/install.sh`, then `systemctl status reforged`. Without systemd, start the allowlist helper
+Run `sudo .workspace/systemd/install.sh`, then `systemctl status dainty-lass`. Without systemd, start the allowlist helper
 with `CAP_NET_ADMIN` (for example under `sudo` with `.workspace/config/allowlist.env`) and run
-`REFORGED_ALLOWLIST=external bin/dainty-host start` in the foreground as your user.
+`DAINTY_ALLOWLIST=external bin/dainty-host start` in the foreground as your user.
 
 Linux options of `setup`: `--wine <path>` or `--proton <script>` (a Proton or GE-Proton script instead of
 Wine; `--no-proton` goes back), `--xvfb` (the default) or `--no-xvfb`, and `--firewall-interface eth0`
@@ -85,7 +85,7 @@ Postgres instead of SQLite for the Rust services' database is `[database]` in `h
 
 ```bash
 sudo apt install postgresql
-pw=$(sed -n 's/^REFORGED_DB_PASSWORD=//p' .workspace/config/secrets.env)
+pw=$(sed -n 's/^DAINTY_DB_PASSWORD=//p' .workspace/config/secrets.env)
 sudo -u postgres psql -c "CREATE ROLE dainty LOGIN PASSWORD '$pw'" -c "CREATE DATABASE dainty OWNER dainty"
 ```
 
@@ -116,7 +116,7 @@ with its last applied configuration. `bin/dainty-host remote leave` detaches it 
 
 ```bash
 bin/dainty-host invite --for "Alex"
-journalctl -u reforged -f                      # the services
+journalctl -u dainty-lass -f                     # the services
 ls .workspace/logs/gameservers                  # the game servers
 bin/dainty-host update                        # a newer release, then setup again
 bin/dainty-host backup                        # SQLite/Postgres backup into .workspace/backups

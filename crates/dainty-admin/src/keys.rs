@@ -1,6 +1,6 @@
-//! One admin key per person, each with a role (DD23 layer 4, DH2). `REFORGED_ADMIN_API_KEY` in `secrets.env`
+//! One admin key per person, each with a role (DD23 layer 4, DH2). `DAINTY_ADMIN_API_KEY` in `secrets.env`
 //! is the owner's key and stays there, so a server set up before this works unchanged: the single key is
-//! the owner. Every other key is `RRA_<id>_<64 hex>`: the id is public (the log names it, `admin key list`
+//! the owner. Every other key is `DLA_<id>_<64 hex>`: the id is public (the log names it, `admin key list`
 //! shows it) and the rest is 256 random bits. Only the SHA-256 of the whole key is stored, in the admin
 //! API's own database; a key is shown once, when it is issued.
 //!
@@ -34,8 +34,8 @@ pub const SCHEMA: DatabaseSchema = DatabaseSchema {
 /// The SQLite file's name beside the node's database.
 pub const FILE_NAME: &str = "admin.db";
 
-/// What every issued key starts with: `RRA_<8 hex id>_<64 hex secret>`.
-pub const KEY_PREFIX: &str = "RRA_";
+/// What every issued key starts with: `DLA_<8 hex id>_<64 hex secret>`.
+pub const KEY_PREFIX: &str = "DLA_";
 const ID_HEX: usize = 8;
 const SECRET_HEX: usize = 64;
 /// The most characters of a key's name (who it is for).
@@ -134,7 +134,7 @@ impl std::fmt::Display for Role {
 /// word, as before).
 #[derive(Debug, Clone)]
 pub struct Caller {
-    /// The key's id: `owner` for `REFORGED_ADMIN_API_KEY`. The change log's actor is `admin:<key>`.
+    /// The key's id: `owner` for `DAINTY_ADMIN_API_KEY`. The change log's actor is `admin:<key>`.
     pub key: String,
     /// What it may do.
     pub role: Role,
@@ -148,7 +148,7 @@ fn is_lower_hex(text: &str, len: usize) -> bool {
     text.len() == len && text.bytes().all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
 }
 
-/// A key id: what an issued key has after `RRA_`.
+/// A key id: what an issued key has after `DLA_`.
 pub fn is_key_id(id: &str) -> bool {
     is_lower_hex(id, ID_HEX)
 }
@@ -199,7 +199,7 @@ pub enum KeyError {
     #[error("no such key, or it is already revoked")]
     NotFound,
     /// The owner's key cannot be revoked here: it lives in secrets.env.
-    #[error("the owner's key is REFORGED_ADMIN_API_KEY in secrets.env: change it there")]
+    #[error("the owner's key is DAINTY_ADMIN_API_KEY in secrets.env: change it there")]
     Owner,
     /// The database failed.
     #[error("{0}")]
@@ -298,7 +298,7 @@ pub struct Keys {
 
 impl Keys {
     /// Opens (or creates) the admin API's database and brings its schema up to date. Blocking: call it at
-    /// start. `owner` is `REFORGED_ADMIN_API_KEY`.
+    /// start. `owner` is `DAINTY_ADMIN_API_KEY`.
     pub fn open(config: &DatabaseConfig, owner: &str) -> Result<Self, String> {
         if let DatabaseConfig::Sqlite { file } = config
             && let Some(dir) = file.parent().filter(|d| !d.as_os_str().is_empty())
@@ -403,7 +403,7 @@ impl Keys {
             .await?;
         let mut keys = vec![KeyInfo {
             id: OWNER_KEY.to_owned(),
-            name: "REFORGED_ADMIN_API_KEY".to_owned(),
+            name: "DAINTY_ADMIN_API_KEY".to_owned(),
             role: Role::Owner,
             created_at: 0,
             created_by: Actor::Host("setup".into()).as_text(),
@@ -546,8 +546,8 @@ mod tests {
         let upper = key.to_uppercase();
         for bad in [
             "",
-            "RRA_",
-            "RRK_0123abcd_00",
+            "DLA_",
+            "DLK_0123abcd_00",
             "0123456789abcdef0123456789abcdef",
             &key[..key.len() - 1],
             &longer,

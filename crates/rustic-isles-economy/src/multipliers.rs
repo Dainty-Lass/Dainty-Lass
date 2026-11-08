@@ -18,9 +18,9 @@ pub const MAX_TEST_MULTIPLIER: f64 = 100.0;
 /// Both factors, and why they are off when they are (1 and 1 then).
 #[derive(Debug, Clone, PartialEq)]
 pub struct TestMultipliers {
-    /// The XP factor (`REFORGED_XP_MULTIPLIER`).
+    /// The XP factor (`DAINTY_XP_MULTIPLIER`).
     pub xp: f64,
-    /// The rewards factor (`REFORGED_REWARD_MULTIPLIER`).
+    /// The rewards factor (`DAINTY_REWARD_MULTIPLIER`).
     pub rewards: f64,
     /// Why the factors are off; None when they apply or are both 1.
     pub reason: Option<String>,
@@ -68,13 +68,13 @@ fn parse_factor(raw: Option<&str>) -> Option<f64> {
 
 /// `ReadTestMultipliers` (§10.1): the first failing condition names the reason; with none, both factors apply.
 pub fn read_test_multipliers(settings: &Settings) -> TestMultipliers {
-    let xp = parse_factor(settings.raw("REFORGED_XP_MULTIPLIER"));
-    let rewards = parse_factor(settings.raw("REFORGED_REWARD_MULTIPLIER"));
+    let xp = parse_factor(settings.raw("DAINTY_XP_MULTIPLIER"));
+    let rewards = parse_factor(settings.raw("DAINTY_REWARD_MULTIPLIER"));
     let reason = match (xp, rewards) {
         (None, _) | (_, None) => Some("a multiplier is not a number from 1 to 100"),
         (Some(1.0), Some(1.0)) => Some("not set"),
-        _ if settings.raw("REFORGED_SERVER_MODE") != Some("private") => Some("this is not a private server"),
-        _ if !is_tailscale_host(settings.raw("REFORGED_SERVER_HOST").unwrap_or_default()) => {
+        _ if settings.raw("DAINTY_SERVER_MODE") != Some("private") => Some("this is not a private server"),
+        _ if !is_tailscale_host(settings.raw("DAINTY_SERVER_HOST").unwrap_or_default()) => {
             Some("the server host is not a Tailscale address")
         }
         _ => None,
@@ -185,10 +185,10 @@ mod tests {
     #[test]
     fn readings() {
         let base = [
-            ("REFORGED_SERVER_MODE", "private"),
-            ("REFORGED_SERVER_HOST", "100.101.102.103"),
-            ("REFORGED_XP_MULTIPLIER", "5"),
-            ("REFORGED_REWARD_MULTIPLIER", "3"),
+            ("DAINTY_SERVER_MODE", "private"),
+            ("DAINTY_SERVER_HOST", "100.101.102.103"),
+            ("DAINTY_XP_MULTIPLIER", "5"),
+            ("DAINTY_REWARD_MULTIPLIER", "3"),
         ];
         let on = read_test_multipliers(&settings(&base));
         assert_eq!((on.xp, on.rewards, on.reason), (5.0, 3.0, None));
@@ -199,34 +199,34 @@ mod tests {
         hex[2].1 = "0x5";
         assert_eq!(read_test_multipliers(&settings(&hex)).xp, 5.0);
         for (key, value, reason) in [
-            ("REFORGED_SERVER_MODE", "public", "this is not a private server"),
+            ("DAINTY_SERVER_MODE", "public", "this is not a private server"),
             (
-                "REFORGED_SERVER_HOST",
+                "DAINTY_SERVER_HOST",
                 "203.0.113.7",
                 "the server host is not a Tailscale address",
             ),
             (
-                "REFORGED_SERVER_HOST",
+                "DAINTY_SERVER_HOST",
                 "192.168.1.10",
                 "the server host is not a Tailscale address",
             ),
             (
-                "REFORGED_SERVER_HOST",
+                "DAINTY_SERVER_HOST",
                 "hunts.example.net",
                 "the server host is not a Tailscale address",
             ),
             (
-                "REFORGED_XP_MULTIPLIER",
+                "DAINTY_XP_MULTIPLIER",
                 "1000",
                 "a multiplier is not a number from 1 to 100",
             ),
             (
-                "REFORGED_REWARD_MULTIPLIER",
+                "DAINTY_REWARD_MULTIPLIER",
                 "0.5",
                 "a multiplier is not a number from 1 to 100",
             ),
             (
-                "REFORGED_XP_MULTIPLIER",
+                "DAINTY_XP_MULTIPLIER",
                 "abc",
                 "a multiplier is not a number from 1 to 100",
             ),
@@ -238,7 +238,7 @@ mod tests {
             assert_eq!(off.reason.as_deref(), Some(reason), "{key}={value}");
             assert_eq!((off.xp, off.rewards), (1.0, 1.0));
         }
-        let unset = read_test_multipliers(&settings(&[("REFORGED_SERVER_MODE", "private")]));
+        let unset = read_test_multipliers(&settings(&[("DAINTY_SERVER_MODE", "private")]));
         assert_eq!(unset.reason.as_deref(), Some("not set"));
         assert_eq!(unset.startup_line(), "[TestMultiplier] off (not set)");
         assert_eq!(

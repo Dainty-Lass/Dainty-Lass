@@ -438,7 +438,7 @@ impl CorePlugin for ModuleRoutes {
 mod tests {
     use dainty_module_api::GameModule;
     use dainty_module_api::stub::StubModule;
-    use dainty_protocol::invite::reforged_version;
+    use dainty_protocol::invite::dainty_version;
     use http::HeaderValue;
 
     use super::*;
@@ -473,7 +473,7 @@ mod tests {
     }
 
     fn get(routes: &ModuleRoutes, version: &str, target: &str) -> Routed {
-        routes.route(version, &reforged_version(), "GET", target, &none(), false)
+        routes.route(version, &dainty_version(), "GET", target, &none(), false)
     }
 
     fn standalone(game: &GameVersion) -> ModuleRoutes {
@@ -491,7 +491,7 @@ mod tests {
 
     #[test]
     fn the_stand_ins_are_what_the_modules_will_register() {
-        let game = reforged_version();
+        let game = dainty_version();
         let (manifest, registration) = stand_in(&game).unwrap();
         manifest.validate().unwrap();
         let alias = version_alias(&game).unwrap();
@@ -501,12 +501,12 @@ mod tests {
 
     #[test]
     fn a_standalone_gateway_sends_the_game_to_its_backend_as_before() {
-        let routes = standalone(&reforged_version());
+        let routes = standalone(&dainty_version());
         for target in [
             "/",
             "/party/invites",
             "/__origin/gamedev-prod.steelyard.ca/party",
-            "/reforged/api/ServerStatus",
+            "/dainty/api/ServerStatus",
         ] {
             let routed = get(&routes, "1.14.7", target);
             assert_eq!(port(&routed), Some(7001), "{target}");
@@ -528,11 +528,11 @@ mod tests {
             headers.insert("upgrade", HeaderValue::from_static("websocket"));
             headers
         };
-        let chat = routes.route("1.14.7", &reforged_version(), "GET", "//", &ws, true);
+        let chat = routes.route("1.14.7", &dainty_version(), "GET", "//", &ws, true);
         assert_eq!((reason(&chat), chat.endpoint), (None, None));
         // The policy's refusals come first and are unchanged
         assert_eq!(
-            reason(&get(&routes, "1.14.7", "/reforged/api/CreateInvite")),
+            reason(&get(&routes, "1.14.7", "/dainty/api/CreateInvite")),
             Some("admin_route")
         );
         assert_eq!(reason(&get(&routes, "1.14.7", "/admin/v1")), Some("host_only_route"));
@@ -597,7 +597,7 @@ mod tests {
             "/__origin/gamedev-prod.steelyard.ca/__node/x",
         ] {
             assert_eq!(reason(&get(&routes, "0.0.1", target)), Some("node_link"), "{target}");
-            let upgrade = routes.route("0.0.1", &reforged_version(), "GET", target, &ws, true);
+            let upgrade = routes.route("0.0.1", &dainty_version(), "GET", target, &ws, true);
             assert_eq!(reason(&upgrade), Some("node_link"), "{target}");
         }
         assert_eq!(reason(&get(&routes, "0.0.1", "/__nodes")), Some("no_route"));

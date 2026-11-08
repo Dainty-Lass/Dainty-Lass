@@ -6,8 +6,8 @@
 //! services built into this binary run in-process ([`dainty_controller::modules`]); legacy Node processes
 //! run as supervised processes when built with `paradox`.
 //!
-//! `start` keeps the host kit's contract (RD23): no console of its own, `REFORGED_CONTROL=stdin`,
-//! the `REFORGED_SERVER_READY` line, the backend on port 61000. `serve` is the same server with the
+//! `start` keeps the host kit's contract (RD23): no console of its own, `DAINTY_CONTROL=stdin`,
+//! the `DAINTY_SERVER_READY` line, the backend on port 61000. `serve` is the same server with the
 //! REPL, or the dashboard with `--tui`.
 
 use std::path::{Path, PathBuf};
@@ -319,7 +319,7 @@ pub fn add_service_library(
             // Chat keeps its tables beside the node's database and never falls back to its working folder
             let mut pairs: Vec<(String, String)> = env
                 .vars()
-                .filter(|(key, _)| !key.starts_with("REFORGED_DB_"))
+                .filter(|(key, _)| !key.starts_with("DAINTY_DB_"))
                 .map(|(k, v)| (k.to_owned(), v.to_owned()))
                 .collect();
             pairs.extend(database_env(&hostconfig::node_database_config(config, paths)?));
@@ -360,7 +360,7 @@ pub fn compose(
     if !node_runs {
         crate::commands::update::check_unmigrated_mongo_data(paths, config)?;
     }
-    let games = vec![dainty_protocol::invite::reforged_version().to_string()];
+    let games = vec![dainty_protocol::invite::dainty_version().to_string()];
     let mut controller = ServerController::new(config.mode.as_str(), games);
     // Made first, so the admin API can hold it; its modules are listed after the services
     let registry = new_registry(config, &controller);
@@ -529,24 +529,24 @@ fn split_tunnel(split: &hostconfig::split::SplitConfig, registry: &ModuleRegistr
     })
 }
 
-/// `store`'s settings as the `REFORGED_DB_*` variables a service reads them from, as setup writes them.
+/// `store`'s settings as the `DAINTY_DB_*` variables a service reads them from, as setup writes them.
 fn database_env(database: &dainty_store::DatabaseConfig) -> Vec<(String, String)> {
     match database {
         dainty_store::DatabaseConfig::Sqlite { file } => vec![
-            ("REFORGED_DB_ENGINE".into(), "sqlite".into()),
-            ("REFORGED_DB_FILE".into(), file.to_string_lossy().into_owned()),
+            ("DAINTY_DB_ENGINE".into(), "sqlite".into()),
+            ("DAINTY_DB_FILE".into(), file.to_string_lossy().into_owned()),
         ],
         dainty_store::DatabaseConfig::Postgres(pg) => {
             let mut out = vec![
-                ("REFORGED_DB_ENGINE".into(), "postgres".into()),
-                ("REFORGED_DB_HOST".into(), pg.host.clone()),
-                ("REFORGED_DB_PORT".into(), pg.port.to_string()),
-                ("REFORGED_DB_USER".into(), pg.user.clone()),
-                ("REFORGED_DB_NAME".into(), pg.database.clone()),
-                ("REFORGED_DB_PASSWORD".into(), pg.password.clone()),
+                ("DAINTY_DB_ENGINE".into(), "postgres".into()),
+                ("DAINTY_DB_HOST".into(), pg.host.clone()),
+                ("DAINTY_DB_PORT".into(), pg.port.to_string()),
+                ("DAINTY_DB_USER".into(), pg.user.clone()),
+                ("DAINTY_DB_NAME".into(), pg.database.clone()),
+                ("DAINTY_DB_PASSWORD".into(), pg.password.clone()),
             ];
             if pg.allow_remote {
-                out.push(("REFORGED_DB_ALLOW_REMOTE".into(), "1".into()));
+                out.push(("DAINTY_DB_ALLOW_REMOTE".into(), "1".into()));
             }
             out
         }
@@ -610,7 +610,7 @@ pub fn new_registry(config: &HostConfig, controller: &ServerController) -> Modul
         .collect();
     // The Node backend, when it runs, holds 1.14.7 itself
     options.taken_versions = if cfg!(feature = "paradox") {
-        let version = dainty_protocol::invite::reforged_version();
+        let version = dainty_protocol::invite::dainty_version();
         let by = format!("this server's own {version} stack");
         vec![(version, by)]
     } else {
@@ -829,7 +829,7 @@ fn load_config(paths: &Paths, config_file: Option<&Path>) -> Result<HostConfig, 
 fn external_allowlist(config: &HostConfig) -> bool {
     cfg!(target_os = "linux")
         && config.mode == ServerMode::Public
-        && std::env::var("REFORGED_ALLOWLIST").is_ok_and(|v| v == "external")
+        && std::env::var("DAINTY_ALLOWLIST").is_ok_and(|v| v == "external")
 }
 
 /// The checks before anything starts, the files `setup` would have written, the modules composed.
@@ -1169,7 +1169,7 @@ mod tests {
                 fn manifest(&self) -> dainty_module_api::ModuleManifest {
                     dainty_module_api::ModuleManifest {
                         id: "isles-1-14-7".parse().unwrap(),
-                        game_version: dainty_protocol::invite::reforged_version(),
+                        game_version: dainty_protocol::invite::dainty_version(),
                         ..self.0.manifest()
                     }
                 }

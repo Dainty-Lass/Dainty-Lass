@@ -57,7 +57,7 @@ fn migrates_legacy_user_data_and_documents_folders_without_losing_or_overwriting
 
     let legacy_keys = docs_root.join(LEGACY_DOCUMENTS_FOLDER).join("Account Keys");
     std::fs::create_dir_all(&legacy_keys).unwrap();
-    std::fs::write(legacy_keys.join("abc.txt"), b"RRK_legacy_1").unwrap();
+    std::fs::write(legacy_keys.join("abc.txt"), b"DLK_legacy_1").unwrap();
 
     // 1. Fresh migration moves legacy folders into DaintyLass names
     paths.migrate_legacy();
@@ -70,7 +70,7 @@ fn migrates_legacy_user_data_and_documents_folders_without_losing_or_overwriting
     let new_keys = paths.recovery();
     assert_eq!(
         std::fs::read_to_string(new_keys.join("abc.txt")).unwrap(),
-        "RRK_legacy_1"
+        "DLK_legacy_1"
     );
 
     // 2. If both legacy and new folders exist, missing files merge without overwriting newer files
@@ -78,15 +78,15 @@ fn migrates_legacy_user_data_and_documents_folders_without_losing_or_overwriting
     std::fs::write(legacy_user_data.join("keys/abc.key2"), b"stale-key").unwrap();
     std::fs::write(legacy_user_data.join("keys/def.key2"), b"encrypted-key-2").unwrap();
     std::fs::create_dir_all(&legacy_keys).unwrap();
-    std::fs::write(legacy_keys.join("abc.txt"), b"RRK_stale").unwrap();
-    std::fs::write(legacy_keys.join("def.txt"), b"RRK_legacy_2").unwrap();
+    std::fs::write(legacy_keys.join("abc.txt"), b"DLK_stale").unwrap();
+    std::fs::write(legacy_keys.join("def.txt"), b"DLK_legacy_2").unwrap();
 
     paths.migrate_legacy();
     for (file, text) in [
         (new_user_data.join("keys/abc.key2"), "encrypted-key-1"),
         (new_user_data.join("keys/def.key2"), "encrypted-key-2"),
-        (new_keys.join("abc.txt"), "RRK_legacy_1"),
-        (new_keys.join("def.txt"), "RRK_legacy_2"),
+        (new_keys.join("abc.txt"), "DLK_legacy_1"),
+        (new_keys.join("def.txt"), "DLK_legacy_2"),
     ] {
         assert_eq!(std::fs::read_to_string(&file).unwrap(), text, "{}", file.display());
     }
@@ -132,10 +132,7 @@ fn external_urls() {
         "https://git.example:8443/me",
         Some("https://git.example:8443/me")
     ));
-    assert!(!allowed(
-        "https://github.com/FreezaMotoqueiro/Dauntless-Reforged-Revival/x",
-        None
-    ));
+    assert!(!allowed("https://github.com/SilentSpud/DaintyLass/x", None));
 }
 
 // ---------------------------------------------------------------- system.rs

@@ -226,7 +226,7 @@ fn launcher(pc: &Pc, platform: &Arc<FakePlatform>, spawner: &Arc<FakeSpawner>, m
         spawner: Some(Arc::clone(spawner) as Arc<dyn Spawner>),
         game_env: Some(BTreeMap::from([
             ("PATH".to_owned(), "/usr/bin".to_owned()),
-            ("REFORGED_BACKEND_URL".to_owned(), "http://127.0.0.1:1".to_owned()),
+            ("DAINTY_BACKEND_URL".to_owned(), "http://127.0.0.1:1".to_owned()),
             ("rustic_isles_runtime_profile".to_owned(), "development".to_owned()),
         ])),
         store_folders: Some(StoreFolders {

@@ -13,9 +13,9 @@ use crate::paths::Paths;
 use crate::run::{RunOptions, capture, run};
 
 /// The server's systemd unit.
-pub const UNIT_SERVER: &str = "reforged.service";
+pub const UNIT_SERVER: &str = "dainty-lass.service";
 /// The allowlist's systemd unit, on a public server.
-pub const UNIT_ALLOWLIST: &str = "reforged-allowlist.service";
+pub const UNIT_ALLOWLIST: &str = "dainty-lass-allowlist.service";
 /// The capability that lets a process bind a port below 1024.
 pub const CAP_NET_BIND_SERVICE: u32 = 10;
 /// The capability that lets a process change the firewall.
@@ -370,7 +370,7 @@ pub fn unit_context(paths: &Paths) -> Result<UnitContext, HostError> {
                 .map(|s| s.trim().to_owned())
                 .filter(|s| !s.is_empty())
         })
-        .unwrap_or_else(|| "reforged".to_owned());
+        .unwrap_or_else(|| "dainty".to_owned());
 
     let host_bin = resolve_host_bin(paths)?;
     Ok(UnitContext { user, host_bin })
@@ -429,7 +429,7 @@ pub fn systemd_units(c: &HostConfig, p: &Paths, ctx: &UnitContext) -> Result<Vec
     };
 
     let env_line = if c.mode == ServerMode::Public {
-        "Environment=REFORGED_ALLOWLIST=external\n"
+        "Environment=DAINTY_ALLOWLIST=external\n"
     } else {
         ""
     };
@@ -588,7 +588,7 @@ mod tests {
         assert!(systemd_units(&cfg, &paths, &bad_ctx).is_err());
 
         let ctx = UnitContext {
-            user: "reforged".to_owned(),
+            user: "dainty".to_owned(),
             host_bin: PathBuf::from("/srv/server/bin/dainty-host"),
         };
         let units = systemd_units(&cfg, &paths, &ctx).unwrap();
@@ -596,7 +596,7 @@ mod tests {
         assert_eq!(names, vec![UNIT_ALLOWLIST, UNIT_SERVER, "install.sh"]);
         let server_unit = &units[1].1;
         assert!(server_unit.contains("AmbientCapabilities=CAP_NET_BIND_SERVICE"));
-        assert!(server_unit.contains("Environment=REFORGED_ALLOWLIST=external\n"));
+        assert!(server_unit.contains("Environment=DAINTY_ALLOWLIST=external\n"));
     }
 
     #[test]

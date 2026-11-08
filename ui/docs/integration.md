@@ -10,7 +10,7 @@ Everything a person tunes lives in the database instead (Settings in the dashboa
 
 | Variable                                           | From                                                  | What                                                             |
 | -------------------------------------------------- | ----------------------------------------------------- | ---------------------------------------------------------------- |
-| `DASHBOARD_ADMIN_API_KEY`                          | `secrets.env`: `REFORGED_ADMIN_API_KEY`               | Bearer key for the admin service's GraphQL and `/metrics`        |
+| `DASHBOARD_ADMIN_API_KEY`                          | `secrets.env`: `DAINTY_ADMIN_API_KEY`               | Bearer key for the admin service's GraphQL and `/metrics`        |
 | `DASHBOARD_MANAGER_OPERATOR_SECRET`                | `secrets.env`: `RUSTIC_ISLES_MANAGER_OPERATOR_SECRET` | Signs calls to the backend's `/admin/v1` as the manager operator |
 | `DASHBOARD_ADMIN_API_URL`, `DASHBOARD_BACKEND_URL` |                                                       | Defaults are the host kit's loopback ports                       |
 | `DASHBOARD_INGEST_KEY`                             | new: 32+ random characters                            | What the backend sends with chat and reports                     |
@@ -30,7 +30,7 @@ The backend must run with `RUSTIC_ISLES_MANAGER_ADMIN=on` for the signed calls t
 kit's `setup` already writes it, with the secret, for the admin service (dainty-lass `docs/admin-api.md`).
 
 Every staff action reaches the game as that staff member: the admin API gets their Discord id in
-`x-reforged-operator-id`, and the backend's signed calls carry it in `X-Paradox-Operator-Id`, so the
+`x-dainty-operator-id`, and the backend's signed calls carry it in `X-Paradox-Operator-Id`, so the
 backend's own audit trail names them as `manager:<discord id>` alongside the dashboard's. A member with
 no Discord linked is sent as `dashboard-<member id>`.
 

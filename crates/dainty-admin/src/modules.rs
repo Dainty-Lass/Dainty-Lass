@@ -16,7 +16,7 @@ use dainty_module_api::{
     GameVersion, ModuleError, ModuleId, ModuleKind, ModuleManifest,
 };
 
-/// The id `REFORGED_ADMIN_API_KEY` acts under: it is the owner's key (DD23). Every other key acts under
+/// The id `DAINTY_ADMIN_API_KEY` acts under: it is the owner's key (DD23). Every other key acts under
 /// its own id (`keys.rs`, DH2).
 pub const OWNER_KEY: &str = "owner";
 

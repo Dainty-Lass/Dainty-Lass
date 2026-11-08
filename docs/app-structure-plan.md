@@ -131,9 +131,9 @@ flowchart LR
 
 ### How each component handles concurrent editions
 1. **`gateway`**:
-   - Can either bind one shared public listener (routing `/content/v1/*` to `content` and dispatching backend/WebSocket traffic by edition route prefix, header `x-reforged-edition: refined|reforged`, or query parameter) **or** bind two separate public/private listeners (`[editions.reforged].gateway_port = 443`, `[editions.refined].gateway_port = 8443`) sharing the same pinned TLS certificate (`fp`) so one server cert covers both editions.
+   - Can either bind one shared public listener (routing `/content/v1/*` to `content` and dispatching backend/WebSocket traffic by edition route prefix, header `x-dainty-edition: refined|reforged`, or query parameter) **or** bind two separate public/private listeners (`[editions.reforged].gateway_port = 443`, `[editions.refined].gateway_port = 8443`) sharing the same pinned TLS certificate (`fp`) so one server cert covers both editions.
 2. **`allowlist`**:
-   - Runs as a **single in-process `AllowlistState` + `SyncWorker`** guarding the combined list of UDP ports from both active editions (e.g., `8770-8777` for Reforged + `8780-8787` for Refined). When a player authenticates on either edition, their IPv4 address is opened in the single `inet reforged_revival` nftables set / Windows Firewall rule.
+   - Runs as a **single in-process `AllowlistState` + `SyncWorker`** guarding the combined list of UDP ports from both active editions (e.g., `8770-8777` for Reforged + `8780-8787` for Refined). When a player authenticates on either edition, their IPv4 address is opened in the single `inet dainty_lass` nftables set / Windows Firewall rule.
    - In `public` mode on non-elevated Windows Desktop (`server-gui`), spawns only the lightweight `allowlist` helper with UAC (`runas`) or surfaces an elevation toggle on the Status Page; in `private` mode (Tailscale), `allowlist` is `Disabled`.
 3. **`content`**:
    - Indexes runtime manifests and DLLs per edition (`.workspace/runtime/reforged/` and `.workspace/runtime/refined/`).
@@ -153,7 +153,7 @@ To ensure `reforged-server-minimal --config server.yaml` (as well as `server-con
 2. **Automatic First-Boot Secret Generation (`ensure_secrets`)**:
    - If `.workspace/secrets/secrets.env` (or inline config secrets) does not exist on boot, `ServerController` automatically generates and persists the 8 CSPRNG 32-byte hex secrets (`OPERATOR_API_KEY`, `OPERATOR_HMAC_SECRET`, `ALLOWLIST_API_KEY`, `ADMIN_API_KEY`, `DIRECTOR_SECRET`, `SESSION_SECRET`, `JWT_SECRET`, `INTERNAL_API_KEY`) and the 4096-bit RSA keypair with `0600` permissions before starting any service.
 3. **Automatic TLS Certificate Generation (`cert::load_or_generate_cert`)**:
-   - In `public` mode, if `cert.pem` and `key.pem` do not exist yet, generates the self-signed ECDSA P-256 certificate and logs the resulting SHA-256 fingerprint (`fp`) and ready-to-use `reforged-revival://` invite URL via `tracing::info!`.
+   - In `public` mode, if `cert.pem` and `key.pem` do not exist yet, generates the self-signed ECDSA P-256 certificate and logs the resulting SHA-256 fingerprint (`fp`) and ready-to-use `dainty://` invite URL via `tracing::info!`.
 4. **Automatic Database Migration & Preset Seeding**:
    - Runs `crates/dainty-store::drizzle::migrate` on the SQLite database files and seeds initial preset data from `preset/` if the database is empty.
 

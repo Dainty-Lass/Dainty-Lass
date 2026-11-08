@@ -151,11 +151,11 @@ impl Drop for PgDatabase {
 }
 
 fn new_postgres() -> Option<PgDatabase> {
-    let url = std::env::var("REFORGED_TEST_POSTGRES_URL").ok()?;
+    let url = std::env::var("DAINTY_TEST_POSTGRES_URL").ok()?;
     let server = rustic_isles_db::parse_postgres_url(&url, false).expect("a postgres:// URL");
     let name = format!("isles_db_test_{}", std::process::id());
     dainty_store::PgConnection::establish(&server.conninfo())
-        .expect("REFORGED_TEST_POSTGRES_URL is reachable")
+        .expect("DAINTY_TEST_POSTGRES_URL is reachable")
         .batch_execute(&format!("CREATE DATABASE \"{name}\""))
         .unwrap();
     let url = format!(
@@ -165,18 +165,18 @@ fn new_postgres() -> Option<PgDatabase> {
     Some(PgDatabase { server, url })
 }
 
-/// D12: one source into SQLite and Postgres. `REFORGED_TEST_MONGO_URI` uses a real MongoDB as the source
-/// (seeded first only with `REFORGED_TEST_SEED_MONGO=1`, since that writes to it).
+/// D12: one source into SQLite and Postgres. `DAINTY_TEST_MONGO_URI` uses a real MongoDB as the source
+/// (seeded first only with `DAINTY_TEST_SEED_MONGO=1`, since that writes to it).
 #[tokio::test(flavor = "multi_thread")]
 async fn rehearsal_on_both_engines() {
     let Some(pg) = new_postgres() else {
-        eprintln!("REFORGED_TEST_POSTGRES_URL is not set: skipping the rehearsal");
+        eprintln!("DAINTY_TEST_POSTGRES_URL is not set: skipping the rehearsal");
         return;
     };
     let mock = MockMongoServer::start(500).unwrap();
-    let source = match std::env::var("REFORGED_TEST_MONGO_URI") {
+    let source = match std::env::var("DAINTY_TEST_MONGO_URI") {
         Ok(uri) => {
-            if std::env::var("REFORGED_TEST_SEED_MONGO").as_deref() == Ok("1") {
+            if std::env::var("DAINTY_TEST_SEED_MONGO").as_deref() == Ok("1") {
                 common::seed(&mock);
                 let parsed = MongoUri::parse(&uri).unwrap();
                 tokio::task::spawn_blocking(move || {
@@ -191,7 +191,7 @@ async fn rehearsal_on_both_engines() {
             uri
         }
         Err(_) => {
-            eprintln!("REFORGED_TEST_MONGO_URI is not set: the rehearsal reads the mock server");
+            eprintln!("DAINTY_TEST_MONGO_URI is not set: the rehearsal reads the mock server");
             common::seed(&mock);
             mock.uri("dauntless")
         }

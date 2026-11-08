@@ -12,19 +12,19 @@ use std::process::Command;
 use crate::error::HostError;
 
 /// The game executable's absolute path.
-pub const ENV_EXE: &str = "REFORGED_GAME_EXE";
+pub const ENV_EXE: &str = "DAINTY_GAME_EXE";
 /// The Wine executable; found on PATH when unset.
-pub const ENV_WINE: &str = "REFORGED_WINE";
+pub const ENV_WINE: &str = "DAINTY_WINE";
 /// The Proton executable; when set, Proton runs the game instead of Wine.
-pub const ENV_PROTON: &str = "REFORGED_PROTON";
+pub const ENV_PROTON: &str = "DAINTY_PROTON";
 /// The Wine prefix's absolute path.
-pub const ENV_PREFIX: &str = "REFORGED_WINEPREFIX";
+pub const ENV_PREFIX: &str = "DAINTY_WINEPREFIX";
 /// Proton's compat data folder, an absolute path.
-pub const ENV_PROTON_DATA: &str = "REFORGED_PROTON_DATA";
+pub const ENV_PROTON_DATA: &str = "DAINTY_PROTON_DATA";
 /// `0` runs the game without xvfb-run.
-pub const ENV_XVFB: &str = "REFORGED_XVFB";
+pub const ENV_XVFB: &str = "DAINTY_XVFB";
 /// The xvfb-run executable; found on PATH when unset.
-pub const ENV_XVFB_RUN: &str = "REFORGED_XVFB_RUN";
+pub const ENV_XVFB_RUN: &str = "DAINTY_XVFB_RUN";
 
 /// How a game server is launched.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -166,7 +166,7 @@ fn infer_steam_client_install_path(proton: &Path) -> Option<String> {
     None
 }
 
-/// The launch for the game with `game_args`, from the `REFORGED_*` variables in `env`.
+/// The launch for the game with `game_args`, from the `DAINTY_*` variables in `env`.
 /// Fails when a variable is missing or not an absolute path, or a program is not found.
 pub fn build_launch(game_args: &[String], env: &BTreeMap<String, String>) -> Result<LaunchSpec, HostError> {
     let exe = env

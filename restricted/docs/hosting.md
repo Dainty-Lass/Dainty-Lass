@@ -12,7 +12,7 @@ Linux: [hosting-linux.md](hosting-linux.md). Docker: [hosting-docker.md](hosting
 
 - Windows 10 or 11, and **your own Dauntless 1.14.7** install (the folder with `Archon` in it), or an Epic
   account whose library has Dauntless, from which `install-game` installs it ([below](#getting-the-game-from-epic)).
-- The **server release** (`ReforgedRevivalServer-<version>-windows-x64.zip`), unpacked anywhere; `bin\dainty-host.exe`
+- The **server release** (`DaintyLassServer-<version>-windows-x64.zip`), unpacked anywhere; `bin\dainty-host.exe`
   is the kit. Or a checkout of this repository built from source. No Node.js or MongoDB is needed on the default
   path: the 1.14.7 backend, Director, gateway, content server, allowlist helper and admin API are compiled into
   `dainty-host` and store player data in `.workspace\config\dainty-lass.db` (SQLite) or Postgres (`[database]`).
@@ -124,7 +124,7 @@ bin\dainty-host history verify                                  # is the log its
 ```
 
 - **Who and when.** `--actor` is `admin:<key id>` (the ids are in `admin key list`; a bare id works, `owner` is
-  `REFORGED_ADMIN_API_KEY`), `host:console`, `player:<account>` or `system:<task>`. A time is RFC 3339
+  `DAINTY_ADMIN_API_KEY`), `host:console`, `player:<account>` or `system:<task>`. A time is RFC 3339
   (`2026-10-27T10:30:00Z`), a date or a date and time in UTC (`2026-10-27`, `2026-10-27T10:30`) or how long ago
   (`90m`, `6h`, `2d`, `1w`). `--since` counts, `--until` doesn't. `history` shows 50 changes a page
   (`--limit`, up to 1000) and prints the `--cursor` for the next, older page.
@@ -189,14 +189,14 @@ servers' key) lives only in `secrets.env`.
 | --- | --- | --- |
 | `GATEWAY_SECRET` | `gateway.env` | Authenticates the gateway to its upstreams |
 | `ALLOWLIST_SECRET` | `gateway.env`, `allowlist.env` | Authenticates the gateway to the allowlist helper |
-| `REFORGED_ADMIN_KEY` | `backend.env`, `admin.env` | The backend's `/reforged/api/*` admin key |
+| `DAINTY_ADMIN_KEY` | `backend.env`, `admin.env` | The backend's `/dainty/api/*` admin key |
 | `GAMESERVER_API_KEY` | `backend.env` (`GAMESERVER_API_KEYS`), `director.env` (`METAGAME_API_KEY`) | Shared key between the game servers and the backend |
 | `API_KEY_HASH_SECRET` | `backend.env` | HMAC secret for hashing account API keys at rest |
 | `RUSTIC_ISLES_METRICS_TOKEN` | `backend.env` | Bearer token for the backend's `/metrics` endpoint |
 | `AUTH_SIGNING_PRIVKEY_B64`, `AUTH_SIGNING_PUBKEY_B64` | `backend.env` | 4096-bit RSA keypair (PKCS#8 private key and SPKI public key, base64-encoded PEM) that signs and verifies the auth service's RS256 access tokens |
-| `REFORGED_ADMIN_API_KEY` | `admin.env` | The owner's bearer key for the admin GraphQL API ([admin-api.md](https://git.silentspud.com/silentspud/dainty-lass/src/branch/main/docs/admin-api.md)) |
+| `DAINTY_ADMIN_API_KEY` | `admin.env` | The owner's bearer key for the admin GraphQL API ([admin-api.md](https://git.silentspud.com/silentspud/dainty-lass/src/branch/main/docs/admin-api.md)) |
 | `RUSTIC_ISLES_MANAGER_OPERATOR_SECRET` | `backend.env`, `admin.env` | HMAC secret signing the admin API's `/admin/v1` requests to the backend |
-| `REFORGED_DB_PASSWORD` | `admin.env` (when Postgres is enabled) | Password for the Postgres role when `[database]` uses `engine = "postgres"` |
+| `DAINTY_DB_PASSWORD` | `admin.env` (when Postgres is enabled) | Password for the Postgres role when `[database]` uses `engine = "postgres"` |
 | `DASHBOARD_INGEST_KEY` | `gateway.env` (`CHAT_DASHBOARD_INGEST_KEY`, when `dashboard_url` is set) | What chat sends the staff dashboard with: set the dashboard's own `DASHBOARD_INGEST_KEY` to the same value |
 
 The `RUSTIC_ISLES_*` names were `MYSTICPARADOX_*` before the Rustic Isles rename. `setup` moves the two secrets to
@@ -214,7 +214,7 @@ engine = "postgres"
 ```
 
 Postgres is yours to run: make a role and a database for it, with the role's password set to
-`REFORGED_DB_PASSWORD` from `secrets.env` (setup makes it once), then run `setup` again. The connection is not
+`DAINTY_DB_PASSWORD` from `secrets.env` (setup makes it once), then run `setup` again. The connection is not
 encrypted, so `setup` refuses a Postgres server on another machine unless `allow_remote = true`, which is only for a
 network you trust.
 
@@ -426,15 +426,15 @@ The player launcher (`dainty-launcher`) has no remote-management surface.
 
 | `[remote]` key in `host.toml` | `gateway.env` / `host` variable | Values | Default |
 | --- | --- | --- | --- |
-| `role` | `REFORGED_REMOTE_ROLE` | `"standalone"`, `"controller"`, `"managed"` | `"standalone"` |
-| `controller_url` | `REFORGED_REMOTE_CONTROLLER_URL` | `https://<host>[:<port>]` | unset |
-| `controller_cert_fp` | `REFORGED_REMOTE_CONTROLLER_CERT_FP` | 64 lowercase hex digits (SHA-256 of controller gateway cert) | unset |
-| `controller_node` | `REFORGED_REMOTE_CONTROLLER_NODE` | `[a-z0-9-]{1,32}` | unset |
-| `node` | `REFORGED_REMOTE_NODE` | `[a-z0-9-]{1,32}` | `[network].node` |
-| `region` | `REFORGED_REMOTE_REGION` | `[a-z0-9-]{1,32}` | `[network].region` |
-| `label` | `REFORGED_REMOTE_LABEL` | display string (`1`–`64` chars) | unset |
-| `sync_interval_secs` | `REFORGED_REMOTE_SYNC_INTERVAL_SECS` | integer `5`–`3600` | `15` |
-| `local_overrides` | `REFORGED_REMOTE_LOCAL_OVERRIDES` | array of dotted `host.toml` paths preserved locally | `[]` |
+| `role` | `DAINTY_REMOTE_ROLE` | `"standalone"`, `"controller"`, `"managed"` | `"standalone"` |
+| `controller_url` | `DAINTY_REMOTE_CONTROLLER_URL` | `https://<host>[:<port>]` | unset |
+| `controller_cert_fp` | `DAINTY_REMOTE_CONTROLLER_CERT_FP` | 64 lowercase hex digits (SHA-256 of controller gateway cert) | unset |
+| `controller_node` | `DAINTY_REMOTE_CONTROLLER_NODE` | `[a-z0-9-]{1,32}` | unset |
+| `node` | `DAINTY_REMOTE_NODE` | `[a-z0-9-]{1,32}` | `[network].node` |
+| `region` | `DAINTY_REMOTE_REGION` | `[a-z0-9-]{1,32}` | `[network].region` |
+| `label` | `DAINTY_REMOTE_LABEL` | display string (`1`–`64` chars) | unset |
+| `sync_interval_secs` | `DAINTY_REMOTE_SYNC_INTERVAL_SECS` | integer `5`–`3600` | `15` |
+| `local_overrides` | `DAINTY_REMOTE_LOCAL_OVERRIDES` | array of dotted `host.toml` paths preserved locally | `[]` |
 
 ## Public servers
 
@@ -477,7 +477,7 @@ When cutting a live 1.14.7 server over from the Node backend to the Rust backend
    and run `bin\dainty-host db migrate` then `bin\dainty-host db verify`, and confirm `verify` reports no
    difference.
 3. **Smoke check.** Run `bin\dainty-host doctor`, start the server with `bin\dainty-host start`, verify that
-   `/dauntless-status`, `/reforged/api/Status` and `/content/v1/runtime` answer on the gateway, and verify with a
+   `/dauntless-status`, `/dainty/api/Status` and `/content/v1/runtime` answer on the gateway, and verify with a
    1.14.7 client and launcher that an existing account can sign in, enter Ramsgate with its characters, inventory and
    loadouts intact, and depart for a hunt.
 4. **Rollback (if needed).** Stop the server, export the SQLite or Postgres store back to MongoDB with
@@ -486,6 +486,11 @@ When cutting a live 1.14.7 server over from the Node backend to the Rust backend
    `paradox` build (below).
 
 ## Rollback to the Node backend and MongoDB (`paradox` feature)
+
+> [!WARNING]
+> Since the 2026-11-06 protocol rename (`/dainty/api`, `x-dainty-*` headers), the Node backend and Director no
+> longer speak the launcher's protocol, so a rollback to them cannot serve a current launcher. Docker's `rollback`
+> profile is gone; RB15 removes the rest.
 
 For one release after the RU9/RB14 cutover (until RB15 deletes the reference Node services), building the server with
 the opt-in `paradox` Cargo feature (`cargo build --release -p dainty-server --features paradox`) runs Mystic

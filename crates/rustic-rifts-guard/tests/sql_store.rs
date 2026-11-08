@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Silent Spud
 
-//! `SqlGuardStore` through its public API, on SQLite and (with `REFORGED_TEST_POSTGRES_URL`, a server the test may
+//! `SqlGuardStore` through its public API, on SQLite and (with `DAINTY_TEST_POSTGRES_URL`, a server the test may
 //! create a database on: `postgres://user:pw@127.0.0.1:5432/postgres`) on Postgres. Each engine runs from sync
 //! code, from a multi-thread runtime and from a current-thread one, since `block_on_store` serves all three.
 
@@ -430,7 +430,7 @@ impl Drop for PgDatabase {
 }
 
 fn new_postgres(suffix: &str) -> Option<PgDatabase> {
-    let url = url::Url::parse(&std::env::var("REFORGED_TEST_POSTGRES_URL").ok()?).expect("a postgres:// URL");
+    let url = url::Url::parse(&std::env::var("DAINTY_TEST_POSTGRES_URL").ok()?).expect("a postgres:// URL");
     let server = PostgresConfig {
         host: url.host_str().unwrap_or("127.0.0.1").to_owned(),
         port: url.port().unwrap_or(5432),
@@ -441,7 +441,7 @@ fn new_postgres(suffix: &str) -> Option<PgDatabase> {
     };
     let name = format!("rifts_guard_test_{}_{suffix}", std::process::id());
     PgConnection::establish(&server.conninfo())
-        .expect("REFORGED_TEST_POSTGRES_URL is reachable")
+        .expect("DAINTY_TEST_POSTGRES_URL is reachable")
         .batch_execute(&format!("CREATE DATABASE {}", portable::quote_ident(&name)))
         .unwrap();
     let config = PostgresConfig {
@@ -454,7 +454,7 @@ fn new_postgres(suffix: &str) -> Option<PgDatabase> {
 #[test]
 fn postgres_from_sync_code() {
     let Some(pg) = new_postgres("sync") else {
-        eprintln!("REFORGED_TEST_POSTGRES_URL is not set: skipping the Postgres half");
+        eprintln!("DAINTY_TEST_POSTGRES_URL is not set: skipping the Postgres half");
         return;
     };
     let config = DatabaseConfig::Postgres(pg.config.clone());
@@ -467,7 +467,7 @@ fn postgres_from_sync_code() {
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn postgres_from_a_multi_thread_runtime() {
     let Some(pg) = new_postgres("async") else {
-        eprintln!("REFORGED_TEST_POSTGRES_URL is not set: skipping the Postgres half");
+        eprintln!("DAINTY_TEST_POSTGRES_URL is not set: skipping the Postgres half");
         return;
     };
     let store = SqlGuardStore::open(

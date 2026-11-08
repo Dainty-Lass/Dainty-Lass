@@ -20,7 +20,7 @@ use crate::net::pinned::certificate_fingerprint;
 use crate::net::pinned::tests::{acceptor, certificate};
 
 // Built from pieces, so the repository's secret check never sees a whole key
-const KEY: &str = concat!("RRK_", "dddddddddddddddd", "dddddddddddddddd", "dddddddddddddddd");
+const KEY: &str = concat!("DLK_", "dddddddddddddddd", "dddddddddddddddd", "dddddddddddddddd");
 
 #[derive(Debug, Clone)]
 struct Seen {
@@ -65,7 +65,7 @@ async fn answer(
     let path = request.uri().path().to_owned();
     let key = request
         .headers()
-        .get("x-reforged-user-api-key")
+        .get("x-dainty-user-api-key")
         .and_then(|value| value.to_str().ok())
         .map(str::to_owned);
     let body = request

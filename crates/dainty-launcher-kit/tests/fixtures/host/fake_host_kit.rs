@@ -45,10 +45,10 @@ fn start(mode: Mode) -> ExitCode {
         println!("Error: the backend did not start");
         return ExitCode::FAILURE;
     }
-    let controlled = std::env::var("REFORGED_CONTROL").is_ok_and(|value| value == "stdin");
+    let controlled = std::env::var("DAINTY_CONTROL").is_ok_and(|value| value == "stdin");
     println!("Every service is up.");
     if controlled {
-        println!("REFORGED_SERVER_READY");
+        println!("DAINTY_SERVER_READY");
     }
     let _ = std::io::stdout().flush();
     if mode == Mode::Deaf {

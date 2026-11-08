@@ -82,7 +82,7 @@
     "create": "Criar conta",
     "haveKey": "Entrar com uma chave de conta existente",
     "key": "Chave de conta",
-    "keyHint": "Começa com RRK_. Cole somente neste launcher.",
+    "keyHint": "Começa com DLK_. Cole somente neste launcher.",
     "useKey": "Entrar com esta chave",
     "importFile": "Importar arquivo de chave",
     "newAccount": "Criar uma conta nova"

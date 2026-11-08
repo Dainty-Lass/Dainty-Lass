@@ -330,6 +330,25 @@ impl EnvDocument {
         Ok(())
     }
 
+    /// Renames every line of `old` to `new` where it stands, value and all.
+    pub fn rename(&mut self, old: &str, new: &str) -> Result<(), HostError> {
+        if !valid_key(new) {
+            return Err(HostError::message(format!(
+                "invalid env key: {}",
+                serde_json::Value::String(new.into())
+            )));
+        }
+        for line in &mut self.lines {
+            if let Line::Entry { key, raw, .. } = line
+                && key == old
+            {
+                *raw = raw.replacen(old, new, 1);
+                *key = new.to_owned();
+            }
+        }
+        Ok(())
+    }
+
     /// Drops every line that sets `key`.
     pub fn remove(&mut self, key: &str) {
         self.lines

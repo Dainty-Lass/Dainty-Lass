@@ -41,7 +41,7 @@ fn backup(fingerprint: Option<&'static str>, username: Option<&'static str>) -> 
         fingerprint,
         username,
         saved: NaiveDate::from_ymd_opt(2026, 11, 6).unwrap(),
-        key: "RRK_abcdefghijklmnopqrstuvwx",
+        key: "DLK_abcdefghijklmnopqrstuvwx",
     }
 }
 
@@ -57,7 +57,7 @@ fn backup_text_public() {
         &format!("Certificate: {fp}"),
         "Username: Slayer",
         "Saved: 2026-11-06",
-        "Key: RRK_abcdefghijklmnopqrstuvwx",
+        "Key: DLK_abcdefghijklmnopqrstuvwx",
         "",
         BACKUP_PRIVACY,
         BACKUP_OTHER_PC,
@@ -68,7 +68,7 @@ fn backup_text_public() {
     assert!(text.ends_with(".\r\n"));
     assert_eq!(
         dainty_protocol::account::extract_account_key(&text),
-        Some("RRK_abcdefghijklmnopqrstuvwx")
+        Some("DLK_abcdefghijklmnopqrstuvwx")
     );
 }
 
@@ -80,13 +80,13 @@ fn backup_text_private_without_username() {
     assert!(!text.replace("\r\n", "").contains('\n'));
     assert_eq!(
         dainty_protocol::account::extract_account_key(&text),
-        Some("RRK_abcdefghijklmnopqrstuvwx")
+        Some("DLK_abcdefghijklmnopqrstuvwx")
     );
 }
 
 #[test]
 fn backup_debug_hides_the_key() {
-    assert!(!format!("{:?}", backup(None, None)).contains("RRK_"));
+    assert!(!format!("{:?}", backup(None, None)).contains("DLK_"));
 }
 
 #[test]

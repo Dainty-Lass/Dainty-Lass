@@ -22,6 +22,8 @@ dainty-service-plugin.workspace = true
 
 [dev-dependencies]
 # The parity harness content's own tests run (crates/dainty-content/tests/parity/harness.rs)
+# dainty_protocol::renamed reads the recordings under the new names
+dainty-protocol.workspace = true
 axum.workspace = true
 dainty-content.workspace = true
 dainty-controller.workspace = true

@@ -20,7 +20,7 @@ stored with the certificate fingerprint (`fp`) of the invite it registered throu
 exists so that the key goes to that server and nowhere else, and so that what a server answers cannot do more than
 fill in the page.
 
-- **In, from the player:** invite links (`reforged-revival://join?...`), pasted or opened through the scheme handler,
+- **In, from the player:** invite links (`dainty://join?...`), pasted or opened through the scheme handler,
   and pasted account keys or backup files. Untrusted: a link can come from anyone.
 - **In, from a server:** every answer of ServerStatus, Register, GetUserInfo, the runtime manifest, news and the art
   pack. Untrusted: a public server is whoever the invite named, and a private-mode host is a friend's PC.
@@ -44,7 +44,7 @@ GetUserInfo answers, runtime manifests, news, the art pack's index, paths and im
 
 ### Invites
 
-- [ ] Only `dauntless://join` and its per-game aliases (`reforged-revival://` = `version=1.14.7`,
+- [ ] Only `dauntless://join` and its per-game aliases (`dainty://` = `version=1.14.7`,
       `dauntless-revived://` = `version=1.4.4`) with exactly the v1 or v2 parameters plus an optional `version` (`1.14.7` or its alias `reforged`, `1.4.4` or
       `revived`) are read: unknown, repeated or missing parameters, a fragment, bad percent-encoding, a `version` this code does not
       know, an alias given another game's `version`, or more than 2048 UTF-16 units refuse the whole invite
@@ -88,7 +88,7 @@ GetUserInfo answers, runtime manifests, news, the art pack's index, paths and im
 
 ### The account key
 
-- [ ] The key is sent only in `x-reforged-user-api-key`, built only by `key_headers`: a plausible key (8-128
+- [ ] The key is sent only in `x-dainty-user-api-key`, built only by `key_headers`: a plausible key (8-128
       characters of `[A-Za-z0-9_-]`) and an endpoint that is pinned or private-mode. Otherwise no header is sent at
       all, for ServerStatus and GetUserInfo alike (Reforged's rule; DR sent it to GetUserInfo unconditionally).
 - [ ] Register, the runtime manifest, news, the art pack and `/dauntless-status` never carry the key.
@@ -129,7 +129,7 @@ cargo +nightly fuzz run launcher_bridge -- -max_total_time=86400
 
 ## Changes from Dauntless Revived
 
-- The key header is `x-reforged-user-api-key` and the routes are under `/reforged/api` (DR: `x-undaunted-...`,
+- The key header is `x-dainty-user-api-key` and the routes are under `/dainty/api` (DR: `x-undaunted-...`,
   `/undaunted/api`).
 - GetUserInfo follows the same key rule as ServerStatus; DR sent the key unconditionally.
 - DR's `DeviceSignals`, `HuntRegion` and `PlayingEnded` calls and its 1.4.4 content manifest are not ported; the

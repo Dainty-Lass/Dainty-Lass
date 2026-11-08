@@ -186,17 +186,17 @@ Debian 13, as root, with nftables installed (the result says whether nft read th
 ```bash
 sudo apt install nftables
 cd rust
-sudo -E env "PATH=$PATH" REFORGED_TEST_NFT=1 cargo test -p dainty-gateway --lib nftables_for_real -- --nocapture
+sudo -E env "PATH=$PATH" DAINTY_TEST_NFT=1 cargo test -p dainty-gateway --lib nftables_for_real -- --nocapture
 sudo nft list tables
 ```
 
-The last command must not list `reforged_revival_test`.
+The last command must not list `dainty_lass_test`.
 
 Windows, in an elevated prompt:
 
 ```powershell
 cd rust
-$env:REFORGED_TEST_WINDOWS_FIREWALL = "1"
+$env:DAINTY_TEST_WINDOWS_FIREWALL = "1"
 cargo test -p dainty-gateway --lib windows_firewall_for_real -- --nocapture
 Get-NetFirewallRule -DisplayName "Dainty Lass allowlist test (delete me)" -ErrorAction SilentlyContinue
 ```

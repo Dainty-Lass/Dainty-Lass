@@ -70,7 +70,7 @@ impl LegacyReader for Old {
     }
 }
 
-const KEY: &str = concat!("RRK_", "abababababababababababab", "abababababababababababab");
+const KEY: &str = concat!("DLK_", "abababababababababababab", "abababababababababababab");
 
 /// A slot with the certificate its key is asked for (the shell's `KeySlot`).
 struct KeySlot {
@@ -273,7 +273,7 @@ fn remove_deletes_the_key_whatever_certificate_it_belongs_to() {
     keys.save(&public(Some(&fp("a1"))), KEY).unwrap();
     std::fs::write(
         keys.legacy_file(&public(None)),
-        Old.encrypt(&format!("RRK2\n{}\n{KEY}", fp("a1"))),
+        Old.encrypt(&format!("DLK2\n{}\n{KEY}", fp("a1"))),
     )
     .unwrap();
     keys.remove(&public(Some(&fp("b2"))));
@@ -291,7 +291,7 @@ fn the_documents_copy_survives_lost_key_storage_and_keeps_its_certificate() {
     keys.save(&public(Some(&a)), KEY).unwrap();
     assert_eq!(
         std::fs::read_to_string(recovery.join(format!("{}.txt", public(None).id()))).unwrap(),
-        format!("RRK2\n{a}\n{KEY}"),
+        format!("DLK2\n{a}\n{KEY}"),
         "the Electron launcher's Documents file, byte for byte"
     );
     std::fs::remove_dir_all(&primary).unwrap();
@@ -309,11 +309,11 @@ fn an_electron_key_is_moved_once_and_its_file_kept() {
     let slot = public(Some(&a));
     let keys = store(dir.path());
     let old = keys.legacy_file(&slot);
-    std::fs::write(&old, Old.encrypt(&format!("RRK2\n{a}\n{KEY}"))).unwrap();
+    std::fs::write(&old, Old.encrypt(&format!("DLK2\n{a}\n{KEY}"))).unwrap();
     assert_eq!(keys.load(&slot).unwrap().as_deref(), Some(KEY));
     assert_eq!(
         Fake.decrypt(&std::fs::read(keys.file(&slot)).unwrap()),
-        format!("RRK2\n{a}\n{KEY}")
+        format!("DLK2\n{a}\n{KEY}")
     );
     assert!(old.exists(), "the Electron file stays for a rollback");
     // Without the old encryptor the new file still loads
@@ -325,7 +325,7 @@ fn an_electron_key_is_moved_once_and_its_file_kept() {
     assert_eq!(keys.load(&bare).unwrap().as_deref(), Some(KEY));
     assert_eq!(
         Fake.decrypt(&std::fs::read(keys.file(&bare)).unwrap()),
-        format!("RRK2\n-\n{KEY}")
+        format!("DLK2\n-\n{KEY}")
     );
 }
 
@@ -348,7 +348,7 @@ fn only_rrk2_and_bare_electron_keys_are_read() {
 fn a_read_key_is_hidden_in_the_log() {
     let dir = tempfile::tempdir().unwrap();
     let keys = store(dir.path());
-    let key = concat!("RRK_", "0f0f0f0f0f0f0f0f0f0f0f0f", "0f0f0f0f0f0f0f0f0f0f0f0f");
+    let key = concat!("DLK_", "0f0f0f0f0f0f0f0f0f0f0f0f", "0f0f0f0f0f0f0f0f0f0f0f0f");
     std::fs::write(keys.legacy_file(&private("100.64.0.4")), Old.encrypt(key)).unwrap();
     assert_eq!(keys.load(&private("100.64.0.4")).unwrap().as_deref(), Some(key));
     let line = log::redact(&format!("argument {} and {}", key, &key[4..]));
@@ -378,7 +378,7 @@ fn an_unavailable_store_saves_nothing() {
 /// the same user on the same PC): every key reads back through dainty-launcher-kit's Electron reader, is moved to this
 /// launcher's files once, and the 1.4.4 server in its settings loads. Never a real profile.
 #[test]
-#[ignore = "needs REFORGED_ELECTRON_PROFILE, a profile made by test/electron-keystore (see its README)"]
+#[ignore = "needs DAINTY_ELECTRON_PROFILE, a profile made by test/electron-keystore (see its README)"]
 fn an_electron_profile_reads_back() {
     use dainty_launcher_kit::core::i18n::Language;
     use dainty_launcher_kit::platform::keystore::legacy::ElectronReader;
@@ -387,7 +387,7 @@ fn an_electron_profile_reads_back() {
     use dainty_launcher_kit::platform::settings::{Os, SettingsStore};
     use serde_json::Value;
 
-    let profile = PathBuf::from(std::env::var_os("REFORGED_ELECTRON_PROFILE").expect("REFORGED_ELECTRON_PROFILE"));
+    let profile = PathBuf::from(std::env::var_os("DAINTY_ELECTRON_PROFILE").expect("DAINTY_ELECTRON_PROFILE"));
     let expected: Value =
         serde_json::from_str(&std::fs::read_to_string(profile.join("expected.json")).unwrap()).unwrap();
     let paths = Paths {
@@ -502,7 +502,7 @@ fn the_backup_file() {
     assert_eq!(
         text,
         format!(
-            "Dainty Lass account key\r\n\r\nServer: Hunts (play.example.org:443)\r\nCertificate: ab\r\nUsername: -\r\nSaved: 2026-10-21\r\nKey: RRK_abababababababababababababababababababababababab\r\n\r\n{BACKUP_PRIVACY}\r\n{BACKUP_OTHER_PC}\r\n"
+            "Dainty Lass account key\r\n\r\nServer: Hunts (play.example.org:443)\r\nCertificate: ab\r\nUsername: -\r\nSaved: 2026-10-21\r\nKey: DLK_abababababababababababababababababababababababab\r\n\r\n{BACKUP_PRIVACY}\r\n{BACKUP_OTHER_PC}\r\n"
         )
     );
     assert_eq!(dainty_protocol::account::extract_account_key(&text), Some(KEY));
@@ -518,10 +518,10 @@ fn rrk2_and_bare_keys_only() {
         key: KEY.into(),
     };
     assert_eq!(
-        parse_text(format!("RRK2\n{fp}\n{KEY}").as_bytes()),
+        parse_text(format!("DLK2\n{fp}\n{KEY}").as_bytes()),
         Some(stored(Some(fp.clone())))
     );
-    assert_eq!(parse_text(format!("RRK2\n-\n{KEY}").as_bytes()), Some(stored(None)));
+    assert_eq!(parse_text(format!("DLK2\n-\n{KEY}").as_bytes()), Some(stored(None)));
     assert_eq!(
         parse_text(KEY.as_bytes()),
         Some(stored(None)),
@@ -529,17 +529,17 @@ fn rrk2_and_bare_keys_only() {
     );
     for bad in [
         format!("DRK2\n{fp}\n{KEY}"),
-        format!("RRK2\nABC\n{KEY}"),
-        format!("RRK2\n{fp}\n{KEY}\n"),
-        "RRK2\n-\nkey with spaces".into(),
-        format!("RRK2\n-\n{KEY}\r"),
+        format!("DLK2\nABC\n{KEY}"),
+        format!("DLK2\n{fp}\n{KEY}\n"),
+        "DLK2\n-\nkey with spaces".into(),
+        format!("DLK2\n-\n{KEY}\r"),
         format!("{KEY}\n"),
         String::new(),
         "short".into(),
     ] {
         assert_eq!(parse_text(bad.as_bytes()), None, "{bad:?}");
     }
-    let stored = parse_text(format!("RRK2\n{fp}\n{KEY}").as_bytes()).unwrap();
+    let stored = parse_text(format!("DLK2\n{fp}\n{KEY}").as_bytes()).unwrap();
     assert_eq!(parse_text(stored.to_text().as_bytes()), Some(stored));
 }
 
@@ -594,13 +594,13 @@ fn a_windows_key_file() {
     let sealed = cipher
         .encrypt(
             &aes_gcm::Nonce::try_from(&nonce[..]).unwrap(),
-            b"RRK2\n-\nRRK_x".as_slice(),
+            b"DLK2\n-\nDLK_x".as_slice(),
         )
         .unwrap();
     let blob = [b"v10".as_slice(), &nonce, &sealed].concat();
     assert_eq!(
         legacy::open_gcm_file(&blob, &master).as_deref(),
-        Some(b"RRK2\n-\nRRK_x".as_slice())
+        Some(b"DLK2\n-\nDLK_x".as_slice())
     );
     assert_eq!(legacy::open_gcm_file(&blob, &[8u8; 32]), None, "another user's key");
     assert_eq!(
@@ -623,15 +623,15 @@ fn linux_blob(version: &[u8], password: &[u8], plain: &[u8]) -> Vec<u8> {
 #[test]
 fn linux_key_files() {
     let open = |blob: &[u8], password: Option<&[u8]>| legacy::open_cbc(blob, || password.map(<[u8]>::to_vec));
-    let v11 = linux_blob(b"v11", b"keyring-secret", b"RRK2\n-\nRRK_y");
+    let v11 = linux_blob(b"v11", b"keyring-secret", b"DLK2\n-\nDLK_y");
     assert_eq!(
         open(&v11, Some(b"keyring-secret")).as_deref(),
-        Some(b"RRK2\n-\nRRK_y".as_slice())
+        Some(b"DLK2\n-\nDLK_y".as_slice())
     );
     assert_eq!(open(&v11, None), None);
     assert_eq!(open(&v11, Some(b"other")), None);
-    let v10 = linux_blob(b"v10", b"peanuts", b"RRK_z");
-    assert_eq!(open(&v10, None).as_deref(), Some(b"RRK_z".as_slice()));
+    let v10 = linux_blob(b"v10", b"peanuts", b"DLK_z");
+    assert_eq!(open(&v10, None).as_deref(), Some(b"DLK_z".as_slice()));
     assert_eq!(open(b"v12abc", None), None);
     // Known answer: Chromium's key for "peanuts"
     assert_eq!(
@@ -649,17 +649,17 @@ fn linux_key_files() {
 #[test]
 fn a_round_trip_for_this_user() {
     use dainty_launcher_kit::platform::keystore::os::Dpapi;
-    let sealed = Dpapi.seal(b"RRK2\n-\nRRK_x").unwrap();
-    assert_ne!(sealed, b"RRK2\n-\nRRK_x");
-    assert_eq!(Dpapi.open(&sealed).unwrap(), b"RRK2\n-\nRRK_x");
+    let sealed = Dpapi.seal(b"DLK2\n-\nDLK_x").unwrap();
+    assert_ne!(sealed, b"DLK2\n-\nDLK_x");
+    assert_eq!(Dpapi.open(&sealed).unwrap(), b"DLK2\n-\nDLK_x");
     assert!(Dpapi.open(b"not a blob").is_err());
 }
 
 #[test]
 fn sealed_files_open_only_with_their_key() {
-    let data = seal_rr1(&[1; 32], b"RRK2\n-\nRRK_x").unwrap();
+    let data = seal_rr1(&[1; 32], b"DLK2\n-\nDLK_x").unwrap();
     assert!(data.starts_with(b"rr1"));
-    assert_eq!(open_rr1(&[1; 32], &data).unwrap(), b"RRK2\n-\nRRK_x");
+    assert_eq!(open_rr1(&[1; 32], &data).unwrap(), b"DLK2\n-\nDLK_x");
     assert!(open_rr1(&[2; 32], &data).is_err());
     assert_ne!(
         seal_rr1(&[1; 32], b"same").unwrap(),

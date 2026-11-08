@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Silent Spud
 
 //! The repository tests' targets and fixtures. Every test runs on SQLite, and on Postgres too when
-//! `REFORGED_TEST_POSTGRES_URL` names a server the tests may create databases on
+//! `DAINTY_TEST_POSTGRES_URL` names a server the tests may create databases on
 //! (`postgres://postgres:postgres@127.0.0.1:5432/postgres` in CI).
 
 #![allow(
@@ -28,7 +28,7 @@ use rustic_rifts_realms::{
 };
 use rustic_rifts_seam::{Actor, UnixMillis};
 
-pub const POSTGRES_URL: &str = "REFORGED_TEST_POSTGRES_URL";
+pub const POSTGRES_URL: &str = "DAINTY_TEST_POSTGRES_URL";
 
 /// A Postgres database of this test's own, dropped with it.
 pub struct PgDatabase {
@@ -51,7 +51,7 @@ impl Drop for PgDatabase {
 /// The configured server, read from the URL.
 fn server() -> Option<PostgresConfig> {
     let raw = std::env::var(POSTGRES_URL).ok()?;
-    let parsed = url::Url::parse(&raw).expect("REFORGED_TEST_POSTGRES_URL is a postgres:// URL");
+    let parsed = url::Url::parse(&raw).expect("DAINTY_TEST_POSTGRES_URL is a postgres:// URL");
     let database = parsed.path().trim_start_matches('/').to_owned();
     Some(PostgresConfig {
         database,
@@ -74,7 +74,7 @@ fn admin_connection(server: &PostgresConfig) -> PgConnection {
         }
         std::thread::sleep(Duration::from_millis(100));
     }
-    panic!("REFORGED_TEST_POSTGRES_URL is not reachable: {failure:?}");
+    panic!("DAINTY_TEST_POSTGRES_URL is not reachable: {failure:?}");
 }
 
 pub fn new_postgres() -> Option<PgDatabase> {
@@ -167,7 +167,7 @@ pub fn empty(engine: &str) -> Empty {
 pub fn targets() -> Vec<Target> {
     let pg = postgres();
     if pg.is_none() {
-        eprintln!("REFORGED_TEST_POSTGRES_URL is not set: the Postgres half is skipped");
+        eprintln!("DAINTY_TEST_POSTGRES_URL is not set: the Postgres half is skipped");
     }
     std::iter::once(sqlite()).chain(pg).collect()
 }

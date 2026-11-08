@@ -900,6 +900,7 @@ dependencies = [
  "dainty-store",
  "diesel",
  "diesel_migrations",
+ "hex",
  "http-body-util",
  "hyper",
  "hyper-util",
@@ -929,6 +930,7 @@ dependencies = [
  "diesel",
  "diesel_migrations",
  "futures-util",
+ "hex",
  "http-body-util",
  "hyper",
  "hyper-rustls",
@@ -944,6 +946,7 @@ dependencies = [
  "tokio",
  "tracing",
  "ulid",
+ "uuid",
 ]
 
 [[package]]
@@ -958,6 +961,7 @@ dependencies = [
  "dainty-service-kit",
  "dainty-service-plugin",
  "futures-util",
+ "hex",
  "http",
  "http-body",
  "http-body-util",
@@ -981,6 +985,7 @@ dependencies = [
  "bytes",
  "egs-api",
  "flate2",
+ "hex",
  "http-body-util",
  "hyper",
  "hyper-rustls",
@@ -1007,6 +1012,7 @@ dependencies = [
  "dainty-proxy",
  "dainty-service-kit",
  "dainty-service-plugin",
+ "hex",
  "http",
  "http-body-util",
  "hyper",
@@ -1036,6 +1042,7 @@ dependencies = [
  "chrono",
  "dainty-store",
  "flate2",
+ "hex",
  "http-body-util",
  "hyper",
  "hyper-rustls",
@@ -1083,8 +1090,8 @@ dependencies = [
  "rustic-isles-director",
  "rustic-isles-economy",
  "rustic-isles-gamedata",
+ "rustic-isles-launcher-api",
  "rustic-isles-matchmaking",
- "rustic-isles-reforged",
  "rustic-isles-replay",
  "rustic-isles-store",
  "rustic-rifts-admission",
@@ -1120,6 +1127,7 @@ dependencies = [
  "dirs",
  "fs4",
  "futures-util",
+ "hex",
  "http-body-util",
  "hyper",
  "hyper-rustls",
@@ -1150,6 +1158,7 @@ dependencies = [
 name = "dainty-module-api"
 version = "0.1.0"
 dependencies = [
+ "hex",
  "libc",
  "serde",
  "serde_json",
@@ -1174,6 +1183,7 @@ dependencies = [
  "dainty-store",
  "diesel",
  "diesel_migrations",
+ "hex",
  "http-body-util",
  "hyper",
  "hyper-util",
@@ -1221,6 +1231,7 @@ dependencies = [
  "dainty-network",
  "dainty-protocol",
  "dainty-service-kit",
+ "hex",
  "http",
  "http-body-util",
  "hyper",
@@ -3726,6 +3737,7 @@ dependencies = [
  "thiserror",
  "tokio",
  "tracing",
+ "uuid",
 ]
 
 [[package]]
@@ -3745,8 +3757,8 @@ dependencies = [
  "rustic-isles-director",
  "rustic-isles-economy",
  "rustic-isles-gamedata",
+ "rustic-isles-launcher-api",
  "rustic-isles-matchmaking",
- "rustic-isles-reforged",
  "rustic-isles-store",
  "rustic-rifts-seam",
  "serde_json",
@@ -3767,6 +3779,7 @@ dependencies = [
  "chrono",
  "dainty-module-api",
  "dainty-service-kit",
+ "hex",
  "http",
  "http-body-util",
  "hyper",
@@ -3781,6 +3794,7 @@ dependencies = [
  "tokio",
  "tokio-rustls",
  "tracing",
+ "uuid",
  "webpki-roots",
 ]
 
@@ -3828,6 +3842,7 @@ dependencies = [
  "dainty-module-api",
  "dainty-store",
  "diesel",
+ "hex",
  "hmac 0.13.0",
  "percent-encoding",
  "rand 0.10.3",
@@ -3869,6 +3884,7 @@ dependencies = [
  "axum",
  "dainty-module-api",
  "dainty-service-kit",
+ "hex",
  "http",
  "rustic-isles",
  "rustic-isles-auth",
@@ -3890,12 +3906,43 @@ dependencies = [
  "axum",
  "chrono",
  "dainty-service-kit",
+ "hex",
  "http",
  "regex",
  "rustic-isles",
  "rustic-isles-auth",
  "serde_json",
  "sha2 0.11.1",
+ "tracing",
+]
+
+[[package]]
+name = "rustic-isles-launcher-api"
+version = "0.0.0"
+dependencies = [
+ "aws-lc-rs",
+ "axum",
+ "base64 0.23.1",
+ "chrono",
+ "dainty-module-api",
+ "dainty-service-kit",
+ "diesel",
+ "hex",
+ "http",
+ "http-body-util",
+ "rand 0.10.3",
+ "regex",
+ "rustic-isles",
+ "rustic-isles-auth",
+ "rustic-isles-chat",
+ "rustic-isles-economy",
+ "rustic-isles-matchmaking",
+ "rustic-isles-store",
+ "rustic-rifts-seam",
+ "serde_json",
+ "subtle",
+ "thiserror",
+ "tokio",
  "tracing",
 ]
 
@@ -3917,35 +3964,7 @@ dependencies = [
  "serde_json",
  "tokio",
  "tracing",
-]
-
-[[package]]
-name = "rustic-isles-reforged"
-version = "0.0.0"
-dependencies = [
- "aws-lc-rs",
- "axum",
- "base64 0.23.1",
- "chrono",
- "dainty-module-api",
- "dainty-service-kit",
- "diesel",
- "http",
- "http-body-util",
- "rand 0.10.3",
- "regex",
- "rustic-isles",
- "rustic-isles-auth",
- "rustic-isles-chat",
- "rustic-isles-economy",
- "rustic-isles-matchmaking",
- "rustic-isles-store",
- "rustic-rifts-seam",
- "serde_json",
- "subtle",
- "thiserror",
- "tokio",
- "tracing",
+ "uuid",
 ]
 
 [[package]]
@@ -3956,6 +3975,7 @@ dependencies = [
  "axum",
  "base64 0.23.1",
  "dainty-service-kit",
+ "hex",
  "percent-encoding",
  "regex",
  "rustic-isles",
@@ -4002,6 +4022,7 @@ dependencies = [
  "dainty-store",
  "diesel",
  "diesel_migrations",
+ "hex",
  "rustic-rifts-seam",
  "serde_json",
  "sha2 0.11.1",
@@ -4012,6 +4033,7 @@ dependencies = [
 name = "rustic-rifts-host"
 version = "0.0.0"
 dependencies = [
+ "hex",
  "rand 0.10.3",
  "rustic-rifts-seam",
  "serde",
@@ -4024,6 +4046,7 @@ name = "rustic-rifts-relay"
 version = "0.0.0"
 dependencies = [
  "base64 0.23.1",
+ "hex",
  "hmac 0.13.0",
  "rand 0.10.3",
  "rustic-rifts-seam",
@@ -4031,6 +4054,7 @@ dependencies = [
  "sha1 0.11.0",
  "sha2 0.11.1",
  "thiserror",
+ "uuid",
 ]
 
 [[package]]
@@ -4059,6 +4083,7 @@ dependencies = [
  "rustls",
  "sansio",
  "tokio",
+ "uuid",
 ]
 
 [[package]]

@@ -53,7 +53,7 @@ use sha2::{Digest, Sha256};
 use tokio::net::TcpListener;
 use tokio_rustls::TlsAcceptor;
 
-const KEY_HEADER: &str = "x-reforged-user-api-key";
+const KEY_HEADER: &str = "x-dainty-user-api-key";
 const EXE_DATA: &[u8] = b"MZ this is not really Dauntless 1.14.7";
 
 fn sha(data: &[u8]) -> String {
@@ -96,7 +96,7 @@ fn runtime_manifest(files: &[(&'static str, Vec<u8>)]) -> Value {
 
 // ---------------------------------------------------------------- the fake server
 
-/// `FakeServer`: the backend's launcher API (`/reforged/api/*`) and the content server (`/content/v1/*`)
+/// `FakeServer`: the backend's launcher API (`/dainty/api/*`) and the content server (`/content/v1/*`)
 /// on one address, as the launcher sees them through the gateway.
 struct Host {
     name: String,
@@ -155,7 +155,7 @@ fn status_body(host: &Host, full: bool) -> Value {
         "online": true,
         "version": "0.1.0",
         "commit": "abc1234",
-        "sourceUrl": "https://github.com/FreezaMotoqueiro/Dauntless-Reforged-Revival",
+        "sourceUrl": "https://github.com/SilentSpud/DaintyLass",
         "registration": host.registration,
         "playersOnline": if full { 1 } else { 0 },
         "players": if full { json!([{ "name": "Aurora", "where": "city", "instance": "city-8777" }]) } else { json!([]) },
@@ -180,7 +180,7 @@ async fn handle(host: Shared, request: Request<Incoming>) -> Response<Full<Bytes
     host.lock().unwrap().seen.push(path.clone());
     // A Dauntless Revived server answers the same calls under DR's names
     let path = match path.strip_prefix("/undaunted/api/") {
-        Some(rest) => format!("/reforged/api/{rest}"),
+        Some(rest) => format!("/dainty/api/{rest}"),
         None => path,
     };
     let body = request
@@ -192,11 +192,11 @@ async fn handle(host: Shared, request: Request<Incoming>) -> Response<Full<Bytes
     let user = |host: &Host| key.as_ref().and_then(|key| host.users.get(key)).cloned();
     match path.as_str() {
         "/dauntless-status" => return reply(200, json!({ "show-status": true })),
-        "/reforged/api/ServerStatus" => {
+        "/dainty/api/ServerStatus" => {
             let h = host.lock().unwrap();
             return reply(200, status_body(&h, user(&h).is_some()));
         }
-        "/reforged/api/GetUserInfo" => {
+        "/dainty/api/GetUserInfo" => {
             let h = host.lock().unwrap();
             if let Some(reason) = key.as_ref().and_then(|key| h.banned.get(key)) {
                 return reply(403, json!({ "error": "account_banned", "reason": reason }));
@@ -206,7 +206,7 @@ async fn handle(host: Shared, request: Request<Incoming>) -> Response<Full<Bytes
                 None => reply(401, json!({ "error": "unauthorized" })),
             };
         }
-        "/reforged/api/Register" if method == hyper::Method::POST => {
+        "/dainty/api/Register" if method == hyper::Method::POST => {
             let parsed: Value = serde_json::from_slice(&body).unwrap_or(Value::Null);
             let username = parsed["Username"].as_str().unwrap_or("").to_owned();
             let code = parsed["InviteCode"].as_str().unwrap_or("").to_owned();
@@ -222,7 +222,7 @@ async fn handle(host: Shared, request: Request<Incoming>) -> Response<Full<Bytes
             }
             h.registrations.push((username.clone(), code));
             h.counter += 1;
-            let key = format!("RRK_{:048x}", h.counter);
+            let key = format!("DLK_{:048x}", h.counter);
             let id = format!("uid-{}", h.counter);
             h.users.insert(key.clone(), (username, id));
             return reply(200, json!({ "UUK": key }));
@@ -238,7 +238,7 @@ async fn handle(host: Shared, request: Request<Incoming>) -> Response<Full<Bytes
             );
         }
         "/content/v1/branding" => return reply(200, json!({ "backgrounds": [], "accent": null })),
-        "/reforged/api/PlayingEnded" => return reply(204, Value::Null),
+        "/dainty/api/PlayingEnded" => return reply(204, Value::Null),
         "/content/v1/manifest" => {
             let h = host.lock().unwrap();
             return match &h.game_files {
@@ -358,7 +358,7 @@ fn invite(mode: ServerMode, host: &str, port: u16, fp: Option<&str>, code: &str,
         name: name.into(),
         share: None,
         fp: fp.map(str::to_owned),
-        version: dainty_protocol::invite::reforged_version(),
+        version: dainty_protocol::invite::dainty_version(),
     })
     .unwrap()
 }
@@ -515,7 +515,7 @@ impl Setup {
             system_locale: "pt-BR",
             env: vec![
                 ("PATH", "/usr/bin"),
-                ("REFORGED_BACKEND_URL", "https://should-be-replaced.invalid"),
+                ("DAINTY_BACKEND_URL", "https://should-be-replaced.invalid"),
             ],
             probe: false,
         }
@@ -786,7 +786,7 @@ async fn public_mode_end_to_end_join_register_game_check_runtime_trust_and_insta
     assert_eq!(dir, win64);
     assert!(args.iter().any(|a| a == "-AUTH_TYPE=exchangecode"));
     let password = arg(&args, "-AUTH_PASSWORD=").unwrap();
-    assert!(password.starts_with("RRK_") && password.len() == 52, "{password}");
+    assert!(password.starts_with("DLK_") && password.len() == 52, "{password}");
     assert_eq!(arg(&args, "-epicusername="), Some("Slayer_42"));
     assert_eq!(
         arg(&args, "-epiclocale="),
@@ -794,7 +794,7 @@ async fn public_mode_end_to_end_join_register_game_check_runtime_trust_and_insta
         "game language auto follows the system locale"
     );
     let relay_url = format!("http://127.0.0.1:{}", hx.relay_port);
-    assert_eq!(env_of(&env, "REFORGED_BACKEND_URL"), [&relay_url]);
+    assert_eq!(env_of(&env, "DAINTY_BACKEND_URL"), [&relay_url]);
     assert_eq!(env_of(&env, "RUSTIC_ISLES_RUNTIME_PROFILE"), [&"production".to_owned()]);
     assert_eq!(env_of(&env, "PATH"), [&"/usr/bin".to_owned()]);
 
@@ -810,7 +810,7 @@ async fn public_mode_end_to_end_join_register_game_check_runtime_trust_and_insta
     assert_eq!(status, 200);
     assert!(body.contains("pong"), "{body}");
     let before = gw.lock().unwrap().seen.len();
-    let (status, _) = get(hx.relay_port, "/reforged/api/RegistrationStatus").await;
+    let (status, _) = get(hx.relay_port, "/dainty/api/RegistrationStatus").await;
     assert_eq!(status, 404, "the fake has no such route: the request reached it");
     assert_eq!(gw.lock().unwrap().seen.len(), before + 1);
     assert_eq!(hx.c.play().await, error(ErrorCode::AlreadyRunning));
@@ -964,7 +964,7 @@ async fn a_private_server_at_a_new_address_the_account_goes_along_only_when_the_
 
 #[tokio::test(flavor = "multi_thread")]
 async fn a_banned_account_is_told_why() {
-    let key = format!("RRK_{}", "b".repeat(48));
+    let key = format!("DLK_{}", "b".repeat(48));
     let mut host = Host::new("Strict");
     host.registration = "OPEN";
     host.users.insert(key.clone(), ("ghost".into(), "uid-ghost".into()));
@@ -1323,7 +1323,7 @@ fn host_harness() -> Harness {
         system_locale: "en-US",
         env: vec![
             ("PATH", "/usr/bin"),
-            ("REFORGED_BACKEND_URL", "https://x.invalid"),
+            ("DAINTY_BACKEND_URL", "https://x.invalid"),
             ("MysticParadox_Profile", "development"),
         ],
         probe: true,
@@ -1398,7 +1398,7 @@ async fn the_host_page_drives_reforged_host_setup_server_invite_and_stop() {
             .host_server_view()
             .lines
             .iter()
-            .any(|l| l.contains("REFORGED_SERVER_READY")),
+            .any(|l| l.contains("DAINTY_SERVER_READY")),
         "the ready line is not shown"
     );
     // Setup refuses a running server; the invite's link reaches the view only

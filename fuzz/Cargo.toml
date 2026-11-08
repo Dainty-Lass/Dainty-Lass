@@ -78,9 +78,9 @@ rustic-isles-economy = { path = "../crates/rustic-isles-economy" }
 rustic-isles-matchmaking = { path = "../crates/rustic-isles-matchmaking" }
 # rustic_isles_db_{bson,reply,uri,extract,scram}: what the database tool reads from MongoDB, a host and its documents (RD27)
 rustic-isles-db = { path = "../crates/rustic-isles-db" }
-# rustic_isles_reforged_{guard,text,paths,admin_auth,admin_text}: what Rustic Isles' Reforged API reads from
+# rustic_isles_launcher_api_{guard,text,paths,admin_auth,admin_text}: what Rustic Isles' launcher API reads from
 # launchers, the release tooling, the dashboard, the admin service and the host (RD27)
-rustic-isles-reforged = { path = "../crates/rustic-isles-reforged", features = ["test-support"] }
+rustic-isles-launcher-api = { path = "../crates/rustic-isles-launcher-api", features = ["test-support"] }
 # rustic_isles_1_14_7_version_data: the version data document and the hook inputs the 1.14.7 module reads (RD27)
 rustic-isles-1-14-7 = { path = "../crates/rustic-isles-1-14-7", default-features = false }
 axum = { version = "0.8", default-features = false }
@@ -594,36 +594,36 @@ doc = false
 bench = false
 
 [[bin]]
-name = "rustic_isles_reforged_guard"
-path = "fuzz_targets/rustic_isles_reforged_guard.rs"
+name = "rustic_isles_launcher_api_guard"
+path = "fuzz_targets/rustic_isles_launcher_api_guard.rs"
 test = false
 doc = false
 bench = false
 
 [[bin]]
-name = "rustic_isles_reforged_text"
-path = "fuzz_targets/rustic_isles_reforged_text.rs"
+name = "rustic_isles_launcher_api_text"
+path = "fuzz_targets/rustic_isles_launcher_api_text.rs"
 test = false
 doc = false
 bench = false
 
 [[bin]]
-name = "rustic_isles_reforged_paths"
-path = "fuzz_targets/rustic_isles_reforged_paths.rs"
+name = "rustic_isles_launcher_api_paths"
+path = "fuzz_targets/rustic_isles_launcher_api_paths.rs"
 test = false
 doc = false
 bench = false
 
 [[bin]]
-name = "rustic_isles_reforged_admin_auth"
-path = "fuzz_targets/rustic_isles_reforged_admin_auth.rs"
+name = "rustic_isles_launcher_api_admin_auth"
+path = "fuzz_targets/rustic_isles_launcher_api_admin_auth.rs"
 test = false
 doc = false
 bench = false
 
 [[bin]]
-name = "rustic_isles_reforged_admin_text"
-path = "fuzz_targets/rustic_isles_reforged_admin_text.rs"
+name = "rustic_isles_launcher_api_admin_text"
+path = "fuzz_targets/rustic_isles_launcher_api_admin_text.rs"
 test = false
 doc = false
 bench = false

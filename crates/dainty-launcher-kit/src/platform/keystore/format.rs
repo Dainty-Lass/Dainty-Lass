@@ -7,7 +7,9 @@ use dainty_protocol::account::is_plausible_account_key;
 use dainty_protocol::invite::is_valid_fingerprint;
 
 /// The first line of the current text format.
-pub const TEXT_MAGIC: &str = "RRK2";
+pub const TEXT_MAGIC: &str = "DLK2";
+/// The same framing as the Reforged Revival launcher wrote it, read so its keys migrate.
+pub const LEGACY_TEXT_MAGIC: &str = "RRK2";
 /// Stands for "no certificate" on the fingerprint line.
 pub const NO_FINGERPRINT: &str = "-";
 /// The prefix of a file sealed by the Linux encryptor.
@@ -42,7 +44,7 @@ impl std::fmt::Debug for Stored {
 }
 
 impl Stored {
-    /// `RRK2\n<fingerprint or ->\n<key>`, with no trailing newline.
+    /// `DLK2\n<fingerprint or ->\n<key>`, with no trailing newline.
     #[must_use]
     pub fn to_text(&self) -> String {
         let fp = self.fingerprint.as_deref().unwrap_or(NO_FINGERPRINT);
@@ -50,12 +52,15 @@ impl Stored {
     }
 }
 
-/// The decrypted text of a key file: the `RRK2` format or the first format's bare key. Anything else, including
+/// The decrypted text of a key file: the `DLK2` format (or the older `RRK2`) or the first format's bare key. Anything else, including
 /// another product's `DRK2`, is no key.
 #[must_use]
 pub fn parse_text(plain: &[u8]) -> Option<Stored> {
     let text = std::str::from_utf8(plain).ok()?;
-    let Some(rest) = text.strip_prefix(TEXT_MAGIC).and_then(|r| r.strip_prefix('\n')) else {
+    let Some(rest) = [TEXT_MAGIC, LEGACY_TEXT_MAGIC]
+        .into_iter()
+        .find_map(|magic| text.strip_prefix(magic)?.strip_prefix('\n'))
+    else {
         return is_plausible_account_key(text).then(|| Stored {
             fingerprint: None,
             key: text.to_owned(),
@@ -112,7 +117,7 @@ pub fn split_cbc(sealed: &[u8]) -> Option<(bool, &[u8])> {
 mod tests {
     use super::*;
 
-    const KEY: &str = "RRK_abcdefghijklmnopqrstuvwx";
+    const KEY: &str = "DLK_abcdefghijklmnopqrstuvwx";
     const FP: &str = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
 
     #[test]
@@ -132,7 +137,7 @@ mod tests {
                 key: KEY.into()
             }
             .to_text(),
-            format!("RRK2\n-\n{KEY}")
+            format!("DLK2\n-\n{KEY}")
         );
     }
 
@@ -147,12 +152,12 @@ mod tests {
     fn refuses_what_is_not_a_key() {
         for text in [
             format!("DRK2\n-\n{KEY}"),
-            format!("RRK2\n{}\n{KEY}", FP.to_uppercase()),
-            format!("RRK2\nabc\n{KEY}"),
-            format!("RRK2\n-\n{KEY}\n"),
-            "RRK2\n-\nshort".to_owned(),
-            "RRK2\n-".to_owned(),
-            "RRK2".to_owned(),
+            format!("DLK2\n{}\n{KEY}", FP.to_uppercase()),
+            format!("DLK2\nabc\n{KEY}"),
+            format!("DLK2\n-\n{KEY}\n"),
+            "DLK2\n-\nshort".to_owned(),
+            "DLK2\n-".to_owned(),
+            "DLK2".to_owned(),
             format!("{KEY}\n"),
             format!("rrk2\n-\n{KEY}"),
             String::new(),

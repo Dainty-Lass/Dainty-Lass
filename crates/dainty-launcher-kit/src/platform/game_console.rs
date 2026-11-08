@@ -22,11 +22,12 @@ pub fn redact(line: &str) -> String {
     let mut rest = line;
     while !rest.is_empty() {
         let lower = rest.to_ascii_lowercase();
-        let key = rest.find("RRK_");
+        // RRK_ too: the prefix before the 2026-11-06 rename
+        let key = [rest.find("DLK_"), rest.find("DLK_")].into_iter().flatten().min();
         let arg = lower.find("-auth_password=");
         let (at, skip, is_key) = match (key, arg) {
             (Some(k), Some(a)) if a < k => (a, "-AUTH_PASSWORD=".len(), false),
-            (Some(k), _) => (k, "RRK_".len(), true),
+            (Some(k), _) => (k, "DLK_".len(), true),
             (None, Some(a)) => (a, "-AUTH_PASSWORD=".len(), false),
             (None, None) => {
                 out.push_str(rest);
@@ -320,7 +321,7 @@ mod tests {
 
     #[test]
     fn the_key_never_survives_a_line() {
-        let key = concat!("RRK_", "abcdefghijklmnop", "abcdefghijklmnop");
+        let key = concat!("DLK_", "abcdefghijklmnop", "abcdefghijklmnop");
         let line = format!("LogInit: Command Line:  -NoEAC -AUTH_PASSWORD={key} -epicapp=Archon");
         let out = redact(&line);
         assert!(!out.contains("abcdefghijklmnop"), "{out}");
@@ -330,7 +331,7 @@ mod tests {
         );
         assert_eq!(
             redact(&format!("key {key}, again {key}")),
-            "key RRK_<hidden>, again RRK_<hidden>"
+            "key DLK_<hidden>, again DLK_<hidden>"
         );
         assert_eq!(redact("-auth_password=\"x y\" -next"), "-auth_password=<hidden> -next");
         assert_eq!(redact("nothing here"), "nothing here");

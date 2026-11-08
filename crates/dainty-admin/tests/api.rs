@@ -66,7 +66,7 @@ async fn backend(State(state): State<Arc<Backend>>, request: Request) -> Respons
         .collect();
     let param = |name: &str| query.iter().find(|(k, _)| k == name).map(|(_, v)| v.clone());
 
-    if path == "/reforged/api/ServerStatus" {
+    if path == "/dainty/api/ServerStatus" {
         return reply(
             StatusCode::OK,
             json!({
@@ -77,9 +77,9 @@ async fn backend(State(state): State<Arc<Backend>>, request: Request) -> Respons
             }),
         );
     }
-    if path == "/reforged/api/Kick" {
+    if path == "/dainty/api/Kick" {
         // HasAdminKey: the key, from this machine, not through the gateway
-        if header("x-reforged-admin-key").as_deref() != Some(ADMIN_KEY) || header("x-reforged-gateway").is_some() {
+        if header("x-dainty-admin-key").as_deref() != Some(ADMIN_KEY) || header("x-dainty-gateway").is_some() {
             return reply(StatusCode::FORBIDDEN, json!({"error": "forbidden"}));
         }
         let given: Value = serde_json::from_slice(&body).unwrap_or_default();
@@ -325,7 +325,7 @@ async fn send(url: &str, method: &str, headers: &[(&str, &str)], body: &str) -> 
 }
 
 impl World {
-    /// A GraphQL request as the bot sends it with the owner's key (REFORGED_ADMIN_API_KEY), for Discord user 42.
+    /// A GraphQL request as the bot sends it with the owner's key (DAINTY_ADMIN_API_KEY), for Discord user 42.
     async fn gql(&self, query: &str, variables: Value) -> Value {
         let (status, body) = self.gql_as(API_KEY, query, variables).await;
         assert_eq!(status, 200, "{body}");
@@ -341,7 +341,7 @@ impl World {
             &[
                 ("authorization", &bearer),
                 ("content-type", "application/json"),
-                ("x-reforged-operator-id", "42"),
+                ("x-dainty-operator-id", "42"),
             ],
             &json!({"query": query, "variables": variables}).to_string(),
         )
@@ -395,11 +395,7 @@ async fn refuses_requests_without_the_key_or_through_a_proxy() {
             "FORWARDED",
         ),
         (
-            vec![
-                json_type,
-                ("authorization", bearer.as_str()),
-                ("x-reforged-gateway", "s"),
-            ],
+            vec![json_type, ("authorization", bearer.as_str()), ("x-dainty-gateway", "s")],
             403,
             "FORWARDED",
         ),
@@ -412,7 +408,7 @@ async fn refuses_requests_without_the_key_or_through_a_proxy() {
             vec![
                 json_type,
                 ("authorization", bearer.as_str()),
-                ("x-reforged-operator-id", "me"),
+                ("x-dainty-operator-id", "me"),
             ],
             400,
             "BAD_OPERATOR",
@@ -1478,7 +1474,7 @@ mod roles {
         let w = world().await;
         let (_, body) = w.gql_as(API_KEY, ISSUE, json!({"name": "Mo", "role": "VIEWER"})).await;
         let key = body["data"]["issueKey"]["key"].as_str().unwrap().to_owned();
-        assert!(key.starts_with("RRA_") && key.len() == 77, "{key}");
+        assert!(key.starts_with("DLA_") && key.len() == 77, "{key}");
         let listed = w.gql(KEYS, json!({})).await.to_string();
         assert!(!listed.contains(&key) && !listed.contains("key_hash"));
         w.admin.keys.database().checkpoint().await.unwrap();
@@ -1503,9 +1499,9 @@ mod roles {
         let secret_changed = format!("{}{last}", &key[..key.len() - 1]);
         for bad in [
             secret_changed,
-            format!("RRA_{id}_{}", "0".repeat(64)),
-            format!("RRA_ffffffff_{}", "0".repeat(64)),
-            "RRA_".to_owned(),
+            format!("DLA_{id}_{}", "0".repeat(64)),
+            format!("DLA_ffffffff_{}", "0".repeat(64)),
+            "DLA_".to_owned(),
             key.to_uppercase(),
         ] {
             let (status, body) = w.gql_as(&bad, STATUS, json!({})).await;

@@ -71,7 +71,7 @@ own clock, as it does the status.
    ```bash
    DAINTY_AGENT_DASHBOARD_URL=https://dashboard.example.com
    DAINTY_AGENT_PAIRING_CODE=ABCD-EFGH
-   DAINTY_AGENT_ADMIN_API_KEY=...        # REFORGED_ADMIN_API_KEY from that host's secrets.env
+   DAINTY_AGENT_ADMIN_API_KEY=...        # DAINTY_ADMIN_API_KEY from that host's secrets.env
    DAINTY_AGENT_OPERATOR_SECRET=...      # RUSTIC_ISLES_MANAGER_OPERATOR_SECRET from secrets.env
    DAINTY_AGENT_INGEST_KEY=...           # optional: 32+ characters, for relaying chat and reports
    ```

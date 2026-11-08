@@ -172,7 +172,7 @@ pub fn settings(dir: &Path, range: PortRange, extra: &[(&str, &str)]) -> Setting
         ("SECONDS_TO_WAIT_BETWEEN_GAMESERVER_STARTUP", "0"),
         ("GAMESERVER_READY_TIMEOUT_MS", "15000"),
         ("MAX_CONCURRENT_HUNT_SERVERS", "2"),
-        ("REFORGED_SERVER_MAX_FPS", "30"),
+        ("DAINTY_SERVER_MAX_FPS", "30"),
         ("GAMESERVER_LOG_DIR", logs.as_str()),
         ("FAKE_GS_CONTROL", control.as_str()),
         ("FAKE_GS_PARENT_PID", parent.as_str()),

@@ -23,7 +23,7 @@ on each gateway's port (`docs/security/network.md`). The split adds one node-lin
 - On the metagame half, `127.0.0.1:61001` is a listener that carries each request to the game half, which replays it
   on its own `127.0.0.1:61001`, the Director. The backend's `DEPLOYSERVER_URL` is unchanged.
 - On the game half, `127.0.0.1:61000` is a listener that carries each request to the metagame half's backend. The game
-  servers' `REFORGED_BACKEND_URL` is unchanged, and so is their game server key: it travels inside the node link, never
+  servers' `DAINTY_BACKEND_URL` is unchanged, and so is their game server key: it travels inside the node link, never
   through a public gateway route, which still refuses it.
 
 Nothing but the gateways listens off loopback. The Director's port carries only the Director's four routes; a call
@@ -98,15 +98,15 @@ Each half is the `server` image running `dainty-host start`, with its own `works
 ```yaml
 services:
   metagame:
-    image: reforged-revival-server:local
+    image: dainty-lass-server:local
     command: ["dainty-host", "start"]
-    volumes: ["meta-workspace:/opt/reforged/.workspace"]
+    volumes: ["meta-workspace:/opt/dainty-lass/.workspace"]
     ports: ["443:443"]           # the public gateway; the game half's node link arrives here too
     networks: [split]
   gameservers:
-    image: reforged-revival-server:local
+    image: dainty-lass-server:local
     command: ["dainty-host", "start"]
-    volumes: ["games-workspace:/opt/reforged/.workspace", "./game:/game"]
+    volumes: ["games-workspace:/opt/dainty-lass/.workspace", "./game:/game"]
     ports: ["8770-8777:8770-8777/udp"]   # the game ports only: its gateway is reached on the private network
     networks: [split]
 networks:

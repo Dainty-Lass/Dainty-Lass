@@ -36,11 +36,11 @@ fn username_rules() {
 
 #[test]
 fn account_keys() {
-    let key = format!("RRK_{}", "ab".repeat(24));
+    let key = format!("DLK_{}", "ab".repeat(24));
     assert!(is_plausible_account_key(&key));
     assert!(!is_plausible_account_key("short"));
-    assert!(!is_plausible_account_key("RRK_has space"));
-    assert!(!is_plausible_account_key("RRK_\"quote\""));
+    assert!(!is_plausible_account_key("DLK_has space"));
+    assert!(!is_plausible_account_key("DLK_\"quote\""));
     assert_eq!(extract_account_key(&format!("  {key}\r\n")), Some(key.as_str()));
     assert_eq!(
         extract_account_key(&format!(
@@ -62,7 +62,7 @@ fn full_status() -> Value {
         "online": true,
         "version": "1.2.0",
         "commit": "a4cb7cf",
-        "sourceUrl": "https://github.com/FreezaMotoqueiro/Dauntless-Reforged-Revival",
+        "sourceUrl": "https://github.com/SilentSpud/DaintyLass",
         "registration": "INVITECODE",
         "playersOnline": 3,
         "players": [
@@ -103,7 +103,7 @@ fn parses_the_full_contract() {
     assert_eq!(s.content_port, None);
     assert_eq!(
         s.source_url.as_deref(),
-        Some("https://github.com/FreezaMotoqueiro/Dauntless-Reforged-Revival")
+        Some("https://github.com/SilentSpud/DaintyLass")
     );
     assert!(!s.limited);
     // Reforged's fields

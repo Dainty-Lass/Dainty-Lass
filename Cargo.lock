@@ -1353,6 +1353,7 @@ dependencies = [
  "dainty-content",
  "dainty-controller",
  "dainty-module-api",
+ "dainty-protocol",
  "dainty-service-kit",
  "dainty-service-plugin",
  "serde_json",
@@ -1457,6 +1458,7 @@ dependencies = [
  "dainty-gateway",
  "dainty-module-api",
  "dainty-network",
+ "dainty-protocol",
  "dainty-service-kit",
  "dainty-service-plugin",
  "futures-util",
@@ -5552,8 +5554,8 @@ dependencies = [
  "rustic-isles-director",
  "rustic-isles-economy",
  "rustic-isles-gamedata",
+ "rustic-isles-launcher-api",
  "rustic-isles-matchmaking",
- "rustic-isles-reforged",
  "rustic-isles-store",
  "rustic-rifts-admission",
  "rustic-rifts-guard",
@@ -5751,6 +5753,40 @@ dependencies = [
 ]
 
 [[package]]
+name = "rustic-isles-launcher-api"
+version = "0.0.0"
+dependencies = [
+ "aws-lc-rs",
+ "axum",
+ "base64 0.23.1",
+ "chrono",
+ "dainty-admin",
+ "dainty-module-api",
+ "dainty-service-kit",
+ "diesel",
+ "hex",
+ "http",
+ "http-body-util",
+ "rand 0.10.3",
+ "regex",
+ "rustic-isles",
+ "rustic-isles-auth",
+ "rustic-isles-chat",
+ "rustic-isles-economy",
+ "rustic-isles-launcher-api",
+ "rustic-isles-matchmaking",
+ "rustic-isles-store",
+ "rustic-rifts-seam",
+ "serde_json",
+ "subtle",
+ "tempfile",
+ "thiserror 2.0.21",
+ "tokio",
+ "tower",
+ "tracing",
+]
+
+[[package]]
 name = "rustic-isles-matchmaking"
 version = "0.0.0"
 dependencies = [
@@ -5772,40 +5808,6 @@ dependencies = [
  "tower",
  "tracing",
  "uuid",
-]
-
-[[package]]
-name = "rustic-isles-reforged"
-version = "0.0.0"
-dependencies = [
- "aws-lc-rs",
- "axum",
- "base64 0.23.1",
- "chrono",
- "dainty-admin",
- "dainty-module-api",
- "dainty-service-kit",
- "diesel",
- "hex",
- "http",
- "http-body-util",
- "rand 0.10.3",
- "regex",
- "rustic-isles",
- "rustic-isles-auth",
- "rustic-isles-chat",
- "rustic-isles-economy",
- "rustic-isles-matchmaking",
- "rustic-isles-reforged",
- "rustic-isles-store",
- "rustic-rifts-seam",
- "serde_json",
- "subtle",
- "tempfile",
- "thiserror 2.0.21",
- "tokio",
- "tower",
- "tracing",
 ]
 
 [[package]]

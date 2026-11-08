@@ -88,7 +88,7 @@ export async function launch(exe: string, options: LaunchOptions): Promise<App> 
     env: {
       ...process.env,
       ...options.env,
-      REFORGED_DEV_PROFILE: profile,
+      DAINTY_DEV_PROFILE: profile,
       WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: `--remote-debugging-port=${port}`,
     },
     stdio: ["ignore", "inherit", "inherit"],

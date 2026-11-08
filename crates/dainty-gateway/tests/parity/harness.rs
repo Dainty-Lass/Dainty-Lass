@@ -46,7 +46,7 @@ const HEADERS: [&str; 12] = [
     "connection",
     "retry-after",
     "x-powered-by",
-    "x-reforged-gateway",
+    "x-dainty-gateway",
     "set-cookie",
     "upgrade",
     "sec-websocket-accept",
@@ -83,8 +83,9 @@ fn echo_record(name: &str, method: &str, url: &str, headers: &http::HeaderMap, b
         if n == "connection" {
             continue;
         }
-        let value = String::from_utf8_lossy(v.as_bytes()).into_owned();
-        seen.entry(n.as_str().to_owned())
+        let value = dainty_protocol::renamed::as_recorded(&String::from_utf8_lossy(v.as_bytes()));
+        // Named as the Node recording names them, so the echo's length matches it too (dainty_protocol::renamed)
+        seen.entry(dainty_protocol::renamed::as_recorded(n.as_str()))
             .and_modify(|old| {
                 old.push_str(", ");
                 old.push_str(&value);
@@ -96,7 +97,7 @@ fn echo_record(name: &str, method: &str, url: &str, headers: &http::HeaderMap, b
         r#"{{"upstream":{},"method":{},"url":{},"headers":{},"bodyLength":{},"bodySha":{}}}"#,
         json_text(name),
         json_text(method),
-        json_text(url),
+        json_text(&dainty_protocol::renamed::as_recorded(url)),
         serde_json::to_string(&seen).unwrap(),
         body.len(),
         json_text(&sha)
@@ -415,7 +416,15 @@ fn load(name: &str, kind: &str) -> Value {
     let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("../dainty-gateway/tests/parity")
         .join(format!("{name}.{kind}.json"));
-    serde_json::from_slice(&std::fs::read(&path).unwrap_or_else(|e| panic!("{}: {e}", path.display()))).unwrap()
+    let text = std::fs::read_to_string(&path).unwrap_or_else(|e| panic!("{}: {e}", path.display()));
+    // Recorded from Node under the old names (dainty_protocol::renamed): the client sends the new ones, and the echo
+    // upstream reports them as recorded, so the answers compare as they are
+    let text = if kind == "requests" {
+        dainty_protocol::renamed::renamed(&text)
+    } else {
+        text
+    };
+    serde_json::from_str(&text).unwrap()
 }
 
 /// Runs every request of `<name>.requests.json` against the gateway `start` brings up with the given settings and
@@ -450,6 +459,13 @@ where
     let mut server = start(pairs, cert.clone()).await;
     let mut differences = Vec::new();
     for (request, wanted) in requests["requests"].as_array().unwrap().iter().zip(expected) {
+        // The label and the gateway's own log say what it was sent, under the new names
+        let mut wanted = wanted.clone();
+        for field in ["request", "log"] {
+            wanted[field] =
+                serde_json::from_str(&dainty_protocol::renamed::renamed(&wanted[field].to_string())).unwrap();
+        }
+        let wanted = &wanted;
         let wanted_lines = wanted["log"].as_array().map_or(0, Vec::len);
         let got = exchange(&server, &cert, request, wanted_lines).await;
         if &got != wanted {

@@ -17,7 +17,7 @@ inside the launcher is planned ([dainty-lass-plan.md](https://git.silentspud.com
 
 Install the launcher from a release and start it. Then:
 
-1. **Paste the invite** your host sent (`reforged-revival://join?…` or `dauntless://join?…`). The launcher
+1. **Paste the invite** your host sent (`dainty://join?…` or `dauntless://join?…`). The launcher
    checks the server; a public server's invite carries the fingerprint of its certificate, and the launcher
    talks to that server only.
 2. **Pick a name** (3 to 16 letters, digits and underscores). The server gives the launcher an **account

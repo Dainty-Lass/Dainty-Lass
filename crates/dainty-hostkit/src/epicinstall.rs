@@ -37,12 +37,12 @@ pub const DEFAULT_GAME_FOLDER: &str = "game";
 /// The version installed when `--version` is left out: the one the game servers run.
 pub const DEFAULT_VERSION: &str = "1.14.7";
 
-const ACCOUNT_ID: &str = "REFORGED_EPIC_ACCOUNT_ID";
-const DISPLAY_NAME: &str = "REFORGED_EPIC_DISPLAY_NAME";
-const ACCESS_TOKEN: &str = "REFORGED_EPIC_ACCESS_TOKEN";
-const ACCESS_EXPIRES: &str = "REFORGED_EPIC_ACCESS_EXPIRES_AT";
-const REFRESH_TOKEN: &str = "REFORGED_EPIC_REFRESH_TOKEN";
-const REFRESH_EXPIRES: &str = "REFORGED_EPIC_REFRESH_EXPIRES_AT";
+const ACCOUNT_ID: &str = "DAINTY_EPIC_ACCOUNT_ID";
+const DISPLAY_NAME: &str = "DAINTY_EPIC_DISPLAY_NAME";
+const ACCESS_TOKEN: &str = "DAINTY_EPIC_ACCESS_TOKEN";
+const ACCESS_EXPIRES: &str = "DAINTY_EPIC_ACCESS_EXPIRES_AT";
+const REFRESH_TOKEN: &str = "DAINTY_EPIC_REFRESH_TOKEN";
+const REFRESH_EXPIRES: &str = "DAINTY_EPIC_REFRESH_EXPIRES_AT";
 
 /// An access token this close to its end is refreshed first: the library check needs it.
 const REFRESH_MARGIN: i64 = 300;

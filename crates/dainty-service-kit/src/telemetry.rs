@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Silent Spud
 
 //! Unified `tracing` + `tracing-subscriber` logging pipeline (`docs/app-structure-plan.md` §4):
-//! - [`RedactingVisitor`] and [`redact_secrets`] scrub `RRK_` keys, operator secrets, and auth tokens.
+//! - [`RedactingVisitor`] and [`redact_secrets`] scrub `DLK_` keys, operator secrets, and auth tokens.
 //! - [`TableStdoutLayer`] writes Docker-like lines (`{service:<14} | {time} {LEVEL} {target}: {line}`, colored, or
 //!   JSON; [`crate::console`]) atomically to `stdout` (or a custom writer).
 //! - [`GelfLayer`] ships every record to Graylog in GELF ([`crate::gelf`]).
@@ -54,11 +54,12 @@ fn redact_patterns() -> &'static [(Regex, &'static str)] {
             Err(_) => unreachable!(),
         };
         vec![
-            (compile(r"RRK_[A-Za-z0-9_-]*"), "[REDACTED]"),
+            // RRK_ too: the prefix before the 2026-11-06 rename
+            (compile(r"(?:DLK|RRK)_[A-Za-z0-9_-]*"), "[REDACTED]"),
             (compile(r"(?i)(-AUTH_PASSWORD=)\S+"), "${1}[REDACTED]"),
             (
                 compile(
-                    r#"(?i)((?:x-reforged-user-api-key|x-paradox-operator-key|x-paradox-operator-signature|x-allowlist-key|authorization)\s*[:=]\s*"?)(?:Bearer\s+)?[^\s",}]+"#,
+                    r#"(?i)((?:x-dainty-user-api-key|x-paradox-operator-key|x-paradox-operator-signature|x-allowlist-key|authorization)\s*[:=]\s*"?)(?:Bearer\s+)?[^\s",}]+"#,
                 ),
                 "${1}[REDACTED]",
             ),
@@ -70,7 +71,7 @@ fn redact_patterns() -> &'static [(Regex, &'static str)] {
     })
 }
 
-/// Scrubs `RRK_` account keys, sensitive headers, and query/CLI secrets from a log string.
+/// Scrubs `DLK_` account keys, sensitive headers, and query/CLI secrets from a log string.
 pub fn redact_secrets(input: &str) -> String {
     let mut out = input.to_owned();
     for (re, replacement) in redact_patterns() {
@@ -761,9 +762,9 @@ mod tests {
             let span = tracing::info_span!("component", service = "gateway");
             let _enter = span.enter();
             tracing::info!(
-                api_key = "RRK_0123456789abcdef0123456789abcdef0123456789abcdef",
+                api_key = "DLK_0123456789abcdef0123456789abcdef0123456789abcdef",
                 port = 443,
-                "listening on public port with token RRK_secret123"
+                "listening on public port with token DLK_secret123"
             );
         });
         let text = String::from_utf8(buf.0.lock().unwrap().clone()).unwrap();
@@ -787,7 +788,7 @@ mod tests {
         tracing::subscriber::with_default(subscriber, || {
             let span = tracing::info_span!("component", service = "backend:reforged");
             let _enter = span.enter();
-            tracing::warn!("player session started -AUTH_PASSWORD=RRK_abc");
+            tracing::warn!("player session started -AUTH_PASSWORD=DLK_abc");
         });
         let entry = rx.try_recv().unwrap();
         assert_eq!(entry.service, "backend:reforged");

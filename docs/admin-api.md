@@ -17,15 +17,15 @@ What it needs, all written by setup:
 
 | Variable | In | What |
 | --- | --- | --- |
-| `REFORGED_ADMIN_API_KEY` | `secrets.env`, `admin.env` | The key callers send as `Authorization: Bearer <key>` |
+| `DAINTY_ADMIN_API_KEY` | `secrets.env`, `admin.env` | The key callers send as `Authorization: Bearer <key>` |
 | `RUSTIC_ISLES_MANAGER_OPERATOR_SECRET` | `secrets.env`, `admin.env`, `backend.env` | Signs the API's calls to the backend's `/admin/v1` routes |
 | `RUSTIC_ISLES_MANAGER_ADMIN=on` | `backend.env` | Lets the backend accept those signed calls |
-| `REFORGED_ADMIN_KEY` | `secrets.env`, `admin.env`, `backend.env` | The backend's existing admin key, for the kick |
+| `DAINTY_ADMIN_KEY` | `secrets.env`, `admin.env`, `backend.env` | The backend's existing admin key, for the kick |
 | `PORT`, `BIND_HOST` | `admin.env` | 61003, 127.0.0.1. Any non-loopback address stops the start |
-| `BACKEND_URL`, `REFORGED_DIRECTOR_URL` | `admin.env` | `http://127.0.0.1:61000` and `:61001`. Loopback only |
-| `REFORGED_ADMIN_API_TIMEOUTS_FILE` | `admin.env` | `.workspace/config/admin-timeouts.json`, which holds when each timeout ends |
-| `REFORGED_MAX_HUNT_SERVERS`, `REFORGED_SERVER_MODE` | `admin.env` | From `host.toml`, for `huntStatus` and `serverStatus` |
-| `REFORGED_GUARD_*` | `admin.env` | From `[guard]` in `host.toml`, only the ones it sets: when a destructive or bulk action waits (below) |
+| `BACKEND_URL`, `DAINTY_DIRECTOR_URL` | `admin.env` | `http://127.0.0.1:61000` and `:61001`. Loopback only |
+| `DAINTY_ADMIN_API_TIMEOUTS_FILE` | `admin.env` | `.workspace/config/admin-timeouts.json`, which holds when each timeout ends |
+| `DAINTY_MAX_HUNT_SERVERS`, `DAINTY_SERVER_MODE` | `admin.env` | From `host.toml`, for `huntStatus` and `serverStatus` |
+| `DAINTY_GUARD_*` | `admin.env` | From `[guard]` in `host.toml`, only the ones it sets: when a destructive or bulk action waits (below) |
 
 A host moving from an older setup gets the new secrets on the next `setup` (or `update`). The secrets it already has
 stay as they are.
@@ -84,7 +84,7 @@ reason.
 
 How the moderation works:
 
-- **kick** closes the player's chat connections and revokes their sign-in tokens (`POST /reforged/api/Kick` on the
+- **kick** closes the player's chat connections and revokes their sign-in tokens (`POST /dainty/api/Kick` on the
   backend). They aren't banned and can log in again with their key. Nobody has yet checked what the 1.14.7 client
   does after losing its chat connection mid-hunt.
 - **timeout** bans the player with the reason `Timed out until <time>: <reason>`, which the player sees in the
@@ -115,7 +115,7 @@ owner's key still works). A revoked or unknown key is 401 `UNAUTHENTICATED`.
 
 ## Keys and roles
 
-One key per person, each with a role (DD23). `REFORGED_ADMIN_API_KEY` in `secrets.env` is the owner's key and
+One key per person, each with a role (DD23). `DAINTY_ADMIN_API_KEY` in `secrets.env` is the owner's key and
 nothing about it changes: a server with only that key behaves as it always did, with every right. Everyone else gets
 a key of their own, which the host (or a key that may) issues and revokes, so one person leaving is one revoke and
 nobody else's key changes.
@@ -134,20 +134,20 @@ changes, and the log gets the key's id.
 From the host (no key needed; run it on the server):
 
 ```bash
-dainty-host admin key issue --name Maya --role moderator   # prints RRA_<id>_<secret> once
+dainty-host admin key issue --name Maya --role moderator   # prints DLA_<id>_<secret> once
 dainty-host admin key list                                  # id, role, name, who issued it, active or revoked
 dainty-host admin key revoke 58ef5419                       # its next request is refused
 ```
 
 The key is shown once and only its SHA-256 is kept, so a lost key is revoked and a new one issued. One active key per
 name. The owner's key is listed as `owner` and is changed in `secrets.env` (then `setup` and a restart), never
-revoked here. In a container: `docker compose run --rm host admin key list --env-file /opt/reforged/.workspace/config/admin.env`.
+revoked here. In a container: `docker compose run --rm host admin key list --env-file /opt/dainty-lass/.workspace/config/admin.env`.
 
 From the API: `issueKey(name, role)` (admin for viewer and moderator, owner for any), `revokeKey(id)` (owner) and
 `adminKeys`. Revoking takes effect on the key's next request.
 
 The change log (DD23) names the key: each admin API change is a row in `admin_actions` under `admin:<key id>`
-(`admin:owner` for `REFORGED_ADMIN_API_KEY`), the keys' own changes are under whoever issued or revoked them
+(`admin:owner` for `DAINTY_ADMIN_API_KEY`), the keys' own changes are under whoever issued or revoked them
 (`admin:<id>`, or `host:admin key issue`), and a game module is told the same actor with every call. The keys live in
 the admin API's own database: `admin.db` next to the node's SQLite file, or the node's Postgres database.
 
@@ -169,7 +169,7 @@ Not guarded, on purpose: `kick` (nothing is lost), `unban` and `liftTimeout` (th
 adds access, and only the owner issues the high roles). Everything below the limits runs at once, exactly as before:
 a server that never sets `[guard]` behaves as it did except for the bulk and destructive cases in the table.
 
-**The owner waits too.** `REFORGED_ADMIN_API_KEY` is a key like any other here. A held action of the owner needs
+**The owner waits too.** `DAINTY_ADMIN_API_KEY` is a key like any other here. A held action of the owner needs
 the approval of a second key with the owner role, or of the host (below), or it waits out its delay. There is no way
 around it through the API.
 
@@ -240,7 +240,7 @@ The settings, in `host.toml` (each is left out for its default; nothing needs se
 
 `approval` needs a second person with a key; on a server with one owner key nothing can approve, so it expires.
 Leave the rules on `delay` until the team has two keys of the right role. `dainty-host setup` writes the settings
-into `admin.env` as `REFORGED_GUARD_BAN_LIMIT`, `_BAN_WINDOW_MINUTES`, `_BAN`, `_REVERT_LIMIT`, `_REVERT`, `_REVOKE`,
+into `admin.env` as `DAINTY_GUARD_BAN_LIMIT`, `_BAN_WINDOW_MINUTES`, `_BAN`, `_REVERT_LIMIT`, `_REVERT`, `_REVOKE`,
 `_DELAY_MINUTES` and `_EXPIRE_HOURS`, only the ones `host.toml` sets.
 
 ## History and revert
@@ -287,14 +287,14 @@ mutation { revertApply(planId: "<id>") { rowsChanged databases { database rows }
 `POST http://127.0.0.1:61003/graphql`, with `Content-Type: application/json` and a body of
 `{"query": ..., "variables": ...}`. The headers:
 
-- `Authorization: Bearer <key>`: `REFORGED_ADMIN_API_KEY` (the owner's), or the person's own key
-- `x-reforged-operator-id: <Discord user id>`: who the moderation is for, digits only. The backend's audit log records
+- `Authorization: Bearer <key>`: `DAINTY_ADMIN_API_KEY` (the owner's), or the person's own key
+- `x-dainty-operator-id: <Discord user id>`: who the moderation is for, digits only. The backend's audit log records
   it as `manager:<id>`. Leave it out and it is `0`, the host.
 
 From the server itself:
 
 ```bash
-curl -s http://127.0.0.1:61003/graphql -H "Authorization: Bearer $REFORGED_ADMIN_API_KEY" \
+curl -s http://127.0.0.1:61003/graphql -H "Authorization: Bearer $DAINTY_ADMIN_API_KEY" \
   -H 'Content-Type: application/json' -d '{"query":"{ serverStatus { name onlineCount uptimeSeconds } }"}'
 ```
 
@@ -339,12 +339,12 @@ everyone, and `/kick`, `/timeout`, `/ban`, `/unban` only for members who can ban
 import { Client, Events, GatewayIntentBits, MessageFlags, PermissionFlagsBits, SlashCommandBuilder } from 'discord.js';
 
 const API = 'http://127.0.0.1:61003/graphql';
-const KEY = process.env.REFORGED_ADMIN_API_KEY;
+const KEY = process.env.DAINTY_ADMIN_API_KEY;
 
 async function admin(query, variables, operatorId) {
   const answer = await fetch(API, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${KEY}`, 'x-reforged-operator-id': operatorId },
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${KEY}`, 'x-dainty-operator-id': operatorId },
     body: JSON.stringify({ query, variables }),
     signal: AbortSignal.timeout(15000),
   });

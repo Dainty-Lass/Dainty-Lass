@@ -8,9 +8,9 @@ use serde::{Deserialize, Serialize};
 use crate::text::{is_js_space, js_length, js_trim};
 
 /// Route the launcher posts a [`RegisterRequest`] to.
-pub const REGISTER_PATH: &str = "/reforged/api/Register";
+pub const REGISTER_PATH: &str = "/dainty/api/Register";
 /// Prefix of every account key the server issues.
-pub const ACCOUNT_KEY_PREFIX: &str = "RRK_";
+pub const ACCOUNT_KEY_PREFIX: &str = "DLK_";
 /// Shortest accepted username, in bytes (usernames are ASCII).
 pub const USERNAME_MIN: usize = 3;
 /// Longest accepted username, in bytes.
@@ -31,7 +31,7 @@ pub struct RegisterRequest {
 /// Successful registration reply.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Registered {
-    /// The new account key (`RRK_...`), sent as `UUK`.
+    /// The new account key (`DLK_...`), sent as `UUK`.
     #[serde(rename = "UUK")]
     pub key: String,
 }
@@ -137,7 +137,7 @@ pub fn extract_account_key(raw: &str) -> Option<&str> {
         search_from = pos + 4;
     }
 
-    // Check inline `Key:\s*(RRK_[0-9a-fA-F]{48})(?![0-9a-fA-F])`
+    // Check inline `Key:\s*(DLK_[0-9a-fA-F]{48})(?![0-9a-fA-F])`
     let mut inline_from = 0;
     while let Some(rel) = trimmed[inline_from..].find("Key:") {
         let pos = inline_from + rel;

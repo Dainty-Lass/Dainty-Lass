@@ -118,7 +118,7 @@ Rules that read like overcaution:
 
 - **The gateway is the only listener off loopback.** Every other service binds 127.0.0.1. Host-only routes and
   headers stay refused at the gateway.
-- **The account key (`RRK_...`) goes only to the server and certificate it was made for.** In public mode the
+- **The account key (`DLK_...`) goes only to the server and certificate it was made for.** In public mode the
   certificate's SHA-256 from the invite is checked before any byte is sent. The gateway loads its existing
   certificate and never regenerates it, because every invite's `fp` depends on it.
 - **Secrets and keys are never logged.** Keep the redaction in the gateway, the launcher and the content server.
@@ -152,7 +152,7 @@ It's never a one-file change:
   reads it (`from_env`), and a test checks the round trip. `update` reruns `setup` with the host's existing
   `host.toml` (or a Node kit's `host.json`), so a new field that an older file doesn't have must default to
   today's behaviour.
-- **Use one of the server prefixes** (`REFORGED_`, `GATEWAY_`, `ALLOWLIST_`, `CONTENT_`, `GAMESERVER_`...).
+- **Use one of the server prefixes** (`DAINTY_`, `GATEWAY_`, `ALLOWLIST_`, `CONTENT_`, `GAMESERVER_`...).
   `start` hands each service the shell's environment and then its env file, and the file wins
   (`service_environment` in the root's `crates/dainty-hostkit/src/services.rs`). The clean-room host kit has no
   `SERVER_PREFIXES` list, so a stale server setting left in the shell reaches a service whose file doesn't set it.
@@ -212,7 +212,7 @@ Not obvious from reading the suites:
   reserved range, which is why two of Content's Node tests fail there.
 - **Generated files are tested for staleness.** If a `generated` test fails, regenerate
   with `RR_UPDATE_GENERATED=1` and commit the result; don't edit the output.
-- **The real nftables test is opt-in** (`REFORGED_TEST_NFT=1`, Linux, root or `CAP_NET_ADMIN`). Otherwise it
+- **The real nftables test is opt-in** (`DAINTY_TEST_NFT=1`, Linux, root or `CAP_NET_ADMIN`). Otherwise it
   skips, so `cargo test` passing says nothing about the rules. `docker/test-in-image.sh` turns it on when the
   container has the capability. Run that after a firewall change.
 - Nothing here is played against the real 1.14.7 client in CI. When only the tests passed, say so; don't

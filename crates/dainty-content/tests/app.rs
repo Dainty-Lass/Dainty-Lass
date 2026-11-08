@@ -34,7 +34,7 @@ fn sha256(bytes: &[u8]) -> String {
     hex(&sha2::Sha256::digest(bytes))
 }
 
-/// The fake backend: any `RRK_` key is an account whose id is a hash of it, named `user-<id>`; anything else is
+/// The fake backend: any `DLK_` key is an account whose id is a hash of it, named `user-<id>`; anything else is
 /// refused.
 async fn backend() -> String {
     let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
@@ -53,10 +53,10 @@ async fn backend() -> String {
                 let text = String::from_utf8_lossy(&head).to_string();
                 let key = text.lines().find_map(|l| {
                     l.to_ascii_lowercase()
-                        .starts_with("x-reforged-user-api-key:")
+                        .starts_with("x-dainty-user-api-key:")
                         .then(|| l.split_once(':').unwrap().1.trim().to_owned())
                 });
-                let (status, body) = match key.as_deref().filter(|k| k.starts_with("RRK_")) {
+                let (status, body) = match key.as_deref().filter(|k| k.starts_with("DLK_")) {
                     Some(key) => {
                         let id = sha256(key.as_bytes())[..12].to_owned();
                         (200, json!({"UserId": id, "Username": format!("user-{id}")}).to_string())
@@ -147,13 +147,13 @@ async fn get(port: u16, path: &str) -> Reply {
 }
 
 async fn keyed(port: u16, path: &str, key: &str) -> Reply {
-    send(port, "GET", path, &[("x-reforged-user-api-key", key)]).await
+    send(port, "GET", path, &[("x-dainty-user-api-key", key)]).await
 }
 
 /// A download whose client reads only the status line and then stalls.
 async fn stalled(port: u16, path: &str, key: &str) -> (TcpStream, u16) {
     let mut socket = TcpStream::connect(("127.0.0.1", port)).await.unwrap();
-    let request = format!("GET {path} HTTP/1.1\r\nhost: content\r\nx-reforged-user-api-key: {key}\r\n\r\n");
+    let request = format!("GET {path} HTTP/1.1\r\nhost: content\r\nx-dainty-user-api-key: {key}\r\n\r\n");
     socket.write_all(request.as_bytes()).await.unwrap();
     let mut first = [0u8; 12];
     socket.read_exact(&mut first).await.unwrap();
@@ -211,11 +211,11 @@ async fn manifest_open_files_keyed_nothing_else() {
     let file = "/content/v1/runtime/files/winmm.dll";
     assert_eq!(get(server.port, file).await.status, 401);
     assert_eq!(keyed(server.port, file, "nope").await.status, 401);
-    let served = keyed(server.port, file, "RRK_a").await;
+    let served = keyed(server.port, file, "DLK_a").await;
     assert_eq!((served.status, served.body.as_slice()), (200, b"winmm".as_slice()));
     for other in ["runtime.json", "dxgi.dll", "WINMM.DLL", "%2e%2e/runtime.json", ""] {
         let path = format!("/content/v1/runtime/files/{other}");
-        assert_eq!(keyed(server.port, &path, "RRK_a").await.status, 404, "{other}");
+        assert_eq!(keyed(server.port, &path, "DLK_a").await.status, 404, "{other}");
     }
     assert_eq!(get(server.port, "/content/v1/news").await.text(), r#"{"items":[]}"#);
     assert_eq!(
@@ -239,19 +239,19 @@ async fn stream_limits() {
     )
     .await;
     let file = "/content/v1/runtime/files/Rustic-Isles.dll";
-    let (a1, s1) = stalled(server.port, file, "RRK_a").await;
-    let (_a2, s2) = stalled(server.port, file, "RRK_a").await;
+    let (a1, s1) = stalled(server.port, file, "DLK_a").await;
+    let (_a2, s2) = stalled(server.port, file, "DLK_a").await;
     assert_eq!((s1, s2), (200, 200));
-    let third = keyed(server.port, file, "RRK_a").await;
+    let third = keyed(server.port, file, "DLK_a").await;
     assert_eq!((third.status, third.header("retry-after")), (429, Some("2")));
     assert_eq!(third.text(), r#"{"error":"too_many_streams"}"#);
     // HEAD takes no slot
-    let head = send(server.port, "HEAD", file, &[("x-reforged-user-api-key", "RRK_a")]).await;
+    let head = send(server.port, "HEAD", file, &[("x-dainty-user-api-key", "DLK_a")]).await;
     assert_eq!((head.status, head.header("content-length")), (200, Some("50331648")));
     assert!(head.body.is_empty() && head.header("cache-control").is_none());
-    let (_b, sb) = stalled(server.port, file, "RRK_b").await;
+    let (_b, sb) = stalled(server.port, file, "DLK_b").await;
     assert_eq!(sb, 200);
-    let busy = keyed(server.port, file, "RRK_c").await;
+    let busy = keyed(server.port, file, "DLK_c").await;
     assert_eq!((busy.status, busy.header("retry-after")), (503, Some("10")));
     assert_eq!(busy.text(), r#"{"error":"server_busy"}"#);
     // Dropping a stalled client frees its slot
@@ -263,7 +263,7 @@ async fn stream_limits() {
             server.port,
             "GET",
             "/content/v1/runtime/files/winmm.dll",
-            &[("x-reforged-user-api-key", "RRK_c")],
+            &[("x-dainty-user-api-key", "DLK_c")],
         )
         .await
         .status
@@ -287,11 +287,11 @@ async fn a_file_changed_under_the_list() {
     .await;
     let file = "/content/v1/runtime/files/winmm.dll";
     std::fs::write(tmp.path().join("winmm.dll"), b"winmm!").unwrap();
-    let changed = keyed(server.port, file, "RRK_a").await;
+    let changed = keyed(server.port, file, "DLK_a").await;
     assert_eq!((changed.status, changed.header("retry-after")), (503, Some("10")));
     assert_eq!(changed.text(), r#"{"error":"file_unavailable"}"#);
     assert_eq!(get(server.port, "/content/v1/runtime/manifest").await.status, 503);
-    assert_eq!(keyed(server.port, file, "RRK_a").await.status, 404);
+    assert_eq!(keyed(server.port, file, "DLK_a").await.status, 404);
     drop(server);
 
     // A new publish is served once the failed check was forgotten
@@ -303,9 +303,9 @@ async fn a_file_changed_under_the_list() {
     )
     .await;
     std::fs::write(tmp.path().join("winmm.dll"), b"winmm!").unwrap();
-    assert_eq!(keyed(server.port, file, "RRK_a").await.status, 503);
+    assert_eq!(keyed(server.port, file, "DLK_a").await.status, 503);
     publish(tmp.path(), &[("Rustic-Isles.dll", b"rustic"), ("winmm.dll", b"winmm!")]);
-    let served = keyed(server.port, file, "RRK_a").await;
+    let served = keyed(server.port, file, "DLK_a").await;
     assert_eq!((served.status, served.body.as_slice()), (200, b"winmm!".as_slice()));
 }
 
@@ -346,19 +346,19 @@ async fn versioned_runtimes() {
     );
     let file = |p: &str| format!("/content/v1/runtime/files/{p}");
     assert_eq!(
-        keyed(server.port, &file("revived/winmm.dll"), "RRK_a").await.body,
+        keyed(server.port, &file("revived/winmm.dll"), "DLK_a").await.body,
         b"old-w"
     );
     assert_eq!(
-        keyed(server.port, &file("1.4.4/winmm.dll"), "RRK_a").await.body,
+        keyed(server.port, &file("1.4.4/winmm.dll"), "DLK_a").await.body,
         b"old-w"
     );
     assert_eq!(
-        keyed(server.port, &file("reforged/winmm.dll"), "RRK_a").await.body,
+        keyed(server.port, &file("reforged/winmm.dll"), "DLK_a").await.body,
         b"own-w"
     );
     for bad in ["nonsense/winmm.dll", "revived/runtime.json", "revived/../winmm.dll"] {
-        assert_eq!(keyed(server.port, &file(bad), "RRK_a").await.status, 404, "{bad}");
+        assert_eq!(keyed(server.port, &file(bad), "DLK_a").await.status, 404, "{bad}");
     }
     assert_eq!(get(server.port, &file("revived/winmm.dll")).await.status, 401);
 }
@@ -445,12 +445,12 @@ async fn module_routes() {
     }
     let epic = "/content/v1/versions/isles-112/epic/manifest";
     assert_eq!(get(server.port, epic).await.status, 401);
-    let served = keyed(server.port, epic, "RRK_a").await;
+    let served = keyed(server.port, epic, "DLK_a").await;
     assert_eq!(served.status, 200);
     assert_eq!(served.body, manifest_bytes);
     assert_eq!(served.header("etag"), Some(format!("\"{sha1}\"").as_str()));
     assert_eq!(served.header("content-type"), Some("application/octet-stream"));
-    let head = send(server.port, "HEAD", epic, &[("x-reforged-user-api-key", "RRK_a")]).await;
+    let head = send(server.port, "HEAD", epic, &[("x-dainty-user-api-key", "DLK_a")]).await;
     assert_eq!(
         head.header("content-length"),
         Some(manifest_bytes.len().to_string().as_str())
@@ -461,7 +461,7 @@ async fn module_routes() {
         server.port,
         "GET",
         epic,
-        &[("x-reforged-user-api-key", "RRK_a"), ("if-none-match", &quoted)],
+        &[("x-dainty-user-api-key", "DLK_a"), ("if-none-match", &quoted)],
     )
     .await;
     assert_eq!(unchanged.status, 304);
@@ -473,13 +473,13 @@ async fn module_routes() {
         401
     );
     assert_eq!(
-        keyed(server.port, "/content/v1/versions/1.14.7/epic/manifest", "RRK_a")
+        keyed(server.port, "/content/v1/versions/1.14.7/epic/manifest", "DLK_a")
             .await
             .status,
         404
     );
     std::fs::write(tmp.path().join("data/game.manifest"), b"another manifest, longer").unwrap();
-    let changed = keyed(server.port, epic, "RRK_a").await;
+    let changed = keyed(server.port, epic, "DLK_a").await;
     assert_eq!(
         (changed.status, changed.text().as_str()),
         (503, r#"{"error":"epic_manifest_invalid"}"#)
@@ -509,19 +509,19 @@ async fn l1_the_download_line_and_no_key_anywhere() {
         Arc::new(ContentModules::default()),
     )
     .await;
-    let key = "RRK_logged-secret";
+    let key = "DLK_logged-secret";
     let reply = send(
         server.port,
         "GET",
         "/content/v1/runtime/files/winmm.dll",
-        &[("x-reforged-user-api-key", key), ("x-forwarded-for", "203.0.113.9")],
+        &[("x-dainty-user-api-key", key), ("x-forwarded-for", "203.0.113.9")],
     )
     .await;
     assert_eq!(reply.status, 200);
     keyed(
         server.port,
         "/content/v1/runtime/files/Rustic-Isles.dll",
-        "RRK_logged secret",
+        "DLK_logged secret",
     )
     .await;
     drop(server);

@@ -18,7 +18,7 @@ pub const LEGACY_DOCUMENTS_FOLDER: &str = "Dauntless Reforged Revival";
 /// The argument that points the launcher at a profile folder.
 pub const USER_DATA_DIR_ARG: &str = "--user-data-dir";
 /// The environment variable read when [`USER_DATA_DIR_ARG`] is absent.
-pub const DEV_PROFILE_VAR: &str = "REFORGED_DEV_PROFILE";
+pub const DEV_PROFILE_VAR: &str = "DAINTY_DEV_PROFILE";
 
 /// The launcher's folders on this PC.
 #[derive(Debug, Clone, PartialEq, Eq)]

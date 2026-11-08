@@ -310,7 +310,7 @@ async fn logins_rooms_and_the_city_merge() {
     assert_eq!((status, body.as_str()), (200, r#"{"ok":true}"#));
     let (status, _) = http(
         port,
-        "POST /__chat/tick HTTP/1.1\r\nHost: x\r\nx-reforged-gateway: s\r\nConnection: close\r\nContent-Length: 0\r\n\r\n",
+        "POST /__chat/tick HTTP/1.1\r\nHost: x\r\nx-dainty-gateway: s\r\nConnection: close\r\nContent-Length: 0\r\n\r\n",
     )
     .await;
     assert_eq!(status, 403);

@@ -674,7 +674,7 @@ fn a_fresh_private_setup_then_again() {
     );
     let backend = read_env_file(&p.config.join("backend.env")).unwrap();
     let secrets = read_env_file(&p.config.join("secrets.env")).unwrap();
-    assert_eq!(backend.get("REFORGED_ADMIN_KEY"), secrets.get("REFORGED_ADMIN_KEY"));
+    assert_eq!(backend.get("DAINTY_ADMIN_KEY"), secrets.get("DAINTY_ADMIN_KEY"));
     assert!(!p.config.join("allowlist.env").exists(), "no allowlist in private mode");
     let firewall = read(&p.config.join("firewall.ps1"));
     assert!(firewall.contains("'C:\\rr\\gateway.exe' '100.64.0.0/10'"), "{firewall}");
@@ -758,17 +758,17 @@ fn setup_keeps_the_database_the_host_chose_in_host_toml() {
     let env = Mock::new();
     setup(&p, &["--mode", "private", "--skip-install"], &env).0.unwrap();
     let admin = read_env_file(&p.config.join("admin.env")).unwrap();
-    assert_eq!(admin.get("REFORGED_DB_ENGINE"), Some("sqlite"));
+    assert_eq!(admin.get("DAINTY_DB_ENGINE"), Some("sqlite"));
     let edited = read(&p.host_toml) + "\n# Postgres in Docker\n[database]\nengine = \"postgres\" # was sqlite\n";
     std::fs::write(&p.host_toml, &edited).unwrap();
     setup(&p, &["--skip-install"], &env).0.unwrap();
     assert_eq!(read(&p.host_toml), edited, "kept as written");
     let admin = read_env_file(&p.config.join("admin.env")).unwrap();
     let secrets = read_env_file(&p.config.join("secrets.env")).unwrap();
-    assert_eq!(admin.get("REFORGED_DB_ENGINE"), Some("postgres"));
-    assert_eq!(admin.get("REFORGED_DB_HOST"), Some("127.0.0.1"));
-    assert_eq!(admin.get("REFORGED_DB_PASSWORD"), secrets.get("REFORGED_DB_PASSWORD"));
-    assert_eq!(secrets.get("REFORGED_DB_PASSWORD").map(str::len), Some(64));
+    assert_eq!(admin.get("DAINTY_DB_ENGINE"), Some("postgres"));
+    assert_eq!(admin.get("DAINTY_DB_HOST"), Some("127.0.0.1"));
+    assert_eq!(admin.get("DAINTY_DB_PASSWORD"), secrets.get("DAINTY_DB_PASSWORD"));
+    assert_eq!(secrets.get("DAINTY_DB_PASSWORD").map(str::len), Some(64));
 }
 
 #[test]

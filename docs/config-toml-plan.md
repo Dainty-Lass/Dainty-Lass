@@ -98,7 +98,7 @@ Each table is optional. A missing key keeps today's default, and the defaults st
 
 Two additions make this safe:
 
-- **Escape hatch**: `[env.backend]`, `[env.director]`, `[env.gateway]` and so on, for raw `KEY = "value"` pairs appended to that service's env. This covers upstream variables we haven't named. A **denylist** rejects keys host.toml already owns: secrets, ports, bind addresses, `MONGODB_URI`, `APPROVED_EXECUTABLE_SHA256`, `AUTH_*`, `REFORGED_SERVER_MODE`, the multipliers. Without the denylist, the passthrough could switch a public server into private-only features. `npm run doctor` lists every passthrough in use.
+- **Escape hatch**: `[env.backend]`, `[env.director]`, `[env.gateway]` and so on, for raw `KEY = "value"` pairs appended to that service's env. This covers upstream variables we haven't named. A **denylist** rejects keys host.toml already owns: secrets, ports, bind addresses, `MONGODB_URI`, `APPROVED_EXECUTABLE_SHA256`, `AUTH_*`, `DAINTY_SERVER_MODE`, the multipliers. Without the denylist, the passthrough could switch a public server into private-only features. `npm run doctor` lists every passthrough in use.
 - **Early validation**: after rendering, setup and `doctor` run `LoadGatewayConfig`, `LoadConfig` (Content) and `LoadAllowlistConfig` against the rendered env maps. A bad value fails setup with the service's own message ("GATEWAY_RATE_WS must be …"), not a crash loop at start. That needs those loaders exported in a form ReforgedHost can import, or a `--check-config` mode in each service.
 
 ## Environment variables override the config
@@ -109,8 +109,8 @@ Today it's the opposite. `serviceEnvironment()` in `ReforgedHost/src/services.ts
 
 - **Order**: rendered env file, then `extraEnv`, then the inherited variables that match a key the service reads. The inherited variable is applied last and wins.
 - **Which variables count**: a key in that service's rendered env file, or a key named in that service's Phase 2 table or `[env.<service>]` passthrough. Other inherited variables pass through as today (PATH, SystemRoot …).
-- **Generic names need a service prefix.** `PORT`, `BIND_HOST`, `NODE_ENV`, `LOG_LEVEL`, `MY_IP` and `BACKEND_URL` are often set globally on a dev box or by a hosting panel, and the backend, Director and Content all read `PORT`. Override them as `REFORGED_<SERVICE>_<NAME>` instead (`REFORGED_BACKEND_PORT`, `REFORGED_DIRECTOR_LOG_LEVEL`), which ReforgedHost renames before it starts the service. A bare `PORT` in the environment is still dropped, with its own warning saying which prefixed name to use.
-- **Secrets and safety keys can be overridden too**, as asked. The warning for those is louder, and the value is redacted (only the key and a "value redacted" note are logged). Covered keys: anything in `SECRET_KEYS`, `AUTH_*`, `REFORGED_SERVER_MODE`, `APPROVED_EXECUTABLE_SHA256`, the multipliers. The backend still checks for itself that multipliers run only on a private Tailscale server.
+- **Generic names need a service prefix.** `PORT`, `BIND_HOST`, `NODE_ENV`, `LOG_LEVEL`, `MY_IP` and `BACKEND_URL` are often set globally on a dev box or by a hosting panel, and the backend, Director and Content all read `PORT`. Override them as `DAINTY_<SERVICE>_<NAME>` instead (`DAINTY_BACKEND_PORT`, `DAINTY_DIRECTOR_LOG_LEVEL`), which ReforgedHost renames before it starts the service. A bare `PORT` in the environment is still dropped, with its own warning saying which prefixed name to use.
+- **Secrets and safety keys can be overridden too**, as asked. The warning for those is louder, and the value is redacted (only the key and a "value redacted" note are logged). Covered keys: anything in `SECRET_KEYS`, `AUTH_*`, `DAINTY_SERVER_MODE`, `APPROVED_EXECUTABLE_SHA256`, the multipliers. The backend still checks for itself that multipliers run only on a private Tailscale server.
 - **The warning**: one line per overridden key, each time a service starts or restarts, in both the console and the host log:
   `WARN gateway: GATEWAY_RATE_WS=40/24 from the environment overrides host.toml (gateway.rate.ws = 20/12)`
   Secret keys show `(value redacted)` in place of both values. Restarts log it again, so a long-running server doesn't hide an override in a log from weeks ago.
@@ -122,7 +122,7 @@ Today it's the opposite. `serviceEnvironment()` in `ReforgedHost/src/services.ts
 ## Phase 3: the other files hosts write
 
 - **news.json → news.toml**: `[[items]]` with `date`, `title`, and a `body` that can be a multi-line `"""` string, which is the real win for news. ReforgedContent reads `.toml` when the file ends in `.toml` and JSON otherwise. Setup converts an existing news.json once.
-- **session-supplies.json → session-supplies.toml**: the backend patch reads JSON, so ReforgedHost converts TOML → JSON at setup into `.workspace/generated/session-supplies.json` and points `REFORGED_SESSION_SUPPLIES_FILE` there. The upstream patch doesn't change. Check the file's real shape before committing to a layout.
+- **session-supplies.json → session-supplies.toml**: the backend patch reads JSON, so ReforgedHost converts TOML → JSON at setup into `.workspace/generated/session-supplies.json` and points `DAINTY_SESSION_SUPPLIES_FILE` there. The upstream patch doesn't change. Check the file's real shape before committing to a layout.
 
 ## Staying as they are
 

@@ -24,9 +24,17 @@ pub const MASKED_PASSWORD: &str = "-AUTH_PASSWORD=<hidden>";
 /// Arguments added for a windowed start.
 pub const WINDOWED_ARGS: [&str; 3] = ["-windowed", "-ResX=1280", "-ResY=720"];
 /// Variables with these (upper-cased) prefixes never reach the game from the launcher's own environment.
-pub const STRIPPED_PREFIXES: [&str; 4] = ["REFORGED_", "RUSTIC_ISLES_", "RUSTIC_RIFTS_", "MYSTICPARADOX_"];
-/// The variable naming the local backend.
-pub const BACKEND_URL_VAR: &str = "REFORGED_BACKEND_URL";
+// REFORGED_: the names before the 2026-11-06 rename, which a runtime built before it still reads
+pub const STRIPPED_PREFIXES: [&str; 5] = [
+    "DAINTY_",
+    "REFORGED_",
+    "RUSTIC_ISLES_",
+    "RUSTIC_RIFTS_",
+    "MYSTICPARADOX_",
+];
+/// The variables naming the local backend: the runtime reads `RUSTIC_ISLES_BACKEND_URL` first, and one built
+/// before the 2026-11-06 rename knows no `DAINTY_` name.
+pub const BACKEND_URL_VARS: [&str; 2] = ["DAINTY_BACKEND_URL", "RUSTIC_ISLES_BACKEND_URL"];
 /// The variables naming the runtime build; the runtime reads either.
 pub const PROFILE_VARS: [&str; 2] = ["RUSTIC_ISLES_RUNTIME_PROFILE", "MYSTICPARADOX_RUNTIME_PROFILE"];
 /// The DirectX files the game needs in System32.
@@ -212,7 +220,9 @@ where
         .map(|(k, v)| (k.into(), v.into()))
         .filter(|(k, _)| !is_stripped(k))
         .collect();
-    env.insert(BACKEND_URL_VAR.to_owned(), backend_url.to_owned());
+    for var in BACKEND_URL_VARS {
+        env.insert(var.to_owned(), backend_url.to_owned());
+    }
     for var in PROFILE_VARS {
         env.insert(var.to_owned(), profile_name(profile).to_owned());
     }
@@ -517,7 +527,7 @@ mod tests {
     use super::*;
     use std::sync::atomic::{AtomicUsize, Ordering};
 
-    const KEY: &str = "RRK_0123456789abcdefSECRETvalue";
+    const KEY: &str = "DLK_0123456789abcdefSECRETvalue";
 
     fn input() -> LaunchArgs<'static> {
         LaunchArgs {
@@ -593,7 +603,7 @@ mod tests {
                 Err(LaunchError::InvalidUsername)
             ));
         }
-        for key in ["", "short", "RRK_has space", "RRK_with=equals"] {
+        for key in ["", "short", "DLK_has space", "DLK_with=equals"] {
             assert!(matches!(
                 launch_args(&LaunchArgs { key, ..input() }),
                 Err(LaunchError::InvalidKey)
@@ -681,8 +691,9 @@ mod tests {
         let base = [
             ("PATH", "/bin"),
             ("SystemRoot", "C:\\Windows"),
+            ("DAINTY_BACKEND_URL", "http://evil"),
+            ("dainty_backend_url", "http://evil"),
             ("REFORGED_BACKEND_URL", "http://evil"),
-            ("reforged_backend_url", "http://evil"),
             ("Reforged_Anything", "x"),
             ("RUSTIC_ISLES_RUNTIME_PROFILE", "development"),
             ("rustic_isles_x", "x"),
@@ -697,8 +708,9 @@ mod tests {
         let expected: BTreeMap<String, String> = [
             ("MYSTICPARADOX_RUNTIME_PROFILE", "production"),
             ("PATH", "/bin"),
+            ("DAINTY_BACKEND_URL", "http://127.0.0.1:61000"),
             ("REFORGEDX", "kept"),
-            ("REFORGED_BACKEND_URL", "http://127.0.0.1:61000"),
+            ("RUSTIC_ISLES_BACKEND_URL", "http://127.0.0.1:61000"),
             ("RUSTIC_ISLES_RUNTIME_PROFILE", "production"),
             ("SystemRoot", "C:\\Windows"),
             ("XREFORGED_Y", "kept"),

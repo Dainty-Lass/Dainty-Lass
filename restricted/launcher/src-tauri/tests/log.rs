@@ -47,7 +47,7 @@ fn a_registered_key_never_reaches_the_file() {
     let _global = GLOBAL.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
     let dir = tempfile::tempdir().unwrap();
     kit::set_folder(dir.path());
-    let key = concat!("RRK_", "fedcba9876543210", "fedcba9876543210", "fedcba9876543210");
+    let key = concat!("DLK_", "fedcba9876543210", "fedcba9876543210", "fedcba9876543210");
     kit::register_secret(key);
     kit::info(format!("launching with -AUTH_PASSWORD={key} and {}", &key[4..]));
     // The subscriber dainty-launcher-kit's `install` sets, here for this thread only

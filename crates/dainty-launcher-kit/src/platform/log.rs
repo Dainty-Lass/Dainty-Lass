@@ -28,7 +28,9 @@ pub const MAX_LOG_BYTES: u64 = 2 * 1024 * 1024;
 /// What a redacted value is replaced with.
 pub const HIDDEN: &str = "<hidden>";
 
-const KEY_PREFIX: &str = "RRK_";
+const KEY_PREFIX: &str = "DLK_";
+// The prefix before the 2026-11-06 rename: a migrated key is still hidden
+const LEGACY_KEY_PREFIX: &str = "RRK_";
 const MIN_SECRET_UNITS: usize = 6;
 const MIN_KEY_REST_UNITS: usize = 16;
 
@@ -83,10 +85,10 @@ static PATTERNS: LazyLock<Option<Patterns>> = LazyLock::new(|| {
     let auth = format!(r#"({})[^{JS_SPACE}"']*"#, ascii_ci("-AUTH_PASSWORD="));
     let header = format!(
         r#"({}["']?[{JS_SPACE}]*[:=][{JS_SPACE}]*["']?)[^{JS_SPACE}"',}}]+"#,
-        ascii_ci("x-reforged-user-api-key")
+        ascii_ci("x-dainty-user-api-key")
     );
     Some(Patterns {
-        key: Regex::new(r"RRK_[A-Za-z0-9_-]+").ok()?,
+        key: Regex::new(r"(?:DLK|RRK)_[A-Za-z0-9_-]+").ok()?,
         auth_password: Regex::new(&auth).ok()?,
         api_key_header: Regex::new(&header).ok()?,
     })
@@ -99,7 +101,7 @@ fn utf16_len(text: &str) -> usize {
 /// The secrets the log hides, and the masks it applies.
 #[derive(Debug, Clone, Default)]
 pub struct Redactor {
-    // Registration order: a key is replaced whole before its `RRK_`-less rest is.
+    // Registration order: a key is replaced whole before its `DLK_`-less rest is.
     secrets: Vec<String>,
 }
 
@@ -116,14 +118,16 @@ impl Redactor {
         }
     }
 
-    /// Remembers `value` when it has at least 6 UTF-16 units, and an account key's part after `RRK_` when that
+    /// Remembers `value` when it has at least 6 UTF-16 units, and an account key's part after `DLK_` (or `DLK_`) when that
     /// has at least 16 units and no line breaks.
     pub fn register(&mut self, value: &str) {
         if utf16_len(value) < MIN_SECRET_UNITS {
             return;
         }
         self.remember(value);
-        if let Some(rest) = value.strip_prefix(KEY_PREFIX)
+        if let Some(rest) = value
+            .strip_prefix(KEY_PREFIX)
+            .or_else(|| value.strip_prefix(LEGACY_KEY_PREFIX))
             && utf16_len(rest) >= MIN_KEY_REST_UNITS
             && !rest.contains(['\r', '\n'])
         {
@@ -131,9 +135,11 @@ impl Redactor {
         }
     }
 
-    /// Forgets `value` and its `RRK_`-less rest.
+    /// Forgets `value` and its `DLK_`-less rest.
     pub fn unregister(&mut self, value: &str) {
-        let rest = value.strip_prefix(KEY_PREFIX);
+        let rest = value
+            .strip_prefix(KEY_PREFIX)
+            .or_else(|| value.strip_prefix(LEGACY_KEY_PREFIX));
         self.secrets.retain(|s| s != value && Some(s.as_str()) != rest);
     }
 
@@ -156,7 +162,7 @@ impl Redactor {
         let Some(p) = PATTERNS.as_ref() else {
             return HIDDEN.to_owned();
         };
-        let out = p.key.replace_all(&out, "RRK_<hidden>");
+        let out = p.key.replace_all(&out, "DLK_<hidden>");
         let out = p.auth_password.replace_all(&out, "${1}<hidden>");
         p.api_key_header.replace_all(&out, "${1}<hidden>").into_owned()
     }
@@ -414,7 +420,7 @@ mod tests {
             forward("hyper::client", "retrying");
             tracing::warn!(target: "egs_api::api", "direct leak");
         });
-        warn("token hunter2-secret RRK_abc");
+        warn("token hunter2-secret DLK_abc");
         unregister_secret("hunter2-secret");
         info("hunter2-secret");
 
@@ -425,7 +431,7 @@ mod tests {
             [
                 "INFO kit: connected host=example port=5",
                 "WARN hyper::client: retrying",
-                "WARN token <hidden> RRK_<hidden>",
+                "WARN token <hidden> DLK_<hidden>",
                 "INFO hunter2-secret",
             ]
         );

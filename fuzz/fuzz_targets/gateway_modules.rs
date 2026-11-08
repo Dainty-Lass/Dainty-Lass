@@ -17,7 +17,7 @@ use libfuzzer_sys::fuzz_target;
 use dainty_module_api::registrar::RouteSpec;
 use dainty_module_api::stub::StubModule;
 use dainty_module_api::{CorePlugin, GameModule, Registration};
-use dainty_protocol::invite::reforged_version;
+use dainty_protocol::invite::dainty_version;
 
 #[derive(Arbitrary, Debug)]
 struct Input<'a> {
@@ -60,7 +60,7 @@ fuzz_target!(|input: Input<'_>| {
     }
     let routed = routes.route(
         "0.0.1",
-        &reforged_version(),
+        &dainty_version(),
         input.method,
         input.target,
         &headers,

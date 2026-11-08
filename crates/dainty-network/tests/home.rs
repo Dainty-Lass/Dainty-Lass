@@ -1,7 +1,7 @@
 //! The home API across nodes in one process (DN5): three regions on an in-process network, each with its own
 //! database and directory, a stub game module recording what is written to an account, and the row's Verify: a
 //! hunt hosted in another region saves loot and XP at the player's home. SQLite always; Postgres too when
-//! `REFORGED_TEST_POSTGRES_URL` is set.
+//! `DAINTY_TEST_POSTGRES_URL` is set.
 #![allow(clippy::unwrap_used, clippy::expect_used, reason = "a panic is how a test fails")]
 
 mod common;
@@ -739,11 +739,11 @@ async fn the_account_key_never_crosses_a_node_link() {
     assert!(sent >= 12, "{sent} messages on the wire");
     for message in cluster.wire.lock().unwrap().iter() {
         let text = String::from_utf8_lossy(message).to_ascii_lowercase();
-        assert!(!text.contains("rrk_"), "{text}");
+        assert!(!text.contains("dlk_"), "{text}");
     }
 
     // A module that tries to write one is refused before anything is sent, wherever it hides it
-    let key = format!("RRK_{}", "ab".repeat(24));
+    let key = format!("DLK_{}", "ab".repeat(24));
     for body in [
         json!({ "note": key }),
         json!({ "nested": [{ "deep": [format!("my key is {key}")] }] }),

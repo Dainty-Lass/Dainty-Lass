@@ -26,7 +26,7 @@ under [security/](security) go through each trust boundary line by line; the AGP
 **The gateway is the only listener off loopback, with one written exception for the TURN relay (DD24).**
 Every HTTP and control service binds `127.0.0.1`, and the gateway refuses the host-only routes (`/admin`,
 `/launcher`, `/internal`, `/health`, and `/__node/*` without a valid cluster client certificate) and headers
-(`x-rustic-isles-gameserver-apikey`, `x-reforged-admin-key`, `x-rustic-isles-metrics-token`, and their `x-mysticparadox-` forms) before anything
+(`x-rustic-isles-gameserver-apikey`, `x-dainty-admin-key`, `x-rustic-isles-metrics-token`, and their `x-mysticparadox-` forms) before anything
 reaches an upstream. The game servers' UDP ports are opened per player address by the allowlist only after that
 player logs in. When realms are enabled on 1.14.7, `turn-rs` (or `coturn`) listens on UDP/TCP 3478 (and optional
 TLS 5349 plus its UDP relay port range) because STUN/TURN traffic cannot sit behind an HTTP gateway
@@ -65,44 +65,44 @@ Dainty Lass separates **core plugins** from **game modules** ([`crates/dainty-mo
 ## Joining a server
 
 1. **Invite.** The host makes one with `dainty-host invite`:
-   `reforged-revival://join?v=1&host=<Tailscale IP>&port=61000&code=..&name=..[&share=..]` for a private
-   server, `reforged-revival://join?v=2&mode=public&host=<IP or DNS>&port=443&fp=<certificate SHA-256>&code=..&name=..`
+   `dainty://join?v=1&host=<Tailscale IP>&port=61000&code=..&name=..[&share=..]` for a private
+   server, `dainty://join?v=2&mode=public&host=<IP or DNS>&port=443&fp=<certificate SHA-256>&code=..&name=..`
    for a public one. The `dauntless://` scheme carries the same fields plus `version` (`reforged` for 1.14.7;
    `revived`, a Dauntless Revived 1.4.4 server, is refused with its own error). The parser accepts nothing it does
    not recognise (`crates/dainty-protocol`, `tests/cases/invite.json`).
-2. **Registration.** The launcher posts the chosen name and the code to `POST /reforged/api/Register` and gets
-   an **account key** (`RRK_` and 48 hex digits). The key is stored in the OS keystore and never shown again
+2. **Registration.** The launcher posts the chosen name and the code to `POST /dainty/api/Register` and gets
+   an **account key** (`DLK_` and 48 hex digits). The key is stored in the OS keystore and never shown again
    unless the player backs it up. In public mode the launcher connects only over TLS pinned to the `fp` from
    the invite, and the key goes only to that server and certificate.
-3. **Status and identity.** `GET /reforged/api/ServerStatus` (with the key, the full view: players and
-   instances; without it, the limited one) and `GET /reforged/api/GetUserInfo` (the account's id and name, or
+3. **Status and identity.** `GET /dainty/api/ServerStatus` (with the key, the full view: players and
+   instances; without it, the limited one) and `GET /dainty/api/GetUserInfo` (the account's id and name, or
    a ban with its reason).
 4. **The runtime.** The content server lists the host's build of `Rustic-Isles.dll` and `winmm.dll` with sizes
    and SHA-256s (`/content/v1/runtime/manifest`). The launcher shows them, the player accepts them once, and
    every launch checks the files again. The launcher never injects: the DLL reaches the game only through the
    loader's `mystic_loader.ini`, and PLAY refuses to start while a leftover ini or an unknown DLL sits beside
    the loader.
-5. **Play.** The launcher starts Dauntless 1.14.7 with `-AUTH_PASSWORD=<key>` and `REFORGED_BACKEND_URL`
+5. **Play.** The launcher starts Dauntless 1.14.7 with `-AUTH_PASSWORD=<key>` and `DAINTY_BACKEND_URL`
    pointing at its relay. The relay carries the game's HTTP and chat to the gateway and answers the game's
    region ping (`/QoS`) locally; the game only ever sees `127.0.0.1:61100`. The backend runs Rustic Isles
    with `AUTH_MODE=APIKEY`, so the key is the game's login.
 
 ## The launcher API
 
-The backend's `/reforged/api` is the one contract between the launcher, the content server, the admin API and
-the host kit (`crates/rustic-isles-reforged/src/reforged_api.rs`, written clean-room from the behaviour of
+The backend's `/dainty/api` is the one contract between the launcher, the content server, the admin API and
+the host kit (`crates/rustic-isles-launcher-api/src/reforged_api.rs`, written clean-room from the behaviour of
 `restricted/modules/rustic-isles/reference/1.14.7/ParadoxBackend/src/routes/reforgedApi.ts`).
 
 | Route | Who calls it | Through the gateway |
 | --- | --- | --- |
-| `POST /reforged/api/Register` | launcher | yes |
-| `GET /reforged/api/GetUserInfo` | launcher, content server (`x-reforged-user-api-key`) | yes |
-| `GET /reforged/api/ServerStatus` | launcher, admin API | yes |
-| `GET /reforged/api/RegistrationStatus` | launcher | yes |
-| `POST /reforged/api/CreateInvite`, `GET …/InviteCodes`, `DELETE …/InviteCode/:code` | host kit (`x-reforged-admin-key`, loopback only) | refused |
-| `POST /reforged/api/SetAccountStatus`, `POST /reforged/api/Kick` | host kit, admin API | refused |
+| `POST /dainty/api/Register` | launcher | yes |
+| `GET /dainty/api/GetUserInfo` | launcher, content server (`x-dainty-user-api-key`) | yes |
+| `GET /dainty/api/ServerStatus` | launcher, admin API | yes |
+| `GET /dainty/api/RegistrationStatus` | launcher | yes |
+| `POST /dainty/api/CreateInvite`, `GET …/InviteCodes`, `DELETE …/InviteCode/:code` | host kit (`x-dainty-admin-key`, loopback only) | refused |
+| `POST /dainty/api/SetAccountStatus`, `POST /dainty/api/Kick` | host kit, admin API | refused |
 
-Everything else under `/reforged/api` is refused at the gateway with 403, admin key or not: the backend
+Everything else under `/dainty/api` is refused at the gateway with 403, admin key or not: the backend
 accepts those calls only from its own machine anyway. The gateway's tests read the route file, so a route
 added there without a policy decision fails CI.
 
@@ -124,7 +124,7 @@ added there without a policy decision fails CI.
   ([remote-management.md](remote-management.md), [security/remote-management.md](security/remote-management.md)).
   Enrollment redeems a single-use token over TLS pinned to the controller's SHA-256 certificate fingerprint;
   subsequent syncs ride mTLS on `/__node/remote` with the controller's cluster CA. Secrets (`secrets.env`),
-  account keys (`RRK_*`), private keys and database files never cross the wire in either direction, local
+  account keys (`DLK_*`), private keys and database files never cross the wire in either direction, local
   identity keys and `[remote].local_overrides` are preserved locally, and remote actions run through the same
   `DH2` role checks, `DH6` guarded approval rules and `DD23` change-log attribution (`remote:<controller>:<key>`)
   as local ones.

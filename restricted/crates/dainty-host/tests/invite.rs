@@ -97,7 +97,7 @@ fn fake_backend(answer: fn(&str, &str) -> (u16, String)) -> (u16, Seen) {
             };
             let key = head
                 .lines()
-                .find_map(|l| l.strip_prefix("x-reforged-admin-key: "))
+                .find_map(|l| l.strip_prefix("x-dainty-admin-key: "))
                 .unwrap_or_default()
                 .to_owned();
             record
@@ -136,7 +136,7 @@ fn get_their_code_from_the_backends_local_admin_route_with_the_admin_key() {
         "WXYZ-2345-6789"
     );
     let (line, body) = seen.lock().unwrap()[0].clone();
-    assert_eq!(line, "POST /reforged/api/CreateInvite HTTP/1.1");
+    assert_eq!(line, "POST /dainty/api/CreateInvite HTTP/1.1");
     assert_eq!(
         body, r#"{"uses":2,"infinite":false,"name":"Alex"}"#,
         "the Node kit's body, key for key"

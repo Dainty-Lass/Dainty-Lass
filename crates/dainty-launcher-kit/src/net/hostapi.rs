@@ -24,12 +24,12 @@ pub use parse::{
     Background, Branding, BrandingImage, ImageType, NewsItem, StatusReply, UserInfo, is_branding_path, sniff_image,
 };
 
-/// Header that carries the account key (`RRK_...`) to the server it was made for.
-pub const KEY_HEADER: &str = "x-reforged-user-api-key";
+/// Header that carries the account key (`DLK_...`) to the server it was made for.
+pub const KEY_HEADER: &str = "x-dainty-user-api-key";
 /// Asked when the status route is missing: an older server answers it.
 pub const PROBE_PATH: &str = "/dauntless-status";
 /// The account lookup route.
-pub const USER_INFO_PATH: &str = "/reforged/api/GetUserInfo";
+pub const USER_INFO_PATH: &str = "/dainty/api/GetUserInfo";
 /// The content server's news.
 pub const NEWS_PATH: &str = "/content/v1/news";
 /// The content server's branding index.

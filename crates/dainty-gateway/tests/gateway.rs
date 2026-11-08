@@ -25,7 +25,7 @@ async fn proxies_with_the_secret_set_and_the_policy_applied() {
     let at = log_len();
 
     // Backend routing, path and query untouched; claims replaced; the user's key passes byte for byte
-    let key = "RRK_abcdefgh12345678";
+    let key = "DLK_abcdefgh12345678";
     let a = request(
         gw.port,
         fp,
@@ -33,8 +33,8 @@ async fn proxies_with_the_secret_set_and_the_policy_applied() {
         "/inventory/x?b=1&a=%20",
         &[
             ("x-forwarded-for", "6.6.6.6"),
-            ("x-reforged-gateway", "fake"),
-            ("x-reforged-user-api-key", key),
+            ("x-dainty-gateway", "fake"),
+            ("x-dainty-user-api-key", key),
         ],
         b"",
     )
@@ -45,8 +45,8 @@ async fn proxies_with_the_secret_set_and_the_policy_applied() {
     assert_eq!(seen["url"], "/inventory/x?b=1&a=%20");
     assert_eq!(seen["headers"]["x-forwarded-for"], "127.0.0.1");
     assert_eq!(seen["headers"]["x-forwarded-proto"], "https");
-    assert_eq!(seen["headers"]["x-reforged-gateway"], SECRET);
-    assert_eq!(seen["headers"]["x-reforged-user-api-key"], key);
+    assert_eq!(seen["headers"]["x-dainty-gateway"], SECRET);
+    assert_eq!(seen["headers"]["x-dainty-user-api-key"], key);
 
     // Content
     let c = request(gw.port, fp, "GET", "/content/a.json", &[], b"").await;
@@ -65,11 +65,11 @@ async fn proxies_with_the_secret_set_and_the_policy_applied() {
     .await;
     assert_eq!((k.status, k.text().as_str()), (403, r#"{"error":"forbidden"}"#));
     assert_eq!(k.header("cache-control"), Some("no-store"));
-    let admin = request(gw.port, fp, "POST", "/reforged/api/CreateInvite", &[], b"{}").await;
+    let admin = request(gw.port, fp, "POST", "/dainty/api/CreateInvite", &[], b"{}").await;
     assert_eq!(admin.status, 403);
     assert_eq!(admin.header("connection"), Some("close"));
     assert_eq!(backend.seen.lock().unwrap().len(), before);
-    let public = request(gw.port, fp, "GET", "/reforged/api/ServerStatus", &[], b"").await;
+    let public = request(gw.port, fp, "GET", "/dainty/api/ServerStatus", &[], b"").await;
     assert_eq!(public.status, 200);
 
     // Chunked answers stay chunked with both cookies; hop-by-hop and leaky headers dropped
@@ -77,7 +77,7 @@ async fn proxies_with_the_secret_set_and_the_policy_applied() {
     assert_eq!((s.status, s.text().as_str()), (201, "status 201"));
     assert_eq!(s.header("transfer-encoding"), Some("chunked"));
     assert_eq!(s.all("set-cookie"), ["a=1", "b=2"]);
-    assert!(s.header("x-powered-by").is_none() && s.header("x-reforged-gateway").is_none());
+    assert!(s.header("x-powered-by").is_none() && s.header("x-dainty-gateway").is_none());
 
     // The feed: tokens always, heartbeats only with a bearer, only 2xx
     let local = |n| Ipv4Addr::new(127, 0, 0, n);
@@ -179,7 +179,7 @@ async fn websocket_upgrades_are_joined_byte_for_byte() {
     s.read_exact(&mut frame).await.unwrap();
     assert_eq!(&frame[2..], b"echo:hi");
     let seen = backend.seen.lock().unwrap().last().cloned().unwrap();
-    assert_eq!(seen["headers"]["x-reforged-gateway"], SECRET);
+    assert_eq!(seen["headers"]["x-dainty-gateway"], SECRET);
     assert_eq!(seen["headers"]["upgrade"], "websocket");
     let line = &requests_since(at)[0];
     assert_eq!(
@@ -249,13 +249,13 @@ async fn the_capture_records_requests_redacted() {
     let dir = tempfile::tempdir().unwrap();
     let extra = [("CAPTURE_DIR", dir.path().display().to_string())];
     let gw = start(&env(None, backend.port, backend.port, None, &extra)).await;
-    let key = "RRK_abcdefgh12345678";
+    let key = "DLK_abcdefgh12345678";
     request(
         gw.port,
         None,
         "POST",
         "/login",
-        &[("content-type", "application/json"), ("x-reforged-user-api-key", key)],
+        &[("content-type", "application/json"), ("x-dainty-user-api-key", key)],
         br#"{"Username":"Alex","Password":"hunter2"}"#,
     )
     .await;
@@ -273,7 +273,7 @@ async fn the_capture_records_requests_redacted() {
     assert_eq!(record["reqBody"]["json"]["Password"], "<redacted>");
     assert_eq!(record["reqBody"]["json"]["Username"], "Alex");
     assert!(
-        record["reqHeaders"]["x-reforged-user-api-key"]
+        record["reqHeaders"]["x-dainty-user-api-key"]
             .as_str()
             .unwrap()
             .starts_with("<key:")

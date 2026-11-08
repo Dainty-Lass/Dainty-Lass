@@ -77,7 +77,7 @@ server's `x-rustic-isles-gameserver-apikey`, 401/403), `HasLauncherAuth` (the la
 `RequireActiveAccount` (an account that isn't deactivated; `(consent)` also needs the current consent),
 `RequireHostCapability(...)` (a player host's capability token for that operation, p2p), `HasAdminAuth` (the admin
 dashboard's cookie session with its CSRF token, or the manager's signed operator headers when that bridge is on),
-`HostOnly` (`reforgedApi.ts`: `REFORGED_ADMIN_KEY` from a loopback peer, nothing forwarded, 403), `requireSyncToken`
+`HostOnly` (`reforgedApi.ts`: `DAINTY_ADMIN_KEY` from a loopback peer, nothing forwarded, 403), `requireSyncToken`
 (`LAUNCHER_LOG_SYNC_TOKEN` in `x-sync-token`, 401). Routes with no auth middleware answer anyone who reaches the listener;
 several check a header inside the handler (`/reforged/api/*` reads the account key, the update publisher routes
 `UPDATE_PUBLISHER_API_KEY`, `/internal/v1/metrics` `RUSTIC_ISLES_METRICS_TOKEN`, or a loopback peer outside

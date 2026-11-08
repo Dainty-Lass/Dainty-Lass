@@ -16,7 +16,7 @@ use super::*;
 use crate::net::pinned::certificate_fingerprint;
 use crate::net::pinned::tests::{acceptor, certificate};
 
-const KEY: &str = concat!("RRK_", "0123456789abcdef", "0123456789abcdef", "0123456789abcdef");
+const KEY: &str = concat!("DLK_", "0123456789abcdef", "0123456789abcdef", "0123456789abcdef");
 const SHA_A: &str = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
 const SHA_B: &str = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
 

@@ -16,7 +16,7 @@ Players reach content only through the gateway. What content serves decides whic
 game, so the boundary it guards is **which files leave the host's folders**, and **that an account key is only ever
 sent to the backend on this machine**.
 
-- **In, from players (through the gateway):** the raw request target, `If-None-Match`, `x-reforged-user-api-key`,
+- **In, from players (through the gateway):** the raw request target, `If-None-Match`, `x-dainty-user-api-key`,
   `x-forwarded-for` (`content::input`).
 - **In, from the host:** `content.env`, `runtime.json` and the runtime files, `branding.json` and the art pack, the
   news file.

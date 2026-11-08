@@ -101,6 +101,7 @@ mod tests {
     #[test]
     fn hashes_match_the_spec_vectors() {
         assert_eq!(
+            // The spec vector's input, from before the 2026-11-06 key prefix rename
             user_key_hash(SECRET, "RRK_x"),
             "b3a5c200029e048fe7747e1a3630111f6779d88f804a066b10dd3319f9c383ba"
         );

@@ -590,7 +590,7 @@ struct State {
     home_tickets: BTreeMap<GlobalId, HomeTicket>,
     /// Matchmaking tickets currently visible in this node's regional matchmaking pool.
     regional_pool: BTreeMap<GlobalId, PublishedTicket>,
-    /// Map of account key (`RRK_...`) or its SHA-256 hex digest -> owning `GlobalId` registered for local key verification on `POST /network/v1/regions`.
+    /// Map of account key (`DLK_...`) or its SHA-256 hex digest -> owning `GlobalId` registered for local key verification on `POST /network/v1/regions`.
     local_account_keys: HashMap<String, GlobalId>,
 }
 
@@ -799,18 +799,18 @@ impl RingNode {
 
     // ------------------------------------------------------------------ DN7 / DN8: Region ping report
 
-    /// Registers a local account's API key (`RRK_...`) or its 64-hex SHA-256 digest so
+    /// Registers a local account's API key (`DLK_...`) or its 64-hex SHA-256 digest so
     /// `POST /network/v1/regions` can authenticate home-node requests directly.
     pub fn register_local_account_key(&self, api_key: impl Into<String>, account: GlobalId) {
         let key = api_key.into();
         let mut state = self.state.lock().unwrap_or_else(PoisonError::into_inner);
-        if key.starts_with("RRK_") {
+        if key.starts_with("DLK_") {
             state.local_account_keys.insert(sha256_hex_str(&key), account.clone());
         }
         state.local_account_keys.insert(key, account);
     }
 
-    /// Registers the 64-hex SHA-256 digest of a local account's API key (`RRK_...`) so
+    /// Registers the 64-hex SHA-256 digest of a local account's API key (`DLK_...`) so
     /// `POST /network/v1/regions` can authenticate home-node requests without the raw key crossing `HostLink`.
     pub fn register_local_account_key_hash(&self, key_sha256: impl Into<String>, account: GlobalId) {
         self.state
@@ -821,7 +821,7 @@ impl RingNode {
     }
 
     /// Authenticates and records a player's ordered region ping report from `POST /network/v1/regions`
-    /// (DN7/DN8), accepting either the account's home API key (`RRK_...`) or a valid [`SessionTicket`].
+    /// (DN7/DN8), accepting either the account's home API key (`DLK_...`) or a valid [`SessionTicket`].
     pub async fn record_region_pings_authenticated(
         &self,
         api_key: Option<&str>,

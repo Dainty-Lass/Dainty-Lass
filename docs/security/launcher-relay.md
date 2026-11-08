@@ -13,11 +13,11 @@ An item that does not hold is a bug to fix first, not a box to leave open.
 ## What it is and where the boundary is
 
 The game is pointed at `http://127.0.0.1:<port>` and believes it is talking to the server. The relay carries what it
-sends, the account key (`x-reforged-user-api-key`) included, to the invite's server. Any program on the PC, and any web
+sends, the account key (`x-dainty-user-api-key`) included, to the invite's server. Any program on the PC, and any web
 page in a browser on it, can also open 127.0.0.1, so the relay is where a local stranger would try to borrow the
 player's key or session.
 
-- **In:** plain HTTP/1.1 on `127.0.0.1:<port>` (61100, or `REFORGED_RELAY_PORT` when it passes the override rule),
+- **In:** plain HTTP/1.1 on `127.0.0.1:<port>` (61100, or `DAINTY_RELAY_PORT` when it passes the override rule),
   and best effort a QoS-only listener on `127.0.0.1:80`. Never another address.
 - **Out, public mode:** TLS 1.2/1.3 pinned to the invite's certificate fingerprint (`net::pinned`, through
   `net::connector`), to the gateway's host and port.
@@ -70,7 +70,7 @@ Fuzz targets in `fuzz` (to be added by the integration pass; RL11 does not touch
 ### What reaches the server
 
 - [ ] Paths and queries pass as sent, `/__origin/...` included; the gateway judges them (`origin_paths_pass_as_sent`).
-- [ ] Hop-by-hop headers, those `Connection` names, `host`, `http2-settings` and any `x-reforged-session-ticket` the
+- [ ] Hop-by-hop headers, those `Connection` names, `host`, `http2-settings` and any `x-dainty-session-ticket` the
       game sent are dropped (`proxy::end_to_end`, `Route::headers`); `host` is set to the server's.
 - [ ] A `transfer-encoding` other than `chunked` is 501 and nothing is sent. A chunked request goes on chunked
       without its `content-length`, so the server never sees both framings.
@@ -86,9 +86,9 @@ Fuzz targets in `fuzz` (to be added by the integration pass; RL11 does not touch
       `{"error":"certificate_mismatch"}` (upgrades: bare 502) (`a_pin_mismatch_is_reported_as_one`).
 - [ ] A relay whose home is public refuses to start without a valid pin (`Relay::start` through `check_endpoint`),
       and a private one refuses a host that is not private-mode (`targets_are_checked_before_binding`).
-- [ ] The key goes only home. Away from home, or with a ticket, `x-reforged-user-api-key` is removed and
-      `x-reforged-session-ticket` set (`a_redirect_re_points_mid_session_with_a_ticket_and_home_takes_the_key_again`).
-- [ ] A redirect needs `x-reforged-redirect-host` and a numeric `x-reforged-redirect-port`; any other node than home
+- [ ] The key goes only home. Away from home, or with a ticket, `x-dainty-user-api-key` is removed and
+      `x-dainty-session-ticket` set (`a_redirect_re_points_mid_session_with_a_ticket_and_home_takes_the_key_again`).
+- [ ] A redirect needs `x-dainty-redirect-host` and a numeric `x-dainty-redirect-port`; any other node than home
       needs a ticket, a blank one (empty once trimmed) counting as none; a pinned relay never moves to a node without
       a pin; a bad value is logged and ignored (`bad_redirects_are_logged_and_ignored`,
       `repoint_needs_a_ticket_away_from_home`). "Home" is the same host and port, with the same pin or none.
