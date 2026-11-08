@@ -103,8 +103,8 @@ fn refused(result: Result<impl std::fmt::Debug, DirectoryError>) -> Refusal {
 async fn a_name_taken_in_one_region_is_refused_in_every_other() {
     for engine in engines() {
         let cluster = Cluster::new(engine, 3).await;
-        assert_eq!(cluster.node(LEADER).role(), &Role::Leader);
-        assert_eq!(cluster.node("uk-1").role(), &Role::Replica { leader: id(LEADER) });
+        assert_eq!(cluster.node(LEADER).role(), Role::Leader);
+        assert_eq!(cluster.node("uk-1").role(), Role::Replica { leader: id(LEADER) });
 
         let fox = account("germany-1");
         let entry = cluster
@@ -318,7 +318,7 @@ async fn standalone(engine: Engine) -> (Arc<Directory>, Arc<Counting>, Target) {
 async fn a_server_outside_a_network_keeps_its_directory_to_itself() {
     for engine in engines() {
         let (dir, link, _target) = standalone(engine).await;
-        assert_eq!(dir.role(), &Role::Standalone);
+        assert_eq!(dir.role(), Role::Standalone);
         let local = NodeIdentity::standalone().node;
         let fox = GlobalId::new(IdKind::Account, &local);
         dir.register(player(&fox), &fox, "Fox").await.unwrap();

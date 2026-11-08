@@ -180,6 +180,9 @@ pub struct NetworkOptions {
     pub ship_to_peer: Option<(dainty_module_api::network::NodeId, std::path::PathBuf)>,
     /// Policy when a player joins an instance hosted on a different node (`[network] wrong_node_policy`, DN8).
     pub wrong_node_policy: Option<network_plugin::ring::WrongNodePolicy>,
+    /// `[network] failover = true`: the election this node runs, and the file its term and vote are kept in
+    /// (`docs/distributed-mode.md`). `leader` is unused then
+    pub election: Option<(network_plugin::ElectionConfig, std::path::PathBuf)>,
 }
 
 #[cfg(feature = "gateway")]
@@ -237,7 +240,7 @@ pub fn network(options: NetworkOptions) -> Result<Module, String> {
         director: director.clone(),
     }));
     let node = options.node;
-    let leader = options.leader;
+    let leader = (options.leader, options.election);
     let peers = options.peers;
     let database = options.database;
     let game = options.game;
@@ -297,13 +300,33 @@ pub fn network(options: NetworkOptions) -> Result<Module, String> {
                     .await
                     .map_err(|e| format!("network ticket revocations: {e}"))?;
                 let _health_task = link.spawn_health_checks();
-                let dir_config = network_plugin::directory::DirectoryConfig::in_network(node.node.clone(), leader);
+                let (leader, election) = leader;
+                let dir_config = match &election {
+                    Some((config, _)) => {
+                        network_plugin::directory::DirectoryConfig::failover(node.node.clone(), config.peers.clone())
+                    }
+                    None => network_plugin::directory::DirectoryConfig::in_network(node.node.clone(), leader),
+                };
                 let directory = Arc::new(
                     network_plugin::directory::Directory::new(db.clone(), dir_config, link.clone())
                         .await
                         .map_err(|e| format!("network directory: {e}"))?,
                 );
                 let replication_task = directory.spawn_replication(replication_interval);
+                let election = match election {
+                    Some((config, state)) => {
+                        let election = network_plugin::Election::new(
+                            config,
+                            link.clone(),
+                            directory.clone(),
+                            Arc::new(network_plugin::election::FileTermStore::new(state)),
+                        )
+                        .map_err(|e| format!("network election: {e}"))?;
+                        let tasks = [directory.follow(election.subscribe()), election.spawn()];
+                        Some((election, tasks))
+                    }
+                    None => None,
+                };
                 let home_service = Arc::new(network_plugin::home::HomeService::new(
                     node.clone(),
                     tickets.clone(),
@@ -367,6 +390,9 @@ pub fn network(options: NetworkOptions) -> Result<Module, String> {
                 services.attach(network_plugin::Service::Directory, directory);
                 services.attach(network_plugin::Service::Home, home_service);
                 services.attach(network_plugin::Service::Ring, ring_node);
+                if let Some((election, _)) = &election {
+                    services.attach(network_plugin::Service::Election, election.clone());
+                }
                 if let Some(dir) = peer_log_dir {
                     let store = Arc::new(network_plugin::logship::PeerLogStore::new(
                         dir,
@@ -412,6 +438,7 @@ pub fn network(options: NetworkOptions) -> Result<Module, String> {
                 ctx.wait_stop().await;
                 ctx.status.stopping();
                 services.detach(network_plugin::Service::LogShip);
+                services.detach(network_plugin::Service::Election);
                 services.detach(network_plugin::Service::Ring);
                 services.detach(network_plugin::Service::Directory);
                 services.detach(network_plugin::Service::Home);
@@ -426,6 +453,9 @@ pub fn network(options: NetworkOptions) -> Result<Module, String> {
                     task.abort();
                 }
                 if let Some(task) = replication_task {
+                    task.abort();
+                }
+                for task in election.iter().flat_map(|(_, tasks)| tasks) {
                     task.abort();
                 }
                 ctx.status.stopped();

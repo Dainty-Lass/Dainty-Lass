@@ -869,6 +869,9 @@ impl hooks::HostHooks for ServicesHostHooks {
                     peer_log_dir,
                     ship_to_peer,
                     wrong_node_policy: network.wrong_node_policy,
+                    election: network
+                        .election_config()
+                        .map(|election| (election, paths.config.join("network-election.json"))),
                 })
                 .map_err(HostError::message)?,
             );

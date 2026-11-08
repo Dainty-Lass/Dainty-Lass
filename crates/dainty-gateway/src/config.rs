@@ -616,6 +616,7 @@ mod tests {
             host: "203.0.113.1".into(),
             port: 443,
             fingerprint: fp.map(str::to_owned),
+            link: None,
         };
         let fp = "a".repeat(64);
         let nodes = network_nodes(&[

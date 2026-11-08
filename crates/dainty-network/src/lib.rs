@@ -14,6 +14,8 @@
 //! - [`home`]: the home API (DD17): session tickets an account's home signs, and a game module's operations on an
 //!   account run at its home for another node ([`home::NetworkedHome`], [`home::HomeService`]).
 //!
+//! - [`election`]: the nodes choose the directory's leader themselves (Raft's election with pre-vote and
+//!   check-quorum), so registrations go on when the leader goes down (`docs/distributed-mode.md`).
 //! - [`tunnel`]: HTTP between the two halves of a split server (`docs/split-roles.md`): a loopback listener on one
 //!   node, the same port's service on the other.
 //! - [`logship`]: a node's change log shipped to a peer region's node (DH7): the put protocol, `PeerBucket` for
@@ -25,6 +27,7 @@
 pub mod cluster;
 #[cfg(feature = "directory")]
 pub mod directory;
+pub mod election;
 pub mod endpoint;
 pub mod home;
 pub mod inprocess;
@@ -45,6 +48,7 @@ pub mod wire;
 pub use directory::{
     AccountRecord, Directory, DirectoryConfig, DirectoryError, Role, apply_host_clashes, read_host_accounts,
 };
+pub use election::{Election, ElectionConfig, Leadership};
 pub use endpoint::NodeEndpoint;
 pub use link::{Clock, LinkError, NoPeers, NodeService, PeerLink, PeerRoster, Service, ServiceMux};
 #[cfg(feature = "directory")]

@@ -63,6 +63,9 @@ const NETWORK: &[Field] = &[
     ("leader", "leader", false),
     ("wrongNodePolicy", "wrong_node_policy", false),
     ("nodes", "nodes", false),
+    ("failover", "failover", false),
+    ("heartbeatMs", "heartbeat_ms", false),
+    ("electionTimeoutMs", "election_timeout_ms", false),
 ];
 
 const REMOTE: &[Field] = &[
@@ -583,6 +586,13 @@ fn comment(path: &str) -> &'static str {
         "network.nodes" => {
             "The other nodes of the network, one [[network.nodes]] each (DN3): id, region, host, port and optionally
 \n             fingerprint. Only these nodes may call this one. Left out: no peers."
+        }
+        "network.failover" => {
+            "true: the nodes elect the directory leader and replace it when it goes down; leave network.leader out. Use three or five nodes. false (default): the fixed leader."
+        }
+        "network.heartbeat_ms" => "With failover: ms between the leader's heartbeats (1000 when left out).",
+        "network.election_timeout_ms" => {
+            "With failover: ms without a heartbeat before the others elect a new leader (5000 when left out)."
         }
         "remote" => "Remote management across installs (DD27). Left out: standalone.",
         "remote.role" => {

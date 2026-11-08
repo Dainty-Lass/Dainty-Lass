@@ -154,6 +154,14 @@ test = false
 doc = false
 bench = false
 
+# network_election: leader election's node-link messages (docs/distributed-mode.md)
+[[bin]]
+name = "network_election"
+path = "fuzz_targets/network_election.rs"
+test = false
+doc = false
+bench = false
+
 [[bin]]
 name = "network_home"
 path = "fuzz_targets/network_home.rs"

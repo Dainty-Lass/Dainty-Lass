@@ -95,6 +95,14 @@ pub struct NetworkConfig {
     pub wrong_node_policy: Option<network_plugin::ring::WrongNodePolicy>,
     /// The other nodes (`[[network.nodes]]`): the only ones this node answers, and the ones it calls
     pub nodes: Vec<Peer>,
+    /// `failover = true`: the nodes elect the directory's leader and replace it when it goes down
+    /// (`docs/distributed-mode.md`); `leader` is left out then. Off by default: today's fixed leader
+    pub failover: bool,
+    /// How often the elected leader tells the others it leads, in ms (1000 when left out)
+    pub heartbeat_ms: Option<u64>,
+    /// How long followers wait without a heartbeat before electing, in ms: the shortest of a range twice as wide
+    /// (5000 when left out)
+    pub election_timeout_ms: Option<u64>,
 }
 
 fn bad(text: impl Into<String>) -> HostError {
@@ -343,7 +351,7 @@ impl NetworkConfig {
                 .map(|item| {
                     serde_json::from_value::<Peer>(item.clone()).map_err(|e| {
                         bad(format!(
-                            "[[network.nodes]]: {e} (the settings there are id, region, host, port, fingerprint)"
+                            "[[network.nodes]]: {e} (the settings there are id, region, host, port, fingerprint, link)"
                         ))
                     })
                 })
@@ -365,6 +373,31 @@ impl NetworkConfig {
                 Some(id)
             }
         };
+        let flag = |key: &str| -> Result<bool, HostError> {
+            match m.get(key) {
+                None => Ok(false),
+                Some(Value::Bool(b)) => Ok(*b),
+                Some(_) => Err(bad(format!("network.{key} must be true or false"))),
+            }
+        };
+        let millis = |key: &str, name: &str| -> Result<Option<u64>, HostError> {
+            match m.get(key) {
+                None => Ok(None),
+                Some(v) => v
+                    .as_u64()
+                    .filter(|ms| (10..=600_000).contains(ms))
+                    .map(Some)
+                    .ok_or_else(|| bad(format!("network.{name} must be milliseconds from 10 to 600000"))),
+            }
+        };
+        let failover = flag("failover")?;
+        let heartbeat_ms = millis("heartbeatMs", "heartbeat_ms")?;
+        let election_timeout_ms = millis("electionTimeoutMs", "election_timeout_ms")?;
+        if failover && leader.is_some() {
+            return Err(bad(
+                "network.leader and network.failover = true can't both be set: with failover the nodes elect the leader",
+            ));
+        }
         let wrong_node_policy = match m.get("wrongNodePolicy") {
             None => None,
             Some(v) => match v.as_str() {
@@ -375,13 +408,41 @@ impl NetworkConfig {
                 }
             },
         };
-        Ok(Self {
+        let config = Self {
             node,
             region,
             leader,
             wrong_node_policy,
             nodes,
-        })
+            failover,
+            heartbeat_ms,
+            election_timeout_ms,
+        };
+        if let Some(election) = config.election_config() {
+            election.check().map_err(|e| bad(format!("network: {e}")))?;
+        }
+        Ok(config)
+    }
+
+    /// The election this node runs under `failover = true`; none with a fixed leader.
+    pub fn election_config(&self) -> Option<network_plugin::ElectionConfig> {
+        if !self.failover {
+            return None;
+        }
+        let mut config = network_plugin::ElectionConfig::new(
+            self.node.clone(),
+            self.nodes.iter().map(|peer| peer.id.clone()).collect(),
+        );
+        if let Some(ms) = self.heartbeat_ms {
+            config.heartbeat = std::time::Duration::from_millis(ms);
+        }
+        if let Some(ms) = self.election_timeout_ms {
+            let low = std::time::Duration::from_millis(ms);
+            config.election_timeout = (low, low * 2);
+        }
+        // A vote that can't come back before the next election starts is wasted
+        config.call_timeout = (config.heartbeat * 2).min(config.election_timeout.0 / 2);
+        Some(config)
     }
 
     /// The directory leader for this network: `leader` when set in `[network]`, or the
@@ -405,6 +466,15 @@ impl NetworkConfig {
         out.insert("region".into(), Value::String(self.region.to_string()));
         if let Some(leader) = &self.leader {
             out.insert("leader".into(), Value::String(leader.to_string()));
+        }
+        if self.failover {
+            out.insert("failover".into(), Value::Bool(true));
+        }
+        if let Some(ms) = self.heartbeat_ms {
+            out.insert("heartbeatMs".into(), Value::from(ms));
+        }
+        if let Some(ms) = self.election_timeout_ms {
+            out.insert("electionTimeoutMs".into(), Value::from(ms));
         }
         if let Some(policy) = &self.wrong_node_policy {
             let s = match policy {
@@ -574,6 +644,64 @@ mod tests {
         assert_eq!(net.effective_leader().as_str(), "uk-1");
         let round_trip = HostConfig::from_toml(&config.to_toml().unwrap()).unwrap();
         assert_eq!(round_trip.network, config.network);
+    }
+
+    #[test]
+    fn failover_reads_its_timings_and_a_back_channel_link_and_round_trips() {
+        let public = BASE
+            .replace("mode = \"private\"", "mode = \"public\"")
+            .replace("100.101.102.103", "203.0.113.10");
+        let nodes = "[[network.nodes]]\nid = \"uk-1\"\nregion = \"uk\"\nhost = \"198.51.100.2\"\nport = 443\n\
+                     link = \"100.64.0.2:443\"\n\n\
+                     [[network.nodes]]\nid = \"germany-1\"\nregion = \"germany\"\nhost = \"198.51.100.3\"\nport = 443\n";
+        let toml = format!(
+            "{public}\n[network]\nnode = \"oregon-1\"\nregion = \"oregon\"\nfailover = true\nheartbeat_ms = 500\n\
+             election_timeout_ms = 3000\n\n{nodes}"
+        );
+        let config = HostConfig::from_toml(&toml).unwrap();
+        let net = config.network.as_ref().unwrap();
+        assert!(net.failover);
+        assert_eq!(net.nodes[0].dial(), ("100.64.0.2", 443));
+        assert_eq!(net.nodes[1].dial(), ("198.51.100.3", 443));
+        let election = net.election_config().unwrap();
+        assert_eq!(election.peers.len(), 2);
+        assert_eq!(election.quorum(), 2);
+        assert_eq!(election.heartbeat, std::time::Duration::from_millis(500));
+        assert_eq!(
+            election.election_timeout,
+            (std::time::Duration::from_secs(3), std::time::Duration::from_secs(6))
+        );
+        election.check().unwrap();
+        let round_trip = HostConfig::from_toml(&config.to_toml().unwrap()).unwrap();
+        assert_eq!(round_trip.network, config.network);
+
+        // Off by default, and refused beside a fixed leader or with timings that can't work
+        let plain = format!("{public}\n[network]\nnode = \"oregon-1\"\nregion = \"oregon\"\n\n{nodes}");
+        assert_eq!(
+            HostConfig::from_toml(&plain)
+                .unwrap()
+                .network
+                .unwrap()
+                .election_config(),
+            None
+        );
+        for (bad, said) in [
+            ("failover = true\nleader = \"uk-1\"\n", "can't both be set"),
+            ("failover = \"yes\"\n", "network.failover must be true or false"),
+            ("failover = true\nheartbeat_ms = 4000\n", "three heartbeats"),
+            (
+                "failover = true\nelection_timeout_ms = 5\n",
+                "network.election_timeout_ms",
+            ),
+        ] {
+            let toml = format!("{public}\n[network]\nnode = \"oregon-1\"\nregion = \"oregon\"\n{bad}\n{nodes}");
+            let error = HostConfig::from_toml(&toml).unwrap_err().to_string();
+            assert!(error.contains(said), "{bad:?}: {error}");
+        }
+        let link = nodes.replace("100.64.0.2:443", "100.64.0.2");
+        let toml = format!("{public}\n[network]\nnode = \"oregon-1\"\nregion = \"oregon\"\n\n{link}");
+        let error = HostConfig::from_toml(&toml).unwrap_err().to_string();
+        assert!(error.contains("link must be host:port"), "{error}");
     }
 
     #[test]

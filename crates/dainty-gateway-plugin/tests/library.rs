@@ -161,6 +161,7 @@ async fn node_links_enrollment_and_allowlist_admits(through_library: bool) {
         host: "127.0.0.1".into(),
         port: 1,
         fingerprint: None,
+        link: None,
     }])
     .unwrap();
     let (cert, key) = (
@@ -216,6 +217,7 @@ async fn node_links_enrollment_and_allowlist_admits(through_library: bool) {
         host: "127.0.0.1".into(),
         port,
         fingerprint: None,
+        link: None,
     };
     let from_uk = link(&uk, oregon_peer.clone());
     let mut answer = None;

@@ -604,7 +604,12 @@ impl HomeApi for NetworkedHome {
                 return dir
                     .register(actor, account, username)
                     .await
-                    .map(|entry| entry.change.username().as_str().to_owned())
+                    .map(|entry| {
+                        entry
+                            .change
+                            .username()
+                            .map_or_else(String::new, |name| name.as_str().to_owned())
+                    })
                     .map_err(denied);
             }
             let _ = (account, username);

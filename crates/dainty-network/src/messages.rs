@@ -55,26 +55,34 @@ pub enum DirectoryChange {
         /// The temporary suffixed name it was given.
         username: Username,
     },
+    /// A newly elected leader took the log over in the entry's term; changes no account. Raft's no-op (8): a
+    /// leader acknowledges nothing before one of its own term is on a majority (`docs/distributed-mode.md`)
+    Lead {
+        /// The leader.
+        node: NodeId,
+    },
 }
 
 impl DirectoryChange {
-    /// The account the change is about.
-    pub fn account(&self) -> &GlobalId {
+    /// The account the change is about; none for [`Self::Lead`].
+    pub fn account(&self) -> Option<&GlobalId> {
         match self {
             Self::Register { account, .. }
             | Self::RegisterClash { account, .. }
             | Self::Rename { account, .. }
-            | Self::RenameClash { account, .. } => account,
+            | Self::RenameClash { account, .. } => Some(account),
+            Self::Lead { .. } => None,
         }
     }
 
-    /// The username the change gives it.
-    pub fn username(&self) -> &Username {
+    /// The username the change gives it; none for [`Self::Lead`].
+    pub fn username(&self) -> Option<&Username> {
         match self {
             Self::Register { username, .. }
             | Self::RegisterClash { username, .. }
             | Self::Rename { username, .. }
-            | Self::RenameClash { username, .. } => username,
+            | Self::RenameClash { username, .. } => Some(username),
+            Self::Lead { .. } => None,
         }
     }
 
@@ -82,7 +90,7 @@ impl DirectoryChange {
     pub fn home(&self) -> Option<&NodeId> {
         match self {
             Self::Register { home, .. } | Self::RegisterClash { home, .. } => Some(home),
-            Self::Rename { .. } | Self::RenameClash { .. } => None,
+            Self::Rename { .. } | Self::RenameClash { .. } | Self::Lead { .. } => None,
         }
     }
 
@@ -137,8 +145,15 @@ pub struct DirectoryEntry {
     pub seq: u64,
     /// When the leader wrote it, in unix milliseconds
     pub at: i64,
+    /// The election term it was written in; 0 outside failover, and left off the wire then
+    #[serde(default, skip_serializing_if = "is_zero")]
+    pub term: u64,
     /// What it changed.
     pub change: DirectoryChange,
+}
+
+fn is_zero(value: &u64) -> bool {
+    *value == 0
 }
 
 /// A directory call as sent: [`DirectoryCall`] with the protocol version.
@@ -192,6 +207,12 @@ pub enum DirectoryCall {
         /// The most entries wanted.
         limit: u32,
     },
+    /// From the leader of `term` under failover: pull from me now and say how far you got. A write is
+    /// acknowledged once a majority answers with its entry (`docs/distributed-mode.md`)
+    Notify {
+        /// The caller's term as leader.
+        term: u64,
+    },
 }
 
 /// A directory answer as sent: [`DirectoryReply`] with the protocol version.
@@ -217,6 +238,11 @@ pub enum DirectoryReply {
         /// The entries, oldest first.
         entries: Vec<DirectoryEntry>,
         /// The leader's newest entry.
+        head: u64,
+    },
+    /// A replica's answer to [`DirectoryCall::Notify`]: its newest entry after pulling
+    Caught {
+        /// The replica's newest entry.
         head: u64,
     },
     /// The call was refused.
@@ -272,6 +298,16 @@ pub enum Refusal {
     /// The leader failed to answer (its database); ask again later
     #[error("the directory can't answer just now")]
     Unavailable,
+    /// A leader of an older term called: a newer one has been elected since
+    #[error("a leader of term {term} has been elected since")]
+    Superseded {
+        /// The newest term the answering node knows.
+        term: u64,
+    },
+    /// The leader wrote the change but a majority of the nodes doesn't hold it yet; ask again, and the same
+    /// change answers once they do
+    #[error("the change isn't on a majority of the nodes yet")]
+    NoQuorum,
 }
 
 /// Why a directory message could not be decoded or encoded.
@@ -340,6 +376,7 @@ mod tests {
         let entry = DirectoryEntry {
             seq: 7,
             at: 1_790_000_000_000,
+            term: 0,
             change: DirectoryChange::Register {
                 account: account.clone(),
                 username: Username::new("Fox").unwrap(),
