@@ -306,6 +306,7 @@ mod os {
     /// No console to read outside Windows (the game runs under Proton or Wine there).
     pub fn watch(_pid: u32, _hide: bool, _sink: Box<dyn Fn(Vec<String>) + Send>) {}
 
+    /// Never the helper outside Windows: there is no game console to read.
     pub fn helper_main() -> Option<std::process::ExitCode> {
         None
     }

@@ -11,7 +11,7 @@ use dainty_launcher_kit::bridge::spec::EXTERNAL_TARGETS;
 use dainty_launcher_kit::bridge::types::ExternalTarget;
 use dainty_launcher_kit::platform::game_console::{Tracker, redact};
 use dainty_launcher_kit::platform::invite_link::{
-    self as kit, CLIENT_ID, Channel, Claim, MANAGER_ID, claim, invite_in_args, registry_values,
+    self as kit, CLIENT_ID, Channel, Claim, MANAGER_ID, claim, invite_in_args,
 };
 use dainty_launcher_kit::platform::links::fixed_url;
 use dainty_protocol::invite::invite_schemes;
@@ -76,10 +76,12 @@ async fn a_second_launcher_hands_its_arguments_to_the_first() {
     }
 }
 
+// A drive-letter path is absolute only on Windows
+#[cfg(windows)]
 #[test]
 fn windows_registers_the_scheme_for_the_current_user() {
     let exe = Path::new(r"C:\Users\me\AppData\Local\DaintyLass Launcher\launcher.exe");
-    let values = registry_values(exe).unwrap();
+    let values = kit::registry_values(exe).unwrap();
     assert_eq!(values.len(), 3 * invite_schemes().len(), "three values per scheme");
     assert_eq!(
         (values[0].key.as_str(), values[0].data.as_str()),
@@ -123,7 +125,7 @@ fn linux_writes_a_handler_entry_for_the_appimage() {
     assert_eq!(
         kit::desktop_entry(Path::new("/home/me/Apps/Reforged Launcher.AppImage")).unwrap(),
         format!(
-            "[Desktop Entry]\nType=Application\nName=DaintyLass Launcher\nExec=\"/home/me/Apps/Reforged Launcher.AppImage\" %u\nMimeType={}\nNoDisplay=true\nTerminal=false\n",
+            "[Desktop Entry]\nType=Application\nName=Dainty Lass Launcher\nExec=\"/home/me/Apps/Reforged Launcher.AppImage\" %u\nMimeType={}\nNoDisplay=true\nTerminal=false\n",
             mimes.iter().map(|mime| format!("{mime};")).collect::<String>()
         )
     );
