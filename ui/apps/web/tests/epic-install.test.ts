@@ -36,8 +36,16 @@ test("an install needs a signed-in account that owns the game", () => {
 });
 
 test("each state offers its own buttons", () => {
-  expect(versionActions(entry, info("downloading"), ctx).actions).toEqual(["pause", "cancel", "discard"]);
-  expect(versionActions(entry, info("paused"), ctx).actions).toEqual(["resume", "cancel", "discard"]);
+  expect(versionActions(entry, info("downloading"), ctx).actions).toEqual([
+    "pause",
+    "cancel",
+    "discard",
+  ]);
+  expect(versionActions(entry, info("paused"), ctx).actions).toEqual([
+    "resume",
+    "cancel",
+    "discard",
+  ]);
   expect(versionActions(entry, info("finishing"), ctx).actions).toEqual([]);
   expect(versionActions(entry, info("resumable"), ctx).actions).toEqual(["continue", "discard"]);
   expect(versionActions(entry, info("failed"), ctx).actions).toEqual(["retry", "discard"]);

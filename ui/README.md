@@ -10,7 +10,7 @@ The Dainty Lass user interfaces on one theme: a **remote management dashboard** 
 | [`apps/agent`](apps/agent)           | The agent each extra controller runs, so one dashboard manages them all ([docs/fleet.md](docs/fleet.md))                                                                                                                                           |
 | [`packages/theme`](packages/theme)   | `@dainty/theme`: the Astryx theme, the CSS stack, the colour-mode provider and the brand mark                                                                                                                                                      |
 | [`packages/fleet`](packages/fleet)   | `@dainty/fleet`: the game calls and the dashboard–agent protocol, shared by both sides                                                                                                                                                             |
-| [`packages/bridge`](packages/bridge) | `@dainty/bridge`: the launcher's Tauri bridge (types from `restricted/`), a browser stand-in, and the desktop catalog                                                                                                                          |
+| [`packages/bridge`](packages/bridge) | `@dainty/bridge`: the launcher's Tauri bridge (types from `restricted/`), a browser stand-in, and the desktop catalog                                                                                                                              |
 
 ## The dashboard
 

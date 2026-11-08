@@ -496,7 +496,12 @@ function VersionCard({
             collapsible={false}
             endContent={
               <Stack direction="horizontal" gap={2}>
-                <Button label={t("discardKeep")} size="sm" variant="ghost" onClick={() => setConfirming(false)} />
+                <Button
+                  label={t("discardKeep")}
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => setConfirming(false)}
+                />
                 <Button
                   label={t("discardConfirm")}
                   size="sm"

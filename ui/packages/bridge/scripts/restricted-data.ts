@@ -5,7 +5,9 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 
-const generated = resolve(join(import.meta.dir, "../../../../crates/dainty-launcher-kit/generated"));
+const generated = resolve(
+  join(import.meta.dir, "../../../../crates/dainty-launcher-kit/generated"),
+);
 const sources = {
   "generated/types.ts": join(generated, "types.ts"),
 };
