@@ -14,6 +14,8 @@ pub enum FolderPurpose {
     Sdk,
     /// Picking the host workspace.
     Workspace,
+    /// Picking the folder Epic installs go into, one version folder each.
+    GameInstall,
 }
 
 /// Reason the launcher warns before closing the main window.
@@ -31,6 +33,8 @@ pub const DIALOG_RUNTIME_FOLDER: &str = "dialog_runtime_folder";
 pub const DIALOG_SDK_FOLDER: &str = "dialog_sdk_folder";
 /// Catalog key of the workspace folder picker's title.
 pub const DIALOG_WORKSPACE_FOLDER: &str = "dialog_workspace_folder";
+/// Catalog key of the Epic install folder picker's title.
+pub const DIALOG_GAME_INSTALL_FOLDER: &str = "dialog_game_install_folder";
 /// Catalog key of the Dumper-7 DLL picker's title.
 pub const DIALOG_DUMPER_DLL: &str = "dialog_dumper_dll";
 /// Catalog key of the game-data pack picker's title.
@@ -61,6 +65,7 @@ pub const fn folder_title(purpose: FolderPurpose) -> &'static str {
         FolderPurpose::Runtime => DIALOG_RUNTIME_FOLDER,
         FolderPurpose::Sdk => DIALOG_SDK_FOLDER,
         FolderPurpose::Workspace => DIALOG_WORKSPACE_FOLDER,
+        FolderPurpose::GameInstall => DIALOG_GAME_INSTALL_FOLDER,
     }
 }
 
@@ -71,6 +76,7 @@ mod tests {
     #[test]
     fn folder_titles_map_each_purpose_to_its_key() {
         assert_eq!(folder_title(FolderPurpose::Game), "dialog_game_folder");
+        assert_eq!(folder_title(FolderPurpose::GameInstall), "dialog_game_install_folder");
         assert_eq!(folder_title(FolderPurpose::Runtime), "dialog_runtime_folder");
         assert_eq!(folder_title(FolderPurpose::Sdk), "dialog_sdk_folder");
         assert_eq!(folder_title(FolderPurpose::Workspace), "dialog_workspace_folder");

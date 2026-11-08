@@ -1183,5 +1183,6 @@
   "hrem_leave": "Desativar gerenciamento remoto",
   "hrem_queued": "Ação {action} enfileirada em {node} ({id})",
   "tray_open": "Abrir",
-  "tray_quit": "Sair"
+  "tray_quit": "Sair",
+  "dialog_game_install_folder": "Onde as versões do Dauntless são instaladas"
 }

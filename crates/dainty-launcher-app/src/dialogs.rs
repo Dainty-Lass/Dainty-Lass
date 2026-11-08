@@ -34,6 +34,7 @@ pub const fn folder_title_key(purpose: FolderPurpose) -> &'static str {
         FolderPurpose::Runtime => i18n::DIALOG_RUNTIME_FOLDER,
         FolderPurpose::Workspace => i18n::DIALOG_WORKSPACE_FOLDER,
         FolderPurpose::Sdk => i18n::DIALOG_SDK_FOLDER,
+        FolderPurpose::GameInstall => i18n::DIALOG_GAME_INSTALL_FOLDER,
     }
 }
 
@@ -194,6 +195,7 @@ mod tests {
                 FolderPurpose::Runtime,
                 FolderPurpose::Workspace,
                 FolderPurpose::Sdk,
+                FolderPurpose::GameInstall,
             ] {
                 assert!(i18n::KEYS.contains(&folder_title_key(purpose)));
             }

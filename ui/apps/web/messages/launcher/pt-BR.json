@@ -89,7 +89,7 @@
   },
   "locate": {
     "title": "Encontre seu Dauntless",
-    "description": "Você precisa do seu próprio Dauntless 1.14.7. Nada é baixado nem copiado.",
+    "description": "Você precisa do Dauntless 1.14.7: use uma instalação que já tem ou baixe da sua conta da Epic.",
     "found": "Encontrados neste PC",
     "use": "Usar",
     "choose": "Escolher pasta",
@@ -221,5 +221,71 @@
     "copy": "Copiar as linhas mais recentes",
     "copied": "Copiado.",
     "empty": "Nada ainda. O console do jogo aparece aqui quando o jogo abrir um."
+  },
+  "install": {
+    "nav": "Gerenciamento do jogo",
+    "title": "Gerenciamento do jogo",
+    "description": "Baixe o Dauntless 1.14.7 da sua própria conta da Epic Games. O launcher confere cada arquivo com o manifesto arquivado.",
+    "fromEpic": "Baixar da Epic",
+    "accountTitle": "Conta da Epic Games",
+    "accountDescription": "Entre com a conta da Epic que tem o Dauntless. O login fica neste PC e nunca é enviado a um servidor.",
+    "signIn": "Entrar com a Epic",
+    "signingIn": "Aguardando a janela de login…",
+    "pasteInstead": "Colar um código",
+    "pasteHint": "Abra este link no navegador, entre e cole o código (ou a página inteira) que ele mostrar.",
+    "copyLink": "Copiar link",
+    "copied": "Copiado.",
+    "codeLabel": "Código de autorização",
+    "submitCode": "Entrar",
+    "back": "Voltar",
+    "signedIn": "Conectado",
+    "signedInAs": "Conectado como {name}",
+    "signOut": "Sair da Epic",
+    "owned": "Tem o Dauntless",
+    "notOwned": "Dauntless fora da biblioteca",
+    "notOwnedHint": "Esta conta não tem o Dauntless, então a Epic não vai fornecer os arquivos.",
+    "versionsTitle": "Versões",
+    "reload": "Atualizar",
+    "build": "Build da Epic {build}",
+    "sizes": "{download} GB para baixar, {install} GB no disco",
+    "progress": "{done} de {total} GB",
+    "folder": "Pasta: {folder}",
+    "locateOnly": "Não está mais na Epic: escolha uma pasta que você já tem em Jogar.",
+    "inUse": "Esta é a pasta do jogo que o launcher usa.",
+    "states": {
+      "not_installed": "Não instalado",
+      "resumable": "Parado no meio",
+      "preparing": "Preparando",
+      "downloading": "Baixando",
+      "paused": "Pausado",
+      "finishing": "Finalizando",
+      "installed": "Instalado",
+      "failed": "Falhou"
+    },
+    "manifest": {
+      "unreachable": "Não foi possível baixar o manifesto. Verifique sua conexão e atualize.",
+      "invalid": "O manifesto baixado não confere com o esperado, então não foi usado."
+    },
+    "hints": {
+      "signInFirst": "Entre com a Epic primeiro.",
+      "notOwned": "Esta conta da Epic não tem o Dauntless.",
+      "otherRunning": "Outra versão está sendo baixada."
+    },
+    "actions": {
+      "install": "Instalar",
+      "continue": "Continuar",
+      "retry": "Tentar de novo",
+      "pause": "Pausar",
+      "resume": "Retomar",
+      "cancel": "Parar",
+      "use": "Usar esta instalação",
+      "discard": "Cancelar download"
+    },
+    "changeFolder": "Mudar pasta",
+    "folderHidden": "oculta",
+    "discardTitle": "Cancelar este download?",
+    "discardHint": "O que já foi baixado será apagado. Instalar de novo começa do início.",
+    "discardConfirm": "Apagar download",
+    "discardKeep": "Manter"
   }
 }

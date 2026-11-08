@@ -4,6 +4,9 @@
 import type {
   ActionResult,
   Branding,
+  EpicLibraryCheck,
+  EpicView,
+  GameVersionList,
   HostAction,
   HostFolder,
   HostKit,
@@ -11,6 +14,7 @@ import type {
   HostServerView,
   HostSetupRequest,
   InstallMode,
+  InstallOutcome,
   InviteCheck,
   NewsItem,
   RegisterOutcome,
@@ -85,6 +89,23 @@ export interface LauncherApi {
   takeInviteLink(): Promise<string | null>;
   /** The game console's lines so far this game, the account key masked. */
   gameLogGet(): Promise<string[]>;
+  /** Answers once the sign-in window closes. The Epic session stays in the keystore (DE2). */
+  epicSignInStart(): Promise<ActionResult>;
+  epicSignInCode(code: string): Promise<ActionResult>;
+  epicGet(): Promise<EpicView>;
+  epicSignOut(): Promise<ActionResult>;
+  epicLibraryCheck(): Promise<EpicLibraryCheck>;
+  gameVersionList(): Promise<GameVersionList>;
+  /** Progress comes over onProgress (kind "install") as well as gameInstallGet. */
+  gameInstallStart(version: string): Promise<InstallOutcome>;
+  gameInstallPause(version: string): Promise<ActionResult>;
+  gameInstallResume(version: string): Promise<ActionResult>;
+  gameInstallCancel(version: string): Promise<ActionResult>;
+  gameInstallGet(version: string): Promise<InstallOutcome>;
+  /** A folder dialog for where versions install; refused (busy) while an install runs or waits to continue. */
+  gameInstallChooseFolder(): Promise<ActionResult>;
+  /** Cancels a download altogether: stops it and deletes what it downloaded. */
+  gameInstallDiscard(version: string): Promise<ActionResult>;
   onSnapshot(fn: (snapshot: Snapshot) => void): void;
   onProgress(fn: (progress: TaskProgress) => void): void;
   onHostKit(fn: (kit: HostKit) => void): void;

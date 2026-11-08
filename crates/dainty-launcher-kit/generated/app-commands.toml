@@ -73,6 +73,8 @@ permissions = [
   "allow-game-install-resume",
   "allow-game-install-cancel",
   "allow-game-install-get",
+  "allow-game-install-choose-folder",
+  "allow-game-install-discard",
   "allow-region-ping",
   "allow-module-list",
   "allow-module-get",

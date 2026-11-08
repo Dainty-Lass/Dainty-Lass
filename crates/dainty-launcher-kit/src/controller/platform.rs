@@ -33,6 +33,8 @@ pub enum FolderPurpose {
     Workspace,
     /// A Dumper-7 SDK dump.
     Sdk,
+    /// The folder Epic installs go into, one version folder each.
+    GameInstall,
 }
 
 /// A file picker's one filter.

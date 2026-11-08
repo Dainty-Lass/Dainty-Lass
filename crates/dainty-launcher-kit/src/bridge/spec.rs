@@ -477,6 +477,10 @@ pub const COMMANDS: &[CommandSpec] = &[
     cmd("game_install_resume", VERSION, Every, true),
     cmd("game_install_cancel", VERSION, Every, true),
     cmd("game_install_get", VERSION, Every, true),
+    // Where versions install: a folder dialog, refused while an install runs or waits to continue
+    cmd("game_install_choose_folder", &[], Every, false),
+    // Cancels a download altogether, deleting what it downloaded
+    cmd("game_install_discard", VERSION, Every, false),
     cmd("region_ping", &[], Every, false),
     cmd("module_list", &[], ServerGui, false),
     cmd("module_get", MODULE, ServerGui, false),

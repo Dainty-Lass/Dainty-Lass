@@ -305,6 +305,8 @@ pub fn run(mut options: Options) -> Result<(), StartError> {
             bridge::commands::game_install_resume,
             bridge::commands::game_install_cancel,
             bridge::commands::game_install_get,
+            bridge::commands::game_install_choose_folder,
+            bridge::commands::game_install_discard,
             bridge::commands::region_ping,
             bridge::commands::module_list,
             bridge::commands::module_get,

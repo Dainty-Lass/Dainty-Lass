@@ -9,7 +9,7 @@ import { Stack } from "@astryxdesign/core/Stack";
 import { Text } from "@astryxdesign/core/Text";
 import { TitleBar, useBridge } from "@dainty/bridge/react";
 import { BrandMark, HUES, RAIL_RESIZE } from "@dainty/theme";
-import { Gamepad2, ScrollText, Server, Settings } from "lucide-react";
+import { Download, Gamepad2, ScrollText, Server, Settings } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { type ReactNode, useEffect } from "react";
@@ -21,6 +21,7 @@ export function LauncherShell({ children }: { children: ReactNode }) {
   const tw = useTranslations("window");
   const te = useTranslations("errors");
   const tn = useTranslations("launcher.notices");
+  const ti = useTranslations("launcher.install");
   const { snapshot, api } = useBridge();
   const path = usePathname();
   const at = (href: string) => (href === "/" ? path === "/" : path.startsWith(href));
@@ -76,6 +77,12 @@ export function LauncherShell({ children }: { children: ReactNode }) {
               label={t("play")}
               icon={<Gamepad2 className={HUES.green.text} />}
               isSelected={at("/")}
+            />
+            <SideNavItem
+              href="/game/"
+              label={ti("nav")}
+              icon={<Download className={HUES.blue.text} />}
+              isSelected={at("/game")}
             />
             <SideNavItem
               href="/servers/"

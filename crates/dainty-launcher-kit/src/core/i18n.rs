@@ -34,9 +34,11 @@ pub const EPIC_SIGN_IN_TITLE: &str = "epic_sign_in_title";
 pub const TRAY_OPEN: &str = "tray_open";
 /// The tray item that quits the app.
 pub const TRAY_QUIT: &str = "tray_quit";
+/// The Epic install folder picker's title.
+pub const DIALOG_GAME_INSTALL_FOLDER: &str = "dialog_game_install_folder";
 
 /// Every key the backend shows.
-pub const KEYS: [&str; 14] = [
+pub const KEYS: [&str; 15] = [
     APP_TITLE,
     CLOSE_TITLE,
     CLOSE_TEXT,
@@ -51,6 +53,7 @@ pub const KEYS: [&str; 14] = [
     EPIC_SIGN_IN_TITLE,
     TRAY_OPEN,
     TRAY_QUIT,
+    DIALOG_GAME_INSTALL_FOLDER,
 ];
 
 /// A language the backend's text is written in.

@@ -23,6 +23,7 @@ const EN: &[(&str, &str)] = &[
     ("epic_sign_in_title", "Sign in with Epic Games"),
     ("tray_open", "Show the launcher"),
     ("tray_quit", "Quit"),
+    ("dialog_game_install_folder", "Select where Dauntless versions install"),
 ];
 
 const PT_BR: &[(&str, &str)] = &[
@@ -43,6 +44,10 @@ const PT_BR: &[(&str, &str)] = &[
     ("epic_sign_in_title", "Entrar com a Epic Games"),
     ("tray_open", "Mostrar o launcher"),
     ("tray_quit", "Sair"),
+    (
+        "dialog_game_install_folder",
+        "Selecione onde as versões do Dauntless são instaladas",
+    ),
 ];
 
 pub(super) const fn entries(language: Language) -> &'static [(&'static str, &'static str)] {

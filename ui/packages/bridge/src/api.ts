@@ -6,7 +6,13 @@
 import { Channel, invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import type { CommandName } from "./generated/types";
+import type {
+  CommandName,
+  EpicLibraryCheck,
+  EpicView,
+  GameVersionList,
+  InstallOutcome,
+} from "./generated/types";
 import type {
   ActionResult,
   HostKit,
@@ -199,6 +205,26 @@ export const api: LauncherApi = {
   close: () => getCurrentWindow().close(),
   takeInviteLink: () => call<string | null>("take_invite_link"),
   gameLogGet: () => call<string[]>("game_log_get"),
+  // The sign-in window waits on the player
+  epicSignInStart: () => act("epic_sign_in_start", {}, LONG_TIMEOUT_MS),
+  epicSignInCode: (code) => act("epic_sign_in_code", { code: String(code) }),
+  epicGet: () => call<EpicView>("epic_get"),
+  epicSignOut: () => act("epic_sign_out"),
+  epicLibraryCheck: () => act<EpicLibraryCheck>("epic_library_check"),
+  // Each Epic version's manifest is fetched for its sizes
+  gameVersionList: () => act<GameVersionList>("game_version_list", {}, LONG_TIMEOUT_MS),
+  // Refreshes the Epic session and checks the library before it answers
+  gameInstallStart: (version) =>
+    act<InstallOutcome>("game_install_start", { version: String(version) }, LONG_TIMEOUT_MS),
+  gameInstallPause: (version) => act("game_install_pause", { version: String(version) }),
+  gameInstallResume: (version) => act("game_install_resume", { version: String(version) }),
+  gameInstallCancel: (version) => act("game_install_cancel", { version: String(version) }),
+  gameInstallGet: (version) =>
+    act<InstallOutcome>("game_install_get", { version: String(version) }),
+  gameInstallChooseFolder: () => act("game_install_choose_folder", {}, LONG_TIMEOUT_MS),
+  // Waits for the download to stop, then deletes its files
+  gameInstallDiscard: (version) =>
+    act("game_install_discard", { version: String(version) }, LONG_TIMEOUT_MS),
   onSnapshot: (fn) => on<Snapshot>("snapshot", fn),
   // Progress comes over a channel of its own, already throttled by the backend
   onProgress: (fn) => {

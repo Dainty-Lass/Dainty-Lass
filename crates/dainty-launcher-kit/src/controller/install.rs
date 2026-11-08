@@ -18,6 +18,7 @@ use dainty_epic::manifest::{InstallPath, Sha1Digest};
 use dainty_module_api::GameVersion;
 
 use super::Controller;
+use super::platform::FolderPurpose;
 use crate::bridge::types::{
     ActionResult, ErrorCode, InstallInfo, InstallOutcome, InstallState, LauncherError, NoticeCode, TaskKind,
     TaskProgress,
@@ -63,9 +64,9 @@ fn known_profile(version: &str) -> Option<KnownProfile> {
         .find(|profile| profile.game_version == version && profile.client.epic.is_some())
 }
 
-/// Where versions go until DE7 lets the player choose: `~/Games/Dauntless/<version>`.
-fn install_folder(version: &str) -> Option<PathBuf> {
-    Some(dirs::home_dir()?.join("Games").join("Dauntless").join(version))
+/// Where versions go until the player chooses a folder: `~/Games/Dauntless`.
+fn default_install_root() -> Option<PathBuf> {
+    Some(dirs::home_dir()?.join("Games").join("Dauntless"))
 }
 
 /// What the page is told when an install stops.
@@ -130,6 +131,73 @@ impl Controller {
         self.epic_dir().join(format!("{version}.resume"))
     }
 
+    /// Names the folder an install made for itself: only that one is deleted when the download is discarded.
+    fn created_file(&self, version: &str) -> PathBuf {
+        self.epic_dir().join(format!("{version}.created"))
+    }
+
+    /// The folder versions install into, one folder each: the player's choice, or `~/Games/Dauntless`.
+    fn install_root(&self) -> Option<PathBuf> {
+        std::fs::read_to_string(self.epic_dir().join("install-root"))
+            .ok()
+            .map(|text| PathBuf::from(text.trim()))
+            .filter(|path| path.is_absolute())
+            .or_else(default_install_root)
+    }
+
+    fn install_folder(&self, version: &str) -> Option<PathBuf> {
+        Some(self.install_root()?.join(version))
+    }
+
+    /// Whether an install runs, or one stopped part-way waits to continue in the folder it began in.
+    fn install_pending(&self) -> bool {
+        let stopped = lock(&self.shared.installs.entries)
+            .values()
+            .any(|entry| matches!(entry, Entry::Running { .. } | Entry::Stopped { .. }));
+        let resumable = std::fs::read_dir(self.epic_dir())
+            .map(|dir| {
+                dir.flatten()
+                    .any(|e| e.path().extension().is_some_and(|x| x == "resume"))
+            })
+            .unwrap_or(false);
+        stopped || resumable
+    }
+
+    /// "Change folder": a folder dialog for where versions install. Refused while an install runs or waits to
+    /// continue, since its resume record is for the folder it began in.
+    pub async fn game_install_choose_folder(&self) -> ActionResult {
+        if self.install_pending() {
+            return ActionResult::err(ErrorCode::Busy);
+        }
+        let start = self.install_root();
+        let picked = self
+            .platform()
+            .choose_folder(self.language(), FolderPurpose::GameInstall, start)
+            .await;
+        let Some(picked) = picked else {
+            return ActionResult::err(ErrorCode::Cancelled);
+        };
+        if !picked.is_absolute() || !picked.is_dir() {
+            return ActionResult::err(ErrorCode::FolderInvalid);
+        }
+        if self.install_pending() {
+            return ActionResult::err(ErrorCode::Busy);
+        }
+        let saved = std::fs::create_dir_all(self.epic_dir()).and_then(|()| {
+            std::fs::write(
+                self.epic_dir().join("install-root"),
+                picked.to_string_lossy().as_bytes(),
+            )
+        });
+        match saved {
+            Ok(()) => ActionResult::Ok,
+            Err(error) => {
+                log::warn(format!("the install folder was not saved: {error}"));
+                ActionResult::err(ErrorCode::FolderInvalid)
+            }
+        }
+    }
+
     /// Starts (or picks up) the install of `version`. An account that doesn't own Dauntless, or no session, is
     /// refused here, before anything is created.
     pub async fn game_install_start(&self, version: &str, gate: Arc<EpicGate>) -> InstallOutcome {
@@ -142,9 +210,16 @@ impl Controller {
         if let Err(error) = gate.check().await {
             return InstallOutcome::Err(error);
         }
-        let Some(folder) = install_folder(version) else {
+        let Some(folder) = self.install_folder(version) else {
             return InstallOutcome::Err(LauncherError::new(ErrorCode::FolderInvalid));
         };
+        if !folder.exists() {
+            let made = std::fs::create_dir_all(self.epic_dir())
+                .and_then(|()| std::fs::write(self.created_file(version), folder.to_string_lossy().as_bytes()));
+            if let Err(error) = made {
+                log::warn(format!("the install's folder record was not saved: {error}"));
+            }
+        }
         let this = self.clone();
         let job = {
             let mut entries = lock(&self.shared.installs.entries);
@@ -194,6 +269,8 @@ impl Controller {
         });
         match outcome {
             Ok(()) => {
+                // An installed game is never the discard's to delete
+                let _ = std::fs::remove_file(self.created_file(&version));
                 lock(&self.shared.installs.entries).remove(&version);
                 log::info(format!("installed {version} from Epic"));
                 self.set_notice(NoticeCode::InstallDone);
@@ -289,6 +366,59 @@ impl Controller {
         self.with_job(version, InstallJob::cancel)
     }
 
+    /// Cancels the download altogether: stops it if it runs, then deletes what it downloaded and its resume
+    /// record, so the version is not installed again. The folder goes only if this install made it; one that was
+    /// there before keeps its files.
+    pub async fn game_install_discard(&self, version: &str) -> ActionResult {
+        if self.installed_folder(version).is_some() {
+            return ActionResult::err(ErrorCode::Busy);
+        }
+        let running = match lock(&self.shared.installs.entries).get(version) {
+            Some(Entry::Running { job, .. }) => job.cancel(),
+            _ => false,
+        };
+        // The job ends between chunks; until it has, its files are still being written
+        for _ in 0..300 {
+            if !running
+                || !matches!(
+                    lock(&self.shared.installs.entries).get(version),
+                    Some(Entry::Running { .. })
+                )
+            {
+                break;
+            }
+            tokio::time::sleep(Duration::from_millis(100)).await;
+        }
+        if matches!(
+            lock(&self.shared.installs.entries).get(version),
+            Some(Entry::Running { .. })
+        ) {
+            return ActionResult::err(ErrorCode::Busy);
+        }
+        let made = std::fs::read_to_string(self.created_file(version))
+            .ok()
+            .map(PathBuf::from);
+        let folder = self.install_folder(version);
+        let removed = match (made, folder) {
+            (Some(made), Some(folder)) if made == folder && folder.is_dir() => {
+                tokio::task::spawn_blocking(move || std::fs::remove_dir_all(&folder))
+                    .await
+                    .unwrap_or_else(|_| Err(std::io::Error::other("the delete stopped")))
+            }
+            _ => Ok(()),
+        };
+        if let Err(error) = removed {
+            log::warn(format!("the download of {version} was not deleted: {error}"));
+            return ActionResult::err(ErrorCode::DownloadFailed);
+        }
+        let _ = std::fs::remove_file(self.resume_file(version));
+        let _ = std::fs::remove_file(self.created_file(version));
+        lock(&self.shared.installs.entries).remove(version);
+        log::info(format!("the download of {version} was cancelled and deleted"));
+        self.publish();
+        ActionResult::Ok
+    }
+
     /// `game_install_get`.
     pub fn game_install_get(&self, version: &str) -> InstallOutcome {
         if known_profile(version).is_none() {
@@ -327,10 +457,15 @@ impl Controller {
                 Some(folder) => info(InstallState::Installed, Some(folder), None),
                 None if self.resume_file(version).exists() => info(
                     InstallState::Resumable,
-                    install_folder(version).map(|f| f.to_string_lossy().into_owned()),
+                    self.install_folder(version).map(|f| f.to_string_lossy().into_owned()),
                     None,
                 ),
-                None => info(InstallState::NotInstalled, None, None),
+                // Where it would go, so the page can show it before anything is downloaded
+                None => info(
+                    InstallState::NotInstalled,
+                    self.install_folder(version).map(|f| f.to_string_lossy().into_owned()),
+                    None,
+                ),
             },
         };
         InstallOutcome::Ok(found)

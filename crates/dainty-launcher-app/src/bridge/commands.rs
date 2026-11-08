@@ -466,6 +466,19 @@ pub fn game_install_get(c: Ctl<'_>, version: String) -> InstallOutcome {
 }
 
 #[tauri::command]
+pub async fn game_install_choose_folder(c: Ctl<'_>) -> Answer<ActionResult> {
+    Ok(c.game_install_choose_folder().await)
+}
+
+#[tauri::command]
+pub async fn game_install_discard(c: Ctl<'_>, version: String) -> Answer<ActionResult> {
+    Ok(match checks::game_version(&version) {
+        Ok(version) => c.game_install_discard(version).await,
+        Err(error) => ActionResult::Err(error),
+    })
+}
+
+#[tauri::command]
 pub async fn region_ping(c: Ctl<'_>) -> Answer<RegionPing> {
     Ok(c.region_ping().await)
 }

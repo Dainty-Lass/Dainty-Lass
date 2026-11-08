@@ -92,7 +92,7 @@ pub struct InstallInfo {
     pub version: String,
     /// Where it stands.
     pub state: InstallState,
-    /// Its folder.
+    /// Its folder: where it is, or where it would install.
     pub folder: Option<String>,
     /// How far it has got.
     pub progress: Option<TaskProgress>,
