@@ -157,8 +157,7 @@ pub fn draw(low: i64, high_exclusive: i64) -> i64 {
 }
 
 fn uuid_bits(uuid: &str) -> u128 {
-    let hex: String = uuid.chars().filter(char::is_ascii_hexdigit).collect();
-    u128::from_str_radix(&hex, 16).unwrap_or(0)
+    uuid::Uuid::try_parse(uuid).map_or(0, |u| u.as_u128())
 }
 
 /// Which window a release is drawn from.

@@ -90,7 +90,7 @@ impl ReplayTargetAuth {
 }
 
 pub(crate) fn sha256_hex(bytes: &[u8]) -> String {
-    Sha256::digest(bytes).iter().map(|b| format!("{b:02x}")).collect()
+    hex::encode(Sha256::digest(bytes))
 }
 
 fn times(now_ms: i64) -> (i64, i64) {

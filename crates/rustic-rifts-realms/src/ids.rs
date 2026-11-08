@@ -4,8 +4,6 @@
 //! A session's three spellings: the wire UUID the tables, tickets and `bridge.conf` hold, its 128 bits read as a
 //! ULID, and the node-tagged seam and module-api ids built from those bits (DD18).
 
-use std::fmt::Write as _;
-
 use dainty_module_api::{GlobalId, NodeId};
 use rand::RngExt as _;
 use rustic_rifts_seam::{RealmId, SessionId, Ulid, UnixMillis};
@@ -14,10 +12,8 @@ const WIRE_LEN: usize = 36;
 const DASHES: [usize; 4] = [8, 13, 18, 23];
 
 /// Keeps the text a valid version 4 UUID whatever the other bits hold.
-fn version_4(mut bytes: [u8; 16]) -> u128 {
-    bytes[6] = (bytes[6] & 0x0f) | 0x40;
-    bytes[8] = (bytes[8] & 0x3f) | 0x80;
-    u128::from_be_bytes(bytes)
+fn version_4(bytes: [u8; 16]) -> u128 {
+    uuid::Builder::from_random_bytes(bytes).into_uuid().as_u128()
 }
 
 fn random_bytes() -> [u8; 16] {
@@ -33,11 +29,7 @@ pub fn random_uuid() -> String {
 
 /// Lower-case hex.
 pub fn hex(bytes: &[u8]) -> String {
-    let mut out = String::with_capacity(bytes.len() * 2);
-    for byte in bytes {
-        let _ = write!(out, "{byte:02x}");
-    }
-    out
+    ::hex::encode(bytes)
 }
 
 /// Creation time in the top 48 bits, so ids sort by age as ULIDs do.
@@ -50,11 +42,7 @@ pub fn new_session_ulid(at: UnixMillis) -> u128 {
 
 /// The 128 bits as a lower-case hyphenated UUID.
 pub fn uuid_text(bits: u128) -> String {
-    let mut out = hex(&bits.to_be_bytes());
-    for at in DASHES {
-        out.insert(at, '-');
-    }
-    out
+    uuid::Uuid::from_u128(bits).to_string()
 }
 
 /// Lower-case `8-4-4-4-12` hex only.

@@ -18,6 +18,7 @@ test-support = ["dep:rcgen", "dep:tokio-rustls", "hyper/server", "tokio/net", "t
 bytes = "1"
 egs-api.workspace = true
 flate2.workspace = true
+hex.workspace = true
 http-body-util.workspace = true
 hyper.workspace = true
 hyper-rustls.workspace = true

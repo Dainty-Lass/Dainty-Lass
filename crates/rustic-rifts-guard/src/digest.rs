@@ -3,8 +3,6 @@
 
 use sha2::{Digest as _, Sha256};
 
-const HEX: &[u8; 16] = b"0123456789abcdef";
-
 /// SHA-256 as lower-case hex.
 pub fn sha256_hex(bytes: &[u8]) -> String {
     hex_of_parts(&[bytes])
@@ -16,16 +14,12 @@ pub(crate) fn hex_of_parts(parts: &[&[u8]]) -> String {
         .iter()
         .fold(Sha256::new(), |hasher, part| hasher.chain_update(part))
         .finalize();
-    digest
-        .iter()
-        .flat_map(|byte| [HEX[usize::from(byte >> 4)], HEX[usize::from(byte & 0xf)]])
-        .map(char::from)
-        .collect()
+    hex::encode(digest)
 }
 
 /// 64 characters of `0-9a-f`.
 pub(crate) fn is_hex64(text: &str) -> bool {
-    text.len() == 2 * 32 && text.bytes().all(|b| HEX.contains(&b))
+    text.len() == 2 * 32 && text.bytes().all(|b| matches!(b, b'0'..=b'9' | b'a'..=b'f'))
 }
 
 #[cfg(test)]

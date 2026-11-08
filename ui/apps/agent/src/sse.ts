@@ -1,24 +1,21 @@
-/** A minimal text/event-stream reader: yields { event, data } for each complete event; comments are dropped. */
+import { createParser } from "eventsource-parser";
+
+/** Yields { event, data } for each event in a text/event-stream body (unnamed events are "message"). */
 export async function* readEvents(
   body: ReadableStream<Uint8Array>,
 ): AsyncGenerator<{ event: string; data: string }> {
   const decoder = new TextDecoder();
-  let buffer = "";
+  const queue: { event: string; data: string }[] = [];
+  const parser = createParser({
+    onEvent(msg) {
+      queue.push({ event: msg.event || "message", data: msg.data });
+    },
+  });
   for await (const chunk of body) {
-    buffer += decoder.decode(chunk, { stream: true }).replaceAll("\r\n", "\n");
-    let end = buffer.indexOf("\n\n");
-    while (end !== -1) {
-      const block = buffer.slice(0, end);
-      buffer = buffer.slice(end + 2);
-      let event = "message";
-      const data: string[] = [];
-      for (const line of block.split("\n")) {
-        if (line.startsWith(":")) continue;
-        if (line.startsWith("event:")) event = line.slice(6).trim();
-        else if (line.startsWith("data:")) data.push(line.slice(5).replace(/^ /, ""));
-      }
-      if (data.length) yield { event, data: data.join("\n") };
-      end = buffer.indexOf("\n\n");
-    }
+    parser.feed(decoder.decode(chunk, { stream: true }));
+    for (const item of queue.splice(0)) yield item;
   }
+  parser.feed(decoder.decode());
+  parser.reset({ consume: true });
+  for (const item of queue.splice(0)) yield item;
 }

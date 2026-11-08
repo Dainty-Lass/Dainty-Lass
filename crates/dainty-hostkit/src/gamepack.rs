@@ -82,13 +82,7 @@ pub fn example_of(file: &Path) -> PathBuf {
 
 /// The SHA-256 of `text`'s UTF-8 bytes, lowercase hex.
 pub fn sha256_hex(text: &str) -> String {
-    let digest = Sha256::digest(text.as_bytes());
-    let mut out = String::with_capacity(64);
-    for b in digest {
-        use std::fmt::Write as _;
-        let _ = write!(out, "{b:02x}");
-    }
-    out
+    hex::encode(Sha256::digest(text.as_bytes()))
 }
 
 /// Every file a pack may carry: its path in the pack and where it is on this server.

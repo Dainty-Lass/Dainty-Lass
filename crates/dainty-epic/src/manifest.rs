@@ -41,7 +41,7 @@ impl Sha1Digest {
 
 impl fmt::Display for Sha1Digest {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.0.iter().try_for_each(|b| write!(f, "{b:02x}"))
+        f.write_str(&hex::encode(self.0))
     }
 }
 

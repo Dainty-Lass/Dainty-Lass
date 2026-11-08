@@ -23,6 +23,7 @@ base64.workspace = true
 diesel = { workspace = true, optional = true }
 diesel_migrations = { workspace = true, optional = true }
 bytes = "1"
+hex.workspace = true
 dainty-history-ship = { workspace = true, optional = true }
 http-body-util.workspace = true
 hyper.workspace = true

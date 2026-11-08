@@ -48,11 +48,7 @@ pub(crate) fn json_string(text: &str) -> String {
 
 /// Lowercase hex of bytes.
 pub(crate) fn hex(bytes: &[u8]) -> String {
-    use std::fmt::Write as _;
-    bytes.iter().fold(String::with_capacity(bytes.len() * 2), |mut out, b| {
-        _ = write!(out, "{b:02x}");
-        out
-    })
+    ::hex::encode(bytes)
 }
 
 /// Reads a whole number as Node's `Number(text)` does, within `min..=max`.

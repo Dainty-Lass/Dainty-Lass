@@ -10,9 +10,8 @@ use std::path::Path;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
-use base64::Engine as _;
-use base64::engine::general_purpose::STANDARD;
 use rustls::client::danger::{HandshakeSignatureValid, ServerCertVerified, ServerCertVerifier};
+use rustls::pki_types::pem::PemObject as _;
 use rustls::pki_types::{CertificateDer, ServerName, UnixTime};
 use rustls::{ClientConfig, ClientConnection, DigitallySignedStruct, Error as TlsError, SignatureScheme};
 use serde_json::Value;
@@ -175,48 +174,34 @@ pub fn invite_for_game(
 }
 
 fn sha256_hex(bytes: &[u8]) -> String {
-    let digest = Sha256::digest(bytes);
-    let mut out = String::with_capacity(64);
-    for b in digest {
-        use std::fmt::Write as _;
-        let _ = write!(out, "{b:02x}");
-    }
-    out
+    hex::encode(Sha256::digest(bytes))
 }
 
 /// Computes the lowercase 64-character hex SHA-256 fingerprint of the first PEM certificate in `cert_file`.
 pub fn certificate_fingerprint(cert_file: &Path) -> Result<String, HostError> {
-    const BEGIN: &str = "-----BEGIN CERTIFICATE-----";
-    const END: &str = "-----END CERTIFICATE-----";
-
-    let text = std::fs::read_to_string(cert_file).map_err(|e| HostError::io(cert_file, e))?;
-    let Some(start) = text.find(BEGIN) else {
-        return Err(HostError::message(format!(
-            "no PEM certificate found in {}",
-            cert_file.display()
-        )));
+    let pem = std::fs::read(cert_file).map_err(|e| HostError::io(cert_file, e))?;
+    let der = match CertificateDer::from_pem_slice(&pem) {
+        Ok(der) => der,
+        Err(rustls::pki_types::pem::Error::NoItemsFound) => {
+            return Err(HostError::message(format!(
+                "no PEM certificate found in {}",
+                cert_file.display()
+            )));
+        }
+        Err(e) => {
+            return Err(HostError::message(format!(
+                "invalid PEM certificate {}: {e}",
+                cert_file.display()
+            )));
+        }
     };
-    let rest = &text[start + BEGIN.len()..];
-    let Some(end) = rest.find(END) else {
-        return Err(HostError::message(format!(
-            "incomplete PEM certificate in {}",
-            cert_file.display()
-        )));
-    };
-    let b64: String = rest[..end].chars().filter(|c| !c.is_whitespace()).collect();
-    if b64.is_empty() {
+    if der.is_empty() {
         return Err(HostError::message(format!(
             "empty PEM certificate in {}",
             cert_file.display()
         )));
     }
-    let der = STANDARD.decode(b64).map_err(|e| {
-        HostError::message(format!(
-            "invalid base64 in PEM certificate {}: {e}",
-            cert_file.display()
-        ))
-    })?;
-    Ok(sha256_hex(&der))
+    Ok(sha256_hex(der.as_ref()))
 }
 
 /// Takes any leaf, since its fingerprint is what is checked, but still checks the handshake signature: without it
@@ -641,9 +626,18 @@ mod tests {
     fn computes_certificate_fingerprint_from_pem() {
         let dir = tempfile::tempdir().unwrap();
         let cert_path = dir.path().join("cert.pem");
+        assert!(certificate_fingerprint(&cert_path).is_err());
+        std::fs::write(&cert_path, "not a pem file\n").unwrap();
+        assert!(
+            certificate_fingerprint(&cert_path)
+                .unwrap_err()
+                .to_string()
+                .contains("no PEM certificate found")
+        );
         let pem = crate::commands::setup::secrets::pem("CERTIFICATE", b"test-certificate-der-bytes");
         std::fs::write(&cert_path, pem).unwrap();
         let fp = certificate_fingerprint(&cert_path).unwrap();
+        assert_eq!(fp, sha256_hex(b"test-certificate-der-bytes"));
         assert_eq!(fp.len(), 64);
         assert!(is_valid_fingerprint(&fp));
     }

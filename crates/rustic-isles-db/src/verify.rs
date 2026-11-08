@@ -44,7 +44,7 @@ pub struct VerifyReport {
 }
 
 fn hex(bytes: &[u8]) -> String {
-    bytes.iter().map(|b| format!("{b:02x}")).collect()
+    ::hex::encode(bytes)
 }
 
 pub(crate) fn sha256_hex(text: &str) -> String {

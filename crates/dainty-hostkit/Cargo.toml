@@ -34,6 +34,7 @@ crossterm.workspace = true
 dainty-epic.workspace = true
 flate2.workspace = true
 fs4 = "1"
+hex.workspace = true
 http-body-util.workspace = true
 hyper.workspace = true
 hyper-rustls.workspace = true
@@ -42,6 +43,7 @@ dainty-module-api.workspace = true
 network_plugin = { package = "dainty-network", path = "../../crates/dainty-network", default-features = false, features = ["directory"] }
 dainty-protocol.workspace = true
 ratatui.workspace = true
+rcgen.workspace = true
 dainty-remote.workspace = true
 rustls.workspace = true
 serde.workspace = true
@@ -51,6 +53,7 @@ sha2.workspace = true
 dainty-store.workspace = true
 tar = { version = "0.4.46", default-features = false }
 thiserror.workspace = true
+time.workspace = true
 tokio = { workspace = true, features = ["signal", "time", "net", "io-std", "io-util", "rt-multi-thread", "sync"] }
 toml_edit.workspace = true
 tracing.workspace = true
@@ -67,7 +70,6 @@ libc = "0.2.191"
 dainty-admin.workspace = true
 diesel.workspace = true
 dainty-epic = { workspace = true, features = ["test-support"] }
-rcgen = { version = "0.14.10", default-features = false, features = ["aws_lc_rs", "pem", "crypto"] }
 dainty-service-kit.workspace = true
 tempfile.workspace = true
 

@@ -11,6 +11,7 @@ publish.workspace = true
 [dependencies]
 diesel.workspace = true
 diesel_migrations.workspace = true
+hex.workspace = true
 dainty-module-api.workspace = true
 rand.workspace = true
 rustic-rifts-admission.workspace = true
@@ -24,6 +25,7 @@ sha2.workspace = true
 dainty-store.workspace = true
 thiserror.workspace = true
 tokio = { workspace = true, features = ["rt", "rt-multi-thread", "time"] }
+uuid.workspace = true
 
 [dev-dependencies]
 tempfile.workspace = true

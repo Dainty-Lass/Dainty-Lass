@@ -58,17 +58,10 @@ fn instance_id(text: &str, kind: IdKind, node: &NodeId) -> Option<GlobalId> {
 
 /// A UUID's 128 bits: 8-4-4-4-12 hex digits, either case.
 fn uuid_bits(text: &str) -> Option<u128> {
-    let groups: Vec<&str> = text.split('-').collect();
-    let shape = [8, 4, 4, 4, 12];
-    if groups.len() != shape.len()
-        || groups
-            .iter()
-            .zip(shape)
-            .any(|(g, n)| g.len() != n || !g.bytes().all(|b| b.is_ascii_hexdigit()))
-    {
+    if text.len() != 36 || [8, 13, 18, 23].into_iter().any(|i| text.as_bytes()[i] != b'-') {
         return None;
     }
-    u128::from_str_radix(&groups.concat(), 16).ok()
+    uuid::Uuid::try_parse(text).ok().map(|u| u.as_u128())
 }
 
 /// The JID-safe spelling of an instance id, as a room name holds it.

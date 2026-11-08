@@ -3,7 +3,6 @@
 
 //! The per-session folder of config and secret files the transport opens.
 
-use std::fmt::Write as _;
 use std::path::{Path, PathBuf};
 use std::{fs, io};
 
@@ -20,11 +19,7 @@ pub(crate) fn random_hex<const N: usize>() -> Result<String, HostError> {
     if rand::rngs::SysRng.try_fill_bytes(&mut bytes).is_err() {
         return Err(HostError::Io("could not generate session randomness".to_owned()));
     }
-    let mut hex = String::with_capacity(2 * N);
-    for byte in bytes {
-        let _ = write!(hex, "{byte:02x}");
-    }
-    Ok(hex)
+    Ok(hex::encode(bytes))
 }
 
 fn io_failure(action: &str, path: &Path) -> impl FnOnce(io::Error) -> HostError {

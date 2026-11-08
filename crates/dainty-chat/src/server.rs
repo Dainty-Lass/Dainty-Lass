@@ -243,11 +243,7 @@ pub fn now_ms() -> i64 {
 pub fn random_hex(n: usize) -> String {
     let mut bytes = vec![0_u8; n];
     rand::rng().fill_bytes(&mut bytes);
-    bytes
-        .iter()
-        .flat_map(|&b| [b >> 4, b & 15])
-        .filter_map(|n| char::from_digit(u32::from(n), 16))
-        .collect()
+    hex::encode(bytes)
 }
 
 /// XEP-0203's stamp, as JavaScript's `toISOString`.

@@ -124,6 +124,7 @@ dotenvy = "0.15"
 flate2 = "1"
 futures-util = { version = "0.3", default-features = false, features = ["sink", "std"] }
 gethostname = "1"
+hex = "0.4.3"
 http = "1"
 http-body = "1"
 http-body-util = "0.1"
@@ -165,6 +166,7 @@ rand = "0.10"
 tempfile = "3"
 # Network-wide ids, tagged with the owning node (DD18, crates/dainty-module-api)
 ulid = "3"
+uuid = { version = "1.28.0", default-features = false }
 # The chat plugin's (crates/dainty-chat): constant-time comparisons, and the WebSocket clients
 # of its parity tests (the version axum's ws uses)
 subtle = "2"

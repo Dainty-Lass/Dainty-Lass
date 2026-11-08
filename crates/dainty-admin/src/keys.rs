@@ -167,11 +167,7 @@ pub fn hash_key(key: &str) -> String {
 fn random_hex(bytes: usize) -> String {
     let mut buffer = vec![0u8; bytes];
     rand::rng().fill(&mut buffer[..]);
-    buffer
-        .iter()
-        .flat_map(|&b| [b >> 4, b & 15])
-        .filter_map(|n| char::from_digit(u32::from(n), 16))
-        .collect()
+    hex::encode(buffer)
 }
 
 /// A new key and its id.

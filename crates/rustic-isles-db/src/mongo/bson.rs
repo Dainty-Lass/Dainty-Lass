@@ -171,7 +171,7 @@ impl Cursor<'_> {
 }
 
 fn hex(bytes: &[u8]) -> String {
-    bytes.iter().map(|b| format!("{b:02x}")).collect()
+    ::hex::encode(bytes)
 }
 
 /// A command or reply value: JSON, plus the BSON types JSON has no word for. The reading commands use only the

@@ -630,13 +630,7 @@ pub fn sha256_file(file: &Path) -> Result<String, HostError> {
         }
         hasher.update(&buf[..n]);
     }
-    let digest = hasher.finalize();
-    let mut hex = String::with_capacity(64);
-    for b in digest {
-        use std::fmt::Write as _;
-        let _ = write!(&mut hex, "{b:02x}");
-    }
-    Ok(hex)
+    Ok(hex::encode(hasher.finalize()))
 }
 
 /// The (lowercase SHA-256, file name) pairs of a SHA256SUMS text; comments and malformed lines are skipped.

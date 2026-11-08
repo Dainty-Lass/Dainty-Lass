@@ -16,6 +16,7 @@ test-support = []
 
 [dependencies]
 axum.workspace = true
+hex.workspace = true
 http.workspace = true
 dainty-module-api.workspace = true
 rustic-rifts-seam.workspace = true

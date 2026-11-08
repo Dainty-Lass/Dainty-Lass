@@ -102,7 +102,7 @@ pub fn generate_inventory_storage_policy(
     let Ok(bytes) = std::fs::read(catalog) else {
         return Err(format!("Catalog dump not found: {}", show(catalog)));
     };
-    let sha: String = Sha256::digest(&bytes).iter().map(|b| format!("{b:02x}")).collect();
+    let sha = hex::encode(Sha256::digest(&bytes));
     let catalog_rows = super::io::read_json_lines(catalog)?;
     let catalog_map = catalog_from_rows(catalog_rows);
 
