@@ -1,5 +1,5 @@
 #!/bin/bash
-# DaintyLass: compose.yaml's health check for a service, `dainty-healthcheck <name>`.
+# Dainty Lass: compose.yaml's health check for a service, `dainty-healthcheck <name>`.
 # Healthy once its port takes a connection, the port and address read as the service reads them: the
 # process environment first, then its env file (written by dainty-host setup). The host kit's `start`
 # waits the same way (dainty-lass's crates/dainty-hostkit/src/services.rs, Ready).

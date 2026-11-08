@@ -78,9 +78,9 @@ pub struct AllowlistConfig {
     pub rule_name: String,
 }
 
-const RULE_NAME_PREFIX: &str = "DaintyLass ";
+const RULE_NAME_PREFIX: &str = "Dainty Lass ";
 
-/// The Windows Firewall rule this helper owns: `DaintyLass ...`, plain characters only.
+/// The Windows Firewall rule this helper owns: `Dainty Lass ...`, plain characters only.
 pub fn check_rule_name(name: &str) -> Result<String, String> {
     let ok = name.starts_with(RULE_NAME_PREFIX)
         && name.len() <= 80
@@ -91,7 +91,7 @@ pub fn check_rule_name(name: &str) -> Result<String, String> {
         Ok(name.to_owned())
     } else {
         Err(format!(
-            "ALLOWLIST_RULE_NAME must start with \"DaintyLass \" and hold only letters, digits, spaces and ()-._, at most 80 (got {})",
+            "ALLOWLIST_RULE_NAME must start with \"Dainty Lass \" and hold only letters, digits, spaces and ()-._, at most 80 (got {})",
             json_string(name)
         ))
     }
@@ -187,7 +187,7 @@ mod tests {
         );
         assert_eq!(c.ports, "8770-8777");
         assert_eq!(c.nft_table, "dainty_lass");
-        assert_eq!(c.rule_name, "DaintyLass game ports (allowlist)");
+        assert_eq!(c.rule_name, "Dainty Lass game ports (allowlist)");
         assert!(c.audit_log.is_absolute() && c.state_file.ends_with("allowlist-state.json"));
         assert!(c.nft.starts_with('/'));
     }
@@ -231,9 +231,9 @@ mod tests {
 
     #[test]
     fn rule_names() {
-        assert!(check_rule_name("DaintyLass 1.4.4 game ports (allowlist)").is_ok());
+        assert!(check_rule_name("Dainty Lass 1.4.4 game ports (allowlist)").is_ok());
         assert!(check_rule_name("Dauntless Reforged Revival game ports").is_err());
-        let long = format!("DaintyLass {}", "a".repeat(70));
+        let long = format!("Dainty Lass {}", "a".repeat(70));
         for bad in [
             "Dainty Lass",
             "Dainty Lass *",

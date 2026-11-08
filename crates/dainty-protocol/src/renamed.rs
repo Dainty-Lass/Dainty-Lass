@@ -1,4 +1,4 @@
-//! The names DaintyLass gave its wire after the Reforged Revival line (2026-11-06, `chore/dainty-protocol-names`):
+//! The names Dainty Lass gave its wire after the Reforged Revival line (2026-11-06, `chore/dainty-protocol-names`):
 //! what a recording made under the old names says now. The parity harnesses read the Node reference's recordings
 //! through [`renamed`] so they stay as recorded (RD2) while the services answer under the new names.
 

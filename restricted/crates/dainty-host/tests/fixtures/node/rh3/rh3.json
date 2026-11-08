@@ -711,7 +711,7 @@
       "name": "performance-kept",
       "code": "éè-✓",
       "fp": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
-      "link": "dainty://join?v=2&mode=public&host=203.0.113.7&port=443&fp=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef&code=%C3%A9%C3%A8-%E2%9C%93&name=DaintyLass%20server"
+      "link": "dainty://join?v=2&mode=public&host=203.0.113.7&port=443&fp=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef&code=%C3%A9%C3%A8-%E2%9C%93&name=Dainty%20Lass%20server"
     }
   ],
   "noFingerprint": "public invites need the certificate fingerprint"

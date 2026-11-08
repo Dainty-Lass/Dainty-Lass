@@ -14,7 +14,7 @@ use crate::text::{collapse_js_whitespace, has_control_or_format, js_length, js_t
 
 /// Scheme of current invites, which may name any played version.
 pub const UNIFIED_INVITE_SCHEME: &str = "dauntless";
-/// DaintyLass's own scheme, pinned to 1.14.7: what `dainty-host invite` prints for it.
+/// Dainty Lass's own scheme, pinned to 1.14.7: what `dainty-host invite` prints for it.
 pub const INVITE_SCHEME: &str = "dainty";
 /// Dauntless Revived's scheme, recognised only to refuse it (RD5).
 pub const REVIVED_INVITE_SCHEME: &str = "dauntless-revived";

@@ -196,7 +196,7 @@ fn pc() -> Pc {
     std::fs::write(win64.join("Dauntless-Win64-Shipping.exe"), exe).unwrap();
     std::fs::write(root.join("Version.txt"), VERSION_TEXT).unwrap();
     Pc {
-        project: dir.path().join("Reforged"),
+        project: dir.path().join("DaintyLass"),
         dumps: dir.path().join("Dumper-7"),
         root,
         win64,

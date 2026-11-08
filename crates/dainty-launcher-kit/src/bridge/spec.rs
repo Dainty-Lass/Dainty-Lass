@@ -731,8 +731,8 @@ mod tests {
     use super::*;
 
     #[test]
-    fn the_table_has_a_hundred_unique_commands() {
-        assert_eq!(COMMANDS.len(), 100);
+    fn the_table_has_a_hundred_and_two_unique_commands() {
+        assert_eq!(COMMANDS.len(), 102);
         let mut seen = HashSet::new();
         for spec in COMMANDS {
             assert!(seen.insert(spec.name), "{} twice", spec.name);

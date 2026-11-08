@@ -1,5 +1,5 @@
 #!/bin/bash
-# DaintyLass: every server test suite, run inside the test image (docker/Dockerfile, target test),
+# Dainty Lass: every server test suite, run inside the test image (docker/Dockerfile, target test),
 # which is the server image plus the Rust toolchain: `dainty-test [rust] [backend] [director]` (all three by
 # default). docker/run-tests.sh runs it, then the compose smoke test; `docker compose run --rm test` runs it with
 # the server's game-data volumes mounted, so the *.gamedata.test.ts files check your real data too.

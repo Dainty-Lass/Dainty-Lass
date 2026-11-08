@@ -8768,7 +8768,7 @@ static void MpResolveBackendAddress() {
     uint16_t EnvPort = kMpBuiltInXmppPort;
     try {
         char Raw[512] = {};
-        // [DaintyLass] The first of these that is set wins: Mystic's own name, then the one the DaintyLass launcher
+        // [DaintyLass] The first of these that is set wins: Mystic's own name, then the one the Dainty Lass launcher
         // and Director export (DAINTY_BACKEND_URL; runtime patch 0040 renamed it from REFORGED_BACKEND_URL).
         static const char* const kBackendUrlVariables[] = { "RUSTIC_ISLES_BACKEND_URL", "DAINTY_BACKEND_URL" };
         DWORD Length = 0;

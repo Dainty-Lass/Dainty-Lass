@@ -38,7 +38,7 @@ mod manager;
 /// How long a requirements check is reused for one workspace.
 pub const REQUIREMENTS_TTL: Duration = Duration::from_secs(15);
 /// The workspace folder beside the game folder.
-pub const PROJECT_FOLDER: &str = "Reforged";
+pub const PROJECT_FOLDER: &str = "DaintyLass";
 /// The embedded server's default data folder in `userData`.
 pub const SERVER_FOLDER: &str = "Server";
 /// CatalogExporter's flags file, in Win64.
