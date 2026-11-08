@@ -112,6 +112,8 @@ jobs:
         run: |
           rustup show active-toolchain || rustup toolchain install
           rustup target add "$TARGET"
+          # windows-msvc is the maintainer's PC, where restricted/ builds with 6 jobs or fewer (AGENTS.md)
+          if [ "$RUNNER_OS" = Windows ]; then echo "CARGO_BUILD_JOBS=6" >> "$GITHUB_ENV"; fi
 
       # No build cache in a release: every file is built from this commit alone.
       # The 1.14.7 Rust backend, Director and `dainty-host db` commands are compiled into dainty-server and

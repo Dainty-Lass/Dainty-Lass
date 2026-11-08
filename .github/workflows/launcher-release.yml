@@ -1,0 +1,402 @@
+# GitHub Actions' copy of .forgejo/workflows/launcher-release.yml (RR3; MIGRATION_PLAN.md RA14, RD7): DaintyLass
+# Launcher and DaintyLass Manager as NSIS (Windows) and AppImage, deb and rpm (Ubuntu 22.04's glibc), with the updater
+# signatures, latest.json and latest-manager.json when the signing secrets are set (restricted/docs/launcher-release.md),
+# SHA256SUMS.txt over every file, and a CycloneDX SBOM of the launcher's dependencies as a separate artifact.
+#
+# Until DX5 it is the build only, as on Forgejo: Run workflow keeps the release files as a 14-day artifact. The
+# publish job (provenance and SBOM attestations, then the files onto the `launcher-updates` release, L7) runs only when
+# prepare sets publish, which nothing does before DX5. Actions are pinned by commit; no cache in a release.
+name: Launcher release
+
+on:
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: launcher-release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    name: Version
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    outputs:
+      version: ${{ steps.plan.outputs.version }}
+      publish: ${{ steps.plan.outputs.publish }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # The bundles take package.json's version; Cargo.toml's must agree (tests/bundles.rs checks it too)
+      - name: Work out the version
+        id: plan
+        run: |
+          set -euo pipefail
+          version="$(sed -n 's/^  "version": "\(.*\)",$/\1/p' restricted/launcher/package.json)"
+          semver='^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$'
+          [[ "$version" =~ $semver ]] || { echo "::error::$version is not a version (x.y.z or x.y.z-prerelease)"; exit 1; }
+          grep -qx "version = \"$version\"" restricted/launcher/src-tauri/Cargo.toml \
+            || { echo "::error::restricted/launcher/src-tauri/Cargo.toml is not at $version"; exit 1; }
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          # DX5 decides when a run publishes; until then none does
+          echo "publish=false" >> "$GITHUB_OUTPUT"
+          echo "launcher $version"
+
+  windows:
+    name: Bundle (Windows NSIS)
+    needs: prepare
+    runs-on: windows-latest
+    timeout-minutes: 90
+    permissions:
+      contents: read
+    defaults:
+      run:
+        shell: bash
+    env:
+      VERSION: ${{ needs.prepare.outputs.version }}
+      # Optional: the certificate vendor's RFC 3161 server (sign-windows.ts defaults to DigiCert's)
+      WINDOWS_TIMESTAMP_URL: ${{ vars.WINDOWS_TIMESTAMP_URL }}
+    steps:
+      - name: Long paths for git
+        run: git config --global core.longpaths true
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Work folder
+        run: echo "WORK=$(cygpath -u "$RUNNER_TEMP")" >> "$GITHUB_ENV"
+
+      - name: Install the pinned toolchain
+        working-directory: restricted
+        run: rustup show active-toolchain || rustup toolchain install
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          # launcher/package.json's packageManager
+          bun-version: 1.4.4
+
+      - name: Install the tauri CLI
+        working-directory: restricted/launcher
+        run: bun install --frozen-lockfile
+
+      # Each secret is optional: unset, that signature is skipped and the run still builds
+      - name: Signing
+        working-directory: restricted/launcher
+        env:
+          UPDATER_KEY: ${{ secrets.LAUNCHER_UPDATER_KEY }}
+          UPDATER_KEY_PASSWORD: ${{ secrets.LAUNCHER_UPDATER_KEY_PASSWORD }}
+          CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
+          CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
+        run: |
+          set -euo pipefail
+          if [ -n "$UPDATER_KEY" ]; then
+            export TAURI_SIGNING_PRIVATE_KEY="$UPDATER_KEY"
+            { echo "TAURI_SIGNING_PRIVATE_KEY<<KEY_END"; echo "$UPDATER_KEY"; echo "KEY_END"; } >> "$GITHUB_ENV"
+            echo "TAURI_SIGNING_PRIVATE_KEY_PASSWORD=$UPDATER_KEY_PASSWORD" >> "$GITHUB_ENV"
+          fi
+          if [ -n "$CERTIFICATE" ]; then
+            certificate="$WORK/codesign.pfx"
+            printf '%s' "$CERTIFICATE" | base64 -d > "$certificate"
+            WINDOWS_CERTIFICATE_PATH="$(cygpath -w "$certificate")"
+            export WINDOWS_CERTIFICATE_PATH
+            echo "WINDOWS_CERTIFICATE_PATH=$WINDOWS_CERTIFICATE_PATH" >> "$GITHUB_ENV"
+            echo "WINDOWS_CERTIFICATE_PASSWORD=$CERTIFICATE_PASSWORD" >> "$GITHUB_ENV"
+          fi
+          bun scripts/lass.ts release-config "$(cygpath -w "$WORK/config")"
+
+      # beforeBuildCommand builds ui/'s page
+      - name: Build DaintyLass Launcher and DaintyLass Manager
+        working-directory: restricted/launcher
+        run: |
+          set -euo pipefail
+          config="$(cygpath -w "$WORK/config")"
+          bun run tauri build --ci --bundles nsis --config "$config\\client.json" -- --features realms
+          mkdir -p "$WORK/out"
+          collect() {
+            local name="$1" exe sig
+            exe="$(ls ../target/release/bundle/nsis/*-setup.exe)"
+            cp "$exe" "$WORK/out/${name}_${VERSION}_x64-setup.exe"
+            sig="$exe.sig"
+            if [ -f "$sig" ]; then cp "$sig" "$WORK/out/${name}_${VERSION}_x64-setup.exe.sig"; fi
+            rm -rf ../target/release/bundle/nsis
+          }
+          collect DaintyLassLauncher
+          bun run tauri build --ci --bundles nsis --config "$config\\manager.json" -- --no-default-features --features server-gui
+          collect DaintyLassManager
+          ls -l "$WORK/out"
+
+      - name: Check the Authenticode signatures
+        if: env.WINDOWS_CERTIFICATE_PATH != ''
+        shell: pwsh
+        run: |
+          Get-ChildItem "$env:RUNNER_TEMP\out\*-setup.exe" | ForEach-Object {
+            $signature = Get-AuthenticodeSignature $_.FullName
+            if ($signature.Status -ne 'Valid') { throw "$($_.Name): $($signature.Status)" }
+            "$($_.Name): signed by $($signature.SignerCertificate.Subject)"
+          }
+
+      - name: Remove the certificate
+        if: always()
+        run: rm -f "$WORK/codesign.pfx"
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: launcher-bundles-windows
+          path: ${{ runner.temp }}/out/
+          if-no-files-found: error
+          retention-days: 1
+
+  linux:
+    name: Bundle (Linux AppImage, deb, rpm)
+    needs: prepare
+    # Ubuntu 22.04's glibc is the oldest the row supports; the runner image has git and Node, so no job container
+    runs-on: ubuntu-22.04
+    timeout-minutes: 90
+    permissions:
+      contents: read
+    defaults:
+      run:
+        shell: bash
+    env:
+      VERSION: ${{ needs.prepare.outputs.version }}
+      # linuxdeploy is an AppImage itself, and needs no FUSE this way
+      APPIMAGE_EXTRACT_AND_RUN: "1"
+    steps:
+      - name: Build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends xdg-utils rpm file \
+            build-essential pkg-config libwebkit2gtk-4.1-dev libgtk-3-dev librsvg2-dev \
+            libayatana-appindicator3-dev libdbus-1-dev libssl-dev patchelf
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install the pinned toolchain
+        working-directory: restricted
+        run: rustup show active-toolchain || rustup toolchain install
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version: 1.4.4
+
+      - name: Install the tauri CLI
+        working-directory: restricted/launcher
+        run: bun install --frozen-lockfile
+
+      - name: Signing
+        working-directory: restricted/launcher
+        env:
+          UPDATER_KEY: ${{ secrets.LAUNCHER_UPDATER_KEY }}
+          UPDATER_KEY_PASSWORD: ${{ secrets.LAUNCHER_UPDATER_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          if [ -n "$UPDATER_KEY" ]; then
+            export TAURI_SIGNING_PRIVATE_KEY="$UPDATER_KEY"
+            { echo "TAURI_SIGNING_PRIVATE_KEY<<KEY_END"; echo "$UPDATER_KEY"; echo "KEY_END"; } >> "$GITHUB_ENV"
+            echo "TAURI_SIGNING_PRIVATE_KEY_PASSWORD=$UPDATER_KEY_PASSWORD" >> "$GITHUB_ENV"
+          fi
+          bun scripts/lass.ts release-config "$RUNNER_TEMP/config"
+
+      - name: Build DaintyLass Launcher and DaintyLass Manager
+        working-directory: restricted/launcher
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/out"
+          collect() {
+            local name="$1" bundle=../target/release/bundle file
+            for file in "$bundle"/appimage/*.AppImage "$bundle"/deb/*.deb "$bundle"/rpm/*.rpm; do
+              case "$file" in
+                *.AppImage) target="${name}_${VERSION}_amd64.AppImage" ;;
+                *.deb) target="${name}_${VERSION}_amd64.deb" ;;
+                *.rpm) target="${name}_${VERSION}_x86_64.rpm" ;;
+              esac
+              cp "$file" "$RUNNER_TEMP/out/$target"
+              if [ -f "$file.sig" ]; then cp "$file.sig" "$RUNNER_TEMP/out/$target.sig"; fi
+            done
+            rm -rf "$bundle"
+          }
+          bun run tauri build --ci --bundles appimage,deb,rpm --config "$RUNNER_TEMP/config/client.json" -- --features realms
+          collect DaintyLassLauncher
+          bun run tauri build --ci --bundles appimage,deb,rpm --config "$RUNNER_TEMP/config/manager.json" \
+            -- --no-default-features --features server-gui
+          collect DaintyLassManager
+          ls -l "$RUNNER_TEMP/out"
+
+      # The packages' metadata, and the launcher's invite scheme in its desktop entry (RA11)
+      - name: Check the packages
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP/out"
+          for app in DaintyLassLauncher DaintyLassManager; do
+            dpkg-deb --info "${app}_${VERSION}_amd64.deb"
+            rpm -qip "${app}_${VERSION}_x86_64.rpm"
+          done
+          dpkg-deb --fsys-tarfile "DaintyLassLauncher_${VERSION}_amd64.deb" | tar -xO --wildcards './usr/share/applications/*.desktop' \
+            | grep -q 'x-scheme-handler/dauntless;'
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: launcher-bundles-linux
+          path: ${{ runner.temp }}/out/
+          if-no-files-found: error
+          retention-days: 1
+
+  package:
+    name: Release files and SBOM
+    needs: [prepare, windows, linux]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    env:
+      VERSION: ${{ needs.prepare.outputs.version }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: launcher-bundles-*
+          path: release
+          merge-multiple: true
+
+      # The updater feeds, only when every bundle is signed: a feed entry without its signature is refused anyway
+      - name: latest.json and latest-manager.json
+        run: |
+          set -euo pipefail
+          node - release "$VERSION" <<'EOF'
+          const fs = require("fs"), path = require("path");
+          const [dir, version] = process.argv.slice(2);
+          const config = JSON.parse(fs.readFileSync("restricted/launcher/src-tauri/tauri.conf.json", "utf8"));
+          // The release the endpoints name: the bundles sit beside the feed
+          const base = config.plugins.updater.endpoints[0].replace(/[^/]*$/, "");
+          const apps = { DaintyLassLauncher: "latest.json", DaintyLassManager: "latest-manager.json" };
+          const kinds = {
+            "windows-x86_64-nsis": "_x64-setup.exe",
+            "linux-x86_64-appimage": "_amd64.AppImage",
+            "linux-x86_64-deb": "_amd64.deb",
+            "linux-x86_64-rpm": "_x86_64.rpm",
+          };
+          const expected = Object.keys(apps).flatMap((app) => Object.values(kinds).map((kind) => `${app}_${version}${kind}`));
+          const missing = expected.filter((file) => !fs.existsSync(path.join(dir, file)));
+          if (missing.length) throw new Error(`missing bundles: ${missing.join(", ")}`);
+          const unsigned = expected.filter((file) => !fs.existsSync(path.join(dir, `${file}.sig`)));
+          if (unsigned.length === expected.length) {
+            console.log("no updater signatures (LAUNCHER_UPDATER_KEY unset): no feed written");
+            process.exit(0);
+          }
+          if (unsigned.length) throw new Error(`unsigned bundles: ${unsigned.join(", ")}`);
+          const pubDate = new Date().toISOString().replace(/\.\d+Z$/, "Z");
+          for (const [app, feed] of Object.entries(apps)) {
+            const platforms = {};
+            for (const [target, kind] of Object.entries(kinds)) {
+              const file = `${app}_${version}${kind}`;
+              const signature = fs.readFileSync(path.join(dir, `${file}.sig`), "utf8").trim();
+              platforms[target] = { signature, url: base + encodeURIComponent(file) };
+            }
+            // A target without the bundle type, as an older build or a bare binary asks
+            platforms["windows-x86_64"] = platforms["windows-x86_64-nsis"];
+            platforms["linux-x86_64"] = platforms["linux-x86_64-appimage"];
+            const manifest = { version, notes: `${app} ${version}`, pub_date: pubDate, platforms };
+            fs.writeFileSync(path.join(dir, feed), JSON.stringify(manifest, null, 2) + "\n");
+            console.log(`${feed}: ${Object.keys(platforms).length} targets`);
+          }
+          EOF
+
+      - name: SHA256SUMS.txt
+        run: |
+          set -euo pipefail
+          cd release
+          sha256sum -- * > SHA256SUMS.txt
+          cat SHA256SUMS.txt
+
+      # The launcher's Rust and JavaScript dependencies, from the lockfiles the bundles were built with
+      - name: The launcher's SBOM
+        run: |
+          set -euo pipefail
+          mkdir -p sbom
+          .github/scripts/trivy.sh fs --scanners vuln --format cyclonedx \
+            --output "sbom/DaintyLass-launcher-$VERSION.cdx.json" \
+            --skip-dirs restricted/modules --skip-dirs restricted/legacy --skip-dirs restricted/docker restricted
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: launcher-release
+          path: release/
+          if-no-files-found: error
+          retention-days: 14
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: launcher-sbom
+          path: sbom/
+          if-no-files-found: error
+          retention-days: 14
+
+  # DX5. Unreachable until then: prepare never sets publish.
+  publish:
+    name: Publish to launcher-updates
+    needs: [prepare, package]
+    if: needs.prepare.outputs.publish == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    concurrency:
+      group: launcher-updates
+      cancel-in-progress: false
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      VERSION: ${{ needs.prepare.outputs.version }}
+    steps:
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: launcher-release
+          path: release
+
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: launcher-sbom
+          path: sbom
+
+      - name: Check the release files
+        run: cd release && sha256sum --check --strict SHA256SUMS.txt
+
+      - name: Attest the build provenance of the bundles
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+        with:
+          subject-checksums: release/SHA256SUMS.txt
+
+      - name: Attest the bundles' SBOM
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+        with:
+          subject-checksums: release/SHA256SUMS.txt
+          sbom-path: sbom/DaintyLass-launcher-${{ needs.prepare.outputs.version }}.cdx.json
+
+      # Installed launchers read the rolling release tauri.conf.json's endpoints name (L7)
+      - name: Bring launcher-updates up to this version
+        run: |
+          set -euo pipefail
+          gh release view launcher-updates --json tagName > /dev/null \
+            || { echo "::error::the launcher-updates release does not exist"; exit 1; }
+          gh release upload launcher-updates release/* --clobber

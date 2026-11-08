@@ -2,8 +2,9 @@
 
 dainty-lass runs its checks on Forgejo Actions at `git.silentspud.com` (DX3), for both workspaces: the MIT root
 and the AGPL `restricted/` (RD27). The workflows are in the root `.forgejo/workflows/`; Forgejo reads only that
-folder and ignores `.github/workflows/` once it exists, so the GitHub workflows Mystic Paradox and Dauntless
-Revived came with stay as they were, for GitHub only.
+folder and ignores `.github/workflows/` once it exists. `.github/workflows/` holds GitHub's copies of the three
+(RR3), which GitHub runs on its hosted runners and Forgejo ignores; see [GitHub Actions](#github-actions). A change
+to one copy is made to the other in the same commit.
 This page is the maintainer's: the runners, their labels and how to register them.
 
 ## Labels
@@ -130,11 +131,31 @@ when their family didn't change. In Forgejo's branch protection, "Enable status 
 3. Run the Server release by hand once. The release's artifact `server-release` holds the two
    archives and `SHA256SUMS.txt`.
 
+## GitHub Actions
+
+`.github/workflows/` runs on the `github` mirror, which the maintainer pushes by hand. `ci.yml` has the same families,
+jobs and `CI ok` as Forgejo's, with the labels mapped to hosted runners (`docker` and `linux-host` to
+`ubuntu-latest`, `windows-msvc` to `windows-latest`) and these differences:
+
+- Postgres is the Ubuntu image's own, started rather than installed.
+- Caches are saved from `main` and `plan` only, since GitHub keeps 10 GB a repository; other branches restore them.
+- The root's fuzz targets are split across four jobs (`SHARDS`, `SHARD` in `scripts/ci/fuzz.sh`).
+- A `scan` job runs Trivy over the tree on every run and fails only on a secret; the Docker job scans its images
+  too, without failing. The Trivy image is pinned in `.github/trivy/Dockerfile`, which Dependabot keeps current.
+- `audit.yml`: zizmor on the workflows, a weekly Trivy run, and dependency review on pull requests.
+
+Repository variable `CODE_SCANNING` set to `true` (once the repository is public, or has Advanced Security) sends
+Trivy's and zizmor's findings to code scanning and turns on dependency review. Unset, the findings stay in the log.
+
+`server-release.yml` and `launcher-release.yml` build what Forgejo's do, plus a CycloneDX SBOM of each archive (and
+of the launcher's dependencies) as a separate artifact. Their publish jobs, with build provenance and SBOM
+attestations (`gh attestation verify <file> --repo SilentSpud/DaintyLass`), are written but unreachable until DX5:
+the server's tag trigger is commented out and the launcher's prepare never sets `publish`.
+
 ## What isn't here
 
-- **Publishing a release.** `.forgejo/workflows/server-release.yml` is a dry run on Forgejo: `dainty-host update` reads GitHub's
-  releases API and checks GitHub attestations. The tag trigger and the publish job come back with DX5, from
-  `b28fd27:.github/workflows/server-release.yml`.
+- **Publishing a release.** Both forges' release workflows are dry runs: `dainty-host update` reads GitHub's releases
+  API and checks GitHub attestations, which Forgejo has neither of, and GitHub's publish jobs wait for DX5.
 - **Dependency updates.** `.github/dependabot.yml` is GitHub's and does nothing on Forgejo. Renovate is the
   Forgejo equivalent, if wanted before DX5.
 - **Mystic's and DR's other jobs.** rustic-isles' launcher, runtime loader and gitleaks jobs stay in
