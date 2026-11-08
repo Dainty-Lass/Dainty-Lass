@@ -2,6 +2,9 @@
 
 # Security checklist: launcher invites, pinned TLS and the host API (RX3)
 
+> **Moved (RL13, RL14):** this code is now the MIT `crates/launcher-kit` (spec-rd27-launcher.md); the paths below are
+> the shell's before the cutover, kept as the record. Its fuzz targets are in the root's `fuzz/`.
+
 The checklist for the launcher's network client: invite parsing, the TLS connection pinned to the invite's
 certificate, the HTTP client and the host API calls (MIGRATION_PLAN.md RA4, RA5, RD10). `SECURITY_REVIEW.md` indexes
 it. The runtime download (`request_to_file`, RA7), the relay (RA6) and the keystore (RA8) have pages of their own.
@@ -33,8 +36,8 @@ Code, in `launcher/src-tauri/src`:
 - `net/http.rs`: `request`, the only way the launcher sends HTTP to a server.
 - `net/hostapi.rs`: the calls; `net/hostapi/parse.rs`: reading their answers, without the network.
 
-Fuzz targets in `fuzz`: `protocol_input` (invites, statuses, usernames and keys, through `protocol`),
-`launcher_input` (the same, through the launcher's `core` paths) and `launcher_net` (`parse.rs`: Register and
+Fuzz targets in the root's `fuzz/`: `protocol_input` (invites, statuses, usernames and keys, through `protocol`),
+`launcher_bridge` (the bridge's argument checks) and `launcher_hostapi` (`parse.rs`: Register and
 GetUserInfo answers, runtime manifests, news, the art pack's index, paths and image sniffing).
 
 ## Checklist
@@ -116,12 +119,12 @@ GetUserInfo answers, runtime manifests, news, the art pack's index, paths and im
 
 ### Fuzzing
 
-- [ ] `protocol_input`, `launcher_input` and `launcher_net` run briefly on every PR with the other targets (RD10).
+- [ ] `protocol_input`, `launcher_bridge` and `launcher_hostapi` run briefly on every PR with the other targets (RD10).
 - [ ] A 24-hour run of each with no crash, before the cutover:
 
 ```bash
-cargo +nightly fuzz run launcher_net -- -max_total_time=86400
-cargo +nightly fuzz run launcher_input -- -max_total_time=86400
+cargo +nightly fuzz run launcher_hostapi -- -max_total_time=86400
+cargo +nightly fuzz run launcher_bridge -- -max_total_time=86400
 ```
 
 ## Changes from Dauntless Revived
