@@ -15,6 +15,7 @@
 //! sha256 = "<64 lowercase hex>"
 //! args = []                            # optional
 //! autoload = true                      # optional; false: listed, loaded from the console only
+//! restart = false                      # optional; true: started again when it dies, with backoff (MS2)
 //!
 //! [modules.rustic-example.tuning]      # a module's own settings, as it registered them
 //! greeting = "hi"
@@ -67,6 +68,8 @@ pub struct ExternalModuleEntry {
     pub args: Vec<String>,
     /// Loaded when the server starts; otherwise from the console only.
     pub autoload: bool,
+    /// Started again when it dies (MS2); false, the default, leaves it failed as before
+    pub restart: bool,
 }
 
 /// `[modules]`.
@@ -242,6 +245,9 @@ impl ModulesConfig {
                     if !e.autoload {
                         m.insert("autoload".into(), Value::Bool(false));
                     }
+                    if e.restart {
+                        m.insert("restart".into(), Value::Bool(true));
+                    }
                     Value::Object(m)
                 })
                 .collect();
@@ -266,9 +272,9 @@ fn external_entry(item: &Value) -> Result<ExternalModuleEntry, HostError> {
         .as_object()
         .ok_or_else(|| bad("each [[modules.external]] must be a table"))?;
     for key in m.keys() {
-        if !["id", "path", "sha256", "args", "autoload"].contains(&key.as_str()) {
+        if !["id", "path", "sha256", "args", "autoload", "restart"].contains(&key.as_str()) {
             return Err(bad(format!(
-                "[[modules.external]] has no setting {key} (the settings there are id, path, sha256, args, autoload)"
+                "[[modules.external]] has no setting {key} (the settings there are id, path, sha256, args, autoload,                  restart)"
             )));
         }
     }
@@ -317,12 +323,20 @@ fn external_entry(item: &Value) -> Result<ExternalModuleEntry, HostError> {
             )));
         }
     };
+    let restart = match m.get("restart") {
+        None => false,
+        Some(Value::Bool(b)) => *b,
+        Some(_) => {
+            return Err(bad(format!("[[modules.external]] {id}: restart must be true or false")));
+        }
+    };
     Ok(ExternalModuleEntry {
         id,
         path,
         sha256,
         args,
         autoload,
+        restart,
     })
 }
 
@@ -550,6 +564,7 @@ mod tests {
             )
         );
         assert_eq!(example.sha256.to_string(), digest());
+        assert!(!example.restart, "left out: a dead module stays failed, as before MS2");
         let tuning = &modules.settings[&"rustic-example".parse::<ModuleId>().unwrap()]["tuning"];
         assert_eq!(
             (tuning["greeting"].clone(), tuning["level"].clone()),
@@ -580,6 +595,20 @@ mod tests {
     }
 
     #[test]
+    fn restart_round_trips_through_host_toml_and_host_json() {
+        let mut config = HostConfig::from_toml(&with_modules()).unwrap();
+        config.modules.as_mut().unwrap().external[0].restart = true;
+        let text = config.to_toml().unwrap();
+        assert!(text.contains("restart = true"), "{text}");
+        assert_eq!(HostConfig::from_toml(&text).unwrap().modules, config.modules);
+        let json = config.to_json().unwrap();
+        assert_eq!(HostConfig::from_json(&json).unwrap().modules, config.modules);
+        // Off is not written, so a file without it reads and writes back unchanged
+        config.modules.as_mut().unwrap().external[0].restart = false;
+        assert!(!config.to_toml().unwrap().contains("restart"));
+    }
+
+    #[test]
     fn what_modules_holds_is_checked() {
         let digest = digest();
         let external = |rest: &str| format!("[[modules.external]]\nid = \"a\"\npath = \"a\"\n{rest}");
@@ -595,6 +624,10 @@ mod tests {
             (
                 external(&format!("sha256 = \"{digest}\"\nurl = \"x\"\n")),
                 "no setting url",
+            ),
+            (
+                external(&format!("sha256 = \"{digest}\"\nrestart = \"yes\"\n")),
+                "restart must be true or false",
             ),
             (
                 format!(

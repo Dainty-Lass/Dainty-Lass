@@ -25,8 +25,8 @@ pub mod service_library;
 pub use controller::{Module, ModuleFuture, ModuleStart, START_TIMEOUT, STOP_GRACE, ServerController};
 pub use node_services::NodeServices;
 pub use registry::{
-    LoadHook, ModuleEntry, ModuleFactory, ModuleInfo, ModuleRegistry, ModuleSource, ModuleState, RegistryError,
-    RegistryOptions, WeakRegistry,
+    GameServers, LoadHook, MODULE_RESTARTED_EVENT, ModuleEntry, ModuleFactory, ModuleInfo, ModuleRegistry,
+    ModuleSource, ModuleState, RegistryError, RegistryOptions, RestartPolicy, WeakRegistry,
 };
 pub use service_library::{
     ServiceLibrary, service_compiled_in, service_compiled_in_with, service_library, service_library_with,
