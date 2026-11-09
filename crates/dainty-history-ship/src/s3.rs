@@ -17,7 +17,7 @@ use sha2::{Digest, Sha256};
 
 use crate::Error;
 use crate::bucket::{Bucket, BucketRead, ObjectInfo};
-use crate::layout::{hex, sha256_hex};
+use crate::layout::sha256_hex;
 
 const EMPTY_SHA256: &str = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
 /// A listing page or an error body is never this large.
@@ -347,13 +347,13 @@ pub(crate) fn sign(
     let scope = format!("{date}/{}/s3/aws4_request", config.region);
     let to_sign = format!(
         "AWS4-HMAC-SHA256\n{amz_date}\n{scope}\n{}",
-        hex(&Sha256::digest(request.as_bytes()))
+        hex::encode(Sha256::digest(request.as_bytes()))
     );
     let mut key = hmac_sha256(format!("AWS4{}", config.secret_access_key).as_bytes(), date.as_bytes());
     for part in [config.region.as_str(), "s3", "aws4_request"] {
         key = hmac_sha256(&key, part.as_bytes());
     }
-    let signature = hex(&hmac_sha256(&key, to_sign.as_bytes()));
+    let signature = hex::encode(hmac_sha256(&key, to_sign.as_bytes()));
     format!(
         "AWS4-HMAC-SHA256 Credential={}/{scope}, SignedHeaders={signed}, Signature={signature}",
         config.access_key_id

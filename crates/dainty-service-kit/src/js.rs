@@ -172,6 +172,14 @@ pub fn date_parse(text: &str) -> Option<i64> {
     None
 }
 
+/// `Date#toISOString` of Unix milliseconds; a time chrono can't hold writes the epoch.
+pub fn iso_string(ms: i64) -> String {
+    DateTime::from_timestamp_millis(ms)
+        .unwrap_or_default()
+        .format("%Y-%m-%dT%H:%M:%S%.3fZ")
+        .to_string()
+}
+
 fn hex_val(b: u8) -> Option<u8> {
     match b {
         b'0'..=b'9' => Some(b - b'0'),

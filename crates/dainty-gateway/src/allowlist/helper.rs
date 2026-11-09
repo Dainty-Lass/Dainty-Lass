@@ -66,7 +66,7 @@ impl AuditLog {
     /// Appends `event` with `fields` and a timestamp, and logs it at info.
     pub fn write(&self, event: &str, fields: Value) {
         let mut line = Map::new();
-        line.insert("t".into(), json!(crate::iso_ms(crate::now_ms())));
+        line.insert("t".into(), json!(dainty_service_kit::js::iso_string(crate::now_ms())));
         line.insert("event".into(), json!(event));
         if let Value::Object(fields) = &fields {
             for (k, v) in fields {
@@ -312,10 +312,10 @@ impl Helper {
             .lock()
             .entries()
             .into_iter()
-            .map(|(ip, at)| json!({ "ip": ip, "expiresAt": crate::iso_ms(at) }))
+            .map(|(ip, at)| json!({ "ip": ip, "expiresAt": dainty_service_kit::js::iso_string(at) }))
             .collect();
         let last = self.sync.last_result().map(|r| {
-            let mut last = json!({ "ok": r.ok, "enabled": !r.ips.is_empty(), "ips": r.ips, "at": crate::iso_ms(r.at) });
+            let mut last = json!({ "ok": r.ok, "enabled": !r.ips.is_empty(), "ips": r.ips, "at": dainty_service_kit::js::iso_string(r.at) });
             if let (Some(error), Value::Object(map)) = (&r.error, &mut last) {
                 map.insert("error".into(), json!(error));
             }

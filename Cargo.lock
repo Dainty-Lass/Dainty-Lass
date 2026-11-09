@@ -1352,7 +1352,6 @@ dependencies = [
 name = "dainty-content-plugin"
 version = "0.0.0"
 dependencies = [
- "axum",
  "dainty-content",
  "dainty-controller",
  "dainty-module-api",
@@ -1403,7 +1402,6 @@ dependencies = [
  "http",
  "http-body-util",
  "rustls",
- "serde",
  "serde_json",
  "tokio",
  "tracing",
@@ -1482,7 +1480,6 @@ dependencies = [
 name = "dainty-gateway-plugin"
 version = "0.0.0"
 dependencies = [
- "axum",
  "base64 0.23.1",
  "bytes",
  "dainty-controller",
@@ -1494,14 +1491,12 @@ dependencies = [
  "dainty-service-plugin",
  "futures-util",
  "http",
- "http-body",
  "http-body-util",
  "hyper",
  "hyper-util",
- "regex",
  "rustls",
  "serde_json",
- "sha1 0.10.7",
+ "sha1 0.11.0",
  "sha2 0.11.1",
  "tempfile",
  "tokio",
@@ -1558,7 +1553,6 @@ dependencies = [
  "dainty-service-kit",
  "dainty-service-plugin",
  "dainty-store",
- "diesel",
  "flate2",
  "fs4",
  "hex",
@@ -1654,7 +1648,6 @@ dependencies = [
  "hyper",
  "hyper-util",
  "pbkdf2",
- "percent-encoding",
  "rand 0.10.3",
  "rcgen",
  "regex",
@@ -1664,12 +1657,10 @@ dependencies = [
  "serde",
  "serde_json",
  "sha1 0.11.0",
- "sha1_smol",
  "sha2 0.11.1",
  "tempfile",
  "tokio",
  "tokio-rustls",
- "tokio-stream",
  "tokio-util",
  "toml_edit 0.25.17+spec-1.1.0",
  "tower",
@@ -1769,8 +1760,6 @@ dependencies = [
  "chrono",
  "dainty-module-api",
  "dainty-network",
- "dainty-protocol",
- "dainty-service-kit",
  "hex",
  "http",
  "http-body-util",
@@ -1784,12 +1773,10 @@ dependencies = [
  "serde_json",
  "sha2 0.11.1",
  "subtle",
- "tempfile",
  "thiserror 2.0.21",
  "tokio",
  "tokio-rustls",
  "toml_edit 0.25.17+spec-1.1.0",
- "tracing",
  "url",
 ]
 
@@ -5577,7 +5564,6 @@ dependencies = [
  "rustic-isles",
  "rustic-isles-auth",
  "rustic-rifts-seam",
- "serde",
  "serde_json",
  "sha2 0.11.1",
  "tempfile",
@@ -5593,7 +5579,6 @@ dependencies = [
 name = "rustic-isles-1-14-7"
 version = "0.0.0"
 dependencies = [
- "axum",
  "dainty-module-api",
  "dainty-service-kit",
  "dainty-store",
@@ -5617,7 +5602,6 @@ dependencies = [
  "rustic-rifts-seam",
  "serde_json",
  "tempfile",
- "thiserror 2.0.21",
  "tokio",
  "tracing",
 ]
@@ -5828,7 +5812,6 @@ dependencies = [
  "rustic-isles-launcher-api",
  "rustic-isles-matchmaking",
  "rustic-isles-store",
- "rustic-rifts-seam",
  "serde_json",
  "subtle",
  "tempfile",
@@ -5909,6 +5892,7 @@ name = "rustic-rifts-admission"
 version = "0.0.0"
 dependencies = [
  "base64 0.23.1",
+ "hex",
  "p256",
  "rand 0.10.3",
  "rustic-rifts-relay",
@@ -5916,7 +5900,6 @@ dependencies = [
  "serde_json",
  "sha2 0.11.1",
  "tempfile",
- "thiserror 2.0.21",
 ]
 
 [[package]]
@@ -5991,7 +5974,6 @@ dependencies = [
  "serde_json",
  "sha1 0.11.0",
  "sha2 0.11.1",
- "thiserror 2.0.21",
  "uuid",
 ]
 
@@ -7592,17 +7574,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c9cc2678c2cdd569ef8215e2afd7954ada2ae20b4fdd2c5fe6139a3b02d105db"
 dependencies = [
  "rustls",
- "tokio",
-]
-
-[[package]]
-name = "tokio-stream"
-version = "0.1.19"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a3d06f0b082ba57c26b79407372e57cf2a1e28124f78e9479fe80322cf53420b"
-dependencies = [
- "futures-core",
- "pin-project-lite",
  "tokio",
 ]
 

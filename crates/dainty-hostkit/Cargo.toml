@@ -27,7 +27,7 @@ dainty-http.workspace = true
 dainty-admin = { workspace = true, optional = true }
 aws-lc-rs.workspace = true
 base64.workspace = true
-bytes = "1"
+bytes.workspace = true
 chrono.workspace = true
 clap.workspace = true
 dainty-controller = { workspace = true, default-features = false, features = ["remote", "events"] }
@@ -74,7 +74,6 @@ libc = "0.2.191"
 
 [dev-dependencies]
 dainty-admin.workspace = true
-diesel.workspace = true
 dainty-epic = { workspace = true, features = ["test-support"] }
 dainty-service-kit.workspace = true
 tempfile.workspace = true

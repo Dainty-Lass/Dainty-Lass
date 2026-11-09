@@ -24,7 +24,6 @@ rand.workspace = true
 regex.workspace = true
 rustic-rifts-seam.workspace = true
 rustic-isles-auth.workspace = true
-serde.workspace = true
 serde_json = { workspace = true, features = ["preserve_order"] }
 dainty-service-kit.workspace = true
 sha2.workspace = true

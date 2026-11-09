@@ -87,7 +87,7 @@ impl LogShipKey {
 
     /// The key's id: 16 lowercase hex characters of its SHA-256. Safe to log.
     pub fn kid(&self) -> String {
-        crate::home::keys::hex(&Sha256::digest(self.0)[..8])
+        hex::encode(&Sha256::digest(self.0)[..8])
     }
 
     /// Encrypts `plaintext` with AES-256-GCM bound to `object_key` as Additional Authenticated Data.

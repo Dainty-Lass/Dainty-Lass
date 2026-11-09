@@ -26,7 +26,7 @@ use crate::hub::{hub_ticket_denial_error, is_hub_live, is_presence_expired, pars
 use crate::hub::{parse_hub_stop_body, presence_purge_at, realm_host_ineligibility_reason};
 use crate::hunt::hub_kind_name;
 use crate::hunt::{AdmissionState, HostCapabilityRecord, HuntSession, HuntState, Participant, TransitionActor};
-use crate::ids::{hex, new_session_ulid, random_uuid, seam_session_id, uuid_text, wire_session_id};
+use crate::ids::{new_session_ulid, random_uuid, seam_session_id, uuid_text, wire_session_id};
 use crate::leases::{Hosting, as_account, integer_in, refused, short_text};
 use crate::lifecycle::{CONTROL_LIFE_MS, HOST_END_STATES, one, queue, transition};
 use crate::ports::RealmEventSink;
@@ -273,7 +273,7 @@ fn build_number(hunt: &HuntSession) -> u32 {
 }
 
 fn random_nonce() -> String {
-    hex(&rand::random::<[u8; 16]>())
+    hex::encode(rand::random::<[u8; 16]>())
 }
 
 /// Maps between two enums whose variants carry the same names.

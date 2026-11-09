@@ -42,7 +42,7 @@ pub struct Loaded {
 
 /// JavaScript's `toISOString`.
 pub fn iso(ms: i64) -> String {
-    crate::iso_ms(ms)
+    dainty_service_kit::js::iso_string(ms)
 }
 
 fn ipv6_node(bytes: &[u8]) -> String {
@@ -83,7 +83,7 @@ pub fn describe(der: &[u8]) -> Result<CertInfo, String> {
         }
     }
     Ok(CertInfo {
-        fingerprint: crate::hex(&Sha256::digest(der)),
+        fingerprint: hex::encode(Sha256::digest(der)),
         not_before,
         not_after,
         subject_alt_name: names.join(", "),

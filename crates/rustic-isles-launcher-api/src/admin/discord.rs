@@ -22,7 +22,7 @@ use super::auth::read_cookie;
 use super::signin::{open_session, secure_suffix, session_cookie};
 use super::{AdminContext, LauncherApiAdmin, admin_error, fresh_id, user_id_of};
 use crate::launcher_api::is_account_eligible;
-use crate::util::{self, form_encode, hex, hmac_sha256, iso, now_ms, object, system_now_ms};
+use crate::util::{self, form_encode, hmac_sha256, iso, now_ms, object, system_now_ms};
 
 /// The cookie binding a Discord sign-in to the browser that started it.
 pub const BINDING_COOKIE: &str = "rustic_isles_admin_oauth";
@@ -195,7 +195,7 @@ pub fn read_config(settings: &rustic_isles::Settings) -> Result<AdminDiscordConf
 pub fn make_state(binding: &[u8], nonce: &str) -> String {
     let mut message = b"v1\0".to_vec();
     message.extend_from_slice(nonce.as_bytes());
-    format!("v1.{nonce}.{}", hex(&hmac_sha256(binding, &message)))
+    format!("v1.{nonce}.{}", hex::encode(hmac_sha256(binding, &message)))
 }
 
 fn is_lower_hex(text: &str, len: usize) -> bool {

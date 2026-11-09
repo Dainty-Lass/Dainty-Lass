@@ -125,9 +125,7 @@ pub fn system_now_ms() -> i64 {
 }
 
 /// Unix ms as `Date.toISOString` writes it.
-pub fn iso(ms: i64) -> String {
-    rustic_isles_auth::iso(ms)
-}
+pub use rustic_isles_auth::iso;
 
 /// Random bytes from the thread-local generator.
 pub fn random_bytes<const N: usize>() -> [u8; N] {
@@ -138,7 +136,7 @@ pub fn random_bytes<const N: usize>() -> [u8; N] {
 
 /// Random bytes as lower-case hex.
 pub fn random_hex<const N: usize>() -> String {
-    hex(&random_bytes::<N>())
+    hex::encode(random_bytes::<N>())
 }
 
 /// Random bytes as unpadded base64url.
@@ -152,11 +150,6 @@ pub fn random_uuid() -> String {
 }
 
 // ------------------------------------------------------------------ bytes
-
-/// The bytes as lower-case hex.
-pub fn hex(bytes: &[u8]) -> String {
-    ::hex::encode(bytes)
-}
 
 fn hex_digit(b: u8) -> Option<u8> {
     match b {
@@ -194,7 +187,7 @@ pub fn sha256(bytes: &[u8]) -> [u8; 32] {
 
 /// SHA-256 as lower-case hex.
 pub fn sha256_hex(bytes: &[u8]) -> String {
-    hex(&sha256(bytes))
+    hex::encode(sha256(bytes))
 }
 
 /// HMAC-SHA256 under `key`.

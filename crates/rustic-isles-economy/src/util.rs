@@ -107,11 +107,7 @@ pub(crate) fn first_chars(text: &str, n: usize) -> String {
 }
 
 pub(crate) fn sha256_hex(text: &str) -> String {
-    hex(&Sha256::digest(text.as_bytes()))
-}
-
-pub(crate) fn hex(bytes: &[u8]) -> String {
-    ::hex::encode(bytes)
+    hex::encode(Sha256::digest(text.as_bytes()))
 }
 
 /// The first `n` hex digits of a SHA-256, upper-cased.

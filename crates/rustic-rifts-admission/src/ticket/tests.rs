@@ -4,7 +4,7 @@
 use p256::elliptic_curve::scalar::IsHigh as _;
 use p256::elliptic_curve::subtle::ConstantTimeEq as _;
 use p256::elliptic_curve::{Generate as _, PrimeField as _};
-use rustic_rifts_relay::wire::{format_uuid, hex};
+use rustic_rifts_relay::wire::format_uuid;
 use sha2::Sha256;
 
 use super::B64URL as URL_SAFE_NO_PAD;
@@ -459,7 +459,7 @@ fn session_and_jti_text() {
     assert_eq!(hash_jti(&"A".repeat(32)), hash_jti(&"a".repeat(32)));
     let digest = hash_jti(&"a".repeat(32)).unwrap();
     assert_eq!(digest.len(), 64);
-    assert_eq!(digest, hex(&Sha256::digest([0xaa; 16])));
+    assert_eq!(digest, hex::encode(Sha256::digest([0xaa; 16])));
     let jti = Jti::parse("00112233445566778899AABBCCDDEEFF").unwrap();
     assert_eq!(jti.to_string(), "00112233445566778899aabbccddeeff");
     assert_eq!(
@@ -489,5 +489,5 @@ fn debug_hides_the_key() {
     let debug = format!("{tickets:?}");
     assert!(debug.contains("signing: Some(\"<redacted>\")"), "{debug}");
     assert!(debug.contains("default_lifetime: 75.0"));
-    assert!(!debug.contains(&hex(&signing.to_bytes())));
+    assert!(!debug.contains(&hex::encode(signing.to_bytes())));
 }

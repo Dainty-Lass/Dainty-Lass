@@ -231,11 +231,6 @@ pub fn format_uuid(bytes: &[u8; 16]) -> String {
     uuid::Uuid::from_bytes(*bytes).to_string()
 }
 
-/// Lower-case hex.
-pub fn hex(bytes: &[u8]) -> String {
-    ::hex::encode(bytes)
-}
-
 #[cfg(test)]
 mod tests {
     use serde_json::json;
@@ -368,6 +363,5 @@ mod tests {
         assert_ne!(random_uuid().unwrap(), uuid);
         let counting: [u8; 16] = std::array::from_fn(|i| (i * 17) as u8);
         assert_eq!(format_uuid(&counting), "00112233-4455-6677-8899-aabbccddeeff");
-        assert_eq!(hex(&[0, 0xab]), "00ab");
     }
 }

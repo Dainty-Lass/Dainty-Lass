@@ -13,14 +13,9 @@ pub fn hmac_sha256(key: &[u8], message: &[u8]) -> Vec<u8> {
     )
 }
 
-/// `bytes` as lowercase hex.
-pub fn hex(bytes: &[u8]) -> String {
-    ::hex::encode(bytes)
-}
-
 /// Lowercase hex SHA-256 of `data`.
 pub fn sha256_hex(data: &[u8]) -> String {
-    hex(&Sha256::digest(data))
+    hex::encode(Sha256::digest(data))
 }
 
 /// Compares the SHA-256 of both, so neither the length nor the first differing byte shows in the time
@@ -39,11 +34,11 @@ mod tests {
     fn matches_rfc_4231() {
         // Test cases 2 and 6 (a key longer than the block)
         assert_eq!(
-            hex(&hmac_sha256(b"Jefe", b"what do ya want for nothing?")),
+            hex::encode(hmac_sha256(b"Jefe", b"what do ya want for nothing?")),
             "5bdcc146bf60754e6a042426089575c75a003f089d2739839dec58b964ec3843"
         );
         assert_eq!(
-            hex(&hmac_sha256(
+            hex::encode(hmac_sha256(
                 &[0xaa; 131],
                 b"Test Using Larger Than Block-Size Key - Hash Key First"
             )),

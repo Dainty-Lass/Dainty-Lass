@@ -140,10 +140,7 @@ fn level_color(level: &str) -> &'static str {
 
 /// `2026-11-06T12:00:00.123Z`, as Docker's `--timestamps` with milliseconds.
 pub fn timestamp(ms: i64) -> String {
-    chrono::DateTime::from_timestamp_millis(ms)
-        .unwrap_or_default()
-        .format("%Y-%m-%dT%H:%M:%S%.3fZ")
-        .to_string()
+    crate::js::iso_string(ms)
 }
 
 /// A logfmt value: bare when it holds no space, quote, `=` or control character, quoted and escaped otherwise.

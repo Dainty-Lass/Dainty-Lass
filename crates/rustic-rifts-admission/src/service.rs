@@ -590,7 +590,7 @@ impl Admission {
         let key = self.tickets.key_id();
         let common = self
             .hunts
-            .join_bootstrap_common(&hunt, &key.0, &wire::hex(&instance))?
+            .join_bootstrap_common(&hunt, &key.0, &hex::encode(instance))?
             .ok_or(NO_LOBBY)?;
         Ok(JoinBootstrap {
             ticket: issued.ticket.text,

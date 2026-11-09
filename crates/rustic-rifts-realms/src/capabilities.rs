@@ -21,14 +21,14 @@ use crate::{
     db::{RealmsDb, RepoError},
     hub::{HUB_RUNTIME_STATES, PresenceState},
     hunt::{AdmissionState, HostCapabilityRecord, HuntSession, HuntState},
-    ids::{hex, random_uuid, seam_realm_id, seam_session_id, wire_session_id},
+    ids::{random_uuid, seam_realm_id, seam_session_id, wire_session_id},
     ports::Clock,
     realm::js_trim,
     repo::{hub::RealmHubRepository, hunts::HuntRepository},
 };
 
 fn digest_hex(secret: &str) -> String {
-    hex(Sha256::digest(secret).as_slice())
+    hex::encode(Sha256::digest(secret).as_slice())
 }
 
 /// 43 characters of unpadded base64url: 32 random bytes.

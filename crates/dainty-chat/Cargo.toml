@@ -45,7 +45,7 @@ rustls.workspace = true
 tempfile.workspace = true
 tokio = { workspace = true, features = ["rt-multi-thread"] }
 # The node-link listener the mutual-TLS federation test serves (the gateway's job, spec-rd27-chat §6.3)
-tokio-rustls = { version = "0.26", default-features = false, features = ["aws_lc_rs", "tls12"] }
+tokio-rustls.workspace = true
 tokio-tungstenite.workspace = true
 # DAINTY_TEST_POSTGRES_URL, for the Postgres half of the history tests
 url.workspace = true

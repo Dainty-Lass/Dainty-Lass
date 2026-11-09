@@ -33,22 +33,9 @@ pub fn now_ms() -> i64 {
     chrono::Utc::now().timestamp_millis()
 }
 
-/// JavaScript's `toISOString` of a millisecond time.
-pub(crate) fn iso_ms(ms: i64) -> String {
-    chrono::DateTime::from_timestamp_millis(ms)
-        .unwrap_or_default()
-        .format("%Y-%m-%dT%H:%M:%S%.3fZ")
-        .to_string()
-}
-
 /// `JSON.stringify` of a string, for error texts that quote what they were given.
 pub(crate) fn json_string(text: &str) -> String {
     serde_json::Value::String(text.to_owned()).to_string()
-}
-
-/// Lowercase hex of bytes.
-pub(crate) fn hex(bytes: &[u8]) -> String {
-    ::hex::encode(bytes)
 }
 
 /// Reads a whole number as Node's `Number(text)` does, within `min..=max`.

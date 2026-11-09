@@ -60,11 +60,7 @@ pub fn check_prefix(prefix: &str) -> Result<(), Error> {
 
 /// Lowercase hex SHA-256 of `data`, as object names carry it.
 pub fn sha256_hex(data: &[u8]) -> String {
-    hex(&Sha256::digest(data))
-}
-
-pub(crate) fn hex(bytes: &[u8]) -> String {
-    ::hex::encode(bytes)
+    hex::encode(Sha256::digest(data))
 }
 
 fn digits(text: &str, width: usize) -> Option<i64> {

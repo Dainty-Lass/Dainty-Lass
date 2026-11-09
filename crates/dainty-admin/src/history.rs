@@ -21,8 +21,6 @@ use dainty_store::revert::{Cursor, RevertOutcome, RevertPlan};
 use dainty_store::{AccountColumn, Database, DatabaseConfig, DatabaseOptions, Filter};
 use sha2::{Digest, Sha256};
 
-use crate::hmac::hex;
-
 /// The game's database: `dainty-lass.db`, or the Postgres database every service shares.
 pub const NODE: &str = "node";
 /// The admin API's keys and the record of what each key did (DH2).
@@ -427,7 +425,7 @@ impl Plan {
             hasher.update(format!("{} {}\n", part.database, part.plan.id));
         }
         Self {
-            id: hex(&hasher.finalize()),
+            id: hex::encode(hasher.finalize()),
             selection,
             parts,
         }

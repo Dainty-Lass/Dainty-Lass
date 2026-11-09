@@ -202,13 +202,13 @@ impl Jti {
 
     /// Also the peer admission's id.
     pub fn digest(&self) -> String {
-        wire::hex(sha2::Sha256::digest(self.0).as_slice())
+        hex::encode(sha2::Sha256::digest(self.0).as_slice())
     }
 }
 
 impl fmt::Display for Jti {
     fn fmt(&self, out: &mut fmt::Formatter<'_>) -> fmt::Result {
-        out.write_str(&wire::hex(&self.0))
+        out.write_str(&hex::encode(self.0))
     }
 }
 
