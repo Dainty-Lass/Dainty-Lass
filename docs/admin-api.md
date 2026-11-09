@@ -44,11 +44,8 @@ type Query {
   activeTimeouts: [ActiveTimeout!]!            # the timeouts this API will lift, soonest first: username, until, reason, by, at
   gameServers(game: String): [GameServer!]!    # game, id, kind (HUB HUNT DOJO TUTORIAL), title, map, host, port, players, maxPlayers, ready, startedAt
   availability(game: String): Availability!    # game, up, reason (a code), hub, freeHunts; game defaults to 1.14.7
-<<<<<<< HEAD
   events(after: Int, names: [String!], limit: Int): [EventEntry!]!   # seq, atMs, name, source, payload (JSON), oldest first
-=======
   installs: [Install!]!                        # a remote controller's fleet: node, region, label, state, lastReportAt, version, playersOnline, availability, gameServers
->>>>>>> 8b24c34d (MS6: remote reports carry game servers; admin installs and node on moderation)
   guarded(all: Boolean): [GuardedAction!]!     # the destructive and bulk actions that wait (below)
   history(filter: HistoryFilter, cursor: String, limit: Int): HistoryPage!   # admin: the change logs, newest first
   historyCheck: [HistoryCheck!]!               # admin: each log's hash chain, walked from its start
