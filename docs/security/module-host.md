@@ -22,10 +22,12 @@ compiled-in module gets.
 - **In, the executable:** the file `host.toml` names for an external module, with its SHA-256 (DD5). Nothing else
   is ever started: the admin API and the console load and unload only modules `host.toml` lists (DF3).
 - **In, the child's stdout:** the hello (protocol, API version, manifest), its calls to the host (emit an event, log a
-  line, ask an account's home) and its replies (a registration, command output, admin answers, chat answers).
+  line, ask an account's home) and its replies (a registration, command output, admin answers, chat answers, game
+  answers: availability, game servers, an invite code).
 - **In, the child's stderr:** free text, passed into the host's logs line by line.
 - **Out, the child's stdin:** the welcome (node identity), the host's calls (register, start with the module's
-  config, stop, status, commands with their actor, admin actions, events, chat queries) and replies to its calls.
+  config, stop, status, commands with their actor, admin actions, events, chat queries, game calls) and replies to
+  its calls.
 - **Out, the process:** arguments from `host.toml`, the environment the controller passes (DF3), and the process
   group (Linux) or creation flags (Windows) the controller kills it by.
 
@@ -33,8 +35,8 @@ What a module never gets, in or out of process: a listener off loopback (its rou
 still refuses host-only routes from outside), a raw database connection (DD23: `store`'s write path only), the
 account key (DD17) or the admin API's keys. A registration is data the core plugins choose to serve.
 
-Fuzz target: `module_frame` in `fuzz` (frames in both directions at both size limits, the hello check, a
-registration checked against a manifest, and the names inside: game versions, module ids, global ids, JIDs, event
+Fuzz target: `module_frame` in `restricted/fuzz` (frames in both directions at both size limits, the hello check, a
+registration checked against a manifest, game calls and answers with their reason codes, and the names inside: game versions, module ids, global ids, JIDs, event
 names, SHA-256 digests). It checks that a length over the limit is refused before the body is read, that whatever
 decodes writes back as the same message, and that every name has exactly one spelling.
 
@@ -108,6 +110,20 @@ decodes writes back as the same message, and that every name has exactly one spe
 - [ ] A plugin extends only the game module of its exact game version, and supplies a patch set only to a module
       that accepts one (`plugin_fits`). Test: `a_plugin_fits_only_its_version_and_a_module_that_accepts_patches`.
 
+### Game calls (MS1)
+
+- [ ] A game answer is data the caller checks, not a decision: `CreateInvite` with `require_up` is refused by the
+      module itself, under the same write, when the hub isn't up (`UnavailableReason::error`), so a caller's earlier
+      `Availability` is never the guarantee. Test: `the_stub_answers_the_same_in_and_out_of_process` (`invite
+      before`).
+- [ ] An `UnavailableReason` crosses as one of four codes; any other text in `reason` is a decode error, and
+      `from_error` reads a reason only from an `unavailable` error whose message is exactly a code. Test:
+      `reasons_are_codes_and_cross_as_errors`.
+- [ ] An invite code is a credential: `GameCall` and `GameAnswer` leave it out of `Debug`, which the adapters'
+      errors and logs use, and no event carries one. Test: `invite_codes_never_show_in_debug`.
+- [ ] A registration's `game_calls` is checked like the rest (nothing given twice) and left off the wire when empty,
+      so a module without game calls writes the 1.1 form. Test: `the_stub_registers_cleanly_and_its_defaults_follow`.
+
 ### Logs
 
 - [ ] A child's log calls and stderr lines reach the host's logs with control characters replaced and at most 4 KiB
@@ -141,7 +157,7 @@ These do not block DF2 but must be settled, or accepted in writing, before exter
 ## Fuzzing
 
 A short run of `module_frame` happens on every PR (CI's `fuzz` job runs every target in `cargo fuzz list`). The run
-before external modules ship, from `fuzz`:
+before external modules ship, from `restricted/fuzz`:
 
 ```bash
 cargo +nightly fuzz run module_frame -- -max_total_time=86400

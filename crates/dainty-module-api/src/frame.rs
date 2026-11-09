@@ -11,6 +11,7 @@ use serde::{Deserialize, Serialize};
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 
 use crate::chat::{ChatAnswer, ChatQuery};
+use crate::game::{GameAnswer, GameCall};
 use crate::ids::ModuleId;
 use crate::manifest::ModuleManifest;
 use crate::module::{
@@ -88,6 +89,8 @@ pub enum ModuleCall {
     Event(Event),
     /// Answer the chat plugin.
     Chat(ChatQuery),
+    /// Answer a question about the game (MS1).
+    Game(GameCall),
 }
 
 /// A module's answer to a [`ModuleCall`], the variant matching the call's.
@@ -110,6 +113,8 @@ pub enum ModuleAnswer {
     EventHandled,
     /// The chat answer.
     Chat(ChatAnswer),
+    /// The game answer.
+    Game(GameAnswer),
 }
 
 /// What the child writes to its stdout.

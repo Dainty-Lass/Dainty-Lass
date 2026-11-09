@@ -8,6 +8,7 @@ use std::time::Duration;
 
 use dainty_module_api::chat::{ChatAnswer, ChatQuery, RoomKind};
 use dainty_module_api::frame::{self, Hello, MAX_FRAME, ModuleCall, ToHost, ToModule};
+use dainty_module_api::game::{GameAnswer, GameCall, UnavailableReason};
 use dainty_module_api::host::file_sha256;
 use dainty_module_api::stub::{RecordingHost, StubModule, console, recording_host};
 use dainty_module_api::{
@@ -40,6 +41,17 @@ async fn script(driver: &dyn ModuleDriver) -> Vec<String> {
     record("status", format!("{:?}", driver.status().await));
     let registration = driver.register().await.unwrap();
     record("registration", serde_json::to_string(&registration).unwrap());
+    let invite = |uses, require_up| GameCall::CreateInvite {
+        uses,
+        expires_in_secs: Some(1800),
+        note: None,
+        require_up,
+    };
+    record(
+        "availability before",
+        format!("{:?}", driver.game(GameCall::Availability).await),
+    );
+    record("invite before", format!("{:?}", driver.game(invite(1, true)).await));
     let mut config = ModuleConfig::defaults(driver.manifest(), &registration);
     config
         .sections
@@ -119,6 +131,20 @@ async fn script(driver: &dyn ModuleDriver) -> Vec<String> {
         })
         .await;
     record("room", format!("{room:?}"));
+    record(
+        "availability",
+        format!("{:?}", driver.game(GameCall::Availability).await),
+    );
+    record("servers", format!("{:?}", driver.game(GameCall::Servers).await));
+    record("invite none", format!("{:?}", driver.game(invite(0, false)).await));
+    let made = driver.game(invite(1, true)).await;
+    record("invite", format!("{made:?}"));
+    if let Ok(GameAnswer::Invite { code }) = made {
+        for what in ["revoke", "revoke again"] {
+            let revoked = driver.game(GameCall::RevokeInvite { code: code.clone() }).await;
+            record(what, format!("{revoked:?}"));
+        }
+    }
     record("stop", format!("{:?}", driver.stop().await));
     record("status", format!("{:?}", driver.status().await));
     // The account ids differ per run; the answers that name them are compared above by shape
@@ -180,6 +206,14 @@ async fn the_stub_answers_the_same_in_and_out_of_process() {
             .iter()
             .any(|line| line.contains("Unsupported") && line.starts_with("admin"))
     );
+    let line = |prefix: &str| in_answers.iter().find(|line| line.starts_with(prefix)).unwrap().clone();
+    assert!(line("availability before:").contains("ModuleNotReady"));
+    assert!(line("invite before:").contains(UnavailableReason::ModuleNotReady.code()));
+    assert!(line("availability:").contains("up: true"));
+    assert!(line("servers:").contains("Hub"));
+    assert!(line("invite none:").contains("Invalid"));
+    assert!(line("revoke:").contains("Ok(Done)"));
+    assert!(line("revoke again:").contains("NotFound"));
     assert_eq!(
         in_answers.last().unwrap(),
         "status: Ok(ModuleStatus { phase: Stopped, detail: None })"
@@ -199,6 +233,7 @@ async fn the_stub_answers_the_same_in_and_out_of_process() {
             .any(|c| c.contains("stub.saw") && c.contains("server.ready"))
     );
     assert_eq!(in_calls.iter().filter(|c| *c == "stub home").count(), 2);
+    assert!(in_calls.iter().any(|c| c.contains("game.availability.changed")));
 
     child.unload().await.unwrap();
     assert!(!child.is_running());

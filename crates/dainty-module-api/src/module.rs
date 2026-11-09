@@ -13,6 +13,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::actor::ActorContext;
 use crate::chat::{ChatAnswer, ChatQuery};
+use crate::game::{GameAnswer, GameCall};
 use crate::ids::{ModuleId, check_name};
 use crate::manifest::{ModuleManifest, PortRange};
 use crate::network::{
@@ -914,6 +915,11 @@ pub trait GameModule: Send + Sync + 'static {
     /// The chat plugin's hooks (DN10), for a module with the chat capability.
     fn chat(&self, _ctx: ModuleContext, _query: ChatQuery) -> BoxFuture<'_, Result<ChatAnswer, ModuleError>> {
         Box::pin(async { Err(ModuleError::unsupported("chat")) })
+    }
+
+    /// What the module knows about its game (MS1), for the calls it registered with `game_call`.
+    fn game(&self, _ctx: ModuleContext, call: GameCall) -> BoxFuture<'_, Result<GameAnswer, ModuleError>> {
+        Box::pin(async move { Err(ModuleError::unsupported(format!("game call {:?}", call.kind()))) })
     }
 }
 

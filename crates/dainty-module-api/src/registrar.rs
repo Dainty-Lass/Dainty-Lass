@@ -5,6 +5,7 @@ use std::collections::BTreeSet;
 
 use serde::{Deserialize, Serialize};
 
+use crate::game::GameCallKind;
 use crate::ids::check_name;
 use crate::manifest::{ModuleManifest, Transport, is_relative_path, is_text};
 use crate::module::{CoreCapability, EventName};
@@ -194,6 +195,9 @@ pub struct Registration {
     /// `host.toml` sections the module reads.
     #[serde(default)]
     pub config: Vec<ConfigSection>,
+    /// Game calls the module answers (MS1); left off the wire when empty, as a 1.1 host reads it
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub game_calls: Vec<GameCallKind>,
 }
 
 /// Why a registration fails [`Registration::check`].
@@ -300,6 +304,7 @@ impl Registration {
         unique(&self.emits, "an emitted event")?;
         unique(&self.subscribes, "a subscription")?;
         unique(&self.admin_actions, "an admin action")?;
+        unique(&self.game_calls, "a game call")?;
         self.check_config()
     }
 
@@ -469,6 +474,12 @@ impl Registrar {
         self
     }
 
+    /// Answers a kind of [`crate::game::GameCall`].
+    pub fn game_call(&mut self, kind: GameCallKind) -> &mut Self {
+        self.registration.game_calls.push(kind);
+        self
+    }
+
     /// Declares a `host.toml` section the module reads.
     pub fn config_section(&mut self, section: ConfigSection) -> &mut Self {
         self.registration.config.push(section);
@@ -506,6 +517,13 @@ mod tests {
         assert!(config.ports.contains_key("http"));
         let json = serde_json::to_string(&registration).unwrap();
         assert_eq!(serde_json::from_str::<Registration>(&json).unwrap(), registration);
+        assert_eq!(registration.game_calls.len(), 4);
+        // A registration without game calls is the 1.1 wire form
+        assert!(
+            !serde_json::to_string(&Registration::default())
+                .unwrap()
+                .contains("game_calls")
+        );
     }
 
     #[test]
@@ -551,6 +569,10 @@ mod tests {
             (
                 "action twice",
                 Box::new(|r| _ = r.admin_action(AdminAction::Kick).admin_action(AdminAction::Kick)),
+            ),
+            (
+                "game call twice",
+                Box::new(|r| _ = r.game_call(GameCallKind::Servers).game_call(GameCallKind::Servers)),
             ),
         ];
         for (what, change) in cases {

@@ -1,12 +1,15 @@
 //! What the host reads from an external module's stdout, and the module from the host's (DF2, DD5, DX2):
 //! length-prefixed frames of either direction, the hello the host checks before anything else, and the
-//! names inside them. A frame over its limit is refused before its body is read, nothing panics, and
+//! names inside them, game calls and answers included (MS1). A frame over its limit is refused before its body is read, nothing panics, and
 //! whatever is accepted writes back as the same message.
 #![no_main]
 
 use libfuzzer_sys::fuzz_target;
 use dainty_module_api::chat::Jid;
-use dainty_module_api::frame::{self, MAX_FRAME, MAX_HELLO_FRAME, ModuleAnswer, ToHost, ToModule, check_hello};
+use dainty_module_api::frame::{
+    self, MAX_FRAME, MAX_HELLO_FRAME, ModuleAnswer, ModuleCall, ToHost, ToModule, check_hello,
+};
+use dainty_module_api::game::{GameAnswer, UnavailableReason};
 use dainty_module_api::ids::{ModuleId, Sha256Hex};
 use dainty_module_api::stub::StubModule;
 use dainty_module_api::{EventName, GameModule, GameVersion, GlobalId};
@@ -60,9 +63,32 @@ fuzz_target!(|data: &[u8]| {
         } => {
             _ = registration.check(&stub);
         }
+        ToHost::Reply {
+            result: Ok(ModuleAnswer::Game(GameAnswer::Availability(availability))),
+            ..
+        } => {
+            // A reason is a code: it writes back as one of the four names
+            if let Some(reason) = availability.reason {
+                assert_eq!(serde_json::to_value(reason).ok(), Some(reason.code().into()));
+            }
+        }
+        // An unavailable refusal read as a reason is exactly that reason's error
+        ToHost::Reply { result: Err(error), .. } => {
+            if let Some(reason) = UnavailableReason::from_error(error) {
+                assert_eq!(&reason.error(), error);
+            }
+        }
         _ => {}
     });
-    frames::<ToModule>(bytes, max, |_| {});
+    frames::<ToModule>(bytes, max, |message| {
+        if let ToModule::Call {
+            call: ModuleCall::Game(call),
+            ..
+        } = message
+        {
+            _ = call.kind();
+        }
+    });
 
     // The length is checked before the body: a header over the limit is refused whatever follows
     if let Some(head) = bytes.first_chunk::<LENGTH_BYTES>() {

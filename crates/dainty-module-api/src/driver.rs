@@ -6,6 +6,7 @@ use std::sync::Arc;
 
 use crate::chat::{ChatAnswer, ChatQuery};
 use crate::frame::{ModuleAnswer, ModuleCall};
+use crate::game::{GameAnswer, GameCall};
 use crate::manifest::ModuleManifest;
 use crate::module::{
     AdminCall, AdminResponse, BoxFuture, CommandOutput, CommandRequest, ErrorKind, Event, GameModule, HostLink,
@@ -118,6 +119,16 @@ pub trait ModuleDriverExt: ModuleDriver {
             }
         }
     }
+
+    /// Asks the module about its game (MS1).
+    fn game(&self, call: GameCall) -> impl Future<Output = Result<GameAnswer, ModuleError>> + Send {
+        async move {
+            match self.call(ModuleCall::Game(call)).await? {
+                ModuleAnswer::Game(answer) => Ok(answer),
+                other => Err(wrong(&other)),
+            }
+        }
+    }
 }
 
 impl<D: ModuleDriver + ?Sized> ModuleDriverExt for D {}
@@ -154,6 +165,7 @@ pub async fn dispatch(
             ModuleAnswer::EventHandled
         }
         ModuleCall::Chat(query) => ModuleAnswer::Chat(module.chat(ctx, query).await?),
+        ModuleCall::Game(call) => ModuleAnswer::Game(module.game(ctx, call).await?),
     })
 }
 
