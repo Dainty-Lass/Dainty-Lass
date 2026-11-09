@@ -77,6 +77,16 @@ pub trait ModuleControl: Send + Sync {
     fn game_servers(&self) -> BoxFuture<'_, Vec<crate::game::GameServers>> {
         Box::pin(async { Vec::new() })
     }
+    /// The recorder's events after `after`, oldest first, only `names` when given (A5, MS5).
+    fn events(
+        &self,
+        after: i64,
+        names: Vec<String>,
+        limit: i64,
+    ) -> BoxFuture<'_, Result<Vec<crate::events::KeptEvent>, ModuleError>> {
+        let _ = (after, names, limit);
+        Box::pin(async { Err(ModuleError::unsupported("kept events")) })
+    }
 }
 
 /// The registry, when the admin API runs inside the server.

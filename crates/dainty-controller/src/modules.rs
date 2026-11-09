@@ -55,9 +55,13 @@ pub fn admin(
             ))));
             registry.add_plugin(plugin.clone());
             let services = registry.node_services().clone();
-            let control = dainty_admin::module_control::Modules(Some(
-                Arc::new(AdminModules(registry, host)) as Arc<dyn dainty_admin::module_control::ModuleControl>
-            ));
+            let control = dainty_admin::module_control::Modules(Some(Arc::new(AdminModules {
+                registry,
+                host,
+                #[cfg(feature = "events")]
+                events: crate::events::EventsReader::for_node(&config.database),
+            })
+                as Arc<dyn dainty_admin::module_control::ModuleControl>));
             (plugin, control, Some(services))
         }
         None => (
@@ -137,10 +141,13 @@ impl dainty_admin::relay::AdminNetwork for NodeServicesNetwork {
 
 /// The registry as the admin API reads and drives it.
 #[cfg(feature = "admin")]
-struct AdminModules(
-    crate::ModuleRegistry,
-    Option<Arc<dyn dainty_admin::host_settings::HostSettings>>,
-);
+struct AdminModules {
+    registry: crate::ModuleRegistry,
+    host: Option<Arc<dyn dainty_admin::host_settings::HostSettings>>,
+    /// The recorder's table, beside the node's database as the admin API's env file names it (A5)
+    #[cfg(feature = "events")]
+    events: crate::events::EventsReader,
+}
 
 #[cfg(feature = "admin")]
 fn admin_module(info: crate::ModuleInfo) -> dainty_admin::module_control::Module {
@@ -172,14 +179,14 @@ fn admin_module(info: crate::ModuleInfo) -> dainty_admin::module_control::Module
 #[cfg(feature = "admin")]
 impl dainty_admin::module_control::ModuleControl for AdminModules {
     fn list(&self) -> Vec<dainty_admin::module_control::Module> {
-        self.0.list().into_iter().map(admin_module).collect()
+        self.registry.list().into_iter().map(admin_module).collect()
     }
 
     fn get(&self, id: &str) -> Result<dainty_admin::module_control::Module, String> {
         let id = id
             .parse()
             .map_err(|e: dainty_module_api::ids::NameError| e.to_string())?;
-        self.0.info(&id).map(admin_module).map_err(|e| e.to_string())
+        self.registry.info(&id).map(admin_module).map_err(|e| e.to_string())
     }
 
     fn load<'a>(
@@ -190,7 +197,11 @@ impl dainty_admin::module_control::ModuleControl for AdminModules {
             let id = id
                 .parse()
                 .map_err(|e: dainty_module_api::ids::NameError| e.to_string())?;
-            self.0.load(&id).await.map(admin_module).map_err(|e| e.to_string())
+            self.registry
+                .load(&id)
+                .await
+                .map(admin_module)
+                .map_err(|e| e.to_string())
         })
     }
 
@@ -202,8 +213,8 @@ impl dainty_admin::module_control::ModuleControl for AdminModules {
             let id = id
                 .parse()
                 .map_err(|e: dainty_module_api::ids::NameError| e.to_string())?;
-            self.0.unload(&id).await.map_err(|e| e.to_string())?;
-            self.0.info(&id).map(admin_module).map_err(|e| e.to_string())
+            self.registry.unload(&id).await.map_err(|e| e.to_string())?;
+            self.registry.info(&id).map(admin_module).map_err(|e| e.to_string())
         })
     }
 
@@ -215,12 +226,65 @@ impl dainty_admin::module_control::ModuleControl for AdminModules {
             let id = id
                 .parse()
                 .map_err(|e: dainty_module_api::ids::NameError| e.to_string())?;
-            self.0.restart(&id).await.map(admin_module).map_err(|e| e.to_string())
+            self.registry
+                .restart(&id)
+                .await
+                .map(admin_module)
+                .map_err(|e| e.to_string())
         })
     }
 
     fn host_settings(&self) -> Option<Arc<dyn dainty_admin::host_settings::HostSettings>> {
-        self.1.clone()
+        self.host.clone()
+    }
+
+    fn game<'a>(
+        &'a self,
+        version: &'a dainty_module_api::GameVersion,
+        call: dainty_module_api::GameCall,
+    ) -> dainty_module_api::BoxFuture<'a, Result<dainty_module_api::GameAnswer, dainty_module_api::ModuleError>> {
+        Box::pin(self.registry.game(version, call))
+    }
+
+    fn game_servers(&self) -> dainty_module_api::BoxFuture<'_, Vec<dainty_admin::game::GameServers>> {
+        Box::pin(async move {
+            self.registry
+                .game_servers()
+                .await
+                .into_iter()
+                .map(|g| dainty_admin::game::GameServers {
+                    module: g.module,
+                    version: g.version,
+                    servers: g.servers,
+                })
+                .collect()
+        })
+    }
+
+    #[cfg(feature = "events")]
+    fn events(
+        &self,
+        after: i64,
+        names: Vec<String>,
+        limit: i64,
+    ) -> dainty_module_api::BoxFuture<'_, Result<Vec<dainty_admin::events::KeptEvent>, dainty_module_api::ModuleError>>
+    {
+        Box::pin(async move {
+            let kept = self.events.list(after, &names, limit).await.map_err(|e| {
+                tracing::warn!(error = %e, "the events database did not answer");
+                dainty_module_api::ModuleError::new(dainty_module_api::ErrorKind::Unavailable, e)
+            })?;
+            Ok(kept
+                .into_iter()
+                .map(|e| dainty_admin::events::KeptEvent {
+                    seq: e.seq,
+                    at_ms: e.at_ms,
+                    name: e.name,
+                    source: e.source,
+                    payload: e.payload,
+                })
+                .collect())
+        })
     }
 }
 
@@ -514,4 +578,94 @@ pub fn tunnel(options: TunnelOptions) -> crate::Module {
         }),
     )
     .ready_within(std::time::Duration::from_secs(10))
+}
+
+#[cfg(all(test, feature = "admin", feature = "events"))]
+mod tests {
+    #![allow(clippy::unwrap_used, reason = "a panic is how a test fails")]
+
+    use std::collections::BTreeMap;
+
+    use dainty_admin::module_control::ModuleControl;
+    use dainty_module_api::{GameAnswer, GameCall, GameModule, GameVersion};
+    use dainty_service_kit::context::{ComponentPhase, StatusRegistry};
+
+    use super::*;
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn the_admin_api_reaches_the_game_modules_and_the_kept_events() {
+        let dir = tempfile::tempdir().unwrap();
+        let node = dainty_store::DatabaseConfig::Sqlite {
+            file: dir.path().join("dainty.db"),
+        };
+        let status = StatusRegistry::new("private", Vec::new());
+        let registry = crate::ModuleRegistry::new(crate::RegistryOptions::standalone(), status.clone());
+        let recorder = crate::events::module(
+            &registry,
+            crate::events::EventRecorder::database_for(&node),
+            crate::events::EventsOptions::default(),
+        );
+        let (ctx, stop) = status.service_context("events");
+        let recording = tokio::spawn((recorder.start)(ctx));
+        // Both opening one SQLite file at once can find it locked; a reader asks again on its next read
+        for _ in 0..100 {
+            if status.snapshot().get("events").map(|c| c.phase) == Some(ComponentPhase::Ready) {
+                break;
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+        }
+        registry
+            .add_entry(crate::ModuleEntry {
+                id: "stub".parse().unwrap(),
+                source: crate::ModuleSource::CompiledIn(Arc::new(|| {
+                    Arc::new(dainty_module_api::stub::StubModule::new()) as Arc<dyn GameModule>
+                })),
+                autoload: true,
+                settings: BTreeMap::new(),
+            })
+            .unwrap();
+        registry.load(&"stub".parse().unwrap()).await.unwrap();
+        let admin = AdminModules {
+            registry: registry.clone(),
+            host: None,
+            events: crate::events::EventsReader::for_node(&node),
+        };
+
+        let stub: GameVersion = "0.0.1".parse().unwrap();
+        match admin.game(&stub, GameCall::Availability).await.unwrap() {
+            GameAnswer::Availability(found) => assert!(found.up),
+            other => panic!("{other:?}"),
+        }
+        let every = admin.game_servers().await;
+        assert_eq!(every.len(), 1);
+        assert_eq!(every[0].version, stub);
+        assert_eq!(every[0].servers.as_ref().unwrap().len(), 1, "the stub's hub");
+
+        registry.emit(dainty_module_api::Event {
+            name: dainty_module_api::EventName::new("server.ready").unwrap(),
+            payload: serde_json::json!({ "n": 1 }),
+        });
+        let mut kept = Vec::new();
+        for _ in 0..50 {
+            kept = admin.events(0, vec!["server.ready".into()], 10).await.unwrap();
+            if !kept.is_empty() {
+                break;
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+        }
+        assert_eq!(kept.len(), 1);
+        assert_eq!(kept[0].payload, serde_json::json!({ "n": 1 }));
+        assert_eq!(kept[0].source, None);
+        assert!(
+            admin
+                .events(kept[0].seq, vec!["server.ready".into()], 10)
+                .await
+                .unwrap()
+                .is_empty()
+        );
+
+        registry.unload_all().await;
+        stop.send(true).unwrap();
+        recording.await.unwrap().unwrap();
+    }
 }

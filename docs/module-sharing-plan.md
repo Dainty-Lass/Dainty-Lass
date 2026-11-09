@@ -158,10 +158,10 @@ In the `rustic-isles-*` crates (`crates/rustic-isles` and `crates/rustic-isles-1
 - `events(after: Int, names: [String!], limit: Int): [EventEntry!]!` over A5's table, for the dashboard.
 - Done in MS4 (`feat/ms4-admin-game-servers`): `gameServers` and `availability` (`crates/dainty-admin/src/game.rs`),
   through two default methods on `ModuleControl`, `game` and `game_servers`. `game` defaults to 1.14.7; a module
-  loaded and not ready is `availability { up: false, reason: "module_not_ready" }`, not an error. **Left:** the
-  controller's `AdminModules` (`crates/dainty-controller/src/modules.rs`) overriding the two with
-  `ModuleRegistry::game` and `game_servers`; until then both answer `NOT_SUPPORTED` and an empty list. `events`
-  follows MS5's recorder.
+  loaded and not ready is `availability { up: false, reason: "module_not_ready" }`, not an error. The controller's
+  `AdminModules` (`crates/dainty-controller/src/modules.rs`) answers them with `ModuleRegistry::game` and
+  `game_servers`, and `events` (`crates/dainty-admin/src/events.rs`) from the recorder's table through
+  `events::EventsReader`, opened beside the node database admin's env file names.
 
 ### A5. Kept events (proposed `controller` event recorder)
 

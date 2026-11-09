@@ -2500,6 +2500,18 @@ impl Query {
         crate::game::availability(ctx, game.as_deref()).await
     }
 
+    /// The events the server kept (game.server.up, module.restarted...), oldest first: those after row
+    /// `after`, only the ones named in `names` when given, at most `limit` (100 when left out, 1000 at most).
+    async fn events(
+        &self,
+        ctx: &Context<'_>,
+        after: Option<i64>,
+        names: Option<Vec<String>>,
+        limit: Option<i64>,
+    ) -> async_graphql::Result<Vec<crate::events::EventEntry>> {
+        crate::events::list(ctx, after, names, limit).await
+    }
+
     /// host.toml's `[logs]`, and whether the file changed since this run started. Needs the admin role.
     async fn log_settings(&self, ctx: &Context<'_>) -> async_graphql::Result<LogSettings> {
         let (_, caller) = parts(ctx)?;

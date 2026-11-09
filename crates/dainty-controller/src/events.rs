@@ -42,6 +42,8 @@ pub const DEFAULT_RETENTION_DAYS: u32 = 90;
 pub const MAX_LIST: i64 = 1000;
 /// Events written in one transaction when the bus has more waiting.
 const BATCH: usize = 256;
+/// How often [`EventsReader`] tries to open the database before a read fails; the next read tries again.
+const OPEN_TRIES: u32 = 5;
 const SWEEP_EVERY: Duration = Duration::from_secs(24 * 60 * 60);
 const DAY_MS: i64 = 24 * 60 * 60 * 1000;
 
@@ -277,6 +279,48 @@ impl EventRecorder {
             open = drain(&mut rx, &mut rows) && rows.len() == BATCH;
             self.write(rows).await;
         }
+    }
+}
+
+/// The recorder's table for a reader that starts before the recorder (the admin API's `events`): opened on the
+/// first read, so a server whose recorder failed to open is asked again next time.
+#[derive(Clone)]
+pub struct EventsReader {
+    config: Arc<DatabaseConfig>,
+    opened: Arc<tokio::sync::OnceCell<EventRecorder>>,
+}
+
+impl EventsReader {
+    /// A reader of the events database beside `node`'s ([`EventRecorder::database_for`]).
+    #[must_use]
+    pub fn for_node(node: &DatabaseConfig) -> Self {
+        Self {
+            config: Arc::new(EventRecorder::database_for(node)),
+            opened: Arc::new(tokio::sync::OnceCell::new()),
+        }
+    }
+
+    /// [`EventRecorder::list`], opening the database first if needed.
+    pub async fn list(&self, after: i64, names: &[String], limit: i64) -> Result<Vec<EventEntry>, String> {
+        let recorder = self
+            .opened
+            .get_or_try_init(|| async {
+                // Opening checks the migrations, which SQLite refuses at once while the recorder writes
+                let mut tries = 0;
+                loop {
+                    let config = Arc::clone(&self.config);
+                    let opened = tokio::task::spawn_blocking(move || EventRecorder::open(&config))
+                        .await
+                        .map_err(|e| format!("the events database: {e}"))?;
+                    tries += 1;
+                    match opened {
+                        Err(_) if tries < OPEN_TRIES => tokio::time::sleep(Duration::from_millis(100)).await,
+                        other => break other,
+                    }
+                }
+            })
+            .await?;
+        recorder.list(after, names, limit).await.map_err(|e| e.to_string())
     }
 }
 
