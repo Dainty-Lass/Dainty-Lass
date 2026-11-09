@@ -7,6 +7,7 @@
 pub mod app;
 pub mod cli;
 pub mod config;
+pub mod game;
 pub mod guard;
 pub mod guarded;
 pub mod guarded_cli;

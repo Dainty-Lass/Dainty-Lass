@@ -9,6 +9,7 @@ use std::pin::Pin;
 use std::sync::Arc;
 
 use async_graphql::{Context, ErrorExtensions, SimpleObject};
+use dainty_module_api::{BoxFuture, GameAnswer, GameCall, GameVersion, ModuleError};
 
 /// What a [`ModuleControl`] action returns: the module after it, or why it was refused.
 pub type Pending<'a, T> = Pin<Box<dyn Future<Output = Result<T, String>> + Send + 'a>>;
@@ -67,6 +68,15 @@ pub trait ModuleControl: Send + Sync {
     fn host_settings(&self) -> Option<Arc<dyn crate::host_settings::HostSettings>> {
         None
     }
+    /// One game call to the module serving `version` (`ModuleRegistry::game`, MS2).
+    fn game<'a>(&'a self, version: &'a GameVersion, call: GameCall) -> BoxFuture<'a, Result<GameAnswer, ModuleError>> {
+        let _ = (version, call);
+        Box::pin(async { Err(ModuleError::unsupported("game calls")) })
+    }
+    /// Every ready game module's servers (`ModuleRegistry::game_servers`, MS2).
+    fn game_servers(&self) -> BoxFuture<'_, Vec<crate::game::GameServers>> {
+        Box::pin(async { Vec::new() })
+    }
 }
 
 /// The registry, when the admin API runs inside the server.
@@ -77,7 +87,7 @@ fn fail(code: &str, message: impl Into<String>) -> async_graphql::Error {
     async_graphql::Error::new(message).extend_with(|_, e| e.set("code", code))
 }
 
-fn control<'a>(ctx: &'a Context<'_>) -> async_graphql::Result<&'a Arc<dyn ModuleControl>> {
+pub(crate) fn control<'a>(ctx: &'a Context<'_>) -> async_graphql::Result<&'a Arc<dyn ModuleControl>> {
     ctx.data::<Modules>()?.0.as_ref().ok_or_else(|| {
         fail(
             "MODULES_UNAVAILABLE",

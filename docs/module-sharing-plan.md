@@ -156,6 +156,12 @@ In the `rustic-isles-*` crates (`crates/rustic-isles` and `crates/rustic-isles-1
   `ModuleRegistry::game` (admin already holds the registry). Additions only; `huntStatus` and `serverStatus` keep their
   answers. `schema.graphql` regenerated, `docs/admin-api.md`.
 - `events(after: Int, names: [String!], limit: Int): [EventEntry!]!` over A5's table, for the dashboard.
+- Done in MS4 (`feat/ms4-admin-game-servers`): `gameServers` and `availability` (`crates/dainty-admin/src/game.rs`),
+  through two default methods on `ModuleControl`, `game` and `game_servers`. `game` defaults to 1.14.7; a module
+  loaded and not ready is `availability { up: false, reason: "module_not_ready" }`, not an error. **Left:** the
+  controller's `AdminModules` (`crates/dainty-controller/src/modules.rs`) overriding the two with
+  `ModuleRegistry::game` and `game_servers`; until then both answer `NOT_SUPPORTED` and an empty list. `events`
+  follows MS5's recorder.
 
 ### A5. Kept events (proposed `controller` event recorder)
 

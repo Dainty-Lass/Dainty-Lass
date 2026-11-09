@@ -2481,6 +2481,25 @@ impl Query {
         module_control::get(ctx, &id)
     }
 
+    /// The game servers `game` runs (a game version, such as 1.14.7), or every ready game module's when
+    /// none is named; a module that fails is left out of the second.
+    async fn game_servers(
+        &self,
+        ctx: &Context<'_>,
+        game: Option<String>,
+    ) -> async_graphql::Result<Vec<crate::game::GameServer>> {
+        crate::game::game_servers(ctx, game.as_deref()).await
+    }
+
+    /// Whether players can get into `game` now (1.14.7 when none is named).
+    async fn availability(
+        &self,
+        ctx: &Context<'_>,
+        game: Option<String>,
+    ) -> async_graphql::Result<crate::game::Availability> {
+        crate::game::availability(ctx, game.as_deref()).await
+    }
+
     /// host.toml's `[logs]`, and whether the file changed since this run started. Needs the admin role.
     async fn log_settings(&self, ctx: &Context<'_>) -> async_graphql::Result<LogSettings> {
         let (_, caller) = parts(ctx)?;
