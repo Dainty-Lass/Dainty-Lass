@@ -1,5 +1,10 @@
 # Running many controllers from one dashboard
 
+> **Deprecated (D1, module-sharing plan MS8).** Dainty Lass's own `dainty-remote` replaces the agent: each
+> install reports to a remote controller over mTLS, and a dashboard beside that controller reads the whole
+> fleet from its admin API (`installs`, on the Controllers page). The agent keeps working until it is
+> removed, but gains nothing new, game servers included.
+
 One dashboard can manage any number of controllers: the hosts that run a Dainty Lass server and its game
 servers. It runs on one of them (the **local** controller, which it calls directly, as before). Each of
 the others runs the **agent** (`apps/agent`), which connects to the dashboard.

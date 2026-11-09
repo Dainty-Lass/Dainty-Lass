@@ -28,12 +28,13 @@ import { useFormatter, useTranslations } from "next-intl";
 import { useEffect, useState } from "react";
 import { AuditTable } from "@/components/AuditTable";
 import { ControllerState } from "@/components/ControllerState";
+import { GameEventsCard, GameServersCard } from "@/components/GameServers";
 import { Page } from "@/components/Page";
 import { PerformanceSection } from "@/components/PerformanceSection";
 import { Sparkline } from "@/components/Sparkline";
-
 import { useAction } from "@/components/useAction";
 import type { AuditEvent } from "@/lib/db/schema";
+import type { GamesReport } from "@/lib/fleet/games";
 import type { Performance } from "@/lib/fleet/metrics";
 import type { ControllerView } from "@/lib/fleet/status";
 import {
@@ -60,6 +61,7 @@ export function ControllerDetailClient({
   dashboardUrl,
   insecure,
   logs,
+  games,
 }: {
   controller: ControllerView;
   perf: Performance;
@@ -74,6 +76,8 @@ export function ControllerDetailClient({
   insecure: boolean;
   // Null for readers, and when the controller could not answer
   logs: LogSettings | null;
+  /** The local server's game modules; null for an agent's, which reports none (D1). */
+  games: { report: GamesReport | null } | null;
 }) {
   const t = useTranslations("fleet");
   const to = useTranslations("overview");
@@ -355,6 +359,8 @@ export function ControllerDetailClient({
         )}
       </Card>
 
+      {games && <GameServersCard report={games.report} />}
+      {games && <GameEventsCard events={games.report?.events ?? []} />}
       {c.state !== "pending" && <PerformanceSection perf={perf} single />}
 
       {canWrite && c.state !== "pending" && <LogSettingsCard controllerId={c.id} logs={logs} />}

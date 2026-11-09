@@ -4,7 +4,8 @@ import { queryAudit } from "@/lib/audit/query";
 import { requirePage } from "@/lib/auth/guard";
 import { can } from "@/lib/auth/permissions";
 import { config } from "@/lib/config";
-import { getController } from "@/lib/fleet/controllers";
+import { getController, LOCAL } from "@/lib/fleet/controllers";
+import { gamesReport } from "@/lib/fleet/games";
 import { readLogSettings } from "@/lib/fleet/log-settings";
 import { currentScope } from "@/lib/fleet/scope";
 import { fleetPerformance, recentSamples, viewOf } from "@/lib/fleet/status";
@@ -54,6 +55,7 @@ export default async function ControllerPage({ params }: { params: Promise<{ id:
       inScope={scope.kind === "one" && scope.id === id}
       canWrite={canWrite}
       logs={logs}
+      games={id === LOCAL ? { report: gamesReport() } : null}
       canRevert={can(me.role, "audit:revert")}
       dashboardUrl={config.baseUrl}
       insecure={!config.baseUrl.startsWith("https:")}

@@ -27,7 +27,9 @@ export type GameErrorCode =
   | "already_banned"
   | "not_banned"
   | "not_timed_out"
-  | "timeout";
+  | "timeout"
+  | "no_fleet"
+  | "not_supported";
 
 export type GameResult<T = unknown> =
   | { ok: true; data: T }
@@ -42,13 +44,30 @@ const ADMIN_CODES: Record<string, GameErrorCode> = {
   NOT_BANNED: "not_banned",
   NOT_TIMED_OUT: "not_timed_out",
   BACKEND_UNAVAILABLE: "unavailable",
+  MODULES_UNAVAILABLE: "unavailable",
+  NO_FLEET: "no_fleet",
+  NOT_SUPPORTED: "not_supported",
 };
 
 const digits = (id: string) => (/^\d{1,32}$/.test(id) ? id : "0");
 
-export async function runAdminOp<T>(
+export function runAdminOp<T>(
   cfg: GameConfig,
   op: AdminOp,
+  variables: Record<string, unknown>,
+  operatorId: string,
+): Promise<GameResult<T>> {
+  return runAdminQuery<T>(cfg, op, ADMIN_OPS[op], variables, operatorId);
+}
+
+/**
+ * A document the caller wrote, whose one root field is `field`. Only for the admin API on the caller's
+ * own host: an agent runs ADMIN_OPS by name and nothing else.
+ */
+export async function runAdminQuery<T>(
+  cfg: GameConfig,
+  field: string,
+  query: string,
   variables: Record<string, unknown>,
   operatorId: string,
 ): Promise<GameResult<T>> {
@@ -62,7 +81,7 @@ export async function runAdminOp<T>(
         Authorization: `Bearer ${cfg.adminApiKey}`,
         "x-dainty-operator-id": digits(operatorId),
       },
-      body: JSON.stringify({ query: ADMIN_OPS[op], variables }),
+      body: JSON.stringify({ query, variables }),
       signal: AbortSignal.timeout(15_000),
     });
   } catch {
@@ -81,8 +100,7 @@ export async function runAdminOp<T>(
     };
   if (!response.ok || !body?.data)
     return { ok: false, code: "refused", message: `HTTP ${response.status}` };
-  // Every operation selects exactly one root field, named as the operation.
-  return { ok: true, data: body.data[op] as T };
+  return { ok: true, data: body.data[field] as T };
 }
 
 export function signOperatorRequest(

@@ -1066,5 +1066,83 @@
     "truncated": "Only the newest 200 are shown.",
     "close": "Close",
     "none": "{name} has no direct messages the dashboard has received."
+  },
+  "games": {
+    "title": "Game servers",
+    "up": "Players can get in",
+    "availabilityUnknown": "Availability unknown",
+    "reasons": {
+      "director_unreachable": "The Director isn't answering",
+      "no_hub": "No hub is running",
+      "hub_not_ready": "The hub is still starting",
+      "module_not_ready": "The game module isn't ready",
+      "other": "Unavailable ({code})"
+    },
+    "freeHunts": "{count, plural, one {# free hunt slot} other {# free hunt slots}}",
+    "waiting": "Waiting for the server's first report",
+    "unreachable": "The admin API didn't answer, so the game servers are unknown",
+    "none": "No game servers running",
+    "columns": {
+      "title": "Name",
+      "kind": "Kind",
+      "map": "Map",
+      "address": "Address",
+      "players": "Players",
+      "ready": "State",
+      "started": "Started"
+    },
+    "kinds": {
+      "HUB": "Hub",
+      "HUNT": "Hunt",
+      "DOJO": "Dojo",
+      "TUTORIAL": "Tutorial"
+    },
+    "address": "{host}:{port}",
+    "slots": "{players}/{max}",
+    "ready": "Ready",
+    "starting": "Starting",
+    "serverToken": "{title} ({players}/{max})",
+    "events": {
+      "title": "Recent events",
+      "none": "No events kept yet",
+      "name": "Event",
+      "source": "From",
+      "host": "Server",
+      "at": "When"
+    },
+    "installs": {
+      "title": "Installs",
+      "hint": "Every server the remote controller beside this dashboard manages, from its last report",
+      "notController": "This server isn't a remote controller, so there are no installs to list",
+      "none": "No installs are enrolled",
+      "noAvailability": "Not reported by this version",
+      "noReport": "No report yet",
+      "columns": {
+        "label": "Install",
+        "region": "Region",
+        "state": "State",
+        "availability": "Availability",
+        "servers": "Game servers",
+        "players": "Players",
+        "version": "Version",
+        "lastReport": "Last report"
+      },
+      "states": {
+        "online": "Online",
+        "degraded": "Degraded",
+        "offline": "Offline",
+        "revoked": "Revoked"
+      }
+    }
+  },
+  "signup": {
+    "title": "Account creation",
+    "hint": "Whether people may create an account themselves. While it's on, the Discord bot's /key sends this page; otherwise it sends a single-use login invite.",
+    "enabled": "Open account creation",
+    "enabledHint": "Anyone can read whether this is on, and the page below, at /api/public/signup.",
+    "url": "Account creation page",
+    "urlHint": "An http or https address, without a username or password in it.",
+    "urlPlaceholder": "https://example.com/signup",
+    "urlMissing": "Account creation is on but has no page, so /key keeps sending login invites."
   }
 }
