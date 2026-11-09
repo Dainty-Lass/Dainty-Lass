@@ -56,6 +56,7 @@ const TOP: &[Field] = &[
     ("env", "env", false),
     ("split", "split", false),
     ("logs", "logs", false),
+    ("events", "events", false),
 ];
 
 /// The top-level keys whose tables and lists are read as they are (`hostconfig/modules.rs`, `services.rs`, `env.rs`).
@@ -98,6 +99,8 @@ const SPLIT: &[Field] = &[
     ("peer", "peer", false),
     ("openGamePorts", "open_game_ports", false),
 ];
+
+const EVENTS: &[Field] = &[("retentionDays", "retention_days", false)];
 
 const LOGS: &[Field] = &[
     ("format", "format", false),
@@ -293,6 +296,7 @@ fn table_fields(json_path: &str) -> Option<&'static [Field]> {
         "remote" => Some(REMOTE),
         "split" => Some(SPLIT),
         "logs" => Some(LOGS),
+        "events" => Some(EVENTS),
         _ => None,
     }
 }
@@ -838,6 +842,8 @@ fn comment(path: &str) -> &'static str {
             "A GELF collector (Graylog) to ship every record to: https://host:12201/gelf, or http:// or tcp://host:port\n\
              to this machine or a private network."
         }
+        "events" => "The registry's events kept in the database (module sharing A5). Left out: kept 90 days.",
+        "events.retention_days" => "Days an event is kept, 0 to 3650; 0 keeps every event (90).",
         "split" => {
             "This server as one half of two (docs/split-roles.md): the metagame on one machine or container, the game
              servers on another, both nodes of [network]. Left out: one server runs both."

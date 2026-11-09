@@ -15,6 +15,8 @@
 //! unloaded before them, with their ports placed by [`ports`].
 
 pub mod controller;
+#[cfg(feature = "events")]
+pub mod events;
 pub mod metrics;
 pub mod modules;
 pub mod node_services;

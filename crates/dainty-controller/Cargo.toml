@@ -11,10 +11,12 @@ publish.workspace = true
 [features]
 # The MIT services built into the binary (`admin`, `remote`). The AGPL services are composed by dainty-restricted's
 # host until each is a library the core loads (RD27)
-default = ["admin", "remote"]
-services = ["admin", "remote"]
+default = ["admin", "remote", "events"]
+services = ["admin", "remote", "events"]
 admin = ["dep:dainty-admin"]
 remote = ["dep:dainty-remote"]
+# The event recorder (module sharing A5): the registry's events kept in `store`
+events = ["dep:dainty-store", "dep:diesel", "dep:diesel_migrations"]
 # The node's network side (DD16): the directory, the home API, tickets, and peer log shipping (DH7). A database
 # holds the directory; dainty-restricted's host attaches it to the gateway's node links
 network = ["network_plugin/directory", "network_plugin/log-ship", "dep:dainty-store", "dep:dainty-history-ship"]
@@ -33,6 +35,8 @@ doc = false
 [dependencies]
 dainty-admin = { workspace = true, optional = true }
 dainty-history-ship = { workspace = true, optional = true }
+diesel = { workspace = true, optional = true }
+diesel_migrations = { workspace = true, optional = true }
 # The node-link services and their registry (DN3-DN5); `directory` is the `network` feature's. Renamed as the gateway renames it
 network_plugin = { package = "dainty-network", path = "../../crates/dainty-network", default-features = false }
 dainty-remote = { workspace = true, optional = true }
