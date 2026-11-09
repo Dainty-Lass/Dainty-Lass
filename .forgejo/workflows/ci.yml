@@ -378,7 +378,7 @@ jobs:
       - uses: https://github.com/actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5.1.0
         with:
           path: ~/.bun/install/cache
-          key: bun-${{ runner.os }}-ui-${{ hashFiles('ui/bun.lock') }}
+          key: bun-${{ runner.os }}-ui-${{ hashFiles('bun.lock') }}
           restore-keys: bun-${{ runner.os }}-ui-
       - run: bun install --frozen-lockfile
       - run: bun run typecheck
@@ -620,7 +620,7 @@ jobs:
       - uses: https://github.com/actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5.1.0
         with:
           path: ~/.bun/install/cache
-          key: bun-${{ runner.os }}-launcher-${{ hashFiles('launcher/bun.lock', 'restricted/launcher/bun.lock', 'ui/bun.lock') }}
+          key: bun-${{ runner.os }}-launcher-${{ hashFiles('bun.lock', 'restricted/launcher/bun.lock') }}
           restore-keys: bun-${{ runner.os }}-launcher-
 
       - name: Bridge tests

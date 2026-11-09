@@ -1,7 +1,3 @@
 [run]
 # equivalent to `bun --bun` for all `bun run` commands
 bun = true
-
-[install]
-# Each package sees only what it declares, so a phantom dependency fails at install rather than at runtime.
-linker = "isolated"

@@ -195,6 +195,11 @@ From the root: `cargo test --workspace --locked --no-fail-fast`. In `ui/`: `bun 
 `cargo test --workspace --locked --no-fail-fast` (on the maintainer's PC with `-j 6` or fewer). The Paradox Node
 reference, Docker and the Tauri shell are tested there.
 
+`ui/` and `launcher/` are one Bun workspace at the root: one `bun install` (from the root or either folder) fills
+the root `node_modules` from the root `bun.lock`. A JS dependency is added in its own package's `package.json`;
+`overrides`, `patchedDependencies` and `trustedDependencies` live in the root one. `restricted/launcher` and the
+Paradox reference keep their own lockfiles, because their builds run from `restricted/` alone.
+
 Not obvious from reading the suites:
 
 - **Parity tests are the contract, not a snapshot.** `crates/dainty-gateway/tests/parity/` and
