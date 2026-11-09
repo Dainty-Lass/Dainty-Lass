@@ -200,10 +200,9 @@ create index events_name_seq on events (name, seq);
 - Done in MS6 (`feat/ms6-remote-fleet`): the two `InstallReport` fields (left out when empty), the controller's
   `install_summaries` and `queue_admin_action`, `sync_once_with_games` with a `GameFleetSource`, and in admin `installs`
   and `node` (`crates/dainty-admin/src/fleet.rs`) through two `ModuleControl` defaults, `installs` and
-  `queue_moderation`. **Left:** the controller's wiring (`crates/dainty-controller/src/modules.rs`): `remote_managed`
-  calling `sync_once_with_games` with the registry as its `GameFleetSource`, and `AdminModules` overriding the two
-  defaults from the remote controller's state; until then a report carries no game servers and `installs` answers
-  `NO_FLEET`.
+  `queue_moderation`. The controller wires them (`crates/dainty-controller/src/modules.rs`): `remote_managed`
+  syncs with `registry_games` as its `GameFleetSource`, the remote controller module puts its state in
+  `NodeServices::remote_fleet` while it runs, and `AdminModules` answers `installs` and `queue_moderation` from it.
 
 ### A7. The Discord bot (proposed `plugins/discord`)
 
