@@ -1396,18 +1396,9 @@ pub mod http {
     use bytes::Bytes;
     use http_body_util::{BodyExt, Empty};
     use hyper::Request;
-    use hyper_rustls::HttpsConnectorBuilder;
-    use hyper_util::client::legacy::Client;
-    use hyper_util::rt::TokioExecutor;
 
     async fn fetch_bytes(url: &str, api: bool) -> Result<Vec<u8>, String> {
-        let https = HttpsConnectorBuilder::new()
-            .with_provider_and_webpki_roots(rustls::crypto::aws_lc_rs::default_provider())
-            .map_err(|e| format!("TLS setup failed: {e}"))?
-            .https_or_http()
-            .enable_http1()
-            .build();
-        let client: Client<_, Empty<Bytes>> = Client::builder(TokioExecutor::new()).build(https);
+        let client: dainty_http::Client<Empty<Bytes>> = dainty_http::client(dainty_http::Schemes::HttpOrHttps);
 
         let mut current = url.to_owned();
         for _ in 0..5 {

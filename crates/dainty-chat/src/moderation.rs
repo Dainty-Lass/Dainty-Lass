@@ -14,12 +14,9 @@
 use std::sync::{Arc, LazyLock, PoisonError, RwLock};
 use std::time::Duration;
 
-use http_body_util::{BodyExt, Full, Limited};
+use http_body_util::Full;
 use hyper::Request;
 use hyper::body::Bytes;
-use hyper_util::client::legacy::Client;
-use hyper_util::client::legacy::connect::HttpConnector;
-use hyper_util::rt::TokioExecutor;
 use serde::{Deserialize, Serialize};
 use tokio::sync::mpsc;
 
@@ -564,25 +561,16 @@ impl Moderation {
     }
 }
 
-type Https = hyper_rustls::HttpsConnector<HttpConnector>;
-
 struct Dashboard {
     settings: DashboardSettings,
-    client: Client<Https, Full<Bytes>>,
+    client: dainty_http::Client,
 }
 
 impl Dashboard {
     fn new(settings: DashboardSettings) -> Self {
-        // aws-lc-rs by name, as content's client does: another provider compiled in leaves rustls no default
-        let builder = hyper_rustls::HttpsConnectorBuilder::new();
-        let builder = match builder.with_provider_and_webpki_roots(rustls::crypto::aws_lc_rs::default_provider()) {
-            Ok(builder) => builder,
-            Err(_) => hyper_rustls::HttpsConnectorBuilder::new().with_webpki_roots(),
-        };
-        let connector = builder.https_or_http().enable_http1().build();
         Self {
             settings,
-            client: Client::builder(TokioExecutor::new()).build(connector),
+            client: dainty_http::client(dainty_http::Schemes::HttpOrHttps),
         }
     }
 
@@ -607,24 +595,18 @@ impl Dashboard {
         let request = request
             .body(Full::new(Bytes::from(body.unwrap_or_default())))
             .map_err(|e| e.to_string())?;
-        let work = async {
-            let response = self.client.request(request).await.map_err(|e| e.to_string())?;
-            let status = response.status().as_u16();
-            let etag = response
-                .headers()
-                .get("etag")
-                .and_then(|v| v.to_str().ok())
-                .map(str::to_owned);
-            let body = Limited::new(response.into_body(), 4 << 20)
-                .collect()
-                .await
-                .map_err(|e| e.to_string())?
-                .to_bytes();
-            Ok((status, etag, body))
-        };
-        tokio::time::timeout(TIMEOUT, work)
+        let answer = dainty_http::call(&self.client, request, 4 << 20, TIMEOUT)
             .await
-            .map_err(|_| "timed out".to_owned())?
+            .map_err(|e| match e {
+                dainty_http::CallError::Timeout => "timed out".to_owned(),
+                other => other.to_string(),
+            })?;
+        let etag = answer
+            .headers
+            .get("etag")
+            .and_then(|v| v.to_str().ok())
+            .map(str::to_owned);
+        Ok((answer.status.as_u16(), etag, answer.body))
     }
 }
 

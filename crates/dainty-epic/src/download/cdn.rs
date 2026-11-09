@@ -7,9 +7,6 @@ use std::time::Duration;
 
 use bytes::Bytes;
 use http_body_util::{BodyExt, Empty, Limited};
-use hyper_util::client::legacy::Client;
-use hyper_util::client::legacy::connect::HttpConnector;
-use hyper_util::rt::TokioExecutor;
 
 /// Why one GET failed.
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
@@ -45,24 +42,18 @@ impl FetchError {
 /// An HTTPS client for the CDN and the manifest sources.
 #[derive(Clone)]
 pub struct Https {
-    client: Client<hyper_rustls::HttpsConnector<HttpConnector>, Empty<Bytes>>,
+    client: dainty_http::Client<Empty<Bytes>>,
     timeout: Duration,
 }
 
 impl Https {
     /// `tls` replaces the webpki roots (the tests' own CA); None in the launcher and the host kit.
     pub fn new(tls: Option<Arc<rustls::ClientConfig>>, timeout: Duration) -> Result<Self, FetchError> {
-        let builder = match tls {
-            Some(config) => hyper_rustls::HttpsConnectorBuilder::new().with_tls_config((*config).clone()),
-            None => hyper_rustls::HttpsConnectorBuilder::new()
-                .with_provider_and_webpki_roots(rustls::crypto::aws_lc_rs::default_provider())
-                .map_err(|_| FetchError::Tls)?,
+        let client = match tls {
+            Some(config) => dainty_http::client_with(dainty_http::Schemes::HttpsOnly, (*config).clone()),
+            None => dainty_http::client(dainty_http::Schemes::HttpsOnly),
         };
-        let connector = builder.https_only().enable_http1().build();
-        Ok(Self {
-            client: Client::builder(TokioExecutor::new()).build(connector),
-            timeout,
-        })
+        Ok(Self { client, timeout })
     }
 
     /// The body of a `200` answer of at most `max` bytes.

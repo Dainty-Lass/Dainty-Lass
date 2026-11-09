@@ -9,7 +9,7 @@ use base64::Engine as _;
 use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use bytes::Bytes;
 use dainty_module_api::BoxFuture;
-use http_body_util::{BodyExt as _, Full};
+use http_body_util::Full;
 use serde_json::Value;
 
 use crate::AuthSettings;
@@ -136,14 +136,9 @@ pub fn parse_user(value: &Value) -> Option<DiscordUser> {
     })
 }
 
-type Client = hyper_util::client::legacy::Client<
-    hyper_rustls::HttpsConnector<hyper_util::client::legacy::connect::HttpConnector>,
-    Full<Bytes>,
->;
-
 /// The calls over HTTPS only (webpki roots, HTTP/1.1, 15 s each).
 pub struct HttpsDiscord {
-    client: Option<Client>,
+    client: dainty_http::Client,
 }
 
 impl std::fmt::Debug for HttpsDiscord {
@@ -159,51 +154,23 @@ impl Default for HttpsDiscord {
 }
 
 impl HttpsDiscord {
-    /// A client on the platform's TLS provider; every call fails if TLS cannot be set up.
+    /// A client over HTTPS only.
     pub fn new() -> Self {
-        let tls = rustls::ClientConfig::builder_with_provider(std::sync::Arc::new(
-            rustls::crypto::aws_lc_rs::default_provider(),
-        ))
-        .with_safe_default_protocol_versions()
-        .ok()
-        .map(|builder| {
-            let mut roots = rustls::RootCertStore::empty();
-            roots.extend(webpki_roots::TLS_SERVER_ROOTS.iter().cloned());
-            builder.with_root_certificates(roots).with_no_client_auth()
-        });
-        let client = tls.map(|tls| {
-            let connector = hyper_rustls::HttpsConnectorBuilder::new()
-                .with_tls_config(tls)
-                .https_only()
-                .enable_http1()
-                .build();
-            hyper_util::client::legacy::Client::builder(hyper_util::rt::TokioExecutor::new()).build(connector)
-        });
-        Self { client }
+        Self {
+            client: dainty_http::client(dainty_http::Schemes::HttpsOnly),
+        }
     }
 
     async fn call(&self, request: http::Request<Full<Bytes>>) -> Result<Value, DiscordFailure> {
-        let client = self.client.as_ref().ok_or(DiscordFailure { status: None })?;
-        let answer = tokio::time::timeout(REQUEST_TIMEOUT, async {
-            let response = client
-                .request(request)
-                .await
-                .map_err(|_| DiscordFailure { status: None })?;
-            let status = response.status();
-            let body = http_body_util::Limited::new(response.into_body(), MAX_ANSWER)
-                .collect()
-                .await
-                .map_err(|_| DiscordFailure { status: None })?
-                .to_bytes();
-            if !status.is_success() {
-                return Err(DiscordFailure {
-                    status: Some(status.as_u16()),
-                });
-            }
-            serde_json::from_slice::<Value>(&body).map_err(|_| DiscordFailure { status: None })
-        })
-        .await;
-        answer.unwrap_or(Err(DiscordFailure { status: None }))
+        let answer = dainty_http::call(&self.client, request, MAX_ANSWER, REQUEST_TIMEOUT)
+            .await
+            .map_err(|_| DiscordFailure { status: None })?;
+        if !answer.status.is_success() {
+            return Err(DiscordFailure {
+                status: Some(answer.status.as_u16()),
+            });
+        }
+        serde_json::from_slice::<Value>(&answer.body).map_err(|_| DiscordFailure { status: None })
     }
 }
 

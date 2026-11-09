@@ -11,6 +11,7 @@ repository.workspace = true
 publish.workspace = true
 
 [dependencies]
+dainty-http.workspace = true
 bytes.workspace = true
 chrono.workspace = true
 clap.workspace = true
@@ -20,11 +21,9 @@ http.workspace = true
 http-body.workspace = true
 http-body-util.workspace = true
 hyper.workspace = true
-hyper-rustls.workspace = true
 hyper-util = { workspace = true, features = ["client-legacy", "http1", "server", "tokio"] }
 dainty-module-api.workspace = true
 dainty-protocol.workspace = true
-rustls.workspace = true
 serde.workspace = true
 # Every body is written in the field order the Node server wrote
 serde_json = { workspace = true, features = ["preserve_order"] }

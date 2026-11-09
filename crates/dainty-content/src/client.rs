@@ -9,10 +9,6 @@ use std::time::Duration;
 
 use bytes::Bytes;
 use http_body_util::{BodyExt as _, Empty, Limited};
-use hyper_rustls::HttpsConnector;
-use hyper_util::client::legacy::Client;
-use hyper_util::client::legacy::connect::HttpConnector;
-use hyper_util::rt::TokioExecutor;
 
 /// Error text for a request that timed out, as Node's `fetch` writes it.
 pub const TIMEOUT_TEXT: &str = "The operation was aborted due to timeout";
@@ -37,20 +33,12 @@ pub enum BodyError {
     Failed(String),
 }
 
-type Https = Client<HttpsConnector<HttpConnector>, Empty<Bytes>>;
+type Https = dainty_http::Client<Empty<Bytes>>;
 
 /// One pool per process, built on first use.
 fn client() -> &'static Https {
     static POOL: OnceLock<Https> = OnceLock::new();
-    POOL.get_or_init(|| {
-        let builder = hyper_rustls::HttpsConnectorBuilder::new();
-        let builder = match builder.with_provider_and_webpki_roots(rustls::crypto::aws_lc_rs::default_provider()) {
-            Ok(builder) => builder,
-            Err(_) => hyper_rustls::HttpsConnectorBuilder::new().with_webpki_roots(),
-        };
-        let connector = builder.https_or_http().enable_http1().build();
-        Client::builder(TokioExecutor::new()).build(connector)
-    })
+    POOL.get_or_init(|| dainty_http::client(dainty_http::Schemes::HttpOrHttps))
 }
 
 /// GETs `url` with `headers`; the whole exchange, body included, within `timeout`. A redirect is an error, as

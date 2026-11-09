@@ -22,9 +22,6 @@ use std::time::Duration;
 use bytes::Bytes;
 use http_body_util::Full;
 use hyper::{Method, Request};
-use hyper_util::client::legacy::Client;
-use hyper_util::client::legacy::connect::HttpConnector;
-use hyper_util::rt::TokioExecutor;
 use serde_json::{Map, Number, Value};
 
 use crate::console::Record;
@@ -265,14 +262,7 @@ fn ship(target: GelfTarget, rx: Receiver<Vec<u8>>, dropped: Arc<AtomicU64>) {
                 eprintln!("gelf: could not start the shipper's runtime; logs are not shipped");
                 return;
             };
-            let builder = hyper_rustls::HttpsConnectorBuilder::new();
-            let builder = match builder.with_provider_and_webpki_roots(rustls::crypto::aws_lc_rs::default_provider()) {
-                Ok(builder) => builder,
-                Err(_) => hyper_rustls::HttpsConnectorBuilder::new().with_webpki_roots(),
-            };
-            let connector = builder.https_or_http().enable_http1().build();
-            let client: Client<hyper_rustls::HttpsConnector<HttpConnector>, Full<Bytes>> =
-                Client::builder(TokioExecutor::new()).build(connector);
+            let client: dainty_http::Client = dainty_http::client(dainty_http::Schemes::HttpOrHttps);
             while let Ok(bytes) = rx.recv() {
                 let request = Request::builder()
                     .method(Method::POST)

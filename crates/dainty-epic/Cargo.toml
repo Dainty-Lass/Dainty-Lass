@@ -14,6 +14,7 @@ publish.workspace = true
 test-support = ["dep:rcgen", "dep:tokio-rustls", "hyper/server", "tokio/net", "tokio/io-util", "tokio/rt-multi-thread"]
 
 [dependencies]
+dainty-http.workspace = true
 # The CDN client (download/cdn.rs): HTTPS only, no redirect followed
 bytes = "1"
 egs-api.workspace = true
@@ -21,7 +22,6 @@ flate2.workspace = true
 hex.workspace = true
 http-body-util.workspace = true
 hyper.workspace = true
-hyper-rustls.workspace = true
 hyper-util = { workspace = true, features = ["client-legacy", "http1"] }
 # The MD5 2.1.1's manifests list beside the SHA-1
 md-5.workspace = true
@@ -38,6 +38,7 @@ rcgen = { version = "0.14.10", optional = true, default-features = false, featur
 tokio-rustls = { version = "0.26", optional = true, default-features = false, features = ["aws_lc_rs", "tls12"] }
 
 [dev-dependencies]
+hyper-rustls.workspace = true
 hyper = { workspace = true, features = ["server"] }
 # The fake CDN's certificate and listeners (download/tests.rs)
 rcgen = { version = "0.14.10", default-features = false, features = ["aws_lc_rs", "pem", "crypto"] }

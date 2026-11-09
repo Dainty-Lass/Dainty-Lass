@@ -28,8 +28,6 @@ use dainty_epic::manifest::{Manifest, Sha1Digest};
 use dainty_module_api::{ClientProfile, GameVersion};
 use futures_util::future::join_all;
 use http_body_util::{BodyExt, Empty, Limited};
-use hyper_util::client::legacy::Client;
-use hyper_util::rt::TokioExecutor;
 
 use super::hostapi::key_headers;
 use super::http::{Endpoint, RequestOptions, parse_json_body, request};
@@ -319,23 +317,19 @@ pub async fn list<S: Sources>(
         .collect()
 }
 
-type HttpsClient =
-    Client<hyper_rustls::HttpsConnector<hyper_util::client::legacy::connect::HttpConnector>, Empty<Bytes>>;
+type HttpsClient = dainty_http::Client<Empty<Bytes>>;
 
 /// The network: joined servers through `net::http` (pinned TLS in public mode; the key only on the Epic
 /// manifest route), and the profiles' `https` sources with the webpki roots, no redirect followed.
 pub struct HttpSources {
-    client: Option<HttpsClient>,
+    client: HttpsClient,
 }
 
 impl Default for HttpSources {
     fn default() -> Self {
-        let client = hyper_rustls::HttpsConnectorBuilder::new()
-            .with_provider_and_webpki_roots(rustls::crypto::aws_lc_rs::default_provider())
-            .ok()
-            .map(|builder| builder.https_only().enable_http1().build())
-            .map(|connector| Client::builder(TokioExecutor::new()).build(connector));
-        Self { client }
+        Self {
+            client: dainty_http::client(dainty_http::Schemes::HttpsOnly),
+        }
     }
 }
 
@@ -371,7 +365,7 @@ impl Sources for HttpSources {
     }
 
     async fn url(&self, url: &str) -> Option<Bytes> {
-        let client = self.client.as_ref()?;
+        let client = &self.client;
         if !url.starts_with("https://") {
             return None;
         }

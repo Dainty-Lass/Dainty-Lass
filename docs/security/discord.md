@@ -28,8 +28,8 @@ is untrusted, and what it sends back is a credential.
   D6).
 - **Files:** `discord.env`, which `dainty-host setup` writes from `[discord]` and secrets.env's `DISCORD_BOT_TOKEN`.
 
-Code: `crates/dainty-discord/src/` (`interaction.rs`, `bot.rs`, `discord.rs`, `signup.rs`, `config.rs`, `catalog.rs`,
-`http.rs`), `crates/dainty-controller/src/modules.rs` (`discord`, `DiscordAccess`), and the host kit's
+Code: `crates/dainty-discord/src/` (`interaction.rs`, `bot.rs`, `discord.rs`, `signup.rs`, `config.rs`, `catalog.rs`),
+`crates/dainty-http`, `crates/dainty-controller/src/modules.rs` (`discord`, `DiscordAccess`), and the host kit's
 `crates/dainty-hostkit/src/hostconfig/discord.rs`, `hostconfig.rs` (`PROVIDED_SECRET_KEYS`, `set_provided_secret`,
 `build_env_files`), `commands/setup.rs` and `serve.rs` (`compose`, `discord_invite`).
 
