@@ -6,6 +6,7 @@
 
 pub mod check;
 pub mod env;
+pub mod events;
 pub mod guard;
 pub mod logs;
 pub mod modules;
@@ -926,6 +927,8 @@ pub struct HostConfig {
     pub split: Option<split::SplitConfig>,
     /// `[logs]`: the console's format and color, and the GELF collector (`docs/logging.md`)
     pub logs: Option<logs::LogsConfig>,
+    /// `[events]`: how long the registry's events are kept (module sharing A5)
+    pub events: Option<events::EventsConfig>,
     /// The file it was read from.
     pub file: FileForm,
 }
@@ -1091,6 +1094,10 @@ impl HostConfig {
             Some(l) if !l.is_null() => Some(logs::LogsConfig::from_json(l)?),
             _ => None,
         };
+        let events = match obj.get("events") {
+            Some(e) if !e.is_null() => Some(events::EventsConfig::from_json(e)?),
+            _ => None,
+        };
         Ok(Self {
             version,
             mode,
@@ -1123,6 +1130,7 @@ impl HostConfig {
             remote,
             split,
             logs,
+            events,
             file: FileForm {
                 document: obj,
                 read,
@@ -1178,6 +1186,9 @@ impl HostConfig {
             }
             if self.logs.is_none() {
                 self.logs = prev.logs.clone();
+            }
+            if self.events.is_none() {
+                self.events = prev.events.clone();
             }
             if self.dashboard_url.is_none() {
                 self.dashboard_url = prev.dashboard_url.clone();
@@ -1362,6 +1373,9 @@ impl HostConfig {
         }
         if let Some(l) = &self.logs {
             canonical.insert("logs".into(), l.to_json());
+        }
+        if let Some(e) = &self.events {
+            canonical.insert("events".into(), e.to_json());
         }
         merge_document_order(&self.file.document, canonical)
     }
@@ -2263,6 +2277,10 @@ pub fn validate(document: &Value) -> Result<Value, HostError> {
         Some(l) => Some(logs::LogsConfig::from_json(l)?),
         None => None,
     };
+    let events_cfg = match obj.get("events").filter(|v| !v.is_null()) {
+        Some(e) => Some(events::EventsConfig::from_json(e)?),
+        None => None,
+    };
 
     let mut canonical = Map::new();
     canonical.insert("version".into(), Value::from(1));
@@ -2373,6 +2391,9 @@ pub fn validate(document: &Value) -> Result<Value, HostError> {
     if let Some(l) = logs_cfg {
         canonical.insert("logs".into(), l.to_json());
     }
+    if let Some(e) = events_cfg {
+        canonical.insert("events".into(), e.to_json());
+    }
     Ok(Value::Object(merge_document_order(obj, canonical)))
 }
 
@@ -2403,6 +2424,7 @@ fn merge_document_order(orig: &Map<String, Value>, canonical: Map<String, Value>
         "director",
         "split",
         "logs",
+        "events",
     ];
     let mut out = Map::new();
     for (k, orig_v) in orig {
@@ -3566,5 +3588,43 @@ gelf_url = \"tcp://graylog:12201\"
         assert!(rewritten.contains("gelf_url = \"tcp://graylog:12201\""), "{rewritten}");
         assert_eq!(HostConfig::from_toml(&rewritten).unwrap().logs, cfg.logs);
         assert!(HostConfig::from_toml(&text.replace("tcp://graylog", "tcp://logs.example.org")).is_err());
+    }
+
+    /// `[events]` reads from host.toml, is written into a file that lacked it, and left out keeps the default.
+    #[test]
+    fn events_round_trip_through_toml() {
+        let text = "version = 1
+mode = \"private\"
+name = \"Friday Hunts\"
+host = \"100.101.102.103\"
+game_address = \"100.101.102.103\"
+registration = \"INVITECODE\"
+max_hunt_servers = 3
+";
+        let mut cfg = HostConfig::from_toml(text).unwrap();
+        assert_eq!(cfg.events, None);
+        assert_eq!(
+            cfg.events.clone().unwrap_or_default().options(),
+            dainty_controller::events::EventsOptions::default()
+        );
+        cfg.events = Some(events::EventsConfig {
+            retention_days: Some(30),
+        });
+        let written = cfg.to_toml().unwrap();
+        assert!(
+            written.contains(
+                "[events]
+retention_days = 30"
+            ),
+            "{written}"
+        );
+        let read = HostConfig::from_toml(&written).unwrap();
+        assert_eq!(read.events, cfg.events);
+        assert_eq!(
+            HostConfig::from_toml(text).unwrap().written_over(Some(&read)).events,
+            cfg.events
+        );
+        assert!(HostConfig::from_toml(&written.replace("= 30", "= -3")).is_err());
+        assert!(HostConfig::from_toml(&written.replace("retention_days", "retention")).is_err());
     }
 }

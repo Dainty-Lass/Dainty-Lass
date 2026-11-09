@@ -372,6 +372,12 @@ pub fn compose(
     let mut controller = ServerController::new(config.mode.as_str(), games);
     // Made first, so the admin API can hold it; its modules are listed after the services
     let registry = new_registry(config, &controller);
+    // First, so it holds the bus before any module loads (A5)
+    controller.add(dainty_controller::events::module(
+        &registry,
+        dainty_controller::events::EventRecorder::database_for(&hostconfig::node_database_config(config, paths)?),
+        config.events.clone().unwrap_or_default().options(),
+    ));
     let programs = if node_runs {
         Programs::find(paths)?
     } else {
@@ -1078,6 +1084,7 @@ mod tests {
             remote: None,
             split: None,
             logs: None,
+            events: None,
             switches: Default::default(),
             file: FileForm::default(),
         }

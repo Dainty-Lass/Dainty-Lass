@@ -1957,6 +1957,7 @@ mod tests {
             remote: None,
             split: None,
             logs: None,
+            events: None,
             file: FileForm::default(),
         };
         save_host_config(&paths, &cfg).unwrap();
@@ -2043,6 +2044,7 @@ mod tests {
             remote: None,
             split: None,
             logs: None,
+            events: None,
             switches: Default::default(),
             file: FileForm::default(),
         };
@@ -2138,6 +2140,7 @@ mod tests {
             remote: None,
             split: None,
             logs: None,
+            events: None,
             switches: Default::default(),
             file: FileForm::default(),
         };

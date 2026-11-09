@@ -27,7 +27,7 @@ base64.workspace = true
 bytes = "1"
 chrono.workspace = true
 clap.workspace = true
-dainty-controller = { workspace = true, default-features = false, features = ["remote"] }
+dainty-controller = { workspace = true, default-features = false, features = ["remote", "events"] }
 # The gateway's and chat's library options (RD27)
 dainty-service-plugin.workspace = true
 crossterm.workspace = true

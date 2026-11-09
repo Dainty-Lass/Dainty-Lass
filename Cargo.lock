@@ -1377,6 +1377,8 @@ dependencies = [
  "dainty-service-kit",
  "dainty-service-plugin",
  "dainty-store",
+ "diesel",
+ "diesel_migrations",
  "serde",
  "serde_json",
  "sysinfo",
