@@ -261,7 +261,47 @@ fn document(bytes: &[u8]) -> Result<Value, String> {
 
 fn read_document(path: &Path) -> Result<Vec<NewsItem>, String> {
     let bytes = fs::read(path).map_err(|e| e.to_string())?;
+    if path.extension().is_some_and(|e| e.eq_ignore_ascii_case("toml")) {
+        return parse_news(&toml_document(&bytes)?);
+    }
     parse_news(&document(&bytes)?)
+}
+
+/// news.toml (RD24 phase 3) as the JSON document `parse_news` reads: `[[items]]` with `date`, `title` and `body`.
+/// A bare TOML date (`date = 2026-11-08`) reads as its text.
+fn toml_document(bytes: &[u8]) -> Result<Value, String> {
+    let text = String::from_utf8_lossy(bytes);
+    let text = text.strip_prefix('\u{feff}').unwrap_or(&text);
+    let doc: toml_edit::DocumentMut = text.parse().map_err(|e: toml_edit::TomlError| e.to_string())?;
+    let Some(item) = doc.get("items") else {
+        return Ok(json!({ "items": [] }));
+    };
+    let tables: Vec<&dyn toml_edit::TableLike> = match item {
+        toml_edit::Item::ArrayOfTables(tables) => tables.iter().map(|t| t as &dyn toml_edit::TableLike).collect(),
+        toml_edit::Item::Value(toml_edit::Value::Array(items)) => items
+            .iter()
+            .filter_map(|v| v.as_inline_table().map(|t| t as &dyn toml_edit::TableLike))
+            .collect(),
+        _ => return Err("items must be [[items]] tables".to_owned()),
+    };
+    let items = tables
+        .into_iter()
+        .map(|table| {
+            let entry: serde_json::Map<String, Value> = table
+                .iter()
+                .filter_map(|(key, item)| {
+                    let value = match item.as_value()? {
+                        toml_edit::Value::String(s) => Value::String(s.value().clone()),
+                        toml_edit::Value::Datetime(d) => Value::String(d.value().to_string()),
+                        other => Value::String(other.to_string().trim().to_owned()),
+                    };
+                    Some((key.to_owned(), value))
+                })
+                .collect();
+            Value::Object(entry)
+        })
+        .collect();
+    Ok(json!({ "items": Value::Array(items) }))
 }
 
 #[cfg(test)]
@@ -271,6 +311,26 @@ mod tests {
     use std::sync::atomic::{AtomicI64, AtomicUsize, Ordering};
 
     use bytes::Bytes;
+
+    #[test]
+    fn news_toml_reads_as_the_json_file_does() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("news.toml");
+        fs::write(
+            &path,
+            "# ours\n[[items]]\ndate = 2026-11-08\ntitle = \"Up\"\nbody = \"\"\"\nLine one\nLine two\n\"\"\"\n\n[[items]]\ndate = \"2026-11-01\"\ntitle = \"Older\"\n",
+        )
+        .unwrap();
+        let items = read_document(&path).unwrap();
+        assert_eq!(items.len(), 2);
+        assert_eq!(items[0].title, "Up");
+        assert!(items[0].body.contains("Line one"), "{}", items[0].body);
+        assert!(read_document(&dir.path().join("none.toml")).is_err());
+        fs::write(&path, "# nothing yet\n").unwrap();
+        assert!(read_document(&path).unwrap().is_empty());
+        fs::write(&path, "items = 3\n").unwrap();
+        assert!(read_document(&path).is_err());
+    }
 
     fn fake_clock() -> (Arc<AtomicI64>, Clock) {
         let now = Arc::new(AtomicI64::new(1_000_000));

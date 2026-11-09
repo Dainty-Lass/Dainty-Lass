@@ -242,6 +242,33 @@ so they are ignored, with a warning: override them for one service as `DAINTY_<S
 `DAINTY_BACKEND_LOG_LEVEL=debug` or `DAINTY_DIRECTOR_LOG_LEVEL=warn`. `setup` checks the services' settings
 with the overrides applied, so run it in the same environment as `start`.
 
+### News and session supplies
+
+Two more files in `.workspace\config` are yours to edit, both TOML. `setup` turns an older install's
+`news.json` and `session-supplies.json` into them once, and keeps the old file as `.bak`.
+
+`news.toml` is what the launcher shows, newest first. Content reads it again within a few seconds of a change.
+A body over several lines goes between triple quotes:
+
+```toml
+[[items]]
+date = 2026-11-08
+title = "Weekend event"
+body = """
+Double loot from Friday.
+Bring friends.
+"""
+```
+
+`session-supplies.toml` tops up what an account holds at each sign-in, by catalog id (0 to 1000000). The
+backend reads JSON, so `setup` writes it into `.workspace\generated\session-supplies.json`: run `setup` after
+editing. Without the file, nobody is topped up.
+
+```toml
+[accounts.alice]
+Consumable_Potion = 10
+```
+
 ### Secrets (`secrets.env`)
 
 `setup` creates `.workspace/config/secrets.env` once (`SECRET_KEYS` in dainty-lass's `crates/dainty-hostkit/src/hostconfig.rs`) and never rotates an existing secret when `setup` runs again:

@@ -227,7 +227,7 @@ pub struct Paths {
     pub gameserver_logs: PathBuf,
     /// `.workspace/branding`.
     pub branding: PathBuf,
-    /// `.workspace/config/news.json`.
+    /// `.workspace/config/news.toml` (RD24 phase 3; an older news.json is converted by setup).
     pub news_file: PathBuf,
     /// `.workspace/bin`.
     pub bin: PathBuf,
@@ -287,7 +287,7 @@ impl Paths {
         let logs = workspace.join("logs");
         let gameserver_logs = logs.join("gameservers");
         let branding = workspace.join("branding");
-        let news_file = config.join("news.json");
+        let news_file = config.join("news.toml");
         let bin = workspace.join("bin");
         let gameserver_wrapper = bin.join("dainty-gameserver");
         let wine_prefix = workspace.join("wine");

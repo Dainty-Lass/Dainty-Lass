@@ -274,8 +274,12 @@ pub fn run_with(
     ] {
         std::fs::create_dir_all(dir).map_err(|e| HostError::io(dir, e))?;
     }
-    if !p.news_file.is_file() {
-        std::fs::write(&p.news_file, "{\n  \"items\": []\n}\n").map_err(|e| HostError::io(&p.news_file, e))?;
+    // The files hosts write by hand, in TOML (RD24 phase 3)
+    for moved in [crate::hostfiles::ensure_news(p)?, crate::hostfiles::render_supplies(p)?]
+        .into_iter()
+        .flatten()
+    {
+        out(&moved);
     }
     let env_files = build_env_files(&config, &sec, p, &commit, platform);
     if !env_files.passthrough_refused.is_empty() {

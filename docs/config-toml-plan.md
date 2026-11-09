@@ -15,6 +15,12 @@ A gateway bucket is written `burst,per_minute` (`parse_bucket_spec`), not `burst
 `hosttoml.rs` reads and patches the file with `toml_edit`, so the host's own comments survive setup.
 MIGRATION_PLAN.md decision RD24 records this plan and amends section 6.
 
+Phase 3 is done on the same branch (`hostkit/src/hostfiles.rs`): `news.toml`, which content reads by its extension,
+and `session-supplies.toml`, rendered by every setup into `.workspace/generated/session-supplies.json` for the
+backend. The shape of the supplies file is `{"accounts": {"<username>": {"<catalog id>": <quantity>}}}`, so the
+TOML is one `[accounts.<username>]` table each. An edit to it now takes a setup, where the JSON was read at each
+sign-in.
+
 ## Where configuration lives today
 
 | File | Written by | Read by | Hand-edited? |

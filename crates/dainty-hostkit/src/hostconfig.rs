@@ -2822,7 +2822,7 @@ pub fn build_env_files(c: &HostConfig, s: &Secrets, p: &Paths, source_commit: &s
     push(
         &mut backend,
         "DAINTY_SESSION_SUPPLIES_FILE",
-        path_text(&p.config.join("session-supplies.json")),
+        path_text(&crate::hostfiles::supplies_json(p)),
     );
     // The other half's port is the node-link tunnel (docs/split-roles.md)
     if let Some(split) = &c.split {
