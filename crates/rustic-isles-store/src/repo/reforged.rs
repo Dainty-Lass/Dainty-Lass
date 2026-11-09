@@ -673,6 +673,8 @@ pub struct InviteRecord {
     pub note: Option<String>,
     /// When it was made, as ISO text.
     pub created_at: String,
+    /// ISO text; none never expires, as every invite made before D4
+    pub expires_at: Option<String>,
 }
 
 store_trait! {
@@ -681,8 +683,8 @@ store_trait! {
         /// A taken code answers `false`; on Postgres that spoils the transaction, so the caller retries in a new
         /// one (spec §16 item 14)
         fn insert_if_absent(&self, tx: &mut Tx<'_>, record: &InviteRecord) -> bool;
-        /// Uses the code once; false when it does not exist or is used up.
-        fn spend(&self, tx: &mut Tx<'_>, code: &str) -> bool;
+        /// Uses the code once; false when it does not exist, is used up or expired at or before `now` (ISO text).
+        fn spend(&self, tx: &mut Tx<'_>, code: &str, now: &str) -> bool;
         /// The newest codes, at most `limit`.
         fn list(&self, conn: &mut AnyConnection, limit: u32) -> Vec<InviteRecord>;
         /// Deletes the code; returns whether it existed.
@@ -2070,19 +2072,22 @@ struct InviteRow {
     note: Option<String>,
     #[diesel(sql_type = Text)]
     created_at: String,
+    #[diesel(sql_type = Nullable<Text>)]
+    expires_at: Option<String>,
 }
 
 impl InviteRepository for SqlInvites {
     fn insert_if_absent(&self, tx: &mut Tx<'_>, r: &InviteRecord) -> RepoResult<bool> {
         let inserted = sql(
-            "INSERT INTO reforged_invites (code, uses_remaining, infinite_uses, note, created_at) \
-             VALUES (?, ?, ?, ?, ?)",
+            "INSERT INTO reforged_invites (code, uses_remaining, infinite_uses, note, created_at, expires_at) \
+             VALUES (?, ?, ?, ?, ?, ?)",
         )
         .t(&*r.code)
         .i(r.uses_remaining)
         .b(r.infinite_uses)
         .ot(r.note.clone())
         .t(&*r.created_at)
+        .ot(r.expires_at.clone())
         .run(tx.conn());
         match inserted {
             Ok(_) => Ok(true),
@@ -2091,7 +2096,7 @@ impl InviteRepository for SqlInvites {
         }
     }
 
-    fn spend(&self, tx: &mut Tx<'_>, code: &str) -> RepoResult<bool> {
+    fn spend(&self, tx: &mut Tx<'_>, code: &str, now: &str) -> RepoResult<bool> {
         let conn = tx.conn();
         let Some(invite) = sql("SELECT * FROM reforged_invites WHERE code = ?")
             .t(code)
@@ -2099,6 +2104,10 @@ impl InviteRepository for SqlInvites {
         else {
             return Ok(false);
         };
+        // Both sides are `toISOString` text, so text order is time order (D4)
+        if invite.expires_at.as_deref().is_some_and(|at| at <= now) {
+            return Ok(false);
+        }
         if invite.infinite_uses {
             return Ok(true);
         }
@@ -2123,6 +2132,7 @@ impl InviteRepository for SqlInvites {
             infinite_uses: r.infinite_uses,
             note: r.note,
             created_at: r.created_at,
+            expires_at: r.expires_at,
         })
         .collect())
     }

@@ -326,7 +326,7 @@ A route marked "store" answers core's 501 envelope (core §3.6) when the module 
 7. One write, actor `Player { account: <new account id> }`, decided before its first change:
    - a live launcher account with the normalized name (`launcher_accounts.find_by_display_name_normalized`): 409
      `username_taken`, nothing written;
-   - mode `INVITECODE` and `invites.spend(code)` false: 401 `invite_invalid`, nothing written;
+   - mode `INVITECODE` and `invites.spend(code, now)` false (expired codes too, D4): 401 `invite_invalid`, nothing written;
    - `accounts.create` (account id, the new userId, name = the username, notes 0), `launcher_accounts.create` (email
      none, display name and its normalized form, no password, status `active`, approval `approved`, roles
      `["player"]`, created now, `username_set` true, everything else none; a `DisplayNameTaken` outcome is 409

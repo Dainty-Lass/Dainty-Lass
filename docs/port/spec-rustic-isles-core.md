@@ -500,8 +500,10 @@ UDP 8770-8777, capabilities realms (with the feature), network, chat, patch set 
   `/reforged/api/InviteCodes`, `/reforged/api/InviteCode`, `/reforged/api/SetAccountStatus`, `/reforged/api/Kick`.
 - `udp_ports("game")`.
 - Admin actions `Kick`, `Ban`, `Unban`, `LiftTimeout`, `Lookup`.
-- Emits `isles.listening` and `isles.party.headline` (`module_api::chat::HEADLINE_EVENT`); subscribes
-  `chat.presence` (`module_api::chat::PRESENCE_EVENT`).
+- Emits `isles.listening` and `isles.party.headline` (`module_api::chat::HEADLINE_EVENT`), then
+  `game.server.up`, `game.server.down`, `game.availability.changed` (§7.9); subscribes `chat.presence`
+  (`module_api::chat::PRESENCE_EVENT`).
+- Game calls `Availability`, `Servers`, `CreateInvite`, `RevokeInvite` (§7.9).
 - Config sections, in this order: `backend` with `env_file` = `""` (help `The env file the backend and Director read,
   under Node's variable names`); `switches` (§6.2, the version's then the optional keys); `game_data` with
   `backend_dir` = `""` (`The backend's game data exports for this version`) and `director_dir` = `""` (`The
@@ -609,6 +611,40 @@ DirectorInvocation::from_command`; a parse error is returned) and a **home invoc
 | `chat.party` | — | `{"party_id":<id or null>}` |
 
 ---
+
+### 7.9 Game calls (MS3, added 2026-11-08)
+
+`module_api::game` (the module-sharing plan's A1 and A3). One **ask** of the dedicated-servers slot (§5.6): its
+hub status and then, when that answered, its server list, each given 5 s (a slower answer counts as none). A slot
+that can't list servers (over `DEPLOYSERVER_URL`) gives the ready hubs from the hub status instead: id
+`city-{port}` (Ramsgate, kind `hub`, title `ramsgate`) or `dojo-{port}` (Training, kind `dojo`, title
+`training_dojo`), empty map, its host and port, 0 players, 0 max, no start time.
+
+**Availability** from the ask, in this order: no hub status → `director_unreachable`; Ramsgate listed and ready →
+`up`, its hub the listed `hub`-kind server, or one built as above; Ramsgate listed, not ready →
+`hub_not_ready`; Ramsgate absent and `RAMSGATE_HUB` off (director spec §11's switch) or the slot not configured
+(cannot launch) → `no_hub`; absent otherwise → `hub_not_ready` (the hub is starting or retrying with backoff).
+`free_hunts` is left out. Ramsgate is persistent: the Director starts it at boot and keeps it up (director spec
+§7), never on a player's first request, so "the Director is ready to start one" is never "up".
+
+- `Availability`: not running → `down(module_not_ready)`, never an error.
+- Every other call, not running: `Unavailable` with code `module_not_ready` (`UnavailableReason::error`).
+- `Servers`: the ask's list; no hub status → `Unavailable` `director_unreachable`.
+- `CreateInvite { uses, expires_in_secs, note, require_up }`: `uses` outside 1-1000 → `Invalid` `uses is from 1
+  to 1000`; `expires_in_secs` 0 → `Invalid` `expires_in_secs is at least 1`; no database → §7.6's `no database`;
+  `require_up` and the ask (made now, not reused) not `up` → `Unavailable` with its reason's code. Then the
+  composer's invite hook: CreateInvite's write (reforged-admin spec §9) with `infinite_uses` false, the note
+  cleaned as CreateInvite cleans `name`, and `expires_at` = now + the seconds as `toISOString` text (none when
+  absent). `Invite { code }`. Five taken codes: `failed`.
+- `RevokeInvite { code }`: no database → `no database`; the composer's hook deletes it as `DELETE
+  /reforged/api/InviteCode/:code` does (a code that is not an invite code deletes nothing); deleted → `Done`, else
+  `NotFound` `no such invite`.
+
+**The watch**: started with the module (a task stopped at stop), it asks every 10 s, the first at once. Against
+what it last told the bus: each server id no longer listed → `game.server.down` with its last `GameServer`; each
+new id → `game.server.up` with it; then, when `(up, reason)` moved (or on the first pass),
+`game.availability.changed` with the `Availability`. An ask without a list changes no server (a Director blip
+downs nothing); player counts changing are no event. Invite codes are never in an event.
 
 ## 8. Game data
 

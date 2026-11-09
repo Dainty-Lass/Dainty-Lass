@@ -79,7 +79,25 @@ pub async fn create_invite(mut call: Call) -> Response {
         return bad_request(Some("uses is a whole number from 1 to 1000; name is text"));
     };
     let infinite = util::field(body, "infinite") == Some(&Value::Bool(true));
-    let note = invite_note(name);
+    match mint_invite(&store, uses, infinite, invite_note(name), None).await {
+        Ok(Some(code)) => util::ok(&object(vec![("code", Value::from(code))])),
+        Ok(None) => util::empty(StatusCode::INTERNAL_SERVER_ERROR),
+        Err(e) => {
+            tracing::error!("[launcher-api] CreateInvite: {e}");
+            util::empty(StatusCode::INTERNAL_SERVER_ERROR)
+        }
+    }
+}
+
+/// Writes a new invite as the console; none after five taken codes. CreateInvite's write, shared with the game
+/// call (MS3)
+pub async fn mint_invite(
+    store: &IslesStore,
+    uses: i64,
+    infinite: bool,
+    note: Option<String>,
+    expires_at: Option<String>,
+) -> Result<Option<String>, RepoError> {
     for _ in 0..5 {
         let record = InviteRecord {
             code: make_invite_code(),
@@ -87,30 +105,24 @@ pub async fn create_invite(mut call: Call) -> Response {
             infinite_uses: infinite,
             note: note.clone(),
             created_at: iso(now_ms()),
+            expires_at: expires_at.clone(),
         };
         let code = record.code.clone();
-        match store
+        if store
             .write(&console(), move |tx, repos| repos.invites.insert_if_absent(tx, &record))
-            .await
+            .await?
         {
-            Ok(true) => {
-                let count = if infinite {
-                    "unlimited".to_owned()
-                } else {
-                    format!("{uses} use(s)")
-                };
-                let named = note.as_ref().map(|n| format!(" for {n}")).unwrap_or_default();
-                tracing::info!("[launcher-api] invite made: {count}{named}");
-                return util::ok(&object(vec![("code", Value::from(code))]));
-            }
-            Ok(false) => {}
-            Err(e) => {
-                tracing::error!("[launcher-api] CreateInvite: {e}");
-                return util::empty(StatusCode::INTERNAL_SERVER_ERROR);
-            }
+            let count = if infinite {
+                "unlimited".to_owned()
+            } else {
+                format!("{uses} use(s)")
+            };
+            let named = note.as_ref().map(|n| format!(" for {n}")).unwrap_or_default();
+            tracing::info!("[launcher-api] invite made: {count}{named}");
+            return Ok(Some(code));
         }
     }
-    util::empty(StatusCode::INTERNAL_SERVER_ERROR)
+    Ok(None)
 }
 
 /// `GET /dainty/api/InviteCodes`: lists the invite codes.

@@ -128,16 +128,18 @@ async fn notices_and_invites() {
             infinite_uses: infinite,
             note: None,
             created_at: at.into(),
+            expires_at: None,
         };
+        const NOW: &str = "2026-11-08T12:00:00.000Z";
         let out = store
             .write(&system(), move |tx, r| {
                 let i = &r.invites;
                 i.insert_if_absent(tx, &code("one", 1, false, "2026-10-01T00:00:00.000Z"))?;
                 i.insert_if_absent(tx, &code("inf", 0, true, "2026-10-02T00:00:00.000Z"))?;
-                let spent = i.spend(tx, "one")?;
-                let empty = i.spend(tx, "one")?;
-                let unlimited = i.spend(tx, "inf")?;
-                let unknown = i.spend(tx, "nope")?;
+                let spent = i.spend(tx, "one", NOW)?;
+                let empty = i.spend(tx, "one", NOW)?;
+                let unlimited = i.spend(tx, "inf", NOW)?;
+                let unknown = i.spend(tx, "nope", NOW)?;
                 let listed: Vec<String> = i.list(tx.conn(), 10)?.into_iter().map(|c| c.code).collect();
                 Ok((
                     spent,
@@ -166,6 +168,26 @@ async fn notices_and_invites() {
                 .unwrap();
             assert!(!taken);
         }
+
+        // D4: a code expires at its `expires_at`; one without never does
+        let dated = move |c: &str, at: &str| InviteRecord {
+            expires_at: Some(at.into()),
+            ..code(c, 5, true, "2026-11-08T00:00:00.000Z")
+        };
+        let out = store
+            .write(&system(), move |tx, r| {
+                let i = &r.invites;
+                i.insert_if_absent(tx, &dated("late", "2026-11-08T12:00:00.001Z"))?;
+                i.insert_if_absent(tx, &dated("gone", NOW))?;
+                let late = i.spend(tx, "late", NOW)?;
+                let gone = i.spend(tx, "gone", NOW)?;
+                let after = i.spend(tx, "late", "2026-11-09T00:00:00.000Z")?;
+                let kept = i.list(tx.conn(), 10)?.into_iter().find(|c| c.code == "late");
+                Ok((late, gone, after, kept.and_then(|c| c.expires_at)))
+            })
+            .await
+            .unwrap();
+        assert_eq!(out, (true, false, false, Some("2026-11-08T12:00:00.001Z".into())));
     }
 }
 

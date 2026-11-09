@@ -10,6 +10,10 @@ use std::sync::{Arc, Mutex, PoisonError};
 use std::time::Duration;
 
 use dainty_module_api::chat::{ChatAnswer, ChatQuery, HEADLINE_EVENT, PRESENCE_EVENT, PresenceEvent};
+use dainty_module_api::game::{
+    AVAILABILITY_CHANGED_EVENT, Availability, GameAnswer, GameCall, GameCallKind, SERVER_DOWN_EVENT, SERVER_UP_EVENT,
+    UnavailableReason,
+};
 use dainty_module_api::manifest::{PortDefault, Transport};
 use dainty_module_api::network::{DirectorInvocation, HomeInvocation};
 use dainty_module_api::registrar::ConfigSection;
@@ -22,7 +26,7 @@ use serde_json::{Map, Value};
 use tokio::sync::watch;
 use tokio::task::JoinHandle;
 
-use crate::composer::{ComposeInputs, Composer, ModuleHooks, StartedListener, no_database};
+use crate::composer::{ComposeInputs, Composer, ModuleHooks, NewInvite, StartedListener, no_database};
 use crate::dedicated::{Launch, LaunchRequest};
 use crate::game_data::GameDataRoot;
 use crate::handlers::auth_handlers;
@@ -457,6 +461,68 @@ impl IslesModule {
         }
     }
 
+    async fn game_call(&self, call: GameCall) -> Result<GameAnswer, ModuleError> {
+        let running = self.running_shared();
+        if call == GameCall::Availability {
+            return Ok(GameAnswer::Availability(match running {
+                Ok((shared, _)) => crate::game::snapshot(&shared).await.availability,
+                Err(_) => Availability::down(UnavailableReason::ModuleNotReady),
+            }));
+        }
+        let (shared, hooks) = running.map_err(|_| UnavailableReason::ModuleNotReady.error())?;
+        match call {
+            GameCall::Availability => Err(invalid("availability")),
+            GameCall::Servers => crate::game::snapshot(&shared)
+                .await
+                .servers
+                .map(GameAnswer::Servers)
+                .ok_or_else(|| UnavailableReason::DirectorUnreachable.error()),
+            GameCall::CreateInvite {
+                uses,
+                expires_in_secs,
+                note,
+                require_up,
+            } => {
+                if !(1..=1000).contains(&uses) {
+                    return Err(invalid("uses is from 1 to 1000"));
+                }
+                if expires_in_secs == Some(0) {
+                    return Err(invalid("expires_in_secs is at least 1"));
+                }
+                if !shared.database_wanted() {
+                    return Err(no_database());
+                }
+                // The recheck the caller relies on: its own Availability may be stale by now (A3)
+                if require_up {
+                    let availability = crate::game::snapshot(&shared).await.availability;
+                    if !availability.up {
+                        let reason = availability.reason.unwrap_or(UnavailableReason::HubNotReady);
+                        return Err(reason.error());
+                    }
+                }
+                let expires_at = expires_in_secs
+                    .map(|secs| crate::season::to_iso_string(crate::replay::now_ms() + i64::from(secs) * 1000));
+                let invite = NewInvite {
+                    uses: i64::from(uses),
+                    note,
+                    expires_at,
+                };
+                let code = hooks.create_invite(&shared, invite).await?;
+                Ok(GameAnswer::Invite { code })
+            }
+            GameCall::RevokeInvite { code } => {
+                if !shared.database_wanted() {
+                    return Err(no_database());
+                }
+                if hooks.revoke_invite(&shared, code).await? {
+                    Ok(GameAnswer::Done)
+                } else {
+                    Err(ModuleError::new(ErrorKind::NotFound, "no such invite"))
+                }
+            }
+        }
+    }
+
     async fn home(&self, invocation: HomeInvocation) -> Result<CommandOutput, ModuleError> {
         let (shared, hooks) = self.running_shared()?;
         if !shared.database_wanted() {
@@ -545,6 +611,17 @@ impl GameModule for IslesModule {
         }
         let name = |text: &str| EventName::new(text).map_err(|e| invalid(e.to_string()));
         registrar.emits(name(LISTENING_EVENT)?);
+        for event in [SERVER_UP_EVENT, SERVER_DOWN_EVENT, AVAILABILITY_CHANGED_EVENT] {
+            registrar.emits(name(event)?);
+        }
+        for kind in [
+            GameCallKind::Availability,
+            GameCallKind::Servers,
+            GameCallKind::CreateInvite,
+            GameCallKind::RevokeInvite,
+        ] {
+            registrar.game_call(kind);
+        }
         registrar.emits(name(HEADLINE_EVENT)?);
         registrar.subscribes(name(PRESENCE_EVENT)?);
         registrar.config_section(ConfigSection::new("backend").key(
@@ -599,6 +676,9 @@ impl GameModule for IslesModule {
                         .collect::<Vec<_>>()
                         .join(", ");
                     {
+                        let mut running = running;
+                        let watch = crate::game::watch(ctx.clone(), Arc::clone(&running.shared));
+                        running.tasks.push(tokio::spawn(watch));
                         let mut state = self.state();
                         state.phase = Phase::Ready;
                         state.detail = Some(detail.clone());
@@ -712,6 +792,10 @@ impl GameModule for IslesModule {
 
     fn admin(&self, _ctx: ModuleContext, call: AdminCall) -> BoxFuture<'_, Result<AdminResponse, ModuleError>> {
         Box::pin(self.admin_call(call))
+    }
+
+    fn game(&self, _ctx: ModuleContext, call: GameCall) -> BoxFuture<'_, Result<GameAnswer, ModuleError>> {
+        Box::pin(self.game_call(call))
     }
 
     fn event(&self, _ctx: ModuleContext, event: Event) -> BoxFuture<'_, Result<(), ModuleError>> {

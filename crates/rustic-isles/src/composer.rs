@@ -134,10 +134,39 @@ pub trait ModuleHooks: Send + Sync {
         Box::pin(async {})
     }
 
+    /// Writes an invite (MS3): `expires_at` is ISO text, none never; answers its code.
+    fn create_invite<'a>(
+        &'a self,
+        _shared: &'a Arc<Shared>,
+        _invite: NewInvite,
+    ) -> BoxFuture<'a, Result<String, ModuleError>> {
+        Box::pin(async { Err(no_database()) })
+    }
+
+    /// Deletes an invite; false when there was none.
+    fn revoke_invite<'a>(
+        &'a self,
+        _shared: &'a Arc<Shared>,
+        _code: String,
+    ) -> BoxFuture<'a, Result<bool, ModuleError>> {
+        Box::pin(async { Err(no_database()) })
+    }
+
     /// The store's checkpoint at stop; a failure is logged as a warning.
     fn stop(&self) -> BoxFuture<'_, Result<(), String>> {
         Box::pin(async { Ok(()) })
     }
+}
+
+/// A [`GameCall::CreateInvite`](dainty_module_api::game::GameCall) checked by the module.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct NewInvite {
+    /// From 1 to 1000, as CreateInvite takes.
+    pub uses: i64,
+    /// Kept as staff wrote it; the hook cleans it as CreateInvite does
+    pub note: Option<String>,
+    /// ISO text; none never expires.
+    pub expires_at: Option<String>,
 }
 
 /// Every default.

@@ -8,11 +8,11 @@ use std::sync::{Arc, OnceLock, PoisonError, RwLock, Weak};
 use dainty_module_api::chat::{ChatAnswer, ChatQuery};
 use dainty_module_api::network::{HomeInvocation, OperationName};
 use dainty_module_api::{
-    ActorContext, AdminCall, AdminResponse, BoxFuture, ErrorKind, GlobalId, ModuleContext, ModuleError,
+    Actor, ActorContext, AdminCall, AdminResponse, BoxFuture, ErrorKind, GlobalId, ModuleContext, ModuleError,
 };
 use rustic_isles::{
-    AccountId, ComposeInputs, Composer, Composition, ContextHome, Handlers, ModuleHooks, Shared, Slots, Started,
-    Startup,
+    AccountId, ComposeInputs, Composer, Composition, ContextHome, Handlers, ModuleHooks, NewInvite, Shared, Slots,
+    Started, Startup,
 };
 use rustic_isles_auth::{GameAccount, GameLogin, Seams};
 use rustic_isles_characters::Characters;
@@ -22,7 +22,9 @@ use rustic_isles_economy::bounties::{BountiesSeams, ForeignAccounts};
 use rustic_isles_economy::inventory::{InventoryActivitySlot, InventoryPorts, RingInstances};
 use rustic_isles_economy::progression::{ProgressionPorts, SessionSupplies, StoreCharacters};
 use rustic_isles_launcher_api::activity::ActivityHooks;
+use rustic_isles_launcher_api::admin::host_routes::mint_invite;
 use rustic_isles_launcher_api::admin::{EconomyFunding, LauncherApiAdmin, admin_startups};
+use rustic_isles_launcher_api::launcher_api::{invite_note, is_invite_code};
 use rustic_isles_launcher_api::{LauncherApiSeams, LauncherApiState, RequestObserver, public_startups};
 use rustic_isles_matchmaking::{HttpDirector, MatchmakingCore, MatchmakingState, ring_instances_slot};
 use rustic_isles_store::IslesStore;
@@ -447,6 +449,37 @@ impl ModuleHooks for Runtime {
 
     fn player_offline<'a>(&'a self, shared: &'a Arc<Shared>, user_id: &'a str) -> BoxFuture<'a, ()> {
         rustic_isles_matchmaking::player_offline(shared, user_id)
+    }
+
+    fn create_invite<'a>(
+        &'a self,
+        _shared: &'a Arc<Shared>,
+        invite: NewInvite,
+    ) -> BoxFuture<'a, Result<String, ModuleError>> {
+        Box::pin(async move {
+            let store = self.store.as_ref().ok_or_else(rustic_isles::composer::no_database)?;
+            let note = invite_note(invite.note.map(Value::String).as_ref());
+            match mint_invite(store, invite.uses, false, note, invite.expires_at).await {
+                Ok(Some(code)) => Ok(code),
+                Ok(None) => Err(ModuleError::failed("no free invite code after five tries")),
+                Err(e) => Err(ModuleError::failed(e.to_string())),
+            }
+        })
+    }
+
+    fn revoke_invite<'a>(&'a self, _shared: &'a Arc<Shared>, code: String) -> BoxFuture<'a, Result<bool, ModuleError>> {
+        Box::pin(async move {
+            let store = self.store.as_ref().ok_or_else(rustic_isles::composer::no_database)?;
+            if !is_invite_code(&code) {
+                return Ok(false);
+            }
+            store
+                .write(&ActorContext::new(Actor::Console), move |tx, repos| {
+                    repos.invites.delete(tx, &code)
+                })
+                .await
+                .map_err(|e| ModuleError::failed(e.to_string()))
+        })
     }
 
     fn stop(&self) -> BoxFuture<'_, Result<(), String>> {

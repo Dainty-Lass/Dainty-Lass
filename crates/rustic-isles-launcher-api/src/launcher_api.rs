@@ -337,6 +337,7 @@ pub async fn register(call: Call) -> Response {
     });
     let normalized = username.to_lowercase();
     let now = iso(now_ms());
+    let spent_at = now.clone();
     let record = LauncherAccountRecord {
         account: account.clone(),
         user_id: user_id.clone(),
@@ -378,7 +379,7 @@ pub async fn register(call: Call) -> Response {
             {
                 return Ok(Registered::Taken);
             }
-            if invite && !repos.invites.spend(tx, &code)? {
+            if invite && !repos.invites.spend(tx, &code, &spent_at)? {
                 return Ok(Registered::InviteInvalid);
             }
             repos.accounts.create(tx, &game)?;
