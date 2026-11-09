@@ -63,6 +63,11 @@ bin/dainty-host doctor
 | `systemd/install.sh` | Installs and starts the units (needs root once) |
 | `config/firewall.sh` | Lets a host firewall (ufw) pass TCP 443 and the game's UDP ports |
 
+The units pass on no environment of your shell. To override a `host.toml` setting there
+([hosting.md](hosting.md#environment-variables-override-hosttoml)), put it in a drop-in:
+`sudo systemctl edit dainty-lass`, then `[Service]` and `Environment=DAINTY_BACKEND_LOG_LEVEL=debug`. `start`
+logs a warning for each one.
+
 Run `sudo .workspace/systemd/install.sh`, then `systemctl status dainty-lass`. Without systemd, start the allowlist helper
 with `CAP_NET_ADMIN` (for example under `sudo` with `.workspace/config/allowlist.env`) and run
 `DAINTY_ALLOWLIST=external bin/dainty-host start` in the foreground as your user.

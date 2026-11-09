@@ -69,6 +69,10 @@ pub trait SetupEnv {
     fn require_checkout_sources(&self) -> bool {
         true
     }
+    /// The environment the services will inherit, whose variables override host.toml (RD24).
+    fn inherited_env(&self) -> Vec<(String, String)> {
+        std::env::vars().collect()
+    }
 }
 
 /// The real machine.
@@ -283,6 +287,11 @@ pub fn run_with(
   "
             )
         )));
+    }
+    // Each service's own loader, on the env it will start with (RD24)
+    let checked = crate::hostconfig::check::check(&env_files, &env.inherited_env())?;
+    for warning in &checked.warnings {
+        out(&format!("- warning: {warning}"));
     }
     write_env_files(p, &env_files)?;
     for (name, entries) in env_files.files() {

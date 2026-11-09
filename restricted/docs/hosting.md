@@ -175,12 +175,72 @@ servers' key) lives only in `secrets.env`.
 | (edit `host.toml`) | `[switches]` `reforge`, `mastery_persistence`, `bounty_persistence`, `cooldown_persistence`, `account_erasure`, `log_purge`, `rate_limit`, `rate_limit_per_minute`, `gameserver_rate_limit_per_minute`, `host_rate_limit_per_minute` | Backend persistence, rule and request-budget switches written to `backend.env` (`RUSTIC_ISLES_REFORGE`, `RUSTIC_ISLES_MASTERY_PERSISTENCE`, `RUSTIC_ISLES_BOUNTY_PERSISTENCE`, `RUSTIC_ISLES_COOLDOWN_PERSISTENCE`, `RUSTIC_ISLES_ACCOUNT_ERASURE`, `RUSTIC_ISLES_LOG_PURGE`, `RUSTIC_ISLES_RATE_LIMIT`, `RUSTIC_ISLES_RATE_LIMIT_PER_MINUTE`, `RUSTIC_ISLES_GAMESERVER_RATE_LIMIT_PER_MINUTE`, `RUSTIC_ISLES_HOST_RATE_LIMIT_PER_MINUTE`) and forwarded to `isles-1-14-7`'s `[switches]`. Left out: the module's defaults |
 | (edit `host.toml`) | `[modules]` `compiled`, `[[modules.external]]` `id`, `path`, `sha256`, `args`, `autoload`, `[modules.<id>.<section>]` | The game modules and plugins to load (below). Left out: every compiled-in one |
 | (edit `host.toml`) | `[services.<name>]` `library`, `sha256` (and `serves` for a name the server doesn't know) | A service loaded as a library in place of the one built into the binary: `content`, `chat` or `gateway`, from the release's `plugins/` folder, pinned by its SHA-256 (below). It runs on its own env file (`chat` on `gateway.env`), and a `gateway` library takes the allowlist's place too. Left out: every service built in, as before |
-| (edit `host.toml`) | `[env.<service>]` `KEY = value` (`backend`, `director`, `content`, `gateway`, `admin`, `allowlist`) | Extra lines for that service's env file, for a tunable with no setting of its own (`GATEWAY_RATE_WS = "40/24"`, `GATEWAY_MAX_CONNECTIONS = 4096`). Secrets, ports, bind addresses, `AUTH_*`, the server mode, the multipliers and any variable `setup` already writes are refused, and `setup` stops on one rather than skip it; `doctor` lists the ones in use. Left out: nothing extra |
+| (edit `host.toml`) | `[env.<service>]` `KEY = value` (`backend`, `director`, `content`, `gateway`, `admin`, `allowlist`) | Extra lines for that service's env file, for a variable with no setting of its own (`GATEWAY_GAME = "reborn"`). Secrets, ports, bind addresses, `AUTH_*`, the server mode, the multipliers and any variable `setup` already writes are refused, and `setup` stops on one rather than skip it; `doctor` lists the ones in use. Left out: nothing extra |
+| (edit `host.toml`) | `[gateway.limits]`, `[gateway.rate]`, `[gateway.timeouts]`, `[gateway]`, `[content]`, `[allowlist]`, `[backend]`, `[director]` | The services' limits, timeouts and log levels ([below](#service-tunables)). `setup` checks them with each service's own rules and stops on a bad one. Left out: each service's default |
 | (edit `host.toml`) | `[network]` `node`, `region`, `leader`, `wrong_node_policy` | This server's name, region and optional directory leader in a network, and what a join that reaches the wrong node gets: `refuse` (the default) or `redirect` to the node that owns it (DN6). Left out: a server on its own |
 | (edit `host.toml`) | `[network]` `failover`, `heartbeat_ms`, `election_timeout_ms` | `failover = true`: the nodes elect the directory leader among themselves and elect another when it goes down, and a registration is acknowledged only once a majority of the nodes holds it; leave `leader` out. Run three or five nodes. The timings default to 1000 and 5000 ms ([distributed-mode.md](https://git.silentspud.com/silentspud/dainty-lass/src/branch/main/docs/distributed-mode.md)). Left out: the fixed leader |
 | (edit `host.toml`) | `[logs]` `format`, `color`, `gelf_url` | The console log: `text` (Docker-like lines, `service \| time LEVEL module: message key=value`) or `json`; color `auto` (on a terminal, unless `NO_COLOR`), `always` or `never`; and a GELF collector (Graylog) every record is shipped to, `https://`, or `http://`/`tcp://` only to this machine or a private network ([logging.md](https://git.silentspud.com/silentspud/dainty-lass/src/branch/main/docs/logging.md)). Left out: colored text, nothing shipped |
 | (edit `host.toml`) | `[split]` `role`, `peer`, `open_game_ports` | This server as one half of two: `metagame` (backend, content, admin) or `gameservers` (the Director and its game servers), the other half's node id in `[[network.nodes]]`, and for a public game half its open game ports ([split-roles.md](https://git.silentspud.com/silentspud/dainty-lass/src/branch/main/docs/split-roles.md)). Left out: one server runs both |
 | (edit `host.toml`) | `[[network.nodes]]` `id`, `region`, `host`, `port`, `fingerprint`, `link` | The other nodes of the network: the only ones this node answers, and the ones it calls (below). `link` (`host:port`) is where node links dial instead of `host`: a back channel such as the peer's Tailscale address, which its node certificate must carry too. Left out: no peers, and the server works as one outside a network |
+
+### Service tunables
+
+Every key is optional: left out, the service keeps its own default. Each goes to that service's env file as the
+variable shown, and `setup` runs the gateway's, content's and the allowlist helper's own settings check on the
+result, so a value out of range stops `setup` with that service's message and the `host.toml` key.
+
+```toml
+[gateway.limits]
+max_connections = 4096
+
+[gateway.rate]
+ws = { burst = 40, per_minute = 24 }
+
+[backend]
+log_level = "debug"
+```
+
+| `host.toml` key | Variable | Values | Default |
+| --- | --- | --- | --- |
+| `[gateway.limits]` `max_body_bytes` | `GATEWAY_MAX_BODY_BYTES` | 1024–67108864 | 131072 |
+| `[gateway.limits]` `max_connections` | `GATEWAY_MAX_CONNECTIONS` | 1–100000 | 2048 |
+| `[gateway.limits]` `max_connections_per_ip` | `GATEWAY_MAX_CONNECTIONS_PER_IP` | 1–100000 | 128 |
+| `[gateway.rate]` `general`, `content`, `register`, `token`, `ws`, `connect` | `GATEWAY_RATE_GENERAL` … `GATEWAY_RATE_CONNECT` | `{ burst = <1–1000000>, per_minute = <0–1000000> }` | general 300/180, content 600/600, register 5/0.2, token 10/1, ws 20/12, connect 200/300 |
+| `[gateway.timeouts]` `handshake_ms`, `headers_ms` | `GATEWAY_HANDSHAKE_TIMEOUT_MS`, `GATEWAY_HEADERS_TIMEOUT_MS` | 1000–120000 | the gateway's |
+| `[gateway.timeouts]` `request_ms`, `keep_alive_ms` | `GATEWAY_REQUEST_TIMEOUT_MS`, `GATEWAY_KEEPALIVE_TIMEOUT_MS` | 1000–600000 | the gateway's |
+| `[gateway.timeouts]` `idle_ms`, `upstream_idle_ms` | `GATEWAY_IDLE_TIMEOUT_MS`, `GATEWAY_UPSTREAM_IDLE_TIMEOUT_MS` | 1000–3600000 | the gateway's |
+| `[gateway.timeouts]` `ws_idle_ms` | `GATEWAY_WS_IDLE_TIMEOUT_MS` | 1000–86400000 | the gateway's |
+| `[gateway.timeouts]` `shutdown_grace_ms` | `GATEWAY_SHUTDOWN_GRACE_MS` | 0–300000 | the gateway's |
+| `[gateway]` `allowlist_refresh_seconds` | `GATEWAY_ALLOWLIST_REFRESH_SECONDS` | 5–540 (public only) | 60 |
+| `[content]` `max_streams_per_account` | `CONTENT_MAX_STREAMS_PER_ACCOUNT` | 1–64 | 4 |
+| `[content]` `max_streams_total` | `CONTENT_MAX_STREAMS_TOTAL` | 1–1024 | 48 |
+| `[content]` `auth_cache_seconds` | `CONTENT_AUTH_CACHE_SECONDS` | 0–3600 | 300 |
+| `[content]` `news_url` | `CONTENT_NEWS_URL` | an `https://` URL | unset: the news file |
+| `[allowlist]` `ttl_seconds` | `ALLOWLIST_TTL_SECONDS` | 1–86400 (public only) | 600 |
+| `[allowlist]` `min_interval_ms` | `ALLOWLIST_MIN_INTERVAL_MS` | 50–600000 | 3000 |
+| `[allowlist]` `max_entries` | `ALLOWLIST_MAX_ENTRIES` | 1–1000 | 256 |
+| `[allowlist]` `nft_table` | `ALLOWLIST_NFT_TABLE` | an nftables table name (Linux) | `dainty_lass` |
+| `[backend]` `log_level` | `LOG_LEVEL` | `debug`, `info`, `warn`, `error` | `info` |
+| `[backend]` `transaction_max_commit_ms` | `MONGODB_TRANSACTION_MAX_COMMIT_TIME_MS` | 1–600000 (`--features paradox` builds) | 15000 |
+| `[backend]` `hunt_go_now_min_ms`, `hunt_go_now_max_ms` | `HUNT_GO_NOW_MIN_DELAY_MS`, `HUNT_GO_NOW_MAX_DELAY_MS` | 1–600000, min no more than max | 1, 1000 |
+| `[backend]` `xmpp_capture` | `REALTIME_XMPP_CAPTURE` | `true`, `false` | `false` |
+| `[director]` `log_level` | `LOG_LEVEL` | `debug`, `info`, `warn`, `error` | `info` |
+| `[director]` `gameserver_startup_gap_seconds` | `SECONDS_TO_WAIT_BETWEEN_GAMESERVER_STARTUP` | 0–600 | 3 |
+| `[director]` `gameserver_ready_timeout_ms` | `GAMESERVER_READY_TIMEOUT_MS` | 1000–600000 | 30000 (90000 on Linux) |
+
+### Environment variables override host.toml
+
+A variable set in the environment `dainty-host start` runs in wins over what `setup` wrote, when the service
+reads it: a line of its env file, or a variable of its table above (`GATEWAY_RATE_WS=40,24`). Every override is a
+warning in the console and the log each time the service starts, naming the `host.toml` key it beats, and
+`doctor` lists them under `overrides`. A secret, an `AUTH_*` variable, the server mode, the executable hash, the
+registration mode or a multiplier can be overridden too, but its value is never shown. Other variables pass
+through as before.
+
+`PORT`, `BIND_HOST`, `NODE_ENV`, `LOG_LEVEL`, `MY_IP` and `BACKEND_URL` are set for everything on many machines,
+so they are ignored, with a warning: override them for one service as `DAINTY_<SERVICE>_<NAME>`, such as
+`DAINTY_BACKEND_LOG_LEVEL=debug` or `DAINTY_DIRECTOR_LOG_LEVEL=warn`. `setup` checks the services' settings
+with the overrides applied, so run it in the same environment as `start`.
 
 ### Secrets (`secrets.env`)
 

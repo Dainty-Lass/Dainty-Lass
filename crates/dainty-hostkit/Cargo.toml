@@ -32,6 +32,9 @@ dainty-controller = { workspace = true, default-features = false, features = ["r
 dainty-service-plugin.workspace = true
 crossterm.workspace = true
 dainty-epic.workspace = true
+# setup runs their own config loaders on the rendered env files (RD24)
+dainty-content.workspace = true
+dainty-gateway.workspace = true
 flate2.workspace = true
 fs4 = "1"
 hex.workspace = true

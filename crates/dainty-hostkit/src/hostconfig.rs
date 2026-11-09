@@ -4,12 +4,15 @@
 //! The server's configuration: `host.toml` (or a host.json, .yaml, .yml) read, validated and written back,
 //! `secrets.env`, and the per-service env files `setup` builds from the two.
 
+pub mod check;
 pub mod env;
 pub mod guard;
 pub mod logs;
 pub mod modules;
+pub mod overrides;
 pub mod services;
 pub mod split;
+pub mod tunables;
 pub mod yaml;
 
 pub use guard::GuardConfig;
@@ -905,6 +908,16 @@ pub struct HostConfig {
     pub services: Option<ServicesConfig>,
     /// `[env.<service>]`: variables appended to a service's env file (RD24 phase 2)
     pub env: Option<env::EnvPassthrough>,
+    /// `[gateway.limits]`, `[gateway.rate]`, `[gateway.timeouts]` and `[gateway]`: the gateway's tunables (RD24)
+    pub gateway: Option<tunables::Tunables>,
+    /// `[content]`: the content server's tunables (RD24)
+    pub content: Option<tunables::Tunables>,
+    /// `[allowlist]`: the allowlist helper's tunables, on a public server (RD24)
+    pub allowlist: Option<tunables::Tunables>,
+    /// `[backend]`: the backend's log level, go-now window and XMPP capture (RD24)
+    pub backend: Option<tunables::Tunables>,
+    /// `[director]`: the Director's log level and game server start timing (RD24)
+    pub director: Option<tunables::Tunables>,
     /// `[network]`: the other nodes this server links to.
     pub network: Option<NetworkConfig>,
     /// `[remote]`: this install's place in remote management.
@@ -1056,6 +1069,12 @@ impl HostConfig {
             Some(e) if !e.is_null() => Some(env::from_json(e)?),
             _ => None,
         };
+        let tunable = |name: &str| match obj.get(name) {
+            Some(t) if !t.is_null() => tunables::Tunables::from_json(name, t).map(Some),
+            _ => Ok(None),
+        };
+        let (gateway, content, allowlist) = (tunable("gateway")?, tunable("content")?, tunable("allowlist")?);
+        let (backend, director) = (tunable("backend")?, tunable("director")?);
         let network = match obj.get("network") {
             Some(n) if !n.is_null() => Some(NetworkConfig::from_json(n)?),
             _ => None,
@@ -1095,6 +1114,11 @@ impl HostConfig {
             modules,
             services,
             env,
+            gateway,
+            content,
+            allowlist,
+            backend,
+            director,
             network,
             remote,
             split,
@@ -1116,6 +1140,17 @@ impl HostConfig {
             }
             if self.guard.is_none() {
                 self.guard = prev.guard.clone();
+            }
+            for (mine, theirs) in [
+                (&mut self.gateway, &prev.gateway),
+                (&mut self.content, &prev.content),
+                (&mut self.allowlist, &prev.allowlist),
+                (&mut self.backend, &prev.backend),
+                (&mut self.director, &prev.director),
+            ] {
+                if mine.is_none() {
+                    mine.clone_from(theirs);
+                }
             }
             if self.history.is_none() {
                 self.history = prev.history.clone();
@@ -1317,6 +1352,11 @@ impl HostConfig {
         if let Some(e) = &self.env {
             canonical.insert("env".into(), env::to_json(e));
         }
+        for (name, t) in self.tunables() {
+            if let Some(t) = t {
+                canonical.insert(name.into(), t.to_json());
+            }
+        }
         if let Some(sp) = &self.split {
             canonical.insert("split".into(), sp.to_json());
         }
@@ -1341,6 +1381,18 @@ impl HostConfig {
             }
         }
         crate::hosttoml::text(&merged, &self.file.read, self.file.toml.as_deref())
+    }
+
+    /// The services' tunable tables, by name, in host.toml's order.
+    #[must_use]
+    pub fn tunables(&self) -> [(&'static str, Option<&tunables::Tunables>); 5] {
+        [
+            ("gateway", self.gateway.as_ref()),
+            ("content", self.content.as_ref()),
+            ("allowlist", self.allowlist.as_ref()),
+            ("backend", self.backend.as_ref()),
+            ("director", self.director.as_ref()),
+        ]
     }
 
     /// The validated document, as host.json holds it.
@@ -2155,6 +2207,12 @@ pub fn validate(document: &Value) -> Result<Value, HostError> {
         Some(e) => Some(env::from_json(e)?),
         None => None,
     };
+    let mut tunables_cfg = Vec::new();
+    for t in tunables::TABLES {
+        if let Some(v) = obj.get(t.name).filter(|v| !v.is_null()) {
+            tunables_cfg.push((t.name, tunables::Tunables::from_json(t.name, v)?));
+        }
+    }
     let network_cfg = match obj.get("network").filter(|v| !v.is_null()) {
         Some(n) => {
             let net = NetworkConfig::from_json(n)?;
@@ -2306,6 +2364,9 @@ pub fn validate(document: &Value) -> Result<Value, HostError> {
     if let Some(e) = env_cfg {
         canonical.insert("env".into(), env::to_json(&e));
     }
+    for (name, t) in tunables_cfg {
+        canonical.insert(name.into(), t.to_json());
+    }
     if let Some(sp) = split_cfg {
         canonical.insert("split".into(), sp.to_json());
     }
@@ -2335,6 +2396,11 @@ fn merge_document_order(orig: &Map<String, Value>, canonical: Map<String, Value>
         "modules",
         "services",
         "env",
+        "gateway",
+        "content",
+        "allowlist",
+        "backend",
+        "director",
         "split",
         "logs",
     ];
@@ -3063,6 +3129,7 @@ pub fn build_env_files(c: &HostConfig, s: &Secrets, p: &Paths, source_commit: &s
         allowlist,
         passthrough_refused: Vec::new(),
     };
+    tunables::apply(&mut files, c.tunables());
     if let Some(passthrough) = &c.env {
         files.passthrough_refused = env::apply(&mut files, passthrough);
     }
@@ -3255,7 +3322,7 @@ max_hunt_servers = 3
 
             [env.gateway]
 # busy VPS
-GATEWAY_RATE_WS = \"40/24\"
+GATEWAY_RATE_WS = \"40,24\"
 GATEWAY_MAX_CONNECTIONS = 4096
 ";
         let cfg = HostConfig::from_toml(text).unwrap();
@@ -3265,7 +3332,7 @@ GATEWAY_MAX_CONNECTIONS = 4096
         assert!(
             rewritten.contains(
                 "# busy VPS
-GATEWAY_RATE_WS = \"40/24\"
+GATEWAY_RATE_WS = \"40,24\"
 GATEWAY_MAX_CONNECTIONS = 4096"
             ),
             "{rewritten}"
@@ -3276,7 +3343,7 @@ GATEWAY_MAX_CONNECTIONS = 4096"
         let files = build_env_files(&cfg, &Secrets::default(), &p, "", Platform::Windows);
         assert!(files.passthrough_refused.is_empty(), "{:?}", files.passthrough_refused);
         let gateway: Vec<_> = files.gateway.iter().map(|(k, v)| format!("{k}={v}")).collect();
-        assert!(gateway.contains(&"GATEWAY_RATE_WS=40/24".to_owned()), "{gateway:?}");
+        assert!(gateway.contains(&"GATEWAY_RATE_WS=40,24".to_owned()), "{gateway:?}");
         assert!(
             gateway.contains(&"GATEWAY_MAX_CONNECTIONS=4096".to_owned()),
             "{gateway:?}"
@@ -3298,6 +3365,105 @@ GATEWAY_MAX_CONNECTIONS = 4096"
                 .to_string()
                 .contains("env.gateway.GATEWAY_SECRET")
         );
+    }
+
+    /// RD24 phase 2: the typed tables reach their services' files over setup's defaults, survive a rewrite with
+    /// the host's comments, read back from a new file, and name the TOML key when wrong.
+    #[test]
+    fn service_tables_round_trip_into_the_env_files() {
+        let text = "version = 1
+mode = \"private\"
+name = \"Friday Hunts\"
+host = \"100.101.102.103\"
+game_address = \"100.101.102.103\"
+registration = \"INVITECODE\"
+max_hunt_servers = 3
+
+[gateway.limits]
+max_connections = 4096 # a busy VPS
+
+[gateway.rate]
+ws = { burst = 40, per_minute = 24 }
+register = { burst = 5, per_minute = 0.2 }
+
+[backend]
+log_level = \"debug\"
+hunt_go_now_max_ms = 2000
+
+[director]
+gameserver_ready_timeout_ms = 60000
+";
+        let cfg = HostConfig::from_toml(text).unwrap();
+        let dir = tempfile::tempdir().unwrap();
+        let p = Paths::new(dir.path());
+        let files = build_env_files(&cfg, &Secrets::default(), &p, "", Platform::Windows);
+        let has = |file: &EnvEntries, k: &str, v: &str| file.iter().filter(|(fk, fv)| fk == k && fv == v).count() == 1;
+        assert!(
+            has(&files.gateway, "GATEWAY_MAX_CONNECTIONS", "4096"),
+            "{:?}",
+            files.gateway
+        );
+        assert!(has(&files.gateway, "GATEWAY_RATE_WS", "40,24"));
+        assert!(has(&files.gateway, "GATEWAY_RATE_REGISTER", "5,0.2"));
+        assert!(has(&files.backend, "LOG_LEVEL", "debug"), "{:?}", files.backend);
+        assert!(has(&files.backend, "HUNT_GO_NOW_MAX_DELAY_MS", "2000"));
+        assert!(
+            has(&files.backend, "HUNT_GO_NOW_MIN_DELAY_MS", "1"),
+            "the default stays"
+        );
+        assert!(has(&files.director, "GAMESERVER_READY_TIMEOUT_MS", "60000"));
+        assert!(has(&files.director, "LOG_LEVEL", "info"));
+
+        let mut changed = cfg.clone();
+        changed.name = "Saturday Hunts".into();
+        changed.gateway = Some(
+            tunables::Tunables::from_json(
+                "gateway",
+                &json!({
+                    "limits": { "maxConnections": 4096 },
+                    "rate": { "ws": { "burst": 60, "perMinute": 24 }, "register": { "burst": 5, "perMinute": 0.2 } },
+                    "timeouts": { "wsIdleMs": 120_000 }
+                }),
+            )
+            .unwrap(),
+        );
+        let rewritten = changed.to_toml().unwrap();
+        assert!(rewritten.contains("max_connections = 4096 # a busy VPS"), "{rewritten}");
+        assert!(
+            rewritten.contains("ws = { burst = 60, per_minute = 24 }"),
+            "{rewritten}"
+        );
+        assert!(
+            rewritten.contains("[gateway.timeouts]\nws_idle_ms = 120000"),
+            "{rewritten}"
+        );
+        assert_eq!(HostConfig::from_toml(&rewritten).unwrap().gateway, changed.gateway);
+
+        // A new file (no source): every table written under what it does, and read back the same
+        let mut fresh = changed.clone();
+        fresh.file = FileForm::default();
+        let new_text = fresh.to_toml().unwrap();
+        assert!(new_text.contains("[gateway.rate]\n"), "{new_text}");
+        let back = HostConfig::from_toml(&new_text).unwrap();
+        assert_eq!(back.tunables(), changed.tunables());
+
+        for (bad, says) in [
+            ("max_connections = 4096", "max_connections = 1.5"),
+            ("ws = { burst = 40, per_minute = 24 }", "ws = 40"),
+            ("log_level = \"debug\"", "log_level = \"loud\""),
+            ("[backend]", "[backend]\nhunt_go_now_min_ms = 3000"),
+            ("max_connections = 4096", "maxConnections = 4096"),
+        ] {
+            let err = HostConfig::from_toml(&text.replace(bad, says)).unwrap_err().to_string();
+            assert!(
+                err.contains("gateway.limits.max_connections")
+                    || err.contains("gateway.rate.ws")
+                    || err.contains("backend.log_level")
+                    || err.contains("backend.hunt_go_now_min_ms")
+                    || err.contains("did you mean gateway.limits.max_connections?"),
+                "{says}: {err}"
+            );
+        }
     }
 
     /// `[split]` needs the other half in `[network]`, guards a public game servers half's ports, and tells the module

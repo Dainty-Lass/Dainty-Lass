@@ -74,11 +74,19 @@ fn ring_printer() -> Printer {
     Arc::new(|name: &str, line: &str| tracing::info!(target: "host", service = name, "{}", crate::repl::plain(line)))
 }
 
-/// The env file as the service would see it as a process: the system's variables, then the file.
+/// The env file as the service would see it as a process: the system's variables, the file, then the system's
+/// variables the service reads, each override logged (RD24).
 pub fn module_env(paths: &Paths, name: &str) -> Result<Env, HostError> {
     let from_file = hostconfig::read_env_file(&start_cmd::env_file(paths, name))?;
-    let pairs = service_environment(std::env::vars(), from_file.iter(), &[]);
-    Ok(Env::from_pairs(pairs.iter().map(|(k, v)| (k.as_str(), v.as_str()))))
+    let file: Vec<(String, String)> = from_file.iter().map(|(k, v)| (k.to_owned(), v.to_owned())).collect();
+    let inherited: Vec<(String, String)> = std::env::vars().collect();
+    let merged = hostconfig::overrides::merge(name, &inherited, &file, &[]);
+    for warning in &merged.warnings {
+        tracing::warn!(target: "host", "{warning}");
+    }
+    Ok(Env::from_pairs(
+        merged.env.iter().map(|(k, v)| (k.as_str(), v.as_str())),
+    ))
 }
 
 /// A supervised process as a module: its own [`Supervisor`] on its own thread (a process tree is
@@ -1058,6 +1066,11 @@ mod tests {
             modules: None,
             services: None,
             env: None,
+            gateway: None,
+            content: None,
+            allowlist: None,
+            backend: None,
+            director: None,
             network: None,
             remote: None,
             split: None,

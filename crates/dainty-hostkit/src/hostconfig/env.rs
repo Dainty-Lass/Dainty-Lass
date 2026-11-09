@@ -7,7 +7,7 @@
 //!
 //! ```toml
 //! [env.gateway]
-//! GATEWAY_RATE_WS = "40/24"
+//! GATEWAY_RATE_WS = "40,24"
 //! GATEWAY_MAX_CONNECTIONS = 4096
 //! ```
 
@@ -212,7 +212,7 @@ mod tests {
     #[test]
     fn values_become_env_text() {
         let env = from_json(&json!({
-            "gateway": { "GATEWAY_RATE_WS": "40/24", "GATEWAY_MAX_CONNECTIONS": 4096 },
+            "gateway": { "GATEWAY_RATE_WS": "40,24", "GATEWAY_MAX_CONNECTIONS": 4096 },
             "backend": { "REALTIME_XMPP_CAPTURE": true },
             "content": {}
         }))
@@ -264,7 +264,7 @@ mod tests {
     #[test]
     fn apply_appends_and_never_overrides_what_setup_wrote() {
         let env = from_json(&json!({
-            "gateway": { "GATEWAY_RATE_WS": "40/24", "GATEWAY_TLS": "0" },
+            "gateway": { "GATEWAY_RATE_WS": "40,24", "GATEWAY_TLS": "0" },
             "allowlist": { "ALLOWLIST_TTL_SECONDS": 60 }
         }))
         .unwrap();
@@ -274,7 +274,7 @@ mod tests {
             f.gateway,
             [
                 ("GATEWAY_TLS".into(), "1".into()),
-                ("GATEWAY_RATE_WS".into(), "40/24".into())
+                ("GATEWAY_RATE_WS".into(), "40,24".into())
             ]
         );
         assert_eq!(refused.len(), 2);
