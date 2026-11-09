@@ -989,6 +989,45 @@ impl Director {
         Value::Array(list)
     }
 
+    /// [`Self::instances_for_status`]' servers as module calls share them (MS3); a hub's max of 0 is the
+    /// Director's own, an unbounded hunt's 0 too
+    pub fn game_servers(&self) -> Vec<dainty_module_api::game::GameServer> {
+        use dainty_module_api::game::{GameServer as Shared, GameServerKind};
+        self.gameservers()
+            .iter()
+            .filter(|s| s.ready_and_alive())
+            .map(|s| {
+                let state = s.state();
+                let (kind, prefix) = match s.kind {
+                    ServerKind::Ramsgate => (GameServerKind::Hub, "city"),
+                    ServerKind::Training => (GameServerKind::Dojo, "dojo"),
+                    ServerKind::Hunt => (GameServerKind::Hunt, "hunt"),
+                };
+                let max = self.config.public_max_players;
+                let max_players = if s.is_hunt() && max.is_finite() && max >= 0.0 {
+                    max.min(f64::from(u32::MAX)) as u32
+                } else {
+                    0
+                };
+                let players = state.roster.as_ref().map_or(0, Vec::len);
+                Shared {
+                    id: format!("{prefix}-{}", s.port),
+                    kind,
+                    title: s.label.clone(),
+                    map: s.map.clone(),
+                    host: self.config.my_ip.clone().unwrap_or_default(),
+                    port: s.port,
+                    players: u32::try_from(players).unwrap_or(u32::MAX),
+                    max_players,
+                    ready: true,
+                    started_at: Some(rustic_isles::season::to_iso_string(
+                        state.ready_at_ms.unwrap_or(s.started_at_ms),
+                    )),
+                }
+            })
+            .collect()
+    }
+
     /// The boot, in the background once the listener is up (§5.11).
     pub async fn startup(self: &Arc<Self>) {
         self.validate_hunt_tables();

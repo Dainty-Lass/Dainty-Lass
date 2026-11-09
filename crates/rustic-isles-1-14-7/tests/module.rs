@@ -325,3 +325,55 @@ async fn full_composition_on_sqlite() {
     assert_eq!(status.status, 200, "{}", status.body);
     module.stop(context(&host)).await.unwrap();
 }
+
+/// The game calls (MS3) on SQLite with a Director that can start no game server.
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn game_calls_on_sqlite() {
+    use dainty_module_api::game::{GameAnswer, GameCall, UnavailableReason};
+    let dir = tempfile::tempdir().unwrap();
+    let db = dir.path().join("isles.sqlite");
+    let lines = database_lines(&db, &[]);
+    let env = env_file(dir.path(), &lines.iter().map(String::as_str).collect::<Vec<_>>());
+    let host = dainty_module_api::stub::recording_host();
+    let module = IslesModule::new(spec_with(rustic_isles_1_14_7::test_support::synthetic()).unwrap()).unwrap();
+    let ctx = context(&host);
+    let availability = |answer: GameAnswer| match answer {
+        GameAnswer::Availability(a) => a.reason,
+        other => panic!("{other:?}"),
+    };
+    let before = module.game(ctx.clone(), GameCall::Availability).await.unwrap();
+    assert_eq!(availability(before), Some(UnavailableReason::ModuleNotReady));
+    module.start(ctx.clone(), config(&module, &env, None)).await.unwrap();
+    let now = module.game(ctx.clone(), GameCall::Availability).await.unwrap();
+    assert_eq!(availability(now), Some(UnavailableReason::NoHub));
+    let servers = module.game(ctx.clone(), GameCall::Servers).await.unwrap();
+    assert_eq!(servers, GameAnswer::Servers(Vec::new()));
+    let create = |require_up| GameCall::CreateInvite {
+        uses: 1,
+        expires_in_secs: Some(1800),
+        note: Some("bot".into()),
+        require_up,
+    };
+    let refused = module.game(ctx.clone(), create(true)).await.unwrap_err();
+    assert_eq!(UnavailableReason::from_error(&refused), Some(UnavailableReason::NoHub));
+    let GameAnswer::Invite { code } = module.game(ctx.clone(), create(false)).await.unwrap() else {
+        panic!("no invite");
+    };
+    let bad = GameCall::CreateInvite {
+        uses: 0,
+        expires_in_secs: None,
+        note: None,
+        require_up: false,
+    };
+    assert_eq!(
+        module.game(ctx.clone(), bad).await.unwrap_err().kind,
+        ErrorKind::Invalid
+    );
+    let revoke = || GameCall::RevokeInvite { code: code.clone() };
+    assert_eq!(module.game(ctx.clone(), revoke()).await.unwrap(), GameAnswer::Done);
+    assert_eq!(
+        module.game(ctx.clone(), revoke()).await.unwrap_err().kind,
+        ErrorKind::NotFound
+    );
+    module.stop(ctx).await.unwrap();
+}

@@ -145,6 +145,10 @@ In the `rustic-isles-*` crates (`crates/rustic-isles` and `crates/rustic-isles-1
   get an `expires_at` column (a migration in both `postgres/` and `sqlite/`, and the login path refusing an expired
   code) (D4).
 - A hub-status watch (every 10 s, the Director's answer) that emits the three events on a change.
+- Done in MS3 (`feat/ms3-isles-game-calls`): migration `0620_invite_expiry` in rustic-isles' own set; the
+  registration path refuses a code past its `expires_at`; the host routes' answers are unchanged (InviteCodes
+  doesn't list the expiry). A split server's backend half (`DEPLOYSERVER_URL`) lists only the ready hubs; the
+  Director half's own module lists everything.
 
 ### A4. Admin API
 
@@ -415,3 +419,12 @@ The maintainer answered D1–D6 on 2026-11-08, each as recommended. The integrat
 1. **A hub started on demand.** If the Director starts the hub only when the first player connects, "the hub is
    running" becomes "the Director is ready to start one". MS3 checks how the Director behaves before fixing
    `Availability` in code.
+
+   **Answered by MS3 (2026-11-08): it doesn't.** Ramsgate is a persistent hub: the Director starts it at boot
+   (`RAMSGATE_HUB`, on by default), a supervisor restarts it with backoff (5 s to 5 min) and the 60 s watchdog
+   ticks it (director spec §7). Only the Training Dojo starts on first request, and only with `TRAINING_HUB=off`;
+   it never gates `up`. With `RAMSGATE_HUB=off` the Director refuses `CITY` outright (realms bring their own
+   hub), so that is `no_hub`, not a hub waiting to start. `/api/hub-status` lists a hub only once it is ready and
+   alive, so `ready: false` never reaches the module: a missing Ramsgate with the switch on and a Director that can
+   launch reads as `hub_not_ready` (booting or between retries); a Director that can't launch reads as `no_hub`.
+   Core spec §7.9 has the full table.

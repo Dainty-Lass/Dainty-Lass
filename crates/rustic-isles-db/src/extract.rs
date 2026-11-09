@@ -1142,6 +1142,7 @@ impl Extractor<'_> {
                 "infinite_uses": bool_or(pick(d, &["infiniteUses", "infinite_uses"]), false),
                 "note": text(d.get("note")),
                 "created_at": time_or(d.get("createdAt"), DEFAULT_TIME),
+                "expires_at": text(d.get("expiresAt")),
             }),
         );
         Ok(())

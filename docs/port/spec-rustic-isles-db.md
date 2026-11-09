@@ -630,7 +630,7 @@ partyId`). Columns: `party` **the Node party id as it is** (not the derived id, 
 
 **`reforgedInvites`** → `reforged_invites` (key: code). Required: `invitecode|code|_id` T (`missing invitecode`).
 `uses_remaining` `usesRemaining|uses_remaining` I/d 1; `infinite_uses` `infiniteUses|infinite_uses` B/d false; `note`
-T; `created_at` t/d.
+T; `created_at` t/d; `expires_at` `expiresAt` T (D4; absent never expires).
 
 **`adminSessions`** → `admin_sessions` (key: id). Required: `id|_id` T (`missing id/_id`), uid (`missing userId`),
 `tokenHash` T (`missing tokenHash`). `account` acct(uid); `csrf_token` T/d ""; `created_at` t/d; `expires_at` t/d;
@@ -908,7 +908,7 @@ Option values are `null` when absent; integers JSON integers; floats `serde_json
 | `wallets` | `account_id`, `bootstrap_version`, `balances` (an array of `[catalog_id, balance, ordinal]` arrays) |
 | `economy_rollup_counters` | `account_id`, `day`, `currency`, `path`, `value`, `ttl_at` |
 | `friend_edges` | `owner`, `other`, `other_user_id`, `status`, `direction`, `created`, `favorite` |
-| `reforged_invites` | `code`, `uses_remaining`, `infinite_uses`, `note`, `created_at` |
+| `reforged_invites` | `code`, `uses_remaining`, `infinite_uses`, `note`, `created_at`, `expires_at` |
 | `admin_sessions` | `id`, `token_hash`, `account`, `csrf_token`, `created_at`, `expires_at`, `ip`, `user_agent`, `revoked_at`, `ttl_at` |
 | `admin_audit` | `id`, `actor_user_id`, `target_user_id`, `action`, `old_state`, `new_state`, `reason`, `ip`, `request_id`, `created_at` |
 | `launcher_notices` | `id`, `version`, `updated_at`, `updated_by`, `announcements`, `tags` |
@@ -987,7 +987,7 @@ null are **omitted**; required ones are always written.
 | parties | `partyInvites` | `<recipient uid>` NUL (U+0000) `<sender uid>` | `recipientPlayerId`, `sendingPlayerId`, `partyId` (the stored party's client id, else the stored text), `partyRevision`, `sendingDisplayName`, `sendingPlatform`, `status`, `createdAt`, `expiresAt`, `consumedAt`? |
 | parties | `partyOutbox` | id | `eventId`, `partyId` (the stored `party` text as is), `partyRevision`, `eventType`, `recipientAccountIds` (`[]`), `payload` (`{}`), `state`, `createdAt`, `claimedAt`?, `claimOwner`?, `publishedAt`? |
 | parties | `friendships` | `<owner uid>:<other_user_id>` | `ownerId`, `otherId` (= `other_user_id`), `status`, `direction`?, `created`, `favorite` |
-| reforged | `reforgedInvites` | code | `invitecode`, `usesRemaining`, `infiniteUses`, `note`?, `createdAt` |
+| reforged | `reforgedInvites` | code | `invitecode`, `usesRemaining`, `infiniteUses`, `note`?, `createdAt`, `expiresAt`? |
 | reforged | `adminSessions` | id | `id`, `userId`, `tokenHash`, `csrfToken`, `createdAt`, `expiresAt`, `ip`, `userAgent`, `revokedAt`?, `ttlAt` |
 | reforged | `adminAudit` | id | `id`, `actorUserId`, `targetUserId`?, `action`, `oldState`? (`{}`), `newState`? (`{}`), `reason`?, `ip`, `requestId`, `createdAt` |
 | reforged | `launcherNotices` (zero or one) | `current` | `version`, `updatedAt`?, `updatedBy`?, `announcements`, `tags` (`[]`) |

@@ -18,6 +18,7 @@
 pub mod body;
 pub mod composer;
 pub mod dedicated;
+pub mod game;
 pub mod game_data;
 pub mod handlers;
 pub mod ids;
@@ -36,7 +37,8 @@ pub mod version;
 
 pub use body::{BODY_LIMIT, read_body, read_body_parts, read_body_parts_limit};
 pub use composer::{
-    BareComposer, ComposeInputs, Composer, Composition, ModuleHooks, NoHooks, Started, StartedListener, Startup,
+    BareComposer, ComposeInputs, Composer, Composition, ModuleHooks, NewInvite, NoHooks, Started, StartedListener,
+    Startup,
 };
 pub use dedicated::{DedicatedServers, Launch, LaunchRequest, LiveHub, LiveHubStatus, Unconfigured};
 pub use game_data::{BACKEND_FILES, DIRECTOR_FILES, DIRECTOR_TRIALS_FILES, GameDataRoot, LoadError, director_files};

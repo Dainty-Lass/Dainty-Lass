@@ -5,6 +5,7 @@
 //! fills when it runs in-process.
 
 use dainty_module_api::BoxFuture;
+use dainty_module_api::game::GameServer;
 use serde_json::{Map, Value};
 
 /// A Director launch (§5.6).
@@ -84,6 +85,10 @@ pub trait DedicatedServers: Send + Sync {
     fn launch(&self, request: LaunchRequest) -> BoxFuture<'_, Result<Launch, String>>;
     /// None when unreachable.
     fn hub_status(&self) -> BoxFuture<'_, Option<LiveHubStatus>>;
+    /// Every ready game server (MS3); none when this slot can't list them, as over `DEPLOYSERVER_URL`
+    fn servers(&self) -> BoxFuture<'_, Option<Vec<GameServer>>> {
+        Box::pin(async { None })
+    }
 }
 
 /// The default slot: no Director to ask.

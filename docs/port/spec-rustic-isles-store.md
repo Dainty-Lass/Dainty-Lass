@@ -209,6 +209,7 @@ refuses to open otherwise). The versions and folder names are facts an existing 
 | `0500` | `0500_progression` | `progression_tracks`, `progression_objectives`, `progression_objective_events`, `progression_grants`, `escalation_progress`, `player_journey`, `breadcrumbs`, `encountered_content` |
 | `0600` | `0600_parties` | `parties`, `party_members`, `party_invites`, `party_outbox` |
 | `0610` | `0610_timeouts` | three columns added to `launcher_accounts` |
+| `0620` | `0620_invite_expiry` | `expires_at` TEXT added to `reforged_invites` (D4, MS3) |
 
 `legacy-import` (restricted) requires `0001`, `0020`, `0200` and checks for `0610`. A new table is a new migration in
 both sets with one version, never an edit of a shipped one.
@@ -362,7 +363,7 @@ key: the friend may live on another node, DD17); `other_user_id` TEXT NN; `statu
 ### 4.9 `0200` to `0205` (the Reforged API)
 
 **`reforged_invites`**: `code` TEXT PK; `uses_remaining` BIGINT NN; `infinite_uses` BOOLEAN NN; `note` TEXT;
-`created_at` TEXT NN.
+`created_at` TEXT NN; `expires_at` TEXT (`0620`; null never expires, so every older row stays valid).
 
 **`admin_sessions`**: `id` TEXT PK; `token_hash` TEXT NN UNIQUE; `account` TEXT NN; `csrf_token` TEXT NN;
 `created_at` TEXT NN; `expires_at` TEXT NN; `ip` TEXT NN; `user_agent` TEXT NN; `revoked_at` TEXT; `ttl_at` BIGINT NN.
@@ -1026,12 +1027,12 @@ next_challenge, status, risk_score, heartbeat_at, expires_at, signals: Json, rea
 
 #### 11.3.5 `InviteRepository`
 
-`InviteRecord { code, uses_remaining: i64, infinite_uses: bool, note: Option, created_at }`.
+`InviteRecord { code, uses_remaining: i64, infinite_uses: bool, note: Option, created_at, expires_at: Option }`.
 
 | Method | Contract |
 | --- | --- |
 | `insert_if_absent(tx, &record) -> bool` | Insert; a unique violation answers `false` (on Postgres it spoils the transaction: the caller retries in a new one, §16 item 14) |
-| `spend(tx, code) -> bool` | An unlimited code: `true`, unchanged. Else one statement takes one use where `uses_remaining > 0`; whether it did (an unknown code: `false`) |
+| `spend(tx, code, now) -> bool` | An `expires_at` at or before `now` (both ISO text, compared as text): `false`, unchanged (D4). An unlimited code: `true`, unchanged. Else one statement takes one use where `uses_remaining > 0`; whether it did (an unknown code: `false`) |
 | `list(conn, limit)` | By `created_at` descending then `code` ascending |
 | `delete(tx, code) -> bool` | Whether exactly one went |
 

@@ -165,7 +165,7 @@ pub(crate) const TABLES: &[Table] = &[
     Table { name: "friend_edges", area: Parties, key: 2, soft: false, seq: false, cols: &[
         t("owner"), t("other"), t("other_user_id"), t("status"), t("direction"), t("created"), b("favorite")] },
     Table { name: "reforged_invites", area: Reforged, key: 1, soft: false, seq: false, cols: &[
-        t("code"), i("uses_remaining"), b("infinite_uses"), t("note"), t("created_at")] },
+        t("code"), i("uses_remaining"), b("infinite_uses"), t("note"), t("created_at"), t("expires_at")] },
     Table { name: "admin_sessions", area: Reforged, key: 1, soft: false, seq: false, cols: &[
         t("id"), t("token_hash"), t("account"), t("csrf_token"), t("created_at"), t("expires_at"), t("ip"),
         t("user_agent"), t("revoked_at"), i("ttl_at")] },

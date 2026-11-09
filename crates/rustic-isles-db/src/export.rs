@@ -758,6 +758,7 @@ fn reforged(state: &TargetState, users: &Users, add: &mut impl FnMut(&str, Vec<D
                     .v("infiniteUses", get(r, "infinite_uses"))
                     .opt("note", get(r, "note"))
                     .v("createdAt", get(r, "created_at"))
+                    .opt("expiresAt", get(r, "expires_at"))
                     .0
             })
             .collect(),
