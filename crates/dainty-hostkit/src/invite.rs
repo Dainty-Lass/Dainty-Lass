@@ -10,6 +10,7 @@ use std::path::Path;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
+use dainty_service_kit::js::encode_uri_component;
 use rustls::client::danger::{HandshakeSignatureValid, ServerCertVerified, ServerCertVerifier};
 use rustls::pki_types::pem::PemObject as _;
 use rustls::pki_types::{CertificateDer, ServerName, UnixTime};
@@ -80,19 +81,6 @@ pub struct HttpResponse {
     pub status: u16,
     /// The body, as text.
     pub body: String,
-}
-
-fn encode_uri_component(s: &str) -> String {
-    let mut out = String::with_capacity(s.len());
-    for &b in s.as_bytes() {
-        if b.is_ascii_alphanumeric() || matches!(b, b'-' | b'_' | b'.' | b'!' | b'~' | b'*' | b'\'' | b'(' | b')') {
-            out.push(b as char);
-        } else {
-            use std::fmt::Write as _;
-            let _ = write!(out, "%{b:02X}");
-        }
-    }
-    out
 }
 
 /// Formats an invite URL for the default 1.14.7 game version from [`InviteParts`].

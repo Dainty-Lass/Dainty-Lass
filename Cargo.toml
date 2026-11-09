@@ -119,7 +119,8 @@ aes-gcm = "0.11"
 cbc = { version = "0.2", features = ["alloc"] }
 hmac = "0.13"
 pbkdf2 = { version = "0.13", default-features = false, features = ["hmac"] }
-# Epic pins manifests and chunks by SHA-1 (DD22).
+# Epic pins manifests and chunks by SHA-1 (DD22); newer manifests list an MD5 beside it.
+md-5 = "0.11"
 sha1 = "0.11"
 sha2 = "0.11"
 subtle = "2"
@@ -203,3 +204,11 @@ tauri-plugin-dialog = "2.8"
 tauri-plugin-updater = { version = "2.14", default-features = false, features = ["rustls-tls", "system-proxy"] }
 # Sign-in and library only; dainty-epic reads manifests and chunks itself (DE1).
 egs-api = "=0.14.0"
+
+# ---------------------------------------------------------------------------------------------------------------
+# Discord bot: twilight's gateway, REST client and models, webpki roots on rustls
+# ---------------------------------------------------------------------------------------------------------------
+twilight-gateway = { version = "0.18", default-features = false, features = ["rustls-webpki-roots"] }
+twilight-http = { version = "0.18", default-features = false, features = ["rustls-webpki-roots"] }
+twilight-model = "0.18"
+twilight-util = { version = "0.18", features = ["builder"] }

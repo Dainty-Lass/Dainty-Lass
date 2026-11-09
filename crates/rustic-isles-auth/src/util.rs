@@ -298,25 +298,7 @@ fn body_kind(headers: &HeaderMap) -> Result<Option<Kind>, BodyError> {
     Ok(Some(kind))
 }
 
-/// `encodeURIComponent`.
-pub fn encode_uri_component(text: &str) -> String {
-    percent_encode(text, |b| b.is_ascii_alphanumeric() || b"-_.!~*'()".contains(&b), false)
-}
-
-/// Percent-encodes every byte `keep` refuses, upper-case hex; `plus_space` writes a space as `+`.
-pub fn percent_encode(text: &str, keep: impl Fn(u8) -> bool, plus_space: bool) -> String {
-    let mut out = String::with_capacity(text.len());
-    for &b in text.as_bytes() {
-        if plus_space && b == b' ' {
-            out.push('+');
-        } else if keep(b) {
-            out.push(char::from(b));
-        } else {
-            out.push_str(&format!("%{b:02X}"));
-        }
-    }
-    out
-}
+pub use dainty_service_kit::js::encode_uri_component;
 
 /// Whether an address is loopback as §4.6 reads it: `::1`, or dotted `127.x.x.x`, optionally `::ffff:`-prefixed.
 pub fn is_loopback_text(text: &str) -> bool {

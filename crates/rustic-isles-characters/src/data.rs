@@ -303,38 +303,18 @@ pub fn is_fresh<'a>(datas: impl IntoIterator<Item = &'a str>) -> bool {
     })
 }
 
-/// (year, month 1-12, day, hour, minute, second) in UTC for Unix seconds.
-fn civil(secs: i64) -> (i64, i64, i64, i64, i64, i64) {
-    let days = secs.div_euclid(86_400);
-    let rest = secs.rem_euclid(86_400);
-    // Howard Hinnant's civil_from_days
-    let z = days + 719_468;
-    let era = z.div_euclid(146_097);
-    let doe = z.rem_euclid(146_097);
-    let yoe = (doe - doe / 1460 + doe / 36_524 - doe / 146_096) / 365;
-    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
-    let mp = (5 * doy + 2) / 153;
-    let day = doy - (153 * mp + 2) / 5 + 1;
-    let month = if mp < 10 { mp + 3 } else { mp - 9 };
-    let year = yoe + era * 400 + i64::from(month <= 2);
-    (year, month, day, rest / 3600, rest % 3600 / 60, rest % 60)
+fn utc(secs: i64) -> chrono::DateTime<chrono::Utc> {
+    chrono::DateTime::from_timestamp(secs, 0).unwrap_or_default()
 }
 
 /// `YYYY.MM.DD-HH.MM.SS` in UTC.
 pub fn login_time(secs: i64) -> String {
-    let (y, mo, d, h, mi, s) = civil(secs);
-    format!("{y:04}.{mo:02}.{d:02}-{h:02}.{mi:02}.{s:02}")
+    utc(secs).format("%Y.%m.%d-%H.%M.%S").to_string()
 }
-
-const MONTHS: [&str; 12] = [
-    "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
-];
 
 /// `toLocaleDateString("en-US", {month: "short", day: "numeric", year: "numeric"})` in UTC: `Oct 14, 2026`.
 pub fn display_date(secs: i64) -> String {
-    let (y, mo, d, ..) = civil(secs);
-    let month = MONTHS[usize::try_from(mo - 1).unwrap_or(0).min(11)];
-    format!("{month} {d}, {y}")
+    utc(secs).format("%b %-d, %Y").to_string()
 }
 
 /// `ValidateLoadoutWriteData`: the first reason the write is refused, or none.

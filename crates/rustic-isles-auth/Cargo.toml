@@ -26,6 +26,7 @@ http-body-util.workspace = true
 hyper.workspace = true
 hyper-rustls.workspace = true
 hyper-util = { workspace = true, features = ["client-legacy", "http1"] }
+percent-encoding.workspace = true
 dainty-module-api.workspace = true
 rand.workspace = true
 rustls.workspace = true

@@ -114,35 +114,10 @@ pub fn json_array(items: impl IntoIterator<Item = String>) -> String {
 
 /// `Date.prototype.toISOString` for years 0 to 9999.
 pub fn iso_time(at: UnixMillis) -> String {
-    const DAY_MS: i64 = 86_400_000;
-    let (days, in_day) = (at.0.div_euclid(DAY_MS), at.0.rem_euclid(DAY_MS));
-    let (year, month, day) = civil_date(days);
-    let (hours, minutes) = (in_day / 3_600_000, in_day / 60_000 % 60);
-    let (seconds, millis) = (in_day / 1000 % 60, in_day % 1000);
-    format!("{year:04}-{month:02}-{day:02}T{hours:02}:{minutes:02}:{seconds:02}.{millis:03}Z")
-}
-
-/// Where each month starts in a year counted from 1 March, so February, with the leap day, comes last.
-const MARCH_YEAR_MONTHS: [i64; 12] = [0, 31, 61, 92, 122, 153, 184, 214, 245, 275, 306, 337];
-
-/// Days since 1970-01-01 to a proleptic Gregorian date: whole 400-, 100-, 4- and 1-year spans from 0000-03-01.
-fn civil_date(days: i64) -> (i64, i64, i64) {
-    let since = days + 719_468;
-    let eras = since.div_euclid(146_097);
-    let mut left = since.rem_euclid(146_097);
-    // The last century, the last leap cycle's year and the last year of an era each hold the leap day.
-    let centuries = (left / 36_524).min(3);
-    left -= centuries * 36_524;
-    let cycles = left / 1461;
-    left -= cycles * 1461;
-    let years = (left / 365).min(3);
-    left -= years * 365;
-    let month_index = MARCH_YEAR_MONTHS.iter().rposition(|&start| start <= left).unwrap_or(0);
-    let day = left - MARCH_YEAR_MONTHS[month_index] + 1;
-    // Index 0 is March, 10 and 11 are the next year's January and February.
-    let month = (month_index as i64 + 2) % 12 + 1;
-    let year = eras * 400 + centuries * 100 + cycles * 4 + years + i64::from(month <= 2);
-    (year, month, day)
+    chrono::DateTime::from_timestamp_millis(at.0)
+        .unwrap_or_default()
+        .format("%Y-%m-%dT%H:%M:%S%.3fZ")
+        .to_string()
 }
 
 /// What JavaScript's `trim` removes; U+0085 is not among them.

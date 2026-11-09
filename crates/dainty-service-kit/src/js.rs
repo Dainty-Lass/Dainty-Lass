@@ -4,6 +4,7 @@
 //! JavaScript's conversions and comparisons on JSON values, for ports that must answer as the Node code did.
 
 use chrono::{DateTime, Local, NaiveDate, NaiveDateTime, TimeZone};
+use percent_encoding::{AsciiSet, NON_ALPHANUMERIC, utf8_percent_encode};
 use serde_json::Value;
 
 /// What JavaScript's `\s` and `trim` treat as white space: Unicode white space less U+0085, plus the BOM.
@@ -180,6 +181,28 @@ fn hex_val(b: u8) -> Option<u8> {
     }
 }
 
+/// What `encodeURIComponent` leaves as it is besides letters and digits.
+const URI_COMPONENT: &AsciiSet = &NON_ALPHANUMERIC
+    .remove(b'-')
+    .remove(b'_')
+    .remove(b'.')
+    .remove(b'!')
+    .remove(b'~')
+    .remove(b'*')
+    .remove(b'\'')
+    .remove(b'(')
+    .remove(b')');
+
+/// `encodeURIComponent(text)`.
+pub fn encode_uri_component(text: &str) -> String {
+    utf8_percent_encode(text, URI_COMPONENT).to_string()
+}
+
+/// `URLSearchParams`' encoding: `A-Za-z0-9*-._` kept, space `+`, the rest `%XX`.
+pub fn search_params_encode(text: &str) -> String {
+    url::form_urlencoded::byte_serialize(text.as_bytes()).collect()
+}
+
 /// `decodeURIComponent(text)`; `None` where it would throw.
 pub fn decode_uri_component(text: &str) -> Option<String> {
     let bytes = text.as_bytes();
@@ -206,6 +229,12 @@ pub fn decode_uri_component(text: &str) -> Option<String> {
 mod tests {
     use super::*;
     use serde_json::json;
+
+    #[test]
+    fn encodes_as_javascript_does() {
+        assert_eq!(encode_uri_component("a b/é-_.!~*'()"), "a%20b%2F%C3%A9-_.!~*'()");
+        assert_eq!(search_params_encode("a b*c-d.e_f~!"), "a+b*c-d.e_f%7E%21");
+    }
 
     #[test]
     fn coerces_values_to_number_and_string() {

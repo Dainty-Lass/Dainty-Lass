@@ -291,33 +291,7 @@ pub fn basename(text: &str) -> &str {
     }
 }
 
-/// `encodeURIComponent`.
-pub fn encode_uri_component(text: &str) -> String {
-    let mut out = String::with_capacity(text.len());
-    for &b in text.as_bytes() {
-        if b.is_ascii_alphanumeric() || b"-_.!~*'()".contains(&b) {
-            out.push(char::from(b));
-        } else {
-            out.push_str(&format!("%{b:02X}"));
-        }
-    }
-    out
-}
-
-/// `URLSearchParams` form encoding: `A-Za-z0-9*-._` kept, space `+`, the rest `%XX`.
-pub fn form_encode(text: &str) -> String {
-    let mut out = String::with_capacity(text.len());
-    for &b in text.as_bytes() {
-        if b == b' ' {
-            out.push('+');
-        } else if b.is_ascii_alphanumeric() || b"*-._".contains(&b) {
-            out.push(char::from(b));
-        } else {
-            out.push_str(&format!("%{b:02X}"));
-        }
-    }
-    out
-}
+pub use dainty_service_kit::js::{encode_uri_component, search_params_encode as form_encode};
 
 /// A field of the body when it is an object.
 pub fn field<'a>(body: Option<&'a Value>, name: &str) -> Option<&'a Value> {

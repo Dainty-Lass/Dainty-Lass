@@ -23,6 +23,8 @@ http-body-util.workspace = true
 hyper.workspace = true
 hyper-rustls.workspace = true
 hyper-util = { workspace = true, features = ["client-legacy", "http1"] }
+# The MD5 2.1.1's manifests list beside the SHA-1
+md-5.workspace = true
 rustls.workspace = true
 serde.workspace = true
 serde_json.workspace = true

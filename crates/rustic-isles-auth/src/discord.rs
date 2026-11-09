@@ -88,12 +88,12 @@ pub trait DiscordApi: Send + Sync {
 
 /// `URLSearchParams`: `A-Za-z0-9*-._` kept, space `+`, the rest `%XX`.
 pub fn search_params_encode(text: &str) -> String {
-    util::percent_encode(text, |b| b.is_ascii_alphanumeric() || b"*-._".contains(&b), true)
+    dainty_service_kit::js::search_params_encode(text)
 }
 
 /// The token form: every non-alphanumeric byte `%XX` (space `%20`).
 pub fn form_encode(pairs: &[(&str, &str)]) -> String {
-    let enc = |t: &str| util::percent_encode(t, |b| b.is_ascii_alphanumeric(), false);
+    let enc = |t: &str| percent_encoding::utf8_percent_encode(t, percent_encoding::NON_ALPHANUMERIC).to_string();
     pairs
         .iter()
         .map(|(k, v)| format!("{}={}", enc(k), enc(v)))

@@ -230,9 +230,8 @@ impl Build {
 
 /// The installer checks a listed MD5 (2.1.1's manifests carry them).
 pub fn md5_of(data: &[u8]) -> [u8; 16] {
-    let mut md5 = crate::download::md5::Md5::new();
-    md5.update(data);
-    md5.finish()
+    use md5::Digest as _;
+    md5::Md5::digest(data).into()
 }
 
 /// The header around `data`.

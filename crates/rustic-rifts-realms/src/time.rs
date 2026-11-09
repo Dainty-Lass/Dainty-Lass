@@ -18,8 +18,6 @@ impl Later for UnixMillis {
     }
 }
 
-const DAY_MS: i64 = 86_400_000;
-
 /// The system time, in milliseconds since the Unix epoch; 0 before it.
 pub fn now() -> UnixMillis {
     UnixMillis(
@@ -65,66 +63,15 @@ pub(crate) mod opt_millis {
     }
 }
 
-fn is_leap(year: i64) -> bool {
-    (year % 4 == 0 && year % 100 != 0) || year % 400 == 0
-}
-
-fn days_in_month(year: i64, month: i64) -> i64 {
-    match month {
-        2 if is_leap(year) => 29,
-        2 => 28,
-        4 | 6 | 9 | 11 => 30,
-        _ => 31,
-    }
-}
-
-/// Days from 1970-01-01 to a proleptic Gregorian date.
-fn days_from_civil(year: i64, month: i64, day: i64) -> i64 {
-    let y = if month <= 2 { year - 1 } else { year };
-    let era = y.div_euclid(400);
-    let yoe = y.rem_euclid(400);
-    let shifted = if month > 2 { month - 3 } else { month + 9 };
-    let doy = (153 * shifted + 2) / 5 + day - 1;
-    let doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
-    era * 146_097 + doe - 719_468
-}
-
 /// Only `YYYY-MM-DDTHH:MM:SS.mmmZ` with a real date in it.
 pub fn parse_iso(text: &str) -> Option<UnixMillis> {
-    let bytes = text.as_bytes();
-    if bytes.len() != 24 {
+    // Four digits of year, no sign: chrono's %Y would take one
+    if text.len() != 24 || !text.bytes().take(4).all(|b| b.is_ascii_digit()) {
         return None;
     }
-    for (index, byte) in bytes.iter().enumerate() {
-        let expected = match index {
-            4 | 7 => Some(b'-'),
-            10 => Some(b'T'),
-            13 | 16 => Some(b':'),
-            19 => Some(b'.'),
-            23 => Some(b'Z'),
-            _ => None,
-        };
-        match expected {
-            Some(separator) if *byte != separator => return None,
-            None if !byte.is_ascii_digit() => return None,
-            _ => {}
-        }
-    }
-    let number = |from: usize, to: usize| {
-        bytes[from..to]
-            .iter()
-            .fold(0i64, |acc, digit| acc * 10 + i64::from(digit - b'0'))
-    };
-    let (year, month, day) = (number(0, 4), number(5, 7), number(8, 10));
-    let (hour, minute, second, millis) = (number(11, 13), number(14, 16), number(17, 19), number(20, 23));
-    if !(1..=12).contains(&month) || day < 1 || day > days_in_month(year, month) {
-        return None;
-    }
-    if hour > 23 || minute > 59 || second > 59 {
-        return None;
-    }
-    let in_day = ((hour * 60 + minute) * 60 + second) * 1000 + millis;
-    Some(UnixMillis(days_from_civil(year, month, day) * DAY_MS + in_day))
+    let at = chrono::NaiveDateTime::parse_from_str(text, "%Y-%m-%dT%H:%M:%S%.3fZ").ok()?;
+    // chrono reads second 60 as a leap second; JavaScript refuses it
+    (at.and_utc().timestamp_subsec_nanos() < 1_000_000_000).then(|| UnixMillis(at.and_utc().timestamp_millis()))
 }
 
 #[cfg(test)]
