@@ -1330,6 +1330,7 @@ dependencies = [
  "sha2 0.11.1",
  "tokio",
  "tokio-util",
+ "toml_edit 0.25.17+spec-1.1.0",
  "url",
 ]
 
@@ -1520,8 +1521,10 @@ dependencies = [
  "clap",
  "crossterm",
  "dainty-admin",
+ "dainty-content",
  "dainty-controller",
  "dainty-epic",
+ "dainty-gateway",
  "dainty-module-api",
  "dainty-network",
  "dainty-protocol",

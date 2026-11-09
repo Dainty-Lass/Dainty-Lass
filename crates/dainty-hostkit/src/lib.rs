@@ -16,6 +16,7 @@ pub mod gamepack;
 pub mod guarded;
 pub mod hooks;
 pub mod hostconfig;
+pub mod hostfiles;
 pub mod hosttoml;
 pub mod invite;
 pub mod linux;

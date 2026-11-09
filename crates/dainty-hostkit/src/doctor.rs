@@ -924,6 +924,27 @@ pub fn run_doctor(p: &Paths, opts: &DoctorOptions) -> Result<Vec<Check>, HostErr
             format!("[env.{service}] passes {} to {service}.env", keys.join(", ")),
         ));
     }
+    // The environment's overrides of host.toml, and what the services' loaders make of the result (RD24)
+    let inherited: Vec<(String, String)> = std::env::vars().collect();
+    for service in crate::hostconfig::env::SERVICES {
+        let path = p.config.join(format!("{service}.env"));
+        let Ok(file) = crate::hostconfig::read_env_file(&path) else {
+            continue;
+        };
+        let file: Vec<(String, String)> = file.iter().map(|(k, v)| (k.to_owned(), v.to_owned())).collect();
+        let (warnings, refused) = crate::hostconfig::check::service(service, &file, &inherited);
+        for warning in warnings {
+            checks.push(check("overrides", Level::Warn, warning));
+        }
+        if let Some(refused) = refused {
+            checks.push(fix(
+                "config",
+                Level::Fail,
+                refused,
+                "fix the setting in host.toml or the environment, then run dainty-host setup",
+            ));
+        }
+    }
 
     let mut all_rt = true;
     for name in RUNTIME_FILE_NAMES {

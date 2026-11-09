@@ -172,8 +172,15 @@ running `docker compose up -d --force-recreate`. That includes `[guard]`, which 
 per-minute HTTP request budget (`rate_limit` -> `RUSTIC_ISLES_RATE_LIMIT`, `rate_limit_per_minute` ->
 `RUSTIC_ISLES_RATE_LIMIT_PER_MINUTE`, `gameserver_rate_limit_per_minute` ->
 `RUSTIC_ISLES_GAMESERVER_RATE_LIMIT_PER_MINUTE`, `host_rate_limit_per_minute` ->
-`RUSTIC_ISLES_HOST_RATE_LIMIT_PER_MINUTE`; see [hosting.md](hosting.md#game-modules-and-plugins)); `docker compose run --rm host admin guarded list --env-file
+`RUSTIC_ISLES_HOST_RATE_LIMIT_PER_MINUTE`; see [hosting.md](hosting.md#game-modules-and-plugins)), and the
+services' limits and log levels in `[gateway.limits]`, `[gateway.rate]`, `[gateway.timeouts]`, `[content]`,
+`[allowlist]`, `[backend]` and `[director]` ([hosting.md](hosting.md#service-tunables)), which `configure`
+checks with each service's own rules before anything starts; `docker compose run --rm host admin guarded list --env-file
 /opt/reforged/.workspace/config/admin.env` lists what waits.
+
+A variable in a container's `environment:` overrides the setting `setup` wrote for the service it runs
+([hosting.md](hosting.md#environment-variables-override-hosttoml)); keep them in `host.toml` instead, so the one
+file stays the whole configuration.
 
 In `.env`, `COMPOSE_PROFILES=public,toml` (or `toml` for a private server). The file needs every setting a
 first setup asks for, so the easiest way to get one is to let setup write it once and copy it out:

@@ -678,7 +678,7 @@ fn a_fresh_private_setup_then_again() {
     assert!(!p.config.join("allowlist.env").exists(), "no allowlist in private mode");
     let firewall = read(&p.config.join("firewall.ps1"));
     assert!(firewall.contains("'C:\\rr\\gateway.exe' '100.64.0.0/10'"), "{firewall}");
-    assert_eq!(read(&p.news_file), "{\n  \"items\": []\n}\n");
+    assert_eq!(read(&p.news_file), dainty_host::hostfiles::NEWS_TEMPLATE);
     for dir in [
         &p.runtime_publish,
         &p.branding,

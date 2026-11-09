@@ -4,8 +4,8 @@
 //! `rustic-isles-gamedata` / `rustic-isles-director` generators, and the `legacy` 1.4.4 stack.
 
 pub use dainty_hostkit::{
-    HostError, Outcome, captures, cli, envfile, epicinstall, error, gamepack, guarded, hooks, hostconfig, hosttoml,
-    invite, linux, mongo, paths, preset, progression, publish, repl, selfupdate, services, tls, tui, wine,
+    HostError, Outcome, captures, cli, envfile, epicinstall, error, gamepack, guarded, hooks, hostconfig, hostfiles,
+    hosttoml, invite, linux, mongo, paths, preset, progression, publish, repl, selfupdate, services, tls, tui, wine,
     with_admin_env,
 };
 
@@ -1948,6 +1948,11 @@ mod tests {
             modules: None,
             services: None,
             env: None,
+            gateway: None,
+            content: None,
+            allowlist: None,
+            backend: None,
+            director: None,
             network: None,
             remote: None,
             split: None,
@@ -2029,6 +2034,11 @@ mod tests {
             modules: None,
             services: None,
             env: None,
+            gateway: None,
+            content: None,
+            allowlist: None,
+            backend: None,
+            director: None,
             network: None,
             remote: None,
             split: None,
@@ -2119,6 +2129,11 @@ mod tests {
             modules: None,
             services: None,
             env: None,
+            gateway: None,
+            content: None,
+            allowlist: None,
+            backend: None,
+            director: None,
             network: None,
             remote: None,
             split: None,

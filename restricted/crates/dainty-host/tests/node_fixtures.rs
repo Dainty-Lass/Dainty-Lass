@@ -164,9 +164,17 @@ fn without_runtime_bridge_lines(text: &str) -> String {
         .collect()
 }
 
-/// The Node kit's bytes under the names DAINTY_ gave them (`dainty_protocol::renamed`)
+/// The Node kit's bytes under the names DAINTY_ gave them (`dainty_protocol::renamed`), with the files RD24 phase 3
+/// moved to TOML: news.toml, and the session supplies the backend reads rendered into `generated`
 fn renamed(text: &str) -> String {
-    dainty_protocol::renamed::renamed(text)
+    let mut out = dainty_protocol::renamed::renamed(text).replace("news.json", "news.toml");
+    for sep in ["/", "\\\\", "\\"] {
+        out = out.replace(
+            &format!("{sep}config{sep}session-supplies.json"),
+            &format!("{sep}generated{sep}session-supplies.json"),
+        );
+    }
+    out
 }
 
 fn without_paradox_mongo_lines(text: &str) -> String {

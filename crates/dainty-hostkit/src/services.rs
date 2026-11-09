@@ -395,7 +395,25 @@ impl Supervisor {
             }
             None => Default::default(),
         };
-        let env_pairs = service_environment(std::env::vars(), file_env.iter(), &spec.extra_env);
+        // A setup-written file's service takes the environment's overrides, logged on every start (RD24)
+        let service = spec
+            .env_file
+            .as_deref()
+            .and_then(|p| p.file_stem())
+            .and_then(|s| s.to_str())
+            .filter(|s| crate::hostconfig::env::SERVICES.contains(s));
+        let env_pairs = match service {
+            Some(service) => {
+                let inherited: Vec<(String, String)> = std::env::vars().collect();
+                let file: Vec<(String, String)> = file_env.iter().map(|(k, v)| (k.to_owned(), v.to_owned())).collect();
+                let merged = crate::hostconfig::overrides::merge(service, &inherited, &file, &spec.extra_env);
+                for warning in &merged.warnings {
+                    tracing::warn!(target: "host", "{warning}");
+                }
+                merged.env
+            }
+            None => service_environment(std::env::vars(), file_env.iter(), &spec.extra_env),
+        };
 
         let mut cmd = Command::new(&spec.command);
         cmd.args(&spec.args)

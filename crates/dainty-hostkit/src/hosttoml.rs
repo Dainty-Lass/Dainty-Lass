@@ -44,6 +44,11 @@ const TOP: &[Field] = &[
     ("guard", "guard", false),
     ("history", "history", false),
     ("switches", "switches", false),
+    ("gateway", "gateway", false),
+    ("content", "content", false),
+    ("allowlist", "allowlist", false),
+    ("backend", "backend", false),
+    ("director", "director", false),
     ("network", "network", false),
     ("remote", "remote", false),
     ("modules", "modules", false),
@@ -166,9 +171,116 @@ const SWITCHES: &[Field] = &[
     ("hostRateLimitPerMinute", "host_rate_limit_per_minute", false),
 ];
 
-/// The keys of a table at the top of the file; `None` for a single value.
-fn table_fields(json_key: &str) -> Option<&'static [Field]> {
-    match json_key {
+// The services' tunables (RD24 phase 2, `hostconfig/tunables.rs`)
+const GATEWAY: &[Field] = &[
+    ("limits", "limits", false),
+    ("rate", "rate", false),
+    ("timeouts", "timeouts", false),
+    ("allowlistRefreshSeconds", "allowlist_refresh_seconds", false),
+];
+
+const GATEWAY_LIMITS: &[Field] = &[
+    ("maxBodyBytes", "max_body_bytes", false),
+    ("maxConnections", "max_connections", false),
+    ("maxConnectionsPerIp", "max_connections_per_ip", false),
+];
+
+const GATEWAY_RATE: &[Field] = &[
+    ("general", "general", false),
+    ("content", "content", false),
+    ("register", "register", false),
+    ("token", "token", false),
+    ("ws", "ws", false),
+    ("connect", "connect", false),
+];
+
+/// A token bucket, written inline: `ws = { burst = 20, per_minute = 12 }`
+const BUCKET: &[Field] = &[("burst", "burst", false), ("perMinute", "per_minute", false)];
+
+const GATEWAY_TIMEOUTS: &[Field] = &[
+    ("handshakeMs", "handshake_ms", false),
+    ("headersMs", "headers_ms", false),
+    ("requestMs", "request_ms", false),
+    ("keepAliveMs", "keep_alive_ms", false),
+    ("idleMs", "idle_ms", false),
+    ("upstreamIdleMs", "upstream_idle_ms", false),
+    ("wsIdleMs", "ws_idle_ms", false),
+    ("shutdownGraceMs", "shutdown_grace_ms", false),
+];
+
+const CONTENT: &[Field] = &[
+    ("maxStreamsPerAccount", "max_streams_per_account", false),
+    ("maxStreamsTotal", "max_streams_total", false),
+    ("authCacheSeconds", "auth_cache_seconds", false),
+    ("newsUrl", "news_url", false),
+];
+
+const ALLOWLIST: &[Field] = &[
+    ("ttlSeconds", "ttl_seconds", false),
+    ("minIntervalMs", "min_interval_ms", false),
+    ("maxEntries", "max_entries", false),
+    ("nftTable", "nft_table", false),
+];
+
+const BACKEND: &[Field] = &[
+    ("logLevel", "log_level", false),
+    ("transactionMaxCommitMs", "transaction_max_commit_ms", false),
+    ("huntGoNowMinMs", "hunt_go_now_min_ms", false),
+    ("huntGoNowMaxMs", "hunt_go_now_max_ms", false),
+    ("xmppCapture", "xmpp_capture", false),
+];
+
+const DIRECTOR: &[Field] = &[
+    ("logLevel", "log_level", false),
+    ("gameserverStartupGapSeconds", "gameserver_startup_gap_seconds", false),
+    ("gameserverReadyTimeoutMs", "gameserver_ready_timeout_ms", false),
+];
+
+/// Every key list, for [`message`] and the tests.
+const ALL_FIELDS: [&[Field]; 20] = [
+    TOP,
+    MONGO,
+    MULTIPLIERS,
+    PERFORMANCE,
+    LINUX,
+    DATABASE,
+    GUARD,
+    HISTORY,
+    SWITCHES,
+    NETWORK,
+    REMOTE,
+    GATEWAY,
+    GATEWAY_LIMITS,
+    GATEWAY_RATE,
+    BUCKET,
+    GATEWAY_TIMEOUTS,
+    CONTENT,
+    ALLOWLIST,
+    BACKEND,
+    DIRECTOR,
+];
+
+/// Whether the table at this host.json path is written inline (a gateway token bucket).
+fn is_inline(json_path: &str) -> bool {
+    json_path
+        .strip_prefix("gateway.rate.")
+        .is_some_and(|key| GATEWAY_RATE.iter().any(|f| f.0 == key))
+}
+
+/// The keys of the table at a host.json path (`mongo`, `gateway.rate.ws`); `None` for a single value.
+fn table_fields(json_path: &str) -> Option<&'static [Field]> {
+    if is_inline(json_path) {
+        return Some(BUCKET);
+    }
+    match json_path {
+        "gateway" => Some(GATEWAY),
+        "gateway.limits" => Some(GATEWAY_LIMITS),
+        "gateway.rate" => Some(GATEWAY_RATE),
+        "gateway.timeouts" => Some(GATEWAY_TIMEOUTS),
+        "content" => Some(CONTENT),
+        "allowlist" => Some(ALLOWLIST),
+        "backend" => Some(BACKEND),
+        "director" => Some(DIRECTOR),
         "mongo" => Some(MONGO),
         "multipliers" => Some(MULTIPLIERS),
         "performance" => Some(PERFORMANCE),
@@ -190,7 +302,7 @@ fn bad(text: impl Into<String>) -> HostError {
 }
 
 /// `maxHuntServers` → `max_hunt_servers`.
-fn snake_case(key: &str) -> String {
+pub(crate) fn snake_case(key: &str) -> String {
     let mut out = String::with_capacity(key.len() + 4);
     for c in key.chars() {
         if c.is_ascii_uppercase() {
@@ -211,10 +323,16 @@ pub fn document(text: &str) -> Result<Value, HostError> {
     let doc: DocumentMut = text
         .parse()
         .map_err(|e| bad(format!("host.toml is not valid TOML: {e}")))?;
-    Ok(Value::Object(object(doc.as_table(), TOP, "")?))
+    Ok(Value::Object(object(doc.as_table(), TOP, "", "")?))
 }
 
-fn object(table: &dyn TableLike, fields: &[Field], prefix: &str) -> Result<Map<String, Value>, HostError> {
+/// `prefix` is the table's path as host.toml spells it, `json_prefix` as host.json does, each with a trailing dot.
+fn object(
+    table: &dyn TableLike,
+    fields: &[Field],
+    prefix: &str,
+    json_prefix: &str,
+) -> Result<Map<String, Value>, HostError> {
     for (key, _) in table.iter() {
         if !fields.iter().any(|f| f.1 == key) {
             return Err(unknown(key, fields, prefix));
@@ -231,8 +349,8 @@ fn object(table: &dyn TableLike, fields: &[Field], prefix: &str) -> Result<Map<S
                 out.insert(json.into(), free_form(item, &path)?);
             }
             Some(item) => {
-                let sub = if prefix.is_empty() { table_fields(json) } else { None };
-                out.insert(json.into(), value(item, sub, &path)?);
+                let json_path = format!("{json_prefix}{json}");
+                out.insert(json.into(), value(item, table_fields(&json_path), &path, &json_path)?);
             }
             None if nullable => {
                 out.insert(json.into(), Value::Null);
@@ -258,12 +376,21 @@ fn unknown(key: &str, fields: &[Field], prefix: &str) -> HostError {
     ))
 }
 
-fn value(item: &Item, sub: Option<&[Field]>, path: &str) -> Result<Value, HostError> {
+fn value(item: &Item, sub: Option<&[Field]>, path: &str, json_path: &str) -> Result<Value, HostError> {
     if let Some(fields) = sub {
-        let table = item
-            .as_table_like()
-            .ok_or_else(|| bad(format!("{path} must be a table ([{path}])")))?;
-        return Ok(Value::Object(object(table, fields, &format!("{path}."))?));
+        let table = item.as_table_like().ok_or_else(|| {
+            if is_inline(json_path) {
+                bad(format!("{path} must be a table: {{ burst = 20, per_minute = 12 }}"))
+            } else {
+                bad(format!("{path} must be a table ([{path}])"))
+            }
+        })?;
+        return Ok(Value::Object(object(
+            table,
+            fields,
+            &format!("{path}."),
+            &format!("{json_path}."),
+        )?));
     }
     let single = || bad(format!("{path} must be a single value, not a table or a list"));
     match item.as_value().ok_or_else(single)? {
@@ -308,7 +435,7 @@ fn free_value(value: &toml_edit::Value, path: &str) -> Result<Value, HostError> 
             .collect::<Result<Vec<_>, _>>()
             .map(Value::Array),
         toml_edit::Value::InlineTable(table) => table_object(table, path),
-        scalar => self::value(&Item::Value(scalar.clone()), None, path),
+        scalar => self::value(&Item::Value(scalar.clone()), None, path, path),
     }
 }
 
@@ -353,25 +480,17 @@ fn free_item(value: &Value, path: &str) -> Result<Item, HostError> {
 /// A message of [`validate`](crate::hostconfig::validate), with host.json's key names replaced by
 /// host.toml's (`performance.serverFps` → `performance.server_fps`).
 pub fn message(text: &str) -> String {
+    let mut pairs: Vec<(&str, &str)> = ALL_FIELDS
+        .iter()
+        .flat_map(|fields| fields.iter())
+        .filter(|f| f.0 != f.1)
+        .map(|f| (f.0, f.1))
+        .collect();
+    // The longest first, so maxConnectionsPerIp isn't half renamed through maxConnections
+    pairs.sort_by_key(|p| std::cmp::Reverse(p.0.len()));
     let mut out = text.to_owned();
-    for fields in [
-        TOP,
-        MONGO,
-        MULTIPLIERS,
-        PERFORMANCE,
-        LINUX,
-        DATABASE,
-        GUARD,
-        HISTORY,
-        SWITCHES,
-        NETWORK,
-        REMOTE,
-    ] {
-        for &(json, toml, _) in fields {
-            if json != toml {
-                out = out.replace(json, toml);
-            }
-        }
+    for (json, toml) in pairs {
+        out = out.replace(json, toml);
     }
     out.replace("host.json", "host.toml")
 }
@@ -388,24 +507,38 @@ pub fn text(fields: &Map<String, Value>, read: &Map<String, Value>, source: Opti
     let mut doc: DocumentMut = source
         .parse()
         .map_err(|e| bad(format!("host.toml is not valid TOML: {e}")))?;
-    patch(doc.as_table_mut(), fields, read, TOP, true)?;
+    patch(doc.as_table_mut(), fields, read, TOP, "")?;
     Ok(doc.to_string())
 }
 
+/// An inline table of `values` in `fields`' order: a gateway token bucket.
+fn inline_table(values: &Map<String, Value>, fields: &[Field], path: &str) -> Result<toml_edit::Value, HostError> {
+    let mut table = toml_edit::InlineTable::new();
+    for &(json, toml, _) in fields {
+        if let Some(v) = values.get(json).filter(|v| !v.is_null()) {
+            table.insert(toml, scalar(v, &format!("{path}.{toml}"))?);
+        }
+    }
+    Ok(toml_edit::Value::InlineTable(table))
+}
+
+/// `json_prefix` is the table's host.json path with a trailing dot, empty at the top of the file.
 fn patch(
     table: &mut Table,
     new: &Map<String, Value>,
     old: &Map<String, Value>,
     fields: &[Field],
-    top: bool,
+    json_prefix: &str,
 ) -> Result<(), HostError> {
     let empty = Map::new();
+    let top = json_prefix.is_empty();
     for &(json, toml, _) in fields {
         let (n, o) = (new.get(json), old.get(json));
         if n == o {
             continue;
         }
-        let sub = if top { table_fields(json) } else { None };
+        let json_path = format!("{json_prefix}{json}");
+        let sub = table_fields(&json_path);
         match (n, sub) {
             (None | Some(Value::Null), _) => {
                 table.remove(toml);
@@ -422,14 +555,30 @@ fn patch(
                 table.remove(toml);
                 table.insert(toml, free_item(v, "remote.local_overrides")?);
             }
+            (Some(Value::Object(values)), Some(sub)) if is_inline(&json_path) => {
+                let mut replacement = inline_table(values, sub, &json_path)?;
+                if let Some(existing) = table.get_mut(toml).and_then(Item::as_value_mut) {
+                    *replacement.decor_mut() = existing.decor().clone();
+                    *existing = replacement;
+                } else {
+                    table.remove(toml);
+                    table.insert(toml, Item::Value(replacement));
+                }
+            }
             (Some(Value::Object(values)), Some(sub)) => {
                 let old_values = o.and_then(Value::as_object).unwrap_or(&empty);
+                let inner_prefix = format!("{json_path}.");
                 if let Some(Item::Table(existing)) = table.get_mut(toml) {
-                    patch(existing, values, old_values, sub, false)?;
+                    patch(existing, values, old_values, sub, &inner_prefix)?;
                 } else {
                     // New, or written inline by hand: a [table] of its own from now on.
                     let mut fresh = Table::new();
-                    patch(&mut fresh, values, &empty, sub, false)?;
+                    patch(&mut fresh, values, &empty, sub, &inner_prefix)?;
+                    // A table of tables ([gateway.rate] alone) needs no [gateway] header
+                    if !fresh.is_empty() && fresh.iter().all(|(_, item)| item.is_table()) {
+                        fresh.set_implicit(true);
+                    }
+                    table.remove(toml);
                     table.insert(toml, Item::Table(fresh));
                 }
             }
@@ -624,8 +773,58 @@ fn comment(path: &str) -> &'static str {
         }
         "env" => {
             "Extra variables for one service's env file, one [env.<service>] table each (backend, director, content,\n\
-             gateway, admin, allowlist), for a tunable with no setting above: GATEWAY_RATE_WS = \"40/24\". Secrets,\n\
-             ports, bind addresses and anything setup already writes are refused."
+             gateway, admin, allowlist), for a variable with no setting of its own. Secrets, ports, bind addresses\n\
+             and anything setup already writes are refused."
+        }
+        "gateway" => {
+            "The gateway's limits (RD24). Each setting is optional: left out, the gateway's own default holds.\n\
+             An environment variable of the same name (GATEWAY_RATE_WS) overrides it, with a warning in the log."
+        }
+        "gateway.allowlist_refresh_seconds" => {
+            "Public: how often an admitted player is reported to the allowlist again, 5 to 540 (60)."
+        }
+        "gateway.limits" => "Sizes and counts.",
+        "gateway.limits.max_body_bytes" => "The largest request body, 1024 to 67108864 bytes (131072).",
+        "gateway.limits.max_connections" => "Open connections in all, 1 to 100000 (2048).",
+        "gateway.limits.max_connections_per_ip" => "Open connections from one address, 1 to 100000 (128).",
+        "gateway.rate" => {
+            "Token buckets per kind of request, each { burst = <requests at once>, per_minute = <refill> }. Defaults:\n\
+             general 300/180, content 600/600, register 5/0.2, token 10/1, ws 20/12, connect 200/300."
+        }
+        "gateway.timeouts" => "Time limits in milliseconds.",
+        "gateway.timeouts.handshake_ms" => "The TLS handshake, 1000 to 120000 (10000).",
+        "gateway.timeouts.headers_ms" => "A request's head, 1000 to 120000.",
+        "gateway.timeouts.request_ms" => "A whole request, 1000 to 600000.",
+        "gateway.timeouts.keep_alive_ms" => "An idle keep-alive connection, 1000 to 600000.",
+        "gateway.timeouts.idle_ms" => "A connection with no traffic, 1000 to 3600000.",
+        "gateway.timeouts.upstream_idle_ms" => {
+            "An idle pooled connection to a service behind the gateway, 1000 to 3600000."
+        }
+        "gateway.timeouts.ws_idle_ms" => "A WebSocket with no traffic, 1000 to 86400000.",
+        "gateway.timeouts.shutdown_grace_ms" => "How long open connections get to finish at shutdown, 0 to 300000.",
+        "content" => "The content server's limits (RD24). Left out: its defaults.",
+        "content.max_streams_per_account" => "Downloads one account may run at once, 1 to 64 (4).",
+        "content.max_streams_total" => "Downloads at once in all, 1 to 1024 (48).",
+        "content.auth_cache_seconds" => "How long a checked sign-in is kept, 0 to 3600 seconds (300).",
+        "content.news_url" => "An https:// page whose news the launcher shows in place of news.toml.",
+        "allowlist" => "Public: the allowlist helper's limits (RD24). Left out: its defaults.",
+        "allowlist.ttl_seconds" => "How long an admitted address keeps the game ports open, 1 to 86400 (600).",
+        "allowlist.min_interval_ms" => "The least time between two firewall updates, 50 to 600000 ms (3000).",
+        "allowlist.max_entries" => "The most addresses let in at once, 1 to 1000 (256).",
+        "allowlist.nft_table" => "Linux: the nftables table the helper owns (dainty_lass).",
+        "backend" => "The backend (RD24). Left out: what setup has always written.",
+        "backend.log_level" => "\"debug\", \"info\" (default), \"warn\" or \"error\".",
+        "backend.transaction_max_commit_ms" => {
+            "MongoDB builds: a transaction's longest commit, 1 to 600000 ms (15000)."
+        }
+        "backend.hunt_go_now_min_ms" => "The least wait before a hunt's Go Now starts it, 1 to 600000 ms (1).",
+        "backend.hunt_go_now_max_ms" => "The most wait before a hunt's Go Now starts it, 1 to 600000 ms (1000).",
+        "backend.xmpp_capture" => "true: the chat server records its traffic for debugging (false).",
+        "director" => "The Director (RD24). Left out: what setup has always written.",
+        "director.log_level" => "\"debug\", \"info\" (default), \"warn\" or \"error\".",
+        "director.gameserver_startup_gap_seconds" => "Seconds between two game server starts, 0 to 600 (3).",
+        "director.gameserver_ready_timeout_ms" => {
+            "How long a game server has to report ready, 1000 to 600000 ms (30000 on Windows, 90000 on Linux)."
         }
         "logs" => {
             "The server's console log and where it is shipped (docs/logging.md). Left out: colored text, kept here."
@@ -689,39 +888,7 @@ fn fresh(fields: &Map<String, Value>) -> Result<String, HostError> {
         let (Some(sub), Some(Value::Object(values))) = (table_fields(json), fields.get(json)) else {
             continue;
         };
-        out.push('\n');
-        push_comment(&mut out, toml);
-        out.push_str(&format!("[{toml}]\n"));
-        for &(sub_json, sub_toml, _) in sub {
-            if is_peer_list(&format!("{toml}."), sub_json) {
-                continue;
-            }
-            match values.get(sub_json) {
-                None | Some(Value::Null) => {}
-                Some(Value::Array(items)) => {
-                    push_comment(&mut out, &format!("{toml}.{sub_toml}"));
-                    let mut arr = toml_edit::Array::new();
-                    for item in items {
-                        arr.push(scalar(item, sub_toml)?);
-                    }
-                    out.push_str(&format!("{sub_toml} = {}\n", arr.to_string().trim()));
-                }
-                Some(v) => {
-                    push_comment(&mut out, &format!("{toml}.{sub_toml}"));
-                    out.push_str(&format!("{sub_toml} = {}\n", scalar(v, sub_toml)?.to_string().trim()));
-                }
-            }
-        }
-        if let Some(nodes) = values.get("nodes").filter(|v| !v.is_null()) {
-            let mut doc = DocumentMut::new();
-            let mut parent = Table::new();
-            parent.insert("nodes", free_item(nodes, "network.nodes")?);
-            parent.set_implicit(true);
-            doc.insert(toml, Item::Table(parent));
-            out.push('\n');
-            push_comment(&mut out, &format!("{toml}.nodes"));
-            out.push_str(&doc.to_string());
-        }
+        fresh_table(&mut out, toml, json, values, sub)?;
     }
     for key in FREE_FORM {
         if let Some(part) = fields.get(key).filter(|v| !v.is_null()) {
@@ -735,6 +902,66 @@ fn fresh(fields: &Map<String, Value>) -> Result<String, HostError> {
     Ok(out)
 }
 
+/// One `[table]` of a new file, then the tables inside it (`[gateway.limits]`), each under what it does.
+fn fresh_table(
+    out: &mut String,
+    toml: &str,
+    json: &str,
+    values: &Map<String, Value>,
+    sub: &[Field],
+) -> Result<(), HostError> {
+    {
+        out.push('\n');
+        push_comment(out, toml);
+        out.push_str(&format!("[{toml}]\n"));
+        let mut inner = Vec::new();
+        for &(sub_json, sub_toml, _) in sub {
+            if is_peer_list(&format!("{toml}."), sub_json) {
+                continue;
+            }
+            let sub_path = format!("{json}.{sub_json}");
+            match values.get(sub_json) {
+                None | Some(Value::Null) => {}
+                Some(Value::Object(table)) if table_fields(&sub_path).is_some() => {
+                    let fields = table_fields(&sub_path).unwrap_or_default();
+                    if is_inline(&sub_path) {
+                        let line = inline_table(table, fields, &sub_path)?;
+                        out.push_str(&format!("{sub_toml} = {}\n", line.to_string().trim()));
+                    } else {
+                        inner.push((sub_toml, sub_path, table, fields));
+                    }
+                }
+                Some(Value::Array(items)) => {
+                    push_comment(out, &format!("{toml}.{sub_toml}"));
+                    let mut arr = toml_edit::Array::new();
+                    for item in items {
+                        arr.push(scalar(item, sub_toml)?);
+                    }
+                    out.push_str(&format!("{sub_toml} = {}\n", arr.to_string().trim()));
+                }
+                Some(v) => {
+                    push_comment(out, &format!("{toml}.{sub_toml}"));
+                    out.push_str(&format!("{sub_toml} = {}\n", scalar(v, sub_toml)?.to_string().trim()));
+                }
+            }
+        }
+        if let Some(nodes) = values.get("nodes").filter(|v| !v.is_null()) {
+            let mut doc = DocumentMut::new();
+            let mut parent = Table::new();
+            parent.insert("nodes", free_item(nodes, "network.nodes")?);
+            parent.set_implicit(true);
+            doc.insert(toml, Item::Table(parent));
+            out.push('\n');
+            push_comment(out, &format!("{toml}.nodes"));
+            out.push_str(&doc.to_string());
+        }
+        for (sub_toml, sub_path, table, fields) in inner {
+            fresh_table(out, &format!("{toml}.{sub_toml}"), &sub_path, table, fields)?;
+        }
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     #![allow(clippy::unwrap_used, reason = "a panic is how a test fails")]
@@ -746,19 +973,7 @@ mod tests {
     fn snake_case_of_the_host_json_keys() {
         assert_eq!(snake_case("maxHuntServers"), "max_hunt_servers");
         assert_eq!(snake_case("version"), "version");
-        for fields in [
-            TOP,
-            MONGO,
-            MULTIPLIERS,
-            PERFORMANCE,
-            LINUX,
-            DATABASE,
-            GUARD,
-            HISTORY,
-            SWITCHES,
-            NETWORK,
-            REMOTE,
-        ] {
+        for fields in ALL_FIELDS {
             for &(json, toml, _) in fields {
                 assert_eq!(snake_case(json), toml);
             }
