@@ -42,6 +42,8 @@ type Query {
   serverStatus: ServerStatus!                  # name, mode, registration, version, commit, uptimeSeconds, onlineCount
   huntStatus: HuntStatus!                      # maxHuntServers, running, free, hunts { title, players { username } }
   activeTimeouts: [ActiveTimeout!]!            # the timeouts this API will lift, soonest first: username, until, reason, by, at
+  gameServers(game: String): [GameServer!]!    # game, id, kind (HUB HUNT DOJO TUTORIAL), title, map, host, port, players, maxPlayers, ready, startedAt
+  availability(game: String): Availability!    # game, up, reason (a code), hub, freeHunts; game defaults to 1.14.7
   guarded(all: Boolean): [GuardedAction!]!     # the destructive and bulk actions that wait (below)
   history(filter: HistoryFilter, cursor: String, limit: Int): HistoryPage!   # admin: the change logs, newest first
   historyCheck: [HistoryCheck!]!               # admin: each log's hash chain, walked from its start
@@ -66,6 +68,15 @@ type Player {
   admin: Boolean!  createdAt: String  lastLoginAt: String  game: String!    # the game version, such as 1.14.7
 }
 ```
+
+`gameServers` and `availability` ask the game modules (the module-sharing plan's A4), so they need the server, as
+`modules` does (`MODULES_UNAVAILABLE` from a standalone admin API). `gameServers` with a `game` lists that game's
+servers; without one it lists every ready game module's, leaving out (and logging) a module that fails to answer.
+`availability` is `up` when the game's hub runs and is ready; otherwise `reason` is a code for the reader to
+translate, never a sentence: `director_unreachable`, `no_hub`, `hub_not_ready` or `module_not_ready` (the module is
+loaded and not started yet). A game no module serves is `UNKNOWN_GAME`, and a module that doesn't answer game calls
+`NOT_SUPPORTED`. When `gameServers(game:)` meets an unavailable module, the `BACKEND_UNAVAILABLE` error carries the
+same code in `extensions.reason`.
 
 Which game a player is in: the Node backend answers for 1.14.7 until a module for 1.14.7 is loaded, and each game
 module that registers admin actions answers for its own game. The API asks every game for the name at once. A name
@@ -122,7 +133,7 @@ nobody else's key changes.
 
 | Role | May |
 | --- | --- |
-| `viewer` | Read: `player`, `serverStatus`, `huntStatus`, `activeTimeouts`, `modules`, `module` |
+| `viewer` | Read: `player`, `serverStatus`, `huntStatus`, `activeTimeouts`, `modules`, `module`, `gameServers`, `availability` |
 | `moderator` | Viewer, and `kick`, `timeout`, `ban`, and `guarded`, `approve`, `cancel` (a held action: see Guarded actions) |
 | `admin` | Moderator, and `unban`, `liftTimeout`, `loadModule`, `unloadModule`, `restartModule`, `adminKeys`, `issueKey` for viewer and moderator keys, `logSettings`, and reading the change logs: `history`, `historyCheck` |
 | `owner` | Everything: `issueKey` for any role, `revokeKey`, `setLogSettings` (a collector receives every line the server logs), and the history revert: `revertPlan`, `revertApply` (a big one is held first: see Guarded actions) |

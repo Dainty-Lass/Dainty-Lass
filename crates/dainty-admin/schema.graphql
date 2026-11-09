@@ -81,6 +81,104 @@ type AdminKey {
 }
 
 """
+Whether players can get into a game now.
+"""
+type Availability {
+	"""
+	The game version, such as 1.14.7.
+	"""
+	game: String!
+	"""
+	The hub is running and ready.
+	"""
+	up: Boolean!
+	"""
+	When not up, a code to translate: director_unreachable, no_hub, hub_not_ready or module_not_ready
+	"""
+	reason: String
+	"""
+	The hub, when there is one.
+	"""
+	hub: GameServer
+	"""
+	Informational; never gates `up`
+	"""
+	freeHunts: Int
+}
+
+"""
+One game server a game module runs.
+"""
+type GameServer {
+	"""
+	The game version it belongs to, such as 1.14.7.
+	"""
+	game: String!
+	"""
+	The Director's id for it.
+	"""
+	id: String!
+	"""
+	What it is for.
+	"""
+	kind: GameServerKind!
+	"""
+	Name shown to staff.
+	"""
+	title: String!
+	"""
+	The map it runs.
+	"""
+	map: String!
+	"""
+	Where players connect.
+	"""
+	host: String!
+	"""
+	Its UDP port.
+	"""
+	port: Int!
+	"""
+	Players on it now.
+	"""
+	players: Int!
+	"""
+	Most players it takes.
+	"""
+	maxPlayers: Int!
+	"""
+	Accepting players.
+	"""
+	ready: Boolean!
+	"""
+	RFC 3339
+	"""
+	startedAt: String
+}
+
+"""
+What a game server is for.
+"""
+enum GameServerKind {
+	"""
+	The city players gather in (Ramsgate).
+	"""
+	HUB
+	"""
+	A hunt.
+	"""
+	HUNT
+	"""
+	The dojo.
+	"""
+	DOJO
+	"""
+	The tutorial.
+	"""
+	TUTORIAL
+}
+
+"""
 How a held action is released.
 """
 enum GuardMode {
@@ -752,6 +850,15 @@ type Query {
 	One listed module; null when host.toml lists none by that id.
 	"""
 	module(id: String!): Module
+	"""
+	The game servers `game` runs (a game version, such as 1.14.7), or every ready game module's when
+	none is named; a module that fails is left out of the second.
+	"""
+	gameServers(game: String): [GameServer!]!
+	"""
+	Whether players can get into `game` now (1.14.7 when none is named).
+	"""
+	availability(game: String): Availability!
 	"""
 	host.toml's `[logs]`, and whether the file changed since this run started. Needs the admin role.
 	"""
