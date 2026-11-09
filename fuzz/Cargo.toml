@@ -27,6 +27,8 @@ dainty-chat = { path = "../crates/dainty-chat" }
 chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
 # content_request, content_runtime_index, content_news: what the content server reads from players and the host
 dainty-content = { path = "../crates/dainty-content" }
+# discord_interaction: what Discord's gateway and dainty-dash send the Discord bot (module sharing A7)
+dainty-discord = { path = "../crates/dainty-discord" }
 # epic_manifest: Epic's download manifests and CDN chunks
 dainty-epic = { path = "../crates/dainty-epic" }
 flate2 = "1"
@@ -240,6 +242,13 @@ bench = false
 [[bin]]
 name = "remote_wire"
 path = "fuzz_targets/remote_wire.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "discord_interaction"
+path = "fuzz_targets/discord_interaction.rs"
 test = false
 doc = false
 bench = false

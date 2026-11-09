@@ -205,6 +205,7 @@ mod tests {
             gateway: one("GATEWAY_TLS"),
             admin: one("DAINTY_MAX_HUNT_SERVERS"),
             allowlist: None,
+            discord: None,
             passthrough_refused: Vec::new(),
         }
     }

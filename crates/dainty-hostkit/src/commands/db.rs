@@ -273,6 +273,7 @@ mod tests {
             split: None,
             logs: None,
             events: None,
+            discord: None,
             file: FileForm::default(),
         };
         let mongo_uri = resolve_mongo_uri(&paths, Some(&cfg), None);

@@ -228,6 +228,16 @@ A built-in service in Rust, `controller::modules::discord(env, registry)` (propo
 
 The code and the URI never reach a channel, a log line or an event; the event records the outcome only.
 
+Done in MS7 (`feat/ms7-discord-bot`): `crates/dainty-discord` (MIT, where `plugins/discord` was proposed) and
+`controller::modules::discord`, composed after admin when setup wrote `discord.env`. **No `twilight`:** the gateway
+client and the REST calls are written on the workspace's `tokio-tungstenite`, `tokio-rustls` and `hyper-rustls`, so no
+dependency was added. `[discord]` takes `enabled`, `application_id`, `guild_ids`, `dashboard_url` (left out: the
+top-level `dashboard_url`); `moderator_role_ids` waits for a command that reads it. `DISCORD_BOT_TOKEN` is in
+`SECRET_KEYS` and in a new `PROVIDED_SECRET_KEYS` (the host brings it; setup never makes one), and every `DISCORD_*`
+line is written even when empty, so none comes from the host's shell. `/status` replies are ephemeral too. The bot
+runs only where the server is one process (`start`): Docker's per-service containers don't run it.
+`docs/security/discord.md`, fuzz target `discord_interaction`.
+
 ### A8. dainty-dash
 
 - An account-creation setting (on or off, and the page's URL) in Settings, and a public `GET /api/public/signup`

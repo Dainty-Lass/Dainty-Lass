@@ -57,6 +57,7 @@ const TOP: &[Field] = &[
     ("split", "split", false),
     ("logs", "logs", false),
     ("events", "events", false),
+    ("discord", "discord", false),
 ];
 
 /// The top-level keys whose tables and lists are read as they are (`hostconfig/modules.rs`, `services.rs`, `env.rs`).
@@ -91,7 +92,7 @@ fn is_peer_list(prefix: &str, json: &str) -> bool {
 }
 
 fn is_string_list(prefix: &str, json: &str) -> bool {
-    prefix == "remote." && json == "localOverrides"
+    (prefix == "remote." && json == "localOverrides") || (prefix == "discord." && json == "guildIds")
 }
 
 const SPLIT: &[Field] = &[
@@ -101,6 +102,13 @@ const SPLIT: &[Field] = &[
 ];
 
 const EVENTS: &[Field] = &[("retentionDays", "retention_days", false)];
+
+const DISCORD: &[Field] = &[
+    ("enabled", "enabled", false),
+    ("applicationId", "application_id", false),
+    ("guildIds", "guild_ids", false),
+    ("dashboardUrl", "dashboard_url", false),
+];
 
 const LOGS: &[Field] = &[
     ("format", "format", false),
@@ -297,6 +305,7 @@ fn table_fields(json_path: &str) -> Option<&'static [Field]> {
         "split" => Some(SPLIT),
         "logs" => Some(LOGS),
         "events" => Some(EVENTS),
+        "discord" => Some(DISCORD),
         _ => None,
     }
 }
@@ -558,6 +567,10 @@ fn patch(
             (Some(v), None) if !top && json == "localOverrides" && toml == "local_overrides" => {
                 table.remove(toml);
                 table.insert(toml, free_item(v, "remote.local_overrides")?);
+            }
+            (Some(v), None) if !top && json == "guildIds" && toml == "guild_ids" => {
+                table.remove(toml);
+                table.insert(toml, free_item(v, "discord.guild_ids")?);
             }
             (Some(Value::Object(values)), Some(sub)) if is_inline(&json_path) => {
                 let mut replacement = inline_table(values, sub, &json_path)?;
@@ -844,6 +857,18 @@ fn comment(path: &str) -> &'static str {
         }
         "events" => "The registry's events kept in the database (module sharing A5). Left out: kept 90 days.",
         "events.retention_days" => "Days an event is kept, 0 to 3650; 0 keeps every event (90).",
+        "discord" => {
+            "The Discord bot (module sharing A7): /key hands a member a signup link or a single-use invite, /status\n\
+             says whether the game is up. Its token is in secrets.env: dainty-host setup --discord-bot-token reads it."
+        }
+        "discord.enabled" => "true runs the bot, once its token is set.",
+        "discord.application_id" => "The bot's application id, checked against its token's. Left out: not checked.",
+        "discord.guild_ids" => {
+            "The Discord servers (guild ids, as strings) it answers in. Left out: every one it is in."
+        }
+        "discord.dashboard_url" => {
+            "dainty-dash, asked whether signups are on (GET /api/public/signup). Left out: dashboard_url above."
+        }
         "split" => {
             "This server as one half of two (docs/split-roles.md): the metagame on one machine or container, the game
              servers on another, both nodes of [network]. Left out: one server runs both."

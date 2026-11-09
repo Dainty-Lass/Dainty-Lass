@@ -10,11 +10,13 @@ publish.workspace = true
 
 [features]
 default = ["modules", "isles-1-14-7", "realms"]
-modules = ["gateway", "allowlist", "content", "admin"]
+modules = ["gateway", "allowlist", "content", "admin", "discord"]
 gateway = []
 allowlist = []
 content = []
 admin = ["dainty-controller/admin", "dep:dainty-admin"]
+# The Discord bot in the server process (module sharing A7)
+discord = ["dainty-controller/discord"]
 stub-module = ["dainty-controller/stub-module"]
 isles-1-14-7 = []
 realms = []
@@ -28,6 +30,8 @@ bytes = "1"
 chrono.workspace = true
 clap.workspace = true
 dainty-controller = { workspace = true, default-features = false, features = ["remote", "events"] }
+# setup checks [discord] with the bot's own parsers
+dainty-discord = { path = "../dainty-discord" }
 # The gateway's and chat's library options (RD27)
 dainty-service-plugin.workspace = true
 crossterm.workspace = true

@@ -338,6 +338,11 @@ namespace and the optional dependencies depend on Compose's own behaviour. Rootl
 | Back up | `docker compose run --rm host backup` (into the `workspace` volume, `backups/`), and keep a copy of the `workspace` volume: it holds the certificate every invite names and the secrets |
 | A shell | `docker compose run --rm --entrypoint bash host` |
 
+**The Discord bot** ([hosting.md](hosting.md#the-discord-bot)) runs in the server's own process, beside the
+game module it asks; the containers here run each service on its own, so they don't run it yet. Setup still
+takes its settings and keeps the token (`docker compose run --rm -T host setup --discord-bot-token < discord-token.txt`,
+`-T` so the token arrives on stdin), for a server moved to a plain Linux host.
+
 Never delete the `workspace` volume of a server that has players: a new certificate changes the fingerprint
 in every invite, and new secrets log everyone out.
 

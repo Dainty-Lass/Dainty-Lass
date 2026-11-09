@@ -5,23 +5,25 @@
 //! host kit wrote for it (`hostconfig.rs`), through its own `Config::from_env`. dainty-restricted's host
 //! composes the AGPL services until each is a library the core loads (RD27).
 
-#[cfg(feature = "admin")]
+#[cfg(any(feature = "admin", feature = "discord"))]
 use std::sync::Arc;
 
-#[cfg(feature = "admin")]
+#[cfg(any(feature = "admin", feature = "discord"))]
 use dainty_service_kit::env::Env;
 
-#[cfg(feature = "admin")]
+#[cfg(any(feature = "admin", feature = "discord"))]
 use crate::Module;
 
 /// The modules built into this binary, for the message an empty build prints.
 pub const BUILT_IN: &[&str] = &[
     #[cfg(feature = "admin")]
     "admin",
+    #[cfg(feature = "discord")]
+    "discord",
 ];
 
 /// Every module the crate can build, for the same message.
-pub const ALL: &[&str] = &["admin"];
+pub const ALL: &[&str] = &["admin", "discord"];
 
 /// The game modules compiled into this binary (DD3, DF5): the stub only here; dainty-restricted adds its own. A server's
 /// `[modules]` section picks which of them load; the rest stay listed and unloaded.
@@ -309,6 +311,68 @@ impl dainty_admin::modules::AdminCalls for AdminRoute {
             };
             registry.admin_for(module, call).await
         })
+    }
+}
+
+/// The Discord bot (`discord.env`, module sharing A7): `/key` and `/status` through the registry's game calls to
+/// the 1.14.7 module, each `/key`'s outcome on the bus for the recorder (D6). `invite` is this server's invite,
+/// whose code the bot replaces; the snapshot's `invite_url` wins once one is set.
+#[cfg(feature = "discord")]
+pub fn discord(
+    env: &Env,
+    registry: &crate::ModuleRegistry,
+    invite: Option<dainty_protocol::invite::Invite>,
+) -> Result<Module, String> {
+    let config = dainty_discord::Config::from_env(env)?;
+    let access: Arc<dyn dainty_discord::GameAccess> = Arc::new(DiscordAccess {
+        registry: registry.downgrade(),
+        status: registry.status_registry().clone(),
+        invite,
+    });
+    Ok(Module::new(
+        "discord",
+        Arc::new(move |ctx| {
+            let (config, access) = (config.clone(), access.clone());
+            Box::pin(dainty_discord::run(config, ctx, access))
+        }),
+    )
+    .optional())
+}
+
+/// The registry as the bot reaches it; weak, so the bot never keeps a stopping server alive.
+#[cfg(feature = "discord")]
+struct DiscordAccess {
+    registry: crate::WeakRegistry,
+    status: dainty_service_kit::context::StatusRegistry,
+    invite: Option<dainty_protocol::invite::Invite>,
+}
+
+#[cfg(feature = "discord")]
+impl dainty_discord::GameAccess for DiscordAccess {
+    fn game(
+        &self,
+        call: dainty_module_api::GameCall,
+    ) -> dainty_module_api::BoxFuture<'_, Result<dainty_module_api::GameAnswer, dainty_module_api::ModuleError>> {
+        Box::pin(async move {
+            let Some(registry) = self.registry.upgrade() else {
+                return Err(dainty_module_api::UnavailableReason::ModuleNotReady.error());
+            };
+            registry.game(&dainty_protocol::invite::dainty_version(), call).await
+        })
+    }
+
+    fn emit(&self, event: dainty_module_api::Event) {
+        if let Some(registry) = self.registry.upgrade() {
+            registry.emit(event);
+        }
+    }
+
+    fn invite(&self) -> Option<dainty_protocol::invite::Invite> {
+        self.status
+            .snapshot()
+            .invite_url
+            .and_then(|url| dainty_protocol::invite::parse_invite(&url).ok())
+            .or_else(|| self.invite.clone())
     }
 }
 

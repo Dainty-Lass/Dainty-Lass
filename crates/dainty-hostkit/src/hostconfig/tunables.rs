@@ -486,6 +486,7 @@ mod tests {
             gateway: Vec::new(),
             admin: Vec::new(),
             allowlist: None,
+            discord: None,
             passthrough_refused: Vec::new(),
         };
         let b = Tunables::from_json("backend", &json!({ "logLevel": "warn" })).unwrap();

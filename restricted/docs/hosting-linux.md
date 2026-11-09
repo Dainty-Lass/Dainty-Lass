@@ -117,6 +117,13 @@ The managed install keeps its local `host`, `game_address`, `[linux]` (`wine`, `
 reporting health over `POST /__node/remote`. If the controller is unreachable, the Linux install continues running
 with its last applied configuration. `bin/dainty-host remote leave` detaches it back to standalone mode.
 
+The Discord bot ([hosting.md](hosting.md#the-discord-bot)) takes its token on stdin, so it stays out of your
+shell's history:
+
+```bash
+bin/dainty-host setup --discord-bot-token --discord-guild 123456789012345678 < discord-token.txt
+```
+
 ## Running it
 
 ```bash

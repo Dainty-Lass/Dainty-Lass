@@ -975,7 +975,33 @@ dependencies = [
  "sha2 0.11.1",
  "tokio",
  "tokio-util",
+ "toml_edit",
  "url",
+]
+
+[[package]]
+name = "dainty-discord"
+version = "0.0.0"
+dependencies = [
+ "bytes",
+ "dainty-module-api",
+ "dainty-protocol",
+ "dainty-service-kit",
+ "futures-util",
+ "http",
+ "http-body-util",
+ "hyper",
+ "hyper-rustls",
+ "hyper-util",
+ "rustls",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tokio-rustls",
+ "tokio-tungstenite",
+ "tracing",
+ "url",
+ "webpki-roots",
 ]
 
 [[package]]
@@ -1068,6 +1094,7 @@ dependencies = [
  "dainty-admin",
  "dainty-chat",
  "dainty-content",
+ "dainty-discord",
  "dainty-epic",
  "dainty-gateway",
  "dainty-history-ship",
