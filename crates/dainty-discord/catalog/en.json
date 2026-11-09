@@ -1,0 +1,16 @@
+{
+  "command.key.description": "Get a key to join the game server",
+  "command.status.description": "Check whether the game server is up",
+  "status.up": "The game is up. Players in the hub: {players}.",
+  "reason.director_unreachable": "The game is down: the server's game manager isn't answering. Try again in a few minutes.",
+  "reason.no_hub": "The game is down: the server isn't running a hub, so no one can get in.",
+  "reason.hub_not_ready": "The game is starting: the hub isn't ready yet. Try again in a minute.",
+  "reason.module_not_ready": "The game is starting. Try again in a minute.",
+  "reason.unknown": "The game can't be reached right now. Try again later.",
+  "key.signup": "Create your account here: {url}\nThen log in from the Dainty Lass launcher.",
+  "key.login": "Your invite, only for you:\n`{uri}`\nOpen it with the Dainty Lass launcher. It works once and expires in {minutes} minutes. Don't share it.",
+  "key.rate_limited": "You've asked for too many keys. Try again in {minutes} minutes.",
+  "key.failed": "The invite couldn't be made. Ask the server's staff.",
+  "command.wrong_guild": "This bot answers only in its game server's Discord.",
+  "command.unknown": "This command isn't available anymore."
+}

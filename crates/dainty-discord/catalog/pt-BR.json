@@ -1,0 +1,16 @@
+{
+  "command.key.description": "Receba uma chave para entrar no servidor do jogo",
+  "command.status.description": "Veja se o servidor do jogo está no ar",
+  "status.up": "O jogo está no ar. Jogadores no hub: {players}.",
+  "reason.director_unreachable": "O jogo está fora do ar: o gerenciador de partidas do servidor não responde. Tente de novo em alguns minutos.",
+  "reason.no_hub": "O jogo está fora do ar: o servidor não está rodando um hub, então ninguém consegue entrar.",
+  "reason.hub_not_ready": "O jogo está iniciando: o hub ainda não está pronto. Tente de novo em um minuto.",
+  "reason.module_not_ready": "O jogo está iniciando. Tente de novo em um minuto.",
+  "reason.unknown": "Não foi possível falar com o jogo agora. Tente de novo mais tarde.",
+  "key.signup": "Crie sua conta aqui: {url}\nDepois entre pelo launcher do Dainty Lass.",
+  "key.login": "Seu convite, só para você:\n`{uri}`\nAbra com o launcher do Dainty Lass. Ele funciona uma vez e expira em {minutes} minutos. Não compartilhe.",
+  "key.rate_limited": "Você pediu chaves demais. Tente de novo em {minutes} minutos.",
+  "key.failed": "Não foi possível criar o convite. Fale com a equipe do servidor.",
+  "command.wrong_guild": "Este bot só responde no Discord do servidor de jogo dele.",
+  "command.unknown": "Este comando não está mais disponível."
+}

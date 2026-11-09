@@ -5,6 +5,7 @@
 //! `secrets.env`, and the per-service env files `setup` builds from the two.
 
 pub mod check;
+pub mod discord;
 pub mod env;
 pub mod events;
 pub mod guard;
@@ -72,8 +73,9 @@ pub const EDITION_REMOVED: &str = "edition \"legacy\" and \"both\" ran Dauntless
 pub const MAX_HOST_CONFIG_BYTES: u64 = 256 * 1024;
 /// The secrets file's name, in the config folder.
 pub const SECRET_FILE: &str = "secrets.env";
-/// Every key `secrets.env` holds; one missing or empty is made on the next setup.
-pub const SECRET_KEYS: [&str; 12] = [
+/// Every key `secrets.env` holds; one missing or empty is made on the next setup, but for
+/// [`PROVIDED_SECRET_KEYS`].
+pub const SECRET_KEYS: [&str; 13] = [
     "GATEWAY_SECRET",
     "ALLOWLIST_SECRET",
     "DAINTY_ADMIN_KEY",
@@ -86,7 +88,10 @@ pub const SECRET_KEYS: [&str; 12] = [
     "RUSTIC_ISLES_MANAGER_OPERATOR_SECRET",
     "DAINTY_DB_PASSWORD",
     "DASHBOARD_INGEST_KEY",
+    "DISCORD_BOT_TOKEN",
 ];
+/// Secrets the host brings rather than setup makes: left empty until set (`setup --discord-bot-token`).
+pub const PROVIDED_SECRET_KEYS: [&str; 1] = ["DISCORD_BOT_TOKEN"];
 /// Secrets under their names from before the Rustic Isles rename: `setup` moves each to its new name with the same value,
 /// never a fresh one, since a changed secret breaks every signed call (DX4)
 pub const RENAMED_SECRET_KEYS: [(&str, &str); 5] = [
@@ -929,6 +934,8 @@ pub struct HostConfig {
     pub logs: Option<logs::LogsConfig>,
     /// `[events]`: how long the registry's events are kept (module sharing A5)
     pub events: Option<events::EventsConfig>,
+    /// `[discord]`: the Discord bot (module sharing A7); its token is in secrets.env
+    pub discord: Option<discord::DiscordConfig>,
     /// The file it was read from.
     pub file: FileForm,
 }
@@ -1098,6 +1105,10 @@ impl HostConfig {
             Some(e) if !e.is_null() => Some(events::EventsConfig::from_json(e)?),
             _ => None,
         };
+        let discord = match obj.get("discord") {
+            Some(d) if !d.is_null() => Some(discord::DiscordConfig::from_json(d)?),
+            _ => None,
+        };
         Ok(Self {
             version,
             mode,
@@ -1131,6 +1142,7 @@ impl HostConfig {
             split,
             logs,
             events,
+            discord,
             file: FileForm {
                 document: obj,
                 read,
@@ -1189,6 +1201,9 @@ impl HostConfig {
             }
             if self.events.is_none() {
                 self.events = prev.events.clone();
+            }
+            if self.discord.is_none() {
+                self.discord = prev.discord.clone();
             }
             if self.dashboard_url.is_none() {
                 self.dashboard_url = prev.dashboard_url.clone();
@@ -1377,6 +1392,9 @@ impl HostConfig {
         if let Some(e) = &self.events {
             canonical.insert("events".into(), e.to_json());
         }
+        if let Some(d) = &self.discord {
+            canonical.insert("discord".into(), d.to_json());
+        }
         merge_document_order(&self.file.document, canonical)
     }
 
@@ -1451,6 +1469,8 @@ pub struct Secrets {
     pub database_password: String,
     /// What chat sends the staff dashboard with; the dashboard's own `DASHBOARD_INGEST_KEY` is set to it
     pub dashboard_ingest_key: String,
+    /// `DISCORD_BOT_TOKEN`: the Discord bot's (A7), from the host; empty until set.
+    pub discord_bot_token: String,
 }
 
 /// The OS the env files are written for.
@@ -1496,6 +1516,8 @@ pub struct EnvFiles {
     pub admin: EnvEntries,
     /// allowlist.env; `None` when the server runs no allowlist, and the file is then removed.
     pub allowlist: Option<EnvEntries>,
+    /// discord.env; `None` unless `[discord]` is enabled and the token is set, and the file is then removed.
+    pub discord: Option<EnvEntries>,
     /// `[env.<service>]` lines not written, each with why; `setup` refuses while there are any
     pub passthrough_refused: Vec<String>,
 }
@@ -1503,7 +1525,7 @@ pub struct EnvFiles {
 impl EnvFiles {
     /// Each file's name without `.env`, with its variables.
     #[must_use]
-    pub fn files(&self) -> [(&'static str, Option<&EnvEntries>); 6] {
+    pub fn files(&self) -> [(&'static str, Option<&EnvEntries>); 7] {
         [
             ("backend", Some(&self.backend)),
             ("director", Some(&self.director)),
@@ -1511,6 +1533,7 @@ impl EnvFiles {
             ("gateway", Some(&self.gateway)),
             ("admin", Some(&self.admin)),
             ("allowlist", self.allowlist.as_ref()),
+            ("discord", self.discord.as_ref()),
         ]
     }
 }
@@ -2281,6 +2304,10 @@ pub fn validate(document: &Value) -> Result<Value, HostError> {
         Some(e) => Some(events::EventsConfig::from_json(e)?),
         None => None,
     };
+    let discord_cfg = match obj.get("discord").filter(|v| !v.is_null()) {
+        Some(d) => Some(discord::DiscordConfig::from_json(d)?),
+        None => None,
+    };
 
     let mut canonical = Map::new();
     canonical.insert("version".into(), Value::from(1));
@@ -2394,6 +2421,9 @@ pub fn validate(document: &Value) -> Result<Value, HostError> {
     if let Some(e) = events_cfg {
         canonical.insert("events".into(), e.to_json());
     }
+    if let Some(d) = discord_cfg {
+        canonical.insert("discord".into(), d.to_json());
+    }
     Ok(Value::Object(merge_document_order(obj, canonical)))
 }
 
@@ -2425,6 +2455,7 @@ fn merge_document_order(orig: &Map<String, Value>, canonical: Map<String, Value>
         "split",
         "logs",
         "events",
+        "discord",
     ];
     let mut out = Map::new();
     for (k, orig_v) in orig {
@@ -2642,6 +2673,7 @@ pub fn load_or_create_secrets(
     let existing = doc.values();
     let missing = SECRET_KEYS
         .iter()
+        .filter(|k| !PROVIDED_SECRET_KEYS.contains(k))
         .any(|k| existing.get(k).is_none_or(|v| v.trim().is_empty()));
     if renamed && !missing {
         write_secret_file(&file, &doc.to_text())?;
@@ -2685,9 +2717,22 @@ pub fn load_or_create_secrets(
             operator_secret: get("RUSTIC_ISLES_MANAGER_OPERATOR_SECRET"),
             database_password: get("DAINTY_DB_PASSWORD"),
             dashboard_ingest_key: get("DASHBOARD_INGEST_KEY"),
+            discord_bot_token: get("DISCORD_BOT_TOKEN"),
         },
         missing,
     ))
+}
+
+/// Sets one of [`PROVIDED_SECRET_KEYS`] in `config_dir`'s `secrets.env`, keeping the rest of the file as it is.
+pub fn set_provided_secret(config_dir: &Path, key: &str, value: &str) -> Result<(), HostError> {
+    if !PROVIDED_SECRET_KEYS.contains(&key) {
+        return Err(bad(format!("{key} is not a secret the host sets")));
+    }
+    let file = config_dir.join(SECRET_FILE);
+    let raw = std::fs::read_to_string(&file).map_err(|e| HostError::io(&file, e))?;
+    let mut doc = EnvDocument::parse(&raw);
+    doc.set(key, value)?;
+    write_secret_file(&file, &doc.to_text())
 }
 
 /// Moves each of [`RENAMED_SECRET_KEYS`] the file has only under its old name to the new one; whether any moved.
@@ -3142,6 +3187,13 @@ pub fn build_env_files(c: &HostConfig, s: &Secrets, p: &Paths, source_commit: &s
         push(&mut gateway, "CHAT_DASHBOARD_INGEST_KEY", &s.dashboard_ingest_key);
     }
 
+    // The bot's own file, so its token reaches no other service (D5)
+    let discord = c
+        .discord
+        .as_ref()
+        .filter(|d| d.enabled && !s.discord_bot_token.trim().is_empty())
+        .map(|d| d.env(s.discord_bot_token.trim(), c.dashboard_url.as_deref()));
+
     let mut files = EnvFiles {
         backend,
         director,
@@ -3149,6 +3201,7 @@ pub fn build_env_files(c: &HostConfig, s: &Secrets, p: &Paths, source_commit: &s
         gateway,
         admin,
         allowlist,
+        discord,
         passthrough_refused: Vec::new(),
     };
     tunables::apply(&mut files, c.tunables());
@@ -3626,5 +3679,99 @@ retention_days = 30"
         );
         assert!(HostConfig::from_toml(&written.replace("= 30", "= -3")).is_err());
         assert!(HostConfig::from_toml(&written.replace("retention_days", "retention")).is_err());
+    }
+
+    /// `[discord]` round-trips through host.toml, and discord.env is written only with the bot on and its token
+    /// set, which then reaches that file alone (D5).
+    #[test]
+    fn discord_round_trips_and_its_token_reaches_only_its_env_file() {
+        let text = "version = 1
+mode = \"private\"
+name = \"Friday Hunts\"
+host = \"100.101.102.103\"
+game_address = \"100.101.102.103\"
+registration = \"INVITECODE\"
+max_hunt_servers = 3
+dashboard_url = \"https://dash.example\"
+";
+        let mut cfg = HostConfig::from_toml(text).unwrap();
+        assert_eq!(cfg.discord, None);
+        cfg.discord = Some(discord::DiscordConfig {
+            enabled: true,
+            application_id: None,
+            guild_ids: vec!["123456789012345678".into()],
+            dashboard_url: None,
+        });
+        let written = cfg.to_toml().unwrap();
+        assert!(written.contains("[discord]"), "{written}");
+        assert!(written.contains("guild_ids = [\"123456789012345678\"]"), "{written}");
+        let read = HostConfig::from_toml(&written).unwrap();
+        assert_eq!(read.discord, cfg.discord);
+        assert_eq!(
+            HostConfig::from_toml(text).unwrap().written_over(Some(&read)).discord,
+            cfg.discord
+        );
+        assert!(HostConfig::from_toml(&written.replace("guild_ids", "guilds")).is_err());
+        assert!(HostConfig::from_toml(&format!("{written}bot_token = \"x\"\n")).is_err());
+
+        let dir = tempfile::tempdir().unwrap();
+        let p = Paths::new(dir.path());
+        let none = build_env_files(&read, &Secrets::default(), &p, "", Platform::Windows);
+        assert_eq!(none.discord, None, "no token, no file");
+        let secrets = Secrets {
+            discord_bot_token: "bot-token".into(),
+            ..Secrets::default()
+        };
+        let files = build_env_files(&read, &secrets, &p, "", Platform::Windows);
+        let discord = files.discord.clone().unwrap();
+        assert!(discord.contains(&("DISCORD_BOT_TOKEN".into(), "bot-token".into())));
+        assert!(discord.contains(&("DISCORD_DASHBOARD_URL".into(), "https://dash.example".into())));
+        for (name, entries) in files.files() {
+            if name != "discord" {
+                assert!(
+                    !entries.into_iter().flatten().any(|(_, v)| v.contains("bot-token")),
+                    "{name}.env holds the token"
+                );
+            }
+        }
+        let mut off = read.clone();
+        off.discord.as_mut().unwrap().enabled = false;
+        assert_eq!(build_env_files(&off, &secrets, &p, "", Platform::Windows).discord, None);
+    }
+
+    /// The token is the host's to bring: an empty one never makes setup rewrite secrets.env, and setting it keeps
+    /// every other secret.
+    #[test]
+    fn the_discord_token_is_set_not_made() {
+        let dir = tempfile::tempdir().unwrap();
+        let (made, created) = load_or_create_secrets(dir.path(), || Ok(sample_secrets())).unwrap();
+        assert!(created && made.discord_bot_token.is_empty());
+        let (_, missing) = load_or_create_secrets(dir.path(), || Ok(sample_secrets())).unwrap();
+        assert!(!missing, "an empty token is not a missing secret");
+        set_provided_secret(dir.path(), "DISCORD_BOT_TOKEN", "bot-token").unwrap();
+        let (read, _) = load_or_create_secrets(dir.path(), || Ok(sample_secrets())).unwrap();
+        assert_eq!(read.discord_bot_token, "bot-token");
+        assert_eq!(read.admin_key, made.admin_key);
+        assert!(set_provided_secret(dir.path(), "DAINTY_ADMIN_KEY", "x").is_err());
+        assert!(overrides::sensitive("DISCORD_BOT_TOKEN"));
+        assert!(env::denied("DISCORD_BOT_TOKEN").is_some());
+    }
+
+    fn sample_secrets() -> Secrets {
+        Secrets {
+            gateway_secret: "g".into(),
+            allowlist_secret: "a".into(),
+            admin_key: "k".into(),
+            gameserver_key: "s".into(),
+            api_key_hash_secret: "h".into(),
+            metrics_token: "m".into(),
+            jwt_private_key_b64: "p".into(),
+            jwt_public_key_b64: "u".into(),
+            admin_api_key: "i".into(),
+            operator_secret: "o".into(),
+            database_password: "d".into(),
+            dashboard_ingest_key: "e".into(),
+            discord_bot_token: String::new(),
+        }
     }
 }

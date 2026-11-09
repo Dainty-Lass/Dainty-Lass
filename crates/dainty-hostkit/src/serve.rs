@@ -488,6 +488,14 @@ pub fn compose(
                 .map_err(HostError::message)?,
         );
     }
+    // After admin (A7); setup writes discord.env only with [discord] enabled and the token set
+    #[cfg(feature = "discord")]
+    if !game_half && start_cmd::env_file(paths, "discord").is_file() {
+        controller.add(
+            modules::discord(&module_env(paths, "discord")?, &registry, discord_invite(paths, config))
+                .map_err(HostError::message)?,
+        );
+    }
     for library in libraries {
         hooks.compose_service_library(&mut controller, paths, config, &registry, library)?;
     }
@@ -522,6 +530,27 @@ pub fn compose(
     list_modules(paths, config, &registry, hooks.game_modules())?;
     controller.set_registry(registry);
     Ok(controller)
+}
+
+/// This server's invite as the bot fills in its codes: host.toml's address and name, and in public mode the
+/// gateway certificate's fingerprint; `None` while a public server has no certificate.
+#[cfg(feature = "discord")]
+fn discord_invite(paths: &Paths, config: &HostConfig) -> Option<dainty_protocol::invite::Invite> {
+    use dainty_protocol::invite::{Invite, ServerMode as InviteMode, dainty_version};
+    let (mode, fp, share) = match config.mode {
+        ServerMode::Public => (InviteMode::Public, Some(fingerprint(paths, config)?), None),
+        ServerMode::Private => (InviteMode::Private, None, config.share_url.clone()),
+    };
+    Some(Invite {
+        version: dainty_version(),
+        mode,
+        host: config.host.clone(),
+        port: hostconfig::gateway_port(config),
+        code: String::new(),
+        name: config.name.clone(),
+        share,
+        fp,
+    })
 }
 
 /// The tunnel to the other half of a split server: its port listened on here, this half's reached from there.
@@ -1085,6 +1114,7 @@ mod tests {
             split: None,
             logs: None,
             events: None,
+            discord: None,
             switches: Default::default(),
             file: FileForm::default(),
         }

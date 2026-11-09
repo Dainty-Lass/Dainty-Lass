@@ -22,7 +22,7 @@ use crate::error::HostError;
 use crate::gamedata::{GenerateOptions, generate_game_data, seed_embedded_examples};
 use crate::hostconfig::{
     Platform, ServerMode, build_env_files, linux_options, load_host_config, load_or_create_secrets, save_host_config,
-    write_env_files,
+    set_provided_secret, write_env_files,
 };
 use crate::invite::certificate_fingerprint;
 use crate::linux::{ensure_wine_prefix, is_root, write_gameserver_wrapper, write_systemd_units};
@@ -72,6 +72,14 @@ pub trait SetupEnv {
     /// The environment the services will inherit, whose variables override host.toml (RD24).
     fn inherited_env(&self) -> Vec<(String, String)> {
         std::env::vars().collect()
+    }
+    /// The Discord bot's token, one line from stdin: never an argument, which other users and shells' history see.
+    fn read_discord_token(&self) -> Result<String, HostError> {
+        let mut line = String::new();
+        std::io::stdin()
+            .read_line(&mut line)
+            .map_err(|e| HostError::message(format!("could not read the Discord bot token from stdin: {e}")))?;
+        Ok(line.trim().to_owned())
     }
 }
 
@@ -199,6 +207,14 @@ pub fn run_with(
     let layout = Layout::new(p);
     let existing = load_host_config(p)?;
     let mut config = host_config_from_args(args, existing.as_ref(), env)?;
+    // Read and checked before anything is written
+    let discord_token = if args.discord_bot_token {
+        let token = env.read_discord_token()?;
+        dainty_discord::config::BotToken::new(&token).map_err(HostError::message)?;
+        Some(token)
+    } else {
+        None
+    };
 
     let is_release = crate::selfupdate::read_manifest(&p.repo)?.is_some();
     if !is_release && !args.skip_install && env.require_checkout_sources() {
@@ -240,7 +256,12 @@ pub fn run_with(
         config.database.get_or_insert_with(Default::default).fresh_start = Some(true);
     }
 
-    let (sec, created_secrets) = load_or_create_secrets(&p.config, secrets::new_secrets)?;
+    let (mut sec, created_secrets) = load_or_create_secrets(&p.config, secrets::new_secrets)?;
+    if let Some(token) = discord_token {
+        set_provided_secret(&p.config, "DISCORD_BOT_TOKEN", &token)?;
+        sec.discord_bot_token = token;
+        out("- Discord bot token: kept in secrets.env");
+    }
     save_host_config(p, &config)?;
     if config
         .remote
@@ -318,6 +339,11 @@ pub fn run_with(
         written_env_names.join(", "),
         p.config.display()
     ));
+    if config.discord.as_ref().is_some_and(|d| d.enabled) && env_files.discord.is_none() {
+        out(
+            "- warning: [discord] is on but has no token: run dainty-host setup --discord-bot-token, the token on stdin",
+        );
+    }
 
     if config.mode == ServerMode::Public {
         let tls_dir = p.cert_file.parent().unwrap_or_else(|| Path::new(".")).to_path_buf();

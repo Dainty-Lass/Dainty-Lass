@@ -181,6 +181,7 @@ servers' key) lives only in `secrets.env`.
 | (edit `host.toml`) | `[network]` `node`, `region`, `leader`, `wrong_node_policy` | This server's name, region and optional directory leader in a network, and what a join that reaches the wrong node gets: `refuse` (the default) or `redirect` to the node that owns it (DN6). Left out: a server on its own |
 | (edit `host.toml`) | `[network]` `failover`, `heartbeat_ms`, `election_timeout_ms` | `failover = true`: the nodes elect the directory leader among themselves and elect another when it goes down, and a registration is acknowledged only once a majority of the nodes holds it; leave `leader` out. Run three or five nodes. The timings default to 1000 and 5000 ms ([distributed-mode.md](https://git.silentspud.com/silentspud/dainty-lass/src/branch/main/docs/distributed-mode.md)). Left out: the fixed leader |
 | (edit `host.toml`) | `[logs]` `format`, `color`, `gelf_url` | The console log: `text` (Docker-like lines, `service \| time LEVEL module: message key=value`) or `json`; color `auto` (on a terminal, unless `NO_COLOR`), `always` or `never`; and a GELF collector (Graylog) every record is shipped to, `https://`, or `http://`/`tcp://` only to this machine or a private network ([logging.md](https://git.silentspud.com/silentspud/dainty-lass/src/branch/main/docs/logging.md)). Left out: colored text, nothing shipped |
+| `--discord-bot-token` (the token on stdin), `--no-discord`, `--discord-guild <id>` (repeat it), `--discord-application-id`, `--discord-dashboard-url` | `[discord]` `enabled`, `guild_ids`, `application_id`, `dashboard_url` | The Discord bot ([below](#the-discord-bot)), written to `discord.env`: `/key` and `/status` in the guilds `guild_ids` lists (left out: every guild the bot is in), `application_id` checked against the token's, and the dashboard asked whether signups are on (left out: `dashboard_url`). `--discord-bot-token` turns it on, `--no-discord` off. Left out: no bot |
 | (edit `host.toml`) | `[events]` `retention_days` | How many days the server keeps the game modules' events (a game server up or down, a module restarted, `events.lagged` when the recorder fell behind) in its database: `events.db` beside the game's on SQLite, the server's Postgres database otherwise. 0 to 3650; 0 keeps every event. Left out: 90 days |
 | (edit `host.toml`) | `[split]` `role`, `peer`, `open_game_ports` | This server as one half of two: `metagame` (backend, content, admin) or `gameservers` (the Director and its game servers), the other half's node id in `[[network.nodes]]`, and for a public game half its open game ports ([split-roles.md](https://git.silentspud.com/silentspud/dainty-lass/src/branch/main/docs/split-roles.md)). Left out: one server runs both |
 | (edit `host.toml`) | `[[network.nodes]]` `id`, `region`, `host`, `port`, `fingerprint`, `link` | The other nodes of the network: the only ones this node answers, and the ones it calls (below). `link` (`host:port`) is where node links dial instead of `host`: a back channel such as the peer's Tailscale address, which its node certificate must carry too. Left out: no peers, and the server works as one outside a network |
@@ -288,6 +289,7 @@ Consumable_Potion = 10
 | `RUSTIC_ISLES_MANAGER_OPERATOR_SECRET` | `backend.env`, `admin.env` | HMAC secret signing the admin API's `/admin/v1` requests to the backend |
 | `DAINTY_DB_PASSWORD` | `admin.env` (when Postgres is enabled) | Password for the Postgres role when `[database]` uses `engine = "postgres"` |
 | `DASHBOARD_INGEST_KEY` | `gateway.env` (`CHAT_DASHBOARD_INGEST_KEY`, when `dashboard_url` is set) | What chat sends the staff dashboard with: set the dashboard's own `DASHBOARD_INGEST_KEY` to the same value |
+| `DISCORD_BOT_TOKEN` | `discord.env` (when `[discord]` is on) | The Discord bot's token. Setup never makes it: `setup --discord-bot-token` reads it from stdin ([the Discord bot](#the-discord-bot)) |
 
 The `RUSTIC_ISLES_*` names were `MYSTICPARADOX_*` before the Rustic Isles rename. `setup` moves the two secrets to
 their new names in `secrets.env` with the same values, and writes only the new names into the env files; the backend,
@@ -368,6 +370,29 @@ delay_minutes = 30
 lists what waits. A rule on `"approval"` on a server with one owner key waits for nobody and expires after
 `expire_hours`: use it once the team has a second key. How it works, and what a bot sees, is in
 [admin-api.md](https://git.silentspud.com/silentspud/dainty-lass/src/branch/main/docs/admin-api.md#guarded-actions-dh6).
+
+### The Discord bot
+
+The server can run a Discord bot in its own process (dainty-lass's `docs/module-sharing-plan.md`, A7). `/key` gives
+the member who asked, and only them, the dashboard's signup link when the dashboard takes signups
+(`GET /api/public/signup`), and otherwise an invite of their own: one use, valid 30 minutes, made only while Ramsgate
+is up. A member gets the same invite again until it is close to expiring, and at most five `/key` in 15 minutes.
+`/status` says whether the game is up. Each `/key`'s outcome, never the invite, is kept with the server's events.
+
+1. In Discord's developer portal, make an application and its bot, and copy the bot's token. The bot needs no
+   privileged intents and no permissions.
+2. Invite it to your Discord server with the scopes `bot` and `applications.commands`.
+3. Give setup the token on stdin, never as an argument, and the guild's id (Developer Mode, then Copy Server ID):
+
+   ```powershell
+   Get-Content discord-token.txt | bin\dainty-host setup --discord-bot-token --discord-guild 123456789012345678
+   ```
+
+4. Start the server. The bot connects out to Discord, so it needs no port; `/key` and `/status` appear in the
+   guild within a minute.
+
+The token stays in `secrets.env`; run setup with `--discord-bot-token` again to replace it, and `--no-discord` to
+turn the bot off. Its security checklist is dainty-lass's `docs/security/discord.md`.
 
 ### Game modules and plugins
 

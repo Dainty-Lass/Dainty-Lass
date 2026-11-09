@@ -10,6 +10,7 @@ use serde_json::{Map, Value, json};
 use crate::cli::SetupArgs;
 use crate::commands::setup::SetupEnv;
 use crate::error::HostError;
+use crate::hostconfig::discord::DiscordConfig;
 use crate::hostconfig::{
     DEFAULT_MONGO_URI, DEFAULT_PERFORMANCE, HostConfig, LinuxOptions, Multipliers, PerformanceOptions, Platform,
     Registration, ServerMode, game_ports, is_dns_name, is_ipv4, is_public_ipv4, is_tailscale_ipv4, is_valid_share_url,
@@ -619,9 +620,49 @@ pub fn host_config_from_args(
         }
     }
 
-    let parsed = HostConfig::from_json(&Value::Object(doc))?.written_over(existing);
+    let mut parsed = HostConfig::from_json(&Value::Object(doc))?.written_over(existing);
     let _ = linux_options(&parsed);
+    parsed.discord = discord_from_args(args, parsed.discord.take())?;
     Ok(parsed)
+}
+
+/// `[discord]` with setup's options over host.toml's; untouched when none is given. A token turns the bot on.
+pub fn discord_from_args(
+    args: &SetupArgs,
+    existing: Option<DiscordConfig>,
+) -> Result<Option<DiscordConfig>, HostError> {
+    let given = args.discord_bot_token
+        || args.no_discord
+        || !args.discord_guilds.is_empty()
+        || args.discord_application_id.is_some()
+        || args.discord_dashboard_url.is_some();
+    if !given {
+        return Ok(existing);
+    }
+    if args.discord_bot_token && args.no_discord {
+        return Err(HostError::message(
+            "--discord-bot-token turns the bot on and --no-discord off: pass one",
+        ));
+    }
+    let mut table = existing.unwrap_or_default().to_json();
+    if let Value::Object(map) = &mut table {
+        if args.discord_bot_token {
+            map.insert("enabled".into(), json!(true));
+        }
+        if args.no_discord {
+            map.insert("enabled".into(), json!(false));
+        }
+        if !args.discord_guilds.is_empty() {
+            map.insert("guildIds".into(), json!(args.discord_guilds));
+        }
+        if let Some(id) = &args.discord_application_id {
+            map.insert("applicationId".into(), json!(id));
+        }
+        if let Some(url) = &args.discord_dashboard_url {
+            map.insert("dashboardUrl".into(), json!(url));
+        }
+    }
+    DiscordConfig::from_json(&table).map(Some)
 }
 
 /// The first common Dauntless folder that holds the pinned 1.14.7 build.
@@ -646,4 +687,55 @@ pub fn detect_default_game_dir() -> Option<String> {
         }
     }
     None
+}
+
+#[cfg(test)]
+mod tests {
+    #![allow(clippy::unwrap_used, reason = "a panic is how a test fails")]
+
+    use super::*;
+
+    #[test]
+    fn discord_options_lay_over_host_toml() {
+        let none = SetupArgs::default();
+        assert_eq!(discord_from_args(&none, None).unwrap(), None);
+        let kept = DiscordConfig {
+            enabled: true,
+            guild_ids: vec!["5".into()],
+            ..DiscordConfig::default()
+        };
+        assert_eq!(
+            discord_from_args(&none, Some(kept.clone())).unwrap(),
+            Some(kept.clone())
+        );
+
+        let token = SetupArgs {
+            discord_bot_token: true,
+            discord_guilds: vec!["7".into(), "8".into()],
+            ..SetupArgs::default()
+        };
+        let on = discord_from_args(&token, None).unwrap().unwrap();
+        assert!(on.enabled);
+        assert_eq!(on.guild_ids, ["7", "8"]);
+
+        let off = SetupArgs {
+            no_discord: true,
+            ..SetupArgs::default()
+        };
+        let off = discord_from_args(&off, Some(kept)).unwrap().unwrap();
+        assert!(!off.enabled);
+        assert_eq!(off.guild_ids, ["5"], "turning it off keeps the rest");
+
+        let both = SetupArgs {
+            discord_bot_token: true,
+            no_discord: true,
+            ..SetupArgs::default()
+        };
+        assert!(discord_from_args(&both, None).is_err());
+        let bad = SetupArgs {
+            discord_guilds: vec!["guild".into()],
+            ..SetupArgs::default()
+        };
+        assert!(discord_from_args(&bad, None).is_err());
+    }
 }

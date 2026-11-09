@@ -57,6 +57,8 @@ pub fn new_secrets() -> Result<Secrets, HostError> {
         operator_secret: hex(&rng)?,
         database_password: hex(&rng)?,
         dashboard_ingest_key: hex(&rng)?,
+        // The host brings it (`setup --discord-bot-token`)
+        discord_bot_token: String::new(),
     })
 }
 

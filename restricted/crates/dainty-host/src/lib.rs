@@ -1958,6 +1958,7 @@ mod tests {
             split: None,
             logs: None,
             events: None,
+            discord: None,
             file: FileForm::default(),
         };
         save_host_config(&paths, &cfg).unwrap();
@@ -2045,6 +2046,7 @@ mod tests {
             split: None,
             logs: None,
             events: None,
+            discord: None,
             switches: Default::default(),
             file: FileForm::default(),
         };
@@ -2141,6 +2143,7 @@ mod tests {
             split: None,
             logs: None,
             events: None,
+            discord: None,
             switches: Default::default(),
             file: FileForm::default(),
         };

@@ -121,6 +121,7 @@ mod tests {
             gateway: g,
             admin: Vec::new(),
             allowlist: None,
+            discord: None,
             passthrough_refused: Vec::new(),
         }
     }

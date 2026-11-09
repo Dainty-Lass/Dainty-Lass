@@ -283,6 +283,21 @@ pub struct SetupArgs {
     /// Skips installing and building the services.
     #[arg(long = "skip-install")]
     pub skip_install: bool,
+    /// Reads the Discord bot's token from stdin into secrets.env and turns the bot on ([discord]).
+    #[arg(long = "discord-bot-token")]
+    pub discord_bot_token: bool,
+    /// Turns the Discord bot off; its token stays in secrets.env.
+    #[arg(long = "no-discord")]
+    pub no_discord: bool,
+    /// A Discord server (guild id) the bot answers in; repeat for more. Replaces the list host.toml has.
+    #[arg(long = "discord-guild")]
+    pub discord_guilds: Vec<String>,
+    /// The Discord bot's application id, checked against its token's.
+    #[arg(long = "discord-application-id")]
+    pub discord_application_id: Option<String>,
+    /// dainty-dash, which the bot asks whether signups are on (left out: host.toml's dashboard_url).
+    #[arg(long = "discord-dashboard-url")]
+    pub discord_dashboard_url: Option<String>,
     /// Words setup did not expect, refused with a hint to quote values with spaces.
     #[arg(trailing_var_arg = true, allow_hyphen_values = true, hide = true)]
     pub unexpected: Vec<String>,

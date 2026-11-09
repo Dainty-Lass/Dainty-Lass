@@ -9,11 +9,13 @@ repository.workspace = true
 publish.workspace = true
 
 [features]
-# The MIT services built into the binary (`admin`, `remote`). The AGPL services are composed by dainty-restricted's
-# host until each is a library the core loads (RD27)
-default = ["admin", "remote", "events"]
-services = ["admin", "remote", "events"]
+# The MIT services built into the binary (`admin`, `remote`, `discord`). The AGPL services are composed by
+# dainty-restricted's host until each is a library the core loads (RD27)
+default = ["admin", "remote", "events", "discord"]
+services = ["admin", "remote", "events", "discord"]
 admin = ["dep:dainty-admin"]
+# The Discord bot (module sharing A7)
+discord = ["dep:dainty-discord"]
 remote = ["dep:dainty-remote"]
 # The event recorder (module sharing A5): the registry's events kept in `store`
 events = ["dep:dainty-store", "dep:diesel", "dep:diesel_migrations"]
@@ -34,6 +36,7 @@ doc = false
 
 [dependencies]
 dainty-admin = { workspace = true, optional = true }
+dainty-discord = { path = "../dainty-discord", optional = true }
 dainty-history-ship = { workspace = true, optional = true }
 diesel = { workspace = true, optional = true }
 diesel_migrations = { workspace = true, optional = true }
