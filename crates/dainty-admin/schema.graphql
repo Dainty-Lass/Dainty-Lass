@@ -107,6 +107,32 @@ type Availability {
 }
 
 """
+One kept event.
+"""
+type EventEntry {
+	"""
+	Row number; the next page's `after`.
+	"""
+	seq: Int!
+	"""
+	Unix milliseconds the recorder received it.
+	"""
+	atMs: Int!
+	"""
+	Such as game.server.down, or events.lagged where the recorder fell behind.
+	"""
+	name: String!
+	"""
+	The module that emitted it; null for the host.
+	"""
+	source: String
+	"""
+	The event's data; never a secret or an invite code.
+	"""
+	payload: JSON!
+}
+
+"""
 One game server a game module runs.
 """
 type GameServer {
@@ -487,6 +513,11 @@ type IssuedKey {
 }
 
 """
+A scalar that can represent any JSON value.
+"""
+scalar JSON
+
+"""
 What a kick did.
 """
 type KickResult {
@@ -859,6 +890,11 @@ type Query {
 	Whether players can get into `game` now (1.14.7 when none is named).
 	"""
 	availability(game: String): Availability!
+	"""
+	The events the server kept (game.server.up, module.restarted...), oldest first: those after row
+	`after`, only the ones named in `names` when given, at most `limit` (100 when left out, 1000 at most).
+	"""
+	events(after: Int, names: [String!], limit: Int): [EventEntry!]!
 	"""
 	host.toml's `[logs]`, and whether the file changed since this run started. Needs the admin role.
 	"""

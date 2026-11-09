@@ -44,6 +44,7 @@ type Query {
   activeTimeouts: [ActiveTimeout!]!            # the timeouts this API will lift, soonest first: username, until, reason, by, at
   gameServers(game: String): [GameServer!]!    # game, id, kind (HUB HUNT DOJO TUTORIAL), title, map, host, port, players, maxPlayers, ready, startedAt
   availability(game: String): Availability!    # game, up, reason (a code), hub, freeHunts; game defaults to 1.14.7
+  events(after: Int, names: [String!], limit: Int): [EventEntry!]!   # seq, atMs, name, source, payload (JSON), oldest first
   guarded(all: Boolean): [GuardedAction!]!     # the destructive and bulk actions that wait (below)
   history(filter: HistoryFilter, cursor: String, limit: Int): HistoryPage!   # admin: the change logs, newest first
   historyCheck: [HistoryCheck!]!               # admin: each log's hash chain, walked from its start
@@ -77,6 +78,13 @@ translate, never a sentence: `director_unreachable`, `no_hub`, `hub_not_ready` o
 loaded and not started yet). A game no module serves is `UNKNOWN_GAME`, and a module that doesn't answer game calls
 `NOT_SUPPORTED`. When `gameServers(game:)` meets an unavailable module, the `BACKEND_UNAVAILABLE` error carries the
 same code in `extensions.reason`.
+
+`events` reads what the server's event recorder kept (the module-sharing plan's A5): `game.server.up`,
+`game.server.down`, `game.availability.changed`, `module.restarted` and the rest, oldest first. Page with `after`,
+the last row's `seq`; `names` keeps only those names; `limit` is 100 when left out and 1000 at most. `source` is the
+module that emitted it, null for the server itself, and an `events.lagged` row (`payload: {"missed": n}`) marks
+where the recorder fell behind. Rows go after `[events] retention_days` (90 by default). A server built without the
+recorder answers `NOT_SUPPORTED`, and a standalone admin API `MODULES_UNAVAILABLE`.
 
 Which game a player is in: the Node backend answers for 1.14.7 until a module for 1.14.7 is loaded, and each game
 module that registers admin actions answers for its own game. The API asks every game for the name at once. A name
@@ -133,7 +141,7 @@ nobody else's key changes.
 
 | Role | May |
 | --- | --- |
-| `viewer` | Read: `player`, `serverStatus`, `huntStatus`, `activeTimeouts`, `modules`, `module`, `gameServers`, `availability` |
+| `viewer` | Read: `player`, `serverStatus`, `huntStatus`, `activeTimeouts`, `modules`, `module`, `gameServers`, `availability`, `events` |
 | `moderator` | Viewer, and `kick`, `timeout`, `ban`, and `guarded`, `approve`, `cancel` (a held action: see Guarded actions) |
 | `admin` | Moderator, and `unban`, `liftTimeout`, `loadModule`, `unloadModule`, `restartModule`, `adminKeys`, `issueKey` for viewer and moderator keys, `logSettings`, and reading the change logs: `history`, `historyCheck` |
 | `owner` | Everything: `issueKey` for any role, `revokeKey`, `setLogSettings` (a collector receives every line the server logs), and the history revert: `revertPlan`, `revertApply` (a big one is held first: see Guarded actions) |
