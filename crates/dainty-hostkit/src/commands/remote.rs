@@ -935,6 +935,9 @@ impl RemoteHostHandler for HostKitRemoteHandler {
             }),
             mongo_migration,
             history: None,
+            // The server's sync loop fills these from the registry (`sync_once_with_games`, MS6)
+            game_servers: Vec::new(),
+            availability: None,
         })
     }
 

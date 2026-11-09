@@ -11,6 +11,7 @@ use serde_json::json;
 use tokio::task::JoinSet;
 
 use crate::config;
+use crate::fleet::{FleetAction, FleetModeration};
 use crate::guard::Guards;
 use crate::guarded::{APPROVED_BY, Gate, GuardedAction};
 use crate::history;
@@ -2419,6 +2420,10 @@ impl Admin {
 
 // ------------------------------------------------------------------ the GraphQL roots
 
+fn checked_reason(reason: &str) -> async_graphql::Result<String> {
+    input::reason(reason).ok_or_else(|| fail(Code::BadInput, "reason must be 3 to 400 characters"))
+}
+
 fn parts<'a>(ctx: &'a Context<'_>) -> async_graphql::Result<(&'a Arc<Admin>, &'a Caller)> {
     Ok((ctx.data::<Arc<Admin>>()?, ctx.data::<Caller>()?))
 }
@@ -2512,6 +2517,12 @@ impl Query {
         crate::events::list(ctx, after, names, limit).await
     }
 
+    /// Every install this remote controller manages, with its last report: state, availability and game
+    /// servers (MS6). NO_FLEET on a server that is not a remote controller.
+    async fn installs(&self, ctx: &Context<'_>) -> async_graphql::Result<Vec<crate::fleet::Install>> {
+        crate::fleet::installs(ctx)
+    }
+
     /// host.toml's `[logs]`, and whether the file changed since this run started. Needs the admin role.
     async fn log_settings(&self, ctx: &Context<'_>) -> async_graphql::Result<LogSettings> {
         let (_, caller) = parts(ctx)?;
@@ -2577,18 +2588,33 @@ pub struct Mutation;
 impl Mutation {
     /// Drops a connected player now: their chat connections close and their sign-in tokens are
     /// revoked. They are not banned, and may log in again.
+    /// With `node`, queued for that install of this remote controller's fleet instead (QUEUED, MS6).
     async fn kick(
         &self,
         ctx: &Context<'_>,
         username: String,
         game: Option<String>,
+        node: Option<String>,
     ) -> async_graphql::Result<KickResult> {
         let (admin, caller) = parts(ctx)?;
+        if let Some(node) = node {
+            let moderation = FleetModeration {
+                action: FleetAction::Kick,
+                target: username,
+                reason: None,
+                duration_secs: None,
+                key: String::new(),
+                role: caller.role,
+            };
+            return crate::fleet::queue(ctx, admin, caller, &node, moderation).await;
+        }
         admin.kick(caller, &username, game.as_deref()).await
     }
 
     /// Bans a player until a given time, then lifts the ban. Give `minutes` or `until` (RFC 3339),
     /// within a year. Replaces an earlier timeout; refused for a player who is banned.
+    /// With `node`, queued for that install of this remote controller's fleet instead (QUEUED, MS6).
+    #[allow(clippy::too_many_arguments, reason = "each is a GraphQL argument")]
     async fn timeout(
         &self,
         ctx: &Context<'_>,
@@ -2597,46 +2623,97 @@ impl Mutation {
         until: Option<String>,
         reason: String,
         game: Option<String>,
+        node: Option<String>,
     ) -> async_graphql::Result<Player> {
         let (admin, caller) = parts(ctx)?;
+        if let Some(node) = node {
+            let moderation = FleetModeration {
+                action: FleetAction::Timeout,
+                target: username,
+                reason: Some(checked_reason(&reason)?),
+                duration_secs: Some(crate::fleet::timeout_secs(minutes, until.as_deref(), admin.now())?),
+                key: String::new(),
+                role: caller.role,
+            };
+            return crate::fleet::queue(ctx, admin, caller, &node, moderation).await;
+        }
         admin
             .timeout(caller, &username, minutes, until.as_deref(), &reason, game.as_deref())
             .await
     }
 
     /// Lifts a timeout before it runs out.
+    /// With `node`, queued for that install of this remote controller's fleet instead (QUEUED, MS6).
     async fn lift_timeout(
         &self,
         ctx: &Context<'_>,
         username: String,
         game: Option<String>,
+        node: Option<String>,
     ) -> async_graphql::Result<Player> {
         let (admin, caller) = parts(ctx)?;
+        if let Some(node) = node {
+            let moderation = FleetModeration {
+                action: FleetAction::LiftTimeout,
+                target: username,
+                reason: None,
+                duration_secs: None,
+                key: String::new(),
+                role: caller.role,
+            };
+            return crate::fleet::queue(ctx, admin, caller, &node, moderation).await;
+        }
         admin.lift_timeout(caller, &username, game.as_deref()).await
     }
 
     /// Bans a player until someone unbans them. Replaces a timeout. The player reads `reason` in the
     /// launcher.
+    /// With `node`, queued for that install of this remote controller's fleet instead (QUEUED, MS6).
     async fn ban(
         &self,
         ctx: &Context<'_>,
         username: String,
         reason: String,
         game: Option<String>,
+        node: Option<String>,
     ) -> async_graphql::Result<Player> {
         let (admin, caller) = parts(ctx)?;
+        if let Some(node) = node {
+            let moderation = FleetModeration {
+                action: FleetAction::Ban,
+                target: username,
+                reason: Some(checked_reason(&reason)?),
+                duration_secs: None,
+                key: String::new(),
+                role: caller.role,
+            };
+            return crate::fleet::queue(ctx, admin, caller, &node, moderation).await;
+        }
         admin.ban(caller, &username, &reason, game.as_deref()).await
     }
 
     /// Lifts a ban or a timeout.
+    /// With `node`, queued for that install of this remote controller's fleet instead (QUEUED, MS6).
     async fn unban(
         &self,
         ctx: &Context<'_>,
         username: String,
         reason: Option<String>,
         game: Option<String>,
+        node: Option<String>,
     ) -> async_graphql::Result<Player> {
         let (admin, caller) = parts(ctx)?;
+        if let Some(node) = node {
+            let moderation = FleetModeration {
+                action: FleetAction::Unban,
+                target: username,
+                reason: reason.as_deref().map(checked_reason).transpose()?,
+                duration_secs: None,
+                key: String::new(),
+                role: caller.role,
+            };
+            return crate::fleet::queue(ctx, admin, caller, &node, moderation).await;
+        }
         admin.unban(caller, &username, reason.as_deref(), game.as_deref()).await
     }
 

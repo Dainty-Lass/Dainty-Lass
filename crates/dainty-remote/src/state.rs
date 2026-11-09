@@ -31,6 +31,9 @@ use crate::wire::{
     RemoteLogEntry, RemoteRequest, RemoteResponse, RemoteRole, SharedConfigBundle,
 };
 
+/// How long an install may go without a sync before it reads as offline: four missed 15 s reports.
+pub const DEFAULT_OFFLINE_THRESHOLD_MS: i64 = 60_000;
+
 const NODE_URI_PREFIX: &str = "urn:dainty-lass:node:";
 const REGION_URI_PREFIX: &str = "urn:dainty-lass:region:";
 
@@ -199,6 +202,29 @@ impl EnrolledInstallRecord {
         }
         EnrolledInstallState::Online
     }
+}
+
+/// One enrolled install as the fleet view shows it, from its record and last report (MS6).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct InstallSummary {
+    /// Its node id.
+    pub node: NodeId,
+    /// Its region.
+    pub region: Region,
+    /// Display label.
+    pub label: String,
+    /// Online, degraded, offline or revoked.
+    pub state: EnrolledInstallState,
+    /// When its last report arrived, in Unix milliseconds.
+    pub last_report_ms: Option<i64>,
+    /// Server version, from the last report.
+    pub version: Option<String>,
+    /// Players online, from the last report.
+    pub players_online: Option<u32>,
+    /// Its game servers, from the last report; empty for a node older than MS6.
+    pub game_servers: Vec<dainty_module_api::GameServer>,
+    /// Whether players can get in, from the last report.
+    pub availability: Option<dainty_module_api::Availability>,
 }
 
 /// Pending guarded remote action awaiting a second operator's approval (`DH6`).
@@ -655,6 +681,48 @@ impl RemoteControllerState {
         }
         item.canceled = true;
         Ok(item.clone())
+    }
+
+    /// Every enrolled install with its last report, by node id (MS6).
+    pub fn install_summaries(&self, now_ms: i64, offline_threshold_ms: i64) -> Vec<InstallSummary> {
+        self.installs
+            .values()
+            .map(|rec| {
+                let report = rec.last_report.as_ref();
+                InstallSummary {
+                    node: rec.node.clone(),
+                    region: rec.region.clone(),
+                    label: rec.label.clone(),
+                    state: rec.state(now_ms, offline_threshold_ms),
+                    last_report_ms: report.and(rec.last_seen_ms),
+                    version: report.map(|r| r.version.clone()),
+                    players_online: report.map(|r| r.players_online),
+                    game_servers: report.map(|r| r.game_servers.clone()).unwrap_or_default(),
+                    availability: report.and_then(|r| r.availability.clone()),
+                }
+            })
+            .collect()
+    }
+
+    /// Queues one [`RemoteCommand::AdminAction`] for one install, for the admin API's `node` argument (MS6);
+    /// the command id is the receipt. Role checks are [`Self::submit_command`]'s.
+    pub fn queue_admin_action(
+        &mut self,
+        node: &NodeId,
+        operator: OperatorEnvelope,
+        command: RemoteCommand,
+        now_ms: i64,
+    ) -> Result<String, RemoteError> {
+        if !matches!(command, RemoteCommand::AdminAction { .. }) {
+            return Err(RemoteError::InvalidInput(
+                "only a moderation action is queued here".to_string(),
+            ));
+        }
+        match self.submit_command(vec![node.clone()], operator, command, now_ms, 0, false)? {
+            SubmitCommandResult::Queued { command_id, .. } => Ok(command_id),
+            // Moderation is never guarded on the wire (`RemoteCommand::is_guarded`)
+            SubmitCommandResult::PendingGuarded { guarded } => Ok(guarded.id),
+        }
     }
 
     /// Handle an incoming `RemoteRequest` on the controller from an mTLS-authenticated `peer`.

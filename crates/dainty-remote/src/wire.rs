@@ -7,6 +7,7 @@
 use std::collections::BTreeMap;
 
 use dainty_module_api::network::{NodeId, Region};
+use dainty_module_api::{Availability, GameServer};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -21,6 +22,9 @@ pub const MAX_LOG_ENTRIES: usize = 500;
 
 /// Maximum length of a public key / certificate PEM carried during enrollment.
 pub const MAX_PEM_LEN: usize = 16 * 1024;
+
+/// Most game servers one [`InstallReport`] lists.
+pub const MAX_REPORT_GAME_SERVERS: usize = 256;
 
 /// Secret patterns that must never cross the remote-management wire in either direction
 /// (`docs/remote-management.md` §6).
@@ -825,6 +829,13 @@ pub struct InstallReport {
     /// Change-log summary.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub history: Option<HistorySummary>,
+    /// Its game modules' servers (MS6). Left out when empty, so a node with none still reaches a controller
+    /// older than MS6, which refuses unknown fields.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub game_servers: Vec<GameServer>,
+    /// Whether players can get into its game now (MS6).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub availability: Option<Availability>,
 }
 
 impl InstallReport {
@@ -840,6 +851,9 @@ impl InstallReport {
             && doc.checks.len() > 128
         {
             return Err(RemoteError::InvalidInput("too many doctor check entries".to_string()));
+        }
+        if self.game_servers.len() > MAX_REPORT_GAME_SERVERS {
+            return Err(RemoteError::InvalidInput("too many game servers".to_string()));
         }
         let val =
             serde_json::to_value(self).map_err(|e| RemoteError::InvalidInput(format!("serialization error: {e}")))?;

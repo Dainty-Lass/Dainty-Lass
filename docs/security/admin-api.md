@@ -205,6 +205,17 @@ and input checks (`schema.rs`; `guarded.rs`, `guard.rs`). Not guarded, with the 
       shows as `UNKNOWN`, null, false or 0 for a module's player, never as a guess. Refusing a module's admin is the
       module's job, and it answers `BACKEND_REFUSED` with the module's reason rather than `PROTECTED_ACCOUNT`.
 
+### The fleet (MS6)
+
+- [ ] `installs` and a moderation mutation's `node` work only on a remote controller; elsewhere they answer
+      `NO_FLEET` (`fleet.rs`, the `ModuleControl` defaults). Nothing new listens: the fleet comes from the reports
+      the remote module already keeps (`docs/security/remote-management.md`).
+- [ ] With `node`, the username, reason and timeout length are checked here as for a local action, and the key
+      needs the role the local mutation needs (`a_queued_action_needs_the_role_the_local_one_needs`); the remote
+      role check runs again on the controller and on the install. The command carries the key's id, never the key.
+- [ ] A queued action is audited here with its node and command id, then by the install that runs it. The local
+      ban limit (DH6) counts only actions run here; the install's own guard applies when it runs one.
+
 ### What it sends on
 
 - [ ] The backend and Director URLs must be `http://` on a loopback address with no path (`config.rs`, `local_url`).

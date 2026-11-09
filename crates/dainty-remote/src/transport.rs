@@ -9,8 +9,8 @@ use std::sync::{Arc, Mutex, PoisonError};
 use std::time::Duration;
 
 use bytes::Bytes;
-use dainty_module_api::BoxFuture;
 use dainty_module_api::network::NodeId;
+use dainty_module_api::{Availability, BoxFuture, GameServer};
 use dainty_network::link::{LinkError, NodeService, PeerLink, Service};
 use http::Request;
 use http_body_util::{BodyExt, Full, Limited};
@@ -27,8 +27,9 @@ use crate::RemoteError;
 use crate::enroll::{EnrollmentInvite, verify_cert_fingerprint};
 use crate::state::{RemoteControllerState, RemoteHostHandler, RemoteManagedAgent, generate_node_keypair_and_spki_pem};
 use crate::wire::{
-    CommandOutcome, EnrollAnswer, EnrollRequest, MAX_REMOTE_WIRE, RemoteRequest, decode_enroll_answer, decode_request,
-    decode_response, encode_enroll_request, encode_request, encode_response,
+    CommandOutcome, EnrollAnswer, EnrollRequest, InstallReport, MAX_REMOTE_WIRE, MAX_REPORT_GAME_SERVERS,
+    RemoteRequest, decode_enroll_answer, decode_request, decode_response, encode_enroll_request, encode_request,
+    encode_response,
 };
 
 /// The gateway route a new install redeems its enrollment code at.
@@ -188,6 +189,50 @@ pub async fn sync_once_with_controller(
     handler: &dyn RemoteHostHandler,
     pending_outcomes: &Mutex<Vec<CommandOutcome>>,
 ) -> Result<u64, RemoteError> {
+    sync_once_with_games(link, agent, handler, pending_outcomes, None).await
+}
+
+/// The game servers and availability a managed install reports (MS6), from the server's module registry.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct GameFleet {
+    /// Every ready game module's servers.
+    pub game_servers: Vec<GameServer>,
+    /// Whether players can get into the node's game now.
+    pub availability: Option<Availability>,
+}
+
+/// Where a managed install's sync reads [`GameFleet`] from: the registry's `game_servers` and
+/// `GameCall::Availability` (MS2), kept out of this crate so it needs no controller.
+pub trait GameFleetSource: Send + Sync {
+    /// The game servers and availability now.
+    fn game_fleet(&self) -> BoxFuture<'_, GameFleet>;
+}
+
+/// [`sync_once_with_controller`], with each report carrying `games`' servers and availability (MS6).
+pub async fn sync_once_with_games(
+    link: &dyn PeerLink,
+    agent: &Mutex<RemoteManagedAgent>,
+    handler: &dyn RemoteHostHandler,
+    pending_outcomes: &Mutex<Vec<CommandOutcome>>,
+    games: Option<&dyn GameFleetSource>,
+) -> Result<u64, RemoteError> {
+    let fleet = match games {
+        Some(source) => Some(source.game_fleet().await),
+        None => None,
+    };
+    let report_at = |revision: u64| -> Result<InstallReport, RemoteError> {
+        let mut report = handler.build_report(revision)?;
+        if let Some(fleet) = &fleet {
+            report.game_servers = fleet
+                .game_servers
+                .iter()
+                .take(MAX_REPORT_GAME_SERVERS)
+                .cloned()
+                .collect();
+            report.availability = fleet.availability.clone();
+        }
+        Ok(report)
+    };
     let (node, controller_node, applied_rev, detached) = {
         let g = agent.lock().unwrap_or_else(PoisonError::into_inner);
         (
@@ -200,7 +245,7 @@ pub async fn sync_once_with_controller(
     if detached {
         return Err(RemoteError::RevokedPeer(node.as_str().to_string()));
     }
-    let report = handler.build_report(applied_rev)?;
+    let report = report_at(applied_rev)?;
     let completed = {
         let mut g = pending_outcomes.lock().unwrap_or_else(PoisonError::into_inner);
         std::mem::take(&mut *g)
@@ -223,7 +268,7 @@ pub async fn sync_once_with_controller(
                 (outcomes, g.applied_revision)
             };
             if !new_outcomes.is_empty() {
-                let follow_report = handler.build_report(rev)?;
+                let follow_report = report_at(rev)?;
                 let follow_req = RemoteRequest::Sync {
                     node,
                     applied_revision: rev,

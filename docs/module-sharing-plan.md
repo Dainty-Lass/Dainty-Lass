@@ -197,6 +197,13 @@ create index events_name_seq on events (name, seq);
 - On the fleet controller, admin GraphQL `installs: [Install!]!` (node, region, label, state, last report time,
   availability, game servers) and a `node` argument on the moderation mutations that queues a
   `RemoteCommand::AdminAction`. The dashboard then reads the whole fleet from one loopback admin API (D1).
+- Done in MS6 (`feat/ms6-remote-fleet`): the two `InstallReport` fields (left out when empty), the controller's
+  `install_summaries` and `queue_admin_action`, `sync_once_with_games` with a `GameFleetSource`, and in admin `installs`
+  and `node` (`crates/dainty-admin/src/fleet.rs`) through two `ModuleControl` defaults, `installs` and
+  `queue_moderation`. **Left:** the controller's wiring (`crates/dainty-controller/src/modules.rs`): `remote_managed`
+  calling `sync_once_with_games` with the registry as its `GameFleetSource`, and `AdminModules` overriding the two
+  defaults from the remote controller's state; until then a report carries no game servers and `installs` answers
+  `NO_FLEET`.
 
 ### A7. The Discord bot (proposed `plugins/discord`)
 
