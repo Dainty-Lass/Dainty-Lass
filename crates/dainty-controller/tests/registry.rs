@@ -1,6 +1,7 @@
 //! The registry's verify (DF3): two modules for one game version refused in either order, a module killed
 //! mid-run shown failed and restarted on command, nothing left running after stop; and what a load does
-//! between: ports moved off a clash, host.toml's settings, the bus, core plugins, plugins on a game module.
+//! between: ports moved off a clash, host.toml's settings, the bus, core plugins, plugins on a game module; and
+//! MS2's game calls and restart with backoff.
 #![allow(clippy::unwrap_used, clippy::expect_used, reason = "a panic is how a test fails")]
 
 use std::collections::BTreeMap;
@@ -10,14 +11,16 @@ use std::time::Duration;
 
 use dainty_controller::registry::system_environment;
 use dainty_controller::{
-    ModuleEntry, ModuleRegistry, ModuleSource, ModuleState, RegistryError, RegistryOptions, ServerController,
+    MODULE_RESTARTED_EVENT, ModuleEntry, ModuleRegistry, ModuleSource, ModuleState, RegistryError, RegistryOptions,
+    RestartPolicy, ServerController,
 };
 use dainty_module_api::host::file_sha256;
 use dainty_module_api::manifest::{Capabilities, Transport};
 use dainty_module_api::stub::{RecordingPlugin, StubModule, console};
 use dainty_module_api::{
-    BoxFuture, CommandRequest, ExternalModule, GameModule, GameVersion, ModuleConfig, ModuleContext, ModuleError,
-    ModuleId, ModuleKind, ModuleManifest, ModuleStatus, Phase, PortRange, Registrar,
+    BoxFuture, CommandRequest, ErrorKind, ExternalModule, GameAnswer, GameCall, GameModule, GameVersion, ModuleConfig,
+    ModuleContext, ModuleError, ModuleId, ModuleKind, ModuleManifest, ModuleStatus, Phase, PortRange, Registrar,
+    UnavailableReason,
 };
 use dainty_service_kit::context::{ComponentPhase, StatusRegistry};
 
@@ -412,5 +415,164 @@ async fn the_registered_settings_show_and_the_next_load_takes_new_values() {
         reg.update_settings(&id("nope"), BTreeMap::new()),
         Err(RegistryError::NotListed(id("nope")))
     );
+    reg.unload_all().await;
+}
+
+fn quick_restarts() -> RegistryOptions {
+    let mut options = RegistryOptions::standalone();
+    options.restart = RestartPolicy {
+        first_delay: Duration::from_millis(50),
+        max_delay: Duration::from_millis(200),
+        window: Duration::from_secs(60),
+        max_failures: 3,
+    };
+    options
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_restartable_module_comes_back_after_it_dies() {
+    let dir = tempfile::tempdir().unwrap();
+    let pid_file = dir.path().join("pid");
+    let (reg, status) = registry(quick_restarts());
+    reg.add_entry(external("stub", &["--pid-file", pid_file.to_str().unwrap()]).await)
+        .unwrap();
+    reg.set_restart(&id("stub"), true).unwrap();
+    let mut events = reg.subscribe_events();
+    reg.load(&id("stub")).await.unwrap();
+    let first = read_when_written(&pid_file).await;
+    std::fs::remove_file(&pid_file).unwrap();
+
+    kill(&first);
+    let restarted = tokio::time::timeout(Duration::from_secs(10), async {
+        loop {
+            let (from, event) = events.recv().await.unwrap();
+            if event.name.as_str() == MODULE_RESTARTED_EVENT {
+                return (from, event);
+            }
+        }
+    })
+    .await
+    .expect("no module.restarted event");
+    assert_eq!(restarted.0, None, "the host sends it");
+    assert_eq!(restarted.1.payload["module"], "stub");
+    assert_eq!(restarted.1.payload["attempt"], 1);
+    let second = read_when_written(&pid_file).await;
+    assert_ne!(first, second);
+    eventually("the restart", || {
+        reg.info(&id("stub")).unwrap().state == ModuleState::Ready
+    })
+    .await;
+    assert_eq!(phase(&status, "stub"), Some(ComponentPhase::Ready));
+    assert_eq!(reg.command(&id("stub"), echo()).await.unwrap().text, "hello there");
+    reg.unload_all().await;
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_module_that_keeps_dying_is_left_failed() {
+    let (reg, _) = registry(quick_restarts());
+    reg.add_entry(external("stub", &["--die-after", "300"]).await).unwrap();
+    reg.set_restart(&id("stub"), true).unwrap();
+    _ = reg.load(&id("stub")).await;
+    eventually("the give-up", || {
+        reg.info(&id("stub"))
+            .unwrap()
+            .detail
+            .is_some_and(|detail| detail.contains("not restarted: 3 failures"))
+    })
+    .await;
+    tokio::time::sleep(Duration::from_millis(600)).await;
+    let info = reg.info(&id("stub")).unwrap();
+    assert_eq!(info.state, ModuleState::Failed, "no further restart");
+    assert!(info.detail.unwrap().contains("not restarted"));
+    reg.unload_all().await;
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn restart_is_only_for_external_modules_and_off_by_default() {
+    let (reg, _) = registry(quick_restarts());
+    reg.add_entry(compiled_stub()).unwrap();
+    assert!(matches!(
+        reg.set_restart(&id("stub"), true),
+        Err(RegistryError::Refused { .. })
+    ));
+    reg.set_restart(&id("stub"), false).unwrap();
+    assert!(matches!(
+        reg.set_restart(&id("absent"), true),
+        Err(RegistryError::NotListed(_))
+    ));
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn game_calls_reach_the_game_module_of_the_version() {
+    let (reg, _) = registry(RegistryOptions::standalone());
+    reg.add_entry(compiled_stub()).unwrap();
+    let missing = reg.game(&stub_version(), GameCall::Availability).await.unwrap_err();
+    assert_eq!(missing.kind, ErrorKind::NotFound, "none loaded serves it");
+    reg.load(&id("stub")).await.unwrap();
+
+    match reg.game(&stub_version(), GameCall::Availability).await.unwrap() {
+        GameAnswer::Availability(availability) => assert!(availability.up),
+        other => panic!("{other:?}"),
+    }
+    let invite = reg
+        .game(
+            &stub_version(),
+            GameCall::CreateInvite {
+                uses: 1,
+                expires_in_secs: Some(60),
+                note: None,
+                require_up: true,
+            },
+        )
+        .await
+        .unwrap();
+    let GameAnswer::Invite { code } = invite else {
+        panic!("not an invite");
+    };
+    assert_eq!(
+        reg.game(&stub_version(), GameCall::RevokeInvite { code })
+            .await
+            .unwrap(),
+        GameAnswer::Done
+    );
+    let other: GameVersion = "9.9.9".parse().unwrap();
+    assert_eq!(
+        reg.game(&other, GameCall::Servers).await.unwrap_err().kind,
+        ErrorKind::NotFound
+    );
+
+    let all = reg.game_servers().await;
+    assert_eq!(all.len(), 1);
+    assert_eq!(all[0].module, id("stub"));
+    assert_eq!(all[0].version, stub_version());
+    assert_eq!(all[0].servers.as_ref().unwrap().len(), 1, "the stub's hub");
+    reg.unload_all().await;
+    assert!(reg.game_servers().await.is_empty());
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn game_calls_cross_to_a_child_and_a_dead_one_is_not_ready() {
+    let dir = tempfile::tempdir().unwrap();
+    let pid_file = dir.path().join("pid");
+    let (reg, _) = registry(RegistryOptions::standalone());
+    reg.add_entry(external("other-stub", &["--pid-file", pid_file.to_str().unwrap()]).await)
+        .unwrap();
+    reg.load(&id("other-stub")).await.unwrap();
+    let all = reg.game_servers().await;
+    assert_eq!(all.len(), 1);
+    assert_eq!(all[0].module, id("other-stub"));
+    assert!(all[0].servers.is_ok());
+
+    kill(&read_when_written(&pid_file).await);
+    eventually("the failure", || {
+        reg.info(&id("other-stub")).unwrap().state == ModuleState::Failed
+    })
+    .await;
+    let error = reg.game(&stub_version(), GameCall::Availability).await.unwrap_err();
+    assert_eq!(
+        UnavailableReason::from_error(&error),
+        Some(UnavailableReason::ModuleNotReady)
+    );
+    assert!(reg.game_servers().await.is_empty());
     reg.unload_all().await;
 }

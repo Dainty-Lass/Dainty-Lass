@@ -717,6 +717,9 @@ pub fn list_modules(
             expected: Some(external.id.clone()),
         });
         entry(external.id.clone(), source, external.autoload)?;
+        registry
+            .set_restart(&external.id, external.restart)
+            .map_err(|e| HostError::message(format!("[modules]: {e}")))?;
     }
     for id in settings.keys() {
         say(&format!(

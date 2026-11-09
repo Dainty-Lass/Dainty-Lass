@@ -11,21 +11,22 @@
 //! `[modules.<id>.<section>]` settings laid over the registered defaults, the core plugins attached, and
 //! `start`. The registry is also the modules' [`HostLink`]: their events go on the bus to the modules that
 //! subscribed, their log lines into tracing (target `module`, under the module's name), their home calls
-//! to the node's [`HomeApi`]. A child that dies shows as failed and stays so until it is loaded again.
+//! to the node's [`HomeApi`]. A child that dies shows as failed and stays so until it is loaded again, unless
+//! `host.toml` asks for it to be restarted ([`ModuleRegistry::set_restart`], [`RestartPolicy`]).
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, VecDeque};
 use std::path::Path;
 use std::sync::{Arc, Mutex, PoisonError, RwLock, Weak};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use dainty_module_api::manifest::{FitError, Transport, plugin_fits};
 use dainty_module_api::network::dispatch_home;
 use dainty_module_api::registrar::{AdminAction, CommandSpec, ConfigSection, Registration};
 use dainty_module_api::{
     AdminCall, AdminResponse, BoxFuture, ChildModule, ChildOptions, CommandOutput, CommandRequest, CorePlugin,
-    ErrorKind, Event, ExternalModule, GameModule, GameVersion, HomeApi, HostAnswer, HostCall, HostLink,
-    InProcessModule, LogLevel, ModuleConfig, ModuleDriver, ModuleDriverExt, ModuleError, ModuleId, ModuleKind,
-    ModuleManifest, NodeIdentity, PortRange,
+    ErrorKind, Event, EventName, ExternalModule, GameAnswer, GameCall, GameCallKind, GameModule, GameServer,
+    GameVersion, HomeApi, HostAnswer, HostCall, HostLink, InProcessModule, LogLevel, ModuleConfig, ModuleDriver,
+    ModuleDriverExt, ModuleError, ModuleId, ModuleKind, ModuleManifest, NodeIdentity, PortRange, UnavailableReason,
 };
 use dainty_service_kit::context::{StatusRegistry, StatusReporter};
 use serde::Serialize;
@@ -82,6 +83,46 @@ pub struct RegistryOptions {
     pub taken_versions: Vec<(GameVersion, String)>,
     /// How often children are checked for a broken pipe
     pub watch_every: Duration,
+    /// How a dead external module with `restart = true` is brought back
+    pub restart: RestartPolicy,
+}
+
+/// The event the host emits before each restart of a dead external module (MS2).
+pub const MODULE_RESTARTED_EVENT: &str = "module.restarted";
+
+/// How a dead external module with `restart = true` is started again (the module-sharing plan's A2).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct RestartPolicy {
+    /// The wait before the first restart.
+    pub first_delay: Duration,
+    /// The longest wait; each failure doubles it up to this.
+    pub max_delay: Duration,
+    /// Failures inside it count toward `max_failures`; up this long, the wait goes back to `first_delay`
+    pub window: Duration,
+    /// This many failures inside `window` leave the module failed.
+    pub max_failures: usize,
+}
+
+impl Default for RestartPolicy {
+    fn default() -> Self {
+        Self {
+            first_delay: Duration::from_secs(1),
+            max_delay: Duration::from_secs(60),
+            window: Duration::from_secs(600),
+            max_failures: 5,
+        }
+    }
+}
+
+/// One loaded game module's game servers, or why it couldn't say.
+#[derive(Debug, Clone, PartialEq)]
+pub struct GameServers {
+    /// The game module.
+    pub module: ModuleId,
+    /// The game version it serves.
+    pub version: GameVersion,
+    /// Its answer to [`GameCall::Servers`].
+    pub servers: Result<Vec<GameServer>, ModuleError>,
 }
 
 impl RegistryOptions {
@@ -101,6 +142,7 @@ impl RegistryOptions {
             reserved_ports: Vec::new(),
             taken_versions: Vec::new(),
             watch_every: Duration::from_millis(250),
+            restart: RestartPolicy::default(),
         }
     }
 }
@@ -289,6 +331,18 @@ struct Slot {
     /// A compiled-in module's manifest is known before it loads
     known: Option<ModuleManifest>,
     loaded: Option<Arc<Loaded>>,
+    /// `restart = true` in its `[[modules.external]]`
+    restart: bool,
+    restarts: Restarts,
+}
+
+#[derive(Default)]
+struct Restarts {
+    failures: VecDeque<Instant>,
+    delay: Option<Duration>,
+    up_since: Option<Instant>,
+    /// Bumped by every load or unload from outside, so a pending restart sees it was overtaken
+    generation: u64,
 }
 
 impl Slot {
@@ -511,8 +565,27 @@ impl ModuleRegistry {
                 detail: None,
                 known,
                 loaded: None,
+                restart: false,
+                restarts: Restarts::default(),
             },
         );
+        Ok(())
+    }
+
+    /// Whether a listed external module is started again when it dies ([`RestartPolicy`]); off unless set.
+    pub fn set_restart(&self, id: &ModuleId, restart: bool) -> Result<(), RegistryError> {
+        let mut state = lock(&self.inner.state);
+        let slot = state
+            .slots
+            .get_mut(id)
+            .ok_or_else(|| RegistryError::NotListed(id.clone()))?;
+        if restart && matches!(slot.entry.source, ModuleSource::CompiledIn(_)) {
+            return Err(RegistryError::Refused {
+                id: id.clone(),
+                reason: "only an external module is restarted when it dies".into(),
+            });
+        }
+        slot.restart = restart;
         Ok(())
     }
 
@@ -590,14 +663,27 @@ impl ModuleRegistry {
 
     /// Loads a listed module. One that failed is unloaded first, so this is also its restart.
     pub async fn load(&self, id: &ModuleId) -> Result<ModuleInfo, RegistryError> {
+        self.load_as(id, None).await
+    }
+
+    /// `restart` is the generation an automatic restart was scheduled at; a load from outside starts its
+    /// count of failures afresh
+    async fn load_as(&self, id: &ModuleId, restart: Option<u64>) -> Result<ModuleInfo, RegistryError> {
         let _op = self.inner.ops.lock().await;
         self.inner.watch(&self.inner);
         let entry = {
-            let state = lock(&self.inner.state);
+            let mut state = lock(&self.inner.state);
             let slot = state
                 .slots
-                .get(id)
+                .get_mut(id)
                 .ok_or_else(|| RegistryError::NotListed(id.clone()))?;
+            match restart {
+                None => slot.restarts.reset(),
+                Some(generation) if generation != slot.restarts.generation || slot.state != ModuleState::Failed => {
+                    return Err(RegistryError::AlreadyLoaded(id.clone()));
+                }
+                Some(_) => {}
+            }
             match slot.state {
                 ModuleState::NotLoaded | ModuleState::Failed => slot.entry.clone(),
                 ModuleState::Starting | ModuleState::Ready => return Err(RegistryError::AlreadyLoaded(id.clone())),
@@ -613,6 +699,9 @@ impl ModuleRegistry {
             Err(error) => {
                 self.inner.set_state(id, ModuleState::Failed, Some(error.to_string()));
                 tracing::warn!(target: "host", "{error}");
+                if restart.is_some() {
+                    self.inner.failed(id, error.to_string());
+                }
                 return Err(error);
             }
         }
@@ -623,11 +712,12 @@ impl ModuleRegistry {
     pub async fn unload(&self, id: &ModuleId) -> Result<(), RegistryError> {
         let _op = self.inner.ops.lock().await;
         {
-            let state = lock(&self.inner.state);
+            let mut state = lock(&self.inner.state);
             let slot = state
                 .slots
-                .get(id)
+                .get_mut(id)
                 .ok_or_else(|| RegistryError::NotListed(id.clone()))?;
+            slot.restarts.reset();
             if slot.state == ModuleState::NotLoaded {
                 return Err(RegistryError::NotLoaded(id.clone()));
             }
@@ -725,9 +815,126 @@ impl ModuleRegistry {
         }
         loaded.driver.get().admin(call).await
     }
+
+    /// A game call for the game module of `version`, if it registered that call (MS2). One loaded and not
+    /// ready answers [`UnavailableReason::ModuleNotReady`], so a reader translates it like the module's own
+    pub async fn game(&self, version: &GameVersion, call: GameCall) -> Result<GameAnswer, ModuleError> {
+        let id = lock(&self.inner.state)
+            .games
+            .get(version)
+            .cloned()
+            .ok_or_else(|| ModuleError::new(ErrorKind::NotFound, format!("no module serves {version}")))?;
+        let loaded = self.ready(&id).map_err(|_| UnavailableReason::ModuleNotReady.error())?;
+        let kind = call.kind();
+        if !loaded.registration.game_calls.contains(&kind) {
+            return Err(ModuleError::unsupported(format!("{kind:?} on {id}")));
+        }
+        loaded.driver.get().game(call).await
+    }
+
+    /// The game servers of every ready game module that answers [`GameCall::Servers`], by module.
+    pub async fn game_servers(&self) -> Vec<GameServers> {
+        let modules: Vec<(ModuleId, Arc<Loaded>)> = {
+            let state = lock(&self.inner.state);
+            state
+                .games
+                .values()
+                .filter_map(|id| state.slots.get(id))
+                .filter(|slot| slot.state == ModuleState::Ready)
+                .filter_map(|slot| Some((slot.entry.id.clone(), slot.loaded.clone()?)))
+                .filter(|(_, loaded)| loaded.registration.game_calls.contains(&GameCallKind::Servers))
+                .collect()
+        };
+        let mut out = Vec::with_capacity(modules.len());
+        for (module, loaded) in modules {
+            let servers = match loaded.driver.get().game(GameCall::Servers).await {
+                Ok(GameAnswer::Servers(servers)) => Ok(servers),
+                Ok(other) => Err(ModuleError::new(
+                    ErrorKind::Protocol,
+                    format!("{module} answered Servers with {other:?}"),
+                )),
+                Err(error) => Err(error),
+            };
+            out.push(GameServers {
+                module,
+                version: loaded.manifest.game_version.clone(),
+                servers,
+            });
+        }
+        out
+    }
+}
+
+impl Restarts {
+    fn reset(&mut self) {
+        self.failures.clear();
+        self.delay = None;
+        self.generation += 1;
+    }
 }
 
 impl Inner {
+    /// A restartable module died or a restart of it failed: schedules the next try, or gives up after
+    /// `max_failures` inside `window` with the last reason in its detail.
+    fn failed(self: &Arc<Self>, id: &ModuleId, why: String) {
+        let policy = self.options.restart;
+        let (delay, generation, attempt) = {
+            let mut state = lock(&self.state);
+            let Some(slot) = state.slots.get_mut(id).filter(|slot| slot.restart) else {
+                return;
+            };
+            let now = Instant::now();
+            let restarts = &mut slot.restarts;
+            if restarts
+                .up_since
+                .take()
+                .is_some_and(|since| now.duration_since(since) >= policy.window)
+            {
+                restarts.delay = None;
+            }
+            restarts.failures.retain(|at| now.duration_since(*at) < policy.window);
+            restarts.failures.push_back(now);
+            let attempt = restarts.failures.len();
+            if attempt >= policy.max_failures {
+                let detail = format!(
+                    "{why} (not restarted: {attempt} failures in {} s)",
+                    policy.window.as_secs()
+                );
+                tracing::warn!(target: "host", "module {id}: {detail}");
+                slot.detail = Some(detail.clone());
+                slot.status.failed(detail);
+                return;
+            }
+            let delay = restarts
+                .delay
+                .map_or(policy.first_delay, |last| (last * 2).min(policy.max_delay));
+            restarts.delay = Some(delay);
+            (delay, restarts.generation, attempt)
+        };
+        let weak = Arc::downgrade(self);
+        let id = id.clone();
+        tokio::spawn(async move {
+            tokio::time::sleep(delay).await;
+            let Some(inner) = weak.upgrade() else {
+                return;
+            };
+            let current = lock(&inner.state)
+                .slots
+                .get(&id)
+                .is_some_and(|slot| slot.state == ModuleState::Failed && slot.restarts.generation == generation);
+            if !current {
+                return;
+            }
+            tracing::info!(target: "host", "module {id}: restarting (attempt {attempt}) after: {why}");
+            if let Ok(name) = EventName::new(MODULE_RESTARTED_EVENT) {
+                let payload = serde_json::json!({ "module": id.as_str(), "attempt": attempt, "reason": why });
+                inner.publish(None, Event { name, payload });
+            }
+            // A failed try comes back through `failed` from `load_as`
+            _ = ModuleRegistry { inner }.load_as(&id, Some(generation)).await;
+        });
+    }
+
     fn set_state(&self, id: &ModuleId, state: ModuleState, detail: Option<String>) {
         let mut guard = lock(&self.state);
         let Some(slot) = guard.slots.get_mut(id) else {
@@ -735,6 +942,9 @@ impl Inner {
         };
         slot.state = state;
         slot.detail.clone_from(&detail);
+        if state == ModuleState::Ready {
+            slot.restarts.up_since = Some(Instant::now());
+        }
         let port = slot
             .loaded
             .as_ref()
@@ -777,7 +987,8 @@ impl Inner {
                     .collect();
                 for (id, why) in broken {
                     tracing::warn!(target: "host", "module {id} failed: {why}");
-                    inner.set_state(&id, ModuleState::Failed, Some(why));
+                    inner.set_state(&id, ModuleState::Failed, Some(why.clone()));
+                    inner.failed(&id, why);
                 }
             }
         });

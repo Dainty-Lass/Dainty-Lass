@@ -763,8 +763,9 @@ fn comment(path: &str) -> &'static str {
         }
         "modules" => {
             "The game modules and plugins to load (DF3). compiled lists the compiled-in ones (left out: all of them);\n\
-             each [[modules.external]] is an executable with its SHA-256 (id, path, sha256, args, autoload); a\n\
-             module's own settings go in [modules.<id>.<section>]. Left out: every compiled-in module, no other."
+             each [[modules.external]] is an executable with its SHA-256 (id, path, sha256, args, autoload, and\n\
+             restart = true to start it again when it dies); a module's own settings go in\n\
+             [modules.<id>.<section>]. Left out: every compiled-in module, no other."
         }
         "services" => {
             "Services the core loads as libraries (RD27), one [services.<name>] each: library (its path, from this\n\

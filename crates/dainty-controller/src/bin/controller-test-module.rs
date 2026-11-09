@@ -4,15 +4,16 @@
 //! module-api's stub module as an executable, for the registry's tests (DF3). `--id <id>` renames it,
 //! a second module for the same game version; `--pid-file <file>` writes its pid, so a test can kill it;
 //! `--grandchild <file>` first starts a process of its own that listens on loopback and writes the port
-//! to `<file>`, so a test can see the whole tree go.
+//! to `<file>`, so a test can see the whole tree go; `--die-after <ms>` exits that long after it starts, a
+//! module that keeps crashing.
 
 use std::process::{ExitCode, Stdio};
 use std::sync::Arc;
 
 use dainty_module_api::stub::StubModule;
 use dainty_module_api::{
-    AdminCall, AdminResponse, BoxFuture, CommandOutput, CommandRequest, Event, GameModule, ModuleConfig, ModuleContext,
-    ModuleError, ModuleId, ModuleManifest, ModuleStatus, Registrar,
+    AdminCall, AdminResponse, BoxFuture, CommandOutput, CommandRequest, Event, GameAnswer, GameCall, GameModule,
+    ModuleConfig, ModuleContext, ModuleError, ModuleId, ModuleManifest, ModuleStatus, Registrar,
 };
 
 struct Renamed {
@@ -58,6 +59,10 @@ impl GameModule for Renamed {
 
     fn event(&self, ctx: ModuleContext, event: Event) -> BoxFuture<'_, Result<(), ModuleError>> {
         self.stub.event(ctx, event)
+    }
+
+    fn game(&self, ctx: ModuleContext, call: GameCall) -> BoxFuture<'_, Result<GameAnswer, ModuleError>> {
+        self.stub.game(ctx, call)
     }
 }
 
@@ -107,6 +112,12 @@ fn main() -> ExitCode {
     {
         eprintln!("could not write {file}: {error}");
         return ExitCode::FAILURE;
+    }
+    if let Some(ms) = value("--die-after").and_then(|ms| ms.parse::<u64>().ok()) {
+        std::thread::spawn(move || {
+            std::thread::sleep(std::time::Duration::from_millis(ms));
+            std::process::exit(3);
+        });
     }
     let stub = Arc::new(StubModule::new());
     match value("--id").map(|id| id.parse::<ModuleId>()) {
