@@ -6,7 +6,8 @@ Draft, 2026-11-01, reworked against `plan` (`8ea66dd`). The first draft (`8e4d19
 proposed a registry, capabilities, a loopback module API and a sidecar supervisor that `plan` already has in another
 form. This version keeps what exists, cuts what duplicates it, and lists only the additions.
 
-**Status (2026-11-05):** not started; D1–D6 below wait on the maintainer. Paths are updated for the in-tree
+**Status (2026-11-08):** MS1 started (`feat/ms1-module-api-game`); MS2–MS8 wait on it. D1–D6 answered by the
+maintainer on 2026-11-08, all as recommended (see "Answered decisions"). Paths are updated for the in-tree
 `restricted/` and the MIT `rustic-isles-*` crates (RD27).
 
 **One game.** Dauntless 1.14.7 on rustic-isles (`crates/rustic-isles-1-14-7`) and nothing else. No
@@ -55,9 +56,9 @@ this doc doesn't.
 | `accounts.verifyKey`, `players.lookup` | **Cut** | Content and admin already reach the game module; admin's lookup is `AdminRequest::Lookup` |
 | Module API on `127.0.0.1:61007`, per-module bearer tokens, scopes, SSE | **Cut** | Out-of-process modules already have a channel, the frame protocol over the child's pipes, with no listener to protect |
 | Sidecar supervisor (spawn, env, process tree, heartbeats, log capture) | **Mostly there**: `ChildModule`. **Kept**: restart with backoff (A2) | A dead child stays `Failed` today; "the controller starts sidecars" also means it brings them back |
-| Fleet agent as a sidecar reading the module API | **Superseded by `crates/dainty-remote`**, pending D1 | Both dial out, report every 15 s and run an allowlist of commands; remote already does it over mTLS with roles and audit inside Dainty Lass |
-| `dashboard.signup` provided by the agent | **Replaced**: the bot reads a public dashboard endpoint (A8), pending D3 | The signup link is public anyway; no agent needed to carry it |
-| Postgres-only `modules.events`, waiting for RB3 and RB14 | **Replaced**: an events database in `store`, on whichever engine `[database]` picks (A5), pending D2 | `store` runs SQLite by default and Postgres when chosen (DD15); there is nothing to wait for |
+| Fleet agent as a sidecar reading the module API | **Superseded by `crates/dainty-remote`** (D1) | Both dial out, report every 15 s and run an allowlist of commands; remote already does it over mTLS with roles and audit inside Dainty Lass |
+| `dashboard.signup` provided by the agent | **Replaced**: the bot reads a public dashboard endpoint (A8) (D3) | The signup link is public anyway; no agent needed to carry it |
+| Postgres-only `modules.events`, waiting for RB3 and RB14 | **Replaced**: an events database in `store`, on whichever engine `[database]` picks (A5) (D2) | `store` runs SQLite by default and Postgres when chosen (DD15); there is nothing to wait for |
 | Discord bot as a built-in Rust module | **Kept**: a built-in service like chat (A7) | Built-ins get secrets through their env file; a `GameModule` has no secret channel |
 | "Up" = the hub game server is running | **Kept**, defined once in the game module (A3) | The Director already answers it |
 
@@ -115,6 +116,11 @@ pub struct GameServer {
 - Event names as constants: `game.server.up`, `game.server.down`, `game.availability.changed`. A module declares them
   with `registrar.emits` and sends them with `ctx.emit`; the bus already exists.
 - `API_VERSION` moves (`version.rs`): `ModuleCall` is `deny_unknown_fields`, so an older child refuses the new frame.
+  MS1 makes it 1.2. `Registration.game_calls` is left off the wire when empty, so a module without game calls
+  registers in the 1.1 form.
+- The events' payloads: a `GameServer` for `game.server.up` and `game.server.down`, an `Availability` for
+  `game.availability.changed`. An `Unavailable` refusal carries the reason's code as its message
+  (`UnavailableReason::error` / `from_error`), and `GameCall` and `GameAnswer` leave invite codes out of `Debug`.
 - `GameServer` is not `InstanceRecord`: that one is a network ring entry (owner node, queue, shard); this is what one
   server's Director runs. A networked node can derive one from the other.
 
@@ -135,9 +141,9 @@ In the `rustic-isles-*` crates (`crates/rustic-isles` and `crates/rustic-isles-1
   `director_unreachable`; no Ramsgate → `no_hub`; present but not ready → `hub_not_ready`.
 - `Servers`: the Director's `/api/instances` with the hub's readiness from `hub_status()`.
 - `CreateInvite` / `RevokeInvite`: the same store write as `create_invite` in `host_routes.rs`, with `require_up`
-  checked inside it. **Invites have no expiry today** (`InviteRecord` has uses, infinite, note, created time): either
-  an `expires_at` column (a migration in both `postgres/` and `sqlite/`, and the login path refusing an expired code),
-  or the bot revokes its code after 30 minutes. See D4.
+  checked inside it. **Invites have no expiry today** (`InviteRecord` has uses, infinite, note, created time): they
+  get an `expires_at` column (a migration in both `postgres/` and `sqlite/`, and the login path refusing an expired
+  code) (D4).
 - A hub-status watch (every 10 s, the Director's answer) that emits the three events on a change.
 
 ### A4. Admin API
@@ -168,7 +174,7 @@ create index events_name_seq on events (name, seq);
   `events.lagged` row with the count when it falls behind, so a gap is visible rather than silent. Write-before-publish
   would mean a store write inside `HostCall::Emit`; not worth it for the two cases here.
 - **Change log:** every `store` table is change-logged (DH1), so an append-only events table writes each row twice.
-  D2 decides whether that is acceptable or `store` grows an opt-out for append-only tables.
+  That is accepted (D2): no opt-out for append-only tables.
 - **Retention:** `[events] retention_days` (proposed, default 90), a daily delete by `at_ms`.
 - The schema goes through `store`'s owner (section 2 of `MIGRATION_PLAN.md`).
 
@@ -219,8 +225,7 @@ The code and the URI never reach a channel, a log line or an event; the event re
   disabled, so the fallback is the login URI.
 - Game-server views: the Overview and each server's page list `gameServers` and `availability`, from admin (A4) for its
   own server and from `installs` (A6) for the fleet (D1).
-- If D1 keeps the agent instead: the agent's report gains `gameServers` and `availability` from the same admin queries,
-  optional fields in `@dainty/fleet`'s protocol.
+- The agent is retired once MS8 lands (D1); it gains no game-server fields.
 
 ## 11. How the standard modules interact
 
@@ -364,10 +369,10 @@ One agent, one worktree and branch each (RD18). MS1 is a seam and lands first.
 | **MS2** | Controller (A2): `ModuleRegistry::game`, `game_servers`; restart with backoff for external modules; `restart` in `hostconfig/modules.rs` and `hosttoml.rs`; `docs/hosting.md` row | `crates/dainty-controller`, `crates/dainty-hostkit/src/hostconfig/modules.rs` | MS1 |
 | **MS3** | rustic-isles (A3): `game()` on the isles module, the hub-status watch and its events, invite expiry per D4 | `crates/rustic-isles`, `crates/rustic-isles-1-14-7`, through `docs/port/spec-rustic-isles-*.md` | MS1 |
 | **MS4** | Admin (A4): `gameServers`, `availability`, `events`; `schema.graphql`; `docs/admin-api.md` | `crates/dainty-admin` | MS2, MS5 for `events` |
-| **MS5** | Event recorder (A5): subscriber, table, `events.lagged`, retention, `[events]` in host.toml; the schema reported to `store`'s owner | `crates/dainty-controller` (recorder only), `crates/dainty-hostkit` (`[events]`) | MS2; D2 |
-| **MS6** | Remote (A6): `InstallReport` fields, last report per node, admin `installs` and `node` on moderation; upgrade order in `docs/remote-management.md`; `remote_wire` fuzz target | `crates/dainty-remote`, `crates/dainty-admin` (fleet fields only, after MS4) | MS2, MS4; D1 |
-| **MS7** | Discord bot (A7): `plugins/discord`, `controller::modules::discord`, `[discord]` and the token through `setup`, `/key` and `/status`, catalog in `en` and `pt-BR`, `docs/security/discord.md` and a fuzz target for interaction parsing, the hosting docs | new `plugins/discord`; `crates/dainty-hostkit` (`[discord]`, secret) | MS2, MS3; MS5 for its audit (D6) |
-| **MS8** | dainty-dash (A8): the account-creation setting and `GET /api/public/signup`; game-server views; the fleet from `installs` (or, per D1, the agent's report gains `gameServers`) | `ui/` | MS4, MS6; D1, D3 |
+| **MS5** | Event recorder (A5): subscriber, table, `events.lagged`, retention, `[events]` in host.toml; the schema reported to `store`'s owner | `crates/dainty-controller` (recorder only), `crates/dainty-hostkit` (`[events]`) | MS2 |
+| **MS6** | Remote (A6): `InstallReport` fields, last report per node, admin `installs` and `node` on moderation; upgrade order in `docs/remote-management.md`; `remote_wire` fuzz target | `crates/dainty-remote`, `crates/dainty-admin` (fleet fields only, after MS4) | MS2, MS4 |
+| **MS7** | Discord bot (A7): `plugins/discord`, `controller::modules::discord`, `[discord]` and the token through `setup`, `/key` and `/status`, catalog in `en` and `pt-BR`, `docs/security/discord.md` and a fuzz target for interaction parsing, the hosting docs | new `plugins/discord`; `crates/dainty-hostkit` (`[discord]`, secret) | MS2, MS3, MS5 (D6) |
+| **MS8** | dainty-dash (A8): the account-creation setting and `GET /api/public/signup`; game-server views; the fleet from `installs`; the agent retired (D1) | `ui/` | MS4, MS6 |
 
 MS3, MS4 and MS5 can run side by side once MS2 is merged. Nothing here edits `MIGRATION_PLAN.md`; the integration
 pass adds the rows and the decisions.
@@ -385,27 +390,25 @@ pass adds the rows and the decisions.
   visible only to the member who asked.
 - 2026-10-31: one game, 1.14.7 on rustic-isles.
 
-## For the maintainer
+## Answered decisions
 
-- **D1. Does `crates/dainty-remote` replace dainty-dash's agent?** They overlap: outbound connection, a 15 s report, an
-  allowlist of commands, a one-time pairing code. Remote does it inside Dainty Lass over mTLS with roles, `DH6` and
-  audit; the agent is a second path with its own token and the admin key copied into `agent.env` by hand.
-  *Recommended:* yes. The dashboard runs beside the fleet controller and reads the fleet from its admin API (A6), and
-  the agent is retired once MS8 lands. If not, MS8 takes the agent branch and the two stay side by side.
-- **D2. Events in `store` now, not after Postgres.** Your earlier choice was Postgres-only, waiting for RB3 and RB14.
-  `store` runs SQLite by default and Postgres when `[database]` says so (DD15), and the game module already ships both
-  migration sets, so waiting buys nothing. *Recommended:* record on either engine now (A5). And: may the events table
-  be change-logged like every other (each event written twice, inside the hash chain), or should `store` get an
-  opt-out for append-only tables?
-- **D3. Where the bot learns that signups are on.** *Recommended:* a public dashboard endpoint (A8); the link is public
-  anyway, and a failure falls back to the login URI. The alternative is an admin mutation the dashboard calls to push
-  the setting to every server, which keeps the bot off the network but adds a write path.
-- **D4. Invite expiry.** Invites have none. *Recommended:* an `expires_at` column in rustic-isles, so a code can't
-  outlive a bot restart. The alternative is the bot revoking its own codes on a timer.
-- **D5. Secrets for out-of-process modules.** None of this needs one, and today a child never gets one. Keep it that
-  way until a module needs it?
-- **D6. Does the bot wait for kept events?** The first draft held it until the event store shipped so it ships with
-  its audit. With D2 that wait is short; keep it?
+The maintainer answered D1–D6 on 2026-11-08, each as recommended. The integration pass carries them into
+`MIGRATION_PLAN.md`.
+
+- **D1 (2026-11-08). `crates/dainty-remote` replaces dainty-dash's agent.** The dashboard runs beside the fleet
+  controller and reads the fleet from its admin API (A6); the agent is retired once MS8 lands. Remote already dials
+  out, reports every 15 s and runs an allowlist of commands, over mTLS with roles, `DH6` and audit; the agent was a
+  second path with its own token and the admin key copied into `agent.env` by hand.
+- **D2 (2026-11-08). Events are recorded in `store` now, on either engine,** SQLite by default or Postgres when
+  `[database]` says so (DD15), not after RB3 and RB14. The events table is change-logged like every other (each
+  event written twice, inside the hash chain); `store` gets no opt-out for append-only tables.
+- **D3 (2026-11-08). The bot learns that signups are on from a public dashboard endpoint** (A8), with a 60 s cache;
+  any failure reads as off, so the fallback is the login URI. No admin mutation pushes the setting to servers.
+- **D4 (2026-11-08). Invites get an `expires_at` column in rustic-isles** (MS3), so a code can't outlive a bot
+  restart; the login path refuses an expired code. The bot does not revoke its codes on a timer.
+- **D5 (2026-11-08). Out-of-process modules get no secrets.** A child still gets only `system_environment`; a
+  secret reaches only a built-in's env file. Revisit when a module needs one.
+- **D6 (2026-11-08). The bot waits for MS5,** so it ships with its audit of `/key` outcomes.
 
 ## Open questions
 

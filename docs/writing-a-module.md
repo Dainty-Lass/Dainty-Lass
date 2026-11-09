@@ -142,6 +142,24 @@ impl GameModule for MyModule {
 - **Declarative UI panels.** The server GUI (dainty-dash, `ui/`) renders each module's commands, status fields and
   config sections straight from its `Registrar` declarations, so no module ships UI code.
 
+### Answering game calls (API 1.2)
+
+Other modules (the admin API, the Discord bot, `remote`) learn about your game through `GameModule::game`, routed by
+the registry like `admin` and `chat` (`crates/dainty-module-api/src/game.rs`, the module-sharing plan's A1). Register
+each call you answer with `registrar.game_call(GameCallKind::...)`; a call you don't override answers `unsupported`.
+
+| Call | Answer | Notes |
+| --- | --- | --- |
+| `GameCall::Availability` | `GameAnswer::Availability(Availability)` | `up` only when the hub is running and ready; otherwise `reason` is an `UnavailableReason` code, never a sentence (the reader translates it) |
+| `GameCall::Servers` | `GameAnswer::Servers(Vec<GameServer>)` | Every game server your Director runs: hub, hunt, dojo, tutorial |
+| `GameCall::CreateInvite { uses, expires_in_secs, note, require_up }` | `GameAnswer::Invite { code }` | With `require_up`, check availability again inside the write and refuse with `reason.error()`; `uses` is at least 1 |
+| `GameCall::RevokeInvite { code }` | `GameAnswer::Done` | `ErrorKind::NotFound` when there is no such code |
+
+An invite code is a credential: never log it or put it in an event. Callers read a refusal back with
+`UnavailableReason::from_error`. A module that tracks its hub emits `game::SERVER_UP_EVENT`,
+`SERVER_DOWN_EVENT` (payload: a `GameServer`) and `AVAILABILITY_CHANGED_EVENT` (payload: an `Availability`),
+declared with `registrar.emits` like any other event.
+
 ## 4. Out-of-process binary (`src/main.rs`)
 
 Wrap the same `GameModule` in `module_api::child::run_stdio` so it can be launched as an external executable:
@@ -154,7 +172,7 @@ fn main() -> std::process::ExitCode {
 
 When the controller starts the child process (`crates/dainty-module-api/src/host.rs`), it performs the `Hello` /
 `Welcome` handshake, checks `ModuleApiVersion::CURRENT` and the manifest's `id` and `sha256`, replays `register`,
-and forwards `start`, `command`, `admin`, `status` and `stop` over length-prefixed frames (capped at `MAX_FRAME_LEN`,
+and forwards `start`, `command`, `admin`, `chat`, `game`, `status` and `stop` over length-prefixed frames (capped at `MAX_FRAME_LEN`,
 4 MiB; see [security/module-host.md](security/module-host.md)).
 
 ## 5. Loading the module in `host.toml`

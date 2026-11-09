@@ -8,6 +8,8 @@
 //! [`ModuleDriver`]. Compiled-in plugins (gateway, content, admin API, chat,
 //! network) implement [`CorePlugin`].
 //!
+//! What a game module knows about its game ([`game`], MS1) is asked like admin and chat.
+//!
 //! The network ([`network`], DN2), chat ([`chat`], DN10), actor ([`actor`], DH1) and patch-set and theme
 //! capabilities (DD25) are seams: types and stubs that later rows fill.
 
@@ -18,6 +20,7 @@ pub mod chat;
 pub mod child;
 pub mod driver;
 pub mod frame;
+pub mod game;
 pub mod host;
 pub mod manifest;
 pub mod module;
@@ -31,6 +34,7 @@ pub mod version;
 
 pub use actor::{Actor, ActorContext};
 pub use driver::{InProcessModule, ModuleDriver, ModuleDriverExt};
+pub use game::{Availability, GameAnswer, GameCall, GameCallKind, GameServer, GameServerKind, UnavailableReason};
 pub use host::{ChildModule, ChildOptions, ExternalModule, LoadError};
 pub use ids::{ModuleId, Sha1Hex, Sha256Hex};
 pub use manifest::{

@@ -3,13 +3,17 @@
 //! handed. The crate's tests run the stub compiled in and out of process (`module-api-stub`) and compare;
 //! DF3's controller tests can load the same one.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::sync::{Arc, Mutex, PoisonError};
 
 use serde_json::json;
 
 use crate::actor::ActorContext;
 use crate::chat::{ChatAnswer, ChatQuery, Jid, RoomKind, RoomRules};
+use crate::game::{
+    AVAILABILITY_CHANGED_EVENT, Availability, GameAnswer, GameCall, GameCallKind, GameServer, GameServerKind,
+    UnavailableReason,
+};
 use crate::ids::ModuleId;
 use crate::manifest::{
     Capabilities, ClientProfile, EpicBuild, ModuleKind, ModuleManifest, PatchSetCapability, PortDefault, PortRange,
@@ -37,6 +41,24 @@ fn event(name: &str, payload: serde_json::Value) -> Result<Event, ModuleError> {
 struct StubState {
     phase: Option<Phase>,
     greeting: String,
+    invites: BTreeSet<String>,
+    next_invite: u32,
+}
+
+/// The stub's one game server, its hub.
+fn stub_hub() -> GameServer {
+    GameServer {
+        id: String::from("stub-hub"),
+        kind: GameServerKind::Hub,
+        title: String::from("Stub hub"),
+        map: String::from("stub"),
+        host: String::from("127.0.0.1"),
+        port: 65010,
+        players: 0,
+        max_players: 10,
+        ready: true,
+        started_at: None,
+    }
 }
 
 /// A game module for game version 0.0.1 that serves nothing and answers everything.
@@ -126,6 +148,11 @@ impl GameModule for StubModule {
             .subscribes(named("server.ready")?)
             .admin_action(AdminAction::Kick)
             .admin_action(AdminAction::Lookup)
+            .emits(named(AVAILABILITY_CHANGED_EVENT)?)
+            .game_call(GameCallKind::Availability)
+            .game_call(GameCallKind::Servers)
+            .game_call(GameCallKind::CreateInvite)
+            .game_call(GameCallKind::RevokeInvite)
             .config_section(ConfigSection::new("stub").key("greeting", json!("hello"), "What echo starts with"));
         Ok(())
     }
@@ -148,7 +175,10 @@ impl GameModule for StubModule {
                 "stub.started",
                 json!({ "greeting": greeting, "ports": config.ports.len() }),
             )?)
-            .await
+            .await?;
+            let availability = serde_json::to_value(Availability::up(stub_hub()))
+                .map_err(|error| ModuleError::failed(error.to_string()))?;
+            ctx.emit(event(AVAILABILITY_CHANGED_EVENT, availability)?).await
         })
     }
 
@@ -246,6 +276,48 @@ impl GameModule for StubModule {
                 other => return Err(ModuleError::unsupported(format!("chat query {other:?}"))),
             })
         })
+    }
+
+    fn game(&self, _ctx: ModuleContext, call: GameCall) -> BoxFuture<'_, Result<GameAnswer, ModuleError>> {
+        Box::pin(async move {
+            Ok(match call {
+                GameCall::Availability => GameAnswer::Availability(self.availability()),
+                GameCall::Servers => GameAnswer::Servers(self.availability().hub.into_iter().collect()),
+                GameCall::CreateInvite { uses, require_up, .. } => {
+                    if uses == 0 {
+                        return Err(ModuleError::new(
+                            ErrorKind::Invalid,
+                            "an invite admits at least one login",
+                        ));
+                    }
+                    // Checked under the same lock as the write, as a real module checks inside its own
+                    let mut state = lock(&self.state);
+                    if require_up && state.phase != Some(Phase::Ready) {
+                        return Err(UnavailableReason::ModuleNotReady.error());
+                    }
+                    state.next_invite += 1;
+                    let code = format!("STUB{:04}", state.next_invite);
+                    state.invites.insert(code.clone());
+                    GameAnswer::Invite { code }
+                }
+                GameCall::RevokeInvite { code } => {
+                    if !lock(&self.state).invites.remove(&code) {
+                        return Err(ModuleError::new(ErrorKind::NotFound, "no such invite"));
+                    }
+                    GameAnswer::Done
+                }
+            })
+        })
+    }
+}
+
+impl StubModule {
+    fn availability(&self) -> Availability {
+        if lock(&self.state).phase == Some(Phase::Ready) {
+            Availability::up(stub_hub())
+        } else {
+            Availability::down(UnavailableReason::ModuleNotReady)
+        }
     }
 }
 
