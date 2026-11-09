@@ -5,7 +5,8 @@ import { requirePage } from "@/lib/auth/guard";
 import { can } from "@/lib/auth/permissions";
 import { chatHourly, chatStats } from "@/lib/chat/store";
 import { filterVersion } from "@/lib/chat/terms";
-import { getController } from "@/lib/fleet/controllers";
+import { getController, LOCAL } from "@/lib/fleet/controllers";
+import { gamesReport } from "@/lib/fleet/games";
 import { currentScope, scopeIds } from "@/lib/fleet/scope";
 import { fleetPerformance } from "@/lib/fleet/status";
 import { overview } from "@/lib/health";
@@ -37,6 +38,7 @@ export default async function OverviewPage({
       recent={can(me.role, "audit:read") ? recentAudit(10, ids) : null}
       filterVersion={filterVersion()}
       denied={denied === "1"}
+      games={!ids || ids.includes(LOCAL) ? { report: gamesReport() } : null}
     />
   );
 }

@@ -9,6 +9,8 @@ import { readEvents } from "./sse";
 /**
  * The agent: pairs once, then keeps one event stream open to the dashboard for commands, reports status
  * every HEARTBEAT_MS, and relays this host's chat and reports. It opens no port beyond loopback.
+ *
+ * @deprecated dainty-remote replaces it (D1, module-sharing plan MS8); it gains no new fields.
  */
 
 const log = (...args: unknown[]) => console.log(new Date().toISOString(), ...args);

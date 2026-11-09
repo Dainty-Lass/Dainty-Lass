@@ -20,11 +20,13 @@ import { useRouter } from "next/navigation";
 import { useFormatter, useTranslations } from "next-intl";
 import { useMemo, useState } from "react";
 import { ControllerState, STATE_ORDER } from "@/components/ControllerState";
+import { InstallsCard } from "@/components/GameServers";
 import { Page } from "@/components/Page";
 import { SearchField } from "@/components/SearchField";
 
 import { useAction } from "@/components/useAction";
 import { useQueryPatch } from "@/components/useQueryPatch";
+import type { GamesReport } from "@/lib/fleet/games";
 import type { ControllerView, FleetTotals } from "@/lib/fleet/status";
 import { createControllerAction } from "./actions";
 import { PairingInstructions } from "./PairingInstructions";
@@ -41,6 +43,7 @@ function matchesState(v: ControllerView, filter: string): boolean {
 
 export function ControllersClient({
   controllers,
+  games,
   totals,
   filters,
   canWrite,
@@ -48,6 +51,8 @@ export function ControllersClient({
   insecure,
 }: {
   controllers: ControllerView[];
+  /** The remote controller's installs (D1), beside this dashboard. */
+  games: GamesReport | null;
   totals: FleetTotals;
   filters: { state: string; q: string; region: string };
   canWrite: boolean;
@@ -260,6 +265,8 @@ export function ControllersClient({
           />
         </Stack>
       )}
+
+      <InstallsCard report={games} />
 
       <Dialog
         isOpen={adding}

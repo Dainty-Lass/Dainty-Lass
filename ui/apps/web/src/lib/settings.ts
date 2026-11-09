@@ -29,6 +29,10 @@ export interface Settings {
   accent: Accent;
   /** Reasons offered when timing out or banning, so moderators pick rather than type. */
   moderationReasons: string[];
+  /** Account creation is open: the Discord bot's /key hands out signupUrl instead of a login invite (D3). */
+  signupEnabled: boolean;
+  /** The page where people create an account, http(s); public through /api/public/signup. */
+  signupUrl: string;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -50,6 +54,8 @@ export const DEFAULT_SETTINGS: Settings = {
     "Spam",
     "Inappropriate name",
   ],
+  signupEnabled: false,
+  signupUrl: "",
 };
 
 export function getSettings(): Settings {

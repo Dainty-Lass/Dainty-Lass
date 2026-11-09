@@ -4,6 +4,7 @@ import { tx } from "@/lib/db";
 import { DomainError } from "@/lib/errors";
 import { ensureBaseline, writeRevision } from "@/lib/revisions";
 import { getSettings, type Settings, writeSettings } from "@/lib/settings";
+import { signupUrl } from "@/lib/signup";
 
 const ids = (list: unknown) =>
   Array.isArray(list)
@@ -72,6 +73,12 @@ export function sanitize(patch: Partial<Settings>): Partial<Settings> {
           .filter((r) => r.length >= 3 && r.length <= 80),
       ),
     ].slice(0, 20);
+  }
+  if (patch.signupEnabled !== undefined) out.signupEnabled = patch.signupEnabled === true;
+  if (patch.signupUrl !== undefined) {
+    const u = String(patch.signupUrl).trim();
+    if (u && !signupUrl(u)) throw new DomainError("invalid_input", "signupUrl");
+    out.signupUrl = u;
   }
   return out;
 }

@@ -3,6 +3,7 @@ import { getTranslations } from "next-intl/server";
 import { requirePage } from "@/lib/auth/guard";
 import { can } from "@/lib/auth/permissions";
 import { config } from "@/lib/config";
+import { gamesReport } from "@/lib/fleet/games";
 import { fleet, totals } from "@/lib/fleet/status";
 import { ControllersClient } from "./ControllersClient";
 
@@ -21,6 +22,7 @@ export default async function ControllersPage({
   return (
     <ControllersClient
       controllers={views}
+      games={gamesReport()}
       totals={totals(views)}
       filters={{ state: sp.state ?? "", q: sp.q ?? "", region: sp.region ?? "" }}
       canWrite={can(me.role, "controllers:write")}

@@ -77,6 +77,7 @@ export function SettingsClient({
 }) {
   const t = useTranslations("settings");
   const tc = useTranslations("common");
+  const ts = useTranslations("signup");
   const { run } = useAction();
   const [draft, setDraft] = useState(settings);
   const [roleText, setRoleText] = useState({
@@ -201,6 +202,41 @@ export function SettingsClient({
                 void (await save({
                   requireApproval: draft.requireApproval,
                   tosText: draft.tosText,
+                }))
+              }
+            />
+          </Stack>
+        )}
+      </Section>
+
+      <Section title={ts("title")} description={ts("hint")}>
+        <Switch
+          label={ts("enabled")}
+          description={ts("enabledHint")}
+          value={draft.signupEnabled}
+          onChange={(v) => set("signupEnabled", v)}
+          isDisabled={ro}
+        />
+        <TextInput
+          label={ts("url")}
+          description={ts("urlHint")}
+          value={draft.signupUrl}
+          onChange={(v) => set("signupUrl", v.trim())}
+          placeholder={ts("urlPlaceholder")}
+          isReadOnly={ro}
+        />
+        {draft.signupEnabled && !draft.signupUrl && (
+          <Banner status="warning" title={ts("urlMissing")} collapsible={false} />
+        )}
+        {canWrite && (
+          <Stack direction="horizontal" justify="end">
+            <Button
+              label={tc("save")}
+              variant="primary"
+              clickAction={async () =>
+                void (await save({
+                  signupEnabled: draft.signupEnabled,
+                  signupUrl: draft.signupUrl,
                 }))
               }
             />

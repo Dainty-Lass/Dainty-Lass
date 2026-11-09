@@ -22,11 +22,13 @@ import { useFormatter, useTranslations } from "next-intl";
 import { type ReactNode, useEffect, useState } from "react";
 import { AuditSentence } from "@/components/AuditSentence";
 import { ControllerState, STATE_ORDER } from "@/components/ControllerState";
+import { GameServersCard, InstallsCard } from "@/components/GameServers";
 import { Page } from "@/components/Page";
 import { PerformanceSection } from "@/components/PerformanceSection";
 import { Sparkline } from "@/components/Sparkline";
 
 import type { AuditEvent } from "@/lib/db/schema";
+import type { GamesReport } from "@/lib/fleet/games";
 import type { Performance } from "@/lib/fleet/metrics";
 import type { ControllerView } from "@/lib/fleet/status";
 import type { FleetHunt, Overview, ServiceState } from "@/lib/health";
@@ -52,6 +54,7 @@ export function OverviewClient({
   recent,
   filterVersion,
   denied,
+  games,
 }: {
   data: Overview;
   perf: Performance;
@@ -65,6 +68,8 @@ export function OverviewClient({
   recent: AuditEvent[] | null;
   filterVersion: number;
   denied: boolean;
+  /** The dashboard's own server's game modules and fleet; null when the scope leaves it out. */
+  games: { report: GamesReport | null } | null;
 }) {
   const t = useTranslations("overview");
   const tf = useTranslations("fleet");
@@ -429,6 +434,9 @@ export function OverviewClient({
           )}
         </Stack>
       </Card>
+
+      {games && <GameServersCard report={games.report} />}
+      {games && fleetWide && games.report?.installs && <InstallsCard report={games.report} />}
 
       <PerformanceSection perf={perf} single={!fleetWide} />
 

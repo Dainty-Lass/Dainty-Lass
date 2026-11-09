@@ -3,6 +3,7 @@ import { and, eq, gte, lt } from "drizzle-orm";
 import { db, schema } from "@/lib/db";
 import type { Controller } from "@/lib/db/schema";
 import { ensureLocal, LOCAL, listControllers } from "./controllers";
+import { refreshGames } from "./games";
 import { type Performance, performance, recordMetrics } from "./metrics";
 import { connectedSince, isConnected } from "./registry";
 import { localGameConfig } from "./transport";
@@ -176,7 +177,8 @@ export function startLocalReporter(): void {
   ensureLocal();
   const tick = async () => {
     try {
-      recordStatus(LOCAL, await collectLocalStatus());
+      const [status] = await Promise.all([collectLocalStatus(), refreshGames(localGameConfig())]);
+      recordStatus(LOCAL, status);
       pruneSamples();
     } catch (error) {
       console.error("[fleet] local status failed:", error instanceof Error ? error.message : error);
