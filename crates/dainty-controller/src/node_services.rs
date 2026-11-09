@@ -17,6 +17,16 @@ use network_plugin::{LinkError, NodeService, Service, ServiceMux};
 /// Answers a `POST /__node/enroll` body with a status code and a response body.
 pub type RemoteEnrollCallback = Arc<dyn Fn(Vec<u8>) -> BoxFuture<'static, (u16, Vec<u8>)> + Send + Sync>;
 
+/// A remote controller's enrolled installs, for the admin API's fleet fields (MS6).
+#[cfg(feature = "remote")]
+#[derive(Clone)]
+pub struct RemoteFleet {
+    /// The state the remote module answers syncs from.
+    pub state: Arc<std::sync::Mutex<dainty_remote::RemoteControllerState>>,
+    /// Where it is saved; `None` keeps it in memory.
+    pub state_file: Option<std::path::PathBuf>,
+}
+
 /// The gateway's `/_rr/node/*` side, as the host composing the gateway hands it over: the MIT controller never
 /// names the AGPL gateway's types (RD27).
 pub trait GatewayLinks: Send + Sync {
@@ -50,6 +60,8 @@ struct Inner {
     peer_roster: RwLock<Option<Arc<dyn network_plugin::PeerRoster>>>,
     enroll_handler: RwLock<Option<RemoteEnrollCallback>>,
     dynamic_peers: RwLock<std::collections::BTreeSet<NodeId>>,
+    #[cfg(feature = "remote")]
+    remote_fleet: RwLock<Option<RemoteFleet>>,
     #[cfg(feature = "network")]
     directory: RwLock<Option<Arc<network_plugin::directory::Directory>>>,
     #[cfg(feature = "network")]
@@ -78,6 +90,8 @@ impl NodeServices {
                 peer_roster: RwLock::new(None),
                 enroll_handler: RwLock::new(None),
                 dynamic_peers: RwLock::default(),
+                #[cfg(feature = "remote")]
+                remote_fleet: RwLock::new(None),
                 #[cfg(feature = "network")]
                 directory: RwLock::new(None),
                 #[cfg(feature = "network")]
@@ -174,6 +188,22 @@ impl NodeServices {
             .write()
             .unwrap_or_else(PoisonError::into_inner) = handler;
         self.bind_gateway();
+    }
+
+    /// Sets the remote controller's installs while its module runs; `None` on any other server (MS6).
+    #[cfg(feature = "remote")]
+    pub fn set_remote_fleet(&self, fleet: Option<RemoteFleet>) {
+        *self.inner.remote_fleet.write().unwrap_or_else(PoisonError::into_inner) = fleet;
+    }
+
+    /// The remote controller's installs, if this server is one and its module runs.
+    #[cfg(feature = "remote")]
+    pub fn remote_fleet(&self) -> Option<RemoteFleet> {
+        self.inner
+            .remote_fleet
+            .read()
+            .unwrap_or_else(PoisonError::into_inner)
+            .clone()
     }
 
     /// What answers `POST /__node/enroll`, if anything does.

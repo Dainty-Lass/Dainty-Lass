@@ -87,6 +87,19 @@ pub trait ModuleControl: Send + Sync {
         let _ = (after, names, limit);
         Box::pin(async { Err(ModuleError::unsupported("kept events")) })
     }
+    /// Every enrolled install with its last report, on a remote controller (MS6); `None` elsewhere.
+    fn installs(&self) -> Option<Vec<crate::fleet::FleetInstall>> {
+        None
+    }
+    /// Queues a moderation action for one install's next sync and returns the command id (MS6).
+    fn queue_moderation(
+        &self,
+        node: &str,
+        moderation: crate::fleet::FleetModeration,
+    ) -> Result<String, crate::fleet::FleetRefusal> {
+        let _ = (node, moderation);
+        Err(crate::fleet::FleetRefusal::NoFleet)
+    }
 }
 
 /// The registry, when the admin API runs inside the server.

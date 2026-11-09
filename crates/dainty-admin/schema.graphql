@@ -499,6 +499,48 @@ type HuntStatus {
 }
 
 """
+One install in the fleet.
+"""
+type Install {
+	"""
+	Its node id; `node` on a moderation mutation.
+	"""
+	node: String!
+	"""
+	Its region.
+	"""
+	region: String!
+	"""
+	Display label.
+	"""
+	label: String!
+	"""
+	online, degraded, offline or revoked
+	"""
+	state: String!
+	"""
+	When its last report arrived (RFC 3339); null before the first.
+	"""
+	lastReportAt: String
+	"""
+	Server version, from the last report.
+	"""
+	version: String
+	"""
+	Players online, from the last report.
+	"""
+	playersOnline: Int
+	"""
+	Whether players can get in, from the last report; null for an install older than MS6.
+	"""
+	availability: Availability
+	"""
+	Its game servers, from the last report.
+	"""
+	gameServers: [GameServer!]!
+}
+
+"""
 A key just made. The key itself is shown here once and is not kept.
 """
 type IssuedKey {
@@ -691,26 +733,31 @@ type Mutation {
 	"""
 	Drops a connected player now: their chat connections close and their sign-in tokens are
 	revoked. They are not banned, and may log in again.
+	With `node`, queued for that install of this remote controller's fleet instead (QUEUED, MS6).
 	"""
-	kick(username: String!, game: String): KickResult!
+	kick(username: String!, game: String, node: String): KickResult!
 	"""
 	Bans a player until a given time, then lifts the ban. Give `minutes` or `until` (RFC 3339),
 	within a year. Replaces an earlier timeout; refused for a player who is banned.
+	With `node`, queued for that install of this remote controller's fleet instead (QUEUED, MS6).
 	"""
-	timeout(username: String!, minutes: Int, until: String, reason: String!, game: String): Player!
+	timeout(username: String!, minutes: Int, until: String, reason: String!, game: String, node: String): Player!
 	"""
 	Lifts a timeout before it runs out.
+	With `node`, queued for that install of this remote controller's fleet instead (QUEUED, MS6).
 	"""
-	liftTimeout(username: String!, game: String): Player!
+	liftTimeout(username: String!, game: String, node: String): Player!
 	"""
 	Bans a player until someone unbans them. Replaces a timeout. The player reads `reason` in the
 	launcher.
+	With `node`, queued for that install of this remote controller's fleet instead (QUEUED, MS6).
 	"""
-	ban(username: String!, reason: String!, game: String): Player!
+	ban(username: String!, reason: String!, game: String, node: String): Player!
 	"""
 	Lifts a ban or a timeout.
+	With `node`, queued for that install of this remote controller's fleet instead (QUEUED, MS6).
 	"""
-	unban(username: String!, reason: String, game: String): Player!
+	unban(username: String!, reason: String, game: String, node: String): Player!
 	"""
 	Loads a listed module (a failed one is restarted). Refused with MODULE_REFUSED and the reason: a
 	second module for a game version, a SHA-256 that doesn't match, a module that failed to start.
@@ -895,6 +942,11 @@ type Query {
 	`after`, only the ones named in `names` when given, at most `limit` (100 when left out, 1000 at most).
 	"""
 	events(after: Int, names: [String!], limit: Int): [EventEntry!]!
+	"""
+	Every install this remote controller manages, with its last report: state, availability and game
+	servers (MS6). NO_FLEET on a server that is not a remote controller.
+	"""
+	installs: [Install!]!
 	"""
 	host.toml's `[logs]`, and whether the file changed since this run started. Needs the admin role.
 	"""

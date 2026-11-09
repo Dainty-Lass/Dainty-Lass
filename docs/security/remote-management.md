@@ -39,7 +39,8 @@ checks), `crates/dainty-remote/src/merge.rs` (`host.toml` merger preserving per-
 `crates/dainty-remote/src/state.rs` (`RemoteControllerState`, `RemoteManagedAgent`, `sign_enrolled_node_cert`).
 
 Fuzz target: `remote_wire` in `fuzz/fuzz_targets/remote_wire.rs` (enrollment URIs, `EnrollRequest`, `EnrollAnswer`,
-`RemoteRequest`, `RemoteResponse`, secret-leak detection, and `merge_managed_host_toml`). It checks that no malformed or
+`RemoteRequest`, `RemoteResponse`, secret-leak detection, and `merge_managed_host_toml`), including a `Sync` report's
+game servers and availability (MS6), which `InstallReport::validate` caps at `MAX_REPORT_GAME_SERVERS` (256). It checks that no malformed or
 oversized frame panics, that any payload carrying a secret key (`DLK_`, `DLA_`, `secrets.env` variables, PEM private
 keys, password hashes, or SQLite database headers) is refused, and that every accepted message round-trips identically.
 

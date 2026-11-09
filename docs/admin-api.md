@@ -44,7 +44,11 @@ type Query {
   activeTimeouts: [ActiveTimeout!]!            # the timeouts this API will lift, soonest first: username, until, reason, by, at
   gameServers(game: String): [GameServer!]!    # game, id, kind (HUB HUNT DOJO TUTORIAL), title, map, host, port, players, maxPlayers, ready, startedAt
   availability(game: String): Availability!    # game, up, reason (a code), hub, freeHunts; game defaults to 1.14.7
+<<<<<<< HEAD
   events(after: Int, names: [String!], limit: Int): [EventEntry!]!   # seq, atMs, name, source, payload (JSON), oldest first
+=======
+  installs: [Install!]!                        # a remote controller's fleet: node, region, label, state, lastReportAt, version, playersOnline, availability, gameServers
+>>>>>>> 8b24c34d (MS6: remote reports carry game servers; admin installs and node on moderation)
   guarded(all: Boolean): [GuardedAction!]!     # the destructive and bulk actions that wait (below)
   history(filter: HistoryFilter, cursor: String, limit: Int): HistoryPage!   # admin: the change logs, newest first
   historyCheck: [HistoryCheck!]!               # admin: each log's hash chain, walked from its start
@@ -52,11 +56,11 @@ type Query {
 }
 
 type Mutation {
-  kick(username: String!, game: String): KickResult!     # userId, username, connectionsClosed, game
-  timeout(username: String!, minutes: Int, until: String, reason: String!, game: String): Player!
-  liftTimeout(username: String!, game: String): Player!
-  ban(username: String!, reason: String!, game: String): Player!
-  unban(username: String!, reason: String, game: String): Player!
+  kick(username: String!, game: String, node: String): KickResult!     # userId, username, connectionsClosed, game
+  timeout(username: String!, minutes: Int, until: String, reason: String!, game: String, node: String): Player!
+  liftTimeout(username: String!, game: String, node: String): Player!
+  ban(username: String!, reason: String!, game: String, node: String): Player!
+  unban(username: String!, reason: String, game: String, node: String): Player!
   approve(id: String!): GuardedAction!         # a second operator approves a held action
   cancel(id: String!): GuardedAction!
   revertApply(planId: String!, selection: HistoryFilter): RevertDone!   # owner: applies exactly that plan
@@ -169,6 +173,20 @@ The change log (DD23) names the key: each admin API change is a row in `admin_ac
 (`admin:owner` for `DAINTY_ADMIN_API_KEY`), the keys' own changes are under whoever issued or revoked them
 (`admin:<id>`, or `host:admin key issue`), and a game module is told the same actor with every call. The keys live in
 the admin API's own database: `admin.db` next to the node's SQLite file, or the node's Postgres database.
+
+## The fleet (MS6)
+
+On a server that is a remote controller (`[remote] role = "controller"`, `docs/remote-management.md`), `installs`
+lists every enrolled install with its last 15 s report: its state (`online`, `degraded`, `offline`, `revoked`), when
+the report came, and the game servers and availability it reported. An install older than MS6 reports none, so its
+`availability` is null and `gameServers` empty. Any other server answers `NO_FLEET`.
+
+`kick`, `timeout`, `liftTimeout`, `ban` and `unban` take `node`, a node id from `installs`. With it the action isn't
+run here: the username, reason and length are checked as the local mutation checks them, the key needs the same role,
+and the action is queued as a `RemoteCommand::AdminAction` for that install's next sync. The answer is an error with
+the code `QUEUED` and `extensions { id, node }`, the command id being the receipt, as `GUARDED` is for a held action.
+`NOT_FOUND` names a node that isn't enrolled or was revoked. The install's own admin API runs it and its change log
+records the remote operator. `game` is not sent: the install looks the player up in its own game.
 
 ## Guarded actions (DH6)
 

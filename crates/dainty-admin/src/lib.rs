@@ -8,6 +8,7 @@ pub mod app;
 pub mod cli;
 pub mod config;
 pub mod events;
+pub mod fleet;
 pub mod game;
 pub mod guard;
 pub mod guarded;

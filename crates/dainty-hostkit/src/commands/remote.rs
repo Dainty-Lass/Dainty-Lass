@@ -935,6 +935,9 @@ impl RemoteHostHandler for HostKitRemoteHandler {
             }),
             mongo_migration,
             history: None,
+            // The server's sync loop fills these from the registry (`sync_once_with_games`, MS6)
+            game_servers: Vec::new(),
+            availability: None,
         })
     }
 
@@ -1219,6 +1222,7 @@ pub fn compose_remote_module(
                 link,
                 services: registry.node_services().clone(),
                 sync_interval: Duration::from_secs(sync_secs),
+                games: Some(dainty_controller::modules::registry_games(registry)),
             })
             .map_err(HostError::message)?;
             controller.add(module);

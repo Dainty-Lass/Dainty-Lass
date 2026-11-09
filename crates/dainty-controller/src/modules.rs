@@ -261,6 +261,72 @@ impl dainty_admin::module_control::ModuleControl for AdminModules {
         })
     }
 
+    #[cfg(feature = "remote")]
+    fn installs(&self) -> Option<Vec<dainty_admin::fleet::FleetInstall>> {
+        let fleet = self.registry.node_services().remote_fleet()?;
+        let state = fleet.state.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        let summaries = state.install_summaries(now_ms(), dainty_remote::DEFAULT_OFFLINE_THRESHOLD_MS);
+        Some(summaries.into_iter().map(fleet_install).collect())
+    }
+
+    #[cfg(feature = "remote")]
+    fn queue_moderation(
+        &self,
+        node: &str,
+        moderation: dainty_admin::fleet::FleetModeration,
+    ) -> Result<String, dainty_admin::fleet::FleetRefusal> {
+        use dainty_admin::fleet::{FleetAction, FleetRefusal};
+        use dainty_remote::{AdminModerationKind as Kind, RemoteRole};
+        let fleet = self
+            .registry
+            .node_services()
+            .remote_fleet()
+            .ok_or(FleetRefusal::NoFleet)?;
+        let node: dainty_module_api::network::NodeId = node
+            .parse()
+            .map_err(|_| FleetRefusal::UnknownNode(format!("no node {node}")))?;
+        let now = now_ms();
+        let mut state = fleet.state.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        let operator = dainty_remote::OperatorEnvelope {
+            controller_node: state.controller_node.clone(),
+            key_id: moderation.key,
+            role: match moderation.role {
+                dainty_admin::keys::Role::Viewer => RemoteRole::Viewer,
+                dainty_admin::keys::Role::Moderator => RemoteRole::Moderator,
+                dainty_admin::keys::Role::Admin => RemoteRole::Admin,
+                dainty_admin::keys::Role::Owner => RemoteRole::Owner,
+            },
+            issued_at_ms: now,
+        };
+        let command = dainty_remote::RemoteCommand::AdminAction {
+            action: match moderation.action {
+                FleetAction::Kick => Kind::Kick,
+                FleetAction::Timeout => Kind::Timeout,
+                FleetAction::LiftTimeout => Kind::LiftTimeout,
+                FleetAction::Ban => Kind::Ban,
+                FleetAction::Unban => Kind::Unban,
+            },
+            target: moderation.target,
+            reason: moderation.reason,
+            duration_secs: moderation.duration_secs,
+        };
+        let id = state
+            .queue_admin_action(&node, operator, command, now)
+            .map_err(|e| match e {
+                dainty_remote::RemoteError::UnknownInstall(_) | dainty_remote::RemoteError::RevokedPeer(_) => {
+                    FleetRefusal::UnknownNode(e.to_string())
+                }
+                other => FleetRefusal::Refused(other.to_string()),
+            })?;
+        // Kept across a restart, as an enrollment is; the next sync carries it either way
+        if let Some(path) = &fleet.state_file
+            && let Err(e) = state.save(path)
+        {
+            tracing::warn!(error = %e, "the remote controller's state was not saved");
+        }
+        Ok(id)
+    }
+
     #[cfg(feature = "events")]
     fn events(
         &self,
@@ -285,6 +351,36 @@ impl dainty_admin::module_control::ModuleControl for AdminModules {
                 })
                 .collect())
         })
+    }
+}
+
+#[cfg(all(feature = "admin", feature = "remote"))]
+fn now_ms() -> i64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| i64::try_from(d.as_millis()).unwrap_or(i64::MAX))
+        .unwrap_or(0)
+}
+
+#[cfg(all(feature = "admin", feature = "remote"))]
+fn fleet_install(from: dainty_remote::InstallSummary) -> dainty_admin::fleet::FleetInstall {
+    use dainty_remote::EnrolledInstallState as State;
+    dainty_admin::fleet::FleetInstall {
+        node: from.node.to_string(),
+        region: from.region.to_string(),
+        label: from.label,
+        state: match from.state {
+            State::Online => "online",
+            State::Degraded => "degraded",
+            State::Offline => "offline",
+            State::Revoked => "revoked",
+        }
+        .to_owned(),
+        last_report_ms: from.last_report_ms,
+        version: from.version,
+        players_online: from.players_online,
+        game_servers: from.game_servers,
+        availability: from.availability,
     }
 }
 
@@ -416,12 +512,17 @@ pub fn remote_controller(options: RemoteControllerOptions) -> Result<crate::Modu
                     });
 
                 services.set_enroll_handler(Some(enroll_cb));
+                services.set_remote_fleet(Some(crate::node_services::RemoteFleet {
+                    state: state.clone(),
+                    state_file: state_file.clone(),
+                }));
                 let svc = std::sync::Arc::new(dainty_remote::RemoteControllerService::new(state, state_file));
                 services.attach(network_plugin::Service::Remote, svc);
                 ctx.status.ready(None, Some("controller".to_string()));
                 ctx.wait_stop().await;
                 ctx.status.stopping();
                 services.detach(network_plugin::Service::Remote);
+                services.set_remote_fleet(None);
                 services.set_enroll_handler(None);
                 ctx.status.stopped();
                 Ok(())
@@ -445,6 +546,44 @@ pub struct RemoteManagedOptions {
     pub services: crate::NodeServices,
     /// How long between syncs while the controller answers; at least one second.
     pub sync_interval: std::time::Duration,
+    /// Where each report's game servers and availability come from ([`registry_games`], MS6).
+    pub games: Option<std::sync::Arc<dyn dainty_remote::GameFleetSource>>,
+}
+
+/// The registry as a managed install's reports read it (MS6): every ready game module's servers, and the
+/// availability of the first one's game.
+#[cfg(feature = "remote")]
+pub fn registry_games(registry: &crate::ModuleRegistry) -> std::sync::Arc<dyn dainty_remote::GameFleetSource> {
+    std::sync::Arc::new(RegistryGames(registry.downgrade()))
+}
+
+#[cfg(feature = "remote")]
+struct RegistryGames(crate::WeakRegistry);
+
+#[cfg(feature = "remote")]
+impl dainty_remote::GameFleetSource for RegistryGames {
+    fn game_fleet(&self) -> dainty_module_api::BoxFuture<'_, dainty_remote::GameFleet> {
+        Box::pin(async move {
+            let Some(registry) = self.0.upgrade() else {
+                return dainty_remote::GameFleet::default();
+            };
+            let games = registry.game_servers().await;
+            let availability = match games.first() {
+                Some(first) => match registry
+                    .game(&first.version, dainty_module_api::GameCall::Availability)
+                    .await
+                {
+                    Ok(dainty_module_api::GameAnswer::Availability(found)) => Some(found),
+                    _ => None,
+                },
+                None => None,
+            };
+            dainty_remote::GameFleet {
+                game_servers: games.into_iter().filter_map(|g| g.servers.ok()).flatten().collect(),
+                availability,
+            }
+        })
+    }
 }
 
 /// Managed-install remote management module (`[remote] role = "managed"`, DD27, RM2, RM3):
@@ -457,10 +596,17 @@ pub fn remote_managed(options: RemoteManagedOptions) -> Result<crate::Module, St
     let link = options.link;
     let services = options.services;
     let sync_interval = options.sync_interval.max(std::time::Duration::from_secs(1));
+    let games = options.games;
     Ok(crate::Module::new(
         "remote",
         std::sync::Arc::new(move |mut ctx| {
-            let (agent, handler, link, services) = (agent.clone(), handler.clone(), link.clone(), services.clone());
+            let (agent, handler, link, services, games) = (
+                agent.clone(),
+                handler.clone(),
+                link.clone(),
+                services.clone(),
+                games.clone(),
+            );
             Box::pin(async move {
                 let controller_node = {
                     agent
@@ -478,13 +624,15 @@ pub fn remote_managed(options: RemoteManagedOptions) -> Result<crate::Module, St
                 let loop_handler = handler.clone();
                 let loop_link = link.clone();
                 let loop_outcomes = pending_outcomes.clone();
+                let loop_games = games.clone();
                 let sync_task = tokio::spawn(async move {
                     loop {
-                        let res = dainty_remote::sync_once_with_controller(
+                        let res = dainty_remote::sync_once_with_games(
                             loop_link.as_ref(),
                             &loop_agent,
                             loop_handler.as_ref(),
                             &loop_outcomes,
+                            loop_games.as_deref(),
                         )
                         .await;
                         let wait_ms = match res {
@@ -667,5 +815,236 @@ mod tests {
         registry.unload_all().await;
         stop.send(true).unwrap();
         recording.await.unwrap().unwrap();
+    }
+
+    /// A managed install's report as the host kit builds it, before the sync adds the registry's games.
+    #[cfg(feature = "remote")]
+    struct Install;
+
+    #[cfg(feature = "remote")]
+    impl dainty_remote::RemoteHostHandler for Install {
+        fn build_report(
+            &self,
+            applied_revision: u64,
+        ) -> Result<dainty_remote::InstallReport, dainty_remote::RemoteError> {
+            Ok(dainty_remote::InstallReport {
+                node: "eu-de-1".parse().unwrap(),
+                region: "eu-central".parse().unwrap(),
+                label: "Frankfurt".into(),
+                version: "2.0.0".into(),
+                os: "linux".into(),
+                arch: "x86_64".into(),
+                applied_revision,
+                server_state: dainty_remote::ServerRunState::Running,
+                uptime_secs: 1,
+                players_online: 0,
+                active_hunts: 0,
+                active_hubs: 0,
+                active_realms: 0,
+                components: Vec::new(),
+                doctor: None,
+                mongo_migration: dainty_remote::MongoMigrationState::NotNeeded,
+                history: None,
+                game_servers: Vec::new(),
+                availability: None,
+            })
+        }
+
+        fn read_local_host_toml(&self) -> Result<String, dainty_remote::RemoteError> {
+            Ok(String::new())
+        }
+
+        fn write_merged_host_toml(&self, _merged: &str, _revision: u64) -> Result<(), dainty_remote::RemoteError> {
+            Ok(())
+        }
+
+        fn execute_command(
+            &self,
+            cmd: &dainty_remote::QueuedRemoteCommand,
+        ) -> Result<dainty_remote::CommandOutcome, dainty_remote::RemoteError> {
+            Err(dainty_remote::RemoteError::InvalidInput(cmd.command_id.clone()))
+        }
+
+        fn fetch_logs(
+            &self,
+            since_seq: u64,
+            _limit: u32,
+        ) -> Result<(u64, Vec<dainty_remote::RemoteLogEntry>), dainty_remote::RemoteError> {
+            Ok((since_seq, Vec::new()))
+        }
+    }
+
+    /// The node link from the managed install, straight to what the controller attached for `Service::Remote`.
+    #[cfg(feature = "remote")]
+    struct Link(crate::NodeServices);
+
+    #[cfg(feature = "remote")]
+    impl network_plugin::PeerLink for Link {
+        fn call<'a>(
+            &'a self,
+            _to: &'a dainty_module_api::network::NodeId,
+            service: network_plugin::Service,
+            body: Vec<u8>,
+        ) -> dainty_module_api::BoxFuture<'a, Result<Vec<u8>, network_plugin::LinkError>> {
+            Box::pin(async move {
+                let from: dainty_module_api::network::NodeId = "eu-de-1".parse().unwrap();
+                network_plugin::NodeService::serve(&self.0, &from, service, body).await
+            })
+        }
+    }
+
+    #[cfg(feature = "remote")]
+    #[tokio::test(flavor = "multi_thread")]
+    async fn the_fleet_controller_lists_what_its_installs_report_and_queues_their_moderation() {
+        let dir = tempfile::tempdir().unwrap();
+        let node = dainty_store::DatabaseConfig::Sqlite {
+            file: dir.path().join("dainty.db"),
+        };
+        let status = StatusRegistry::new("public", Vec::new());
+        let registry = crate::ModuleRegistry::new(crate::RegistryOptions::standalone(), status.clone());
+        registry
+            .add_entry(crate::ModuleEntry {
+                id: "stub".parse().unwrap(),
+                source: crate::ModuleSource::CompiledIn(Arc::new(|| {
+                    Arc::new(dainty_module_api::stub::StubModule::new()) as Arc<dyn GameModule>
+                })),
+                autoload: true,
+                settings: BTreeMap::new(),
+            })
+            .unwrap();
+        registry.load(&"stub".parse().unwrap()).await.unwrap();
+        let admin = AdminModules {
+            registry: registry.clone(),
+            host: None,
+            #[cfg(feature = "events")]
+            events: crate::events::EventsReader::for_node(&node),
+        };
+        // Before the remote module runs, this server has no fleet
+        assert!(admin.installs().is_none());
+
+        // The controller enrolls one install, then runs its remote module
+        let ca = Arc::new(network_plugin::cluster::ClusterCa::create(network_plugin::cluster::CA_DAYS).unwrap());
+        let mut state = dainty_remote::RemoteControllerState::new(
+            "ctrl-1".parse().unwrap(),
+            "us-east".parse().unwrap(),
+            "https://ctrl.example.org:61000".into(),
+            "a".repeat(64),
+            "[server]\n".into(),
+        )
+        .unwrap();
+        let (_uri, invite) = state
+            .mint_enrollment_invite(
+                "eu-de-1".parse().unwrap(),
+                "eu-central".parse().unwrap(),
+                None,
+                1_000,
+                None,
+            )
+            .unwrap();
+        let (_key, public_key_pem) = dainty_remote::generate_node_keypair_and_spki_pem().unwrap();
+        state
+            .redeem_enrollment(
+                &ca,
+                &dainty_remote::EnrollRequest {
+                    token: invite.token,
+                    node: invite.node.clone(),
+                    region: invite.region,
+                    label: None,
+                    public_key_pem,
+                    gateway_url: None,
+                    gateway_cert_fp: None,
+                },
+                2_000,
+            )
+            .unwrap();
+        let state_file = dir.path().join("controller-state.json");
+        let state = Arc::new(std::sync::Mutex::new(state));
+        let module = remote_controller(RemoteControllerOptions {
+            state: state.clone(),
+            state_file: Some(state_file.clone()),
+            ca,
+            services: registry.node_services().clone(),
+        })
+        .unwrap();
+        let (ctx, stop) = status.service_context("remote");
+        let running = tokio::spawn((module.start)(ctx));
+        for _ in 0..100 {
+            if admin.installs().is_some() {
+                break;
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(20)).await;
+        }
+
+        // The managed install syncs, its report filled from its registry
+        let agent = std::sync::Mutex::new(dainty_remote::RemoteManagedAgent::new(
+            invite.node,
+            "ctrl-1".parse().unwrap(),
+            0,
+            Vec::new(),
+        ));
+        let games = registry_games(&registry);
+        dainty_remote::sync_once_with_games(
+            &Link(registry.node_services().clone()),
+            &agent,
+            &Install,
+            &std::sync::Mutex::new(Vec::new()),
+            Some(games.as_ref()),
+        )
+        .await
+        .unwrap();
+
+        let installs = admin.installs().unwrap();
+        assert_eq!(installs.len(), 1);
+        let install = &installs[0];
+        assert_eq!((install.node.as_str(), install.state.as_str()), ("eu-de-1", "online"));
+        assert_eq!(install.label, "Frankfurt");
+        assert_eq!(install.version.as_deref(), Some("2.0.0"));
+        assert!(install.last_report_ms.is_some());
+        let ids: Vec<_> = install.game_servers.iter().map(|g| g.id.as_str()).collect();
+        assert_eq!(ids, ["stub-hub"], "the stub module's hub, from the registry");
+        assert!(install.availability.as_ref().is_some_and(|a| a.up));
+
+        let id = admin
+            .queue_moderation(
+                "eu-de-1",
+                dainty_admin::fleet::FleetModeration {
+                    action: dainty_admin::fleet::FleetAction::Ban,
+                    target: "Bo_Slayer".into(),
+                    reason: Some("cheating".into()),
+                    duration_secs: None,
+                    key: "mod-ann".into(),
+                    role: dainty_admin::keys::Role::Moderator,
+                },
+            )
+            .unwrap();
+        let queued = state.lock().unwrap().installs["eu-de-1"].queued_commands.clone();
+        assert_eq!(queued.len(), 1);
+        assert_eq!(queued[0].command_id, id);
+        assert_eq!(queued[0].operator.actor_string(), "remote:ctrl-1:mod-ann");
+        let saved = dainty_remote::RemoteControllerState::load(&state_file).unwrap();
+        assert_eq!(
+            saved.installs["eu-de-1"].queued_commands.len(),
+            1,
+            "a queued command survives a restart"
+        );
+        assert!(matches!(
+            admin.queue_moderation(
+                "ap-sg-1",
+                dainty_admin::fleet::FleetModeration {
+                    action: dainty_admin::fleet::FleetAction::Kick,
+                    target: "Bo_Slayer".into(),
+                    reason: None,
+                    duration_secs: None,
+                    key: "mod-ann".into(),
+                    role: dainty_admin::keys::Role::Moderator,
+                },
+            ),
+            Err(dainty_admin::fleet::FleetRefusal::UnknownNode(_))
+        ));
+
+        stop.send(true).unwrap();
+        running.await.unwrap().unwrap();
+        assert!(admin.installs().is_none(), "the fleet goes with the remote module");
+        registry.unload_all().await;
     }
 }

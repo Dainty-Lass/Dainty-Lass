@@ -96,7 +96,23 @@ On every `Sync` heartbeat (and on demand when queried by the controller), each m
 | **Doctor summary** | `ok: bool`, `pass_count`, `warn_count`, `fail_count`, `checked_at_ms`, and the full vector of `DoctorCheck { id, status, summary, detail }`. |
 | **Migration state** | `mongo_migration_state` (`not_needed`, `unmigrated`, `migrated`, `skipped`), `mongo_reachable: Option<bool>`, `verified_collections: Option<u32>`. |
 | **History & change-log summary** | `head_seq: i64`, `head_hash: String`, `chain_verified: bool`, `last_change_at_ms: Option<i64>`, `last_actor: Option<String>`, `pending_guarded_count: u32`, and `ship_lag_secs: Option<u64>`. |
+| **Game servers & availability (MS6)** | `game_servers` (each game module's `GameServer`: `id`, `kind`, `title`, `map`, `host`, `port`, `players`, `max_players`, `ready`, `started_at`; at most 256) and `availability` (`up`, a `reason` code, `hub`, `free_hunts`), from the server's module registry. Both are left out of the JSON when empty. |
 | **Logs (on request or streamed)** | Per-component and per-module structured log lines (`timestamp_ms`, `level`, `target`, `message`), fetched in bounded pages (`limit <= 500`, `since_seq`) when the operator opens the install's Status/Logs tab. |
+
+The controller keeps each install's last report, so the fleet view (the admin API's `installs`, read by the dashboard
+beside the controller, D1) costs nothing on the managed installs and still shows an offline install's last state.
+
+### 3.1 Upgrade order: the controller first (MS6)
+
+`InstallReport` refuses fields it doesn't know (`deny_unknown_fields`), so a controller older than MS6 refuses a report
+that carries `game_servers` or `availability`, and that install shows as offline there. A report from an install older
+than MS6 parses on a newer controller, which reads its game servers as empty. So:
+
+1. Upgrade the controller first. Its installs keep syncing as before.
+2. Then upgrade the managed installs, in any order. Each one's game servers appear in `installs` from its next sync.
+
+An install upgraded first still syncs while it reports no game servers, since the empty fields are left out; it
+stops syncing once it has a game server to report, until the controller is upgraded.
 
 ---
 
@@ -109,7 +125,7 @@ managed installs**:
 | --- | --- | --- |
 | **Start / Stop / Restart** | `RemoteCommand::Lifecycle { action: Start \| Stop \| Restart }` | Starts, stops, or restarts the managed install's embedded/supervised server components (`serve::compose`) without terminating the remote-management agent itself, so a stopped install can still be started again remotely. |
 | **Run `setup`** | `RemoteCommand::Setup { examples: bool, fresh_start: bool }` | Runs `setup` with the current merged `host.toml` (generating any missing local secrets in `secrets.env`, writing `.env` files, and running or refusing MongoDB migration per `M1`–`M4`). Note: `fresh_start: true` is a guarded action (§4.1). |
-| **Admin actions** | `RemoteCommand::AdminAction { action: Kick \| Timeout \| LiftTimeout \| Ban \| Unban \| Lookup, target, reason, duration_secs }` | Dispatches through the install's `admin` service and loaded game modules (`DF4c`, `DN11`), recording the remote operator's key ID as the change-log `Actor`. |
+| **Admin actions** | `RemoteCommand::AdminAction { action: Kick \| Timeout \| LiftTimeout \| Ban \| Unban \| Lookup, target, reason, duration_secs }` | Dispatches through the install's `admin` service and loaded game modules (`DF4c`, `DN11`), recording the remote operator's key ID as the change-log `Actor`. On the controller, the admin API's moderation mutations queue one with `node` (MS6). |
 | **Module load / unload & settings** | `RemoteCommand::ModuleControl { module_id, action: Load \| Unload \| SetSettings(json) }` | Calls `controller::ModuleRegistry` to load/unload a compiled-in or allowlisted external module (`DD5`) or update its settings. |
 | **History query & revert** | `RemoteCommand::HistoryQuery(filter)`, `RemoteCommand::HistoryVerify`, `RemoteCommand::HistoryRevert { filter, dry_run }` | Queries or verifies `store::history` on the install. A live revert (`dry_run: false`) is a guarded action (§4.1). |
 | **Backup** | `RemoteCommand::Backup` | Runs a local SQLite online backup / Postgres dump into the install's own `.workspace/backups/` directory (or triggers an immediate `history-ship` snapshot to the install's own bucket/peer) and returns `{ ok, backup_name, files_copied, bytes }` — **never** the database contents. |
