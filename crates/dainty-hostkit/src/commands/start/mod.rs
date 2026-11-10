@@ -208,7 +208,7 @@ pub fn service_plan(
 
     let gw_ready = match config.mode {
         ServerMode::Public => Ready::tcp("127.0.0.1", gateway_port(config)),
-        ServerMode::Private => Ready::tcp(&config.game_address, PORTS.private_gateway),
+        ServerMode::Private => Ready::tcp(&config.game_address, crate::hostconfig::gateway_port(config)),
     };
     let gw_file = env_file(p, FrontService::Gateway.bin_name());
     let gw_launch = programs.launch(FrontService::Gateway, p, &gw_file);

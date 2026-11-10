@@ -74,7 +74,7 @@ dainty-host db replay \
   --left recorded \
   --right http://127.0.0.1:41000 \
   --right-director http://127.0.0.1:41001 \
-  --right-chat 127.0.0.1:61006 \
+  --right-chat 127.0.0.1:41006 \
   --key-map /path/to/keymap.json \
   --out /path/to/replay-report.json
 

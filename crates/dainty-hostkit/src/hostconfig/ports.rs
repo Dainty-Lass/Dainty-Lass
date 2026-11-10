@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Silent Spud
 
-//! `[ports]`: the loopback TCP ports the server's own services listen on, for a host whose machine holds one of
-//! the defaults ([`PORTS`]). The gateway's port is not here: a private server's is in every invite it handed out,
-//! and a public one's is `public_port`.
+//! `[ports]`: the TCP ports the server's own services listen on, for a host whose machine holds one of the
+//! defaults ([`PORTS`]). `gateway` is a private server's gateway, which its invites name; a public one's is
+//! `public_port`. On Windows, setup and start fill this in themselves when a port is lent out (`winports`).
 //!
 //! ```toml
 //! [ports]
@@ -17,11 +17,22 @@ use crate::error::HostError;
 use crate::paths::{PORTS, Ports};
 
 /// The keys `[ports]` takes, as host.json and host.toml both spell them.
-pub const KEYS: [&str; 6] = ["backend", "director", "qos", "content", "admin", "allowlist"];
+pub const KEYS: [&str; 8] = [
+    "gateway",
+    "backend",
+    "director",
+    "qos",
+    "content",
+    "admin",
+    "allowlist",
+    "chat",
+];
 
 /// `[ports]`; a port left out keeps its default.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub struct PortsConfig {
+    /// A private server's gateway.
+    pub gateway: Option<u16>,
     /// The backend's.
     pub backend: Option<u16>,
     /// The Director's.
@@ -34,6 +45,8 @@ pub struct PortsConfig {
     pub admin: Option<u16>,
     /// The allowlist's.
     pub allowlist: Option<u16>,
+    /// Chat's, behind the gateway.
+    pub chat: Option<u16>,
 }
 
 fn bad(text: impl Into<String>) -> HostError {
@@ -49,25 +62,21 @@ impl PortsConfig {
                 return Err(bad(format!("ports.{key} is not a setting")));
             }
         }
-        let port = |key: &str| -> Result<Option<u16>, HostError> {
-            match obj.get(key).filter(|v| !v.is_null()) {
-                None => Ok(None),
-                Some(v) => v
-                    .as_u64()
-                    .and_then(|n| u16::try_from(n).ok())
-                    .filter(|n| *n != 0)
-                    .map(Some)
-                    .ok_or_else(|| bad(format!("ports.{key} must be a TCP port from 1 to 65535"))),
+        let mut config = Self::default();
+        for key in KEYS {
+            let port = match obj.get(key).filter(|v| !v.is_null()) {
+                None => None,
+                Some(v) => Some(
+                    v.as_u64()
+                        .and_then(|n| u16::try_from(n).ok())
+                        .filter(|n| *n != 0)
+                        .ok_or_else(|| bad(format!("ports.{key} must be a TCP port from 1 to 65535")))?,
+                ),
+            };
+            if let Some(slot) = config.slot(key) {
+                *slot = port;
             }
-        };
-        let config = Self {
-            backend: port("backend")?,
-            director: port("director")?,
-            qos: port("qos")?,
-            content: port("content")?,
-            admin: port("admin")?,
-            allowlist: port("allowlist")?,
-        };
+        }
         let named = config.named();
         for (i, (key, port)) in named.iter().enumerate() {
             if let Some((other, _)) = named[..i].iter().find(|(_, p)| p == port) {
@@ -79,41 +88,47 @@ impl PortsConfig {
         Ok(config)
     }
 
+    /// The setting `key` names, or `None` for a key not in [`KEYS`].
+    pub fn slot(&mut self, key: &str) -> Option<&mut Option<u16>> {
+        Some(match key {
+            "gateway" => &mut self.gateway,
+            "backend" => &mut self.backend,
+            "director" => &mut self.director,
+            "qos" => &mut self.qos,
+            "content" => &mut self.content,
+            "admin" => &mut self.admin,
+            "allowlist" => &mut self.allowlist,
+            "chat" => &mut self.chat,
+            _ => return None,
+        })
+    }
+
     /// The table host.toml writes.
     #[must_use]
     pub fn to_json(&self) -> Value {
+        let mut copy = *self;
         let mut out = Map::new();
-        for (key, port) in self.set() {
-            out.insert(key.into(), Value::from(port));
+        for key in KEYS {
+            if let Some(port) = copy.slot(key).and_then(|slot| *slot) {
+                out.insert(key.into(), Value::from(port));
+            }
         }
         Value::Object(out)
     }
 
-    fn set(&self) -> Vec<(&'static str, u16)> {
-        [
-            ("backend", self.backend),
-            ("director", self.director),
-            ("qos", self.qos),
-            ("content", self.content),
-            ("admin", self.admin),
-            ("allowlist", self.allowlist),
-        ]
-        .into_iter()
-        .filter_map(|(key, port)| port.map(|p| (key, p)))
-        .collect()
-    }
-
     /// Every port in `[ports]`, the defaults filled in, with its key.
     #[must_use]
-    pub fn named(&self) -> [(&'static str, u16); 6] {
+    pub fn named(&self) -> [(&'static str, u16); 8] {
         let p = self.resolve();
         [
+            ("gateway", p.private_gateway),
             ("backend", p.backend),
             ("director", p.director),
             ("qos", p.qos),
             ("content", p.content),
             ("admin", p.admin),
             ("allowlist", p.allowlist),
+            ("chat", p.chat),
         ]
     }
 
@@ -121,12 +136,14 @@ impl PortsConfig {
     #[must_use]
     pub fn resolve(&self) -> Ports {
         Ports {
+            private_gateway: self.gateway.unwrap_or(PORTS.private_gateway),
             backend: self.backend.unwrap_or(PORTS.backend),
             director: self.director.unwrap_or(PORTS.director),
             qos: self.qos.unwrap_or(PORTS.qos),
             content: self.content.unwrap_or(PORTS.content),
             admin: self.admin.unwrap_or(PORTS.admin),
             allowlist: self.allowlist.unwrap_or(PORTS.allowlist),
+            chat: self.chat.unwrap_or(PORTS.chat),
             ..PORTS
         }
     }
@@ -139,14 +156,22 @@ mod tests {
 
     #[test]
     fn reads_and_writes_back() {
-        let value = json!({"backend": 42000, "admin": 42003});
+        let value = json!({"gateway": 41080, "backend": 42000, "admin": 42003, "chat": 42006});
         let ports = PortsConfig::from_json(&value).unwrap();
         assert_eq!(ports.backend, Some(42000));
         assert_eq!(ports.to_json(), value);
         let resolved = ports.resolve();
-        assert_eq!((resolved.backend, resolved.admin), (42000, 42003));
+        assert_eq!(
+            (
+                resolved.private_gateway,
+                resolved.backend,
+                resolved.admin,
+                resolved.chat
+            ),
+            (41080, 42000, 42003, 42006)
+        );
         assert_eq!(resolved.director, PORTS.director);
-        assert_eq!(resolved.private_gateway, PORTS.private_gateway);
+        assert_eq!(resolved.public_gateway, PORTS.public_gateway);
         assert_eq!(PortsConfig::from_json(&json!({})).unwrap().resolve(), PORTS);
     }
 
@@ -157,9 +182,10 @@ mod tests {
             json!({"backend": 65536}),
             json!({"backend": -1}),
             json!({"backend": "41000"}),
-            json!({"gateway": 61000}),
+            json!({"relay": 61100}),
             json!({"backend": 42000, "director": 42000}),
             json!({"content": PORTS.admin}),
+            json!({"chat": PORTS.private_gateway}),
             json!(41000),
         ] {
             assert!(PortsConfig::from_json(&value).is_err(), "{value}");

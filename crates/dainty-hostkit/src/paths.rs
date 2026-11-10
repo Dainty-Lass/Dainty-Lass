@@ -36,6 +36,8 @@ pub struct Ports {
     pub admin: u16,
     /// The allowlist's TCP port.
     pub allowlist: u16,
+    /// Chat's TCP port, behind the gateway.
+    pub chat: u16,
     /// A public server's gateway port, unless host.toml sets another.
     pub public_gateway: u16,
     /// A private server's gateway port.
@@ -61,6 +63,7 @@ pub const PORTS: Ports = Ports {
     content: 41002,
     admin: 41003,
     allowlist: 41005,
+    chat: 41006,
     public_gateway: 443,
     private_gateway: 61000,
     relay: 61100,

@@ -2,6 +2,12 @@
 
 # Clean-room behaviour specification: the allowlist helper (RD27)
 
+> **Ports moved 2026-11-10.** The loopback services' defaults are now backend 41000, Director 41001, content
+> 41002, admin 41003, allowlist 41005, chat 41006 and QoS 41010, below the dynamic range Windows lends to Hyper-V,
+> WSL and Docker. host.toml's `[ports]` moves any of them, and on Windows setup and start move one Windows has lent
+> out (a private gateway's 61000 to 41080). The numbers below are the ones recorded upstream: read each 610xx
+> service port as its 410xx counterpart. A private gateway's default stays 61000.
+
 Part of [`spec-rd27-gateway.md`](spec-rd27-gateway.md). The gateway is
 [`spec-rd27-gateway-front.md`](spec-rd27-gateway-front.md), whose section 15 has the address rules this page uses
 (`check_allowlist_ip`, the canonical form, the classes).

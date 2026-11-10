@@ -354,7 +354,6 @@ pub fn compose(
     external_allowlist: bool,
     printer: Printer,
 ) -> Result<ServerController, HostError> {
-    use crate::paths::PORTS;
     use crate::services::Ready;
     use start_cmd::binaries::{FrontService, Programs, rust_ported};
     let own = crate::hostconfig::service_ports(config);
@@ -519,7 +518,7 @@ pub fn compose(
     if !in_process_gw && node_runs && !gateway_runs {
         let ready = match config.mode {
             ServerMode::Public => Ready::tcp("127.0.0.1", hostconfig::gateway_port(config)),
-            ServerMode::Private => Ready::tcp(&config.game_address, PORTS.private_gateway),
+            ServerMode::Private => Ready::tcp(&config.game_address, crate::hostconfig::gateway_port(config)),
         };
         controller.add(front_process(FrontService::Gateway, ready));
     }
@@ -785,7 +784,7 @@ pub fn empty_build_message() -> String {
 }
 
 /// The commit the env files name: the release manifest's, else git's, else nothing.
-fn source_commit(repo: &Path) -> String {
+pub(crate) fn source_commit(repo: &Path) -> String {
     if let Ok(Some(release)) = crate::selfupdate::read_manifest(repo) {
         return release.short_commit().to_owned();
     }
@@ -925,7 +924,11 @@ fn log_outputs(config: &HostConfig) -> dainty_service_kit::telemetry::LogOutputs
 
 /// `serve` and `start`.
 pub fn run(paths: &Paths, options: &ServeOptions) -> Outcome {
-    let config = load_config(paths, options.config_file.as_deref())?;
+    let mut config = load_config(paths, options.config_file.as_deref())?;
+    // A reboot can lend Windows a port the server held yesterday
+    if options.config_file.is_none() {
+        crate::winports::settle(paths, &mut config, &say)?;
+    }
     let external = external_allowlist(&config);
     let controlled = controlled_by_stdin();
     let interactive = options.interactive && !controlled;

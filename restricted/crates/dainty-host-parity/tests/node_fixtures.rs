@@ -128,12 +128,13 @@ fn with_admin_api_secrets() -> Result<Secrets, dainty_host::error::HostError> {
 }
 
 /// The lines the Rust kit writes that the Node kit never did, which the comparisons leave out.
-const ADMIN_API_LINES: [&str; 5] = [
+const ADMIN_API_LINES: [&str; 6] = [
     "DAINTY_ADMIN_API_KEY=",
     "RUSTIC_ISLES_MANAGER_ADMIN=",
     "RUSTIC_ISLES_MANAGER_OPERATOR_SECRET=",
     "DAINTY_DB_PASSWORD=",
     "DASHBOARD_INGEST_KEY=",
+    "CHAT_PORT=",
 ];
 
 /// The MongoDB lines written only on a `--features paradox` rollback build (M5).

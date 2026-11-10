@@ -1968,26 +1968,27 @@ mod tests {
         assert!(lines.iter().any(|l| l.contains("accounts: 1")));
     }
 
-    /// Free loopback ports for every `[ports]` service and the gateway, held until all are picked so they differ.
+    /// Free loopback ports for every `[ports]` service, the gateway's too, held until all are picked so they differ.
     /// The defaults may be lent out: Windows hands Hyper-V and WSL blocks of its dynamic range, 61000's among them.
     #[cfg(any(
         all(feature = "gateway", feature = "content"),
         all(feature = "isles-1-14-7", not(feature = "paradox"), dainty_version_data)
     ))]
-    fn free_ports() -> (hostconfig::ports::PortsConfig, u16) {
-        let held: Vec<_> = (0..7)
+    fn free_ports() -> hostconfig::ports::PortsConfig {
+        let held: Vec<_> = (0..8)
             .map(|_| std::net::TcpListener::bind("127.0.0.1:0").unwrap())
             .collect();
         let port = |i: usize| Some(held[i].local_addr().unwrap().port());
-        let ports = hostconfig::ports::PortsConfig {
+        hostconfig::ports::PortsConfig {
             backend: port(0),
             director: port(1),
             qos: port(2),
             content: port(3),
             admin: port(4),
             allowlist: port(5),
-        };
-        (ports, held[6].local_addr().unwrap().port())
+            chat: port(6),
+            gateway: port(7),
+        }
     }
 
     #[cfg(all(feature = "gateway", feature = "content"))]
@@ -1999,7 +2000,7 @@ mod tests {
         ensure_hooks();
         let dir = tempfile::tempdir().unwrap();
         let paths = paths::Paths::new(dir.path());
-        let (ports, gateway_port) = free_ports();
+        let ports = free_ports();
         let c = HostConfig {
             version: 1,
             mode: ServerMode::Private,
@@ -2042,11 +2043,6 @@ mod tests {
             file: FileForm::default(),
         };
         serve::ensure_server_files(&paths, &c).unwrap();
-        let gateway_env = commands::start::env_file(&paths, "gateway");
-        let gateway_text = std::fs::read_to_string(&gateway_env)
-            .unwrap()
-            .replace("GATEWAY_PORT=61000", &format!("GATEWAY_PORT={gateway_port}"));
-        std::fs::write(&gateway_env, gateway_text).unwrap();
 
         let mut controller = serve::compose(&paths, &c, false, serve::table_printer()).unwrap();
         controller.start_component("content").await.unwrap();
@@ -2083,7 +2079,8 @@ mod tests {
         ensure_hooks();
         let dir = tempfile::tempdir().unwrap();
         let paths = paths::Paths::new(dir.path());
-        let (ports, gateway_port) = free_ports();
+        let ports = free_ports();
+        let gateway_port = ports.gateway.unwrap();
         let c = HostConfig {
             version: 1,
             mode: ServerMode::Private,
@@ -2138,12 +2135,6 @@ mod tests {
             let src = gamepack::example_of(&repo_paths.director_game_data.join(f));
             std::fs::copy(&src, paths.director_game_data.join(f)).unwrap();
         }
-
-        let gateway_env = commands::start::env_file(&paths, "gateway");
-        let gateway_text = std::fs::read_to_string(&gateway_env)
-            .unwrap()
-            .replace("GATEWAY_PORT=61000", &format!("GATEWAY_PORT={gateway_port}"));
-        std::fs::write(&gateway_env, gateway_text).unwrap();
 
         let mut controller = serve::compose(&paths, &c, false, serve::table_printer()).unwrap();
         assert_eq!(

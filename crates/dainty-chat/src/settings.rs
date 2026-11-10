@@ -6,7 +6,7 @@
 use std::net::{IpAddr, Ipv4Addr};
 
 /// The port chat listens on unless the env file says otherwise.
-pub const DEFAULT_PORT: u16 = 61006;
+pub const DEFAULT_PORT: u16 = 41006;
 /// The paths the game's client opens its WebSocket on
 pub const WS_PATHS: [&str; 3] = ["//", "/", "/__ws/xmpp"];
 
@@ -89,7 +89,7 @@ mod tests {
     #[test]
     fn chat_stays_on_loopback() {
         assert!(Settings::default().problems().is_empty());
-        assert_eq!(Settings::default().port, 61006);
+        assert_eq!(Settings::default().port, 41006);
         let ipv6 = Settings {
             host: "::1".parse().unwrap_or(IpAddr::V4(Ipv4Addr::UNSPECIFIED)),
             ..Settings::default()

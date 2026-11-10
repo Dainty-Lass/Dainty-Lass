@@ -112,6 +112,10 @@ agent refuses a plain-HTTP dashboard that is not on loopback unless `DAINTY_AGEN
 | `DAINTY_AGENT_INGEST_KEY`      |                                  | Turns the relay on                               |
 | `DAINTY_AGENT_ALLOW_HTTP`      |                                  | `on` to allow a non-loopback `http://` dashboard |
 
+An admin API or backend URL on loopback that names a port dainty-lass used before 2026-11-10 (61000 to 61006) is read
+as the port it moved to (61003 as 41003), with a warning to update the setting; the dashboard does the same with
+`DASHBOARD_ADMIN_API_URL` and `DASHBOARD_BACKEND_URL`. A host that moved a port in `[ports]` sets the URL to match.
+
 ## Chat and reports from a controller
 
 The agent serves the same ingest API as the dashboard (`/api/ingest/chat`, `/api/ingest/reports`,

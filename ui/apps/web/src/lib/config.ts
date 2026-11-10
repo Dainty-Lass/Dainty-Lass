@@ -1,4 +1,5 @@
 import { join, resolve } from "node:path";
+import { settledUrl } from "@dainty/fleet";
 
 /**
  * Environment, read once. Only what must be known before the database opens, plus secrets, lives here;
@@ -46,12 +47,18 @@ export const config = {
   ownerEmails: list("DASHBOARD_OWNER_EMAILS").map((e) => e.toLowerCase()),
   /** The admin service's GraphQL (docs/admin-api.md in dainty-lass): moderation and live status. */
   adminApi: {
-    url: env("DASHBOARD_ADMIN_API_URL") ?? "http://127.0.0.1:41003/graphql",
+    url: settledUrl(
+      "DASHBOARD_ADMIN_API_URL",
+      env("DASHBOARD_ADMIN_API_URL") ?? "http://127.0.0.1:41003/graphql",
+    ),
     key: env("DASHBOARD_ADMIN_API_KEY"),
   },
   /** The backend's /admin/v1, signed as the manager operator (backend security/managerOperator.ts). */
   backend: {
-    url: (env("DASHBOARD_BACKEND_URL") ?? "http://127.0.0.1:41000").replace(/\/+$/, ""),
+    url: settledUrl(
+      "DASHBOARD_BACKEND_URL",
+      env("DASHBOARD_BACKEND_URL") ?? "http://127.0.0.1:41000",
+    ).replace(/\/+$/, ""),
     operatorSecret: env("DASHBOARD_MANAGER_OPERATOR_SECRET"),
   },
   /** What the backend sends with chat and reports; at least 32 characters or ingest stays off. */

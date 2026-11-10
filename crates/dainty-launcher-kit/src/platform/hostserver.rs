@@ -34,6 +34,24 @@ pub const SERVER_READY_LINE: &str = "DAINTY_SERVER_READY";
 /// Default local TCP port for the backend service.
 pub const BACKEND_PORT: u16 = 41000;
 
+/// The backend's port in `workspace`'s `backend.env`, which setup writes from host.toml's `[ports]`; the default
+/// when the file or the line is missing.
+#[must_use]
+pub fn workspace_backend_port(workspace: &Path) -> u16 {
+    let file = workspace.join(".workspace").join("config").join("backend.env");
+    std::fs::read_to_string(file)
+        .ok()
+        .and_then(|text| {
+            text.lines().find_map(|line| {
+                line.trim()
+                    .strip_prefix("PORT=")
+                    .map(|v| v.trim().trim_matches('"').to_owned())
+            })
+        })
+        .and_then(|port| port.parse::<u16>().ok())
+        .unwrap_or(BACKEND_PORT)
+}
+
 /// Maximum number of log lines retained in the view ring buffer.
 pub const MAX_LINES: usize = 300;
 
@@ -850,6 +868,23 @@ mod tests {
     use super::*;
     use std::sync::atomic::{AtomicBool, Ordering};
     use tempfile::tempdir;
+
+    #[test]
+    fn the_backend_port_is_the_workspaces_or_the_default() {
+        let dir = tempdir().unwrap();
+        assert_eq!(workspace_backend_port(dir.path()), BACKEND_PORT);
+        let config = dir.path().join(".workspace").join("config");
+        std::fs::create_dir_all(&config).unwrap();
+        std::fs::write(
+            config.join("backend.env"),
+            "# written by setup
+NODE_ENV=production
+PORT=42000
+",
+        )
+        .unwrap();
+        assert_eq!(workspace_backend_port(dir.path()), 42000);
+    }
 
     struct FakeEmbedded {
         started: AtomicBool,

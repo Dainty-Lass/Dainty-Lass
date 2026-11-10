@@ -60,6 +60,8 @@ struct Cached {
 /// The Host page's state (§2.5.2), outside the controller's mutex.
 pub(crate) struct HostState {
     server: HostServer,
+    /// The workspace's backend port, which the default probe knocks on
+    backend_port: Arc<std::sync::atomic::AtomicU16>,
     job: Mutex<Option<HostJob>>,
     update: Mutex<Option<HostUpdateView>>,
     requirements: Mutex<Option<Cached>>,
@@ -69,12 +71,16 @@ pub(crate) struct HostState {
 
 impl HostState {
     pub(crate) fn new(seams: &Seams) -> Self {
+        let backend_port = Arc::new(std::sync::atomic::AtomicU16::new(
+            crate::platform::hostserver::BACKEND_PORT,
+        ));
         let server = match &seams.host_server_probe {
             Some(probe) => HostServer::new(Arc::clone(probe) as Probe, seams.host_stop_timeout),
             None => {
-                let probe: Probe = Arc::new(|| {
+                let port = Arc::clone(&backend_port);
+                let probe: Probe = Arc::new(move || {
                     Box::pin(crate::platform::hostserver::port_answers(
-                        crate::platform::hostserver::BACKEND_PORT,
+                        port.load(std::sync::atomic::Ordering::Relaxed),
                     ))
                 });
                 HostServer::new(probe, seams.host_stop_timeout)
@@ -82,6 +88,7 @@ impl HostState {
         };
         Self {
             server,
+            backend_port,
             job: Mutex::new(None),
             update: Mutex::new(None),
             requirements: Mutex::new(None),
@@ -172,10 +179,17 @@ impl Controller {
     }
 
     fn valid_workspace(&self) -> Option<PathBuf> {
-        self.stored()
+        let dir = self
+            .stored()
             .host_workspace()
             .map(PathBuf::from)
-            .filter(|dir| self.workspace_valid(dir))
+            .filter(|dir| self.workspace_valid(dir))?;
+        // [ports] can move the backend the probe looks for
+        let port = crate::platform::hostserver::workspace_backend_port(&dir);
+        self.host()
+            .backend_port
+            .store(port, std::sync::atomic::Ordering::Relaxed);
+        Some(dir)
     }
 
     fn workspace_failure(&self) -> LauncherError {

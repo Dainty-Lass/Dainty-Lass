@@ -1,5 +1,11 @@
 # Clean-Room Behaviour Specification: `crates/dainty-content` (RD27)
 
+> **Ports moved 2026-11-10.** The loopback services' defaults are now backend 41000, Director 41001, content
+> 41002, admin 41003, allowlist 41005, chat 41006 and QoS 41010, below the dynamic range Windows lends to Hyper-V,
+> WSL and Docker. host.toml's `[ports]` moves any of them, and on Windows setup and start move one Windows has lent
+> out (a private gateway's 61000 to 41080). The numbers below are the ones recorded upstream: read each 610xx
+> service port as its 410xx counterpart. A private gateway's default stays 61000.
+
 > **Scope & Purpose (RD27):** This is the clean-room behaviour specification for reimplementing Dainty Lass's
 > content server under MIT in dainty-lass. Today the server lives in dainty-restricted (`AGPL-3.0-only`) as
 > `crates/dainty-content` and its library wrapper `crates/dainty-content-plugin`. Section 1 classifies every file of both

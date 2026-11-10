@@ -1,5 +1,5 @@
 import { join, resolve } from "node:path";
-import type { GameConfig } from "@dainty/fleet";
+import { type GameConfig, settledUrl } from "@dainty/fleet";
 
 /**
  * Everything from the environment (`bun --env-file=agent.env ...`). The DAINTY_AGENT_ prefix is one the
@@ -39,9 +39,15 @@ export function loadConfig(): AgentConfig {
     pairingCode: env("PAIRING_CODE"),
     tokenFile: resolve(env("TOKEN_FILE") ?? join(process.cwd(), "data", "agent-token")),
     game: {
-      adminApiUrl: env("ADMIN_API_URL") ?? "http://127.0.0.1:41003/graphql",
+      adminApiUrl: settledUrl(
+        "DAINTY_AGENT_ADMIN_API_URL",
+        env("ADMIN_API_URL") ?? "http://127.0.0.1:41003/graphql",
+      ),
       adminApiKey: env("ADMIN_API_KEY"),
-      backendUrl: env("BACKEND_URL") ?? "http://127.0.0.1:41000",
+      backendUrl: settledUrl(
+        "DAINTY_AGENT_BACKEND_URL",
+        env("BACKEND_URL") ?? "http://127.0.0.1:41000",
+      ),
       operatorSecret: env("OPERATOR_SECRET"),
     },
     ingestPort: Number(env("INGEST_PORT") ?? 61009),

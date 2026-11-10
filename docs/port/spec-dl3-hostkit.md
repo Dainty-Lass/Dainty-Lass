@@ -1,5 +1,11 @@
 # Clean-Room Behaviour Specification: `crates/dainty-hostkit` (DL3a)
 
+> **Ports moved 2026-11-10.** The loopback services' defaults are now backend 41000, Director 41001, content
+> 41002, admin 41003, allowlist 41005, chat 41006 and QoS 41010, below the dynamic range Windows lends to Hyper-V,
+> WSL and Docker. host.toml's `[ports]` moves any of them, and on Windows setup and start move one Windows has lent
+> out (a private gateway's 61000 to 41080). The numbers below are the ones recorded upstream: read each 610xx
+> service port as its 410xx counterpart. A private gateway's default stays 61000.
+
 > **Scope & Purpose (DD26 / DL3a):** This document is the clean-room behaviour specification for extracting and reimplementing the MIT-licensed `crates/dainty-hostkit` crate in row **DL3b**, leaving a thin AGPL-3.0-or-later shell in `crates/dainty-host` for features that link or invoke Dauntless Revived (`DR`) services.
 >
 > All types, function signatures, CLI flags, configuration schemas (`host.toml`, `host.yaml`, `host.json`, `secrets.env`, `<service>.env`), file paths, wire formats, exit codes, error strings, and test invariants are specified below from observable contracts (`docs/hosting.md`, `docs/hosting-linux.md`, `docs/app-structure-plan.md`, and the integration/unit test suite) without copying implementation code or referencing prior Node host-kit internals.

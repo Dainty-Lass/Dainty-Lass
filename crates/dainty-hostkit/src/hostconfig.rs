@@ -59,13 +59,14 @@ pub const MAX_MULTIPLIER: f64 = 100.0;
 pub const DEFAULT_MONGO_URI: &str = "mongodb://127.0.0.1:27017/?replicaSet=rs0";
 /// TCP ports the server's own services hold with `ports`; no module or public port may take one.
 #[must_use]
-pub fn reserved_ports(ports: &crate::paths::Ports) -> [u16; 7] {
+pub fn reserved_ports(ports: &crate::paths::Ports) -> [u16; 8] {
     [
         ports.backend,
         ports.director,
         ports.content,
         ports.admin,
         ports.allowlist,
+        ports.chat,
         ports.relay,
         ports.mongo,
     ]
@@ -1609,7 +1610,7 @@ pub fn game_ports_text(c: &HostConfig, separator: &str) -> String {
 pub fn gateway_port(c: &HostConfig) -> u16 {
     match c.mode {
         ServerMode::Public => c.public_port.unwrap_or(PORTS.public_gateway),
-        ServerMode::Private => PORTS.private_gateway,
+        ServerMode::Private => service_ports(c).private_gateway,
     }
 }
 
@@ -1771,7 +1772,7 @@ fn is_reserved_or_game_port(own: &ports::PortsConfig, port: u16) -> bool {
     // The private gateway's too, so a server moved between modes keeps its ports apart
     reserved_ports(&ports).contains(&port)
         || port == ports.qos
-        || port == PORTS.private_gateway
+        || port == ports.private_gateway
         || (PORTS.game_lowest..=PORTS.game_last).contains(&port)
 }
 
@@ -1986,12 +1987,19 @@ pub fn validate(document: &Value) -> Result<Value, HostError> {
         }
     };
 
+    if mode == ServerMode::Public && own.gateway.is_some() {
+        return Err(bad(
+            "ports.gateway is a private server's: a public one's is public_port",
+        ));
+    }
     let gateway = public_port.unwrap_or(match mode {
         ServerMode::Public => PORTS.public_gateway,
-        ServerMode::Private => PORTS.private_gateway,
+        ServerMode::Private => own.resolve().private_gateway,
     });
     for (key, port) in own.named() {
-        let taken = if port == gateway {
+        let taken = if key == "gateway" {
+            None
+        } else if port == gateway {
             Some("the gateway's")
         } else if port == PORTS.relay {
             Some("the relay's")
@@ -3103,6 +3111,7 @@ pub fn build_env_files(c: &HostConfig, s: &Secrets, p: &Paths, source_commit: &s
             push(&mut gateway, "GATEWAY_TLS", "1");
             push(&mut gateway, "GATEWAY_BIND", "0.0.0.0");
             push(&mut gateway, "GATEWAY_PORT", gateway_port(c).to_string());
+            push(&mut gateway, "CHAT_PORT", own.chat.to_string());
             push(&mut gateway, "GATEWAY_CERT", path_text(&p.cert_file));
             push(&mut gateway, "GATEWAY_KEY", path_text(&p.key_file));
             if let Some(net) = &c.network
@@ -3211,7 +3220,8 @@ pub fn build_env_files(c: &HostConfig, s: &Secrets, p: &Paths, source_commit: &s
         ServerMode::Private => {
             push(&mut gateway, "GATEWAY_TLS", "0");
             push(&mut gateway, "GATEWAY_BIND", &c.game_address);
-            push(&mut gateway, "GATEWAY_PORT", PORTS.private_gateway.to_string());
+            push(&mut gateway, "GATEWAY_PORT", own.private_gateway.to_string());
+            push(&mut gateway, "CHAT_PORT", own.chat.to_string());
             push(&mut gateway, "GATEWAY_SECRET", &s.gateway_secret);
             push(
                 &mut gateway,
@@ -3780,6 +3790,7 @@ allowlist = 42005"
         has(&files.admin, "BACKEND_URL=http://127.0.0.1:42000");
         has(&files.gateway, "GATEWAY_BACKEND_URL=http://127.0.0.1:42000");
         has(&files.gateway, "GATEWAY_CONTENT_URL=http://127.0.0.1:42002");
+        has(&files.gateway, &format!("CHAT_PORT={}", PORTS.chat));
         has(&files.allowlist.unwrap(), "ALLOWLIST_PORT=42005");
 
         for bad in [
