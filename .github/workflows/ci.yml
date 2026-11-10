@@ -424,8 +424,11 @@ jobs:
       - name: Clippy
         run: cargo clippy --workspace --all-targets --locked -- -D warnings
 
+      # The gateway library comes from the MIT root; dainty-host's tests look for it in ../target too
       - name: The module and service libraries
-        run: cargo build --locked -p rustic-isles-plugin -p dainty-gateway-plugin -p dainty-content-plugin -p dainty-chat-plugin
+        run: |
+          cargo build --locked -p rustic-isles-plugin
+          cargo build --locked --manifest-path ../Cargo.toml -p dainty-gateway-plugin
 
       - name: Tests
         run: cargo test --workspace --locked --no-fail-fast

@@ -151,15 +151,13 @@ jobs:
       - name: Build the release binaries
         run: cargo build --release --locked --target "$TARGET" -p dainty-server -p dainty-server-minimal --features dainty-server/all-modules,dainty-server-minimal/all-modules --bins
 
-      # The libraries the core loads (RD27); a service's crate joins the list by being in the workspace
+      # The libraries the core loads (RD27): the 1.14.7 module from this workspace, the services from the MIT root's
       - name: Build the libraries
         run: |
           set -euo pipefail
-          packages=()
-          for pkg in rustic-isles-plugin dainty-content-plugin dainty-chat-plugin dainty-gateway-plugin; do
-            if cargo pkgid --locked -p "$pkg" > /dev/null 2>&1; then packages+=(-p "$pkg"); fi
-          done
-          cargo build --release --locked --target "$TARGET" "${packages[@]}" --lib
+          cargo build --release --locked --target "$TARGET" -p rustic-isles-plugin --lib
+          cargo build --release --locked --target "$TARGET" --manifest-path ../Cargo.toml \
+            -p dainty-content-plugin -p dainty-chat-plugin -p dainty-gateway-plugin --lib
 
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
@@ -193,11 +191,10 @@ jobs:
           # The libraries beside them, under the names host.toml's paths give (RD27)
           mkdir -p "$out/plugins"
           if [ "$RUNNER_OS" = Windows ]; then prefix=""; suffix=".dll"; else prefix="lib"; suffix=".so"; fi
-          for lib in rustic_isles_plugin dainty_content_plugin dainty_chat_plugin dainty_gateway_plugin; do
-            file="target/$TARGET/release/$prefix$lib$suffix"
-            if [ -f "$file" ]; then cp "$file" "$out/plugins/"; fi
+          cp "target/$TARGET/release/${prefix}rustic_isles_plugin$suffix" "$out/plugins/"
+          for lib in dainty_content_plugin dainty_chat_plugin dainty_gateway_plugin; do
+            cp "../target/$TARGET/release/$prefix$lib$suffix" "$out/plugins/"
           done
-          [ -f "$out/plugins/${prefix}rustic_isles_plugin$suffix" ] || { echo "::error::the 1.14.7 library was not built"; exit 1; }
           # Kept for one release only as the documented RB13/RU9 rollback artefact (until RB15)
           isles=modules/rustic-isles/reference/1.14.7
           cp -R "$isles/ParadoxBackend/build" "$isles/ParadoxBackend/node_modules" "$out/$isles/ParadoxBackend/"

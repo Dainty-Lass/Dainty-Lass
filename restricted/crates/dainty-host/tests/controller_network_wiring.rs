@@ -44,15 +44,21 @@ struct TestNode {
 async fn gateway_library() -> dainty_controller::ServiceLibrary {
     let exe = std::env::current_exe().unwrap();
     let profile = exe.parent().and_then(|deps| deps.parent()).unwrap();
-    let path = profile.join(format!(
+    let file = format!(
         "{}dainty_gateway_plugin{}",
         std::env::consts::DLL_PREFIX,
         std::env::consts::DLL_SUFFIX
-    ));
+    );
+    // The crate is the MIT root's, so its build lands in the root's target/ unless built into this one
+    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../target");
+    let path = [profile.join(&file), root.join(profile.file_name().unwrap()).join(&file)]
+        .into_iter()
+        .find(|p| p.is_file())
+        .unwrap_or_else(|| profile.join(&file));
     // A cdylib is not built for the tests, and a nested cargo would wait on this one's lock
     assert!(
         path.is_file(),
-        "{} is missing: run `cargo build -p dainty-gateway-plugin` before the tests (CI does)",
+        "{} is missing: run `cargo build -p dainty-gateway-plugin` in the repository root before the tests (CI does)",
         path.display()
     );
     dainty_controller::ServiceLibrary {

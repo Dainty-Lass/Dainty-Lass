@@ -81,8 +81,7 @@ dainty-lass-ui.
 
 By the Dainty Lass contributors (`Copyright (c) 2026 Silent Spud`), AGPL-3.0-only: `crates/dainty-host` (the shell that wires
 dainty-lass's `hostkit` to `gateway`, `content`, `chat` and `isles-1-14-7`; its `compose.rs` is MIT code moved from
-dainty-lass's `controller::modules` and keeps its MIT header); the one-line library crates `crates/dainty-gateway-plugin`, `crates/dainty-content-plugin` and
-`crates/dainty-chat-plugin`, over dainty-lass's MIT `gateway`, `content` and `chat`; the DR-derived Tauri shell in `launcher/src-tauri` (including `net/epic_install.rs`, which keeps DR's
+dainty-lass's `controller::modules` and keeps its MIT header); the DR-derived Tauri shell in `launcher/src-tauri` (including `net/epic_install.rs`, which keeps DR's
 downloader structure); `crates/dainty-server` and `crates/dainty-server-minimal`; the fuzz targets in `fuzz/` (`http_body` and `proxy_headers` from DR's `rust/`).
 `docker/`, `docs/`, the workflows, the launcher's language catalogs (`ui/packages/i18n/catalogs`) and
 `launcher/src-tauri/gen/strings.json` carry the repository licence.

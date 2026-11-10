@@ -1296,15 +1296,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "dainty-chat-plugin"
-version = "0.0.0"
-dependencies = [
- "dainty-chat",
- "dainty-module-api",
- "dainty-service-plugin",
-]
-
-[[package]]
 name = "dainty-content"
 version = "0.0.0"
 dependencies = [
@@ -1332,15 +1323,6 @@ dependencies = [
  "tokio-util",
  "toml_edit 0.25.17+spec-1.1.0",
  "url",
-]
-
-[[package]]
-name = "dainty-content-plugin"
-version = "0.0.0"
-dependencies = [
- "dainty-content",
- "dainty-module-api",
- "dainty-service-plugin",
 ]
 
 [[package]]
@@ -1448,15 +1430,6 @@ dependencies = [
  "url",
  "windows 0.62.2",
  "x509-parser",
-]
-
-[[package]]
-name = "dainty-gateway-plugin"
-version = "0.0.0"
-dependencies = [
- "dainty-gateway",
- "dainty-module-api",
- "dainty-service-plugin",
 ]
 
 [[package]]
