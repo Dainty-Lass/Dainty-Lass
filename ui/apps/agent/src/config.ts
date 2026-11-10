@@ -16,6 +16,8 @@ export interface AgentConfig {
   tokenFile: string;
   game: GameConfig;
   ingestPort: number;
+  /** The port before 2026-11-10, also served while INGEST_PORT is unset, for a backend still pointed at it. */
+  legacyIngestPort?: number;
   ingestKey?: string;
   version: string;
 }
@@ -50,7 +52,9 @@ export function loadConfig(): AgentConfig {
       ),
       operatorSecret: env("OPERATOR_SECRET"),
     },
-    ingestPort: Number(env("INGEST_PORT") ?? 61009),
+    // Below the range Windows lends to Hyper-V, WSL and Docker
+    ingestPort: Number(env("INGEST_PORT") ?? 41009),
+    legacyIngestPort: env("INGEST_PORT") ? undefined : 61009,
     ingestKey: env("INGEST_KEY"),
     version: env("VERSION") ?? "0.1.0",
   };
