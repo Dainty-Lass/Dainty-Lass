@@ -266,6 +266,7 @@ pub unsafe extern "C" fn close(handle: *mut c_void) {
 macro_rules! export_plugin {
     ($make:expr) => {
         #[allow(unsafe_code, reason = "the exported C entry point; no_mangle is unsafe")]
+        /// The core's entry point into this library: the module's plugin table.
         #[unsafe(no_mangle)]
         pub extern "C" fn dainty_plugin_v1() -> *const $crate::plugin::PluginV1 {
             unsafe extern "C" fn open(sink: $crate::plugin::HostSink) -> *mut ::std::ffi::c_void {

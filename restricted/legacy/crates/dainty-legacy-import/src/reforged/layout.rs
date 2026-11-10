@@ -22,25 +22,41 @@ const SDK_FILES: [&str; 6] = [
 /// A checkout's paths, as Dainty Lass's `Paths::new` lays them out.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Layout {
+    /// The checkout.
     pub repo: PathBuf,
+    /// `.workspace`.
     pub workspace: PathBuf,
+    /// `.workspace/config`.
     pub config: PathBuf,
+    /// The Node kit's `host.json`.
     pub host_json: PathBuf,
+    /// Dainty Lass's `host.toml`.
     pub host_toml: PathBuf,
+    /// The Node kit's MongoDB data folder.
     pub mongo_data: PathBuf,
+    /// The Node kit's `.workspace/Mystic-Paradox` upstream clone.
     pub old_upstream: PathBuf,
+    /// The pre-submodule `paradox/` folder.
     pub pre_paradox: PathBuf,
+    /// The pre-submodule `native/` folder.
     pub pre_native: PathBuf,
+    /// Where the game runtime's source lives now.
     pub runtime_source: PathBuf,
+    /// The runtime's generated SDK folder.
     pub sdk_dir: PathBuf,
+    /// CatalogExporter's folder.
     pub exporter_dir: PathBuf,
+    /// The game data exports (`Items_Analysis`).
     pub exports: PathBuf,
+    /// The backend's game data folder.
     pub backend_game_data: PathBuf,
+    /// The director's game data folder.
     pub director_game_data: PathBuf,
 }
 
 impl Layout {
     #[must_use]
+    /// The layout of the checkout at `repo`.
     pub fn new(repo: &Path) -> Self {
         let repo = repo.to_path_buf();
         let workspace = repo.join(".workspace");

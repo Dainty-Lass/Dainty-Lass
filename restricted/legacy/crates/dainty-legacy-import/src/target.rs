@@ -53,6 +53,7 @@ const NEEDED: [&str; 3] = ["0001", "0020", "0200"];
 /// rustic-isles' timeouts (`launcher_accounts.timeout_*`); without it a 1.4.4 timed ban is imported as a ban.
 const TIMEOUTS: &str = "0610";
 
+/// The actor imported rows and approvals name.
 pub const ACTOR: &str = "legacy-import";
 const DISCORD: &str = "discord";
 
@@ -61,36 +62,53 @@ const DISCORD: &str = "discord";
 pub struct Ban {
     /// Unix milliseconds; none is permanent
     pub expires_at: Option<i64>,
+    /// Why the account was banned.
     pub reason: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// A Discord account linked to an old account.
 pub struct DiscordLink {
+    /// The Discord user id.
     pub subject: String,
+    /// When it was linked, RFC 3339.
     pub linked_at: String,
 }
 
 /// One old account, with what of it carries to 1.14.7.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct LegacyAccount {
+    /// The old account's user id.
     pub user_id: String,
+    /// The account's name.
     pub name: String,
+    /// The account's `notes` column, carried as it is.
     pub notes: i64,
+    /// Whether the account was an admin.
     pub admin: bool,
+    /// Its ban, if one is still in force.
     pub ban: Option<Ban>,
+    /// Its Discord link.
     pub discord: Option<DiscordLink>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// An invite code.
 pub struct Invite {
+    /// The code.
     pub code: String,
+    /// Uses left.
     pub uses_remaining: i64,
+    /// Whether it has no use limit.
     pub infinite_uses: bool,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
+/// What one import writes.
 pub struct Batch {
+    /// The accounts.
     pub accounts: Vec<LegacyAccount>,
+    /// The invite codes.
     pub invites: Vec<Invite>,
 }
 
@@ -181,6 +199,7 @@ fn check_versions(versions: Vec<Version>) -> Result<bool> {
     Ok(have.contains(TIMEOUTS))
 }
 
+/// An open 1.14.7 database to import into, and the node the rows belong to.
 pub struct Target {
     db: Database,
     node: NodeId,
@@ -209,6 +228,7 @@ impl Target {
         Ok(Self { db, node })
     }
 
+    /// The node the rows belong to.
     pub fn node(&self) -> &NodeId {
         &self.node
     }

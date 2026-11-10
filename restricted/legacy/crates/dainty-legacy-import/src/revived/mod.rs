@@ -27,6 +27,7 @@ pub struct Options {
 }
 
 impl Options {
+    /// Options for an import made now.
     pub fn now(dry_run: bool) -> Self {
         Self {
             dry_run,
@@ -34,6 +35,7 @@ impl Options {
         }
     }
 
+    /// [`Options::now_ms`] as an RFC 3339 timestamp.
     pub fn rfc3339(&self) -> String {
         chrono::DateTime::from_timestamp_millis(self.now_ms)
             .unwrap_or_default()

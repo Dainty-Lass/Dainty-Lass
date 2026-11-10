@@ -14,6 +14,7 @@ use crate::revived::schema::{SCHEMA, drizzle_migrations};
 
 /// A made-up offline-save key (DR's launcher test key)
 pub const KEY: &str = concat!("UUK_", "0123456789abcdef", "0123456789abcdef", "0123456789abcdef");
+/// The fixtures' clock, in Unix milliseconds.
 pub const NOW_MS: i64 = 1_793_000_000_000;
 
 fn open(file: &Path) -> Connection {
@@ -104,18 +105,26 @@ pub fn add_change_log(file: &Path) {
     drop(db);
 }
 
+/// A 1.4.4 player a fixture database holds.
 pub struct Player<'a> {
+    /// The player's user id.
     pub user_id: &'a str,
+    /// The player's name.
     pub name: &'a str,
+    /// Whether the player is an admin.
     pub admin: bool,
     /// (active, expires_at in Unix ms)
     pub ban: Option<(bool, Option<i64>)>,
+    /// The Discord id linked to the player.
     pub discord: Option<&'a str>,
+    /// The player's offline-save key.
     pub key: Option<&'a str>,
+    /// How many characters the player has.
     pub characters: usize,
 }
 
 impl<'a> Player<'a> {
+    /// A player with nothing but an id and a name.
     pub fn new(user_id: &'a str, name: &'a str) -> Self {
         Self {
             user_id,
@@ -184,6 +193,7 @@ pub fn insert_player(conn: &mut Connection, player: &Player<'_>) {
 }
 
 #[allow(clippy::expect_used)]
+/// Adds an invite code to a 1.4.4 database.
 pub fn insert_invite(conn: &mut Connection, code: &str, uses: i64, infinite: bool) {
     diesel::sql_query("INSERT INTO invitecodes (invitecode, usesRemaining, infiniteUses) VALUES (?, ?, ?)")
         .bind::<Text, _>(code)
