@@ -31,7 +31,7 @@ run_suite() {
 		else
 			echo "(nftables test: off; run with --cap-add NET_ADMIN to include it)"
 		fi
-		cd "$root" && cargo test --locked --no-fail-fast \
+		cd /opt/src && cargo test --locked --no-fail-fast \
 			-p dainty-protocol -p dainty-proxy -p dainty-remote -p dainty-service-kit -p dainty-store -p dainty-gateway -p dainty-content -p dainty-admin -p dainty-hostkit -p dainty-host \
 			-p dainty-controller
 		;;

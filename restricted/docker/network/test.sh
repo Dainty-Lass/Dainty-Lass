@@ -16,6 +16,8 @@
 #   NETWORK_TOLERANCE_MS=    how far above the injected round trip a measurement may be (25)
 #   DAINTY_NETWORK_*       compose.yaml's settings; the table this expects is read back from `docker compose config`
 set -euo pipefail
+# Git Bash on Windows would rewrite the /opt/... paths handed to docker into Windows ones
+export MSYS_NO_PATHCONV=1
 
 export COMPOSE_PROJECT_NAME="${COMPOSE_PROJECT_NAME:-dainty-network}"
 export COMPOSE_PROFILES=network
@@ -205,7 +207,7 @@ info_a="$(curl -sk -i "$oregon_url/dainty/api/GetUserInfo" \
 echo "oregon user info:"
 echo "$info_a"
 uid_a="$(printf '%s' "$info_a" | sed -n 's/.*"UserId":"\([^"]*\)".*/\1/p' | head -n 1)"
-acct_a="$(printf '%s' "$info_a" | tr -d '\r' | sed -n 's/^[xX]-reforged-account-id: *//p' | head -n 1)"
+acct_a="$(printf '%s' "$info_a" | tr -d '\r' | sed -n 's/^[xX]-dainty-account-id: *//p' | head -n 1)"
 [ -n "$uid_a" ] && [ -n "$acct_a" ] || fail "failed to read Player A user info on oregon-1"
 
 tok_a_json="$(curl -sk -X POST "$oregon_url/account/api/oauth/token" \
@@ -226,7 +228,7 @@ info_b="$(curl -sk -i "$germany_url/dainty/api/GetUserInfo" \
 echo "germany user info:"
 echo "$info_b"
 uid_b="$(printf '%s' "$info_b" | sed -n 's/.*"UserId":"\([^"]*\)".*/\1/p' | head -n 1)"
-acct_b="$(printf '%s' "$info_b" | tr -d '\r' | sed -n 's/^[xX]-reforged-account-id: *//p' | head -n 1)"
+acct_b="$(printf '%s' "$info_b" | tr -d '\r' | sed -n 's/^[xX]-dainty-account-id: *//p' | head -n 1)"
 [ -n "$uid_b" ] && [ -n "$acct_b" ] || fail "failed to read Player B user info on germany-1"
 
 tok_b_json="$(curl -sk -X POST "$germany_url/account/api/oauth/token" \
@@ -400,7 +402,7 @@ echo "wrong-node redirect response:"
 echo "$redir_resp"
 printf '%s' "$redir_resp" | grep -q '"hostNode":"oregon-1"' \
 	|| fail "expected hostNode oregon-1 in redirect response"
-session_ticket="$(printf '%s' "$redir_resp" | tr -d '\r' | sed -n 's/^[xX]-reforged-session-ticket: *//p' | head -n 1)"
+session_ticket="$(printf '%s' "$redir_resp" | tr -d '\r' | sed -n 's/^[xX]-dainty-session-ticket: *//p' | head -n 1)"
 [ -n "$session_ticket" ] || fail "missing x-dainty-session-ticket header on redirect"
 
 admit_session="$(curl -sk -i -X PUT "$oregon_url/gamesession/epiceos" \
@@ -558,7 +560,7 @@ redir_uk="$(curl -sk -i -X POST "$germany_url/candidate/join" \
 	-H "Authorization: Bearer $tok_b" \
 	-H 'Content-Type: application/json' \
 	-d "{\"gameMode\":\"ISLAND\",\"instanceId\":\"$uk_inst\"}")"
-uk_ticket="$(printf '%s' "$redir_uk" | tr -d '\r' | sed -n 's/^[xX]-reforged-session-ticket: *//p' | head -n 1)"
+uk_ticket="$(printf '%s' "$redir_uk" | tr -d '\r' | sed -n 's/^[xX]-dainty-session-ticket: *//p' | head -n 1)"
 [ -n "$uk_ticket" ] || fail "missing session ticket for uk-1 redirect: $redir_uk"
 
 chat_login_b_uk="$(node_chat_post uk "/__chat/client/login" "{\"handle\":\"bo_uk\",\"authcid\":\"$uid_b\",\"token\":\"$uk_ticket\"}")"
