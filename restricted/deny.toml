@@ -10,6 +10,9 @@ ignore = [
     # Tauri 2 on Linux draws with GTK3 through gtk-rs 0.18, which is no longer maintained; its macros
     # use proc-macro-error. Build-time only, no known vulnerability; goes when Tauri moves off GTK3.
     { id = "RUSTSEC-2024-0370", reason = "proc-macro-error, via gtk-rs GTK3 (Tauri 2 on Linux)" },
+    # SQLite < 3.54 with a crafted sibling -wal. Diesel 2.3.14 caps libsqlite3-sys < 0.39 (the fix is on its
+    # unreleased main, fcd8d71e); nothing here opens a less-trusted database with its -wal. Drop it on diesel 2.3.15.
+    { id = "RUSTSEC-2026-0459", reason = "bundled SQLite via libsqlite3-sys 0.38 until diesel allows 0.39" },
 ]
 
 [licenses]
