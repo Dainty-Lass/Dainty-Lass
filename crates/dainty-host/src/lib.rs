@@ -24,9 +24,7 @@ pub mod run {
 
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
-use std::time::Duration;
 
-use crate::compose as modules;
 use clap::Parser as _;
 
 /// Which services this binary runs on its own (`dainty-host <service>`).
@@ -662,7 +660,7 @@ impl hooks::HostHooks for ServicesHostHooks {
         #[cfg(feature = "allowlist")]
         {
             let _ = (controller, registry);
-            let mode = modules::allowlist(&dainty_hostkit::serve::module_env(paths, "allowlist")?)
+            let mode = compose::allowlist(&dainty_hostkit::serve::module_env(paths, "allowlist")?)
                 .map_err(HostError::message)?;
             Ok(Some(Box::new(mode)))
         }
@@ -682,7 +680,7 @@ impl hooks::HostHooks for ServicesHostHooks {
         #[cfg(feature = "content")]
         {
             controller.add(
-                modules::content(
+                compose::content(
                     &dainty_hostkit::serve::module_env(paths, "content")?,
                     Some(registry.clone()),
                 )
@@ -729,7 +727,7 @@ impl hooks::HostHooks for ServicesHostHooks {
                 None => AllowlistMode::Off,
             };
             Some(
-                modules::gateway(
+                compose::gateway(
                     &dainty_hostkit::serve::module_env(paths, "gateway")?,
                     allowlist,
                     Some(registry.clone()),
@@ -775,7 +773,7 @@ impl hooks::HostHooks for ServicesHostHooks {
                 .and_then(|h| h.ship_to_peer.clone())
                 .map(|peer| (peer, paths.config.join("history-peer-state.json")));
             controller.add(
-                modules::network(modules::NetworkOptions {
+                compose::network(compose::NetworkOptions {
                     node: said.clone(),
                     leader: network.effective_leader(),
                     peers: network.nodes.clone(),
@@ -785,7 +783,7 @@ impl hooks::HostHooks for ServicesHostHooks {
                     game,
                     registry: registry.clone(),
                     allowlist: gateway.as_ref().map(|(_, handle)| handle.clone()),
-                    replication_interval: Duration::from_secs(5),
+                    replication_interval: std::time::Duration::from_secs(5),
                     peer_log_dir,
                     ship_to_peer,
                     wrong_node_policy: network.wrong_node_policy,
@@ -817,12 +815,12 @@ impl hooks::HostHooks for ServicesHostHooks {
                     .network
                     .as_ref()
                     .filter(|n| !n.nodes.is_empty())
-                    .map(|n| modules::ChatNetworkOptions {
+                    .map(|n| compose::ChatNetworkOptions {
                         leader: n.effective_leader(),
                         peers: n.nodes.iter().map(|p| (p.id.clone(), p.region.clone())).collect(),
                     });
             controller.add(
-                modules::chat(modules::ChatOptions {
+                compose::chat(compose::ChatOptions {
                     env: dainty_hostkit::serve::module_env(paths, "gateway")?,
                     node,
                     database,
@@ -1075,7 +1073,7 @@ fn gateway_service_main(args: &[String]) -> ExitCode {
                 {
                     break l;
                 }
-                tokio::time::sleep(Duration::from_millis(20)).await;
+                tokio::time::sleep(std::time::Duration::from_millis(20)).await;
             };
             let enrolled: Vec<dainty_module_api::network::NodeId> = {
                 let g = state_arc.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
@@ -1806,6 +1804,10 @@ pub fn console_main() -> ExitCode {
 #[cfg(test)]
 #[allow(clippy::unwrap_used, clippy::expect_used, reason = "a panic is how a test fails")]
 mod tests {
+    #[cfg_attr(
+        not(any(feature = "gateway", feature = "db-tools")),
+        allow(unused_imports, reason = "every test here needs a feature")
+    )]
     use super::*;
 
     #[cfg(feature = "isles-1-14-7")]
@@ -1965,6 +1967,7 @@ mod tests {
         assert!(lines.iter().any(|l| l.contains("accounts: 1")));
     }
 
+    #[cfg(all(feature = "gateway", feature = "content"))]
     #[tokio::test(flavor = "multi_thread")]
     async fn compose_runs_gateway_and_content_in_process_without_node() {
         use commands::start::binaries::{FrontService, rust_ported};
@@ -2173,7 +2176,7 @@ mod tests {
             "/dauntless-status",
             &[("X-Dauntless-Game-Version", "1.14.7")],
             None,
-            Duration::from_secs(5),
+            std::time::Duration::from_secs(5),
         )
         .unwrap();
         let body = &reply.body;

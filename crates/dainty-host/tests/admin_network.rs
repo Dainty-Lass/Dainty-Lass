@@ -801,6 +801,7 @@ async fn down_peer_queues_pending_survives_restart_and_replays_idempotently() {
     assert_eq!(ny_actions[0]["via_node"], "oregon-1");
 }
 
+#[cfg(feature = "gateway")]
 #[tokio::test]
 async fn real_mtls_gateway_node_links_carry_admin_relay() {
     use dainty_gateway::gateway::{Gateway, Tls as GatewayTls};

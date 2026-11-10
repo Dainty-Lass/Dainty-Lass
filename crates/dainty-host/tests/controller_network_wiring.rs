@@ -1,6 +1,3 @@
-#![cfg(feature = "gateway")]
-#![allow(clippy::unwrap_used, clippy::expect_used, reason = "a panic is how a test fails")]
-
 //! End-to-end wiring of [`host::compose::network`] and [`host::compose::gateway`] (compiled in) across two
 //! [`dainty_controller::ServerController`] nodes over loopback mTLS (`/__node/<service>`):
 //! - `NodeServices` is bound to each gateway's `/__node/*` endpoint
@@ -11,6 +8,9 @@
 //!
 //! The same again with the same gateway service as the library the core loads ([`host::compose::gateway_library`],
 //! RD27): `cargo build -p dainty-gateway-plugin` first.
+
+#![cfg(feature = "gateway")]
+#![allow(clippy::unwrap_used, clippy::expect_used, reason = "a panic is how a test fails")]
 
 use std::collections::BTreeMap;
 use std::sync::Arc;

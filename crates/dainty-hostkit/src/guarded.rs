@@ -9,8 +9,6 @@ use std::path::Path;
 
 use serde_json::Value;
 
-use crate::paths::Paths;
-
 /// Why a call failed: a stable code (`not_found`, `not_waiting`, `bad_id`, `not_configured`, `failed`) and
 /// the words, which are English and for the log.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -23,7 +21,8 @@ pub struct Failure {
 
 #[cfg(feature = "admin")]
 mod run {
-    use super::{Failure, Path, Paths, Value};
+    use super::{Failure, Path, Value};
+    use crate::paths::Paths;
     use dainty_admin::guard::Guards;
     use dainty_admin::guarded_cli::{self, record_json};
 

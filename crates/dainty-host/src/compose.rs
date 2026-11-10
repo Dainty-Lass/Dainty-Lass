@@ -33,7 +33,10 @@ pub const BUILT_IN: &[&str] = &[
 pub const ALL: &[&str] = &["gateway", "allowlist", "content", "admin"];
 
 /// The controller's game modules, and the ones this binary links (DD3, DF5).
-#[cfg_attr(not(feature = "isles-1-14-7"), allow(unused_mut))]
+#[cfg_attr(
+    not(feature = "isles-1-14-7"),
+    allow(unused_mut, reason = "only the 1.14.7 module is pushed onto the list")
+)]
 pub fn game_modules() -> Vec<dainty_controller::ModuleFactory> {
     let mut modules = dainty_controller::modules::game_modules();
     #[cfg(feature = "isles-1-14-7")]
