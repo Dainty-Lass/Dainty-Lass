@@ -17,7 +17,7 @@ use rustic_isles_store::IslesStore;
 
 use super::{AdminCaller, AdminRequest, BodyFacts, LauncherApiAdmin, Via, admin_error, admin_internal};
 use crate::launcher_api::is_account_eligible;
-use crate::util::{self, hex, hmac_sha256, iso, sha256_hex, system_now_ms};
+use crate::util::{self, hmac_sha256, iso, sha256_hex, system_now_ms};
 
 /// The admin session cookie's name.
 pub const SESSION_COOKIE: &str = "rustic_isles_admin";
@@ -106,7 +106,7 @@ pub fn canonical_string(method: &str, target: &str, timestamp: &str, operator_id
 
 /// The lower-case hex HMAC-SHA256 of the canonical string under the secret.
 pub fn operator_signature(secret: &str, method: &str, target: &str, timestamp: &str, id: &str, body: &[u8]) -> String {
-    hex(&hmac_sha256(
+    hex::encode(hmac_sha256(
         secret.as_bytes(),
         canonical_string(method, target, timestamp, id, body).as_bytes(),
     ))

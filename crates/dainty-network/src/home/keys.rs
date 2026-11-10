@@ -46,21 +46,16 @@ pub enum KeyError {
 
 /// A key's id: the first 8 bytes of the SHA-256 of its public key, in 16 lowercase hex characters.
 fn key_id(public: &[u8]) -> String {
-    hex(&Sha256::digest(public)[..8])
-}
-
-pub(crate) fn hex(bytes: &[u8]) -> String {
-    ::hex::encode(bytes)
+    hex::encode(&Sha256::digest(public)[..8])
 }
 
 fn unhex<const N: usize>(text: &str) -> Option<[u8; N]> {
-    if text.len() != N * 2 || !text.bytes().all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b)) {
+    // Lower case only, as the keys are written
+    if text.bytes().any(|b| b.is_ascii_uppercase()) {
         return None;
     }
     let mut out = [0u8; N];
-    for (slot, pair) in out.iter_mut().zip(text.as_bytes().chunks(2)) {
-        *slot = u8::from_str_radix(std::str::from_utf8(pair).ok()?, 16).ok()?;
-    }
+    hex::decode_to_slice(text, &mut out).ok()?;
     Some(out)
 }
 
@@ -68,7 +63,7 @@ fn unhex<const N: usize>(text: &str) -> Option<[u8; N]> {
 pub(crate) fn random_hex<const N: usize>() -> Result<String, KeyError> {
     let mut bytes = [0u8; N];
     rand::fill(&mut bytes).map_err(|_| KeyError::Random)?;
-    Ok(hex(&bytes))
+    Ok(hex::encode(bytes))
 }
 
 /// A node's private signing key.
@@ -133,7 +128,7 @@ impl SigningKey {
                     options.mode(0o600);
                 }
                 let mut file = options.open(path).map_err(|e| KeyError::Io(e.to_string()))?;
-                std::io::Write::write_all(&mut file, format!("{FILE_PREFIX}{}\n", hex(&seed)).as_bytes())
+                std::io::Write::write_all(&mut file, format!("{FILE_PREFIX}{}\n", hex::encode(seed)).as_bytes())
                     .map_err(|e| KeyError::Io(e.to_string()))?;
                 Ok(key)
             }

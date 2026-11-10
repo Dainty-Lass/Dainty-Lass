@@ -33,7 +33,7 @@ pub type Clock = std::sync::Arc<dyn Fn() -> i64 + Send + Sync>;
 
 pub(crate) fn sha256_hex(bytes: &[u8]) -> String {
     use sha2::Digest as _;
-    hex(&sha2::Sha256::digest(bytes))
+    hex::encode(sha2::Sha256::digest(bytes))
 }
 
 /// Sends log lines to `sink` until the guard drops; one capture at a time.
@@ -56,8 +56,4 @@ impl Drop for LogCapture {
     fn drop(&mut self) {
         log::set_sink(None);
     }
-}
-
-pub(crate) fn hex(bytes: &[u8]) -> String {
-    ::hex::encode(bytes)
 }

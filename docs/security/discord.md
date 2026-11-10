@@ -16,28 +16,29 @@ with a single-use login URI holding a fresh invite code, and `/status` says whet
 component that turns a message from outside the server's own players into an invite, so what reaches it from Discord
 is untrusted, and what it sends back is a credential.
 
-- **In:** Discord's gateway, a WebSocket over TLS the bot dials out to (`wss://gateway.discord.gg`, then the resume
-  URL READY names). Nothing listens: the bot uses no HTTP interactions endpoint, so the gateway stays the server's
-  only listener off loopback. Interactions arrive authenticated by that TLS connection, so there is no Ed25519
-  signature to check as an HTTP endpoint would.
-- **Out:** Discord's REST API (`https://discord.com/api/v10`, https only, webpki roots) to register the commands and
-  answer interactions; dainty-dash's public `GET /api/public/signup` (A8, D3), http or https as `[discord]
-  dashboard_url` (or host.toml's `dashboard_url`) says.
+- **In:** Discord's gateway, a WebSocket over TLS the bot dials out to through a twilight `Shard` (webpki roots on
+  aws-lc-rs; twilight heartbeats, resumes and reconnects). Nothing listens: the bot uses no HTTP interactions
+  endpoint, so the gateway stays the server's only listener off loopback. Interactions arrive authenticated by that
+  TLS connection, so there is no Ed25519 signature to check as an HTTP endpoint would.
+- **Out:** Discord's REST API through `twilight_http::Client` (https only, webpki roots, its rate limiter) to
+  register the commands and answer interactions; dainty-dash's public `GET /api/public/signup` (A8, D3), http or
+  https as `[discord] dashboard_url` (or host.toml's `dashboard_url`) says.
 - **Inside the process:** `GameCall::Availability` and `GameCall::CreateInvite` to the 1.14.7 module through the
   registry, and one `discord.key.requested` event per `/key` on the registry's bus, which the recorder keeps (A5,
   D6).
 - **Files:** `discord.env`, which `dainty-host setup` writes from `[discord]` and secrets.env's `DISCORD_BOT_TOKEN`.
 
-Code: `crates/dainty-discord/src/` (`interaction.rs`, `bot.rs`, `discord.rs`, `signup.rs`, `config.rs`, `catalog.rs`,
-`http.rs`), `crates/dainty-controller/src/modules.rs` (`discord`, `DiscordAccess`), and the host kit's
+Code: `crates/dainty-discord/src/` (`interaction.rs`, `bot.rs`, `discord.rs`, `signup.rs`, `config.rs`, `catalog.rs`),
+`crates/dainty-http`, `crates/dainty-controller/src/modules.rs` (`discord`, `DiscordAccess`), and the host kit's
 `crates/dainty-hostkit/src/hostconfig/discord.rs`, `hostconfig.rs` (`PROVIDED_SECRET_KEYS`, `set_provided_secret`,
 `build_env_files`), `commands/setup.rs` and `serve.rs` (`compose`, `discord_invite`).
 
 Fuzz target in `fuzz`:
 
-- `discord_interaction`: a gateway message, an interaction's body and a dashboard answer of any bytes parse or are
-  refused, never panic; an interaction that parses has ids that are not 0 and a token that is `[A-Za-z0-9._-]`, at
-  most 512 bytes and absent from `Debug`; a signup link is an http(s) URL without credentials.
+- `discord_interaction`: an interaction's body (read into twilight's model, then `Interaction::from_model`) and a
+  dashboard answer of any bytes parse or are refused, never panic; an interaction that parses has ids that are not 0
+  and a token that is `[A-Za-z0-9._-]`, at most 512 bytes and absent from `Debug`; a signup link is an http(s) URL
+  without credentials.
 
 ## Checklist
 
@@ -52,33 +53,33 @@ Fuzz target in `fuzz`:
 - [ ] The `[env]` passthrough refuses it, and an override from the host's shell is logged with the value redacted
       (`env::denied`, `overrides::sensitive`).
 - [ ] `BotToken`'s `Debug` prints a placeholder; the token goes only into the `Authorization` header and Identify
-      and Resume (`config.rs`, `discord.rs`). A REST error names the call and Discord's status, never the request,
-      its path (which holds an interaction token) or its headers (`Rest::send`).
+      and Resume (`config.rs`, `discord.rs`). A REST error names the call and twilight's error, whose text never
+      holds the request, its path (which holds an interaction token) or its headers (`Rest`).
 - [ ] A child module never gets it (D5): it is a built-in's env file, and `[[modules.external]]` still gets only
       `system_environment`.
 
 ### What Discord sends
 
-- [ ] A gateway message over 1 MiB is refused by the WebSocket (`max_message_size`, `max_frame_size`) and by
-      `parse_frame`; a message that is not JSON drops the connection, which reconnects.
-- [ ] An interaction is read field by field (`parse_interaction`): ids are decimal `u64` and not 0, the command name
+- [ ] Gateway messages are read by twilight (`Shard`, `EventTypeFlags::READY | INTERACTION_CREATE`); one it can't
+      read is logged by error and dropped.
+- [ ] An interaction is taken from twilight's model (`Interaction::from_model`): ids are not 0, the command name
       is at most 128 bytes, the locale picks a catalog and is used for nothing else, the token is
       `[A-Za-z0-9._-]{1,512}` so it can't change the REST path it goes into. One that doesn't parse is logged by
-      reason, never by content (`GatewayEvent::BadInteraction`).
+      reason, never by content (`ParseError`).
 - [ ] An interaction for another application is ignored (`Gateway::interaction`); READY's application must match
       `[discord] application_id` when that is set, else the bot stops (`Gateway::ready`).
 - [ ] Commands are answered only in a guild, and with `guild_ids` set only in those guilds; a direct message gets
       `command.wrong_guild` and nothing else (`Bot::answer`, `answers_only_in_its_guilds`). Global commands are
-      registered for guild channels only (`contexts: [0]`).
+      registered for guild channels only (`InteractionContextType::Guild`).
 - [ ] At most 32 interactions are answered at once; more are left for Discord to time out (`MAX_IN_FLIGHT`).
-- [ ] Close codes 4004 (a bad token) and 4010 to 4014 stop the bot with its reason; anything else reconnects,
-      resuming where it can, with a backoff of 1 s doubling to 60 s. A missed heartbeat ack drops the connection.
+- [ ] A close code twilight may not reconnect from (4004, a bad token; 4010 to 4014) stops the bot with its reason
+      (`discord::fatal`); twilight reconnects from anything else, resuming where it can.
 
 ### `/key`
 
-- [ ] Every reply is ephemeral: the interaction is acknowledged with type 5 and flag 64, and the reply edits that
-      message (`Rest::defer`, `Rest::reply`), so only the member who asked sees a link or a URI.
-- [ ] Replies set `allowed_mentions: { parse: [] }`, so nothing the bot writes pings anyone.
+- [ ] Every reply is ephemeral: the interaction is acknowledged with a deferred response flagged `EPHEMERAL`, and the
+      reply edits that message (`Rest::defer`, `Rest::reply`), so only the member who asked sees a link or a URI.
+- [ ] The REST client's default `allowed_mentions` is empty, so nothing the bot writes pings anyone (`Rest::new`).
 - [ ] Availability first, through the registry (`GameCall::Availability`): a game that is down gets the module's
       reason, translated, and no invite (`key_and_status_say_why_the_game_is_down`).
 - [ ] With signups on, the dashboard's link and no invite (`key_sends_the_signup_link_when_signups_are_on`). The link

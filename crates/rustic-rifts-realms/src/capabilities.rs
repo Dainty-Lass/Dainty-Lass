@@ -7,6 +7,8 @@
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 
+use base64::Engine as _;
+use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use rand::RngExt as _;
 use rustic_rifts_guard::{CapabilityView, CompletionMode, HuntSessions, HuntView, RosterEntry, block_on_store};
 use rustic_rifts_seam::{AccountId, PeerId, RealmId, SessionId};
@@ -19,39 +21,19 @@ use crate::{
     db::{RealmsDb, RepoError},
     hub::{HUB_RUNTIME_STATES, PresenceState},
     hunt::{AdmissionState, HostCapabilityRecord, HuntSession, HuntState},
-    ids::{hex, random_uuid, seam_realm_id, seam_session_id, wire_session_id},
+    ids::{random_uuid, seam_realm_id, seam_session_id, wire_session_id},
     ports::Clock,
     realm::js_trim,
     repo::{hub::RealmHubRepository, hunts::HuntRepository},
 };
 
-/// The URL-safe alphabet, unpadded: 32 random bytes are 43 characters.
-const ALPHABET: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
-
-fn base64url(bytes: &[u8]) -> String {
-    let mut text = String::new();
-    let (mut pending, mut bits) = (0u32, 0u32);
-    for &byte in bytes {
-        pending = (pending << 8) | u32::from(byte);
-        bits += 8;
-        while bits >= 6 {
-            bits -= 6;
-            text.push(char::from(ALPHABET[((pending >> bits) & 0x3f) as usize]));
-        }
-    }
-    if bits > 0 {
-        text.push(char::from(ALPHABET[((pending << (6 - bits)) & 0x3f) as usize]));
-    }
-    text
-}
-
 fn digest_hex(secret: &str) -> String {
-    hex(Sha256::digest(secret).as_slice())
+    hex::encode(Sha256::digest(secret).as_slice())
 }
 
 /// 43 characters of unpadded base64url: 32 random bytes.
 pub fn is_opaque_capability(raw: &str) -> bool {
-    raw.len() == 43 && raw.bytes().all(|b| ALPHABET.contains(&b))
+    raw.len() == 43 && raw.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'-' || b == b'_')
 }
 
 /// Only the digest is stored.
@@ -67,7 +49,7 @@ pub fn hash_capability_secret(secret: &str) -> Option<String> {
 pub fn generate_capability_secret() -> (Secret, String) {
     let mut random = [0u8; 32];
     rand::rng().fill(&mut random[..]);
-    let text = base64url(&random);
+    let text = URL_SAFE_NO_PAD.encode(random);
     let digest = digest_hex(&text);
     (Secret::new(text), digest)
 }
@@ -679,7 +661,7 @@ impl HuntSessions for RealmsHuntSessions {
 
 #[cfg(test)]
 mod tests {
-    use super::{CACHE_PRUNE_AT, HubPresenceCache, UnixMillis as At, base64url, is_opaque_capability};
+    use super::{CACHE_PRUNE_AT, HubPresenceCache, UnixMillis as At, generate_capability_secret, is_opaque_capability};
 
     fn accounts(name: &str) -> Vec<String> {
         vec![name.to_owned()]
@@ -709,11 +691,8 @@ mod tests {
 
     #[test]
     fn secrets_are_unpadded_base64url() {
-        assert_eq!(base64url(b""), "");
-        assert_eq!(base64url(b"f"), "Zg");
-        assert_eq!(base64url(b"fo"), "Zm8");
-        assert_eq!(base64url(b"foo"), "Zm9v");
-        assert_eq!(base64url(&[0xfb, 0xff]), "-_8");
-        assert!(is_opaque_capability(&base64url(&[7; 32])));
+        let (secret, _) = generate_capability_secret();
+        assert!(is_opaque_capability(secret.expose()));
+        assert!(!is_opaque_capability(&"A".repeat(42)) && !is_opaque_capability(&format!("{}=", "A".repeat(42))));
     }
 }

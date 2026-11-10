@@ -1,0 +1,16 @@
+# The dashboard image's context is the repository root; it needs only the root workspace files and ui/.
+*
+!package.json
+!bun.lock
+!bunfig.toml
+!launcher/package.json
+!ui
+ui/**/node_modules
+ui/**/dist
+ui/**/.vinext
+ui/**/.next
+ui/**/data
+ui/packages/theme/built
+ui/**/*.log
+ui/**/.env
+ui/**/.env.*

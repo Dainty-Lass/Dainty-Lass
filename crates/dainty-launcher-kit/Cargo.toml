@@ -23,6 +23,7 @@ bench = false
 serde_json.workspace = true
 
 [dependencies]
+dainty-http.workspace = true
 dainty-protocol.workspace = true
 dainty-epic.workspace = true
 dainty-module-api = { path = "../dainty-module-api" }
@@ -38,17 +39,14 @@ tracing-log.workspace = true
 sha2.workspace = true
 sha1.workspace = true
 chrono.workspace = true
-bytes = "1"
+bytes.workspace = true
 http-body-util.workspace = true
 hyper.workspace = true
-hyper-rustls.workspace = true
 hyper-util = { workspace = true, features = ["tokio", "client-legacy", "http1"] }
 rustls.workspace = true
 tokio = { workspace = true, features = ["net", "time", "io-util", "sync", "macros", "rt", "process", "fs"] }
-tokio-rustls = { version = "0.26", default-features = false, features = ["aws_lc_rs", "tls12"] }
+tokio-rustls.workspace = true
 tokio-util.workspace = true
-webpki-roots = "1"
-percent-encoding.workspace = true
 rand.workspace = true
 futures-util.workspace = true
 hex.workspace = true
@@ -89,10 +87,8 @@ dbus-secret-service.workspace = true
 [dev-dependencies]
 # The fake CDN and synthetic versions for the install job (net/epic_install.rs)
 dainty-epic = { workspace = true, features = ["test-support"] }
-sha1_smol = "1"
-tokio-stream = "0.1"
 tempfile.workspace = true
-rcgen = { version = "0.14.10", default-features = false, features = ["aws_lc_rs", "pem", "crypto"] }
+rcgen.workspace = true
 dainty-protocol = { workspace = true, features = ["ts"] }
 ts-rs.workspace = true
 

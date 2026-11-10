@@ -43,12 +43,8 @@ pub struct VerifyReport {
     pub collections: Vec<CollectionVerification>,
 }
 
-fn hex(bytes: &[u8]) -> String {
-    ::hex::encode(bytes)
-}
-
 pub(crate) fn sha256_hex(text: &str) -> String {
-    hex(&Sha256::digest(text.as_bytes()))
+    hex::encode(Sha256::digest(text.as_bytes()))
 }
 
 /// The record a key's hash is taken over (§10.4): the two key tables hash the key itself.
@@ -77,7 +73,7 @@ fn table_hash(entries: &BTreeMap<String, String>) -> String {
     for (key, hash) in entries {
         hasher.update(format!("{key}:{hash}\n").as_bytes());
     }
-    hex(&hasher.finalize())
+    hex::encode(hasher.finalize())
 }
 
 /// The migration's untouched seed row reads as no policy (§10.2).

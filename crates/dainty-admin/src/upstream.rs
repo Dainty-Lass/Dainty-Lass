@@ -15,7 +15,7 @@ use hyper_util::rt::TokioExecutor;
 use serde::Deserialize;
 use serde_json::{Value, json};
 
-use crate::hmac::{hex, hmac_sha256, sha256_hex};
+use crate::hmac::{hmac_sha256, sha256_hex};
 use crate::input::{self, Instance};
 
 const TIMEOUT: Duration = Duration::from_secs(5);
@@ -203,7 +203,7 @@ pub fn operator_signature(
     body: &[u8],
 ) -> String {
     let canonical = [method, target, timestamp, operator.id(), &sha256_hex(body)].join("\n");
-    hex(&hmac_sha256(secret.as_bytes(), canonical.as_bytes()))
+    hex::encode(hmac_sha256(secret.as_bytes(), canonical.as_bytes()))
 }
 
 impl Upstream {

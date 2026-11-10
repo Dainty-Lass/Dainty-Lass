@@ -154,7 +154,7 @@ impl Cursor<'_> {
                 Value::String(base64::engine::general_purpose::STANDARD.encode(payload))
             }
             0x06 | 0x0A | 0x7F | 0xFF => Value::Null,
-            0x07 => Value::String(hex(self.take(12, "ObjectId")?)),
+            0x07 => Value::String(hex::encode(self.take(12, "ObjectId")?)),
             0x08 => Value::Bool(self.take(1, "bool")?[0] != 0),
             0x09 => Value::String(iso_ms(self.i64("datetime")?)),
             0x0B => {
@@ -164,14 +164,10 @@ impl Cursor<'_> {
             }
             0x10 => Value::from(self.i32("int32")?),
             0x11 | 0x12 => Value::from(self.i64("int64")?),
-            0x13 => Value::String(hex(self.take(16, "decimal128")?)),
+            0x13 => Value::String(hex::encode(self.take(16, "decimal128")?)),
             other => return Err(format!("unsupported BSON element tag 0x{other:02x}")),
         })
     }
-}
-
-fn hex(bytes: &[u8]) -> String {
-    ::hex::encode(bytes)
 }
 
 /// A command or reply value: JSON, plus the BSON types JSON has no word for. The reading commands use only the

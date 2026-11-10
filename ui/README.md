@@ -62,7 +62,7 @@ add an "approved" role in Discord. [docs/access.md](docs/access.md) has the deta
 ### Running it
 
 ```bash
-bun install
+bun install                # installs the repository's root Bun workspace (ui/ and launcher/)
 bun run theme:build
 cp apps/web/.env.example apps/web/.env   # then fill it in
 bun run dev                                           # http://localhost:3000

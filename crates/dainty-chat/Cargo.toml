@@ -19,14 +19,12 @@ futures-util.workspace = true
 hex.workspace = true
 http-body-util.workspace = true
 hyper.workspace = true
-hyper-rustls.workspace = true
-hyper-util = { workspace = true, features = ["client-legacy", "http1"] }
+dainty-http.workspace = true
 dainty-module-api.workspace = true
 dainty-network = { path = "../dainty-network", default-features = false }
 dainty-protocol.workspace = true
 rand.workspace = true
 regex.workspace = true
-rustls.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 dainty-service-kit.workspace = true
@@ -42,10 +40,12 @@ ulid.workspace = true
 uuid.workspace = true
 
 [dev-dependencies]
+hyper-util = { workspace = true, features = ["client-legacy", "http1"] }
+rustls.workspace = true
 tempfile.workspace = true
 tokio = { workspace = true, features = ["rt-multi-thread"] }
 # The node-link listener the mutual-TLS federation test serves (the gateway's job, spec-rd27-chat §6.3)
-tokio-rustls = { version = "0.26", default-features = false, features = ["aws_lc_rs", "tls12"] }
+tokio-rustls.workspace = true
 tokio-tungstenite.workspace = true
 # DAINTY_TEST_POSTGRES_URL, for the Postgres half of the history tests
 url.workspace = true

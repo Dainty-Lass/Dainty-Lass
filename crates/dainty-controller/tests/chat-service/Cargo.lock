@@ -337,6 +337,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "dainty-http"
+version = "0.0.0"
+dependencies = [
+ "bytes",
+ "http",
+ "http-body",
+ "http-body-util",
+ "hyper",
+ "hyper-rustls",
+ "hyper-util",
+ "rustls",
+ "tokio",
+ "webpki-roots",
+]
+
+[[package]]
 name = "dainty-module-api"
 version = "0.1.0"
 dependencies = [
@@ -361,16 +377,14 @@ dependencies = [
  "base64 0.23.1",
  "bytes",
  "chrono",
+ "dainty-http",
  "dotenvy",
  "flate2",
  "gethostname",
  "http-body-util",
  "hyper",
- "hyper-rustls",
- "hyper-util",
  "percent-encoding",
  "regex",
- "rustls",
  "serde",
  "serde_json",
  "sha2",

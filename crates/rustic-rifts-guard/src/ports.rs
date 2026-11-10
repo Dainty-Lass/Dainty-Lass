@@ -101,42 +101,12 @@ impl Clock for ManualClock {
     }
 }
 
-const DAY_MILLIS: i64 = 86_400_000;
-/// Any 400 consecutive Gregorian years.
-const CYCLE_DAYS: i64 = 146_097;
-
-fn leap(year: i64) -> bool {
-    year % 4 == 0 && (year % 100 != 0 || year % 400 == 0)
-}
-
-/// Year, month and day of a day count from 1970-01-01.
-fn civil(days: i64) -> (i64, i64, i64) {
-    let mut year = 1970 + 400 * days.div_euclid(CYCLE_DAYS);
-    let mut left = days.rem_euclid(CYCLE_DAYS);
-    while left >= 365 + i64::from(leap(year)) {
-        left -= 365 + i64::from(leap(year));
-        year += 1;
-    }
-    let february = 28 + i64::from(leap(year));
-    let mut month = 1;
-    for length in [31, february, 31, 30, 31, 30, 31, 31, 30, 31, 30] {
-        if left < length {
-            break;
-        }
-        left -= length;
-        month += 1;
-    }
-    (year, month, left + 1)
-}
-
-/// `new Date(ms).toISOString()`.
+/// `new Date(ms).toISOString()` for years 0000-9999.
 pub fn iso_time(at: UnixMillis) -> String {
-    let (year, month, day) = civil(at.0.div_euclid(DAY_MILLIS));
-    let mut clock = at.0.rem_euclid(DAY_MILLIS);
-    let millis = clock % 1000;
-    clock /= 1000;
-    let (hours, minutes, seconds) = (clock / 3600, clock / 60 % 60, clock % 60);
-    format!("{year:04}-{month:02}-{day:02}T{hours:02}:{minutes:02}:{seconds:02}.{millis:03}Z")
+    chrono::DateTime::from_timestamp_millis(at.0)
+        .unwrap_or_default()
+        .format("%Y-%m-%dT%H:%M:%S%.3fZ")
+        .to_string()
 }
 
 // ---- logs -----------------------------------------------------------------------------------------------------

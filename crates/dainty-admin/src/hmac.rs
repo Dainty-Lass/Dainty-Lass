@@ -1,45 +1,29 @@
-//! HMAC-SHA256 (RFC 2104) for the backend's manager-operator signature, and a constant-time compare
-//! for the API key. Written out on `sha2` rather than adding a crate for twenty lines.
+//! HMAC-SHA256 for the backend's manager-operator signature, and a constant-time compare for the API key.
 
+use hmac::{Hmac, KeyInit as _, Mac as _};
 use sha2::{Digest, Sha256};
-
-const BLOCK: usize = 64;
+use subtle::ConstantTimeEq as _;
 
 /// HMAC-SHA256 of `message` under `key`.
 pub fn hmac_sha256(key: &[u8], message: &[u8]) -> Vec<u8> {
-    let mut block = [0u8; BLOCK];
-    if key.len() > BLOCK {
-        for (slot, byte) in block.iter_mut().zip(Sha256::digest(key).iter()) {
-            *slot = *byte;
-        }
-    } else {
-        block[..key.len()].copy_from_slice(key);
-    }
-    let mut inner = Sha256::new();
-    inner.update(block.map(|b| b ^ 0x36));
-    inner.update(message);
-    let mut outer = Sha256::new();
-    outer.update(block.map(|b| b ^ 0x5c));
-    outer.update(inner.finalize());
-    outer.finalize().to_vec()
-}
-
-/// `bytes` as lowercase hex.
-pub fn hex(bytes: &[u8]) -> String {
-    ::hex::encode(bytes)
+    // HMAC takes a key of any length, so this never fails
+    <Hmac<Sha256>>::new_from_slice(key).map_or_else(
+        |_| Vec::new(),
+        |mac| mac.chain_update(message).finalize().into_bytes().to_vec(),
+    )
 }
 
 /// Lowercase hex SHA-256 of `data`.
 pub fn sha256_hex(data: &[u8]) -> String {
-    hex(&Sha256::digest(data))
+    hex::encode(Sha256::digest(data))
 }
 
 /// Compares the SHA-256 of both, so neither the length nor the first differing byte shows in the time
 /// taken (as the backend's `IsLocalAdminRequest` does).
 pub fn same_secret(given: &str, expected: &str) -> bool {
-    let a = Sha256::digest(given.as_bytes());
-    let b = Sha256::digest(expected.as_bytes());
-    a.iter().zip(b.iter()).fold(0u8, |acc, (x, y)| acc | (x ^ y)) == 0
+    Sha256::digest(given.as_bytes())
+        .ct_eq(&Sha256::digest(expected.as_bytes()))
+        .into()
 }
 
 #[cfg(test)]
@@ -50,11 +34,11 @@ mod tests {
     fn matches_rfc_4231() {
         // Test cases 2 and 6 (a key longer than the block)
         assert_eq!(
-            hex(&hmac_sha256(b"Jefe", b"what do ya want for nothing?")),
+            hex::encode(hmac_sha256(b"Jefe", b"what do ya want for nothing?")),
             "5bdcc146bf60754e6a042426089575c75a003f089d2739839dec58b964ec3843"
         );
         assert_eq!(
-            hex(&hmac_sha256(
+            hex::encode(hmac_sha256(
                 &[0xaa; 131],
                 b"Test Using Larger Than Block-Size Key - Hash Key First"
             )),

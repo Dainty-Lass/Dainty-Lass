@@ -140,7 +140,7 @@ pub fn redact_capture_text(text: &str) -> String {
         format!("\u{1}{}\u{1}", held.len() - 1)
     });
     let text = ACCOUNT_KEY.replace_all(&text, |c: &regex::Captures<'_>| {
-        held.push(format!("<key:{}>", crate::hex(&Sha256::digest(c[0].as_bytes()))));
+        held.push(format!("<key:{}>", hex::encode(Sha256::digest(c[0].as_bytes()))));
         format!("\u{1}{}\u{1}", held.len() - 1)
     });
     let text = HEX_RUN.replace_all(&text, "<redacted>");
@@ -508,7 +508,7 @@ impl CaptureWriter {
 
     /// Deletes the day files older than the retention; others are left alone.
     pub fn prune(&self, now_ms: i64) {
-        let cutoff = crate::iso_ms(now_ms - i64::from(self.options.retention_days) * 86_400_000);
+        let cutoff = dainty_service_kit::js::iso_string(now_ms - i64::from(self.options.retention_days) * 86_400_000);
         let cutoff = &cutoff[..10];
         let Ok(entries) = std::fs::read_dir(&self.options.dir) else {
             return;
@@ -538,7 +538,7 @@ impl CaptureWriter {
             return;
         }
         let mut line = Map::new();
-        line.insert("t".into(), Value::String(crate::iso_ms(now_ms)));
+        line.insert("t".into(), Value::String(dainty_service_kit::js::iso_string(now_ms)));
         line.insert("src".into(), Value::String(self.options.source.clone()));
         if let Value::Object(fields) = record {
             for (k, v) in fields {
@@ -550,7 +550,7 @@ impl CaptureWriter {
             text = text.replace(secret.as_str(), "<redacted>");
         }
         text.push('\n');
-        let today = crate::iso_ms(now_ms)[..10].to_owned();
+        let today = dainty_service_kit::js::iso_string(now_ms)[..10].to_owned();
         let mut day = self.day.lock().unwrap_or_else(PoisonError::into_inner);
         let result = (|| {
             if day.as_ref().is_none_or(|d| d.day != today) {
@@ -823,7 +823,7 @@ mod tests {
         let key = "DLK_abc123";
         assert_eq!(
             redact_capture_text(key),
-            format!("<key:{}>", crate::hex(&Sha256::digest(key.as_bytes())))
+            format!("<key:{}>", hex::encode(Sha256::digest(key.as_bytes())))
         );
         assert_eq!(redact_capture_text("a\u{1}0\u{1}b"), "a?0?b");
         assert_eq!(redact_capture_text(&"f".repeat(40)), "<redacted>");
@@ -844,7 +844,7 @@ mod tests {
         let token = jwt(r#"{"userId":"UID-9"}"#);
         let input = json!({"Username":"Alex","InviteCode":"ABCD-EFGH","Password":"hunter2","UUK":"UUK_k1",
             "nested":[{"access_token": token,"note":"x"}], "n": 5});
-        let hash = crate::hex(&Sha256::digest(b"UUK_k1"));
+        let hash = hex::encode(Sha256::digest(b"UUK_k1"));
         assert_eq!(
             redact_capture_json(&input),
             json!({"Username":"Alex","InviteCode":"<redacted>","Password":"<redacted>","UUK":format!("<key:{hash}>"),
@@ -864,7 +864,7 @@ mod tests {
         h.append("accept", "a".parse().unwrap());
         h.append("accept", "b".parse().unwrap());
         let v = redact_capture_headers(&h);
-        let hash = crate::hex(&Sha256::digest(b"DLK_abc"));
+        let hash = hex::encode(Sha256::digest(b"DLK_abc"));
         assert_eq!(
             v,
             json!({"user-agent":"Game/1","x-dainty-user-api-key":format!("<key:{hash}>"),

@@ -11,7 +11,6 @@ pub mod bot;
 pub mod catalog;
 pub mod config;
 pub mod discord;
-pub mod http;
 pub mod interaction;
 pub mod signup;
 

@@ -413,13 +413,7 @@ impl SmtpTransport {
         };
         let name =
             rustls::pki_types::ServerName::try_from(config.host.clone()).map_err(|_| MailError::new("ESERVERNAME"))?;
-        let mut roots = rustls::RootCertStore::empty();
-        roots.extend(webpki_roots::TLS_SERVER_ROOTS.iter().cloned());
-        let tls = rustls::ClientConfig::builder_with_provider(Arc::new(rustls::crypto::aws_lc_rs::default_provider()))
-            .with_safe_default_protocol_versions()
-            .map_err(|_| MailError::new("ETLS"))?
-            .with_root_certificates(roots)
-            .with_no_client_auth();
+        let tls = dainty_http::tls_config().map_err(|_| MailError::new("ETLS"))?;
         let connector = tokio_rustls::TlsConnector::from(Arc::new(tls));
         if config.security == SmtpSecurity::StartTls {
             start_tls(&mut tcp).await?;

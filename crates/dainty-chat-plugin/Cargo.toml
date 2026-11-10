@@ -19,6 +19,7 @@ dainty-module-api.workspace = true
 dainty-service-plugin.workspace = true
 
 [dev-dependencies]
+base64.workspace = true
 dainty-service-kit.workspace = true
 dainty-controller = { workspace = true, default-features = false }
 tempfile.workspace = true

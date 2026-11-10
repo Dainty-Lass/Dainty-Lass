@@ -35,7 +35,7 @@ pub fn keyed_hash(secret: &str, parts: &[&str]) -> String {
         }
         context.update(part.as_bytes());
     }
-    util::hex(context.sign().as_ref())
+    hex::encode(context.sign().as_ref())
 }
 
 /// The stored hash of a game server key.

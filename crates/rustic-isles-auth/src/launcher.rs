@@ -21,6 +21,15 @@ use crate::store::{
     LauncherAccount, NewLauncherAccount, Purpose, RefreshSession, Status, StoreError,
 };
 use crate::util::{self, field, ok};
+
+/// What the launcher keeps of an error code in its redirect: `encodeURIComponent` less `'()`.
+const ERROR_CODE: &percent_encoding::AsciiSet = &percent_encoding::NON_ALPHANUMERIC
+    .remove(b'-')
+    .remove(b'_')
+    .remove(b'.')
+    .remove(b'!')
+    .remove(b'~')
+    .remove(b'*');
 use crate::{Auth, AuthStore, email, hashes, launcher_build, password, runtime};
 
 const MINUTE: i64 = 60_000;
@@ -846,7 +855,7 @@ impl<S: AuthStore> Auth<S> {
         let url = match outcome {
             Ok(path) => format!("{scheme}://{path}"),
             Err(code) => {
-                let code = util::percent_encode(&code, |b| b.is_ascii_alphanumeric() || b"-_.!~*".contains(&b), false);
+                let code = percent_encoding::utf8_percent_encode(&code, ERROR_CODE).to_string();
                 format!("{scheme}://{channel}/error?code={code}")
             }
         };

@@ -27,11 +27,6 @@ pub fn random_uuid() -> String {
     uuid_text(version_4(random_bytes()))
 }
 
-/// Lower-case hex.
-pub fn hex(bytes: &[u8]) -> String {
-    ::hex::encode(bytes)
-}
-
 /// Creation time in the top 48 bits, so ids sort by age as ULIDs do.
 pub fn new_session_ulid(at: UnixMillis) -> u128 {
     let mut bytes = random_bytes();
@@ -159,6 +154,5 @@ mod tests {
         assert_eq!(random.len(), 36);
         assert_eq!(&random[14..15], "4");
         assert_ne!(random, random_uuid());
-        assert_eq!(hex(&[0, 0xab, 0x10]), "00ab10");
     }
 }

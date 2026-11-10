@@ -14,7 +14,6 @@ use serde_json::Value;
 use tokio::time::Instant;
 
 use crate::bot::SignupSource;
-use crate::http::Client;
 
 /// The path under the dashboard's URL.
 pub const SIGNUP_PATH: &str = "api/public/signup";
@@ -48,7 +47,7 @@ pub fn parse_answer(body: &[u8]) -> Option<String> {
 /// dainty-dash, read through the cache.
 pub struct DashboardSignup {
     endpoint: Option<url::Url>,
-    client: Option<Client>,
+    client: dainty_http::Client,
     cache: Mutex<Option<(Instant, Option<String>)>>,
 }
 
@@ -62,7 +61,7 @@ impl DashboardSignup {
             }
             base.join(SIGNUP_PATH).ok()
         });
-        let client = endpoint.as_ref().and_then(|_| Client::new(true).ok());
+        let client = dainty_http::client(dainty_http::Schemes::HttpOrHttps);
         Self {
             endpoint,
             client,
@@ -71,12 +70,14 @@ impl DashboardSignup {
     }
 
     async fn fetch(&self) -> Option<String> {
-        let (endpoint, client) = (self.endpoint.as_ref()?, self.client.as_ref()?);
+        let endpoint = self.endpoint.as_ref()?;
         let request = http::Request::get(endpoint.as_str())
             .header(http::header::ACCEPT, "application/json")
             .body(Full::new(Bytes::new()))
             .ok()?;
-        let answer = client.call(request, MAX_ANSWER, TIMEOUT).await.ok()?;
+        let answer = dainty_http::call(&self.client, request, MAX_ANSWER, TIMEOUT)
+            .await
+            .ok()?;
         if !answer.status.is_success() {
             return None;
         }

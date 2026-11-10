@@ -1,0 +1,4 @@
+[install]
+# One install for every JS package (ui/ and launcher/); each sees only what it declares, so a phantom
+# dependency fails at install rather than at runtime.
+linker = "isolated"

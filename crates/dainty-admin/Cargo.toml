@@ -12,12 +12,13 @@ publish.workspace = true
 dainty-protocol.workspace = true
 async-graphql.workspace = true
 axum.workspace = true
-bytes = "1"
+bytes.workspace = true
 chrono.workspace = true
 clap.workspace = true
 diesel.workspace = true
 diesel_migrations.workspace = true
 hex.workspace = true
+hmac.workspace = true
 http-body-util.workspace = true
 hyper.workspace = true
 hyper-util = { workspace = true, features = ["client-legacy", "http1"] }
@@ -33,6 +34,7 @@ serde_json.workspace = true
 dainty-store.workspace = true
 dainty-service-kit.workspace = true
 sha2.workspace = true
+subtle.workspace = true
 thiserror.workspace = true
 tokio = { workspace = true, features = ["rt-multi-thread", "net", "fs", "time", "sync", "signal", "io-util"] }
 url.workspace = true

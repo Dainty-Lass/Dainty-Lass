@@ -10,19 +10,14 @@ use std::time::Duration;
 
 use aws_lc_rs::hmac;
 use base64::Engine as _;
-use http_body_util::{BodyExt, Full, Limited};
+use http_body_util::Full;
 use hyper::body::Bytes;
 use hyper::{Method, Request, StatusCode};
-use hyper_util::client::legacy::Client;
-use hyper_util::client::legacy::connect::HttpConnector;
-use hyper_util::rt::TokioExecutor;
 use sha2::{Digest, Sha256};
 
 use crate::Error;
 use crate::bucket::{Bucket, BucketRead, ObjectInfo};
-use crate::layout::{hex, sha256_hex};
-
-type Https = hyper_rustls::HttpsConnector<HttpConnector>;
+use crate::layout::sha256_hex;
 
 const EMPTY_SHA256: &str = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
 /// A listing page or an error body is never this large.
@@ -79,7 +74,7 @@ pub struct S3Bucket {
     host: String,
     /// The path before the key: `/bucket` or empty.
     base_path: String,
-    client: Client<Https, Full<Bytes>>,
+    client: dainty_http::Client,
     timeout: Duration,
     max_object: usize,
 }
@@ -125,19 +120,12 @@ impl S3Bucket {
         } else {
             (format!("{}.{authority}", config.bucket), String::new())
         };
-        // aws-lc-rs by name, as crates/dainty-content does: with another provider compiled in there is no default
-        let builder = hyper_rustls::HttpsConnectorBuilder::new();
-        let builder = match builder.with_provider_and_webpki_roots(rustls::crypto::aws_lc_rs::default_provider()) {
-            Ok(builder) => builder,
-            Err(_) => hyper_rustls::HttpsConnectorBuilder::new().with_webpki_roots(),
-        };
-        let connector = builder.https_or_http().enable_http1().build();
         Ok(Self {
             scheme: url.scheme().to_owned(),
             host,
             base_path,
             config: Arc::new(config),
-            client: Client::builder(TokioExecutor::new()).build(connector),
+            client: dainty_http::client(dainty_http::Schemes::HttpOrHttps),
             timeout: Duration::from_secs(600),
             max_object: usize::try_from(crate::layout::MAX_SNAPSHOT_BYTES).unwrap_or(usize::MAX),
         })
@@ -201,24 +189,11 @@ impl S3Bucket {
             .header("authorization", authorization)
             .body(Full::new(Bytes::from(body)))
             .map_err(|e| Error::Bucket(format!("{method} request: {e}")))?;
-        let work = async {
-            let response = self
-                .client
-                .request(request)
-                .await
-                .map_err(|e| Error::Bucket(format!("{method} {}: {e}", key.unwrap_or("/"))))?;
-            let status = response.status();
-            let limit = if status.is_success() { max_reply } else { MAX_SMALL_BODY };
-            let body = Limited::new(response.into_body(), limit)
-                .collect()
-                .await
-                .map(|b| b.to_bytes())
-                .map_err(|e| Error::Bucket(format!("{method} {}: the reply: {e}", key.unwrap_or("/"))))?;
-            Ok::<_, Error>((status, body))
-        };
-        let (status, body) = tokio::time::timeout(self.timeout, work)
+        let limit = |status: StatusCode| if status.is_success() { max_reply } else { MAX_SMALL_BODY };
+        let answer = dainty_http::call_with(&self.client, request, limit, self.timeout)
             .await
-            .map_err(|_| Error::Bucket(format!("{method} {}: timed out", key.unwrap_or("/"))))??;
+            .map_err(|e| Error::Bucket(format!("{method} {}: {e}", key.unwrap_or("/"))))?;
+        let (status, body) = (answer.status, answer.body);
         if !status.is_success() {
             let code = xml_text(&String::from_utf8_lossy(&body), "Code").unwrap_or_default();
             return Err(Error::Bucket(format!(
@@ -372,13 +347,13 @@ pub(crate) fn sign(
     let scope = format!("{date}/{}/s3/aws4_request", config.region);
     let to_sign = format!(
         "AWS4-HMAC-SHA256\n{amz_date}\n{scope}\n{}",
-        hex(&Sha256::digest(request.as_bytes()))
+        hex::encode(Sha256::digest(request.as_bytes()))
     );
     let mut key = hmac_sha256(format!("AWS4{}", config.secret_access_key).as_bytes(), date.as_bytes());
     for part in [config.region.as_str(), "s3", "aws4_request"] {
         key = hmac_sha256(&key, part.as_bytes());
     }
-    let signature = hex(&hmac_sha256(&key, to_sign.as_bytes()));
+    let signature = hex::encode(hmac_sha256(&key, to_sign.as_bytes()));
     format!(
         "AWS4-HMAC-SHA256 Credential={}/{scope}, SignedHeaders={signed}, Signature={signature}",
         config.access_key_id

@@ -19,7 +19,6 @@
 //! downloader, which the launcher's AGPL job around this keeps (DD26).
 
 mod cdn;
-pub(crate) mod md5;
 pub mod resume;
 mod sources;
 #[cfg(test)]
@@ -574,7 +573,7 @@ fn verify(path: &Path, entry: &FileEntry) -> io::Result<bool> {
     }
     let matches = Sha1Digest(sha1.finalize().into()) == entry.sha1
         && sha256.is_none_or(|h| Some(<[u8; 32]>::from(h.finalize())) == entry.sha256)
-        && md5.is_none_or(|h| Some(h.finish()) == entry.md5);
+        && md5.is_none_or(|h| Some(<[u8; 16]>::from(h.finalize())) == entry.md5);
     if matches {
         OpenOptions::new().write(true).open(path)?.sync_all()?;
         #[cfg(unix)]

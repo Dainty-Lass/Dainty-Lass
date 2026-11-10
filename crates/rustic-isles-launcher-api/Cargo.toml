@@ -28,7 +28,6 @@ http-body-util.workspace = true
 dainty-module-api.workspace = true
 rand.workspace = true
 regex.workspace = true
-rustic-rifts-seam.workspace = true
 rustic-isles.workspace = true
 rustic-isles-auth.workspace = true
 rustic-isles-chat.workspace = true

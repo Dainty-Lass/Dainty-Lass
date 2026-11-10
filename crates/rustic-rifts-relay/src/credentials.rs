@@ -55,7 +55,7 @@ pub fn relay_account_tag(account: &AccountId) -> String {
         .chain_update(&account.0)
         .finalize();
     // 16 bytes of the digest, as 32 hex digits.
-    wire::hex(&digest[..16])
+    hex::encode(&digest[..16])
 }
 
 /// A TURN REST credential (coturn's `use-auth-secret`, turn-rs's `static-auth-secret`).
@@ -768,7 +768,7 @@ mod tests {
             .unwrap()
             .chain_update(b"what do ya want for nothing?");
         assert_eq!(
-            wire::hex(&mac.finalize().into_bytes()),
+            hex::encode(mac.finalize().into_bytes()),
             "effcdf6ae5eb2fa2d27416d5f184df9c259a7c79"
         );
     }
@@ -781,7 +781,7 @@ mod tests {
         assert_eq!(relay_account_tag(&account()), tag);
         assert_ne!(relay_account_tag(&AccountId("account-0002".to_owned())), tag);
         assert!(!tag.contains("account"));
-        let full = wire::hex(&Sha256::digest(b"rustic-relay-tag-v1\naccount-0001"));
+        let full = hex::encode(Sha256::digest(b"rustic-relay-tag-v1\naccount-0001"));
         assert_eq!(tag, full[..32]);
     }
 
