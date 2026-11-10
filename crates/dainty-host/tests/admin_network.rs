@@ -18,7 +18,7 @@
 //! 4. Real mutual-TLS end-to-end: `TlsPeerLink` + `Gateway` across two real HTTPS gateways on
 //!    `127.0.0.1:0` carrying `Service::Admin` ban and ticket revocation.
 
-#![allow(clippy::unwrap_used, clippy::expect_used)]
+#![allow(clippy::unwrap_used, clippy::expect_used, reason = "a panic is how a test fails")]
 
 use std::collections::{BTreeMap, HashMap};
 use std::sync::atomic::{AtomicI64, Ordering};

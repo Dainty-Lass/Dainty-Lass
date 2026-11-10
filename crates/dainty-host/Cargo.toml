@@ -1,10 +1,10 @@
 [package]
 name = "dainty-host"
-description = "The host kit: the dainty-host command line (MIGRATION_PLAN.md RH rows)"
+description = "The host kit composed with the services and the 1.14.7 module: what the server binaries run"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
-license.workspace = true
+license = "MIT"
 repository.workspace = true
 publish.workspace = true
 
@@ -24,7 +24,7 @@ chat = ["dep:dainty-chat"]
 discord = ["dainty-hostkit/discord"]
 # The game modules compiled in (DF5); 1.14.7 and realms are on by default (RU9/RB14)
 stub-module = ["dainty-controller/stub-module"]
-# dainty-lass's clean-room module (RD27), with restricted's version data compiled in (version_data.rs)
+# The 1.14.7 module; its version data is compiled in when DAINTY_VERSION_DATA names it (build.rs, version_data.rs)
 isles-1-14-7 = ["db-tools", "dep:rustic-isles", "dep:rustic-isles-director", "dep:rustic-isles-gamedata"]
 realms = ["rustic-isles-1-14-7?/realms"]
 # `dainty-host db`, which takes the legacy starter from the version data
@@ -108,21 +108,16 @@ libc = "0.2.191"
 # install-game's tests: synthetic manifests and chunks and a fake CDN (DE6)
 dainty-epic = { workspace = true, features = ["test-support"] }
 # Test certificates, as the gateway makes them.
-rcgen = { version = "0.14.10", default-features = false, features = ["aws_lc_rs", "pem", "crypto"] }
+rcgen.workspace = true
 tempfile.workspace = true
 # admin.env read back by the admin API itself, and its GraphQL answers (tests/admin_network.rs)
 async-graphql.workspace = true
 dainty-admin.workspace = true
 # A game database to revert in, made without the game module's migrations
 diesel.workspace = true
+dainty-service-kit.workspace = true
 # db migrate's tests: a MongoDB stand-in
 rustic-isles-db = { workspace = true, features = ["test-support"] }
-dainty-service-kit.workspace = true
-
-# Fake services in child processes: the test binary runs itself in their roles (RH2)
-[[test]]
-name = "start"
-harness = false
 
 [lints]
 workspace = true

@@ -1,4 +1,4 @@
-#![allow(clippy::unwrap_used, clippy::expect_used)] // tests
+#![allow(clippy::unwrap_used, clippy::expect_used, reason = "a panic is how a test fails")]
 
 //! `dainty-host network` (DN3): the CA, a node's certificate, and what stays off a node.
 

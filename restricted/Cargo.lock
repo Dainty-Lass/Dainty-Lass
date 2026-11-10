@@ -1387,7 +1387,6 @@ dependencies = [
  "hyper",
  "hyper-rustls",
  "hyper-util",
- "rcgen",
  "rustls",
  "serde",
  "serde_json",
@@ -1395,7 +1394,6 @@ dependencies = [
  "sha2 0.11.1",
  "thiserror 2.0.21",
  "tokio",
- "tokio-rustls",
 ]
 
 [[package]]
@@ -1459,7 +1457,6 @@ dependencies = [
 name = "dainty-host"
 version = "0.0.0"
 dependencies = [
- "async-graphql",
  "aws-lc-rs",
  "base64 0.23.1",
  "bytes",
@@ -1481,7 +1478,6 @@ dependencies = [
  "dainty-service-kit",
  "dainty-service-plugin",
  "dainty-store",
- "diesel",
  "flate2",
  "fs4",
  "http-body-util",
@@ -1490,7 +1486,6 @@ dependencies = [
  "hyper-util",
  "libc",
  "ratatui",
- "rcgen",
  "rustic-isles",
  "rustic-isles-1-14-7",
  "rustic-isles-db",
@@ -1501,12 +1496,35 @@ dependencies = [
  "serde_json",
  "sha2 0.11.1",
  "tar",
- "tempfile",
  "thiserror 2.0.21",
  "tokio",
  "toml_edit 0.25.17+spec-1.1.0",
  "tracing",
  "url",
+ "windows 0.62.2",
+ "zip",
+]
+
+[[package]]
+name = "dainty-host-parity"
+version = "0.0.0"
+dependencies = [
+ "chrono",
+ "clap",
+ "dainty-admin",
+ "dainty-gateway",
+ "dainty-host",
+ "dainty-hostkit",
+ "dainty-protocol",
+ "dainty-service-kit",
+ "dainty-store",
+ "flate2",
+ "rcgen",
+ "rustls",
+ "serde_json",
+ "sha2 0.11.1",
+ "tar",
+ "tempfile",
  "windows 0.62.2",
  "zip",
 ]

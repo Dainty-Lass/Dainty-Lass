@@ -28,7 +28,7 @@ dainty-epic = { path = "../../crates/dainty-epic" }
 flate2 = "1"
 # history_bucket: what a restore reads back from the history bucket (DH4)
 dainty-history-ship = { path = "../../crates/dainty-history-ship" }
-dainty-host = { path = "../crates/dainty-host", default-features = false, features = ["gateway", "content", "admin"] }
+dainty-host = { path = "../../crates/dainty-host", default-features = false, features = ["gateway", "content", "admin"] }
 # module_frame: the module framework's frame protocol (DF2); gateway_modules: the stub as a module (DF4a)
 dainty-module-api = { path = "../../crates/dainty-module-api" }
 http = "1"

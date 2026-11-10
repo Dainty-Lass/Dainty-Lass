@@ -2,7 +2,7 @@
 //! (`dainty_epic::testing`): three HTTPS hosts on 127.0.0.1:0 with the tests' own CA. Nothing reaches Epic, and no real
 //! account or game file is involved. The fresh Linux host that installs for real is the maintainer's check.
 
-#![allow(clippy::unwrap_used, clippy::expect_used)] // test helpers
+#![allow(clippy::unwrap_used, clippy::expect_used, reason = "a panic is how a test fails")]
 
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};

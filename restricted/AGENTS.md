@@ -19,7 +19,7 @@ via relative path dependencies (`path = "../crates/<name>"` in `Cargo.toml`, `[w
 
 | Path | What it is |
 | --- | --- |
-| `restricted/` | One cargo workspace, every package of its own in `crates/<package name>`: `host` (the AGPL shell around `../crates/dainty-hostkit`, whose `compose.rs` composes the services into the controller), `server-console` (which builds `dainty-server` and `dainty-host`) and `server-minimal`. Also `launcher/src-tauri` (the Tauri launcher backend: `dainty-launcher`, and `dainty-manager` with the `server-gui` feature, kept where Tauri expects it) and the game modules' crates |
+| `restricted/` | One cargo workspace, every package of its own in `crates/<package name>`: `dainty-host-parity` (the Node host kit's tests and recorded output, run against the root's MIT `dainty-host`), `server-console` (which builds `dainty-server` and `dainty-host`) and `server-minimal`. Also `launcher/src-tauri` (the Tauri launcher backend: `dainty-launcher`, and `dainty-manager` with the `server-gui` feature, kept where Tauri expects it) and the game modules' crates |
 | `modules/rustic-isles/` | The library the core loads for the 1.14.7 module (`crates/rustic-isles-plugin`, over the root's MIT `rustic-isles-1-14-7`), its version data (`version-data/1.14.7`), the recorded Node goldens replayed against it (`crates/rustic-isles-mit-parity`), the C++ game runtime (`native/runtime`) and CatalogExporter (`native/catalog-exporter`), and the Node reference tree (`reference/1.14.7`). In-tree since RD27, members of this workspace |
 | `modules/rustic-rifts/` | Peer-to-peer realms' AGPL remainder: `ParadoxTransport.dll` (`src/`), and `oracle` (Mystic Paradox's Node vectors replayed against the MIT crates). The `rustic-rifts-*` crates themselves are the root's MIT clean-room ones (`../crates/rustic-rifts-*`, RD27) |
 | `legacy/` | dainty-legacy: the 1.4.4 importer, a workspace of its own (an external plugin `host.toml` pins) |
@@ -41,12 +41,13 @@ opt-in `paradox` Cargo feature on `host` retains Rustic Isles's Node backend and
 `modules/rustic-isles/reference/1.14.7/` and MongoDB as a rollback path.
 
 The server is one executable (RD26). Every service is a module of the root's `controller`, composed by
-`host::serve` (the AGPL ones through `crates/dainty-host/src/compose.rs`) from the files `setup` writes, and still runnable
+`host::serve` (through the root's `crates/dainty-host/src/compose.rs`) from the files `setup` writes, and still runnable
 alone as a hidden `dainty-host <service>` subcommand (the root's `crates/dainty-hostkit/src/cli.rs`), which Docker
 and `start` use.
 The same services also build as libraries the MIT core `dainty-lass` loads (RD27 phase 2, the root's `*-plugin`
 crates, which the release and Docker build from the root workspace); `compose.rs` links them into restricted's own
-binaries.
+binaries. The root's `dainty-host` compiles in the 1.14.7 version data only when `DAINTY_VERSION_DATA` names it,
+which `.cargo/config.toml` does here, so every binary built in this workspace carries Mystic Paradox's document.
 
 **Which workspace a change goes in** follows its licence: anything ported from DR, Paradox or the Reforged Revival
 line, or linking such code, goes here; code that is neither goes in the root workspace as MIT.
@@ -280,8 +281,8 @@ Code copied from DR or Paradox keeps its attribution, and the integration pass r
 
 The MIT crates (`dainty-controller`, `dainty-module-api`, `dainty-hostkit`, `dainty-gateway`, `dainty-content`, `dainty-chat`, `rustic-rifts-*`, `rustic-isles-*`, ...)
 are the root's. Here,
-`crates/dainty-host`, `server-console`, `server-minimal` (their binaries link `host` and the
-modules), `launcher/src-tauri` and the game modules' crates inherit the workspace's AGPL
+`crates/dainty-host-parity`, `server-console`, `server-minimal` (their binaries link the root's `dainty-host` with
+the version data), `launcher/src-tauri` and the game modules' crates inherit the workspace's AGPL
 (`license.workspace = true`); `fuzz` and `legacy` set `AGPL-3.0-only` themselves, and `native/runtime-loader` is Apache-2.0. A new
 crate is MIT only when nothing in it is ported from DR, Paradox or the Reforged Revival line: no file from those
 trees, no function rewritten from one while looking at it, and such a crate belongs at the root. Copying a DR or

@@ -43,17 +43,19 @@ pub fn game_modules() -> Vec<dainty_controller::ModuleFactory> {
     modules
 }
 
-/// dainty-lass's 1.14.7 module (RD27), handed restricted's version data. The id is a constant that parses, so the
-/// one construction failure cannot happen; a broken compiled-in document (isles-mit-parity's `version_data` test
-/// guards it) falls back to reading the installed `version_data.json`, whose error the start then names.
+/// The 1.14.7 module (RD27), handed the compiled-in version data when the build has it. The id is a constant that
+/// parses, so the one construction failure cannot happen; without a document, or with a broken one
+/// (isles-mit-parity's `version_data` test guards it), the module reads the installed `version_data.json`, whose
+/// error the start then names.
 #[cfg(feature = "isles-1-14-7")]
 fn isles_1_14_7() -> rustic_isles::IslesModule {
-    let spec = match crate::version_data::load() {
-        Ok(data) => rustic_isles_1_14_7::spec_with(data),
-        Err(error) => {
+    let spec = match crate::version_data::document().map(|_| crate::version_data::load()) {
+        Some(Ok(data)) => rustic_isles_1_14_7::spec_with(data),
+        Some(Err(error)) => {
             tracing::warn!("{error}; reading the installed one instead");
             rustic_isles_1_14_7::spec()
         }
+        None => rustic_isles_1_14_7::spec(),
     };
     match spec.and_then(rustic_isles::IslesModule::new) {
         Ok(module) => module,

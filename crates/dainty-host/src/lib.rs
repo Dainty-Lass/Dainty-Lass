@@ -1,7 +1,10 @@
-//! The host kit (`dainty-host`): thin AGPL shell wiring `hostkit` (MIT) to the compiled-in
-//! services (`gateway`, `allowlist`, `content`, `admin`, and `isles-1-14-7` from dainty-lass's
-//! `rustic-isles-1-14-7`), the `rustic-isles-db` and `rustic-isles-replay` tools, the
-//! `rustic-isles-gamedata` / `rustic-isles-director` generators, and the `legacy` 1.4.4 stack.
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Silent Spud
+
+//! The host kit (`dainty-host`) composed: `hostkit` wired through its hooks to the compiled-in services
+//! (`gateway`, `allowlist`, `content`, `admin`, `chat`), the 1.14.7 module (`rustic-isles-1-14-7`), the
+//! `rustic-isles-db` and `rustic-isles-replay` tools and the game-data generators. The server binaries in
+//! restricted/ run it with the module's version data compiled in (`version_data`).
 
 pub use dainty_hostkit::{
     HostError, Outcome, captures, cli, envfile, epicinstall, error, gamepack, guarded, hooks, hostconfig, hostfiles,
@@ -10,6 +13,7 @@ pub use dainty_hostkit::{
 };
 
 pub mod compose;
+mod generators;
 #[cfg(feature = "db-tools")]
 pub mod version_data;
 
@@ -68,67 +72,6 @@ fn db_cfg_to_target(db_cfg: &dainty_store::DatabaseConfig) -> (String, bool) {
             )
         }
     }
-}
-
-#[cfg(feature = "isles-1-14-7")]
-fn execute_rust_generator(
-    p: &paths::Paths,
-    generator: dainty_hostkit::gamedata::GeneratorKind,
-) -> Result<String, String> {
-    use dainty_hostkit::gamedata::GeneratorKind;
-    use rustic_isles_gamedata::generators::{BackendStep, GeneratorPaths};
-    let step = match generator {
-        GeneratorKind::HuntTables => {
-            return rustic_isles_director::hunt_tables::import_hunt_tables(
-                &rustic_isles_director::hunt_tables::ImportHuntTablesOptions {
-                    export_dir: p.exports.join("hunts_1_14_7"),
-                    vendor_dir: p.director_game_data.clone(),
-                    repo_root: Some(p.repo.clone()),
-                    apply: true,
-                    update_existing: false,
-                    verbose: false,
-                    backup_stamp: None,
-                },
-            )
-            .map(|report| report.output);
-        }
-        GeneratorKind::ProgressionConfig => BackendStep::ProgressionConfig,
-        GeneratorKind::SlayersPath => BackendStep::SlayersPath,
-        GeneratorKind::SlayersPathDefinitions => BackendStep::SlayersPathDefinitions,
-        GeneratorKind::RewardCache => BackendStep::RewardCache,
-        GeneratorKind::LadyLuckGenerate => BackendStep::LadyLuckGenerate,
-        GeneratorKind::LadyLuckEnrich => BackendStep::LadyLuckEnrich,
-        GeneratorKind::PlatinumAndStoragePolicy => BackendStep::PlatinumAndStoragePolicy,
-    };
-    // Beside the files it generates, for the module as a library or child (spec-rustic-isles-1-14-7 decision 7)
-    version_data::install(&p.backend_game_data).map_err(|e| {
-        format!(
-            "could not install {} in {}: {e}",
-            rustic_isles_1_14_7::DATA_FILE,
-            p.backend_game_data.display()
-        )
-    })?;
-    let inputs = version_data::load()?
-        .generator_inputs()
-        .ok_or_else(|| "the compiled-in version_data.json has no rewardCachePlan or storageTokenSeeds".to_owned())?;
-    let paths = GeneratorPaths {
-        raw_game_data: p.raw_game_data.clone(),
-        backend_game_data: p.backend_game_data.clone(),
-        exports: p.exports.clone(),
-        store_captures: p.store_captures.clone(),
-    };
-    rustic_isles_gamedata::generators::run(step, &paths, &inputs)
-}
-
-#[cfg(not(feature = "isles-1-14-7"))]
-fn execute_rust_generator(
-    _p: &paths::Paths,
-    generator: dainty_hostkit::gamedata::GeneratorKind,
-) -> Result<String, String> {
-    Err(format!(
-        "{} is unavailable: this binary was built without the isles-1-14-7 feature",
-        generator.label()
-    ))
 }
 
 #[cfg(feature = "db-tools")]
@@ -571,32 +514,7 @@ impl hooks::HostHooks for ServicesHostHooks {
         paths: &paths::Paths,
         step: &dainty_hostkit::gamedata::Step<'_>,
     ) -> Result<run::RunResult, HostError> {
-        match execute_rust_generator(paths, step.generator) {
-            Ok(output) => {
-                let last_line = output
-                    .lines()
-                    .map(str::trim)
-                    .rfind(|l| !l.is_empty())
-                    .map(|l| l.chars().take(300).collect());
-                Ok(run::RunResult {
-                    code: 0,
-                    last_line,
-                    output,
-                })
-            }
-            Err(error) => {
-                let last_line = error
-                    .lines()
-                    .map(str::trim)
-                    .find(|l| !l.is_empty())
-                    .map(|l| l.chars().take(300).collect());
-                Ok(run::RunResult {
-                    code: 1,
-                    last_line,
-                    output: error,
-                })
-            }
-        }
+        generators::run_generator(paths, step)
     }
 
     fn db_migrate(
@@ -1886,7 +1804,7 @@ pub fn console_main() -> ExitCode {
 }
 
 #[cfg(test)]
-#[allow(clippy::unwrap_used, clippy::expect_used)]
+#[allow(clippy::unwrap_used, clippy::expect_used, reason = "a panic is how a test fails")]
 mod tests {
     use super::*;
 
@@ -1930,7 +1848,8 @@ mod tests {
         assert!(parse_service_env_file("backend", &["--env-file".into()], None).is_err());
     }
 
-    #[cfg(feature = "db-tools")]
+    // Needs the 1.14.7 version data: restricted/'s CI runs it with DAINTY_VERSION_DATA set
+    #[cfg(all(feature = "db-tools", dainty_version_data))]
     #[test]
     fn db_migrate_verify_and_export_mongo_work_with_host_toml_defaults() {
         use crate::cli::{DbArgs, DbCommand, DbExportMongoArgs, DbMigrateArgs, DbVerifyArgs};
@@ -2143,7 +2062,7 @@ mod tests {
         controller.shutdown().await;
     }
 
-    #[cfg(all(feature = "isles-1-14-7", not(feature = "paradox")))]
+    #[cfg(all(feature = "isles-1-14-7", not(feature = "paradox"), dainty_version_data))]
     #[tokio::test(flavor = "multi_thread")]
     async fn compose_starts_rust_1_14_7_backend_and_director_without_node_or_mongo() {
         use hostconfig::{DEFAULT_MONGO_URI, FileForm, HostConfig, MongoConfig, Registration, ServerMode};
@@ -2237,7 +2156,10 @@ mod tests {
         std::fs::write(&gateway_env, gateway_text).unwrap();
 
         let mut controller = serve::compose(&paths, &c, false, serve::table_printer()).unwrap();
-        assert_eq!(controller.module_names(), ["content", "admin", "gateway", "chat"]);
+        assert_eq!(
+            controller.module_names(),
+            ["events", "content", "admin", "gateway", "chat"]
+        );
         controller.start_all().await.unwrap();
 
         let registry = controller.registry().unwrap();

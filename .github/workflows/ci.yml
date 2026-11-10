@@ -433,7 +433,7 @@ jobs:
       - name: Clippy
         run: cargo clippy --workspace --all-targets --locked -- -D warnings
 
-      # The gateway library comes from the MIT root; dainty-host's tests look for it in ../target too
+      # The gateway library comes from the MIT root, where the root's dainty-host tests below load it
       - name: The module and service libraries
         run: |
           cargo build --locked -p rustic-isles-plugin
@@ -441,6 +441,12 @@ jobs:
 
       - name: Tests
         run: cargo test --workspace --locked --no-fail-fast
+
+      # The root's dainty-host with Mystic Paradox's version data, as this workspace builds it (its own tests that
+      # need the document skip without it)
+      - name: The root's dainty-host with the version data
+        run: |
+          DAINTY_VERSION_DATA="$PWD/modules/rustic-isles/version-data/1.14.7/version_data.json"             cargo test --locked --no-fail-fast --manifest-path ../Cargo.toml -p dainty-host
 
   rust-restricted-deny:
     name: Rust licences and advisories (restricted)

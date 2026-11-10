@@ -122,40 +122,55 @@ The only Category B *source* is the 68-line generator dispatch inside `lib.rs`.
 
 ### 2.1 The game-data generator hook
 
-**What it is.** hostkit's `gamedata` command runs a list of steps (DL3 §2.9). Each step names a
-`hostkit::gamedata::GeneratorKind`; hostkit asks `HostHooks::run_generator(paths, step)` to run it in process. The
-shell answers by calling Rustic Isles's generators. This is the only derived code in the shell. Its destination is
-AGPL whatever its licence (it calls `isles-core` and `isles-director`), so §5 places it in the Rustic Isles module,
-and rewriting it is only needed if the maintainer wants that glue clean too.
+> **Refreshed 2026-11-09** against restricted's `crates/dainty-host/src/lib.rs` at `cad68dd3`, for the move of the
+> shell to dainty-lass's root as MIT (`crates/dainty-host`). The generators themselves are MIT now
+> (`rustic-isles-gamedata`, `rustic-isles-director`); what is specified here is only the glue between hostkit's
+> hook and them, which is the shell's one Category B part. The implementer writes it in
+> `crates/dainty-host/src/generators.rs`, whose `run_generator(paths, step)` the hooks already call.
 
-**Contract.** `run_generator(paths, step) -> Result<hostkit::run::RunResult, HostError>`:
+**What it is.** hostkit's `gamedata` command runs a list of steps (DL3 §2.9). Each step
+(`dainty_hostkit::gamedata::Step`) names a `GeneratorKind` in its `generator` field; hostkit asks
+`HostHooks::run_generator(paths, step)` to run it in process, and the shell answers through
+`generators::run_generator`.
 
-- It never returns `Err`: a generator failure is a `RunResult` with `code: 1`.
-- On success: `code: 0`, `output` = the generator's report text, `last_line` = the last non-empty line of
-  `output` (each line trimmed), cut to its first 300 characters, or `None`.
-- On failure: `code: 1`, `output` = the error text, `last_line` = the **first** non-empty trimmed line of the
-  error, cut to 300 characters.
-- A build without the 1.14.7 module answers every kind with `code: 1` and the error text
-  `"<label> is unavailable: this binary was built without the isles-1-14-7 feature"`, where `<label>` is
-  `GeneratorKind::label()`.
+**Contract of `run_generator(paths, step) -> Result<dainty_hostkit::run::RunResult, HostError>`:**
 
-**Per kind** (all paths are `hostkit::paths::Paths` fields; "write" means the generator's write flag is on; when a
-kind runs two generators their reports are joined with one `\n`, first then second):
+- It never returns `Err`. The generator's own result decides the `RunResult`:
+  - success with report text `t`: `code: 0`, `output: t`, `last_line` = the **last** line of `t` that is not empty
+    once trimmed (trimmed), cut to its first 300 characters (`char`s), or `None` when there is none;
+  - failure with error text `e`: `code: 1`, `output: e`, `last_line` = the **first** line of `e` that is not empty
+    once trimmed (trimmed), cut to 300 characters, or `None`.
+- A build without the crate feature `isles-1-14-7` fails every kind with the error text
+  `"<label> is unavailable: this binary was built without the isles-1-14-7 feature"`, `<label>` being
+  `GeneratorKind::label()`. Nothing is read or written.
 
-| `GeneratorKind` | Generator(s) to call (public API of the 1.14.7 module crates) | Inputs | Output |
-| --- | --- | --- | --- |
-| `ProgressionConfig` | `isles_core::gamedata::generate_progression_config` | `raw_game_data` | `backend_game_data`, write |
-| `HuntTables` | `isles_director::hunt_tables::import_hunt_tables` with: export dir `exports/hunts_1_14_7`, vendor dir `director_game_data`, repo root `repo`, apply on, update-existing off, verbose off, no backup stamp; the answer is the report's `output` text | `exports/hunts_1_14_7` | `director_game_data` |
-| `SlayersPath` | `isles_core::gamedata::generate_slayers_path` | `exports/slayers_path_1_14_7/player_journey_nodes.jsonl` | `backend_game_data/slayers_path.json`, write |
-| `SlayersPathDefinitions` | `isles_core::gamedata::generate_slayers_path_definitions`, version tag `1_14_7` | the same JSONL | `backend_game_data/slayers_path_definitions.json`, write |
-| `RewardCache` | `generate_reward_cache_store`, then `generate_inventory_storage_policy` (no override file) | `exports/catalog_1_14_7.jsonl` | `backend_game_data/reward_cache_store.json`; the policy into `backend_game_data` |
-| `LadyLuckGenerate` | `isles_core::gamedata::generate_ladyluck_store` | `raw_game_data` | `backend_game_data`, write |
-| `LadyLuckEnrich` | `enrich_ladyluck_store`, then `generate_inventory_storage_policy` | `exports/catalog_1_14_7.jsonl`, the live capture `store_captures/Store/Product/Skus/ladyluckstore.json` | `backend_game_data/ladyluck_store.json`; the policy |
-| `PlatinumAndStoragePolicy` | `generate_platinum_store`, then `generate_inventory_storage_policy` | the export files `resolve_platinum_export_file(exports, "catalog")` and `(exports, "store_item_images")`, the capture folder `store_captures/Store/Product/Skus`; the policy reads `exports/catalog_1_14_7.jsonl` | `backend_game_data` |
+**With `isles-1-14-7`, per kind** (paths are `dainty_hostkit::paths::Paths` fields):
 
-**Tests to write.** One per kind: with the module compiled in, a missing input file gives `code: 1` and a
-`last_line` naming the first error line; the feature-off build gives the exact unavailable message; a successful
-two-generator kind joins both reports with `\n` and takes its `last_line` from the second.
+- `GeneratorKind::HuntTables`: `rustic_isles_director::hunt_tables::import_hunt_tables` with
+  `ImportHuntTablesOptions { export_dir: exports joined with "hunts_1_14_7", vendor_dir: director_game_data,
+  repo_root: Some(repo), apply: true, update_existing: false, verbose: false, backup_stamp: None }`. Success is
+  the returned report's `output` text; its error is the failure text. The version data is not touched for this kind.
+- Every other kind maps to the `rustic_isles_gamedata::generators::BackendStep` variant of the same name
+  (`ProgressionConfig`, `SlayersPath`, `SlayersPathDefinitions`, `RewardCache`, `LadyLuckGenerate`,
+  `LadyLuckEnrich`, `PlatinumAndStoragePolicy`), and runs in this order, stopping at the first failure:
+  1. `crate::version_data::install(backend_game_data)`. An I/O error fails the step with
+     `"could not install <DATA_FILE> in <backend_game_data, displayed>: <error>"`, `<DATA_FILE>` being
+     `rustic_isles_1_14_7::DATA_FILE`. (A build without compiled-in version data installs nothing and goes on.)
+  2. `crate::version_data::load()`; its error text is the failure text as it is.
+  3. The loaded data's `generator_inputs()`; `None` fails with
+     `"the compiled-in version_data.json has no rewardCachePlan or storageTokenSeeds"`.
+  4. `rustic_isles_gamedata::generators::run(step, &GeneratorPaths { raw_game_data, backend_game_data, exports,
+     store_captures }, &inputs)`, each path cloned from `Paths`; its `Ok` text or `Err` text is the result.
+
+**Tests to write** (in `generators.rs` or `crates/dainty-host/tests/`), none needing game data:
+
+- the `RunResult` mapping: a multi-line success takes the last non-blank line, a multi-line failure the first; both
+  are trimmed and cut at 300 characters; text that is all blank gives `None`;
+- `HuntTables` against an empty temporary server folder (no exports) gives `code: 1` and a `last_line`;
+- a backend kind in a build without compiled-in version data (the root workspace's own build) gives `code: 1`
+  with `load()`'s error text, and writes no `version_data.json`;
+- the feature-off message, if the crate is built with `--no-default-features` in a test (otherwise a unit test
+  of the message itself).
 
 ### 2.2 The Category B tests
 

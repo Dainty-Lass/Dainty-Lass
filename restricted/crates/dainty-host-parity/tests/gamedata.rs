@@ -579,7 +579,7 @@ fn generates_all_seven_game_data_steps_in_rust_without_node() {
     );
 
     let mut catalog_rows: Vec<Value> = Vec::new();
-    let version_data: Value = serde_json::from_str(dainty_host::version_data::DOCUMENT).unwrap();
+    let version_data: Value = serde_json::from_str(dainty_host::version_data::document().unwrap()).unwrap();
     let selection_ids = version_data["rewardCachePlan"]["selections"]
         .as_array()
         .unwrap()
