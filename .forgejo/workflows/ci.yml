@@ -6,7 +6,10 @@
 #  - UI (ui/, dainty-dash): bun install, typecheck, test and build in every mode, with the AGPL bridge types from restricted/ (RD27)
 #  - Rust restricted (restricted/: the AGPL services, the launcher, the bins and the game modules): fmt, clippy and
 #    tests on Linux and Windows, cargo-deny, a short run of every fuzz target
-#  - Paradox (ParadoxBackend, ParadoxDirector in restricted/modules/rustic-isles/reference/1.14.7): npm ci and tests
+#  - Paradox (ParadoxBackend, ParadoxDirector in restricted/modules/rustic-isles/reference/1.14.7): npm ci and tests,
+#    and the route inventory
+#  - Legacy (restricted/legacy, the 1.4.4 importer): fmt, clippy, tests, cargo-deny and a short fuzz run
+#  - Transport (restricted/modules/rustic-rifts): ParadoxTransport.dll and its self-test on Windows
 #  - Docker (restricted/docker/, restricted/compose*.yaml and everything the images copy): the images, the suites inside
 #    them, the smoke test
 #  - Network (the gateway and host kit, restricted/docker/, restricted/compose*.yaml): four nodes in Docker with
@@ -52,6 +55,8 @@ jobs:
       rust-restricted: ${{ steps.pick.outputs.rust-restricted }}
       rust-tauri: ${{ steps.pick.outputs.rust-tauri }}
       paradox: ${{ steps.pick.outputs.paradox }}
+      legacy: ${{ steps.pick.outputs.legacy }}
+      transport: ${{ steps.pick.outputs.transport }}
       launcher: ${{ steps.pick.outputs.launcher }}
       docker: ${{ steps.pick.outputs.docker }}
       network: ${{ steps.pick.outputs.network }}
@@ -112,6 +117,11 @@ jobs:
               - restricted/modules/**
             paradox:
               - restricted/modules/rustic-isles/**
+            legacy:
+              - crates/**
+              - restricted/legacy/**
+            transport:
+              - restricted/modules/rustic-rifts/**
             launcher:
               - launcher/**
               - ui/**
@@ -155,12 +165,14 @@ jobs:
           UI: ${{ steps.filter.outputs.ui }}
           RUST_RESTRICTED: ${{ steps.filter.outputs.rust_restricted }}
           PARADOX: ${{ steps.filter.outputs.paradox }}
+          LEGACY: ${{ steps.filter.outputs.legacy }}
+          TRANSPORT: ${{ steps.filter.outputs.transport }}
           LAUNCHER: ${{ steps.filter.outputs.launcher }}
           DOCKER: ${{ steps.filter.outputs.docker }}
           NETWORK: ${{ steps.filter.outputs.network }}
         run: |
           set -euo pipefail
-          for family in rust ui rust_restricted paradox launcher docker network; do
+          for family in rust ui rust_restricted paradox legacy transport launcher docker network; do
             var="${family^^}"
             value="${!var}"
             [ "$ALL" = true ] && value=true
@@ -565,6 +577,156 @@ jobs:
       - run: npm ci --no-audit --no-fund
       - run: npm test
 
+  legacy:
+    name: Rust workspace (1.4.4 importer)
+    needs: changes
+    if: needs.changes.outputs.legacy == 'true'
+    runs-on: docker
+    timeout-minutes: 40
+    defaults:
+      run:
+        shell: bash
+        working-directory: restricted/legacy
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install rustup
+        run: |
+          if ! command -v rustup > /dev/null; then
+            curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --no-modify-path --profile minimal --default-toolchain none
+            echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+          fi
+
+      - name: Install the pinned toolchain
+        run: rustup show active-toolchain || rustup toolchain install
+
+      - uses: https://github.com/Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          workspaces: restricted/legacy
+          key: legacy
+
+      - name: Format
+        run: cargo fmt --all --check
+
+      - name: Clippy
+        run: cargo clippy --workspace --all-targets --locked -- -D warnings
+
+      - name: Tests
+        run: cargo test --workspace --locked --no-fail-fast
+
+  legacy-deny:
+    name: Rust licences and advisories (1.4.4 importer)
+    needs: changes
+    if: needs.changes.outputs.legacy == 'true'
+    runs-on: docker
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - id: toolchain
+        run: echo "channel=$(grep '^channel' restricted/legacy/rust-toolchain.toml | cut -d '"' -f 2)" >> "$GITHUB_OUTPUT"
+
+      - uses: https://github.com/EmbarkStudios/cargo-deny-action@3c6349835b2b7b196a839186cb8b78e02f7b5f25 # v2.1.1
+        with:
+          manifest-path: restricted/legacy/Cargo.toml
+          command: check
+          rust-version: ${{ steps.toolchain.outputs.channel }}
+
+  fuzz-legacy:
+    name: Fuzz the 1.4.4 importer's readers
+    needs: changes
+    if: needs.changes.outputs.legacy == 'true'
+    runs-on: docker
+    timeout-minutes: 20
+    env:
+      NIGHTLY: nightly-2026-10-20
+    defaults:
+      run:
+        working-directory: restricted/legacy/fuzz
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install rustup
+        run: |
+          if ! command -v rustup > /dev/null; then
+            curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --no-modify-path --profile minimal --default-toolchain none
+            echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+          fi
+
+      - uses: https://github.com/Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          workspaces: restricted/legacy/fuzz
+          key: fuzz-legacy
+
+      - name: Install the pinned nightly and cargo-fuzz
+        run: |
+          rustup toolchain install "$NIGHTLY" --profile minimal
+          cargo "+$NIGHTLY" install cargo-fuzz --version 0.13.2 --locked
+
+      - name: Run every target for 45 seconds
+        run: bash ../../../scripts/ci/fuzz.sh
+
+      - name: Keep the inputs that crashed
+        if: failure()
+        uses: https://code.forgejo.org/forgejo/upload-artifact@16871d9e8cfcf27ff31822cac382bbb5450f1e1e # v4 (v4.3.1, GHES check disabled)
+        with:
+          name: fuzz-legacy-crashes
+          path: restricted/legacy/fuzz/artifacts/
+          if-no-files-found: ignore
+          retention-days: 14
+
+  # Every Express route the 1.14.7 backend and Director register, against docs/inventory/routes-1.14.7.json (RU3a)
+  paradox-routes:
+    name: Paradox route inventory
+    needs: changes
+    if: needs.changes.outputs.paradox == 'true'
+    runs-on: docker
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+      # No dependencies: a static pass over the TypeScript source
+      - run: node restricted/modules/rustic-isles/scripts/check-route-inventory.mjs
+
+  # ParadoxTransport.dll with MSVC v145 and its self-test, direct and through a local relay (RF3); libjuice comes
+  # from its v1.7.4 tag archive, checked against a pinned SHA-256 (prepare-dependencies.ps1)
+  transport:
+    name: Co-op transport
+    needs: changes
+    if: needs.changes.outputs.transport == 'true'
+    runs-on: windows-msvc
+    timeout-minutes: 40
+    defaults:
+      run:
+        shell: pwsh
+        working-directory: restricted/modules/rustic-rifts
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Build
+        run: |
+          pwsh -NoProfile -File build.ps1
+          if ($LASTEXITCODE -ne 0) { throw "build.ps1 failed (exit $LASTEXITCODE)" }
+
+      # The test's own watchdog ends a stuck run after 300 s with exit code 3
+      - name: Self-test (direct and through a local relay)
+        timeout-minutes: 10
+        run: |
+          .\build\Release\ParadoxTransportTest.exe all --relay-local
+          if ($LASTEXITCODE -ne 0) { throw "self-test failed (exit $LASTEXITCODE)" }
+
   docker:
     name: Docker images (build, tests in the image, smoke test)
     needs: changes
@@ -695,7 +857,7 @@ jobs:
   # failed or cancelled job, or a failed change detection, fails it.
   ci-ok:
     name: CI ok
-    needs: [changes, rust, rust-deny, fuzz, ui, rust-restricted, rust-restricted-deny, fuzz-restricted, paradox, docker, installers-windows, network]
+    needs: [changes, rust, rust-deny, fuzz, ui, rust-restricted, rust-restricted-deny, fuzz-restricted, paradox, paradox-routes, legacy, legacy-deny, fuzz-legacy, transport, docker, installers-windows, network]
     if: always()
     runs-on: docker
     timeout-minutes: 5

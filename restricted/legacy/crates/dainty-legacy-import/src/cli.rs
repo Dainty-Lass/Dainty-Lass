@@ -151,7 +151,10 @@ const ENV_FILE: &str = "DAINTY_DB_FILE";
 /// `name` from `env`, or the same setting under the prefix before the 2026-11-06 rename (an older kit's file)
 fn setting(env: &BTreeMap<String, String>, name: &str) -> Option<String> {
     env.get(name)
-        .or_else(|| name.strip_prefix("DAINTY_").and_then(|rest| env.get(&format!("REFORGED_{rest}"))))
+        .or_else(|| {
+            name.strip_prefix("DAINTY_")
+                .and_then(|rest| env.get(&format!("REFORGED_{rest}")))
+        })
         .cloned()
 }
 
