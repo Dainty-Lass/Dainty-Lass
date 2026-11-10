@@ -30,8 +30,8 @@ via relative path dependencies (`path = "../crates/<name>"` in `Cargo.toml`, `[w
 | `docs/` | Host and player guides, `paradox-patches.md`, and `security/` for the AGPL components |
 
 Dainty Lass serves one game, Dauntless 1.14.7 (2026-10-31). On the default path (since the RU9 code cutover,
-maintainer decision 2026-10-28), `host::serve` runs the compiled-in Rust `isles-1-14-7` backend (port 61000) and
-in-process Director (port 61001) on `store` (SQLite by default, or Postgres), with `isles-1-14-7` and realms
+maintainer decision 2026-10-28), `host::serve` runs the compiled-in Rust `isles-1-14-7` backend (port 41000) and
+in-process Director (port 41001; host.toml's `[ports]` moves either) on `store` (SQLite by default, or Postgres), with `isles-1-14-7` and realms
 linked in by the server binaries' `all-modules` feature (DF5). The module is the root's clean-room
 `rustic-isles-1-14-7` (RD27), handed restricted's version data
 (`modules/rustic-isles/version-data/1.14.7/version_data.json`, kept current by rustic-isles-mit-parity's `version_data` test);
@@ -214,7 +214,8 @@ Not obvious from reading the suites:
   reserved range, which is why two of Content's Node tests fail there.
 - **Generated files are tested for staleness.** If a `generated` test fails, regenerate
   with `RR_UPDATE_GENERATED=1` and commit the result; don't edit the output.
-- **The real nftables test is opt-in** (`DAINTY_TEST_NFT=1`, Linux, root or `CAP_NET_ADMIN`). Otherwise it
+- **The real firewall test is opt-in** (`DAINTY_TEST_FIREWALL=1`: nftables on Linux with root or `CAP_NET_ADMIN`,
+  Windows Firewall from an elevated prompt; the root's `crates/dainty-gateway/tests/firewall.rs`). Otherwise it
   skips, so `cargo test` passing says nothing about the rules. `docker/test-in-image.sh` turns it on when the
   container has the capability. Run that after a firewall change.
 - Nothing here is played against the real 1.14.7 client in CI. When only the tests passed, say so; don't

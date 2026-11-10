@@ -354,9 +354,9 @@ images:
 1. It builds `front`, `server` and `test`. The `test` image is the Debian slim `server` image plus the Rust
    toolchain, with the server crates' tests compiled in, so the code is tested on the OS, Wine and paths
    production runs on (without Node or MongoDB).
-2. Inside the `test` image: `cargo test` for the server crates (protocol, proxy, service-kit, store, gateway,
-   content, host), with the allowlist's nftables test applying its rules for real in the container's own network
-   namespace.
+2. Inside the `test` image: `cargo test` for the server crates (protocol, proxy, remote, service-kit, store,
+   gateway, content, admin, hostkit, host, controller), with the allowlist's firewall test applying its nftables
+   rules for real in the container's own network namespace (`DAINTY_TEST_FIREWALL=1`).
 3. The compose smoke test (`docker/smoke-test.sh`): a pre-cutover `mongo-data` volume seeded with an account and
    invite, `backend` refusing to start before migration, `host db migrate` and `host db verify` moving the data into
    the SQLite store, the `toml` profile's `configure` applying an edited `host.toml`, every service healthy, the
