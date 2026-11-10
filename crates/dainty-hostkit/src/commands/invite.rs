@@ -21,7 +21,16 @@ use crate::paths::{PORTS, Paths};
 
 /// Runs `dainty-host invite`, printing to stdout.
 pub fn run(paths: &Paths, args: &InviteArgs) -> Result<ExitCode, HostError> {
-    run_with(paths, args, PORTS.backend, &mut |l| println!("{l}"))
+    run_with(paths, args, backend_port(paths), &mut |l| println!("{l}"))
+}
+
+/// The backend's port as host.toml sets it, or the default when there is no host.toml to read.
+#[must_use]
+pub fn backend_port(paths: &Paths) -> u16 {
+    crate::hostconfig::load_host_config(paths)
+        .ok()
+        .flatten()
+        .map_or(PORTS.backend, |c| crate::hostconfig::service_ports(&c).backend)
 }
 
 /// Makes an invite code on the backend at `backend_port` and prints the invite link through `out`, or lists the codes.

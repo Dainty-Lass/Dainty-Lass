@@ -12,7 +12,7 @@ from memory), link the code or test that shows it, and sign at the end with the 
 
 `start` runs as the host's user (administrator on Windows in public mode, for the allowlist helper; the `reforged`
 systemd unit on Linux). On the default path (since the RU9 code cutover), it runs the compiled-in Rust `isles-1-14-7`
-backend (port 61000) and in-process Director (port 61001), dainty-lass's MIT `rustic-isles-1-14-7`, on `store`
+backend (port 41000) and in-process Director (port 41001), dainty-lass's MIT `rustic-isles-1-14-7`, on `store`
 (SQLite or Postgres), the content server, the admin API, the allowlist helper (public) and the gateway, each with its env file, and stops them all (MongoDB and
 the Node backend/Director run only in opt-in `--features paradox` rollback builds until RB15).
 

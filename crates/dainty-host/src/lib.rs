@@ -1923,6 +1923,7 @@ mod tests {
             split: None,
             logs: None,
             events: None,
+            ports: None,
             discord: None,
             file: FileForm::default(),
         };
@@ -1967,6 +1968,28 @@ mod tests {
         assert!(lines.iter().any(|l| l.contains("accounts: 1")));
     }
 
+    /// Free loopback ports for every `[ports]` service and the gateway, held until all are picked so they differ.
+    /// The defaults may be lent out: Windows hands Hyper-V and WSL blocks of its dynamic range, 61000's among them.
+    #[cfg(any(
+        all(feature = "gateway", feature = "content"),
+        all(feature = "isles-1-14-7", not(feature = "paradox"), dainty_version_data)
+    ))]
+    fn free_ports() -> (hostconfig::ports::PortsConfig, u16) {
+        let held: Vec<_> = (0..7)
+            .map(|_| std::net::TcpListener::bind("127.0.0.1:0").unwrap())
+            .collect();
+        let port = |i: usize| Some(held[i].local_addr().unwrap().port());
+        let ports = hostconfig::ports::PortsConfig {
+            backend: port(0),
+            director: port(1),
+            qos: port(2),
+            content: port(3),
+            admin: port(4),
+            allowlist: port(5),
+        };
+        (ports, held[6].local_addr().unwrap().port())
+    }
+
     #[cfg(all(feature = "gateway", feature = "content"))]
     #[tokio::test(flavor = "multi_thread")]
     async fn compose_runs_gateway_and_content_in_process_without_node() {
@@ -1976,6 +1999,7 @@ mod tests {
         ensure_hooks();
         let dir = tempfile::tempdir().unwrap();
         let paths = paths::Paths::new(dir.path());
+        let (ports, gateway_port) = free_ports();
         let c = HostConfig {
             version: 1,
             mode: ServerMode::Private,
@@ -2012,26 +2036,12 @@ mod tests {
             split: None,
             logs: None,
             events: None,
+            ports: Some(ports),
             discord: None,
             switches: Default::default(),
             file: FileForm::default(),
         };
         serve::ensure_server_files(&paths, &c).unwrap();
-        let content_port = std::net::TcpListener::bind("127.0.0.1:0")
-            .unwrap()
-            .local_addr()
-            .unwrap()
-            .port();
-        let gateway_port = std::net::TcpListener::bind("127.0.0.1:0")
-            .unwrap()
-            .local_addr()
-            .unwrap()
-            .port();
-        let content_env = commands::start::env_file(&paths, "content");
-        let content_text = std::fs::read_to_string(&content_env)
-            .unwrap()
-            .replace("PORT=61002", &format!("PORT={content_port}"));
-        std::fs::write(&content_env, content_text).unwrap();
         let gateway_env = commands::start::env_file(&paths, "gateway");
         let gateway_text = std::fs::read_to_string(&gateway_env)
             .unwrap()
@@ -2073,6 +2083,7 @@ mod tests {
         ensure_hooks();
         let dir = tempfile::tempdir().unwrap();
         let paths = paths::Paths::new(dir.path());
+        let (ports, gateway_port) = free_ports();
         let c = HostConfig {
             version: 1,
             mode: ServerMode::Private,
@@ -2109,6 +2120,7 @@ mod tests {
             split: None,
             logs: None,
             events: None,
+            ports: Some(ports),
             discord: None,
             switches: Default::default(),
             file: FileForm::default(),
@@ -2127,31 +2139,6 @@ mod tests {
             std::fs::copy(&src, paths.director_game_data.join(f)).unwrap();
         }
 
-        let content_port = std::net::TcpListener::bind("127.0.0.1:0")
-            .unwrap()
-            .local_addr()
-            .unwrap()
-            .port();
-        let admin_port = std::net::TcpListener::bind("127.0.0.1:0")
-            .unwrap()
-            .local_addr()
-            .unwrap()
-            .port();
-        let gateway_port = std::net::TcpListener::bind("127.0.0.1:0")
-            .unwrap()
-            .local_addr()
-            .unwrap()
-            .port();
-        let content_env = commands::start::env_file(&paths, "content");
-        let content_text = std::fs::read_to_string(&content_env)
-            .unwrap()
-            .replace("PORT=61002", &format!("PORT={content_port}"));
-        std::fs::write(&content_env, content_text).unwrap();
-        let admin_env = commands::start::env_file(&paths, "admin");
-        let admin_text = std::fs::read_to_string(&admin_env)
-            .unwrap()
-            .replace("PORT=61003", &format!("PORT={admin_port}"));
-        std::fs::write(&admin_env, admin_text).unwrap();
         let gateway_env = commands::start::env_file(&paths, "gateway");
         let gateway_text = std::fs::read_to_string(&gateway_env)
             .unwrap()
@@ -2185,7 +2172,7 @@ mod tests {
         assert!(paths.config.join(hostconfig::DATABASE_FILE).is_file());
         let (secrets, _) =
             hostconfig::load_or_create_secrets(&paths.config, commands::setup::secrets::new_secrets).unwrap();
-        let invites = invite::list_invite_codes(paths::PORTS.backend, &secrets.admin_key).unwrap();
+        let invites = invite::list_invite_codes(hostconfig::service_ports(&c).backend, &secrets.admin_key).unwrap();
         assert!(invites.is_empty(), "{invites:?}");
 
         controller.shutdown().await;

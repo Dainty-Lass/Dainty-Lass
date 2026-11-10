@@ -124,7 +124,7 @@ impl AllowlistConfig {
         let nft = check_nft_binary(&optional(env, "ALLOWLIST_NFT").map_or_else(default_nft, str::to_owned))?;
         let nft_table = check_nft_table(optional(env, "ALLOWLIST_NFT_TABLE").unwrap_or(NFT_TABLE))?;
         let interface = optional(env, "ALLOWLIST_INTERFACE").map(check_interface).transpose()?;
-        let port = whole(env, "ALLOWLIST_PORT", 61005, 1, 65535)? as u16;
+        let port = whole(env, "ALLOWLIST_PORT", 41005, 1, 65535)? as u16;
         let secret = check_secret(env.get("ALLOWLIST_SECRET"), "ALLOWLIST_SECRET")?;
         let allow_private = optional(env, "ALLOWLIST_ALLOW_PRIVATE") == Some("1");
         let ttl = Duration::from_secs(whole(env, "ALLOWLIST_TTL_SECONDS", 600, 1, 86_400)?);
@@ -179,7 +179,7 @@ mod tests {
         assert!(c.dry_run && !c.allow_private);
         assert_eq!(
             (c.bind.as_str(), c.port, c.firewall),
-            ("127.0.0.1", 61005, FirewallKind::Windows)
+            ("127.0.0.1", 41005, FirewallKind::Windows)
         );
         assert_eq!(
             (c.ttl.as_secs(), c.min_interval.as_millis(), c.max_entries),

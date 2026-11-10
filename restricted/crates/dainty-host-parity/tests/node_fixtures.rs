@@ -166,8 +166,43 @@ fn without_runtime_bridge_lines(text: &str) -> String {
 
 /// The Node kit's bytes under the names DAINTY_ gave them (`dainty_protocol::renamed`), with the files RD24 phase 3
 /// moved to TOML: news.toml, and the session supplies the backend reads rendered into `generated`
+/// The Node kit's loopback ports and the ones this kit moved them to, below Windows' dynamic range; the private
+/// gateway's 61000 stays.
+const MOVED_PORTS: [(&str, &str); 5] = [
+    ("61000", "41000"),
+    ("61001", "41001"),
+    ("61002", "41002"),
+    ("61003", "41003"),
+    ("61005", "41005"),
+];
+
+fn ports_moved(text: &str) -> String {
+    let mut out = text.to_owned();
+    for (node, ours) in MOVED_PORTS {
+        out = out.replace(&format!("127.0.0.1:{node}"), &format!("127.0.0.1:{ours}"));
+        for key in [
+            "
+PORT=",
+            "
+ALLOWLIST_PORT=",
+        ] {
+            out = out.replace(
+                &format!(
+                    "{key}{node}
+"
+                ),
+                &format!(
+                    "{key}{ours}
+"
+                ),
+            );
+        }
+    }
+    out
+}
+
 fn renamed(text: &str) -> String {
-    let mut out = dainty_protocol::renamed::renamed(text).replace("news.json", "news.toml");
+    let mut out = ports_moved(&dainty_protocol::renamed::renamed(text)).replace("news.json", "news.toml");
     for sep in ["/", "\\\\", "\\"] {
         out = out.replace(
             &format!("{sep}config{sep}session-supplies.json"),

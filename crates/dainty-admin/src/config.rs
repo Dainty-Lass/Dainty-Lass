@@ -153,7 +153,7 @@ impl Config {
     /// Reads and checks the settings; the error names the variable for the host.
     pub fn from_env(env: &Env) -> Result<Self, String> {
         let port = match optional(env, "PORT") {
-            None => 61003,
+            None => 41003,
             Some(raw) => raw
                 .parse::<u16>()
                 .ok()
@@ -195,8 +195,8 @@ impl Config {
         Ok(Self {
             port,
             bind_hosts,
-            backend_url: local_url(env, "BACKEND_URL", "http://127.0.0.1:61000")?,
-            director_url: local_url(env, "DAINTY_DIRECTOR_URL", "http://127.0.0.1:61001")?,
+            backend_url: local_url(env, "BACKEND_URL", "http://127.0.0.1:41000")?,
+            director_url: local_url(env, "DAINTY_DIRECTOR_URL", "http://127.0.0.1:41001")?,
             api_key: secret(env, "DAINTY_ADMIN_API_KEY")?,
             admin_key: secret(env, "DAINTY_ADMIN_KEY")?,
             operator_secret: secret(
@@ -245,10 +245,10 @@ mod tests {
     #[test]
     fn has_defaults_for_everything_but_the_secrets_and_the_file() {
         let c = load(&[]).unwrap();
-        assert_eq!(c.port, 61003);
+        assert_eq!(c.port, 41003);
         assert_eq!(c.bind_hosts, ["127.0.0.1"]);
-        assert_eq!(c.backend_url, "http://127.0.0.1:61000");
-        assert_eq!(c.director_url, "http://127.0.0.1:61001");
+        assert_eq!(c.backend_url, "http://127.0.0.1:41000");
+        assert_eq!(c.director_url, "http://127.0.0.1:41001");
         assert_eq!(c.max_hunt_servers, 3);
         assert_eq!(c.server_mode, ServerMode::Private);
         assert!(c.timeouts_file.is_absolute());

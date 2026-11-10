@@ -39,9 +39,9 @@ export function loadConfig(): AgentConfig {
     pairingCode: env("PAIRING_CODE"),
     tokenFile: resolve(env("TOKEN_FILE") ?? join(process.cwd(), "data", "agent-token")),
     game: {
-      adminApiUrl: env("ADMIN_API_URL") ?? "http://127.0.0.1:61003/graphql",
+      adminApiUrl: env("ADMIN_API_URL") ?? "http://127.0.0.1:41003/graphql",
       adminApiKey: env("ADMIN_API_KEY"),
-      backendUrl: env("BACKEND_URL") ?? "http://127.0.0.1:61000",
+      backendUrl: env("BACKEND_URL") ?? "http://127.0.0.1:41000",
       operatorSecret: env("OPERATOR_SECRET"),
     },
     ingestPort: Number(env("INGEST_PORT") ?? 61009),

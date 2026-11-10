@@ -6,8 +6,8 @@ One Dainty Lass server can run as two halves, each its own `dainty-host start` (
 
 | Half | `split.role` | Runs | Its other port |
 | --- | --- | --- | --- |
-| Metagame | `metagame` | the gateway, the backend (port 61000), content, the admin API | 61001, the Director's, is the tunnel to the game half |
-| Game servers | `gameservers` | the gateway, the Director (port 61001) and every game server it launches | 61000, the backend's, is the tunnel to the metagame half |
+| Metagame | `metagame` | the gateway, the backend (port 41000), content, the admin API | 41001, the Director's, is the tunnel to the game half |
+| Game servers | `gameservers` | the gateway, the Director (port 41001) and every game server it launches | 41000, the backend's, is the tunnel to the metagame half |
 
 Players connect to the metagame half as they connect to any server: its invite, its gateway, its certificate. A hunt
 starts on the game half, and the backend hands the player that half's game address and port (`game_address` there).
@@ -20,9 +20,9 @@ Both halves are nodes of one `[network]` (DD16), so they already share a node li
 on each gateway's port (`docs/security/network.md`). The split adds one node-link service, `Service::Tunnel`
 (`crates/dainty-network/src/tunnel.rs`):
 
-- On the metagame half, `127.0.0.1:61001` is a listener that carries each request to the game half, which replays it
-  on its own `127.0.0.1:61001`, the Director. The backend's `DEPLOYSERVER_URL` is unchanged.
-- On the game half, `127.0.0.1:61000` is a listener that carries each request to the metagame half's backend. The game
+- On the metagame half, `127.0.0.1:41001` is a listener that carries each request to the game half, which replays it
+  on its own `127.0.0.1:41001`, the Director. The backend's `DEPLOYSERVER_URL` is unchanged.
+- On the game half, `127.0.0.1:41000` is a listener that carries each request to the metagame half's backend. The game
   servers' `DAINTY_BACKEND_URL` is unchanged, and so is their game server key: it travels inside the node link, never
   through a public gateway route, which still refuses it.
 

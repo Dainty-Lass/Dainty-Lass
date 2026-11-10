@@ -12,6 +12,7 @@ pub mod guard;
 pub mod logs;
 pub mod modules;
 pub mod overrides;
+pub mod ports;
 pub mod services;
 pub mod split;
 pub mod tunables;
@@ -56,17 +57,25 @@ pub const QUIET_GAME_LOG_CMDS: &str = "LogPhoenixCharacter Warning, LogOnline Wa
 pub const MAX_MULTIPLIER: f64 = 100.0;
 /// The MongoDB a server migrates pre-cutover data from when host.toml names none.
 pub const DEFAULT_MONGO_URI: &str = "mongodb://127.0.0.1:27017/?replicaSet=rs0";
-/// TCP ports the server's own services hold; no module or public port may take one.
-pub const RESERVED_PORTS: [u16; 8] = [
-    PORTS.backend,
-    PORTS.director,
-    PORTS.content,
-    PORTS.allowlist,
-    PORTS.relay,
-    PORTS.mongo,
-    61003,
-    61004,
-];
+/// TCP ports the server's own services hold with `ports`; no module or public port may take one.
+#[must_use]
+pub fn reserved_ports(ports: &crate::paths::Ports) -> [u16; 7] {
+    [
+        ports.backend,
+        ports.director,
+        ports.content,
+        ports.admin,
+        ports.allowlist,
+        ports.relay,
+        ports.mongo,
+    ]
+}
+
+/// The ports `c`'s services listen on: [`PORTS`] with host.toml's `[ports]` over it.
+#[must_use]
+pub fn service_ports(c: &HostConfig) -> crate::paths::Ports {
+    c.ports.unwrap_or_default().resolve()
+}
 /// `edition` is read only to refuse the 1.4.4 ones; `reborn` is dropped when the file is next written
 pub const EDITION_REMOVED: &str = "edition \"legacy\" and \"both\" ran Dauntless Revived's 1.4.4, which this server no longer runs: remove edition from host.toml (an old 1.4.4 server's accounts import with dainty-host legacy import revived)";
 /// The largest host.toml (or .json, .yaml) read, in bytes.
@@ -936,6 +945,8 @@ pub struct HostConfig {
     pub events: Option<events::EventsConfig>,
     /// `[discord]`: the Discord bot (module sharing A7); its token is in secrets.env
     pub discord: Option<discord::DiscordConfig>,
+    /// `[ports]`: the loopback ports the services listen on, for a machine that holds a default
+    pub ports: Option<ports::PortsConfig>,
     /// The file it was read from.
     pub file: FileForm,
 }
@@ -1105,6 +1116,10 @@ impl HostConfig {
             Some(e) if !e.is_null() => Some(events::EventsConfig::from_json(e)?),
             _ => None,
         };
+        let ports = match obj.get("ports") {
+            Some(p) if !p.is_null() => Some(ports::PortsConfig::from_json(p)?),
+            _ => None,
+        };
         let discord = match obj.get("discord") {
             Some(d) if !d.is_null() => Some(discord::DiscordConfig::from_json(d)?),
             _ => None,
@@ -1143,6 +1158,7 @@ impl HostConfig {
             logs,
             events,
             discord,
+            ports,
             file: FileForm {
                 document: obj,
                 read,
@@ -1201,6 +1217,9 @@ impl HostConfig {
             }
             if self.events.is_none() {
                 self.events = prev.events.clone();
+            }
+            if self.ports.is_none() {
+                self.ports = prev.ports;
             }
             if self.discord.is_none() {
                 self.discord = prev.discord.clone();
@@ -1391,6 +1410,9 @@ impl HostConfig {
         }
         if let Some(e) = &self.events {
             canonical.insert("events".into(), e.to_json());
+        }
+        if let Some(p) = &self.ports {
+            canonical.insert("ports".into(), p.to_json());
         }
         if let Some(d) = &self.discord {
             canonical.insert("discord".into(), d.to_json());
@@ -1744,8 +1766,13 @@ pub fn is_valid_share_url(url: &str) -> bool {
             .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'/' | b'_' | b'?' | b'=' | b'&' | b'.' | b'%' | b'-'))
 }
 
-fn is_reserved_or_game_port(port: u16) -> bool {
-    RESERVED_PORTS.contains(&port) || (PORTS.game_lowest..=PORTS.game_last).contains(&port)
+fn is_reserved_or_game_port(own: &ports::PortsConfig, port: u16) -> bool {
+    let ports = own.resolve();
+    // The private gateway's too, so a server moved between modes keeps its ports apart
+    reserved_ports(&ports).contains(&port)
+        || port == ports.qos
+        || port == PORTS.private_gateway
+        || (PORTS.game_lowest..=PORTS.game_last).contains(&port)
 }
 
 /// Checks a host.json document and returns it in canonical form, keeping its key order; the error says what is wrong.
@@ -1931,6 +1958,12 @@ pub fn validate(document: &Value) -> Result<Value, HostError> {
         }
     };
 
+    let ports_cfg = match obj.get("ports").filter(|v| !v.is_null()) {
+        Some(p) => Some(ports::PortsConfig::from_json(p)?),
+        None => None,
+    };
+    let own = ports_cfg.unwrap_or_default();
+
     let public_port = match obj.get("publicPort") {
         None | Some(Value::Null) => None,
         Some(v) => {
@@ -1944,7 +1977,7 @@ pub fn validate(document: &Value) -> Result<Value, HostError> {
                 )));
             };
             let port = n as u16;
-            if is_reserved_or_game_port(port) {
+            if is_reserved_or_game_port(&own, port) {
                 return Err(bad(format!(
                     "publicPort {port} is one the server uses itself: pick another (4443, for example)"
                 )));
@@ -1952,6 +1985,27 @@ pub fn validate(document: &Value) -> Result<Value, HostError> {
             Some(port)
         }
     };
+
+    let gateway = public_port.unwrap_or(match mode {
+        ServerMode::Public => PORTS.public_gateway,
+        ServerMode::Private => PORTS.private_gateway,
+    });
+    for (key, port) in own.named() {
+        let taken = if port == gateway {
+            Some("the gateway's")
+        } else if port == PORTS.relay {
+            Some("the relay's")
+        } else if port == PORTS.mongo {
+            Some("MongoDB's")
+        } else if (PORTS.game_lowest..=PORTS.game_last).contains(&port) {
+            Some("a game server's")
+        } else {
+            None
+        };
+        if let Some(owner) = taken {
+            return Err(bad(format!("ports.{key} {port} is {owner} port: pick another")));
+        }
+    }
 
     let dashboard_url = match obj.get("dashboardUrl") {
         None | Some(Value::Null) => None,
@@ -2421,6 +2475,9 @@ pub fn validate(document: &Value) -> Result<Value, HostError> {
     if let Some(e) = events_cfg {
         canonical.insert("events".into(), e.to_json());
     }
+    if let Some(p) = ports_cfg {
+        canonical.insert("ports".into(), p.to_json());
+    }
     if let Some(d) = discord_cfg {
         canonical.insert("discord".into(), d.to_json());
     }
@@ -2456,6 +2513,7 @@ fn merge_document_order(orig: &Map<String, Value>, canonical: Map<String, Value>
         "logs",
         "events",
         "discord",
+        "ports",
     ];
     let mut out = Map::new();
     for (k, orig_v) in orig {
@@ -2819,6 +2877,7 @@ fn module_switch_env(c: &HostConfig) -> Vec<(String, String)> {
 /// Every env file's variables for this config and these secrets.
 #[must_use]
 pub fn build_env_files(c: &HostConfig, s: &Secrets, p: &Paths, source_commit: &str, platform: Platform) -> EnvFiles {
+    let own = service_ports(c);
     fn push(vec: &mut EnvEntries, k: &str, v: impl Into<String>) {
         vec.push((k.to_owned(), v.into()));
     }
@@ -2828,7 +2887,7 @@ pub fn build_env_files(c: &HostConfig, s: &Secrets, p: &Paths, source_commit: &s
     push(&mut backend, "NODE_ENV", "production");
     push(&mut backend, "RUSTIC_ISLES_SERVICE_ROLE", "api");
     push(&mut backend, "RUSTIC_ISLES_METRICS_TOKEN", &s.metrics_token);
-    push(&mut backend, "PORT", PORTS.backend.to_string());
+    push(&mut backend, "PORT", own.backend.to_string());
     push(&mut backend, "BIND_HOST", "127.0.0.1");
     push(&mut backend, "DAINTY_HTTP_ONLY", "true");
     push(&mut backend, "QOS_PORT", "0");
@@ -2852,11 +2911,7 @@ pub fn build_env_files(c: &HostConfig, s: &Secrets, p: &Paths, source_commit: &s
     push(&mut backend, "TARGET_CHANGELIST", "647472");
     push(&mut backend, "APPROVED_EXECUTABLE_SHA256", PINNED_EXE_SHA256);
     push(&mut backend, "MATCHMAKING_MODE", "DEPLOYSERVER");
-    push(
-        &mut backend,
-        "DEPLOYSERVER_URL",
-        format!("127.0.0.1:{}", PORTS.director),
-    );
+    push(&mut backend, "DEPLOYSERVER_URL", format!("127.0.0.1:{}", own.director));
     push(&mut backend, "HUNT_GO_NOW_MIN_DELAY_MS", "1");
     push(&mut backend, "HUNT_GO_NOW_MAX_DELAY_MS", "1000");
     push(&mut backend, "REALTIME_XMPP_ENABLED", "true");
@@ -2907,7 +2962,7 @@ pub fn build_env_files(c: &HostConfig, s: &Secrets, p: &Paths, source_commit: &s
     let exe_text = exe_path.as_deref().map(path_text).unwrap_or_default();
 
     push(&mut director, "NODE_ENV", "production");
-    push(&mut director, "PORT", PORTS.director.to_string());
+    push(&mut director, "PORT", own.director.to_string());
     push(&mut director, "BIND_HOST", "127.0.0.1");
     push(&mut director, "MY_IP", &c.game_address);
     push(&mut director, "PORT_RANGE_BEGIN", first_port.to_string());
@@ -2990,39 +3045,35 @@ pub fn build_env_files(c: &HostConfig, s: &Secrets, p: &Paths, source_commit: &s
     push(
         &mut director,
         "DAINTY_BACKEND_URL",
-        format!("http://127.0.0.1:{}", PORTS.backend),
+        format!("http://127.0.0.1:{}", own.backend),
     );
     // What the runtime reads first, in every build (dllmain.cpp's kBackendUrlVariables)
     push(
         &mut director,
         "RUSTIC_ISLES_BACKEND_URL",
-        format!("http://127.0.0.1:{}", PORTS.backend),
+        format!("http://127.0.0.1:{}", own.backend),
     );
     push(&mut director, "RUSTIC_ISLES_RUNTIME_PROFILE", "production");
     push(&mut director, "LOG_LEVEL", "info");
 
     // 3. content
     let mut content = EnvEntries::new();
-    push(&mut content, "PORT", PORTS.content.to_string());
+    push(&mut content, "PORT", own.content.to_string());
     push(&mut content, "BIND_HOST", "127.0.0.1");
-    push(
-        &mut content,
-        "BACKEND_URL",
-        format!("http://127.0.0.1:{}", PORTS.backend),
-    );
+    push(&mut content, "BACKEND_URL", format!("http://127.0.0.1:{}", own.backend));
     push(&mut content, "CONTENT_RUNTIME_DIR", path_text(&p.runtime_publish));
     push(&mut content, "CONTENT_BRANDING_DIR", path_text(&p.branding));
     push(&mut content, "CONTENT_NEWS_FILE", path_text(&p.news_file));
 
     // 4. admin
     let mut admin = EnvEntries::new();
-    push(&mut admin, "PORT", PORTS.admin.to_string());
+    push(&mut admin, "PORT", own.admin.to_string());
     push(&mut admin, "BIND_HOST", "127.0.0.1");
-    push(&mut admin, "BACKEND_URL", format!("http://127.0.0.1:{}", PORTS.backend));
+    push(&mut admin, "BACKEND_URL", format!("http://127.0.0.1:{}", own.backend));
     push(
         &mut admin,
         "DAINTY_DIRECTOR_URL",
-        format!("http://127.0.0.1:{}", PORTS.director),
+        format!("http://127.0.0.1:{}", own.director),
     );
     push(&mut admin, "DAINTY_ADMIN_API_KEY", &s.admin_api_key);
     push(&mut admin, "DAINTY_ADMIN_KEY", &s.admin_key);
@@ -3105,22 +3156,22 @@ pub fn build_env_files(c: &HostConfig, s: &Secrets, p: &Paths, source_commit: &s
             push(
                 &mut gateway,
                 "GATEWAY_BACKEND_URL",
-                format!("http://127.0.0.1:{}", PORTS.backend),
+                format!("http://127.0.0.1:{}", own.backend),
             );
             push(
                 &mut gateway,
                 "GATEWAY_CONTENT_URL",
-                format!("http://127.0.0.1:{}", PORTS.content),
+                format!("http://127.0.0.1:{}", own.content),
             );
             push(
                 &mut gateway,
                 "GATEWAY_WS_URL",
-                format!("http://127.0.0.1:{}", PORTS.backend),
+                format!("http://127.0.0.1:{}", own.backend),
             );
             push(
                 &mut gateway,
                 "ALLOWLIST_URL",
-                format!("http://127.0.0.1:{}", PORTS.allowlist),
+                format!("http://127.0.0.1:{}", own.allowlist),
             );
             push(&mut gateway, "ALLOWLIST_SECRET", &s.allowlist_secret);
 
@@ -3142,7 +3193,7 @@ pub fn build_env_files(c: &HostConfig, s: &Secrets, p: &Paths, source_commit: &s
                 }
             }
             push(&mut al, "ALLOWLIST_BIND", "127.0.0.1");
-            push(&mut al, "ALLOWLIST_PORT", PORTS.allowlist.to_string());
+            push(&mut al, "ALLOWLIST_PORT", own.allowlist.to_string());
             push(&mut al, "ALLOWLIST_SECRET", &s.allowlist_secret);
             push(&mut al, "ALLOWLIST_PORTS", game_ports_text(c, "-"));
             push(
@@ -3165,17 +3216,17 @@ pub fn build_env_files(c: &HostConfig, s: &Secrets, p: &Paths, source_commit: &s
             push(
                 &mut gateway,
                 "GATEWAY_BACKEND_URL",
-                format!("http://127.0.0.1:{}", PORTS.backend),
+                format!("http://127.0.0.1:{}", own.backend),
             );
             push(
                 &mut gateway,
                 "GATEWAY_CONTENT_URL",
-                format!("http://127.0.0.1:{}", PORTS.content),
+                format!("http://127.0.0.1:{}", own.content),
             );
             push(
                 &mut gateway,
                 "GATEWAY_WS_URL",
-                format!("http://127.0.0.1:{}", PORTS.backend),
+                format!("http://127.0.0.1:{}", own.backend),
             );
             push(&mut gateway, "GATEWAY_ALLOWLIST", "0");
             None
@@ -3679,6 +3730,88 @@ retention_days = 30"
         );
         assert!(HostConfig::from_toml(&written.replace("= 30", "= -3")).is_err());
         assert!(HostConfig::from_toml(&written.replace("retention_days", "retention")).is_err());
+    }
+
+    /// `[ports]` round-trips through host.toml and moves each service, and whoever reaches it, to its port; left out,
+    /// the defaults stay; a port the gateway, a game server or another service holds is refused.
+    #[test]
+    fn ports_round_trip_and_reach_every_env_file() {
+        let text = "version = 1
+mode = \"public\"
+name = \"Friday Hunts\"
+host = \"play.example.org\"
+game_address = \"203.0.113.7\"
+registration = \"INVITECODE\"
+max_hunt_servers = 3
+";
+        let mut cfg = HostConfig::from_toml(text).unwrap();
+        assert_eq!((cfg.ports, service_ports(&cfg)), (None, PORTS));
+        cfg.ports = Some(ports::PortsConfig {
+            backend: Some(42000),
+            content: Some(42002),
+            allowlist: Some(42005),
+            ..ports::PortsConfig::default()
+        });
+        let written = cfg.to_toml().unwrap();
+        assert!(
+            written.contains(
+                "[ports]
+backend = 42000
+content = 42002
+allowlist = 42005"
+            ),
+            "{written}"
+        );
+        let read = HostConfig::from_toml(&written).unwrap();
+        assert_eq!(read.ports, cfg.ports);
+        assert_eq!(
+            HostConfig::from_toml(text).unwrap().written_over(Some(&read)).ports,
+            cfg.ports
+        );
+
+        let dir = tempfile::tempdir().unwrap();
+        let p = Paths::new(dir.path());
+        let files = build_env_files(&read, &Secrets::default(), &p, "", Platform::Windows);
+        let lines = |entries: &EnvEntries| entries.iter().map(|(k, v)| format!("{k}={v}")).collect::<Vec<_>>();
+        let has = |entries: &EnvEntries, line: &str| assert!(lines(entries).contains(&line.to_owned()), "{line}");
+        has(&files.backend, "PORT=42000");
+        has(&files.director, &format!("PORT={}", PORTS.director));
+        has(&files.content, "PORT=42002");
+        has(&files.admin, "BACKEND_URL=http://127.0.0.1:42000");
+        has(&files.gateway, "GATEWAY_BACKEND_URL=http://127.0.0.1:42000");
+        has(&files.gateway, "GATEWAY_CONTENT_URL=http://127.0.0.1:42002");
+        has(&files.allowlist.unwrap(), "ALLOWLIST_PORT=42005");
+
+        for bad in [
+            "backend = 443",
+            "backend = 8770",
+            "backend = 27017",
+            "director = 42002",
+            "gateway = 1",
+        ] {
+            let refused = format!(
+                "{text}[ports]
+content = 42002
+{bad}
+"
+            );
+            assert!(HostConfig::from_toml(&refused).is_err(), "{bad}");
+        }
+        let public_port = format!(
+            "{text}public_port = 42000
+[ports]
+backend = 42000
+"
+        );
+        assert!(HostConfig::from_toml(&public_port).is_err());
+        assert!(
+            HostConfig::from_toml(&format!(
+                "{text}public_port = {}
+",
+                PORTS.backend
+            ))
+            .is_err()
+        );
     }
 
     /// `[discord]` round-trips through host.toml, and discord.env is written only with the bot on and its token

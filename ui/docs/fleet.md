@@ -104,9 +104,9 @@ agent refuses a plain-HTTP dashboard that is not on loopback unless `DAINTY_AGEN
 | `DAINTY_AGENT_DASHBOARD_URL`   | required                         | The dashboard's public origin                    |
 | `DAINTY_AGENT_PAIRING_CODE`    |                                  | Only for the first start, or after a re-pair     |
 | `DAINTY_AGENT_TOKEN_FILE`      | `./data/agent-token`             | Where the token is kept                          |
-| `DAINTY_AGENT_ADMIN_API_URL`   | `http://127.0.0.1:61003/graphql` | This host's admin service                        |
+| `DAINTY_AGENT_ADMIN_API_URL`   | `http://127.0.0.1:41003/graphql` | This host's admin service                        |
 | `DAINTY_AGENT_ADMIN_API_KEY`   |                                  | Its key                                          |
-| `DAINTY_AGENT_BACKEND_URL`     | `http://127.0.0.1:61000`         | This host's backend                              |
+| `DAINTY_AGENT_BACKEND_URL`     | `http://127.0.0.1:41000`         | This host's backend                              |
 | `DAINTY_AGENT_OPERATOR_SECRET` |                                  | Signs `/admin/v1` calls                          |
 | `DAINTY_AGENT_INGEST_PORT`     | `61009`                          | Loopback port of the ingest relay                |
 | `DAINTY_AGENT_INGEST_KEY`      |                                  | Turns the relay on                               |

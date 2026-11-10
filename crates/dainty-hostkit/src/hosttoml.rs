@@ -58,6 +58,7 @@ const TOP: &[Field] = &[
     ("logs", "logs", false),
     ("events", "events", false),
     ("discord", "discord", false),
+    ("ports", "ports", false),
 ];
 
 /// The top-level keys whose tables and lists are read as they are (`hostconfig/modules.rs`, `services.rs`, `env.rs`).
@@ -102,6 +103,15 @@ const SPLIT: &[Field] = &[
 ];
 
 const EVENTS: &[Field] = &[("retentionDays", "retention_days", false)];
+
+const PORTS: &[Field] = &[
+    ("backend", "backend", false),
+    ("director", "director", false),
+    ("qos", "qos", false),
+    ("content", "content", false),
+    ("admin", "admin", false),
+    ("allowlist", "allowlist", false),
+];
 
 const DISCORD: &[Field] = &[
     ("enabled", "enabled", false),
@@ -306,6 +316,7 @@ fn table_fields(json_path: &str) -> Option<&'static [Field]> {
         "logs" => Some(LOGS),
         "events" => Some(EVENTS),
         "discord" => Some(DISCORD),
+        "ports" => Some(PORTS),
         _ => None,
     }
 }
@@ -857,6 +868,16 @@ fn comment(path: &str) -> &'static str {
         }
         "events" => "The registry's events kept in the database (module sharing A5). Left out: kept 90 days.",
         "events.retention_days" => "Days an event is kept, 0 to 3650; 0 keeps every event (90).",
+        "ports" => {
+            "The TCP ports the services listen on, on 127.0.0.1, for a machine where one is taken. The gateway's is
+             not here: a private server's stays 61000, the port its invites name. Left out: the defaults below."
+        }
+        "ports.backend" => "The backend (41000).",
+        "ports.director" => "The Director (41001).",
+        "ports.qos" => "The backend's QoS listener (41010).",
+        "ports.content" => "The content server (41002).",
+        "ports.admin" => "The admin API, which dainty-dash and its fleet agent reach (41003).",
+        "ports.allowlist" => "A public server's allowlist (41005).",
         "discord" => {
             "The Discord bot (module sharing A7): /key hands a member a signup link or a single-use invite, /status\n\
              says whether the game is up. Its token is in secrets.env: dainty-host setup --discord-bot-token reads it."

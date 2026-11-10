@@ -32,7 +32,7 @@ pub const CONTROL_ENV: &str = "DAINTY_CONTROL";
 pub const SERVER_READY_LINE: &str = "DAINTY_SERVER_READY";
 
 /// Default local TCP port for the backend service.
-pub const BACKEND_PORT: u16 = 61000;
+pub const BACKEND_PORT: u16 = 41000;
 
 /// Maximum number of log lines retained in the view ring buffer.
 pub const MAX_LINES: usize = 300;

@@ -145,6 +145,7 @@ pub fn service_plan(
     programs: &Programs,
     external_allowlist: bool,
 ) -> Result<Vec<PlannedService>, HostError> {
+    let own = crate::hostconfig::service_ports(config);
     let mut plan = Vec::new();
     let public = config.mode == ServerMode::Public;
 
@@ -156,7 +157,7 @@ pub fn service_plan(
                 FrontService::Allowlist.bin_name(),
                 launch,
                 file,
-                Ready::http(PORTS.allowlist, "/status"),
+                Ready::http(own.allowlist, "/status"),
             ),
             ready_timeout: Duration::from_secs(60),
             required: true,
@@ -172,7 +173,7 @@ pub fn service_plan(
                 args: vec![Path::new("build").join("server.js").display().to_string()],
                 env_file: Some(env_file(p, "backend")),
                 extra_env: Vec::new(),
-                ready: Some(Ready::http(PORTS.backend, "/dauntless-status")),
+                ready: Some(Ready::http(own.backend, "/dauntless-status")),
             },
             ready_timeout: Duration::from_secs(120),
             required: true,
@@ -185,7 +186,7 @@ pub fn service_plan(
                 args: vec![Path::new("dist").join("server.js").display().to_string()],
                 env_file: Some(env_file(p, "director")),
                 extra_env: Vec::new(),
-                ready: Some(Ready::http(PORTS.director, "/api/instances")),
+                ready: Some(Ready::http(own.director, "/api/instances")),
             },
             ready_timeout: Duration::from_secs(60),
             required: false,
@@ -199,7 +200,7 @@ pub fn service_plan(
             FrontService::Content.bin_name(),
             content_launch,
             content_file,
-            Ready::http(PORTS.content, "/content/v1/news"),
+            Ready::http(own.content, "/content/v1/news"),
         ),
         ready_timeout: Duration::from_secs(60),
         required: false,
@@ -474,10 +475,11 @@ pub fn linux_wine(paths: &Paths, config: &HostConfig) -> Result<(), HostError> {
 
 /// Waits up to 30 s for the allowlist systemd unit to answer on a public server; `false` when a stop was asked.
 pub fn linux_external_allowlist(control: &Control, config: &HostConfig) -> Result<bool, HostError> {
+    let own = crate::hostconfig::service_ports(config);
     if config.mode != ServerMode::Public {
         return Ok(true);
     }
-    let ready = Ready::http(PORTS.allowlist, "/status");
+    let ready = Ready::http(own.allowlist, "/status");
     let deadline = std::time::Instant::now() + Duration::from_secs(30);
     while std::time::Instant::now() < deadline {
         if control.asked() {
@@ -495,7 +497,7 @@ pub fn linux_external_allowlist(control: &Control, config: &HostConfig) -> Resul
     };
     Err(HostError::message(format!(
         "external allowlist service did not answer on 127.0.0.1:{} ({hint})",
-        PORTS.allowlist
+        own.allowlist
     )))
 }
 

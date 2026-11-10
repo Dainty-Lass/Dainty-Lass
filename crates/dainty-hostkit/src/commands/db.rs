@@ -273,6 +273,7 @@ mod tests {
             split: None,
             logs: None,
             events: None,
+            ports: None,
             discord: None,
             file: FileForm::default(),
         };

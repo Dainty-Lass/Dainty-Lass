@@ -4,7 +4,7 @@
 
 A GraphQL API for the host's own tools, such as a Discord bot: kick, time out and ban players (and undo it), and
 look up a player, the server and its hunts. It is the `admin` service (`crates/dainty-admin`). It listens on
-`127.0.0.1:61003` only, wants its key on every request, and the gateway never forwards to it, so players can't reach
+`127.0.0.1:41003` only, wants its key on every request, and the gateway never forwards to it, so players can't reach
 it. What it trusts and why is in [security/admin-api.md](security/admin-api.md).
 
 ## Running it
@@ -21,8 +21,8 @@ What it needs, all written by setup:
 | `RUSTIC_ISLES_MANAGER_OPERATOR_SECRET` | `secrets.env`, `admin.env`, `backend.env` | Signs the API's calls to the backend's `/admin/v1` routes |
 | `RUSTIC_ISLES_MANAGER_ADMIN=on` | `backend.env` | Lets the backend accept those signed calls |
 | `DAINTY_ADMIN_KEY` | `secrets.env`, `admin.env`, `backend.env` | The backend's existing admin key, for the kick |
-| `PORT`, `BIND_HOST` | `admin.env` | 61003, 127.0.0.1. Any non-loopback address stops the start |
-| `BACKEND_URL`, `DAINTY_DIRECTOR_URL` | `admin.env` | `http://127.0.0.1:61000` and `:61001`. Loopback only |
+| `PORT`, `BIND_HOST` | `admin.env` | 41003, 127.0.0.1. Any non-loopback address stops the start |
+| `BACKEND_URL`, `DAINTY_DIRECTOR_URL` | `admin.env` | `http://127.0.0.1:41000` and `:41001`. Loopback only |
 | `DAINTY_ADMIN_API_TIMEOUTS_FILE` | `admin.env` | `.workspace/config/admin-timeouts.json`, which holds when each timeout ends |
 | `DAINTY_MAX_HUNT_SERVERS`, `DAINTY_SERVER_MODE` | `admin.env` | From `host.toml`, for `huntStatus` and `serverStatus` |
 | `DAINTY_GUARD_*` | `admin.env` | From `[guard]` in `host.toml`, only the ones it sets: when a destructive or bulk action waits (below) |
@@ -318,7 +318,7 @@ mutation { revertApply(planId: "<id>") { rowsChanged databases { database rows }
 
 ## Calling it
 
-`POST http://127.0.0.1:61003/graphql`, with `Content-Type: application/json` and a body of
+`POST http://127.0.0.1:41003/graphql`, with `Content-Type: application/json` and a body of
 `{"query": ..., "variables": ...}`. The headers:
 
 - `Authorization: Bearer <key>`: `DAINTY_ADMIN_API_KEY` (the owner's), or the person's own key
@@ -328,13 +328,13 @@ mutation { revertApply(planId: "<id>") { rowsChanged databases { database rows }
 From the server itself:
 
 ```bash
-curl -s http://127.0.0.1:61003/graphql -H "Authorization: Bearer $DAINTY_ADMIN_API_KEY" \
+curl -s http://127.0.0.1:41003/graphql -H "Authorization: Bearer $DAINTY_ADMIN_API_KEY" \
   -H 'Content-Type: application/json' -d '{"query":"{ serverStatus { name onlineCount uptimeSeconds } }"}'
 ```
 
 ## Metrics
 
-`GET http://127.0.0.1:61003/metrics` with any admin key (`Authorization: Bearer <key>`, no operator id) answers every
+`GET http://127.0.0.1:41003/metrics` with any admin key (`Authorization: Bearer <key>`, no operator id) answers every
 component's metrics in Prometheus' text format, read at the moment of the scrape:
 
 | Metric | What |
@@ -353,13 +353,13 @@ A Prometheus job for it:
 scrape_configs:
   - job_name: dainty-lass
     authorization: { credentials_file: /etc/prometheus/dainty-admin-key }
-    static_configs: [{ targets: ["127.0.0.1:61003"] }]
+    static_configs: [{ targets: ["127.0.0.1:41003"] }]
 ```
 
 ## A Discord bot calling it
 
 The bot runs on the server itself, because the API is loopback only. A bot on another machine reaches it through an
-SSH tunnel (`ssh -L 61003:127.0.0.1:61003 host`), never by changing `BIND_HOST`. Give the bot the key from
+SSH tunnel (`ssh -L 41003:127.0.0.1:41003 host`), never by changing `BIND_HOST`. Give the bot the key from
 `secrets.env` in its own environment, and never put it in the bot's repository.
 
 A held action (`GUARDED`) comes back as an error whose message already says what to do; the sketch shows it as
@@ -372,7 +372,7 @@ everyone, and `/kick`, `/timeout`, `/ban`, `/unban` only for members who can ban
 ```js
 import { Client, Events, GatewayIntentBits, MessageFlags, PermissionFlagsBits, SlashCommandBuilder } from 'discord.js';
 
-const API = 'http://127.0.0.1:61003/graphql';
+const API = 'http://127.0.0.1:41003/graphql';
 const KEY = process.env.DAINTY_ADMIN_API_KEY;
 
 async function admin(query, variables, operatorId) {
