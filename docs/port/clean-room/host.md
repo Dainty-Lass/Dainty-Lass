@@ -110,4 +110,25 @@ From the worktree root, on Windows:
 
 ## 6. Similarity
 
-Measured by the coordinator outside the clean room (similarity.md §1).
+Measured by the coordinator outside the clean room (similarity.md §1): `crates/dainty-host/src/generators.rs` at
+`615bc64c` against the whole of restricted's `crates/dainty-host/src/lib.rs` at `cad68dd3`, the last version with the
+derived dispatch in it.
+
+| Code lines | In a run of 3+ identical lines | Similarity | Longest run |
+| ---: | ---: | ---: | --- |
+| 170 | 18 | 10.6% | 8 lines: the match arms from `GeneratorKind` to the `BackendStep` of the same name |
+
+The other run is the 4 fields of `ImportHuntTablesOptions` that §2.1 fixes (`apply`, `update_existing`, `verbose`,
+`backup_stamp`). Both are allowed by spec §7 (below 30%, no run over 6 lines outside import lists and match arms
+naming the same variants).
+
+## 7. Acceptance outside the clean room
+
+- restricted's `dainty-host-parity` `tests/gamedata.rs` against the merged rewrite (`e8c8f097`): 21 passed, 0 failed,
+  including `runs_the_rust_generators_and_names_the_error_while_continuing_other_steps` and
+  `generates_all_seven_game_data_steps_in_rust_without_node`, which failed on the stub.
+- `cargo test -p dainty-host` with `DAINTY_VERSION_DATA` set to restricted's document: all pass but
+  `compose_starts_rust_1_14_7_backend_and_director_without_node_or_mongo`, which binds port 61000 and fails on the
+  maintainer's Windows PC because the port is in Windows' reserved range (os error 10013); unrelated to this file.
+- No AGPL crate can reach `dainty-host`'s tree: it is a root workspace member, whose CI step refuses a non-MIT package
+  or a path into `restricted/`.
