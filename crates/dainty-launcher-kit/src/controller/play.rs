@@ -232,7 +232,8 @@ impl Controller {
             |runner| runner.config_dir.clone(),
         );
         let stored = self.stored();
-        let port = self.config().relay_port;
+        // The relay's own port, which is not the configured one when Windows had lent that out
+        let port = self.lock().relay.as_ref().map_or(self.config().relay_port, Relay::port);
         let written = write_game_config(
             &config_dir,
             &ConfigRequest {

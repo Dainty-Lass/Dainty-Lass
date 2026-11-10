@@ -348,6 +348,28 @@ async fn starts_logs_and_stops_freeing_both_ports() {
 }
 
 #[tokio::test]
+async fn a_relay_off_its_default_port_moves_the_regions_qos_target_to_itself() {
+    let (target, _) = fake_server(false).await;
+    let (relay, _) = relay_for(target).await;
+    let port = relay.port();
+    assert_ne!(port, DEFAULT_PORT);
+    let body = format!(r#"{{"regionUrls":["http://127.0.0.1:{DEFAULT_PORT}/QoS"]}}"#);
+    let post = |path: &str| {
+        format!(
+            "POST {path} HTTP/1.1\r\nhost: localhost\r\ncontent-length: {}\r\nconnection: close\r\n\r\n{body}",
+            body.len()
+        )
+    };
+    let moved = send(port, &post("/dauntless/api/matchmaking/candidate/regions?x=1")).await;
+    let want = format!(r#"{{"regionUrls":["http://127.0.0.1:{port}/QoS"]}}"#);
+    assert_eq!(moved.text(), want);
+    assert_eq!(moved.header("content-length"), Some(want.len().to_string().as_str()));
+    // Anything else passes as it came
+    assert_eq!(send(port, &post("/elsewhere")).await.text(), body);
+    relay.stop().await;
+}
+
+#[tokio::test]
 async fn a_busy_port_is_its_own_error_and_a_busy_qos_port_is_only_logged() {
     let (target, _) = fake_server(false).await;
     let taken = TcpListener::bind("127.0.0.1:0").await.unwrap();
