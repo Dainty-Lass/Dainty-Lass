@@ -17,8 +17,9 @@ sends, the account key (`x-dainty-user-api-key`) included, to the invite's serve
 page in a browser on it, can also open 127.0.0.1, so the relay is where a local stranger would try to borrow the
 player's key or session.
 
-- **In:** plain HTTP/1.1 on `127.0.0.1:<port>` (61100, or `DAINTY_RELAY_PORT` when it passes the override rule),
-  and best effort a QoS-only listener on `127.0.0.1:80`. Never another address.
+- **In:** plain HTTP/1.1 on `127.0.0.1:<port>` (61100, or `DAINTY_RELAY_PORT` when it passes the override rule;
+  when Windows has lent that port out, the first of 41100 to 41109 that binds), and best effort a QoS-only listener
+  on `127.0.0.1:80`. Never another address.
 - **Out, public mode:** TLS 1.2/1.3 pinned to the invite's certificate fingerprint (`net::pinned`, through
   `net::connector`), to the gateway's host and port.
 - **Out, private mode:** plain HTTP, only to a private-mode host (Tailscale or loopback; `net::http::check_endpoint`).
@@ -42,8 +43,12 @@ Fuzz targets in `fuzz` (to be added by the integration pass; RL11 does not touch
 - [ ] Both listeners bind `127.0.0.1` only (`relay.rs`, `bind`). No setting changes the address.
 - [ ] The port override takes only 4 or 5 digits without a leading zero, 1024 to 65535, trimmed (`port_override`);
       anything else falls back to 61100.
-- [ ] A port in use or denied is `PortBusy`; a QoS port that won't bind is logged at info and the relay runs without
-      it.
+- [ ] A port in use is `PortBusy`; one Windows has lent out (os error 10013) moves to the first of
+      `ALTERNATE_PORTS` that binds, and is `PortBusy` when none does. A QoS port that won't bind is logged at info and
+      the relay runs without it.
+- [ ] Off its default port, the relay rewrites `127.0.0.1:61100/` to its own port in the `/candidate/regions` answer
+      only, read whole up to 64 KiB, with its length set again; a compressed answer passes untouched
+      (`a_relay_off_its_default_port_moves_the_regions_qos_target_to_itself`).
 - [ ] `stop` cancels both listeners, every connection and every tunnel, and the ports are free when it returns
       (`starts_logs_and_stops_freeing_both_ports`, `upgrades_tunnel_both_ways_plain_and_pinned_until_stopped`).
       Dropping the relay cancels too.

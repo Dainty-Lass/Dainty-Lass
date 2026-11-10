@@ -2,15 +2,15 @@
 # Dainty Lass: the Director's container (compose.yaml). Does what `dainty-host start` does
 # before the Director on Linux (crates/dainty-host/src/commands/start/mod.rs: preflight, linux_steps), then
 # runs the Rust Director with its env file (or the Node Director when DAINTY_ROLLBACK=1). The Director starts
-# each game server through .workspace/bin/reforged-gameserver (`dainty-host gameserver`, Wine on a virtual
+# each game server through .workspace/bin/dainty-gameserver (`dainty-host gameserver`, Wine on a virtual
 # display), in this container, so the game servers stop with it.
 set -eu
 
-root=/opt/reforged
+root=/opt/dainty-lass
 workspace="$root/.workspace"
 env_file="$workspace/config/director.env"
 
-if [ ! -f "$env_file" ] || [ ! -x "$workspace/bin/reforged-gameserver" ]; then
+if [ ! -f "$env_file" ] || [ ! -x "$workspace/bin/dainty-gameserver" ]; then
 	echo "director | not set up yet: docker compose run --rm host setup ... (docs/hosting-docker.md)" >&2
 	exit 78
 fi

@@ -178,15 +178,16 @@ cargo +nightly fuzz run allowlist_input -- -max_total_time=86400
 
 ## Live checks (maintainer)
 
-Neither of these runs in CI. Each uses a table or rule of its own on ports nothing uses (64770-64771) and deletes it
-afterwards.
+`crates/dainty-gateway/tests/firewall.rs`, opt-in with `DAINTY_TEST_FIREWALL=1`. Each uses a table or rule of its
+own on ports nothing uses (64770-64771) and deletes it afterwards. The nftables one runs in CI's docker job
+(`docker/test-in-image.sh` sets the variable when the container has `CAP_NET_ADMIN`); the Windows one runs nowhere
+but by hand.
 
-Debian 13, as root, with nftables installed (the result says whether nft read the script on stdin or needed a file):
+Debian 13, as root, with nftables installed:
 
 ```bash
 sudo apt install nftables
-cd rust
-sudo -E env "PATH=$PATH" DAINTY_TEST_NFT=1 cargo test -p dainty-gateway --lib nftables_for_real -- --nocapture
+sudo -E env "PATH=$PATH" DAINTY_TEST_FIREWALL=1 cargo test -p dainty-gateway --test firewall -- --nocapture
 sudo nft list tables
 ```
 
@@ -195,9 +196,8 @@ The last command must not list `dainty_lass_test`.
 Windows, in an elevated prompt:
 
 ```powershell
-cd rust
-$env:DAINTY_TEST_WINDOWS_FIREWALL = "1"
-cargo test -p dainty-gateway --lib windows_firewall_for_real -- --nocapture
+$env:DAINTY_TEST_FIREWALL = "1"
+cargo test -p dainty-gateway --test firewall -- --nocapture
 Get-NetFirewallRule -DisplayName "Dainty Lass allowlist test (delete me)" -ErrorAction SilentlyContinue
 ```
 

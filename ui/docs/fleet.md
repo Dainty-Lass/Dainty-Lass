@@ -108,7 +108,7 @@ agent refuses a plain-HTTP dashboard that is not on loopback unless `DAINTY_AGEN
 | `DAINTY_AGENT_ADMIN_API_KEY`   |                                  | Its key                                          |
 | `DAINTY_AGENT_BACKEND_URL`     | `http://127.0.0.1:41000`         | This host's backend                              |
 | `DAINTY_AGENT_OPERATOR_SECRET` |                                  | Signs `/admin/v1` calls                          |
-| `DAINTY_AGENT_INGEST_PORT`     | `61009`                          | Loopback port of the ingest relay                |
+| `DAINTY_AGENT_INGEST_PORT`     | `41009`                          | Loopback port of the ingest relay                |
 | `DAINTY_AGENT_INGEST_KEY`      |                                  | Turns the relay on                               |
 | `DAINTY_AGENT_ALLOW_HTTP`      |                                  | `on` to allow a non-loopback `http://` dashboard |
 
@@ -119,7 +119,8 @@ as the port it moved to (61003 as 41003), with a warning to update the setting; 
 ## Chat and reports from a controller
 
 The agent serves the same ingest API as the dashboard (`/api/ingest/chat`, `/api/ingest/reports`,
-`/api/ingest/chat-filter`, [integration.md](integration.md)) on `127.0.0.1:61009`, and forwards it tagged
+`/api/ingest/chat-filter`, [integration.md](integration.md)) on `127.0.0.1:41009` (and on 61009, its port before
+2026-11-10, while `DAINTY_AGENT_INGEST_PORT` is unset), and forwards it tagged
 with its controller. So a controller's backend is configured the same way whether the dashboard runs on
 that host or not; only the URL and key differ. Every controller gets the same chat filter.
 

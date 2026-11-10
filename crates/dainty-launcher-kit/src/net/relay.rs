@@ -24,7 +24,8 @@ use http_body_util::combinators::BoxBody;
 use http_body_util::{BodyExt, Empty, Full};
 use hyper::body::Incoming;
 use hyper::header::{
-    CACHE_CONTROL, CONNECTION, CONTENT_LENGTH, CONTENT_TYPE, HOST, HeaderName, HeaderValue, TRANSFER_ENCODING, UPGRADE,
+    CACHE_CONTROL, CONNECTION, CONTENT_ENCODING, CONTENT_LENGTH, CONTENT_TYPE, HOST, HeaderName, HeaderValue,
+    TRANSFER_ENCODING, UPGRADE,
 };
 use hyper::service::service_fn;
 use hyper::{HeaderMap, Method, Request, Response, StatusCode, Uri, Version};
@@ -41,8 +42,14 @@ use crate::platform::log::{Level, describe_error};
 
 /// The port the game is pointed at unless [`PORT_VAR`] overrides it.
 pub const DEFAULT_PORT: u16 = 61100;
+/// Where the game's port goes when Windows has lent [`DEFAULT_PORT`] (or the override) out to Hyper-V, WSL or Docker:
+/// below the dynamic range Windows lends from.
+pub const ALTERNATE_PORTS: std::ops::RangeInclusive<u16> = 41100..=41109;
 /// The game's QoS probe port.
 pub const DEFAULT_QOS_PORT: u16 = 80;
+/// The server's QoS target names the relay at its default port; a relay elsewhere rewrites it on the way back.
+const REGIONS_PATH: &str = "/candidate/regions";
+const MAX_REGIONS_BYTES: usize = 64 * 1024;
 /// Overrides the relay port, when [`port_override`] accepts it.
 pub const PORT_VAR: &str = "DAINTY_RELAY_PORT";
 /// The game's account key header, sent only to the home server.
@@ -221,6 +228,8 @@ struct Shared {
     log: LogSink,
     on_pin_mismatch: PinSink,
     cancel: CancellationToken,
+    /// The address the server's QoS target names and the one this relay holds, when they differ
+    qos_moved: Option<(String, String)>,
 }
 
 /// A running relay. Dropping it stops it too, without waiting.
@@ -237,8 +246,10 @@ impl Relay {
         let pin = check_endpoint(&config.target).map_err(RelayError::Target)?;
         let home = Endpoint { pin, ..config.target };
         let route = Route::new(home.clone(), None, true).map_err(RelayError::Target)?;
-        let listener = bind(config.port).await?;
+        let listener = bind_game_port(config.port).await?;
         let port = listener.local_addr().map_or(config.port, |addr| addr.port());
+        let qos_moved =
+            (port != DEFAULT_PORT).then(|| (format!("127.0.0.1:{DEFAULT_PORT}/"), format!("127.0.0.1:{port}/")));
 
         let mode = if home.pin.is_some() {
             Mode::Public
@@ -254,6 +265,7 @@ impl Relay {
             log: config.log,
             on_pin_mismatch: config.on_pin_mismatch,
             cancel: CancellationToken::new(),
+            qos_moved,
         });
         shared.log(
             Level::Info,
@@ -526,6 +538,24 @@ impl Shared {
     }
 }
 
+/// The game's port: `port`, or, when Windows has lent it out (bind refused with os error 10013), the first of
+/// [`ALTERNATE_PORTS`] that binds.
+async fn bind_game_port(port: u16) -> Result<TcpListener, RelayError> {
+    match TcpListener::bind((Ipv4Addr::LOCALHOST, port)).await {
+        Ok(listener) => Ok(listener),
+        Err(error) if error.kind() == io::ErrorKind::PermissionDenied => {
+            for alternate in ALTERNATE_PORTS {
+                if let Ok(listener) = TcpListener::bind((Ipv4Addr::LOCALHOST, alternate)).await {
+                    return Ok(listener);
+                }
+            }
+            Err(RelayError::PortBusy(port))
+        }
+        Err(error) if error.kind() == io::ErrorKind::AddrInUse => Err(RelayError::PortBusy(port)),
+        Err(error) => Err(RelayError::Listen { port, error }),
+    }
+}
+
 async fn bind(port: u16) -> Result<TcpListener, RelayError> {
     TcpListener::bind((Ipv4Addr::LOCALHOST, port))
         .await
@@ -670,9 +700,19 @@ async fn forward(shared: &Arc<Shared>, request: Request<Incoming>, target: &str)
         Ok(answer) => {
             shared.follow_redirect(answer.headers());
             let (parts, body) = answer.into_parts();
-            let mut response = Response::new(body.boxed());
+            let mut headers = answer_headers(&parts.headers);
+            let body = match &shared.qos_moved {
+                Some(moved) if is_regions(target) && !headers.contains_key(CONTENT_ENCODING) => {
+                    let text = qos_moved(body, moved).await;
+                    headers.remove(TRANSFER_ENCODING);
+                    headers.insert(CONTENT_LENGTH, HeaderValue::from(text.len()));
+                    full(text)
+                }
+                _ => body.boxed(),
+            };
+            let mut response = Response::new(body);
             *response.status_mut() = parts.status;
-            *response.headers_mut() = answer_headers(&parts.headers);
+            *response.headers_mut() = headers;
             copy_reason(&parts.extensions, response.extensions_mut());
             response
         }
@@ -773,6 +813,26 @@ async fn forward_upgrade(shared: &Arc<Shared>, mut request: Request<Incoming>, t
     headers.insert(CONNECTION, HeaderValue::from_static("close"));
     copy_reason(&parts.extensions, response.extensions_mut());
     response
+}
+
+fn is_regions(target: &str) -> bool {
+    target
+        .split('?')
+        .next()
+        .is_some_and(|path| path.ends_with(REGIONS_PATH))
+}
+
+/// The regions answer with its QoS target moved to this relay's port (`moved` is from, to).
+async fn qos_moved(body: Incoming, moved: &(String, String)) -> Bytes {
+    let read = http_body_util::Limited::new(body, MAX_REGIONS_BYTES).collect().await;
+    let Ok(collected) = read else {
+        return Bytes::new();
+    };
+    let bytes = collected.to_bytes();
+    match std::str::from_utf8(&bytes) {
+        Ok(text) => Bytes::from(text.replace(&moved.0, &moved.1)),
+        Err(_) => bytes,
+    }
 }
 
 /// Up to `limit` bytes of `body`, whatever arrives within the wait.

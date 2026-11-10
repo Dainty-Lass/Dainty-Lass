@@ -2,12 +2,12 @@
 # Dainty Lass: the full test run on the built images (CI's docker job, and by hand from the
 # repository root: bash docker/run-tests.sh). Builds the front, server and test images, then
 #  1. every server test suite inside the test image, which is the server image plus the Rust toolchain
-#     (docker/test-in-image.sh): the Rust server crates, with the allowlist's nftables test applied for real in
-#     the container's own network namespace, and the Node backend's and Director's tests
+#     (docker/test-in-image.sh): the Rust server crates, with the allowlist's firewall test applying its nftables
+#     rules for real in the container's own network namespace
 #  2. the compose smoke test on the front and server images (docker/smoke-test.sh)
 #  3. the network harness: four nodes with injected latency (docker/network/test.sh). It needs CAP_NET_ADMIN and the netem
 #     kernel module, so it is skipped with a note, not failed, where Docker cannot give them
-# Arguments pick the in-image suites (rust, backend, director); SKIP_SMOKE=1 leaves out step 2, SKIP_NETWORK=1 step 3.
+# Arguments pick the in-image suites (rust); SKIP_SMOKE=1 leaves out step 2, SKIP_NETWORK=1 step 3.
 set -euo pipefail
 
 image="${DAINTY_IMAGE:-dainty-lass}-test:${DAINTY_TAG:-local}"

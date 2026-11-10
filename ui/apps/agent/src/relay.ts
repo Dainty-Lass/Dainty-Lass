@@ -30,8 +30,9 @@ export function startIngestRelay(
     return null;
   }
   const key = cfg.ingestKey;
+  let main: ReturnType<typeof serve>;
   try {
-    return serve(cfg, key, call);
+    main = serve(cfg.ingestPort, key, call);
   } catch (error) {
     // Commands and status matter more than the relay: keep running without it.
     console.log(
@@ -39,16 +40,33 @@ export function startIngestRelay(
     );
     return null;
   }
+  let legacy: ReturnType<typeof serve> | null = null;
+  if (cfg.legacyIngestPort !== undefined) {
+    try {
+      legacy = serve(cfg.legacyIngestPort, key, call);
+      console.log(
+        `ingest relay also on 127.0.0.1:${cfg.legacyIngestPort}, the old port: point the backend at ${cfg.ingestPort}`,
+      );
+    } catch {
+      // Taken, or lent out by Windows: the new port is enough
+    }
+  }
+  return {
+    stop() {
+      main.stop();
+      legacy?.stop();
+    },
+  };
 }
 
 function serve(
-  cfg: AgentConfig,
+  port: number,
   key: string,
   call: (path: string, init?: RequestInit) => Promise<Response>,
 ) {
   return Bun.serve({
     hostname: "127.0.0.1",
-    port: cfg.ingestPort,
+    port,
     async fetch(request) {
       const route = ROUTES[new URL(request.url).pathname];
       if (!route || request.method !== route.method) return new Response(null, { status: 404 });

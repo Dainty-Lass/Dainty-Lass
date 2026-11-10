@@ -20,6 +20,8 @@
 #   REMOTE_NO_BUILD=1       the images are built already
 #   REMOTE_KEEP_UP=1        leave the `remote` profile running on exit (for interactive inspection / UI screenshots)
 set -euo pipefail
+# Git Bash on Windows would rewrite the /opt/... paths handed to docker into Windows ones
+export MSYS_NO_PATHCONV=1
 
 export MSYS_NO_PATHCONV=1
 export COMPOSE_PROJECT_NAME="${COMPOSE_PROJECT_NAME:-dainty-remote}"

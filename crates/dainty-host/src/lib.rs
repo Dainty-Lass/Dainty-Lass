@@ -884,8 +884,12 @@ impl hooks::HostHooks for ServicesHostHooks {
                 drop(argv);
                 Some(gateway_service_main(args))
             }
+            // The gateway's and allowlist's mains take the arguments after the program's name
             #[cfg(feature = "allowlist")]
-            "allowlist" => Some(dainty_gateway::allowlist::cli::main_from(argv.collect())),
+            "allowlist" => {
+                drop(argv);
+                Some(dainty_gateway::allowlist::cli::main_from(args.to_vec()))
+            }
             #[cfg(feature = "content")]
             "content" => Some(dainty_content::cli::main_from(argv)),
             #[cfg(feature = "admin")]
@@ -985,9 +989,7 @@ fn parse_service_env_file(
 
 #[cfg(feature = "gateway")]
 fn gateway_service_main(args: &[String]) -> ExitCode {
-    let argv: Vec<String> = std::iter::once("gateway".to_owned())
-        .chain(args.iter().cloned())
-        .collect();
+    let argv: Vec<String> = args.to_vec();
     if args.first().map(String::as_str) == Some("make-cert")
         || args
             .iter()

@@ -122,7 +122,6 @@ jobs:
               - .dockerignore
               - restricted/docker/**
               - restricted/compose*.yaml
-              - restricted/.dockerignore
               - restricted/.env.example
               - restricted/Cargo.toml
               - restricted/Cargo.lock
