@@ -283,7 +283,7 @@ pub struct SetupArgs {
     /// Skips installing and building the services.
     #[arg(long = "skip-install")]
     pub skip_install: bool,
-    /// Reads the Discord bot's token from stdin into secrets.env and turns the bot on ([discord]).
+    /// Reads the Discord bot's token from stdin into secrets.env and turns the bot on (host.toml's discord table).
     #[arg(long = "discord-bot-token")]
     pub discord_bot_token: bool,
     /// Turns the Discord bot off; its token stays in secrets.env.

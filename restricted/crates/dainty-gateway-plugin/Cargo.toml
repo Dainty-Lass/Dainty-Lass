@@ -18,3 +18,5 @@ dainty-gateway.workspace = true
 dainty-module-api.workspace = true
 dainty-service-plugin.workspace = true
 
+[lints]
+workspace = true

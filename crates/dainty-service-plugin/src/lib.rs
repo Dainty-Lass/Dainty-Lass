@@ -444,6 +444,7 @@ macro_rules! export_service {
             unsafe_code,
             reason = "the exported C entry point needs `no_mangle`, which is unsafe"
         )]
+        /// The core's entry point into this library: the service's plugin table (RD27).
         #[unsafe(no_mangle)]
         pub extern "C" fn dainty_service_v1() -> *const ::dainty_module_api::plugin::PluginV1 {
             unsafe extern "C" fn open(sink: ::dainty_module_api::plugin::HostSink) -> *mut ::std::ffi::c_void {

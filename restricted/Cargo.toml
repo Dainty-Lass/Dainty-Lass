@@ -137,6 +137,7 @@ windows = { version = "0.62.2", features = ["Win32_Foundation", "Win32_Security"
 [workspace.lints.rust]
 unsafe_code = "deny"
 unused_must_use = "deny"
+missing_docs = "warn"
 
 [workspace.lints.clippy]
 # A panic in a request handler is caught (CatchPanicLayer), but it still drops the request.

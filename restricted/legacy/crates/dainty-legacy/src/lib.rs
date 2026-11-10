@@ -15,18 +15,24 @@ use dainty_module_api::{
     ModuleContext, ModuleError, ModuleKind, ModuleManifest, ModuleStatus, Phase, Registrar,
 };
 
+/// The plugin's module id.
 pub const MODULE_ID: &str = "legacy";
+/// The name the console and dashboard show.
 pub const DISPLAY_NAME: &str = "Legacy import";
 /// The game version the plugin extends: the one an import upgrades to
 pub const GAME_VERSION: &str = "1.14.7";
 
 /// The commands, `module run legacy <command> ...`; `dainty-host legacy import <kind>` maps onto them
 pub mod commands {
+    /// Imports a Dauntless Revived 1.4.4 server database.
     pub const REVIVED: &str = "import-revived";
+    /// Imports a Dauntless Revived offline save.
     pub const OFFLINE_SAVE: &str = "import-offline-save";
+    /// Moves an old Reforged checkout's files and data into Dainty Lass.
     pub const REFORGED: &str = "import-reforged";
 }
 
+/// The plugin's manifest: a 1.14.7 plugin with no ports.
 pub fn manifest() -> ModuleManifest {
     let (Ok(id), Ok(game_version)) = (MODULE_ID.parse(), GAME_VERSION.parse()) else {
         unreachable!("the module's constants parse")
@@ -63,6 +69,7 @@ fn error(error: dainty_legacy_import::ImportError) -> ModuleError {
     ModuleError::new(kind, error.to_string())
 }
 
+/// The plugin: its console commands and its phase.
 pub struct LegacyPlugin {
     phase: Mutex<Phase>,
 }
@@ -81,6 +88,7 @@ impl LegacyPlugin {
     }
 }
 
+/// The plugin as the module host loads it.
 pub fn module() -> LegacyPlugin {
     LegacyPlugin::default()
 }

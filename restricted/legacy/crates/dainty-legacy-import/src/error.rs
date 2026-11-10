@@ -2,6 +2,7 @@
 //! of every message, since they reach the host's console and logs.
 
 #[derive(Debug, thiserror::Error)]
+/// Why an import failed.
 pub enum ImportError {
     /// The source is not what it says it is, or not something this importer accepts
     #[error("{0}")]
@@ -10,16 +11,20 @@ pub enum ImportError {
     #[error("target database: {0}")]
     Target(String),
     #[error("{0}")]
+    /// A file couldn't be read or written.
     Io(String),
     #[error("{0}")]
+    /// The command was used wrongly; the message ends with the usage text.
     Usage(String),
 }
 
 impl ImportError {
+    /// An [`ImportError::Invalid`] with `message`.
     pub fn invalid(message: impl Into<String>) -> Self {
         Self::Invalid(message.into())
     }
 
+    /// An [`ImportError::Io`] naming `path`.
     pub fn io(path: &std::path::Path, error: impl std::fmt::Display) -> Self {
         Self::Io(format!("{}: {error}", path.display()))
     }
@@ -52,4 +57,5 @@ impl From<dainty_store::Error> for ImportError {
     }
 }
 
+/// An import's result.
 pub type Result<T> = std::result::Result<T, ImportError>;

@@ -21,6 +21,7 @@ use crate::report::Report;
 use crate::revived::Options;
 use crate::target::Target;
 
+/// The commands' usage text, appended to every usage error.
 pub const USAGE: &str = "\
 usage:
   import revived      <database> (--to <1.14.7 database> | --env-file <backend env file>) [--node <id>] [--dry-run]
@@ -29,13 +30,18 @@ usage:
 every path is absolute";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Which import a command runs.
 pub enum Kind {
+    /// A Dauntless Revived 1.4.4 server database.
     Revived,
+    /// A Dauntless Revived offline save.
     OfflineSave,
+    /// An old Reforged checkout.
     Reforged,
 }
 
 impl Kind {
+    /// The kind a command line names, if it names one.
     pub fn parse(text: &str) -> Option<Self> {
         match text {
             "revived" => Some(Self::Revived),
@@ -49,19 +55,28 @@ impl Kind {
 /// Where the 1.14.7 database is.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum TargetArg {
+    /// A SQLite database file.
     File(PathBuf),
     /// The backend's env file the host kit wrote, read for `DAINTY_DB_*` (or `REFORGED_DB_*`) (its password is never printed)
     EnvFile(PathBuf),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// One import, as the console or the command line asked for it.
 pub struct Request {
+    /// Which import.
     pub kind: Kind,
+    /// The database, save or checkout to import from.
     pub source: PathBuf,
+    /// The 1.14.7 database; optional only for `reforged`.
     pub target: Option<TargetArg>,
+    /// The node the imported rows belong to.
     pub node: Option<NodeId>,
+    /// Write nothing; report what would be written.
     pub dry_run: bool,
+    /// `reforged`: start 1.14.7 on a new database instead of migrating MongoDB.
     pub fresh_start: bool,
+    /// `reforged`: the database tool to run, instead of [`DEFAULT_DB_TOOL`] from `PATH`.
     pub db_tool: Option<PathBuf>,
 }
 
@@ -155,6 +170,7 @@ fn setting(env: &BTreeMap<String, String>, name: &str) -> Option<String> {
         .cloned()
 }
 
+/// The database a target argument names, reading an env file's `DAINTY_DB_*` settings.
 pub fn database_config(target: &TargetArg) -> Result<DatabaseConfig> {
     match target {
         TargetArg::File(file) => Ok(DatabaseConfig::Sqlite { file: file.clone() }),

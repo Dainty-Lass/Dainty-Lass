@@ -13,6 +13,7 @@ pub mod compose;
 #[cfg(feature = "db-tools")]
 pub mod version_data;
 
+/// `dainty_hostkit::run`, the helpers that run a child process.
 pub mod run {
     pub use dainty_hostkit::run::*;
 }
@@ -45,6 +46,7 @@ struct ServicesHostHooks;
 
 static SERVICES_HOST_HOOKS: ServicesHostHooks = ServicesHostHooks;
 
+/// Installs this binary's compiled-in services as the host kit's hooks; every entry point below calls it.
 #[inline]
 pub fn ensure_hooks() {
     dainty_hostkit::hooks::set_hooks(&SERVICES_HOST_HOOKS);
@@ -1588,23 +1590,28 @@ fn isles_service_main(name: &'static str, args: &[String]) -> ExitCode {
     })
 }
 
+/// `dainty_hostkit::doctor`, its entry points wrapped to install this binary's hooks first.
 pub mod doctor {
     pub use dainty_hostkit::doctor::*;
 
+    /// [`dainty_hostkit::doctor::run_doctor`] with this binary's hooks installed.
     pub fn run_doctor(p: &crate::paths::Paths, opts: &DoctorOptions) -> Result<Vec<Check>, crate::HostError> {
         crate::ensure_hooks();
         dainty_hostkit::doctor::run_doctor(p, opts)
     }
 
+    /// [`dainty_hostkit::doctor::store_database_check`] with this binary's hooks installed.
     pub fn store_database_check(p: &crate::paths::Paths, config: &crate::hostconfig::HostConfig) -> Check {
         crate::ensure_hooks();
         dainty_hostkit::doctor::store_database_check(p, config)
     }
 }
 
+/// `dainty_hostkit::gamedata`, its entry points wrapped to install this binary's hooks first.
 pub mod gamedata {
     pub use dainty_hostkit::gamedata::*;
 
+    /// [`dainty_hostkit::gamedata::run_generator`] with this binary's hooks installed.
     pub fn run_generator(
         p: &crate::paths::Paths,
         step: &Step<'_>,
@@ -1614,6 +1621,7 @@ pub mod gamedata {
         dainty_hostkit::gamedata::run_generator(p, step, log_file)
     }
 
+    /// [`dainty_hostkit::gamedata::generate_game_data`] with this binary's hooks installed.
     pub fn generate_game_data(
         p: &crate::paths::Paths,
         opts: &GenerateOptions,
@@ -1623,6 +1631,7 @@ pub mod gamedata {
         dainty_hostkit::gamedata::generate_game_data(p, opts, print)
     }
 
+    /// [`dainty_hostkit::gamedata::generate_game_data_with`] with this binary's hooks installed.
     pub fn generate_game_data_with(
         p: &crate::paths::Paths,
         opts: &GenerateOptions,
@@ -1634,9 +1643,11 @@ pub mod gamedata {
     }
 }
 
+/// `dainty_hostkit::serve`, its entry points wrapped to install this binary's hooks first.
 pub mod serve {
     pub use dainty_hostkit::serve::*;
 
+    /// [`dainty_hostkit::serve::compose`] with this binary's hooks installed.
     pub fn compose(
         paths: &crate::paths::Paths,
         config: &crate::hostconfig::HostConfig,
@@ -1647,6 +1658,7 @@ pub mod serve {
         dainty_hostkit::serve::compose(paths, config, external_allowlist, printer)
     }
 
+    /// [`dainty_hostkit::serve::new_registry`] with this binary's hooks installed.
     pub fn new_registry(
         config: &crate::hostconfig::HostConfig,
         controller: &dainty_controller::ServerController,
@@ -1655,6 +1667,7 @@ pub mod serve {
         dainty_hostkit::serve::new_registry(config, controller)
     }
 
+    /// [`dainty_hostkit::serve::ensure_server_files`] with this binary's hooks installed.
     pub fn ensure_server_files(
         paths: &crate::paths::Paths,
         config: &crate::hostconfig::HostConfig,
@@ -1663,11 +1676,13 @@ pub mod serve {
         dainty_hostkit::serve::ensure_server_files(paths, config)
     }
 
+    /// [`dainty_hostkit::serve::run`] with this binary's hooks installed.
     pub fn run(paths: &crate::paths::Paths, options: &ServeOptions) -> crate::Outcome {
         crate::ensure_hooks();
         dainty_hostkit::serve::run(paths, options)
     }
 
+    /// [`dainty_hostkit::serve::prepare_embedded`] with this binary's hooks installed.
     pub fn prepare_embedded(
         paths: &crate::paths::Paths,
         printer: crate::services::Printer,
@@ -1676,21 +1691,26 @@ pub mod serve {
         dainty_hostkit::serve::prepare_embedded(paths, printer)
     }
 
+    /// [`dainty_hostkit::serve::minimal_main`] with this binary's hooks installed.
     pub fn minimal_main() -> std::process::ExitCode {
         crate::ensure_hooks();
         dainty_hostkit::serve::minimal_main()
     }
 }
 
+/// `dainty_hostkit::commands`, its entry points wrapped to install this binary's hooks first.
 pub mod commands {
     pub use dainty_hostkit::commands::{backup, history, install_game, invite, multipliers, network, preset, remote};
 
+    /// `dainty_hostkit::commands::gamedata`, its entry points wrapped to install this binary's hooks first.
     pub mod gamedata {
+        /// [`dainty_hostkit::commands::gamedata::run`] with this binary's hooks installed.
         pub fn run(paths: &crate::paths::Paths, args: &crate::cli::GamedataArgs) -> crate::Outcome {
             crate::ensure_hooks();
             dainty_hostkit::commands::gamedata::run(paths, args)
         }
 
+        /// [`dainty_hostkit::commands::gamedata::run_with`] with this binary's hooks installed.
         pub fn run_with(
             paths: &crate::paths::Paths,
             args: &crate::cli::GamedataArgs,
@@ -1701,12 +1721,15 @@ pub mod commands {
         }
     }
 
+    /// `dainty_hostkit::commands::publish_runtime`, its entry points wrapped to install this binary's hooks first.
     pub mod publish_runtime {
+        /// [`dainty_hostkit::commands::publish_runtime::run`] with this binary's hooks installed.
         pub fn run(paths: &crate::paths::Paths, args: &crate::cli::PublishRuntimeArgs) -> crate::Outcome {
             crate::ensure_hooks();
             dainty_hostkit::commands::publish_runtime::run(paths, args)
         }
 
+        /// [`dainty_hostkit::commands::publish_runtime::run_with`] with this binary's hooks installed.
         pub fn run_with(
             paths: &crate::paths::Paths,
             args: &crate::cli::PublishRuntimeArgs,
@@ -1717,19 +1740,23 @@ pub mod commands {
         }
     }
 
+    /// [`dainty_hostkit::commands::dispatch`] with this binary's hooks installed.
     pub fn dispatch(command: &crate::cli::Command, paths: &crate::paths::Paths) -> crate::Outcome {
         crate::ensure_hooks();
         dainty_hostkit::commands::dispatch(command, paths)
     }
 
+    /// `dainty_hostkit::commands::db`, its entry points wrapped to install this binary's hooks first.
     pub mod db {
         pub use dainty_hostkit::commands::db::*;
 
+        /// [`dainty_hostkit::commands::db::run`] with this binary's hooks installed.
         pub fn run(paths: &crate::paths::Paths, args: &crate::cli::DbArgs) -> crate::Outcome {
             crate::ensure_hooks();
             dainty_hostkit::commands::db::run(paths, args)
         }
 
+        /// [`dainty_hostkit::commands::db::run_with`] with this binary's hooks installed.
         pub fn run_with(
             paths: &crate::paths::Paths,
             args: &crate::cli::DbArgs,
@@ -1740,23 +1767,28 @@ pub mod commands {
         }
     }
 
+    /// `dainty_hostkit::commands::doctor`, its entry points wrapped to install this binary's hooks first.
     pub mod doctor {
         pub use dainty_hostkit::commands::doctor::*;
 
+        /// [`dainty_hostkit::commands::doctor::run`] with this binary's hooks installed.
         pub fn run(paths: &crate::paths::Paths, args: &crate::cli::DoctorArgs) -> std::process::ExitCode {
             crate::ensure_hooks();
             dainty_hostkit::commands::doctor::run(paths, args)
         }
     }
 
+    /// `dainty_hostkit::commands::setup`, its entry points wrapped to install this binary's hooks first.
     pub mod setup {
         pub use dainty_hostkit::commands::setup::*;
 
+        /// [`dainty_hostkit::commands::setup::run`] with this binary's hooks installed.
         pub fn run(paths: &crate::paths::Paths, args: &crate::cli::SetupArgs) -> std::process::ExitCode {
             crate::ensure_hooks();
             dainty_hostkit::commands::setup::run(paths, args)
         }
 
+        /// [`dainty_hostkit::commands::setup::run_with`] with this binary's hooks installed.
         pub fn run_with(
             p: &crate::paths::Paths,
             args: &crate::cli::SetupArgs,
@@ -1768,27 +1800,33 @@ pub mod commands {
         }
     }
 
+    /// `dainty_hostkit::commands::start`, its entry points wrapped to install this binary's hooks first.
     pub mod start {
         pub use dainty_hostkit::commands::start::*;
 
+        /// [`dainty_hostkit::commands::start::run`] with this binary's hooks installed.
         pub fn run(paths: &crate::paths::Paths) -> crate::Outcome {
             crate::ensure_hooks();
             dainty_hostkit::commands::start::run(paths)
         }
 
+        /// `dainty_hostkit::commands::start::binaries`, re-exported.
         pub mod binaries {
             pub use dainty_hostkit::commands::start::binaries::*;
         }
     }
 
+    /// `dainty_hostkit::commands::update`, its entry points wrapped to install this binary's hooks first.
     pub mod update {
         pub use dainty_hostkit::commands::update::*;
 
+        /// [`dainty_hostkit::commands::update::run`] with this binary's hooks installed.
         pub fn run(paths: &crate::paths::Paths, args: &crate::cli::UpdateArgs) -> std::process::ExitCode {
             crate::ensure_hooks();
             dainty_hostkit::commands::update::run(paths, args)
         }
 
+        /// [`dainty_hostkit::commands::update::run_with`] with this binary's hooks installed.
         pub fn run_with(
             p: &crate::paths::Paths,
             args: &crate::cli::UpdateArgs,
@@ -1799,6 +1837,7 @@ pub mod commands {
             dainty_hostkit::commands::update::run_with(p, args, env, out)
         }
 
+        /// [`dainty_hostkit::commands::update::check_unmigrated_mongo_data`] with this binary's hooks installed.
         pub fn check_unmigrated_mongo_data(
             p: &crate::paths::Paths,
             config: &crate::hostconfig::HostConfig,
@@ -1807,6 +1846,7 @@ pub mod commands {
             dainty_hostkit::commands::update::check_unmigrated_mongo_data(p, config)
         }
 
+        /// [`dainty_hostkit::commands::update::inspect_mongo_migration`] with this binary's hooks installed.
         pub fn inspect_mongo_migration(p: &crate::paths::Paths) -> MongoMigrationStatus {
             crate::ensure_hooks();
             dainty_hostkit::commands::update::inspect_mongo_migration(p)
@@ -1814,16 +1854,19 @@ pub mod commands {
     }
 }
 
+/// [`dainty_hostkit::run()`] with this binary's hooks installed.
 pub fn run(cli: &cli::Cli) -> Outcome {
     ensure_hooks();
     dainty_hostkit::run(cli)
 }
 
+/// [`dainty_hostkit::service_main`] with this binary's hooks installed.
 pub fn service_main(name: &str, args: &[String]) -> ExitCode {
     ensure_hooks();
     dainty_hostkit::service_main(name, args)
 }
 
+/// Parses the command line and runs it, printing the error a failed command ends with.
 pub fn host_main() -> ExitCode {
     ensure_hooks();
     let cli = cli::Cli::parse();
@@ -1836,6 +1879,7 @@ pub fn host_main() -> ExitCode {
     }
 }
 
+/// [`dainty_hostkit::console_main`] with this binary's hooks installed.
 pub fn console_main() -> ExitCode {
     ensure_hooks();
     dainty_hostkit::console_main()

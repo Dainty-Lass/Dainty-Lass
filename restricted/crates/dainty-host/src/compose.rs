@@ -162,17 +162,26 @@ impl network_plugin::ring::AllowlistSink for NoGateway {
 /// Configuration for the `"network"` module (DD2, DN3, DN5, DH7).
 #[cfg(feature = "gateway")]
 pub struct NetworkOptions {
+    /// This node.
     pub node: dainty_module_api::NodeIdentity,
+    /// The ring's leader.
     pub leader: dainty_module_api::network::NodeId,
+    /// The other nodes, as `[[network.nodes]]` lists them.
     pub peers: Vec<network_plugin::cluster::Peer>,
+    /// This node's certificate chain, key and the cluster CA.
     pub credentials: network_plugin::cluster::NodeCredentials,
+    /// This node's private signing key.
     pub signing_key: network_plugin::home::SigningKey,
+    /// The node database.
     pub database: dainty_store::DatabaseConfig,
+    /// The game version the ring serves.
     pub game: dainty_module_api::GameVersion,
+    /// The registry the module joins.
     pub registry: dainty_controller::ModuleRegistry,
     /// The gateway this process runs ([`gateway`] or [`gateway_library`]): the ring's players are admitted through
     /// its allowlist (DN8, DN9)
     pub allowlist: Option<dainty_controller::service_library::gateway::GatewayHandle>,
+    /// How often the directory replicates to the peers.
     pub replication_interval: std::time::Duration,
     /// Folder where this node stores log segments and snapshots shipped from peers (`Service::LogShip`, DH7).
     pub peer_log_dir: Option<std::path::PathBuf>,
@@ -496,16 +505,23 @@ pub fn content_library(
 /// Network peer configuration for [`chat`] when running in a multi-node cluster (DN10b).
 #[derive(Clone)]
 pub struct ChatNetworkOptions {
+    /// The ring's leader.
     pub leader: dainty_module_api::network::NodeId,
+    /// The other nodes and their regions.
     pub peers: Vec<(dainty_module_api::network::NodeId, dainty_module_api::network::Region)>,
 }
 
 /// Configuration for the `"chat"` module (DD21, DN10a, DN10b), in-process or as a library.
 pub struct ChatOptions {
+    /// The chat service's env file.
     pub env: dainty_service_kit::env::Env,
+    /// This node.
     pub node: dainty_module_api::NodeIdentity,
+    /// The node database, beside which `chat.db` lives.
     pub database: dainty_store::DatabaseConfig,
+    /// The registry the module joins.
     pub registry: dainty_controller::ModuleRegistry,
+    /// The cluster's peers; `None` on a single node.
     pub network: Option<ChatNetworkOptions>,
 }
 

@@ -7,22 +7,28 @@ use std::fmt::Write as _;
 use serde::Serialize;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+/// A source row the import left out.
 pub struct Skipped {
     /// `account`, `discord_link`, `invite`, `folder`...
     pub kind: &'static str,
+    /// The row's id.
     pub id: String,
+    /// Why it was left out.
     pub reason: String,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize)]
+/// What an import did, for the console and as JSON.
 pub struct Report {
     /// `revived`, `offline-save` or `reforged`
     pub source: &'static str,
+    /// Whether this was a dry run.
     pub dry_run: bool,
     /// What was written (or would be, on a dry run)
     pub imported: BTreeMap<&'static str, usize>,
     /// Rows already in the target from an earlier run, left as they are
     pub unchanged: BTreeMap<&'static str, usize>,
+    /// Rows left out, with why.
     pub skipped: Vec<Skipped>,
     /// Source rows by table that have no 1.14.7 equivalent and were left behind
     pub dropped: BTreeMap<String, usize>,
@@ -31,6 +37,7 @@ pub struct Report {
 }
 
 impl Report {
+    /// An empty report for `source`.
     pub fn new(source: &'static str, dry_run: bool) -> Self {
         Self {
             source,
@@ -39,14 +46,17 @@ impl Report {
         }
     }
 
+    /// Counts one `what` written.
     pub fn count(&mut self, what: &'static str) {
         *self.imported.entry(what).or_default() += 1;
     }
 
+    /// Counts one `what` already in the target.
     pub fn unchanged(&mut self, what: &'static str) {
         *self.unchanged.entry(what).or_default() += 1;
     }
 
+    /// Records a row left out.
     pub fn skip(&mut self, kind: &'static str, id: impl Into<String>, reason: impl Into<String>) {
         self.skipped.push(Skipped {
             kind,
@@ -55,10 +65,12 @@ impl Report {
         });
     }
 
+    /// Adds a note for the host.
     pub fn note(&mut self, note: impl Into<String>) {
         self.notes.push(note.into());
     }
 
+    /// How many `what` were written.
     pub fn imported(&self, what: &str) -> usize {
         self.imported.get(what).copied().unwrap_or(0)
     }

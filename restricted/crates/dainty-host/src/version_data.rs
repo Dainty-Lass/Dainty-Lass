@@ -7,8 +7,10 @@ use std::path::Path;
 
 use rustic_isles_1_14_7::{DATA_FILE, VersionData};
 
+/// The compiled-in `version_data.json`.
 pub const DOCUMENT: &str = include_str!("../../../modules/rustic-isles/version-data/1.14.7/version_data.json");
 
+/// Parses [`DOCUMENT`].
 pub fn load() -> Result<VersionData, String> {
     let value: serde_json::Value =
         serde_json::from_str(DOCUMENT).map_err(|e| format!("{DATA_FILE} (compiled in): {e}"))?;
