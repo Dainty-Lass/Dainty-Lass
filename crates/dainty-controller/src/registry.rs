@@ -79,6 +79,8 @@ pub struct RegistryOptions {
     pub child: ChildOptions,
     /// The server's own ports, which no module is given
     pub reserved_ports: Vec<(Transport, PortRange)>,
+    /// The host's first choice for a manifest's port of that name, over the manifest's default (host.toml `[ports]`)
+    pub port_defaults: std::collections::BTreeMap<String, u16>,
     /// Game versions the host kit serves outside the registry, and what serves them
     pub taken_versions: Vec<(GameVersion, String)>,
     /// How often children are checked for a broken pipe
@@ -140,6 +142,7 @@ impl RegistryOptions {
                 ..ChildOptions::default()
             },
             reserved_ports: Vec::new(),
+            port_defaults: std::collections::BTreeMap::new(),
             taken_versions: Vec::new(),
             watch_every: Duration::from_millis(250),
             restart: RestartPolicy::default(),
@@ -428,6 +431,9 @@ impl ModuleRegistry {
         let mut state = State::default();
         for (transport, range) in &options.reserved_ports {
             state.ports.reserve(*transport, *range);
+        }
+        for (name, first) in &options.port_defaults {
+            state.ports.prefer(name, *first);
         }
         let (events, _) = broadcast::channel(256);
         Self {

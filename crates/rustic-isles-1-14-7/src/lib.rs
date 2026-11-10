@@ -45,9 +45,9 @@ pub const DISPLAY_NAME: &str = "Rustic Isles 1.14.7";
 pub const INVITE_ALIASES: &[&str] = &["reforged"];
 /// The backend, director, QoS and game server ports a host gets unless it sets its own.
 pub const DEFAULT_PORTS: DefaultPorts = DefaultPorts {
-    backend: 61_000,
-    director: 61_001,
-    qos: 61_010,
+    backend: 41_000,
+    director: 41_001,
+    qos: 41_010,
     game: PortRange {
         first: 8770,
         last: 8777,

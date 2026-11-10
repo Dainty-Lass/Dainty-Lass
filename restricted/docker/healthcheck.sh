@@ -19,11 +19,11 @@ setting() {
 
 case "$name" in
 	gateway) host="$(setting GATEWAY_BIND 0.0.0.0)" port="$(setting GATEWAY_PORT 443)" ;;
-	allowlist) host="$(setting ALLOWLIST_BIND 127.0.0.1)" port="$(setting ALLOWLIST_PORT 61005)" ;;
-	content) host="$(setting BIND_HOST 127.0.0.1)" port="$(setting PORT 61002)" ;;
-	admin) host="$(setting BIND_HOST 127.0.0.1)" port="$(setting PORT 61003)" ;;
-	backend) host="$(setting BIND_HOST 127.0.0.1)" port="$(setting PORT 61000)" ;;
-	director) host="$(setting BIND_HOST 127.0.0.1)" port="$(setting PORT 61001)" ;;
+	allowlist) host="$(setting ALLOWLIST_BIND 127.0.0.1)" port="$(setting ALLOWLIST_PORT 41005)" ;;
+	content) host="$(setting BIND_HOST 127.0.0.1)" port="$(setting PORT 41002)" ;;
+	admin) host="$(setting BIND_HOST 127.0.0.1)" port="$(setting PORT 41003)" ;;
+	backend) host="$(setting BIND_HOST 127.0.0.1)" port="$(setting PORT 41000)" ;;
+	director) host="$(setting BIND_HOST 127.0.0.1)" port="$(setting PORT 41001)" ;;
 	*) echo "unknown service $name" >&2; exit 2 ;;
 esac
 [ "$host" = 0.0.0.0 ] && host=127.0.0.1

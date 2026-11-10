@@ -21,19 +21,23 @@ pub const MAX_HUNTS: u32 = 10;
 /// The public port a 1.4.4 edition's gateway listened on.
 pub const DEFAULT_LEGACY_PUBLIC_PORT: u16 = 4443;
 
-/// The server's fixed ports.
+/// The server's ports.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Ports {
     /// The backend's TCP port.
     pub backend: u16,
     /// The Director's TCP port.
     pub director: u16,
+    /// The backend's QoS listener's TCP port.
+    pub qos: u16,
     /// The content server's TCP port.
     pub content: u16,
     /// The admin service's TCP port.
     pub admin: u16,
     /// The allowlist's TCP port.
     pub allowlist: u16,
+    /// Chat's TCP port, behind the gateway.
+    pub chat: u16,
     /// A public server's gateway port, unless host.toml sets another.
     pub public_gateway: u16,
     /// A private server's gateway port.
@@ -50,13 +54,16 @@ pub struct Ports {
     pub game_lowest: u16,
 }
 
-/// The ports the server uses.
+/// The ports the server uses unless host.toml's `[ports]` moves one (`hostconfig::service_ports`). The loopback
+/// ones sit below 49152, outside the dynamic range Windows lends Hyper-V, WSL and Docker in blocks of 100.
 pub const PORTS: Ports = Ports {
-    backend: 61000,
-    director: 61001,
-    content: 61002,
-    admin: 61003,
-    allowlist: 61005,
+    backend: 41000,
+    director: 41001,
+    qos: 41010,
+    content: 41002,
+    admin: 41003,
+    allowlist: 41005,
+    chat: 41006,
     public_gateway: 443,
     private_gateway: 61000,
     relay: 61100,

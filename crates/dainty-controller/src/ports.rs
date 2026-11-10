@@ -24,6 +24,7 @@ struct Held {
 #[derive(Debug, Clone, Default)]
 pub struct PortBook {
     held: Vec<Held>,
+    preferred: BTreeMap<String, u16>,
 }
 
 /// Returned by [`PortBook::assign`] when moving a port up past every clash runs out of port numbers.
@@ -51,6 +52,11 @@ impl PortBook {
         });
     }
 
+    /// Starts a manifest's port called `name` at `first` instead of its default, keeping its width.
+    pub fn prefer(&mut self, name: &str, first: u16) {
+        self.preferred.insert(name.to_owned(), first);
+    }
+
     fn clash(&self, transport: Transport, range: PortRange) -> Option<PortRange> {
         self.held
             .iter()
@@ -70,7 +76,13 @@ impl PortBook {
         let before = self.held.len();
         for port in ports {
             let width = port.range.width();
-            let mut range = port.range;
+            let mut range = match self.preferred.get(&port.name) {
+                Some(&first) => match u16::try_from(u32::from(first) + width - 1) {
+                    Ok(last) => PortRange { first, last },
+                    Err(_) => port.range,
+                },
+                None => port.range,
+            };
             while let Some(taken) = self.clash(port.transport, range) {
                 let first = u32::from(taken.last) + 1;
                 let last = first + width - 1;
@@ -159,6 +171,34 @@ mod tests {
             PortRange {
                 first: 61000,
                 last: 61009
+            }
+        );
+    }
+
+    #[test]
+    fn a_preferred_port_starts_where_the_host_put_it_and_still_moves_past_a_clash() {
+        let mut book = PortBook::default();
+        book.prefer("backend", 42000);
+        book.prefer("game", 9000);
+        book.reserve(Transport::Tcp, PortRange::single(42000));
+        let a: ModuleId = "a".parse().unwrap();
+        let given = book
+            .assign(
+                &a,
+                &[
+                    port("backend", Transport::Tcp, 41000, 41000),
+                    port("director", Transport::Tcp, 41001, 41001),
+                    port("game", Transport::Udp, 8770, 8777),
+                ],
+            )
+            .unwrap();
+        assert_eq!(given["backend"], PortRange::single(42001));
+        assert_eq!(given["director"], PortRange::single(41001));
+        assert_eq!(
+            given["game"],
+            PortRange {
+                first: 9000,
+                last: 9007
             }
         );
     }

@@ -13,11 +13,11 @@ use dainty_service_kit::js;
 use serde_json::Value;
 
 /// Port served on when `PORT` is unset.
-pub const DEFAULT_PORT: u16 = 61002;
+pub const DEFAULT_PORT: u16 = 41002;
 /// Host bound when `BIND_HOST` is unset.
 pub const DEFAULT_BIND: &str = "127.0.0.1";
 /// Backend reached when `BACKEND_URL` is unset.
-pub const DEFAULT_BACKEND: &str = "http://127.0.0.1:61000";
+pub const DEFAULT_BACKEND: &str = "http://127.0.0.1:41000";
 
 /// The content server's settings, from `content.env`.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -186,9 +186,9 @@ mod tests {
     fn c1_defaults() {
         let c = config(&[]).unwrap();
         assert_eq!(c.version, dainty_protocol::invite::dainty_version());
-        assert_eq!(c.port, 61002);
+        assert_eq!(c.port, 41002);
         assert_eq!(c.bind_hosts, ["127.0.0.1"]);
-        assert_eq!(c.backend_url, "http://127.0.0.1:61000");
+        assert_eq!(c.backend_url, "http://127.0.0.1:41000");
         assert_eq!(
             (c.runtime_dir, c.branding_dir, c.news_file, c.news_url),
             (None, None, None, None)
@@ -289,7 +289,7 @@ mod tests {
         );
         assert_eq!(config(&[("PORT", "1e1")]).unwrap().port, 10);
         assert_eq!(config(&[("PORT", "0x10")]).unwrap().port, 16);
-        assert_eq!(config(&[("PORT", " ")]).unwrap().port, 61002);
+        assert_eq!(config(&[("PORT", " ")]).unwrap().port, 41002);
         let dir = config(&[("CONTENT_RUNTIME_DIR", " runtime ")])
             .unwrap()
             .runtime_dir

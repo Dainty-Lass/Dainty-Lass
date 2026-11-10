@@ -36,9 +36,9 @@ fn manifest() {
     assert_eq!(
         ports,
         [
-            ("backend", Transport::Tcp, 61000, 61000),
-            ("director", Transport::Tcp, 61001, 61001),
-            ("qos", Transport::Tcp, 61010, 61010),
+            ("backend", Transport::Tcp, 41000, 41000),
+            ("director", Transport::Tcp, 41001, 41001),
+            ("qos", Transport::Tcp, 41010, 41010),
             ("game", Transport::Udp, 8770, 8777),
         ]
     );

@@ -354,9 +354,9 @@ pub fn compose(
     external_allowlist: bool,
     printer: Printer,
 ) -> Result<ServerController, HostError> {
-    use crate::paths::PORTS;
     use crate::services::Ready;
     use start_cmd::binaries::{FrontService, Programs, rust_ported};
+    let own = crate::hostconfig::service_ports(config);
 
     let public = config.mode == ServerMode::Public;
     // The game servers half of a split server runs the Director only; the metagame half runs the rest
@@ -423,7 +423,7 @@ pub fn compose(
         } else if node_runs {
             controller.add(front_process(
                 FrontService::Allowlist,
-                Ready::http(PORTS.allowlist, "/status"),
+                Ready::http(own.allowlist, "/status"),
             ));
         }
     }
@@ -444,7 +444,7 @@ pub fn compose(
                 "backend",
                 &paths.backend_dir,
                 &["build", "server.js"],
-                Ready::http(PORTS.backend, "/dauntless-status"),
+                Ready::http(own.backend, "/dauntless-status"),
             ),
             Duration::from_secs(120),
             printer.clone(),
@@ -456,7 +456,7 @@ pub fn compose(
                     "director",
                     &paths.director_dir,
                     &["dist", "server.js"],
-                    Ready::http(PORTS.director, "/api/instances"),
+                    Ready::http(own.director, "/api/instances"),
                 ),
                 Duration::from_secs(60),
                 printer.clone(),
@@ -473,7 +473,7 @@ pub fn compose(
     } else if in_process(FrontService::Content) {
         hooks.compose_in_process_content(&mut controller, paths, &registry)?;
     } else if node_runs {
-        controller.add(front_process(FrontService::Content, Ready::http(PORTS.content, "/content/v1/news")).optional());
+        controller.add(front_process(FrontService::Content, Ready::http(own.content, "/content/v1/news")).optional());
     }
 
     // The admin API has no Node build; it runs when setup wrote its env file (an older setup did not)
@@ -518,13 +518,13 @@ pub fn compose(
     if !in_process_gw && node_runs && !gateway_runs {
         let ready = match config.mode {
             ServerMode::Public => Ready::tcp("127.0.0.1", hostconfig::gateway_port(config)),
-            ServerMode::Private => Ready::tcp(&config.game_address, PORTS.private_gateway),
+            ServerMode::Private => Ready::tcp(&config.game_address, crate::hostconfig::gateway_port(config)),
         };
         controller.add(front_process(FrontService::Gateway, ready));
     }
     crate::commands::remote::compose_remote_module(paths, config, &registry, &mut controller)?;
     if let Some(split) = &config.split {
-        controller.add(split_tunnel(split, &registry));
+        controller.add(split_tunnel(split, own, &registry));
     }
 
     list_modules(paths, config, &registry, hooks.game_modules())?;
@@ -554,12 +554,11 @@ fn discord_invite(paths: &Paths, config: &HostConfig) -> Option<dainty_protocol:
 }
 
 /// The tunnel to the other half of a split server: its port listened on here, this half's reached from there.
-fn split_tunnel(split: &hostconfig::split::SplitConfig, registry: &ModuleRegistry) -> Module {
-    use crate::paths::PORTS;
+fn split_tunnel(split: &hostconfig::split::SplitConfig, own: crate::paths::Ports, registry: &ModuleRegistry) -> Module {
     use hostconfig::split::SplitRole;
     use network_plugin::tunnel::Port;
 
-    let (backend, director) = ((Port::Backend, PORTS.backend), (Port::Director, PORTS.director));
+    let (backend, director) = ((Port::Backend, own.backend), (Port::Director, own.director));
     let (listen, expose) = match split.role {
         SplitRole::Metagame => (director, backend),
         SplitRole::GameServers => (backend, director),
@@ -633,10 +632,16 @@ pub fn new_registry(config: &HostConfig, controller: &ServerController) -> Modul
         std::iter::empty::<(&str, &str)>(),
         &[],
     ));
-    let mut tcp: Vec<u16> = hostconfig::RESERVED_PORTS.to_vec();
+    let own = hostconfig::service_ports(config);
+    let mut tcp: Vec<u16> = hostconfig::reserved_ports(&own).to_vec();
     tcp.push(hostconfig::gateway_port(config));
     if !cfg!(feature = "paradox") {
-        tcp.retain(|port| *port != crate::paths::PORTS.backend && *port != crate::paths::PORTS.director);
+        tcp.retain(|port| *port != own.backend && *port != own.director);
+        // The compiled-in game module's ports, which a manifest names this way
+        options.port_defaults = [("backend", own.backend), ("director", own.director), ("qos", own.qos)]
+            .into_iter()
+            .map(|(name, port)| (name.to_owned(), port))
+            .collect();
     }
     let udp = if cfg!(feature = "paradox") {
         vec![hostconfig::game_ports(config)]
@@ -779,7 +784,7 @@ pub fn empty_build_message() -> String {
 }
 
 /// The commit the env files name: the release manifest's, else git's, else nothing.
-fn source_commit(repo: &Path) -> String {
+pub(crate) fn source_commit(repo: &Path) -> String {
     if let Ok(Some(release)) = crate::selfupdate::read_manifest(repo) {
         return release.short_commit().to_owned();
     }
@@ -919,7 +924,11 @@ fn log_outputs(config: &HostConfig) -> dainty_service_kit::telemetry::LogOutputs
 
 /// `serve` and `start`.
 pub fn run(paths: &Paths, options: &ServeOptions) -> Outcome {
-    let config = load_config(paths, options.config_file.as_deref())?;
+    let mut config = load_config(paths, options.config_file.as_deref())?;
+    // A reboot can lend Windows a port the server held yesterday
+    if options.config_file.is_none() {
+        crate::winports::settle(paths, &mut config, &say)?;
+    }
     let external = external_allowlist(&config);
     let controlled = controlled_by_stdin();
     let interactive = options.interactive && !controlled;
@@ -1114,6 +1123,7 @@ mod tests {
             split: None,
             logs: None,
             events: None,
+            ports: None,
             discord: None,
             switches: Default::default(),
             file: FileForm::default(),

@@ -54,8 +54,8 @@ pub fn manifest() -> ModuleManifest {
         },
         api_version: ModuleApiVersion::CURRENT,
         default_ports: vec![
-            PortSpec::tcp("backend", 61000),
-            PortSpec::tcp("director", 61001),
+            PortSpec::tcp("backend", 41000),
+            PortSpec::tcp("director", 41001),
             PortSpec::udp_range("game", 8770, 8777),
         ],
         capabilities: Capabilities::default(),
@@ -69,7 +69,7 @@ pub fn manifest() -> ModuleManifest {
 }
 ```
 
-- **Ports.** `default_ports` are requests, not hard bindings: if another loaded module already holds TCP `61000`,
+- **Ports.** `default_ports` are requests, not hard bindings: if another loaded module already holds TCP `41000`,
   the controller assigns the next free port and passes the resolved map into `start` via `ModuleContext`. Never
   open a public listener inside a module; bind `127.0.0.1` on the controller-assigned TCP port and register your
   UDP game-server range so the allowlist opens it only for logged-in players.

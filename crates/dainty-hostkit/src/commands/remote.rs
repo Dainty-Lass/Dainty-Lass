@@ -776,8 +776,12 @@ impl HostKitRemoteHandler {
         if let Ok((secrets, _)) =
             load_or_create_secrets(&self.paths.config, crate::commands::setup::secrets::new_secrets)
         {
-            let backend_url = format!("http://127.0.0.1:{}", crate::paths::PORTS.backend);
-            let director_url = format!("http://127.0.0.1:{}", crate::paths::PORTS.director);
+            let own = crate::hostconfig::load_host_config(&self.paths)
+                .ok()
+                .flatten()
+                .map_or(crate::paths::PORTS, |c| crate::hostconfig::service_ports(&c));
+            let backend_url = format!("http://127.0.0.1:{}", own.backend);
+            let director_url = format!("http://127.0.0.1:{}", own.director);
             let target_owned = target.to_owned();
             let reason_owned = reason_str.to_owned();
             let _ = std::thread::spawn(move || {

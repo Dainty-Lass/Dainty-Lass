@@ -50,12 +50,14 @@ fn free_port() -> u16 {
     TcpListener::bind("127.0.0.1:0").unwrap().local_addr().unwrap().port()
 }
 
-/// A server folder with setup's files, the admin API on a port of its own.
+/// A server folder with setup's files, the admin API and the gateway on ports of their own: set in `[ports]`, as a
+/// host sets them, since start rewrites the env files when it moves a port Windows has lent out.
 fn server_folder(extra_toml: &str) -> (tempfile::TempDir, Paths, u16) {
     let dir = tempfile::tempdir().unwrap();
     let paths = Paths::new(dir.path());
     std::fs::create_dir_all(&paths.config).unwrap();
-    let text = format!("{HOST_TOML}{extra_toml}");
+    let (port, gateway) = (free_port(), free_port());
+    let text = format!("{HOST_TOML}[ports]\nadmin = {port}\ngateway = {gateway}\n{extra_toml}");
     // Linux's preflight refuses to start without a Wine; no game server starts here, so any program will do
     #[cfg(unix)]
     let text = {
@@ -67,20 +69,6 @@ fn server_folder(extra_toml: &str) -> (tempfile::TempDir, Paths, u16) {
     };
     std::fs::write(&paths.host_toml, &text).unwrap();
     dainty_hostkit::serve::ensure_server_files(&paths, &HostConfig::from_toml(&text).unwrap()).unwrap();
-    let port = free_port();
-    let admin = paths.config.join("admin.env");
-    let env: String = std::fs::read_to_string(&admin)
-        .unwrap()
-        .lines()
-        .map(|line| {
-            if line.starts_with("PORT=") {
-                format!("PORT={port}\n")
-            } else {
-                format!("{line}\n")
-            }
-        })
-        .collect();
-    std::fs::write(&admin, env).unwrap();
     (dir, paths, port)
 }
 

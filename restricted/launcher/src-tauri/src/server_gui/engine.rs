@@ -94,7 +94,7 @@ fn run_invite(
             _ => {}
         }
     }
-    dainty_host::commands::invite::run_with(paths, &args, dainty_host::paths::PORTS.backend, lines)
+    dainty_host::commands::invite::run_with(paths, &args, dainty_host::commands::invite::backend_port(paths), lines)
 }
 
 fn run_multipliers(
@@ -449,8 +449,11 @@ impl ServerEngine for Engine {
             }
             dainty_host::hostconfig::ServerMode::Private => None,
         };
-        let items = dainty_host::invite::list_invite_codes(dainty_host::paths::PORTS.backend, &secrets.admin_key)
-            .map_err(text)?;
+        let items = dainty_host::invite::list_invite_codes(
+            dainty_host::hostconfig::service_ports(&config).backend,
+            &secrets.admin_key,
+        )
+        .map_err(text)?;
         Ok(items
             .iter()
             .filter_map(|item| {

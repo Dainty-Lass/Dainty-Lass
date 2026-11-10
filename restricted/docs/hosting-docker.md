@@ -13,9 +13,9 @@ a private server over Tailscale works too.
 | Container | Image | What it is |
 | --- | --- | --- |
 | `net` | front | Holds the network namespace every other container joins, and the published ports |
-| `backend` | server | The 1.14.7 Rust backend (`dainty-host backend serve`), 127.0.0.1:61000 |
-| `director` | server | The 1.14.7 Rust Director (`dainty-host director serve`), 127.0.0.1:61001; starts Ramsgate, the Training Grounds and hunts through Wine |
-| `content` | front | The content server, 127.0.0.1:61002 (`dainty-host content serve`) |
+| `backend` | server | The 1.14.7 Rust backend (`dainty-host backend serve`), 127.0.0.1:41000 |
+| `director` | server | The 1.14.7 Rust Director (`dainty-host director serve`), 127.0.0.1:41001; starts Ramsgate, the Training Grounds and hunts through Wine |
+| `content` | front | The content server, 127.0.0.1:41002 (`dainty-host content serve`) |
 | `allowlist` | front | Public servers: opens the game ports to players who logged in (nftables; `dainty-host allowlist`) |
 | `gateway` | front | The front door: TLS on 443 (public) or HTTP on the Tailscale address (private; `dainty-host gateway serve`) |
 | `host` | server | Not a service: `docker compose run --rm host <command>` runs `dainty-host` |

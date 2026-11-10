@@ -116,7 +116,7 @@ and that multipliers that parse are finite, from 1 to 100, and private only.
       as one argument; the public host matches the DNS-name pattern; multipliers are finite, 1 to 100, rounded to
       two places (`bridge/commands.rs`).
 - [ ] `start` keeps RH2's contract: a `stop` line on stdin, its stdin closing stops it too, and after 45 s its
-      process tree is ended. A server answering on port 61000 that the launcher did not start is `external` and
+      process tree is ended. A server answering on port 41000 (the backend's) that the launcher did not start is `external` and
       never stopped, set up, updated or given new multipliers from here.
 - [ ] MSBuild comes from `vswhere` under `ProgramFiles(x86)` and cargo from `%USERPROFILE%\.cargo\bin` or
       `%CARGO_HOME%\bin`: the host's own toolchain, run on the host's own project, with output to the workspace's

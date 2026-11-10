@@ -8,6 +8,8 @@
 **/build
 **/target
 **/target*
+# ...but not a module named target (rustic-isles-db, the legacy importer)
+!**/src/**/target.rs
 paradox
 **/*.tsbuildinfo
 **/.env

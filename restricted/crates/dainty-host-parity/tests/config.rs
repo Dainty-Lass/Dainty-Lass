@@ -333,10 +333,10 @@ fn the_admin_api_gets_its_keys_on_loopback_and_the_backend_accepts_its_signed_ca
     let read = dainty_admin::config::Config::from_env(&env).unwrap();
     assert_eq!(
         (read.port, read.bind_hosts.clone()),
-        (61003, vec!["127.0.0.1".to_owned()])
+        (41003, vec!["127.0.0.1".to_owned()])
     );
-    assert_eq!(read.backend_url, "http://127.0.0.1:61000");
-    assert_eq!(read.director_url, "http://127.0.0.1:61001");
+    assert_eq!(read.backend_url, "http://127.0.0.1:41000");
+    assert_eq!(read.director_url, "http://127.0.0.1:41001");
     assert_eq!(read.api_key, s.admin_api_key);
     assert_eq!(read.admin_key, s.admin_key);
     assert_eq!(read.operator_secret, s.operator_secret);
@@ -551,7 +551,7 @@ fn private_mode_the_backend_behind_the_gateway_on_the_tailscale_address_in_plain
         "the Director's game servers use the backend's game-server key"
     );
     assert_eq!(get(&f.director, "MY_IP"), Some("100.101.102.103"));
-    assert_eq!(get(&f.director, "DAINTY_BACKEND_URL"), Some("http://127.0.0.1:61000"));
+    assert_eq!(get(&f.director, "DAINTY_BACKEND_URL"), Some("http://127.0.0.1:41000"));
     assert_eq!(get(&f.director, "PORT_RANGE_BEGIN"), Some("8770"));
     assert_eq!(get(&f.director, "PORT_RANGE_END"), Some("8777"));
     assert!(
@@ -671,7 +671,7 @@ fn the_public_gateways_port_is_443_unless_moved_and_61000_for_a_private_server()
 #[test]
 fn the_public_port_is_checked_a_real_port_not_one_the_server_uses_itself_public_servers_only() {
     assert_eq!(validate(&moved()).unwrap()["publicPort"], 4443);
-    for bad in [0, 70000, 61000, 61005, 27017, 8777, 8766, 61100] {
+    for bad in [0, 70000, 61000, 41000, 41005, 41010, 27017, 8777, 8766, 61100] {
         assert!(
             error(with(public_on_ip(), json!({ "publicPort": bad }))).contains("publicPort"),
             "{bad}"

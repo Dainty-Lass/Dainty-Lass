@@ -322,13 +322,13 @@ impl Config {
         let port = whole(env, "GATEWAY_PORT", if tls { 443 } else { 61000 }, 1, 65535)? as u16;
         let secret = check_secret(env.get("GATEWAY_SECRET"), "GATEWAY_SECRET")?;
         let url = |name: &str, default: &str| parse_loopback_url(optional(env, name).unwrap_or(default), name);
-        let content = url("GATEWAY_CONTENT_URL", "http://127.0.0.1:61002")?;
-        let backend = url("GATEWAY_BACKEND_URL", "http://127.0.0.1:61000")?;
-        let ws = url("GATEWAY_WS_URL", "http://127.0.0.1:61000")?;
+        let content = url("GATEWAY_CONTENT_URL", "http://127.0.0.1:41002")?;
+        let backend = url("GATEWAY_BACKEND_URL", "http://127.0.0.1:41000")?;
+        let ws = url("GATEWAY_WS_URL", "http://127.0.0.1:41000")?;
         let allowlist = if optional(env, "GATEWAY_ALLOWLIST") == Some("0") {
             None
         } else {
-            let endpoint = url("ALLOWLIST_URL", "http://127.0.0.1:61005")?;
+            let endpoint = url("ALLOWLIST_URL", "http://127.0.0.1:41005")?;
             let secret = env.get("ALLOWLIST_SECRET").ok_or_else(|| {
                 "ALLOWLIST_SECRET is not set (the allowlist helper's secret; GATEWAY_ALLOWLIST=0 runs without the feed, and then no game ports open for anyone)".to_owned()
             })?;
@@ -502,12 +502,12 @@ mod tests {
         let c = Config::from_env(&env(&[("GATEWAY_TLS", "0"), ("GATEWAY_BIND", "127.0.0.1")])).unwrap();
         assert!(!c.tls);
         assert_eq!(c.port, 61000);
-        assert_eq!(c.backend, Endpoint::new("127.0.0.1", 61000));
-        assert_eq!(c.content.authority(), "127.0.0.1:61002");
+        assert_eq!(c.backend, Endpoint::new("127.0.0.1", 41000));
+        assert_eq!(c.content.authority(), "127.0.0.1:41002");
         let a = c.allowlist.unwrap();
         assert_eq!(
             (a.url.as_str(), a.refresh),
-            ("http://127.0.0.1:61005", Duration::from_secs(60))
+            ("http://127.0.0.1:41005", Duration::from_secs(60))
         );
         assert_eq!(c.limits, DEFAULT_LIMITS);
         assert_eq!(c.timeouts, DEFAULT_TIMEOUTS);

@@ -176,6 +176,7 @@ servers' key) lives only in `secrets.env`.
 | (edit `host.toml`) | `[modules]` `compiled`, `[[modules.external]]` `id`, `path`, `sha256`, `args`, `autoload`, `[modules.<id>.<section>]` | The game modules and plugins to load (below). Left out: every compiled-in one |
 | (edit `host.toml`) | `[[modules.external]]` `restart` | `true` starts the module again when its process dies: after 1 s, doubling to 60 s, back to 1 s once it has run 10 minutes; five failures in 10 minutes leave it failed with the last reason. Each try is a `module.restarted` event. Left out: `false`, a dead module stays failed until it is loaded again |
 | (edit `host.toml`) | `[services.<name>]` `library`, `sha256` (and `serves` for a name the server doesn't know) | A service loaded as a library in place of the one built into the binary: `content`, `chat` or `gateway`, from the release's `plugins/` folder, pinned by its SHA-256 (below). It runs on its own env file (`chat` on `gateway.env`), and a `gateway` library takes the allowlist's place too. Left out: every service built in, as before |
+| (edit `host.toml`) | `[ports]` `gateway`, `backend`, `director`, `qos`, `content`, `admin`, `allowlist`, `chat` | The TCP ports the server listens on, for a machine where one is taken. `gateway` is a private server's, the port its invites name; a public one's is `public_port`. The others listen on 127.0.0.1. Each needs its own port, and none may be the relay's, MongoDB's or a game server's. On Windows, setup and start move a port Windows has lent out and write the move here ([Ports Windows holds](#ports-windows-holds)). `doctor`, `invite` and the launcher's Host page and invite list follow it. Left out: 61000, 41000, 41001, 41010, 41002, 41003, 41005 and 41006 |
 | (edit `host.toml`) | `[env.<service>]` `KEY = value` (`backend`, `director`, `content`, `gateway`, `admin`, `allowlist`) | Extra lines for that service's env file, for a variable with no setting of its own (`GATEWAY_GAME = "reborn"`). Secrets, ports, bind addresses, `AUTH_*`, the server mode, the multipliers and any variable `setup` already writes are refused, and `setup` stops on one rather than skip it; `doctor` lists the ones in use. Left out: nothing extra |
 | (edit `host.toml`) | `[gateway.limits]`, `[gateway.rate]`, `[gateway.timeouts]`, `[gateway]`, `[content]`, `[allowlist]`, `[backend]`, `[director]` | The services' limits, timeouts and log levels ([below](#service-tunables)). `setup` checks them with each service's own rules and stops on a bad one. Left out: each service's default |
 | (edit `host.toml`) | `[network]` `node`, `region`, `leader`, `wrong_node_policy` | This server's name, region and optional directory leader in a network, and what a join that reaches the wrong node gets: `refuse` (the default) or `redirect` to the node that owns it (DN6). Left out: a server on its own |
@@ -230,6 +231,33 @@ log_level = "debug"
 | `[director]` `log_level` | `LOG_LEVEL` | `debug`, `info`, `warn`, `error` | `info` |
 | `[director]` `gameserver_startup_gap_seconds` | `SECONDS_TO_WAIT_BETWEEN_GAMESERVER_STARTUP` | 0–600 | 3 |
 | `[director]` `gameserver_ready_timeout_ms` | `GAMESERVER_READY_TIMEOUT_MS` | 1000–600000 | 30000 (90000 on Linux) |
+
+### Ports Windows holds
+
+Windows lends blocks of 100 ports from its dynamic range (49152 to 65535) to Hyper-V, WSL and Docker, and a
+program can't listen on a lent port: the start fails with `os error 10013`. The blocks move on every reboot.
+`netsh interface ipv4 show excludedportrange protocol=tcp` lists them.
+
+The services that listen on 127.0.0.1 sit below the range (41000 to 41010), so this only touches a private
+server's gateway, whose default is 61000, or a port you set in `[ports]` yourself. On Windows, `dainty-host setup`
+and every start read the lent ranges and move each port of the server's that falls inside one, writing the move
+to `[ports]` so it stays put after the next reboot:
+
+- a private server's gateway goes to 41080, or the next port free above it;
+- any other port goes back to its default, or the next port free above that.
+
+Each move is printed (`- ports.gateway: Windows has lent 61000 out ..., moved to 41080`). **Invites name the
+gateway's port**, so after the gateway moves, make new invites with `dainty-host invite` and send them again; the
+old ones still name 61000. To keep 61000 instead, reserve it before Windows lends it, from an administrator
+PowerShell, then remove `gateway` from `[ports]` and run setup again:
+
+```powershell
+net stop winnat
+netsh int ipv4 add excludedportrange protocol=tcp startport=61000 numberofports=1
+net start winnat
+```
+
+`net stop winnat` drops WSL's and Docker's networking for a moment.
 
 ### Environment variables override host.toml
 

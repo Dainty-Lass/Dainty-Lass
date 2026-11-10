@@ -33,6 +33,7 @@ pub mod services;
 pub mod tls;
 pub mod tui;
 pub mod wine;
+pub mod winports;
 
 use std::process::ExitCode;
 

@@ -18,7 +18,7 @@ use crate::hostconfig::{
     is_tailscale_ipv4, linux_options, load_host_config, node_database_config, performance_options,
 };
 use crate::mongo::{MongoCheck, MongoProblem, ReplicaSetOptions, ensure_replica_set};
-use crate::paths::{GAME_VERSION_TEXT, PINNED_EXE_SHA256, PORTS, Paths, RUNTIME_FILE_NAMES, game_exe_relative};
+use crate::paths::{GAME_VERSION_TEXT, PINNED_EXE_SHA256, Paths, RUNTIME_FILE_NAMES, game_exe_relative};
 use crate::run::capture;
 
 /// How a check came out.
@@ -1001,11 +1001,12 @@ pub fn run_doctor(p: &Paths, opts: &DoctorOptions) -> Result<Vec<Check>, HostErr
         checks.push(store_database_check(p, &config));
     }
 
-    if wait_for_http(PORTS.backend, "/health", Duration::from_millis(250)) {
+    let backend_port = crate::hostconfig::service_ports(&config).backend;
+    if wait_for_http(backend_port, "/health", Duration::from_millis(250)) {
         checks.push(Check {
             area: "services",
             level: Level::Ok,
-            text: format!("backend is responding on 127.0.0.1:{}", PORTS.backend),
+            text: format!("backend is responding on 127.0.0.1:{backend_port}"),
             fix: None,
         });
     } else {

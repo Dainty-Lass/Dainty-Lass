@@ -587,7 +587,7 @@ pub struct DbReplayArgs {
     #[arg(long, default_value = "recorded")]
     pub left: String,
     /// The backend URL compared with the baseline.
-    #[arg(long, default_value = "http://127.0.0.1:61000")]
+    #[arg(long, default_value = "http://127.0.0.1:41000")]
     pub right: String,
     /// The baseline's Director URL.
     #[arg(long = "left-director")]

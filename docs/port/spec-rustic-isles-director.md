@@ -1,5 +1,11 @@
 # Clean-Room Behaviour Specification: `crates/rustic-isles-director` (RD27)
 
+> **Ports moved 2026-11-10.** The loopback services' defaults are now backend 41000, Director 41001, content
+> 41002, admin 41003, allowlist 41005, chat 41006 and QoS 41010, below the dynamic range Windows lends to Hyper-V,
+> WSL and Docker. host.toml's `[ports]` moves any of them, and on Windows setup and start move one Windows has lent
+> out (a private gateway's 61000 to 41080). The numbers below are the ones recorded upstream: read each 610xx
+> service port as its 410xx counterpart. A private gateway's default stays 61000.
+
 > **Scope and purpose (RD27):** this is the clean-room behaviour specification for an MIT crate,
 > `rustic-isles-director`: the Director of Rustic Isles, the service on the module's `director` port (61001) that
 > starts, watches and stops the game servers (Ramsgate, the Training Grounds, one process per hunt), leases the hunt

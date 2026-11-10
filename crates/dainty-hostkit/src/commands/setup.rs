@@ -69,6 +69,10 @@ pub trait SetupEnv {
     fn require_checkout_sources(&self) -> bool {
         true
     }
+    /// The TCP ranges Windows has lent out (`winports`); a stand-in lends none.
+    fn excluded_tcp_ports(&self) -> Vec<(u16, u16)> {
+        Vec::new()
+    }
     /// The environment the services will inherit, whose variables override host.toml (RD24).
     fn inherited_env(&self) -> Vec<(String, String)> {
         std::env::vars().collect()
@@ -111,6 +115,10 @@ impl SetupEnv for RealSetupEnv {
     fn find_on_path(&self, name: &str) -> Result<Option<String>, HostError> {
         let path_var = std::env::var_os("PATH");
         Ok(search_path([name], path_var.as_deref()).map(|p| p.to_string_lossy().into_owned()))
+    }
+
+    fn excluded_tcp_ports(&self) -> Vec<(u16, u16)> {
+        crate::winports::excluded_tcp()
     }
 
     fn source_commit(&self, repo: &Path) -> Result<String, HostError> {
@@ -261,6 +269,9 @@ pub fn run_with(
         set_provided_secret(&p.config, "DISCORD_BOT_TOKEN", &token)?;
         sec.discord_bot_token = token;
         out("- Discord bot token: kept in secrets.env");
+    }
+    for moved in crate::winports::move_lent_ports(&mut config, &env.excluded_tcp_ports()) {
+        out(&moved.line());
     }
     save_host_config(p, &config)?;
     if config

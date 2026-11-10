@@ -2,6 +2,12 @@
 
 # Clean-Room Behaviour Specification: `crates/rustic-isles-matchmaking` (RD27)
 
+> **Ports moved 2026-11-10.** The loopback services' defaults are now backend 41000, Director 41001, content
+> 41002, admin 41003, allowlist 41005, chat 41006 and QoS 41010, below the dynamic range Windows lends to Hyper-V,
+> WSL and Docker. host.toml's `[ports]` moves any of them, and on Windows setup and start move one Windows has lent
+> out (a private gateway's 61000 to 41080). The numbers below are the ones recorded upstream: read each 610xx
+> service port as its 410xx counterpart. A private gateway's default stays 61000.
+
 > **Scope and purpose (RD27):** this is the clean-room behaviour specification for an MIT crate,
 > `rustic-isles-matchmaking`: unit 8 of [`spec-rustic-isles-core.md`](spec-rustic-isles-core.md) §16. It covers
 > Rustic Isles' **matchmaking-parties** area: the 18 backend rows B88-B90 and B93-B107 of core Appendix A (the

@@ -15,7 +15,7 @@ The 1.14.7 and 1.4.4 clients chat over XMPP on a WebSocket. Players send it free
 and log in with the game's own token. Whoever gets chat to accept a login without the right token speaks as that
 player; whoever gets it to misroute a stanza reads others' whispers or rooms.
 
-- **In:** WebSocket upgrades on `127.0.0.1:61006` (`Settings::port`), forwarded by the gateway from :443 with
+- **In:** WebSocket upgrades on `127.0.0.1:41006` (`Settings::port`), forwarded by the gateway from :443 with
   `X-Dainty-Gateway: <GATEWAY_SECRET>` and `X-Forwarded-For`. Paths `//`, `/`, `/__ws/xmpp` only.
 - **Out, to the host:** `ChatHost::login` (the game module checks its token), `ChatHost::ask` (the module's JID and
   room rules over the module protocol), `ChatHost::blocked`.

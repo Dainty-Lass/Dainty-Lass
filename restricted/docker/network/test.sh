@@ -160,8 +160,8 @@ node_backend_post() {
 	local region="$1" path="$2" gs_key="$3" body="${4:-}"
 	printf '%s' "$body" | compose exec -T "gateway-$region" bash -c '
 		path="$1"; gs_key="$2"; body="$(cat)"; len="${#body}"
-		exec 3<>/dev/tcp/127.0.0.1/61000
-		printf "POST %s HTTP/1.1\r\nHost: 127.0.0.1:61000\r\nx-rustic-isles-gameserver-apikey: %s\r\nContent-Type: application/json\r\nContent-Length: %d\r\nConnection: close\r\n\r\n%s" \
+		exec 3<>/dev/tcp/127.0.0.1/41000
+		printf "POST %s HTTP/1.1\r\nHost: 127.0.0.1:41000\r\nx-rustic-isles-gameserver-apikey: %s\r\nContent-Type: application/json\r\nContent-Length: %d\r\nConnection: close\r\n\r\n%s" \
 			"$path" "$gs_key" "$len" "$body" >&3
 		cat <&3
 	' _ "$path" "$gs_key"
@@ -172,8 +172,8 @@ node_chat_post() {
 	[ -n "$body" ] || body='{}'
 	compose exec -T "gateway-$region" bash -c '
 		path="$1"; body="$2"; len="${#body}"
-		exec 3<>/dev/tcp/127.0.0.1/61006
-		printf "POST %s HTTP/1.1\r\nHost: 127.0.0.1:61006\r\nContent-Type: application/json\r\nContent-Length: %d\r\nConnection: close\r\n\r\n%s" \
+		exec 3<>/dev/tcp/127.0.0.1/41006
+		printf "POST %s HTTP/1.1\r\nHost: 127.0.0.1:41006\r\nContent-Type: application/json\r\nContent-Length: %d\r\nConnection: close\r\n\r\n%s" \
 			"$path" "$len" "$body" >&3
 		cat <&3
 	' _ "$path" "$body" | tr -d '\r' | tail -n 1
@@ -183,8 +183,8 @@ node_chat_get() {
 	local region="$1" path="$2"
 	compose exec -T "gateway-$region" bash -c '
 		path="$1"
-		exec 3<>/dev/tcp/127.0.0.1/61006
-		printf "GET %s HTTP/1.1\r\nHost: 127.0.0.1:61006\r\nConnection: close\r\n\r\n" "$path" >&3
+		exec 3<>/dev/tcp/127.0.0.1/41006
+		printf "GET %s HTTP/1.1\r\nHost: 127.0.0.1:41006\r\nConnection: close\r\n\r\n" "$path" >&3
 		cat <&3
 	' _ "$path" | tr -d '\r' | tail -n 1
 }

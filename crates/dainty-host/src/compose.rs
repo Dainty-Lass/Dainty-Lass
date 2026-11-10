@@ -127,7 +127,7 @@ fn gateway_options(
     // Chat listens on its own port when the gateway would send /ws to the backend's
     #[cfg(feature = "chat")]
     if registry && config.ws.port == config.backend.port {
-        ws_port = Some(dainty_chat::settings::DEFAULT_PORT);
+        ws_port = Some(dainty_chat::env::settings(env)?.port);
     }
     #[cfg(not(feature = "chat"))]
     let _ = registry;
@@ -530,7 +530,7 @@ pub struct ChatOptions {
     pub network: Option<ChatNetworkOptions>,
 }
 
-/// The chat core plugin (`chat.db` beside the node database, listening on loopback `CHAT_PORT` / `61006` behind the
+/// The chat core plugin (`chat.db` beside the node database, listening on loopback `CHAT_PORT` / `41006` behind the
 /// gateway, and attached to `Service::Chat` when in a network; DD21, DN10a, DN10b), compiled in:
 /// `chat::service::ChatService`, the same service `chat-plugin` exports, run over the same protocol (RD27).
 #[cfg(feature = "chat")]

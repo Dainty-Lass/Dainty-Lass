@@ -68,13 +68,13 @@ Shadow replay is built into `dainty-host db replay` (backed by dainty-lass's `ru
 3. Run `dainty-host db replay` (or dainty-lass's `node scripts/replay-capture.mjs`) from the target server's directory (so it automatically reads `AUTH_SIGNING_PRIVKEY_B64`, `JWT_SECRET`, `GAMESERVER_API_KEY`, and `GATEWAY_SECRET` from `.workspace/config/secrets.env`), or pass the credentials explicitly on the command line:
 
 ```bash
-# Replay recorded gateway capture against a running local target server on port 61000:
+# Replay recorded gateway capture against a running local target server on port 41000:
 dainty-host db replay \
   --corpus /path/to/capture \
   --left recorded \
-  --right http://127.0.0.1:61000 \
-  --right-director http://127.0.0.1:61001 \
-  --right-chat 127.0.0.1:61006 \
+  --right http://127.0.0.1:41000 \
+  --right-director http://127.0.0.1:41001 \
+  --right-chat 127.0.0.1:41006 \
   --key-map /path/to/keymap.json \
   --out /path/to/replay-report.json
 
@@ -82,12 +82,12 @@ dainty-host db replay \
 node scripts/replay-capture.mjs \
   --corpus /path/to/capture \
   --left recorded \
-  --right http://127.0.0.1:61000 \
+  --right http://127.0.0.1:41000 \
   --key-map /path/to/keymap.json \
   --out /path/to/replay-report.json
 ```
 
-A capture can also be replayed live against two servers at once (for example, the legacy Node backend on `--left http://127.0.0.1:62000` and the Rust backend on `--right http://127.0.0.1:61000`) to compare their answers side by side.
+A capture can also be replayed live against two servers at once (for example, the legacy Node backend on `--left http://127.0.0.1:62000` and the Rust backend on `--right http://127.0.0.1:41000`) to compare their answers side by side.
 
 ### 2.2 Reading the diff report
 

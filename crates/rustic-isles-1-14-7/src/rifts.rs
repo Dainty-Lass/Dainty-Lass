@@ -58,7 +58,7 @@ mod wired {
         UnixMillis,
     };
 
-    const DEFAULT_BACKEND_URL: &str = "http://127.0.0.1:61000";
+    const DEFAULT_BACKEND_URL: &str = "http://127.0.0.1:41000";
     const DEFAULT_HOST_UDP_PORT: u16 = 8791;
     const GENERATED_KEY_ID: &str = "default-k1";
     const ZEROS: &str = "0000000000000000000000000000000000000000000000000000000000000000";
