@@ -1,7 +1,8 @@
-#![allow(clippy::unwrap_used, clippy::expect_used, reason = "a panic is how a test fails")]
-
 //! `dainty-host history` and `revert` (DD23, DH3b): a partner's mass delete in the game's database is
-//! reverted by one command, and a row changed since stays as it is and is reported.
+//! reverted by one command, and a row changed since stays as it is and is reported. The history tools come with
+//! the admin service.
+#![cfg(feature = "admin")]
+#![allow(clippy::unwrap_used, clippy::expect_used, reason = "a panic is how a test fails")]
 
 use clap::Parser as _;
 use dainty_host::cli::{Cli, Command};
