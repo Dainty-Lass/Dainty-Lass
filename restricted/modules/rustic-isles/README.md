@@ -80,7 +80,7 @@ Expect active development, not production-grade uptime. The Gauntlet is not avai
 | [`reference/1.14.7/ParadoxDirector`](reference/1.14.7/ParadoxDirector) | The Node Director: starts and supervises the dedicated game servers for hubs and hunts |
 | [`native/runtime`](native/runtime) | `Rustic-Isles.dll`, the C++ runtime loaded into the client and servers to adapt them to the private backend (MSVC + MinHook) |
 | [`reference/1.14.7/shared/hunt-manifest`](reference/1.14.7/shared/hunt-manifest) | Hunt manifest resolution shared by the backend and the Director |
-| [`tools/RuntimeLoader`](tools/RuntimeLoader) | `winmm.dll` proxy that loads the runtime at startup |
+| [`../../native/runtime-loader`](../../native/runtime-loader) | `winmm.dll` proxy that loads the runtime at startup |
 | [`native/catalog-exporter`](native/catalog-exporter) | Exports compatibility data from your own installation |
 
 ## 💬 Community and help

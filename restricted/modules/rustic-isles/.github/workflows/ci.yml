@@ -46,21 +46,6 @@ jobs:
       - run: npm test
       - run: npm run build
 
-  runtime-loader:
-    runs-on: windows-latest
-    defaults:
-      run:
-        working-directory: tools/RuntimeLoader
-    steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          components: rustfmt, clippy
-      - run: cargo fmt -- --check
-      - run: cargo clippy --all-targets -- -D warnings
-      - run: cargo test
-      - run: cargo build --release
-
   secret-scan:
     runs-on: ubuntu-latest
     steps:

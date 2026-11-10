@@ -13,9 +13,8 @@ members = [
     # Mystic Paradox's answers replayed against dainty-lass's MIT rifts crates (spec-rd27-rifts 4.3)
     "modules/rustic-rifts/oracle",
 ]
-# Workspaces of their own: the fuzz targets (nightly), the 1.4.4 importer (an external plugin, host.toml pins it) and
-# the runtime loader (Apache-2.0)
-exclude = ["fuzz", "legacy", "modules/rustic-isles/tools"]
+# Workspaces of their own: the fuzz targets (nightly), the 1.4.4 importer (an external plugin, host.toml pins it)
+exclude = ["fuzz", "legacy"]
 
 [workspace.package]
 version = "0.0.0"

@@ -118,11 +118,7 @@ fn read_dll_list_from_ini(ini_path: &Path) -> Option<Vec<String>> {
 }
 
 fn load_dll(dll_path: &Path) -> Result<(), Box<dyn Error>> {
-    let path_wide: Vec<u16> = dll_path
-        .as_os_str()
-        .encode_wide()
-        .chain(std::iter::once(0))
-        .collect();
+    let path_wide: Vec<u16> = dll_path.as_os_str().encode_wide().chain(std::iter::once(0)).collect();
 
     let lib = unsafe { LoadLibraryW(path_wide.as_ptr()) };
     if lib.is_null() {
@@ -138,10 +134,7 @@ mod tests {
     use std::fs;
 
     fn test_dir(name: &str) -> std::path::PathBuf {
-        std::env::temp_dir().join(format!(
-            "mystic-runtime-loader-{name}-{}",
-            std::process::id()
-        ))
+        std::env::temp_dir().join(format!("mystic-runtime-loader-{name}-{}", std::process::id()))
     }
 
     #[test]
