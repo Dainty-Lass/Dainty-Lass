@@ -173,7 +173,7 @@ pub trait Platform: Send + Sync + 'static {
     }
 }
 
-/// A probe for "a Host page server answers on 61000" (the moved Host module uses it).
+/// A probe for "a Host page server's backend answers on its default port" (the moved Host module uses it).
 pub type ServerProbe = Arc<dyn Fn() -> BoxFuture<'static, bool> + Send + Sync>;
 
 /// Who may use the relay's game port.
@@ -199,7 +199,7 @@ pub struct Seams {
     pub store_folders: Option<StoreFolders>,
     /// The relay's QoS-only listener (80); none turns it off.
     pub qos_port: Option<u16>,
-    /// Whether a Host page server answers on 61000.
+    /// Whether a Host page server's backend answers on its default port.
     pub host_server_probe: Option<ServerProbe>,
     /// Where Dumper-7 writes its dumps.
     pub dumper_root: PathBuf,
