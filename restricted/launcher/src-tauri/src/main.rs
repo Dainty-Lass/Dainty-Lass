@@ -1,3 +1,5 @@
+//! The Dainty Lass launcher's executable: the Tauri shell around the launcher page, and the game console's reader.
+
 // No console window behind the launcher in release builds on Windows
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 

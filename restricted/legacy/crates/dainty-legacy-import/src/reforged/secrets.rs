@@ -51,6 +51,7 @@ fn names_with_values(text: &str) -> BTreeSet<String> {
         .collect()
 }
 
+/// Reports what `dainty-host setup` will do with the checkout's `secrets.env`; the file is never changed here.
 pub fn check(file: &Path, dry_run: bool, report: &mut Report) -> Result<()> {
     if !file.is_file() {
         report.note("there is no secrets.env: dainty-host setup makes a new one, which logs every player out");

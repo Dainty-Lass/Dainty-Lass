@@ -13,9 +13,8 @@ members = [
     # Mystic Paradox's answers replayed against dainty-lass's MIT rifts crates (spec-rd27-rifts 4.3)
     "modules/rustic-rifts/oracle",
 ]
-# Workspaces of their own: the fuzz targets (nightly), the 1.4.4 importer (an external plugin, host.toml pins it) and
-# the runtime loader (Apache-2.0)
-exclude = ["fuzz", "legacy", "modules/rustic-isles/tools"]
+# Workspaces of their own: the fuzz targets (nightly), the 1.4.4 importer (an external plugin, host.toml pins it)
+exclude = ["fuzz", "legacy"]
 
 [workspace.package]
 version = "0.0.0"
@@ -64,7 +63,7 @@ rustic-rifts-admission = { path = "../crates/rustic-rifts-admission" }
 rustic-rifts-relay = { path = "../crates/rustic-rifts-relay" }
 rustic-rifts-host = { path = "../crates/rustic-rifts-host" }
 dainty-gateway = { path = "../crates/dainty-gateway" }
-dainty-host = { path = "crates/dainty-host" }
+dainty-host = { path = "../crates/dainty-host" }
 dainty-launcher = { path = "launcher/src-tauri" }
 
 crossterm = "0.29"
@@ -137,6 +136,7 @@ windows = { version = "0.62.2", features = ["Win32_Foundation", "Win32_Security"
 [workspace.lints.rust]
 unsafe_code = "deny"
 unused_must_use = "deny"
+missing_docs = "warn"
 
 [workspace.lints.clippy]
 # A panic in a request handler is caught (CatchPanicLayer), but it still drops the request.

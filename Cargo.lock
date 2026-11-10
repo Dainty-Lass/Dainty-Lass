@@ -1535,6 +1535,62 @@ dependencies = [
 ]
 
 [[package]]
+name = "dainty-host"
+version = "0.0.0"
+dependencies = [
+ "async-graphql",
+ "aws-lc-rs",
+ "base64 0.23.1",
+ "bytes",
+ "chrono",
+ "clap",
+ "crossterm",
+ "dainty-admin",
+ "dainty-chat",
+ "dainty-content",
+ "dainty-controller",
+ "dainty-epic",
+ "dainty-gateway",
+ "dainty-history-ship",
+ "dainty-hostkit",
+ "dainty-module-api",
+ "dainty-network",
+ "dainty-protocol",
+ "dainty-remote",
+ "dainty-service-kit",
+ "dainty-service-plugin",
+ "dainty-store",
+ "diesel",
+ "flate2",
+ "fs4",
+ "http-body-util",
+ "hyper",
+ "hyper-rustls",
+ "hyper-util",
+ "libc",
+ "ratatui",
+ "rcgen",
+ "rustic-isles",
+ "rustic-isles-1-14-7",
+ "rustic-isles-db",
+ "rustic-isles-director",
+ "rustic-isles-gamedata",
+ "rustic-isles-replay",
+ "rustls",
+ "serde_json",
+ "sha2 0.11.1",
+ "tar",
+ "tempfile",
+ "thiserror 2.0.21",
+ "tokio",
+ "toml_edit 0.25.17+spec-1.1.0",
+ "tracing",
+ "url",
+ "windows 0.62.2",
+ "zip",
+]
+
+[[package]]
 name = "dainty-hostkit"
 version = "0.0.0"
 dependencies = [

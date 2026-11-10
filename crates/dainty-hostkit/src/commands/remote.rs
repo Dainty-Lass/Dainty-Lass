@@ -5,7 +5,6 @@
 //! invites, managed-install enrollment, status/list, revocation, leave, shared configuration
 //! publishing, and remote command execution over mTLS node links (`Service::Remote`).
 
-use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 use std::sync::{Arc, Mutex, PoisonError};
@@ -745,7 +744,7 @@ impl HostKitRemoteHandler {
         // Record in local moderation ledger so tests and status checks can inspect it directly,
         // and also apply to the live backend if reachable.
         let mod_file = self.paths.config.join(MODERATION_STATE_FILE);
-        let mut ledger: BTreeMap<String, Value> = std::fs::read_to_string(&mod_file)
+        let mut ledger: std::collections::BTreeMap<String, Value> = std::fs::read_to_string(&mod_file)
             .ok()
             .and_then(|t| serde_json::from_str(&t).ok())
             .unwrap_or_default();

@@ -1,0 +1,47 @@
+[package]
+name = "dainty-host-parity"
+description = "The Node host kit's recorded behaviour, checked against the root's dainty-host (spec-rd27-host §4.2)"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+[features]
+default = ["isles-1-14-7"]
+isles-1-14-7 = ["dainty-host/isles-1-14-7"]
+# The Node rollback path until RB15
+paradox = ["dainty-host/paradox"]
+
+[dev-dependencies]
+dainty-host.workspace = true
+dainty-admin.workspace = true
+dainty-gateway.workspace = true
+dainty-hostkit = { workspace = true, default-features = false }
+dainty-protocol.workspace = true
+dainty-service-kit.workspace = true
+dainty-store.workspace = true
+chrono.workspace = true
+clap.workspace = true
+flate2.workspace = true
+rustls.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
+tempfile.workspace = true
+# Test certificates, as the gateway makes them.
+rcgen = { version = "0.14.10", default-features = false, features = ["aws_lc_rs", "pem", "crypto"] }
+# update's tests: releases in both archive kinds
+tar = { version = "0.4.46", default-features = false }
+zip = { version = "9.0.5", default-features = false, features = ["deflate"] }
+
+[target."cfg(windows)".dev-dependencies]
+windows = { workspace = true, features = ["Win32_Foundation", "Win32_System_Console", "Win32_System_Threading"] }
+
+# Fake services in child processes: the test binary runs itself in their roles (RH2)
+[[test]]
+name = "start"
+harness = false
+
+[lints]
+workspace = true

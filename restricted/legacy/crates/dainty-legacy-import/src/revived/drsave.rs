@@ -9,37 +9,54 @@ use std::path::Path;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
+/// The file's first 8 bytes.
 pub const SAVE_MAGIC: &[u8; 8] = b"DRSAVE\r\n";
+/// The magic, the version and the two sizes.
 pub const HEADER_BYTES: usize = 24;
+/// The largest metadata JSON read.
 pub const MAX_METADATA_BYTES: usize = 65536;
+/// The largest database read.
 pub const MAX_DATABASE_BYTES: u64 = 512 * 1024 * 1024;
 const MIN_DATABASE_BYTES: u64 = 512;
 
 #[derive(Debug, thiserror::Error)]
+/// Why a save couldn't be read.
 pub enum FormatError {
     #[error("not a Dauntless Revived offline save (.drsave), or a damaged one")]
+    /// Not a save, or a damaged one.
     Invalid,
     #[error("offline save file: {0}")]
+    /// The file couldn't be read.
     Io(#[from] std::io::Error),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+/// The account a save belongs to.
 pub struct SaveAccount {
+    /// The account's user id.
     pub user_id: String,
+    /// The account's username.
     pub username: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+/// The save's database: its size and SHA-256.
 pub struct SaveDatabase {
+    /// The database's size in bytes.
     pub bytes: u64,
+    /// The database's SHA-256, in hex.
     pub sha256: String,
 }
 
 #[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
+/// The account's backup credential.
 pub struct SaveCredential {
+    /// The credential's format version.
     pub version: u32,
+    /// The credential's kind.
     pub kind: String,
+    /// The account key.
     pub key: String,
 }
 
@@ -55,12 +72,19 @@ impl std::fmt::Debug for SaveCredential {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+/// The save's metadata JSON.
 pub struct SaveMetadata {
+    /// The format's name.
     pub format: String,
+    /// The format's version.
     pub version: u32,
+    /// When the launcher made the save.
     pub created_at: String,
+    /// Whose save it is.
     pub account: SaveAccount,
+    /// The database it holds.
     pub database: SaveDatabase,
+    /// The account's credential.
     pub credential: SaveCredential,
 }
 
@@ -140,8 +164,11 @@ fn database_digest(database: &Path) -> std::io::Result<String> {
 /// A save's account and its backup credential.
 #[derive(Clone, PartialEq, Eq)]
 pub struct PortableIdentity {
+    /// The account's user id.
     pub user_id: String,
+    /// The account's username.
     pub username: String,
+    /// The account key.
     pub key: String,
 }
 

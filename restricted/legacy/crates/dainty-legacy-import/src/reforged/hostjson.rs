@@ -311,6 +311,7 @@ fn strip_retired_modules(modules: &mut Value, dropped: &mut Vec<String>) {
 /// What a conversion made of a host.json.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Converted {
+    /// The host.toml written in place of the host.json.
     pub toml: String,
     /// Keys left out: the retired ones, the retired modules' entries and any key host.toml doesn't have
     pub dropped: Vec<String>,

@@ -7,10 +7,10 @@ MystPaxInternalServer.dll remain temporary migration aliases.
 
 ## Build
 
-    cd tools\RuntimeLoader
-    cargo build --release
+    cd restricted\native\runtime-loader
+    cargo build --release --target x86_64-pc-windows-msvc
 
-Output: target\release\winmm.dll.
+Output: target\x86_64-pc-windows-msvc\release\winmm.dll, where `dainty-host publish` looks for it.
 
 Toolchain: `rust-toolchain.toml` pins `nightly-2026-03-09` (rustc 1.96.0-nightly, commit 2d76d9bc7, the owner's PC).
 rustup installs it on the first build here; `RUSTUP_TOOLCHAIN=nightly` in the environment uses the locally installed nightly for

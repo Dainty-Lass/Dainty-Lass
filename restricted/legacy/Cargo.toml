@@ -38,6 +38,7 @@ toml_edit = { version = "0.25", default-features = false, features = ["parse", "
 [workspace.lints.rust]
 unsafe_code = "deny"
 unused_must_use = "deny"
+missing_docs = "warn"
 
 [workspace.lints.clippy]
 # Same as Dainty Lass (AGENTS.md): a panic in a request handler still drops the request

@@ -109,7 +109,7 @@ fn an_old_kit_is_upgraded() {
         "kept as it is"
     );
     assert!(
-        text.contains("legacyGameDir") && text.contains("REFORGED_ADMIN_KEY"),
+        text.contains("legacyGameDir") && text.contains("DAINTY_ADMIN_KEY"),
         "{text}"
     );
 

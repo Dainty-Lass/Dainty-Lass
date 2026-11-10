@@ -15,10 +15,12 @@ use crate::error::{ImportError, Result};
 use crate::reforged::layout::Layout;
 use crate::report::Report;
 
+/// The file in the config folder that records MongoDB was migrated.
 pub const MONGO_MIGRATED_MARKER: &str = ".mongo-migrated";
 const DEFAULT_MONGO_URI: &str = "mongodb://127.0.0.1:27017";
 
 #[must_use]
+/// The path of the [`MONGO_MIGRATED_MARKER`] file.
 pub fn marker(l: &Layout) -> PathBuf {
     l.config.join(MONGO_MIGRATED_MARKER)
 }
@@ -44,6 +46,7 @@ pub fn redact_mongo_uri(uri: &str) -> String {
 }
 
 #[must_use]
+/// The URI naming `db_override` (default `reforged`) as its database, unless the URI already names one.
 pub fn mongo_uri_with_database(raw_uri: &str, db_override: Option<&str>) -> String {
     let db = db_override
         .map(str::trim)
@@ -134,6 +137,7 @@ pub const DEFAULT_DB_TOOL: &str = "dainty-host";
 /// The host kit's database tool, run as `<program> db ...` (dainty-lass's MIT `rustic-isles-db`), from a path or
 /// `PATH`. It finds its server folder from the working directory or its own location.
 pub struct DbTool {
+    /// The program, a path or a name found on `PATH`.
     pub program: PathBuf,
 }
 
@@ -198,7 +202,9 @@ impl MongoMigrator for DbTool {
 pub enum MongoPlan<'a> {
     /// Move it into this database with this migrator
     Migrate {
+        /// The database to move it into.
         target: &'a DatabaseConfig,
+        /// What moves it.
         migrator: &'a dyn MongoMigrator,
     },
     /// Start 1.14.7 on a new database; MongoDB is kept as it is (setup's `--fresh-start`)

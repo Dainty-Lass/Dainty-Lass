@@ -39,12 +39,14 @@ pub enum Origin {
 
 /// A database at the final 1.4.4 schema, in a folder of its own that goes with it.
 pub struct Prepared {
+    /// The connection to the prepared copy.
     pub conn: Connection,
     path: PathBuf,
     _dir: TempDir,
 }
 
 impl Prepared {
+    /// Where the prepared copy is.
     pub fn path(&self) -> &Path {
         &self.path
     }

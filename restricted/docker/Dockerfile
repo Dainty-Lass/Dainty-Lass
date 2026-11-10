@@ -26,6 +26,8 @@ ARG MONGO_IMAGE=mongo:8.0
 # and the module data their builds and tests read. The Node services, native code, the dashboard and the 1.4.4
 # importer are other stages' business.
 FROM scratch AS rust-sources
+COPY Cargo.toml Cargo.lock /src/
+COPY .cargo/ /src/.cargo/
 COPY crates/ /src/crates/
 COPY restricted/Cargo.toml restricted/Cargo.lock restricted/rust-toolchain.toml restricted/rustfmt.toml restricted/clippy.toml restricted/deny.toml /src/restricted/
 COPY restricted/.cargo/ /src/restricted/.cargo/
@@ -66,21 +68,20 @@ RUN --mount=type=cache,id=reforged-cargo-registry,target=/usr/local/cargo/regist
  && cargo build --release --locked -p dainty-server "$@" --bins \
  && mkdir -p /out/bin \
  && cp target/release/dainty-host /out/bin/
-# The libraries host.toml can pin (RD27), as the release ships them in plugins/; a service's crate joins the list by
-# being in the workspace
+# The libraries host.toml can pin (RD27), as the release ships them in plugins/: the 1.14.7 module from restricted/,
+# the services from the MIT root's workspace
 RUN --mount=type=cache,id=reforged-cargo-registry,target=/usr/local/cargo/registry \
     --mount=type=cache,id=reforged-cargo-git,target=/usr/local/cargo/git \
     --mount=type=cache,id=reforged-cargo-target,target=/src/restricted/target \
-    set -- \
- && for pkg in rustic-isles-plugin dainty-content-plugin dainty-chat-plugin dainty-gateway-plugin; do \
-      if cargo pkgid --locked -p "$pkg" > /dev/null 2>&1; then set -- "$@" -p "$pkg"; fi; \
-    done \
- && cargo build --release --locked "$@" --lib \
+    --mount=type=cache,id=dainty-cargo-target,target=/src/target \
+    cargo build --release --locked -p rustic-isles-plugin --lib \
+ && cargo build --release --locked --manifest-path ../Cargo.toml \
+      -p dainty-content-plugin -p dainty-chat-plugin -p dainty-gateway-plugin --lib \
  && mkdir -p /out/plugins \
- && for lib in rustic_isles_plugin dainty_content_plugin dainty_chat_plugin dainty_gateway_plugin; do \
-      if [ -f "target/release/lib$lib.so" ]; then cp "target/release/lib$lib.so" /out/plugins/; fi; \
-    done \
- && test -f /out/plugins/librustic_isles_plugin.so
+ && cp target/release/librustic_isles_plugin.so /out/plugins/ \
+ && for lib in dainty_content_plugin dainty_chat_plugin dainty_gateway_plugin; do \
+      cp "../target/release/lib$lib.so" /out/plugins/; \
+    done
 
 # ------------------------------------------------------------------ front: gateway, allowlist, content, admin API
 FROM ${DEBIAN_IMAGE} AS front

@@ -27,11 +27,7 @@ fn load_proxied_dll(dll_name: &str) -> Option<HMODULE> {
 
     let mut dll_path = PathBuf::from(OsString::from_wide(&system_path[..len as usize]));
     dll_path.push(dll_name);
-    let dll_path: Vec<u16> = dll_path
-        .as_os_str()
-        .encode_wide()
-        .chain(std::iter::once(0))
-        .collect();
+    let dll_path: Vec<u16> = dll_path.as_os_str().encode_wide().chain(std::iter::once(0)).collect();
 
     let dll = unsafe { LoadLibraryW(dll_path.as_ptr()) };
     if dll.is_null() {
@@ -51,10 +47,9 @@ pub fn get_proxied_func(dll_name: &str, func_name: &str) -> Option<unsafe extern
         None
     } else {
         Some(unsafe {
-            std::mem::transmute::<
-                *mut winapi::shared::minwindef::__some_function,
-                unsafe extern "system" fn(),
-            >(proc_addr)
+            std::mem::transmute::<*mut winapi::shared::minwindef::__some_function, unsafe extern "system" fn()>(
+                proc_addr,
+            )
         })
     }
 }

@@ -161,8 +161,7 @@ At startup the Director logs a hunt-table audit (`[HuntTableAudit] ... problems=
 
 ## Synthetic smoke-test data
 
-To test compilation and wiring only, copy each *.example.json to its corresponding *.json name, or
-run configure-selfhost.ps1 with -UseSyntheticData.
+To test compilation and wiring only, copy each *.example.json to its corresponding *.json name.
 
 Do not describe a synthetic deployment as playable. Replace all fixtures with data generated from
 the same compatible installation before testing account progression, matchmaking, or Ramsgate.
@@ -173,5 +172,4 @@ Keep raw captures, Items_Analysis and the final extracted tables out of the publ
 ignored for this reason. Before sharing logs, remove account identifiers, tokens, private paths, and
 captured payloads that contain user or proprietary data.
 
-Continue with [SELF_HOSTING.md](SELF_HOSTING.md) for runtime compilation, signed update publication,
-service startup, launcher setup, and the Ramsgate acceptance test.
+Continue with Dainty Lass's [hosting guide](../../../docs/hosting.md) to install the data and start the server.

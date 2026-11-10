@@ -6,11 +6,13 @@ use dainty_store::drizzle::Migration;
 use dainty_store::{DrizzleBaseline, Schema};
 use diesel_migrations::{EmbeddedMigrations, embed_migrations};
 
+/// The Diesel migrations of the final 1.4.4 schema.
 pub const MIGRATIONS: EmbeddedMigrations = embed_migrations!("migrations/revived");
 
 /// The last Drizzle migration, which `0001_baseline` was cut from.
 pub const DRIZZLE_TAG: &str = "0030_device_signals";
 
+/// The 1.4.4 schema, for `dainty_store` to bring a source up to.
 pub const SCHEMA: Schema = Schema {
     migrations: || MIGRATIONS,
     drizzle: Some(DrizzleBaseline {
