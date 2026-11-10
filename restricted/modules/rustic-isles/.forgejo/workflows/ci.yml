@@ -1,7 +1,6 @@
 # The Node services' tests on Forgejo Actions (DX3): npm ci, tests and build for the backend and Director of each
 # game version. A folder that doesn't exist on this commit passes as skipped, so the list covers today's layout and
-# RU1's reference/1.14.7/ alike. Mystic's .github/workflows are GitHub's (Forgejo reads only this folder once it
-# exists). Runner label docker (dainty-lass docs/ci-runners.md). Actions are pinned by commit.
+# RU1's reference/1.14.7/ alike. Runner label docker (dainty-lass docs/ci-runners.md). Actions are pinned by commit.
 name: CI
 
 on:
