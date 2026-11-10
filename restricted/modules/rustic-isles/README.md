@@ -15,61 +15,25 @@
 > (`crates/rustic-isles-plugin`), its version data, the recorded goldens replayed against it (`crates/rustic-isles-mit-parity`),
 > the Node reference under `reference/1.14.7` the port came from, and the runtime and tools under `native/`.
 
-<h1 align="center">Rustic Isles</h1>
-
-<p align="center">
-  <b>Open-source private server for Dauntless 1.14.7</b> — backend, game-server orchestration and runtime
-  compatibility layer, run as a game module of Dainty Lass.
-</p>
-
-<p align="center">
-  <a href="LICENSE"><img alt="License: AGPL-3.0-only" src="https://img.shields.io/badge/license-AGPL--3.0--only-blue"></a>
-  <a href="docs/DAUNTLESS_1_14_7_PORT.md"><img alt="Dauntless: 1.14.7" src="https://img.shields.io/badge/Dauntless-1.14.7-orange"></a>
-  <img alt="Platform: Windows x64" src="https://img.shields.io/badge/platform-Windows%20x64-lightgrey">
-</p>
-
-<p align="center">
-  <a href="#-get-started">Get started</a> ·
-  <a href="#-documentation">Docs</a> ·
-  <a href="docs/FAQ.md">FAQ</a> ·
-  <a href="docs/DAUNTLESS_1_14_7_PORT.md">1.14.7 progress</a>
-</p>
-
 > [!IMPORTANT]
 > Unofficial and community-developed. Not affiliated with, endorsed by, or sponsored by Phoenix Labs,
 > Epic Games, Forte Labs, or any current or former Dauntless rights holder. This repository ships
 > **source code only** — no game files, SDK or game data.
 
-## 📊 Status
+## Using it
 
-**Dauntless 1.14.7** (CL `647472`): Ramsgate, the Training Grounds, hunts, parties and saved progress (loot, XP,
-weapon levels, reforge, mastery, bounties) work. Hubs and hunts run on dedicated servers or as **Paradox realms**
-hosted on a player's PC — [progress notes](docs/DAUNTLESS_1_14_7_PORT.md) ·
-[co-op and realms](docs/SELF_HOSTING.md#co-op-hunts-and-paradox-realms).
-
-Expect active development, not production-grade uptime. The Gauntlet is not available yet.
-
-## 🚀 Get started
-
-1. **Read the [FAQ](docs/FAQ.md)** — what the project is, what it isn't, and where to get help.
-2. **Install Dauntless 1.14.7** from Epic with your own account — [Installing Dauntless](docs/INSTALLING_DAUNTLESS.md).
-3. **Generate the SDK** from your own 1.14.7 install — [Generating the SDK](docs/GENERATING_SDK.md).
-4. **Generate the game data** from the same install — [Generating game data](docs/GENERATING_GAME_DATA.md).
-5. **Deploy and play** — [Self-hosting](docs/SELF_HOSTING.md) walks from source to Ramsgate:
-   prerequisites, DNS/TLS, services, launcher and the first acceptance test.
-
-## 📚 Documentation
+Rustic Isles runs as the 1.14.7 game module of Dainty Lass: a host sets a server up with `dainty-host setup` as
+[restricted/docs/hosting.md](../../docs/hosting.md) describes, and players follow
+[restricted/docs/players.md](../../docs/players.md). The guides kept here cover what a host does with their own copy
+of the game:
 
 | Guide | What's inside |
 |---|---|
-| 🎮 [Installing Dauntless](docs/INSTALLING_DAUNTLESS.md) | Getting the 1.14.7 client from Epic with your own account and Legendary |
-| 🏠 [Self-hosting](docs/SELF_HOSTING.md) | Full deployment: prerequisites, configuration helper, ports, validation, troubleshooting |
-| 🧩 [Generating the SDK](docs/GENERATING_SDK.md) | Dumping the Unreal SDK with Dumper-7 and building the C++ projects |
-| 📦 [Generating game data](docs/GENERATING_GAME_DATA.md) | Exporting the catalogue and tables from your install |
-| 🔭 [1.14.7 port](docs/DAUNTLESS_1_14_7_PORT.md) | Progress, findings and open issues for the final game release |
-| ❓ [FAQ](docs/FAQ.md) | Common questions, support and contact |
-| ⚖️ [Scope and legal](docs/SCOPE_AND_LEGAL.md) | What isn't included, responsible use, license details |
-| 🔒 [Security](SECURITY.md) | Safe configuration and how to report a vulnerability |
+| [Installing Dauntless](docs/INSTALLING_DAUNTLESS.md) | Getting the 1.14.7 client from Epic with your own account and Legendary |
+| [Generating the SDK](docs/GENERATING_SDK.md) | Dumping the Unreal SDK with Dumper-7 and building the C++ projects |
+| [Generating game data](docs/GENERATING_GAME_DATA.md) | Exporting the catalogue and tables from your install |
+| [Scope and legal](docs/SCOPE_AND_LEGAL.md) | What isn't included, responsible use, license details |
+| [Security](SECURITY.md) | Safe configuration and how to report a vulnerability |
 
 ## 🗂️ Repository layout
 
