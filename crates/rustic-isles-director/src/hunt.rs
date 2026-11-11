@@ -347,8 +347,11 @@ pub struct TableAudit {
 pub struct CoverageAudit {
     /// Rows in the player table.
     pub total: usize,
-    /// Player hunt ids that reach no matchmaker row, sorted.
+    /// Player hunt ids that name matchmaker rows yet reach none, sorted.
     pub unresolved: Vec<String>,
+    /// Player hunt ids that name no matchmaker row at all, sorted: the game ships them without one (1.14.7's
+    /// `CR19_PlayerHunt_Expedition_*`), so there is nothing to launch and nothing to fix.
+    pub no_matchmaker: Vec<String>,
     /// Matchmaker rows reached.
     pub referenced: BTreeSet<String>,
     /// Maps reached.
@@ -362,7 +365,7 @@ pub struct CoverageAudit {
 impl CoverageAudit {
     /// Player hunts that reach a matchmaker row.
     pub fn resolvable(&self) -> usize {
-        self.total - self.unresolved.len()
+        self.total - self.unresolved.len() - self.no_matchmaker.len()
     }
 }
 
@@ -679,7 +682,11 @@ impl HuntResolver {
                 direct
             };
             if candidates.is_empty() {
-                audit.unresolved.push(id.clone());
+                if names_no_matchmaker(row) {
+                    audit.no_matchmaker.push(id.clone());
+                } else {
+                    audit.unresolved.push(id.clone());
+                }
                 continue;
             }
             for candidate in candidates {
@@ -699,6 +706,7 @@ impl HuntResolver {
             }
         }
         audit.unresolved.sort();
+        audit.no_matchmaker.sort();
         audit.max_players = max_players.into_iter().collect();
         self.quiet.store(was_quiet, Ordering::SeqCst);
         audit
@@ -727,16 +735,27 @@ impl HuntResolver {
                 Level::Info,
                 format!(
                     "[HuntLaunchCoverage] resolvable={}/{} referencedMatchmakerRows={} uniqueMaps={} gameModes={} \
-                     unresolved={}",
+                     unresolved={} noMatchmaker={}",
                     coverage.resolvable(),
                     coverage.total,
                     coverage.referenced.len(),
                     coverage.maps.len(),
                     coverage.game_modes.len(),
-                    coverage.unresolved.len()
+                    coverage.unresolved.len(),
+                    coverage.no_matchmaker.len()
                 ),
             ),
         ];
+        if !coverage.no_matchmaker.is_empty() {
+            lines.push((
+                Level::Info,
+                format!(
+                    "[HuntLaunchCoverage] {} player hunt row(s) name no matchmaker row in the game's own tables, so                      they have no map to launch and stay unplayable: {}",
+                    coverage.no_matchmaker.len(),
+                    coverage.no_matchmaker.join(", ")
+                ),
+            ));
+        }
         if !coverage.unresolved.is_empty() {
             lines.push((
                 Level::Warn,
@@ -762,6 +781,20 @@ impl HuntResolver {
         }
         lines
     }
+}
+
+/// Every `MatchmakerHuntIDs` entry is `None` or empty and no tag list is given.
+fn names_no_matchmaker(row: &Value) -> bool {
+    let named = match row.get("MatchmakerHuntIDs") {
+        Some(Value::Array(handles)) => handles.iter().any(|h| {
+            h.get("RowName")
+                .and_then(Value::as_str)
+                .is_some_and(|name| !name.is_empty() && name != "None")
+        }),
+        _ => false,
+    };
+    let tagged = matches!(row.get("MatchmakerHuntsByTag"), Some(Value::Array(lists)) if !lists.is_empty());
+    !named && !tagged
 }
 
 fn js_cmp(a: &str, b: &str) -> std::cmp::Ordering {
