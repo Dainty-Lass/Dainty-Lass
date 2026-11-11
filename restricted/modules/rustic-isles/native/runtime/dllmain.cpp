@@ -26592,18 +26592,20 @@ void Init() {
 // [2026-11-01 Rustic Isles rename] A launcher or Director from before the rename sets only MYSTICPARADOX_*: each gets
 // its RUSTIC_ISLES_* name unless that is set, for one release. Before Init, so every read sees the new names.
 static void MpAcceptLegacyEnvironment() {
-    static const char kLegacy[] = "MYSTICPARADOX_";
-    std::vector<std::pair<std::string, std::string>> Renamed;
-    if (LPCH Block = GetEnvironmentStringsA()) {
-        for (LPCH Entry = Block; *Entry; Entry += strlen(Entry) + 1) {
-            const char* Equals = strchr(Entry, '=');
-            if (!Equals || strncmp(Entry, kLegacy, sizeof(kLegacy) - 1) != 0) continue;
-            std::string Name = "RUSTIC_ISLES_" + std::string(Entry + sizeof(kLegacy) - 1, Equals);
-            if (GetEnvironmentVariableA(Name.c_str(), nullptr, 0) == 0) Renamed.emplace_back(Name, Equals + 1);
+    // Wide API: the project builds with UNICODE, where GetEnvironmentStringsA is not declared
+    static const wchar_t kLegacy[] = L"MYSTICPARADOX_";
+    std::vector<std::pair<std::wstring, std::wstring>> Renamed;
+    if (LPWCH Block = GetEnvironmentStringsW()) {
+        for (LPWCH Entry = Block; *Entry; Entry += wcslen(Entry) + 1) {
+            const wchar_t* Equals = wcschr(Entry, L'=');
+            if (!Equals || wcsncmp(Entry, kLegacy, std::size(kLegacy) - 1) != 0) continue;
+            const wchar_t* Suffix = Entry + std::size(kLegacy) - 1;
+            std::wstring Name = L"RUSTIC_ISLES_" + std::wstring(Suffix, Equals - Suffix);
+            if (GetEnvironmentVariableW(Name.c_str(), nullptr, 0) == 0) Renamed.emplace_back(Name, Equals + 1);
         }
-        FreeEnvironmentStringsA(Block);
+        FreeEnvironmentStringsW(Block);
     }
-    for (const auto& Pair : Renamed) SetEnvironmentVariableA(Pair.first.c_str(), Pair.second.c_str());
+    for (const auto& Pair : Renamed) SetEnvironmentVariableW(Pair.first.c_str(), Pair.second.c_str());
 }
 
 BOOL APIENTRY DllMain( HMODULE hModule,

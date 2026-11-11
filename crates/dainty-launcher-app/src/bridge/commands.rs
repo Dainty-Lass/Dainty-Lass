@@ -206,9 +206,11 @@ pub async fn set_settings(c: Ctl<'_>, patch: Value) -> Answer<Settings> {
     Ok(c.set_settings(checks::settings_patch(&patch)).await)
 }
 
+// Async so it runs on Tauri's Tokio runtime: a sync command runs on the main thread, where the poll's spawn panics
 #[tauri::command]
-pub fn set_status_polling(c: Ctl<'_>, on: bool) {
+pub async fn set_status_polling(c: Ctl<'_>, on: bool) -> Answer<()> {
     c.set_status_polling(on);
+    Ok(())
 }
 
 #[tauri::command]

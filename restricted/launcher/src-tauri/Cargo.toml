@@ -8,6 +8,8 @@ rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
 publish.workspace = true
+# `tauri dev` runs a bare `cargo run`; fake-host-kit is the package's second binary
+default-run = "dainty-launcher"
 
 [lib]
 name = "dainty_launcher"
