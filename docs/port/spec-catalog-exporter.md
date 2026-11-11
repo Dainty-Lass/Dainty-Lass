@@ -158,7 +158,7 @@ ships was extracted statically from the paks by other means; the exporter's mast
 | `TMap` (a data table's `RowMap`, name to row pointer) | rows | iterated in the map's own order, skipping free slots of its sparse array |
 | `UDataTable`: `RowStruct` (a struct object whose name is compared), `RowMap` | every table export | a table is used only when `RowStruct` is non-null and its name matches |
 | `FDataTableRowHandle` | references | `{DataTable pointer, RowName}` |
-| Soft object and soft class pointers | asset paths | the path name is read at a fixed offset, 4.5 |
+| Soft object and soft class pointers | asset paths | hunts read the path name at a fixed offset (4.5); the catalog's item class (6.1) and the store images (6.13) read it through SDK members |
 | `UFunction` calls through `ProcessEvent` | the catalog, live inventory, string tables | 4.2. Every SDK wrapper of a reflected function dispatches through `ProcessEvent` on the worker thread |
 
 ### 4.2 Calls into game code
@@ -220,10 +220,10 @@ These are read at fixed offsets rather than through SDK members, and the new one
 
 | Read | Offset | Why |
 | --- | --- | --- |
-| A soft pointer's path name (hunts) | `+0x10` from the soft pointer | the SDK sizes the weak pointer part wrongly; the real layout is 8 bytes weak pointer, 4 bytes tag, 4 bytes padding, then the path (name 8 bytes, sub-path string 16). A path that reads as `None` becomes empty |
+| A soft pointer's path name (hunts) | `+0x10` from the soft pointer | the SDK sizes the weak pointer part wrongly; the real layout is 8 bytes weak pointer, 4 bytes tag, 4 bytes padding, then the path (name 8 bytes, sub-path string 16). A path that reads as `None` becomes empty. Only the hunt exporter reads soft paths this way; 6.1 and 6.13 give the other two reads |
 | Equipment item id | `+0x28` (index, signed 32-bit) and `+0x2C` (number) on the object | read as a name; an index `<= 0` means no id |
 | `UStoreViewModel` tag filter | `+0x170` (an `FString`) | a protected field |
-| `UStoreItemViewModel` offer | `+0x650` (an `FOnlineStorePhoenixOffer`) | read directly; the SDK's getter would dispatch `ProcessEvent` |
+| `UStoreItemViewModel` offer | `+0x650` (an `FOnlineStorePhoenixOffer`, the protected member `UStoreItemViewModel.StoreItem`) | read directly; the SDK's getter would dispatch `ProcessEvent` |
 
 **(ambiguity)** The two store offsets are documented as the 1.12 SDK's; nothing shows they were re-checked for 1.14.7.
 The new one takes them from the host's SDK at build time like every other layout (section 9), so a moved field reads
@@ -281,13 +281,15 @@ Calls `GetAllItems` (4.2) and appends `general: GetAllItems returned <n> items`.
 opened**. Otherwise one line per item, in the returned order, skipping items whose `ItemId` is empty:
 
 1. `itemId`: s, `ItemId`
-2. `itemClass`: s, the item class soft path's asset path name, **short form** (so the text after the last `/`)
+2. `itemClass`: s, `ItemClass.AssetPathName`, **short form** (so the text after the last `/`). `ItemClass` is a soft
+   *class path* (an `FSoftObjectPath`), not a soft pointer: its `AssetPathName` is at the member's own offset plus the
+   SDK's offset of `AssetPathName`, with no weak pointer in front, so the `+0x10` of 4.5 does not apply
 3. `displayName`: s, `DisplayNameInvariant` (an `FString`, not the `FText`)
 4. `description`: s, `DescriptionInvariant`
 5. `tags`: [s], `Tags`
 6. `customData`: s, `CustomData` (itself a JSON text, escaped as any string)
 7. `entitlements`: [s]
-8. `isStackable`, `isBundle`, `isContainer`: b
+8. `isStackable`, `isBundle`, `isContainer`: b, `IsStackable`, `IsBundle`, `IsContainer` (no `b` prefix)
 9. `maxQuantity`: n
 10. `containerItemContents`: [s]
 11. `bundledItems`: [s]
@@ -299,7 +301,8 @@ opened**. Otherwise one line per item, in the returned order, skipping items who
 17. `bundledResultTablesWithQuantity`: [{`itemId`, `quantity`}]
 18. `otherItemQuantities`: [{`itemId`, `quantity`}]
 19. `alternateItemsToGrant`: [{`itemId`, `quantity`}]
-20. `virtualCurrencyPrices`: [{`currency`: n (the currency enum), `amount`: n}]
+20. `virtualCurrencyPrices`: [{`currency`: n (the currency enum), `amount`: n}], from `VirtualCurrencyPrices`, whose
+    element (`FPlayFabCatalogCurrency`) holds `CurrencyType` and `Amount`
 21. `journeyUnlockRow`: s, `PlayerJourneyUnlockRow.RowName`
 
 Status: `general: wrote <n> definitions -> catalog_1_14_7.jsonl`; on open failure `general: cannot open
@@ -429,6 +432,16 @@ s, `premiumGatingEntitlement`: s, `resetWithCharacter`: b, `progressionMultiplie
   `progressDescription`: s (`FText`s).
 - Mastery track row: `rowName`, `base`, `displayName`, `shortDisplayName`: s (`FText`), `isUIEnabled`: b, `category`: n.
 
+SDK members where the JSON name does not give them:
+
+- base: `resetWithCharacter` is `ResetWithCharacter` (no `b` prefix).
+- experience track: `expDisplayShortName`, `expDisplayName`, `expDisplayDescription` are
+  `FExperienceTrackTableData.ExperienceTypeDisplayData.ShortDisplayName`, `.DisplayName` and `.Description`;
+  `experienceBankingLevelCount` is the length of the array `FExperienceTrackTableData.ExperienceBankingDataPerLevel`.
+- progression track: `repeats`, `isPrestigeTrack`, `isCoreTrack`, `visibleInUI` are
+  `FProgressionTrackTableData.Repeats`, `.IsPrestigeTrack`, `.IsCoreTrack`, `.VisibleInUI` (no `b` prefix).
+- mastery track: `category` is `FMasteryTrackTableData.Categtory` (the game's spelling).
+
 Status prefix `[Progression] `. The run total counts written rows, failures as 0.
 
 ### 6.7 Combat (`EXPORT_COMBAT`): `<out>\combat_1_14_7\`
@@ -531,6 +544,18 @@ query]}`. Every row starts `sourceTable`: s, `rowName`: s. (Number vs. float fol
 - schedule: `startTimeTicks`, `endTimeTicks`: n (the 64-bit tick value of each date), `isRepeatable`, `eachDay`,
   `eachWeek`, `shouldQueue`: b, `scheduledItems`: [{`id`: s, `maxCompletionPerInterval`: n}], `itemsLeftOut`: [n].
 
+SDK members where the JSON name does not give them:
+
+- player hunt: `matchmakerHuntsByTag` is `MatchmakerHuntsByTag` (element `FMatchmakerHuntList`); a list's `queries`
+  is written from its `HuntTags`. `visibleWhileLocked` is `FPlayerHuntTableData.IsVisibleWhileLocked`.
+- escalation spec: `roundStructureCount` is the length of `FEscalationModeSpecification.RoundStructures`.
+- unlock criteria: a quest requirement's `statusRequired` is `QuestRequirements[].QuestStatusRequired`.
+- schedule: `startTimeTicks`, `endTimeTicks` are the 64-bit value at the start of `StartTime`, `EndTime`;
+  `isRepeatable` is `FScheduleData.IsRepeatable`; `eachDay`, `eachWeek` are `FScheduleData.RepeatableDetails.EachDay`
+  and `.RepeatableDetails.EachWeek` (a nested struct); `shouldQueue` is `FScheduleData.bShouldQueueTheSheduleItems`
+  (the game's spelling); a scheduled item's `id` is `ScheduledItems[].ID`; `itemsLeftOut` is
+  `FScheduleData.ItemsToBeLeftOutOfTheRotation`.
+
 `map_metadata_table` is not exported (a Blueprint struct with no layout in the SDK).
 
 **`hunt_export_manifest.json`**, always written after the eight, pretty JSON with two-space indent, CRLF:
@@ -598,10 +623,26 @@ serialized under the guard; a fault is counted as skipped). Default objects are 
 
 `store_item_images_1_14_7.jsonl`: after the pass, every table with row struct `StoreItemTable` and a row count in
 `[0, 200000]` (**inclusive** here), rows sorted, guarded: `table`, `rowName`, `featureImage`, `standardImage`: s, each
-image the soft pointer's asset path name in **short form** (unlike hunts: this read goes through the SDK member, and
-an unset image is `None`).
+image `FStoreItemTable.FeatureImage.ObjectID.AssetPathName` (and `StandardImage`) in **short form**, an unset image
+written `None`. Unlike hunts (4.5), this read goes through the SDK's offsets: the soft pointer member's offset, plus
+the offset of `ObjectID` inside the soft pointer (the SDK's `TPersistentObjectPtr.ObjectID`), plus the offset of
+`AssetPathName` in `FSoftObjectPath`. Where the SDK declares `TPersistentObjectPtr` by hand with no offset comment,
+`ObjectID` is at `+0x10`, UE 4.26's own layout **(ambiguity: the diff settles it, 12)**.
 
 Status `DONE storeViewModels=<n> itemViewModels=<n> imageRows=<n> skipped=<n>`; the run count is the sum of the three.
+SDK members where the JSON name does not give them:
+
+- view model: `categories` is `UStoreViewModel.StoreCategoryViewModels` (element `FStoreCategoryViewModels`); a
+  category's `name` is its `CategoryName` (an `FText`) and its `subcategories` its `SubCategoryViewModels` (element
+  `FStoreSubCategoryViewModels`); a subcategory's `name` is its `SubCategoryName` (an `FText`). `requiresEntitlement`
+  is `RequiresEntitlement` on both, `hidePurchasedItems` is `HidePurchasedItems`; the other leaves are spelt
+  `BreadcrumbCategory`, `EntitlementId`, `SkuId`, `SubTagIds`, `bShouldHideTab`, `bHideTab`.
+- item view model: `storeCurrencyEnum` is `UStoreItemViewModel.StoreCurrency`; `purchased`, `expired`,
+  `prestigeItemElite` are `bIsPurchased`, `bIsExpired`, `bIsPrestigeItemElite`; `catalogItemId` is
+  `UStoreItemViewModel.StoreItemCatalogData.ItemId`; `offer` is the protected member `StoreItem`, at `+0x650` (4.5).
+- offer: `imageUrl` is `FOnlineStorePhoenixOffer.ImageURL`, `currencyEnum` is `.Currency`, `inUserCollection` is
+  `.bIsInUserCollection`.
+
 A second entry point that waits for a `season_store` view model exists in the old code but nothing calls it; not
 carried.
 
@@ -617,6 +658,14 @@ then sorted by row name. Both empty: status `neither table is loaded; nothing wr
 leading `ObjectiveData_` removed, only when non-empty), `"compoundId":s` (cards only; when non-empty and not `None`),
 `"rank":n` and then `"progressTrack":s` (when `ProgressRank > 0`; the track only when non-empty and not `None`).
 Compact, no spaces.
+
+The tracked objectives are `FMasteryCardTableData.Objectives` (element `FMasteryObjectiveData`) and
+`FAchievementTableData.TrackedObjectives` (element `FTrackedObjectiveData`). In both, `UniqueOnlineObjectiveId` is
+on the element and the rest is in its `FGameplayObjective` member `Objective`: `target` is `Objective.Amount`, the
+objective data class `Objective.ObjectiveDataClass`, the rank `Objective.ProgressRank` and the track
+`Objective.ProgressTrack`. A card objective's `compoundId` is its `CompoundObjectiveId`. A card's
+`baseXpObjectiveId` and `prestigeXpObjectiveId` are `FMasteryCardTableData.BaseXPBarOnlineObjectiveId` and
+`.PrestigeXPBarOnlineObjectiveId`.
 
 **Card** (skipped with a status line when its objectives count is outside `[0, 2000]` or reward tracks outside
 `[0, 64]`): `track` is the first reward track row name that is non-empty, not `None` and not
@@ -966,7 +1015,8 @@ Record in the report only file names, verdicts and row counts.
 
 1. Name number suffix and UTF-16 conversion in the SDK's helpers (4.3); whether names decode through the pool or a
    call to `AppendString` (9).
-2. The 1.12-era store offsets `+0x170`, `+0x650` on 1.14.7 (4.5).
+2. The 1.12-era store offsets `+0x170`, `+0x650` on 1.14.7 (4.5), and where a store image's `ObjectID` sits in
+   the soft pointer (6.13).
 3. Member types (integer or float) of the combat and some hunt fields (6.7, 6.10); `%f` rounding and NaN (5).
 4. Duplicate row names (5); equal names in the census sort (6.16).
 5. Whether any export session can load the Slayer's Path, hunt, store and mastery tables before the catalog appears
