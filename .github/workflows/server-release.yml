@@ -158,6 +158,8 @@ jobs:
           cargo build --release --locked --target "$TARGET" -p rustic-isles-plugin --lib
           cargo build --release --locked --target "$TARGET" --manifest-path ../Cargo.toml \
             -p dainty-content-plugin -p dainty-chat-plugin -p dainty-gateway-plugin --lib
+          # The legacy importer, MIT since RD27: the external plugin `dainty-host legacy` runs
+          cargo build --release --locked --target "$TARGET" --manifest-path ../Cargo.toml -p dainty-legacy --bin dainty-legacy
 
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
@@ -188,6 +190,7 @@ jobs:
           for bin in dainty-host dainty-server dainty-server-minimal; do
             cp "target/$TARGET/release/$bin$ext" "$out/bin/"
           done
+          cp "../target/$TARGET/release/dainty-legacy$ext" "$out/bin/"
           # The libraries beside them, under the names host.toml's paths give (RD27)
           mkdir -p "$out/plugins"
           if [ "$RUNNER_OS" = Windows ]; then prefix=""; suffix=".dll"; else prefix="lib"; suffix=".so"; fi
@@ -229,6 +232,8 @@ jobs:
           ext=""; [ "$RUNNER_OS" = Windows ] && ext=".exe"
           bin="$WORK/assemble/dainty-lass-server-$VERSION/bin"
           for b in dainty-host dainty-server dainty-server-minimal; do "$bin/$b$ext" --help > /dev/null; done
+          # With no arguments it waits for frames on stdin, so the smoke test asks for usage instead
+          if "$bin/dainty-legacy$ext" import 2> /dev/null; then echo "dainty-legacy took no kind"; exit 1; fi
           # Each service the binary runs alone, as the systemd units and the containers run it
           for service in gateway allowlist content backend director; do "$bin/dainty-host$ext" "$service" --help > /dev/null; done
           for db_cmd in migrate verify export-mongo; do "$bin/dainty-host$ext" db "$db_cmd" --help > /dev/null; done

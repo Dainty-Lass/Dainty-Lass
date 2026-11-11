@@ -80,7 +80,7 @@ with the `server-gui` feature) runs the same server in-process from its Host pag
 | `history` | What changed in the server's data, by whom and when (`--actor`, `--account`, `--since`, `--until`); `history verify` checks the log's hash chain. See [Undoing a change](#undoing-a-change) |
 | `revert` | Undo what an actor, an account or a time range changed: a dry run first, then `--apply <plan id>` |
 | `db` | Migrate or verify between MongoDB and the SQLite/Postgres store (`migrate`, `verify`), or export the store back to MongoDB for one-release rollback (`export-mongo`) |
-| `legacy` | `legacy import <revived\|offline-save\|reforged> [args]` runs [dainty-legacy](../../crates/dainty-legacy)'s importer for an old install: the `legacy` module `[[modules.external]]` pins in `host.toml`, or `--program <path>` before the first setup. In the console, `legacy import` runs it as `module run legacy import-<kind>` |
+| `legacy` | `legacy import <revived\|offline-save\|reforged> [args]` runs the importer for an old install, `bin/dainty-legacy` in the release ([source](../../crates/dainty-legacy)): the `legacy` module `[[modules.external]]` pins in `host.toml`, or `--program <path>` before the first setup. In the console, `legacy import` runs it as `module run legacy import-<kind>` |
 
 
 ## Getting the game from Epic
@@ -599,7 +599,7 @@ bin\dainty-host update                    # install it and run setup again
 ```
 
 `update` keeps `.workspace` and runs `setup` from your `host.toml`. Neither moves a Node backend's MongoDB data any
-more: [dainty-legacy](../../crates/dainty-legacy)'s `import reforged` upgrades an old Node
+more: `bin\dainty-legacy import reforged <old kit>` ([dainty-legacy](../../crates/dainty-legacy)) upgrades an old Node
 kit (its `host.json`, layout and MongoDB), and on a server already on `host.toml`, `bin\dainty-host db migrate`
 followed by `bin\dainty-host db verify` moves the data into the configured store (`.workspace\config\dainty-lass.db`
 on SQLite, or Postgres when `[database]` sets `engine = "postgres"`). `verify` writes `.workspace\config\.mongo-migrated`

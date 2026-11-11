@@ -148,7 +148,8 @@ bin/dainty-host backup                        # SQLite/Postgres backup into .wor
 On a Linux host that previously ran the Node backend with MongoDB data, run `bin/dainty-host db migrate` and then
 `bin/dainty-host db verify` after `update`: they move the data into the configured store
 (`.workspace/config/dainty-lass.db` or Postgres) and leave `.workspace/mongodb` untouched, and `start` refuses until
-`verify` has found no difference. An old Node kit (`host.json`) is upgraded by dainty-legacy's `import reforged`
+`verify` has found no difference. An old Node kit (`host.json`) is upgraded by
+`bin/dainty-legacy import reforged <old kit>`
 ([hosting.md](hosting.md#live-server-cutover-checklist-backup-update-smoke-rollback)).
 For one release after the cutover (until RB15), you can roll back to the Node backend and MongoDB by exporting the store
 back to MongoDB with `bin/dainty-host db export-mongo --to mongodb://127.0.0.1:27017/reforged` (defaulting the source

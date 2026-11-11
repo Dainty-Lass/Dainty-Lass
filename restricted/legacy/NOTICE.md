@@ -14,6 +14,10 @@ account schema of Mystic Paradox's 1.14.7 port, through its Dainty Lass fork Rus
 It is **not** an official release of Dauntless Revived, Undaunted, Mystic Paradox or any other project named below,
 and none of them endorses it. Every change is recorded in the commit history. It started on 31 October 2026.
 
+Since 11 November 2026 the plugin and the `dainty-legacy` executable are Dainty Lass's MIT `crates/dainty-legacy`,
+rewritten clean-room from a specification (`docs/port/spec-legacy-import.md`, RD27) and not derived from this code.
+What stays here is the AGPL importer, kept as that rewrite's test oracle; nothing here ships.
+
 ## Where the parts come from
 
 ### Dauntless Revived
