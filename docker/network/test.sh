@@ -381,10 +381,8 @@ json_req germany POST /candidate/join "{\"gameMode\":\"ISLAND\",\"instanceId\":\
 contains "$body" '"hostNode":"uk-1"' "germany's redirect to the uk hunt"
 uk_ticket=$(header "$headers" x-dainty-session-ticket)
 [[ -n $uk_ticket ]] || fail "no uk session ticket for germany's player"
-json_req uk PUT /gamesession/epiceos '{}' -H "x-dainty-session-ticket: $uk_ticket"
-expect_status 200 "epiceos on uk with the ticket"
-uk_token=$(json_str "$body" sessiontoken)
-out=$(login uk de-uk germany "$uk_token")
+# The ticket itself is the chat token on a foreign node
+out=$(login uk de-uk germany "$uk_ticket")
 out="$out$(drain_for uk de-uk ring-whisper-offline)"
 contains "$out" "urn:xmpp:delay" "the queued whisper"
 out="$out$(drain uk de-uk 1000)"

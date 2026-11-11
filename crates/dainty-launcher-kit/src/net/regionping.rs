@@ -24,7 +24,7 @@ use hyper_util::rt::TokioIo;
 use serde_json::json;
 
 use self::parse::{NodeEntry, NodeList, read_nodes};
-use super::hostapi::key_headers;
+use super::hostapi::{fetch_user_info, key_headers};
 use super::http::{Endpoint, HttpError, RequestOptions, host_header, parse_json_body, request};
 use super::pinned::{ConnectError, PinnedTarget, pinned_connect};
 use crate::bridge::types::{ErrorCode, LauncherError, RegionPing, RegionProblem, RegionRtt};
@@ -225,9 +225,19 @@ pub async fn report(home: &Endpoint, key: &str, regions: &[RegionRtt]) -> bool {
         body: Some(report_body(regions)),
         ..RequestOptions::get(HOME_TIMEOUT, 4096)
     };
-    request(home, REPORT_PATH, options)
-        .await
-        .is_ok_and(|response| (200..300).contains(&response.status))
+    match request(home, REPORT_PATH, options.clone()).await {
+        // A restarted home's ring knows a key only once a keyed launcher call has announced it again
+        Ok(response) if response.status == 401 => {
+            if fetch_user_info(home, key).await.is_err() {
+                return false;
+            }
+            request(home, REPORT_PATH, options)
+                .await
+                .is_ok_and(|response| (200..300).contains(&response.status))
+        }
+        Ok(response) => (200..300).contains(&response.status),
+        Err(_) => false,
+    }
 }
 
 /// `region_ping` for the joined server: its nodes timed and ordered, then the order reported when the
