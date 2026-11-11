@@ -24,4 +24,5 @@ pub mod metrics;
 pub mod ratelimit;
 pub mod routing;
 pub mod serve;
+pub mod task;
 pub mod telemetry;

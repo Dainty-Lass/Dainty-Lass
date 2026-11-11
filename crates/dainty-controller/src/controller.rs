@@ -220,7 +220,8 @@ impl ServerController {
         let (ctx, stop_tx) = self.status_registry.service_context(name);
         let start = module.start.clone();
         let span_name = name.to_string();
-        let handle = tokio::spawn(
+        let handle = dainty_service_kit::task::spawn_named(
+            name,
             async move { start(ctx).await }.instrument(tracing::info_span!("component", service = %span_name)),
         );
         self.record_started(name, module.ready_timeout, stop_tx, handle).await

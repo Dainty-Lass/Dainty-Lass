@@ -8,6 +8,10 @@ license = "MIT"
 repository.workspace = true
 publish.workspace = true
 
+[features]
+# Serves tokio-console on 127.0.0.1:6669; needs `--cfg tokio_unstable` (docs/tokio-console.md)
+tokio-console = ["dep:console-subscriber", "tokio/tracing"]
+
 [dependencies]
 dainty-http.workspace = true
 anstream.workspace = true
@@ -15,6 +19,7 @@ axum.workspace = true
 base64.workspace = true
 bytes.workspace = true
 chrono.workspace = true
+console-subscriber = { workspace = true, optional = true }
 dotenvy.workspace = true
 flate2.workspace = true
 gethostname.workspace = true

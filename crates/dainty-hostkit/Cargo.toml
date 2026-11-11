@@ -21,6 +21,8 @@ stub-module = ["dainty-controller/stub-module"]
 isles-1-14-7 = []
 realms = []
 paradox = []
+# tokio-console on 127.0.0.1:6669, per task and named per module; needs `--cfg tokio_unstable` (docs/tokio-console.md)
+tokio-console = ["dainty-service-kit/tokio-console"]
 
 [dependencies]
 dainty-http.workspace = true

@@ -346,9 +346,10 @@ impl IslesModule {
             let signal = async move {
                 let _ = stop.wait_for(|stopped| *stopped).await;
             };
-            running.servers.push(tokio::spawn(dainty_service_kit::serve::serve(
-                listener, app, signal, DRAIN,
-            )));
+            running.servers.push(dainty_service_kit::task::spawn_named(
+                &format!("rustic-isles {name}"),
+                dainty_service_kit::serve::serve(listener, app, signal, DRAIN),
+            ));
         }
         for listener in &running.listeners {
             addresses.extend(listener.addresses.iter().cloned());
@@ -678,7 +679,9 @@ impl GameModule for IslesModule {
                     {
                         let mut running = running;
                         let watch = crate::game::watch(ctx.clone(), Arc::clone(&running.shared));
-                        running.tasks.push(tokio::spawn(watch));
+                        running
+                            .tasks
+                            .push(dainty_service_kit::task::spawn_named("rustic-isles watch", watch));
                         let mut state = self.state();
                         state.phase = Phase::Ready;
                         state.detail = Some(detail.clone());

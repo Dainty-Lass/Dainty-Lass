@@ -689,7 +689,7 @@ pub fn remote_managed(options: RemoteManagedOptions) -> Result<crate::Module, St
                 let loop_link = link.clone();
                 let loop_outcomes = pending_outcomes.clone();
                 let loop_games = games.clone();
-                let sync_task = tokio::spawn(async move {
+                let sync_task = dainty_service_kit::task::spawn_named("remote sync", async move {
                     loop {
                         let res = dainty_remote::sync_once_with_games(
                             loop_link.as_ref(),
@@ -772,9 +772,12 @@ pub fn tunnel(options: TunnelOptions) -> crate::Module {
                     Arc::new(TunnelService::new(options.peer.clone(), vec![options.expose])),
                 );
                 let (stop_tx, stop_rx) = tokio::sync::oneshot::channel::<()>();
-                let server = tokio::spawn(serve(listener, client, async {
-                    let _ = stop_rx.await;
-                }));
+                let server = dainty_service_kit::task::spawn_named(
+                    "tunnel",
+                    serve(listener, client, async {
+                        let _ = stop_rx.await;
+                    }),
+                );
                 ctx.status.report_ready(
                     Some(number),
                     format!("the {} on {}, over the node link", port.as_str(), options.peer),

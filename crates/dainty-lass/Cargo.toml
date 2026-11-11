@@ -12,6 +12,10 @@ publish.workspace = true
 name = "dainty-lass"
 path = "src/main.rs"
 
+[features]
+# tokio-console on 127.0.0.1:6669, per task and named per module; needs `--cfg tokio_unstable` (docs/tokio-console.md)
+tokio-console = ["dainty-hostkit/tokio-console"]
+
 [dependencies]
 clap.workspace = true
 dainty-hostkit = { workspace = true, default-features = false, features = ["admin"] }

@@ -919,7 +919,7 @@ impl Inner {
         };
         let weak = Arc::downgrade(self);
         let id = id.clone();
-        tokio::spawn(async move {
+        dainty_service_kit::task::spawn_named(&format!("{id} restart"), async move {
             tokio::time::sleep(delay).await;
             let Some(inner) = weak.upgrade() else {
                 return;
@@ -975,7 +975,7 @@ impl Inner {
         }
         let weak: Weak<Inner> = Arc::downgrade(this);
         let every = self.options.watch_every;
-        tokio::spawn(async move {
+        dainty_service_kit::task::spawn_named("module watch", async move {
             let mut tick = tokio::time::interval(every);
             loop {
                 tick.tick().await;
@@ -1239,7 +1239,7 @@ impl Inner {
             .collect();
         for (id, driver) in targets {
             let event = event.clone();
-            tokio::spawn(async move {
+            dainty_service_kit::task::spawn_named(&format!("{id} event"), async move {
                 if let Err(error) = driver.get().event(event).await {
                     tracing::warn!(target: "host", "module {id} did not take an event: {error}");
                 }

@@ -22,6 +22,8 @@ admin = ["dainty-controller/admin", "dep:dainty-admin", "dainty-hostkit/admin"]
 chat = ["dep:dainty-chat"]
 # The Discord bot (module sharing A7), composed by the host kit
 discord = ["dainty-hostkit/discord"]
+# tokio-console on 127.0.0.1:6669, per task and named per module; needs `--cfg tokio_unstable` (docs/tokio-console.md)
+tokio-console = ["dainty-hostkit/tokio-console"]
 # The game modules compiled in (DF5); 1.14.7 and realms are on by default (RU9/RB14)
 stub-module = ["dainty-controller/stub-module"]
 # The 1.14.7 module; its version data is compiled in when DAINTY_VERSION_DATA names it (build.rs, version_data.rs)
