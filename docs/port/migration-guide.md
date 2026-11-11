@@ -49,7 +49,7 @@ How to read the tables:
 | DR `crates/dainty-gateway`, `crates/dainty-content` | `crates/dainty-gateway`, `crates/dainty-content` | Fitted to Reforged, then rewritten clean-room as MIT (RD27); sections 2.3 and 2.4 |
 | DR `services/metagame`, `deploy` (at its tip, `24b7624`) | Not here | Removed on 2026-10-31 with Dauntless Revived 1.4.4: importing an old 1.4.4 server's accounts is the `legacy` plugin's: [`crates/dainty-legacy`](../../crates/dainty-legacy), MIT (section 2.2) |
 | DR `native/internal-server`, `client-mods` | Not here | Removed with Dauntless Revived 1.4.4 (2026-10-31) |
-| — | `crates/rustic-rifts-*`; `restricted/modules/rustic-rifts` | The rifts crates (DD14) are MIT clean-room rewrites at the root (RD27); the AGPL ones were retired. `restricted/modules/rustic-rifts` keeps the transport DLL (`ParadoxTransport`) and `oracle`, which replays Paradox's answers against the MIT crates |
+| — | `crates/rustic-rifts-*`; `restricted/modules/rustic-rifts` | The rifts crates (DD14) are MIT clean-room rewrites at the root (RD27); the AGPL ones were retired. The C++ transport DLL (`ParadoxTransport`) was replaced by the launcher's built-in `rustic-rifts-transport` and deleted; `restricted/modules/rustic-rifts` keeps `oracle`, which replays Paradox's answers against the MIT crates |
 | DR `services/discord-bot` | not copied | The admin service (RD25) is Reforged's answer |
 | DR `legacy/UndauntedLauncher/src-tauri`, `isolation/` | `restricted/launcher/src-tauri`; [`launcher/isolation`](../../launcher/isolation) here | Section 2.6 |
 | DR `legacy/Undaunted*/` (the Node services) | not copied | Reforged's Node code is DR's modified; it is under `legacy/` here instead |

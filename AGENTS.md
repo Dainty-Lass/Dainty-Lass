@@ -228,8 +228,8 @@ Not obvious from reading the suites:
 
 The runtime loader (`native/runtime-loader`) and the catalog exporter (`native/rustic-isles-exporter`) are the only
 native code outside `restricted/`. An upstream change to either reaches it through its spec, never as a patch. The
-game runtime, the C++ CatalogExporter the host kit still builds and `ParadoxTransport.dll` are in `restricted/`, and
-`restricted/AGENTS.md` says how a runtime patch is applied.
+game runtime and the C++ CatalogExporter the host kit still builds are in `restricted/`, and `restricted/AGENTS.md`
+says how a runtime patch is applied. The realm transport is built into the launcher (`rustic-rifts-transport`).
 
 ## CI
 

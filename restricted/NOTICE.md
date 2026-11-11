@@ -17,7 +17,7 @@ Undaunted or any other project named here, and none of them endorses it.
 
 These repositories were merged in with their history (RD27) and are archived; each kept its own `NOTICE.md` and
 licence files in its folder: `modules/rustic-isles` ([NOTICE.md](modules/rustic-isles/NOTICE.md), with Mystic Paradox's
-additional terms), `modules/rustic-rifts` ([NOTICE.md](modules/rustic-rifts/NOTICE.md); libjuice is `MPL-2.0`),
+additional terms), `modules/rustic-rifts` ([NOTICE.md](modules/rustic-rifts/NOTICE.md)),
 and `legacy/` (dainty-legacy, now only the oracle for the root's MIT `crates/dainty-legacy`). dainty-dash was here too until 2026-11-02, when it moved to dainty-lass's
 `dashboard/` (now `ui/`) under the MIT licence; its history up to then stays in this repository's. The UI's two AGPL inputs (`ui/`) came from
 dainty-lass-ui.
@@ -38,10 +38,11 @@ dainty-lass-ui.
   are in [`modules/rustic-isles`](modules/rustic-isles) (from `ParadoxBackend/` and `ParadoxDirector/` at commit
   `21b9ff5` and tag `dauntless-1.12.0` at `4d5dfaa`; their Rust ports `isles-core`, `isles-director`, `isles-chat`,
   `isles-db`, `isles-1-14-7` and `isles-1-12-0` were replaced by dainty-lass's MIT clean-room `rustic-isles-*` crates,
-  RD27, and removed; they stay in this repository's history), and its co-op transport
-  (`ParadoxTransport/`) and the Node vectors recorded from its realm modules are in
+  RD27, and removed; they stay in this repository's history), and the Node vectors recorded from its realm
+  modules are in
   [`modules/rustic-rifts`](modules/rustic-rifts) (its Rust realm and Guard ports were replaced by dainty-lass's MIT
-  clean-room `rustic-rifts-*` crates, RD27, and removed; they stay in this repository's history);
+  clean-room `rustic-rifts-*` crates, RD27, and removed, as was its C++ co-op transport (`ParadoxTransport/`), replaced
+  by the launcher's built-in `rustic-rifts-transport`; they stay in this repository's history);
   its game runtime (`ParadoxRuntime/`) and CatalogExporter (`tools/CatalogExporter/`) are in
   [`modules/rustic-isles/native`](modules/rustic-isles/native). Its runtime loader (`tools/RuntimeLoader/`) was
   in `restricted/native/runtime-loader` until 2026-11-11, when the root's MIT clean-room rewrite

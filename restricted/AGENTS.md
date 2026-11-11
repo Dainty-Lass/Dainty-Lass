@@ -21,7 +21,7 @@ via relative path dependencies (`path = "../crates/<name>"` in `Cargo.toml`, `[w
 | --- | --- |
 | `restricted/` | One cargo workspace, every package of its own in `crates/<package name>`: `dainty-host-parity` (the Node host kit's tests and recorded output, run against the root's MIT `dainty-host`). The server binaries are the root's `dainty-server` and `dainty-server-minimal` (MIT since RD27). Also `launcher/src-tauri` (the Tauri launcher backend: `dainty-launcher`, and `dainty-manager` with the `server-gui` feature, kept where Tauri expects it) and the game modules' crates |
 | `modules/rustic-isles/` | The 1.14.7 module's version data (`version-data/1.14.7`), the recorded Node goldens replayed against it (`crates/rustic-isles-mit-parity`), the C++ game runtime (`native/runtime`) and CatalogExporter (`native/catalog-exporter`), and the Node reference tree (`reference/1.14.7`). In-tree since RD27, members of this workspace |
-| `modules/rustic-rifts/` | Peer-to-peer realms' AGPL remainder: `ParadoxTransport.dll` (`src/`), and `oracle` (Mystic Paradox's Node vectors replayed against the MIT crates). The `rustic-rifts-*` crates themselves are the root's MIT clean-room ones (`../crates/rustic-rifts-*`, RD27) |
+| `modules/rustic-rifts/` | Peer-to-peer realms' AGPL remainder: `oracle` (Mystic Paradox's Node vectors replayed against the MIT crates). The `rustic-rifts-*` crates themselves are the root's MIT clean-room ones (`../crates/rustic-rifts-*`, RD27) |
 | `legacy/` | dainty-legacy: the 1.4.4 importer, a workspace of its own (an external plugin `host.toml` pins) |
 | `ui/` | The UI's two AGPL inputs only: the language catalogs (`packages/i18n/catalogs`) and the bridge types the launcher generates (`packages/bridge/src/generated`); `../ui/` (dainty-dash) copies the bridge types in at build time |
 | `fuzz/` | `cargo fuzz` targets for the AGPL components, a workspace of its own |
@@ -226,8 +226,8 @@ Not obvious from reading the suites:
 A runtime patch written against Mystic Paradox's tree is applied to `modules/rustic-isles/native/` as
 `docs/paradox-runtime-patches.md` describes: paths rewritten, `git apply --3way`, LF line endings, and a
 section in `docs/paradox-patches.md`. The migration guide's sections 2.1 and 2.8 say which Paradox folder
-became which `modules/rustic-isles/native/` folder and which patches live there. The realm transport,
-`ParadoxTransport.dll`, lives in `modules/rustic-rifts/src`.
+became which `modules/rustic-isles/native/` folder and which patches live there. The realm transport is
+built into the launcher (the root's MIT `rustic-rifts-transport`).
 The runtime loader (`winmm.dll`) is the root's MIT `native/runtime-loader`, rewritten clean-room
 (`docs/port/spec-runtime-loader.md` at the root): a Paradox patch's `tools/RuntimeLoader/` part is not applied, it
 amends that spec.

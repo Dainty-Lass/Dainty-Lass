@@ -9,7 +9,6 @@
 #  - Paradox (ParadoxBackend, ParadoxDirector in restricted/modules/rustic-isles/reference/1.14.7): npm ci and tests,
 #    and the route inventory
 #  - Legacy (restricted/legacy, the 1.4.4 importer): fmt, clippy, tests, cargo-deny and a short fuzz run
-#  - Transport (restricted/modules/rustic-rifts): ParadoxTransport.dll and its self-test on Windows
 #  - Native (native/: the runtime loader and the catalog exporter): fmt, clippy, tests and the DLLs on Windows
 #  - Docker (docker/, compose*.yaml, and restricted's until they retire; everything the images copy): the images, the suites inside
 #    them, the smoke test
@@ -57,7 +56,6 @@ jobs:
       rust-tauri: ${{ steps.pick.outputs.rust-tauri }}
       paradox: ${{ steps.pick.outputs.paradox }}
       legacy: ${{ steps.pick.outputs.legacy }}
-      transport: ${{ steps.pick.outputs.transport }}
       launcher: ${{ steps.pick.outputs.launcher }}
       docker: ${{ steps.pick.outputs.docker }}
       network: ${{ steps.pick.outputs.network }}
@@ -122,8 +120,6 @@ jobs:
             legacy:
               - crates/**
               - restricted/legacy/**
-            transport:
-              - restricted/modules/rustic-rifts/**
             launcher:
               - launcher/**
               - ui/**
@@ -177,14 +173,13 @@ jobs:
           RUST_RESTRICTED: ${{ steps.filter.outputs.rust_restricted }}
           PARADOX: ${{ steps.filter.outputs.paradox }}
           LEGACY: ${{ steps.filter.outputs.legacy }}
-          TRANSPORT: ${{ steps.filter.outputs.transport }}
           LAUNCHER: ${{ steps.filter.outputs.launcher }}
           DOCKER: ${{ steps.filter.outputs.docker }}
           NETWORK: ${{ steps.filter.outputs.network }}
           NATIVE: ${{ steps.filter.outputs.native }}
         run: |
           set -euo pipefail
-          for family in rust ui rust_restricted paradox legacy transport launcher docker network native; do
+          for family in rust ui rust_restricted paradox legacy launcher docker network native; do
             var="${family^^}"
             value="${!var}"
             [ "$ALL" = true ] && value=true
@@ -710,35 +705,6 @@ jobs:
       # No dependencies: a static pass over the TypeScript source
       - run: node restricted/modules/rustic-isles/scripts/check-route-inventory.mjs
 
-  # ParadoxTransport.dll with MSVC v145 and its self-test, direct and through a local relay (RF3); libjuice comes
-  # from its v1.7.4 tag archive, checked against a pinned SHA-256 (prepare-dependencies.ps1)
-  transport:
-    name: Co-op transport
-    needs: changes
-    if: needs.changes.outputs.transport == 'true'
-    runs-on: windows-msvc
-    timeout-minutes: 40
-    defaults:
-      run:
-        shell: pwsh
-        working-directory: restricted/modules/rustic-rifts
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-
-      - name: Build
-        run: |
-          pwsh -NoProfile -File build.ps1
-          if ($LASTEXITCODE -ne 0) { throw "build.ps1 failed (exit $LASTEXITCODE)" }
-
-      # The test's own watchdog ends a stuck run after 300 s with exit code 3
-      - name: Self-test (direct and through a local relay)
-        timeout-minutes: 10
-        run: |
-          .\build\Release\ParadoxTransportTest.exe all --relay-local
-          if ($LASTEXITCODE -ne 0) { throw "self-test failed (exit $LASTEXITCODE)" }
-
   docker:
     name: Docker images (build, tests in the image, smoke test)
     needs: changes
@@ -912,7 +878,7 @@ jobs:
   # failed or cancelled job, or a failed change detection, fails it.
   ci-ok:
     name: CI ok
-    needs: [changes, rust, rust-deny, fuzz, ui, rust-restricted, rust-restricted-deny, fuzz-restricted, paradox, paradox-routes, legacy, legacy-deny, fuzz-legacy, transport, native, docker, installers-windows, network]
+    needs: [changes, rust, rust-deny, fuzz, ui, rust-restricted, rust-restricted-deny, fuzz-restricted, paradox, paradox-routes, legacy, legacy-deny, fuzz-legacy, native, docker, installers-windows, network]
     if: always()
     runs-on: docker
     timeout-minutes: 5
