@@ -9,13 +9,19 @@
     "beforeBuildCommand": "bun scripts/page.ts build server-manager"
   },
   "bundle": {
-    "icon": ["icons/32x32.png", "icons/128x128.png", "icons/128x128@2x.png", "icons/icon.png", "icons/icon.ico"],
+    "icon": [
+      "icons/manager/32x32.png",
+      "icons/manager/128x128.png",
+      "icons/manager/128x128@2x.png",
+      "icons/manager/icon.png",
+      "icons/manager/icon.ico"
+    ],
     "shortDescription": "Dainty Lass Manager — community server manager",
     "longDescription": "Set up, start, stop, migrate, and administer a Dainty Lass community server with its services compiled in.",
     "windows": {
       "nsis": {
         "installMode": "currentUser",
-        "installerIcon": "icons/icon.ico"
+        "installerIcon": "icons/manager/icon.ico"
       }
     },
     "linux": {
