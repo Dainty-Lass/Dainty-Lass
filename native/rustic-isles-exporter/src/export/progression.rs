@@ -301,7 +301,7 @@ fn experience_track(j: &mut Json, e: &Engine, row_name: &str, at: u64) {
         .s("expDisplayShortName", &sdk::EXP_SHORT_NAME)
         .s("expDisplayName", &sdk::EXP_NAME)
         .s("expDisplayDescription", &sdk::EXP_DESCRIPTION)
-        .n("experienceBankingLevelCount", &sdk::EXP_BANKING_LEVELS);
+        .count("experienceBankingLevelCount", &sdk::EXP_BANKING_LEVELS);
     j.end_obj();
 }
 

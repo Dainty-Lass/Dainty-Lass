@@ -22,7 +22,7 @@ const NAME_BLOCKS: u32 = 8192;
 const SPARSE_BITS_INLINE: u64 = 0x10;
 const SPARSE_BITS_HEAP: u64 = 0x20;
 const SPARSE_FREE_COUNT: u64 = 0x34;
-/// The path in a soft pointer: 8 bytes weak pointer, 4 tag, 4 padding (spec §4.5).
+/// The path in a hunt's soft pointer: 8 bytes weak pointer, 4 tag, 4 padding (spec §4.5). Other reads use the SDK's.
 pub const SOFT_PATH: u64 = 0x10;
 /// Bounds that keep a corrupt count from walking all of memory.
 const MAX_OBJECTS: i32 = 4_000_000;
@@ -412,6 +412,12 @@ impl<'a> Engine<'a> {
         self.fname_raw(addr.wrapping_add(SOFT_PATH))
     }
 
+    /// A soft pointer's asset path name through the SDK's offsets, short form (store images, spec §6.13).
+    pub fn soft_path_sdk(&self, addr: u64) -> String {
+        let path = sdk::SOFT_OBJECT_ID.offset.saturating_add(sdk::SOFT_PATH_NAME.offset);
+        self.fname(addr.wrapping_add(u64::from(path)))
+    }
+
     /// The object a weak pointer (a soft pointer's first part) names when it is loaded, else 0.
     pub fn weak_object(&self, addr: u64) -> u64 {
         self.quiet(|| {
@@ -500,7 +506,7 @@ impl<'a> Engine<'a> {
             Kind::Name => self.fname(addr),
             Kind::Text => self.ftext(addr),
             Kind::ObjPtr | Kind::ClassPtr => self.name_of(self.ptr(addr)),
-            Kind::SoftPtr => short(&self.soft_path_raw(addr)).to_owned(),
+            Kind::SoftPtr => self.soft_path_sdk(addr),
             Kind::Tag => self.fname(addr.wrapping_add(u64::from(sdk::TAG_NAME.offset))),
             Kind::RowHandle => self.fname(addr.wrapping_add(u64::from(sdk::ROW_HANDLE_ROW.offset))),
             Kind::Int { .. } | Kind::Bool | Kind::Bit(_) | Kind::Float { .. } | Kind::DateTime => {

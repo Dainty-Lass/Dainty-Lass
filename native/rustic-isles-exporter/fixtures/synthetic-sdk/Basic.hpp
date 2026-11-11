@@ -29,3 +29,12 @@ public:
 	class FString                                 TextSource;                                        // 0x0020(0x0010)(Edit, NativeAccessSpecifierPublic)
 };
 
+// Hand-written, as Dumper-7 writes it: no offset comments, so the exporter takes UE 4.26's layout.
+template<typename TObjectID>
+class TPersistentObjectPtr
+{
+public:
+	FWeakObjectPtr WeakPtr;
+	int32 TagAtLastTest;
+	TObjectID ObjectID;
+};
