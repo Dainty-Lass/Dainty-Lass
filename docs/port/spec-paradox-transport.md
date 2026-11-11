@@ -62,8 +62,8 @@ The `oracle/` vectors (`node-admission.json`, `node-relay.json`) are **Mystic Pa
 MPL-2.0 v1.7.4, fetched by `prepare-dependencies.ps1` from its tag archive with a pinned SHA-256, built as a separate
 static library (`libjuice.vcxproj`). The C++ uses it for ICE agents, STUN and the TURN client (spec §2.9 describes the
 ICE layer independently of it). **The MIT crate does not use libjuice** (umbrella D2: `rtc-ice` + `rtc-turn`), and
-D3 ended libjuice interop on purpose (`clean-room/rifts-transport.md`, its departures list, item 9). libjuice leaves the repository when
-the C++ does.
+D3 ended libjuice interop on purpose (`clean-room/rifts-transport.md`, its departures list, item 9).
+libjuice leaves the repository when the C++ does.
 
 ### 1.5 Threads, errors, logging
 
