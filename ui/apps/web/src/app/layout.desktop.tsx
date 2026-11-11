@@ -13,6 +13,13 @@ export const viewport: Viewport = { colorScheme: "light dark" };
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en" suppressHydrationWarning>
+      {process.env.NODE_ENV === "development" && (
+        <head>
+          {/* Standalone React DevTools (`bun run devtools`): blocking, so it hooks in before React loads. Dev only,
+              since the shells' CSP refuses it; with the app closed the load just fails. */}
+          <script src="http://localhost:8097" />
+        </head>
+      )}
       <body>
         <DesktopProviders>{children}</DesktopProviders>
       </body>
