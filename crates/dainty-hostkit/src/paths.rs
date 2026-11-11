@@ -129,9 +129,30 @@ fn is_repo_root(dir: &Path) -> bool {
         || dir.join("release.json").exists()
 }
 
+/// `path` without Windows' verbatim prefix (`\\?\C:\...` to `C:\...`, `\\?\UNC\...` to `\\...`), which
+/// `canonicalize` adds and git and other programs refuse. Kept when the path is too long to work without it.
+pub fn strip_verbatim(path: &Path) -> PathBuf {
+    let text = path.to_string_lossy();
+    // MAX_PATH less the NUL; a longer path needs the prefix to open at all.
+    let fits = |plain: &str| plain.len() < 260;
+    if let Some(rest) = text.strip_prefix(r"\\?\UNC\") {
+        let plain = format!(r"\\{rest}");
+        if fits(&plain) {
+            return PathBuf::from(plain);
+        }
+    } else if let Some(rest) = text.strip_prefix(r"\\?\") {
+        let bytes = rest.as_bytes();
+        let is_drive = bytes.len() >= 3 && bytes[0].is_ascii_alphabetic() && bytes[1] == b':' && bytes[2] == b'\\';
+        if is_drive && fits(rest) {
+            return PathBuf::from(rest);
+        }
+    }
+    path.to_path_buf()
+}
+
 /// The first folder from `start` upward (at most 8 levels) that is a checkout or a release; an error when none is.
 pub fn find_repo_root(start: &Path) -> Result<PathBuf, HostError> {
-    let resolved = std::fs::canonicalize(start).unwrap_or_else(|_| start.to_path_buf());
+    let resolved = std::fs::canonicalize(start).map_or_else(|_| start.to_path_buf(), |p| strip_verbatim(&p));
     let mut current: Option<&Path> = Some(resolved.as_path());
     for _ in 0..=8 {
         let Some(dir) = current else {
@@ -396,6 +417,27 @@ mod tests {
 
         std::fs::write(dir.path().join("release.json"), "{}").unwrap();
         let found = find_repo_root(&nested).unwrap();
-        assert_eq!(found, std::fs::canonicalize(dir.path()).unwrap());
+        assert_eq!(found, strip_verbatim(&std::fs::canonicalize(dir.path()).unwrap()));
+        assert!(!found.to_string_lossy().starts_with(r"\\?\"));
+    }
+
+    #[test]
+    fn strip_verbatim_drops_only_a_usable_prefix() {
+        assert_eq!(
+            strip_verbatim(Path::new(r"\\?\R:\srv\x.git")),
+            PathBuf::from(r"R:\srv\x.git")
+        );
+        assert_eq!(
+            strip_verbatim(Path::new(r"\\?\UNC\host\share\x")),
+            PathBuf::from(r"\\host\share\x")
+        );
+        assert_eq!(strip_verbatim(Path::new("/srv/x")), PathBuf::from("/srv/x"));
+        // A volume GUID path or an over-long one keeps its prefix.
+        assert_eq!(
+            strip_verbatim(Path::new(r"\\?\Volume{1}\x")),
+            PathBuf::from(r"\\?\Volume{1}\x")
+        );
+        let long = format!(r"\\?\C:\{}", "a".repeat(300));
+        assert_eq!(strip_verbatim(Path::new(&long)), PathBuf::from(&long));
     }
 }
