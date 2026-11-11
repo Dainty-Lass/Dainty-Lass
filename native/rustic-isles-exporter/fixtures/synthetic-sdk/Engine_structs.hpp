@@ -45,7 +45,7 @@ public:
 struct FDateTime
 {
 public:
-	int64                                         Ticks;                                             // 0x0000(0x0008)(Edit, NativeAccessSpecifierPublic)
+	uint8                                         Pad_0[0x8];                                        // 0x0000(0x0008)(Fixing Struct Size After Last Property [ Dumper-7 ])
 };
 
 // ScriptStruct Synthetic.GameplayAttribute

@@ -149,7 +149,7 @@ ships was extracted statically from the paks by other means; the exporter's mast
 | Primitive | Used for | Notes |
 | --- | --- | --- |
 | The global object array (`GObjects`): its count and the object at an index | every walk | walked from index 0 to count-1, null slots skipped. Location: the SDK's offsets for this build |
-| `UObject`: class pointer, name, `IsA(class)`, "is a class default object", full name | filters and names | "default object" is the object's class-default flag; the equipment dump instead checks that its name starts `Default__` |
+| `UObject`: class pointer, name, `IsA(class)`, "is a class default object", full name | filters and names | "default object" is the object's class-default flag; the equipment dump instead checks that its name starts `Default__`. `IsA` walks the class's parents through the SDK member `UStruct.SuperStruct` |
 | `StaticClass()` of a named class | filters | the SDK finds the class by name and caches it; a pure read |
 | Name to text (`FName`) | every id | see 4.3 |
 | `FString` to text | every authored string | empty when its length is 0 or its data pointer is null |
@@ -158,6 +158,7 @@ ships was extracted statically from the paks by other means; the exporter's mast
 | `TMap` (a data table's `RowMap`, name to row pointer) | rows | iterated in the map's own order, skipping free slots of its sparse array |
 | `UDataTable`: `RowStruct` (a struct object whose name is compared), `RowMap` | every table export | a table is used only when `RowStruct` is non-null and its name matches |
 | `FDataTableRowHandle` | references | `{DataTable pointer, RowName}` |
+| `FDateTime` | schedule dates | the int64 at offset 0 of the `FDateTime` member, no member lookup inside it: the SDK's `FDateTime` has no named member, only 8 bytes of padding |
 | Soft object and soft class pointers | asset paths | hunts read the path name at a fixed offset (4.5); the catalog's item class (6.1) and the store images (6.13) read it through SDK members |
 | `UFunction` calls through `ProcessEvent` | the catalog, live inventory, string tables | 4.2. Every SDK wrapper of a reflected function dispatches through `ProcessEvent` on the worker thread |
 
@@ -550,7 +551,7 @@ SDK members where the JSON name does not give them:
   is written from its `HuntTags`. `visibleWhileLocked` is `FPlayerHuntTableData.IsVisibleWhileLocked`.
 - escalation spec: `roundStructureCount` is the length of `FEscalationModeSpecification.RoundStructures`.
 - unlock criteria: a quest requirement's `statusRequired` is `QuestRequirements[].QuestStatusRequired`.
-- schedule: `startTimeTicks`, `endTimeTicks` are the 64-bit value at the start of `StartTime`, `EndTime`;
+- schedule: `startTimeTicks`, `endTimeTicks` are the int64 at the start of `FScheduleData.StartTime`, `.EndTime` (4.1);
   `isRepeatable` is `FScheduleData.IsRepeatable`; `eachDay`, `eachWeek` are `FScheduleData.RepeatableDetails.EachDay`
   and `.RepeatableDetails.EachWeek` (a nested struct); `shouldQueue` is `FScheduleData.bShouldQueueTheSheduleItems`
   (the game's spelling); a scheduled item's `id` is `ScheduledItems[].ID`; `itemsLeftOut` is
