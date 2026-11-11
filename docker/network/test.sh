@@ -20,6 +20,8 @@ region_ping=${NETWORK_REGION_PING:-auto}
 regions=(oregon new-york uk germany)
 
 work=$(mktemp -d)
+# Windows' curl takes C:/... paths, which MSYS_NO_PATHCONV no longer makes for it
+command -v cygpath >/dev/null 2>&1 && work=$(cygpath -m "$work")
 started=0
 cleanup() {
     status=$?
@@ -268,13 +270,20 @@ req "$remote" GET "/bounty/${user[$remote]}" -H "$(bearer "$remote")"
 contains "$body" BOUNTY_RING_TEST "the remote player's bounties at home"
 
 step "DN6: wrong node"
-# oregon_instance: a new instance for oregon's player, from its candidate
+# oregon_instance: a new instance for oregon's player; its candidate's gameSessionId is the instance's global id
+instance=
 oregon_instance() {
+    local previous=$instance
     json_req oregon POST /candidate/join '{"gameMode":"ISLAND","playerHuntId":"Example_Hunt_Easy"}' \
         -H "$(bearer oregon)"
     expect_status 200 "oregon's join"
-    status_until oregon '"instanceId":"'
-    instance=$(json_str "$body" instanceId)
+    for _ in $(seq 40); do
+        status_until oregon '"status":"IN_PROGRESS"'
+        instance=$(json_str "$body" gameSessionId)
+        [[ -n $instance && $instance != "$previous" ]] && return 0
+        sleep 0.5
+    done
+    fail "oregon's join made no new instance"
 }
 oregon_instance
 json_req germany POST /candidate/join "{\"gameMode\":\"ISLAND\",\"instanceId\":\"$instance\"}" -H "$(bearer germany)"
@@ -362,18 +371,15 @@ chat germany POST /__chat/client/close '{"handle":"de"}' >/dev/null
 send oregon "{\"handle\":\"or\",\"whisper_to\":\"${user[germany]}\",\"body\":\"ring-whisper-offline\"}" >/dev/null
 contains "$(chat germany GET "/__chat/history/waiting?account=${user[germany]}")" ring-whisper-offline \
     "germany's waiting queue"
-# A uk session ticket for germany's player: a Ramsgate on uk, joined through germany's redirect
-report germany germany "uk=10 germany=20 new-york=85 oregon=150"
-json_req germany POST /candidate/join "$city" -H "$(bearer germany)"
-expect_status 200 "germany's Ramsgate join"
-status_until germany '"host":"203.0.113.13"'
-uk_instance=$(json_str "$body" instanceId)
+# A uk session ticket for germany's player: a uk player's hunt, joined through germany's redirect
+register uk SlayerUk
+json_req uk POST /candidate/join '{"gameMode":"ISLAND","playerHuntId":"Example_Hunt_Easy"}' -H "$(bearer uk)"
+expect_status 200 "uk's join"
+status_until uk '"status":"IN_PROGRESS"'
+uk_instance=$(json_str "$body" gameSessionId)
+json_req germany POST /candidate/join "{\"gameMode\":\"ISLAND\",\"instanceId\":\"$uk_instance\"}" -H "$(bearer germany)"
+contains "$body" '"hostNode":"uk-1"' "germany's redirect to the uk hunt"
 uk_ticket=$(header "$headers" x-dainty-session-ticket)
-if [[ -z $uk_ticket && -n $uk_instance ]]; then
-    json_req germany POST /candidate/join "{\"gameMode\":\"CITY\",\"instanceId\":\"$uk_instance\"}" \
-        -H "$(bearer germany)"
-    uk_ticket=$(header "$headers" x-dainty-session-ticket)
-fi
 [[ -n $uk_ticket ]] || fail "no uk session ticket for germany's player"
 json_req uk PUT /gamesession/epiceos '{}' -H "x-dainty-session-ticket: $uk_ticket"
 expect_status 200 "epiceos on uk with the ticket"
@@ -387,9 +393,11 @@ out="$out$(drain uk de-uk 1000)"
 [[ $(chat germany GET "/__chat/history/waiting?account=${user[germany]}") != *ring-whisper-offline* ]] ||
     fail "germany's queue still holds the delivered whisper"
 
-room=ring-hunt-room
-contains "$(send oregon "{\"handle\":\"or\",\"join_room\":\"$room\",\"wait_ms\":1000}")" 110 "oregon's room join"
-contains "$(send uk "{\"handle\":\"de-uk\",\"join_room\":\"$room\",\"wait_ms\":1000}")" 110 "uk's room join"
+# DN8's hunt; a hunt room is Hunt-<ULID>.<host node>
+hunt=${session[oregon]#*:}
+room=Hunt-${hunt/@/.}
+contains "$(send oregon "{\"handle\":\"or\",\"join_room\":\"$room\",\"name\":\"SlayerOregon\",\"wait_ms\":1000}")" 110 "oregon's room join"
+contains "$(send uk "{\"handle\":\"de-uk\",\"join_room\":\"$room\",\"name\":\"SlayerGermany\",\"wait_ms\":1000}")" 110 "uk's room join"
 drain uk de-uk >/dev/null
 send oregon "{\"handle\":\"or\",\"say_room\":\"$room\",\"body\":\"ring-room-hello\"}" >/dev/null
 contains "$(drain_for uk de-uk ring-room-hello)" '"matched":true' "the room message on uk"
