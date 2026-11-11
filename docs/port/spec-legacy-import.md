@@ -201,8 +201,9 @@ Every refusal in sections 5 and 6 is an invalid-source error with the text
    drizzle entry i and a hash equal to that entry's `sha256_lf` or `sha256_crlf`; else
    `its Drizzle history is not one the Node metagame made`. The prefix is the row count. Neither table:
    `it has neither Drizzle's nor Diesel's migration history`.
-7. **The objects.** Every table must be in `tables` (or be `sqlite_sequence`, `__drizzle_migrations`,
-   `__diesel_schema_migrations`), every trigger in `triggers`, and there must be no view; else
+7. **The objects.** Every table must be in `tables`, be `__drizzle_migrations` or `__diesel_schema_migrations`, or
+   start `sqlite_` (SQLite's own: `sqlite_sequence`, and the `sqlite_stat*` tables `ANALYZE` or `PRAGMA optimize`
+   leave); every trigger must be in `triggers`, and there must be no view; else
    `it holds objects the 1.4.4 metagame never made`.
 8. **The columns.** For each `[[column]]` with `since` below the prefix, `PRAGMA table_info` of its table must list
    it; else `its schema is not the one its migration history makes`.
