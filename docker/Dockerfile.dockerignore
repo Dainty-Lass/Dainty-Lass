@@ -1,0 +1,48 @@
+# The build context for docker/Dockerfile (D-2): the root workspace's source only, never a host's files or build output.
+.git
+**/.git
+.github
+.forgejo
+.claude
+.workspace
+**/node_modules
+**/dist
+**/build
+**/target
+**/target*
+# ...but not a module named target (rustic-isles-db, the legacy importer)
+!**/src/**/target.rs
+paradox
+**/*.tsbuildinfo
+**/.env
+**/.env.*
+!**/.env.example
+**/*.pem
+**/*.key
+**/*.pfx
+**/*.log
+# The Rust tests' fixtures hold fake env files and certificates (the test image runs them)
+!**/tests/fixtures/**
+ui
+docs
+fuzz
+native
+
+# A host's own game data and exports: mounted as volumes, never baked in
+**/game-data/*.json
+!**/game-data/*.example.json
+**/game-data/raw
+**/Items_Analysis
+**/DauntlessEndpointDocumentation
+
+# Nothing from restricted/ but the data files the server image ships (D-7, spec-docker.md 2.4)
+restricted
+!restricted/modules/rustic-isles/version-data/1.14.7/version_data.json
+!restricted/modules/rustic-isles/reference/1.14.7/ParadoxBackend/game-data/*.example.json
+!restricted/modules/rustic-isles/reference/1.14.7/ParadoxDirector/game-data/*.example.json
+!restricted/modules/rustic-isles/reference/1.14.7/ParadoxBackend/store-captures.json
+!restricted/modules/rustic-isles/LICENSE
+!restricted/modules/rustic-isles/NOTICE.md
+!restricted/modules/rustic-isles/ADDITIONAL_TERMS.md
+!restricted/NOTICE.md
+!restricted/ADDITIONAL_TERMS.md
