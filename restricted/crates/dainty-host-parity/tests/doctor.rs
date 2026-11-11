@@ -119,6 +119,12 @@ fn checks_the_game_folder_its_version_and_its_executable() {
     let exe = dir.path().join(game_exe_relative());
     std::fs::create_dir_all(exe.parent().unwrap()).unwrap();
     std::fs::write(&exe, "not really a game").unwrap();
+    // A whole install's paks end in UE's pak magic; the Node kit never looked (doctor's pak_footer_check)
+    let paks = dir.path().join("Archon").join("Content").join("Paks");
+    std::fs::create_dir_all(&paks).unwrap();
+    let mut pak = vec![0u8; 512];
+    pak[512 - 204..512 - 200].copy_from_slice(&[0xE1, 0x12, 0x6F, 0x5A]);
+    std::fs::write(paks.join("Archon_0-WindowsClient.pak"), pak).unwrap();
     std::fs::write(
         dir.path().join("Version.txt"),
         "\u{feff}dauntless_rel-1.14.7_Shipping_2024-04-01_14-59-21_647472\r\n",
