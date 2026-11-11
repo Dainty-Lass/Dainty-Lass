@@ -53,9 +53,14 @@ game, loaded through the runtime loader like the runtime, and writes the catalog
 
 ```powershell
 bin\dainty-host gamedata                         # generate ParadoxBackend\game-data and ParadoxDirector\game-data in modules\rustic-isles\reference\1.14.7
-bin\dainty-host gamedata --progression-only      # only the progression config
+bin\dainty-host gamedata --progression ""        # only the progression source, from the workspace's exports
+bin\dainty-host gamedata --progression C:\exports  # or from another folder of exports
+bin\dainty-host gamedata --example-sources C:\src # copy supplied *.source.json files into the raw game data
 bin\dainty-host gamedata --examples              # the shipped examples: the services start, nobody can play
 ```
+
+`--progression` writes `ParadoxBackend\game-data\raw\progression_config.source.json` and stops; run `gamedata`
+afterwards to build the progression config from it. A supplied source already there is kept.
 
 `gamedata` runs the in-process Rust game-data generators (`isles_core::areas::game_data::generators` and
 `isles_director::hunt_tables`) on your export with no Node.js required, and fetches the five store captures
