@@ -149,15 +149,14 @@ jobs:
 
       # DAINTY_RELEASE_REPOSITORY stays .cargo/config.toml's until DX5 moves the releases
       - name: Build the release binaries
-        run: cargo build --release --locked --target "$TARGET" -p dainty-server -p dainty-server-minimal --features dainty-server/all-modules,dainty-server-minimal/all-modules --bins
+        run: cargo build --release --locked --target "$TARGET" --manifest-path ../Cargo.toml -p dainty-server -p dainty-server-minimal --features dainty-server/all-modules,dainty-server-minimal/all-modules --bins
 
-      # The libraries the core loads (RD27): the 1.14.7 module from this workspace, the services from the MIT root's
+      # The libraries the core loads (RD27), all from the MIT root: the 1.14.7 module and the services
       - name: Build the libraries
         run: |
           set -euo pipefail
-          cargo build --release --locked --target "$TARGET" -p rustic-isles-plugin --lib
           cargo build --release --locked --target "$TARGET" --manifest-path ../Cargo.toml \
-            -p dainty-content-plugin -p dainty-chat-plugin -p dainty-gateway-plugin --lib
+            -p rustic-isles-1-14-7-plugin -p dainty-content-plugin -p dainty-chat-plugin -p dainty-gateway-plugin --lib
           # The legacy importer, MIT since RD27: the external plugin `dainty-host legacy` runs
           cargo build --release --locked --target "$TARGET" --manifest-path ../Cargo.toml -p dainty-legacy --bin dainty-legacy
 
@@ -187,15 +186,16 @@ jobs:
           # The commit's server source, as git has it (no .workspace, nothing git ignores); rustic-isles is in-tree (RD27)
           git -C .. archive --format=tar "$COMMIT:restricted" | tar -x -C "$out"
           mkdir -p "$out/bin"
-          for bin in dainty-host dainty-server dainty-server-minimal; do
-            cp "target/$TARGET/release/$bin$ext" "$out/bin/"
+          for bin in dainty-host dainty-server dainty-server-minimal dainty-legacy; do
+            cp "../target/$TARGET/release/$bin$ext" "$out/bin/"
           done
-          cp "../target/$TARGET/release/dainty-legacy$ext" "$out/bin/"
+          # Mystic Paradox's 1.14.7 version data, AGPL, beside the MIT binaries: the server reads it at start (RD27)
+          mkdir -p "$out/data/1.14.7"
+          cp modules/rustic-isles/version-data/1.14.7/version_data.json "$out/data/1.14.7/"
           # The libraries beside them, under the names host.toml's paths give (RD27)
           mkdir -p "$out/plugins"
           if [ "$RUNNER_OS" = Windows ]; then prefix=""; suffix=".dll"; else prefix="lib"; suffix=".so"; fi
-          cp "target/$TARGET/release/${prefix}rustic_isles_plugin$suffix" "$out/plugins/"
-          for lib in dainty_content_plugin dainty_chat_plugin dainty_gateway_plugin; do
+          for lib in rustic_isles_1_14_7_plugin dainty_content_plugin dainty_chat_plugin dainty_gateway_plugin; do
             cp "../target/$TARGET/release/$prefix$lib$suffix" "$out/plugins/"
           done
           # Kept for one release only as the documented RB13/RU9 rollback artefact (until RB15)
@@ -234,6 +234,7 @@ jobs:
           for b in dainty-host dainty-server dainty-server-minimal; do "$bin/$b$ext" --help > /dev/null; done
           # With no arguments it waits for frames on stdin, so the smoke test asks for usage instead
           if "$bin/dainty-legacy$ext" import 2> /dev/null; then echo "dainty-legacy took no kind"; exit 1; fi
+          test -s "$bin/../data/1.14.7/version_data.json"
           # Each service the binary runs alone, as the systemd units and the containers run it
           for service in gateway allowlist content backend director; do "$bin/dainty-host$ext" "$service" --help > /dev/null; done
           for db_cmd in migrate verify export-mongo; do "$bin/dainty-host$ext" db "$db_cmd" --help > /dev/null; done

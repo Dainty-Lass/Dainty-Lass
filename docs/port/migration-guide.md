@@ -81,6 +81,7 @@ How to read the tables:
 | [`crates/dainty-launcher-kit`](../../crates/dainty-launcher-kit) | none | New (`DL4b`, MIT, [`clean-room/launcher-kit.md`](clean-room/launcher-kit.md)): the born-here launcher modules (`bridge/modules`, `net/regionping`, `net/versions`) plus the 8 launcher module groups (`bridge/types`, `net/http`, `net/runtime_files`, `net/verify`, `platform/{hostkit,hostserver,requirements,loader_session,dialogs}`) rewritten clean-room from [`spec-dl4-launcher.md`](spec-dl4-launcher.md) | — |
 | [`crates/dainty-network`](../../crates/dainty-network) | none | New (DN2–DN5, DH7, MIT): node CA/certificates (`cluster`), directory (`directory`), home-server API and session tickets (`home`), replication (`replication`) and peer log shipping (`logship`) | — |
 | [`crates/dainty-chat`](../../crates/dainty-chat) | DR `services/metagame/src/chat/` at `e1c5fec` | Ported into a standalone `CorePlugin` (DN10a, DN10b), then rewritten clean-room as MIT (RD27, [`clean-room/chat.md`](clean-room/chat.md)): XMPP over WebSocket, MUC rooms, whispers, presence, and cross-node room/whisper federation over `Service::Chat` | — |
+| [`crates/dainty-server`](../../crates/dainty-server), [`crates/dainty-server-minimal`](../../crates/dainty-server-minimal) | none | The server executables (RD26), born here; moved from `restricted/` once the 1.14.7 version data was read at start instead of compiled in (RD27) | — |
 | [`crates/dainty-legacy`](../../crates/dainty-legacy) | DR's frozen 1.4.4 metagame schema, offline-save format and checks, as facts in `data/revived-1.4.4.toml` | The legacy importer and `legacy` plugin, rewritten clean-room from [`spec-legacy-import.md`](spec-legacy-import.md) as MIT (RD27). The AGPL importer stays in `restricted/legacy/` as its oracle (`tests/oracle.rs`), which runs both on every 1.4.4 history | — |
 | [`fuzz/`](../../fuzz) | DR X9: `http_body`, `proxy_headers`, `gateway_policy`, `launcher_input` | Reforged and Dainty Lass targets added, one per untrusted-input parser (RX3/DX2); the AGPL components' targets are in `restricted/fuzz/` | DR's `auth_token`, `bot_input`, `chat_frame`, `content_range` (metagame, bot and ranges) |
 
@@ -132,7 +133,7 @@ against fixtures generated from the Node kit (`restricted/crates/dainty-host/tes
 
 | Reforged Node (`legacy/ReforgedHost/src/`) | Rust (`crates/dainty-hostkit/src/`) | Note |
 | --- | --- | --- |
-| `cli.ts` | `cli.rs`, `commands/mod.rs`; the binaries are `restricted/crates/dainty-server` | The same commands and options: `setup`, `start`, `invite`, `doctor`, `gamedata`, `publish-runtime`, `preset`, `multipliers`, `update`, `backup`, and the Linux-only `gameserver` |
+| `cli.ts` | `cli.rs`, `commands/mod.rs`; the binaries are `crates/dainty-server` | The same commands and options: `setup`, `start`, `invite`, `doctor`, `gamedata`, `publish-runtime`, `preset`, `multipliers`, `update`, `backup`, and the Linux-only `gameserver` |
 | `hostconfig.ts` (`host.json`) | `hostconfig.rs`, `hosttoml.rs` | `host.toml` with the same fields (RD24); a Node kit's `host.json` is read until the first write |
 | `envfile.ts`, `paths.ts`, `run.ts` | `envfile.rs`, `paths.rs`, `run.rs` | `paths.rs` knows the `modules/rustic-isles` and `native/` layout (DS6; `paradox/` before) |
 | `services.ts` (the process tree) | `services.rs`, `commands/start/` | One process tree; runs the Rust gateway, content, allowlist, admin, `rustic-isles-1-14-7` backend and `rustic-isles-director` by default (Node and MongoDB only behind `--features paradox` until RB15); each service gets the shell's environment, then its env file (`service_environment`; no `SERVER_PREFIXES` filter since the clean-room rewrite) |
@@ -191,7 +192,7 @@ The RU rows built an AGPL port (`isles-core`, `isles-db`, `isles-chat`, `isles-d
 behaviour spec (`spec-rustic-isles-*.md`) by an implementer who never saw the AGPL code, and the AGPL crates were
 retired. `restricted/modules/rustic-isles/crates/rustic-isles-mit-parity` replays the recorded goldens against the composed
 MIT module (890 of 890 matched, `restricted/modules/rustic-isles/docs/mit-parity-report.md`), and
-`rustic-isles-plugin` builds it as a library with restricted's version data.
+`rustic-isles-1-14-7-plugin` builds it as a library; both read the version data at start (`version_data`).
 
 | Mystic Paradox | Reference tree (under `restricted/`) | Rust home |
 | --- | --- | --- |
@@ -239,8 +240,8 @@ upstream either: the controller ([`crates/dainty-controller`](../../crates/daint
 start and stop cycle; `modules.rs`, the Rust services as modules), `service-kit`'s `context.rs` (`ServiceContext`,
 `StatusRegistry`) and `telemetry.rs` (the `tracing` layers: the console's table, the dashboard's ring, the server
 GUI's channel, the log file), the host kit's `serve.rs`, `repl.rs`, `tui.rs` and `hostconfig/yaml.rs`, the
-binaries ([`crates/dainty-lass`](../../crates/dainty-lass), `restricted/crates/dainty-server` and
-`restricted/crates/dainty-server-minimal`), and the launcher's `server_gui.rs`. A DR or Reforged change to a
+binaries ([`crates/dainty-lass`](../../crates/dainty-lass), `crates/dainty-server` and
+`crates/dainty-server-minimal`), and the launcher's `server_gui.rs`. A DR or Reforged change to a
 service lands in the service's own crate (sections 2.3 to 2.5) and reaches the controller unchanged, since a
 module only calls the service's `Config::from_env` and `run_with_context`.
 

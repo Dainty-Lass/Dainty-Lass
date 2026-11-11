@@ -36,7 +36,7 @@ AGPL parts and builds the full server, the Tauri launcher and the Docker images,
 | Folder | What |
 | --- | --- |
 | [`.`](.) | Independent AGPL-3.0-only Cargo workspace: `crates/` (`host`, the libraries of the MIT gateway, content and chat, and the server executables), `launcher/src-tauri` (Tauri: `dainty-launcher` and `dainty-manager`), and the game modules' crates |
-| [`modules/rustic-isles/`](modules/rustic-isles) | The library the core loads for the 1.14.7 module (`rustic-isles-plugin`), its version data and the Node goldens replayed against it (`rustic-isles-mit-parity`), the runtime's C++ source and CatalogExporter (`native/`), and the Node reference sources (`reference/1.14.7`) |
+| [`modules/rustic-isles/`](modules/rustic-isles) | The 1.14.7 module's version data (the server reads it at start; the module and its library are the root's MIT crates) and the Node goldens replayed against it (`rustic-isles-mit-parity`), the runtime's C++ source and CatalogExporter (`native/`), and the Node reference sources (`reference/1.14.7`) |
 | [`modules/rustic-rifts/`](modules/rustic-rifts) | The realm transport (`ParadoxTransport.dll`) and `oracle`, which replays Mystic Paradox's answers against the root's MIT `rustic-rifts-*` crates |
 | [`legacy/`](legacy) | The importer for Dauntless Revived 1.4.4 and Reforged Revival installs |
 | [`docker/`](docker), `compose.yaml` | The server as containers |
@@ -47,7 +47,7 @@ AGPL parts and builds the full server, the Tauri launcher and the Docker images,
 The restricted Rust workspace, from `restricted/` (the toolchain is pinned in `rust-toolchain.toml`):
 
 ```bash
-cargo build --release -p dainty-server --features all-modules --bins
+cargo build --release --manifest-path ../Cargo.toml -p dainty-server --features all-modules --bins
 ```
 
 The desktop apps live in `launcher` (`bun install && bun run build:client` for `dainty-launcher` and

@@ -4,11 +4,10 @@
 [workspace]
 resolver = "3"
 members = [
-    # Each package in crates/<name> (RD27): the host shell, the server executables, and the libraries of dainty-lass's
-    # content, gateway and chat, built here where they ship
+    # Each package in crates/<name> (RD27): the Node host kit's parity tests
     "crates/*",
     "launcher/src-tauri",
-    # The game module and its crates (DD6, DD8)
+    # The 1.14.7 module's parity replay against the root's MIT crates (DD6, DD8)
     "modules/rustic-isles/crates/*",
     # Mystic Paradox's answers replayed against dainty-lass's MIT rifts crates (spec-rd27-rifts 4.3)
     "modules/rustic-rifts/oracle",

@@ -37,7 +37,7 @@ COPY restricted/crates/ /src/restricted/crates/
 COPY restricted/launcher/ /src/restricted/launcher/
 COPY restricted/ui/ /src/restricted/ui/
 COPY restricted/modules/rustic-isles/crates/ /src/restricted/modules/rustic-isles/crates/
-# The 1.14.7 version data the host and the module library compile in (RD27)
+# The 1.14.7 version data the parity tests read; the server stage ships it in data/ (RD27)
 COPY restricted/modules/rustic-isles/version-data/ /src/restricted/modules/rustic-isles/version-data/
 COPY restricted/modules/rustic-isles/reference/1.14.7/ParadoxBackend/game-data/ /src/restricted/modules/rustic-isles/reference/1.14.7/ParadoxBackend/game-data/
 COPY restricted/modules/rustic-isles/reference/1.14.7/ParadoxBackend/store-captures.json /src/restricted/modules/rustic-isles/reference/1.14.7/ParadoxBackend/
@@ -63,27 +63,25 @@ COPY --from=rust-sources /src/ /src/
 ARG DAINTY_MODULES=all-modules
 RUN --mount=type=cache,id=dainty-cargo-registry,target=/usr/local/cargo/registry \
     --mount=type=cache,id=dainty-cargo-git,target=/usr/local/cargo/git \
-    --mount=type=cache,id=dainty-cargo-target,target=/src/restricted/target \
+    --mount=type=cache,id=dainty-cargo-target,target=/src/target \
     features="$DAINTY_MODULES" \
  && set -- \
  && for f in $(echo "$features" | tr , ' '); do set -- "$@" --features "dainty-server/$f"; done \
- && cargo build --release --locked -p dainty-server "$@" --bins \
+ && cargo build --release --locked --manifest-path ../Cargo.toml -p dainty-server "$@" --bins \
  && mkdir -p /out/bin \
- && cp target/release/dainty-host /out/bin/
-# The libraries host.toml can pin (RD27), as the release ships them in plugins/: the 1.14.7 module from restricted/,
-# the services from the MIT root's workspace; and the root's legacy importer, as the release ships it in bin/
+ && cp ../target/release/dainty-host /out/bin/
+# The libraries host.toml can pin (RD27), as the release ships them in plugins/, all from the MIT root: the 1.14.7
+# module and the services; and the legacy importer, as the release ships it in bin/
 RUN --mount=type=cache,id=dainty-cargo-registry,target=/usr/local/cargo/registry \
     --mount=type=cache,id=dainty-cargo-git,target=/usr/local/cargo/git \
     --mount=type=cache,id=dainty-cargo-target,target=/src/restricted/target \
     --mount=type=cache,id=dainty-cargo-target,target=/src/target \
-    cargo build --release --locked -p rustic-isles-plugin --lib \
- && cargo build --release --locked --manifest-path ../Cargo.toml \
-      -p dainty-content-plugin -p dainty-chat-plugin -p dainty-gateway-plugin --lib \
+    cargo build --release --locked --manifest-path ../Cargo.toml \
+      -p rustic-isles-1-14-7-plugin -p dainty-content-plugin -p dainty-chat-plugin -p dainty-gateway-plugin --lib \
  && cargo build --release --locked --manifest-path ../Cargo.toml -p dainty-legacy --bin dainty-legacy \
  && cp ../target/release/dainty-legacy /out/bin/ \
  && mkdir -p /out/plugins \
- && cp target/release/librustic_isles_plugin.so /out/plugins/ \
- && for lib in dainty_content_plugin dainty_chat_plugin dainty_gateway_plugin; do \
+ && for lib in rustic_isles_1_14_7_plugin dainty_content_plugin dainty_chat_plugin dainty_gateway_plugin; do \
       cp "../target/release/lib$lib.so" /out/plugins/; \
     done
 
@@ -127,6 +125,8 @@ COPY --chown=dainty:dainty restricted/Cargo.toml ./
 # for, and the example game data and store captures pin
 COPY --chown=dainty:dainty restricted/modules/rustic-isles/ADDITIONAL_TERMS.md restricted/modules/rustic-isles/LICENSE restricted/modules/rustic-isles/NOTICE.md modules/rustic-isles/
 COPY --chown=dainty:dainty restricted/modules/rustic-isles/native/ modules/rustic-isles/native/
+# Mystic Paradox's 1.14.7 version data, read at start from data/ (RD27, host.toml's version_data)
+COPY --chown=dainty:dainty restricted/modules/rustic-isles/version-data/1.14.7/version_data.json data/1.14.7/
 ARG ISLES=modules/rustic-isles/reference/1.14.7
 COPY --chown=dainty:dainty restricted/${ISLES}/ParadoxBackend/game-data/ ${ISLES}/ParadoxBackend/game-data/
 COPY --chown=dainty:dainty restricted/${ISLES}/ParadoxBackend/store-captures.json ${ISLES}/ParadoxBackend/
@@ -221,6 +221,7 @@ COPY --chown=node:node native/ native/
 COPY --chown=node:node restricted/Cargo.toml ./
 COPY --chown=node:node restricted/modules/rustic-isles/ADDITIONAL_TERMS.md restricted/modules/rustic-isles/LICENSE restricted/modules/rustic-isles/NOTICE.md modules/rustic-isles/
 COPY --chown=node:node restricted/modules/rustic-isles/native/ modules/rustic-isles/native/
+COPY --chown=node:node restricted/modules/rustic-isles/version-data/1.14.7/version_data.json data/1.14.7/
 COPY --chown=node:node --from=node-build /src/modules/rustic-isles/reference/1.14.7/ modules/rustic-isles/reference/1.14.7/
 COPY --from=rust-build /out/bin/ bin/
 COPY --chmod=0755 restricted/docker/director-entrypoint.sh bin/dainty-director

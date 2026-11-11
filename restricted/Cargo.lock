@@ -1806,24 +1806,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "dainty-server"
-version = "0.0.0"
-dependencies = [
- "dainty-controller",
- "dainty-host",
- "tokio",
-]
-
-[[package]]
-name = "dainty-server-minimal"
-version = "0.0.0"
-dependencies = [
- "dainty-controller",
- "dainty-host",
- "tokio",
-]
-
-[[package]]
 name = "dainty-service-kit"
 version = "0.0.0"
 dependencies = [
@@ -5810,18 +5792,6 @@ dependencies = [
  "rustic-isles-store",
  "serde_json",
  "tempfile",
- "tokio",
-]
-
-[[package]]
-name = "rustic-isles-plugin"
-version = "0.0.0"
-dependencies = [
- "dainty-module-api",
- "dainty-plugin-host",
- "rustic-isles",
- "rustic-isles-1-14-7",
- "serde_json",
  "tokio",
 ]
 
