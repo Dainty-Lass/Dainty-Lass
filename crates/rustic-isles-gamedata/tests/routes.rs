@@ -481,6 +481,15 @@ async fn gauntlet() {
     ] {
         assert_eq!(h.game("GET", &at(uri)).await.payload(), want, "{uri}");
     }
+    // The client asks level access with no bearer; every other Gauntlet query still needs one.
+    let bare = h
+        .send("GET", &at("/progression/level_access/ESC_SEASON_1"), &[], None)
+        .await;
+    assert_eq!(bare.body, r#"{"code":null,"message":"OK","payload":0}"#);
+    let refused = h.send("GET", &at("/progression/ESC_SEASON_1/user-1"), &[], None).await;
+    assert_eq!((refused.status, refused.body.as_str()), (401, ""));
+    let elsewhere = h.send("GET", "/progression/level_access/ESC_SEASON_1", &[], None).await;
+    assert_ne!(elsewhere.status, 200, "only the Gauntlet origin answers it");
     let token = h.token();
     let pinned = [
         ("authorization", token.as_str()),

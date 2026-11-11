@@ -27,6 +27,9 @@ struct Ctx {
 enum Gate {
     Game,
     Open,
+    /// Game auth, except the Gauntlet's level-access query: the 1.14.7 client sends it with no bearer (first local
+    /// test, 2026-11-10) and its answer is a constant 0 that names no account.
+    GameUnlessLevelAccess,
 }
 
 fn on<F, Fut>(handlers: &mut Handlers, method: Method, path: &str, gate: Gate, answer: F)
@@ -42,9 +45,9 @@ where
             origin_host,
             ..
         } = call;
-        if gate == Gate::Game
-            && let Err(refusal) = shared.auth().game_auth(&mut request).await
-        {
+        let level_access = params.get("0").is_some_and(|s| s.to_lowercase() == "level_access");
+        let gated = gate == Gate::Game || (gate == Gate::GameUnlessLevelAccess && !level_access);
+        if gated && let Err(refusal) = shared.auth().game_auth(&mut request).await {
             return refusal;
         }
         answer(Ctx {
@@ -66,7 +69,7 @@ fn text(body: &'static str) -> Response {
 }
 
 pub(crate) fn register(handlers: &mut Handlers) {
-    use Gate::{Game, Open};
+    use Gate::{Game, GameUnlessLevelAccess, Open};
     use Method::{Get, Post};
 
     on(handlers, Post, "/heartbeat", Open, |_| async { text("20000") });
@@ -119,7 +122,7 @@ pub(crate) fn register(handlers: &mut Handlers) {
         handlers,
         Get,
         r"/^\/progression\/([^/]*)\/([^/]+)$/i",
-        Game,
+        GameUnlessLevelAccess,
         |c| async move { json(envelope(gauntlet::progression_payload(c.params.get("0").unwrap_or("")))) },
     );
     on(
