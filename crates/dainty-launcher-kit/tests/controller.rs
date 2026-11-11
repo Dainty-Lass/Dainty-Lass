@@ -9,7 +9,7 @@
 
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex, OnceLock};
 use std::time::Duration;
 
@@ -41,6 +41,8 @@ use dainty_launcher_kit::platform::paths::Paths;
 use dainty_launcher_kit::platform::settings::Os;
 
 const KEY: &str = "DLK_flowtestaccountkey0123456789abcdef";
+/// The key a server that forgot [`KEY`] hands out to the next registration.
+const NEW_KEY: &str = "DLK_flowtestreplacementkey0123456789abc";
 const USER_ID: &str = "user-0001";
 const VERSION_TEXT: &str = "dauntless_rel-1.14.7_Shipping_2024-04-01_14-59-21_647472";
 const WAIT: Duration = Duration::from_secs(10);
@@ -71,6 +73,7 @@ struct Seen {
     method: String,
     path: String,
     head: String,
+    body: String,
 }
 
 struct FakeServer {
@@ -83,6 +86,8 @@ struct Answers {
     name: &'static str,
     manifest: Option<RuntimeManifest>,
     files: BTreeMap<String, Vec<u8>>,
+    /// Set when the server's account store no longer knows [`KEY`].
+    forgot: Arc<AtomicBool>,
 }
 
 fn response(status: u16, kind: &str, body: &[u8]) -> Vec<u8> {
@@ -101,19 +106,26 @@ fn json_response(status: u16, body: &serde_json::Value) -> Vec<u8> {
 
 fn answer(answers: &Answers, seen: &Seen) -> Vec<u8> {
     let path = seen.path.split('?').next().unwrap_or("");
-    let keyed = seen
-        .head
-        .to_ascii_lowercase()
-        .contains(&format!("x-dainty-user-api-key: {}", KEY.to_ascii_lowercase()));
+    let head = seen.head.to_ascii_lowercase();
+    let carries = |key: &str| head.contains(&format!("x-dainty-user-api-key: {}", key.to_ascii_lowercase()));
+    let forgot = answers.forgot.load(Ordering::SeqCst);
+    let (keyed, rekeyed) = (carries(KEY) && !forgot, carries(NEW_KEY) && forgot);
+    // INVITECODE registration refuses a missing code before anything is spent.
+    let has_code = seen.body.contains("\"INVITE-1234\"");
     match (seen.method.as_str(), path) {
         ("GET", "/dainty/api/ServerStatus") => json_response(
             200,
             &json!({ "name": answers.name, "online": true, "version": "1.0", "commit": "abc" }),
         ),
-        ("POST", "/dainty/api/Register") => json_response(200, &json!({ "UUK": KEY })),
+        ("POST", "/dainty/api/Register") if !has_code => json_response(401, &json!({ "error": "InviteInvalid" })),
+        ("POST", "/dainty/api/Register") => json_response(200, &json!({ "UUK": if forgot { NEW_KEY } else { KEY } })),
         ("GET", "/dainty/api/GetUserInfo") if keyed => json_response(
             200,
             &json!({ "UserId": USER_ID, "Username": "Player_1", "IsAdmin": false }),
+        ),
+        ("GET", "/dainty/api/GetUserInfo") if rekeyed => json_response(
+            200,
+            &json!({ "UserId": "user-0002", "Username": "Player_2", "IsAdmin": false }),
         ),
         ("GET", "/dainty/api/GetUserInfo") => json_response(401, &json!({ "error": "key" })),
         ("GET", "/content/v1/runtime/manifest") => match &answers.manifest {
@@ -157,6 +169,7 @@ async fn read_request<S: AsyncRead + Unpin>(stream: &mut S) -> Option<Seen> {
         method: first.next().unwrap_or("").to_owned(),
         path: first.next().unwrap_or("").to_owned(),
         head,
+        body: String::from_utf8_lossy(&body).into_owned(),
     })
 }
 
@@ -487,6 +500,7 @@ async fn private_flow_from_invite_to_the_games_exit() {
             name: "Flow Server",
             manifest: Some(manifest),
             files,
+            forgot: Arc::default(),
         },
         None,
     )
@@ -686,6 +700,7 @@ async fn public_flow_through_a_tls_gateway() {
             name: "Public Server",
             manifest: None,
             files: BTreeMap::new(),
+            forgot: Arc::default(),
         },
         Some(tls),
     )
@@ -775,6 +790,7 @@ async fn an_unreachable_server_and_a_mismatched_certificate() {
             name: "Pinned",
             manifest: None,
             files: BTreeMap::new(),
+            forgot: Arc::default(),
         },
         Some(tls),
     )
@@ -971,5 +987,78 @@ async fn the_moved_modules_answer_without_a_server() {
         error(host, "host_failed", Some("host_tools_unavailable"));
         assert_eq!(ensured, json!({ "ok": true }));
     }
+    controller.shutdown().await;
+}
+
+#[tokio::test]
+async fn a_fresh_invite_replaces_a_key_the_server_forgot() {
+    let pc = pc().await;
+    let forgot = Arc::new(AtomicBool::new(false));
+    let server = fake_server(
+        Answers {
+            name: "Forgetful",
+            manifest: None,
+            files: BTreeMap::new(),
+            forgot: Arc::clone(&forgot),
+        },
+        None,
+    )
+    .await;
+    let platform = Arc::new(FakePlatform::default());
+    let spawner = Arc::new(FakeSpawner::default());
+    let controller = launcher(&pc, &platform, &spawner);
+    controller.init().await;
+    let text = invite(ServerMode::Private, server.port, None, "Forgetful");
+    ok(&controller.submit_invite(&text, false, false).await);
+    assert!(matches!(
+        controller.register("Player_1").await,
+        RegisterOutcome::Ok { .. }
+    ));
+    assert!(!controller.snapshot().server.unwrap().has_pending_invite);
+
+    // The server's account store loses the key: the launcher asks for an account again.
+    forgot.store(true, Ordering::SeqCst);
+    controller.refresh_status().await;
+    let snapshot = controller.snapshot();
+    assert_eq!(snapshot.phase, Phase::Register);
+    assert_eq!(
+        snapshot.last_error.map(|error| error.code),
+        Some(ErrorCode::KeyRejected)
+    );
+
+    // A fresh invite for the same server keeps its code although a (dead) key is stored.
+    ok(&controller.submit_invite(&text, false, false).await);
+    let snapshot = controller.snapshot();
+    assert_eq!(snapshot.phase, Phase::Register);
+    assert!(snapshot.server.unwrap().has_pending_invite);
+    assert_eq!(
+        controller.register("Player_2").await,
+        RegisterOutcome::Ok {
+            username: "Player_2".to_owned()
+        }
+    );
+    let register = server.saw("/dainty/api/Register");
+    assert_eq!(register.len(), 2);
+    assert!(
+        register[1].body.contains(r#""InviteCode":"INVITE-1234""#),
+        "{}",
+        register[1].body
+    );
+
+    // The new key replaced the dead one, and the server takes it.
+    let snapshot = controller.snapshot();
+    assert_ne!(snapshot.phase, Phase::Register);
+    assert!(snapshot.account.has_key);
+    assert_eq!(snapshot.account.username.as_deref(), Some("Player_2"));
+    assert!(!snapshot.server.unwrap().has_pending_invite);
+    controller.refresh_status().await;
+    let asked = server.saw("/dainty/api/GetUserInfo");
+    let last = asked.last().unwrap().head.to_ascii_lowercase();
+    assert!(last.contains(&NEW_KEY.to_ascii_lowercase()));
+    assert_eq!(controller.snapshot().phase, snapshot.phase);
+
+    // Rejoining while the key works leaves no code behind.
+    ok(&controller.submit_invite(&text, false, false).await);
+    assert!(!controller.snapshot().server.unwrap().has_pending_invite);
     controller.shutdown().await;
 }

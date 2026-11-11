@@ -149,7 +149,7 @@ impl Controller {
         ActionResult::Ok
     }
 
-    async fn join(&self, mut server: StoredServer, accept: bool, carry: bool) -> ActionResult {
+    async fn join(&self, server: StoredServer, accept: bool, carry: bool) -> ActionResult {
         let keys = std::sync::Arc::clone(&self.shared.keys);
         let stored = self.stored();
         let probe = server.clone();
@@ -191,14 +191,8 @@ impl Controller {
             self.carry_account(&old, &server).await;
         }
 
-        let probe = server.clone();
-        let keyed = self
-            .with_keys(move |keys| Ok(has_key(keys, &probe)))
-            .await
-            .unwrap_or(false);
-        if keyed {
-            server.code = None;
-        }
+        // The invite's code stays even beside a stored key: the server may have forgotten that key, and only the
+        // code registers again. `confirm_account` drops it once the server takes the key.
         let previous = self.server();
         let differs = previous.is_none_or(|previous| !previous.same_place(&server) || previous.fp != server.fp);
         self.edit_settings(|map| edit::set_server(map, Some(&server))).await;

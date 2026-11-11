@@ -8,7 +8,7 @@ use std::time::Instant;
 
 use dainty_protocol::invite::{ServerMode, is_loopback_host};
 use dainty_protocol::status::limited_view;
-use serde_json::json;
+use serde_json::{Value, json};
 
 use super::stored::edit;
 use super::{ART_CACHE_DIR, Controller, NEWS_INTERVAL, UNREACHABLE_MAX_SKIP, background, news_items, now_iso};
@@ -141,6 +141,10 @@ impl Controller {
                 let id = server.id();
                 if self.stored().username(&id) != Some(info.username.as_str()) {
                     self.edit_settings(|map| edit::keyed_value(map, "usernames", &id, Some(json!(info.username))))
+                        .await;
+                }
+                if server.code.is_some() {
+                    self.edit_settings(|map| edit::server_field(map, "code", Value::Null))
                         .await;
                 }
             }
