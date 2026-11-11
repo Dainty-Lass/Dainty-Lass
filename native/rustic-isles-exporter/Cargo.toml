@@ -1,0 +1,38 @@
+[package]
+name = "rustic-isles-exporter"
+version = "0.1.0"
+edition = "2024"
+license = "MIT"
+publish = false
+description = "The catalog exporter's readers and writers: what CatalogExporter.dll exports from the game"
+build = "build.rs"
+
+# Outside both workspaces: built on its own for x86_64-pc-windows-msvc, as native/runtime-loader is. `dll` is the
+# DLL; this library holds everything else and has no unsafe code, so the tests and the fuzz target link it alone.
+[workspace]
+members = ["dll"]
+
+[workspace.lints.rust]
+unsafe_code = "deny"
+unused_must_use = "deny"
+
+[workspace.lints.clippy]
+unwrap_used = "deny"
+expect_used = "deny"
+todo = "deny"
+dbg_macro = "deny"
+allow_attributes_without_reason = "warn"
+
+[lints]
+workspace = true
+
+[lib]
+name = "catalog_exporter"
+
+[profile.release]
+lto = true
+strip = true
+opt-level = 3
+codegen-units = 1
+# Unwinding, so a panic in the worker ends the export and not the game (spec §12 call 4).
+panic = "unwind"
