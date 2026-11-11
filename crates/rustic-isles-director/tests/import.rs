@@ -187,3 +187,45 @@ fn refusals_and_dry_runs() {
     let error = import_hunt_tables(&options(export_dir, vendor_dir)).unwrap_err();
     assert_eq!(error, "Export is missing player_hunts.jsonl or matchmaker_hunts.jsonl.");
 }
+
+#[test]
+fn seeded_example_rows_are_dropped_once_real_rows_arrive() {
+    let root = tempfile::tempdir().unwrap();
+    let export_dir = export(
+        root.path(),
+        &[player("New_B", json!(9))],
+        &[matchmaker("MM_New", "/Game/Maps/new.new")],
+        "1.14.7",
+    );
+    let vendor_dir = root.path().join("vendor");
+    std::fs::create_dir_all(&vendor_dir).unwrap();
+    let seeds = [
+        ("player_hunts_table", "Example_Hunt_Easy"),
+        ("matchmaker_hunts_table", "Example_MatchmakerHunt"),
+        ("arena_easy_matchmaker_hunts", "Example_MatchmakerHunt"),
+    ];
+    for (table, row) in seeds {
+        let file = json!([{"Name": table, "Type": "DataTable", "Rows": {row: {"MatchmakerHuntIDs": []}}}]).to_string();
+        std::fs::write(vendor_dir.join(format!("{table}.example.json")), &file).unwrap();
+        std::fs::write(vendor_dir.join(format!("{table}.json")), &file).unwrap();
+    }
+    let report = import_hunt_tables(&options(export_dir, vendor_dir.clone())).unwrap();
+    let placeholders: Vec<&[String]> = report.tables.iter().map(|t| t.placeholders.as_slice()).collect();
+    assert_eq!(
+        placeholders,
+        [
+            &["Example_Hunt_Easy".to_owned()][..],
+            &["Example_MatchmakerHunt".to_owned()][..]
+        ]
+    );
+    assert!(report.output.contains("  placeholders    : 1 example row(s) dropped"));
+    let rows = |table: &str| {
+        let file = read(&vendor_dir.join(format!("{table}.json")));
+        file[0]["Rows"].as_object().unwrap().keys().cloned().collect::<Vec<_>>()
+    };
+    assert_eq!(rows("player_hunts_table"), ["New_B"]);
+    assert_eq!(rows("matchmaker_hunts_table"), ["MM_New"]);
+    // The export brought no arena rows, so the placeholder stays the table's only content.
+    assert_eq!(rows("arena_easy_matchmaker_hunts"), ["Example_MatchmakerHunt"]);
+    assert!(vendor_dir.join("player_hunts_table.example.json").is_file());
+}
