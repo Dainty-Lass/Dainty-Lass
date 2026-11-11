@@ -102,7 +102,7 @@ implementer fixes `facts.rs` from the spec. The implementer never sees the C++.
 `UObject.Flags`, `.Name`, `.Outer`, `UStruct.Super`, `TUObjectArray.Objects`, `.NumElements`, `FUObjectItem.Object`,
 `.SerialNumber`, `UStoreViewModel.TagFilter` (fixed `+0x170`), and `FDateTime.Ticks`. For `FDateTime.Ticks`,
 `SD_START` and `SD_END`, the C++ reads the 64-bit value at the start of `StartTime`/`EndTime`. The guesses follow
-Dumper-7's usual spelling and may stand. The first real build will say. The other 199 guessed paths match the
+Dumper-7's usual spelling and may stand. The first real build will say. The rest of the guessed paths match the
 members the C++ reads.
 
 ### 4.3 A behaviour that departs from the spec: soft paths
