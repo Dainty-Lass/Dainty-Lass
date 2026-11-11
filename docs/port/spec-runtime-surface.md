@@ -41,7 +41,7 @@ Conventions:
 | `MinHook/` | ~3k | TsudaKageyu, BSD-2 | Moves as it is |
 | `..\catalog-exporter\StoreRuntimeExporter.cpp` (compiled into the runtime) | — | Mystic Paradox | Lane E's spec; question RT-10 |
 
-Not here: the runtime loader (`restricted/native/runtime-loader`, lane B's spec) and the CatalogExporter (lane E).
+Not here: the runtime loader (the root's MIT `native/runtime-loader`, `spec-runtime-loader.md`) and the CatalogExporter (lane E).
 The game SDK (`SDK.hpp`, `SDK/`) is a Dumper-7 dump each host makes and is never committed; the runtime compiles
 about 400 references to it (question RT-2).
 

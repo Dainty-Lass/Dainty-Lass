@@ -120,7 +120,7 @@ RUN apt-get update \
 # compose.yaml mounts as volumes (a new volume takes this ownership and these files).
 WORKDIR /opt/dainty-lass
 COPY --chown=dainty:dainty restricted/LICENSE.txt restricted/NOTICE.md restricted/ADDITIONAL_TERMS.md restricted/README.md ./
-COPY --chown=dainty:dainty restricted/native/ native/
+COPY --chown=dainty:dainty native/ native/
 # The host kit finds the server folder by Cargo.toml beside modules/rustic-isles (paths.rs find_repo_root)
 COPY --chown=dainty:dainty restricted/Cargo.toml ./
 # From modules/rustic-isles: its licence files, the runtime and CatalogExporter sources setup checks
@@ -217,7 +217,7 @@ RUN apt-get update \
 COPY --from=mongo-tools /usr/bin/mongodump /usr/bin/mongorestore /usr/bin/
 WORKDIR /opt/dainty-lass
 COPY --chown=node:node restricted/LICENSE.txt restricted/NOTICE.md restricted/ADDITIONAL_TERMS.md restricted/README.md ./
-COPY --chown=node:node restricted/native/ native/
+COPY --chown=node:node native/ native/
 COPY --chown=node:node restricted/Cargo.toml ./
 COPY --chown=node:node restricted/modules/rustic-isles/ADDITIONAL_TERMS.md restricted/modules/rustic-isles/LICENSE restricted/modules/rustic-isles/NOTICE.md modules/rustic-isles/
 COPY --chown=node:node restricted/modules/rustic-isles/native/ modules/rustic-isles/native/

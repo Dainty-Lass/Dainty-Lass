@@ -21,7 +21,7 @@ How to read the tables:
   copy was made (`main` at `77fb622`, 2026-10-20).
 - Paths are from the repository root on `plan`. The MIT workspace is the root (`crates/`, `fuzz/`, `ui/`,
   `launcher/`); everything AGPL is the separate workspace under `restricted/` (`restricted/crates/dainty-host`, the
-  `*-plugin` shells, `restricted/launcher/src-tauri`, `restricted/modules/`, `restricted/native/`,
+  `*-plugin` shells, `restricted/launcher/src-tauri`, `restricted/modules/`,
   `restricted/legacy/`, `restricted/docker/`, the host and Paradox docs). A bare `modules/...` path in a table is
   under `restricted/`. There is no `rust/` folder any more.
 - Since RD27 the MIT crates hold no DR or Paradox code: each was rewritten clean-room from a spec in this folder
@@ -60,7 +60,7 @@ How to read the tables:
 | Mystic Paradox `ParadoxBackend/`, `ParadoxDirector/` | `restricted/modules/rustic-isles/reference/1.14.7/ParadoxBackend`, `.../ParadoxDirector` | The rustic-isles submodule from DS6 (`paradox/backend`, `paradox/director` before), in-tree since RD27. Ported to Rust and cut over in code on 2026-10-28 (RU9), then re-created clean-room as the MIT `rustic-isles-*` crates (section 2.7); the Node reference stays for one release behind `--features paradox` until RB15 |
 | Mystic Paradox's hunt-manifest module (new at `21b9ff5`) | `restricted/modules/rustic-isles/reference/1.14.7/shared/hunt-manifest` | Imported by the backend and the Director |
 | Mystic Paradox `ParadoxRuntime/` | `restricted/modules/rustic-isles/native/runtime` | C++, built by each host (`native/paradox-runtime` before DS6) |
-| Mystic Paradox `tools/RuntimeLoader/` | `restricted/native/runtime-loader` | A Rust crate of its own, outside the workspace (DD13) |
+| Mystic Paradox `tools/RuntimeLoader/` | [`native/runtime-loader`](../../native/runtime-loader) | Rewritten clean-room as MIT from [`spec-runtime-loader.md`](spec-runtime-loader.md) (RD27, [`clean-room/runtime-loader.md`](clean-room/runtime-loader.md)); a Rust crate of its own, outside both workspaces (DD13) |
 | Mystic Paradox `tools/CatalogExporter/` | `restricted/modules/rustic-isles/native/catalog-exporter` | Loaded into the game through the runtime loader (RD9) |
 | Mystic Paradox `ParadoxLauncher/`, `ParadoxTransport/`, its release workflows, `.gitleaks.toml`, `docs/SELF_HOSTING.md` | not taken | Reforged has its own launcher; the ICE transport belongs to Paradox's player-hosted realms |
 | Mystic Paradox top-level `ADDITIONAL_TERMS.md`, `LICENSE`, `NOTICE.md`, `README.md`, `docs/` | `restricted/modules/rustic-isles/<same>` | rustic-isles' top level (`paradox/<same>` before DS6) |
@@ -297,7 +297,7 @@ Place the change first; every row below names the method and where the port is r
 
 | The change is in | It lands in | How | Recorded in |
 | --- | --- | --- | --- |
-| A runtime patch written against Mystic Paradox's tree | `restricted/modules/rustic-isles/native/runtime`, `restricted/native/runtime-loader` | Paths rewritten and `git apply --3way`, one commit per patch named `NNNN-runtime-<name>`, as `restricted/docs/paradox-runtime-patches.md` says | A section in `restricted/docs/paradox-patches.md` |
+| A runtime patch written against Mystic Paradox's tree | `restricted/modules/rustic-isles/native/runtime`; one touching the loader updates `spec-runtime-loader.md` and the root's `native/runtime-loader` instead | Paths rewritten and `git apply --3way`, one commit per patch named `NNNN-runtime-<name>`, as `restricted/docs/paradox-runtime-patches.md` says | A section in `restricted/docs/paradox-patches.md` |
 | A backend or Director patch written against Mystic Paradox's tree | `restricted/modules/rustic-isles/reference/1.14.7/ParadoxBackend`, `.../ParadoxDirector` | The same rewrite (`ParadoxBackend/` to `restricted/modules/rustic-isles/reference/1.14.7/ParadoxBackend/`), applied as an ordinary commit; a new or changed route goes in RB1's inventory. The MIT `rustic-isles-*` crate takes it only through its spec: describe the change in `docs/port/spec-rustic-isles-<area>.md` without code, implement from the spec, and replay the goldens with `rustic-isles-mit-parity` | `restricted/docs/paradox-patches.md`; the spec's change note |
 | Game data, `store-captures.json` | `restricted/modules/rustic-isles/reference/1.14.7/ParadoxBackend/store-captures.json`; a host's own preset | Taken as they are | The commit |
 | Mystic Paradox's own `main` | rustic-isles (its `upstream/main` branch, archived), then `restricted/modules/rustic-isles` | Advance the fork's `reforged` branch, replay the Reforged patches one by one onto the new base, keep, reduce or drop each, as `ab1830a` did. `ParadoxLauncher`, `ParadoxTransport` and the workflows stay out | The "Updated to" section and table in `restricted/docs/paradox-patches.md`; its `NOTICE.md` |
@@ -384,7 +384,7 @@ under its `Rust:` line, as `catchup-host.md` does for `0ba6016`.
 | Reforged `main`, the Node sources the delta lists diffed | `77fb622` | 2026-10-20 |
 | Reforged `main` last merged into `plan` (`02a8070`, patches 0034–0039) | `aea8f64` | 2026-10-23 |
 | Mystic Paradox base (Freeza's pin) | `00d3be8` | — |
-| Mystic Paradox now in `restricted/modules/rustic-isles` and `restricted/native/runtime-loader` | `21b9ff5` | 2026-10-18 |
+| Mystic Paradox now in `restricted/modules/rustic-isles` (and its loader in `restricted/native/runtime-loader` until 2026-11-11) | `21b9ff5` | 2026-10-18 |
 | Submodules (DS6): rustic-isles, rustic-rifts, legacy-revived at their `plan` (since in-tree, RD27; legacy-revived removed) | `54970ea`, `b19248c`, `8a98d83` | 2026-10-26 |
 | dainty-restricted imported as `restricted/` | `772248c2` (subtree of `e0e238b`) | 2026-11-05 |
 | SilentSpud/Mystic-Paradox `reforged` (base + patches 0001–0033) | `24e60c8` | 2026-10-22 |

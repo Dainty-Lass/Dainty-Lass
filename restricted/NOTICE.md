@@ -43,8 +43,9 @@ dainty-lass-ui.
   [`modules/rustic-rifts`](modules/rustic-rifts) (its Rust realm and Guard ports were replaced by dainty-lass's MIT
   clean-room `rustic-rifts-*` crates, RD27, and removed; they stay in this repository's history);
   its game runtime (`ParadoxRuntime/`) and CatalogExporter (`tools/CatalogExporter/`) are in
-  [`modules/rustic-isles/native`](modules/rustic-isles/native), and the runtime's loader (`tools/RuntimeLoader/`)
-  is in [`native/runtime-loader`](native/runtime-loader). Its launcher, deployment scripts and self-hosting guide
+  [`modules/rustic-isles/native`](modules/rustic-isles/native). Its runtime loader (`tools/RuntimeLoader/`) was
+  in `restricted/native/runtime-loader` until 2026-11-11, when the root's MIT clean-room rewrite
+  (`native/runtime-loader`, `docs/port/spec-runtime-loader.md`) replaced it. Its launcher, deployment scripts and self-hosting guide
   were not taken. Every file from Mystic Paradox, and every change made to it here, stays under Mystic Paradox's
   terms.
 - The changes made to it are listed patch by patch in [docs/paradox-patches.md](docs/paradox-patches.md).
@@ -52,10 +53,10 @@ dainty-lass-ui.
   ([github.com/FreezaMotoqueiro/Dauntless-Reforged-Revival](https://github.com/FreezaMotoqueiro/Dauntless-Reforged-Revival),
   AGPL-3.0-only) and are kept here as they were received; the files they touch say so in their comments. The
   rest of that project is not part of this repository.
-- The runtime's loader (`native/runtime-loader`) is derived from
+- The runtime loader removed on 2026-11-11 was derived from
   [coldloader-proxy](https://github.com/denuvosanctuary/coldloader-proxy); Mystic Paradox's README, NOTICE.md
-  and Cargo.toml give its licence as Apache-2.0, while the LICENSE file in that folder holds the GNU LGPL-3.0
-  text. The runtime includes MinHook and the Hacker Disassembler Engine 64 (BSD-2-Clause).
+  and Cargo.toml gave its licence as Apache-2.0, while the LICENSE file in its folder held the GNU LGPL-3.0
+  text. It stays in the history only. The runtime includes MinHook and the Hacker Disassembler Engine 64 (BSD-2-Clause).
 
 ### Dauntless Revived
 

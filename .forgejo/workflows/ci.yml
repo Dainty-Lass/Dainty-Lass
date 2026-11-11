@@ -144,7 +144,7 @@ jobs:
               - restricted/crates/**
               - restricted/launcher/src-tauri/**
               - restricted/fuzz/**
-              - restricted/native/**
+              - native/**
               - restricted/modules/**
             network:
               - crates/**

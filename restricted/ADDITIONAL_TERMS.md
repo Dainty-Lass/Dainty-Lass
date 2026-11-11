@@ -3,12 +3,11 @@
 Dainty Lass is licensed as a whole under the GNU Affero General Public License, version 3 only
 (`AGPL-3.0-only`); see [LICENSE.txt](LICENSE.txt).
 
-Mystic Paradox material is in two places: the rustic-isles submodule at
-[`modules/rustic-isles`](modules/rustic-isles) (its backend, Director, game runtime, CatalogExporter,
-documentation and top-level files, with Mystic Paradox's own copy of these terms in
-[`modules/rustic-isles/ADDITIONAL_TERMS.md`](modules/rustic-isles/ADDITIONAL_TERMS.md)) and
-[`native/runtime-loader`](native/runtime-loader) (the runtime's loader). Both come from Mystic Paradox at commit
-`21b9ff5`, with the changes made to them in this project ([NOTICE.md](NOTICE.md),
+Mystic Paradox material is at [`modules/rustic-isles`](modules/rustic-isles) (its backend, Director, game runtime,
+CatalogExporter, documentation and top-level files, with Mystic Paradox's own copy of these terms in
+[`modules/rustic-isles/ADDITIONAL_TERMS.md`](modules/rustic-isles/ADDITIONAL_TERMS.md)). Its runtime loader was in
+`native/runtime-loader` until 2026-11-11, when an MIT clean-room rewrite at the monorepo root replaced it. It comes
+from Mystic Paradox at commit `21b9ff5`, with the changes made to them in this project ([NOTICE.md](NOTICE.md),
 [docs/paradox-patches.md](docs/paradox-patches.md)).
 
 Mystic Paradox applies additional terms under AGPLv3 section 7 to the material identified as "Copyright (C) 2026

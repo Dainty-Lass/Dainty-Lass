@@ -62,9 +62,10 @@ Pranav Karande includes, among other things:
 
 ### Runtime loader
 
-The runtime loader (`restricted/native/runtime-loader`, Mystic Paradox's `tools/RuntimeLoader`) is derived from
-[coldloader-proxy](https://github.com/denuvosanctuary/coldloader-proxy) and is distributed under
-the Apache License 2.0. Its license is retained in that folder's `LICENSE`.
+The runtime loader (Mystic Paradox's `tools/RuntimeLoader`, derived from
+[coldloader-proxy](https://github.com/denuvosanctuary/coldloader-proxy) under the Apache License 2.0) was carried in
+`restricted/native/runtime-loader` until 2026-11-11. Dainty Lass replaced it with an MIT clean-room rewrite at the
+monorepo root's `native/runtime-loader`, and the original stays in the history only.
 
 ## Notes
 

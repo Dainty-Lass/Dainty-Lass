@@ -42,7 +42,7 @@ player guides. No MIT crate at the root depends on anything in `restricted/`.
 | [`launcher/`](launcher) | MIT | The launcher's JavaScript side: the isolation hook, the scripts the Tauri shells and the release run, and their tests |
 | [`scripts/`](scripts) | MIT | `replay-capture.mjs`, the shadow-replay wrapper |
 | [`docs/`](docs) | MIT | The architecture, the plans and the MIT components' security checklists ([SECURITY_REVIEW.md](SECURITY_REVIEW.md)) |
-| [`restricted/`](restricted) | AGPL-3.0-only | Separate Cargo workspace: the host shell (`restricted/crates/dainty-host`), the Tauri launcher (`restricted/launcher/src-tauri`), Rustic Isles' runtime, Node reference, version data and parity replay and Rustic Rifts' `ParadoxTransport` (`restricted/modules/`), the 1.4.4 importer (`restricted/legacy/`), the Apache-2.0 runtime loader (`restricted/native/`), the server executables, Docker (`restricted/docker/`, `restricted/compose.yaml`), and the host and player guides ([restricted/SECURITY_REVIEW.md](restricted/SECURITY_REVIEW.md)) |
+| [`restricted/`](restricted) | AGPL-3.0-only | Separate Cargo workspace: the host shell (`restricted/crates/dainty-host`), the Tauri launcher (`restricted/launcher/src-tauri`), Rustic Isles' runtime, Node reference, version data and parity replay and Rustic Rifts' `ParadoxTransport` (`restricted/modules/`), the 1.4.4 importer (`restricted/legacy/`), the server executables, Docker (`restricted/docker/`, `restricted/compose.yaml`), and the host and player guides ([restricted/SECURITY_REVIEW.md](restricted/SECURITY_REVIEW.md)) |
 
 What is left to do: [MIGRATION_PLAN.md](MIGRATION_PLAN.md). The design record behind it:
 [docs/dainty-lass-plan.md](docs/dainty-lass-plan.md).
@@ -78,7 +78,7 @@ of those build on.
 MIT License ([LICENSE.txt](LICENSE.txt)) at the root: everything outside [`restricted/`](restricted) was written or
 rewritten clean-room from no other project. Everything inside [`restricted/`](restricted) is licensed under the GNU
 AGPL-3.0-only ([restricted/LICENSE.txt](restricted/LICENSE.txt), [restricted/NOTICE.md](restricted/NOTICE.md)), with
-the Apache-2.0 runtime loader in `restricted/native/runtime-loader` and the additional terms for the Mystic Paradox
+the additional terms for the Mystic Paradox
 material in [restricted/ADDITIONAL_TERMS.md](restricted/ADDITIONAL_TERMS.md).
 
 An unofficial fan project, not affiliated with or endorsed by Phoenix Labs, Epic Games, Mystic Paradox or
