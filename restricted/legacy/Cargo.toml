@@ -1,6 +1,6 @@
-# Dainty Lass's legacy plugin: imports old installs and upgrades them to Dainty Lass (Dauntless 1.14.7 on rustic-isles).
-# crates/dainty-legacy-import holds the importers, crates/dainty-legacy the Plugin module Dainty Lass runs out of process (DD5), so
-# this AGPL code never links into Dainty Lass's MIT core. fuzz/ is a workspace of its own.
+# The AGPL legacy importer, kept as the oracle for the MIT crates/dainty-legacy that ships (RD27, spec-legacy-import.md
+# section 13): tests/oracle.rs runs both on the real 1.4.4 histories and fails on any difference. fuzz/ is a workspace
+# of its own.
 [workspace]
 resolver = "3"
 members = ["crates/*"]
@@ -21,6 +21,8 @@ dainty-legacy-import = { path = "crates/dainty-legacy-import" }
 # Dainty Lass's MIT crates in the root workspace
 dainty-module-api = { path = "../../crates/dainty-module-api" }
 dainty-store = { path = "../../crates/dainty-store" }
+# The clean-room rewrite the oracle checks
+dainty-legacy = { path = "../../crates/dainty-legacy" }
 
 # The versions Dainty Lass's workspace asks for, so one copy of each lands in its tree
 chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
@@ -33,6 +35,7 @@ sha2 = "0.11"
 tempfile = "3"
 thiserror = "2"
 tokio = { version = "1", features = ["rt", "macros"] }
+toml = "0.9"
 toml_edit = { version = "0.25", default-features = false, features = ["parse", "display"] }
 
 [workspace.lints.rust]

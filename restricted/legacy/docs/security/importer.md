@@ -2,8 +2,9 @@
 
 # Security checklist: the legacy importer
 
-The checklist for dainty-legacy's importers, `crates/dainty-legacy-import` and the `legacy` plugin in `crates/dainty-legacy`,
-in the shape of Dainty Lass's `docs/security/*.md` (RX3).
+The checklist for the AGPL importer, `crates/dainty-legacy-import`, in the shape of Dainty Lass's `docs/security/*.md`
+(RX3). It no longer ships: the plugin and executable are the root's MIT `crates/dainty-legacy`, whose checklist is
+`docs/security/legacy-import.md` at the monorepo root. This one holds for the oracle only.
 
 How to use it: before a release, check each item in the code (not from memory), link the code or test that shows it,
 and sign at the end with the date and the commit reviewed. An item that does not hold is a bug to fix before the
