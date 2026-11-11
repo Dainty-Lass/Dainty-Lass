@@ -5,6 +5,7 @@
 //! SDK import, and logged build execution (Spec §2.3).
 
 pub mod parse;
+pub mod sdk_names;
 
 use std::ffi::OsString;
 use std::io::Write;
@@ -723,8 +724,17 @@ pub fn copy_tree(from: &Path, to: &Path) -> std::io::Result<u32> {
     Ok(copied)
 }
 
-/// Imports a Dumper-7 `CppSDK` folder into `runtime_source`, returning the number of `*_functions.cpp` files.
-pub fn import_sdk(dump_dir: &Path, runtime_source: &Path) -> Result<u32, SdkError> {
+/// What [`import_sdk`] copied and repaired.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct SdkImport {
+    /// `*_functions.cpp` files in the imported SDK.
+    pub function_files: u32,
+    /// Function lookups rewritten from the outer class's name to the function's (Dumper-7 `42f37f6`).
+    pub repaired_lookups: u32,
+}
+
+/// Imports a Dumper-7 `CppSDK` folder into `runtime_source`, repairing its function lookups.
+pub fn import_sdk(dump_dir: &Path, runtime_source: &Path) -> Result<SdkImport, SdkError> {
     let source = if dump_dir.join("SDK.hpp").is_file() {
         dump_dir.to_path_buf()
     } else if dump_dir.join("CppSDK").join("SDK.hpp").is_file() {
@@ -748,8 +758,12 @@ pub fn import_sdk(dump_dir: &Path, runtime_source: &Path) -> Result<u32, SdkErro
         std::fs::remove_dir_all(&target_sdk).map_err(|_| SdkError::Io)?;
     }
     copy_tree(&source, runtime_source).map_err(|_| SdkError::Io)?;
+    let repaired_lookups = sdk_names::repair_sdk_dir(&target_sdk).map_err(|_| SdkError::Io)?;
 
-    Ok(count_function_files(&target_sdk))
+    Ok(SdkImport {
+        function_files: count_function_files(&target_sdk),
+        repaired_lookups,
+    })
 }
 
 /// Runs `program` with `args` in `cwd`, writing output to `log_file` and returning the exit code and last line.
@@ -892,8 +906,9 @@ mod tests {
         std::fs::write(sdk.join("Archon_functions.cpp"), b"// fn").unwrap();
         std::fs::write(dump.join("PropertyFixup.hpp"), b"// fixup").unwrap();
 
-        let count = import_sdk(dump.parent().unwrap(), &rt).unwrap();
-        assert_eq!(count, 1);
+        let imported = import_sdk(dump.parent().unwrap(), &rt).unwrap();
+        assert_eq!(imported.function_files, 1);
+        assert_eq!(imported.repaired_lookups, 0);
         assert!(rt.join("SDK.hpp").is_file());
         assert!(rt.join("PropertyFixup.hpp").is_file());
         assert!(rt.join("SDK").join("Archon_functions.cpp").is_file());

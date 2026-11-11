@@ -21,6 +21,14 @@ as Dumper-7 documents. The dump is a `CppSDK` folder with `SDK.hpp` inside. Impo
 `modules/rustic-isles/native/runtime` (the Host page's **Import SDK**, or copy it there as the folder's `BUILD.md` says).
 `doctor` reports the SDK as imported once it sees the generated `*_functions.cpp` files.
 
+Build Dumper-7 at commit `3a57413` (main as of 2026-10-17) or older. From `42f37f6` (merged into main on
+2026-10-26 as PR #588) it writes each function's lookup with its class's name instead of the function's, for
+example `GetStaticName(L"BP_PlayerCharacter_C", FnName)` inside `ABP_PlayerCharacter_C::TickStamina`. That SDK
+compiles, but the server dies with `Failed to find function BP_PlayerCharacter_C in BP_PlayerCharacter_C` as
+soon as a player joins Ramsgate. The fix is upstream PR #592, still open on 2026-11-10; a commit after it is
+fine once it is merged. The launcher's **Import SDK** repairs such a dump on the way in and logs how many
+lookups it rewrote; an SDK copied in by hand is not repaired, so dump it again with a good Dumper-7.
+
 The SDK is Phoenix Labs' material: never commit it, never share it. `.gitignore` refuses `CppSDK/` and
 `SDK.hpp`.
 
