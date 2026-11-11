@@ -1,0 +1,784 @@
+# Dainty Lass in Docker: one server, every service in one network namespace (net's), so they reach each other on
+# 127.0.0.1 as setup's env files say and only the gateway and the game ports are reachable from outside.
+# Run Compose from this folder; copy .env.example to .env first. Server settings are setup's, not this file's:
+#   docker compose run --rm host setup --mode public --host play.example.org --name "My Server"
+#   docker compose up -d
+# Profiles: public (the allowlist), toml (configure applies DAINTY_CONFIG_DIR/host.toml), postgres, managed (the
+# remote agent), tools (host, run only with `run`), test, network and remote (the harnesses), mongo [RB15].
+# [RB15] marks what goes when RB15 deletes the MongoDB handling.
+
+# Fixed: existing hosts' volumes are named after it
+name: dainty-lass
+
+x-build-front: &build-front
+  context: .
+  dockerfile: docker/Dockerfile
+  target: front
+
+x-build-server: &build-server
+  context: .
+  dockerfile: docker/Dockerfile
+  target: server
+  args:
+    DAINTY_COMMIT: ${DAINTY_COMMIT:-}
+
+x-front: &front
+  image: ${DAINTY_IMAGE:-dainty-lass}-front:${DAINTY_TAG:-local}
+  build: *build-front
+  network_mode: service:net
+  restart: unless-stopped
+  init: true
+  read_only: true
+  tmpfs: [/tmp]
+  security_opt: [no-new-privileges:true]
+  cap_drop: [ALL]
+
+# Wine and the game servers keep Docker's default capabilities (Q-5)
+x-server: &server
+  image: ${DAINTY_IMAGE:-dainty-lass}-server:${DAINTY_TAG:-local}
+  build: *build-server
+  network_mode: service:net
+  restart: unless-stopped
+  volumes: &server-volumes
+    - workspace:/opt/dainty-lass/.workspace
+    - mongo-data:/opt/dainty-lass/.workspace/mongodb # [RB15]
+    - backend-game-data:/opt/dainty-lass/modules/rustic-isles/reference/1.14.7/ParadoxBackend/game-data
+    - director-game-data:/opt/dainty-lass/modules/rustic-isles/reference/1.14.7/ParadoxDirector/game-data
+    - exports:/opt/dainty-lass/modules/rustic-isles/reference/1.14.7/Items_Analysis
+    - captures:/opt/dainty-lass/modules/rustic-isles/reference/1.14.7/DauntlessEndpointDocumentation
+    - ${DAINTY_GAME_DIR:-./game}:/game
+
+# The harnesses' node namespaces: a fixed cluster address, since the node certificates and tc's filters name it
+x-node-net: &node-net
+  image: ${DAINTY_IMAGE:-dainty-lass}-front:${DAINTY_TAG:-local}
+  build: *build-front
+  command: ["sleep", "infinity"]
+  init: true
+  restart: unless-stopped
+  read_only: true
+  security_opt: [no-new-privileges:true]
+  cap_drop: [ALL]
+  sysctls:
+    net.ipv4.ip_unprivileged_port_start: "0"
+  healthcheck:
+    test: ["CMD", "true"]
+    interval: 30s
+
+x-netem-environment: &netem-environment
+  NETEM_NODES: >-
+    oregon=${DAINTY_NETWORK_SUBNET:-172.28.77}.11 new-york=${DAINTY_NETWORK_SUBNET:-172.28.77}.12
+    uk=${DAINTY_NETWORK_SUBNET:-172.28.77}.13 germany=${DAINTY_NETWORK_SUBNET:-172.28.77}.14
+  NETEM_RTT: >-
+    oregon:new-york=${DAINTY_NETWORK_RTT_OREGON_NEW_YORK:-70} oregon:uk=${DAINTY_NETWORK_RTT_OREGON_UK:-140}
+    oregon:germany=${DAINTY_NETWORK_RTT_OREGON_GERMANY:-150} new-york:uk=${DAINTY_NETWORK_RTT_NEW_YORK_UK:-75}
+    new-york:germany=${DAINTY_NETWORK_RTT_NEW_YORK_GERMANY:-85} uk:germany=${DAINTY_NETWORK_RTT_UK_GERMANY:-20}
+  NETEM_PLAYER_REGION: ${DAINTY_NETWORK_PLAYER_REGION:-germany}
+
+x-netem: &netem
+  image: ${DAINTY_IMAGE:-dainty-lass}-netem:${DAINTY_TAG:-local}
+  build:
+    context: .
+    dockerfile: docker/Dockerfile
+    target: netem
+  profiles: [network]
+  init: true
+  restart: unless-stopped
+  read_only: true
+  security_opt: [no-new-privileges:true]
+  cap_drop: [ALL]
+  cap_add: [NET_ADMIN]
+  healthcheck:
+    test: ["CMD", "sh", "-c", "tc qdisc show dev eth0 | grep -q netem"]
+    interval: 2s
+    retries: 15
+
+# setup writes the image's game-data folders, which a node with no game never reads: not read-only
+x-node-configure: &node-configure
+  image: ${DAINTY_IMAGE:-dainty-lass}-server:${DAINTY_TAG:-local}
+  build: *build-server
+  network_mode: none
+  restart: "no"
+  entrypoint: ["/usr/bin/tini", "--", "dainty-host-docker"]
+  command: ["apply"]
+  security_opt: [no-new-privileges:true]
+  cap_drop: [ALL]
+
+# The gateway serves the whole node (the backend on 41000, chat on 41006), hence the server image
+x-node-gateway: &node-gateway
+  image: ${DAINTY_IMAGE:-dainty-lass}-server:${DAINTY_TAG:-local}
+  build: *build-server
+  profiles: [network]
+  environment:
+    DAINTY_NETWORK_FULL_NODE: "1"
+    DAINTY_WRONG_NODE_POLICY: ${DAINTY_WRONG_NODE_POLICY:-refuse}
+  command: ["dainty-host", "gateway", "serve", "--env-file", "/opt/dainty-lass/.workspace/config/gateway.env"]
+  restart: unless-stopped
+  init: true
+  security_opt: [no-new-privileges:true]
+  cap_drop: [ALL]
+  healthcheck:
+    test: ["CMD", "dainty-healthcheck", "gateway"]
+    interval: 5s
+    start_period: 30s
+
+# Starts its dependencies and nothing else, so `up --wait <it>` brings up one harness
+x-harness-anchor: &harness-anchor
+  image: ${DAINTY_IMAGE:-dainty-lass}-front:${DAINTY_TAG:-local}
+  build: *build-front
+  command: ["sleep", "infinity"]
+  network_mode: none
+  init: true
+  read_only: true
+  security_opt: [no-new-privileges:true]
+  cap_drop: [ALL]
+  healthcheck:
+    test: ["CMD", "true"]
+    interval: 30s
+
+x-remote-gateway: &remote-gateway
+  <<: *front
+  profiles: [remote]
+  environment:
+    DAINTY_REMOTE_WIRE_LOG: /opt/dainty-lass/.workspace/wire.jsonl
+  command: ["dainty-host", "gateway", "serve", "--env-file", "/opt/dainty-lass/.workspace/config/gateway.env"]
+  healthcheck:
+    test: ["CMD", "dainty-healthcheck", "gateway"]
+    interval: 5s
+    start_period: 30s
+
+x-remote-host: &remote-host
+  <<: *server
+  profiles: [remote]
+  command: ["sleep", "infinity"]
+  environment:
+    DAINTY_REMOTE_WIRE_LOG: /opt/dainty-lass/.workspace/wire.jsonl
+  healthcheck:
+    test: ["CMD", "true"]
+    interval: 10s
+
+services:
+  # Holds the namespace and the published ports, so a service restarting never drops another's
+  net:
+    image: ${DAINTY_IMAGE:-dainty-lass}-front:${DAINTY_TAG:-local}
+    build: *build-front
+    command: ["sleep", "infinity"]
+    init: true
+    restart: unless-stopped
+    read_only: true
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+    # The gateway listens on 443 as an ordinary user
+    sysctls:
+      net.ipv4.ip_unprivileged_port_start: "0"
+    ports:
+      - "${DAINTY_GATEWAY_PUBLISH:-443}:${DAINTY_GATEWAY_PORT:-443}/tcp"
+      - "${DAINTY_GAME_PUBLISH_ADDRESS:-0.0.0.0}:${DAINTY_GAME_PORTS:-8770-8777}:${DAINTY_GAME_PORTS:-8770-8777}/udp"
+    healthcheck:
+      test: ["CMD", "true"]
+      interval: 30s
+
+  # [RB15] Imports a pre-cutover server's MongoDB data into store (host db migrate, host db verify)
+  mongo:
+    image: ${MONGO_IMAGE:-mongo:8.0}
+    profiles: [mongo]
+    network_mode: service:net
+    restart: unless-stopped
+    command: ["mongod", "--replSet", "rs0", "--bind_ip", "127.0.0.1", "--port", "27017", "--wiredTigerCacheSizeGB", "1"]
+    volumes:
+      - mongo-data:/data/db
+      - mongo-config:/data/configdb
+    # Initiates the one-member replica set the first time; healthy once primary
+    healthcheck:
+      test:
+        - CMD
+        - mongosh
+        - --quiet
+        - --eval
+        - "try { rs.status() } catch (e) { rs.initiate({ _id: 'rs0', members: [{ _id: 0, host: '127.0.0.1:27017' }] }) } quit(db.hello().isWritablePrimary ? 0 : 1)"
+      interval: 5s
+      timeout: 10s
+      start_period: 60s
+      retries: 12
+    depends_on:
+      net:
+        condition: service_started
+
+  postgres:
+    image: ${POSTGRES_IMAGE:-postgres:17}
+    profiles: [postgres]
+    network_mode: service:net
+    restart: unless-stopped
+    # The password is setup's, read only when the data volume is first made. initdb trusts 127.0.0.1 by default and
+    # every container shares this namespace, so passwords there too; libpq has no TLS (DF7), so loopback only.
+    entrypoint:
+      - sh
+      - -ec
+      - |
+        secrets=/opt/dainty-lass/.workspace/config/secrets.env
+        password=$$(sed -n 's/^DAINTY_DB_PASSWORD=//p' "$$secrets" 2>/dev/null | tail -n 1)
+        case "$$password" in \"*\") password=$${password#\"}; password=$${password%\"} ;; esac
+        if [ -z "$$password" ]; then
+          echo "no DAINTY_DB_PASSWORD in $$secrets: run setup first" >&2
+          exit 1
+        fi
+        export POSTGRES_PASSWORD="$$password" POSTGRES_USER=dainty POSTGRES_DB=dainty
+        export POSTGRES_INITDB_ARGS=--auth-host=scram-sha-256
+        exec docker-entrypoint.sh postgres -c listen_addresses=127.0.0.1
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - workspace:/opt/dainty-lass/.workspace:ro
+    healthcheck:
+      test: ["CMD", "pg_isready", "-h", "127.0.0.1", "-U", "dainty", "-d", "dainty"]
+      interval: 5s
+      start_period: 30s
+      retries: 6
+    depends_on:
+      net:
+        condition: service_started
+      configure:
+        condition: service_completed_successfully
+        required: false
+
+  # The toml profile: DAINTY_CONFIG_DIR/host.toml is the server's whole configuration
+  configure:
+    <<: *server
+    profiles: [toml]
+    entrypoint: ["/usr/bin/tini", "--", "dainty-host-docker"]
+    command: ["apply"]
+    restart: "no"
+    volumes:
+      - workspace:/opt/dainty-lass/.workspace
+      - mongo-data:/opt/dainty-lass/.workspace/mongodb # [RB15]
+      - backend-game-data:/opt/dainty-lass/modules/rustic-isles/reference/1.14.7/ParadoxBackend/game-data
+      - director-game-data:/opt/dainty-lass/modules/rustic-isles/reference/1.14.7/ParadoxDirector/game-data
+      - exports:/opt/dainty-lass/modules/rustic-isles/reference/1.14.7/Items_Analysis
+      - captures:/opt/dainty-lass/modules/rustic-isles/reference/1.14.7/DauntlessEndpointDocumentation
+      - ${DAINTY_GAME_DIR:-./game}:/game
+      # z relabels for SELinux hosts and is ignored elsewhere
+      - ${DAINTY_CONFIG_DIR:-./config}:/config:ro,z
+    depends_on:
+      net:
+        condition: service_started
+      mongo: # [RB15]
+        condition: service_healthy
+        required: false
+
+  backend:
+    <<: *server
+    command: ["dainty-host", "backend", "serve", "--env-file", "/opt/dainty-lass/.workspace/config/backend.env"]
+    healthcheck:
+      test: ["CMD", "dainty-healthcheck", "backend"]
+      interval: 5s
+      start_period: 120s
+      retries: 6
+    depends_on:
+      net:
+        condition: service_started
+      postgres:
+        condition: service_healthy
+        required: false
+      configure:
+        condition: service_completed_successfully
+        required: false
+
+  director:
+    <<: *server
+    command: ["dainty-director"]
+    healthcheck:
+      test: ["CMD", "dainty-healthcheck", "director"]
+      interval: 5s
+      start_period: 120s
+      retries: 6
+    depends_on:
+      backend:
+        condition: service_healthy
+      # A public server's game ports are closed before the first game server starts
+      allowlist:
+        condition: service_healthy
+        required: false
+
+  content:
+    <<: *front
+    command: ["dainty-host", "content", "serve", "--env-file", "/opt/dainty-lass/.workspace/config/content.env"]
+    volumes:
+      - workspace:/opt/dainty-lass/.workspace:ro
+    healthcheck:
+      test: ["CMD", "dainty-healthcheck", "content"]
+      interval: 5s
+      start_period: 30s
+    depends_on:
+      backend:
+        condition: service_healthy
+
+  admin:
+    <<: *front
+    command: ["dainty-host", "admin", "serve", "--env-file", "/opt/dainty-lass/.workspace/config/admin.env"]
+    # Writes its timeouts next to secrets.env
+    volumes:
+      - workspace:/opt/dainty-lass/.workspace
+    healthcheck:
+      test: ["CMD", "dainty-healthcheck", "admin"]
+      interval: 5s
+      start_period: 30s
+    depends_on:
+      backend:
+        condition: service_healthy
+
+  # The only single-server service with a capability: its nftables table (inet dainty_lass) filters the game
+  # servers' traffic in this namespace, without touching the host's firewall. no-new-privileges is off because it
+  # stops nft's file capability, which is how the unprivileged helper gets CAP_NET_ADMIN.
+  allowlist:
+    <<: *front
+    profiles: [public]
+    security_opt: []
+    cap_add: [NET_ADMIN]
+    command: ["dainty-host", "allowlist", "--env-file", "/opt/dainty-lass/.workspace/config/allowlist.env"]
+    volumes:
+      - workspace:/opt/dainty-lass/.workspace
+    healthcheck:
+      test: ["CMD", "dainty-healthcheck", "allowlist"]
+      interval: 5s
+      start_period: 30s
+    depends_on:
+      net:
+        condition: service_started
+      configure:
+        condition: service_completed_successfully
+        required: false
+
+  # Last, as `start` does, so no player request reaches a service that isn't up
+  gateway:
+    <<: *front
+    command: ["dainty-host", "gateway", "serve", "--env-file", "/opt/dainty-lass/.workspace/config/gateway.env"]
+    volumes:
+      - workspace:/opt/dainty-lass/.workspace:ro
+    healthcheck:
+      test: ["CMD", "dainty-healthcheck", "gateway"]
+      interval: 5s
+      start_period: 30s
+    depends_on:
+      net:
+        condition: service_healthy
+      backend:
+        condition: service_healthy
+      content:
+        condition: service_healthy
+      allowlist:
+        condition: service_healthy
+        required: false
+
+  remote-agent:
+    <<: *server
+    profiles: [managed]
+    command: ["dainty-host", "remote-agent"]
+    depends_on:
+      gateway:
+        condition: service_healthy
+
+  # docker compose run --rm host <command>; the tools profile keeps `up` from starting it
+  host:
+    <<: *server
+    profiles: [tools]
+    entrypoint: ["/usr/bin/tini", "--", "dainty-host-docker"]
+    command: ["doctor"]
+    restart: "no"
+    volumes:
+      - workspace:/opt/dainty-lass/.workspace
+      - mongo-data:/opt/dainty-lass/.workspace/mongodb # [RB15]
+      - backend-game-data:/opt/dainty-lass/modules/rustic-isles/reference/1.14.7/ParadoxBackend/game-data
+      - director-game-data:/opt/dainty-lass/modules/rustic-isles/reference/1.14.7/ParadoxDirector/game-data
+      - exports:/opt/dainty-lass/modules/rustic-isles/reference/1.14.7/Items_Analysis
+      - captures:/opt/dainty-lass/modules/rustic-isles/reference/1.14.7/DauntlessEndpointDocumentation
+      - ${DAINTY_GAME_DIR:-./game}:/game
+      - ${DAINTY_IMPORT_DIR:-./import}:/import:ro
+
+  # docker compose run --rm test [rust]; NET_ADMIN on its own network for the allowlist's real firewall test, and
+  # the server's game data so the game-data tests check it
+  test:
+    image: ${DAINTY_IMAGE:-dainty-lass}-test:${DAINTY_TAG:-local}
+    build:
+      <<: *build-server
+      target: test
+    profiles: [test]
+    restart: "no"
+    cap_add: [NET_ADMIN]
+    volumes:
+      - backend-game-data:/opt/dainty-lass/modules/rustic-isles/reference/1.14.7/ParadoxBackend/game-data:ro
+      - director-game-data:/opt/dainty-lass/modules/rustic-isles/reference/1.14.7/ParadoxDirector/game-data:ro
+
+  # The network profile (DN12): four nodes, the canary's regions, with latency between them. Run it alone:
+  #   docker compose --profile network up -d --wait network
+  network-init:
+    image: ${DAINTY_IMAGE:-dainty-lass}-server:${DAINTY_TAG:-local}
+    build: *build-server
+    profiles: [network]
+    entrypoint: ["/usr/bin/tini", "--", "dainty-network-init"]
+    environment:
+      NETWORK_NODES: >-
+        oregon=oregon-1@${DAINTY_NETWORK_SUBNET:-172.28.77}.11 new-york=new-york-1@${DAINTY_NETWORK_SUBNET:-172.28.77}.12
+        uk=uk-1@${DAINTY_NETWORK_SUBNET:-172.28.77}.13 germany=germany-1@${DAINTY_NETWORK_SUBNET:-172.28.77}.14
+    restart: "no"
+    # Writes into the node volumes and hands them to uid 1000
+    user: "0:0"
+    cap_drop: [ALL]
+    cap_add: [CHOWN, DAC_OVERRIDE, FOWNER]
+    read_only: true
+    tmpfs: [/tmp]
+    network_mode: none
+    volumes:
+      # The CA's key: nothing else mounts it
+      - network-ca:/ca
+      - network-oregon:/nodes/oregon
+      - network-new-york:/nodes/new-york
+      - network-uk:/nodes/uk
+      - network-germany:/nodes/germany
+
+  net-oregon:
+    <<: *node-net
+    profiles: [network]
+    hostname: oregon-1
+    networks:
+      cluster:
+        ipv4_address: ${DAINTY_NETWORK_SUBNET:-172.28.77}.11
+    ports: ["${DAINTY_NETWORK_PUBLISH_ADDRESS:-127.0.0.1}:${DAINTY_NETWORK_PORT_OREGON:-18441}:443/tcp"]
+  netem-oregon:
+    <<: *netem
+    network_mode: service:net-oregon
+    environment:
+      <<: *netem-environment
+      NETEM_SELF: oregon
+    depends_on:
+      net-oregon:
+        condition: service_started
+  configure-oregon:
+    <<: *node-configure
+    profiles: [network]
+    volumes: [network-oregon:/opt/dainty-lass/.workspace]
+    depends_on:
+      network-init:
+        condition: service_completed_successfully
+  gateway-oregon:
+    <<: *node-gateway
+    network_mode: service:net-oregon
+    volumes: [network-oregon:/opt/dainty-lass/.workspace]
+    depends_on:
+      net-oregon:
+        condition: service_healthy
+      netem-oregon:
+        condition: service_healthy
+      configure-oregon:
+        condition: service_completed_successfully
+
+  net-new-york:
+    <<: *node-net
+    profiles: [network]
+    hostname: new-york-1
+    networks:
+      cluster:
+        ipv4_address: ${DAINTY_NETWORK_SUBNET:-172.28.77}.12
+    ports: ["${DAINTY_NETWORK_PUBLISH_ADDRESS:-127.0.0.1}:${DAINTY_NETWORK_PORT_NEW_YORK:-18442}:443/tcp"]
+  netem-new-york:
+    <<: *netem
+    network_mode: service:net-new-york
+    environment:
+      <<: *netem-environment
+      NETEM_SELF: new-york
+    depends_on:
+      net-new-york:
+        condition: service_started
+  configure-new-york:
+    <<: *node-configure
+    profiles: [network]
+    volumes: [network-new-york:/opt/dainty-lass/.workspace]
+    depends_on:
+      network-init:
+        condition: service_completed_successfully
+  gateway-new-york:
+    <<: *node-gateway
+    network_mode: service:net-new-york
+    volumes: [network-new-york:/opt/dainty-lass/.workspace]
+    depends_on:
+      net-new-york:
+        condition: service_healthy
+      netem-new-york:
+        condition: service_healthy
+      configure-new-york:
+        condition: service_completed_successfully
+
+  net-uk:
+    <<: *node-net
+    profiles: [network]
+    hostname: uk-1
+    networks:
+      cluster:
+        ipv4_address: ${DAINTY_NETWORK_SUBNET:-172.28.77}.13
+    ports: ["${DAINTY_NETWORK_PUBLISH_ADDRESS:-127.0.0.1}:${DAINTY_NETWORK_PORT_UK:-18443}:443/tcp"]
+  netem-uk:
+    <<: *netem
+    network_mode: service:net-uk
+    environment:
+      <<: *netem-environment
+      NETEM_SELF: uk
+    depends_on:
+      net-uk:
+        condition: service_started
+  configure-uk:
+    <<: *node-configure
+    profiles: [network]
+    volumes: [network-uk:/opt/dainty-lass/.workspace]
+    depends_on:
+      network-init:
+        condition: service_completed_successfully
+  gateway-uk:
+    <<: *node-gateway
+    network_mode: service:net-uk
+    volumes: [network-uk:/opt/dainty-lass/.workspace]
+    depends_on:
+      net-uk:
+        condition: service_healthy
+      netem-uk:
+        condition: service_healthy
+      configure-uk:
+        condition: service_completed_successfully
+
+  net-germany:
+    <<: *node-net
+    profiles: [network]
+    hostname: germany-1
+    networks:
+      cluster:
+        ipv4_address: ${DAINTY_NETWORK_SUBNET:-172.28.77}.14
+    ports: ["${DAINTY_NETWORK_PUBLISH_ADDRESS:-127.0.0.1}:${DAINTY_NETWORK_PORT_GERMANY:-18444}:443/tcp"]
+  netem-germany:
+    <<: *netem
+    network_mode: service:net-germany
+    environment:
+      <<: *netem-environment
+      NETEM_SELF: germany
+    depends_on:
+      net-germany:
+        condition: service_started
+  configure-germany:
+    <<: *node-configure
+    profiles: [network]
+    volumes: [network-germany:/opt/dainty-lass/.workspace]
+    depends_on:
+      network-init:
+        condition: service_completed_successfully
+  gateway-germany:
+    <<: *node-gateway
+    network_mode: service:net-germany
+    volumes: [network-germany:/opt/dainty-lass/.workspace]
+    depends_on:
+      net-germany:
+        condition: service_healthy
+      netem-germany:
+        condition: service_healthy
+      configure-germany:
+        condition: service_completed_successfully
+
+  network:
+    <<: *harness-anchor
+    profiles: [network]
+    depends_on:
+      gateway-oregon:
+        condition: service_healthy
+      gateway-new-york:
+        condition: service_healthy
+      gateway-uk:
+        condition: service_healthy
+      gateway-germany:
+        condition: service_healthy
+
+  # The remote profile (RM1-RM5): a controller and two managed installs, each container mounting only its install's
+  # workspace. Run it alone: docker compose --profile remote up -d --wait remote
+  net-controller:
+    <<: *node-net
+    profiles: [remote]
+    hostname: controller
+    networks:
+      cluster:
+        ipv4_address: ${DAINTY_NETWORK_SUBNET:-172.28.77}.20
+    ports: ["${DAINTY_NETWORK_PUBLISH_ADDRESS:-127.0.0.1}:${DAINTY_REMOTE_PORT_CONTROLLER:-18450}:443/tcp"]
+  net-alpha:
+    <<: *node-net
+    profiles: [remote]
+    hostname: alpha
+    networks:
+      cluster:
+        ipv4_address: ${DAINTY_NETWORK_SUBNET:-172.28.77}.21
+    ports: ["${DAINTY_NETWORK_PUBLISH_ADDRESS:-127.0.0.1}:${DAINTY_REMOTE_PORT_ALPHA:-18451}:443/tcp"]
+  net-bravo:
+    <<: *node-net
+    profiles: [remote]
+    hostname: bravo
+    networks:
+      cluster:
+        ipv4_address: ${DAINTY_NETWORK_SUBNET:-172.28.77}.22
+    ports: ["${DAINTY_NETWORK_PUBLISH_ADDRESS:-127.0.0.1}:${DAINTY_REMOTE_PORT_BRAVO:-18452}:443/tcp"]
+
+  configure-controller:
+    <<: *node-configure
+    profiles: [remote]
+    entrypoint: ["/usr/bin/tini", "--", "sh", "-ec"]
+    command:
+      - |
+        dainty-host-docker setup --mode public --host controller.cluster.test --game-address 203.0.113.20 --name "Fleet Controller" --wine /nonexistent/wine --xvfb --fresh-start
+        dainty-host remote init-controller --node controller --region oregon --url https://${DAINTY_NETWORK_SUBNET:-172.28.77}.20:443
+    volumes: [remote-controller:/opt/dainty-lass/.workspace]
+  configure-alpha:
+    <<: *node-configure
+    profiles: [remote]
+    entrypoint: ["/usr/bin/tini", "--", "sh", "-ec"]
+    command:
+      - dainty-host-docker setup --mode public --host alpha.cluster.test --game-address 203.0.113.21 --name "Install Alpha" --wine /nonexistent/wine --xvfb --fresh-start
+    volumes: [remote-alpha:/opt/dainty-lass/.workspace]
+  configure-bravo:
+    <<: *node-configure
+    profiles: [remote]
+    entrypoint: ["/usr/bin/tini", "--", "sh", "-ec"]
+    command:
+      - dainty-host-docker setup --mode public --host bravo.cluster.test --game-address 203.0.113.22 --name "Install Bravo" --wine /nonexistent/wine --xvfb --fresh-start
+    volumes: [remote-bravo:/opt/dainty-lass/.workspace]
+
+  backend-alpha:
+    <<: *server
+    profiles: [remote]
+    network_mode: service:net-alpha
+    command: ["dainty-host", "backend", "serve", "--env-file", "/opt/dainty-lass/.workspace/config/backend.env"]
+    volumes: [remote-alpha:/opt/dainty-lass/.workspace]
+    healthcheck: &remote-backend-health
+      test: ["CMD", "dainty-healthcheck", "backend"]
+      interval: 5s
+      start_period: 60s
+      retries: 6
+    depends_on:
+      net-alpha:
+        condition: service_healthy
+      configure-alpha:
+        condition: service_completed_successfully
+  backend-bravo:
+    <<: *server
+    profiles: [remote]
+    network_mode: service:net-bravo
+    command: ["dainty-host", "backend", "serve", "--env-file", "/opt/dainty-lass/.workspace/config/backend.env"]
+    volumes: [remote-bravo:/opt/dainty-lass/.workspace]
+    healthcheck: *remote-backend-health
+    depends_on:
+      net-bravo:
+        condition: service_healthy
+      configure-bravo:
+        condition: service_completed_successfully
+
+  content-alpha:
+    <<: *front
+    profiles: [remote]
+    network_mode: service:net-alpha
+    command: ["dainty-host", "content", "serve", "--env-file", "/opt/dainty-lass/.workspace/config/content.env"]
+    volumes: ["remote-alpha:/opt/dainty-lass/.workspace:ro"]
+    healthcheck: &content-health
+      test: ["CMD", "dainty-healthcheck", "content"]
+      interval: 5s
+      start_period: 30s
+    depends_on:
+      backend-alpha:
+        condition: service_healthy
+  content-bravo:
+    <<: *front
+    profiles: [remote]
+    network_mode: service:net-bravo
+    command: ["dainty-host", "content", "serve", "--env-file", "/opt/dainty-lass/.workspace/config/content.env"]
+    volumes: ["remote-bravo:/opt/dainty-lass/.workspace:ro"]
+    healthcheck: *content-health
+    depends_on:
+      backend-bravo:
+        condition: service_healthy
+
+  gateway-controller:
+    <<: *remote-gateway
+    network_mode: service:net-controller
+    volumes: [remote-controller:/opt/dainty-lass/.workspace]
+    depends_on:
+      net-controller:
+        condition: service_healthy
+      configure-controller:
+        condition: service_completed_successfully
+  gateway-alpha:
+    <<: *remote-gateway
+    network_mode: service:net-alpha
+    volumes: [remote-alpha:/opt/dainty-lass/.workspace]
+    depends_on:
+      net-alpha:
+        condition: service_healthy
+      backend-alpha:
+        condition: service_healthy
+      content-alpha:
+        condition: service_healthy
+  gateway-bravo:
+    <<: *remote-gateway
+    network_mode: service:net-bravo
+    volumes: [remote-bravo:/opt/dainty-lass/.workspace]
+    depends_on:
+      net-bravo:
+        condition: service_healthy
+      backend-bravo:
+        condition: service_healthy
+      content-bravo:
+        condition: service_healthy
+
+  host-controller:
+    <<: *remote-host
+    network_mode: service:net-controller
+    volumes: [remote-controller:/opt/dainty-lass/.workspace]
+    depends_on:
+      gateway-controller:
+        condition: service_healthy
+  host-alpha:
+    <<: *remote-host
+    network_mode: service:net-alpha
+    volumes: [remote-alpha:/opt/dainty-lass/.workspace]
+    depends_on:
+      gateway-alpha:
+        condition: service_healthy
+  host-bravo:
+    <<: *remote-host
+    network_mode: service:net-bravo
+    volumes: [remote-bravo:/opt/dainty-lass/.workspace]
+    depends_on:
+      gateway-bravo:
+        condition: service_healthy
+
+  remote:
+    <<: *harness-anchor
+    profiles: [remote]
+    depends_on:
+      host-controller:
+        condition: service_healthy
+      host-alpha:
+        condition: service_healthy
+      host-bravo:
+        condition: service_healthy
+
+networks:
+  cluster:
+    ipam:
+      config:
+        - subnet: ${DAINTY_NETWORK_SUBNET:-172.28.77}.0/24
+
+volumes:
+  workspace:
+  backend-game-data:
+  director-game-data:
+  exports:
+  captures:
+  mongo-data: # [RB15]
+  mongo-config: # [RB15]
+  postgres-data:
+  network-ca:
+  network-oregon:
+  network-new-york:
+  network-uk:
+  network-germany:
+  remote-controller:
+  remote-alpha:
+  remote-bravo:

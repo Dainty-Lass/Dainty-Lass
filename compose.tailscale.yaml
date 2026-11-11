@@ -1,0 +1,35 @@
+# A private server over Tailscale: net becomes a Tailscale node of its own, so the gateway and the game servers listen
+# on its Tailscale address and nothing is published on the host. Needs Compose 2.24+ (!reset). Use it with
+#   docker compose -f compose.yaml -f compose.tailscale.yaml ...
+# or COMPOSE_FILE=compose.yaml:compose.tailscale.yaml in .env (; on Windows). Then:
+#   docker compose up -d net
+#   docker compose exec net tailscale ip -4
+#   docker compose run --rm host setup --mode private --host <that address> --name "My Server"
+
+services:
+  net:
+    image: ${TAILSCALE_IMAGE:-tailscale/tailscale:stable}
+    build: !reset null
+    command: !reset null
+    read_only: !reset false
+    security_opt: !reset []
+    cap_drop: !reset []
+    ports: !reset []
+    cap_add: [NET_ADMIN, NET_RAW]
+    devices: ["/dev/net/tun:/dev/net/tun"]
+    environment:
+      # Needed for the first start only
+      TS_AUTHKEY: ${TS_AUTHKEY:-}
+      TS_HOSTNAME: ${TS_HOSTNAME:-dainty-lass}
+      TS_STATE_DIR: /var/lib/tailscale
+      # A kernel interface, for the game servers' UDP
+      TS_USERSPACE: "false"
+    volumes:
+      - tailscale:/var/lib/tailscale
+    healthcheck:
+      test: ["CMD", "tailscale", "ip", "-4"]
+      interval: 5s
+      start_period: 60s
+
+volumes:
+  tailscale:
