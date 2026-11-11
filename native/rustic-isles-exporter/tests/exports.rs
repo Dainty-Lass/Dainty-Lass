@@ -5,10 +5,11 @@ mod common;
 
 use std::cell::Cell;
 
+use catalog_exporter::engine::SOFT_PATH;
 use catalog_exporter::export::{catalog, hunts, mastery, progression, slayers, store};
 use catalog_exporter::memory::NoCalls;
 use catalog_exporter::sdk;
-use catalog_exporter::sdk_parse::Member;
+use catalog_exporter::sdk_parse::{Kind, Member};
 use common::{FakeCatalog, World, ctx, read, status, status_text, temp_dir};
 
 fn crlf(lines: &[&str]) -> String {
@@ -52,7 +53,12 @@ fn catalog_writes_every_item_with_an_id() {
     let (mut world, fake, items) = catalog_world(3);
     let item = items[0];
     world.set_text(item, &sdk::CAT_ITEM_ID, "WP_TEST_AXE");
-    world.set_text(item, &sdk::CAT_ITEM_CLASS, "/Game/Items/WP_TEST_AXE.WP_TEST_AXE_C");
+    // A soft class path: the name at the member's own offset, no weak pointer in front (spec §6.1).
+    assert_eq!(
+        (sdk::CAT_ITEM_CLASS.offset, sdk::CAT_ITEM_CLASS.kind),
+        (0x10, Kind::Name)
+    );
+    world.write_name(item + 0x10, "/Game/Items/WP_TEST_AXE.WP_TEST_AXE_C", 0);
     world.set_text(item, &sdk::CAT_DISPLAY_NAME, "Test \"Axe\"");
     world.set_text(item, &sdk::CAT_DESCRIPTION, "Line1\nLine2\t\u{e9}\u{1}");
     world.set_texts(item, &sdk::CAT_TAGS, &["weapon", "axe"]);
@@ -263,8 +269,8 @@ fn hunts_write_their_tables_and_manifest() {
     world.set_int(mm, &sdk::MH_THREAT, 3);
     world.set_float(mm, &sdk::MH_DANGER, 0.5);
     world.set_text(mm, &sdk::MH_BEHEMOTH_NAME, "Shrike");
-    world.set_text(mm, &sdk::MH_BEHEMOTH_ASSET, "/Game/Behemoths/Shrike.Shrike");
     let asset = mm + u64::from(sdk::MH_BEHEMOTH_ASSET.offset);
+    world.write_name(asset + SOFT_PATH, "/Game/Behemoths/Shrike.Shrike", 0);
     let shrike_index = {
         let engine = world.engine(&NoCalls);
         engine
@@ -288,7 +294,8 @@ fn hunts_write_their_tables_and_manifest() {
     let maps = world.set_items(mm, &sdk::MH_MAP_LIST, 1);
     world.set_text(maps[0], &sdk::MH_MAP_NAME, "Map_A");
     world.set_text(maps[0], &sdk::MH_MAP_ASSET_NAME, "Map_A_Asset");
-    world.set_text(maps[0], &sdk::MH_MAP_ASSET, "/Game/Maps/Map_A.Map_A");
+    let map_asset = maps[0] + u64::from(sdk::MH_MAP_ASSET.offset);
+    world.write_name(map_asset + SOFT_PATH, "/Game/Maps/Map_A.Map_A", 0);
     world.set_int(maps[0], &sdk::MH_MAP_BIOME, 4);
     world.set_float(maps[0], &sdk::MH_MAP_WEIGHT, 2.0);
     world.set_texts(mm, &sdk::MH_MODIFIERS, &["Mod_1"]);
@@ -397,7 +404,13 @@ fn store_runtime_writes_view_models_and_images() {
     world.set_texts(offer, &sdk::OF_PREVIEW_IDS, &["AR_HEAD"]);
 
     let (_, rows) = world.table("StoreItems", "StoreItemTable", &[("B_Row", 0x80), ("A_Row", 0x80)]);
-    world.set_text(rows[0], &sdk::IMG_FEATURE, "/Game/UI/Feature_B.Feature_B");
+    // The synthetic SDK declares `TPersistentObjectPtr` by hand, so `ObjectID` falls back to +0x10 (spec §6.13).
+    assert_eq!((sdk::SOFT_OBJECT_ID.offset, sdk::SOFT_PATH_NAME.offset), (0x10, 0));
+    world.write_name(
+        rows[0] + u64::from(sdk::IMG_FEATURE.offset) + 0x10,
+        "/Game/UI/Feature_B.Feature_B",
+        0,
+    );
 
     let out = temp_dir("store");
     let engine = world.engine(&NoCalls);
@@ -459,7 +472,7 @@ fn progression_checks_each_table_before_reading_it() {
     world.set_text(row, &sdk::EXP_SHORT_NAME, "XP");
     world.set_text(row, &sdk::EXP_NAME, "Experience");
     world.set_text(row, &sdk::EXP_DESCRIPTION, "desc");
-    world.set_int(row, &sdk::EXP_BANKING_LEVELS, 3);
+    world.set_items(row, &sdk::EXP_BANKING_LEVELS, 3);
     world.table("weapon_experience_track_table", "WrongStruct", &[("Ignored", 0x200)]);
     let (_, awards) = world.table("ExpAwards", "ExperienceTableData", &[("Kill", 0x80)]);
     world.set_int(awards[0], &sdk::AW_TYPE, 1);

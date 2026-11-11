@@ -39,12 +39,12 @@ public:
 	int32                                         Amount;                                            // 0x0010(0x0004)(Edit, NativeAccessSpecifierPublic)
 };
 
-// ScriptStruct Synthetic.VirtualCurrencyPrice
+// ScriptStruct Synthetic.PlayFabCatalogCurrency
 // 0x0008 (0x0008 - 0x0000)
-struct FVirtualCurrencyPrice
+struct FPlayFabCatalogCurrency
 {
 public:
-	ECurrencyType                                 Currency;                                          // 0x0000(0x0001)(Edit, NativeAccessSpecifierPublic)
+	ECurrencyType                                 CurrencyType;                                      // 0x0000(0x0001)(Edit, NativeAccessSpecifierPublic)
 	int32                                         Amount;                                            // 0x0004(0x0004)(Edit, NativeAccessSpecifierPublic)
 };
 
@@ -54,16 +54,17 @@ struct FArchonCatalogItem
 {
 public:
 	class FString                                 ItemId;                                            // 0x0000(0x0010)(Edit, NativeAccessSpecifierPublic)
-	TSoftClassPtr<class UObject>                  ItemClass;                                         // 0x0010(0x0028)(Edit, NativeAccessSpecifierPublic)
+	struct FSoftClassPath                         ItemClass;                                         // 0x0010(0x0018)(Edit, NativeAccessSpecifierPublic)
+	uint8                                         Pad_28[0x10];                                      // 0x0028(0x0010)(Edit, NativeAccessSpecifierPublic)
 	class FString                                 DisplayNameInvariant;                              // 0x0038(0x0010)(Edit, NativeAccessSpecifierPublic)
 	class FText                                   DisplayName;                                       // 0x0048(0x0018)(Edit, NativeAccessSpecifierPublic)
 	class FString                                 DescriptionInvariant;                              // 0x0060(0x0010)(Edit, NativeAccessSpecifierPublic)
 	TArray<class FString>                         Tags;                                              // 0x0070(0x0010)(Edit, NativeAccessSpecifierPublic)
 	class FString                                 CustomData;                                        // 0x0080(0x0010)(Edit, NativeAccessSpecifierPublic)
 	TArray<class FString>                         Entitlements;                                      // 0x0090(0x0010)(Edit, NativeAccessSpecifierPublic)
-	uint8                                         bIsStackable : 1;                                  // 0x00A0(0x0001)(BitIndex: 0x00, PropSize: 0x0001 (Edit, NativeAccessSpecifierPublic))
-	uint8                                         bIsBundle : 1;                                     // 0x00A0(0x0001)(BitIndex: 0x01, PropSize: 0x0001 (Edit, NativeAccessSpecifierPublic))
-	uint8                                         bIsContainer : 1;                                  // 0x00A0(0x0001)(BitIndex: 0x02, PropSize: 0x0001 (Edit, NativeAccessSpecifierPublic))
+	uint8                                         IsStackable : 1;                                   // 0x00A0(0x0001)(BitIndex: 0x00, PropSize: 0x0001 (Edit, NativeAccessSpecifierPublic))
+	uint8                                         IsBundle : 1;                                      // 0x00A0(0x0001)(BitIndex: 0x01, PropSize: 0x0001 (Edit, NativeAccessSpecifierPublic))
+	uint8                                         IsContainer : 1;                                   // 0x00A0(0x0001)(BitIndex: 0x02, PropSize: 0x0001 (Edit, NativeAccessSpecifierPublic))
 	int32                                         MaxQuantity;                                       // 0x00A4(0x0004)(Edit, NativeAccessSpecifierPublic)
 	TArray<class FString>                         ContainerItemContents;                             // 0x00A8(0x0010)(Edit, NativeAccessSpecifierPublic)
 	TArray<class FString>                         BundledItems;                                      // 0x00B8(0x0010)(Edit, NativeAccessSpecifierPublic)
@@ -75,7 +76,7 @@ public:
 	TArray<struct FArchonCatalogItemQuantity>     BundledResultTablesWithQuantity;                   // 0x0118(0x0010)(Edit, NativeAccessSpecifierPublic)
 	TArray<struct FArchonCatalogItemQuantity>     OtherItemQuantities;                               // 0x0128(0x0010)(Edit, NativeAccessSpecifierPublic)
 	TArray<struct FArchonCatalogItemQuantity>     AlternateItemsToGrant;                             // 0x0138(0x0010)(Edit, NativeAccessSpecifierPublic)
-	TArray<struct FVirtualCurrencyPrice>          VirtualCurrencyPrices;                             // 0x0148(0x0010)(Edit, NativeAccessSpecifierPublic)
+	TArray<struct FPlayFabCatalogCurrency>        VirtualCurrencyPrices;                             // 0x0148(0x0010)(Edit, NativeAccessSpecifierPublic)
 	struct FDataTableRowHandle                    PlayerJourneyUnlockRow;                            // 0x0158(0x0010)(Edit, NativeAccessSpecifierPublic)
 };
 
@@ -138,7 +139,7 @@ struct FMatchmakerHuntList
 {
 public:
 	class UDataTable*                             MatchmakerTable;                                   // 0x0000(0x0008)(Edit, NativeAccessSpecifierPublic)
-	TArray<struct FGameplayTagQuery>              Queries;                                           // 0x0008(0x0010)(Edit, NativeAccessSpecifierPublic)
+	TArray<struct FGameplayTagQuery>              HuntTags;                                          // 0x0008(0x0010)(Edit, NativeAccessSpecifierPublic)
 };
 
 // ScriptStruct Synthetic.PlayerHuntTableData
@@ -167,7 +168,7 @@ public:
 	class FString                                 TargetedHuntFailureReward;                         // 0x00C8(0x0010)(Edit, NativeAccessSpecifierPublic)
 	int32                                         MinWeaponSkillLevel;                               // 0x00D8(0x0004)(Edit, NativeAccessSpecifierPublic)
 	int32                                         RecomendedWeaponSkillLevel;                        // 0x00DC(0x0004)(Edit, NativeAccessSpecifierPublic)
-	bool                                          bVisibleWhileLocked;                               // 0x00E0(0x0001)(Edit, NativeAccessSpecifierPublic)
+	bool                                          IsVisibleWhileLocked;                              // 0x00E0(0x0001)(Edit, NativeAccessSpecifierPublic)
 };
 
 // ScriptStruct Synthetic.BehemothSpawnInfo
@@ -243,7 +244,7 @@ struct FEscalationModeSpecification
 public:
 	int32                                         InitialChallengeLevel;                             // 0x0000(0x0004)(Edit, NativeAccessSpecifierPublic)
 	int32                                         MaxChallengeLevel;                                 // 0x0004(0x0004)(Edit, NativeAccessSpecifierPublic)
-	TArray<struct FEscalationRound>               RoundStructure;                                    // 0x0008(0x0010)(Edit, NativeAccessSpecifierPublic)
+	TArray<struct FEscalationRound>               RoundStructures;                                   // 0x0008(0x0010)(Edit, NativeAccessSpecifierPublic)
 	struct FDataTableRowHandle                    LootTable;                                         // 0x0018(0x0010)(Edit, NativeAccessSpecifierPublic)
 	int32                                         OptionalPowerOverride;                             // 0x0028(0x0004)(Edit, NativeAccessSpecifierPublic)
 	struct FGameplayTagContainer                  EscalationModeTags;                                // 0x0030(0x0020)(Edit, NativeAccessSpecifierPublic)
@@ -292,7 +293,7 @@ struct FQuestRequirement
 {
 public:
 	class FName                                   QuestName;                                         // 0x0000(0x0008)(Edit, NativeAccessSpecifierPublic)
-	uint8                                         StatusRequired;                                    // 0x0008(0x0001)(Edit, NativeAccessSpecifierPublic)
+	uint8                                         QuestStatusRequired;                               // 0x0008(0x0001)(Edit, NativeAccessSpecifierPublic)
 };
 
 // ScriptStruct Synthetic.ProgressionUnlockCriteria
@@ -318,8 +319,17 @@ public:
 struct FScheduledItem
 {
 public:
-	class FName                                   Id;                                                // 0x0000(0x0008)(Edit, NativeAccessSpecifierPublic)
+	class FName                                   ID;                                                // 0x0000(0x0008)(Edit, NativeAccessSpecifierPublic)
 	int32                                         MaxCompletionPerInterval;                          // 0x0008(0x0004)(Edit, NativeAccessSpecifierPublic)
+};
+
+// ScriptStruct Synthetic.ScheduleRepeatableDetails
+// 0x0002 (0x0002 - 0x0000)
+struct FScheduleRepeatableDetails
+{
+public:
+	bool                                          EachDay;                                           // 0x0000(0x0001)(Edit, NativeAccessSpecifierPublic)
+	bool                                          EachWeek;                                          // 0x0001(0x0001)(Edit, NativeAccessSpecifierPublic)
 };
 
 // ScriptStruct Synthetic.ScheduleData
@@ -329,41 +339,40 @@ struct FScheduleData
 public:
 	struct FDateTime                              StartTime;                                         // 0x0000(0x0008)(Edit, NativeAccessSpecifierPublic)
 	struct FDateTime                              EndTime;                                           // 0x0008(0x0008)(Edit, NativeAccessSpecifierPublic)
-	uint8                                         bIsRepeatable : 1;                                 // 0x0010(0x0001)(BitIndex: 0x00, PropSize: 0x0001 (Edit, NativeAccessSpecifierPublic))
-	uint8                                         bEachDay : 1;                                      // 0x0010(0x0001)(BitIndex: 0x01, PropSize: 0x0001 (Edit, NativeAccessSpecifierPublic))
-	uint8                                         bEachWeek : 1;                                     // 0x0010(0x0001)(BitIndex: 0x02, PropSize: 0x0001 (Edit, NativeAccessSpecifierPublic))
-	uint8                                         bShouldQueue : 1;                                  // 0x0010(0x0001)(BitIndex: 0x03, PropSize: 0x0001 (Edit, NativeAccessSpecifierPublic))
+	uint8                                         IsRepeatable : 1;                                  // 0x0010(0x0001)(BitIndex: 0x00, PropSize: 0x0001 (Edit, NativeAccessSpecifierPublic))
+	struct FScheduleRepeatableDetails             RepeatableDetails;                                 // 0x0011(0x0002)(Edit, NativeAccessSpecifierPublic)
+	bool                                          bShouldQueueTheSheduleItems;                       // 0x0013(0x0001)(Edit, NativeAccessSpecifierPublic)
 	TArray<struct FScheduledItem>                 ScheduledItems;                                    // 0x0018(0x0010)(Edit, NativeAccessSpecifierPublic)
-	TArray<int32>                                 ItemsLeftOut;                                      // 0x0028(0x0010)(Edit, NativeAccessSpecifierPublic)
+	TArray<int32>                                 ItemsToBeLeftOutOfTheRotation;                     // 0x0028(0x0010)(Edit, NativeAccessSpecifierPublic)
 };
 
-// ScriptStruct Synthetic.StoreSubcategory
+// ScriptStruct Synthetic.StoreSubCategoryViewModels
 // 0x0060 (0x0060 - 0x0000)
-struct FStoreSubcategory
+struct FStoreSubCategoryViewModels
 {
 public:
-	class FText                                   Name;                                              // 0x0000(0x0018)(Edit, NativeAccessSpecifierPublic)
+	class FText                                   SubCategoryName;                                   // 0x0000(0x0018)(Edit, NativeAccessSpecifierPublic)
 	struct FGameplayTag                           BreadcrumbCategory;                                // 0x0018(0x0008)(Edit, NativeAccessSpecifierPublic)
-	bool                                          bRequiresEntitlement;                              // 0x0020(0x0001)(Edit, NativeAccessSpecifierPublic)
+	bool                                          RequiresEntitlement;                               // 0x0020(0x0001)(Edit, NativeAccessSpecifierPublic)
 	class FString                                 EntitlementId;                                     // 0x0028(0x0010)(Edit, NativeAccessSpecifierPublic)
 	class FString                                 SkuId;                                             // 0x0038(0x0010)(Edit, NativeAccessSpecifierPublic)
 	TArray<class FString>                         SubTagIds;                                         // 0x0048(0x0010)(Edit, NativeAccessSpecifierPublic)
-	bool                                          bHidePurchasedItems;                               // 0x0058(0x0001)(Edit, NativeAccessSpecifierPublic)
+	bool                                          HidePurchasedItems;                                // 0x0058(0x0001)(Edit, NativeAccessSpecifierPublic)
 	bool                                          bShouldHideTab;                                    // 0x0059(0x0001)(Edit, NativeAccessSpecifierPublic)
 	bool                                          bHideTab;                                          // 0x005A(0x0001)(Edit, NativeAccessSpecifierPublic)
 };
 
-// ScriptStruct Synthetic.StoreCategory
+// ScriptStruct Synthetic.StoreCategoryViewModels
 // 0x0058 (0x0058 - 0x0000)
-struct FStoreCategory
+struct FStoreCategoryViewModels
 {
 public:
-	class FText                                   Name;                                              // 0x0000(0x0018)(Edit, NativeAccessSpecifierPublic)
+	class FText                                   CategoryName;                                      // 0x0000(0x0018)(Edit, NativeAccessSpecifierPublic)
 	struct FGameplayTag                           BreadcrumbCategory;                                // 0x0018(0x0008)(Edit, NativeAccessSpecifierPublic)
-	bool                                          bRequiresEntitlement;                              // 0x0020(0x0001)(Edit, NativeAccessSpecifierPublic)
+	bool                                          RequiresEntitlement;                               // 0x0020(0x0001)(Edit, NativeAccessSpecifierPublic)
 	class FString                                 EntitlementId;                                     // 0x0028(0x0010)(Edit, NativeAccessSpecifierPublic)
 	class FString                                 SkuId;                                             // 0x0038(0x0010)(Edit, NativeAccessSpecifierPublic)
-	TArray<struct FStoreSubcategory>              Subcategories;                                     // 0x0048(0x0010)(Edit, NativeAccessSpecifierPublic)
+	TArray<struct FStoreSubCategoryViewModels>    SubCategoryViewModels;                             // 0x0048(0x0010)(Edit, NativeAccessSpecifierPublic)
 };
 
 // ScriptStruct Synthetic.GrantedItem
@@ -385,6 +394,14 @@ public:
 	int32                                         Ranks;                                             // 0x0014(0x0004)(Edit, NativeAccessSpecifierPublic)
 };
 
+// ScriptStruct Synthetic.StoreItemCatalogData
+// 0x0010 (0x0010 - 0x0000)
+struct FStoreItemCatalogData
+{
+public:
+	class FString                                 ItemId;                                            // 0x0000(0x0010)(Edit, NativeAccessSpecifierPublic)
+};
+
 // ScriptStruct Synthetic.OnlineStorePhoenixOffer
 // 0x0128 (0x0128 - 0x0000)
 struct FOnlineStorePhoenixOffer
@@ -395,7 +412,7 @@ public:
 	class FString                                 DisplayDescription;                                // 0x0020(0x0010)(Edit, NativeAccessSpecifierPublic)
 	int32                                         DisplayPriority;                                   // 0x0030(0x0004)(Edit, NativeAccessSpecifierPublic)
 	class FString                                 CatalogId;                                         // 0x0038(0x0010)(Edit, NativeAccessSpecifierPublic)
-	class FString                                 ImageUrl;                                          // 0x0048(0x0010)(Edit, NativeAccessSpecifierPublic)
+	class FString                                 ImageURL;                                          // 0x0048(0x0010)(Edit, NativeAccessSpecifierPublic)
 	int32                                         PlatPrice;                                         // 0x0058(0x0004)(Edit, NativeAccessSpecifierPublic)
 	int32                                         RegularPlatPrice;                                  // 0x005C(0x0004)(Edit, NativeAccessSpecifierPublic)
 	int32                                         DustPrice;                                         // 0x0060(0x0004)(Edit, NativeAccessSpecifierPublic)
@@ -409,8 +426,8 @@ public:
 	int32                                         GrantedLoadoutSlots;                               // 0x00C8(0x0004)(Edit, NativeAccessSpecifierPublic)
 	bool                                          bPayWithAllCurrencies;                             // 0x00CC(0x0001)(Edit, NativeAccessSpecifierPublic)
 	class FString                                 CurrencyCode;                                      // 0x00D0(0x0010)(Edit, NativeAccessSpecifierPublic)
-	uint8                                         CurrencyEnum;                                      // 0x00E0(0x0001)(Edit, NativeAccessSpecifierPublic)
-	bool                                          bInUserCollection;                                 // 0x00E1(0x0001)(Edit, NativeAccessSpecifierPublic)
+	uint8                                         Currency;                                          // 0x00E0(0x0001)(Edit, NativeAccessSpecifierPublic)
+	bool                                          bIsInUserCollection;                               // 0x00E1(0x0001)(Edit, NativeAccessSpecifierPublic)
 	class FString                                 PlatformOfferId;                                   // 0x00E8(0x0010)(Edit, NativeAccessSpecifierPublic)
 	class FString                                 TimeAvailabilityReason;                            // 0x00F8(0x0010)(Edit, NativeAccessSpecifierPublic)
 	TArray<class FString>                         MissingEntitlementNames;                           // 0x0108(0x0010)(Edit, NativeAccessSpecifierPublic)
@@ -484,7 +501,7 @@ struct FProgressionTrackBase
 public:
 	class FName                                   ProgressionTrack;                                  // 0x0000(0x0008)(Edit, NativeAccessSpecifierPublic)
 	class FString                                 PremiumGatingEntitlement;                          // 0x0008(0x0010)(Edit, NativeAccessSpecifierPublic)
-	bool                                          bResetWithCharacter;                               // 0x0018(0x0001)(Edit, NativeAccessSpecifierPublic)
+	bool                                          ResetWithCharacter;                                // 0x0018(0x0001)(Edit, NativeAccessSpecifierPublic)
 	float                                         ProgressionMultiplier;                             // 0x001C(0x0004)(Edit, NativeAccessSpecifierPublic)
 	TArray<struct FRankRequirement>               Requirements;                                      // 0x0020(0x0010)(Edit, NativeAccessSpecifierPublic)
 	TArray<struct FRankReward>                    FreeRewards;                                       // 0x0030(0x0010)(Edit, NativeAccessSpecifierPublic)
@@ -498,17 +515,17 @@ struct FExperienceTypeDisplay
 public:
 	class FText                                   ShortDisplayName;                                  // 0x0000(0x0018)(Edit, NativeAccessSpecifierPublic)
 	class FText                                   DisplayName;                                       // 0x0018(0x0018)(Edit, NativeAccessSpecifierPublic)
-	class FText                                   DisplayDescription;                                // 0x0030(0x0018)(Edit, NativeAccessSpecifierPublic)
+	class FText                                   Description;                                       // 0x0030(0x0018)(Edit, NativeAccessSpecifierPublic)
 };
 
 // ScriptStruct Synthetic.ExperienceTrackTableData
-// 0x0060 (0x00B0 - 0x0050)
+// 0x0068 (0x00B8 - 0x0050)
 struct FExperienceTrackTableData : public FProgressionTrackBase
 {
 public:
 	struct FDataTableRowHandle                    PrestigeTrack;                                     // 0x0050(0x0010)(Edit, NativeAccessSpecifierPublic)
 	struct FExperienceTypeDisplay                 ExperienceTypeDisplayData;                         // 0x0060(0x0048)(Edit, NativeAccessSpecifierPublic)
-	int32                                         ExperienceBankingLevelCount;                       // 0x00A8(0x0004)(Edit, NativeAccessSpecifierPublic)
+	TArray<int32>                                 ExperienceBankingDataPerLevel;                     // 0x00A8(0x0010)(Edit, NativeAccessSpecifierPublic)
 };
 
 // ScriptStruct Synthetic.HuntPassSeasonDataTable
@@ -546,10 +563,10 @@ struct FProgressionTrackTableData
 public:
 	class FText                                   DisplayName;                                       // 0x0000(0x0018)(Edit, NativeAccessSpecifierPublic)
 	int32                                         CurrentVersion;                                    // 0x0018(0x0004)(Edit, NativeAccessSpecifierPublic)
-	bool                                          bRepeats;                                          // 0x001C(0x0001)(Edit, NativeAccessSpecifierPublic)
-	bool                                          bIsPrestigeTrack;                                  // 0x001D(0x0001)(Edit, NativeAccessSpecifierPublic)
-	bool                                          bIsCoreTrack;                                      // 0x001E(0x0001)(Edit, NativeAccessSpecifierPublic)
-	bool                                          bVisibleInUI;                                      // 0x001F(0x0001)(Edit, NativeAccessSpecifierPublic)
+	bool                                          Repeats;                                           // 0x001C(0x0001)(Edit, NativeAccessSpecifierPublic)
+	bool                                          IsPrestigeTrack;                                   // 0x001D(0x0001)(Edit, NativeAccessSpecifierPublic)
+	bool                                          IsCoreTrack;                                       // 0x001E(0x0001)(Edit, NativeAccessSpecifierPublic)
+	bool                                          VisibleInUI;                                       // 0x001F(0x0001)(Edit, NativeAccessSpecifierPublic)
 	class FName                                   PrestigeTrack;                                     // 0x0020(0x0008)(Edit, NativeAccessSpecifierPublic)
 	class UDataTable*                             RankTable;                                         // 0x0028(0x0008)(Edit, NativeAccessSpecifierPublic)
 	TArray<class UObject*>                        UnlockConditions;                                  // 0x0030(0x0010)(Edit, NativeAccessSpecifierPublic)
@@ -577,32 +594,37 @@ public:
 	class FText                                   DisplayName;                                       // 0x0050(0x0018)(Edit, NativeAccessSpecifierPublic)
 	class FText                                   ShortDisplayName;                                  // 0x0068(0x0018)(Edit, NativeAccessSpecifierPublic)
 	bool                                          bIsUIEnabled;                                      // 0x0080(0x0001)(Edit, NativeAccessSpecifierPublic)
-	uint8                                         Category;                                          // 0x0081(0x0001)(Edit, NativeAccessSpecifierPublic)
+	uint8                                         Categtory;                                         // 0x0081(0x0001)(Edit, NativeAccessSpecifierPublic)
 };
 
-// ScriptStruct Synthetic.MasteryObjective
+// ScriptStruct Synthetic.GameplayObjective
+// 0x0020 (0x0020 - 0x0000)
+struct FGameplayObjective
+{
+public:
+	int32                                         Amount;                                            // 0x0000(0x0004)(Edit, NativeAccessSpecifierPublic)
+	class UClass*                                 ObjectiveDataClass;                                // 0x0008(0x0008)(Edit, NativeAccessSpecifierPublic)
+	int32                                         ProgressRank;                                      // 0x0010(0x0004)(Edit, NativeAccessSpecifierPublic)
+	class FName                                   ProgressTrack;                                     // 0x0014(0x0008)(Edit, NativeAccessSpecifierPublic)
+};
+
+// ScriptStruct Synthetic.MasteryObjectiveData
 // 0x0040 (0x0040 - 0x0000)
-struct FMasteryObjective
+struct FMasteryObjectiveData
 {
 public:
 	class FString                                 UniqueOnlineObjectiveId;                           // 0x0000(0x0010)(Edit, NativeAccessSpecifierPublic)
-	int32                                         Target;                                            // 0x0010(0x0004)(Edit, NativeAccessSpecifierPublic)
-	class UClass*                                 ObjectiveData;                                     // 0x0018(0x0008)(Edit, NativeAccessSpecifierPublic)
-	class FString                                 CompoundId;                                        // 0x0020(0x0010)(Edit, NativeAccessSpecifierPublic)
-	int32                                         ProgressRank;                                      // 0x0030(0x0004)(Edit, NativeAccessSpecifierPublic)
-	class FName                                   ProgressTrack;                                     // 0x0034(0x0008)(Edit, NativeAccessSpecifierPublic)
+	struct FGameplayObjective                     Objective;                                         // 0x0010(0x0020)(Edit, NativeAccessSpecifierPublic)
+	class FString                                 CompoundObjectiveId;                               // 0x0030(0x0010)(Edit, NativeAccessSpecifierPublic)
 };
 
-// ScriptStruct Synthetic.TrackedObjective
+// ScriptStruct Synthetic.TrackedObjectiveData
 // 0x0030 (0x0030 - 0x0000)
-struct FTrackedObjective
+struct FTrackedObjectiveData
 {
 public:
 	class FString                                 UniqueOnlineObjectiveId;                           // 0x0000(0x0010)(Edit, NativeAccessSpecifierPublic)
-	int32                                         Target;                                            // 0x0010(0x0004)(Edit, NativeAccessSpecifierPublic)
-	class UClass*                                 ObjectiveData;                                     // 0x0018(0x0008)(Edit, NativeAccessSpecifierPublic)
-	int32                                         ProgressRank;                                      // 0x0020(0x0004)(Edit, NativeAccessSpecifierPublic)
-	class FName                                   ProgressTrack;                                     // 0x0024(0x0008)(Edit, NativeAccessSpecifierPublic)
+	struct FGameplayObjective                     Objective;                                         // 0x0010(0x0020)(Edit, NativeAccessSpecifierPublic)
 };
 
 // ScriptStruct Synthetic.MasteryCardTableData
@@ -610,12 +632,12 @@ public:
 struct FMasteryCardTableData
 {
 public:
-	TArray<struct FMasteryObjective>              Objectives;                                        // 0x0000(0x0010)(Edit, NativeAccessSpecifierPublic)
+	TArray<struct FMasteryObjectiveData>          Objectives;                                        // 0x0000(0x0010)(Edit, NativeAccessSpecifierPublic)
 	TArray<struct FDataTableRowHandle>            RewardTracks;                                      // 0x0010(0x0010)(Edit, NativeAccessSpecifierPublic)
 	EMasteryCardType                              CardType;                                          // 0x0020(0x0001)(Edit, NativeAccessSpecifierPublic)
 	class FString                                 GameObjectId;                                      // 0x0028(0x0010)(Edit, NativeAccessSpecifierPublic)
-	class FString                                 BaseXpObjectiveId;                                 // 0x0038(0x0010)(Edit, NativeAccessSpecifierPublic)
-	class FString                                 PrestigeXpObjectiveId;                             // 0x0048(0x0010)(Edit, NativeAccessSpecifierPublic)
+	class FString                                 BaseXPBarOnlineObjectiveId;                        // 0x0038(0x0010)(Edit, NativeAccessSpecifierPublic)
+	class FString                                 PrestigeXPBarOnlineObjectiveId;                    // 0x0048(0x0010)(Edit, NativeAccessSpecifierPublic)
 };
 
 // ScriptStruct Synthetic.AchievementTableData
@@ -623,6 +645,6 @@ public:
 struct FAchievementTableData
 {
 public:
-	TArray<struct FTrackedObjective>              Objectives;                                        // 0x0000(0x0010)(Edit, NativeAccessSpecifierPublic)
+	TArray<struct FTrackedObjectiveData>          TrackedObjectives;                                 // 0x0000(0x0010)(Edit, NativeAccessSpecifierPublic)
 };
 

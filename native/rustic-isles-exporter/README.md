@@ -31,9 +31,9 @@ status file. `RUSTIC_ISLES_EXPORT_ROOT`, also read at build time, moves the flag
 unset.
 
 **First build against a real SDK.** `src/facts.rs` names every member, size, enum value and offset the exporter
-needs. Its member names come from the spec's field names, not from an SDK, so the first build may stop with
-`the SDK lacks N fact(s)` and one line per fact it could not find. Fix each path in `facts.rs` to the dump's spelling
-(a member search with `@Type` matches by type); never paste SDK text into the repository.
+needs, with the SDK paths the spec gives (§6). If the first build stops with `the SDK lacks N fact(s)`, report only
+the fact ids it lists for a spec correction, then fix the path in `facts.rs` from the corrected spec; never paste SDK
+text into the repository.
 
 ## Tests
 

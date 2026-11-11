@@ -1,8 +1,8 @@
 //! Every layout fact the exporter takes from the host's SDK (spec §4.5, §9). `build.rs` resolves each one and fails
 //! the build naming those it cannot find; the library reads the results as `crate::sdk::<ID>`.
 //!
-//! The member names are read from the spec's field names, not from an SDK: a host's first build says which ones the
-//! real dump spells differently, and the fix is the path here (README, "First build").
+//! The member paths are the spec's (§6); where a host's first build reports one missing, the fix is a spec correction
+//! and then the path here (README, "First build").
 
 use crate::sdk_parse::{Kind, Member};
 
@@ -27,19 +27,20 @@ pub const MEMBERS: &[(&str, &str)] = &[
     ("ROW_HANDLE_TABLE", "FDataTableRowHandle.DataTable"),
     ("ROW_HANDLE_ROW", "FDataTableRowHandle.RowName"),
     ("DATE_TIME_TICKS", "FDateTime.Ticks"),
+    ("SOFT_PATH_NAME", "FSoftObjectPath.AssetPathName"),
     // GetAllItems (spec §4.2)
     ("GET_ALL_ITEMS_OUT", "ArchonCatalog_GetAllItems.@TArray"),
     // Catalog (spec §6.1)
     ("CAT_ITEM_ID", "FArchonCatalogItem.ItemId"),
-    ("CAT_ITEM_CLASS", "FArchonCatalogItem.ItemClass"),
+    ("CAT_ITEM_CLASS", "FArchonCatalogItem.ItemClass.AssetPathName"),
     ("CAT_DISPLAY_NAME", "FArchonCatalogItem.DisplayNameInvariant"),
     ("CAT_DESCRIPTION", "FArchonCatalogItem.DescriptionInvariant"),
     ("CAT_TAGS", "FArchonCatalogItem.Tags"),
     ("CAT_CUSTOM_DATA", "FArchonCatalogItem.CustomData"),
     ("CAT_ENTITLEMENTS", "FArchonCatalogItem.Entitlements"),
-    ("CAT_IS_STACKABLE", "FArchonCatalogItem.bIsStackable"),
-    ("CAT_IS_BUNDLE", "FArchonCatalogItem.bIsBundle"),
-    ("CAT_IS_CONTAINER", "FArchonCatalogItem.bIsContainer"),
+    ("CAT_IS_STACKABLE", "FArchonCatalogItem.IsStackable"),
+    ("CAT_IS_BUNDLE", "FArchonCatalogItem.IsBundle"),
+    ("CAT_IS_CONTAINER", "FArchonCatalogItem.IsContainer"),
     ("CAT_MAX_QUANTITY", "FArchonCatalogItem.MaxQuantity"),
     ("CAT_CONTAINER_CONTENTS", "FArchonCatalogItem.ContainerItemContents"),
     ("CAT_BUNDLED_ITEMS", "FArchonCatalogItem.BundledItems"),
@@ -74,7 +75,7 @@ pub const MEMBERS: &[(&str, &str)] = &[
     ("CAT_PRICES", "FArchonCatalogItem.VirtualCurrencyPrices"),
     (
         "CAT_PRICE_CURRENCY",
-        "FArchonCatalogItem.VirtualCurrencyPrices[].Currency",
+        "FArchonCatalogItem.VirtualCurrencyPrices[].CurrencyType",
     ),
     ("CAT_PRICE_AMOUNT", "FArchonCatalogItem.VirtualCurrencyPrices[].Amount"),
     (
@@ -139,7 +140,7 @@ pub const MEMBERS: &[(&str, &str)] = &[
     ),
     (
         "PH_BY_TAG_QUERIES",
-        "FPlayerHuntTableData.MatchmakerHuntsByTag[].Queries",
+        "FPlayerHuntTableData.MatchmakerHuntsByTag[].HuntTags",
     ),
     ("PH_ESCALATION_SPEC", "FPlayerHuntTableData.EscalationModeSpecification"),
     (
@@ -173,7 +174,7 @@ pub const MEMBERS: &[(&str, &str)] = &[
         "PH_RECOMMENDED_SKILL",
         "FPlayerHuntTableData.RecomendedWeaponSkillLevel",
     ),
-    ("PH_VISIBLE_LOCKED", "FPlayerHuntTableData.bVisibleWhileLocked"),
+    ("PH_VISIBLE_LOCKED", "FPlayerHuntTableData.IsVisibleWhileLocked"),
     // matchmaker hunts
     ("MH_REGION", "FMatchmakerHuntTableData.Region"),
     ("MH_HUNT_TAGS", "FMatchmakerHuntTableData.HuntTags"),
@@ -224,7 +225,7 @@ pub const MEMBERS: &[(&str, &str)] = &[
     // escalation specifications
     ("ES_INITIAL", "FEscalationModeSpecification.InitialChallengeLevel"),
     ("ES_MAX", "FEscalationModeSpecification.MaxChallengeLevel"),
-    ("ES_ROUNDS", "FEscalationModeSpecification.RoundStructure"),
+    ("ES_ROUNDS", "FEscalationModeSpecification.RoundStructures"),
     ("ES_LOOT_TABLE", "FEscalationModeSpecification.LootTable"),
     (
         "ES_POWER_OVERRIDE",
@@ -283,60 +284,78 @@ pub const MEMBERS: &[(&str, &str)] = &[
     ),
     (
         "UC_QUEST_STATUS",
-        "FProgressionUnlockCriteria.QuestRequirements[].StatusRequired",
+        "FProgressionUnlockCriteria.QuestRequirements[].QuestStatusRequired",
     ),
     ("UC_NODES_OP", "FProgressionUnlockCriteria.PlayerJourneyNodesOperation"),
     ("UC_NODES", "FProgressionUnlockCriteria.PlayerJourneyNodes"),
     // schedules
     ("SD_START", "FScheduleData.StartTime.Ticks"),
     ("SD_END", "FScheduleData.EndTime.Ticks"),
-    ("SD_REPEATABLE", "FScheduleData.bIsRepeatable"),
-    ("SD_EACH_DAY", "FScheduleData.bEachDay"),
-    ("SD_EACH_WEEK", "FScheduleData.bEachWeek"),
-    ("SD_SHOULD_QUEUE", "FScheduleData.bShouldQueue"),
+    ("SD_REPEATABLE", "FScheduleData.IsRepeatable"),
+    ("SD_EACH_DAY", "FScheduleData.RepeatableDetails.EachDay"),
+    ("SD_EACH_WEEK", "FScheduleData.RepeatableDetails.EachWeek"),
+    ("SD_SHOULD_QUEUE", "FScheduleData.bShouldQueueTheSheduleItems"),
     ("SD_ITEMS", "FScheduleData.ScheduledItems"),
-    ("SD_ITEM_ID", "FScheduleData.ScheduledItems[].Id"),
+    ("SD_ITEM_ID", "FScheduleData.ScheduledItems[].ID"),
     ("SD_ITEM_MAX", "FScheduleData.ScheduledItems[].MaxCompletionPerInterval"),
-    ("SD_LEFT_OUT", "FScheduleData.ItemsLeftOut"),
+    ("SD_LEFT_OUT", "FScheduleData.ItemsToBeLeftOutOfTheRotation"),
     // Store runtime (spec §6.13): store view models
     ("SV_ITEMS_TABLE", "UStoreViewModel.StoreItemsTable"),
     ("SV_CURRENCY_TABLE", "UStoreViewModel.CurrencyDataTable"),
-    ("SV_CATEGORIES", "UStoreViewModel.Categories"),
-    ("SV_CAT_NAME", "UStoreViewModel.Categories[].Name"),
-    ("SV_CAT_BREADCRUMB", "UStoreViewModel.Categories[].BreadcrumbCategory"),
-    ("SV_CAT_REQUIRES", "UStoreViewModel.Categories[].bRequiresEntitlement"),
-    ("SV_CAT_ENTITLEMENT", "UStoreViewModel.Categories[].EntitlementId"),
-    ("SV_CAT_SKU", "UStoreViewModel.Categories[].SkuId"),
-    ("SV_CAT_SUBCATEGORIES", "UStoreViewModel.Categories[].Subcategories"),
-    ("SV_SUB_NAME", "UStoreViewModel.Categories[].Subcategories[].Name"),
+    ("SV_CATEGORIES", "UStoreViewModel.StoreCategoryViewModels"),
+    ("SV_CAT_NAME", "UStoreViewModel.StoreCategoryViewModels[].CategoryName"),
+    (
+        "SV_CAT_BREADCRUMB",
+        "UStoreViewModel.StoreCategoryViewModels[].BreadcrumbCategory",
+    ),
+    (
+        "SV_CAT_REQUIRES",
+        "UStoreViewModel.StoreCategoryViewModels[].RequiresEntitlement",
+    ),
+    (
+        "SV_CAT_ENTITLEMENT",
+        "UStoreViewModel.StoreCategoryViewModels[].EntitlementId",
+    ),
+    ("SV_CAT_SKU", "UStoreViewModel.StoreCategoryViewModels[].SkuId"),
+    (
+        "SV_CAT_SUBCATEGORIES",
+        "UStoreViewModel.StoreCategoryViewModels[].SubCategoryViewModels",
+    ),
+    (
+        "SV_SUB_NAME",
+        "UStoreViewModel.StoreCategoryViewModels[].SubCategoryViewModels[].SubCategoryName",
+    ),
     (
         "SV_SUB_BREADCRUMB",
-        "UStoreViewModel.Categories[].Subcategories[].BreadcrumbCategory",
+        "UStoreViewModel.StoreCategoryViewModels[].SubCategoryViewModels[].BreadcrumbCategory",
     ),
     (
         "SV_SUB_REQUIRES",
-        "UStoreViewModel.Categories[].Subcategories[].bRequiresEntitlement",
+        "UStoreViewModel.StoreCategoryViewModels[].SubCategoryViewModels[].RequiresEntitlement",
     ),
     (
         "SV_SUB_ENTITLEMENT",
-        "UStoreViewModel.Categories[].Subcategories[].EntitlementId",
+        "UStoreViewModel.StoreCategoryViewModels[].SubCategoryViewModels[].EntitlementId",
     ),
-    ("SV_SUB_SKU", "UStoreViewModel.Categories[].Subcategories[].SkuId"),
+    (
+        "SV_SUB_SKU",
+        "UStoreViewModel.StoreCategoryViewModels[].SubCategoryViewModels[].SkuId",
+    ),
     (
         "SV_SUB_TAG_IDS",
-        "UStoreViewModel.Categories[].Subcategories[].SubTagIds",
+        "UStoreViewModel.StoreCategoryViewModels[].SubCategoryViewModels[].SubTagIds",
     ),
     (
         "SV_SUB_HIDE_PURCHASED",
-        "UStoreViewModel.Categories[].Subcategories[].bHidePurchasedItems",
+        "UStoreViewModel.StoreCategoryViewModels[].SubCategoryViewModels[].HidePurchasedItems",
     ),
     (
         "SV_SUB_SHOULD_HIDE_TAB",
-        "UStoreViewModel.Categories[].Subcategories[].bShouldHideTab",
+        "UStoreViewModel.StoreCategoryViewModels[].SubCategoryViewModels[].bShouldHideTab",
     ),
     (
         "SV_SUB_HIDE_TAB",
-        "UStoreViewModel.Categories[].Subcategories[].bHideTab",
+        "UStoreViewModel.StoreCategoryViewModels[].SubCategoryViewModels[].bHideTab",
     ),
     // store item view models
     ("SI_DISPLAY_NAME", "UStoreItemViewModel.DisplayName"),
@@ -344,22 +363,22 @@ pub const MEMBERS: &[(&str, &str)] = &[
     ("SI_DISPLAY_ITEM_TYPE", "UStoreItemViewModel.DisplayItemType"),
     ("SI_PRICE", "UStoreItemViewModel.ItemPriceNumber"),
     ("SI_CURRENT_PRICE", "UStoreItemViewModel.ItemCurrentPriceNumber"),
-    ("SI_CURRENCY_ENUM", "UStoreItemViewModel.StoreCurrencyEnum"),
+    ("SI_CURRENCY_ENUM", "UStoreItemViewModel.StoreCurrency"),
     ("SI_CURRENCY_CODE", "UStoreItemViewModel.CurrencyCode"),
     ("SI_PRIORITY", "UStoreItemViewModel.DisplayPriority"),
-    ("SI_PURCHASED", "UStoreItemViewModel.bPurchased"),
+    ("SI_PURCHASED", "UStoreItemViewModel.bIsPurchased"),
     ("SI_CAN_PURCHASE_AGAIN", "UStoreItemViewModel.bCanPurchaseAgain"),
-    ("SI_EXPIRED", "UStoreItemViewModel.bExpired"),
-    ("SI_PRESTIGE_ELITE", "UStoreItemViewModel.bPrestigeItemElite"),
+    ("SI_EXPIRED", "UStoreItemViewModel.bIsExpired"),
+    ("SI_PRESTIGE_ELITE", "UStoreItemViewModel.bIsPrestigeItemElite"),
     ("SI_RARITY", "UStoreItemViewModel.RewardRarityLevel"),
-    ("SI_CATALOG_ITEM_ID", "UStoreItemViewModel.CatalogItemId"),
+    ("SI_CATALOG_ITEM_ID", "UStoreItemViewModel.StoreItemCatalogData.ItemId"),
     // the offer, relative to the offer struct
     ("OF_SKU", "FOnlineStorePhoenixOffer.SkuId"),
     ("OF_DISPLAY_NAME", "FOnlineStorePhoenixOffer.DisplayName"),
     ("OF_DISPLAY_DESCRIPTION", "FOnlineStorePhoenixOffer.DisplayDescription"),
     ("OF_PRIORITY", "FOnlineStorePhoenixOffer.DisplayPriority"),
     ("OF_CATALOG_ID", "FOnlineStorePhoenixOffer.CatalogId"),
-    ("OF_IMAGE_URL", "FOnlineStorePhoenixOffer.ImageUrl"),
+    ("OF_IMAGE_URL", "FOnlineStorePhoenixOffer.ImageURL"),
     ("OF_PLAT_PRICE", "FOnlineStorePhoenixOffer.PlatPrice"),
     ("OF_REGULAR_PLAT_PRICE", "FOnlineStorePhoenixOffer.RegularPlatPrice"),
     ("OF_DUST_PRICE", "FOnlineStorePhoenixOffer.DustPrice"),
@@ -395,8 +414,8 @@ pub const MEMBERS: &[(&str, &str)] = &[
     ("OF_LOADOUT_SLOTS", "FOnlineStorePhoenixOffer.GrantedLoadoutSlots"),
     ("OF_ALL_CURRENCIES", "FOnlineStorePhoenixOffer.bPayWithAllCurrencies"),
     ("OF_CURRENCY_CODE", "FOnlineStorePhoenixOffer.CurrencyCode"),
-    ("OF_CURRENCY_ENUM", "FOnlineStorePhoenixOffer.CurrencyEnum"),
-    ("OF_IN_COLLECTION", "FOnlineStorePhoenixOffer.bInUserCollection"),
+    ("OF_CURRENCY_ENUM", "FOnlineStorePhoenixOffer.Currency"),
+    ("OF_IN_COLLECTION", "FOnlineStorePhoenixOffer.bIsInUserCollection"),
     ("OF_PLATFORM_OFFER_ID", "FOnlineStorePhoenixOffer.PlatformOfferId"),
     ("OF_TIME_REASON", "FOnlineStorePhoenixOffer.TimeAvailabilityReason"),
     (
@@ -419,11 +438,11 @@ pub const MEMBERS: &[(&str, &str)] = &[
     ),
     (
         "EXP_DESCRIPTION",
-        "FExperienceTrackTableData.ExperienceTypeDisplayData.DisplayDescription",
+        "FExperienceTrackTableData.ExperienceTypeDisplayData.Description",
     ),
     (
         "EXP_BANKING_LEVELS",
-        "FExperienceTrackTableData.ExperienceBankingLevelCount",
+        "FExperienceTrackTableData.ExperienceBankingDataPerLevel",
     ),
     ("HP_MUST_CLAIM", "FHuntPassSeasonDataTable.bMustClaimRewards"),
     ("HP_TITLE", "FHuntPassSeasonDataTable.SeasonTitle"),
@@ -445,10 +464,10 @@ pub const MEMBERS: &[(&str, &str)] = &[
     ("PEC_TABLE", "UPlayerExperienceComponent.ExperienceTable"),
     ("PT_DISPLAY_NAME", "FProgressionTrackTableData.DisplayName"),
     ("PT_VERSION", "FProgressionTrackTableData.CurrentVersion"),
-    ("PT_REPEATS", "FProgressionTrackTableData.bRepeats"),
-    ("PT_IS_PRESTIGE", "FProgressionTrackTableData.bIsPrestigeTrack"),
-    ("PT_IS_CORE", "FProgressionTrackTableData.bIsCoreTrack"),
-    ("PT_VISIBLE", "FProgressionTrackTableData.bVisibleInUI"),
+    ("PT_REPEATS", "FProgressionTrackTableData.Repeats"),
+    ("PT_IS_PRESTIGE", "FProgressionTrackTableData.IsPrestigeTrack"),
+    ("PT_IS_CORE", "FProgressionTrackTableData.IsCoreTrack"),
+    ("PT_VISIBLE", "FProgressionTrackTableData.VisibleInUI"),
     ("PT_PRESTIGE_TRACK", "FProgressionTrackTableData.PrestigeTrack"),
     ("PT_RANK_TABLE", "FProgressionTrackTableData.RankTable"),
     ("PT_UNLOCK_CONDITIONS", "FProgressionTrackTableData.UnlockConditions"),
@@ -465,32 +484,56 @@ pub const MEMBERS: &[(&str, &str)] = &[
     ("MT_DISPLAY_NAME", "FMasteryTrackTableData.DisplayName"),
     ("MT_SHORT_NAME", "FMasteryTrackTableData.ShortDisplayName"),
     ("MT_UI_ENABLED", "FMasteryTrackTableData.bIsUIEnabled"),
-    ("MT_CATEGORY", "FMasteryTrackTableData.Category"),
+    ("MT_CATEGORY", "FMasteryTrackTableData.Categtory"),
     // Mastery (spec §6.14)
     ("MC_OBJECTIVES", "FMasteryCardTableData.Objectives"),
     (
         "MC_OBJ_ID",
         "FMasteryCardTableData.Objectives[].UniqueOnlineObjectiveId",
     ),
-    ("MC_OBJ_TARGET", "FMasteryCardTableData.Objectives[].Target"),
-    ("MC_OBJ_DATA", "FMasteryCardTableData.Objectives[].ObjectiveData"),
-    ("MC_OBJ_COMPOUND", "FMasteryCardTableData.Objectives[].CompoundId"),
-    ("MC_OBJ_RANK", "FMasteryCardTableData.Objectives[].ProgressRank"),
-    ("MC_OBJ_TRACK", "FMasteryCardTableData.Objectives[].ProgressTrack"),
+    ("MC_OBJ_TARGET", "FMasteryCardTableData.Objectives[].Objective.Amount"),
+    (
+        "MC_OBJ_DATA",
+        "FMasteryCardTableData.Objectives[].Objective.ObjectiveDataClass",
+    ),
+    (
+        "MC_OBJ_COMPOUND",
+        "FMasteryCardTableData.Objectives[].CompoundObjectiveId",
+    ),
+    (
+        "MC_OBJ_RANK",
+        "FMasteryCardTableData.Objectives[].Objective.ProgressRank",
+    ),
+    (
+        "MC_OBJ_TRACK",
+        "FMasteryCardTableData.Objectives[].Objective.ProgressTrack",
+    ),
     ("MC_REWARD_TRACKS", "FMasteryCardTableData.RewardTracks"),
     ("MC_CARD_TYPE", "FMasteryCardTableData.CardType"),
     ("MC_GAME_OBJECT", "FMasteryCardTableData.GameObjectId"),
-    ("MC_BASE_XP", "FMasteryCardTableData.BaseXpObjectiveId"),
-    ("MC_PRESTIGE_XP", "FMasteryCardTableData.PrestigeXpObjectiveId"),
-    ("AC_OBJECTIVES", "FAchievementTableData.Objectives"),
+    ("MC_BASE_XP", "FMasteryCardTableData.BaseXPBarOnlineObjectiveId"),
+    ("MC_PRESTIGE_XP", "FMasteryCardTableData.PrestigeXPBarOnlineObjectiveId"),
+    ("AC_OBJECTIVES", "FAchievementTableData.TrackedObjectives"),
     (
         "AC_OBJ_ID",
-        "FAchievementTableData.Objectives[].UniqueOnlineObjectiveId",
+        "FAchievementTableData.TrackedObjectives[].UniqueOnlineObjectiveId",
     ),
-    ("AC_OBJ_TARGET", "FAchievementTableData.Objectives[].Target"),
-    ("AC_OBJ_DATA", "FAchievementTableData.Objectives[].ObjectiveData"),
-    ("AC_OBJ_RANK", "FAchievementTableData.Objectives[].ProgressRank"),
-    ("AC_OBJ_TRACK", "FAchievementTableData.Objectives[].ProgressTrack"),
+    (
+        "AC_OBJ_TARGET",
+        "FAchievementTableData.TrackedObjectives[].Objective.Amount",
+    ),
+    (
+        "AC_OBJ_DATA",
+        "FAchievementTableData.TrackedObjectives[].Objective.ObjectiveDataClass",
+    ),
+    (
+        "AC_OBJ_RANK",
+        "FAchievementTableData.TrackedObjectives[].Objective.ProgressRank",
+    ),
+    (
+        "AC_OBJ_TRACK",
+        "FAchievementTableData.TrackedObjectives[].Objective.ProgressTrack",
+    ),
 ];
 
 const OBJECT_PTR: Kind = Kind::ObjPtr;
@@ -524,9 +567,15 @@ pub const OPTIONAL_MEMBERS: &[(&str, &str, Member)] = &[
         "UStoreViewModel.TagFilter",
         Member::plain(0x170, 16, Kind::Str),
     ),
+    // Store images only; hunts read the fixed offset (spec §4.5, §6.13).
+    (
+        "SOFT_OBJECT_ID",
+        "TPersistentObjectPtr.ObjectID",
+        Member::plain(0x10, 0x18, Kind::Struct),
+    ),
     (
         "SI_OFFER",
-        "UStoreItemViewModel.@FOnlineStorePhoenixOffer",
+        "UStoreItemViewModel.StoreItem",
         Member::plain(0x650, 0, Kind::Struct),
     ),
 ];
@@ -563,7 +612,7 @@ pub const BASE_OWNERS: &[(&str, &str)] = &[
 pub const BASE_MEMBERS: &[&str] = &[
     "ProgressionTrack",
     "PremiumGatingEntitlement",
-    "bResetWithCharacter",
+    "ResetWithCharacter",
     "ProgressionMultiplier",
     "Requirements",
     "Requirements[].RankId",
