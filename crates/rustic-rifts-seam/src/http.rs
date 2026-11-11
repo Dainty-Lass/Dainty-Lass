@@ -14,6 +14,11 @@ pub type BoxFuture<'a, T> = Pin<Box<dyn Future<Output = T> + Send + 'a>>;
 /// Carries the hosted runtime's capability token (umbrella spec D3: the Rustic name).
 pub const HOST_CAPABILITY_HEADER: &str = "x-rustic-host-capability";
 
+/// The launcher route serving the key the server signs admission tickets with, `{"keyId","publicXy"}` with the 64
+/// bytes in standard base64, for the game folder's `p2p-admission-public.xy`. Not a Node route: Mystic Paradox shipped
+/// the file with its runtime feed, and the runtime manifest and the invite stay as they are.
+pub const ADMISSION_KEY_PATH: &str = "/launcher/v1/p2p/admission-key";
+
 /// The HTTP verb a route answers.
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub enum Method {
