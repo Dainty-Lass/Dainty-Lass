@@ -126,3 +126,31 @@ fn release_builds_take_the_launchers_version() {
         "the manager takes the client's version"
     );
 }
+
+#[test]
+fn each_app_has_its_own_icon_set_and_the_installer_embeds_webview2() {
+    let client = json("tauri.conf.json");
+    let manager = json("tauri.server-gui.conf.json");
+    // T-2: the manager's are copies of the placeholders until new icons are drawn
+    assert!(icons(&client).iter().all(|icon| !icon.starts_with("icons/manager/")));
+    assert!(icons(&manager).iter().all(|icon| icon.starts_with("icons/manager/")));
+    assert_ne!(
+        text(&client, "/bundle/windows/nsis/installerIcon"),
+        text(&manager, "/bundle/windows/nsis/installerIcon")
+    );
+    // T-5: as the restricted build's installer did
+    assert_eq!(
+        text(&client, "/bundle/windows/webviewInstallMode/type"),
+        "embedBootstrapper"
+    );
+}
+
+#[test]
+fn the_manager_serves_1_14_7() {
+    let manifest = std::fs::read_to_string(crate_dir().join("Cargo.toml")).unwrap();
+    let table: toml_edit::DocumentMut = manifest.parse().unwrap();
+    let server_gui = table["features"]["server-gui"].as_array().unwrap();
+    let names: Vec<&str> = server_gui.iter().filter_map(|v| v.as_str()).collect();
+    assert!(names.contains(&"isles-1-14-7"), "{names:?}");
+    assert!(names.contains(&"dep:dainty-manager-server"), "{names:?}");
+}

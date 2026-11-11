@@ -50,6 +50,7 @@ dainty-http = { path = "crates/dainty-http" }
 dainty-host = { path = "crates/dainty-host" }
 dainty-hostkit = { path = "crates/dainty-hostkit" }
 dainty-launcher-kit = { path = "crates/dainty-launcher-kit" }
+dainty-manager-server = { path = "crates/dainty-manager-server" }
 # Packaged for module repositories; the registry stops cargo package rewriting it to crates.io (DF1).
 dainty-module-api = { path = "crates/dainty-module-api", version = "0.1.0", registry = "silentspud" }
 dainty-plugin-host = { path = "crates/dainty-plugin-host" }

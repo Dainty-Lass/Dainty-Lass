@@ -85,10 +85,10 @@ impl Flavour {
 /// What a build hands the shell beyond its features.
 #[derive(Default)]
 pub struct Options {
-    /// The manager's in-process server (restricted's host crate until it moves to the root).
+    /// The manager's in-process server (`dainty-manager-server`).
     #[cfg(feature = "server-gui")]
     pub embedded_server: Option<Arc<dyn EmbeddedServer>>,
-    /// The window's and the tray's icon in place of the config's placeholders (L2: restricted hands in today's).
+    /// The window's and the tray's icon in place of the config's.
     pub icon: Option<tauri::image::Image<'static>>,
 }
 

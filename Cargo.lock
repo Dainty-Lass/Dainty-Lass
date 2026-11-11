@@ -1664,6 +1664,7 @@ version = "0.0.0"
 dependencies = [
  "dainty-epic",
  "dainty-launcher-kit",
+ "dainty-manager-server",
  "dainty-protocol",
  "futures-util",
  "rustls",
@@ -1676,6 +1677,7 @@ dependencies = [
  "tauri-plugin-updater",
  "tempfile",
  "tokio",
+ "toml_edit 0.25.17+spec-1.1.0",
  "url",
 ]
 
@@ -1747,6 +1749,25 @@ dependencies = [
  "thiserror 2.0.21",
  "tokio",
  "toml 0.9.12+spec-1.1.0",
+]
+
+[[package]]
+name = "dainty-manager-server"
+version = "0.0.0"
+dependencies = [
+ "chrono",
+ "dainty-admin",
+ "dainty-controller",
+ "dainty-host",
+ "dainty-launcher-kit",
+ "dainty-module-api",
+ "dainty-service-kit",
+ "dainty-store",
+ "serde_json",
+ "tempfile",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
 ]
 
 [[package]]

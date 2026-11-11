@@ -1,0 +1,39 @@
+# Copyright (c) 2026 Silent Spud
+# SPDX-License-Identifier: MIT
+
+[package]
+name = "dainty-manager-server"
+description = "The Dainty Lass Manager's embedded server: the host kit in the manager's process (spec-tauri-shell §4–8)"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license = "MIT"
+repository.workspace = true
+publish.workspace = true
+
+[dependencies]
+dainty-launcher-kit = { workspace = true, default-features = false, features = ["host", "server-gui"] }
+dainty-host.workspace = true
+dainty-controller.workspace = true
+dainty-admin.workspace = true
+dainty-module-api.workspace = true
+dainty-service-kit.workspace = true
+dainty-store.workspace = true
+chrono.workspace = true
+serde_json.workspace = true
+tokio = { workspace = true, features = ["sync", "rt", "time"] }
+tracing.workspace = true
+tracing-subscriber = { workspace = true, features = ["registry"] }
+
+[dev-dependencies]
+tempfile.workspace = true
+tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
+
+[features]
+# The host's game modules (DF5), passed through by the app's features of the same name
+isles-1-14-7 = ["dainty-host/isles-1-14-7"]
+realms = ["dainty-host/realms"]
+stub-module = ["dainty-host/stub-module"]
+
+[lints]
+workspace = true

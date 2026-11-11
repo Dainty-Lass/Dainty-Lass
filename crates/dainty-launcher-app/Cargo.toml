@@ -38,16 +38,29 @@ url.workspace = true
 futures-util.workspace = true
 sys-locale.workspace = true
 tokio = { workspace = true, features = ["fs", "sync", "time"] }
+# The manager's embedded server (spec-tauri-shell §11.1)
+dainty-manager-server = { workspace = true, optional = true }
 
 [dev-dependencies]
 tempfile.workspace = true
+toml_edit.workspace = true
 
 [features]
 default = ["host", "realms"]
 host = ["dainty-launcher-kit/host"]
-realms = ["dainty-launcher-kit/realms"]
-# The manager's feature; its embedded server is restricted's host crate, handed in through `run_with`
-server-gui = ["host", "dainty-launcher-kit/server-gui"]
+realms = ["dainty-launcher-kit/realms", "dainty-manager-server?/realms"]
+# The manager: its embedded server runs the host kit in this process (RD26) with the 1.14.7 module and realms
+server-gui = [
+    "host",
+    "dainty-launcher-kit/server-gui",
+    "dep:dainty-manager-server",
+    "isles-1-14-7",
+    "dainty-manager-server/realms",
+]
+# The host's game modules (DF5), for a manager
+isles-1-14-7 = ["dainty-manager-server?/isles-1-14-7"]
+stub-module = ["dainty-manager-server?/stub-module"]
+all-modules = ["isles-1-14-7", "stub-module"]
 custom-protocol = ["tauri/custom-protocol"]
 
 [lints]
