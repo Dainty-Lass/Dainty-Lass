@@ -39,6 +39,7 @@ fn tables() -> Tables {
             "Dangling_Hunt": {"MatchmakerHuntIDs": [handle("MM_Nowhere")]},
             "NoMap_Hunt": {"MatchmakerHuntIDs": [handle("MM_NoMap")]},
             "Trials_Hunt": trials,
+            "Expedition_Hunt": {"MatchmakerHuntIDs": [{"DataTable": null, "RowName": "None"}], "MatchmakerHuntsByTag": []},
         })),
         matchmaker_sources: vec![
             (
@@ -153,8 +154,9 @@ fn trials_rotation() {
 fn coverage_is_quiet() {
     let (r, logged, _) = resolver(0);
     let coverage = r.audit_coverage();
-    assert_eq!((coverage.resolvable(), coverage.total), (4, 5));
+    assert_eq!((coverage.resolvable(), coverage.total), (4, 6));
     assert_eq!(coverage.unresolved, ["Dangling_Hunt"]);
+    assert_eq!(coverage.no_matchmaker, ["Expedition_Hunt"]);
     assert!(logged.lock().unwrap().is_empty());
     let audit = r.validate_tables();
     assert_eq!(
@@ -164,7 +166,27 @@ fn coverage_is_quiet() {
             "NoMap_Hunt -> MM_NoMap has no valid map"
         ]
     );
-    assert_eq!((audit.direct_rows, audit.tag_routed_refs), (5, 1));
+    assert_eq!((audit.direct_rows, audit.tag_routed_refs), (6, 2));
+}
+
+#[test]
+fn rows_without_a_matchmaker_row_are_info_not_a_fault() {
+    let (r, _, _) = resolver(0);
+    let lines = r.audit_lines();
+    let expedition: Vec<_> = lines.iter().filter(|(_, t)| t.contains("Expedition_Hunt")).collect();
+    assert_eq!(expedition.len(), 1, "{lines:?}");
+    assert_eq!(expedition[0].0, Level::Info);
+    assert!(
+        expedition[0]
+            .1
+            .starts_with("[HuntLaunchCoverage] 1 player hunt row(s) name no matchmaker row")
+    );
+    assert!(
+        lines
+            .iter()
+            .any(|(l, t)| *l == Level::Warn && t == "[HuntLaunchCoverage] unsupported player hunt rows: Dangling_Hunt")
+    );
+    assert!(lines.iter().any(|(_, t)| t.ends_with("unresolved=1 noMatchmaker=1")));
 }
 
 fn write(dir: &std::path::Path, file: &str, text: &str) {

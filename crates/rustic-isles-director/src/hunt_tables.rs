@@ -144,6 +144,8 @@ pub struct TableMergeSummary {
     pub rejected: Vec<String>,
     /// Vendored rows the export does not hold.
     pub vendor_only: Vec<String>,
+    /// Rows of the table's `*.example.json` placeholder, dropped once the export brings real ones.
+    pub placeholders: Vec<String>,
     /// Each change with its count, most first
     pub changes: Vec<(String, usize)>,
     /// Rows the export left as they were.
@@ -960,11 +962,24 @@ fn merge_table(
         }
     }
     let exported: Vec<&String> = incoming.iter().map(|(n, _)| n).collect();
-    let vendor_only: Vec<String> = rows
+    let mut vendor_only: Vec<String> = rows
         .keys()
         .filter(|k| !exported.contains(k) && !summary.added.contains(k))
         .cloned()
         .collect();
+    // `gamedata --examples` seeds the live tables from the placeholders, so their rows would outlive the first real
+    // import and the Director would audit a hunt that has no map.
+    if !incoming.is_empty() {
+        let placeholders = example_row_names(&options.vendor_dir, name);
+        vendor_only.retain(|row| {
+            let placeholder = placeholders.contains(row);
+            if placeholder {
+                rows.remove(row);
+                summary.placeholders.push(row.clone());
+            }
+            !placeholder
+        });
+    }
     for row_name in &vendor_only {
         let Some(row) = rows.get(row_name) else {
             continue;
@@ -995,6 +1010,7 @@ fn merge_table(
     summary.changes = counted(summary.updated.iter().flat_map(|(_, c)| c.iter().cloned()), true);
     summary.rows_after = rows.len();
     let changes_table = !summary.added.is_empty()
+        || !summary.placeholders.is_empty()
         || (options.update_existing && (!summary.updated.is_empty() || !summary.normalised.is_empty()));
     if let Some(first) = file.get_mut(0).and_then(Value::as_object_mut) {
         first.insert("Rows".into(), Value::Object(rows));
@@ -1004,6 +1020,17 @@ fn merge_table(
         file,
         changes_table,
     })
+}
+
+/// The row names of `{name}.example.json` beside the vendored table; none when it is missing or unreadable.
+fn example_row_names(vendor: &Path, name: &str) -> Vec<String> {
+    let Ok(file) = read_json(&vendor.join(format!("{name}.example.json"))) else {
+        return Vec::new();
+    };
+    match file.get(0).and_then(|f| f.get("Rows")) {
+        Some(Value::Object(rows)) => rows.keys().cloned().collect(),
+        _ => Vec::new(),
+    }
 }
 
 fn summary_lines(out: &mut Vec<String>, s: &TableMergeSummary, options: &ImportHuntTablesOptions) {
@@ -1038,6 +1065,13 @@ fn summary_lines(out: &mut Vec<String>, s: &TableMergeSummary, options: &ImportH
         s.vendor_only.len(),
         list(&s.vendor_only, 12)
     ));
+    if !s.placeholders.is_empty() {
+        out.push(format!(
+            "  placeholders    : {} example row(s) dropped{}",
+            s.placeholders.len(),
+            list(&s.placeholders, 12)
+        ));
+    }
     if !s.normalised.is_empty() {
         out.push(format!(
             "    game type     : {} vendor-only row(s) with a numeric MatchmakingGameType -> name{not_written}{}",
