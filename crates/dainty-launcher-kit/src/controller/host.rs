@@ -646,7 +646,15 @@ impl Controller {
         let work = async {
             let from = dir.clone();
             match tokio::task::spawn_blocking(move || hostkit::import_sdk(&from, &runtime)).await {
-                Ok(Ok(files)) => {
+                Ok(Ok(hostkit::SdkImport {
+                    function_files: files,
+                    repaired_lookups,
+                })) => {
+                    if repaired_lookups > 0 {
+                        log::info(format!(
+                            "host: SDK {name}: repaired {repaired_lookups} function lookups that named the class                              instead of the function (Dumper-7 42f37f6)"
+                        ));
+                    }
                     log::info(format!("host: SDK {name} imported ({files} files)"));
                     Ok(Some(format!("{files} files")))
                 }
