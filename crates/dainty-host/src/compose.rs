@@ -37,27 +37,38 @@ pub const ALL: &[&str] = &["gateway", "allowlist", "content", "admin"];
     not(feature = "isles-1-14-7"),
     allow(unused_mut, reason = "only the 1.14.7 module is pushed onto the list")
 )]
+/// The 1.14.7 module reads the installed `version_data.json` when it starts, as the library does.
 pub fn game_modules() -> Vec<dainty_controller::ModuleFactory> {
-    let mut modules = dainty_controller::modules::game_modules();
     #[cfg(feature = "isles-1-14-7")]
-    modules.push(std::sync::Arc::new(|| {
-        std::sync::Arc::new(isles_1_14_7()) as std::sync::Arc<dyn dainty_module_api::GameModule>
+    {
+        with_isles(None)
+    }
+    #[cfg(not(feature = "isles-1-14-7"))]
+    {
+        dainty_controller::modules::game_modules()
+    }
+}
+
+/// The 1.14.7 module handed the version data `serve` read (`version_data`).
+#[cfg(feature = "isles-1-14-7")]
+pub fn game_modules_with(data: rustic_isles_1_14_7::VersionData) -> Vec<dainty_controller::ModuleFactory> {
+    with_isles(Some(data))
+}
+
+#[cfg(feature = "isles-1-14-7")]
+fn with_isles(data: Option<rustic_isles_1_14_7::VersionData>) -> Vec<dainty_controller::ModuleFactory> {
+    let mut modules = dainty_controller::modules::game_modules();
+    modules.push(std::sync::Arc::new(move || {
+        std::sync::Arc::new(isles_1_14_7(data.clone())) as std::sync::Arc<dyn dainty_module_api::GameModule>
     }));
     modules
 }
 
-/// The 1.14.7 module (RD27), handed the compiled-in version data when the build has it. The id is a constant that
-/// parses, so the one construction failure cannot happen; without a document, or with a broken one
-/// (isles-mit-parity's `version_data` test guards it), the module reads the installed `version_data.json`, whose
-/// error the start then names.
+/// The id is a constant that parses, so the one construction failure cannot happen.
 #[cfg(feature = "isles-1-14-7")]
-fn isles_1_14_7() -> rustic_isles::IslesModule {
-    let spec = match crate::version_data::document().map(|_| crate::version_data::load()) {
-        Some(Ok(data)) => rustic_isles_1_14_7::spec_with(data),
-        Some(Err(error)) => {
-            tracing::warn!("{error}; reading the installed one instead");
-            rustic_isles_1_14_7::spec()
-        }
+fn isles_1_14_7(data: Option<rustic_isles_1_14_7::VersionData>) -> rustic_isles::IslesModule {
+    let spec = match data {
+        Some(data) => rustic_isles_1_14_7::spec_with(data),
         None => rustic_isles_1_14_7::spec(),
     };
     match spec.and_then(rustic_isles::IslesModule::new) {

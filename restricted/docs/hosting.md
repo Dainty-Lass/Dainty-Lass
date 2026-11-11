@@ -167,6 +167,7 @@ servers' key) lives only in `secrets.env`.
 | `--xp`, `--rewards`, `--no-multipliers` | `[multipliers]` | Private test servers only |
 | `--public-port` | `public_port` | Another port than 443 |
 | (edit `host.toml`) | `dashboard_url` | The staff dashboard ([dainty-lass `ui/`](https://git.silentspud.com/silentspud/dainty-lass/src/branch/main/ui), dainty-dash), written to `gateway.env` as `CHAT_DASHBOARD_URL` with `DASHBOARD_INGEST_KEY`. Chat takes its filter every 30 s and applies it before delivery (flag, mask, or block, which the sender sees as sent), sends it every room line and whisper with the verdict, and files `/report <player> [category] <what happened>` with it. Left out: chat as before, and `/report` answers that reports are not set up |
+| (edit `host.toml`) | `version_data` | The 1.14.7 version data (Mystic Paradox's `version_data.json`), read when the server starts, relative to the server folder. Left out: `data/1.14.7/version_data.json`, the file the release ships. A missing or broken file stops `serve` and the backend with a message that names it; `setup` and `start` install it in the backend game data folder for the module loaded as a library |
 | `--server-fps`, `--idle-fps`, `--training-on-demand`, `--training-idle-minutes`, `--verbose-game-logs`, `--memory-guard`, `--min-free-memory-mb`, `--hunt-memory-mb` | `[performance]` | What the game servers cost in CPU and RAM |
 | `--wine`, `--proton`, `--xvfb`, `--interface` | `[linux]` | Linux only ([hosting-linux.md](hosting-linux.md)) |
 | `--fresh-start` (or edit `host.toml`) | `[database]` `engine`, `postgres_host`, `postgres_port`, `postgres_user`, `postgres_database`, `allow_remote`, `fresh_start` | The Rust services' database: `sqlite` (the default, `dainty-lass.db` in `.workspace\config`) or `postgres` (below); `--fresh-start` / `fresh_start = true` starts with an empty database although `.workspace\mongodb` still holds unmigrated data (MongoDB is never modified) |
@@ -445,8 +446,8 @@ sha256 = "<the file's SHA-256: certutil -hashfile <file> SHA256, or sha256sum>"
 
 The 1.14.7 module ships as a library too, in the release's `plugins/` folder (`rustic_isles_plugin.dll`, or
 `librustic_isles_plugin.so` on Linux): list it under `[[modules.external]]` with that path and its SHA-256, and leave
-it out of `compiled`. It carries the same version data as the compiled-in module; `setup`, `start` and `gamedata`
-also install it as `version_data.json` in the backend game data folder, for the module run as a child. A service can be a library the same way (RD27), in place of the one compiled in; a library
+it out of `compiled`. It reads the version data from the backend game data folder, where `setup`, `start` and
+`gamedata` install the file `version_data` names. A service can be a library the same way (RD27), in place of the one compiled in; a library
 whose SHA-256 is not the one written here is never loaded:
 
 ```toml

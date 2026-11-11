@@ -21,7 +21,9 @@ containers in [hosting-docker.md](hosting-docker.md) are this page with the pack
 - The **runtime** (`Rustic-Isles.dll`, `winmm.dll`) and the **game data**, made on a Windows PC with your own
   game ([sdk-and-game-data.md](https://git.silentspud.com/silentspud/dainty-lass/src/branch/main/docs/sdk-and-game-data.md)) and brought over: the DLLs as a folder, the game data as
   a pack (`dainty-host gamedata --export`).
-- The **server release** (`DaintyLassServer-<version>-linux-x64.tar.gz`).
+- The **server release** (`DaintyLassServer-<version>-linux-x64.tar.gz`). It ships the 1.14.7 version data in
+  `data/1.14.7/version_data.json`, which the server reads when it starts; keep it there, or name another file with
+  `version_data` in `host.toml` ([hosting.md](hosting.md)).
 - Public: TCP 443 and UDP 8770-8777 open at the provider's firewall.
 
 ## Getting the game from Epic

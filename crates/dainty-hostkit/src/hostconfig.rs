@@ -906,6 +906,9 @@ pub struct HostConfig {
     pub public_port: Option<u16>,
     /// The staff dashboard chat sends its log and reports to, with `DASHBOARD_INGEST_KEY` (dainty-dash)
     pub dashboard_url: Option<String>,
+    /// The 1.14.7 version data the server reads at start; `None` is [`DEFAULT_VERSION_DATA`]. Relative to the
+    /// server folder
+    pub version_data: Option<String>,
     /// How the game servers run; [`DEFAULT_PERFORMANCE`] when `None`.
     pub performance: Option<PerformanceOptions>,
     /// How the game servers run on Linux; [`DEFAULT_LINUX`] when `None`.
@@ -1018,6 +1021,7 @@ impl HostConfig {
         });
         let public_port = obj.get("publicPort").and_then(Value::as_u64).map(|n| n as u16);
         let dashboard_url = obj.get("dashboardUrl").and_then(Value::as_str).map(str::to_owned);
+        let version_data = obj.get("versionData").and_then(Value::as_str).map(str::to_owned);
         let performance = obj
             .get("performance")
             .and_then(Value::as_object)
@@ -1139,6 +1143,7 @@ impl HostConfig {
             multipliers,
             public_port,
             dashboard_url,
+            version_data,
             performance,
             linux,
             database,
@@ -1228,6 +1233,9 @@ impl HostConfig {
             if self.dashboard_url.is_none() {
                 self.dashboard_url = prev.dashboard_url.clone();
             }
+            if self.version_data.is_none() {
+                self.version_data = prev.version_data.clone();
+            }
             self.file.read = prev.file.read.clone();
             self.file.toml = prev.file.toml.clone();
         }
@@ -1276,6 +1284,9 @@ impl HostConfig {
         canonical.insert("maxHuntServers".into(), Value::from(self.max_hunt_servers));
         if let Some(url) = &self.dashboard_url {
             canonical.insert("dashboardUrl".into(), Value::String(url.clone()));
+        }
+        if let Some(path) = &self.version_data {
+            canonical.insert("versionData".into(), Value::String(path.clone()));
         }
         if let Some(port) = self.public_port {
             canonical.insert("publicPort".into(), Value::from(port));
@@ -1603,6 +1614,29 @@ pub fn game_ports(c: &HostConfig) -> (u16, u16) {
 pub fn game_ports_text(c: &HostConfig, separator: &str) -> String {
     let (first, last) = game_ports(c);
     format!("{first}{separator}{last}")
+}
+
+/// The 1.14.7 version data a release ships, in the server folder, when host.toml has no `version_data` (RD27).
+pub const DEFAULT_VERSION_DATA: &str = "data/1.14.7/version_data.json";
+
+/// The version data file the server reads: host.toml's `version_data` (relative to the server folder), else
+/// [`DEFAULT_VERSION_DATA`]; in a checkout, which has no `data/`, restricted's own copy.
+#[must_use]
+pub fn version_data_path(paths: &Paths, config: Option<&HostConfig>) -> PathBuf {
+    if let Some(named) = config.and_then(|c| c.version_data.as_deref()) {
+        return paths.repo.join(named);
+    }
+    let shipped = paths.repo.join(DEFAULT_VERSION_DATA);
+    let checkout = paths
+        .isles
+        .join("version-data")
+        .join("1.14.7")
+        .join("version_data.json");
+    if !shipped.exists() && checkout.is_file() {
+        checkout
+    } else {
+        shipped
+    }
 }
 
 /// The TCP port the gateway listens on.
@@ -2033,6 +2067,17 @@ pub fn validate(document: &Value) -> Result<Value, HostError> {
         }
     };
 
+    let version_data = match obj.get("versionData") {
+        None | Some(Value::Null) => None,
+        Some(Value::String(s)) if !js::trim(s).is_empty() => Some(js::trim(s).to_owned()),
+        Some(v) => {
+            return Err(bad(format!(
+                "versionData must be the path of the 1.14.7 version_data.json, not {}",
+                shown(Some(v))
+            )));
+        }
+    };
+
     let performance = match obj.get("performance") {
         None | Some(Value::Null) => None,
         Some(p_val) => {
@@ -2392,6 +2437,9 @@ pub fn validate(document: &Value) -> Result<Value, HostError> {
     if let Some(url) = dashboard_url {
         canonical.insert("dashboardUrl".into(), Value::String(url));
     }
+    if let Some(path) = version_data {
+        canonical.insert("versionData".into(), Value::String(path));
+    }
     if let Some(m) = multipliers {
         let mut mult_out = Map::new();
         if let Some(n) = Number::from_f64(m.xp) {
@@ -2500,6 +2548,7 @@ fn merge_document_order(orig: &Map<String, Value>, canonical: Map<String, Value>
         "edition",
         "publicPort",
         "dashboardUrl",
+        "versionData",
         "multipliers",
         "performance",
         "linux",
@@ -3376,6 +3425,53 @@ mod tests {
         let back = HostConfig::from_toml(&toml).unwrap();
         assert_eq!(back.host, "100.101.102.103");
         assert_eq!(back.max_hunt_servers, 4);
+    }
+
+    #[test]
+    fn version_data_round_trips_and_defaults_to_the_shipped_file() {
+        let mut doc = json!({
+            "version": 1,
+            "mode": "private",
+            "host": "100.101.102.103",
+            "gameAddress": "100.101.102.103",
+            "name": "Friday Hunts",
+            "registration": "INVITECODE",
+            "maxHuntServers": 4
+        });
+        let dir = tempfile::tempdir().unwrap();
+        let paths = Paths::new(dir.path());
+        let old = HostConfig::from_json(&doc).unwrap();
+        assert_eq!(old.version_data, None);
+        assert!(!old.to_toml().unwrap().contains("version_data"));
+        assert_eq!(
+            version_data_path(&paths, Some(&old)),
+            dir.path().join(DEFAULT_VERSION_DATA)
+        );
+        assert_eq!(version_data_path(&paths, None), dir.path().join(DEFAULT_VERSION_DATA));
+
+        doc["versionData"] = json!(" /srv/data/version_data.json ");
+        let cfg = HostConfig::from_json(&doc).unwrap();
+        assert_eq!(cfg.version_data.as_deref(), Some("/srv/data/version_data.json"));
+        let toml = cfg.to_toml().unwrap();
+        assert!(
+            toml.contains("version_data = \"/srv/data/version_data.json\""),
+            "{toml}"
+        );
+        let back = HostConfig::from_toml(&toml).unwrap();
+        assert_eq!(back.version_data, cfg.version_data);
+        // update keeps a host's setting when setup's own options leave it out
+        assert_eq!(old.clone().written_over(Some(&back)).version_data, cfg.version_data);
+
+        doc["versionData"] = json!("mine/version_data.json");
+        let relative = HostConfig::from_json(&doc).unwrap();
+        assert_eq!(
+            version_data_path(&paths, Some(&relative)),
+            dir.path().join("mine/version_data.json")
+        );
+        for bad in [json!(""), json!(7), json!(["a"])] {
+            doc["versionData"] = bad;
+            assert!(HostConfig::from_json(&doc).is_err(), "{doc}");
+        }
     }
 
     #[test]

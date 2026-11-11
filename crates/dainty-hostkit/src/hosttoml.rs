@@ -38,6 +38,7 @@ const TOP: &[Field] = &[
     ("multipliers", "multipliers", false),
     ("publicPort", "public_port", false),
     ("dashboardUrl", "dashboard_url", false),
+    ("versionData", "version_data", false),
     ("performance", "performance", false),
     ("linux", "linux", false),
     ("database", "database", false),
@@ -667,6 +668,10 @@ fn comment(path: &str) -> &'static str {
         "dashboard_url" => {
             "The staff dashboard's address: chat sends it its log and reports and takes its chat filter, with\n\
              DASHBOARD_INGEST_KEY from secrets.env (the dashboard's own DASHBOARD_INGEST_KEY)."
+        }
+        "version_data" => {
+            "The 1.14.7 version data the server reads at start, relative to the server folder. Left out:
+             data/1.14.7/version_data.json, the file the release ships."
         }
         "mongo" => "The database.",
         "mongo.manage" => "true: dainty-host starts mongod itself.",

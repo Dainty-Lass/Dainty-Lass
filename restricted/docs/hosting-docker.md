@@ -84,7 +84,9 @@ Every crate is in the checkout: the images build with the monorepo root as conte
 `DAINTY_MODULES=` (from the root: `docker build -f restricted/docker/Dockerfile --build-arg DAINTY_MODULES= --target server .`).
 The server image also holds the libraries `host.toml` can pin (RD27) in `/opt/dainty-lass/plugins`, so a
 `[[modules.external]]` or `[services.<name>]` path there reads `plugins/librustic_isles_plugin.so` and the like
-([hosting.md](hosting.md#game-modules-and-plugins)).
+([hosting.md](hosting.md#game-modules-and-plugins)). It holds the 1.14.7 version data the server reads at start in
+`/opt/dainty-lass/data/1.14.7/version_data.json`; `version_data` in `host.toml` names another file, as a path in the
+container.
 
 `setup` takes every option it takes on a Linux host (`--max-hunts`, `--public-port`, `--registration` …;
 `docker compose run --rm host setup --help`). In the container it also gets `--skip-install` (the services are

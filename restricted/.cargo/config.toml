@@ -15,8 +15,6 @@ AWS_LC_SYS_PREBUILT_NASM = "1"
 # Where dainty-host looks for server releases (update, setup's install step), built into the binary.
 # An environment variable of the same name wins: the release workflow sets it to the repository it runs in.
 DAINTY_RELEASE_REPOSITORY = "SilentSpud/DaintyLass"
-# Mystic Paradox's 1.14.7 version data, compiled into the root's dainty-host for every binary built here (RD27)
-DAINTY_VERSION_DATA = { value = "modules/rustic-isles/version-data/1.14.7/version_data.json", relative = true }
 
 # Forgejo's Cargo registry, where module-api is published for the module repositories (DD2, spike DF1).
 # Named so a path dependency carrying `registry = "silentspud"` resolves; the workspace never reads from it.
