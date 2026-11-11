@@ -16,6 +16,7 @@ use tokio::net::TcpListener;
 use tokio_rustls::TlsAcceptor;
 
 use super::*;
+use crate::net::hostapi::USER_INFO_PATH;
 use crate::net::pinned::certificate_fingerprint;
 use crate::net::pinned::tests::{acceptor, certificate};
 
@@ -39,6 +40,8 @@ struct Behaviour {
     nodes: Option<(u16, Value)>,
     /// Pings in flight across the servers that share it: (now, most)
     in_flight: Option<Arc<(AtomicUsize, AtomicUsize)>>,
+    /// The report answers 401 until the key has been to the user info route, as a restarted home does
+    forgets_keys: bool,
 }
 
 struct Fake {
@@ -108,7 +111,22 @@ async fn answer(
             Some((status, body)) => reply(*status, body.to_string()),
             None => reply(404, "{}".into()),
         },
-        REPORT_PATH => reply(204, String::new()),
+        REPORT_PATH => {
+            let announced = seen
+                .lock()
+                .unwrap()
+                .iter()
+                .any(|seen| seen.path == USER_INFO_PATH && seen.key.as_deref() == Some(KEY));
+            if behaviour.forgets_keys && !announced {
+                reply(401, String::new())
+            } else {
+                reply(204, String::new())
+            }
+        }
+        USER_INFO_PATH => reply(
+            200,
+            json!({ "UserId": "u1", "Username": "Slayer", "IsAdmin": false }).to_string(),
+        ),
         _ => reply(404, "{}".into()),
     }
 }
@@ -352,6 +370,28 @@ async fn the_order_goes_to_the_home_with_the_key_and_to_no_node() {
                 .all(|seen| seen.key.is_none() && seen.path == PING_PATH)
         );
     }
+}
+
+#[tokio::test]
+async fn a_restarted_home_that_forgot_the_key_gets_it_again_and_takes_the_order() {
+    let near = node(0).await;
+    let home = fake(
+        true,
+        Behaviour {
+            nodes: Some((200, json!({ "nodes": [near.node("uk")] }))),
+            forgets_keys: true,
+            ..Behaviour::default()
+        },
+    )
+    .await;
+    let answer = region_ping(&endpoint(&home), Some(KEY), &quick()).await;
+    assert!(matches!(answer, RegionPing::Ok { reported: true, .. }), "{answer:?}");
+    let seen = home.seen();
+    assert_eq!(
+        seen.iter().map(|seen| seen.path.as_str()).collect::<Vec<_>>(),
+        [NODES_PATH, REPORT_PATH, USER_INFO_PATH, REPORT_PATH]
+    );
+    assert!(seen[1..].iter().all(|seen| seen.key.as_deref() == Some(KEY)));
 }
 
 #[tokio::test]
