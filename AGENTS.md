@@ -26,7 +26,7 @@ dependencies.
 | `fuzz/` | `cargo fuzz` targets for the MIT crates, a workspace of its own (excluded from the main one) |
 | `ui/` | dainty-dash: the staff dashboard, the launcher and server-manager pages `restricted/`'s Tauri shells serve, and the fleet agent. MIT; its generated bridge types come from `restricted/` at build time (`bun run restricted-data`) |
 | `launcher/` | The launcher's JavaScript side (RD27): the isolation hook, the scripts the Tauri shells and the release run, and their tests. The Rust shell (`restricted/launcher/src-tauri`) is in `restricted/` |
-| `native/runtime-loader` | The `winmm.dll` the game loads, which loads the Rustic Isles runtime (MIT, clean-room from `docs/port/spec-runtime-loader.md`). A crate of its own outside both workspaces, so workspace-wide `cargo` commands don't cover it |
+| `native/` | `runtime-loader`, the `winmm.dll` the game loads, which loads the Rustic Isles runtime, and `rustic-isles-exporter`, the catalog exporter (MIT, clean-room from `docs/port/spec-runtime-loader.md` and `spec-catalog-exporter.md`). Crates of their own outside both workspaces, so workspace-wide `cargo` commands don't cover them |
 | `scripts/` | `replay-capture.mjs` |
 | `docs/` | `architecture.md`, the plans, `port/` (the migration guide, delta and catch-up lists), `security/` for the MIT components (indexed in [`SECURITY_REVIEW.md`](SECURITY_REVIEW.md)) |
 | `restricted/` | The AGPL-3.0-only workspace (`restricted/Cargo.toml`): `crates/` (`dainty-host-parity`, the Node host kit's tests run against the root's `dainty-host`), `launcher/src-tauri` (Tauri: `dainty-launcher`, `dainty-manager`), `modules/rustic-isles` and `modules/rustic-rifts`, `legacy/` (the 1.4.4 importer's oracle), `docker/`, `compose.yaml`, the Tauri backend's language catalogs (`restricted/ui/`), and the hosting, player and Paradox docs. [`restricted/AGENTS.md`](restricted/AGENTS.md) covers them |
@@ -170,8 +170,9 @@ It's never a one-file change:
 
 ### Docker
 
-Docker (`restricted/compose.yaml`, `restricted/.env.example`, `restricted/docker/`) is AGPL, and its rules are in
-`restricted/AGENTS.md`. A service added, moved or removed at the root is a change to `restricted/docker/` too.
+Docker is `compose.yaml`, `.env.example` and `docker/` at the root (MIT, clean-room from `docs/port/spec-docker.md`).
+Restricted's AGPL copies (`restricted/compose.yaml`, `restricted/docker/`, rules in `restricted/AGENTS.md`) stay until
+their oracle runs retire them, so a service added, moved or removed at the root is a change to both.
 
 ## User-facing text
 
@@ -225,9 +226,10 @@ Not obvious from reading the suites:
 
 ## Native code
 
-The runtime loader (`native/runtime-loader`) is the only native code outside `restricted/`. An upstream loader
-change reaches it through its spec, never as a patch. The game runtime, CatalogExporter and `ParadoxTransport.dll`
-are in `restricted/`, and `restricted/AGENTS.md` says how a runtime patch is applied.
+The runtime loader (`native/runtime-loader`) and the catalog exporter (`native/rustic-isles-exporter`) are the only
+native code outside `restricted/`. An upstream change to either reaches it through its spec, never as a patch. The
+game runtime, the C++ CatalogExporter the host kit still builds and `ParadoxTransport.dll` are in `restricted/`, and
+`restricted/AGENTS.md` says how a runtime patch is applied.
 
 ## CI
 

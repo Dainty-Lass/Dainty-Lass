@@ -61,7 +61,7 @@ How to read the tables:
 | Mystic Paradox's hunt-manifest module (new at `21b9ff5`) | `restricted/modules/rustic-isles/reference/1.14.7/shared/hunt-manifest` | Imported by the backend and the Director |
 | Mystic Paradox `ParadoxRuntime/` | `restricted/modules/rustic-isles/native/runtime` | C++, built by each host (`native/paradox-runtime` before DS6) |
 | Mystic Paradox `tools/RuntimeLoader/` | [`native/runtime-loader`](../../native/runtime-loader) | Rewritten clean-room as MIT from [`spec-runtime-loader.md`](spec-runtime-loader.md) (RD27, [`clean-room/runtime-loader.md`](clean-room/runtime-loader.md)); a Rust crate of its own, outside both workspaces (DD13) |
-| Mystic Paradox `tools/CatalogExporter/` | `restricted/modules/rustic-isles/native/catalog-exporter` | Loaded into the game through the runtime loader (RD9) |
+| Mystic Paradox `tools/CatalogExporter/` | `restricted/modules/rustic-isles/native/catalog-exporter`; [`native/rustic-isles-exporter`](../../native/rustic-isles-exporter) | Loaded into the game through the runtime loader (RD9). Being rewritten clean-room as MIT Rust from [`spec-catalog-exporter.md`](spec-catalog-exporter.md) (RD27): phase 1, the seven catalog exports, is in; the host kit builds the C++ until the cutover |
 | Mystic Paradox `ParadoxLauncher/`, `ParadoxTransport/`, its release workflows, `.gitleaks.toml`, `docs/SELF_HOSTING.md` | not taken | Reforged has its own launcher; the ICE transport belongs to Paradox's player-hosted realms |
 | Mystic Paradox top-level `ADDITIONAL_TERMS.md`, `LICENSE`, `NOTICE.md`, `README.md`, `docs/` | `restricted/modules/rustic-isles/<same>` | rustic-isles' top level (`paradox/<same>` before DS6) |
 
@@ -159,7 +159,9 @@ clean-room into this repository (`DL4b`). The page is dainty-dash, this reposito
 `DAINTY_MODE=launcher` or `manager` by `launcher/scripts/dashboard-page.ts`), talking to Rust through
 `ui/packages/bridge` and the bridge types copied in from `restricted/`. The per-line detail is in
 [`delta-launcher-platform.md`](delta-launcher-platform.md) and
-[`delta-launcher-controller.md`](delta-launcher-controller.md).
+[`delta-launcher-controller.md`](delta-launcher-controller.md). The manager's embedded server (`server-gui`) was
+rewritten clean-room into [`crates/dainty-manager-server`](../../crates/dainty-manager-server) from
+[`spec-tauri-shell.md`](spec-tauri-shell.md) (RD27), for `crates/dainty-launcher-app`.
 
 | Reforged Electron (`legacy/ReforgedLauncher/src/`) | DR Rust module (`src-tauri/src/`) | Here | Reforged's changes carried |
 | --- | --- | --- | --- |
@@ -233,7 +235,8 @@ The admin service ([`crates/dainty-admin`](../../crates/dainty-admin), RD25); th
 and download (`content/src/runtime.rs`, launcher `net/runtime_files.rs`); the Host page backend and the loader session
 (`platform/hostkit.rs`, `hostserver.rs`, `requirements.rs`, `loader_session.rs`); `protocol/src/text.rs`; the
 nftables backend as Reforged wrote it; the fuzz targets and the `docs/security/` checklists; `host.toml`;
-`docker/` and `compose.yaml`.
+`docker/`, `compose.yaml`, `compose.tailscale.yaml` and `.env.example` at the root, MIT and written clean-room from
+[`spec-docker.md`](spec-docker.md) (RD27); restricted's copies stay until their oracle runs retire them.
 
 The server structure (RD26), from the `feat/app-structure` merge (`c57f157`) as its fix branches left it, has no
 upstream either: the controller ([`crates/dainty-controller`](../../crates/dainty-controller): `controller.rs`, the

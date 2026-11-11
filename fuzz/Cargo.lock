@@ -1128,6 +1128,7 @@ dependencies = [
  "rustic-isles-db",
  "rustic-isles-director",
  "rustic-isles-economy",
+ "rustic-isles-exporter",
  "rustic-isles-gamedata",
  "rustic-isles-launcher-api",
  "rustic-isles-matchmaking",
@@ -3957,6 +3958,10 @@ dependencies = [
  "tokio",
  "tracing",
 ]
+
+[[package]]
+name = "rustic-isles-exporter"
+version = "0.1.0"
 
 [[package]]
 name = "rustic-isles-gamedata"

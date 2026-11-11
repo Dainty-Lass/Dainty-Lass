@@ -37,5 +37,7 @@ shell, the Tauri launcher, the runtime loader, `ParadoxTransport` and the 1.4.4 
 | Rustic Isles launcher API and admin (`crates/rustic-isles-launcher-api`) | [docs/security/rustic-isles-launcher-api.md](docs/security/rustic-isles-launcher-api.md) | `rustic_isles_launcher_api_admin_auth.rs`, `rustic_isles_launcher_api_admin_text.rs`, `rustic_isles_launcher_api_guard.rs`, `rustic_isles_launcher_api_paths.rs`, `rustic_isles_launcher_api_text.rs` | RD27 |
 | Rustic Isles shadow replay (`crates/rustic-isles-replay`) | [docs/security/rustic-isles-replay.md](docs/security/rustic-isles-replay.md) | `rustic_isles_replay_input.rs` | RD27 |
 | Rustic Isles store layer (`crates/rustic-isles-store`) | [docs/security/rustic-isles-store.md](docs/security/rustic-isles-store.md) | `rustic_isles_store_decode.rs` | RD27 |
+| Catalog exporter (`native/rustic-isles-exporter`) | [docs/security/catalog-exporter.md](docs/security/catalog-exporter.md) | `catalog_exporter_input.rs` | RD27 |
+| Manager's embedded server (`crates/dainty-manager-server`) | [docs/security/manager-server.md](docs/security/manager-server.md) | none (T-8) | RD27 |
 
 Fuzz targets with no checklist row yet: `relay_signal.rs`, `runtime_input.rs`, `launcher_host.rs`.

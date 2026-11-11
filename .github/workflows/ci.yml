@@ -46,6 +46,7 @@ jobs:
       launcher: ${{ steps.pick.outputs.launcher }}
       docker: ${{ steps.pick.outputs.docker }}
       network: ${{ steps.pick.outputs.network }}
+      native: ${{ steps.pick.outputs.native }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -114,12 +115,17 @@ jobs:
             launcher:
               - launcher/**
               - ui/**
+              - crates/dainty-launcher-app/**
+              - crates/dainty-manager-server/**
               - restricted/launcher/**
               - restricted/ui/**
               - restricted/Cargo.toml
             docker:
               - crates/**
               - .dockerignore
+              - docker/**
+              - compose*.yaml
+              - .env.example
               - restricted/docker/**
               - restricted/compose*.yaml
               - restricted/.env.example
@@ -137,6 +143,9 @@ jobs:
               - restricted/modules/**
             network:
               - crates/**
+              - docker/**
+              - compose*.yaml
+              - .env.example
               - restricted/docker/**
               - restricted/compose*.yaml
               - restricted/.env.example
@@ -144,6 +153,8 @@ jobs:
               - restricted/Cargo.lock
               - restricted/crates/**
               - restricted/launcher/**
+            native:
+              - native/**
 
       - name: Pick the families, run everything on main, plan, manual runs and workflow changes
         id: pick
@@ -158,9 +169,10 @@ jobs:
           LAUNCHER: ${{ steps.filter.outputs.launcher }}
           DOCKER: ${{ steps.filter.outputs.docker }}
           NETWORK: ${{ steps.filter.outputs.network }}
+          NATIVE: ${{ steps.filter.outputs.native }}
         run: |
           set -euo pipefail
-          for family in rust ui rust_restricted paradox legacy transport launcher docker network; do
+          for family in rust ui rust_restricted paradox legacy transport launcher docker network native; do
             var="${family^^}"
             value="${!var}"
             [ "$ALL" = true ] && value=true
@@ -371,7 +383,7 @@ jobs:
     needs: changes
     if: needs.changes.outputs.rust-restricted == 'true'
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 90
+    timeout-minutes: 150
     strategy:
       fail-fast: false
       matrix:
@@ -669,7 +681,7 @@ jobs:
     needs: changes
     if: needs.changes.outputs.docker == 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    timeout-minutes: 150
     permissions:
       contents: read
       security-events: write
@@ -686,6 +698,13 @@ jobs:
           persist-credentials: false
 
       - name: Build the images and run the full test run
+        env:
+          DAINTY_COMMIT: ${{ github.sha }}
+        run: bash docker/run-tests.sh
+
+      # The root's MIT images (lane D); restricted's run above until its oracle runs retire it
+      - name: Build the root's images and run their full test run
+        working-directory: .
         env:
           DAINTY_COMMIT: ${{ github.sha }}
         run: bash docker/run-tests.sh
@@ -776,7 +795,7 @@ jobs:
     needs: changes
     if: needs.changes.outputs.network == 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 100
     defaults:
       run:
         working-directory: restricted
@@ -808,6 +827,42 @@ jobs:
           DAINTY_COMMIT: ${{ github.sha }}
           NETWORK_REGION_PING: require
         run: bash docker/network/test.sh
+
+      - name: The root's harness
+        working-directory: .
+        env:
+          DAINTY_COMMIT: ${{ github.sha }}
+          NETWORK_REGION_PING: require
+        run: bash docker/network/test.sh
+
+  # The runtime loader and the catalog exporter, crates of their own outside both workspaces (RD27)
+  native:
+    name: Native (runtime loader, catalog exporter)
+    needs: changes
+    if: needs.changes.outputs.native == 'true'
+    runs-on: windows-latest
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        crate: [runtime-loader, rustic-isles-exporter]
+    defaults:
+      run:
+        shell: bash
+        working-directory: native/${{ matrix.crate }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install the pinned toolchain
+        run: rustup show active-toolchain || rustup toolchain install
+
+      - run: cargo fmt --all --check
+      - run: cargo clippy --workspace --all-targets --locked -- -D warnings
+      - run: cargo test --workspace --locked --no-fail-fast
+      - name: The release DLL
+        run: cargo build --release --locked --workspace
 
   # The tree's known vulnerabilities, secrets and misconfigurations, on every run: a secret can land in any file.
   # Only a secret fails it; the rest goes to code scanning when it is on (the CODE_SCANNING variable), and
@@ -851,7 +906,7 @@ jobs:
   # failed or cancelled job, or a failed change detection, fails it.
   ci-ok:
     name: CI ok
-    needs: [changes, rust, rust-deny, fuzz, ui, rust-restricted, rust-restricted-deny, fuzz-restricted, paradox, paradox-routes, legacy, legacy-deny, fuzz-legacy, transport, docker, installers-windows, network, scan]
+    needs: [changes, rust, rust-deny, fuzz, ui, rust-restricted, rust-restricted-deny, fuzz-restricted, paradox, paradox-routes, legacy, legacy-deny, fuzz-legacy, transport, native, docker, installers-windows, network, scan]
     if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 5

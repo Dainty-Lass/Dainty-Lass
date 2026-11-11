@@ -38,6 +38,8 @@ dainty-gateway = { path = "../crates/dainty-gateway" }
 dainty-history-ship = { path = "../crates/dainty-history-ship" }
 # module_frame: the module framework's frame protocol (DF2); gateway_modules: the stub as a module (DF4a)
 dainty-module-api = { path = "../crates/dainty-module-api" }
+# catalog_exporter_input: the exporter's command line and the game memory it walks (lane E)
+rustic-isles-exporter = { path = "../native/rustic-isles-exporter" }
 http = "1"
 # launcher_hostapi: the branding image reply takes the body as it arrives
 bytes = "1"
@@ -702,6 +704,13 @@ bench = false
 [[bin]]
 name = "legacy_host_json"
 path = "fuzz_targets/legacy_host_json.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "catalog_exporter_input"
+path = "fuzz_targets/catalog_exporter_input.rs"
 test = false
 doc = false
 bench = false

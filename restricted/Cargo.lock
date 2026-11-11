@@ -1639,6 +1639,7 @@ version = "0.0.0"
 dependencies = [
  "dainty-epic",
  "dainty-launcher-kit",
+ "dainty-manager-server",
  "dainty-protocol",
  "futures-util",
  "rustls",
@@ -1698,6 +1699,24 @@ dependencies = [
  "ts-rs",
  "url",
  "windows 0.62.2",
+]
+
+[[package]]
+name = "dainty-manager-server"
+version = "0.0.0"
+dependencies = [
+ "chrono",
+ "dainty-admin",
+ "dainty-controller",
+ "dainty-host",
+ "dainty-launcher-kit",
+ "dainty-module-api",
+ "dainty-service-kit",
+ "dainty-store",
+ "serde_json",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
 ]
 
 [[package]]
