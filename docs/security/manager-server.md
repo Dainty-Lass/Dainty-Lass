@@ -24,7 +24,7 @@ which runs the host kit, the services and the module registry in the manager's p
 - **Out:** the workspace's files (`host.toml`, the env files, `secrets.env`, the databases) and the services the
   host kit starts, which bind as `host.toml` says (only the gateway off loopback).
 
-Code: `crates/dainty-manager-server/src/` (`lib.rs`, `engine.rs`, `modules.rs`, `history.rs`).
+Code: `crates/dainty-manager-server/src/` (`lib.rs`, `engine.rs`, `modules.rs`, `history.rs`, `version_data.rs`).
 
 ## Checklist
 
@@ -49,6 +49,12 @@ Code: `crates/dainty-manager-server/src/` (`lib.rs`, `engine.rs`, `modules.rs`, 
       launcher's own events, which can name the account key's file or the Epic session, never are (`is_server_line`).
 - [ ] History rows go out through `redacted_text` and `redacted_json`: an `admin_keys` row never shows its key hash.
 - [ ] Invite links and remote enrolment URIs are answers to the page only, never logged.
+
+### The version data
+
+- [ ] The 1.14.7 version data is read only from the manager's own install (beside the executable, or Tauri's
+      `../lib/Dainty Lass Manager/` on Linux) and written only to the workspace's `data/1.14.7/version_data.json`;
+      a host's own `version_data` in `host.toml` is never overwritten (`version_data.rs`).
 
 ### Secrets
 

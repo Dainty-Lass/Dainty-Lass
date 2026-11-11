@@ -35,7 +35,6 @@ COPY restricted/Cargo.toml restricted/Cargo.lock restricted/rust-toolchain.toml 
 COPY restricted/.cargo/ /src/restricted/.cargo/
 COPY restricted/crates/ /src/restricted/crates/
 COPY restricted/launcher/ /src/restricted/launcher/
-COPY restricted/ui/ /src/restricted/ui/
 COPY restricted/modules/rustic-isles/crates/ /src/restricted/modules/rustic-isles/crates/
 # The 1.14.7 version data the parity tests read; the server stage ships it in data/ (RD27)
 COPY restricted/modules/rustic-isles/version-data/ /src/restricted/modules/rustic-isles/version-data/

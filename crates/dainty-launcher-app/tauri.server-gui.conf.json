@@ -5,8 +5,8 @@
   "build": {
     "devUrl": "http://localhost:4322",
     "frontendDist": "dist/server-manager",
-    "beforeDevCommand": "bun scripts/page.ts dev server-manager",
-    "beforeBuildCommand": "bun scripts/page.ts build server-manager"
+    "beforeDevCommand": "bun dainty-launcher-app/scripts/page.ts dev server-manager",
+    "beforeBuildCommand": "bun dainty-launcher-app/scripts/page.ts build server-manager"
   },
   "bundle": {
     "icon": [

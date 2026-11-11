@@ -7,8 +7,8 @@
   "build": {
     "devUrl": "http://localhost:4321",
     "frontendDist": "dist/launcher",
-    "beforeDevCommand": "bun scripts/page.ts dev launcher",
-    "beforeBuildCommand": "bun scripts/page.ts build launcher"
+    "beforeDevCommand": "bun dainty-launcher-app/scripts/page.ts dev launcher",
+    "beforeBuildCommand": "bun dainty-launcher-app/scripts/page.ts build launcher"
   },
   "app": {
     "windows": [],

@@ -23,7 +23,6 @@ via relative path dependencies (`path = "../crates/<name>"` in `Cargo.toml`, `[w
 | `modules/rustic-isles/` | The 1.14.7 module's version data (`version-data/1.14.7`), the recorded Node goldens replayed against it (`crates/rustic-isles-mit-parity`), the C++ game runtime (`native/runtime`) and CatalogExporter (`native/catalog-exporter`), and the Node reference tree (`reference/1.14.7`). In-tree since RD27, members of this workspace |
 | `modules/rustic-rifts/` | Peer-to-peer realms' AGPL remainder: `oracle` (Mystic Paradox's Node vectors replayed against the MIT crates). The `rustic-rifts-*` crates themselves are the root's MIT clean-room ones (`../crates/rustic-rifts-*`, RD27) |
 | `legacy/` | dainty-legacy: the 1.4.4 importer, a workspace of its own (an external plugin `host.toml` pins) |
-| `ui/` | The UI's two AGPL inputs only: the language catalogs (`packages/i18n/catalogs`) and the bridge types the launcher generates (`packages/bridge/src/generated`); `../ui/` (dainty-dash) copies the bridge types in at build time |
 | `fuzz/` | `cargo fuzz` targets for the AGPL components, a workspace of its own |
 | `docker/`, `compose.yaml` | Container deployment (RX4), laid out as the server release |
 | `docs/` | Host and player guides, `paradox-patches.md`, and `security/` for the AGPL components |
@@ -177,10 +176,9 @@ rows that change what runs: a service added, moved or removed is a change to `do
 
 ## User-facing text
 
-Every string a player or host reads comes from a language catalog in `en` and `pt-BR` (DU2). The Tauri backend's
-are `ui/packages/i18n/catalogs/en.json` and `pt-BR.json` here; `launcher/src-tauri/gen/strings.json`, from which
-it takes its own dialogs, is generated from them (`generated` test, keys sorted). The pages' catalogs are
-the root's `ui/apps/web/messages/`.
+Every string a player or host reads comes from a language catalog in `en` and `pt-BR` (DU2). The pages' catalogs
+are the root's `ui/apps/web/messages/`; the Tauri backend's own dialogs are the root launcher kit's MIT catalog
+(`core::i18n`). Nothing here holds launcher text since the AGPL catalogs were retired (spec-launcher-catalogs C-1).
 
 - **Both languages in the same commit**, with the same keys and the same `{placeholders}`, never an English
   placeholder in `pt-BR`. The `i18n` test fails a key the backend shows that a language lacks. When you aren't

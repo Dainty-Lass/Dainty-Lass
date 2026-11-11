@@ -1,9 +1,9 @@
 # Dainty Lass desktop apps (`dainty-launcher` & `dainty-manager`)
 
-Since RL13 the apps are dainty-lass's MIT Tauri shell, `crates/dainty-launcher-app`, over `crates/dainty-launcher-kit`. This package is their AGPL half (RD27 spec §4.4): `src-tauri/` builds them with today's icons (L2), adds the manager's in-process server (it links `crates/host`), generates `gen/strings.json` from the page's catalogs, and runs the tests that hold dainty-launcher-kit to DR's recorded tables (`test/cases`) and drive its controller, relay and modules. `test/electron-keystore` is the Electron key-store harness.
+Since RL13 the apps are dainty-lass's MIT Tauri shell, `crates/dainty-launcher-app`, over `crates/dainty-launcher-kit`. This package is their AGPL half (RD27 spec §4.4): `src-tauri/` builds them with today's icons (L2), hands the manager the MIT embedded server (`crates/dainty-manager-server`), and runs the tests that hold dainty-launcher-kit to DR's recorded tables (`test/cases`) and drive its controller, relay and modules, and that are the oracle for `dainty-manager-server` (`tests/manager_server.rs`, `tests/controller.rs`'s `server-gui` cases). `test/electron-keystore` is the Electron key-store harness.
 
 - **Dainty Lass Launcher (`dainty-launcher`)**: the player launcher (`src-tauri/tauri.conf.json`). Join servers by invite or address, register and sign in (with the account key stored only in the OS keystore), check server status and news, verify Dauntless 1.14.7 installs, download the server runtime, and host or join peer-to-peer realms.
-- **Dainty Lass Manager (`dainty-manager`, Cargo feature `server-gui`)**: the standalone server manager GUI (`src-tauri/tauri.server-gui.conf.json`, built with `--no-default-features --features server-gui`). Embeds `crates/host`, `server-controller`, `admin`, and the Rust game modules (`isles-1-14-7`) in-process so a host can set up, configure, migrate, run, and administer a community server without a terminal. Keeps the bundle identifier `io.github.freezamotoqueiro.dauntlessreforgedrevival.server` so existing server GUI installations update in place.
+- **Dainty Lass Manager (`dainty-manager`, Cargo feature `server-gui`)**: the standalone server manager GUI (`src-tauri/tauri.server-gui.conf.json`, built with `--no-default-features --features server-gui`). Embeds `crates/dainty-manager-server` (the host kit, the controller, the admin history and the 1.14.7 module) in-process so a host can set up, configure, migrate, run, and administer a community server without a terminal. Keeps the bundle identifier `io.github.freezamotoqueiro.dauntlessreforgedrevival.server` so existing server GUI installations update in place.
 
 Each app embeds its own page from [dainty-lass's `ui/`](https://git.silentspud.com/silentspud/dainty-lass/src/branch/main/ui) (dainty-dash), whose `apps/web` builds every page from one source: the launcher serves it built with `DAINTY_MODE=launcher`, the manager with `DAINTY_MODE=manager`. `beforeBuildCommand` runs `crates/dainty-launcher-app/scripts/page.ts`, which builds the page's static export with Bun and copies it to `crates/dainty-launcher-app/dist/launcher` or `dist/server-manager`, where dainty-launcher-app's compiled-in context and these configs' `frontendDist` find it. Tauri hashes the exports' inline scripts into the CSP at build time, so `script-src 'self'` holds. The app's context (name, identifier, page, update feed, permissions, isolation hook) is dainty-launcher-app's; these configs give the bundler today's icons and the same identity, which `tests/bundles.rs` checks. The bridge's generated files are dainty-launcher-kit's (`crates/dainty-launcher-kit/generated`).
 
@@ -68,7 +68,7 @@ bun run dev:manager
 (cd "${DAINTY_LASS_DIR:-../../dainty-lass}/launcher" && bun install && bun run typecheck && bun run test)
 
 # Run the Rust unit tests for each feature configuration
-cargo test --manifest-path ../Cargo.toml -p launcher -j 6   # includes tests/bundles.rs, the two apps' configs
-cargo test --manifest-path ../Cargo.toml -p launcher -j 6 --features realms
-cargo test --manifest-path ../Cargo.toml -p launcher -j 6 --features server-gui,realms
+cargo test --manifest-path ../Cargo.toml -p dainty-launcher -j 6   # includes tests/bundles.rs, the two apps' configs
+cargo test --manifest-path ../Cargo.toml -p dainty-launcher -j 6 --features realms
+cargo test --manifest-path ../Cargo.toml -p dainty-launcher -j 6 --features server-gui,realms
 ```

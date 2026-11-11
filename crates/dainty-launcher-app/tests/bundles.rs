@@ -52,16 +52,17 @@ fn client_and_manager_are_distinct_apps() {
         "io.github.freezamotoqueiro.dauntlessreforgedrevival.server"
     );
 
+    // The CLI runs them from the folder above this crate (crates/), as it does any app folder
     for (config, page, port) in [(&client, "launcher", 4321), (&manager, "server-manager", 4322)] {
         assert_eq!(text(config, "/build/frontendDist"), format!("dist/{page}"));
         assert_eq!(text(config, "/build/devUrl"), format!("http://localhost:{port}"));
         assert_eq!(
             text(config, "/build/beforeBuildCommand"),
-            format!("bun scripts/page.ts build {page}")
+            format!("bun dainty-launcher-app/scripts/page.ts build {page}")
         );
         assert_eq!(
             text(config, "/build/beforeDevCommand"),
-            format!("bun scripts/page.ts dev {page}")
+            format!("bun dainty-launcher-app/scripts/page.ts dev {page}")
         );
     }
 

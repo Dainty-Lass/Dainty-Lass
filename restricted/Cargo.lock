@@ -1603,6 +1603,7 @@ dependencies = [
  "dainty-host",
  "dainty-launcher-app",
  "dainty-launcher-kit",
+ "dainty-manager-server",
  "dainty-module-api",
  "dainty-protocol",
  "dainty-proxy",
