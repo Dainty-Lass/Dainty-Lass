@@ -281,9 +281,9 @@ fn every_isles_row_is_registered_once() {
     }
     let counts: Vec<usize> = lists.iter().map(|(_, l)| l.len()).collect();
     assert_eq!(counts, [29, 8, 8, 25, 17, 49]);
-    // Rifts' rows: 58 on the backend and one on the Director
+    // Rifts' rows: 59 on the backend (the admission key's has no Node route) and one on the Director
     let rifts: Vec<_> = all().iter().filter(|r| r.when == When::Rifts).collect();
-    assert_eq!(rifts.len(), 59);
+    assert_eq!(rifts.len(), 60);
     assert_eq!(
         all()
             .iter()

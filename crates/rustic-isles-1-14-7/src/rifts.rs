@@ -31,7 +31,7 @@ mod wired {
     use rustic_isles::Settings;
     use rustic_rifts_admission::{
         Admission, AdmissionError, AdmissionHunts, AdmissionRoutes, CapabilityResolver, Es256Tickets, HostCapability,
-        MemoryAdmissionStore, P256KeyGenerator,
+        MemoryAdmissionStore, P256KeyGenerator, TicketAuthority,
     };
     use rustic_rifts_guard::{
         CoreOperationsPolicy, Guard, GuardConfig, GuardParts, GuardRoutes, NoHuntSessions, StubGuardStore,
@@ -306,6 +306,7 @@ mod wired {
                 relay_config.transport_key_secret = Some(transport_secret.clone());
                 let since = Arc::clone(&clock);
                 let now: Arc<dyn Fn() -> UnixMillis + Send + Sync> = Arc::new(move || since.now());
+                let (key_id, public_key) = (TicketAuthority::key_id(&*tickets), tickets.public_xy());
                 let admission = Admission::new(
                     tickets,
                     admission_store,
@@ -313,11 +314,14 @@ mod wired {
                     Some(transport_secret),
                     Arc::clone(&now),
                 );
-                routes.push(Arc::new(AdmissionRoutes::new(
-                    Arc::new(admission),
-                    Some(resolver(Arc::clone(&caps), node.clone())),
-                    seam_node.clone(),
-                )));
+                routes.push(Arc::new(
+                    AdmissionRoutes::new(
+                        Arc::new(admission),
+                        Some(resolver(Arc::clone(&caps), node.clone())),
+                        seam_node.clone(),
+                    )
+                    .with_public_key(&key_id, &public_key),
+                ));
                 let grants = RelayGrants {
                     config: Arc::new(relay_config),
                     http: Arc::new(Unreachable),

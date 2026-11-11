@@ -12,8 +12,8 @@ use rustic_isles::Settings;
 use rustic_isles::routes::{Service, When, all};
 use rustic_isles_1_14_7::rifts_with_core;
 use rustic_rifts_seam::{
-    AccountId, BoxFuture, Caller, Candidate, GuardMode, IslesCore, Json, NoCore, Party, PartyId, Refusal, RequestInfo,
-    Rifts, RouteCall, SeamError, SessionId,
+    ADMISSION_KEY_PATH, AccountId, BoxFuture, Caller, Candidate, GuardMode, IslesCore, Json, NoCore, Party, PartyId,
+    Refusal, RequestInfo, Rifts, RouteCall, SeamError, SessionId,
 };
 
 type Fut<'a, T> = BoxFuture<'a, Result<T, SeamError>>;
@@ -189,4 +189,34 @@ async fn with_a_sqlite_database() {
         last = code(call(&rifts, "POST", "/launcher/v1/realms", host(), &[], body).await);
     }
     assert_eq!(last, "AUTH_RATE_LIMITED");
+}
+
+/// The admission key the server signs with reaches a signed-in launcher, for the game folder (no Node route).
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn the_admission_key_is_served_to_launchers() {
+    use rustic_rifts_admission::{KeyId, P256KeyGenerator, keys};
+    let (pair, _, _) = P256KeyGenerator.generate_with_pems(KeyId("k7".to_owned())).unwrap();
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("realms.sqlite").display().to_string();
+    let settings = Settings::from_pairs([
+        ("DAINTY_DB_FILE", path.as_str()),
+        (keys::KEY_ID_SETTING, "k7"),
+        (keys::SIGNING_KEY_SETTING, pair.signing_key.expose()),
+        (keys::VERIFY_KEY_SETTING, pair.verify_key.as_str()),
+    ]);
+    let rifts = tokio::task::spawn_blocking(move || rifts_with_core(&settings, Arc::new(Named)))
+        .await
+        .unwrap();
+    let served = call(&rifts, "GET", ADMISSION_KEY_PATH, host(), &[], "").await.unwrap();
+    assert_eq!(served.status, 200);
+    assert_eq!(
+        served.body.0,
+        keys::admission_key_json(&KeyId("k7".to_owned()), &pair.public_xy)
+    );
+    let anonymous = call(&rifts, "GET", ADMISSION_KEY_PATH, Caller::Anonymous, &[], "").await;
+    assert_eq!(code(anonymous), "AUTH_UNAUTHORIZED");
+
+    let stubbed = rifts_with_core(&Settings::default(), Arc::new(Named));
+    let unset = call(&stubbed, "GET", ADMISSION_KEY_PATH, host(), &[], "").await;
+    assert!(matches!(unset, Err(SeamError::Unimplemented(_))), "{unset:?}");
 }

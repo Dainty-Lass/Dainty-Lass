@@ -30,7 +30,7 @@ const fn r(
 }
 
 #[rustfmt::skip]
-pub(super) static TABLE: [RouteDef; 290] = [
+pub(super) static TABLE: [RouteDef; 291] = [
     r(B, Get, r"/", LauncherApi, Isles, Always), // B1
     r(B, Get, r"/health/live", LauncherApi, Isles, Always), // B2
     r(B, Get, r"/health/ready", LauncherApi, Isles, Always), // B3
@@ -287,6 +287,7 @@ pub(super) static TABLE: [RouteDef; 290] = [
     r(B, Post, r"/launcher/v1/realm-hosting/hubs/start", Realms, Rifts, RiftsOnly), // B254
     r(B, Post, r"/launcher/v1/realm-hosting/hubs/stop", Realms, Rifts, RiftsOnly), // B255
     r(B, Post, r"/launcher/v1/p2p/hunts/:sessionId/peers", Realms, Rifts, RiftsOnly), // B256
+    r(B, Get, r"/launcher/v1/p2p/admission-key", P2p, Rifts, RiftsOnly), // no Node route: the realms admission key
     r(B, Get, r"/launcher/v1/realm-hosting/status", Realms, Rifts, RiftsOnly), // B257
     r(B, Post, r"/launcher/v1/realms", Realms, Rifts, RiftsOnly), // B258
     r(B, Get, r"/launcher/v1/realms/mine", Realms, Rifts, RiftsOnly), // B259

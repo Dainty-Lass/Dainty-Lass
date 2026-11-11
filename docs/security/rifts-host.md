@@ -67,6 +67,12 @@ nothing written carries CR or NUL or a line break inside a value).
 - [ ] `Secret` values print as `Secret(<redacted>)` in `Debug`; `IceFiles` holds its secrets text as a `Secret`.
 - [ ] The two JSON files are written atomically (`.tmp` created new and `0600`, flushed, renamed); a damaged file is
   kept as `.bad`, never parsed into partial state; cursors only move forward.
+- [ ] The game folder's `p2p-admission-public.xy` comes only from the connected server's
+  `GET /launcher/v1/p2p/admission-key` (`rustic_rifts_seam::ADMISSION_KEY_PATH`), over the same pinned connection and
+  account key as every realm call: exactly 64 bytes of strict base64, written through `.rr-download` and a rename only
+  when it differs, nothing written on any other answer (the launcher's `controller/realms.rs`; tests
+  `the_admission_key_comes_from_the_server`, `a_short_admission_key_is_not_written`). A server can only set the key
+  its own realms are checked against.
 
 ### The hosted server (RD9)
 
