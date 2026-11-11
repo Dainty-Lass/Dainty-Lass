@@ -144,7 +144,7 @@ fn migrate(p: &Paths, args: &DbMigrateArgs, out: &mut dyn FnMut(&str)) -> Outcom
     let config = load_host_config(p)?;
     let from = resolve_mongo_uri(p, config.as_ref(), args.from.as_deref());
     let db_cfg = resolve_db_config(p, config.as_ref(), args.to.as_deref())?;
-    let (counts, mismatches) = crate::hooks::get().db_migrate(&from, &db_cfg, args.dry_run)?;
+    let (counts, mismatches) = crate::hooks::get().db_migrate(p, &from, &db_cfg, args.dry_run)?;
     let total: usize = counts.iter().map(|(_, n)| *n).sum();
     for (name, n) in &counts {
         out(&format!("  {name}: {n} record(s)"));
@@ -178,7 +178,7 @@ fn verify(p: &Paths, args: &DbVerifyArgs, out: &mut dyn FnMut(&str)) -> Outcome 
     let config = load_host_config(p)?;
     let from = resolve_mongo_uri(p, config.as_ref(), args.against.as_deref());
     let db_cfg = resolve_db_config(p, config.as_ref(), args.to.as_deref())?;
-    let mismatches = crate::hooks::get().db_verify(&from, &db_cfg)?;
+    let mismatches = crate::hooks::get().db_verify(p, &from, &db_cfg)?;
     if mismatches.is_empty() {
         out("Database verification passed: all collections match.");
         Ok(ExitCode::SUCCESS)
@@ -239,6 +239,7 @@ mod tests {
             registration: Registration::Invitecode,
             share_url: None,
             dashboard_url: None,
+            version_data: None,
             max_hunt_servers: 3,
             mongo: MongoConfig {
                 uri: "mongodb://admin:mongoSecret99@127.0.0.1:27017/reforged?replicaSet=rs0".into(),

@@ -42,6 +42,7 @@ pub trait HostHooks: Send + Sync {
     )]
     fn db_migrate(
         &self,
+        _paths: &Paths,
         _source_uri: &str,
         _db_cfg: &dainty_store::DatabaseConfig,
         _dry_run: bool,
@@ -52,6 +53,7 @@ pub trait HostHooks: Send + Sync {
     /// Compares the store with the MongoDB at `_source_uri`; returns the mismatches. The default fails.
     fn db_verify(
         &self,
+        _paths: &Paths,
         _source_uri: &str,
         _db_cfg: &dainty_store::DatabaseConfig,
     ) -> Result<Vec<(String, String)>, HostError> {
@@ -139,9 +141,13 @@ pub trait HostHooks: Send + Sync {
         Ok(())
     }
 
-    /// The game modules compiled into this build.
-    fn game_modules(&self) -> Vec<dainty_controller::ModuleFactory> {
-        dainty_controller::modules::game_modules()
+    /// The game modules compiled into this build, for the server `_config` describes; an error refuses to serve.
+    fn game_modules(
+        &self,
+        _paths: &Paths,
+        _config: &HostConfig,
+    ) -> Result<Vec<dainty_controller::ModuleFactory>, HostError> {
+        Ok(dainty_controller::modules::game_modules())
     }
 
     /// Runs the service `_name` with its command line; `None` when this build has no such service.

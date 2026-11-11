@@ -527,7 +527,7 @@ pub fn compose(
         controller.add(split_tunnel(split, own, &registry));
     }
 
-    list_modules(paths, config, &registry, hooks.game_modules())?;
+    list_modules(paths, config, &registry, hooks.game_modules(paths, config)?)?;
     controller.set_registry(registry);
     Ok(controller)
 }
@@ -1105,6 +1105,7 @@ mod tests {
             multipliers: None,
             public_port: None,
             dashboard_url: None,
+            version_data: None,
             performance: None,
             linux: None,
             database: None,

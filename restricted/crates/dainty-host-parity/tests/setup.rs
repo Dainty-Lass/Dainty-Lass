@@ -1073,6 +1073,15 @@ max_hunt_servers = 3
             lines2.join("\n")
         );
         let cfg2 = load_host_config(&p2).unwrap().unwrap();
+        // serve reads the 1.14.7 version data where a release ships it (RD27)
+        let shipped = p2.repo.join(dainty_host::hostconfig::DEFAULT_VERSION_DATA);
+        std::fs::create_dir_all(shipped.parent().unwrap()).unwrap();
+        std::fs::copy(
+            Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("../../modules/rustic-isles/version-data/1.14.7/version_data.json"),
+            shipped,
+        )
+        .unwrap();
         drop(dainty_host::serve::compose(&p2, &cfg2, false, dainty_host::commands::start::console_printer()).unwrap());
     }
 }

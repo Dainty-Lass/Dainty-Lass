@@ -1,7 +1,10 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Silent Spud
+
 //! Shared by both bins' `tests/modules.rs` (DF5): whatever game modules the bin was built with start on the
 //! registry, and stop with it. The bin's Cargo features decide the set, so the verify runs this with none, one and
 //! every module (docs/server-modules.md has the three commands).
-#![allow(clippy::unwrap_used, clippy::expect_used)] // test helpers
+#![allow(clippy::unwrap_used, clippy::expect_used, reason = "a panic is how a test fails")]
 
 use std::collections::BTreeSet;
 

@@ -24,7 +24,7 @@ chat = ["dep:dainty-chat"]
 discord = ["dainty-hostkit/discord"]
 # The game modules compiled in (DF5); 1.14.7 and realms are on by default (RU9/RB14)
 stub-module = ["dainty-controller/stub-module"]
-# The 1.14.7 module; its version data is compiled in when DAINTY_VERSION_DATA names it (build.rs, version_data.rs)
+# The 1.14.7 module; its version data is read at start from the file host.toml names (version_data.rs)
 isles-1-14-7 = ["db-tools", "dep:rustic-isles", "dep:rustic-isles-director", "dep:rustic-isles-gamedata"]
 realms = ["rustic-isles-1-14-7?/realms"]
 # `dainty-host db`, which takes the legacy starter from the version data
@@ -118,6 +118,8 @@ diesel.workspace = true
 dainty-service-kit.workspace = true
 # db migrate's tests: a MongoDB stand-in
 rustic-isles-db = { workspace = true, features = ["test-support"] }
+# The synthetic version_data.json the tests serve with
+rustic-isles-1-14-7 = { workspace = true, features = ["test-support"] }
 
 [lints]
 workspace = true

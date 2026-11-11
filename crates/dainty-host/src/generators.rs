@@ -67,17 +67,18 @@ fn generate(paths: &Paths, kind: GeneratorKind) -> Result<String, String> {
         GeneratorKind::LadyLuckEnrich => BackendStep::LadyLuckEnrich,
         GeneratorKind::PlatinumAndStoragePolicy => BackendStep::PlatinumAndStoragePolicy,
     };
-    crate::version_data::install(&paths.backend_game_data).map_err(|e| {
+    let loaded = crate::version_data::load(paths)?;
+    crate::version_data::install(&loaded, &paths.backend_game_data).map_err(|e| {
         format!(
             "could not install {} in {}: {e}",
             rustic_isles_1_14_7::DATA_FILE,
             paths.backend_game_data.display()
         )
     })?;
-    let data = crate::version_data::load()?;
-    let inputs = data
+    let inputs = loaded
+        .data
         .generator_inputs()
-        .ok_or_else(|| "the compiled-in version_data.json has no rewardCachePlan or storageTokenSeeds".to_owned())?;
+        .ok_or_else(|| format!("{} has no rewardCachePlan or storageTokenSeeds", loaded.path.display()))?;
     let generator_paths = GeneratorPaths {
         raw_game_data: paths.raw_game_data.clone(),
         backend_game_data: paths.backend_game_data.clone(),
@@ -187,13 +188,13 @@ mod tests {
         assert!(!paths.director_game_data.exists());
     }
 
-    #[cfg(all(feature = "isles-1-14-7", not(dainty_version_data)))]
+    #[cfg(feature = "isles-1-14-7")]
     #[test]
     fn a_backend_kind_without_version_data_fails_with_the_load_error() {
         let dir = tempfile::tempdir().unwrap();
         let (paths, result) = run_kind(dir.path(), GeneratorKind::RewardCache);
         assert_eq!(result.code, 1);
-        assert_eq!(result.output, crate::version_data::load().unwrap_err());
+        assert_eq!(result.output, crate::version_data::load(&paths).err().unwrap());
         assert!(!paths.backend_game_data.join(rustic_isles_1_14_7::DATA_FILE).exists());
     }
 }

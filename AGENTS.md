@@ -29,7 +29,7 @@ dependencies.
 | `native/runtime-loader` | The `winmm.dll` the game loads, which loads the Rustic Isles runtime (MIT, clean-room from `docs/port/spec-runtime-loader.md`). A crate of its own outside both workspaces, so workspace-wide `cargo` commands don't cover it |
 | `scripts/` | `replay-capture.mjs` |
 | `docs/` | `architecture.md`, the plans, `port/` (the migration guide, delta and catch-up lists), `security/` for the MIT components (indexed in [`SECURITY_REVIEW.md`](SECURITY_REVIEW.md)) |
-| `restricted/` | The AGPL-3.0-only workspace (`restricted/Cargo.toml`): `crates/` (`dainty-host-parity`, the Node host kit's tests run against the root's `dainty-host`, and the server executables' packages `dainty-server` and `dainty-server-minimal`), `launcher/src-tauri` (Tauri: `dainty-launcher`, `dainty-manager`), `modules/rustic-isles` and `modules/rustic-rifts`, `legacy/` (the 1.4.4 importer), `docker/`, `compose.yaml`, the Tauri backend's language catalogs (`restricted/ui/`), and the hosting, player and Paradox docs. [`restricted/AGENTS.md`](restricted/AGENTS.md) covers them |
+| `restricted/` | The AGPL-3.0-only workspace (`restricted/Cargo.toml`): `crates/` (`dainty-host-parity`, the Node host kit's tests run against the root's `dainty-host`), `launcher/src-tauri` (Tauri: `dainty-launcher`, `dainty-manager`), `modules/rustic-isles` and `modules/rustic-rifts`, `legacy/` (the 1.4.4 importer's oracle), `docker/`, `compose.yaml`, the Tauri backend's language catalogs (`restricted/ui/`), and the hosting, player and Paradox docs. [`restricted/AGENTS.md`](restricted/AGENTS.md) covers them |
 
 **Names.** The app is Dainty Lass, and DaintyLass only where a space can't go (DD1). A crate, binary or module is
 `<prefix>-<module>`: `dainty-` for core modules (`dainty-lass` is the core run at launch, `dainty-dash` the
@@ -46,7 +46,8 @@ Dainty Lass serves one game, Dauntless 1.14.7 (2026-10-31). On the default path 
 maintainer decision 2026-10-28), restricted's `host::serve` runs the compiled-in MIT `rustic-isles-1-14-7` module:
 the backend on port 41000 and `rustic-isles-director` on port 41001 (host.toml's `[ports]` moves them), on `store`
 (SQLite by default, or Postgres).
-restricted's `rustic-isles-plugin` builds the same module as a library with restricted's version data.
+`rustic-isles-1-14-7-plugin` builds the same module as a library. Both read Mystic Paradox's version data at start
+from the file host.toml's `version_data` names (RD27), which the release ships beside the MIT binaries.
 
 The server is one executable (RD26). Every service is a module of `crates/dainty-controller`, composed by `host::serve` from
 the files `setup` writes, and still runnable alone as a hidden `dainty-host <service>` subcommand

@@ -19,8 +19,8 @@ via relative path dependencies (`path = "../crates/<name>"` in `Cargo.toml`, `[w
 
 | Path | What it is |
 | --- | --- |
-| `restricted/` | One cargo workspace, every package of its own in `crates/<package name>`: `dainty-host-parity` (the Node host kit's tests and recorded output, run against the root's MIT `dainty-host`), `server-console` (which builds `dainty-server` and `dainty-host`) and `server-minimal`. Also `launcher/src-tauri` (the Tauri launcher backend: `dainty-launcher`, and `dainty-manager` with the `server-gui` feature, kept where Tauri expects it) and the game modules' crates |
-| `modules/rustic-isles/` | The library the core loads for the 1.14.7 module (`crates/rustic-isles-plugin`, over the root's MIT `rustic-isles-1-14-7`), its version data (`version-data/1.14.7`), the recorded Node goldens replayed against it (`crates/rustic-isles-mit-parity`), the C++ game runtime (`native/runtime`) and CatalogExporter (`native/catalog-exporter`), and the Node reference tree (`reference/1.14.7`). In-tree since RD27, members of this workspace |
+| `restricted/` | One cargo workspace, every package of its own in `crates/<package name>`: `dainty-host-parity` (the Node host kit's tests and recorded output, run against the root's MIT `dainty-host`). The server binaries are the root's `dainty-server` and `dainty-server-minimal` (MIT since RD27). Also `launcher/src-tauri` (the Tauri launcher backend: `dainty-launcher`, and `dainty-manager` with the `server-gui` feature, kept where Tauri expects it) and the game modules' crates |
+| `modules/rustic-isles/` | The 1.14.7 module's version data (`version-data/1.14.7`), the recorded Node goldens replayed against it (`crates/rustic-isles-mit-parity`), the C++ game runtime (`native/runtime`) and CatalogExporter (`native/catalog-exporter`), and the Node reference tree (`reference/1.14.7`). In-tree since RD27, members of this workspace |
 | `modules/rustic-rifts/` | Peer-to-peer realms' AGPL remainder: `ParadoxTransport.dll` (`src/`), and `oracle` (Mystic Paradox's Node vectors replayed against the MIT crates). The `rustic-rifts-*` crates themselves are the root's MIT clean-room ones (`../crates/rustic-rifts-*`, RD27) |
 | `legacy/` | dainty-legacy: the 1.4.4 importer, a workspace of its own (an external plugin `host.toml` pins) |
 | `ui/` | The UI's two AGPL inputs only: the language catalogs (`packages/i18n/catalogs`) and the bridge types the launcher generates (`packages/bridge/src/generated`); `../ui/` (dainty-dash) copies the bridge types in at build time |
@@ -32,7 +32,7 @@ Dainty Lass serves one game, Dauntless 1.14.7 (2026-10-31). On the default path 
 maintainer decision 2026-10-28), `host::serve` runs the compiled-in Rust `isles-1-14-7` backend (port 41000) and
 in-process Director (port 41001; host.toml's `[ports]` moves either) on `store` (SQLite by default, or Postgres), with `isles-1-14-7` and realms
 linked in by the server binaries' `all-modules` feature (DF5). The module is the root's clean-room
-`rustic-isles-1-14-7` (RD27), handed restricted's version data
+`rustic-isles-1-14-7` (RD27), handed restricted's version data at start
 (`modules/rustic-isles/version-data/1.14.7/version_data.json`, kept current by rustic-isles-mit-parity's `version_data` test);
 the AGPL Rust ports it replaced (`isles-core`, `isles-db`, `isles-director`, `isles-chat`) were removed and stay in the
 history. For one release after the cutover (until RB15), the
@@ -45,8 +45,9 @@ alone as a hidden `dainty-host <service>` subcommand (the root's `crates/dainty-
 and `start` use.
 The same services also build as libraries the MIT core `dainty-lass` loads (RD27 phase 2, the root's `*-plugin`
 crates, which the release and Docker build from the root workspace); `compose.rs` links them into restricted's own
-binaries. The root's `dainty-host` compiles in the 1.14.7 version data only when `DAINTY_VERSION_DATA` names it,
-which `.cargo/config.toml` does here, so every binary built in this workspace carries Mystic Paradox's document.
+binaries. No binary carries the 1.14.7 version data: the root's `dainty-host` reads Mystic Paradox's document at
+start from the file `host.toml`'s `version_data` names (default `data/1.14.7/version_data.json` in the server folder,
+where the release and the server image ship it; a checkout falls back to `modules/rustic-isles/version-data/1.14.7`).
 
 **Which workspace a change goes in** follows its licence: anything ported from DR, Paradox or the Reforged Revival
 line, or linking such code, goes here; code that is neither goes in the root workspace as MIT.

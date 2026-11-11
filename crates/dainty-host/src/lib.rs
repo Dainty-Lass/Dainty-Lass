@@ -3,8 +3,8 @@
 
 //! The host kit (`dainty-host`) composed: `hostkit` wired through its hooks to the compiled-in services
 //! (`gateway`, `allowlist`, `content`, `admin`, `chat`), the 1.14.7 module (`rustic-isles-1-14-7`), the
-//! `rustic-isles-db` and `rustic-isles-replay` tools and the game-data generators. The server binaries in
-//! restricted/ run it with the module's version data compiled in (`version_data`).
+//! `rustic-isles-db` and `rustic-isles-replay` tools and the game-data generators. The module's version data is
+//! read at start from the file host.toml names (`version_data`).
 
 pub use dainty_hostkit::{
     HostError, Outcome, captures, cli, envfile, epicinstall, error, gamepack, guarded, hooks, hostconfig, hostfiles,
@@ -168,7 +168,7 @@ mod db_impl {
             skip_invalid: args.skip_invalid,
             game_data_dir,
             allow_remote_postgres,
-            starter: crate::version_data::legacy_starter().map_err(HostError::message)?,
+            starter: crate::version_data::legacy_starter(paths).map_err(HostError::message)?,
         };
 
         let runtime = tokio::runtime::Builder::new_current_thread()
@@ -234,7 +234,7 @@ mod db_impl {
             skip_invalid: args.skip_invalid,
             game_data_dir,
             allow_remote_postgres,
-            starter: crate::version_data::legacy_starter().map_err(HostError::message)?,
+            starter: crate::version_data::legacy_starter(paths).map_err(HostError::message)?,
         };
 
         let runtime = tokio::runtime::Builder::new_current_thread()
@@ -498,7 +498,8 @@ impl hooks::HostHooks for ServicesHostHooks {
     fn install_director_runner(&self, paths: &paths::Paths) -> Result<(), HostError> {
         #[cfg(feature = "isles-1-14-7")]
         if paths.backend_game_data.is_dir() {
-            version_data::install(&paths.backend_game_data).map_err(|e| {
+            let loaded = version_data::load(paths).map_err(HostError::message)?;
+            version_data::install(&loaded, &paths.backend_game_data).map_err(|e| {
                 HostError::message(format!("could not install {}: {e}", rustic_isles_1_14_7::DATA_FILE))
             })?;
         }
@@ -517,6 +518,7 @@ impl hooks::HostHooks for ServicesHostHooks {
 
     fn db_migrate(
         &self,
+        paths: &paths::Paths,
         source_uri: &str,
         db_cfg: &dainty_store::DatabaseConfig,
         dry_run: bool,
@@ -535,7 +537,7 @@ impl hooks::HostHooks for ServicesHostHooks {
                 skip_invalid: false,
                 game_data_dir: None,
                 allow_remote_postgres,
-                starter: version_data::legacy_starter().map_err(HostError::message)?,
+                starter: version_data::legacy_starter(paths).map_err(HostError::message)?,
             };
             let runtime = tokio::runtime::Builder::new_current_thread()
                 .enable_all()
@@ -556,6 +558,7 @@ impl hooks::HostHooks for ServicesHostHooks {
 
     fn db_verify(
         &self,
+        paths: &paths::Paths,
         source_uri: &str,
         db_cfg: &dainty_store::DatabaseConfig,
     ) -> Result<Vec<(String, String)>, HostError> {
@@ -573,7 +576,7 @@ impl hooks::HostHooks for ServicesHostHooks {
                 skip_invalid: false,
                 game_data_dir: None,
                 allow_remote_postgres,
-                starter: version_data::legacy_starter().map_err(HostError::message)?,
+                starter: version_data::legacy_starter(paths).map_err(HostError::message)?,
             };
             let runtime = tokio::runtime::Builder::new_current_thread()
                 .enable_all()
@@ -872,8 +875,23 @@ impl hooks::HostHooks for ServicesHostHooks {
         Ok(())
     }
 
-    fn game_modules(&self) -> Vec<dainty_controller::ModuleFactory> {
-        crate::compose::game_modules()
+    // A server that loads the compiled-in 1.14.7 module refuses to start without its version data (RD27)
+    fn game_modules(
+        &self,
+        paths: &paths::Paths,
+        config: &hostconfig::HostConfig,
+    ) -> Result<Vec<dainty_controller::ModuleFactory>, HostError> {
+        #[cfg(feature = "isles-1-14-7")]
+        {
+            let wanted = config.modules.as_ref().and_then(|m| m.compiled.as_ref());
+            if wanted.is_none_or(|ids| ids.iter().any(|id| id.as_str() == rustic_isles_1_14_7::ID)) {
+                let loaded =
+                    version_data::load_file(&version_data::path(paths, Some(config))).map_err(HostError::message)?;
+                return Ok(crate::compose::game_modules_with(loaded.data));
+            }
+        }
+        let _ = (paths, config);
+        Ok(crate::compose::game_modules())
     }
 
     fn run_service(&self, name: &str, args: &[String]) -> Option<ExitCode> {
@@ -1401,14 +1419,18 @@ fn isles_service_main(name: &'static str, args: &[String]) -> ExitCode {
         },
     );
 
-    let mut spec =
-        match version_data::load().and_then(|data| rustic_isles_1_14_7::spec_with(data).map_err(|e| e.message)) {
-            Ok(spec) => spec,
-            Err(error) => {
-                eprintln!("Configuration: {error}");
-                return ExitCode::FAILURE;
-            }
-        };
+    let Some(found) = paths.as_ref() else {
+        eprintln!("Configuration: could not find the server folder, so not the 1.14.7 version data in it either");
+        return ExitCode::FAILURE;
+    };
+    let loaded = version_data::load_file(&version_data::path(found, host_config.as_ref()));
+    let mut spec = match loaded.and_then(|l| rustic_isles_1_14_7::spec_with(l.data).map_err(|e| e.message)) {
+        Ok(spec) => spec,
+        Err(error) => {
+            eprintln!("Configuration: {error}");
+            return ExitCode::FAILURE;
+        }
+    };
     spec.services = match name {
         "backend" => vec![std::sync::Arc::new(rustic_isles::BackendService)],
         "director" => vec![std::sync::Arc::new(rustic_isles_director::DirectorService::new(
@@ -1852,8 +1874,19 @@ mod tests {
         assert!(parse_service_env_file("backend", &["--env-file".into()], None).is_err());
     }
 
-    // Needs the 1.14.7 version data: restricted/'s CI runs it with DAINTY_VERSION_DATA set
-    #[cfg(all(feature = "db-tools", dainty_version_data))]
+    /// The synthetic 1.14.7 version data at the default path, as a release ships the real one.
+    #[cfg(feature = "db-tools")]
+    fn write_version_data(paths: &paths::Paths) {
+        let file = paths.repo.join(hostconfig::DEFAULT_VERSION_DATA);
+        std::fs::create_dir_all(file.parent().unwrap()).unwrap();
+        std::fs::write(
+            file,
+            rustic_isles_1_14_7::test_support::synthetic_document().to_string(),
+        )
+        .unwrap();
+    }
+
+    #[cfg(feature = "db-tools")]
     #[test]
     fn db_migrate_verify_and_export_mongo_work_with_host_toml_defaults() {
         use crate::cli::{DbArgs, DbCommand, DbExportMongoArgs, DbMigrateArgs, DbVerifyArgs};
@@ -1893,6 +1926,7 @@ mod tests {
             game_address: "100.64.0.1".into(),
             public_port: None,
             dashboard_url: None,
+            version_data: None,
             game_dir: None,
             registration: Registration::Invitecode,
             share_url: None,
@@ -1930,6 +1964,7 @@ mod tests {
             file: FileForm::default(),
         };
         save_host_config(&paths, &cfg).unwrap();
+        write_version_data(&paths);
 
         let mut lines = Vec::new();
         commands::db::run_with(
@@ -1974,7 +2009,7 @@ mod tests {
     /// The defaults may be lent out: Windows hands Hyper-V and WSL blocks of its dynamic range, 61000's among them.
     #[cfg(any(
         all(feature = "gateway", feature = "content"),
-        all(feature = "isles-1-14-7", not(feature = "paradox"), dainty_version_data)
+        all(feature = "isles-1-14-7", not(feature = "paradox"))
     ))]
     fn free_ports() -> hostconfig::ports::PortsConfig {
         let held: Vec<_> = (0..8)
@@ -2021,6 +2056,7 @@ mod tests {
             multipliers: None,
             public_port: None,
             dashboard_url: None,
+            version_data: None,
             performance: None,
             linux: None,
             database: None,
@@ -2045,6 +2081,8 @@ mod tests {
             file: FileForm::default(),
         };
         serve::ensure_server_files(&paths, &c).unwrap();
+        #[cfg(feature = "isles-1-14-7")]
+        write_version_data(&paths);
 
         let mut controller = serve::compose(&paths, &c, false, serve::table_printer()).unwrap();
         controller.start_component("content").await.unwrap();
@@ -2073,7 +2111,7 @@ mod tests {
         controller.shutdown().await;
     }
 
-    #[cfg(all(feature = "isles-1-14-7", not(feature = "paradox"), dainty_version_data))]
+    #[cfg(all(feature = "isles-1-14-7", not(feature = "paradox")))]
     #[tokio::test(flavor = "multi_thread")]
     async fn compose_starts_rust_1_14_7_backend_and_director_without_node_or_mongo() {
         use hostconfig::{DEFAULT_MONGO_URI, FileForm, HostConfig, MongoConfig, Registration, ServerMode};
@@ -2101,6 +2139,7 @@ mod tests {
             multipliers: None,
             public_port: None,
             dashboard_url: None,
+            version_data: None,
             performance: None,
             linux: None,
             database: None,
@@ -2125,6 +2164,7 @@ mod tests {
             file: FileForm::default(),
         };
         serve::ensure_server_files(&paths, &c).unwrap();
+        write_version_data(&paths);
         let repo = Path::new(env!("CARGO_MANIFEST_DIR")).join("..").join("..");
         let repo_paths = paths::Paths::new(&repo);
         std::fs::create_dir_all(&paths.backend_game_data).unwrap();

@@ -49,8 +49,17 @@ fn date(text: &str) -> DateTime<Utc> {
     DateTime::parse_from_rfc3339(text).unwrap().to_utc()
 }
 
+/// A server folder with restricted's 1.14.7 version data where a release ships it (RD27).
 fn host(dir: &TempDir) -> Paths {
+    write(
+        &dir.path().join(dainty_host::hostconfig::DEFAULT_VERSION_DATA),
+        version_data_document(),
+    );
     Paths::new(dir.path())
+}
+
+fn version_data_document() -> String {
+    read(&repo().join("modules/rustic-isles/version-data/1.14.7/version_data.json"))
 }
 
 fn fixtures() -> PathBuf {
@@ -579,7 +588,7 @@ fn generates_all_seven_game_data_steps_in_rust_without_node() {
     );
 
     let mut catalog_rows: Vec<Value> = Vec::new();
-    let version_data: Value = serde_json::from_str(dainty_host::version_data::document().unwrap()).unwrap();
+    let version_data: Value = serde_json::from_str(&version_data_document()).unwrap();
     let selection_ids = version_data["rewardCachePlan"]["selections"]
         .as_array()
         .unwrap()
