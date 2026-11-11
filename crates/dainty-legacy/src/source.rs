@@ -413,9 +413,12 @@ impl Reader<'_> {
                 "it has neither Drizzle's nor Diesel's migration history",
             ));
         };
-        let own = ["sqlite_sequence", "__drizzle_migrations", "__diesel_schema_migrations"];
+        let own = ["__drizzle_migrations", "__diesel_schema_migrations"];
         let known = objects.iter().all(|o| match o.kind.as_str() {
-            "table" => own.contains(&o.name.as_str()) || revived.tables.contains(&o.name),
+            // sqlite_sequence, and the sqlite_stat* tables ANALYZE and PRAGMA optimize leave
+            "table" => {
+                o.name.starts_with("sqlite_") || own.contains(&o.name.as_str()) || revived.tables.contains(&o.name)
+            }
             "trigger" => revived.triggers.contains(&o.name),
             _ => false,
         });

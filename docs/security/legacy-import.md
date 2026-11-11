@@ -57,7 +57,8 @@ Fuzz targets in `fuzz`:
       must be in rollback-journal mode.
 - [ ] The history must be the metagame's: the Diesel versions exactly, or 1 to 31 Drizzle rows (at most 32 read)
       each with the recorded time and the LF or CRLF hash from `revived-1.4.4.toml`.
-- [ ] Every table and trigger must be one the 1.4.4 metagame made, and there is no view; every column read must be
+- [ ] Every table and trigger must be one the 1.4.4 metagame made, or a table of SQLite's own (`sqlite_*`:
+      `sqlite_sequence`, the `sqlite_stat*` tables `ANALYZE` leaves), and there is no view; every column read must be
       there for the history's prefix.
 - [ ] Only named columns of `users`, `account_bans`, `discordlinks`, `invitecodes` (and, for a save, `userapikeys`
       and the cleared tables' counts) are read, each through `CAST`, with the table names quoted.

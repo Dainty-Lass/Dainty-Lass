@@ -204,6 +204,27 @@ async fn objects_columns_and_bookkeeping_it_never_made() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
+async fn sqlite_own_tables_pass_after_analyze() {
+    let dir = tempfile::tempdir().unwrap();
+    let db = dir.path().join("analyzed.db");
+    let mut conn = revived(&db, 31, false);
+    user(&mut conn, "U1", "Alice");
+    exec(&mut conn, "CREATE INDEX users_name ON users (\"name\"); ANALYZE;");
+    assert_eq!(
+        count(
+            &db,
+            "SELECT count(*) AS n FROM sqlite_schema WHERE type = 'table' AND name = 'sqlite_stat1'"
+        ),
+        1
+    );
+    drop(conn);
+    let target = target(dir.path());
+    let report = import(args(Kind::Revived, &db, &target)).await.unwrap();
+    assert_eq!(n(&report, "accounts"), 1);
+    assert!(report.dropped.is_empty(), "{:?}", report.dropped);
+}
+
+#[tokio::test(flavor = "multi_thread")]
 async fn the_store_change_log_is_dropped_and_other_tables_counted() {
     let dir = tempfile::tempdir().unwrap();
     let db = dir.path().join("run-by-dainty.db");
