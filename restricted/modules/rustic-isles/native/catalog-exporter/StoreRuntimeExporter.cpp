@@ -31,7 +31,7 @@
 #if __has_include("SDK.hpp")
 #include "SDK.hpp"
 #else
-#include "../../ParadoxRuntime/SDK.hpp"
+#include "../runtime/SDK.hpp"
 #endif
 #include "ExportPaths.hpp"
 

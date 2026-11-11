@@ -16,7 +16,7 @@
  *     instances — no instanceId is invented, nothing is granted.
  *   - One-shot on a worker thread once GObjects + the catalog are available.
  *
- * Build: see CatalogExporter.vcxproj (reuses the ../../ParadoxRuntime SDK).
+ * Build: see CatalogExporter.vcxproj (reuses the ../runtime SDK).
  * Inject: any standard DLL injector into the running game/dedicated-server process.
  *
  * [1.14.7 2026-10-08] The SDK root is now the 1.14.7 (CL 647472) dump, and every output is written as
