@@ -1,5 +1,10 @@
 # dainty-legacy
 
+> **The importer that ships is now the MIT `crates/dainty-legacy` at the monorepo root**, rewritten clean-room from
+> [`docs/port/spec-legacy-import.md`](../../docs/port/spec-legacy-import.md) (RD27). This workspace stays as its
+> oracle: `cargo test -p dainty-legacy-import --test oracle` runs both importers on every 1.4.4 history and fails on any
+> difference. What follows describes both, since they take the same commands.
+
 Old installs, carried into [Dainty Lass](https://git.silentspud.com/silentspud/dainty-lass). Dainty Lass serves one
 game, Dauntless 1.14.7 on [rustic-isles](https://git.silentspud.com/silentspud/rustic-isles); this plugin is what is
 left of everything older:
@@ -67,7 +72,7 @@ dainty-lass removes now that this exists is [docs/dainty-lass-handover.md](docs/
 | --- | --- |
 | `crates/dainty-legacy-import` | The importers: `revived` (1.4.4 databases and saves), `reforged` (Node kits), `target` (1.14.7 accounts), `cli` |
 | `crates/dainty-legacy-import/sql`, `migrations` | Dauntless Revived's frozen Drizzle history and Diesel baseline, byte for byte |
-| `crates/dainty-legacy` | The plugin and the `dainty-legacy` executable |
+| `crates/dainty-legacy-import/tests/oracle.rs` | The oracle for the root's MIT `crates/dainty-legacy`, which is the plugin and the `dainty-legacy` executable |
 | `fuzz/` | `cargo fuzz` targets, a workspace of its own |
 
 ## Licence

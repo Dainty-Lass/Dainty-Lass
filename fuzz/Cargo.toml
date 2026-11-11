@@ -106,6 +106,10 @@ dainty-store = { path = "../crates/dainty-store" }
 url = "2"
 # plugin_bytes: the stream reader runs on a runtime
 tokio = { version = "1", features = ["rt", "sync", "io-util", "time"] }
+# legacy_database_readers, legacy_host_json: what the legacy importer reads from an old install (spec-legacy-import §12)
+dainty-legacy = { path = "../crates/dainty-legacy" }
+tempfile = "3"
+toml = "0.9"
 
 [[bin]]
 name = "admin_request"
@@ -684,6 +688,20 @@ bench = false
 [[bin]]
 name = "relay_input"
 path = "fuzz_targets/relay_input.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "legacy_database_readers"
+path = "fuzz_targets/legacy_database_readers.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "legacy_host_json"
+path = "fuzz_targets/legacy_host_json.rs"
 test = false
 doc = false
 bench = false

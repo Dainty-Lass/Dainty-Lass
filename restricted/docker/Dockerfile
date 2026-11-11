@@ -71,7 +71,7 @@ RUN --mount=type=cache,id=dainty-cargo-registry,target=/usr/local/cargo/registry
  && mkdir -p /out/bin \
  && cp target/release/dainty-host /out/bin/
 # The libraries host.toml can pin (RD27), as the release ships them in plugins/: the 1.14.7 module from restricted/,
-# the services from the MIT root's workspace
+# the services from the MIT root's workspace; and the root's legacy importer, as the release ships it in bin/
 RUN --mount=type=cache,id=dainty-cargo-registry,target=/usr/local/cargo/registry \
     --mount=type=cache,id=dainty-cargo-git,target=/usr/local/cargo/git \
     --mount=type=cache,id=dainty-cargo-target,target=/src/restricted/target \
@@ -79,6 +79,8 @@ RUN --mount=type=cache,id=dainty-cargo-registry,target=/usr/local/cargo/registry
     cargo build --release --locked -p rustic-isles-plugin --lib \
  && cargo build --release --locked --manifest-path ../Cargo.toml \
       -p dainty-content-plugin -p dainty-chat-plugin -p dainty-gateway-plugin --lib \
+ && cargo build --release --locked --manifest-path ../Cargo.toml -p dainty-legacy --bin dainty-legacy \
+ && cp ../target/release/dainty-legacy /out/bin/ \
  && mkdir -p /out/plugins \
  && cp target/release/librustic_isles_plugin.so /out/plugins/ \
  && for lib in dainty_content_plugin dainty_chat_plugin dainty_gateway_plugin; do \

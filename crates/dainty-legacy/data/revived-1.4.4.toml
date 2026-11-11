@@ -1,0 +1,251 @@
+# The Dauntless Revived 1.4.4 metagame's migration history, as facts (spec-legacy-import.md, section 2.1)
+
+# Every table and trigger any 1.4.4 migration leaves behind
+tables = [
+  "account_bans", "account_device_signals", "accountkeyrecovery", "authepochs", "blocks", "bounties", "bountydraft",
+  "breadcrumbs", "characterhistory", "characters", "cooldowns", "device_ban_signals", "discordlinks",
+  "encounteredcontent", "entitlements", "escalationprogression", "escalationtalents", "escalationunlocks",
+  "friendships", "gameserverapikeys", "gameserverapikeystoregister", "guildinvites", "guildmembers", "guilds",
+  "huntpassselection", "huntregions", "inventories", "inventorylog", "inventorytransactions", "invitecodes",
+  "leaderboardprofiles", "loadouthistory", "loadouts", "loadoutslots", "moderation_events", "objectives",
+  "onetimejobs", "player_addresses", "progress_tracks", "progression_events", "recoverychallenges", "recoveryevents",
+  "recoveryproofs", "slayerlinkinvites", "slayerlinks", "storepurchases", "trialruns", "trialweeks", "userapikeys",
+  "userapikeystoregister", "users",
+]
+triggers = ["inventorylog_no_update", "inventorylog_no_delete", "progression_events_no_update",
+  "progression_events_no_delete"]
+
+carried = ["users", "account_bans", "discordlinks", "invitecodes"]
+not_player_data = [
+  "userapikeys", "userapikeystoregister", "gameserverapikeys", "gameserverapikeystoregister", "accountkeyrecovery",
+  "recoveryproofs", "recoverychallenges", "recoveryevents", "authepochs", "onetimejobs", "player_addresses",
+  "moderation_events",
+]
+cleared = [
+  "userapikeystoregister", "gameserverapikeystoregister", "gameserverapikeys", "accountkeyrecovery", "recoveryproofs",
+  "recoverychallenges",
+]
+
+[diesel]
+versions = ["0001"]
+
+[[drizzle]]
+tag = "0000_natural_korg"
+when = 1782098648901
+sha256_lf = "9f62d381d9f555788f610c6504ce3e9ebb3bc8dd84c2a961c4ec03289c078f86"
+sha256_crlf = "79094d02bf5730a3f13458684957a07b17c44ef2428de20d662afc917cdb3b1a"
+[[drizzle]]
+tag = "0001_slow_storm"
+when = 1782160527617
+sha256_lf = "ead368ca0fc85f9df5516b576d298fed5a59ef5884fd54bf43ff8a05ef1b333c"
+sha256_crlf = "60e1cf6235a051ec5fd366e5ed13577f8a727179a64ddc38fecc76d07ee25113"
+[[drizzle]]
+tag = "0002_gorgeous_saracen"
+when = 1782190471658
+sha256_lf = "043c49eb990a78f3d1233183b94c21486e87096112dcd97dad6cb58c41a3efe4"
+sha256_crlf = "1a58b320049a6935dfc06726727bf1c720fa43f3ce56620fe6a93884bdc4fa3d"
+[[drizzle]]
+tag = "0003_slippery_blackheart"
+when = 1782580106809
+sha256_lf = "0544e75878705b030a86624027e69635b3a30c1cb4795594fc7f257d5bf74060"
+sha256_crlf = "0f5fdc192e68f06d72be72c9b19b7f0b827622a4903cd21bdf2ee586c5ee2f79"
+[[drizzle]]
+tag = "0004_silky_lady_mastermind"
+when = 1782581556194
+sha256_lf = "be055ce0a63e1a3ca7d7545432ed5ba92dcc68332925e288398a0f165549a550"
+sha256_crlf = "be055ce0a63e1a3ca7d7545432ed5ba92dcc68332925e288398a0f165549a550"
+[[drizzle]]
+tag = "0005_mighty_zeigeist"
+when = 1782586138792
+sha256_lf = "00c5e606c6969b3eb0fac14cbb6f36f07737afe7a477ecca153f14bfed57bf04"
+sha256_crlf = "9e4ce82c8388c27f7b76811427020426430a5d74e448f449f8b1946e82f93275"
+[[drizzle]]
+tag = "0006_woozy_slipstream"
+when = 1782664386398
+sha256_lf = "06440ff2cdb5681d666c10d66b871fa2629e00ecc3ed27e12b8865a8eacf3a2f"
+sha256_crlf = "b40fd260056b844aae35d492712ebf639b4e1196e38baf2f90ede2b6da4071d9"
+[[drizzle]]
+tag = "0007_last_maximus"
+when = 1783236454860
+sha256_lf = "45d775ee6b347c550b969557a8cff077d690acb6d3830850e0b6e57b97b412c0"
+sha256_crlf = "fb742189b05cfced33f741ae5bace8a13fb03270591b6a745243e3dd0b1e5027"
+[[drizzle]]
+tag = "0008_vengeful_spirit"
+when = 1783285636434
+sha256_lf = "57e80c480d0cda97928716bb767ad66fb4d132d38d74334df8c3955c1b7b5f10"
+sha256_crlf = "57e80c480d0cda97928716bb767ad66fb4d132d38d74334df8c3955c1b7b5f10"
+[[drizzle]]
+tag = "0009_nice_dazzler"
+when = 1783299942758
+sha256_lf = "e28538a731058ee2dfe01f1d6cf6892c782cb0defe84a17e180baa10ddabc69e"
+sha256_crlf = "63020e6a8affced39263ba0815d11f98622de2c40ecb03aa2b55eaa5ebbf944b"
+[[drizzle]]
+tag = "0010_save_history_and_item_log"
+when = 1789991294333
+sha256_lf = "2376503a7aa16ace58087b8525e928fcfa83af3738d120d30c9b64995bd18f57"
+sha256_crlf = "ace5ee936839556276d40742e63278d51d0d084af894aa19d4d91e4ef3eaf06c"
+[[drizzle]]
+tag = "0011_real_progression"
+when = 1789993643640
+sha256_lf = "3f8aa53a838638df5d871d57b878db490acb02a3418f511a86c701075b9602d4"
+sha256_crlf = "f6b47762b562c9cc556877aaf56ae21bf825ae0006a891a2fee1326ec0738eba"
+[[drizzle]]
+tag = "0012_friends_and_blocks"
+when = 1790005698166
+sha256_lf = "27a390ec953be0c889496e6bfe319668aed4943862c7dc7ab5673e731b9cd660"
+sha256_crlf = "e931e66c916bc51f365401c022238012e4ba074b5f3af326d7e11b94d9256c55"
+[[drizzle]]
+tag = "0013_guilds"
+when = 1790048284578
+sha256_lf = "07f3510e595be9e6b53e0970081fa3c40278d18b0c695f151bc11e2b529edc25"
+sha256_crlf = "0084b64c42d38b59fdd7afc814526a3d9f793b067322bf2d4e3fb0ef531b83a7"
+[[drizzle]]
+tag = "0014_escalation"
+when = 1790160221950
+sha256_lf = "4eed5a85fed8296ac842c4fd9af05d4bc5f207105a8f39e7be7f8914c1289f43"
+sha256_crlf = "c034fcf1ca22e33c7ab0e9c14989b8f2cec7442f27c320ecb125558215f554a6"
+[[drizzle]]
+tag = "0015_store_purchases"
+when = 1790161221759
+sha256_lf = "f10ea816686051d7eaec5300d4cdc7f1d14667256f266ffe283f51e74d062434"
+sha256_crlf = "5f1d0fee1c660039147a0a76edc5b3cc4a613551f9fcb0aa2b73b4f004d89636"
+[[drizzle]]
+tag = "0016_slayer_links"
+when = 1790163279299
+sha256_lf = "a51d773dd89f6882a0f538de303d238b1f5c2b18f88e39f238fbc8610167d332"
+sha256_crlf = "5f52e3ef196c5f6d2b966cdef2bd66584991ba7228240f0c12c7ae4ee0ad915b"
+[[drizzle]]
+tag = "0017_discord_links"
+when = 1791000000000
+sha256_lf = "9f4f2ec274c9de8b26885645976cdfe3723462621f6d2d2f71bc39696359e4ae"
+sha256_crlf = "0a87e779c8fbc0358e6d115efca1aa2aa4c242625ab907a831ddaaed1ec5c4f1"
+[[drizzle]]
+tag = "0018_trials_leaderboards"
+when = 1791266400000
+sha256_lf = "8cf487e73e1f39e4d19e4d12495ce1def9762b35034c0dc3a0a74b277dc198f0"
+sha256_crlf = "52146123869bf3ba848b2f11312aa598dd652ce3a9725b70cc739533186ded10"
+[[drizzle]]
+tag = "0019_trials_profiles"
+when = 1791309600000
+sha256_lf = "736b7500beb92fa45b7a1278ca40afeb58ac9e9002bb6f6e0287c0ecf347280b"
+sha256_crlf = "b722ecd07bdaf232bae8ed8cee44f95548153e501123d36d5fcc2557b7a6f3f9"
+[[drizzle]]
+tag = "0020_hunt_regions"
+when = 1791400000000
+sha256_lf = "3ff300ef02d53220f3d864700a3fbccb56bc6be86b5f0dce88b7f367323ea3b6"
+sha256_crlf = "d0af34ad4c880263aa01bd10be901a03ce632d40cdcacc5738432bf46d3fa006"
+[[drizzle]]
+tag = "0021_onetime_jobs"
+when = 1791500000000
+sha256_lf = "3e1df55535cba3fcf7649e65c1a87de26066bbbd95b21d3039939ee2a613a2dd"
+sha256_crlf = "15280502743d3c966bdc1a7b949358e528562ac0fef54317553df4cb86f8624d"
+[[drizzle]]
+tag = "0022_germany_region"
+when = 1791600000000
+sha256_lf = "103082ee0ab5372f7dd3eded1344f0aaffd0fd9dd7d7ae901cd39d4fd8903118"
+sha256_crlf = "14cb1e55bfbb5253c3f17dcaa805a0105f189b88d325095a0491c7c580ba3684"
+[[drizzle]]
+tag = "0023_moderation"
+when = 1791700000000
+sha256_lf = "683ea9c6c0198487048a3e6214976911dd147c90ad011f9b84ada544516e9742"
+sha256_crlf = "58415ed1a095e295269ac647f99614b27c90610fd0255238e2850956ed3f0539"
+[[drizzle]]
+tag = "0024_ephemeral_addresses"
+when = 1791800000000
+sha256_lf = "751b39f3335004c9b751538c323406bfc2de1d294032a22f9aa178f264d30e04"
+sha256_crlf = "ebd22ebe54c1c6ee030e2b62b228c6fb35213dbe5bc8b12d1cd629356b5f0b76"
+[[drizzle]]
+tag = "0025_inventory_expiry_index"
+when = 1791900000000
+sha256_lf = "2d0d6744b64adadca2de23697148d8c801e254f285073f48f8e8f0b2c75a3fd4"
+sha256_crlf = "cfb053967bca92ae8b68c75cc6657cfa478643c9b76f896025c8e0e169e1429d"
+[[drizzle]]
+tag = "0026_account_key_recovery"
+when = 1792000000000
+sha256_lf = "92a003359fdddaaccb45b54d8c21bca077080b51f972941b4d4c83ba131fb398"
+sha256_crlf = "a62c04886163a84c8a65c406b50efa9420d58c1ab3402d82424d0a8f7a41184d"
+[[drizzle]]
+tag = "0027_player_key_rotation"
+when = 1792100000000
+sha256_lf = "2318e9ceac9ec2f02504adf8c6fb929ed0b795e86932f7a92d41dc9d58af0d7a"
+sha256_crlf = "fc2791dc141a027ec91480e415a06c4c9d6eabc337e9405ff0357fec9480c396"
+[[drizzle]]
+tag = "0028_us_region"
+when = 1792200000000
+sha256_lf = "4fc24b136db56ca3a8ea573251277d624024f73fe428a68bc8bbee3162710b50"
+sha256_crlf = "3d4c67b5f7df03d6325b56300ec7e7d92d1867634b4bbf423307623ce059696e"
+[[drizzle]]
+tag = "0029_temporary_bans"
+when = 1792200000001
+sha256_lf = "ae310e8e570c3eea68294959f2d7c4ad674b04c61d1bcd159559f0dbf974379a"
+sha256_crlf = "3b69da6212db32fb90949f8452a65f01529ee65f9276bbe33d1e83d7bbe2c8f6"
+[[drizzle]]
+tag = "0030_device_signals"
+when = 1792200000002
+sha256_lf = "ec8542c0676510d7090b7f5f9a4301757eea3581e686d599191efd232fadcdc7"
+sha256_crlf = "41aebc843dff8455426945f6f22dfd4c090b11b32e728c2dc12fa8599c4afb3e"
+
+[[column]]
+table = "users"
+name = "userId"
+since = 0
+[[column]]
+table = "users"
+name = "name"
+since = 0
+[[column]]
+table = "users"
+name = "notes"
+since = 0
+[[column]]
+table = "users"
+name = "isAdmin"
+since = 8
+[[column]]
+table = "userapikeys"
+name = "userId"
+since = 6
+[[column]]
+table = "userapikeys"
+name = "keyHash"
+since = 6
+[[column]]
+table = "invitecodes"
+name = "invitecode"
+since = 7
+[[column]]
+table = "invitecodes"
+name = "usesRemaining"
+since = 7
+[[column]]
+table = "invitecodes"
+name = "infiniteUses"
+since = 7
+[[column]]
+table = "discordlinks"
+name = "discordId"
+since = 17
+[[column]]
+table = "discordlinks"
+name = "userId"
+since = 17
+[[column]]
+table = "discordlinks"
+name = "linkedAt"
+since = 17
+[[column]]
+table = "account_bans"
+name = "account_id"
+since = 23
+[[column]]
+table = "account_bans"
+name = "reason"
+since = 23
+[[column]]
+table = "account_bans"
+name = "active"
+since = 23
+[[column]]
+table = "account_bans"
+name = "expires_at"
+since = 29

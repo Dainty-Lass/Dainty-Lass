@@ -22,8 +22,10 @@ thiserror.workspace = true
 toml_edit.workspace = true
 
 [dev-dependencies]
+dainty-legacy.workspace = true
 dainty-legacy-import = { path = ".", features = ["test-support"] }
 tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
+toml.workspace = true
 
 [features]
 # Database fixtures built at test time, here and in the module crate

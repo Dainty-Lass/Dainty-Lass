@@ -1110,6 +1110,7 @@ dependencies = [
  "dainty-gateway",
  "dainty-history-ship",
  "dainty-launcher-kit",
+ "dainty-legacy",
  "dainty-module-api",
  "dainty-network",
  "dainty-protocol",
@@ -1142,7 +1143,9 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2 0.11.1",
+ "tempfile",
  "tokio",
+ "toml",
  "toml_edit",
  "url",
 ]
@@ -1188,6 +1191,26 @@ dependencies = [
  "tracing-subscriber",
  "url",
  "windows",
+]
+
+[[package]]
+name = "dainty-legacy"
+version = "0.0.0"
+dependencies = [
+ "chrono",
+ "dainty-module-api",
+ "dainty-store",
+ "diesel",
+ "diesel_migrations",
+ "hex",
+ "rustic-isles-db",
+ "serde",
+ "serde_json",
+ "sha2 0.11.1",
+ "tempfile",
+ "thiserror",
+ "tokio",
+ "toml",
 ]
 
 [[package]]
@@ -5010,10 +5033,12 @@ version = "0.9.12+spec-1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cf92845e79fc2e2def6a5d828f0801e29a2f8acc037becc5ab08595c7d5e9863"
 dependencies = [
+ "indexmap 2.14.2",
  "serde_core",
  "serde_spanned",
  "toml_datetime 0.7.5+spec-1.1.0",
  "toml_parser",
+ "toml_writer",
  "winnow 0.7.15",
 ]
 
