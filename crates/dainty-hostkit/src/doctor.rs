@@ -1065,10 +1065,19 @@ pub fn run_doctor(p: &Paths, opts: &DoctorOptions) -> Result<Vec<Check>, HostErr
             fix: None,
         });
     } else {
+        // start copies it beside the game executable; with a game folder set, the game servers exit at start without it
+        let servers = config.game_dir.as_deref().is_some_and(|d| !d.trim().is_empty());
         checks.push(Check {
             area: "runtime",
-            level: Level::Warn,
-            text: format!("published runtime is missing in {}", p.runtime_publish.display()),
+            level: if servers { Level::Fail } else { Level::Warn },
+            text: if servers {
+                format!(
+                    "published runtime is missing in {}: every game server exits at start",
+                    p.runtime_publish.display()
+                )
+            } else {
+                format!("published runtime is missing in {}", p.runtime_publish.display())
+            },
             fix: Some("run dainty-host publish-runtime".to_owned()),
         });
     }
