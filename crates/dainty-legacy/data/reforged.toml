@@ -1,0 +1,90 @@
+# The Node kit's host.json keys and old folders, for the reforged upgrade (spec-legacy-import.md, section 11)
+
+retired_keys = ["edition", "legacyGameDir", "legacyPublicPort"]
+retired_modules = ["revived-1-4-4", "isles-1-12-0"]
+
+header = """
+# This server's settings (dainty-host), moved here from the Node kit's host.json by dainty-legacy. Edit them
+# here, then run `dainty-host setup` again to apply them; setup keeps your comments and every value it does not
+# change. A setting that is left out takes its default. The secrets are not here: they are in secrets.env.
+"""
+
+top = [
+  ["version", "version"], ["mode", "mode"], ["host", "host"], ["gameAddress", "game_address"], ["name", "name"],
+  ["gameDir", "game_dir"], ["registration", "registration"], ["shareUrl", "share_url"], ["mongo", "mongo"],
+  ["maxHuntServers", "max_hunt_servers"], ["multipliers", "multipliers"], ["publicPort", "public_port"],
+  ["performance", "performance"], ["linux", "linux"], ["database", "database"], ["guard", "guard"],
+  ["history", "history"], ["switches", "switches"], ["network", "network"], ["remote", "remote"],
+  ["modules", "modules"],
+]
+# The host kit's SECRET_KEYS, and the old name each was written under
+secret_keys = [
+  "GATEWAY_SECRET", "ALLOWLIST_SECRET", "DAINTY_ADMIN_KEY", "GAMESERVER_API_KEY", "API_KEY_HASH_SECRET",
+  "RUSTIC_ISLES_METRICS_TOKEN", "AUTH_SIGNING_PRIVKEY_B64", "AUTH_SIGNING_PUBKEY_B64", "DAINTY_ADMIN_API_KEY",
+  "RUSTIC_ISLES_MANAGER_OPERATOR_SECRET", "DAINTY_DB_PASSWORD",
+]
+# Folder moves, in order: the pre-submodule layout, then the Node kit's upstream clone. `<sdk>` expands to each of
+# SDK.hpp, Assertions.inl, NameCollisions.inl, PropertyFixup.hpp, UnrealContainers.hpp, UtfN.hpp
+sdk_files = ["SDK.hpp", "Assertions.inl", "NameCollisions.inl", "PropertyFixup.hpp", "UnrealContainers.hpp", "UtfN.hpp"]
+moves = [
+  ["native/runtime/<sdk>", "modules/rustic-isles/native/runtime/<sdk>"],
+  ["native/runtime/SDK", "modules/rustic-isles/native/runtime/SDK"],
+  ["native/runtime/x64", "modules/rustic-isles/native/runtime/x64"],
+  ["native/catalog-exporter/x64", "modules/rustic-isles/native/catalog-exporter/x64"],
+  ["paradox/Items_Analysis", "modules/rustic-isles/reference/1.14.7/Items_Analysis"],
+  ["paradox/ParadoxBackend/game-data", "modules/rustic-isles/reference/1.14.7/ParadoxBackend/game-data"],
+  ["paradox/ParadoxDirector/game-data", "modules/rustic-isles/reference/1.14.7/ParadoxDirector/game-data"],
+  [".workspace/Mystic-Paradox/MysticParadox/<sdk>", "modules/rustic-isles/native/runtime/<sdk>"],
+  [".workspace/Mystic-Paradox/MysticParadox/SDK", "modules/rustic-isles/native/runtime/SDK"],
+  [".workspace/Mystic-Paradox/MysticParadox/x64", "modules/rustic-isles/native/runtime/x64"],
+  [".workspace/Mystic-Paradox/CatalogExporter/x64", "modules/rustic-isles/native/catalog-exporter/x64"],
+  [".workspace/Mystic-Paradox/Items_Analysis", "modules/rustic-isles/reference/1.14.7/Items_Analysis"],
+  [".workspace/Mystic-Paradox/ParadoxBackend/game-data", "modules/rustic-isles/reference/1.14.7/ParadoxBackend/game-data"],
+  [".workspace/Mystic-Paradox/ParadoxDirector/game-data", "modules/rustic-isles/reference/1.14.7/ParadoxDirector/game-data"],
+]
+old_folders = [".workspace/Mystic-Paradox", "paradox", "native/runtime", "native/catalog-exporter"]
+
+# `modules` is free-form; these are the tables, each [json, toml] in host.toml's order
+[keys]
+mongo = [["uri", "uri"], ["manage", "manage"], ["mongod", "mongod"]]
+multipliers = [["xp", "xp"], ["rewards", "rewards"]]
+performance = [
+  ["serverFps", "server_fps"], ["idleFps", "idle_fps"], ["trainingOnDemand", "training_on_demand"],
+  ["trainingIdleMinutes", "training_idle_minutes"], ["verboseGameLogs", "verbose_game_logs"],
+  ["memoryGuard", "memory_guard"], ["minFreeMemoryMb", "min_free_memory_mb"], ["huntMemoryMb", "hunt_memory_mb"],
+]
+linux = [["wine", "wine"], ["proton", "proton"], ["xvfb", "xvfb"], ["firewallInterface", "firewall_interface"]]
+database = [
+  ["engine", "engine"], ["postgresHost", "postgres_host"], ["postgresPort", "postgres_port"],
+  ["postgresUser", "postgres_user"], ["postgresDatabase", "postgres_database"], ["allowRemote", "allow_remote"],
+  ["freshStart", "fresh_start"],
+]
+guard = [
+  ["banLimit", "ban_limit"], ["banWindowMinutes", "ban_window_minutes"], ["banGuard", "ban_guard"],
+  ["revertLimit", "revert_limit"], ["revertGuard", "revert_guard"], ["revokeGuard", "revoke_guard"],
+  ["delayMinutes", "delay_minutes"], ["expireHours", "expire_hours"],
+]
+history = [["shipToPeer", "ship_to_peer"]]
+switches = [
+  ["reforge", "reforge"], ["masteryPersistence", "mastery_persistence"], ["bountyPersistence", "bounty_persistence"],
+  ["cooldownPersistence", "cooldown_persistence"], ["accountErasure", "account_erasure"], ["logPurge", "log_purge"],
+  ["rateLimit", "rate_limit"], ["rateLimitPerMinute", "rate_limit_per_minute"],
+  ["gameserverRateLimitPerMinute", "gameserver_rate_limit_per_minute"],
+  ["hostRateLimitPerMinute", "host_rate_limit_per_minute"],
+]
+network = [
+  ["node", "node"], ["region", "region"], ["leader", "leader"], ["wrongNodePolicy", "wrong_node_policy"],
+  ["nodes", "nodes"],
+]
+remote = [
+  ["role", "role"], ["node", "node"], ["region", "region"], ["controllerUrl", "controller_url"],
+  ["controllerNode", "controller_node"], ["controllerCertFp", "controller_cert_fp"],
+  ["syncIntervalSecs", "sync_interval_secs"], ["label", "label"], ["localOverrides", "local_overrides"],
+]
+
+[secret_renames]
+DAINTY_ADMIN_KEY = "REFORGED_ADMIN_KEY"
+DAINTY_ADMIN_API_KEY = "REFORGED_ADMIN_API_KEY"
+DAINTY_DB_PASSWORD = "REFORGED_DB_PASSWORD"
+RUSTIC_ISLES_METRICS_TOKEN = "MYSTICPARADOX_METRICS_TOKEN"
+RUSTIC_ISLES_MANAGER_OPERATOR_SECRET = "MYSTICPARADOX_MANAGER_OPERATOR_SECRET"
