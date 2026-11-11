@@ -267,7 +267,9 @@ logged. The answer depends on the version's `patchnotes_release_version` table v
   starting `season` ASCII case-insensitively; none: warning `Progression config: no season template found; recent
   seasons not added` and stop. The **existing** ids are the string `progression_id`s of the paths now. For each listed
   season not among the existing ids, a copy of the template with `progression_id` set to the season and its window
-  set to the future window (set as above, in place) is appended to `paths`. The existing set is not updated, so a
+  set to the future window (set as above, in place) is appended to `paths`; the copy for `A` itself gets the rolling
+  window instead, logged (info) `Hunt pass windows: '{A}' added from the template, {start}..{end}` (Rust departs from
+  Node, 2026-11-10: a file without `A` otherwise leaves the client no active season). The existing set is not updated, so a
   season listed twice is added twice (as Node). Added any: info `Progression config: added {n} recent season paths
   with future windows ({ids joined ", "})`.
 

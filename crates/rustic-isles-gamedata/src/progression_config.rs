@@ -144,13 +144,23 @@ pub fn widen_huntpass_windows(mut config: Value, tables: &VersionTables, setting
         if existing.contains(&season) {
             continue;
         }
+        // The served pass gets the current window, not the future one: a capture without it (the public one stops at
+        // season27) otherwise leaves the client no active season, and Ramsgate kicks the player (departs from Node).
+        let (from, to) = if season == active {
+            (start.as_str(), end.as_str())
+        } else {
+            (FUTURE_START, FUTURE_END)
+        };
         let mut copy = template.clone();
         if let Some(object) = copy.as_object_mut() {
             set(object, "progression_id", &season);
-            set(object, "start_date", FUTURE_START);
-            set(object, "end_date", FUTURE_END);
+            set(object, "start_date", from);
+            set(object, "end_date", to);
         }
         paths.push(copy);
+        if season == active {
+            tracing::info!("Hunt pass windows: '{active}' added from the template, {start}..{end}");
+        }
         added.push(season);
     }
     if !added.is_empty() {
@@ -288,5 +298,20 @@ mod tests {
         let p = paths(&out);
         assert_eq!(keys(&p[0]), ["progression_id", "end_date", "start_date"]);
         assert_eq!(keys(&p[1]), ["progression_id", "start_date", "end_date"]);
+    }
+
+    #[test]
+    fn missing_served_pass_is_added_open() {
+        // The public capture stops at season27, so season43 comes from the template.
+        let old =
+            json!({"payload": {"paths": [path("season27", "2024-01-01T00:00:00+00:00", "2024-03-01T00:00:00+00:00")]}});
+        let p = paths(&widen_huntpass_windows(old, &TABLES, &Settings::default(), now()));
+        assert_eq!(p.len(), 4);
+        assert_eq!(
+            p[1],
+            path("season43", "2026-07-30T17:00:00+00:00", "2026-10-22T17:00:00+00:00")
+        );
+        assert_eq!(p[2], path("season44", FUTURE_START, FUTURE_END));
+        assert_eq!(p[3], path("season45", FUTURE_START, FUTURE_END));
     }
 }
