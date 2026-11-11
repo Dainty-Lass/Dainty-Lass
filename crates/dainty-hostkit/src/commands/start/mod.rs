@@ -13,7 +13,7 @@ use std::time::Duration;
 use crate::Outcome;
 use crate::doctor::{
     Level, REBORN_BUILD, game_exe_checks, linux_checks, network_checks, port_in_use as raw_port_in_use,
-    port_owner_hint, store_database_check,
+    port_owner_hint, store_database_check, unfinished_install_check,
 };
 use crate::error::HostError;
 use crate::gamedata::{BACKEND_GAME_DATA, DIRECTOR_GAME_DATA, GameDataKind, game_data_state, seed_embedded_examples};
@@ -353,7 +353,9 @@ pub fn preflight_with(paths: &Paths, config: &HostConfig, external_allowlist: bo
     }
 
     if let Some(ref game_dir) = config.game_dir {
-        let gchecks = game_exe_checks(Some(game_dir), false, &REBORN_BUILD)?;
+        let mut gchecks = game_exe_checks(Some(game_dir), false, &REBORN_BUILD)?;
+        let epic_data = crate::epicinstall::Files::of(paths).data;
+        gchecks.extend(unfinished_install_check(&epic_data, Path::new(game_dir), &REBORN_BUILD));
         if let Some(fail) = gchecks.iter().find(|c| c.level == Level::Fail) {
             return Err(HostError::message(fail.text.clone()));
         }

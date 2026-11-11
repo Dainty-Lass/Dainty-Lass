@@ -18,7 +18,9 @@ use crate::hostconfig::{
     is_tailscale_ipv4, linux_options, load_host_config, node_database_config, performance_options,
 };
 use crate::mongo::{MongoCheck, MongoProblem, ReplicaSetOptions, ensure_replica_set};
-use crate::paths::{GAME_VERSION_TEXT, PINNED_EXE_SHA256, Paths, RUNTIME_FILE_NAMES, game_exe_relative};
+use crate::paths::{
+    GAME_VERSION_TEXT, PINNED_EXE_SHA256, Paths, RUNTIME_FILE_NAMES, game_exe_relative, strip_verbatim,
+};
 use crate::run::capture;
 
 /// How a check came out.
@@ -318,13 +320,24 @@ pub fn game_exe_checks(game_dir: Option<&str>, hash_exe: bool, build: &GameBuild
     let raw_version = fs::read_to_string(&version_file).unwrap_or_default();
     let text = raw_version.strip_prefix('\u{feff}').unwrap_or(&raw_version).trim();
     if text != build.version_text {
-        let shown = if text.is_empty() { "nothing" } else { text };
+        let shown = if text.trim_matches('\0').is_empty() && !text.is_empty() {
+            "only zero bytes: the install did not finish".to_owned()
+        } else if text.is_empty() {
+            "\"nothing\"".to_owned()
+        } else {
+            format!("\"{text}\"")
+        };
         out.push(Check {
             area,
             level: Level::Fail,
-            text: format!("Version.txt says \"{shown}\", not {}", build.version_text),
+            text: format!("Version.txt says {shown}, not {}", build.version_text),
             fix: Some(build.get_it.to_owned()),
         });
+        return Ok(out);
+    }
+
+    if let Some(check) = pak_footer_check(dir, build) {
+        out.push(check);
         return Ok(out);
     }
 
@@ -358,6 +371,97 @@ pub fn game_exe_checks(game_dir: Option<&str>, hash_exe: bool, build: &GameBuild
     }
 
     Ok(out)
+}
+
+/// Every Unreal pak footer holds this magic (`0x5A6F12E1`, little-endian) within its last 256 bytes.
+const PAK_MAGIC: [u8; 4] = [0xE1, 0x12, 0x6F, 0x5A];
+
+/// A failure when `dir`'s paks are missing or a footer lacks the pak magic. An interrupted `install-game` leaves
+/// files at their full size but zero-filled, and the executable can be whole while they are not (2026-11-10).
+/// Reads 256 bytes a pak, so it stays fast.
+pub fn pak_footer_check(dir: &Path, build: &GameBuild<'_>) -> Option<Check> {
+    let paks_dir = dir.join("Archon").join("Content").join("Paks");
+    let mut paks: Vec<_> = fs::read_dir(&paks_dir)
+        .map(|entries| {
+            entries
+                .flatten()
+                .map(|e| e.path())
+                .filter(|p| p.is_file() && p.extension().is_some_and(|x| x.eq_ignore_ascii_case("pak")))
+                .collect()
+        })
+        .unwrap_or_default();
+    paks.sort();
+    let fail = |text| Check {
+        area: "game",
+        level: Level::Fail,
+        text,
+        fix: Some(format!("{} (it resumes an unfinished install)", build.get_it)),
+    };
+    if paks.is_empty() {
+        return Some(fail(format!("no pak files in {}", paks_dir.display())));
+    }
+    let bad: Vec<_> = paks.iter().filter(|p| !pak_footer_ok(p)).collect();
+    let first = bad.first()?;
+    Some(fail(format!(
+        "{} of {} pak files are incomplete (first: {})",
+        bad.len(),
+        paks.len(),
+        first.file_name().unwrap_or_default().to_string_lossy()
+    )))
+}
+
+fn pak_footer_ok(pak: &Path) -> bool {
+    use std::io::{Seek, SeekFrom};
+    let read = || -> std::io::Result<Vec<u8>> {
+        let mut f = File::open(pak)?;
+        let len = f.metadata()?.len();
+        f.seek(SeekFrom::Start(len.saturating_sub(256)))?;
+        let mut tail = Vec::with_capacity(256);
+        f.take(256).read_to_end(&mut tail)?;
+        Ok(tail)
+    };
+    read().is_ok_and(|tail| contains_subslice(&tail, &PAK_MAGIC))
+}
+
+/// A failure when `install-game` left a resume file for `game_dir` in `epic_data`: the install stopped halfway.
+pub fn unfinished_install_check(epic_data: &Path, game_dir: &Path, build: &GameBuild<'_>) -> Option<Check> {
+    let same = |folder: &str| {
+        let (a, b) = (strip_verbatim(Path::new(folder)), strip_verbatim(game_dir));
+        if cfg!(windows) {
+            a.to_string_lossy().to_lowercase() == b.to_string_lossy().to_lowercase()
+        } else {
+            a == b
+        }
+    };
+    let entries = fs::read_dir(epic_data).ok()?;
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if path.extension().is_none_or(|x| x != "resume") {
+            continue;
+        }
+        // The header is the first three lines (dainty-epic's resume.rs); the rest can run to 600 KB
+        let mut head = Vec::new();
+        if File::open(&path)
+            .and_then(|f| f.take(4096).read_to_end(&mut head))
+            .is_err()
+        {
+            continue;
+        }
+        let head = String::from_utf8_lossy(&head);
+        let mut lines = head.lines();
+        if lines.next() != Some("dainty-lass epic resume 1") {
+            continue;
+        }
+        if lines.take(2).filter_map(|l| l.strip_prefix("folder ")).any(same) {
+            return Some(Check {
+                area: "game",
+                level: Level::Fail,
+                text: format!("install-game has not finished installing into {}", game_dir.display()),
+                fix: Some(format!("{} (it resumes where it stopped)", build.get_it)),
+            });
+        }
+    }
+    None
 }
 
 fn contains_subslice(haystack: &[u8], needle: &[u8]) -> bool {
@@ -961,15 +1065,28 @@ pub fn run_doctor(p: &Paths, opts: &DoctorOptions) -> Result<Vec<Check>, HostErr
             fix: None,
         });
     } else {
+        // start copies it beside the game executable; with a game folder set, the game servers exit at start without it
+        let servers = config.game_dir.as_deref().is_some_and(|d| !d.trim().is_empty());
         checks.push(Check {
             area: "runtime",
-            level: Level::Warn,
-            text: format!("published runtime is missing in {}", p.runtime_publish.display()),
+            level: if servers { Level::Fail } else { Level::Warn },
+            text: if servers {
+                format!(
+                    "published runtime is missing in {}: every game server exits at start",
+                    p.runtime_publish.display()
+                )
+            } else {
+                format!("published runtime is missing in {}", p.runtime_publish.display())
+            },
             fix: Some("run dainty-host publish-runtime".to_owned()),
         });
     }
 
     checks.extend(game_checks(config.game_dir.as_deref(), opts.hash_exe)?);
+    if let Some(dir) = config.game_dir.as_deref().map(str::trim).filter(|d| !d.is_empty()) {
+        let epic_data = crate::epicinstall::Files::of(p).data;
+        checks.extend(unfinished_install_check(&epic_data, Path::new(dir), &REBORN_BUILD));
+    }
 
     let published_dll = p.runtime_publish.join("Rustic-Isles.dll");
     let dll_to_check = if published_dll.is_file() {
@@ -1127,8 +1244,57 @@ mod tests {
         )
         .unwrap();
 
-        let checks = game_checks(Some(&tmp.path().to_string_lossy()), false).unwrap();
-        assert!(checks.iter().all(|c| c.level == Level::Ok));
+        let dir = tmp.path().to_string_lossy().into_owned();
+        let checks = game_checks(Some(&dir), false).unwrap();
+        assert!(checks.last().unwrap().text.starts_with("no pak files"), "{checks:?}");
+
+        let paks = tmp.path().join("Archon").join("Content").join("Paks");
+        fs::create_dir_all(&paks).unwrap();
+        let mut whole = vec![7u8; 4096];
+        whole.splice(4096 - 204..4096 - 200, PAK_MAGIC);
+        fs::write(paks.join("pakchunk0-WindowsNoEditor.pak"), &whole).unwrap();
+        fs::write(paks.join("pakchunk1-WindowsNoEditor.pak"), &whole).unwrap();
+        let checks = game_checks(Some(&dir), false).unwrap();
+        assert!(checks.iter().all(|c| c.level == Level::Ok), "{checks:?}");
+
+        // An interrupted install-game: full size, zero-filled
+        fs::write(paks.join("pakchunk1-WindowsNoEditor.pak"), vec![0u8; 4096]).unwrap();
+        let checks = game_checks(Some(&dir), false).unwrap();
+        let last = checks.last().unwrap();
+        assert_eq!(last.level, Level::Fail);
+        assert_eq!(
+            last.text,
+            "1 of 2 pak files are incomplete (first: pakchunk1-WindowsNoEditor.pak)"
+        );
+
+        fs::write(tmp.path().join("Version.txt"), [0u8; 64]).unwrap();
+        let checks = game_checks(Some(&dir), false).unwrap();
+        assert!(
+            checks[0].text.starts_with("Version.txt says only zero bytes"),
+            "{checks:?}"
+        );
+    }
+
+    #[test]
+    fn unfinished_install_game_is_a_failure() {
+        let tmp = TempDir::new().unwrap();
+        let (epic, game) = (tmp.path().join("epic"), tmp.path().join("game"));
+        assert!(unfinished_install_check(&epic, &game, &REBORN_BUILD).is_none());
+        fs::create_dir_all(&epic).unwrap();
+        let other = format!(
+            "dainty-lass epic resume 1\nmanifest ab\nfolder {}\nc 00\n",
+            tmp.path().join("x").display()
+        );
+        fs::write(epic.join("1.14.7.resume"), other).unwrap();
+        assert!(unfinished_install_check(&epic, &game, &REBORN_BUILD).is_none());
+        let ours = format!(
+            "dainty-lass epic resume 1\nmanifest ab\nfolder {}\nc 00\n",
+            game.display()
+        );
+        fs::write(epic.join("1.14.7.resume"), ours).unwrap();
+        let check = unfinished_install_check(&epic, &game, &REBORN_BUILD).unwrap();
+        assert_eq!(check.level, Level::Fail);
+        assert!(check.text.starts_with("install-game has not finished"));
     }
 
     #[test]
