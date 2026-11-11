@@ -891,8 +891,22 @@ async fn the_owner_check_serves_only_the_games_connections() {
     let qos = send(relay.qos_port().unwrap(), &get("/qos", "")).await;
     assert_eq!(qos.status, 200);
 
+    // A connection that sends nothing before it closes is refused without a word
+    let (socket, row) = bound_socket(GAME + 2, port);
+    *table.0.lock().unwrap() = row;
+    drop(connect(socket, port).await);
+    let after = send(relay.qos_port().unwrap(), &get("/qos", "")).await;
+    assert_eq!(after.status, 200);
+
     assert_eq!(fake.seen().len(), 1);
-    assert_eq!(heard.lines().iter().filter(|l| l.contains("not the game's")).count(), 2);
+    let refused: Vec<String> = heard
+        .lines()
+        .into_iter()
+        .filter(|l| l.contains("not the game's"))
+        .collect();
+    assert_eq!(refused.len(), 2, "{refused:?}");
+    assert!(refused[0].contains("refused GET /other from 127.0.0.1:"), "{refused:?}");
+    assert!(refused[1].contains("refused GET /ws from"), "{refused:?}");
     heard.assert_no_key();
 }
 

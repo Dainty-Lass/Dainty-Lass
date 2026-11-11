@@ -80,6 +80,8 @@ pub const GAME_LOG_LINES: usize = 5000;
 pub const NEWS_INTERVAL: Duration = Duration::from_secs(60);
 /// The default status poll interval.
 pub const STATUS_POLL_INTERVAL: Duration = Duration::from_secs(15);
+/// The most poll ticks skipped between checks of a server that stays unreachable: 5 minutes at 15 s.
+pub const UNREACHABLE_MAX_SKIP: u32 = 19;
 
 /// What the app hands the controller (§2.1.2 step 9).
 pub struct ControllerConfig {
@@ -152,6 +154,9 @@ pub(crate) struct State {
     pub(crate) tailscale_installed: bool,
     pub(crate) last_checked_at: Option<String>,
     pub(crate) failed_polls: u32,
+    /// Checks in a row that did not reach the server, and the poll ticks to skip before the next one.
+    pub(crate) failed_checks: u32,
+    pub(crate) skip_ticks: u32,
     pub(crate) status: Option<ServerStatus>,
     pub(crate) status_unsupported: bool,
     pub(crate) has_key: bool,
@@ -201,6 +206,8 @@ impl State {
             tailscale_installed: false,
             last_checked_at: None,
             failed_polls: 0,
+            failed_checks: 0,
+            skip_ticks: 0,
             status: None,
             status_unsupported: false,
             has_key: false,
@@ -252,6 +259,8 @@ impl State {
         self.branding = None;
         self.key_refused = false;
         self.failed_polls = 0;
+        self.failed_checks = 0;
+        self.skip_ticks = 0;
         self.manifest = None;
         self.generation += 1;
     }

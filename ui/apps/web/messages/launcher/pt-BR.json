@@ -68,7 +68,7 @@
     },
     "hints": {
       "tailscale_missing": "Este é um servidor privado numa rede Tailscale. Instale o Tailscale e aceite o compartilhamento do host.",
-      "unreachable": "Ele pode estar offline, ou sua rede o bloqueia. Fale com o host.",
+      "unreachable": "Ele pode estar offline, ou sua rede o bloqueia. Se o host mudou o servidor de endereço ou de porta, peça um novo convite a ele.",
       "bad_answer": "Algo respondeu, mas não é um servidor em que este launcher consiga entrar.",
       "cert_mismatch": "Alguém pode estar entre você e o servidor. Pergunte ao host antes de continuar."
     }
