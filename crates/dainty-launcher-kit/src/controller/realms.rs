@@ -10,7 +10,7 @@
 //! `rifts-host`, `p2p-sessions/`, or the spawned dedicated server's environment.
 
 use std::collections::HashMap;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError, Weak};
 use std::time::Duration;
 
@@ -21,7 +21,7 @@ use rustic_rifts_host::{
     LocalSession, LocalState, NativeTransportLoader, NoopServerSpawner, PeerListEntry, RealmHosting, ServerSpawner,
     SessionResult, Signal, TransportAbi, TransportConfig, TransportLoader, default_max_servers, wire_session_id,
 };
-use rustic_rifts_seam::{AccountId, GlobalId, HubKind, NodeId, Secret, SessionId, Ulid};
+use rustic_rifts_seam::{ADMISSION_KEY_PATH, AccountId, GlobalId, HubKind, NodeId, Secret, SessionId, Ulid};
 use serde_json::{Value, json};
 
 use super::{Controller, Shared, now_iso};
@@ -63,6 +63,20 @@ struct ActiveRealms {
 pub struct RealmsState {
     inner: tokio::sync::Mutex<Option<ActiveRealms>>,
     seams: Mutex<Option<RealmsSeams>>,
+    /// The server `realm_get` last asked for the admission key, so polling asks once.
+    key_asked: Mutex<Option<String>>,
+}
+
+/// The 64 bytes in an [`ADMISSION_KEY_PATH`] answer's `publicXy`, strict standard base64.
+fn admission_key_of(body: &[u8]) -> Option<[u8; 64]> {
+    use base64::Engine as _;
+    let answer: Value = serde_json::from_slice(body).ok()?;
+    let text = answer.get("publicXy")?.as_str()?;
+    base64::engine::general_purpose::STANDARD
+        .decode(text)
+        .ok()?
+        .try_into()
+        .ok()
 }
 
 fn map_host_error(error: HostError) -> (ErrorCode, String) {
@@ -898,6 +912,44 @@ impl Controller {
         AccountId(id)
     }
 
+    /// Writes the server's admission key beside the game when it differs; nothing else installs it, as the runtime
+    /// manifest and the invite keep their format. Any other answer leaves the folder as it is.
+    async fn sync_admission_key(&self, win64: &Path) {
+        let (Some(server), Some(key)) = (self.server(), self.load_key().await) else {
+            return;
+        };
+        let endpoint = server.endpoint();
+        let options = RequestOptions {
+            method: Method::GET,
+            headers: key_headers(&endpoint, Some(&key)),
+            body: None,
+            timeout: Duration::from_secs(10),
+            max_bytes: 4096,
+            cancel: None,
+        };
+        let reply = match request(&endpoint, ADMISSION_KEY_PATH, options).await {
+            Ok(reply) if reply.status == 200 => reply,
+            _ => return,
+        };
+        let Some(xy) = admission_key_of(&reply.body) else {
+            log::warn("realm admission key: the server's answer holds no 64-byte key");
+            return;
+        };
+        let target = win64.join(ADMISSION_PUBLIC_KEY_FILE);
+        if std::fs::read(&target).is_ok_and(|held| held == xy) {
+            return;
+        }
+        let staged = win64.join(format!("{ADMISSION_PUBLIC_KEY_FILE}.rr-download"));
+        let written = std::fs::write(&staged, xy).and_then(|()| std::fs::rename(&staged, &target));
+        match written {
+            Ok(()) => log::info("realm admission key written from the server"),
+            Err(error) => {
+                let _ = std::fs::remove_file(&staged);
+                log::warn(format!("realm admission key not written: {error}"));
+            }
+        }
+    }
+
     async fn ensure_realms_ready(&self) -> Result<(), LauncherError> {
         if self.lock().shutting_down {
             return Err(LauncherError::new(ErrorCode::Cancelled));
@@ -917,6 +969,7 @@ impl Controller {
                 &leftovers.join(", "),
             )));
         }
+        self.sync_admission_key(&win64).await;
         let pubkey_path = win64.join(ADMISSION_PUBLIC_KEY_FILE);
         if !pubkey_path.is_file() {
             return Err(self.refuse(LauncherError::with_detail(
@@ -976,6 +1029,15 @@ impl Controller {
     async fn build_realm_view(&self) -> Result<RealmView, LauncherError> {
         let guard = self.shared.realms.inner.lock().await;
         let Some(active) = guard.as_ref() else {
+            drop(guard);
+            if let (Some(win64), Some(server)) = (self.win64(), self.server())
+                && !win64.join(ADMISSION_PUBLIC_KEY_FILE).is_file()
+            {
+                let first_ask = lock(&self.shared.realms.key_asked).replace(server.id()) != Some(server.id());
+                if first_ask {
+                    self.sync_admission_key(&win64).await;
+                }
+            }
             let available = self.win64().is_some_and(|win64| {
                 // The transport is linked in (D1); only the runtime's admission key has to be in place.
                 win64.join(ADMISSION_PUBLIC_KEY_FILE).is_file()

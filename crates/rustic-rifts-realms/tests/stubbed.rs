@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Silent Spud
 
-//! Every rifts crate stubbed: the module is loaded, each of the 60 routes is mounted once (RF1's 68 less the 8
-//! Launcher Guard and manifest routes isles keeps) and answers 501, and the hooks answer unimplemented.
+//! Every rifts crate stubbed: the module is loaded, each of the 61 routes is mounted once (RF1's 68 less the 8
+//! Launcher Guard and manifest routes isles keeps, plus the admission key's) and answers 501, and the hooks answer
+//! unimplemented.
 
 #![allow(clippy::unwrap_used, clippy::expect_used, reason = "a panic is how a test fails")]
 
@@ -45,12 +46,12 @@ fn bare_call(route: rustic_rifts_seam::Route) -> RouteCall {
 }
 
 #[test]
-fn sixty_routes_each_mounted_once_and_answering_501() {
+fn sixty_one_routes_each_mounted_once_and_answering_501() {
     let rifts = stubbed();
     assert!(rifts.loaded());
     let mounted: Vec<_> = rifts.routes().collect();
     let distinct: HashSet<_> = mounted.iter().map(|(r, _)| (r.method.as_str(), r.path)).collect();
-    assert_eq!((mounted.len(), distinct.len()), (60, 60));
+    assert_eq!((mounted.len(), distinct.len()), (61, 61));
     for (route, handler) in mounted {
         let answer = poll_once(handler.handle(bare_call(*route)));
         let Some(Err(SeamError::Unimplemented(missing))) = answer else {

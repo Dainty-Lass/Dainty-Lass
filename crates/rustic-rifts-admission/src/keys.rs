@@ -277,6 +277,12 @@ pub fn write_key_set(
     })
 }
 
+/// [`rustic_rifts_seam::ADMISSION_KEY_PATH`]'s answer: the key id and the 64 bytes in standard base64.
+#[must_use]
+pub fn admission_key_json(key_id: &KeyId, key: &PublicXy) -> String {
+    serde_json::json!({ "keyId": key_id.0, "publicXy": STANDARD.encode(key.0) }).to_string()
+}
+
 #[cfg(test)]
 mod tests {
     use std::collections::HashMap;
@@ -493,5 +499,14 @@ mod tests {
         assert!(matches!(blocked, KeyError::Io(_)), "{blocked:?}");
         assert!(taken.exists(), "a folder this call did not create is left alone");
         assert!(!output.exists());
+    }
+
+    #[test]
+    fn the_published_key() {
+        let json = admission_key_json(&id("k1"), &PublicXy([0xFF; 64]));
+        assert_eq!(
+            json,
+            format!("{{\"keyId\":\"k1\",\"publicXy\":\"{}\"}}", "/".repeat(85) + "w==")
+        );
     }
 }

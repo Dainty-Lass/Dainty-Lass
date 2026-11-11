@@ -22,7 +22,7 @@ use rustic_rifts_host::{
     ADMISSION_PUBLIC_KEY_FILE, DefaultHostBackend, Handle, HostBackend, HostError, HostOpen, JoinOpen,
     NoopServerSpawner, ReadyState, SESSION_FILES, ServerSpawner, SessionResult, Signal, TransportAbi, TransportLoader,
 };
-use rustic_rifts_seam::{AccountId, PeerId, Secret};
+use rustic_rifts_seam::{ADMISSION_KEY_PATH, AccountId, PeerId, Secret};
 use serde_json::{Value, json};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream};
@@ -54,6 +54,8 @@ struct Host {
     /// Account key → (username, user id).
     users: HashMap<String, (String, String)>,
     runtime: Option<(RuntimeManifest, BTreeMap<String, Vec<u8>>)>,
+    /// What `ADMISSION_KEY_PATH` answers a signed-in launcher; 404 when `None`.
+    admission_key: Option<String>,
     seen: Vec<String>,
 }
 
@@ -111,6 +113,16 @@ fn answer(host: &Shared, method: &str, path: &str, key: Option<&str>) -> Reply {
         };
     }
     let user = key.and_then(|k| h.users.get(k).cloned());
+    if path == ADMISSION_KEY_PATH && user.is_some() {
+        return match &h.admission_key {
+            Some(body) => Reply {
+                status: 200,
+                kind: "application/json",
+                body: body.clone().into_bytes(),
+            },
+            None => reply(404, json!({ "error": "not_found" })),
+        };
+    }
     drop(h);
     handle_realms_route(method, path, user).unwrap_or_else(|| reply(404, json!({ "error": "not_found" })))
 }
@@ -608,6 +620,72 @@ async fn realms_need_no_transport_file_beside_the_game() {
         panic!("expected RealmOutcome::Ok from realm_get");
     };
     assert!(view.available);
+    hx.c.shutdown().await;
+}
+
+/// A signed-in launcher on a server with this admission key answer, its game folder chosen.
+async fn on_key_server(hx: &Harness, answer: String) {
+    let account_key = "DLK_admission_key_test_account_0001";
+    let mut host = Host {
+        name: "KeySrv",
+        admission_key: Some(answer),
+        ..Host::default()
+    };
+    host.users
+        .insert(account_key.into(), ("Slayer".into(), "user-slayer-1".into()));
+    let (_shared, port) = lan(host).await;
+    assert_eq!(
+        hx.c.submit_invite(&invite(port, "KeySrv"), false, false).await,
+        ActionResult::Ok
+    );
+    assert_eq!(hx.c.use_existing_key(account_key).await, ActionResult::Ok);
+    assert_eq!(hx.c.use_game_path(hx.root.to_str().unwrap()).await, ActionResult::Ok);
+}
+
+/// Nothing ships the admission key, so the server answers it: `realm_get` writes it beside the game, and hosting
+/// replaces one left by another server.
+#[tokio::test]
+async fn the_admission_key_comes_from_the_server() {
+    use base64::Engine as _;
+    let hx = Harness::new().await;
+    let xy = [0x5Au8; 64];
+    let answer = json!({ "keyId": "k1", "publicXy": base64::engine::general_purpose::STANDARD.encode(xy) });
+    on_key_server(&hx, answer.to_string()).await;
+    let key_file = hx.win64().join(ADMISSION_PUBLIC_KEY_FILE);
+
+    let RealmOutcome::Ok(view) = hx.c.realm_get().await else {
+        panic!("expected RealmOutcome::Ok from realm_get");
+    };
+    assert!(view.available);
+    assert_eq!(std::fs::read(&key_file).unwrap(), xy);
+
+    std::fs::write(&key_file, [0x11u8; 64]).unwrap();
+    assert_eq!(hx.c.verify_game().await, ActionResult::Ok);
+    hx.c.set_realms_seams(RealmsSeams {
+        loader: Arc::new(FakeLoader) as Arc<dyn TransportLoader>,
+        backend: Arc::new(DefaultHostBackend::new()) as Arc<dyn HostBackend>,
+        spawner: Arc::new(NoopServerSpawner::new()) as Arc<dyn ServerSpawner>,
+    });
+    assert!(matches!(hx.c.realm_host(RealmKind::Hub).await, RealmOutcome::Ok(_)));
+    assert_eq!(std::fs::read(&key_file).unwrap(), xy);
+    hx.c.shutdown().await;
+}
+
+/// An answer without a 64-byte key writes nothing, so realms stay unavailable.
+#[tokio::test]
+async fn a_short_admission_key_is_not_written() {
+    let hx = Harness::new().await;
+    on_key_server(&hx, json!({ "keyId": "k1", "publicXy": "AAAA" }).to_string()).await;
+    let RealmOutcome::Ok(view) = hx.c.realm_get().await else {
+        panic!("expected RealmOutcome::Ok from realm_get");
+    };
+    assert!(!view.available);
+    let written: Vec<_> = std::fs::read_dir(hx.win64())
+        .unwrap()
+        .map(|entry| entry.unwrap().file_name().to_string_lossy().into_owned())
+        .filter(|name| name.starts_with(ADMISSION_PUBLIC_KEY_FILE))
+        .collect();
+    assert!(written.is_empty(), "{written:?}");
     hx.c.shutdown().await;
 }
 

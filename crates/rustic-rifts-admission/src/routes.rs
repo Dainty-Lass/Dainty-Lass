@@ -7,13 +7,15 @@ use std::sync::Arc;
 
 use rustic_rifts_relay::wire::MAX_SAFE_INTEGER;
 use rustic_rifts_seam::{
-    AccountId, BoxFuture, Caller, CapabilityScope, Component, GlobalId, HOST_CAPABILITY_HEADER, Json, Method, Mount,
-    NodeId, Refusal, Reply, Route, RouteCall, RouteHandler, SeamError, SessionId, StubRoutes, Ulid, Unimplemented,
+    ADMISSION_KEY_PATH, AccountId, BoxFuture, Caller, CapabilityScope, Component, GlobalId, HOST_CAPABILITY_HEADER,
+    Json, Method, Mount, NodeId, Refusal, Reply, Route, RouteCall, RouteHandler, SeamError, SessionId, StubRoutes,
+    Ulid, Unimplemented,
 };
 use serde_json::{Map, Value};
 
+use crate::keys::admission_key_json;
 use crate::service::{ConsumeTicket, HostCapability};
-use crate::{AdmissionError, AdmissionService};
+use crate::{AdmissionError, AdmissionService, KeyId, PublicXy};
 
 // Umbrella spec D3: neutral handler ids. They name the operation in a 501 answer.
 const ISSUE_SELF_TICKET: &str = "admission.issue_self_ticket";
@@ -21,6 +23,7 @@ const CONSUME_TICKET: &str = "admission.consume_ticket";
 const RECORD_PEER_DISCONNECTED: &str = "admission.record_peer_disconnected";
 const CREATE_JOIN_BOOTSTRAP: &str = "admission.create_join_bootstrap";
 const LIST_HUB_PEERS: &str = "admission.list_hub_peers";
+const PUBLISH_KEY: &str = "admission.publish_key";
 
 /// Admission's routes: the host runtime's ticket routes and the launcher's join bootstrap and hub peer list.
 pub const ROUTES: &[Route] = &[
@@ -54,6 +57,12 @@ pub const ROUTES: &[Route] = &[
         mount: Mount::Normal,
         handler: LIST_HUB_PEERS,
     },
+    Route {
+        method: Method::Get,
+        path: ADMISSION_KEY_PATH,
+        mount: Mount::Normal,
+        handler: PUBLISH_KEY,
+    },
 ];
 
 /// Every admission route under its handler id, for a build that answers them `Unimplemented`.
@@ -78,6 +87,7 @@ pub struct AdmissionRoutes {
     service: Arc<dyn AdmissionService>,
     resolver: Option<CapabilityResolver>,
     node: NodeId,
+    published: Option<String>,
 }
 
 impl AdmissionRoutes {
@@ -87,7 +97,15 @@ impl AdmissionRoutes {
             service,
             resolver,
             node,
+            published: None,
         }
+    }
+
+    /// Serves `key` on [`ADMISSION_KEY_PATH`]; without it the route answers `Unimplemented`.
+    #[must_use]
+    pub fn with_public_key(mut self, key_id: &KeyId, key: &PublicXy) -> Self {
+        self.published = Some(admission_key_json(key_id, key));
+        self
     }
 
     /// A global id, or a lower-case UUID read as a ULID on this node. Any other text becomes ULID 0, which no
@@ -162,6 +180,13 @@ impl AdmissionRoutes {
                 let generation = body.get("generation").and_then(generation_of);
                 let peers = self.service.list_hub_peers(account, session, generation).await;
                 peers.map_err(seam_error)?.to_json()
+            }
+            PUBLISH_KEY => {
+                launcher(&call)?;
+                match &self.published {
+                    Some(json) => json.clone(),
+                    None => return Err(Unimplemented::new(Component::Admission, PUBLISH_KEY).into()),
+                }
             }
             handler => return Err(Unimplemented::new(Component::Admission, handler).into()),
         };
@@ -444,6 +469,12 @@ mod tests {
                     Mount::Normal,
                     "admission.list_hub_peers"
                 ),
+                (
+                    Method::Get,
+                    "/launcher/v1/p2p/admission-key",
+                    Mount::Normal,
+                    "admission.publish_key"
+                ),
             ]
         );
     }
@@ -629,6 +660,24 @@ mod tests {
         assert_eq!(
             handle(&routes, call(RECORD_PEER_DISCONNECTED, Caller::Anonymous, UUID, "")),
             refusal("AUTH_UNAUTHORIZED", "No.")
+        );
+    }
+
+    #[test]
+    fn the_key_goes_to_a_signed_in_launcher_once_one_is_set() {
+        let bare = AdmissionRoutes::new(Arc::new(Recorder::default()), None, node());
+        assert_eq!(
+            handle(&bare, call(PUBLISH_KEY, launcher_caller(), UUID, "")),
+            Err(SeamError::unimplemented(Component::Admission, PUBLISH_KEY))
+        );
+        let key = PublicXy([7; 64]);
+        let routes = bare.with_public_key(&KeyId("k1".to_owned()), &key);
+        let reply = handle(&routes, call(PUBLISH_KEY, launcher_caller(), UUID, "")).unwrap();
+        assert_eq!(reply.status, 200);
+        assert_eq!(reply.body.0, admission_key_json(&KeyId("k1".to_owned()), &key));
+        assert_eq!(
+            handle(&routes, call(PUBLISH_KEY, Caller::Anonymous, UUID, "")),
+            refusal("AUTH_UNAUTHORIZED", "Sign in required.")
         );
     }
 }

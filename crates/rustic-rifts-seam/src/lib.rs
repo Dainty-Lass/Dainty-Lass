@@ -31,8 +31,8 @@ pub use crate::{
         ReleaseGate, Settings, TransactionPhase, TransactionReads,
     },
     http::{
-        BoxFuture, Caller, CapabilityScope, HOST_CAPABILITY_HEADER, Json, Method, Mount, Reply, RequestInfo, Route,
-        RouteCall, RouteHandler, RuntimeAuth, StubRoutes,
+        ADMISSION_KEY_PATH, BoxFuture, Caller, CapabilityScope, HOST_CAPABILITY_HEADER, Json, Method, Mount, Reply,
+        RequestInfo, Route, RouteCall, RouteHandler, RuntimeAuth, StubRoutes,
     },
     id::{AccountId, AdmissionId, GlobalId, IdError, NodeId, PartyId, PeerId, RealmId, SessionId, TicketId, Ulid},
     store::{Actor, DeletionAction, DeletionStep, Secret, StoreError, TableSpec, UnixMillis},
