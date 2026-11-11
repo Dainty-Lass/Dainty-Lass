@@ -4,7 +4,8 @@ description = "The server in one binary: every dainty-host command, `serve` with
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
-license.workspace = true
+# Born here (RD26, DF5): glue over the MIT dainty-host, which reads the 1.14.7 version data at start (RD27)
+license = "MIT"
 repository.workspace = true
 publish.workspace = true
 

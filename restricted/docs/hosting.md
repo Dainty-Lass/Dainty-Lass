@@ -444,8 +444,8 @@ sha256 = "<the file's SHA-256: certutil -hashfile <file> SHA256, or sha256sum>"
 [modules.rustic-freeza.tuning]  # a module's own settings: the ones it says it reads
 ```
 
-The 1.14.7 module ships as a library too, in the release's `plugins/` folder (`rustic_isles_plugin.dll`, or
-`librustic_isles_plugin.so` on Linux): list it under `[[modules.external]]` with that path and its SHA-256, and leave
+The 1.14.7 module ships as a library too, in the release's `plugins/` folder (`rustic_isles_1_14_7_plugin.dll`, or
+`librustic_isles_1_14_7_plugin.so` on Linux; `rustic_isles_plugin` before RD27 moved it to the MIT root): list it under `[[modules.external]]` with that path and its SHA-256, and leave
 it out of `compiled`. It reads the version data from the backend game data folder, where `setup`, `start` and
 `gamedata` install the file `version_data` names. A service can be a library the same way (RD27), in place of the one compiled in; a library
 whose SHA-256 is not the one written here is never loaded:

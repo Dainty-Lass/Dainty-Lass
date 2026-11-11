@@ -1858,6 +1858,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "dainty-server"
+version = "0.0.0"
+dependencies = [
+ "dainty-controller",
+ "dainty-host",
+ "tokio",
+]
+
+[[package]]
+name = "dainty-server-minimal"
+version = "0.0.0"
+dependencies = [
+ "dainty-controller",
+ "dainty-host",
+ "tokio",
+]
+
+[[package]]
 name = "dainty-service-kit"
 version = "0.0.0"
 dependencies = [

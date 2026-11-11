@@ -47,6 +47,7 @@ dainty-history-ship = { path = "crates/dainty-history-ship" }
 # The network crate by the name the gateway and dainty-host give it
 network_plugin = { path = "crates/dainty-network", package = "dainty-network", default-features = false }
 dainty-http = { path = "crates/dainty-http" }
+dainty-host = { path = "crates/dainty-host" }
 dainty-hostkit = { path = "crates/dainty-hostkit" }
 dainty-launcher-kit = { path = "crates/dainty-launcher-kit" }
 # Packaged for module repositories; the registry stops cargo package rewriting it to crates.io (DF1).
