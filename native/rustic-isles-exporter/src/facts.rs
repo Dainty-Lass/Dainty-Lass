@@ -13,7 +13,7 @@ pub const MEMBERS: &[(&str, &str)] = &[
     ("UOBJECT_CLASS", "UObject.Class"),
     ("UOBJECT_NAME", "UObject.Name"),
     ("UOBJECT_OUTER", "UObject.Outer"),
-    ("USTRUCT_SUPER", "UStruct.Super"),
+    ("USTRUCT_SUPER", "UStruct.SuperStruct"),
     ("DATATABLE_ROW_STRUCT", "UDataTable.RowStruct"),
     ("DATATABLE_ROW_MAP", "UDataTable.RowMap"),
     ("TEXT_DATA_SOURCE", "FTextData.TextSource"),
@@ -26,7 +26,6 @@ pub const MEMBERS: &[(&str, &str)] = &[
     ("TAG_QUERY_AUTO_DESCRIPTION", "FGameplayTagQuery.AutoDescription"),
     ("ROW_HANDLE_TABLE", "FDataTableRowHandle.DataTable"),
     ("ROW_HANDLE_ROW", "FDataTableRowHandle.RowName"),
-    ("DATE_TIME_TICKS", "FDateTime.Ticks"),
     ("SOFT_PATH_NAME", "FSoftObjectPath.AssetPathName"),
     // GetAllItems (spec §4.2)
     ("GET_ALL_ITEMS_OUT", "ArchonCatalog_GetAllItems.@TArray"),
@@ -289,8 +288,8 @@ pub const MEMBERS: &[(&str, &str)] = &[
     ("UC_NODES_OP", "FProgressionUnlockCriteria.PlayerJourneyNodesOperation"),
     ("UC_NODES", "FProgressionUnlockCriteria.PlayerJourneyNodes"),
     // schedules
-    ("SD_START", "FScheduleData.StartTime.Ticks"),
-    ("SD_END", "FScheduleData.EndTime.Ticks"),
+    ("SD_START", "FScheduleData.StartTime"),
+    ("SD_END", "FScheduleData.EndTime"),
     ("SD_REPEATABLE", "FScheduleData.IsRepeatable"),
     ("SD_EACH_DAY", "FScheduleData.RepeatableDetails.EachDay"),
     ("SD_EACH_WEEK", "FScheduleData.RepeatableDetails.EachWeek"),

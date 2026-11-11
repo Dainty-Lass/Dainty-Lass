@@ -304,6 +304,8 @@ fn hunts_write_their_tables_and_manifest() {
 
     let (_, rows) = world.table("Schedules", "ScheduleData", &[("Sched_1", 0x100)]);
     let schedule = rows[0];
+    // An unnamed `FDateTime`: the int64 at the member's own offset (spec §4.1).
+    assert_eq!((sdk::SD_START.kind, sdk::SD_START.size), (Kind::DateTime, 8));
     world.set_int(schedule, &sdk::SD_START, 638_000_000_000_000_000);
     world.set_flag(schedule, &sdk::SD_REPEATABLE);
     world.set_flag(schedule, &sdk::SD_EACH_WEEK);

@@ -29,7 +29,7 @@ class UStruct : public UField
 {
 public:
 	uint8                                         Pad_30[0x18];                                      // 0x0030(0x0018)(Edit, NativeAccessSpecifierPublic)
-	class UStruct*                                Super;                                             // 0x0048(0x0008)(Edit, NativeAccessSpecifierPublic)
+	class UStruct*                                SuperStruct;                                       // 0x0048(0x0008)(Edit, NativeAccessSpecifierPublic)
 };
 
 // Class Synthetic.Class

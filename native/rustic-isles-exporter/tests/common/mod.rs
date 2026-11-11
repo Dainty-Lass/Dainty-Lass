@@ -174,7 +174,7 @@ impl World {
         match member.kind {
             Kind::Int { size: 1, .. } => self.mem.write_u8(at, value as u8),
             Kind::Int { size: 4, .. } => self.mem.write_i32(at, value as i32),
-            Kind::Int { .. } => self.mem.write_u64(at, value as u64),
+            Kind::Int { .. } | Kind::DateTime => self.mem.write_u64(at, value as u64),
             other => panic!("no integer in {other:?}"),
         }
     }
