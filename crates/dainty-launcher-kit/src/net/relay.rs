@@ -591,12 +591,6 @@ async fn serve(tcp: TcpStream, peer: SocketAddr, shared: Arc<Shared>, qos_only: 
         (Some(owner), false, Ok(local)) => owner.allows(peer, local).await,
         (Some(_), false, Err(_)) => false,
     };
-    if !allowed {
-        shared.log(
-            Level::Warn,
-            &format!("relay refused a connection from {peer}: not the game's"),
-        );
-    }
     let service_shared = Arc::clone(&shared);
     let service = service_fn(move |request| {
         let shared = Arc::clone(&service_shared);
@@ -626,6 +620,16 @@ async fn handle(
 ) -> Response<ResponseBody> {
     let upgrade = is_upgrade(request.headers());
     if !allowed {
+        // Logged per request, not per connection: the game opens and drops connections it never sends on when
+        // it cancels requests (login, map loads), and by the table read their row is closed and not its own.
+        shared.log(
+            Level::Warn,
+            &format!(
+                "relay refused {} {} from {peer}: not the game's",
+                request.method(),
+                request.uri().path()
+            ),
+        );
         if upgrade {
             return bare(StatusCode::FORBIDDEN);
         }

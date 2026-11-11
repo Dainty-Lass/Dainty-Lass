@@ -19,6 +19,8 @@ pub const LEGACY_DOCUMENTS_FOLDER: &str = "Dauntless Reforged Revival";
 pub const USER_DATA_DIR_ARG: &str = "--user-data-dir";
 /// The environment variable read when [`USER_DATA_DIR_ARG`] is absent.
 pub const DEV_PROFILE_VAR: &str = "DAINTY_DEV_PROFILE";
+/// Left in an older folder once its files were copied over, so later starts skip it.
+pub const MIGRATED_MARKER: &str = ".moved-to-dainty-lass";
 
 /// The launcher's folders on this PC.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -120,7 +122,7 @@ impl Paths {
     }
 
     /// Brings the older launcher's folders over, run on every start. Each entry is (from, to, outcome); only
-    /// folders with something to bring are listed. A failure is the caller's to log: it must not stop the start.
+    /// folders not yet brought over are listed. A failure is the caller's to log: it must not stop the start.
     pub fn migrate_legacy(&self) -> Vec<(PathBuf, PathBuf, io::Result<Migrated>)> {
         let mut out = Vec::new();
         // A profile folder (`User Data`) has no older sibling to bring over.
@@ -128,17 +130,14 @@ impl Paths {
             && let Some(parent) = self.user_data.parent()
         {
             let legacy = parent.join(LEGACY_APP_FOLDER);
-            if legacy.is_dir() {
-                let outcome = migrate_folder(&legacy, &self.user_data);
-                out.push((legacy, self.user_data.clone(), outcome));
-            }
+            let outcome = migrate_folder(&legacy, &self.user_data);
+            out.push((legacy, self.user_data.clone(), outcome));
         }
         let legacy_docs = self.documents.join(LEGACY_DOCUMENTS_FOLDER);
-        if legacy_docs.is_dir() {
-            let current = self.documents.join(DOCUMENTS_FOLDER);
-            let outcome = migrate_folder(&legacy_docs, &current);
-            out.push((legacy_docs, current, outcome));
-        }
+        let current = self.documents.join(DOCUMENTS_FOLDER);
+        let outcome = migrate_folder(&legacy_docs, &current);
+        out.push((legacy_docs, current, outcome));
+        out.retain(|(_, _, outcome)| !matches!(outcome, Ok(Migrated::Nothing)));
         out
     }
 }
@@ -146,7 +145,7 @@ impl Paths {
 /// What [`migrate_folder`] did.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Migrated {
-    /// There was no older folder.
+    /// There was no older folder, or it was brought over on an earlier start.
     Nothing,
     /// The older folder was renamed to the new name.
     Renamed,
@@ -157,19 +156,25 @@ pub enum Migrated {
 }
 
 /// Moves `legacy` to `current` when `current` doesn't exist (a rename, else a copy), or else copies in the files
-/// `current` lacks, recursively, never overwriting one.
+/// `current` lacks, recursively, never overwriting one. A folder that stays behind is marked
+/// ([`MIGRATED_MARKER`]) so the copy runs once, not on every start; it is kept, since it may hold keys.
 pub fn migrate_folder(legacy: &Path, current: &Path) -> io::Result<Migrated> {
-    if !legacy.is_dir() {
+    let marker = legacy.join(MIGRATED_MARKER);
+    if !legacy.is_dir() || std::fs::symlink_metadata(&marker).is_ok() {
         return Ok(Migrated::Nothing);
     }
-    if std::fs::symlink_metadata(current).is_err() {
+    let done = if std::fs::symlink_metadata(current).is_err() {
         if std::fs::rename(legacy, current).is_ok() {
             return Ok(Migrated::Renamed);
         }
         copy_missing(legacy, current)?;
-        return Ok(Migrated::Copied);
-    }
-    copy_missing(legacy, current).map(Migrated::Merged)
+        Migrated::Copied
+    } else {
+        Migrated::Merged(copy_missing(legacy, current)?)
+    };
+    // An unwritable older folder is copied again next start, which overwrites nothing.
+    let _ = std::fs::write(&marker, current.display().to_string());
+    Ok(done)
 }
 
 /// Copies every file under `from` that `to` lacks; returns how many. Links are skipped, not followed.
@@ -308,6 +313,11 @@ mod tests {
         assert_eq!(read(&paths.keys().join("a.key")), "new-a");
         assert_eq!(read(&paths.keys().join("b.key")), "old-b");
         assert!(legacy.join("keys").join("b.key").exists());
+
+        // Marked, so the next start neither walks it again nor logs a move.
+        assert!(legacy.join(MIGRATED_MARKER).is_file());
+        assert!(paths.migrate_legacy().is_empty());
+        assert!(!paths.user_data.join(MIGRATED_MARKER).exists());
     }
 
     #[test]

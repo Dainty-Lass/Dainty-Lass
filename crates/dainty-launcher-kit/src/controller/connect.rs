@@ -11,7 +11,7 @@ use dainty_protocol::status::limited_view;
 use serde_json::json;
 
 use super::stored::edit;
-use super::{ART_CACHE_DIR, Controller, NEWS_INTERVAL, background, news_items, now_iso};
+use super::{ART_CACHE_DIR, Controller, NEWS_INTERVAL, UNREACHABLE_MAX_SKIP, background, news_items, now_iso};
 use crate::bridge::types::{ActionResult, Branding, ConnectProblem, ErrorCode};
 use crate::core::pins::sha256_hex;
 use crate::net::hostapi::{self, StatusOutcome};
@@ -61,14 +61,17 @@ impl Controller {
         let key = self.status_key().await;
         let outcome = hostapi::fetch_status(&server.endpoint(), key.as_deref(), None).await;
         let mut rename = None;
-        let reached = {
+        let (reached, first_failure) = {
             let mut state = self.lock();
             state.last_checked_at = Some(now_iso());
-            match outcome {
+            let before = (state.reachable, state.problem);
+            let reached = match outcome {
                 StatusOutcome::Status(_) | StatusOutcome::Unsupported => {
                     state.reachable = Some(true);
                     state.problem = None;
                     state.failed_polls = 0;
+                    state.failed_checks = 0;
+                    state.skip_ticks = 0;
                     state.status_unsupported = matches!(outcome, StatusOutcome::Unsupported);
                     if let StatusOutcome::Status(status) = outcome {
                         if state.generation == generation {
@@ -93,9 +96,12 @@ impl Controller {
                     };
                     state.reachable = Some(false);
                     state.problem = Some(problem);
+                    state.failed_checks = state.failed_checks.saturating_add(1);
+                    state.skip_ticks = unreachable_skip(state.failed_checks);
                     false
                 }
-            }
+            };
+            (reached, before != (state.reachable, state.problem))
         };
         if !reached {
             let problem = self.lock().problem;
@@ -104,8 +110,12 @@ impl Controller {
                     "{}:{} answered with another certificate",
                     server.host, server.port
                 ));
-            } else {
-                log::warn(format!("could not reach {}:{} ({problem:?})", server.host, server.port));
+            } else if first_failure {
+                // Logged once per change: a saved invite whose host moved its port would warn every 15 s forever
+                log::warn(format!(
+                    "could not reach {}:{} ({problem:?}); checking again less and less often",
+                    server.host, server.port
+                ));
             }
             return;
         }
@@ -158,13 +168,27 @@ impl Controller {
             state.poll = Some(tokio::spawn(async move {
                 let mut ticks = tokio::time::interval(every);
                 ticks.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+                let mut first = true;
                 loop {
                     ticks.tick().await;
                     let Some(me) = Controller::from_weak(&me) else { return };
+                    if !std::mem::take(&mut first) && me.skip_tick() {
+                        continue;
+                    }
                     me.poll_once().await;
                 }
             }));
         }
+    }
+
+    /// Whether a scheduled poll passes over an unreachable server, so its checks back off.
+    fn skip_tick(&self) -> bool {
+        let mut state = self.lock();
+        if state.reachable == Some(true) || state.skip_ticks == 0 {
+            return false;
+        }
+        state.skip_ticks -= 1;
+        true
     }
 
     /// `refresh_status`: one poll.
@@ -222,6 +246,9 @@ impl Controller {
                         status.online = false;
                     }
                     if state.failed_polls >= 2 && !running {
+                        if state.reachable == Some(true) {
+                            log::warn(format!("lost {}:{}", server.host, server.port));
+                        }
                         state.reachable = Some(false);
                         state.problem = Some(ConnectProblem::Unreachable);
                     }
@@ -333,5 +360,25 @@ impl Controller {
 
     pub(crate) fn mark_refused(&self) {
         self.lock().key_refused = true;
+    }
+}
+
+/// Poll ticks skipped after the `failures`-th failed check in a row: 0, 1, 3, 7, 15, then [`UNREACHABLE_MAX_SKIP`].
+#[must_use]
+pub fn unreachable_skip(failures: u32) -> u32 {
+    let doubled = 1u32.checked_shl(failures.saturating_sub(1)).unwrap_or(u32::MAX);
+    (doubled - 1).min(UNREACHABLE_MAX_SKIP)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn unreachable_checks_back_off_to_five_minutes() {
+        let skips: Vec<u32> = (1..=8).map(unreachable_skip).collect();
+        assert_eq!(skips, [0, 1, 3, 7, 15, 19, 19, 19]);
+        assert_eq!(unreachable_skip(0), 0);
+        assert_eq!(unreachable_skip(u32::MAX), UNREACHABLE_MAX_SKIP);
     }
 }

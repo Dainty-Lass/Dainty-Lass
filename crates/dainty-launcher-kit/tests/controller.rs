@@ -28,7 +28,8 @@ use dainty_launcher_kit::bridge::types::{
     RegisterOutcome, RuntimeState, SettingsPatch, Snapshot, TaskProgress,
 };
 use dainty_launcher_kit::controller::{
-    ConsoleSink, Controller, ControllerConfig, FileFilter, FolderPurpose, Platform, PreparedGame, RelayOwner, Seams,
+    ConsoleSink, Controller, ControllerConfig, FileFilter, FolderPurpose, Platform, PreparedGame, RelayOwner,
+    STATUS_POLL_INTERVAL, Seams,
 };
 use dainty_launcher_kit::core::i18n::Language;
 use dainty_launcher_kit::core::pins::sha256_hex;
@@ -375,6 +376,15 @@ async fn pc() -> Pc {
 }
 
 fn launcher(pc: &Pc, platform: &Arc<FakePlatform>, spawner: &Arc<FakeSpawner>) -> Controller {
+    launcher_polling_every(pc, platform, spawner, STATUS_POLL_INTERVAL)
+}
+
+fn launcher_polling_every(
+    pc: &Pc,
+    platform: &Arc<FakePlatform>,
+    spawner: &Arc<FakeSpawner>,
+    every: Duration,
+) -> Controller {
     let paths = Paths {
         user_data: pc.user_data.clone(),
         documents: pc.documents.clone(),
@@ -385,6 +395,7 @@ fn launcher(pc: &Pc, platform: &Arc<FakePlatform>, spawner: &Arc<FakeSpawner>) -
     config.exe_pin = pc.pin.clone();
     config.game_config_dir = pc.config_dir.clone();
     config.os = Os::current();
+    config.poll_interval = every;
     let env = BTreeMap::from([
         ("PATH".to_owned(), "/usr/bin".to_owned()),
         ("DAINTY_STALE_SETTING".to_owned(), "leak".to_owned()),
@@ -786,6 +797,40 @@ async fn an_unreachable_server_and_a_mismatched_certificate() {
     assert_eq!(controller.snapshot().saved_servers.len(), 2);
     assert_eq!(refused(&controller.play().await), ErrorCode::KeyInvalid);
     controller.shutdown().await;
+}
+
+#[tokio::test]
+async fn an_unreachable_saved_server_is_checked_less_and_less_often() {
+    let pc = pc().await;
+    // Accepts and hangs up: never a status, so every check fails without waiting on a timeout
+    let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let port = listener.local_addr().unwrap().port();
+    let accepted = Arc::new(AtomicUsize::new(0));
+    let count = Arc::clone(&accepted);
+    let refuser = tokio::spawn(async move {
+        while let Ok((stream, _)) = listener.accept().await {
+            count.fetch_add(1, Ordering::SeqCst);
+            drop(stream);
+        }
+    });
+    let platform = Arc::new(FakePlatform::default());
+    let spawner = Arc::new(FakeSpawner::default());
+    let controller = launcher_polling_every(&pc, &platform, &spawner, Duration::from_millis(40));
+    controller.init().await;
+    ok(&controller
+        .submit_invite(&invite(ServerMode::Private, port, None, "Moved"), false, false)
+        .await);
+    assert_ne!(controller.snapshot().connect.problem, None);
+    let after_submit = accepted.load(Ordering::SeqCst);
+
+    controller.set_status_polling(true);
+    // 25 ticks: one check per tick would be 25; backing off checks on ticks 0, 1, 3, 7 and 15
+    tokio::time::sleep(Duration::from_millis(40 * 25)).await;
+    controller.set_status_polling(false);
+    let checks = accepted.load(Ordering::SeqCst) - after_submit;
+    assert!((3..=10).contains(&checks), "{checks} checks");
+    controller.shutdown().await;
+    refuser.abort();
 }
 
 #[tokio::test]

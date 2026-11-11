@@ -68,7 +68,7 @@
     },
     "hints": {
       "tailscale_missing": "This is a private server on a Tailscale network. Install Tailscale and accept the host's share.",
-      "unreachable": "It may be offline, or your network blocks it. Check with your host.",
+      "unreachable": "It may be offline, or your network blocks it. If your host moved the server to another address or port, ask them for a new invite.",
       "bad_answer": "Something answered, but not a server this launcher can join.",
       "cert_mismatch": "Someone may be between you and the server. Ask your host before going further."
     }
