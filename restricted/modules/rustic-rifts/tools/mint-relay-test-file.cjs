@@ -7,7 +7,7 @@
  */
 
 // Mints 10-minute Cloudflare TURN credentials with the key in the backend's env file (P2P_CLOUDFLARE_TURN_KEY_ID,
-// P2P_CLOUDFLARE_TURN_API_TOKEN) and writes them for `ParadoxTransportTest ice --relay-file <file>`. It also reports
+// P2P_CLOUDFLARE_TURN_API_TOKEN) and writes them for `rustic-rifts-transport`'s `relay_file` test. It also reports
 // whether Cloudflare accepts the customIdentifier tag on generate-ice-servers, which the backend's relay quota needs.
 // Prints no secret. Usage: node tools/mint-relay-test-file.cjs <output file> <backend env file>
 "use strict";

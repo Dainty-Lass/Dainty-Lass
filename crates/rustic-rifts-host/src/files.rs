@@ -31,8 +31,6 @@ pub const SESSION_FILES: [&str; 4] = ["bridge.conf", "transport.secret", "capabi
 pub const ADMISSION_PUBLIC_KEY_FILE: &str = "p2p-admission-public.xy";
 /// Its presence in the game folder or app data turns co-op off.
 pub const DISABLE_COOP_FLAG_FILE: &str = "DISABLE_COOP_TRANSPORT.flag";
-/// The file name the launcher still pins a digest for; nothing loads it since the transport is linked in (D1).
-pub const TRANSPORT_DLL: &str = "RusticTransport.dll";
 
 const SERVER_ID_LENGTHS: RangeInclusive<usize> = 1..=64;
 const ACCOUNT_ID_LENGTHS: RangeInclusive<usize> = 1..=128;

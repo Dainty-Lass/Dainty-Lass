@@ -237,3 +237,28 @@ fn scores_order_hosts() {
     unverified.artifacts_verified = false;
     assert_eq!(score_host(&unverified, None, &policy, 0).1.integrity_risk, 100.0);
 }
+
+#[test]
+fn an_unpublished_transport_expects_the_zero_hash() {
+    let zero = sha('0');
+    let mut unpublished = feed();
+    unpublished.guard_artifacts = Some(vec![("ADMISSION_KEY".to_owned(), sha('e'))]);
+    let s = settings(&[("TARGET_CHANGELIST", "647472")]);
+    let h = read_artifact_policy(&s, &unpublished).unwrap().hashes;
+    // The launcher links the transport in and reports zeros for both roles (spec-paradox-transport C2).
+    assert_eq!((h.steam_bridge, h.steam_runtime), (zero.clone(), zero));
+    // A pin still wins, and a bad pin is still refused.
+    let pinned = settings(&[
+        ("TARGET_CHANGELIST", "647472"),
+        ("P2P_TRANSPORT_MODULE_SHA256", &sha('d')),
+    ]);
+    assert_eq!(
+        read_artifact_policy(&pinned, &unpublished).unwrap().hashes.steam_bridge,
+        sha('d')
+    );
+    let bad = settings(&[("TARGET_CHANGELIST", "647472"), ("P2P_TRANSPORT_MODULE_SHA256", "nope")]);
+    assert_eq!(
+        read_artifact_policy(&bad, &unpublished),
+        Err("Missing or invalid P2P_TRANSPORT_MODULE_SHA256.".to_owned())
+    );
+}

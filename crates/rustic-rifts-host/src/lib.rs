@@ -17,7 +17,7 @@ use rustic_rifts_seam::{BoxFuture, Component, Unimplemented};
 // The host PC's files.
 pub use crate::files::{
     ADMISSION_PUBLIC_KEY_FILE, DISABLE_COOP_FLAG_FILE, FileHostState, HOST_SETTINGS_FILE, HUB_LIMITS_FILE, HostState,
-    SESSION_FILES, TRANSPORT_DLL, validate_hub_limits,
+    SESSION_FILES, validate_hub_limits,
 };
 // Loading the transport.
 #[cfg(feature = "in-process")]
@@ -56,13 +56,6 @@ pub enum HostError {
     Unimplemented(Unimplemented),
     /// A file or folder could not be read or written.
     Io(String),
-    /// Kept for the launcher's error mapping; the in-process transport has no file to check (D1).
-    HashMismatch {
-        /// The digest the manifest pins.
-        expected: [u8; 32],
-        /// The digest found.
-        actual: [u8; 32],
-    },
     /// The transport lacks this call.
     MissingExport(&'static str),
     /// The transport speaks another ABI version.
@@ -81,7 +74,6 @@ impl fmt::Display for HostError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Unimplemented(inner) => fmt::Display::fmt(inner, f),
-            Self::HashMismatch { .. } => f.write_str("transport SHA-256 mismatch"),
             Self::MissingExport(name) => write!(f, "transport is missing export {name}"),
             Self::UnsupportedAbi(found) => write!(f, "transport speaks ABI version {found}; expected 3"),
             Self::Io(text)
@@ -133,7 +125,7 @@ macro_rules! refusing {
 
 impl TransportLoader for Stub {
     refusing! { now "transport.":
-        load(&std::path::Path, [u8; 32]) -> Box<dyn TransportAbi>;
+        load() -> Box<dyn TransportAbi>;
     }
 }
 

@@ -364,7 +364,7 @@ Backblaze B2, MinIO, Cloudflare R2):
 ### Realms and the TURN relay
 
 On Dauntless 1.14.7 (`isles-1-14-7` with `modules/rustic-rifts`), players can host hubs and hunts on their own PCs
-(**realms**, DD14) and let friends join directly over ICE (`ParadoxTransport.dll` on `libjuice`) or through a TURN
+(**realms**, DD14) and let friends join directly over ICE (the transport built into the launcher) or through a TURN
 relay when NAT traversal needs one:
 
 - **Admission keys.** Generate an ES256 admission key pair (`rustic-rifts-admission` / `generate-admission-key`) so the

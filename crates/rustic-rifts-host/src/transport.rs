@@ -3,7 +3,7 @@
 
 //! The co-op transport as the launcher sees it: ABI 3's calls as a trait, whatever implements them.
 
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 use rustic_rifts_seam::{AccountId, PeerId, Secret};
 
@@ -160,8 +160,8 @@ pub trait TransportAbi: Send + Sync {
     fn update_relay_credential(&self, handle: Handle, username: &str, credential: &Secret) -> Result<(), HostError>;
 }
 
-/// `expected_sha256` is the Guard manifest's digest for `dll`; the in-process loader has no file to check (D1).
+/// Hands out a transport. It is linked into the launcher, so there is no file to find or pin (D1).
 pub trait TransportLoader: Send + Sync {
-    /// The transport for `dll`, checked against its expected digest where there is a file.
-    fn load(&self, dll: &Path, expected_sha256: [u8; 32]) -> Result<Box<dyn TransportAbi>, HostError>;
+    /// A fresh transport.
+    fn load(&self) -> Result<Box<dyn TransportAbi>, HostError>;
 }

@@ -983,17 +983,12 @@
   "rlm_title": "Reinos",
   "rlm_text": "Hospede um hub ou uma caçada neste PC, ou entre no reino de um amigo por conexão direta e pelo relay do servidor.",
   "rlm_open_from_play": "Abrir Reinos",
-  "realm_err_transport_missing": "O ParadoxTransport.dll ainda não está junto do jogo. Instale ou atualize primeiro o runtime do servidor.",
   "realm_err_admission_key_missing": "Este servidor ainda não colocou a chave de admissão de reinos junto do jogo.",
-  "realm_err_transport_untrusted": "Aceite e instale o runtime deste servidor antes de hospedar ou entrar em um reino.",
-  "realm_err_transport_hash_mismatch": "O ParadoxTransport.dll não corresponde ao que este servidor oferece. Reinstale o runtime.",
   "realm_err_coop_disabled": "A hospedagem cooperativa de reinos está desativada para esta conta ou servidor.",
   "rlm_status_title": "Status do reino e do relay",
   "rlm_status_text": "Acompanha sua sessão ativa, a rota UDP local e o relay do launcher.",
   "rlm_refresh": "Atualizar",
-  "rlm_transport_ready": "Transporte pronto (ParadoxTransport.dll verificado)",
   "rlm_transport_unavailable": "Transporte não está pronto",
-  "rlm_unavailable_hint": "Localize o Dauntless 1.14.7 e instale o runtime do servidor para que o ParadoxTransport.dll fique pronto.",
   "rlm_no_session": "Nenhuma sessão de reino está em execução neste PC no momento.",
   "rlm_active_title": "Sessão ativa",
   "rlm_sessions_title": "Sessões acompanhadas ({count})",
@@ -1184,5 +1179,7 @@
   "hrem_queued": "Ação {action} enfileirada em {node} ({id})",
   "tray_open": "Abrir",
   "tray_quit": "Sair",
-  "dialog_game_install_folder": "Onde as versões do Dauntless são instaladas"
+  "dialog_game_install_folder": "Onde as versões do Dauntless são instaladas",
+  "rlm_transport_ready": "Transporte pronto (embutido no launcher)",
+  "rlm_unavailable_hint": "Localize o Dauntless 1.14.7 e instale o runtime do servidor para que a chave de admissão de reinos fique junto do jogo."
 }
