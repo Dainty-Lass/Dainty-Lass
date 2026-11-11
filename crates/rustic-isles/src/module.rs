@@ -327,7 +327,7 @@ impl IslesModule {
                 return Err(failed(running, ModuleError::failed(format!("no {name} port"))));
             };
             let app = match service.app(Arc::clone(&shared)) {
-                Ok(app) => app,
+                Ok(app) => dainty_service_kit::task::monitored(&format!("rustic-isles {name}"), app),
                 Err(e) => return Err(failed(running, e)),
             };
             let listener = match tokio::net::TcpListener::bind(("127.0.0.1", port)).await {

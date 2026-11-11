@@ -187,6 +187,8 @@ tracing-log = "0.2"
 tracing-subscriber = { version = "0.3", features = ["fmt", "registry", "std", "tracing-log"] }
 # The `tokio-console` feature only (docs/tokio-console.md)
 console-subscriber = { version = "0.5", default-features = false }
+# Per-module task metrics on /metrics (dainty_service_kit::task)
+tokio-metrics = { version = "0.5", default-features = false }
 
 # ---------------------------------------------------------------------------------------------------------------
 # Operating system

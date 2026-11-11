@@ -45,7 +45,26 @@ column, and the rest show their spawn location, whose path names the crate:
 
 A connection's task is spawned by axum, so it shows axum's location rather than its module's. Sort by the
 Location column, or look at the listener task that owns it. A new long-lived task in a module should go through
-`spawn_named` (it is `tokio::spawn` in a normal build).
+`spawn_named` (it is `tokio::spawn` in a normal build, still counted on `/metrics`).
+
+## On /metrics, in every build
+
+The console is for a debugging session; the admin API's `/metrics` keeps per-module totals in every build, from
+[tokio-metrics](https://docs.rs/tokio-metrics) task monitors. Each `spawn_named` task, each request a
+`task::monitored` router handles (admin, chat, Rustic Isles' services, the QoS listener) and each gateway and
+content connection is counted under its module's name:
+
+| Metric | What |
+| --- | --- |
+| `dainty_task_started_total{task}` | futures a module ran |
+| `dainty_task_alive{task}` | those not yet finished |
+| `dainty_task_polls_total{task}`, `dainty_task_poll_seconds_total{task}` | polls, and the time they took: the module's CPU on the runtime |
+| `dainty_task_slow_polls_total{task}` | polls over 50 µs, each one blocking a worker |
+| `dainty_task_scheduled_seconds_total{task}` | time woken tasks waited for a worker |
+| `dainty_runtime_workers`, `dainty_runtime_alive_tasks`, `dainty_runtime_global_queue_depth`, `dainty_runtime_busy_seconds_total` | the runtime as a whole |
+
+`rate(dainty_task_poll_seconds_total[1m])` is each module's share of the runtime; a rising
+`dainty_task_slow_polls_total` names the module blocking it.
 
 The log's level filter sits on each log output instead of the whole subscriber, so tokio's TRACE task spans reach
 the console layer without turning on TRACE logging.

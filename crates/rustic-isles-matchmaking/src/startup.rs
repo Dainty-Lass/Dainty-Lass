@@ -80,7 +80,14 @@ impl Startup for QosListener {
                 let signal = async move {
                     let _ = stopped.await;
                 };
-                if let Err(e) = dainty_service_kit::serve::serve(listener, qos_app(), signal, QOS_DRAIN).await {
+                if let Err(e) = dainty_service_kit::serve::serve(
+                    listener,
+                    dainty_service_kit::task::monitored("rustic-isles qos", qos_app()),
+                    signal,
+                    QOS_DRAIN,
+                )
+                .await
+                {
                     tracing::warn!("QoS listener failed: {e}");
                 }
             });

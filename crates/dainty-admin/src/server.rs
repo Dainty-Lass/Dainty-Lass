@@ -141,7 +141,7 @@ pub async fn run_with_network(
             .await
             .map_err(|e| format!("Could not listen on {host}:{}: {e}", config.port))?;
         let mut stop = stop_rx.clone();
-        let app = router(state.clone());
+        let app = dainty_service_kit::task::monitored("admin", router(state.clone()));
         servers.push(tokio::spawn(async move {
             let stopped = async move {
                 let _ = stop.wait_for(|s| *s).await;

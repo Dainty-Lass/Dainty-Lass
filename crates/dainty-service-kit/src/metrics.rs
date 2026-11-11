@@ -98,6 +98,15 @@ pub fn count(name: &'static str, help: &'static str, given: &[(&'static str, &st
     });
 }
 
+/// Sets a counter to a running total kept elsewhere, which must only go up.
+pub fn total(name: &'static str, help: &'static str, given: &[(&'static str, &str)], value: f64) {
+    with(|r| {
+        family(r, name, Kind::Counter, help)
+            .series
+            .insert(labels(given), Value::Number(value));
+    });
+}
+
 /// Sets a gauge.
 pub fn gauge(name: &'static str, help: &'static str, given: &[(&'static str, &str)], value: f64) {
     with(|r| {

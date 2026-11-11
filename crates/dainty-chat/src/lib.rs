@@ -130,7 +130,7 @@ impl ChatPlugin {
             port,
         ));
         let (stop, stopped) = oneshot::channel::<()>();
-        let app = connection::router(shared.clone());
+        let app = dainty_service_kit::task::monitored("chat", connection::router(shared.clone()));
         let server = tokio::spawn(async move {
             let stopped = async {
                 _ = stopped.await;
