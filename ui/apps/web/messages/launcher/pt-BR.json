@@ -287,5 +287,168 @@
     "discardHint": "O que já foi baixado será apagado. Instalar de novo começa do início.",
     "discardConfirm": "Apagar download",
     "discardKeep": "Manter"
+  },
+  "host": {
+    "nav": "Host",
+    "title": "Ferramentas do host",
+    "description": "Gere o SDK, compile o runtime e crie os dados do jogo que o seu servidor usa",
+    "recheck": "Verificar de novo",
+    "off": "As ferramentas do host estão desligadas",
+    "offHint": "Ligue Ferramentas para hosts em Preferências para usar esta página.",
+    "loading": "Verificando este PC…",
+    "present": "Feito",
+    "absent": "Ainda não",
+    "hiddenPath": "Pasta oculta",
+    "openLogs": "Abrir logs",
+    "jobStates": {
+      "running": "Em andamento",
+      "done": "Concluído",
+      "failed": "Falhou"
+    },
+    "jobs": {
+      "inject": "Iniciando o jogo com uma ferramenta",
+      "build_runtime": "Compilando o runtime",
+      "build_loader": "Compilando o carregador",
+      "build_exporter": "Compilando o CatalogExporter",
+      "import_sdk": "Importando o SDK",
+      "copy_exports": "Copiando as exportações",
+      "synthetic_data": "Gravando dados de exemplo",
+      "import_gamedata": "Importando dados do jogo",
+      "publish_runtime": "Publicando o runtime",
+      "setup": "Configurando o servidor",
+      "generate_gamedata": "Gerando os dados do jogo",
+      "export_gamedata": "Empacotando os dados do jogo",
+      "create_invite": "Criando um convite",
+      "update": "Atualizando o workspace",
+      "multipliers": "Definindo os multiplicadores",
+      "upstream": "Buscando o código do runtime",
+      "download_project": "Baixando o projeto",
+      "backup": "Gravando um backup",
+      "migrate_mongo": "Migrando do MongoDB"
+    },
+    "workspace": "Workspace",
+    "noWorkspace": "Nenhum workspace escolhido. Baixe o projeto ou escolha um checkout que você já tenha.",
+    "workspaceInvalid": "Essa pasta não é um checkout do Dainty Lass.",
+    "chooseWorkspace": "Escolher pasta",
+    "downloadProject": "Baixar o projeto",
+    "downloadTarget": "Baixa para {path}",
+    "open": "Abrir",
+    "folders": {
+      "workspace": "Workspace",
+      "runtime_source": "Código do runtime",
+      "dumps": "Dumps",
+      "game_data": "Dados do jogo",
+      "runtime_publish": "Runtime publicado",
+      "host_logs": "Logs",
+      "gamedata_packs": "Pacotes"
+    },
+    "sdk": "1. O SDK",
+    "sdkHint": "O Dumper-7 gera os cabeçalhos C++ do jogo a partir do seu cliente 1.14.7 em execução. O runtime e o CatalogExporter são compilados com eles. Nunca compartilhe o SDK.",
+    "dumper": "Dumper-7",
+    "noDumper": "Nenhuma DLL do Dumper-7 escolhida ainda.",
+    "chooseDumper": "Escolher DLL",
+    "dumps": "Dumps",
+    "newestDump": "Mais recente: {name} ({count} encontrados)",
+    "noDumps": "Nenhum dump encontrado ainda.",
+    "importSdkFolder": "Importar uma pasta de SDK",
+    "importSdkFolderHint": "Uma pasta CppSDK que você gerou manualmente.",
+    "sdkFiles": "Importado: {files} arquivos de funções",
+    "chooseFolder": "Escolher pasta",
+    "runtime": "2. O runtime",
+    "runtimeHint": "Precisa do Visual Studio com C++ e do Rust. Os jogadores instalam o runtime publicado a partir do seu servidor.",
+    "gameData": "3. Os dados do jogo",
+    "gameDataHint": "O CatalogExporter roda dentro do jogo e exporta o que o backend e o Director servem. Inicie o jogo com ele, espere a exportação e depois gere os dados do jogo.",
+    "dataState": "Dados do jogo agora",
+    "backendData": "Backend: {state}",
+    "directorData": "Director: {state}",
+    "dataStates": {
+      "real": "reais",
+      "synthetic": "de exemplo",
+      "missing": "ausentes"
+    },
+    "importGameData": "Importar um pacote de dados do jogo",
+    "importGameDataHint": "Um pacote exportado em outro PC.",
+    "chooseFile": "Escolher arquivo",
+    "actions": {
+      "inject_dumper": {
+        "label": "Iniciar o jogo com o Dumper-7",
+        "hint": "Carrega o Dumper-7 pelo carregador do runtime. O dump aparece quando o jogo chega ao menu.",
+        "button": "Iniciar"
+      },
+      "import_sdk": {
+        "label": "Importar o dump mais recente",
+        "hint": "Copia o dump mais recente para o código do runtime.",
+        "button": "Importar"
+      },
+      "build_runtime": {
+        "label": "Compilar o runtime",
+        "hint": "Compila o Rustic-Isles.dll com o SDK.",
+        "button": "Compilar"
+      },
+      "build_loader": {
+        "label": "Compilar o carregador",
+        "hint": "Compila o carregador do runtime, winmm.dll.",
+        "button": "Compilar"
+      },
+      "publish_runtime": {
+        "label": "Publicar o runtime",
+        "hint": "Entrega as DLLs compiladas ao servidor de conteúdo. Os jogadores precisam aceitar os novos arquivos.",
+        "button": "Publicar"
+      },
+      "build_exporter": {
+        "label": "Compilar o CatalogExporter",
+        "hint": "Compila o exportador com o mesmo SDK.",
+        "button": "Compilar"
+      },
+      "inject_exporter": {
+        "label": "Iniciar o jogo com o CatalogExporter",
+        "hint": "Carrega o CatalogExporter pelo carregador do runtime. Ele grava a exportação enquanto o jogo roda.",
+        "button": "Iniciar"
+      },
+      "copy_exports": {
+        "label": "Copiar as exportações",
+        "hint": "Traz a exportação da pasta do jogo para o workspace.",
+        "button": "Copiar"
+      },
+      "generate_gamedata": {
+        "label": "Gerar os dados do jogo",
+        "hint": "Monta os dados do backend e do Director a partir da exportação. Um servidor em execução precisa ser reiniciado.",
+        "button": "Gerar"
+      },
+      "synthetic_data": {
+        "label": "Usar dados de exemplo",
+        "hint": "Os serviços iniciam com os exemplos incluídos, mas ninguém consegue jogar.",
+        "button": "Usar exemplos"
+      },
+      "export_gamedata": {
+        "label": "Empacotar os dados do jogo",
+        "hint": "Grava um pacote para levar os dados do jogo para outro PC.",
+        "button": "Empacotar"
+      }
+    },
+    "requirements": "Requisitos",
+    "requirementsHint": "Verificados quando esta página abriu e depois de cada tarefa.",
+    "get": "Obter",
+    "states": {
+      "ok": "Pronto",
+      "missing": "Ausente",
+      "problem": "Ação necessária"
+    },
+    "problems": {
+      "too_old": "Instalado, mas antigo demais.",
+      "service_running": "Instalado como serviço que já está rodando; o kit inicia o próprio.",
+      "no_cpp": "Instalado sem a carga de trabalho de C++."
+    },
+    "reqs": {
+      "dauntless": "Dauntless 1.14.7",
+      "git": "Git",
+      "node": "Node.js 22",
+      "mongodb": "MongoDB",
+      "tailscale": "Tailscale",
+      "visual_studio": "Visual Studio com C++",
+      "rust": "Rust",
+      "dumper7": "Dumper-7",
+      "vc_redist": "Runtime do Visual C++"
+    }
   }
 }

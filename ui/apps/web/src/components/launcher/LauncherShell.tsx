@@ -9,7 +9,7 @@ import { Stack } from "@astryxdesign/core/Stack";
 import { Text } from "@astryxdesign/core/Text";
 import { TitleBar, useBridge } from "@dainty/bridge/react";
 import { BrandMark, HUES, RAIL_RESIZE } from "@dainty/theme";
-import { Download, Gamepad2, ScrollText, Server, Settings } from "lucide-react";
+import { Download, Gamepad2, ScrollText, Server, Settings, Wrench } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { type ReactNode, useEffect } from "react";
@@ -22,6 +22,7 @@ export function LauncherShell({ children }: { children: ReactNode }) {
   const te = useTranslations("errors");
   const tn = useTranslations("launcher.notices");
   const ti = useTranslations("launcher.install");
+  const th = useTranslations("launcher.host");
   const { snapshot, api } = useBridge();
   const path = usePathname();
   const at = (href: string) => (href === "/" ? path === "/" : path.startsWith(href));
@@ -96,6 +97,14 @@ export function LauncherShell({ children }: { children: ReactNode }) {
               icon={<ScrollText className={HUES.cyan.text} />}
               isSelected={at("/log")}
             />
+            {snapshot?.app.hostToolsAvailable && snapshot.settings.hostTools && (
+              <SideNavItem
+                href="/host/"
+                label={th("nav")}
+                icon={<Wrench className={HUES.orange.text} />}
+                isSelected={at("/host")}
+              />
+            )}
             <SideNavItem
               href="/settings/"
               label={t("settings")}

@@ -287,5 +287,168 @@
     "discardHint": "What has been downloaded so far is deleted. Installing again starts from the beginning.",
     "discardConfirm": "Delete download",
     "discardKeep": "Keep it"
+  },
+  "host": {
+    "nav": "Host",
+    "title": "Host tools",
+    "description": "Dump the SDK, build the runtime and make the game data your server runs on",
+    "recheck": "Check again",
+    "off": "Host tools are off",
+    "offHint": "Turn on Tools for hosts in Preferences to use this page.",
+    "loading": "Checking this PC…",
+    "present": "Done",
+    "absent": "Not yet",
+    "hiddenPath": "Folder hidden",
+    "openLogs": "Open logs",
+    "jobStates": {
+      "running": "Running",
+      "done": "Done",
+      "failed": "Failed"
+    },
+    "jobs": {
+      "inject": "Starting the game with a tool",
+      "build_runtime": "Building the runtime",
+      "build_loader": "Building the loader",
+      "build_exporter": "Building the CatalogExporter",
+      "import_sdk": "Importing the SDK",
+      "copy_exports": "Copying the exports",
+      "synthetic_data": "Writing example game data",
+      "import_gamedata": "Importing game data",
+      "publish_runtime": "Publishing the runtime",
+      "setup": "Setting up the server",
+      "generate_gamedata": "Generating game data",
+      "export_gamedata": "Packing game data",
+      "create_invite": "Making an invite",
+      "update": "Updating the workspace",
+      "multipliers": "Setting the multipliers",
+      "upstream": "Fetching the runtime source",
+      "download_project": "Downloading the project",
+      "backup": "Writing a backup",
+      "migrate_mongo": "Migrating from MongoDB"
+    },
+    "workspace": "Workspace",
+    "noWorkspace": "No workspace chosen. Download the project, or choose a checkout you already have.",
+    "workspaceInvalid": "That folder is not a Dainty Lass checkout.",
+    "chooseWorkspace": "Choose folder",
+    "downloadProject": "Download the project",
+    "downloadTarget": "Downloads to {path}",
+    "open": "Open",
+    "folders": {
+      "workspace": "Workspace",
+      "runtime_source": "Runtime source",
+      "dumps": "Dumps",
+      "game_data": "Game data",
+      "runtime_publish": "Published runtime",
+      "host_logs": "Logs",
+      "gamedata_packs": "Packs"
+    },
+    "sdk": "1. The SDK",
+    "sdkHint": "Dumper-7 writes the game's C++ headers from your running 1.14.7 client. The runtime and the CatalogExporter are built against them. Never share the SDK.",
+    "dumper": "Dumper-7",
+    "noDumper": "No Dumper-7 DLL chosen yet.",
+    "chooseDumper": "Choose DLL",
+    "dumps": "Dumps",
+    "newestDump": "Newest: {name} ({count} found)",
+    "noDumps": "No dump found yet.",
+    "importSdkFolder": "Import an SDK folder",
+    "importSdkFolderHint": "A CppSDK folder you dumped by hand.",
+    "sdkFiles": "Imported: {files} function files",
+    "chooseFolder": "Choose folder",
+    "runtime": "2. The runtime",
+    "runtimeHint": "Needs Visual Studio with C++ and Rust. Players install the published runtime from your server.",
+    "gameData": "3. The game data",
+    "gameDataHint": "The CatalogExporter runs inside the game and exports what the backend and the Director serve. Start the game with it, wait for the export, then generate the game data.",
+    "dataState": "Game data now",
+    "backendData": "Backend: {state}",
+    "directorData": "Director: {state}",
+    "dataStates": {
+      "real": "real",
+      "synthetic": "examples",
+      "missing": "missing"
+    },
+    "importGameData": "Import a game-data pack",
+    "importGameDataHint": "A pack exported on another PC.",
+    "chooseFile": "Choose file",
+    "actions": {
+      "inject_dumper": {
+        "label": "Start the game with Dumper-7",
+        "hint": "Loads Dumper-7 through the runtime loader. The dump appears once the game reaches the menu.",
+        "button": "Start"
+      },
+      "import_sdk": {
+        "label": "Import the newest dump",
+        "hint": "Copies the newest dump into the runtime source.",
+        "button": "Import"
+      },
+      "build_runtime": {
+        "label": "Build the runtime",
+        "hint": "Compiles Rustic-Isles.dll against the SDK.",
+        "button": "Build"
+      },
+      "build_loader": {
+        "label": "Build the loader",
+        "hint": "Compiles the runtime loader, winmm.dll.",
+        "button": "Build"
+      },
+      "publish_runtime": {
+        "label": "Publish the runtime",
+        "hint": "Hands the built DLLs to the content server. Players are asked to accept the new files.",
+        "button": "Publish"
+      },
+      "build_exporter": {
+        "label": "Build the CatalogExporter",
+        "hint": "Compiles the exporter against the same SDK.",
+        "button": "Build"
+      },
+      "inject_exporter": {
+        "label": "Start the game with CatalogExporter",
+        "hint": "Loads the CatalogExporter through the runtime loader. It writes the export while the game runs.",
+        "button": "Start"
+      },
+      "copy_exports": {
+        "label": "Copy the exports",
+        "hint": "Brings the export from the game folder into the workspace.",
+        "button": "Copy"
+      },
+      "generate_gamedata": {
+        "label": "Generate the game data",
+        "hint": "Builds the backend's and the Director's data from the export. A running server needs a restart.",
+        "button": "Generate"
+      },
+      "synthetic_data": {
+        "label": "Use example game data",
+        "hint": "The services start on the shipped examples, but nobody can play.",
+        "button": "Use examples"
+      },
+      "export_gamedata": {
+        "label": "Pack the game data",
+        "hint": "Writes a pack to move the game data to another PC.",
+        "button": "Pack"
+      }
+    },
+    "requirements": "Requirements",
+    "requirementsHint": "Checked when this page opened and after each task.",
+    "get": "Get it",
+    "states": {
+      "ok": "Ready",
+      "missing": "Missing",
+      "problem": "Action needed"
+    },
+    "problems": {
+      "too_old": "Installed, but too old.",
+      "service_running": "Installed as a service that is already running; the kit starts its own.",
+      "no_cpp": "Installed without the C++ workload."
+    },
+    "reqs": {
+      "dauntless": "Dauntless 1.14.7",
+      "git": "Git",
+      "node": "Node.js 22",
+      "mongodb": "MongoDB",
+      "tailscale": "Tailscale",
+      "visual_studio": "Visual Studio with C++",
+      "rust": "Rust",
+      "dumper7": "Dumper-7",
+      "vc_redist": "Visual C++ runtime"
+    }
   }
 }

@@ -408,7 +408,7 @@ export function mockLauncher(): LauncherApi {
     hostAction: async (action) => {
       emitKit({
         job: {
-          kind: action === "inject_dumper" ? "inject" : (action as never),
+          kind: action.startsWith("inject_") ? "inject" : (action as never),
           state: "running",
           message: null,
           logFile: null,
