@@ -983,17 +983,12 @@
   "rlm_title": "Realms",
   "rlm_text": "Host a hub or a hunt on this PC, or join a friend's realm over peer-to-peer and the server's relay.",
   "rlm_open_from_play": "Open Realms",
-  "realm_err_transport_missing": "ParadoxTransport.dll isn't next to the game yet. Install or update the server's runtime first.",
   "realm_err_admission_key_missing": "This server hasn't placed its realm admission key next to the game yet.",
-  "realm_err_transport_untrusted": "Accept and install this server's runtime before hosting or joining a realm.",
-  "realm_err_transport_hash_mismatch": "ParadoxTransport.dll doesn't match what this server offers. Reinstall the runtime.",
   "realm_err_coop_disabled": "Co-op realm hosting is turned off for this account or server.",
   "rlm_status_title": "Realm & relay status",
   "rlm_status_text": "Tracks your active session, local UDP route and the launcher's relay.",
   "rlm_refresh": "Refresh",
-  "rlm_transport_ready": "Transport ready (ParadoxTransport.dll verified)",
   "rlm_transport_unavailable": "Transport not ready",
-  "rlm_unavailable_hint": "Locate Dauntless 1.14.7 and install the server's runtime so ParadoxTransport.dll is ready.",
   "rlm_no_session": "No realm session is running on this PC right now.",
   "rlm_active_title": "Active session",
   "rlm_sessions_title": "Tracked sessions ({count})",
@@ -1184,5 +1179,7 @@
   "hrem_queued": "Queued {action} on {node} ({id})",
   "tray_open": "Open",
   "tray_quit": "Quit",
-  "dialog_game_install_folder": "Where Dauntless versions install"
+  "dialog_game_install_folder": "Where Dauntless versions install",
+  "rlm_transport_ready": "Transport ready (built into the launcher)",
+  "rlm_unavailable_hint": "Locate Dauntless 1.14.7 and install the server's runtime so its realm admission key is next to the game."
 }

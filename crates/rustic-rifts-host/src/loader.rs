@@ -26,13 +26,13 @@ pub fn sha256_file(path: &Path) -> Result<[u8; 32], HostError> {
     Ok(Sha256::digest(&bytes).into())
 }
 
-/// The launcher's loader. With `in-process` it hands out the linked transport and ignores the path and digest, since
-/// the transport now ships inside the signed launcher (D1); without it every load is refused.
+/// The launcher's loader. With `in-process` it hands out the linked transport, which ships inside the signed launcher
+/// (D1); without it every load is refused.
 #[derive(Debug, Clone, Copy, Default)]
 pub struct NativeTransportLoader;
 
 impl TransportLoader for NativeTransportLoader {
-    fn load(&self, _dll: &Path, _expected_sha256: [u8; 32]) -> Result<Box<dyn TransportAbi>, HostError> {
+    fn load(&self) -> Result<Box<dyn TransportAbi>, HostError> {
         #[cfg(feature = "in-process")]
         {
             Ok(Box::new(in_process::InProcessTransport::new()))

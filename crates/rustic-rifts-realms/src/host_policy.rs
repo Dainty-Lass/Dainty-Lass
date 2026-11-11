@@ -128,6 +128,11 @@ const PIN_SETTINGS: [&[&str]; 6] = [
     &["P2P_ADMISSION_PUBLIC_XY_SHA256"],
 ];
 
+/// The transport is linked into the signed launcher (umbrella D1), whose hosts report zeros for both roles, so with
+/// neither a pin nor a published `TRANSPORT_MODULE` the zero hash is expected (spec-paradox-transport C2, provisional).
+const OPTIONAL: [bool; 6] = [false, false, false, true, true, false];
+const ZERO_SHA256: &str = "0000000000000000000000000000000000000000000000000000000000000000";
+
 fn stale_pin_warning(setting: &str, pinned: &str, served: &str) -> String {
     let short = |hash: &str| hash.chars().take(12).collect::<String>();
     format!(
@@ -138,13 +143,18 @@ fn stale_pin_warning(setting: &str, pinned: &str, served: &str) -> String {
     )
 }
 
-/// One artifact's hash: a valid pin beats the feed, an invalid pin or nothing at all is an error.
-fn resolve(settings: &dyn Settings, names: &[&str], feed: Option<String>, stale: &mut Vec<String>) -> Option<String> {
+/// One artifact's hash: a valid pin beats the feed; an invalid pin, or nothing for a required role, is an error.
+fn resolve(
+    settings: &dyn Settings,
+    names: &[&str],
+    (feed, optional): (Option<String>, bool),
+    stale: &mut Vec<String>,
+) -> Option<String> {
     let Some((setting, raw)) = names
         .iter()
         .find_map(|&name| Some((name, setting_text(settings, name)?)))
     else {
-        return feed;
+        return feed.or_else(|| optional.then(|| ZERO_SHA256.to_owned()));
     };
     let pinned = normalized(raw.trim())?;
     if let Some(served) = feed.filter(|served| *served != pinned) {
@@ -157,6 +167,7 @@ fn resolve(settings: &dyn Settings, names: &[&str], feed: Option<String>, stale:
 pub fn read_artifact_policy(settings: &dyn Settings, sources: &ArtifactSources) -> Result<ArtifactPolicy, String> {
     let mut policy = ArtifactPolicy::default();
     let feeds = feed_hashes(settings, sources);
+    let feeds = feeds.into_iter().zip(OPTIONAL);
     for ((names, feed), slot) in PIN_SETTINGS.into_iter().zip(feeds).zip(slots(&mut policy.hashes)) {
         *slot = resolve(settings, names, feed, &mut policy.stale_pins)
             .ok_or_else(|| format!("Missing or invalid {}.", names[0]))?;

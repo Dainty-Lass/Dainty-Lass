@@ -23,7 +23,11 @@ Paradox does not endorse it. Every change is recorded in the commit history.
   MysticFox / Pranav Karande. See NOTICE.md for contribution and provenance information."**
 - The repository root is Mystic Paradox's `ParadoxTransport/` folder, taken with its history (up to `c1c5dca`,
   17 October 2026): the transport (`src/`), its self-test (`src/test/`), the build and dependency scripts and
-  `tools/`. Its files keep Mystic Paradox's copyright headers.
+  `tools/`. Its files keep Mystic Paradox's copyright headers. The transport, its self-test, the `.vcxproj` files and
+  the build and dependency scripts were deleted on 2026-11-11 (RD27, the transport cutover): the launcher links
+  Dainty Lass's clean-room MIT `rustic-rifts-transport` in their place, which contains none of this code. They stay in
+  the history, under `AGPL-3.0-only` and Mystic Paradox's additional terms. `tools/` and `run-relay-selftest.ps1`
+  remain.
 - The Rust workspace (`crates/rustic-rifts-seam`, `crates/rustic-rifts-admission`, `crates/rustic-rifts-relay`, `crates/rustic-rifts-realms`,
   `crates/rustic-rifts-guard`, `crates/rustic-rifts-host`) ported Mystic Paradox's `p2p/`, `realms/`, Guard and launcher realm-hosting
   modules (`21b9ff5`, `AGPL-3.0-only`) to Rust on `store`. Those crates were removed on 2026-11-05 (RD27): Dainty Lass
@@ -33,14 +37,3 @@ Paradox does not endorse it. Every change is recorded in the commit history.
   recorded from Mystic Paradox's own admission, relay and ICE modules, and `oracle/tests/*.rs` the ported tests that
   replay them; both stay under `AGPL-3.0-only` and Mystic Paradox's additional terms.
 - `LICENSE` and `ADDITIONAL_TERMS.md` are copied unchanged from Mystic Paradox.
-
-### libjuice
-
-- Copyright (c) 2020-2022 Paul-Louis Ageneau. Mozilla Public License 2.0 (`MPL-2.0`),
-  [mozilla.org/MPL/2.0](https://mozilla.org/MPL/2.0/).
-- Source: [github.com/paullouisageneau/libjuice](https://github.com/paullouisageneau/libjuice), tag `v1.7.4`.
-- Not stored in this repository. `prepare-dependencies.ps1` downloads the tag's source archive, checks its
-  SHA-256 (`02CCA69649A3163CE27BD59D9E04A5B69E39EB88BBE6BE89FC5F03B2D9A178FD`) and unpacks it into
-  `third_party/`; `libjuice.vcxproj` builds it unmodified as a static library linked into `ParadoxTransport.dll`
-  and `ParadoxTransportTest.exe`. Its source code is available at the link above, and anyone who distributes
-  those binaries passes this notice on with them (MPL-2.0 section 3.2).

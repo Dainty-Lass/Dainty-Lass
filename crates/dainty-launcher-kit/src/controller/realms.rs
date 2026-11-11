@@ -10,7 +10,7 @@
 //! `rifts-host`, `p2p-sessions/`, or the spawned dedicated server's environment.
 
 use std::collections::HashMap;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError, Weak};
 use std::time::Duration;
 
@@ -19,15 +19,14 @@ use rustic_rifts_host::{
     ADMISSION_PUBLIC_KEY_FILE, CommonBootstrapConfig, DefaultHostBackend, FileHostState, HostBackend,
     HostBootstrapSpec, HostError, HostState as _, HostedRole, HubLimits, JoinBootstrapSpec, LocalRealmHosting,
     LocalSession, LocalState, NativeTransportLoader, NoopServerSpawner, PeerListEntry, RealmHosting, ServerSpawner,
-    SessionResult, Signal, TRANSPORT_DLL, TransportAbi, TransportConfig, TransportLoader, default_max_servers,
-    wire_session_id,
+    SessionResult, Signal, TransportAbi, TransportConfig, TransportLoader, default_max_servers, wire_session_id,
 };
 use rustic_rifts_seam::{AccountId, GlobalId, HubKind, NodeId, Secret, SessionId, Ulid};
 use serde_json::{Value, json};
 
 use super::{Controller, Shared, now_iso};
 use crate::bridge::types::{
-    ErrorCode, LauncherError, RealmKind, RealmOutcome, RealmSessionView, RealmState, RealmView, RuntimeState,
+    ErrorCode, LauncherError, RealmKind, RealmOutcome, RealmSessionView, RealmState, RealmView,
 };
 use crate::net::hostapi::key_headers;
 use crate::net::http::{Endpoint, RequestOptions, request};
@@ -46,8 +45,6 @@ fn lock<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
 pub struct RealmsSeams {
     /// Loads the transport.
     pub loader: Arc<dyn TransportLoader>,
-    /// The transport's SHA-256, in place of the runtime manifest's.
-    pub expected_sha256: Option<[u8; 32]>,
     /// The server side.
     pub backend: Arc<dyn HostBackend>,
     /// Starts the dedicated server.
@@ -56,7 +53,6 @@ pub struct RealmsSeams {
 
 struct ActiveRealms {
     win64: PathBuf,
-    dll_sha256: [u8; 32],
     transport: Arc<dyn TransportAbi>,
     hosting: Arc<LocalRealmHosting>,
     last_session: Option<SessionId>,
@@ -69,20 +65,8 @@ pub struct RealmsState {
     seams: Mutex<Option<RealmsSeams>>,
 }
 
-fn parse_sha256_hex(hex: &str) -> Option<[u8; 32]> {
-    if hex.len() != 64 {
-        return None;
-    }
-    let mut out = [0u8; 32];
-    for (i, slot) in out.iter_mut().enumerate() {
-        *slot = u8::from_str_radix(hex.get(i * 2..i * 2 + 2)?, 16).ok()?;
-    }
-    Some(out)
-}
-
 fn map_host_error(error: HostError) -> (ErrorCode, String) {
     match error {
-        HostError::HashMismatch { .. } => (ErrorCode::RealmUnavailable, "transport_hash_mismatch".to_owned()),
         HostError::MissingExport(sym) => (ErrorCode::RealmUnavailable, format!("missing_export:{sym}")),
         HostError::UnsupportedAbi(ver) => (ErrorCode::RealmUnavailable, format!("unsupported_abi:{ver}")),
         HostError::NotFound(msg) => (ErrorCode::RealmNotFound, msg),
@@ -345,6 +329,7 @@ impl ServerHostBackend {
                 "gameExe": "f3f95fbf22709ef077a11632ed95d675b7209b7e0172d9ecb9ba7d02a1fbb66b",
                 "internalServer": zero_hash,
                 "winmmProxy": zero_hash,
+                // Linked into the launcher (D1): no file, so zeros, which realms expects unpinned.
                 "transportModule": zero_hash,
                 "transportRuntime": zero_hash,
                 "steamBridge": zero_hash,
@@ -913,42 +898,6 @@ impl Controller {
         AccountId(id)
     }
 
-    fn expected_transport_sha256(&self, dll_path: &Path) -> Result<[u8; 32], LauncherError> {
-        if let Some(sha) = lock(&self.shared.realms.seams).as_ref().and_then(|s| s.expected_sha256) {
-            return Ok(sha);
-        }
-        let (manifest_sha, local_or_installed) = {
-            let st = self.lock();
-            let sha = st
-                .manifest
-                .as_ref()
-                .and_then(|m| {
-                    m.files
-                        .iter()
-                        .find(|f| f.name.eq_ignore_ascii_case(TRANSPORT_DLL))
-                        .map(|f| f.sha256.clone())
-                })
-                .and_then(|hex| parse_sha256_hex(&hex));
-            (
-                sha,
-                matches!(st.runtime.state, RuntimeState::Local | RuntimeState::Ok) || st.runtime_playable,
-            )
-        };
-        if let Some(sha) = manifest_sha {
-            return Ok(sha);
-        }
-        if local_or_installed {
-            return rustic_rifts_host::sha256_file(dll_path).map_err(|error| {
-                let (code, detail) = map_host_error(error);
-                self.refuse(LauncherError::with_detail(code, &detail))
-            });
-        }
-        Err(self.refuse(LauncherError::with_detail(
-            ErrorCode::RealmUnavailable,
-            "transport_untrusted",
-        )))
-    }
-
     async fn ensure_realms_ready(&self) -> Result<(), LauncherError> {
         if self.lock().shutting_down {
             return Err(LauncherError::new(ErrorCode::Cancelled));
@@ -968,13 +917,6 @@ impl Controller {
                 &leftovers.join(", "),
             )));
         }
-        let dll_path = win64.join(TRANSPORT_DLL);
-        if !dll_path.is_file() {
-            return Err(self.refuse(LauncherError::with_detail(
-                ErrorCode::RealmUnavailable,
-                "transport_missing",
-            )));
-        }
         let pubkey_path = win64.join(ADMISSION_PUBLIC_KEY_FILE);
         if !pubkey_path.is_file() {
             return Err(self.refuse(LauncherError::with_detail(
@@ -982,12 +924,10 @@ impl Controller {
                 "admission_key_missing",
             )));
         }
-        let expected_sha256 = self.expected_transport_sha256(&dll_path)?;
 
         let mut guard = self.shared.realms.inner.lock().await;
         if let Some(active) = guard.as_ref()
             && active.win64 == win64
-            && active.dll_sha256 == expected_sha256
         {
             return Ok(());
         }
@@ -1004,7 +944,7 @@ impl Controller {
             }
         };
 
-        let boxed_transport = loader.load(&dll_path, expected_sha256).map_err(|error| {
+        let boxed_transport = loader.load().map_err(|error| {
             let (code, detail) = map_host_error(error);
             self.refuse(LauncherError::with_detail(code, &detail))
         })?;
@@ -1026,7 +966,6 @@ impl Controller {
         );
         *guard = Some(ActiveRealms {
             win64,
-            dll_sha256: expected_sha256,
             transport,
             hosting,
             last_session: None,
@@ -1038,8 +977,8 @@ impl Controller {
         let guard = self.shared.realms.inner.lock().await;
         let Some(active) = guard.as_ref() else {
             let available = self.win64().is_some_and(|win64| {
-                win64.join(TRANSPORT_DLL).is_file()
-                    && win64.join(ADMISSION_PUBLIC_KEY_FILE).is_file()
+                // The transport is linked in (D1); only the runtime's admission key has to be in place.
+                win64.join(ADMISSION_PUBLIC_KEY_FILE).is_file()
                     && !self
                         .user_data()
                         .join(rustic_rifts_host::DISABLE_COOP_FLAG_FILE)

@@ -20,8 +20,7 @@ use dainty_protocol::manifest::{RUNTIME_FILE_NAMES, RuntimeFile, RuntimeManifest
 use futures_util::future::BoxFuture;
 use rustic_rifts_host::{
     ADMISSION_PUBLIC_KEY_FILE, DefaultHostBackend, Handle, HostBackend, HostError, HostOpen, JoinOpen,
-    NoopServerSpawner, ReadyState, SESSION_FILES, ServerSpawner, SessionResult, Signal, TRANSPORT_DLL, TransportAbi,
-    TransportLoader, sha256_file,
+    NoopServerSpawner, ReadyState, SESSION_FILES, ServerSpawner, SessionResult, Signal, TransportAbi, TransportLoader,
 };
 use rustic_rifts_seam::{AccountId, PeerId, Secret};
 use serde_json::{Value, json};
@@ -483,11 +482,6 @@ impl Harness {
 
 // --- A transport whose sessions are ready at once ---
 
-/// The launcher still looks for the transport file beside the game and checks its digest; any bytes do.
-fn write_transport_placeholder(out_path: &Path) {
-    std::fs::write(out_path, b"placeholder transport, never loaded (RD27)").unwrap();
-}
-
 /// A host answers `HOST_READY`, a join `ROUTE_READY` and one offer to the host's account.
 #[derive(Default)]
 struct FakeTransport {
@@ -586,9 +580,35 @@ impl TransportAbi for FakeTransport {
 struct FakeLoader;
 
 impl TransportLoader for FakeLoader {
-    fn load(&self, _: &Path, _: [u8; 32]) -> Result<Box<dyn TransportAbi>, HostError> {
+    fn load(&self) -> Result<Box<dyn TransportAbi>, HostError> {
         Ok(Box::new(FakeTransport::default()))
     }
+}
+
+/// Nothing ships a transport file (D1): a game folder with only the runtime's admission key is ready for realms, with
+/// the launcher's own loader and no seams (spec-paradox-transport C1).
+#[tokio::test]
+async fn realms_need_no_transport_file_beside_the_game() {
+    let hx = Harness::new().await;
+    let win64 = hx.win64();
+    assert_eq!(hx.c.use_game_path(hx.root.to_str().unwrap()).await, ActionResult::Ok);
+    let RealmOutcome::Ok(without_key) = hx.c.realm_get().await else {
+        panic!("expected RealmOutcome::Ok from realm_get");
+    };
+    assert!(!without_key.available);
+
+    std::fs::write(win64.join(ADMISSION_PUBLIC_KEY_FILE), [0x11u8; 64]).unwrap();
+    let transport_files: Vec<_> = std::fs::read_dir(&win64)
+        .unwrap()
+        .map(|entry| entry.unwrap().file_name().to_string_lossy().to_ascii_lowercase())
+        .filter(|name| name.contains("transport"))
+        .collect();
+    assert!(transport_files.is_empty(), "{transport_files:?}");
+    let RealmOutcome::Ok(view) = hx.c.realm_get().await else {
+        panic!("expected RealmOutcome::Ok from realm_get");
+    };
+    assert!(view.available);
+    hx.c.shutdown().await;
 }
 
 #[tokio::test]
@@ -611,10 +631,7 @@ async fn realm_commands_host_join_stop_keep_rd9_and_never_expose_account_key() {
     assert_eq!(hx.c.use_existing_key(secret_key).await, ActionResult::Ok);
 
     let win64 = hx.win64();
-    let dll_path = win64.join(TRANSPORT_DLL);
-    write_transport_placeholder(&dll_path);
     std::fs::write(win64.join(ADMISSION_PUBLIC_KEY_FILE), [0x11u8; 64]).unwrap();
-    let dll_sha = sha256_file(&dll_path).unwrap();
 
     assert_eq!(hx.c.use_game_path(hx.root.to_str().unwrap()).await, ActionResult::Ok);
     assert_eq!(hx.c.verify_game().await, ActionResult::Ok);
@@ -622,7 +639,6 @@ async fn realm_commands_host_join_stop_keep_rd9_and_never_expose_account_key() {
     let spawner = Arc::new(NoopServerSpawner::new());
     hx.c.set_realms_seams(RealmsSeams {
         loader: Arc::new(FakeLoader) as Arc<dyn TransportLoader>,
-        expected_sha256: Some(dll_sha),
         backend: Arc::new(DefaultHostBackend::new()) as Arc<dyn HostBackend>,
         spawner: spawner.clone() as Arc<dyn ServerSpawner>,
     });
@@ -737,13 +753,9 @@ async fn server_host_backend_drives_realm_hub_and_join_across_two_launchers() {
     let join_key = "DLK_join_account_key_for_server_realms_6677889900";
 
     let host_win64 = host_hx.win64();
-    let host_dll = host_win64.join(TRANSPORT_DLL);
-    write_transport_placeholder(&host_dll);
     std::fs::write(host_win64.join(ADMISSION_PUBLIC_KEY_FILE), [0x22u8; 64]).unwrap();
-    let dll_bytes = std::fs::read(&host_dll).unwrap();
 
     let join_win64 = join_hx.win64();
-    std::fs::write(join_win64.join(TRANSPORT_DLL), &dll_bytes).unwrap();
     std::fs::write(join_win64.join(ADMISSION_PUBLIC_KEY_FILE), [0x22u8; 64]).unwrap();
 
     let mut srv = Host {
@@ -770,7 +782,6 @@ async fn server_host_backend_drives_realm_hub_and_join_across_two_launchers() {
     for hx in [&host_hx, &join_hx] {
         hx.c.set_realms_seams(RealmsSeams {
             loader: Arc::new(FakeLoader) as Arc<dyn TransportLoader>,
-            expected_sha256: None,
             backend: hx.c.live_host_backend(),
             spawner: Arc::new(NoopServerSpawner::new()) as Arc<dyn ServerSpawner>,
         });

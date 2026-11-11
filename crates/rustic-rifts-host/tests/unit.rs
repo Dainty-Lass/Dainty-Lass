@@ -45,14 +45,6 @@ fn session_result_codes() {
 #[test]
 fn error_texts() {
     assert_eq!(
-        HostError::HashMismatch {
-            expected: [0; 32],
-            actual: [1; 32]
-        }
-        .to_string(),
-        "transport SHA-256 mismatch"
-    );
-    assert_eq!(
         HostError::MissingExport("X").to_string(),
         "transport is missing export X"
     );
@@ -68,10 +60,7 @@ fn error_texts() {
 #[test]
 fn stub_refuses_everything() {
     let refused = |operation| Err::<(), _>(HostError::Unimplemented(Unimplemented::new(Component::Host, operation)));
-    assert_eq!(
-        Stub.load(Path::new("x"), [0; 32]).map(|_| ()),
-        refused("transport.load")
-    );
+    assert_eq!(Stub.load().map(|_| ()), refused("transport.load"));
     assert_eq!(Stub.abi_version().map(|_| ()), refused("transport.abi_version"));
     assert_eq!(
         Stub.update_relay_credential(rustic_rifts_host::Handle(1), "u", &Secret::new("c".into())),

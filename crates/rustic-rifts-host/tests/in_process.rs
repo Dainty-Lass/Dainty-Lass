@@ -34,7 +34,7 @@ const JOINER: &str = "join-account";
 
 #[test]
 fn the_loader_hands_out_the_linked_transport() {
-    let transport = NativeTransportLoader.load(Path::new("nowhere.dll"), [0; 32]).unwrap();
+    let transport = NativeTransportLoader.load().unwrap();
     assert_eq!(transport.abi_version().unwrap(), 3);
     assert_eq!(
         transport.peer_id(),

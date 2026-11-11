@@ -8,8 +8,7 @@ use std::sync::atomic::{AtomicBool, AtomicI32, Ordering};
 
 use rustic_rifts_host::{
     ADMISSION_PUBLIC_KEY_FILE, DefaultHostBackend, Handle, HostBackend, HostError, HostOpen, JoinOpen,
-    NoopServerSpawner, ReadyState, SESSION_FILES, ServerSpawner, SessionResult, Signal, TRANSPORT_DLL, TransportAbi,
-    TransportLoader, sha256_file,
+    NoopServerSpawner, ReadyState, SESSION_FILES, ServerSpawner, SessionResult, Signal, TransportAbi, TransportLoader,
 };
 use rustic_rifts_seam::{AccountId, PeerId, Secret};
 
@@ -17,11 +16,6 @@ use super::*;
 use dainty_launcher_kit::bridge::types::{RealmKind, RealmOutcome, RealmState};
 use dainty_launcher_kit::controller::realms::RealmsSeams;
 use dainty_launcher_kit::platform::loader_session::LOADER_INI;
-
-/// The launcher still looks for the transport file beside the game and checks its digest; any bytes do.
-fn write_transport_placeholder(out_path: &Path) {
-    std::fs::write(out_path, b"placeholder transport, never loaded (RD27)").unwrap();
-}
 
 /// A transport whose sessions are ready at once: a host answers `HOST_READY`, a join `ROUTE_READY` and one offer to
 /// the host's account.
@@ -122,7 +116,7 @@ impl TransportAbi for FakeTransport {
 struct FakeLoader;
 
 impl TransportLoader for FakeLoader {
-    fn load(&self, _: &Path, _: [u8; 32]) -> Result<Box<dyn TransportAbi>, HostError> {
+    fn load(&self) -> Result<Box<dyn TransportAbi>, HostError> {
         Ok(Box::new(FakeTransport::default()))
     }
 }
@@ -144,10 +138,7 @@ async fn realm_commands_host_join_stop_keep_rd9_and_never_expose_account_key() {
 
     let game_root = hx.game();
     let win64 = game_root.join("Archon").join("Binaries").join("Win64");
-    let dll_path = win64.join(TRANSPORT_DLL);
-    write_transport_placeholder(&dll_path);
     std::fs::write(win64.join(ADMISSION_PUBLIC_KEY_FILE), [0x11u8; 64]).unwrap();
-    let dll_sha = sha256_file(&dll_path).unwrap();
 
     assert_eq!(hx.c.use_game_path(game_root.to_str().unwrap()).await, ActionResult::Ok);
     assert_eq!(hx.c.verify_game().await, ActionResult::Ok);
@@ -155,7 +146,6 @@ async fn realm_commands_host_join_stop_keep_rd9_and_never_expose_account_key() {
     let spawner = Arc::new(NoopServerSpawner::new());
     hx.c.set_realms_seams(RealmsSeams {
         loader: Arc::new(FakeLoader) as Arc<dyn TransportLoader>,
-        expected_sha256: Some(dll_sha),
         backend: Arc::new(DefaultHostBackend::new()) as Arc<dyn HostBackend>,
         spawner: spawner.clone() as Arc<dyn ServerSpawner>,
     });
@@ -454,14 +444,10 @@ async fn server_host_backend_drives_realm_hub_and_join_across_two_launchers() {
 
     let host_game = host_hx.game();
     let host_win64 = host_game.join("Archon").join("Binaries").join("Win64");
-    let host_dll = host_win64.join(TRANSPORT_DLL);
-    write_transport_placeholder(&host_dll);
     std::fs::write(host_win64.join(ADMISSION_PUBLIC_KEY_FILE), [0x22u8; 64]).unwrap();
-    let dll_bytes = std::fs::read(&host_dll).unwrap();
 
     let join_game = join_hx.game();
     let join_win64 = join_game.join("Archon").join("Binaries").join("Win64");
-    std::fs::write(join_win64.join(TRANSPORT_DLL), &dll_bytes).unwrap();
     std::fs::write(join_win64.join(ADMISSION_PUBLIC_KEY_FILE), [0x22u8; 64]).unwrap();
 
     let mut srv = Host::new("LiveRealmsSrv");
@@ -486,7 +472,6 @@ async fn server_host_backend_drives_realm_hub_and_join_across_two_launchers() {
     for hx in [&host_hx, &join_hx] {
         hx.c.set_realms_seams(RealmsSeams {
             loader: Arc::new(FakeLoader) as Arc<dyn TransportLoader>,
-            expected_sha256: None,
             backend: hx.c.live_host_backend(),
             spawner: Arc::new(NoopServerSpawner::new()) as Arc<dyn ServerSpawner>,
         });
