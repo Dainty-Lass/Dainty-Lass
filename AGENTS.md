@@ -29,7 +29,7 @@ dependencies.
 | `native/` | `runtime-loader`, the `winmm.dll` the game loads, which loads the Rustic Isles runtime, and `rustic-isles-exporter`, the catalog exporter (MIT, clean-room from `docs/port/spec-runtime-loader.md` and `spec-catalog-exporter.md`). Crates of their own outside both workspaces, so workspace-wide `cargo` commands don't cover them |
 | `scripts/` | `replay-capture.mjs` |
 | `docs/` | `architecture.md`, the plans, `port/` (the migration guide, delta and catch-up lists), `security/` for the MIT components (indexed in [`SECURITY_REVIEW.md`](SECURITY_REVIEW.md)) |
-| `restricted/` | The AGPL-3.0-only workspace (`restricted/Cargo.toml`): `crates/` (`dainty-host-parity`, the Node host kit's tests run against the root's `dainty-host`), `launcher/src-tauri` (Tauri: `dainty-launcher`, `dainty-manager`), `modules/rustic-isles` and `modules/rustic-rifts`, `legacy/` (the 1.4.4 importer's oracle), `docker/`, `compose.yaml`, the Tauri backend's language catalogs (`restricted/ui/`), and the hosting, player and Paradox docs. [`restricted/AGENTS.md`](restricted/AGENTS.md) covers them |
+| `restricted/` | The AGPL-3.0-only workspace (`restricted/Cargo.toml`): `crates/` (`dainty-host-parity`, the Node host kit's tests run against the root's `dainty-host`), `launcher/src-tauri` (Tauri: `dainty-launcher`, `dainty-manager`), `modules/rustic-isles` and `modules/rustic-rifts`, `legacy/` (the 1.4.4 importer's oracle), `docker/`, `compose.yaml`, and the hosting, player and Paradox docs. [`restricted/AGENTS.md`](restricted/AGENTS.md) covers them |
 
 **Names.** The app is Dainty Lass, and DaintyLass only where a space can't go (DD1). A crate, binary or module is
 `<prefix>-<module>`: `dainty-` for core modules (`dainty-lass` is the core run at launch, `dainty-dash` the
@@ -178,8 +178,7 @@ their oracle runs retire them, so a service added, moved or removed at the root 
 
 Every string a player or host reads comes from a language catalog in `en` and `pt-BR` (DU2). The pages' catalogs
 are `ui/apps/web/messages/<launcher|manager>/en.json` and `pt-BR.json`, checked by `ui/apps/web/tests/catalog.test.ts`.
-The Tauri backend takes its own dialogs from `restricted/ui/packages/i18n/catalogs`, through the generated
-`restricted/launcher/src-tauri/gen/strings.json`.
+The Tauri backend's own dialogs are the launcher kit's 15-key catalog (`crates/dainty-launcher-kit`, `core::i18n`).
 
 - **Both languages in the same commit**, with the same keys and the same `{placeholders}`, never an English
   placeholder in `pt-BR`. The catalog tests fail a key that one language lacks. When you aren't

@@ -1756,7 +1756,7 @@ async fn server_gui_drives_setup_synthetic_data_config_doctor_and_backup_in_proc
     };
     let hx = host_harness();
     let (_tx, rx) = tokio::sync::mpsc::unbounded_channel();
-    let embedded = std::sync::Arc::new(dainty_launcher::server_gui::EmbeddedServerState::new(rx));
+    let embedded = std::sync::Arc::new(dainty_manager_server::EmbeddedServerState::new(rx));
     hx.c.set_embedded_server(embedded);
     hx.c.init().await;
     // Fresh profile defaults to `<user_data>/Server` and refuses `host_download_project` (T2).
@@ -1836,15 +1836,28 @@ async fn server_gui_drives_setup_synthetic_data_config_doctor_and_backup_in_proc
 #[tokio::test(flavor = "multi_thread")]
 async fn server_gui_and_client_end_to_end_start_invite_join_ban_history_and_stop() {
     use dainty_launcher_kit::bridge::types::{
-        AdminActionKind, AdminOutcome, HistoryOutcome, HostComponentPhase, HostServerMode, HostServerState,
-        ServerInviteListOutcome,
+        AdminActionKind, AdminOutcome, HostComponentPhase, HostServerMode, HostServerState, ModuleListOutcome,
+        ModuleRunState, ServerInviteListOutcome,
     };
     use dainty_launcher_kit::platform::hostserver::EmbeddedServer as _;
 
+    // The manager's bundle ships the 1.14.7 version data beside its executable (RD27); here, beside this test's
+    let shipped = std::env::current_exe()
+        .unwrap()
+        .parent()
+        .unwrap()
+        .join("data/1.14.7/version_data.json");
+    std::fs::create_dir_all(shipped.parent().unwrap()).unwrap();
+    std::fs::copy(
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("../../modules/rustic-isles/version-data/1.14.7/version_data.json"),
+        &shipped,
+    )
+    .unwrap();
+
     // 1. Server GUI sets up a fresh private workspace with embedded example game data
     let hx = host_harness();
-    let (_tx, rx) = tokio::sync::mpsc::unbounded_channel();
-    let embedded = std::sync::Arc::new(dainty_launcher::server_gui::EmbeddedServerState::new(rx));
+    let (logs, rx) = tokio::sync::mpsc::unbounded_channel();
+    let embedded = std::sync::Arc::new(dainty_manager_server::EmbeddedServerState::new(rx));
     let panel = embedded.modules().expect("server-gui provides module panel");
     hx.c.set_embedded_server(embedded);
     hx.c.init().await;
@@ -1968,12 +1981,51 @@ async fn server_gui_and_client_end_to_end_start_invite_join_ban_history_and_stop
         AdminOutcome::Err(e) => panic!("admin lookup failed: {e:?}"),
     }
 
-    match dainty_launcher::server_history::query(&ws, dainty_launcher_kit::bridge::checks::HistoryFilter::default())
+    match dainty_manager_server::history::query(&ws, &dainty_launcher_kit::bridge::checks::HistoryFilter::default())
         .await
     {
-        HistoryOutcome::Ok(page) => assert!(!page.entries.is_empty(), "expected change-log entries"),
-        HistoryOutcome::Err(e) => panic!("history_query failed: {e:?}"),
+        Ok(page) => assert!(!page.entries.is_empty(), "expected change-log entries"),
+        Err(e) => panic!("history_query failed: {e:?}"),
     }
+    // The module panel sees the running server's game module (§6)
+    match panel.list().await {
+        ModuleListOutcome::Ok(modules) => {
+            assert!(modules.iter().any(|m| m.state == ModuleRunState::Ready), "{modules:?}")
+        }
+        ModuleListOutcome::Err(e) => panic!("module_list failed: {e:?}"),
+    }
+    // The server's own log reaches the page as `<service> | <line>`; the launcher's own events do not (§4.1)
+    let entry = |service: &str, message: &str| dainty_service_kit::telemetry::HostLogEntry {
+        seq: 0,
+        timestamp_ms: 0,
+        service: service.to_owned(),
+        level: "INFO".to_owned(),
+        message: message.to_owned(),
+    };
+    for (service, message) in [
+        ("host", "oracle host line"),
+        ("gateway", "oracle gateway line"),
+        ("dainty-launcher-kit", "oracle launcher line"),
+    ] {
+        logs.send(entry(service, message)).unwrap();
+    }
+    let shown = |text: &str| hx.c.host_server_view().lines.iter().any(|line| line.ends_with(text));
+    for _ in 0..50 {
+        if shown("oracle gateway line") {
+            break;
+        }
+        tokio::time::sleep(Duration::from_millis(20)).await;
+    }
+    let lines = hx.c.host_server_view().lines;
+    assert!(
+        lines.contains(&format!("{:<14} | oracle host line", "host")),
+        "{lines:?}"
+    );
+    assert!(
+        lines.contains(&format!("{:<14} | oracle gateway line", "gateway")),
+        "{lines:?}"
+    );
+    assert!(!shown("oracle launcher line"), "{lines:?}");
 
     assert_eq!(hx.c.server_backup().await, ActionResult::Ok);
 

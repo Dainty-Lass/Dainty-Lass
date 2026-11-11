@@ -8,6 +8,7 @@
 pub mod engine;
 pub mod history;
 pub mod modules;
+pub mod version_data;
 
 use std::future::Future;
 use std::path::PathBuf;
@@ -151,9 +152,12 @@ impl EmbeddedServer for EmbeddedServerState {
             let paths = dainty_host::paths::Paths::new(workspace);
             let printer: dainty_host::services::Printer =
                 Arc::new(move |name: &str, line: &str| lines(format!("{name:<14} | {line}")));
-            let mut server = tokio::task::spawn_blocking(move || dainty_host::serve::prepare_embedded(&paths, printer))
-                .await
-                .map_err(|error| error.to_string())??;
+            let mut server = tokio::task::spawn_blocking(move || {
+                version_data::install_shipped(&paths)?;
+                dainty_host::serve::prepare_embedded(&paths, printer)
+            })
+            .await
+            .map_err(|error| error.to_string())??;
             *lock(&inner.status) = Some(server.subscribe_status());
             inner.modules.attach_registry(server.registry().cloned());
             if let Err(why) = server.start_all().await {

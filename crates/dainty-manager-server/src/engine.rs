@@ -380,7 +380,10 @@ fn remote_status(paths: &Paths) -> Result<RemoteStatusView, String> {
 impl ServerEngine for Engine {
     fn run_kit(&self, workspace: &Path, args: &[String], lines: Lines<'_>) -> Result<bool, String> {
         dainty_host::ensure_hooks();
-        Self::kit(&Paths::new(workspace), args, lines)
+        let paths = Paths::new(workspace);
+        // Setup, the example data and the generators read the version data
+        crate::version_data::install_shipped(&paths)?;
+        Self::kit(&paths, args, lines)
     }
 
     fn doctor(&self, workspace: &Path) -> Result<DoctorReportView, String> {
@@ -429,6 +432,7 @@ impl ServerEngine for Engine {
     fn migrate_mongo(&self, workspace: &Path, lines: Lines<'_>) -> Result<(), String> {
         let paths = Paths::new(workspace);
         configured(&paths)?;
+        crate::version_data::install_shipped(&paths)?;
         let steps = [
             ("the migration", DbCommand::Migrate(Default::default())),
             // Writes the marker `start` waits for, and only when it finds no difference
