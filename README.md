@@ -38,7 +38,7 @@ player guides. No MIT crate at the root depends on anything in `restricted/`.
 | Folder | Licence | What |
 | --- | --- | --- |
 | [root](.) (`crates/`, `fuzz/`) | MIT | The MIT Cargo workspace, every package in `crates/<package name>` (libraries, the gateway, content, admin and chat services, core plugins, the Rustic Isles game module and the Rustic Rifts crates, and `dainty-lass`, the core binary), and `fuzz/` |
-| [`ui/`](ui) | MIT | dainty-dash: the staff dashboard, the launcher and server-manager pages the Tauri shells serve, and the fleet agent (Astryx on Next.js through vinext, built with Bun); its generated bridge types are copied from `restricted/ui` at build time |
+| [`ui/`](ui) | MIT | dainty-dash: the staff dashboard, the launcher and server-manager pages the Tauri shells serve, and the fleet agent (Astryx on Next.js through vinext, built with Bun) |
 | [`launcher/`](launcher) | MIT | The launcher's JavaScript side: the isolation hook, the scripts the Tauri shells and the release run, and their tests |
 | [`scripts/`](scripts) | MIT | `replay-capture.mjs`, the shadow-replay wrapper |
 | [`docs/`](docs) | MIT | The architecture, the plans and the MIT components' security checklists ([SECURITY_REVIEW.md](SECURITY_REVIEW.md)) |

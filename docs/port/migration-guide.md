@@ -338,10 +338,10 @@ still owed, and are closed.
    `hosttoml.rs` write it, the service's `config.rs` reads it, a test round-trips it, an older `host.toml` without it
    keeps today's behaviour, its name carries a server prefix, a secret goes in `secrets.env`, and the host docs'
    tables move with it (AGENTS.md, "Configuration").
-8. ***Launcher text** goes at the end of both language files with the same keys and placeholders. In
-   `restricted/`, `RR_UPDATE_GENERATED=1 cargo test -p dainty-launcher generated` regenerates `gen/strings.json` and,
-   for a bridge command changed in `bridge/spec.rs`, its TS types, hook list and permissions. Generated files are
-   never edited.
+8. ***Launcher text** goes at the end of both language files (`ui/apps/web/messages/`, or the launcher kit's
+   `core::i18n` for the backend's dialogs) with the same keys and placeholders. In `restricted/`,
+   `RR_UPDATE_GENERATED=1 cargo test -p dainty-launcher generated` regenerates, for a bridge command changed in
+   `bridge/spec.rs`, its TS types, hook list and permissions. Generated files are never edited.
 9. **Check** from the root of each workspace the change touched (the root, `restricted/`):
 
    ```bash

@@ -101,7 +101,6 @@ jobs:
               - fuzz/**
             ui:
               - ui/**
-              - restricted/ui/**
             rust_restricted:
               - crates/**
               - restricted/Cargo.toml
@@ -126,7 +125,6 @@ jobs:
               - crates/dainty-launcher-app/**
               - crates/dainty-manager-server/**
               - restricted/launcher/**
-              - restricted/ui/**
               - restricted/Cargo.toml
             docker:
               - crates/**
@@ -748,15 +746,13 @@ jobs:
           persist-credentials: false
 
       - name: Install the pinned toolchain
-        working-directory: restricted
         run: |
           rustup show active-toolchain || rustup toolchain install
-          # The maintainer's PC: restricted/ builds with 6 jobs or fewer (AGENTS.md)
+          # The maintainer's PC: builds with 6 jobs or fewer (AGENTS.md)
           echo "CARGO_BUILD_JOBS=6" >> "$GITHUB_ENV"
 
       - uses: https://github.com/Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
-          workspaces: restricted
           key: installers-windows
 
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
@@ -770,7 +766,7 @@ jobs:
       - uses: https://github.com/actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5.1.0
         with:
           path: ~/.bun/install/cache
-          key: bun-${{ runner.os }}-launcher-${{ hashFiles('bun.lock', 'restricted/launcher/bun.lock') }}
+          key: bun-${{ runner.os }}-launcher-${{ hashFiles('bun.lock') }}
           restore-keys: bun-${{ runner.os }}-launcher-
 
       - name: Bridge tests
@@ -780,18 +776,21 @@ jobs:
           bun run test
 
       - name: Build unsigned NSIS installers (Dainty Lass Launcher and Dainty Lass Manager)
-        working-directory: restricted/launcher
+        working-directory: crates/dainty-launcher-app
         run: |
-          bun install --frozen-lockfile
-          bun run build:client
-          bun run build:manager
-          ls -la ../target/release/bundle/nsis/*-setup.exe
+          set -euo pipefail
+          # The manager ships the 1.14.7 version data beside its executable (RD27)
+          echo '{"bundle":{"resources":{"../../restricted/modules/rustic-isles/version-data/1.14.7/version_data.json":"data/1.14.7/version_data.json"}}}' > "$RUNNER_TEMP/manager-data.json"
+          bunx tauri build --ci --bundles nsis -- --features realms
+          bunx tauri build --ci --bundles nsis --config tauri.server-gui.conf.json --config "$RUNNER_TEMP/manager-data.json" \
+            -- --no-default-features --features server-gui
+          ls -la ../../target/release/bundle/nsis/*-setup.exe
 
       - name: Upload unsigned Windows NSIS installers
         uses: https://code.forgejo.org/forgejo/upload-artifact@16871d9e8cfcf27ff31822cac382bbb5450f1e1e # v4 (v4.3.1, GHES check disabled)
         with:
           name: windows-nsis-installers
-          path: restricted/target/release/bundle/nsis/*-setup.exe
+          path: target/release/bundle/nsis/*-setup.exe
           if-no-files-found: error
           retention-days: 14
 
