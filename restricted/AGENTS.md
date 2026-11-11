@@ -25,7 +25,6 @@ via relative path dependencies (`path = "../crates/<name>"` in `Cargo.toml`, `[w
 | `legacy/` | dainty-legacy: the 1.4.4 importer, a workspace of its own (an external plugin `host.toml` pins) |
 | `ui/` | The UI's two AGPL inputs only: the language catalogs (`packages/i18n/catalogs`) and the bridge types the launcher generates (`packages/bridge/src/generated`); `../ui/` (dainty-dash) copies the bridge types in at build time |
 | `fuzz/` | `cargo fuzz` targets for the AGPL components, a workspace of its own |
-| `native/` | The runtime loader (`runtime-loader`, `winmm.dll`, outside the workspace) |
 | `docker/`, `compose.yaml` | Container deployment (RX4), laid out as the server release |
 | `docs/` | Host and player guides, `paradox-patches.md`, and `security/` for the AGPL components |
 
@@ -228,8 +227,9 @@ A runtime patch written against Mystic Paradox's tree is applied to `modules/rus
 section in `docs/paradox-patches.md`. The migration guide's sections 2.1 and 2.8 say which Paradox folder
 became which `modules/rustic-isles/native/` folder and which patches live there. The realm transport,
 `ParadoxTransport.dll`, lives in `modules/rustic-rifts/src`.
-`native/runtime-loader` is a Rust crate of its own, outside the workspace: workspace-wide `cargo` commands
-don't cover it.
+The runtime loader (`winmm.dll`) is the root's MIT `native/runtime-loader`, rewritten clean-room
+(`docs/port/spec-runtime-loader.md` at the root): a Paradox patch's `tools/RuntimeLoader/` part is not applied, it
+amends that spec.
 
 ## CI
 
@@ -284,7 +284,7 @@ The MIT crates (`dainty-controller`, `dainty-module-api`, `dainty-hostkit`, `dai
 are the root's. Here,
 `crates/dainty-host-parity`, `server-console`, `server-minimal` (their binaries link the root's `dainty-host` with
 the version data), `launcher/src-tauri` and the game modules' crates inherit the workspace's AGPL
-(`license.workspace = true`); `fuzz` and `legacy` set `AGPL-3.0-only` themselves, and `native/runtime-loader` is Apache-2.0. A new
+(`license.workspace = true`); `fuzz` and `legacy` set `AGPL-3.0-only` themselves. A new
 crate is MIT only when nothing in it is ported from DR, Paradox or the Reforged Revival line: no file from those
 trees, no function rewritten from one while looking at it, and such a crate belongs at the root. Copying a DR or
 Paradox function into an MIT crate moves the crate to `license.workspace = true` in the same commit, with the NOTICE

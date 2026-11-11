@@ -291,7 +291,7 @@ impl Paths {
         let sdk_header = runtime_source.join("SDK.hpp");
         let sdk_dir = runtime_source.join("SDK");
         let runtime_dll = runtime_source.join("x64").join("Release").join("Rustic-Isles.dll");
-        let loader_dir = restricted.join("native").join("runtime-loader");
+        let loader_dir = repo.join("native").join("runtime-loader");
         let loader_dll = loader_dir
             .join("target")
             .join("x86_64-pc-windows-msvc")

@@ -38,7 +38,7 @@ Visual Studio 2022 with Desktop development with C++ (the v145 toolset and a Win
 
 ```bat
 modules\rustic-isles\native\runtime\_build.bat          REM Rustic-Isles.dll, one DLL for the client and the dedicated server
-cd native\runtime-loader && cargo build --release      REM winmm.dll (needs the Rust toolchain; the loader stays here, DD13)
+modules\rustic-isles\native\runtime\build-loader.bat    REM winmm.dll from the root's native\runtime-loader (needs the Rust toolchain)
 ```
 
 `modules/rustic-isles/native/runtime/BUILD.md` explains the build and the optional

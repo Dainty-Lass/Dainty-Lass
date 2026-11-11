@@ -145,8 +145,6 @@ impl WorkspacePaths {
 
         let loader_dir = if root.join("native").join("runtime-loader").is_dir() {
             root.join("native").join("runtime-loader")
-        } else if root.join("restricted").join("native").join("runtime-loader").is_dir() {
-            root.join("restricted").join("native").join("runtime-loader")
         } else if has_isles && isles.join("native").join("runtime-loader").is_dir() {
             isles.join("native").join("runtime-loader")
         } else {
