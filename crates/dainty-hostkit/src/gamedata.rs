@@ -663,6 +663,23 @@ mod tests {
     use super::*;
 
     #[test]
+    fn every_seeded_file_has_a_committed_example() {
+        // Else seeding writes the example into the checkout, where it shows up untracked.
+        let reference =
+            Path::new(env!("CARGO_MANIFEST_DIR")).join("../../restricted/modules/rustic-isles/reference/1.14.7");
+        let backend = reference.join("ParadoxBackend").join("game-data");
+        let director = reference.join("ParadoxDirector").join("game-data");
+        let all = BACKEND_GAME_DATA
+            .iter()
+            .chain(&EXTRA_BACKEND_EXAMPLES)
+            .map(|f| (&backend, f));
+        for (dir, file) in all.chain(DIRECTOR_GAME_DATA.iter().map(|f| (&director, f))) {
+            let example = dir.join(example_file_name(file));
+            assert!(example.is_file(), "{} is not committed", example.display());
+        }
+    }
+
+    #[test]
     fn tracks_missing_synthetic_and_real_game_data_state() {
         let tmp = tempfile::tempdir().unwrap();
         let dir = tmp.path();
