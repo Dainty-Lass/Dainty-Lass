@@ -1,7 +1,7 @@
 # Changes to Mystic Paradox
 
 rustic-isles (`modules/rustic-isles`, in-tree since RD27 and a submodule from DS6: the Node services under
-`reference/1.14.7`, the runtime and the CatalogExporter under `native/`; `paradox/` and `native/` here before DS6) and `native/runtime-loader` are
+`reference/1.14.7`, the runtime and the CatalogExporter under `native/`; `paradox/` and `native/` here before DS6) is
 Mystic Paradox at commit `21b9ff5` (`pranav158/Mystic-Paradox`, upstream `main` on 2026-10-23) with the changes
 below. Each is marked in the code with `[DaintyLass]` or, for the ones taken
 over from the Dauntless Reforged Revival line and kept as received, `[Dauntless Reforged Revival]`

@@ -26,9 +26,10 @@ dependencies.
 | `fuzz/` | `cargo fuzz` targets for the MIT crates, a workspace of its own (excluded from the main one) |
 | `ui/` | dainty-dash: the staff dashboard, the launcher and server-manager pages `restricted/`'s Tauri shells serve, and the fleet agent. MIT; its generated bridge types come from `restricted/` at build time (`bun run restricted-data`) |
 | `launcher/` | The launcher's JavaScript side (RD27): the isolation hook, the scripts the Tauri shells and the release run, and their tests. The Rust shell (`restricted/launcher/src-tauri`) is in `restricted/` |
+| `native/runtime-loader` | The `winmm.dll` the game loads, which loads the Rustic Isles runtime (MIT, clean-room from `docs/port/spec-runtime-loader.md`). A crate of its own outside both workspaces, so workspace-wide `cargo` commands don't cover it |
 | `scripts/` | `replay-capture.mjs` |
 | `docs/` | `architecture.md`, the plans, `port/` (the migration guide, delta and catch-up lists), `security/` for the MIT components (indexed in [`SECURITY_REVIEW.md`](SECURITY_REVIEW.md)) |
-| `restricted/` | The AGPL-3.0-only workspace (`restricted/Cargo.toml`): `crates/` (`dainty-host-parity`, the Node host kit's tests run against the root's `dainty-host`, and the server executables' packages `dainty-server` and `dainty-server-minimal`), `launcher/src-tauri` (Tauri: `dainty-launcher`, `dainty-manager`), `modules/rustic-isles` and `modules/rustic-rifts`, `legacy/` (the 1.4.4 importer), `native/runtime-loader`, `docker/`, `compose.yaml`, the Tauri backend's language catalogs (`restricted/ui/`), and the hosting, player and Paradox docs. [`restricted/AGENTS.md`](restricted/AGENTS.md) covers them |
+| `restricted/` | The AGPL-3.0-only workspace (`restricted/Cargo.toml`): `crates/` (`dainty-host-parity`, the Node host kit's tests run against the root's `dainty-host`, and the server executables' packages `dainty-server` and `dainty-server-minimal`), `launcher/src-tauri` (Tauri: `dainty-launcher`, `dainty-manager`), `modules/rustic-isles` and `modules/rustic-rifts`, `legacy/` (the 1.4.4 importer), `docker/`, `compose.yaml`, the Tauri backend's language catalogs (`restricted/ui/`), and the hosting, player and Paradox docs. [`restricted/AGENTS.md`](restricted/AGENTS.md) covers them |
 
 **Names.** The app is Dainty Lass, and DaintyLass only where a space can't go (DD1). A crate, binary or module is
 `<prefix>-<module>`: `dainty-` for core modules (`dainty-lass` is the core run at launch, `dainty-dash` the
@@ -223,8 +224,9 @@ Not obvious from reading the suites:
 
 ## Native code
 
-There is none outside `restricted/`. The game runtime, CatalogExporter, the runtime loader and `ParadoxTransport.dll`
-are there, and `restricted/AGENTS.md` says how a runtime patch is applied.
+The runtime loader (`native/runtime-loader`) is the only native code outside `restricted/`. An upstream loader
+change reaches it through its spec, never as a patch. The game runtime, CatalogExporter and `ParadoxTransport.dll`
+are in `restricted/`, and `restricted/AGENTS.md` says how a runtime patch is applied.
 
 ## CI
 

@@ -1,10 +1,9 @@
 # Applying a runtime patch
 
 A change to the game runtime (`Rustic-Isles.dll`) or its loader (`winmm.dll`) that was written against Mystic
-Paradox's tree, as a `git diff` with paths starting `ParadoxRuntime/` or `tools/RuntimeLoader/`, is applied in two
-places since DS6: the runtime in the rustic-isles repository (`native/runtime/` there, mounted here at
-[`modules/rustic-isles`](../modules/rustic-isles)), the loader in this one
-([`native/runtime-loader`](../native/runtime-loader), DD13). The runtime is the one part every server shares: a
+Paradox's tree, as a `git diff` with paths starting `ParadoxRuntime/` or `tools/RuntimeLoader/`, is applied to the
+runtime in [`modules/rustic-isles`](../modules/rustic-isles) (`native/runtime/`). The loader is the root's MIT
+`native/runtime-loader`, rewritten clean-room, so its part goes through the loader's spec instead (step 1). The runtime is the one part every server shares: a
 player's DLLs speak HTTP to whichever backend answers, so a fix to the game's behaviour helps every host.
 
 ## Applying a patch
@@ -20,14 +19,9 @@ With the patch saved as `patch.diff`:
    git apply --3way --include='native/runtime/*' runtime.diff
    ```
 
-   The loader part, from `restricted/`:
-
-   ```bash
-   sed -e 's#\([ab]\)/tools/RuntimeLoader/#\1/native/runtime-loader/#g' patch.diff > loader.diff
-   git apply --3way --include='native/runtime-loader/*' loader.diff
-   ```
-
-   Both parts land in the same commit, since rustic-isles is in-tree. A patch saved on Windows may have CRLF line endings; convert it to
+   A `tools/RuntimeLoader/` part is not applied: the loader is the root's MIT `native/runtime-loader`, rewritten
+   clean-room. Describe what that part changes in `docs/port/spec-runtime-loader.md` at the root, and have the
+   loader follow the spec in a commit of its own, written without the patch open (RD27). A patch saved on Windows may have CRLF line endings; convert it to
    LF first (`dos2unix patch.diff`).
 2. If it does not apply, read what the patch does and make the change by hand. A conflict usually means an
    earlier runtime change the patch builds on is missing: take that one first.

@@ -1,0 +1,32 @@
+[package]
+name = "rustic-isles-loader"
+version = "0.1.0"
+edition = "2024"
+license = "MIT"
+publish = false
+description = "winmm.dll proxy that loads the Rustic Isles runtime into the game"
+
+# Outside both workspaces: built on its own for x86_64-pc-windows-msvc.
+[workspace]
+
+[lib]
+name = "winmm"
+crate-type = ["cdylib"]
+
+[lints.rust]
+unsafe_code = "deny"
+unused_must_use = "deny"
+
+[lints.clippy]
+unwrap_used = "deny"
+expect_used = "deny"
+todo = "deny"
+dbg_macro = "deny"
+allow_attributes_without_reason = "warn"
+
+[profile.release]
+lto = true
+strip = true
+opt-level = "z"
+codegen-units = 1
+panic = "abort"
