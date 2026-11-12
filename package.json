@@ -27,7 +27,9 @@
     "restricted-data": "bun run --cwd ui restricted-data && bun run --cwd launcher restricted-data",
     "typecheck": "bun run --cwd ui typecheck && bun run --cwd launcher typecheck",
     "test": "bun run --cwd ui test && bun run --cwd launcher test",
-    "lint": "bun run --cwd ui lint",
+    "dev": "bun run --cwd launcher dev",
+    "dev:manager": "bun run --cwd launcher dev:manager",
+    "lint":"bun run --cwd ui lint",
     "build": "bun run --cwd ui build"
   },
   "trustedDependencies": [
