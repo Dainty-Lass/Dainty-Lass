@@ -73,7 +73,8 @@
     "history_failed": "Não foi possível atualizar o histórico ({detail}).",
     "realm_unavailable": "Os realms não estão disponíveis neste servidor.",
     "realm_not_found": "Esse realm não existe.",
-    "realm_failed": "O realm teve um problema ({detail})."
+    "realm_failed": "O realm teve um problema ({detail}).",
+    "inject_helper_missing": "O auxiliar de injeção do Proton (dainty-inject.exe) não foi encontrado. Reinstale o launcher ou desligue o auxiliar nas Configurações."
   },
   "window": {
     "minimize": "Minimizar",

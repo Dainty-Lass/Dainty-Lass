@@ -17,6 +17,16 @@ use crate::platform::loader_session::{self, EXPORTER_DLL, LoaderSession, RECORD_
 use crate::platform::log;
 
 impl Controller {
+    /// The runtime loader loads the runtime: under Proton unless the player picked the inject helper.
+    pub(crate) fn uses_loader(&self) -> bool {
+        !inject::INJECTS && !self.stored().inject_helper()
+    }
+
+    /// What the game folder holds for this way of loading the runtime.
+    pub(crate) fn runtime_files(&self) -> &'static [&'static str] {
+        runtime_files::player_runtime_files(self.uses_loader())
+    }
+
     /// Where the session record is kept.
     fn loader_record(&self) -> PathBuf {
         self.user_data().join(RECORD_FILE)
@@ -41,8 +51,8 @@ impl Controller {
         let known = self.loader_known();
         let known: Vec<&str> = known.iter().map(String::as_str).collect();
         let mut found = loader_session::leftovers(win64, &self.loader_record(), &known);
-        if inject::INJECTS {
-            runtime_files::retire_loader(win64);
+        if !self.uses_loader() {
+            runtime_files::retire_loader(win64, self.runtime_files());
             if win64.join(LOADER_DLL).symlink_metadata().is_ok() {
                 found.push(LOADER_DLL.to_owned());
                 found.sort_by_key(|name| name.to_lowercase());

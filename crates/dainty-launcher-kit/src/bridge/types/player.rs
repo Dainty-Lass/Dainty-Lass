@@ -405,6 +405,8 @@ pub struct Settings {
     pub close_to_tray: bool,
     /// Show the game's console window.
     pub show_game_console: bool,
+    /// Under Proton, load the runtime with the `dainty-inject.exe` helper rather than the runtime loader.
+    pub inject_helper: bool,
 }
 
 /// A change to the settings: only the named ones change. Anything else is refused whole (§2.3.4).
@@ -444,6 +446,9 @@ pub struct SettingsPatch {
     /// New game console flag.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub show_game_console: Option<bool>,
+    /// New Proton helper flag.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub inject_helper: Option<bool>,
 }
 
 object_only!(SettingsPatch);

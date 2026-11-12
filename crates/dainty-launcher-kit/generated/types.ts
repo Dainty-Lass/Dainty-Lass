@@ -188,7 +188,7 @@ export type RuntimeState = "ok" | "missing" | "outdated" | "untrusted" | "unavai
 /**
  * Why a bridge command failed. The page shows each code as its catalog sentence (`errors.<code>`).
  */
-export type ErrorCode = "account_banned" | "invite_invalid_format" | "invite_invalid" | "username_invalid" | "username_taken" | "registration_closed" | "bad_request" | "server_unreachable" | "server_error" | "key_invalid" | "key_rejected" | "key_storage_unavailable" | "folder_invalid" | "game_folder_not_found" | "game_wrong_version" | "runtime_unavailable" | "runtime_untrusted" | "runtime_failed" | "runtime_different_on_server" | "runtime_in_use" | "local_runtime_invalid" | "download_failed" | "disk_space" | "already_running" | "launch_failed" | "compat_runtime_missing" | "config_failed" | "busy" | "cancelled" | "cert_mismatch" | "cert_changed" | "rate_limited" | "relay_port_busy" | "relay_failed" | "loader_leftovers" | "host_failed" | "manifest_mismatch" | "no_content_server" | "file_missing_on_server" | "file_different_on_server" | "dll_failed" | "game_files_invalid" | "windows_runtime_missing" | "folder_other_game" | "folder_not_empty" | "edition_other" | "epic_signed_out" | "epic_library_failed" | "epic_not_owned" | "not_implemented" | "not_in_this_build" | "epic_code_invalid" | "epic_rejected" | "epic_unreachable" | "epic_failed" | "game_version_unknown" | "game_version_unavailable" | "epic_manifest_unavailable" | "guarded_not_found" | "guarded_not_waiting" | "server_stopped" | "module_unknown" | "module_bad_state" | "module_input_invalid" | "module_settings_invalid" | "module_failed" | "history_bad_filter" | "history_unavailable" | "history_plan_changed" | "history_failed" | "realm_unavailable" | "realm_not_found" | "realm_failed" | "unknown";
+export type ErrorCode = "account_banned" | "invite_invalid_format" | "invite_invalid" | "username_invalid" | "username_taken" | "registration_closed" | "bad_request" | "server_unreachable" | "server_error" | "key_invalid" | "key_rejected" | "key_storage_unavailable" | "folder_invalid" | "game_folder_not_found" | "game_wrong_version" | "runtime_unavailable" | "runtime_untrusted" | "runtime_failed" | "runtime_different_on_server" | "runtime_in_use" | "local_runtime_invalid" | "download_failed" | "disk_space" | "already_running" | "launch_failed" | "compat_runtime_missing" | "config_failed" | "busy" | "cancelled" | "cert_mismatch" | "cert_changed" | "rate_limited" | "relay_port_busy" | "relay_failed" | "loader_leftovers" | "host_failed" | "manifest_mismatch" | "no_content_server" | "file_missing_on_server" | "file_different_on_server" | "dll_failed" | "game_files_invalid" | "windows_runtime_missing" | "folder_other_game" | "folder_not_empty" | "edition_other" | "epic_signed_out" | "epic_library_failed" | "epic_not_owned" | "not_implemented" | "not_in_this_build" | "epic_code_invalid" | "epic_rejected" | "epic_unreachable" | "epic_failed" | "game_version_unknown" | "game_version_unavailable" | "epic_manifest_unavailable" | "guarded_not_found" | "guarded_not_waiting" | "server_stopped" | "module_unknown" | "module_bad_state" | "module_input_invalid" | "module_settings_invalid" | "module_failed" | "history_bad_filter" | "history_unavailable" | "history_plan_changed" | "history_failed" | "realm_unavailable" | "realm_not_found" | "realm_failed" | "inject_helper_missing" | "unknown";
 /**
  * A notice the page shows after an action succeeds, by catalog key.
  */
@@ -492,7 +492,11 @@ closeToTray: boolean,
 /**
  * Show the game's console window.
  */
-showGameConsole: boolean, };
+showGameConsole: boolean, 
+/**
+ * Under Proton, load the runtime with the `dainty-inject.exe` helper rather than the runtime loader.
+ */
+injectHelper: boolean, };
 /**
  * The connection's state.
  */

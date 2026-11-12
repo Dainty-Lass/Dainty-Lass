@@ -450,5 +450,9 @@
       "dumper7": "Dumper-7",
       "vc_redist": "Visual C++ runtime"
     }
+  },
+  "proton": {
+    "injectHelper": "Load the runtime with the inject helper",
+    "injectHelperHint": "Proton only. On, a small helper loads the runtime into the game, as the Windows launcher does. Off, the runtime loader (winmm.dll) beside the game loads it. The launcher installs what each one needs before the next launch."
   }
 }

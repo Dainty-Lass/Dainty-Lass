@@ -635,6 +635,7 @@ impl Controller {
                 ("minimizeToTray", patch.minimize_to_tray),
                 ("closeToTray", patch.close_to_tray),
                 ("showGameConsole", patch.show_game_console),
+                ("injectHelper", patch.inject_helper),
             ];
             for (name, value) in flags {
                 if let Some(value) = value {
@@ -828,6 +829,7 @@ fn settings_of(stored: &Stored) -> Settings {
         minimize_to_tray: stored.minimize_to_tray(),
         close_to_tray: stored.close_to_tray(),
         show_game_console: stored.show_game_console(),
+        inject_helper: stored.inject_helper(),
     }
 }
 

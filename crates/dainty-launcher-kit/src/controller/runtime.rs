@@ -85,7 +85,16 @@ impl Controller {
         let (state, playable) = match &win64 {
             None if manifest.is_some() => (RuntimeState::Missing, false),
             None => (RuntimeState::Unavailable, false),
-            Some(win64) => check_runtime(win64, manifest.as_ref(), trusted, local.as_deref()).await,
+            Some(win64) => {
+                check_runtime(
+                    win64,
+                    manifest.as_ref(),
+                    trusted,
+                    local.as_deref(),
+                    self.runtime_files(),
+                )
+                .await
+            }
         };
         let info = RuntimeInfo {
             state,
@@ -185,6 +194,7 @@ impl Controller {
             win64_dir: &win64,
             cancel: Some(cancel),
             on_progress: Some(&on_progress),
+            files: self.runtime_files(),
         })
         .await;
 
@@ -252,10 +262,10 @@ impl Controller {
         else {
             return ActionResult::err(ErrorCode::Cancelled);
         };
-        if !is_complete_runtime_dir(&folder).await {
+        if !is_complete_runtime_dir(&folder, self.runtime_files()).await {
             return self.fail(LauncherError::with_detail(
                 ErrorCode::LocalRuntimeInvalid,
-                &runtime_files::PLAYER_RUNTIME_FILES.join(", "),
+                &self.runtime_files().join(", "),
             ));
         }
         let dir = folder.to_string_lossy().into_owned();

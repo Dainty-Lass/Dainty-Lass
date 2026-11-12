@@ -1305,6 +1305,7 @@ async fn settings_take_reforgeds_seven_keys() {
         minimize_to_tray: Some(true),
         close_to_tray: None,
         show_game_console: None,
+        inject_helper: None,
     };
     let settings = hx.c.set_settings(patch).await;
     assert_eq!(settings.graphics.get(), 3);

@@ -49,6 +49,7 @@ network_plugin = { path = "crates/dainty-network", package = "dainty-network", d
 dainty-http = { path = "crates/dainty-http" }
 dainty-host = { path = "crates/dainty-host" }
 dainty-hostkit = { path = "crates/dainty-hostkit" }
+dainty-inject = { path = "crates/dainty-inject" }
 dainty-launcher-kit = { path = "crates/dainty-launcher-kit" }
 dainty-manager-server = { path = "crates/dainty-manager-server" }
 # Packaged for module repositories; the registry stops cargo package rewriting it to crates.io (DF1).

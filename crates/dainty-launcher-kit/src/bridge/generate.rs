@@ -421,6 +421,7 @@ fn generated_name_lists_are_the_enums() {
         minimize_to_tray: Some(true),
         close_to_tray: Some(true),
         show_game_console: Some(true),
+        inject_helper: Some(true),
     };
     let value = serde_json::to_value(full).unwrap();
     let keys: Vec<&str> = value.as_object().unwrap().keys().map(String::as_str).collect();

@@ -5,6 +5,7 @@
 //! the game itself. The key reaches the game only as its launch argument and the server only through the relay.
 
 use std::collections::BTreeMap;
+use std::ffi::OsString;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
@@ -15,6 +16,7 @@ use super::stored::{StoredServer, mode_name};
 use super::{Controller, game_language_code};
 use crate::bridge::types::{ActionResult, ErrorCode, LauncherError, RuntimeState};
 use crate::core::game_language;
+use crate::core::pins::EXE_NAME;
 use crate::net::hostapi::{self, UserInfo};
 use crate::net::relay::{LogSink, PinSink, Relay, RelayConfig, RelayError};
 use crate::net::relay_owner::game_owner_check;
@@ -93,13 +95,15 @@ impl Controller {
         }
 
         if let Some(local) = self.stored().local_runtime_dir().map(PathBuf::from) {
-            install_local_runtime(&local, &win64).await.map_err(|failed| {
-                error(if failed.code == RuntimeErrorCode::InUse {
-                    ErrorCode::RuntimeInUse
-                } else {
-                    ErrorCode::LocalRuntimeInvalid
-                })
-            })?;
+            install_local_runtime(&local, &win64, self.runtime_files())
+                .await
+                .map_err(|failed| {
+                    error(if failed.code == RuntimeErrorCode::InUse {
+                        ErrorCode::RuntimeInUse
+                    } else {
+                        ErrorCode::LocalRuntimeInvalid
+                    })
+                })?;
         }
 
         self.look_at_runtime().await;
@@ -116,7 +120,7 @@ impl Controller {
         }
 
         let mut dlls = Vec::new();
-        if inject::INJECTS {
+        if !self.uses_loader() {
             dlls.push(self.runtime_dll(&win64)?);
             if let Some(dll) = exporter {
                 let found = InjectDll::as_found(dll).map_err(|failed| {
@@ -317,10 +321,27 @@ impl Controller {
             stored.runtime_profile(),
         )
         .map_err(|failed| launch_failed(&failed))?;
-        let mut plan = LaunchPlan::new(win64, runner.as_ref(), &args, env);
-        if runner.is_none() {
-            plan.inject = dlls;
-        }
+        let plan = match runner.as_ref() {
+            // Proton with the inject helper: Wine runs the helper, which starts the game and loads the DLLs
+            Some(runner) if !dlls.is_empty() => {
+                let helper = self.config().resources.join(inject::HELPER_EXE);
+                if !helper.is_file() {
+                    log::warn(format!("the inject helper is missing: {}", helper.display()));
+                    return Err(error(ErrorCode::InjectHelperMissing));
+                }
+                let game_args: Vec<OsString> = args.iter().map(OsString::from).collect();
+                let line = inject::helper_line(&win64.join(EXE_NAME), &dlls, &game_args)
+                    .map_err(|failed| launch_failed(&failed))?;
+                LaunchPlan::through_helper(win64, runner, &helper, line, env)
+            }
+            _ => {
+                let mut plan = LaunchPlan::new(win64, runner.as_ref(), &args, env);
+                if runner.is_none() {
+                    plan.inject = dlls;
+                }
+                plan
+            }
+        };
         log::info(format!(
             "starting {} for {}:{} ({})",
             plan.describe(),

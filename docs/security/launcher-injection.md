@@ -21,11 +21,12 @@ both which process is touched and which file is loaded.
   own handle (`tokio::process::Child::raw_handle`). There is no lookup by pid or name and no `OpenProcess`.
 - **Files:** the runtime (`Rustic-Isles.dll`, or its pre-DX4 name, in `Win64`), the host's CatalogExporter (the host
   kit's build output) and the host's Dumper-7 pick. Each is named by absolute path.
-- **No parsing:** nothing read from the network or a file chooses a path. The expected runtime hash comes from the
-  offered manifest that the runtime check (`check_runtime`) has just matched and the player has trusted. So no new
-  fuzz target: the manifest parsers (`net::hostapi::parse`, `net::runtime_files::manifest`) already have theirs.
+- **Little parsing:** nothing read from the network or a file chooses a path. The expected runtime hash comes from
+  the offered manifest that the runtime check (`check_runtime`) has just matched and the player has trusted. The one
+  new parser is the Proton helper's command line, fuzzed by `inject_helper_args`.
 
-Code: `crates/dainty-launcher-kit/src/platform/inject.rs`, `platform/launch.rs` (`OsSpawner::spawn`). Tests are in
+Code: `crates/dainty-inject` (the library and the helper), `crates/dainty-launcher-kit/src/platform/inject.rs`,
+`platform/launch.rs` (`OsSpawner::spawn`, `LaunchPlan::through_helper`). Tests are in
 `inject.rs` and in `launch.rs` (`a_dll_is_loaded_before_the_process_runs_then_it_resumes` on Windows runs the whole
 path against `cmd.exe`).
 
@@ -41,7 +42,21 @@ path against `cmd.exe`).
 - [ ] On any error (a hash, a load, a timeout, the resume itself) the child is killed (`start_kill`) and the spawn
       fails. A game is never resumed without every DLL it was meant to have.
 - [ ] Off Windows a plan with DLLs to inject is refused (`ErrorKind::Unsupported`), and PLAY under a runner never
-      sets any.
+      sets any: under Proton the helper injects, inside Wine.
+
+### The Proton helper (`dainty-inject.exe`)
+
+- [ ] It runs only when the player has turned the Linux-only `injectHelper` switch on, and only from the launcher's
+      own resources folder (`ControllerConfig::resources`). A missing helper refuses PLAY
+      (`inject_helper_missing`) and is never looked for anywhere else.
+- [ ] Its command line is built by `inject::helper_line` and parsed by `helper::parse`, which accepts only
+      `--dll <path> <64 lowercase hex>` (one to four times), then `--`, the program and its arguments. Anything else
+      exits `0xD1A00001` without starting anything (fuzz target `inject_helper_args`).
+- [ ] It starts only the program it was given, suspended, and loads into that child with the same
+      `dainty_inject::load_and_resume`: the same hash re-check through a held handle, the same kill on failure
+      (`0xD1A00003`).
+- [ ] The key reaches the helper only as the game's own argument, which it passes on untouched. The launcher's log
+      shows the line through `LaunchPlan::describe`, masked. The helper prints only paths and errors.
 
 ### The files
 

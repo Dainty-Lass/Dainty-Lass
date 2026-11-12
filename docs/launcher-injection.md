@@ -1,7 +1,7 @@
 # The launcher injects the game's DLLs
 
-Status: **implemented on Windows, not yet tried with the game.** The security checklist is
-[security/launcher-injection.md](security/launcher-injection.md).
+Status: **implemented on Windows, and for Proton behind a setting; not yet tried with the game.** The security
+checklist is [security/launcher-injection.md](security/launcher-injection.md).
 
 ## Decision note (for the integration pass)
 
@@ -21,8 +21,10 @@ and removed around a session.
 2. **The feed's file list changes (seam, approved).** `dainty-protocol`'s manifest needs only `Rustic-Isles.dll`
    (`REQUIRED_RUNTIME_FILES`), and `winmm.dll` (`LOADER_DLL`) is optional for one release. The content server's
    `runtime.json` rule and the launcher's manifest parser follow it.
-3. **Linux/Proton players keep the loader** (`WINEDLLOVERRIDES`, `winmm.dll`, and `mystic_loader.ini` for the Host
-   sessions) until a `dainty-inject.exe` helper ships. That helper is not in this cut.
+3. **Linux/Proton players choose (amended later on 2026-11-12).** A Settings switch, "Load the runtime with the
+   inject helper" (`injectHelper`, Linux only, off by default), picks between the runtime loader (`winmm.dll`, and
+   `mystic_loader.ini` for the Host sessions) and the `dainty-inject.exe` helper. The default stays the loader until
+   the hands-on Proton check below passes.
 
 **What replaces "the launcher never injects":**
 
@@ -65,27 +67,59 @@ the runtime's `DllMain`, and both run before the game's entry point, as under th
 was not chosen: it reports no failure, and it runs inside the loader's own start-up at a point Windows doesn't
 document.
 
+Before the first DLL, a `Sleep(0)` thread runs once in the game. It finishes the loader's start-up on a thread that
+loads nothing, which Wine may need and Windows doesn't mind.
+
 **Crates.** The maintainer asked for existing crates where available. `dll-syringe` 0.18 handles suspended
 processes but needs nightly (`#![feature(linked_list_cursors)]`), and the toolchain is pinned stable. `inject-lib`
 finds `LoadLibraryW` by walking the target's module list, which a suspended process doesn't have yet. So the code
-uses the `windows` crate the launcher kit already depends on, with three more features
-(`Win32_System_Diagnostics_Debug`, `Win32_System_Diagnostics_ToolHelp`, `Win32_System_LibraryLoader`). No
-workspace dependency changed. The `unsafe` is item-scoped `#[allow(unsafe_code, reason)]` with `SAFETY:` notes, as
-in `platform/keystore/os.rs`.
+is a new MIT crate, `crates/dainty-inject`, on the `windows` crate the workspace already uses. The launcher kit
+calls its library, and its binary is the Proton helper. The `unsafe` is item-scoped
+`#[allow(unsafe_code, reason)]` with `SAFETY:` notes, as in `platform/keystore/os.rs`. The workspace `Cargo.toml`
+gained the crate's `[workspace.dependencies]` line, and `fuzz/` gained the `inject_helper_args` target.
+
+**Proton: the helper.** The launcher is a Linux process and can't reach into a Wine process, so with the switch on,
+Proton runs `dainty-inject.exe` in the game's place
+(`LaunchPlan::through_helper`):
+
+```text
+proton run <resources>/dainty-inject.exe --dll Z:\...\Rustic-Isles.dll <sha256> [--dll ...] -- Z:\...\Dauntless-Win64-Shipping.exe <game arguments>
+```
+
+The helper parses only that form (`dainty_inject::helper::parse`). It starts the game suspended inside the same
+prefix, runs the same `load_and_resume`, waits, and exits with the game's code. Its own failures exit with
+`0xD1A00001` (a bad command line), `0xD1A00002` (the game didn't start) or `0xD1A00003` (a DLL wasn't loaded; the
+game was killed), which the launcher reports as a failed launch with that code. A launcher with no helper in its
+resources folder refuses PLAY with `inject_helper_missing`. With the switch on:
+- The game folder holds the runtime alone (`player_runtime_files(false)`).
+- A loader the launcher installed is retired, and any other loader is refused, as on Windows.
+- An export session goes through the helper too.
+
+Turning the switch off puts the loader back at the next runtime check.
+
+**Shipping the helper (release workflow, not done here).** Workflows belong to RR3, so this is for the integration
+pass. Linux launcher builds need the helper bundled as a resource named `dainty-inject.exe`:
+1. Build it with `cargo build -p dainty-inject --release --target x86_64-pc-windows-gnu`, which needs
+   `mingw-w64` on the runner.
+2. Bundle it through a `tauri.linux.conf.json` beside `crates/dainty-launcher-app/tauri.conf.json`, with
+   `"bundle": { "resources": { "<built exe>": "dainty-inject.exe" } }`.
+
+A launcher built without it still runs; only the switch's PLAY refuses.
 
 **The feed and the install.**
-- `runtime_files::PLAYER_RUNTIME_FILES` lists what a game folder holds: `Rustic-Isles.dll` on Windows, and the
-  runtime and the loader elsewhere.
+- `runtime_files::player_runtime_files` lists what a game folder holds: `Rustic-Isles.dll` when the runtime is
+  injected (Windows, or Proton with the helper), and the runtime and the loader when the loader loads it.
 - The Windows install skips a listed `winmm.dll` and retires one it installed itself (`retire_loader`).
 - A Linux launcher shown a feed without the loader reports the runtime as unavailable, rather than starting a game
   that wouldn't load it.
 
 **Host tools.** On Windows the export session injects the runtime and then CatalogExporter, and the dump session
-injects Dumper-7 alone. Neither writes an ini or a session record. Elsewhere `loader_session.rs` works as before.
+injects Dumper-7 alone. Neither writes an ini or a session record. Under Proton the export follows the switch, and the
+dump session (which starts the game without a runner) keeps `loader_session.rs`.
 
-**Still to do.** `native/runtime-loader` stays: servers and Proton players use it. Delete it once the director
-injects too and `dainty-inject.exe` has shipped. Then drop `LOADER_DLL` from the protocol, ending the one release
-it is optional for.
+**Still to do.** `native/runtime-loader` stays: servers and Proton players on the loader use it. Once the helper
+has passed under Proton and become the default, and the director injects too, delete it. Then drop `LOADER_DLL`
+from the protocol and the client feed.
 
 ## Hands-on checks (maintainer, Windows PC with the game)
 
@@ -103,4 +137,21 @@ Not run. `cargo test` only covers injecting a system DLL into a suspended `cmd.e
 6. On the Host page, run a game-data export. The log shows CatalogExporter's SHA-256, the module list shows it in the
    game, and the export files appear.
 7. Run a Dumper-7 session. The SDK is written, and `Rustic-Isles.dll` is not in the game's module list.
-8. On Linux/Proton, PLAY as before: the loader still loads the runtime.
+8. On Linux/Proton with the switch off, PLAY as before: the loader still loads the runtime.
+
+### Proton with the helper (Linux PC with the game)
+
+Not run. `cargo test` covers the helper against a real `cmd.exe` on Windows, not under Wine.
+
+1. Build the helper (`cargo build -p dainty-inject --release --target x86_64-pc-windows-gnu`). Put it in the
+   launcher's resources folder as `dainty-inject.exe`: next to the AppImage's other resources, or in
+   `crates/../brand/launcher` for a development run.
+2. In Settings, turn on "Load the runtime with the inject helper". The runtime check asks to reinstall. The launcher
+   removes the `winmm.dll` it installed, and the folder holds `Rustic-Isles.dll` alone.
+3. PLAY. The log's command line shows `dainty-inject.exe --dll Z:\...\Rustic-Isles.dll <sha256> -- Z:\...`
+   (the key masked). The game reaches the menu signed in.
+4. If it doesn't, the game-exit log line shows the code: `0xD1A00003` means Wine refused the load (keep the
+   loader as the default and report it), and `0xD1A00002` means the game didn't start through the helper.
+5. Turn the switch off. The runtime check reinstalls `winmm.dll`, and PLAY works through the loader again.
+6. With the switch on and the helper removed from the resources folder, PLAY refuses with the "inject helper is
+   missing" message.

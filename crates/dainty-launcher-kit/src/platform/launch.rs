@@ -275,6 +275,29 @@ impl LaunchPlan {
         }
     }
 
+    /// Under Proton with the inject helper: the runner runs `helper` with `helper_args`
+    /// ([`inject::helper_line`]), which starts the game and loads the DLLs into it inside Wine (RD9, 2026-11-12).
+    #[must_use]
+    pub fn through_helper(
+        win64: &Path,
+        runtime: &PreparedLaunch,
+        helper: &Path,
+        helper_args: Vec<OsString>,
+        mut env: BTreeMap<String, String>,
+    ) -> Self {
+        env.extend(runtime.env.iter().map(|(k, v)| (k.clone(), v.clone())));
+        let mut args = runtime.args_before_exe.clone();
+        args.push(helper.as_os_str().to_owned());
+        args.extend(helper_args);
+        Self {
+            program: runtime.program.clone(),
+            args,
+            working_dir: win64.to_path_buf(),
+            env,
+            inject: Vec::new(),
+        }
+    }
+
     /// The whole command line with the key hidden, for the log.
     #[must_use]
     pub fn describe(&self) -> String {
@@ -792,6 +815,31 @@ mod tests {
         assert_eq!(wine.working_dir, win64);
         assert_eq!(wine.env["WINEPREFIX"], "/p");
         assert_eq!(wine.env["A"], "2");
+
+        // The inject helper in the game's place, the game and its arguments after the helper's own
+        let dlls = [InjectDll {
+            path: PathBuf::from("/g/Win64/Rustic-Isles.dll"),
+            sha256: "a".repeat(64),
+        }];
+        let game_args = [OsString::from("-AUTH_PASSWORD=DLK_secret")];
+        let line = inject::helper_line(Path::new("/g/Win64/Dauntless-Win64-Shipping.exe"), &dlls, &game_args).unwrap();
+        let helped = LaunchPlan::through_helper(
+            win64,
+            &runner,
+            Path::new("/res/dainty-inject.exe"),
+            line,
+            BTreeMap::new(),
+        );
+        assert_eq!(helped.program, PathBuf::from("/wine64"));
+        assert_eq!(
+            helped.args[..3],
+            [OsString::from("a"), "b".into(), "/res/dainty-inject.exe".into()]
+        );
+        assert_eq!(helped.args[3], "--dll");
+        assert_eq!(helped.args.last().unwrap(), "-AUTH_PASSWORD=DLK_secret");
+        assert!(helped.inject.is_empty(), "Wine loads them, not the launcher");
+        assert_eq!(helped.env["WINEPREFIX"], "/p");
+        assert!(!helped.describe().contains("DLK_secret"));
     }
 
     struct FakeChild {
