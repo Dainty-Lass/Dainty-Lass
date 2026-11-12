@@ -16,7 +16,8 @@ and removed around a session.
 
 1. **Dedicated servers keep the loader.** The director still starts its game servers with `winmm.dll` beside the
    server exe and `winmm=n,b` under Wine. The host kit still builds the loader and copies it there, and
-   `native/runtime-loader` stays.
+   `native/runtime-loader` stays. The host kit also keeps publishing `winmm.dll` in the client feed for Proton
+   players (maintainer, 2026-11-12), and Windows launchers skip it there.
 2. **The feed's file list changes (seam, approved).** `dainty-protocol`'s manifest needs only `Rustic-Isles.dll`
    (`REQUIRED_RUNTIME_FILES`), and `winmm.dll` (`LOADER_DLL`) is optional for one release. The content server's
    `runtime.json` rule and the launcher's manifest parser follow it.
