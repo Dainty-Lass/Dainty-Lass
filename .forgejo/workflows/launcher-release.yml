@@ -186,7 +186,7 @@ jobs:
           apt-get update
           apt-get install -y --no-install-recommends ca-certificates curl git xz-utils unzip file xdg-utils rpm \
             build-essential pkg-config libwebkit2gtk-4.1-dev libgtk-3-dev librsvg2-dev \
-            libayatana-appindicator3-dev libdbus-1-dev libssl-dev patchelf
+            libayatana-appindicator3-dev libdbus-1-dev libssl-dev patchelf gcc-mingw-w64-x86-64
           base=https://nodejs.org/dist/latest-v22.x
           name="$(curl -fsSL "$base/SHASUMS256.txt" | awk '/linux-x64\.tar\.xz$/ {print $2}')"
           curl -fsSLO "$base/$name"
@@ -232,6 +232,15 @@ jobs:
       - name: The manager's version data
         run: echo '{"bundle":{"resources":{"../../restricted/modules/rustic-isles/version-data/1.14.7/version_data.json":"data/1.14.7/version_data.json"}}}' > "$RUNNER_TEMP/config/manager-data.json"
 
+      # The Proton inject helper (RD9, 2026-11-12): a Windows exe Wine runs in the game's place, bundled as a resource
+      # of the launcher only. Built for windows-gnu here, since this job has no MSVC
+      - name: The Proton inject helper
+        run: |
+          set -euo pipefail
+          rustup target add x86_64-pc-windows-gnu
+          cargo build --release --locked -p dainty-inject --target x86_64-pc-windows-gnu
+          echo '{"bundle":{"resources":{"../../target/x86_64-pc-windows-gnu/release/dainty-inject.exe":"dainty-inject.exe"}}}' > "$RUNNER_TEMP/config/inject-helper.json"
+
       - name: Build Dainty Lass Launcher and Dainty Lass Manager
         working-directory: crates/dainty-launcher-app
         run: |
@@ -250,7 +259,8 @@ jobs:
             done
             rm -rf "$bundle"
           }
-          bunx tauri build --ci --bundles appimage,deb,rpm --config "$RUNNER_TEMP/config/client.json" -- --features realms
+          bunx tauri build --ci --bundles appimage,deb,rpm --config "$RUNNER_TEMP/config/client.json" --config "$RUNNER_TEMP/config/inject-helper.json" \
+            -- --features realms
           collect DaintyLassLauncher
           bunx tauri build --ci --bundles appimage,deb,rpm --config "$RUNNER_TEMP/config/manager.json" --config "$RUNNER_TEMP/config/manager-data.json" \
             -- --no-default-features --features server-gui
@@ -268,6 +278,9 @@ jobs:
           done
           dpkg-deb --fsys-tarfile "DaintyLassLauncher_${VERSION}_amd64.deb" | tar -xO --wildcards './usr/share/applications/*.desktop' \
             | grep -q 'x-scheme-handler/dauntless;'
+          # The launcher carries the Proton inject helper; the manager does not
+          dpkg-deb --contents "DaintyLassLauncher_${VERSION}_amd64.deb" | grep '/dainty-inject\.exe$' > /dev/null
+          rpm -qlp "DaintyLassLauncher_${VERSION}_x86_64.rpm" | grep '/dainty-inject\.exe$' > /dev/null
 
       - uses: https://code.forgejo.org/forgejo/upload-artifact@16871d9e8cfcf27ff31822cac382bbb5450f1e1e # v4 (v4.3.1, GHES check disabled)
         with:

@@ -97,14 +97,12 @@ resources folder refuses PLAY with `inject_helper_missing`. With the switch on:
 
 Turning the switch off puts the loader back at the next runtime check.
 
-**Shipping the helper (release workflow, not done here).** Workflows belong to RR3, so this is for the integration
-pass. Linux launcher builds need the helper bundled as a resource named `dainty-inject.exe`:
-1. Build it with `cargo build -p dainty-inject --release --target x86_64-pc-windows-gnu`, which needs
-   `mingw-w64` on the runner.
-2. Bundle it through a `tauri.linux.conf.json` beside `crates/dainty-launcher-app/tauri.conf.json`, with
-   `"bundle": { "resources": { "<built exe>": "dainty-inject.exe" } }`.
-
-A launcher built without it still runs; only the switch's PLAY refuses.
+**Shipping the helper.** The Linux job of `launcher-release.yml` (both the `.forgejo/` and `.github/` copies; the
+maintainer asked for it, though workflows are RR3's) installs `gcc-mingw-w64-x86-64` and builds
+`cargo build --release --locked -p dainty-inject --target x86_64-pc-windows-gnu`. It bundles the exe into the
+launcher's AppImage, deb and rpm, not the manager's, as the resource `dainty-inject.exe`, through an extra
+`--config` (`inject-helper.json`). Its package check then fails a deb or rpm without it. A local or development
+build without the helper still runs; only PLAY with the switch on refuses.
 
 **The feed and the install.**
 - `runtime_files::player_runtime_files` lists what a game folder holds: `Rustic-Isles.dll` when the runtime is
