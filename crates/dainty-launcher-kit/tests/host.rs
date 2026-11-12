@@ -589,7 +589,7 @@ mod host {
 
     #[cfg(windows)]
     #[tokio::test]
-    async fn a_dumper_7_session_runs_the_game_as_shipped() {
+    async fn a_dumper_7_session_injects_dumper_7_alone() {
         let pc = pc();
         let platform = Arc::new(FakePlatform::default());
         let spawner = Arc::new(FakeSpawner::default());
@@ -597,7 +597,6 @@ mod host {
         let c = launcher(&pc, &platform, &spawner, None);
         c.init().await;
         ok(&c.use_game_path(&pc.root.to_string_lossy()).await);
-        std::fs::write(pc.win64.join("winmm.dll"), b"loader").unwrap();
         std::fs::write(pc.win64.join("Rustic-Isles.dll"), b"runtime").unwrap();
 
         assert_eq!(host_failed(&c.host_action(HostAction::InjectDumper).await), "dumper");
@@ -606,13 +605,27 @@ mod host {
         *platform.dumper.lock().unwrap() = Some(dll);
         ok(&c.host_choose_dumper().await);
 
+        // An old loader would load the runtime with Dumper-7 (RD9, 2026-11-12)
+        std::fs::write(pc.win64.join("winmm.dll"), b"loader").unwrap();
+        assert_eq!(
+            refused(&c.host_action(HostAction::InjectDumper).await),
+            (ErrorCode::LoaderLeftovers, Some("winmm.dll".to_owned()))
+        );
+        std::fs::remove_file(pc.win64.join("winmm.dll")).unwrap();
+        c.dismiss_error();
+
         ok(&c.host_action(HostAction::InjectDumper).await);
         let plan = spawner.plans.lock().unwrap().last().cloned().unwrap();
         assert_eq!(plan.args, ["-NoEAC", "-EpicPortal", "-DisableEOS"].map(OsString::from));
         assert_eq!(plan.env.keys().collect::<Vec<_>>(), ["PATH"]);
-        assert!(pc.win64.join("mystic_loader.ini").is_file());
-        assert!(pc.win64.join("Dumper-7.dll").is_file());
-        assert!(!pc.win64.join("Rustic-Isles.dll").exists());
+        let injected: Vec<PathBuf> = plan.inject.iter().map(|d| d.path.clone()).collect();
+        assert_eq!(injected, [pc.dir.path().join("Dumper-7.dll")]);
+        assert!(!pc.win64.join("mystic_loader.ini").exists());
+        assert!(!pc.win64.join("Dumper-7.dll").exists());
+        assert!(
+            pc.win64.join("Rustic-Isles.dll").is_file(),
+            "the runtime stays, unloaded"
+        );
         let job = platform.last_kit().job.unwrap();
         assert_eq!((job.kind, job.state), (HostJobKind::Inject, HostJobState::Done));
         assert_eq!(
@@ -620,15 +633,10 @@ mod host {
             "game_running"
         );
 
-        // The game's exit ends the session: the runtime is back and nothing is left beside the loader.
+        // The game's exit ends the session; its code is not a failed launch.
         c.dismiss_error();
         spawner.exit.notify_one();
-        until("the session to end", || !pc.win64.join("mystic_loader.ini").exists()).await;
-        until("the runtime to come back", || {
-            pc.win64.join("Rustic-Isles.dll").is_file()
-        })
-        .await;
-        assert!(!pc.win64.join("Dumper-7.dll").exists());
+        until("the game to exit", || !c.snapshot().running.game).await;
         assert!(c.snapshot().last_error.is_none());
     }
 }

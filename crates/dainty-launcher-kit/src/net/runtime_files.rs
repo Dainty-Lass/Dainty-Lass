@@ -18,7 +18,7 @@ pub mod manifest;
 mod tests;
 
 pub use dainty_protocol::manifest::{
-    DEFAULT_CHANGELIST, LEGACY_RUNTIME_DLL, MAX_RUNTIME_FILE_BYTES, RUNTIME_BUILD_NAME, RUNTIME_DLL,
+    DEFAULT_CHANGELIST, LEGACY_RUNTIME_DLL, LOADER_DLL, MAX_RUNTIME_FILE_BYTES, RUNTIME_BUILD_NAME, RUNTIME_DLL,
     RUNTIME_FILE_NAMES, RUNTIME_MANIFEST_PATH, RuntimeBuild, RuntimeFile, RuntimeManifest, runtime_file_slot,
 };
 pub use manifest::{MAX_SAFE_INTEGER, RUNTIME_MARKER_FILE, parse_runtime_manifest};
@@ -36,6 +36,19 @@ pub const RUNTIME_FILES_BASE_PATH: &str = "/content/v1/runtime/files";
 pub const DOWNLOAD_SUFFIX: &str = ".rr-download";
 /// Mark of a replaced file set aside while the game held it, followed by a millisecond timestamp.
 pub const ASIDE_MARK: &str = ".rr-old-";
+
+/// The runtime files a player's game folder holds. Windows injects the runtime, so no loader there (RD9,
+/// 2026-11-12); under Proton the loader still loads it until the inject helper ships.
+#[cfg(windows)]
+pub const PLAYER_RUNTIME_FILES: &[&str] = &[RUNTIME_DLL];
+/// The runtime files a player's game folder holds (see the Windows twin).
+#[cfg(not(windows))]
+pub const PLAYER_RUNTIME_FILES: &[&str] = &RUNTIME_FILE_NAMES;
+
+/// A manifest entry this OS installs.
+fn is_player_file(file: &RuntimeFile) -> bool {
+    runtime_file_slot(&file.name).is_some_and(|slot| PLAYER_RUNTIME_FILES.contains(&slot))
+}
 
 const DOWNLOAD_IDLE_TIMEOUT: Duration = Duration::from_secs(30);
 const MAX_TRUSTED_SETS: usize = 8;
@@ -241,8 +254,8 @@ fn same_slot(installed: &str, listed: &str) -> bool {
 
 /// SHA-256 of each installed runtime file in `win64_dir`, none for a file missing or empty.
 pub async fn installed_runtime(win64_dir: &Path) -> Vec<(&'static str, Option<String>)> {
-    let mut out = Vec::with_capacity(RUNTIME_FILE_NAMES.len());
-    for name in RUNTIME_FILE_NAMES {
+    let mut out = Vec::with_capacity(PLAYER_RUNTIME_FILES.len());
+    for &name in PLAYER_RUNTIME_FILES {
         let path = runtime_path(win64_dir, name);
         let valid_meta = std::fs::metadata(&path)
             .map(|m| m.is_file() && m.len() > 0)
@@ -279,14 +292,19 @@ pub async fn check_runtime(
 
     match offered {
         None => {
-            if present == RUNTIME_FILE_NAMES.len() {
+            if present == PLAYER_RUNTIME_FILES.len() {
                 (RuntimeState::Ok, true)
             } else {
                 (RuntimeState::Unavailable, false)
             }
         }
         Some(manifest) => {
-            let matches = manifest.files.iter().all(|f| {
+            let listed = |slot: &&str| manifest.files.iter().any(|f| same_slot(slot, &f.name));
+            if !PLAYER_RUNTIME_FILES.iter().all(listed) {
+                // A feed without the loader serves no Proton player yet
+                return (RuntimeState::Unavailable, false);
+            }
+            let matches = manifest.files.iter().filter(|f| is_player_file(f)).all(|f| {
                 installed
                     .iter()
                     .any(|(n, h)| same_slot(n, &f.name) && h.as_deref() == Some(f.sha256.as_str()))
@@ -342,6 +360,39 @@ pub fn replace_file(tmp: &Path, target: &Path, ops: &dyn ReplaceOps) -> std::io:
 
     let _ = ops.remove(&aside);
     Ok(Replaced::InUse)
+}
+
+/// Removes the `winmm.dll` loader an earlier launcher installed, now that the runtime is injected (RD9, 2026-11-12):
+/// only when the runtime marker lists it with this hash, so a loader someone else put there stays and PLAY
+/// refuses it. Windows only; under Proton the loader is still the runtime's way in.
+pub fn retire_loader(win64_dir: &Path) {
+    if !cfg!(windows) {
+        return;
+    }
+    let path = win64_dir.join(LOADER_DLL);
+    let Ok(meta) = path.symlink_metadata() else {
+        return;
+    };
+    let marker = std::fs::read_to_string(win64_dir.join(RUNTIME_MARKER_FILE))
+        .ok()
+        .and_then(|text| serde_json::from_str::<Value>(&text).ok());
+    let listed = marker.as_ref().and_then(|m| {
+        m.get("files")?
+            .get(LOADER_DLL)?
+            .get("sha256")?
+            .as_str()
+            .map(str::to_owned)
+    });
+    let Some(listed) = listed else {
+        return;
+    };
+    if !meta.is_file() || meta.len() > MAX_RUNTIME_FILE_BYTES {
+        return;
+    }
+    let ours = std::fs::read(&path).is_ok_and(|bytes| sha256_hex(&bytes).eq_ignore_ascii_case(&listed));
+    if ours {
+        let _ = std::fs::remove_file(&path);
+    }
 }
 
 /// Removes leftover downloads and set-aside files from `win64_dir`.
@@ -416,11 +467,13 @@ pub async fn install_runtime(request: InstallRequest<'_>) -> Result<RuntimeInsta
     }
 
     sweep_aside(win64_dir);
+    retire_loader(win64_dir);
 
     let current = installed_runtime(win64_dir).await;
     let needed: Vec<&RuntimeFile> = manifest
         .files
         .iter()
+        .filter(|f| is_player_file(f))
         .filter(|f| {
             !current
                 .iter()
@@ -608,7 +661,8 @@ pub async fn install_runtime(request: InstallRequest<'_>) -> Result<RuntimeInsta
     }
 
     let source = format!("{}:{}", endpoint.host, endpoint.port);
-    let _ = write_runtime_marker(win64_dir, &manifest.version, &source, &manifest.files);
+    let installed: Vec<RuntimeFile> = manifest.files.iter().filter(|f| is_player_file(f)).cloned().collect();
+    let _ = write_runtime_marker(win64_dir, &manifest.version, &source, &installed);
 
     Ok(RuntimeInstallResult { replaced_in_use })
 }
@@ -625,8 +679,9 @@ pub async fn install_local_runtime(local_dir: &Path, win64_dir: &Path) -> Result
     }
 
     sweep_aside(win64_dir);
+    retire_loader(win64_dir);
 
-    for name in RUNTIME_FILE_NAMES {
+    for &name in PLAYER_RUNTIME_FILES {
         let src = runtime_path(local_dir, name);
         let ok = std::fs::metadata(&src)
             .map(|m| m.is_file() && m.len() > 0)
@@ -634,23 +689,23 @@ pub async fn install_local_runtime(local_dir: &Path, win64_dir: &Path) -> Result
         if !ok {
             return Err(RuntimeError::new(
                 RuntimeErrorCode::NotFound,
-                Some((*name).to_owned()),
+                Some(name.to_owned()),
                 format!("Missing local runtime file {name}"),
             ));
         }
     }
 
     let mut replaced_in_use = Vec::new();
-    let mut local_files = Vec::with_capacity(RUNTIME_FILE_NAMES.len());
+    let mut local_files = Vec::with_capacity(PLAYER_RUNTIME_FILES.len());
     let ops = DiskOps;
 
-    for name in RUNTIME_FILE_NAMES {
+    for &name in PLAYER_RUNTIME_FILES {
         let src = runtime_path(local_dir, name);
         let target = win64_dir.join(name);
         let tmp = win64_dir.join(format!("{name}{DOWNLOAD_SUFFIX}"));
 
         std::fs::copy(&src, &tmp)
-            .map_err(|err| RuntimeError::new(RuntimeErrorCode::DiskError, Some((*name).to_owned()), err.to_string()))?;
+            .map_err(|err| RuntimeError::new(RuntimeErrorCode::DiskError, Some(name.to_owned()), err.to_string()))?;
 
         unblock(&tmp).await;
 
@@ -662,7 +717,7 @@ pub async fn install_local_runtime(local_dir: &Path, win64_dir: &Path) -> Result
         match replace_file(&tmp, &target, &ops) {
             Ok(Replaced::Replaced) => {}
             Ok(Replaced::InUse) => {
-                replaced_in_use.push((*name).to_owned());
+                replaced_in_use.push(name.to_owned());
             }
             Err(err) => {
                 let _ = std::fs::remove_file(&tmp);
@@ -671,12 +726,12 @@ pub async fn install_local_runtime(local_dir: &Path, win64_dir: &Path) -> Result
                 } else {
                     RuntimeErrorCode::DiskError
                 };
-                return Err(RuntimeError::new(code, Some((*name).to_owned()), err.to_string()));
+                return Err(RuntimeError::new(code, Some(name.to_owned()), err.to_string()));
             }
         }
 
         local_files.push(RuntimeFile {
-            name: (*name).to_owned(),
+            name: name.to_owned(),
             size,
             sha256,
         });

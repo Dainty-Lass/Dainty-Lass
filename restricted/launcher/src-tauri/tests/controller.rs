@@ -36,6 +36,7 @@ use dainty_launcher_kit::controller::{
 };
 use dainty_launcher_kit::core::i18n::Language;
 use dainty_launcher_kit::net::pinned::certificate_fingerprint;
+use dainty_launcher_kit::net::runtime_files::PLAYER_RUNTIME_FILES;
 use dainty_launcher_kit::platform::game_folder::{SUPPORTED_VERSION as GAME_VERSION_TEXT, StoreFolders};
 use dainty_launcher_kit::platform::keystore::os::{Encryptor, SealError, open_rr1, seal_rr1};
 use dainty_launcher_kit::platform::launch::{GameChild, LaunchPlan, MissingFiles, Spawner};
@@ -456,6 +457,8 @@ type Spawned = (PathBuf, Vec<String>, BTreeMap<String, String>);
 #[derive(Default)]
 struct StandIn {
     spawns: Arc<Mutex<Vec<Spawned>>>,
+    /// The DLLs each start loads into the game (RD9, 2026-11-12)
+    injected: Mutex<Vec<Vec<PathBuf>>>,
     exits: Mutex<Vec<tokio::sync::oneshot::Sender<i32>>>,
 }
 
@@ -477,6 +480,10 @@ impl Spawner for StandIn {
             .lock()
             .unwrap()
             .push((plan.working_dir.clone(), args, plan.env.clone()));
+        self.injected
+            .lock()
+            .unwrap()
+            .push(plan.inject.iter().map(|dll| dll.path.clone()).collect());
         let (tx, rx) = tokio::sync::oneshot::channel();
         self.exits.lock().unwrap().push(tx);
         Ok(Box::new(Child(rx)))
@@ -760,7 +767,12 @@ async fn public_mode_end_to_end_join_register_game_check_runtime_trust_and_insta
     assert_eq!(s.notice, Some(NoticeCode::RuntimeInstalled));
     let win64 = root.join("Archon").join("Binaries").join("Win64");
     for (name, data) in &runtime {
-        assert_eq!(&std::fs::read(win64.join(name)).unwrap(), data, "{name}");
+        if PLAYER_RUNTIME_FILES.contains(name) {
+            assert_eq!(&std::fs::read(win64.join(name)).unwrap(), data, "{name}");
+        } else {
+            // Windows injects the runtime, so the feed's loader is not installed there (RD9, 2026-11-12)
+            assert!(!win64.join(name).exists(), "{name}");
+        }
     }
 
     // Left by Dauntless Revived's launcher (local-server mode): 1.14.7 would send its login checks to
@@ -888,7 +900,7 @@ async fn private_mode_open_registration_a_server_without_a_runtime_waits_for_its
         hx.c.choose_local_runtime().await,
         ActionResult::Err(LauncherError::with_detail(
             ErrorCode::LocalRuntimeInvalid,
-            "Rustic-Isles.dll, winmm.dll"
+            &dainty_launcher_kit::net::runtime_files::PLAYER_RUNTIME_FILES.join(", ")
         ))
     );
     for (name, data) in make_runtime(9) {
@@ -1619,7 +1631,9 @@ async fn play_refuses_a_leftover_ini_or_host_tools_dll_beside_the_loader() {
     assert_eq!(hx.c.play().await, ActionResult::Ok, "a clean folder plays");
     hx.exit(0).await;
 
-    // A session the launcher did not finish (it was closed with the game running)
+    // A session an earlier launcher did not finish (it was closed with the game running)
+    let had_loader = win64.join("winmm.dll").exists();
+    std::fs::write(win64.join("winmm.dll"), b"loader").unwrap();
     let session = dainty_launcher_kit::platform::loader_session::begin(
         dainty_launcher_kit::platform::loader_session::SessionKind::Dump,
         &win64,
@@ -1630,35 +1644,41 @@ async fn play_refuses_a_leftover_ini_or_host_tools_dll_beside_the_loader() {
     .unwrap();
     drop(session);
     assert!(!win64.join("Rustic-Isles.dll").exists());
+    // On Windows a loader the launcher did not install is a leftover too
+    let leftovers = if dainty_launcher_kit::platform::inject::INJECTS && !had_loader {
+        "Dumper-7.dll, mystic_loader.ini, Rustic-Isles.dll.rr-dump-off, winmm.dll"
+    } else {
+        "Dumper-7.dll, mystic_loader.ini, Rustic-Isles.dll.rr-dump-off"
+    };
     assert_eq!(
         hx.c.play().await,
-        ActionResult::Err(LauncherError::with_detail(
-            ErrorCode::LoaderLeftovers,
-            "Dumper-7.dll, mystic_loader.ini, Rustic-Isles.dll.rr-dump-off",
-        ))
+        ActionResult::Err(LauncherError::with_detail(ErrorCode::LoaderLeftovers, leftovers))
     );
     hx.c.init().await;
     assert!(!win64.join(LOADER_INI).exists() && !win64.join("Dumper-7.dll").exists());
     assert!(win64.join("Rustic-Isles.dll").exists(), "the runtime is back");
+    if !had_loader {
+        std::fs::remove_file(win64.join("winmm.dll")).unwrap();
+    }
     assert_eq!(hx.c.play().await, ActionResult::Ok);
     hx.exit(0).await;
     hx.c.shutdown().await;
 }
 
-/// RD9: a Dumper-7 session places the DLL and the ini beside the loader, starts the game without the
-/// runtime and without the runtime's variables, and both go when the game exits; its exit code is not a
-/// failed launch.
+/// RD9 (2026-11-12): on Windows a Dumper-7 session injects Dumper-7 alone into the game it starts, without the
+/// runtime or the runtime's variables, writes nothing beside the game, and its exit code is not a failed launch.
 #[cfg(windows)]
 #[cfg(feature = "host")]
 #[tokio::test(flavor = "multi_thread")]
-async fn a_dumper_7_session_loads_through_the_loader_list_and_cleans_up() {
-    use dainty_launcher_kit::platform::loader_session::{LOADER_INI, ini_entries};
+async fn a_dumper_7_session_injects_dumper_7_alone() {
+    use dainty_launcher_kit::platform::loader_session::LOADER_INI;
     let hx = host_harness();
     let game = hx.game();
     let win64 = game.join("Archon").join("Binaries").join("Win64");
     for (name, data) in make_runtime(4) {
         std::fs::write(win64.join(name), data).unwrap();
     }
+    // An old loader beside the game would load the runtime with Dumper-7
     hx.c.init().await;
     assert_eq!(hx.c.use_game_path(&game.to_string_lossy()).await, ActionResult::Ok);
     assert_eq!(hx.c.host_action(HostAction::InjectDumper).await, host_error("dumper"));
@@ -1667,6 +1687,12 @@ async fn a_dumper_7_session_loads_through_the_loader_list_and_cleans_up() {
     let text = dumper.to_string_lossy().into_owned();
     *hx.fake.dll.lock().unwrap() = Some(PathBuf::from(&text));
     assert_eq!(hx.c.host_choose_dumper().await, ActionResult::Ok);
+    assert_eq!(
+        hx.c.host_action(HostAction::InjectDumper).await,
+        ActionResult::Err(LauncherError::with_detail(ErrorCode::LoaderLeftovers, "winmm.dll"))
+    );
+    assert!(hx.spawns.lock().unwrap().is_empty(), "the game did not start");
+    std::fs::remove_file(win64.join("winmm.dll")).unwrap();
 
     assert_eq!(hx.c.host_action(HostAction::InjectDumper).await, ActionResult::Ok);
     let (dir, args, env) = hx.spawns.lock().unwrap().last().cloned().unwrap();
@@ -1677,11 +1703,12 @@ async fn a_dumper_7_session_loads_through_the_loader_list_and_cleans_up() {
             .all(|k| !k.to_ascii_uppercase().starts_with("RUSTIC_ISLES_RUNTIME"))
     );
     assert_eq!(env_of(&env, "PATH").len(), 1);
-    let ini = std::fs::read_to_string(win64.join(LOADER_INI)).unwrap();
-    assert_eq!(ini_entries(&ini), ["Dumper-7.dll"]);
-    assert_eq!(std::fs::read(win64.join("Dumper-7.dll")).unwrap(), b"dumper");
-    assert!(!win64.join("Rustic-Isles.dll").exists(), "no runtime in a dump session");
-    assert!(win64.join("winmm.dll").exists(), "the loader stays");
+    assert_eq!(
+        hx.game.injected.lock().unwrap().last().unwrap(),
+        std::slice::from_ref(&dumper)
+    );
+    assert!(!win64.join(LOADER_INI).exists() && !win64.join("Dumper-7.dll").exists());
+    assert!(win64.join("Rustic-Isles.dll").exists(), "the runtime stays, unloaded");
     assert_eq!(
         hx.c.host_action(HostAction::InjectDumper).await,
         host_error("game_running")
@@ -1690,19 +1717,17 @@ async fn a_dumper_7_session_loads_through_the_loader_list_and_cleans_up() {
 
     // Dumper-7's console ends the game with a code of its own
     hx.end_game(1);
-    until(|| !win64.join(LOADER_INI).exists() && win64.join("Rustic-Isles.dll").exists()).await;
-    assert!(!win64.join("Dumper-7.dll").exists());
-    assert!(!win64.join(LOADER_INI).exists() && !win64.join("Dumper-7.dll").exists());
+    until(|| hx.c.snapshot().running.relay_port.is_none() && !hx.c.snapshot().running.game).await;
     assert_eq!(hx.c.snapshot().last_error, None);
 }
 
-/// RD9: a CatalogExporter session starts the game as PLAY does, with the runtime, and CatalogExporter on
-/// the loader's list after it.
+/// RD9 (2026-11-12): on Windows a CatalogExporter session starts the game as PLAY does and injects the runtime,
+/// then CatalogExporter.
 #[cfg(windows)]
 #[cfg(feature = "host")]
 #[tokio::test(flavor = "multi_thread")]
-async fn a_catalog_exporter_session_plays_with_the_exporter_on_the_loader_list() {
-    use dainty_launcher_kit::platform::loader_session::{LOADER_INI, ini_entries};
+async fn a_catalog_exporter_session_injects_the_runtime_then_the_exporter() {
+    use dainty_launcher_kit::platform::loader_session::LOADER_INI;
     let mut host = Host::new("LAN Party");
     host.registration = "OPEN";
     let (_lan, port) = lan(host).await;
@@ -1735,15 +1760,19 @@ async fn a_catalog_exporter_session_plays_with_the_exporter_on_the_loader_list()
     assert!(hx.relay_active(), "started as PLAY starts it");
     let (_, args, _) = hx.spawns.lock().unwrap().last().cloned().unwrap();
     assert_ne!(args, ["-NoEAC", "-EpicPortal", "-DisableEOS"]);
-    let ini = std::fs::read_to_string(win64.join(LOADER_INI)).unwrap();
-    assert_eq!(ini_entries(&ini), ["CatalogExporter.dll"]);
-    assert!(win64.join("Rustic-Isles.dll").exists(), "the runtime loads first");
+    assert_eq!(
+        hx.game.injected.lock().unwrap().last().unwrap(),
+        &[win64.join("Rustic-Isles.dll"), exporter.clone()]
+    );
+    assert!(!win64.join(LOADER_INI).exists() && !win64.join("CatalogExporter.dll").exists());
     assert!(win64.join("export_flags.txt").exists());
 
     hx.exit(0).await;
-    until(|| !win64.join(LOADER_INI).exists()).await;
-    assert!(!win64.join("CatalogExporter.dll").exists());
     assert_eq!(hx.c.play().await, ActionResult::Ok, "an ordinary PLAY afterwards");
+    assert_eq!(
+        hx.game.injected.lock().unwrap().last().unwrap(),
+        &[win64.join("Rustic-Isles.dll")]
+    );
     hx.exit(0).await;
     hx.c.shutdown().await;
 }

@@ -12,6 +12,7 @@ pub mod game_console;
 pub mod game_folder;
 pub mod hostkit;
 pub mod hostserver;
+pub mod inject;
 pub mod invite_link;
 pub mod keystore;
 pub mod launch;

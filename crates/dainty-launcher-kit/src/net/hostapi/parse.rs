@@ -7,7 +7,8 @@
 use bytes::Bytes;
 use dainty_protocol::account::is_plausible_account_key;
 use dainty_protocol::manifest::{
-    DEFAULT_CHANGELIST, MAX_RUNTIME_FILE_BYTES, RUNTIME_FILE_NAMES, RuntimeFile, RuntimeManifest, runtime_file_slot,
+    DEFAULT_CHANGELIST, MAX_RUNTIME_FILE_BYTES, REQUIRED_RUNTIME_FILES, RUNTIME_FILE_NAMES, RuntimeFile,
+    RuntimeManifest, runtime_file_slot,
 };
 use dainty_protocol::status::{ServerStatus, clean_text, iso_date, parse_server_status};
 use dainty_protocol::text::{is_js_space, is_unsafe_char, js_length, js_trim};
@@ -199,7 +200,7 @@ fn is_lower_hex_64(text: &str) -> bool {
     text.len() == 64 && text.bytes().all(|b| matches!(b, b'0'..=b'9' | b'a'..=b'f'))
 }
 
-/// The runtime manifest, files sorted by name; none unless each runtime slot is listed once with a lowercase
+/// The runtime manifest, files sorted by name; none unless the runtime DLL is listed, and each slot at most once, with a lowercase
 /// SHA-256 and a size from 1 byte to 64 MiB. A changelist that is not a safe integer becomes the default, since
 /// the protocol's manifest always carries one.
 pub fn parse_runtime_manifest(raw: &Value) -> Option<RuntimeManifest> {
@@ -209,7 +210,7 @@ pub fn parse_runtime_manifest(raw: &Value) -> Option<RuntimeManifest> {
         return None;
     }
     let listed = obj.get("files")?.as_array()?;
-    if listed.len() != RUNTIME_FILE_NAMES.len() {
+    if listed.is_empty() || listed.len() > RUNTIME_FILE_NAMES.len() {
         return None;
     }
     let mut files: Vec<RuntimeFile> = Vec::with_capacity(listed.len());
@@ -233,6 +234,12 @@ pub fn parse_runtime_manifest(raw: &Value) -> Option<RuntimeManifest> {
             size: size as u64,
             sha256: sha256.to_owned(),
         });
+    }
+    if !REQUIRED_RUNTIME_FILES
+        .iter()
+        .all(|req| files.iter().any(|f| runtime_file_slot(&f.name) == Some(*req)))
+    {
+        return None;
     }
     files.sort_by(|a, b| a.name.encode_utf16().cmp(b.name.encode_utf16()));
     let changelist = safe_integer(obj.get("build").and_then(|b| b.get("changelist")))

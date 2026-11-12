@@ -16,6 +16,7 @@ use futures_util::future::BoxFuture;
 use crate::bridge::types::RuntimeProfile;
 use crate::core::game_language;
 use crate::core::pins::{EXE_NAME, VC_RUNTIME_FILES};
+use crate::platform::inject::{self, InjectDll};
 use crate::platform::linux_runtime::PreparedLaunch;
 use crate::platform::system;
 
@@ -240,6 +241,8 @@ pub struct LaunchPlan {
     pub working_dir: PathBuf,
     /// The whole environment; the process inherits nothing else.
     pub env: BTreeMap<String, String>,
+    /// The DLLs loaded into the game before it runs, in order (RD9, 2026-11-12); empty under Proton.
+    pub inject: Vec<InjectDll>,
 }
 
 impl LaunchPlan {
@@ -268,6 +271,7 @@ impl LaunchPlan {
             args,
             working_dir: win64.to_path_buf(),
             env,
+            inject: Vec::new(),
         }
     }
 
@@ -320,16 +324,33 @@ impl GameChild for OsChild {
 
 impl Spawner for OsSpawner {
     fn spawn(&self, plan: &LaunchPlan) -> std::io::Result<Box<dyn GameChild>> {
+        if !plan.inject.is_empty() && !inject::INJECTS {
+            return Err(inject::InjectError::Unsupported.into());
+        }
         // Not run_hidden: the game's console is its own, and the Game log reads it (§2.7.16).
-        let child = tokio::process::Command::new(&plan.program)
+        let mut command = tokio::process::Command::new(&plan.program);
+        command
             .args(&plan.args)
             .current_dir(&plan.working_dir)
             .env_clear()
             .envs(&plan.env)
             .stdin(Stdio::null())
             .stdout(Stdio::null())
-            .stderr(Stdio::null())
-            .spawn()?;
+            .stderr(Stdio::null());
+        #[cfg(windows)]
+        if !plan.inject.is_empty() {
+            // The DLLs go in before the game's entry point, as the runtime loader's did
+            const CREATE_SUSPENDED: u32 = 0x4;
+            command.creation_flags(CREATE_SUSPENDED);
+        }
+        let mut child = command.spawn()?;
+        if !plan.inject.is_empty()
+            && let Err(error) = inject::load_and_resume(&child, &plan.inject)
+        {
+            // Never resumed: a game without its runtime must not reach the menu
+            let _ = child.start_kill();
+            return Err(error.into());
+        }
         Ok(Box::new(OsChild(child)))
     }
 }
@@ -887,5 +908,55 @@ mod tests {
     #[cfg_attr(not(target_os = "linux"), ignore = "pgrep is Linux's")]
     async fn running_clients_finds_none_here() {
         assert!(running_clients().await.is_empty());
+    }
+
+    /// A plan that runs `cmd /c exit 7` with `inject` loaded first.
+    #[cfg(windows)]
+    fn cmd_plan(inject: Vec<InjectDll>) -> LaunchPlan {
+        let system32 = system::system_root().join("System32");
+        let env: BTreeMap<String, String> = std::env::vars().collect();
+        LaunchPlan {
+            program: system32.join("cmd.exe"),
+            args: ["/c", "exit", "7"].iter().map(OsString::from).collect(),
+            working_dir: system32,
+            env,
+            inject,
+        }
+    }
+
+    #[cfg(windows)]
+    #[tokio::test]
+    async fn a_dll_is_loaded_before_the_process_runs_then_it_resumes() {
+        let dll = system::system_root().join("System32").join("dbghelp.dll");
+        let plan = cmd_plan(vec![InjectDll::as_found(&dll).unwrap()]);
+        let child = OsSpawner.spawn(&plan).unwrap();
+        assert_eq!(child.wait().await.unwrap(), Some(7));
+    }
+
+    #[cfg(windows)]
+    #[tokio::test]
+    async fn a_dll_that_is_not_the_checked_one_is_never_loaded() {
+        let dll = system::system_root().join("System32").join("dbghelp.dll");
+        let changed = InjectDll {
+            path: dll,
+            sha256: "0".repeat(64),
+        };
+        let refused = OsSpawner.spawn(&cmd_plan(vec![changed])).err().unwrap();
+        assert!(
+            refused.to_string().contains("not the file that was checked"),
+            "{refused}"
+        );
+    }
+
+    #[cfg(not(windows))]
+    #[test]
+    fn nothing_is_injected_off_windows() {
+        let mut plan = plan();
+        plan.inject.push(InjectDll {
+            path: PathBuf::from("/x.dll"),
+            sha256: String::new(),
+        });
+        let refused = OsSpawner.spawn(&plan).err().unwrap();
+        assert_eq!(refused.kind(), std::io::ErrorKind::Unsupported);
     }
 }

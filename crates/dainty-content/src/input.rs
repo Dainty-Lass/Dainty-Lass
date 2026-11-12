@@ -5,7 +5,7 @@
 //! headers, `runtime.json`, the news document, and the art pack's names and `branding.json` values.
 
 use dainty_protocol::manifest::{
-    DEFAULT_CHANGELIST, MAX_RUNTIME_FILE_BYTES, RUNTIME_FILE_NAMES, RuntimeFile, RuntimeManifest, runtime_file_slot,
+    DEFAULT_CHANGELIST, MAX_RUNTIME_FILE_BYTES, REQUIRED_RUNTIME_FILES, RuntimeFile, RuntimeManifest, runtime_file_slot,
 };
 use dainty_service_kit::js;
 use serde_json::{Map, Value, json};
@@ -205,7 +205,7 @@ fn runtime_shape(value: &Value) -> Result<RuntimeManifest, String> {
             sha256,
         });
     }
-    for slot in RUNTIME_FILE_NAMES {
+    for slot in REQUIRED_RUNTIME_FILES {
         if !files.iter().any(|f| runtime_file_slot(&f.name) == Some(slot)) {
             return Err(format!("{slot} is missing from the list"));
         }
@@ -580,7 +580,9 @@ mod tests {
         let entry = |name: &str, size: Value, hash: String| json!({"name": name, "size": size, "sha256": hash});
         let rustic = || entry("Rustic-Isles.dll", json!(1), sha('a'));
         let winmm = || entry("winmm.dll", json!(1), sha('b'));
-        assert!(refused(with_files(json!([rustic()]))));
+        // The loader is optional (RD9, 2026-11-12); the runtime is not
+        assert!(!refused(with_files(json!([rustic()]))));
+        assert!(refused(with_files(json!([winmm()]))));
         assert!(refused(with_files(json!([
             rustic(),
             winmm(),
@@ -632,7 +634,19 @@ mod tests {
             error(json!([new.clone(), old])),
             "runtime.json: MysticParadox.dll is listed twice"
         );
-        assert_eq!(error(json!([new])), "runtime.json: winmm.dll is missing from the list");
+        // winmm.dll is optional since Windows launchers inject the runtime (RD9, 2026-11-12)
+        assert_eq!(
+            parse_runtime_json(json!({"version": "1", "files": [new]}).to_string().as_bytes())
+                .unwrap()
+                .files
+                .len(),
+            1
+        );
+        let loader = json!({"name": "winmm.dll", "size": 1, "sha256": sha('b')});
+        assert_eq!(
+            error(json!([loader])),
+            "runtime.json: Rustic-Isles.dll is missing from the list"
+        );
     }
 
     #[test]

@@ -154,7 +154,7 @@ fn set_id_and_trust_follow_the_electron_launcher() {
 }
 
 #[test]
-fn manifest_parses_only_the_two_runtime_files() {
+fn manifest_parses_the_runtime_and_an_optional_loader() {
     let sha_a = "a".repeat(64);
     let sha_b = "b".repeat(64);
 
@@ -171,13 +171,24 @@ fn manifest_parses_only_the_two_runtime_files() {
     assert_eq!(parsed.files[0].name, "Rustic-Isles.dll");
     assert_eq!(parsed.files[1].name, "winmm.dll");
 
-    let missing_file = json!({
+    // The loader is optional since Windows launchers inject the runtime (RD9, 2026-11-12); the runtime is not
+    let runtime_only = json!({
         "version": "1.0.0",
         "files": [
             { "name": "Rustic-Isles.dll", "size": 1024, "sha256": sha_a }
         ]
     });
-    assert!(parse_runtime_manifest(&missing_file).is_none());
+    assert_eq!(
+        parse_runtime_manifest(&runtime_only).expect("runtime only").files.len(),
+        1
+    );
+    let loader_only = json!({
+        "version": "1.0.0",
+        "files": [
+            { "name": "winmm.dll", "size": 512, "sha256": sha_b }
+        ]
+    });
+    assert!(parse_runtime_manifest(&loader_only).is_none());
 
     let unknown_file = json!({
         "version": "1.0.0",
