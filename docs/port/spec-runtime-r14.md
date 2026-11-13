@@ -442,7 +442,8 @@ AGPL.
 
 Parameter blocks (the dump's): `ServerTryActivateAbility` (size `0x18`): `AbilityToActivate`
 (`FGameplayAbilitySpecHandle`, a `u32`) `+0x00`, `InputPressed` (`bool`) `+0x04`,
-`PredictionKey` (`FPredictionKey`, `0x10`) `+0x08`. `...WithEventData` (size `0xC8`): the same three, then `TriggerEventData` (`FGameplayEventData`, `0xB0`) at `+0x18`.
+`PredictionKey` (`FPredictionKey`, `0x10`) `+0x08`. `...WithEventData` (size `0xC8`): the same three, then
+`TriggerEventData` (`FGameplayEventData`, `0xB0`) at `+0x18`.
 
 Each call, with `component` = the object (an `AbilitySystemComponent`) and the params readable for their size:
 
@@ -852,7 +853,8 @@ Only CI passed until these steps are done.
    relevance pass and gates the AGPL's copy (patch 0057).
 3. **Ruling: five A/B switches dropped** (14): `DISABLE_PLAYER_ROLE_OWNER_ROUTE`, `DISABLE_PLAYER_ROLE_REMOTE_ROUTE`,
    `IMMEDIATE_AIRSHIP_HUD_RESTORE`, `FORCE_CINEMATIC_CLEAR`, and `USE_LEGACY_ROLE_ONREP_REPAIR` (with
-   `ROLE_PASS_SNAPSHOT_OFF` and the RT-3 diagnostics); `DISABLE_PLAYER_ROLE_GLOBAL_ROUTE` is R13's ruling 3. Recommended: yes; each can only bring back a fixed bug.
+   `ROLE_PASS_SNAPSHOT_OFF` and the RT-3 diagnostics); `DISABLE_PLAYER_ROLE_GLOBAL_ROUTE` is R13's ruling 3.
+   Recommended: yes; each can only bring back a fixed bug.
 4. **Both input configurations** (11.4 step 7): keep calling Hunter then Default, as every play-test ran. Recommended:
    yes for the port; whether Hunter alone is better is a separate gameplay question for after the play-test (17.3).
 5. RG-3 installed purge-only (9).
