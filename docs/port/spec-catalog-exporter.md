@@ -221,7 +221,7 @@ These are read at fixed offsets rather than through SDK members, and the new one
 
 | Read | Offset | Why |
 | --- | --- | --- |
-| A soft pointer's path name (hunts) | `+0x10` from the soft pointer | the SDK sizes the weak pointer part wrongly; the real layout is 8 bytes weak pointer, 4 bytes tag, 4 bytes padding, then the path (name 8 bytes, sub-path string 16). A path that reads as `None` becomes empty. Only the hunt exporter reads soft paths this way; 6.1 and 6.13 give the other two reads |
+| A soft pointer's path name (hunts) | `+0x10` from the soft pointer | the SDK sizes the weak pointer part wrongly; the real layout is 8 bytes weak pointer, 4 bytes tag, 4 bytes padding, then the path (name 8 bytes, sub-path string 16). Every soft pointer read uses it: hunts (raw form, a path that reads as `None` becomes empty) and the store images (6.13, short form). 6.1's item class is a soft class path, not a soft pointer |
 | Equipment item id | `+0x28` (index, signed 32-bit) and `+0x2C` (number) on the object | read as a name; an index `<= 0` means no id |
 | `UStoreViewModel` tag filter | `+0x170` (an `FString`) | a protected field |
 | `UStoreItemViewModel` offer | `+0x650` (an `FOnlineStorePhoenixOffer`, the protected member `UStoreItemViewModel.StoreItem`) | read directly; the SDK's getter would dispatch `ProcessEvent` |
@@ -625,10 +625,11 @@ serialized under the guard; a fault is counted as skipped). Default objects are 
 `store_item_images_1_14_7.jsonl`: after the pass, every table with row struct `StoreItemTable` and a row count in
 `[0, 200000]` (**inclusive** here), rows sorted, guarded: `table`, `rowName`, `featureImage`, `standardImage`: s, each
 image `FStoreItemTable.FeatureImage.ObjectID.AssetPathName` (and `StandardImage`) in **short form**, an unset image
-written `None`. Unlike hunts (4.5), this read goes through the SDK's offsets: the soft pointer member's offset, plus
-the offset of `ObjectID` inside the soft pointer (the SDK's `TPersistentObjectPtr.ObjectID`), plus the offset of
-`AssetPathName` in `FSoftObjectPath`. Where the SDK declares `TPersistentObjectPtr` by hand with no offset comment,
-`ObjectID` is at `+0x10`, UE 4.26's own layout **(ambiguity: the diff settles it, 12)**.
+written `None`. Each image's `AssetPathName` is at the soft pointer member's offset plus the fixed `+0x10` of 4.5, as
+for hunts. `TPersistentObjectPtr.ObjectID` is never taken from the SDK: Dumper-7 declares that template by hand
+with `ObjectID` at `+0x0C` and size 0, but the compiled layout aligns it to 8, so it sits at `+0x10`. Reading at
+`+0x0C` takes the padding as the name index and writes every set image as `None_<n>` (settled by the maintainer's
+diff on the real client, ambiguity 12).
 
 Status `DONE storeViewModels=<n> itemViewModels=<n> imageRows=<n> skipped=<n>`; the run count is the sum of the three.
 SDK members where the JSON name does not give them:
