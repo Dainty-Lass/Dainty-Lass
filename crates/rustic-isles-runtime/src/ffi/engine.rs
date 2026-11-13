@@ -82,3 +82,8 @@ pub fn find_object_by_full_name(name: &str) -> Option<usize> {
             engine.object_name(object).as_deref() == Some(short) && engine.full_name(object).as_deref() == Some(name)
         })
 }
+
+/// Whether names are on: Init ran and object 0 passed the self-check (R16 reads names through its own memory).
+pub fn names_enabled() -> bool {
+    IMAGE_BASE.load(Ordering::SeqCst) != 0 && names_on()
+}

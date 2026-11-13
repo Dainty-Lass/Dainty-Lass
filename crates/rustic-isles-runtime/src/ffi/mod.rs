@@ -19,6 +19,7 @@ pub mod net;
 pub mod player_host;
 pub mod reflect;
 pub mod server_life;
+pub mod travel;
 pub mod widgets;
 pub mod win;
 

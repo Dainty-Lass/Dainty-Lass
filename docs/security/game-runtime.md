@@ -343,6 +343,28 @@ Fuzz targets in `fuzz`:
       committed word (`ffi::widgets::GameRefs`).
 - [ ] While detaching, a guard still decides (it never forwards a faulting call) but logs and counts nothing.
 
+### Travel (R16)
+
+[`spec-runtime-r16.md`](../port/spec-runtime-r16.md): TR-1 on `UEngine::LoadMap` and the world-change watcher on
+SP-1, client only. `LANDED` gains `R16`, so the build also owns `TR-1` and `SP-1@R16`.
+
+- [ ] The only write is one atomic AND clearing `Async` (`0x04000000`) in an `FUObjectItem`'s flags word, on an
+      aligned, committed, writable word (`ffi::travel::clear_async`; test `clear_changes_only_async`).
+- [ ] Only an item that is pending-kill and `Async`, neither rooted nor still loading, and inside a pending-kill
+      world that is not `GWorld` nor a class default object, is cleared (`core::travel::is_eligible`,
+      `find_leftovers`, `world_holding`; the core tests).
+- [ ] The object array walk bounds the count (`MAX_OBJECTS`), the chunk index (the chunk count), checks each chunk's
+      item span readable once and skips an unreadable or null chunk; class chains stop at 16 `SuperStruct` steps and
+      outer chains at 17 checks (`core::travel::walk`).
+- [ ] The per-pass region cache answers only under `region_allows` from a region `VirtualQuery` returned in that pass,
+      and lives for one pass on the game thread (`ffi::travel::RegionCache`; test `region_cache`).
+- [ ] TR-1 is installed only when its 31 prologue bytes start a `.pdata` function at `+0x04271370`; a mismatch logs
+      `prologue mismatch` and the game runs unhooked. A panic in the pass or guard logs once and `LoadMap` runs.
+- [ ] The guard is opt-in (`ENABLE_ZOMBIE_LOADMAP_GUARD.flag`) and refuses only for a leftover of the destination's
+      name not already released; a refusal returns `false` without calling `LoadMap`. The map path read is bounded
+      to 1024 units, non-ASCII becomes `?`, and it is a path, never the URL's options.
+- [ ] `KEEP_STUCK_ASYNC_FLAGS.flag` turns every clear off (report only).
+
 ## Sign-off
 
 Reviewed at commit `________` on `________` by `________`.
