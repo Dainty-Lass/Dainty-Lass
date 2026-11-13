@@ -4555,6 +4555,7 @@ static void MpLogPerfAndMemory(bool FirstWindow) {
 static std::atomic<bool> g_emptyWatchdogStarted{ false };
 extern bool EnableWatchdog;   // defined later (global watchdog master switch, default true)
 static void StartEmptyWatchdogThread() {
+    if (!MITSEAM_AGPL_RUNS("SP-3@R8")) return;   // [DaintyLass 0054] the MIT runtime runs its own
     bool expected = false;
     if (!g_emptyWatchdogStarted.compare_exchange_strong(expected, true)) return;   // start once
     // [2026-10-10 1.14.7] Called on the GAME thread at listen (both listen paths in GameEngineTickHook): reset the
@@ -8209,7 +8210,9 @@ void GameEngineTickHook(UGameEngine* GameEngine, float DeltaTime, char CanRender
         return;
     }
 
-    if (Globals::Listening && Networking::NetDriver && MITSEAM_AGPL_RUNS("SP-3@R8")) {   // [DaintyLass 0041]
+    // [DaintyLass 0054] Gated per part: the watchdog and AFK on SP-3@R8, stamina and the bleedout floor on SP-3@R20,
+    // the pawn boost on SP-3@R13 (spec-runtime-r8 section 10).
+    if (Globals::Listening && Networking::NetDriver) {
         bool HasConnection = false;
 
         auto ClientConnectionData = *reinterpret_cast<UNetConnection***>((uintptr_t)Networking::NetDriver + 0x90);
@@ -8232,7 +8235,14 @@ void GameEngineTickHook(UGameEngine* GameEngine, float DeltaTime, char CanRender
                 HasConnection = true;
             }
 
-            if (EnableWatchdog) {
+            if (EnableWatchdog && !MITSEAM_AGPL_RUNS("SP-3@R8")) {   // [DaintyLass 0054] R20's floor without the watchdog
+                SDK::UObject* WorldGm = nullptr;
+                SDK::UObject* WorldGs = nullptr;
+                MpWorldGameModeAndState(WorldGm, WorldGs);
+                if (MITSEAM_AGPL_RUNS("SP-3@R20")) EnsureBleedoutDuration(WorldGm);
+                BleedoutWatchTick();
+            }
+            if (EnableWatchdog && MITSEAM_AGPL_RUNS("SP-3@R8")) {   // [DaintyLass 0054]
                 // Empty detection: trust the authoritative GameMode player count when we have it (fixes
                 // the zombie-connection case where HasConnection stayed stuck TRUE after players traveled
                 // out, so the server never self-terminated). Only fall back to the connection scan while
@@ -8289,7 +8299,10 @@ void GameEngineTickHook(UGameEngine* GameEngine, float DeltaTime, char CanRender
                     // stamina twice per frame. The manual call stays until the player class is cached (the fix answers
                     // like the game before that), and always without the flag.
                     MpTickFilterCachePlayerClass(ABP_PlayerCharacter_C::StaticClass());
-                    if (!(g_ServerTickFilterActive.load(std::memory_order_relaxed)
+                    const bool StaminaHere = MITSEAM_AGPL_RUNS("SP-3@R20");   // [DaintyLass 0054]
+                    if (!StaminaHere) {
+                        // the MIT runtime's R20 drives stamina
+                    } else if (!(g_ServerTickFilterActive.load(std::memory_order_relaxed)
                           && g_TickFilterPlayerClass.load(std::memory_order_relaxed))) {
                         ((ABP_PlayerCharacter_C*)Conn->PlayerController->Pawn)->TickStamina(ECityExecFilter::Both, ERemoteExecFilter::All);
                     } else {
@@ -8304,7 +8317,7 @@ void GameEngineTickHook(UGameEngine* GameEngine, float DeltaTime, char CanRender
                     // behemoth ~30Hz. Raise the pawn's NetUpdateFrequency (+0x108) / MinNetUpdateFrequency
                     // (+0x10C) so the graph gives it period 1 (~30Hz, capped by NetServerMaxTickRate). Every
                     // player pawn is boosted (loop covers all connections). Flag-gated A/B.
-                    if (PlayerRepBoost()) {
+                    if (MITSEAM_AGPL_RUNS("SP-3@R13") && PlayerRepBoost()) {   // [DaintyLass 0054]
                         AActor* pawn = Conn->PlayerController->Pawn;
                         if (IsReadablePointer(reinterpret_cast<void*>(reinterpret_cast<uintptr_t>(pawn) + 0x110), 4)) {
                             *reinterpret_cast<float*>(reinterpret_cast<uintptr_t>(pawn) + 0x108) = 60.0f; // NetUpdateFrequency
@@ -18874,7 +18887,7 @@ void ProcessEventHook(UObject* Object, UFunction* Function, void* Parms) {
             // this connection's first GameState bunch (the 1 s tick write may not have run yet; it runs on the P2P host
             // too - corrected 11 Oct). Object (the GameMode) only classifies the role while the world has none; writes
             // go to the world's.
-            if (Globals::AmServer) MpApplyAfkTimeout(Object, "postlogin");
+            if (Globals::AmServer && MITSEAM_AGPL_RUNS("SP-2@R8")) MpApplyAfkTimeout(Object, "postlogin");   // [DaintyLass 0054]
             if (Globals::AmServer) g_MpLastPostLoginMs.store(GetTickCount64(), std::memory_order_relaxed);
             // [2026-07-18] New login boundary — reset the ClientRestart/pawn-relevancy capture window so
             // this login's possession handoff is traced even if earlier logins used up the old budget.
