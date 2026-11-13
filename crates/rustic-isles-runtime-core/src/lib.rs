@@ -7,6 +7,7 @@ pub mod engine;
 pub mod env;
 pub mod flags;
 pub mod frame;
+pub mod http;
 pub mod log;
 pub mod memory;
 pub mod names;

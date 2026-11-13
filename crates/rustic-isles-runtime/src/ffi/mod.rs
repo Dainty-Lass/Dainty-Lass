@@ -5,6 +5,7 @@ pub mod dispatch;
 pub mod engine;
 pub mod exports;
 pub mod flags;
+pub mod http;
 pub mod log;
 pub mod memory;
 pub mod minhook;

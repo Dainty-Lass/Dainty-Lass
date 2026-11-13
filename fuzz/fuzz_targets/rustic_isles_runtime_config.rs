@@ -1,6 +1,7 @@
 //! What the MIT game runtime reads from its environment and command line (spec-runtime-r1 4, 6; RX3): the backend
 //! address (`RUSTIC_ISLES_BACKEND_URL` / `DAINTY_BACKEND_URL`) and a server's launch arguments, which pick the port,
-//! the map URL the engine loads and the player roster.
+//! the map URL the engine loads and the player roster. Also every URL the game hands HTTP-1 (spec-runtime-r2 4, 5):
+//! the split, the redirect and the grant path.
 #![no_main]
 
 use libfuzzer_sys::fuzz_target;
@@ -8,6 +9,9 @@ use rustic_isles_runtime_core::config::auth::AuthMode;
 use rustic_isles_runtime_core::config::backend::parse_backend_url;
 use rustic_isles_runtime_core::config::launch::{Mode, parse_launch};
 use rustic_isles_runtime_core::config::roster::{expected_player_count, map_url};
+use rustic_isles_runtime_core::http::{
+    MAX_REPLACEMENT_UNITS, Redirect, grant_path, is_redirect_host, is_under, redirect, split_url,
+};
 
 fuzz_target!(|data: &[u8]| {
     let text = String::from_utf8_lossy(data);
@@ -18,6 +22,26 @@ fuzz_target!(|data: &[u8]| {
         assert!(!url.host.is_empty() && !url.host.contains(['/', '?', '#', '@', '\\']));
         assert_eq!(parse_backend_url(&url.api_base()), Ok(url.clone()));
         assert!(!url.chat_address()[6..].contains(':') || url.host.starts_with('['));
+    }
+    // A game URL: a split host is non-empty with no path, query or port, its tail a path; a rewrite stays under the
+    // base
+    let url: Vec<u16> = text.encode_utf16().collect();
+    if let Some((host, tail)) = split_url(&url) {
+        assert!(!host.is_empty() && !host.iter().any(|&unit| [0x2F, 0x3F, 0x23, 0x3A].contains(&unit)));
+        assert_eq!(tail.first(), Some(&0x2F));
+    }
+    let base: Vec<u16> = "https://backend.invalid".encode_utf16().collect();
+    match redirect(&base, &url) {
+        Redirect::To { host, replacement } => {
+            assert!(is_redirect_host(&host));
+            assert!(replacement.len() < MAX_REPLACEMENT_UNITS);
+            assert!(is_under(&replacement, &base));
+        }
+        Redirect::TooLong => assert!(url.len() > 1000),
+        Redirect::Unchanged => {}
+    }
+    if let Some(path) = grant_path(&url) {
+        assert!(String::from_utf16_lossy(&path).starts_with("/progression/"));
     }
     // Launch arguments: NUL separates argv entries; the whole input is also the command line
     let line: Vec<u16> = text.encode_utf16().collect();

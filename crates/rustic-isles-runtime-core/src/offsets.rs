@@ -50,6 +50,13 @@ pub const TARGETS: &[Target] = &[
         found_by: FoundBy::Rva,
         what: "UEngine::Tick (base UGameEngine tick)",
     },
+    // R2: backend HTTP
+    Target {
+        id: "HTTP-1",
+        rva: 0x032C_5FE0,
+        found_by: FoundBy::Rva,
+        what: "FCurlHttpRequest::ProcessRequest",
+    },
 ];
 
 /// The target line for `id`.
@@ -107,6 +114,24 @@ pub mod layout {
     pub const NAME_OFFSET_BITS: u32 = 16;
     /// Blocks in the pool.
     pub const NAME_BLOCKS: u32 = 8192;
+
+    // R2: `FCurlHttpRequest` and the engine allocator
+    /// Bytes every HTTP-1 request access stays inside.
+    pub const HTTP_REQUEST_SIZE: usize = 0xD0;
+    /// The request's URL `FString` (`data`, `num` with the NUL, `max`).
+    pub const HTTP_REQUEST_URL: usize = 0x70;
+    /// The request's in-flight word (`i32`; `1` = in flight).
+    pub const HTTP_REQUEST_IN_FLIGHT: usize = 0xC4;
+    /// Vtable slots read before any virtual call on the request.
+    pub const HTTP_VTABLE_SLOTS: usize = 17;
+    /// `GetHeader(this, out, name) -> out`.
+    pub const HTTP_GET_HEADER_SLOT: usize = 2;
+    /// `SetHeader(this, name, value)`.
+    pub const HTTP_SET_HEADER_SLOT: usize = 16;
+    /// The largest `FString::num` R2 reads.
+    pub const FSTRING_MAX_NUM: i32 = 32_768;
+    /// `GMalloc`'s `Free(this, ptr)`.
+    pub const MALLOC_FREE_SLOT: usize = 6;
 }
 
 /// Data RVAs.
@@ -119,6 +144,11 @@ pub mod data {
     pub const GNAMES: u32 = 0x06E3_F280;
     /// `FName::AppendString`, the names fallback (R0 6.2; not called by R0).
     pub const FNAME_APPEND_STRING: u32 = 0x0265_6410;
+    // R2: the engine allocator (1.14.7's, not the surface page's 1.12 address)
+    /// `FMemory::Realloc(ptr, size, alignment)`; a null `ptr` allocates.
+    pub const FMEMORY_REALLOC: u32 = 0x0256_4AB0;
+    /// `GMalloc`, the engine allocator object's pointer.
+    pub const GMALLOC: u32 = 0x06E1_EB58;
 }
 
 #[cfg(test)]
