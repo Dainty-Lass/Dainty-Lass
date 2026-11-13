@@ -8,6 +8,7 @@ pub mod exports;
 pub mod flags;
 pub mod http;
 pub mod log;
+pub mod login;
 pub mod memory;
 pub mod minhook;
 pub mod win;

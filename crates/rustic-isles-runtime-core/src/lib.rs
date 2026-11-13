@@ -10,6 +10,7 @@ pub mod flags;
 pub mod frame;
 pub mod http;
 pub mod log;
+pub mod login;
 pub mod memory;
 pub mod names;
 pub mod offsets;

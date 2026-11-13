@@ -4,6 +4,7 @@ use crate::config;
 use crate::ffi::exit::{self, Install};
 use crate::ffi::{dispatch, engine, flags, http, log, minhook, win};
 use crate::handlers;
+use crate::login;
 use rustic_isles_runtime_core::config::launch::PORT_EXIT_CODE;
 use rustic_isles_runtime_core::flags::mode_line;
 use rustic_isles_runtime_core::log::{install_line, status_line};
@@ -53,6 +54,8 @@ pub fn init() {
     // R3 3.4: the install lines keep the AGPL runtime's order
     let mut installs: Vec<Install> = Vec::new();
     if server {
+        // CL-1 before every other hook (R0 7.6, R4 7.3)
+        installs.extend(login::install(true, base));
         installs.extend(exit::install_exports(hooks_off));
         installs.push(exit::install_veh(base));
         installs.push(chain("SP-2", dispatch::install_sp2));
@@ -62,6 +65,7 @@ pub fn init() {
         installs.push(exit::install_crash_wait());
     } else {
         installs.push(chain("SP-1", dispatch::install_sp1));
+        installs.extend(login::install(false, base));
         installs.push(chain("HTTP-1", http::install));
         installs.extend(exit::install_exports(hooks_off));
         installs.push(exit::install_veh(base));

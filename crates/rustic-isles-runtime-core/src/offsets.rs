@@ -130,6 +130,37 @@ pub const TARGETS: &[Target] = &[
         found_by: FoundBy::RvaAndBytes(&[0x48, 0x89, 0x5C, 0x24, 0x08, 0x57, 0x48, 0x83, 0xEC, 0x30]),
         what: "FWindowsErrorOutputDevice::HandleError",
     },
+    // R4: login, EAC and the command line
+    Target {
+        id: "CL-1",
+        rva: 0x025E_8F70,
+        found_by: FoundBy::Rva,
+        what: "FCommandLine::Get",
+    },
+    Target {
+        id: "CL-2",
+        rva: 0x01C3_0030,
+        found_by: FoundBy::Rva,
+        what: "IsEOSEnabled",
+    },
+    Target {
+        id: "CL-5",
+        rva: 0x0147_6F20,
+        found_by: FoundBy::Rva,
+        what: "EAC client HandleError",
+    },
+    Target {
+        id: "CL-8",
+        rva: 0,
+        found_by: FoundBy::Export("ws2_32.dll", "GetAddrInfoW"),
+        what: "DNS, wide",
+    },
+    Target {
+        id: "CL-9",
+        rva: 0,
+        found_by: FoundBy::Export("ws2_32.dll", "getaddrinfo"),
+        what: "DNS, ANSI",
+    },
 ];
 
 /// The target line for `id`.
@@ -224,6 +255,9 @@ pub mod data {
     pub const GMALLOC: u32 = 0x06E1_EB58;
     /// `GErrorHist`, a UTF-16 buffer (R3's EXIT-13).
     pub const ERROR_HISTORY: u32 = 0x06E1_4AD0;
+    /// `EnableEasyAntiCheatFeatures`, one byte (R4's CL-7). Not hooked, named for the reader: EAC `StartupModule`
+    /// `+0x01474ED0`, `FParse::Param` `+0x02634DE0`, `FParse::Value` `+0x02640610`, the multihome lookup `+0x032AE4B0`.
+    pub const EAC_ENABLED: u32 = 0x06CF_BD44;
 }
 
 /// R3's code sites (spec-runtime-r3 sections 5.2 and 7.1).

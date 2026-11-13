@@ -3,7 +3,7 @@
 //! name to `LANDED` (and, for a new id, its line).
 
 /// The slices whose ids this build owns.
-pub const LANDED: &[&str] = &["R0", "R1", "R2", "R3"];
+pub const LANDED: &[&str] = &["R0", "R1", "R2", "R3", "R4"];
 
 /// The longest id `owns` accepts, in bytes.
 pub const MAX_ID_BYTES: usize = 47;
@@ -54,17 +54,10 @@ pub const ENTRIES: &[Entry] = &[
     // Login, EAC and the command line
     e("CL-1", Detour, "R4"),
     e("CL-2", Detour, "R4"),
-    e("CL-3", Detour, "R4"),
-    e("CL-4", Detour, "R4"),
     e("CL-5", Detour, "R4"),
-    e("CL-6", Detour, "R4"),
     e("CL-7", Patch, "R4"),
     e("CL-8", Detour, "R4"),
     e("CL-9", Detour, "R4"),
-    e("CL-10", Detour, "R4"),
-    e("CL-11", Detour, "R4"),
-    e("CL-12", Detour, "R4"),
-    e("CL-13", Detour, "R4"),
     // Exit and crash
     e("EXIT-1", Detour, "R3"),
     e("EXIT-2", Detour, "R3"),
@@ -148,6 +141,14 @@ pub const ENTRIES: &[Entry] = &[
     e("DX-7", Detour, "R19"),
     e("DX-8", Detour, "R19"),
     e("DX-9", Detour, "R19"),
+    // R4's logging-only probes stay AGPL until R21 (R4 2)
+    e("CL-3", Detour, "R19"),
+    e("CL-4", Detour, "R19"),
+    e("CL-6", Detour, "R19"),
+    e("CL-10", Detour, "R19"),
+    e("CL-11", Detour, "R19"),
+    e("CL-12", Detour, "R19"),
+    e("CL-13", Detour, "R19"),
     // Feature ids: one dispatch point × one slice
     e("SP-1@R14", Feature, "R14"),
     e("SP-1@R15", Feature, "R15"),
@@ -200,6 +201,8 @@ mod tests {
     use super::*;
     use std::collections::HashSet;
 
+    const R4_PROBES: [&str; 7] = ["CL-3", "CL-4", "CL-6", "CL-10", "CL-11", "CL-12", "CL-13"];
+
     fn range(prefix: &str, last: u32) -> Vec<String> {
         (1..=last).map(|n| format!("{prefix}-{n}")).collect()
     }
@@ -211,7 +214,10 @@ mod tests {
             ids.push((id.into(), "R0"));
         }
         ids.push(("HTTP-1".into(), "R2"));
-        ids.extend(range("CL", 13).into_iter().map(|id| (id, "R4")));
+        ids.extend(range("CL", 13).into_iter().map(|id| {
+            let slice = if R4_PROBES.contains(&id.as_str()) { "R19" } else { "R4" };
+            (id, slice)
+        }));
         ids.extend(range("EXIT", 14).into_iter().map(|id| (id, "R3")));
         ids.extend(range("HL", 12).into_iter().map(|id| (id, "R5")));
         ids.extend(range("UI", 13).into_iter().map(|id| (id, "R6")));
@@ -303,8 +309,16 @@ mod tests {
         assert!(owns(b"HTTP-1"));
         assert!(owns(b"HTTP-1@R2"));
         assert_eq!(owns(b"HTTP-1@R10"), LANDED.contains(&"R10"));
-        if LANDED == ["R0", "R1", "R2", "R3"] {
-            assert_eq!(owned_count(), 19);
+        // R4's six; its seven probes stay the AGPL's (R19)
+        for id in ["CL-1", "CL-2", "CL-5", "CL-7", "CL-8", "CL-9"] {
+            assert!(owns(id.as_bytes()), "{id}");
+        }
+        for id in R4_PROBES {
+            assert!(!owns(id.as_bytes()), "{id}");
+            assert_eq!(entry(id).map(|line| line.slice), Some("R19"));
+        }
+        if LANDED == ["R0", "R1", "R2", "R3", "R4"] {
+            assert_eq!(owned_count(), 25);
         }
         assert!(!owns(b"SP-3@R9"));
         assert!(!owns(b"DX-8"));

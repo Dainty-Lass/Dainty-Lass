@@ -8,6 +8,8 @@ pub mod config;
 pub mod handlers;
 #[cfg(minhook)]
 mod lifecycle;
+#[cfg(minhook)]
+pub mod login;
 
 /// Every raw pointer read, Win32 call, MinHook call, detour body and C export (RT-1).
 #[cfg(minhook)]

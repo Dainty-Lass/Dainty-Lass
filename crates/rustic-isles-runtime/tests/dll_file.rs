@@ -122,3 +122,14 @@ fn no_dynamic_crt_import() {
         );
     }
 }
+
+#[test]
+fn imports_ws2_32_statically() {
+    // The loader maps it before DllMain, so CL-8/9 never miss their exports (R4 6.1)
+    let pe = Pe::parse(std::fs::read(dll_path()).unwrap());
+    let imports = pe.imports();
+    assert!(
+        imports.iter().any(|name| name.eq_ignore_ascii_case("ws2_32.dll")),
+        "{imports:?}"
+    );
+}
