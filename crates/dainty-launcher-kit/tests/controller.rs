@@ -1258,6 +1258,8 @@ async fn the_command_lines_export_is_the_host_pages() {
     assert_eq!(injected, [pc.win64.join("Rustic-Isles.dll"), dll.clone()]);
     assert!(pc.win64.join("export_flags.txt").is_file());
     std::fs::create_dir_all(pc.win64.join("Items_Analysis")).unwrap();
+    // A run is known by the status file it writes beside its exports
+    std::fs::write(pc.win64.join("Items_Analysis/catalog_export_status.txt"), "ALL DONE").unwrap();
     spawner.exit.notify_one();
     let (code, out) = run.await.unwrap();
     assert_eq!(code, 0, "{out}");

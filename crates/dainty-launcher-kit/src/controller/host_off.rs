@@ -43,6 +43,16 @@ impl Controller {
         None
     }
 
+    /// No Host tools, so nowhere to look for exports.
+    pub fn export_candidates(&self) -> Vec<std::path::PathBuf> {
+        Vec::new()
+    }
+
+    /// No Host tools, so no exports.
+    pub fn latest_exports(&self, _since: Option<std::time::SystemTime>) -> Option<std::path::PathBuf> {
+        None
+    }
+
     /// `host_get`.
     pub async fn host_kit(&self) -> HostKit {
         HostKit {
