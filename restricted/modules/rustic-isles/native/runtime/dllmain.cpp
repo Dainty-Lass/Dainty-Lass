@@ -7534,6 +7534,36 @@ static void MpInstallServerViewportSizeFix() {
     MpLog("[ServerViewportSize] WidgetLayoutLibrary.GetViewportSize answers 1920x1080 instead of 0 on the server");
 }
 
+// [DaintyLass 0052] This runtime listens unless the MIT runtime owns SP-3@R9. A player host still listens here while
+// the MIT runtime lacks R10, whose pipe and fence the listen needs (the root's docs/port/spec-runtime-r9.md section 9).
+static bool MpAgplListens() {
+    static const bool Runs = MITSEAM_AGPL_RUNS("SP-3@R9")
+        || (Globals::AuthMode == Globals::ServerAuthMode::HuntCapability && MITSEAM_AGPL_RUNS("SP-3@R10"));
+    return Runs;
+}
+
+// [DaintyLass 0052] When the MIT runtime listened, the features still here (watchdog, graph drive, routing, hunt pass)
+// drive its GameNetDriver, taken once it answers non-null. Its own listen step started the watchdog; so does this.
+static void MpAdoptMitListen() {
+    if (!Globals::AmServer || Globals::Listening || MpAgplListens()) return;
+    using ListenDriverFn = void* (*)();
+    static ListenDriverFn Fn = nullptr;
+    static bool s_resolved = false;
+    if (!s_resolved) {
+        s_resolved = true;
+        const HMODULE Mit = GetModuleHandleW(L"rustic-isles-runtime.dll");
+        Fn = Mit ? reinterpret_cast<ListenDriverFn>(GetProcAddress(Mit, "rir_listen_driver")) : nullptr;
+        if (!Fn) MpLog("[MitSeam] SP-3@R9 is the MIT runtime's but it exports no rir_listen_driver; listening stays off here");
+    }
+    if (!Fn) return;
+    void* Driver = Fn();
+    if (!Driver) return;
+    Networking::AdoptListenDriver(reinterpret_cast<UNetDriver*>(Driver), Globals::Port);
+    Globals::Listening = true;
+    MpLog("[MitSeam] SP-3@R9 is the MIT runtime's: listening on its GameNetDriver " + MpPtr(Driver));
+    if (MITSEAM_AGPL_RUNS("SP-3@R8")) StartEmptyWatchdogThread();
+}
+
 void GameEngineTickHook(UGameEngine* GameEngine, float DeltaTime, char CanRender) {
     // [2026-10-10 1.14.7 Perf] Frame interval for the [Perf] line (entry to entry, so it includes the engine's own frame
     // wait). One QPC read and a few relaxed atomics; no logging, allocation or lock on the game thread.
@@ -7579,6 +7609,7 @@ void GameEngineTickHook(UGameEngine* GameEngine, float DeltaTime, char CanRender
 
     // [Reforged 0020] Pace the server's game thread (see MpPaceServerFrame) before this frame's work.
     if (Globals::AmServer) {
+        MpAdoptMitListen();   // [DaintyLass 0052] before anything below reads Listening
         if (MITSEAM_AGPL_RUNS("SP-3@R8")) MpPaceServerFrame();   // [DaintyLass 0041]
         MpInstallServerViewportSizeFix();   // [Reforged 0038]
     }
@@ -7764,7 +7795,9 @@ void GameEngineTickHook(UGameEngine* GameEngine, float DeltaTime, char CanRender
         }
     }
 
-    if (Globals::Listening && MITSEAM_AGPL_RUNS("SP-3@R9")) {   // [DaintyLass 0041] (also R8 and R11: spec-runtime-r0 7.4)
+    // [DaintyLass 0052] Each part of this block asks its own slice (R8's roster sync and count, R9's driver
+    // maintenance, R11's manual net tick); its logging stays here (spec-runtime-r9 section 9).
+    if (Globals::Listening) {
         // [1.12.0 player-host roster gate] Keep ExpectedPlayerCount synchronized with the
         // concrete launch roster. The previous blanket zero forced a two-player hunt to enter
         // InProgress as soon as P1 arrived; an SDR joiner arriving a few seconds later then hit
@@ -7810,7 +7843,7 @@ void GameEngineTickHook(UGameEngine* GameEngine, float DeltaTime, char CanRender
 
         static bool s_loggedGameMode  = false;
         static bool s_loggedGameState = false;
-        if (s_disableExpectedZero == 0 && s_legacyExpectedWalk == 0) {
+        if (s_disableExpectedZero == 0 && s_legacyExpectedWalk == 0 && MITSEAM_AGPL_RUNS("SP-3@R8")) {   // [DaintyLass 0052]
             SDK::UWorld* World = SDK::UWorld::GetWorld();   // Offsets::GWorld 0x06FC7F58
             if (World && IsReadablePointer(World, 0x128)) {
                 const uintptr_t W = reinterpret_cast<uintptr_t>(World);
@@ -7838,7 +7871,8 @@ void GameEngineTickHook(UGameEngine* GameEngine, float DeltaTime, char CanRender
             }
         }
 
-        if (s_disableExpectedZero == 0 && s_legacyExpectedWalk == 1 && SDK::UObject::GObjects) {
+        if (s_disableExpectedZero == 0 && s_legacyExpectedWalk == 1 && SDK::UObject::GObjects
+            && MITSEAM_AGPL_RUNS("SP-3@R8")) {   // [DaintyLass 0052]
             const int Count = SDK::UObject::GObjects->Num();
             for (int i = 0; i < Count; i++) {
                 SDK::UObject* Obj = SDK::UObject::GObjects->GetByIndex(i);
@@ -7901,7 +7935,7 @@ void GameEngineTickHook(UGameEngine* GameEngine, float DeltaTime, char CanRender
         // for the whole session without the per-tick spam removed in Phase 0k. This is the
         // primary evidence for the A/B: does connCount actually reach 2, and when?
         // Publish the remote connection count for the empty-instance watchdog (see g_wdConnCount).
-        if (preConnectionCount >= 0) {
+        if (preConnectionCount >= 0 && MITSEAM_AGPL_RUNS("SP-3@R8")) {   // [DaintyLass 0052] the watchdog's count
             g_wdConnCount.store(preConnectionCount, std::memory_order_relaxed);
             const uint64_t ConnNowMs = GetTickCount64();
             g_wdConnStampMs.store(ConnNowMs, std::memory_order_relaxed);
@@ -7998,7 +8032,7 @@ void GameEngineTickHook(UGameEngine* GameEngine, float DeltaTime, char CanRender
                 + " GIsClient=" + std::to_string(*(uint8_t*)(Globals::BaseAddress + 0x06E1EAD9)));
         }
 
-        Networking::TickNetworking();
+        if (MpAgplListens()) Networking::TickNetworking();   // [DaintyLass 0052]
 
         if (traceNetTick) {
             MpLog("[NetTickTrace] tick=" + std::to_string(tickCounter) + " after TickNetworking");
@@ -8015,7 +8049,7 @@ void GameEngineTickHook(UGameEngine* GameEngine, float DeltaTime, char CanRender
         const bool SkipManualDriveThisFrame = ManualTickHalfRate() && ((++s_manualTickFrame & 1ull) != 0ull);
 
         bool tickDispatchOk = true;
-        if (SkipManualDriveThisFrame) {
+        if (SkipManualDriveThisFrame || !MITSEAM_AGPL_RUNS("SP-3@R11")) {   // [DaintyLass 0052]
             tickDispatchOk = false;   // nothing dispatched this frame by us; native tick still ran
         }
         else if (!SanitizeNetDriverClientConnections(Networking::NetDriver, "GameEngineTickBeforeTickDispatch")) {
@@ -8078,7 +8112,7 @@ void GameEngineTickHook(UGameEngine* GameEngine, float DeltaTime, char CanRender
         }
 
         bool tickFlushOk = true;
-        if (SkipManualDriveThisFrame) {
+        if (SkipManualDriveThisFrame || !MITSEAM_AGPL_RUNS("SP-3@R11")) {   // [DaintyLass 0052]
             tickFlushOk = false;
         }
         else if (!SanitizeNetDriverClientConnections(Networking::NetDriver, "GameEngineTickBeforeTickFlush")) {
@@ -8120,7 +8154,7 @@ void GameEngineTickHook(UGameEngine* GameEngine, float DeltaTime, char CanRender
     // reload failing, the port closing) is consistent with an invalid world context, so this flag
     // isolates whether OUR listen is what invalidates it: with the flag present the manual Listen is
     // skipped entirely and the boot can be compared. Diagnostic only.
-    if (Globals::DoListen && MITSEAM_AGPL_RUNS("SP-3@R9") && MpExeRelativeFlagPresent(L"DISABLE_MANUAL_LISTEN.flag")) {   // [DaintyLass 0041]
+    if (Globals::DoListen && MpAgplListens() && MpExeRelativeFlagPresent(L"DISABLE_MANUAL_LISTEN.flag")) {   // [DaintyLass 0041, 0052]
         Globals::DoListen = false;
         MpLog("[GameEngineTick] manual Networking::Listen SKIPPED (DISABLE_MANUAL_LISTEN.flag) - A/B");
     }
@@ -8130,13 +8164,13 @@ void GameEngineTickHook(UGameEngine* GameEngine, float DeltaTime, char CanRender
     // only once UWorld::NetDriver (UWorld+0x38) actually exists; the harness independently confirms
     // the port is bound, so this never announces a listener that is not there.
     // [2026-10-11] Never on a player-hosted server (MpMapUrlListenEnabled): it listens manually below.
-    if (Globals::DoListen && MITSEAM_AGPL_RUNS("SP-3@R9") && MpMapUrlListenEnabled()) {   // [DaintyLass 0041]
+    if (Globals::DoListen && MpAgplListens() && MpMapUrlListenEnabled()) {   // [DaintyLass 0041, 0052]
         Globals::DoListen = false;
         Globals::WaitingForEngineListener = true;
         MpLog("[GameEngineTick] manual Listen skipped; waiting for the ENGINE listener (?listen map URL)");
     }
 
-    if (Globals::WaitingForEngineListener && MITSEAM_AGPL_RUNS("SP-3@R9")) {   // [DaintyLass 0041]
+    if (Globals::WaitingForEngineListener && MpAgplListens()) {   // [DaintyLass 0041, 0052]
         void* ListenWorld = UWorld::GetWorld();
         void* EngineNetDriver = ListenWorld
             ? *reinterpret_cast<void**>(reinterpret_cast<uintptr_t>(ListenWorld) + 0x38)   // UWorld::NetDriver
@@ -8152,7 +8186,7 @@ void GameEngineTickHook(UGameEngine* GameEngine, float DeltaTime, char CanRender
         }
     }
 
-    if (Globals::DoListen && MITSEAM_AGPL_RUNS("SP-3@R9")) {   // [DaintyLass 0041]
+    if (Globals::DoListen && MpAgplListens()) {   // [DaintyLass 0041, 0052]
         Globals::DoListen = false;
 
         MpLog("[GameEngineTick] calling Networking::Listen(port=" + std::to_string(Globals::Port) + ")");
