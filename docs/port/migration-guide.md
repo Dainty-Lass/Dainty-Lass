@@ -204,6 +204,7 @@ MIT module (890 of 890 matched, `restricted/modules/rustic-isles/docs/mit-parity
 | `ParadoxBackend/realtime/` (XMPP) | `modules/rustic-isles/reference/1.14.7/ParadoxBackend/src/realtime` | `crates/dainty-chat` (DN10a/b) and `crates/rustic-isles-chat` (rules and routes) |
 | `ParadoxDirector` | `modules/rustic-isles/reference/1.14.7/ParadoxDirector` | `crates/rustic-isles-director` (RU6: instance registry, hub supervisor, port leases, memory guard, hunt tables) |
 | Realms and Guard (`p2p/`, `realms/`, Guard) | `modules/rustic-isles/reference/1.14.7/ParadoxBackend` | `crates/rustic-rifts-*` (`rustic-rifts-seam`, `rustic-rifts-admission`, `rustic-rifts-relay`, `rustic-rifts-realms`, `rustic-rifts-guard`, `rustic-rifts-host`, `rustic-rifts-transport`; RF1–RF7, MIT clean-room), wired in by `rustic-isles-1-14-7`'s `rifts.rs`; the transport DLL stays in `restricted/modules/rustic-rifts/src` |
+| The C++ game runtime (`Rustic-Isles.dll`) | `modules/rustic-isles/native/runtime` | `crates/rustic-isles-runtime-core` (pure: flag cache, log lines, offsets, `.pdata`, chain model, ownership registry, R1 config) and `crates/rustic-isles-runtime` (`rustic_isles_runtime.dll`, installed as `rustic-isles-runtime.dll`: `DllMain`, hook broker, seam exports, SP-1/2/3 dispatch); replaces `Rustic-Isles.dll` slice by slice, both loaded MIT first through seam patch 0041 (plan item 11, RT-1, RT-5; [`spec-runtime-r0.md`](spec-runtime-r0.md), [`spec-runtime-r1.md`](spec-runtime-r1.md)) |
 
 ### 2.8 The patches to Mystic Paradox
 
