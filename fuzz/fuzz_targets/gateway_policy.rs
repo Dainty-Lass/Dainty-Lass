@@ -2,12 +2,14 @@
 // Copyright (c) 2026 Silent Spud
 
 //! The gateway's route policy (DR X9, RD27): any method, target and headers give a decision without panicking,
-//! and nothing it lets through can reach the host's own routes.
+//! and nothing it lets through can reach the host's own routes but the realm routes, and those only with one
+//! account key and no bearer.
 #![no_main]
 
 use dainty_gateway::policy::{
-    Decision, FeedKind, HOST_ONLY_HEADERS, HOST_ONLY_PREFIXES, PUBLIC_LAUNCHER_API, Upstream, canonical_path,
-    check_path, classify, split_target, under, unwrap_origin,
+    ACCOUNT_KEY_HEADER, Decision, FeedKind, HOST_ONLY_HEADERS, HOST_ONLY_PREFIXES, PUBLIC_LAUNCHER_API,
+    PUBLIC_REALM_METHODS, PUBLIC_REALM_PREFIXES, Upstream, canonical_path, check_path, classify, split_target, under,
+    unwrap_origin,
 };
 use http::{HeaderMap, HeaderName, HeaderValue};
 use libfuzzer_sys::fuzz_target;
@@ -34,9 +36,19 @@ fuzz_target!(|input: (String, String, Vec<(String, Vec<u8>)>, bool)| {
     let canonical = canonical_path(&inner.path).expect("a proxied path decodes");
     assert!(canonical.starts_with('/'));
     assert!(HOST_ONLY_HEADERS.iter().all(|h| !headers.contains_key(*h)));
-    assert!(HOST_ONLY_PREFIXES.iter().all(|p| !under(&canonical, p)));
     let method = method.to_ascii_uppercase();
-    if under(&canonical, "/reforged") {
+    if PUBLIC_REALM_PREFIXES.iter().any(|p| under(&canonical, p)) {
+        assert!(inner.origin.is_none() && upstream == Upstream::Backend && !upgrade);
+        assert!(PUBLIC_REALM_METHODS.contains(&method.as_str()));
+        assert!(!headers.contains_key(http::header::AUTHORIZATION));
+        let keys: Vec<_> = headers.get_all(ACCOUNT_KEY_HEADER).iter().collect();
+        assert_eq!(keys.len(), 1);
+        let key = keys[0].to_str().expect("a key is ASCII");
+        assert!(dainty_protocol::account::is_plausible_account_key(key));
+    } else {
+        assert!(HOST_ONLY_PREFIXES.iter().all(|p| !under(&canonical, p)));
+    }
+    if under(&canonical, "/dainty") {
         let name = canonical.strip_prefix("/dainty/api/").expect("only the public API");
         let (_, methods) = PUBLIC_LAUNCHER_API
             .iter()
