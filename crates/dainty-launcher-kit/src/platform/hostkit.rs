@@ -892,6 +892,22 @@ mod tests {
     }
 
     #[test]
+    fn game_data_detection_distinguishes_missing_synthetic_and_real() {
+        let tmp = tempfile::tempdir().unwrap();
+        let dir = tmp.path();
+        let files = &["a.json", "b.json"];
+        assert_eq!(detect_game_data(dir, files), GameDataState::Missing);
+
+        std::fs::write(dir.join("a.json"), b"{\"x\":1}").unwrap();
+        std::fs::write(dir.join("b.json"), b"{\"y\":2}").unwrap();
+        std::fs::write(dir.join("b.example.json"), b"{\"y\":2}").unwrap();
+        assert_eq!(detect_game_data(dir, files), GameDataState::Synthetic);
+
+        std::fs::write(dir.join("b.json"), b"{\"y\":3}").unwrap();
+        assert_eq!(detect_game_data(dir, files), GameDataState::Real);
+    }
+
+    #[test]
     fn the_newest_export_is_found_wherever_the_exporter_wrote_it() {
         let tmp = tempfile::tempdir().unwrap();
         let start = SystemTime::now();
@@ -915,22 +931,6 @@ mod tests {
             "an old run is not this one"
         );
         assert_eq!(newest_exports(&candidates[..1], None), Some(game));
-    }
-
-    #[test]
-    fn game_data_detection_distinguishes_missing_synthetic_and_real() {
-        let tmp = tempfile::tempdir().unwrap();
-        let dir = tmp.path();
-        let files = &["a.json", "b.json"];
-        assert_eq!(detect_game_data(dir, files), GameDataState::Missing);
-
-        std::fs::write(dir.join("a.json"), b"{\"x\":1}").unwrap();
-        std::fs::write(dir.join("b.json"), b"{\"y\":2}").unwrap();
-        std::fs::write(dir.join("b.example.json"), b"{\"y\":2}").unwrap();
-        assert_eq!(detect_game_data(dir, files), GameDataState::Synthetic);
-
-        std::fs::write(dir.join("b.json"), b"{\"y\":3}").unwrap();
-        assert_eq!(detect_game_data(dir, files), GameDataState::Real);
     }
 
     #[test]
