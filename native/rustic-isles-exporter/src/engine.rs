@@ -412,10 +412,9 @@ impl<'a> Engine<'a> {
         self.fname_raw(addr.wrapping_add(SOFT_PATH))
     }
 
-    /// A soft pointer's asset path name through the SDK's offsets, short form (store images, spec §6.13).
+    /// A soft pointer's asset path name at the same fixed offset, short form (store images, spec §6.13).
     pub fn soft_path_sdk(&self, addr: u64) -> String {
-        let path = sdk::SOFT_OBJECT_ID.offset.saturating_add(sdk::SOFT_PATH_NAME.offset);
-        self.fname(addr.wrapping_add(u64::from(path)))
+        self.fname(addr.wrapping_add(SOFT_PATH))
     }
 
     /// The object a weak pointer (a soft pointer's first part) names when it is loaded, else 0.
