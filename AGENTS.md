@@ -161,9 +161,10 @@ It's never a one-file change:
   `host.toml` (or a Node kit's `host.json`), so a new field that an older file doesn't have must default to
   today's behaviour.
 - **Use one of the server prefixes** (`DAINTY_`, `GATEWAY_`, `ALLOWLIST_`, `CONTENT_`, `GAMESERVER_`...).
-  `start` hands each service the shell's environment and then its env file, and the file wins
-  (`service_environment` in `crates/dainty-hostkit/src/services.rs`). The clean-room host kit has no `SERVER_PREFIXES`
-  list, so a stale server setting left in the shell reaches a service whose file doesn't set it. Only the
+  A variable in the host's environment wins over its service's env file, with a warning naming the `host.toml` key on
+  every start, and `PORT`, `LOG_LEVEL` and the other generic names only as `DAINTY_<SERVICE>_<NAME>` (RD24,
+  `crates/dainty-hostkit/src/hostconfig/overrides.rs`). The clean-room host kit has no `SERVER_PREFIXES` list, so a
+  stale server setting left in the shell reaches a service, as an override or as a key its file doesn't set. Only the
   controller's registry filters, keeping the OS's own variables for an external module (`system_environment`).
 - **A secret goes in `secrets.env`** (`SECRET_KEYS`), made once and never logged. It is never a `host.toml`
   field and never an option on the command line.
