@@ -7,6 +7,7 @@
 
 mod art;
 mod bridge;
+mod cli;
 mod dialogs;
 mod epic_login;
 mod platform;
@@ -20,6 +21,7 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 
 use dainty_epic::auth::EpicAccounts;
+use dainty_launcher_kit::controller::cli::{self as command_line, CliRequest, USAGE, USAGE_EXIT};
 use dainty_launcher_kit::controller::install::EpicGate;
 use dainty_launcher_kit::controller::{Controller, ControllerConfig, Seams};
 use dainty_launcher_kit::core::i18n::Language;
@@ -143,16 +145,26 @@ fn wait_for_parent(mut alive: impl FnMut() -> bool, mut sleep: impl FnMut()) {
     }
 }
 
-/// Runs the app until it exits (§2.1.2).
+/// Runs the app until it exits (§2.1.2), or a command line (`play`, `export`, `servers`) to its end; the answer is
+/// the process's exit code.
 ///
 /// # Errors
 ///
 /// When the folders cannot be resolved or Tauri cannot start.
-pub fn run(mut options: Options) -> Result<(), StartError> {
+pub fn run(mut options: Options) -> Result<i32, StartError> {
     let flavour = Flavour::current();
     // 1. The arguments, after the restarted-from launcher is gone
     let args: Vec<OsString> = std::env::args_os().collect();
     let user_args: Vec<String> = args.iter().skip(1).map(|a| a.to_string_lossy().into_owned()).collect();
+    let cli: Option<CliRequest> = match command_line::parse(&user_args) {
+        None => None,
+        Some(Ok(request)) if request.detaches() => return Ok(cli::detach(&user_args)),
+        Some(Ok(request)) => Some(request),
+        Some(Err(problem)) => {
+            println!("error: {problem}\n\n{USAGE}");
+            return Ok(USAGE_EXIT);
+        }
+    };
     if cfg!(target_os = "linux")
         && let Some(pid) = std::env::var(PARENT_PID_VAR).ok().filter(|p| p.parse::<u32>().is_ok())
     {
@@ -165,8 +177,14 @@ pub fn run(mut options: Options) -> Result<(), StartError> {
 
     // 2. One launcher per user: hand the arguments over and leave
     let channel = Channel::current(flavour.channel_id(), &args);
-    let holder = match tauri::async_runtime::block_on(invite_link::claim(&channel, &user_args)) {
-        Ok(Claim::HandedOver) => return Ok(()),
+    // A command line hands nothing over: the open launcher only comes to the front
+    let handed: &[String] = if cli.is_some() { &[] } else { &user_args };
+    let holder = match tauri::async_runtime::block_on(invite_link::claim(&channel, handed)) {
+        Ok(Claim::HandedOver) if cli.is_some() => {
+            println!("error: the launcher is already open; close it and run the command again");
+            return Ok(command_line::REFUSED_EXIT);
+        }
+        Ok(Claim::HandedOver) => return Ok(0),
         Ok(Claim::First(holder)) => Some(holder),
         Err(_) => None,
     };
@@ -188,8 +206,19 @@ pub fn run(mut options: Options) -> Result<(), StartError> {
     // 5. Key storage
     let development_build = tauri::is_dev();
     let encryptor = platform_encryptor();
-    if cfg!(target_os = "linux") && !encryptor.available() && bootstrap_storage(development_build, &user_args) {
-        return Ok(());
+    if cli.is_none()
+        && cfg!(target_os = "linux")
+        && !encryptor.available()
+        && bootstrap_storage(development_build, &user_args)
+    {
+        return Ok(0);
+    }
+    if let Some(request) = cli {
+        let resources = resources_dir(development_build, || {
+            tauri::utils::platform::resource_dir(context.package_info(), &tauri::Env::default()).ok()
+        });
+        let config = controller_config(paths, encryptor, resources, version, development_build);
+        return Ok(cli::run(&request, config, holder));
     }
 
     // 6–7. The Epic ownership cache and the invite link from the arguments
@@ -362,7 +391,39 @@ pub fn run(mut options: Options) -> Result<(), StartError> {
             });
         }
     });
-    Ok(())
+    Ok(0)
+}
+
+/// The launcher's resources: the brand folder in a development build, else the bundle's.
+fn resources_dir(development_build: bool, bundled: impl FnOnce() -> Option<PathBuf>) -> PathBuf {
+    if development_build {
+        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../brand/launcher")
+    } else {
+        bundled().unwrap_or_default()
+    }
+}
+
+/// The controller's config, the same for the window and a command line (§2.1.2 step 9).
+fn controller_config(
+    paths: Paths,
+    encryptor: Arc<dyn Encryptor>,
+    resources: PathBuf,
+    version: String,
+    development_build: bool,
+) -> ControllerConfig {
+    let locale = sys_locale::get_locale().unwrap_or_else(|| "en-US".to_owned());
+    let legacy: Option<Arc<dyn LegacyReader>> =
+        ElectronReader::supported().then(|| Arc::new(ElectronReader::new(&paths.user_data)) as _);
+    let mut config = ControllerConfig::new(paths, encryptor);
+    config.resources = resources;
+    config.relay_port = relay_port(std::env::var(relay::PORT_VAR).ok().as_deref());
+    config.os_language = Language::from_system(&locale);
+    config.os_locale = locale;
+    config.legacy_reader = legacy;
+    config.version = version;
+    config.packaged = !development_build;
+    config.development_build = development_build;
+    config
 }
 
 /// Linux without a Secret Service: installs it and starts again, unless told not to. True when this process
@@ -451,24 +512,15 @@ impl Start {
             ownership: self.ownership,
         });
 
-        let resources = if self.development_build {
-            PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../brand/launcher")
-        } else {
-            app.path().resource_dir().unwrap_or_default()
-        };
-        let locale = sys_locale::get_locale().unwrap_or_else(|| "en-US".to_owned());
-        let legacy: Option<Arc<dyn LegacyReader>> =
-            ElectronReader::supported().then(|| Arc::new(ElectronReader::new(&self.paths.user_data)) as _);
+        let resources = resources_dir(self.development_build, || app.path().resource_dir().ok());
         let user_data = self.paths.user_data.clone();
-        let mut config = ControllerConfig::new(self.paths, self.encryptor);
-        config.resources = resources;
-        config.relay_port = relay_port(std::env::var(relay::PORT_VAR).ok().as_deref());
-        config.os_language = Language::from_system(&locale);
-        config.os_locale = locale;
-        config.legacy_reader = legacy;
-        config.version = self.version;
-        config.packaged = packaged;
-        config.development_build = self.development_build;
+        let config = controller_config(
+            self.paths,
+            self.encryptor,
+            resources,
+            self.version,
+            self.development_build,
+        );
 
         let platform = Arc::new(AppPlatform::new(app.clone(), self.art, Arc::clone(&self.backend)));
         let controller = Controller::new(config, platform, Seams::default());

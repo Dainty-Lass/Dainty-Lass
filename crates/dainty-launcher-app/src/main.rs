@@ -35,7 +35,8 @@ fn main() -> ExitCode {
         return code;
     }
     match dainty_launcher_app::run(options()) {
-        Ok(()) => ExitCode::SUCCESS,
+        // A game's exit code is 32 bits on Windows, more than ExitCode carries
+        Ok(code) => std::process::exit(code),
         Err(error) => {
             eprintln!("Dainty Lass could not start: {error}");
             ExitCode::from(1)

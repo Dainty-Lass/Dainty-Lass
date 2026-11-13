@@ -9,7 +9,7 @@
 
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicI32, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex, OnceLock};
 use std::time::Duration;
 
@@ -27,6 +27,7 @@ use dainty_launcher_kit::bridge::types::{
     ActionResult, ConnectProblem, ErrorCode, GameProblem, InstallOutcome, InstallState, InviteCheck, NoticeCode, Phase,
     RegisterOutcome, RuntimeState, SettingsPatch, Snapshot, TaskProgress,
 };
+use dainty_launcher_kit::controller::cli::{CliCommand, CliRequest};
 use dainty_launcher_kit::controller::{
     ConsoleSink, Controller, ControllerConfig, FileFilter, FolderPurpose, Platform, PreparedGame, RelayOwner,
     STATUS_POLL_INTERVAL, Seams,
@@ -322,14 +323,15 @@ impl Encryptor for FakeSealer {
     }
 }
 
-/// A game that runs until the test lets it exit.
+/// A game that runs until the test lets it exit, with the code the test set.
 #[derive(Default)]
 struct FakeSpawner {
     plans: Mutex<Vec<LaunchPlan>>,
     exit: Arc<Notify>,
+    code: Arc<AtomicI32>,
 }
 
-struct FakeChild(Arc<Notify>);
+struct FakeChild(Arc<Notify>, Arc<AtomicI32>);
 
 impl GameChild for FakeChild {
     fn id(&self) -> Option<u32> {
@@ -339,7 +341,7 @@ impl GameChild for FakeChild {
     fn wait(self: Box<Self>) -> BoxFuture<'static, std::io::Result<Option<i32>>> {
         Box::pin(async move {
             self.0.notified().await;
-            Ok(Some(0))
+            Ok(Some(self.1.load(Ordering::SeqCst)))
         })
     }
 }
@@ -347,7 +349,7 @@ impl GameChild for FakeChild {
 impl Spawner for FakeSpawner {
     fn spawn(&self, plan: &LaunchPlan) -> std::io::Result<Box<dyn GameChild>> {
         self.plans.lock().unwrap().push(plan.clone());
-        Ok(Box::new(FakeChild(Arc::clone(&self.exit))))
+        Ok(Box::new(FakeChild(Arc::clone(&self.exit), Arc::clone(&self.code))))
     }
 }
 
@@ -1086,4 +1088,193 @@ async fn a_fresh_invite_replaces_a_key_the_server_forgot() {
     ok(&controller.submit_invite(&text, false, false).await);
     assert!(!controller.snapshot().server.unwrap().has_pending_invite);
     controller.shutdown().await;
+}
+
+// --- The command line (`dainty-launcher play|export`) ---
+
+fn cli(command: CliCommand, server: Option<&str>, wait: bool) -> CliRequest {
+    CliRequest {
+        command,
+        server: server.map(str::to_owned),
+        wait,
+        held: false,
+    }
+}
+
+/// Runs a command line in the background, as the shell's `block_on` would; its output comes back with its code.
+fn run_cli(controller: &Controller, request: CliRequest) -> tokio::task::JoinHandle<(i32, String)> {
+    let controller = controller.clone();
+    tokio::spawn(async move {
+        let mut out = Vec::new();
+        let code = controller.run_cli(&request, &mut out).await;
+        (code, String::from_utf8(out).unwrap())
+    })
+}
+
+/// A launcher ready to PLAY: joined, registered, its game found and the server's runtime trusted.
+async fn ready_to_play(pc: &Pc, name: &'static str) -> (FakeServer, Arc<FakeSpawner>, Controller) {
+    let (manifest, files) = runtime("2.0.0");
+    let server = fake_server(
+        Answers {
+            name,
+            manifest: Some(manifest),
+            files,
+            forgot: Arc::default(),
+        },
+        None,
+    )
+    .await;
+    let platform = Arc::new(FakePlatform::default());
+    let spawner = Arc::new(FakeSpawner::default());
+    let controller = launcher(pc, &platform, &spawner);
+    controller.init().await;
+    let text = invite(ServerMode::Private, server.port, None, name);
+    ok(&controller.submit_invite(&text, false, false).await);
+    assert!(matches!(
+        controller.register("Player_1").await,
+        RegisterOutcome::Ok { .. }
+    ));
+    ok(&controller.use_game_path(&pc.root.to_string_lossy()).await);
+    ok(&controller.trust_runtime().await);
+    assert_eq!(controller.snapshot().phase, Phase::Ready);
+    (server, spawner, controller)
+}
+
+async fn game_exits(controller: &Controller, spawner: &FakeSpawner) {
+    spawner.exit.notify_one();
+    until("the game to stop", || {
+        let running = controller.snapshot().running;
+        !running.game && running.relay_port.is_none()
+    })
+    .await;
+}
+
+async fn until_launched(spawner: &FakeSpawner, count: usize) -> LaunchPlan {
+    until("the launch", || spawner.plans.lock().unwrap().len() == count).await;
+    spawner.plans.lock().unwrap().last().cloned().unwrap()
+}
+
+#[tokio::test]
+async fn the_command_lines_play_is_the_pages() {
+    let pc = pc().await;
+    let (_server, spawner, controller) = ready_to_play(&pc, "Cli Server").await;
+
+    // The page's PLAY, for the plan to compare against.
+    ok(&controller.play().await);
+    let page = until_launched(&spawner, 1).await;
+    game_exits(&controller, &spawner).await;
+
+    // `servers` names the current one, by the id `--server` takes.
+    let (code, listed) = run_cli(&controller, cli(CliCommand::Servers, None, false))
+        .await
+        .unwrap();
+    assert_eq!(code, 0);
+    assert!(listed.contains("Cli Server"), "{listed}");
+    let id = listed
+        .lines()
+        .find_map(|line| line.strip_prefix("* "))
+        .and_then(|line| line.split_whitespace().next())
+        .unwrap()
+        .to_owned();
+
+    // `play --wait --server <id>`: the same launch, the relay up, and the game's own exit code back.
+    let crashed = i32::from_ne_bytes(0xC000_0005_u32.to_ne_bytes());
+    spawner.code.store(crashed, Ordering::SeqCst);
+    let run = run_cli(&controller, cli(CliCommand::Play, Some(&id), true));
+    let plan = until_launched(&spawner, 2).await;
+    assert_eq!(plan, page, "the command line launches exactly as PLAY does");
+    assert_eq!(controller.snapshot().running.relay_port, Some(pc.relay_port));
+    let reply = relay_get(pc.relay_port, "/game/hello").await;
+    assert!(reply.starts_with("HTTP/1.1 200"), "{reply}");
+    spawner.exit.notify_one();
+    let (code, out) = run.await.unwrap();
+    assert_eq!(code, crashed, "{out}");
+    assert!(out.contains("server: Cli Server (127.0.0.1:"), "{out}");
+    assert!(out.contains("the game started (pid 4242)"), "{out}");
+    assert!(out.contains("the game exited with code 0xC0000005"), "{out}");
+    assert!(
+        !out.contains(KEY) && !out.contains(&KEY[4..]),
+        "the key reached the terminal:\n{out}"
+    );
+    assert!(
+        controller.snapshot().running.relay_port.is_none(),
+        "the relay stops with the game"
+    );
+
+    // Without `--wait` (the detached child's run) the answer is 0 whatever the game's code.
+    let run = run_cli(&controller, cli(CliCommand::Play, None, false));
+    until_launched(&spawner, 3).await;
+    spawner.exit.notify_one();
+    let (code, out) = run.await.unwrap();
+    assert_eq!(code, 0, "{out}");
+
+    // Refusals: an unknown saved server, then PLAY's own refusal with its code and English text.
+    let (code, out) = run_cli(&controller, cli(CliCommand::Play, Some("private:nowhere:1"), true))
+        .await
+        .unwrap();
+    assert_eq!(code, 1);
+    assert!(out.contains("no saved server has the id private:nowhere:1"), "{out}");
+    std::fs::write(pc.win64.join("mystic_loader.ini"), "left over").unwrap();
+    let (code, out) = run_cli(&controller, cli(CliCommand::Play, None, true)).await.unwrap();
+    assert_eq!(code, 1);
+    assert!(
+        out.contains("error: loader_leftovers: loader files are left beside the game"),
+        "{out}"
+    );
+    assert_eq!(spawner.plans.lock().unwrap().len(), 3, "nothing launched");
+    std::fs::remove_file(pc.win64.join("mystic_loader.ini")).unwrap();
+
+    controller.shutdown().await;
+    assert_key_never_logged();
+}
+
+#[cfg(feature = "host")]
+#[tokio::test]
+async fn the_command_lines_export_is_the_host_pages() {
+    let pc = pc().await;
+    let (_server, spawner, controller) = ready_to_play(&pc, "Export Server").await;
+    let bytes = b"a stand-in for CatalogExporter";
+    let dll = pc.root.join("CatalogExporter.dll");
+    std::fs::write(&dll, bytes).unwrap();
+
+    let export = CliCommand::Export {
+        exporter: Some(dll.clone()),
+    };
+    let run = run_cli(&controller, cli(export, None, true));
+    if !inject::INJECTS {
+        // The export session is Windows' alone, from the page and the command line alike
+        let (code, out) = run.await.unwrap();
+        assert_eq!(code, 1);
+        assert!(
+            out.contains("error: host_failed:") && out.contains("(windows_only)"),
+            "{out}"
+        );
+        assert!(spawner.plans.lock().unwrap().is_empty());
+        controller.shutdown().await;
+        return;
+    }
+    let plan = until_launched(&spawner, 1).await;
+    let injected: Vec<PathBuf> = plan.inject.iter().map(|dll| dll.path.clone()).collect();
+    assert_eq!(injected, [pc.win64.join("Rustic-Isles.dll"), dll.clone()]);
+    assert!(pc.win64.join("export_flags.txt").is_file());
+    std::fs::create_dir_all(pc.win64.join("Items_Analysis")).unwrap();
+    spawner.exit.notify_one();
+    let (code, out) = run.await.unwrap();
+    assert_eq!(code, 0, "{out}");
+    let hashed = format!("exporter: {}, SHA-256 {}", dll.display(), sha256_hex(bytes));
+    assert!(out.contains(&hashed), "{out}");
+    let landed = out
+        .lines()
+        .find_map(|line| line.strip_prefix("exports: "))
+        .map(PathBuf::from);
+    assert_eq!(landed, Some(pc.win64.join("Items_Analysis")), "{out}");
+    assert!(!out.contains(KEY), "the key reached the terminal:\n{out}");
+    until("the session to end", || !controller.snapshot().running.game).await;
+
+    // The page's export session with the same build launches the same way.
+    ok(&controller.host_export(Some(&dll)).await);
+    assert_eq!(until_launched(&spawner, 2).await, plan);
+    game_exits(&controller, &spawner).await;
+    controller.shutdown().await;
+    assert_key_never_logged();
 }

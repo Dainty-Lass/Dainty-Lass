@@ -465,6 +465,17 @@ impl Controller {
         list
     }
 
+    /// The workspace's CatalogExporter build, which the export session loads unless told otherwise.
+    pub fn host_exporter_dll(&self) -> Option<PathBuf> {
+        self.valid_workspace()
+            .map(|workspace| WorkspacePaths::new(&workspace).exporter_dll)
+    }
+
+    /// Where CatalogExporter writes, whether or not it has yet.
+    pub fn game_exports_dir(&self) -> Option<PathBuf> {
+        self.win64().map(|win64| win64.join(GAME_EXPORTS))
+    }
+
     fn game_exports(&self) -> Option<PathBuf> {
         self.win64()
             .map(|win64| win64.join(GAME_EXPORTS))
@@ -674,7 +685,7 @@ impl Controller {
         }
         match action {
             HostAction::InjectDumper => return self.inject_dumper().await,
-            HostAction::InjectExporter => return self.inject_exporter().await,
+            HostAction::InjectExporter => return self.host_export(None).await,
             _ => {}
         }
         let workspace = match self.need_workspace() {
@@ -935,16 +946,19 @@ impl Controller {
         self.end_job(HostJobKind::Inject, outcome).await
     }
 
-    async fn inject_exporter(&self) -> ActionResult {
+    /// The Host page's export session: PLAY with CatalogExporter, the workspace's build unless `exporter` names one.
+    pub async fn host_export(&self, exporter: Option<&Path>) -> ActionResult {
         let win64 = match self.session_game() {
             Ok(win64) => win64,
             Err(refused) => return refused,
         };
-        let workspace = match self.need_workspace() {
-            Ok(workspace) => workspace,
-            Err(refused) => return refused,
+        let dll = match exporter {
+            Some(dll) => dll.to_path_buf(),
+            None => match self.need_workspace() {
+                Ok(workspace) => WorkspacePaths::new(&workspace).exporter_dll,
+                Err(refused) => return refused,
+            },
         };
-        let dll = WorkspacePaths::new(&workspace).exporter_dll;
         if !dll.is_file() {
             return self.refuse_with("exporter");
         }
