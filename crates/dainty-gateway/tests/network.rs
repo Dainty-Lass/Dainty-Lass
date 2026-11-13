@@ -327,3 +327,94 @@ async fn region_report_handler_reaches_ring_node_record_region_pings_authenticat
 
     w.gateway.close().await;
 }
+
+#[tokio::test]
+async fn a_restarted_home_takes_the_first_report_once_its_module_names_the_key_holder() {
+    use std::sync::Arc;
+    use std::sync::atomic::{AtomicUsize, Ordering};
+
+    use dainty_module_api::network::{GlobalId, IdKind, NodeId, NodeIdentity, StandaloneHome};
+    use network_plugin::Clock;
+    use network_plugin::inprocess::InProcessNetwork;
+    use network_plugin::ring::{AccountKeyHolder, RegionPing, RingConfig, RingNode, UnconfiguredDirector};
+
+    struct NoopAllowlist;
+    impl network_plugin::ring::AllowlistSink for NoopAllowlist {
+        fn admit_player(&self, _: &GlobalId, _: &GlobalId, _: &str, _: u16) {}
+    }
+
+    // The module's stored key, which the restarted ring has never heard announced
+    struct Module {
+        account: GlobalId,
+        asked: AtomicUsize,
+    }
+    impl AccountKeyHolder for Module {
+        fn holder_of<'a>(&'a self, key: &'a str) -> dainty_module_api::BoxFuture<'a, Result<Option<GlobalId>, String>> {
+            self.asked.fetch_add(1, Ordering::SeqCst);
+            Box::pin(async move { Ok((key == FAKE_KEY).then(|| self.account.clone())) })
+        }
+    }
+
+    let _serial = serial().await;
+    let w = world(Vec::new()).await;
+    let port = w.gateway.port;
+    let node: NodeId = "germany-1".parse().unwrap();
+    let identity = NodeIdentity {
+        node: node.clone(),
+        region: "germany".parse().unwrap(),
+    };
+    let net = InProcessNetwork::new();
+    let ring = RingNode::new(
+        RingConfig::new(identity.clone()),
+        Arc::new(Clock::default()),
+        Arc::new(net.link(&node)),
+        Arc::new(StandaloneHome { identity }),
+        Arc::new(UnconfiguredDirector),
+        Arc::new(NoopAllowlist),
+    );
+    let module = Arc::new(Module {
+        account: GlobalId::new(IdKind::Account, &node),
+        asked: AtomicUsize::new(0),
+    });
+    ring.set_account_key_holder(module.clone());
+    let handler_ring = ring.clone();
+    w.gateway
+        .gateway
+        .set_region_handler(Arc::new(move |api_key, _ticket, regions| {
+            let ring = handler_ring.clone();
+            Box::pin(async move {
+                let pings = regions
+                    .into_iter()
+                    .map(|r| RegionPing {
+                        region: r.region.parse().unwrap(),
+                        rtt_ms: r.rtt_ms.map(|ms| ms.round() as u32),
+                    })
+                    .collect();
+                ring.record_region_pings_authenticated(api_key.as_deref(), None, pings)
+                    .await
+                    .is_ok()
+            })
+        }));
+
+    let report = r#"{"regions":[{"region":"germany","rttMs":12.0}]}"#;
+    for _ in 0..2 {
+        let reply = https_request(port, "/network/v1/regions", post(report, Some(FAKE_KEY)))
+            .await
+            .unwrap();
+        assert_eq!(reply.status, 204);
+    }
+    assert!(ring.region_pings_for(&module.account).is_some());
+    // The holder is kept: the second report never reached the module
+    assert_eq!(module.asked.load(Ordering::SeqCst), 1);
+
+    let unknown_key = "DLK_000000000000000000000000000000000000000000000000";
+    for _ in 0..2 {
+        let denied = https_request(port, "/network/v1/regions", post(report, Some(unknown_key)))
+            .await
+            .unwrap();
+        assert_eq!(denied.status, 401);
+    }
+    // The refusal is kept too
+    assert_eq!(module.asked.load(Ordering::SeqCst), 2);
+    w.gateway.close().await;
+}

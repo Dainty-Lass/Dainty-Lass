@@ -153,6 +153,7 @@ impl GameModule for StubModule {
             .game_call(GameCallKind::Servers)
             .game_call(GameCallKind::CreateInvite)
             .game_call(GameCallKind::RevokeInvite)
+            .game_call(GameCallKind::AccountForKey)
             .config_section(ConfigSection::new("stub").key("greeting", json!("hello"), "What echo starts with"));
         Ok(())
     }
@@ -306,6 +307,12 @@ impl GameModule for StubModule {
                     }
                     GameAnswer::Done
                 }
+                GameCall::AccountForKey { key } => GameAnswer::Account(
+                    (key == STUB_ACCOUNT_KEY)
+                        .then(|| STUB_ACCOUNT.parse())
+                        .transpose()
+                        .map_err(|_| ModuleError::failed("the stub's account id"))?,
+                ),
             })
         })
     }
@@ -320,6 +327,12 @@ impl StubModule {
         }
     }
 }
+
+/// The one account key the stub knows, answered by [`GameCall::AccountForKey`].
+pub const STUB_ACCOUNT_KEY: &str = "DLK_stubstubstubstubstubstubstubstub";
+
+/// The account holding [`STUB_ACCOUNT_KEY`].
+pub const STUB_ACCOUNT: &str = "account:01J9Z3N5C8Q0V2X4Y6W8T0R2P4@local";
 
 /// A host that answers a module's calls (home calls through a [`StandaloneHome`]) and keeps every call.
 pub struct RecordingHost {

@@ -23,7 +23,7 @@
 //!   assigned to the Ramsgate of their lowest-ping region.
 
 use std::collections::{BTreeMap, HashMap};
-use std::sync::{Arc, Mutex, PoisonError, RwLock};
+use std::sync::{Arc, Mutex, OnceLock, PoisonError, RwLock};
 
 pub use dainty_module_api::network::{
     DIRECTOR_COMMAND, DirectorInvocation, HuntRewards, InstanceRecord, JoinDecision, PeerGateway, PlacedInstance,
@@ -577,6 +577,89 @@ impl RingConfig {
     }
 }
 
+/// How long a key no local account holds is refused without asking the module again (N-1).
+pub const UNKNOWN_KEY_TTL_MS: i64 = 60_000;
+
+/// Module lookups that may answer "no holder" in a burst; one more is allowed per [`KEY_LOOKUP_REFILL_MS`].
+pub const KEY_LOOKUP_BURST: u32 = 32;
+
+/// Milliseconds per key lookup the budget regains.
+pub const KEY_LOOKUP_REFILL_MS: i64 = 1_000;
+
+/// Remembered unknown keys, past which the oldest are dropped.
+const MAX_UNKNOWN_KEYS: usize = 4_096;
+
+/// Who holds an account key the ring has not heard announced: the node's game module, asked when a region
+/// report brings a key after a restart emptied the ring's map (N-1, `docs/port/clean-room/docker.md` 4.3).
+pub trait AccountKeyHolder: Send + Sync {
+    /// The local account holding `key`, none when none does. An error is a module that could not answer.
+    fn holder_of<'a>(&'a self, key: &'a str) -> BoxFuture<'a, Result<Option<GlobalId>, String>>;
+}
+
+/// The budget of key lookups that answered no holder: a token bucket, so unknown keys can't drive the
+/// module's key scan without bound.
+struct KeyLookups {
+    tokens: u32,
+    refilled_at_ms: i64,
+    /// SHA-256 of a refused key -> when it may be asked about again.
+    unknown: HashMap<String, i64>,
+}
+
+impl KeyLookups {
+    fn new() -> Self {
+        Self {
+            tokens: KEY_LOOKUP_BURST,
+            refilled_at_ms: i64::MIN,
+            unknown: HashMap::new(),
+        }
+    }
+
+    fn refill(&mut self, now_ms: i64) {
+        if self.tokens >= KEY_LOOKUP_BURST || self.refilled_at_ms == i64::MIN {
+            self.refilled_at_ms = now_ms;
+            return;
+        }
+        let gained = (now_ms - self.refilled_at_ms).max(0) / KEY_LOOKUP_REFILL_MS;
+        if gained > 0 {
+            let gained = u32::try_from(gained).unwrap_or(u32::MAX);
+            self.tokens = self.tokens.saturating_add(gained).min(KEY_LOOKUP_BURST);
+            self.refilled_at_ms = if self.tokens >= KEY_LOOKUP_BURST {
+                now_ms
+            } else {
+                self.refilled_at_ms + i64::from(gained) * KEY_LOOKUP_REFILL_MS
+            };
+        }
+    }
+
+    /// Whether the module may be asked about `key_hash` now.
+    fn may_ask(&mut self, key_hash: &str, now_ms: i64) -> bool {
+        if self.unknown.get(key_hash).is_some_and(|until| *until > now_ms) {
+            return false;
+        }
+        self.refill(now_ms);
+        self.tokens > 0
+    }
+
+    fn refused(&mut self, key_hash: String, now_ms: i64, remember: bool) {
+        self.refill(now_ms);
+        self.tokens = self.tokens.saturating_sub(1);
+        if !remember {
+            return;
+        }
+        self.unknown.retain(|_, until| *until > now_ms);
+        if self.unknown.len() >= MAX_UNKNOWN_KEYS
+            && let Some(oldest) = self
+                .unknown
+                .iter()
+                .min_by_key(|(_, until)| **until)
+                .map(|(k, _)| k.clone())
+        {
+            self.unknown.remove(&oldest);
+        }
+        self.unknown.insert(key_hash, now_ms + UNKNOWN_KEY_TTL_MS);
+    }
+}
+
 fn sha256_hex_str(s: &str) -> String {
     hex::encode(Sha256::digest(s.as_bytes()))
 }
@@ -592,6 +675,8 @@ struct State {
     regional_pool: BTreeMap<GlobalId, PublishedTicket>,
     /// Map of account key (`DLK_...`) or its SHA-256 hex digest -> owning `GlobalId` registered for local key verification on `POST /network/v1/regions`.
     local_account_keys: HashMap<String, GlobalId>,
+    /// The module lookups for keys not in `local_account_keys` (N-1).
+    key_lookups: KeyLookups,
 }
 
 /// The per-node service implementing DN6 (instance registry & redirects), DN8 (matchmaking ring), and
@@ -603,6 +688,7 @@ pub struct RingNode {
     home: Arc<dyn HomeApi>,
     director: Arc<dyn DirectorPlacement>,
     allowlist: Arc<dyn AllowlistSink>,
+    key_holder: OnceLock<Arc<dyn AccountKeyHolder>>,
     state: Mutex<State>,
 }
 
@@ -627,14 +713,21 @@ impl RingNode {
             home,
             director,
             allowlist,
+            key_holder: OnceLock::new(),
             state: Mutex::new(State {
                 instances: HashMap::new(),
                 region_pings: HashMap::new(),
                 home_tickets: BTreeMap::new(),
                 regional_pool: BTreeMap::new(),
                 local_account_keys: HashMap::new(),
+                key_lookups: KeyLookups::new(),
             }),
         })
+    }
+
+    /// Asks `holder` about account keys the ring has not heard announced; the first one set stays.
+    pub fn set_account_key_holder(&self, holder: Arc<dyn AccountKeyHolder>) {
+        let _ = self.key_holder.set(holder);
     }
 
     /// This node.
@@ -838,7 +931,10 @@ impl RingNode {
                     .or_else(|| state.local_account_keys.get(&key_hash))
                     .cloned()
             };
-            found.ok_or(RingError::Unauthorized)?
+            match found {
+                Some(account) => account,
+                None => self.ask_key_holder(key, key_hash).await?,
+            }
         } else if let Some((session_ticket, game)) = ticket {
             self.home
                 .verify_session_ticket(session_ticket, game)
@@ -849,6 +945,45 @@ impl RingNode {
         };
         self.record_region_pings(account.clone(), pings)?;
         Ok(account)
+    }
+
+    /// The module's answer for a key the ring doesn't know, kept when it names a holder; a refusal is kept for
+    /// [`UNKNOWN_KEY_TTL_MS`] and spends the lookup budget. The key itself is never logged.
+    async fn ask_key_holder(&self, key: &str, key_hash: String) -> Result<GlobalId, RingError> {
+        let Some(holder) = self.key_holder.get() else {
+            return Err(RingError::Unauthorized);
+        };
+        // The module's own key check takes at most 256 characters
+        if key.len() > 256 || !looks_like_account_key(key) {
+            return Err(RingError::Unauthorized);
+        }
+        let now_ms = self.clock.now_ms();
+        if !self
+            .state
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .key_lookups
+            .may_ask(&key_hash, now_ms)
+        {
+            return Err(RingError::Unauthorized);
+        }
+        let answer = holder.holder_of(key).await;
+        let mut state = self.state.lock().unwrap_or_else(PoisonError::into_inner);
+        match answer {
+            Ok(Some(account)) if account.kind() == IdKind::Account => {
+                state.local_account_keys.insert(key_hash, account.clone());
+                Ok(account)
+            }
+            Ok(_) => {
+                state.key_lookups.refused(key_hash, self.clock.now_ms(), true);
+                Err(RingError::Unauthorized)
+            }
+            Err(error) => {
+                tracing::warn!(%error, "the game module could not say who holds an account key");
+                state.key_lookups.refused(key_hash, self.clock.now_ms(), false);
+                Err(RingError::Unauthorized)
+            }
+        }
     }
 
     /// Records a player's measured region RTTs, sorting reachable regions by ascending RTT.

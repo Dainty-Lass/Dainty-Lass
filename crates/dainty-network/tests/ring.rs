@@ -14,10 +14,11 @@ use dainty_module_api::{BoxFuture, GameVersion, ModuleId};
 use dainty_network::inprocess::InProcessNetwork;
 use dainty_network::link::{Clock, NodeService};
 use dainty_network::ring::{
-    AllowlistSink, ClaimOutcome, DirectorPlacement, DirectorPlacementError, HuntRewards, InstanceRecord, JoinDecision,
-    PeerGateway, RegionPing, RingCall, RingConfig, RingError, RingNode, RingSchedule, TicketState,
-    UnconfiguredDirector, WrongNodePolicy, decode_request, encode_request,
+    AccountKeyHolder, AllowlistSink, ClaimOutcome, DirectorPlacement, DirectorPlacementError, HuntRewards,
+    InstanceRecord, JoinDecision, PeerGateway, RegionPing, RingCall, RingConfig, RingError, RingNode, RingSchedule,
+    TicketState, UnconfiguredDirector, WrongNodePolicy, decode_request, encode_request,
 };
+use dainty_network::ring::{KEY_LOOKUP_BURST, KEY_LOOKUP_REFILL_MS, UNKNOWN_KEY_TTL_MS};
 
 /// Test-only in-process Director placement that assigns deterministic ports in a region's UDP range.
 #[derive(Debug, Clone)]
@@ -575,4 +576,151 @@ fn ring_wire_refuses_account_keys_and_bad_versions() {
     assert!(decode_request(bad_version).is_err());
 
     let _ = ClaimOutcome::Granted { session_ticket: None };
+}
+
+/// A game module that holds one key and counts how often the ring asks it (N-1).
+struct OneKeyModule {
+    key: String,
+    account: GlobalId,
+    asked: Mutex<Vec<String>>,
+    fail: bool,
+}
+
+impl AccountKeyHolder for OneKeyModule {
+    fn holder_of<'a>(&'a self, key: &'a str) -> BoxFuture<'a, Result<Option<GlobalId>, String>> {
+        self.asked.lock().unwrap().push(key.to_owned());
+        Box::pin(async move {
+            if self.fail {
+                return Err(String::from("no database"));
+            }
+            Ok((key == self.key).then(|| self.account.clone()))
+        })
+    }
+}
+
+fn restarted_node(fail: bool) -> (Arc<RingNode>, Arc<Clock>, Arc<OneKeyModule>) {
+    let identity = NodeIdentity {
+        node: "de-1".parse().unwrap(),
+        region: "germany".parse().unwrap(),
+    };
+    let clock = Arc::new(Clock::default());
+    let net = InProcessNetwork::new();
+    let ring = RingNode::new(
+        RingConfig::new(identity.clone()),
+        clock.clone(),
+        Arc::new(net.link(&identity.node)),
+        Arc::new(TestHome::new(identity.clone())),
+        Arc::new(UnconfiguredDirector),
+        Arc::new(RecordedAllowlist::default()),
+    );
+    let module = Arc::new(OneKeyModule {
+        key: String::from("DLK_held_by_the_module_0123456789"),
+        account: GlobalId::new(IdKind::Account, &identity.node),
+        asked: Mutex::new(Vec::new()),
+        fail,
+    });
+    ring.set_account_key_holder(module.clone());
+    (ring, clock, module)
+}
+
+fn germany() -> Vec<RegionPing> {
+    vec![RegionPing {
+        region: "germany".parse().unwrap(),
+        rtt_ms: Some(12),
+    }]
+}
+
+#[tokio::test]
+async fn a_restarted_ring_asks_the_module_once_and_keeps_the_holder() {
+    let (ring, _, module) = restarted_node(false);
+    for _ in 0..3 {
+        let account = ring
+            .record_region_pings_authenticated(Some(&module.key), None, germany())
+            .await
+            .unwrap();
+        assert_eq!(account, module.account);
+    }
+    assert_eq!(module.asked.lock().unwrap().len(), 1);
+}
+
+#[tokio::test]
+async fn an_unknown_key_is_refused_and_not_asked_about_again_until_its_refusal_expires() {
+    let (ring, clock, module) = restarted_node(false);
+    let unknown = "DLK_nobody_holds_this_key_0000000";
+    for _ in 0..3 {
+        let refused = ring
+            .record_region_pings_authenticated(Some(unknown), None, germany())
+            .await;
+        assert_eq!(refused, Err(RingError::Unauthorized));
+    }
+    assert_eq!(module.asked.lock().unwrap().len(), 1);
+    clock.skew_by(UNKNOWN_KEY_TTL_MS + 1);
+    let refused = ring
+        .record_region_pings_authenticated(Some(unknown), None, germany())
+        .await;
+    assert_eq!(refused, Err(RingError::Unauthorized));
+    assert_eq!(module.asked.lock().unwrap().len(), 2);
+    // Not shaped like a key, or longer than any key: the module is never asked
+    for odd in ["not-a-key", &format!("DLK_{}", "a".repeat(300))] {
+        let refused = ring.record_region_pings_authenticated(Some(odd), None, germany()).await;
+        assert_eq!(refused, Err(RingError::Unauthorized));
+    }
+    assert_eq!(module.asked.lock().unwrap().len(), 2);
+}
+
+#[tokio::test]
+async fn refusals_spend_a_lookup_budget_that_refills_over_time() {
+    let (ring, clock, module) = restarted_node(false);
+    for i in 0..KEY_LOOKUP_BURST {
+        let key = format!("DLK_probe_{i:08}_xxxxxxxx");
+        assert!(
+            ring.record_region_pings_authenticated(Some(&key), None, germany())
+                .await
+                .is_err()
+        );
+    }
+    let asked = KEY_LOOKUP_BURST as usize;
+    assert_eq!(module.asked.lock().unwrap().len(), asked);
+    // Spent: the next unknown key, and even the held one, are refused without asking
+    assert!(
+        ring.record_region_pings_authenticated(Some("DLK_probe_one_more_xxxxxxxx"), None, germany())
+            .await
+            .is_err()
+    );
+    assert!(
+        ring.record_region_pings_authenticated(Some(&module.key), None, germany())
+            .await
+            .is_err()
+    );
+    assert_eq!(module.asked.lock().unwrap().len(), asked);
+    // One lookup back per refill period; a held key costs nothing from it
+    clock.skew_by(KEY_LOOKUP_REFILL_MS);
+    let account = ring
+        .record_region_pings_authenticated(Some(&module.key), None, germany())
+        .await
+        .unwrap();
+    assert_eq!(account, module.account);
+    assert!(
+        ring.record_region_pings_authenticated(Some("DLK_probe_after_refill_xx"), None, germany())
+            .await
+            .is_err()
+    );
+    assert!(
+        ring.record_region_pings_authenticated(Some("DLK_probe_after_spent_xxx"), None, germany())
+            .await
+            .is_err()
+    );
+    assert_eq!(module.asked.lock().unwrap().len(), asked + 2);
+}
+
+#[tokio::test]
+async fn a_module_that_cannot_answer_is_a_refusal_that_is_not_remembered() {
+    let (ring, _, module) = restarted_node(true);
+    for _ in 0..2 {
+        let refused = ring
+            .record_region_pings_authenticated(Some(&module.key), None, germany())
+            .await;
+        assert_eq!(refused, Err(RingError::Unauthorized));
+    }
+    assert_eq!(module.asked.lock().unwrap().len(), 2);
 }

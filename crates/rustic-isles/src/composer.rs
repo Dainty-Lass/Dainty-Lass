@@ -152,6 +152,16 @@ pub trait ModuleHooks: Send + Sync {
         Box::pin(async { Err(no_database()) })
     }
 
+    /// The account holding an account key, by the same check as a keyed launcher call (N-1); none when none here
+    /// does or the holder may not use it.
+    fn account_for_key<'a>(
+        &'a self,
+        _shared: &'a Arc<Shared>,
+        _key: &'a str,
+    ) -> BoxFuture<'a, Result<Option<GlobalId>, ModuleError>> {
+        Box::pin(async { Err(no_database()) })
+    }
+
     /// The store's checkpoint at stop; a failure is logged as a warning.
     fn stop(&self) -> BoxFuture<'_, Result<(), String>> {
         Box::pin(async { Ok(()) })

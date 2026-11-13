@@ -7,6 +7,7 @@ use std::fmt;
 use serde::{Deserialize, Serialize};
 
 use crate::module::{ErrorKind, ModuleError};
+use crate::network::GlobalId;
 
 /// Event a game module emits when one of its game servers comes up (`Payload`: [`GameServer`]).
 pub const SERVER_UP_EVENT: &str = "game.server.up";
@@ -45,6 +46,12 @@ pub enum GameCall {
         /// The code.
         code: String,
     },
+    /// Which local account holds an account key (`DLK_...`), checked as the module's own key check does: the
+    /// ring asks after a restart emptied its map (N-1). The key is a credential, never logged
+    AccountForKey {
+        /// The key as the player sent it.
+        key: String,
+    },
 }
 
 impl GameCall {
@@ -55,6 +62,7 @@ impl GameCall {
             Self::Servers => GameCallKind::Servers,
             Self::CreateInvite { .. } => GameCallKind::CreateInvite,
             Self::RevokeInvite { .. } => GameCallKind::RevokeInvite,
+            Self::AccountForKey { .. } => GameCallKind::AccountForKey,
         }
     }
 }
@@ -71,6 +79,8 @@ pub enum GameCallKind {
     CreateInvite,
     /// [`GameCall::RevokeInvite`].
     RevokeInvite,
+    /// [`GameCall::AccountForKey`].
+    AccountForKey,
 }
 
 /// A game module's answer to a [`GameCall`], the variant matching the call's.
@@ -88,6 +98,8 @@ pub enum GameAnswer {
     },
     /// The call was carried out.
     Done,
+    /// The account holding the key, none when no account here does.
+    Account(Option<GlobalId>),
 }
 
 // An invite code is a credential: Debug, which error messages and logs use, never shows one
@@ -109,6 +121,7 @@ impl fmt::Debug for GameCall {
                 .field("require_up", require_up)
                 .finish(),
             Self::RevokeInvite { .. } => f.debug_struct("RevokeInvite").finish_non_exhaustive(),
+            Self::AccountForKey { .. } => f.debug_struct("AccountForKey").finish_non_exhaustive(),
         }
     }
 }
@@ -120,6 +133,7 @@ impl fmt::Debug for GameAnswer {
             Self::Servers(servers) => f.debug_tuple("Servers").field(servers).finish(),
             Self::Invite { .. } => f.debug_struct("Invite").finish_non_exhaustive(),
             Self::Done => f.write_str("Done"),
+            Self::Account(account) => f.debug_tuple("Account").field(account).finish(),
         }
     }
 }
@@ -299,6 +313,9 @@ mod tests {
             GameCall::RevokeInvite {
                 code: String::from("c"),
             },
+            GameCall::AccountForKey {
+                key: String::from("DLK_x"),
+            },
         ] {
             let json = serde_json::to_string(&call).unwrap();
             assert_eq!(serde_json::from_str::<GameCall>(&json).unwrap(), call);
@@ -311,6 +328,8 @@ mod tests {
                 code: String::from("c"),
             },
             GameAnswer::Done,
+            GameAnswer::Account(None),
+            GameAnswer::Account(Some("account:01J9Z3N5C8Q0V2X4Y6W8T0R2P4@oregon-1".parse().unwrap())),
         ] {
             let json = serde_json::to_string(&answer).unwrap();
             assert_eq!(serde_json::from_str::<GameAnswer>(&json).unwrap(), answer);
@@ -318,6 +337,10 @@ mod tests {
         let down = serde_json::to_string(&Availability::down(UnavailableReason::DirectorUnreachable)).unwrap();
         assert_eq!(down, r#"{"up":false,"reason":"director_unreachable"}"#);
         assert!(serde_json::from_str::<GameCall>(r#"{"revoke_invite":{"code":"c","x":1}}"#).is_err());
+        assert_eq!(
+            serde_json::to_string(&GameCall::AccountForKey { key: String::from("k") }).unwrap(),
+            r#"{"account_for_key":{"key":"k"}}"#
+        );
         assert!(serde_json::from_str::<Availability>(r#"{"up":false,"reason":"because"}"#).is_err());
     }
 
@@ -335,9 +358,15 @@ mod tests {
                 code: String::from("SECRET1")
             }
         );
+        let lookup = format!(
+            "{:?}",
+            GameCall::AccountForKey {
+                key: String::from("SECRET1")
+            }
+        );
         assert!(
-            !answer.contains("SECRET1") && !call.contains("SECRET1"),
-            "{answer} {call}"
+            !answer.contains("SECRET1") && !call.contains("SECRET1") && !lookup.contains("SECRET1"),
+            "{answer} {call} {lookup}"
         );
     }
 

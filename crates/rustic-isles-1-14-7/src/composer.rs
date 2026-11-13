@@ -482,6 +482,20 @@ impl ModuleHooks for Runtime {
         })
     }
 
+    fn account_for_key<'a>(
+        &'a self,
+        shared: &'a Arc<Shared>,
+        key: &'a str,
+    ) -> BoxFuture<'a, Result<Option<GlobalId>, ModuleError>> {
+        Box::pin(async move {
+            let store = self.store.as_ref().ok_or_else(rustic_isles::composer::no_database)?;
+            let holder = rustic_isles_launcher_api::launcher_api::holder_of_key(shared, store, key)
+                .await
+                .map_err(ModuleError::failed)?;
+            Ok(holder.filter(|h| h.eligible()).map(|h| h.account.global().clone()))
+        })
+    }
+
     fn stop(&self) -> BoxFuture<'_, Result<(), String>> {
         Box::pin(async move {
             match &self.store {

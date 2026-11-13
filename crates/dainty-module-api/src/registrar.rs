@@ -517,7 +517,7 @@ mod tests {
         assert!(config.ports.contains_key("http"));
         let json = serde_json::to_string(&registration).unwrap();
         assert_eq!(serde_json::from_str::<Registration>(&json).unwrap(), registration);
-        assert_eq!(registration.game_calls.len(), 4);
+        assert_eq!(registration.game_calls.len(), 5);
         // A registration without game calls is the 1.1 wire form
         assert!(
             !serde_json::to_string(&Registration::default())

@@ -213,12 +213,19 @@ impl Holder {
 /// Who holds the presented account key; a store failure is no holder.
 pub async fn key_holder(shared: &Shared, store: &IslesStore, headers: &HeaderMap) -> Option<(Holder, String)> {
     let key = util::header_lossy(headers, "x-dainty-user-api-key")?;
-    if !looks_like_account_key(&key) {
-        return None;
+    let holder = holder_of_key(shared, store, &key).await.ok().flatten()?;
+    Some((holder, key))
+}
+
+/// Who holds an account key, by its stored HMAC; `Err` is a store or secret failure, not an unknown key.
+pub async fn holder_of_key(shared: &Shared, store: &IslesStore, key: &str) -> Result<Option<Holder>, String> {
+    if !looks_like_account_key(key) {
+        return Ok(None);
     }
-    let secret = rustic_isles_auth::hashes::read_secret(shared.settings().raw("API_KEY_HASH_SECRET")).ok()?;
-    let hash = rustic_isles_auth::hashes::user_key_hash(secret, &key);
-    let holder = store
+    let secret = rustic_isles_auth::hashes::read_secret(shared.settings().raw("API_KEY_HASH_SECRET"))
+        .map_err(|e| e.to_string())?;
+    let hash = rustic_isles_auth::hashes::user_key_hash(secret, key);
+    store
         .read(move |conn, repos| {
             let wanted = util::hex_lenient(&hash);
             let mut found = None;
@@ -252,9 +259,7 @@ pub async fn key_holder(shared: &Shared, store: &IslesStore, headers: &HeaderMap
             }))
         })
         .await
-        .ok()
-        .flatten()?;
-    Some((holder, key))
+        .map_err(|e| e.to_string())
 }
 
 /// The home API hears about the key and the directory entry; failures are ignored.

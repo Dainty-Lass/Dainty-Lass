@@ -521,6 +521,12 @@ impl IslesModule {
                     Err(ModuleError::new(ErrorKind::NotFound, "no such invite"))
                 }
             }
+            GameCall::AccountForKey { key } => {
+                if !shared.database_wanted() {
+                    return Err(no_database());
+                }
+                hooks.account_for_key(&shared, &key).await.map(GameAnswer::Account)
+            }
         }
     }
 
@@ -620,6 +626,7 @@ impl GameModule for IslesModule {
             GameCallKind::Servers,
             GameCallKind::CreateInvite,
             GameCallKind::RevokeInvite,
+            GameCallKind::AccountForKey,
         ] {
             registrar.game_call(kind);
         }

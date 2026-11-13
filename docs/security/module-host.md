@@ -120,7 +120,8 @@ decodes writes back as the same message, and that every name has exactly one spe
       `from_error` reads a reason only from an `unavailable` error whose message is exactly a code. Test:
       `reasons_are_codes_and_cross_as_errors`.
 - [ ] An invite code is a credential: `GameCall` and `GameAnswer` leave it out of `Debug`, which the adapters'
-      errors and logs use, and no event carries one. Test: `invite_codes_never_show_in_debug`.
+      errors and logs use, and no event carries one. So is `AccountForKey`'s account key (N-1). Test:
+      `invite_codes_never_show_in_debug`.
 - [ ] A registration's `game_calls` is checked like the rest (nothing given twice) and left off the wire when empty,
       so a module without game calls writes the 1.1 form. Test: `the_stub_registers_cleanly_and_its_defaults_follow`.
 
