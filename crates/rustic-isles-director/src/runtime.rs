@@ -97,9 +97,19 @@ pub fn injects_directly(program: &str) -> bool {
             .is_some_and(|x| x.eq_ignore_ascii_case("exe"))
 }
 
+/// Whether `program` is the game itself or the host kit's Wine wrapper for it, which without the runtime comes up
+/// as a windowed client that never reports ready (2026-11-13).
+pub fn is_game(program: &str) -> bool {
+    Path::new(program)
+        .file_name()
+        .and_then(|n| n.to_str())
+        .is_some_and(|n| n.eq_ignore_ascii_case("Dauntless-Win64-Shipping.exe") || n == "dainty-gameserver")
+}
+
 /// What one start of `program` loads: the DLLs the director injects itself, or none with the wrapper's
-/// [`ENV_INJECT_DLL`] set in `env`. No `dir` loads nothing (a test's fake server, or a kit from before
-/// `GAMESERVER_RUNTIME_DIR`); a `dir` whose runtime can't be read refuses the start.
+/// [`ENV_INJECT_DLL`] set in `env`. No `dir` refuses the game (a `director.env` from before
+/// `GAMESERVER_RUNTIME_DIR`) and loads nothing into anything else (a test's fake server); a `dir` whose runtime
+/// can't be read refuses the start.
 pub fn for_start(dir: Option<&Path>, program: &str, env: &mut Vec<(String, String)>) -> Result<Vec<InjectDll>, String> {
     // Only the director names the DLL: never a stale value from the shell or the env file
     env.retain(|(k, _)| {
@@ -108,6 +118,9 @@ pub fn for_start(dir: Option<&Path>, program: &str, env: &mut Vec<(String, Strin
             .any(|name| k.eq_ignore_ascii_case(name))
     });
     let Some(dir) = dir else {
+        if is_game(program) {
+            return Err("GAMESERVER_RUNTIME_DIR is not set; run dainty-host setup, then start the server again".into());
+        }
         return Ok(Vec::new());
     };
     let dll = published(dir)?;
@@ -223,5 +236,20 @@ mod tests {
             cfg!(windows)
         );
         assert!(!injects_directly("/srv/.workspace/bin/dainty-gameserver"));
+    }
+
+    /// An env file from before `GAMESERVER_RUNTIME_DIR` never starts the game bare (found on a host, 2026-11-13).
+    #[test]
+    fn the_game_without_a_runtime_dir_is_refused() {
+        for game in [
+            r"D:\Games\Dauntless\Archon\Binaries\Win64\Dauntless-Win64-Shipping.exe",
+            r"D:\g\DAUNTLESS-WIN64-SHIPPING.EXE",
+            "/srv/.workspace/bin/dainty-gameserver",
+        ] {
+            assert!(is_game(game), "{game}");
+            let refused = for_start(None, game, &mut Vec::new()).unwrap_err();
+            assert!(refused.contains("dainty-host setup"), "{refused}");
+        }
+        assert!(!is_game("rustic-isles-fake-gameserver.exe"));
     }
 }

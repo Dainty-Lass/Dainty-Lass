@@ -32,9 +32,10 @@ retires from the servers.
    (Wine) and never resumed. The Director logs it in English.
 
 **New setting:** `GAMESERVER_RUNTIME_DIR` in `director.env`, written by `setup` from the workspace layout (not a
-`host.toml` field: no host chooses it). A `director.env` from an older kit lacks it; the Director then starts
-servers without injecting and logs an error at start telling the host to run `setup`. `update` reruns `setup`, so
-that only lasts until the next update.
+`host.toml` field: no host chooses it). A `director.env` from an older kit lacks it. The Director then refuses
+every start of the game (`Dauntless-Win64-Shipping.exe` or the `dainty-gameserver` wrapper), logging that the host
+should run `setup`, rather than start a game that comes up as a windowed client and never reports ready. `update`
+reruns `setup`; a host who replaced the binary by hand runs `setup` once.
 
 **What can go (not deleted here):**
 - `native/runtime-loader` is still needed by Linux players who load the runtime through the loader, the default
@@ -85,8 +86,10 @@ start is refused and nothing runs; with the right one the server reaches ready.
 
 ### Windows host who also plays
 
-1. `bin\dainty-host publish-runtime`. It prints that it removed `winmm.dll` from `Win64`, if the old kit put it there.
-   `Win64` holds no `winmm.dll`.
+1. After updating the binary, `bin\dainty-host setup` (it writes `GAMESERVER_RUNTIME_DIR`), then
+   `bin\dainty-host publish-runtime`. It prints that it removed `winmm.dll` from `Win64`, if the old kit put it there
+   (a loader published before c3208d06 and already gone from `.workspaceuntime` isn't known; delete that by hand).
+   `Win64` holds no `winmm.dll`. Without `setup`, `start` logs that every game server is refused and none starts.
 2. `bin\dainty-host start`. The Director's log has no runtime error. Ramsgate reaches ready, headless (no window),
    and stays up; `logs\gameservers\port<N>_ramsgate.log` has the runtime's start lines.
 3. Process Explorer on the Ramsgate process lists `Rustic-Isles.dll` from `.workspace\runtime` and no `winmm.dll`.
@@ -99,7 +102,8 @@ start is refused and nothing runs; with the right one the server reaches ready.
 
 ### Linux or Docker host
 
-1. `bin/dainty-host doctor`: "inject helper ready at .../bin/dainty-inject.exe".
+1. After updating, `bin/dainty-host setup`, then `bin/dainty-host doctor`: "inject helper ready at
+   .../bin/dainty-inject.exe".
 2. `start` (or `docker compose up -d`). Ramsgate reaches ready, headless, and stays up. The game server log's
    command line shows `dainty-inject.exe --dll Z:\...\Rustic-Isles.dll <sha256> -- Z:\...`.
 3. If it doesn't, the game server's log has the helper's own `dainty-inject: ...` line. A Unix exit code keeps only

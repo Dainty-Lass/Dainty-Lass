@@ -144,13 +144,16 @@ fn process_environment() -> Vec<(String, String)> {
 fn runtime_problem(config: &Config) -> Option<String> {
     let binary = config.binary_path.as_deref().unwrap_or_default();
     let Some(dir) = config.runtime_dir.as_deref() else {
-        return Some(format!(
-            "GAMESERVER_RUNTIME_DIR is not set, so the game servers start from {binary} without the runtime. Run              dainty-host setup (or update), then start the server again"
-        ));
+        return runtime::is_game(binary).then(|| {
+            "GAMESERVER_RUNTIME_DIR is not set, so every game server will be refused: this director.env is from a \
+             kit before the Director injected the runtime. Run dainty-host setup, then start the server again"
+                .to_owned()
+        });
     };
     if let Err(error) = runtime::published(dir) {
         return Some(format!(
-            "No published game runtime ({error}): every game server will be refused. Run dainty-host              publish-runtime, then start the server again"
+            "No published game runtime ({error}): every game server will be refused. Run dainty-host \
+             publish-runtime, then start the server again"
         ));
     }
     let exe = std::path::Path::new(binary);
@@ -159,7 +162,8 @@ fn runtime_problem(config: &Config) -> Option<String> {
         && let Some(loader) = loader.filter(|l| l.is_file() && !runtime::loader_stands_down(l))
     {
         return Some(format!(
-            "{} is a runtime loader left from an older kit: it would load a second runtime into every game server.              Delete it (dainty-host publish-runtime removes the one it put there)",
+            "{} is a runtime loader from an older kit that doesn't stand down: it would load a second runtime into \
+             every game server. Delete it (dainty-host publish-runtime removes the one it put there)",
             loader.display()
         ));
     }
@@ -377,7 +381,7 @@ mod tests {
         assert!(
             runtime_problem(&config(None))
                 .unwrap()
-                .contains("GAMESERVER_RUNTIME_DIR")
+                .contains("Run dainty-host setup")
         );
         assert!(
             runtime_problem(&config(Some(&runtime)))

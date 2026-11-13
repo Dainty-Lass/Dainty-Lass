@@ -28,6 +28,8 @@ server that holds the gameserver key on its command line and talks to the backen
 
 - [ ] `CREATE_SUSPENDED` is set only when `Command::inject` is not empty, and then `load_and_resume` runs on that
       child before anything else is done with it.
+- [ ] With no `GAMESERVER_RUNTIME_DIR`, a start of the game or its Wine wrapper is refused (`runtime::is_game`,
+      `the_game_without_a_runtime_dir_is_refused`); only another program (the tests' fake server) starts bare.
 - [ ] On any error the job is terminated (`TerminateJobObject`) and the start fails. A server is never resumed
       without its runtime (`the_runtime_is_loaded_before_the_server_runs`).
 - [ ] Off Windows a command with DLLs is refused (`OsLauncher::start`, `ErrorKind::Unsupported`); under Wine only the
