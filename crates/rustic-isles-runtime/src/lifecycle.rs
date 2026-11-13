@@ -1,7 +1,7 @@
 //! Init (R0 3.2) and the status lines the first detour call writes (R0 4.3).
 
 use crate::config;
-use crate::ffi::{dispatch, engine, flags, log, minhook, win};
+use crate::ffi::{dispatch, engine, flags, http, log, minhook, win};
 use crate::handlers;
 use rustic_isles_runtime_core::config::launch::PORT_EXIT_CODE;
 use rustic_isles_runtime_core::flags::mode_line;
@@ -41,15 +41,20 @@ pub fn init() {
     // Slices register their handlers before this point; the lists are read lock-free from here on
     handlers::freeze();
     let installs: Vec<(&'static str, Result<(), i32>)> = if initialized != minhook::MH_OK {
-        let ids: &[&'static str] = if server { &["SP-2", "SP-3"] } else { &["SP-1"] };
+        let ids: &[&'static str] = if server {
+            &["SP-2", "SP-3", "HTTP-1"]
+        } else {
+            &["SP-1", "HTTP-1"]
+        };
         ids.iter().map(|&id| (id, Err(initialized))).collect()
     } else if server {
         vec![
             ("SP-2", dispatch::install_sp2(base)),
             ("SP-3", dispatch::install_sp3(base)),
+            ("HTTP-1", http::install(base)),
         ]
     } else {
-        vec![("SP-1", dispatch::install_sp1(base))]
+        vec![("SP-1", dispatch::install_sp1(base)), ("HTTP-1", http::install(base))]
     };
     let _ = STATUS.set(Status { server, port, installs });
     log::set_ready();

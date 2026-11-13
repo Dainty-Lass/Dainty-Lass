@@ -3,7 +3,7 @@
 //! name to `LANDED` (and, for a new id, its line).
 
 /// The slices whose ids this build owns.
-pub const LANDED: &[&str] = &["R0", "R1"];
+pub const LANDED: &[&str] = &["R0", "R1", "R2"];
 
 /// The longest id `owns` accepts, in bytes.
 pub const MAX_ID_BYTES: usize = 47;
@@ -273,15 +273,17 @@ mod tests {
     }
 
     #[test]
-    fn owns_for_r0_and_r1() {
+    fn owns_for_landed_slices() {
         let owned: Vec<&str> = ENTRIES
             .iter()
             .filter(|entry| owns(entry.id.as_bytes()))
             .map(|entry| entry.id)
             .collect();
-        assert_eq!(owned, ["SP-1", "SP-2", "SP-3"]);
-        assert_eq!(owned_count(), 3);
-        assert!(!owns(b"HTTP-1"));
+        assert_eq!(owned, ["SP-1", "SP-2", "SP-3", "HTTP-1", "HTTP-1@R2"]);
+        assert_eq!(owned_count(), 5);
+        assert!(owns(b"HTTP-1"));
+        assert!(owns(b"HTTP-1@R2"));
+        assert!(!owns(b"HTTP-1@R10"));
         assert!(!owns(b"SP-3@R9"));
         assert!(!owns(b"DX-8"));
         assert!(!owns(b"NOPE-1"));

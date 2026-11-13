@@ -148,7 +148,9 @@ fn seam_answers() {
     unsafe {
         assert_eq!(rir_owns(c"SP-1".as_ptr()), 1);
         assert_eq!(rir_owns(c"SP-3".as_ptr()), 1);
-        assert_eq!(rir_owns(c"HTTP-1".as_ptr()), 0);
+        assert_eq!(rir_owns(c"HTTP-1".as_ptr()), 1);
+        assert_eq!(rir_owns(c"HTTP-1@R2".as_ptr()), 1);
+        assert_eq!(rir_owns(c"HTTP-1@R10".as_ptr()), 0);
         assert_eq!(rir_owns(c"SP-2@R20".as_ptr()), 0);
         assert_eq!(rir_owns(c"".as_ptr()), 0);
         assert_eq!(rir_owns(std::ptr::null()), 0);
