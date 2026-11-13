@@ -190,6 +190,19 @@ Fuzz targets in `fuzz`:
       `/MT` by `cc` from the vendored tag, never from `restricted/`.
 - [ ] The five seam exports exist by name (`tests/dll_file.rs`).
 
+### Headless server boot (R5)
+
+- [ ] Nothing runs on a client; `headless::install` is called only with the server role (`lifecycle.rs`).
+- [ ] HL-1's two bytes are checked committed and writable once in Init; the tick writes store only to those
+      (`ffi/headless.rs`).
+- [ ] HL-11 writes a UFunction's native pointer only after the object is found by its exact full name, is live, and
+      the pointer it replaces is a `.pdata` function entry in the executable; otherwise it writes nothing and logs
+      `HL-11 NOT installed` (fail closed against a wrong `+0xD8`).
+- [ ] The HL-11 function writes the return slot only when 8 bytes there are writable.
+- [ ] HL-4 hooks only after `verify_entry` matches the 18-byte prologue; on a mismatch CEF starts as before.
+- [ ] Init never calls `LoadLibrary` and logs nothing (lines deferred); the HL-6 path hooks d3d11 without logging.
+- [ ] The nullrhi cache (`+0x06CD7878`) and its guard are never written.
+
 ## Sign-off
 
 Reviewed at commit `________` on `________` by `________`.

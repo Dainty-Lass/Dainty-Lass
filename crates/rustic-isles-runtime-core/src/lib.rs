@@ -8,6 +8,7 @@ pub mod env;
 pub mod exit;
 pub mod flags;
 pub mod frame;
+pub mod headless;
 pub mod http;
 pub mod log;
 pub mod login;

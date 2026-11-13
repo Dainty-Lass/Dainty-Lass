@@ -3,7 +3,7 @@
 //! name to `LANDED` (and, for a new id, its line).
 
 /// The slices whose ids this build owns.
-pub const LANDED: &[&str] = &["R0", "R1", "R2", "R3", "R4"];
+pub const LANDED: &[&str] = &["R0", "R1", "R2", "R3", "R4", "R5"];
 
 /// The longest id `owns` accepts, in bytes.
 pub const MAX_ID_BYTES: usize = 47;
@@ -302,7 +302,7 @@ mod tests {
         assert!(!owns(b"EXIT-15"));
         let r0_r3 = owned
             .iter()
-            .filter(|id| id.starts_with("SP-") || id.starts_with("EXIT-"))
+            .filter(|id| (id.starts_with("SP-") || id.starts_with("EXIT-")) && !id.contains('@'))
             .count();
         assert_eq!(r0_r3, 17);
         // R2's chain and its feature id; HTTP-1@R10 stays the AGPL's until R10 lands
@@ -330,6 +330,15 @@ mod tests {
         let mut padded = b"SP-1".to_vec();
         padded.resize(48, b' ');
         assert!(!owns(&padded));
+    }
+
+    #[test]
+    fn owns_r5() {
+        for n in 1..=12 {
+            assert!(owns(format!("HL-{n}").as_bytes()), "HL-{n}");
+        }
+        assert!(owns(b"SP-2@R5"));
+        assert!(!owns(b"SP-2@R7"));
     }
 
     #[test]

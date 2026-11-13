@@ -41,6 +41,9 @@ pub fn init() {
     engine::set_image_base(base);
     let initialized = minhook::initialize();
     exit::register();
+    if server {
+        crate::headless::register();
+    }
     // Slices register their handlers before this point; the lists are read lock-free from here on
     handlers::freeze();
     let hooks_off = (initialized != minhook::MH_OK).then(|| minhook::status_name(initialized));
@@ -56,6 +59,8 @@ pub fn init() {
     if server {
         // CL-1 before every other hook (R0 7.6, R4 7.3)
         installs.extend(login::install(true, base));
+        // HL-4 right after CL-1, then the rest of R5 (R0 7.6); its lines are deferred
+        crate::headless::install(initialized);
         installs.extend(exit::install_exports(hooks_off));
         installs.push(exit::install_veh(base));
         installs.push(chain("SP-2", dispatch::install_sp2));

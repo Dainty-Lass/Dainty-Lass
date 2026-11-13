@@ -7,6 +7,8 @@ pub mod config;
 #[cfg(minhook)]
 pub mod handlers;
 #[cfg(minhook)]
+pub mod headless;
+#[cfg(minhook)]
 mod lifecycle;
 #[cfg(minhook)]
 pub mod login;

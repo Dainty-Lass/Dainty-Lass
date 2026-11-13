@@ -161,7 +161,61 @@ pub const TARGETS: &[Target] = &[
         found_by: FoundBy::Export("ws2_32.dll", "getaddrinfo"),
         what: "DNS, ANSI",
     },
+    // R5: headless server boot (HL-3 has one line per export)
+    Target {
+        id: "HL-3",
+        rva: 0,
+        found_by: FoundBy::Export("user32.dll", "CreateWindowExW"),
+        what: "window creation",
+    },
+    Target {
+        id: "HL-3",
+        rva: 0,
+        found_by: FoundBy::Export("user32.dll", "ShowWindow"),
+        what: "window show",
+    },
+    Target {
+        id: "HL-4",
+        rva: 0x00F3_57D0,
+        found_by: FoundBy::RvaAndBytes(&[
+            0x48, 0x8B, 0xC4, 0x56, 0x48, 0x83, 0xEC, 0x70, 0x48, 0x83, 0x79, 0x08, 0x00, 0x48, 0x8B, 0xF1, 0x0F, 0x85,
+        ]),
+        what: "FWebBrowserWidgetModule::StartupModule",
+    },
+    Target {
+        id: "HL-5",
+        rva: 0x017B_1620,
+        found_by: FoundBy::Rva,
+        what: "Wwise output-device init (never installed)",
+    },
+    Target {
+        id: "HL-6",
+        rva: 0,
+        found_by: FoundBy::Export("kernel32.dll", "LoadLibraryExW"),
+        what: "library load",
+    },
+    Target {
+        id: "HL-7",
+        rva: 0,
+        found_by: FoundBy::Export("d3d11.dll", "D3D11CreateDevice"),
+        what: "D3D11 device",
+    },
+    Target {
+        id: "HL-8",
+        rva: 0,
+        found_by: FoundBy::Export("d3d11.dll", "D3D11CreateDeviceAndSwapChain"),
+        what: "D3D11 device and swap chain",
+    },
+    Target {
+        id: "HL-10",
+        rva: 0x0398_BB50,
+        found_by: FoundBy::Rva,
+        what: "UWidgetLayoutLibrary::execGetViewportSize (never installed)",
+    },
 ];
+
+/// Ids with more than one `TARGETS` line, and how many (HL-3 hooks two exports).
+pub const MULTI_LINE_IDS: &[(&str, usize)] = &[("HL-3", 2)];
 
 /// The target line for `id`.
 pub fn target(id: &str) -> Option<&'static Target> {
@@ -282,6 +336,36 @@ mod tests {
     use crate::registry::{self, Kind};
     use std::collections::HashMap;
 
+    /// Lines per id: one, except `MULTI_LINE_IDS`.
+    fn line_counts_ok(table: &[Target]) -> Result<(), String> {
+        for target in table {
+            let lines = table.iter().filter(|other| other.id == target.id).count();
+            let allowed = MULTI_LINE_IDS
+                .iter()
+                .find(|(id, _)| *id == target.id)
+                .map_or(1, |(_, count)| *count);
+            if lines != allowed {
+                return Err(format!("{} has {lines} lines", target.id));
+            }
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn line_counts() {
+        assert_eq!(line_counts_ok(TARGETS), Ok(()));
+        let hl4 = *target("HL-4").unwrap();
+        let mut twice = TARGETS.to_vec();
+        twice.push(hl4);
+        assert!(line_counts_ok(&twice).is_err(), "any other id twice is refused");
+        let hl3_once: Vec<Target> = TARGETS
+            .iter()
+            .copied()
+            .filter(|t| !(t.id == "HL-3" && t.found_by == FoundBy::Export("user32.dll", "ShowWindow")))
+            .collect();
+        assert!(line_counts_ok(&hl3_once).is_err(), "HL-3 has exactly two");
+    }
+
     #[test]
     fn table_rules() {
         let mut by_rva: HashMap<u32, Vec<&str>> = HashMap::new();
@@ -290,12 +374,6 @@ mod tests {
             assert!(
                 matches!(entry.kind, Kind::Chain | Kind::Detour),
                 "{} is not a detour",
-                target.id
-            );
-            assert_eq!(
-                TARGETS.iter().filter(|other| other.id == target.id).count(),
-                1,
-                "{} twice",
                 target.id
             );
             if let FoundBy::RvaAndBytes(prologue) = target.found_by {
