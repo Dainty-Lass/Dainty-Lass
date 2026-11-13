@@ -288,8 +288,9 @@ RVAs are unique except SP-1/SP-2 (one target, two roles), and that every `RvaAnd
 | `UObject` class | `+0x10` (pointer) | names |
 | `UObject` name | `+0x18`: `FName` = comparison index `i32` at `+0x18`, number `u32` at `+0x1C` | 8.3 |
 | `UObject` outer | `+0x20` (pointer) | 8.3 |
-| The global object array (`FUObjectArray`'s chunked array) | **open (Q-1)**: the RVA of `GObjects` for this build | 5.3, names |
-| The name pool (`FNamePool`) | **open (Q-1)**: the RVA of `GNames` for this build | names |
+| The global object array (`GObjects`, `FUObjectArray`'s chunked array) | data `+0x06E59ED0` | 5.3, names |
+| The name pool (`GNames`, `FNamePool`) | data `+0x06E3F280` | names |
+| `FName::AppendString` | `+0x02656410` | names: the fallback if decoding the pool fails the self-check (below) |
 
 `ProcessEvent` signature: `(object, function, params)`, all pointers, returns nothing.
 
@@ -312,8 +313,14 @@ outers' short names from outermost to innermost joined by `.`. Examples the late
 **Self-check (call).** The first time names are needed, R0 checks that object 0's full name is
 `Package CoreUObject` (UE's first object is the `/Script/CoreUObject` package). On failure it logs
 `[MitRuntime] name check failed: object 0 is "<text>"` once and every name lookup answers `None` for the process, so
-no handler ever matches (features stay off; the game runs as if they were absent). This fails closed if the open
-RVAs in Q-1 are wrong.
+no handler ever matches (features stay off; the game runs as if they were absent). This fails closed if an RVA above is
+wrong.
+
+The three name and object RVAs come from the maintainer's Dumper-7 dump of this build (`Basic.hpp`, `Offsets::GObjects`,
+`GNames`, `AppendString`; Q-1, answered 2026-11-13); its `GWorld` (`0x06FC7F58`) agrees with the surface page. That
+dump's SDK names objects through `AppendString` and keeps `GNames` only as a fallback. **(call)** The MIT runtime
+decodes the pool (as the exporter does) and does not call game code for names; if the self-check fails with the pool,
+R0 may retry it once through `AppendString` before giving up, and logs which path it uses.
 
 ---
 
@@ -552,12 +559,13 @@ R0 makes no change outside its crates. The rows that change these files need thi
 | `dainty-inject` | nothing: it already loads a list in order, each `LoadLibraryW` finishing before the next |
 | Runtime loader (Proton, `native/runtime-loader`, `spec-runtime-loader.md`) | see below |
 
-**The loader (RT-6 conflict, open question Q-2).** The ruling says "the loader's ini lists both for Proton". As built,
+**The loader (RT-6 conflict; Q-2 answered: call 16).** The ruling says "the loader's ini lists both for Proton". As
+built,
 the loader loads its chosen runtime first and the ini's DLLs after it, skips any runtime name listed in the ini, and the
 launcher refuses PLAY while an ini exists (RD9). So an ini cannot put the MIT DLL first. **Recommended:** the loader
 learns one fixed name: when `rustic-isles-runtime.dll` is next to it, load it (by full path) **before** its runtime
 choice; it is not a "runtime name" for the choice and not an ini entry. The loader spec's section 3 takes one rule;
-the loader's tests take one case. Until the maintainer answers, Proton players who keep the loader run the AGPL
+the loader's tests take one case. Until the loader row lands, Proton players who keep the loader run the AGPL
 runtime alone (which behaves as today).
 
 **Injection timing.** The launcher and the Director start the game suspended and inject before its first instruction
@@ -662,6 +670,9 @@ Calls made here:
 13. Seam mismatch ends the AGPL's process with `0xE10A`.
 14. The Guard role `TRANSPORT_RUNTIME_MIT` (optional, zero hash when unpinned).
 15. SP-3 handlers cannot absorb.
+16. **Q-2, answered 2026-11-13 by the integration pass:** the runtime loader learns the fixed name
+    `rustic-isles-runtime.dll` and loads it (by full path) before its runtime choice; it is neither a runtime name for
+    the choice nor an ini entry (section 9). The ini route of RT-6 is not used.
 
 Ambiguities:
 
@@ -672,13 +683,10 @@ Ambiguities:
 
 Open questions for the maintainer:
 
-- **Q-1. `GObjects` and `GNames` RVAs.** RT-2 allows hand-written facts, but this repository has no record of these
-  two values for CL 647472 (the exporter reads them from the host's SDK at build time). Please copy
-  `Offsets::GObjects` and `Offsets::GNames` from your dump's `Basic.hpp` into the R0 row's brief (two hex numbers; facts
-  about the executable). Until then R0 builds with them as named constants that fail the self-check (6.2), so no
-  name-matching feature runs.
-- **Q-2. The loader for Proton (RT-6).** Confirm the loader learns the fixed name `rustic-isles-runtime.dll` and loads
-  it before its runtime choice (section 9), instead of an ini that cannot do it.
+- **Q-1, answered:** the RVAs are in 6.2 (from the maintainer's dump).
+- **Q-2, answered:** call 16.
+
+No open question remains.
 
 ## 13. Size
 
