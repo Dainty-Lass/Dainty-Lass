@@ -176,7 +176,7 @@ per-minute HTTP request budget (`rate_limit` -> `RUSTIC_ISLES_RATE_LIMIT`, `rate
 `RUSTIC_ISLES_GAMESERVER_RATE_LIMIT_PER_MINUTE`, `host_rate_limit_per_minute` ->
 `RUSTIC_ISLES_HOST_RATE_LIMIT_PER_MINUTE`; see [hosting.md](hosting.md#game-modules-and-plugins)), and the
 services' limits and log levels in `[gateway.limits]`, `[gateway.rate]`, `[gateway.timeouts]`, `[content]`,
-`[allowlist]`, `[backend]` and `[director]` ([hosting.md](hosting.md#service-tunables)), which `configure`
+`[allowlist]`, `[backend]` and `[director]` (with the hub size and AFK timeouts; [hosting.md](hosting.md#service-tunables)), which `configure`
 checks with each service's own rules before anything starts; `docker compose run --rm host admin guarded list --env-file
 /opt/dainty-lass/.workspace/config/admin.env` lists what waits.
 

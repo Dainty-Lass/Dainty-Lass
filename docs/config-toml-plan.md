@@ -11,7 +11,9 @@ passthrough and its denylist (`hostkit/src/hostconfig/env.rs`), the typed `[gate
 `[backend]` and `[director]` tables (`tunables.rs`), the environment overrides (`overrides.rs`) and the early check
 through the gateway's, the allowlist helper's and content's own loaders (`check.rs`, in `setup` and `doctor`). The
 backend's and the Director's loaders accept any value, so their tables' ranges are checked as host.toml is read.
-A gateway bucket is written `burst,per_minute` (`parse_bucket_spec`), not `burst/per_minute` as drafted below.
+`[director]` also takes RT-11's `hub_max_players`, `hub_afk_seconds` and `hunt_afk_seconds`
+(`DAINTY_HUB_MAX_PLAYERS`, `DAINTY_HUB_AFK_SECONDS`, `DAINTY_HUNT_AFK_SECONDS`, `docs/port/spec-runtime-r1.md` section 10),
+which reach the game servers through the Director's env. A gateway bucket is written `burst,per_minute` (`parse_bucket_spec`), not `burst/per_minute` as drafted below.
 `hosttoml.rs` reads and patches the file with `toml_edit`, so the host's own comments survive setup.
 MIGRATION_PLAN.md decision RD24 records this plan and amends section 6.
 
