@@ -1,0 +1,12 @@
+[package]
+name = "rustic-isles-runtime-core"
+description = "The MIT game runtime's pure parts: flag cache, log lines, offsets, pdata, the hook broker's chain model, the ownership registry and the runtime config parsers (spec-runtime-r0, spec-runtime-r1)"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license = "MIT"
+repository.workspace = true
+publish = false
+
+[lints]
+workspace = true
