@@ -22,9 +22,9 @@ use crate::bridge::types::{
 };
 use crate::platform::hostkit::{
     self, BACKEND_GAME_DATA, DIRECTOR_GAME_DATA, EXPORT_FLAGS, HOST_BINARY, Toolchain, WorkspacePaths, copy_tree,
-    detect_game_data, detect_host_kit, find_dumps, find_toolchain, invite_line, is_workspace, last_json, msbuild_args,
-    pack_written, platform_toolset, published_version, read_server_config, run_logged, update_check, update_done,
-    update_failure,
+    detect_game_data, detect_host_kit, exporter_build_args, find_dumps, find_toolchain, invite_line, is_workspace,
+    last_json, msbuild_args, pack_written, platform_toolset, published_version, read_server_config, run_logged,
+    run_logged_env, update_check, update_done, update_failure,
 };
 use crate::platform::hostserver::{CommandOutput, EmbeddedServer, HostServer, HostTool, Probe};
 use crate::platform::launch::{LaunchPlan, STRIPPED_PREFIXES};
@@ -694,10 +694,8 @@ impl Controller {
                 self.import_sdk(&workspace, PathBuf::from(newest.dir), newest.name)
                     .await
             }
-            HostAction::BuildRuntime | HostAction::BuildExporter => {
-                let runtime = action == HostAction::BuildRuntime;
-                self.build_cpp(&paths, runtime).await
-            }
+            HostAction::BuildRuntime => self.build_runtime(&paths).await,
+            HostAction::BuildExporter => self.build_exporter(&paths).await,
             HostAction::BuildLoader => {
                 let toolchain = find_toolchain().await;
                 let Some(cargo) = toolchain.cargo else {
@@ -790,24 +788,44 @@ impl Controller {
         }
     }
 
-    async fn build_cpp(&self, paths: &WorkspacePaths, runtime: bool) -> ActionResult {
+    /// The CatalogExporter: the MIT crate, built against the workspace's SDK dump (spec-catalog-exporter 9). No
+    /// export root is compiled in, so it writes beside the game and reads the flags the export session writes there.
+    async fn build_exporter(&self, paths: &WorkspacePaths) -> ActionResult {
+        let toolchain = find_toolchain().await;
+        let Some(cargo) = toolchain.cargo else {
+            return self.refuse_with("cargo");
+        };
+        // cargo links the DLL with the MSVC linker that comes with the C++ tools
+        if toolchain.msbuild.is_none() {
+            return self.refuse_with("msbuild");
+        }
+        let log_file = paths.logs.join("build_exporter.log");
+        let env = [
+            ("DAINTY_SDK_DIR", Some(paths.runtime_source.as_path())),
+            ("RUSTIC_ISLES_EXPORT_ROOT", None),
+        ];
+        let work = async {
+            let ran = run_logged_env(&cargo, &exporter_build_args(), &paths.exporter_crate, &log_file, &env).await;
+            if ran.code == 0 {
+                Ok(ran.last_line)
+            } else {
+                Err(ran.last_line)
+            }
+        };
+        self.run_job(HostJobKind::BuildExporter, None, Some(log_file.clone()), work)
+            .await
+    }
+
+    async fn build_runtime(&self, paths: &WorkspacePaths) -> ActionResult {
         let toolchain = find_toolchain().await;
         let Some(msbuild) = toolchain.msbuild.clone() else {
             return self.refuse_with("msbuild");
         };
-        let (kind, project, log_file) = if runtime {
-            (
-                HostJobKind::BuildRuntime,
-                paths.runtime_solution.clone(),
-                paths.logs.join("build_runtime.log"),
-            )
-        } else {
-            (
-                HostJobKind::BuildExporter,
-                paths.exporter_project.clone(),
-                paths.logs.join("build_exporter.log"),
-            )
-        };
+        let (kind, project, log_file) = (
+            HostJobKind::BuildRuntime,
+            paths.runtime_solution.clone(),
+            paths.logs.join("build_runtime.log"),
+        );
         let build_args = msbuild_args(&project, platform_toolset(toolchain.major_version));
         let folder = project.parent().map_or_else(|| paths.root.clone(), Path::to_path_buf);
         let work = async {
