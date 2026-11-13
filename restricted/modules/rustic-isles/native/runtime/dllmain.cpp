@@ -4156,7 +4156,7 @@ static int GameModeEmptyState() {
     g_wdLastTickMs.store(GetTickCount64(), std::memory_order_relaxed);
     g_wdGameThreadId.store(GetCurrentThreadId(), std::memory_order_relaxed);
 
-    EnsureBleedoutDuration(g_CachedGameMode);
+    if (MITSEAM_AGPL_RUNS("SP-3@R20")) EnsureBleedoutDuration(g_CachedGameMode);   // [DaintyLass 0059]
     BleedoutWatchTick();
     AfkExemptionTick();   // returns at once unless a phantom local controller exists (no-local-player patch failed)
     {
@@ -18898,6 +18898,12 @@ void ProcessEventHook(UObject* Object, UFunction* Function, void* Parms) {
                 + " obj=" + MpPtr(Object) + "/" + ObjName + Extra);
             LogArchonLifecycle(("PostLoginPE#" + std::to_string(Seq)).c_str());   // [2026-10-11 O2] world pointers
         }
+    }
+    // [DaintyLass 0059] With SP-2@R20 the MIT runtime's, the block above is off but the AFK write is still ours
+    // until R8 lands; the MIT's post-login handlers run before this, so the order is unchanged.
+    else if (Globals::AmServer && MITSEAM_AGPL_RUNS("SP-2@R8") && Function && Parms && PeMay(MpPeCat_PostLogin)
+        && FunctionName.find("K2_PostLogin") != std::string::npos) {
+        MpApplyAfkTimeout(Object, "postlogin");
     }
 
     // [2026-07-16] Possession-ack RPC trace (routes through this installed ProcessEvent hook on the
