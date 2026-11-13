@@ -112,7 +112,7 @@ jobs:
 
       # The manager ships the 1.14.7 version data beside its executable (RD27): nothing is compiled in
       - name: The manager's version data
-        run: echo '{"bundle":{"resources":{"../../restricted/modules/rustic-isles/version-data/1.14.7/version_data.json":"data/1.14.7/version_data.json"}}}' > "$WORK/config/manager-data.json"
+        run: echo '{"bundle":{"resources":{"../../restricted/modules/rustic-isles/version-data/1.14.7/version_data.json":"data/1.14.7/version_data.json","../../crates/rustic-isles-1-14-7/data/version_facts.json":"data/1.14.7/version_facts.json"}}}' > "$WORK/config/manager-data.json"
 
       # beforeBuildCommand builds ui/'s page
       - name: Build DaintyLass Launcher and DaintyLass Manager
@@ -213,7 +213,7 @@ jobs:
 
       # The manager ships the 1.14.7 version data beside its executable (RD27): nothing is compiled in
       - name: The manager's version data
-        run: echo '{"bundle":{"resources":{"../../restricted/modules/rustic-isles/version-data/1.14.7/version_data.json":"data/1.14.7/version_data.json"}}}' > "$RUNNER_TEMP/config/manager-data.json"
+        run: echo '{"bundle":{"resources":{"../../restricted/modules/rustic-isles/version-data/1.14.7/version_data.json":"data/1.14.7/version_data.json","../../crates/rustic-isles-1-14-7/data/version_facts.json":"data/1.14.7/version_facts.json"}}}' > "$RUNNER_TEMP/config/manager-data.json"
 
       # The Proton inject helper (RD9, 2026-11-12): a Windows exe Wine runs in the game's place, bundled as a resource
       # of the launcher only. Built for windows-gnu here, since this job has no MSVC

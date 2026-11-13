@@ -192,6 +192,8 @@ jobs:
           # Mystic Paradox's 1.14.7 version data, AGPL, beside the MIT binaries: the server reads it at start (RD27)
           mkdir -p "$out/data/1.14.7"
           cp modules/rustic-isles/version-data/1.14.7/version_data.json "$out/data/1.14.7/"
+          # The 1.14.7 version facts (MIT) beside the design (port plan item 9)
+          cp ../crates/rustic-isles-1-14-7/data/version_facts.json "$out/data/1.14.7/"
           # The libraries beside them, under the names host.toml's paths give (RD27)
           mkdir -p "$out/plugins"
           if [ "$RUNNER_OS" = Windows ]; then prefix=""; suffix=".dll"; else prefix="lib"; suffix=".so"; fi
@@ -235,6 +237,7 @@ jobs:
           # With no arguments it waits for frames on stdin, so the smoke test asks for usage instead
           if "$bin/dainty-legacy$ext" import 2> /dev/null; then echo "dainty-legacy took no kind"; exit 1; fi
           test -s "$bin/../data/1.14.7/version_data.json"
+          test -s "$bin/../data/1.14.7/version_facts.json"
           # Each service the binary runs alone, as the systemd units and the containers run it
           for service in gateway allowlist content backend director; do "$bin/dainty-host$ext" "$service" --help > /dev/null; done
           for db_cmd in migrate verify export-mongo; do "$bin/dainty-host$ext" db "$db_cmd" --help > /dev/null; done
