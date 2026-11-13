@@ -192,8 +192,18 @@ async fn version_data_at_start() {
         .unwrap_err();
     assert_eq!(error.message, "version_data.json: format must be 1");
 
-    // A good file: the module starts on the store and stops with a checkpoint
-    std::fs::write(data.join("version_data.json"), synthetic_document().to_string()).unwrap();
+    // A design file without its facts
+    let (facts, design) = rustic_isles_1_14_7::test_support::synthetic_split();
+    std::fs::write(data.join("version_data.json"), design.to_string()).unwrap();
+    let module = rustic_isles_1_14_7::module().unwrap();
+    let error = module
+        .start(context(&host), config(&module, &env, Some(&data)))
+        .await
+        .unwrap_err();
+    assert!(error.message.contains("version_facts.json"), "{}", error.message);
+
+    // The facts and the design: the module starts on the store and stops with a checkpoint
+    std::fs::write(data.join("version_facts.json"), facts.to_string()).unwrap();
     let module = rustic_isles_1_14_7::module().unwrap();
     module
         .start(context(&host), config(&module, &env, Some(&data)))

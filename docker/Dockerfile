@@ -96,7 +96,9 @@ COPY --chown=dainty:dainty \
      $ISLES/ParadoxDirector/game-data/
 COPY --chown=dainty:dainty restricted/modules/rustic-isles/reference/1.14.7/ParadoxBackend/store-captures.json \
      $ISLES/ParadoxBackend/
-# Mystic Paradox's 1.14.7 version data, read at start; root's and read-only, never a host's file (D-10, RD27)
+# The 1.14.7 version facts (MIT) and Mystic Paradox's design beside them, read at start; root's and read-only,
+# never a host's file (D-10, RD27, port plan item 9)
+COPY crates/rustic-isles-1-14-7/data/version_facts.json data/1.14.7/
 COPY restricted/modules/rustic-isles/version-data/1.14.7/version_data.json data/1.14.7/
 # The AGPL data's licence and notices beside it (D-4, Q-1)
 COPY restricted/modules/rustic-isles/LICENSE restricted/modules/rustic-isles/NOTICE.md \

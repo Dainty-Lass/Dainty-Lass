@@ -36,8 +36,12 @@ never a half-built module.
 
 ### Input files
 
-- [x] `version_data.json` is read only from the configured backend game data folder by its fixed name, through core's
-  loader (lossy UTF-8, one BOM dropped, `JSON.parse` rules), and only when a database is wanted.
+- [x] `version_data.json` and `version_facts.json` are read only from the configured backend game data folder by
+  their fixed names, through core's loader (lossy UTF-8, one BOM dropped, `JSON.parse` rules), and only when a
+  database is wanted. They merge member by member before the checks below, so a split pair is checked as one document.
+- [ ] The host's export (V-4) is data from the host's own game: `weapon_slots_1_14_7.jsonl` can change the starter
+  kit's default parts and add them to `instanced`, never anything else; unparsable lines are skipped; the catalog
+  check only reports.
 - [x] Unknown top-level members are refused, so a typo never falls back silently; every reference the kit makes is
   checked against `instanced`; nine quick chats; finite amounts. A broken file fails the start (§14 item 18).
 - [x] The values are identifiers handed to the store as data, never paths or SQL.

@@ -1,21 +1,36 @@
 //! What the 1.14.7 module reads (spec-rustic-isles-1-14-7 §13): arbitrary bytes as `version_data.json` through
 //! core's JSON reader and `VersionData::from_json`, which either refuses with a `version_data.json:` text or gives a
-//! value whose invariants hold; and arbitrary text through the hooks, which echo it in their fixed shapes.
+//! value whose invariants hold; the same bytes as the design merged with the shipped facts (port plan item 9) and as
+//! the host's export (V-4); and arbitrary text through the hooks, which echo it in their fixed shapes.
 #![no_main]
 
 use std::collections::HashSet;
 
 use libfuzzer_sys::fuzz_target;
 use rustic_isles::{GameMode, ObjectiveRow, VersionHooks};
-use rustic_isles_1_14_7::{Hooks, VersionData};
+use rustic_isles_1_14_7::{FACTS_DOCUMENT, Hooks, VersionData, export};
 use serde_json::Value;
 
 fn check_document(text: &str) {
     let Ok(value) = dainty_service_kit::jsjson::parse(text) else {
         return;
     };
-    match VersionData::from_json(&value) {
-        Err(reason) => assert!(reason.starts_with("version_data.json: "), "{reason}"),
+    check_data(VersionData::from_json(&value), false);
+    // The bytes as the design beside the shipped facts
+    if let Ok(facts) = serde_json::from_str::<Value>(FACTS_DOCUMENT) {
+        check_data(VersionData::from_parts(Some(&facts), &value), true);
+        let mut facts = facts;
+        let _ = export::default_weapon_parts(&mut facts, text);
+        let _ = export::missing_ids(&value, &export::catalog_ids(text));
+    }
+}
+
+fn check_data(result: Result<VersionData, String>, split: bool) {
+    match result {
+        Err(reason) => assert!(
+            reason.starts_with("version_data.json: ") || (split && reason.starts_with("version_facts.json: ")),
+            "{reason}"
+        ),
         Ok(data) => {
             let kit = data.starter_kit();
             let instanced: HashSet<&str> = kit.instanced.iter().map(String::as_str).collect();

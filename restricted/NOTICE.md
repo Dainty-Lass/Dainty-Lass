@@ -49,6 +49,14 @@ dainty-lass-ui.
   (`native/runtime-loader`, `docs/port/spec-runtime-loader.md`) replaced it. Its launcher, deployment scripts and self-hosting guide
   were not taken. Every file from Mystic Paradox, and every change made to it here, stays under Mystic Paradox's
   terms.
+- The 1.14.7 version data in
+  [`modules/rustic-isles/version-data/1.14.7/version_data.json`](modules/rustic-isles/version-data/1.14.7/version_data.json)
+  holds only Mystic Paradox's design since 2026-11-13 (the reward cache plan, the starter wallet, the legacy starter
+  and the default appearance, from its `character.ts`, `wallet.ts`, `generate_reward_cache_store.ts` and isles-db's
+  migration). The game's identifiers and GUIDs it held are facts about the game and moved to dainty-lass's MIT
+  `crates/rustic-isles-1-14-7/data/version_facts.json`, and its storage token seeds, extracted from Mystic Paradox's
+  source, were replaced there by the catalog ids dainty-lass's own crates name (rulings V-1 to V-3,
+  `docs/port/rulings-2026-11-13.md` at the root).
 - The changes made to it are listed patch by patch in [docs/paradox-patches.md](docs/paradox-patches.md).
   Patches 0004 to 0039 were written in Freeza's Dauntless Reforged Revival line
   ([github.com/FreezaMotoqueiro/Dauntless-Reforged-Revival](https://github.com/FreezaMotoqueiro/Dauntless-Reforged-Revival),

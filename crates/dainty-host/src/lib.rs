@@ -493,8 +493,8 @@ impl hooks::HostHooks for ServicesHostHooks {
         BUILT_IN_SERVICES
     }
 
-    // setup's and start's install step: version_data.json for the 1.14.7 module loaded as a library (RD27); the
-    // compiled-in one is handed the values instead
+    // setup's and start's install step: the version data and facts for the 1.14.7 module loaded as a library
+    // (RD27); the compiled-in one is handed the values instead
     fn install_director_runner(&self, paths: &paths::Paths) -> Result<(), HostError> {
         #[cfg(feature = "isles-1-14-7")]
         if paths.backend_game_data.is_dir() {
@@ -885,8 +885,7 @@ impl hooks::HostHooks for ServicesHostHooks {
         {
             let wanted = config.modules.as_ref().and_then(|m| m.compiled.as_ref());
             if wanted.is_none_or(|ids| ids.iter().any(|id| id.as_str() == rustic_isles_1_14_7::ID)) {
-                let loaded =
-                    version_data::load_file(&version_data::path(paths, Some(config))).map_err(HostError::message)?;
+                let loaded = version_data::load_with(paths, Some(config)).map_err(HostError::message)?;
                 return Ok(crate::compose::game_modules_with(loaded.data));
             }
         }
@@ -1423,7 +1422,7 @@ fn isles_service_main(name: &'static str, args: &[String]) -> ExitCode {
         eprintln!("Configuration: could not find the server folder, so not the 1.14.7 version data in it either");
         return ExitCode::FAILURE;
     };
-    let loaded = version_data::load_file(&version_data::path(found, host_config.as_ref()));
+    let loaded = version_data::load_with(found, host_config.as_ref());
     let mut spec = match loaded.and_then(|l| rustic_isles_1_14_7::spec_with(l.data).map_err(|e| e.message)) {
         Ok(spec) => spec,
         Err(error) => {
@@ -1874,16 +1873,18 @@ mod tests {
         assert!(parse_service_env_file("backend", &["--env-file".into()], None).is_err());
     }
 
-    /// The synthetic 1.14.7 version data at the default path, as a release ships the real one.
+    /// The synthetic 1.14.7 version data and facts at the default paths, as a release ships the real ones.
     #[cfg(feature = "db-tools")]
     fn write_version_data(paths: &paths::Paths) {
-        let file = paths.repo.join(hostconfig::DEFAULT_VERSION_DATA);
-        std::fs::create_dir_all(file.parent().unwrap()).unwrap();
-        std::fs::write(
-            file,
-            rustic_isles_1_14_7::test_support::synthetic_document().to_string(),
-        )
-        .unwrap();
+        let (facts, design) = rustic_isles_1_14_7::test_support::synthetic_split();
+        for (name, value) in [
+            (hostconfig::DEFAULT_VERSION_DATA, design),
+            (hostconfig::DEFAULT_VERSION_FACTS, facts),
+        ] {
+            let file = paths.repo.join(name);
+            std::fs::create_dir_all(file.parent().unwrap()).unwrap();
+            std::fs::write(file, value.to_string()).unwrap();
+        }
     }
 
     #[cfg(feature = "db-tools")]
@@ -1927,6 +1928,7 @@ mod tests {
             public_port: None,
             dashboard_url: None,
             version_data: None,
+            version_facts: None,
             game_dir: None,
             registration: Registration::Invitecode,
             share_url: None,
@@ -2057,6 +2059,7 @@ mod tests {
             public_port: None,
             dashboard_url: None,
             version_data: None,
+            version_facts: None,
             performance: None,
             linux: None,
             database: None,
@@ -2140,6 +2143,7 @@ mod tests {
             public_port: None,
             dashboard_url: None,
             version_data: None,
+            version_facts: None,
             performance: None,
             linux: None,
             database: None,

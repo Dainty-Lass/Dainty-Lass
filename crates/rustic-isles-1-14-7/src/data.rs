@@ -1,8 +1,11 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Silent Spud
 
-//! `version_data.json` (spec §4.3): the game-derived values that are not wire facts, which restricted ships and the
-//! host installs in the backend game data folder. Nothing here is committed with values.
+//! The version data (spec §4.3) in two files (port plan item 9, rulings V-1 to V-3): `version_facts.json`, the
+//! game's identifiers and GUIDs (MIT, `data/` beside this crate), and `version_data.json`, Paradox's design (the
+//! reward cache plan, the starter wallet, the legacy starter and the default appearance), which restricted ships.
+//! The host installs both in the backend game data folder; a design file that still holds everything (a release
+//! before the split) is read alone.
 
 use std::collections::HashSet;
 use std::fmt;
@@ -13,8 +16,14 @@ use rustic_isles_db::LegacyStarter;
 use rustic_isles_gamedata::{RewardCachePlan, TokenSource, VersionInputs};
 use serde_json::{Map, Value};
 
-/// The version data file's name in the backend game data folder.
+/// The design file's name in the backend game data folder (before the split, the whole document).
 pub const DATA_FILE: &str = "version_data.json";
+
+/// The facts file's name in the backend game data folder.
+pub const FACTS_FILE: &str = "version_facts.json";
+
+/// The facts this crate ships for 1.14.7 (V-1, V-3), as a release installs them.
+pub const FACTS_DOCUMENT: &str = include_str!("../data/version_facts.json");
 
 const MEMBERS: [&str; 7] = [
     "format",
@@ -283,10 +292,27 @@ impl VersionData {
         })
     }
 
-    /// Core's required read of the backend game data folder's file (its missing-file text), then the checks.
+    /// The facts and the design merged ([`merge`]) and checked; no facts reads the design as the whole document.
+    pub fn from_parts(facts: Option<&Value>, design: &Value) -> Result<VersionData, String> {
+        match facts {
+            Some(facts) => Self::from_json(&merge(facts, design)?),
+            None => Self::from_json(design),
+        }
+    }
+
+    /// Core's required read of the backend game data folder's design file (its missing-file text) and the facts
+    /// beside it, then the checks.
     pub fn load(root: &GameDataRoot) -> Result<VersionData, String> {
-        let value = root.load_backend(DATA_FILE).map_err(|e| e.to_string())?;
-        Self::from_json(&value)
+        let design = root.load_backend(DATA_FILE).map_err(|e| e.to_string())?;
+        let facts = root.try_load_backend(FACTS_FILE).map_err(|e| e.to_string())?;
+        if facts.is_none() && design.pointer("/starterKit/instanced").is_none() {
+            // A design file without its facts: core's missing-file text for the facts
+            return Err(root
+                .load_backend(FACTS_FILE)
+                .err()
+                .map_or_else(|| fail(format!("{FACTS_FILE} is missing")), |e| e.to_string()));
+        }
+        Self::from_parts(facts.as_ref(), &design)
     }
 
     /// The character data new characters start from.
@@ -312,6 +338,73 @@ impl VersionData {
             storage_tokens: TokenSource::Seeds(self.token_seeds.clone()?),
         })
     }
+}
+
+fn fail_facts(reason: impl fmt::Display) -> String {
+    format!("{FACTS_FILE}: {reason}")
+}
+
+/// One document from the facts and the design: objects merge member by member, the design's value winning, and
+/// `characterData.fill`'s pairs are replaced by key where they stand (the facts hold `["AppearanceData", null]`,
+/// the design its text). A fill value still null afterwards is refused.
+pub fn merge(facts: &Value, design: &Value) -> Result<Value, String> {
+    let (Some(f), Some(d)) = (facts.as_object(), design.as_object()) else {
+        return Err(if facts.is_object() {
+            fail("the document must be an object")
+        } else {
+            fail_facts("the document must be an object")
+        });
+    };
+    for key in ["format", "gameVersion"] {
+        if let (Some(a), Some(b)) = (f.get(key), d.get(key))
+            && a != b
+        {
+            return Err(fail_facts(format!("{key} {a} differs from {DATA_FILE}'s {b}")));
+        }
+    }
+    let mut merged = merge_objects(f, d);
+    if let Some(Value::Array(fill)) = merged
+        .get_mut("characterData")
+        .and_then(Value::as_object_mut)
+        .and_then(|c| c.get_mut("fill"))
+    {
+        if let Some(Value::Array(over)) = d.get("characterData").and_then(|c| c.get("fill")) {
+            *fill = merge_pairs(f.get("characterData").and_then(|c| c.get("fill")), over);
+        }
+        if let Some(key) = fill.iter().find_map(|entry| match entry.as_array().map(Vec::as_slice) {
+            Some([key, Value::Null]) => Some(key.as_str().unwrap_or("?").to_owned()),
+            _ => None,
+        }) {
+            return Err(fail(format!(
+                "characterData.fill {key} has no value (the design supplies it)"
+            )));
+        }
+    }
+    Ok(Value::Object(merged))
+}
+
+fn merge_objects(facts: &Map<String, Value>, design: &Map<String, Value>) -> Map<String, Value> {
+    let mut out = facts.clone();
+    for (key, value) in design {
+        let merged = match (out.get(key), value) {
+            (Some(Value::Object(a)), Value::Object(b)) => Value::Object(merge_objects(a, b)),
+            _ => value.clone(),
+        };
+        out.insert(key.clone(), merged);
+    }
+    out
+}
+
+fn merge_pairs(facts: Option<&Value>, design: &[Value]) -> Vec<Value> {
+    let key = |entry: &Value| entry.as_array().and_then(|p| p.first()).cloned();
+    let mut out: Vec<Value> = facts.and_then(Value::as_array).cloned().unwrap_or_default();
+    for entry in design {
+        match out.iter_mut().find(|e| key(e).is_some() && key(e) == key(entry)) {
+            Some(slot) => *slot = entry.clone(),
+            None => out.push(entry.clone()),
+        }
+    }
+    out
 }
 
 /// The inputs of a module without a database: every route that needs them answers "no database" first.

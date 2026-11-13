@@ -1106,6 +1106,7 @@ mod tests {
             public_port: None,
             dashboard_url: None,
             version_data: None,
+            version_facts: None,
             performance: None,
             linux: None,
             database: None,

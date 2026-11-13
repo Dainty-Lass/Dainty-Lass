@@ -4,7 +4,7 @@
 //! Rustic Isles for Dauntless 1.14.7 (RD27, written clean-room from `docs/port/spec-rustic-isles-1-14-7.md`): the
 //! version's tables, hooks and Director values, the module spec, and [`VersionComposer`], which wires every
 //! `rustic-isles-*` area and dainty-lass's Rustic Rifts crates into one module. The game-derived inputs that are not
-//! wire facts come from `version_data.json` ([`VersionData`]).
+//! wire facts come from `version_facts.json` and `version_data.json` ([`VersionData`]).
 
 #![cfg_attr(
     test,
@@ -14,6 +14,7 @@
 mod accounts;
 mod composer;
 mod data;
+pub mod export;
 mod hooks;
 mod realms;
 mod rifts;
@@ -32,7 +33,7 @@ use rustic_isles_director::{DirectorConfig, DirectorService, GameserverArgs};
 
 pub use accounts::AccountsCore;
 pub use composer::{SharedCell, VersionComposer};
-pub use data::{DATA_FILE, VersionData};
+pub use data::{DATA_FILE, FACTS_DOCUMENT, FACTS_FILE, VersionData, merge};
 pub use hooks::Hooks;
 pub use realms::RealmsAdapter;
 pub use rifts::rifts_with_core;
