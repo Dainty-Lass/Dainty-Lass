@@ -441,8 +441,8 @@ exact names are what it meant). It always returns `Continue`: **the original RPC
 AGPL.
 
 Parameter blocks (the dump's): `ServerTryActivateAbility` (size `0x18`): `AbilityToActivate`
-(`FGameplayAbilitySpecHandle`, a `u32`) `+0x00`, `InputPressed` (`bool`) `+0x04`, `PredictionKey` (`FPredictionKey`, `0x10`) `+0x08`.
-`...WithEventData` (size `0xC8`): the same three, then `TriggerEventData` (`FGameplayEventData`, `0xB0`) at `+0x18`.
+(`FGameplayAbilitySpecHandle`, a `u32`) `+0x00`, `InputPressed` (`bool`) `+0x04`,
+`PredictionKey` (`FPredictionKey`, `0x10`) `+0x08`. `...WithEventData` (size `0xC8`): the same three, then `TriggerEventData` (`FGameplayEventData`, `0xB0`) at `+0x18`.
 
 Each call, with `component` = the object (an `AbilitySystemComponent`) and the params readable for their size:
 
@@ -696,10 +696,10 @@ So nothing beyond 0041 is needed, and **R14's reserved patch number 0058 is unus
 - **R7:** R14 reads R7's possession capture (3.1); the surface lists R7 as a dependency.
 - **R13:** the AGPL runs its relevance re-assert (each role's cull settings and each player pawn's channel grace,
   R13's `SP-3@R13` work) only from inside the `SP-3@R14` block. Owning `SP-3@R14` while R13 is AGPL would silently
-  stop that pass. R13 lands after R12 (its dependency), so R12 is in too. **For R13's spec:** the MIT pass must find
-  the roles itself (on a server, each client connection's controller `+0x30` → `Pawn` `+0x250` → `PlayerRole`
-  `+0x738`), not from R14's table, and the AGPL's copy of the pass must stand down on `SP-3@R13` inside the pass
-  itself (R13's own patch), so MIT R13 with AGPL R14 does not run it twice. Sent to R13's writer on 2026-11-13.
+  stop that pass. R13 lands after R12 (its dependency), so R12 is in too. R13's spec (9, 13.1) ports the whole pass,
+  finds the roles itself (each client connection's controller `+0x30` → `Pawn` `+0x250` → `PlayerRole` `+0x738`),
+  not from R14's table, and its patch 0057 makes the AGPL's copy stand down on `SP-3@R13`, so MIT R13 with AGPL R14
+  never runs it twice (agreed between the two writers on 2026-11-13).
 - **R15:** the AGPL's loadout repair (0027, 0037) reads the controller the AGPL's `SP-1@R14` capture kept. R15's MIT
   side keeps its own (R15 6.2), so with R15 landed nothing reads the AGPL's.
 
@@ -718,7 +718,7 @@ The AGPL runtime does everything as today (seam 0041).
 | Flag | Kept? | Meaning in the MIT runtime |
 | --- | --- | --- |
 | `DISABLE_CLIENT_ROLE_LIFECYCLE_REPLAY` | kept | client, read once: no lifecycle replay (11.2 step 3, 11.4 step 4). The one switch for a client-side behaviour that writes nothing but replays game events |
-| `DISABLE_PLAYER_ROLE_GLOBAL_ROUTE` | **not read by R14** | its R14 use selected the per-connection node insert, which R14 does not port. Its other reader is RG-2 (R13's); R14 recommends R13 drop it: without the global route a role's channel closes and reopens and the client's role (and its HUD binding) is rebuilt every few seconds |
+| `DISABLE_PLAYER_ROLE_GLOBAL_ROUTE` | **dropped** | its R14 use selected the per-connection node insert, which R14 does not port; its other reader, RG-2, drops it too (R13 12). Without the global route a role's channel closes and reopens and the client's role (and its HUD binding) is rebuilt every few seconds **(ruling, shared with R13)** |
 | `DISABLE_PLAYER_ROLE_OWNER_ROUTE` | **dropped** | an A/B switch that turned off the role routing and with it the post-activation refresh; it can only bring back the stale zero charge (7.1) **(ruling)** |
 | `DISABLE_PLAYER_ROLE_REMOTE_ROUTE` | **dropped** | suppressed the remote "bootstraps" (no-ops on 1.14.7) and the connection-count re-route; the latter is R14's re-arm (7.3), which only makes late joiners see final role state **(ruling)** |
 | `USE_LEGACY_ROLE_ONREP_REPAIR` | **dropped** | selected the replicated-notify replay, which is proven a no-op for installing the role (11.5) |
@@ -734,7 +734,7 @@ A dropped flag left in a game folder has no effect on the MIT side. While R14 is
 
 ## 15. Rulings settled here
 
-- **RT-14 for R14:** section 14 (one kept, eight dropped, one left to R13).
+- **RT-14 for R14:** section 14 (one kept, nine dropped; `DISABLE_PLAYER_ROLE_GLOBAL_ROUTE` with R13).
 - **RT-17 for R14:** section 4.4; no order dependency.
 - **RT-18 for R14:** the matchers of 4.4 and 12.2: `Exact` for `ClientRestart`, `OnInputModeChanged` and the two
   ability RPCs; `FunctionName` for the HUD names and `OnAirshipStateUpdate`; `(Prefix, "")` for the pump (R16 5.2's
@@ -848,11 +848,11 @@ Only CI passed until these steps are done.
 
 1. **Not split** (1); the progression HUD refresh is dead code and not ported; per-connection routing reduces to a
    per-role refresh.
-2. **Landing: R14 with or after R7, R13 and R15** (13.3), enforced by a registry test, with R13's spec asked to port
-   and gate the relevance pass (13.3).
+2. **Landing: R14 with or after R7, R13 and R15** (13.3), enforced by a registry test; R13's spec ports the
+   relevance pass and gates the AGPL's copy (patch 0057).
 3. **Ruling: five A/B switches dropped** (14): `DISABLE_PLAYER_ROLE_OWNER_ROUTE`, `DISABLE_PLAYER_ROLE_REMOTE_ROUTE`,
    `IMMEDIATE_AIRSHIP_HUD_RESTORE`, `FORCE_CINEMATIC_CLEAR`, and `USE_LEGACY_ROLE_ONREP_REPAIR` (with
-   `ROLE_PASS_SNAPSHOT_OFF` and the RT-3 diagnostics). Recommended: yes; each can only bring back a fixed bug.
+   `ROLE_PASS_SNAPSHOT_OFF` and the RT-3 diagnostics); `DISABLE_PLAYER_ROLE_GLOBAL_ROUTE` is R13's ruling 3. Recommended: yes; each can only bring back a fixed bug.
 4. **Both input configurations** (11.4 step 7): keep calling Hunter then Default, as every play-test ran. Recommended:
    yes for the port; whether Hunter alone is better is a separate gameplay question for after the play-test (17.3).
 5. RG-3 installed purge-only (9).
