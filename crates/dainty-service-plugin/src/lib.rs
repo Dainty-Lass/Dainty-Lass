@@ -254,8 +254,19 @@ pub struct InProcessCloser(Arc<Mutex<Option<Running>>>);
 
 struct Running {
     to_service: Arc<Mutex<Option<mpsc::UnboundedSender<Vec<u8>>>>>,
-    runtime: tokio::runtime::Runtime,
+    /// `None` once [`InProcessCloser::close`] took it.
+    runtime: Option<tokio::runtime::Runtime>,
     serving: tokio::task::JoinHandle<()>,
+}
+
+impl Drop for Running {
+    /// Never closed: its run was aborted or cancelled, as a runtime's shutdown does to every task. That drop is
+    /// on a worker thread, where dropping a runtime panics (M-H), so it is let go without waiting.
+    fn drop(&mut self) {
+        if let Some(runtime) = self.runtime.take() {
+            runtime.shutdown_background();
+        }
+    }
 }
 
 /// How long a closed service has to finish, and its runtime to stop: `dainty_module_api::plugin::close`'s.
@@ -265,18 +276,16 @@ impl InProcessCloser {
     /// Closes the stream and waits up to 2 s for the service to finish, then up to 2 s for its runtime to stop.
     pub async fn close(&self) {
         let taken = self.0.lock().unwrap_or_else(PoisonError::into_inner).take();
-        let Some(Running {
-            to_service,
-            runtime,
-            serving,
-        }) = taken
-        else {
+        let Some(mut running) = taken else {
+            return;
+        };
+        let Some(runtime) = running.runtime.take() else {
             return;
         };
         // Off the async threads: a runtime can't be waited on or dropped from inside another's
         _ = tokio::task::spawn_blocking(move || {
-            drop(to_service.lock().unwrap_or_else(PoisonError::into_inner).take());
-            _ = runtime.block_on(async { tokio::time::timeout(CLOSE_GRACE, serving).await });
+            drop(running.to_service.lock().unwrap_or_else(PoisonError::into_inner).take());
+            _ = runtime.block_on(async { tokio::time::timeout(CLOSE_GRACE, &mut running.serving).await });
             runtime.shutdown_timeout(CLOSE_GRACE);
         })
         .await;
@@ -315,7 +324,7 @@ pub fn in_process<S: Service>(service: Arc<S>) -> Result<InProcess, String> {
         writer,
         closer: InProcessCloser(Arc::new(Mutex::new(Some(Running {
             to_service,
-            runtime,
+            runtime: Some(runtime),
             serving,
         })))),
     })
@@ -492,5 +501,32 @@ mod tests {
         };
         let back: FromService = serde_json::from_str(&serde_json::to_string(&ended).unwrap()).unwrap();
         assert_eq!(back, ended);
+    }
+
+    struct Idle;
+
+    impl Service for Idle {
+        fn name(&self) -> &'static str {
+            "idle"
+        }
+
+        fn run(&self, _env: Env, _ctx: ServiceContext) -> BoxFuture<'static, Result<(), String>> {
+            Box::pin(std::future::pending())
+        }
+    }
+
+    // A run aborted before its close, or cancelled by the host's runtime shutting down, drops the closer on a
+    // worker thread (M-H)
+    #[tokio::test(flavor = "multi_thread")]
+    async fn a_closer_dropped_unclosed_on_a_worker_does_not_panic() {
+        let (_, _, closer) = in_process(Arc::new(Idle)).unwrap().split();
+        tokio::spawn(async move { drop(closer) }).await.unwrap();
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn a_closed_closer_closes_once() {
+        let (_, _, closer) = in_process(Arc::new(Idle)).unwrap().split();
+        closer.close().await;
+        closer.close().await;
     }
 }

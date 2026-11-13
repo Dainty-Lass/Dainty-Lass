@@ -108,10 +108,22 @@ written. They needed no knowledge of restricted's code, so the reviewer fixed th
 
 ### 5.2 Follow-ups (not changed here)
 
-- **History while the server runs.** Querying the history twice while the embedded server runs once answered
-  `HistoryFailed` `"database: database is locked"`, and the runs logged tokio's "Cannot drop a runtime in a context
-  where blocking is not allowed" from worker threads. Both come from `dainty_admin::history` (the same engine
-  restricted used), not from this crate. The oracle keeps the one query restricted's test made.
+- **History while the server runs.** Fixed (M-H, `fix/admin-history-lock`). Querying the history twice while the
+  embedded server ran once answered `HistoryFailed` `"database: database is locked"`, and the runs logged tokio's
+  "Cannot drop a runtime in a context where blocking is not allowed" from worker threads. They were two bugs:
+  - *The lock:* every query attaches each database (`Database::attach`), and attaching runs `prepare` in a
+    deferred transaction that reads the catalog before it writes. A service's write in between turned its first
+    write into an immediate `SQLITE_BUSY`, which the busy timeout does not cover. `prepare` now begins
+    `BEGIN IMMEDIATE` on SQLite (`dainty-store`, `write_transaction`), so it waits for the lock like any write.
+  - *The panic:* not from history. A compiled-in service's run (`dainty-controller`'s `run_once`), cancelled
+    before it closed the service, here by the test's runtime shutting down after the failed query, dropped
+    `dainty_service_plugin::InProcessCloser` and the service's own `Runtime` on a worker thread. An unclosed
+    closer now lets its runtime go with `shutdown_background`.
+
+  `crates/dainty-admin/tests/history_live.rs` queries in a row and concurrently while two services write, and
+  `dainty-service-plugin` drops an unclosed closer on a worker. The oracle keeps the one query restricted's test
+  made; with three more in a row and four concurrent ones it passed with both fixes and failed with both
+  messages without them.
 - Items 2 and 4 above, if the maintainer wants restricted's behaviour back.
 
 ## 6. Oracle
