@@ -29,6 +29,8 @@ stub-module = ["dainty-host/stub-module"]
 isles-1-14-7 = ["dainty-host/isles-1-14-7"]
 realms = ["dainty-host/realms"]
 all-modules = ["isles-1-14-7", "realms"]
+# tokio-console on 127.0.0.1:6669, per task and named per module; needs `--cfg tokio_unstable` (docs/tokio-console.md)
+tokio-console = ["dainty-host/tokio-console"]
 
 [dependencies]
 dainty-host = { workspace = true, default-features = false, features = ["modules"] }

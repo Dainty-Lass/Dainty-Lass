@@ -739,7 +739,7 @@ impl Gateway {
             key: key.clone(),
         };
         let gateway = self.clone();
-        tokio::spawn(async move {
+        dainty_service_kit::task::spawn_named("gateway", async move {
             gateway.connection(stream, ip, key).await;
             drop(admitted);
         });
@@ -1324,7 +1324,7 @@ impl Gateway {
             let (mut sender, connection) = hyper::client::conn::http1::handshake(TokioIo::new(stream))
                 .await
                 .map_err(io::Error::other)?;
-            tokio::spawn(connection.with_upgrades());
+            dainty_service_kit::task::spawn_named("gateway", connection.with_upgrades());
             sender.send_request(upstream_req).await.map_err(io::Error::other)
         };
         let mut response = match tokio::time::timeout(config.timeouts.headers, exchange).await {
@@ -1369,7 +1369,7 @@ impl Gateway {
         let phases = conn.phases.clone();
         let ip = conn.ip.clone();
         let chat = conn.capture.clone();
-        tokio::spawn(async move {
+        dainty_service_kit::task::spawn_named("gateway", async move {
             let (Ok(client), Ok(upstream)) = (client_upgrade.await, upstream_upgrade.await) else {
                 return;
             };

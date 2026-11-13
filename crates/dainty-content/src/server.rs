@@ -143,6 +143,7 @@ fn build(config: &Config, modules: Arc<ContentModules>, clock: Clock) -> AppStat
 pub async fn serve(listener: TcpListener, app: AppState, mut stop: watch::Receiver<bool>) {
     let room = Arc::new(Semaphore::new(MAX_CONNECTIONS));
     let mut connections = JoinSet::new();
+    let content_monitor = dainty_service_kit::task::monitor("content");
     loop {
         if *stop.borrow() {
             break;
@@ -167,7 +168,7 @@ pub async fn serve(listener: TcpListener, app: AppState, mut stop: watch::Receiv
         };
         _ = stream.set_nodelay(true);
         let app = app.clone();
-        connections.spawn(async move {
+        connections.spawn(content_monitor.instrument(async move {
             let service = service_fn(move |request| {
                 let app = app.clone();
                 async move { Ok::<_, Infallible>(handle(app, request, peer).await) }
@@ -178,7 +179,7 @@ pub async fn serve(listener: TcpListener, app: AppState, mut stop: watch::Receiv
                 .serve_connection(TokioIo::new(Idle::new(stream)), service)
                 .await;
             drop(permit);
-        });
+        }));
     }
     connections.abort_all();
     while connections.join_next().await.is_some() {}

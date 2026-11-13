@@ -646,6 +646,21 @@ fn reload_handle_for<S: 'static>(
     }
 }
 
+/// The tokio-console server (docs/tokio-console.md). The log's level filter sits on each output rather than the
+/// whole subscriber, so it doesn't hide tokio's TRACE task spans from this layer.
+#[cfg(feature = "tokio-console")]
+fn console_layer<S>() -> Option<impl Layer<S>>
+where
+    S: Subscriber + for<'a> LookupSpan<'a>,
+{
+    Some(console_subscriber::spawn())
+}
+
+#[cfg(not(feature = "tokio-console"))]
+fn console_layer() -> Option<tracing_subscriber::layer::Identity> {
+    None
+}
+
 /// How the console reads, and the GELF collector the log goes to besides (`[logs]`).
 #[derive(Clone, Default)]
 pub struct LogOutputs {
@@ -668,9 +683,12 @@ pub fn init_console_subscriber(default_level: LevelFilter, outputs: LogOutputs) 
     let (filter_layer, reload_handle) = reload::Layer::new(targets);
     let _ = tracing_log::LogTracer::init();
     let installed = tracing_subscriber::registry()
-        .with(filter_layer)
-        .with(TableStdoutLayer::stdout_styled(outputs.format, outputs.color))
-        .with(outputs.gelf.map(GelfLayer::new))
+        .with(console_layer())
+        .with(
+            TableStdoutLayer::stdout_styled(outputs.format, outputs.color)
+                .and_then(outputs.gelf.map(GelfLayer::new))
+                .with_filter(filter_layer),
+        )
         .try_init();
     if installed.is_ok() {
         set_tracing_bridge_active(true);
@@ -700,10 +718,13 @@ pub fn init_tui_subscriber_with(
     let file_layer = log_file.as_deref().map(FileLogLayer::open);
     let _ = tracing_log::LogTracer::init();
     let installed = tracing_subscriber::registry()
-        .with(filter_layer)
-        .with(ring.clone())
-        .with(file_layer)
-        .with(gelf.map(GelfLayer::new))
+        .with(console_layer())
+        .with(
+            ring.clone()
+                .and_then(file_layer)
+                .and_then(gelf.map(GelfLayer::new))
+                .with_filter(filter_layer),
+        )
         .try_init();
     if installed.is_ok() {
         set_tracing_bridge_active(true);
@@ -725,8 +746,8 @@ pub fn init_gui_channel_subscriber(
     let layer = ChannelLogLayer::new(tx);
     let _ = tracing_log::LogTracer::init();
     let installed = tracing_subscriber::registry()
-        .with(filter_layer)
-        .with(layer.clone())
+        .with(console_layer())
+        .with(layer.clone().with_filter(filter_layer))
         .try_init();
     if installed.is_ok() {
         set_tracing_bridge_active(true);
