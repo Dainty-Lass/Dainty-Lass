@@ -29,7 +29,7 @@ use crate::linux::{ensure_wine_prefix, is_root, write_gameserver_wrapper, write_
 use crate::mongo::{find_mongod, search_path};
 use crate::paths::{Paths, game_exe_relative};
 use crate::preset::{PresetApplied, apply_preset};
-use crate::publish::{default_sources, ensure_server_flags, install_server_runtime, publish_runtime};
+use crate::publish::{default_sources, ensure_server_flags, publish_runtime, retire_server_loader};
 use crate::tls::generate_self_signed_cert_pem;
 
 use self::database::database_notes;
@@ -375,7 +375,7 @@ pub fn run_with(
     }
 
     let sources = default_sources(p);
-    if sources.iter().all(|(_, path)| path.is_file()) {
+    if p.runtime_dll.is_file() {
         let _ = publish_runtime(p, Utc::now(), &sources)?;
     }
 
@@ -396,7 +396,7 @@ pub fn run_with(
     if let Some(ref game_dir) = config.game_dir {
         let exe = Path::new(game_dir).join(game_exe_relative());
         if let Some(win64_dir) = exe.parent().filter(|d| d.is_dir()) {
-            let _ = install_server_runtime(p, win64_dir);
+            let _ = retire_server_loader(p, win64_dir);
             let _ = ensure_server_flags(win64_dir);
         }
     }

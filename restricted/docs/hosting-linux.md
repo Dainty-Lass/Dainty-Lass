@@ -18,12 +18,14 @@ containers in [hosting-docker.md](hosting-docker.md) are this page with the pack
 - Your **Dauntless 1.14.7** folder (about 15 GB), writable by the user the server runs as: the game servers write
   logs and a switch file next to the executable. Copy it from a PC that has it, or let the server fetch it from
   your own Epic library with `install-game` ([below](#getting-the-game-from-epic)).
-- The **runtime** (`Rustic-Isles.dll`, `winmm.dll`) and the **game data**, made on a Windows PC with your own
+- The **runtime** (`Rustic-Isles.dll`, and `winmm.dll` for Linux players who use the loader) and the **game data**, made on a Windows PC with your own
   game ([sdk-and-game-data.md](https://git.silentspud.com/silentspud/dainty-lass/src/branch/main/docs/sdk-and-game-data.md)) and brought over: the DLLs as a folder, the game data as
   a pack (`dainty-host gamedata --export`).
 - The **server release** (`DaintyLassServer-<version>-linux-x64.tar.gz`). It ships the 1.14.7 version data in
   `data/1.14.7/version_data.json`, which the server reads when it starts; keep it there, or name another file with
-  `version_data` in `host.toml` ([hosting.md](hosting.md)).
+  `version_data` in `host.toml` ([hosting.md](hosting.md)). It also needs `bin/dainty-inject.exe` beside
+  `dainty-host`: each game server starts through it inside Wine, and it loads the runtime into the game before the
+  game runs. Without it no game server starts, and `dainty-host doctor` says so.
 - Public: TCP 443 and UDP 8770-8777 open at the provider's firewall.
 
 ## Getting the game from Epic

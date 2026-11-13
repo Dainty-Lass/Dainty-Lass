@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Silent Spud
 
-//! Runtime DLL publishing into `.workspace/runtime/` and installation beside the server executable.
+//! Runtime DLL publishing into `.workspace/runtime/`. The director injects the runtime from there into every game
+//! server (RD9 as of 2026-11-13), so nothing is copied beside the server executable any more.
 
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -12,7 +13,7 @@ use sha2::{Digest, Sha256};
 
 use crate::error::HostError;
 use crate::paths::{GAME_CHANGELIST, Paths, RUNTIME_FILE_NAMES};
-use dainty_protocol::manifest::{LEGACY_RUNTIME_DLL, RUNTIME_DLL};
+use dainty_protocol::manifest::{LEGACY_RUNTIME_DLL, LOADER_DLL, RUNTIME_DLL};
 
 /// What follows a DLL's name when it is moved aside because it was loaded; such files are swept on the next install.
 pub const ASIDE_MARK: &str = ".rr-old-";
@@ -77,19 +78,6 @@ pub enum Replaced {
     InUse,
 }
 
-/// What [`install_server_runtime`] did.
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
-pub struct InstalledRuntime {
-    /// Files installed.
-    pub installed: Vec<String>,
-    /// Files that already matched.
-    pub unchanged: Vec<String>,
-    /// Files installed while the old one was loaded.
-    pub in_use: Vec<String>,
-    /// Files not installed, each with why.
-    pub failed: Vec<(String, String)>,
-}
-
 fn sha256_bytes(bytes: &[u8]) -> String {
     hex::encode(Sha256::digest(bytes))
 }
@@ -134,27 +122,25 @@ pub fn replace_loaded_file(tmp: &Path, target: &Path) -> Result<Replaced, HostEr
 
 /// Where the build puts the runtime DLL and the loader.
 pub fn default_sources(p: &Paths) -> [(&'static str, PathBuf); 2] {
-    [
-        (RUNTIME_DLL, p.runtime_dll.clone()),
-        ("winmm.dll", p.loader_dll.clone()),
-    ]
+    [(RUNTIME_DLL, p.runtime_dll.clone()), (LOADER_DLL, p.loader_dll.clone())]
 }
 
-/// Copies the runtime files from `sources` into `.workspace/runtime` and writes runtime.json; fails on a missing
-/// source.
+/// Copies the runtime files from `sources` into `.workspace/runtime` and writes runtime.json; fails when the runtime
+/// is not built. The loader is optional: only Proton players who load the runtime through it need it in the feed.
 pub fn publish_runtime(
     p: &Paths,
     now: DateTime<Utc>,
     sources: &[(&str, PathBuf)],
 ) -> Result<PublishedRuntime, HostError> {
     for (name, src) in sources {
-        if !src.is_file() {
+        if *name != LOADER_DLL && !src.is_file() {
             return Err(HostError::message(format!(
                 "{name} is not built yet ({})",
                 src.display()
             )));
         }
     }
+    let sources: Vec<&(&str, PathBuf)> = sources.iter().filter(|(_, src)| src.is_file()).collect();
 
     std::fs::create_dir_all(&p.runtime_publish).map_err(|e| HostError::io(&p.runtime_publish, e))?;
 
@@ -189,6 +175,10 @@ pub fn publish_runtime(
     let _ = replace_loaded_file(&manifest_tmp, &manifest_dest)?;
     // The runtime under its name from before the Rustic Isles rename, published by an older kit (DX4)
     let _ = std::fs::remove_file(p.runtime_publish.join(LEGACY_RUNTIME_DLL));
+    // A loader published before and not built now would be served with no line in runtime.json
+    if !published.files.iter().any(|f| f.name == LOADER_DLL) {
+        let _ = std::fs::remove_file(p.runtime_publish.join(LOADER_DLL));
+    }
 
     Ok(published)
 }
@@ -209,53 +199,17 @@ fn sweep_aside_files(win64_dir: &Path) {
     }
 }
 
-/// Installs the published runtime beside the server's game executable in `win64_dir`, clearing old moved-aside files.
-pub fn install_server_runtime(p: &Paths, win64_dir: &Path) -> InstalledRuntime {
-    let mut out = InstalledRuntime::default();
+/// Retires what an older kit installed beside the server's game executable in `win64_dir`: its moved-aside files,
+/// and its `winmm.dll` when that is the published loader byte for byte. The director injects the runtime now, and a
+/// loader there would load a second one into every server and refuse the launcher's PLAY from the same folder. A
+/// `winmm.dll` someone else put there is left, and the director names it at start. True when a loader was removed.
+pub fn retire_server_loader(p: &Paths, win64_dir: &Path) -> bool {
     sweep_aside_files(win64_dir);
-
-    for name in RUNTIME_FILE_NAMES {
-        let src = p.runtime_publish.join(name);
-        if !src.is_file() {
-            out.failed.push((
-                name.to_owned(),
-                format!("{name} is not in {}", p.runtime_publish.display()),
-            ));
-            continue;
-        }
-        let target = win64_dir.join(name);
-        if target.is_file()
-            && let (Ok(src_sha), Ok(dst_sha)) = (sha256_file(&src), sha256_file(&target))
-            && src_sha == dst_sha
-        {
-            out.unchanged.push(name.to_owned());
-            continue;
-        }
-        let tmp = win64_dir.join(format!("{name}.tmp"));
-        if let Err(e) = std::fs::copy(&src, &tmp) {
-            out.failed.push((name.to_owned(), e.to_string()));
-            continue;
-        }
-        if name == RUNTIME_DLL {
-            // An older kit's copy under the old name would be loaded instead if it were ever the newer file (DX4)
-            let _ = std::fs::remove_file(win64_dir.join(LEGACY_RUNTIME_DLL));
-        }
-        match replace_loaded_file(&tmp, &target) {
-            Ok(Replaced::Replaced) => {
-                out.installed.push(name.to_owned());
-            }
-            Ok(Replaced::InUse) => {
-                out.installed.push(name.to_owned());
-                out.in_use.push(name.to_owned());
-            }
-            Err(e) => {
-                let _ = std::fs::remove_file(&tmp);
-                out.failed.push((name.to_owned(), e.to_string()));
-            }
-        }
-    }
-
-    out
+    let installed = win64_dir.join(LOADER_DLL);
+    let published = p.runtime_publish.join(LOADER_DLL);
+    let ours =
+        installed.is_file() && matches!((sha256_file(&installed), sha256_file(&published)), (Ok(a), Ok(b)) if a == b);
+    ours && std::fs::remove_file(&installed).is_ok()
 }
 
 /// Creates the flag files the game folder lacks; returns the ones made.
@@ -280,7 +234,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn publishes_runtime_installs_into_win64_and_writes_flags() {
+    fn publishes_runtime_retires_the_server_loader_and_writes_flags() {
         let tmp = tempfile::tempdir().unwrap();
         let paths = Paths::new(tmp.path());
         std::fs::create_dir_all(paths.runtime_dll.parent().unwrap()).unwrap();
@@ -302,26 +256,40 @@ mod tests {
         let win64 = tmp.path().join("Win64");
         std::fs::create_dir_all(&win64).unwrap();
         std::fs::write(win64.join("Rustic-Isles.dll.rr-old-123"), b"stale").unwrap();
-        std::fs::write(win64.join("MysticParadox.dll"), b"an older kit's").unwrap();
 
-        let installed = install_server_runtime(&paths, &win64);
-        assert_eq!(
-            installed.installed,
-            vec!["Rustic-Isles.dll".to_owned(), "winmm.dll".to_owned()]
-        );
-        assert!(installed.failed.is_empty());
+        std::fs::write(win64.join("winmm.dll"), b"loader-bytes").unwrap();
+        assert!(retire_server_loader(&paths, &win64));
         assert!(!win64.join("Rustic-Isles.dll.rr-old-123").exists());
-        assert!(!win64.join("MysticParadox.dll").exists());
-
-        let installed_again = install_server_runtime(&paths, &win64);
-        assert_eq!(
-            installed_again.unchanged,
-            vec!["Rustic-Isles.dll".to_owned(), "winmm.dll".to_owned()]
-        );
-        assert!(installed_again.installed.is_empty());
+        assert!(!win64.join("winmm.dll").exists());
+        assert!(!win64.join("Rustic-Isles.dll").exists());
+        std::fs::write(win64.join("winmm.dll"), b"someone else's").unwrap();
+        assert!(!retire_server_loader(&paths, &win64));
+        assert!(win64.join("winmm.dll").is_file());
 
         let flags = ensure_server_flags(&win64).unwrap();
         assert_eq!(flags, vec!["CALL_HUNTPASS_QUERY.flag".to_owned()]);
         assert!(ensure_server_flags(&win64).unwrap().is_empty());
+    }
+}
+
+#[cfg(test)]
+mod loader_tests {
+    #![allow(clippy::unwrap_used, reason = "a panic is how a test fails")]
+
+    use super::*;
+
+    #[test]
+    fn the_loader_is_optional_and_the_runtime_is_not() {
+        let tmp = tempfile::tempdir().unwrap();
+        let paths = Paths::new(tmp.path());
+        assert!(publish_runtime(&paths, Utc::now(), &default_sources(&paths)).is_err());
+        std::fs::create_dir_all(paths.runtime_dll.parent().unwrap()).unwrap();
+        std::fs::write(&paths.runtime_dll, b"runtime-bytes").unwrap();
+        std::fs::create_dir_all(&paths.runtime_publish).unwrap();
+        std::fs::write(paths.runtime_publish.join(LOADER_DLL), b"an older publish").unwrap();
+        let published = publish_runtime(&paths, Utc::now(), &default_sources(&paths)).unwrap();
+        let names: Vec<&str> = published.files.iter().map(|f| f.name.as_str()).collect();
+        assert_eq!(names, [RUNTIME_DLL]);
+        assert!(!paths.runtime_publish.join(LOADER_DLL).exists());
     }
 }

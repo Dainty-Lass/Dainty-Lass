@@ -25,13 +25,14 @@ COPY restricted/modules/rustic-isles/reference/1.14.7/ParadoxDirector/game-data/
      /src/restricted/modules/rustic-isles/reference/1.14.7/ParadoxDirector/game-data/
 
 FROM ${RUST_IMAGE} AS rust-build
+# mingw builds dainty-inject.exe, which loads the runtime into each game server inside Wine (RD9, 2026-11-13)
 RUN apt-get update \
- && apt-get install -y --no-install-recommends build-essential pkg-config ca-certificates git \
+ && apt-get install -y --no-install-recommends build-essential pkg-config ca-certificates git gcc-mingw-w64-x86-64 \
  && rm -rf /var/lib/apt/lists/*
 WORKDIR /src
 # The pinned toolchain in its own layer, so a source change doesn't download it again
 COPY rust-toolchain.toml ./
-RUN rustup show active-toolchain || rustup toolchain install
+RUN (rustup show active-toolchain || rustup toolchain install) && rustup target add x86_64-pc-windows-gnu
 COPY --from=rust-sources /src/ /src/
 ARG DAINTY_MODULES=all-modules
 RUN --mount=type=cache,id=dainty-cargo-registry,target=/usr/local/cargo/registry \
@@ -42,10 +43,12 @@ RUN --mount=type=cache,id=dainty-cargo-registry,target=/usr/local/cargo/registry
     for f in $(echo "$DAINTY_MODULES" | tr , ' '); do set -- "$@" --features "dainty-server/$f"; done; \
     cargo build --release --locked -p dainty-server "$@" --bins; \
     cargo build --release --locked -p dainty-legacy --bin dainty-legacy; \
+    cargo build --release --locked -p dainty-inject --target x86_64-pc-windows-gnu; \
     cargo build --release --locked -p rustic-isles-1-14-7-plugin -p dainty-content-plugin -p dainty-chat-plugin \
       -p dainty-gateway-plugin --lib; \
     mkdir -p /out/bin /out/plugins; \
     cp target/release/dainty-host target/release/dainty-legacy /out/bin/; \
+    cp target/x86_64-pc-windows-gnu/release/dainty-inject.exe /out/bin/; \
     for lib in rustic_isles_1_14_7_plugin dainty_content_plugin dainty_chat_plugin dainty_gateway_plugin; do \
       cp "target/release/lib$lib.so" /out/plugins/; \
     done; \

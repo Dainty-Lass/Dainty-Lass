@@ -26,6 +26,7 @@ pub mod occupancy;
 pub mod os;
 pub mod port_pool;
 pub mod process;
+pub mod runtime;
 
 use std::sync::{Arc, Mutex, PoisonError};
 
@@ -137,19 +138,32 @@ fn process_environment() -> Vec<(String, String)> {
         .collect()
 }
 
-/// The game runtime's files the server executable's folder needs: the loader and the runtime it loads.
-const RUNTIME_FILES: [&str; 2] = ["winmm.dll", "Rustic-Isles.dll"];
-
-/// The runtime files missing beside `binary`; none to check when it is not the game's `.exe` itself (a Wine wrapper).
-fn missing_runtime(binary: &str) -> Vec<&'static str> {
-    let exe = std::path::Path::new(binary);
-    if !exe.extension().is_some_and(|x| x.eq_ignore_ascii_case("exe")) {
-        return Vec::new();
-    }
-    let Some(dir) = exe.parent().filter(|d| d.is_dir()) else {
-        return Vec::new();
+/// Why every game server would start without its runtime, or none. The runtime is injected from the host's
+/// published folder (RD9 as of 2026-11-13); nothing is needed beside the server exe, and a `winmm.dll` there is a
+/// leftover loader that would load a second runtime.
+fn runtime_problem(config: &Config) -> Option<String> {
+    let binary = config.binary_path.as_deref().unwrap_or_default();
+    let Some(dir) = config.runtime_dir.as_deref() else {
+        return Some(format!(
+            "GAMESERVER_RUNTIME_DIR is not set, so the game servers start from {binary} without the runtime. Run              dainty-host setup (or update), then start the server again"
+        ));
     };
-    RUNTIME_FILES.into_iter().filter(|f| !dir.join(f).is_file()).collect()
+    if let Err(error) = runtime::published(dir) {
+        return Some(format!(
+            "No published game runtime ({error}): every game server will be refused. Run dainty-host              publish-runtime, then start the server again"
+        ));
+    }
+    let exe = std::path::Path::new(binary);
+    let loader = exe.parent().map(|d| d.join("winmm.dll"));
+    if exe.extension().is_some_and(|x| x.eq_ignore_ascii_case("exe"))
+        && let Some(loader) = loader.filter(|l| l.is_file() && !runtime::loader_stands_down(l))
+    {
+        return Some(format!(
+            "{} is a runtime loader left from an older kit: it would load a second runtime into every game server.              Delete it (dainty-host publish-runtime removes the one it put there)",
+            loader.display()
+        ));
+    }
+    None
 }
 
 /// The in-memory Director in the module's dedicated-servers slot.
@@ -292,15 +306,9 @@ impl PortService for DirectorService {
             );
             return;
         }
-        // Without it every server exits with code 1 at start and the hubs restart it without saying why (2026-11-10)
-        let missing = missing_runtime(director.config().binary_path.as_deref().unwrap_or_default());
-        if !missing.is_empty() {
-            tracing::error!(
-                "No game runtime beside {} ({} missing): every game server will exit at start. Run dainty-host \
-                 publish-runtime, then start the server again",
-                director.config().binary_path.as_deref().unwrap_or_default(),
-                missing.join(", ")
-            );
+        // Without it every server comes up as a windowed client and exits (2026-11-10, 2026-11-13)
+        if let Some(problem) = runtime_problem(director.config()) {
+            tracing::error!("{problem}");
         }
         let Ok(handle) = tokio::runtime::Handle::try_current() else {
             return;
@@ -352,17 +360,38 @@ mod tests {
     );
 
     #[test]
-    fn missing_runtime_beside_the_exe() {
+    fn the_runtime_problem_is_named_at_start() {
         let tmp = tempfile::tempdir().unwrap();
         let exe = tmp.path().join("Dauntless-Win64-Shipping.exe");
-        let exe_text = exe.to_string_lossy().into_owned();
-        assert_eq!(missing_runtime(&exe_text), RUNTIME_FILES);
+        let runtime = tmp.path().join("runtime");
+        std::fs::create_dir(&runtime).unwrap();
+        let config = |dir: Option<&std::path::Path>| {
+            let mut pairs = vec![("GAMESERVER_BINARY_PATH", exe.to_string_lossy().into_owned())];
+            if let Some(dir) = dir {
+                pairs.push(("GAMESERVER_RUNTIME_DIR", dir.to_string_lossy().into_owned()));
+            }
+            let settings = Settings::from_pairs(pairs.iter().map(|(k, v)| (*k, v.as_str())));
+            let range = dainty_module_api::PortRange { first: 1, last: 2 };
+            Config::from_settings(&settings, &DirectorConfig::new(1, ARGS), range, Vec::new()).unwrap()
+        };
+        assert!(
+            runtime_problem(&config(None))
+                .unwrap()
+                .contains("GAMESERVER_RUNTIME_DIR")
+        );
+        assert!(
+            runtime_problem(&config(Some(&runtime)))
+                .unwrap()
+                .contains("publish-runtime")
+        );
+        let sha = "a".repeat(64);
+        let manifest = format!(r#"{{"files":[{{"name":"Rustic-Isles.dll","sha256":"{sha}"}}]}}"#);
+        std::fs::write(runtime.join("runtime.json"), manifest).unwrap();
+        assert_eq!(runtime_problem(&config(Some(&runtime))), None);
         std::fs::write(tmp.path().join("winmm.dll"), b"").unwrap();
-        assert_eq!(missing_runtime(&exe_text), ["Rustic-Isles.dll"]);
-        std::fs::write(tmp.path().join("Rustic-Isles.dll"), b"").unwrap();
-        assert!(missing_runtime(&exe_text).is_empty());
-        let wrapper = tmp.path().join("dainty-gameserver");
-        assert!(missing_runtime(&wrapper.to_string_lossy()).is_empty());
+        assert!(runtime_problem(&config(Some(&runtime))).unwrap().contains("winmm.dll"));
+        std::fs::write(tmp.path().join("winmm.dll"), runtime::STANDS_DOWN_MARKER).unwrap();
+        assert_eq!(runtime_problem(&config(Some(&runtime))), None);
     }
 
     #[test]

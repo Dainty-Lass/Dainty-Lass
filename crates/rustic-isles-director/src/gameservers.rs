@@ -572,11 +572,20 @@ impl Director {
             format!("{}:{port}", self.config.my_ip_text()),
         ];
         args.extend(self.config.launch_args.iter().cloned());
+        let mut env = self.config.child_env(&launch_id, spec.matchmaker_hunt_id.as_deref());
+        let inject = match crate::runtime::for_start(self.config.runtime_dir.as_deref(), &program, &mut env) {
+            Ok(inject) => inject,
+            Err(e) => {
+                tracing::error!("{label} not started on port {port}: the game runtime: {e}");
+                return Err(undo(format!("the game runtime: {e}")));
+            }
+        };
         let command = Command {
             program: program.clone(),
             args,
-            env: self.config.child_env(&launch_id, spec.matchmaker_hunt_id.as_deref()),
+            env,
             windows_hide: self.config.windows_hide,
+            inject,
         };
         if spec.kind == ServerKind::Training {
             // Just before the process starts: what the log holds now is an earlier process's (§7.4)
@@ -591,7 +600,12 @@ impl Director {
         };
         let spawned = match process::launch(self.launcher.as_ref(), &command, file, labels) {
             Ok(spawned) => spawned,
-            Err(e) => return Err(undo(format!("spawn {program} {e}"))),
+            Err(e) => {
+                if !command.inject.is_empty() {
+                    tracing::error!("{label} on port {port} was not started: {e}");
+                }
+                return Err(undo(format!("spawn {program} {e}")));
+            }
         };
         drop(command);
         let proc = spawned.proc;

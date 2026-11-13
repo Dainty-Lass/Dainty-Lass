@@ -12,7 +12,7 @@ use crate::cli::PublishRuntimeArgs;
 use crate::error::HostError;
 use crate::hostconfig::load_host_config;
 use crate::paths::{Paths, RUNTIME_FILE_NAMES, game_exe_relative};
-use crate::publish::{default_sources, ensure_server_flags, install_server_runtime, publish_runtime};
+use crate::publish::{default_sources, ensure_server_flags, publish_runtime, retire_server_loader};
 
 /// Runs `dainty-host publish-runtime`, printing to stdout.
 pub fn run(paths: &Paths, args: &PublishRuntimeArgs) -> Result<ExitCode, HostError> {
@@ -45,15 +45,13 @@ pub fn run_with(paths: &Paths, args: &PublishRuntimeArgs, out: &mut dyn FnMut(&s
     {
         let exe = Path::new(game_dir).join(game_exe_relative());
         if let Some(win64_dir) = exe.parent().filter(|d| d.is_dir()) {
-            let installed = install_server_runtime(paths, win64_dir);
-            let _ = ensure_server_flags(win64_dir)?;
-            if !installed.installed.is_empty() {
+            if retire_server_loader(paths, win64_dir) {
                 out(&format!(
-                    "Installed into {}: {}",
-                    win64_dir.display(),
-                    installed.installed.join(", ")
+                    "Removed the runtime loader (winmm.dll) from {}: the Director injects the runtime now",
+                    win64_dir.display()
                 ));
             }
+            let _ = ensure_server_flags(win64_dir)?;
         }
     }
 

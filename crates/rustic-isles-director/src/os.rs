@@ -26,11 +26,11 @@ mod imp {
     };
     use windows::Win32::System::SystemInformation::{GlobalMemoryStatusEx, MEMORYSTATUSEX};
     use windows::Win32::System::Threading::{
-        CREATE_UNICODE_ENVIRONMENT, CreateProcessW, DeleteProcThreadAttributeList, EXTENDED_STARTUPINFO_PRESENT,
-        GetExitCodeProcess, InitializeProcThreadAttributeList, LPPROC_THREAD_ATTRIBUTE_LIST, OpenProcess,
-        PROC_THREAD_ATTRIBUTE_HANDLE_LIST, PROC_THREAD_ATTRIBUTE_JOB_LIST, PROCESS_INFORMATION,
-        PROCESS_QUERY_LIMITED_INFORMATION, STARTF_USESHOWWINDOW, STARTF_USESTDHANDLES, STARTUPINFOEXW,
-        UpdateProcThreadAttribute, WaitForSingleObject,
+        CREATE_SUSPENDED, CREATE_UNICODE_ENVIRONMENT, CreateProcessW, DeleteProcThreadAttributeList,
+        EXTENDED_STARTUPINFO_PRESENT, GetExitCodeProcess, InitializeProcThreadAttributeList,
+        LPPROC_THREAD_ATTRIBUTE_LIST, OpenProcess, PROC_THREAD_ATTRIBUTE_HANDLE_LIST, PROC_THREAD_ATTRIBUTE_JOB_LIST,
+        PROCESS_INFORMATION, PROCESS_QUERY_LIMITED_INFORMATION, STARTF_USESHOWWINDOW, STARTF_USESTDHANDLES,
+        STARTUPINFOEXW, UpdateProcThreadAttribute, WaitForSingleObject,
     };
     use windows::core::{PCWSTR, PWSTR};
 
@@ -200,6 +200,10 @@ mod imp {
         info.StartupInfo.hStdError = handles[2];
         info.lpAttributeList = list;
         let mut process = PROCESS_INFORMATION::default();
+        let mut flags = EXTENDED_STARTUPINFO_PRESENT | CREATE_UNICODE_ENVIRONMENT;
+        if !command.inject.is_empty() {
+            flags |= CREATE_SUSPENDED;
+        }
         let created = attributes.and_then(|()| {
             // SAFETY: every pointer is to a live local: the NUL-terminated command line (writable, as the API
             // wants), the environment block, the start-up info with its attribute list, the process information.
@@ -210,7 +214,7 @@ mod imp {
                     None,
                     None,
                     true,
-                    EXTENDED_STARTUPINFO_PRESENT | CREATE_UNICODE_ENVIRONMENT,
+                    flags,
                     Some(env.as_ptr().cast::<c_void>()),
                     PCWSTR::null(),
                     &raw const info.StartupInfo,
@@ -231,6 +235,17 @@ mod imp {
         drop(thread);
         // Our copies of the child's ends go, so the pipes end when the tree's do
         drop((null, stdout_child, stderr_child));
+        if !command.inject.is_empty()
+            && let Err(error) =
+                dainty_inject::load_and_resume(child.as_raw_handle(), process.dwProcessId, &command.inject)
+        {
+            // Never resumed: a server without its runtime starts as a windowed client (2026-11-13)
+            // SAFETY: the job handle is open; the child is in it from creation.
+            let _ = unsafe { TerminateJobObject(HANDLE(job.as_raw_handle()), 1) };
+            return Err(io::Error::other(format!(
+                "the runtime was not loaded, so the server was ended: {error}"
+            )));
+        }
         let child = Arc::new(child);
         let wait = async move {
             loop {

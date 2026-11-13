@@ -20,6 +20,8 @@ pub struct Command {
     pub env: Vec<(String, String)>,
     /// Hide its window on Windows.
     pub windows_hide: bool,
+    /// Loaded, in order, into the process started suspended before it runs (Windows); empty starts it as is
+    pub inject: Vec<dainty_inject::InjectDll>,
 }
 
 /// How a process exited.
@@ -87,6 +89,13 @@ impl Launcher for OsLauncher {
             return Err(io::Error::new(
                 io::ErrorKind::InvalidInput,
                 "an argument contains a NUL",
+            ));
+        }
+        // Under Wine the wrapper's helper injects, inside the prefix
+        if !cfg!(windows) && !command.inject.is_empty() {
+            return Err(io::Error::new(
+                io::ErrorKind::Unsupported,
+                "only Windows injects into a game server directly",
             ));
         }
         crate::os::spawn(command)

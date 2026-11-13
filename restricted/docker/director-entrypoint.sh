@@ -21,7 +21,7 @@ prefix="$workspace/wine"
 if [ ! -f "$prefix/system.reg" ]; then
 	echo "director | making the Wine prefix (once, a minute or two)"
 	mkdir -p "$prefix"
-	WINEPREFIX="$prefix" WINEDEBUG=-all WINEDLLOVERRIDES="winmm=n,b;mscoree=d;mshtml=d" \
+	WINEPREFIX="$prefix" WINEDEBUG=-all WINEDLLOVERRIDES="winmm=b;mscoree=d;mshtml=d" \
 		xvfb-run -a wine wineboot --init >"$workspace/logs/wine.log" 2>&1 || true
 	WINEPREFIX="$prefix" wineserver -w || true
 	[ -f "$prefix/system.reg" ] || echo "director | ! wineboot did not make the prefix (see .workspace/logs/wine.log)" >&2

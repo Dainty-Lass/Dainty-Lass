@@ -658,7 +658,8 @@ pub fn detect_host_kit(workspace: Option<&Path>, toolchain: &Toolchain, dump_roo
     let runtime_built = paths.runtime_dll.is_file();
     let loader_built = paths.loader_dll.is_file();
     let exporter_built = paths.exporter_dll.is_file();
-    let runtime_published = RUNTIME_FILE_NAMES.iter().all(|name| paths.publish.join(name).is_file());
+    // The loader is optional since the Director injects (RD9 as of 2026-11-13)
+    let runtime_published = paths.publish.join(RUNTIME_FILE_NAMES[0]).is_file();
     let backend_data = detect_game_data(&paths.backend_game_data, &BACKEND_GAME_DATA);
     let director_data = detect_game_data(&paths.director_game_data, &DIRECTOR_GAME_DATA);
     let exports_present = paths.exports.is_dir();
