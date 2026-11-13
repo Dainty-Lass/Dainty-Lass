@@ -205,7 +205,7 @@ to the crate.
 | `gateway::server` | `load_tls`, `load_capture(&Env)`, `run`, `run_with_context`, `run_with_routes`, `run_with_node_links`, `run_with_network(config, capture, in_process_sink, ctx, routes, node_link_slot, region_handler)`, `NodeLinkSlot` |
 | `gateway::gateway` | `Gateway` (`new`, `with_routes`, `serve(listener, stop)`, `set_region_handler`, `node_links`, `certificate`, `config`, `stats`, `routes`), `Tls { config, info }`, `Stats`, `forward_headers` |
 | `gateway::cert` | `CertInfo { fingerprint, not_before, not_after, subject_alt_name }`, `Loaded`, `load`, `describe`, `server_config`, `load_or_generate`, `make_cert_main`, `parse_make_cert_args`, `is_dns_name`, `iso` |
-| `gateway::policy` | `Upstream`, `LimitClass`, `FeedKind`, `NetworkRoute`, `Decision`, `PUBLIC_REFORGED_API`, `HOST_ONLY_PREFIXES`, `GAMESERVER_KEY_HEADER`, `GAMESERVER_KEY_HEADERS`, `HOST_ONLY_HEADERS`, `split_target`, `check_path`, `canonical_path`, `unwrap_origin` with `Unwrapped { path, origin }`, `under`, `classify`, `classify_for`, `has_bearer` |
+| `gateway::policy` | `Upstream`, `LimitClass`, `FeedKind`, `NetworkRoute`, `Decision`, `PUBLIC_REFORGED_API`, `HOST_ONLY_PREFIXES`, `PUBLIC_REALM_PREFIXES` (added after the rewrite, below), `GAMESERVER_KEY_HEADER`, `GAMESERVER_KEY_HEADERS`, `HOST_ONLY_HEADERS`, `split_target`, `check_path`, `canonical_path`, `unwrap_origin` with `Unwrapped { path, origin }`, `under`, `classify`, `classify_for`, `has_bearer` |
 | `gateway::modules` (A) | As it is: `RouteGroup`, `NODE_LINKS`, `GROUPS`, `RESERVED_PREFIXES`, `RegistryView`, `ManifestDefaults`, `stand_in`, `Routed`, `ModuleRoutes` |
 | `gateway::network` (A) | As it is |
 | `gateway::nodelink` (A) | As it is |
@@ -296,11 +296,16 @@ returns its port and a stopper, HTTPS and raw-TLS clients with a chosen local ad
 
 | Target | Class | Invariant the rewrite must keep |
 | --- | --- | --- |
-| `gateway_policy` | B, rewrite | Any method, target and headers give a decision without panicking. A target that is not origin-form is a 400. Whatever is proxied: the path passed `check_path`, its unwrapping starts with `/`, the canonical path starts with `/`, it carries no host-only header, it is under no host-only prefix, under `/reforged` it is one of the four public routes with an allowed method, `Upstream::Content` only for an unwrapped `/content` path, feeds only `POST` heartbeat and token |
+| `gateway_policy` | B, rewrite | Any method, target and headers give a decision without panicking. A target that is not origin-form is a 400. Whatever is proxied: the path passed `check_path`, its unwrapping starts with `/`, the canonical path starts with `/`, it carries no host-only header, it is under no host-only prefix, under `/reforged` it is one of the four public routes with an allowed method, `Upstream::Content` only for an unwrapped `/content` path, feeds only `POST` heartbeat and token; under a public realm prefix only `GET` or `POST` with one well-formed account key and no bearer |
 | `gateway_capture` | B, rewrite | Body, header, target and chat-frame redaction never panic; no account key and no whole token from the input survives in any output; the chat frame reader gives the same messages however the bytes are split |
 | `allowlist_input` | B, rewrite | The `/allow` body and `Content-Length`, the state file, and the settings that reach a script never panic; an accepted address is exactly one script element (the script has 3 table lines, 2 sets of 3 lines, 8 chain lines, plus one `elements` line per non-empty set), one Windows remote address each; an accepted port text, table or interface name is one token; a guard attach either succeeds with the text grown or leaves it unchanged |
 | `gateway_modules` | A, move | As it is |
 | `gateway_network` | A, move | As it is |
+
+**Since the rewrite (2026-11-13, `fix/gateway-realm-routes`):** `/launcher` is no longer wholly host-only.
+`/launcher/v1/realms`, `/launcher/v1/realm-hosting` and `/launcher/v1/p2p` (whole segments) cross for a launcher that
+sends exactly one well-formed `x-dainty-user-api-key` and no `Authorization`; the rest of `/launcher` stays host-only.
+The departure from Node is in `crates/dainty-gateway/tests/parity/NOTES.md`.
 
 ### 5.5 The test that read AGPL source
 
