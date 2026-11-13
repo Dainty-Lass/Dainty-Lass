@@ -2339,6 +2339,12 @@ void MainThread() {
         return;
     }
 
+    // The MIT runtime makes the console on the game thread when it owns CON-1 (spec-runtime-r17).
+    if (!MITSEAM_AGPL_RUNS("CON-1")) {   // [DaintyLass 0044]
+        MpLog("[MitSeam] CON-1 owned by rustic-isles-runtime.dll: the F2 console is left to it");
+        return;
+    }
+
     Sleep(3 * 1000);
 
     UEngine* Engine = UEngine::GetEngine();

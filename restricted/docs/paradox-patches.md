@@ -56,6 +56,7 @@ by Mystic (0006, 0009, 0019, 0032, 0034) are not listed: `21b9ff5` has them.
 | 0039 | An RPC on an unbound controller channel is dropped (`DISABLE_RPC_UNBOUND_CHANNEL_GUARD.flag` turns the guard off) | runtime |
 | 0040 | The runtime reads `DAINTY_BACKEND_URL`, `DAINTY_SERVER_MAX_FPS` and `DAINTY_SERVER_IDLE_FPS` (the 2026-11-06 rename from `REFORGED_`) | runtime |
 | 0041 | The seam to the MIT runtime: with `rustic-isles-runtime.dll` loaded first, every hook goes through its broker and each hook or feature block it owns is left to it; without it nothing changes (RT-4, the root's `docs/port/spec-runtime-r0.md` section 7) | runtime |
+| 0044 | The F2 console is left to the MIT runtime when it owns `CON-1`; without it nothing changes (the root's `docs/port/spec-runtime-r17.md` section 6) | runtime |
 | 0047 | With CL-1 (`FCommandLine::Get`) left to the MIT runtime, a server takes the engine's `MULTIHOME` for the player host's listen check and the watchdog's port probe from the line the MIT runtime serves (the root's `docs/port/spec-runtime-r4.md` section 8) | runtime |
 
 0035 (an A/B flag for the controller-channel guard, diagnostics only) was removed on 2026-10-26. 0013, 0014
