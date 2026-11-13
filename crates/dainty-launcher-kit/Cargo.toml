@@ -25,6 +25,8 @@ serde_json.workspace = true
 [dependencies]
 dainty-http.workspace = true
 dainty-protocol.workspace = true
+# Loads the runtime and the Host tools into the game, and the Proton helper's command line (platform/inject.rs)
+dainty-inject.workspace = true
 dainty-epic.workspace = true
 dainty-module-api = { path = "../dainty-module-api" }
 serde.workspace = true

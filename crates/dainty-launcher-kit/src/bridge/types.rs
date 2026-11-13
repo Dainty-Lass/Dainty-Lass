@@ -218,6 +218,8 @@ pub enum ErrorCode {
     RealmNotFound,
     /// The realm reported a failure; `detail` says why.
     RealmFailed,
+    /// The Proton inject helper (`dainty-inject.exe`) is missing from the launcher's resources.
+    InjectHelperMissing,
     /// Anything not covered above; the logs have the details.
     Unknown,
 }

@@ -196,3 +196,11 @@ fn calls_reach_the_system_version_dll() {
     assert_ne!(theirs, 0);
     assert_eq!(size(ours), theirs);
 }
+
+#[test]
+fn the_built_dll_carries_the_stand_down_marker() {
+    // The launcher accepts a loader beside an injected game only when it finds this (RD9, 2026-11-12)
+    let bytes = std::fs::read(built_dll()).unwrap();
+    let marker = b"dainty-loader-stands-down:DAINTY_RUNTIME_INJECTED=1";
+    assert!(bytes.windows(marker.len()).any(|w| w == marker));
+}

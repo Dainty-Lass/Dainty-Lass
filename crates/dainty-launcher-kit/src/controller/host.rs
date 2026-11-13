@@ -27,6 +27,7 @@ use crate::platform::hostkit::{
     update_failure,
 };
 use crate::platform::hostserver::{CommandOutput, EmbeddedServer, HostServer, HostTool, Probe};
+use crate::platform::inject::{self, InjectDll};
 use crate::platform::launch::{LaunchPlan, STRIPPED_PREFIXES};
 use crate::platform::loader_session::SessionKind;
 use crate::platform::log;
@@ -871,21 +872,44 @@ impl Controller {
         if !self.platform().running_clients().await.is_empty() {
             return self.refuse_code(ErrorCode::AlreadyRunning);
         }
-        let session = match self.begin_loader_session(SessionKind::Dump, &win64, &dll) {
-            Ok(session) => session,
-            Err(refused) => return ActionResult::Err(refused),
+        // Dumper-7 alone: the runtime is never loaded with it
+        let (session, dlls) = if inject::INJECTS {
+            let leftovers = self.loader_leftovers(&win64);
+            if !leftovers.is_empty() {
+                return ActionResult::Err(self.refuse(LauncherError::with_detail(
+                    ErrorCode::LoaderLeftovers,
+                    &leftovers.join(", "),
+                )));
+            }
+            match InjectDll::as_found(&dll) {
+                Ok(found) => {
+                    log::info(format!("host: loading Dumper-7, SHA-256 {}", found.sha256));
+                    (None, vec![found])
+                }
+                Err(failed) => {
+                    log::warn(format!("host: Dumper-7 not loaded: {failed}"));
+                    return self.refuse_with("dumper");
+                }
+            }
+        } else {
+            match self.begin_loader_session(SessionKind::Dump, &win64, &dll) {
+                Ok(session) => (Some(session), Vec::new()),
+                Err(refused) => return ActionResult::Err(refused),
+            }
         };
         if !self
             .begin_job(HostJobKind::Inject, Some("Dumper-7".to_owned()), None)
             .await
         {
-            self.end_loader_session(session).await;
+            if let Some(session) = session {
+                self.end_loader_session(session).await;
+            }
             return self.refuse_code(ErrorCode::Busy);
         }
         {
             let mut state = self.lock();
             state.host.dumping = true;
-            state.host.loader_session = Some(session);
+            state.host.loader_session = session;
         }
         // Dumper-7 reads the game as shipped, so no runtime setting reaches it
         let env = self
@@ -896,7 +920,7 @@ impl Controller {
                 !STRIPPED_PREFIXES.iter().any(|prefix| upper.starts_with(prefix))
             })
             .collect();
-        let plan = LaunchPlan::new(&win64, None, &args(&DUMPER_ARGS), env);
+        let plan = LaunchPlan::new(&win64, None, &args(&DUMPER_ARGS), env).with_inject(dlls);
         log::info(format!("host: starting {} for Dumper-7", plan.describe()));
         let me = self.clone();
         let outcome = match self.shared.game.start(&plan, move |event| me.on_game_event(event)) {

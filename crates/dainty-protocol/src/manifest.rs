@@ -15,8 +15,13 @@ pub const DEFAULT_CHANGELIST: u64 = 647_472;
 pub const RUNTIME_DLL: &str = "Rustic-Isles.dll";
 /// [`RUNTIME_DLL`]'s name before the Rustic Isles rename: a host that still publishes it is served for one release (DX4)
 pub const LEGACY_RUNTIME_DLL: &str = "MysticParadox.dll";
+/// The runtime loader, which Windows launchers no longer use: they inject [`RUNTIME_DLL`] (RD9, 2026-11-12).
+/// Optional in a manifest for one release; Linux launchers still install it until the inject helper ships.
+pub const LOADER_DLL: &str = "winmm.dll";
 /// Every file a runtime manifest may list.
-pub const RUNTIME_FILE_NAMES: [&str; 2] = [RUNTIME_DLL, "winmm.dll"];
+pub const RUNTIME_FILE_NAMES: [&str; 2] = [RUNTIME_DLL, LOADER_DLL];
+/// The files every runtime manifest must list.
+pub const REQUIRED_RUNTIME_FILES: [&str; 1] = [RUNTIME_DLL];
 /// Largest runtime file accepted, in bytes.
 pub const MAX_RUNTIME_FILE_BYTES: u64 = 64 * 1024 * 1024;
 

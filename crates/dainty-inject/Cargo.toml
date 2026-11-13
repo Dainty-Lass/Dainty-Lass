@@ -1,0 +1,36 @@
+# Copyright (c) 2026 Silent Spud
+# SPDX-License-Identifier: MIT
+
+[package]
+name = "dainty-inject"
+description = "Loads hash-checked DLLs into a game started suspended, and the dainty-inject.exe helper Proton runs (RD9)"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license = "MIT"
+repository.workspace = true
+publish.workspace = true
+
+[[bin]]
+name = "dainty-inject"
+path = "src/main.rs"
+
+[dependencies]
+sha2.workspace = true
+
+[target."cfg(windows)".dependencies]
+windows = { workspace = true, features = [
+    "Win32_Foundation",
+    "Win32_Security",
+    "Win32_System_Diagnostics_Debug",
+    "Win32_System_Diagnostics_ToolHelp",
+    "Win32_System_LibraryLoader",
+    "Win32_System_Memory",
+    "Win32_System_Threading",
+] }
+
+[dev-dependencies]
+tempfile.workspace = true
+
+[lints]
+workspace = true

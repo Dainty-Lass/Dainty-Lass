@@ -2,17 +2,31 @@
 // SPDX-License-Identifier: MIT
 
 //! The runtime loader's sessions (RD9), for PLAY and the Host tools alike: PLAY refuses while a leftover
-//! ini or a Host tools DLL sits beside the loader, so this is in every build, `host` feature or not.
+//! ini or a Host tools DLL sits beside the loader, so this is in every build, `host` feature or not. On Windows
+//! the launcher injects instead (`platform/inject.rs`), so there a `winmm.dll` it did not install is a leftover
+//! too: it would load the runtime a second time.
 
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 use super::Controller;
 use crate::bridge::types::{ErrorCode, LauncherError};
+use crate::net::runtime_files::{self, LOADER_DLL};
+use crate::platform::inject;
 use crate::platform::loader_session::{self, EXPORTER_DLL, LoaderSession, RECORD_FILE, SessionError, SessionKind};
 use crate::platform::log;
 
 impl Controller {
+    /// The runtime loader loads the runtime: under Proton unless the player picked the inject helper.
+    pub(crate) fn uses_loader(&self) -> bool {
+        !inject::INJECTS && !self.stored().inject_helper()
+    }
+
+    /// What the game folder holds for this way of loading the runtime.
+    pub(crate) fn runtime_files(&self) -> &'static [&'static str] {
+        runtime_files::player_runtime_files(self.uses_loader())
+    }
+
     /// Where the session record is kept.
     fn loader_record(&self) -> PathBuf {
         self.user_data().join(RECORD_FILE)
@@ -36,7 +50,19 @@ impl Controller {
     pub(crate) fn loader_leftovers(&self, win64: &Path) -> Vec<String> {
         let known = self.loader_known();
         let known: Vec<&str> = known.iter().map(String::as_str).collect();
-        loader_session::leftovers(win64, &self.loader_record(), &known)
+        let mut found = loader_session::leftovers(win64, &self.loader_record(), &known);
+        if !self.uses_loader() {
+            runtime_files::retire_loader(win64, self.runtime_files());
+            let loader = win64.join(LOADER_DLL);
+            if inject::loader_stands_down(&loader) {
+                // A host's servers use the same folder: their loader loads nothing in an injected game
+                log::info("winmm.dll beside the game stands down for an injected game");
+            } else if loader.symlink_metadata().is_ok() {
+                found.push(LOADER_DLL.to_owned());
+                found.sort_by_key(|name| name.to_lowercase());
+            }
+        }
+        found
     }
 
     /// Begins a loader session in `win64` for `dll`; the page's error when it cannot.

@@ -6,6 +6,9 @@ the Rustic Isles runtime from the same folder (the newest of `Rustic-Isles.dll`,
 `version.dll` function it exports forwards to the real one in the Windows system folder. The behaviour is specified
 in `docs/port/spec-runtime-loader.md`.
 
+On a game the launcher started with `DAINTY_RUNTIME_INJECTED=1`, it loads nothing. On Windows the launcher loads
+the runtime into the game itself, so a host whose servers use this loader can play from the same folder.
+
 ## Build
 
 ```powershell

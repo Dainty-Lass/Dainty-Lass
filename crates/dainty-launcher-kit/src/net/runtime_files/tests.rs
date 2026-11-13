@@ -154,7 +154,7 @@ fn set_id_and_trust_follow_the_electron_launcher() {
 }
 
 #[test]
-fn manifest_parses_only_the_two_runtime_files() {
+fn manifest_parses_the_runtime_and_an_optional_loader() {
     let sha_a = "a".repeat(64);
     let sha_b = "b".repeat(64);
 
@@ -171,13 +171,24 @@ fn manifest_parses_only_the_two_runtime_files() {
     assert_eq!(parsed.files[0].name, "Rustic-Isles.dll");
     assert_eq!(parsed.files[1].name, "winmm.dll");
 
-    let missing_file = json!({
+    // The loader is optional since Windows launchers inject the runtime (RD9, 2026-11-12); the runtime is not
+    let runtime_only = json!({
         "version": "1.0.0",
         "files": [
             { "name": "Rustic-Isles.dll", "size": 1024, "sha256": sha_a }
         ]
     });
-    assert!(parse_runtime_manifest(&missing_file).is_none());
+    assert_eq!(
+        parse_runtime_manifest(&runtime_only).expect("runtime only").files.len(),
+        1
+    );
+    let loader_only = json!({
+        "version": "1.0.0",
+        "files": [
+            { "name": "winmm.dll", "size": 512, "sha256": sha_b }
+        ]
+    });
+    assert!(parse_runtime_manifest(&loader_only).is_none());
 
     let unknown_file = json!({
         "version": "1.0.0",
@@ -265,40 +276,43 @@ async fn check_runtime_states() {
     );
 
     assert_eq!(
-        check_runtime(&win64, None, false, None).await,
+        check_runtime(&win64, None, false, None, PLAYER_RUNTIME_FILES).await,
         (RuntimeState::Unavailable, false)
     );
     assert_eq!(
-        check_runtime(&win64, Some(&manifest), false, None).await,
+        check_runtime(&win64, Some(&manifest), false, None, PLAYER_RUNTIME_FILES).await,
         (RuntimeState::Untrusted, false)
     );
     assert_eq!(
-        check_runtime(&win64, Some(&manifest), true, None).await,
+        check_runtime(&win64, Some(&manifest), true, None, PLAYER_RUNTIME_FILES).await,
         (RuntimeState::Missing, false)
     );
 
     std::fs::write(win64.join("Rustic-Isles.dll"), b"old mp").unwrap();
     assert_eq!(
-        check_runtime(&win64, Some(&manifest), true, None).await,
+        check_runtime(&win64, Some(&manifest), true, None, PLAYER_RUNTIME_FILES).await,
         (RuntimeState::Outdated, false)
     );
 
     std::fs::write(win64.join("Rustic-Isles.dll"), mp_bytes).unwrap();
     std::fs::write(win64.join("winmm.dll"), wm_bytes).unwrap();
     assert_eq!(
-        check_runtime(&win64, Some(&manifest), true, None).await,
+        check_runtime(&win64, Some(&manifest), true, None, PLAYER_RUNTIME_FILES).await,
         (RuntimeState::Ok, true)
     );
-    assert_eq!(check_runtime(&win64, None, false, None).await, (RuntimeState::Ok, true));
+    assert_eq!(
+        check_runtime(&win64, None, false, None, PLAYER_RUNTIME_FILES).await,
+        (RuntimeState::Ok, true)
+    );
 
     assert_eq!(
-        check_runtime(&win64, Some(&manifest), true, Some(&local)).await,
+        check_runtime(&win64, Some(&manifest), true, Some(&local), PLAYER_RUNTIME_FILES).await,
         (RuntimeState::Local, false)
     );
     std::fs::write(local.join("Rustic-Isles.dll"), mp_bytes).unwrap();
     std::fs::write(local.join("winmm.dll"), wm_bytes).unwrap();
     assert_eq!(
-        check_runtime(&win64, Some(&manifest), true, Some(&local)).await,
+        check_runtime(&win64, Some(&manifest), true, Some(&local), PLAYER_RUNTIME_FILES).await,
         (RuntimeState::Local, true)
     );
 }
@@ -423,6 +437,7 @@ async fn install_runtime_downloads_checks_replaces_and_writes_the_marker() {
     std::fs::write(&old_aside, b"old").unwrap();
 
     let res = install_runtime(InstallRequest {
+        files: PLAYER_RUNTIME_FILES,
         endpoint: &endpoint,
         headers: vec![("authorization", "Bearer test-key".to_owned())],
         manifest: &manifest,
@@ -476,10 +491,11 @@ async fn install_runtime_takes_a_runtime_a_host_lists_under_its_name_from_before
     std::fs::write(win64.join("MysticParadox.dll"), b"an older runtime").unwrap();
 
     assert_eq!(
-        check_runtime(&win64, Some(&manifest), true, None).await,
+        check_runtime(&win64, Some(&manifest), true, None, PLAYER_RUNTIME_FILES).await,
         (RuntimeState::Outdated, false)
     );
     install_runtime(InstallRequest {
+        files: PLAYER_RUNTIME_FILES,
         endpoint: &endpoint,
         headers: Vec::new(),
         manifest: &manifest,
@@ -494,14 +510,14 @@ async fn install_runtime_takes_a_runtime_a_host_lists_under_its_name_from_before
     assert_eq!(std::fs::read(win64.join("Rustic-Isles.dll")).unwrap(), dll);
     assert!(!win64.join("MysticParadox.dll").exists());
     assert_eq!(
-        check_runtime(&win64, Some(&manifest), true, None).await,
+        check_runtime(&win64, Some(&manifest), true, None, PLAYER_RUNTIME_FILES).await,
         (RuntimeState::Ok, true)
     );
 
     // A game folder an older launcher filled is current without a download
     std::fs::rename(win64.join("Rustic-Isles.dll"), win64.join("MysticParadox.dll")).unwrap();
     assert_eq!(
-        check_runtime(&win64, Some(&manifest), true, None).await,
+        check_runtime(&win64, Some(&manifest), true, None, PLAYER_RUNTIME_FILES).await,
         (RuntimeState::Ok, true)
     );
 
@@ -569,6 +585,7 @@ async fn install_runtime_refuses_a_wrong_hash_a_401_and_a_wrong_pin() {
 
     // 1. 401 Unauthorized -> KeyRejected
     let err_401 = install_runtime(InstallRequest {
+        files: PLAYER_RUNTIME_FILES,
         endpoint: &endpoint,
         headers: vec![("authorization", "Bearer wrong-key".to_owned())],
         manifest: &manifest,
@@ -583,6 +600,7 @@ async fn install_runtime_refuses_a_wrong_hash_a_401_and_a_wrong_pin() {
 
     // 2. Wrong hash -> Different
     let err_hash = install_runtime(InstallRequest {
+        files: PLAYER_RUNTIME_FILES,
         endpoint: &endpoint,
         headers: vec![("authorization", "Bearer valid-key".to_owned())],
         manifest: &manifest,
@@ -602,6 +620,7 @@ async fn install_runtime_refuses_a_wrong_hash_a_401_and_a_wrong_pin() {
         pin: Some("f".repeat(64)),
     };
     let err_pin = install_runtime(InstallRequest {
+        files: PLAYER_RUNTIME_FILES,
         endpoint: &wrong_pin_endpoint,
         headers: vec![("authorization", "Bearer valid-key".to_owned())],
         manifest: &manifest,

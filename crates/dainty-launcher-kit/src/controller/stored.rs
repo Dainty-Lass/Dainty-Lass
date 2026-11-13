@@ -232,6 +232,12 @@ impl Stored {
         self.flag("showGameConsole")
     }
 
+    /// Under Proton, the `dainty-inject.exe` helper loads the runtime rather than the runtime loader.
+    #[must_use]
+    pub fn inject_helper(&self) -> bool {
+        self.flag("injectHelper")
+    }
+
     /// The account name on server `id`.
     #[must_use]
     pub fn username(&self, id: &str) -> Option<&str> {

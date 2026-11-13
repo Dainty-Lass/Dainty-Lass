@@ -1094,6 +1094,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "dainty-inject"
+version = "0.0.0"
+dependencies = [
+ "sha2 0.11.1",
+ "windows",
+]
+
+[[package]]
 name = "dainty-lass-fuzz"
 version = "0.0.0"
 dependencies = [
@@ -1109,6 +1117,7 @@ dependencies = [
  "dainty-epic",
  "dainty-gateway",
  "dainty-history-ship",
+ "dainty-inject",
  "dainty-launcher-kit",
  "dainty-legacy",
  "dainty-module-api",
@@ -1163,6 +1172,7 @@ dependencies = [
  "chrono",
  "dainty-epic",
  "dainty-http",
+ "dainty-inject",
  "dainty-module-api",
  "dainty-protocol",
  "dainty-proxy",

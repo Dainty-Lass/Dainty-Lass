@@ -5,6 +5,7 @@
 //! the game itself. The key reaches the game only as its launch argument and the server only through the relay.
 
 use std::collections::BTreeMap;
+use std::ffi::OsString;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
@@ -15,13 +16,17 @@ use super::stored::{StoredServer, mode_name};
 use super::{Controller, game_language_code};
 use crate::bridge::types::{ActionResult, ErrorCode, LauncherError, RuntimeState};
 use crate::core::game_language;
+use crate::core::pins::EXE_NAME;
 use crate::net::hostapi::{self, UserInfo};
 use crate::net::relay::{LogSink, PinSink, Relay, RelayConfig, RelayError};
 use crate::net::relay_owner::game_owner_check;
-use crate::net::runtime_files::{RuntimeErrorCode, install_local_runtime};
+use crate::net::runtime_files::{
+    LEGACY_RUNTIME_DLL, RUNTIME_DLL, RuntimeErrorCode, install_local_runtime, runtime_file_slot,
+};
 use crate::net::verify::Abort;
 use crate::platform::game_config::{ConfigRequest, write_game_config};
 use crate::platform::game_folder;
+use crate::platform::inject::{self, InjectDll};
 use crate::platform::launch::{
     CONSOLE_CLOSED_EXIT, GameEvent, LaunchArgs, LaunchPlan, exit_code_hex, launch_args, launch_env,
 };
@@ -90,13 +95,15 @@ impl Controller {
         }
 
         if let Some(local) = self.stored().local_runtime_dir().map(PathBuf::from) {
-            install_local_runtime(&local, &win64).await.map_err(|failed| {
-                error(if failed.code == RuntimeErrorCode::InUse {
-                    ErrorCode::RuntimeInUse
-                } else {
-                    ErrorCode::LocalRuntimeInvalid
-                })
-            })?;
+            install_local_runtime(&local, &win64, self.runtime_files())
+                .await
+                .map_err(|failed| {
+                    error(if failed.code == RuntimeErrorCode::InUse {
+                        ErrorCode::RuntimeInUse
+                    } else {
+                        ErrorCode::LocalRuntimeInvalid
+                    })
+                })?;
         }
 
         self.look_at_runtime().await;
@@ -112,7 +119,18 @@ impl Controller {
             }));
         }
 
-        if let Some(dll) = exporter {
+        let mut dlls = Vec::new();
+        if !self.uses_loader() {
+            dlls.push(self.runtime_dll(&win64)?);
+            if let Some(dll) = exporter {
+                let found = InjectDll::as_found(dll).map_err(|failed| {
+                    log::warn(format!("host: CatalogExporter not loaded: {failed}"));
+                    LauncherError::with_detail(ErrorCode::HostFailed, "exporter")
+                })?;
+                log::info(format!("host: loading CatalogExporter, SHA-256 {}", found.sha256));
+                dlls.push(found);
+            }
+        } else if let Some(dll) = exporter {
             let session = self.begin_loader_session(SessionKind::Export, &win64, dll)?;
             self.lock().host.loader_session = Some(session);
         }
@@ -121,7 +139,7 @@ impl Controller {
             self.end_current_loader_session().await;
             return Err(failed);
         }
-        if let Err(failed) = self.launch(server, &win64, &key, &user).await {
+        if let Err(failed) = self.launch(server, &win64, &key, &user, dlls).await {
             let relay = self.lock().relay.take();
             if let Some(relay) = relay {
                 relay.stop().await;
@@ -130,6 +148,33 @@ impl Controller {
             return Err(failed);
         }
         Ok(())
+    }
+
+    /// The runtime to load into the game: the installed file, with the hash of the offered set the runtime
+    /// check just matched, or as found when a local runtime or no offer is in use.
+    fn runtime_dll(&self, win64: &Path) -> Result<InjectDll, LauncherError> {
+        let path = [RUNTIME_DLL, LEGACY_RUNTIME_DLL]
+            .iter()
+            .map(|name| win64.join(name))
+            .find(|path| path.is_file())
+            .ok_or_else(|| error(ErrorCode::RuntimeFailed))?;
+        let offered = {
+            let state = self.lock();
+            let local = state.stored.local_runtime_dir().is_some();
+            state.manifest.as_ref().filter(|_| !local).and_then(|m| {
+                m.files
+                    .iter()
+                    .find(|f| runtime_file_slot(&f.name) == Some(RUNTIME_DLL))
+                    .map(|f| f.sha256.clone())
+            })
+        };
+        match offered {
+            Some(sha256) => Ok(InjectDll { path, sha256 }),
+            None => InjectDll::as_found(&path).map_err(|failed| {
+                log::warn(format!("the runtime cannot be loaded: {failed}"));
+                error(ErrorCode::RuntimeFailed)
+            }),
+        }
     }
 
     /// The game folder's Win64 folder, once its executable is the pinned one.
@@ -217,6 +262,7 @@ impl Controller {
         win64: &Path,
         key: &str,
         user: &UserInfo,
+        dlls: Vec<InjectDll>,
     ) -> Result<(), LauncherError> {
         let prepared = self
             .platform()
@@ -275,7 +321,35 @@ impl Controller {
             stored.runtime_profile(),
         )
         .map_err(|failed| launch_failed(&failed))?;
-        let plan = LaunchPlan::new(win64, runner.as_ref(), &args, env);
+        for dll in &dlls {
+            log::info(format!(
+                "loading {} into the game, SHA-256 {}",
+                dll.path.display(),
+                dll.sha256
+            ));
+        }
+        let plan = match runner.as_ref() {
+            // Proton with the inject helper: Wine runs the helper, which starts the game and loads the DLLs
+            Some(runner) if !dlls.is_empty() => {
+                let helper = self.config().resources.join(inject::HELPER_EXE);
+                if !helper.is_file() {
+                    log::warn(format!("the inject helper is missing: {}", helper.display()));
+                    return Err(error(ErrorCode::InjectHelperMissing));
+                }
+                let game_args: Vec<OsString> = args.iter().map(OsString::from).collect();
+                let line = inject::helper_line(&win64.join(EXE_NAME), &dlls, &game_args)
+                    .map_err(|failed| launch_failed(&failed))?;
+                LaunchPlan::through_helper(win64, runner, &helper, line, env)
+            }
+            _ => {
+                let plan = LaunchPlan::new(win64, runner.as_ref(), &args, env);
+                if runner.is_none() {
+                    plan.with_inject(dlls.clone())
+                } else {
+                    plan
+                }
+            }
+        };
         log::info(format!(
             "starting {} for {}:{} ({})",
             plan.describe(),

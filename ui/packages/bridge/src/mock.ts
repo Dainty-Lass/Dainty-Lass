@@ -48,6 +48,7 @@ function initialSnapshot(): Snapshot {
       minimizeToTray: false,
       closeToTray: false,
       showGameConsole: false,
+      injectHelper: false,
     },
     app: {
       version: "2.0.0-dev",

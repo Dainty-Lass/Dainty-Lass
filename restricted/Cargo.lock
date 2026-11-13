@@ -1588,6 +1588,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "dainty-inject"
+version = "0.0.0"
+dependencies = [
+ "sha2 0.11.1",
+ "windows 0.62.2",
+]
+
+[[package]]
 name = "dainty-launcher"
 version = "2.0.0-beta"
 dependencies = [
@@ -1668,6 +1676,7 @@ dependencies = [
  "dainty-epic",
  "dainty-hostkit",
  "dainty-http",
+ "dainty-inject",
  "dainty-module-api",
  "dainty-protocol",
  "dainty-proxy",

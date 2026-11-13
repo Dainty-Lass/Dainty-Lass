@@ -161,6 +161,7 @@ pub const SETTINGS_KEYS: &[&str] = &[
     "minimizeToTray",
     "closeToTray",
     "showGameConsole",
+    "injectHelper",
 ];
 
 /// [`super::types::InstallMode`]'s names.

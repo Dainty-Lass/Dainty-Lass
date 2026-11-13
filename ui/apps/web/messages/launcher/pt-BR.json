@@ -372,7 +372,7 @@
     "actions": {
       "inject_dumper": {
         "label": "Iniciar o jogo com o Dumper-7",
-        "hint": "Carrega o Dumper-7 pelo carregador do runtime. O dump aparece quando o jogo chega ao menu.",
+        "hint": "Carrega o Dumper-7 no jogo quando ele abre, sem o runtime. O dump aparece quando o jogo chega ao menu.",
         "button": "Iniciar"
       },
       "import_sdk": {
@@ -402,7 +402,7 @@
       },
       "inject_exporter": {
         "label": "Iniciar o jogo com o CatalogExporter",
-        "hint": "Carrega o CatalogExporter pelo carregador do runtime. Ele grava a exportação enquanto o jogo roda.",
+        "hint": "Carrega o runtime e depois o CatalogExporter no jogo quando ele abre. Ele grava a exportação enquanto o jogo roda.",
         "button": "Iniciar"
       },
       "copy_exports": {
@@ -450,5 +450,9 @@
       "dumper7": "Dumper-7",
       "vc_redist": "Runtime do Visual C++"
     }
+  },
+  "proton": {
+    "injectHelper": "Carregar o runtime com o auxiliar de injeção",
+    "injectHelperHint": "Só no Proton. Ligado, um pequeno auxiliar carrega o runtime no jogo, como o launcher do Windows faz. Desligado, o carregador do runtime (winmm.dll) ao lado do jogo o carrega. O launcher instala o que cada um precisa antes da próxima vez que o jogo abrir."
   }
 }

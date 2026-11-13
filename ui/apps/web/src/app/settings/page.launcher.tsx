@@ -45,6 +45,7 @@ export default function SettingsPage() {
   const t = useTranslations("launcher.settings");
   const ta = useTranslations("appearance");
   const tt = useTranslations("tray");
+  const tp = useTranslations("launcher.proton");
   const { snapshot, api } = useBridge();
   if (!snapshot || !api) return null;
   const s = snapshot.settings;
@@ -70,6 +71,14 @@ export default function SettingsPage() {
             value={s.showGameConsole}
             onChange={(v) => set({ showGameConsole: v })}
           />
+          {snapshot.app.platform === "linux" && (
+            <Switch
+              label={tp("injectHelper")}
+              description={tp("injectHelperHint")}
+              value={s.injectHelper}
+              onChange={(v) => set({ injectHelper: v })}
+            />
+          )}
           <Selector
             label={t("gameLanguage")}
             value={s.gameLanguage}

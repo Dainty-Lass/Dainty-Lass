@@ -372,7 +372,7 @@
     "actions": {
       "inject_dumper": {
         "label": "Start the game with Dumper-7",
-        "hint": "Loads Dumper-7 through the runtime loader. The dump appears once the game reaches the menu.",
+        "hint": "Loads Dumper-7 into the game as it starts, without the runtime. The dump appears once the game reaches the menu.",
         "button": "Start"
       },
       "import_sdk": {
@@ -402,7 +402,7 @@
       },
       "inject_exporter": {
         "label": "Start the game with CatalogExporter",
-        "hint": "Loads the CatalogExporter through the runtime loader. It writes the export while the game runs.",
+        "hint": "Loads the runtime, then the CatalogExporter, into the game as it starts. It writes the export while the game runs.",
         "button": "Start"
       },
       "copy_exports": {
@@ -450,5 +450,9 @@
       "dumper7": "Dumper-7",
       "vc_redist": "Visual C++ runtime"
     }
+  },
+  "proton": {
+    "injectHelper": "Load the runtime with the inject helper",
+    "injectHelperHint": "Proton only. On, a small helper loads the runtime into the game, as the Windows launcher does. Off, the runtime loader (winmm.dll) beside the game loads it. The launcher installs what each one needs before the next launch."
   }
 }

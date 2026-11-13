@@ -34,6 +34,8 @@ dainty-epic = { path = "../crates/dainty-epic" }
 flate2 = "1"
 # gateway_policy, gateway_capture, allowlist_input, gateway_modules, gateway_network: the policy, the capture's redaction, the helper's input, the module routes, the region routes (RD27)
 dainty-gateway = { path = "../crates/dainty-gateway" }
+# inject_helper_args: the Proton inject helper's command line (RD9, 2026-11-12)
+dainty-inject = { path = "../crates/dainty-inject" }
 # history_bucket: what a restore reads back from the history bucket (DH4)
 dainty-history-ship = { path = "../crates/dainty-history-ship" }
 # module_frame: the module framework's frame protocol (DF2); gateway_modules: the stub as a module (DF4a)
@@ -711,6 +713,13 @@ bench = false
 [[bin]]
 name = "catalog_exporter_input"
 path = "fuzz_targets/catalog_exporter_input.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "inject_helper_args"
+path = "fuzz_targets/inject_helper_args.rs"
 test = false
 doc = false
 bench = false

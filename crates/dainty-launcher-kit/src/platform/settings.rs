@@ -42,7 +42,7 @@ pub const DUMPER_DLL_LIMIT: usize = 260;
 /// The runtime profiles, the default first.
 pub const RUNTIME_PROFILES: [&str; 2] = ["production", "development"];
 /// The flags written only while `true`, after `dumperDll` and in this order, so older files keep their bytes.
-pub const OPTIONAL_FLAGS: [&str; 3] = ["minimizeToTray", "closeToTray", "showGameConsole"];
+pub const OPTIONAL_FLAGS: [&str; 4] = ["minimizeToTray", "closeToTray", "showGameConsole", "injectHelper"];
 
 /// Which folder-path rule applies.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

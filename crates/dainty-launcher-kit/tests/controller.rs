@@ -33,7 +33,9 @@ use dainty_launcher_kit::controller::{
 };
 use dainty_launcher_kit::core::i18n::Language;
 use dainty_launcher_kit::core::pins::sha256_hex;
+use dainty_launcher_kit::net::runtime_files::PLAYER_RUNTIME_FILES;
 use dainty_launcher_kit::platform::game_folder::StoreFolders;
+use dainty_launcher_kit::platform::inject;
 use dainty_launcher_kit::platform::keystore::os::{Encryptor, SealError, open_rr1, seal_rr1};
 use dainty_launcher_kit::platform::launch::{GameChild, LaunchPlan, MissingFiles, Spawner};
 use dainty_launcher_kit::platform::log;
@@ -585,9 +587,11 @@ async fn private_flow_from_invite_to_the_games_exit() {
     assert_eq!(snapshot.runtime.state, RuntimeState::Ok);
     assert_eq!(snapshot.notice, Some(NoticeCode::RuntimeInstalled));
     assert_eq!(snapshot.phase, Phase::Ready);
-    for name in RUNTIME_FILE_NAMES {
+    for name in PLAYER_RUNTIME_FILES {
         assert!(pc.win64.join(name).is_file(), "{name} installed");
     }
+    // Windows injects the runtime, so the feed's loader is never installed there (RD9, 2026-11-12)
+    assert_eq!(pc.win64.join("winmm.dll").is_file(), !inject::INJECTS);
     let downloads = server
         .seen
         .lock()
@@ -595,7 +599,7 @@ async fn private_flow_from_invite_to_the_games_exit() {
         .iter()
         .filter(|s| s.path.starts_with("/content/v1/runtime/files/"))
         .count();
-    assert_eq!(downloads, RUNTIME_FILE_NAMES.len());
+    assert_eq!(downloads, PLAYER_RUNTIME_FILES.len());
 
     // PLAY: the relay, Engine.ini, the arguments and the environment.
     ok(&controller.play().await);
@@ -620,6 +624,12 @@ async fn private_flow_from_invite_to_the_games_exit() {
     assert!(args.contains(&"-epicusername=Player_1".to_owned()));
     assert!(args.contains(&"-epiclocale=en-US".to_owned()));
     assert_eq!(plan.working_dir, pc.win64);
+    let injected: Vec<PathBuf> = plan.inject.iter().map(|dll| dll.path.clone()).collect();
+    if inject::INJECTS {
+        assert_eq!(injected, [pc.win64.join("Rustic-Isles.dll")]);
+    } else {
+        assert!(injected.is_empty());
+    }
     assert_eq!(
         plan.env.get("DAINTY_BACKEND_URL").map(String::as_str),
         Some(format!("http://127.0.0.1:{}", pc.relay_port).as_str())
@@ -752,8 +762,18 @@ async fn public_flow_through_a_tls_gateway() {
 
     // A runtime already in place and none offered: PLAY may go, once nothing is left beside the loader (RD9).
     ok(&controller.use_game_path(&pc.root.to_string_lossy()).await);
-    for name in RUNTIME_FILE_NAMES {
+    for name in PLAYER_RUNTIME_FILES {
         std::fs::write(pc.win64.join(name), name.as_bytes()).unwrap();
+    }
+    if inject::INJECTS {
+        // A loader the launcher did not install would load the runtime twice
+        std::fs::write(pc.win64.join("winmm.dll"), b"someone's").unwrap();
+        assert_eq!(refused(&controller.play().await), ErrorCode::LoaderLeftovers);
+        assert!(pc.win64.join("winmm.dll").is_file(), "not the launcher's to delete");
+        // A host's servers share the folder: their loader stands down for an injected game, so it stays
+        let mut loader = b"MZ loader ".to_vec();
+        loader.extend_from_slice(inject::STANDS_DOWN_MARKER);
+        std::fs::write(pc.win64.join("winmm.dll"), loader).unwrap();
     }
     std::fs::write(pc.win64.join("mystic_loader.ini"), "Dumper-7.dll\n").unwrap();
     assert_eq!(refused(&controller.play().await), ErrorCode::LoaderLeftovers);
@@ -761,6 +781,11 @@ async fn public_flow_through_a_tls_gateway() {
 
     // Over TLS through the relay, pinned to the invite's certificate.
     ok(&controller.play().await);
+    if inject::INJECTS {
+        let plan = spawner.plans.lock().unwrap().last().cloned().unwrap();
+        assert_eq!(plan.env.get(inject::INJECTED_VAR).map(String::as_str), Some("1"));
+        assert!(pc.win64.join("winmm.dll").is_file(), "the servers' loader stays");
+    }
     let reply = relay_get(pc.relay_port, "/game/hello").await;
     assert!(reply.starts_with("HTTP/1.1 200"), "{reply}");
     let forwarded = server.saw("/game/hello");

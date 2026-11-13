@@ -139,6 +139,7 @@ export const api: LauncherApi = {
         ...(patch.minimizeToTray !== undefined ? { minimizeToTray: patch.minimizeToTray } : {}),
         ...(patch.closeToTray !== undefined ? { closeToTray: patch.closeToTray } : {}),
         ...(patch.showGameConsole !== undefined ? { showGameConsole: patch.showGameConsole } : {}),
+        ...(patch.injectHelper !== undefined ? { injectHelper: patch.injectHelper } : {}),
       },
     }),
   setStatusPolling: (on) => tell("set_status_polling", { on: on === true }),
