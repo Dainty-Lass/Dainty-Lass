@@ -4,7 +4,7 @@
 
 /// The slices whose ids this build owns.
 pub const LANDED: &[&str] = &[
-    "R0", "R1", "R2", "R3", "R4", "R5", "R9", "R7", "R6", "R10", "R11", "R15", "R8", "R16", "R12",
+    "R0", "R1", "R2", "R3", "R4", "R5", "R9", "R7", "R6", "R10", "R11", "R15", "R8", "R16", "R12", "R17",
 ];
 
 /// The longest id `owns` accepts, in bytes.
@@ -176,6 +176,8 @@ pub const ENTRIES: &[Entry] = &[
     e("SP-3@R20", Feature, "R20"),
     e("HTTP-1@R2", Feature, "R2"),
     e("HTTP-1@R10", Feature, "R10"),
+    // R17: the client console (MainThread on the AGPL side, patch 0044)
+    e("CON-1", Setting, "R17"),
 ];
 
 /// The line for `id`.
@@ -251,7 +253,12 @@ mod tests {
             assert_eq!(lines.len(), 1, "{id}");
             assert_eq!(lines[0].slice, *slice, "{id}");
         }
-        let hooks = ENTRIES.iter().filter(|entry| entry.kind != Kind::Feature).count();
+        // Ids a slice spec added beyond surface section 3
+        let added = ["CON-1"];
+        let hooks = ENTRIES
+            .iter()
+            .filter(|entry| entry.kind != Kind::Feature && !added.contains(&entry.id))
+            .count();
         assert_eq!(hooks, expected.len(), "no id outside surface section 3");
     }
 
@@ -431,6 +438,17 @@ mod tests {
         );
         assert_eq!(owns(b"RG-2"), LANDED.contains(&"R13"));
         assert_eq!(owns(b"RG-3"), LANDED.contains(&"R14"));
+    }
+
+    #[test]
+    fn owns_for_r17() {
+        assert!(LANDED.contains(&"R17"));
+        assert_eq!(entry("CON-1"), Some(&e("CON-1", Kind::Setting, "R17")));
+        assert!(owns(b"SP-1@R17"));
+        assert!(owns(b"CON-1"));
+        assert!(!owns(b"SP-1@R16") || LANDED.contains(&"R16"));
+        let landed = ENTRIES.iter().filter(|entry| LANDED.contains(&entry.slice)).count();
+        assert_eq!(owned_count(), landed);
     }
 
     #[test]

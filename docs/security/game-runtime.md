@@ -94,8 +94,10 @@ Fuzz targets in `fuzz`:
 - [ ] The ownership registry lists every surface id once with its slice; `owns` answers yes exactly for the ids of
       the slices in `LANDED` (`R0`, `R1`, `R2`, `R3`, `R4`: SP-1..3, HTTP-1, HTTP-1@R2, EXIT-1..14 and CL-1, 2, 5, 7,
       8, 9; `R7`: LD-1..9, `SP-2@R7`, `SP-3@R7`; `R15`: `SP-1@R15`, `SP-2@R15`; `R8`: `SP-2@R8`, `SP-3@R8`;
-      `HTTP-1@R10` and `SP-2@R20` stay the AGPL's) (`core::registry` tests). R4's seven logging-only probes (CL-3,
-      CL-4, CL-6, CL-10..13) are slice `R19`, never owned.
+      `R17`: `SP-1@R17`, `CON-1`; `HTTP-1@R10` and `SP-2@R20` stay the AGPL's) (`core::registry` tests). R4's seven
+      logging-only probes (CL-3, CL-4, CL-6, CL-10..13) are slice `R19`, never owned.
+- [ ] R17 adds `CON-1` (the client console) and owns it with `SP-1@R17`; the AGPL's console stands down only through
+      `rir_owns("CON-1")` (runtime patch 0044).
 
 ### Game data writes and calls (R15)
 
@@ -112,6 +114,23 @@ Fuzz targets in `fuzz`:
 - [ ] The object-array scans read through `ScanMemory`, which reuses a `VirtualQuery` region for one scan only.
 - [ ] The two settings (`DAINTY_KEEP_SUPPLY_STACK_CAPS`, `DAINTY_CELL_FUSION_MINUTES`) are read with `env_value(name,
       15)`; a refused value is echoed in its note, which is safe because neither is a secret.
+
+### Calling the game and writing its data (R17)
+
+- [ ] Game functions are called only through `ffi::reflect::call`, on a live object, with a function found in its
+      class chain, from inside an SP-1 handler on the game thread, never after detach.
+- [ ] Every call's parameter block is zeroed, 8-byte aligned and at least the dump's struct size; a function whose
+      `ParmsSize` is unreadable or larger is not called and is logged once, so a wrong layout skips a feature rather
+      than overwriting the stack (`core::reflect::params_fit`).
+- [ ] R17 writes game data only through `ffi::reflect::write`: readable by R0's rule and in a `PAGE_READWRITE`,
+      `PAGE_WRITECOPY` or execute-variant region (`is_writable_protect`). R17 writes a credits flag byte, the credits
+      panel's slot order (checked writable for the whole array first), the console key's name and the viewport's
+      console pointer, nothing else.
+- [ ] Object scans and class walks are bounded (`MAX_OBJECTS`, 64 supers, 8 192 fields per class); `FString`s read
+      back from the game stop at 32 units.
+- [ ] Handlers that call into the game hold no lock across the call (`try_lock` where they come back through
+      themselves), so a nested dispatch never deadlocks.
+- [ ] `AUTO_PRESS_START.flag` is a test aid for scripted runs; it is never shipped to players.
 
 ### Detach and the loader lock
 
