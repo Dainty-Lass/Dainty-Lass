@@ -79,13 +79,20 @@ fn generate(paths: &Paths, kind: GeneratorKind) -> Result<String, String> {
         .data
         .generator_inputs()
         .ok_or_else(|| format!("{} has no rewardCachePlan or storageTokenSeeds", loaded.path.display()))?;
+    // What the host's export changed in or found wrong with the version data (V-4) leads the report
+    let notes: Vec<String> = loaded.notes.iter().map(|n| format!("version data: {n}")).collect();
     let generator_paths = GeneratorPaths {
         raw_game_data: paths.raw_game_data.clone(),
         backend_game_data: paths.backend_game_data.clone(),
         exports: paths.exports.clone(),
         store_captures: paths.store_captures.clone(),
     };
-    generators::run(step, &generator_paths, &inputs)
+    let output = generators::run(step, &generator_paths, &inputs)?;
+    Ok(notes
+        .into_iter()
+        .chain(std::iter::once(output))
+        .collect::<Vec<_>>()
+        .join("\n"))
 }
 
 #[cfg(feature = "isles-1-14-7")]

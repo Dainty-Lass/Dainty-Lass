@@ -2,7 +2,8 @@
 //! starter's banner defaults, the Reward Cache plan (`reward_cache.rs`) and `src_tokens.txt`, in the MIT document's
 //! shape (spec-rustic-isles-1-14-7 §4.3), all from the retired isles-core and isles-db (RD27). The values isles-core
 //! kept inline in its normalise and bootstrap code (the series fill, the trigger node, the banner customization) are
-//! written out here. `tests/version_data.rs` keeps the copy the host ships equal to it.
+//! written out here. Since port plan item 9 the host ships only the design part of it ([`design`], rulings V-2) beside
+//! dainty-lass's MIT facts; `tests/version_data.rs` keeps that copy current and shows the two make this document.
 #![allow(clippy::unwrap_used, clippy::expect_used, dead_code)] // test helpers
 
 use serde_json::{Value, json};
@@ -87,6 +88,29 @@ pub fn document() -> Value {
     })
 }
 
+/// The design members only (V-2): the default appearance (and the fill entry that carries it as text), the starter
+/// wallet, the legacy starter and the Reward Cache plan.
+pub fn design() -> Value {
+    let whole = document();
+    json!({
+        "format": 1,
+        "gameVersion": "1.14.7",
+        "characterData": {
+            "fill": [["AppearanceData", default_appearance().to_string()]],
+            "defaultAppearance": default_appearance()
+        },
+        "starterKit": { "wallet": whole["starterKit"]["wallet"] },
+        "legacyStarter": whole["legacyStarter"],
+        "rewardCachePlan": whole["rewardCachePlan"]
+    })
+}
+
+/// dainty-lass's MIT facts (V-1, V-3), as the release ships them beside [`design`].
+pub fn facts() -> Value {
+    serde_json::from_str(rustic_isles_1_14_7::FACTS_DOCUMENT).unwrap()
+}
+
+/// The version data a host loads: the MIT facts merged with [`design`].
 pub fn restricted() -> rustic_isles_1_14_7::VersionData {
-    rustic_isles_1_14_7::VersionData::from_json(&document()).unwrap()
+    rustic_isles_1_14_7::VersionData::from_parts(Some(&facts()), &design()).unwrap()
 }

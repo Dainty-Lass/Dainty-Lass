@@ -19,7 +19,7 @@ The same names on restricted's `host`, `server-console`, `server-minimal` and, f
 
 | Feature | Links | State |
 | --- | --- | --- |
-| `isles-1-14-7` | `rustic-isles-1-14-7` with the version data `host.toml`'s `version_data` names, read at start (default `data/1.14.7/version_data.json`; restricted holds it in `modules/rustic-isles/version-data/1.14.7`) | linked |
+| `isles-1-14-7` | `rustic-isles-1-14-7` with the version data `host.toml`'s `version_data` (design) and `version_facts` name, read at start (defaults `data/1.14.7/version_data.json` and `version_facts.json`; restricted holds the design in `modules/rustic-isles/version-data/1.14.7`, the root the facts in `crates/rustic-isles-1-14-7/data`) | linked |
 | `realms` | the Rustic Rifts crates (`crates/rustic-rifts-*`) inside `rustic-isles-1-14-7` (RF2); on its own it does nothing | linked |
 | `stub-module` | `module_api::stub::StubModule` (id `stub`, game version 0.0.1) | for tests and trying a build |
 | `all-modules` | `isles-1-14-7`, `realms` (never the stub) | what the release builds |

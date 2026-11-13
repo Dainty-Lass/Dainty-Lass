@@ -49,11 +49,15 @@ fn date(text: &str) -> DateTime<Utc> {
     DateTime::parse_from_rfc3339(text).unwrap().to_utc()
 }
 
-/// A server folder with restricted's 1.14.7 version data where a release ships it (RD27).
+/// A server folder with restricted's 1.14.7 version data and the root's facts where a release ships them (RD27).
 fn host(dir: &TempDir) -> Paths {
     write(
         &dir.path().join(dainty_host::hostconfig::DEFAULT_VERSION_DATA),
         version_data_document(),
+    );
+    write(
+        &dir.path().join(dainty_host::hostconfig::DEFAULT_VERSION_FACTS),
+        read(&repo().join("../crates/rustic-isles-1-14-7/data/version_facts.json")),
     );
     Paths::new(dir.path())
 }

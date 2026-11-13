@@ -240,6 +240,7 @@ mod tests {
             share_url: None,
             dashboard_url: None,
             version_data: None,
+            version_facts: None,
             max_hunt_servers: 3,
             mongo: MongoConfig {
                 uri: "mongodb://admin:mongoSecret99@127.0.0.1:27017/reforged?replicaSet=rs0".into(),

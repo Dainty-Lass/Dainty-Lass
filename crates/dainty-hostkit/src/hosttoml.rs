@@ -39,6 +39,7 @@ const TOP: &[Field] = &[
     ("publicPort", "public_port", false),
     ("dashboardUrl", "dashboard_url", false),
     ("versionData", "version_data", false),
+    ("versionFacts", "version_facts", false),
     ("performance", "performance", false),
     ("linux", "linux", false),
     ("database", "database", false),
@@ -672,6 +673,10 @@ fn comment(path: &str) -> &'static str {
         "version_data" => {
             "The 1.14.7 version data the server reads at start, relative to the server folder. Left out:
              data/1.14.7/version_data.json, the file the release ships."
+        }
+        "version_facts" => {
+            "The 1.14.7 version facts the server reads beside version_data, relative to the server folder. Left\n\
+             out: data/1.14.7/version_facts.json, the file the release ships."
         }
         "mongo" => "The database.",
         "mongo.manage" => "true: dainty-host starts mongod itself.",

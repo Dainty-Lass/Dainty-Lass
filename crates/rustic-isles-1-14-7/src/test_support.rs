@@ -43,6 +43,27 @@ pub fn synthetic_document() -> Value {
     })
 }
 
+/// [`synthetic_document`] split as a release ships it: the facts and the design (rulings V-1, V-2).
+pub fn synthetic_split() -> (Value, Value) {
+    let mut facts = synthetic_document();
+    let design = json!({
+        "format": 1,
+        "gameVersion": "1.14.7",
+        "characterData": { "defaultAppearance": facts["characterData"]["defaultAppearance"].take() },
+        "starterKit": { "wallet": facts["starterKit"]["wallet"].take() },
+        "legacyStarter": facts["legacyStarter"].take(),
+    });
+    if let Some(object) = facts.as_object_mut() {
+        object.remove("legacyStarter");
+    }
+    for (member, key) in [("characterData", "defaultAppearance"), ("starterKit", "wallet")] {
+        if let Some(object) = facts[member].as_object_mut() {
+            object.remove(key);
+        }
+    }
+    (facts, design)
+}
+
 /// The areas' backend handlers as the composer registers them (auth's are core's).
 pub fn area_handlers() -> rustic_isles::Handlers {
     crate::composer::handlers(Default::default(), Default::default())

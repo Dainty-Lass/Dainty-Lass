@@ -9,8 +9,8 @@ use dainty_module_api::GameModule;
 use dainty_module_api::manifest::{PatchSetCapability, Transport};
 use rustic_isles::routes::all;
 use rustic_isles::{Group, Service, Settings, When};
-use rustic_isles_1_14_7::test_support::{area_handlers, synthetic, synthetic_document};
-use rustic_isles_1_14_7::{DIRECTOR, TABLES, VersionData, module, spec};
+use rustic_isles_1_14_7::test_support::{area_handlers, synthetic, synthetic_document, synthetic_split};
+use rustic_isles_1_14_7::{DIRECTOR, FACTS_DOCUMENT, TABLES, VersionData, merge, module, spec};
 use serde_json::{Value, json};
 
 #[test]
@@ -238,6 +238,148 @@ fn version_data_rules() {
     assert!(only_plan.generator_inputs().is_none());
     doc["storageTokenSeeds"] = json!(["A"]);
     assert!(VersionData::from_json(&doc).unwrap().generator_inputs().is_some());
+}
+
+#[test]
+fn the_split_merges_to_the_whole_document() {
+    let (facts, design) = synthetic_split();
+    assert_eq!(VersionData::from_parts(Some(&facts), &design).unwrap(), synthetic());
+    // A legacy design file holding everything is read alone, and wins over the facts
+    assert_eq!(
+        VersionData::from_parts(None, &synthetic_document()).unwrap(),
+        synthetic()
+    );
+    assert_eq!(
+        VersionData::from_parts(Some(&facts), &synthetic_document()).unwrap(),
+        synthetic()
+    );
+    assert_eq!(
+        VersionData::from_parts(Some(&facts), &json!({})).unwrap_err(),
+        "version_data.json: characterData.defaultAppearance is missing"
+    );
+}
+
+#[test]
+fn the_fill_pairs_merge_by_key_in_place() {
+    let facts = json!({ "characterData": { "fill": [["A", 1], ["Look", null], ["B", 2]] } });
+    let design = json!({ "characterData": { "fill": [["Look", "text"], ["C", 3]] } });
+    assert_eq!(
+        merge(&facts, &design).unwrap()["characterData"]["fill"],
+        json!([["A", 1], ["Look", "text"], ["B", 2], ["C", 3]])
+    );
+    assert_eq!(
+        merge(&facts, &json!({ "characterData": {} })).unwrap_err(),
+        "version_data.json: characterData.fill Look has no value (the design supplies it)"
+    );
+    assert_eq!(
+        merge(&json!({ "gameVersion": "1.14.6" }), &json!({ "gameVersion": "1.14.7" })).unwrap_err(),
+        "version_facts.json: gameVersion \"1.14.6\" differs from version_data.json's \"1.14.7\""
+    );
+    assert_eq!(
+        merge(&json!([]), &json!({})).unwrap_err(),
+        "version_facts.json: the document must be an object"
+    );
+}
+
+#[test]
+fn the_shipped_facts_hold_no_design() {
+    let facts: Value = serde_json::from_str(FACTS_DOCUMENT).unwrap();
+    for (member, key) in [("characterData", "defaultAppearance"), ("starterKit", "wallet")] {
+        assert!(facts[member].get(key).is_none(), "{member}.{key} is design (V-2)");
+    }
+    for key in ["legacyStarter", "rewardCachePlan"] {
+        assert!(facts.get(key).is_none(), "{key} is design (V-2)");
+    }
+    // The shipped facts with the synthetic design make a valid document
+    let (_, mut design) = synthetic_split();
+    design["characterData"]["fill"] = json!([["AppearanceData", "{}"]]);
+    let data = VersionData::from_parts(Some(&facts), &design).unwrap();
+    assert!(data.generator_inputs().is_none());
+    assert_eq!(data.starter_kit().default_quick_chats.len(), 9);
+}
+
+/// `[A-Z][A-Z0-9_-]{2,}`, the storage policy's token pattern (gamedata §6)
+fn tokens(text: &str, out: &mut std::collections::BTreeSet<String>) {
+    let bytes = text.as_bytes();
+    let mut i = 0;
+    while i < bytes.len() {
+        if bytes[i].is_ascii_uppercase() {
+            let start = i;
+            i += 1;
+            while i < bytes.len() && is_token_byte(bytes[i]) {
+                i += 1;
+            }
+            if i - start >= 3 {
+                out.insert(text[start..i].to_owned());
+            }
+        } else {
+            i += 1;
+        }
+    }
+}
+
+fn is_token_byte(b: u8) -> bool {
+    b.is_ascii_uppercase() || b.is_ascii_digit() || b == b'_' || b == b'-'
+}
+
+fn rust_files(dir: &std::path::Path, out: &mut Vec<std::path::PathBuf>) {
+    for entry in std::fs::read_dir(dir).unwrap() {
+        let path = entry.unwrap().path();
+        if path.is_dir() {
+            rust_files(&path, out);
+        } else if path.extension().is_some_and(|e| e == "rs") {
+            out.push(path);
+        }
+    }
+}
+
+/// Every token the MIT `rustic-isles*` crates' sources name (V-3).
+fn mit_tokens() -> std::collections::BTreeSet<String> {
+    let crates = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("..");
+    let mut files = Vec::new();
+    for entry in std::fs::read_dir(&crates).unwrap() {
+        let dir = entry.unwrap().path();
+        let name = dir.file_name().unwrap().to_string_lossy().into_owned();
+        if name.starts_with("rustic-isles") && dir.join("src").is_dir() {
+            rust_files(&dir.join("src"), &mut files);
+        }
+    }
+    let mut out = std::collections::BTreeSet::new();
+    for file in files {
+        tokens(&std::fs::read_to_string(file).unwrap(), &mut out);
+    }
+    out
+}
+
+/// V-3: the storage token seeds are catalog ids the MIT crates name. With `RUSTIC_ISLES_CATALOG` set to a catalog
+/// export, the list must also be every such id; `RR_UPDATE_GENERATED=1` rewrites it then.
+#[test]
+fn the_storage_token_seeds_are_the_mit_crates_ids() {
+    let facts: Value = serde_json::from_str(FACTS_DOCUMENT).unwrap();
+    let seeds: Vec<String> = serde_json::from_value(facts["storageTokenSeeds"].clone()).unwrap();
+    let named = mit_tokens();
+    let foreign: Vec<&String> = seeds.iter().filter(|s| !named.contains(*s)).collect();
+    assert!(
+        foreign.is_empty(),
+        "no MIT crate names {foreign:?}: drop them from data/version_facts.json"
+    );
+    let mut sorted = seeds.clone();
+    sorted.sort();
+    sorted.dedup();
+    assert_eq!(seeds, sorted, "storageTokenSeeds is sorted and unique");
+    let Some(catalog) = std::env::var_os("RUSTIC_ISLES_CATALOG") else {
+        return;
+    };
+    let catalog = rustic_isles_1_14_7::export::catalog_ids(&std::fs::read_to_string(catalog).unwrap());
+    let want: Vec<String> = named.into_iter().filter(|t| catalog.contains(t)).collect();
+    if std::env::var_os("RR_UPDATE_GENERATED").is_some() && want != seeds {
+        let mut facts = facts;
+        facts["storageTokenSeeds"] = json!(want);
+        let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("data/version_facts.json");
+        std::fs::write(path, format!("{}\n", serde_json::to_string_pretty(&facts).unwrap())).unwrap();
+        return;
+    }
+    assert_eq!(seeds, want, "rerun with RR_UPDATE_GENERATED=1");
 }
 
 #[test]

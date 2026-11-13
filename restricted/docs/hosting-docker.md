@@ -85,8 +85,8 @@ Every crate is in the checkout: the images build with the monorepo root as conte
 The server image also holds the libraries `host.toml` can pin (RD27) in `/opt/dainty-lass/plugins`, so a
 `[[modules.external]]` or `[services.<name>]` path there reads `plugins/librustic_isles_1_14_7_plugin.so` and the like
 ([hosting.md](hosting.md#game-modules-and-plugins)). It holds the 1.14.7 version data the server reads at start in
-`/opt/dainty-lass/data/1.14.7/version_data.json`; `version_data` in `host.toml` names another file, as a path in the
-container.
+`/opt/dainty-lass/data/1.14.7/` (`version_data.json` and `version_facts.json`); `version_data` and `version_facts` in
+`host.toml` name other files, as paths in the container.
 
 `setup` takes every option it takes on a Linux host (`--max-hunts`, `--public-port`, `--registration` …;
 `docker compose run --rm host setup --help`). In the container it also gets `--skip-install` (the services are

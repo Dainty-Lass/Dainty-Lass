@@ -1871,18 +1871,24 @@ async fn server_gui_and_client_end_to_end_start_invite_join_ban_history_and_stop
     };
     use dainty_launcher_kit::platform::hostserver::EmbeddedServer as _;
 
-    // The manager's bundle ships the 1.14.7 version data beside its executable (RD27); here, beside this test's
-    let shipped = std::env::current_exe()
-        .unwrap()
-        .parent()
-        .unwrap()
-        .join("data/1.14.7/version_data.json");
-    std::fs::create_dir_all(shipped.parent().unwrap()).unwrap();
-    std::fs::copy(
-        Path::new(env!("CARGO_MANIFEST_DIR")).join("../../modules/rustic-isles/version-data/1.14.7/version_data.json"),
-        &shipped,
-    )
-    .unwrap();
+    // The manager's bundle ships the 1.14.7 version data and facts beside its executable (RD27); here, beside this
+    // test's
+    let exe_dir = std::env::current_exe().unwrap().parent().unwrap().to_path_buf();
+    let manifest = Path::new(env!("CARGO_MANIFEST_DIR"));
+    for (shipped, source) in [
+        (
+            "data/1.14.7/version_data.json",
+            "../../modules/rustic-isles/version-data/1.14.7/version_data.json",
+        ),
+        (
+            "data/1.14.7/version_facts.json",
+            "../../../crates/rustic-isles-1-14-7/data/version_facts.json",
+        ),
+    ] {
+        let shipped = exe_dir.join(shipped);
+        std::fs::create_dir_all(shipped.parent().unwrap()).unwrap();
+        std::fs::copy(manifest.join(source), &shipped).unwrap();
+    }
 
     // 1. Server GUI sets up a fresh private workspace with embedded example game data
     let hx = host_harness();

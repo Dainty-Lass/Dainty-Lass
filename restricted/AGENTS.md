@@ -31,8 +31,9 @@ Dainty Lass serves one game, Dauntless 1.14.7 (2026-10-31). On the default path 
 maintainer decision 2026-10-28), `host::serve` runs the compiled-in Rust `isles-1-14-7` backend (port 41000) and
 in-process Director (port 41001; host.toml's `[ports]` moves either) on `store` (SQLite by default, or Postgres), with `isles-1-14-7` and realms
 linked in by the server binaries' `all-modules` feature (DF5). The module is the root's clean-room
-`rustic-isles-1-14-7` (RD27), handed restricted's version data at start
-(`modules/rustic-isles/version-data/1.14.7/version_data.json`, kept current by rustic-isles-mit-parity's `version_data` test);
+`rustic-isles-1-14-7` (RD27), handed restricted's version data design at start
+(`modules/rustic-isles/version-data/1.14.7/version_data.json`, kept current by rustic-isles-mit-parity's `version_data` test,
+which also shows it and the root's MIT facts make the whole document);
 the AGPL Rust ports it replaced (`isles-core`, `isles-db`, `isles-director`, `isles-chat`) were removed and stay in the
 history. For one release after the cutover (until RB15), the
 opt-in `paradox` Cargo feature on `host` retains Rustic Isles's Node backend and Director from
@@ -44,9 +45,11 @@ alone as a hidden `dainty-host <service>` subcommand (the root's `crates/dainty-
 and `start` use.
 The same services also build as libraries the MIT core `dainty-lass` loads (RD27 phase 2, the root's `*-plugin`
 crates, which the release and Docker build from the root workspace); `compose.rs` links them into restricted's own
-binaries. No binary carries the 1.14.7 version data: the root's `dainty-host` reads Mystic Paradox's document at
+binaries. No binary carries the 1.14.7 version data: the root's `dainty-host` reads Mystic Paradox's design at
 start from the file `host.toml`'s `version_data` names (default `data/1.14.7/version_data.json` in the server folder,
-where the release and the server image ship it; a checkout falls back to `modules/rustic-isles/version-data/1.14.7`).
+where the release and the server image ship it; a checkout falls back to `modules/rustic-isles/version-data/1.14.7`),
+and the MIT facts beside it from `version_facts` (default `data/1.14.7/version_facts.json`; a checkout falls back to
+the root's `crates/rustic-isles-1-14-7/data`).
 
 **Which workspace a change goes in** follows its licence: anything ported from DR, Paradox or the Reforged Revival
 line, or linking such code, goes here; code that is neither goes in the root workspace as MIT.

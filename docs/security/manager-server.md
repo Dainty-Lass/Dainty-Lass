@@ -52,9 +52,10 @@ Code: `crates/dainty-manager-server/src/` (`lib.rs`, `engine.rs`, `modules.rs`, 
 
 ### The version data
 
-- [ ] The 1.14.7 version data is read only from the manager's own install (beside the executable, or Tauri's
-      `../lib/Dainty Lass Manager/` on Linux) and written only to the workspace's `data/1.14.7/version_data.json`;
-      a host's own `version_data` in `host.toml` is never overwritten (`version_data.rs`).
+- [ ] The 1.14.7 version data and facts are read only from the manager's own install (beside the executable, or
+      Tauri's `../lib/Dainty Lass Manager/` on Linux) and written only to the workspace's
+      `data/1.14.7/version_data.json` and `version_facts.json`; a host's own `version_data` or `version_facts` in
+      `host.toml` is never overwritten (`version_data.rs`).
 
 ### Secrets
 

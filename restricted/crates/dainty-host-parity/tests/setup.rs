@@ -1073,15 +1073,22 @@ max_hunt_servers = 3
             lines2.join("\n")
         );
         let cfg2 = load_host_config(&p2).unwrap().unwrap();
-        // serve reads the 1.14.7 version data where a release ships it (RD27)
-        let shipped = p2.repo.join(dainty_host::hostconfig::DEFAULT_VERSION_DATA);
-        std::fs::create_dir_all(shipped.parent().unwrap()).unwrap();
-        std::fs::copy(
-            Path::new(env!("CARGO_MANIFEST_DIR"))
-                .join("../../modules/rustic-isles/version-data/1.14.7/version_data.json"),
-            shipped,
-        )
-        .unwrap();
+        // serve reads the 1.14.7 version data and facts where a release ships them (RD27)
+        let manifest = Path::new(env!("CARGO_MANIFEST_DIR"));
+        for (shipped, source) in [
+            (
+                dainty_host::hostconfig::DEFAULT_VERSION_DATA,
+                "../../modules/rustic-isles/version-data/1.14.7/version_data.json",
+            ),
+            (
+                dainty_host::hostconfig::DEFAULT_VERSION_FACTS,
+                "../../../crates/rustic-isles-1-14-7/data/version_facts.json",
+            ),
+        ] {
+            let shipped = p2.repo.join(shipped);
+            std::fs::create_dir_all(shipped.parent().unwrap()).unwrap();
+            std::fs::copy(manifest.join(source), shipped).unwrap();
+        }
         drop(dainty_host::serve::compose(&p2, &cfg2, false, dainty_host::commands::start::console_printer()).unwrap());
     }
 }
