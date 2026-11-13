@@ -7720,7 +7720,8 @@ void GameEngineTickHook(UGameEngine* GameEngine, float DeltaTime, char CanRender
     // returned, even though we forced 1/0 right before calling it). Re-force here too, immediately
     // before TickNetworking/TickDispatch actually process the connection, so the net driver sees
     // server flags at the moment it matters.
-    if (Globals::AmServer && MITSEAM_AGPL_RUNS("HL-1")) {   // [DaintyLass 0041]
+    // [DaintyLass 0045] Kept when the MIT runtime owns HL-1: its after-tick write runs after this hook's blocks below.
+    if (Globals::AmServer) {
         *(uint8_t*)(Globals::BaseAddress + 0x06E1EADA) = 0x1; // GIsServer
         *(uint8_t*)(Globals::BaseAddress + 0x06E1EAD9) = 0x0; // GIsClient
     }
