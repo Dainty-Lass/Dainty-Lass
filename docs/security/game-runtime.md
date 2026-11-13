@@ -64,7 +64,7 @@ Fuzz targets in `fuzz`:
 
 - [ ] Every read of game memory goes through `ffi::memory` (`readable`, `read`, `read_bytes`): `VirtualQuery` first,
       committed, neither guard nor no-access, inside one region, no overflow (`region_allows`, tests in
-      `memory.rs`). A failed read is `None`, never a fault; there is no structured exception handling.
+      `memory.rs`). A failed read is `None`, never a fault; no read relies on R3's exception handler.
 - [ ] Engine reads (object array, name pool, full names) bound every index and count (`MAX_OBJECTS`, chunk count,
       8192 name blocks, 64 outers) and read through the same checks (`core::engine`).
 - [ ] Names fail closed: if object 0 is not `Package CoreUObject` the check logs once and every name is `None`, so no
@@ -86,9 +86,9 @@ Fuzz targets in `fuzz`:
       first detour call.
 - [ ] The DLL is pinned (`GET_MODULE_HANDLE_EX_FLAG_PIN`) and frees no stub, cell or trampoline, so no chain ever
       points into freed memory.
-- [ ] The ownership registry lists every surface id once with its slice, and `LANDED` is `R0`, `R1`, `R2`: this
-      build owns only SP-1, SP-2, SP-3, HTTP-1 and HTTP-1@R2; `HTTP-1@R10` stays the AGPL's (`core::registry`
-      tests).
+- [ ] The ownership registry lists every surface id once with its slice; `owns` answers yes exactly for the ids of
+      the slices in `LANDED` (`R0`, `R1`, `R2`, `R3`: SP-1..3, HTTP-1, HTTP-1@R2 and EXIT-1..14; `HTTP-1@R10` stays
+      the AGPL's) (`core::registry` tests).
 
 ### Detach and the loader lock
 
@@ -98,6 +98,29 @@ Fuzz targets in `fuzz`:
       on the first detour call (`lifecycle.rs`).
 - [ ] A dispatch call nested deeper than 32 is absorbed, on every thread
       (`ffi::tests::depth_guard_absorbs_from_33`).
+
+### Exit and crash handling (R3)
+
+- [ ] Every R3 detour and the vectored handler forward at once while detaching or when this thread is already inside
+      R3 (a const thread-local with no destructor), so an exit or exception raised by R3's own logging never
+      re-enters it (`ffi::exit::enter`, `ffi::exit::tests::export_detour_on_a_stand_in`).
+- [ ] Every R3 hook calls its next with the arguments it was given; the handler answers only
+      `EXCEPTION_CONTINUE_SEARCH`, except for the FName recovery. `HandleError` always runs the original.
+- [ ] The FName recovery rewrites one register (`Rdi`) of the faulting thread, only for an access violation at exactly
+      `+0x02660278`, and only when the bytes there are `0F B7 07` and `.pdata` puts them in `+0x026601A0`; it points
+      `Rdi` at a 32-byte zero buffer this DLL owns and never writes (`ffi::exit::veh`, the test-page test).
+- [ ] The handler reads `EXCEPTION_POINTERS`, the record (0x98 bytes) and the context (0x4D0) through `readable`
+      before touching them; the `CONTEXT` offsets are checked against `windows-sys`.
+- [ ] Exception lines are bounded: one budget of 96 for EXIT-5 and EXIT-12 together, the MSVC C++, thread-name and
+      debugger-print codes never logged, recovery lines throttled (64, then one per 1 024). A stack overflow is
+      written from a fixed 1 KiB buffer, with no register dump or stack walk.
+- [ ] The engine's error text is read unit by unit through checked reads, at most 1 023 units, and written as one
+      line: controls as `?`, line breaks as `
+`.
+- [ ] Exit lines are written even under the loader lock (`CreateFileW`, `WriteFile`, `CloseHandle` only; R3 call 4),
+      the one exception to "nothing under the loader lock".
+- [ ] `ReportCrash`'s wait is patched only through `patch_bytes` (expected bytes, inside `ReportCrash` by `.pdata`),
+      and `DISABLE_CRASH_WAIT_SHORTEN.flag` keeps the native 60 s.
 
 ### Configuration (R1)
 

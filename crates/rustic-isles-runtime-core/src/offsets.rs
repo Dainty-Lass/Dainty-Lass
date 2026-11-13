@@ -57,6 +57,79 @@ pub const TARGETS: &[Target] = &[
         found_by: FoundBy::Rva,
         what: "FCurlHttpRequest::ProcessRequest",
     },
+    // R3: the exit exports and the engine's fatal-error writer
+    Target {
+        id: "EXIT-1",
+        rva: 0,
+        found_by: FoundBy::Export("kernel32.dll", "ExitProcess"),
+        what: "kernel32!ExitProcess",
+    },
+    Target {
+        id: "EXIT-2",
+        rva: 0,
+        found_by: FoundBy::Export("ntdll.dll", "RtlExitUserProcess"),
+        what: "ntdll!RtlExitUserProcess",
+    },
+    Target {
+        id: "EXIT-3",
+        rva: 0,
+        found_by: FoundBy::Export("ntdll.dll", "NtTerminateProcess"),
+        what: "ntdll!NtTerminateProcess",
+    },
+    Target {
+        id: "EXIT-4",
+        rva: 0,
+        found_by: FoundBy::Export("kernelbase.dll", "TerminateProcess"),
+        what: "kernelbase!TerminateProcess",
+    },
+    Target {
+        id: "EXIT-5",
+        rva: 0,
+        found_by: FoundBy::Export("kernelbase.dll", "RaiseException"),
+        what: "kernelbase!RaiseException",
+    },
+    Target {
+        id: "EXIT-6",
+        rva: 0,
+        found_by: FoundBy::Export("ucrtbase.dll", "exit"),
+        what: "ucrtbase!exit",
+    },
+    Target {
+        id: "EXIT-7",
+        rva: 0,
+        found_by: FoundBy::Export("ucrtbase.dll", "_exit"),
+        what: "ucrtbase!_exit",
+    },
+    Target {
+        id: "EXIT-8",
+        rva: 0,
+        found_by: FoundBy::Export("ucrtbase.dll", "abort"),
+        what: "ucrtbase!abort",
+    },
+    Target {
+        id: "EXIT-9",
+        rva: 0,
+        found_by: FoundBy::Export("msvcrt.dll", "exit"),
+        what: "msvcrt!exit",
+    },
+    Target {
+        id: "EXIT-10",
+        rva: 0,
+        found_by: FoundBy::Export("msvcrt.dll", "_exit"),
+        what: "msvcrt!_exit",
+    },
+    Target {
+        id: "EXIT-11",
+        rva: 0,
+        found_by: FoundBy::Export("msvcrt.dll", "abort"),
+        what: "msvcrt!abort",
+    },
+    Target {
+        id: "EXIT-13",
+        rva: 0x0265_9A20,
+        found_by: FoundBy::RvaAndBytes(&[0x48, 0x89, 0x5C, 0x24, 0x08, 0x57, 0x48, 0x83, 0xEC, 0x30]),
+        what: "FWindowsErrorOutputDevice::HandleError",
+    },
 ];
 
 /// The target line for `id`.
@@ -149,6 +222,24 @@ pub mod data {
     pub const FMEMORY_REALLOC: u32 = 0x0256_4AB0;
     /// `GMalloc`, the engine allocator object's pointer.
     pub const GMALLOC: u32 = 0x06E1_EB58;
+    /// `GErrorHist`, a UTF-16 buffer (R3's EXIT-13).
+    pub const ERROR_HISTORY: u32 = 0x06E1_4AD0;
+}
+
+/// R3's code sites (spec-runtime-r3 sections 5.2 and 7.1).
+pub mod exit {
+    /// `ReportCrash` (`.pdata` begin).
+    pub const REPORT_CRASH: u32 = 0x0265_CEC0;
+    /// Its `mov edx, 60000` before `WaitForSingleObject`.
+    pub const REPORT_CRASH_WAIT: u32 = 0x0265_CF15;
+    /// The bytes there.
+    pub const REPORT_CRASH_WAIT_BYTES: [u8; 5] = [0xBA, 0x60, 0xEA, 0x00, 0x00];
+    /// `mov edx, 5000`.
+    pub const REPORT_CRASH_WAIT_PATCHED: [u8; 5] = [0xBA, 0x88, 0x13, 0x00, 0x00];
+    /// The FName-to-text routine (`.pdata` begin).
+    pub const FNAME_TEXT_FN: u32 = 0x0266_01A0;
+    /// Its name-entry header load, `movzx eax, word ptr [rdi]` (`0F B7 07`).
+    pub const FNAME_HEADER_LOAD: u32 = 0x0266_0278;
 }
 
 #[cfg(test)]
