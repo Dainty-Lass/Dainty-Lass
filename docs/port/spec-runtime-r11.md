@@ -300,8 +300,8 @@ AGPL measured that passing the engine faults at once.
 block (the quarantine sweep, the weapon gap and dormancy work, the graph drive, the progression resume), and within
 the listening block after R8's expected-player sync and connection count and R9's per-frame driver upkeep. As an
 MIT after handler it runs after every AGPL post-tick block (R0 8.2), so the order holds while those are AGPL. Among
-MIT after handlers: **R8's and R9's listening-block steps and R12's graph drive use orders below 800**; R11 tells their spec
-writers so (section 16).
+MIT after handlers: **R8's and R9's listening-block steps and R12's graph drive use orders below 800**; R11 tells
+their spec writers so (section 16).
 
 ### 8.3 Each frame
 
