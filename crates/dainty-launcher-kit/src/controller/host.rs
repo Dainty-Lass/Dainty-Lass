@@ -803,6 +803,8 @@ impl Controller {
         let env = [
             ("DAINTY_SDK_DIR", Some(paths.runtime_source.as_path())),
             ("RUSTIC_ISLES_EXPORT_ROOT", None),
+            // The log is a file: cargo's progress bar would only fill it with redrawn lines
+            ("CARGO_TERM_PROGRESS_WHEN", Some(Path::new("never"))),
         ];
         let work = async {
             let ran = run_logged_env(&cargo, &exporter_build_args(), &paths.exporter_crate, &log_file, &env).await;
