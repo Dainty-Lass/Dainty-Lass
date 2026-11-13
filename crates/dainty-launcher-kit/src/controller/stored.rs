@@ -208,9 +208,15 @@ impl Stored {
             .unwrap_or_default()
     }
 
-    /// The Host page is shown.
+    /// The Host page is shown, always in a debug build: only a developer runs one, from a checkout.
     #[must_use]
     pub fn host_tools(&self) -> bool {
+        cfg!(debug_assertions) || self.chose_host_tools()
+    }
+
+    /// The player turned the Host page on in Preferences.
+    #[must_use]
+    pub fn chose_host_tools(&self) -> bool {
         self.flag("hostTools")
     }
 

@@ -623,7 +623,7 @@ impl Controller {
 
     /// Applies a settings change and answers the settings.
     pub async fn set_settings(&self, patch: SettingsPatch) -> Settings {
-        let host_on = cfg!(feature = "host") && patch.host_tools == Some(true) && !self.stored().host_tools();
+        let host_on = cfg!(feature = "host") && patch.host_tools == Some(true) && !self.stored().chose_host_tools();
         self.edit_settings(|map| {
             if let Some(graphics) = patch.graphics {
                 stored::edit::field(map, "graphics", json!(graphics.get()));

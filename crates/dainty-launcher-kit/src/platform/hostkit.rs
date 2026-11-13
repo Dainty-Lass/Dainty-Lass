@@ -294,16 +294,19 @@ pub struct Logged {
 }
 
 /// Locates `dainty-host` inside `root` (`<root>/<HOST_BINARY>`, `<root>/bin/<HOST_BINARY>`,
-/// or `<root>/target/release/<HOST_BINARY>`).
+/// or a checkout's `<root>/target/{release,debug}/<HOST_BINARY>`).
 #[must_use]
 pub fn find_host_binary(root: &Path) -> Option<PathBuf> {
-    [
-        root.join(HOST_BINARY),
-        root.join("bin").join(HOST_BINARY),
-        root.join("target").join("release").join(HOST_BINARY),
-    ]
-    .into_iter()
-    .find(|candidate| candidate.is_file())
+    // A debug launcher is run beside a debug host kit, so its own profile's build wins over a stale other one
+    let profiles = if cfg!(debug_assertions) {
+        ["debug", "release"]
+    } else {
+        ["release", "debug"]
+    };
+    [root.join(HOST_BINARY), root.join("bin").join(HOST_BINARY)]
+        .into_iter()
+        .chain(profiles.map(|profile| root.join("target").join(profile).join(HOST_BINARY)))
+        .find(|candidate| candidate.is_file())
 }
 
 /// Returns `true` iff `root` contains `dainty-host` and either `modules/rustic-isles` or `paradox`.
@@ -865,6 +868,30 @@ mod tests {
         let paths = WorkspacePaths::new(root);
         assert_eq!(paths.runtime_source, root.join("modules/rustic-isles/native/runtime"));
         assert_eq!(paths.host_toml, root.join(".workspace/config/host.toml"));
+    }
+
+    #[test]
+    fn a_checkout_debug_build_is_found_and_this_profile_wins() {
+        let tmp = tempfile::tempdir().unwrap();
+        let root = tmp.path();
+        std::fs::create_dir_all(root.join("restricted/modules/rustic-isles")).unwrap();
+        let built = |profile: &str| {
+            let dir = root.join("target").join(profile);
+            std::fs::create_dir_all(&dir).unwrap();
+            std::fs::write(dir.join(HOST_BINARY), b"host").unwrap();
+            dir.join(HOST_BINARY)
+        };
+        let debug = built("debug");
+        assert!(is_workspace(root));
+        assert_eq!(find_host_binary(root), Some(debug.clone()));
+
+        let release = built("release");
+        let ours = if cfg!(debug_assertions) { debug } else { release };
+        assert_eq!(find_host_binary(root), Some(ours));
+
+        std::fs::create_dir_all(root.join("bin")).unwrap();
+        std::fs::write(root.join("bin").join(HOST_BINARY), b"bin").unwrap();
+        assert_eq!(find_host_binary(root), Some(root.join("bin").join(HOST_BINARY)));
     }
 
     #[test]
