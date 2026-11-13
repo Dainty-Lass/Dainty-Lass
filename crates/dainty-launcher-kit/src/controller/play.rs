@@ -416,5 +416,9 @@ impl Controller {
         }
         self.look_at_runtime().await;
         self.publish();
+        self.shared.exits.send_modify(|(count, last)| {
+            *count += 1;
+            *last = code;
+        });
     }
 }

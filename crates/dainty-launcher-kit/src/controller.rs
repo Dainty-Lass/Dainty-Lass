@@ -10,6 +10,7 @@
 //! The Host page is `host` with the `host` feature and `host_off`'s refusals without it.
 
 mod account;
+pub mod cli;
 mod connect;
 mod game;
 pub mod guarded;
@@ -275,6 +276,8 @@ pub(crate) struct Shared {
     pub(crate) hashes: tokio::sync::Mutex<HashCache>,
     pub(crate) keys: Arc<KeyStore>,
     pub(crate) game: GameProcess,
+    /// How many games have exited and the last one's code, once its clean-up is done (`--wait`).
+    pub(crate) exits: tokio::sync::watch::Sender<(u64, Option<i32>)>,
     tasks: Mutex<Vec<JoinHandle<()>>>,
     // Their own locks, outside the state's
     pub(crate) installs: install::Installs,
@@ -329,6 +332,7 @@ impl Controller {
                 hashes: tokio::sync::Mutex::new(hashes),
                 keys: Arc::new(keys),
                 game,
+                exits: tokio::sync::watch::Sender::new((0, None)),
                 tasks: Mutex::new(Vec::new()),
                 installs: install::Installs::default(),
                 realms: realms::RealmsState::default(),
@@ -573,12 +577,7 @@ impl Controller {
     /// Start-up (§2.4.3): the key flag, a left loader session, the game, the runtime, the Host workspace, then a
     /// connection and a verify in the background.
     pub async fn init(&self) {
-        self.refresh_key_flag().await;
-        self.recover_loader_session().await;
-        self.look_at_game(true).await;
-        self.look_at_runtime().await;
-        let _ = self.ensure_host_workspace(true).await;
-        self.publish();
+        self.start_up().await;
         if self.server().is_some() {
             let me = self.clone();
             self.spawn(async move {
@@ -591,6 +590,16 @@ impl Controller {
                 let _ = me.verify_game().await;
             });
         }
+    }
+
+    /// `init`'s awaited part, which the command line runs before its own connect.
+    pub(crate) async fn start_up(&self) {
+        self.refresh_key_flag().await;
+        self.recover_loader_session().await;
+        self.look_at_game(true).await;
+        self.look_at_runtime().await;
+        let _ = self.ensure_host_workspace(true).await;
+        self.publish();
     }
 
     /// Exit (§2.4.12): PLAY refuses from now on; background work ends; the relay stops; the hash cache is saved.

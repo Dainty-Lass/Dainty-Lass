@@ -28,6 +28,21 @@ impl Controller {
         )))
     }
 
+    /// The export session, refused like every Host command.
+    pub async fn host_export(&self, _exporter: Option<&std::path::Path>) -> ActionResult {
+        self.host_off()
+    }
+
+    /// No Host workspace, so no CatalogExporter.
+    pub fn host_exporter_dll(&self) -> Option<std::path::PathBuf> {
+        None
+    }
+
+    /// No Host tools, so no exports.
+    pub fn game_exports_dir(&self) -> Option<std::path::PathBuf> {
+        None
+    }
+
     /// `host_get`.
     pub async fn host_kit(&self) -> HostKit {
         HostKit {
