@@ -5,6 +5,7 @@ pub mod chain;
 pub mod config;
 pub mod engine;
 pub mod env;
+pub mod exit;
 pub mod flags;
 pub mod frame;
 pub mod http;

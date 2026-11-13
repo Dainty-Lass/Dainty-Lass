@@ -3,6 +3,7 @@
 pub mod broker;
 pub mod dispatch;
 pub mod engine;
+pub mod exit;
 pub mod exports;
 pub mod flags;
 pub mod http;

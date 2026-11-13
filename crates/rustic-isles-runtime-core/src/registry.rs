@@ -3,7 +3,7 @@
 //! name to `LANDED` (and, for a new id, its line).
 
 /// The slices whose ids this build owns.
-pub const LANDED: &[&str] = &["R0", "R1", "R2"];
+pub const LANDED: &[&str] = &["R0", "R1", "R2", "R3"];
 
 /// The longest id `owns` accepts, in bytes.
 pub const MAX_ID_BYTES: usize = 47;
@@ -279,11 +279,33 @@ mod tests {
             .filter(|entry| owns(entry.id.as_bytes()))
             .map(|entry| entry.id)
             .collect();
-        assert_eq!(owned, ["SP-1", "SP-2", "SP-3", "HTTP-1", "HTTP-1@R2"]);
-        assert_eq!(owned_count(), 5);
+        let expected: Vec<&str> = ENTRIES
+            .iter()
+            .filter(|entry| LANDED.contains(&entry.slice))
+            .map(|entry| entry.id)
+            .collect();
+        assert_eq!(owned, expected);
+        assert_eq!(owned_count(), owned.len());
+        // R0's chains and R3's fourteen (spec-runtime-r3 10.1: 17 with R0, R1, R3)
+        for id in ["SP-1", "SP-2", "SP-3"] {
+            assert!(owns(id.as_bytes()), "{id}");
+        }
+        for n in 1..=14 {
+            assert!(owns(format!("EXIT-{n}").as_bytes()), "EXIT-{n}");
+        }
+        assert!(!owns(b"EXIT-15"));
+        let r0_r3 = owned
+            .iter()
+            .filter(|id| id.starts_with("SP-") || id.starts_with("EXIT-"))
+            .count();
+        assert_eq!(r0_r3, 17);
+        // R2's chain and its feature id; HTTP-1@R10 stays the AGPL's until R10 lands
         assert!(owns(b"HTTP-1"));
         assert!(owns(b"HTTP-1@R2"));
-        assert!(!owns(b"HTTP-1@R10"));
+        assert_eq!(owns(b"HTTP-1@R10"), LANDED.contains(&"R10"));
+        if LANDED == ["R0", "R1", "R2", "R3"] {
+            assert_eq!(owned_count(), 19);
+        }
         assert!(!owns(b"SP-3@R9"));
         assert!(!owns(b"DX-8"));
         assert!(!owns(b"NOPE-1"));

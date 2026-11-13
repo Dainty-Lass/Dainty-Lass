@@ -1,6 +1,7 @@
 //! Init (R0 3.2) and the status lines the first detour call writes (R0 4.3).
 
 use crate::config;
+use crate::ffi::exit::{self, Install};
 use crate::ffi::{dispatch, engine, flags, http, log, minhook, win};
 use crate::handlers;
 use rustic_isles_runtime_core::config::launch::PORT_EXIT_CODE;
@@ -13,7 +14,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 struct Status {
     server: bool,
     port: u16,
-    installs: Vec<(&'static str, Result<(), i32>)>,
+    installs: Vec<Install>,
 }
 
 static STATUS: OnceLock<Status> = OnceLock::new();
@@ -38,24 +39,33 @@ pub fn init() {
     let base = win::image_base();
     engine::set_image_base(base);
     let initialized = minhook::initialize();
+    exit::register();
     // Slices register their handlers before this point; the lists are read lock-free from here on
     handlers::freeze();
-    let installs: Vec<(&'static str, Result<(), i32>)> = if initialized != minhook::MH_OK {
-        let ids: &[&'static str] = if server {
-            &["SP-2", "SP-3", "HTTP-1"]
-        } else {
-            &["SP-1", "HTTP-1"]
-        };
-        ids.iter().map(|&id| (id, Err(initialized))).collect()
-    } else if server {
-        vec![
-            ("SP-2", dispatch::install_sp2(base)),
-            ("SP-3", dispatch::install_sp3(base)),
-            ("HTTP-1", http::install(base)),
-        ]
-    } else {
-        vec![("SP-1", dispatch::install_sp1(base)), ("HTTP-1", http::install(base))]
+    let hooks_off = (initialized != minhook::MH_OK).then(|| minhook::status_name(initialized));
+    let chain = |id: &'static str, install: fn(usize) -> Result<(), i32>| -> Install {
+        match hooks_off {
+            Some(status) => (id, Err(status)),
+            None => (id, install(base).map_err(minhook::status_name)),
+        }
     };
+    exit::prepare(base);
+    // R3 3.4: the install lines keep the AGPL runtime's order
+    let mut installs: Vec<Install> = Vec::new();
+    if server {
+        installs.extend(exit::install_exports(hooks_off));
+        installs.push(exit::install_veh(base));
+        installs.push(chain("SP-2", dispatch::install_sp2));
+        installs.push(chain("SP-3", dispatch::install_sp3));
+        installs.push(chain("HTTP-1", http::install));
+        installs.push(exit::install_engine_error(base, hooks_off));
+        installs.push(exit::install_crash_wait());
+    } else {
+        installs.push(chain("SP-1", dispatch::install_sp1));
+        installs.push(chain("HTTP-1", http::install));
+        installs.extend(exit::install_exports(hooks_off));
+        installs.push(exit::install_veh(base));
+    }
     let _ = STATUS.set(Status { server, port, installs });
     log::set_ready();
 }
@@ -75,7 +85,7 @@ pub fn write_status_once() {
         owned_count(),
     ));
     for (id, result) in &status.installs {
-        log::line(&install_line(id, result.map_err(minhook::status_name)));
+        log::line(&install_line(id, *result));
     }
     log::line(mode_line(flags::uncached()));
     log::line(&format!("[MitRuntime] {}", config::resolve_backend().log_line()));
