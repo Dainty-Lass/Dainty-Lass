@@ -71,6 +71,8 @@ aws-lc-rs = "1.18"
 axum = { version = "0.8", default-features = false, features = ["form", "http1", "json", "query", "tokio", "ws"] }
 base64 = "0.23"
 bytes = "1"
+# MinHook for the MIT game runtime (RT-1).
+cc = "1.9.0"
 cbc = { version = "0.2", features = ["alloc"] }
 chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
 clap = { version = "4", features = ["derive"] }
@@ -167,6 +169,8 @@ webpki-roots = "1"
 webrtc-util = { version = "0.17", default-features = false, features = ["conn", "vnet"] }
 # Windows Firewall over COM; crates choose their own features.
 windows = "0.62.2"
+# The MIT game runtime's Win32 calls (spec-runtime-r0 section 2); smallest feature set per crate.
+windows-sys = { version = "0.61.2", default-features = false }
 x509-parser = "0.18.1"
 
 [workspace.lints.rust]
