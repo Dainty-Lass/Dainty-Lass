@@ -18,6 +18,11 @@ type Handle = *mut c_void;
 const DLL_PROCESS_ATTACH: u32 = 1;
 const TRUE: i32 = 1;
 const MB_OK: u32 = 0;
+const MB_ICONINFORMATION: u32 = 0x40;
+const MB_SETFOREGROUND: u32 = 0x1_0000;
+const MB_TOPMOST: u32 = 0x4_0000;
+/// How long the closing notice waits before the game ends anyway (spec §3 step 7).
+const CLOSE_AFTER: Duration = Duration::from_secs(10);
 
 #[link(name = "kernel32")]
 unsafe extern "system" {
@@ -32,11 +37,13 @@ unsafe extern "system" {
     fn GetModuleHandleW(name: *const u16) -> Handle;
     fn DisableThreadLibraryCalls(module: Handle) -> i32;
     fn OutputDebugStringA(text: *const u8);
+    fn ExitProcess(code: u32) -> !;
 }
 
 #[link(name = "user32")]
 unsafe extern "system" {
     fn MessageBeep(kind: u32) -> i32;
+    fn MessageBoxW(owner: Handle, text: *const u16, caption: *const u16, kind: u32) -> i32;
 }
 
 /// The game's own memory, read with `ReadProcessMemory` so an unmapped or freed page fails the read (spec §4.4).
@@ -121,6 +128,36 @@ fn beep() {
     unsafe { MessageBeep(MB_OK) };
 }
 
+fn wide(text: &str) -> Vec<u16> {
+    text.encode_utf16().chain(std::iter::once(0)).collect()
+}
+
+/// Says the export is done, then ends the game once the notice is dismissed or [`CLOSE_AFTER`] has passed (spec §3
+/// step 7): a box behind a fullscreen game must not hold it open.
+fn close_game() {
+    let (done, dismissed) = std::sync::mpsc::channel();
+    let _ = std::thread::Builder::new()
+        .name("CatalogExporter notice".to_owned())
+        .spawn(move || {
+            let text = wide("Export complete, closing the game.");
+            let caption = wide("CatalogExporter");
+            // SAFETY: both strings are NUL-terminated UTF-16 that outlive the call; no owner window.
+            unsafe {
+                MessageBoxW(
+                    std::ptr::null_mut(),
+                    text.as_ptr(),
+                    caption.as_ptr(),
+                    MB_OK | MB_ICONINFORMATION | MB_SETFOREGROUND | MB_TOPMOST,
+                )
+            };
+            let _ = done.send(());
+        });
+    let _ = dismissed.recv_timeout(CLOSE_AFTER);
+    debug("CatalogExporter: closing the game");
+    // SAFETY: ends this process with code 0; nothing here runs after it.
+    unsafe { ExitProcess(0) }
+}
+
 /// # Safety
 ///
 /// Called by the Windows loader only.
@@ -169,5 +206,6 @@ fn work() {
     };
     if run::run(&engine, &flags, &host).is_some() {
         beep();
+        close_game();
     }
 }
