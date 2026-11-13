@@ -125,6 +125,66 @@ async fn proxies_with_the_secret_set_and_the_policy_applied() {
     gw.stop().await;
 }
 
+/// Realms cross with the account key alone; the rest of `/launcher` stays the host's (docs/security/gateway.md).
+#[tokio::test(flavor = "multi_thread")]
+async fn realm_routes_cross_with_the_account_key_only() {
+    let _serial = serial().await;
+    let cert = TestCert::new();
+    let backend = upstream("backend").await;
+    let content = upstream("content").await;
+    let gw = start(&env(Some(&cert), backend.port, content.port, None, &[])).await;
+    let fp = Some(cert.fingerprint.as_str());
+    let key = "DLK_0123456789abcdef0123456789abcdef0123456789abcdef";
+    let at = log_len();
+
+    for (method, target) in [
+        ("GET", "/launcher/v1/p2p/admission-key"),
+        ("POST", "/launcher/v1/realms/join"),
+        ("POST", "/launcher/v1/realm-hosting/hubs/start"),
+    ] {
+        let r = request(gw.port, fp, method, target, &[("x-dainty-user-api-key", key)], b"{}").await;
+        assert_eq!(r.status, 200, "{target}");
+        let seen = r.json();
+        assert_eq!(seen["upstream"], "backend");
+        assert_eq!(seen["url"], target);
+        assert_eq!(seen["headers"]["x-dainty-user-api-key"], key);
+    }
+
+    let before = backend.seen.lock().unwrap().len();
+    let none = request(gw.port, fp, "GET", "/launcher/v1/realms/mine", &[], b"").await;
+    assert_eq!(
+        (none.status, none.text().as_str()),
+        (401, r#"{"error":"unauthorized"}"#)
+    );
+    let bearer = request(
+        gw.port,
+        fp,
+        "GET",
+        "/launcher/v1/realms/mine",
+        &[("x-dainty-user-api-key", key), ("authorization", "Bearer t")],
+        b"",
+    )
+    .await;
+    assert_eq!(bearer.status, 403);
+    let auth = request(
+        gw.port,
+        fp,
+        "POST",
+        "/launcher/v1/auth/login",
+        &[("x-dainty-user-api-key", key)],
+        b"{}",
+    )
+    .await;
+    assert_eq!(auth.status, 403);
+    assert_eq!(backend.seen.lock().unwrap().len(), before);
+
+    let lines = requests_since(at);
+    let reasons: Vec<_> = lines.iter().filter_map(|l| l["reason"].as_str()).collect();
+    assert_eq!(reasons, ["no_account_key", "realm_bearer", "host_only_route"]);
+    assert!(!log_texts().join("\n").contains(key));
+    gw.stop().await;
+}
+
 #[tokio::test(flavor = "multi_thread")]
 async fn tls_is_required_and_a_down_upstream_is_502() {
     let _serial = serial().await;

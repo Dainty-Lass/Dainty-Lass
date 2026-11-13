@@ -25,7 +25,8 @@ under [security/](security) go through each trust boundary line by line; the AGP
 
 **The gateway is the only listener off loopback, with one written exception for the TURN relay (DD24).**
 Every HTTP and control service binds `127.0.0.1`, and the gateway refuses the host-only routes (`/admin`,
-`/launcher`, `/internal`, `/health`, and `/__node/*` without a valid cluster client certificate) and headers
+`/launcher` but its realm routes, which pass only with the player's account key, `/internal`, `/health`, and
+`/__node/*` without a valid cluster client certificate; `docs/security/gateway.md`) and headers
 (`x-rustic-isles-gameserver-apikey`, `x-dainty-admin-key`, `x-rustic-isles-metrics-token`, and their `x-mysticparadox-` forms) before anything
 reaches an upstream. The game servers' UDP ports are opened per player address by the allowlist only after that
 player logs in. When realms are enabled on 1.14.7, `turn-rs` (or `coturn`) listens on UDP/TCP 3478 (and optional

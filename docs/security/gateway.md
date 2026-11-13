@@ -80,7 +80,21 @@ Fuzz targets in `fuzz`:
       key and even as an upgrade. The test reads every route from `modules/rustic-isles/reference/1.14.7/ParadoxBackend/src/routes/reforgedApi.ts`, so a
       route added there is covered (`policy.rs` and `tests/gateway.rs`, `only_the_public_reforged_routes_*`).
 - [ ] `/admin`, `/launcher`, `/internal` and `/health`, and everything under them, are 403 `host_only_route`
-      (Rustic Isles's admin API, its own launcher API, metrics and readiness probes).
+      (Rustic Isles's admin API, its own launcher API, metrics and readiness probes), but for the realm routes below.
+      The launcher's auth, account, game-session and policy routes (`/launcher/v1/auth`, `/me`, `/username`,
+      `/game-sessions`...) stay host-only, and so does `/admin/v1/operations/p2p-emergency-stop`.
+- [ ] The realm routes are the one opening in `/launcher` (`PUBLIC_REALM_PREFIXES`): `/launcher/v1/realms`,
+      `/launcher/v1/realm-hosting` and `/launcher/v1/p2p` (the P2P control plane and the admission key), each as a
+      whole segment (`/launcher/v1/realmsx` stays host-only), never behind `/__origin`. They pass only as `GET` or
+      `POST` (405 otherwise; an upgrade is 400 `unsupported_upgrade`), with exactly one `x-dainty-user-api-key` that
+      is a plausible account key (401 `no_account_key` otherwise) and no `Authorization` (403 `realm_bearer`): the
+      backend's `launcher_auth` prefers a bearer over the key, and a launcher bearer comes only from the host-only
+      auth routes, so the account key is the one credential that crosses. The gateway checks the key's shape only;
+      the rifts module resolves the account and refuses a key it doesn't know. Host-only headers are refused first,
+      so an admin key never rides along. The key is never logged (`realm_routes_cross_with_the_account_key_only`,
+      `policy.rs` and `tests/gateway.rs`; `fuzz/fuzz_targets/gateway_policy.rs`). Node's gateway refused these routes
+      like the rest of `/launcher`, so realms could never be played through it; this is a deliberate departure, and
+      the Node parity recording has no realm request (`tests/parity/NOTES.md`).
 - [ ] A request with `x-rustic-isles-gameserver-apikey`, `x-rustic-isles-gameserver-key`, `x-dainty-admin-key` or
       `x-rustic-isles-metrics-token` is 403, whatever its value, letter case or route. So is each one's
       `x-mysticparadox-` form: the backend still reads those for one release after the Rustic Isles rename (DX4),
@@ -100,6 +114,7 @@ Fuzz targets in `fuzz`:
       secret never leaves the machine.
 - [ ] Parity: every reply in `tests/parity/gateway.requests.json` (status, headers, body, access log, allowlist feed)
       is the one Reforged's Node gateway gives (`tests/parity.rs`, recorded by `record.cjs`).
+      The deliberate departures are in `tests/parity/NOTES.md`.
 
 ### Module routes (DF4a)
 

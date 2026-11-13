@@ -16,8 +16,19 @@ pub const PUBLIC_LAUNCHER_API: &[(&str, &[&str])] = &[
     ("registrationstatus", &["GET", "HEAD"]),
 ];
 
-/// The backend's admin and launcher APIs, metrics and probes: never from off this machine.
+/// The backend's admin and launcher APIs, metrics and probes: never from off this machine, but for
+/// [`PUBLIC_REALM_PREFIXES`].
 pub const HOST_ONLY_PREFIXES: &[&str] = &["/admin", "/launcher", "/internal", "/health", "/metrics"];
+
+/// The only `/launcher` routes a launcher reaches from off this machine: realms, the P2P control plane and its
+/// admission key. Node refused them all, so realms never worked through a gateway (docs/security/gateway.md).
+pub const PUBLIC_REALM_PREFIXES: &[&str] = &["/launcher/v1/realms", "/launcher/v1/realm-hosting", "/launcher/v1/p2p"];
+
+/// The methods the realm routes answer.
+pub const PUBLIC_REALM_METHODS: &[&str] = &["GET", "POST"];
+
+/// The header the launcher sends its account key (`DLK_...`) in.
+pub const ACCOUNT_KEY_HEADER: &str = "x-dainty-user-api-key";
 
 /// The game-server key header the backend reads first; host-only.
 pub const GAMESERVER_KEY_HEADER: &str = "x-rustic-isles-gameserver-apikey";
@@ -370,6 +381,9 @@ pub fn classify(method: &str, target: &str, headers: &HeaderMap, is_upgrade: boo
             limit_class: class,
         };
     }
+    if !wrapped && PUBLIC_REALM_PREFIXES.iter().any(|p| under(&canonical, p)) {
+        return realm(&method, headers, is_upgrade, class);
+    }
     // The launcher API's prefix before the 2026-11-06 rename: nothing serves it, and nothing reaches past here
     if under(&canonical, "/reforged") {
         return Decision::reject(403, "forbidden", "admin_route", class);
@@ -422,6 +436,30 @@ pub fn classify(method: &str, target: &str, headers: &HeaderMap, is_upgrade: boo
         upstream: Upstream::Backend,
         limit_class: class,
         feed,
+    }
+}
+
+/// A realm route: the account key and nothing else, one plausible value. A bearer would win over the key in the
+/// backend's `launcher_auth`, and only the host-only auth routes issue one; the backend still checks the key.
+fn realm(method: &str, headers: &HeaderMap, is_upgrade: bool, class: LimitClass) -> Decision {
+    if is_upgrade {
+        return Decision::reject(400, "bad_request", "unsupported_upgrade", class);
+    }
+    if !PUBLIC_REALM_METHODS.contains(&method) {
+        return Decision::reject(405, "method_not_allowed", "method", class);
+    }
+    if headers.contains_key(http::header::AUTHORIZATION) {
+        return Decision::reject(403, "forbidden", "realm_bearer", class);
+    }
+    let mut keys = headers.get_all(ACCOUNT_KEY_HEADER).iter();
+    let key = keys.next().and_then(|v| v.to_str().ok());
+    if keys.next().is_some() || !key.is_some_and(dainty_protocol::account::is_plausible_account_key) {
+        return Decision::reject(401, "unauthorized", "no_account_key", class);
+    }
+    Decision::Proxy {
+        upstream: Upstream::Backend,
+        limit_class: class,
+        feed: None,
     }
 }
 
@@ -636,7 +674,20 @@ mod tests {
             "GET",
             "/inventory/00000000-0000-4000-8000-000000000001/dauntlessrel-1.4.4:239827"
         )));
-        for prefix in ["/admin", "/launcher/x", "/internal", "/health", "/metrics", "/ADMIN/"] {
+        for prefix in [
+            "/admin",
+            "/launcher/x",
+            "/internal",
+            "/health",
+            "/metrics",
+            "/ADMIN/",
+            "/launcher/v1/auth/register",
+            "/launcher/v1/me",
+            "/launcher/v1",
+            "/launcher/v1/realmsx",
+            "/launcher/v1/p2px/control",
+            "/__origin/h.example/launcher/v1/realms/mine",
+        ] {
             assert_eq!(reason(decide("GET", prefix)), (403, "host_only_route"), "{prefix}");
         }
         assert!(proxied(&decide("GET", "/administrator")) && proxied(&decide("GET", "/launchers")));
@@ -701,6 +752,82 @@ mod tests {
             decide("GET", "/__origin/h.example/network/v1/ping"),
             Decision::Proxy { .. }
         ));
+    }
+
+    #[test]
+    fn realm_routes_cross_with_the_account_key_only() {
+        let reason = |d: Decision| match d {
+            Decision::Reject { status, reason, .. } => (status, reason),
+            other => panic!("{other:?}"),
+        };
+        const KEY: &str = "DLK_0123456789abcdef";
+        let key = headers(&[("x-dainty-user-api-key", KEY)]);
+        let backend = Decision::Proxy {
+            upstream: Upstream::Backend,
+            limit_class: LimitClass::General,
+            feed: None,
+        };
+        for (method, target) in [
+            ("GET", "/launcher/v1/realms/mine"),
+            ("POST", "/launcher/v1/realms"),
+            ("POST", "/Launcher/V1/Realms/Join/"),
+            ("GET", "/launcher/v1/p2p/admission-key"),
+            ("GET", "/launcher/v1/p2p/control?afterSequence=1&waitMs=0"),
+            ("POST", "/launcher/v1/p2p/hunts/s/signal"),
+            ("POST", "/launcher/v1/realm-hosting/hubs/start"),
+            ("get", "//launcher/v1//realm-hosting/status"),
+        ] {
+            assert_eq!(classify(method, target, &key, false), backend, "{method} {target}");
+        }
+        let realms = "/launcher/v1/realms/mine";
+        assert_eq!(reason(decide("GET", realms)), (401, "no_account_key"));
+        for bad in ["", "DLK short", "DLK_\u{e9}", "DLK_1"] {
+            let mut h = HeaderMap::new();
+            h.insert(
+                "x-dainty-user-api-key",
+                HeaderValue::from_bytes(bad.as_bytes()).unwrap(),
+            );
+            assert_eq!(
+                reason(classify("GET", realms, &h, false)),
+                (401, "no_account_key"),
+                "{bad:?}"
+            );
+        }
+        let twice = headers(&[
+            ("x-dainty-user-api-key", KEY),
+            ("x-dainty-user-api-key", "DLK_fedcba9876543210"),
+        ]);
+        assert_eq!(reason(classify("GET", realms, &twice, false)), (401, "no_account_key"));
+        let bearer = headers(&[
+            ("x-dainty-user-api-key", KEY),
+            ("authorization", "Bearer launcher-token"),
+        ]);
+        assert_eq!(reason(classify("GET", realms, &bearer, false)), (403, "realm_bearer"));
+        for method in ["PUT", "DELETE", "PATCH", "HEAD", "OPTIONS"] {
+            assert_eq!(
+                reason(classify(method, realms, &key, false)),
+                (405, "method"),
+                "{method}"
+            );
+        }
+        let ws = headers(&[("upgrade", "websocket"), ("x-dainty-user-api-key", KEY)]);
+        assert_eq!(reason(classify("GET", realms, &ws, true)), (400, "unsupported_upgrade"));
+        let admin = headers(&[("x-dainty-user-api-key", KEY), ("x-dainty-admin-key", "k")]);
+        assert_eq!(
+            reason(classify("GET", realms, &admin, false)),
+            (403, "host_only_header")
+        );
+        for host_only in [
+            "/launcher/v1/auth/login",
+            "/launcher/v1/game-sessions",
+            "/admin/v1/operations/p2p-emergency-stop",
+        ] {
+            assert_eq!(
+                reason(classify("POST", host_only, &key, false)),
+                (403, "host_only_route"),
+                "{host_only}"
+            );
+        }
     }
 
     #[test]
