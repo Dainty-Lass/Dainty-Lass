@@ -88,8 +88,7 @@ start is refused and nothing runs; with the right one the server reaches ready.
 
 1. After updating the binary, `bin\dainty-host setup` (it writes `GAMESERVER_RUNTIME_DIR`), then
    `bin\dainty-host publish-runtime`. It prints that it removed `winmm.dll` from `Win64`, if the old kit put it there
-   (a loader published before c3208d06 and already gone from `.workspace
-untime` isn't known; delete that by hand).
+   (a loader published before c3208d06 and already gone from `.workspace\runtime` isn't known; delete that by hand).
    `Win64` holds no `winmm.dll`. Without `setup`, `start` logs that every game server is refused and none starts.
 2. `bin\dainty-host start`. The Director's log has no runtime error. Ramsgate reaches ready, headless (no window),
    and stays up; `logs\gameservers\port<N>_ramsgate.log` has the runtime's start lines.
