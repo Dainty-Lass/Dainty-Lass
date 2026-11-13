@@ -99,9 +99,12 @@ Nothing happens on detach; the DLL is never unloaded and installs no hooks. The 
 6. writes the run manifest (6.15), appends the `ALL DONE ...` line, and calls `MessageBeep(MB_OK)`;
 7. **closes the game** (a departure from the old DLL, which left it running; maintainer, 2026-11-13): shows a topmost
    message box, title `CatalogExporter`, text `Export complete, closing the game.` (English: a host's tool), on a
-   thread of its own, and ends the game process with exit code 0 once the box is dismissed or 10 s have passed,
-   whichever is first. The timeout keeps a box hidden behind a fullscreen game from holding the game open. A run that
-   ends early (step 4's timeout, a synthetic build) does neither: the game stays open.
+   thread of its own. Once the box is dismissed or 10 s have passed, whichever is first (a box hidden behind a
+   fullscreen game must not hold it open), it posts `WM_CLOSE` to each top-level window of the game's process, the
+   game's own quit. If the game is still running 15 s later, it ends it with `TerminateProcess` and exit code 0.
+   `ExitProcess` is not used: called from the export thread it faults in `libcef.dll`'s teardown (0xC0000005, seen on
+   1.14.7 on 2026-11-13). A run that ends early (step 4's timeout, a synthetic build) does none of this, and the game
+   stays open.
 
 There is **no wait between the catalog appearing and the exports**: every export reads what is loaded at that moment.
 **(ambiguity)** With the loader starting the DLL at process start, the catalog appears at the main menu, before the

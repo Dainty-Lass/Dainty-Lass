@@ -21,8 +21,11 @@ const MB_OK: u32 = 0;
 const MB_ICONINFORMATION: u32 = 0x40;
 const MB_SETFOREGROUND: u32 = 0x1_0000;
 const MB_TOPMOST: u32 = 0x4_0000;
-/// How long the closing notice waits before the game ends anyway (spec §3 step 7).
+const WM_CLOSE: u32 = 0x0010;
+/// How long the closing notice waits before the game is asked to close anyway (spec §3 step 7).
 const CLOSE_AFTER: Duration = Duration::from_secs(10);
+/// How long the game gets to close its own way before it is ended (spec §3 step 7).
+const END_AFTER: Duration = Duration::from_secs(15);
 
 #[link(name = "kernel32")]
 unsafe extern "system" {
@@ -37,13 +40,17 @@ unsafe extern "system" {
     fn GetModuleHandleW(name: *const u16) -> Handle;
     fn DisableThreadLibraryCalls(module: Handle) -> i32;
     fn OutputDebugStringA(text: *const u8);
-    fn ExitProcess(code: u32) -> !;
+    fn GetCurrentProcessId() -> u32;
+    fn TerminateProcess(process: Handle, code: u32) -> i32;
 }
 
 #[link(name = "user32")]
 unsafe extern "system" {
     fn MessageBeep(kind: u32) -> i32;
     fn MessageBoxW(owner: Handle, text: *const u16, caption: *const u16, kind: u32) -> i32;
+    fn EnumWindows(callback: extern "system" fn(Handle, isize) -> i32, data: isize) -> i32;
+    fn GetWindowThreadProcessId(window: Handle, process: *mut u32) -> u32;
+    fn PostMessageW(window: Handle, message: u32, wparam: usize, lparam: isize) -> i32;
 }
 
 /// The game's own memory, read with `ReadProcessMemory` so an unmapped or freed page fails the read (spec §4.4).
@@ -132,7 +139,7 @@ fn wide(text: &str) -> Vec<u16> {
     text.encode_utf16().chain(std::iter::once(0)).collect()
 }
 
-/// Says the export is done, then ends the game once the notice is dismissed or [`CLOSE_AFTER`] has passed (spec §3
+/// Says the export is done, then closes the game once the notice is dismissed or [`CLOSE_AFTER`] has passed (spec §3
 /// step 7): a box behind a fullscreen game must not hold it open.
 fn close_game() {
     let (done, dismissed) = std::sync::mpsc::channel();
@@ -154,8 +161,26 @@ fn close_game() {
         });
     let _ = dismissed.recv_timeout(CLOSE_AFTER);
     debug("CatalogExporter: closing the game");
-    // SAFETY: ends this process with code 0; nothing here runs after it.
-    unsafe { ExitProcess(0) }
+    // The game's own quit, as its window's close button: ExitProcess from here faults in libcef's teardown
+    // SAFETY: the callback only reads the window handle and posts to windows of this process.
+    unsafe { EnumWindows(close_own_window, 0) };
+    std::thread::sleep(END_AFTER);
+    debug("CatalogExporter: the game did not close; ending it");
+    // SAFETY: ends this process with code 0 and runs no DLL teardown, which is what faulted.
+    unsafe { TerminateProcess(GetCurrentProcess(), 0) };
+}
+
+/// Posts `WM_CLOSE` to each top-level window of this process.
+extern "system" fn close_own_window(window: Handle, _data: isize) -> i32 {
+    let mut owner = 0u32;
+    // SAFETY: `window` comes from EnumWindows and `owner` is a valid out pointer.
+    unsafe { GetWindowThreadProcessId(window, &raw mut owner) };
+    // SAFETY: no pointers; GetCurrentProcessId takes none.
+    if owner == unsafe { GetCurrentProcessId() } {
+        // SAFETY: posting a message copies its arguments; the window may be gone, which only fails the post.
+        unsafe { PostMessageW(window, WM_CLOSE, 0, 0) };
+    }
+    TRUE
 }
 
 /// # Safety
