@@ -1,2 +1,1 @@
-# Wider lines than rustfmt's 100; the rest is default.
 max_width = 120
