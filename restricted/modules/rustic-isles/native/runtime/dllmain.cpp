@@ -1371,9 +1371,37 @@ static std::wstring MpOsCommandLineMultihome(bool& Found) {
     return Value;
 }
 
+// [DaintyLass 0047] With CL-1 left to the MIT runtime this file's FCommandLine::Get detour never runs, so nothing
+// publishes the MULTIHOME the listen pin and the port probe read. Take it from the line the MIT runtime serves: calling
+// the hooked target runs the broker's chain. Engine-line rules as MpCarryMultihomeIntoEngineLine's last step.
+static INIT_ONCE g_MpMitMultihomeOnce = INIT_ONCE_STATIC_INIT;
+
+static BOOL CALLBACK MpPublishMitMultihome(PINIT_ONCE, PVOID, PVOID*) {
+    using GetFn = const wchar_t*(*)(void);
+    const wchar_t* Served = reinterpret_cast<GetFn>(Globals::BaseAddress + 0x025E8F70)();
+    std::wstring Effective = MpEngineLineMultihome(Served);
+    if (!Effective.empty() && (!MpIsIpLiteralW(Effective) || Effective.size() >= sizeof(g_MpEngineMultihomeA))) {
+        Effective.clear();
+    }
+    size_t Length = 0;
+    for (wchar_t C : Effective) g_MpEngineMultihomeA[Length++] = static_cast<char>(C);
+    g_MpEngineMultihomeA[Length] = '\0';
+    InterlockedExchange(&g_MpEngineMultihomeState, 1);
+    MpLog(std::string("[MitSeam] CL-1 is the MIT runtime's: engine MULTIHOME=")
+        + (g_MpEngineMultihomeA[0] ? g_MpEngineMultihomeA : "none") + " read from the line it serves");
+    return TRUE;
+}
+
+static void MpEnsureMultihomePublished() {
+    if (InterlockedCompareExchange(&g_MpEngineMultihomeState, 0, 0) != 0 || !Globals::AmServer) return;
+    if (!MitSeam::Owns("CL-1")) return;
+    InitOnceExecuteOnce(&g_MpMitMultihomeOnce, MpPublishMitMultihome, nullptr, nullptr);
+}
+
 // Effective MULTIHOME of the served engine line (wide copy of the published POD), empty when there is none or the
 // line was never served. Used by Networking::Listen (declared there).
 std::wstring MpEngineCommandLineMultihome() {
+    MpEnsureMultihomePublished();   // [DaintyLass 0047]
     if (InterlockedCompareExchange(&g_MpEngineMultihomeState, 0, 0) == 0) return {};
     std::wstring Out;
     for (const char* P = g_MpEngineMultihomeA; *P; ++P) Out.push_back(static_cast<wchar_t>(*P));
@@ -2508,6 +2536,7 @@ static thread_local int g_MpPeChainDepth = 0;
 static bool MpOurUdpPortIsFree() {
     const int Port = static_cast<int>(Globals::Port);
     if (Port <= 0 || Port > 65535) return false;      // unknown port: never act
+    MpEnsureMultihomePublished();   // [DaintyLass 0047]
     uint32_t BindHostOrder = INADDR_ANY;
     if (InterlockedCompareExchange(&g_MpEngineMultihomeState, 0, 0) != 0 && g_MpEngineMultihomeA[0] != '\0'
         && !MpParseIpv4Literal(g_MpEngineMultihomeA, BindHostOrder)) {
