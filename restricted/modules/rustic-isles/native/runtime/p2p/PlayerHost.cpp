@@ -19,6 +19,7 @@
 
 #include "../RuntimeShared.h"
 #include "../P2PHooks.h"
+#include "../MitSeam.h"
 #include "AntiCheatHooks.h"
 
 namespace State {
@@ -183,7 +184,7 @@ static DWORD WINAPI PlayerHostControlThread(void*) {
     char Buffer[512]{};
     DWORD Read = 0;
     const BOOL ReadOk = ReadFile(Pipe, Buffer, sizeof(Buffer) - 1, &Read, nullptr);
-    const std::string Expected = "MYS1 FENCE session=" + State::SessionId +
+    const std::string Expected = "RIS1 FENCE session=" + State::SessionId +
         " generation=" + State::Generation + "\n";
     if (!ReadOk || Read == 0 || Read >= sizeof(Buffer) || std::string(Buffer, Read) != Expected) {
         MpLog("[PlayerHostControl] rejected malformed fence request");
@@ -194,7 +195,7 @@ static DWORD WINAPI PlayerHostControlThread(void*) {
     }
 
     InterlockedExchange(&State::FenceRequested, 1);
-    const std::string Response = "MYS1 FENCE_ACK session=" + State::SessionId +
+    const std::string Response = "RIS1 FENCE_ACK session=" + State::SessionId +
         " generation=" + State::Generation + "\n";
     DWORD Written = 0;
     WriteFile(Pipe, Response.data(), static_cast<DWORD>(Response.size()), &Written, nullptr);
@@ -236,6 +237,7 @@ void P2PHooks::ReadLaunch(int NumArgs, wchar_t** Args) {
     std::string ReadyPipe;
     std::string LaunchId;
     std::string LauncherPid;
+    // [DaintyLass 0055] RT-8: the launcher's pipes are RusticInternalServer.*
     State::BootstrapValid =
         NumArgs > 1 && std::wstring(Args[1]) == L"-" && HasLoopbackMultihome &&
         MpReadEnvironment("RUSTIC_ISLES_BIND_ADDRESS", BindAddress, 15) && BindAddress == "127.0.0.1" &&
@@ -247,9 +249,9 @@ void P2PHooks::ReadLaunch(int NumArgs, wchar_t** Args) {
         MpReadEnvironment("RUSTIC_ISLES_HOST_RUNTIME_CAPABILITY", State::RuntimeCapability, 43) &&
         MpSafeIdentifier(State::RuntimeCapability, 43, 43) &&
         MpReadEnvironment("RUSTIC_ISLES_CONTROL_PIPE", State::ControlPipe, 240) &&
-        MpSafePipeName(State::ControlPipe, "\\\\.\\pipe\\MysticInternalServer.") &&
+        MpSafePipeName(State::ControlPipe, "\\\\.\\pipe\\RusticInternalServer.") &&
         MpReadEnvironment("RUSTIC_ISLES_READY_PIPE", ReadyPipe, 240) &&
-        MpSafePipeName(ReadyPipe, "\\\\.\\pipe\\MysticInternalServer.") &&
+        MpSafePipeName(ReadyPipe, "\\\\.\\pipe\\RusticInternalServer.") &&
         MpReadEnvironment("RUSTIC_ISLES_GAMESERVER_LAUNCH_ID", LaunchId, 96) &&
         MpSafeIdentifier(LaunchId, 16, 96) &&
         MpReadEnvironment("RUSTIC_ISLES_LAUNCHER_PID", LauncherPid, 10) &&
@@ -297,6 +299,13 @@ std::string P2PHooks::DescribeRole() {
 }
 
 bool P2PHooks::StartServer() {
+    // [DaintyLass 0055] The MIT runtime holds the pipes and the fence and ends an invalid bootstrap itself (the root's
+    // docs/port/spec-runtime-r10.md section 13); Init's check still feeds the hub-role answers below.
+    if (MitSeam::Owns("SP-3@R10")) {
+        MpLog("[MitSeam] SP-3@R10 is the MIT runtime's: the player host's control pipe, readiness and fence are left "
+              "to it");
+        return true;
+    }
     if (!State::BootstrapValid) {
         MpLog("[PlayerHostControl] invalid player-host bootstrap; terminating before listen");
         if (State::RoleProblem) MpLog(std::string("[HostedRole] invalid launcher role: ") + State::RoleProblem);
@@ -363,7 +372,8 @@ bool P2PHooks::ReportReady(int Port) {
     std::string SessionId;
     std::string Generation;
     std::string LaunchId;
-    const std::string PipePrefix = "\\\\.\\pipe\\MysticInternalServer.";
+    // [DaintyLass 0055] RT-8: the pipe prefix and the RIS1 tag (the root's docs/port/spec-runtime-r10.md section 4)
+    const std::string PipePrefix = "\\\\.\\pipe\\RusticInternalServer.";
     if (!MpReadEnvironment("RUSTIC_ISLES_READY_PIPE", PipeName, 240) || !MpSafePipeName(PipeName, PipePrefix.c_str()) ||
         !MpReadEnvironment("RUSTIC_ISLES_SESSION_ID", SessionId, 36) || !MpSafeIdentifier(SessionId, 36, 36) ||
         !MpReadEnvironment("RUSTIC_ISLES_SESSION_GENERATION", Generation, 10) || !MpSafeIdentifier(Generation, 1, 10) ||
@@ -393,7 +403,7 @@ bool P2PHooks::ReportReady(int Port) {
         if (OpenError != ERROR_PIPE_BUSY || GetTickCount64() >= OpenDeadline) return false;
         Sleep(100);
     }
-    const std::string Message = "MYS1 READY session=" + SessionId + " generation=" + Generation +
+    const std::string Message = "RIS1 READY session=" + SessionId + " generation=" + Generation +
         " launch=" + LaunchId + " port=" + std::to_string(Port) + " bind=127.0.0.1\n";
     DWORD Written = 0;
     const BOOL Ok = WriteFile(Pipe, Message.data(), static_cast<DWORD>(Message.size()), &Written, nullptr);
@@ -434,7 +444,7 @@ void P2PHooks::OnListenFailed() {
 // Metagame.
 void P2PHooks::RequestHeader(std::wstring& Name, std::wstring& Value) {
     if (State::RuntimeCapability.size() != 43) return;
-    Name = L"x-mystic-host-capability";
+    Name = L"x-rustic-host-capability";   // [DaintyLass 0055] D3
     Value.assign(State::RuntimeCapability.begin(), State::RuntimeCapability.end());
 }
 

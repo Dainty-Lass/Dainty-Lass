@@ -701,9 +701,7 @@ namespace Networking {
         char LaunchId[128]{};
         const DWORD LaunchIdLength = GetEnvironmentVariableA("RUSTIC_ISLES_GAMESERVER_LAUNCH_ID", LaunchId, sizeof(LaunchId));
         if (LaunchIdLength > 0 && LaunchIdLength < sizeof(LaunchId)) {
-            std::cout << "RUSTIC_ISLES_GAMESERVER_READY launchId=" << LaunchId << " port=" << Port << std::endl;
-            // A Director from before the Rustic Isles rename waits for the old marker; a newer one takes the first
-            std::cout << "MYSTICPARADOX_GAMESERVER_READY launchId=" << LaunchId << " port=" << Port << std::endl;
+            std::cout << "RUSTIC_ISLES_GAMESERVER_READY launchId=" << LaunchId << " port=" << Port << std::endl;   // [DaintyLass 0055] no MYSTICPARADOX_ twin (RT-8)
             NetLog(Port, std::string("[Networking::Listen] Ready marker emitted launchId=") + LaunchId);
         }
         return true;
@@ -727,9 +725,7 @@ namespace Networking {
         char LaunchId[128]{};
         const DWORD LaunchIdLength = GetEnvironmentVariableA("RUSTIC_ISLES_GAMESERVER_LAUNCH_ID", LaunchId, sizeof(LaunchId));
         if (LaunchIdLength > 0 && LaunchIdLength < sizeof(LaunchId)) {
-            std::cout << "RUSTIC_ISLES_GAMESERVER_READY launchId=" << LaunchId << " port=" << Port << std::endl;
-            // A Director from before the Rustic Isles rename waits for the old marker; a newer one takes the first
-            std::cout << "MYSTICPARADOX_GAMESERVER_READY launchId=" << LaunchId << " port=" << Port << std::endl;
+            std::cout << "RUSTIC_ISLES_GAMESERVER_READY launchId=" << LaunchId << " port=" << Port << std::endl;   // [DaintyLass 0055] no MYSTICPARADOX_ twin (RT-8)
             NetLog(Port, std::string("[EngineListen] Ready marker emitted launchId=") + LaunchId);
         }
     }
