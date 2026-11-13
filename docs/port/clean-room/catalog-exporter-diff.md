@@ -4,10 +4,11 @@ The hands-on check of [catalog-exporter.md](catalog-exporter.md) section 6 and s
 ([spec-catalog-exporter.md](../spec-catalog-exporter.md)), run on the maintainer's PC on 2026-11-13. This page records
 only file names, field names, verdicts and row counts: the exported game data stays off the repository (AGENTS.md).
 
-**Verdict: one fix away.** 22 of the 24 phase-1 files the new DLL writes are byte-identical to the old DLL's in the
-same game state, and the manifest differs only in `exportedAt`. `store_item_images_1_14_7.jsonl` fails: every image
-path is read 4 bytes early (section 3). The spec correction is in section 4. After it lands, the new DLL needs one
-more run (`new-2`) against `old-2` before the Host page moves to it.
+**Verdict: pass.** With the store-image fix (`plan` `b28bdc9b`), the new DLL writes all 24 phase-1 files the same
+as the old DLL in the same game state: 23 byte-identical, and the manifest differs only in `exportedAt` (section 6).
+The first run, `new-1` from `99488ca9`, failed only on `store_item_images_1_14_7.jsonl`. Every image path was read 4
+bytes early (section 3), and the spec correction in section 4 fixed it. The Host page's exporter path can move to the
+new DLL (spec 9 seam 4).
 
 ## 1. Setup
 
@@ -116,10 +117,19 @@ None of these block the diff. Each is reported to the session that owns it.
   run, and the catalog only partly in the first. Compare against a run of the old DLL made just before, as `old-2`
   and `new-1` were here.
 
-## 6. Still to do
+## 6. The re-run: `new-2`
 
-1. The spec correction in section 4, then the implementer's fix.
-2. `new-2` with the fixed DLL, compared against `old-2` (or a fresh old run from a warm start). It passes when every
-   file is `same` or `same (masked)`.
-3. Clean-up (spec 10 step 6): put the maintainer's own `ExportPaths.local.h` and `CatalogExporter.dll` back from
-   `C:\dl-diff\backup`. Both are still in the diff setup for `new-2`.
+The spec correction landed as `86cffa7e` (merged into `plan` as `b28bdc9b`): every soft pointer's `AssetPathName`
+is at the member + 0x10, and `TPersistentObjectPtr.ObjectID` is no longer an SDK fact. The DLL was rebuilt from
+`b28bdc9b` against the same SDK (SHA-256 `954e203f...`) and run once more, injected the same way.
+
+| Run | DLL | general | equipment | progression | slayersPath | hunts | storeRuntime | mastery |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| `new-2` | new, fixed | 7318 | 1608 | 139 | 509 | 1378 | 3173 | 304 |
+
+`Compare-Run old-2 new-2`: 23 files `same`, `export_manifest_1_14_7.json` `same (masked)` (`exportedAt`).
+`store_item_images_1_14_7.jsonl` is now byte-identical. `Compare-Run new-2 old-2` lists nothing that the old run
+lacks. That is better than the noise floor (`old-1`/`old-2`, 4 files different), so the check passes.
+
+Clean-up (spec 10 step 6): the maintainer's own `ExportPaths.local.h` and `CatalogExporter.dll` were put back from
+`C:\dl-diff\backup`. `C:\dl-diff` stays on the maintainer's PC and off the repository.
