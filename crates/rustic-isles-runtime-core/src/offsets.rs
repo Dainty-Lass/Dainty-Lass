@@ -219,6 +219,61 @@ pub const TARGETS: &[Target] = &[
         found_by: FoundBy::Rva,
         what: "UGameMapsSettings::GetGameDefaultMap",
     },
+    // R7: player data and loading (LD-4, LD-8 and LD-9 are owned and never installed)
+    Target {
+        id: "LD-1",
+        rva: 0x01BA_5E40,
+        found_by: FoundBy::Rva,
+        what: "IArchonLoadingInterface HasFinishedLoading dispatcher",
+    },
+    Target {
+        id: "LD-2",
+        rva: 0x01CB_33B0,
+        found_by: FoundBy::Rva,
+        what: "AArchonPlayerController::OnPlayerDataLoadComplete",
+    },
+    Target {
+        id: "LD-3",
+        rva: 0x01CB_0010,
+        found_by: FoundBy::Rva,
+        what: "UArchonLoadManager::LoadFailed",
+    },
+    Target {
+        id: "LD-4",
+        rva: 0x01C9_97A0,
+        found_by: FoundBy::Rva,
+        what: "UArchonLoadManager::Begin",
+    },
+    Target {
+        id: "LD-5",
+        rva: 0x0190_53A0,
+        found_by: FoundBy::Rva,
+        what: "the progression configuration predicate",
+    },
+    Target {
+        id: "LD-6",
+        rva: 0x01A4_DE80,
+        found_by: FoundBy::Rva,
+        what: "UProgressionComponent::CompleteLoadInternal",
+    },
+    Target {
+        id: "LD-7",
+        rva: 0x01A6_AAB0,
+        found_by: FoundBy::Rva,
+        what: "UProgressionComponent::ReadFromBackend",
+    },
+    Target {
+        id: "LD-8",
+        rva: 0x0190_2E60,
+        found_by: FoundBy::Rva,
+        what: "the progression configuration cache lookup",
+    },
+    Target {
+        id: "LD-9",
+        rva: 0x01A6_9560,
+        found_by: FoundBy::Rva,
+        what: "the progression component readiness predicate",
+    },
 ];
 
 /// Ids with more than one `TARGETS` line, and how many (HL-3 hooks two exports).
@@ -473,6 +528,125 @@ pub mod r17 {
     pub const INPUT_CONSOLE_KEYS: usize = 0x130;
     /// `FKey`'s size; its `KeyName` is at +0.
     pub const FKEY_SIZE: usize = 0x18;
+}
+
+/// R7: player data and loading (spec-runtime-r7 3.1, 3.2). The function RVAs R7 calls sit here, not in `data`.
+pub mod r7 {
+    /// `UArchonLoadManager::Begin(manager)`, called by the retry (LD-4's target, never hooked).
+    pub const LOAD_MANAGER_BEGIN: u32 = 0x01C9_97A0;
+    /// The weak object resolver: `(weak: *const [i32; 2]) -> object`, null when stale.
+    pub const WEAK_OBJECT_GET: u32 = 0x0287_AA20;
+    /// `CompleteLoadInternal(component)`, called at its hooked entry (LD-6's target).
+    pub const COMPLETE_LOAD_INTERNAL: u32 = 0x01A4_DE80;
+    /// HL-2's site (R5 2.1): the server has no phantom local player when its replacement is in place.
+    pub const HL2_SITE: u32 = 0x03E0_7353;
+    /// HL-2's six bytes once applied.
+    pub const HL2_APPLIED: [u8; 6] = [0xE9, 0xD4, 0x00, 0x00, 0x00, 0x90];
+
+    /// `UArchonLoadManager`: bytes read before any field.
+    pub const MANAGER_SPAN: usize = 0x70;
+    /// Its owning controller.
+    pub const MANAGER_CONTROLLER: usize = 0x20;
+    /// Its entry array's data pointer.
+    pub const MANAGER_ENTRIES: usize = 0x48;
+    /// Its entry count (`i32`).
+    pub const MANAGER_ENTRY_COUNT: usize = 0x50;
+    /// `bBegun` (`u8`): `Begin` makes its timer only while 0.
+    pub const MANAGER_BEGUN: usize = 0x58;
+    /// One entry: weak owner `{index, serial}` at +0, loader interface at +8.
+    pub const ENTRY_SIZE: usize = 0x10;
+    /// The entry's loader interface pointer.
+    pub const ENTRY_LOADER: usize = 0x08;
+    /// `IArchonPlayerDataLoader`: bytes read.
+    pub const LOADER_SPAN: usize = 0x28;
+    /// `bLoaded` (`u8`).
+    pub const LOADER_LOADED: usize = 0x10;
+    /// `bLoading` (`u8`): `Load` refuses to start while 1.
+    pub const LOADER_LOADING: usize = 0x11;
+
+    /// `APlayerController.PlayerState`.
+    pub const PC_PLAYER_STATE: usize = 0x228;
+    /// `APlayerController.Pawn`.
+    pub const PC_PAWN: usize = 0x250;
+    /// `APlayerController.Player`.
+    pub const PC_PLAYER: usize = 0x298;
+    /// `APlayerController.NetConnection`: non-null for a remote player.
+    pub const PC_NET_CONNECTION: usize = 0x418;
+    /// Bytes read for the local controller checks.
+    pub const PC_SPAN_LOCAL: usize = 0x2A0;
+    /// Bytes read for the gate's checks.
+    pub const PC_SPAN_GATE: usize = 0x420;
+    /// `AArchonPlayerController.HuntSystem`.
+    pub const PC_HUNT_SYSTEM: usize = 0x768;
+    /// Bytes read for the backfill.
+    pub const PC_SPAN_HUNT: usize = 0x770;
+    /// `AArchonPlayerController.LoadManager`.
+    pub const PC_LOAD_MANAGER: usize = 0xA70;
+    /// Bytes read for the load manager and the snapshot's controller check.
+    pub const PC_SPAN_MANAGER: usize = 0xA78;
+    /// `APlayerState`'s net id object (inside `UniqueId` at +0x250); null = no net id.
+    pub const PS_NET_ID: usize = 0x258;
+    /// `UPlayer.PlayerController`.
+    pub const PLAYER_CONTROLLER: usize = 0x30;
+    /// `UPlayer` span.
+    pub const PLAYER_SPAN: usize = 0x38;
+    /// `APawn.PlayerState`.
+    pub const PAWN_PLAYER_STATE: usize = 0x240;
+    /// `APawn` span.
+    pub const PAWN_SPAN: usize = 0x740;
+    /// The pawn's player state span.
+    pub const PLAYER_STATE_SPAN: usize = 0x6B1;
+    /// `AArchonCharacter.CurrentWeapon`.
+    pub const CHARACTER_WEAPON: usize = 0x5F0;
+    /// `UHuntSystemComponent.PlayerHuntId`'s `Num` (`FString` at +0x180; `Num` counts the NUL).
+    pub const HUNT_ID_NUM: usize = 0x188;
+    /// `UHuntSystemComponent` span.
+    pub const HUNT_SYSTEM_SPAN: usize = 0x190;
+    /// `UProgressionComponent`'s `IArchonPlayerDataLoader` subobject.
+    pub const PROGRESSION_LOADER: usize = 0xB0;
+    /// Configuration received (`u8`).
+    pub const PROGRESSION_RECEIVED: usize = 0x3F0;
+    /// Finished setup (`u8`).
+    pub const PROGRESSION_FINISHED: usize = 0x3F8;
+    /// `UProgressionComponent` span.
+    pub const PROGRESSION_SPAN: usize = 0x420;
+    /// `island_arrival_cinematic_trigger_bp_C` span.
+    pub const TRIGGER_SPAN: usize = 0x4C0;
+    /// `PrimaryCineActor`.
+    pub const TRIGGER_PRIMARY_CINE: usize = 0x328;
+    /// `SlayerActors.Num`.
+    pub const TRIGGER_SLAYERS_NUM: usize = 0x338;
+    /// `bClientStarted`.
+    pub const TRIGGER_CLIENT_STARTED: usize = 0x3F0;
+    /// `LoadingState`.
+    pub const TRIGGER_LOADING_STATE: usize = 0x420;
+    /// `IntroAnimSequenceRefs.Num`.
+    pub const TRIGGER_INTRO_NUM: usize = 0x430;
+    /// `IslandApproachLevelSequenceActor`.
+    pub const TRIGGER_APPROACH: usize = 0x480;
+    /// `PlayerCanRestart` params: controller +0, `ReturnValue` +8.
+    pub const CAN_RESTART_PARAMS: usize = 0x10;
+    /// `ReturnValue` (`bool`).
+    pub const CAN_RESTART_RETURN: usize = 0x08;
+    /// `DebugSetPlayerHuntID` params (`HuntID` `FString` at +0).
+    pub const SET_HUNT_ID_PARAMS: usize = 0x10;
+    /// `QueryCurrentHuntPassSeasonData` params (an unbound delegate, zeroed).
+    pub const QUERY_PARAMS: usize = 0x10;
+
+    /// `UStruct.SuperStruct` (R17 3.1).
+    pub const STRUCT_SUPER: usize = 0x40;
+    /// `UStruct.Children` (R17 3.1).
+    pub const STRUCT_CHILDREN: usize = 0x48;
+    /// `UField.Next` (R17 3.1).
+    pub const FIELD_NEXT: usize = 0x28;
+    /// `UFunction.FunctionFlags` (`u32`).
+    pub const FUNCTION_FLAGS: usize = 0xB0;
+    /// `UFunction.ParmsSize` (`u16`, R17 3.1).
+    pub const FUNCTION_PARMS_SIZE: usize = 0xB6;
+    /// `FUNC_Native`.
+    pub const FUNC_NATIVE: u32 = 0x400;
+    /// `RF_ClassDefaultObject`.
+    pub const RF_CLASS_DEFAULT_OBJECT: u32 = 0x10;
 }
 
 #[cfg(test)]

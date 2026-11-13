@@ -88,8 +88,8 @@ Fuzz targets in `fuzz`:
       points into freed memory.
 - [ ] The ownership registry lists every surface id once with its slice; `owns` answers yes exactly for the ids of
       the slices in `LANDED` (`R0`, `R1`, `R2`, `R3`, `R4`: SP-1..3, HTTP-1, HTTP-1@R2, EXIT-1..14 and CL-1, 2, 5, 7,
-      8, 9; `HTTP-1@R10` stays the AGPL's) (`core::registry` tests). R4's seven logging-only probes (CL-3, CL-4, CL-6,
-      CL-10..13) are slice `R19`, never owned.
+      8, 9; `R7`: LD-1..9, `SP-2@R7`, `SP-3@R7`; `HTTP-1@R10` and `SP-2@R20` stay the AGPL's) (`core::registry`
+      tests). R4's seven logging-only probes (CL-3, CL-4, CL-6, CL-10..13) are slice `R19`, never owned.
 
 ### Detach and the loader lock
 
@@ -194,6 +194,24 @@ Fuzz targets in `fuzz`:
 - [ ] Per-frame driver upkeep writes nothing to a driver that is no longer live or readable (R9 departure 4).
 - [ ] `rir_listen_driver` is a lock-free load that catches panics and answers null until a listen succeeded; it is
       outside the seam's required set (`tests/dll_file.rs`).
+
+### Player data and loading (R7)
+
+- [ ] LD-1 never turns the game's true answer false and calls the original first on every call; a client forces only
+      the idle arrival trigger and its own local controller, never before a stable possession, 20 s, and a weapon
+      (`core::loading::force_controller`).
+- [ ] The possession capture forgets its controller when `GWorld` changes, so no check reads a freed controller.
+- [ ] Every read of a manager, controller, loader, hunt system, component or trigger goes through `ffi::memory`
+      after its span is checked; a failed read ends the step and the call reaches the game.
+- [ ] R7 writes game memory in four places only, each a checked write into a writable region: a stuck loader's
+      `bLoading`, the manager's `bBegun` (the retry), `PlayerCanRestart`'s `ReturnValue` (the gate), and the query
+      function's `FunctionFlags`, restored after the call (`ffi::loading::game::write`).
+- [ ] The retry runs once per manager and controller pair; a second failure reaches the game's handler, so a player
+      is never held on a loading screen (`core::loading::RetryTable`). The restart gate releases after 90 s.
+- [ ] The calls R7 makes (`Begin`, the weak resolver, `CompleteLoadInternal`, `ProcessEvent`) take arguments R7
+      checked first; UFunction calls pass the parameter guard (`ParmsSize` within the block) and never run after
+      detach.
+- [ ] R7's lines carry pointers, counts and the hunt id only, never an account id or a key.
 
 ### Logging
 
