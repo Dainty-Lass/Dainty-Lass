@@ -628,7 +628,9 @@ async fn private_flow_from_invite_to_the_games_exit() {
     assert_eq!(plan.working_dir, pc.win64);
     let injected: Vec<PathBuf> = plan.inject.iter().map(|dll| dll.path.clone()).collect();
     if inject::INJECTS {
-        assert_eq!(injected, [pc.win64.join("Rustic-Isles.dll")]);
+        // The MIT runtime first, then the AGPL one (RT-5)
+        let runtimes = ["rustic-isles-runtime.dll", "Rustic-Isles.dll"];
+        assert_eq!(injected, runtimes.map(|name| pc.win64.join(name)));
     } else {
         assert!(injected.is_empty());
     }
@@ -1255,7 +1257,8 @@ async fn the_command_lines_export_is_the_host_pages() {
     }
     let plan = until_launched(&spawner, 1).await;
     let injected: Vec<PathBuf> = plan.inject.iter().map(|dll| dll.path.clone()).collect();
-    assert_eq!(injected, [pc.win64.join("Rustic-Isles.dll"), dll.clone()]);
+    let runtimes = ["rustic-isles-runtime.dll", "Rustic-Isles.dll"].map(|name| pc.win64.join(name));
+    assert_eq!(injected, [&runtimes[..], std::slice::from_ref(&dll)].concat());
     assert!(pc.win64.join("export_flags.txt").is_file());
     std::fs::create_dir_all(pc.win64.join("Items_Analysis")).unwrap();
     // A run is known by the status file it writes beside its exports

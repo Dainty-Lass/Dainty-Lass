@@ -92,8 +92,14 @@ use crate::{
     traffic::{host_key, reservation, session_key},
 };
 
-/// The runtime files a Guard manifest names.
-pub const GUARD_MANIFEST_ROLES: &[&str] = &["TRANSPORT_MODULE", "TRANSPORT_RUNTIME", "ADMISSION_KEY"];
+/// The runtime files a Guard manifest names. `TRANSPORT_RUNTIME_MIT` pins the MIT runtime of a hosted realm and is
+/// optional while the transition lasts (RT-5).
+pub const GUARD_MANIFEST_ROLES: &[&str] = &[
+    "TRANSPORT_MODULE",
+    "TRANSPORT_RUNTIME",
+    "ADMISSION_KEY",
+    "TRANSPORT_RUNTIME_MIT",
+];
 
 /// Guard's own writes: chains it opens and traffic it charges.
 const GUARD_ACTOR: Actor = Actor::System("guard");

@@ -8,8 +8,10 @@ use std::path::{Path, PathBuf};
 
 use crate::error::HostError;
 
-/// The game runtime's DLLs `publish-runtime` publishes: the runtime and its loader.
-pub const RUNTIME_FILE_NAMES: [&str; 2] = ["Rustic-Isles.dll", "winmm.dll"];
+/// The game runtime's DLLs `publish-runtime` publishes: the runtime, the MIT runtime beside it (RT-5) and the loader.
+pub const RUNTIME_FILE_NAMES: [&str; 3] = ["Rustic-Isles.dll", "rustic-isles-runtime.dll", "winmm.dll"];
+/// The MIT runtime's name as cargo builds it: a library name cannot hold `-`, so it is published renamed (RT-5).
+pub const MIT_RUNTIME_BUILD_NAME: &str = "rustic_isles_runtime.dll";
 /// The pinned Dauntless 1.14.7 build's changelist.
 pub const GAME_CHANGELIST: u32 = 647472;
 /// The pinned build's version string, as the game reports it.
@@ -215,6 +217,8 @@ pub struct Paths {
     pub sdk_dir: PathBuf,
     /// The built runtime DLL.
     pub runtime_dll: PathBuf,
+    /// The built MIT runtime DLL, under its build name ([`MIT_RUNTIME_BUILD_NAME`]).
+    pub mit_runtime_dll: PathBuf,
     /// The runtime loader's sources.
     pub loader_dir: PathBuf,
     /// The built loader, `winmm.dll`.
@@ -291,6 +295,11 @@ impl Paths {
         let sdk_header = runtime_source.join("SDK.hpp");
         let sdk_dir = runtime_source.join("SDK");
         let runtime_dll = runtime_source.join("x64").join("Release").join("Rustic-Isles.dll");
+        let mit_runtime_dll = repo
+            .join("target")
+            .join("x86_64-pc-windows-msvc")
+            .join("release")
+            .join(MIT_RUNTIME_BUILD_NAME);
         let loader_dir = repo.join("native").join("runtime-loader");
         let loader_dll = loader_dir
             .join("target")
@@ -337,6 +346,7 @@ impl Paths {
             sdk_header,
             sdk_dir,
             runtime_dll,
+            mit_runtime_dll,
             loader_dir,
             loader_dll,
             exporter_dir,

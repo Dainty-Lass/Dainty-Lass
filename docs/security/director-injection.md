@@ -18,9 +18,10 @@ server that holds the gameserver key on its command line and talks to the backen
 
 - **Process:** only the server `os::spawn` has just created with `CREATE_SUSPENDED`, inside its own job, reached
   through the handle `CreateProcessW` returned. Under Wine, only the game the helper has just started.
-- **File:** only `Rustic-Isles.dll` in `GAMESERVER_RUNTIME_DIR` (the host's `.workspace/runtime`), by absolute path.
-- **Parsing:** `runtime.json`, which `publish-runtime` writes and the host owns, read for one SHA-256 (fuzz target
-  `director_runtime_manifest`). The helper's command line is `inject_helper_args`.
+- **Files:** only `rustic-isles-runtime.dll` (when `runtime.json` lists it, RT-5) and `Rustic-Isles.dll` in
+  `GAMESERVER_RUNTIME_DIR` (the host's `.workspace/runtime`), in that order, by absolute path.
+- **Parsing:** `runtime.json`, which `publish-runtime` writes and the host owns, read for the two SHA-256s (fuzz
+  target `director_runtime_manifest`). The helper's command line is `inject_helper_args`.
 
 ## Checklist
 
@@ -39,15 +40,20 @@ server that holds the gameserver key on its command line and talks to the backen
 
 ### The file
 
-- [ ] The path is `GAMESERVER_RUNTIME_DIR` joined with `Rustic-Isles.dll`; the directory must be absolute
-      (`runtime::published`). Nothing a player or the network sends chooses it.
-- [ ] The hash is `runtime.json`'s single `Rustic-Isles.dll` entry, 64 lowercase hex; a second entry, a missing one,
-      a bad hash or a file over 64 KiB refuses the start (`the_runtime_hash_is_read_strictly`).
+- [ ] The paths are `GAMESERVER_RUNTIME_DIR` joined with `rustic-isles-runtime.dll` (only when listed) and
+      `Rustic-Isles.dll`, injected in that order; the directory must be absolute (`runtime::published`). Nothing a
+      player or the network sends chooses them. An MIT DLL in the folder that `runtime.json` doesn't list is never
+      loaded.
+- [ ] Each hash is `runtime.json`'s single entry for its file, 64 lowercase hex; a second entry for either, a missing
+      `Rustic-Isles.dll`, an MIT entry without it, a bad hash or a file over 64 KiB refuses the start
+      (`the_runtime_hash_is_read_strictly`).
 - [ ] The file is hashed again through a handle held deny-write until `LoadLibraryW` returns (`dainty_inject::hold`),
       so a file changed after publishing is refused, not loaded.
-- [ ] `DAINTY_INJECT_DLL` and `DAINTY_INJECT_SHA256` reach the wrapper only from the Director: any inherited value is
-      removed before a start (`a_start_injects_or_hands_the_wrapper_the_dll`), and the wrapper removes both from the
-      game's own environment.
+- [ ] `DAINTY_INJECT_DLL`, `DAINTY_INJECT_SHA256` and the MIT pair `DAINTY_INJECT_MIT_DLL`, `DAINTY_INJECT_MIT_SHA256`
+      reach the wrapper only from the Director: any inherited value is removed before a start
+      (`a_start_injects_or_hands_the_wrapper_the_dll`), and the wrapper removes all four from the game's own
+      environment. The wrapper refuses an MIT pair without the runtime's, and passes the MIT DLL to the helper first
+      (`wine::tests::the_runtime_goes_in_through_the_helper`).
 - [ ] The helper is only the one beside the running `dainty-host` (`wine::inject_helper`); a missing helper refuses
       the start with its path, and is never looked for on `PATH`.
 

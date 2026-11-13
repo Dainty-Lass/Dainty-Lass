@@ -318,8 +318,8 @@ In this order:
 1. **Version prefix.** If `<name>` contains `/`, split at the first `/`; if the first part resolves through
    `ContentModules::resolve`, that is the requested version and the second part is the file name. Otherwise the whole
    `<name>` is the file name (and, containing `/`, it fails step 2).
-2. **Name.** The file name must be exactly `Rustic-Isles.dll`, `winmm.dll` or `MysticParadox.dll` (the runtime's name
-   before DX4), letter case included (`protocol::manifest::runtime_file_slot` is `Some`). Else `404 not_found`, log
+2. **Name.** The file name must be exactly `Rustic-Isles.dll`, `rustic-isles-runtime.dll` (the MIT runtime, RT-5), `winmm.dll` or
+   `MysticParadox.dll` (the runtime's name before DX4), letter case included (`protocol::manifest::runtime_file_slot` is `Some`). Else `404 not_found`, log
    reason `not_a_runtime_file`. From here the log's `path` is the file name.
 3. **Key** (section 2.8): no `x-reforged-user-api-key` header or an empty one is `401 unauthorized` (reason
    `no_key`); a refused key is `401 unauthorized` (reason `bad_key`); a backend that cannot answer is
@@ -491,7 +491,7 @@ checked in this order:
 4. `files` must be an array: `files must be a list`.
 5. Each entry, in order (an entry that is not an object is treated as an empty object):
    - `name` must be a string that is a runtime file name (section 2.6.2 step 2), else
-     `unknown file <name> (only Rustic-Isles.dll and winmm.dll)`, `<name>` the value as `JSON.stringify` writes it
+     `unknown file <name> (only Rustic-Isles.dll, rustic-isles-runtime.dll and winmm.dll)`, `<name>` the value as `JSON.stringify` writes it
      (`null`, `5`, `"dxgi.dll"`), or `undefined` when missing.
    - Its slot must not already be listed: `<name> is listed twice` (`MysticParadox.dll` and `Rustic-Isles.dll` are one
      slot).
@@ -499,7 +499,8 @@ checked in this order:
      bytes`.
    - `sha256`: a string of exactly 64 lowercase hex characters: else `<name>: sha256 must be 64 lowercase hex
      characters`.
-6. Both slots present: for `Rustic-Isles.dll` then `winmm.dll`, a missing slot is `<name> is missing from the list`.
+6. The required slot present: `Rustic-Isles.dll` missing is `Rustic-Isles.dll is missing from the list`. `winmm.dll` and
+   `rustic-isles-runtime.dll` are optional (RD9; RT-5, the MIT runtime while the transition lasts).
 
 The result is `RuntimeManifest::new(trimmed version, changelist, files)`: files sorted by name, build name always
 `rel-1.14.7-Archon`. Its body (section 2.11.3) is `RuntimeManifest::to_json()`.
@@ -532,8 +533,8 @@ same body and ETag. `protocol::test_data::RUNTIME_MANIFESTS` holds two input/bod
 - No `CONTENT_RUNTIME_DIR`: always **none** with reason `CONTENT_RUNTIME_DIR is not set`, never logged by the store.
 - Otherwise the status is cached. A request checks again only if 10 s or more passed since the last check, or the
   check was forgotten. Before the first check the status is none, `not checked yet`.
-- A check first looks at the existence, length and modification time (ns) of `runtime.json`, `Rustic-Isles.dll`,
-  `winmm.dll` and `MysticParadox.dll` in the folder. If none of those changed since the last load, the cached status
+- A check first looks at the existence, length and modification time (ns) of `runtime.json`, `MysticParadox.dll`,
+  `Rustic-Isles.dll`, `rustic-isles-runtime.dll` and `winmm.dll` in the folder. If none of those changed since the last load, the cached status
   stands (no re-hash). Otherwise the folder is loaded again (2.11.2).
 - After a load:
   - OK, and the previous status was not OK or had another version: log `info` `runtime ready` with `version` and
@@ -858,8 +859,8 @@ Runtime (T):
   `dxgi.dll`, uppercase sha, size 0, size 1e9, changelist -1, changelist null/1.5/"1"/2^53.
 - T3 A BOM, `" v1 "`, `build: []`, `5.0` and `1e1` sizes are read as JavaScript reads them; the body starts
   `{"version":"v1","build":{"name":"rel-1.14.7-Archon","changelist":647472},"files":[{"name":"Rustic-Isles.dll","size":10,`.
-- T4 Exact texts: `unknown file null (only Rustic-Isles.dll and winmm.dll)`, `unknown file undefined (only
-  Rustic-Isles.dll and winmm.dll)` for a non-object entry, `MysticParadox.dll is listed twice`.
+- T4 Exact texts: `unknown file null (only Rustic-Isles.dll, rustic-isles-runtime.dll and winmm.dll)`, `unknown file undefined (only
+  Rustic-Isles.dll, rustic-isles-runtime.dll and winmm.dll)` for a non-object entry, `MysticParadox.dll is listed twice`.
 - T5 Store: none without a folder or before publishing; OK once published; `winmm.dll` found, `WINMM.DLL` and
   `runtime.json` not; a file with a wrong hash makes it invalid (reason names `winmm.dll`) after 10 s; a new publish
   is picked up after 10 s; a publish within 9.999 s is not seen until the check is forgotten.

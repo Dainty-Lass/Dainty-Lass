@@ -74,7 +74,7 @@ The rows that cite RD9 and need the integration pass to reword them:
 
 1. Opens and hashes every DLL, holding each one.
 2. Takes the process's only thread id, which is the main thread.
-3. For each DLL in order (the runtime first, then the exporter): `VirtualAllocEx` and `WriteProcessMemory` write the
+3. For each DLL in order (the MIT runtime when the set has it, then `Rustic-Isles.dll`, then the exporter; RT-5): `VirtualAllocEx` and `WriteProcessMemory` write the
    path, `CreateRemoteThread` starts at `LoadLibraryW`, and the launcher waits up to 60 s. `LoadLibraryW` has the
    same address in the game: both are x64, and `kernel32` sits at one base per boot. A zero exit code is checked
    against the module list, since the truncated `HMODULE` can read as zero.
@@ -123,8 +123,11 @@ launcher's AppImage, deb and rpm, not the manager's, as the resource `dainty-inj
 build without the helper still runs; only PLAY with the switch on refuses.
 
 **The feed and the install.**
-- `runtime_files::player_runtime_files` lists what a game folder holds: `Rustic-Isles.dll` when the runtime is
-  injected (Windows, or Proton with the helper), and the runtime and the loader when the loader loads it.
+- `runtime_files::player_runtime_files` lists what a game folder holds: `rustic-isles-runtime.dll` and
+  `Rustic-Isles.dll` when the runtime is injected (Windows, or Proton with the helper), and both runtimes and the
+  loader when the loader loads it. The MIT runtime is optional (`OPTIONAL_RUNTIME_FILES`, RT-5): held only when the
+  set lists it, and removed when it doesn't. The Proton loader loads it by its fixed name before its runtime choice
+  (`spec-runtime-loader.md` section 3).
 - The Windows install skips a listed `winmm.dll` and retires one it installed itself (`retire_loader`).
 - A Linux launcher shown a feed without the loader reports the runtime as unavailable, rather than starting a game
   that wouldn't load it.

@@ -31,6 +31,10 @@ pub const ENV_XVFB_RUN: &str = "DAINTY_XVFB_RUN";
 pub const ENV_INJECT_DLL: &str = "DAINTY_INJECT_DLL";
 /// Its SHA-256, which the helper checks through a held handle before loading it.
 pub const ENV_INJECT_SHA256: &str = "DAINTY_INJECT_SHA256";
+/// The MIT runtime the Director asks for, loaded before [`ENV_INJECT_DLL`] (RT-5); unset while the set lacks it.
+pub const ENV_INJECT_MIT_DLL: &str = "DAINTY_INJECT_MIT_DLL";
+/// Its SHA-256.
+pub const ENV_INJECT_MIT_SHA256: &str = "DAINTY_INJECT_MIT_SHA256";
 /// The helper, beside `dainty-host` in a release.
 pub use dainty_inject::helper::HELPER_EXE as INJECT_HELPER;
 
@@ -183,18 +187,23 @@ fn wine_program(
     helper: &Path,
 ) -> Result<Vec<String>, HostError> {
     let named = |key: &str| env.get(key).map(|s| s.trim()).filter(|s| !s.is_empty());
-    let (dll, sha256) = match (named(ENV_INJECT_DLL), named(ENV_INJECT_SHA256)) {
-        (None, None) => {
-            return Ok(std::iter::once(exe.to_owned())
-                .chain(game_args.iter().cloned())
-                .collect());
-        }
-        (Some(dll), Some(sha256)) => (dll, sha256),
-        _ => {
+    let pair = |dll_var: &str, sha_var: &str| match (named(dll_var), named(sha_var)) {
+        (None, None) => Ok(None),
+        (Some(dll), Some(sha256)) => Ok(Some((dll, sha256))),
+        _ => Err(HostError::message(format!(
+            "{dll_var} and {sha_var} are set together or not at all"
+        ))),
+    };
+    let mit = pair(ENV_INJECT_MIT_DLL, ENV_INJECT_MIT_SHA256)?;
+    let Some(runtime) = pair(ENV_INJECT_DLL, ENV_INJECT_SHA256)? else {
+        if mit.is_some() {
             return Err(HostError::message(format!(
-                "{ENV_INJECT_DLL} and {ENV_INJECT_SHA256} are set together or not at all"
+                "{ENV_INJECT_MIT_DLL} is set without {ENV_INJECT_DLL}: the two runtimes load as a pair"
             )));
         }
+        return Ok(std::iter::once(exe.to_owned())
+            .chain(game_args.iter().cloned())
+            .collect());
     };
     if !helper.is_file() {
         return Err(HostError::message(format!(
@@ -207,7 +216,11 @@ fn wine_program(
             .ok_or_else(|| HostError::message(format!("not an absolute path: {path}")))
     };
     let game_args: Vec<std::ffi::OsString> = game_args.iter().map(Into::into).collect();
-    let line = dainty_inject::helper::command_line(&[(wine(dll)?, sha256.to_owned())], &wine(exe)?, &game_args);
+    let mut dlls = Vec::with_capacity(2);
+    for (dll, sha256) in mit.into_iter().chain([runtime]) {
+        dlls.push((wine(dll)?, sha256.to_owned()));
+    }
+    let line = dainty_inject::helper::command_line(&dlls, &wine(exe)?, &game_args);
     Ok(std::iter::once(helper.to_string_lossy().into_owned())
         .chain(line.into_iter().map(|a| a.to_string_lossy().into_owned()))
         .collect())
@@ -246,8 +259,14 @@ pub fn build_launch(
         .unwrap_or_else(|| PathBuf::from("/"));
 
     let mut out_env = env.clone();
-    out_env.remove(ENV_INJECT_DLL);
-    out_env.remove(ENV_INJECT_SHA256);
+    for var in [
+        ENV_INJECT_DLL,
+        ENV_INJECT_SHA256,
+        ENV_INJECT_MIT_DLL,
+        ENV_INJECT_MIT_SHA256,
+    ] {
+        out_env.remove(var);
+    }
     let program = wine_program(exe, game_args, env, helper)?;
     let overrides = dll_overrides(out_env.get("WINEDLLOVERRIDES").map(String::as_str));
     out_env.insert("WINEDLLOVERRIDES".to_owned(), overrides);
@@ -558,9 +577,37 @@ mod tests {
                 ]
             );
             assert!(!spec.env.contains_key(ENV_INJECT_DLL));
+
+            // The MIT runtime goes in first (RT-5)
+            env.insert(
+                ENV_INJECT_MIT_DLL.to_owned(),
+                "/srv/.workspace/runtime/rustic-isles-runtime.dll".to_owned(),
+            );
+            env.insert(ENV_INJECT_MIT_SHA256.to_owned(), "b".repeat(64));
+            let spec = build_launch(&["-server".to_owned()], &env, &helper).unwrap();
+            assert_eq!(
+                spec.args[1..7],
+                [
+                    "--dll".to_owned(),
+                    "Z:\\srv\\.workspace\\runtime\\rustic-isles-runtime.dll".to_owned(),
+                    "b".repeat(64),
+                    "--dll".to_owned(),
+                    "Z:\\srv\\.workspace\\runtime\\Rustic-Isles.dll".to_owned(),
+                    sha.clone(),
+                ]
+            );
+            assert!(!spec.env.contains_key(ENV_INJECT_MIT_DLL));
+            env.remove(ENV_INJECT_MIT_SHA256);
+            assert!(build_launch(&[], &env, &helper).is_err());
+            env.remove(ENV_INJECT_MIT_DLL);
         }
 
         env.remove(ENV_INJECT_SHA256);
         assert!(build_launch(&[], &env, &helper).is_err());
+        env.remove(ENV_INJECT_DLL);
+        env.insert(ENV_INJECT_MIT_DLL.to_owned(), "/r/rustic-isles-runtime.dll".to_owned());
+        env.insert(ENV_INJECT_MIT_SHA256.to_owned(), sha.clone());
+        let alone = build_launch(&[], &env, &helper).unwrap_err().to_string();
+        assert!(alone.contains("as a pair"), "{alone}");
     }
 }

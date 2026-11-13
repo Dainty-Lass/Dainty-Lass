@@ -900,7 +900,7 @@ async fn private_mode_open_registration_a_server_without_a_runtime_waits_for_its
         hx.c.choose_local_runtime().await,
         ActionResult::Err(LauncherError::with_detail(
             ErrorCode::LocalRuntimeInvalid,
-            &dainty_launcher_kit::net::runtime_files::PLAYER_RUNTIME_FILES.join(", ")
+            &dainty_launcher_kit::net::runtime_files::required_runtime_files(PLAYER_RUNTIME_FILES).join(", ")
         ))
     );
     for (name, data) in make_runtime(9) {

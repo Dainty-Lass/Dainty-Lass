@@ -13,7 +13,7 @@ use sha2::{Digest, Sha256};
 
 use crate::error::HostError;
 use crate::paths::{GAME_CHANGELIST, Paths, RUNTIME_FILE_NAMES};
-use dainty_protocol::manifest::{LEGACY_RUNTIME_DLL, LOADER_DLL, RUNTIME_DLL};
+use dainty_protocol::manifest::{LEGACY_RUNTIME_DLL, LOADER_DLL, MIT_RUNTIME_DLL, RUNTIME_DLL};
 
 /// What follows a DLL's name when it is moved aside because it was loaded; such files are swept on the next install.
 pub const ASIDE_MARK: &str = ".rr-old-";
@@ -123,20 +123,26 @@ pub fn replace_loaded_file(tmp: &Path, target: &Path) -> Result<Replaced, HostEr
     }
 }
 
-/// Where the build puts the runtime DLL and the loader.
-pub fn default_sources(p: &Paths) -> [(&'static str, PathBuf); 2] {
-    [(RUNTIME_DLL, p.runtime_dll.clone()), (LOADER_DLL, p.loader_dll.clone())]
+/// Where the build puts the runtime DLL, the MIT runtime and the loader.
+pub fn default_sources(p: &Paths) -> [(&'static str, PathBuf); 3] {
+    [
+        (RUNTIME_DLL, p.runtime_dll.clone()),
+        (MIT_RUNTIME_DLL, p.mit_runtime_dll.clone()),
+        (LOADER_DLL, p.loader_dll.clone()),
+    ]
 }
 
 /// Copies the runtime files from `sources` into `.workspace/runtime` and writes runtime.json; fails when the runtime
 /// is not built. The loader is optional: only Proton players who load the runtime through it need it in the feed.
+/// The MIT runtime is optional while the transition lasts (RT-5), but never left over from an earlier publish: the
+/// two runtimes are a matched pair.
 pub fn publish_runtime(
     p: &Paths,
     now: DateTime<Utc>,
     sources: &[(&str, PathBuf)],
 ) -> Result<PublishedRuntime, HostError> {
     for (name, src) in sources {
-        if *name != LOADER_DLL && !src.is_file() {
+        if *name == RUNTIME_DLL && !src.is_file() {
             return Err(HostError::message(format!(
                 "{name} is not built yet ({})",
                 src.display()
@@ -179,9 +185,12 @@ pub fn publish_runtime(
     let _ = replace_loaded_file(&manifest_tmp, &manifest_dest)?;
     // The runtime under its name from before the Rustic Isles rename, published by an older kit (DX4)
     let _ = std::fs::remove_file(p.runtime_publish.join(LEGACY_RUNTIME_DLL));
-    // A loader published before and not built now would be served with no line in runtime.json
-    if !published.files.iter().any(|f| f.name == LOADER_DLL) {
-        let _ = std::fs::remove_file(p.runtime_publish.join(LOADER_DLL));
+    // A loader or MIT runtime published before and not built now would be served with no line in runtime.json, and
+    // an MIT runtime beside a newer Rustic-Isles.dll is half of another pair (RT-5)
+    for optional in [LOADER_DLL, MIT_RUNTIME_DLL] {
+        if !published.files.iter().any(|f| f.name == optional) {
+            let _ = std::fs::remove_file(p.runtime_publish.join(optional));
+        }
     }
     // Its copy beside the server exe is still retired after it leaves the feed or is rebuilt
     let now_loader = published
@@ -299,6 +308,7 @@ mod tests {
         assert_eq!(published.changelist, GAME_CHANGELIST);
         assert_eq!(published.files.len(), 2);
         assert!(paths.runtime_publish.join("runtime.json").is_file());
+        assert!(!paths.runtime_publish.join(MIT_RUNTIME_DLL).exists());
 
         let win64 = tmp.path().join("Win64");
         std::fs::create_dir_all(&win64).unwrap();
@@ -373,6 +383,35 @@ mod loader_tests {
         assert!(retire_server_loader(&paths, &win64));
         std::fs::write(win64.join(LOADER_DLL), b"someone else's").unwrap();
         assert!(!retire_server_loader(&paths, &win64));
+    }
+
+    /// The MIT runtime is published from its build name under its own, and goes when a publish lacks it (RT-5).
+    #[test]
+    fn the_mit_runtime_is_published_renamed_and_never_left_behind() {
+        let tmp = tempfile::tempdir().unwrap();
+        let paths = Paths::new(tmp.path());
+        std::fs::create_dir_all(paths.runtime_dll.parent().unwrap()).unwrap();
+        std::fs::create_dir_all(paths.mit_runtime_dll.parent().unwrap()).unwrap();
+        std::fs::write(&paths.runtime_dll, b"runtime-bytes").unwrap();
+        std::fs::write(&paths.mit_runtime_dll, b"mit-bytes").unwrap();
+        let published = publish_runtime(&paths, Utc::now(), &default_sources(&paths)).unwrap();
+        let names: Vec<&str> = published.files.iter().map(|f| f.name.as_str()).collect();
+        assert_eq!(names, [RUNTIME_DLL, MIT_RUNTIME_DLL]);
+        assert_eq!(
+            std::fs::read(paths.runtime_publish.join(MIT_RUNTIME_DLL)).unwrap(),
+            b"mit-bytes"
+        );
+        assert!(published.to_json().contains(&sha256_bytes(b"mit-bytes")));
+
+        std::fs::remove_file(&paths.mit_runtime_dll).unwrap();
+        let published = publish_runtime(&paths, Utc::now(), &default_sources(&paths)).unwrap();
+        assert_eq!(published.files.len(), 1);
+        assert!(!paths.runtime_publish.join(MIT_RUNTIME_DLL).exists());
+
+        // Never the MIT runtime alone
+        std::fs::write(&paths.mit_runtime_dll, b"mit-bytes").unwrap();
+        std::fs::remove_file(&paths.runtime_dll).unwrap();
+        assert!(publish_runtime(&paths, Utc::now(), &default_sources(&paths)).is_err());
     }
 
     #[test]

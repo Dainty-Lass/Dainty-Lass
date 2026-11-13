@@ -426,6 +426,20 @@ pub struct ArtifactHashes {
     pub steam_runtime: String,
     /// The admission public key.
     pub admission_public_key: String,
+    /// The MIT runtime (RT-5): the zero hash from a launcher that reports none, and not written then.
+    #[serde(default = "zero_sha256", skip_serializing_if = "is_zero_sha256")]
+    pub mit_runtime: String,
+}
+
+/// The hash a host reports for a file it does not run, and the one expected for an optional role nobody pinned.
+pub const ZERO_SHA256: &str = "0000000000000000000000000000000000000000000000000000000000000000";
+
+fn zero_sha256() -> String {
+    ZERO_SHA256.to_owned()
+}
+
+fn is_zero_sha256(hash: &str) -> bool {
+    hash == ZERO_SHA256
 }
 
 /// A Launcher Guard session as a host presence stores it.

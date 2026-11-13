@@ -1548,7 +1548,12 @@ fn lifecycle() {
     );
     assert_eq!(
         guard.guard_manifest_roles(),
-        ["TRANSPORT_MODULE", "TRANSPORT_RUNTIME", "ADMISSION_KEY"]
+        [
+            "TRANSPORT_MODULE",
+            "TRANSPORT_RUNTIME",
+            "ADMISSION_KEY",
+            "TRANSPORT_RUNTIME_MIT"
+        ]
     );
     assert!(guard.service_roles().is_empty());
     guard
@@ -1683,6 +1688,6 @@ fn the_stub_answers_unimplemented_by_method() {
     assert_eq!(stub.tables().len(), 7);
     assert!(stub.account_deletion_steps().is_empty());
     assert!(stub.service_roles().is_empty());
-    assert_eq!(stub.guard_manifest_roles().len(), 3);
+    assert_eq!(stub.guard_manifest_roles().len(), 4);
     let _ = CapabilityScope::Abort;
 }

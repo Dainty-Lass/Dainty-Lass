@@ -190,8 +190,9 @@ fn report(dir: &Path, before: &Status, after: &Status) {
 }
 
 fn signature(dir: &Path) -> Signature {
-    [INDEX, RUNTIME_FILE_NAMES[0], RUNTIME_FILE_NAMES[1], LEGACY_RUNTIME_DLL]
+    [INDEX, LEGACY_RUNTIME_DLL]
         .iter()
+        .chain(&RUNTIME_FILE_NAMES)
         .map(|name| {
             let meta = fs::metadata(dir.join(name)).ok()?;
             let modified = meta.modified().ok()?.duration_since(UNIX_EPOCH).ok()?.as_nanos();
@@ -335,6 +336,34 @@ mod tests {
         assert_eq!(status.listed("Rustic-Isles.dll").unwrap().name, "MysticParadox.dll");
         assert_eq!(status.listed("MysticParadox.dll").unwrap().name, "MysticParadox.dll");
         assert!(status.listed("mysticparadox.dll").is_none());
+    }
+
+    #[test]
+    fn the_mit_runtime_is_served_beside_the_agpl_one_when_listed() {
+        let tmp = tempfile::tempdir().unwrap();
+        let (store, now) = store(tmp.path());
+        publish(
+            tmp.path(),
+            &[("rustic-isles-runtime.dll", b"mit"), ("Rustic-Isles.dll", b"dll")],
+        );
+        let status = store.status();
+        let Status::Ok(published) = &status else {
+            panic!("{status:?}")
+        };
+        let names: Vec<_> = published.manifest.files.iter().map(|f| f.name.as_str()).collect();
+        assert_eq!(names, ["Rustic-Isles.dll", "rustic-isles-runtime.dll"]);
+        assert_eq!(
+            status.listed("rustic-isles-runtime.dll").unwrap().sha256,
+            sha256_hex(b"mit")
+        );
+        assert!(status.listed("Rustic-Isles-Runtime.dll").is_none());
+        // A changed MIT DLL is noticed like the others
+        fs::write(tmp.path().join("rustic-isles-runtime.dll"), b"MIT").unwrap();
+        now.fetch_add(10_000, Ordering::SeqCst);
+        let Status::Invalid(reason) = store.status() else {
+            panic!("a wrong hash checked out")
+        };
+        assert!(reason.contains("rustic-isles-runtime.dll"), "{reason}");
     }
 
     #[test]

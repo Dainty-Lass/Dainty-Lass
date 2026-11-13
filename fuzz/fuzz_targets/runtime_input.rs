@@ -6,21 +6,26 @@
 use dainty_launcher_kit::net::runtime_files::parse_runtime_manifest;
 use dainty_launcher_kit::net::verify::{MAX_ENTRIES, parse_cache_file, write_cache_file};
 use libfuzzer_sys::fuzz_target;
-use dainty_protocol::manifest::{MAX_RUNTIME_FILE_BYTES, RUNTIME_FILE_NAMES, runtime_file_slot};
+use dainty_protocol::manifest::{MAX_RUNTIME_FILE_BYTES, RUNTIME_DLL, RUNTIME_FILE_NAMES, runtime_file_slot};
 use serde_json::Value;
 
 fuzz_target!(|data: &[u8]| {
     let text = String::from_utf8_lossy(data);
     if let Ok(value) = serde_json::from_str::<Value>(&text) {
         if let Some(parsed) = parse_runtime_manifest(&value) {
-            // Only the two runtime names, each once and sorted, so nothing else is ever written next to
-            // the game; a plain hash and a size within the cap
-            let names: Vec<&str> = parsed
+            // Only runtime names, each once and sorted, the runtime always, so nothing else is ever written next
+            // to the game; a plain hash and a size within the cap
+            let mut names: Vec<&str> = parsed
                 .files
                 .iter()
                 .filter_map(|file| runtime_file_slot(&file.name))
                 .collect();
-            assert_eq!(names, RUNTIME_FILE_NAMES);
+            assert_eq!(names.len(), parsed.files.len());
+            assert!(parsed.files.windows(2).all(|w| w[0].name <= w[1].name));
+            names.sort_unstable();
+            names.dedup();
+            assert_eq!(names.len(), parsed.files.len());
+            assert!(names.contains(&RUNTIME_DLL) && names.iter().all(|n| RUNTIME_FILE_NAMES.contains(n)));
             for file in &parsed.files {
                 assert!((1..=MAX_RUNTIME_FILE_BYTES).contains(&file.size));
                 assert!(

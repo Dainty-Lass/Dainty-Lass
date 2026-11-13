@@ -11,8 +11,9 @@ use chrono::Utc;
 use crate::cli::PublishRuntimeArgs;
 use crate::error::HostError;
 use crate::hostconfig::load_host_config;
-use crate::paths::{Paths, RUNTIME_FILE_NAMES, game_exe_relative};
+use crate::paths::{MIT_RUNTIME_BUILD_NAME, Paths, RUNTIME_FILE_NAMES, game_exe_relative};
 use crate::publish::{default_sources, ensure_server_flags, publish_runtime, retire_server_loader};
+use dainty_protocol::manifest::MIT_RUNTIME_DLL;
 
 /// Runs `dainty-host publish-runtime`, printing to stdout.
 pub fn run(paths: &Paths, args: &PublishRuntimeArgs) -> Result<ExitCode, HostError> {
@@ -24,7 +25,10 @@ pub fn run_with(paths: &Paths, args: &PublishRuntimeArgs, out: &mut dyn FnMut(&s
     let sources: Vec<(&str, PathBuf)> = match args.from.as_deref().map(str::trim).filter(|s| !s.is_empty()) {
         Some(dir_str) => {
             let dir = Path::new(dir_str);
-            RUNTIME_FILE_NAMES.iter().map(|&name| (name, dir.join(name))).collect()
+            RUNTIME_FILE_NAMES
+                .iter()
+                .map(|&name| (name, from_dir(dir, name)))
+                .collect()
         }
         None => default_sources(paths).to_vec(),
     };
@@ -58,6 +62,15 @@ pub fn run_with(paths: &Paths, args: &PublishRuntimeArgs, out: &mut dyn FnMut(&s
     Ok(ExitCode::SUCCESS)
 }
 
+/// `name` in `dir`; the MIT runtime also under the name cargo builds it with.
+fn from_dir(dir: &Path, name: &str) -> PathBuf {
+    let path = dir.join(name);
+    if name == MIT_RUNTIME_DLL && !path.is_file() {
+        return dir.join(MIT_RUNTIME_BUILD_NAME);
+    }
+    path
+}
+
 #[cfg(test)]
 mod tests {
     #![allow(clippy::unwrap_used, reason = "a panic is how a test fails")]
@@ -81,5 +94,24 @@ mod tests {
         let code = run(&paths, &args).unwrap();
         assert_eq!(code, ExitCode::SUCCESS);
         assert!(paths.runtime_publish.join("runtime.json").is_file());
+    }
+
+    #[test]
+    fn a_folder_with_the_mit_build_name_publishes_it_renamed() {
+        let tmp = TempDir::new().unwrap();
+        let paths = Paths::new(tmp.path());
+        let custom = tmp.path().join("built");
+        std::fs::create_dir_all(&custom).unwrap();
+        std::fs::write(custom.join("Rustic-Isles.dll"), b"agpl").unwrap();
+        std::fs::write(custom.join(MIT_RUNTIME_BUILD_NAME), b"mit").unwrap();
+        let args = PublishRuntimeArgs {
+            from: Some(custom.to_string_lossy().into_owned()),
+        };
+        run_with(&paths, &args, &mut |_| {}).unwrap();
+        assert_eq!(
+            std::fs::read(paths.runtime_publish.join(MIT_RUNTIME_DLL)).unwrap(),
+            b"mit"
+        );
+        assert!(!paths.runtime_publish.join(MIT_RUNTIME_BUILD_NAME).exists());
     }
 }

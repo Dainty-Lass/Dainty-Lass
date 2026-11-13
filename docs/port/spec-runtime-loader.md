@@ -41,7 +41,7 @@ On `DLL_PROCESS_ATTACH` (and only then) the loader:
 1. Finds its own file path (`GetModuleFileNameW` on its own module handle), in UTF-16 with room for long paths
    (32 768 units). If the call fails or the path fills the buffer, it does nothing more.
 2. Takes that path's parent folder: the **loader folder**.
-3. Loads the runtime chosen by section 3 (at most one file).
+3. Loads the MIT runtime when it is in the loader folder, then the runtime chosen by section 3 (at most one file).
 4. Then loads the ini's extra DLLs (section 5), in file order.
 
 Every failure is silent: no message box, no log, no file written. `DllMain` returns `TRUE` in every case, so the game
@@ -74,6 +74,12 @@ is the one with the newest time. Ties:
 (Equivalently: rank by `(modified, is_canonical, index)` and take the maximum.) The canonical-name check ignores ASCII
 case. No candidate present: no runtime is loaded, which is normal for a 1.4.4 folder whose only DLL comes from the
 ini.
+
+**The MIT runtime (RT-5, RT-6; R0 spec section 9, call 16).** One more fixed name, `rustic-isles-runtime.dll`, is
+loaded **before** the choice above when a regular file of that name (following symlinks) is in the loader folder,
+whatever its time and whatever the choice finds. It is not a candidate, never ranked against the three, and not one
+of the runtime names section 5 skips. A folder of that name does not count. Nothing else changes: with no such file
+the loader behaves exactly as before.
 
 ## 4. Forwarding to the system DLLs
 
@@ -199,7 +205,7 @@ That is 17 `version.dll` exports and 180 `winmm.dll` exports, 197 in all.
 1. **Runtime choice** (section 3), in a fresh temporary folder per test: only the canonical name; only each alias;
    none (only `UndauntedInternalServer.dll`); a newer alias beats an older canonical; an equal time goes to the
    canonical; an equal time between the aliases goes to `MystPaxInternalServer.dll`; a folder named
-   `Rustic-Isles.dll` is ignored.
+   `Rustic-Isles.dll` is ignored; the MIT runtime found only as a regular file, and never a candidate.
 2. **Ini parsing** (section 5): every row of the examples table, CRLF line ends, a leading BOM, and invalid UTF-8
    giving no values.
 3. **Ini filtering**: the runtime names skipped in any ASCII case; an absolute value replacing the folder.

@@ -103,7 +103,7 @@ Types from `rustic-rifts-seam` (`AccountId`, `SessionId`, `RealmId`, `UnixMillis
 | `TrafficDecision` | enum `Accepted`, `RateLimited`, `Unavailable` | — |
 | `TrafficLimits` | trait: `charge(&self, host: AccountId, session: SessionId, bytes: u64) -> BoxFuture<Result<TrafficDecision, GuardError>>` | — |
 | `GuardOperations` | trait: `set_reward_rollout(&self, admin_key: String, body: Option<Value>, ip: String)`, `acknowledge_alert(&self, admin_key: String, alert_id: String, body: Option<Value>, ip: String)` → `BoxFuture<Result<Reply, GuardError>>` | — |
-| `GUARD_MANIFEST_ROLES` | `&[&str] = ["TRANSPORT_MODULE", "TRANSPORT_RUNTIME", "ADMISSION_KEY"]` | — |
+| `GUARD_MANIFEST_ROLES` | `&[&str] = ["TRANSPORT_MODULE", "TRANSPORT_RUNTIME", "ADMISSION_KEY", "TRANSPORT_RUNTIME_MIT"]` | the last pins the MIT runtime of a hosted realm, optional (RT-5) |
 | `GuardConfig` | struct with `pub` fields `host_policy: HostPolicySetting`, `hunt_evidence: HuntEvidenceSetting`, `trust_tier: TrustTier`, `tier1: Tier1Policy`, `census: bool`, `host_writes: bool`, `distributed_traffic: bool`; `Default`; `from_settings(&dyn Settings)`; `host_policy_refuses(&self) -> bool`; `tier1_refusal(&self, &[AccountId], hunt_id: &str) -> Option<&'static str>` | I, Rt |
 | `HostPolicyMode`, `HostPolicySetting`, `HuntEvidenceSetting`, `Tier1Policy`, `TrustTier` | §3.1 | — |
 | `resolve_host_policy`, `log_host_policy`, `resolve_hunt_evidence`, `log_hunt_evidence` | §3.1 | — |
