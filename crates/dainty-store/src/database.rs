@@ -597,7 +597,7 @@ fn prepare(
     clock: fn() -> i64,
     postgres_schema: Option<&str>,
 ) -> Result<(), Error> {
-    conn.transaction(|conn| {
+    write_transaction(conn, |conn| {
         match conn.engine() {
             Engine::Sqlite => {
                 history::ensure_tables(conn)?;
@@ -630,6 +630,34 @@ fn prepare(
         history::install_triggers(conn, schema.soft_delete)?;
         Ok(())
     })
+}
+
+/// A transaction that holds SQLite's write lock from its start, as `BEGIN IMMEDIATE`. `prepare` reads the
+/// catalog before it writes: a deferred one would hold a read snapshot, and its first write would answer
+/// "database is locked" at once, not after the busy timeout, whenever a running service wrote in between (M-H).
+fn write_transaction<T>(
+    conn: &mut AnyConnection,
+    f: impl FnOnce(&mut AnyConnection) -> Result<T, Error>,
+) -> Result<T, Error> {
+    use diesel::connection::{AnsiTransactionManager, TransactionManager};
+    type Manager = <AnyConnection as Connection>::TransactionManager;
+    match conn {
+        AnyConnection::Sqlite(sqlite) => AnsiTransactionManager::begin_transaction_sql(sqlite, "BEGIN IMMEDIATE")?,
+        AnyConnection::Postgres(_) => return conn.transaction(f),
+    }
+    match f(conn) {
+        Ok(value) => {
+            if let Err(error) = Manager::commit_transaction(conn) {
+                _ = Manager::rollback_transaction(conn);
+                return Err(error.into());
+            }
+            Ok(value)
+        }
+        Err(error) => {
+            Manager::rollback_transaction(conn)?;
+            Err(error)
+        }
+    }
 }
 
 /// The newest migration applied, the schema version both ends of a `db move` must share.
