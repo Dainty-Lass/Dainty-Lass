@@ -372,7 +372,7 @@
     "actions": {
       "inject_dumper": {
         "label": "Iniciar o jogo com o Dumper-7",
-        "hint": "Carrega o Dumper-7 pelo carregador do runtime. O dump aparece quando o jogo chega ao menu.",
+        "hint": "Carrega o Dumper-7 no jogo quando ele abre, sem o runtime. O dump aparece quando o jogo chega ao menu.",
         "button": "Iniciar"
       },
       "import_sdk": {
@@ -402,7 +402,7 @@
       },
       "inject_exporter": {
         "label": "Iniciar o jogo com o CatalogExporter",
-        "hint": "Carrega o CatalogExporter pelo carregador do runtime. Ele grava a exportação enquanto o jogo roda.",
+        "hint": "Carrega o runtime e depois o CatalogExporter no jogo quando ele abre. Ele grava a exportação enquanto o jogo roda.",
         "button": "Iniciar"
       },
       "copy_exports": {

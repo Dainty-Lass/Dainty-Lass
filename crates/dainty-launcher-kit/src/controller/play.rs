@@ -321,6 +321,13 @@ impl Controller {
             stored.runtime_profile(),
         )
         .map_err(|failed| launch_failed(&failed))?;
+        for dll in &dlls {
+            log::info(format!(
+                "loading {} into the game, SHA-256 {}",
+                dll.path.display(),
+                dll.sha256
+            ));
+        }
         let plan = match runner.as_ref() {
             // Proton with the inject helper: Wine runs the helper, which starts the game and loads the DLLs
             Some(runner) if !dlls.is_empty() => {
@@ -335,11 +342,12 @@ impl Controller {
                 LaunchPlan::through_helper(win64, runner, &helper, line, env)
             }
             _ => {
-                let mut plan = LaunchPlan::new(win64, runner.as_ref(), &args, env);
+                let plan = LaunchPlan::new(win64, runner.as_ref(), &args, env);
                 if runner.is_none() {
-                    plan.inject = dlls;
+                    plan.with_inject(dlls.clone())
+                } else {
+                    plan
                 }
-                plan
             }
         };
         log::info(format!(

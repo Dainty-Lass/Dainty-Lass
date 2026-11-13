@@ -286,6 +286,7 @@ impl LaunchPlan {
         mut env: BTreeMap<String, String>,
     ) -> Self {
         env.extend(runtime.env.iter().map(|(k, v)| (k.clone(), v.clone())));
+        env.insert(inject::INJECTED_VAR.to_owned(), "1".to_owned());
         let mut args = runtime.args_before_exe.clone();
         args.push(helper.as_os_str().to_owned());
         args.extend(helper_args);
@@ -296,6 +297,17 @@ impl LaunchPlan {
             env,
             inject: Vec::new(),
         }
+    }
+
+    /// The plan with `dlls` loaded into the game before it runs, and any runtime loader beside it told to stand
+    /// down ([`inject::INJECTED_VAR`]).
+    #[must_use]
+    pub fn with_inject(mut self, dlls: Vec<InjectDll>) -> Self {
+        if !dlls.is_empty() {
+            self.env.insert(inject::INJECTED_VAR.to_owned(), "1".to_owned());
+        }
+        self.inject = dlls;
+        self
     }
 
     /// The whole command line with the key hidden, for the log.

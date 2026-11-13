@@ -14,6 +14,27 @@ pub use dainty_inject::{InjectDll, InjectError};
 
 /// This build loads the DLLs into the game itself; under Proton the loader or the helper does.
 pub const INJECTS: bool = cfg!(windows);
+/// Set on every game the DLLs are injected into: a runtime loader beside it (a host's servers share the folder)
+/// then loads nothing, so the runtime is not loaded twice (`native/runtime-loader`, RD9 2026-11-12).
+pub const INJECTED_VAR: &str = "DAINTY_RUNTIME_INJECTED";
+/// The bytes a runtime loader that honours [`INJECTED_VAR`] carries; an older loader would load the runtime again.
+pub const STANDS_DOWN_MARKER: &[u8] = b"dainty-loader-stands-down:DAINTY_RUNTIME_INJECTED=1";
+/// A loader bigger than this is not one.
+const MAX_LOADER_BYTES: u64 = 16 * 1024 * 1024;
+
+/// The `winmm.dll` at `path` is a runtime loader that stands down for an injected game.
+#[must_use]
+pub fn loader_stands_down(path: &Path) -> bool {
+    let small = path
+        .symlink_metadata()
+        .is_ok_and(|meta| meta.is_file() && meta.len() <= MAX_LOADER_BYTES);
+    small
+        && std::fs::read(path).is_ok_and(|bytes| {
+            bytes
+                .windows(STANDS_DOWN_MARKER.len())
+                .any(|window| window == STANDS_DOWN_MARKER)
+        })
+}
 
 /// How the DLLs reach a game started under Proton.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -54,6 +75,21 @@ pub fn helper_line(exe: &Path, dlls: &[InjectDll], game_args: &[OsString]) -> Re
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_loader_stands_down_only_with_the_marker() {
+        let temp = tempfile::tempdir().unwrap();
+        let path = temp.path().join("winmm.dll");
+        let mut bytes = b"MZ...".to_vec();
+        std::fs::write(&path, &bytes).unwrap();
+        assert!(!loader_stands_down(&path), "an older loader");
+        bytes.extend_from_slice(STANDS_DOWN_MARKER);
+        bytes.extend_from_slice(b"...");
+        std::fs::write(&path, &bytes).unwrap();
+        assert!(loader_stands_down(&path));
+        assert!(!loader_stands_down(&temp.path().join("gone.dll")));
+        assert!(!loader_stands_down(temp.path()), "a folder");
+    }
 
     #[test]
     fn only_windows_injects_itself() {

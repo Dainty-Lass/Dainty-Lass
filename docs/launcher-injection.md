@@ -41,6 +41,24 @@ and removed around a session.
    as before.
 5. **Realms change nothing.** Realm hosting and joining still inject nothing.
 
+**A host who plays on their servers' install (found in the first hands-on run, 2026-11-13).** The director starts
+the servers from the same `Win64` the host's launcher plays from. Those servers keep the loader (answer 1), so a
+`winmm.dll` sits there that PLAY used to refuse. Removing it took the runtime from the servers. Of the ways to make
+the two share one folder, this one was chosen:
+- **The loader stands down for an injected game.** The launcher sets `DAINTY_RUNTIME_INJECTED=1` on every game it
+  injects (`LaunchPlan::with_inject`, and `through_helper` under Proton). A loader that sees it loads nothing:
+  no runtime, no ini.
+- **PLAY accepts such a loader.** That is, one carrying the marker `dainty-loader-stands-down:...`
+  (`inject::loader_stands_down`), and the log says so. It refuses one without the marker, which would load the
+  runtime a second time.
+- **`retire_loader` never removes a loader that stands down,** since it may be the servers'.
+- **Updating:** a host's servers need the rebuilt loader (`dainty-host update`, or the Host page's build and
+  publish) before the host can play from the same folder.
+
+Rejected:
+- Running the servers from a separate folder: a second copy of the game, or a hardlinked tree.
+- Making the director inject too: Wine under Docker would need the helper, which is a server change of its own.
+
 The rows that cite RD9 and need the integration pass to reword them:
 - AGENTS.md's Security bullet, and `restricted/AGENTS.md`'s.
 - DD13.
@@ -125,11 +143,15 @@ Not run. `cargo test` only covers injecting a system DLL into a suspended `cmd.e
 
 1. Install the runtime from a server whose feed still lists `winmm.dll`. The launcher downloads only
    `Rustic-Isles.dll`, and a `winmm.dll` that the launcher installed before is removed.
-2. PLAY. The log shows the runtime starting with no ini. The game reaches the menu signed in through the local
-   backend.
+2. PLAY. The log shows `loading ...\Rustic-Isles.dll into the game, SHA-256 ...` and no ini. The game reaches the
+   menu signed in through the local backend.
 3. While the game runs, Process Explorer (or `listdlls`) on `Dauntless-Win64-Shipping.exe` lists `Rustic-Isles.dll`
    from `Win64` and no `winmm.dll` from `Win64`.
-4. Copy some other `winmm.dll` into `Win64`. PLAY refuses with the leftover message. Remove it.
+4. Copy an older `winmm.dll` (one built before the stand-down marker) into `Win64`. PLAY refuses with the leftover
+   message. Remove it.
+4a. On a host whose `host.toml` `game_dir` is the player's install: rebuild and publish the loader. Start the
+   servers; Ramsgate comes up headless with the runtime. PLAY works with the servers' `winmm.dll` in place, and the
+   log says it stands down. Process Explorer shows `Rustic-Isles.dll` loaded once in the client.
 5. Change one byte of `Rustic-Isles.dll`. PLAY refuses (the runtime check, or the injector's hash check), and no game
    process is left behind.
 6. On the Host page, run a game-data export. The log shows CatalogExporter's SHA-256, the module list shows it in the

@@ -32,6 +32,12 @@ The Director also loads it under Wine (`WINEDLLOVERRIDES="winmm=n,b"`).
 
 On `DLL_PROCESS_ATTACH` (and only then) the loader:
 
+0. Stands down when the process's `DAINTY_RUNTIME_INJECTED` variable is exactly `1`, and loads nothing (neither
+   the runtime nor the ini's DLLs). The launcher sets it on every game it loads the runtime into itself (RD9 as
+   amended on 2026-11-12), so a host whose servers use this loader can play from the same `Win64` without the
+   runtime loading twice. The file carries the bytes `dainty-loader-stands-down:DAINTY_RUNTIME_INJECTED=1`. The
+   launcher looks for them to tell a loader that stands down from an older one, which it refuses beside an
+   injected game.
 1. Finds its own file path (`GetModuleFileNameW` on its own module handle), in UTF-16 with room for long paths
    (32 768 units). If the call fails or the path fills the buffer, it does nothing more.
 2. Takes that path's parent folder: the **loader folder**.

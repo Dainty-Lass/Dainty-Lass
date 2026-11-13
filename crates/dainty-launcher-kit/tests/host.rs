@@ -617,7 +617,8 @@ mod host {
         ok(&c.host_action(HostAction::InjectDumper).await);
         let plan = spawner.plans.lock().unwrap().last().cloned().unwrap();
         assert_eq!(plan.args, ["-NoEAC", "-EpicPortal", "-DisableEOS"].map(OsString::from));
-        assert_eq!(plan.env.keys().collect::<Vec<_>>(), ["PATH"]);
+        // No runtime setting reaches it; a loader beside the game stands down
+        assert_eq!(plan.env.keys().collect::<Vec<_>>(), ["DAINTY_RUNTIME_INJECTED", "PATH"]);
         let injected: Vec<PathBuf> = plan.inject.iter().map(|d| d.path.clone()).collect();
         assert_eq!(injected, [pc.dir.path().join("Dumper-7.dll")]);
         assert!(!pc.win64.join("mystic_loader.ini").exists());

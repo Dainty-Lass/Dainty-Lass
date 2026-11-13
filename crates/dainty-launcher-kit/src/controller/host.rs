@@ -920,8 +920,7 @@ impl Controller {
                 !STRIPPED_PREFIXES.iter().any(|prefix| upper.starts_with(prefix))
             })
             .collect();
-        let mut plan = LaunchPlan::new(&win64, None, &args(&DUMPER_ARGS), env);
-        plan.inject = dlls;
+        let plan = LaunchPlan::new(&win64, None, &args(&DUMPER_ARGS), env).with_inject(dlls);
         log::info(format!("host: starting {} for Dumper-7", plan.describe()));
         let me = self.clone();
         let outcome = match self.shared.game.start(&plan, move |event| me.on_game_event(event)) {

@@ -73,10 +73,16 @@ path against `cmd.exe`).
 
 ### The game folder
 
-- [ ] On Windows, PLAY, the Host sessions and realms refuse while `winmm.dll` sits in `Win64`
-      (`Controller::loader_leftovers`): an old loader would load the runtime a second time.
+- [ ] On Windows, PLAY, the Host sessions and realms refuse while a `winmm.dll` without the stand-down marker sits
+      in `Win64` (`Controller::loader_leftovers`): an older loader would load the runtime a second time.
+- [ ] A loader with the marker (`inject::loader_stands_down`) is accepted, because it loads nothing when
+      `DAINTY_RUNTIME_INJECTED=1`. Every injected plan sets that variable (`LaunchPlan::with_inject`,
+      `through_helper`). The marker says how the file behaves, not who made it. A hostile `winmm.dll` would run in
+      the game whatever PLAY decided, since the game imports `winmm`, so the refusal guards against loading twice,
+      not against tampering.
 - [ ] `runtime_files::retire_loader` removes a `winmm.dll` only when the launcher's runtime marker lists that exact
-      hash, so a loader someone else placed is refused, not deleted.
+      hash and it lacks the stand-down marker. A loader someone else placed, or a host's servers' loader, is never
+      deleted.
 - [ ] The Windows runtime install never downloads `winmm.dll` (`PLAYER_RUNTIME_FILES`), even when the feed lists it.
 - [ ] `mystic_loader.ini`, the session record and set-aside runtime files are still refused as before
       (`loader_session::leftovers`).

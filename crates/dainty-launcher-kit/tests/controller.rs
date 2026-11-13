@@ -770,7 +770,10 @@ async fn public_flow_through_a_tls_gateway() {
         std::fs::write(pc.win64.join("winmm.dll"), b"someone's").unwrap();
         assert_eq!(refused(&controller.play().await), ErrorCode::LoaderLeftovers);
         assert!(pc.win64.join("winmm.dll").is_file(), "not the launcher's to delete");
-        std::fs::remove_file(pc.win64.join("winmm.dll")).unwrap();
+        // A host's servers share the folder: their loader stands down for an injected game, so it stays
+        let mut loader = b"MZ loader ".to_vec();
+        loader.extend_from_slice(inject::STANDS_DOWN_MARKER);
+        std::fs::write(pc.win64.join("winmm.dll"), loader).unwrap();
     }
     std::fs::write(pc.win64.join("mystic_loader.ini"), "Dumper-7.dll\n").unwrap();
     assert_eq!(refused(&controller.play().await), ErrorCode::LoaderLeftovers);
@@ -778,6 +781,11 @@ async fn public_flow_through_a_tls_gateway() {
 
     // Over TLS through the relay, pinned to the invite's certificate.
     ok(&controller.play().await);
+    if inject::INJECTS {
+        let plan = spawner.plans.lock().unwrap().last().cloned().unwrap();
+        assert_eq!(plan.env.get(inject::INJECTED_VAR).map(String::as_str), Some("1"));
+        assert!(pc.win64.join("winmm.dll").is_file(), "the servers' loader stays");
+    }
     let reply = relay_get(pc.relay_port, "/game/hello").await;
     assert!(reply.starts_with("HTTP/1.1 200"), "{reply}");
     let forwarded = server.saw("/game/hello");

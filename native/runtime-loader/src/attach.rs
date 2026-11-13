@@ -8,6 +8,13 @@ use crate::{ini, runtime, sys};
 const DLL_PROCESS_ATTACH: u32 = 1;
 const TRUE: i32 = 1;
 
+/// Set by the launcher on a game it loads the runtime into itself (RD9, 2026-11-12): the loader then loads
+/// nothing, so a host's servers and their own game can share one `Win64` without the runtime loading twice.
+pub const INJECTED_VAR: &str = "DAINTY_RUNTIME_INJECTED";
+
+/// What the launcher looks for in this file to know the loader stands down for an injected game.
+pub static STANDS_DOWN_MARKER: [u8; 51] = *b"dainty-loader-stands-down:DAINTY_RUNTIME_INJECTED=1";
+
 /// # Safety
 ///
 /// Called by the Windows loader only.
@@ -22,6 +29,11 @@ pub unsafe extern "system" fn DllMain(module: sys::Module, reason: u32, _reserve
 }
 
 fn attach(module: sys::Module) {
+    // Read once so the linker keeps the marker in the file
+    std::hint::black_box(&STANDS_DOWN_MARKER);
+    if std::env::var_os(INJECTED_VAR).is_some_and(|value| value == "1") {
+        return;
+    }
     let Some(own) = sys::module_path(module) else {
         return;
     };

@@ -378,8 +378,8 @@ pub fn replace_file(tmp: &Path, target: &Path, ops: &dyn ReplaceOps) -> std::io:
 }
 
 /// Removes the `winmm.dll` loader the launcher installed earlier, when the runtime is now injected (RD9, 2026-11-12):
-/// only when the runtime marker lists it with this hash, so a loader someone else put there stays and PLAY
-/// refuses it. Nothing when `files` still holds the loader.
+/// only when the runtime marker lists it with this hash and it is an older loader that would load the runtime
+/// again, so a loader someone else put there stays and PLAY decides. Nothing when `files` still holds the loader.
 pub fn retire_loader(win64_dir: &Path, files: &[&str]) {
     if files.contains(&LOADER_DLL) {
         return;
@@ -401,7 +401,8 @@ pub fn retire_loader(win64_dir: &Path, files: &[&str]) {
     let Some(listed) = listed else {
         return;
     };
-    if !meta.is_file() || meta.len() > MAX_RUNTIME_FILE_BYTES {
+    // One that stands down may be a host's servers' loader too, and does no harm (RD9, 2026-11-12)
+    if !meta.is_file() || meta.len() > MAX_RUNTIME_FILE_BYTES || crate::platform::inject::loader_stands_down(&path) {
         return;
     }
     let ours = std::fs::read(&path).is_ok_and(|bytes| sha256_hex(&bytes).eq_ignore_ascii_case(&listed));

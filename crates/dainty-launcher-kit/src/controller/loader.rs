@@ -53,7 +53,11 @@ impl Controller {
         let mut found = loader_session::leftovers(win64, &self.loader_record(), &known);
         if !self.uses_loader() {
             runtime_files::retire_loader(win64, self.runtime_files());
-            if win64.join(LOADER_DLL).symlink_metadata().is_ok() {
+            let loader = win64.join(LOADER_DLL);
+            if inject::loader_stands_down(&loader) {
+                // A host's servers use the same folder: their loader loads nothing in an injected game
+                log::info("winmm.dll beside the game stands down for an injected game");
+            } else if loader.symlink_metadata().is_ok() {
                 found.push(LOADER_DLL.to_owned());
                 found.sort_by_key(|name| name.to_lowercase());
             }
