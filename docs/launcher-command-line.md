@@ -35,8 +35,12 @@ dainty-launcher servers
   exit 2. The account key never reaches the command line, stdout or the log: the commands only call the
   controller, which keeps the key between the key store, the game's launch argument and the relay.
 - **`export`** writes `export_flags.txt` and loads CatalogExporter as the Host page does, prints the DLL's path
-  and SHA-256 (also logged), and once the game exits prints `exports: <Win64>\Items_Analysis`, or `no exports at
-  ...` when CatalogExporter wrote nothing. Copying the files into the workspace stays the Host page's "Copy exports".
+  and SHA-256 (also logged), and once the game exits prints `exports: <folder>`: the newest
+  `catalog_export_status.txt` written since the game started, in `Win64\Items_Analysis` or the Host workspace's
+  export roots (the module's or the checkout's `Items_Analysis`). A CatalogExporter built with
+  `RUSTIC_ISLES_EXPORT_ROOT` writes there and reads its flags there, not from the file the launcher writes in `Win64`;
+  the line says so. When no run wrote anything it prints `no exports written since the game started (looked in ...)`.
+  Copying the files into the workspace stays the Host page's "Copy exports", which takes the same newest folder.
 - **Not a `dainty-host` subcommand.** These are the launcher binary's own arguments, so the `clap` tree is untouched.
 
 ## Platforms

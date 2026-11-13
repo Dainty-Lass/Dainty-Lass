@@ -476,10 +476,24 @@ impl Controller {
         self.win64().map(|win64| win64.join(GAME_EXPORTS))
     }
 
+    /// Every folder CatalogExporter may write to: the game's, then the workspace's export roots, which a build with
+    /// `RUSTIC_ISLES_EXPORT_ROOT` writes to (and reads its flags from) instead.
+    pub fn export_candidates(&self) -> Vec<PathBuf> {
+        let mut dirs: Vec<PathBuf> = self.game_exports_dir().into_iter().collect();
+        if let Some(workspace) = self.valid_workspace() {
+            dirs.extend(WorkspacePaths::new(&workspace).export_roots);
+        }
+        dirs
+    }
+
+    /// The newest export among [`Self::export_candidates`], written at or after `since` when given.
+    pub fn latest_exports(&self, since: Option<std::time::SystemTime>) -> Option<PathBuf> {
+        hostkit::newest_exports(&self.export_candidates(), since)
+    }
+
     fn game_exports(&self) -> Option<PathBuf> {
-        self.win64()
-            .map(|win64| win64.join(GAME_EXPORTS))
-            .filter(|dir| dir.is_dir())
+        self.latest_exports(None)
+            .or_else(|| self.game_exports_dir().filter(|dir| dir.is_dir()))
     }
 
     /// `host_get`.

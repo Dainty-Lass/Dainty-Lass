@@ -300,6 +300,7 @@ impl Controller {
 
         let exits = self.shared.exits.subscribe();
         let before = exits.borrow().0;
+        let started = std::time::SystemTime::now();
         let answer = match &request.command {
             CliCommand::Export { exporter } => {
                 let exporter = exporter.as_deref().map(absolute);
@@ -327,7 +328,7 @@ impl Controller {
             None => say!(out, "the game exited without a code"),
         }
         if matches!(request.command, CliCommand::Export { .. }) {
-            self.print_exports(out);
+            self.print_exports(started, out);
         }
         if request.wait { code.unwrap_or(REFUSED_EXIT) } else { 0 }
     }
@@ -357,11 +358,28 @@ impl Controller {
         }
     }
 
-    fn print_exports<W: Write>(&self, out: &mut W) {
-        match self.game_exports_dir() {
-            Some(dir) if dir.is_dir() => say!(out, "exports: {}", dir.display()),
-            Some(dir) => say!(out, "no exports at {}", dir.display()),
-            None => say!(out, "no game folder to look for exports in"),
+    fn print_exports<W: Write>(&self, started: std::time::SystemTime, out: &mut W) {
+        let candidates = self.export_candidates();
+        if candidates.is_empty() {
+            say!(out, "no game folder to look for exports in");
+            return;
+        }
+        match self.latest_exports(Some(started)) {
+            Some(dir) if Some(&dir) == candidates.first() => say!(out, "exports: {}", dir.display()),
+            // A build with an export root reads its flags there too, not the file the launcher wrote beside the game
+            Some(dir) => say!(
+                out,
+                "exports: {} (CatalogExporter's own export root; its flags came from there)",
+                dir.display()
+            ),
+            None => {
+                let looked: Vec<String> = candidates.iter().map(|dir| dir.display().to_string()).collect();
+                say!(
+                    out,
+                    "no exports written since the game started (looked in {})",
+                    looked.join(", ")
+                );
+            }
         }
     }
 }

@@ -101,6 +101,9 @@ pub struct WorkspacePaths {
     pub director_game_data: PathBuf,
     /// The CatalogExporter's exports (`Items_Analysis`).
     pub exports: PathBuf,
+    /// Where a CatalogExporter built with an export root (`RUSTIC_ISLES_EXPORT_ROOT`) writes instead of the game's
+    /// folder: the module's or the checkout's `Items_Analysis`.
+    pub export_roots: Vec<PathBuf>,
     /// Where the built runtime is published for the content server.
     pub publish: PathBuf,
     /// The host kit's logs (`.workspace/logs`).
@@ -200,6 +203,8 @@ impl WorkspacePaths {
         let exporter_project = exporter_dir.join("CatalogExporter.vcxproj");
         let exporter_dll = exporter_dir.join("x64").join("Release").join("CatalogExporter.dll");
         let exports = paradox.join("Items_Analysis");
+        let mut export_roots = vec![isles.join("Items_Analysis"), root.join("Items_Analysis")];
+        export_roots.dedup();
         let logs = workspace.join("logs");
         let config = workspace.join("config");
         let host_toml = config.join("host.toml");
@@ -219,6 +224,7 @@ impl WorkspacePaths {
             backend_game_data,
             director_game_data,
             exports,
+            export_roots,
             publish,
             logs,
             host_toml,
@@ -291,6 +297,24 @@ pub struct Logged {
     pub code: i32,
     /// Last non-blank output line, bounded to 300 characters.
     pub last_line: Option<String>,
+}
+
+/// The status file every CatalogExporter run writes beside its exports.
+pub const EXPORT_STATUS: &str = "catalog_export_status.txt";
+
+/// The export folder of `candidates` whose status file is newest, and written at or after `since` when given.
+#[must_use]
+pub fn newest_exports(candidates: &[PathBuf], since: Option<SystemTime>) -> Option<PathBuf> {
+    candidates
+        .iter()
+        .filter_map(|dir| {
+            let written = std::fs::metadata(dir.join(EXPORT_STATUS))
+                .and_then(|m| m.modified())
+                .ok()?;
+            since.is_none_or(|since| written >= since).then_some((written, dir))
+        })
+        .max_by_key(|(written, _)| *written)
+        .map(|(_, dir)| dir.clone())
 }
 
 /// Locates `dainty-host` inside `root` (`<root>/<HOST_BINARY>`, `<root>/bin/<HOST_BINARY>`,
@@ -865,6 +889,32 @@ mod tests {
         let paths = WorkspacePaths::new(root);
         assert_eq!(paths.runtime_source, root.join("modules/rustic-isles/native/runtime"));
         assert_eq!(paths.host_toml, root.join(".workspace/config/host.toml"));
+    }
+
+    #[test]
+    fn the_newest_export_is_found_wherever_the_exporter_wrote_it() {
+        let tmp = tempfile::tempdir().unwrap();
+        let start = SystemTime::now();
+        let written = |name: &str, at: SystemTime| {
+            let dir = tmp.path().join(name).join("Items_Analysis");
+            std::fs::create_dir_all(&dir).unwrap();
+            let status = std::fs::File::create(dir.join(EXPORT_STATUS)).unwrap();
+            status.set_modified(at).unwrap();
+            dir
+        };
+        let game = written("Win64", start - Duration::from_secs(3600));
+        let module = written("rustic-isles", start + Duration::from_secs(8));
+        let checkout = tmp.path().join("checkout").join("Items_Analysis");
+        let candidates = [game.clone(), module.clone(), checkout];
+
+        assert_eq!(newest_exports(&candidates, Some(start)), Some(module.clone()));
+        assert_eq!(newest_exports(&candidates, None), Some(module));
+        assert_eq!(
+            newest_exports(&candidates[..1], Some(start)),
+            None,
+            "an old run is not this one"
+        );
+        assert_eq!(newest_exports(&candidates[..1], None), Some(game));
     }
 
     #[test]
