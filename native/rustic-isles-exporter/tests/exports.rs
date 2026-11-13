@@ -406,8 +406,6 @@ fn store_runtime_writes_view_models_and_images() {
     world.set_texts(offer, &sdk::OF_PREVIEW_IDS, &["AR_HEAD"]);
 
     let (_, rows) = world.table("StoreItems", "StoreItemTable", &[("B_Row", 0x80), ("A_Row", 0x80)]);
-    // The synthetic SDK declares `TPersistentObjectPtr` by hand, so `ObjectID` falls back to +0x10 (spec §6.13).
-    assert_eq!((sdk::SOFT_OBJECT_ID.offset, sdk::SOFT_PATH_NAME.offset), (0x10, 0));
     world.write_name(
         rows[0] + u64::from(sdk::IMG_FEATURE.offset) + 0x10,
         "/Game/UI/Feature_B.Feature_B",

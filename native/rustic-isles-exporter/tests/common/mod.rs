@@ -158,8 +158,7 @@ impl World {
             Kind::Tag => self.write_name(at + u64::from(sdk::TAG_NAME.offset), text, 0),
             Kind::RowHandle => self.write_name(at + u64::from(sdk::ROW_HANDLE_ROW.offset), text, 0),
             Kind::SoftPtr => {
-                let path = sdk::SOFT_OBJECT_ID.offset + sdk::SOFT_PATH_NAME.offset;
-                self.write_name(at + u64::from(path), text, 0);
+                self.write_name(at + catalog_exporter::engine::SOFT_PATH, text, 0);
             }
             Kind::ObjPtr | Kind::ClassPtr => {
                 let object = self.raw_object(text, 0, 0, 0x40);

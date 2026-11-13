@@ -566,12 +566,6 @@ pub const OPTIONAL_MEMBERS: &[(&str, &str, Member)] = &[
         "UStoreViewModel.TagFilter",
         Member::plain(0x170, 16, Kind::Str),
     ),
-    // Store images only; hunts read the fixed offset (spec §4.5, §6.13).
-    (
-        "SOFT_OBJECT_ID",
-        "TPersistentObjectPtr.ObjectID",
-        Member::plain(0x10, 0x18, Kind::Struct),
-    ),
     (
         "SI_OFFER",
         "UStoreItemViewModel.StoreItem",
