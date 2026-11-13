@@ -414,6 +414,22 @@ writes verifies, a changed byte of a real ticket never verifies; public keys fro
   - [ ] When the launcher's local relay (`127.0.0.1:61100`, `Relay::repoint`) re-points to a non-home node's gateway with a `SessionTicket`, it strips `x-dainty-user-api-key` from every forwarded request and attaches `x-dainty-session-ticket` instead so the account key never leaves its home node (DD17). Test: `repoint_switches_target_attaches_ticket_and_strips_account_key`.
 - **Matchmaking ring, CAS claim protocol, and regional Ramsgate (DN8, DN9)**:
   - [ ] `POST /network/v1/regions` is wired in production through `Gateway::set_region_handler` (`NodeServices::region_report_handler`) to `RingNode::record_region_pings_authenticated`, authenticating the caller via either a registered home API key or a verified `SessionTicket` (`session_ticket_from_token`) before storing the account's ordered region RTT list. Test: `region_report_handler_reaches_ring_node_record_region_pings_authenticated`.
+  - [ ] A key the ring has not heard announced (a restarted gateway empties `local_account_keys`, and the store keeps
+        only a keyed HMAC) is asked about once through `AccountKeyHolder`: the host's `RegistryKeyHolder` sends the
+        game module `GameCall::AccountForKey`, which checks the key against its stored HMAC as a keyed launcher call
+        does and names the holder only when the account may use it. A named holder is kept by the key's SHA-256; a
+        refusal is kept for `UNKNOWN_KEY_TTL_MS` (60 s) and spends one of `KEY_LOOKUP_BURST` (32) lookups, regained
+        one per `KEY_LOOKUP_REFILL_MS` (1 s), so unknown keys can't drive the module's key scan without bound. A
+        module error spends the budget but isn't remembered. Only text `looks_like_account_key` accepts, at most 256
+        bytes, is asked about. The key is never logged, and `GameCall`'s `Debug` leaves it out. Tests:
+        `a_restarted_home_takes_the_first_report_once_its_module_names_the_key_holder`,
+        `a_restarted_ring_asks_the_module_once_and_keeps_the_holder`,
+        `an_unknown_key_is_refused_and_not_asked_about_again_until_its_refusal_expires`,
+        `refusals_spend_a_lookup_budget_that_refills_over_time`,
+        `a_module_that_cannot_answer_is_a_refusal_that_is_not_remembered`, `a_key_holder_is_found_by_the_stored_hash_alone`.
+        While the budget is spent a held key the ring doesn't know is refused too; the launcher's retry after
+        `GetUserInfo` (`regionping.rs`) announces it and gets in. No new input is parsed: the key is the report's
+        existing header, and the call crosses the frame protocol as `ModuleCall::Game`, which `module_frame` covers.
   - [ ] A ticket is owned by the player's home node, published to the lowest-ping region at step 0, and widened along `RingSchedule` (`DEFAULT_RING_DELAYS_MS`) by `RingNode::spawn_ticker` in `controller::modules::network`. When a regional node forms a match, it claims each candidate ticket at its home node via atomic compare-and-set (`local_claim_ticket`), feeds matched players' IPs and guarded UDP ports into the in-process allowlist (`InProcessAllowlistSink` -> `Helper::admit_udp`), and releases partial claims (`ReleaseTicket`) if any candidate was already claimed or cancelled. Tests: `dn8_four_region_matchmaking_ring_never_double_books_and_bounds_wait_time`, `matched_player_is_admitted_into_in_process_allowlist_and_unmatched_is_not`.
   - [ ] Regional Ramsgate (`assign_ramsgate`, `AssignHub`) places players from any home node into their lowest-ping region's shared Ramsgate shard and starts a new shard on that region's Director when `max_hub_players` is reached. Test: `dn9_regional_ramsgate_places_players_from_different_homes_into_lowest_ping_hub_and_shards`.
 - **Wired end-to-end in `controller::modules::network`, `rustic-isles` (`module.rs`'s `command`), and `launcher::net::relay` (DN5, DN6, DN8, DN9)**:

@@ -95,8 +95,8 @@ pub struct ApiVersion {
     pub minor: u16,
 }
 
-/// The contract this build of the crate speaks; 1.2 added game calls (MS1).
-pub const API_VERSION: ApiVersion = ApiVersion { major: 1, minor: 2 };
+/// The contract this build of the crate speaks; 1.2 added game calls (MS1), 1.3 `AccountForKey` (N-1).
+pub const API_VERSION: ApiVersion = ApiVersion { major: 1, minor: 3 };
 
 impl ApiVersion {
     /// Whether a host speaking `self` can run a module built against `module`: same major, and nothing

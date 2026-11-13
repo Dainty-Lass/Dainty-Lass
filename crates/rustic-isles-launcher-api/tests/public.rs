@@ -93,6 +93,32 @@ async fn register(rig: &Rig, body: Value) -> common::Answer {
 }
 
 #[tokio::test]
+async fn a_key_holder_is_found_by_the_stored_hash_alone() {
+    use rustic_isles_launcher_api::launcher_api::holder_of_key;
+    let rig = Rig::new(common::Options {
+        settings: settings(&[("REGISTRATION_MODE", "OPEN")]),
+        ..options(true)
+    })
+    .await;
+    let made = register(&rig, json!({"Username": "Fox_9"})).await;
+    let key = made.json()["UUK"].as_str().unwrap().to_owned();
+    let account: rustic_isles_store::AccountId = made.header("x-dainty-account-id").unwrap().parse().unwrap();
+    // What the ring asks after a restart (N-1): the same HMAC check as a keyed launcher call
+    let holder = holder_of_key(&rig.shared, &rig.store, &key).await.unwrap().unwrap();
+    assert_eq!(holder.account, account);
+    assert!(holder.eligible());
+    let last = if key.ends_with('x') { 'y' } else { 'x' };
+    let other = format!("{}{last}", &key[..key.len() - 1]);
+    assert!(holder_of_key(&rig.shared, &rig.store, &other).await.unwrap().is_none());
+    assert!(
+        holder_of_key(&rig.shared, &rig.store, "not a key")
+            .await
+            .unwrap()
+            .is_none()
+    );
+}
+
+#[tokio::test]
 async fn registration() {
     let open = Rig::new(common::Options {
         settings: settings(&[("REGISTRATION_MODE", " open ")]),

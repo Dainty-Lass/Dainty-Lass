@@ -101,10 +101,15 @@ Test: `a_restarted_home_that_forgot_the_key_gets_it_again_and_takes_the_order`. 
 the report 401 until the key has been to the user-info route. The test checks the order is reported, and that the
 calls go nodes list, report, user info, report, all keyed except the first.
 
-**Not fixed: the server side.** Any other client of the route still gets 401 until it makes a keyed call. The proper
-fix has the ring ask the module who holds a key it doesn't know, a new network-to-module call (a `HomeBackend`
-operation or a `GameCall`). That changes the module contract in `dainty-module-api`, `dainty-network` and
-`rustic-isles`, a seam beyond this review, so it is reported, not made.
+**Fixed on the server side too** (ruling N-1, 2026-11-13). A key the ring doesn't know is asked about through
+`RingNode::set_account_key_holder`: the host sends the game module `GameCall::AccountForKey`, and `rustic-isles` checks
+it against the stored HMAC with the launcher API's own `holder_of_key`. A `GameCall`, not a `HomeBackend` operation:
+a home operation is another node's call for an account it names, behind a ticket, and this one is local and names no
+account. A game call goes through the registry and crosses the frame protocol as `ModuleCall::Game`, so a module in
+process and one in its own process answer it alike, with no new frame. A named holder is kept; a refusal is kept for a
+minute and spends a lookup budget (32, one back a second). Test:
+`a_restarted_home_takes_the_first_report_once_its_module_names_the_key_holder`; the rest are in
+`docs/security/network.md`. The launcher's retry stays.
 
 ### 4.4 Other observations
 

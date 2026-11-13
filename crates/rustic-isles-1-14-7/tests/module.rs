@@ -375,5 +375,12 @@ async fn game_calls_on_sqlite() {
         module.game(ctx.clone(), revoke()).await.unwrap_err().kind,
         ErrorKind::NotFound
     );
+    let lookup = GameCall::AccountForKey {
+        key: "DLK_nobody_holds_this_key_0000000".into(),
+    };
+    assert_eq!(
+        module.game(ctx.clone(), lookup).await.unwrap(),
+        GameAnswer::Account(None)
+    );
     module.stop(ctx).await.unwrap();
 }

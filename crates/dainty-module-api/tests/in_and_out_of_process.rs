@@ -145,6 +145,10 @@ async fn script(driver: &dyn ModuleDriver) -> Vec<String> {
             record(what, format!("{revoked:?}"));
         }
     }
+    for key in [dainty_module_api::stub::STUB_ACCOUNT_KEY, "DLK_unknown"] {
+        let holder = driver.game(GameCall::AccountForKey { key: key.into() }).await;
+        record("account for key", format!("{holder:?}"));
+    }
     record("stop", format!("{:?}", driver.stop().await));
     record("status", format!("{:?}", driver.status().await));
     // The account ids differ per run; the answers that name them are compared above by shape
@@ -209,6 +213,11 @@ async fn the_stub_answers_the_same_in_and_out_of_process() {
     let line = |prefix: &str| in_answers.iter().find(|line| line.starts_with(prefix)).unwrap().clone();
     assert!(line("availability before:").contains("ModuleNotReady"));
     assert!(line("invite before:").contains(UnavailableReason::ModuleNotReady.code()));
+    let holders: Vec<_> = in_answers.iter().filter(|l| l.starts_with("account for key")).collect();
+    let held: GlobalId = dainty_module_api::stub::STUB_ACCOUNT.parse().unwrap();
+    let held = format!("{:?}", GameAnswer::Account(Some(held)));
+    assert!(holders[0].ends_with(&format!("Ok({held})")), "{holders:?}");
+    assert!(holders[1].ends_with("Ok(Account(None))"), "{holders:?}");
     assert!(line("availability:").contains("up: true"));
     assert!(line("servers:").contains("Hub"));
     assert!(line("invite none:").contains("Invalid"));

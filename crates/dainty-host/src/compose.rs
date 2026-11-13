@@ -234,6 +234,34 @@ impl dainty_controller::LoadHook for HomeRouterHook {
     }
 }
 
+/// The ring's [`network_plugin::ring::AccountKeyHolder`]: the game module's [`dainty_module_api::GameCall::AccountForKey`]
+/// through the registry, which reaches a compiled-in module and a child alike (N-1).
+#[cfg(feature = "gateway")]
+struct RegistryKeyHolder {
+    registry: dainty_controller::WeakRegistry,
+    game: dainty_module_api::GameVersion,
+}
+
+#[cfg(feature = "gateway")]
+impl network_plugin::ring::AccountKeyHolder for RegistryKeyHolder {
+    fn holder_of<'a>(
+        &'a self,
+        key: &'a str,
+    ) -> dainty_module_api::BoxFuture<'a, Result<Option<dainty_module_api::GlobalId>, String>> {
+        Box::pin(async move {
+            let registry = self.registry.upgrade().ok_or("the server is stopping")?;
+            let call = dainty_module_api::GameCall::AccountForKey { key: key.to_owned() };
+            match registry.game(&self.game, call).await {
+                Ok(dainty_module_api::GameAnswer::Account(account)) => Ok(account),
+                Ok(_) => Err(String::from("the game module answered another call")),
+                // A module that doesn't answer the call holds no key the ring could learn
+                Err(error) if error.kind == dainty_module_api::ErrorKind::Unsupported => Ok(None),
+                Err(error) => Err(error.to_string()),
+            }
+        })
+    }
+}
+
 /// The node's network runtime (`[network]` in `host.toml` when peers are configured): opens the
 /// directory table in the node database, connects [`network_plugin::TlsPeerLink`] to peers, starts
 /// directory replication and peer health checks, wires [`network_plugin::home::NetworkedHome`] into
@@ -360,6 +388,10 @@ pub fn network(options: NetworkOptions) -> Result<Module, String> {
                     peers.iter().map(|p| p.id.clone()),
                     network_plugin::home::HomeConfig::default(),
                 ));
+                let key_holder = Arc::new(RegistryKeyHolder {
+                    registry: registry.downgrade(),
+                    game: game.clone(),
+                });
                 let networked_home = Arc::new(
                     network_plugin::home::NetworkedHome::new(
                         node.clone(),
@@ -401,6 +433,7 @@ pub fn network(options: NetworkOptions) -> Result<Module, String> {
                     sink,
                 );
                 networked_home.set_ring(&ring_node);
+                ring_node.set_account_key_holder(key_holder);
                 let ring_ticker = ring_node.spawn_ticker(
                     replication_interval
                         .min(std::time::Duration::from_secs(1))
