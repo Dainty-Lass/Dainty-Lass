@@ -421,8 +421,8 @@ step 1.
 
 1. **Trials board.** Let the Director start Ramsgate. In that server's `rustic_isles_dll_port<N>.log`: `[MitRuntime]
    install ESC-1 ok`; one `[TrialsSchedule] Initialize: rotating intervalMinutes=10080
-   currentRow='Scheduled_Arena_Hunt_<NNN>' patchedRows=181/181 ...` line per arena table; the AGPL's `[MitSeam] ... <n> hooks left to it` counts ESC-1. No
-   AGPL `[TrialsSchedule]` line follows. Log in and open the Trials board: it is not greyed, and shows a Behemoth.
+   currentRow='Scheduled_Arena_Hunt_<NNN>' patchedRows=181/181 ...` line per arena table; the AGPL's
+   `[MitSeam] ... <n> hooks left to it` counts ESC-1. No AGPL `[TrialsSchedule]` line follows. Log in and open the Trials board: it is not greyed, and shows a Behemoth.
 2. **The week.** `currentRow` is the week R1 9's formula gives for the server's start time (the Director's
    `current_trials_week` computes the same); step 3 checks that the launched trial pins that same row.
 3. **Launch a trial.** Start it from the board. The arena server's log shows `[TrialsSchedule] Initialize:
@@ -431,8 +431,8 @@ step 1.
 4. **Short rotation (optional).** Set `TRIALS_ROTATION_MINUTES=30` for Ramsgate's server, restart it, check the line
    says `intervalMinutes=30`; restart after the next half-hour boundary and see `currentRow` move by one.
 5. **Escalation, one player.** Start an Escalation. When round 1 ends, the hunt server's log shows
-   `[EscalationBuffChoiceSpawn] queued mode=... round=0 trigger=EventEnding(7) entry`, then within about a second `dispatching` and `dispatched`
-   for the same mode and round. Your own relic pickups appear; pick a relic; the next round starts. Each later round
+   `[EscalationBuffChoiceSpawn] queued mode=... round=0 trigger=EventEnding(7) entry`, then within about a
+   second `dispatching` and `dispatched` for the same mode and round. Your own relic pickups appear; pick a relic; the next round starts. Each later round
    repeats the three lines once, with the next round number.
 6. **Escalation, two players.** Both players get their own pickups after each round and each can choose; the round
    advances. (The networking fixes this also needs are R12's and are still in the AGPL runtime; a stall here with
