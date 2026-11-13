@@ -1541,6 +1541,7 @@ dependencies = [
  "dainty-epic",
  "dainty-gateway",
  "dainty-http",
+ "dainty-inject",
  "dainty-module-api",
  "dainty-network",
  "dainty-protocol",
@@ -5702,6 +5703,7 @@ version = "0.0.0"
 dependencies = [
  "axum",
  "chrono",
+ "dainty-inject",
  "dainty-module-api",
  "dainty-service-kit",
  "futures-util",

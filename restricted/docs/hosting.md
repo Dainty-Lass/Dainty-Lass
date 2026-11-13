@@ -48,9 +48,17 @@ Then the SDK, the runtime and the game data ([sdk-and-game-data.md](https://git.
 
 ```powershell
 bin\dainty-host gamedata                  # from your CatalogExporter export in modules\rustic-isles\reference\1.14.7\Items_Analysis
-bin\dainty-host publish-runtime           # the Rustic-Isles.dll and winmm.dll you built
+bin\dainty-host publish-runtime           # the Rustic-Isles.dll you built (and winmm.dll, if built)
 bin\dainty-host doctor                    # what is still missing or wrong
 ```
+
+The Director loads the published runtime (`.workspace\runtime\Rustic-Isles.dll`, checked against `runtime.json`)
+into every game server it starts, before the server runs. Nothing is copied next to the game's executable, so you
+can play from the same 1.14.7 folder your servers use. A server whose runtime can't be loaded is ended, never left
+running without it, and the Director's log says why. `winmm.dll`, the old runtime loader, is optional: only Linux
+players who load the runtime through it need it in the server's feed. `publish-runtime` removes a `winmm.dll` an
+older kit put next to the game's executable; the Director names any other one at start, since it would load a
+second runtime into every server.
 
 ## Running it
 

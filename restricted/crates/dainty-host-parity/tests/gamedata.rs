@@ -30,7 +30,7 @@ use dainty_host::progression::{
     write_progression_source,
 };
 use dainty_host::publish::{
-    SERVER_RUNTIME_FLAGS, default_sources, ensure_server_flags, install_server_runtime, publish_runtime, sha256_file,
+    SERVER_RUNTIME_FLAGS, default_sources, ensure_server_flags, publish_runtime, retire_server_loader, sha256_file,
 };
 use dainty_host::run::RunResult;
 use serde_json::{Value, json};
@@ -1306,7 +1306,7 @@ fn collect(root: &Path, dir: &Path, out: &mut Vec<(String, Vec<u8>)>) {
 // ------------------------------------------------------------------ runtime
 
 #[test]
-fn publishing_writes_the_files_and_a_runtime_json_then_installs_them_for_the_game_servers() {
+fn publishing_writes_the_files_and_a_runtime_json_and_retires_the_servers_loader() {
     let dir = TempDir::new().unwrap();
     let p = host(&dir);
     write(&p.runtime_dll, vec![3u8; 6000]);
@@ -1328,14 +1328,12 @@ fn publishing_writes_the_files_and_a_runtime_json_then_installs_them_for_the_gam
     assert_eq!(index["files"][1]["sha256"], sha256_file(&p.loader_dll).unwrap());
     let game = TempDir::new().unwrap();
     let win64 = game.path();
-    assert_eq!(
-        install_server_runtime(&p, win64).installed,
-        ["Rustic-Isles.dll", "winmm.dll"]
-    );
-    assert_eq!(
-        install_server_runtime(&p, win64).unchanged,
-        ["Rustic-Isles.dll", "winmm.dll"]
-    );
+    // The Director injects the published runtime now (RD9 as of 2026-11-13): nothing is installed beside the exe,
+    // and the loader an older kit put there goes
+    write(&win64.join("winmm.dll"), vec![4u8; 2000]);
+    assert!(retire_server_loader(&p, win64));
+    assert!(!win64.join("winmm.dll").exists() && !win64.join("Rustic-Isles.dll").exists());
+    assert!(!retire_server_loader(&p, win64));
     assert_eq!(
         ensure_server_flags(win64).unwrap(),
         ["CALL_HUNTPASS_QUERY.flag"],
@@ -1358,10 +1356,8 @@ fn clears_old_runtime_files_a_previous_install_had_to_move_aside() {
     let game = TempDir::new().unwrap();
     let win64 = game.path();
     write(&win64.join("Rustic-Isles.dll.rr-old-123"), "old");
-    let r = install_server_runtime(&p, win64);
-    assert!(r.in_use.is_empty());
+    assert!(!retire_server_loader(&p, win64));
     assert!(!win64.join("Rustic-Isles.dll.rr-old-123").exists());
-    assert!(!win64.join("Rustic-Isles.dll.tmp").exists());
 }
 
 #[test]

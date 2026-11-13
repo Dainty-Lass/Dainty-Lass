@@ -3073,6 +3073,8 @@ pub fn build_env_files(c: &HostConfig, s: &Secrets, p: &Paths, source_commit: &s
     if let Some(parent) = exe_path.as_deref().and_then(Path::parent) {
         push(&mut director, "GAMESERVER_RUNTIME_LOG_DIR", path_text(parent));
     }
+    // The Director injects the published runtime into every game server (RD9 as of 2026-11-13)
+    push(&mut director, "GAMESERVER_RUNTIME_DIR", path_text(&p.runtime_publish));
     push(
         &mut director,
         "GAMESERVER_MEMORY_GUARD",
@@ -3644,6 +3646,11 @@ gameserver_ready_timeout_ms = 60000
             "the default stays"
         );
         assert!(has(&files.director, "GAMESERVER_READY_TIMEOUT_MS", "60000"));
+        assert!(has(
+            &files.director,
+            "GAMESERVER_RUNTIME_DIR",
+            &path_text(&p.runtime_publish)
+        ));
         assert!(has(&files.director, "LOG_LEVEL", "info"));
 
         let mut changed = cfg.clone();

@@ -48,12 +48,12 @@ COPY restricted/modules/rustic-rifts/src/ /src/restricted/modules/rustic-rifts/s
 # ------------------------------------------------------------------ the Rust binaries
 FROM ${RUST_IMAGE} AS rust-build
 RUN apt-get update \
- && apt-get install -y --no-install-recommends build-essential pkg-config ca-certificates git \
+ && apt-get install -y --no-install-recommends build-essential pkg-config ca-certificates git gcc-mingw-w64-x86-64 \
  && rm -rf /var/lib/apt/lists/*
 WORKDIR /src/restricted
 # The pinned toolchain (rust-toolchain.toml), in its own layer
 COPY restricted/rust-toolchain.toml ./
-RUN rustup show active-toolchain || rustup toolchain install
+RUN (rustup show active-toolchain || rustup toolchain install) && rustup target add x86_64-pc-windows-gnu
 COPY --from=rust-sources /src/ /src/
 # The release workflow's build: the server in one binary, dainty-host, with the gateway, allowlist, content server
 # and admin API inside it, and the game modules (all-modules, DF5). The launcher is a workspace member but is not
@@ -79,6 +79,8 @@ RUN --mount=type=cache,id=dainty-cargo-registry,target=/usr/local/cargo/registry
       -p rustic-isles-1-14-7-plugin -p dainty-content-plugin -p dainty-chat-plugin -p dainty-gateway-plugin --lib \
  && cargo build --release --locked --manifest-path ../Cargo.toml -p dainty-legacy --bin dainty-legacy \
  && cp ../target/release/dainty-legacy /out/bin/ \
+ && cargo build --release --locked --manifest-path ../Cargo.toml -p dainty-inject --target x86_64-pc-windows-gnu \
+ && cp ../target/x86_64-pc-windows-gnu/release/dainty-inject.exe /out/bin/ \
  && mkdir -p /out/plugins \
  && for lib in rustic_isles_1_14_7_plugin dainty_content_plugin dainty_chat_plugin dainty_gateway_plugin; do \
       cp "../target/release/lib$lib.so" /out/plugins/; \

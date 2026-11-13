@@ -1602,6 +1602,7 @@ dependencies = [
  "dainty-epic",
  "dainty-gateway",
  "dainty-http",
+ "dainty-inject",
  "dainty-module-api",
  "dainty-network",
  "dainty-protocol",
@@ -5853,6 +5854,7 @@ version = "0.0.0"
 dependencies = [
  "axum",
  "chrono",
+ "dainty-inject",
  "dainty-module-api",
  "dainty-service-kit",
  "futures-util",
@@ -5861,6 +5863,7 @@ dependencies = [
  "rand 0.10.3",
  "rustic-isles",
  "serde_json",
+ "sha2 0.11.1",
  "tempfile",
  "tokio",
  "tracing",

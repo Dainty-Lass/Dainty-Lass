@@ -725,6 +725,26 @@ pub fn linux_checks(p: &Paths, config: &HostConfig) -> Result<Vec<Check>, HostEr
         }
     }
 
+    let helper = crate::wine::inject_helper();
+    if helper.is_file() {
+        out.push(Check {
+            area,
+            level: Level::Ok,
+            text: format!("inject helper ready at {}", helper.display()),
+            fix: None,
+        });
+    } else {
+        out.push(Check {
+            area,
+            level: Level::Fail,
+            text: format!(
+                "inject helper missing at {}: no game server can load its runtime",
+                helper.display()
+            ),
+            fix: Some("reinstall the server release, which ships it beside dainty-host".to_owned()),
+        });
+    }
+
     if crate::wine::is_executable(&p.gameserver_wrapper) {
         out.push(Check {
             area,
@@ -1050,13 +1070,8 @@ pub fn run_doctor(p: &Paths, opts: &DoctorOptions) -> Result<Vec<Check>, HostErr
         }
     }
 
-    let mut all_rt = true;
-    for name in RUNTIME_FILE_NAMES {
-        if !p.runtime_publish.join(name).is_file() {
-            all_rt = false;
-            break;
-        }
-    }
+    // The loader is optional: only Proton players on it need it in the feed (RD9 as of 2026-11-13)
+    let all_rt = p.runtime_publish.join(RUNTIME_FILE_NAMES[0]).is_file();
     if all_rt && p.runtime_publish.join("runtime.json").is_file() {
         checks.push(Check {
             area: "runtime",
@@ -1065,14 +1080,14 @@ pub fn run_doctor(p: &Paths, opts: &DoctorOptions) -> Result<Vec<Check>, HostErr
             fix: None,
         });
     } else {
-        // start copies it beside the game executable; with a game folder set, the game servers exit at start without it
+        // The Director injects it into every game server and refuses to start one without it
         let servers = config.game_dir.as_deref().is_some_and(|d| !d.trim().is_empty());
         checks.push(Check {
             area: "runtime",
             level: if servers { Level::Fail } else { Level::Warn },
             text: if servers {
                 format!(
-                    "published runtime is missing in {}: every game server exits at start",
+                    "published runtime is missing in {}: no game server can start",
                     p.runtime_publish.display()
                 )
             } else {

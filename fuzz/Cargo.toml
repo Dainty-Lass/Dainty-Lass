@@ -723,3 +723,10 @@ path = "fuzz_targets/inject_helper_args.rs"
 test = false
 doc = false
 bench = false
+
+[[bin]]
+name = "director_runtime_manifest"
+path = "fuzz_targets/director_runtime_manifest.rs"
+test = false
+doc = false
+bench = false

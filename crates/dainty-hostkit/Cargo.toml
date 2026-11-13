@@ -24,6 +24,8 @@ paradox = []
 
 [dependencies]
 dainty-http.workspace = true
+# The Wine game server runs through its dainty-inject.exe helper (RD9 as of 2026-11-13)
+dainty-inject.workspace = true
 dainty-admin = { workspace = true, optional = true }
 aws-lc-rs.workspace = true
 base64.workspace = true

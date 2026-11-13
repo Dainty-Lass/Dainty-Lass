@@ -83,6 +83,8 @@ pub struct Config {
     pub training_idle_minutes: u64,
     /// Where the runtime writes its per-port occupancy logs (`GAMESERVER_RUNTIME_LOG_DIR`).
     pub runtime_log_dir: Option<PathBuf>,
+    /// The host's published runtime (`GAMESERVER_RUNTIME_DIR`), injected into every server; none loads nothing.
+    pub runtime_dir: Option<PathBuf>,
     /// Where each server's output is written (`GAMESERVER_LOG_DIR`, default `../debug/gameservers`).
     pub log_dir: PathBuf,
     /// Hide the server's window on Windows (`GAMESERVER_WINDOWS_HIDE`).
@@ -232,6 +234,11 @@ impl Config {
             training_hub,
             training_idle_minutes,
             runtime_log_dir,
+            runtime_dir: settings
+                .raw("GAMESERVER_RUNTIME_DIR")
+                .map(str::trim)
+                .filter(|v| !v.is_empty())
+                .map(PathBuf::from),
             log_dir,
             windows_hide: director.args.hide_window(settings),
             launch_args: director.args.launch_args(settings),

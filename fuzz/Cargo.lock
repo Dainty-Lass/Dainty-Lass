@@ -3934,6 +3934,7 @@ version = "0.0.0"
 dependencies = [
  "axum",
  "chrono",
+ "dainty-inject",
  "dainty-module-api",
  "dainty-service-kit",
  "futures-util",

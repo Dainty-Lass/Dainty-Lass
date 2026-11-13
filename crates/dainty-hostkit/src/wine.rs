@@ -2,7 +2,9 @@
 // Copyright (c) 2026 Silent Spud
 
 //! The hidden `dainty-host gameserver` command on Linux: Dauntless-Win64-Shipping.exe run under Wine or Proton,
-//! and under xvfb-run when there is no display, from the variables the Director's env file sets.
+//! and under xvfb-run when there is no display, from the variables the Director's env file sets. The Director names
+//! the runtime to load in [`ENV_INJECT_DLL`]; the game then starts through the `dainty-inject.exe` helper, which
+//! loads it into the game suspended inside the prefix (RD9 as of 2026-11-13).
 
 use std::collections::BTreeMap;
 use std::fs;
@@ -25,6 +27,12 @@ pub const ENV_PROTON_DATA: &str = "DAINTY_PROTON_DATA";
 pub const ENV_XVFB: &str = "DAINTY_XVFB";
 /// The xvfb-run executable; found on PATH when unset.
 pub const ENV_XVFB_RUN: &str = "DAINTY_XVFB_RUN";
+/// The runtime DLL the Director asks for, a host path (`rustic_isles_director::runtime`).
+pub const ENV_INJECT_DLL: &str = "DAINTY_INJECT_DLL";
+/// Its SHA-256, which the helper checks through a held handle before loading it.
+pub const ENV_INJECT_SHA256: &str = "DAINTY_INJECT_SHA256";
+/// The helper, beside `dainty-host` in a release.
+pub use dainty_inject::helper::HELPER_EXE as INJECT_HELPER;
 
 /// How a game server is launched.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -125,7 +133,8 @@ pub fn find_wine(path_var: &str) -> Result<Option<String>, HostError> {
     Ok(find_on_path_in(&["wine64", "wine"], path_var))
 }
 
-/// `existing`'s `WINEDLLOVERRIDES` with `winmm`, `mscoree` and `mshtml` set as the runtime needs.
+/// `existing`'s `WINEDLLOVERRIDES` with `winmm`, `mscoree` and `mshtml` set as the runtime needs. `winmm` is Wine's
+/// own: a loader left beside the exe would load a second runtime beside the injected one.
 pub fn dll_overrides(existing: Option<&str>) -> String {
     let mut parts = Vec::new();
     if let Some(raw) = existing {
@@ -144,7 +153,7 @@ pub fn dll_overrides(existing: Option<&str>) -> String {
             parts.push(trimmed.to_owned());
         }
     }
-    parts.push("winmm=n,b".to_owned());
+    parts.push("winmm=b".to_owned());
     parts.push("mscoree=d".to_owned());
     parts.push("mshtml=d".to_owned());
     parts.join(";")
@@ -166,9 +175,59 @@ fn infer_steam_client_install_path(proton: &Path) -> Option<String> {
     None
 }
 
-/// The launch for the game with `game_args`, from the `DAINTY_*` variables in `env`.
-/// Fails when a variable is missing or not an absolute path, or a program is not found.
-pub fn build_launch(game_args: &[String], env: &BTreeMap<String, String>) -> Result<LaunchSpec, HostError> {
+/// What Wine or Proton runs: the game itself, or `helper` with the runtime to load into it.
+fn wine_program(
+    exe: &str,
+    game_args: &[String],
+    env: &BTreeMap<String, String>,
+    helper: &Path,
+) -> Result<Vec<String>, HostError> {
+    let named = |key: &str| env.get(key).map(|s| s.trim()).filter(|s| !s.is_empty());
+    let (dll, sha256) = match (named(ENV_INJECT_DLL), named(ENV_INJECT_SHA256)) {
+        (None, None) => {
+            return Ok(std::iter::once(exe.to_owned())
+                .chain(game_args.iter().cloned())
+                .collect());
+        }
+        (Some(dll), Some(sha256)) => (dll, sha256),
+        _ => {
+            return Err(HostError::message(format!(
+                "{ENV_INJECT_DLL} and {ENV_INJECT_SHA256} are set together or not at all"
+            )));
+        }
+    };
+    if !helper.is_file() {
+        return Err(HostError::message(format!(
+            "{} is missing, so the game server can't load its runtime: reinstall the server release",
+            helper.display()
+        )));
+    }
+    let wine = |path: &str| {
+        dainty_inject::helper::wine_path(Path::new(path))
+            .ok_or_else(|| HostError::message(format!("not an absolute path: {path}")))
+    };
+    let game_args: Vec<std::ffi::OsString> = game_args.iter().map(Into::into).collect();
+    let line = dainty_inject::helper::command_line(&[(wine(dll)?, sha256.to_owned())], &wine(exe)?, &game_args);
+    Ok(std::iter::once(helper.to_string_lossy().into_owned())
+        .chain(line.into_iter().map(|a| a.to_string_lossy().into_owned()))
+        .collect())
+}
+
+/// The helper beside this `dainty-host`.
+pub fn inject_helper() -> PathBuf {
+    std::env::current_exe()
+        .ok()
+        .and_then(|exe| exe.parent().map(|dir| dir.join(INJECT_HELPER)))
+        .unwrap_or_else(|| PathBuf::from(INJECT_HELPER))
+}
+
+/// The launch for the game with `game_args`, from the `DAINTY_*` variables in `env`, through `helper` when the
+/// Director named a runtime. Fails when a variable is missing or not an absolute path, or a program is not found.
+pub fn build_launch(
+    game_args: &[String],
+    env: &BTreeMap<String, String>,
+    helper: &Path,
+) -> Result<LaunchSpec, HostError> {
     let exe = env
         .get(ENV_EXE)
         .map(|s| s.trim())
@@ -187,6 +246,9 @@ pub fn build_launch(game_args: &[String], env: &BTreeMap<String, String>) -> Res
         .unwrap_or_else(|| PathBuf::from("/"));
 
     let mut out_env = env.clone();
+    out_env.remove(ENV_INJECT_DLL);
+    out_env.remove(ENV_INJECT_SHA256);
+    let program = wine_program(exe, game_args, env, helper)?;
     let overrides = dll_overrides(out_env.get("WINEDLLOVERRIDES").map(String::as_str));
     out_env.insert("WINEDLLOVERRIDES".to_owned(), overrides);
 
@@ -230,10 +292,7 @@ pub fn build_launch(game_args: &[String], env: &BTreeMap<String, String>) -> Res
                 .and_then(|n| n.to_str())
                 .filter(|s| !s.is_empty())
                 .unwrap_or("Proton");
-            let mut launch_args = Vec::with_capacity(2 + game_args.len());
-            launch_args.push("run".to_owned());
-            launch_args.push(exe.to_owned());
-            launch_args.extend(game_args.iter().cloned());
+            let launch_args = std::iter::once("run".to_owned()).chain(program).collect();
             (proton.to_owned(), launch_args, format!("Proton ({build_name})"))
         } else {
             let wine_bin = if let Some(configured) = env.get(ENV_WINE).map(|s| s.trim()).filter(|s| !s.is_empty()) {
@@ -267,10 +326,7 @@ pub fn build_launch(game_args: &[String], env: &BTreeMap<String, String>) -> Res
                 out_env.insert("WINEDEBUG".to_owned(), "-all".to_owned());
             }
 
-            let mut launch_args = Vec::with_capacity(1 + game_args.len());
-            launch_args.push(exe.to_owned());
-            launch_args.extend(game_args.iter().cloned());
-            (wine_bin, launch_args, "Wine".to_owned())
+            (wine_bin, program, "Wine".to_owned())
         };
 
     let xvfb_enabled = env.get(ENV_XVFB).map(String::as_str) != Some("0");
@@ -315,7 +371,7 @@ pub fn wine_prefix_ready(prefix: &Path) -> bool {
 /// Launches the game server with `args` and waits for it; returns its exit code.
 pub fn run_game_server(args: &[String]) -> Result<i32, HostError> {
     let env: BTreeMap<String, String> = std::env::vars().collect();
-    let spec = build_launch(args, &env)?;
+    let spec = build_launch(args, &env, &inject_helper())?;
     if let Some(prefix) = spec.env.get("WINEPREFIX") {
         fs::create_dir_all(prefix)?;
     }
@@ -354,11 +410,11 @@ mod tests {
 
     #[test]
     fn dll_overrides_replaces_existing_and_appends() {
-        assert_eq!(dll_overrides(None), "winmm=n,b;mscoree=d;mshtml=d");
-        assert_eq!(dll_overrides(Some("")), "winmm=n,b;mscoree=d;mshtml=d");
+        assert_eq!(dll_overrides(None), "winmm=b;mscoree=d;mshtml=d");
+        assert_eq!(dll_overrides(Some("")), "winmm=b;mscoree=d;mshtml=d");
         assert_eq!(
-            dll_overrides(Some("d3d11=n;winmm=b;mscoree=n;dxgi=n")),
-            "d3d11=n;dxgi=n;winmm=n,b;mscoree=d;mshtml=d"
+            dll_overrides(Some("d3d11=n;winmm=n,b;mscoree=n;dxgi=n")),
+            "d3d11=n;dxgi=n;winmm=b;mscoree=d;mshtml=d"
         );
     }
 
@@ -402,7 +458,7 @@ mod tests {
         env.insert(ENV_PREFIX.to_owned(), prefix.to_string_lossy().into_owned());
         env.insert(ENV_XVFB_RUN.to_owned(), xvfb.to_string_lossy().into_owned());
 
-        let spec = build_launch(&["-log".to_owned(), "-port=8770".to_owned()], &env).unwrap();
+        let spec = build_launch(&["-log".to_owned(), "-port=8770".to_owned()], &env, Path::new("/none")).unwrap();
         assert_eq!(spec.command, xvfb.to_string_lossy());
         assert_eq!(
             spec.args,
@@ -424,7 +480,7 @@ mod tests {
         assert_eq!(spec.env.get("WINEDEBUG").map(String::as_str), Some("-all"));
         assert_eq!(
             spec.env.get("WINEDLLOVERRIDES").map(String::as_str),
-            Some("winmm=n,b;mscoree=d;mshtml=d")
+            Some("winmm=b;mscoree=d;mshtml=d")
         );
     }
 
@@ -444,7 +500,7 @@ mod tests {
         env.insert(ENV_PROTON_DATA.to_owned(), proton_data.to_string_lossy().into_owned());
         env.insert(ENV_XVFB.to_owned(), "0".to_owned());
 
-        let spec = build_launch(&["-log".to_owned()], &env).unwrap();
+        let spec = build_launch(&["-log".to_owned()], &env, Path::new("/none")).unwrap();
         assert_eq!(spec.command, proton.to_string_lossy());
         assert_eq!(
             spec.args,
@@ -457,5 +513,54 @@ mod tests {
         );
         assert_eq!(spec.env.get("STEAM_COMPAT_APP_ID").map(String::as_str), Some("0"));
         assert_eq!(spec.env.get("PROTON_LOG").map(String::as_str), Some("0"));
+    }
+
+    #[test]
+    fn the_runtime_goes_in_through_the_helper() {
+        let tmp = TempDir::new().unwrap();
+        let exe = tmp.path().join("Win64/Dauntless-Win64-Shipping.exe");
+        write_executable(&exe);
+        let wine = tmp.path().join("bin/wine64");
+        write_executable(&wine);
+        let helper = tmp.path().join("bin/dainty-inject.exe");
+        let sha = "a".repeat(64);
+        let mut env = BTreeMap::new();
+        env.insert(ENV_EXE.to_owned(), exe.to_string_lossy().into_owned());
+        env.insert(ENV_WINE.to_owned(), wine.to_string_lossy().into_owned());
+        env.insert(ENV_PREFIX.to_owned(), "/srv/.workspace/wine".to_owned());
+        env.insert(ENV_XVFB.to_owned(), "0".to_owned());
+        env.insert(
+            ENV_INJECT_DLL.to_owned(),
+            "/srv/.workspace/runtime/Rustic-Isles.dll".to_owned(),
+        );
+        env.insert(ENV_INJECT_SHA256.to_owned(), sha.clone());
+
+        let missing = build_launch(&["-server".to_owned()], &env, &helper)
+            .unwrap_err()
+            .to_string();
+        assert!(missing.contains("dainty-inject.exe"), "{missing}");
+
+        std::fs::write(&helper, b"MZ").unwrap();
+        // The wrapper runs on Linux; Wine's Z: drive needs a Unix path
+        if cfg!(unix) {
+            let spec = build_launch(&["-server".to_owned()], &env, &helper).unwrap();
+            let exe_wine = format!("Z:{}", exe.to_string_lossy().replace('/', "\\"));
+            assert_eq!(
+                spec.args,
+                [
+                    helper.to_string_lossy().into_owned(),
+                    "--dll".to_owned(),
+                    "Z:\\srv\\.workspace\\runtime\\Rustic-Isles.dll".to_owned(),
+                    sha.clone(),
+                    "--".to_owned(),
+                    exe_wine,
+                    "-server".to_owned(),
+                ]
+            );
+            assert!(!spec.env.contains_key(ENV_INJECT_DLL));
+        }
+
+        env.remove(ENV_INJECT_SHA256);
+        assert!(build_launch(&[], &env, &helper).is_err());
     }
 }

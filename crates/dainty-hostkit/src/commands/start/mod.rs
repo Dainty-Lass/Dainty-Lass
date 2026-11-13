@@ -22,7 +22,7 @@ use crate::linux::{UNIT_ALLOWLIST, ensure_wine_prefix, systemd_installed, write_
 use crate::mongo::{MongoCheck, ReplicaSetOptions, ensure_replica_set, find_mongod, mongod_args};
 use crate::paths::{PORTS, Paths, game_exe_relative};
 use crate::preset::apply_preset;
-use crate::publish::{ensure_server_flags, install_server_runtime};
+use crate::publish::{ensure_server_flags, retire_server_loader};
 use crate::services::{Printer, Ready, ServiceSpec, Supervisor, check_ready};
 use std::sync::Arc;
 
@@ -361,7 +361,7 @@ pub fn preflight_with(paths: &Paths, config: &HostConfig, external_allowlist: bo
         }
         let exe = Path::new(game_dir).join(game_exe_relative());
         if let Some(win64_dir) = exe.parent().filter(|d| d.is_dir()) {
-            let _ = install_server_runtime(paths, win64_dir);
+            let _ = retire_server_loader(paths, win64_dir);
             let _ = ensure_server_flags(win64_dir);
         }
     }
