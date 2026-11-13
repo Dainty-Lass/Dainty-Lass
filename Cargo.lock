@@ -6133,6 +6133,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "rustic-isles-runtime"
+version = "0.0.0"
+dependencies = [
+ "cc",
+ "rustic-isles-runtime-core",
+ "windows-sys 0.61.2",
+]
+
+[[package]]
+name = "rustic-isles-runtime-core"
+version = "0.0.0"
+
+[[package]]
 name = "rustic-isles-store"
 version = "0.0.0"
 dependencies = [

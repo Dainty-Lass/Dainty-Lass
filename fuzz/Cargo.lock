@@ -1142,6 +1142,7 @@ dependencies = [
  "rustic-isles-launcher-api",
  "rustic-isles-matchmaking",
  "rustic-isles-replay",
+ "rustic-isles-runtime-core",
  "rustic-isles-store",
  "rustic-rifts-admission",
  "rustic-rifts-guard",
@@ -4060,6 +4061,10 @@ dependencies = [
  "thiserror",
  "tokio",
 ]
+
+[[package]]
+name = "rustic-isles-runtime-core"
+version = "0.0.0"
 
 [[package]]
 name = "rustic-isles-store"
