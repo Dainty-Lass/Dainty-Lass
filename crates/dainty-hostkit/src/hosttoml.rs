@@ -259,6 +259,9 @@ const DIRECTOR: &[Field] = &[
     ("logLevel", "log_level", false),
     ("gameserverStartupGapSeconds", "gameserver_startup_gap_seconds", false),
     ("gameserverReadyTimeoutMs", "gameserver_ready_timeout_ms", false),
+    ("hubMaxPlayers", "hub_max_players", false),
+    ("hubAfkSeconds", "hub_afk_seconds", false),
+    ("huntAfkSeconds", "hunt_afk_seconds", false),
 ];
 
 /// Every key list, for [`message`] and the tests.
@@ -866,6 +869,16 @@ fn comment(path: &str) -> &'static str {
         "director.gameserver_startup_gap_seconds" => "Seconds between two game server starts, 0 to 600 (3).",
         "director.gameserver_ready_timeout_ms" => {
             "How long a game server has to report ready, 1000 to 600000 ms (30000 on Windows, 90000 on Linux)."
+        }
+        "director.hub_max_players" => {
+            "Players a hub (Ramsgate) holds, 1 to 64. Left out: the game server's HUB_MAX_PLAYERS.txt, else 4."
+        }
+        "director.hub_afk_seconds" => {
+            "Seconds before an idle player is kicked from a hub, 0 (never) to 604800; 1 to 59 count as 60.
+             Left out: HUB_AFK_TIMEOUT_SECONDS.txt beside the game server, else 1200."
+        }
+        "director.hunt_afk_seconds" => {
+            "The same on a hunt. Left out: HUNT_AFK_TIMEOUT_SECONDS.txt, else the game's own timeout."
         }
         "logs" => {
             "The server's console log and where it is shipped (docs/logging.md). Left out: colored text, kept here."

@@ -159,7 +159,14 @@ const DIRECTOR: &[Setting] = &[
         1000,
         TEN_MINUTES_MS,
     ),
+    // The Director hands its env to every game server, which reads these before the number files (RT-11)
+    ranged("hubMaxPlayers", "DAINTY_HUB_MAX_PLAYERS", 1, 64),
+    ranged("hubAfkSeconds", "DAINTY_HUB_AFK_SECONDS", 0, AFK_MAX_SECONDS),
+    ranged("huntAfkSeconds", "DAINTY_HUNT_AFK_SECONDS", 0, AFK_MAX_SECONDS),
 ];
+
+/// The runtime's ceiling for an AFK timeout: a week (spec-runtime-r1 10.2).
+const AFK_MAX_SECONDS: u64 = 604_800;
 
 /// Every table, in host.toml's order.
 pub const TABLES: [Table; 5] = [
@@ -471,6 +478,10 @@ mod tests {
                 json!({ "gameserverReadyTimeoutMs": 10 }),
                 "from 1000 to 600000",
             ),
+            ("director", json!({ "hubMaxPlayers": 0 }), "from 1 to 64"),
+            ("director", json!({ "hubMaxPlayers": 65 }), "from 1 to 64"),
+            ("director", json!({ "hubAfkSeconds": -1 }), "from 0 to 604800"),
+            ("director", json!({ "huntAfkSeconds": 604_801 }), "from 0 to 604800"),
         ] {
             let err = Tunables::from_json(name, &doc).unwrap_err().to_string();
             assert!(err.contains(says), "{doc}: {err}");
@@ -503,6 +514,33 @@ mod tests {
         );
         assert_eq!(files.backend, [("LOG_LEVEL".to_owned(), "warn".to_owned())]);
         assert!(files.allowlist.is_none());
+    }
+
+    #[test]
+    fn rt11_settings_reach_the_director_only_when_set() {
+        let d = Tunables::from_json(
+            "director",
+            &json!({ "hubMaxPlayers": 8, "hubAfkSeconds": 0, "huntAfkSeconds": 900 }),
+        )
+        .unwrap();
+        assert_eq!(
+            d.env("director"),
+            [
+                ("DAINTY_HUB_MAX_PLAYERS", "8".to_owned()),
+                ("DAINTY_HUB_AFK_SECONDS", "0".to_owned()),
+                ("DAINTY_HUNT_AFK_SECONDS", "900".to_owned()),
+            ]
+        );
+        assert!(
+            Tunables::from_json("director", &json!({}))
+                .unwrap()
+                .env("director")
+                .is_empty()
+        );
+        assert_eq!(
+            toml_key("director", "DAINTY_HUNT_AFK_SECONDS").as_deref(),
+            Some("director.hunt_afk_seconds")
+        );
     }
 
     #[test]

@@ -4080,6 +4080,196 @@ dashboard_url = \"https://dash.example\"
         assert!(env::denied("DISCORD_BOT_TOKEN").is_some());
     }
 
+    /// Node kit host.json shapes from before RD24's tables: private with nothing optional, and public with the
+    /// optional tables a host could already set.
+    fn node_kit_documents() -> [Value; 2] {
+        [
+            json!({
+                "version": 1,
+                "mode": "private",
+                "host": "100.101.102.103",
+                "gameAddress": "100.101.102.103",
+                "name": "Friday Hunts",
+                "registration": "INVITECODE",
+                "maxHuntServers": 4
+            }),
+            json!({
+                "version": 1,
+                "mode": "public",
+                "host": "play.example.org",
+                "gameAddress": "203.0.113.10",
+                "name": "Public Hunts",
+                "registration": "OPEN",
+                "maxHuntServers": 6,
+                "publicPort": 443,
+                "performance": {
+                    "serverFps": 30,
+                    "idleFps": 10,
+                    "trainingOnDemand": true,
+                    "trainingIdleMinutes": 5,
+                    "verboseGameLogs": false,
+                    "memoryGuard": true,
+                    "minFreeMemoryMb": 1024,
+                    "huntMemoryMb": 1536
+                }
+            }),
+        ]
+    }
+
+    /// What every service table looks like named but empty, as a host who opened the template might leave it.
+    const EMPTY_TABLES: &str = "
+[gateway]
+[gateway.limits]
+[gateway.rate]
+[gateway.timeouts]
+[content]
+                                [allowlist]
+[backend]
+[director]
+";
+
+    /// RD24: a host.json, the host.toml it becomes, that file with every service table named but empty, and setup's
+    /// rewrite of it all write `service`'s env file the same, on both platforms; and no table's setting is written
+    /// unless it is set, so the file is what setup wrote before the tables.
+    fn every_form_writes_the_same_env(service: &str) {
+        let dir = tempfile::tempdir().unwrap();
+        let p = Paths::new(dir.path());
+        let secrets = sample_secrets();
+        let file_of = |c: &HostConfig, platform: Platform| -> Option<EnvEntries> {
+            let files = build_env_files(c, &secrets, &p, "abc123", platform);
+            files
+                .files()
+                .into_iter()
+                .find(|(name, _)| *name == service)
+                .and_then(|(_, f)| f.cloned())
+        };
+        for doc in node_kit_documents() {
+            let from_json = HostConfig::from_json(&doc).unwrap();
+            let toml = from_json.to_toml().unwrap();
+            let from_toml = HostConfig::from_toml(&toml).unwrap();
+            let with_tables = HostConfig::from_toml(&format!("{toml}{EMPTY_TABLES}")).unwrap();
+            let rewritten = HostConfig::from_toml(&with_tables.to_toml().unwrap()).unwrap();
+            assert_eq!(
+                HostConfig::from_json(&from_toml.to_json().unwrap())
+                    .unwrap()
+                    .to_json()
+                    .unwrap(),
+                from_json.to_json().unwrap(),
+                "host.toml reads back as the host.json it came from"
+            );
+            for platform in [Platform::Windows, Platform::Linux] {
+                let want = file_of(&from_json, platform);
+                for (form, c) in [
+                    ("host.toml", &from_toml),
+                    ("empty tables", &with_tables),
+                    ("rewritten", &rewritten),
+                ] {
+                    assert_eq!(
+                        file_of(c, platform),
+                        want,
+                        "{service} from {form} ({platform:?}), {doc}"
+                    );
+                }
+                let Some(file) = want else { continue };
+                let value = |k: &str| file.iter().find(|(fk, _)| fk == k).map(|(_, v)| v.as_str());
+                for setting in tunables::table(service).map_or(&[][..], |t| t.settings) {
+                    let written = value(setting.env);
+                    let default = match (service, setting.env) {
+                        ("backend" | "director", "LOG_LEVEL") => Some("info"),
+                        ("backend", "MONGODB_TRANSACTION_MAX_COMMIT_TIME_MS") => written,
+                        ("backend", "HUNT_GO_NOW_MIN_DELAY_MS") => Some("1"),
+                        ("backend", "HUNT_GO_NOW_MAX_DELAY_MS") => Some("1000"),
+                        ("director", "SECONDS_TO_WAIT_BETWEEN_GAMESERVER_STARTUP") => Some("3"),
+                        ("backend", "REALTIME_XMPP_CAPTURE") => Some("false"),
+                        ("allowlist", "ALLOWLIST_NFT_TABLE") => (platform == Platform::Linux).then_some("dainty_lass"),
+                        // Setup's own defaults: the platform picks the timeout, the build the commit time
+                        ("director", "GAMESERVER_READY_TIMEOUT_MS") => written,
+                        _ => None,
+                    };
+                    assert_eq!(written, default, "{service}: {} with no table", setting.env);
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn backend_env_is_the_same_from_every_form() {
+        every_form_writes_the_same_env("backend");
+    }
+
+    #[test]
+    fn director_env_is_the_same_from_every_form() {
+        every_form_writes_the_same_env("director");
+    }
+
+    #[test]
+    fn content_env_is_the_same_from_every_form() {
+        every_form_writes_the_same_env("content");
+    }
+
+    #[test]
+    fn gateway_env_is_the_same_from_every_form() {
+        every_form_writes_the_same_env("gateway");
+    }
+
+    #[test]
+    fn admin_env_is_the_same_from_every_form() {
+        every_form_writes_the_same_env("admin");
+    }
+
+    #[test]
+    fn allowlist_env_is_the_same_from_every_form() {
+        every_form_writes_the_same_env("allowlist");
+    }
+
+    /// RT-11: the hub cap and AFK timeouts reach only the Director's file, which it hands every game server.
+    #[test]
+    fn rt11_settings_reach_the_director_file() {
+        let text = "version = 1
+mode = \"private\"
+name = \"Friday Hunts\"
+host = \"100.101.102.103\"
+game_address = \"100.101.102.103\"
+registration = \"INVITECODE\"
+max_hunt_servers = 3
+
+[director]
+hub_max_players = 8 # a bigger Ramsgate
+hub_afk_seconds = 0
+hunt_afk_seconds = 900
+";
+        let cfg = HostConfig::from_toml(text).unwrap();
+        let dir = tempfile::tempdir().unwrap();
+        let files = build_env_files(&cfg, &sample_secrets(), &Paths::new(dir.path()), "", Platform::Windows);
+        let has = |k: &str, v: &str| files.director.iter().any(|(fk, fv)| fk == k && fv == v);
+        assert!(has("DAINTY_HUB_MAX_PLAYERS", "8"), "{:?}", files.director);
+        assert!(has("DAINTY_HUB_AFK_SECONDS", "0"));
+        assert!(has("DAINTY_HUNT_AFK_SECONDS", "900"));
+        for (name, file) in files.files() {
+            if name != "director" {
+                assert!(
+                    !file
+                        .into_iter()
+                        .flatten()
+                        .any(|(k, _)| k.starts_with("DAINTY_HUB_") || k.starts_with("DAINTY_HUNT_AFK")),
+                    "{name}"
+                );
+            }
+        }
+        let rewritten = cfg.to_toml().unwrap();
+        assert!(
+            rewritten.contains("hub_max_players = 8 # a bigger Ramsgate"),
+            "{rewritten}"
+        );
+        let err = HostConfig::from_toml(&text.replace("= 8 #", "= 65 #"))
+            .unwrap_err()
+            .to_string();
+        assert!(
+            err.contains("director.hub_max_players") || err.contains("hubMaxPlayers"),
+            "{err}"
+        );
+    }
+
     fn sample_secrets() -> Secrets {
         Secrets {
             gateway_secret: "g".into(),
