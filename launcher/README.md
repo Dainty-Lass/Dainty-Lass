@@ -26,3 +26,13 @@ bun run test
 bun run e2e:desktop   # Windows only, after restricted's bundles are built
 bun run e2e:remote    # also needs the stack docker/remote/test.sh leaves running
 ```
+
+### Development mode
+
+`tauri dev` over the MIT shell, `crates/dainty-launcher-app`, from here or the repository root. Each starts its
+page's dev server first (`crates/dainty-launcher-app/scripts/page.ts dev <page>`).
+
+```sh
+bun run dev           # the launcher with realms, against the launcher page on 4321
+bun run dev:manager   # Dainty Lass Manager, against the server-manager page on 4322
+```

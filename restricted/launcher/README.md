@@ -52,6 +52,9 @@ After building from the workspace root (`target/release/`):
 
 ## Development Mode
 
+The MIT shell runs in dev from dainty-lass itself: `bun run dev` or `bun run dev:manager` at its root or in its
+`launcher/`. The scripts here run the same apps over `src-tauri`'s configs:
+
 ```bash
 # Run the client launcher against the launcher page's dev server (port 4321)
 bun run dev
