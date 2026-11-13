@@ -18,8 +18,11 @@ pub const LEGACY_RUNTIME_DLL: &str = "MysticParadox.dll";
 /// The runtime loader, which Windows launchers no longer use: they inject [`RUNTIME_DLL`] (RD9, 2026-11-12).
 /// Optional in a manifest for one release; Linux launchers still install it until the inject helper ships.
 pub const LOADER_DLL: &str = "winmm.dll";
-/// Every file a runtime manifest may list.
-pub const RUNTIME_FILE_NAMES: [&str; 2] = [RUNTIME_DLL, LOADER_DLL];
+/// The MIT runtime (RT-5): optional while the transition lasts; when listed it is injected before [`RUNTIME_DLL`],
+/// and a host publishes the two as a matched pair (same seam version), never one alone.
+pub const MIT_RUNTIME_DLL: &str = "rustic-isles-runtime.dll";
+/// Every file a runtime manifest may list, in the order a manifest sorts them.
+pub const RUNTIME_FILE_NAMES: [&str; 3] = [RUNTIME_DLL, MIT_RUNTIME_DLL, LOADER_DLL];
 /// The files every runtime manifest must list.
 pub const REQUIRED_RUNTIME_FILES: [&str; 1] = [RUNTIME_DLL];
 /// Largest runtime file accepted, in bytes.

@@ -156,6 +156,7 @@ mod wired {
             steam_bridge: or_zero(&["P2P_TRANSPORT_MODULE_SHA256", "P2P_STEAM_BRIDGE_SHA256"]),
             steam_runtime: or_zero(&["P2P_TRANSPORT_RUNTIME_SHA256", "P2P_STEAM_RUNTIME_SHA256"]),
             admission_public_key: or_zero(&["P2P_ADMISSION_PUBLIC_XY_SHA256"]),
+            mit_runtime: ZEROS.to_owned(),
         })
     }
 

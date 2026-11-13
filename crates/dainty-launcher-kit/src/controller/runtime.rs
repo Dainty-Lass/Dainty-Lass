@@ -19,7 +19,7 @@ use crate::bridge::types::{
 use crate::net::hostapi::key_headers;
 use crate::net::runtime_files::{
     self, InstallRequest, RuntimeErrorCode, RuntimeManifestResult, RuntimeProgress, accept, check_runtime, file_infos,
-    is_complete_runtime_dir, is_trusted,
+    is_complete_runtime_dir, is_trusted, required_runtime_files,
 };
 use crate::platform::log;
 
@@ -265,7 +265,7 @@ impl Controller {
         if !is_complete_runtime_dir(&folder, self.runtime_files()).await {
             return self.fail(LauncherError::with_detail(
                 ErrorCode::LocalRuntimeInvalid,
-                &self.runtime_files().join(", "),
+                &required_runtime_files(self.runtime_files()).join(", "),
             ));
         }
         let dir = folder.to_string_lossy().into_owned();

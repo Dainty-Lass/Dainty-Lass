@@ -7,17 +7,20 @@
 
 use dainty_content::input::parse_runtime_json;
 use libfuzzer_sys::fuzz_target;
-use dainty_protocol::manifest::{MAX_RUNTIME_FILE_BYTES, RUNTIME_FILE_NAMES, runtime_file_slot};
+use dainty_protocol::manifest::{MAX_RUNTIME_FILE_BYTES, RUNTIME_DLL, RUNTIME_FILE_NAMES, runtime_file_slot};
 
 fuzz_target!(|data: &[u8]| {
     let Ok(manifest) = parse_runtime_json(data) else {
         return;
     };
-    // The two runtime files, each once, sorted, within the size cap and with a plain hash
+    // Runtime files only, each once and the runtime always (the MIT runtime and the loader may be absent), sorted,
+    // within the size cap and with a plain hash
     let mut slots: Vec<&str> = manifest.files.iter().filter_map(|f| runtime_file_slot(&f.name)).collect();
     assert_eq!(slots.len(), manifest.files.len());
     slots.sort_unstable();
-    assert_eq!(slots, RUNTIME_FILE_NAMES);
+    slots.dedup();
+    assert_eq!(slots.len(), manifest.files.len());
+    assert!(slots.contains(&RUNTIME_DLL) && slots.iter().all(|s| RUNTIME_FILE_NAMES.contains(s)));
     assert!(manifest.files.windows(2).all(|w| w[0].name <= w[1].name));
     for file in &manifest.files {
         assert!((1..=MAX_RUNTIME_FILE_BYTES).contains(&file.size));

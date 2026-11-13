@@ -957,13 +957,14 @@ tier 1 decides rewards from Guard's evidence and needs its own switches. Every g
 | `steam_bridge` | `P2P_TRANSPORT_MODULE_SHA256`, `P2P_STEAM_BRIDGE_SHA256` |
 | `steam_runtime` | `P2P_TRANSPORT_RUNTIME_SHA256`, `P2P_STEAM_RUNTIME_SHA256` |
 | `admission_public_key` | `P2P_ADMISSION_PUBLIC_XY_SHA256` |
+| `mit_runtime` | none: only Guard role `TRANSPORT_RUNTIME_MIT` (RT-5); optional, the zero hash when unpublished |
 
   A pin that is not 64 hex → `Err("Missing or invalid <first name>.")`. A pin wins over the feed (lower-cased); when
   the feed has a different value, push to `stale_pins`: `[P2PArtifacts] <the set name> pins <first 12 of pin>... but
   the feed serves <first 12 of feed>...; the pin wins, so hosts on the feed's file are refused
   (HOST_RUNTIME_UNVERIFIED). Remove the pin to follow the feed.` No pin and no feed value → the same `Err`. The
   artifacts are evaluated in table order; the first error returns.
-- `artifact_hashes_match(actual, expected)`: all six actual values are 64 hex and equal the expected ignoring case.
+- `artifact_hashes_match(actual, expected)`: all seven actual values are 64 hex and equal the expected ignoring case.
 
 #### 2.10.2 Launcher versions
 
@@ -1336,7 +1337,9 @@ the other player, and a later sweep finds nothing.
 `parse_artifacts(Option<&Value>) -> Option<ArtifactHashes>`: the value must be an object; for each field, the first
 present non-null key among: `gameExe`; `internalServer`; `winmmProxy`; `transportModule` then `steamBridge`;
 `transportRuntime` then `steamRuntime`; `admissionPublicKey`. Its value must be a string of 1-64 units without NUL,
-else it reads as empty. All six must be 64 hex characters, else `None`.
+else it reads as empty. All six must be 64 hex characters, else `None`. `mitRuntime` (RT-5) is optional: absent or
+null reads as the zero hash; present, it must be 64 hex characters too, else `None`. `ArtifactHashes::mit_runtime`
+is not written when it is the zero hash, so a record of a launcher that reports none serializes as before.
 
 #### 2.13.3 Presence (`submit_presence`, `SubmitHostPresence`)
 

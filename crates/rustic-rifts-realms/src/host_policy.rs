@@ -9,7 +9,7 @@ use std::cmp::Ordering;
 use rustic_rifts_seam::{Settings, UnixMillis};
 use serde_json::Value;
 
-use crate::hunt::{ArtifactHashes, HostPresenceRecord, HostReliabilityRecord, ScoreBreakdown};
+use crate::hunt::{ArtifactHashes, HostPresenceRecord, HostReliabilityRecord, ScoreBreakdown, ZERO_SHA256};
 use crate::tiers::js_number;
 
 /// Dauntless 1.14.7's `Dauntless-Win64-Shipping.exe` (121,407,264 bytes).
@@ -86,8 +86,8 @@ fn manifest_winmm(manifest: &Value) -> Option<String> {
     normalized(entry.get("sha256")?.as_str()?)
 }
 
-/// The six hashes as the feeds give them, before any pin, in `ArtifactHashes` field order.
-fn feed_hashes(settings: &dyn Settings, sources: &ArtifactSources) -> [Option<String>; 6] {
+/// The seven hashes as the feeds give them, before any pin, in `ArtifactHashes` field order.
+fn feed_hashes(settings: &dyn Settings, sources: &ArtifactSources) -> [Option<String>; 7] {
     let target = setting_text(settings, "TARGET_CHANGELIST")
         .and_then(js_number)
         .and_then(safe_integer);
@@ -115,23 +115,26 @@ fn feed_hashes(settings: &dyn Settings, sources: &ArtifactSources) -> [Option<St
         module,
         runtime,
         guard("ADMISSION_KEY"),
+        guard("TRANSPORT_RUNTIME_MIT"),
     ]
 }
 
-/// Per artifact, its settings in order: the first one set wins; later names are older spellings.
-const PIN_SETTINGS: [&[&str]; 6] = [
+/// Per artifact, its settings in order: the first one set wins; later names are older spellings. The MIT runtime has
+/// no setting: only Guard's `TRANSPORT_RUNTIME_MIT` pins it (RT-5).
+const PIN_SETTINGS: [&[&str]; 7] = [
     &["P2P_GAME_EXE_SHA256"],
     &["P2P_INTERNAL_SERVER_SHA256"],
     &["P2P_WINMM_SHA256"],
     &["P2P_TRANSPORT_MODULE_SHA256", "P2P_STEAM_BRIDGE_SHA256"],
     &["P2P_TRANSPORT_RUNTIME_SHA256", "P2P_STEAM_RUNTIME_SHA256"],
     &["P2P_ADMISSION_PUBLIC_XY_SHA256"],
+    &[],
 ];
 
 /// The transport is linked into the signed launcher (umbrella D1), whose hosts report zeros for both roles, so with
 /// neither a pin nor a published `TRANSPORT_MODULE` the zero hash is expected (spec-paradox-transport C2, provisional).
-const OPTIONAL: [bool; 6] = [false, false, false, true, true, false];
-const ZERO_SHA256: &str = "0000000000000000000000000000000000000000000000000000000000000000";
+/// The MIT runtime likewise while the transition lasts (RT-5).
+const OPTIONAL: [bool; 7] = [false, false, false, true, true, false, true];
 
 fn stale_pin_warning(setting: &str, pinned: &str, served: &str) -> String {
     let short = |hash: &str| hash.chars().take(12).collect::<String>();
@@ -169,13 +172,17 @@ pub fn read_artifact_policy(settings: &dyn Settings, sources: &ArtifactSources) 
     let feeds = feed_hashes(settings, sources);
     let feeds = feeds.into_iter().zip(OPTIONAL);
     for ((names, feed), slot) in PIN_SETTINGS.into_iter().zip(feeds).zip(slots(&mut policy.hashes)) {
-        *slot = resolve(settings, names, feed, &mut policy.stale_pins)
-            .ok_or_else(|| format!("Missing or invalid {}.", names[0]))?;
+        *slot = resolve(settings, names, feed, &mut policy.stale_pins).ok_or_else(|| {
+            format!(
+                "Missing or invalid {}.",
+                names.first().unwrap_or(&"TRANSPORT_RUNTIME_MIT")
+            )
+        })?;
     }
     Ok(policy)
 }
 
-fn slots(h: &mut ArtifactHashes) -> [&mut String; 6] {
+fn slots(h: &mut ArtifactHashes) -> [&mut String; 7] {
     let ArtifactHashes {
         game_exe,
         internal_server,
@@ -183,6 +190,7 @@ fn slots(h: &mut ArtifactHashes) -> [&mut String; 6] {
         steam_bridge,
         steam_runtime,
         admission_public_key,
+        mit_runtime,
     } = h;
     [
         game_exe,
@@ -191,10 +199,11 @@ fn slots(h: &mut ArtifactHashes) -> [&mut String; 6] {
         steam_bridge,
         steam_runtime,
         admission_public_key,
+        mit_runtime,
     ]
 }
 
-fn values(h: &ArtifactHashes) -> [&String; 6] {
+fn values(h: &ArtifactHashes) -> [&String; 7] {
     let ArtifactHashes {
         game_exe,
         internal_server,
@@ -202,6 +211,7 @@ fn values(h: &ArtifactHashes) -> [&String; 6] {
         steam_bridge,
         steam_runtime,
         admission_public_key,
+        mit_runtime,
     } = h;
     [
         game_exe,
@@ -210,6 +220,7 @@ fn values(h: &ArtifactHashes) -> [&String; 6] {
         steam_bridge,
         steam_runtime,
         admission_public_key,
+        mit_runtime,
     ]
 }
 

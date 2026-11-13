@@ -18,6 +18,7 @@
 use std::io;
 use std::path::{Path, PathBuf};
 
+use dainty_protocol::manifest::MIT_RUNTIME_DLL;
 use serde::{Deserialize, Serialize};
 
 /// The list the loader reads beside itself.
@@ -27,6 +28,9 @@ pub const LOADER_DLL: &str = "winmm.dll";
 /// The runtime DLLs the loader looks for first (`native/runtime-loader`'s `RUNTIME_DLL_NAMES`), the name from
 /// before the Rustic Isles rename included (DX4).
 pub const RUNTIME_DLLS: [&str; 3] = ["Rustic-Isles.dll", "MysticParadox.dll", "MystPaxInternalServer.dll"];
+/// Every runtime DLL that may sit beside the loader: the MIT runtime, which the loader loads by its fixed name before
+/// its choice (RT-5, RT-6), and [`RUNTIME_DLLS`].
+pub const OWN_RUNTIME_DLLS: [&str; 4] = [MIT_RUNTIME_DLL, RUNTIME_DLLS[0], RUNTIME_DLLS[1], RUNTIME_DLLS[2]];
 /// CatalogExporter's file name, as the workspace builds it.
 pub const EXPORTER_DLL: &str = "CatalogExporter.dll";
 /// What a set-aside runtime DLL is renamed to while a Dumper-7 session runs.
@@ -98,7 +102,10 @@ fn same_name(a: &str, b: &str) -> bool {
 
 /// The loader's or the runtime's own file name: never a session's DLL, never a leftover.
 fn is_own(name: &str) -> bool {
-    RUNTIME_DLLS.iter().chain([&LOADER_DLL]).any(|own| same_name(own, name))
+    OWN_RUNTIME_DLLS
+        .iter()
+        .chain([&LOADER_DLL])
+        .any(|own| same_name(own, name))
 }
 
 /// The DLL names an ini lists, read with the loader's own rules: one per line, `;` and `#` start a
@@ -159,7 +166,7 @@ pub fn leftovers(dir: &Path, record: &Path, known: &[&str]) -> Vec<String> {
     for name in known.iter().filter(|n| !is_own(n)) {
         add(name);
     }
-    for name in RUNTIME_DLLS {
+    for name in OWN_RUNTIME_DLLS {
         add(&format!("{name}{ASIDE_SUFFIX}"));
     }
     found.sort_by_key(|name| name.to_lowercase());
@@ -222,7 +229,7 @@ pub fn begin(
         record: record.to_path_buf(),
     };
     if kind == SessionKind::Dump {
-        session.aside = RUNTIME_DLLS
+        session.aside = OWN_RUNTIME_DLLS
             .iter()
             .map(|n| dir.join(n))
             .filter(|p| is_file(p))
@@ -437,6 +444,30 @@ mod tests {
         // The loader's and runtime's own names are never "known" leftovers
         std::fs::remove_file(f.dir.join(EXPORTER_DLL)).unwrap();
         assert!(leftovers(&f.dir, &f.record, &[LOADER_DLL, "Rustic-Isles.dll"]).is_empty());
+    }
+
+    /// The MIT runtime is the runtime's own (RT-5): never a leftover, never a session's DLL, set aside for a dump.
+    #[test]
+    fn the_mit_runtime_is_the_runtimes_own() {
+        let f = folder();
+        std::fs::write(f.dir.join(MIT_RUNTIME_DLL), b"mit").unwrap();
+        assert!(leftovers(&f.dir, &f.record, &[MIT_RUNTIME_DLL]).is_empty());
+        std::fs::write(f.dir.join(LOADER_INI), "Rustic-Isles-Runtime.dll\r\n").unwrap();
+        assert_eq!(leftovers(&f.dir, &f.record, &[]), [LOADER_INI]);
+        std::fs::remove_file(f.dir.join(LOADER_INI)).unwrap();
+
+        let picked = f.tool.with_file_name(MIT_RUNTIME_DLL);
+        std::fs::write(&picked, b"mit").unwrap();
+        assert_eq!(
+            begin(SessionKind::Export, &f.dir, &picked, &f.record, &[]).unwrap_err(),
+            SessionError::BadName
+        );
+
+        let session = begin(SessionKind::Dump, &f.dir, &f.tool, &f.record, &[]).unwrap();
+        assert!(!f.dir.join(MIT_RUNTIME_DLL).exists());
+        assert!(leftovers(&f.dir, &f.record, &[]).contains(&format!("{MIT_RUNTIME_DLL}.rr-dump-off")));
+        session.end().unwrap();
+        assert_eq!(std::fs::read(f.dir.join(MIT_RUNTIME_DLL)).unwrap(), b"mit");
     }
 
     #[test]

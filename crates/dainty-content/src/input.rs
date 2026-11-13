@@ -118,7 +118,7 @@ pub fn is_plausible_key(key: &str) -> bool {
     (1..=256).contains(&key.len()) && key.bytes().all(|b| (0x21..=0x7e).contains(&b))
 }
 
-/// `Rustic-Isles.dll`, `winmm.dll` or the pre-DX4 `MysticParadox.dll`, letter case included.
+/// `Rustic-Isles.dll`, `rustic-isles-runtime.dll`, `winmm.dll` or the pre-DX4 `MysticParadox.dll`, letter case included.
 pub fn is_runtime_file_name(name: &str) -> bool {
     runtime_file_slot(name).is_some()
 }
@@ -183,7 +183,9 @@ fn runtime_shape(value: &Value) -> Result<RuntimeManifest, String> {
             Some(Value::String(name)) if is_runtime_file_name(name) => name.clone(),
             other => {
                 let shown = other.map_or_else(|| "undefined".to_owned(), dainty_service_kit::jsjson::stringify);
-                return Err(format!("unknown file {shown} (only Rustic-Isles.dll and winmm.dll)"));
+                return Err(format!(
+                    "unknown file {shown} (only Rustic-Isles.dll, rustic-isles-runtime.dll and winmm.dll)"
+                ));
             }
         };
         if files
@@ -622,11 +624,11 @@ mod tests {
         let error = |files: Value| manifest_of(json!({"version": "v1", "files": files})).unwrap_err();
         assert_eq!(
             error(json!([{"name": null}])),
-            "runtime.json: unknown file null (only Rustic-Isles.dll and winmm.dll)"
+            "runtime.json: unknown file null (only Rustic-Isles.dll, rustic-isles-runtime.dll and winmm.dll)"
         );
         assert_eq!(
             error(json!([7])),
-            "runtime.json: unknown file undefined (only Rustic-Isles.dll and winmm.dll)"
+            "runtime.json: unknown file undefined (only Rustic-Isles.dll, rustic-isles-runtime.dll and winmm.dll)"
         );
         let old = json!({"name": "MysticParadox.dll", "size": 1, "sha256": sha('a')});
         let new = json!({"name": "Rustic-Isles.dll", "size": 1, "sha256": sha('a')});

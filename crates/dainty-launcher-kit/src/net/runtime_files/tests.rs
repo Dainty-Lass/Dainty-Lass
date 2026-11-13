@@ -317,6 +317,62 @@ async fn check_runtime_states() {
     );
 }
 
+/// The MIT runtime is optional (RT-5): a set without it is complete, and one left from another set is removed.
+#[tokio::test]
+async fn the_mit_runtime_is_held_only_when_the_set_lists_it() {
+    let dir = tempfile::tempdir().unwrap();
+    let win64 = dir.path().join("win64");
+    let local = dir.path().join("local");
+    std::fs::create_dir_all(&win64).unwrap();
+    std::fs::create_dir_all(&local).unwrap();
+    let entry = |name: &str, bytes: &[u8]| RuntimeFile {
+        name: name.to_owned(),
+        size: bytes.len() as u64,
+        sha256: sha256_hex(bytes),
+    };
+    let agpl_only = RuntimeManifest::new("1".to_owned(), DEFAULT_CHANGELIST, vec![entry(RUNTIME_DLL, b"agpl")]);
+    let pair = RuntimeManifest::new(
+        "2".to_owned(),
+        DEFAULT_CHANGELIST,
+        vec![entry(RUNTIME_DLL, b"agpl"), entry(MIT_RUNTIME_DLL, b"mit")],
+    );
+    let files = INJECTED_RUNTIME_FILES;
+    assert_eq!(required_runtime_files(files), [RUNTIME_DLL]);
+
+    std::fs::write(win64.join(RUNTIME_DLL), b"agpl").unwrap();
+    assert_eq!(
+        check_runtime(&win64, Some(&agpl_only), true, None, files).await,
+        (RuntimeState::Ok, true)
+    );
+    assert_eq!(
+        check_runtime(&win64, Some(&pair), true, None, files).await,
+        (RuntimeState::Outdated, false)
+    );
+    std::fs::write(win64.join(MIT_RUNTIME_DLL), b"mit").unwrap();
+    assert_eq!(
+        check_runtime(&win64, Some(&pair), true, None, files).await,
+        (RuntimeState::Ok, true)
+    );
+    // Left from the pair, it is not this set's
+    assert_eq!(
+        check_runtime(&win64, Some(&agpl_only), true, None, files).await,
+        (RuntimeState::Outdated, false)
+    );
+    assert_eq!(
+        check_runtime(&win64, None, false, None, files).await,
+        (RuntimeState::Ok, true)
+    );
+
+    // A local set: the MIT runtime copied when it has one, removed when it has none
+    std::fs::write(local.join(RUNTIME_DLL), b"agpl").unwrap();
+    assert!(is_complete_runtime_dir(&local, files).await);
+    install_local_runtime(&local, &win64, files).await.unwrap();
+    assert!(!win64.join(MIT_RUNTIME_DLL).exists());
+    std::fs::write(local.join(MIT_RUNTIME_DLL), b"mit2").unwrap();
+    install_local_runtime(&local, &win64, files).await.unwrap();
+    assert_eq!(std::fs::read(win64.join(MIT_RUNTIME_DLL)).unwrap(), b"mit2");
+}
+
 #[test]
 fn replace_file_moves_a_locked_dll_aside_and_puts_it_back_if_the_second_rename_fails() {
     struct MockOps {

@@ -1148,7 +1148,9 @@ fn is_runtime_manifest_path(path: &str) -> bool {
         || norm.starts_with("native/runtime/")
         || norm.ends_with("/Rustic-Isles.dll")
         || norm.ends_with("/winmm.dll")
+        || norm.ends_with("/rustic-isles-runtime.dll")
         || norm == "Rustic-Isles.dll"
+        || norm == "rustic-isles-runtime.dll"
         || norm == "winmm.dll"
         // An older release's manifest lists the runtime under its name from before the Rustic Isles rename
         || norm.ends_with("/MysticParadox.dll")

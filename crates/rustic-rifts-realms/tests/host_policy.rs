@@ -49,7 +49,17 @@ fn the_six_hashes_from_the_feeds() {
     // The ICE transport has no runtime of its own.
     assert_eq!((h.steam_bridge.clone(), h.steam_runtime.clone()), (sha('d'), sha('d')));
     assert_eq!(h.admission_public_key, sha('e'));
+    // Unpinned, the MIT runtime is expected as the zero hash (RT-5)
+    assert_eq!(h.mit_runtime, "0".repeat(64));
     assert!(policy.stale_pins.is_empty());
+    let mut pinned = feed();
+    pinned
+        .guard_artifacts
+        .as_mut()
+        .unwrap()
+        .push(("TRANSPORT_RUNTIME_MIT".to_owned(), sha('F')));
+    let policy = read_artifact_policy(&settings(&[("TARGET_CHANGELIST", "647472")]), &pinned).unwrap();
+    assert_eq!(policy.hashes.mit_runtime, sha('f'));
 }
 
 #[test]
@@ -93,6 +103,7 @@ fn another_changelist_leaves_the_runtime_feed_out() {
         steam_bridge: sha('a'),
         steam_runtime: sha('a'),
         admission_public_key: sha('a'),
+        mit_runtime: sha('a'),
     };
     let upper = ArtifactHashes {
         game_exe: sha('A'),
@@ -261,4 +272,21 @@ fn an_unpublished_transport_expects_the_zero_hash() {
         read_artifact_policy(&bad, &unpublished),
         Err("Missing or invalid P2P_TRANSPORT_MODULE_SHA256.".to_owned())
     );
+}
+
+/// A launcher from before RT-5 reports no MIT runtime: read as the zero hash, and not written back.
+#[test]
+fn the_mit_runtime_is_optional_in_a_report() {
+    let mut report = json!({
+        "gameExe": sha('a'), "internalServer": sha('a'), "winmmProxy": sha('a'),
+        "transportModule": sha('a'), "transportRuntime": sha('a'), "admissionPublicKey": sha('a'),
+    });
+    let parsed = rustic_rifts_realms::selection::parse_artifacts(Some(&report)).unwrap();
+    assert_eq!(parsed.mit_runtime, "0".repeat(64));
+    assert!(serde_json::to_value(&parsed).unwrap().get("mitRuntime").is_none());
+    report["mitRuntime"] = json!(sha('b'));
+    let parsed = rustic_rifts_realms::selection::parse_artifacts(Some(&report)).unwrap();
+    assert_eq!(parsed.mit_runtime, sha('b'));
+    report["mitRuntime"] = json!("nope");
+    assert!(rustic_rifts_realms::selection::parse_artifacts(Some(&report)).is_none());
 }

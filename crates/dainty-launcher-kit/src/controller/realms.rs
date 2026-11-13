@@ -349,6 +349,7 @@ impl ServerHostBackend {
                 "steamBridge": zero_hash,
                 "steamRuntime": zero_hash,
                 "admissionPublicKey": zero_hash,
+                "mitRuntime": zero_hash,
             }
         });
         let (pres_status, pres_val) = Self::request_json(

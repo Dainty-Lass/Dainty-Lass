@@ -6,6 +6,17 @@ use std::time::SystemTime;
 /// Same list and order as the launcher's `RUNTIME_DLLS` (`crates/dainty-launcher-kit`); the two must not drift.
 pub const RUNTIME_DLLS: [&str; 3] = ["Rustic-Isles.dll", "MysticParadox.dll", "MystPaxInternalServer.dll"];
 
+/// Loaded before the choice whenever it is beside the loader: never a candidate (spec section 3, RT-5).
+pub const MIT_RUNTIME_DLL: &str = "rustic-isles-runtime.dll";
+
+/// The MIT runtime in `folder`, when it is a regular file there.
+pub fn mit(folder: &Path) -> Option<PathBuf> {
+    let path = folder.join(MIT_RUNTIME_DLL);
+    std::fs::metadata(&path)
+        .is_ok_and(|metadata| metadata.is_file())
+        .then_some(path)
+}
+
 pub fn is_runtime_name(name: &str) -> bool {
     RUNTIME_DLLS.iter().any(|runtime| runtime.eq_ignore_ascii_case(name))
 }
@@ -108,6 +119,20 @@ mod tests {
         fs::create_dir(dir.join("Rustic-Isles.dll")).unwrap();
         put(&dir, "MysticParadox.dll", OLD);
         assert_eq!(chosen(&dir).as_deref(), Some("MysticParadox.dll"));
+    }
+
+    #[test]
+    fn the_mit_runtime_is_found_beside_and_never_chosen() {
+        let dir = folder("mit");
+        assert_eq!(mit(&dir), None);
+        fs::create_dir(dir.join(MIT_RUNTIME_DLL)).unwrap();
+        assert_eq!(mit(&dir), None);
+        fs::remove_dir(dir.join(MIT_RUNTIME_DLL)).unwrap();
+        put(&dir, MIT_RUNTIME_DLL, NEW);
+        put(&dir, "Rustic-Isles.dll", OLD);
+        assert_eq!(mit(&dir), Some(dir.join(MIT_RUNTIME_DLL)));
+        assert!(!is_runtime_name(MIT_RUNTIME_DLL));
+        assert_eq!(chosen(&dir).as_deref(), Some("Rustic-Isles.dll"));
     }
 
     #[test]

@@ -61,7 +61,7 @@ const ARTIFACT_KEYS: [&[&str]; 6] = [
     &["admissionPublicKey"],
 ];
 
-/// All six must be 64 hex characters.
+/// All six must be 64 hex characters; `mitRuntime` too when reported, else it is the zero hash (RT-5).
 pub fn parse_artifacts(value: Option<&Value>) -> Option<ArtifactHashes> {
     let object = value?.as_object()?;
     let mut read = ARTIFACT_KEYS.iter().map(|keys| {
@@ -77,6 +77,12 @@ pub fn parse_artifacts(value: Option<&Value>) -> Option<ArtifactHashes> {
         steam_bridge: next()?,
         steam_runtime: next()?,
         admission_public_key: next()?,
+        mit_runtime: match object.get("mitRuntime").filter(|v| !v.is_null()) {
+            None => crate::hunt::ZERO_SHA256.to_owned(),
+            present => short_text(present, 64)
+                .filter(|h| h.len() == 64 && h.chars().all(|c| c.is_ascii_hexdigit()))?
+                .to_owned(),
+        },
     })
 }
 
