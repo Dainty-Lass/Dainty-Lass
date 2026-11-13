@@ -32,6 +32,9 @@ namespace Networking {
 
 	void TickNetworking();
 
+	// [DaintyLass 0052] The MIT runtime listened (it owns SP-3@R9): this runtime's features use its GameNetDriver.
+	void AdoptListenDriver(UNetDriver* Driver, int Port);
+
 	// [2026-07-25 PLAYER-ROLE PUSH DIAGNOSIS]
 	// UActorChannel::ReplicateActor (1.12 RVA 0x03B7B470) can report "wrote nothing" for two very
 	// different reasons, and the old bare wroteData=0 log could not tell them apart:

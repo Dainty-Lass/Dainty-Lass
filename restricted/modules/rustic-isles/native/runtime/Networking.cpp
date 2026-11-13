@@ -734,6 +734,13 @@ namespace Networking {
         }
     }
 
+    // [DaintyLass 0052] LastPort too, so the channel lines below go to this server's log.
+    void AdoptListenDriver(UNetDriver* Driver, int Port) {
+        NetDriver = Driver;
+        LastPort = Port;
+        BaseAddress = (uintptr_t)GetModuleHandleA(nullptr);
+    }
+
     void TickNetworking() {
         UWorld* World = UWorld::GetWorld();
         if (!World || !IsReadablePointer(NetDriver, 0x2B0)) {
