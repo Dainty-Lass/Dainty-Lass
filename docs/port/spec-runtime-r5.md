@@ -95,8 +95,7 @@ Data and patch facts, in the core `headless.rs` (not `TARGETS`, whose test admit
 
 - `headless::boot_patch_applied() -> bool`: HL-2's result was `Applied` or `AlreadyApplied` (false on a client, with an
   invalid auth mode, or a failed patch). R20's post-login match start and any later "no phantom" logic read it.
-- `headless::server_locale_fix() -> bool`: true unless `DISABLE_SERVER_LOCALE_FIX.flag` was present at Init (read once).
-  R4's CL-1 reads it to decide the `-CULTURE=en-US` append (3.3).
+- Nothing for the culture switch: R4's CL-1 reads `DISABLE_SERVER_LOCALE_FIX.flag` itself (3.3).
 
 ---
 
@@ -112,7 +111,7 @@ the C runtime's `"C"` locale in the game's own CRT, plus the engine culture `en-
 
 Server only, in Init (under the loader lock; logged later, 13.1):
 
-1. `DISABLE_SERVER_LOCALE_FIX.flag` present: do nothing; remember "off" for `server_locale_fix()`.
+1. `DISABLE_SERVER_LOCALE_FIX.flag` present (read once): do nothing.
 2. Read the Windows user locale name (`GetUserDefaultLocaleName`, `?` on failure) for the log.
 3. `GetModuleHandleW(L"ucrtbase.dll")`. Resolve its exports `setlocale`, `_configthreadlocale` and `localeconv`.
    Read the decimal point before: `localeconv()` returns a `struct lconv*` whose first field is `char* decimal_point`;
@@ -131,11 +130,12 @@ number through the C runtime (Rust's are locale-independent), so it sets only th
 imports `ucrtbase.dll` statically, so on an injected server (launcher, Director, `dainty-inject.exe`) it is loaded
 before the MIT `DllMain` runs; the retry only covers an unexpected load order.
 
-### 3.3 The culture switch belongs to CL-1 (for R4's spec writer)
+### 3.3 The culture switch belongs to CL-1 (R4)
 
 The engine culture is not R5's: CL-1 (R4) appends `-CULTURE=en-US` to the engine command line it serves, on a server,
 when the locale fix is on and the line holds no `-culture=` already (case-insensitive). With R4 not landed the AGPL's
-CL-1 does it, reading the same flag file itself. When R4 lands, its CL-1 asks `headless::server_locale_fix()`.
+CL-1 does it; with R4 landed the MIT CL-1 does (`spec-runtime-r4.md` 3.3). Either reads the same flag file itself: the
+two halves of patch 0031 share the flag and no state.
 
 ---
 
@@ -319,7 +319,7 @@ the MIT DLL absent nothing changes. The patch adds nothing to the seam ABI (stil
 | --- | --- | --- | --- |
 | server flags after the engine tick | HL-1 (MIT after handler) | AGPL post-tick blocks (R8, R9, R11, R12, R13 until each lands) | carried: patch 0045 keeps the AGPL's own write |
 | "the boot patch took" | HL-2 (MIT, in Init) | AGPL post-login match start and DX-8/9; MIT R20 | carried: the seam reads the bytes; MIT slices call `boot_patch_applied()` |
-| the locale fix switch | the flag file | HL-12 (R5), CL-1's culture append (R4) | each DLL reads the file; R4 calls `server_locale_fix()` once it lands |
+| the locale fix switch | the flag file | HL-12 (R5), CL-1's culture append (R4) | no shared state: each reads the flag (as `spec-runtime-r4.md` records) |
 
 ---
 
