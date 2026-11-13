@@ -35,6 +35,9 @@ fn echo_library() -> PathBuf {
                 .env_remove("CARGO_MAKEFLAGS")
                 .env_remove("MAKEFLAGS")
                 .env_remove("MFLAGS")
+                // The toolchain these tests were built with: unpinned, the nested rustc runs from the registry
+                // folder, resolves the default `stable` there and has rustup update it mid-build
+                .envs(option_env!("RUSTUP_TOOLCHAIN").map(|toolchain| ("RUSTUP_TOOLCHAIN", toolchain)))
                 .stdin(std::process::Stdio::null())
                 .output()
                 .expect("cargo runs");
@@ -50,6 +53,8 @@ fn echo_library() -> PathBuf {
         .clone()
 }
 
+// If the binary ever freezes whole (0 CPU, the watchdog silent), attach `cdb -p <pid> -pv -c "~*kn 40;q"` for
+// every thread's stack before killing it.
 #[path = "support/watchdog.rs"]
 mod watchdog;
 use watchdog::watchdog;
