@@ -910,6 +910,40 @@ async fn the_owner_check_serves_only_the_games_connections() {
     heard.assert_no_key();
 }
 
+/// The game's Epic token request at login, whose client row Windows listed only after the old single retry: refused,
+/// the game failed sign-in and quit (launcher.log 2026-11-13 03:53:34).
+#[tokio::test]
+async fn the_games_epic_token_request_passes_when_its_row_comes_late() {
+    const GAME: u32 = 4242;
+    const TOKEN: &str = "/__origin/account-public-service-prod03.ol.epicgames.com/account/api/oauth/token";
+    let (target, fake) = fake_server(false).await;
+    let table = FakeTable::default();
+    let heard = Heard::default();
+    let relay = Relay::start(RelayConfig {
+        owner: Some(Arc::new(GameOwnerCheck::new(|| Some(GAME), table.clone()))),
+        ..config(target, &heard)
+    })
+    .await
+    .unwrap();
+    let port = relay.port();
+    let (socket, row) = bound_socket(GAME, port);
+    let late = table.clone();
+    tokio::spawn(async move {
+        tokio::time::sleep(Duration::from_millis(400)).await;
+        *late.0.lock().unwrap() = row;
+    });
+    let body = "grant_type=exchange_code";
+    let raw = format!(
+        "POST {TOKEN} HTTP/1.1\r\nhost: 127.0.0.1:61100\r\ncontent-length: {}\r\nconnection: close\r\n\r\n{body}",
+        body.len()
+    );
+    let reply = send_bytes(connect(socket, port).await, raw.as_bytes()).await;
+    assert_eq!(reply.status, 200);
+    assert_eq!(fake.last().method, "POST");
+    assert_eq!(fake.last().target, TOKEN);
+    assert!(heard.lines().iter().all(|l| !l.contains("not the game's")));
+}
+
 // ---- re-pointing ------------------------------------------------------------------------------------------------
 
 fn redirect_to(node: &Endpoint, ticket: Option<&str>) -> Vec<(&'static str, String)> {

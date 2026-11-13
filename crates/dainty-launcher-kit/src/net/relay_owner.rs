@@ -21,8 +21,18 @@ use crate::platform::system::{run_hidden, system_root};
 
 /// More checks than this waiting at once are refused, so a flood of connections can't queue table reads.
 pub const MAX_WAITING: usize = 64;
-/// The wait before a second read when the first had no row: the table can lag the connect.
-pub const RETRY_DELAY: Duration = Duration::from_millis(25);
+/// The waits before each further read while the client end has no row. Windows can leave an open loopback
+/// connection's client row out of the table (or list it as `LISTENING` to port 0) for most of a second while
+/// its server row shows, more often in a burst of connects like the game's login: 230 to 715 ms measured.
+pub const RETRY_DELAYS: [Duration; 7] = [
+    Duration::from_millis(25),
+    Duration::from_millis(50),
+    Duration::from_millis(100),
+    Duration::from_millis(200),
+    Duration::from_millis(400),
+    Duration::from_millis(800),
+    Duration::from_millis(1600),
+];
 /// How long one table read may take.
 pub const TABLE_TIMEOUT: Duration = Duration::from_secs(2);
 /// The most output one table read keeps.
@@ -130,18 +140,20 @@ impl<S: TableSource> GameOwnerCheck<S> {
             Some(guard) => guard,
             None => return false,
         };
-        for attempt in 0..2 {
+        let mut delays = RETRY_DELAYS.iter();
+        loop {
             let Some(table) = self.read_table().await else {
                 return false;
             };
             match table::owner(&table, client, server) {
                 Owner::Pid(owner) => return owner == pid,
                 Owner::Refused => return false,
-                Owner::NotFound if attempt == 0 => tokio::time::sleep(RETRY_DELAY).await,
-                Owner::NotFound => {}
+                Owner::NotFound => match delays.next() {
+                    Some(delay) => tokio::time::sleep(*delay).await,
+                    None => return false,
+                },
             }
         }
-        false
     }
 }
 
@@ -270,7 +282,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn a_missing_row_gets_one_more_read() {
+    async fn a_missing_row_is_read_again_until_the_delays_run_out() {
         let (table, reads) = FakeTable::new(&[Some(""), Some(ROW)], Duration::ZERO);
         let check = GameOwnerCheck::new(|| Some(4242), table);
         assert!(check.check(addr(PEER), addr(LOCAL)).await);
@@ -278,8 +290,45 @@ mod tests {
 
         let (table, reads) = FakeTable::new(&[Some(""), Some(""), Some(ROW)], Duration::ZERO);
         let check = GameOwnerCheck::new(|| Some(4242), table);
+        assert!(check.check(addr(PEER), addr(LOCAL)).await);
+        assert_eq!(reads.load(Ordering::SeqCst), 3);
+
+        let (table, reads) = FakeTable::new(&[Some("")], Duration::ZERO);
+        let check = GameOwnerCheck::new(|| Some(4242), table);
         assert!(!check.check(addr(PEER), addr(LOCAL)).await);
-        assert_eq!(reads.load(Ordering::SeqCst), 2);
+        assert_eq!(reads.load(Ordering::SeqCst), RETRY_DELAYS.len() + 1);
+    }
+
+    /// What Windows showed for an open loopback connection in a burst of 30 (`netstat -ano -p tcp`): the server
+    /// row, and the client end as a bound socket or not at all, for up to 715 ms. Read six times, the old check
+    /// (one retry after 25 ms) refused it; the game lost a login request this way.
+    #[tokio::test]
+    async fn a_client_row_windows_lists_late_still_passes() {
+        const SERVER_ROW: &str = "  TCP    127.0.0.1:61100        127.0.0.1:52000        ESTABLISHED     4000
+";
+        const BOUND: &str = "  TCP    127.0.0.1:52000        127.0.0.1:0            LISTENING       4242
+";
+        let late = format!("{SERVER_ROW}{BOUND}");
+        let found = format!("{SERVER_ROW}{ROW}");
+        let tables = [
+            Some(SERVER_ROW),
+            Some(late.as_str()),
+            Some(SERVER_ROW),
+            Some(late.as_str()),
+            Some(SERVER_ROW),
+            Some(found.as_str()),
+        ];
+        let (table, reads) = FakeTable::new(&tables, Duration::ZERO);
+        let check = GameOwnerCheck::new(|| Some(4242), table);
+        assert!(check.check(addr(PEER), addr(LOCAL)).await);
+        assert_eq!(reads.load(Ordering::SeqCst), 6);
+        // The bound row is never taken for the connection, even with the game's pid
+        let (table, _) = FakeTable::new(&[Some(late.as_str())], Duration::ZERO);
+        assert!(
+            !GameOwnerCheck::new(|| Some(4242), table)
+                .check(addr(PEER), addr(LOCAL))
+                .await
+        );
     }
 
     #[tokio::test]
