@@ -60,6 +60,7 @@ by Mystic (0006, 0009, 0019, 0032, 0034) are not listed: `21b9ff5` has them.
 | 0045 | The game server keeps forcing its server flags right after each engine tick when the MIT runtime owns HL-1, so this runtime's own post-tick work still sees them (the root's `docs/port/spec-runtime-r5.md` section 9.2) | runtime |
 | 0047 | With CL-1 (`FCommandLine::Get`) left to the MIT runtime, a server takes the engine's `MULTIHOME` for the player host's listen check and the watchdog's port probe from the line the MIT runtime serves (the root's `docs/port/spec-runtime-r4.md` section 8) | runtime |
 | 0052 | With SP-3@R9 (listening) left to the MIT runtime, this runtime takes the GameNetDriver it listened on (`rir_listen_driver`), so the watchdog, the graph drive and the routing still here keep running; a player host still listens here while the MIT runtime lacks R10 (the root's `docs/port/spec-runtime-r9.md` section 9) | runtime |
+| 0055 | The player host's last Mystic Paradox names go in the joint cutover (RT-8, D3): `RIS1` messages on `RusticInternalServer.*` pipes, the `x-rustic-host-capability` header, no `MYSTICPARADOX_GAMESERVER_READY` line and no `MYSTICPARADOX_` alias; with SP-3@R10 left to the MIT runtime, its control pipe, readiness and fence are the MIT's (the root's `docs/port/spec-runtime-r10.md` section 13) | runtime |
 
 0035 (an A/B flag for the controller-channel guard, diagnostics only) was removed on 2026-10-26. 0013, 0014
 and 0026 are logging only and can go the same way once the runtime is rebuilt and checked with a client; they

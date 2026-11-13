@@ -26691,24 +26691,7 @@ void Init() {
     InitLog("[Init] MainThread created, returning from DllMain");
 }
 
-// [2026-11-01 Rustic Isles rename] A launcher or Director from before the rename sets only MYSTICPARADOX_*: each gets
-// its RUSTIC_ISLES_* name unless that is set, for one release. Before Init, so every read sees the new names.
-static void MpAcceptLegacyEnvironment() {
-    // Wide API: the project builds with UNICODE, where GetEnvironmentStringsA is not declared
-    static const wchar_t kLegacy[] = L"MYSTICPARADOX_";
-    std::vector<std::pair<std::wstring, std::wstring>> Renamed;
-    if (LPWCH Block = GetEnvironmentStringsW()) {
-        for (LPWCH Entry = Block; *Entry; Entry += wcslen(Entry) + 1) {
-            const wchar_t* Equals = wcschr(Entry, L'=');
-            if (!Equals || wcsncmp(Entry, kLegacy, std::size(kLegacy) - 1) != 0) continue;
-            const wchar_t* Suffix = Entry + std::size(kLegacy) - 1;
-            std::wstring Name = L"RUSTIC_ISLES_" + std::wstring(Suffix, Equals - Suffix);
-            if (GetEnvironmentVariableW(Name.c_str(), nullptr, 0) == 0) Renamed.emplace_back(Name, Equals + 1);
-        }
-        FreeEnvironmentStringsW(Block);
-    }
-    for (const auto& Pair : Renamed) SetEnvironmentVariableW(Pair.first.c_str(), Pair.second.c_str());
-}
+// [DaintyLass 0055] The one-release MYSTICPARADOX_* alias is gone (RT-8, the root's docs/port/spec-runtime-r10.md).
 
 BOOL APIENTRY DllMain( HMODULE hModule,
                        DWORD  ul_reason_for_call,
@@ -26719,7 +26702,6 @@ BOOL APIENTRY DllMain( HMODULE hModule,
     {
     case DLL_PROCESS_ATTACH:
         DisableThreadLibraryCalls(hModule);
-        MpAcceptLegacyEnvironment();
         Init();
         break;
     case DLL_PROCESS_DETACH:
