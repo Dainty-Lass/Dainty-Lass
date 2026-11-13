@@ -51,8 +51,9 @@ server that holds the gameserver key on its command line and talks to the backen
 
 ### The game folder
 
-- [ ] `retire_server_loader` deletes `winmm.dll` next to the server exe only when it is byte for byte the published
-      loader; any other is left and named by the Director at start (`runtime_problem`).
+- [ ] `retire_server_loader` deletes `winmm.dll` next to the server exe only when its hash is a loader this workspace
+      published: the current one, or one `publish_runtime` dropped or replaced (`retired-loaders.txt`, never served).
+      Any other is left and named by the Director at start (`runtime_problem`).
 - [ ] Wine's `winmm` override is `b`, so a loader left there is not loaded.
 - [ ] Every injected start sets `DAINTY_RUNTIME_INJECTED=1` (an inherited value is removed first), so on Windows a
       loader carrying the stand-down marker loads nothing; one without it is named at start.

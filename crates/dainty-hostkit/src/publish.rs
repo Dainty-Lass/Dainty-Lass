@@ -17,6 +17,9 @@ use dainty_protocol::manifest::{LEGACY_RUNTIME_DLL, LOADER_DLL, RUNTIME_DLL};
 
 /// What follows a DLL's name when it is moved aside because it was loaded; such files are swept on the next install.
 pub const ASIDE_MARK: &str = ".rr-old-";
+/// `.workspace/runtime`'s list of loaders it no longer publishes, one SHA-256 a line: a copy of one beside the server
+/// exe is the kit's own, to retire. Not a runtime file name, so the content server never serves it.
+pub const RETIRED_LOADERS: &str = "retired-loaders.txt";
 /// Flag files the server's game folder must hold for the runtime.
 pub const SERVER_RUNTIME_FLAGS: [&str; 1] = ["CALL_HUNTPASS_QUERY.flag"];
 
@@ -143,6 +146,7 @@ pub fn publish_runtime(
     let sources: Vec<&(&str, PathBuf)> = sources.iter().filter(|(_, src)| src.is_file()).collect();
 
     std::fs::create_dir_all(&p.runtime_publish).map_err(|e| HostError::io(&p.runtime_publish, e))?;
+    let previous_loader = published_loader_hash(p);
 
     let mut files = Vec::with_capacity(sources.len());
     for (name, src) in sources {
@@ -179,8 +183,49 @@ pub fn publish_runtime(
     if !published.files.iter().any(|f| f.name == LOADER_DLL) {
         let _ = std::fs::remove_file(p.runtime_publish.join(LOADER_DLL));
     }
+    // Its copy beside the server exe is still retired after it leaves the feed or is rebuilt
+    let now_loader = published
+        .files
+        .iter()
+        .find(|f| f.name == LOADER_DLL)
+        .map(|f| f.sha256.as_str());
+    if let Some(old) = previous_loader.filter(|old| Some(old.as_str()) != now_loader) {
+        record_retired_loader(p, &old)?;
+    }
 
     Ok(published)
+}
+
+/// The loader published now: its file's hash, else runtime.json's line for it.
+fn published_loader_hash(p: &Paths) -> Option<String> {
+    sha256_file(&p.runtime_publish.join(LOADER_DLL)).ok().or_else(|| {
+        let text = std::fs::read_to_string(p.runtime_publish.join("runtime.json")).ok()?;
+        let index: Value = serde_json::from_str(&text).ok()?;
+        index["files"].as_array()?.iter().find(|f| f["name"] == LOADER_DLL)?["sha256"]
+            .as_str()
+            .filter(|h| h.len() == 64 && h.bytes().all(|b| b.is_ascii_hexdigit()))
+            .map(str::to_ascii_lowercase)
+    })
+}
+
+fn retired_loaders(p: &Paths) -> Vec<String> {
+    std::fs::read_to_string(p.runtime_publish.join(RETIRED_LOADERS))
+        .unwrap_or_default()
+        .lines()
+        .map(str::trim)
+        .filter(|l| !l.is_empty())
+        .map(str::to_owned)
+        .collect()
+}
+
+fn record_retired_loader(p: &Paths, sha256: &str) -> Result<(), HostError> {
+    let mut known = retired_loaders(p);
+    if known.iter().any(|k| k == sha256) {
+        return Ok(());
+    }
+    known.push(sha256.to_owned());
+    let file = p.runtime_publish.join(RETIRED_LOADERS);
+    std::fs::write(&file, known.join("\n") + "\n").map_err(|e| HostError::io(&file, e))
 }
 
 fn sweep_aside_files(win64_dir: &Path) {
@@ -200,15 +245,17 @@ fn sweep_aside_files(win64_dir: &Path) {
 }
 
 /// Retires what an older kit installed beside the server's game executable in `win64_dir`: its moved-aside files,
-/// and its `winmm.dll` when that is the published loader byte for byte. The director injects the runtime now, and a
-/// loader there would load a second one into every server and refuse the launcher's PLAY from the same folder. A
-/// `winmm.dll` someone else put there is left, and the director names it at start. True when a loader was removed.
+/// and its `winmm.dll` when that is a loader this workspace published, now or before ([`RETIRED_LOADERS`]). The
+/// director injects the runtime now, and a loader there would load a second one into every server and refuse the
+/// launcher's PLAY from the same folder. A `winmm.dll` someone else put there is left, and the director names it at
+/// start. True when a loader was removed.
 pub fn retire_server_loader(p: &Paths, win64_dir: &Path) -> bool {
     sweep_aside_files(win64_dir);
     let installed = win64_dir.join(LOADER_DLL);
-    let published = p.runtime_publish.join(LOADER_DLL);
-    let ours =
-        installed.is_file() && matches!((sha256_file(&installed), sha256_file(&published)), (Ok(a), Ok(b)) if a == b);
+    let Ok(sha256) = sha256_file(&installed) else {
+        return false;
+    };
+    let ours = published_loader_hash(p).as_deref() == Some(sha256.as_str()) || retired_loaders(p).contains(&sha256);
     ours && std::fs::remove_file(&installed).is_ok()
 }
 
@@ -291,5 +338,51 @@ mod loader_tests {
         let names: Vec<&str> = published.files.iter().map(|f| f.name.as_str()).collect();
         assert_eq!(names, [RUNTIME_DLL]);
         assert!(!paths.runtime_publish.join(LOADER_DLL).exists());
+    }
+
+    /// An older kit published the loader and put it beside the server exe; this kit no longer builds it, then
+    /// rebuilds a different one. Each publish leaves the old copy retirable (found on a host, 2026-11-13).
+    #[test]
+    fn the_old_kits_loader_is_retired_after_the_upgrade_publish() {
+        let tmp = tempfile::tempdir().unwrap();
+        let paths = Paths::new(tmp.path());
+        std::fs::create_dir_all(paths.runtime_dll.parent().unwrap()).unwrap();
+        std::fs::create_dir_all(paths.loader_dll.parent().unwrap()).unwrap();
+        std::fs::write(&paths.runtime_dll, b"runtime-bytes").unwrap();
+        std::fs::write(&paths.loader_dll, b"old-loader").unwrap();
+        publish_runtime(&paths, Utc::now(), &default_sources(&paths)).unwrap();
+        let win64 = tmp.path().join("Win64");
+        std::fs::create_dir_all(&win64).unwrap();
+        std::fs::write(win64.join(LOADER_DLL), b"old-loader").unwrap();
+
+        // The upgrade: no loader built, published again, then the servers' folder is checked
+        std::fs::remove_file(&paths.loader_dll).unwrap();
+        publish_runtime(&paths, Utc::now(), &default_sources(&paths)).unwrap();
+        assert!(!paths.runtime_publish.join(LOADER_DLL).exists());
+        assert!(retire_server_loader(&paths, &win64));
+        assert!(!win64.join(LOADER_DLL).exists());
+
+        // A rebuilt loader replaces the published one; a copy of the one before it is still the kit's
+        std::fs::write(win64.join(LOADER_DLL), b"old-loader").unwrap();
+        std::fs::write(&paths.loader_dll, b"new-loader").unwrap();
+        publish_runtime(&paths, Utc::now(), &default_sources(&paths)).unwrap();
+        std::fs::write(&paths.loader_dll, b"newer-loader").unwrap();
+        publish_runtime(&paths, Utc::now(), &default_sources(&paths)).unwrap();
+        assert!(retire_server_loader(&paths, &win64));
+        std::fs::write(win64.join(LOADER_DLL), b"new-loader").unwrap();
+        assert!(retire_server_loader(&paths, &win64));
+        std::fs::write(win64.join(LOADER_DLL), b"someone else's").unwrap();
+        assert!(!retire_server_loader(&paths, &win64));
+    }
+
+    #[test]
+    fn a_loader_only_runtime_json_lists_is_still_known() {
+        let tmp = tempfile::tempdir().unwrap();
+        let paths = Paths::new(tmp.path());
+        std::fs::create_dir_all(&paths.runtime_publish).unwrap();
+        let sha = sha256_bytes(b"old-loader");
+        let index = format!(r#"{{"files":[{{"name":"winmm.dll","sha256":"{sha}"}}]}}"#);
+        std::fs::write(paths.runtime_publish.join("runtime.json"), index).unwrap();
+        assert_eq!(published_loader_hash(&paths), Some(sha));
     }
 }

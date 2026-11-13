@@ -20,7 +20,8 @@ retires from the servers.
    one `runtime.json` lists, read again at each start, so a `publish-runtime` reaches the next server without a
    restart.
 2. Nothing is copied next to the server's executable any more. `setup`, `start` and `publish-runtime` remove a
-   `winmm.dll` there when it is the published loader byte for byte, and leave any other one. Every injected server
+   `winmm.dll` there when it is a loader this workspace published, now or before (`publish_runtime` records a
+   loader it drops or replaces in `.workspace/runtime/retired-loaders.txt`), and leave any other one. Every injected server
    gets `DAINTY_RUNTIME_INJECTED=1`, so a loader that stands down (the launcher branch's `f8df0b58`) loads nothing;
    the Director names any other loader at start, since it would load a second runtime.
 3. Under Wine (Linux, Docker) the game server starts through the `dainty-inject.exe` helper that Proton players use,
