@@ -32,6 +32,7 @@
 #include "framework.h"
 #include "SDK.hpp"
 #include "MinHook/MinHook.h"
+#include "MitSeam.h"   // [DaintyLass 0041] every MH_* call below goes through the MIT runtime's broker when it is loaded
 #include "constants.h"
 #include "Networking.h"
 #include "RuntimeShared.h"
@@ -2235,6 +2236,7 @@ void MainThread() {
 
     MpLog(logMsg);
     MpLog(std::string("[FlagCache] flag-file cache ") + MpFlagCacheModeText());
+    MpLog(MitSeam::StatusLine());   // [DaintyLass 0041]
     MpLogBackendAddress();   // [2026-10-13 realms S1] source=env|built-in, resolved in Init
     InitLog("[MainThread] MpLog returned, entering UWorld wait loop");
 
@@ -5099,7 +5101,7 @@ static void InstallWarpForceHooks() {
     // [1.14.7 2026-10-08] The site was the 1.12 RVA 0x032DAA1B, guarded only by "byte == 0x75" - on 1.14.7
     // that could have flipped an unrelated jne. tools/rva-port-audit.py maps it to 0x034AB73F (verified; the
     // same `call [rdx+0x40]; test al,al; jne` sequence). The patch now checks `test al,al; jne` and fails closed.
-    {
+    if (!MitSeam::Owns("HL-9")) {   // [DaintyLass 0041]
         static const uint8_t Expected[3] = { 0x84, 0xC0, 0x75 };
         static const uint8_t Replacement[3] = { 0x84, 0xC0, 0xEB };
         const bool Ok = MpPatchBytesVerified(0x034AB73D, Expected, Replacement, 3, "WARP IsSupported gate");
@@ -7473,6 +7475,7 @@ static void ServerGetViewportSizeExec(void* Context, void* Stack, void* Result) 
 }
 
 static void MpInstallServerViewportSizeFix() {
+    if (!MITSEAM_AGPL_RUNS("HL-11")) return;   // [DaintyLass 0041]
     static bool s_done = false;
     static uint64_t s_nextTryMs = 0;
     if (s_done) return;
@@ -7541,7 +7544,7 @@ void GameEngineTickHook(UGameEngine* GameEngine, float DeltaTime, char CanRender
 
     // [Reforged 0020] Pace the server's game thread (see MpPaceServerFrame) before this frame's work.
     if (Globals::AmServer) {
-        MpPaceServerFrame();
+        if (MITSEAM_AGPL_RUNS("SP-3@R8")) MpPaceServerFrame();   // [DaintyLass 0041]
         MpInstallServerViewportSizeFix();   // [Reforged 0038]
     }
 
@@ -7559,7 +7562,7 @@ void GameEngineTickHook(UGameEngine* GameEngine, float DeltaTime, char CanRender
     // The membership report is the heavy one (a full GObjects walk plus an IsA pass per object, several
     // times a minute) and only ever runs for the diagnostics flag.
     const bool HubRepDiag = Globals::AmServer && MpExeRelativeFlagPresent(L"ENABLE_HUB_REP_DIAGNOSTICS.flag");
-    if (Globals::AmServer
+    if (Globals::AmServer && MITSEAM_AGPL_RUNS("SP-3@R13")   // [DaintyLass 0041]
         && (HubRepDiag || MpExeRelativeFlagPresent(L"ENABLE_BASE_ACTOR_BOOTSTRAP.flag"))) {
         MpRouteBaseActorsToConnections();
     }
@@ -7568,7 +7571,8 @@ void GameEngineTickHook(UGameEngine* GameEngine, float DeltaTime, char CanRender
     }
 
     // The optional player-hosted mode may be ending the process (P2PHooks.h): skip the tick.
-    if (Globals::AuthMode == Globals::ServerAuthMode::HuntCapability && P2PHooks::TickShutdown()) {
+    if (Globals::AuthMode == Globals::ServerAuthMode::HuntCapability && MITSEAM_AGPL_RUNS("SP-3@R10")   // [DaintyLass 0041]
+        && P2PHooks::TickShutdown()) {
         return;
     }
 
@@ -7577,12 +7581,12 @@ void GameEngineTickHook(UGameEngine* GameEngine, float DeltaTime, char CanRender
     // driver was rejecting incoming connections (join -> "Failure received"). Re-assert every
     // frame here as the per-frame replacement for the disabled in-code patches (see InitServerHooks
     // #if 0 block above) so networking always ticks with server flags set.
-    if (Globals::AmServer) {
+    if (Globals::AmServer && MITSEAM_AGPL_RUNS("HL-1")) {   // [DaintyLass 0041]
         *(uint8_t*)(Globals::BaseAddress + 0x06E1EADA) = 0x1; // GIsServer
         *(uint8_t*)(Globals::BaseAddress + 0x06E1EAD9) = 0x0; // GIsClient
     }
 
-    SanitizeNetDriverBeforeEngineTick();
+    if (MITSEAM_AGPL_RUNS("SP-3@R11")) SanitizeNetDriverBeforeEngineTick();   // [DaintyLass 0041]
 
     // [2026-10-10 1.14.7 Perf] Time the native engine tick for the [Perf] line; the call itself is unchanged.
     LARGE_INTEGER PerfEngine0{};
@@ -7605,29 +7609,31 @@ void GameEngineTickHook(UGameEngine* GameEngine, float DeltaTime, char CanRender
     // [1.14.7 REPLICATION-GRAPH DRIVE] The engine's own TickFlush never dispatches to
     // UNetDriver::ReplicationDriver on this build, so drive the Archon graph here, once per frame,
     // immediately after the engine tick has finished its own net pass. See MpDriveReplicationGraph.
-    if (Globals::AmServer) {
+    if (Globals::AmServer && MITSEAM_AGPL_RUNS("SP-3@R12")) {   // [DaintyLass 0041]
         DropStalePlayerControllerChannelQuarantine();
     }
-    MpLogServerWeaponGap();      // [Dauntless Reforged Revival] 0014
-    MpWakeUnsentPawnWeapons();   // [Dauntless Reforged Revival] 0015
+    if (MITSEAM_AGPL_RUNS("SP-3@R13")) {   // [DaintyLass 0041]
+        MpLogServerWeaponGap();      // [Dauntless Reforged Revival] 0014
+        MpWakeUnsentPawnWeapons();   // [Dauntless Reforged Revival] 0015
+    }
     // [2026-10-11 1.14.7 O0] Timed for [PerfDetail]; the call itself is unchanged.
     const bool PerfDetail = Globals::AmServer && MpPerfDetailEnabled();
     const int64_t PerfGraph0 = PerfDetail ? MpQpcNow() : 0;
-    MpDriveReplicationGraph(DeltaTime);
+    if (MITSEAM_AGPL_RUNS("SP-3@R12")) MpDriveReplicationGraph(DeltaTime);   // [DaintyLass 0041]
     if (PerfDetail) {
         MpPerfPhaseAdd(g_perfPhaseGraph, PerfGraph0, MpQpcNow());
         MpPerfSampleGraphCounts();
     }
 
     // [1.14.7 FIX 2026-10-10] Resume progression components parked before the configuration loaded.
-    MpProgressionWaitPoll();
+    if (MITSEAM_AGPL_RUNS("SP-3@R7")) MpProgressionWaitPoll();   // [DaintyLass 0041]
     MpArrivalTriggerServerProbe();   // read-only diagnostic, 40 s after each login
     MpHuntPassServerStateTick();     // read-only diagnostic, every 10 s, logs changes only
 
     // [2026-07-20] Server-side skeletal pose/socket fix (FORCE_SERVER_MESH_POSE.flag). Server-only; the
     // helper self-throttles + no-ops unless the flag is present. See its definition above.
     if (Globals::AmServer) {
-        ForceServerMeshPose();
+        if (MITSEAM_AGPL_RUNS("SP-3@R20")) ForceServerMeshPose();   // [DaintyLass 0041]
     }
 
     // [2026-07-20 TRIALS GRACE DIAG] Throttled bleedout sampler (SampleBleedoutGrace). Flag re-checked every
@@ -7650,10 +7656,12 @@ void GameEngineTickHook(UGameEngine* GameEngine, float DeltaTime, char CanRender
     if (Globals::AmServer) {
         static uint32_t s_roleRetryTick = 0;
         if ((++s_roleRetryTick & 0x3F) == 0) {   // ~once/sec at 60fps
-            TickPlayerRoleRetries();
-            TickPlayerRolePostActivationRefresh();
-            TickTempestModifierEnsure();
-            TickEscalationBuffChoiceSpawn();
+            if (MITSEAM_AGPL_RUNS("SP-3@R14")) {   // [DaintyLass 0041]
+                TickPlayerRoleRetries();
+                TickPlayerRolePostActivationRefresh();
+                TickTempestModifierEnsure();
+            }
+            if (MITSEAM_AGPL_RUNS("SP-3@R18")) TickEscalationBuffChoiceSpawn();   // [DaintyLass 0041]
         }
     }
 
@@ -7683,7 +7691,7 @@ void GameEngineTickHook(UGameEngine* GameEngine, float DeltaTime, char CanRender
     // returned, even though we forced 1/0 right before calling it). Re-force here too, immediately
     // before TickNetworking/TickDispatch actually process the connection, so the net driver sees
     // server flags at the moment it matters.
-    if (Globals::AmServer) {
+    if (Globals::AmServer && MITSEAM_AGPL_RUNS("HL-1")) {   // [DaintyLass 0041]
         *(uint8_t*)(Globals::BaseAddress + 0x06E1EADA) = 0x1; // GIsServer
         *(uint8_t*)(Globals::BaseAddress + 0x06E1EAD9) = 0x0; // GIsClient
     }
@@ -7720,7 +7728,7 @@ void GameEngineTickHook(UGameEngine* GameEngine, float DeltaTime, char CanRender
         }
     }
 
-    if (Globals::Listening) {
+    if (Globals::Listening && MITSEAM_AGPL_RUNS("SP-3@R9")) {   // [DaintyLass 0041] (also R8 and R11: spec-runtime-r0 7.4)
         // [1.12.0 player-host roster gate] Keep ExpectedPlayerCount synchronized with the
         // concrete launch roster. The previous blanket zero forced a two-player hunt to enter
         // InProgress as soon as P1 arrived; an SDR joiner arriving a few seconds later then hit
@@ -8076,7 +8084,7 @@ void GameEngineTickHook(UGameEngine* GameEngine, float DeltaTime, char CanRender
     // reload failing, the port closing) is consistent with an invalid world context, so this flag
     // isolates whether OUR listen is what invalidates it: with the flag present the manual Listen is
     // skipped entirely and the boot can be compared. Diagnostic only.
-    if (Globals::DoListen && MpExeRelativeFlagPresent(L"DISABLE_MANUAL_LISTEN.flag")) {
+    if (Globals::DoListen && MITSEAM_AGPL_RUNS("SP-3@R9") && MpExeRelativeFlagPresent(L"DISABLE_MANUAL_LISTEN.flag")) {   // [DaintyLass 0041]
         Globals::DoListen = false;
         MpLog("[GameEngineTick] manual Networking::Listen SKIPPED (DISABLE_MANUAL_LISTEN.flag) - A/B");
     }
@@ -8086,13 +8094,13 @@ void GameEngineTickHook(UGameEngine* GameEngine, float DeltaTime, char CanRender
     // only once UWorld::NetDriver (UWorld+0x38) actually exists; the harness independently confirms
     // the port is bound, so this never announces a listener that is not there.
     // [2026-10-11] Never on a player-hosted server (MpMapUrlListenEnabled): it listens manually below.
-    if (Globals::DoListen && MpMapUrlListenEnabled()) {
+    if (Globals::DoListen && MITSEAM_AGPL_RUNS("SP-3@R9") && MpMapUrlListenEnabled()) {   // [DaintyLass 0041]
         Globals::DoListen = false;
         Globals::WaitingForEngineListener = true;
         MpLog("[GameEngineTick] manual Listen skipped; waiting for the ENGINE listener (?listen map URL)");
     }
 
-    if (Globals::WaitingForEngineListener) {
+    if (Globals::WaitingForEngineListener && MITSEAM_AGPL_RUNS("SP-3@R9")) {   // [DaintyLass 0041]
         void* ListenWorld = UWorld::GetWorld();
         void* EngineNetDriver = ListenWorld
             ? *reinterpret_cast<void**>(reinterpret_cast<uintptr_t>(ListenWorld) + 0x38)   // UWorld::NetDriver
@@ -8108,7 +8116,7 @@ void GameEngineTickHook(UGameEngine* GameEngine, float DeltaTime, char CanRender
         }
     }
 
-    if (Globals::DoListen) {
+    if (Globals::DoListen && MITSEAM_AGPL_RUNS("SP-3@R9")) {   // [DaintyLass 0041]
         Globals::DoListen = false;
 
         MpLog("[GameEngineTick] calling Networking::Listen(port=" + std::to_string(Globals::Port) + ")");
@@ -8131,7 +8139,7 @@ void GameEngineTickHook(UGameEngine* GameEngine, float DeltaTime, char CanRender
         return;
     }
 
-    if (Globals::Listening && Networking::NetDriver) {
+    if (Globals::Listening && Networking::NetDriver && MITSEAM_AGPL_RUNS("SP-3@R8")) {   // [DaintyLass 0041]
         bool HasConnection = false;
 
         auto ClientConnectionData = *reinterpret_cast<UNetConnection***>((uintptr_t)Networking::NetDriver + 0x90);
@@ -8664,21 +8672,23 @@ char ProcessRequest(void* Request) {
     // at this+0x70 before it configures the native request. Rewrite at this
     // pre-dispatch boundary; +0x032C5B40 is only the one-argument in-flight
     // SetURL diagnostic and cannot accept a replacement FString.
-    MpRewriteRequestUrl(Request);
+    if (MITSEAM_AGPL_RUNS("HTTP-1@R2")) MpRewriteRequestUrl(Request);   // [DaintyLass 0041]
 
     // [1.14.7 2026-10-10] Dedicated-server XP grants carry an idempotent grant id (see MpEnsureProgressionGrantId).
     // Globals::AuthMode defaults to GlobalGameserver in every process (only Init() on a server changes it), so the
     // server role is checked as well.
     // [2026-10-14 realms] A player host (HuntCapability: realm hubs and hunts) needs the same id: the backend refuses
     // every XP grant without one, so a realm member's kill XP was never saved (VPS, 14 Oct 11:29).
-    if (Globals::AmServer && (Globals::AuthMode == Globals::ServerAuthMode::GlobalGameserver
+    if (MITSEAM_AGPL_RUNS("HTTP-1@R2") && Globals::AmServer   // [DaintyLass 0041]
+        && (Globals::AuthMode == Globals::ServerAuthMode::GlobalGameserver
             || Globals::AuthMode == Globals::ServerAuthMode::HuntCapability)) {
         MpEnsureProgressionGrantId(Request);
     }
 
     // Only a DeployServer gameserver carries the global gameserver credential. The optional
     // player-hosted mode never receives it and supplies its own scoped header (P2PHooks.h).
-    if (Globals::AuthMode == Globals::ServerAuthMode::GlobalGameserver && Globals::ServerAPIKey) {
+    if (MITSEAM_AGPL_RUNS("HTTP-1@R2") && Globals::AuthMode == Globals::ServerAuthMode::GlobalGameserver   // [DaintyLass 0041]
+        && Globals::ServerAPIKey) {
         FString APIHeader(L"x-rustic-isles-gameserver-apikey");
         FString APIKey(Globals::ServerAPIKey);
 
@@ -8687,7 +8697,7 @@ char ProcessRequest(void* Request) {
         void* setHeader = (*reinterpret_cast<void***>(Request))[16];
         reinterpret_cast<SetHeaderFn>(setHeader)(Request, &APIHeader, &APIKey);
     }
-    else if (Globals::AuthMode == Globals::ServerAuthMode::HuntCapability) {
+    else if (MITSEAM_AGPL_RUNS("HTTP-1@R10") && Globals::AuthMode == Globals::ServerAuthMode::HuntCapability) {   // [DaintyLass 0041]
         std::wstring HeaderName;
         std::wstring HeaderValue;
         P2PHooks::RequestHeader(HeaderName, HeaderValue);
@@ -15612,7 +15622,7 @@ void ProcessEventClientHook(UObject* Object, UFunction* Function, void* Parms) {
     }
     // [2026-10-10 1.14.7] Read-only UWorld census around map changes (travel-crash probe). The engine-tick hook is
     // server-only, so the client checks GWorld from here, at most every 250 ms.
-    {
+    if (MITSEAM_AGPL_RUNS("SP-1@R16")) {   // [DaintyLass 0041]
         static uint64_t s_worldCensusCheckMs = 0;
         const uint64_t NowMs = GetTickCount64();
         if (NowMs - s_worldCensusCheckMs >= 250) {
@@ -15649,8 +15659,10 @@ void ProcessEventClientHook(UObject* Object, UFunction* Function, void* Parms) {
         return;   // absorb — do not call OrigProcessEventClient
     }
 
-    MpUncapSupplyStacks();
-    MpSetCellFusionTime();
+    if (MITSEAM_AGPL_RUNS("SP-1@R15")) {   // [DaintyLass 0041]
+        MpUncapSupplyStacks();
+        MpSetCellFusionTime();
+    }
 
     /*
     if (GetAsyncKeyState(VK_F9)) {
@@ -15746,7 +15758,7 @@ void ProcessEventClientHook(UObject* Object, UFunction* Function, void* Parms) {
     // after it returns so late private-server input/loadout work cannot leave the combat HUD exposed.
     const bool AirshipStateUpdateEvent = Function && Object
         && FunctionName.find(".OnAirshipStateUpdate") != std::string::npos;
-    if (AirshipStateUpdateEvent && Parms && IsReadablePointer(Parms, sizeof(void*))) {
+    if (MITSEAM_AGPL_RUNS("SP-1@R14") && AirshipStateUpdateEvent && Parms && IsReadablePointer(Parms, sizeof(void*))) {   // [DaintyLass 0041]
         UObject* GameState = *reinterpret_cast<UObject**>(Parms);
         if (GameState && IsReadablePointer(GameState, 0x2D1)) {
             s_AirshipHUD = Object;
@@ -15961,7 +15973,7 @@ void ProcessEventClientHook(UObject* Object, UFunction* Function, void* Parms) {
     // InitServerHooks, so its nominal client branch never executes. ProcessEvent is already on the
     // owning client's game thread and runs continuously; sample only outermost calls and let the
     // retry helper's 1.5s per-entry throttle bound the actual work.
-    if (s_processEventDepthClient == 1) {
+    if (s_processEventDepthClient == 1 && MITSEAM_AGPL_RUNS("SP-1@R14")) {   // [DaintyLass 0041]
         static uint32_t s_clientRoleRetryPump = 0;
         if ((++s_clientRoleRetryPump & 0xFF) == 0) {
             UObject* StablePawn = nullptr;
@@ -16040,7 +16052,7 @@ void ProcessEventClientHook(UObject* Object, UFunction* Function, void* Parms) {
     }
 
     // Preserve disconnect/login UI and state transitions while observing the actual failure path.
-    if (FunctionName.find("LoginScreen") != std::string::npos) {
+    if (MITSEAM_AGPL_RUNS("SP-1@R17") && FunctionName.find("LoginScreen") != std::string::npos) {   // [DaintyLass 0041]
         MpLog("[LoginScreenDiag] fn=" + FunctionName);
         AutoPressStartFromEvent(Object, FunctionName);
         AutoPlayFromEvent(Object, FunctionName);
@@ -16083,17 +16095,17 @@ void ProcessEventClientHook(UObject* Object, UFunction* Function, void* Parms) {
     GauntletCensus::Exit(GauntletCensusSeq, Function, Parms);
     TraceArtificerDroneEvent("Client", "EXIT", Object, FunctionName, Parms);
     TraceClientInventoryEvent(Object, FunctionName, "EXIT");
-    RepairClientLoadoutItemSlots();
+    if (MITSEAM_AGPL_RUNS("SP-1@R15")) RepairClientLoadoutItemSlots();   // [DaintyLass 0041]
 
     // After the screen's own handler, so SetSplashImage / HandleGetPatchNotesPayloadSuccess cannot undo it.
-    if (FunctionName.find("LoginScreen") != std::string::npos) {
+    if (MITSEAM_AGPL_RUNS("SP-1@R17") && FunctionName.find("LoginScreen") != std::string::npos) {   // [DaintyLass 0041]
         LoginBranding::OnLoginScreenEvent(Object, FunctionName);
     }
-    if (FunctionName.find("OnInitialized") != std::string::npos
-        || FunctionName.find("bpw_Credits_C.PreConstruct") != std::string::npos) {
+    if (MITSEAM_AGPL_RUNS("SP-1@R17") && (FunctionName.find("OnInitialized") != std::string::npos
+        || FunctionName.find("bpw_Credits_C.PreConstruct") != std::string::npos)) {   // [DaintyLass 0041]
         CreditsBranding::OnCreditsEvent(Object, FunctionName);
     }
-    if (FunctionName.find("PressStart") != std::string::npos) {
+    if (MITSEAM_AGPL_RUNS("SP-1@R17") && FunctionName.find("PressStart") != std::string::npos) {   // [DaintyLass 0041]
         PressStartBranding::OnPressStartEvent(Object, FunctionName);
     }
 
@@ -16122,7 +16134,9 @@ void ProcessEventClientHook(UObject* Object, UFunction* Function, void* Parms) {
         }
     }
 
-    if (AirshipStateUpdateEvent) {
+    if (!MITSEAM_AGPL_RUNS("SP-1@R14")) {   // [DaintyLass 0041]
+    }
+    else if (AirshipStateUpdateEvent) {
         ReconcileAirshipGameplayHUD("state-update");
     }
     else if (AirshipHUDMayHaveBeenShown) {
@@ -16190,7 +16204,7 @@ void ProcessEventClientHook(UObject* Object, UFunction* Function, void* Parms) {
     // method at RVA 0x02164060 and the pawn-facing input components at PC+0xC38..0xC50.
     // We deliberately do not call EnableControllerInput because it re-enters this event path.
     // Generic Actor.EnableInput does not reverse Dauntless-specific UI suppression.
-    if (Function && Parms && Object
+    if (MITSEAM_AGPL_RUNS("SP-1@R14") && Function && Parms && Object   // [DaintyLass 0041]
         && FunctionName == "Function BP_PlayerCharacter.BP_PlayerCharacter_C.OnInputModeChanged")
     {
         bool bGameInputEnabled = *reinterpret_cast<bool*>(Parms);
@@ -16296,7 +16310,7 @@ void ProcessEventClientHook(UObject* Object, UFunction* Function, void* Parms) {
     //   UCharacterMovementComponent::MaxWalkSpeed offset 0x018C  (line 6879)
     //   UCharacterMovementComponent::MaxAcceleration offset 0x01A0  (line 6884)
     //   UCharacterMovementComponent::DefaultLandMovementMode offset 0x03B8  (line 6978)
-    if (Function && Object
+    if (MITSEAM_AGPL_RUNS("SP-1@R14") && Function && Object   // [DaintyLass 0041]
         && FunctionName == "Function BP_PlayerCharacter.BP_PlayerCharacter_C.OnInputModeChanged")
     {
         uintptr_t pawnAddr = reinterpret_cast<uintptr_t>(Object);
@@ -16430,7 +16444,7 @@ void ProcessEventClientHook(UObject* Object, UFunction* Function, void* Parms) {
     // single float parameter at Parms+0x0. Skip zero (or near-zero) values to
     // avoid drowning the log in the 60Hz tick pattern where UE fires all axis
     // events every frame regardless of input state.
-    if (Function && Parms && FunctionName.contains("BP_PlayerCharacter_C.InpAxisEvt_")) {
+    if (MITSEAM_AGPL_RUNS("SP-1@R14") && Function && Parms && FunctionName.contains("BP_PlayerCharacter_C.InpAxisEvt_")) {   // [DaintyLass 0041]
         float axisValue = SafeReadFloat(Parms, 0.f);
         // [Phase 0k 2026-07-12] [AxisNonZero] logging disabled — ~1,835 lines/min of spam that
         // contaminated the lag measurement; input-reaches-pawn was already confirmed. The ForceMove
@@ -16529,7 +16543,7 @@ void ProcessEventClientHook(UObject* Object, UFunction* Function, void* Parms) {
     // above has a valid target. We deliberately do NOT call any input-related UFunctions
     // during ClientRestart itself — the previous Actor.EnableInput / SetInputMode_GameOnly
     // approach fired too early (loading UI still up) and was the wrong API for Dauntless.
-    if (Function && Object
+    if (MITSEAM_AGPL_RUNS("SP-1@R14") && Function && Object   // [DaintyLass 0041]
         && FunctionName == "Function Engine.PlayerController.ClientRestart")
     {
         UObject* NewPawn = Parms
@@ -18359,8 +18373,10 @@ void ProcessEventHook(UObject* Object, UFunction* Function, void* Parms) {
         return;   // DO NOT call OrigProcessEvent — breaks any game-side recursion.
     }
 
-    MpUncapSupplyStacks();
-    MpSetCellFusionTime();
+    if (MITSEAM_AGPL_RUNS("SP-2@R15")) {   // [DaintyLass 0041]
+        MpUncapSupplyStacks();
+        MpSetCellFusionTime();
+    }
 
     static UFunction* ServerTryActivateAbilityWithEventData = nullptr;
     static UFunction* ServerTryActivateAbility = nullptr;
@@ -18482,7 +18498,7 @@ void ProcessEventHook(UObject* Object, UFunction* Function, void* Parms) {
         }
     }
 
-    if (s_audioPostSuppression == 1 && PeMay(MpPeCat_PostEvent) && FunctionName.find("PostEvent") != std::string::npos) {
+    if (MITSEAM_AGPL_RUNS("SP-2@R5") && s_audioPostSuppression == 1 && PeMay(MpPeCat_PostEvent) && FunctionName.find("PostEvent") != std::string::npos) {
         static std::atomic<int> s_audioPostAbsorbed{ 0 };
         const int AudioSeq = s_audioPostAbsorbed.fetch_add(1, std::memory_order_relaxed);
         if (AudioSeq < 5) {
@@ -18514,7 +18530,7 @@ void ProcessEventHook(UObject* Object, UFunction* Function, void* Parms) {
     // Global (applies to whoever is dealing damage) - deliberately not scoped to a specific
     // player, since the flag + server-side-only gating is already enough to keep this from ever
     // firing outside an intentional local repro run.
-    if (Globals::AmServer && Function && Parms) {
+    if (MITSEAM_AGPL_RUNS("SP-2@R20") && Globals::AmServer && Function && Parms) {   // [DaintyLass 0041]
         static const bool s_developmentRuntimeProfile = [] {
             char Profile[32]{};
             DWORD Length = GetEnvironmentVariableA("RUSTIC_ISLES_RUNTIME_PROFILE", Profile,
@@ -18578,7 +18594,7 @@ void ProcessEventHook(UObject* Object, UFunction* Function, void* Parms) {
 
     // Capture after the optional debug multiplier so Guard evidence and diagnostics describe the
     // value actually sent into the game Blueprint.
-    P2PHooks::ObserveServerEvent(FunctionName, Parms);
+    if (MITSEAM_AGPL_RUNS("SP-2@R10")) P2PHooks::ObserveServerEvent(FunctionName, Parms);   // [DaintyLass 0041]
 
     // Capture after the optional debug multiplier so diagnostics describe the value actually sent
     // into the game Blueprint. Production captures have the multiplier flag absent.
@@ -18591,7 +18607,7 @@ void ProcessEventHook(UObject* Object, UFunction* Function, void* Parms) {
     // [2026-07-25 AMP ROOT-CAUSE FIX] Observe the escalation round-finished transition so the deferred
     // pump can invoke SpawnPlayerBuffChoicesForFinishedRound, which the shipped Blueprint graph never
     // calls. Recording only - no dispatch from inside this hook. See TickEscalationBuffChoiceSpawn.
-    if (Function && Parms && PeMay(MpPeCat_EscalationAuthState)
+    if (MITSEAM_AGPL_RUNS("SP-2@R18") && Function && Parms && PeMay(MpPeCat_EscalationAuthState)   // [DaintyLass 0041]
         && FunctionName.find("EscalationGameModeComponent.AuthOnGameStateChanged")
                != std::string::npos) {
         NoteEscalationStateChangeForBuffChoices(Object, Parms);
@@ -18763,7 +18779,8 @@ void ProcessEventHook(UObject* Object, UFunction* Function, void* Parms) {
     // server, so this reliably confirms each controller reached post-login (unlike the
     // never-installed AGameMode::PostLogin native hook). K2_PostLogin's parm0 is the new
     // APlayerController. A lifecycle snapshot is taken at each so the late-joiner boundary is visible.
-    if (Function && PeMay(MpPeCat_PostLogin) && FunctionName.find("PostLogin") != std::string::npos) {
+    if (MITSEAM_AGPL_RUNS("SP-2@R20") && Function && PeMay(MpPeCat_PostLogin)   // [DaintyLass 0041]
+        && FunctionName.find("PostLogin") != std::string::npos) {
         static std::atomic<int> s_plSeq{ 0 };
         int Seq = s_plSeq.fetch_add(1, std::memory_order_relaxed);
         // [2026-10-11 O3] PRODUCTION_LOG_PROFILE.flag skips the [PostLoginPE] line, its name lookups and the lifecycle
@@ -18879,7 +18896,7 @@ void ProcessEventHook(UObject* Object, UFunction* Function, void* Parms) {
     // [Group E2 cleanup 2026-07-13] [LevelVisMulti-SVR] ServerUpdateMultipleLevelsVisibility logger removed.
 
 
-    if (Function && PeMay(MpPeCat_VendorCamera) && FunctionName.find("vendor_interactive_bp_C.UpdateCameraForAspect")
+    if (MITSEAM_AGPL_RUNS("SP-2@R20") && Function && PeMay(MpPeCat_VendorCamera) && FunctionName.find("vendor_interactive_bp_C.UpdateCameraForAspect")
         != std::string::npos)
     {
         static std::atomic<int> s_vendorAbsorbCount{0};
@@ -18932,7 +18949,8 @@ void ProcessEventHook(UObject* Object, UFunction* Function, void* Parms) {
     //   - NetDormancy = DORM_Never (0) - never dormant
     //   - NetUpdateFrequency = 60.0 - as high as gameplay ticking
     //   - NetPriority = 3.0 (AActor+0x0110) - high priority in the rep list
-    if (Function && PeMay(MpPeCat_ClientRestart) && (FunctionName == "Function Engine.PlayerController.ClientRestart"
+    if (MITSEAM_AGPL_RUNS("SP-2@R20") && Function && PeMay(MpPeCat_ClientRestart)   // [DaintyLass 0041]
+        && (FunctionName == "Function Engine.PlayerController.ClientRestart"
                      || FunctionName == "Function Engine.PlayerController.ClientRetryClientRestart")) {
         const int PAWN_DIAG_BUDGET = 8;   // per-login: first ClientRestart + a few retries
         int slot = g_pawnDiagCount.fetch_add(1, std::memory_order_relaxed);
@@ -19127,9 +19145,9 @@ void ProcessEventHook(UObject* Object, UFunction* Function, void* Parms) {
 
     // UObject layout: Class @ +0x10, Name @ +0x18, Outer @ +0x20.
     static UFunction* CachedPlayerCanRestart = nullptr;
-    if ((CachedPlayerCanRestart && Function == CachedPlayerCanRestart) ||
+    if (MITSEAM_AGPL_RUNS("SP-2@R20") && ((CachedPlayerCanRestart && Function == CachedPlayerCanRestart) ||   // [DaintyLass 0041]
         (!CachedPlayerCanRestart && Function && PeMay(MpPeCat_PlayerCanRestart)
-            && FunctionName == "Function Engine.GameModeBase.PlayerCanRestart")) {
+            && FunctionName == "Function Engine.GameModeBase.PlayerCanRestart"))) {
         CachedPlayerCanRestart = Function;
 
         if (Parms && IsReadablePointer(Parms, 0x10)) {
@@ -19552,7 +19570,7 @@ void ProcessEventHook(UObject* Object, UFunction* Function, void* Parms) {
             }
 
             // [Dauntless Reforged Revival] In a hunt, a connected player waits for their own data first.
-            if (MpHoldRestartUntilPlayerDataLoaded(PlayerObj)) {
+            if (MITSEAM_AGPL_RUNS("SP-2@R7") && MpHoldRestartUntilPlayerDataLoaded(PlayerObj)) {   // [DaintyLass 0041]
                 *reinterpret_cast<bool*>(reinterpret_cast<uintptr_t>(Parms) + 0x8) = false;
                 return; // original not called
             }
@@ -19571,7 +19589,9 @@ void ProcessEventHook(UObject* Object, UFunction* Function, void* Parms) {
         }
     }
 
-    if (Function == ServerTryActivateAbilityWithEventData || (!ServerTryActivateAbilityWithEventData && PeMay(MpPeCat_TryActivateAbility) && FunctionName.contains("ServerTryActivateAbilityWithEventData"))) {
+    if (!MITSEAM_AGPL_RUNS("SP-2@R14")) {   // [DaintyLass 0041]
+    }
+    else if (Function == ServerTryActivateAbilityWithEventData || (!ServerTryActivateAbilityWithEventData && PeMay(MpPeCat_TryActivateAbility) && FunctionName.contains("ServerTryActivateAbilityWithEventData"))) {
         ServerTryActivateAbilityWithEventData = Function;
 
         Params::AbilitySystemComponent_ServerTryActivateAbilityWithEventData* ActivateAbilityParams = (Params::AbilitySystemComponent_ServerTryActivateAbilityWithEventData*)Parms;
@@ -19891,7 +19911,7 @@ void InitClientHooks() {
     InstallSocketDiagnostics();
 
     LogEacStartupFlags("client init");
-    if (MpExeRelativeFlagPresent(L"DISABLE_EAC_LOAD.flag") || true) {
+    if ((MpExeRelativeFlagPresent(L"DISABLE_EAC_LOAD.flag") || true) && !MitSeam::Owns("CL-7")) {   // [DaintyLass 0041]
         static std::atomic<int> s_eacByteWrites{ 0 };
         const uintptr_t EacSetting = Globals::BaseAddress + 0x06CFBD44;
         if (IsReadablePointer(reinterpret_cast<void*>(EacSetting), 1)) {
@@ -19944,7 +19964,7 @@ void InitClientHooks() {
     InstallApiHook(L"msvcrt.dll", "exit", MsvcrtExitHook, reinterpret_cast<LPVOID*>(&OrigMsvcrtExit), "msvcrt!exit");
     InstallApiHook(L"msvcrt.dll", "_exit", MsvcrtUnderscoreExitHook, reinterpret_cast<LPVOID*>(&OrigMsvcrtUnderscoreExit), "msvcrt!_exit");
     InstallApiHook(L"msvcrt.dll", "abort", MsvcrtAbortHook, reinterpret_cast<LPVOID*>(&OrigMsvcrtAbort), "msvcrt!abort");
-    if (!VectoredExceptionHandle) {
+    if (!VectoredExceptionHandle && !MitSeam::Owns("EXIT-12")) {   // [DaintyLass 0041]
         VectoredExceptionHandle = AddVectoredExceptionHandler(1, VectoredExceptionTrace);
         MpLog("[ExceptionTrace] (client) AddVectoredExceptionHandler handle=" + MpPtr(VectoredExceptionHandle));
     }
@@ -25377,6 +25397,7 @@ static void InstallServerTickFilter() {
 // over that stack. A reporter still writing UE4Minidump.dmp after 5 s can therefore produce a truncated dump
 // or one with an overwritten exception context. Healthy reporters finished in under 0.8 s.
 static void InstallServerCrashWaitBound() {
+    if (MitSeam::Owns("EXIT-14")) return;   // [DaintyLass 0041]
     if (MpExeRelativeFlagPresent(L"DISABLE_CRASH_WAIT_SHORTEN.flag")) {
         MpLog("[CrashWait] DISABLE_CRASH_WAIT_SHORTEN.flag present -> native 60000 ms crash wait kept");
         return;
@@ -25728,6 +25749,7 @@ static void InstallLoadMgrBeginHook(const char* Role) {
 }
 
 static void StartServerWindowHider() {
+    if (MitSeam::Owns("HL-3")) return;   // [DaintyLass 0041]
     if (MpExeRelativeFlagPresent(L"SHOW_SERVER_WINDOW.flag")) {
         MpLog("[HeadlessServer] window hiding DISABLED by SHOW_SERVER_WINDOW.flag");
         return;
@@ -25847,7 +25869,7 @@ void InitServerHooks() {
     // line: without it the engine's own FCommandLine never carries -nullrhi (see HookFCommandLineGet),
     // so a dedicated hub initialised a hardware D3D11 device even with -nullrhi on the OS line.
     InstallEngineCommandLineHook();
-    MpConfigureServerLocale();
+    if (!MitSeam::Owns("HL-12")) MpConfigureServerLocale();   // [DaintyLass 0041] HL-12: the locale
 
     InstallServerHeadlessSetup();
     // Every server role: no Chromium/CEF (see InstallServerWebBrowserSkip).
@@ -25866,8 +25888,10 @@ void InitServerHooks() {
     InstallApiHook(L"msvcrt.dll", "exit", MsvcrtExitHook, reinterpret_cast<LPVOID*>(&OrigMsvcrtExit), "msvcrt!exit");
     InstallApiHook(L"msvcrt.dll", "_exit", MsvcrtUnderscoreExitHook, reinterpret_cast<LPVOID*>(&OrigMsvcrtUnderscoreExit), "msvcrt!_exit");
     InstallApiHook(L"msvcrt.dll", "abort", MsvcrtAbortHook, reinterpret_cast<LPVOID*>(&OrigMsvcrtAbort), "msvcrt!abort");
-    VectoredExceptionHandle = AddVectoredExceptionHandler(1, VectoredExceptionTrace);
-    MpLog("[ExceptionTrace] AddVectoredExceptionHandler handle=" + MpPtr(VectoredExceptionHandle));
+    if (!MitSeam::Owns("EXIT-12")) {   // [DaintyLass 0041]
+        VectoredExceptionHandle = AddVectoredExceptionHandler(1, VectoredExceptionTrace);
+        MpLog("[ExceptionTrace] AddVectoredExceptionHandler handle=" + MpPtr(VectoredExceptionHandle));
+    }
 
     // UE's top-level crash/exception filter. It calls FPlatformMisc::RequestExit(1),
     // which is the immediate source of the observed code=3 TerminateProcess.
@@ -26422,7 +26446,7 @@ void InitServerHooks() {
     // PlayerController; the first real login starts the match (MpStartMatchWithoutPhantom). Opt-in in 0.2.103-0.2.108,
     // the DeployServer default in 0.2.109, every server role (P2P player hosts too) since 0.2.110, which also removed
     // the phantom workarounds - so a failed byte guard is loud: nothing suppresses a phantom any more. 38_ 19.3-19.4.
-    if (Globals::AuthMode != Globals::ServerAuthMode::Invalid) {
+    if (Globals::AuthMode != Globals::ServerAuthMode::Invalid && !MitSeam::Owns("HL-2")) {   // [DaintyLass 0041]
         static const uint8_t Expected[6] = { 0x0F, 0x84, 0xD3, 0x00, 0x00, 0x00 };     // jz 0x03E0742C
         static const uint8_t Replacement[6] = { 0xE9, 0xD4, 0x00, 0x00, 0x00, 0x90 };  // jmp 0x03E0742C; nop
         const bool Ok = MpPatchBytesVerified(0x03E07353, Expected, Replacement, 6,
@@ -26432,6 +26456,13 @@ void InitServerHooks() {
             ? "APPLIED: this server boots without a game viewport or local player; the first login starts the match"
             : "NOT APPLIED (byte guard failed - see the line above): this server WILL have a phantom local player, and "
               "no phantom suppression exists any more - check the game build"));
+    }
+    else if (Globals::AuthMode != Globals::ServerAuthMode::Invalid) {
+        // [DaintyLass 0041] The MIT runtime owns the patch; what is left here reads whether it took.
+        static const uint8_t Applied[6] = { 0xE9, 0xD4, 0x00, 0x00, 0x00, 0x90 };
+        g_NoLocalPlayerApplied.store(
+            memcmp(reinterpret_cast<const void*>(Globals::BaseAddress + 0x03E07353), Applied, 6) == 0,
+            std::memory_order_relaxed);
     }
 
     // [2026-10-10 1.14.7] Opt-in Blueprint tick filter (SERVER_TICK_FILTER.flag / TICK_FILTER_CENSUS.flag; default: no
@@ -26453,6 +26484,7 @@ void Init() {
 
     Globals::AmServer = std::string(GetCommandLineA()).contains("-server");
     Globals::BaseAddress = (uintptr_t)GetModuleHandleA(nullptr);
+    MitSeam::Attach(Globals::AmServer, Globals::BaseAddress);   // [DaintyLass 0041] before any hook or patch
     InitLog(std::string("[Init] BaseAddress=") + std::to_string(Globals::BaseAddress) + " AmServer=" + (Globals::AmServer ? "1" : "0"));
 
     if (Globals::AmServer) {
@@ -26469,7 +26501,7 @@ void Init() {
     }
 
     // [1.14.7] Runtime-confirmed engine globals.
-    if (Globals::AmServer) {
+    if (Globals::AmServer && MITSEAM_AGPL_RUNS("HL-1")) {   // [DaintyLass 0041]
         *(uint8_t*)(Globals::BaseAddress + 0x06E1EADA) = 0x1; // GIsServer
         *(uint8_t*)(Globals::BaseAddress + 0x06E1EAD9) = 0x0; // GIsClient
     }
