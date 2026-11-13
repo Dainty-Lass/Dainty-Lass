@@ -61,7 +61,7 @@ How to read the tables:
 | Mystic Paradox's hunt-manifest module (new at `21b9ff5`) | `restricted/modules/rustic-isles/reference/1.14.7/shared/hunt-manifest` | Imported by the backend and the Director |
 | Mystic Paradox `ParadoxRuntime/` | `restricted/modules/rustic-isles/native/runtime` | C++, built by each host (`native/paradox-runtime` before DS6) |
 | Mystic Paradox `tools/RuntimeLoader/` | [`native/runtime-loader`](../../native/runtime-loader) | Rewritten clean-room as MIT from [`spec-runtime-loader.md`](spec-runtime-loader.md) (RD27, [`clean-room/runtime-loader.md`](clean-room/runtime-loader.md)); a Rust crate of its own, outside both workspaces (DD13) |
-| Mystic Paradox `tools/CatalogExporter/` | `restricted/modules/rustic-isles/native/catalog-exporter`; [`native/rustic-isles-exporter`](../../native/rustic-isles-exporter) | Loaded into the game through the runtime loader (RD9). Being rewritten clean-room as MIT Rust from [`spec-catalog-exporter.md`](spec-catalog-exporter.md) (RD27): phase 1, the seven catalog exports, is in; the host kit builds the C++ until the cutover |
+| Mystic Paradox `tools/CatalogExporter/` | `restricted/modules/rustic-isles/native/catalog-exporter`; [`native/rustic-isles-exporter`](../../native/rustic-isles-exporter) | Injected by the Host page's export session (RD9 as amended). Rewritten clean-room as MIT Rust from [`spec-catalog-exporter.md`](spec-catalog-exporter.md) (RD27): phase 1, the seven catalog exports, matches the C++ on the real client ([`clean-room/catalog-exporter-diff.md`](clean-room/catalog-exporter-diff.md)) and the Host page builds and loads it; the C++ stays in `restricted/` |
 | Mystic Paradox `ParadoxLauncher/`, `ParadoxTransport/`, its release workflows, `.gitleaks.toml`, `docs/SELF_HOSTING.md` | not taken | Reforged has its own launcher; the ICE transport belongs to Paradox's player-hosted realms |
 | Mystic Paradox top-level `ADDITIONAL_TERMS.md`, `LICENSE`, `NOTICE.md`, `README.md`, `docs/` | `restricted/modules/rustic-isles/<same>` | rustic-isles' top level (`paradox/<same>` before DS6) |
 
@@ -77,6 +77,7 @@ How to read the tables:
 | [`crates/dainty-epic`](../../crates/dainty-epic) | none | New (DE1, DD22, MIT): Epic sign-in, library, manifest and chunk reading, and CDN download | — |
 | [`crates/dainty-history-ship`](../../crates/dainty-history-ship) | none | New (DH4, DD23, MIT): shipping change-log segments and database snapshots to an object-locked S3 bucket or peer log directory and restoring from them | — |
 | [`crates/dainty-store`](../../crates/dainty-store) | DR D10, D11, D21: synchronous Diesel on a blocking pool, embedded migrations | DF7 (DD15): `MultiConnection` over SQLite and Postgres (`connection`, `database`, `engine`, `portable`, `transfer`, `recovery`, `revert`, `declared`), plus DH1/DH3a/DH5 change log and hash chain (`history`, `history/chain.rs`, `history/record.rs`). The 6 SQLite helper modules (`lib.rs`, `adopt.rs`, `backup.rs`, `drizzle.rs`, `readonly.rs`, `snapshot.rs`) were rewritten clean-room from [`spec-store.md`](spec-store.md) as MIT (`DL3b`, [`clean-room/store.md`](clean-room/store.md)) | — |
+| [`crates/dainty-inject`](../../crates/dainty-inject) | none | New (RD9 as amended, MIT): loads hash-checked DLLs into a game started suspended, and the `dainty-inject.exe` helper Wine and Proton run | — |
 | [`crates/dainty-hostkit`](../../crates/dainty-hostkit) | none | New (`DL3b`, MIT, [`clean-room/hostkit.md`](clean-room/hostkit.md)): the 18 born-here host-kit modules moved from `crates/dainty-host` plus the 22 host-kit module groups rewritten clean-room from [`spec-dl3-hostkit.md`](spec-dl3-hostkit.md), leaving `crates/dainty-host` as a thin AGPL binary/legacy/isles adapter shell | — |
 | [`crates/dainty-launcher-kit`](../../crates/dainty-launcher-kit) | none | New (`DL4b`, MIT, [`clean-room/launcher-kit.md`](clean-room/launcher-kit.md)): the born-here launcher modules (`bridge/modules`, `net/regionping`, `net/versions`) plus the 8 launcher module groups (`bridge/types`, `net/http`, `net/runtime_files`, `net/verify`, `platform/{hostkit,hostserver,requirements,loader_session,dialogs}`) rewritten clean-room from [`spec-dl4-launcher.md`](spec-dl4-launcher.md) | — |
 | [`crates/dainty-network`](../../crates/dainty-network) | none | New (DN2–DN5, DH7, MIT): node CA/certificates (`cluster`), directory (`directory`), home-server API and session tickets (`home`), replication (`replication`) and peer log shipping (`logship`) | — |
@@ -179,7 +180,7 @@ rewritten clean-room into [`crates/dainty-manager-server`](../../crates/dainty-m
 | `main/engineini.ts`, `display-repair.ts`, `game-folder.ts`, `launch.ts` | `platform/game_config.rs`, `game_folder.rs`, `launch.rs` | the same | Engine.ini XMPP section to the relay, Game.ini `[OnlineSubsystemPhoenix]` removed; Legendary, Heroic, Epic or a folder; the 1.14.7 command line with `REFORGED_BACKEND_URL` |
 | `main/links.ts` | `platform/links.rs` | the same | Reforged's URLs |
 | `main/hostkit.ts`, `hostserver.ts`, `requirements.ts` | — | `platform/hostkit.rs` (+ `parse.rs`), `hostserver.rs`, `requirements.rs` | New: the Host page drives `reforged-host` from the release (RD23) |
-| `main/injector.ts` | — | `platform/loader_session.rs` | Not ported as written: the runtime loader's `mystic_loader.ini` loads the host's chosen DLL (RD9) |
+| `main/injector.ts` | — | `platform/inject.rs`, [`crates/dainty-inject`](../../crates/dainty-inject); `platform/loader_session.rs` for Proton's loader | Written here, not from `injector.ts`: the launcher injects only into the game it started suspended, with hashed DLLs (RD9 as amended, [`launcher-injection.md`](../launcher-injection.md)) |
 | `main/revived/` (nine files) | `net/autoregion.rs`, `platform/client_mods.rs`, `core/manifest.rs`, `manifest_check.rs`, `net/downloader.rs` | dropped | DR's 1.4.4 servers (RD5); the downloader went with them (RD22) |
 | — | `offline/`, `controller/offline.rs` | dropped | Reforged has no offline mode |
 | — | `platform/linux_runtime.rs`, `platform/updater.rs` | the same | Kept for RA10 (Proton) and RA14 (updates) |
@@ -227,13 +228,16 @@ Each patch's current state (kept, reduced, dropped because upstream now does the
   `platform/client_mods.rs`, the 1.4.4 manifest and DLL pins, `net/downloader.rs`, device signals, the DirectX check.
 - DR's offline mode (`offline/`, `controller/offline.rs`), the `DRK2` key format and the `DR_*` allowlist names.
 - Mystic Paradox's launcher and ICE transport, release workflows and self-hosting guide.
-- Reforged's `injector.ts` (RD9) and `ReforgedHost/src/upstream.ts` (RP4).
+- Reforged's `ReforgedHost/src/upstream.ts` (RP4).
 
 ### 2.10 New here, with no upstream
 
 The admin service ([`crates/dainty-admin`](../../crates/dainty-admin), RD25); the whole host kit; the runtime manifest
 and download (`content/src/runtime.rs`, launcher `net/runtime_files.rs`); the Host page backend and the loader session
-(`platform/hostkit.rs`, `hostserver.rs`, `requirements.rs`, `loader_session.rs`); `protocol/src/text.rs`; the
+(`platform/hostkit.rs`, `hostserver.rs`, `requirements.rs`, `loader_session.rs`); the injector
+([`crates/dainty-inject`](../../crates/dainty-inject), the launcher's `platform/inject.rs` and the Director's
+`runtime`, RD9 as amended in [`launcher-injection.md`](../launcher-injection.md) and
+[`director-injection.md`](../director-injection.md)); `protocol/src/text.rs`; the
 nftables backend as Reforged wrote it; the fuzz targets and the `docs/security/` checklists; `host.toml`;
 `docker/`, `compose.yaml`, `compose.tailscale.yaml` and `.env.example` at the root, MIT and written clean-room from
 [`spec-docker.md`](spec-docker.md) (RD27); restricted's copies stay until their oracle runs retire them.

@@ -38,6 +38,8 @@ shell, the Tauri launcher, the runtime loader and the 1.4.4 importer) and their 
 | Rustic Isles shadow replay (`crates/rustic-isles-replay`) | [docs/security/rustic-isles-replay.md](docs/security/rustic-isles-replay.md) | `rustic_isles_replay_input.rs` | RD27 |
 | Rustic Isles store layer (`crates/rustic-isles-store`) | [docs/security/rustic-isles-store.md](docs/security/rustic-isles-store.md) | `rustic_isles_store_decode.rs` | RD27 |
 | Catalog exporter (`native/rustic-isles-exporter`) | [docs/security/catalog-exporter.md](docs/security/catalog-exporter.md) | `catalog_exporter_input.rs` | RD27 |
+| Launcher injection (`crates/dainty-inject`, launcher `platform/inject.rs`) | [docs/security/launcher-injection.md](docs/security/launcher-injection.md) | `inject_helper_args.rs` | RD9 |
+| Director injection (`rustic_isles_director::runtime`) | [docs/security/director-injection.md](docs/security/director-injection.md) | `director_runtime_manifest.rs` | RD9 |
 | Manager's embedded server (`crates/dainty-manager-server`) | [docs/security/manager-server.md](docs/security/manager-server.md) | none (T-8) | RD27 |
 
 Fuzz targets with no checklist row yet: `relay_signal.rs`, `runtime_input.rs`, `launcher_host.rs`.

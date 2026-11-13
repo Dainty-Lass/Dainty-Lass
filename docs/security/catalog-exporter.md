@@ -22,8 +22,9 @@ game state that may be half-built, freed or changing while it reads, so no point
   Dumper-7 SDK (`DAINTY_SDK_DIR`).
 - **Out:** files under `Items_Analysis` (fixed names, spec §6), the appended status file, the debugger output, and
   one call into game code (`GetAllItems` through `ProcessEvent`).
-- **Who runs it:** the runtime loader, when the Host page's export session lists it in `mystic_loader.ini` (RD9), or
-  a host by hand on their own client. The launcher never injects it.
+- **Who runs it:** the Host page's export session, which injects it into the game it started suspended on Windows,
+  or lists it in `mystic_loader.ini` for Proton's loader (RD9 as amended, `docs/launcher-injection.md`), or a host
+  by hand on their own client.
 
 Code: `native/rustic-isles-exporter/src/` (`engine.rs`, `memory.rs`, `flags.rs`, `paths.rs`, `status.rs`, `json.rs`,
 `run.rs`, `export/`, `sdk_parse.rs`, `facts.rs`), `build.rs`, and the DLL's `dll/src/sys.rs`.

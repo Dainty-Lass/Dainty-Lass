@@ -79,9 +79,10 @@ Dainty Lass separates **core plugins** from **game modules** ([`crates/dainty-mo
    a ban with its reason).
 4. **The runtime.** The content server lists the host's build of `Rustic-Isles.dll` and `winmm.dll` with sizes
    and SHA-256s (`/content/v1/runtime/manifest`). The launcher shows them, the player accepts them once, and
-   every launch checks the files again. The launcher never injects: the DLL reaches the game only through the
-   loader's `mystic_loader.ini`, and PLAY refuses to start while a leftover ini or an unknown DLL sits beside
-   the loader.
+   every launch checks the files again. The launcher starts the game suspended and injects the checked
+   runtime before it runs (RD9 as amended, [launcher-injection.md](launcher-injection.md)); under Proton the
+   loader or the inject helper does. PLAY refuses a leftover ini, a Host tools DLL or a loader that would load
+   the runtime a second time.
 5. **Play.** The launcher starts Dauntless 1.14.7 with `-AUTH_PASSWORD=<key>` and `DAINTY_BACKEND_URL`
    pointing at its relay. The relay carries the game's HTTP and chat to the gateway and answers the game's
    region ping (`/QoS`) locally; the game only ever sees `127.0.0.1:61100`. The backend runs Rustic Isles
