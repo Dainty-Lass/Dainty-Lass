@@ -91,8 +91,8 @@ pub struct WorkspacePaths {
     pub loader_dir: PathBuf,
     /// The built loader (`winmm.dll`), from the MSVC target folder unless only a plain release build exists.
     pub loader_dll: PathBuf,
-    /// The CatalogExporter's project file.
-    pub exporter_project: PathBuf,
+    /// The CatalogExporter's crate, the MIT clean-room one (`native/rustic-isles-exporter`, spec-catalog-exporter 9).
+    pub exporter_crate: PathBuf,
     /// The built CatalogExporter DLL.
     pub exporter_dll: PathBuf,
     /// The backend's game-data folder.
@@ -138,12 +138,6 @@ impl WorkspacePaths {
             isles.join("native").join("runtime")
         } else {
             root.join("native").join("runtime")
-        };
-
-        let exporter_dir = if has_isles {
-            isles.join("native").join("catalog-exporter")
-        } else {
-            root.join("native").join("catalog-exporter")
         };
 
         let loader_dir = if root.join("native").join("runtime-loader").is_dir() {
@@ -200,8 +194,12 @@ impl WorkspacePaths {
         let sdk_dir = runtime_source.join("SDK");
         let runtime_solution = runtime_source.join("Rustic-Isles.sln");
         let runtime_dll = runtime_source.join("x64").join("Release").join("Rustic-Isles.dll");
-        let exporter_project = exporter_dir.join("CatalogExporter.vcxproj");
-        let exporter_dll = exporter_dir.join("x64").join("Release").join("CatalogExporter.dll");
+        let exporter_crate = root.join("native").join("rustic-isles-exporter");
+        let exporter_dll = exporter_crate
+            .join("target")
+            .join(EXPORTER_TARGET)
+            .join("release")
+            .join("CatalogExporter.dll");
         let exports = paradox.join("Items_Analysis");
         let mut export_roots = vec![isles.join("Items_Analysis"), root.join("Items_Analysis")];
         export_roots.dedup();
@@ -219,7 +217,7 @@ impl WorkspacePaths {
             runtime_dll,
             loader_dir,
             loader_dll,
-            exporter_project,
+            exporter_crate,
             exporter_dll,
             backend_game_data,
             director_game_data,
@@ -315,6 +313,24 @@ pub fn newest_exports(candidates: &[PathBuf], since: Option<SystemTime>) -> Opti
         })
         .max_by_key(|(written, _)| *written)
         .map(|(_, dir)| dir.clone())
+}
+
+/// The target the CatalogExporter DLL is built for: it runs inside the Windows game.
+pub const EXPORTER_TARGET: &str = "x86_64-pc-windows-msvc";
+
+/// `cargo` arguments that build the CatalogExporter DLL.
+#[must_use]
+pub fn exporter_build_args() -> Vec<String> {
+    [
+        "build",
+        "--release",
+        "--target",
+        EXPORTER_TARGET,
+        "-p",
+        "catalog-exporter-dll",
+    ]
+    .map(str::to_owned)
+    .to_vec()
 }
 
 /// Locates `dainty-host` inside `root` (`<root>/<HOST_BINARY>`, `<root>/bin/<HOST_BINARY>`,
@@ -794,6 +810,17 @@ pub fn import_sdk(dump_dir: &Path, runtime_source: &Path) -> Result<SdkImport, S
 
 /// Runs `program` with `args` in `cwd`, writing output to `log_file` and returning the exit code and last line.
 pub async fn run_logged(program: &Path, args: &[String], cwd: &Path, log_file: &Path) -> Logged {
+    run_logged_env(program, args, cwd, log_file, &[]).await
+}
+
+/// [`run_logged`] with variables set (`Some`) or removed (`None`) for the child.
+pub async fn run_logged_env(
+    program: &Path,
+    args: &[String],
+    cwd: &Path,
+    log_file: &Path,
+    env: &[(&str, Option<&Path>)],
+) -> Logged {
     if let Some(parent) = log_file.parent() {
         let _ = std::fs::create_dir_all(parent);
     }
@@ -811,6 +838,13 @@ pub async fn run_logged(program: &Path, args: &[String], cwd: &Path, log_file: &
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());
+
+    for (name, value) in env {
+        match value {
+            Some(value) => cmd.env(name, value),
+            None => cmd.env_remove(name),
+        };
+    }
 
     let mut child = match cmd.spawn() {
         Ok(c) => c,
@@ -893,6 +927,12 @@ mod tests {
         let paths = WorkspacePaths::new(root);
         assert_eq!(paths.runtime_source, root.join("modules/rustic-isles/native/runtime"));
         assert_eq!(paths.host_toml, root.join(".workspace/config/host.toml"));
+        // The MIT exporter, whatever the module layout (spec-catalog-exporter 9)
+        assert_eq!(paths.exporter_crate, root.join("native/rustic-isles-exporter"));
+        assert_eq!(
+            paths.exporter_dll,
+            root.join("native/rustic-isles-exporter/target/x86_64-pc-windows-msvc/release/CatalogExporter.dll")
+        );
     }
 
     #[test]
