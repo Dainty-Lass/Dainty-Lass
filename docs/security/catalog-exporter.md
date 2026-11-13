@@ -21,7 +21,8 @@ game state that may be half-built, freed or changing while it reads, so no point
   (`export_flags.txt` under the build's export root, else the game's working folder), and at build time the host's
   Dumper-7 SDK (`DAINTY_SDK_DIR`).
 - **Out:** files under `Items_Analysis` (fixed names, spec §6), the appended status file, the debugger output, and
-  one call into game code (`GetAllItems` through `ProcessEvent`).
+  calls into game code through `ProcessEvent`: `GetAllItems`, and with `EXPORT_WEAPON_SLOTS` each live weapon's
+  `GetItemPartSlots`, `GetEquippedItemParts` and `IsItemPartSlotLocked` (spec §4.2, §6.3).
 - **Who runs it:** the Host page's export session, which injects it into the game it started suspended on Windows,
   or lists it in `mystic_loader.ini` for Proton's loader (RD9 as amended, `docs/launcher-injection.md`), or a host
   by hand on their own client.
@@ -46,8 +47,11 @@ Fuzz target in `fuzz`:
 - [ ] The worker runs under `catch_unwind` with `panic = "unwind"`: a panic ends the export, not the game.
 - [ ] It writes no game memory. The parameter block it hands `ProcessEvent` is its own buffer; the function's flags
       are not touched.
-- [ ] The only call into game code is `UArchonCatalog::GetAllItems` (spec §4.2). Weapon slots, cells and the
-      string-table functions are not carried; their flags are refused (`run.rs`, `Step::Refused`).
+- [ ] The only calls into game code are `UArchonCatalog::GetAllItems` and, for weapon slots, the three
+      `UArchonInventoryItem_Weapon` getters (spec §4.2; `export/weapons.rs`). Each parameter block is the
+      exporter's own buffer sized from the SDK; a returned array is read only through `Memory::read`, its count
+      bounded to 4,096. Cells and the string-table functions are not carried; their flags are refused (`run.rs`,
+      `Step::Refused`).
 - [ ] Every read goes through `Memory::read`; in the game that is `ReadProcessMemory` on the own process, so an
       unmapped or freed page fails the read instead of faulting. A row with a failed read is skipped with a status
       line; a failed string, name or text read gives empty text (spec §4.4, §12 call 4).
@@ -70,7 +74,9 @@ Fuzz target in `fuzz`:
 
 - [ ] `build.rs` reads only `.hpp` files under `DAINTY_SDK_DIR` (six levels deep) and writes only `OUT_DIR`; the
       generated layout holds numbers (offsets, sizes, enum values), never SDK text, and is never committed.
-- [ ] A missing fact stops the build and names each one (`build.rs`, `fail`).
+- [ ] A missing fact stops the build and names each one (`build.rs`, `fail`), except a weapon-slot fact
+      (`facts.rs` `WEAPON_FACTS`): that one is a build warning, and the DLL refuses the file needing it with a
+      status line naming it, so a wrong guess there never costs the phase-1 exports.
 - [ ] `fixtures/synthetic-sdk` is made up (its first line says so) and holds no layout from a game.
 
 ## Sign-off

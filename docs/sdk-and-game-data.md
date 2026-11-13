@@ -58,7 +58,9 @@ rebuilt runtime has new hashes, and players are asked again.
 
 The CatalogExporter (`modules/rustic-isles/native/catalog-exporter`, built with `_build.bat` against the same SDK) runs inside the
 game, loaded through the runtime loader like the runtime, and writes the catalogs the backend needs into
-`modules/rustic-isles/reference/1.14.7/Items_Analysis/`. The progression export comes from the game the same way. Then:
+`modules/rustic-isles/reference/1.14.7/Items_Analysis/`. The progression export comes from the game the same way, and
+so does `weapon_slots_1_14_7.jsonl` (the live weapons' part slots): when it covers every starter weapon, the server
+takes the starter kit's default weapon parts from it instead of the shipped ones (ruling V-4). Then:
 
 ```powershell
 bin\dainty-host gamedata                         # generate ParadoxBackend\game-data and ParadoxDirector\game-data in modules\rustic-isles\reference\1.14.7

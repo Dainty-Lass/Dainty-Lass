@@ -270,7 +270,9 @@ impl Sdk {
         Err(format!("no member {name} in {owner} or its parents"))
     }
 
-    /// `Struct.Member`, `Struct.Array[].Member`, `Struct.Embedded.Member`; `@text` matches a member by its type.
+    /// `Struct.Member`, `Struct.Array[].Member`, `Struct.Embedded.Member`, `Class.Pointer*.Member` (the offset is then
+    /// the pointee's); `@text` matches a member by its type. An array of object pointers gives `[]` the pointee's
+    /// offsets, its `elem` saying so.
     pub fn resolve(&self, path: &str) -> Result<Member, String> {
         let mut segments = path.split('.');
         let mut owner = segments
@@ -289,9 +291,26 @@ impl Sdk {
                 Some(name) => (name, true),
                 None => (*segment, false),
             };
+            let (name, deref) = match name.strip_suffix('*') {
+                Some(name) => (name, true),
+                None => (name, false),
+            };
             let field = self.find_field(&owner, name).map_err(|e| format!("{path}: {e}"))?;
             let offset = base.saturating_add(field.offset);
-            if element {
+            if deref {
+                let inner = bare_type(&field.ty);
+                if element || last || !field.ty.ends_with('*') {
+                    return Err(format!(
+                        "{path}: {name}* needs an object pointer before a member ({})",
+                        field.ty
+                    ));
+                }
+                if !self.structs.contains_key(&inner) {
+                    return Err(format!("{path}: pointee {inner} of {name} is not in the SDK"));
+                }
+                owner = inner;
+                base = 0;
+            } else if element {
                 let inner = template_args(&field.ty, "TArray")
                     .and_then(|args| args.first().map(|arg| bare_type(arg)))
                     .ok_or_else(|| format!("{path}: {name} is not a TArray ({})", field.ty))?;
@@ -737,6 +756,23 @@ public:
 	class UObject*                                Thing;                                             // 0x0088(0x0008)(Edit)
 	TSoftObjectPtr<class UObject>                 Asset;                                             // 0x0090(0x0028)(Edit)
 };
+
+// Class Test.Thing
+// 0x0010 (0x0038 - 0x0028)
+class UThing : public UObject
+{
+public:
+	class FString                                 Label;                                             // 0x0028(0x0010)(Edit)
+};
+
+// Class Test.Holder
+// 0x0018 (0x0040 - 0x0028)
+class UHolder : public UObject
+{
+public:
+	class UThing*                                 One;                                               // 0x0028(0x0008)(Edit)
+	TArray<class UThing*>                         Many;                                              // 0x0030(0x0010)(Edit)
+};
 "#;
 
     fn sample() -> Sdk {
@@ -770,6 +806,20 @@ public:
         assert_eq!(sdk.resolve("FRow.Asset").unwrap().kind, Kind::SoftPtr);
         assert_eq!(sdk.resolve("FRow.@TArray").unwrap().offset, 0x20);
         assert_eq!(sdk.size("FRow").unwrap(), 0xA0);
+    }
+
+    #[test]
+    fn follows_object_pointers() {
+        let sdk = sample();
+        assert_eq!(
+            sdk.resolve("UHolder.One*.Label").unwrap(),
+            Member::plain(0x28, 16, Kind::Str)
+        );
+        let many = sdk.resolve("UHolder.Many").unwrap();
+        assert_eq!((many.offset, many.elem, many.stride), (0x30, Kind::ObjPtr, 8));
+        assert_eq!(sdk.resolve("UHolder.Many[].Label").unwrap().offset, 0x28);
+        assert!(sdk.resolve("UHolder.One*").is_err(), "ends in *");
+        assert!(sdk.resolve("FRow.Label*.Id").is_err(), "not a pointer");
     }
 
     #[test]

@@ -1,5 +1,5 @@
-//! The phase-1 exports (spec §9 scope call) and what they share: the files, the table pattern (§6.5) and the shapes
-//! several tables use (handles, tags, tag queries, soft paths).
+//! The phase-1 exports (spec §9 scope call), weapon slots (§6.3, ruling V-4) and what they share: the files, the
+//! table pattern (§6.5) and the shapes several tables use (handles, tags, tag queries, soft paths).
 
 pub mod catalog;
 pub mod hunts;
@@ -7,6 +7,7 @@ pub mod mastery;
 pub mod progression;
 pub mod slayers;
 pub mod store;
+pub mod weapons;
 
 use std::fs::File;
 use std::io::{BufWriter, Write as _};

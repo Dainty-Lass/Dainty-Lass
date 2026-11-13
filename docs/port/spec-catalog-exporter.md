@@ -65,8 +65,8 @@ The DLL runs **inside the game process**, loaded by the Host page's export sessi
    `EXPORT_FLAGS` in `platform/hostkit/parse.rs`): a comment line
    `# Written by the Dainty Lass launcher (Host page). See docs/sdk-and-game-data.md.`, then
    `EXPORT_CATALOG=1`, `EXPORT_SLAYERS_PATH=1`, `EXPORT_HUNTS=1`, `EXPORT_STORE_RUNTIME=1`, `EXPORT_PROGRESSION=1`,
-   and `=0` for `EXPORT_COMBAT`, `EXPORT_SKINS`, `EXPORT_SKINS_RESOLVE_STRINGTABLE`, `EXPORT_WEAPON_SLOTS`,
-   `EXPORT_TABLE_INVENTORY`, `EXPORT_CELLS`, `EXPORT_DROP_TABLES`, `EXPORT_CURRENCY_NAMES`. `EXPORT_MASTERY` is absent,
+   `EXPORT_WEAPON_SLOTS=1` (ruling V-4), and `=0` for `EXPORT_COMBAT`, `EXPORT_SKINS`,
+   `EXPORT_SKINS_RESOLVE_STRINGTABLE`, `EXPORT_TABLE_INVENTORY`, `EXPORT_CELLS`, `EXPORT_DROP_TABLES`, `EXPORT_CURRENCY_NAMES`. `EXPORT_MASTERY` is absent,
    so it is off (section 3.2);
 2. starts the game as PLAY starts it (connected to the host's own server, so the player can reach Ramsgate). On
    Windows it starts it suspended and injects the runtime, then `CatalogExporter.dll`, before it runs. Under Proton
@@ -806,7 +806,9 @@ a log, appended across runs, and nothing reads it but a person.
 | everything else | nobody: research exports | |
 
 Every reader drops a trailing `\r`, so CRLF is safe. The Host page's flags (2.2) turn on exactly the five services'
-exports plus progression, not mastery.
+exports plus progression and weapon slots, not mastery. `weapon_slots_1_14_7.jsonl` is read by `rustic-isles-1-14-7`
+`export::default_weapon_parts` (`itemId`, `slots[].defaultWeaponPartId`) for `starterKit.defaultWeaponParts`
+(ruling V-4).
 
 ## 8. `version_data.json`: what is exported and what is authored
 
@@ -1034,6 +1036,13 @@ Record in the report only file names, verdicts and row counts.
 5. Whether any export session can load the Slayer's Path, hunt, store and mastery tables before the catalog appears
    (3.1); the guide's instructions do not match the code's timing.
 6. `SheenType: 73` and `BN_SIGIL_BEGINNER_00` in the version data (8).
+7. Weapon slots (6.3) name few members. The MIT exporter's readings: each function returns its array as its one
+   `TArray` parameter; `slotIndex` is the position in that array; a slot's default part is `DefaultWeaponPartId` (a
+   name or string, or a struct whose `ItemId` is); `IsItemPartSlotLocked` takes the part type as its one
+   `EWeaponPartType` parameter; `ownerWeaponType` is the part's `OwnerWeaponType` or `WeaponType`; `isUnassignable`
+   is `bIsUnassignable`; the loadout view model's item, slots and candidates are object pointers (`ItemViewModel`,
+   `PartSlots`, `PartCandidates`); enumerator names match in any case. `facts.rs` `WEAPON_FACTS` lists the spellings
+   it tries, and the first real build's warnings settle them. No 6.3 field uses the cell type names (6.4).
 
 **Open questions for the maintainer**:
 

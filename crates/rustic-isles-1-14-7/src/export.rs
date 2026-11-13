@@ -183,6 +183,30 @@ mod tests {
         assert_eq!(doc["starterKit"]["instanced"][4], json!("PART_B_NEW"));
     }
 
+    /// Two lines byte for byte as the MIT exporter writes them, CRLF included (`native/rustic-isles-exporter`,
+    /// `tests/weapons.rs`): an unset slot reads `None`, and a slot's default may already be in the kit.
+    const EXPORTER_LINES: &str = concat!(
+        r#"{"itemId":"WP_TEST_SWORD","instanceId":"inst-1","weaponType":1,"slots":[{"slotIndex":0,"weaponPartType":7,"weaponPartTypeName":"eb_special","defaultWeaponPartId":"PART_TEST_SPECIAL_DEFAULT","catalogLocked":false,"hideFromUI":false,"effectiveLocked":false},{"slotIndex":1,"weaponPartType":8,"weaponPartTypeName":"eb_passive","defaultWeaponPartId":"None","catalogLocked":true,"hideFromUI":true,"effectiveLocked":true}],"equippedParts":[{"slotIndex":0,"weaponPartType":7,"weaponPartTypeName":"eb_special","weaponPartId":"PART_TEST_SPECIAL_DEFAULT"}]}"#,
+        "\r\n",
+        r#"{"itemId":"WP_TEST_AXE","instanceId":"","weaponType":2,"slots":[{"slotIndex":0,"weaponPartType":32,"weaponPartTypeName":"soul","defaultWeaponPartId":"PART_TEST_SOUL","catalogLocked":false,"hideFromUI":false,"effectiveLocked":false},{"slotIndex":1,"weaponPartType":99,"weaponPartTypeName":"unknown","defaultWeaponPartId":"None","catalogLocked":false,"hideFromUI":false,"effectiveLocked":false}],"equippedParts":[]}"#,
+        "\r\n",
+    );
+
+    #[test]
+    fn reads_the_exporters_own_lines() {
+        let mut doc = json!({ "starterKit": {
+            "instanced": ["WP_TEST_AXE", "WP_TEST_SWORD", "PART_TEST_SOUL"],
+            "defaultWeaponParts": ["PART_OLD"],
+        }});
+        let note = default_weapon_parts(&mut doc, EXPORTER_LINES);
+        assert!(note.contains("1 added to the kit: PART_TEST_SPECIAL_DEFAULT"), "{note}");
+        // In the kit's weapon order, not the export's.
+        assert_eq!(
+            doc["starterKit"]["defaultWeaponParts"],
+            json!(["PART_TEST_SOUL", "PART_TEST_SPECIAL_DEFAULT"])
+        );
+    }
+
     #[test]
     fn a_partial_export_leaves_the_facts() {
         let mut doc = facts();

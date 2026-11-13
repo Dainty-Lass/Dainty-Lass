@@ -122,6 +122,39 @@ fn runs_the_enabled_exports_and_writes_the_manifest() {
 }
 
 #[test]
+fn runs_the_weapon_slot_export_after_the_catalog() {
+    let (world, fake) = catalog_world();
+    let flags = Flags::parse(b"EXPORT_CATALOG=1\r\nEXPORT_WEAPON_SLOTS=1\r\n");
+    let out = temp_dir("run-weapons");
+    let dir = out.clone();
+    let output = move || -> PathBuf { dir.clone() };
+    let sleep = |_: Duration| {};
+    let now = || NOW;
+    let host = Host {
+        out: &output,
+        debug: no_debug,
+        sleep: &sleep,
+        now: &now,
+    };
+    let engine = world.engine(&fake);
+    run::run(&engine, &flags, &host).unwrap();
+    let log = status_text(&out);
+    let lines: Vec<&str> = log.split("\r\n").collect();
+    let at = |prefix: &str| lines.iter().position(|line| line.starts_with(prefix)).unwrap();
+    assert!(at("catalog DONE") < at("weapon-slots: UArchonInventoryItem_Weapon class unavailable"));
+    assert!(at("loadout-gear-ui: wrote 0 rows") < at("EXPORT_CELLS=0, skipping"));
+    assert!(
+        lines
+            .iter()
+            .any(|line| line.starts_with("ALL DONE catalog=1 equipment=0 weaponSlots=0 "))
+    );
+    let manifest = read(&out.join(MANIFEST));
+    assert!(manifest.contains("\"EXPORT_WEAPON_SLOTS\": true,"), "{manifest}");
+    assert!(manifest.contains("\"liveWeaponSlotItems\": 0,"), "{manifest}");
+    assert_eq!(read(&out.join("weapon_slots_1_14_7.jsonl")), "");
+}
+
+#[test]
 fn times_out_when_the_catalog_never_appears() {
     let world = World::new();
     let out = temp_dir("timeout");

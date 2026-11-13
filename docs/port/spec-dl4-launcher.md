@@ -477,7 +477,7 @@ Inspects a Dainty Lass checkout ("workspace"), discovers the host toolchain (Vis
 - `pub const RUNTIME_FILE_NAMES: [&str; 2] = ["Rustic-Isles.dll", "winmm.dll"]`
 - `pub const BACKEND_GAME_DATA: [&str; 7] = ["progression_config.json", "slayers_path.json", "slayers_path_definitions.json", "ladyluck_store.json", "platinum_store.json", "reward_cache_store.json", "inventory_storage_policy.json"]`
 - `pub const DIRECTOR_GAME_DATA: [&str; 7] = ["player_hunts_table.json", "matchmaker_hunts_table.json", "arena_easy_matchmaker_hunts.json", "arena_hard_matchmaker_hunts.json", "arena_elite_matchmaker_hunts.json", "arena_hard_matchmaker_hunts_new.json", "arena_elite_matchmaker_hunts_new.json"]`
-- `pub const EXPORT_FLAGS: &str = "# Written by the Dainty Lass launcher (Host page). See docs/sdk-and-game-data.md.\r\nEXPORT_CATALOG=1\r\nEXPORT_SLAYERS_PATH=1\r\nEXPORT_HUNTS=1\r\nEXPORT_STORE_RUNTIME=1\r\nEXPORT_PROGRESSION=1\r\nEXPORT_COMBAT=0\r\nEXPORT_SKINS=0\r\nEXPORT_SKINS_RESOLVE_STRINGTABLE=0\r\nEXPORT_WEAPON_SLOTS=0\r\nEXPORT_TABLE_INVENTORY=0\r\nEXPORT_CELLS=0\r\nEXPORT_DROP_TABLES=0\r\nEXPORT_CURRENCY_NAMES=0\r\n"`
+- `pub const EXPORT_FLAGS: &str = "# Written by the Dainty Lass launcher (Host page). See docs/sdk-and-game-data.md.\r\nEXPORT_CATALOG=1\r\nEXPORT_SLAYERS_PATH=1\r\nEXPORT_HUNTS=1\r\nEXPORT_STORE_RUNTIME=1\r\nEXPORT_PROGRESSION=1\r\nEXPORT_COMBAT=0\r\nEXPORT_SKINS=0\r\nEXPORT_SKINS_RESOLVE_STRINGTABLE=0\r\nEXPORT_WEAPON_SLOTS=1\r\nEXPORT_TABLE_INVENTORY=0\r\nEXPORT_CELLS=0\r\nEXPORT_DROP_TABLES=0\r\nEXPORT_CURRENCY_NAMES=0\r\n"`
 - `pub const DUMPER_OUTPUT_ROOT: &str = "C:\\Dumper-7"`
 - `pub const HOST_BINARY: &str = "reforged-host.exe"` (Windows) / `"reforged-host"` (non-Windows)
 - `pub const MAX_MULTIPLIER: f64 = 100.0` (in `parse.rs`)
