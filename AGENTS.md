@@ -22,7 +22,7 @@ dependencies.
 
 | Path | What it is |
 | --- | --- |
-| root | The MIT cargo workspace, every package in `crates/<package name>`: the libraries (`dainty-controller`, `dainty-module-api`, `dainty-epic`, `dainty-history-ship`, `dainty-host` (the host kit composed with the services and the 1.14.7 module), `dainty-hostkit`, `dainty-launcher-kit`, `dainty-plugin-host`, `dainty-protocol`, `dainty-proxy`, `dainty-remote`, `dainty-service-kit`, `dainty-service-plugin`, `dainty-store`), the services (`dainty-admin`, `dainty-gateway`, `dainty-content`), the core plugins (`dainty-network`, `dainty-chat`), the `*-plugin` libraries (`dainty-gateway-plugin`, `dainty-content-plugin`, `dainty-chat-plugin`, `rustic-isles-1-14-7-plugin`), the realms crates (`rustic-rifts-seam`, `rustic-rifts-admission`, `rustic-rifts-relay`, `rustic-rifts-realms`, `rustic-rifts-guard`, `rustic-rifts-transport`, `rustic-rifts-host`), the game module (`rustic-isles` and its areas `rustic-isles-*`, composed for 1.14.7 by `rustic-isles-1-14-7`) and `dainty-lass`, the core binary. `backend` and `director` are RR1's empty stubs, superseded by the `rustic-isles` crates |
+| root | The MIT cargo workspace, every package in `crates/<package name>`: the libraries (`dainty-controller`, `dainty-module-api`, `dainty-epic`, `dainty-history-ship`, `dainty-host` (the host kit composed with the services and the 1.14.7 module), `dainty-hostkit`, `dainty-inject`, `dainty-launcher-kit`, `dainty-plugin-host`, `dainty-protocol`, `dainty-proxy`, `dainty-remote`, `dainty-service-kit`, `dainty-service-plugin`, `dainty-store`), the services (`dainty-admin`, `dainty-gateway`, `dainty-content`), the core plugins (`dainty-network`, `dainty-chat`), the `*-plugin` libraries (`dainty-gateway-plugin`, `dainty-content-plugin`, `dainty-chat-plugin`, `rustic-isles-1-14-7-plugin`), the realms crates (`rustic-rifts-seam`, `rustic-rifts-admission`, `rustic-rifts-relay`, `rustic-rifts-realms`, `rustic-rifts-guard`, `rustic-rifts-transport`, `rustic-rifts-host`), the game module (`rustic-isles` and its areas `rustic-isles-*`, composed for 1.14.7 by `rustic-isles-1-14-7`) and `dainty-lass`, the core binary. `backend` and `director` are RR1's empty stubs, superseded by the `rustic-isles` crates |
 | `fuzz/` | `cargo fuzz` targets for the MIT crates, a workspace of its own (excluded from the main one) |
 | `ui/` | dainty-dash: the staff dashboard, the launcher and server-manager pages `restricted/`'s Tauri shells serve, and the fleet agent. MIT; its generated bridge types come from `restricted/` at build time (`bun run restricted-data`) |
 | `launcher/` | The launcher's JavaScript side (RD27): the isolation hook, the scripts the Tauri shells and the release run, and their tests. The Rust shell (`restricted/launcher/src-tauri`) is in `restricted/` |
@@ -129,8 +129,11 @@ Rules that read like overcaution:
 - **Secrets and keys are never logged.** Keep the redaction in the gateway, the launcher and the content server.
 - **The invite parser accepts nothing it doesn't recognise.** `dauntless-revived://` is a typed refusal (RD5), not
   a second path.
-- **The launcher never injects** (RD9). DLLs reach the game only through the runtime loader's
-  `mystic_loader.ini`, and PLAY refuses to start while a leftover ini or unknown DLL sits next to the loader.
+- **Inject only into a game this process just started** (RD9, amended 2026-11-12 and 13). The launcher and the
+  Director start the game suspended, load only DLLs they chose by absolute path with checked hashes, and kill it
+  rather than resume it half-loaded. PLAY still refuses a leftover `mystic_loader.ini`, a Host tools DLL, or a
+  `winmm.dll` that doesn't stand down for an injected game (`docs/launcher-injection.md`,
+  ``docs/director-injection.md`).
 
 ## Nothing from the game is committed
 
@@ -227,8 +230,10 @@ Not obvious from reading the suites:
 
 The runtime loader (`native/runtime-loader`) and the catalog exporter (`native/rustic-isles-exporter`) are the only
 native code outside `restricted/`. An upstream change to either reaches it through its spec, never as a patch. The
-game runtime and the C++ CatalogExporter the host kit still builds are in `restricted/`, and `restricted/AGENTS.md`
-says how a runtime patch is applied. The realm transport is built into the launcher (`rustic-rifts-transport`).
+launcher and the Director inject the runtime (`crates/dainty-inject`, and its `dainty-inject.exe` helper under Wine
+and Proton); the loader remains for Proton players who keep it, and stands down for an injected game. The game
+runtime and the C++ CatalogExporter are in `restricted/`, and `restricted/AGENTS.md` says how a runtime patch is
+applied. The realm transport is built into the launcher (`rustic-rifts-transport`).
 
 ## CI
 

@@ -4,8 +4,9 @@ Nothing from the game is in this repository. Every host produces three things fr
 on a Windows PC with the game installed:
 
 1. the **SDK**: C++ headers generated from the running game, which the runtime is compiled against;
-2. the **runtime**: `Rustic-Isles.dll` (built from `modules/rustic-isles/native/runtime` with the SDK) and its loader
-   `winmm.dll` (`native/runtime-loader`, Rust), which players install from your server;
+2. the **runtime**: `Rustic-Isles.dll` (built from `modules/rustic-isles/native/runtime` with the SDK), which players install
+   from your server and the launcher and Director inject (RD9); `winmm.dll` (`native/runtime-loader`) is optional, for
+   Proton players who load it the old way;
 3. the **game data**: JSON the backend and the Director serve, generated from an export the CatalogExporter
    makes inside the game.
 
@@ -16,7 +17,7 @@ brings the results over (`restricted/docs/hosting-linux.md`). Every path below i
 ## 1. The SDK
 
 Dump the SDK with [Dumper-7](https://github.com/Encryqed/Dumper-7) from your own 1.14.7 client: the Host page
-loads the Dumper-7 DLL through the runtime loader (the launcher never injects on its own), or do it by hand
+injects the Dumper-7 DLL into the game it starts (only that game, RD9), or do it by hand
 as Dumper-7 documents. The dump is a `CppSDK` folder with `SDK.hpp` inside. Import it into
 `modules/rustic-isles/native/runtime` (the Host page's **Import SDK**, or copy it there as the folder's `BUILD.md` says).
 `doctor` reports the SDK as imported once it sees the generated `*_functions.cpp` files.

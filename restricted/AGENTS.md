@@ -125,8 +125,11 @@ Rules that read like overcaution:
 - **Secrets and keys are never logged.** Keep the redaction in the gateway, the launcher and the content server.
 - **The invite parser accepts nothing it doesn't recognise.** `dauntless-revived://` is a typed refusal (RD5), not
   a second path.
-- **The launcher never injects** (RD9). DLLs reach the game only through the runtime loader's
-  `mystic_loader.ini`, and PLAY refuses to start while a leftover ini or unknown DLL sits next to the loader.
+- **Inject only into a game this process just started** (RD9, amended 2026-11-12 and 13). The launcher and the
+  Director start the game suspended, load only DLLs they chose by absolute path with checked hashes, and kill it
+  rather than resume it half-loaded. PLAY still refuses a leftover `mystic_loader.ini`, a Host tools DLL, or a
+  `winmm.dll` that doesn't stand down for an injected game (`../docs/launcher-injection.md`,
+  ``../docs/director-injection.md`).
 
 ## Nothing from the game is committed
 

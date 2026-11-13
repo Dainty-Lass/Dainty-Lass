@@ -57,7 +57,8 @@ only in its layout note). 5,381 lines in all, 4,883 of them C++.
 
 ### 2.2 Run
 
-The DLL runs **inside the game process**. It is never injected by the launcher (RD9): the Host page's export session
+The DLL runs **inside the game process**, loaded by the Host page's export session (RD9 as amended in
+`docs/launcher-injection.md`). The session
 (`crates/dainty-launcher-kit/src/platform/loader_session.rs`, `controller/host.rs`) does this:
 
 1. writes `export_flags.txt` into the game's `Win64` folder with this exact content (CRLF line endings, as
@@ -67,13 +68,13 @@ The DLL runs **inside the game process**. It is never injected by the launcher (
    and `=0` for `EXPORT_COMBAT`, `EXPORT_SKINS`, `EXPORT_SKINS_RESOLVE_STRINGTABLE`, `EXPORT_WEAPON_SLOTS`,
    `EXPORT_TABLE_INVENTORY`, `EXPORT_CELLS`, `EXPORT_DROP_TABLES`, `EXPORT_CURRENCY_NAMES`. `EXPORT_MASTERY` is absent,
    so it is off (section 3.2);
-2. copies `CatalogExporter.dll` beside the runtime loader (`winmm.dll`) and writes `mystic_loader.ini` naming only it,
-   keeping the runtime in place;
-3. starts the game as PLAY starts it (connected to the host's own server, so the player can reach Ramsgate);
-4. when the game exits, removes the DLL and the ini. The Host page then copies `Win64\Items_Analysis` into the
+2. starts the game as PLAY starts it (connected to the host's own server, so the player can reach Ramsgate). On
+   Windows it starts it suspended and injects the runtime, then `CatalogExporter.dll`, before it runs. Under Proton
+   with the loader, it copies the DLL beside `winmm.dll` and writes `mystic_loader.ini` naming only it;
+3. when the game exits, removes any DLL and ini it wrote. The Host page then copies `Win64\Items_Analysis` into the
    workspace's `modules/rustic-isles/reference/1.14.7/Items_Analysis`, which the generators read.
 
-The loader loads the DLL at process start, so `DllMain` runs before the game reaches its menu; the working directory is
+Either way the DLL loads before the game's first instruction, so `DllMain` runs before the game reaches its menu; the working directory is
 `Win64`. By hand, any loader or injector into the local client works the same way; the guide
 (`restricted/modules/rustic-isles/docs/GENERATING_GAME_DATA.md`) says to inject into one's own local client only.
 
