@@ -14,8 +14,8 @@ An implementer builds from this page, `spec-runtime-r0.md`, `spec-runtime-r1.md`
 section 3, and the surface page alone, and never reads `restricted/`. What crossed is facts: RVAs into
 `Dauntless-Win64-Shipping.exe` (1.14.7, CL 647472), instruction bytes and `.pdata` entries (each checked against the
 maintainer's copy of that executable on 2026-11-13), engine layout offsets, engine and game names, flag names, and
-behaviour. The AGPL side stands down through seam patch 0041 alone (section 15); R11's reserved patch number 0053 is
-not used.
+behaviour. The AGPL side stands down through seam patch 0041 and R9's patch 0052 (section 15); R11's reserved patch
+number 0053 is not used.
 
 Conventions are R0's: an RVA is `+0x0XXXXXXX` from the executable's image base; **C** client, **S** server, **B**
 both. **(call)** marks a decision this page makes; **(ambiguity)** something the source did not settle;
@@ -71,7 +71,7 @@ section 19.
 
 | File | Edit |
 | --- | --- |
-| `core/src/registry.rs` | `LANDED` gains `"R11"`, **only together with `"R9"`** (15.2). The NETD-1..8 lines (`Detour`) and `SP-3@R11` (`Feature`) exist already. One new test (17.1) |
+| `core/src/registry.rs` | `LANDED` gains `"R11"` **only once it holds `"R9"`** (15.2). The NETD-1..8 lines (`Detour`) and `SP-3@R11` (`Feature`) exist already. One new test (17.1) |
 | `core/src/offsets.rs` `TARGETS` | seven lines, NETD-1..7, all `FoundBy::RvaAndBytes` (section 18) |
 | `core/src/offsets.rs`, a new `pub mod net` | the called functions, the data addresses and the layout offsets of section 18 |
 | `src/lifecycle.rs` | before `handlers::freeze()`: `ffi::net::register()` (the two SP-3 handlers, server only). In the install list: R11's results at the positions of 4.4. Nothing else changes there |
@@ -97,13 +97,13 @@ tests), every log text, the budgets, the flag table. Windows-only (DLL crate): t
 | R9 | the listen state, below | 7, 8 |
 | R5 | nothing called; R11's SP-3 before handler runs after R5's (`order = -1000`), as R5 9 expects | 7 |
 
-**R9's interface (R9 is specified in parallel; R11 builds on this shape, R9's spec gives the names).** Three
+**R9's interface (`spec-runtime-r9.md` sections 5.1, 8.1 and 9.3, agreed with its writer on 2026-11-13).** Three
 functions, callable from SP-3 handlers on the game thread, never blocking, never logging:
 
-- `listening() -> bool`: true from the frame R9's listen succeeded, on either listen path (R9's own `Listen` or the
-  engine's listener with `MAP_URL_LISTEN.flag`), until the process ends.
-- `net_driver() -> Option<usize>`: the `UNetDriver` R9's own `Listen` created or resolved (the hub's "GameNetDriver").
-  `None` before listen, and on the engine-listener path, where the engine registered and ticks its own driver.
+- `listening() -> bool`: true from the frame R9's listen succeeded, until the process ends.
+- `net_driver() -> Option<usize>`: the `UNetDriver` R9's `Listen` created or resolved (the hub's "GameNetDriver").
+  `None` before listen. R9 drops the engine-listener path (`MAP_URL_LISTEN`), so it is `Some` whenever `listening()`
+  is true.
 - `game_net_driver_name() -> Option<(i32, u32)>`: the `FName` `GameNetDriver` (comparison index, number), which R9
   builds for its own driver lookup.
 
@@ -225,8 +225,7 @@ harmless.
 
 ### 7.2 Each frame
 
-1. `listening()` false, or `net_driver()` `None`: return. (The engine-listener path never reaches step 2: its driver
-   is the engine's own.)
+1. `listening()` false, or `net_driver()` `None`: return.
 2. `driver` = `net_driver()`; require `readable(driver, 0x2B0)`; else return.
 3. `world` = the pointer at `GWorld` (data `+0x06FC7F58`, R0 6.2); require `readable(world, 0x40)`; else return.
 4. **Register the driver in the world's level collections** (7.3).
@@ -300,13 +299,13 @@ AGPL measured that passing the engine faults at once.
 block (the quarantine sweep, the weapon gap and dormancy work, the graph drive, the progression resume), and within
 the listening block after R8's expected-player sync and connection count and R9's per-frame driver upkeep. As an
 MIT after handler it runs after every AGPL post-tick block (R0 8.2), so the order holds while those are AGPL. Among
-MIT after handlers: **R8's and R9's listening-block steps and R12's graph drive use orders below 800**; R11 tells
-their spec writers so (section 16).
+MIT after handlers: R9's per-frame driver upkeep is an after handler at `order = 700` and its
+listen step at `900` (R9 9.3); R8's listening-block steps use orders below 700 and R12's graph drive below 800
+(section 16).
 
 ### 8.3 Each frame
 
-1. `listening()` false, or `net_driver()` `None`: return silently **(departure: on the engine-listener path the AGPL
-   ran the sanitiser on a null driver and logged two lines a frame)**.
+1. `listening()` false, or `net_driver()` `None`: return silently.
 2. **Re-entry:** a thread-local flag (const-initialised, no destructor). When set, return: a nested engine tick inside
    the drive must not drive again (the AGPL measured unbounded recursion ending in a stack overflow). It guards both
    calls **(departure: the AGPL guarded only the dispatch)**.
@@ -551,8 +550,8 @@ Appendix A gave R11 seven flags. Settled, with the two R11 shares with R13:
 | `DISABLE_PLAYER_REP_BOOST` (R13's) | read | 9.1, read once |
 | `PLAYER_ALWAYS_RELEVANT` (R13's) | read | 9.1, read once |
 
-A dropped flag left in a game folder has no effect on the MIT side; while the AGPL still owns R9 it may still read
-`EMERGENCY_LEGACY_REPLICATION` (15.2 makes that impossible: R9 and R11 land together).
+A dropped flag left in a game folder has no effect on the MIT side. R9 drops `EMERGENCY_LEGACY_REPLICATION` too, and
+R11 lands with or after R9 (15.2), so no build reads it.
 
 ---
 
@@ -564,36 +563,33 @@ A dropped flag left in a game folder has no effect on the MIT side; while the AG
   "original" pointer is `rir_original(target)`; its enable calls succeed as no-ops. NETD-8's install is behind its
   flag in the AGPL anyway.
 - `SP-3@R11` gates the AGPL's before-tick block (the level-collection registration and the three driver writes).
-- The AGPL's manual net tick sits inside its listening block, which `SP-3@R9` gates as a whole (R0 7.5 already records
-  that this block "also carries ... the manual net tick (R11's)"). 15.2 makes owning `SP-3@R9` and owning R11's ids
-  the same event.
+- The AGPL's manual net tick sits inside its listening block. R9's runtime patch **0052** regates that block per
+  slice: its manual tick (dispatch, flush and the half-rate branches) also skips when `SP-3@R11` is owned, and when the
+  MIT owns `SP-3@R9` the AGPL adopts the MIT's driver and listening state through R9's optional export, so its
+  sanitiser and manual tick keep running with R9 alone. R11 relies on 0052 and does not touch those lines.
 - What stays AGPL and is harmless: its install lines (the seam answers `MH_OK`, so it still logs "create=MH_OK" for
   NETD hooks it no longer installs) and its once-only spline-guard flag line. Its replication-driver globals are set
   but only its own (now uninstalled) detours read them.
 
-So nothing beyond 0041 is needed, and **R11's reserved patch number 0053 is unused**.
+So nothing beyond 0041 and 0052 is needed, and **R11's reserved patch number 0053 is unused**.
 
-### 15.2 R9 and R11 land in one build **(call)**
+### 15.2 R11 lands with or after R9 **(call)**
 
-Each side switches off an AGPL piece the other needs:
+- **R9 alone is safe:** patch 0052 (15.1) keeps the AGPL's driver upkeep and manual tick running on the MIT's driver.
+- **R11 alone is not:** owning `SP-3@R11` turns off the AGPL's driver upkeep and manual tick, and R11's replacement
+  needs R9's listen state (3), which only the MIT R9 provides. An MIT runtime with R11 and without R9 would leave the
+  hub's driver unbound and undriven, and nobody could join.
 
-- Owning `SP-3@R9` turns off the AGPL's whole listening block, **including its manual net tick**: an MIT runtime
-  with R9 and without R11 never drives the hub's driver, and nobody can join.
-- Owning `SP-3@R11` turns off the AGPL's driver upkeep. R11's replacement needs R9's listen state (3), which the AGPL
-  cannot hand across: an MIT runtime with R11 and without R9 leaves the driver unbound, and `UWorld.NetDriver` is
-  nulled under the engine.
-
-So `LANDED` holds both `"R9"` and `"R11"` or neither, and a registry test enforces it (17.1). The R11 implementer's
+So `LANDED` holds `"R11"` only when it holds `"R9"`, and a registry test enforces it (17.1). The R11 implementer's
 branch adds `"R11"` to `LANDED` only if `"R9"` is already there on `plan`; otherwise it leaves `LANDED` alone and the
-integration pass adds both when it merges the second of the two. Until then R11's code builds and its pure tests run,
-and it installs nothing (nothing of it is owned). R0's cross-slice rule "R8, R9 and R10 ship in one runtime release"
-becomes **"R8, R9, R10 and R11"**.
+integration pass adds `"R11"` when it merges R11 after R9. Until then R11's code builds and its pure tests run, and it
+installs nothing (nothing of it is owned).
 
 Row for R0 7.5's cross-slice table:
 
 | State | Set by | Read by | Rule |
 | --- | --- | --- | --- |
-| the hub driver, "listening", the GameNetDriver name | `SP-3@R9` | `SP-3@R11`, the manual net tick | **R9 and R11 land in one build** (15.2) |
+| the hub driver, "listening", the GameNetDriver name | `SP-3@R9` (MIT), or the AGPL until R9 lands | `SP-3@R11`, the manual net tick | **R11 lands with or after R9** (15.2); 0052 carries the AGPL side meanwhile |
 
 ### 15.3 Rulings settled here
 
@@ -608,8 +604,8 @@ Row for R0 7.5's cross-slice table:
 
 | Slice | Needs |
 | --- | --- |
-| R9 | the interface of section 3 (R9's spec writer was told on 2026-11-13); its listening-block after handlers at orders below 800; no port of the manual net tick; dropping `EMERGENCY_LEGACY_REPLICATION` |
-| R8 | its listening-block steps (expected-player sync, connection count) at orders below 800 |
+| R9 | agreed and in R9's spec: the interface of section 3, its after handlers at `700` and `900`, no port of the manual net tick, `EMERGENCY_LEGACY_REPLICATION` dropped, and patch 0052's per-slice gates on the AGPL listening block |
+| R8 | its listening-block steps (expected-player sync, connection count) at orders below 700 (R9 9.3) |
 | R12 | `net::sanitize(driver, site) -> bool` (section 5) for any walk of `ClientConnections` it makes, with its own site names; `net::graph_class() -> Option<usize>` (10.1) and `net::graph_self_constructed() -> bool` (the last NETD-3 call returned a graph it built); the graph drive at an order below 800 so the manual tick's flush runs after it, as in the AGPL; the frame epoch rule (bump after calling game code) |
 | R13 | the default-object boost is R11's (9.1); R13 keeps the per-tick pawn writes and reads the same two flag files |
 | R3 | nothing: R11 asks EXIT-12 for no recovery |
@@ -633,7 +629,7 @@ Core (`cargo test -p rustic-isles-runtime-core`), over a fake `Memory`:
   points; the remembered triple short-circuits only when `data != 0`.
 - **Manual tick state:** the re-entry flag blocks a nested call and is cleared after a panic path.
 - **Lines:** every text on this page for fixed values (addresses, `null`, six-decimal float).
-- **Registry:** `LANDED` contains `"R9"` iff it contains `"R11"`; with both, `owns` is true for NETD-1..8 and
+- **Registry:** if `LANDED` contains `"R11"` it contains `"R9"`; with both, `owns` is true for NETD-1..8 and
   `SP-3@R11`.
 - **Offsets:** NETD-1..7 each have one `RvaAndBytes` line with the bytes of section 18; NETD-8 is the one registered
   detour id allowed no `TARGETS` line (R0's test gets that exception list).
@@ -722,9 +718,8 @@ Only CI passed until these steps are done.
 Calls (for the maintainer to confirm; the ones marked **ruling** need one):
 
 1. **No fault recovery in R11:** EXIT-12's spline recovery is gone from the AGPL (R3 finding 1, confirmed here).
-2. **Ruling: R9 and R11 land in one build** (15.2), enforced by a registry test; R0's cross-slice rule becomes "R8,
-   R9, R10 and R11 ship in one runtime release". Recommended: yes. The alternative, R9 porting the manual net tick
-   itself, puts R11's safety code in R9 and splits one behaviour across two slices.
+2. **R11 lands with or after R9** (15.2), enforced by a registry test; R9's patch 0052 makes R9 alone safe, so R0's
+   "R8, R9 and R10" release rule does not grow.
 3. R11 consumes R3 only for `frame_text` and the stack trim, R15/R17's reflection kit for lookups and checked writes,
    and R9's listen state (3).
 4. SP-3 orders: the upkeep `-500` (before), the manual tick `800` (after).
@@ -758,7 +753,7 @@ Ambiguities:
 - The pending-cleanup array at the driver's `+0xF0` has no name in the dump (its elements are `0x18` bytes); its
   meaning is the AGPL's reading of the engine, kept as a fact.
 
-No open question remains beyond the three rulings (calls 2, 5, 8).
+No open question remains beyond the two rulings (calls 5, 8).
 
 ---
 
