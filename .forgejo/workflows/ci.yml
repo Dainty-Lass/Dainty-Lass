@@ -780,7 +780,7 @@ jobs:
         run: |
           set -euo pipefail
           # The manager ships the 1.14.7 version data beside its executable (RD27)
-          echo '{"bundle":{"resources":{"../../restricted/modules/rustic-isles/version-data/1.14.7/version_data.json":"data/1.14.7/version_data.json"}}}' > "$RUNNER_TEMP/manager-data.json"
+          echo '{"bundle":{"resources":{"../../restricted/modules/rustic-isles/version-data/1.14.7/version_data.json":"data/1.14.7/version_data.json","../../crates/rustic-isles-1-14-7/data/version_facts.json":"data/1.14.7/version_facts.json"}}}' > "$RUNNER_TEMP/manager-data.json"
           bunx tauri build --ci --bundles nsis -- --features realms
           bunx tauri build --ci --bundles nsis --config tauri.server-gui.conf.json --config "$RUNNER_TEMP/manager-data.json" \
             -- --no-default-features --features server-gui
