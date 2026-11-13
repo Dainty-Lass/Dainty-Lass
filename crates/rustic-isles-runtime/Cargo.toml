@@ -1,0 +1,38 @@
+[package]
+name = "rustic-isles-runtime"
+description = "The MIT game runtime DLL (installed as rustic-isles-runtime.dll): the spine, the hook broker and seam exports, and the runtime config (spec-runtime-r0, spec-runtime-r1)"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license = "MIT"
+repository.workspace = true
+publish = false
+build = "build.rs"
+
+# A Rust library name cannot hold `-`: the build writes rustic_isles_runtime.dll and publishing installs it as
+# rustic-isles-runtime.dll (RT-5).
+[lib]
+name = "rustic_isles_runtime"
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+rustic-isles-runtime-core = { path = "../rustic-isles-runtime-core" }
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { workspace = true, features = [
+    "Win32_Foundation",
+    "Win32_Storage_FileSystem",
+    "Win32_System_Diagnostics_Debug",
+    "Win32_System_Environment",
+    "Win32_System_LibraryLoader",
+    "Win32_System_Memory",
+    "Win32_System_SystemInformation",
+    "Win32_System_Threading",
+    "Win32_UI_Shell",
+] }
+
+[build-dependencies]
+cc.workspace = true
+
+[lints]
+workspace = true
