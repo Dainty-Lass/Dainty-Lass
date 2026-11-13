@@ -41,14 +41,18 @@ pub struct Host<'h> {
 enum Step {
     /// Carried: runs when its flag is on.
     Export(fn(&Ctx, &mut Results)),
-    /// Not in phase 1 (spec §9): refused when its flag is on.
+    /// Not carried (spec §9): refused when its flag is on.
     Refused,
 }
 
 /// The exports in their fixed order (spec §3.1 step 5), with each one's skip text (spec §6.17).
 const ORDER: [(Flag, &str, Step); 13] = [
     (Flag::Catalog, "catalog export", Step::Export(catalog)),
-    (Flag::WeaponSlots, "live weapon-slot export", Step::Refused),
+    (
+        Flag::WeaponSlots,
+        "live weapon-slot export",
+        Step::Export(|c, r| r.live_weapon_slots = export::weapons::export(c)),
+    ),
     (Flag::Cells, "live cell-slot export", Step::Refused),
     (
         Flag::Progression,
@@ -146,9 +150,11 @@ pub fn run(engine: &Engine, flags: &Flags, host: &Host) -> Option<Results> {
     status.line(
         "",
         &format!(
-            "ALL DONE catalog={} equipment={} progression={} slayersPath={} hunts={} storeRuntime={} mastery={}",
+            "ALL DONE catalog={} equipment={} weaponSlots={} progression={} slayersPath={} hunts={} storeRuntime={} \
+             mastery={}",
             results.catalog_general,
             results.catalog_equipment,
+            results.live_weapon_slots,
             results.progression,
             results.slayers_path,
             results.hunts,

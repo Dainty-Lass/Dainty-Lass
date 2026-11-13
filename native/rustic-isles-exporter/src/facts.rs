@@ -653,3 +653,383 @@ pub const B_EN_DURATION: usize = 21;
 pub const B_RW_BUFFS: usize = 22;
 pub const BASE_LEN: usize = 23;
 const _: () = assert!(BASE_MEMBERS.len() == BASE_LEN);
+
+/// A fact of the weapon-slot export (spec §6.3). Its member paths are not settled against a real SDK, so each lists
+/// the spellings tried in order (`{A,B}` expands to both), and one the SDK lacks refuses its file, not the build.
+pub enum Opt {
+    Member(&'static [&'static str]),
+    /// A member read as text: its kind must be a string, name or text.
+    Text(&'static [&'static str]),
+    Size(&'static str),
+}
+
+/// `(id, fact)`; `build.rs` writes each as `crate::sdk::<ID>` and every group's missing ids as `<GROUP>_MISSING`.
+pub const WEAPON_FACTS: &[(&str, Opt)] = &[
+    // weapon_slots_1_14_7.jsonl
+    (
+        "WS_ITEM_ID",
+        Opt::Text(&["UArchonInventoryItem_Weapon.{ItemId,ItemID}"]),
+    ),
+    (
+        "WS_INSTANCE_ID",
+        Opt::Text(&["UArchonInventoryItem_Weapon.{ItemInstanceID,ItemInstanceId}"]),
+    ),
+    (
+        "WS_WEAPON_TYPE",
+        Opt::Member(&["UArchonInventoryItem_Weapon.WeaponType"]),
+    ),
+    (
+        "WS_SLOTS_PARAMS",
+        Opt::Size("ArchonInventoryItem_Weapon_GetItemPartSlots"),
+    ),
+    (
+        "WS_SLOTS_OUT",
+        Opt::Member(&["ArchonInventoryItem_Weapon_GetItemPartSlots.@TArray"]),
+    ),
+    (
+        "WS_SLOT_TYPE",
+        Opt::Member(&["ArchonInventoryItem_Weapon_GetItemPartSlots.@TArray[].WeaponPartType"]),
+    ),
+    (
+        "WS_SLOT_DEFAULT",
+        Opt::Text(&[
+            "ArchonInventoryItem_Weapon_GetItemPartSlots.@TArray[].{DefaultWeaponPartId,DefaultWeaponPartID}.ItemId",
+            "ArchonInventoryItem_Weapon_GetItemPartSlots.@TArray[].{DefaultWeaponPartId,DefaultWeaponPartID,DefaultWeaponPart}",
+        ]),
+    ),
+    (
+        "WS_SLOT_LOCKED",
+        Opt::Member(&["ArchonInventoryItem_Weapon_GetItemPartSlots.@TArray[].{bIsLocked,IsLocked}"]),
+    ),
+    (
+        "WS_SLOT_HIDE",
+        Opt::Member(&["ArchonInventoryItem_Weapon_GetItemPartSlots.@TArray[].{bHideFromUI,HideFromUI}"]),
+    ),
+    (
+        "WS_EQUIPPED_PARAMS",
+        Opt::Size("ArchonInventoryItem_Weapon_GetEquippedItemParts"),
+    ),
+    (
+        "WS_EQUIPPED_OUT",
+        Opt::Member(&["ArchonInventoryItem_Weapon_GetEquippedItemParts.@TArray"]),
+    ),
+    (
+        "WS_EQUIPPED_TYPE",
+        Opt::Member(&["ArchonInventoryItem_Weapon_GetEquippedItemParts.@TArray[].WeaponPartType"]),
+    ),
+    (
+        "WS_EQUIPPED_ID",
+        Opt::Text(&["ArchonInventoryItem_Weapon_GetEquippedItemParts.@TArray[].{WeaponPartID,WeaponPartId}.ItemId"]),
+    ),
+    (
+        "WS_LOCKED_PARAMS",
+        Opt::Size("ArchonInventoryItem_Weapon_IsItemPartSlotLocked"),
+    ),
+    (
+        "WS_LOCKED_TYPE",
+        Opt::Member(&["ArchonInventoryItem_Weapon_IsItemPartSlotLocked.@EWeaponPartType"]),
+    ),
+    (
+        "WS_LOCKED_RETURN",
+        Opt::Member(&["ArchonInventoryItem_Weapon_IsItemPartSlotLocked.ReturnValue"]),
+    ),
+    // live_weapon_parts_1_14_7.jsonl
+    (
+        "WP_ITEM_ID",
+        Opt::Text(&["UArchonInventoryItem_WeaponPart.{ItemId,ItemID}"]),
+    ),
+    (
+        "WP_INSTANCE_ID",
+        Opt::Text(&["UArchonInventoryItem_WeaponPart.{ItemInstanceID,ItemInstanceId}"]),
+    ),
+    (
+        "WP_OWNER_TYPE",
+        Opt::Member(&["UArchonInventoryItem_WeaponPart.{OwnerWeaponType,WeaponType}"]),
+    ),
+    ("WP_CATALOG", Opt::Member(&["UArchonInventoryItem_WeaponPart.Catalog"])),
+    // weapon_part_catalog_rows_1_14_7.jsonl, and the live parts' rows
+    (
+        "PC_TYPE",
+        Opt::Member(&["FPlayFabWeaponPartCatalogTableData.WeaponPartType"]),
+    ),
+    (
+        "PC_UNASSIGNABLE",
+        Opt::Member(&["FPlayFabWeaponPartCatalogTableData.{bIsUnassignable,IsUnassignable}"]),
+    ),
+    // loadout_gear_ui_1_14_7.jsonl: the gear view model and its item view model
+    ("LG_ITEM_VM", Opt::Member(&["ULoadoutGearViewModel.ItemViewModel"])),
+    (
+        "LG_VM_ITEM_ID",
+        Opt::Text(&["ULoadoutGearViewModel.ItemViewModel*.{ItemId,ItemID}"]),
+    ),
+    (
+        "LG_VM_INSTANCE_ID",
+        Opt::Text(&["ULoadoutGearViewModel.ItemViewModel*.{ItemInstanceId,ItemInstanceID}"]),
+    ),
+    (
+        "LG_VM_WEAPON_TYPE",
+        Opt::Member(&["ULoadoutGearViewModel.ItemViewModel*.WeaponType"]),
+    ),
+    (
+        "LG_VM_PART_TYPE",
+        Opt::Member(&["ULoadoutGearViewModel.ItemViewModel*.WeaponPartType"]),
+    ),
+    (
+        "LG_VM_NODE",
+        Opt::Text(&["ULoadoutGearViewModel.ItemViewModel*.{RequiredSlayerNodeId,RequiredSlayerNodeID}"]),
+    ),
+    (
+        "LG_VM_NODE_UNLOCKED",
+        Opt::Member(&["ULoadoutGearViewModel.ItemViewModel*.{bIsRequiredNodeUnlocked,IsRequiredNodeUnlocked}"]),
+    ),
+    // its part slots
+    (
+        "LG_SLOTS",
+        Opt::Member(&["ULoadoutGearViewModel.{PartSlots,PartSlotViewModels}"]),
+    ),
+    (
+        "LG_SLOT_LOCKED",
+        Opt::Member(&["ULoadoutGearViewModel.{PartSlots,PartSlotViewModels}[].{bIsLocked,IsLocked}"]),
+    ),
+    (
+        "LG_SLOT_EQUIPPED",
+        Opt::Member(&["ULoadoutGearViewModel.{PartSlots,PartSlotViewModels}[].{bHasPartEquipped,HasPartEquipped}"]),
+    ),
+    (
+        "LG_SLOT_RARITY",
+        Opt::Member(&["ULoadoutGearViewModel.{PartSlots,PartSlotViewModels}[].Rarity"]),
+    ),
+    // its part candidates
+    (
+        "LG_CANDIDATES",
+        Opt::Member(&["ULoadoutGearViewModel.{PartCandidates,PartCandidateViewModels}"]),
+    ),
+    (
+        "LG_CAND_ITEM_ID",
+        Opt::Text(&["ULoadoutGearViewModel.{PartCandidates,PartCandidateViewModels}[].{ItemId,ItemID}"]),
+    ),
+    (
+        "LG_CAND_INSTANCE_ID",
+        Opt::Text(&[
+            "ULoadoutGearViewModel.{PartCandidates,PartCandidateViewModels}[].{ItemInstanceId,ItemInstanceID}",
+        ]),
+    ),
+    (
+        "LG_CAND_WEAPON_TYPE",
+        Opt::Member(&["ULoadoutGearViewModel.{PartCandidates,PartCandidateViewModels}[].WeaponType"]),
+    ),
+    (
+        "LG_CAND_PART_TYPE",
+        Opt::Member(&["ULoadoutGearViewModel.{PartCandidates,PartCandidateViewModels}[].WeaponPartType"]),
+    ),
+    (
+        "LG_CAND_EQUIPPED",
+        Opt::Member(&["ULoadoutGearViewModel.{PartCandidates,PartCandidateViewModels}[].{bIsEquipped,IsEquipped}"]),
+    ),
+    (
+        "LG_CAND_CRAFTED",
+        Opt::Member(&[
+            "ULoadoutGearViewModel.{PartCandidates,PartCandidateViewModels}[].{bHasBeenCrafted,HasBeenCrafted}",
+        ]),
+    ),
+    (
+        "LG_CAND_CAN_CRAFT",
+        Opt::Member(&["ULoadoutGearViewModel.{PartCandidates,PartCandidateViewModels}[].{bCanBeCrafted,CanBeCrafted}"]),
+    ),
+    (
+        "LG_CAND_NODE",
+        Opt::Text(&[
+            "ULoadoutGearViewModel.{PartCandidates,PartCandidateViewModels}[].{RequiredSlayerNodeId,RequiredSlayerNodeID}",
+        ]),
+    ),
+    (
+        "LG_CAND_NODE_UNLOCKED",
+        Opt::Member(&[
+            "ULoadoutGearViewModel.{PartCandidates,PartCandidateViewModels}[].{bIsRequiredNodeUnlocked,IsRequiredNodeUnlocked}",
+        ]),
+    ),
+    // the screen
+    (
+        "LG_SCREEN_VM",
+        Opt::Member(&["ULoadoutGearScreen.{GearViewModel,LoadoutGearViewModel}"]),
+    ),
+    ("LG_SCREEN_SLOT_BOX", Opt::Member(&["ULoadoutGearScreen.PartSlotBox"])),
+    (
+        "LG_SCREEN_ASSIGN_OPEN",
+        Opt::Member(&["ULoadoutGearScreen.{bIsAssignPanelOpen,IsAssignPanelOpen}"]),
+    ),
+];
+
+/// The weapon-part type table's id in a group (spec §6.3), and the enum it comes from.
+pub const PART_TYPES: &str = "WEAPON_PART_TYPES";
+pub const PART_TYPE_ENUM: &str = "EWeaponPartType";
+
+/// `EWeaponPartType` by enumerator name to its text (spec §6.3); the values come from the SDK.
+pub const PART_TYPE_NAMES: &[(&str, &str)] = &[
+    ("Weapon_Part_Default", "default"),
+    ("Weapon_Part_DP_Barrel", "dp_barrel"),
+    ("Weapon_Part_DP_Receiver", "dp_receiver"),
+    ("Weapon_Part_DP_Grip", "dp_grip"),
+    ("Weapon_Part_DP_Mod", "dp_mod"),
+    ("Weapon_Part_DP_Prism", "dp_prism"),
+    ("Weapon_Part_DP_Legendary", "dp_legendary"),
+    ("Weapon_Part_EB_Special", "eb_special"),
+    ("Weapon_Part_EB_Passive", "eb_passive"),
+    ("Weapon_Part_EB_Legendary", "eb_legendary"),
+    ("Weapon_Part_IH_Special", "ih_special"),
+    ("Weapon_Part_IH_Passive", "ih_passive"),
+    ("Weapon_Part_IH_Legendary", "ih_legendary"),
+    ("Weapon_Part_GA_Special", "ga_special"),
+    ("Weapon_Part_GA_Passive", "ga_passive"),
+    ("Weapon_Part_GA_Legendary", "ga_legendary"),
+    ("Weapon_Part_CB_Special", "cb_special"),
+    ("Weapon_Part_CB_Passive", "cb_passive"),
+    ("Weapon_Part_CB_Legendary", "cb_legendary"),
+    ("Weapon_Part_MS_Special", "ms_special"),
+    ("Weapon_Part_MS_Passive", "ms_passive"),
+    ("Weapon_Part_MS_Legendary", "ms_legendary"),
+    ("Weapon_Part_AC_Special", "ac_special"),
+    ("Weapon_Part_AC_Passive", "ac_passive"),
+    ("Weapon_Part_AC_Legendary", "ac_legendary"),
+    ("Weapon_Part_Soul", "soul"),
+    ("Item_Part_Lantern_Capacitor", "lantern_capacitor"),
+    ("Item_Part_Lantern_Cell", "lantern_cell"),
+    ("Weapon_Part_Tracker", "tracker"),
+];
+
+/// Each of spec §6.3's four files and the facts it needs.
+pub const WEAPON_GROUPS: &[(&str, &[&str])] = &[
+    (
+        "WEAPON_SLOTS",
+        &[
+            "WS_ITEM_ID",
+            "WS_INSTANCE_ID",
+            "WS_WEAPON_TYPE",
+            "WS_SLOTS_PARAMS",
+            "WS_SLOTS_OUT",
+            "WS_SLOT_TYPE",
+            "WS_SLOT_DEFAULT",
+            "WS_SLOT_LOCKED",
+            "WS_SLOT_HIDE",
+            "WS_EQUIPPED_PARAMS",
+            "WS_EQUIPPED_OUT",
+            "WS_EQUIPPED_TYPE",
+            "WS_EQUIPPED_ID",
+            "WS_LOCKED_PARAMS",
+            "WS_LOCKED_TYPE",
+            "WS_LOCKED_RETURN",
+            PART_TYPES,
+        ],
+    ),
+    (
+        "LIVE_PARTS",
+        &[
+            "WP_ITEM_ID",
+            "WP_INSTANCE_ID",
+            "WP_OWNER_TYPE",
+            "WP_CATALOG",
+            "PC_TYPE",
+            "PC_UNASSIGNABLE",
+        ],
+    ),
+    ("PART_CATALOG", &["PC_TYPE", "PC_UNASSIGNABLE", PART_TYPES]),
+    (
+        "LOADOUT_UI",
+        &[
+            "LG_ITEM_VM",
+            "LG_VM_ITEM_ID",
+            "LG_VM_INSTANCE_ID",
+            "LG_VM_WEAPON_TYPE",
+            "LG_VM_PART_TYPE",
+            "LG_VM_NODE",
+            "LG_VM_NODE_UNLOCKED",
+            "LG_SLOTS",
+            "LG_SLOT_LOCKED",
+            "LG_SLOT_EQUIPPED",
+            "LG_SLOT_RARITY",
+            "LG_CANDIDATES",
+            "LG_CAND_ITEM_ID",
+            "LG_CAND_INSTANCE_ID",
+            "LG_CAND_WEAPON_TYPE",
+            "LG_CAND_PART_TYPE",
+            "LG_CAND_EQUIPPED",
+            "LG_CAND_CRAFTED",
+            "LG_CAND_CAN_CRAFT",
+            "LG_CAND_NODE",
+            "LG_CAND_NODE_UNLOCKED",
+            "LG_SCREEN_VM",
+            "LG_SCREEN_SLOT_BOX",
+            "LG_SCREEN_ASSIGN_OPEN",
+            PART_TYPES,
+        ],
+    ),
+];
+
+/// Every spelling `{A,B}` stands for, in order.
+pub fn expand(path: &str) -> Vec<String> {
+    let (Some(open), Some(close)) = (path.find('{'), path.find('}')) else {
+        return vec![path.to_owned()];
+    };
+    if close < open {
+        return vec![path.to_owned()];
+    }
+    path[open + 1..close]
+        .split(',')
+        .flat_map(|choice| expand(&format!("{}{choice}{}", &path[..open], &path[close + 1..])))
+        .collect()
+}
+
+/// The enumerator a spec name stands for: the same name, in any case, or after the enum's own prefix.
+pub fn part_type_value(values: &[(String, i64)], name: &str) -> Option<i64> {
+    let suffix = format!("_{}", name.to_ascii_lowercase());
+    values
+        .iter()
+        .find(|(enumerator, _)| enumerator == name)
+        .or_else(|| {
+            values
+                .iter()
+                .find(|(enumerator, _)| enumerator.eq_ignore_ascii_case(name))
+        })
+        .or_else(|| {
+            values
+                .iter()
+                .find(|(enumerator, _)| enumerator.to_ascii_lowercase().ends_with(&suffix))
+        })
+        .map(|(_, value)| *value)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn expands_each_choice_in_order() {
+        assert_eq!(expand("A.{B,C}.{D,E}"), ["A.B.D", "A.B.E", "A.C.D", "A.C.E"]);
+        assert_eq!(expand("A.B"), ["A.B"]);
+    }
+
+    #[test]
+    fn every_group_names_known_facts() {
+        for (_, ids) in WEAPON_GROUPS {
+            for id in *ids {
+                assert!(
+                    *id == PART_TYPES || WEAPON_FACTS.iter().any(|(fact, _)| fact == id),
+                    "{id}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn finds_part_types_by_name() {
+        let values = vec![
+            ("Weapon_Part_DP_Barrel".to_owned(), 1),
+            ("WEAPON_PART_SOUL".to_owned(), 25),
+            ("EWeaponPartType_Weapon_Part_Tracker".to_owned(), 28),
+        ];
+        assert_eq!(part_type_value(&values, "Weapon_Part_DP_Barrel"), Some(1));
+        assert_eq!(part_type_value(&values, "Weapon_Part_Soul"), Some(25));
+        assert_eq!(part_type_value(&values, "Weapon_Part_Tracker"), Some(28));
+        assert_eq!(part_type_value(&values, "Weapon_Part_DP_Grip"), None);
+    }
+}

@@ -12,7 +12,7 @@ pub const PINNED_MP_COMMIT: &str = "b4d12f0";
 /// File whose presence marks a runtime source as carrying the Dainty Lass patches.
 pub const PATCH_SENTINEL: &str = ".reforged-patches.json";
 /// The CatalogExporter's flags file the Host page writes: which exports run, CRLF line endings.
-pub const EXPORT_FLAGS: &str = "# Written by the Dainty Lass launcher (Host page). See docs/sdk-and-game-data.md.\r\nEXPORT_CATALOG=1\r\nEXPORT_SLAYERS_PATH=1\r\nEXPORT_HUNTS=1\r\nEXPORT_STORE_RUNTIME=1\r\nEXPORT_PROGRESSION=1\r\nEXPORT_COMBAT=0\r\nEXPORT_SKINS=0\r\nEXPORT_SKINS_RESOLVE_STRINGTABLE=0\r\nEXPORT_WEAPON_SLOTS=0\r\nEXPORT_TABLE_INVENTORY=0\r\nEXPORT_CELLS=0\r\nEXPORT_DROP_TABLES=0\r\nEXPORT_CURRENCY_NAMES=0\r\n";
+pub const EXPORT_FLAGS: &str = "# Written by the Dainty Lass launcher (Host page). See docs/sdk-and-game-data.md.\r\nEXPORT_CATALOG=1\r\nEXPORT_SLAYERS_PATH=1\r\nEXPORT_HUNTS=1\r\nEXPORT_STORE_RUNTIME=1\r\nEXPORT_PROGRESSION=1\r\nEXPORT_COMBAT=0\r\nEXPORT_SKINS=0\r\nEXPORT_SKINS_RESOLVE_STRINGTABLE=0\r\nEXPORT_WEAPON_SLOTS=1\r\nEXPORT_TABLE_INVENTORY=0\r\nEXPORT_CELLS=0\r\nEXPORT_DROP_TABLES=0\r\nEXPORT_CURRENCY_NAMES=0\r\n";
 /// The backend's default port (host.toml's `[ports]` can move it).
 pub const SERVER_PORT: u16 = 41000;
 /// Longest server name kept from `host.toml`, in characters.

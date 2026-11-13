@@ -154,7 +154,7 @@ mod tests {
     const HOST_PAGE: &str = "# Written by the Dainty Lass launcher (Host page). See docs/sdk-and-game-data.md.\r\n\
         EXPORT_CATALOG=1\r\nEXPORT_SLAYERS_PATH=1\r\nEXPORT_HUNTS=1\r\nEXPORT_STORE_RUNTIME=1\r\n\
         EXPORT_PROGRESSION=1\r\nEXPORT_COMBAT=0\r\nEXPORT_SKINS=0\r\nEXPORT_SKINS_RESOLVE_STRINGTABLE=0\r\n\
-        EXPORT_WEAPON_SLOTS=0\r\nEXPORT_TABLE_INVENTORY=0\r\nEXPORT_CELLS=0\r\nEXPORT_DROP_TABLES=0\r\n\
+        EXPORT_WEAPON_SLOTS=1\r\nEXPORT_TABLE_INVENTORY=0\r\nEXPORT_CELLS=0\r\nEXPORT_DROP_TABLES=0\r\n\
         EXPORT_CURRENCY_NAMES=0\r\n";
 
     #[test]
@@ -167,6 +167,7 @@ mod tests {
                 Flag::Catalog,
                 Flag::Progression,
                 Flag::SlayersPath,
+                Flag::WeaponSlots,
                 Flag::Hunts,
                 Flag::StoreRuntime
             ]
@@ -174,7 +175,7 @@ mod tests {
         assert_eq!(
             flags.status_line(),
             "thread start; flags: catalog=1 progression=1 combat=0 skins=0 skinsResolveStringTable=0 \
-             slayersPath=1 weaponSlots=0 hunts=1 tableInventory=0 cells=0 dropTables=0 currencyNames=0 \
+             slayersPath=1 weaponSlots=1 hunts=1 tableInventory=0 cells=0 dropTables=0 currencyNames=0 \
              storeRuntime=1"
         );
     }

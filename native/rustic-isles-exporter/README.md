@@ -4,8 +4,9 @@
 (RD27). The runtime loader loads it into the game (`mystic_loader.ini`, RD9); it waits for the live catalog, writes
 the catalog and the tables the Rustic Isles generators read into `Items_Analysis`, then beeps. Phase 1 carries the
 catalog, equipment, Slayer's Path, hunts, store runtime, progression and mastery exports, the run manifest and the
-status file. A flags file that turns on a research export (weapon slots, cells, combat, skins, drop tables, currency
-names, table inventory) gets `EXPORT_<X>=1 is not supported by this build, skipping`.
+status file, and the weapon slots (spec §6.3), whose `defaultWeaponPartId`s give the 1.14.7 module its starter
+weapons' default parts (ruling V-4). A flags file that turns on a research export (cells, combat, skins, drop
+tables, currency names, table inventory) gets `EXPORT_<X>=1 is not supported by this build, skipping`.
 
 Two crates, outside both workspaces:
 
@@ -33,7 +34,9 @@ unset.
 **First build against a real SDK.** `src/facts.rs` names every member, size, enum value and offset the exporter
 needs, with the SDK paths the spec gives (§6). If the first build stops with `the SDK lacks N fact(s)`, report only
 the fact ids it lists for a spec correction, then fix the path in `facts.rs` from the corrected spec; never paste SDK
-text into the repository.
+text into the repository. The weapon-slot facts (`WEAPON_FACTS`) are guessed spellings the spec does not name, so
+one the SDK lacks does not stop the build: it is a `cargo` warning naming the fact, and the DLL writes that file
+empty with a status line naming it. Report those ids the same way.
 
 ## Tests
 

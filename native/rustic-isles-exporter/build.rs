@@ -152,5 +152,78 @@ fn generate(sdk: &Sdk, synthetic: bool) -> Result<String, Vec<String>> {
         }
         code.push_str("];\n");
     }
+    weapon_facts(sdk, synthetic, &mut code);
     if errors.is_empty() { Ok(code) } else { Err(errors) }
+}
+
+/// The weapon-slot facts (spec §6.3): each takes the first spelling the SDK has. A missing one only lists itself
+/// in its groups' `<GROUP>_MISSING`, so the export refuses that file and the rest of the DLL still builds.
+fn weapon_facts(sdk: &Sdk, synthetic: bool, code: &mut String) {
+    use facts::Opt;
+    use sdk_parse::{Kind, Member};
+
+    let mut missing: Vec<&str> = Vec::new();
+    for (id, fact) in facts::WEAPON_FACTS {
+        match fact {
+            Opt::Member(paths) | Opt::Text(paths) => {
+                let text = matches!(fact, Opt::Text(_));
+                let found = paths
+                    .iter()
+                    .flat_map(|path| facts::expand(path))
+                    .filter_map(|path| sdk.resolve(&path).ok())
+                    .find(|member| !text || matches!(member.kind, Kind::Str | Kind::Name | Kind::Text));
+                if found.is_none() {
+                    missing.push(id);
+                }
+                let member = found.unwrap_or(Member::plain(0, 0, Kind::Other));
+                let _ = writeln!(code, "pub const {id}: Member = {member:?};");
+            }
+            Opt::Size(name) => {
+                let size = sdk.size(name).ok();
+                if size.is_none() {
+                    missing.push(id);
+                }
+                let _ = writeln!(code, "pub const {id}: u32 = {};", size.unwrap_or(0));
+            }
+        }
+    }
+
+    let values: Vec<(String, i64)> = sdk
+        .enums
+        .get(facts::PART_TYPE_ENUM)
+        .map(|def| def.values.clone())
+        .unwrap_or_default();
+    let mut table = Vec::new();
+    for (name, text) in facts::PART_TYPE_NAMES {
+        match facts::part_type_value(&values, name) {
+            Some(value) => table.push(format!("({value}, {text:?})")),
+            None if !values.is_empty() && !synthetic => {
+                println!(
+                    "cargo::warning={} has no {name}: it writes as unknown",
+                    facts::PART_TYPE_ENUM
+                );
+            }
+            None => {}
+        }
+    }
+    if table.is_empty() {
+        missing.push(facts::PART_TYPES);
+    }
+    let _ = writeln!(
+        code,
+        "pub const {}: &[(i64, &str)] = &[{}];",
+        facts::PART_TYPES,
+        table.join(", ")
+    );
+
+    for (group, ids) in facts::WEAPON_GROUPS {
+        let lacking: Vec<&str> = ids.iter().copied().filter(|id| missing.contains(id)).collect();
+        if !lacking.is_empty() && !synthetic {
+            println!(
+                "cargo::warning=the SDK lacks {} for the {group} weapon-slot file, which this DLL will skip",
+                lacking.join(", ")
+            );
+        }
+        let _ = writeln!(code, "pub const {group}_MISSING: &[&str] = &{lacking:?};");
+    }
 }
