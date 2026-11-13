@@ -58,9 +58,12 @@ Fuzz targets in `fuzz` (to be added by the integration pass; RL11 does not touch
 - [ ] On Windows, each connection to the game's port is checked once before its first request: the TCP table must
       name the running game's pid (> 0) as the owner of the connection's **client** end, both ends loopback IPv4
       (`relay_owner.rs`, `GameOwnerCheck::check`; `the_owner_check_serves_only_the_games_connections`).
-- [ ] The table is read fresh for each batch of waiting checks; nothing is cached. A missing row gets one more read
-      25 ms later; a second miss, two rows for one connection, a non-numeric pid or an unreadable table refuse
-      (`table.rs`, `relay_owner.rs` tests).
+- [ ] The table is read fresh for each batch of waiting checks; nothing is cached. A missing row is read again after
+      each of `RETRY_DELAYS` (25 ms doubling to 1.6 s, about 3.2 s in all), because Windows can leave an open
+      loopback connection's client row out of the table, or list it as `LISTENING` to port 0, for most of a second
+      during a burst of connects (the game's login). Only the exact client → relay row counts, never that bound row.
+      A miss after the last delay, two rows for one connection, a non-numeric pid, another owner or an unreadable
+      table refuse (`table.rs`, `relay_owner.rs` tests, `a_client_row_windows_lists_late_still_passes`).
 - [ ] At most 64 checks wait at once; more are refused, so a flood of connections can't queue process reads.
 - [ ] A refused connection answers every request 403 `{"error":"local_process_denied"}` with `connection: close`, and an
       upgrade a bare 403. Nothing is forwarded.

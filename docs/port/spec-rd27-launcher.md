@@ -1202,8 +1202,9 @@ error's source chain for a pin error and answers the fingerprint seen.
   the client row is the one with five fields, `TCP`, the client's `ip:port`, the server's `ip:port`; the state label
   (localised) is ignored; the last field must be all digits. No such row → "not yet"; several rows or a non-numeric
   pid → refused.
-- Checks waiting together share one fresh table read (nothing cached); rows not found get one more read 25 ms
-  later; anything else refuses.
+- Checks waiting together share one fresh table read (nothing cached); a row not found is read again after 25,
+  50, 100, 200, 400, 800 and 1600 ms (Windows can list an open loopback connection's client end late), then
+  refuses; anything else refuses at once.
 
 #### 2.6.6 The Epic install job (`epic_install.rs`)
 
