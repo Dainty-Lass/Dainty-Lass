@@ -54,6 +54,7 @@ pub fn init() {
         net::register();
     }
     // Slices register their handlers before this point; the lists are read lock-free from here on
+    crate::economy::register();
     handlers::freeze();
     let hooks_off = (initialized != minhook::MH_OK).then(|| minhook::status_name(initialized));
     let chain = |id: &'static str, install: fn(usize) -> Result<(), i32>| -> Install {

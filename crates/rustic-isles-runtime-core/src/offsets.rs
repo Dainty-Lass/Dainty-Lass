@@ -976,6 +976,84 @@ pub mod r6 {
     pub const PLAYER_CONTROLLER: &str = "ArchonPlayerController";
 }
 
+/// R15, inventory and economy (spec-runtime-r15 section 7). Layouts of 1.14.7; no hook targets.
+pub mod r15 {
+    /// `TArray` data pointer.
+    pub const ARRAY_DATA: usize = 0x00;
+    /// `TArray` `Num` (`i32`).
+    pub const ARRAY_NUM: usize = 0x08;
+    /// `TArray` `Max` (`i32`).
+    pub const ARRAY_MAX: usize = 0x0C;
+    /// `TSparseArray` allocation bits: 4 inline `u32` words.
+    pub const MAP_BITS_INLINE: usize = 0x10;
+    /// Inline allocation words.
+    pub const MAP_BITS_INLINE_WORDS: usize = 4;
+    /// The allocation bits' heap pointer, used when non-null.
+    pub const MAP_BITS_HEAP: usize = 0x20;
+    /// `TSparseArray` free count (`i32`).
+    pub const MAP_FREE_COUNT: usize = 0x34;
+
+    /// `UArchonCatalog::Catalog`, a `TMap<FString, FArchonCatalogItem>`.
+    pub const CATALOG_MAP: usize = 0x30;
+    /// Its element stride (pair `0x350` rounded, + hash ids).
+    pub const CATALOG_STRIDE: usize = 0x358;
+    /// `FArchonCatalogItem::Tags` (`TArray<FString>`) from the element.
+    pub const CATALOG_TAGS: usize = 0xA8;
+    /// `FArchonCatalogItem::MaxQuantity` (`i32`) from the element.
+    pub const CATALOG_MAX_QUANTITY: usize = 0x310;
+    /// One `FString` in a `TArray<FString>`.
+    pub const FSTRING_SIZE: usize = 0x10;
+
+    /// `UDataTable::RowStruct` (`UScriptStruct*`).
+    pub const TABLE_ROW_STRUCT: usize = 0x28;
+    /// `UDataTable::RowMap`, a `TMap<FName, uint8*>`.
+    pub const TABLE_ROW_MAP: usize = 0x30;
+    /// Its element stride.
+    pub const ROW_STRIDE: usize = 0x18;
+    /// The row pointer in an element (the `FName` key is at +0).
+    pub const ROW_POINTER: usize = 0x08;
+    /// `FCellExchangeTableData::TimeRequired` (`FTimespan`, `i64` ticks).
+    pub const ROW_TIME_REQUIRED: usize = 0x20;
+    /// The row struct's name.
+    pub const CELL_EXCHANGE_ROW: &str = "CellExchangeTableData";
+
+    /// `AArchonPlayerController::LOADOUT` (`AArchonLoadout*`).
+    pub const CONTROLLER_LOADOUT: usize = 0x9C8;
+    /// `AArchonLoadout::LoadoutSlotDataArray` (`TArray<UArchonLoadoutSlotData*>`).
+    pub const LOADOUT_SLOT_DATA: usize = 0x670;
+    /// `UArchonLoadoutSlotData::PlayerRoleItemSlot`; the eight item slot pointers follow 8 bytes apart.
+    pub const SLOT_DATA_ITEM_SLOTS: usize = 0x348;
+    /// `UArchonLoadoutItemSlot::Inventory` (`AArchonInventory*`).
+    pub const ITEM_SLOT_INVENTORY: usize = 0x28;
+    /// `ItemInstanceID.ItemInstanceID` (`FString`) `Num`.
+    pub const ITEM_SLOT_ID_NUM: usize = 0x40;
+    /// `ItemInstanceID.ItemInstanceIdCrc` (`u32`).
+    pub const ITEM_SLOT_CRC: usize = 0x48;
+
+    /// `ProcessEvent`'s byte offset in a `UObject` vtable (entry `0x44`).
+    pub const VTABLE_PROCESS_EVENT: usize = 0x220;
+    /// `RF_ClassDefaultObject`.
+    pub const RF_CLASS_DEFAULT_OBJECT: u32 = 0x10;
+
+    /// Readable sizes the loadout collect checks.
+    pub const CONTROLLER_SIZE: usize = 0x9D0;
+    /// `AArchonLoadout`.
+    pub const LOADOUT_SIZE: usize = 0x690;
+    /// `UArchonLoadoutSlotData`.
+    pub const SLOT_DATA_SIZE: usize = 0x390;
+    /// `UArchonLoadoutItemSlot`.
+    pub const ITEM_SLOT_SIZE: usize = 0xC0;
+    /// `AArchonInventory`.
+    pub const INVENTORY_SIZE: usize = 0x400;
+
+    /// The loading evaluator (`HasFinishedLoading`, LD-1's target), `bool (UObject*)`, called through `original`.
+    pub const HAS_FINISHED_LOADING: u32 = 0x01BA_5E40;
+    /// `UArchonLoadoutItemSlot::OnRep_ItemInstanceIdChanged` (native). Not called: R15 dispatches the UFunction.
+    pub const ITEM_SLOT_ON_REP_ID: u32 = 0x01BA_DCE0;
+    /// `AArchonLoadout::OnRep_Inventory` (native). Not called; re-resolves only the loadout's own ids.
+    pub const LOADOUT_ON_REP_INVENTORY: u32 = 0x01BA_D7D0;
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

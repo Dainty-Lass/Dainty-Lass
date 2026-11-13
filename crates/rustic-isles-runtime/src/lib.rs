@@ -5,6 +5,8 @@
 #[cfg(minhook)]
 pub mod config;
 #[cfg(minhook)]
+mod economy;
+#[cfg(minhook)]
 pub mod handlers;
 #[cfg(minhook)]
 pub mod headless;

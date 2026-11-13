@@ -93,8 +93,24 @@ Fuzz targets in `fuzz`:
       points into freed memory.
 - [ ] The ownership registry lists every surface id once with its slice; `owns` answers yes exactly for the ids of
       the slices in `LANDED` (`R0`, `R1`, `R2`, `R3`, `R4`: SP-1..3, HTTP-1, HTTP-1@R2, EXIT-1..14 and CL-1, 2, 5, 7,
-      8, 9; `R7`: LD-1..9, `SP-2@R7`, `SP-3@R7`; `HTTP-1@R10` and `SP-2@R20` stay the AGPL's) (`core::registry`
-      tests). R4's seven logging-only probes (CL-3, CL-4, CL-6, CL-10..13) are slice `R19`, never owned.
+      8, 9; `R7`: LD-1..9, `SP-2@R7`, `SP-3@R7`; `R15`: `SP-1@R15`, `SP-2@R15`; `HTTP-1@R10` and `SP-2@R20` stay
+      the AGPL's) (`core::registry` tests). R4's seven logging-only probes (CL-3, CL-4, CL-6, CL-10..13) are slice `R19`, never owned.
+
+### Game data writes and calls (R15)
+
+- [ ] R15 writes only two fields, `FArchonCatalogItem::MaxQuantity` (`i32`, to 0, supplies with a cap above 1) and
+      `FCellExchangeTableData::TimeRequired` (`i64`), and only through `ffi::economy::write_i32`/`write_i64`: R0's
+      `readable`, an aligned address, and a `PAGE_READWRITE`/`WRITECOPY` (or execute) region; anything else is no
+      write (`ffi::economy::tests::checked_writes`).
+- [ ] Every map and array the walks read is bounded before use: 1 000 000 catalog or table slots, 1 024 tags, `FString`s
+      of 65 536 units, 8 slot data entries, 64 collected slots; allocation bits past the 4 inline words need the heap
+      pointer (`core::economy` tests).
+- [ ] The repair calls the game only through an object's own vtable entry `0x44`, read through checked reads and
+      inside the executable's image range from its PE header (`process_event`), and the loading evaluator through
+      `broker::original`, on objects R0's `is_live_object` passed.
+- [ ] The object-array scans read through `ScanMemory`, which reuses a `VirtualQuery` region for one scan only.
+- [ ] The two settings (`DAINTY_KEEP_SUPPLY_STACK_CAPS`, `DAINTY_CELL_FUSION_MINUTES`) are read with `env_value(name,
+      15)`; a refused value is echoed in its note, which is safe because neither is a secret.
 
 ### Detach and the loader lock
 
