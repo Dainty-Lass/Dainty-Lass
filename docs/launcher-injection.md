@@ -139,7 +139,24 @@ Not run. `cargo test` only covers injecting a system DLL into a suspended `cmd.e
 
 ### Proton with the helper (Linux PC with the game)
 
-Not run. `cargo test` covers the helper against a real `cmd.exe` on Windows, not under Wine.
+Not run under Wine. `cargo test` covers the helper against a real `cmd.exe` on Windows. On 2026-11-12 the
+windows-gnu build the release ships was also tried on Windows: built with the maintainer's MSYS2 MinGW, as below.
+Against `cmd.exe /c exit 7` with `dbghelp.dll`:
+- With the right hash, it exited 7.
+- With a wrong hash, and with a missing DLL, it exited `0xD1A00003` and never started the program.
+- With a bad command line, it exited `0xD1A00001`.
+
+The local build was:
+
+```powershell
+rustup target add x86_64-pc-windows-gnu
+$env:PATH = "R:\root\msys\ucrt64\bin;$env:PATH"
+$env:CARGO_TARGET_X86_64_PC_WINDOWS_GNU_LINKER = "R:\root\msys\ucrt64\bin\x86_64-w64-mingw32-gcc.exe"
+cargo build --release --locked -p dainty-inject --target x86_64-pc-windows-gnu
+```
+
+The UCRT64 gcc links against the UCRT (`api-ms-win-crt-*`), and Ubuntu's `gcc-mingw-w64-x86-64` against
+`msvcrt.dll`. Wine provides both.
 
 1. Build the helper (`cargo build -p dainty-inject --release --target x86_64-pc-windows-gnu`). Put it in the
    launcher's resources folder as `dainty-inject.exe`: next to the AppImage's other resources, or in
