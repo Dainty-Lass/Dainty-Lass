@@ -15,7 +15,8 @@ sections 5, 11 and 15, section 3 of `spec-runtime-r17.md`, section 3.4 of `spec-
 alone, and never reads `restricted/`. What crossed is facts: RVAs into `Dauntless-Win64-Shipping.exe` (1.14.7, CL
 647472), instruction bytes and `.pdata` entries (each checked against the maintainer's copy of that executable on
 2026-11-13), engine layout offsets, engine and game names, flag names, and behaviour. The AGPL side stands down through
-seam patch 0041 and the merged patches 0052 and 0054 alone (section 13); R13's reserved patch number 0057 is not used.
+seam patch 0041, the merged patches 0052 and 0054, and R13's patch 0057 (section 13), which stands the AGPL's
+relevance settings pass down when the MIT owns `SP-3@R13`.
 
 Conventions are R0's: an RVA is `+0x0XXXXXXX` from the executable's image base; **S** server. **(call)** marks a
 decision this page makes; **(ambiguity)** something the source did not settle; **(departure)** a place the MIT
@@ -31,16 +32,13 @@ runtime deliberately behaves differently from the AGPL one. All three are collec
 | RG-2: `UArchonReplicationGraph::RouteAddNetworkActorToNodes`, the route at registration (controllers, player states, player roles, weapons, player characters; patches 0015 and 0016 at registration) | S | 6 |
 | `SP-3@R13`, after the engine tick: the weapon wake (patches 0015 and 0016, the tick half) | S | 7 |
 | `SP-3@R13`: the player pawn update-frequency write (from R8's block, patch 0054) | S | 8 |
-| `SP-3@R13`: the pawn channel-grace re-assert (part of the relevance settings pass) | S | 9 |
+| `SP-3@R13`: the relevance settings pass, its role and pawn halves (patch 0057 stands the AGPL's down) | S | 9 |
 | Base-actor routing: owned (the AGPL stops running it), not ported | S | 10 |
 
 **Not R13, though the surface page or Appendix A puts them near it:**
 
 - **Patch 0014** (the server's weapon gap log) is logging only: **dropped, not ported (RT-3)**. Its client half (0013)
   went with R7.
-- **The role half of the relevance settings pass** re-asserts the settings of every player role in R14's role route
-  table, from inside R14's once-a-second tick. It reads R14's state, so it is **R14's** (9.4). R13 gives R14 the
-  toolkit of section 5 to do it with.
 - **The default-object boost** (`Default__BP_PlayerCharacter_C`'s update frequencies and `bAlwaysRelevant` bit, before
   the graph is made) is R11's, with NETD-2 (R11 9.1). R13 keeps only the per-tick write on live pawns (8).
 - **The owner-pawn relevancy fix** (pointing the owning connection's view target at its pawn at `ClientRestart`) runs
@@ -233,8 +231,7 @@ original is called.
    is retried at most once a second):
    1. `PlayerController` → 6.2
    2. `PlayerState` → 6.3
-   3. `ArchonPlayerRole`, and `DISABLE_PLAYER_ROLE_GLOBAL_ROUTE.flag` absent (R0's 4 s cache, read at each such
-      registration) → 6.4
+   3. `ArchonPlayerRole` → 6.4
    4. `ArchonWeapon` → 6.5
    5. `ArchonCharacter` → 6.6
    6. anything else: nothing.
@@ -276,8 +273,8 @@ replica, the character's role went null and the HUD unbound. `bNetUseOwnerReleva
 re-evaluate through its owning pawn and churn its channels. The role's `Owner` is not touched (gameplay and RPC
 ownership stay).
 
-`DISABLE_PLAYER_ROLE_GLOBAL_ROUTE` is R14's flag (Appendix A): R14's role routing reads it to choose the per-connection
-path instead, so both sides must agree, and R13 reads the same file at each registration (12).
+Unconditional: `DISABLE_PLAYER_ROLE_GLOBAL_ROUTE`, which turned this route off for an A/B, is dropped with R14's
+agreement (12).
 
 Line (budget 64): `[MitRelevance] route: role actor=<p> flags58=0x<HH>->0x<HH> flags59=0x<HH>->0x<HH>
 settings=<-1|0|1> cull=<a>-><b> cullSq=<a>-><b> grace=<a>-><b> route=global`.
@@ -404,47 +401,50 @@ play-test has measured.
 
 ---
 
-## 9. `SP-3@R13`: the pawn channel-grace re-assert (S)
+## 9. `SP-3@R13`: the relevance settings pass (S)
 
 ### 9.1 What it is
 
-The AGPL's relevance settings pass re-asserts, once a second from inside R14's role tick, the settings the route
-already wrote at registration: (1) every player role's settings and every connection's cull snapshot of it, (2) every
-possessed player pawn's channel grace, (3) a read-only diagnostic. R13 ports (2); (1) is R14's (9.4); (3) is not
-ported (RT-3).
+The AGPL's relevance settings pass re-asserts, once a second, the settings the route already wrote at registration:
+(1) every player role's settings and every connection's cull snapshot of it, (2) every possessed player pawn's channel
+grace, (3) a read-only diagnostic. R13 ports (1) and (2); (3) is not ported (RT-3).
 
 The AGPL's own logs show the pass never had to correct anything from 26 Jul to 11 Oct 2026 (zero lines in the hub logs
 of 9–11 Oct). It is a safety net for an actor registered before the route hook or re-registered by a graph rebuild.
 
+In the AGPL the pass is called only from inside R14's once-a-second role tick (`SP-3@R14`), and it walks R14's role
+route table for (1). The MIT side does neither (9.3 finds the roles from the pawns), and patch 0057 makes the AGPL pass
+stand down when the MIT owns `SP-3@R13` (13.1), so the two never both run. R14 lands with or after R13 (R14's spec),
+so an MIT R14 never switches off an AGPL R13 pass.
+
 ### 9.2 When
 
 At most once a second (`GetTickCount64`), and then only when the inputs changed or 15 s passed since the last run:
-the inputs are the graph pointer and the ordered list of `(connection, pawn)` pairs read as in 9.3 (pawn 0 when it
+the inputs are the graph pointer and the ordered list of `(connection, pawn, role)` triples read as in 9.3 (0 for what
 cannot be read). The last inputs are kept; equal inputs and less than 15 s → nothing. The first call always runs and
-logs once `[MitRelevance] pawn grace re-assert on change, else every 15 s`. **(call)** The AGPL's order-independent
+logs once `[MitRelevance] relevance re-assert on change, else every 15 s`. **(call)** The AGPL's order-independent
 hash is replaced by a direct comparison of the list; the effect is the same.
 
 ### 9.3 Each run
 
 `graph` = `repgraph::graph()`; `None` → return. For each `connection` in `connections`: readable for `0x38`; `pc` = the
-pointer at `+0x30`, readable for `0x258` and live; `pawn` = the pointer at `pc + 0x250`, readable for `0x60`, live, and
+pointer at `+0x30`, readable for `0x258` and live; `pawn` = the pointer at `pc + 0x250`, readable for `0x748`, live, and
 `is_a ArchonCharacter` **(call: the AGPL took any pawn; RG-2 sets the grace only on characters, so the re-assert
-matches it)**. `apply_settings(global_info(graph, pawn), false, 300)`; when it answers `1`: line (budget 32)
-`[MitRelevance] pawn grace: corrected pawn=<p> connection=<p> grace=<a>-><b>`. A line here means something reset a
-pawn's settings after registration: worth a note in the play-test.
+matches it)**.
 
-### 9.4 The role half is R14's
+1. **The pawn.** `apply_settings(global_info(graph, pawn), false, 300)`; when it answers `1`: line (budget 32)
+   `[MitRelevance] pawn grace: corrected pawn=<p> connection=<p> grace=<a>-><b>`.
+2. **Its role.** `role` = the pointer at `pawn + 0x738` (`AArchonCharacter::PlayerRole`); non-null,
+   `is_actor_alive_for_replication`, `is_a ArchonPlayerRole`, and not already handled in this run (a role seen through
+   a second connection is skipped). `global` = `apply_settings(global_info(graph, role), true, 300)`; `cleared` =
+   `clear_connection_cull(graph, role)`. When `global` is `1` or `cleared > 0`: line (budget 32) `[MitRelevance] role
+   cull: corrected role=<p> pawn=<p> global=<-1|0|1> snapshotsCleared=<n> cull=<a>-><b> cullSq=<a>-><b>
+   grace=<a>-><b>`.
 
-Part (1) walks R14's player role route table (the roles `ApplyPlayerRole` routed) and runs inside `SP-3@R14`'s
-once-a-second block. In the AGPL the whole pass is inside that block, so:
-
-- **R13 MIT, R14 AGPL:** the AGPL pass still runs (2) as well as (1). Both sides write the same values with the same
-  raise-only rule: idempotent, no conflict, no patch.
-- **R14 MIT before R13:** the AGPL pass stops with `SP-3@R14`, and (2) is gone until R13 lands. A safety net that never
-  fired; R14's spec decides whether that is acceptable or whether R14 lands with or after R13.
-- R14's MIT side re-asserts its roles with the toolkit of section 5 (14).
-
----
+**(departure)** The AGPL found the roles in R14's route table, which holds every role its `ApplyPlayerRole` routed on
+the server. R13 reads each connected player's current role from the pawn instead, so it needs no R14 state; a role a
+player no longer holds is not re-asserted (it is no longer drawn), and a role whose pawn has no connection is not a
+player's. A line in either case means something reset settings after registration: worth a note in the play-test.
 
 ## 10. Base-actor routing: owned, not ported **(call)**
 
@@ -467,25 +467,25 @@ R21.
 - R12's guards (RG-4..7) never read what RG-2 writes, and RG-2 never reads R12's quarantine. Either may be MIT while
   the other is AGPL (R12 1); R13 still lands after R12 because its tick reads `repgraph::graph()` (13.2).
 - R14's role routing (AGPL until R14) decides between the global node and a per-connection node from the role's
-  `flags58 & 0x08`, which RG-2 sets exactly as the AGPL did, and from `DISABLE_PLAYER_ROLE_GLOBAL_ROUTE`, which both
-  read.
+  `flags58 & 0x08`, which RG-2 sets exactly as the AGPL did. R14's MIT side drops the per-connection fallback and
+  reads no flag for it (R14's spec).
 - R14's RG-3 purge runs on route removal; RG-2 is route addition. No shared state.
 
 ---
 
 ## 12. Flags (RT-14 for R13)
 
-Appendix A gave R13 eleven flags; one more (R14's) is read by RG-2. Settled:
+Appendix A gave R13 eleven flags; one more (R14's) was read by the AGPL's RG-2. Settled:
 
 | Flag | Kept? | Meaning in the MIT runtime |
 | --- | --- | --- |
 | `DISABLE_PLAYER_REP_BOOST` | kept | read once: no per-tick pawn write (8). R11 reads the same file once for the default object (R11 9.1) |
-| `DISABLE_PLAYER_ROLE_GLOBAL_ROUTE` | read (R14's) | R0's 4 s cache, at each role registration: 6.4 not applied. R14 owns the name; if R14's spec drops it, R13's read goes with it in the same change |
+| `DISABLE_PLAYER_ROLE_GLOBAL_ROUTE` | **dropped** | Appendix A's R14 flag, read by the AGPL's RG-2 and its R14 role routing to go back to per-connection role routes for an A/B; R14's spec drops it too, so neither MIT side reads it. It can only bring the omnicell coming and going back **(ruling)**. While R14 is AGPL its routing still reads the file, so a host must not create it (the two halves would disagree) |
 | `PLAYER_ALWAYS_RELEVANT` | **moves to R11** | its only reader is the default-object boost, which R11 ports (R11 9.1); R13 has no code that reads it |
 | `DISABLE_OWNER_PAWN_RELEVANCY` | **moves to R20** | its only reader is the owner-pawn view-target write inside `SP-2@R20`'s `ClientRestart` handling (1) |
 | `DISABLE_WEAPON_DORMANCY_FIX` | **dropped** | turned off 0015 at registration and the tick wake; it can only bring back hunts that never load with a hammer **(ruling)** |
 | `DISABLE_WEAPON_CULL_FIX` | **dropped** | turned off 0016 at registration and in the tick; same reason **(ruling)** |
-| `DISABLE_REPGRAPH_RELEVANCE_FIX` | **dropped** | turned off the settings writes of 6.3, 6.4, 6.6 and the re-assert pass; it can only bring back the omnicell coming and going and the reference-pose pawns **(ruling)** |
+| `DISABLE_REPGRAPH_RELEVANCE_FIX` | **dropped** | turned off the settings writes of 6.3, 6.4, 6.6 and the relevance pass (9); it can only bring back the omnicell coming and going and the reference-pose pawns **(ruling)** |
 | `DISABLE_SERVER_WEAPON_GAP_LOG` | **dropped** | 0014 is not ported **(RT-3)** |
 | `RELEVANCE_PASS_EVERY_TICK` | **dropped** | an A/B switch for the re-assert's cadence (diagnostics, RT-3) |
 | `ENABLE_BASE_ACTOR_BOOTSTRAP` | **dropped** | 10 |
@@ -493,24 +493,29 @@ Appendix A gave R13 eleven flags; one more (R14's) is read by RG-2. Settled:
 | `ENABLE_HUB_REP_DIAGNOSTICS` | **dropped** on the MIT side | diagnostics (RT-3); 10 |
 
 A dropped flag left in a game folder has no effect on the MIT side. While the AGPL still runs a block that reads one
-(the relevance pass inside `SP-3@R14`), the AGPL still honours it there.
+(R14's role routing), the AGPL still honours it there.
 
 ---
 
 ## 13. The AGPL side and the other slices
 
-### 13.1 How the AGPL stands down (seam patch 0041, 0052, 0054; no new patch)
+### 13.1 How the AGPL stands down (seam patch 0041, 0052, 0054, and patch 0057)
 
 - RG-2 is in 0041's RVA table. When R13 owns it, the AGPL makes no wrapper; its "original" pointer becomes
   `rir_original(target)` and its enable call succeeds as a no-op. Its install line still logs `create=MH_OK`.
 - `SP-3@R13` gates the AGPL's base-actor routing (before the engine tick) and its weapon gap log and weapon wake (after
   it) (0041), and its per-tick pawn write in the connected-server block (0054).
-- What stays AGPL and is harmless: the relevance settings pass inside `SP-3@R14` (9.4); its membership report behind
+- **Patch 0057 (new):** the AGPL's relevance settings pass is called from inside `SP-3@R14`'s block, so 0041's gate on
+  `SP-3@R13` does not reach it. With `SP-3@R13` owned by the MIT, 0057 makes the pass skip its role and pawn parts
+  (it still runs its read-only drone diagnostic). Without the MIT runtime, or with R13 not landed, nothing changes.
+  Recorded in `restricted/docs/paradox-patches.md`.
+- What stays AGPL and is harmless: the pass's read-only drone diagnostic; the membership report behind
   `ENABLE_HUB_REP_DIAGNOSTICS`; the default-object boost (R11's, NETD-2).
 - The AGPL's driver pointer is R9's (0052), which its remaining blocks read; R13 reads R9's and R12's interfaces.
 - No AGPL code reads anything R13 keeps (the woken ring, the pass's last inputs).
 
-So nothing beyond 0041, 0052 and 0054 is needed, and **R13's reserved patch number 0057 is unused**.
+So the AGPL needs 0041, 0052, 0054 and **R13's patch 0057**. 0057 was not built or run here: the C++ needs the
+maintainer's SDK, and the play-test (17.1) is its check.
 
 ### 13.2 R13 lands with or after R12 **(call)**
 
@@ -519,14 +524,15 @@ holds `"R12"`, and a registry test enforces it (15.1). The R13 implementer's bra
 already there on `plan`; otherwise the integration pass adds it when it merges R13 after R12. Until then R13's code
 builds and its pure tests run, and it installs nothing.
 
-**R13 with R12 (R14, R20 still AGPL) is safe:** 9.4 and 11.
+**R13 with R12 (R14, R20 still AGPL) is safe:** 9.1, 11 and 0057. R14 lands with or after R13 (R14's spec), so the
+pass is never lost.
 
 Row for R0 7.5's cross-slice table:
 
 | State | Set by | Read by | Rule |
 | --- | --- | --- | --- |
-| a role's route bits (`flags58 & 0x08`) and the role flag | RG-2 | R14's role routing | carried: RG-2 writes the same bits; both read `DISABLE_PLAYER_ROLE_GLOBAL_ROUTE` |
-| the pawn grace re-assert | the relevance pass in `SP-3@R14` (AGPL) | — | **R14 MIT before R13 loses it** (9.4); R14's spec decides |
+| a role's route bits (`flags58 & 0x08`) | RG-2 | R14's role routing | carried: RG-2 writes the same bits |
+| the relevance settings pass | `SP-3@R13` (MIT), or the AGPL pass called inside `SP-3@R14` | — | **patch 0057**: one side runs it; **R14 lands with or after R13** |
 
 ### 13.3 Rulings settled here
 
@@ -544,7 +550,7 @@ Row for R0 7.5's cross-slice table:
 
 | Slice | Needs |
 | --- | --- |
-| R14 | the toolkit of section 5 from `relevance` (`global_info`, `connection_manager`, `connection_info`, `apply_settings`, `clear_connection_cull`, `PLAYER_CHANNEL_GRACE_FRAMES`) for its role re-assert (9.4); RG-2's role route (6.4) as the registration half of its role relevance; the shared flag `DISABLE_PLAYER_ROLE_GLOBAL_ROUTE` (12); the landing question of 9.4 |
+| R14 | nothing called. RG-2's role route (6.4) and the relevance pass's role half (9.3) keep its roles relevant; the toolkit of section 5 (`global_info`, `connection_manager`, `connection_info`, `apply_settings`, `clear_connection_cull`, `PLAYER_CHANNEL_GRACE_FRAMES`) is public should it need one. R14 lands with or after R13 (9.1) |
 | R20 | nothing called. `DISABLE_OWNER_PAWN_RELEVANCY` is its flag (12). Its `ClientRestart` pawn writes and RG-2's character grace (6.6) touch different fields |
 | R11 | nothing called. `PLAYER_ALWAYS_RELEVANT` is its flag (12); `DISABLE_PLAYER_REP_BOOST` is read by both |
 | R12 | nothing called; R13's handler at order 400 < 500 (R12 15) |
@@ -566,13 +572,14 @@ Core (`cargo test -p rustic-isles-runtime-core`), over a fake `Memory`:
 - **`clear_connection_cull`:** clears only non-zero snapshots and counts them; skips unreadable managers and infos.
 - **RG-2 decisions:** each class branch's writes (6.2–6.6) for fixed flag bytes; the branch order (a class that is both
   never happens, but the first test wins); a dead or destroying actor and an unreadable `info` take no branch; the
-  role branch off with the flag; the weapon: dormant spatial woken, dormant global not woken but culled, awake spatial
+  role branch is unconditional; the weapon: dormant spatial woken, dormant global not woken but culled, awake spatial
   untouched, `g` unreadable untouched; the route text from the bits.
 - **Weapon wake (7.2):** the 250 ms throttle; each skip (no pawn, not a character, no weapon, destroying, in the ring,
   no global info, nothing to correct, no manager, already sent by channel, already sent by frame); the ring wraps after
   16 and a re-seen weapon at a reused address with another index is new.
-- **Pawn grace (9):** first run; same inputs within 15 s skip; a changed pair, a changed graph, and 15 s each run; only
-  characters.
+- **Relevance pass (9):** first run; same inputs within 15 s skip; a changed triple, a changed graph, and 15 s each
+  run; only characters; a role reached through two connections handled once; a dead, destroying or non-role pointer at
+  `+0x738` skipped; the role line only when the global answer is 1 or a snapshot was cleared.
 - **Lines:** every text on this page for fixed values; the budgets.
 - **Registry:** if `LANDED` contains `"R13"` it contains `"R12"`; with both, `owns` is true for RG-2 and `SP-3@R13`.
 - **Offsets:** RG-2 has one `RvaAndBytes` line with the bytes of 16.1.
@@ -587,8 +594,8 @@ DLL (`cargo test -p rustic-isles-runtime`, Windows):
 ### 15.2 What CI cannot show
 
 The hook against the real executable, whether a weapon reaches its client, the omnicell and reference-pose fixes, and
-the cost on a full hub: the play-test. `restricted/`'s cargo tests were not run for this page (no AGPL code changed,
-and the C++ needs the maintainer's SDK).
+the cost on a full hub, and patch 0057: the play-test. `restricted/`'s cargo tests were not run for this page (the RAM
+rule; the C++ of 0057 needs the maintainer's SDK to build).
 
 ---
 
@@ -611,6 +618,7 @@ and the C++ needs the maintainer's SDK).
 | graph layout | `NEW_ACTOR_INFO_SIZE 0x18`, `GRAPH_GLOBAL_ACTOR_MAP 0xC0` (stride `0x18`, span `0x118`), `CONN_MANAGER_ACTOR_INFO_MAP 0x30` (stride `0x20`, manager span `0xE0`), `GLOBAL_INFO_SIZE 0x110`, `GLOBAL_WANTS_DORMANT 0x14`, `GLOBAL_CHANNEL_TIMEOUT 0x30`, `GLOBAL_CULL_DISTANCE 0x88`, `GLOBAL_CULL_DISTANCE_SQ 0x8C`, `CONN_INFO_SIZE 0x30`, `CONN_INFO_CHANNEL 0x00`, `CONN_INFO_CULL_DISTANCE 0x08`, `CONN_INFO_CULL_DISTANCE_SQ 0x0C`, `CONN_INFO_LAST_REP_FRAME 0x14` | 5, 7 |
 | map layout | `MAP_DATA 0x00`, `MAP_NUM 0x08`, `MAP_MAX 0x0C`, `MAP_INLINE_BITS 0x10`, `MAP_SECONDARY_BITS 0x20`, `MAP_NUM_BITS 0x28`, `MAP_VALUE 0x08` (in an element) | 5.1 |
 | constants | `PLAYER_CHANNEL_GRACE_FRAMES 300`, `WEAPON_WAKE_PERIOD_MS 250`, `WOKEN_RING 16`, `GRACE_PASS_FLOOR_MS 1000`, `GRACE_PASS_MAX_MS 15000` | 5, 7, 9 |
+| role layout | `CHARACTER_PLAYER_ROLE 0x738` (`AArchonCharacter::PlayerRole`, server-only) | 9 |
 
 `GRAPH_CONNECTIONS`, `CONN_MANAGER_CONNECTION` and `CONNECTION_PLAYER_CONTROLLER` (`0x30`) are R12's (R12 17.2).
 Where R9, R12 or R17 already defines a name for the same fact, use theirs.
@@ -639,13 +647,14 @@ account's `WP_IH_BEGINNER`), the other any other weapon.
    15 000 units, across the island), swap places. Each still sees the other's weapon. Go back to Ramsgate, wait a few
    minutes, then start a second hunt together: same result.
 5. **Omnicell.** On both clients, the omnicell ability and its HUD charge stay put for the whole hunt, also after
-   walking far from the island's origin (no coming and going). `route: role` lines once per role.
+   walking far from the island's origin (no coming and going). `route: role` lines once per role. The AGPL's
+   `[RelevancePass]` and `[PlayerRoleCullGuard]` lines do not appear (patch 0057 stands its pass down).
 6. **Escalation.** A two-player escalation through at least two ready transitions: neither player sees the other in
    the reference pose after a transition.
 7. **Hosted hunt (7.4).** Host a realm hunt from the launcher with the hammer account; loading finishes and the
    weapon shows.
-8. **Quiet.** No `[MitRelevance] pawn grace: corrected` lines (one means something reset a pawn's settings: note it);
-   no `[Panic]`.
+8. **Quiet.** No `[MitRelevance] pawn grace: corrected` or `role cull: corrected` lines (one means something reset
+   settings after registration: note it); no `[Panic]`.
 9. **Cost.** On a hub with both players idle for 5 minutes, compare the server's frame time against the build with
    R12 only: no clear rise.
 
@@ -659,22 +668,24 @@ Calls (for the maintainer to confirm; the ones marked **ruling** need one):
    `DISABLE_REPGRAPH_RELEVANCE_FIX`, as R12's ruling did for its guard switches. Recommended: yes.
 2. **Ruling: base-actor routing owned and not ported** (10), with its two flags and `ENABLE_PLAYERSTATE_OWNER_ROUTE`:
    superseded by R12's drive. Recommended: yes.
-3. **The role half of the relevance pass is R14's** (9.4); R13 ports the pawn half and exposes the toolkit (14).
-4. `PLAYER_ALWAYS_RELEVANT` moves to R11, `DISABLE_OWNER_PAWN_RELEVANCY` to R20 (12); R13 reads R14's
-   `DISABLE_PLAYER_ROLE_GLOBAL_ROUTE`.
+3. **Ruling: `DISABLE_PLAYER_ROLE_GLOBAL_ROUTE` dropped** (12), agreed with R14's writer: neither MIT side reads it.
+   Recommended: yes.
+4. **The whole relevance pass is R13's** (9), roles found from the pawns; **patch 0057** stands the AGPL pass down on
+   `SP-3@R13` (13.1); R14 lands with or after R13 (agreed with R14's writer). `PLAYER_ALWAYS_RELEVANT` moves to R11,
+   `DISABLE_OWNER_PAWN_RELEVANCY` to R20 (12).
 5. **R13 lands with or after R12** (13.2), enforced by a registry test.
 6. The handler at SP-3 after `order = 400` (7.1).
 7. The per-tick pawn write kept though it may be a no-op (8).
-8. The pawn grace re-assert compares its inputs directly instead of hashing them, and checks the pawn's class (9).
+8. The relevance pass compares its inputs directly instead of hashing them, and checks the pawn's class (9).
 9. `is_quarantined` not used (3).
-10. Patch 0057 unused (13.1).
+10. Patch 0057 (13.1): built and checked only by the maintainer.
 
 Departures:
 
 1. RG-2's target checked against its first bytes (4.2).
 2. New tag `[MitRelevance]` and new texts; budgets on every repeating line; no membership lines after a route (4.3).
 3. The weapon wake runs on a player host too (7.4).
-4. The pawn grace re-assert touches player characters only (9.3).
+4. The relevance pass touches player characters only, and finds roles from the pawns rather than R14's table (9.3).
 
 Ambiguities:
 
@@ -686,13 +697,13 @@ Ambiguities:
 - Whether the engine ever resets a global info's settings after registration (the re-assert's reason to exist) was
   never observed.
 
-No open question remains beyond the two rulings (calls 1, 2).
+No open question remains beyond the three rulings (calls 1, 2, 3).
 
 ---
 
 ## 18. Size
 
-Rust, without tests: the DLL crate about 300 lines (RG-2 and its writes 120, the handler with the wake, the pawn write
-and the re-assert 150, install 30), the core crate about 400 (the map search and toolkit 120, route decisions 90, wake
-and re-assert decisions 90, lines, budgets, flags and offsets 100). Tests about 400. Far smaller than the surface's
-2 000: 0014's log, the base-actor routing, the membership diagnostics and the role re-assert (R14's) are not here.
+Rust, without tests: the DLL crate about 320 lines (RG-2 and its writes 120, the handler with the wake, the pawn write
+and the relevance pass 170, install 30), the core crate about 420 (the map search and toolkit 120, route decisions 90,
+wake and pass decisions 110, lines, budgets, flags and offsets 100). Tests about 420. The AGPL patch 0057 is a few
+lines. Far smaller than the surface's 2 000: 0014's log, the base-actor routing and the diagnostics are not here.

@@ -21304,6 +21304,11 @@ static void TickRepGraphRelevanceSettings() {
     if (!Graph || !MpReadableThisFrame(Graph, 0x4C8)) return;
     if (*reinterpret_cast<void**>(reinterpret_cast<uintptr_t>(Graph) + 0x30)
         != reinterpret_cast<void*>(Networking::NetDriver)) return;
+    // [DaintyLass 0057] With SP-3@R13 left to the MIT runtime it runs parts 1-2 itself (spec-runtime-r13 section 9).
+    if (!MITSEAM_AGPL_RUNS("SP-3@R13")) {
+        TickFrankDroneDiagnostics(Graph);   // part 3 only
+        return;
+    }
 
     static int s_everyTick = -1;
     if (s_everyTick < 0) {
