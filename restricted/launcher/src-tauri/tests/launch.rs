@@ -129,7 +129,7 @@ fn the_runtime_is_pointed_at_the_local_relay_and_nothing_else() {
     ] {
         assert_eq!(get(gone), None, "{gone}");
     }
-    assert_eq!(out.len(), 5, "the inherited DAINTY_BACKEND_URL is gone, not doubled");
+    assert_eq!(out.len(), 4, "the inherited DAINTY_BACKEND_URL is gone, not doubled");
     for bad in [
         "http://192.168.1.2:61100",
         "https://127.0.0.1:61100",
