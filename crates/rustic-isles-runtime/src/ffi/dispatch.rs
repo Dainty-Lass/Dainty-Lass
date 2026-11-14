@@ -61,6 +61,11 @@ thread_local! {
     static NAMES: RefCell<HashMap<usize, Rc<NameEntry>>> = RefCell::new(HashMap::new());
 }
 
+/// This thread's SP-1/SP-2 nesting: 1 inside an outermost call's handlers (R14 2.2).
+pub fn depth() -> u32 {
+    DEPTH.with(Cell::get)
+}
+
 /// Counts this thread's nesting; the drop unwinds it on every exit path.
 struct Depth(u32);
 

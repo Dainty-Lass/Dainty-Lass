@@ -2,7 +2,9 @@
 
 use crate::config;
 use crate::ffi::exit::{self, Install};
-use crate::ffi::{dispatch, engine, flags, http, loading, log, minhook, net, relevance, repgraph, travel, win};
+use crate::ffi::{
+    dispatch, engine, flags, http, loading, log, minhook, net, player_role, relevance, repgraph, travel, win,
+};
 use crate::handlers;
 use crate::login;
 use rustic_isles_runtime_core::config::launch::PORT_EXIT_CODE;
@@ -62,6 +64,7 @@ pub fn init() {
     } else {
         let _ = travel::register(base);
     }
+    player_role::register(server);
     // Slices register their handlers before this point; the lists are read lock-free from here on
     crate::economy::register();
     if !server {
@@ -97,10 +100,18 @@ pub fn init() {
         // RG-2 right after RG-1, the AGPL's position (R13 4.4)
         let after_rg1 = graph.iter().position(|(id, _)| *id == "RG-1").map_or(0, |at| at + 1);
         graph.splice(after_rg1..after_rg1, relevance::install(base, hooks_off));
+        // RG-3 after RG-2's position and before RG-4 (R14 4.4)
+        let after_rg2 = graph
+            .iter()
+            .position(|(id, _)| *id == "RG-2")
+            .map_or(after_rg1, |at| at + 1);
+        graph.splice(after_rg2..after_rg2, player_role::install_rg3(base, hooks_off));
         net.splice(at..at, graph);
         installs.extend(net);
         installs.push(chain("HTTP-1", http::install));
         installs.push(crate::player_host::install_header(base, hooks_off));
+        // PR-1 before SRV-1 (R14 4.4)
+        installs.extend(player_role::install_pr1(base, hooks_off));
         installs.extend(listen);
         installs.extend(server_life);
         installs.push(exit::install_engine_error(base, hooks_off));
@@ -110,6 +121,8 @@ pub fn init() {
         installs.push(("TR-1", hooks_off.map_or_else(|| travel::install(base), Err)));
         installs.extend(net::install(false, base, hooks_off));
         installs.extend(login::install(false, base));
+        // PR-1 after TR-1 and before HTTP-1 (R14 4.4)
+        installs.extend(player_role::install_pr1(base, hooks_off));
         installs.push(chain("HTTP-1", http::install));
         installs.extend(exit::install_exports(hooks_off));
         installs.push(exit::install_veh(base));

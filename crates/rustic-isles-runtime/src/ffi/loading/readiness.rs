@@ -6,6 +6,7 @@ use super::game::{self, read_i32, read_ptr, read_u8, readable};
 use crate::handlers::PeCall;
 use rustic_isles_runtime_core::loading::{FORCED_LOG_BUDGET, Possession, TriggerSigns, force_controller, lines};
 use rustic_isles_runtime_core::offsets::r7;
+use rustic_isles_runtime_core::player_role::Captured;
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::{Mutex, MutexGuard, OnceLock, PoisonError};
 
@@ -72,6 +73,31 @@ pub fn possession_stable(pc: usize) -> Option<usize> {
     let mut possession = possession();
     possession.check_world(game::world());
     stable_locked(&mut possession, pc, game::now())
+}
+
+/// R14 3.1: the captured pair after the world-change rule, with R7's new-possession counter.
+pub fn captured() -> Option<Captured> {
+    let mut possession = possession();
+    possession.check_world(game::world());
+    let pc = possession.controller();
+    if pc == 0 {
+        return None;
+    }
+    Some(Captured {
+        pc,
+        pawn: possession.pawn(),
+        since_ms: possession.began()?,
+        generation: possession.generation(),
+    })
+}
+
+/// R14 3.1: `possession_stable`'s chain (steps 1 to 3) without its timing, the pawn `expected_pawn` when given.
+pub fn chain_for(pc: usize, expected_pawn: Option<usize>) -> Option<usize> {
+    let captured = possession().controller();
+    if pc == 0 || pc != captured {
+        return None;
+    }
+    possessed_pawn(pc).filter(|&pawn| expected_pawn.is_none_or(|expected| expected == pawn))
 }
 
 /// `KEEP_ARRIVAL_TRIGGER_WAIT.flag` absent, read once.

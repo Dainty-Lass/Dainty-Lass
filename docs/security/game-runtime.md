@@ -366,6 +366,24 @@ Fuzz targets in `fuzz`:
       or words) answers `None`.
 - [ ] Every repeating `[MitRelevance]` line has a budget; lines carry pointers, flag bytes, counts and engine names.
 
+### The player role (R14)
+
+- [ ] `R14` is in `LANDED` only with `R7`, `R13` and `R15` (`registry::tests::r14_lands_with_or_after_r7_r13_and_r15`):
+      the AGPL runs R13's relevance re-assert and R15's loadout capture inside R14's blocks.
+- [ ] PR-1 and RG-3 are checked against their first bytes in `.pdata` before hooking, and so are the three functions
+      R14 calls by pointer (the slot getter pair and `InternalTryActivateAbility`); a mismatch means no call at all,
+      and for the ability route one line and no route.
+- [ ] No fault is caught: every native call with a remembered pointer is made only after `is_live_object` in the same
+      call (the retry's loadout, the cascade's loadout, the HUD and game state). The retry drops a loadout that is no
+      longer live (the July travel crashes) and the HUD forgets dead pointers; a new possession clears the retry table.
+- [ ] Writes are the controller's `bOnlineDataReady` byte and the movement repair's bytes (11.6), each checked readable
+      and writable; the role's lifecycle bytes, widgets and visibility are never written. Every UFunction call goes
+      through `params_fit` with R14's own zeroed, 8-aligned block; the Tempest repair passes a copy of the role's
+      array header and never frees or changes the role's array.
+- [ ] The ability route always lets the original RPC run (`Verdict::Continue`) and passes the prediction key as a copy.
+- [ ] Every repeating line has a budget or a throttle; the *quiet* lines are skipped on a production server; lines carry
+      pointers, item ids, counts and handles, never an account id or a key.
+
 ### Logging
 
 - [ ] Never logged: the command line, the gameserver key (`api_key`) or which request carried it, argv entry 1, any
