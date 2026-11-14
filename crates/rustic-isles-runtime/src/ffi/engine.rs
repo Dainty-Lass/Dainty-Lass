@@ -67,3 +67,18 @@ pub fn is_live_object(ptr: usize) -> bool {
 pub fn is_actor_alive_for_replication(ptr: usize) -> bool {
     engine().is_some_and(|engine| engine.is_actor_alive_for_replication(ptr))
 }
+
+/// The object whose full name is exactly `name` (R5's HL-11): short names are compared first, and the full name is
+/// built only for those. `None` with names off.
+pub fn find_object_by_full_name(name: &str) -> Option<usize> {
+    if IMAGE_BASE.load(Ordering::SeqCst) == 0 || !names_on() {
+        return None;
+    }
+    let engine = engine()?;
+    let short = name.rsplit('.').next()?;
+    (0..engine.object_count()?)
+        .filter_map(|index| engine.object_at(index))
+        .find(|&object| {
+            engine.object_name(object).as_deref() == Some(short) && engine.full_name(object).as_deref() == Some(name)
+        })
+}

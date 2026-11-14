@@ -6,6 +6,7 @@ pub mod engine;
 pub mod exit;
 pub mod exports;
 pub mod flags;
+pub mod headless;
 pub mod http;
 pub mod log;
 pub mod login;
