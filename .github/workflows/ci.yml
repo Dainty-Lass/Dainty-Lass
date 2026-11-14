@@ -683,7 +683,8 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p trivy
-          for image in $(docker compose -f restricted/compose.yaml config --images | sort -u); do
+          # The root's images, built last above under the same names
+          for image in $(docker compose -f compose.yaml config --images | sort -u); do
             if ! docker image inspect "$image" > /dev/null 2>&1; then continue; fi
             slug="$(printf '%s' "$image" | tr -c 'a-zA-Z0-9.-' '-')"
             TRIVY_DOCKER_SOCKET=1 .github/scripts/trivy.sh image --scanners vuln --format sarif --output "trivy/$slug.sarif" "$image"

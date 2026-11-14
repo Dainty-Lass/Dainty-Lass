@@ -24,7 +24,7 @@ via relative path dependencies (`path = "../crates/<name>"` in `Cargo.toml`, `[w
 | `modules/rustic-rifts/` | Peer-to-peer realms' AGPL remainder: `oracle` (Mystic Paradox's Node vectors replayed against the MIT crates). The `rustic-rifts-*` crates themselves are the root's MIT clean-room ones (`../crates/rustic-rifts-*`, RD27) |
 | `legacy/` | dainty-legacy: the 1.4.4 importer, a workspace of its own (an external plugin `settings.toml` pins) |
 | `fuzz/` | `cargo fuzz` targets for the AGPL components, a workspace of its own |
-| `docker/`, `compose.yaml` | Container deployment (RX4), laid out as the server release |
+| `docker/`, `compose.yaml` | Container deployment (RX4), laid out as the server release: the AGPL originals of the root's MIT `docker/` and `compose.yaml`, kept until the oracle runs (`../docs/port/clean-room/docker.md` section 7) retire them, and the Node rollback stages until RB15 |
 | `docs/` | Host and player guides, `paradox-patches.md`, and `security/` for the AGPL components |
 
 Dainty Lass serves one game, Dauntless 1.14.7 (2026-10-31). On the default path (since the RU9 code cutover,

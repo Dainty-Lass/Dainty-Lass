@@ -7,7 +7,8 @@ set -euo pipefail
 
 export COMPOSE_PROJECT_NAME="${COMPOSE_PROJECT_NAME:-dainty-smoke}"
 export COMPOSE_PROFILES=public
-export COMPOSE_FILE=compose.yaml
+# From the environment when set, so the oracle runs this against the root's compose file (spec-docker D-8)
+export COMPOSE_FILE=${COMPOSE_FILE:-compose.yaml}
 export DAINTY_GATEWAY_PORT=443
 export DAINTY_GATEWAY_PUBLISH="127.0.0.1:${SMOKE_PORT:-18443}"
 export DAINTY_GAME_PUBLISH_ADDRESS=127.0.0.1

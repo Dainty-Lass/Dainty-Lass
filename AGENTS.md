@@ -176,7 +176,9 @@ It's never a one-file change:
 
 Docker is `compose.yaml`, `.env.example` and `docker/` at the root (MIT, clean-room from `docs/port/spec-docker.md`).
 Restricted's AGPL copies (`restricted/compose.yaml`, `restricted/docker/`, rules in `restricted/AGENTS.md`) stay until
-their oracle runs retire them, so a service added, moved or removed at the root is a change to both.
+spec-docker's three oracle runs pass on a Linux Docker host with `CAP_NET_ADMIN`, a hands-on step whose commands and
+retirement list are in `docs/port/clean-room/docker.md` section 7. Until then a service added, moved or removed at the
+root is a change to both, and CI runs both. The Node rollback stages of restricted's Dockerfile stay until RB15.
 
 ## User-facing text
 
@@ -222,7 +224,7 @@ Not obvious from reading the suites:
   with `RR_UPDATE_GENERATED=1` and commit the result; don't edit the output.
 - **The real firewall test is opt-in** (`DAINTY_TEST_FIREWALL=1`: nftables on Linux with root or `CAP_NET_ADMIN`,
   Windows Firewall from an elevated prompt; `crates/dainty-gateway/tests/firewall.rs`). Otherwise it skips, so
-  `cargo test` passing says nothing about the rules. `restricted/docker/test-in-image.sh` turns
+  `cargo test` passing says nothing about the rules. `docker/test-in-image.sh` turns
   it on when the container has the capability. Run that after a firewall change.
 - Nothing here is played against the real 1.14.7 client in CI. When only the tests passed, say so; don't
   claim a gameplay change works.
