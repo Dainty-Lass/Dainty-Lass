@@ -87,8 +87,9 @@ Fuzz targets in `fuzz`:
 - [ ] The DLL is pinned (`GET_MODULE_HANDLE_EX_FLAG_PIN`) and frees no stub, cell or trampoline, so no chain ever
       points into freed memory.
 - [ ] The ownership registry lists every surface id once with its slice; `owns` answers yes exactly for the ids of
-      the slices in `LANDED` (`R0`, `R1`, `R2`, `R3`: SP-1..3, HTTP-1, HTTP-1@R2 and EXIT-1..14; `HTTP-1@R10` stays
-      the AGPL's) (`core::registry` tests).
+      the slices in `LANDED` (`R0`, `R1`, `R2`, `R3`, `R4`: SP-1..3, HTTP-1, HTTP-1@R2, EXIT-1..14 and CL-1, 2, 5, 7,
+      8, 9; `HTTP-1@R10` stays the AGPL's) (`core::registry` tests). R4's seven logging-only probes (CL-3, CL-4, CL-6,
+      CL-10..13) are slice `R19`, never owned.
 
 ### Detach and the loader lock
 
@@ -156,6 +157,23 @@ Fuzz targets in `fuzz`:
       random bytes no id is set and the backend refuses the grant (fail closed). Ids come from `ProcessPrng`.
 - [ ] Every request reaches the game: the detour never absorbs a call and a panic in its steps is logged once and
       the call goes on (`detour_through_the_broker`).
+
+### Login, EAC and the command line (R4)
+
+- [ ] CL-1 never logs the command line (a client's carries the exchange code, a server's the gameserver key); its
+      summary line holds booleans and the effective `MULTIHOME` only (`core::login::cmdline`).
+- [ ] A `MULTIHOME` reaches the served line only from the OS line, on a server, and only as an IP literal by R1's
+      strict grammars; one that fails is logged by length, never by value, and is not published
+      (`multihome_outcomes`). `engine_multihome()` is `None` until the line is built, so R9/R10's pinned-listen check
+      fails closed.
+- [ ] The engine's line is read through `ffi::memory`, at most 32768 units, and frozen only once it is non-empty; the
+      served copy is leaked, never freed, since the engine keeps the pointer (`command_line_served_once_non_empty`).
+- [ ] CL-5 reads the EAC message through `readable` and at most 512 units; it absorbs only messages naming
+      `IGameClient` or `Failed to create`, and never logs the text.
+- [ ] CL-7 writes one byte, only in a committed page whose protection allows writing (`cl7_write_rule`).
+- [ ] CL-8/9 rewrite only a node name holding `gce.latency-test.steelyard.ca` (NUL within 256 units) to a static
+      `127.0.0.1`; hints and results pass through untouched. `ws2_32.dll` is a static import, so no library is loaded
+      in Init (`tests/dll_file.rs`).
 
 ### Logging
 

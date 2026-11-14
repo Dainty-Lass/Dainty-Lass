@@ -1,7 +1,7 @@
 //! What the MIT game runtime reads from its environment and command line (spec-runtime-r1 4, 6; RX3): the backend
 //! address (`RUSTIC_ISLES_BACKEND_URL` / `DAINTY_BACKEND_URL`) and a server's launch arguments, which pick the port,
 //! the map URL the engine loads and the player roster. Also every URL the game hands HTTP-1 (spec-runtime-r2 4, 5):
-//! the split, the redirect and the grant path.
+//! the split, the redirect and the grant path. And the engine command line CL-1 serves (spec-runtime-r4 3).
 #![no_main]
 
 use libfuzzer_sys::fuzz_target;
@@ -12,6 +12,7 @@ use rustic_isles_runtime_core::config::roster::{expected_player_count, map_url};
 use rustic_isles_runtime_core::http::{
     MAX_REPLACEMENT_UNITS, Redirect, grant_path, is_redirect_host, is_under, redirect, split_url,
 };
+use rustic_isles_runtime_core::login::cmdline::{build_served_line, is_ip_literal};
 
 fuzz_target!(|data: &[u8]| {
     let text = String::from_utf8_lossy(data);
@@ -56,5 +57,14 @@ fuzz_target!(|data: &[u8]| {
             assert!(String::from_utf16_lossy(&url).ends_with("?MaxPlayers=4?listen"));
             assert!(expected_player_count(launch.expected_players.as_deref(), 4) <= 4);
         }
+    }
+    // CL-1 (R4 3): the served line keeps the engine's as a prefix, and a published MULTIHOME is an IP literal
+    for server in [false, true] {
+        let served = build_served_line(&line, &args, &line, server, true);
+        assert!(served.line.starts_with(&line));
+        if let Some(multihome) = &served.multihome {
+            assert!(is_ip_literal(&multihome.encode_utf16().collect::<Vec<u16>>()));
+        }
+        assert!(!served.log_line().contains(['\r', '\n']));
     }
 });
