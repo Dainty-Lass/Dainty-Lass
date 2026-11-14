@@ -2,6 +2,9 @@
 
 # Clean-room behaviour specification: runtime slice R1, config (RD27, plan item 11)
 
+> Since R21 (`spec-runtime-r21.md`) the AGPL runtime is gone; `rustic-isles-runtime.dll` is the only runtime, and the
+> config this page specifies is read by it alone.
+
 R1 is the runtime's configuration: every value the game runtime takes from its environment, its command line and
 the number files next to the executable, parsed into typed values the other slices read. It is pure (a module of
 `rustic-isles-runtime-core`, tested on every platform) plus a few thin Windows readers in `rustic-isles-runtime`.

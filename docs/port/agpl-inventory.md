@@ -4,7 +4,9 @@
 
 > **Historical** (L0): the inventory that scoped the MIT rewrite. Everything it lists for rewriting was rewritten
 > clean-room (RD27): the MIT crates are at the root, the AGPL ones are under `restricted/`, and `dainty-lass-ui` and
-> the `rust/` folder are gone. The provenance records that replace it are in `clean-room/`.
+> the `rust/` folder are gone. The provenance records that replace it are in `clean-room/`. Since R21
+> (`spec-runtime-r21.md`) the AGPL game runtime is gone too: `rustic-isles-runtime.dll` (MIT) is the only runtime,
+> and the C++ source is kept only by the tag `agpl-runtime-final`.
 
 This document inventories every crate in `dainty-lass/rust` (including `fuzz`), `native/runtime-loader`, and every
 package in the `ui/` workspace (`silentspud/dainty-lass-ui`) at `plan` (`b190010` / `5dd3e28`). It records each file's

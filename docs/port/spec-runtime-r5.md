@@ -2,6 +2,10 @@
 
 # Clean-room behaviour specification: runtime slice R5, headless server boot (RD27, plan item 11)
 
+> Since R21 (`spec-runtime-r21.md`) the AGPL runtime is gone; `rustic-isles-runtime.dll` is the only runtime. This
+> slice's play-test runs on the MIT DLL alone, as that spec's section 9 adapts it: skip every step that builds or
+> patches the AGPL runtime, injects both DLLs, counts `[MitSeam]` lines or runs without the MIT DLL.
+
 R5 makes a game server headless: no window, no viewport or local player, no Chromium/CEF, no sound posted, the server
 flags the net driver needs, the C number locale, and the two viewport-size fixes a headless server needs to aim and to
 frame vendors (patch 0038, the War Pike special). It owns HL-1 to HL-12 and the feature id `SP-2@R5`

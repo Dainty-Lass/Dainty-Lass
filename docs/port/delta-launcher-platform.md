@@ -2,6 +2,10 @@
 
 # Delta: launcher network and platform (RX1)
 
+> Since R21 (`spec-runtime-r21.md`) the AGPL runtime is gone; the runtime file names and the MSBuild build of
+> `Rustic-Isles.dll` recorded here are history. The launcher installs and injects `rustic-isles-runtime.dll`, and the
+> Host page builds it with cargo.
+
 What Reforged changed in the launcher's main-process files since the Node code it shares with Dauntless Revived
 (DR), so the Rust rows (RA5 to RA12) carry every change onto DR's `src-tauri` at `e1c5fec`.
 

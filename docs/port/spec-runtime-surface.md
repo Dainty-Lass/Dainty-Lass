@@ -2,6 +2,11 @@
 
 # Clean-room surface specification: the game runtime (RD27, plan item 11 step 1)
 
+> Since R21 (`spec-runtime-r21.md`) the AGPL runtime is gone; this page stays as the record of what was mapped. The seam
+> (section 7) and the two-DLL transition are over: `rustic-isles-runtime.dll` is the only runtime, and its source was
+> deleted from `restricted/` (tag `agpl-runtime-final`). Section 8's slice rows are all landed except R19 (never
+> ported).
+
 This page maps `restricted/modules/rustic-isles/native/runtime` (`Rustic-Isles.dll`, about 28.8k lines of C++, 26.6k
 of them in `dllmain.cpp`) so it can be re-created as an MIT runtime **in slices**. It is the surface and the slicing
 only: every hook and patch the runtime installs, what each is for, and how the work splits. It is not a per-slice

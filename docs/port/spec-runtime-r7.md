@@ -2,6 +2,10 @@
 
 # Clean-room behaviour specification: runtime slice R7, player data and loading (RD27, plan item 11)
 
+> Since R21 (`spec-runtime-r21.md`) the AGPL runtime is gone; `rustic-isles-runtime.dll` is the only runtime. This
+> slice's play-test runs on the MIT DLL alone, as that spec's section 9 adapts it: skip every step that builds or
+> patches the AGPL runtime, injects both DLLs, counts `[MitSeam]` lines or runs without the MIT DLL.
+
 R7 moves hooks **LD-1 to LD-9** (surface section 3.7) and two dispatch features, **`SP-2@R7`** (the restart data
 gate inside `PlayerCanRestart`, patch 0012) and **`SP-3@R7`** (resuming parked progression components), into the MIT
 runtime. It is the slice that gets a player through the loading screen: the readiness gate on both roles, the server's

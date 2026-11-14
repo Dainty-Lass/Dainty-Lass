@@ -2,6 +2,9 @@
 
 # Delta list: gateway, allowlist helper and content server (RX1)
 
+> Since R21 (`spec-runtime-r21.md`) the AGPL runtime is gone; the content server's runtime is `rustic-isles-runtime.dll`
+> and `winmm.dll`, and `Rustic-Isles.dll` is refused (R21, P-1 and P-3).
+
 What Reforged changed in its Node gateway, allowlist helper and content server, compared with Dauntless Revived's
 (DR) Node sources at `e1c5fec`, so the Rust copies in RS2, RS3 and RS4 carry every one of those changes.
 

@@ -2,6 +2,9 @@
 
 # `ParadoxTransport.dll`: what is left of the port (RD27, port plan item 10)
 
+> Since R21 (`spec-runtime-r21.md`) the AGPL runtime is gone; the in-game side (`p2p/PlayerHost.cpp`) is the MIT
+> runtime's R10 (`spec-runtime-r10.md`).
+
 Written 2026-11-11 against `plan` at `d80cff53`, by lane F1's spec writer, after reading
 `restricted/modules/rustic-rifts/` (`src/`, the `.vcxproj` files, the scripts, `tools/`, `docs/`, `oracle/`).
 

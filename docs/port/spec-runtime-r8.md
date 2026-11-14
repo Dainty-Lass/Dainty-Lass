@@ -2,6 +2,10 @@
 
 # Clean-room behaviour specification: runtime slice R8, server lifecycle (RD27, plan item 11)
 
+> Since R21 (`spec-runtime-r21.md`) the AGPL runtime is gone; `rustic-isles-runtime.dll` is the only runtime. This
+> slice's play-test runs on the MIT DLL alone, as that spec's section 9 adapts it: skip every step that builds or
+> patches the AGPL runtime, injects both DLLs, counts `[MitSeam]` lines or runs without the MIT DLL.
+
 R8 decides how long a game server lives and how fast it runs. It paces the server's game thread (patch 0020), keeps the
 game mode's expected-player count on the launch roster, publishes the connection count, writes the hub and hunt AFK
 timeouts the clients read, ends a disposable server that is empty, stuck or no longer serving, gives the engine back its

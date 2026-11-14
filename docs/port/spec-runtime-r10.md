@@ -2,6 +2,10 @@
 
 # Clean-room behaviour specification: runtime slice R10, the player host for realms (RD27, plan item 11)
 
+> Since R21 (`spec-runtime-r21.md`) the AGPL runtime is gone; `rustic-isles-runtime.dll` is the only runtime. This
+> slice's play-test runs on the MIT DLL alone, as that spec's section 9 adapts it: skip every step that builds or
+> patches the AGPL runtime, injects both DLLs, counts `[MitSeam]` lines or runs without the MIT DLL.
+
 R10 makes the MIT game runtime a **player host**: the game server a player's launcher starts on its own PC for a
 realm's hub or a hosted hunt (`RUSTIC_ISLES_AUTH_MODE=HUNT_CAPABILITY`). It checks the launcher's bootstrap before the
 server listens, pins the listen to loopback, tells the launcher it is ready over a private pipe, takes the launcher's
