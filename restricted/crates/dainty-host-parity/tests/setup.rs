@@ -609,7 +609,7 @@ fn checkout() -> (tempfile::TempDir, Paths, PathBuf) {
         l.director_dir.join("package.json"),
         l.runtime_source.join("Rustic-Isles.vcxproj"),
         l.loader_dir.join("Cargo.toml"),
-        l.exporter_dir.join("CatalogExporter.vcxproj"),
+        l.exporter_dir.join("Cargo.toml"),
     ] {
         std::fs::create_dir_all(file.parent().unwrap()).unwrap();
         std::fs::write(file, "{}").unwrap();

@@ -1278,7 +1278,7 @@ fn writes_the_preset_byte_for_byte_as_the_node_kit() {
         let mut ours = Vec::new();
         collect(&expected, &expected, &mut theirs);
         collect(&p.preset, &p.preset, &mut ours);
-        // The Node kit's bytes, with this kit's format name in place of the Reforged Revival one
+        // The Node kit's bytes, with this kit's format name and exporter in place of the Reforged Revival ones
         for (name, bytes) in &mut theirs {
             if name.ends_with("preset.json") {
                 let text = String::from_utf8(std::mem::take(bytes)).unwrap();
@@ -1286,6 +1286,10 @@ fn writes_the_preset_byte_for_byte_as_the_node_kit() {
                     .replace(
                         dainty_hostkit::preset::LEGACY_PRESET_FORMAT,
                         dainty_hostkit::preset::PRESET_FORMAT,
+                    )
+                    .replace(
+                        dainty_hostkit::preset::LEGACY_EXPORTER_SOURCE,
+                        dainty_hostkit::preset::EXPORTER_SOURCE,
                     )
                     .into_bytes();
             }

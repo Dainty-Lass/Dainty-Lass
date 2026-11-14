@@ -8,7 +8,7 @@ on a Windows PC with the game installed:
    from your server and the launcher and Director inject (RD9); `winmm.dll` (`native/runtime-loader`) is optional, for
    Proton players who load it the old way;
 3. the **game data**: JSON the backend and the Director serve, generated from an export the CatalogExporter
-   makes inside the game.
+   (`native/rustic-isles-exporter`, MIT) makes inside the game.
 
 The launcher's **Host page** (a build with the host tools) has a button for each step and shows what is
 missing; `dainty-host doctor` says the same on the command line. A Linux host does these on a Windows PC and
@@ -56,9 +56,23 @@ rebuilt runtime has new hashes, and players are asked again.
 
 ## 3. The game data
 
-The CatalogExporter (`modules/rustic-isles/native/catalog-exporter`, built with `_build.bat` against the same SDK) runs inside the
-game, loaded through the runtime loader like the runtime, and writes the catalogs the backend needs into
-`modules/rustic-isles/reference/1.14.7/Items_Analysis/`. The progression export comes from the game the same way, and
+The CatalogExporter is the root's MIT crate `native/rustic-isles-exporter` (clean-room from
+`docs/port/spec-catalog-exporter.md`), built with cargo against the same SDK. The Host page's three steps do it all:
+**Build the CatalogExporter** (needs the Rust toolchain and the C++ tools' linker), **Start the game with
+CatalogExporter** (injected after the runtime into the game it starts, RD9) and **Copy the exports**, which brings
+them from the game folder into `modules/rustic-isles/reference/1.14.7/Items_Analysis/`. By hand, from the checkout's
+root:
+
+```powershell
+$env:DAINTY_SDK_DIR = "$PWD\restricted\modules\rustic-isles\native\runtime"
+cargo build --release --target x86_64-pc-windows-msvc --manifest-path native\rustic-isles-exporter\Cargo.toml -p catalog-exporter-dll
+dainty-launcher export --wait   # loads native\rustic-isles-exporter\target\x86_64-pc-windows-msvc\release\CatalogExporter.dll
+```
+
+The exports keep the C++ exporter's file names and formats (`catalog_1_14_7.jsonl`, the store images, the
+`progression_1_14_7` folder), and the Host page's flags file turns on every export `gamedata` reads.
+`modules/rustic-isles/native/catalog-exporter` is Mystic Paradox's C++ original, which nothing builds by default
+any more. The progression export comes from the game the same way, and
 so does `weapon_slots_1_14_7.jsonl` (the live weapons' part slots): when it covers every starter weapon, the server
 takes the starter kit's default weapon parts from it instead of the shipped ones (ruling V-4). Then:
 
