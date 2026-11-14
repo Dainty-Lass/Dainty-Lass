@@ -110,8 +110,9 @@ GetUserInfo answers, runtime manifests, news, the art pack's index, paths and im
 - [ ] GetUserInfo: the user id matches `^[A-Za-z0-9_-]{1,128}$` and the username is cleaned text of at most 32
       characters, since both go on the game's command line; anything else is `server_error`. A banned or disabled
       account shows the server's reason, cleaned and capped, or nothing.
-- [ ] The runtime manifest names exactly `Rustic-Isles.dll` (or, for one release, `MysticParadox.dll`) and
-      `winmm.dll`, each once, with a lower-case SHA-256
+- [ ] The runtime manifest names `rustic-isles-runtime.dll` (required) and `winmm.dll` (optional), each at most
+      once; for one launcher release a pre-R21 set (`Rustic-Isles.dll` required, the MIT DLL optional) is still
+      accepted (R21 phase A). Each file has a lower-case SHA-256
       and a size from 1 byte to 64 MiB; anything else refuses the whole manifest, so a server can never name a file
       the launcher would write.
 - [ ] News, branding: at most 30 items and 8 backgrounds; art paths match the branding pattern without `..`; an

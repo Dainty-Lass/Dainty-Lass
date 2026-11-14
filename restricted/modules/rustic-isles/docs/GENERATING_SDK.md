@@ -1,7 +1,10 @@
 # Generating the SDK
 
-native/runtime and native/catalog-exporter build against a C++ SDK generated from your own compatible
-game installation. No game-derived SDK is distributed in this repository.
+native/catalog-exporter builds against a C++ SDK generated from your own compatible game installation. No
+game-derived SDK is distributed in this repository. The game runtime no longer needs it: since R21 it is the MIT
+`rustic-isles-runtime.dll`, built with cargo at the monorepo root, and the C++ runtime that once lived in
+native/runtime was deleted (its last commit is the tag `agpl-runtime-final`). The folder native/runtime now only
+holds this SDK, where the CatalogExporter's project looks for it.
 
 > [!NOTE]
 > This guide is for Dauntless 1.14.7, which `main` targets. For 1.12.0, follow the guide on the
@@ -28,7 +31,7 @@ change.
 1. Build [Dumper-7](https://github.com/Encryqed/Dumper-7).
 2. Start your own 1.14.7 game installation.
 3. Inject Dumper-7 into that process and wait for the complete CppSDK output.
-4. Copy the entire CppSDK output into native/runtime.
+4. Copy the entire CppSDK output into native/runtime (create the folder).
 
 Expected layout:
 
@@ -44,7 +47,7 @@ Expected layout:
       UtfN.hpp
 
 Do not copy only SDK.hpp or only headers. The generated implementation files under SDK are compiled
-by the runtime project and must be present.
+by the CatalogExporter project and must be present.
 
 Quick checks from the repository root:
 
@@ -57,50 +60,15 @@ The final count must be greater than zero.
 All generated SDK files are ignored. Confirm that they are not staged before committing public
 source.
 
-## Configure the deployment hostname
-
-The self-host configurator writes native/runtime/deployment_config.generated.h. If configuring
-manually, copy deployment_config.generated.h.example and set MP_PUBLIC_HOST to the exact hostname
-used by DNS and the TLS certificate:
-
-    Copy-Item native\runtime\deployment_config.generated.h.example native\runtime\deployment_config.generated.h
-
-Never point a public build at localhost or a hostname that is absent from the certificate SAN.
-Changing the hostname requires rebuilding the runtime.
-
-## Build ParadoxRuntime
-
-The projects select platform toolset v145 (Visual Studio with the Desktop development with C++
-workload). Visual Studio 2022 users can retarget native/runtime/Rustic-Isles.vcxproj to v143 locally.
-
-From a normal PowerShell or Developer Command Prompt:
-
-    Set-Location native\runtime
-    .\_build.bat
-
-The helper finds MSBuild with vswhere, builds Release x64 and returns the real build exit code. The
-equivalent command is:
-
-    msbuild Rustic-Isles.sln /p:Configuration=Release /p:Platform=x64
-
-Expected output:
-
-    native\runtime\x64\Release\Rustic-Isles.dll
-
-One DLL serves both the player client and the dedicated servers: it detects `-server` at startup. It
-links the C/C++ runtime statically (/MT), because the game folder ships an older msvcp140.dll that the
-loader would otherwise prefer. See [native/runtime/BUILD.md](../native/runtime/BUILD.md) for the
-details and the loader build.
-
 ## Build CatalogExporter
 
-CatalogExporter uses the same generated SDK. Confirm its include paths resolve to the complete
-native/runtime SDK, then build:
+Confirm the project's include paths resolve to the complete native/runtime SDK, then build (platform toolset
+v145, Visual Studio with the Desktop development with C++ workload):
 
     Set-Location native\catalog-exporter
     .\_build.bat
 
-Visual Studio 2022 users must also retarget CatalogExporter.vcxproj to v143.
+Visual Studio 2022 users can retarget CatalogExporter.vcxproj to v143 locally.
 
 By default the exporter writes to `Items_Analysis` in the injected game's working directory and reads
 `export_flags.txt` from there. To send every export to your repository instead, create the ignored

@@ -118,7 +118,7 @@ fn the_runtime_is_pointed_at_the_local_relay_and_nothing_else() {
     assert_eq!(get("DAINTY_BACKEND_URL"), Some("http://127.0.0.1:61100"));
     assert_eq!(get("RUSTIC_ISLES_BACKEND_URL"), Some("http://127.0.0.1:61100"));
     assert_eq!(get("RUSTIC_ISLES_RUNTIME_PROFILE"), Some("development"));
-    assert_eq!(get("MYSTICPARADOX_RUNTIME_PROFILE"), Some("development"));
+    assert_eq!(get("MYSTICPARADOX_RUNTIME_PROFILE"), None, "the old alias is gone (RT-8)");
     assert_eq!(get("PATH"), Some("x"));
     for gone in [
         "RUSTIC_ISLES_LOG",
@@ -129,7 +129,7 @@ fn the_runtime_is_pointed_at_the_local_relay_and_nothing_else() {
     ] {
         assert_eq!(get(gone), None, "{gone}");
     }
-    assert_eq!(out.len(), 5, "the inherited DAINTY_BACKEND_URL is gone, not doubled");
+    assert_eq!(out.len(), 4, "the inherited DAINTY_BACKEND_URL is gone, not doubled");
     for bad in [
         "http://192.168.1.2:61100",
         "https://127.0.0.1:61100",
@@ -324,7 +324,6 @@ fn launcher_kit_builds_the_launch() {
                     [
                         "DAINTY_BACKEND_URL",
                         "HOME",
-                        "MYSTICPARADOX_RUNTIME_PROFILE",
                         "PATH",
                         "RUSTIC_ISLES_BACKEND_URL",
                         "RUSTIC_ISLES_RUNTIME_PROFILE"

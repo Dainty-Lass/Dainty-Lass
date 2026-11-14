@@ -26,7 +26,7 @@ const HASH_B = "b".repeat(64);
 const HASH_C = "c".repeat(64);
 
 const CORE_ARTIFACTS = [
-    { name: "Rustic-Isles.dll", sha256: HASH_A },
+    { name: "rustic-isles-runtime.dll", sha256: HASH_A },
     { name: "winmm.dll", sha256: HASH_B }
 ];
 
@@ -98,7 +98,7 @@ test("complete signed-manifest runtime set is accepted", () => {
         assert.equal(approved.version, "0.1.78");
         assert.equal(approved.runtimeSha256, HASH_A);
         assert.match(approved.artifactSetSha256, /^[a-f0-9]{64}$/);
-        assert.deepEqual(approved.artifacts.map((entry) => entry.name).sort(), ["Rustic-Isles.dll", "winmm.dll"]);
+        assert.deepEqual(approved.artifacts.map((entry) => entry.name).sort(), ["rustic-isles-runtime.dll", "winmm.dll"]);
     });
 });
 

@@ -132,7 +132,8 @@ export async function EnsureServerRuntimeUpdated(): Promise<void> {
   if (!binaryPath) throw new Error("GAMESERVER_BINARY_PATH is required for server runtime updates");
   const dllPath = path.resolve(
     process.env.GAMESERVER_RUNTIME_DLL_PATH?.trim() ||
-      path.join(path.dirname(path.resolve(binaryPath)), "Rustic-Isles.dll"),
+      // [DaintyLass] R21 call 7: the MIT runtime, which the loader loads by its fixed name
+      path.join(path.dirname(path.resolve(binaryPath)), "rustic-isles-runtime.dll"),
   );
   const manifestUrl = new URL(process.env.SERVER_RUNTIME_MANIFEST_URL?.trim() || DEFAULT_MANIFEST_URL);
   validateTransport(manifestUrl);

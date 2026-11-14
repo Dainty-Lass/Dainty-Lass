@@ -23,7 +23,7 @@ const HASH_D = "d".repeat(64);
 const HASH_E = "e".repeat(64);
 
 const COMPLETE_ARTIFACTS = [
-    { name: "Rustic-Isles.dll", sha256: HASH_A },
+    { name: "rustic-isles-runtime.dll", sha256: HASH_A },
     { name: "winmm.dll", sha256: HASH_B },
     { name: "coop-transport.dll", sha256: HASH_C },
     { name: "coop-runtime.dll", sha256: HASH_D },

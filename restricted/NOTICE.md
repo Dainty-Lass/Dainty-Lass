@@ -43,8 +43,11 @@ dainty-lass-ui.
   [`modules/rustic-rifts`](modules/rustic-rifts) (its Rust realm and Guard ports were replaced by dainty-lass's MIT
   clean-room `rustic-rifts-*` crates, RD27, and removed, as was its C++ co-op transport (`ParadoxTransport/`), replaced
   by the launcher's built-in `rustic-rifts-transport`; they stay in this repository's history);
-  its game runtime (`ParadoxRuntime/`) and CatalogExporter (`tools/CatalogExporter/`) are in
-  [`modules/rustic-isles/native`](modules/rustic-isles/native). Its runtime loader (`tools/RuntimeLoader/`) was
+  its CatalogExporter (`tools/CatalogExporter/`) is in
+  [`modules/rustic-isles/native`](modules/rustic-isles/native). Its game runtime (`ParadoxRuntime/`) was in
+  `modules/rustic-isles/native/runtime` until it retired at R21 (2026-11-14), replaced by dainty-lass's MIT
+  `rustic-isles-runtime.dll`, and was deleted; the tag `agpl-runtime-final` is its last commit, with its patches.
+  Its runtime loader (`tools/RuntimeLoader/`) was
   in `restricted/native/runtime-loader` until 2026-11-11, when the root's MIT clean-room rewrite
   (`native/runtime-loader`, `docs/port/spec-runtime-loader.md`) replaced it. Its launcher, deployment scripts and self-hosting guide
   were not taken. Every file from Mystic Paradox, and every change made to it here, stays under Mystic Paradox's
@@ -65,7 +68,8 @@ dainty-lass-ui.
 - The runtime loader removed on 2026-11-11 was derived from
   [coldloader-proxy](https://github.com/denuvosanctuary/coldloader-proxy); Mystic Paradox's README, NOTICE.md
   and Cargo.toml gave its licence as Apache-2.0, while the LICENSE file in its folder held the GNU LGPL-3.0
-  text. It stays in the history only. The runtime includes MinHook and the Hacker Disassembler Engine 64 (BSD-2-Clause).
+  text. It stays in the history only. The retired game runtime (at the tag `agpl-runtime-final`) included MinHook
+  and the Hacker Disassembler Engine 64 (BSD-2-Clause).
 
 ### Dauntless Revived
 

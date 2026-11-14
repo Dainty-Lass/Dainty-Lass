@@ -12,8 +12,9 @@ item that does not hold is a bug to fix before the cutover, not a box to leave o
 
 ## What it is and where the boundary is
 
-Each server's host builds its own runtime, `Rustic-Isles.dll` and the `winmm.dll` loader, from their own SDK. The
-launcher puts both next to the game's executable, and the game loads them at start: whatever lands there runs as
+Each server's host publishes its runtime, the MIT `rustic-isles-runtime.dll` (built with cargo or taken from the
+server release), and optionally the `winmm.dll` loader. The launcher injects the runtime into the game it just
+started, and the loader, for Proton players who keep it, loads it at start: whatever lands there runs as
 the player, with the player's files and the account key's server in reach. So the content server is trusted only
 as far as the player said so, and only for the exact bytes the player accepted.
 
@@ -39,10 +40,9 @@ manifest that parses names only the two runtime files, each once, with a plain h
 
 ### The manifest
 
-- [ ] `parse_runtime_manifest` rejects the whole manifest unless `files` lists exactly `Rustic-Isles.dll` and
-      `winmm.dll`, each once. For one release a host may list the runtime as `MysticParadox.dll`, its name before the
-      Rustic Isles rename; it is fetched under that name and installed as `Rustic-Isles.dll`, and both names at once
-      reject the manifest. No other name, no path, no `..`, no case variant is ever accepted, so nothing else is
+- [ ] `parse_runtime_manifest` rejects the whole manifest unless `files` lists `rustic-isles-runtime.dll` and at
+      most `winmm.dll` beside it, each once (R21). For one launcher release a pre-R21 set (`Rustic-Isles.dll`
+      required, the MIT DLL optional) is still accepted and injected as before. No other name, no path, no `..`, no case variant is ever accepted, so nothing else is
       written next to the game.
 - [ ] Each `sha256` is 64 lower-case hex characters, each `size` an integer from 1 byte to 64 MiB
       (`MAX_RUNTIME_FILE_BYTES`); a float with a fraction, a negative, a string or `1e12` rejects the manifest.
@@ -86,9 +86,10 @@ manifest that parses names only the two runtime files, each once, with a plain h
 - [ ] `replace_file` renames over the target; if a running process holds the old file, the old one is moved to
       `<name>.rr-old-<ms>` first and put back if the new one cannot take its place, so the game always has a
       runtime.
-- [ ] `sweep_aside` deletes only `Rustic-Isles.dll.rr-old-*`, `MysticParadox.dll.rr-old-*` and `winmm.dll.rr-old-*`
-      (and their `.rr-download`), nothing else in the folder. Installing the runtime removes a `MysticParadox.dll` left
-      by an older launcher.
+- [ ] `sweep_aside` deletes only the `.rr-old-*` copies (and their `.rr-download`) of `rustic-isles-runtime.dll`,
+      `winmm.dll` and the retired runtime names, nothing else in the folder. Installing an R21 set removes every
+      retired runtime (`Rustic-Isles.dll`, `MysticParadox.dll`, `MystPaxInternalServer.dll`) from `Win64`, and PLAY
+      refuses if one beside the loader cannot be removed (RD9).
 
 ### The check before every launch
 

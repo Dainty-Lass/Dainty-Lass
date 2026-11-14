@@ -18,9 +18,9 @@ containers in [hosting-docker.md](hosting-docker.md) are this page with the pack
 - Your **Dauntless 1.14.7** folder (about 15 GB), writable by the user the server runs as: the game servers write
   logs and a switch file next to the executable. Copy it from a PC that has it, or let the server fetch it from
   your own Epic library with `install-game` ([below](#getting-the-game-from-epic)).
-- The **runtime** (`Rustic-Isles.dll`, `rustic-isles-runtime.dll` when built, and `winmm.dll` for Linux players who use the loader) and the **game data**, made on a Windows PC with your own
-  game ([sdk-and-game-data.md](https://git.silentspud.com/silentspud/dainty-lass/src/branch/main/docs/sdk-and-game-data.md)) and brought over: the DLLs as a folder, the game data as
-  a pack (`dainty-host gamedata --export`).
+- The **runtime**, `rustic-isles-runtime.dll`, which the server release ships prebuilt (`publish-runtime` uses it
+  when you bring none), and `winmm.dll` for Linux players who use the loader. The **game data** is made on a
+  Windows PC with your own game ([sdk-and-game-data.md](https://git.silentspud.com/silentspud/dainty-lass/src/branch/main/docs/sdk-and-game-data.md)) and brought over as a pack (`dainty-host gamedata --export`).
 - The **server release** (`DaintyLassServer-<version>-linux-x64.tar.gz`). It ships the 1.14.7 version data in
   `data/1.14.7/version_data.json` and `version_facts.json`, which the server reads when it starts; keep them there,
   or name other files with `version_data` and `version_facts` in `settings.toml` ([hosting.md](hosting.md)). It also needs `bin/dainty-inject.exe` beside
@@ -52,7 +52,7 @@ As an ordinary user (`dainty`, say), from the unpacked release:
 ```bash
 bin/dainty-host setup --mode public --host play.example.org --game-address 203.0.113.10 \
     --name "Friday Hunts" --game /srv/dauntless
-bin/dainty-host publish-runtime --from /srv/import/runtime
+bin/dainty-host publish-runtime
 bin/dainty-host gamedata --import /srv/import/gamedata.zip
 bin/dainty-host doctor
 ```

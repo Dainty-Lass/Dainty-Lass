@@ -5,6 +5,10 @@ Paradox `21b9ff5` with Reforged's patches 0001 to 0039), with the listeners that
 rifts rows. Since D3 (spec-rd27-rifts) the Rust port serves the `/mystic/v1/hunts` rows at `/rustic/v1/hunts`; the
 rows keep Node's paths.
 
+Since R21 (2026-11-14) `POST /launcher/v1/game-sessions` (row 163) takes `rustic-isles-runtime.dll`, not
+`Rustic-Isles.dll`, as the core runtime file a launcher reports beside `winmm.dll` (`runtimeAuthorization.ts`'s
+`CORE_INSTALLED_ARTIFACTS`); the route and its answers are otherwise unchanged.
+
 [`routes-1.14.7.json`](routes-1.14.7.json) is the machine-readable list: one `{service, method, path, file, group,
 side}` per registration. [`scripts/check-route-inventory.mjs`](../../scripts/check-route-inventory.mjs) extracts the
 routes from the source and fails on a route the JSON lacks, a JSON entry with no route behind it, a row missing here,

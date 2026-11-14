@@ -407,7 +407,7 @@ services:
       - exports:/opt/dainty-lass/modules/rustic-isles/reference/1.14.7/Items_Analysis
       - captures:/opt/dainty-lass/modules/rustic-isles/reference/1.14.7/DauntlessEndpointDocumentation
       - ${DAINTY_GAME_DIR:-./game}:/game
-      # Files to bring in: the runtime's DLLs (publish-runtime --from /import/...), game data packs
+      # Files to bring in: your own runtime build, if any (publish-runtime --from /import/...), game data packs
       - ${DAINTY_IMPORT_DIR:-./import}:/import:ro
 
   # Every server test suite on the server image (docker/test-in-image.sh): docker compose run --rm test

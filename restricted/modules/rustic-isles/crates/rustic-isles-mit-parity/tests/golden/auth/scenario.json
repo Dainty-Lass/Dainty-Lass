@@ -664,7 +664,7 @@
     "runtimeManifestVersion": "0.1.78",
     "runtimeArtifacts": [
      {
-      "name": "Rustic-Isles.dll",
+      "name": "rustic-isles-runtime.dll",
       "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
      },
      {
@@ -752,7 +752,7 @@
     "runtimeManifestVersion": "0.1.78",
     "runtimeArtifacts": [
      {
-      "name": "Rustic-Isles.dll",
+      "name": "rustic-isles-runtime.dll",
       "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
      },
      {
@@ -776,7 +776,7 @@
     "runtimeManifestVersion": "0.1.78",
     "runtimeArtifacts": [
      {
-      "name": "Rustic-Isles.dll",
+      "name": "rustic-isles-runtime.dll",
       "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
      },
      {
@@ -800,7 +800,7 @@
     "runtimeManifestVersion": "0.1.78",
     "runtimeArtifacts": [
      {
-      "name": "Rustic-Isles.dll",
+      "name": "rustic-isles-runtime.dll",
       "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
      },
      {
@@ -824,7 +824,7 @@
     "runtimeManifestVersion": "0.1.77",
     "runtimeArtifacts": [
      {
-      "name": "Rustic-Isles.dll",
+      "name": "rustic-isles-runtime.dll",
       "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
      },
      {
@@ -848,7 +848,7 @@
     "runtimeManifestVersion": "0.1.78",
     "runtimeArtifacts": [
      {
-      "name": "Rustic-Isles.dll",
+      "name": "rustic-isles-runtime.dll",
       "sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
      },
      {
@@ -872,7 +872,7 @@
     "runtimeManifestVersion": "0.1.78",
     "runtimeArtifacts": [
      {
-      "name": "Rustic-Isles.dll",
+      "name": "rustic-isles-runtime.dll",
       "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
      },
      {
@@ -900,7 +900,7 @@
     "runtimeManifestVersion": "0.1.78",
     "runtimeArtifacts": [
      {
-      "name": "Rustic-Isles.dll",
+      "name": "rustic-isles-runtime.dll",
       "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
      },
      {
@@ -927,7 +927,7 @@
     "runtimeManifestVersion": "0.1.78",
     "runtimeArtifacts": [
      {
-      "name": "Rustic-Isles.dll",
+      "name": "rustic-isles-runtime.dll",
       "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
      },
      {
@@ -954,7 +954,7 @@
     "runtimeManifestVersion": "0.1.78",
     "runtimeArtifacts": [
      {
-      "name": "Rustic-Isles.dll",
+      "name": "rustic-isles-runtime.dll",
       "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
      },
      {

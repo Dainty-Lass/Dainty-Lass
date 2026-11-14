@@ -23,7 +23,7 @@ pinned certificate for a public server, plain HTTP inside the tailnet for a priv
 `modules/rustic-isles`' version data, on SQLite or Postgres), the **content server** (the game runtime, news and
 art) and the **allowlist**, which opens the game's UDP ports only to players who have logged in. The **Director**
 (`rustic-isles-director`) starts Ramsgate, the Training Grounds and the hunts. The game itself loads the host's
-runtime (`Rustic-Isles.dll` through `winmm.dll`) and reaches the backend through a relay the launcher runs on
+runtime (the MIT `rustic-isles-runtime.dll`, injected by the launcher) and reaches the backend through a relay the launcher runs on
 `127.0.0.1:61100`.
 [../docs/architecture.md](../docs/architecture.md) has the trust boundaries.
 
@@ -36,7 +36,7 @@ AGPL parts and builds the full server, the Tauri launcher and the Docker images,
 | Folder | What |
 | --- | --- |
 | [`.`](.) | Independent AGPL-3.0-only Cargo workspace: `crates/` (`host`, the libraries of the MIT gateway, content and chat, and the server executables), `launcher/src-tauri` (Tauri: `dainty-launcher` and `dainty-manager`), and the game modules' crates |
-| [`modules/rustic-isles/`](modules/rustic-isles) | The 1.14.7 module's version data (the server reads it at start; the module and its library are the root's MIT crates) and the Node goldens replayed against it (`rustic-isles-mit-parity`), the runtime's C++ source and CatalogExporter (`native/`), and the Node reference sources (`reference/1.14.7`) |
+| [`modules/rustic-isles/`](modules/rustic-isles) | The 1.14.7 module's version data (the server reads it at start; the module and its library are the root's MIT crates) and the Node goldens replayed against it (`rustic-isles-mit-parity`), the CatalogExporter (`native/`), and the Node reference sources (`reference/1.14.7`) |
 | [`modules/rustic-rifts/`](modules/rustic-rifts) | `oracle`, which replays Mystic Paradox's answers against the root's MIT `rustic-rifts-*` crates |
 | [`legacy/`](legacy) | The importer for Dauntless Revived 1.4.4 and Reforged Revival installs |
 | [`docker/`](docker), `compose.yaml` | The server as containers |
@@ -52,14 +52,14 @@ cargo build --release --manifest-path ../Cargo.toml -p dainty-server --features 
 
 The desktop apps live in `launcher` (`bun install && bun run build:client` for `dainty-launcher` and
 `bun run build:manager` for `dainty-manager`, which build the pages from `../ui/`, dainty-dash). The bridge
-tests are in `../launcher` (`bun run test`). The runtime and the CatalogExporter need a host's own SDK
+tests are in `../launcher` (`bun run test`). The CatalogExporter needs a host's own SDK; the game runtime is the root's MIT `rustic-isles-runtime.dll`, which needs none
 ([../docs/sdk-and-game-data.md](../docs/sdk-and-game-data.md)).
 `bash docker/run-tests.sh` from `restricted/` builds the images and runs every server suite inside them.
 
 ## Credits and licence
 
 Dainty Lass stands on [Mystic Paradox](https://github.com/pranav158/Mystic-Paradox) (Pranav Karande), whose backend,
-Director and runtime live in `modules/rustic-isles`; on [Dauntless Revived](https://github.com/mixutin/dauntless-revived)
+Director and CatalogExporter live in `modules/rustic-isles` (its runtime until R21); on [Dauntless Revived](https://github.com/mixutin/dauntless-revived)
 (mixutin and contributors), whose Rust crates the workspace started from and whose invite and account-key design
 the launcher follows; and on [Undaunted](https://github.com/SyST3MDeV/Undaunted) (gwog and contributors), which both
 of those build on. [NOTICE.md](NOTICE.md) says what came from where.
