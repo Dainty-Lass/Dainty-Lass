@@ -68,6 +68,7 @@ pub fn init() {
         crate::branding::register();
     }
     crate::ffi::server_events::register(server);
+    crate::escalation::register();
     handlers::freeze();
     let hooks_off = (initialized != minhook::MH_OK).then(|| minhook::status_name(initialized));
     let chain = |id: &'static str, install: fn(usize) -> Result<(), i32>| -> Install {
@@ -88,6 +89,7 @@ pub fn init() {
         installs.push(exit::install_veh(base));
         installs.push(chain("SP-2", dispatch::install_sp2));
         installs.push(chain("SP-3", dispatch::install_sp3));
+        installs.push(chain("ESC-1", crate::escalation::install_esc1));
         // R12 after NETD-8 and before NETD-3, the AGPL's positions (R12 4.5)
         let mut net = net::install(true, base, hooks_off);
         let at = net.iter().position(|(id, _)| *id == "NETD-3").unwrap_or(net.len());

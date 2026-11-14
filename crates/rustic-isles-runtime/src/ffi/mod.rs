@@ -4,6 +4,7 @@ pub mod broker;
 pub mod dispatch;
 pub mod economy;
 pub mod engine;
+pub mod escalation;
 pub mod exit;
 pub mod exports;
 pub mod flags;
