@@ -79,9 +79,10 @@ const MAX_DUMP_DIRS: usize = 200;
 pub struct WorkspacePaths {
     /// The workspace root.
     pub root: PathBuf,
-    /// The runtime's C++ source (`native/runtime`).
-    pub runtime_source: PathBuf,
-    /// `SDK.hpp` in the runtime source.
+    /// Where Import SDK puts the Dumper-7 `CppSDK` and the CatalogExporter reads it (`DAINTY_SDK_DIR`):
+    /// `.workspace/sdk`, gitignored with the rest of the host's working area.
+    pub sdk_root: PathBuf,
+    /// `SDK.hpp` in the SDK root.
     pub sdk_header: PathBuf,
     /// The imported SDK's folder.
     pub sdk_dir: PathBuf,
@@ -134,12 +135,6 @@ impl WorkspacePaths {
             root.join("paradox")
         };
 
-        let runtime_source = if has_isles {
-            isles.join("native").join("runtime")
-        } else {
-            root.join("native").join("runtime")
-        };
-
         let loader_dir = if root.join("native").join("runtime-loader").is_dir() {
             root.join("native").join("runtime-loader")
         } else if has_isles && isles.join("native").join("runtime-loader").is_dir() {
@@ -190,8 +185,9 @@ impl WorkspacePaths {
             content_runtime
         };
 
-        let sdk_header = runtime_source.join("SDK.hpp");
-        let sdk_dir = runtime_source.join("SDK");
+        let sdk_root = workspace.join("sdk");
+        let sdk_header = sdk_root.join("SDK.hpp");
+        let sdk_dir = sdk_root.join("SDK");
         let runtime_dll = root
             .join("target")
             .join(EXPORTER_TARGET)
@@ -213,7 +209,7 @@ impl WorkspacePaths {
 
         Self {
             root,
-            runtime_source,
+            sdk_root,
             sdk_header,
             sdk_dir,
             runtime_dll,
@@ -269,8 +265,8 @@ impl Toolchain {
 pub enum SdkError {
     /// The dump has no `SDK.hpp`.
     NoHeader,
-    /// The workspace has no runtime source (`dllmain.cpp`).
-    NoRuntimeSource,
+    /// The workspace is not a source checkout ([`is_checkout`]).
+    NoCheckout,
     /// The dump's SDK has no `*_functions.cpp` files.
     NoFunctions,
     /// Copying the SDK failed.
@@ -283,7 +279,7 @@ impl SdkError {
     pub const fn code(self) -> &'static str {
         match self {
             Self::NoHeader => "sdk_folder",
-            Self::NoRuntimeSource => "workspace",
+            Self::NoCheckout => "workspace",
             Self::NoFunctions => "sdk_no_functions",
             Self::Io => "sdk_copy",
         }
@@ -374,6 +370,13 @@ pub fn is_workspace(root: &Path) -> bool {
         && (root.join("modules").join("rustic-isles").is_dir()
             || root.join("restricted").join("modules").join("rustic-isles").is_dir()
             || root.join("paradox").is_dir())
+}
+
+/// Whether `root` is a source checkout, which builds the CatalogExporter: it holds the MIT exporter's crate, as the
+/// host kit's `setup` asks of a checkout (`missing_paradox`).
+#[must_use]
+pub fn is_checkout(root: &Path) -> bool {
+    WorkspacePaths::new(root).exporter_crate.join("Cargo.toml").is_file()
 }
 
 /// Counts regular `*_functions.cpp` files in `sdk_dir`.
@@ -713,7 +716,7 @@ pub fn detect_host_kit(workspace: Option<&Path>, toolchain: &Toolchain, dump_roo
 
     let paths = WorkspacePaths::new(ws);
     let workspace_ok = is_workspace(ws);
-    let upstream_present = paths.runtime_source.join("dllmain.cpp").is_file();
+    let upstream_present = is_checkout(ws);
     let sdk_functions = count_function_files(&paths.sdk_dir);
     let sdk_present = paths.sdk_header.is_file();
     let runtime_built = paths.runtime_dll.is_file();
@@ -795,8 +798,9 @@ pub struct SdkImport {
     pub repaired_lookups: u32,
 }
 
-/// Imports a Dumper-7 `CppSDK` folder into `runtime_source`, repairing its function lookups.
-pub fn import_sdk(dump_dir: &Path, runtime_source: &Path) -> Result<SdkImport, SdkError> {
+/// Imports a Dumper-7 `CppSDK` folder into the checkout's `sdk_root`, replacing any SDK there, and repairs its
+/// function lookups.
+pub fn import_sdk(dump_dir: &Path, paths: &WorkspacePaths) -> Result<SdkImport, SdkError> {
     let source = if dump_dir.join("SDK.hpp").is_file() {
         dump_dir.to_path_buf()
     } else if dump_dir.join("CppSDK").join("SDK.hpp").is_file() {
@@ -805,8 +809,8 @@ pub fn import_sdk(dump_dir: &Path, runtime_source: &Path) -> Result<SdkImport, S
         return Err(SdkError::NoHeader);
     };
 
-    if !runtime_source.join("dllmain.cpp").is_file() {
-        return Err(SdkError::NoRuntimeSource);
+    if !is_checkout(&paths.root) {
+        return Err(SdkError::NoCheckout);
     }
 
     let sdk_sub = source.join("SDK");
@@ -815,15 +819,15 @@ pub fn import_sdk(dump_dir: &Path, runtime_source: &Path) -> Result<SdkImport, S
         return Err(SdkError::NoFunctions);
     }
 
-    let target_sdk = runtime_source.join("SDK");
-    if target_sdk.exists() {
-        std::fs::remove_dir_all(&target_sdk).map_err(|_| SdkError::Io)?;
+    // A header of an older dump left beside the new one would be parsed with it
+    if paths.sdk_root.exists() {
+        std::fs::remove_dir_all(&paths.sdk_root).map_err(|_| SdkError::Io)?;
     }
-    copy_tree(&source, runtime_source).map_err(|_| SdkError::Io)?;
-    let repaired_lookups = sdk_names::repair_sdk_dir(&target_sdk).map_err(|_| SdkError::Io)?;
+    copy_tree(&source, &paths.sdk_root).map_err(|_| SdkError::Io)?;
+    let repaired_lookups = sdk_names::repair_sdk_dir(&paths.sdk_dir).map_err(|_| SdkError::Io)?;
 
     Ok(SdkImport {
-        function_files: count_function_files(&target_sdk),
+        function_files: count_function_files(&paths.sdk_dir),
         repaired_lookups,
     })
 }
@@ -945,7 +949,8 @@ mod tests {
         assert!(is_workspace(root));
 
         let paths = WorkspacePaths::new(root);
-        assert_eq!(paths.runtime_source, root.join("modules/rustic-isles/native/runtime"));
+        assert_eq!(paths.sdk_root, root.join(".workspace/sdk"));
+        assert_eq!(paths.sdk_header, root.join(".workspace/sdk/SDK.hpp"));
         assert_eq!(paths.settings_toml, root.join(".workspace/config/settings.toml"));
         // The MIT exporter, whatever the module layout (spec-catalog-exporter 9)
         assert_eq!(paths.exporter_crate, root.join("native/rustic-isles-exporter"));
@@ -1021,33 +1026,75 @@ mod tests {
         assert_eq!(newest_exports(&candidates[..1], None), Some(game));
     }
 
+    /// Today's checkout as far as recognising one goes: the root workspace, `restricted/` and the MIT exporter.
+    fn checkout(root: &Path) {
+        std::fs::create_dir_all(root.join("native/rustic-isles-exporter")).unwrap();
+        std::fs::write(root.join("native/rustic-isles-exporter/Cargo.toml"), b"[workspace]").unwrap();
+        std::fs::create_dir_all(root.join("restricted/modules/rustic-isles/reference/1.14.7")).unwrap();
+        std::fs::write(root.join("Cargo.toml"), b"[workspace]").unwrap();
+    }
+
+    #[test]
+    fn a_checkout_is_recognised_by_the_mit_exporter_not_the_deleted_runtime_source() {
+        let tmp = tempfile::tempdir().unwrap();
+        let today = tmp.path().join("today");
+        checkout(&today);
+        assert!(is_checkout(&today));
+
+        // The C++ runtime's source, which R21 deleted, neither makes one nor is needed
+        let old = tmp.path().join("old");
+        let runtime = old.join("restricted/modules/rustic-isles/native/runtime");
+        std::fs::create_dir_all(&runtime).unwrap();
+        std::fs::write(runtime.join("dllmain.cpp"), b"// main").unwrap();
+        assert!(!is_checkout(&old));
+
+        let toolchain = Toolchain::default();
+        let dumps = tmp.path().join("dumps");
+        assert!(detect_host_kit(Some(&today), &toolchain, &dumps).upstream.present);
+        assert!(!detect_host_kit(Some(&old), &toolchain, &dumps).upstream.present);
+    }
+
     #[test]
     fn import_sdk_validates_and_copies_headers_and_functions() {
         let tmp = tempfile::tempdir().unwrap();
         let dump = tmp.path().join("dump").join("CppSDK");
         let sdk = dump.join("SDK");
-        let rt = tmp.path().join("runtime");
+        let root = tmp.path().join("checkout");
+        let paths = WorkspacePaths::new(&root);
 
-        assert_eq!(import_sdk(&dump, &rt), Err(SdkError::NoHeader));
+        assert_eq!(import_sdk(&dump, &paths), Err(SdkError::NoHeader));
 
         std::fs::create_dir_all(&sdk).unwrap();
         std::fs::write(dump.join("SDK.hpp"), b"// header").unwrap();
-        assert_eq!(import_sdk(&dump, &rt), Err(SdkError::NoRuntimeSource));
+        assert_eq!(import_sdk(&dump, &paths), Err(SdkError::NoCheckout));
 
-        std::fs::create_dir_all(&rt).unwrap();
-        assert_eq!(import_sdk(&dump, &rt), Err(SdkError::NoRuntimeSource));
-        std::fs::write(rt.join("dllmain.cpp"), b"// main").unwrap();
-        assert_eq!(import_sdk(&dump, &rt), Err(SdkError::NoFunctions));
+        checkout(&root);
+        let paths = WorkspacePaths::new(&root);
+        assert_eq!(import_sdk(&dump, &paths), Err(SdkError::NoFunctions));
 
         std::fs::write(sdk.join("Archon_functions.cpp"), b"// fn").unwrap();
         std::fs::write(dump.join("PropertyFixup.hpp"), b"// fixup").unwrap();
+        // An older dump's files do not survive the import
+        std::fs::create_dir_all(&paths.sdk_dir).unwrap();
+        std::fs::write(paths.sdk_dir.join("Stale_functions.cpp"), b"// old").unwrap();
+        std::fs::write(paths.sdk_root.join("Stale.hpp"), b"// old").unwrap();
 
-        let imported = import_sdk(dump.parent().unwrap(), &rt).unwrap();
+        let imported = import_sdk(dump.parent().unwrap(), &paths).unwrap();
         assert_eq!(imported.function_files, 1);
         assert_eq!(imported.repaired_lookups, 0);
-        assert!(rt.join("SDK.hpp").is_file());
-        assert!(rt.join("PropertyFixup.hpp").is_file());
-        assert!(rt.join("SDK").join("Archon_functions.cpp").is_file());
+        let sdk_root = root.join(".workspace/sdk");
+        assert!(sdk_root.join("SDK.hpp").is_file());
+        assert!(sdk_root.join("PropertyFixup.hpp").is_file());
+        assert!(sdk_root.join("SDK").join("Archon_functions.cpp").is_file());
+        assert!(!sdk_root.join("Stale.hpp").exists());
+        assert!(!sdk_root.join("SDK").join("Stale_functions.cpp").exists());
+
+        let kit = detect_host_kit(Some(&root), &Toolchain::default(), &tmp.path().join("dumps"));
+        assert!(kit.sdk.present);
+        assert_eq!(kit.sdk.function_files, 1);
+        // Never committed: the root .gitignore refuses the host's working area
+        let gitignore = include_str!("../../../../.gitignore");
+        assert!(gitignore.lines().any(|line| line == ".workspace/"));
     }
 
     #[test]

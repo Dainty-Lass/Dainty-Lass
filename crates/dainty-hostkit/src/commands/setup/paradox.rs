@@ -7,7 +7,7 @@ use std::path::PathBuf;
 
 use crate::paths::Paths;
 
-/// The generated SDK files a runtime build needs.
+/// The generated SDK files a CatalogExporter build reads.
 pub const SDK_FILES: [&str; 6] = [
     "SDK.hpp",
     "Assertions.inl",

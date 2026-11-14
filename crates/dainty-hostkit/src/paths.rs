@@ -209,8 +209,9 @@ pub struct Paths {
     pub backend_dir: PathBuf,
     /// The reference Director, `ParadoxDirector`.
     pub director_dir: PathBuf,
-    /// The C++ runtime's old source folder, where the CatalogExporter's SDK is still kept.
-    pub runtime_source: PathBuf,
+    /// `.workspace/sdk`: the Dumper-7 `CppSDK` the launcher's Import SDK puts there and the CatalogExporter is built
+    /// against (`DAINTY_SDK_DIR`).
+    pub sdk_root: PathBuf,
     /// The generated SDK header, `SDK.hpp`.
     pub sdk_header: PathBuf,
     /// The generated SDK folder.
@@ -291,9 +292,9 @@ impl Paths {
         let paradox = isles.join("reference").join("1.14.7");
         let backend_dir = paradox.join("ParadoxBackend");
         let director_dir = paradox.join("ParadoxDirector");
-        let runtime_source = isles.join("native").join("runtime");
-        let sdk_header = runtime_source.join("SDK.hpp");
-        let sdk_dir = runtime_source.join("SDK");
+        let sdk_root = workspace.join("sdk");
+        let sdk_header = sdk_root.join("SDK.hpp");
+        let sdk_dir = sdk_root.join("SDK");
         let mit_runtime_dll = repo
             .join("target")
             .join("x86_64-pc-windows-msvc")
@@ -346,7 +347,7 @@ impl Paths {
             isles,
             backend_dir,
             director_dir,
-            runtime_source,
+            sdk_root,
             sdk_header,
             sdk_dir,
             mit_runtime_dll,
@@ -412,6 +413,9 @@ mod tests {
         assert_eq!(p.cert_file, Path::new("/srv/server/.workspace/tls/gateway-cert.pem"));
         assert_eq!(p.key_file, Path::new("/srv/server/.workspace/tls/gateway-key.pem"));
         assert_eq!(p.mongo_data, Path::new("/srv/server/.workspace/mongodb"));
+        // The launcher's Import SDK writes the same folder (dainty-launcher-kit's WorkspacePaths)
+        assert_eq!(p.sdk_root, Path::new("/srv/server/.workspace/sdk"));
+        assert_eq!(p.sdk_header, Path::new("/srv/server/.workspace/sdk/SDK.hpp"));
         assert_eq!(
             p.gameserver_wrapper,
             Path::new("/srv/server/.workspace/bin/dainty-gameserver")

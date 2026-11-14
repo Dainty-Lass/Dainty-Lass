@@ -441,11 +441,14 @@ mod host {
         let platform = Arc::new(FakePlatform::default());
         let c = host_ready(&pc, &platform, None).await;
 
-        // Without the runtime source the host kit fetches it first; the fake can't.
+        // Example data needs no checkout: it goes straight to the host kit, which the fake refuses.
         let detail = host_failed(&c.host_action(HostAction::SyntheticData).await);
-        assert!(detail.contains("no `upstream"), "{detail}");
+        assert!(detail.contains("no `gamedata --examples"), "{detail}");
         let job = platform.last_kit().job.unwrap();
-        assert_eq!((job.kind, job.state), (HostJobKind::Upstream, HostJobState::Failed));
+        assert_eq!(
+            (job.kind, job.state),
+            (HostJobKind::SyntheticData, HostJobState::Failed)
+        );
 
         // An update whose check fails says why.
         let detail = host_failed(&c.host_update().await);
@@ -560,9 +563,12 @@ mod host {
         let pc = pc();
         let platform = Arc::new(FakePlatform::default());
         let c = host_ready(&pc, &platform, None).await;
-        let runtime = WorkspacePaths::new(&pc.project).runtime_source;
-        std::fs::create_dir_all(&runtime).unwrap();
-        std::fs::write(runtime.join("dllmain.cpp"), b"// main").unwrap();
+        let runtime = WorkspacePaths::new(&pc.project).sdk_root;
+        // A release folder has no exporter to build against the SDK
+        assert_eq!(host_failed(&c.host_action(HostAction::ImportSdk).await), "workspace");
+        let exporter = pc.project.join("native/rustic-isles-exporter");
+        std::fs::create_dir_all(&exporter).unwrap();
+        std::fs::write(exporter.join("Cargo.toml"), b"[workspace]").unwrap();
 
         assert_eq!(host_failed(&c.host_action(HostAction::ImportSdk).await), "no_dump");
 
