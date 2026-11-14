@@ -2,7 +2,7 @@
 
 use crate::config;
 use crate::ffi::exit::{self, Install};
-use crate::ffi::{dispatch, engine, flags, http, loading, log, minhook, net, win};
+use crate::ffi::{dispatch, engine, flags, http, loading, log, minhook, net, travel, win};
 use crate::handlers;
 use crate::login;
 use rustic_isles_runtime_core::config::launch::PORT_EXIT_CODE;
@@ -57,6 +57,8 @@ pub fn init() {
     loading::register(server);
     if server {
         net::register();
+    } else {
+        let _ = travel::register(base);
     }
     // Slices register their handlers before this point; the lists are read lock-free from here on
     crate::economy::register();
@@ -89,6 +91,7 @@ pub fn init() {
         installs.push(exit::install_crash_wait());
     } else {
         installs.push(chain("SP-1", dispatch::install_sp1));
+        installs.push(("TR-1", hooks_off.map_or_else(|| travel::install(base), Err)));
         installs.extend(net::install(false, base, hooks_off));
         installs.extend(login::install(false, base));
         installs.push(chain("HTTP-1", http::install));

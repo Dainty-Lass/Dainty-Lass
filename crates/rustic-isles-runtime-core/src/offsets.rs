@@ -431,6 +431,19 @@ pub const TARGETS: &[Target] = &[
         ]),
         what: "spline direction query",
     },
+    // R16: travel
+    Target {
+        id: "TR-1",
+        rva: 0x0427_1370,
+        found_by: FoundBy::RvaAndBytes(&LOADMAP_PROLOGUE),
+        what: "UEngine::LoadMap",
+    },
+];
+
+/// R16: `UEngine::LoadMap`'s first 31 bytes.
+pub const LOADMAP_PROLOGUE: [u8; 31] = [
+    0x48, 0x89, 0x5C, 0x24, 0x20, 0x55, 0x56, 0x57, 0x41, 0x54, 0x41, 0x55, 0x41, 0x56, 0x41, 0x57, 0x48, 0x8D, 0xAC,
+    0x24, 0x00, 0xFE, 0xFF, 0xFF, 0x48, 0x81, 0xEC, 0x00, 0x03, 0x00, 0x00,
 ];
 
 /// Registered detour ids of landed slices with no `TARGETS` line on purpose (NETD-8: owned, not installed).
@@ -512,6 +525,31 @@ pub mod layout {
     pub const FSTRING_MAX_NUM: i32 = 32_768;
     /// `GMalloc`'s `Free(this, ptr)`.
     pub const MALLOC_FREE_SLOT: usize = 6;
+    // R16: travel
+    /// `FUObjectItem`'s internal flags (`i32`).
+    pub const OBJECT_ITEM_FLAGS: usize = 0x08;
+    /// Item flag `RootSet`.
+    pub const ITEM_ROOT_SET: u32 = 0x4000_0000;
+    /// Item flag `PendingKill`.
+    pub const ITEM_PENDING_KILL: u32 = 0x2000_0000;
+    /// Item flag `AsyncLoading`.
+    pub const ITEM_ASYNC_LOADING: u32 = 0x0800_0000;
+    /// Item flag `Async`: 1.14.7's collector keeps an object holding it, pending-kill or not.
+    pub const ITEM_ASYNC: u32 = 0x0400_0000;
+    /// `RF_ClassDefaultObject` in the object flags.
+    pub const RF_CLASS_DEFAULT_OBJECT: u32 = 0x10;
+    /// `UStruct::SuperStruct` (UE 4.26 layout; R16's ambiguity).
+    pub const USTRUCT_SUPER: usize = 0x40;
+    /// `FWorldContext::World()`.
+    pub const WORLD_CONTEXT_WORLD: usize = 0x280;
+    /// Bytes of `FWorldContext` checked readable.
+    pub const WORLD_CONTEXT_SIZE: usize = 0x288;
+    /// `FURL::Map`, an `FString`.
+    pub const FURL_MAP: usize = 0x28;
+    /// Bytes of `FURL` checked readable.
+    pub const FURL_SIZE: usize = 0x38;
+    /// The longest map path read, in units with the NUL.
+    pub const FSTRING_MAP_MAX_NUM: i32 = 1024;
 }
 
 /// R9's layout facts (spec-runtime-r9 2.1): the world list, the net driver, `FURL` and the channel reads.

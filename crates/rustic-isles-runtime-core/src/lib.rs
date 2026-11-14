@@ -25,6 +25,7 @@ pub mod player_host;
 pub mod reflect;
 pub mod registry;
 pub mod server_life;
+pub mod travel;
 pub mod weak;
 pub mod widgets;
 

@@ -4,7 +4,7 @@
 
 /// The slices whose ids this build owns.
 pub const LANDED: &[&str] = &[
-    "R0", "R1", "R2", "R3", "R4", "R5", "R9", "R7", "R6", "R10", "R11", "R15", "R8",
+    "R0", "R1", "R2", "R3", "R4", "R5", "R9", "R7", "R6", "R10", "R11", "R15", "R8", "R16",
 ];
 
 /// The longest id `owns` accepts, in bytes.
@@ -403,6 +403,12 @@ mod tests {
     fn owns_r15() {
         assert!(owns(b"SP-1@R15"));
         assert!(owns(b"SP-2@R15"));
+    }
+
+    #[test]
+    fn r16_owns_travel() {
+        assert!(owns(b"TR-1"));
+        assert!(owns(b"SP-1@R16"));
     }
 
     #[test]
