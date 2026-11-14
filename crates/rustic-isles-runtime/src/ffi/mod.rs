@@ -15,6 +15,7 @@ pub mod login;
 pub mod memory;
 pub mod minhook;
 pub mod reflect;
+pub mod widgets;
 pub mod win;
 
 mod dllmain;

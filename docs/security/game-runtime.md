@@ -241,6 +241,20 @@ Fuzz targets in `fuzz`:
 - [ ] Init never calls `LoadLibrary` and logs nothing (lines deferred); the HL-6 path hooks d3d11 without logging.
 - [ ] The nullrhi cache (`+0x06CD7878`) and its guard are never written.
 
+### Widget crash guards (R6)
+
+- [ ] Every UI target fails closed: `widgets::verify` checks each entry's bytes (UI-1's leaf, UI-3's resolved entry,
+      UI-5..7's parent calls and parents, UI-12's five getters) before any hook; a mismatch hooks nothing.
+- [ ] UI-4..6 install all or nothing; a failed hook unhooks the others, and a failed unhook is logged
+      (`widgets::install_group`).
+- [ ] Every member a guard reads goes through checked reads (UI-7 through the frame cache); a guard calls the game's
+      function, a verified parent body at `base + rva`, or nothing.
+- [ ] Virtual calls (UI-4's `GetOwningPlayer`, the `FText` controller's two entries) are made only when the entry lies
+      in the executable's image (`core::widgets::in_image`); otherwise nothing is called.
+- [ ] The `FText` release decrements its two counts with interlocked operations, only on an aligned, writable,
+      committed word (`ffi::widgets::GameRefs`).
+- [ ] While detaching, a guard still decides (it never forwards a faulting call) but logs and counts nothing.
+
 ## Sign-off
 
 Reviewed at commit `________` on `________` by `________`.

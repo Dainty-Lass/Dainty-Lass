@@ -274,6 +274,114 @@ pub const TARGETS: &[Target] = &[
         found_by: FoundBy::Rva,
         what: "the progression component readiness predicate",
     },
+    // R6: the widget crash guards
+    Target {
+        id: "UI-1",
+        rva: 0x01E4_2F00,
+        found_by: FoundBy::Rva,
+        what: "UInteractionCalloutWidget::HideHoldText (leaf bytes checked by R6)",
+    },
+    Target {
+        id: "UI-2",
+        rva: 0x01E0_FBB0,
+        found_by: FoundBy::RvaAndBytes(&[
+            0x48, 0x89, 0x5C, 0x24, 0x10, 0x57, 0x48, 0x83, 0xEC, 0x70, 0x48, 0x8B, 0xD9, 0x88, 0x91, 0xF0, 0x03, 0x00,
+            0x00,
+        ]),
+        what: "UArchonLoadingScreen::ScreenFadeIn",
+    },
+    Target {
+        id: "UI-3",
+        rva: 0x01E5_4110,
+        found_by: FoundBy::PdataOf(0x01E5_414E),
+        what: "UInteractionCalloutWidget::OnSetDisabled",
+    },
+    Target {
+        id: "UI-4",
+        rva: 0x01E3_EB10,
+        found_by: FoundBy::RvaAndBytes(&[
+            0x40, 0x53, 0x57, 0x41, 0x57, 0x48, 0x83, 0xEC, 0x70, 0x4C, 0x8B, 0xF9, 0x48, 0x8B, 0x89, 0x88, 0x03, 0x00,
+            0x00,
+        ]),
+        what: "UInteractionCalloutWidget input-key refresh",
+    },
+    Target {
+        id: "UI-5",
+        rva: 0x01E4_BA00,
+        found_by: FoundBy::RvaAndBytes(&[
+            0x40, 0x53, 0x48, 0x83, 0xEC, 0x20, 0x48, 0x8B, 0xD9, 0xE8, 0x72, 0xEA, 0xFF, 0xFF, 0x48, 0x8B, 0x8B, 0x98,
+            0x03, 0x00, 0x00,
+        ]),
+        what: "UInteractionCalloutWidget::NativeConstruct",
+    },
+    Target {
+        id: "UI-6",
+        rva: 0x01E4_E050,
+        found_by: FoundBy::RvaAndBytes(&[
+            0x48, 0x89, 0x5C, 0x24, 0x08, 0x48, 0x89, 0x6C, 0x24, 0x10, 0x48, 0x89, 0x74, 0x24, 0x18, 0x57, 0x48, 0x83,
+            0xEC, 0x20, 0x0F, 0xB6, 0xF2,
+        ]),
+        what: "UInteractionCalloutWidget::NativeOnInputSwap",
+    },
+    Target {
+        id: "UI-7",
+        rva: 0x01E5_0A70,
+        found_by: FoundBy::RvaAndBytes(&[
+            0x48, 0x89, 0x5C, 0x24, 0x10, 0x57, 0x48, 0x83, 0xEC, 0x70, 0x48, 0x8B, 0xD9, 0xE8, 0x0E, 0xF9, 0xFF, 0xFF,
+        ]),
+        what: "UInteractionCalloutWidget::NativeTick",
+    },
+    Target {
+        id: "UI-8",
+        rva: 0x01E5_44B0,
+        found_by: FoundBy::RvaAndBytes(&[
+            0x40, 0x53, 0x48, 0x83, 0xEC, 0x30, 0x0F, 0x29, 0x74, 0x24, 0x20, 0x48, 0x8B, 0xD9,
+        ]),
+        what: "UInteractionCalloutWidget::OnShowFillProgress",
+    },
+    Target {
+        id: "UI-9",
+        rva: 0x01E5_2450,
+        found_by: FoundBy::RvaAndBytes(&[
+            0x48, 0x89, 0x5C, 0x24, 0x10, 0x57, 0x48, 0x83, 0xEC, 0x20, 0x48, 0x8B, 0xD9,
+        ]),
+        what: "UInteractionCalloutWidget::OnHideFillProgress",
+    },
+    Target {
+        id: "UI-10",
+        rva: 0x01E5_42C0,
+        found_by: FoundBy::RvaAndBytes(&[
+            0x48, 0x89, 0x5C, 0x24, 0x08, 0x57, 0x48, 0x83, 0xEC, 0x20, 0x48, 0x8B, 0xFA, 0x48, 0x8B, 0xD9, 0x48, 0x8B,
+            0x89, 0xB8, 0x03, 0x00, 0x00,
+        ]),
+        what: "UInteractionCalloutWidget::OnSetShowDisabledIconWhenEnabled",
+    },
+    Target {
+        id: "UI-11",
+        rva: 0x01E5_4320,
+        found_by: FoundBy::RvaAndBytes(&[
+            0x48, 0x89, 0x5C, 0x24, 0x10, 0x48, 0x89, 0x6C, 0x24, 0x18, 0x48, 0x89, 0x74, 0x24, 0x20, 0x57, 0x48, 0x83,
+            0xEC, 0x50,
+        ]),
+        what: "UInteractionCalloutWidget::OnSetShowDisabledTextWhenEnabled",
+    },
+    Target {
+        id: "UI-12",
+        rva: 0x01B8_6160,
+        found_by: FoundBy::RvaAndBytes(&[
+            0x40, 0x53, 0x57, 0x48, 0x83, 0xEC, 0x78, 0x48, 0x8B, 0x99, 0xE0, 0x00, 0x00, 0x00,
+        ]),
+        what: "AArchonInventory equipped-items refresh",
+    },
+    Target {
+        id: "UI-13",
+        rva: 0x01F6_D4F0,
+        found_by: FoundBy::RvaAndBytes(&[
+            0x40, 0x55, 0x53, 0x56, 0x57, 0x41, 0x54, 0x48, 0x8D, 0xAC, 0x24, 0xB0, 0xFE, 0xFF, 0xFF, 0x48, 0x81, 0xEC,
+            0x50, 0x02, 0x00, 0x00,
+        ]),
+        what: "UHUDLegendaryAbilityWidget::HandleWeaponEquipped",
+    },
 ];
 
 /// Ids with more than one `TARGETS` line, and how many (HL-3 hooks two exports).
@@ -647,6 +755,99 @@ pub mod r7 {
     pub const FUNC_NATIVE: u32 = 0x400;
     /// `RF_ClassDefaultObject`.
     pub const RF_CLASS_DEFAULT_OBJECT: u32 = 0x10;
+}
+
+/// R6's code checks and layout facts (spec-runtime-r6 section 3.2).
+pub mod r6 {
+    /// UI-1's leaf (no `.pdata` entry: a frameless tail call through `HoldText`'s vtable).
+    pub const UI1_LEAF: [u8; 19] = [
+        0x48, 0x8B, 0x89, 0xC0, 0x03, 0x00, 0x00, 0xB2, 0x02, 0x48, 0x8B, 0x01, 0x48, 0xFF, 0xA0, 0x88, 0x02, 0x00,
+        0x00,
+    ];
+    /// UI-3's entry bytes.
+    pub const UI3_ENTRY: [u8; 24] = [
+        0x48, 0x89, 0x5C, 0x24, 0x10, 0x48, 0x89, 0x6C, 0x24, 0x18, 0x56, 0x57, 0x41, 0x56, 0x48, 0x83, 0xEC, 0x40,
+        0x88, 0x91, 0xE8, 0x03, 0x00, 0x00,
+    ];
+    /// `(id, call offset from the entry, parent RVA)`: the parent body a guard runs instead of the whole function.
+    pub const PARENT_CALLS: [(&str, usize, u32); 3] = [
+        // UArchonUserWidgetBase::NativeConstruct
+        ("UI-5", 0x09, 0x01E4_A480),
+        // UArchonUserWidgetBase::NativeOnInputSwap
+        ("UI-6", 0x1A, 0x01E4_DEE0),
+        ("UI-7", 0x0D, 0x01E5_0390),
+    ];
+    /// UI-12's five equipped-item getters, in call order, each `(loadout) -> pointer`.
+    pub const GETTERS: [u32; 5] = [0x01BA_4FF0, 0x01B9_CA60, 0x01B9_FF30, 0x01B9_A620, 0x01BA_08D0];
+    /// Each getter's first bytes.
+    pub const GETTER_BYTES: [u8; 5] = [0x48, 0x83, 0xEC, 0x28, 0xE8];
+
+    /// `UInteractionCalloutWidget`'s cached owning controller, an `FWeakObjectPtr` (index `i32`, serial at +4).
+    pub const CALLOUT_OWNER_WEAK: usize = 0x318;
+    /// `Keyboard`.
+    pub const CALLOUT_KEYBOARD: usize = 0x388;
+    /// `Gamepad`.
+    pub const CALLOUT_GAMEPAD: usize = 0x390;
+    /// `RadialAnimImage`.
+    pub const CALLOUT_RADIAL: usize = 0x398;
+    /// The unnamed member the fill-progress natives read.
+    pub const CALLOUT_3A0: usize = 0x3A0;
+    /// `InteractionHint`.
+    pub const CALLOUT_HINT: usize = 0x3A8;
+    /// `DisabledReason`.
+    pub const CALLOUT_REASON: usize = 0x3B0;
+    /// `DisabledIcon`.
+    pub const CALLOUT_ICON: usize = 0x3B8;
+    /// `HoldText`.
+    pub const CALLOUT_HOLD_TEXT: usize = 0x3C0;
+    /// `ProgressMaterial`.
+    pub const CALLOUT_PROGRESS: usize = 0x3E0;
+
+    /// `UArchonLoadingScreen`'s primary fade widget.
+    pub const SCREEN_PRIMARY: usize = 0x3E8;
+    /// Its secondary fade widget.
+    pub const SCREEN_SECONDARY: usize = 0x3E0;
+    /// Bytes of the screen read.
+    pub const SCREEN_SIZE: usize = 0x3F0;
+
+    /// `UUserWidget::GetOwningPlayer`'s byte offset in the vtable.
+    pub const GET_OWNING_PLAYER_VSLOT: usize = 0x2A0;
+    /// `APlayerController.PlayerInput`.
+    pub const PC_PLAYER_INPUT: usize = 0x348;
+
+    /// `AArchonInventory`'s owner.
+    pub const INVENTORY_OWNER: usize = 0xE0;
+    /// Bytes of the inventory read.
+    pub const INVENTORY_SIZE: usize = 0xE8;
+    /// `AArchonPlayerController.LOADOUT` (R15 7.1 records the same).
+    pub const PC_LOADOUT: usize = 0x9C8;
+    /// Bytes of the controller read.
+    pub const PC_SIZE: usize = 0x9D0;
+    /// `AArchonLoadout.LoadoutSlotDataArray` (`TArray`: data here, `Num` `i32` at +8).
+    pub const LOADOUT_SLOTS: usize = 0x670;
+    /// `AArchonLoadout.ActiveLoadoutSlotIndex` (`i32`, -1 until a slot is picked).
+    pub const LOADOUT_ACTIVE: usize = 0x680;
+    /// Bytes of the loadout read.
+    pub const LOADOUT_SIZE: usize = 0x690;
+
+    /// `FText`'s size.
+    pub const FTEXT_SIZE: usize = 0x18;
+    /// `FText`'s shared reference controller.
+    pub const FTEXT_CONTROLLER: usize = 0x08;
+    /// The controller's shared count (`i32`).
+    pub const REF_SHARED: usize = 0x08;
+    /// The controller's weak count (`i32`).
+    pub const REF_WEAK: usize = 0x0C;
+
+    /// `FUObjectItem`'s internal flags (`i32`).
+    pub const ITEM_FLAGS: usize = 0x08;
+    /// `FUObjectItem`'s serial number (`i32`).
+    pub const ITEM_SERIAL: usize = 0x10;
+    /// Unreachable or pending kill.
+    pub const ITEM_DEAD: u32 = 0x3000_0000;
+
+    /// The class UI-4 and UI-12 match with `is_a`.
+    pub const PLAYER_CONTROLLER: &str = "ArchonPlayerController";
 }
 
 #[cfg(test)]

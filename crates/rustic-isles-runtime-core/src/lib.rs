@@ -21,6 +21,8 @@ pub mod patch;
 pub mod pdata;
 pub mod reflect;
 pub mod registry;
+pub mod weak;
+pub mod widgets;
 
 /// The seam ABI the AGPL runtime checks before it routes a hook through this DLL (R0 7.3).
 pub const SEAM_VERSION: u32 = 1;
