@@ -235,7 +235,7 @@ The runtime loader (`native/runtime-loader`) and the catalog exporter (`native/r
 native code outside `restricted/`. An upstream change to either reaches it through its spec, never as a patch. The
 launcher and the Director inject the runtime (`crates/dainty-inject`, and its `dainty-inject.exe` helper under Wine
 and Proton); the loader remains for Proton players who keep it, and stands down for an injected game. The game
-runtime and the C++ CatalogExporter are in `restricted/`, and `restricted/AGENTS.md` says how a runtime patch is
+runtime is in `restricted/`, and `restricted/AGENTS.md` says how a runtime patch is
 applied. The realm transport is built into the launcher (`rustic-rifts-transport`).
 
 ## CI

@@ -36,7 +36,7 @@ AGPL parts and builds the full server, the Tauri launcher and the Docker images,
 | Folder | What |
 | --- | --- |
 | [`.`](.) | Independent AGPL-3.0-only Cargo workspace: `crates/` (`host`, the libraries of the MIT gateway, content and chat, and the server executables), `launcher/src-tauri` (the launcher's oracle tests; the apps are the root's MIT `crates/dainty-launcher-app`), and the game modules' crates |
-| [`modules/rustic-isles/`](modules/rustic-isles) | The 1.14.7 module's version data (the server reads it at start; the module and its library are the root's MIT crates) and the Node goldens replayed against it (`rustic-isles-mit-parity`), the CatalogExporter (`native/`), and the Node reference sources (`reference/1.14.7`) |
+| [`modules/rustic-isles/`](modules/rustic-isles) | The 1.14.7 module's version data (the server reads it at start; the module and its library are the root's MIT crates) and the Node goldens replayed against it (`rustic-isles-mit-parity`), and the Node reference sources (`reference/1.14.7`) |
 | [`modules/rustic-rifts/`](modules/rustic-rifts) | `oracle`, which replays Mystic Paradox's answers against the root's MIT `rustic-rifts-*` crates |
 | [`legacy/`](legacy) | The importer for Dauntless Revived 1.4.4 and Reforged Revival installs |
 | [`docker/`](docker), `compose.yaml` | The server as containers |
@@ -51,14 +51,14 @@ cargo build --release --manifest-path ../Cargo.toml -p dainty-server --features 
 ```
 
 The desktop apps are the root's MIT shell, `../crates/dainty-launcher-app`; `launcher/` here holds only its oracle
-tests ([launcher/README.md](launcher/README.md)). The bridge tests are in `../launcher` (`bun run test`). The CatalogExporter needs a host's own SDK; the game runtime is the root's MIT `rustic-isles-runtime.dll`, which needs none
+tests ([launcher/README.md](launcher/README.md)). The bridge tests are in `../launcher` (`bun run test`). The root's CatalogExporter needs a host's own SDK; the game runtime is the root's MIT `rustic-isles-runtime.dll`, which needs none
 ([../docs/sdk-and-game-data.md](../docs/sdk-and-game-data.md)).
 `bash docker/run-tests.sh` from `restricted/` builds the images and runs every server suite inside them.
 
 ## Credits and licence
 
 Dainty Lass stands on [Mystic Paradox](https://github.com/pranav158/Mystic-Paradox) (Pranav Karande), whose backend,
-Director and CatalogExporter live in `modules/rustic-isles` (its runtime until R21); on [Dauntless Revived](https://github.com/mixutin/dauntless-revived)
+Director live in `modules/rustic-isles` (its runtime until R21, its CatalogExporter until 2026-11-13); on [Dauntless Revived](https://github.com/mixutin/dauntless-revived)
 (mixutin and contributors), whose Rust crates the workspace started from and whose invite and account-key design
 the launcher follows; and on [Undaunted](https://github.com/SyST3MDeV/Undaunted) (gwog and contributors), which both
 of those build on. [NOTICE.md](NOTICE.md) says what came from where.

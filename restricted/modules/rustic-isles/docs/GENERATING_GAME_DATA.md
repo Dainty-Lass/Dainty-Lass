@@ -41,12 +41,11 @@ missing Slayer's Path definitions only log an error and grant no node rewards).
 
 ## 1. Build and run CatalogExporter
 
-Build native/catalog-exporter against the complete SDK described in
-[GENERATING_SDK.md](GENERATING_SDK.md). The generators read `Items_Analysis` in `reference/1.14.7`,
-so copy the exporter's `Items_Analysis` folder there afterwards (`RUSTIC_ISLES_EXPORT_ROOT` in
-native/catalog-exporter/ExportPaths.local.h, see the SDK guide, gathers the exports in one folder first).
-
-Copy export_flags.example.txt to export_flags.txt and enable these modes:
+The CatalogExporter is Dainty Lass's MIT Rust crate `native/rustic-isles-exporter`, built against the complete SDK
+described in [GENERATING_SDK.md](GENERATING_SDK.md). Section 3 of Dainty Lass's
+[SDK and game data guide](../../../../docs/sdk-and-game-data.md) builds and injects it and copies its
+`Items_Analysis` exports into `reference/1.14.7`, where the generators read them. The Host page's flags file turns on
+every export the services need:
 
 | Flag | Output under Items_Analysis | Reach first |
 |---|---|---|
@@ -58,9 +57,9 @@ Copy export_flags.example.txt to export_flags.txt and enable these modes:
 Inject the exporter into your own local client only. Flags are read once at injection, so re-inject
 after changing them. The exporter waits up to two minutes for the catalog to load; open the listed
 screen while it runs. Each run writes export_manifest_1_14_7.json and appends to
-catalog_export_status.txt: check them instead of assuming an injection produced every table. The other
-modes in [ExportFlags.md](../native/catalog-exporter/ExportFlags.md) are research exports that the services
-do not read.
+catalog_export_status.txt: check them instead of assuming an injection produced every table. The research exports
+of Mystic Paradox's C++ exporter (cells, combat, skins, drop tables, currency names, table inventory) are not
+supported; the services never read them.
 
 ## 2. Director hunt tables
 
