@@ -102,6 +102,10 @@ fn tick(_engine: usize, _delta: f32) {
     }
     if FENCED.load(Ordering::SeqCst) && !APPLYING.swap(true, Ordering::SeqCst) {
         log::line(lines::APPLYING);
+        // With R8 the fence ends through its server quit (spec-runtime-r8 8.2); both exit 0 at once
+        if registry::owns(b"SP-3@R8") {
+            crate::server_life::server_quit("player host fence");
+        }
         win::terminate(FENCE_EXIT_CODE);
     }
 }

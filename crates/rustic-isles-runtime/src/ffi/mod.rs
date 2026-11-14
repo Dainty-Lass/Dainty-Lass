@@ -18,6 +18,7 @@ pub mod minhook;
 pub mod net;
 pub mod player_host;
 pub mod reflect;
+pub mod server_life;
 pub mod widgets;
 pub mod win;
 

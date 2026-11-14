@@ -49,6 +49,11 @@ pub fn init() {
     } else {
         Vec::new()
     };
+    let server_life = if server {
+        crate::server_life::install()
+    } else {
+        Vec::new()
+    };
     loading::register(server);
     if server {
         net::register();
@@ -79,6 +84,7 @@ pub fn init() {
         installs.push(chain("HTTP-1", http::install));
         installs.push(crate::player_host::install_header(base, hooks_off));
         installs.extend(listen);
+        installs.extend(server_life);
         installs.push(exit::install_engine_error(base, hooks_off));
         installs.push(exit::install_crash_wait());
     } else {

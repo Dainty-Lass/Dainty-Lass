@@ -93,8 +93,9 @@ Fuzz targets in `fuzz`:
       points into freed memory.
 - [ ] The ownership registry lists every surface id once with its slice; `owns` answers yes exactly for the ids of
       the slices in `LANDED` (`R0`, `R1`, `R2`, `R3`, `R4`: SP-1..3, HTTP-1, HTTP-1@R2, EXIT-1..14 and CL-1, 2, 5, 7,
-      8, 9; `R7`: LD-1..9, `SP-2@R7`, `SP-3@R7`; `R15`: `SP-1@R15`, `SP-2@R15`; `HTTP-1@R10` and `SP-2@R20` stay
-      the AGPL's) (`core::registry` tests). R4's seven logging-only probes (CL-3, CL-4, CL-6, CL-10..13) are slice `R19`, never owned.
+      8, 9; `R7`: LD-1..9, `SP-2@R7`, `SP-3@R7`; `R15`: `SP-1@R15`, `SP-2@R15`; `R8`: `SP-2@R8`, `SP-3@R8`;
+      `HTTP-1@R10` and `SP-2@R20` stay the AGPL's) (`core::registry` tests). R4's seven logging-only probes (CL-3,
+      CL-4, CL-6, CL-10..13) are slice `R19`, never owned.
 
 ### Game data writes and calls (R15)
 
@@ -280,6 +281,25 @@ Fuzz targets in `fuzz`:
 - [ ] NETD-4/5 read and write nothing and answer a full 32-bit 1, after detach too (`ffi::net::tests`).
 - [ ] Every repeating `[MitNet]` line has a budget; NETD-6 logs the first 16 closes only, and never reads the
       connection's `+0x1318`. No line carries a player name, address or key: only pointers, counts and the stack.
+
+### Server lifecycle (R8)
+
+- [ ] R8 lands only with R9 and R10 (`registry_r8`); it owns `SP-3@R8` and `SP-2@R8` and hooks nothing. Its writes
+      are the game's own fields (`ExpectedPlayerCount`, the four AFK floats) on objects that pass the live-instance
+      test and `is_a`, through checked, writable, aligned writes; nothing is written to an object it did not classify.
+- [ ] The watchdog thread starts from the game thread at listen, never from `DllMain`, reads only R8's atomics (never
+      game memory), and returns on detach. A failed spawn logs and the server runs without it.
+- [ ] Every way R8 ends a server is the reap exit, `TerminateProcess(0)`: a disposable server empty 60 s (300 s if
+      never joined), a game thread silent 180 s, a port free 45 s after serving, and R10's fence (`server_quit`). A
+      hub is never reaped empty or stale; a sample that is stale (over 10 s) or implausible (over 64) never reaps.
+- [ ] The UDP port probe binds a fresh socket to the server's own address and port and closes it at once; it never
+      sends, and an address that is not a dotted quad turns it off. Winsock is started once (`WSAStartup(2.2)`).
+- [ ] The out-of-memory reserve is freed only when both engine functions' entries and bytes, the global and the
+      block's region (base, allocation base, 32 MB, committed, private, read-write) check out, after a
+      compare-exchange takes it from the engine's only reader; a failed `VirtualFree` puts it back.
+- [ ] The working-set trim runs only on a Director hub with no client for 60 s, once per idle period.
+- [ ] Never logged by R8: the roster's ids, the command line, any environment value (settings print as R1's parsed
+      values and their source).
 
 ### Logging
 
