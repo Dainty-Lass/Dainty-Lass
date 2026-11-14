@@ -83,6 +83,8 @@ pub fn init() {
         installs.push(exit::install_veh(base));
     }
     installs.extend(loading::install(base, server));
+    // R6 after the dispatch installs and R5; its lines are deferred
+    crate::widgets::install(base, server, initialized);
     let _ = STATUS.set(Status { server, port, installs });
     log::set_ready();
 }

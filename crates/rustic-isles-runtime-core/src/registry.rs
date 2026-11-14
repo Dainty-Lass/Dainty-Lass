@@ -3,7 +3,7 @@
 //! name to `LANDED` (and, for a new id, its line).
 
 /// The slices whose ids this build owns.
-pub const LANDED: &[&str] = &["R0", "R1", "R2", "R3", "R4", "R5", "R9", "R7"];
+pub const LANDED: &[&str] = &["R0", "R1", "R2", "R3", "R4", "R5", "R9", "R7", "R6"];
 
 /// The longest id `owns` accepts, in bytes.
 pub const MAX_ID_BYTES: usize = 47;
@@ -356,6 +356,19 @@ mod tests {
             2,
             "R9 adds two"
         );
+    }
+
+    #[test]
+    fn owns_r6() {
+        for n in 1..=13 {
+            let id = format!("UI-{n}");
+            assert!(owns(id.as_bytes()), "{id}");
+            assert_eq!(
+                entry(&id).map(|line| (line.kind, line.slice)),
+                Some((Kind::Detour, "R6"))
+            );
+        }
+        assert!(!owns(b"UI-14"));
     }
 
     #[test]
