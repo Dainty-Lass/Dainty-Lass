@@ -1713,7 +1713,10 @@ async fn a_dumper_7_session_injects_dumper_7_alone() {
         std::slice::from_ref(&dumper)
     );
     assert!(!win64.join(LOADER_INI).exists() && !win64.join("Dumper-7.dll").exists());
-    assert!(win64.join("rustic-isles-runtime.dll").exists(), "the runtime stays, unloaded");
+    assert!(
+        win64.join("rustic-isles-runtime.dll").exists(),
+        "the runtime stays, unloaded"
+    );
     assert_eq!(
         hx.c.host_action(HostAction::InjectDumper).await,
         host_error("game_running")
