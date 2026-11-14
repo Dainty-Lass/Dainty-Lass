@@ -295,7 +295,7 @@ impl HostBackend for DefaultHostBackend {
     }
 }
 
-/// Starts a process with exactly the environment given and nothing else (RD9: no injection).
+/// Starts the hosted server with exactly the environment given; the launcher's injects only into it (RD9).
 pub trait ServerSpawner: Send + Sync {
     /// Starts `program` and returns its process id.
     fn spawn(
@@ -306,7 +306,13 @@ pub trait ServerSpawner: Send + Sync {
         environment: &BTreeMap<String, String>,
     ) -> Result<u32, HostError>;
 
-    /// Stops the process started under `pid`.
+    /// Waits until the server started under `pid` reports ready on its ready pipe; the default has no pipe.
+    fn wait_ready(&self, pid: u32) -> Result<(), HostError> {
+        let _ = pid;
+        Ok(())
+    }
+
+    /// Stops the process started under `pid`: fenced, or ended when the fence fails.
     fn stop(&self, pid: u32);
 }
 

@@ -30,6 +30,11 @@ pub use crate::session::{
     LaunchEnvironmentSpec, LocalRealmHosting, LocalSession, LocalState, NoopServerSpawner, PeerDiff, PeerEvent,
     PeerListEntry, PeerLive, RealmHosting, RelayGrant, ServerSpawner, SessionLive, TransportConfig, WantedPeer,
 };
+// The hosted server's player host: the real spawner and the launcher's pipe ends (spec-runtime-r10 12.2).
+pub use crate::session::{
+    EXIT_AFTER_FENCE, FENCE_ACK_TIMEOUT, FENCE_EXIT_CODE, FENCE_TIMEOUT_EXIT_CODE, HostedPipes, HostedProcess,
+    INVALID_EXIT_CODE, PipeFailure, PlayerHostSpawner, ProcessStarter, READY_TIMEOUT, ReadyRefusal, THREAD_EXIT_CODE,
+};
 // Limits and names the launcher shows or passes on.
 pub use crate::session::{
     CLEARED_VARIABLES, DIRECTOR_SERVER_SWITCHES, GAME_LEFT_IDLE, HOST_COMMIT_FLOOR_MIB, HOST_MEMORY_FLOOR_MIB,

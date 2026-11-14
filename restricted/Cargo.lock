@@ -5847,6 +5847,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "rustic-isles-runtime-core"
+version = "0.0.0"
+
+[[package]]
 name = "rustic-isles-store"
 version = "0.0.0"
 dependencies = [
@@ -5896,11 +5900,13 @@ version = "0.0.0"
 dependencies = [
  "hex",
  "rand 0.10.3",
+ "rustic-isles-runtime-core",
  "rustic-rifts-seam",
  "rustic-rifts-transport",
  "serde",
  "serde_json",
  "sha2 0.11.1",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]

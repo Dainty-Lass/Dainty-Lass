@@ -35,8 +35,12 @@ path against `cmd.exe`).
 
 ### The process
 
-- [ ] Injection happens only in `OsSpawner::spawn`, on the child it has just spawned. No other caller of
-      `load_and_resume` exists.
+- [ ] Injection happens only in `OsSpawner::spawn` and, for a realm's hosted server, `InjectingStarter::start`
+      (`platform/hosted_server.rs`), each on the child it has just spawned suspended. No other caller of
+      `load_and_resume` exists. The hosted server gets the runtimes PLAY would load (`runtime_dlls`, the offered
+      hashes), is killed rather than resumed when a load fails, and starts with `rifts-host`'s launch environment
+      minus every other inherited server-prefix variable, plus `DAINTY_RUNTIME_INJECTED=1`
+      (`a_hosted_launch_carries_exactly_what_the_runtime_reads`).
 - [ ] The child is created with `CREATE_SUSPENDED` whenever `plan.inject` is not empty, and only then.
 - [ ] The main thread is found before any remote thread exists (`only_thread` refuses a process with more than one
       thread), and only that thread is resumed.

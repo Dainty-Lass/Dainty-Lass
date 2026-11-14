@@ -95,8 +95,8 @@ axum = { version = "0.8", default-features = false }
 # transport_frame, transport_files, transport_pipe: what a peer, the launcher's files and the game server hand the
 # co-op transport (RD27)
 rustic-rifts-transport = { path = "../crates/rustic-rifts-transport" }
-# host_ready_line, host_peer_line, host_transport_config: the transport's lines and the backend's JSON the launcher's
-# realm hosting reads (RD27)
+# host_ready_line, host_peer_line, host_transport_config, host_player_host_pipes: the transport's lines, the backend's
+# JSON and the hosted server's pipe messages the launcher's realm hosting reads (RD27, spec-runtime-r10 12.2)
 rustic-rifts-host = { path = "../crates/rustic-rifts-host", default-features = false }
 serde = "1"
 serde_json = "1"
@@ -743,6 +743,13 @@ bench = false
 [[bin]]
 name = "rustic_isles_runtime_player_host"
 path = "fuzz_targets/rustic_isles_runtime_player_host.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "host_player_host_pipes"
+path = "fuzz_targets/host_player_host_pipes.rs"
 test = false
 doc = false
 bench = false
