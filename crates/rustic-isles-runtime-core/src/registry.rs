@@ -3,7 +3,7 @@
 //! name to `LANDED` (and, for a new id, its line).
 
 /// The slices whose ids this build owns.
-pub const LANDED: &[&str] = &["R0", "R1", "R2", "R3", "R4", "R5", "R9", "R7", "R6", "R10"];
+pub const LANDED: &[&str] = &["R0", "R1", "R2", "R3", "R4", "R5", "R9", "R7", "R6", "R10", "R11"];
 
 /// The longest id `owns` accepts, in bytes.
 pub const MAX_ID_BYTES: usize = 47;
@@ -381,6 +381,19 @@ mod tests {
             assert_eq!(owns(id.as_bytes()), LANDED.contains(&"R10"), "{id}");
         }
         assert_eq!(ENTRIES.iter().filter(|line| line.slice == "R10").count(), 3);
+    }
+
+    #[test]
+    fn r11_lands_with_or_after_r9() {
+        // spec-runtime-r11 15.2: owning SP-3@R11 turns the AGPL's upkeep and manual tick off, and R11's own need R9
+        if LANDED.contains(&"R11") {
+            assert!(LANDED.contains(&"R9"), "R11 landed without R9");
+            for n in 1..=8 {
+                assert!(owns(format!("NETD-{n}").as_bytes()), "NETD-{n}");
+            }
+            assert!(owns(b"SP-3@R11"));
+        }
+        assert_eq!(ENTRIES.iter().filter(|line| line.slice == "R11").count(), 9);
     }
 
     #[test]

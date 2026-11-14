@@ -382,7 +382,59 @@ pub const TARGETS: &[Target] = &[
         ]),
         what: "UHUDLegendaryAbilityWidget::HandleWeaponEquipped",
     },
+    // R11: the net driver (NETD-8 has no line, `NO_TARGET_IDS`)
+    Target {
+        id: "NETD-1",
+        rva: 0x03FA_E420,
+        found_by: FoundBy::RvaAndBytes(&[0x48, 0x8B, 0xC4, 0x48, 0x89, 0x58, 0x18, 0x55]),
+        what: "UNetDriver::TickDispatch",
+    },
+    Target {
+        id: "NETD-2",
+        rva: 0x03FA_CF60,
+        found_by: FoundBy::RvaAndBytes(&[0x40, 0x56, 0x41, 0x56, 0x48, 0x83, 0xEC, 0x28]),
+        what: "UNetDriver::SetReplicationDriver",
+    },
+    Target {
+        id: "NETD-3",
+        rva: 0x03F8_D8E0,
+        found_by: FoundBy::RvaAndBytes(&[0x48, 0x89, 0x5C, 0x24, 0x08, 0x48, 0x89, 0x6C, 0x24, 0x10]),
+        what: "CreateReplicationDriver",
+    },
+    Target {
+        id: "NETD-4",
+        rva: 0x03F9_1EB0,
+        found_by: FoundBy::RvaAndBytes(&[
+            0x48, 0x83, 0xEC, 0x28, 0x48, 0x8B, 0x01, 0xFF, 0x90, 0x78, 0x03, 0x00, 0x00,
+        ]),
+        what: "InternalGetNetMode",
+    },
+    Target {
+        id: "NETD-5",
+        rva: 0x042C_C560,
+        found_by: FoundBy::RvaAndBytes(&[
+            0x40, 0x53, 0x48, 0x81, 0xEC, 0x90, 0x00, 0x00, 0x00, 0x48, 0x83, 0x79, 0x38, 0x00,
+        ]),
+        what: "UWorld::GetNetMode",
+    },
+    Target {
+        id: "NETD-6",
+        rva: 0x03F6_2B90,
+        found_by: FoundBy::RvaAndBytes(&[0x48, 0x8B, 0xC4, 0x53, 0x41, 0x56, 0x48, 0x83, 0xEC, 0x68]),
+        what: "UNetConnection::Close",
+    },
+    Target {
+        id: "NETD-7",
+        rva: 0x03D4_7A90,
+        found_by: FoundBy::RvaAndBytes(&[
+            0x48, 0x89, 0x5C, 0x24, 0x08, 0x48, 0x89, 0x74, 0x24, 0x10, 0x57, 0x48, 0x83, 0xEC, 0x60,
+        ]),
+        what: "spline direction query",
+    },
 ];
+
+/// Registered detour ids of landed slices with no `TARGETS` line on purpose (NETD-8: owned, not installed).
+pub const NO_TARGET_IDS: &[&str] = &["NETD-8"];
 
 /// Ids with more than one `TARGETS` line, and how many (HL-3 hooks two exports).
 pub const MULTI_LINE_IDS: &[(&str, usize)] = &[("HL-3", 2)];
@@ -514,6 +566,80 @@ pub mod r9 {
     pub const CHANNEL_SIZE: usize = 0x78;
     /// `UGameMapsSettings::GameDefaultMap` (`FString`; named for the reader).
     pub const GAME_MAPS_DEFAULT_MAP: usize = 0x70;
+}
+
+/// R11's called functions, data and layout (spec-runtime-r11 18.2).
+pub mod net {
+    /// The IP net driver's `TickDispatch` (reads the socket, then calls NETD-1's target).
+    pub const IP_TICK_DISPATCH: u32 = 0x00A8_2CF0;
+    /// Its first bytes.
+    pub const IP_TICK_DISPATCH_BYTES: &[u8] = &[0x48, 0x8B, 0xC4, 0x55, 0x53, 0x56, 0x41, 0x55, 0x41, 0x57];
+    /// `UNetDriver::TickFlush`.
+    pub const TICK_FLUSH: u32 = 0x03FA_E700;
+    /// Its first bytes.
+    pub const TICK_FLUSH_BYTES: &[u8] = &[0x4C, 0x8B, 0xDC, 0x55, 0x53, 0x56, 0x57, 0x41, 0x57];
+    /// `UEngine::FindNamedNetDriver(engine, world, name)`.
+    pub const FIND_NAMED_NET_DRIVER: u32 = 0x0426_67F0;
+    /// Its first bytes.
+    pub const FIND_NAMED_NET_DRIVER_BYTES: &[u8] = &[
+        0x40, 0x53, 0x48, 0x83, 0xEC, 0x20, 0x48, 0x8B, 0x81, 0x38, 0x0C, 0x00, 0x00,
+    ];
+    /// `StaticConstructObject_Internal(params)`.
+    pub const STATIC_CONSTRUCT_OBJECT: u32 = 0x0288_6C70;
+    /// Its first bytes.
+    pub const STATIC_CONSTRUCT_OBJECT_BYTES: &[u8] =
+        &[0x48, 0x89, 0x5C, 0x24, 0x10, 0x48, 0x89, 0x74, 0x24, 0x18, 0x55, 0x57];
+    /// The curve evaluator NETD-7's query calls (not hooked; for the record).
+    pub const SPLINE_EVALUATOR: u32 = 0x0109_1D50;
+    /// `GEngine` (a `UEngine*`).
+    pub const GENGINE: u32 = 0x06FC_3CE8;
+    /// The replication driver's enable gate (`u32`).
+    pub const REP_DRIVER_GATE: u32 = 0x06AD_6F54;
+    /// The replication-graph feature array (`Num` at `+8`).
+    pub const REP_GRAPH_FEATURES: u32 = 0x06FB_12E0;
+    /// The transient package pointer `GetTransientPackage` (`+0x02810780`) returns.
+    pub const TRANSIENT_PACKAGE: u32 = 0x06E5_7480;
+
+    /// `UNetDriver.ServerConnection`.
+    pub const NETDRIVER_SERVER_CONNECTION: usize = 0x88;
+    /// `UNetDriver.ClientConnections` (`TArray`).
+    pub const NETDRIVER_CLIENT_CONNECTIONS: usize = 0x90;
+    /// The driver's pending-cleanup array (`0x18`-byte elements; unnamed in the dump).
+    pub const NETDRIVER_CLEANUP: usize = 0xF0;
+    /// `UNetDriver.World`.
+    pub const NETDRIVER_WORLD: usize = 0x140;
+    /// `UNetDriver.ReplicationDriverClass`.
+    pub const NETDRIVER_REP_DRIVER_CLASS: usize = 0x178;
+    /// `UNetDriver.NetDriverName` (`FName`).
+    pub const NETDRIVER_NAME: usize = 0x190;
+    /// `UNetConnection.State` (`u8` as NETD-6 reads it).
+    pub const CONNECTION_STATE: usize = 0x134;
+    /// `UNetConnection.LastReceiveTime` (`f64`).
+    pub const CONNECTION_LAST_RECEIVE: usize = 0x1D0;
+    /// `UWorld.NetDriver`.
+    pub const WORLD_NET_DRIVER: usize = 0x38;
+    /// `UWorld.LevelCollections` (data, `Num` at `+8`).
+    pub const WORLD_LEVEL_COLLECTIONS: usize = 0x148;
+    /// `FLevelCollection`'s size; its type `u8` is at `+0`.
+    pub const LEVEL_COLLECTION_SIZE: usize = 0x78;
+    /// `FLevelCollection.NetDriver`.
+    pub const LEVEL_COLLECTION_NET_DRIVER: usize = 0x10;
+    /// `UClass.ClassFlags` (`u32`).
+    pub const CLASS_FLAGS: usize = 0xCC;
+    /// `CLASS_Abstract`.
+    pub const CLASS_ABSTRACT: u32 = 0x1;
+    /// A spline component's `FInterpCurveVector` (points data, `Num` at `+8`).
+    pub const SPLINE_CURVE: usize = 0x448;
+    /// One curve point.
+    pub const CURVE_POINT_SIZE: usize = 0x2C;
+    /// `AActor.NetUpdateFrequency` (`f32`).
+    pub const ACTOR_NET_UPDATE_FREQUENCY: usize = 0x108;
+    /// `AActor.MinNetUpdateFrequency` (`f32`).
+    pub const ACTOR_MIN_NET_UPDATE_FREQUENCY: usize = 0x10C;
+    /// The actor byte holding `bAlwaysRelevant`.
+    pub const ACTOR_ALWAYS_RELEVANT_BYTE: usize = 0x58;
+    /// `bAlwaysRelevant` in that byte.
+    pub const ACTOR_ALWAYS_RELEVANT_BIT: u8 = 0x08;
 }
 
 /// Data RVAs.
@@ -915,8 +1041,57 @@ mod tests {
         // Every detour of a landed slice has its line (RT-2; a later slice adds lines as it lands)
         for entry in registry::ENTRIES {
             if matches!(entry.kind, Kind::Chain | Kind::Detour) && registry::LANDED.contains(&entry.slice) {
-                assert!(target(entry.id).is_some(), "{} has no target line", entry.id);
+                let expected = !NO_TARGET_IDS.contains(&entry.id);
+                assert_eq!(target(entry.id).is_some(), expected, "{} target line", entry.id);
             }
         }
+    }
+
+    #[test]
+    fn r11_lines() {
+        let expected: [(&str, u32, &[u8]); 7] = [
+            ("NETD-1", 0x03FA_E420, &[0x48, 0x8B, 0xC4, 0x48, 0x89, 0x58, 0x18, 0x55]),
+            ("NETD-2", 0x03FA_CF60, &[0x40, 0x56, 0x41, 0x56, 0x48, 0x83, 0xEC, 0x28]),
+            (
+                "NETD-3",
+                0x03F8_D8E0,
+                &[0x48, 0x89, 0x5C, 0x24, 0x08, 0x48, 0x89, 0x6C, 0x24, 0x10],
+            ),
+            (
+                "NETD-4",
+                0x03F9_1EB0,
+                &[
+                    0x48, 0x83, 0xEC, 0x28, 0x48, 0x8B, 0x01, 0xFF, 0x90, 0x78, 0x03, 0x00, 0x00,
+                ],
+            ),
+            (
+                "NETD-5",
+                0x042C_C560,
+                &[
+                    0x40, 0x53, 0x48, 0x81, 0xEC, 0x90, 0x00, 0x00, 0x00, 0x48, 0x83, 0x79, 0x38, 0x00,
+                ],
+            ),
+            (
+                "NETD-6",
+                0x03F6_2B90,
+                &[0x48, 0x8B, 0xC4, 0x53, 0x41, 0x56, 0x48, 0x83, 0xEC, 0x68],
+            ),
+            (
+                "NETD-7",
+                0x03D4_7A90,
+                &[
+                    0x48, 0x89, 0x5C, 0x24, 0x08, 0x48, 0x89, 0x74, 0x24, 0x10, 0x57, 0x48, 0x83, 0xEC, 0x60,
+                ],
+            ),
+        ];
+        for (id, rva, bytes) in expected {
+            let lines: Vec<_> = TARGETS.iter().filter(|line| line.id == id).collect();
+            assert_eq!(lines.len(), 1, "{id}");
+            assert_eq!(lines[0].rva, rva, "{id}");
+            assert_eq!(lines[0].found_by, FoundBy::RvaAndBytes(bytes), "{id}");
+        }
+        assert!(target("NETD-8").is_none());
+        assert_eq!(registry::entry("NETD-8").map(|line| line.kind), Some(Kind::Detour));
+        assert_eq!(NO_TARGET_IDS, ["NETD-8"], "the one detour id allowed no line");
     }
 }

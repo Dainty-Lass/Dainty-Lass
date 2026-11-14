@@ -191,6 +191,24 @@ fn stack() -> Vec<usize> {
     trim(&frames, &own).to_vec()
 }
 
+/// This thread's stack as R3's address texts joined by spaces: `capture` frames taken, own frames trimmed, at
+/// most `keep` kept (R11's NETD-6).
+pub fn stack_text(capture: usize, keep: usize) -> String {
+    let capture = capture.min(CAPTURE_FRAMES);
+    let mut frames = [std::ptr::null_mut::<c_void>(); CAPTURE_FRAMES];
+    // SAFETY: the buffer holds CAPTURE_FRAMES entries, at least `capture`
+    let count = unsafe { RtlCaptureStackBackTrace(0, capture as u32, frames.as_mut_ptr(), std::ptr::null_mut()) };
+    let frames: Vec<usize> = frames[..usize::from(count).min(capture)]
+        .iter()
+        .map(|&frame| frame as usize)
+        .collect();
+    let own = OWN_START.load(Ordering::Relaxed)..OWN_END.load(Ordering::Relaxed);
+    let kept = trim(&frames, &own);
+    let located: Vec<Located> = kept.iter().take(keep).map(|&frame| Located::new(frame)).collect();
+    let texts: Vec<String> = located.iter().map(|frame| frame.addr().to_string()).collect();
+    texts.join(" ")
+}
+
 /// The stack line for `frames`.
 fn write_stack(tag: &str, code: u32, frames: &[usize]) {
     let located: Vec<Located> = frames.iter().map(|&frame| Located::new(frame)).collect();

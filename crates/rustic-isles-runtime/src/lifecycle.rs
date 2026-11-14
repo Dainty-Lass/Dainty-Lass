@@ -2,7 +2,7 @@
 
 use crate::config;
 use crate::ffi::exit::{self, Install};
-use crate::ffi::{dispatch, engine, flags, http, loading, log, minhook, win};
+use crate::ffi::{dispatch, engine, flags, http, loading, log, minhook, net, win};
 use crate::handlers;
 use crate::login;
 use rustic_isles_runtime_core::config::launch::PORT_EXIT_CODE;
@@ -50,6 +50,9 @@ pub fn init() {
         Vec::new()
     };
     loading::register(server);
+    if server {
+        net::register();
+    }
     // Slices register their handlers before this point; the lists are read lock-free from here on
     handlers::freeze();
     let hooks_off = (initialized != minhook::MH_OK).then(|| minhook::status_name(initialized));
@@ -71,6 +74,7 @@ pub fn init() {
         installs.push(exit::install_veh(base));
         installs.push(chain("SP-2", dispatch::install_sp2));
         installs.push(chain("SP-3", dispatch::install_sp3));
+        installs.extend(net::install(true, base, hooks_off));
         installs.push(chain("HTTP-1", http::install));
         installs.push(crate::player_host::install_header(base, hooks_off));
         installs.extend(listen);
@@ -78,6 +82,7 @@ pub fn init() {
         installs.push(exit::install_crash_wait());
     } else {
         installs.push(chain("SP-1", dispatch::install_sp1));
+        installs.extend(net::install(false, base, hooks_off));
         installs.extend(login::install(false, base));
         installs.push(chain("HTTP-1", http::install));
         installs.extend(exit::install_exports(hooks_off));
