@@ -3,7 +3,9 @@
 //! name to `LANDED` (and, for a new id, its line).
 
 /// The slices whose ids this build owns.
-pub const LANDED: &[&str] = &["R0", "R1", "R2", "R3", "R4", "R5", "R9", "R7", "R6", "R10", "R11"];
+pub const LANDED: &[&str] = &[
+    "R0", "R1", "R2", "R3", "R4", "R5", "R9", "R7", "R6", "R10", "R11", "R15",
+];
 
 /// The longest id `owns` accepts, in bytes.
 pub const MAX_ID_BYTES: usize = 47;
@@ -394,6 +396,12 @@ mod tests {
             assert!(owns(b"SP-3@R11"));
         }
         assert_eq!(ENTRIES.iter().filter(|line| line.slice == "R11").count(), 9);
+    }
+
+    #[test]
+    fn owns_r15() {
+        assert!(owns(b"SP-1@R15"));
+        assert!(owns(b"SP-2@R15"));
     }
 
     #[test]

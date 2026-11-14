@@ -3,6 +3,7 @@
 
 pub mod chain;
 pub mod config;
+pub mod economy;
 pub mod engine;
 pub mod env;
 pub mod exit;
