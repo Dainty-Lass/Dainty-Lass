@@ -120,6 +120,10 @@ pub fn init() {
     } else {
         installs.push(chain("SP-1", dispatch::install_sp1));
         installs.push(("TR-1", hooks_off.map_or_else(|| travel::install(base), Err)));
+        installs.push((
+            "CON-2",
+            hooks_off.map_or_else(|| crate::branding::install_exec_guard(base), Err),
+        ));
         installs.extend(net::install(false, base, hooks_off));
         installs.extend(login::install(false, base));
         // PR-1 after TR-1 and before HTTP-1 (R14 4.4)

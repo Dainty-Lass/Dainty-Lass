@@ -14,6 +14,8 @@ pub mod flags {
     pub const DISABLE_PRESS_START_BRANDING: &str = "DISABLE_PRESS_START_BRANDING";
     /// Scripted runs: press start, Play and travel (probed per matching call).
     pub const AUTO_PRESS_START: &str = "AUTO_PRESS_START";
+    /// Leaves `FExec::Exec`'s fatal stub alone, so a console command kills the game again (CON-2).
+    pub const DISABLE_CONSOLE_EXEC_GUARD: &str = "DISABLE_CONSOLE_EXEC_GUARD";
 }
 
 /// Login screen (4.2): every function whose full name holds `LoginScreen`; the body filters by object.
