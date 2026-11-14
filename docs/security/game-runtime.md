@@ -128,7 +128,9 @@ Fuzz targets in `fuzz`:
       `broker::original`, on objects R0's `is_live_object` passed.
 - [ ] The object-array scans read through `ScanMemory`, which reuses a `VirtualQuery` region for one scan only.
 - [ ] The two settings (`DAINTY_KEEP_SUPPLY_STACK_CAPS`, `DAINTY_CELL_FUSION_MINUTES`) are read with `env_value(name,
-      15)`; a refused value is echoed in its note, which is safe because neither is a secret.
+      15)`; a refused value is echoed in its note, which is safe because neither is a secret. On a player's game
+      they come from the server through the launcher, which passes only values in range (`launcher-injection.md`),
+      so the runtime's own check is the second one.
 
 ### Calling the game and writing its data (R17)
 

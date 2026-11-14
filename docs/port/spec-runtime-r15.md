@@ -508,7 +508,9 @@ Question for the maintainer:
 - **Q-1.** Should the launcher pass a server's `keep_supply_stack_caps` and `cell_fusion_minutes` to the client, so a
   host who changes them also changes what the client's Middleman screen shows and whether the client keeps caps?
   Recommended: not now. With the defaults nothing differs; a host who changes them is told in `hosting.md` that the
-  client shows the default fusion time.
+  client shows the default fusion time. **Taken up (maintainer, 2026-11-13):** the host kit writes both into the
+  backend's file too, the status sends them as `economy` (`dainty-protocol`, refused rather than clamped), and PLAY
+  adds them to the game's environment.
 
 ## 12. Size
 

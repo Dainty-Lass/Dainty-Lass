@@ -86,6 +86,22 @@ build: string,
  */
 changelist: number | null, };
 /**
+ * The game servers' supply caps and fusion time (spec-runtime-r15 Q-1), which the launcher hands the player's game.
+ */
+export type StatusEconomy = { 
+/**
+ * `true` keeps the game's stack caps on supplies; unset leaves the game's default (uncapped).
+ */
+keepSupplyStackCaps: boolean | null, 
+/**
+ * Minutes a cell fusion takes, 0 for the game's own; unset leaves the game's default (30).
+ */
+cellFusionMinutes: number | null, 
+/**
+ * Wire names of the fields sent but refused, so the launcher can say so without echoing the value.
+ */
+refused: Array<string>, };
+/**
  * Public server status, camelCase on the wire; every field is sanitized by [`parse_server_status`].
  */
 export type ServerStatus = { 
@@ -148,7 +164,11 @@ contentPort: number | null,
 /**
  * Whether player and instance lists were withheld (see [`limited_view`]).
  */
-limited: boolean, };
+limited: boolean, 
+/**
+ * The game servers' economy settings, when the server sends any; absent from Node's and older servers'.
+ */
+economy?: StatusEconomy, };
 /**
  * A language the backend's text is written in.
  */

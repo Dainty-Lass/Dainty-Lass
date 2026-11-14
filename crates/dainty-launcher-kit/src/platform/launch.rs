@@ -11,6 +11,7 @@ use std::process::Stdio;
 use std::sync::{Arc, Mutex, PoisonError};
 use std::time::Duration;
 
+use dainty_protocol::status::{MAX_CELL_FUSION_MINUTES, StatusEconomy};
 use futures_util::future::BoxFuture;
 
 use crate::bridge::types::RuntimeProfile;
@@ -38,6 +39,10 @@ pub const STRIPPED_PREFIXES: [&str; 5] = [
 pub const BACKEND_URL_VARS: [&str; 2] = ["DAINTY_BACKEND_URL", "RUSTIC_ISLES_BACKEND_URL"];
 /// The variable naming the runtime build (RT-8 dropped the `MYSTICPARADOX_` copy; the prefix is still stripped).
 pub const PROFILE_VARS: [&str; 1] = ["RUSTIC_ISLES_RUNTIME_PROFILE"];
+/// The runtime's names for the server's supply caps and fusion time (`rustic-isles-runtime-core`, R15).
+pub const KEEP_SUPPLY_STACK_CAPS_VAR: &str = "DAINTY_KEEP_SUPPLY_STACK_CAPS";
+/// See [`KEEP_SUPPLY_STACK_CAPS_VAR`].
+pub const CELL_FUSION_MINUTES_VAR: &str = "DAINTY_CELL_FUSION_MINUTES";
 /// The DirectX files the game needs in System32.
 pub const DIRECTX_FILES: [&str; 3] = ["XINPUT1_3.dll", "X3DAudio1_7.dll", "XAPOFX1_5.dll"];
 /// The exit code of a game whose console was closed or sent Ctrl+C: not a failure.
@@ -228,6 +233,18 @@ where
         env.insert(var.to_owned(), profile_name(profile).to_owned());
     }
     Ok(env)
+}
+
+/// Adds the server's economy settings (spec-runtime-r15 Q-1): only what it sent and the protocol accepted, so a
+/// server sending none leaves the game on its defaults, the launcher's own copies being stripped already.
+pub fn add_economy_env(env: &mut BTreeMap<String, String>, economy: Option<&StatusEconomy>) {
+    let Some(economy) = economy else { return };
+    if let Some(keep) = economy.keep_supply_stack_caps {
+        env.insert(KEEP_SUPPLY_STACK_CAPS_VAR.to_owned(), keep.to_string());
+    }
+    if let Some(minutes) = economy.cell_fusion_minutes.filter(|&m| m <= MAX_CELL_FUSION_MINUTES) {
+        env.insert(CELL_FUSION_MINUTES_VAR.to_owned(), minutes.to_string());
+    }
 }
 
 /// A process ready to start: what runs, where, and with exactly which environment.
@@ -779,6 +796,66 @@ mod tests {
             let same = env.keys().filter(|k| k.to_ascii_uppercase() == upper).count();
             assert_eq!(same, 1, "{name} doubled");
         }
+    }
+
+    #[test]
+    fn economy_reaches_the_game_only_as_the_server_sent_it() {
+        let base = [
+            ("PATH", "/bin"),
+            ("DAINTY_CELL_FUSION_MINUTES", "1"),
+            ("dainty_keep_supply_stack_caps", "true"),
+        ];
+        let fresh = || launch_env(base, "http://127.0.0.1:5", RuntimeProfile::Production).unwrap();
+        let economy = |keep, minutes, refused: &[&str]| StatusEconomy {
+            keep_supply_stack_caps: keep,
+            cell_fusion_minutes: minutes,
+            refused: refused.iter().map(|r| (*r).to_owned()).collect(),
+        };
+        let pick = |env: &BTreeMap<String, String>| {
+            env.iter()
+                .filter(|(k, _)| k.to_ascii_uppercase().contains("SUPPLY") || k.to_ascii_uppercase().contains("FUSION"))
+                .map(|(k, v)| (k.clone(), v.clone()))
+                .collect::<Vec<_>>()
+        };
+        let owned = |pairs: &[(&str, &str)]| {
+            pairs
+                .iter()
+                .map(|(k, v)| ((*k).to_owned(), (*v).to_owned()))
+                .collect::<Vec<_>>()
+        };
+
+        let mut env = fresh();
+        add_economy_env(&mut env, Some(&economy(Some(true), Some(45), &[])));
+        assert_eq!(
+            pick(&env),
+            owned(&[(CELL_FUSION_MINUTES_VAR, "45"), (KEEP_SUPPLY_STACK_CAPS_VAR, "true")])
+        );
+
+        let mut env = fresh();
+        add_economy_env(&mut env, Some(&economy(Some(false), Some(0), &[])));
+        assert_eq!(
+            pick(&env),
+            owned(&[(CELL_FUSION_MINUTES_VAR, "0"), (KEEP_SUPPLY_STACK_CAPS_VAR, "false")])
+        );
+
+        // Absent, refused, or past the ceiling however it got here: nothing, not the launcher's own copies
+        for absent in [
+            None,
+            Some(economy(None, None, &[])),
+            Some(economy(None, None, &["keepSupplyStackCaps", "cellFusionMinutes"])),
+            Some(economy(None, Some(MAX_CELL_FUSION_MINUTES + 1), &[])),
+        ] {
+            let mut env = fresh();
+            add_economy_env(&mut env, absent.as_ref());
+            assert_eq!(pick(&env), Vec::new(), "{absent:?}");
+        }
+
+        let mut env = fresh();
+        add_economy_env(
+            &mut env,
+            Some(&economy(None, Some(MAX_CELL_FUSION_MINUTES), &["keepSupplyStackCaps"])),
+        );
+        assert_eq!(pick(&env), owned(&[(CELL_FUSION_MINUTES_VAR, "10080")]));
     }
 
     #[test]

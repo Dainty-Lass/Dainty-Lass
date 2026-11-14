@@ -883,10 +883,10 @@ fn comment(path: &str) -> &'static str {
             "The same on a hunt. Left out: HUNT_AFK_TIMEOUT_SECONDS.txt, else the game's own timeout."
         }
         "director.keep_supply_stack_caps" => {
-            "true: the game servers keep the game's supply stack caps. Left out: supplies stack without a cap."
+            "true: the game servers and players' games keep the game's supply stack caps. Left out: supplies stack uncapped."
         }
         "director.cell_fusion_minutes" => {
-            "Minutes a Middleman cell fusion takes on the game servers, 0 (the game's own) to 10080. Left out: 30."
+            "Minutes a Middleman cell fusion takes, also on players' screens, 0 (the game's own) to 10080. Left out: 30."
         }
         "logs" => {
             "The server's console log and where it is shipped (docs/logging.md). Left out: colored text, kept here."

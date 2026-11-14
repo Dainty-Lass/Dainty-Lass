@@ -4223,7 +4223,8 @@ dashboard_url = \"https://dash.example\"
         every_form_writes_the_same_env("allowlist");
     }
 
-    /// RT-11: the hub cap and AFK timeouts reach only the Director's file, which it hands every game server.
+    /// RT-11: the hub cap and AFK timeouts reach only the Director's file, which it hands every game server; the
+    /// supply caps and fusion time also the backend's, whose status hands them to players' games (R15 Q-1).
     #[test]
     fn rt11_settings_reach_the_director_file() {
         let text = "version = 1
@@ -4250,13 +4251,27 @@ cell_fusion_minutes = 45
         assert!(has("DAINTY_HUNT_AFK_SECONDS", "900"));
         assert!(has("DAINTY_KEEP_SUPPLY_STACK_CAPS", "true"));
         assert!(has("DAINTY_CELL_FUSION_MINUTES", "45"));
+        let economy: Vec<_> = files
+            .backend
+            .iter()
+            .filter(|(k, _)| k.starts_with("DAINTY_KEEP_SUPPLY") || k.starts_with("DAINTY_CELL_FUSION"))
+            .map(|(k, v)| (k.as_str(), v.as_str()))
+            .collect();
+        assert_eq!(
+            economy,
+            [
+                ("DAINTY_KEEP_SUPPLY_STACK_CAPS", "true"),
+                ("DAINTY_CELL_FUSION_MINUTES", "45")
+            ]
+        );
         for (name, file) in files.files() {
             if name != "director" {
+                let economy_ok = name == "backend";
                 assert!(
                     !file.into_iter().flatten().any(|(k, _)| k.starts_with("DAINTY_HUB_")
                         || k.starts_with("DAINTY_HUNT_AFK")
-                        || k.starts_with("DAINTY_KEEP_SUPPLY")
-                        || k.starts_with("DAINTY_CELL_FUSION")),
+                        || (!economy_ok
+                            && (k.starts_with("DAINTY_KEEP_SUPPLY") || k.starts_with("DAINTY_CELL_FUSION")))),
                     "{name}"
                 );
             }

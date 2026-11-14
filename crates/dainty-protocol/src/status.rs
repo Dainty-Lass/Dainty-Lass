@@ -30,6 +30,8 @@ const MAX_INSTANCE_PLAYERS: u32 = 1_000;
 const MAX_UPTIME_SECONDS: u64 = 3_153_600_000;
 const MAX_CHANGELIST: u64 = 100_000_000;
 const MAX_STARTED_AT_RAW_LEN: usize = 64;
+/// The longest cell fusion a server may ask for: seven days, the host kit's and the runtime's ceiling (R15).
+pub const MAX_CELL_FUSION_MINUTES: u32 = 10_080;
 
 /// Who may register, serialized uppercase.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -142,6 +144,19 @@ pub struct StatusGame {
     pub changelist: Option<u32>,
 }
 
+/// The game servers' supply caps and fusion time (spec-runtime-r15 Q-1), which the launcher hands the player's game.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[serde(rename_all = "camelCase")]
+pub struct StatusEconomy {
+    /// `true` keeps the game's stack caps on supplies; unset leaves the game's default (uncapped).
+    pub keep_supply_stack_caps: Option<bool>,
+    /// Minutes a cell fusion takes, 0 for the game's own; unset leaves the game's default (30).
+    pub cell_fusion_minutes: Option<u32>,
+    /// Wire names of the fields sent but refused, so the launcher can say so without echoing the value.
+    pub refused: Vec<String>,
+}
+
 /// Public server status, camelCase on the wire; every field is sanitized by [`parse_server_status`].
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
@@ -178,6 +193,10 @@ pub struct ServerStatus {
     pub content_port: Option<u16>,
     /// Whether player and instance lists were withheld (see [`limited_view`]).
     pub limited: bool,
+    /// The game servers' economy settings, when the server sends any; absent from Node's and older servers'.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "ts", ts(optional))]
+    pub economy: Option<StatusEconomy>,
 }
 
 /// Cleans an optional JSON string value by stripping control/bidi characters, collapsing
@@ -442,6 +461,33 @@ fn parse_game(val: Option<&Value>) -> Option<StatusGame> {
     Some(StatusGame { build, changelist })
 }
 
+/// A server's value is refused, never clamped: a wrong time on the Middleman's screen is worse than the default.
+fn parse_economy(val: Option<&Value>) -> Option<StatusEconomy> {
+    let val = val.filter(|v| !v.is_null())?;
+    let mut economy = StatusEconomy::default();
+    let Some(obj) = val.as_object() else {
+        economy.refused.push("economy".to_owned());
+        return Some(economy);
+    };
+    match obj.get("keepSupplyStackCaps") {
+        None | Some(Value::Null) => {}
+        Some(Value::Bool(keep)) => economy.keep_supply_stack_caps = Some(*keep),
+        Some(_) => economy.refused.push("keepSupplyStackCaps".to_owned()),
+    }
+    match obj.get("cellFusionMinutes") {
+        None | Some(Value::Null) => {}
+        Some(v) => match v
+            .as_u64()
+            .and_then(|m| u32::try_from(m).ok())
+            .filter(|&m| m <= MAX_CELL_FUSION_MINUTES)
+        {
+            Some(minutes) => economy.cell_fusion_minutes = Some(minutes),
+            None => economy.refused.push("cellFusionMinutes".to_owned()),
+        },
+    }
+    Some(economy)
+}
+
 /// Returns a copy of `status` with `limited: true` and all player/instance lists cleared.
 #[must_use]
 pub fn limited_view(status: ServerStatus) -> ServerStatus {
@@ -555,5 +601,6 @@ pub fn parse_server_status(raw: &Value) -> Option<ServerStatus> {
         chat,
         content_port,
         limited,
+        economy: parse_economy(obj.get("economy")),
     })
 }

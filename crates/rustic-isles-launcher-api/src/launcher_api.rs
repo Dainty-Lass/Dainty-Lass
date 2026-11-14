@@ -814,7 +814,7 @@ async fn status_body(shared: &Arc<Shared>, store: &IslesStore, state: &LauncherA
         }
         StatusView::Limited => (Vec::new(), Vec::new()),
     };
-    object(vec![
+    let mut body = object(vec![
         ("name", Value::from(server_name(settings.raw("DAINTY_SERVER_NAME")))),
         ("online", Value::Bool(true)),
         (
@@ -852,7 +852,39 @@ async fn status_body(shared: &Arc<Shared>, store: &IslesStore, state: &LauncherA
         ("players", Value::Array(players)),
         ("instances", Value::Array(instances)),
         ("limited", Value::Bool(view == StatusView::Limited)),
-    ])
+    ]);
+    if let (Some(economy), Value::Object(body)) = (economy(settings), &mut body) {
+        body.insert("economy".into(), economy);
+    }
+    body
+}
+
+/// The game servers' supply caps and fusion time, which the launcher hands the player's game (spec-runtime-r15
+/// Q-1). Only values the runtime would take; none set keeps the body Node's.
+pub fn economy(settings: &rustic_isles::Settings) -> Option<Value> {
+    let keep = match settings.raw("DAINTY_KEEP_SUPPLY_STACK_CAPS").map(trim) {
+        Some("true") => Some(true),
+        Some("false") => Some(false),
+        _ => None,
+    };
+    // 10 080: a week, the host kit's and the runtime's ceiling
+    let minutes = settings
+        .raw("DAINTY_CELL_FUSION_MINUTES")
+        .map(trim)
+        .filter(|text| !text.is_empty() && text.len() <= 5 && text.bytes().all(|b| b.is_ascii_digit()))
+        .and_then(|text| text.parse::<u32>().ok())
+        .filter(|&m| m <= 10_080);
+    if keep.is_none() && minutes.is_none() {
+        return None;
+    }
+    let mut out = Map::new();
+    if let Some(keep) = keep {
+        out.insert("keepSupplyStackCaps".into(), Value::Bool(keep));
+    }
+    if let Some(minutes) = minutes {
+        out.insert("cellFusionMinutes".into(), Value::from(minutes));
+    }
+    Some(Value::Object(out))
 }
 
 #[cfg(test)]
@@ -932,6 +964,40 @@ mod tests {
         assert_eq!(source_url(Some("https:///x")), None);
         assert_eq!(server_name(Some("")), "Dainty Lass server");
         assert_eq!(server_name(Some(" Fox\u{1}hold ")), "Fox hold");
+    }
+
+    #[test]
+    fn economy_only_as_the_runtime_takes_it() {
+        let of = |pairs: &[(&str, &str)]| economy(&rustic_isles::Settings::from_pairs(pairs.iter().copied()));
+        assert_eq!(of(&[]), None);
+        assert_eq!(
+            of(&[
+                ("DAINTY_KEEP_SUPPLY_STACK_CAPS", "true"),
+                ("DAINTY_CELL_FUSION_MINUTES", "45")
+            ]),
+            Some(json!({ "keepSupplyStackCaps": true, "cellFusionMinutes": 45 }))
+        );
+        assert_eq!(
+            of(&[("DAINTY_KEEP_SUPPLY_STACK_CAPS", "false")]),
+            Some(json!({ "keepSupplyStackCaps": false }))
+        );
+        assert_eq!(
+            of(&[("DAINTY_CELL_FUSION_MINUTES", "0")]),
+            Some(json!({ "cellFusionMinutes": 0 }))
+        );
+        assert_eq!(
+            of(&[("DAINTY_CELL_FUSION_MINUTES", "10080")]),
+            Some(json!({ "cellFusionMinutes": 10080 }))
+        );
+        for bad in [
+            ("DAINTY_KEEP_SUPPLY_STACK_CAPS", "TRUE"),
+            ("DAINTY_KEEP_SUPPLY_STACK_CAPS", "1"),
+        ] {
+            assert_eq!(of(&[bad]), None, "{bad:?}");
+        }
+        for bad in ["10081", "-1", "4.5", "", "99999999999", "45min"] {
+            assert_eq!(of(&[("DAINTY_CELL_FUSION_MINUTES", bad)]), None, "{bad}");
+        }
     }
 
     #[test]

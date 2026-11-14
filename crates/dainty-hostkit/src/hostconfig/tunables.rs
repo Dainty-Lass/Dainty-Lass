@@ -163,10 +163,13 @@ const DIRECTOR: &[Setting] = &[
     ranged("hubMaxPlayers", "DAINTY_HUB_MAX_PLAYERS", 1, 64),
     ranged("hubAfkSeconds", "DAINTY_HUB_AFK_SECONDS", 0, AFK_MAX_SECONDS),
     ranged("huntAfkSeconds", "DAINTY_HUNT_AFK_SECONDS", 0, AFK_MAX_SECONDS),
-    // Patches 0024 and 0029 on the game servers only; clients keep the defaults (spec-runtime-r15 3, Q-1)
+    // Patches 0024 and 0029; the backend's status hands them to players' launchers too (BACKEND_MIRRORED)
     of("keepSupplyStackCaps", "DAINTY_KEEP_SUPPLY_STACK_CAPS", Kind::Switch),
     ranged("cellFusionMinutes", "DAINTY_CELL_FUSION_MINUTES", 0, 10_080),
 ];
+
+/// The Director's settings the backend also gets, to send in its status for players' games (spec-runtime-r15 Q-1).
+const BACKEND_MIRRORED: [&str; 2] = ["DAINTY_KEEP_SUPPLY_STACK_CAPS", "DAINTY_CELL_FUSION_MINUTES"];
 
 /// The runtime's ceiling for an AFK timeout: a week (spec-runtime-r1 10.2).
 const AFK_MAX_SECONDS: u64 = 604_800;
@@ -403,8 +406,14 @@ pub fn apply(files: &mut EnvFiles, tables: [(&str, Option<&Tunables>); 5]) {
             },
             _ => continue,
         };
-        for (key, value) in tunables.env(name) {
-            upsert(file, key, value);
+        let env = tunables.env(name);
+        for (key, value) in &env {
+            upsert(file, key, value.clone());
+        }
+        if name == "director" {
+            for (key, value) in env.into_iter().filter(|(key, _)| BACKEND_MIRRORED.contains(key)) {
+                upsert(&mut files.backend, key, value);
+            }
         }
     }
 }

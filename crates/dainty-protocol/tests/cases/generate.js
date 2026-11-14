@@ -36,10 +36,12 @@ for (const { input } of [...invites.accept, ...invites.reject]) {
 }
 write("invite.json", { accept, reject });
 
-// "text" is what JSON.stringify gives the page, so the field order is checked too
-write("status.json", read("status.json").map(({ input }) => {
-  const expected = parseServerStatus(input);
-  return { input, expected, text: JSON.stringify(expected) };
+// "text" is what JSON.stringify gives the page, so the field order is checked too. `economy` is the Rust's
+// alone (spec-runtime-r15 Q-1): a case sending it keeps its written answer.
+write("status.json", read("status.json").map((entry) => {
+  if (entry.input && typeof entry.input === "object" && "economy" in entry.input) return entry;
+  const expected = parseServerStatus(entry.input);
+  return { input: entry.input, expected, text: JSON.stringify(expected) };
 }));
 
 const usernames = read("username.json");
