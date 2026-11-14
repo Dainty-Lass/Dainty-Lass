@@ -1,6 +1,7 @@
 //! The pure half of the MIT game runtime (`rustic-isles-runtime.dll`, RT-1): everything that can be decided without
 //! the game or Windows, so `cargo test` covers it on every platform (spec-runtime-r0 section 2, spec-runtime-r1).
 
+pub mod branding;
 pub mod chain;
 pub mod config;
 pub mod economy;

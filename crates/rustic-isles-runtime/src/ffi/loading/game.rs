@@ -3,9 +3,9 @@
 
 use super::super::memory::{self, query};
 use super::super::{broker, detaching, engine};
-use rustic_isles_runtime_core::engine::MAX_OUTERS;
 use rustic_isles_runtime_core::memory::region_allows;
 use rustic_isles_runtime_core::offsets::{data, layout, r7, target};
+use rustic_isles_runtime_core::reflect;
 use std::ffi::c_void;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use windows_sys::Win32::System::Memory::{
@@ -15,9 +15,6 @@ use windows_sys::Win32::System::Memory::{
 type ProcessEventFn = unsafe extern "C" fn(*mut c_void, *mut c_void, *mut c_void);
 type ObjectFn = unsafe extern "C" fn(*mut c_void);
 type WeakGetFn = unsafe extern "C" fn(*const [i32; 2]) -> *mut c_void;
-
-/// The most fields walked in one class (R17 3.2).
-const MAX_FIELDS: usize = 8192;
 
 static BASE: AtomicUsize = AtomicUsize::new(0);
 static BEGIN: AtomicUsize = AtomicUsize::new(0);
@@ -115,16 +112,13 @@ pub fn class_names(object: usize) -> Vec<String> {
     let Some(engine) = engine::engine() else {
         return Vec::new();
     };
-    let mut names = Vec::new();
-    let mut class = read_ptr(object.wrapping_add(layout::UOBJECT_CLASS)).unwrap_or(0);
-    while class != 0 && names.len() < MAX_OUTERS {
-        let Some(name) = engine.object_name(class) else {
-            break;
-        };
-        names.push(name);
-        class = read_ptr(class + r7::STRUCT_SUPER).unwrap_or(0);
-    }
-    names
+    let Some(class) = reflect::class_of(engine.memory(), object) else {
+        return Vec::new();
+    };
+    reflect::class_chain(engine.memory(), class)
+        .into_iter()
+        .map_while(|link| engine.object_name(link))
+        .collect()
 }
 
 /// `is_a(object, class_name)` by short names.
@@ -150,27 +144,7 @@ pub fn object_flags(object: usize) -> Option<u32> {
 /// `find_function(class of object, name)`: the first `Function` field named `name` in its class chain.
 pub fn find_function(object: usize, name: &str) -> Option<usize> {
     let engine = engine::engine()?;
-    let mut class = read_ptr(object.checked_add(layout::UOBJECT_CLASS)?)?;
-    for _ in 0..MAX_OUTERS {
-        if class == 0 {
-            return None;
-        }
-        let mut field = read_ptr(class + r7::STRUCT_CHILDREN).unwrap_or(0);
-        for _ in 0..MAX_FIELDS {
-            if field == 0 {
-                break;
-            }
-            let field_class = read_ptr(field + layout::UOBJECT_CLASS).unwrap_or(0);
-            if engine.object_name(field_class).as_deref() == Some("Function")
-                && engine.object_name(field).as_deref() == Some(name)
-            {
-                return Some(field);
-            }
-            field = read_ptr(field + r7::FIELD_NEXT).unwrap_or(0);
-        }
-        class = read_ptr(class + r7::STRUCT_SUPER)?;
-    }
-    None
+    reflect::find_function(&engine, reflect::class_of(engine.memory(), object)?, name)
 }
 
 /// R17 3.3's guard: `ParmsSize` readable and at most the buffer.

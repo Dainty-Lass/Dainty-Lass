@@ -3,6 +3,8 @@
 //! Its pure half is `rustic-isles-runtime-core`. On any target but x64 Windows the crate is empty.
 
 #[cfg(minhook)]
+pub mod branding;
+#[cfg(minhook)]
 pub mod config;
 #[cfg(minhook)]
 mod economy;
