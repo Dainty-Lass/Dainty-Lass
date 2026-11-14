@@ -431,6 +431,41 @@ pub const TARGETS: &[Target] = &[
         ]),
         what: "spline direction query",
     },
+    // R12: the replication graph's channel guards (RG-1 has no line, `NO_TARGET_IDS`)
+    Target {
+        id: "RG-4",
+        rva: 0x00F2_C230,
+        found_by: FoundBy::RvaAndBytes(&[
+            0x40, 0x55, 0x53, 0x56, 0x57, 0x41, 0x55, 0x41, 0x56, 0x48, 0x8D, 0x6C, 0x24, 0xE9, 0x48, 0x81, 0xEC, 0xD8,
+            0x00, 0x00, 0x00,
+        ]),
+        what: "the replication graph's ReplicateSingleActor",
+    },
+    Target {
+        id: "RG-5",
+        rva: 0x03D8_FB20,
+        found_by: FoundBy::RvaAndBytes(&[
+            0x48, 0x89, 0x5C, 0x24, 0x18, 0x55, 0x56, 0x57, 0x41, 0x54, 0x41, 0x55, 0x41, 0x56, 0x41, 0x57,
+        ]),
+        what: "UActorChannel::SetChannelActor",
+    },
+    Target {
+        id: "RG-6",
+        rva: 0x03D8_A2D0,
+        found_by: FoundBy::RvaAndBytes(&[
+            0x4C, 0x8B, 0xDC, 0x55, 0x57, 0x49, 0x8D, 0xAB, 0xE8, 0xFD, 0xFF, 0xFF, 0x48, 0x81, 0xEC, 0x08, 0x03, 0x00,
+            0x00,
+        ]),
+        what: "UActorChannel::ReplicateActor",
+    },
+    Target {
+        id: "RG-7",
+        rva: 0x03FA_09B0,
+        found_by: FoundBy::RvaAndBytes(&[
+            0x4C, 0x8B, 0xDC, 0x48, 0x83, 0xEC, 0x78, 0x48, 0x8B, 0x84, 0x24, 0xE0, 0x00, 0x00, 0x00,
+        ]),
+        what: "UNetDriver::ProcessRemoteFunctionForChannel",
+    },
     // R16: travel
     Target {
         id: "TR-1",
@@ -446,8 +481,8 @@ pub const LOADMAP_PROLOGUE: [u8; 31] = [
     0x24, 0x00, 0xFE, 0xFF, 0xFF, 0x48, 0x81, 0xEC, 0x00, 0x03, 0x00, 0x00,
 ];
 
-/// Registered detour ids of landed slices with no `TARGETS` line on purpose (NETD-8: owned, not installed).
-pub const NO_TARGET_IDS: &[&str] = &["NETD-8"];
+/// Registered detour ids of landed slices with no `TARGETS` line on purpose (NETD-8, RG-1: owned, not installed).
+pub const NO_TARGET_IDS: &[&str] = &["NETD-8", "RG-1"];
 
 /// Ids with more than one `TARGETS` line, and how many (HL-3 hooks two exports).
 pub const MULTI_LINE_IDS: &[(&str, usize)] = &[("HL-3", 2)];
@@ -604,6 +639,64 @@ pub mod r9 {
     pub const CHANNEL_SIZE: usize = 0x78;
     /// `UGameMapsSettings::GameDefaultMap` (`FString`; named for the reader).
     pub const GAME_MAPS_DEFAULT_MAP: usize = 0x70;
+}
+
+/// R12's data RVAs and layout (spec-runtime-r12 17.2); `CHANNEL_ACTOR` is R9's.
+pub mod repgraph {
+    /// The Archon graph's `ServerReplicateActors` (RG-1's target; not hooked).
+    pub const ARCHON_SERVER_REPLICATE_ACTORS: u32 = 0x01C0_34C0;
+    /// Its first bytes.
+    pub const ARCHON_SERVER_REPLICATE_ACTORS_BYTES: &[u8] = &[0x48, 0x8B, 0xC4, 0x56, 0x57, 0x48, 0x83, 0xEC, 0x68];
+    /// The base `UReplicationGraph::ServerReplicateActors` (not hooked, not called).
+    pub const GRAPH_SERVER_REPLICATE_ACTORS: u32 = 0x00F2_EB60;
+    /// The Archon graph's virtual table (for the record and the play-test).
+    pub const ARCHON_GRAPH_VTABLE: u32 = 0x0549_7AF0;
+    /// RG-3's `RouteRemoveNetworkActor` (R14's).
+    pub const ROUTE_REMOVE: u32 = 0x01BF_E4C0;
+    /// Its first bytes.
+    pub const ROUTE_REMOVE_BYTES: &[u8] = &[0x48, 0x89, 0x5C, 0x24, 0x08, 0x57, 0x48, 0x83, 0xEC, 0x20];
+    /// `UNetDriver::ReplicationDriver`.
+    pub const NETDRIVER_REPLICATION_DRIVER: usize = 0x6E8;
+    /// The driver span read before it.
+    pub const NETDRIVER_SPAN_FOR_GRAPH: usize = 0x6F0;
+    /// The graph span read.
+    pub const GRAPH_SPAN: usize = 0x4C8;
+    /// The graph's own net driver.
+    pub const GRAPH_NET_DRIVER: usize = 0x30;
+    /// The graph's connection managers (`TArray` data).
+    pub const GRAPH_CONNECTIONS: usize = 0x38;
+    /// Their `Num`.
+    pub const GRAPH_CONNECTIONS_NUM: usize = 0x40;
+    /// Their `Max`.
+    pub const GRAPH_CONNECTIONS_MAX: usize = 0x44;
+    /// The Archon graph's deferred owner-only list (data).
+    pub const GRAPH_DEFERRED: usize = 0x4B8;
+    /// Its count.
+    pub const GRAPH_DEFERRED_NUM: usize = 0x4C0;
+    /// `ServerReplicateActors`'s byte offset in the graph's virtual table.
+    pub const GRAPH_VTABLE_SERVER_REPLICATE_ACTORS: usize = 0x2F8;
+    /// `UNetReplicationGraphConnection`'s `UNetConnection`.
+    pub const CONN_MANAGER_CONNECTION: usize = 0x28;
+    /// The manager span read.
+    pub const CONN_MANAGER_SPAN: usize = 0x30;
+    /// `UChannel::Connection`.
+    pub const CHANNEL_CONNECTION: usize = 0x28;
+    /// The actor channel span read (R9's `CHANNEL_SIZE`).
+    pub const ACTOR_CHANNEL_SPAN: usize = super::r9::CHANNEL_SIZE;
+    /// `APlayerController::NetConnection`.
+    pub const PLAYER_CONTROLLER_NET_CONNECTION: usize = 0x418;
+    /// The controller span read.
+    pub const PLAYER_CONTROLLER_SPAN: usize = 0x420;
+    /// `UPlayer::PlayerController` on a connection.
+    pub const CONNECTION_PLAYER_CONTROLLER: usize = 0x30;
+    /// `UNetConnection::OwningActor`.
+    pub const CONNECTION_OWNING_ACTOR: usize = 0x98;
+    /// The connection span read.
+    pub const CONNECTION_SPAN: usize = 0xA0;
+    /// The actor flags byte logged with a block.
+    pub const ACTOR_FLAGS_58: usize = 0x58;
+    /// `UStruct::SuperStruct`.
+    pub const STRUCT_SUPER: usize = 0x40;
 }
 
 /// R11's called functions, data and layout (spec-runtime-r11 18.2).
@@ -1252,6 +1345,39 @@ mod tests {
         }
         assert!(target("NETD-8").is_none());
         assert_eq!(registry::entry("NETD-8").map(|line| line.kind), Some(Kind::Detour));
-        assert_eq!(NO_TARGET_IDS, ["NETD-8"], "the one detour id allowed no line");
+        assert!(NO_TARGET_IDS.contains(&"NETD-8"));
+    }
+
+    #[test]
+    fn r12_lines() {
+        for (id, rva) in [
+            ("RG-4", 0x00F2_C230u32),
+            ("RG-5", 0x03D8_FB20),
+            ("RG-6", 0x03D8_A2D0),
+            ("RG-7", 0x03FA_09B0),
+        ] {
+            let lines: Vec<_> = TARGETS.iter().filter(|line| line.id == id).collect();
+            assert_eq!(lines.len(), 1, "{id}");
+            assert_eq!(lines[0].rva, rva, "{id}");
+            assert!(matches!(lines[0].found_by, FoundBy::RvaAndBytes(_)), "{id}");
+        }
+        let bytes = |id: &str| match target(id).map(|line| line.found_by) {
+            Some(FoundBy::RvaAndBytes(bytes)) => bytes.to_vec(),
+            _ => Vec::new(),
+        };
+        assert_eq!(
+            bytes("RG-4")[..9],
+            [0x40, 0x55, 0x53, 0x56, 0x57, 0x41, 0x55, 0x41, 0x56]
+        );
+        assert_eq!(bytes("RG-4").len(), 21);
+        assert_eq!(bytes("RG-5").len(), 16);
+        assert_eq!(bytes("RG-6")[..5], [0x4C, 0x8B, 0xDC, 0x55, 0x57]);
+        assert_eq!(bytes("RG-6").len(), 19);
+        assert_eq!(bytes("RG-7")[..7], [0x4C, 0x8B, 0xDC, 0x48, 0x83, 0xEC, 0x78]);
+        assert_eq!(bytes("RG-7").len(), 15);
+        // RG-1 joins NETD-8: a registered detour id with no line on purpose (12.1)
+        assert!(target("RG-1").is_none());
+        assert_eq!(registry::entry("RG-1").map(|line| line.kind), Some(Kind::Detour));
+        assert_eq!(NO_TARGET_IDS, ["NETD-8", "RG-1"]);
     }
 }
