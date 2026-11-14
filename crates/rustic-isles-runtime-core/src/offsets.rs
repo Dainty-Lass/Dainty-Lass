@@ -212,6 +212,13 @@ pub const TARGETS: &[Target] = &[
         found_by: FoundBy::Rva,
         what: "UWidgetLayoutLibrary::execGetViewportSize (never installed)",
     },
+    // R9: the server's map URL
+    Target {
+        id: "SRV-1",
+        rva: 0x02F0_0330,
+        found_by: FoundBy::Rva,
+        what: "UGameMapsSettings::GetGameDefaultMap",
+    },
 ];
 
 /// Ids with more than one `TARGETS` line, and how many (HL-3 hooks two exports).
@@ -292,6 +299,60 @@ pub mod layout {
     pub const MALLOC_FREE_SLOT: usize = 6;
 }
 
+/// R9's layout facts (spec-runtime-r9 2.1): the world list, the net driver, `FURL` and the channel reads.
+pub mod r9 {
+    /// `UEngine`: pointer to the `FWorldContext*` array.
+    pub const ENGINE_WORLD_LIST: usize = 0xC38;
+    /// `UEngine`: its `i32` count.
+    pub const ENGINE_WORLD_LIST_NUM: usize = 0xC40;
+    /// `FWorldContext`: its `UWorld*`.
+    pub const WORLD_CONTEXT_WORLD: usize = 0x280;
+    /// `FWorldContext`: the span read.
+    pub const WORLD_CONTEXT_SIZE: usize = 0x288;
+    /// `FWorldContext`: `TArray<FNamedNetDriver>`.
+    pub const WORLD_CONTEXT_ACTIVE_NET_DRIVERS: usize = 0x220;
+    /// `FNamedNetDriver`'s size; the `UNetDriver*` is at +0.
+    pub const NAMED_NET_DRIVER_STRIDE: usize = 0x10;
+    /// The span every driver access stays inside.
+    pub const NET_DRIVER_SIZE: usize = 0x2B0;
+    /// `UNetDriver::ServerConnection`: null on a server.
+    pub const NET_DRIVER_SERVER_CONNECTION: usize = 0x88;
+    /// `UNetDriver::ClientConnections` (`TArray<UNetConnection*>`).
+    pub const NET_DRIVER_CLIENT_CONNECTIONS: usize = 0x90;
+    /// `UNetDriver::World`.
+    pub const NET_DRIVER_WORLD: usize = 0x140;
+    /// `UNetDriver::NetDriverName` (`FName`).
+    pub const NET_DRIVER_NAME: usize = 0x190;
+    /// `InitListen`'s byte offset in the driver's vtable (+0x280 in the AGPL's notes is unverified, 12.4).
+    pub const NET_DRIVER_INIT_LISTEN_SLOT: usize = 0x290;
+    /// The vtable span read before that call.
+    pub const NET_DRIVER_VTABLE_SPAN: usize = 0x298;
+    /// `UWorld`'s `FNetworkNotify` interface, passed as an address inside the world.
+    pub const WORLD_NETWORK_NOTIFY: usize = 0x28;
+    /// `UWorld::NetDriver`.
+    pub const WORLD_NET_DRIVER: usize = 0x38;
+    /// The world span read.
+    pub const WORLD_SIZE: usize = 0x40;
+    /// `FURL` (stock UE 4.26; only `Port` and `Map` confirmed on this build, 12.4).
+    pub const FURL_SIZE: usize = 0x68;
+    /// `FURL::Host` (`FString`).
+    pub const FURL_HOST: usize = 0x10;
+    /// `FURL::Port` (`i32`).
+    pub const FURL_PORT: usize = 0x20;
+    /// `UNetConnection::OpenChannels` (`TArray<UChannel*>`).
+    pub const CONNECTION_OPEN_CHANNELS: usize = 0x70;
+    /// The connection span read.
+    pub const CONNECTION_SIZE: usize = 0x80;
+    /// `UNetConnection::State` (`u32`, 3 open; R8's).
+    pub const CONNECTION_STATE: usize = 0x134;
+    /// `UActorChannel::Actor`.
+    pub const CHANNEL_ACTOR: usize = 0x70;
+    /// The channel span read.
+    pub const CHANNEL_SIZE: usize = 0x78;
+    /// `UGameMapsSettings::GameDefaultMap` (`FString`; named for the reader).
+    pub const GAME_MAPS_DEFAULT_MAP: usize = 0x70;
+}
+
 /// Data RVAs.
 pub mod data {
     /// `GWorld`, a `UWorld*` (R9's world wait).
@@ -312,6 +373,8 @@ pub mod data {
     /// `EnableEasyAntiCheatFeatures`, one byte (R4's CL-7). Not hooked, named for the reader: EAC `StartupModule`
     /// `+0x01474ED0`, `FParse::Param` `+0x02634DE0`, `FParse::Value` `+0x02640610`, the multihome lookup `+0x032AE4B0`.
     pub const EAC_ENABLED: u32 = 0x06CF_BD44;
+    /// `UEngine::CreateNamedNetDriver` (R9).
+    pub const CREATE_NAMED_NET_DRIVER: u32 = 0x0425_FDA0;
 }
 
 /// R3's code sites (spec-runtime-r3 sections 5.2 and 7.1).
@@ -328,6 +391,88 @@ pub mod exit {
     pub const FNAME_TEXT_FN: u32 = 0x0266_01A0;
     /// Its name-entry header load, `movzx eax, word ptr [rdi]` (`0F B7 07`).
     pub const FNAME_HEADER_LOAD: u32 = 0x0266_0278;
+}
+
+/// R17's layout facts (spec-runtime-r17 section 8.1), each with its owner class.
+pub mod r17 {
+    /// `UField.Next`.
+    pub const UFIELD_NEXT: usize = 0x28;
+    /// `UStruct.SuperStruct`.
+    pub const USTRUCT_SUPER: usize = 0x40;
+    /// `UStruct.Children` (the first `UField`).
+    pub const USTRUCT_CHILDREN: usize = 0x48;
+    /// `UClass.ClassDefaultObject`.
+    pub const UCLASS_DEFAULT_OBJECT: usize = 0x118;
+    /// `UFunction.FunctionFlags` (`u32`).
+    pub const UFUNCTION_FLAGS: usize = 0xB0;
+    /// `UFunction.ParmsSize` (`u16`; stock UE 4.26, the dump pads it: the play-test's log checks it).
+    pub const UFUNCTION_PARMS_SIZE: usize = 0xB6;
+    /// `RF_ClassDefaultObject` in the object flags.
+    pub const RF_CLASS_DEFAULT_OBJECT: u32 = 0x10;
+    /// `UWidget.Slot`.
+    pub const UWIDGET_SLOT: usize = 0x28;
+    /// `UWidget.Visibility` (`u8`).
+    pub const UWIDGET_VISIBILITY: usize = 0xCB;
+    /// `UPanelSlot.Parent`.
+    pub const UPANELSLOT_PARENT: usize = 0x28;
+    /// `UPanelSlot.Content`.
+    pub const UPANELSLOT_CONTENT: usize = 0x30;
+    /// `UScrollBoxSlot.Padding` (`FMargin`, 16 bytes).
+    pub const SLOT_PADDING: usize = 0x38;
+    /// `UScrollBoxSlot.HorizontalAlignment` (`u8`).
+    pub const SLOT_HALIGN: usize = 0x48;
+    /// `UScrollBoxSlot.VerticalAlignment` (`u8`).
+    pub const SLOT_VALIGN: usize = 0x49;
+    /// `UPanelWidget.Slots` (`TArray<UPanelSlot*>`).
+    pub const UPANELWIDGET_SLOTS: usize = 0x170;
+    /// `UUserWidget.WidgetTree`.
+    pub const UUSERWIDGET_WIDGET_TREE: usize = 0x260;
+    /// `UTextBlock.ColorAndOpacity` (0x28 bytes).
+    pub const UTEXTBLOCK_COLOR: usize = 0x1B8;
+    /// `UTextBlock.Font` (0x58 bytes).
+    pub const UTEXTBLOCK_FONT: usize = 0x1F0;
+    /// `UTextBlock.ShadowOffset` (0x08 bytes).
+    pub const UTEXTBLOCK_SHADOW_OFFSET: usize = 0x2D0;
+    /// `UTextBlock.ShadowColorAndOpacity` (0x10 bytes).
+    pub const UTEXTBLOCK_SHADOW_COLOR: usize = 0x2D8;
+    /// `UImage.Brush` (4.4, later).
+    pub const UIMAGE_BRUSH: usize = 0x170;
+    /// `FSlateBrush.ResourceObject` (4.4, later).
+    pub const SLATEBRUSH_RESOURCE: usize = 0x48;
+    /// `ULoginScreen.PatchNotesPreviewWidget`.
+    pub const LOGIN_PATCH_PREVIEW: usize = 0x500;
+    /// `ULoginScreen.PatchNotesPopupWidget`.
+    pub const LOGIN_PATCH_POPUP: usize = 0x508;
+    /// `UPatchNotesPreviewWidget.PatchNotesVersionTextBlock`.
+    pub const PREVIEW_VERSION_TEXT: usize = 0x398;
+    /// `UPatchNotesPopupWidget.PatchVersion`.
+    pub const POPUP_VERSION_TEXT: usize = 0x398;
+    /// `LoginScreen_bps_C.ArchonLogoMat` (4.4, later).
+    pub const LOGIN_ARCHON_LOGO: usize = 0x700;
+    /// `LoginScreen_bps_C.SplashImage` (4.4, later).
+    pub const LOGIN_SPLASH_IMAGE: usize = 0x8F0;
+    /// `bpw_Credits_C.credits_section_phoenix`.
+    pub const CREDITS_PHOENIX: usize = 0x3F8;
+    /// `UArchonCreditsSection.bShowContributerTitle` (`u8`).
+    pub const SECTION_SHOW_TITLE: usize = 0x3A8;
+    /// `UArchonCreditsSection.SectionTextBlock`.
+    pub const SECTION_TITLE_TEXT: usize = 0x3B0;
+    /// `UArchonCreditsSection.ColumnsBox`.
+    pub const SECTION_COLUMNS: usize = 0x3B8;
+    /// `PressStartScreen_bps_C.PressStartPanel`.
+    pub const PRESS_START_PANEL: usize = 0x4D0;
+    /// `PressStartPanel_bpw_C.WelcomeText`.
+    pub const PANEL_WELCOME_TEXT: usize = 0x3D0;
+    /// `UEngine.ConsoleClass`.
+    pub const ENGINE_CONSOLE_CLASS: usize = 0xF0;
+    /// `UEngine.GameViewport`.
+    pub const ENGINE_GAME_VIEWPORT: usize = 0x780;
+    /// `UGameViewportClient.ViewportConsole`.
+    pub const VIEWPORT_CONSOLE: usize = 0x40;
+    /// `UInputSettings.ConsoleKeys` (`TArray<FKey>`).
+    pub const INPUT_CONSOLE_KEYS: usize = 0x130;
+    /// `FKey`'s size; its `KeyName` is at +0.
+    pub const FKEY_SIZE: usize = 0x18;
 }
 
 #[cfg(test)]

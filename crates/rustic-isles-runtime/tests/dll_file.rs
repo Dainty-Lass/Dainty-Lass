@@ -108,6 +108,14 @@ fn seam_exports_by_name() {
 }
 
 #[test]
+fn listen_driver_export() {
+    // R9 9.2: optional, outside the seam's required set; null until a listen succeeded
+    let pe = Pe::parse(std::fs::read(dll_path()).unwrap());
+    assert!(pe.exports().iter().any(|export| export == "rir_listen_driver"));
+    assert!(rustic_isles_runtime::ffi::listen::rir_listen_driver().is_null());
+}
+
+#[test]
 fn no_dynamic_crt_import() {
     let pe = Pe::parse(std::fs::read(dll_path()).unwrap());
     let imports = pe.imports();

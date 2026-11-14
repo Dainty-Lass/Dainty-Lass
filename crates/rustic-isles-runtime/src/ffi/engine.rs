@@ -19,7 +19,7 @@ pub fn set_image_base(base: usize) {
 }
 
 /// The engine over this process's memory, or `None` before Init.
-fn engine() -> Option<Engine<'static>> {
+pub fn engine() -> Option<Engine<'static>> {
     let base = IMAGE_BASE.load(Ordering::SeqCst);
     if base == 0 {
         return None;

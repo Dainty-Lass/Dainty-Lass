@@ -175,6 +175,26 @@ Fuzz targets in `fuzz`:
       `127.0.0.1`; hints and results pass through untouched. `ws2_32.dll` is a static import, so no library is loaded
       in Init (`tests/dll_file.rs`).
 
+### Listen and readiness (R9)
+
+- [ ] R9 owns `SRV-1` and `SP-3@R9` only; with them owned the AGPL stands down from the listen exactly when the MIT
+      listens, and a player host keeps the AGPL's listen until `SP-3@R10` is owned, so the two DLLs never both listen
+      or both stand down (`core::listen::listen_decision`, runtime patch 0052).
+- [ ] An unknown `RUSTIC_ISLES_AUTH_MODE` ends the server with `0xE102` on its first frame, before any listen.
+- [ ] SRV-1 writes the map URL only into an engine allocation (`FMemory::Realloc`, never Rust's allocator); a null
+      result leaves the engine's own map (`ffi::listen::tests::srv1_write_path`). Its log line holds the map path,
+      the length and the cap, never the hunt id or roster.
+- [ ] `InitListen` is called only when its vtable slot is a function start in the executable's `.pdata`; the world
+      list (64), the named drivers (128), client connections (1 024) and open channels (4 096) are bounded and read
+      through `ffi::memory`; every driver write goes through the reflection kit's checked `write`.
+- [ ] A pinned player-host address is honoured only when it equals the engine's `MULTIHOME` (R4); otherwise the
+      listen fails closed and R10 fences the host. With no registered R10 module the listen fails without a fence.
+- [ ] The ready lines go only to this process's standard output, with a launch id that passed R0's `env_value`
+      (no CR, LF, NUL or non-ASCII, at most 127); no other environment value is logged.
+- [ ] Per-frame driver upkeep writes nothing to a driver that is no longer live or readable (R9 departure 4).
+- [ ] `rir_listen_driver` is a lock-free load that catches panics and answers null until a listen succeeded; it is
+      outside the seam's required set (`tests/dll_file.rs`).
+
 ### Logging
 
 - [ ] Never logged: the command line, the gameserver key (`api_key`) or which request carried it, argv entry 1, any
