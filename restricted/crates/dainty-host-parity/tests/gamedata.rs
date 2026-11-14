@@ -1317,7 +1317,7 @@ fn collect(root: &Path, dir: &Path, out: &mut Vec<(String, Vec<u8>)>) {
 fn publishing_writes_the_files_and_a_runtime_json_and_retires_the_servers_loader() {
     let dir = TempDir::new().unwrap();
     let p = host(&dir);
-    write(&p.runtime_dll, vec![3u8; 6000]);
+    write(&p.mit_runtime_dll, vec![3u8; 6000]);
     write(&p.loader_dll, vec![4u8; 2000]);
     let r = publish_runtime(&p, date("2026-10-15T00:00:00Z"), &default_sources(&p)).unwrap();
     assert!(
@@ -1326,9 +1326,12 @@ fn publishing_writes_the_files_and_a_runtime_json_and_retires_the_servers_loader
         r.version
     );
     let json = std::fs::read(p.runtime_publish.join("runtime.json")).unwrap();
+    // The Node kit published Rustic-Isles.dll; R21 publishes the MIT DLL in its place, a departure the ruling
+    // allows (call 1, rulings-2026-11-13.md R21), so only the name differs from the recording
+    let node = std::fs::read_to_string(fixtures().join("runtime").join("published").join("runtime.json")).unwrap();
     assert_eq!(
-        json,
-        std::fs::read(fixtures().join("runtime").join("published").join("runtime.json")).unwrap(),
+        String::from_utf8(json.clone()).unwrap(),
+        node.replace("\"Rustic-Isles.dll\"", "\"rustic-isles-runtime.dll\""),
         "the version and runtime.json byte for byte"
     );
     let index: Value = serde_json::from_slice(&json).unwrap();
@@ -1358,7 +1361,7 @@ fn publishing_writes_the_files_and_a_runtime_json_and_retires_the_servers_loader
 fn clears_old_runtime_files_a_previous_install_had_to_move_aside() {
     let dir = TempDir::new().unwrap();
     let p = host(&dir);
-    write(&p.runtime_dll, vec![5u8; 6000]);
+    write(&p.mit_runtime_dll, vec![5u8; 6000]);
     write(&p.loader_dll, vec![6u8; 2000]);
     publish_runtime(&p, Utc::now(), &default_sources(&p)).unwrap();
     let game = TempDir::new().unwrap();

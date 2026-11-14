@@ -67,7 +67,7 @@ fn pattern(n: usize, seed: usize) -> Vec<u8> {
 /// `makeRuntime`
 fn make_runtime(seed: usize) -> Vec<(&'static str, Vec<u8>)> {
     vec![
-        ("Rustic-Isles.dll", pattern(200_000 + seed, seed)),
+        ("rustic-isles-runtime.dll", pattern(200_000 + seed, seed)),
         ("winmm.dll", pattern(40_000 + seed, seed + 50)),
     ]
 }
@@ -748,7 +748,7 @@ async fn public_mode_end_to_end_join_register_game_check_runtime_trust_and_insta
         "the player is asked before any native code is installed"
     );
     let names: Vec<&str> = s.runtime.files.iter().map(|f| f.name.as_str()).collect();
-    assert_eq!(names, ["Rustic-Isles.dll", "winmm.dll"]);
+    assert_eq!(names, ["rustic-isles-runtime.dll", "winmm.dll"]);
     let downloaded = |gw: &Shared| {
         gw.lock()
             .unwrap()
@@ -900,7 +900,11 @@ async fn private_mode_open_registration_a_server_without_a_runtime_waits_for_its
         hx.c.choose_local_runtime().await,
         ActionResult::Err(LauncherError::with_detail(
             ErrorCode::LocalRuntimeInvalid,
-            &dainty_launcher_kit::net::runtime_files::required_runtime_files(PLAYER_RUNTIME_FILES).join(", ")
+            &dainty_launcher_kit::net::runtime_files::required_runtime_files(
+                PLAYER_RUNTIME_FILES,
+                dainty_launcher_kit::net::runtime_files::SetShape::MitOnly
+            )
+            .join(", ")
         ))
     );
     for (name, data) in make_runtime(9) {
@@ -911,7 +915,7 @@ async fn private_mode_open_registration_a_server_without_a_runtime_waits_for_its
     assert_eq!(hx.last().phase, Phase::Ready);
     assert_eq!(hx.c.play().await, ActionResult::Ok);
     let (dir, _, _) = hx.spawns.lock().unwrap().last().cloned().unwrap();
-    assert!(dir.join("Rustic-Isles.dll").exists());
+    assert!(dir.join("rustic-isles-runtime.dll").exists());
     hx.exit(0).await;
     assert_eq!(hx.c.clear_local_runtime().await, ActionResult::Ok);
     assert_eq!(hx.last().runtime.local_dir, None);
@@ -1644,12 +1648,12 @@ async fn play_refuses_a_leftover_ini_or_host_tools_dll_beside_the_loader() {
     )
     .unwrap();
     drop(session);
-    assert!(!win64.join("Rustic-Isles.dll").exists());
+    assert!(!win64.join("rustic-isles-runtime.dll").exists());
     // On Windows a loader the launcher did not install is a leftover too
     let leftovers = if dainty_launcher_kit::platform::inject::INJECTS && !had_loader {
-        "Dumper-7.dll, mystic_loader.ini, Rustic-Isles.dll.rr-dump-off, winmm.dll"
+        "Dumper-7.dll, mystic_loader.ini, rustic-isles-runtime.dll.rr-dump-off, winmm.dll"
     } else {
-        "Dumper-7.dll, mystic_loader.ini, Rustic-Isles.dll.rr-dump-off"
+        "Dumper-7.dll, mystic_loader.ini, rustic-isles-runtime.dll.rr-dump-off"
     };
     assert_eq!(
         hx.c.play().await,
@@ -1657,7 +1661,7 @@ async fn play_refuses_a_leftover_ini_or_host_tools_dll_beside_the_loader() {
     );
     hx.c.init().await;
     assert!(!win64.join(LOADER_INI).exists() && !win64.join("Dumper-7.dll").exists());
-    assert!(win64.join("Rustic-Isles.dll").exists(), "the runtime is back");
+    assert!(win64.join("rustic-isles-runtime.dll").exists(), "the runtime is back");
     if !had_loader {
         std::fs::remove_file(win64.join("winmm.dll")).unwrap();
     }
@@ -1709,7 +1713,7 @@ async fn a_dumper_7_session_injects_dumper_7_alone() {
         std::slice::from_ref(&dumper)
     );
     assert!(!win64.join(LOADER_INI).exists() && !win64.join("Dumper-7.dll").exists());
-    assert!(win64.join("Rustic-Isles.dll").exists(), "the runtime stays, unloaded");
+    assert!(win64.join("rustic-isles-runtime.dll").exists(), "the runtime stays, unloaded");
     assert_eq!(
         hx.c.host_action(HostAction::InjectDumper).await,
         host_error("game_running")
@@ -1763,7 +1767,7 @@ async fn a_catalog_exporter_session_injects_the_runtime_then_the_exporter() {
     assert_ne!(args, ["-NoEAC", "-EpicPortal", "-DisableEOS"]);
     assert_eq!(
         hx.game.injected.lock().unwrap().last().unwrap(),
-        &[win64.join("Rustic-Isles.dll"), exporter.clone()]
+        &[win64.join("rustic-isles-runtime.dll"), exporter.clone()]
     );
     assert!(!win64.join(LOADER_INI).exists() && !win64.join("CatalogExporter.dll").exists());
     assert!(win64.join("export_flags.txt").exists());
@@ -1772,7 +1776,7 @@ async fn a_catalog_exporter_session_injects_the_runtime_then_the_exporter() {
     assert_eq!(hx.c.play().await, ActionResult::Ok, "an ordinary PLAY afterwards");
     assert_eq!(
         hx.game.injected.lock().unwrap().last().unwrap(),
-        &[win64.join("Rustic-Isles.dll")]
+        &[win64.join("rustic-isles-runtime.dll")]
     );
     hx.exit(0).await;
     hx.c.shutdown().await;
