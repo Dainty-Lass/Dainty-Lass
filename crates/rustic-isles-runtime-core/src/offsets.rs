@@ -1054,6 +1054,50 @@ pub mod r15 {
     pub const LOADOUT_ON_REP_INVENTORY: u32 = 0x01BA_D7D0;
 }
 
+/// R8's data RVAs and layout facts (spec-runtime-r8 2.1).
+pub mod r8 {
+    /// `FGenericPlatformMemory::SetupMemoryPools`, checked only.
+    pub const SETUP_MEMORY_POOLS: u32 = 0x0252_5890;
+    /// `FGenericPlatformMemory::OnOutOfMemory`, checked only.
+    pub const ON_OUT_OF_MEMORY: u32 = 0x0252_9C00;
+    /// The global holding the engine's 32 MB out-of-memory reserve.
+    pub const BACKUP_MEMORY_POOL: u32 = 0x06DA_CBD0;
+    /// `UWorld::AuthorityGameMode`.
+    pub const WORLD_AUTHORITY_GAME_MODE: usize = 0x118;
+    /// `UWorld::GameState`.
+    pub const WORLD_GAME_STATE: usize = 0x120;
+    /// A world is read only when readable for this span.
+    pub const WORLD_SPAN: usize = 0x128;
+    /// `AGameMode::NumPlayers` (`i32`).
+    pub const GAME_MODE_NUM_PLAYERS: usize = 0x2D0;
+    /// `AGameMode::NumTravellingPlayers` (`i32`).
+    pub const GAME_MODE_NUM_TRAVELLING: usize = 0x2DC;
+    /// A game mode is sampled only when readable for this span.
+    pub const GAME_MODE_SAMPLE_SPAN: usize = 0x2E0;
+    /// `AArchonGameMode::AFKTimeout` (`f32`).
+    pub const GAME_MODE_AFK_TIMEOUT: usize = 0x468;
+    /// `AArchonGameMode::AFKTimeoutFriendly` (`f32`).
+    pub const GAME_MODE_AFK_TIMEOUT_FRIENDLY: usize = 0x46C;
+    /// A game mode's AFK floats are written only when readable for this span.
+    pub const GAME_MODE_AFK_SPAN: usize = 0x470;
+    /// `AArchonGameMode::ExpectedPlayerCount` (`i32`).
+    pub const GAME_MODE_EXPECTED_PLAYERS: usize = 0x498;
+    /// `AArchonGameState::ExpectedPlayerCount` (`i32`, replicated).
+    pub const GAME_STATE_EXPECTED_PLAYERS: usize = 0x2E8;
+    /// `AArchonGameState::AFKTimeout` (`f32`, replicated).
+    pub const GAME_STATE_AFK_TIMEOUT: usize = 0x3F8;
+    /// `AArchonGameState::AFKTimeoutFriendly` (`f32`, replicated).
+    pub const GAME_STATE_AFK_TIMEOUT_FRIENDLY: usize = 0x3FC;
+    /// A game state's AFK floats are written only when readable for this span.
+    pub const GAME_STATE_AFK_SPAN: usize = 0x400;
+    /// `UNetConnection::OwningActor`.
+    pub const CONNECTION_OWNING_ACTOR: usize = 0x98;
+    /// A connection is read only when readable for this span.
+    pub const CONNECTION_SPAN: usize = 0x140;
+    /// `ClientConnections.Num` from the driver (R9's array at `0x90`).
+    pub const NET_DRIVER_CLIENT_COUNT: usize = 0x98;
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

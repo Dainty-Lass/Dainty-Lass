@@ -4,7 +4,7 @@
 
 /// The slices whose ids this build owns.
 pub const LANDED: &[&str] = &[
-    "R0", "R1", "R2", "R3", "R4", "R5", "R9", "R7", "R6", "R10", "R11", "R15",
+    "R0", "R1", "R2", "R3", "R4", "R5", "R9", "R7", "R6", "R10", "R11", "R15", "R8",
 ];
 
 /// The longest id `owns` accepts, in bytes.
@@ -163,6 +163,7 @@ pub const ENTRIES: &[Entry] = &[
     e("SP-2@R15", Feature, "R15"),
     e("SP-2@R18", Feature, "R18"),
     e("SP-2@R20", Feature, "R20"),
+    e("SP-2@R8", Feature, "R8"),
     e("SP-3@R7", Feature, "R7"),
     e("SP-3@R8", Feature, "R8"),
     e("SP-3@R9", Feature, "R9"),
@@ -254,7 +255,7 @@ mod tests {
     fn every_feature_id() {
         let features = [
             ("SP-1", &["R14", "R15", "R16", "R17"][..]),
-            ("SP-2", &["R5", "R7", "R10", "R14", "R15", "R18", "R20"][..]),
+            ("SP-2", &["R5", "R7", "R8", "R10", "R14", "R15", "R18", "R20"][..]),
             (
                 "SP-3",
                 &["R7", "R8", "R9", "R10", "R11", "R12", "R13", "R14", "R18", "R20"][..],
