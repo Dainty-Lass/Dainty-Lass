@@ -41,6 +41,12 @@ path against `cmd.exe`).
       hashes), is killed rather than resumed when a load fails, and starts with `rifts-host`'s launch environment
       minus every other inherited server-prefix variable, plus `DAINTY_RUNTIME_INJECTED=1`
       (`a_hosted_launch_carries_exactly_what_the_runtime_reads`).
+- [ ] The only server-supplied values in the game's environment are the status's `economy` (R15 Q-1):
+      `DAINTY_KEEP_SUPPLY_STACK_CAPS` from a JSON bool and `DAINTY_CELL_FUSION_MINUTES` from a whole number 0–10080.
+      `dainty-protocol`'s parser refuses anything else (a string, a float, past the week) rather than clamping, and
+      the launcher writes nothing for a refused or absent field, its own inherited copies stripped already
+      (`status.json`'s economy cases, `economy_reaches_the_game_only_as_the_server_sent_it`). A refusal is logged by
+      field name only, never with the value (`tests/controller.rs`, the public server's PLAY).
 - [ ] The child is created with `CREATE_SUSPENDED` whenever `plan.inject` is not empty, and only then.
 - [ ] The main thread is found before any remote thread exists (`only_thread` refuses a process with more than one
       thread), and only that thread is resumed.

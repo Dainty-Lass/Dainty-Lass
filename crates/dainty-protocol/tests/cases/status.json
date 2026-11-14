@@ -14966,5 +14966,467 @@
       "limited": true
     },
     "text": "{\"name\":\"Friday Hunts\",\"online\":true,\"version\":\"2.0.0\",\"commit\":\"abc1234\",\"sourceUrl\":null,\"registration\":\"OPEN\",\"playersOnline\":0,\"players\":[],\"instances\":[],\"uptimeSeconds\":60,\"game\":{\"build\":\"rel\",\"changelist\":1},\"gameData\":\"real\",\"chat\":true,\"contentPort\":null,\"limited\":true}"
+  },
+  {
+    "input": {
+      "name": "Economy",
+      "online": true,
+      "economy": {
+        "keepSupplyStackCaps": true,
+        "cellFusionMinutes": 45
+      }
+    },
+    "expected": {
+      "name": "Economy",
+      "online": true,
+      "version": "",
+      "commit": "",
+      "sourceUrl": null,
+      "registration": null,
+      "playersOnline": 0,
+      "players": [],
+      "instances": [],
+      "uptimeSeconds": 0,
+      "game": null,
+      "gameData": "unknown",
+      "chat": false,
+      "contentPort": null,
+      "limited": false,
+      "economy": {
+        "keepSupplyStackCaps": true,
+        "cellFusionMinutes": 45,
+        "refused": []
+      }
+    },
+    "text": "{\"name\":\"Economy\",\"online\":true,\"version\":\"\",\"commit\":\"\",\"sourceUrl\":null,\"registration\":null,\"playersOnline\":0,\"players\":[],\"instances\":[],\"uptimeSeconds\":0,\"game\":null,\"gameData\":\"unknown\",\"chat\":false,\"contentPort\":null,\"limited\":false,\"economy\":{\"keepSupplyStackCaps\":true,\"cellFusionMinutes\":45,\"refused\":[]}}"
+  },
+  {
+    "input": {
+      "name": "Economy",
+      "online": true,
+      "economy": {
+        "keepSupplyStackCaps": false,
+        "cellFusionMinutes": 0
+      }
+    },
+    "expected": {
+      "name": "Economy",
+      "online": true,
+      "version": "",
+      "commit": "",
+      "sourceUrl": null,
+      "registration": null,
+      "playersOnline": 0,
+      "players": [],
+      "instances": [],
+      "uptimeSeconds": 0,
+      "game": null,
+      "gameData": "unknown",
+      "chat": false,
+      "contentPort": null,
+      "limited": false,
+      "economy": {
+        "keepSupplyStackCaps": false,
+        "cellFusionMinutes": 0,
+        "refused": []
+      }
+    },
+    "text": "{\"name\":\"Economy\",\"online\":true,\"version\":\"\",\"commit\":\"\",\"sourceUrl\":null,\"registration\":null,\"playersOnline\":0,\"players\":[],\"instances\":[],\"uptimeSeconds\":0,\"game\":null,\"gameData\":\"unknown\",\"chat\":false,\"contentPort\":null,\"limited\":false,\"economy\":{\"keepSupplyStackCaps\":false,\"cellFusionMinutes\":0,\"refused\":[]}}"
+  },
+  {
+    "input": {
+      "name": "Economy",
+      "online": true,
+      "economy": {
+        "cellFusionMinutes": 10080
+      }
+    },
+    "expected": {
+      "name": "Economy",
+      "online": true,
+      "version": "",
+      "commit": "",
+      "sourceUrl": null,
+      "registration": null,
+      "playersOnline": 0,
+      "players": [],
+      "instances": [],
+      "uptimeSeconds": 0,
+      "game": null,
+      "gameData": "unknown",
+      "chat": false,
+      "contentPort": null,
+      "limited": false,
+      "economy": {
+        "keepSupplyStackCaps": null,
+        "cellFusionMinutes": 10080,
+        "refused": []
+      }
+    },
+    "text": "{\"name\":\"Economy\",\"online\":true,\"version\":\"\",\"commit\":\"\",\"sourceUrl\":null,\"registration\":null,\"playersOnline\":0,\"players\":[],\"instances\":[],\"uptimeSeconds\":0,\"game\":null,\"gameData\":\"unknown\",\"chat\":false,\"contentPort\":null,\"limited\":false,\"economy\":{\"keepSupplyStackCaps\":null,\"cellFusionMinutes\":10080,\"refused\":[]}}"
+  },
+  {
+    "input": {
+      "name": "Economy",
+      "online": true,
+      "limited": true,
+      "economy": {
+        "keepSupplyStackCaps": true
+      }
+    },
+    "expected": {
+      "name": "Economy",
+      "online": true,
+      "version": "",
+      "commit": "",
+      "sourceUrl": null,
+      "registration": null,
+      "playersOnline": 0,
+      "players": [],
+      "instances": [],
+      "uptimeSeconds": 0,
+      "game": null,
+      "gameData": "unknown",
+      "chat": false,
+      "contentPort": null,
+      "limited": true,
+      "economy": {
+        "keepSupplyStackCaps": true,
+        "cellFusionMinutes": null,
+        "refused": []
+      }
+    },
+    "text": "{\"name\":\"Economy\",\"online\":true,\"version\":\"\",\"commit\":\"\",\"sourceUrl\":null,\"registration\":null,\"playersOnline\":0,\"players\":[],\"instances\":[],\"uptimeSeconds\":0,\"game\":null,\"gameData\":\"unknown\",\"chat\":false,\"contentPort\":null,\"limited\":true,\"economy\":{\"keepSupplyStackCaps\":true,\"cellFusionMinutes\":null,\"refused\":[]}}"
+  },
+  {
+    "input": {
+      "name": "Economy",
+      "online": true,
+      "economy": {}
+    },
+    "expected": {
+      "name": "Economy",
+      "online": true,
+      "version": "",
+      "commit": "",
+      "sourceUrl": null,
+      "registration": null,
+      "playersOnline": 0,
+      "players": [],
+      "instances": [],
+      "uptimeSeconds": 0,
+      "game": null,
+      "gameData": "unknown",
+      "chat": false,
+      "contentPort": null,
+      "limited": false,
+      "economy": {
+        "keepSupplyStackCaps": null,
+        "cellFusionMinutes": null,
+        "refused": []
+      }
+    },
+    "text": "{\"name\":\"Economy\",\"online\":true,\"version\":\"\",\"commit\":\"\",\"sourceUrl\":null,\"registration\":null,\"playersOnline\":0,\"players\":[],\"instances\":[],\"uptimeSeconds\":0,\"game\":null,\"gameData\":\"unknown\",\"chat\":false,\"contentPort\":null,\"limited\":false,\"economy\":{\"keepSupplyStackCaps\":null,\"cellFusionMinutes\":null,\"refused\":[]}}"
+  },
+  {
+    "input": {
+      "name": "Economy",
+      "online": true,
+      "economy": {
+        "keepSupplyStackCaps": null,
+        "cellFusionMinutes": null,
+        "other": 1
+      }
+    },
+    "expected": {
+      "name": "Economy",
+      "online": true,
+      "version": "",
+      "commit": "",
+      "sourceUrl": null,
+      "registration": null,
+      "playersOnline": 0,
+      "players": [],
+      "instances": [],
+      "uptimeSeconds": 0,
+      "game": null,
+      "gameData": "unknown",
+      "chat": false,
+      "contentPort": null,
+      "limited": false,
+      "economy": {
+        "keepSupplyStackCaps": null,
+        "cellFusionMinutes": null,
+        "refused": []
+      }
+    },
+    "text": "{\"name\":\"Economy\",\"online\":true,\"version\":\"\",\"commit\":\"\",\"sourceUrl\":null,\"registration\":null,\"playersOnline\":0,\"players\":[],\"instances\":[],\"uptimeSeconds\":0,\"game\":null,\"gameData\":\"unknown\",\"chat\":false,\"contentPort\":null,\"limited\":false,\"economy\":{\"keepSupplyStackCaps\":null,\"cellFusionMinutes\":null,\"refused\":[]}}"
+  },
+  {
+    "input": {
+      "name": "Economy",
+      "online": true,
+      "economy": null
+    },
+    "expected": {
+      "name": "Economy",
+      "online": true,
+      "version": "",
+      "commit": "",
+      "sourceUrl": null,
+      "registration": null,
+      "playersOnline": 0,
+      "players": [],
+      "instances": [],
+      "uptimeSeconds": 0,
+      "game": null,
+      "gameData": "unknown",
+      "chat": false,
+      "contentPort": null,
+      "limited": false
+    },
+    "text": "{\"name\":\"Economy\",\"online\":true,\"version\":\"\",\"commit\":\"\",\"sourceUrl\":null,\"registration\":null,\"playersOnline\":0,\"players\":[],\"instances\":[],\"uptimeSeconds\":0,\"game\":null,\"gameData\":\"unknown\",\"chat\":false,\"contentPort\":null,\"limited\":false}"
+  },
+  {
+    "input": {
+      "name": "Economy",
+      "online": true,
+      "economy": {
+        "keepSupplyStackCaps": "true",
+        "cellFusionMinutes": 10081
+      }
+    },
+    "expected": {
+      "name": "Economy",
+      "online": true,
+      "version": "",
+      "commit": "",
+      "sourceUrl": null,
+      "registration": null,
+      "playersOnline": 0,
+      "players": [],
+      "instances": [],
+      "uptimeSeconds": 0,
+      "game": null,
+      "gameData": "unknown",
+      "chat": false,
+      "contentPort": null,
+      "limited": false,
+      "economy": {
+        "keepSupplyStackCaps": null,
+        "cellFusionMinutes": null,
+        "refused": [
+          "keepSupplyStackCaps",
+          "cellFusionMinutes"
+        ]
+      }
+    },
+    "text": "{\"name\":\"Economy\",\"online\":true,\"version\":\"\",\"commit\":\"\",\"sourceUrl\":null,\"registration\":null,\"playersOnline\":0,\"players\":[],\"instances\":[],\"uptimeSeconds\":0,\"game\":null,\"gameData\":\"unknown\",\"chat\":false,\"contentPort\":null,\"limited\":false,\"economy\":{\"keepSupplyStackCaps\":null,\"cellFusionMinutes\":null,\"refused\":[\"keepSupplyStackCaps\",\"cellFusionMinutes\"]}}"
+  },
+  {
+    "input": {
+      "name": "Economy",
+      "online": true,
+      "economy": {
+        "keepSupplyStackCaps": 1,
+        "cellFusionMinutes": -1
+      }
+    },
+    "expected": {
+      "name": "Economy",
+      "online": true,
+      "version": "",
+      "commit": "",
+      "sourceUrl": null,
+      "registration": null,
+      "playersOnline": 0,
+      "players": [],
+      "instances": [],
+      "uptimeSeconds": 0,
+      "game": null,
+      "gameData": "unknown",
+      "chat": false,
+      "contentPort": null,
+      "limited": false,
+      "economy": {
+        "keepSupplyStackCaps": null,
+        "cellFusionMinutes": null,
+        "refused": [
+          "keepSupplyStackCaps",
+          "cellFusionMinutes"
+        ]
+      }
+    },
+    "text": "{\"name\":\"Economy\",\"online\":true,\"version\":\"\",\"commit\":\"\",\"sourceUrl\":null,\"registration\":null,\"playersOnline\":0,\"players\":[],\"instances\":[],\"uptimeSeconds\":0,\"game\":null,\"gameData\":\"unknown\",\"chat\":false,\"contentPort\":null,\"limited\":false,\"economy\":{\"keepSupplyStackCaps\":null,\"cellFusionMinutes\":null,\"refused\":[\"keepSupplyStackCaps\",\"cellFusionMinutes\"]}}"
+  },
+  {
+    "input": {
+      "name": "Economy",
+      "online": true,
+      "economy": {
+        "keepSupplyStackCaps": false,
+        "cellFusionMinutes": 45.5
+      }
+    },
+    "expected": {
+      "name": "Economy",
+      "online": true,
+      "version": "",
+      "commit": "",
+      "sourceUrl": null,
+      "registration": null,
+      "playersOnline": 0,
+      "players": [],
+      "instances": [],
+      "uptimeSeconds": 0,
+      "game": null,
+      "gameData": "unknown",
+      "chat": false,
+      "contentPort": null,
+      "limited": false,
+      "economy": {
+        "keepSupplyStackCaps": false,
+        "cellFusionMinutes": null,
+        "refused": [
+          "cellFusionMinutes"
+        ]
+      }
+    },
+    "text": "{\"name\":\"Economy\",\"online\":true,\"version\":\"\",\"commit\":\"\",\"sourceUrl\":null,\"registration\":null,\"playersOnline\":0,\"players\":[],\"instances\":[],\"uptimeSeconds\":0,\"game\":null,\"gameData\":\"unknown\",\"chat\":false,\"contentPort\":null,\"limited\":false,\"economy\":{\"keepSupplyStackCaps\":false,\"cellFusionMinutes\":null,\"refused\":[\"cellFusionMinutes\"]}}"
+  },
+  {
+    "input": {
+      "name": "Economy",
+      "online": true,
+      "economy": {
+        "cellFusionMinutes": "45"
+      }
+    },
+    "expected": {
+      "name": "Economy",
+      "online": true,
+      "version": "",
+      "commit": "",
+      "sourceUrl": null,
+      "registration": null,
+      "playersOnline": 0,
+      "players": [],
+      "instances": [],
+      "uptimeSeconds": 0,
+      "game": null,
+      "gameData": "unknown",
+      "chat": false,
+      "contentPort": null,
+      "limited": false,
+      "economy": {
+        "keepSupplyStackCaps": null,
+        "cellFusionMinutes": null,
+        "refused": [
+          "cellFusionMinutes"
+        ]
+      }
+    },
+    "text": "{\"name\":\"Economy\",\"online\":true,\"version\":\"\",\"commit\":\"\",\"sourceUrl\":null,\"registration\":null,\"playersOnline\":0,\"players\":[],\"instances\":[],\"uptimeSeconds\":0,\"game\":null,\"gameData\":\"unknown\",\"chat\":false,\"contentPort\":null,\"limited\":false,\"economy\":{\"keepSupplyStackCaps\":null,\"cellFusionMinutes\":null,\"refused\":[\"cellFusionMinutes\"]}}"
+  },
+  {
+    "input": {
+      "name": "Economy",
+      "online": true,
+      "economy": {
+        "cellFusionMinutes": 4294967341
+      }
+    },
+    "expected": {
+      "name": "Economy",
+      "online": true,
+      "version": "",
+      "commit": "",
+      "sourceUrl": null,
+      "registration": null,
+      "playersOnline": 0,
+      "players": [],
+      "instances": [],
+      "uptimeSeconds": 0,
+      "game": null,
+      "gameData": "unknown",
+      "chat": false,
+      "contentPort": null,
+      "limited": false,
+      "economy": {
+        "keepSupplyStackCaps": null,
+        "cellFusionMinutes": null,
+        "refused": [
+          "cellFusionMinutes"
+        ]
+      }
+    },
+    "text": "{\"name\":\"Economy\",\"online\":true,\"version\":\"\",\"commit\":\"\",\"sourceUrl\":null,\"registration\":null,\"playersOnline\":0,\"players\":[],\"instances\":[],\"uptimeSeconds\":0,\"game\":null,\"gameData\":\"unknown\",\"chat\":false,\"contentPort\":null,\"limited\":false,\"economy\":{\"keepSupplyStackCaps\":null,\"cellFusionMinutes\":null,\"refused\":[\"cellFusionMinutes\"]}}"
+  },
+  {
+    "input": {
+      "name": "Economy",
+      "online": true,
+      "economy": "keep"
+    },
+    "expected": {
+      "name": "Economy",
+      "online": true,
+      "version": "",
+      "commit": "",
+      "sourceUrl": null,
+      "registration": null,
+      "playersOnline": 0,
+      "players": [],
+      "instances": [],
+      "uptimeSeconds": 0,
+      "game": null,
+      "gameData": "unknown",
+      "chat": false,
+      "contentPort": null,
+      "limited": false,
+      "economy": {
+        "keepSupplyStackCaps": null,
+        "cellFusionMinutes": null,
+        "refused": [
+          "economy"
+        ]
+      }
+    },
+    "text": "{\"name\":\"Economy\",\"online\":true,\"version\":\"\",\"commit\":\"\",\"sourceUrl\":null,\"registration\":null,\"playersOnline\":0,\"players\":[],\"instances\":[],\"uptimeSeconds\":0,\"game\":null,\"gameData\":\"unknown\",\"chat\":false,\"contentPort\":null,\"limited\":false,\"economy\":{\"keepSupplyStackCaps\":null,\"cellFusionMinutes\":null,\"refused\":[\"economy\"]}}"
+  },
+  {
+    "input": {
+      "name": "Economy",
+      "online": true,
+      "economy": [
+        true,
+        45
+      ]
+    },
+    "expected": {
+      "name": "Economy",
+      "online": true,
+      "version": "",
+      "commit": "",
+      "sourceUrl": null,
+      "registration": null,
+      "playersOnline": 0,
+      "players": [],
+      "instances": [],
+      "uptimeSeconds": 0,
+      "game": null,
+      "gameData": "unknown",
+      "chat": false,
+      "contentPort": null,
+      "limited": false,
+      "economy": {
+        "keepSupplyStackCaps": null,
+        "cellFusionMinutes": null,
+        "refused": [
+          "economy"
+        ]
+      }
+    },
+    "text": "{\"name\":\"Economy\",\"online\":true,\"version\":\"\",\"commit\":\"\",\"sourceUrl\":null,\"registration\":null,\"playersOnline\":0,\"players\":[],\"instances\":[],\"uptimeSeconds\":0,\"game\":null,\"gameData\":\"unknown\",\"chat\":false,\"contentPort\":null,\"limited\":false,\"economy\":{\"keepSupplyStackCaps\":null,\"cellFusionMinutes\":null,\"refused\":[\"economy\"]}}"
   }
 ]

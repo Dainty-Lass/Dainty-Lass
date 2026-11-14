@@ -28,7 +28,7 @@ use crate::platform::game_config::{ConfigRequest, write_game_config};
 use crate::platform::game_folder;
 use crate::platform::inject::{self, InjectDll};
 use crate::platform::launch::{
-    CONSOLE_CLOSED_EXIT, GameEvent, LaunchArgs, LaunchPlan, exit_code_hex, launch_args, launch_env,
+    CONSOLE_CLOSED_EXIT, GameEvent, LaunchArgs, LaunchPlan, add_economy_env, exit_code_hex, launch_args, launch_env,
 };
 use crate::platform::loader_session::SessionKind;
 use crate::platform::log;
@@ -333,12 +333,25 @@ impl Controller {
             locale,
         })
         .map_err(|failed| launch_failed(&failed))?;
-        let env = launch_env(
+        let mut env = launch_env(
             self.base_environment(),
             &format!("http://127.0.0.1:{port}"),
             stored.runtime_profile(),
         )
         .map_err(|failed| launch_failed(&failed))?;
+        let economy = self.lock().status.as_ref().and_then(|status| status.economy.clone());
+        if let Some(economy) = &economy {
+            // The names are the protocol's own; the refused value itself is never logged
+            for field in &economy.refused {
+                let field: String = field.chars().take(32).collect();
+                log::warn(format!("the server's {field} is invalid; the game keeps its default"));
+            }
+            log::info(format!(
+                "the server's supply caps kept: {:?}, cell fusion minutes: {:?}",
+                economy.keep_supply_stack_caps, economy.cell_fusion_minutes
+            ));
+        }
+        add_economy_env(&mut env, economy.as_ref());
         for dll in &dlls {
             log::info(format!(
                 "loading {} into the game, SHA-256 {}",

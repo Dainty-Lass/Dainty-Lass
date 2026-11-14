@@ -91,6 +91,8 @@ struct Answers {
     files: BTreeMap<String, Vec<u8>>,
     /// Set when the server's account store no longer knows [`KEY`].
     forgot: Arc<AtomicBool>,
+    /// The status's `economy`, when it sends one (R15 Q-1).
+    economy: Option<serde_json::Value>,
 }
 
 fn response(status: u16, kind: &str, body: &[u8]) -> Vec<u8> {
@@ -116,10 +118,13 @@ fn answer(answers: &Answers, seen: &Seen) -> Vec<u8> {
     // INVITECODE registration refuses a missing code before anything is spent.
     let has_code = seen.body.contains("\"INVITE-1234\"");
     match (seen.method.as_str(), path) {
-        ("GET", "/dainty/api/ServerStatus") => json_response(
-            200,
-            &json!({ "name": answers.name, "online": true, "version": "1.0", "commit": "abc" }),
-        ),
+        ("GET", "/dainty/api/ServerStatus") => {
+            let mut status = json!({ "name": answers.name, "online": true, "version": "1.0", "commit": "abc" });
+            if let Some(economy) = &answers.economy {
+                status["economy"] = economy.clone();
+            }
+            json_response(200, &status)
+        }
         ("POST", "/dainty/api/Register") if !has_code => json_response(401, &json!({ "error": "InviteInvalid" })),
         ("POST", "/dainty/api/Register") => json_response(200, &json!({ "UUK": if forgot { NEW_KEY } else { KEY } })),
         ("GET", "/dainty/api/GetUserInfo") if keyed => json_response(
@@ -505,6 +510,7 @@ async fn private_flow_from_invite_to_the_games_exit() {
             manifest: Some(manifest),
             files,
             forgot: Arc::default(),
+            economy: Some(json!({ "keepSupplyStackCaps": true, "cellFusionMinutes": 45 })),
         },
         None,
     )
@@ -643,6 +649,15 @@ async fn private_flow_from_invite_to_the_games_exit() {
         Some("production")
     );
     assert!(!plan.env.contains_key("DAINTY_STALE_SETTING"));
+    // The server's economy settings, as it sent them (R15 Q-1)
+    assert_eq!(
+        plan.env.get("DAINTY_KEEP_SUPPLY_STACK_CAPS").map(String::as_str),
+        Some("true")
+    );
+    assert_eq!(
+        plan.env.get("DAINTY_CELL_FUSION_MINUTES").map(String::as_str),
+        Some("45")
+    );
     assert!(!plan.env.contains_key("rustic_isles_old"));
     assert_eq!(plan.env.get("PATH").map(String::as_str), Some("/usr/bin"));
 
@@ -715,6 +730,7 @@ async fn public_flow_through_a_tls_gateway() {
             manifest: None,
             files: BTreeMap::new(),
             forgot: Arc::default(),
+            economy: Some(json!({ "keepSupplyStackCaps": "yes", "cellFusionMinutes": 10_081 })),
         },
         Some(tls),
     )
@@ -785,6 +801,19 @@ async fn public_flow_through_a_tls_gateway() {
 
     // Over TLS through the relay, pinned to the invite's certificate.
     ok(&controller.play().await);
+    // Its economy is refused whole: nothing reaches the game, and the values are not logged
+    let plan = spawner.plans.lock().unwrap().last().cloned().unwrap();
+    assert!(
+        !plan.env.keys().any(|k| k.contains("SUPPLY") || k.contains("FUSION")),
+        "{:?}",
+        plan.env
+    );
+    let logged = std::fs::read_to_string(log_dir().join(log::LOG_FILE)).unwrap();
+    assert!(
+        logged.contains("the server's cellFusionMinutes is invalid"),
+        "the refusal is logged"
+    );
+    assert!(!logged.contains("10081"), "the refused value is not");
     if inject::INJECTS {
         let plan = spawner.plans.lock().unwrap().last().cloned().unwrap();
         assert_eq!(plan.env.get(inject::INJECTED_VAR).map(String::as_str), Some("1"));
@@ -820,6 +849,7 @@ async fn an_unreachable_server_and_a_mismatched_certificate() {
             manifest: None,
             files: BTreeMap::new(),
             forgot: Arc::default(),
+            economy: None,
         },
         Some(tls),
     )
@@ -1029,6 +1059,7 @@ async fn a_fresh_invite_replaces_a_key_the_server_forgot() {
             manifest: None,
             files: BTreeMap::new(),
             forgot: Arc::clone(&forgot),
+            economy: None,
         },
         None,
     )
@@ -1122,6 +1153,7 @@ async fn ready_to_play(pc: &Pc, name: &'static str) -> (FakeServer, Arc<FakeSpaw
             manifest: Some(manifest),
             files,
             forgot: Arc::default(),
+            economy: None,
         },
         None,
     )

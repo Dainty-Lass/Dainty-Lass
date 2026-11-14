@@ -252,9 +252,10 @@ log_level = "debug"
 
 The Director hands its env file to every game server it starts, so the last five reach the game servers, which
 read the first three before the number files beside the executable. A player-hosted hub's own launcher settings
-still win. The supply cap and fusion time apply on the game servers only: players' games run on the defaults
-(uncapped, 30 minutes), so a host who changes them may see a fusion's time on the Middleman's screen differ from
-when it really ends.
+still win. The supply cap and fusion time also go to the backend, which sends them in its status, and each
+player's launcher hands them to the game it starts for this server, so the Middleman's screen shows the fusion
+time the server keeps. A launcher refuses a value out of range and leaves the game on its default (uncapped, 30
+minutes); a launcher older than this change always does, so its players may still see 30 minutes.
 
 ### Ports Windows holds
 

@@ -46,6 +46,9 @@ Fuzz targets in `fuzz`: `rustic_isles_launcher_api_guard`, `rustic_isles_launche
 - [ ] Bodies: JSON 100 KiB (core's reader), log files 10 MiB, runtime uploads 200 MiB, envelopes' payloads 256 KiB;
       Guard reports at most 32 modules, file names 260 units, signers 256; the Director read 2 s and 4 MiB; the
       status 500 players and 100 instances.
+- [ ] The status's `economy` carries only the backend's own `DAINTY_KEEP_SUPPLY_STACK_CAPS` (`true`/`false`) and
+      `DAINTY_CELL_FUSION_MINUTES` (digits, 0–10080), both in the limited view since neither is player data or a
+      secret; an unset or malformed one is left out, and with neither the body is Node's (`economy_only_as_the_runtime_takes_it`).
 
 ### Signatures
 
