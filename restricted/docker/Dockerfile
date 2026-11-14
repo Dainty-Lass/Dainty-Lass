@@ -122,10 +122,8 @@ COPY --chown=dainty:dainty restricted/LICENSE.txt restricted/NOTICE.md restricte
 COPY --chown=dainty:dainty native/ native/
 # The host kit finds the server folder by Cargo.toml beside modules/rustic-isles (paths.rs find_repo_root)
 COPY --chown=dainty:dainty restricted/Cargo.toml ./
-# From modules/rustic-isles: its licence files, the C++ CatalogExporter's source (setup checks the root's
-# native/rustic-isles-exporter instead), and the example game data and store captures pin
+# From modules/rustic-isles: its licence files, and the example game data and store captures pin
 COPY --chown=dainty:dainty restricted/modules/rustic-isles/ADDITIONAL_TERMS.md restricted/modules/rustic-isles/LICENSE restricted/modules/rustic-isles/NOTICE.md modules/rustic-isles/
-COPY --chown=dainty:dainty restricted/modules/rustic-isles/native/ modules/rustic-isles/native/
 # The 1.14.7 version facts and Mystic Paradox's design, read at start from data/ (RD27, settings.toml's
 # version_facts and version_data)
 COPY --chown=dainty:dainty crates/rustic-isles-1-14-7/data/version_facts.json data/1.14.7/
@@ -223,7 +221,6 @@ COPY --chown=node:node restricted/LICENSE.txt restricted/NOTICE.md restricted/AD
 COPY --chown=node:node native/ native/
 COPY --chown=node:node restricted/Cargo.toml ./
 COPY --chown=node:node restricted/modules/rustic-isles/ADDITIONAL_TERMS.md restricted/modules/rustic-isles/LICENSE restricted/modules/rustic-isles/NOTICE.md modules/rustic-isles/
-COPY --chown=node:node restricted/modules/rustic-isles/native/ modules/rustic-isles/native/
 COPY --chown=node:node crates/rustic-isles-1-14-7/data/version_facts.json data/1.14.7/
 COPY --chown=node:node restricted/modules/rustic-isles/version-data/1.14.7/version_data.json data/1.14.7/
 COPY --chown=node:node --from=node-build /src/modules/rustic-isles/reference/1.14.7/ modules/rustic-isles/reference/1.14.7/

@@ -43,8 +43,9 @@ dainty-lass-ui.
   [`modules/rustic-rifts`](modules/rustic-rifts) (its Rust realm and Guard ports were replaced by dainty-lass's MIT
   clean-room `rustic-rifts-*` crates, RD27, and removed, as was its C++ co-op transport (`ParadoxTransport/`), replaced
   by the launcher's built-in `rustic-rifts-transport`; they stay in this repository's history);
-  its CatalogExporter (`tools/CatalogExporter/`) is in
-  [`modules/rustic-isles/native`](modules/rustic-isles/native). Its game runtime (`ParadoxRuntime/`) was in
+  its CatalogExporter (`tools/CatalogExporter/`) was in `modules/rustic-isles/native/catalog-exporter` until
+  2026-11-13, when the root's MIT clean-room `native/rustic-isles-exporter` (`docs/port/spec-catalog-exporter.md`)
+  replaced it; the tag `agpl-catalog-exporter-final` is its last commit. Its game runtime (`ParadoxRuntime/`) was in
   `modules/rustic-isles/native/runtime` until it retired at R21 (2026-11-14), replaced by dainty-lass's MIT
   `rustic-isles-runtime.dll`, and was deleted; the tag `agpl-runtime-final` is its last commit, with its patches.
   Its runtime loader (`tools/RuntimeLoader/`) was

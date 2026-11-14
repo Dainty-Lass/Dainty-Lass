@@ -26,7 +26,7 @@ native/runtime/UtfN.hpp
 
 # --- Locally generated game data (extract from your OWN installation) ---
 # Progression, hunt tables, store, Slayer's Path, etc. are Phoenix Labs game data and are
-# NOT distributed. Generate them with CatalogExporter + the generate:* scripts.
+# NOT distributed. Generate them with the root's CatalogExporter + dainty-host gamedata.
 # See docs/GENERATING_GAME_DATA.md. Example fixtures (*.example.json) ARE committed.
 reference/1.14.7/ParadoxBackend/game-data/*.json
 reference/1.14.7/ParadoxDirector/game-data/*.json

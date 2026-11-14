@@ -77,8 +77,7 @@ dainty-launcher export --wait   # loads native\rustic-isles-exporter\target\x86_
 
 The exports keep the C++ exporter's file names and formats (`catalog_1_14_7.jsonl`, the store images, the
 `progression_1_14_7` folder), and the Host page's flags file turns on every export `gamedata` reads.
-`modules/rustic-isles/native/catalog-exporter` is Mystic Paradox's C++ original, which nothing builds by default
-any more. The progression export comes from the game the same way, and
+Mystic Paradox's C++ original was removed (tag `agpl-catalog-exporter-final`). The progression export comes from the game the same way, and
 so does `weapon_slots_1_14_7.jsonl` (the live weapons' part slots): when it covers every starter weapon, the server
 takes the starter kit's default weapon parts from it instead of the shipped ones (ruling V-4). Then:
 
