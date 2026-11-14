@@ -1,9 +1,8 @@
 //! R1's readers: the core crate's parsers fed from this process's environment, command line and number files.
-//! Init resolves the alias, the backend address, the role and the launch once; later slices read the rest lazily,
+//! Init resolves the backend address, the role and the launch once; later slices read the rest lazily,
 //! each value at most once per process.
 
 use crate::ffi::{flags, win};
-use rustic_isles_runtime_core::config::alias::alias_plan;
 use rustic_isles_runtime_core::config::auth::{self, AuthMode};
 use rustic_isles_runtime_core::config::backend::{self, Backend, BackendUrl};
 use rustic_isles_runtime_core::config::hub::{self, AfkSetting, HubCap, Sources};
@@ -28,15 +27,6 @@ pub type FpsSetting = (i32, Option<String>);
 
 static BACKEND: OnceLock<Backend> = OnceLock::new();
 static ROLE: OnceLock<Role> = OnceLock::new();
-
-/// R1 3: copies each `MYSTICPARADOX_<X>` to an absent `RUSTIC_ISLES_<X>`, after walking the whole block.
-pub fn run_alias() {
-    let entries = win::env_block();
-    let entries: Vec<&str> = entries.iter().map(String::as_str).collect();
-    for (name, value) in alias_plan(&entries, win::env_exists) {
-        win::set_env(&name, &value);
-    }
-}
 
 /// R1 4: resolves the backend address once.
 pub fn resolve_backend() -> &'static Backend {
@@ -96,15 +86,10 @@ pub fn port() -> u16 {
     launch().map_or(0, |launch| launch.port)
 }
 
-/// `launcher` is the player host's override and its range (R10 validates it; out of range counts as absent).
-fn sources(launcher: Option<(&str, std::ops::RangeInclusive<i64>)>, env: &str, file: &str) -> Sources {
-    let player_host = auth_mode() == AuthMode::PlayerHost;
+/// `launcher` is R10's hub override: `Some` only for a hub with a valid bootstrap (spec-runtime-r10 11).
+fn sources(launcher: Option<i64>, env: &str, file: &str) -> Sources {
     Sources {
-        launcher: launcher.filter(|_| player_host).and_then(|(name, range)| {
-            win::env_value(name, hub::ENV_MAX)
-                .and_then(|text| text.parse::<i64>().ok())
-                .filter(|value| range.contains(value))
-        }),
+        launcher,
         env: win::env_value(env, hub::ENV_MAX),
         file: flags::read_number_file(file, hub::FILE_MAX_BYTES),
     }
@@ -115,7 +100,7 @@ pub fn hub_cap() -> HubCap {
     static CAP: OnceLock<HubCap> = OnceLock::new();
     *CAP.get_or_init(|| {
         hub::hub_cap(&sources(
-            Some((hub::LAUNCHER_MAX_PLAYERS, 1..=64)),
+            crate::player_host::hosted_role().and_then(|role| role.max_players.map(i64::from)),
             hub::ENV_HUB_MAX_PLAYERS,
             hub::FILE_HUB_MAX_PLAYERS,
         ))
@@ -127,7 +112,7 @@ pub fn hub_afk() -> AfkSetting {
     static AFK: OnceLock<AfkSetting> = OnceLock::new();
     *AFK.get_or_init(|| {
         hub::hub_afk(&sources(
-            Some((hub::LAUNCHER_HUB_AFK, 0..=7200)),
+            crate::player_host::hosted_role().and_then(|role| role.hub_afk_seconds.map(i64::from)),
             hub::ENV_HUB_AFK,
             hub::FILE_HUB_AFK,
         ))

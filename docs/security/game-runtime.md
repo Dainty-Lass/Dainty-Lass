@@ -21,16 +21,18 @@ under the loader lock before the engine starts. It listens on nothing and opens 
 rewrites the game's own HTTP requests and adds headers to them. Everything it reads from the game's memory may be
 half-built or freed, so no game pointer is trusted.
 
-- **In:** the process environment (the backend address, the auth mode, R1's settings, `MYSTICPARADOX_*`), the
+- **In:** the process environment (the backend address, the auth mode, R1's settings, a player host's launch
+  variables), the
   command line (the role, a server's launch arguments: the gameserver key, the port, the map, the roster), flag
   files and number files next to the executable, the game's memory (object array, name pool), and calls from the
   AGPL runtime through the five seam exports. From R2: every URL the game's HTTP requests carry, and a grant id
-  header already on a retried request.
-- **Out:** `RUSTIC_ISLES_*` variables set in its own process (the alias), the per-port log file next to the
+  header already on a retried request. From R10: the control pipe's bytes from the launcher.
+- **Out:** the per-port log file next to the
   executable (shared with the AGPL runtime), MinHook's patches on `ProcessEvent`, the engine tick and
   `FCurlHttpRequest::ProcessRequest`, and an exit code (`0xE106`) for a refused full-launch port. From R2: the URL of
   every request to an allowlisted host, rewritten to the backend, and on a server the `x-rustic-isles-grant-id` and
-  `x-rustic-isles-gameserver-apikey` headers.
+  `x-rustic-isles-gameserver-apikey` headers. From R10: the ready pipe's message, the `x-rustic-host-capability`
+  header and the exit codes `0xE103`, `0xE104`, `0xE105` and `0` of a player host.
 - **Trusted:** the AGPL runtime in the same process (it calls the exports with its own detours and pointers), and
   the launcher or Director that set the environment and command line.
 
@@ -47,6 +49,9 @@ Fuzz targets in `fuzz`:
   game URL splits only into a non-empty host with no path, query or port and a tail starting `/`, is rewritten only
   for an allowlisted host and only to a URL under the API base shorter than 32 767 units, and gives a grant path only
   under `/progression/`.
+- `rustic_isles_runtime_player_host`: any environment, argv and control message give the bootstrap check a verdict
+  without a panic; a `Valid` verdict meets every grammar of R10 5.2 and 5.3, checked again in the target; and
+  `is_fence` is true only for the exact fence request.
 
 ## Checklist
 
@@ -212,6 +217,35 @@ Fuzz targets in `fuzz`:
       checked first; UFunction calls pass the parameter guard (`ParmsSize` within the block) and never run after
       detach.
 - [ ] R7's lines carry pointers, counts and the hunt id only, never an account id or a key.
+
+### The player host (R10)
+
+- [ ] Every launch variable is bounded before it is copied and checked against R10 5.2 and 5.3's grammars
+      (`core::player_host::bootstrap`); any failure ends the process with `0xE103` before listen, on the first
+      frame. A manual-mode launch is never a player host. The log names the failed check, never a value.
+- [ ] The capability is 43 safe characters, kept in memory only, sent only as `x-rustic-host-capability` to URLs
+      under the API base (`ffi::player_host::add_header`, `header_only_under_the_api_base_and_idle`), never logged,
+      never written to a pipe, never sent with the gameserver key header.
+- [ ] The listen is pinned to `127.0.0.1`: the bind address must be exactly that, the command line must carry
+      `-MULTIHOME=127.0.0.1`, and R9 refuses the pin unless the engine's `MULTIHOME` equals it.
+- [ ] The pipe names are taken only under `\\.\pipe\RusticInternalServer.` with 16 to 96 safe characters after it
+      (no other pipe, no path, no remote server; `core::player_host::is_pipe_name`).
+- [ ] The control pipe: one instance, first instance, remote clients rejected, message mode, a protected DACL for this
+      user and `LocalSystem` only (`the_dacl_holds_two_entries`); the connecting process must be
+      `RUSTIC_ISLES_LAUNCHER_PID`; the only accepted bytes are the exact fence for this session and generation, at
+      most 511 bytes. Anything else fences the host (fail closed): a wrong client can end a host, never steer it.
+- [ ] The fence ends the process (exit 0) on the next frame, and within 5 s from the control thread (`0xE105`) if the
+      game thread does not tick.
+- [ ] The ready pipe is opened with `SECURITY_SQOS_PRESENT | SECURITY_IDENTIFICATION`, so the launcher's end cannot
+      impersonate the game process; the message carries session, generation, launch id, port and `bind=127.0.0.1`,
+      no secret.
+- [ ] A listen that fails, or a readiness report that fails, fences the host.
+- [ ] Never logged by R10: the capability, the session id, the launch id (it shares its random part with the pipe
+      names), the pipe names, the launcher pid, a client's pid. `Bootstrap`'s `Debug` prints the role only.
+- [ ] No `MYSTICPARADOX_*` variable is read or written; the alias is gone (RT-8), and a test reads the runtime crates'
+      sources for the old names (`no_mystic_paradox_names_in_the_runtime_sources`).
+- [ ] Fuzzed by `rustic_isles_runtime_player_host`: the bootstrap check never panics, a `Valid` verdict meets every
+      grammar, and `is_fence` holds only for the exact request bytes.
 
 ### Logging
 

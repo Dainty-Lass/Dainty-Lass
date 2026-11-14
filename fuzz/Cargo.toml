@@ -74,7 +74,7 @@ rustic-isles-store = { path = "../crates/rustic-isles-store" }
 rustic-isles-chat = { path = "../crates/rustic-isles-chat" }
 # rustic_isles_replay_input: the capture lines, target answers and key maps the shadow replay harness reads (RD27)
 rustic-isles-replay = { path = "../crates/rustic-isles-replay" }
-# rustic_isles_runtime_config: the backend address and launch arguments the MIT game runtime reads (R1)
+# rustic_isles_runtime_config: the backend address and launch arguments the MIT game runtime reads (R1); rustic_isles_runtime_player_host: the player host bootstrap and control pipe (R10)
 rustic-isles-runtime-core = { path = "../crates/rustic-isles-runtime-core" }
 # rustic_isles_characters_data: the character data, loadout writes and stored items Rustic Isles' characters read (RD27)
 rustic-isles-characters = { path = "../crates/rustic-isles-characters" }
@@ -736,6 +736,13 @@ bench = false
 [[bin]]
 name = "rustic_isles_runtime_config"
 path = "fuzz_targets/rustic_isles_runtime_config.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "rustic_isles_runtime_player_host"
+path = "fuzz_targets/rustic_isles_runtime_player_host.rs"
 test = false
 doc = false
 bench = false

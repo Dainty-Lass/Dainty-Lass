@@ -36,8 +36,8 @@ pub const STRIPPED_PREFIXES: [&str; 5] = [
 /// The variables naming the local backend: the runtime reads `RUSTIC_ISLES_BACKEND_URL` first, and one built
 /// before the 2026-11-06 rename knows no `DAINTY_` name.
 pub const BACKEND_URL_VARS: [&str; 2] = ["DAINTY_BACKEND_URL", "RUSTIC_ISLES_BACKEND_URL"];
-/// The variables naming the runtime build; the runtime reads either.
-pub const PROFILE_VARS: [&str; 2] = ["RUSTIC_ISLES_RUNTIME_PROFILE", "MYSTICPARADOX_RUNTIME_PROFILE"];
+/// The variable naming the runtime build (RT-8 dropped the `MYSTICPARADOX_` copy; the prefix is still stripped).
+pub const PROFILE_VARS: [&str; 1] = ["RUSTIC_ISLES_RUNTIME_PROFILE"];
 /// The DirectX files the game needs in System32.
 pub const DIRECTX_FILES: [&str; 3] = ["XINPUT1_3.dll", "X3DAudio1_7.dll", "XAPOFX1_5.dll"];
 /// The exit code of a game whose console was closed or sent Ctrl+C: not a failure.
@@ -762,7 +762,6 @@ mod tests {
         ];
         let env = launch_env(base, "http://127.0.0.1:61000", RuntimeProfile::Production).unwrap();
         let expected: BTreeMap<String, String> = [
-            ("MYSTICPARADOX_RUNTIME_PROFILE", "production"),
             ("PATH", "/bin"),
             ("DAINTY_BACKEND_URL", "http://127.0.0.1:61000"),
             ("REFORGEDX", "kept"),
@@ -783,10 +782,10 @@ mod tests {
     }
 
     #[test]
-    fn development_profile_reaches_both_variables() {
+    fn development_profile_reaches_the_runtime() {
         let env = launch_env([("A", "b")], "http://127.0.0.1:5", RuntimeProfile::Development).unwrap();
         assert_eq!(env["RUSTIC_ISLES_RUNTIME_PROFILE"], "development");
-        assert_eq!(env["MYSTICPARADOX_RUNTIME_PROFILE"], "development");
+        assert!(!env.contains_key("MYSTICPARADOX_RUNTIME_PROFILE"));
     }
 
     #[test]

@@ -47,14 +47,14 @@ impl FString {
 }
 
 /// A NUL-terminated buffer of R2's own, lent to `GetHeader`/`SetHeader` for one call (they copy it).
-struct Lent(Vec<u16>);
+pub(super) struct Lent(Vec<u16>);
 
 impl Lent {
-    fn new(text: &[u16]) -> Self {
+    pub(super) fn new(text: &[u16]) -> Self {
         Self(text.iter().copied().chain(std::iter::once(0)).collect())
     }
 
-    fn of(text: &str) -> Self {
+    pub(super) fn of(text: &str) -> Self {
         Self(text.encode_utf16().chain(std::iter::once(0)).collect())
     }
 
@@ -105,14 +105,14 @@ fn utf16(bytes: &[u8]) -> Vec<u16> {
         .collect()
 }
 
-struct Url {
+pub(super) struct Url {
     data: usize,
     max: i32,
-    text: Vec<u16>,
+    pub(super) text: Vec<u16>,
 }
 
 /// The request's URL (R2 4.1), or `None` when any check fails.
-fn read_url(request: usize) -> Option<Url> {
+pub(super) fn read_url(request: usize) -> Option<Url> {
     if !readable(request, layout::HTTP_REQUEST_SIZE) {
         return None;
     }
@@ -133,7 +133,7 @@ fn read_url(request: usize) -> Option<Url> {
 }
 
 /// The in-flight word is `1` (`None` when the request is unreadable).
-fn in_flight(request: usize) -> Option<bool> {
+pub(super) fn in_flight(request: usize) -> Option<bool> {
     if !readable(request, layout::HTTP_REQUEST_SIZE) {
         return None;
     }
@@ -149,7 +149,7 @@ fn vtable_slot(request: usize, index: usize) -> Option<usize> {
     read::<usize>(vtable + index * 8).filter(|&slot| slot != 0)
 }
 
-fn set_header(request: usize, name: &Lent, value: &Lent) -> bool {
+pub(super) fn set_header(request: usize, name: &Lent, value: &Lent) -> bool {
     let Some(slot) = vtable_slot(request, layout::HTTP_SET_HEADER_SLOT) else {
         return false;
     };

@@ -95,7 +95,7 @@ const TURN_SECRETS: &str = "turn_username=1700000000:local\nturn_credential=loca
 /// The 32 hex digits a host flow drew, from its launch id.
 fn draw(rig: &Rig, session: &SessionId) -> String {
     let environment = rig.hosting().session_launch_environment(session).unwrap();
-    environment["RUSTIC_RIFTS_GAMESERVER_LAUNCH_ID"]
+    environment["RUSTIC_ISLES_GAMESERVER_LAUNCH_ID"]
         .strip_prefix("host-")
         .unwrap()
         .to_owned()
@@ -156,24 +156,24 @@ fn hosting_end_to_end_with_the_default_backend() {
         assert_eq!(std::fs::metadata(&hub_dir).unwrap().permissions().mode() & 0o777, 0o700);
     }
     let environment = hosting.session_launch_environment(&hub.session).unwrap();
-    assert_eq!(environment["RUSTIC_RIFTS_AUTH_MODE"], "HUNT_CAPABILITY");
-    assert_eq!(environment["RUSTIC_RIFTS_BIND_ADDRESS"], "127.0.0.1");
-    assert_eq!(environment["RUSTIC_RIFTS_HOSTED_ROLE"], "HUB");
-    assert_eq!(environment["RUSTIC_RIFTS_MAX_PLAYERS"], "16");
-    assert_eq!(environment["RUSTIC_RIFTS_HUB_AFK_SECONDS"], "300");
-    assert_eq!(environment["RUSTIC_RIFTS_SESSION_ID"], wire);
-    assert_eq!(environment["RUSTIC_RIFTS_LAUNCHER_PID"], std::process::id().to_string());
+    assert_eq!(environment["RUSTIC_ISLES_AUTH_MODE"], "HUNT_CAPABILITY");
+    assert_eq!(environment["RUSTIC_ISLES_BIND_ADDRESS"], "127.0.0.1");
+    assert_eq!(environment["RUSTIC_ISLES_HOSTED_ROLE"], "HUB");
+    assert_eq!(environment["RUSTIC_ISLES_MAX_PLAYERS"], "16");
+    assert_eq!(environment["RUSTIC_ISLES_HUB_AFK_SECONDS"], "300");
+    assert_eq!(environment["RUSTIC_ISLES_SESSION_ID"], wire);
+    assert_eq!(environment["RUSTIC_ISLES_LAUNCHER_PID"], std::process::id().to_string());
     for cleared in CLEARED_VARIABLES {
         assert!(!environment.contains_key(cleared));
     }
-    assert!(!environment.contains_key("RUSTIC_RIFTS_TRIALS_WEEK"));
+    assert!(!environment.contains_key("RUSTIC_ISLES_TRIALS_WEEK"));
     let x = draw(&rig, &hub.session);
     assert_eq!(
-        environment["RUSTIC_RIFTS_READY_PIPE"],
+        environment["RUSTIC_ISLES_READY_PIPE"],
         format!(r"\\.\pipe\RusticInternalServer.ready.{x}")
     );
     assert_eq!(
-        environment["RUSTIC_RIFTS_GUARD_PIPE"],
+        environment["RUSTIC_ISLES_GUARD_PIPE"],
         format!(r"\\.\pipe\RusticHuntGuard.events.{x}")
     );
     let (program, arguments, _) = rig.spawner.spawned.lock().unwrap()[0].clone();
@@ -198,10 +198,10 @@ fn hosting_end_to_end_with_the_default_backend() {
     let hunt = poll_once(hosting.host_hunt(account(), session(HUNT))).unwrap().unwrap();
     assert_eq!(hunt.role, HostedRole::Hunt);
     let environment = hosting.session_launch_environment(&hunt.session).unwrap();
-    assert_eq!(environment["RUSTIC_RIFTS_TRIALS_WEEK"], "001");
-    assert_eq!(environment["RUSTIC_RIFTS_HOSTED_ROLE"], "HUNT");
+    assert_eq!(environment["RUSTIC_ISLES_TRIALS_WEEK"], "001");
+    assert_eq!(environment["RUSTIC_ISLES_HOSTED_ROLE"], "HUNT");
     for name in LAUNCH_VARIABLES {
-        let hub_only = name == "RUSTIC_RIFTS_MAX_PLAYERS" || name == "RUSTIC_RIFTS_HUB_AFK_SECONDS";
+        let hub_only = name == "RUSTIC_ISLES_MAX_PLAYERS" || name == "RUSTIC_ISLES_HUB_AFK_SECONDS";
         assert_eq!(environment.contains_key(name), !hub_only, "{name}");
     }
     assert_eq!(hosting.session_local_port(&hunt.session), Some(8791));

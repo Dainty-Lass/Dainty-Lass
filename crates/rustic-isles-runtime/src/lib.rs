@@ -15,6 +15,8 @@ pub mod listen;
 #[cfg(minhook)]
 pub mod login;
 #[cfg(minhook)]
+pub mod player_host;
+#[cfg(minhook)]
 pub mod widgets;
 
 /// Every raw pointer read, Win32 call, MinHook call, detour body and C export (RT-1).

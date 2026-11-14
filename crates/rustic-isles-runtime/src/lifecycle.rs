@@ -27,7 +27,6 @@ pub fn init() {
         return;
     }
     flags::init();
-    config::run_alias();
     config::resolve_backend();
     let Ok(role) = config::resolve_role() else {
         // A full launch whose port is refused ends here, before any hook, with nothing logged (loader lock)
@@ -43,6 +42,7 @@ pub fn init() {
     exit::register();
     if server {
         crate::headless::register();
+        crate::player_host::register();
     }
     let listen = if server {
         crate::listen::install(base, initialized)
@@ -72,6 +72,7 @@ pub fn init() {
         installs.push(chain("SP-2", dispatch::install_sp2));
         installs.push(chain("SP-3", dispatch::install_sp3));
         installs.push(chain("HTTP-1", http::install));
+        installs.push(crate::player_host::install_header(base, hooks_off));
         installs.extend(listen);
         installs.push(exit::install_engine_error(base, hooks_off));
         installs.push(exit::install_crash_wait());

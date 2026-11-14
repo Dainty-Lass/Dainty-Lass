@@ -19,6 +19,7 @@ pub mod names;
 pub mod offsets;
 pub mod patch;
 pub mod pdata;
+pub mod player_host;
 pub mod reflect;
 pub mod registry;
 pub mod weak;

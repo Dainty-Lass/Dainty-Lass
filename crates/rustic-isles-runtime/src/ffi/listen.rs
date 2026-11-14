@@ -363,7 +363,7 @@ mod tests {
     }
 
     #[test]
-    fn ready_lines_reach_stdout_in_order() {
+    fn ready_line_reaches_stdout() {
         use rustic_isles_runtime_core::listen::ready_lines;
         use std::io::Read;
         let (mut reader, mut writer) = (std::ptr::null_mut(), std::ptr::null_mut());
@@ -382,8 +382,7 @@ mod tests {
         unsafe { File::from_raw_handle(reader) }
             .read_to_string(&mut got)
             .unwrap();
-        assert_eq!(got, lines.concat());
-        assert!(got.starts_with("RUSTIC_ISLES_GAMESERVER_READY launchId=0f-1a port=8780\r\nMYSTICPARADOX_"));
+        assert_eq!(got, "RUSTIC_ISLES_GAMESERVER_READY launchId=0f-1a port=8780\r\n");
     }
 
     #[test]
