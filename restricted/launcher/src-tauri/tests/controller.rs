@@ -1549,16 +1549,14 @@ async fn import_sdk_takes_the_newest_dump_and_multipliers_are_private_only() {
     let ws = host_workspace(&hx.temp().join("DaintyLass"));
     hx.pick("workspace", &ws);
     assert_eq!(hx.c.host_choose_workspace().await, ActionResult::Ok);
-    // The stand-in fails every command it lacks with an Error: line, which is the page's detail
-    assert_eq!(
-        hx.c.host_action(HostAction::ImportSdk).await,
-        host_error("the fake host kit has no `upstream`")
-    );
+    // A release folder has no exporter to build against the SDK
+    assert_eq!(hx.c.host_action(HostAction::ImportSdk).await, host_error("workspace"));
 
-    // Rustic Isles's source is in the checkout (RD1)
-    let source = dainty_launcher_kit::platform::hostkit::WorkspacePaths::new(&ws).runtime_source;
-    std::fs::create_dir_all(&source).unwrap();
-    std::fs::write(source.join("dllmain.cpp"), b"//").unwrap();
+    // A checkout is recognised by the MIT exporter's crate
+    let paths = dainty_launcher_kit::platform::hostkit::WorkspacePaths::new(&ws);
+    std::fs::create_dir_all(&paths.exporter_crate).unwrap();
+    std::fs::write(paths.exporter_crate.join("Cargo.toml"), b"[workspace]").unwrap();
+    let source = paths.sdk_root;
     assert_eq!(hx.c.host_action(HostAction::ImportSdk).await, host_error("no_dump"));
     let dump = hx.user.path().join("dumps").join("Dauntless-1.14.7").join("CppSDK");
     std::fs::create_dir_all(dump.join("SDK")).unwrap();

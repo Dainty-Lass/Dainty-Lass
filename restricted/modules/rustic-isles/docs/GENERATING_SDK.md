@@ -4,9 +4,10 @@ Dainty Lass's CatalogExporter (`native/rustic-isles-exporter` at the checkout's 
 generated from your own compatible game installation. No
 game-derived SDK is distributed in this repository. The game runtime no longer needs it: since R21 it is the MIT
 `rustic-isles-runtime.dll`, built with cargo at the monorepo root, and the C++ runtime that once lived in
-native/runtime was deleted (its last commit is the tag `agpl-runtime-final`). The folder native/runtime now only
-holds this SDK, where the CatalogExporter's build looks for it (`DAINTY_SDK_DIR`). Mystic Paradox's C++ exporter
-that once lived in native/catalog-exporter was deleted too (tag `agpl-catalog-exporter-final`).
+native/runtime was deleted (its last commit is the tag `agpl-runtime-final`). The SDK now goes in `.workspace\sdk` at
+the checkout's root (not under `restricted/`), where the Host page's **Import SDK** puts it and the CatalogExporter's
+build reads it (`DAINTY_SDK_DIR`). Mystic Paradox's C++ exporter that once lived in native/catalog-exporter was
+deleted too (tag `agpl-catalog-exporter-final`).
 
 > [!NOTE]
 > This guide is for Dauntless 1.14.7, which `main` targets. For 1.12.0, follow the guide on the
@@ -33,11 +34,11 @@ change.
 1. Build [Dumper-7](https://github.com/Encryqed/Dumper-7).
 2. Start your own 1.14.7 game installation.
 3. Inject Dumper-7 into that process and wait for the complete CppSDK output.
-4. Copy the entire CppSDK output into native/runtime (create the folder).
+4. Copy the entire CppSDK output into `.workspace\sdk` at the checkout's root (or use the Host page's **Import SDK**).
 
 Expected layout:
 
-    native\runtime\
+    .workspace\sdk\
       SDK\
         ...per-package headers...
         ...generated *_functions.cpp files...
@@ -51,11 +52,11 @@ Expected layout:
 Do not copy only SDK.hpp or only headers. The generated implementation files under SDK are compiled
 by the CatalogExporter's build and must be present.
 
-Quick checks from the repository root:
+Quick checks from the checkout's root:
 
-    Test-Path native\runtime\SDK.hpp
-    Test-Path native\runtime\SDK
-    (Get-ChildItem native\runtime\SDK -Filter '*_functions.cpp').Count
+    Test-Path .workspace\sdk\SDK.hpp
+    Test-Path .workspace\sdk\SDK
+    (Get-ChildItem .workspace\sdk\SDK -Filter '*_functions.cpp').Count
 
 The final count must be greater than zero.
 
@@ -65,7 +66,7 @@ source.
 ## Build CatalogExporter
 
 The CatalogExporter is Dainty Lass's MIT Rust crate `native/rustic-isles-exporter`, built with cargo against the
-SDK in native/runtime. The Host page's **Build the CatalogExporter**, **Start the game with CatalogExporter** and
+SDK in `.workspace\sdk`. The Host page's **Build the CatalogExporter**, **Start the game with CatalogExporter** and
 **Copy the exports** steps build it, inject it and bring its `Items_Analysis` exports into `reference.14.7`.
 Section 3 of Dainty Lass's [SDK and game data guide](../../../../docs/sdk-and-game-data.md) gives the commands to do
 it by hand and the exports it writes.
