@@ -19,9 +19,11 @@ brings the results over (`restricted/docs/hosting-linux.md`). Every path below i
 
 Dump the SDK with [Dumper-7](https://github.com/Encryqed/Dumper-7) from your own 1.14.7 client: the Host page
 injects the Dumper-7 DLL into the game it starts (only that game, RD9), or do it by hand
-as Dumper-7 documents. The dump is a `CppSDK` folder with `SDK.hpp` inside. Import it into
-`modules/rustic-isles/native/runtime` (the Host page's **Import SDK**, or copy it there as the folder's `BUILD.md` says).
-`doctor` reports the SDK as imported once it sees the generated `*_functions.cpp` files.
+as Dumper-7 documents. The dump is a `CppSDK` folder with `SDK.hpp` inside. The Host page's **Import SDK**
+copies what is inside it into `.workspace/sdk` at the checkout's root (not under `restricted/`), replacing an
+earlier import, and the CatalogExporter is built from there. Copied by hand, `.workspace/sdk` holds `SDK.hpp` and
+the `SDK` folder directly. An SDK imported before 2026-11-13 went to
+`restricted/modules/rustic-isles/native/runtime`, which nothing reads any more: import it again.
 
 Build Dumper-7 at commit `3a57413` (main as of 2026-10-17) or older. From `42f37f6` (merged into main on
 2026-10-26 as PR #588) it writes each function's lookup with its class's name instead of the function's, for
@@ -31,8 +33,8 @@ soon as a player joins Ramsgate. The fix is upstream PR #592, still open on 2026
 fine once it is merged. The launcher's **Import SDK** repairs such a dump on the way in and logs how many
 lookups it rewrote; an SDK copied in by hand is not repaired, so dump it again with a good Dumper-7.
 
-The SDK is Phoenix Labs' material: never commit it, never share it. `.gitignore` refuses `CppSDK/` and
-`SDK.hpp`.
+The SDK is Phoenix Labs' material: never commit it, never share it. `.gitignore` refuses `.workspace/`,
+`CppSDK/` and `SDK.hpp`.
 
 ## 2. The runtime
 
@@ -68,7 +70,7 @@ them from the game folder into `modules/rustic-isles/reference/1.14.7/Items_Anal
 root:
 
 ```powershell
-$env:DAINTY_SDK_DIR = "$PWD\restricted\modules\rustic-isles\native\runtime"
+$env:DAINTY_SDK_DIR = "$PWD\.workspace\sdk"
 cargo build --release --target x86_64-pc-windows-msvc --manifest-path native\rustic-isles-exporter\Cargo.toml -p catalog-exporter-dll
 dainty-launcher export --wait   # loads native\rustic-isles-exporter\target\x86_64-pc-windows-msvc\release\CatalogExporter.dll
 ```

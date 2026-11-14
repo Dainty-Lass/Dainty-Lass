@@ -335,7 +335,7 @@
     "open": "Abrir",
     "folders": {
       "workspace": "Workspace",
-      "runtime_source": "Código do runtime",
+      "runtime_source": "SDK",
       "dumps": "Dumps",
       "game_data": "Dados do jogo",
       "runtime_publish": "Runtime publicado",

@@ -21,7 +21,7 @@ The layouts come from the host's own Dumper-7 SDK at build time (spec §9); noth
 `DAINTY_SDK_DIR` at the folder that holds the dump's `.hpp` files (searched six levels deep):
 
 ```powershell
-$env:DAINTY_SDK_DIR = 'C:\path\to\the\runtime\SDK'
+$env:DAINTY_SDK_DIR = "$PWD\..\..\.workspace\sdk"   # where the Host page's Import SDK puts it
 cargo build --release --target x86_64-pc-windows-msvc -p catalog-exporter-dll
 ```
 
@@ -58,7 +58,7 @@ page, the imported SDK and a local server.
 
    ```powershell
    $env:RUSTIC_ISLES_EXPORT_ROOT = 'C:\dl-diff\new'
-   $env:DAINTY_SDK_DIR = (Resolve-Path restricted\modules\rustic-isles\native\runtime).Path
+   $env:DAINTY_SDK_DIR = (Resolve-Path .workspace\sdk).Path
    cargo build --release --target x86_64-pc-windows-msvc --manifest-path native\rustic-isles-exporter\Cargo.toml -p catalog-exporter-dll
    Copy-Item native\rustic-isles-exporter\target\x86_64-pc-windows-msvc\release\CatalogExporter.dll C:\dl-diff\CatalogExporter-new.dll
    Remove-Item Env:RUSTIC_ISLES_EXPORT_ROOT

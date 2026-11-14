@@ -3161,7 +3161,7 @@ pub fn build_env_files(c: &HostConfig, s: &Secrets, p: &Paths, source_commit: &s
         "DAINTY_BACKEND_URL",
         format!("http://127.0.0.1:{}", own.backend),
     );
-    // What the runtime reads first, in every build (dllmain.cpp's kBackendUrlVariables)
+    // What the runtime reads first (rustic-isles-runtime-core's config::backend::PRIMARY)
     push(
         &mut director,
         "RUSTIC_ISLES_BACKEND_URL",

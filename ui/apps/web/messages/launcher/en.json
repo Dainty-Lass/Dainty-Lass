@@ -335,7 +335,7 @@
     "open": "Open",
     "folders": {
       "workspace": "Workspace",
-      "runtime_source": "Runtime source",
+      "runtime_source": "SDK",
       "dumps": "Dumps",
       "game_data": "Game data",
       "runtime_publish": "Published runtime",

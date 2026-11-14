@@ -22,9 +22,9 @@ use crate::bridge::types::{
 };
 use crate::platform::hostkit::{
     self, BACKEND_GAME_DATA, DIRECTOR_GAME_DATA, EXPORT_FLAGS, HOST_BINARY, Toolchain, WorkspacePaths, copy_tree,
-    detect_game_data, detect_host_kit, exporter_build_args, find_dumps, find_toolchain, invite_line, is_workspace,
-    last_json, pack_written, published_version, read_server_config, run_logged, run_logged_env, runtime_build_args,
-    update_check, update_done, update_failure,
+    detect_game_data, detect_host_kit, exporter_build_args, find_dumps, find_toolchain, invite_line, is_checkout,
+    is_workspace, last_json, pack_written, published_version, read_server_config, run_logged, run_logged_env,
+    runtime_build_args, update_check, update_done, update_failure,
 };
 use crate::platform::hostserver::{CommandOutput, EmbeddedServer, HostServer, HostTool, Probe};
 use crate::platform::inject::{self, InjectDll};
@@ -626,7 +626,7 @@ impl Controller {
         } else {
             return self.refuse_with("sdk_folder");
         };
-        if let Err(refused) = self.ensure_runtime_source(&workspace).await {
+        if let Err(refused) = self.ensure_checkout(&workspace) {
             return refused;
         }
         let name = sdk
@@ -642,43 +642,28 @@ impl Controller {
         self.ensure_host_workspace(false).await
     }
 
-    /// The runtime's C++ source, fetched by the host kit when it is not there yet.
-    async fn ensure_runtime_source(&self, workspace: &Path) -> Result<(), ActionResult> {
-        let paths = WorkspacePaths::new(workspace);
-        let present = || paths.runtime_source.join("dllmain.cpp").is_file();
-        if present() {
-            return Ok(());
+    /// The SDK and the native builds need a source checkout; a release has nothing to build them from (R21 deleted
+    /// the C++ runtime source the host kit once fetched).
+    fn ensure_checkout(&self, workspace: &Path) -> Result<(), ActionResult> {
+        if is_checkout(workspace) {
+            Ok(())
+        } else {
+            Err(self.refuse_with(hostkit::SdkError::NoCheckout.code()))
         }
-        let work = async {
-            self.kit_step(workspace, args(&["upstream"]), "upstream")
-                .await
-                .map(|_| None)
-        };
-        let answer = self
-            .run_job(HostJobKind::Upstream, None, Some(paths.launcher_log("upstream")), work)
-            .await;
-        if answer != ActionResult::Ok {
-            return Err(answer);
-        }
-        if !present() {
-            return Err(self.refuse_with("upstream_old"));
-        }
-        log::info("host: the runtime source was fetched");
-        Ok(())
     }
 
     async fn import_sdk(&self, workspace: &Path, dir: PathBuf, name: String) -> ActionResult {
-        let runtime = WorkspacePaths::new(workspace).runtime_source;
+        let paths = WorkspacePaths::new(workspace);
         let work = async {
             let from = dir.clone();
-            match tokio::task::spawn_blocking(move || hostkit::import_sdk(&from, &runtime)).await {
+            match tokio::task::spawn_blocking(move || hostkit::import_sdk(&from, &paths)).await {
                 Ok(Ok(hostkit::SdkImport {
                     function_files: files,
                     repaired_lookups,
                 })) => {
                     if repaired_lookups > 0 {
                         log::info(format!(
-                            "host: SDK {name}: repaired {repaired_lookups} function lookups that named the class                              instead of the function (Dumper-7 42f37f6)"
+                            "host: SDK {name}: repaired {repaired_lookups} function lookups that named the class instead of the function (Dumper-7 42f37f6)"
                         ));
                     }
                     log::info(format!("host: SDK {name} imported ({files} files)"));
@@ -706,9 +691,10 @@ impl Controller {
             Ok(workspace) => workspace,
             Err(refused) => return refused,
         };
-        let needs_source = matches!(action, HostAction::ImportSdk | HostAction::BuildLoader)
-            || (!self.embedded() && matches!(action, HostAction::SyntheticData | HostAction::GenerateGamedata));
-        if needs_source && let Err(refused) = self.ensure_runtime_source(&workspace).await {
+        // Game data is generated in-process by the host kit, from a release as from a checkout
+        if matches!(action, HostAction::ImportSdk | HostAction::BuildLoader)
+            && let Err(refused) = self.ensure_checkout(&workspace)
+        {
             return refused;
         }
         let paths = WorkspacePaths::new(&workspace);
@@ -827,7 +813,7 @@ impl Controller {
         }
         let log_file = paths.logs.join("build_exporter.log");
         let env = [
-            ("DAINTY_SDK_DIR", Some(paths.runtime_source.as_path())),
+            ("DAINTY_SDK_DIR", Some(paths.sdk_root.as_path())),
             ("RUSTIC_ISLES_EXPORT_ROOT", None),
             // The log is a file: cargo's progress bar would only fill it with redrawn lines
             ("CARGO_TERM_PROGRESS_WHEN", Some(Path::new("never"))),
@@ -1030,7 +1016,7 @@ impl Controller {
             };
             let paths = WorkspacePaths::new(&workspace);
             match folder {
-                HostFolder::RuntimeSource => paths.runtime_source,
+                HostFolder::RuntimeSource => paths.sdk_root,
                 HostFolder::GameData => paths
                     .backend_game_data
                     .parent()
