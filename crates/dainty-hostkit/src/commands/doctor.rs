@@ -53,6 +53,6 @@ mod tests {
         })
         .unwrap();
         assert_eq!(code, ExitCode::FAILURE);
-        assert!(lines.iter().any(|l| l.contains("host.toml is missing")));
+        assert!(lines.iter().any(|l| l.contains("settings.toml is missing")));
     }
 }

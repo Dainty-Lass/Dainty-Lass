@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Silent Spud
 
-//! The Reforged Node-kit upgrade (spec §11): `host.json` to `host.toml`, MongoDB into the 1.14.7 database,
+//! The Reforged Node-kit upgrade (spec §11): `host.json` to `settings.toml`, MongoDB into the 1.14.7 database,
 //! the old folders' contents to where Dainty Lass looks, and `secrets.env` checked. Each step finishes before
 //! the next, so a failure leaves the rest as it was.
 
@@ -31,7 +31,7 @@ struct Layout {
     root: PathBuf,
     config: PathBuf,
     host_json: PathBuf,
-    host_toml: PathBuf,
+    settings_toml: PathBuf,
     mongo_data: PathBuf,
 }
 
@@ -42,7 +42,7 @@ impl Layout {
         Self {
             root: root.to_path_buf(),
             host_json: config.join("host.json"),
-            host_toml: config.join("host.toml"),
+            settings_toml: config.join("settings.toml"),
             mongo_data: workspace.join("mongodb"),
             config,
         }
@@ -80,10 +80,10 @@ fn upgrade(args: &ImportArgs) -> Result<Report, ImportError> {
     } else {
         None
     };
-    let toml_exists = layout.host_toml.exists();
+    let toml_exists = layout.settings_toml.exists();
     if json_text.is_none() && !toml_exists {
         return Err(ImportError::Invalid(format!(
-            "{}: no .workspace/config/host.json or host.toml, so not a Reforged install",
+            "{}: no .workspace/config/host.json or settings.toml, so not a Reforged install",
             layout.root.display()
         )));
     }
@@ -99,35 +99,36 @@ fn upgrade(args: &ImportArgs) -> Result<Report, ImportError> {
     folders(args, &layout, data, &mut report)?;
     secrets(args, &layout, data, &mut report)?;
 
-    // 6. host.toml
+    // 6. settings.toml
     if let Some(converted) = converted {
         if !args.dry_run {
-            let partial = layout.config.join("host.toml.partial");
+            let partial = layout.config.join("settings.toml.partial");
             std::fs::write(&partial, &converted.toml).map_err(io(&partial))?;
-            std::fs::rename(&partial, &layout.host_toml).map_err(io(&layout.host_toml))?;
+            std::fs::rename(&partial, &layout.settings_toml).map_err(io(&layout.settings_toml))?;
             let bak = layout.config.join("host.json.bak");
             if bak.exists() {
                 std::fs::remove_file(&bak).map_err(io(&bak))?;
             }
             std::fs::rename(&layout.host_json, &bak).map_err(io(&layout.host_json))?;
         }
-        report.count("host.toml");
-        report.note("host.json is now host.toml; the old file is kept as host.json.bak");
+        report.count("settings.toml");
+        report.note("host.json is now settings.toml; the old file is kept as host.json.bak");
         if !converted.dropped.is_empty() {
             report.note(format!(
-                "left out of host.toml (1.4.4, 1.12 or unknown): {}",
+                "left out of settings.toml (1.4.4, 1.12 or unknown): {}",
                 converted.dropped.join(", ")
             ));
         }
         if converted.legacy_only {
             report.note(
-                "this server ran only Dauntless 1.4.4: set game_dir in host.toml to a 1.14.7 install before setup",
+                "this server ran only Dauntless 1.4.4: set game_dir in settings.toml to a 1.14.7 install before setup",
             );
         }
     } else {
-        report.same("host.toml");
+        report.same("settings.toml");
         if json_text.is_some() {
-            report.note("host.toml is already there, so host.json was left as it is: delete it once you've checked");
+            report
+                .note("settings.toml is already there, so host.json was left as it is: delete it once you've checked");
         }
     }
 
@@ -139,7 +140,7 @@ fn upgrade(args: &ImportArgs) -> Result<Report, ImportError> {
             ));
         }
     }
-    report.note("next: run dainty-host setup, which checks host.toml and writes the services' settings");
+    report.note("next: run dainty-host setup, which checks settings.toml and writes the services' settings");
     Ok(report)
 }
 

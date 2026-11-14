@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Silent Spud
 
 //! [`ModuleRegistry`]: the game modules and plugins this server runs (DF3), keyed by game version (DD4),
-//! compiled in or started as their own process (DD5). Only what `host.toml` lists can be loaded
+//! compiled in or started as their own process (DD5). Only what `settings.toml` lists can be loaded
 //! ([`ModuleEntry`]); a second game module for a version already served is refused whichever came first,
 //! the host kit's own stacks included ([`RegistryOptions::taken_versions`]).
 //!
@@ -12,7 +12,7 @@
 //! `start`. The registry is also the modules' [`HostLink`]: their events go on the bus to the modules that
 //! subscribed, their log lines into tracing (target `module`, under the module's name), their home calls
 //! to the node's [`HomeApi`]. A child that dies shows as failed and stays so until it is loaded again, unless
-//! `host.toml` asks for it to be restarted ([`ModuleRegistry::set_restart`], [`RestartPolicy`]).
+//! `settings.toml` asks for it to be restarted ([`ModuleRegistry::set_restart`], [`RestartPolicy`]).
 
 use std::collections::{BTreeMap, VecDeque};
 use std::path::Path;
@@ -56,7 +56,7 @@ impl std::fmt::Debug for ModuleSource {
     }
 }
 
-/// A module `host.toml` lists: the only kind the registry loads.
+/// A module `settings.toml` lists: the only kind the registry loads.
 #[derive(Debug, Clone)]
 pub struct ModuleEntry {
     /// The module's id, also its component name.
@@ -79,7 +79,8 @@ pub struct RegistryOptions {
     pub child: ChildOptions,
     /// The server's own ports, which no module is given
     pub reserved_ports: Vec<(Transport, PortRange)>,
-    /// The host's first choice for a manifest's port of that name, over the manifest's default (host.toml `[ports]`)
+    /// The host's first choice for a manifest's port of that name, over the manifest's default (settings.toml
+    /// `[ports]`)
     pub port_defaults: std::collections::BTreeMap<String, u16>,
     /// Game versions the host kit serves outside the registry, and what serves them
     pub taken_versions: Vec<(GameVersion, String)>,
@@ -187,10 +188,10 @@ pub fn system_environment(vars: impl IntoIterator<Item = (String, String)>) -> V
 /// Why the registry refused or failed a load, unload or call.
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 pub enum RegistryError {
-    /// The id is not in `host.toml`'s `[modules]`.
-    #[error("no module {0} is listed in host.toml ([modules])")]
+    /// The id is not in `settings.toml`'s `[modules]`.
+    #[error("no module {0} is listed in settings.toml ([modules])")]
     NotListed(ModuleId),
-    /// `host.toml` lists the id more than once.
+    /// `settings.toml` lists the id more than once.
     #[error("module {0} is listed twice")]
     ListedTwice(ModuleId),
     /// A service already has the id as its name.
@@ -595,7 +596,7 @@ impl ModuleRegistry {
         Ok(())
     }
 
-    /// Whether `host.toml` lists the module `id` names; false for a string that is no module id.
+    /// Whether `settings.toml` lists the module `id` names; false for a string that is no module id.
     pub fn is_listed(&self, id: &str) -> bool {
         id.parse::<ModuleId>()
             .is_ok_and(|id| lock(&self.inner.state).slots.contains_key(&id))
@@ -606,7 +607,7 @@ impl ModuleRegistry {
         lock(&self.inner.state).slots.values().map(Slot::info).collect()
     }
 
-    /// One listed module; [`RegistryError::NotListed`] when `host.toml` doesn't list it.
+    /// One listed module; [`RegistryError::NotListed`] when `settings.toml` doesn't list it.
     pub fn info(&self, id: &ModuleId) -> Result<ModuleInfo, RegistryError> {
         lock(&self.inner.state)
             .slots
@@ -616,7 +617,7 @@ impl ModuleRegistry {
     }
 
     /// Replaces the `[modules.<id>.<section>]` values the next load lays over the defaults (the server GUI
-    /// saved them to host.toml, DU3). A module that is running keeps what it started with.
+    /// saved them to settings.toml, DU3). A module that is running keeps what it started with.
     pub fn update_settings(
         &self,
         id: &ModuleId,
@@ -1098,13 +1099,13 @@ impl Inner {
         for (section, values) in &entry.settings {
             let Some(registered) = registration.config.iter().find(|s| s.name == *section) else {
                 return Err(refused(format!(
-                    "host.toml has [modules.{id}.{section}], a section it does not read"
+                    "settings.toml has [modules.{id}.{section}], a section it does not read"
                 )));
             };
             for (key, value) in values {
                 if !registered.keys.iter().any(|k| k.name == *key) {
                     return Err(refused(format!(
-                        "host.toml sets {key} in [modules.{id}.{section}], which it does not read"
+                        "settings.toml sets {key} in [modules.{id}.{section}], which it does not read"
                     )));
                 }
                 config

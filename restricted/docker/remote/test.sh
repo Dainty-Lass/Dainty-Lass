@@ -104,8 +104,8 @@ alpha_secrets_sha_before="$(compose exec -T host-alpha sha256sum /opt/dainty-las
 bravo_secrets_sha_before="$(compose exec -T host-bravo sha256sum /opt/dainty-lass/.workspace/config/secrets.env | awk '{print $1}')"
 
 compose exec -T host-controller sh -ec '
-	sed -i "s/^name = .*/name = \"Fleet Friday Hunts\"/" /opt/dainty-lass/.workspace/config/host.toml
-	sed -i "s/^max_hunt_servers = .*/max_hunt_servers = 4/" /opt/dainty-lass/.workspace/config/host.toml
+	sed -i "s/^name = .*/name = \"Fleet Friday Hunts\"/" /opt/dainty-lass/.workspace/config/settings.toml
+	sed -i "s/^max_hunt_servers = .*/max_hunt_servers = 4/" /opt/dainty-lass/.workspace/config/settings.toml
 '
 set_cfg_out="$(compose exec -T host-controller dainty-host remote set-config --json)"
 echo "$set_cfg_out"
@@ -118,14 +118,14 @@ echo "$sync_bravo_2"
 printf '%s\n' "$sync_alpha_2" | grep -q '"applied_revision": 2' || fail "alpha did not pick up revision 2"
 printf '%s\n' "$sync_bravo_2" | grep -q '"applied_revision": 2' || fail "bravo did not pick up revision 2"
 
-alpha_toml="$(compose exec -T host-alpha cat /opt/dainty-lass/.workspace/config/host.toml)"
-bravo_toml="$(compose exec -T host-bravo cat /opt/dainty-lass/.workspace/config/host.toml)"
-printf '%s\n' "$alpha_toml" | grep -q 'name = "Fleet Friday Hunts"' || fail "alpha host.toml missing updated name"
-printf '%s\n' "$alpha_toml" | grep -q 'max_hunt_servers = 4' || fail "alpha host.toml missing updated max_hunt_servers"
-printf '%s\n' "$alpha_toml" | grep -q '203.0.113.21' || fail "alpha host.toml lost its local game_address"
-printf '%s\n' "$bravo_toml" | grep -q 'name = "Fleet Friday Hunts"' || fail "bravo host.toml missing updated name"
-printf '%s\n' "$bravo_toml" | grep -q 'max_hunt_servers = 4' || fail "bravo host.toml missing updated max_hunt_servers"
-printf '%s\n' "$bravo_toml" | grep -q '203.0.113.22' || fail "bravo host.toml lost its local game_address"
+alpha_toml="$(compose exec -T host-alpha cat /opt/dainty-lass/.workspace/config/settings.toml)"
+bravo_toml="$(compose exec -T host-bravo cat /opt/dainty-lass/.workspace/config/settings.toml)"
+printf '%s\n' "$alpha_toml" | grep -q 'name = "Fleet Friday Hunts"' || fail "alpha settings.toml missing updated name"
+printf '%s\n' "$alpha_toml" | grep -q 'max_hunt_servers = 4' || fail "alpha settings.toml missing updated max_hunt_servers"
+printf '%s\n' "$alpha_toml" | grep -q '203.0.113.21' || fail "alpha settings.toml lost its local game_address"
+printf '%s\n' "$bravo_toml" | grep -q 'name = "Fleet Friday Hunts"' || fail "bravo settings.toml missing updated name"
+printf '%s\n' "$bravo_toml" | grep -q 'max_hunt_servers = 4' || fail "bravo settings.toml missing updated max_hunt_servers"
+printf '%s\n' "$bravo_toml" | grep -q '203.0.113.22' || fail "bravo settings.toml lost its local game_address"
 
 alpha_secrets_sha_after="$(compose exec -T host-alpha sha256sum /opt/dainty-lass/.workspace/config/secrets.env | awk '{print $1}')"
 bravo_secrets_sha_after="$(compose exec -T host-bravo sha256sum /opt/dainty-lass/.workspace/config/secrets.env | awk '{print $1}')"

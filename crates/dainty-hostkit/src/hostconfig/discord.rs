@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Silent Spud
 
 //! `[discord]` (module sharing A7): the Discord bot's settings, written into `discord.env` with the token from
-//! secrets.env. The token is never a host.toml field (`setup --discord-bot-token` reads it from stdin).
+//! secrets.env. The token is never a settings.toml field (`setup --discord-bot-token` reads it from stdin).
 //!
 //! ```toml
 //! [discord]
@@ -26,7 +26,7 @@ pub struct DiscordConfig {
     pub application_id: Option<String>,
     /// The guilds it answers in; empty: every guild it is in.
     pub guild_ids: Vec<String>,
-    /// dainty-dash, for whether signups are on; left out: host.toml's `dashboard_url`.
+    /// dainty-dash, for whether signups are on; left out: settings.toml's `dashboard_url`.
     pub dashboard_url: Option<String>,
 }
 
@@ -93,7 +93,7 @@ impl DiscordConfig {
         })
     }
 
-    /// The table host.toml writes.
+    /// The table settings.toml writes.
     #[must_use]
     pub fn to_json(&self) -> Value {
         let mut out = Map::new();

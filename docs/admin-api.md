@@ -11,7 +11,7 @@ it. What it trusts and why is in [security/admin-api.md](security/admin-api.md).
 
 `dainty-host setup` makes its key and writes `.workspace/config/admin.env`. `dainty-host start` runs it in its
 own process after the content server (every release's binary has it; `dainty-host admin serve --env-file <file>`
-runs it alone). In Docker it is the `admin` service in `compose.yaml`. Nothing needs setting in `host.toml`.
+runs it alone). In Docker it is the `admin` service in `compose.yaml`. Nothing needs setting in `settings.toml`.
 
 What it needs, all written by setup:
 
@@ -24,8 +24,8 @@ What it needs, all written by setup:
 | `PORT`, `BIND_HOST` | `admin.env` | 41003, 127.0.0.1. Any non-loopback address stops the start |
 | `BACKEND_URL`, `DAINTY_DIRECTOR_URL` | `admin.env` | `http://127.0.0.1:41000` and `:41001`. Loopback only |
 | `DAINTY_ADMIN_API_TIMEOUTS_FILE` | `admin.env` | `.workspace/config/admin-timeouts.json`, which holds when each timeout ends |
-| `DAINTY_MAX_HUNT_SERVERS`, `DAINTY_SERVER_MODE` | `admin.env` | From `host.toml`, for `huntStatus` and `serverStatus` |
-| `DAINTY_GUARD_*` | `admin.env` | From `[guard]` in `host.toml`, only the ones it sets: when a destructive or bulk action waits (below) |
+| `DAINTY_MAX_HUNT_SERVERS`, `DAINTY_SERVER_MODE` | `admin.env` | From `settings.toml`, for `huntStatus` and `serverStatus` |
+| `DAINTY_GUARD_*` | `admin.env` | From `[guard]` in `settings.toml`, only the ones it sets: when a destructive or bulk action waits (below) |
 
 A host moving from an older setup gets the new secrets on the next `setup` (or `update`). The secrets it already has
 stay as they are.
@@ -259,7 +259,7 @@ does the same through the launcher (`guarded_list`, `guarded_approve`, `guarded_
 it stopped is marked `FAILED` at the next start and never run again, because whether it took effect is not known;
 look at the player or the key, and ask again.
 
-The settings, in `host.toml` (each is left out for its default; nothing needs setting):
+The settings, in `settings.toml` (each is left out for its default; nothing needs setting):
 
 | Key | Default | What |
 | --- | --- | --- |
@@ -275,7 +275,7 @@ The settings, in `host.toml` (each is left out for its default; nothing needs se
 `approval` needs a second person with a key; on a server with one owner key nothing can approve, so it expires.
 Leave the rules on `delay` until the team has two keys of the right role. `dainty-host setup` writes the settings
 into `admin.env` as `DAINTY_GUARD_BAN_LIMIT`, `_BAN_WINDOW_MINUTES`, `_BAN`, `_REVERT_LIMIT`, `_REVERT`, `_REVOKE`,
-`_DELAY_MINUTES` and `_EXPIRE_HOURS`, only the ones `host.toml` sets.
+`_DELAY_MINUTES` and `_EXPIRE_HOURS`, only the ones `settings.toml` sets.
 
 ## History and revert
 

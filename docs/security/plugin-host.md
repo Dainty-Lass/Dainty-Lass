@@ -18,7 +18,7 @@ its files. Loading one is a decision to trust its code fully. The boundary this 
 library's behaviour but **which file gets loaded**, and **that a library which is broken or out of date fails closed**
 rather than corrupting the core.
 
-- **In, the file:** the path `host.toml` names for an external module whose extension is `.dll`, `.so` or `.dylib`,
+- **In, the file:** the path `settings.toml` names for an external module whose extension is `.dll`, `.so` or `.dylib`,
   with its SHA-256 (DD5). Nothing else is loaded.
 - **In, the entry point:** `dainty_plugin_v1`, returning a `PluginV1` vtable with an ABI version.
 - **In, the library's bytes:** through `HostSink::send`, the same hello and frames a child writes to stdout.
@@ -36,7 +36,7 @@ the same frames or the same refusal however they are split). The frames themselv
 - [ ] The file is hashed through a handle opened with `module_api::host::open_pinned`, and loaded while that handle is
   held, so on Windows nobody can write, rename or delete it between the check and the load. On Linux it is loaded
   through `/proc/self/fd`, so a file renamed over it is not the one loaded (`plugin_host::load`).
-- [ ] A file whose SHA-256 differs from `host.toml`'s is never loaded: no initialiser runs
+- [ ] A file whose SHA-256 differs from `settings.toml`'s is never loaded: no initialiser runs
   (`a_library_that_does_not_match_its_pin_is_never_loaded`).
 - [ ] A file that is not a library, or exports no `dainty_plugin_v1`, or returns null, or speaks another ABI version,
   is refused with a reason and nothing of it runs after (`a_file_that_is_not_a_module_library_is_refused`).

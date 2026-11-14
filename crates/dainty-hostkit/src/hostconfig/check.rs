@@ -4,7 +4,7 @@
 //! The early check (RD24 phase 2): the gateway's, the allowlist helper's and content's own loaders run on the
 //! env each would start with, the overrides applied, so a bad value stops `setup` with the service's message
 //! rather than a crash loop at start. The backend's and the Director's loaders take any value; their tables are
-//! checked as host.toml is read (`tunables.rs`).
+//! checked as settings.toml is read (`tunables.rs`).
 
 use dainty_service_kit::env::Env;
 
@@ -41,7 +41,7 @@ fn loader(service: &str) -> Option<Loader> {
     }
 }
 
-/// Where the variable a loader's message names was set: the host.toml key, or the environment.
+/// Where the variable a loader's message names was set: the settings.toml key, or the environment.
 fn hint(service: &str, message: &str, overridden: &[String]) -> String {
     let Some(t) = tunables::table(service) else {
         return String::new();
@@ -52,13 +52,13 @@ fn hint(service: &str, message: &str, overridden: &[String]) -> String {
             .any(|w| w == key)
     };
     if let Some(key) = overridden.iter().find(|k| named(k)) {
-        return format!(" ({key} is set in the environment, over host.toml)");
+        return format!(" ({key} is set in the environment, over settings.toml)");
     }
     t.settings
         .iter()
         .find(|s| named(s.env))
         .and_then(|s| tunables::toml_key(service, s.env))
-        .map_or_else(String::new, |key| format!(" (host.toml: {key})"))
+        .map_or_else(String::new, |key| format!(" (settings.toml: {key})"))
 }
 
 /// One service's file merged with `inherited` as `start` will: its override warnings, and its loader's
@@ -134,12 +134,12 @@ mod tests {
     }
 
     #[test]
-    fn a_bad_value_fails_with_the_service_message_and_its_host_toml_key() {
+    fn a_bad_value_fails_with_the_service_message_and_its_settings_toml_key() {
         let err = check(&files(&[("GATEWAY_MAX_BODY_BYTES", "10")]), &[])
             .unwrap_err()
             .to_string();
         assert!(err.contains("gateway: GATEWAY_MAX_BODY_BYTES must be"), "{err}");
-        assert!(err.contains("(host.toml: gateway.limits.max_body_bytes)"), "{err}");
+        assert!(err.contains("(settings.toml: gateway.limits.max_body_bytes)"), "{err}");
     }
 
     #[test]

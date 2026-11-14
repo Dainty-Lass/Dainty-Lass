@@ -41,7 +41,7 @@ pub struct Config {
     pub operator_secret: String,
     /// The file the timeouts this API set are kept in.
     pub timeouts_file: PathBuf,
-    /// `max_hunt_servers` in host.toml, at most 10.
+    /// `max_hunt_servers` in settings.toml, at most 10.
     pub max_hunt_servers: u32,
     /// How players reach the server.
     pub server_mode: ServerMode,

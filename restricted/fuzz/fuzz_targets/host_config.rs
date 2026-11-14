@@ -1,7 +1,7 @@
-//! The server's settings as `serve` and setup read them (docs/security/controller.md): host.toml,
+//! The server's settings as `serve` and setup read them (docs/security/controller.md): settings.toml,
 //! host.yaml (the kit's own small YAML reader) and a Node kit's host.json. A broken or hostile file is
 //! only ever refused, never a panic or a recursion without end, and a file that is accepted writes back
-//! a host.toml that reads as the same settings.
+//! a settings.toml that reads as the same settings.
 #![no_main]
 
 use dainty_host::hostconfig::{HostConfig, yaml};
@@ -25,7 +25,7 @@ fuzz_target!(|data: &[u8]| {
     let Some(config) = config else {
         return;
     };
-    let written = config.to_toml().expect("an accepted config writes a host.toml");
-    let again = HostConfig::from_toml(&written).expect("the host.toml written reads back");
+    let written = config.to_toml().expect("an accepted config writes a settings.toml");
+    let again = HostConfig::from_toml(&written).expect("the settings.toml written reads back");
     assert_eq!(again.to_toml().expect("and writes the same again"), written);
 });

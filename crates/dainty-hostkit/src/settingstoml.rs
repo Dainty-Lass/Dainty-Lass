@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Silent Spud
 
-//! `host.toml`: the server's settings as the host reads and edits them (docs/config-toml-plan.md,
+//! `settings.toml`: the server's settings as the host reads and edits them (docs/config-toml-plan.md,
 //! phase 1). It holds the same fields as `host.json`, with snake_case keys and no
 //! `null`: a field that would be null is left out.
 //!
@@ -20,7 +20,7 @@ use toml_edit::{DocumentMut, Item, Table, TableLike};
 
 use crate::error::HostError;
 
-/// A key: its name in host.json, its name in host.toml, and whether it may be null (left out).
+/// A key: its name in host.json, its name in settings.toml, and whether it may be null (left out).
 type Field = (&'static str, &'static str, bool);
 
 const TOP: &[Field] = &[
@@ -262,6 +262,8 @@ const DIRECTOR: &[Field] = &[
     ("hubMaxPlayers", "hub_max_players", false),
     ("hubAfkSeconds", "hub_afk_seconds", false),
     ("huntAfkSeconds", "hunt_afk_seconds", false),
+    ("keepSupplyStackCaps", "keep_supply_stack_caps", false),
+    ("cellFusionMinutes", "cell_fusion_minutes", false),
 ];
 
 /// Every key list, for [`message`] and the tests.
@@ -348,16 +350,16 @@ pub(crate) fn snake_case(key: &str) -> String {
 
 // ------------------------------------------------------------------ reading
 
-/// The host.json document a host.toml stands for. Unknown keys are refused, naming the right one when
+/// The host.json document a settings.toml stands for. Unknown keys are refused, naming the right one when
 /// it is a host.json key (`maxHuntServers`: "did you mean max_hunt_servers?").
 pub fn document(text: &str) -> Result<Value, HostError> {
     let doc: DocumentMut = text
         .parse()
-        .map_err(|e| bad(format!("host.toml is not valid TOML: {e}")))?;
+        .map_err(|e| bad(format!("settings.toml is not valid TOML: {e}")))?;
     Ok(Value::Object(object(doc.as_table(), TOP, "", "")?))
 }
 
-/// `prefix` is the table's path as host.toml spells it, `json_prefix` as host.json does, each with a trailing dot.
+/// `prefix` is the table's path as settings.toml spells it, `json_prefix` as host.json does, each with a trailing dot.
 fn object(
     table: &dyn TableLike,
     fields: &[Field],
@@ -396,13 +398,13 @@ fn unknown(key: &str, fields: &[Field], prefix: &str) -> HostError {
     let snake = snake_case(key);
     if let Some(f) = fields.iter().find(|f| f.1 == snake) {
         return bad(format!(
-            "host.toml has no setting {prefix}{key}: did you mean {prefix}{}?",
+            "settings.toml has no setting {prefix}{key}: did you mean {prefix}{}?",
             f.1
         ));
     }
     let known: Vec<String> = fields.iter().map(|f| format!("{prefix}{}", f.1)).collect();
     bad(format!(
-        "host.toml has no setting {prefix}{key} (the settings there are {})",
+        "settings.toml has no setting {prefix}{key} (the settings there are {})",
         known.join(", ")
     ))
 }
@@ -509,7 +511,7 @@ fn free_item(value: &Value, path: &str) -> Result<Item, HostError> {
 }
 
 /// A message of [`validate`](crate::hostconfig::validate), with host.json's key names replaced by
-/// host.toml's (`performance.serverFps` → `performance.server_fps`).
+/// settings.toml's (`performance.serverFps` → `performance.server_fps`).
 pub fn message(text: &str) -> String {
     let mut pairs: Vec<(&str, &str)> = ALL_FIELDS
         .iter()
@@ -523,7 +525,7 @@ pub fn message(text: &str) -> String {
     for (json, toml) in pairs {
         out = out.replace(json, toml);
     }
-    out.replace("host.json", "host.toml")
+    out.replace("host.json", "settings.toml")
 }
 
 // ------------------------------------------------------------------ writing
@@ -537,7 +539,7 @@ pub fn text(fields: &Map<String, Value>, read: &Map<String, Value>, source: Opti
     };
     let mut doc: DocumentMut = source
         .parse()
-        .map_err(|e| bad(format!("host.toml is not valid TOML: {e}")))?;
+        .map_err(|e| bad(format!("settings.toml is not valid TOML: {e}")))?;
     patch(doc.as_table_mut(), fields, read, TOP, "")?;
     Ok(doc.to_string())
 }
@@ -639,7 +641,7 @@ fn scalar(value: &Value, key: &str) -> Result<toml_edit::Value, HostError> {
         Value::Number(n) => match (n.as_i64(), n.as_f64()) {
             (Some(i), _) => Ok(i.into()),
             (None, Some(f)) => Ok(f.into()),
-            (None, None) => Err(bad(format!("{key}: {n} is not a number host.toml can hold"))),
+            (None, None) => Err(bad(format!("{key}: {n} is not a number settings.toml can hold"))),
         },
         _ => Err(bad(format!("{key} must be a single value"))),
     }
@@ -802,7 +804,7 @@ fn comment(path: &str) -> &'static str {
         }
         "remote.label" => "Display label for this install in the controller's Managed installs list.",
         "remote.local_overrides" => {
-            "Managed: dotted host.toml keys this install keeps local even when the controller pushes a shared revision."
+            "Managed: dotted settings.toml keys this install keeps local even when the controller pushes a shared revision."
         }
         "modules" => {
             "The game modules and plugins to load (DF3). compiled lists the compiled-in ones (left out: all of them);\n\
@@ -880,6 +882,12 @@ fn comment(path: &str) -> &'static str {
         "director.hunt_afk_seconds" => {
             "The same on a hunt. Left out: HUNT_AFK_TIMEOUT_SECONDS.txt, else the game's own timeout."
         }
+        "director.keep_supply_stack_caps" => {
+            "true: the game servers keep the game's supply stack caps. Left out: supplies stack without a cap."
+        }
+        "director.cell_fusion_minutes" => {
+            "Minutes a Middleman cell fusion takes on the game servers, 0 (the game's own) to 10080. Left out: 30."
+        }
         "logs" => {
             "The server's console log and where it is shipped (docs/logging.md). Left out: colored text, kept here."
         }
@@ -951,7 +959,7 @@ fn push_comment(out: &mut String, path: &str) {
     }
 }
 
-/// A new host.toml: the header, then each value under what it does. The single values come first and
+/// A new settings.toml: the header, then each value under what it does. The single values come first and
 /// the tables after them, as TOML needs.
 fn fresh(fields: &Map<String, Value>) -> Result<String, HostError> {
     let mut out = String::from(HEADER);
@@ -1117,7 +1125,7 @@ mod tests {
     fn validation_messages_name_the_toml_keys() {
         assert_eq!(
             message("performance.idleFps must be 0 (same as serverFps), in host.json"),
-            "performance.idle_fps must be 0 (same as server_fps), in host.toml"
+            "performance.idle_fps must be 0 (same as server_fps), in settings.toml"
         );
     }
 

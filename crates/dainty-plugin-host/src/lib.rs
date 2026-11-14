@@ -19,7 +19,7 @@ use dainty_module_api::{
 };
 use tokio::sync::mpsc;
 
-/// Whether `host.toml`'s module path names a library rather than an executable.
+/// Whether `settings.toml`'s module path names a library rather than an executable.
 pub fn is_library(path: &Path) -> bool {
     path.extension()
         .and_then(|ext| ext.to_str())

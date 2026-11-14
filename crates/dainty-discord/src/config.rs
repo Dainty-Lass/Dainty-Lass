@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Silent Spud
 
-//! `discord.env`, which `dainty-host setup` writes from host.toml's `[discord]` and secrets.env's
+//! `discord.env`, which `dainty-host setup` writes from settings.toml's `[discord]` and secrets.env's
 //! `DISCORD_BOT_TOKEN` (`crates/dainty-hostkit/src/hostconfig/discord.rs`).
 
 use std::fmt;

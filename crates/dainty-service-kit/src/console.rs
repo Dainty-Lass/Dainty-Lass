@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Silent Spud
 
-//! How a log record reads on the console (`[logs]` in host.toml, `docs/logging.md`). The text form keeps Docker
+//! How a log record reads on the console (`[logs]` in settings.toml, `docs/logging.md`). The text form keeps Docker
 //! Compose's `service | ` prefix, colored per service, then a fixed header a parser can split on:
 //!
 //! ```text
@@ -49,7 +49,7 @@ impl LogFormat {
         }
     }
 
-    /// The name used in host.toml.
+    /// The name used in settings.toml.
     pub fn as_str(self) -> &'static str {
         match self {
             Self::Text => "text",
@@ -81,7 +81,7 @@ impl ColorMode {
         }
     }
 
-    /// The name used in host.toml.
+    /// The name used in settings.toml.
     pub fn as_str(self) -> &'static str {
         match self {
             Self::Auto => "auto",

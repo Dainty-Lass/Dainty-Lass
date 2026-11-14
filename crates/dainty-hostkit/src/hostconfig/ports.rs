@@ -16,7 +16,7 @@ use serde_json::{Map, Value};
 use crate::error::HostError;
 use crate::paths::{PORTS, Ports};
 
-/// The keys `[ports]` takes, as host.json and host.toml both spell them.
+/// The keys `[ports]` takes, as host.json and settings.toml both spell them.
 pub const KEYS: [&str; 8] = [
     "gateway",
     "backend",
@@ -103,7 +103,7 @@ impl PortsConfig {
         })
     }
 
-    /// The table host.toml writes.
+    /// The table settings.toml writes.
     #[must_use]
     pub fn to_json(&self) -> Value {
         let mut copy = *self;

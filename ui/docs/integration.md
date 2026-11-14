@@ -114,7 +114,7 @@ These are changes to the server and the Tauri shells, which this repository does
 
 1. **The backend posts chat.** `realtime/RoomService.ts` and `DirectChatService.ts` would queue each
    delivered stanza and post batches to `/api/ingest/chat`, skipping silently while the dashboard is not
-   configured. A new setting (`dashboard_url`, `dashboard_ingest_key`) goes through `host.toml` and
+   configured. A new setting (`dashboard_url`, `dashboard_ingest_key`) goes through `settings.toml` and
    `secrets.env` as dainty-lass AGENTS.md describes.
 2. **The backend enforces the filter.** Fetch `/api/ingest/chat-filter`, compile it as `filter.ts` does,
    and apply it before delivery.

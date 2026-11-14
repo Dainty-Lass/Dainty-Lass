@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Silent Spud
 
-//! The gateway's self-signed certificate: made once, from host.toml's addresses, and never regenerated, since every
+//! The gateway's self-signed certificate: made once, from settings.toml's addresses, and never regenerated, since every
 //! invite's `fp` is its SHA-256.
 
 use std::net::{IpAddr, Ipv4Addr};
@@ -145,7 +145,7 @@ pub fn generate_self_signed_cert_pem(hosts: &[String]) -> Result<(String, String
     Ok((cert.cert_pem, cert.key_pem))
 }
 
-/// Writes the gateway's certificate and key for host.toml's host and game address unless both are there.
+/// Writes the gateway's certificate and key for settings.toml's host and game address unless both are there.
 /// Returns whether it wrote them; the key is readable by its owner only.
 pub fn write_gateway_cert_if_missing(paths: &Paths, config: &HostConfig) -> Result<bool, HostError> {
     if paths.cert_file.is_file() && paths.key_file.is_file() {

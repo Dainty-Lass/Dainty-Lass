@@ -1026,7 +1026,7 @@ pub fn run_doctor(p: &Paths, opts: &DoctorOptions) -> Result<Vec<Check>, HostErr
         checks.push(Check {
             area: "config",
             level: Level::Fail,
-            text: "server is not configured yet (host.toml is missing)".to_owned(),
+            text: "server is not configured yet (settings.toml is missing)".to_owned(),
             fix: Some("run dainty-host setup".to_owned()),
         });
         return Ok(checks);
@@ -1048,7 +1048,7 @@ pub fn run_doctor(p: &Paths, opts: &DoctorOptions) -> Result<Vec<Check>, HostErr
             format!("[env.{service}] passes {} to {service}.env", keys.join(", ")),
         ));
     }
-    // The environment's overrides of host.toml, and what the services' loaders make of the result (RD24)
+    // The environment's overrides of settings.toml, and what the services' loaders make of the result (RD24)
     let inherited: Vec<(String, String)> = std::env::vars().collect();
     for service in crate::hostconfig::env::SERVICES {
         let path = p.config.join(format!("{service}.env"));
@@ -1065,7 +1065,7 @@ pub fn run_doctor(p: &Paths, opts: &DoctorOptions) -> Result<Vec<Check>, HostErr
                 "config",
                 Level::Fail,
                 refused,
-                "fix the setting in host.toml or the environment, then run dainty-host setup",
+                "fix the setting in settings.toml or the environment, then run dainty-host setup",
             ));
         }
     }
@@ -1336,7 +1336,7 @@ mod tests {
             Check {
                 area: "config",
                 level: Level::Ok,
-                text: "host.toml ok".to_owned(),
+                text: "settings.toml ok".to_owned(),
                 fix: Some("ignored on ok".to_owned()),
             },
             Check {
@@ -1359,7 +1359,7 @@ mod tests {
             lines,
             vec![
                 "\nconfig",
-                "  [ ok ] host.toml ok",
+                "  [ ok ] settings.toml ok",
                 "\ngame",
                 "  [warn] Version.txt missing",
                 "         -> restore Version.txt",

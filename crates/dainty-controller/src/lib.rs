@@ -11,7 +11,7 @@
 //! nothing.
 //!
 //! The game modules and plugins (DD3-DD5) are the [`registry`]'s: keyed by game version, compiled in or
-//! started as their own process from what `host.toml`'s `[modules]` lists, loaded after the services and
+//! started as their own process from what `settings.toml`'s `[modules]` lists, loaded after the services and
 //! unloaded before them, with their ports placed by [`ports`].
 
 pub mod controller;

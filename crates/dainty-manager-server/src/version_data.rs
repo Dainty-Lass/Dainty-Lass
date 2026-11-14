@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: MIT
 
 //! The 1.14.7 version data and facts the manager's bundle ships (RD27, port plan item 9): nothing is compiled in,
-//! and the host kit reads the files from the workspace (`data/1.14.7/`, host.toml's `version_data` and
+//! and the host kit reads the files from the workspace (`data/1.14.7/`, settings.toml's `version_data` and
 //! `version_facts`), so they are copied there from beside the executable before anything that needs them runs.
 
 use std::path::{Path, PathBuf};
@@ -15,7 +15,7 @@ use dainty_host::paths::Paths;
 /// The Linux packages' resource folder beside `bin/`, as Tauri lays out deb, rpm and AppImage.
 const LINUX_RESOURCES: &str = "../lib/Dainty Lass Manager";
 
-/// Each shipped file: its default path, whether host.toml names its own, and where the host kit reads it.
+/// Each shipped file: its default path, whether settings.toml names its own, and where the host kit reads it.
 type Shipped = (
     &'static str,
     fn(&HostConfig) -> bool,
@@ -35,7 +35,7 @@ pub fn shipped(exe_dir: &Path, name: &str) -> Option<PathBuf> {
         .find(|file| file.is_file())
 }
 
-/// Copies `shipped` to the workspace's `name` when host.toml names no file of its own and the copy there differs,
+/// Copies `shipped` to the workspace's `name` when settings.toml names no file of its own and the copy there differs,
 /// so an updated manager brings its data with it. A host's own file is left alone.
 fn install_one(paths: &Paths, config: Option<&HostConfig>, file: &Shipped, shipped: &Path) -> Result<(), String> {
     let (name, named, path) = file;

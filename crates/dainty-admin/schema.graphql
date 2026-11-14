@@ -481,7 +481,7 @@ The hunt servers and what they hold.
 """
 type HuntStatus {
 	"""
-	`max_hunt_servers` in host.toml.
+	`max_hunt_servers` in settings.toml.
 	"""
 	maxHuntServers: Int!
 	"""
@@ -769,7 +769,7 @@ type Mutation {
 	"""
 	unloadModule(id: String!): Module!
 	"""
-	Writes host.toml's `[logs]`; the server takes it at its next start. Only the owner: a collector receives
+	Writes settings.toml's `[logs]`; the server takes it at its next start. Only the owner: a collector receives
 	every line the server logs.
 	"""
 	setLogSettings(input: LogSettingsInput!): LogSettings!
@@ -921,11 +921,11 @@ type Query {
 	"""
 	activeTimeouts: [ActiveTimeout!]!
 	"""
-	Every game module and plugin host.toml lists, loaded or not (DF3).
+	Every game module and plugin settings.toml lists, loaded or not (DF3).
 	"""
 	modules: [Module!]!
 	"""
-	One listed module; null when host.toml lists none by that id.
+	One listed module; null when settings.toml lists none by that id.
 	"""
 	module(id: String!): Module
 	"""
@@ -948,7 +948,7 @@ type Query {
 	"""
 	installs: [Install!]!
 	"""
-	host.toml's `[logs]`, and whether the file changed since this run started. Needs the admin role.
+	settings.toml's `[logs]`, and whether the file changed since this run started. Needs the admin role.
 	"""
 	logSettings: LogSettings!
 	"""

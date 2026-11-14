@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Silent Spud
 
 //! `serve` and `start`: the server as one process (`docs/app-structure-plan.md`, RD26). The host kit
-//! composes the controller's modules from host.toml and the env files `setup` writes: the Rust
+//! composes the controller's modules from settings.toml and the env files `setup` writes: the Rust
 //! services built into this binary run in-process ([`dainty_controller::modules`]); legacy Node processes
 //! run as supervised processes when built with `paradox`.
 //!
@@ -34,7 +34,7 @@ use crate::services::{Printer, ServiceSpec, Supervisor, service_environment};
 /// How `serve` runs.
 #[derive(Debug, Clone)]
 pub struct ServeOptions {
-    /// `--config <file>`: host.toml, .yaml, .yml or .json; the workspace's host.toml otherwise.
+    /// `--config <file>`: settings.toml, .yaml, .yml or .json; the workspace's settings.toml otherwise.
     pub config_file: Option<PathBuf>,
     /// The REPL (or the TUI) on this terminal. `start`, and a run the launcher controls through
     /// stdin, have neither.
@@ -243,7 +243,7 @@ pub fn service_libraries(paths: &Paths, config: &HostConfig) -> Vec<ServiceLibra
             let (name, serves): (&'static str, &'static [dainty_module_api::CoreCapability]) =
                 match hostconfig::services::KNOWN.iter().find(|(known, _)| known == name) {
                     Some((known, serves)) => (known, serves),
-                    // Made once per start, for a name only host.toml knows
+                    // Made once per start, for a name only settings.toml knows
                     None => (
                         Box::leak(name.clone().into_boxed_str()),
                         entry.serves.clone().unwrap_or_default().leak(),
@@ -415,7 +415,7 @@ pub fn compose(
     let mut slot: Option<crate::hooks::AnySlot> = None;
     let mut guarded = false;
     // A gateway library holds the allowlist (it serves UdpPorts). A game servers half never sees a heartbeat, so its
-    // game ports are open (`split.open_game_ports`, checked when host.toml is read)
+    // game ports are open (`split.open_game_ports`, checked when settings.toml is read)
     if public && !external_allowlist && gateway_library.is_none() && !game_half {
         if in_process(FrontService::Allowlist) {
             slot = crate::hooks::get().compose_in_process_allowlist(&mut controller, paths, &registry)?;
@@ -480,7 +480,7 @@ pub fn compose(
     #[cfg(feature = "admin")]
     if !game_half && start_cmd::env_file(paths, "admin").is_file() {
         let host: Arc<dyn dainty_admin::host_settings::HostSettings> = Arc::new(hostconfig::logs::LogsFile {
-            file: paths.host_toml.clone(),
+            file: paths.settings_toml.clone(),
             started: config.logs.clone().unwrap_or_default(),
         });
         controller.add(
@@ -532,7 +532,7 @@ pub fn compose(
     Ok(controller)
 }
 
-/// This server's invite as the bot fills in its codes: host.toml's address and name, and in public mode the
+/// This server's invite as the bot fills in its codes: settings.toml's address and name, and in public mode the
 /// gateway certificate's fingerprint; `None` while a public server has no certificate.
 #[cfg(feature = "discord")]
 fn discord_invite(paths: &Paths, config: &HostConfig) -> Option<dainty_protocol::invite::Invite> {
@@ -795,7 +795,7 @@ pub(crate) fn source_commit(repo: &Path) -> String {
 }
 
 /// What `setup` writes and a server cannot run without, made here when missing so a server whose
-/// host.toml was written by hand starts all the same: the secrets (kept once made), the services'
+/// settings.toml was written by hand starts all the same: the secrets (kept once made), the services'
 /// env files (all of them, when any of the four is missing) and, in public mode, the gateway's
 /// certificate (never a second one: every invite's `fp` is its hash).
 pub fn ensure_server_files(paths: &Paths, config: &HostConfig) -> Result<Vec<PathBuf>, HostError> {
@@ -1032,7 +1032,7 @@ pub fn prepare_embedded(paths: &Paths, printer: Printer) -> Result<ServerControl
 #[derive(Debug, Clone, PartialEq, Eq, clap::Parser)]
 #[command(name = "dainty-server-minimal", disable_version_flag = true)]
 struct MinimalArgs {
-    /// host.toml, .yaml, .yml or .json (the workspace's otherwise).
+    /// settings.toml, .yaml, .yml or .json (the workspace's otherwise).
     #[arg(short = 'c', long)]
     config: Option<PathBuf>,
     /// The server folder (holds .workspace/); found from this binary otherwise.
@@ -1133,7 +1133,7 @@ mod tests {
     }
 
     #[test]
-    fn chat_gets_the_dashboard_only_when_host_toml_names_one() {
+    fn chat_gets_the_dashboard_only_when_settings_toml_names_one() {
         let dir = tempfile::tempdir().unwrap();
         let paths = Paths::new(dir.path());
         ensure_server_files(&paths, &config(ServerMode::Private)).unwrap();
@@ -1188,7 +1188,7 @@ mod tests {
     }
 
     #[tokio::test(flavor = "multi_thread")]
-    async fn modules_come_from_host_toml_beside_the_servers_own_stack() {
+    async fn modules_come_from_settings_toml_beside_the_servers_own_stack() {
         use dainty_module_api::stub::StubModule;
         let dir = tempfile::tempdir().unwrap();
         let paths = Paths::new(dir.path());
@@ -1198,7 +1198,7 @@ mod tests {
             "[modules]\ncompiled = [\"stub\"]\n[[modules.external]]\nid = \"far\"\npath = \"modules/far.exe\"\n\
              sha256 = \"{digest}\"\nautoload = false\n[modules.stub.stub]\ngreeting = \"hi\"\n"
         );
-        let doc = crate::hosttoml::document(&toml).unwrap();
+        let doc = crate::settingstoml::document(&toml).unwrap();
         c.modules = Some(hostconfig::ModulesConfig::from_json(&doc["modules"]).unwrap());
         let controller = ServerController::new("private", Vec::new());
         let stub: dainty_controller::ModuleFactory =
@@ -1280,14 +1280,14 @@ mod tests {
     }
 
     #[test]
-    fn service_libraries_come_from_host_toml_by_name() {
+    fn service_libraries_come_from_settings_toml_by_name() {
         use dainty_module_api::CoreCapability;
         let dir = tempfile::tempdir().unwrap();
         let paths = Paths::new(dir.path());
         let mut c = config(ServerMode::Private);
         assert!(service_libraries(&paths, &c).is_empty());
         let d = "ab".repeat(32);
-        let doc = crate::hosttoml::document(&format!(
+        let doc = crate::settingstoml::document(&format!(
             "[services.gateway]\nlibrary = \"crates/dainty-gateway.dll\"\nsha256 = \"{d}\"\n\
              [services.chat]\nlibrary = \"crates/dainty-chat.dll\"\nsha256 = \"{d}\"\n\
              [services.echo]\nlibrary = \"plugins/echo.dll\"\nsha256 = \"{d}\"\nserves = [\"content_files\"]\n"

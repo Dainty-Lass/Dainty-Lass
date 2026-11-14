@@ -262,7 +262,7 @@ impl network_plugin::ring::AccountKeyHolder for RegistryKeyHolder {
     }
 }
 
-/// The node's network runtime (`[network]` in `host.toml` when peers are configured): opens the
+/// The node's network runtime (`[network]` in `settings.toml` when peers are configured): opens the
 /// directory table in the node database, connects [`network_plugin::TlsPeerLink`] to peers, starts
 /// directory replication and peer health checks, wires [`network_plugin::home::NetworkedHome`] into
 /// the [`dainty_controller::ModuleRegistry`], and attaches [`network_plugin::Service::Directory`] and

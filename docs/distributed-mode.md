@@ -68,7 +68,7 @@ Every node needs the same `failover` setting and the same list of nodes (each li
 1. Issue each node's certificate with every address it is reached at, the back channel's included:
    `dainty-host network issue-node-cert --ca cluster-ca.pem --node uk-1 --region uk --host uk.example.org --host 100.64.0.2 --host uk-1.tail1234.ts.net`.
    A node link checks that the certificate carries the address it dialled.
-2. In each node's `host.toml`:
+2. In each node's `settings.toml`:
 
    ```toml
    [network]

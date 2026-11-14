@@ -452,8 +452,8 @@ Only CI passed until these steps are done.
 **(call) R18 leaves room and settles nothing.** The maintainer wants scheduled events (Trials and shop rotations)
 eventually. What R18 fixes is narrow: which arena row is current is a pure function `(now, minutes, pinned week) ->
 row windows` in the core crate, and the DLL only applies the writes before `Initialize`. A later schedule source (for
-example a rotation list from `host.toml`, passed in the environment as RT-11 does for other settings, or chosen by the
-Director and pinned per launch as `RUSTIC_ISLES_TRIALS_WEEK` already is) replaces that one function and keeps the
+example a rotation list from `settings.toml`, passed in the environment as RT-11 does for other settings, or chosen by
+the Director and pinned per launch as `RUSTIC_ISLES_TRIALS_WEEK` already is) replaces that one function and keeps the
 hook, the row reading and the writer. Other schedule tables (seasonal events) would be a second row filter beside the
 arena one. Shop rotations are not the runtime's at all: the stores are built by the backend (`rustic-isles` store
 captures), so they need no runtime change. Two limits a design must respect: the windows are fixed once per process

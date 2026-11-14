@@ -280,8 +280,8 @@ fn private_setup() -> HostSetupRequest {
     }
 }
 
-fn host_toml(workspace: &Path, mode: &str) {
-    let file = WorkspacePaths::new(workspace).host_toml;
+fn settings_toml(workspace: &Path, mode: &str) {
+    let file = WorkspacePaths::new(workspace).settings_toml;
     std::fs::create_dir_all(file.parent().unwrap()).unwrap();
     std::fs::write(file, format!("[server]\nname = \"Test Hunts\"\nmode = \"{mode}\"\n")).unwrap();
 }
@@ -342,7 +342,7 @@ mod host {
 
         // Start needs a configured server with game data.
         assert_eq!(host_failed(&c.host_server_start().await), "not_configured");
-        host_toml(&pc.project, "private");
+        settings_toml(&pc.project, "private");
         assert_eq!(host_failed(&c.host_server_start().await), "gamedata_missing");
         game_data(&pc.project);
 
@@ -399,7 +399,7 @@ mod host {
         let pc = pc();
         let platform = Arc::new(FakePlatform::default());
         let c = host_ready(&pc, &platform, Some("fail")).await;
-        host_toml(&pc.project, "private");
+        settings_toml(&pc.project, "private");
         game_data(&pc.project);
         ok(&c.host_server_start().await);
         until("the start to fail", || {
@@ -414,7 +414,7 @@ mod host {
         let pc = self::pc();
         let platform = Arc::new(FakePlatform::default());
         let c = host_ready(&pc, &platform, Some("deaf")).await;
-        host_toml(&pc.project, "private");
+        settings_toml(&pc.project, "private");
         game_data(&pc.project);
         ok(&c.host_server_start().await);
         until("the deaf server to be ready", || {
@@ -529,12 +529,12 @@ mod host {
         let rates = Some(HostMultipliers { xp: 2.5, rewards: 3.0 });
 
         assert_eq!(host_failed(&c.host_set_multipliers(rates).await), "not_configured");
-        host_toml(&pc.project, "public");
+        settings_toml(&pc.project, "public");
         assert_eq!(host_failed(&c.host_set_multipliers(rates).await), "multipliers_public");
         assert_eq!(host_failed(&c.host_set_multipliers(None).await), "multipliers_public");
 
         // A private server reaches the host kit, which the fake refuses with the arguments it got.
-        host_toml(&pc.project, "private");
+        settings_toml(&pc.project, "private");
         let detail = host_failed(&c.host_set_multipliers(rates).await);
         assert!(detail.contains("multipliers --xp 2.5 --rewards 3"), "{detail}");
         let job = platform.last_kit().job.unwrap();

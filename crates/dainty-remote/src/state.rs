@@ -25,7 +25,7 @@ use crate::enroll::{
     DEFAULT_ENROLL_TTL_SECS, EnrollmentInvite, MAX_ENROLL_TTL_SECS, PendingEnrollment, generate_enrollment_token,
     sha256_hex, validate_controller_url, validate_enrollment_token, validate_label,
 };
-use crate::merge::merge_managed_host_toml;
+use crate::merge::merge_managed_settings_toml;
 use crate::wire::{
     CommandOutcome, EnrollAnswer, EnrollRequest, InstallReport, OperatorEnvelope, QueuedRemoteCommand, RemoteCommand,
     RemoteLogEntry, RemoteRequest, RemoteResponse, RemoteRole, SharedConfigBundle,
@@ -299,18 +299,18 @@ pub struct RemoteControllerState {
 }
 
 impl RemoteControllerState {
-    /// A controller with revision 1 of `initial_shared_host_toml`, no installs and no invites.
+    /// A controller with revision 1 of `initial_shared_settings_toml`, no installs and no invites.
     pub fn new(
         controller_node: NodeId,
         controller_region: Region,
         controller_url: String,
         controller_cert_fp: String,
-        initial_shared_host_toml: String,
+        initial_shared_settings_toml: String,
     ) -> Result<Self, RemoteError> {
         let canonical_url = validate_controller_url(&controller_url)?;
         let bundle = SharedConfigBundle {
             revision: 1,
-            shared_host_toml: initial_shared_host_toml,
+            shared_settings_toml: initial_shared_settings_toml,
             node_overrides: BTreeMap::new(),
             invites: Vec::new(),
             presets: BTreeMap::new(),
@@ -503,17 +503,17 @@ impl RemoteControllerState {
         Ok(())
     }
 
-    /// Update the shared `host.toml` baseline and increment `config_bundle.revision`.
-    pub fn update_shared_config(&mut self, shared_host_toml: String) -> Result<u64, RemoteError> {
+    /// Update the shared `settings.toml` baseline and increment `config_bundle.revision`.
+    pub fn update_shared_config(&mut self, shared_settings_toml: String) -> Result<u64, RemoteError> {
         let mut next = self.config_bundle.clone();
         next.revision = next.revision.saturating_add(1);
-        next.shared_host_toml = shared_host_toml;
+        next.shared_settings_toml = shared_settings_toml;
         next.validate()?;
         self.config_bundle = next;
         Ok(self.config_bundle.revision)
     }
 
-    /// Set a per-install `host.toml` override on the controller and increment `config_bundle.revision`.
+    /// Set a per-install `settings.toml` override on the controller and increment `config_bundle.revision`.
     pub fn set_node_override(&mut self, node: &NodeId, override_toml: String) -> Result<u64, RemoteError> {
         if !self.installs.contains_key(node.as_str()) {
             return Err(RemoteError::UnknownInstall(node.as_str().to_string()));
@@ -792,10 +792,10 @@ impl RemoteControllerState {
 pub trait RemoteHostHandler: Send + Sync {
     /// This install's status report at `applied_revision`.
     fn build_report(&self, applied_revision: u64) -> Result<InstallReport, RemoteError>;
-    /// This install's `host.toml`.
-    fn read_local_host_toml(&self) -> Result<String, RemoteError>;
-    /// Writes the merged `host.toml` as `revision`.
-    fn write_merged_host_toml(&self, merged_toml: &str, revision: u64) -> Result<(), RemoteError>;
+    /// This install's `settings.toml`.
+    fn read_local_settings_toml(&self) -> Result<String, RemoteError>;
+    /// Writes the merged `settings.toml` as `revision`.
+    fn write_merged_settings_toml(&self, merged_toml: &str, revision: u64) -> Result<(), RemoteError>;
     /// Runs one command and reports how it went.
     fn execute_command(&self, cmd: &QueuedRemoteCommand) -> Result<CommandOutcome, RemoteError>;
     /// Log entries after `since_seq`, at most `limit`, and the sequence number to ask from next.
@@ -821,7 +821,7 @@ pub struct RemoteManagedAgent {
     pub controller_node: NodeId,
     /// Config revision last applied.
     pub applied_revision: u64,
-    /// `host.toml` keys this install keeps over the shared config.
+    /// `settings.toml` keys this install keeps over the shared config.
     pub local_overrides: Vec<String>,
     /// Set once the install detached or was revoked; it then refuses the controller.
     pub detached: bool,
@@ -850,10 +850,15 @@ impl RemoteManagedAgent {
         bundle: &SharedConfigBundle,
     ) -> Result<u64, RemoteError> {
         bundle.validate()?;
-        let local_toml = handler.read_local_host_toml()?;
+        let local_toml = handler.read_local_settings_toml()?;
         let per_node = bundle.node_overrides.get(self.node.as_str()).map(String::as_str);
-        let merged = merge_managed_host_toml(&local_toml, &bundle.shared_host_toml, per_node, &self.local_overrides)?;
-        handler.write_merged_host_toml(&merged, bundle.revision)?;
+        let merged = merge_managed_settings_toml(
+            &local_toml,
+            &bundle.shared_settings_toml,
+            per_node,
+            &self.local_overrides,
+        )?;
+        handler.write_merged_settings_toml(&merged, bundle.revision)?;
         self.applied_revision = bundle.revision;
         Ok(self.applied_revision)
     }

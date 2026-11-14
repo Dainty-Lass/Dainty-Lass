@@ -20,14 +20,14 @@ use dainty_module_api::GameModule;
 use dainty_module_api::stub::StubModule;
 use dainty_service_kit::context::StatusRegistry;
 
-const HOST_TOML: &str = "version = 1\nmode = \"private\"\nname = \"Friday Hunts\"\nhost = \"100.101.102.103\"\n\
+const SETTINGS_TOML: &str = "version = 1\nmode = \"private\"\nname = \"Friday Hunts\"\nhost = \"100.101.102.103\"\n\
     game_address = \"100.101.102.103\"\nregistration = \"INVITECODE\"\nmax_hunt_servers = 3\n\
     [mongo]\nuri = \"mongodb://127.0.0.1:27017\"\nmanage = false\n";
 
-fn write_host_toml(workspace: &Path) -> std::path::PathBuf {
-    let file = dainty_host::paths::Paths::new(workspace).host_toml;
+fn write_settings_toml(workspace: &Path) -> std::path::PathBuf {
+    let file = dainty_host::paths::Paths::new(workspace).settings_toml;
     std::fs::create_dir_all(file.parent().unwrap()).unwrap();
-    std::fs::write(&file, HOST_TOML).unwrap();
+    std::fs::write(&file, SETTINGS_TOML).unwrap();
     file
 }
 
@@ -101,7 +101,7 @@ async fn a_stopped_server_refuses_every_call() {
 #[tokio::test(flavor = "multi_thread")]
 async fn the_stub_loads_answers_and_unloads() {
     let dir = tempfile::tempdir().unwrap();
-    write_host_toml(dir.path());
+    write_settings_toml(dir.path());
     let panel = panel(dir.path());
 
     let before = module(panel.get("stub".into()).await);
@@ -148,7 +148,7 @@ async fn the_stub_loads_answers_and_unloads() {
 #[tokio::test(flavor = "multi_thread")]
 async fn ids_not_listed_are_unknown_and_nothing_is_added() {
     let dir = tempfile::tempdir().unwrap();
-    write_host_toml(dir.path());
+    write_settings_toml(dir.path());
     let panel = panel(dir.path());
     for id in ["other", "../etc"] {
         assert_eq!(refused(panel.load(id.into()).await).code, ErrorCode::ModuleUnknown);
@@ -167,9 +167,9 @@ async fn ids_not_listed_are_unknown_and_nothing_is_added() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn settings_are_saved_to_host_toml_and_taken_on_the_next_load() {
+async fn settings_are_saved_to_settings_toml_and_taken_on_the_next_load() {
     let dir = tempfile::tempdir().unwrap();
-    let file = write_host_toml(dir.path());
+    let file = write_settings_toml(dir.path());
     let panel = panel(dir.path());
 
     // An unloaded module registered nothing, so nothing fits it
@@ -219,7 +219,7 @@ async fn settings_are_saved_to_host_toml_and_taken_on_the_next_load() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn settings_without_a_host_toml_are_refused() {
+async fn settings_without_a_settings_toml_are_refused() {
     let dir = tempfile::tempdir().unwrap();
     let panel = panel(dir.path());
     module(panel.load("stub".into()).await);
@@ -229,7 +229,7 @@ async fn settings_without_a_host_toml_are_refused() {
                 .set_settings("stub".into(), r#"{"stub":{"greeting":"hi"}}"#.into())
                 .await
         )),
-        (ErrorCode::ModuleFailed, "host_toml")
+        (ErrorCode::ModuleFailed, "settings_toml")
     );
     module(panel.unload("stub".into()).await);
 }

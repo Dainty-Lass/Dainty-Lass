@@ -1,6 +1,6 @@
 #!/bin/sh
-# dainty-network-init: the network profile's cluster CA, each node's certificates and host.toml (DN12). Only host.toml
-# is rewritten on a second run, so the CA, the certificates and every fingerprint survive. Runs as root.
+# dainty-network-init: the network profile's cluster CA, each node's certificates and settings.toml (DN12). Only
+# settings.toml is rewritten on a second run, so the CA, the certificates and every fingerprint survive. Runs as root.
 set -eu
 
 : "${NETWORK_NODES:?NETWORK_NODES must list region=node-id@address entries}"
@@ -46,7 +46,7 @@ for entry in $NETWORK_NODES; do
     region=$(region_of "$entry")
     id=$(id_of "$entry")
     address=$(address_of "$entry")
-    toml=/nodes/$region/config/host.toml
+    toml=/nodes/$region/config/settings.toml
     {
         echo "# Written by dainty-network-init on every run: the harness plays no game, hence the documentation"
         echo "# range game address and the missing Wine."
@@ -88,7 +88,7 @@ for entry in $NETWORK_NODES; do
     mv "$toml.tmp" "$toml"
     chown -R 1000:1000 "/nodes/$region"
     chmod 600 "/nodes/$region/tls/node-key.pem" "/nodes/$region/tls/gateway-key.pem"
-    echo "$id ($region, $address): certificates and host.toml written"
+    echo "$id ($region, $address): certificates and settings.toml written"
 done
 
 # The CA's key never leaves /ca, which no other service mounts

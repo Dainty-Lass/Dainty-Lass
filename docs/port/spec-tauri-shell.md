@@ -177,7 +177,7 @@ exited with success.
 | `setup` | `--mode`, `--name`, `--host`, `--game` (values), `--fresh-start` | `commands::setup::run_with(paths, &SetupArgs, &InProcessSetupEnv, lines)` |
 | `invite` | `--json`, `--for <name>`; `uses` defaults to `"1"` | `commands::invite::run_with(paths, &args, invite::backend_port(paths), lines)` |
 | `multipliers` | `--off`, `--xp <v>`, `--rewards <v>` | `commands::multipliers::run_with(paths, &args, Platform::current(), commit, lines)`; `commit` returns `Ok("")` (no checkout to commit to) |
-| `gamedata` | `--examples`; `--export` with an optional folder (the next item unless it starts with `--`; none: an empty string); `--import <pack>` | first, when neither `paths.backend_dir` nor `paths.host_toml` exists, `gamedata::seed_embedded_examples(paths)` (its result ignored); then `commands::gamedata::run_with` |
+| `gamedata` | `--examples`; `--export` with an optional folder (the next item unless it starts with `--`; none: an empty string); `--import <pack>` | first, when neither `paths.backend_dir` nor `paths.settings_toml` exists, `gamedata::seed_embedded_examples(paths)` (its result ignored); then `commands::gamedata::run_with` |
 | `publish-runtime` | none | `commands::publish_runtime::run_with(paths, &Default::default(), lines)` |
 | `update` | ignored | prints the one line `{"ok":true,"behind":0,"head":"embedded"}` and succeeds: the manager updates itself, not a checkout |
 | anything else | — | `Err("unsupported command: <name>")` |
@@ -207,18 +207,18 @@ the check's text, or `"<text> — <fix>"` (space, U+2014, space) when it has a f
 ### 5.3 `backup(workspace, lines)` and `migrate_mongo(workspace, lines)`
 
 - `backup`: `commands::backup::run_with(paths, &commands::backup::System, lines)`, success as `bool`.
-- `migrate_mongo`: refuse with `"not_configured"` when `load_host_config` finds no `host.toml`; then
+- `migrate_mongo`: refuse with `"not_configured"` when `load_host_config` finds no `settings.toml`; then
   `commands::db::run_with` with `DbCommand::Migrate(Default)`, then with `DbCommand::Verify(Default)`. Verify writes
   the marker `start` waits for, and only when it finds no difference (as a host does by hand).
 
 ### 5.4 `config_get(workspace)`
 
-The page's view of `host.toml`:
+The page's view of `settings.toml`:
 
 - `mongo_migration`: from `commands::update::inspect_mongo_migration` (`None`, `Migrated`, `Skipped`,
   `Unmigrated { source }` with its source), `detail: None`.
-- `config_file`: `host_toml`'s path as text when the file exists.
-- No `host.toml`: `configured: false`, `name: ""`, `mode: Private`, `public_host: None`, `registration:
+- `config_file`: `settings_toml`'s path as text when the file exists.
+- No `settings.toml`: `configured: false`, `name: ""`, `mode: Private`, `public_host: None`, `registration:
   "INVITECODE"`, `database: "sqlite"`, `max_hubs: 1`, `max_hunts: 3`, `fresh_start: false`.
 - Otherwise `configured: true`, the config's `name`, `mode`, `public_host` (its `host` in public mode only),
   `registration` as its string, `database` (`[database] engine`, default `"sqlite"`), `max_hubs: 1`, `max_hunts`
@@ -228,7 +228,7 @@ The page's view of `host.toml`:
 
 `config_save`, in order; any error before the save is returned and nothing is written:
 
-1. Load `host.toml`; none: `"not_configured"`.
+1. Load `settings.toml`; none: `"not_configured"`.
 2. Registration: the form's value, with `"INVITE"` read as `"INVITECODE"`; `Registration::parse` failing:
    `"registration"`.
 3. `max_hunt_servers = form.max_hunts` clamped to 1..=128. `[database] engine = form.database`;
@@ -238,14 +238,14 @@ The page's view of `host.toml`:
    (`paths.config/MONGO_MIGRATED_MARKER`) is a fresh-start marker, delete it (ignore failure).
 6. Best effort, failures ignored: load or create the secrets (`setup::secrets::new_secrets`), then
    `build_env_files(config, secrets, paths, "", Platform::current())` and `write_env_files`; and when
-   `[remote] role` is `"controller"`, `remote::set_shared_config_from_host_toml`.
+   `[remote] role` is `"controller"`, `remote::set_shared_config_from_settings_toml`.
 7. Answer `config_get`.
 
 `confirm_fresh_start`: `commands::update::confirm_fresh_start(paths)`, then `config_get`.
 
 ### 5.6 `invite_list(workspace)`
 
-`host.toml` required (`"not_configured"`); the secrets are loaded or created. In public mode, the fingerprint is
+`settings.toml` required (`"not_configured"`); the secrets are loaded or created. In public mode, the fingerprint is
 `invite::certificate_fingerprint(&paths.cert_file)` (an error is returned); private mode has none. The codes come from
 `invite::list_invite_codes(service_ports(config).backend, &secrets.admin_key)`. Each item with a string `code` becomes
 `ServerInviteEntry { code, link, for_name, uses_remaining, infinite_uses, created_at }`: `link` is
@@ -279,19 +279,19 @@ defaults.
 ## 6. The module panel (`ModulePanel`, DU3, DF3)
 
 Two shared slots, set by §4 and cleared on stop: the registry (`ModuleRegistry`) and the workspace. Nothing here takes
-a path or a program from the page (DD5): the registry only knows what `host.toml` listed.
+a path or a program from the page (DD5): the registry only knows what `settings.toml` listed.
 
 - **No registry** (server stopped): every call is refused `ServerStopped`.
 - **Listing** a module: `Listed { id, origin, autoload, state, detail, manifest, ports, commands, config }` from the
   registry's `ModuleInfo`; `origin` is `External` when `source == "external"`, else `CompiledIn`; states map one to
   one (`NotLoaded`, `Starting`, `Ready`, `Failed`). The page's view is the kit's `modules::view(listed, settings)`,
-  where `settings` is that module's table from `host.toml`'s `[modules]` settings (none when there is no
-  `host.toml` or workspace; read on a blocking thread).
+  where `settings` is that module's table from `settings.toml`'s `[modules]` settings (none when there is no
+  `settings.toml` or workspace; read on a blocking thread).
 - **Registry errors:** `NotListed(id)` → `ModuleUnknown` with the id; `AlreadyLoaded` → `ModuleBadState` `"loaded"`;
   `NotLoaded` → `ModuleBadState` `"not_loaded"`; any other → `ModuleFailed` with the error text cut by the kit's
   `plain(…, DETAIL_MAX)`. Refusals are the kit's `refusal(code, detail)`.
-- **`host.toml` errors** (read, parse, write, or no file when one is needed): log a warning
-  `host: module settings: <why>` and refuse `ModuleFailed` `"host_toml"`.
+- **`settings.toml` errors** (read, parse, write, or no file when one is needed): log a warning
+  `host: module settings: <why>` and refuse `ModuleFailed` `"settings_toml"`.
 - `list`, `get(module)`, `load(module)`, `unload(module)`: the id through the kit's `module_id`; load and unload log
   `host: module <id> loaded|unloaded from the server GUI` and answer the module's fresh view.
 - `run(module, command, input)`: the module must be `Ready` (else `ModuleBadState` `"not_loaded"`); the command must be
@@ -302,7 +302,7 @@ a path or a program from the page (DD5): the registry only knows what `host.toml
   `plain(…, DETAIL_MAX)`. The answer is `output_text(text)` and the data serialised as JSON, dropped when longer than
   `OUTPUT_DATA_MAX`.
 - `set_settings(module, values)`: workspace required (`ServerStopped`); the module's registered config schema is the
-  check. On one blocking step, load `host.toml` (none: a `host.toml` error), merge with the kit's
+  check. On one blocking step, load `settings.toml` (none: a `settings.toml` error), merge with the kit's
   `merge_settings(schema, saved, values)` (its refusal is returned and the file is untouched), store, save. Then
   `registry.update_settings(id, merged)`: the next load takes them, a running module keeps what it started with. Log
   `host: module <id> settings saved from the server GUI`; answer the view.
@@ -518,15 +518,15 @@ The package becomes test-only: no `[[bin]] dainty-launcher`, no `lib.rs` beyond 
 In `crates/dainty-manager-server/tests` (or unit tests):
 
 - **The module panel** against a registry holding the stub module (`dainty_module_api::stub`, compiled in, not
-  autoloaded) and a temporary workspace whose `host.toml` is minimal (version 1, private, a name, a host, a game
+  autoloaded) and a temporary workspace whose `settings.toml` is minimal (version 1, private, a name, a host, a game
   address, `INVITECODE`, 3 hunts): a stopped server refuses `ServerStopped`; before load the stub is `NotLoaded`,
   shows its manifest's display name, is unverified, and has no commands or settings; load makes it `Ready` with an
   `echo` command and a `greeting` setting; a second load is `ModuleBadState` `"loaded"`; `echo` answers `hello
   there` for `{"words":"there"}` and `hello` for `null`; an unknown command is `ModuleInputInvalid`; a failing one is
   `ModuleFailed`; unload, then unload again is `"not_loaded"`; ids not listed are `ModuleUnknown` for load, get and
-  run, and nothing is added; settings are saved to `host.toml`, a running module keeps its value until reloaded, a
+  run, and nothing is added; settings are saved to `settings.toml`, a running module keeps its value until reloaded, a
   value that does not fit is refused with the file unchanged, an unloaded module has nothing to set; settings with no
-  `host.toml` are `ModuleFailed` `"host_toml"`.
+  `settings.toml` are `ModuleFailed` `"settings_toml"`.
 - **History** against a workspace with `admin.env` (SQLite) where an owner revoked two moderators' keys: the query by
   `admin:<owner>` lists two `admin_keys` rows in `admin`, with no key hash shown; the dry run has 2 updates on the two
   keys and no conflicts; an unknown 64-hex plan is `HistoryPlanChanged`; apply changes 2 rows in `admin`; a second

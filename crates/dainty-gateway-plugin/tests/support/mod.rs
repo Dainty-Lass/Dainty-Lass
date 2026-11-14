@@ -18,7 +18,7 @@ use dainty_module_api::host::file_sha256;
 use dainty_service_kit::context::{ComponentPhase, StatusRegistry};
 use serde_json::Value;
 
-/// The library cargo built beside this test (target/<profile>/), pinned as host.toml would.
+/// The library cargo built beside this test (target/<profile>/), pinned as settings.toml would.
 pub async fn library() -> ServiceLibrary {
     let exe = std::env::current_exe().unwrap();
     let profile = exe.parent().and_then(|deps| deps.parent()).unwrap();

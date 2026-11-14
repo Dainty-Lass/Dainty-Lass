@@ -190,7 +190,7 @@ pub fn confirm_fresh_start(p: &Paths) -> Result<(), HostError> {
     fs::write(&marker, "fresh-start\n").map_err(|e| HostError::io(&marker, e))
 }
 
-/// The migration's state, from the marker, host.toml and the managed MongoDB's data folder.
+/// The migration's state, from the marker, settings.toml and the managed MongoDB's data folder.
 #[must_use]
 pub fn inspect_mongo_migration(p: &Paths) -> MongoMigrationStatus {
     let marker = mongo_migrated_marker(p);
@@ -226,7 +226,7 @@ pub fn unmigrated_mongo_problem(p: &Paths, config: &HostConfig) -> Option<String
     if cfg!(feature = "paradox") || config.fresh_start() || mongo_migrated_marker(p).is_file() {
         return None;
     }
-    // An install already on host.toml never meets dainty-legacy's host.json check, so it is caught here
+    // An install already on settings.toml never meets dainty-legacy's host.json check, so it is caught here
     has_unmigrated_mongo_dir(p).then(|| {
         format!(
             "unmigrated MongoDB data was found in {}: move it with `dainty-host db migrate` and `db verify` (or `dainty-legacy import reforged <checkout>`), or pass --fresh-start to setup to start on a fresh database",
@@ -431,7 +431,7 @@ pub fn run_with(
     }
 
     if !args.no_setup {
-        let configured = p.host_toml.is_file();
+        let configured = p.settings_toml.is_file();
         if configured {
             let host_bin = p
                 .repo

@@ -675,7 +675,7 @@ fn update_checks_installs_and_runs_setup_with_the_new_binary() {
     assert_eq!(last_json(&lines)["behind"], json!(0));
 
     // Set up: 2.0.0 is installed and setup runs again with the release's dainty-host
-    std::fs::write(root.join(".workspace").join("config").join("host.toml"), "").unwrap();
+    std::fs::write(root.join(".workspace").join("config").join("settings.toml"), "").unwrap();
     make_release(&releases, "2.0.0", "linux-x64", V2);
     let (r, lines) = update(&root, &env, UpdateArgs::default());
     r.unwrap();

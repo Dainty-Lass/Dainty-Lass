@@ -152,7 +152,7 @@ Not run. `cargo test` only covers injecting a system DLL into a suspended `cmd.e
    from `Win64` and no `winmm.dll` from `Win64`.
 4. Copy an older `winmm.dll` (one built before the stand-down marker) into `Win64`. PLAY refuses with the leftover
    message. Remove it.
-4a. On a host whose `host.toml` `game_dir` is the player's install: rebuild and publish the loader. Start the
+4a. On a host whose `settings.toml` `game_dir` is the player's install: rebuild and publish the loader. Start the
    servers; Ramsgate comes up headless with the runtime. PLAY works with the servers' `winmm.dll` in place, and the
    log says it stands down. Process Explorer shows `Rustic-Isles.dll` loaded once in the client.
 5. Change one byte of `Rustic-Isles.dll`. PLAY refuses (the runtime check, or the injector's hash check), and no game

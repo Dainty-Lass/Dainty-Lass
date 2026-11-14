@@ -319,7 +319,7 @@ The Director computes the same week for the hunts it launches (`rustic-isles-dir
 
 ### 10.1 Where the values come from
 
-RT-11 makes the number files `host.toml` settings passed in the environment. **(call)** R1 defines the runtime side;
+RT-11 makes the number files `settings.toml` settings passed in the environment. **(call)** R1 defines the runtime side;
 until the host kit writes the variables, the files are still read, so nothing changes for a host mid-transition. For
 each value the first source that gives one wins:
 
@@ -351,7 +351,7 @@ unreadable environment value falls through to the file, then the default, with t
 
 ### 10.3 What the other rows need (not R1)
 
-- The host kit: `host.toml` fields `hub_max_players`, `hub_afk_seconds`, `hunt_afk_seconds` (in `HostConfig` and the
+- The host kit: `settings.toml` fields `hub_max_players`, `hub_afk_seconds`, `hunt_afk_seconds` (in `HostConfig` and the
   key table, default unset = today's behaviour), written by `setup` into the Director's env file as the three
   `DAINTY_` names; a round-trip test. The Director already forwards its environment.
 - The docs: the settings table in `restricted/docs/hosting.md` (and the Linux and Docker pages where a host sets it).

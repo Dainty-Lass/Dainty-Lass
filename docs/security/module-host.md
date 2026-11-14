@@ -19,8 +19,8 @@ compiled: it comes from a module repository's release, or from a plugin such as 
 broken, out of date or replaced on disk must only ever be refused or killed, never trusted with more than a
 compiled-in module gets.
 
-- **In, the executable:** the file `host.toml` names for an external module, with its SHA-256 (DD5). Nothing else
-  is ever started: the admin API and the console load and unload only modules `host.toml` lists (DF3).
+- **In, the executable:** the file `settings.toml` names for an external module, with its SHA-256 (DD5). Nothing else
+  is ever started: the admin API and the console load and unload only modules `settings.toml` lists (DF3).
 - **In, the child's stdout:** the hello (protocol, API version, manifest), its calls to the host (emit an event, log a
   line, ask an account's home) and its replies (a registration, command output, admin answers, chat answers, game
   answers: availability, game servers, an invite code).
@@ -28,7 +28,7 @@ compiled-in module gets.
 - **Out, the child's stdin:** the welcome (node identity), the host's calls (register, start with the module's
   config, stop, status, commands with their actor, admin actions, events, chat queries, game calls) and replies to
   its calls.
-- **Out, the process:** arguments from `host.toml`, the environment the controller passes (DF3), and the process
+- **Out, the process:** arguments from `settings.toml`, the environment the controller passes (DF3), and the process
   group (Linux) or creation flags (Windows) the controller kills it by.
 
 What a module never gets, in or out of process: a listener off loopback (its routes go behind the gateway, which
@@ -47,9 +47,9 @@ decodes writes back as the same message, and that every name has exactly one spe
 - [ ] `ChildModule::spawn` hashes the whole file and compares it with the pinned SHA-256 before anything is started;
       a mismatch or an unreadable file starts nothing (`LoadError::HashMismatch`, `LoadError::Read`). Test:
       `an_executable_that_does_not_match_its_pin_is_never_started`.
-- [ ] Digests are exactly 64 lowercase hex characters (`Sha256Hex`); `host.toml`'s value is parsed, never compared
+- [ ] Digests are exactly 64 lowercase hex characters (`Sha256Hex`); `settings.toml`'s value is parsed, never compared
       as text. Test: `digests_are_exact_lowercase_hex`.
-- [ ] The child's hello must name the module `host.toml` listed for that file (`ExternalModule::expected`,
+- [ ] The child's hello must name the module `settings.toml` listed for that file (`ExternalModule::expected`,
       `Refusal::WrongModule`). Test: `the_child_is_refused_when_it_is_not_the_module_named`.
 - [ ] stdin, stdout and stderr are pipes, the child is killed if its handle is dropped (`kill_on_drop`), it runs in
       its own process group on Linux and with `CREATE_NO_WINDOW` on Windows.

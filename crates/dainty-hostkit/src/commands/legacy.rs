@@ -46,7 +46,7 @@ pub fn run(paths: &Paths, args: &LegacyArgs) -> Outcome {
     })
 }
 
-/// `--program` as given, else the `legacy` module host.toml pins, checked against its SHA-256 as a load is (DD5).
+/// `--program` as given, else the `legacy` module settings.toml pins, checked against its SHA-256 as a load is (DD5).
 fn program(paths: &Paths, explicit: Option<&Path>) -> Result<PathBuf, HostError> {
     if let Some(p) = explicit {
         return Ok(p.to_path_buf());
@@ -55,16 +55,16 @@ fn program(paths: &Paths, explicit: Option<&Path>) -> Result<PathBuf, HostError>
         .and_then(|c| c.modules)
         .and_then(|m| m.external.into_iter().find(|e| e.id.as_str() == MODULE_ID));
     let Some(entry) = pinned else {
-        // Before the first setup (a Node kit's upgrade) there is no host.toml to pin it in
+        // Before the first setup (a Node kit's upgrade) there is no settings.toml to pin it in
         return Err(HostError::message(format!(
-            "no [[modules.external]] with id = \"{MODULE_ID}\" in host.toml: pass --program <path to dainty-legacy>"
+            "no [[modules.external]] with id = \"{MODULE_ID}\" in settings.toml: pass --program <path to dainty-legacy>"
         )));
     };
     let path = paths.repo.join(&entry.path);
     let actual = crate::doctor::sha256_file(&path)?;
     if actual != entry.sha256.to_string() {
         return Err(HostError::message(format!(
-            "{} does not match the SHA-256 host.toml pins for {MODULE_ID}",
+            "{} does not match the SHA-256 settings.toml pins for {MODULE_ID}",
             path.display()
         )));
     }

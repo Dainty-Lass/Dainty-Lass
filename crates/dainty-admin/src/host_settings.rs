@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Silent Spud
 
-//! host.toml's `[logs]` for the dashboard (`docs/logging.md`): `logSettings` reads what the file says and what this
+//! settings.toml's `[logs]` for the dashboard (`docs/logging.md`): `logSettings` reads what the file says and what this
 //! run started with, `setLogSettings` writes the file. The log is set up once at start, so a change takes effect on
 //! the next start, and `restartNeeded` says so. The host kit hands the file in through
 //! [`crate::module_control::ModuleControl::host_settings`]; a standalone admin API has none and says so.
@@ -36,7 +36,7 @@ pub struct LogSettingsInput {
     pub gelf_url: Option<String>,
 }
 
-/// What the admin API may do with host.toml.
+/// What the admin API may do with settings.toml.
 pub trait HostSettings: Send + Sync {
     /// `[logs]` as the file holds it.
     fn logs(&self) -> Result<LogSettings, String>;
@@ -56,12 +56,12 @@ fn settings(ctx: &Context<'_>) -> async_graphql::Result<Arc<dyn HostSettings>> {
         .ok_or_else(|| {
             fail(
                 "SETTINGS_UNAVAILABLE",
-                "this admin API runs outside the server, so it has no host.toml: run it through dainty-host serve",
+                "this admin API runs outside the server, so it has no settings.toml: run it through dainty-host serve",
             )
         })
 }
 
-/// The `logSettings` query: `[logs]`, or a coded error when there is no host.toml or it cannot be read.
+/// The `logSettings` query: `[logs]`, or a coded error when there is no settings.toml or it cannot be read.
 pub fn logs(ctx: &Context<'_>) -> async_graphql::Result<LogSettings> {
     settings(ctx)?.logs().map_err(|e| fail("SETTINGS_UNREADABLE", e))
 }

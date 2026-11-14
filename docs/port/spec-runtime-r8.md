@@ -617,7 +617,7 @@ the watchdog, with the AGPL thread. It is logging-only (RT-3).
 `DAINTY_HUB_AFK_SECONDS`, `DAINTY_HUNT_AFK_SECONDS`, plus the player host's `RUSTIC_ISLES_MAX_PLAYERS`,
 `RUSTIC_ISLES_HUB_AFK_SECONDS` and `RUSTIC_ISLES_HOSTED_ROLE` (R10's).
 
-**RT-11's host-kit side is already on `plan`:** `host.toml`'s `[director]` `hub_max_players`, `hub_afk_seconds`,
+**RT-11's host-kit side is already on `plan`:** `settings.toml`'s `[director]` `hub_max_players`, `hub_afk_seconds`,
 `hunt_afk_seconds` write the three `DAINTY_` names into the Director's env file, which every game server inherits, and
 `restricted/docs/hosting.md` lists them. Two facts for the integration pass: the AGPL runtime reads only the number
 files, so the AFK keys take effect only once R8 lands (the cap once R9 lands, through SRV-1); and the host kit's range
@@ -739,7 +739,7 @@ Surface row R8: "Empty hunt ends after 50 s, hub never; AFK kick; idle hub's CPU
 1.14.7). Nothing waits on it.
 
 1. Build the AGPL runtime with patches 0041, 0047, 0052 and 0054 and the MIT DLL with `"R8"`, `"R9"` and `"R10"` in
-   `LANDED` (R4 landed too). Inject both as R0 11.1 says. In the Director's `host.toml` set `[director]`
+   `LANDED` (R4 landed too). Inject both as R0 11.1 says. In the Director's `settings.toml` set `[director]`
    `hub_afk_seconds = 120` and `hunt_afk_seconds = 120`, and `[performance]` `idle_fps = 5` (`DAINTY_SERVER_IDLE_FPS`);
    rerun `setup`.
 2. **Ramsgate.** Let the Director start the hub. Its log shows `[MitRuntime] [FramePace] server frame cap: 30 fps, idle

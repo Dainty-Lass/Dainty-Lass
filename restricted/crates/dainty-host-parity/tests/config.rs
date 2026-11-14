@@ -143,19 +143,19 @@ fn is_written_and_read_back() {
     assert!(read_host_config(&dir.path().join("none.json")).unwrap().is_none());
 }
 
-// ------------------------------------------------------------------ host.toml
+// ------------------------------------------------------------------ settings.toml
 
-/// A config written to host.toml and read back.
+/// A config written to settings.toml and read back.
 fn through_toml(c: &HostConfig) -> (HostConfig, String) {
     let dir = tempfile::tempdir().unwrap();
-    let file = dir.path().join("host.toml");
+    let file = dir.path().join("settings.toml");
     write_host_config(&file, c).unwrap();
     let text = std::fs::read_to_string(&file).unwrap();
     (read_host_config(&file).unwrap().unwrap(), text)
 }
 
 #[test]
-fn host_toml_holds_every_field_of_host_json() {
+fn settings_toml_holds_every_field_of_host_json() {
     let full = with(
         public(),
         json!({
@@ -208,9 +208,9 @@ fn host_toml_holds_every_field_of_host_json() {
 }
 
 #[test]
-fn host_toml_errors_name_its_own_keys() {
+fn settings_toml_errors_name_its_own_keys() {
     let dir = tempfile::tempdir().unwrap();
-    let file = dir.path().join("host.toml");
+    let file = dir.path().join("settings.toml");
     let (_, text) = through_toml(&config(private()));
     let error = |text: &str| {
         std::fs::write(&file, text).unwrap();
@@ -225,7 +225,7 @@ fn host_toml_errors_name_its_own_keys() {
     );
     let e = error(&text.replace("game_address", "gameAddress"));
     assert!(e.contains("did you mean game_address?"), "{e}");
-    assert!(e.contains("host.toml"), "names the file: {e}");
+    assert!(e.contains("settings.toml"), "names the file: {e}");
 }
 
 // ------------------------------------------------------------------ secrets
@@ -943,13 +943,13 @@ port = 8443
 
 fn read_toml(text: &str) -> HostConfig {
     let dir = tempfile::tempdir().unwrap();
-    let file = dir.path().join("host.toml");
+    let file = dir.path().join("settings.toml");
     std::fs::write(&file, text).unwrap();
     read_host_config(&file).unwrap().unwrap()
 }
 
 #[test]
-fn the_peers_round_trip_through_host_toml_and_a_new_file() {
+fn the_peers_round_trip_through_settings_toml_and_a_new_file() {
     let config = read_toml(NODES);
     let network = config.network.clone().unwrap();
     assert_eq!(
@@ -1011,7 +1011,7 @@ fn the_peers_are_checked() {
     ] {
         let text = NODES.split("[[network.nodes]]").next().unwrap().to_owned() + "[[network.nodes]]\n" + bad;
         let dir = tempfile::tempdir().unwrap();
-        let file = dir.path().join("host.toml");
+        let file = dir.path().join("settings.toml");
         std::fs::write(&file, text).unwrap();
         let error = read_host_config(&file).unwrap_err().to_string();
         assert!(error.contains(said), "{bad:?}: {error}");
@@ -1020,9 +1020,9 @@ fn the_peers_are_checked() {
     let twice =
         format!("{NODES}\n[[network.nodes]]\nid = \"uk-1\"\nregion = \"uk\"\nhost = \"a.example\"\nport = 443\n");
     let dir = tempfile::tempdir().unwrap();
-    std::fs::write(dir.path().join("host.toml"), twice).unwrap();
+    std::fs::write(dir.path().join("settings.toml"), twice).unwrap();
     assert!(
-        read_host_config(&dir.path().join("host.toml"))
+        read_host_config(&dir.path().join("settings.toml"))
             .unwrap_err()
             .to_string()
             .contains("twice")
@@ -1077,7 +1077,7 @@ fn a_server_without_peers_writes_no_node_settings() {
 }
 
 #[test]
-fn switches_round_trip_through_host_toml_setup_and_backend_env() {
+fn switches_round_trip_through_settings_toml_setup_and_backend_env() {
     let toml_text = format!(
         "{NODES}\n[switches]\nreforge = \"log\"\nmastery_persistence = \"off\"\nbounty_persistence = \"off\"\ncooldown_persistence = \"off\"\naccount_erasure = \"off\"\nlog_purge = \"off\"\nrate_limit = \"off\"\nrate_limit_per_minute = 300\ngameserver_rate_limit_per_minute = 4500\nhost_rate_limit_per_minute = 5000\n"
     );

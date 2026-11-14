@@ -64,7 +64,7 @@ pub trait ModuleControl: Send + Sync {
     fn unload<'a>(&'a self, id: &'a str) -> Pending<'a, Module>;
     /// Unloads and loads a module again.
     fn restart<'a>(&'a self, id: &'a str) -> Pending<'a, Module>;
-    /// host.toml's settings the dashboard edits, when the host kit handed the file in
+    /// settings.toml's settings the dashboard edits, when the host kit handed the file in
     fn host_settings(&self) -> Option<Arc<dyn crate::host_settings::HostSettings>> {
         None
     }
@@ -193,7 +193,7 @@ mod tests {
         fn load<'a>(&'a self, id: &'a str) -> Pending<'a, Module> {
             Box::pin(async move {
                 if id != "stub" {
-                    return Err(format!("no module {id} is listed in host.toml ([modules])"));
+                    return Err(format!("no module {id} is listed in settings.toml ([modules])"));
                 }
                 *self.0.lock().unwrap() = "ready".into();
                 Ok(self.module())

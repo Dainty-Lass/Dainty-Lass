@@ -438,11 +438,11 @@ struct HostMultipliersFields {
 
 object_only!(HostMultipliers, HostMultipliersFields);
 
-/// The server settings read from `host.toml`.
+/// The server settings read from `settings.toml`.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(any(test, feature = "ts"), derive(ts_rs::TS))]
 pub struct HostServerConfig {
-    /// `host.toml` exists and parsed.
+    /// `settings.toml` exists and parsed.
     pub configured: bool,
     /// Server name players see.
     pub name: Option<String>,
@@ -1114,7 +1114,7 @@ pub struct ModuleSettingView {
     pub help: String,
     /// The module's default.
     pub default: ModuleSettingValue,
-    /// The value in `host.toml`, or the default.
+    /// The value in `settings.toml`, or the default.
     pub value: ModuleSettingValue,
 }
 

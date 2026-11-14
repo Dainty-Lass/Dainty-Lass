@@ -43,7 +43,7 @@ serde = "1"
 serde_json = "1"
 # The SHA-256 several targets check (runtime files, history buckets, log shipping)
 sha2 = "0.11"
-# launcher_host: the launcher's host.toml reader
+# launcher_host: the launcher's settings.toml reader
 toml_edit = { version = "0.25", default-features = false, features = ["parse", "display"] }
 dainty-service-kit = { path = "../../crates/dainty-service-kit" }
 # history_record: change-log records read back during a restore (DH5)

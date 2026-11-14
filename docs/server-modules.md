@@ -6,10 +6,10 @@ The game module, Rustic Isles for 1.14.7, is MIT (`crates/rustic-isles-1-14-7` a
 composes, RD27). The binaries that compile it in are MIT too, and read its version data at start (RD27):
 `dainty-server`, `dainty-host` (same crate, `crates/dainty-server`) and
 `dainty-server-minimal` link game modules by Cargo feature (DD12). The root's `crates/dainty-lass` links
-none; it loads the modules and services `host.toml` lists as libraries (RD27). A build with no module feature starts
+none; it loads the modules and services `settings.toml` lists as libraries (RD27). A build with no module feature starts
 and serves the core plugins only; each feature adds one module to `crates/dainty-host/src/compose.rs`'s
 `game_modules()`, on top of `controller::modules::game_modules()`, and `serve` lists them at start (`[modules]` in
-`host.toml` picks which load).
+`settings.toml` picks which load).
 
 ## Features
 
@@ -19,7 +19,7 @@ The same names on restricted's `host`, `server-console`, `server-minimal` and, f
 
 | Feature | Links | State |
 | --- | --- | --- |
-| `isles-1-14-7` | `rustic-isles-1-14-7` with the version data `host.toml`'s `version_data` (design) and `version_facts` name, read at start (defaults `data/1.14.7/version_data.json` and `version_facts.json`; restricted holds the design in `modules/rustic-isles/version-data/1.14.7`, the root the facts in `crates/rustic-isles-1-14-7/data`) | linked |
+| `isles-1-14-7` | `rustic-isles-1-14-7` with the version data `settings.toml`'s `version_data` (design) and `version_facts` name, read at start (defaults `data/1.14.7/version_data.json` and `version_facts.json`; restricted holds the design in `modules/rustic-isles/version-data/1.14.7`, the root the facts in `crates/rustic-isles-1-14-7/data`) | linked |
 | `realms` | the Rustic Rifts crates (`crates/rustic-rifts-*`) inside `rustic-isles-1-14-7` (RF2); on its own it does nothing | linked |
 | `stub-module` | `module_api::stub::StubModule` (id `stub`, game version 0.0.1) | for tests and trying a build |
 | `all-modules` | `isles-1-14-7`, `realms` (never the stub) | what the release builds |

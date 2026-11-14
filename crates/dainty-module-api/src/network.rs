@@ -14,7 +14,7 @@ use crate::module::{BoxFuture, CommandRequest, ErrorKind, ModuleError};
 use crate::version::GameVersion;
 
 name_type!(
-    /// A node's name in the cluster, as its `host.toml` gives it (`[network]`, DF3).
+    /// A node's name in the cluster, as its `settings.toml` gives it (`[network]`, DF3).
     NodeId,
     "a node id"
 );

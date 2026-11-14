@@ -113,7 +113,7 @@ impl ServerController {
         }
     }
 
-    /// The game modules and plugins `host.toml` lists, loaded after the services (DF3).
+    /// The game modules and plugins `settings.toml` lists, loaded after the services (DF3).
     pub fn set_registry(&mut self, registry: ModuleRegistry) -> &mut Self {
         self.registry = Some(registry);
         self

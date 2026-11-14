@@ -1207,8 +1207,8 @@ rest; the composer calls both. The composer also: creates one `ReforgedState` an
 
 ## 16. Settings
 
-Read through core's settings (`raw` unless said) at each use; no new setting, `host.toml` field or env file line comes
-with this crate. Secrets never reach a log or a `Debug` (core §17).
+Read through core's settings (`raw` unless said) at each use; no new setting, `settings.toml` field or env file line
+comes with this crate. Secrets never reach a log or a `Debug` (core §17).
 
 | Setting | Use | Secret |
 | --- | --- | --- |

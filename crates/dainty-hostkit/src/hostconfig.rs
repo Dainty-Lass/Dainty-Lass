@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Silent Spud
 
-//! The server's configuration: `host.toml` (or a host.json, .yaml, .yml) read, validated and written back,
+//! The server's configuration: `settings.toml` (or a host.json, .yaml, .yml) read, validated and written back,
 //! `secrets.env`, and the per-service env files `setup` builds from the two.
 
 pub mod check;
@@ -33,14 +33,14 @@ use crate::paths::{MAX_HUNTS, PINNED_EXE_SHA256, PORTS, Paths, game_exe_relative
 
 /// The SQLite store's file name, in the config folder.
 pub const DATABASE_FILE: &str = "dainty-lass.db";
-/// The Linux options when host.toml has no `linux` section.
+/// The Linux options when settings.toml has no `linux` section.
 pub const DEFAULT_LINUX: LinuxOptions = LinuxOptions {
     wine: None,
     proton: None,
     xvfb: true,
     firewall_interface: None,
 };
-/// The game-server options when host.toml has no `performance` section.
+/// The game-server options when settings.toml has no `performance` section.
 pub const DEFAULT_PERFORMANCE: PerformanceOptions = PerformanceOptions {
     server_fps: 30,
     idle_fps: 10,
@@ -53,9 +53,9 @@ pub const DEFAULT_PERFORMANCE: PerformanceOptions = PerformanceOptions {
 };
 /// `GAMESERVER_LOG_CMDS` for quiet game logs: the noisy categories turned down.
 pub const QUIET_GAME_LOG_CMDS: &str = "LogPhoenixCharacter Warning, LogOnline Warning, LogLoad Off";
-/// The largest XP or reward multiplier host.toml takes.
+/// The largest XP or reward multiplier settings.toml takes.
 pub const MAX_MULTIPLIER: f64 = 100.0;
-/// The MongoDB a server migrates pre-cutover data from when host.toml names none.
+/// The MongoDB a server migrates pre-cutover data from when settings.toml names none.
 pub const DEFAULT_MONGO_URI: &str = "mongodb://127.0.0.1:27017/?replicaSet=rs0";
 /// TCP ports the server's own services hold with `ports`; no module or public port may take one.
 #[must_use]
@@ -72,14 +72,14 @@ pub fn reserved_ports(ports: &crate::paths::Ports) -> [u16; 8] {
     ]
 }
 
-/// The ports `c`'s services listen on: [`PORTS`] with host.toml's `[ports]` over it.
+/// The ports `c`'s services listen on: [`PORTS`] with settings.toml's `[ports]` over it.
 #[must_use]
 pub fn service_ports(c: &HostConfig) -> crate::paths::Ports {
     c.ports.unwrap_or_default().resolve()
 }
 /// `edition` is read only to refuse the 1.4.4 ones; `reborn` is dropped when the file is next written
-pub const EDITION_REMOVED: &str = "edition \"legacy\" and \"both\" ran Dauntless Revived's 1.4.4, which this server no longer runs: remove edition from host.toml (an old 1.4.4 server's accounts import with dainty-host legacy import revived)";
-/// The largest host.toml (or .json, .yaml) read, in bytes.
+pub const EDITION_REMOVED: &str = "edition \"legacy\" and \"both\" ran Dauntless Revived's 1.4.4, which this server no longer runs: remove edition from settings.toml (an old 1.4.4 server's accounts import with dainty-host legacy import revived)";
+/// The largest settings.toml (or .json, .yaml) read, in bytes.
 pub const MAX_HOST_CONFIG_BYTES: u64 = 256 * 1024;
 /// The secrets file's name, in the config folder.
 pub const SECRET_FILE: &str = "secrets.env";
@@ -159,7 +159,7 @@ pub enum ServerMode {
 }
 
 impl ServerMode {
-    /// The name host.toml spells it with.
+    /// The name settings.toml spells it with.
     #[must_use]
     pub fn as_str(self) -> &'static str {
         match self {
@@ -168,7 +168,7 @@ impl ServerMode {
         }
     }
 
-    /// The mode host.toml's `mode` names; `None` for anything else.
+    /// The mode settings.toml's `mode` names; `None` for anything else.
     #[must_use]
     pub fn parse(text: &str) -> Option<Self> {
         match text {
@@ -197,7 +197,7 @@ pub enum Registration {
 }
 
 impl Registration {
-    /// The name host.toml spells it with.
+    /// The name settings.toml spells it with.
     #[must_use]
     pub fn as_str(self) -> &'static str {
         match self {
@@ -207,7 +207,7 @@ impl Registration {
         }
     }
 
-    /// The policy host.toml's `registration` names (upper case); `None` for anything else.
+    /// The policy settings.toml's `registration` names (upper case); `None` for anything else.
     #[must_use]
     pub fn parse(text: &str) -> Option<Self> {
         match text {
@@ -270,7 +270,7 @@ impl Default for LinuxOptions {
     }
 }
 
-/// host.toml's `database`: where the store is, and whether to start empty.
+/// settings.toml's `database`: where the store is, and whether to start empty.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct DatabaseSettings {
     /// `postgres`, or SQLite when `None` or anything else.
@@ -296,7 +296,7 @@ impl DatabaseSettings {
         self.engine.as_deref() == Some("postgres")
     }
 
-    /// Reads host.toml's `database` table; keys it doesn't know are ignored.
+    /// Reads settings.toml's `database` table; keys it doesn't know are ignored.
     #[must_use]
     pub fn from_json(d: &Map<String, Value>) -> Self {
         Self {
@@ -310,7 +310,7 @@ impl DatabaseSettings {
         }
     }
 
-    /// The table host.toml writes, without the keys that are `None`.
+    /// The table settings.toml writes, without the keys that are `None`.
     #[must_use]
     pub fn to_json(&self) -> Value {
         let mut out = Map::new();
@@ -414,7 +414,7 @@ const SWITCH_NUMBERS: [(&str, &str, &str); 3] = [
     ),
 ];
 
-/// host.toml's `switches`: Rustic Isles' feature switches, each `None` for the module's default.
+/// settings.toml's `switches`: Rustic Isles' feature switches, each `None` for the module's default.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct SwitchesConfig {
     /// `on`, `log` or `off`.
@@ -490,7 +490,7 @@ impl SwitchesConfig {
         }
     }
 
-    /// The table host.toml writes, without the switches that are `None`.
+    /// The table settings.toml writes, without the switches that are `None`.
     #[must_use]
     pub fn to_json(&self) -> Value {
         let mut out = Map::new();
@@ -558,7 +558,7 @@ impl SwitchesConfig {
     }
 }
 
-/// host.toml's `history`: where the change log is shipped.
+/// settings.toml's `history`: where the change log is shipped.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct HistoryConfig {
     /// The peer node each change is shipped to; kept only here when `None`.
@@ -583,7 +583,7 @@ impl HistoryConfig {
         Ok(Self { ship_to_peer })
     }
 
-    /// The table host.toml writes.
+    /// The table settings.toml writes.
     #[must_use]
     pub fn to_json(&self) -> Value {
         let mut out = Map::new();
@@ -594,7 +594,7 @@ impl HistoryConfig {
     }
 }
 
-/// host.toml's `remote`: this install's place in remote management (DD27).
+/// settings.toml's `remote`: this install's place in remote management (DD27).
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct RemoteConfig {
     /// `standalone`, `controller` or `managed`; standalone when `None`.
@@ -779,7 +779,7 @@ impl RemoteConfig {
         })
     }
 
-    /// The table host.toml writes, without the fields that are `None`.
+    /// The table settings.toml writes, without the fields that are `None`.
     #[must_use]
     pub fn to_json(&self) -> Value {
         let mut out = Map::new();
@@ -873,11 +873,11 @@ pub struct FileForm {
     pub document: Map<String, Value>,
     /// The document as read, before validation.
     pub read: Map<String, Value>,
-    /// The host.toml text as read; `None` for a JSON or YAML file.
+    /// The settings.toml text as read; `None` for a JSON or YAML file.
     pub toml: Option<String>,
 }
 
-/// host.toml: the server's configuration, validated.
+/// settings.toml: the server's configuration, validated.
 #[derive(Debug, Clone, PartialEq)]
 pub struct HostConfig {
     /// The file's format version.
@@ -966,10 +966,10 @@ impl HostConfig {
         Self::from_validated(validated, read, None)
     }
 
-    /// Validates host.toml's text; the error names the key and the problem as host.toml spells them.
+    /// Validates settings.toml's text; the error names the key and the problem as settings.toml spells them.
     pub fn from_toml(text: &str) -> Result<Self, HostError> {
-        let doc = crate::hosttoml::document(text)?;
-        let validated = validate(&doc).map_err(|e| bad(crate::hosttoml::message(&e.to_string())))?;
+        let doc = crate::settingstoml::document(text)?;
+        let validated = validate(&doc).map_err(|e| bad(crate::settingstoml::message(&e.to_string())))?;
         let read = doc.as_object().cloned().unwrap_or_default();
         Self::from_validated(validated, read, Some(text.to_owned()))
     }
@@ -1443,24 +1443,25 @@ impl HostConfig {
         merge_document_order(&self.file.document, canonical)
     }
 
-    /// host.toml's text, laid over the file it was read from so the host's order and comments stay.
+    /// settings.toml's text, laid over the file it was read from so the host's order and comments stay.
     pub fn to_toml(&self) -> Result<String, HostError> {
         let fields = self.fields_map();
-        let validated = validate(&Value::Object(fields)).map_err(|e| bad(crate::hosttoml::message(&e.to_string())))?;
+        let validated =
+            validate(&Value::Object(fields)).map_err(|e| bad(crate::settingstoml::message(&e.to_string())))?;
         let obj = validated
             .as_object()
-            .ok_or_else(|| bad("host.toml must hold a table"))?;
+            .ok_or_else(|| bad("settings.toml must hold a table"))?;
         let mut merged = obj.clone();
-        // Preserve nullable fields that are None as Null so hosttoml::patch removes them if they were set before
+        // Preserve nullable fields that are None as Null so settingstoml::patch removes them if they were set before
         for k in ["gameDir", "shareUrl"] {
             if !merged.contains_key(k) {
                 merged.insert(k.to_owned(), Value::Null);
             }
         }
-        crate::hosttoml::text(&merged, &self.file.read, self.file.toml.as_deref())
+        crate::settingstoml::text(&merged, &self.file.read, self.file.toml.as_deref())
     }
 
-    /// The services' tunable tables, by name, in host.toml's order.
+    /// The services' tunable tables, by name, in settings.toml's order.
     #[must_use]
     pub fn tunables(&self) -> [(&'static str, Option<&tunables::Tunables>); 5] {
         [
@@ -1627,13 +1628,13 @@ pub fn game_ports_text(c: &HostConfig, separator: &str) -> String {
     format!("{first}{separator}{last}")
 }
 
-/// The 1.14.7 version data a release ships, in the server folder, when host.toml has no `version_data` (RD27).
+/// The 1.14.7 version data a release ships, in the server folder, when settings.toml has no `version_data` (RD27).
 pub const DEFAULT_VERSION_DATA: &str = "data/1.14.7/version_data.json";
 
 /// The 1.14.7 version facts a release ships beside [`DEFAULT_VERSION_DATA`] (rulings V-1 to V-3).
 pub const DEFAULT_VERSION_FACTS: &str = "data/1.14.7/version_facts.json";
 
-/// The version facts file the server reads: host.toml's `version_facts` (relative to the server folder), else
+/// The version facts file the server reads: settings.toml's `version_facts` (relative to the server folder), else
 /// [`DEFAULT_VERSION_FACTS`]; in a checkout, which has no `data/`, the MIT module's own copy. A host whose
 /// `version_data` still names a whole document needs no facts file.
 #[must_use]
@@ -1659,7 +1660,7 @@ pub fn version_facts_path(paths: &Paths, config: Option<&HostConfig>) -> PathBuf
         .unwrap_or(shipped)
 }
 
-/// The version data file the server reads: host.toml's `version_data` (relative to the server folder), else
+/// The version data file the server reads: settings.toml's `version_data` (relative to the server folder), else
 /// [`DEFAULT_VERSION_DATA`]; in a checkout, which has no `data/`, restricted's own copy.
 #[must_use]
 pub fn version_data_path(paths: &Paths, config: Option<&HostConfig>) -> PathBuf {
@@ -2727,22 +2728,22 @@ pub fn read_host_config(file: &Path) -> Result<Option<HostConfig>, HostError> {
     }
 }
 
-/// Reads the workspace's host.toml; `None` before the first setup. A Node kit's host.json alone is refused.
+/// Reads the workspace's settings.toml; `None` before the first setup. A Node kit's host.json alone is refused.
 pub fn load_host_config(p: &Paths) -> Result<Option<HostConfig>, HostError> {
     let old = p.config.join("host.json");
-    if !p.host_toml.is_file() && old.is_file() {
+    if !p.settings_toml.is_file() && old.is_file() {
         return Err(HostError::message(format!(
             "{} is a Node kit's: run `dainty-legacy import reforged <checkout>` first",
             old.display()
         )));
     }
-    read_host_config(&p.host_toml)
+    read_host_config(&p.settings_toml)
 }
 
-/// Whether the workspace has a host.toml.
+/// Whether the workspace has a settings.toml.
 #[must_use]
 pub fn has_host_config(p: &Paths) -> bool {
-    p.host_toml.is_file()
+    p.settings_toml.is_file()
 }
 
 /// The config as host.json text.
@@ -2750,7 +2751,7 @@ pub fn host_config_text(c: &HostConfig) -> Result<String, HostError> {
     Ok(format!("{}\n", stringify_pretty(&c.to_json()?)))
 }
 
-/// Writes the config to `file`, as JSON for a `.json` file and as host.toml otherwise.
+/// Writes the config to `file`, as JSON for a `.json` file and as settings.toml otherwise.
 pub fn write_host_config(file: &Path, c: &HostConfig) -> Result<(), HostError> {
     if let Some(parent) = file.parent() {
         std::fs::create_dir_all(parent).map_err(|e| HostError::io(parent, e))?;
@@ -2768,9 +2769,9 @@ pub fn write_host_config(file: &Path, c: &HostConfig) -> Result<(), HostError> {
     std::fs::write(file, text).map_err(|e| HostError::io(file, e))
 }
 
-/// Writes the workspace's host.toml.
+/// Writes the workspace's settings.toml.
 pub fn save_host_config(p: &Paths, c: &HostConfig) -> Result<(), HostError> {
-    write_host_config(&p.host_toml, c)
+    write_host_config(&p.settings_toml, c)
 }
 
 /// Fresh random secrets.
@@ -3857,7 +3858,7 @@ peer = \"games-1\"
         );
     }
 
-    /// `[logs]` reads from host.toml's snake_case keys and survives a rewrite.
+    /// `[logs]` reads from settings.toml's snake_case keys and survives a rewrite.
     #[test]
     fn logs_round_trip_through_toml() {
         let text = "version = 1
@@ -3883,7 +3884,7 @@ gelf_url = \"tcp://graylog:12201\"
         assert!(HostConfig::from_toml(&text.replace("tcp://graylog", "tcp://logs.example.org")).is_err());
     }
 
-    /// `[events]` reads from host.toml, is written into a file that lacked it, and left out keeps the default.
+    /// `[events]` reads from settings.toml, is written into a file that lacked it, and left out keeps the default.
     #[test]
     fn events_round_trip_through_toml() {
         let text = "version = 1
@@ -3921,8 +3922,8 @@ retention_days = 30"
         assert!(HostConfig::from_toml(&written.replace("retention_days", "retention")).is_err());
     }
 
-    /// `[ports]` round-trips through host.toml and moves each service, and whoever reaches it, to its port; left out,
-    /// the defaults stay; a port the gateway, a game server or another service holds is refused.
+    /// `[ports]` round-trips through settings.toml and moves each service, and whoever reaches it, to its port; left
+    /// out, the defaults stay; a port the gateway, a game server or another service holds is refused.
     #[test]
     fn ports_round_trip_and_reach_every_env_file() {
         let text = "version = 1
@@ -4004,7 +4005,7 @@ backend = 42000
         );
     }
 
-    /// `[discord]` round-trips through host.toml, and discord.env is written only with the bot on and its token
+    /// `[discord]` round-trips through settings.toml, and discord.env is written only with the bot on and its token
     /// set, which then reaches that file alone (D5).
     #[test]
     fn discord_round_trips_and_its_token_reaches_only_its_env_file() {
@@ -4128,7 +4129,7 @@ dashboard_url = \"https://dash.example\"
 [director]
 ";
 
-    /// RD24: a host.json, the host.toml it becomes, that file with every service table named but empty, and setup's
+    /// RD24: a host.json, the settings.toml it becomes, that file with every service table named but empty, and setup's
     /// rewrite of it all write `service`'s env file the same, on both platforms; and no table's setting is written
     /// unless it is set, so the file is what setup wrote before the tables.
     fn every_form_writes_the_same_env(service: &str) {
@@ -4155,12 +4156,12 @@ dashboard_url = \"https://dash.example\"
                     .to_json()
                     .unwrap(),
                 from_json.to_json().unwrap(),
-                "host.toml reads back as the host.json it came from"
+                "settings.toml reads back as the host.json it came from"
             );
             for platform in [Platform::Windows, Platform::Linux] {
                 let want = file_of(&from_json, platform);
                 for (form, c) in [
-                    ("host.toml", &from_toml),
+                    ("settings.toml", &from_toml),
                     ("empty tables", &with_tables),
                     ("rewritten", &rewritten),
                 ] {
@@ -4237,6 +4238,8 @@ max_hunt_servers = 3
 hub_max_players = 8 # a bigger Ramsgate
 hub_afk_seconds = 0
 hunt_afk_seconds = 900
+keep_supply_stack_caps = true
+cell_fusion_minutes = 45
 ";
         let cfg = HostConfig::from_toml(text).unwrap();
         let dir = tempfile::tempdir().unwrap();
@@ -4245,13 +4248,15 @@ hunt_afk_seconds = 900
         assert!(has("DAINTY_HUB_MAX_PLAYERS", "8"), "{:?}", files.director);
         assert!(has("DAINTY_HUB_AFK_SECONDS", "0"));
         assert!(has("DAINTY_HUNT_AFK_SECONDS", "900"));
+        assert!(has("DAINTY_KEEP_SUPPLY_STACK_CAPS", "true"));
+        assert!(has("DAINTY_CELL_FUSION_MINUTES", "45"));
         for (name, file) in files.files() {
             if name != "director" {
                 assert!(
-                    !file
-                        .into_iter()
-                        .flatten()
-                        .any(|(k, _)| k.starts_with("DAINTY_HUB_") || k.starts_with("DAINTY_HUNT_AFK")),
+                    !file.into_iter().flatten().any(|(k, _)| k.starts_with("DAINTY_HUB_")
+                        || k.starts_with("DAINTY_HUNT_AFK")
+                        || k.starts_with("DAINTY_KEEP_SUPPLY")
+                        || k.starts_with("DAINTY_CELL_FUSION")),
                     "{name}"
                 );
             }
@@ -4261,6 +4266,15 @@ hunt_afk_seconds = 900
             rewritten.contains("hub_max_players = 8 # a bigger Ramsgate"),
             "{rewritten}"
         );
+        let again = HostConfig::from_toml(&rewritten).unwrap();
+        let again = build_env_files(
+            &again,
+            &sample_secrets(),
+            &Paths::new(dir.path()),
+            "",
+            Platform::Windows,
+        );
+        assert_eq!(again.director, files.director);
         let err = HostConfig::from_toml(&text.replace("= 8 #", "= 65 #"))
             .unwrap_err()
             .to_string();

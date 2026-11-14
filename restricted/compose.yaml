@@ -99,7 +99,7 @@ x-network-netem-env: &network-netem-env
   NETEM_RTT: "oregon:new-york=${DAINTY_NETWORK_RTT_OREGON_NEW_YORK:-70} oregon:uk=${DAINTY_NETWORK_RTT_OREGON_UK:-140} oregon:germany=${DAINTY_NETWORK_RTT_OREGON_GERMANY:-150} new-york:uk=${DAINTY_NETWORK_RTT_NEW_YORK_UK:-75} new-york:germany=${DAINTY_NETWORK_RTT_NEW_YORK_GERMANY:-85} uk:germany=${DAINTY_NETWORK_RTT_UK_GERMANY:-20}"
   NETEM_PLAYER_REGION: ${DAINTY_NETWORK_PLAYER_REGION:-germany}
 
-# Setup from the host.toml network-init wrote, before the gateway starts
+# Setup from the settings.toml network-init wrote, before the gateway starts
 x-network-configure: &network-configure
   image: ${DAINTY_IMAGE:-dainty-lass}-server:${DAINTY_TAG:-local}
   build:
@@ -219,7 +219,7 @@ services:
       net:
         condition: service_started
 
-  # The postgres profile: for a server whose host.toml picks Postgres ([database] engine = "postgres",
+  # The postgres profile: for a server whose settings.toml picks Postgres ([database] engine = "postgres",
   # docs/hosting-docker.md). On 127.0.0.1 in the shared namespace, as setup's env files say: libpq is built
   # without TLS (DF7). The role is dainty, its password setup's DAINTY_DB_PASSWORD, read from secrets.env
   # when the data volume is first made
@@ -253,8 +253,8 @@ services:
         condition: service_completed_successfully
         required: false
 
-  # The `toml` profile: a server managed by host.toml alone. Setup runs from it before every `up`, so editing
-  # DAINTY_CONFIG_DIR/host.toml and `docker compose up -d` is the whole change (docs/hosting-docker.md)
+  # The `toml` profile: a server managed by settings.toml alone. Setup runs from it before every `up`, so editing
+  # DAINTY_CONFIG_DIR/settings.toml and `docker compose up -d` is the whole change (docs/hosting-docker.md)
   configure:
     <<: *server
     profiles: [toml]
@@ -434,7 +434,7 @@ services:
   # only in the region and its address.
 
   # Makes the cluster CA (in the network-ca volume, which nothing else mounts) and what each node needs: its public
-  # certificate, its node certificate, the CA's certificate and a host.toml listing the other three. Runs as root,
+  # certificate, its node certificate, the CA's certificate and a settings.toml listing the other three. Runs as root,
   # with the capabilities to write into the node volumes and hand them to uid 1000.
   network-init:
     image: ${DAINTY_IMAGE:-dainty-lass}-server:${DAINTY_TAG:-local}

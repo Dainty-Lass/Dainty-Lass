@@ -135,7 +135,7 @@ against fixtures generated from the Node kit (`restricted/crates/dainty-host/tes
 | Reforged Node (`legacy/ReforgedHost/src/`) | Rust (`crates/dainty-hostkit/src/`) | Note |
 | --- | --- | --- |
 | `cli.ts` | `cli.rs`, `commands/mod.rs`; the binaries are `crates/dainty-server` | The same commands and options: `setup`, `start`, `invite`, `doctor`, `gamedata`, `publish-runtime`, `preset`, `multipliers`, `update`, `backup`, and the Linux-only `gameserver` |
-| `hostconfig.ts` (`host.json`) | `hostconfig.rs`, `hosttoml.rs` | `host.toml` with the same fields (RD24); a Node kit's `host.json` is read until the first write |
+| `hostconfig.ts` (`host.json`) | `hostconfig.rs`, `settingstoml.rs` | `settings.toml` with the same fields (RD24); a Node kit's `host.json` is read until the first write |
 | `envfile.ts`, `paths.ts`, `run.ts` | `envfile.rs`, `paths.rs`, `run.rs` | `paths.rs` knows the `modules/rustic-isles` and `native/` layout (DS6; `paradox/` before) |
 | `services.ts` (the process tree) | `services.rs`, `commands/start/` | One process tree; runs the Rust gateway, content, allowlist, admin, `rustic-isles-1-14-7` backend and `rustic-isles-director` by default (Node and MongoDB only behind `--features paradox` until RB15); each service gets the shell's environment, then its env file (`service_environment`; no `SERVER_PREFIXES` filter since the clean-room rewrite) |
 | `doctor.ts` | `doctor.rs`, `commands/doctor.rs` | Checks `modules/rustic-isles` and `native/` instead of the patch marker |
@@ -239,7 +239,7 @@ and download (`content/src/runtime.rs`, launcher `net/runtime_files.rs`); the Ho
 ([`crates/dainty-inject`](../../crates/dainty-inject), the launcher's `platform/inject.rs` and the Director's
 `runtime`, RD9 as amended in [`launcher-injection.md`](../launcher-injection.md) and
 [`director-injection.md`](../director-injection.md)); `protocol/src/text.rs`; the
-nftables backend as Reforged wrote it; the fuzz targets and the `docs/security/` checklists; `host.toml`;
+nftables backend as Reforged wrote it; the fuzz targets and the `docs/security/` checklists; `settings.toml`;
 `docker/`, `compose.yaml`, `compose.tailscale.yaml` and `.env.example` at the root, MIT and written clean-room from
 [`spec-docker.md`](spec-docker.md) (RD27); restricted's copies stay until their oracle runs retire them.
 
@@ -340,9 +340,9 @@ still owed, and are closed.
    download, the loader session, the host kit's secrets, the admin API) updates its fuzz target in `fuzz/` and
    its checklist in `docs/security/<component>.md` in the same commit (RX3).
 7. **A configuration variable** is written and read in the same commit: `crates/dainty-hostkit/src/hostconfig.rs` and
-   `hosttoml.rs` write it, the service's `config.rs` reads it, a test round-trips it, an older `host.toml` without it
-   keeps today's behaviour, its name carries a server prefix, a secret goes in `secrets.env`, and the host docs'
-   tables move with it (AGENTS.md, "Configuration").
+   `settingstoml.rs` write it, the service's `config.rs` reads it, a test round-trips it, an older `settings.toml`
+   without it keeps today's behaviour, its name carries a server prefix, a secret goes in `secrets.env`, and the host
+   docs' tables move with it (AGENTS.md, "Configuration").
 8. ***Launcher text** goes at the end of both language files (`ui/apps/web/messages/`, or the launcher kit's
    `core::i18n` for the backend's dialogs) with the same keys and placeholders. In `restricted/`,
    `RR_UPDATE_GENERATED=1 cargo test -p dainty-launcher generated` regenerates, for a bridge command changed in

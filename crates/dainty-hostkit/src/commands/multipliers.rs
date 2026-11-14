@@ -45,7 +45,7 @@ pub fn run(paths: &Paths, args: &MultipliersArgs) -> Result<ExitCode, HostError>
     })
 }
 
-/// Shows or sets the multipliers in host.toml, rewriting the env files if setup made them; prints through `out`.
+/// Shows or sets the multipliers in settings.toml, rewriting the env files if setup made them; prints through `out`.
 pub fn run_with(
     paths: &Paths,
     args: &MultipliersArgs,

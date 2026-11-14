@@ -22,7 +22,7 @@ is untrusted, and what it sends back is a credential.
   TLS connection, so there is no Ed25519 signature to check as an HTTP endpoint would.
 - **Out:** Discord's REST API through `twilight_http::Client` (https only, webpki roots, its rate limiter) to
   register the commands and answer interactions; dainty-dash's public `GET /api/public/signup` (A8, D3), http or
-  https as `[discord] dashboard_url` (or host.toml's `dashboard_url`) says.
+  https as `[discord] dashboard_url` (or settings.toml's `dashboard_url`) says.
 - **Inside the process:** `GameCall::Availability` and `GameCall::CreateInvite` to the 1.14.7 module through the
   registry, and one `discord.key.requested` event per `/key` on the registry's bus, which the recorder keeps (A5,
   D6).
@@ -45,7 +45,7 @@ Fuzz target in `fuzz`:
 ### The token
 
 - [ ] `DISCORD_BOT_TOKEN` lives only in secrets.env (`SECRET_KEYS`) and reaches only `discord.env`
-      (`build_env_files`; `discord_round_trips_and_its_token_reaches_only_its_env_file`). It is never a host.toml
+      (`build_env_files`; `discord_round_trips_and_its_token_reaches_only_its_env_file`). It is never a settings.toml
       field: `[discord]` refuses any key but `enabled`, `application_id`, `guild_ids`, `dashboard_url`.
 - [ ] `setup --discord-bot-token` reads the token from stdin, never from the command line, and checks it before
       anything is written (`commands/setup.rs`). It is listed in `PROVIDED_SECRET_KEYS`, so an empty one is never

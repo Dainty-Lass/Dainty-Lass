@@ -479,7 +479,7 @@ names; question RT-8 covers the pipe prefix and `MYS1`, which D3's table does no
 | 0039 | RG-7 | R12 |
 | 0040 | section 2.5 and 4.1 variable names | R1, R8 |
 
-0024 and 0029 are policy, not fixes; the patches page already names them as `host.toml` candidates (RT-11).
+0024 and 0029 are policy, not fixes; the patches page already names them as `settings.toml` candidates (RT-11).
 
 ---
 
@@ -625,7 +625,7 @@ Questions:
   `REWARD_CACHE_CAPTURE.flag`. Keep that in the MIT runtime (from lane E's MIT exporter) or leave it to the exporter
   DLL through RD9?
 - **RT-11 Policy patches.** 0024 and 0029 (and the `*_AFK_TIMEOUT_SECONDS.txt` / `HUB_MAX_PLAYERS.txt` files) as
-  `host.toml` settings passed in the environment, instead of hard-coded behaviour and files next to the exe?
+  `settings.toml` settings passed in the environment, instead of hard-coded behaviour and files next to the exe?
 - **RT-12 0004 after the phantom.** Since HL-2 removed the phantom local player, does LD-3's phantom-failure drop still
   fire? Its one-shot loader retry is still needed either way.
 - **RT-13** `RUSTIC_ISLES_INTERNAL_VERSION`: is it read anywhere (the launcher?), or can it go?

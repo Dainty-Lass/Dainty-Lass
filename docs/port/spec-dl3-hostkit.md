@@ -2,13 +2,13 @@
 
 > **Ports moved 2026-11-10.** The loopback services' defaults are now backend 41000, Director 41001, content
 > 41002, admin 41003, allowlist 41005, chat 41006 and QoS 41010, below the dynamic range Windows lends to Hyper-V,
-> WSL and Docker. host.toml's `[ports]` moves any of them, and on Windows setup and start move one Windows has lent
+> WSL and Docker. settings.toml's `[ports]` moves any of them, and on Windows setup and start move one Windows has lent
 > out (a private gateway's 61000 to 41080). The numbers below are the ones recorded upstream: read each 610xx
 > service port as its 410xx counterpart. A private gateway's default stays 61000.
 
 > **Scope & Purpose (DD26 / DL3a):** This document is the clean-room behaviour specification for extracting and reimplementing the MIT-licensed `crates/dainty-hostkit` crate in row **DL3b**, leaving a thin AGPL-3.0-or-later shell in `crates/dainty-host` for features that link or invoke Dauntless Revived (`DR`) services.
 >
-> All types, function signatures, CLI flags, configuration schemas (`host.toml`, `host.yaml`, `host.json`, `secrets.env`, `<service>.env`), file paths, wire formats, exit codes, error strings, and test invariants are specified below from observable contracts (`docs/hosting.md`, `docs/hosting-linux.md`, `docs/app-structure-plan.md`, and the integration/unit test suite) without copying implementation code or referencing prior Node host-kit internals.
+> All types, function signatures, CLI flags, configuration schemas (`settings.toml`, `host.yaml`, `host.json`, `secrets.env`, `<service>.env`), file paths, wire formats, exit codes, error strings, and test invariants are specified below from observable contracts (`docs/hosting.md`, `docs/hosting-linux.md`, `docs/app-structure-plan.md`, and the integration/unit test suite) without copying implementation code or referencing prior Node host-kit internals.
 
 ---
 
@@ -23,7 +23,7 @@ These modules were written originally for Dainty Lass in Rust with no `ReforgedH
 | Current Path in `crates/dainty-host/src/` | Purpose & Provenance | Destination in DL3b |
 | --- | --- | --- |
 | `error.rs` | `HostError` (`Message`, `Io`, `NotImplemented`) and `Result<T, HostError>` wrapper | `crates/dainty-hostkit` |
-| `hosttoml.rs` | Round-trip TOML <-> JSON structural converter (`document`, `to_toml`, `key_in_toml`, `key_to_toml`, `check_keys`) | `crates/dainty-hostkit` |
+| `settingstoml.rs` | Round-trip TOML <-> JSON structural converter (`document`, `to_toml`, `key_in_toml`, `key_to_toml`, `check_keys`) | `crates/dainty-hostkit` |
 | `hostconfig/yaml.rs` | YAML <-> JSON structural converter (`document`, `to_yaml`) for `host.yaml` / `host.yml` | `crates/dainty-hostkit` |
 | `hostconfig/guard.rs` | `[guard]` configuration section (`GuardConfig`) for rate-limiting, bans, and trusted proxies (DH4) | `crates/dainty-hostkit` |
 | `hostconfig/modules.rs` | `[modules]` and `[[modules.external]]` configuration section (`ModulesConfig`, `ExternalModuleConfig`) (DF3) | `crates/dainty-hostkit` |
@@ -197,7 +197,7 @@ pub const BOTH_LEGACY_PORTS: LegacyPorts = LegacyPorts {
   - `captures_pin`: `<repo>/modules/rustic-isles/reference/1.14.7/ParadoxBackend/store-captures.json`
   - `runtime_publish`: `<repo>/.workspace/runtime`
   - `config`: `<repo>/.workspace/config`
-  - `host_toml`: `<repo>/.workspace/config/host.toml`
+  - `settings_toml`: `<repo>/.workspace/config/settings.toml`
   - `host_json`: `<repo>/.workspace/config/host.json`
   - `tls`: `<repo>/.workspace/tls`
   - `cert_file`: `<repo>/.workspace/tls/gateway-cert.pem`
@@ -281,7 +281,7 @@ impl EnvDocument {
 ### 2.3 Module 3: `hostconfig`
 
 #### Responsibility
-Defines, validates, loads, and saves the server configuration (`host.toml`, `host.yaml` / `host.yml`, `host.json`), manages `secrets.env`, and generates the per-service `.env` files (`backend.env`, `director.env`, `content.env`, `gateway.env`, `admin.env`, `allowlist.env`).
+Defines, validates, loads, and saves the server configuration (`settings.toml`, `host.yaml` / `host.yml`, `host.json`), manages `secrets.env`, and generates the per-service `.env` files (`backend.env`, `director.env`, `content.env`, `gateway.env`, `admin.env`, `allowlist.env`).
 
 #### Constants & Submodules
 
@@ -725,7 +725,7 @@ pub fn print_checks(checks: &[Check], say: impl FnMut(&str)) -> (usize, usize);
    - Available = `total_mb as i64 - overhead`. If `available <= 0` or `perf.hunt_memory_mb == 0`, returns `0`; else `(available / i64::from(perf.hunt_memory_mb)) as u64`.
 5. **`game_checks` / `game_exe_checks`:**
    - Area `"game"` (or `"legacy-game"` when `build.name != "1.14.7"`).
-   - If `game_dir` is `None` or empty: `Level::Fail` (`"no game folder in host.toml"`).
+   - If `game_dir` is `None` or empty: `Level::Fail` (`"no game folder in settings.toml"`).
    - Checks `<game_dir>/Archon/Binaries/Win64/Dauntless-Win64-Shipping.exe` exists.
    - Checks `<game_dir>/Version.txt` (stripping UTF-8 BOM and trimming whitespace) equals `build.version_text`; if empty, reports `"nothing"`.
    - When `hash_exe == true`: computes SHA-256 of the `.exe` and compares against `build.exe_sha256`.
@@ -1634,7 +1634,7 @@ pub fn migrate_old_workspace(l: &Layout, repo: &Path) -> Result<Vec<String>, Hos
 
 1. **Migration Marker and Config Escape Hatch:**
    - Marker file: `.workspace/config/.mongo-migrated` (`mongo_migrated_marker(paths)`).
-   - `host.toml` `[database]` field: `fresh_start: Option<bool>` (`config.fresh_start()`), CLI flag `reforged-host setup --fresh-start` (sets `database.fresh_start = Some(true)`).
+   - `settings.toml` `[database]` field: `fresh_start: Option<bool>` (`config.fresh_start()`), CLI flag `reforged-host setup --fresh-start` (sets `database.fresh_start = Some(true)`).
 2. **Detecting Unmigrated Data (`has_unmigrated_mongo_dir`, `has_external_mongo_evidence`, `collection_has_documents`):**
    - If `.workspace/config/.mongo-migrated` exists or `config.fresh_start()` is `true`, no migration or refusal is triggered.
    - Managed MongoDB directory (`.workspace/mongodb`, `paths.mongo_data`): considered non-empty if it contains files other than `mongod.lock`.
@@ -1646,7 +1646,7 @@ pub fn migrate_old_workspace(l: &Layout, repo: &Path) -> Result<Vec<String>, Hos
      - If unmigrated MongoDB data is present, starts a temporary `mongod` if needed, invokes `HostHooks::db_migrate`, and writes `.workspace/config/.mongo-migrated` only after verification confirms zero mismatches.
      - Never modifies or deletes the MongoDB data directory.
 4. **Startup Refusal (`M1`, `M4`):**
-   - `start`, `serve`, and `backend` perform the unmigrated-MongoDB check before requiring `backend.env` or `host.toml`, and refuse to start if unmigrated MongoDB data in `.workspace/mongodb` or unreachable external MongoDB evidence exists without `.mongo-migrated`.
+   - `start`, `serve`, and `backend` perform the unmigrated-MongoDB check before requiring `backend.env` or `settings.toml`, and refuse to start if unmigrated MongoDB data in `.workspace/mongodb` or unreachable external MongoDB evidence exists without `.mongo-migrated`.
 
 ### 4.3 `db` Subcommands (`M2`, `M3`, `M5`, `RU8`, `RU9`)
 

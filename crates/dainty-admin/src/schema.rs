@@ -353,7 +353,7 @@ pub struct Hunt {
 /// The hunt servers and what they hold.
 #[derive(SimpleObject, Clone, Debug, PartialEq, Eq)]
 pub struct HuntStatus {
-    /// `max_hunt_servers` in host.toml.
+    /// `max_hunt_servers` in settings.toml.
     pub max_hunt_servers: u32,
     /// Hunt servers running.
     pub running: u32,
@@ -708,7 +708,7 @@ pub struct Admin {
     pub history: history::Service,
     /// Peer-to-peer admin relay, session ticket revocation and down-peer queue (DN11).
     pub relay: crate::relay::AdminRelay,
-    /// `max_hunt_servers` in host.toml.
+    /// `max_hunt_servers` in settings.toml.
     pub max_hunt_servers: u32,
     /// How players reach the server.
     pub server_mode: config::ServerMode,
@@ -2476,12 +2476,12 @@ impl Query {
             .collect())
     }
 
-    /// Every game module and plugin host.toml lists, loaded or not (DF3).
+    /// Every game module and plugin settings.toml lists, loaded or not (DF3).
     async fn modules(&self, ctx: &Context<'_>) -> async_graphql::Result<Vec<Module>> {
         module_control::list(ctx)
     }
 
-    /// One listed module; null when host.toml lists none by that id.
+    /// One listed module; null when settings.toml lists none by that id.
     async fn module(&self, ctx: &Context<'_>, id: String) -> async_graphql::Result<Option<Module>> {
         module_control::get(ctx, &id)
     }
@@ -2523,7 +2523,7 @@ impl Query {
         crate::fleet::installs(ctx)
     }
 
-    /// host.toml's `[logs]`, and whether the file changed since this run started. Needs the admin role.
+    /// settings.toml's `[logs]`, and whether the file changed since this run started. Needs the admin role.
     async fn log_settings(&self, ctx: &Context<'_>) -> async_graphql::Result<LogSettings> {
         let (_, caller) = parts(ctx)?;
         allow(caller, Role::Admin, "logSettings")?;
@@ -2737,7 +2737,7 @@ impl Mutation {
         Ok(module)
     }
 
-    /// Writes host.toml's `[logs]`; the server takes it at its next start. Only the owner: a collector receives
+    /// Writes settings.toml's `[logs]`; the server takes it at its next start. Only the owner: a collector receives
     /// every line the server logs.
     async fn set_log_settings(&self, ctx: &Context<'_>, input: LogSettingsInput) -> async_graphql::Result<LogSettings> {
         let (admin, caller) = parts(ctx)?;

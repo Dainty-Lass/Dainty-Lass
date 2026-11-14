@@ -9,7 +9,7 @@
 #   front   the internet-facing Rust services on Debian slim: gateway, allowlist (with nftables), content,
 #           admin API, each a container running `dainty-host <service>` from the one server binary (RD26)
 #   server  dainty-host (with the Rust 1.14.7 backend and Director compiled in, RU9/RB14), the libraries
-#           host.toml can pin in plugins/ (RD27), and Wine for the game servers on Debian slim; also the image the
+#           settings.toml can pin in plugins/ (RD27), and Wine for the game servers on Debian slim; also the image the
 #           host kit's commands run in
 #   netem   iproute2 alone, for the `network` profile's injected latency (DN12)
 #
@@ -69,7 +69,7 @@ RUN --mount=type=cache,id=dainty-cargo-registry,target=/usr/local/cargo/registry
  && cargo build --release --locked --manifest-path ../Cargo.toml -p dainty-server "$@" --bins \
  && mkdir -p /out/bin \
  && cp ../target/release/dainty-host /out/bin/
-# The libraries host.toml can pin (RD27), as the release ships them in plugins/, all from the MIT root: the 1.14.7
+# The libraries settings.toml can pin (RD27), as the release ships them in plugins/, all from the MIT root: the 1.14.7
 # module and the services; and the legacy importer, as the release ships it in bin/
 RUN --mount=type=cache,id=dainty-cargo-registry,target=/usr/local/cargo/registry \
     --mount=type=cache,id=dainty-cargo-git,target=/usr/local/cargo/git \
@@ -126,7 +126,7 @@ COPY --chown=dainty:dainty restricted/Cargo.toml ./
 # for, and the example game data and store captures pin
 COPY --chown=dainty:dainty restricted/modules/rustic-isles/ADDITIONAL_TERMS.md restricted/modules/rustic-isles/LICENSE restricted/modules/rustic-isles/NOTICE.md modules/rustic-isles/
 COPY --chown=dainty:dainty restricted/modules/rustic-isles/native/ modules/rustic-isles/native/
-# The 1.14.7 version facts and Mystic Paradox's design, read at start from data/ (RD27, host.toml's
+# The 1.14.7 version facts and Mystic Paradox's design, read at start from data/ (RD27, settings.toml's
 # version_facts and version_data)
 COPY --chown=dainty:dainty crates/rustic-isles-1-14-7/data/version_facts.json data/1.14.7/
 COPY --chown=dainty:dainty restricted/modules/rustic-isles/version-data/1.14.7/version_data.json data/1.14.7/

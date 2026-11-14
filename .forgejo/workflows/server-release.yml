@@ -11,7 +11,7 @@
 #                        dainty-legacy, the legacy importer (MIT, from the root's crates/dainty-legacy)
 #      data/1.14.7/version_data.json  Mystic Paradox's version data (AGPL), which the MIT binaries read at start
 #      data/1.14.7/version_facts.json the 1.14.7 version facts (MIT), read beside version_data.json
-#      plugins/          the libraries host.toml can pin (RD27): the 1.14.7 module ([[modules.external]]) and, once
+#      plugins/          the libraries settings.toml can pin (RD27): the 1.14.7 module ([[modules.external]]) and, once
 #                        their crates land, the content, chat and gateway services ([services.<name>])
 #      modules/rustic-isles/reference/1.14.7/ParadoxBackend and ParadoxDirector, built with their node_modules
 #                        (kept for one release only as the documented RB13/RU9 rollback artefact until RB15)
@@ -169,7 +169,7 @@ jobs:
           cp modules/rustic-isles/version-data/1.14.7/version_data.json "$out/data/1.14.7/"
           # The 1.14.7 version facts (MIT) beside the design (port plan item 9)
           cp ../crates/rustic-isles-1-14-7/data/version_facts.json "$out/data/1.14.7/"
-          # The libraries beside them, under the names host.toml's paths give (RD27)
+          # The libraries beside them, under the names settings.toml's paths give (RD27)
           mkdir -p "$out/plugins"
           if [ "$RUNNER_OS" = Windows ]; then prefix=""; suffix=".dll"; else prefix="lib"; suffix=".so"; fi
           for lib in rustic_isles_1_14_7_plugin dainty_content_plugin dainty_chat_plugin dainty_gateway_plugin; do

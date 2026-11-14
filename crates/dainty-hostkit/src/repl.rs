@@ -257,7 +257,7 @@ fn module_table(registry: &dainty_controller::ModuleRegistry) -> Vec<String> {
     )];
     let modules = registry.list();
     if modules.is_empty() {
-        return vec!["No modules are listed ([modules] in host.toml).".into()];
+        return vec!["No modules are listed ([modules] in settings.toml).".into()];
     }
     for module in modules {
         let version = module

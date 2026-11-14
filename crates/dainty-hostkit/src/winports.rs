@@ -3,7 +3,7 @@
 
 //! Windows lends blocks of its dynamic range (49152 to 65535) to Hyper-V, WSL and Docker, and a port inside one
 //! can't be bound (os error 10013); the blocks move on every reboot. Setup and start read them from netsh and move
-//! each port the server listens on that falls in one, writing the move to host.toml's `[ports]` so it stays put:
+//! each port the server listens on that falls in one, writing the move to settings.toml's `[ports]` so it stays put:
 //! the private gateway to [`ALTERNATE_GATEWAY`], everything else to its default or the next port free above it.
 
 use crate::error::HostError;
@@ -119,7 +119,7 @@ pub fn move_lent_ports(config: &mut HostConfig, excluded: &[(u16, u16)]) -> Vec<
     moves
 }
 
-/// Start's check on Windows: moves the lent ports, saves host.toml and rewrites the env files, printing each move.
+/// Start's check on Windows: moves the lent ports, saves settings.toml and rewrites the env files, printing each move.
 pub fn settle(paths: &Paths, config: &mut HostConfig, say: &dyn Fn(&str)) -> Result<(), HostError> {
     let moves = move_lent_ports(config, &excluded_tcp());
     if moves.is_empty() {

@@ -70,7 +70,7 @@ drop the triggers or edit the database file: DH4 (shipping) and DH5 (the hash ch
       (tokio-postgres with `NoTls`), so the password and every row would cross the network in clear. Tests:
       `a_postgres_server_off_this_machine_is_refused_before_connecting`,
       `a_postgres_server_off_this_machine_needs_allow_remote`.
-- [ ] The password is `DAINTY_DB_PASSWORD` in `secrets.env`, never in `host.toml`, never logged
+- [ ] The password is `DAINTY_DB_PASSWORD` in `secrets.env`, never in `settings.toml`, never logged
       (`PostgresConfig`'s `Debug` leaves it out).
 - [ ] Compose's `postgres` container listens on 127.0.0.1 in the shared namespace and asks for the password on it
       (`--auth-host=scram-sha-256`).
@@ -223,7 +223,7 @@ read it back. Anyone with root on the server has the server's key, so everything
       an application key with `writeFiles` only; on R2 an API token with Object Write on the one bucket. The shipper
       needs nothing else: `Shipper` only calls `Bucket::put`, and progress lives in the local state file
       (`ShipState`), never read back from the bucket. Test: `the_server_only_ever_puts`.
-- [ ] The server's key ID and secret live in `secrets.env`, never in `host.toml` or on a command line; `S3Config`'s
+- [ ] The server's key ID and secret live in `secrets.env`, never in `settings.toml` or on a command line; `S3Config`'s
       `Debug` leaves the secret out, and bucket errors carry the status and S3's `<Code>`, never a header, a
       signature or the reply body (`S3Bucket::send`). Test: `endpoints_and_debug`.
 - [ ] The owner's key (list and read) is never written on the server: a restore takes it for one run.

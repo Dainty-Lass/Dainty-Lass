@@ -130,13 +130,13 @@ pub enum AdminAction {
 pub struct ConfigKey {
     /// Key name, snake_case.
     pub name: String,
-    /// Its default; a value set in `host.toml` must have the same JSON type.
+    /// Its default; a value set in `settings.toml` must have the same JSON type.
     pub default: serde_json::Value,
     /// One-line help.
     pub help: String,
 }
 
-/// A `host.toml` section the module reads, `[modules.<id>.<name>]` (DF3), with its defaults.
+/// A `settings.toml` section the module reads, `[modules.<id>.<name>]` (DF3), with its defaults.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ConfigSection {
@@ -192,7 +192,7 @@ pub struct Registration {
     /// Moderation actions the module carries out.
     #[serde(default)]
     pub admin_actions: Vec<AdminAction>,
-    /// `host.toml` sections the module reads.
+    /// `settings.toml` sections the module reads.
     #[serde(default)]
     pub config: Vec<ConfigSection>,
     /// Game calls the module answers (MS1); left off the wire when empty, as a 1.1 host reads it
@@ -209,7 +209,7 @@ fn fail<T>(message: impl Into<String>) -> Result<T, RegistrationError> {
     Err(RegistrationError(message.into()))
 }
 
-/// `host.toml` keys are snake_case (AGENTS.md).
+/// `settings.toml` keys are snake_case (AGENTS.md).
 fn is_snake(text: &str) -> bool {
     let bytes = text.as_bytes();
     !bytes.is_empty()
@@ -480,7 +480,7 @@ impl Registrar {
         self
     }
 
-    /// Declares a `host.toml` section the module reads.
+    /// Declares a `settings.toml` section the module reads.
     pub fn config_section(&mut self, section: ConfigSection) -> &mut Self {
         self.registration.config.push(section);
         self

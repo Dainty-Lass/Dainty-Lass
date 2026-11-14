@@ -36,7 +36,7 @@ pub fn run_with(paths: &Paths, args: &DbArgs, out: &mut dyn FnMut(&str)) -> Outc
     }
 }
 
-/// Resolves the MongoDB URI from `--from` / `--against` / `--to`, or defaults from `backend.env` and `host.toml`.
+/// Resolves the MongoDB URI from `--from` / `--against` / `--to`, or defaults from `backend.env` and `settings.toml`.
 pub fn resolve_mongo_uri(paths: &Paths, config: Option<&HostConfig>, explicit: Option<&str>) -> String {
     let backend_env = read_env_file(&paths.config.join("backend.env")).unwrap_or_default();
     if let Some(raw) = explicit.map(str::trim).filter(|s| !s.is_empty()) {
@@ -51,7 +51,7 @@ pub fn resolve_mongo_uri(paths: &Paths, config: Option<&HostConfig>, explicit: O
     mongo_uri_with_database(raw, backend_env.get("MONGODB_DB"))
 }
 
-/// Resolves the SQLite or Postgres store target and `allow_remote_postgres` from `--to` / `--from`, or defaults from `host.toml` and `secrets.env`.
+/// Resolves the SQLite or Postgres store target and `allow_remote_postgres` from `--to` / `--from`, or defaults from `settings.toml` and `secrets.env`.
 pub fn resolve_store_target(
     paths: &Paths,
     config: Option<&HostConfig>,
@@ -218,7 +218,7 @@ mod tests {
     use crate::hostconfig::{DatabaseSettings, FileForm, HostConfig, MongoConfig, Registration, ServerMode};
 
     #[test]
-    fn defaults_source_and_target_from_host_toml_and_never_prints_passwords() {
+    fn defaults_source_and_target_from_settings_toml_and_never_prints_passwords() {
         let tmp = tempfile::tempdir().unwrap();
         let paths = Paths::new(tmp.path());
         std::fs::create_dir_all(&paths.config).unwrap();

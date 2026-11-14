@@ -64,7 +64,7 @@ fn target(root: &Path) -> DatabaseConfig {
 }
 
 fn unchanged(l: &Layout) {
-    assert!(l.host_json.is_file() && !l.host_toml.exists());
+    assert!(l.host_json.is_file() && !l.settings_toml.exists());
     assert!(!l.config.join(MONGO_MIGRATED_MARKER).exists());
     assert!(l.old_upstream.join("Items_Analysis").join("items.json").is_file());
 }
@@ -82,7 +82,7 @@ fn an_old_kit_is_upgraded() {
 
     let dry = reforged::upgrade(dir.path(), &plan, true).unwrap();
     assert!(db_tool.calls.borrow().is_empty(), "a dry run moves no MongoDB");
-    assert_eq!(dry.imported("host.toml"), 1);
+    assert_eq!(dry.imported("settings.toml"), 1);
     unchanged(&l);
 
     let report = reforged::upgrade(dir.path(), &plan, false).unwrap();
@@ -99,7 +99,7 @@ fn an_old_kit_is_upgraded() {
     }
     let marker = std::fs::read_to_string(l.config.join(MONGO_MIGRATED_MARKER)).unwrap();
     assert_eq!(marker, "migrated from mongodb://kit:***@127.0.0.1:27017/reforged\n");
-    let toml = std::fs::read_to_string(&l.host_toml).unwrap();
+    let toml = std::fs::read_to_string(&l.settings_toml).unwrap();
     assert!(toml.contains("name = \"Old Kit\"") && !toml.contains("legacy_game_dir") && !toml.contains("edition"));
     assert!(!l.host_json.exists() && l.config.join("host.json.bak").is_file());
     assert!(l.exports.join("items.json").is_file());
@@ -116,7 +116,7 @@ fn an_old_kit_is_upgraded() {
     // A second run finds everything done
     let again = reforged::upgrade(dir.path(), &plan, false).unwrap();
     assert!(again.imported.is_empty(), "{}", again.text());
-    assert_eq!(again.unchanged.get("host.toml"), Some(&1));
+    assert_eq!(again.unchanged.get("settings.toml"), Some(&1));
     assert_eq!(again.unchanged.get("mongodb"), Some(&1));
     assert_eq!(db_tool.calls.borrow().len(), 2);
 }
@@ -162,7 +162,7 @@ fn a_fresh_start_keeps_mongodb_and_marks_it() {
         "fresh-start\n"
     );
     assert!(l.mongo_data.join("WiredTiger").is_file());
-    assert!(l.host_toml.is_file(), "{}", report.text());
+    assert!(l.settings_toml.is_file(), "{}", report.text());
 }
 
 #[test]

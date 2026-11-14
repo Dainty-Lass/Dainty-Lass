@@ -93,13 +93,13 @@ impl Revived {
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Reforged {
-    /// Top-level host.json keys left out of host.toml.
+    /// Top-level host.json keys left out of settings.toml.
     pub retired_keys: Vec<String>,
     /// Module ids left out of `modules`.
     pub retired_modules: Vec<String>,
-    /// The comment host.toml starts with.
+    /// The comment settings.toml starts with.
     pub header: String,
-    /// The top-level keys, `[json, toml]`, in host.toml's order.
+    /// The top-level keys, `[json, toml]`, in settings.toml's order.
     pub top: Vec<(String, String)>,
     /// The host kit's `SECRET_KEYS`.
     pub secret_keys: Vec<String>,
@@ -109,7 +109,7 @@ pub struct Reforged {
     pub moves: Vec<(String, String)>,
     /// Folders nothing uses any more.
     pub old_folders: Vec<String>,
-    /// Each table's keys, `[json, toml]`, in host.toml's order.
+    /// Each table's keys, `[json, toml]`, in settings.toml's order.
     pub keys: BTreeMap<String, Vec<(String, String)>>,
     /// A secret's new name to its old one.
     pub secret_renames: BTreeMap<String, String>,

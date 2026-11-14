@@ -290,7 +290,7 @@ json_req germany POST /candidate/join "{\"gameMode\":\"ISLAND\",\"instanceId\":\
 expect_status 409 "germany's join of oregon's instance"
 contains "$body" WRONG_NODE "the refusal"
 docker compose exec -T gateway-germany sed -i '/^\[network\]$/a wrong_node_policy = "redirect"' \
-    /opt/dainty-lass/.workspace/config/host.toml
+    /opt/dainty-lass/.workspace/config/settings.toml
 docker compose restart gateway-germany
 online=0
 for _ in $(seq 60); do

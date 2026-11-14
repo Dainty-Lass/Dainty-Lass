@@ -1,6 +1,6 @@
 [package]
 name = "dainty-lass"
-description = "The MIT core server (RD27): the admin API and remote management built in, every other service a library host.toml pins"
+description = "The MIT core server (RD27): the admin API and remote management built in, every other service a library settings.toml pins"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true

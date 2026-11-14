@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Silent Spud
 
-//! The host kit (`dainty-host`): CLI, configuration (`host.toml` and `.env` files), setup,
+//! The host kit (`dainty-host`): CLI, configuration (`settings.toml` and `.env` files), setup,
 //! game data generation, process supervision, diagnostics, and interactive server console/TUI.
 
 pub mod captures;
@@ -17,7 +17,6 @@ pub mod guarded;
 pub mod hooks;
 pub mod hostconfig;
 pub mod hostfiles;
-pub mod hosttoml;
 pub mod invite;
 pub mod linux;
 pub mod mongo;
@@ -30,6 +29,7 @@ pub mod run;
 pub mod selfupdate;
 pub mod serve;
 pub mod services;
+pub mod settingstoml;
 pub mod tls;
 pub mod tui;
 pub mod wine;

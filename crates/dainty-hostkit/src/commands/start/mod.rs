@@ -105,7 +105,7 @@ pub fn port_in_use(ready: &Ready) -> Result<bool, HostError> {
     Ok(check_ready(ready) || raw_port_in_use(ready.port(), Some(ready.host()))?)
 }
 
-/// The workspace's host.toml; an error says to run setup, or to migrate the MongoDB data first.
+/// The workspace's settings.toml; an error says to run setup, or to migrate the MongoDB data first.
 pub fn load_config(paths: &Paths) -> Result<HostConfig, HostError> {
     if let Some(cfg) = load_host_config(paths)? {
         return Ok(cfg);
@@ -544,7 +544,7 @@ mod tests {
     }
 
     #[test]
-    fn load_config_refuses_unmigrated_mongo_before_requiring_host_toml() {
+    fn load_config_refuses_unmigrated_mongo_before_requiring_settings_toml() {
         let tmp = TempDir::new().unwrap();
         let paths = Paths::new(tmp.path());
         std::fs::create_dir_all(&paths.mongo_data).unwrap();

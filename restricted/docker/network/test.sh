@@ -366,9 +366,9 @@ printf '%s' "$refuse_resp" | grep -q '409' || fail "expected 409 Conflict under 
 printf '%s' "$refuse_resp" | grep -q 'WRONG_NODE' || fail "expected WRONG_NODE body under default refuse policy"
 
 compose exec -T gateway-germany sh -c '
-	sed "/^\[network\]$/a wrong_node_policy = \"redirect\"" /opt/dainty-lass/.workspace/config/host.toml >/tmp/host.toml
-	cat /tmp/host.toml >/opt/dainty-lass/.workspace/config/host.toml
-	rm -f /tmp/host.toml
+	sed "/^\[network\]$/a wrong_node_policy = \"redirect\"" /opt/dainty-lass/.workspace/config/settings.toml >/tmp/settings.toml
+	cat /tmp/settings.toml >/opt/dainty-lass/.workspace/config/settings.toml
+	rm -f /tmp/settings.toml
 '
 compose restart gateway-germany
 for _ in $(seq 1 30); do

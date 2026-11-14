@@ -150,7 +150,7 @@ fn issue_node_cert(a: &IssueNodeCertArgs) -> Outcome {
     println!(
         "Node {} in {}: {}\nNames:       {}\nValid:       {} to {}\nFingerprint: {}\n\n\
          Copy {NODE_CERT_FILE}, {NODE_KEY_FILE} (private) and {CLUSTER_CA_FILE} to that server's .workspace/tls folder,\n\
-         then list it under [[network.nodes]] in the host.toml of every node that should answer or call it.",
+         then list it under [[network.nodes]] in the settings.toml of every node that should answer or call it.",
         info.identity.node,
         info.identity.region,
         out.display(),
@@ -203,9 +203,9 @@ fn list(a: &ListArgs, paths: Option<&Paths>) -> Outcome {
     }
     let paths = paths
         .ok_or_else(|| bad("run this in the server's folder, or give --ca <the CA file> to list what it issued"))?;
-    let config = load_host_config(paths)?.ok_or_else(|| bad("no host.toml: run `dainty-host setup` first"))?;
+    let config = load_host_config(paths)?.ok_or_else(|| bad("no settings.toml: run `dainty-host setup` first"))?;
     let Some(network) = &config.network else {
-        println!("This server is not in a network ([network] is not in host.toml).");
+        println!("This server is not in a network ([network] is not in settings.toml).");
         return Ok(ExitCode::SUCCESS);
     };
     println!("This node: {} in {}", network.node, network.region);
@@ -345,7 +345,7 @@ fn status(a: &StatusArgs, paths: Option<&Paths>) -> Outcome {
     let peers: Vec<cluster::Peer> = serde_json::from_str(env.get("GATEWAY_NETWORK_NODES").unwrap_or("[]"))
         .map_err(|e| bad(format!("GATEWAY_NETWORK_NODES: {e}")))?;
     if peers.is_empty() {
-        return Err(bad("this server lists no peers ([[network.nodes]] in host.toml)"));
+        return Err(bad("this server lists no peers ([[network.nodes]] in settings.toml)"));
     }
     let me = credentials.identity().clone();
     let link = TlsPeerLink::new(TlsLinkConfig::new(credentials, peers)).map_err(|e| bad(e.to_string()))?;
@@ -399,11 +399,11 @@ fn status(a: &StatusArgs, paths: Option<&Paths>) -> Outcome {
 /// `_2` / `_3` suffix (shortened to fit 16 characters) and a free rename (`needsUsername = true`).
 fn join(a: &JoinArgs, paths: Option<&Paths>) -> Outcome {
     let paths = paths.ok_or_else(|| bad("run `dainty-host network join` in the server's folder"))?;
-    let config = load_host_config(paths)?.ok_or_else(|| bad("no host.toml: run `dainty-host setup` first"))?;
+    let config = load_host_config(paths)?.ok_or_else(|| bad("no settings.toml: run `dainty-host setup` first"))?;
     let network = config
         .network
         .as_ref()
-        .ok_or_else(|| bad("this server has no [network] section in host.toml"))?;
+        .ok_or_else(|| bad("this server has no [network] section in settings.toml"))?;
     let credentials = NodeCredentials::load(
         &paths.tls.join(NODE_CERT_FILE),
         &paths.tls.join(NODE_KEY_FILE),

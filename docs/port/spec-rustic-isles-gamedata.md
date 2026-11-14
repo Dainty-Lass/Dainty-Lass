@@ -693,7 +693,7 @@ The storage policy then differs from today's only if the seeds differ from the l
 | `GAMESERVER_HUNTPASS_ID` | the served pass, JS-trimmed (set but empty: empty) | the table's `active_huntpass_id` |
 | `GAMESERVER_RECENT_SEASONS` | comma list (set but empty: none) | the table's `recent_huntpass_seasons` |
 
-None is a `host.toml` field today: a host sets them by hand in the env file (§12 item 7). The generators read no
+None is a `settings.toml` field today: a host sets them by hand in the env file (§12 item 7). The generators read no
 setting; their paths come from hostkit's `Paths`.
 
 ---
@@ -843,7 +843,7 @@ journey row and a Lady Luck source: the readers and the slug, decode and categor
 6. **`resolve_platinum_export_file` prefers the `_1_12` export** whenever it exists, even beside a `_1_14_7` one
    (1.12.0 was dropped on 2026-10-31), and §5.8's policy always reads `catalog_1_14_7.jsonl`, so the platinum store
    and the policy can come from different catalogs. Parity; worth a row.
-7. **The five settings of §7 are not in `host.toml`** (AGENTS.md's configuration rule). They are debug and A/B
+7. **The five settings of §7 are not in `settings.toml`** (AGENTS.md's configuration rule). They are debug and A/B
    switches with safe defaults. Proposed: leave them unlisted until a host needs one, then add them through hostkit.
 8. **hostkit's labels** name `isles_core::gamedata::*` (restricted's paths) in its "unavailable" error. A hostkit row
    may rename them to `rustic_isles_gamedata::generators::*`; not this crate's.
@@ -877,7 +877,7 @@ These settle §12 and override anything above that disagrees.
 - **Item 3:** `TokenSource::Seeds` as proposed; `src_tokens.txt` is not carried.
 - **Item 4:** parity, as listed.
 - **Item 5:** the Node behaviour, as specified (the oracle).
-- **Items 6-7:** unchanged here; host.toml fields and hostkit labels are later hostkit rows.
+- **Items 6-7:** unchanged here; settings.toml fields and hostkit labels are later hostkit rows.
 - **Item 8:** its own page, `docs/security/rustic-isles-gamedata.md`, with both fuzz targets.
 
 ### Coordinator decisions, amended after implementation (2026-11-05)

@@ -2,7 +2,7 @@
 
 > **Ports moved 2026-11-10.** The loopback services' defaults are now backend 41000, Director 41001, content
 > 41002, admin 41003, allowlist 41005, chat 41006 and QoS 41010, below the dynamic range Windows lends to Hyper-V,
-> WSL and Docker. host.toml's `[ports]` moves any of them, and on Windows setup and start move one Windows has lent
+> WSL and Docker. settings.toml's `[ports]` moves any of them, and on Windows setup and start move one Windows has lent
 > out (a private gateway's 61000 to 41080). The numbers below are the ones recorded upstream: read each 610xx
 > service port as its 410xx counterpart. A private gateway's default stays 61000.
 
@@ -1091,7 +1091,7 @@ Read at each use through the settings trait (Node read `process.env`), so a test
 The target changelist (1.14.7: 647472), the game version (for session tickets), the node identity, the version's
 no-player policy and session payload, and the database engine (for §6.2's default).
 
-No new setting, host.toml field or env file line comes with the crate: it reads the module's existing settings.
+No new setting, settings.toml field or env file line comes with the crate: it reads the module's existing settings.
 
 ---
 

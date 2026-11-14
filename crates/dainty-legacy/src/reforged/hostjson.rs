@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Silent Spud
 
-//! A Node kit's `host.json` as `host.toml` (spec §11.2): known keys renamed and in host.toml's order, retired
+//! A Node kit's `host.json` as `settings.toml` (spec §11.2): known keys renamed and in settings.toml's order, retired
 //! keys and modules left out, `modules` carried over as it is.
 
 use std::fmt::Write as _;
@@ -13,7 +13,7 @@ use crate::data::Reforged;
 /// `host.json` converted.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Converted {
-    /// The new `host.toml`, header first.
+    /// The new `settings.toml`, header first.
     pub toml: String,
     /// What was left out, by JSON name (`<table>.<key>` inside a known table).
     pub dropped: Vec<String>,
@@ -67,7 +67,7 @@ fn value(name: &str, v: &Value) -> Result<String, String> {
                 // Debug keeps the `.0` and writes exponents the way TOML reads them
                 Ok(format!("{f:?}"))
             } else {
-                Err(format!("{name}: {n} is not a number host.toml can hold"))
+                Err(format!("{name}: {n} is not a number settings.toml can hold"))
             }
         }
         Value::Array(items) => {
@@ -346,7 +346,7 @@ mod tests {
         );
         assert_eq!(
             err(r#"{"version": 18446744073709551615}"#),
-            "version: 18446744073709551615 is not a number host.toml can hold"
+            "version: 18446744073709551615 is not a number settings.toml can hold"
         );
         assert_eq!(
             err(r#"{"modules": {"x": [1, {"a": 2}]}}"#),

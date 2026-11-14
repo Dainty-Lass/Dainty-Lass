@@ -175,12 +175,12 @@ When the controller starts the child process (`crates/dainty-module-api/src/host
 and forwards `start`, `command`, `admin`, `chat`, `game`, `status` and `stop` over length-prefixed frames (capped at `MAX_FRAME_LEN`,
 4 MiB; see [security/module-host.md](security/module-host.md)).
 
-## 5. Loading the module in `host.toml`
+## 5. Loading the module in `settings.toml`
 
 - **Compiled-in modules** are enabled via Cargo features on `restricted/`'s `server-console`, `server-minimal`
   and `launcher` ([server-modules.md](server-modules.md)) and loaded by default unless `[modules] compiled = [...]`
   restricts the list.
-- **External modules** are listed in `.workspace/config/host.toml` with a relative path under the server root and
+- **External modules** are listed in `.workspace/config/settings.toml` with a relative path under the server root and
   their lowercase hex SHA-256:
 
 ```toml

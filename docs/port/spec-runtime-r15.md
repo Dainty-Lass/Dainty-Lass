@@ -54,7 +54,7 @@ R0's `full_name` on the live engine), the writes, the `ProcessEvent` and evaluat
 
 ## 3. Settings (RT-11)
 
-RT-11 makes 0024 and 0029 `host.toml` settings passed in the environment. The two flag files
+RT-11 makes 0024 and 0029 `settings.toml` settings passed in the environment. The two flag files
 `KEEP_SUPPLY_STACK_CAPS.flag` and `KEEP_CELL_FUSION_TIME.flag` are **not read** by the MIT runtime (departure 1).
 
 | Variable | Read with | Accepted | Default (unset) | Other values |
@@ -71,10 +71,10 @@ RT-11 makes 0024 and 0029 `host.toml` settings passed in the environment. The tw
   this repository sets it; the server prefix rule of AGENTS.md renames it.
 
 **Where the values come from (call).** A game server gets them from the Director, which hands its whole environment to
-every game server it starts (R1 4.4, RT-15). The host kit writes them from `host.toml` (seam line, section 9). A
-**client** is started by the launcher, which knows no host's `host.toml`: it runs on the defaults (uncap, 30 minutes)
-unless the player sets the variables. The defaults are the AGPL's, so nothing changes for a player. A host who changes
-either value changes what its servers do (the authority: a fusion's end time is built on the server), while the
+every game server it starts (R1 4.4, RT-15). The host kit writes them from `settings.toml` (seam line, section 9). A
+**client** is started by the launcher, which knows no host's `settings.toml`: it runs on the defaults (uncap, 30
+minutes) unless the player sets the variables. The defaults are the AGPL's, so nothing changes for a player. A host who
+changes either value changes what its servers do (the authority: a fusion's end time is built on the server), while the
 client's Middleman screen still shows 30 minutes, and a client with caps kept would still drop a stack its server sent
 above the cap. Passing the server's values to the client (through the live status the launcher reads) is a separate
 row if the maintainer wants it (question Q-1, section 11). A realm's player host is started by the launcher too and
@@ -391,7 +391,7 @@ fails, R15's handlers never run (the features are off, the game runs as without 
 
 - **The host kit** (`crates/dainty-hostkit/src/hostconfig/tunables.rs`, the `DIRECTOR` table, beside the RT-11 hub and
   AFK lines): `of("keepSupplyStackCaps", "DAINTY_KEEP_SUPPLY_STACK_CAPS", Kind::Switch)` and
-  `ranged("cellFusionMinutes", "DAINTY_CELL_FUSION_MINUTES", 0, 10_080)`, so `host.toml`'s `[director]` takes
+  `ranged("cellFusionMinutes", "DAINTY_CELL_FUSION_MINUTES", 0, 10_080)`, so `settings.toml`'s `[director]` takes
   `keep_supply_stack_caps = true|false` and `cell_fusion_minutes = 0..10080`; unset writes nothing (today's behaviour:
   uncap, 30 minutes). A test that both reach the Director's env file only when set, as for the hub lines. The host kit
   needs no other change: the Director forwards its environment.
@@ -399,7 +399,7 @@ fails, R15's handlers never run (the features are off, the game runs as without 
   `hosting-docker.md` where they list them): two rows, `keep_supply_stack_caps` (`DAINTY_KEEP_SUPPLY_STACK_CAPS`,
   `true`/`false`, unset: supplies uncapped) and `cell_fusion_minutes` (`DAINTY_CELL_FUSION_MINUTES`, 0 = the game's
   own, 1–10080, unset: 30). A note that the two flag files are no longer read once the MIT runtime owns R15.
-- **`restricted/docs/paradox-patches.md`** (integration pass): 0024 and 0029 are `host.toml` settings in the MIT
+- **`restricted/docs/paradox-patches.md`** (integration pass): 0024 and 0029 are `settings.toml` settings in the MIT
   runtime; 0026 is not ported; 0027 and 0037 are ported by R15.
 - **The migration guide**, section 2: the module line `rustic-isles-runtime/src/economy/` and
   `rustic-isles-runtime-core/src/economy/` ← runtime patches 0024, 0027, 0029, 0037 (R15).
@@ -470,7 +470,7 @@ Only CI has run until these steps are done; nothing here is checked against the 
 Calls:
 
 1. RT-11 names: `DAINTY_KEEP_SUPPLY_STACK_CAPS` (`true`/`false`, default uncap) and `DAINTY_CELL_FUSION_MINUTES`
-   (0–10080, default 30, 0 = the game's own); `host.toml` `[director]` `keep_supply_stack_caps`,
+   (0–10080, default 30, 0 = the game's own); `settings.toml` `[director]` `keep_supply_stack_caps`,
    `cell_fusion_minutes`.
 2. The client reads the same variables and otherwise runs on the defaults; passing the server's values to the client is
    question Q-1.
@@ -494,7 +494,7 @@ guard of departure 5), and the repair only on the client game thread, as the AGP
 
 Settled here:
 
-- **RT-11 for 0024 and 0029:** the two variables and `host.toml` keys of call 1, seam lines in section 9.
+- **RT-11 for 0024 and 0029:** the two variables and `settings.toml` keys of call 1, seam lines in section 9.
 - **RT-14 for R15:** of the four flags Appendix A gave R15, `DISABLE_LOADOUT_SLOT_REPAIR` is kept;
   `KEEP_SUPPLY_STACK_CAPS` and `KEEP_CELL_FUSION_TIME` are replaced by the settings; `DISABLE_CLIENT_INVENTORY_TRACE`
   stays AGPL with its trace and goes at R21.

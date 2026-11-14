@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Silent Spud
 
-//! Which engine a database runs on, as `host.toml`'s `[database]` names it and setup writes it into a
+//! Which engine a database runs on, as `settings.toml`'s `[database]` names it and setup writes it into a
 //! service's env file (DD15). The variables are read here so every service reads them the same way.
 
 use std::net::IpAddr;
@@ -104,7 +104,7 @@ impl PostgresConfig {
         }
         Err(format!(
             "the Postgres server {} is not on this machine, and connections to it are not encrypted: \
-             use 127.0.0.1 (or a Unix socket folder), or set allow_remote in host.toml's [database] \
+             use 127.0.0.1 (or a Unix socket folder), or set allow_remote in settings.toml's [database] \
              if the network between them is private",
             self.host
         ))

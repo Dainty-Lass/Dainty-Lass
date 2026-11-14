@@ -1,7 +1,7 @@
-// The key tables, `scalar`, `free_item` and `fresh` are Dainty Lass's `rust/crates/dainty-hostkit/src/hosttoml.rs` (plan
+// The key tables, `scalar`, `free_item` and `fresh` are Dainty Lass's `rust/crates/dainty-hostkit/src/settingstoml.rs` (plan
 // `fb46a4a`), MIT, Copyright (c) 2026 Silent Spud; LICENSE-MIT.txt there. Changed for 1.14.7 alone.
 
-//! `host.json` → `host.toml`: the Node kit's settings file moved to the one Dainty Lass reads, with the keys of the
+//! `host.json` → `settings.toml`: the Node kit's settings file moved to the one Dainty Lass reads, with the keys of the
 //! games Dainty Lass no longer runs (Dauntless Revived 1.4.4 and Rustic Isles' 1.12.0) left out. The values are
 //! carried as they are: `dainty-host setup`, run next, checks them and fills in the rest with its defaults.
 
@@ -10,7 +10,7 @@ use toml_edit::{DocumentMut, Item, Table};
 
 use crate::error::{ImportError, Result};
 
-/// A key: its name in host.json, its name in host.toml, and whether it may be null (left out).
+/// A key: its name in host.json, its name in settings.toml, and whether it may be null (left out).
 type Field = (&'static str, &'static str, bool);
 
 /// host.json's keys without `edition`, `legacyGameDir` and `legacyPublicPort`, which only ran 1.4.4 beside 1.14.7.
@@ -165,7 +165,7 @@ fn scalar(value: &Value, key: &str) -> Result<toml_edit::Value> {
         Value::Number(n) => match (n.as_i64(), n.as_f64()) {
             (Some(i), _) => Ok(i.into()),
             (None, Some(f)) => Ok(f.into()),
-            (None, None) => Err(bad(format!("{key}: {n} is not a number host.toml can hold"))),
+            (None, None) => Err(bad(format!("{key}: {n} is not a number settings.toml can hold"))),
         },
         _ => Err(bad(format!("{key} must be a single value"))),
     }
@@ -215,7 +215,7 @@ const HEADER: &str = "\
 # change. A setting that is left out takes its default. The secrets are not here: they are in secrets.env.
 ";
 
-/// A new host.toml: the header, then the single values, then the tables, as TOML needs.
+/// A new settings.toml: the header, then the single values, then the tables, as TOML needs.
 fn fresh(fields: &Map<String, Value>) -> Result<String> {
     let mut out = String::from(HEADER);
     for &(json, toml, _) in TOP {
@@ -311,15 +311,15 @@ fn strip_retired_modules(modules: &mut Value, dropped: &mut Vec<String>) {
 /// What a conversion made of a host.json.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Converted {
-    /// The host.toml written in place of the host.json.
+    /// The settings.toml written in place of the host.json.
     pub toml: String,
-    /// Keys left out: the retired ones, the retired modules' entries and any key host.toml doesn't have
+    /// Keys left out: the retired ones, the retired modules' entries and any key settings.toml doesn't have
     pub dropped: Vec<String>,
     /// The server ran only 1.4.4 (`edition = "legacy"`): it has no 1.14.7 game folder yet
     pub was_legacy_only: bool,
 }
 
-/// The host.toml text for a host.json document.
+/// The settings.toml text for a host.json document.
 pub fn convert(text: &str) -> Result<Converted> {
     let mut document: Value =
         serde_json::from_str(text).map_err(|e| bad(format!("host.json is not valid JSON: {e}")))?;
@@ -364,7 +364,7 @@ mod tests {
     use serde_json::json;
 
     #[test]
-    fn a_host_json_becomes_host_toml_without_the_retired_games() {
+    fn a_host_json_becomes_settings_toml_without_the_retired_games() {
         let text = json!({
             "version": 1,
             "mode": "public",

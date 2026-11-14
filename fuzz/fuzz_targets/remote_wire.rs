@@ -4,7 +4,7 @@
 //! Fuzz target for remote management (`docs/security/remote-management.md`, DD27, RM1):
 //! exercises `parse_enrollment_uri`, `decode_enroll_request`, `decode_enroll_answer`,
 //! `decode_request`, `decode_response`, `contains_forbidden_secret_str`, and
-//! `merge_managed_host_toml` on untrusted bytes; a `Sync`'s report with its game servers and
+//! `merge_managed_settings_toml` on untrusted bytes; a `Sync`'s report with its game servers and
 //! availability (MS6) included.
 #![no_main]
 
@@ -12,7 +12,7 @@ use libfuzzer_sys::fuzz_target;
 use dainty_remote::{
     MAX_REMOTE_WIRE, MAX_REPORT_GAME_SERVERS, RemoteRequest, contains_forbidden_secret_bytes,
     contains_forbidden_secret_str, contains_prefixed_key_token, decode_enroll_answer, decode_enroll_request, decode_request, decode_response, encode_enroll_answer,
-    encode_enroll_request, encode_request, encode_response, merge_managed_host_toml, parse_enrollment_uri,
+    encode_enroll_request, encode_request, encode_response, merge_managed_settings_toml, parse_enrollment_uri,
 };
 
 fuzz_target!(|data: &[u8]| {
@@ -61,7 +61,7 @@ fuzz_target!(|data: &[u8]| {
     }
 
     let base_local = "[server]\nhost = \"203.0.113.10\"\nmode = \"public\"\n[ports]\ngateway = 61000\n";
-    if let Ok(merged) = merge_managed_host_toml(base_local, &text, None, &[]) {
+    if let Ok(merged) = merge_managed_settings_toml(base_local, &text, None, &[]) {
         assert!(!contains_forbidden_secret_str(&merged));
         assert!(merged.contains("host = \"203.0.113.10\""));
         assert!(merged.contains("gateway = 61000"));

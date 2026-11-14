@@ -97,7 +97,7 @@ The file starts with `# syntax=docker/dockerfile:1` and uses BuildKit cache moun
    - `/out/bin/dainty-host`: `cargo build --release --locked -p <server package> <features> --bins`, the one server
      binary (RD26) with the gateway, allowlist, content server, admin API, backend and Director inside;
    - `/out/bin/dainty-legacy`: the root's MIT legacy importer binary (`-p dainty-legacy --bin dainty-legacy`);
-   - `/out/plugins/`: the `.so` libraries `host.toml` can pin (RD27), as the release ships them: the 1.14.7 module
+   - `/out/plugins/`: the `.so` libraries `settings.toml` can pin (RD27), as the release ships them: the 1.14.7 module
      library and `libdainty_content_plugin.so`, `libdainty_chat_plugin.so`, `libdainty_gateway_plugin.so`
      (`cargo build --release --locked -p <pkg> --lib` for each). Q-3 covers the module library's file name.
    The launcher is never built.
@@ -500,18 +500,18 @@ a Linux host except:
 - `update`: prints to stderr two lines, that a new version is a new image (`git pull && docker compose build && docker
   compose up -d`) and to run `docker compose run --rm host setup` afterwards if the release notes say so; exits **2**.
 - `install-game [args…]`: adds `--dir /game`; `exec dainty-host install-game <args…>`.
-- `apply` (no arguments): if `/config/host.toml` exists, creates the folder and copies it over
-  `/opt/dainty-lass/.workspace/config/host.toml`, printing `host.toml taken from DAINTY_CONFIG_DIR`; else, if the
-  workspace has no `host.toml`, prints to stderr `No host.toml: put one in DAINTY_CONFIG_DIR (./config by default;
-  docs/hosting-docker.md shows how).` and exits **2**. Then docker setup with no arguments; exits 0. So in the `toml`
-  profile the file in `DAINTY_CONFIG_DIR` is the server's whole configuration.
+- `apply` (no arguments): if `/config/settings.toml` exists, creates the folder and copies it over
+  `/opt/dainty-lass/.workspace/config/settings.toml`, printing `settings.toml taken from DAINTY_CONFIG_DIR`; else, if
+  the workspace has no `settings.toml`, prints to stderr `No settings.toml: put one in DAINTY_CONFIG_DIR (./config by
+  default; docs/hosting-docker.md shows how).` and exits **2**. Then docker setup with no arguments; exits 0. So in the
+  `toml` profile the file in `DAINTY_CONFIG_DIR` is the server's whole configuration.
 - `setup [args…]`: docker setup; then prints a blank line and a three-line note: ignore the systemd and ufw steps
   above, `docker compose up -d` starts it (`COMPOSE_PROFILES=public` in `.env` for a public server), and an example
   `docker compose run --rm host invite --for "Alex"`; exits 0.
 - Anything else, including no argument: `exec dainty-host <args…>`. (The compose default command is `doctor`.)
 
 The exact wording of the printed notes is free (host-kit terminal output stays English); the exit codes and the
-`host.toml` message's meaning are fixed, since the harnesses and docs rely on them.
+`settings.toml` message's meaning are fixed, since the harnesses and docs rely on them.
 
 ### 5.3 `dainty-director` (the `director` service)
 
@@ -552,7 +552,7 @@ Runs as root with `/ca` and `/nodes/<region>` for each node. Input `NETWORK_NODE
    is missing, `dainty-host network issue-node-cert --ca /ca/cluster-ca.pem --node <id> --region <region> --host
    <address> --host <region>.cluster.test --out <tls>`; records the gateway certificate's fingerprint from
    `dainty-host gateway make-cert --fingerprint <tls>/gateway-cert.pem` (the text after `Fingerprint:` and spaces).
-3. For each node, writes `/nodes/<region>/config/host.toml` afresh (the only file rewritten on a second run, so the
+3. For each node, writes `/nodes/<region>/config/settings.toml` afresh (the only file rewritten on a second run, so the
    CA, every certificate and every fingerprint survive):
 
    ```toml
@@ -590,7 +590,7 @@ Runs as root with `/ca` and `/nodes/<region>` for each node. Input `NETWORK_NODE
    The documentation range address and the nonexistent Wine are deliberate: the harness plays no game. Comments in
    the generated file are free.
 4. `chown -R 1000:1000 /nodes/<region>`; `chmod 600` on `tls/node-key.pem` and `tls/gateway-key.pem`; prints
-   `<id> (<region>, <address>): certificates and host.toml written`.
+   `<id> (<region>, <address>): certificates and settings.toml written`.
 5. `chmod 700 /ca`. The CA's key never leaves `/ca`, which no other service mounts.
 
 ### 5.5 `dainty-netem` (the `netem-*` services)
@@ -668,7 +668,7 @@ Environment it sets: `COMPOSE_PROJECT_NAME` (default `dainty-smoke`), `COMPOSE_P
 
 Steps and the expected result of each (every check failing fails the test):
 
-1. **A fresh `toml` apply with no MongoDB succeeds.** Writes `host.toml` into the config folder:
+1. **A fresh `toml` apply with no MongoDB succeeds.** Writes `settings.toml` into the config folder:
    `version = 1`, `mode = "public"`, `host = "smoke.example.org"`, `game_address = "203.0.113.7"`,
    `name = "Fresh Toml Apply"`, `registration = "INVITECODE"`, `max_hunt_servers = 1`. Runs
    `COMPOSE_PROFILES=public,toml compose run --rm configure` (exit 0), then checks with
@@ -687,7 +687,7 @@ Steps and the expected result of each (every check failing fails the test):
 4. **[RB15] Migrate and verify.** `compose run --rm host setup --mode public --host smoke.example.org --game-address
    203.0.113.7 --name "Smoke Test"`, then `compose run --rm host db migrate` and `compose run --rm host db verify`
    (each exit 0; verify writes the marker that lets the backend start); then `compose rm -sf mongo`.
-5. **The `toml` profile applies `host.toml` alone.** Copies the workspace's `host.toml` out (through the `host`
+5. **The `toml` profile applies `settings.toml` alone.** Copies the workspace's `settings.toml` out (through the `host`
    service with entrypoint `sh`), replaces its `name = …` line with `name = "Smoke Toml"`, writes it to the config
    folder, runs `configure` again, and checks `backend.env` contains `Smoke Toml`.
 6. **Up, configure first.** `COMPOSE_PROFILES=public,toml compose up -d --wait --wait-timeout 300` succeeds (every
@@ -752,10 +752,10 @@ Settings: `COMPOSE_PROJECT_NAME` default `dainty-network`, `COMPOSE_PROFILES=net
    `BOUNTY_RING_TEST`.
 10. **DN6, wrong node:** oregon's player joins `{"gameMode":"ISLAND","playerHuntId":"Example_Hunt_Easy"}` and gets an
     instance; germany's player joining `{"gameMode":"ISLAND","instanceId":<it>}` on germany answers **409** with
-    `WRONG_NODE`. Then `wrong_node_policy = "redirect"` is added under `[network]` in germany's `host.toml`, `compose
-    restart gateway-germany`, wait for `ServerStatus` `"online":true`; a second oregon instance; germany's join now
-    answers with `"hostNode":"oregon-1"` and an `x-dainty-session-ticket` header. On oregon, with only that header (no
-    account key): `PUT /gamesession/epiceos {}` → 200 with `"sessiontoken"`; `POST /candidate/join` with the
+    `WRONG_NODE`. Then `wrong_node_policy = "redirect"` is added under `[network]` in germany's `settings.toml`,
+    `compose restart gateway-germany`, wait for `ServerStatus` `"online":true`; a second oregon instance; germany's join
+    now answers with `"hostNode":"oregon-1"` and an `x-dainty-session-ticket` header. On oregon, with only that header
+    (no account key): `PUT /gamesession/epiceos {}` → 200 with `"sessiontoken"`; `POST /candidate/join` with the
     instance → 200 naming `"instanceId":<it>`.
 11. **DN9, regional Ramsgate:** `POST <oregon>/network/v1/regions` (with the account key) reporting germany nearest
     (`germany 12, uk 35, new-york 85, oregon 150`) → **204**; a `{"gameMode":"CITY","playerHuntId":
@@ -784,9 +784,9 @@ Settings: `COMPOSE_PROJECT_NAME` default `dainty-remote`, `COMPOSE_PROFILES=remo
    <uri> --json` in `host-alpha` reports `"node": "alpha"`; enrolling again with the same URI **fails** (single use);
    bravo enrolls the same way. `remote sync --json` on both reports `"applied_revision": 1`; `remote list --json` on
    the controller names both.
-3. **Config sync:** on the controller, `host.toml`'s `name` becomes `"Fleet Friday Hunts"` and `max_hunt_servers` 4;
+3. **Config sync:** on the controller, `settings.toml`'s `name` becomes `"Fleet Friday Hunts"` and `max_hunt_servers` 4;
    `remote set-config --json` reports `"revision": 2`; both installs' `sync` report `"applied_revision": 2`; each
-   install's `host.toml` has the new name and count but keeps its own `game_address` (`203.0.113.21`, `.22`); each
+   install's `settings.toml` has the new name and count but keeps its own `game_address` (`203.0.113.21`, `.22`); each
    install's `secrets.env` SHA-256 is unchanged, and the two differ.
 4. **Remote ban:** `dainty-host invite --for Griefer99 --json` on alpha; on the controller `remote exec --node alpha
    --action ban --account Griefer99 --reason "fleet rule violation" --role admin --actor ctrl-admin --json` reports
@@ -821,10 +821,10 @@ the binary's install root. The MIT Dockerfile is written for that state; it does
   packages; `dainty-legacy`.
 - **`server`** gains `/opt/dainty-lass/data/1.14.7/version_data.json` (section 2.4), owned `root` and read-only to
   `dainty` (Call D-10: it is shipped data, not a host's file, so a volume never covers it and the host cannot edit
-  it in place; a host who wants another file names it in `host.toml`, mounting it through `/import` or the workspace).
-  The `front` image does not need it: no front service loads the module. If lane A's start-up check fails without
-  the file, every server-image service refuses to start with lane A's message, which the smoke test's step 6 would
-  show.
+  it in place; a host who wants another file names it in `settings.toml`, mounting it through `/import` or the
+  workspace). The `front` image does not need it: no front service loads the module. If lane A's start-up check fails
+  without the file, every server-image service refuses to start with lane A's message, which the smoke test's step 6
+  would show.
 - **`test`** runs the root workspace's suites; the root crates' tests read whatever fixtures they read from the
   root. Nothing in the test image comes from `restricted/`.
 - Until lane A lands, restricted's Dockerfile stays the one CI builds. The MIT one is added beside it and the CI
@@ -902,7 +902,7 @@ say so.
   game (then MIT-shippable) or Paradox's? Assumed AGPL data, copied from where lane A or the repository keeps them,
   like the version data. Port plan item 9 may make the version data generated on each host; then section 2.4 loses
   that row.
-- **Q-3 The module library's file name.** The release and `host.toml` pins today say `librustic_isles_plugin.so`;
+- **Q-3 The module library's file name.** The release and `settings.toml` pins today say `librustic_isles_plugin.so`;
   the root's crate builds `librustic_isles_1_14_7_plugin.so`. A rename breaks every existing pin. Assumed: the image
   ships whatever name lane A's release ships; if lane A renames, ship both (a copy under the old name) for one
   release.
@@ -913,12 +913,12 @@ say so.
   less). Hardening them is a follow-up with a hands-on Wine check.
 - **Q-6 The smoke test after RB15.** Steps 2-4, 8's migrated-account check and 9 go; step 8's register check then
   needs an invite, assumed from `host invite --json` before the request (or `registration = "OPEN"` in step 5's
-  `host.toml`).
+  `settings.toml`).
 - **Q-7 The region ping's test.** The network harness runs `cargo test -p dainty-launcher --lib --locked -- --ignored
   --nocapture the_region_order_follows`, a test in restricted's Tauri crate, which lane C is rewriting. Assumed: the
   root harness runs the same-named ignored test in the MIT launcher crate once lane C lands, and until then runs it
   from `restricted/` (`cargo test --manifest-path restricted/Cargo.toml …`), so CI's `require` keeps working. Lane C
   should keep the test name and its `RR_HARNESS_*` variables.
 - **Q-8 Where lane A puts the shipped version data in the repository**, which `rust-sources` and the `server` stage
-  copy from, and the `host.toml` field name (port plan item 1's maintainer decision). The image relies only on the
+  copy from, and the `settings.toml` field name (port plan item 1's maintainer decision). The image relies only on the
   default path `data/1.14.7/version_data.json`.

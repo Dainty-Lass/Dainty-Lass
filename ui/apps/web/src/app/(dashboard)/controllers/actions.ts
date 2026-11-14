@@ -44,7 +44,7 @@ export async function removeControllerAction(id: string) {
   });
 }
 
-/** The controller's host.toml `[logs]`; the server takes it at its next start. */
+/** The controller's settings.toml `[logs]`; the server takes it at its next start. */
 export async function updateLogSettingsAction(id: string, change: LogSettingsChange) {
   return attempt(async () => {
     await updateLogSettings(await requireAction("controllers:write"), id, change);

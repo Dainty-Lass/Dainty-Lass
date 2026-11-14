@@ -10,7 +10,7 @@ licence (`Copyright (c) 2026 Silent Spud`) in `crates/dainty-remote` with zero d
 
 ## 1. Who is who
 
-| Role | What runs it | `host.toml` `[remote]` setting | Description |
+| Role | What runs it | `settings.toml` `[remote]` setting | Description |
 | --- | --- | --- | --- |
 | **Controller** | A `Dainty Lass Manager` desktop install (or a headless `dainty-host` / `dainty-server` install) with remote management enabled | `role = "controller"` | Holds the cluster/management CA (or enrollment issuer), maintains the authoritative shared configuration revision, displays the status/logs/history of every enrolled install, and dispatches operator commands to one install or a group. |
 | **Managed install** | Any Dainty Lass server install enrolled with the controller: headless servers (`dainty-host`, `dainty-server`, `dainty-server-minimal`), Docker containers (`dainty-lass-server`), other `Dainty Lass Manager` installs, or the regional nodes of a network (`DD16`) | `role = "managed"` | Enrolls once with the controller using a one-time enrollment code, pulls shared settings and runtime/gamedata packs from the controller, reports health/logs/doctor/migration/history back, and executes authenticated remote operator commands through the same local code paths (`DH2`, `DH6`, `DD23`). |
@@ -37,9 +37,9 @@ revision at which it changed and its SHA-256 digest:
 
 | Category | Contents | Delivery direction | How it is applied on the managed install |
 | --- | --- | --- | --- |
-| **Shared `host.toml` settings** | `[server]` (`registration`, `diagnostics_log_profile`), `[paradox]` (game-server frame rates, idle timeouts, max hunts, memory floor), `[switches]` (all `RUSTIC_ISLES_*` switches and rate-limit budgets), `[realms]` (TURN mode/ports), `[history]` (retention days) | **Pushed** immediately on change when the install's gateway is reachable, **and pulled** on every heartbeat sync whenever `controller_revision > applied_revision` | Merged with the install's preserved per-host fields (§2.2), written atomically to `host.toml`, and applied via `setup` / hot-reload. |
+| **Shared `settings.toml` settings** | `[server]` (`registration`, `diagnostics_log_profile`), `[paradox]` (game-server frame rates, idle timeouts, max hunts, memory floor), `[switches]` (all `RUSTIC_ISLES_*` switches and rate-limit budgets), `[realms]` (TURN mode/ports), `[history]` (retention days) | **Pushed** immediately on change when the install's gateway is reachable, **and pulled** on every heartbeat sync whenever `controller_revision > applied_revision` | Merged with the install's preserved per-host fields (§2.2), written atomically to `settings.toml`, and applied via `setup` / hot-reload. |
 | **Presets** | `preset/*.json` files | **Pushed** notification + **pulled** by content SHA-256 | Written atomically into `.workspace/presets/` (or active preset config) after SHA-256 verification. |
-| **Module selection & settings** | `[modules].enabled` list, `[[modules.external]]` SHA-256 allowlist, and `[module_settings.<module_id>]` tables | **Pushed** notification + **pulled** on heartbeat sync | Written to `host.toml` and applied through `controller::ModuleRegistry` (`load`, `unload`, `module_settings_set`). |
+| **Module selection & settings** | `[modules].enabled` list, `[[modules.external]]` SHA-256 allowlist, and `[module_settings.<module_id>]` tables | **Pushed** notification + **pulled** on heartbeat sync | Written to `settings.toml` and applied through `controller::ModuleRegistry` (`load`, `unload`, `module_settings_set`). |
 | **Game data packs & published runtime** | Compiled game-data pack (`.workspace/gamedata/*.json` bundle) and published runtime (`Rustic-Isles.dll`, `winmm.dll`, `manifest.json`) | **Pulled** on demand when the manifest revision/SHA-256 in `SyncAnswer` differs from the install's local SHA-256 (triggered immediately by a lightweight push wake-up) | Streamed in chunks over `/__node/remote`, verified against the manifest's per-file SHA-256, and swapped atomically into `.workspace/gamedata` and `.workspace/runtime`. |
 | **Invites** | Active invite codes (`code`, `for_user`, `uses_remaining`, `expires_at`, `revoked`) | **Pushed** on creation/revocation + **pulled** delta on heartbeat sync | Merged into the install's invite store so an invite created on the Manager works immediately on the managed server. |
 | **Server name & branding** | Base `server.name`, `news.json`, and `.workspace/branding/*` assets | **Pushed** notification + **pulled** by SHA-256 | Written to `.workspace/config/news.json` and `.workspace/branding/`; `server.name` uses the controller's name or `<controller_name> (<install_label>)` if configured. |
@@ -59,7 +59,8 @@ revision at which it changed and its SHA-256 digest:
 ### 2.3 Local overrides and per-host identity (never clobbered)
 
 A managed install is a real machine with its own network interface, paths, and database. When merging a controller's
-shared `host.toml` bundle into the managed install's local `host.toml`, the managed install **always preserves**:
+shared `settings.toml` bundle into the managed install's local `settings.toml`, the managed install **always
+preserves**:
 
 1. **Per-host network and listener identity**:
    - `[server] host`, `[server] game_address`, `[server] mode` (`public` / `private` / `local`), and `[ports]`
@@ -71,7 +72,7 @@ shared `host.toml` bundle into the managed install's local `host.toml`, the mana
      `skip_mongo_migration`;
    - `[history]` local S3 bucket endpoint/prefix if configured per-node.
 3. **Explicit local overrides (`[remote] local_overrides`)**:
-   - Any dotted `host.toml` key listed in `[remote] local_overrides = ["paradox.max_hunts", "server.name"]` on the
+   - Any dotted `settings.toml` key listed in `[remote] local_overrides = ["paradox.max_hunts", "server.name"]` on the
      managed install is locked to the local value and ignored during controller merges.
 4. **Per-install controller overrides**:
    - On the controller, the operator can also set per-install overrides keyed by `NodeId` (for example, giving node
@@ -124,7 +125,7 @@ managed installs**:
 | Operation | Remote command | Behaviour on the managed install |
 | --- | --- | --- |
 | **Start / Stop / Restart** | `RemoteCommand::Lifecycle { action: Start \| Stop \| Restart }` | Starts, stops, or restarts the managed install's embedded/supervised server components (`serve::compose`) without terminating the remote-management agent itself, so a stopped install can still be started again remotely. |
-| **Run `setup`** | `RemoteCommand::Setup { examples: bool, fresh_start: bool }` | Runs `setup` with the current merged `host.toml` (generating any missing local secrets in `secrets.env`, writing `.env` files, and running or refusing MongoDB migration per `M1`–`M4`). Note: `fresh_start: true` is a guarded action (§4.1). |
+| **Run `setup`** | `RemoteCommand::Setup { examples: bool, fresh_start: bool }` | Runs `setup` with the current merged `settings.toml` (generating any missing local secrets in `secrets.env`, writing `.env` files, and running or refusing MongoDB migration per `M1`–`M4`). Note: `fresh_start: true` is a guarded action (§4.1). |
 | **Admin actions** | `RemoteCommand::AdminAction { action: Kick \| Timeout \| LiftTimeout \| Ban \| Unban \| Lookup, target, reason, duration_secs }` | Dispatches through the install's `admin` service and loaded game modules (`DF4c`, `DN11`), recording the remote operator's key ID as the change-log `Actor`. On the controller, the admin API's moderation mutations queue one with `node` (MS6). |
 | **Module load / unload & settings** | `RemoteCommand::ModuleControl { module_id, action: Load \| Unload \| SetSettings(json) }` | Calls `controller::ModuleRegistry` to load/unload a compiled-in or allowlisted external module (`DD5`) or update its settings. |
 | **History query & revert** | `RemoteCommand::HistoryQuery(filter)`, `RemoteCommand::HistoryVerify`, `RemoteCommand::HistoryRevert { filter, dry_run }` | Queries or verifies `store::history` on the install. A live revert (`dry_run: false`) is a guarded action (§4.1). |
@@ -198,8 +199,8 @@ Remote management introduces **no new cryptographic protocol or listener**:
      atomically, signs the managed install's certificate (`node.crt`) with `ClusterCa` for `node` and `region`, adds the
      install to its managed-install table, and returns `EnrollAnswer { controller_node, controller_cert_fp, ca_cert_pem,
      node_cert_pem }`.
-   - The managed install writes `node.crt` and `cluster-ca.crt` to `.workspace/tls/`, records `[remote]` in `host.toml`,
-     and immediately performs its first mTLS `POST /__node/remote` (`Sync`) call.
+   - The managed install writes `node.crt` and `cluster-ca.crt` to `.workspace/tls/`, records `[remote]` in
+     `settings.toml`, and immediately performs its first mTLS `POST /__node/remote` (`Sync`) call.
 
 ### 5.3 Revocation and offline behaviour
 
@@ -220,8 +221,8 @@ Remote management introduces **no new cryptographic protocol or listener**:
 ### 5.4 Ownership: one controller per managed install
 
 - A managed install has **at most one controller** at a time (`[remote] controller_url` and `controller_node` in
-  `host.toml`). Allowing two controllers to push conflicting `host.toml` revisions, presets, or module states to the
-  same install would create split-brain configuration.
+  `settings.toml`). Allowing two controllers to push conflicting `settings.toml` revisions, presets, or module states to
+  the same install would create split-brain configuration.
 - Multiple operators can still manage the same fleet by signing into the controller with their per-person admin keys
   (`DH2`), or by running `dainty-host remote leave` on an install before enrolling it with a different controller.
 
@@ -264,7 +265,7 @@ When a managed install cannot reach its controller (controller PC powered off, n
 restarting):
 
 1. **Keep running on last good settings**: The managed install starts and continues running all game modules, gateway,
-   content, and admin services using the last verified configuration (`host.toml`), presets, runtime, and game-data
+   content, and admin services using the last verified configuration (`settings.toml`), presets, runtime, and game-data
    pack stored in its local `.workspace/`.
 2. **Never stop or wipe**: Unreachability of the controller **never** stops a running server, disconnects players,
    revokes invites, or deletes any local file or database row.

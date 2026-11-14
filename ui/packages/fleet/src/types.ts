@@ -85,7 +85,7 @@ export interface Operator {
   name: string;
 }
 
-/** host.toml's `[logs]` on one controller; the server takes a change at its next start. */
+/** settings.toml's `[logs]` on one controller; the server takes a change at its next start. */
 export interface LogSettings {
   format: "text" | "json";
   color: "auto" | "always" | "never";

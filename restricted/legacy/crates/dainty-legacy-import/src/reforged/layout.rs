@@ -30,8 +30,8 @@ pub struct Layout {
     pub config: PathBuf,
     /// The Node kit's `host.json`.
     pub host_json: PathBuf,
-    /// Dainty Lass's `host.toml`.
-    pub host_toml: PathBuf,
+    /// Dainty Lass's `settings.toml`.
+    pub settings_toml: PathBuf,
     /// The Node kit's MongoDB data folder.
     pub mongo_data: PathBuf,
     /// The Node kit's `.workspace/Mystic-Paradox` upstream clone.
@@ -66,7 +66,7 @@ impl Layout {
         let runtime_source = isles.join("native").join("runtime");
         Self {
             host_json: config.join("host.json"),
-            host_toml: config.join("host.toml"),
+            settings_toml: config.join("settings.toml"),
             mongo_data: workspace.join("mongodb"),
             old_upstream: workspace.join("Mystic-Paradox"),
             pre_paradox: repo.join("paradox"),

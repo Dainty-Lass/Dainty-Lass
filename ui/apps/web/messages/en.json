@@ -846,7 +846,7 @@
     },
     "logs": {
       "title": "Logs",
-      "hint": "How this server's console log reads, and the Graylog (GELF) collector it ships every line to. Saved to its host.toml; the server takes it at its next start.",
+      "hint": "How this server's console log reads, and the Graylog (GELF) collector it ships every line to. Saved to its settings.toml; the server takes it at its next start.",
       "unavailable": "This controller did not answer for its log settings. It may be offline, or running an older server.",
       "restartNeeded": "Saved. Restart the server for these settings to take effect.",
       "format": "Format",

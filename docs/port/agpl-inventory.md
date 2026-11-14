@@ -298,10 +298,10 @@ Every source file in `dainty-lass` falls into one or more of four provenance lin
 
 - **Provenance**: Detailed in `docs/port/spec-dl3-hostkit.md` (`DL3a`), plus `src/commands/db.rs` added in `M3` (`b4e924b`):
   - **Category A — Born here (18 src + 3 test files)**:
-    `src/error.rs`, `src/hosttoml.rs`, `src/hostconfig/{yaml,guard,modules}.rs`, `src/epicinstall.rs`, `src/guarded.rs`,
-    `src/repl.rs`, `src/tui.rs`, `src/serve.rs`, `src/commands/{backup,db,history,install_game,network}.rs`,
-    `src/commands/setup/{database,secrets}.rs`, `src/commands/start/binaries.rs`,
-    `tests/{history,install_game,network}.rs`.
+    `src/error.rs`, `src/settingstoml.rs`, `src/hostconfig/{yaml,guard,modules}.rs`, `src/epicinstall.rs`,
+    `src/guarded.rs`, `src/repl.rs`, `src/tui.rs`, `src/serve.rs`,
+    `src/commands/{backup,db,history,install_game,network}.rs`, `src/commands/setup/{database,secrets}.rs`,
+    `src/commands/start/binaries.rs`, `tests/{history,install_game,network}.rs`.
   - **Category B — Reforged-derived (`DL3` clean-room rewrite scope: 22 module groups / 38 src + 9 test files, ported
     from Freeza's `ReforgedHost`)**:
     `src/paths.rs`, `src/envfile.rs`, `src/hostconfig.rs`, `src/run.rs`, `src/services.rs`, `src/services/tree.rs`,

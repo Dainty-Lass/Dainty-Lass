@@ -96,18 +96,18 @@ for install in alpha bravo; do
     secrets_before[$install]=$(on "$install" sha256sum "$ws/config/secrets.env" | cut -d' ' -f1)
 done
 on controller sed -i -e 's/^name = .*/name = "Fleet Friday Hunts"/' -e 's/^max_hunt_servers = .*/max_hunt_servers = 4/' \
-    "$ws/config/host.toml" >/dev/null
-toml=$(cat_on controller config/host.toml)
-contains "$toml" 'name = "Fleet Friday Hunts"' "the controller's host.toml"
-contains "$toml" 'max_hunt_servers = 4' "the controller's host.toml"
+    "$ws/config/settings.toml" >/dev/null
+toml=$(cat_on controller config/settings.toml)
+contains "$toml" 'name = "Fleet Friday Hunts"' "the controller's settings.toml"
+contains "$toml" 'max_hunt_servers = 4' "the controller's settings.toml"
 contains "$(on controller dainty-host remote set-config --json)" '"revision": 2' "set-config"
 declare -A address=([alpha]=203.0.113.21 [bravo]=203.0.113.22)
 for install in alpha bravo; do
     contains "$(on "$install" dainty-host remote sync --json)" '"applied_revision": 2' "$install's second sync"
-    toml=$(cat_on "$install" config/host.toml)
-    contains "$toml" 'name = "Fleet Friday Hunts"' "$install's host.toml"
-    contains "$toml" 'max_hunt_servers = 4' "$install's host.toml"
-    contains "$toml" "game_address = \"${address[$install]}\"" "$install's host.toml"
+    toml=$(cat_on "$install" config/settings.toml)
+    contains "$toml" 'name = "Fleet Friday Hunts"' "$install's settings.toml"
+    contains "$toml" 'max_hunt_servers = 4' "$install's settings.toml"
+    contains "$toml" "game_address = \"${address[$install]}\"" "$install's settings.toml"
     after=$(on "$install" sha256sum "$ws/config/secrets.env" | cut -d' ' -f1)
     [[ $after == "${secrets_before[$install]}" ]] || fail "$install's secrets.env changed in the sync"
 done

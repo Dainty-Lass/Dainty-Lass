@@ -198,10 +198,10 @@ under another manifest's pin.
 - [ ] The Epic session is in `epic-session.env` in the config folder (`.workspace/config`), written to a temporary
       file and renamed, mode 0600 on Unix (`write_secret_file`; Windows relies on the folder's ACL, as for
       `secrets.env`), and a file found group- or world-readable is closed to 0600 when read. It is never a
-      `host.toml` field, an env file's variable, a command line option or a line of output. `secrets.env` is not
+      `settings.toml` field, an env file's variable, a command line option or a line of output. `secrets.env` is not
       used: it is made once by setup and its keys are checked at 32 characters, while a session turns over each
       refresh. Tests: `a_fresh_host_signs_in_with_a_pasted_code_and_installs_for_its_game_servers` (mode 0600; the
-      code and both tokens appear in no output line and no file but the session file; host.toml holds nothing of
+      code and both tokens appear in no output line and no file but the session file; settings.toml holds nothing of
       Epic), `an_expired_access_token_is_refreshed_and_the_new_refresh_token_stored`.
 - [ ] The authorization code comes only from stdin or `--code-file` (at most 16 KiB; a file of any other size is
       refused), is checked by `AuthorizationCode::from_pasted` before it is sent (the launcher's paste fallback,
@@ -221,13 +221,13 @@ under another manifest's pin.
       the folder checks, per-file and executable checks and resume are the ones above. A finished install is
       recorded in `.workspace/epic/<version>.installed`; a repeat run trusts the record only if the executable still
       has the pinned SHA-256. Tests: `the_executable_the_profile_pins_must_be_the_one_downloaded` (an executable
-      that is not the pinned one stops the install and leaves host.toml alone),
+      that is not the pinned one stops the install and leaves settings.toml alone),
       `the_second_run_needs_no_code_and_fetches_nothing`,
       `a_download_killed_halfway_resumes_without_fetching_again`.
-- [ ] Only a finished install of 1.14.7 on a reborn or both server changes `host.toml` (`game_dir`), keeping the
+- [ ] Only a finished install of 1.14.7 on a reborn or both server changes `settings.toml` (`game_dir`), keeping the
       host's comments, and rewrites the env files only if setup made them; a legacy server and 1.12.0 are left
-      alone. Tests: `host_toml_follows_only_for_the_version_the_game_servers_run_on_a_server_that_runs_it`,
-      `the_host_keeps_the_hosts_own_comments_in_host_toml`.
+      alone. Tests: `settings_toml_follows_only_for_the_version_the_game_servers_run_on_a_server_that_runs_it`,
+      `the_host_keeps_the_hosts_own_comments_in_settings_toml`.
 - [ ] `install-game --sign-out` ends the session at Epic and deletes the file and the cached ownership answer
       whether or not Epic answers. Test: `signing_out_ends_and_deletes_the_session_even_when_epic_is_down`.
 - [ ] In Docker the command runs in the `host` container with `--dir /game` (`docker/host-entrypoint.sh`); the

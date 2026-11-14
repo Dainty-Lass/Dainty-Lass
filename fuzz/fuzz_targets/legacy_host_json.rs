@@ -1,5 +1,6 @@
 //! A Node kit's host.json, which anything with the old checkout could have written, through the legacy importer's
-//! host.toml conversion (spec-legacy-import §11.2, §12): an error or a host.toml that reads back, never a panic.
+//! settings.toml conversion (spec-legacy-import §11.2, §12): an error or a settings.toml that reads back, never a
+//! panic.
 #![no_main]
 
 use dainty_legacy::data;

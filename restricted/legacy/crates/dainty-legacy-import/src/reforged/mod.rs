@@ -1,7 +1,7 @@
 //! A Dauntless Reforged Revival Node-kit server upgraded in place to Dainty Lass: the old `.workspace` layout's
 //! folders moved, its MongoDB moved into the 1.14.7 database, `secrets.env` kept, and `host.json` turned into
-//! `host.toml`. In that order, as Dainty Lass's setup did it: a MongoDB move that fails leaves the old install as it
-//! was. `dainty-host setup` runs next and writes the services' env files from the new host.toml.
+//! `settings.toml`. In that order, as Dainty Lass's setup did it: a MongoDB move that fails leaves the old install as
+//! it was. `dainty-host setup` runs next and writes the services' env files from the new settings.toml.
 
 pub mod hostjson;
 pub mod layout;
@@ -35,11 +35,11 @@ fn read_host_json(file: &Path) -> Result<Option<String>> {
         .map_err(|e| ImportError::io(file, e))
 }
 
-/// Writes host.toml beside host.json and keeps the old file as host.json.bak (Dainty Lass's `save_host_config`).
+/// Writes settings.toml beside host.json and keeps the old file as host.json.bak (Dainty Lass's `save_host_config`).
 fn switch_to_toml(l: &Layout, toml: &str) -> Result<()> {
-    let partial = l.config.join("host.toml.partial");
+    let partial = l.config.join("settings.toml.partial");
     std::fs::write(&partial, toml).map_err(|e| ImportError::io(&partial, e))?;
-    std::fs::rename(&partial, &l.host_toml).map_err(|e| ImportError::io(&l.host_toml, e))?;
+    std::fs::rename(&partial, &l.settings_toml).map_err(|e| ImportError::io(&l.settings_toml, e))?;
     let bak = l.config.join("host.json.bak");
     if bak.exists() {
         std::fs::remove_file(&bak).map_err(|e| ImportError::io(&bak, e))?;
@@ -51,14 +51,14 @@ fn switch_to_toml(l: &Layout, toml: &str) -> Result<()> {
 pub fn upgrade(root: &Path, mongo_plan: &MongoPlan<'_>, dry_run: bool) -> Result<Report> {
     let l = Layout::new(root);
     let host_json = read_host_json(&l.host_json)?;
-    if host_json.is_none() && !l.host_toml.is_file() {
+    if host_json.is_none() && !l.settings_toml.is_file() {
         return Err(ImportError::invalid(format!(
-            "{}: no .workspace/config/host.json or host.toml, so not a Reforged install",
+            "{}: no .workspace/config/host.json or settings.toml, so not a Reforged install",
             root.display()
         )));
     }
     // Checked before anything moves, so a bad file changes nothing
-    let converted = match (&host_json, l.host_toml.is_file()) {
+    let converted = match (&host_json, l.settings_toml.is_file()) {
         (Some(text), false) => Some(hostjson::convert(text)?),
         _ => None,
     };
@@ -77,25 +77,26 @@ pub fn upgrade(root: &Path, mongo_plan: &MongoPlan<'_>, dry_run: bool) -> Result
             if !dry_run {
                 switch_to_toml(&l, &converted.toml)?;
             }
-            report.count("host.toml");
-            report.note("host.json is now host.toml; the old file is kept as host.json.bak");
+            report.count("settings.toml");
+            report.note("host.json is now settings.toml; the old file is kept as host.json.bak");
             if !converted.dropped.is_empty() {
                 report.note(format!(
-                    "left out of host.toml (1.4.4, 1.12 or unknown): {}",
+                    "left out of settings.toml (1.4.4, 1.12 or unknown): {}",
                     converted.dropped.join(", ")
                 ));
             }
             if converted.was_legacy_only {
                 report.note(
-                    "this server ran only Dauntless 1.4.4: set game_dir in host.toml to a 1.14.7 install before setup",
+                    "this server ran only Dauntless 1.4.4: set game_dir in settings.toml to a 1.14.7 install before setup",
                 );
             }
         }
-        None if l.host_toml.is_file() => {
-            report.unchanged("host.toml");
+        None if l.settings_toml.is_file() => {
+            report.unchanged("settings.toml");
             if host_json.is_some() {
-                report
-                    .note("host.toml is already there, so host.json was left as it is: delete it once you've checked");
+                report.note(
+                    "settings.toml is already there, so host.json was left as it is: delete it once you've checked",
+                );
             }
         }
         None => {}
@@ -106,6 +107,6 @@ pub fn upgrade(root: &Path, mongo_plan: &MongoPlan<'_>, dry_run: bool) -> Result
             folder.strip_prefix(&l.repo).unwrap_or(&folder).display()
         ));
     }
-    report.note("next: run dainty-host setup, which checks host.toml and writes the services' settings");
+    report.note("next: run dainty-host setup, which checks settings.toml and writes the services' settings");
     Ok(report)
 }

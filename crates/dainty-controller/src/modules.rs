@@ -41,7 +41,7 @@ pub fn game_modules() -> Vec<crate::registry::ModuleFactory> {
     modules
 }
 
-/// The admin API (`admin.env`), with the server's module registry when it has one (DF3), and host.toml's settings
+/// The admin API (`admin.env`), with the server's module registry when it has one (DF3), and settings.toml's settings
 /// the dashboard edits when the host kit hands them in.
 #[cfg(feature = "admin")]
 pub fn admin(
@@ -917,11 +917,11 @@ mod tests {
             })
         }
 
-        fn read_local_host_toml(&self) -> Result<String, dainty_remote::RemoteError> {
+        fn read_local_settings_toml(&self) -> Result<String, dainty_remote::RemoteError> {
             Ok(String::new())
         }
 
-        fn write_merged_host_toml(&self, _merged: &str, _revision: u64) -> Result<(), dainty_remote::RemoteError> {
+        fn write_merged_settings_toml(&self, _merged: &str, _revision: u64) -> Result<(), dainty_remote::RemoteError> {
             Ok(())
         }
 

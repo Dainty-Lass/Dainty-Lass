@@ -17,7 +17,7 @@ import { updateLogSettingsAction } from "../actions";
 const FORMATS = ["text", "json"] as const;
 const COLORS = ["auto", "always", "never"] as const;
 
-/** host.toml's `[logs]` on one controller: the console's format and color, and the Graylog collector. */
+/** settings.toml's `[logs]` on one controller: the console's format and color, and the Graylog collector. */
 export function LogSettingsCard({
   controllerId,
   logs,

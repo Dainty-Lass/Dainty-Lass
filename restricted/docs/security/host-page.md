@@ -22,10 +22,10 @@ the player's account key in reach: the list and the folder it points into are th
 
 - **In from the host:** the project folder (a folder dialog), the Dumper-7 DLL (a file dialog), a game data pack
   (a file dialog), the setup form, who an invite is for, the multipliers, and in `dainty-manager`
-  (`feature = "server-gui"`) the `host.toml` settings patch (`SERVER_CONFIG_PATCH`) and player administration
+  (`feature = "server-gui"`) the `settings.toml` settings patch (`SERVER_CONFIG_PATCH`) and player administration
   request (`ADMIN_REQUEST`). The page's values are checked by the isolation hook (`bridge/spec.rs`) and again in
   `bridge/commands.rs` before the controller sees them.
-- **In from the host kit:** `dainty-host`'s output (lines, `Error:` lines, `--json` lines), `host.toml` (or a
+- **In from the host kit:** `dainty-host`'s output (lines, `Error:` lines, `--json` lines), `settings.toml` (or a
   Node kit's `host.json`), and
   `vswhere`'s answers. All of it is parsed by `platform/hostkit/parse.rs`, which touches no file or process.
 - **In from disk:** the session record `host-loader-session.json` in the launcher's data folder, and whatever is in
@@ -39,7 +39,7 @@ Code: `launcher/src-tauri/src/controller/host.rs`, `platform/loader_session.rs`,
 in `controller/mod.rs` (`play_now`, `game_changed`).
 
 Fuzz target: `launcher_host` in `fuzz` (`hostkit/parse.rs`: the host kit's output, the invite and update JSON,
-`host.toml` and `host.json`, vswhere). It also checks that an invite that parses is a short `dainty://` link on one line,
+`settings.toml` and `host.json`, vswhere). It also checks that an invite that parses is a short `dainty://` link on one line,
 and that multipliers that parse are finite, from 1 to 100, and private only.
 
 ## Checklist
@@ -99,7 +99,7 @@ and that multipliers that parse are finite, from 1 to 100, and private only.
       (`the_host_page_drives_reforged_host_setup_server_invite_and_stop`). The controller never logs it.
 - [ ] Only a `dauntless://`, `dainty://` or `dauntless-revived://` link of at most 4096 characters with no control characters is taken from the
       host kit's output (`invite_line`).
-- [ ] The client launcher (`dainty-launcher`) never reads `secrets.env` or the env files; `host.toml` (or `host.json`) is read for the name,
+- [ ] The client launcher (`dainty-launcher`) never reads `secrets.env` or the env files; `settings.toml` (or `host.json`) is read for the name,
       mode, public host and multipliers only, and a file over 1 MiB is not read. In `dainty-manager` (`feature = "server-gui"`),
       in-process `host` library calls (`setup`, `backup`, `server_invite_list`) use `secrets.env` inside the Rust process only and never
       return or log secret values across the bridge.

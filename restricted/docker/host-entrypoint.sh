@@ -9,11 +9,12 @@
 #  - install-game: the versions go in the mounted game folder (--dir /game, unless given), so the Director's
 #    containers, which mount it at the same path, see them.
 #  - start and update are compose's: `docker compose up -d` runs the server, a new image updates it.
-#  - apply (the `toml` profile's configure service): setup from host.toml alone, before every `up`. A host.toml in
+#  - apply (the `toml` profile's configure service): setup from settings.toml alone, before every `up`. A settings.toml
+# in
 #    /config (DAINTY_CONFIG_DIR) replaces the workspace's first, so that file is the server's whole configuration.
 set -eu
 
-workspace_toml=/opt/dainty-lass/.workspace/config/host.toml
+workspace_toml=/opt/dainty-lass/.workspace/config/settings.toml
 
 has() {
 	want="$1"
@@ -53,12 +54,12 @@ install-game)
 	exec dainty-host install-game "$@"
 	;;
 apply)
-	if [ -f /config/host.toml ]; then
+	if [ -f /config/settings.toml ]; then
 		mkdir -p "$(dirname "$workspace_toml")"
-		cp /config/host.toml "$workspace_toml"
-		echo "host.toml taken from DAINTY_CONFIG_DIR"
+		cp /config/settings.toml "$workspace_toml"
+		echo "settings.toml taken from DAINTY_CONFIG_DIR"
 	elif [ ! -f "$workspace_toml" ]; then
-		echo "No host.toml: put one in DAINTY_CONFIG_DIR (./config by default; docs/hosting-docker.md shows how)." >&2
+		echo "No settings.toml: put one in DAINTY_CONFIG_DIR (./config by default; docs/hosting-docker.md shows how)." >&2
 		exit 2
 	fi
 	docker_setup

@@ -22,7 +22,7 @@ use crate::paths::{GAME_VERSION_TEXT, MAX_HUNTS, game_exe_relative};
 pub const DEFAULT_NAME: &str = "Dainty Lass server";
 /// The most hunts at once on a first setup.
 pub const DEFAULT_MAX_HUNT_SERVERS: u32 = 3;
-/// The host.toml version setup writes.
+/// The settings.toml version setup writes.
 pub const HOST_CONFIG_VERSION: u32 = 1;
 
 /// Fails on words setup did not expect, with a hint to quote values with spaces.
@@ -35,7 +35,7 @@ pub fn check_unexpected_args(args: &SetupArgs) -> Result<(), HostError> {
     Ok(())
 }
 
-/// The public port host.toml keeps: `None` for 443 or a private server; fails on a bad `--public-port`.
+/// The public port settings.toml keeps: `None` for 443 or a private server; fails on a bad `--public-port`.
 pub fn public_port_from_args(
     args: &SetupArgs,
     mode: ServerMode,
@@ -305,7 +305,7 @@ fn parse_multiplier_arg(flag: &str, raw: &str) -> Result<f64, HostError> {
     Ok(val)
 }
 
-/// The config setup writes: the options given over `existing`, checked as host.toml is.
+/// The config setup writes: the options given over `existing`, checked as settings.toml is.
 pub fn host_config_from_args(
     args: &SetupArgs,
     existing: Option<&HostConfig>,
@@ -626,7 +626,7 @@ pub fn host_config_from_args(
     Ok(parsed)
 }
 
-/// `[discord]` with setup's options over host.toml's; untouched when none is given. A token turns the bot on.
+/// `[discord]` with setup's options over settings.toml's; untouched when none is given. A token turns the bot on.
 pub fn discord_from_args(
     args: &SetupArgs,
     existing: Option<DiscordConfig>,
@@ -696,7 +696,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn discord_options_lay_over_host_toml() {
+    fn discord_options_lay_over_settings_toml() {
         let none = SetupArgs::default();
         assert_eq!(discord_from_args(&none, None).unwrap(), None);
         let kept = DiscordConfig {

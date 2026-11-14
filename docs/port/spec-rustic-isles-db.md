@@ -1066,9 +1066,9 @@ One warn line per skipped document (§7.3). Nothing else; never a document's con
 ## 13. Settings
 
 None. The crate reads no environment variable and no file except the storage policy under `--game-data-dir`. Every
-default (`host.toml`'s `[mongo]`, `[database]`, `[network]`, `backend.env`'s `MONGODB_URI`/`MONGODB_DB`, the backend
+default (`settings.toml`'s `[mongo]`, `[database]`, `[network]`, `backend.env`'s `MONGODB_URI`/`MONGODB_DB`, the backend
 game-data folder) is resolved by the host kit's `reforged-host db` before it calls the library (§14.4). No
-`host.toml` field, `setup` option or env line is added by this unit.
+`settings.toml` field, `setup` option or env line is added by this unit.
 
 ---
 
@@ -1131,7 +1131,7 @@ A constructor from a `StarterKit` plus the two defaults is offered. Tests use sy
 | feature `test-support` | `MockMongoServer` (§16.1) |
 
 **Restricted's host wiring** (`crates/dainty-host`'s `run_db_command` and the `db_migrate`/`db_verify`/`db_export_mongo`
-hooks of dainty-lass's `hostkit::hooks`) builds the options from `host.toml` and calls `run_*`; it switches from
+hooks of dainty-lass's `hostkit::hooks`) builds the options from `settings.toml` and calls `run_*`; it switches from
 `isles_db` to this crate and passes the 1.14.7 `LegacyStarter`. That file is restricted's; this crate does not change
 `hostkit`.
 

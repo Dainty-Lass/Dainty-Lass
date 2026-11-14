@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Silent Spud
 
-//! Environment variables override host.toml (RD24, docs/config-toml-plan.md "Environment variables override the
+//! Environment variables override settings.toml (RD24, docs/config-toml-plan.md "Environment variables override the
 //! config"). A variable in the host's own environment wins over the line setup rendered when the service reads it:
 //! a key its env file has, or one its typed table may set. Each override is a warning every time the service
 //! starts, with a secret's or a safety setting's value redacted. The generic names a dev box or a hosting panel
@@ -31,7 +31,7 @@ pub struct Merged {
     pub env: Vec<(String, String)>,
     /// One line per override or dropped generic variable, for the log.
     pub warnings: Vec<String>,
-    /// The variables the environment set over host.toml.
+    /// The variables the environment set over settings.toml.
     pub overridden: Vec<String>,
 }
 
@@ -55,16 +55,18 @@ fn warning(service: &str, key: &str, value: &str, rendered: Option<&str>, via: O
     let source = via.map_or_else(String::new, |v| format!(" (as {v})"));
     if sensitive(key) {
         return format!(
-            "{service}: {key}{source} from the environment overrides host.toml, a secret or safety setting (value redacted)"
+            "{service}: {key}{source} from the environment overrides settings.toml, a secret or safety setting (value redacted)"
         );
     }
     let at = tunables::toml_key(service, key).unwrap_or_else(|| format!("{service}.env's {key}"));
     match rendered {
         Some(old) => {
-            format!("{service}: {key}={value}{source} from the environment overrides host.toml ({at} = {old})")
+            format!("{service}: {key}={value}{source} from the environment overrides settings.toml ({at} = {old})")
         }
         None => {
-            format!("{service}: {key}={value}{source} from the environment overrides host.toml ({at} is not set there)")
+            format!(
+                "{service}: {key}={value}{source} from the environment overrides settings.toml ({at} is not set there)"
+            )
         }
     }
 }
@@ -90,7 +92,7 @@ pub fn merge(
         if GENERIC.contains(&key.as_str()) {
             if rendered(key).is_some_and(|old| old != value) {
                 out.warnings.push(format!(
-                    "{service}: {key} in the environment is ignored, since many programs share it; set {prefix}{key} to override host.toml's"
+                    "{service}: {key} in the environment is ignored, since many programs share it; set {prefix}{key} to override settings.toml's"
                 ));
             }
             continue;
@@ -139,7 +141,7 @@ mod tests {
         assert_eq!(get(&m, "GATEWAY_RATE_WS"), Some("40,24"));
         assert_eq!(
             m.warnings,
-            ["gateway: GATEWAY_RATE_WS=40,24 from the environment overrides host.toml (gateway.rate.ws = 20,12)"]
+            ["gateway: GATEWAY_RATE_WS=40,24 from the environment overrides settings.toml (gateway.rate.ws = 20,12)"]
         );
         let unset = merge("gateway", &pairs(&[("GATEWAY_MAX_CONNECTIONS", "9")]), &file, &[]);
         assert_eq!(get(&unset, "GATEWAY_MAX_CONNECTIONS"), Some("9"));
@@ -174,7 +176,7 @@ mod tests {
         assert!(m.warnings[0].contains("set DAINTY_BACKEND_PORT"), "{:?}", m.warnings);
         assert_eq!(
             m.warnings[1],
-            "backend: LOG_LEVEL=debug (as DAINTY_BACKEND_LOG_LEVEL) from the environment overrides host.toml (backend.log_level = info)"
+            "backend: LOG_LEVEL=debug (as DAINTY_BACKEND_LOG_LEVEL) from the environment overrides settings.toml (backend.log_level = info)"
         );
         // The gateway reads no PORT: DAINTY_GATEWAY_PORT (Docker's publish setting) is not for it
         let g = merge("gateway", &pairs(&[("DAINTY_GATEWAY_PORT", "443")]), &[], &[]);
