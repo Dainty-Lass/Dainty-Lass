@@ -35,7 +35,7 @@
       "body": "{\"error\":\"not_found\"}"
     },
     {
-      "request": "GET /content/v1/runtime/files/MysticParadox.dll",
+      "request": "GET /content/v1/runtime/files/rustic-isles-runtime.dll",
       "status": 404,
       "headers": {
         "content-type": "application/json; charset=utf-8",

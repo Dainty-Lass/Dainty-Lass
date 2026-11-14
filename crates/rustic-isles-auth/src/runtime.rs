@@ -12,8 +12,8 @@ use crate::errors::LauncherError;
 use crate::store::Channel;
 use crate::util;
 
-/// The runtime's main DLL, which the manifest's top-level hash names.
-pub const CORE_DLL: &str = "Rustic-Isles.dll";
+/// The runtime's main DLL, which the manifest's top-level hash names: the MIT runtime since R21 (spec-runtime-r21 P-4).
+pub const CORE_DLL: &str = "rustic-isles-runtime.dll";
 /// The proxy DLL every approved artifact set must hold.
 pub const PROXY_DLL: &str = "winmm.dll";
 
@@ -342,23 +342,24 @@ mod tests {
         let ok = check(
             &m,
             "0.1.78",
-            set(&[("Rustic-Isles.dll", h('B')), ("winmm.dll", h('C'))]),
+            set(&[("rustic-isles-runtime.dll", h('B')), ("winmm.dll", h('C'))]),
         )
         .unwrap();
         assert_eq!(
             ok.artifact_set_sha256,
-            "2aa2a8904fc44b11bb0be6ee5177c8904dc0f428c3dbb6ff2201a065fa5fff20"
+            // The set lines name the core DLL, which R21 renamed (spec-runtime-r21 P-4)
+            "849c08efbe23e725644f5f890f26727869a1fd9f890afcb28073ba96e52e14c6"
         );
         assert_eq!(ok.runtime_sha256, h('b'));
-        let changed = set(&[("Rustic-Isles.dll", h('b')), ("winmm.dll", h('d'))]);
+        let changed = set(&[("rustic-isles-runtime.dll", h('b')), ("winmm.dll", h('d'))]);
         assert!(check(&m, "0.1.78", changed).unwrap_err().starts_with("409"));
-        let omitted = set(&[("Rustic-Isles.dll", h('b'))]);
+        let omitted = set(&[("rustic-isles-runtime.dll", h('b'))]);
         assert_eq!(
             check(&m, "0.1.78", omitted).unwrap_err(),
             "400 The complete runtime artifact set is required."
         );
         let unknown = set(&[
-            ("Rustic-Isles.dll", h('b')),
+            ("rustic-isles-runtime.dll", h('b')),
             ("winmm.dll", h('c')),
             ("extra.dll", h('e')),
         ]);
@@ -366,12 +367,12 @@ mod tests {
             check(&m, "0.1.78", unknown).unwrap_err(),
             "400 The complete runtime artifact set is required."
         );
-        let renamed = set(&[("Rustic-Isles.dll", h('b')), ("other.dll", h('c'))]);
+        let renamed = set(&[("rustic-isles-runtime.dll", h('b')), ("other.dll", h('c'))]);
         assert_eq!(
             check(&m, "0.1.78", renamed).unwrap_err(),
             "400 The runtime artifact set is malformed."
         );
-        let full = set(&[("Rustic-Isles.dll", h('b')), ("winmm.dll", h('c'))]);
+        let full = set(&[("rustic-isles-runtime.dll", h('b')), ("winmm.dll", h('c'))]);
         assert!(check(&m, "0.1.77", full.clone()).unwrap_err().starts_with("409"));
         assert_eq!(
             check(&m, "v1", full.clone()).unwrap_err(),
@@ -394,27 +395,35 @@ mod tests {
         let core_only = check(
             &m,
             "0.1.78",
-            set(&[("Rustic-Isles.dll", h('b')), ("winmm.dll", h('c'))]),
+            set(&[("rustic-isles-runtime.dll", h('b')), ("winmm.dll", h('c'))]),
         )
         .unwrap();
         let all = set(&[
-            ("Rustic-Isles.dll", h('b')),
+            ("rustic-isles-runtime.dll", h('b')),
             ("winmm.dll", h('c')),
             ("a.pak", h('1')),
             ("b.pak", h('2')),
         ]);
         let full = check(&m, "0.1.78", all).unwrap();
         assert_ne!(core_only.artifact_set_sha256, full.artifact_set_sha256);
-        let partial = set(&[("Rustic-Isles.dll", h('b')), ("winmm.dll", h('c')), ("a.pak", h('1'))]);
+        let partial = set(&[
+            ("rustic-isles-runtime.dll", h('b')),
+            ("winmm.dll", h('c')),
+            ("a.pak", h('1')),
+        ]);
         assert!(check(&m, "0.1.78", partial).unwrap_err().starts_with("400"));
         let mutated = set(&[
-            ("Rustic-Isles.dll", h('b')),
+            ("rustic-isles-runtime.dll", h('b')),
             ("winmm.dll", h('c')),
             ("a.pak", h('1')),
             ("b.pak", h('3')),
         ]);
         assert!(check(&m, "0.1.78", mutated).unwrap_err().starts_with("409"));
-        let unpublished = set(&[("Rustic-Isles.dll", h('b')), ("winmm.dll", h('c')), ("a.pak", h('1'))]);
+        let unpublished = set(&[
+            ("rustic-isles-runtime.dll", h('b')),
+            ("winmm.dll", h('c')),
+            ("a.pak", h('1')),
+        ]);
         assert!(check(&core(), "0.1.78", unpublished).unwrap_err().starts_with("400"));
     }
 

@@ -11,20 +11,22 @@ pub const RUNTIME_MANIFEST_PATH: &str = "/content/v1/runtime/manifest";
 pub const RUNTIME_BUILD_NAME: &str = "rel-1.14.7-Archon";
 /// Game changelist assumed when the host sets none.
 pub const DEFAULT_CHANGELIST: u64 = 647_472;
-/// The game runtime DLL.
-pub const RUNTIME_DLL: &str = "Rustic-Isles.dll";
-/// [`RUNTIME_DLL`]'s name before the Rustic Isles rename: a host that still publishes it is served for one release (DX4)
-pub const LEGACY_RUNTIME_DLL: &str = "MysticParadox.dll";
-/// The runtime loader, which Windows launchers no longer use: they inject [`RUNTIME_DLL`] (RD9, 2026-11-12).
-/// Optional in a manifest for one release; Linux launchers still install it until the inject helper ships.
-pub const LOADER_DLL: &str = "winmm.dll";
-/// The MIT runtime (RT-5): optional while the transition lasts; when listed it is injected before [`RUNTIME_DLL`],
-/// and a host publishes the two as a matched pair (same seam version), never one alone.
+/// The game runtime, the MIT one built from `crates/rustic-isles-runtime` and the only one since R21 (RT-5).
 pub const MIT_RUNTIME_DLL: &str = "rustic-isles-runtime.dll";
+/// The runtime loader, which Windows launchers no longer use: they inject [`MIT_RUNTIME_DLL`] (RD9, 2026-11-12).
+/// Optional in a manifest; Proton players who keep it load the runtime by its fixed name.
+pub const LOADER_DLL: &str = "winmm.dll";
 /// Every file a runtime manifest may list, in the order a manifest sorts them.
-pub const RUNTIME_FILE_NAMES: [&str; 3] = [RUNTIME_DLL, MIT_RUNTIME_DLL, LOADER_DLL];
+pub const RUNTIME_FILE_NAMES: [&str; 2] = [MIT_RUNTIME_DLL, LOADER_DLL];
 /// The files every runtime manifest must list.
-pub const REQUIRED_RUNTIME_FILES: [&str; 1] = [RUNTIME_DLL];
+pub const REQUIRED_RUNTIME_FILES: [&str; 1] = [MIT_RUNTIME_DLL];
+/// The AGPL runtime that R21 retired (spec-runtime-r21 5).
+pub const AGPL_RUNTIME_DLL: &str = "Rustic-Isles.dll";
+/// [`AGPL_RUNTIME_DLL`]'s name before the Rustic Isles rename (DX4).
+pub const LEGACY_RUNTIME_DLL: &str = "MysticParadox.dll";
+/// Runtime names no manifest lists and no server serves: whoever keeps runtime files removes them where found
+/// (spec-runtime-r21 P-1).
+pub const RETIRED_RUNTIME_DLLS: [&str; 3] = [AGPL_RUNTIME_DLL, LEGACY_RUNTIME_DLL, "MystPaxInternalServer.dll"];
 /// Largest runtime file accepted, in bytes.
 pub const MAX_RUNTIME_FILE_BYTES: u64 = 64 * 1024 * 1024;
 
@@ -67,13 +69,9 @@ pub struct RuntimeFile {
     pub sha256: String,
 }
 
-/// The [`RUNTIME_FILE_NAMES`] entry `name` stands for, letter case included: itself, or [`RUNTIME_DLL`] for
-/// [`LEGACY_RUNTIME_DLL`]
+/// The [`RUNTIME_FILE_NAMES`] entry `name` is, letter case included.
 #[must_use]
 pub fn runtime_file_slot(name: &str) -> Option<&'static str> {
-    if name == LEGACY_RUNTIME_DLL {
-        return Some(RUNTIME_DLL);
-    }
     RUNTIME_FILE_NAMES.into_iter().find(|known| *known == name)
 }
 

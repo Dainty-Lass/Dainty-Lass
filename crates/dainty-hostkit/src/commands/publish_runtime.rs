@@ -103,6 +103,7 @@ mod tests {
         let custom = tmp.path().join("built");
         std::fs::create_dir_all(&custom).unwrap();
         std::fs::write(custom.join("Rustic-Isles.dll"), b"agpl").unwrap();
+        std::fs::write(custom.join("winmm.dll"), b"loader").unwrap();
         std::fs::write(custom.join(MIT_RUNTIME_BUILD_NAME), b"mit").unwrap();
         let args = PublishRuntimeArgs {
             from: Some(custom.to_string_lossy().into_owned()),
@@ -113,5 +114,7 @@ mod tests {
             b"mit"
         );
         assert!(!paths.runtime_publish.join(MIT_RUNTIME_BUILD_NAME).exists());
+        // A retired runtime in the folder is never published (spec-runtime-r21 H-4)
+        assert!(!paths.runtime_publish.join("Rustic-Isles.dll").exists());
     }
 }

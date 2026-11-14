@@ -8,8 +8,8 @@ use std::path::{Path, PathBuf};
 
 use crate::error::HostError;
 
-/// The game runtime's DLLs `publish-runtime` publishes: the runtime, the MIT runtime beside it (RT-5) and the loader.
-pub const RUNTIME_FILE_NAMES: [&str; 3] = ["Rustic-Isles.dll", "rustic-isles-runtime.dll", "winmm.dll"];
+/// The game runtime's DLLs `publish-runtime` publishes: the MIT runtime and the loader (spec-runtime-r21 H-3).
+pub const RUNTIME_FILE_NAMES: [&str; 2] = ["rustic-isles-runtime.dll", "winmm.dll"];
 /// The MIT runtime's name as cargo builds it: a library name cannot hold `-`, so it is published renamed (RT-5).
 pub const MIT_RUNTIME_BUILD_NAME: &str = "rustic_isles_runtime.dll";
 /// The pinned Dauntless 1.14.7 build's changelist.
@@ -209,16 +209,16 @@ pub struct Paths {
     pub backend_dir: PathBuf,
     /// The reference Director, `ParadoxDirector`.
     pub director_dir: PathBuf,
-    /// The game runtime's sources.
+    /// The C++ runtime's old source folder, where the CatalogExporter's SDK is still kept.
     pub runtime_source: PathBuf,
     /// The generated SDK header, `SDK.hpp`.
     pub sdk_header: PathBuf,
     /// The generated SDK folder.
     pub sdk_dir: PathBuf,
-    /// The built runtime DLL.
-    pub runtime_dll: PathBuf,
-    /// The built MIT runtime DLL, under its build name ([`MIT_RUNTIME_BUILD_NAME`]).
+    /// The built MIT runtime DLL, under its build name ([`MIT_RUNTIME_BUILD_NAME`]): the runtime.
     pub mit_runtime_dll: PathBuf,
+    /// The prebuilt runtime a release ships in `bin/`, published when none was built (spec-runtime-r21 call 6).
+    pub shipped_runtime_dll: PathBuf,
     /// The runtime loader's sources.
     pub loader_dir: PathBuf,
     /// The built loader, `winmm.dll`.
@@ -294,12 +294,12 @@ impl Paths {
         let runtime_source = isles.join("native").join("runtime");
         let sdk_header = runtime_source.join("SDK.hpp");
         let sdk_dir = runtime_source.join("SDK");
-        let runtime_dll = runtime_source.join("x64").join("Release").join("Rustic-Isles.dll");
         let mit_runtime_dll = repo
             .join("target")
             .join("x86_64-pc-windows-msvc")
             .join("release")
             .join(MIT_RUNTIME_BUILD_NAME);
+        let shipped_runtime_dll = repo.join("bin").join(RUNTIME_FILE_NAMES[0]);
         let loader_dir = repo.join("native").join("runtime-loader");
         let loader_dll = loader_dir
             .join("target")
@@ -349,8 +349,8 @@ impl Paths {
             runtime_source,
             sdk_header,
             sdk_dir,
-            runtime_dll,
             mit_runtime_dll,
+            shipped_runtime_dll,
             loader_dir,
             loader_dll,
             exporter_dir,

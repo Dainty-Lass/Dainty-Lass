@@ -597,7 +597,7 @@ mod host {
         let c = launcher(&pc, &platform, &spawner, None);
         c.init().await;
         ok(&c.use_game_path(&pc.root.to_string_lossy()).await);
-        std::fs::write(pc.win64.join("Rustic-Isles.dll"), b"runtime").unwrap();
+        std::fs::write(pc.win64.join("rustic-isles-runtime.dll"), b"runtime").unwrap();
 
         assert_eq!(host_failed(&c.host_action(HostAction::InjectDumper).await), "dumper");
         let dll = pc.dir.path().join("Dumper-7.dll");
@@ -624,7 +624,7 @@ mod host {
         assert!(!pc.win64.join("mystic_loader.ini").exists());
         assert!(!pc.win64.join("Dumper-7.dll").exists());
         assert!(
-            pc.win64.join("Rustic-Isles.dll").is_file(),
+            pc.win64.join("rustic-isles-runtime.dll").is_file(),
             "the runtime stays, unloaded"
         );
         let job = platform.last_kit().job.unwrap();

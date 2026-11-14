@@ -30,8 +30,6 @@ pub struct Layout {
     pub backend_dir: PathBuf,
     /// The reference Director.
     pub director_dir: PathBuf,
-    /// The game runtime's sources.
-    pub runtime_source: PathBuf,
     /// The runtime loader's sources.
     pub loader_dir: PathBuf,
     /// The generated SDK header.
@@ -60,7 +58,6 @@ impl Layout {
             isles: p.isles.clone(),
             backend_dir: p.backend_dir.clone(),
             director_dir: p.director_dir.clone(),
-            runtime_source: p.runtime_source.clone(),
             loader_dir: p.loader_dir.clone(),
             sdk_header: p.sdk_header.clone(),
             sdk_dir: p.sdk_dir.clone(),
@@ -82,9 +79,6 @@ pub fn missing_paradox(l: &Layout) -> Vec<&'static str> {
     }
     if !l.director_dir.join("package.json").is_file() {
         missing.push("modules/rustic-isles/reference/1.14.7/ParadoxDirector");
-    }
-    if !l.runtime_source.join("Rustic-Isles.vcxproj").is_file() {
-        missing.push("native/runtime");
     }
     if !l.loader_dir.join("Cargo.toml").is_file() {
         missing.push("native/runtime-loader");
@@ -108,14 +102,12 @@ mod tests {
         let tmp = tempfile::tempdir().unwrap();
         let paths = Paths::new(tmp.path());
         let layout = Layout::new(&paths);
-        assert_eq!(missing_paradox(&layout).len(), 5);
+        assert_eq!(missing_paradox(&layout).len(), 4);
 
         fs::create_dir_all(&layout.backend_dir).unwrap();
         fs::write(layout.backend_dir.join("package.json"), "{}").unwrap();
         fs::create_dir_all(&layout.director_dir).unwrap();
         fs::write(layout.director_dir.join("package.json"), "{}").unwrap();
-        fs::create_dir_all(&layout.runtime_source).unwrap();
-        fs::write(layout.runtime_source.join("Rustic-Isles.vcxproj"), "{}").unwrap();
         fs::create_dir_all(&layout.loader_dir).unwrap();
         fs::write(layout.loader_dir.join("Cargo.toml"), "{}").unwrap();
         fs::create_dir_all(&layout.exporter_dir).unwrap();

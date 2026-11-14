@@ -100,7 +100,7 @@ mod tests {
     fn the_helper_line_names_wine_paths_and_keeps_the_game_arguments() {
         let sha = "a".repeat(64);
         let dlls = [InjectDll {
-            path: "/g/Win64/Rustic-Isles.dll".into(),
+            path: "/g/Win64/rustic-isles-runtime.dll".into(),
             sha256: sha.clone(),
         }];
         let line = helper_line(
@@ -111,7 +111,7 @@ mod tests {
         .unwrap();
         let expected: Vec<OsString> = [
             "--dll",
-            "Z:\\g\\Win64\\Rustic-Isles.dll",
+            "Z:\\g\\Win64\\rustic-isles-runtime.dll",
             &sha,
             "--",
             "Z:\\g\\Win64\\Dauntless-Win64-Shipping.exe",
@@ -122,7 +122,7 @@ mod tests {
         .collect();
         assert_eq!(line, expected);
         let relative = [InjectDll {
-            path: "Rustic-Isles.dll".into(),
+            path: "rustic-isles-runtime.dll".into(),
             sha256: sha,
         }];
         assert!(helper_line(Path::new("/g/x.exe"), &relative, &[]).is_err());

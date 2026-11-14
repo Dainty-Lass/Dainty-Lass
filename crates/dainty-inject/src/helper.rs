@@ -142,7 +142,7 @@ mod tests {
     #[test]
     fn the_launchers_line_reads_back() {
         let dlls = [
-            ("Z:\\g\\Win64\\Rustic-Isles.dll".to_owned(), SHA.to_owned()),
+            ("Z:\\g\\Win64\\rustic-isles-runtime.dll".to_owned(), SHA.to_owned()),
             ("Z:\\w\\CatalogExporter.dll".to_owned(), SHA.to_owned()),
         ];
         let game_args = os(&["-AUTH_PASSWORD=x", "--", "-windowed"]);
@@ -182,8 +182,8 @@ mod tests {
     #[test]
     fn wine_sees_unix_paths_on_z() {
         assert_eq!(
-            wine_path(Path::new("/home/p/Games/Win64/Rustic-Isles.dll")).as_deref(),
-            Some("Z:\\home\\p\\Games\\Win64\\Rustic-Isles.dll")
+            wine_path(Path::new("/home/p/Games/Win64/rustic-isles-runtime.dll")).as_deref(),
+            Some("Z:\\home\\p\\Games\\Win64\\rustic-isles-runtime.dll")
         );
         assert_eq!(wine_path(Path::new("relative/x.dll")), None);
     }

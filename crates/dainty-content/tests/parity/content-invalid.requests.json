@@ -3,7 +3,7 @@
   "env": {},
   "runtime": {
     "files": {
-      "MysticParadox.dll": {
+      "rustic-isles-runtime.dll": {
         "text": "mystic paradox\n"
       },
       "winmm.dll": {
@@ -14,7 +14,7 @@
       "version": "1",
       "files": [
         {
-          "name": "MysticParadox.dll",
+          "name": "rustic-isles-runtime.dll",
           "size": 15,
           "sha256": "6f3c5d7b2ea6a2d2b1fa6c6f6f1a9d1b9f45c7a77f0c2dbb7f2e6fbb9c8a1e11"
         },
@@ -74,7 +74,7 @@
       ]
     },
     {
-      "path": "/content/v1/runtime/files/MysticParadox.dll",
+      "path": "/content/v1/runtime/files/rustic-isles-runtime.dll",
       "headers": [
         [
           "x-reforged-user-api-key",

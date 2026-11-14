@@ -7,7 +7,7 @@
    "winmm.dll": {
     "text": "winmm"
    },
-   "Rustic-Isles.dll": {
+   "rustic-isles-runtime.dll": {
     "pattern": 10
    }
   }
@@ -99,7 +99,7 @@
    ]
   },
   {
-   "path": "/content/v1/runtime/files/Rustic-Isles.dll",
+   "path": "/content/v1/runtime/files/rustic-isles-runtime.dll",
    "headers": [
     [
      "x-reforged-user-api-key",

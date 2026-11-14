@@ -22,7 +22,7 @@ const cases = {
 for (const [name, make] of Object.entries(cases)) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "rr-runtime-"));
   const files = {};
-  for (const [key, file, text] of [["mystic", "Rustic-Isles.dll", "mystic paradox\n"], ["winmm", "winmm.dll", "winmm loader\n"]]) {
+  for (const [key, file, text] of [["mystic", "rustic-isles-runtime.dll", "mystic paradox\n"], ["winmm", "winmm.dll", "winmm loader\n"]]) {
     fs.writeFileSync(path.join(dir, file), text);
     const sha256 = require("node:crypto").createHash("sha256").update(text).digest("hex");
     files[key] = { name: file, size: Buffer.byteLength(text), sha256 };

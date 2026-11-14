@@ -44,7 +44,7 @@ fuzz_target!(|data: &[u8]| {
         );
         if let Ok(approved) = checked {
             assert_eq!(approved.manifest_version, "0.1.78");
-            let wanted = [("Rustic-Isles.dll", 'b'), ("winmm.dll", 'c'), ("a.pak", 'd')];
+            let wanted = [("rustic-isles-runtime.dll", 'b'), ("winmm.dll", 'c'), ("a.pak", 'd')];
             for (name, hash) in &approved.artifacts {
                 let (_, c) = wanted.iter().find(|(n, _)| n == name).copied().unwrap_or(("", '?'));
                 assert_eq!(*hash, c.to_string().repeat(64));

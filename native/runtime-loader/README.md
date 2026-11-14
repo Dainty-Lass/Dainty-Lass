@@ -1,8 +1,10 @@
 # rustic-isles-loader
 
 The runtime loader: a `winmm.dll` that sits beside `Dauntless-Win64-Shipping.exe`. When the game loads it, it loads
-the Rustic Isles runtime from the same folder (the newest of `Rustic-Isles.dll`, `MysticParadox.dll` and
-`MystPaxInternalServer.dll`), then any extra DLLs listed in `mystic_loader.ini`. Every `winmm.dll` and
+the Rustic Isles runtime, `rustic-isles-runtime.dll`, from the same folder by its fixed name, then any extra DLLs
+listed in `mystic_loader.ini`. It still knows the AGPL runtime's names (the newest of `Rustic-Isles.dll`,
+`MysticParadox.dll` and `MystPaxInternalServer.dll`) for a set from before R21; an R21 set has none of them, and the
+launcher removes one it finds (`docs/port/spec-runtime-r21.md`, L-3 and L-6). Every `winmm.dll` and
 `version.dll` function it exports forwards to the real one in the Windows system folder. The behaviour is specified
 in `docs/port/spec-runtime-loader.md`.
 

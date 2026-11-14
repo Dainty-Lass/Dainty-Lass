@@ -118,7 +118,7 @@ pub fn is_plausible_key(key: &str) -> bool {
     (1..=256).contains(&key.len()) && key.bytes().all(|b| (0x21..=0x7e).contains(&b))
 }
 
-/// `Rustic-Isles.dll`, `rustic-isles-runtime.dll`, `winmm.dll` or the pre-DX4 `MysticParadox.dll`, letter case included.
+/// `rustic-isles-runtime.dll` or `winmm.dll`, letter case included: R21 retired `rustic-isles-runtime.dll` and its aliases.
 pub fn is_runtime_file_name(name: &str) -> bool {
     runtime_file_slot(name).is_some()
 }
@@ -184,7 +184,7 @@ fn runtime_shape(value: &Value) -> Result<RuntimeManifest, String> {
             other => {
                 let shown = other.map_or_else(|| "undefined".to_owned(), dainty_service_kit::jsjson::stringify);
                 return Err(format!(
-                    "unknown file {shown} (only Rustic-Isles.dll, rustic-isles-runtime.dll and winmm.dll)"
+                    "unknown file {shown} (only rustic-isles-runtime.dll and winmm.dll)"
                 ));
             }
         };
@@ -438,7 +438,7 @@ mod tests {
     #![allow(clippy::unwrap_used, reason = "a panic is how a test fails")]
     use super::*;
 
-    const SORTED_START: &str = r#"{"version":"v1","build":{"name":"rel-1.14.7-Archon","changelist":647472},"files":[{"name":"Rustic-Isles.dll","size":10,"#;
+    const SORTED_START: &str = r#"{"version":"v1","build":{"name":"rel-1.14.7-Archon","changelist":647472},"files":[{"name":"rustic-isles-runtime.dll","size":10,"#;
 
     fn manifest_of(doc: Value) -> Result<RuntimeManifest, String> {
         parse_runtime_json(doc.to_string().as_bytes())
@@ -453,7 +453,7 @@ mod tests {
             "version": version,
             "files": [
                 {"name": "winmm.dll", "size": 3, "sha256": sha('b')},
-                {"name": "Rustic-Isles.dll", "size": 10, "sha256": sha('a')},
+                {"name": "rustic-isles-runtime.dll", "size": 10, "sha256": sha('a')},
             ],
         })
     }
@@ -481,7 +481,8 @@ mod tests {
         assert_eq!(Route::of("/content/v1/branding/"), Route::BrandingImage(""));
         assert_eq!(Route::of("/content/v1/files/x"), Route::Unknown);
         assert!(!is_runtime_file_name("winmm.DLL"));
-        assert!(is_runtime_file_name("winmm.dll") && is_runtime_file_name("MysticParadox.dll"));
+        assert!(is_runtime_file_name("winmm.dll") && is_runtime_file_name("rustic-isles-runtime.dll"));
+        assert!(!is_runtime_file_name("MysticParadox.dll") && !is_runtime_file_name("Rustic-Isles.dll"));
     }
 
     #[test]
@@ -552,7 +553,7 @@ mod tests {
     fn runtime_files_are_sorted_with_the_fixed_build() {
         let body = manifest_of(two_files(json!("v1"))).unwrap().to_json();
         assert!(body.starts_with(SORTED_START), "{body}");
-        assert!(body.find("Rustic-Isles.dll") < body.find("winmm.dll"));
+        assert!(body.find("rustic-isles-runtime.dll") < body.find("winmm.dll"));
     }
 
     #[test]
@@ -580,7 +581,7 @@ mod tests {
         assert!(refused(not_a_list));
         let with_files = |files: Value| json!({"version": "v1", "files": files});
         let entry = |name: &str, size: Value, hash: String| json!({"name": name, "size": size, "sha256": hash});
-        let rustic = || entry("Rustic-Isles.dll", json!(1), sha('a'));
+        let rustic = || entry("rustic-isles-runtime.dll", json!(1), sha('a'));
         let winmm = || entry("winmm.dll", json!(1), sha('b'));
         // The loader is optional (RD9, 2026-11-12); the runtime is not
         assert!(!refused(with_files(json!([rustic()]))));
@@ -591,7 +592,7 @@ mod tests {
             entry("dxgi.dll", json!(1), sha('c'))
         ]))));
         assert!(refused(with_files(json!([
-            entry("..\\Rustic-Isles.dll", json!(1), sha('a')),
+            entry("..\\rustic-isles-runtime.dll", json!(1), sha('a')),
             winmm()
         ]))));
         assert!(refused(with_files(json!([
@@ -624,18 +625,25 @@ mod tests {
         let error = |files: Value| manifest_of(json!({"version": "v1", "files": files})).unwrap_err();
         assert_eq!(
             error(json!([{"name": null}])),
-            "runtime.json: unknown file null (only Rustic-Isles.dll, rustic-isles-runtime.dll and winmm.dll)"
+            "runtime.json: unknown file null (only rustic-isles-runtime.dll and winmm.dll)"
         );
         assert_eq!(
             error(json!([7])),
-            "runtime.json: unknown file undefined (only Rustic-Isles.dll, rustic-isles-runtime.dll and winmm.dll)"
+            "runtime.json: unknown file undefined (only rustic-isles-runtime.dll and winmm.dll)"
         );
-        let old = json!({"name": "MysticParadox.dll", "size": 1, "sha256": sha('a')});
-        let new = json!({"name": "Rustic-Isles.dll", "size": 1, "sha256": sha('a')});
+        let new = json!({"name": "rustic-isles-runtime.dll", "size": 1, "sha256": sha('a')});
         assert_eq!(
-            error(json!([new.clone(), old])),
-            "runtime.json: MysticParadox.dll is listed twice"
+            error(json!([new.clone(), new.clone()])),
+            "runtime.json: rustic-isles-runtime.dll is listed twice"
         );
+        // R21 retired the AGPL runtime and its aliases: a list naming one is refused (spec-runtime-r21 P-3)
+        for retired in ["Rustic-Isles.dll", "MysticParadox.dll", "MystPaxInternalServer.dll"] {
+            let old = json!({"name": retired, "size": 1, "sha256": sha('a')});
+            assert_eq!(
+                error(json!([new.clone(), old])),
+                format!("runtime.json: unknown file \"{retired}\" (only rustic-isles-runtime.dll and winmm.dll)")
+            );
+        }
         // winmm.dll is optional since Windows launchers inject the runtime (RD9, 2026-11-12)
         assert_eq!(
             parse_runtime_json(json!({"version": "1", "files": [new]}).to_string().as_bytes())
@@ -647,7 +655,7 @@ mod tests {
         let loader = json!({"name": "winmm.dll", "size": 1, "sha256": sha('b')});
         assert_eq!(
             error(json!([loader])),
-            "runtime.json: Rustic-Isles.dll is missing from the list"
+            "runtime.json: rustic-isles-runtime.dll is missing from the list"
         );
     }
 

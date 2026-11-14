@@ -389,7 +389,7 @@ mod tests {
                 .contains("publish-runtime")
         );
         let sha = "a".repeat(64);
-        let manifest = format!(r#"{{"files":[{{"name":"Rustic-Isles.dll","sha256":"{sha}"}}]}}"#);
+        let manifest = format!(r#"{{"files":[{{"name":"rustic-isles-runtime.dll","sha256":"{sha}"}}]}}"#);
         std::fs::write(runtime.join("runtime.json"), manifest).unwrap();
         assert_eq!(runtime_problem(&config(Some(&runtime))), None);
         std::fs::write(tmp.path().join("winmm.dll"), b"").unwrap();

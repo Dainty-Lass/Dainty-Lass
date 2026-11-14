@@ -6,18 +6,18 @@
       "status": 200,
       "headers": {
         "content-type": "application/json; charset=utf-8",
-        "content-length": "311",
-        "etag": "\"30a92d40766fe6ab413b58fc24704d0babf28d99f5dc345fe482294ddbf2b609\"",
+        "content-length": "318",
+        "etag": "\"d434a2553127c72a47d4630200776fdb4e0b99fe01ef0c9e963ad4e9001d6938\"",
         "cache-control": "no-cache",
         "x-content-type-options": "nosniff"
       },
-      "body": "{\"version\":\"1.0+rr_2\",\"build\":{\"name\":\"rel-1.14.7-Archon\",\"changelist\":651234},\"files\":[{\"name\":\"MysticParadox.dll\",\"size\":15,\"sha256\":\"0ddf63983e7e1794485fdf7b7e1d2f0234d211a1f1b12399079e46643d0b4100\"},{\"name\":\"winmm.dll\",\"size\":13,\"sha256\":\"a66c4f4a964f5b32c2de27c7dc39865ce8a4ed2427200425f1b2656c3c3e7734\"}]}"
+      "body": "{\"version\":\"1.0+rr_2\",\"build\":{\"name\":\"rel-1.14.7-Archon\",\"changelist\":651234},\"files\":[{\"name\":\"rustic-isles-runtime.dll\",\"size\":15,\"sha256\":\"0ddf63983e7e1794485fdf7b7e1d2f0234d211a1f1b12399079e46643d0b4100\"},{\"name\":\"winmm.dll\",\"size\":13,\"sha256\":\"a66c4f4a964f5b32c2de27c7dc39865ce8a4ed2427200425f1b2656c3c3e7734\"}]}"
     },
     {
       "request": "GET /content/v1/runtime/manifest",
       "status": 304,
       "headers": {
-        "etag": "\"30a92d40766fe6ab413b58fc24704d0babf28d99f5dc345fe482294ddbf2b609\"",
+        "etag": "\"d434a2553127c72a47d4630200776fdb4e0b99fe01ef0c9e963ad4e9001d6938\"",
         "x-content-type-options": "nosniff"
       },
       "body": ""

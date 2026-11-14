@@ -22,6 +22,7 @@ use crate::paths::{
     GAME_VERSION_TEXT, PINNED_EXE_SHA256, Paths, RUNTIME_FILE_NAMES, game_exe_relative, strip_verbatim,
 };
 use crate::run::capture;
+use dainty_protocol::manifest::RETIRED_RUNTIME_DLLS;
 
 /// How a check came out.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -74,15 +75,6 @@ pub fn fix(area: &'static str, level: Level, text: impl Into<String>, fix_text: 
 pub struct DoctorOptions {
     /// Hashes the game executable against the pinned build (slow).
     pub hash_exe: bool,
-}
-
-/// The patches the built runtime DLL carries.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct CpuPatches {
-    /// The CPU fixes.
-    pub cpu_fixes: bool,
-    /// The frame cap.
-    pub frame_cap: bool,
 }
 
 /// The game build a folder must hold.
@@ -471,18 +463,30 @@ fn contains_subslice(haystack: &[u8], needle: &[u8]) -> bool {
     haystack.windows(needle.len()).any(|w| w == needle)
 }
 
-/// The patches the runtime DLL at `dll_path` carries, from the strings it holds; `None` when it can't be read.
-pub fn runtime_cpu_patches(dll_path: &Path) -> Option<CpuPatches> {
-    let bytes = fs::read(dll_path).ok()?;
-    let walk_flag_utf16le: Vec<u8> = "LEGACY_EXPECTED_PLAYER_WALK.flag"
-        .encode_utf16()
-        .flat_map(u16::to_le_bytes)
-        .collect();
-    let cpu_fixes = contains_subslice(&bytes, &walk_flag_utf16le);
-    // A runtime built before the 2026-11-06 rename names it REFORGED_SERVER_MAX_FPS
-    let frame_cap =
-        contains_subslice(&bytes, b"DAINTY_SERVER_MAX_FPS") || contains_subslice(&bytes, b"REFORGED_SERVER_MAX_FPS");
-    Some(CpuPatches { cpu_fixes, frame_cap })
+/// A retired runtime name in the published folder or the servers' `Win64` (spec-runtime-r21 H-6): beside the R21
+/// runtime it ends every game at start with `0xE10A`.
+pub fn retired_runtime_checks(p: &Paths, game_dir: Option<&str>) -> Vec<Check> {
+    let mut out = Vec::new();
+    let win64 = game_dir
+        .map(str::trim)
+        .filter(|d| !d.is_empty())
+        .and_then(|d| Path::new(d).join(game_exe_relative()).parent().map(Path::to_path_buf));
+    let folders = [(p.runtime_publish.clone(), "run dainty-host publish-runtime")]
+        .into_iter()
+        .chain(win64.map(|w| (w, "delete it")));
+    for (folder, fix) in folders {
+        for retired in RETIRED_RUNTIME_DLLS {
+            if folder.join(retired).symlink_metadata().is_ok() {
+                out.push(Check {
+                    area: "runtime",
+                    level: Level::Warn,
+                    text: format!("{retired} in {} is a runtime R21 retired", folder.display()),
+                    fix: Some(fix.to_owned()),
+                });
+            }
+        }
+    }
+    out
 }
 
 /// How many hunts fit in `total_mb` of memory beside the services, two hunts' headroom and the memory kept free.
@@ -576,13 +580,9 @@ pub fn performance_summary_line(config: &HostConfig) -> String {
     )
 }
 
-/// The checks of the game-server settings against the runtime's patches and this machine's memory.
-pub fn performance_checks(
-    config: &HostConfig,
-    runtime_dll: Option<&Path>,
-    total_mb: Option<u64>,
-    _platform: Platform,
-) -> Vec<Check> {
+/// The checks of the game-server settings against this machine's memory. The MIT runtime always carries the frame
+/// cap and the CPU fixes, so no DLL is scanned for them any more (spec-runtime-r21 H-6).
+pub fn performance_checks(config: &HostConfig, total_mb: Option<u64>, _platform: Platform) -> Vec<Check> {
     let area = "performance";
     let mut out = Vec::new();
     let perf = performance_options(config);
@@ -593,26 +593,6 @@ pub fn performance_checks(
         text: performance_summary_line(config),
         fix: None,
     });
-
-    if let Some(dll) = runtime_dll
-        && let Some(patches) = runtime_cpu_patches(dll)
-    {
-        if patches.cpu_fixes && patches.frame_cap {
-            out.push(Check {
-                area,
-                level: Level::Ok,
-                text: "Rustic-Isles.dll includes patches 0019 (CPU fixes) and 0020 (frame cap)".to_owned(),
-                fix: None,
-            });
-        } else {
-            out.push(Check {
-                area,
-                level: Level::Warn,
-                text: "Rustic-Isles.dll is missing patches 0019 (CPU fixes) and 0020 (frame cap)".to_owned(),
-                fix: Some("rebuild and publish Rustic-Isles.dll".to_owned()),
-            });
-        }
-    }
 
     if let Some(mb) = total_mb {
         let fits = hunts_that_fit(mb, &perf);
@@ -1103,15 +1083,8 @@ pub fn run_doctor(p: &Paths, opts: &DoctorOptions) -> Result<Vec<Check>, HostErr
         checks.extend(unfinished_install_check(&epic_data, Path::new(dir), &REBORN_BUILD));
     }
 
-    let published_dll = p.runtime_publish.join("Rustic-Isles.dll");
-    let dll_to_check = if published_dll.is_file() {
-        Some(published_dll.as_path())
-    } else if p.runtime_dll.is_file() {
-        Some(p.runtime_dll.as_path())
-    } else {
-        None
-    };
-    checks.extend(performance_checks(&config, dll_to_check, total_memory_mb(), platform));
+    checks.extend(retired_runtime_checks(p, config.game_dir.as_deref()));
+    checks.extend(performance_checks(&config, total_memory_mb(), platform));
 
     if platform == Platform::Linux {
         checks.extend(linux_checks(p, &config)?);
@@ -1210,28 +1183,6 @@ mod tests {
         fs::write(tmp.path().join("CoreUObject_functions.cpp"), "").unwrap();
         fs::write(tmp.path().join("Archon_classes.hpp"), "").unwrap();
         assert_eq!(count_function_files(tmp.path()), 2);
-    }
-
-    #[test]
-    fn runtime_cpu_patches_detects_utf16le_and_ascii_markers() {
-        let tmp = TempDir::new().unwrap();
-        let dll = tmp.path().join("Rustic-Isles.dll");
-        let mut bytes = Vec::new();
-        bytes.extend_from_slice(b"header");
-        for unit in "LEGACY_EXPECTED_PLAYER_WALK.flag".encode_utf16() {
-            bytes.extend_from_slice(&unit.to_le_bytes());
-        }
-        bytes.extend_from_slice(b"middle DAINTY_SERVER_MAX_FPS footer");
-        fs::write(&dll, &bytes).unwrap();
-
-        let patches = runtime_cpu_patches(&dll).unwrap();
-        assert_eq!(
-            patches,
-            CpuPatches {
-                cpu_fixes: true,
-                frame_cap: true
-            }
-        );
     }
 
     #[test]

@@ -28,18 +28,18 @@
    "status": 200,
    "headers": {
     "content-type": "application/json; charset=utf-8",
-    "content-length": "318",
+    "content-length": "326",
     "cache-control": "no-cache",
     "x-content-type-options": "nosniff",
-    "etag": "\"74370d00e2c4ff94a2e9b8d96ca9dcf7ebd86c0c2777d4a96d2fb1cafa4e6a97\""
+    "etag": "\"bc26bf796477958346e2877283808fe91a4a716440a1d87bd11f17de6886d3da\""
    },
-   "body": "{\"version\":\"20261014-1a2b3c4d\",\"build\":{\"name\":\"rel-1.14.7-Archon\",\"changelist\":647472},\"files\":[{\"name\":\"Rustic-Isles.dll\",\"size\":10,\"sha256\":\"aadd73eb67f4e48bdb358638d0c42f341afcf9f60d717418d863a6f69238e01f\"},{\"name\":\"winmm.dll\",\"size\":5,\"sha256\":\"5123737519595d25b3caf2c5b76781750b6f681f0182e1a8adbd43ad57a3a9df\"}]}"
+   "body": "{\"version\":\"20261014-1a2b3c4d\",\"build\":{\"name\":\"rel-1.14.7-Archon\",\"changelist\":647472},\"files\":[{\"name\":\"rustic-isles-runtime.dll\",\"size\":10,\"sha256\":\"aadd73eb67f4e48bdb358638d0c42f341afcf9f60d717418d863a6f69238e01f\"},{\"name\":\"winmm.dll\",\"size\":5,\"sha256\":\"5123737519595d25b3caf2c5b76781750b6f681f0182e1a8adbd43ad57a3a9df\"}]}"
   },
   {
    "request": "GET /content/v1/runtime/manifest",
    "status": 304,
    "headers": {
-    "etag": "\"74370d00e2c4ff94a2e9b8d96ca9dcf7ebd86c0c2777d4a96d2fb1cafa4e6a97\"",
+    "etag": "\"bc26bf796477958346e2877283808fe91a4a716440a1d87bd11f17de6886d3da\"",
     "x-content-type-options": "nosniff"
    },
    "body": ""
@@ -49,10 +49,10 @@
    "status": 200,
    "headers": {
     "content-type": "application/json; charset=utf-8",
-    "content-length": "318",
+    "content-length": "326",
     "cache-control": "no-cache",
     "x-content-type-options": "nosniff",
-    "etag": "\"74370d00e2c4ff94a2e9b8d96ca9dcf7ebd86c0c2777d4a96d2fb1cafa4e6a97\""
+    "etag": "\"bc26bf796477958346e2877283808fe91a4a716440a1d87bd11f17de6886d3da\""
    },
    "body": ""
   },
@@ -80,7 +80,7 @@
    "body": "winmm"
   },
   {
-   "request": "GET /content/v1/runtime/files/Rustic-Isles.dll",
+   "request": "GET /content/v1/runtime/files/rustic-isles-runtime.dll",
    "status": 503,
    "headers": {
     "content-type": "application/json; charset=utf-8",

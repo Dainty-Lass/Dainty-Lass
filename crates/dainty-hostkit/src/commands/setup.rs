@@ -375,7 +375,8 @@ pub fn run_with(
     }
 
     let sources = default_sources(p);
-    if p.runtime_dll.is_file() {
+    // The MIT runtime built here or shipped with the release (spec-runtime-r21 H-5)
+    if sources[0].1.is_file() {
         let _ = publish_runtime(p, Utc::now(), &sources)?;
     }
 

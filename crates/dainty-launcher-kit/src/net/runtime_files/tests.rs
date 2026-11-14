@@ -767,7 +767,9 @@ async fn an_r21_set_is_the_mit_runtime_alone_and_retired_names_go() {
         .map(|entry| entry.unwrap().file_name().to_string_lossy().into_owned())
         .collect();
     left.sort();
-    assert_eq!(left, [MIT_RUNTIME_DLL, RUNTIME_MARKER_FILE]);
+    let mut expected = [MIT_RUNTIME_DLL, RUNTIME_MARKER_FILE];
+    expected.sort_unstable();
+    assert_eq!(left, expected);
     assert_eq!(
         check_runtime(&win64, Some(&manifest), true, None, files).await,
         (RuntimeState::Ok, true)

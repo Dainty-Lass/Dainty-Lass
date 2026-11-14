@@ -34,7 +34,7 @@ use dainty_launcher_kit::controller::{
 };
 use dainty_launcher_kit::core::i18n::Language;
 use dainty_launcher_kit::core::pins::sha256_hex;
-use dainty_launcher_kit::net::runtime_files::PLAYER_RUNTIME_FILES;
+use dainty_launcher_kit::net::runtime_files::{PLAYER_RUNTIME_FILES, SetShape, required_runtime_files};
 use dainty_launcher_kit::platform::game_folder::StoreFolders;
 use dainty_launcher_kit::platform::inject;
 use dainty_launcher_kit::platform::keystore::os::{Encryptor, SealError, open_rr1, seal_rr1};
@@ -595,9 +595,12 @@ async fn private_flow_from_invite_to_the_games_exit() {
     assert_eq!(snapshot.runtime.state, RuntimeState::Ok);
     assert_eq!(snapshot.notice, Some(NoticeCode::RuntimeInstalled));
     assert_eq!(snapshot.phase, Phase::Ready);
-    for name in PLAYER_RUNTIME_FILES {
+    // The feed is an R21 set: the MIT runtime alone (spec-runtime-r21 L-1)
+    let installed = required_runtime_files(PLAYER_RUNTIME_FILES, SetShape::MitOnly);
+    for name in &installed {
         assert!(pc.win64.join(name).is_file(), "{name} installed");
     }
+    assert!(!pc.win64.join("Rustic-Isles.dll").exists());
     // Windows injects the runtime, so the feed's loader is never installed there (RD9, 2026-11-12)
     assert_eq!(pc.win64.join("winmm.dll").is_file(), !inject::INJECTS);
     let downloads = server
@@ -607,7 +610,7 @@ async fn private_flow_from_invite_to_the_games_exit() {
         .iter()
         .filter(|s| s.path.starts_with("/content/v1/runtime/files/"))
         .count();
-    assert_eq!(downloads, PLAYER_RUNTIME_FILES.len());
+    assert_eq!(downloads, installed.len());
 
     // PLAY: the relay, Engine.ini, the arguments and the environment.
     ok(&controller.play().await);
@@ -634,9 +637,8 @@ async fn private_flow_from_invite_to_the_games_exit() {
     assert_eq!(plan.working_dir, pc.win64);
     let injected: Vec<PathBuf> = plan.inject.iter().map(|dll| dll.path.clone()).collect();
     if inject::INJECTS {
-        // The MIT runtime first, then the AGPL one (RT-5)
-        let runtimes = ["rustic-isles-runtime.dll", "Rustic-Isles.dll"];
-        assert_eq!(injected, runtimes.map(|name| pc.win64.join(name)));
+        // An R21 set: the MIT runtime alone (spec-runtime-r21 L-2)
+        assert_eq!(injected, [pc.win64.join("rustic-isles-runtime.dll")]);
     } else {
         assert!(injected.is_empty());
     }
@@ -782,7 +784,7 @@ async fn public_flow_through_a_tls_gateway() {
 
     // A runtime already in place and none offered: PLAY may go, once nothing is left beside the loader (RD9).
     ok(&controller.use_game_path(&pc.root.to_string_lossy()).await);
-    for name in PLAYER_RUNTIME_FILES {
+    for name in required_runtime_files(PLAYER_RUNTIME_FILES, SetShape::MitOnly) {
         std::fs::write(pc.win64.join(name), name.as_bytes()).unwrap();
     }
     if inject::INJECTS {
@@ -1289,7 +1291,7 @@ async fn the_command_lines_export_is_the_host_pages() {
     }
     let plan = until_launched(&spawner, 1).await;
     let injected: Vec<PathBuf> = plan.inject.iter().map(|dll| dll.path.clone()).collect();
-    let runtimes = ["rustic-isles-runtime.dll", "Rustic-Isles.dll"].map(|name| pc.win64.join(name));
+    let runtimes = [pc.win64.join("rustic-isles-runtime.dll")];
     assert_eq!(injected, [&runtimes[..], std::slice::from_ref(&dll)].concat());
     assert!(pc.win64.join("export_flags.txt").is_file());
     std::fs::create_dir_all(pc.win64.join("Items_Analysis")).unwrap();
