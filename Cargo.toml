@@ -71,8 +71,6 @@ aws-lc-rs = "1.18"
 axum = { version = "0.8", default-features = false, features = ["form", "http1", "json", "query", "tokio", "ws"] }
 base64 = "0.23"
 bytes = "1"
-# MinHook for the MIT game runtime (RT-1).
-cc = "1.9.0"
 cbc = { version = "0.2", features = ["alloc"] }
 chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
 clap = { version = "4", features = ["derive"] }
@@ -110,6 +108,8 @@ hyper-util = { version = "0.1", default-features = false, features = ["service",
 libsqlite3-sys = { version = "0.38", features = ["bundled"] }
 # Epic's newer manifests carry an MD5 beside the SHA-1 (DD22).
 md-5 = "0.11"
+# MinHook for the MIT game runtime (RT-1); the crate builds MinHook v1.3.4 (BSD-2-Clause) with `cc`.
+minhook = "0.9"
 open = { version = "5.4", features = ["shellexecute-on-windows"] }
 # Public in the admission ticket API, so restricted/ must resolve the same line.
 p256 = { version = "0.14", features = ["ecdsa", "pem", "pkcs8", "std"] }
