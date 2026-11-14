@@ -475,6 +475,19 @@ pub const TARGETS: &[Target] = &[
         ]),
         what: "UArchonReplicationGraph::RouteAddNetworkActorToNodes",
     },
+    // R14: the role application and the role purge on removal
+    Target {
+        id: "PR-1",
+        rva: r14::APPLY_PLAYER_ROLE,
+        found_by: FoundBy::RvaAndBytes(r14::APPLY_PLAYER_ROLE_BYTES),
+        what: "AArchonLoadout ApplyPlayerRole",
+    },
+    Target {
+        id: "RG-3",
+        rva: repgraph::ROUTE_REMOVE,
+        found_by: FoundBy::RvaAndBytes(repgraph::ROUTE_REMOVE_BYTES),
+        what: "UArchonReplicationGraph::RouteRemoveNetworkActor",
+    },
     // R16: travel
     Target {
         id: "TR-1",
@@ -1461,6 +1474,150 @@ pub mod r18 {
     pub const TRANSITION_BEGIN: u8 = 0;
 }
 
+/// Slice R14, the player role (spec-runtime-r14 18.2).
+pub mod r14 {
+    /// PR-1: `ApplyPlayerRole(loadout)`.
+    pub const APPLY_PLAYER_ROLE: u32 = 0x01B9_2B90;
+    /// PR-1's first bytes (a `.pdata` entry).
+    pub const APPLY_PLAYER_ROLE_BYTES: &[u8] = &[0x40, 0x56, 0x48, 0x83, 0xEC, 0x70, 0x48, 0x8B, 0xF1];
+    /// `(loadout) -> inter`: the active loadout slot's data.
+    pub const LOADOUT_ACTIVE_SLOT_DATA: u32 = 0x01B9_9FB0;
+    /// Its first bytes.
+    pub const LOADOUT_ACTIVE_SLOT_DATA_BYTES: &[u8] =
+        &[0x48, 0x89, 0x5C, 0x24, 0x08, 0x48, 0x89, 0x74, 0x24, 0x10, 0x57];
+    /// `(inter) -> item`: the role inventory item.
+    pub const SLOT_ROLE_ITEM: u32 = 0x01BE_1EE0;
+    /// Its first bytes.
+    pub const SLOT_ROLE_ITEM_BYTES: &[u8] = &[0x48, 0x83, 0xEC, 0x28, 0x48, 0x8B, 0x89, 0x48, 0x03, 0x00, 0x00];
+    /// `InternalTryActivateAbility`.
+    pub const INTERNAL_TRY_ACTIVATE_ABILITY: u32 = 0x016C_85D0;
+    /// Its first bytes.
+    pub const INTERNAL_TRY_ACTIVATE_ABILITY_BYTES: &[u8] = &[
+        0x4C, 0x89, 0x4C, 0x24, 0x20, 0x4C, 0x89, 0x44, 0x24, 0x18, 0x89, 0x54, 0x24, 0x10,
+    ];
+
+    /// The slot pointer in the active slot's data (the game's leaf getter returns exactly this).
+    pub const INTER_SLOT: usize = 0x348;
+    /// Bytes read of a loadout and of the slot data.
+    pub const LOADOUT_SPAN: usize = 0x40;
+    /// `AArchonLoadout`'s controller.
+    pub const LOADOUT_CONTROLLER: usize = 0x630;
+    /// Bytes read for it.
+    pub const LOADOUT_CONTROLLER_SPAN: usize = 0x638;
+    /// `UArchonInventoryItem.ItemId` (`FString`).
+    pub const ITEM_ID: usize = 0x70;
+    /// `AArchonEquipment.ItemId` (`FString`).
+    pub const EQUIPMENT_ITEM_ID: usize = 0x240;
+
+    /// Bytes read of a controller for its pawn.
+    pub const PC_PAWN_SPAN: usize = 0x258;
+    /// `AArchonPlayerController.bOnlineDataReady` (`u8`; the AGPL's comments say 0xC59, a 1.12 offset).
+    pub const PC_ONLINE_DATA_READY: usize = 0xC69;
+    /// `AArchonCharacter.PlayerRole` (not replicated).
+    pub const CHARACTER_PLAYER_ROLE: usize = 0x738;
+    /// Bytes read for it.
+    pub const CHARACTER_SPAN: usize = 0x740;
+    /// `AArchonPlayerState.PlayerRoleId` (`FString`).
+    pub const PS_PLAYER_ROLE_ID: usize = 0x648;
+    /// Bytes read for it.
+    pub const PS_PLAYER_ROLE_ID_SPAN: usize = 0x658;
+    /// `bIsActiveGameplay` (`u8`).
+    pub const PS_ACTIVE_GAMEPLAY: usize = 0x6B0;
+    /// Bytes read for it.
+    pub const PS_ACTIVE_GAMEPLAY_SPAN: usize = 0x6B1;
+
+    /// Bytes read of a role.
+    pub const ROLE_SPAN: usize = 0x300;
+    /// Bytes read for the lifecycle replay.
+    pub const ROLE_LIFECYCLE_SPAN: usize = 0x2F8;
+    /// `bIsEquipped`.
+    pub const ROLE_EQUIPPED: usize = 0x2F4;
+    /// `bIsEquippedForGameplay`.
+    pub const ROLE_GAMEPLAY_EQUIPPED: usize = 0x2F5;
+    /// `bIsActiveGameplay`.
+    pub const ROLE_ACTIVE_GAMEPLAY: usize = 0x2F6;
+    /// `bCalledBPHandleEquipForGameplay`.
+    pub const ROLE_BP_EQUIP_CALLED: usize = 0x2F7;
+    /// The catalog's buff classes (`TArray`).
+    pub const ROLE_BUFF_CLASSES: usize = 0x2A8;
+    /// The catalog's effect classes.
+    pub const ROLE_EFFECT_CLASSES: usize = 0x2B8;
+    /// The catalog's ability classes.
+    pub const ROLE_ABILITY_CLASSES: usize = 0x2C8;
+    /// The applied-modifier group.
+    pub const ROLE_MODIFIER_GROUP: usize = 0x2F8;
+    /// `AActor.NetDormancy`.
+    pub const ACTOR_NET_DORMANCY: usize = 0xF1;
+    /// The actor flags byte holding the destroying bit.
+    pub const ACTOR_FLAGS_5C: usize = 0x5C;
+    /// The destroying bit.
+    pub const ACTOR_DESTROYING: u8 = 0x08;
+    /// Bytes read for the liveness test.
+    pub const ACTOR_LIVE_SPAN: usize = 0x60;
+    /// `RF_BeginDestroyed`.
+    pub const RF_BEGIN_DESTROYED: u32 = 0x8000;
+    /// `RF_FinishDestroyed`.
+    pub const RF_FINISH_DESTROYED: u32 = 0x10000;
+    /// A `TArray`'s `Num`, from the array.
+    pub const ARRAY_NUM: usize = 0x08;
+    /// A `TArray`'s `Max`.
+    pub const ARRAY_MAX: usize = 0x0C;
+
+    /// Bytes read of a modifier group.
+    pub const GROUP_SPAN: usize = 0xD0;
+    /// Applied effects.
+    pub const GROUP_APPLIED_EFFECTS: usize = 0x68;
+    /// Applied abilities.
+    pub const GROUP_APPLIED_ABILITIES: usize = 0x78;
+    /// Applied buffs.
+    pub const GROUP_APPLIED_BUFFS: usize = 0x88;
+    /// Pending buffs.
+    pub const GROUP_PENDING_BUFFS: usize = 0xA8;
+    /// Pending effects.
+    pub const GROUP_PENDING_EFFECTS: usize = 0xB8;
+    /// Pending abilities.
+    pub const GROUP_PENDING_ABILITIES: usize = 0xC8;
+
+    /// `UAbilitySystemComponent`'s owner actor.
+    pub const ASC_OWNER_ACTOR: usize = 0x3D0;
+    /// Bytes read for it.
+    pub const ASC_OWNER_SPAN: usize = 0x3E0;
+
+    /// `CanMove_` (`u8`).
+    pub const PAWN_CAN_MOVE: usize = 0x15E0;
+    /// `PreviousCanMove` (`u8`).
+    pub const PAWN_PREVIOUS_CAN_MOVE: usize = 0x1604;
+    /// Bytes read of a pawn for the movement repair.
+    pub const PAWN_MOVEMENT_SPAN: usize = 0x1608;
+    /// `CharacterMovement`.
+    pub const PAWN_CHARACTER_MOVEMENT: usize = 0x288;
+    /// `RootComponent`.
+    pub const PAWN_ROOT_COMPONENT: usize = 0x130;
+    /// `ReplicatedMovementMode` (`u8`).
+    pub const PAWN_REPLICATED_MOVEMENT_MODE: usize = 0x328;
+    /// `AActor.Role` (`u8`).
+    pub const ACTOR_ROLE: usize = 0xF0;
+    /// `UCharacterMovementComponent.MovementMode` (`u8`).
+    pub const CMC_MOVEMENT_MODE: usize = 0x168;
+    /// `DefaultLandMovementMode` (`u8`).
+    pub const CMC_DEFAULT_LAND_MOVEMENT_MODE: usize = 0x3B8;
+    /// Bytes read of the movement component.
+    pub const CMC_SPAN: usize = 0x3C0;
+    /// `USceneComponent.Mobility` (`u8`).
+    pub const SCENE_MOBILITY: usize = 0x14F;
+    /// Bytes read of the root component.
+    pub const SCENE_SPAN: usize = 0x150;
+
+    /// `AArchonHUD.GameplayHUDVisibility` (`ESlateVisibility`).
+    pub const HUD_GAMEPLAY_VISIBILITY: usize = 0x361;
+    /// Bytes read of the HUD.
+    pub const HUD_SPAN: usize = 0x362;
+    /// `AArchonGameState.IsInPreMatchAirship` (`u8`).
+    pub const GAME_STATE_IN_PRE_MATCH_AIRSHIP: usize = 0x2D0;
+    /// Bytes read of the game state.
+    pub const GAME_STATE_SPAN: usize = 0x2D1;
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1667,5 +1824,26 @@ mod tests {
             TARGETS.iter().all(|line| !line.id.ends_with("@R20")),
             "R20 hooks nothing"
         );
+    }
+
+    #[test]
+    fn r14_lines() {
+        for (id, rva, bytes) in [
+            (
+                "PR-1",
+                0x01B9_2B90u32,
+                &[0x40u8, 0x56, 0x48, 0x83, 0xEC, 0x70, 0x48, 0x8B, 0xF1][..],
+            ),
+            (
+                "RG-3",
+                0x01BF_E4C0,
+                &[0x48, 0x89, 0x5C, 0x24, 0x08, 0x57, 0x48, 0x83, 0xEC, 0x20][..],
+            ),
+        ] {
+            let lines: Vec<_> = TARGETS.iter().filter(|line| line.id == id).collect();
+            assert_eq!(lines.len(), 1, "{id}");
+            assert_eq!(lines[0].rva, rva, "{id}");
+            assert_eq!(lines[0].found_by, FoundBy::RvaAndBytes(bytes), "{id}");
+        }
     }
 }

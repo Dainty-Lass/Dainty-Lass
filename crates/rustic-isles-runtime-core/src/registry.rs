@@ -5,7 +5,7 @@
 /// The slices whose ids this build owns.
 pub const LANDED: &[&str] = &[
     "R0", "R1", "R2", "R3", "R4", "R5", "R9", "R7", "R6", "R10", "R11", "R15", "R8", "R16", "R12", "R17", "R13", "R20",
-    "R18",
+    "R18", "R14",
 ];
 
 /// The longest id `owns` accepts, in bytes.
@@ -476,6 +476,21 @@ mod tests {
             assert_eq!(owns(id.as_bytes()), LANDED.contains(&"R20"), "{id}");
         }
         assert_eq!(ENTRIES.iter().filter(|line| line.slice == "R20").count(), 2);
+    }
+
+    #[test]
+    fn r14_lands_with_or_after_r7_r13_and_r15() {
+        // spec-runtime-r14 13.3
+        if LANDED.contains(&"R14") {
+            for slice in ["R7", "R13", "R15"] {
+                assert!(LANDED.contains(&slice), "R14 landed without {slice}");
+            }
+            for id in ["PR-1", "RG-3", "SP-1@R14", "SP-2@R14", "SP-3@R14"] {
+                assert!(owns(id.as_bytes()), "{id}");
+            }
+        }
+        assert_eq!(entry("RG-3").map(|line| line.slice), Some("R14"));
+        assert_eq!(ENTRIES.iter().filter(|entry| entry.slice == "R14").count(), 5);
     }
 
     #[test]

@@ -24,6 +24,7 @@ pub mod offsets;
 pub mod patch;
 pub mod pdata;
 pub mod player_host;
+pub mod player_role;
 pub mod reflect;
 pub mod registry;
 pub mod relevance;

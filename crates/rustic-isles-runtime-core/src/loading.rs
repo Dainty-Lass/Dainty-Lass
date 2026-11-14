@@ -447,6 +447,7 @@ pub struct Possession {
     began: Option<u64>,
     tracked: Option<(usize, usize)>,
     tracked_since: u64,
+    generation: u64,
 }
 
 impl Possession {
@@ -459,6 +460,7 @@ impl Possession {
             began: None,
             tracked: None,
             tracked_since: 0,
+            generation: 0,
         }
     }
 
@@ -467,6 +469,7 @@ impl Possession {
         if controller != self.controller || pawn != self.pawn {
             self.began = Some(now);
             self.tracked = None;
+            self.generation += 1;
         }
         self.controller = controller;
         self.pawn = pawn;
@@ -490,6 +493,16 @@ impl Possession {
     /// The captured pawn (0 when none).
     pub fn pawn(&self) -> usize {
         self.pawn
+    }
+
+    /// Counts new possessions: a repeated `ClientRestart` for the same pair keeps it (R14 3.1).
+    pub fn generation(&self) -> u64 {
+        self.generation
+    }
+
+    /// When the captured possession began (`GetTickCount64`).
+    pub fn began(&self) -> Option<u64> {
+        self.began
     }
 
     /// Milliseconds since the captured possession began.

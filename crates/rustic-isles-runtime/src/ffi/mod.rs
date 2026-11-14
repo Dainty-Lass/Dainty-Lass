@@ -18,6 +18,7 @@ pub mod memory;
 pub mod minhook;
 pub mod net;
 pub mod player_host;
+pub mod player_role;
 pub mod reflect;
 pub mod relevance;
 pub mod repgraph;
