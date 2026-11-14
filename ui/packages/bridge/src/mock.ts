@@ -234,7 +234,7 @@ export function mockLauncher(): LauncherApi {
         filesDone: Math.round((done / total) * 10),
         bytesPerSecond: 12_000_000,
         etaSeconds: Math.round((total - done) / 12_000_000),
-        currentFile: "Rustic-Isles.dll",
+        currentFile: "rustic-isles-runtime.dll",
       };
       emit({ task: p });
       for (const fn of progressListeners) fn(p);

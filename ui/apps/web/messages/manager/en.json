@@ -148,7 +148,7 @@
     "stages": { "sdk": "1. SDK", "runtime": "2. Game runtime", "data": "3. Game data" },
     "stageHints": {
       "sdk": "The runtime is compiled against an SDK dumped from your running game.",
-      "runtime": "Rustic-Isles.dll and its loader, which players install from your server.",
+      "runtime": "rustic-isles-runtime.dll and its loader, which players install from your server.",
       "data": "Store, loot and progression tables exported from your game, or synthetic stand-ins."
     },
     "steps": {
@@ -168,7 +168,7 @@
         "title": "Import an SDK folder",
         "hint": "If you dumped it some other way."
       },
-      "build_runtime": { "title": "Build the runtime", "hint": "Rustic-Isles.dll, with MSBuild." },
+      "build_runtime": { "title": "Build the runtime", "hint": "rustic-isles-runtime.dll, with cargo." },
       "build_loader": { "title": "Build the loader", "hint": "winmm.dll, with Cargo." },
       "publish_runtime": {
         "title": "Runtime publish",

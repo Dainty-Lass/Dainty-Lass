@@ -21,7 +21,7 @@ use crate::net::hostapi::{self, UserInfo};
 use crate::net::relay::{LogSink, PinSink, Relay, RelayConfig, RelayError};
 use crate::net::relay_owner::game_owner_check;
 use crate::net::runtime_files::{
-    LEGACY_RUNTIME_DLL, MIT_RUNTIME_DLL, RUNTIME_DLL, RuntimeErrorCode, install_local_runtime, runtime_file_slot,
+    AGPL_RUNTIME_DLL, LEGACY_RUNTIME_DLL, MIT_RUNTIME_DLL, RuntimeErrorCode, install_local_runtime, set_file_slot,
 };
 use crate::net::verify::Abort;
 use crate::platform::game_config::{ConfigRequest, write_game_config};
@@ -151,14 +151,14 @@ impl Controller {
     }
 
     /// The runtimes to load into the game, the MIT one first (RT-5): the installed files, with the hashes of the
-    /// offered set the runtime check just matched, or as found when a local runtime or no offer is in use. The MIT
-    /// runtime only when the offered set lists it, or, with no offer, when the folder holds it.
+    /// offered set the runtime check just matched, or as found when a local runtime or no offer is in use. Each
+    /// only when the offered set lists it, or, with no offer, when the folder holds it: an R21 set is the MIT
+    /// runtime alone, a pre-R21 set the pair (spec-runtime-r21 L-2).
     pub(crate) fn runtime_dlls(&self, win64: &Path) -> Result<Vec<InjectDll>, LauncherError> {
-        let path = [RUNTIME_DLL, LEGACY_RUNTIME_DLL]
+        let agpl = [AGPL_RUNTIME_DLL, LEGACY_RUNTIME_DLL]
             .iter()
             .map(|name| win64.join(name))
-            .find(|path| path.is_file())
-            .ok_or_else(|| error(ErrorCode::RuntimeFailed))?;
+            .find(|path| path.is_file());
         let offered = {
             let state = self.lock();
             let local = state.stored.local_runtime_dir().is_some();
@@ -166,10 +166,10 @@ impl Controller {
                 let sha = |slot: &str| {
                     m.files
                         .iter()
-                        .find(|f| runtime_file_slot(&f.name) == Some(slot))
+                        .find(|f| set_file_slot(&f.name) == Some(slot))
                         .map(|f| f.sha256.clone())
                 };
-                (sha(MIT_RUNTIME_DLL), sha(RUNTIME_DLL))
+                (sha(MIT_RUNTIME_DLL), sha(AGPL_RUNTIME_DLL))
             })
         };
         let as_found = |path: &Path| {
@@ -188,10 +188,15 @@ impl Controller {
             None if mit.is_file() => dlls.push(as_found(&mit)?),
             _ => {}
         }
-        dlls.push(match offered {
-            Some((_, Some(sha256))) => InjectDll { path, sha256 },
-            _ => as_found(&path)?,
-        });
+        match (offered, agpl) {
+            (Some((_, Some(sha256))), Some(path)) => dlls.push(InjectDll { path, sha256 }),
+            (Some((_, Some(_))), None) => return Err(error(ErrorCode::RuntimeFailed)),
+            (None, Some(path)) => dlls.push(as_found(&path)?),
+            _ => {}
+        }
+        if dlls.is_empty() {
+            return Err(error(ErrorCode::RuntimeFailed));
+        }
         Ok(dlls)
     }
 

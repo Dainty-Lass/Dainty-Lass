@@ -7,8 +7,7 @@
 use bytes::Bytes;
 use dainty_protocol::account::is_plausible_account_key;
 use dainty_protocol::manifest::{
-    DEFAULT_CHANGELIST, MAX_RUNTIME_FILE_BYTES, REQUIRED_RUNTIME_FILES, RUNTIME_FILE_NAMES, RuntimeFile,
-    RuntimeManifest, runtime_file_slot,
+    DEFAULT_CHANGELIST, MAX_RUNTIME_FILE_BYTES, MIT_RUNTIME_DLL, RuntimeFile, RuntimeManifest,
 };
 use dainty_protocol::status::{ServerStatus, clean_text, iso_date, parse_server_status};
 use dainty_protocol::text::{is_js_space, is_unsafe_char, js_length, js_trim};
@@ -16,7 +15,9 @@ use serde::Serialize;
 use serde_json::Value;
 
 use crate::bridge::types::{ErrorCode, LauncherError};
-use crate::net::runtime_files::{MAX_SAFE_INTEGER, RuntimeManifestResult};
+use crate::net::runtime_files::{
+    AGPL_RUNTIME_DLL, MAX_SAFE_INTEGER, RuntimeManifestResult, SET_FILE_NAMES, set_file_slot,
+};
 
 /// Where branding images are served; a background's `url` must be under it.
 pub const BRANDING_PREFIX: &str = "/content/v1/branding/";
@@ -200,7 +201,8 @@ fn is_lower_hex_64(text: &str) -> bool {
     text.len() == 64 && text.bytes().all(|b| matches!(b, b'0'..=b'9' | b'a'..=b'f'))
 }
 
-/// The runtime manifest, files sorted by name; none unless the runtime DLL is listed, and each slot at most once, with a lowercase
+/// The runtime manifest, files sorted by name; none unless a runtime is listed (`rustic-isles-runtime.dll`, or a
+/// pre-R21 server's `Rustic-Isles.dll`: spec-runtime-r21 7.2), and each slot at most once, with a lowercase
 /// SHA-256 and a size from 1 byte to 64 MiB. A changelist that is not a safe integer becomes the default, since
 /// the protocol's manifest always carries one.
 pub fn parse_runtime_manifest(raw: &Value) -> Option<RuntimeManifest> {
@@ -210,15 +212,15 @@ pub fn parse_runtime_manifest(raw: &Value) -> Option<RuntimeManifest> {
         return None;
     }
     let listed = obj.get("files")?.as_array()?;
-    if listed.is_empty() || listed.len() > RUNTIME_FILE_NAMES.len() {
+    if listed.is_empty() || listed.len() > SET_FILE_NAMES.len() {
         return None;
     }
     let mut files: Vec<RuntimeFile> = Vec::with_capacity(listed.len());
     for entry in listed {
         let entry = entry.as_object()?;
         let name = entry.get("name")?.as_str()?;
-        let slot = runtime_file_slot(name)?;
-        if files.iter().any(|f| runtime_file_slot(&f.name) == Some(slot)) {
+        let slot = set_file_slot(name)?;
+        if files.iter().any(|f| set_file_slot(&f.name) == Some(slot)) {
             return None;
         }
         let sha256 = entry.get("sha256")?.as_str()?;
@@ -235,9 +237,9 @@ pub fn parse_runtime_manifest(raw: &Value) -> Option<RuntimeManifest> {
             sha256: sha256.to_owned(),
         });
     }
-    if !REQUIRED_RUNTIME_FILES
+    if ![AGPL_RUNTIME_DLL, MIT_RUNTIME_DLL]
         .iter()
-        .all(|req| files.iter().any(|f| runtime_file_slot(&f.name) == Some(*req)))
+        .any(|runtime| files.iter().any(|f| set_file_slot(&f.name) == Some(*runtime)))
     {
         return None;
     }

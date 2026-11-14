@@ -18,9 +18,8 @@ pub mod manifest;
 mod tests;
 
 pub use dainty_protocol::manifest::{
-    DEFAULT_CHANGELIST, LEGACY_RUNTIME_DLL, LOADER_DLL, MAX_RUNTIME_FILE_BYTES, MIT_RUNTIME_DLL, RUNTIME_BUILD_NAME,
-    RUNTIME_DLL, RUNTIME_FILE_NAMES, RUNTIME_MANIFEST_PATH, RuntimeBuild, RuntimeFile, RuntimeManifest,
-    runtime_file_slot,
+    DEFAULT_CHANGELIST, LOADER_DLL, MAX_RUNTIME_FILE_BYTES, MIT_RUNTIME_DLL, RUNTIME_BUILD_NAME, RUNTIME_MANIFEST_PATH,
+    RuntimeBuild, RuntimeFile, RuntimeManifest,
 };
 pub use manifest::{MAX_SAFE_INTEGER, RUNTIME_MARKER_FILE, parse_runtime_manifest};
 
@@ -38,14 +37,79 @@ pub const DOWNLOAD_SUFFIX: &str = ".rr-download";
 /// Mark of a replaced file set aside while the game held it, followed by a millisecond timestamp.
 pub const ASIDE_MARK: &str = ".rr-old-";
 
+/// The AGPL runtime a pre-R21 set lists (spec-runtime-r21 7.2, L-1): accepted until a later launcher release drops
+/// the pair, never part of an R21 set.
+pub const AGPL_RUNTIME_DLL: &str = "Rustic-Isles.dll";
+/// [`AGPL_RUNTIME_DLL`]'s name before the Rustic Isles rename, served for one release (DX4).
+pub const LEGACY_RUNTIME_DLL: &str = "MysticParadox.dll";
+/// Runtime names an R21 set never has: removed from the game folder when one is installed (L-1, L-3).
+pub const RETIRED_RUNTIME_DLLS: [&str; 3] = [AGPL_RUNTIME_DLL, LEGACY_RUNTIME_DLL, "MystPaxInternalServer.dll"];
+/// Every name a set of either shape may list, in the order a manifest sorts them.
+pub const SET_FILE_NAMES: [&str; 3] = [AGPL_RUNTIME_DLL, MIT_RUNTIME_DLL, LOADER_DLL];
+
+/// The [`SET_FILE_NAMES`] entry `name` stands for, letter case included: itself, or [`AGPL_RUNTIME_DLL`] for
+/// [`LEGACY_RUNTIME_DLL`].
+#[must_use]
+pub fn set_file_slot(name: &str) -> Option<&'static str> {
+    if name == LEGACY_RUNTIME_DLL {
+        return Some(AGPL_RUNTIME_DLL);
+    }
+    SET_FILE_NAMES.into_iter().find(|known| *known == name)
+}
+
+/// The two runtime sets this launcher plays (spec-runtime-r21 7.2): a pre-R21 server's pair and an R21 server's
+/// MIT runtime alone.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SetShape {
+    /// `Rustic-Isles.dll` required, the MIT runtime optional (RT-5).
+    Pair,
+    /// `rustic-isles-runtime.dll` required; every retired name is removed.
+    MitOnly,
+}
+
+impl SetShape {
+    /// A set listing these names: a pair when the AGPL runtime is one of them.
+    pub fn of_names<'a>(mut names: impl Iterator<Item = &'a str>) -> Self {
+        if names.any(|name| set_file_slot(name) == Some(AGPL_RUNTIME_DLL)) {
+            SetShape::Pair
+        } else {
+            SetShape::MitOnly
+        }
+    }
+
+    /// The shape of an offered set.
+    #[must_use]
+    pub fn of(manifest: &RuntimeManifest) -> Self {
+        Self::of_names(manifest.files.iter().map(|f| f.name.as_str()))
+    }
+
+    /// The shape of what `dir` holds (a local runtime folder, or a game folder with no offer).
+    #[must_use]
+    pub fn in_dir(dir: &Path) -> Self {
+        if [AGPL_RUNTIME_DLL, LEGACY_RUNTIME_DLL]
+            .iter()
+            .any(|name| dir.join(name).is_file())
+        {
+            SetShape::Pair
+        } else {
+            SetShape::MitOnly
+        }
+    }
+
+    /// The runtime this shape may leave out.
+    fn optional(self) -> &'static str {
+        match self {
+            SetShape::Pair => MIT_RUNTIME_DLL,
+            SetShape::MitOnly => AGPL_RUNTIME_DLL,
+        }
+    }
+}
+
 /// A game folder whose runtime is injected holds the runtime alone (RD9, 2026-11-12), in the order it is injected:
-/// the MIT runtime before `Rustic-Isles.dll` (RT-5).
-pub const INJECTED_RUNTIME_FILES: &[&str] = &[MIT_RUNTIME_DLL, RUNTIME_DLL];
-/// Files a game folder holds only when the set lists them: the MIT runtime while the transition lasts (RT-5). One the
-/// set lacks is removed, since the loader would load it beside a `Rustic-Isles.dll` it does not pair with.
-pub const OPTIONAL_RUNTIME_FILES: &[&str] = &[MIT_RUNTIME_DLL];
+/// the MIT runtime first, then a pair's `Rustic-Isles.dll` (RT-5).
+pub const INJECTED_RUNTIME_FILES: &[&str] = &[MIT_RUNTIME_DLL, AGPL_RUNTIME_DLL];
 /// A game folder whose runtime the loader loads (Proton without the inject helper) holds the loader too.
-pub const LOADER_RUNTIME_FILES: &[&str] = &RUNTIME_FILE_NAMES;
+pub const LOADER_RUNTIME_FILES: &[&str] = &SET_FILE_NAMES;
 /// This OS's game folder with default settings: Windows injects, Proton uses the loader.
 pub const PLAYER_RUNTIME_FILES: &[&str] = player_runtime_files(!cfg!(windows));
 
@@ -61,28 +125,33 @@ pub const fn player_runtime_files(loader: bool) -> &'static [&'static str] {
 
 /// A manifest entry `files` lists.
 fn is_listed(files: &[&str], file: &RuntimeFile) -> bool {
-    runtime_file_slot(&file.name).is_some_and(|slot| files.contains(&slot))
+    set_file_slot(&file.name).is_some_and(|slot| files.contains(&slot))
 }
 
-/// The files of `files` every runtime must have.
-pub fn required_runtime_files(files: &[&'static str]) -> Vec<&'static str> {
+/// The files of `files` every runtime of `shape` must have.
+#[must_use]
+pub fn required_runtime_files(files: &[&'static str], shape: SetShape) -> Vec<&'static str> {
+    files.iter().copied().filter(|name| *name != shape.optional()).collect()
+}
+
+/// The files of `files` that `manifest` does not list: none of them may stay in the game folder, since the loader
+/// or PLAY would load it beside a runtime it does not pair with.
+fn unlisted<'a>(files: &'a [&'static str], manifest: &'a RuntimeManifest) -> impl Iterator<Item = &'static str> + 'a {
     files
         .iter()
         .copied()
-        .filter(|name| !OPTIONAL_RUNTIME_FILES.contains(name))
-        .collect()
-}
-
-/// The optional files of `files` that `manifest` does not list: none of them may stay in the game folder.
-fn unlisted_optional<'a>(
-    files: &'a [&'static str],
-    manifest: &'a RuntimeManifest,
-) -> impl Iterator<Item = &'static str> + 'a {
-    files
-        .iter()
-        .copied()
-        .filter(|name| OPTIONAL_RUNTIME_FILES.contains(name))
         .filter(|name| !manifest.files.iter().any(|f| same_slot(name, &f.name)))
+}
+
+/// Retired runtime names still in `win64_dir`, for an R21 set only.
+fn retired_present(win64_dir: &Path, shape: SetShape) -> Vec<&'static str> {
+    if shape != SetShape::MitOnly {
+        return Vec::new();
+    }
+    RETIRED_RUNTIME_DLLS
+        .into_iter()
+        .filter(|name| win64_dir.join(name).symlink_metadata().is_ok())
+        .collect()
 }
 
 /// Removes `name` from `win64_dir`; an error only when it is still there.
@@ -294,15 +363,15 @@ pub async fn fetch_runtime_manifest(endpoint: &Endpoint) -> RuntimeManifestResul
 fn runtime_path(dir: &Path, name: &str) -> PathBuf {
     let path = dir.join(name);
     let legacy = dir.join(LEGACY_RUNTIME_DLL);
-    if name == RUNTIME_DLL && !path.is_file() && legacy.is_file() {
+    if name == AGPL_RUNTIME_DLL && !path.is_file() && legacy.is_file() {
         return legacy;
     }
     path
 }
 
-/// Whether a manifest entry is the installed file `installed` (a [`RUNTIME_FILE_NAMES`] name)
+/// Whether a manifest entry is the installed file `installed` (a [`SET_FILE_NAMES`] name)
 fn same_slot(installed: &str, listed: &str) -> bool {
-    runtime_file_slot(listed) == Some(installed)
+    set_file_slot(listed) == Some(installed)
 }
 
 /// SHA-256 of each installed runtime file in `win64_dir`, none for a file missing or empty.
@@ -323,9 +392,9 @@ pub async fn installed_runtime(win64_dir: &Path, files: &[&'static str]) -> Vec<
     out
 }
 
-/// Every required runtime file is in `dir` and not empty.
+/// Every runtime file `dir`'s shape requires is there and not empty.
 pub async fn is_complete_runtime_dir(dir: &Path, files: &[&'static str]) -> bool {
-    installed_runtime(dir, &required_runtime_files(files))
+    installed_runtime(dir, &required_runtime_files(files, SetShape::in_dir(dir)))
         .await
         .iter()
         .all(|(_, hash)| hash.is_some())
@@ -346,10 +415,10 @@ pub async fn check_runtime(
 
     let installed = installed_runtime(win64_dir, files).await;
     let present = installed.iter().filter(|(_, hash)| hash.is_some()).count();
-    let required = required_runtime_files(files);
 
     match offered {
         None => {
+            let required = required_runtime_files(files, SetShape::in_dir(win64_dir));
             let complete = installed
                 .iter()
                 .all(|(name, hash)| hash.is_some() || !required.contains(name));
@@ -360,6 +429,8 @@ pub async fn check_runtime(
             }
         }
         Some(manifest) => {
+            let shape = SetShape::of(manifest);
+            let required = required_runtime_files(files, shape);
             let listed = |slot: &&str| manifest.files.iter().any(|f| same_slot(slot, &f.name));
             if !required.iter().all(listed) {
                 // A feed without the loader serves no Proton player yet
@@ -370,8 +441,8 @@ pub async fn check_runtime(
                     .iter()
                     .any(|(n, h)| same_slot(n, &f.name) && h.as_deref() == Some(f.sha256.as_str()))
             });
-            let stale =
-                unlisted_optional(files, manifest).any(|name| installed.iter().any(|(n, h)| *n == name && h.is_some()));
+            let stale = unlisted(files, manifest).any(|name| installed.iter().any(|(n, h)| *n == name && h.is_some()))
+                || !retired_present(win64_dir, shape).is_empty();
             let matches = matches && !stale;
             if matches {
                 (RuntimeState::Ok, true)
@@ -470,7 +541,7 @@ pub fn sweep_aside(win64_dir: &Path) {
         let Some(name_str) = file_name.to_str() else {
             continue;
         };
-        let should_remove = RUNTIME_FILE_NAMES.iter().chain([&LEGACY_RUNTIME_DLL]).any(|rt| {
+        let should_remove = SET_FILE_NAMES.iter().chain(&RETIRED_RUNTIME_DLLS).any(|rt| {
             let download_name = format!("{rt}{DOWNLOAD_SUFFIX}");
             let aside_prefix = format!("{rt}{ASIDE_MARK}");
             name_str == download_name || name_str.starts_with(&aside_prefix)
@@ -534,7 +605,10 @@ pub async fn install_runtime(request: InstallRequest<'_>) -> Result<RuntimeInsta
 
     sweep_aside(win64_dir);
     retire_loader(win64_dir, files);
-    for name in unlisted_optional(files, manifest) {
+    for name in unlisted(files, manifest) {
+        remove_unlisted(win64_dir, name)?;
+    }
+    for name in retired_present(win64_dir, SetShape::of(manifest)) {
         remove_unlisted(win64_dir, name)?;
     }
 
@@ -597,7 +671,7 @@ pub async fn install_runtime(request: InstallRequest<'_>) -> Result<RuntimeInsta
         }
 
         // Installed under today's name whatever the host lists it as (DX4)
-        let slot = runtime_file_slot(&file.name).unwrap_or(&file.name);
+        let slot = set_file_slot(&file.name).unwrap_or(&file.name);
         let target = win64_dir.join(slot);
         let tmp = win64_dir.join(format!("{slot}{DOWNLOAD_SUFFIX}"));
         let path_and_query = format!("{RUNTIME_FILES_BASE_PATH}/{}", file.name);
@@ -711,7 +785,7 @@ pub async fn install_runtime(request: InstallRequest<'_>) -> Result<RuntimeInsta
             }
         }
 
-        if slot == RUNTIME_DLL {
+        if slot == AGPL_RUNTIME_DLL {
             // A runtime left under its old name would be loaded instead if it were ever the newer file
             let _ = std::fs::remove_file(win64_dir.join(LEGACY_RUNTIME_DLL));
         }
@@ -753,6 +827,10 @@ pub async fn install_local_runtime(
 
     sweep_aside(win64_dir);
     retire_loader(win64_dir, files);
+    let shape = SetShape::in_dir(local_dir);
+    for name in retired_present(win64_dir, shape) {
+        remove_unlisted(win64_dir, name)?;
+    }
 
     let mut copied = Vec::with_capacity(files.len());
     for &name in files {
@@ -762,8 +840,8 @@ pub async fn install_local_runtime(
             .unwrap_or(false);
         if ok {
             copied.push(name);
-        } else if OPTIONAL_RUNTIME_FILES.contains(&name) {
-            // The local set has no MIT runtime: none may stay from another set (RT-5)
+        } else if name == shape.optional() {
+            // The local set lacks it: none may stay from another set (RT-5, spec-runtime-r21 L-2)
             remove_unlisted(win64_dir, name)?;
         } else {
             return Err(RuntimeError::new(

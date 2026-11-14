@@ -32,8 +32,10 @@ pub use parse::{
     vswhere_msbuild,
 };
 
-/// The files a built runtime publishes: the runtime DLL and its loader.
-pub const RUNTIME_FILE_NAMES: [&str; 2] = ["Rustic-Isles.dll", "winmm.dll"];
+/// The files a built runtime publishes: the MIT runtime DLL and its loader (spec-runtime-r21 L-4).
+pub const RUNTIME_FILE_NAMES: [&str; 2] = ["rustic-isles-runtime.dll", "winmm.dll"];
+/// What a pre-R21 server tree published as its runtime: still counts as published.
+const PAIR_RUNTIME_DLL: &str = "Rustic-Isles.dll";
 
 /// Game-data files the backend reads.
 pub const BACKEND_GAME_DATA: [&str; 7] = [
@@ -83,9 +85,7 @@ pub struct WorkspacePaths {
     pub sdk_header: PathBuf,
     /// The imported SDK's folder.
     pub sdk_dir: PathBuf,
-    /// The runtime's Visual Studio solution.
-    pub runtime_solution: PathBuf,
-    /// The built runtime DLL (`x64/Release`).
+    /// The built MIT runtime DLL, cargo's name for it (`target/x86_64-pc-windows-msvc/release`).
     pub runtime_dll: PathBuf,
     /// The runtime loader's crate.
     pub loader_dir: PathBuf,
@@ -192,8 +192,11 @@ impl WorkspacePaths {
 
         let sdk_header = runtime_source.join("SDK.hpp");
         let sdk_dir = runtime_source.join("SDK");
-        let runtime_solution = runtime_source.join("Rustic-Isles.sln");
-        let runtime_dll = runtime_source.join("x64").join("Release").join("Rustic-Isles.dll");
+        let runtime_dll = root
+            .join("target")
+            .join(EXPORTER_TARGET)
+            .join("release")
+            .join("rustic_isles_runtime.dll");
         let exporter_crate = root.join("native").join("rustic-isles-exporter");
         let exporter_dll = exporter_crate
             .join("target")
@@ -213,7 +216,6 @@ impl WorkspacePaths {
             runtime_source,
             sdk_header,
             sdk_dir,
-            runtime_solution,
             runtime_dll,
             loader_dir,
             loader_dll,
@@ -317,6 +319,22 @@ pub fn newest_exports(candidates: &[PathBuf], since: Option<SystemTime>) -> Opti
 
 /// The target the CatalogExporter DLL is built for: it runs inside the Windows game.
 pub const EXPORTER_TARGET: &str = "x86_64-pc-windows-msvc";
+
+/// `cargo` arguments that build the MIT runtime DLL from a source checkout (spec-runtime-r21 L-4).
+#[must_use]
+pub fn runtime_build_args() -> Vec<String> {
+    [
+        "build",
+        "--release",
+        "--locked",
+        "--target",
+        EXPORTER_TARGET,
+        "-p",
+        "rustic-isles-runtime",
+    ]
+    .map(str::to_owned)
+    .to_vec()
+}
 
 /// `cargo` arguments that build the CatalogExporter DLL.
 #[must_use]
@@ -702,7 +720,9 @@ pub fn detect_host_kit(workspace: Option<&Path>, toolchain: &Toolchain, dump_roo
     let loader_built = paths.loader_dll.is_file();
     let exporter_built = paths.exporter_dll.is_file();
     // The loader is optional since the Director injects (RD9 as of 2026-11-13)
-    let runtime_published = paths.publish.join(RUNTIME_FILE_NAMES[0]).is_file();
+    let runtime_published = [RUNTIME_FILE_NAMES[0], PAIR_RUNTIME_DLL]
+        .iter()
+        .any(|name| paths.publish.join(name).is_file());
     let backend_data = detect_game_data(&paths.backend_game_data, &BACKEND_GAME_DATA);
     let director_data = detect_game_data(&paths.director_game_data, &DIRECTOR_GAME_DATA);
     let exports_present = paths.exports.is_dir();

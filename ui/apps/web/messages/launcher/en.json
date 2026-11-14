@@ -343,7 +343,7 @@
       "gamedata_packs": "Packs"
     },
     "sdk": "1. The SDK",
-    "sdkHint": "Dumper-7 writes the game's C++ headers from your running 1.14.7 client. The runtime and the CatalogExporter are built against them. Never share the SDK.",
+    "sdkHint": "Dumper-7 writes the game's C++ headers from your running 1.14.7 client. The CatalogExporter is built against them. Never share the SDK.",
     "dumper": "Dumper-7",
     "noDumper": "No Dumper-7 DLL chosen yet.",
     "chooseDumper": "Choose DLL",
@@ -382,7 +382,7 @@
       },
       "build_runtime": {
         "label": "Build the runtime",
-        "hint": "Compiles Rustic-Isles.dll against the SDK.",
+        "hint": "Builds the Rustic Isles runtime (rustic-isles-runtime.dll).",
         "button": "Build"
       },
       "build_loader": {
