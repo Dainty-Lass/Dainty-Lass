@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copies the bridge's generated command table from dainty-launcher-kit (crates/dainty-launcher-kit/generated, MIT since RL13), so
 // the hook's table is never committed here. Also refreshes ui's bridge types, which api.test.ts imports. The name
-// is the old one: restricted/ is no longer a source, but still where restricted's bundles are (restrictedDir).
+// is the old one: restricted/ is no longer a source.
 import { copyFileSync, existsSync, mkdirSync } from "node:fs"
 import path from "node:path"
 
@@ -9,9 +9,12 @@ export const launcherDir = path.resolve(import.meta.dir, "..")
 export const repoDir = path.resolve(launcherDir, "..")
 export const generatedDir = path.join(repoDir, "crates", "dainty-launcher-kit", "generated")
 
-// The same rule as the e2e tests and release-config.ts use for restricted's bundles
-export function restrictedDir(): string {
-  return process.env.DAINTY_RESTRICTED_DIR || path.resolve(repoDir, "restricted")
+// The MIT Tauri shell the release builds (restricted/launcher is only its oracle tests now)
+export const appDir = path.join(repoDir, "crates", "dainty-launcher-app")
+
+// Where `tauri build` in appDir leaves the NSIS bundles: the root workspace's target
+export function bundleDir(): string {
+  return process.env.E2E_BUNDLE_DIR || path.join(repoDir, "target", "release", "bundle", "nsis")
 }
 
 function main(): void {

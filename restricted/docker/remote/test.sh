@@ -26,7 +26,8 @@ export MSYS_NO_PATHCONV=1
 export MSYS_NO_PATHCONV=1
 export COMPOSE_PROJECT_NAME="${COMPOSE_PROJECT_NAME:-dainty-remote}"
 export COMPOSE_PROFILES=remote
-export COMPOSE_FILE=compose.yaml
+# From the environment when set, so the oracle runs this against the root's compose file (spec-docker D-8)
+export COMPOSE_FILE=${COMPOSE_FILE:-compose.yaml}
 
 compose() { docker compose "$@"; }
 step() { printf '\n== %s\n' "$*"; }

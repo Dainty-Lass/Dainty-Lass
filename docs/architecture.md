@@ -8,7 +8,7 @@ under [security/](security) go through each trust boundary line by line; the AGP
 
 | Part | Runs on | Code | Listens on |
 | --- | --- | --- | --- |
-| Launcher & Manager | each player's or host's PC | `restricted/launcher/src-tauri` (Tauri: `dainty-launcher` and `dainty-manager`) over `crates/dainty-launcher-kit`, with `launcher/` (the isolation hook and scripts) and pages from `ui/apps/web` (dainty-dash, built with `DAINTY_MODE=launcher` or `manager`) | relay `127.0.0.1:61100` for the game (`dainty-launcher`) |
+| Launcher & Manager | each player's or host's PC | `crates/dainty-launcher-app` (Tauri: `dainty-launcher` and `dainty-manager`, MIT) over `crates/dainty-launcher-kit`, with `launcher/` (the isolation hook and scripts) and pages from `ui/apps/web` (dainty-dash, built with `DAINTY_MODE=launcher` or `manager`) | relay `127.0.0.1:61100` for the game (`dainty-launcher`) |
 | Controller | the server | `crates/dainty-controller` over `crates/dainty-module-api` | the one process tree `start`, the console and `dainty-manager` (`server-gui`) run |
 | Gateway (core plugin) | the server | `crates/dainty-gateway` | public: TLS 443 (or `public_port`); private: HTTP 61000 on the Tailscale address; node links `/__node/*` with mTLS |
 | Allowlist helper (core plugin) | the server, public mode | `crates/dainty-gateway`, bin `allowlist` | loopback; edits nftables (Linux) or Windows Firewall for the union of loaded modules' UDP port ranges |

@@ -153,3 +153,35 @@ Docs that still describe restricted's Docker and move with the deletion: `restri
 services table still lists the removed rollback profile), the root `AGENTS.md` Docker paragraph and firewall-test
 line, `restricted/AGENTS.md`'s `docker/test-in-image.sh` line, and `.github/workflows/ci.yml`'s image scan of
 `restricted/compose.yaml`.
+
+## 7. The oracle runs, for the maintainer
+
+Not run by an agent (2026-11-13): the image builds use every core (the Dockerfile has no job limit, and the PC
+shares cargo with other sessions), and spec 8 wants a Linux Docker host with `CAP_NET_ADMIN` and `sch_netem`.
+Restricted's three harnesses take `COMPOSE_FILE` from the environment since `chore/restricted-housekeeping` (D-8),
+so run 2 needs no further change. On CI's `linux-host` runner or a Linux machine (`lsmod | grep sch_netem`, else
+`sudo modprobe sch_netem`), from a checkout of `plan`:
+
+1. **New images, old compose.** At the root, build the root's images under their default names:
+   `docker compose build && docker compose --profile test build test`. Then in `restricted/`:
+   `SMOKE_NO_BUILD=1 bash docker/smoke-test.sh` and `docker run --rm --cap-add NET_ADMIN dainty-lass-test:local`.
+   Don't run restricted's `run-tests.sh`: it rebuilds restricted's images over the root's.
+2. **New images, new compose, old harness.** At the root:
+   `SMOKE_NO_BUILD=1 COMPOSE_FILE=compose.yaml bash restricted/docker/smoke-test.sh`,
+   `NETWORK_NO_BUILD=1 NETWORK_REGION_PING=require COMPOSE_FILE=compose.yaml bash restricted/docker/network/test.sh`
+   and `REMOTE_NO_BUILD=1 COMPOSE_FILE=compose.yaml bash restricted/docker/remote/test.sh`.
+3. **New everything.** At the root: `bash docker/run-tests.sh`, then
+   `NETWORK_NO_BUILD=1 NETWORK_REGION_PING=require bash docker/network/test.sh`.
+
+Each ends with its harness's "passed" line. Record the date, the commit and the host here; nothing in them plays
+the game (no Wine, no game server).
+
+**When all three pass**, one change retires restricted's copies, as section 6 lists: delete
+`restricted/compose.yaml`, `restricted/compose.tailscale.yaml`, `restricted/.env.example`, restricted's
+`docker/smoke-test.sh`, `run-tests.sh`, `test-in-image.sh`, `network/netem.sh`, `network/test.sh`, `remote/test.sh`,
+and the `front`, `netem` and `test` stages of `restricted/docker/Dockerfile`; drop the restricted steps of the
+Docker and Network jobs in both `ci.yml` files (the `working-directory: restricted` runs) and the
+`restricted/docker/**`, `restricted/compose*.yaml` and `restricted/.env.example` path filters; and move the docs
+with it (`restricted/docs/hosting-docker.md`, the Docker paragraph of both `AGENTS.md` files, the families in
+`ci.yml`'s header). The Node rollback stages (`node-build`, `mongo-tools`, `server-rollback`) and the four scripts
+they copy stay until RB15, as does the root `.dockerignore` while restricted's Dockerfile is built (D-2).

@@ -19,12 +19,12 @@ via relative path dependencies (`path = "../crates/<name>"` in `Cargo.toml`, `[w
 
 | Path | What it is |
 | --- | --- |
-| `restricted/` | One cargo workspace, every package of its own in `crates/<package name>`: `dainty-host-parity` (the Node host kit's tests and recorded output, run against the root's MIT `dainty-host`). The server binaries are the root's `dainty-server` and `dainty-server-minimal` (MIT since RD27). Also `launcher/src-tauri` (the Tauri launcher backend: `dainty-launcher`, and `dainty-manager` with the `server-gui` feature, kept where Tauri expects it) and the game modules' crates |
+| `restricted/` | One cargo workspace, every package of its own in `crates/<package name>`: `dainty-host-parity` (the Node host kit's tests and recorded output, run against the root's MIT `dainty-host`). The server binaries are the root's `dainty-server` and `dainty-server-minimal` (MIT since RD27). Also `launcher/src-tauri` (`dainty-launcher`, test-only: the oracle tests for the root's MIT launcher kit and the manager's embedded server; the apps are the root's `dainty-launcher-app`, spec-tauri-shell §12.1) and the game modules' crates |
 | `modules/rustic-isles/` | The 1.14.7 module's version data (`version-data/1.14.7`), the recorded Node goldens replayed against it (`crates/rustic-isles-mit-parity`), the C++ CatalogExporter (`native/catalog-exporter`; it reads the host's SDK from `native/runtime`, which holds nothing else since the AGPL runtime was deleted at R21), and the Node reference tree (`reference/1.14.7`). In-tree since RD27, members of this workspace |
 | `modules/rustic-rifts/` | Peer-to-peer realms' AGPL remainder: `oracle` (Mystic Paradox's Node vectors replayed against the MIT crates). The `rustic-rifts-*` crates themselves are the root's MIT clean-room ones (`../crates/rustic-rifts-*`, RD27) |
 | `legacy/` | dainty-legacy: the 1.4.4 importer, a workspace of its own (an external plugin `settings.toml` pins) |
 | `fuzz/` | `cargo fuzz` targets for the AGPL components, a workspace of its own |
-| `docker/`, `compose.yaml` | Container deployment (RX4), laid out as the server release |
+| `docker/`, `compose.yaml` | Container deployment (RX4), laid out as the server release: the AGPL originals of the root's MIT `docker/` and `compose.yaml`, kept until the oracle runs (`../docs/port/clean-room/docker.md` section 7) retire them, and the Node rollback stages until RB15 |
 | `docs/` | Host and player guides, `paradox-patches.md`, and `security/` for the AGPL components |
 
 Dainty Lass serves one game, Dauntless 1.14.7 (2026-10-31). On the default path (since the RU9 code cutover,
@@ -104,11 +104,10 @@ hides the ones after it). The toolchain is pinned in `rust-toolchain.toml`; `car
 
 ### Launcher bridge
 
-The page talks to Rust only through the commands in `launcher/src-tauri/src/bridge/spec.rs`. The TS types
-(`ui/packages/bridge/src/generated/types.ts`), the isolation hook's command list (`launcher/isolation/commands.js`)
-and the permission set (`launcher/src-tauri/permissions/app-commands.toml`) are generated from it and checked by a
-test; the root's `ui/` and `launcher/` copy the first two in with `bun run restricted-data`. Never edit them by
-hand: `RR_UPDATE_GENERATED=1 cargo test -p dainty-launcher generated` rewrites them. The page's method for each command is
+The bridge is the root's MIT launcher kit's: the commands in `../crates/dainty-launcher-kit/src/bridge/spec.rs`, the
+generated TS types, hook list and permissions in `../crates/dainty-launcher-kit/generated`, which the root's `ui/` and
+`launcher/` copy in with `bun run restricted-data`. Nothing here generates or holds them. Never edit them by hand:
+`RR_UPDATE_GENERATED=1 cargo test -p dainty-launcher-kit generated` at the root rewrites them. The page's method for each command is
 the root's `ui/packages/bridge/src/api.ts`; the root's `launcher` tests (`bun run test`) drive it through the
 isolation hook and fail a command no method calls. The account key never crosses the bridge.
 

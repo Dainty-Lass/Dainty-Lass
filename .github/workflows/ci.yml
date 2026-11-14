@@ -39,7 +39,6 @@ jobs:
       rust: ${{ steps.pick.outputs.rust }}
       ui: ${{ steps.pick.outputs.ui }}
       rust-restricted: ${{ steps.pick.outputs.rust-restricted }}
-      rust-tauri: ${{ steps.pick.outputs.rust-tauri }}
       paradox: ${{ steps.pick.outputs.paradox }}
       legacy: ${{ steps.pick.outputs.legacy }}
       launcher: ${{ steps.pick.outputs.launcher }}
@@ -173,10 +172,6 @@ jobs:
             out="${family//_/-}"
             echo "$out=$value" | tee -a "$GITHUB_OUTPUT"
           done
-          # Tauri needs WebKitGTK and GTK3 to build on Linux
-          tauri=false
-          if grep -qE '^tauri[[:space:]]*=' restricted/launcher/src-tauri/Cargo.toml 2>/dev/null; then tauri=true; fi
-          echo "rust-tauri=$tauri" | tee -a "$GITHUB_OUTPUT"
 
   rust:
     name: Rust workspace (MIT, ${{ matrix.os }})
@@ -411,11 +406,12 @@ jobs:
           key: rust-restricted
           save-if: ${{ env.SAVE_CACHE }}
 
-      - name: Install the launcher's Linux build dependencies
-        if: runner.os == 'Linux' && needs.changes.outputs.rust-tauri == 'true'
+      # The launcher oracle's Secret Service keystore (dainty-launcher-kit); nothing here builds Tauri any more
+      - name: Install the launcher kit's Linux build dependencies
+        if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends libwebkit2gtk-4.1-dev libgtk-3-dev librsvg2-dev libayatana-appindicator3-dev libdbus-1-dev patchelf
+          sudo apt-get install -y --no-install-recommends libdbus-1-dev pkg-config
 
       - name: No crate from the silentspud registry in Cargo.lock
         run: |
@@ -445,6 +441,11 @@ jobs:
 
       - name: Tests
         run: cargo test --workspace --locked --no-fail-fast
+
+      # The launcher oracle's realms and embedded-server cases (spec-tauri-shell §12.1); Linux only, sparing the PC
+      - name: The launcher oracle with the manager's server
+        if: runner.os == 'Linux'
+        run: cargo test -p dainty-launcher --locked --no-fail-fast --features server-gui,realms
 
 
   rust-restricted-deny:
@@ -682,7 +683,8 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p trivy
-          for image in $(docker compose -f restricted/compose.yaml config --images | sort -u); do
+          # The root's images, built last above under the same names
+          for image in $(docker compose -f compose.yaml config --images | sort -u); do
             if ! docker image inspect "$image" > /dev/null 2>&1; then continue; fi
             slug="$(printf '%s' "$image" | tr -c 'a-zA-Z0-9.-' '-')"
             TRIVY_DOCKER_SOCKET=1 .github/scripts/trivy.sh image --scanners vuln --format sarif --output "trivy/$slug.sarif" "$image"

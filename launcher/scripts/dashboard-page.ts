@@ -4,7 +4,7 @@
 import { cpSync, existsSync, rmSync } from "node:fs"
 import path from "node:path"
 
-import { repoDir, restrictedDir } from "./restricted-data"
+import { appDir, repoDir } from "./restricted-data"
 
 const USAGE = "usage: bun scripts/dashboard-page.ts <build|dev> <launcher|server-manager>"
 
@@ -26,8 +26,6 @@ function main(): void {
     process.exit(2)
   }
 
-  const restricted = restrictedDir()
-  // The dashboard is this repository's since RD27; the built page still lands in the restricted checkout
   const dashboard = process.env.DAINTY_DASH_DIR || path.join(repoDir, "ui")
   const app = path.join(dashboard, "apps", "web")
   if (!existsSync(path.join(app, "package.json"))) {
@@ -47,7 +45,7 @@ function main(): void {
 
   run([bun, "run", "build"], app, { DAINTY_MODE: MODES[page] })
   const from = path.join(app, "dist", "client")
-  const out = process.env.LAUNCHER_DIST_DIR || path.join(restricted, "launcher", "dist")
+  const out = process.env.LAUNCHER_DIST_DIR || path.join(appDir, "dist")
   const to = path.join(out, page)
   rmSync(to, { recursive: true, force: true })
   // Vite's manifest, which the shell never fetches

@@ -21,7 +21,8 @@ export MSYS_NO_PATHCONV=1
 
 export COMPOSE_PROJECT_NAME="${COMPOSE_PROJECT_NAME:-dainty-network}"
 export COMPOSE_PROFILES=network
-export COMPOSE_FILE=compose.yaml
+# From the environment when set, so the oracle runs this against the root's compose file (spec-docker D-8)
+export COMPOSE_FILE=${COMPOSE_FILE:-compose.yaml}
 tolerance="${NETWORK_TOLERANCE_MS:-25}"
 region_ping="${NETWORK_REGION_PING:-auto}"
 regions=(oregon new-york uk germany)

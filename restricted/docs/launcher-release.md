@@ -55,7 +55,7 @@ timestamp server; the default is DigiCert's.
    ```
 
    Give it a password. It writes the private key and `dainty-lass-updater.key.pub`.
-2. Put the `.pub` file's text in `launcher/src-tauri/tauri.conf.json`, `plugins.updater.pubkey`, and commit it
+2. Put the `.pub` file's text in the root's `crates/dainty-launcher-app/tauri.conf.json`, `plugins.updater.pubkey`, and commit it
    (subject `RA14: the updater's public key`). It is public; the launcher and the manager both carry it.
 3. Paste the private key file's text into `LAUNCHER_UPDATER_KEY` and the password into
    `LAUNCHER_UPDATER_KEY_PASSWORD`.

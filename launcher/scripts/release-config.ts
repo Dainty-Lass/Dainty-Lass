@@ -4,7 +4,7 @@
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs"
 import path from "node:path"
 
-import { restrictedDir } from "./restricted-data"
+import { appDir } from "./restricted-data"
 
 export type Json = null | boolean | number | string | Json[] | { [key: string]: Json }
 type JsonObject = { [key: string]: Json }
@@ -55,7 +55,7 @@ function parseArgs(argv: string[]): { outDir: string; tauriDir: string } {
   }
   return {
     outDir: path.resolve(outDir ?? "."),
-    tauriDir: path.resolve(tauriDir ?? path.join(restrictedDir(), "launcher", "src-tauri")),
+    tauriDir: path.resolve(tauriDir ?? appDir),
   }
 }
 
