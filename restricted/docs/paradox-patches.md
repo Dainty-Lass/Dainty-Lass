@@ -1,18 +1,23 @@
 # Changes to Mystic Paradox
 
 rustic-isles (`modules/rustic-isles`, in-tree since RD27 and a submodule from DS6: the Node services under
-`reference/1.14.7`, the runtime and the CatalogExporter under `native/`; `paradox/` and `native/` here before DS6) is
+`reference/1.14.7` and the CatalogExporter under `native/`; `paradox/` and `native/` here before DS6) is
 Mystic Paradox at commit `21b9ff5` (`pranav158/Mystic-Paradox`, upstream `main` on 2026-10-23) with the changes
 below. Each is marked in the code with `[DaintyLass]` or, for the ones taken
 over from the Dauntless Reforged Revival line and kept as received, `[Dauntless Reforged Revival]`
-([NOTICE.md](../NOTICE.md)). A patch written against Mystic's tree is applied as
-[paradox-runtime-patches.md](paradox-runtime-patches.md) describes.
+([NOTICE.md](../NOTICE.md)).
+
+**The game runtime retired at R21 (2026-11-14).** The AGPL C++ runtime (`Rustic-Isles.dll`, once
+`native/runtime`) is no longer built, shipped or injected, and its source was deleted; the tag
+`agpl-runtime-final` is its last commit, kept for the rollback DLL. The rows marked "runtime" below, the runtime
+infrastructure row and 0041 to 0059 are history: each behaviour now lives in the MIT runtime slice that the root's
+`docs/port/spec-runtime-surface.md` section 6 names, and the MIT `rustic-isles-runtime.dll` is the only runtime.
 
 ## Infrastructure (this project's)
 
 | What | Where |
 | --- | --- |
-| The runtime reads the backend address from `RUSTIC_ISLES_BACKEND_URL` or `DAINTY_BACKEND_URL`, so one build serves every server; without a generated deployment header it fails closed on a reserved name; the XMPP `bUseSSL` switch follows the address's scheme, so a `ws://` relay is not opened with TLS | `modules/rustic-isles/native/runtime/dllmain.cpp` |
+| The runtime reads the backend address from `RUSTIC_ISLES_BACKEND_URL` or `DAINTY_BACKEND_URL`, so one build serves every server; without a generated deployment header it fails closed on a reserved name; the XMPP `bUseSSL` switch follows the address's scheme, so a `ws://` relay is not opened with TLS | runtime (retired at R21) |
 | The launcher API (`/dainty/api`): registration with invite codes, account keys as the game's `AUTH_MODE=APIKEY` login, the live status, and the host's invite, account-status and kick routes | `modules/rustic-isles/reference/1.14.7/ParadoxBackend/src/routes/reforgedApi.ts`, `src/launcherApiRules.ts`; `routes/eos.ts` (the client-credentials token, banned accounts refused); `config/listenerPlan.ts` (`DAINTY_HTTP_ONLY`, `QOS_PORT=0`) |
 | The Director listens on loopback (`BIND_HOST`) and lists its running game servers at `GET /api/instances` for the status | `modules/rustic-isles/reference/1.14.7/ParadoxDirector/src/server.ts`, `app.ts`, `controllers/gameservers.ts` |
 | The admin API's kick (MIGRATION_PLAN.md RD25) | `routes/reforgedApi.ts` |
@@ -65,16 +70,16 @@ by Mystic (0006, 0009, 0019, 0032, 0034) are not listed: `21b9ff5` has them.
 | 0057 | With SP-3@R13 (relevance and weapons) left to the MIT runtime, this runtime's relevance settings pass, which runs inside the player role tick, skips its role and pawn re-assert and keeps only its read-only drone diagnostic, so the pass never runs twice (the root's `docs/port/spec-runtime-r13.md` section 13) | runtime |
 | 0059 | With SP-2@R20 and SP-3@R20 (the server ProcessEvent behaviours) left to the MIT runtime, the post-login AFK write stays here until R8 lands (it sat inside R20's post-login block), and the bleedout floor in the watchdog's game-mode sample follows SP-3@R20, so one runtime writes it (the root's `docs/port/spec-runtime-r20.md` section 12) | runtime |
 
-0035 (an A/B flag for the controller-channel guard, diagnostics only) was removed on 2026-10-26. 0013, 0014
-and 0026 are logging only and can go the same way once the runtime is rebuilt and checked with a client; they
-are interleaved with later fixes in `dllmain.cpp`, so removing them is a hands-on change, not a reverse-apply.
+0035 (an A/B flag for the controller-channel guard, diagnostics only) was removed on 2026-10-26.
 
 Candidates to become `settings.toml` settings rather than patches: 0007, 0023, 0024, 0029 and 0030 are server
 policy, not fixes.
 
 ## Updating Mystic Paradox
 
-Advance the fork's branch, replay the changes above onto the new base one by one, keep, reduce or drop each,
-and record the new commit here and in [NOTICE.md](../NOTICE.md). `ParadoxLauncher`, `ParadoxTransport` and
-Mystic's workflows stay out; the realms transport goes to `rustic-rifts`
+Advance the fork's branch, replay the backend and Director changes above onto the new base one by one, keep,
+reduce or drop each, and record the new commit here and in [NOTICE.md](../NOTICE.md). An upstream runtime change
+is not applied here: it goes through a clean-room spec into the MIT runtime crates (the root's
+`docs/port/migration-guide.md` section 4). `ParadoxLauncher`, `ParadoxTransport` and Mystic's workflows stay out;
+the realms transport goes to `rustic-rifts`
 ([dainty-lass-plan.md](https://git.silentspud.com/silentspud/dainty-lass/src/branch/main/docs/dainty-lass-plan.md), DD14).

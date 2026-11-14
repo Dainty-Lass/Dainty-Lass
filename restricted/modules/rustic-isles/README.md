@@ -13,7 +13,9 @@
 > `isles-chat`, `isles-db`, `isles-1-14-7`) was replaced by Dainty Lass's clean-room MIT `rustic-isles-*` crates (RD27)
 > and removed; it stays in the history. What is left here is the library Dainty Lass loads over the MIT module
 > (`crates/rustic-isles-plugin`), its version data, the recorded goldens replayed against it (`crates/rustic-isles-mit-parity`),
-> the Node reference under `reference/1.14.7` the port came from, and the runtime and tools under `native/`.
+> the Node reference under `reference/1.14.7` the port came from, and the CatalogExporter under `native/`. The C++
+> game runtime retired at R21 (its last commit is the tag `agpl-runtime-final`): the runtime is dainty-lass's MIT
+> `rustic-isles-runtime.dll`.
 
 > [!IMPORTANT]
 > Unofficial and community-developed. Not affiliated with, endorsed by, or sponsored by Phoenix Labs,
@@ -30,7 +32,7 @@ of the game:
 | Guide | What's inside |
 |---|---|
 | [Installing Dauntless](docs/INSTALLING_DAUNTLESS.md) | Getting the 1.14.7 client from Epic with your own account and Legendary |
-| [Generating the SDK](docs/GENERATING_SDK.md) | Dumping the Unreal SDK with Dumper-7 and building the C++ projects |
+| [Generating the SDK](docs/GENERATING_SDK.md) | Dumping the Unreal SDK with Dumper-7 and building the CatalogExporter |
 | [Generating game data](docs/GENERATING_GAME_DATA.md) | Exporting the catalogue and tables from your install |
 | [Scope and legal](docs/SCOPE_AND_LEGAL.md) | What isn't included, responsible use, license details |
 | [Security](SECURITY.md) | Safe configuration and how to report a vulnerability |
@@ -42,9 +44,8 @@ of the game:
 | [`crates/rustic-isles-plugin`](crates/rustic-isles-plugin), [`crates/rustic-isles-mit-parity`](crates/rustic-isles-mit-parity), [`version-data`](version-data) | The library Dainty Lass loads (its MIT `rustic-isles-1-14-7` with this version data), and the Node goldens replayed against it |
 | [`reference/1.14.7/ParadoxBackend`](reference/1.14.7/ParadoxBackend) | The Node account and metagame backend the Rust port came from (login, characters, inventory, progression, store, party, co-op hunts, Paradox realms…) |
 | [`reference/1.14.7/ParadoxDirector`](reference/1.14.7/ParadoxDirector) | The Node Director: starts and supervises the dedicated game servers for hubs and hunts |
-| [`native/runtime`](native/runtime) | `Rustic-Isles.dll`, the C++ runtime loaded into the client and servers to adapt them to the private backend (MSVC + MinHook) |
 | [`reference/1.14.7/shared/hunt-manifest`](reference/1.14.7/shared/hunt-manifest) | Hunt manifest resolution shared by the backend and the Director |
-| [`../../../native/runtime-loader`](../../../native/runtime-loader) | `winmm.dll` proxy that loads the runtime at startup |
+| [`../../../native/runtime-loader`](../../../native/runtime-loader) | `winmm.dll` proxy that loads the MIT runtime at startup, for Proton players who keep it |
 | [`native/catalog-exporter`](native/catalog-exporter) | Exports compatibility data from your own installation |
 
 ## 💬 Community and help

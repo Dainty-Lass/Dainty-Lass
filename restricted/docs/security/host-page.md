@@ -61,11 +61,13 @@ and that multipliers that parse are finite, from 1 to 100, and private only.
       a leftover ini names, a DLL an unfinished session placed, a set-aside runtime, or a DLL with the host's tool
       names is beside the loader (`a_session_refuses_leftovers_clashes_and_own_names_and_needs_the_loader`).
 - [ ] The picked DLL is copied under its own file name only; a name that is not `*.dll`, or is `winmm.dll`,
-      `Rustic-Isles.dll`, `MysticParadox.dll` or `MystPaxInternalServer.dll` in any case, is refused; a file of the same name already
+      `rustic-isles-runtime.dll` or a retired runtime name (`Rustic-Isles.dll`, `MysticParadox.dll`,
+      `MystPaxInternalServer.dll`) in any case, is refused; a file of the same name already
       there is never overwritten (and so never removed later).
 - [ ] The ini names exactly that one file, by plain name (no path), so the loader resolves it beside itself
       (`a_dump_session_places_the_dll_and_ini_without_the_runtime_and_removes_them`).
-- [ ] A Dumper-7 session sets `Rustic-Isles.dll`, `MysticParadox.dll` and `MystPaxInternalServer.dll` aside
+- [ ] A Dumper-7 session sets any runtime the loader would load (`rustic-isles-runtime.dll` and the retired
+      `Rustic-Isles.dll`, `MysticParadox.dll` and `MystPaxInternalServer.dll`) aside
       (`*.rr-dump-off`) before the game starts, so the loader loads Dumper-7 alone; the game starts without
       `DAINTY_*`, `RUSTIC_ISLES_*`, `RUSTIC_RIFTS_*` and `MYSTICPARADOX_*` variables and without the relay (`a_dumper_7_session_loads_through_the_loader_list_and_cleans_up`).
 - [ ] A CatalogExporter session starts the game exactly as PLAY does (the hash check, the runtime check, the relay
@@ -118,7 +120,8 @@ and that multipliers that parse are finite, from 1 to 100, and private only.
 - [ ] `start` keeps RH2's contract: a `stop` line on stdin, its stdin closing stops it too, and after 45 s its
       process tree is ended. A server answering on port 41000 (the backend's) that the launcher did not start is `external` and
       never stopped, set up, updated or given new multipliers from here.
-- [ ] MSBuild comes from `vswhere` under `ProgramFiles(x86)` and cargo from `%USERPROFILE%\.cargo\bin` or
+- [ ] The runtime is built with cargo only (R21: no MSBuild run on a runtime project, no SDK needed for it);
+      MSBuild, for the CatalogExporter, comes from `vswhere` under `ProgramFiles(x86)` and cargo from `%USERPROFILE%\.cargo\bin` or
       `%CARGO_HOME%\bin`: the host's own toolchain, run on the host's own project, with output to the workspace's
       logs. (Whoever controls those variables already runs code as the host.)
 - [ ] The Dumper-7 DLL must exist and end in `.dll`; the SDK import copies only files and folders (links are

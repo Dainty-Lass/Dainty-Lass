@@ -73,8 +73,9 @@ Code: `crates/dainty-host/src/` (`gamedata.rs`, `gamepack.rs`, `preset.rs`, `pro
 
 ### Runtime publishing
 
-- [ ] `publish-runtime` copies exactly `Rustic-Isles.dll` and `winmm.dll`, from the checkout's builds or the
-  `--from` folder the host names, and writes `runtime.json` last (after a `.tmp` and a rename), so the content server
+- [ ] `publish-runtime` copies exactly `rustic-isles-runtime.dll` and `winmm.dll`, from the checkout's builds, the
+  release's prebuilt runtime or the `--from` folder the host names, removes the retired `Rustic-Isles.dll` and its
+  aliases from `.workspace/runtime` (R21), and writes `runtime.json` last (after a `.tmp` and a rename), so the content server
   never lists a file that is not in place.
 - [ ] `runtime.json`'s hashes are of the copied files, not the sources. Its format is the Node kit's, byte for byte
   (RD23: the Host page calls this command).

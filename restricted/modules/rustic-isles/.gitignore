@@ -12,11 +12,10 @@ AGENTS.md
 *.pfx
 .secrets/
 ParadoxCertificates/
-native/runtime/deployment_config.generated.h
 
 # --- Generated SDK (dump it yourself with Dumper-7) ---
 # The complete Dumper-7 CppSDK output is game-derived and is NOT distributed.
-# See docs/GENERATING_SDK.md.
+# See docs/GENERATING_SDK.md. native/runtime holds only this SDK since R21: the CatalogExporter reads it there.
 native/runtime/SDK/
 native/runtime/SDK.hpp
 native/runtime/Assertions.inl

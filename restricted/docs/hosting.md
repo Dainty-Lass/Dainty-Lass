@@ -44,19 +44,20 @@ options to change a setting, or edit `settings.toml` and run `setup` with none.
 No 1.14.7 folder yet? `install-game` fetches one from your own Epic library
 ([below](#getting-the-game-from-epic)) and points `game_dir` at it.
 
-Then the SDK, the runtime and the game data ([sdk-and-game-data.md](https://git.silentspud.com/silentspud/dainty-lass/src/branch/main/docs/sdk-and-game-data.md)):
+Then the runtime and the game data ([sdk-and-game-data.md](https://git.silentspud.com/silentspud/dainty-lass/src/branch/main/docs/sdk-and-game-data.md)):
 
 ```powershell
 bin\dainty-host gamedata                  # from your CatalogExporter export in modules\rustic-isles\reference\1.14.7\Items_Analysis
-bin\dainty-host publish-runtime           # the Rustic-Isles.dll you built (and rustic-isles-runtime.dll and winmm.dll, if built)
+bin\dainty-host publish-runtime           # rustic-isles-runtime.dll (the release's, or yours) and winmm.dll, if built
 bin\dainty-host doctor                    # what is still missing or wrong
 ```
 
-The Director loads the published runtime (`.workspace\runtime\Rustic-Isles.dll`, checked against `runtime.json`)
-into every game server it starts, before the server runs. While the runtime moves to MIT code, a second DLL,
-`rustic-isles-runtime.dll`, may be published beside it and is loaded first; the two are a matched pair, so
-`publish-runtime` publishes them together and removes an older `rustic-isles-runtime.dll` when the build has none
-(with `--from`, the folder may hold it under cargo's name, `rustic_isles_runtime.dll`). Nothing is copied next to the game's executable, so you
+The runtime is one DLL, `rustic-isles-runtime.dll`, built from the MIT `rustic-isles-runtime` crate. The server
+release ships it prebuilt, and `publish-runtime` uses that one when you built none (with `--from`, the folder may
+hold your build under cargo's name, `rustic_isles_runtime.dll`); it needs no SDK. `publish-runtime` removes the
+retired `Rustic-Isles.dll` an older kit published. The Director loads the published runtime
+(`.workspace\runtime\rustic-isles-runtime.dll`, checked against `runtime.json`) into every game server it starts,
+before the server runs. Nothing is copied next to the game's executable, so you
 can play from the same 1.14.7 folder your servers use. A server whose runtime can't be loaded is ended, never left
 running without it, and the Director's log says why. `winmm.dll`, the old runtime loader, is optional: only Linux
 players who load the runtime through it need it in the server's feed. `publish-runtime` removes a `winmm.dll` an

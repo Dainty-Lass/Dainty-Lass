@@ -67,6 +67,13 @@ The runtime loader (Mystic Paradox's `tools/RuntimeLoader`, derived from
 `restricted/native/runtime-loader` until 2026-11-11. Dainty Lass replaced it with an MIT clean-room rewrite at the
 monorepo root's `native/runtime-loader`, and the original stays in the history only.
 
+### Game runtime
+
+The game runtime (Mystic Paradox's `ParadoxRuntime`, `Rustic-Isles.dll`, with MinHook and the Hacker Disassembler
+Engine 64 under BSD-2-Clause) was in `native/runtime` until it retired at R21 (2026-11-14). Dainty Lass's MIT
+`rustic-isles-runtime.dll` replaced it, and its source and patches were deleted; the tag `agpl-runtime-final` is the
+last commit that has them, under these terms.
+
 ## Notes
 
 - This repository does not distribute the game client, packaged game assets, generated SDK
