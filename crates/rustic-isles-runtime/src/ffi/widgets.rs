@@ -144,8 +144,9 @@ impl Memory for Frame {
         if !checked::readable_this_frame(addr, out.len()) {
             return false;
         }
-        // SAFETY: the range was found mapped and readable this frame; `out` is a distinct buffer
-        unsafe { std::ptr::copy_nonoverlapping(addr as *const u8, out.as_mut_ptr(), out.len()) };
+        // SAFETY: the range was found mapped and readable this frame; `copy` as in `memory::read_bytes`, since game
+        // memory may overlap `out`
+        unsafe { std::ptr::copy(addr as *const u8, out.as_mut_ptr(), out.len()) };
         true
     }
 }
