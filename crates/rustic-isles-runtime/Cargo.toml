@@ -18,6 +18,10 @@ crate-type = ["cdylib", "rlib"]
 [dependencies]
 rustic-isles-runtime-core = { path = "../rustic-isles-runtime-core" }
 
+# The crate's build refuses anything but Windows.
+[target.'cfg(all(windows, target_arch = "x86_64"))'.dependencies]
+minhook.workspace = true
+
 [target.'cfg(windows)'.dependencies]
 windows-sys = { workspace = true, features = [
     "Win32_Foundation",
@@ -38,9 +42,6 @@ windows-sys = { workspace = true, features = [
     "Win32_System_IO",
     "Win32_System_Pipes",
 ] }
-
-[build-dependencies]
-cc.workspace = true
 
 [lints]
 workspace = true
