@@ -298,7 +298,7 @@ unsafe extern "C" fn web_browser_startup_detour(module: *mut c_void) {
         }
         return;
     }
-    // Absorbs: neither the AGPL wrapper nor the original runs, so CEF never starts
+    // Absorbs: the original never runs, so CEF never starts
     crate::lifecycle::write_status_once();
     if !WEB_BROWSER_LOGGED.swap(true, Ordering::SeqCst) {
         log::line(core::CEF_SKIPPED_LINE);

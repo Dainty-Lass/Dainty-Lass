@@ -347,7 +347,7 @@ mod tests {
     #[test]
     fn a_dll_is_held_only_with_the_checked_hash() {
         let temp = tempfile::tempdir().unwrap();
-        let path = dll(temp.path(), "Rustic-Isles.dll", b"abc");
+        let path = dll(temp.path(), "rustic-isles-runtime.dll", b"abc");
         let found = InjectDll::as_found(&path).unwrap();
         assert_eq!(found.sha256, ABC_SHA256);
         assert_eq!(hold(std::slice::from_ref(&found)).unwrap().len(), 1);
@@ -363,7 +363,11 @@ mod tests {
     fn only_absolute_dll_paths() {
         let temp = tempfile::tempdir().unwrap();
         let txt = dll(temp.path(), "notes.txt", b"abc");
-        for bad in [PathBuf::from("Rustic-Isles.dll"), PathBuf::from("../x.dll"), txt] {
+        for bad in [
+            PathBuf::from("rustic-isles-runtime.dll"),
+            PathBuf::from("../x.dll"),
+            txt,
+        ] {
             assert!(
                 matches!(InjectDll::as_found(&bad), Err(InjectError::BadPath(_))),
                 "{}",
@@ -383,7 +387,7 @@ mod tests {
     #[test]
     fn a_held_dll_cannot_be_replaced() {
         let temp = tempfile::tempdir().unwrap();
-        let path = dll(temp.path(), "Rustic-Isles.dll", b"abc");
+        let path = dll(temp.path(), "rustic-isles-runtime.dll", b"abc");
         let held = hold(&[InjectDll::as_found(&path).unwrap()]).unwrap();
         assert!(std::fs::write(&path, b"evil").is_err());
         assert!(std::fs::remove_file(&path).is_err());

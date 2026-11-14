@@ -195,7 +195,10 @@ async fn manifest_open_files_keyed_nothing_else() {
     assert_eq!((none.status, none.text().as_str()), (404, r#"{"error":"no_runtime"}"#));
     drop(server);
 
-    publish(&runtime, &[("Rustic-Isles.dll", b"rustic"), ("winmm.dll", b"winmm")]);
+    publish(
+        &runtime,
+        &[("rustic-isles-runtime.dll", b"rustic"), ("winmm.dll", b"winmm")],
+    );
     std::fs::write(runtime.join("dxgi.dll"), b"x").unwrap();
     let server = start(
         &[dir_env("CONTENT_RUNTIME_DIR", &runtime)],
@@ -228,7 +231,7 @@ async fn manifest_open_files_keyed_nothing_else() {
 async fn stream_limits() {
     let tmp = tempfile::tempdir().unwrap();
     let big: Vec<u8> = (0..48u32 << 20).map(|i| (i % 251) as u8).collect();
-    publish(tmp.path(), &[("Rustic-Isles.dll", &big), ("winmm.dll", b"w")]);
+    publish(tmp.path(), &[("rustic-isles-runtime.dll", &big), ("winmm.dll", b"w")]);
     let server = start(
         &[
             dir_env("CONTENT_RUNTIME_DIR", tmp.path()),
@@ -238,7 +241,7 @@ async fn stream_limits() {
         Arc::new(ContentModules::default()),
     )
     .await;
-    let file = "/content/v1/runtime/files/Rustic-Isles.dll";
+    let file = "/content/v1/runtime/files/rustic-isles-runtime.dll";
     let (a1, s1) = stalled(server.port, file, "DLK_a").await;
     let (_a2, s2) = stalled(server.port, file, "DLK_a").await;
     assert_eq!((s1, s2), (200, 200));
@@ -279,7 +282,10 @@ async fn stream_limits() {
 #[tokio::test(flavor = "multi_thread")]
 async fn a_file_changed_under_the_list() {
     let tmp = tempfile::tempdir().unwrap();
-    publish(tmp.path(), &[("Rustic-Isles.dll", b"rustic"), ("winmm.dll", b"winmm")]);
+    publish(
+        tmp.path(),
+        &[("rustic-isles-runtime.dll", b"rustic"), ("winmm.dll", b"winmm")],
+    );
     let server = start(
         &[dir_env("CONTENT_RUNTIME_DIR", tmp.path())],
         Arc::new(ContentModules::default()),
@@ -296,7 +302,10 @@ async fn a_file_changed_under_the_list() {
 
     // A new publish is served once the failed check was forgotten
     let tmp = tempfile::tempdir().unwrap();
-    publish(tmp.path(), &[("Rustic-Isles.dll", b"rustic"), ("winmm.dll", b"winmm")]);
+    publish(
+        tmp.path(),
+        &[("rustic-isles-runtime.dll", b"rustic"), ("winmm.dll", b"winmm")],
+    );
     let server = start(
         &[dir_env("CONTENT_RUNTIME_DIR", tmp.path())],
         Arc::new(ContentModules::default()),
@@ -304,7 +313,10 @@ async fn a_file_changed_under_the_list() {
     .await;
     std::fs::write(tmp.path().join("winmm.dll"), b"winmm!").unwrap();
     assert_eq!(keyed(server.port, file, "DLK_a").await.status, 503);
-    publish(tmp.path(), &[("Rustic-Isles.dll", b"rustic"), ("winmm.dll", b"winmm!")]);
+    publish(
+        tmp.path(),
+        &[("rustic-isles-runtime.dll", b"rustic"), ("winmm.dll", b"winmm!")],
+    );
     let served = keyed(server.port, file, "DLK_a").await;
     assert_eq!((served.status, served.body.as_slice()), (200, b"winmm!".as_slice()));
 }
@@ -312,10 +324,13 @@ async fn a_file_changed_under_the_list() {
 #[tokio::test(flavor = "multi_thread")]
 async fn versioned_runtimes() {
     let tmp = tempfile::tempdir().unwrap();
-    publish(tmp.path(), &[("Rustic-Isles.dll", b"own"), ("winmm.dll", b"own-w")]);
+    publish(
+        tmp.path(),
+        &[("rustic-isles-runtime.dll", b"own"), ("winmm.dll", b"own-w")],
+    );
     publish(
         &tmp.path().join("revived"),
-        &[("Rustic-Isles.dll", b"old"), ("winmm.dll", b"old-w")],
+        &[("rustic-isles-runtime.dll", b"old"), ("winmm.dll", b"old-w")],
     );
     let server = start(
         &[dir_env("CONTENT_RUNTIME_DIR", tmp.path())],
@@ -503,7 +518,10 @@ async fn l1_the_download_line_and_no_key_anywhere() {
         seen.lock().unwrap().push(line.to_owned())
     })));
     let tmp = tempfile::tempdir().unwrap();
-    publish(tmp.path(), &[("Rustic-Isles.dll", b"rustic"), ("winmm.dll", b"winmm")]);
+    publish(
+        tmp.path(),
+        &[("rustic-isles-runtime.dll", b"rustic"), ("winmm.dll", b"winmm")],
+    );
     let server = start(
         &[dir_env("CONTENT_RUNTIME_DIR", tmp.path())],
         Arc::new(ContentModules::default()),
@@ -520,7 +538,7 @@ async fn l1_the_download_line_and_no_key_anywhere() {
     assert_eq!(reply.status, 200);
     keyed(
         server.port,
-        "/content/v1/runtime/files/Rustic-Isles.dll",
+        "/content/v1/runtime/files/rustic-isles-runtime.dll",
         "DLK_logged secret",
     )
     .await;

@@ -31,14 +31,14 @@ fn sha256_hex(bytes: &[u8]) -> String {
     sha2::Sha256::digest(bytes).iter().map(|b| format!("{b:02x}")).collect()
 }
 
-/// A published runtime folder holding `dll` as `Rustic-Isles.dll`, listed with `sha256`.
+/// A published runtime folder holding `dll` as `rustic-isles-runtime.dll`, listed with `sha256`.
 fn publish(dir: &Path, dll: &[u8], sha256: &str) {
     std::fs::create_dir_all(dir).unwrap();
-    std::fs::write(dir.join("Rustic-Isles.dll"), dll).unwrap();
+    std::fs::write(dir.join("rustic-isles-runtime.dll"), dll).unwrap();
     let manifest = json!({
         "version": "20261113-00000000",
         "build": {"changelist": 647472},
-        "files": [{"name": "Rustic-Isles.dll", "size": dll.len(), "sha256": sha256}],
+        "files": [{"name": "rustic-isles-runtime.dll", "size": dll.len(), "sha256": sha256}],
     });
     std::fs::write(dir.join("runtime.json"), manifest.to_string()).unwrap();
 }
@@ -94,7 +94,7 @@ async fn each_start_names_the_published_runtime() {
         let sha = sha256_hex(b"runtime");
         publish(&runtime, b"runtime", &sha);
         let runtime_text = runtime.to_string_lossy().into_owned();
-        let dll = runtime.join("Rustic-Isles.dll").to_string_lossy().into_owned();
+        let dll = runtime.join("rustic-isles-runtime.dll").to_string_lossy().into_owned();
 
         for program in [
             "C:\\Games\\Win64\\Dauntless-Win64-Shipping.exe",

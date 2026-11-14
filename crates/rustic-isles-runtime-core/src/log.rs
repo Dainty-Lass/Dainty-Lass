@@ -13,7 +13,7 @@ pub struct LineTime {
     pub millis: u16,
 }
 
-/// The file name next to the executable, shared with the AGPL runtime (both append).
+/// The file name next to the executable; the launcher uploads it by this name.
 pub fn file_name(port: u16) -> String {
     format!("rustic_isles_dll_port{port}.log")
 }
@@ -39,10 +39,7 @@ pub fn writable(line: &str) -> bool {
 /// The first status line (R0 4.3).
 pub fn status_line(version: &str, server: bool, port: u16, owned: usize) -> String {
     let role = if server { "server" } else { "client" };
-    format!(
-        "[MitRuntime] rustic-isles-runtime {version} role={role} port={port} seam={} owns={owned} ids",
-        crate::SEAM_VERSION
-    )
+    format!("[MitRuntime] rustic-isles-runtime {version} role={role} port={port} owns={owned} ids")
 }
 
 /// One install result line.
@@ -82,7 +79,7 @@ mod tests {
         assert_eq!(file_name(7777), "rustic_isles_dll_port7777.log");
         assert_eq!(
             status_line("0.1.0", true, 7777, 3),
-            "[MitRuntime] rustic-isles-runtime 0.1.0 role=server port=7777 seam=1 owns=3 ids"
+            "[MitRuntime] rustic-isles-runtime 0.1.0 role=server port=7777 owns=3 ids"
         );
         assert_eq!(install_line("SP-1", Ok(())), "[MitRuntime] install SP-1 ok");
         assert_eq!(

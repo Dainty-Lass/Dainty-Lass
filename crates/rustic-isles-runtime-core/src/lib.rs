@@ -20,6 +20,7 @@ pub mod login;
 pub mod memory;
 pub mod names;
 pub mod net;
+pub mod occupancy;
 pub mod offsets;
 pub mod patch;
 pub mod pdata;
@@ -34,9 +35,6 @@ pub mod server_life;
 pub mod travel;
 pub mod weak;
 pub mod widgets;
-
-/// The seam ABI the AGPL runtime checks before it routes a hook through this DLL (R0 7.3).
-pub const SEAM_VERSION: u32 = 1;
 
 /// The UTF-16 units of an ASCII literal, for comparing against engine and Windows text.
 pub fn wide(text: &str) -> Vec<u16> {

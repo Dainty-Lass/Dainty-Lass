@@ -1,19 +1,10 @@
 //! The broker's chain bookkeeping for one target (R0 7.2). The DLL applies these answers with MinHook and atomic
 //! stores; nothing here touches memory.
 
-/// Which DLL a wrapper belongs to.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Band {
-    /// This runtime's slices: outer, by `order` then registration.
-    Mit,
-    /// The AGPL runtime's one wrapper per target: innermost, its next always the trampoline.
-    Agpl,
-}
-
-/// A refused change, with MinHook's status number (R0 7.3).
+/// A refused change, with MinHook's status number.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ChainError {
-    /// `MH_ERROR_ALREADY_CREATED` (3): the AGPL band already has a wrapper, or the MIT wrapper is already there.
+    /// `MH_ERROR_ALREADY_CREATED` (3): the wrapper is already there.
     AlreadyCreated,
     /// `MH_ERROR_NOT_CREATED` (4): no such wrapper.
     NotCreated,
@@ -41,7 +32,6 @@ struct MitWrapper {
 pub struct ChainModel {
     trampoline: usize,
     mit: Vec<MitWrapper>,
-    agpl: Option<usize>,
     seq: u64,
 }
 
@@ -51,7 +41,6 @@ impl ChainModel {
         Self {
             trampoline,
             mit: Vec::new(),
-            agpl: None,
             seq: 0,
         }
     }
@@ -81,15 +70,6 @@ impl ChainModel {
         Ok(())
     }
 
-    /// Adds the AGPL wrapper; a second one is refused.
-    pub fn add_agpl(&mut self, entry: usize) -> Result<(), ChainError> {
-        if self.agpl.is_some() {
-            return Err(ChainError::AlreadyCreated);
-        }
-        self.agpl = Some(entry);
-        Ok(())
-    }
-
     /// Removes a MIT wrapper.
     pub fn remove_mit(&mut self, entry: usize) -> Result<(), ChainError> {
         let at = self
@@ -101,37 +81,20 @@ impl ChainModel {
         Ok(())
     }
 
-    /// Removes the AGPL wrapper `entry`.
-    pub fn remove_agpl(&mut self, entry: usize) -> Result<(), ChainError> {
-        if self.agpl != Some(entry) {
-            return Err(ChainError::NotCreated);
-        }
-        self.agpl = None;
-        Ok(())
-    }
-
-    /// Whether the AGPL band holds a wrapper (R20's stamina skip asks, spec-runtime-r20 10.3).
-    pub fn has_agpl(&self) -> bool {
-        self.agpl.is_some()
-    }
-
     /// Every wrapper, outermost first.
-    pub fn order(&self) -> Vec<(Band, usize)> {
-        let mut order: Vec<(Band, usize)> = self.mit.iter().map(|wrapper| (Band::Mit, wrapper.entry)).collect();
-        order.extend(self.agpl.map(|entry| (Band::Agpl, entry)));
-        order
+    pub fn order(&self) -> Vec<usize> {
+        self.mit.iter().map(|wrapper| wrapper.entry).collect()
     }
 
     /// What the stub jumps to: the outermost wrapper, else the trampoline.
     pub fn head(&self) -> usize {
-        self.order().first().map_or(self.trampoline, |&(_, entry)| entry)
+        self.mit.first().map_or(self.trampoline, |wrapper| wrapper.entry)
     }
 
     /// The function a wrapper calls next.
     pub fn next_of(&self, entry: usize) -> Option<usize> {
-        let order = self.order();
-        let at = order.iter().position(|&(_, other)| other == entry)?;
-        Some(order.get(at + 1).map_or(self.trampoline, |&(_, next)| next))
+        let at = self.mit.iter().position(|wrapper| wrapper.entry == entry)?;
+        Some(self.mit.get(at + 1).map_or(self.trampoline, |next| next.entry))
     }
 
     /// Each MIT wrapper's next cell value, innermost first: the order the DLL writes them in, `head` last.
@@ -153,55 +116,30 @@ pub fn original(chain: Option<&ChainModel>, target: usize) -> usize {
 mod tests {
     use super::*;
 
-    #[test]
-    fn has_agpl() {
-        let mut chain = ChainModel::new(1);
-        assert!(!chain.has_agpl());
-        chain.add_mit(2, 0).unwrap();
-        assert!(!chain.has_agpl(), "a MIT wrapper is not the AGPL's");
-        chain.add_agpl(3).unwrap();
-        assert!(chain.has_agpl());
-        chain.remove_agpl(3).unwrap();
-        assert!(!chain.has_agpl());
-    }
-
     const TRAMPOLINE: usize = 0x7000;
 
     #[test]
-    fn bands_and_order() {
+    fn order_and_next() {
         let mut chain = ChainModel::new(TRAMPOLINE);
         assert_eq!(chain.head(), TRAMPOLINE);
-        chain.add_agpl(0xA0).unwrap();
-        assert_eq!(chain.head(), 0xA0);
-        assert_eq!(chain.next_of(0xA0), Some(TRAMPOLINE));
         chain.add_mit(0x10, 5).unwrap();
         chain.add_mit(0x20, -1).unwrap();
         chain.add_mit(0x30, 5).unwrap();
-        assert_eq!(
-            chain.order(),
-            [
-                (Band::Mit, 0x20),
-                (Band::Mit, 0x10),
-                (Band::Mit, 0x30),
-                (Band::Agpl, 0xA0)
-            ]
-        );
+        assert_eq!(chain.order(), [0x20, 0x10, 0x30]);
         assert_eq!(chain.head(), 0x20);
         assert_eq!(chain.next_of(0x20), Some(0x10));
         assert_eq!(chain.next_of(0x10), Some(0x30));
-        assert_eq!(chain.next_of(0x30), Some(0xA0));
-        assert_eq!(chain.mit_cells(), [(0x30, 0xA0), (0x10, 0x30), (0x20, 0x10)]);
+        assert_eq!(chain.next_of(0x30), Some(TRAMPOLINE));
+        assert_eq!(chain.mit_cells(), [(0x30, TRAMPOLINE), (0x10, 0x30), (0x20, 0x10)]);
         assert_eq!(chain.next_of(0x99), None);
     }
 
     #[test]
-    fn agpl_band_holds_one() {
+    fn a_wrapper_is_added_once() {
         let mut chain = ChainModel::new(TRAMPOLINE);
-        chain.add_agpl(0xA0).unwrap();
-        assert_eq!(chain.add_agpl(0xB0), Err(ChainError::AlreadyCreated));
-        assert_eq!(ChainError::AlreadyCreated.status(), 3);
         assert_eq!(chain.add_mit(0x10, 0), Ok(()));
         assert_eq!(chain.add_mit(0x10, 1), Err(ChainError::AlreadyCreated));
+        assert_eq!(ChainError::AlreadyCreated.status(), 3);
     }
 
     #[test]
@@ -209,17 +147,13 @@ mod tests {
         let mut chain = ChainModel::new(TRAMPOLINE);
         chain.add_mit(0x10, 0).unwrap();
         chain.add_mit(0x20, 1).unwrap();
-        chain.add_agpl(0xA0).unwrap();
-        chain.remove_agpl(0xA0).unwrap();
-        assert_eq!(chain.next_of(0x20), Some(TRAMPOLINE));
         assert_eq!(chain.mit_cells(), [(0x20, TRAMPOLINE), (0x10, 0x20)]);
-        assert_eq!(chain.remove_agpl(0xA0), Err(ChainError::NotCreated));
-        assert_eq!(ChainError::NotCreated.status(), 4);
         chain.remove_mit(0x10).unwrap();
         assert_eq!(chain.head(), 0x20);
         chain.remove_mit(0x20).unwrap();
         assert_eq!(chain.head(), TRAMPOLINE);
         assert_eq!(chain.remove_mit(0x20), Err(ChainError::NotCreated));
+        assert_eq!(ChainError::NotCreated.status(), 4);
     }
 
     #[test]

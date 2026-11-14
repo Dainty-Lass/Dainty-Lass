@@ -129,15 +129,9 @@ fn schedule() {
 
 #[test]
 fn decisions() {
-    assert_eq!(listen_decision(AuthMode::GlobalGameserver, false), Some(Decision::Mit));
-    assert_eq!(listen_decision(AuthMode::GlobalGameserver, true), Some(Decision::Mit));
-    assert_eq!(listen_decision(AuthMode::PlayerHost, true), Some(Decision::Mit));
-    assert_eq!(
-        listen_decision(AuthMode::PlayerHost, false),
-        Some(Decision::AgplListens)
-    );
-    assert_eq!(listen_decision(AuthMode::Invalid, false), None);
-    assert_eq!(listen_decision(AuthMode::Invalid, true), None);
+    assert_eq!(listen_decision(AuthMode::GlobalGameserver), Some(Decision::Mit));
+    assert_eq!(listen_decision(AuthMode::PlayerHost), Some(Decision::Mit));
+    assert_eq!(listen_decision(AuthMode::Invalid), None);
 }
 
 #[test]

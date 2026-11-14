@@ -17,20 +17,20 @@
       "status": 200,
       "headers": {
         "content-type": "application/json; charset=utf-8",
-        "content-length": "325",
-        "etag": "\"6c1cf69ca0d163a9b39f6c25541e012d00a9c2339c22355bfdcc6115d730a7df\"",
+        "content-length": "332",
+        "etag": "\"fbbbcfc22691b9934999b5a6dfd6bf72693e86b942eeaa40c8f42b8ffbb93744\"",
         "cache-control": "no-cache",
         "x-content-type-options": "nosniff"
       },
-      "body": "{\"version\":\"20261014-1a2b3c4d\",\"build\":{\"name\":\"rel-1.14.7-Archon\",\"changelist\":647472},\"files\":[{\"name\":\"MysticParadox.dll\",\"size\":70000,\"sha256\":\"9f6d8bb550591a5410aa72b997e7d49e3eed1ce025e83628addaf4382d2295bd\"},{\"name\":\"winmm.dll\",\"size\":3000,\"sha256\":\"f541874101876255b4baf3a739778d04cb9cba25ffa38b30bc1fb8b0701f2a45\"}]}"
+      "body": "{\"version\":\"20261014-1a2b3c4d\",\"build\":{\"name\":\"rel-1.14.7-Archon\",\"changelist\":647472},\"files\":[{\"name\":\"rustic-isles-runtime.dll\",\"size\":70000,\"sha256\":\"9f6d8bb550591a5410aa72b997e7d49e3eed1ce025e83628addaf4382d2295bd\"},{\"name\":\"winmm.dll\",\"size\":3000,\"sha256\":\"f541874101876255b4baf3a739778d04cb9cba25ffa38b30bc1fb8b0701f2a45\"}]}"
     },
     {
       "request": "HEAD /content/v1/runtime/manifest",
       "status": 200,
       "headers": {
         "content-type": "application/json; charset=utf-8",
-        "content-length": "325",
-        "etag": "\"6c1cf69ca0d163a9b39f6c25541e012d00a9c2339c22355bfdcc6115d730a7df\"",
+        "content-length": "332",
+        "etag": "\"fbbbcfc22691b9934999b5a6dfd6bf72693e86b942eeaa40c8f42b8ffbb93744\"",
         "cache-control": "no-cache",
         "x-content-type-options": "nosniff"
       },
@@ -41,18 +41,18 @@
       "status": 200,
       "headers": {
         "content-type": "application/json; charset=utf-8",
-        "content-length": "325",
-        "etag": "\"6c1cf69ca0d163a9b39f6c25541e012d00a9c2339c22355bfdcc6115d730a7df\"",
+        "content-length": "332",
+        "etag": "\"fbbbcfc22691b9934999b5a6dfd6bf72693e86b942eeaa40c8f42b8ffbb93744\"",
         "cache-control": "no-cache",
         "x-content-type-options": "nosniff"
       },
-      "body": "{\"version\":\"20261014-1a2b3c4d\",\"build\":{\"name\":\"rel-1.14.7-Archon\",\"changelist\":647472},\"files\":[{\"name\":\"MysticParadox.dll\",\"size\":70000,\"sha256\":\"9f6d8bb550591a5410aa72b997e7d49e3eed1ce025e83628addaf4382d2295bd\"},{\"name\":\"winmm.dll\",\"size\":3000,\"sha256\":\"f541874101876255b4baf3a739778d04cb9cba25ffa38b30bc1fb8b0701f2a45\"}]}"
+      "body": "{\"version\":\"20261014-1a2b3c4d\",\"build\":{\"name\":\"rel-1.14.7-Archon\",\"changelist\":647472},\"files\":[{\"name\":\"rustic-isles-runtime.dll\",\"size\":70000,\"sha256\":\"9f6d8bb550591a5410aa72b997e7d49e3eed1ce025e83628addaf4382d2295bd\"},{\"name\":\"winmm.dll\",\"size\":3000,\"sha256\":\"f541874101876255b4baf3a739778d04cb9cba25ffa38b30bc1fb8b0701f2a45\"}]}"
     },
     {
       "request": "GET /content/v1/runtime/manifest",
       "status": 304,
       "headers": {
-        "etag": "\"6c1cf69ca0d163a9b39f6c25541e012d00a9c2339c22355bfdcc6115d730a7df\"",
+        "etag": "\"fbbbcfc22691b9934999b5a6dfd6bf72693e86b942eeaa40c8f42b8ffbb93744\"",
         "x-content-type-options": "nosniff"
       },
       "body": ""
@@ -61,7 +61,7 @@
       "request": "GET /content/v1/runtime/manifest",
       "status": 304,
       "headers": {
-        "etag": "\"6c1cf69ca0d163a9b39f6c25541e012d00a9c2339c22355bfdcc6115d730a7df\"",
+        "etag": "\"fbbbcfc22691b9934999b5a6dfd6bf72693e86b942eeaa40c8f42b8ffbb93744\"",
         "x-content-type-options": "nosniff"
       },
       "body": ""
@@ -70,7 +70,7 @@
       "request": "GET /content/v1/runtime/manifest",
       "status": 304,
       "headers": {
-        "etag": "\"6c1cf69ca0d163a9b39f6c25541e012d00a9c2339c22355bfdcc6115d730a7df\"",
+        "etag": "\"fbbbcfc22691b9934999b5a6dfd6bf72693e86b942eeaa40c8f42b8ffbb93744\"",
         "x-content-type-options": "nosniff"
       },
       "body": ""
@@ -79,7 +79,7 @@
       "request": "GET /content/v1/runtime/manifest",
       "status": 304,
       "headers": {
-        "etag": "\"6c1cf69ca0d163a9b39f6c25541e012d00a9c2339c22355bfdcc6115d730a7df\"",
+        "etag": "\"fbbbcfc22691b9934999b5a6dfd6bf72693e86b942eeaa40c8f42b8ffbb93744\"",
         "x-content-type-options": "nosniff"
       },
       "body": ""
@@ -89,18 +89,18 @@
       "status": 200,
       "headers": {
         "content-type": "application/json; charset=utf-8",
-        "content-length": "325",
-        "etag": "\"6c1cf69ca0d163a9b39f6c25541e012d00a9c2339c22355bfdcc6115d730a7df\"",
+        "content-length": "332",
+        "etag": "\"fbbbcfc22691b9934999b5a6dfd6bf72693e86b942eeaa40c8f42b8ffbb93744\"",
         "cache-control": "no-cache",
         "x-content-type-options": "nosniff"
       },
-      "body": "{\"version\":\"20261014-1a2b3c4d\",\"build\":{\"name\":\"rel-1.14.7-Archon\",\"changelist\":647472},\"files\":[{\"name\":\"MysticParadox.dll\",\"size\":70000,\"sha256\":\"9f6d8bb550591a5410aa72b997e7d49e3eed1ce025e83628addaf4382d2295bd\"},{\"name\":\"winmm.dll\",\"size\":3000,\"sha256\":\"f541874101876255b4baf3a739778d04cb9cba25ffa38b30bc1fb8b0701f2a45\"}]}"
+      "body": "{\"version\":\"20261014-1a2b3c4d\",\"build\":{\"name\":\"rel-1.14.7-Archon\",\"changelist\":647472},\"files\":[{\"name\":\"rustic-isles-runtime.dll\",\"size\":70000,\"sha256\":\"9f6d8bb550591a5410aa72b997e7d49e3eed1ce025e83628addaf4382d2295bd\"},{\"name\":\"winmm.dll\",\"size\":3000,\"sha256\":\"f541874101876255b4baf3a739778d04cb9cba25ffa38b30bc1fb8b0701f2a45\"}]}"
     },
     {
       "request": "GET /content/v1/runtime/manifest",
       "status": 304,
       "headers": {
-        "etag": "\"6c1cf69ca0d163a9b39f6c25541e012d00a9c2339c22355bfdcc6115d730a7df\"",
+        "etag": "\"fbbbcfc22691b9934999b5a6dfd6bf72693e86b942eeaa40c8f42b8ffbb93744\"",
         "x-content-type-options": "nosniff"
       },
       "body": ""
@@ -196,7 +196,7 @@
       "body": "{\"error\":\"not_found\"}"
     },
     {
-      "request": "GET /content/v1/runtime/files/MysticParadox.dll",
+      "request": "GET /content/v1/runtime/files/rustic-isles-runtime.dll",
       "status": 401,
       "headers": {
         "content-type": "application/json; charset=utf-8",
@@ -207,7 +207,7 @@
       "body": "{\"error\":\"unauthorized\"}"
     },
     {
-      "request": "GET /content/v1/runtime/files/MysticParadox.dll",
+      "request": "GET /content/v1/runtime/files/rustic-isles-runtime.dll",
       "status": 401,
       "headers": {
         "content-type": "application/json; charset=utf-8",
@@ -218,7 +218,7 @@
       "body": "{\"error\":\"unauthorized\"}"
     },
     {
-      "request": "GET /content/v1/runtime/files/MysticParadox.dll",
+      "request": "GET /content/v1/runtime/files/rustic-isles-runtime.dll",
       "status": 401,
       "headers": {
         "content-type": "application/json; charset=utf-8",
@@ -229,7 +229,7 @@
       "body": "{\"error\":\"unauthorized\"}"
     },
     {
-      "request": "GET /content/v1/runtime/files/MysticParadox.dll",
+      "request": "GET /content/v1/runtime/files/rustic-isles-runtime.dll",
       "status": 401,
       "headers": {
         "content-type": "application/json; charset=utf-8",
@@ -240,7 +240,7 @@
       "body": "{\"error\":\"unauthorized\"}"
     },
     {
-      "request": "GET /content/v1/runtime/files/MysticParadox.dll",
+      "request": "GET /content/v1/runtime/files/rustic-isles-runtime.dll",
       "status": 503,
       "headers": {
         "content-type": "application/json; charset=utf-8",
@@ -252,7 +252,7 @@
       "body": "{\"error\":\"auth_unavailable\"}"
     },
     {
-      "request": "GET /content/v1/runtime/files/MysticParadox.dll",
+      "request": "GET /content/v1/runtime/files/rustic-isles-runtime.dll",
       "status": 503,
       "headers": {
         "content-type": "application/json; charset=utf-8",
@@ -264,7 +264,7 @@
       "body": "{\"error\":\"auth_unavailable\"}"
     },
     {
-      "request": "GET /content/v1/runtime/files/MysticParadox.dll",
+      "request": "GET /content/v1/runtime/files/rustic-isles-runtime.dll",
       "status": 503,
       "headers": {
         "content-type": "application/json; charset=utf-8",
@@ -276,7 +276,7 @@
       "body": "{\"error\":\"auth_unavailable\"}"
     },
     {
-      "request": "GET /content/v1/runtime/files/MysticParadox.dll",
+      "request": "GET /content/v1/runtime/files/rustic-isles-runtime.dll",
       "status": 401,
       "headers": {
         "content-type": "application/json; charset=utf-8",
@@ -287,7 +287,7 @@
       "body": "{\"error\":\"unauthorized\"}"
     },
     {
-      "request": "GET /content/v1/runtime/files/MysticParadox.dll",
+      "request": "GET /content/v1/runtime/files/rustic-isles-runtime.dll",
       "status": 401,
       "headers": {
         "content-type": "application/json; charset=utf-8",
@@ -298,7 +298,7 @@
       "body": "{\"error\":\"unauthorized\"}"
     },
     {
-      "request": "GET /content/v1/runtime/files/MysticParadox.dll",
+      "request": "GET /content/v1/runtime/files/rustic-isles-runtime.dll",
       "status": 401,
       "headers": {
         "content-type": "application/json; charset=utf-8",
@@ -309,7 +309,7 @@
       "body": "{\"error\":\"unauthorized\"}"
     },
     {
-      "request": "GET /content/v1/runtime/files/MysticParadox.dll",
+      "request": "GET /content/v1/runtime/files/rustic-isles-runtime.dll",
       "status": 200,
       "headers": {
         "content-type": "application/octet-stream",
@@ -321,7 +321,7 @@
       "body": "<70000 bytes sha256 9f6d8bb550591a5410aa72b997e7d49e3eed1ce025e83628addaf4382d2295bd>"
     },
     {
-      "request": "HEAD /content/v1/runtime/files/MysticParadox.dll",
+      "request": "HEAD /content/v1/runtime/files/rustic-isles-runtime.dll",
       "status": 200,
       "headers": {
         "content-type": "application/octet-stream",
@@ -332,7 +332,7 @@
       "body": ""
     },
     {
-      "request": "GET /content/v1/runtime/files/MysticParadox.dll?download=1",
+      "request": "GET /content/v1/runtime/files/rustic-isles-runtime.dll?download=1",
       "status": 200,
       "headers": {
         "content-type": "application/octet-stream",
@@ -465,7 +465,7 @@
       "body": "{\"error\":\"not_found\"}"
     },
     {
-      "request": "GET /content/v1/runtime/files/MysticParadox.dll/x",
+      "request": "GET /content/v1/runtime/files/rustic-isles-runtime.dll/x",
       "status": 404,
       "headers": {
         "content-type": "application/json; charset=utf-8",
@@ -715,12 +715,12 @@
       "status": 200,
       "headers": {
         "content-type": "application/json; charset=utf-8",
-        "content-length": "325",
-        "etag": "\"6c1cf69ca0d163a9b39f6c25541e012d00a9c2339c22355bfdcc6115d730a7df\"",
+        "content-length": "332",
+        "etag": "\"fbbbcfc22691b9934999b5a6dfd6bf72693e86b942eeaa40c8f42b8ffbb93744\"",
         "cache-control": "no-cache",
         "x-content-type-options": "nosniff"
       },
-      "body": "{\"version\":\"20261014-1a2b3c4d\",\"build\":{\"name\":\"rel-1.14.7-Archon\",\"changelist\":647472},\"files\":[{\"name\":\"MysticParadox.dll\",\"size\":70000,\"sha256\":\"9f6d8bb550591a5410aa72b997e7d49e3eed1ce025e83628addaf4382d2295bd\"},{\"name\":\"winmm.dll\",\"size\":3000,\"sha256\":\"f541874101876255b4baf3a739778d04cb9cba25ffa38b30bc1fb8b0701f2a45\"}]}"
+      "body": "{\"version\":\"20261014-1a2b3c4d\",\"build\":{\"name\":\"rel-1.14.7-Archon\",\"changelist\":647472},\"files\":[{\"name\":\"rustic-isles-runtime.dll\",\"size\":70000,\"sha256\":\"9f6d8bb550591a5410aa72b997e7d49e3eed1ce025e83628addaf4382d2295bd\"},{\"name\":\"winmm.dll\",\"size\":3000,\"sha256\":\"f541874101876255b4baf3a739778d04cb9cba25ffa38b30bc1fb8b0701f2a45\"}]}"
     },
     {
       "request": "GET /content/v1/runtime/files/winmm.dll",

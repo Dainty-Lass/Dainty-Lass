@@ -25,7 +25,7 @@ pub enum Point {
 pub enum Verdict {
     /// Go on: the next handler, then the chain.
     Continue,
-    /// Stop: skip the rest of the before list, the chain (AGPL wrapper and original included) and the after list.
+    /// Stop: skip the rest of the before list, the chain (the original included) and the after list.
     Absorb,
 }
 

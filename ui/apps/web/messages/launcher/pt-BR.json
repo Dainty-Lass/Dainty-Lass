@@ -343,7 +343,7 @@
       "gamedata_packs": "Pacotes"
     },
     "sdk": "1. O SDK",
-    "sdkHint": "O Dumper-7 gera os cabeçalhos C++ do jogo a partir do seu cliente 1.14.7 em execução. O runtime e o CatalogExporter são compilados com eles. Nunca compartilhe o SDK.",
+    "sdkHint": "O Dumper-7 gera os cabeçalhos C++ do jogo a partir do seu cliente 1.14.7 em execução. O CatalogExporter é compilado com eles. Nunca compartilhe o SDK.",
     "dumper": "Dumper-7",
     "noDumper": "Nenhuma DLL do Dumper-7 escolhida ainda.",
     "chooseDumper": "Escolher DLL",
@@ -382,7 +382,7 @@
       },
       "build_runtime": {
         "label": "Compilar o runtime",
-        "hint": "Compila o Rustic-Isles.dll com o SDK.",
+        "hint": "Compila o runtime do Rustic Isles (rustic-isles-runtime.dll).",
         "button": "Compilar"
       },
       "build_loader": {

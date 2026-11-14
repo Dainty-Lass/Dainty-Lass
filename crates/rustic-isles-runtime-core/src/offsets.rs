@@ -1360,8 +1360,6 @@ pub mod r8 {
 pub mod r20 {
     /// `UNetConnection::SetClientWorldPackageName(connection, FName)`.
     pub const SET_CLIENT_WORLD_PACKAGE_NAME: u32 = 0x03F7_F050;
-    /// `UArchonGameplayStatics::TickFilterHelper`, DX-8's target: only asked of the broker.
-    pub const TICK_FILTER_HELPER: u32 = 0x0194_80B0;
     /// `AGameMode::MatchState`, an `FName`.
     pub const GAME_MODE_MATCH_STATE: usize = 0x2C0;
     /// A game mode's match state is read only when readable for this span.
@@ -1787,7 +1785,6 @@ mod tests {
     fn r20_lines() {
         use super::r20::*;
         assert_eq!(SET_CLIENT_WORLD_PACKAGE_NAME, 0x03F7_F050);
-        assert_eq!(TICK_FILTER_HELPER, 0x0194_80B0);
         assert_eq!(
             [
                 GAME_MODE_MATCH_STATE,

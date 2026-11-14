@@ -426,7 +426,8 @@ pub struct ArtifactHashes {
     pub steam_runtime: String,
     /// The admission public key.
     pub admission_public_key: String,
-    /// The MIT runtime (RT-5): the zero hash from a launcher that reports none, and not written then.
+    /// The MIT runtime (RT-5): the zero hash from a launcher that reports none, and not written then. Since R21
+    /// `internal_server` already pins it (the runtime manifest's hash), so this is redundant (spec-runtime-r21 H-8).
     #[serde(default = "zero_sha256", skip_serializing_if = "is_zero_sha256")]
     pub mit_runtime: String,
 }

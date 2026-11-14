@@ -23,8 +23,8 @@ use crate::bridge::types::{
 use crate::platform::hostkit::{
     self, BACKEND_GAME_DATA, DIRECTOR_GAME_DATA, EXPORT_FLAGS, HOST_BINARY, Toolchain, WorkspacePaths, copy_tree,
     detect_game_data, detect_host_kit, exporter_build_args, find_dumps, find_toolchain, invite_line, is_workspace,
-    last_json, msbuild_args, pack_written, platform_toolset, published_version, read_server_config, run_logged,
-    run_logged_env, update_check, update_done, update_failure,
+    last_json, pack_written, published_version, read_server_config, run_logged, run_logged_env, runtime_build_args,
+    update_check, update_done, update_failure,
 };
 use crate::platform::hostserver::{CommandOutput, EmbeddedServer, HostServer, HostTool, Probe};
 use crate::platform::inject::{self, InjectDll};
@@ -844,20 +844,20 @@ impl Controller {
             .await
     }
 
+    /// The MIT runtime with cargo, in a source checkout (spec-runtime-r21 L-4, call 6); a release ships it prebuilt.
     async fn build_runtime(&self, paths: &WorkspacePaths) -> ActionResult {
         let toolchain = find_toolchain().await;
-        let Some(msbuild) = toolchain.msbuild.clone() else {
-            return self.refuse_with("msbuild");
+        let Some(cargo) = toolchain.cargo else {
+            return self.refuse_with("cargo");
         };
-        let (kind, project, log_file) = (
-            HostJobKind::BuildRuntime,
-            paths.runtime_solution.clone(),
-            paths.logs.join("build_runtime.log"),
-        );
-        let build_args = msbuild_args(&project, platform_toolset(toolchain.major_version));
-        let folder = project.parent().map_or_else(|| paths.root.clone(), Path::to_path_buf);
+        // cargo links the DLL with the MSVC linker that comes with the C++ tools
+        if toolchain.msbuild.is_none() {
+            return self.refuse_with("msbuild");
+        }
+        let (kind, log_file) = (HostJobKind::BuildRuntime, paths.logs.join("build_runtime.log"));
+        let env = [("CARGO_TERM_PROGRESS_WHEN", Some(Path::new("never")))];
         let work = async {
-            let ran = run_logged(&msbuild, &build_args, &folder, &log_file).await;
+            let ran = run_logged_env(&cargo, &runtime_build_args(), &paths.root, &log_file, &env).await;
             if ran.code == 0 {
                 Ok(ran.last_line)
             } else {

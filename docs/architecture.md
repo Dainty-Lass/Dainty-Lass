@@ -78,7 +78,8 @@ Dainty Lass separates **core plugins** from **game modules** ([`crates/dainty-mo
 3. **Status and identity.** `GET /dainty/api/ServerStatus` (with the key, the full view: players and
    instances; without it, the limited one) and `GET /dainty/api/GetUserInfo` (the account's id and name, or
    a ban with its reason).
-4. **The runtime.** The content server lists the host's build of `Rustic-Isles.dll` and `winmm.dll` with sizes
+4. **The runtime.** The content server lists the host's `rustic-isles-runtime.dll` (the MIT runtime, alone since
+   R21) and the optional `winmm.dll` with sizes
    and SHA-256s (`/content/v1/runtime/manifest`). The launcher shows them, the player accepts them once, and
    every launch checks the files again. The launcher starts the game suspended and injects the checked
    runtime before it runs (RD9 as amended, [launcher-injection.md](launcher-injection.md)); under Proton the

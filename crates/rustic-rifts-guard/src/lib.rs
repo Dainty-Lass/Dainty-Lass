@@ -92,8 +92,8 @@ use crate::{
     traffic::{host_key, reservation, session_key},
 };
 
-/// The runtime files a Guard manifest names. `TRANSPORT_RUNTIME_MIT` pins the MIT runtime of a hosted realm and is
-/// optional while the transition lasts (RT-5).
+/// The runtime files a Guard manifest names. `TRANSPORT_RUNTIME_MIT` stays accepted, since an older Guard manifest
+/// may list it, but after R21 it pins the same file as the runtime manifest's hash (spec-runtime-r21 H-9).
 pub const GUARD_MANIFEST_ROLES: &[&str] = &[
     "TRANSPORT_MODULE",
     "TRANSPORT_RUNTIME",

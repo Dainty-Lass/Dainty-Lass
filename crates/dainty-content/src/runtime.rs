@@ -10,9 +10,7 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, PoisonError};
 use std::time::UNIX_EPOCH;
 
-use dainty_protocol::manifest::{
-    LEGACY_RUNTIME_DLL, RUNTIME_FILE_NAMES, RuntimeFile, RuntimeManifest, runtime_file_slot,
-};
+use dainty_protocol::manifest::{RUNTIME_FILE_NAMES, RuntimeFile, RuntimeManifest, runtime_file_slot};
 use serde_json::json;
 use sha2::Digest as _;
 
@@ -190,7 +188,7 @@ fn report(dir: &Path, before: &Status, after: &Status) {
 }
 
 fn signature(dir: &Path) -> Signature {
-    [INDEX, LEGACY_RUNTIME_DLL]
+    [INDEX]
         .iter()
         .chain(&RUNTIME_FILE_NAMES)
         .map(|name| {
@@ -303,7 +301,10 @@ mod tests {
         );
         let (store, now) = store(tmp.path());
         assert!(matches!(store.status(), Status::None(_)));
-        publish(tmp.path(), &[("Rustic-Isles.dll", b"dll"), ("winmm.dll", b"winmm")]);
+        publish(
+            tmp.path(),
+            &[("rustic-isles-runtime.dll", b"dll"), ("winmm.dll", b"winmm")],
+        );
         // Within 10 s the cached status stands
         now.fetch_add(9_999, Ordering::SeqCst);
         assert!(matches!(store.status(), Status::None(_)));
@@ -319,39 +320,40 @@ mod tests {
         };
         assert!(reason.contains("winmm.dll"), "{reason}");
         // A new publish is picked up after 10 s
-        publish(tmp.path(), &[("Rustic-Isles.dll", b"dll2"), ("winmm.dll", b"winmm2")]);
+        publish(
+            tmp.path(),
+            &[("rustic-isles-runtime.dll", b"dll2"), ("winmm.dll", b"winmm2")],
+        );
         now.fetch_add(10_000, Ordering::SeqCst);
         assert!(matches!(store.status(), Status::Ok(_)));
     }
 
     #[test]
-    fn t6_the_pre_dx4_name_serves_both_names() {
-        let tmp = tempfile::tempdir().unwrap();
-        publish(tmp.path(), &[("MysticParadox.dll", b"dll"), ("winmm.dll", b"w")]);
-        let status = load(tmp.path());
-        let Status::Ok(published) = &status else {
-            panic!("{status:?}")
-        };
-        assert_eq!(published.manifest.files[0].name, "MysticParadox.dll");
-        assert_eq!(status.listed("Rustic-Isles.dll").unwrap().name, "MysticParadox.dll");
-        assert_eq!(status.listed("MysticParadox.dll").unwrap().name, "MysticParadox.dll");
-        assert!(status.listed("mysticparadox.dll").is_none());
+    fn t6_a_retired_name_is_refused_and_never_served() {
+        // spec-runtime-r21 P-3: the AGPL runtime and its pre-DX4 name are unknown files now
+        for retired in ["Rustic-Isles.dll", "MysticParadox.dll"] {
+            let tmp = tempfile::tempdir().unwrap();
+            publish(tmp.path(), &[(retired, b"dll"), ("winmm.dll", b"w")]);
+            let status = load(tmp.path());
+            assert!(
+                matches!(&status, Status::Invalid(reason) if reason.contains(retired)),
+                "{status:?}"
+            );
+            assert!(status.listed(retired).is_none());
+        }
     }
 
     #[test]
-    fn the_mit_runtime_is_served_beside_the_agpl_one_when_listed() {
+    fn the_mit_runtime_alone_is_served() {
         let tmp = tempfile::tempdir().unwrap();
         let (store, now) = store(tmp.path());
-        publish(
-            tmp.path(),
-            &[("rustic-isles-runtime.dll", b"mit"), ("Rustic-Isles.dll", b"dll")],
-        );
+        publish(tmp.path(), &[("rustic-isles-runtime.dll", b"mit")]);
         let status = store.status();
         let Status::Ok(published) = &status else {
             panic!("{status:?}")
         };
         let names: Vec<_> = published.manifest.files.iter().map(|f| f.name.as_str()).collect();
-        assert_eq!(names, ["Rustic-Isles.dll", "rustic-isles-runtime.dll"]);
+        assert_eq!(names, ["rustic-isles-runtime.dll"]);
         assert_eq!(
             status.listed("rustic-isles-runtime.dll").unwrap().sha256,
             sha256_hex(b"mit")
@@ -374,7 +376,7 @@ mod tests {
             load(tmp.path()),
             Status::Invalid("runtime.json is not a regular file under 64 KB".into())
         );
-        publish(tmp.path(), &[("Rustic-Isles.dll", b"dll"), ("winmm.dll", b"w")]);
+        publish(tmp.path(), &[("rustic-isles-runtime.dll", b"dll"), ("winmm.dll", b"w")]);
         fs::remove_file(tmp.path().join("winmm.dll")).unwrap();
         assert_eq!(load(tmp.path()), Status::Invalid("winmm.dll is missing".into()));
         fs::create_dir(tmp.path().join("winmm.dll")).unwrap();
@@ -403,7 +405,7 @@ mod tests {
         fs::create_dir(tmp.path().join("revived")).unwrap();
         publish(
             &tmp.path().join("revived"),
-            &[("Rustic-Isles.dll", b"a"), ("winmm.dll", b"b")],
+            &[("rustic-isles-runtime.dll", b"a"), ("winmm.dll", b"b")],
         );
         assert!(matches!(
             store.version_status(&[".x".into(), "1.4.4".into(), "revived".into()]),

@@ -1,6 +1,6 @@
 [package]
 name = "rustic-isles-runtime"
-description = "The MIT game runtime DLL (installed as rustic-isles-runtime.dll): the spine, the hook broker and seam exports, and the runtime config (spec-runtime-r0, spec-runtime-r1)"
+description = "The MIT game runtime DLL (installed as rustic-isles-runtime.dll): the spine, the hook broker and the runtime config (spec-runtime-r0, spec-runtime-r1)"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true

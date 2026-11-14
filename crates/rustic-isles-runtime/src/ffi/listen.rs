@@ -1,6 +1,5 @@
 //! R9's raw half (spec-runtime-r9): the SRV-1 detour and its write into the engine's string, the engine calls
-//! (`CreateNamedNetDriver`, `InitListen`, `FMemory::Realloc`), the ready lines' stdout write and the
-//! `rir_listen_driver` export. The decisions are `core::listen`'s; the steps are `crate::listen`'s.
+//! (`CreateNamedNetDriver`, `InitListen`, `FMemory::Realloc`) and the ready lines' stdout write. The decisions are `core::listen`'s; the steps are `crate::listen`'s.
 
 use super::broker::{self, NextCell};
 use super::memory::{function_entry, read, read_bytes, readable};
@@ -233,13 +232,6 @@ pub fn write_stdout(text: &[String]) -> bool {
         .all(|line| out.write(line.as_bytes()).is_ok_and(|written| written == line.len()))
 }
 
-/// The driver R9's listen made or found, or null (9.2). Not in the seam's required set: the AGPL resolves it by
-/// name only when it needs it (patch 0052). A lock-free load, callable from any thread.
-#[unsafe(no_mangle)]
-pub extern "C" fn rir_listen_driver() -> *mut c_void {
-    catch_unwind(|| crate::listen::net_driver().unwrap_or(0) as *mut c_void).unwrap_or(std::ptr::null_mut())
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -383,10 +375,5 @@ mod tests {
             .read_to_string(&mut got)
             .unwrap();
         assert_eq!(got, "RUSTIC_ISLES_GAMESERVER_READY launchId=0f-1a port=8780\r\n");
-    }
-
-    #[test]
-    fn listen_driver_is_null_here() {
-        assert!(rir_listen_driver().is_null());
     }
 }

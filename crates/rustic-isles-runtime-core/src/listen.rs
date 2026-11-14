@@ -29,18 +29,14 @@ pub const GAME_NET_DRIVER: &str = "GameNetDriver";
 /// Who listens in this process (6.5).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Decision {
-    /// The MIT runtime: a DeployServer, or a player host once R10 is landed.
+    /// The MIT runtime, for a DeployServer and a player host alike (spec-runtime-r21 4.5).
     Mit,
-    /// A player host without R10 in this build: the AGPL runtime keeps the whole listen (patch 0052).
-    AgplListens,
 }
 
 /// `listen_decision`; `None` for `Invalid`, which ends the process before the listen.
-pub fn listen_decision(auth: AuthMode, owns_r10: bool) -> Option<Decision> {
+pub fn listen_decision(auth: AuthMode) -> Option<Decision> {
     match auth {
-        AuthMode::GlobalGameserver => Some(Decision::Mit),
-        AuthMode::PlayerHost if owns_r10 => Some(Decision::Mit),
-        AuthMode::PlayerHost => Some(Decision::AgplListens),
+        AuthMode::GlobalGameserver | AuthMode::PlayerHost => Some(Decision::Mit),
         AuthMode::Invalid => None,
     }
 }
@@ -321,9 +317,6 @@ pub mod lines {
     /// An unknown auth mode, before the process ends with `0xE102`.
     pub const INVALID_AUTH: &str =
         "[MitRuntime] [ServerAuth] unknown RUSTIC_ISLES_AUTH_MODE; terminating before listen";
-    /// The player host stand-down.
-    pub const STAND_DOWN: &str =
-        "[MitRuntime] [Listen] player host without R10 in this build: the AGPL runtime listens (patch 0052)";
     /// The request with a world.
     pub const REQUESTED_WORLD: &str = "[MitRuntime] [Listen] listen requested (world present)";
     /// The request without one.

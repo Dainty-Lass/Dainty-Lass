@@ -330,16 +330,20 @@ async fn the_mit_runtime_is_held_only_when_the_set_lists_it() {
         size: bytes.len() as u64,
         sha256: sha256_hex(bytes),
     };
-    let agpl_only = RuntimeManifest::new("1".to_owned(), DEFAULT_CHANGELIST, vec![entry(RUNTIME_DLL, b"agpl")]);
+    let agpl_only = RuntimeManifest::new(
+        "1".to_owned(),
+        DEFAULT_CHANGELIST,
+        vec![entry(AGPL_RUNTIME_DLL, b"agpl")],
+    );
     let pair = RuntimeManifest::new(
         "2".to_owned(),
         DEFAULT_CHANGELIST,
-        vec![entry(RUNTIME_DLL, b"agpl"), entry(MIT_RUNTIME_DLL, b"mit")],
+        vec![entry(AGPL_RUNTIME_DLL, b"agpl"), entry(MIT_RUNTIME_DLL, b"mit")],
     );
     let files = INJECTED_RUNTIME_FILES;
-    assert_eq!(required_runtime_files(files), [RUNTIME_DLL]);
+    assert_eq!(required_runtime_files(files, SetShape::Pair), [AGPL_RUNTIME_DLL]);
 
-    std::fs::write(win64.join(RUNTIME_DLL), b"agpl").unwrap();
+    std::fs::write(win64.join(AGPL_RUNTIME_DLL), b"agpl").unwrap();
     assert_eq!(
         check_runtime(&win64, Some(&agpl_only), true, None, files).await,
         (RuntimeState::Ok, true)
@@ -364,7 +368,7 @@ async fn the_mit_runtime_is_held_only_when_the_set_lists_it() {
     );
 
     // A local set: the MIT runtime copied when it has one, removed when it has none
-    std::fs::write(local.join(RUNTIME_DLL), b"agpl").unwrap();
+    std::fs::write(local.join(AGPL_RUNTIME_DLL), b"agpl").unwrap();
     assert!(is_complete_runtime_dir(&local, files).await);
     install_local_runtime(&local, &win64, files).await.unwrap();
     assert!(!win64.join(MIT_RUNTIME_DLL).exists());
@@ -690,4 +694,128 @@ async fn install_runtime_refuses_a_wrong_hash_a_401_and_a_wrong_pin() {
     assert!(!win64.join("Rustic-Isles.dll.rr-download").exists());
 
     handle.abort();
+}
+
+/// An R21 set is the MIT runtime alone (spec-runtime-r21 L-1): it plays, and every retired name left in the game
+/// folder is removed before it is installed, so none is loaded beside it.
+#[tokio::test]
+async fn an_r21_set_is_the_mit_runtime_alone_and_retired_names_go() {
+    let mit = b"the mit runtime";
+    let manifest = parse_runtime_manifest(&json!({
+        "version": "2.0.0",
+        "files": [{ "name": MIT_RUNTIME_DLL, "size": mit.len(), "sha256": sha256_hex(mit) }]
+    }))
+    .expect("an R21 set");
+    assert_eq!(SetShape::of(&manifest), SetShape::MitOnly);
+    assert_eq!(
+        required_runtime_files(INJECTED_RUNTIME_FILES, SetShape::MitOnly),
+        [MIT_RUNTIME_DLL]
+    );
+    assert_eq!(
+        required_runtime_files(LOADER_RUNTIME_FILES, SetShape::MitOnly),
+        [MIT_RUNTIME_DLL, LOADER_DLL]
+    );
+
+    let hits = Arc::new(AtomicUsize::new(0));
+    let mut routes = HashMap::new();
+    routes.insert(
+        format!("{RUNTIME_FILES_BASE_PATH}/{MIT_RUNTIME_DLL}"),
+        MockRoute {
+            status: 200,
+            body: mit.to_vec(),
+            require_auth: None,
+            hits: Arc::clone(&hits),
+        },
+    );
+    let (endpoint, handle) = start_tls_server(routes).await;
+    let dir = tempfile::tempdir().unwrap();
+    let win64 = dir.path().join("win64");
+    std::fs::create_dir_all(&win64).unwrap();
+    let files = INJECTED_RUNTIME_FILES;
+    assert_eq!(
+        check_runtime(&win64, Some(&manifest), true, None, files).await,
+        (RuntimeState::Missing, false)
+    );
+    std::fs::write(win64.join(MIT_RUNTIME_DLL), mit).unwrap();
+    assert_eq!(
+        check_runtime(&win64, Some(&manifest), true, None, files).await,
+        (RuntimeState::Ok, true)
+    );
+    for name in RETIRED_RUNTIME_DLLS {
+        std::fs::write(win64.join(name), b"stale").unwrap();
+        assert_eq!(
+            check_runtime(&win64, Some(&manifest), true, None, files).await,
+            (RuntimeState::Outdated, false),
+            "{name} is a leftover"
+        );
+    }
+    std::fs::write(win64.join(format!("{AGPL_RUNTIME_DLL}{DOWNLOAD_SUFFIX}")), b"half").unwrap();
+    install_runtime(InstallRequest {
+        files,
+        endpoint: &endpoint,
+        headers: Vec::new(),
+        manifest: &manifest,
+        win64_dir: &win64,
+        cancel: None,
+        on_progress: None,
+    })
+    .await
+    .unwrap();
+    assert_eq!(hits.load(Ordering::SeqCst), 0, "the MIT runtime was already current");
+    let mut left: Vec<String> = std::fs::read_dir(&win64)
+        .unwrap()
+        .map(|entry| entry.unwrap().file_name().to_string_lossy().into_owned())
+        .collect();
+    left.sort();
+    let mut expected = [MIT_RUNTIME_DLL, RUNTIME_MARKER_FILE];
+    expected.sort_unstable();
+    assert_eq!(left, expected);
+    assert_eq!(
+        check_runtime(&win64, Some(&manifest), true, None, files).await,
+        (RuntimeState::Ok, true)
+    );
+    assert_eq!(
+        check_runtime(&win64, None, false, None, files).await,
+        (RuntimeState::Ok, true),
+        "no offer: the MIT runtime alone is complete"
+    );
+
+    // A local R21 folder: complete with the MIT runtime alone, and a pair's runtime goes from the game folder
+    let local = dir.path().join("local");
+    std::fs::create_dir_all(&local).unwrap();
+    assert!(
+        !is_complete_runtime_dir(&local, files).await,
+        "an empty folder is no runtime"
+    );
+    std::fs::write(local.join(MIT_RUNTIME_DLL), b"mit2").unwrap();
+    assert!(is_complete_runtime_dir(&local, files).await);
+    std::fs::write(win64.join(AGPL_RUNTIME_DLL), b"agpl").unwrap();
+    install_local_runtime(&local, &win64, files).await.unwrap();
+    assert!(!win64.join(AGPL_RUNTIME_DLL).exists());
+    assert_eq!(std::fs::read(win64.join(MIT_RUNTIME_DLL)).unwrap(), b"mit2");
+
+    handle.abort();
+}
+
+#[test]
+fn manifest_takes_either_shape_and_refuses_neither() {
+    let sha = "a".repeat(64);
+    let parse = |names: &[&str]| {
+        let files: Vec<_> = names
+            .iter()
+            .map(|name| json!({ "name": name, "size": 1, "sha256": sha }))
+            .collect();
+        parse_runtime_manifest(&json!({ "version": "1", "files": files }))
+    };
+    let shape = |names: &[&str]| parse(names).map(|m| SetShape::of(&m));
+    assert_eq!(shape(&[MIT_RUNTIME_DLL]), Some(SetShape::MitOnly));
+    assert_eq!(shape(&[MIT_RUNTIME_DLL, LOADER_DLL]), Some(SetShape::MitOnly));
+    assert_eq!(shape(&[AGPL_RUNTIME_DLL]), Some(SetShape::Pair));
+    assert_eq!(
+        shape(&[AGPL_RUNTIME_DLL, MIT_RUNTIME_DLL, LOADER_DLL]),
+        Some(SetShape::Pair)
+    );
+    assert_eq!(shape(&[LEGACY_RUNTIME_DLL, MIT_RUNTIME_DLL]), Some(SetShape::Pair));
+    assert!(parse(&[LOADER_DLL]).is_none(), "no runtime");
+    assert!(parse(&["MystPaxInternalServer.dll", MIT_RUNTIME_DLL]).is_none());
 }

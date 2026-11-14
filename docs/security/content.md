@@ -38,9 +38,10 @@ Fuzz targets in `fuzz`: `content_request` (path, headers, version query), `conte
 
 ### What is served
 
-- [ ] A runtime file is served only under the names `Rustic-Isles.dll`, `rustic-isles-runtime.dll` (RT-5), `winmm.dll`
-  and `MysticParadox.dll`, matched
-  byte for byte on the raw path; no decoding, so `%2e%2e`, `..` and sub-paths are 404 (`input::tests::r2_*`,
+- [ ] A runtime file is served only under the names `rustic-isles-runtime.dll` and `winmm.dll`, matched
+  byte for byte on the raw path; since R21 a `runtime.json` naming `Rustic-Isles.dll`, `MysticParadox.dll` or
+  `MystPaxInternalServer.dll` is refused as an unknown file and nothing is served (spec-runtime-r21 P-3,
+  `runtime::tests::t6_a_retired_name_is_refused_and_never_served`); no decoding, so `%2e%2e`, `..` and sub-paths are 404 (`input::tests::r2_*`,
   parity script `content`).
 - [ ] The path read is the runtime folder joined with the **listed** name, never the requested one; listed files are
   checked without following links, and a runtime with any file of the wrong type, size or SHA-256 serves nothing

@@ -40,7 +40,7 @@ fn attach(module: sys::Module) {
     let Some(folder) = own.parent() else {
         return;
     };
-    // The MIT runtime first: Rustic-Isles.dll looks for its seam when it attaches (RT-5, patch 0041)
+    // The MIT runtime by its fixed name (RT-5); since R21 the candidates are only an older set's
     if let Some(mit) = runtime::mit(folder) {
         let _ = sys::load(&mit);
     }

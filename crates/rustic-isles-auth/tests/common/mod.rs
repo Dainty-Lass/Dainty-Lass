@@ -249,7 +249,7 @@ impl Harness {
             "buildChangelist": 647472,
             "executableSha256": h('a'),
             "runtimeManifestVersion": "0.1.78",
-            "runtimeArtifacts": [{"name": "Rustic-Isles.dll", "sha256": h('b')}, {"name": "winmm.dll", "sha256": h('c')}]
+            "runtimeArtifacts": [{"name": "rustic-isles-runtime.dll", "sha256": h('b')}, {"name": "winmm.dll", "sha256": h('c')}]
         })
     }
 

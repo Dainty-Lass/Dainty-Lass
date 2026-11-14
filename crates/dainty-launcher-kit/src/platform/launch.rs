@@ -906,7 +906,7 @@ mod tests {
 
         // The inject helper in the game's place, the game and its arguments after the helper's own
         let dlls = [InjectDll {
-            path: PathBuf::from("/g/Win64/Rustic-Isles.dll"),
+            path: PathBuf::from("/g/Win64/rustic-isles-runtime.dll"),
             sha256: "a".repeat(64),
         }];
         let game_args = [OsString::from("-AUTH_PASSWORD=DLK_secret")];

@@ -3,14 +3,14 @@
   "env": {},
   "runtime": {
     "files": {
-      "MysticParadox.dll": {
+      "rustic-isles-runtime.dll": {
         "text": "mystic paradox\n"
       },
       "winmm.dll": {
         "text": "winmm loader\n"
       }
     },
-    "index": "﻿{\n  \"files\": [\n    {\"sha256\": \"$sha:winmm.dll\", \"size\": 13, \"name\": \"winmm.dll\"},\n    {\"name\": \"MysticParadox.dll\", \"size\": 15.0, \"sha256\": \"$sha:MysticParadox.dll\"}\n  ],\n  \"build\": {\"name\": \"ignored by the server\", \"changelist\": 651234},\n  \"version\": \"  1.0+rr_2  \"\n}\n"
+    "index": "﻿{\n  \"files\": [\n    {\"sha256\": \"$sha:winmm.dll\", \"size\": 13, \"name\": \"winmm.dll\"},\n    {\"name\": \"rustic-isles-runtime.dll\", \"size\": 15.0, \"sha256\": \"$sha:rustic-isles-runtime.dll\"}\n  ],\n  \"build\": {\"name\": \"ignored by the server\", \"changelist\": 651234},\n  \"version\": \"  1.0+rr_2  \"\n}\n"
   },
   "keys": {
     "RRK_good_key_0123456789abcdefghijklmnopqrstuvwxyz": {
