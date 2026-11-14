@@ -482,6 +482,13 @@ pub const TARGETS: &[Target] = &[
         found_by: FoundBy::RvaAndBytes(&LOADMAP_PROLOGUE),
         what: "UEngine::LoadMap",
     },
+    // R18: the Trials schedule
+    Target {
+        id: "ESC-1",
+        rva: 0x01D9_5B70,
+        found_by: FoundBy::Rva,
+        what: "FGameplayScheduler::Initialize",
+    },
 ];
 
 /// R16: `UEngine::LoadMap`'s first 31 bytes.
@@ -1406,6 +1413,52 @@ pub mod r20 {
     pub const CAN_RESTART_RETURN: usize = 0x08;
     /// `TickStamina`'s params: `Where`, `Whom`.
     pub const TICK_STAMINA_PARAMS: usize = 0x02;
+}
+
+/// R18: the arena schedule tables and the escalation mode (UE 4.26 and Archon types; RT-2).
+pub mod r18 {
+    /// `TArray` data pointer.
+    pub const TARRAY_DATA: usize = 0x00;
+    /// `TArray` `Num` (`i32`).
+    pub const TARRAY_NUM: usize = 0x08;
+    /// `UDataTable.RowMap`, a `TMap<FName, uint8*>` (`0x50` bytes).
+    pub const DATATABLE_ROW_MAP: usize = 0x30;
+    /// The map's sparse array: element pointer.
+    pub const SPARSE_DATA: usize = 0x00;
+    /// `ArrayNum` (`i32`).
+    pub const SPARSE_NUM: usize = 0x08;
+    /// `ArrayMax` (`i32`).
+    pub const SPARSE_MAX: usize = 0x0C;
+    /// The allocation bits when the heap pointer is null (four `u32`).
+    pub const SPARSE_BITS_INLINE: usize = 0x10;
+    /// The allocation bits' heap pointer.
+    pub const SPARSE_BITS_HEAP: usize = 0x20;
+    /// `NumFreeIndices` (`i32`).
+    pub const SPARSE_FREE_COUNT: usize = 0x34;
+    /// One row map element.
+    pub const ROW_MAP_STRIDE: usize = 0x18;
+    /// Its key, an `FName`.
+    pub const ROW_MAP_KEY: usize = 0x00;
+    /// Its value, the row pointer.
+    pub const ROW_MAP_VALUE: usize = 0x08;
+    /// `FScheduleData.StartTime` (`i64` .NET ticks).
+    pub const SCHEDULE_ROW_START: usize = 0x20;
+    /// `FScheduleData.EndTime`.
+    pub const SCHEDULE_ROW_END: usize = 0x28;
+    /// How much of a row must be readable.
+    pub const SCHEDULE_ROW_READ: usize = 0x30;
+    /// `UEscalationGameModeComponent.EscalationGameStateComponent`.
+    pub const ESC_MODE_STATE_COMPONENT: usize = 0xB8;
+    /// How much of the mode component must be readable.
+    pub const ESC_MODE_READ: usize = 0xC0;
+    /// `UEscalationGameStateComponent.CurrentRound` (`i32`).
+    pub const ESC_STATE_CURRENT_ROUND: usize = 0x134;
+    /// How much of the state component must be readable.
+    pub const ESC_STATE_READ: usize = 0x138;
+    /// `EEscalationGameModeState::EventEnding`.
+    pub const ESC_STATE_EVENT_ENDING: u8 = 7;
+    /// `EStateTransitionType::Begin`.
+    pub const TRANSITION_BEGIN: u8 = 0;
 }
 
 #[cfg(test)]

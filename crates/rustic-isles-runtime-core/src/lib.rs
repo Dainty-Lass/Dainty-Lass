@@ -7,6 +7,7 @@ pub mod config;
 pub mod economy;
 pub mod engine;
 pub mod env;
+pub mod escalation;
 pub mod exit;
 pub mod flags;
 pub mod frame;

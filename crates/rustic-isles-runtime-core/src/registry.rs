@@ -5,6 +5,7 @@
 /// The slices whose ids this build owns.
 pub const LANDED: &[&str] = &[
     "R0", "R1", "R2", "R3", "R4", "R5", "R9", "R7", "R6", "R10", "R11", "R15", "R8", "R16", "R12", "R17", "R13", "R20",
+    "R18",
 ];
 
 /// The longest id `owns` accepts, in bytes.
@@ -335,6 +336,10 @@ mod tests {
             assert_eq!(owned_count(), 25);
         }
         assert_eq!(owns(b"SP-3@R9"), LANDED.contains(&"R9"));
+        // R18's detour and its two feature ids
+        for id in ["ESC-1", "SP-2@R18", "SP-3@R18"] {
+            assert!(owns(id.as_bytes()), "{id}");
+        }
         assert!(!owns(b"DX-8"));
         assert!(!owns(b"NOPE-1"));
         assert!(!owns(b""));

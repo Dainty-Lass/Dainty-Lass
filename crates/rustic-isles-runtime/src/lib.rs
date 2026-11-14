@@ -9,6 +9,8 @@ pub mod config;
 #[cfg(minhook)]
 mod economy;
 #[cfg(minhook)]
+mod escalation;
+#[cfg(minhook)]
 pub mod handlers;
 #[cfg(minhook)]
 pub mod headless;

@@ -77,6 +77,21 @@ Fuzz targets in `fuzz`:
 - [ ] `patch_bytes` writes only when the bytes are the expected ones, restores the old protection and flushes the
       instruction cache (`patch_bytes_at`; tests on a page the test allocates).
 
+### Data writes and game calls (R18)
+
+- [ ] ESC-1 writes through R17's `ffi::reflect::write` (readable, aligned, a writable region without `PAGE_GUARD`),
+      so a row that fails it is left alone and not counted in `patchedRows`. It never changes a protection.
+- [ ] ESC-1 writes only the `StartTime` and `EndTime` of rows it read through a bounded walk: at most 64 tables, a
+      row map of at most 4096 elements, the element and bit blocks readable whole first, every row readable for
+      `0x30`, only names `Scheduled_Arena_Hunt_001` to `_181` (`core::escalation::trials` tests). It always calls the
+      original, also after a panic.
+- [ ] The buff-choice spawn calls the game only on an object that is still live (`is_live_object`) with a function
+      found in its own class chain and declared by `EscalationGameModeComponent`, with no parameters, from the game
+      thread's tick, never from inside `ProcessEvent` (`escalation.rs`, `core::escalation` tests).
+- [ ] R18 reads nothing a player sends: its inputs are the game's own tables and state, the host's
+      `TRIALS_ROTATION_MINUTES` and the Director's `RUSTIC_ISLES_TRIALS_WEEK` (R1's bounded parsers), so it adds no
+      fuzz target.
+
 ### The broker and the seam
 
 - [ ] One MinHook copy patches a target, once: the broker hooks each target at most once and runs a chain on it
