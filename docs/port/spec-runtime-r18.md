@@ -2,6 +2,10 @@
 
 # Clean-room behaviour specification: runtime slice R18, escalation and Trials (RD27, plan item 11)
 
+> Since R21 (`spec-runtime-r21.md`) the AGPL runtime is gone; `rustic-isles-runtime.dll` is the only runtime. This
+> slice's play-test runs on the MIT DLL alone, as that spec's section 9 adapts it: skip every step that builds or
+> patches the AGPL runtime, injects both DLLs, counts `[MitSeam]` lines or runs without the MIT DLL.
+
 R18 moves two game fixes into the MIT runtime (`spec-runtime-surface.md` section 8, R18's row): **ESC-1**, which makes
 the Trials current and launchable by rewriting the arena schedule rows before `FGameplayScheduler::Initialize` copies
 them, and the **escalation buff-choice spawn**, which makes every player of an Escalation get their own relic pickups

@@ -2,6 +2,10 @@
 
 # Clean-room behaviour specification: runtime slice R6, widget crash guards (RD27, plan item 11)
 
+> Since R21 (`spec-runtime-r21.md`) the AGPL runtime is gone; `rustic-isles-runtime.dll` is the only runtime. This
+> slice's play-test runs on the MIT DLL alone, as that spec's section 9 adapts it: skip every step that builds or
+> patches the AGPL runtime, injects both DLLs, counts `[MitSeam]` lines or runs without the MIT DLL.
+
 R6 ports the thirteen crash guards a 1.14.7 game server (and, for one of them, the client) needs because UI code
 dereferences sub-widgets that a headless process never binds: UI-1 to UI-13 (`spec-runtime-surface.md` sections 3.6,
 3.11 and 8; `spec-runtime-r0.md` section 7.5). Every guard is a MinHook detour through R0's broker that calls the

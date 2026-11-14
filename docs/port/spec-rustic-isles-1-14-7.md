@@ -1,5 +1,8 @@
 # Clean-Room Behaviour Specification: `crates/rustic-isles-1-14-7` and `crates/rustic-isles-1-14-7-plugin` (RD27)
 
+> Since R21 (`spec-runtime-r21.md`) the AGPL runtime is gone; `native/runtime/p2p/PlayerHost.cpp` is deleted, and the
+> player host's side is the MIT runtime's R10 (`spec-runtime-r10.md`).
+
 > **Ports moved 2026-11-10.** The loopback services' defaults are now backend 41000, Director 41001, content
 > 41002, admin 41003, allowlist 41005, chat 41006 and QoS 41010, below the dynamic range Windows lends to Hyper-V,
 > WSL and Docker. settings.toml's `[ports]` moves any of them, and on Windows setup and start move one Windows has lent

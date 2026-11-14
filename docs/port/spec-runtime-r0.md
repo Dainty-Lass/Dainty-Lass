@@ -2,6 +2,10 @@
 
 # Clean-room behaviour specification: runtime slice R0, the spine (RD27, plan item 11)
 
+> Since R21 (`spec-runtime-r21.md`) the AGPL runtime is gone; `rustic-isles-runtime.dll` is the only runtime. This
+> slice's play-test runs on the MIT DLL alone, as that spec's section 9 adapts it: skip every step that builds or
+> patches the AGPL runtime, injects both DLLs, counts `[MitSeam]` lines or runs without the MIT DLL.
+
 R0 is the first slice of the MIT game runtime (`spec-runtime-surface.md` section 8, approved 2026-11-13 with rulings
 RT-1 to RT-18 in `rulings-2026-11-13.md`). It ports **no game feature**. It builds the DLL every later slice adds to:
 the crate layout, the process lifecycle, logging, flag files, environment reads, the pointer-safety helpers, the

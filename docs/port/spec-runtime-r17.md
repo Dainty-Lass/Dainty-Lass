@@ -2,6 +2,10 @@
 
 # Clean-room behaviour specification: runtime slice R17, client branding and console (RD27, plan item 11)
 
+> Since R21 (`spec-runtime-r21.md`) the AGPL runtime is gone; `rustic-isles-runtime.dll` is the only runtime. This
+> slice's play-test runs on the MIT DLL alone, as that spec's section 9 adapts it: skip every step that builds or
+> patches the AGPL runtime, injects both DLLs, counts `[MitSeam]` lines or runs without the MIT DLL.
+
 R17 is the client's front-end slice of the MIT game runtime (`spec-runtime-surface.md` section 4.3 and section 8's
 R17 row; rulings in `rulings-2026-11-13.md`). It puts Dainty Lass's own words on the press-start popup and in the
 credits, hides the stale version line of the login screen's patch notes, drives the login screen for scripted runs

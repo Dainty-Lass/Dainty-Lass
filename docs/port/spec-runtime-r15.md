@@ -2,6 +2,10 @@
 
 # Clean-room behaviour specification: runtime slice R15, inventory and economy (RD27, plan item 11)
 
+> Since R21 (`spec-runtime-r21.md`) the AGPL runtime is gone; `rustic-isles-runtime.dll` is the only runtime. This
+> slice's play-test runs on the MIT DLL alone, as that spec's section 9 adapts it: skip every step that builds or
+> patches the AGPL runtime, injects both DLLs, counts `[MitSeam]` lines or runs without the MIT DLL.
+
 R15 moves three game-data features from the AGPL `Rustic-Isles.dll` to the MIT `rustic-isles-runtime.dll`
 (`spec-runtime-surface.md` sections 4.3, 6 and 8): supplies lose their stack cap (patch 0024), the Middleman's cell
 fusion takes 30 minutes (patch 0029), and the arsenal re-resolves loadout items whose inventory arrived late (patches

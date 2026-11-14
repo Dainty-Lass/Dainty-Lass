@@ -2,6 +2,10 @@
 
 # Clean-room behaviour specification: runtime slice R9, listen and readiness (RD27, plan item 11)
 
+> Since R21 (`spec-runtime-r21.md`) the AGPL runtime is gone; `rustic-isles-runtime.dll` is the only runtime. This
+> slice's play-test runs on the MIT DLL alone, as that spec's section 9 adapts it: skip every step that builds or
+> patches the AGPL runtime, injects both DLLs, counts `[MitSeam]` lines or runs without the MIT DLL.
+
 R9 makes a game server reachable: it gives the engine the map URL a server boots with (SRV-1), creates and binds the
 server's `GameNetDriver` once the world exists, keeps that driver pointed at its world every frame, and tells whoever
 started the server that it is ready (the `RUSTIC_ISLES_GAMESERVER_READY` line the Director waits for). It owns the

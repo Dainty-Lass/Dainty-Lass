@@ -2,6 +2,10 @@
 
 # Clean-room behaviour specification: runtime slice R2, backend HTTP (RD27, plan item 11)
 
+> Since R21 (`spec-runtime-r21.md`) the AGPL runtime is gone; `rustic-isles-runtime.dll` is the only runtime. This
+> slice's play-test runs on the MIT DLL alone, as that spec's section 9 adapts it: skip every step that builds or
+> patches the AGPL runtime, injects both DLLs, counts `[MitSeam]` lines or runs without the MIT DLL.
+
 R2 moves hook **HTTP-1** (surface section 3.2) into the MIT runtime: the game's outgoing HTTP requests are redirected
 to the Dainty Lass backend, a dedicated server's progression grants get an idempotent grant id, and a DeployServer
 gameserver's requests carry its key. It is the first slice that changes game behaviour, and the first to consume R1's

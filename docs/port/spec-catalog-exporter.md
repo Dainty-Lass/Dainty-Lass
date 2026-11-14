@@ -2,6 +2,10 @@
 
 # Clean-room behaviour specification: the CatalogExporter (RD27, port plan item 8)
 
+> Since R21 (`spec-runtime-r21.md`) the AGPL runtime is gone; and the C++ CatalogExporter this page describes was
+> deleted too (tag `agpl-catalog-exporter-final`). The host's SDK now lives in `.workspace/sdk` at the
+> checkout's root, where `native/rustic-isles-exporter` finds it (section 3.3's `restricted/` path is history).
+
 This page specifies `restricted/modules/rustic-isles/native/catalog-exporter` (CatalogExporter, Mystic Paradox,
 AGPL-3.0-only with `ADDITIONAL_TERMS.md`) so it can be re-created at the root under the MIT licence. The implementer
 works from this page alone and never opens `restricted/`. Nothing here is code from the exporter: it is what the

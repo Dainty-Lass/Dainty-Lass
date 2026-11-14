@@ -59,9 +59,9 @@ How to read the tables:
 | Reforged `upstream/` (the Paradox pin, patches, `store-captures.json`) | gone | `store-captures.json` is `restricted/modules/rustic-isles/reference/1.14.7/ParadoxBackend/store-captures.json`; the patch texts are commit messages and `restricted/docs/paradox-patches.md` |
 | Mystic Paradox `ParadoxBackend/`, `ParadoxDirector/` | `restricted/modules/rustic-isles/reference/1.14.7/ParadoxBackend`, `.../ParadoxDirector` | The rustic-isles submodule from DS6 (`paradox/backend`, `paradox/director` before), in-tree since RD27. Ported to Rust and cut over in code on 2026-10-28 (RU9), then re-created clean-room as the MIT `rustic-isles-*` crates (section 2.7); the Node reference stays for one release behind `--features paradox` until RB15 |
 | Mystic Paradox's hunt-manifest module (new at `21b9ff5`) | `restricted/modules/rustic-isles/reference/1.14.7/shared/hunt-manifest` | Imported by the backend and the Director |
-| Mystic Paradox `ParadoxRuntime/` | `restricted/modules/rustic-isles/native/runtime` | C++, built by each host (`native/paradox-runtime` before DS6) |
+| Mystic Paradox `ParadoxRuntime/` | gone; [`crates/rustic-isles-runtime`](../../crates/rustic-isles-runtime) | Was C++ in `restricted/modules/rustic-isles/native/runtime` (`native/paradox-runtime` before DS6), built by each host; re-created clean-room as the MIT runtime slice by slice (R0–R20) and deleted at R21 ([`spec-runtime-r21.md`](spec-runtime-r21.md)), its last tree kept by the tag `agpl-runtime-final`. See section 2.7 |
 | Mystic Paradox `tools/RuntimeLoader/` | [`native/runtime-loader`](../../native/runtime-loader) | Rewritten clean-room as MIT from [`spec-runtime-loader.md`](spec-runtime-loader.md) (RD27, [`clean-room/runtime-loader.md`](clean-room/runtime-loader.md)); a Rust crate of its own, outside both workspaces (DD13) |
-| Mystic Paradox `tools/CatalogExporter/` | `restricted/modules/rustic-isles/native/catalog-exporter`; [`native/rustic-isles-exporter`](../../native/rustic-isles-exporter) | Injected by the Host page's export session (RD9 as amended). Rewritten clean-room as MIT Rust from [`spec-catalog-exporter.md`](spec-catalog-exporter.md) (RD27): phase 1, the seven catalog exports, matches the C++ on the real client ([`clean-room/catalog-exporter-diff.md`](clean-room/catalog-exporter-diff.md)) and the Host page builds and loads it; the C++ stays in `restricted/` |
+| Mystic Paradox `tools/CatalogExporter/` | `restricted/modules/rustic-isles/native/catalog-exporter`; [`native/rustic-isles-exporter`](../../native/rustic-isles-exporter) | Injected by the Host page's export session (RD9 as amended). Rewritten clean-room as MIT Rust from [`spec-catalog-exporter.md`](spec-catalog-exporter.md) (RD27): phase 1, the seven catalog exports, matches the C++ on the real client ([`clean-room/catalog-exporter-diff.md`](clean-room/catalog-exporter-diff.md)) and the Host page and the host kit build and load it; the C++ original is deleted (tag `agpl-catalog-exporter-final`) |
 | Mystic Paradox `ParadoxLauncher/`, `ParadoxTransport/`, its release workflows, `.gitleaks.toml`, `docs/SELF_HOSTING.md` | not taken | Reforged has its own launcher; the ICE transport belongs to Paradox's player-hosted realms |
 | Mystic Paradox top-level `ADDITIONAL_TERMS.md`, `LICENSE`, `NOTICE.md`, `README.md`, `docs/` | `restricted/modules/rustic-isles/<same>` | rustic-isles' top level (`paradox/<same>` before DS6) |
 
@@ -117,7 +117,7 @@ what Reforged changed. The per-line detail is in [`delta-servers.md`](delta-serv
 
 | Reforged Node (`legacy/ReforgedContent/src/`) | DR Node (`legacy/UndauntedContent/src/`) | Rust (`crates/dainty-content/src/`) | Reforged's changes carried |
 | --- | --- | --- | --- |
-| `runtime.ts` | — | `runtime.rs` (type in `protocol::manifest`) | New: the two-file runtime (`Rustic-Isles.dll`, `winmm.dll`), `runtime.json`, states `ok`/`none`/`invalid`, the 10 s re-check, the manifest written byte for byte for a stable ETag |
+| `runtime.ts` | — | `runtime.rs` (type in `protocol::manifest`) | New: the two-file runtime (`Rustic-Isles.dll`, `winmm.dll`; since R21 `rustic-isles-runtime.dll` and `winmm.dll`, the retired names refused), `runtime.json`, states `ok`/`none`/`invalid`, the 10 s re-check, the manifest written byte for byte for a stable ETag |
 | `app.ts` | `app.ts` | `app.rs`, `input.rs` | `GET /content/v1/runtime/manifest` and `/runtime/files/<name>` in place of DR's game manifest and files; no HTTP ranges; `x-reforged-user-api-key`; no CORS headers; 256 KiB chunks |
 | `auth.ts` | `auth.ts` | `auth.rs`, `client.rs` | Key lookup at `GET /reforged/api/GetUserInfo` |
 | `config.ts` | `config.ts` | `config.rs` | Loopback binds only; `BACKEND_URL` (loopback `http:`); `CONTENT_RUNTIME_DIR`; `CONTENT_GAME_DIR`, `CONTENT_MANIFEST`, `CONTENT_DOWNLOAD_BASE_URL`, `CONTENT_ALLOW_ANY_BIND` gone; 4 streams per account |
@@ -203,8 +203,8 @@ MIT module (890 of 890 matched, `restricted/modules/rustic-isles/docs/mit-parity
 | `ParadoxBackend/scripts/` (game-data generators, admin bootstrap, data migrations) | `modules/rustic-isles/reference/1.14.7/ParadoxBackend/scripts` | `crates/rustic-isles-gamedata`, `crates/rustic-isles-director` (hunt tables), and `crates/rustic-isles-db` (`migrate`, `verify`, `export-mongo`) and `crates/rustic-isles-replay` (RU7/RB11/RB13) |
 | `ParadoxBackend/realtime/` (XMPP) | `modules/rustic-isles/reference/1.14.7/ParadoxBackend/src/realtime` | `crates/dainty-chat` (DN10a/b) and `crates/rustic-isles-chat` (rules and routes) |
 | `ParadoxDirector` | `modules/rustic-isles/reference/1.14.7/ParadoxDirector` | `crates/rustic-isles-director` (RU6: instance registry, hub supervisor, port leases, memory guard, hunt tables) |
-| Realms and Guard (`p2p/`, `realms/`, Guard) | `modules/rustic-isles/reference/1.14.7/ParadoxBackend` | `crates/rustic-rifts-*` (`rustic-rifts-seam`, `rustic-rifts-admission`, `rustic-rifts-relay`, `rustic-rifts-realms`, `rustic-rifts-guard`, `rustic-rifts-host`, `rustic-rifts-transport`; RF1–RF7, MIT clean-room), wired in by `rustic-isles-1-14-7`'s `rifts.rs`; the transport DLL stays in `restricted/modules/rustic-rifts/src` |
-| The C++ game runtime (`Rustic-Isles.dll`) | `modules/rustic-isles/native/runtime` | `crates/rustic-isles-runtime-core` (pure: flag cache, log lines, offsets, `.pdata`, chain model, ownership registry, R1 config) and `crates/rustic-isles-runtime` (`rustic_isles_runtime.dll`, installed as `rustic-isles-runtime.dll`: `DllMain`, hook broker, seam exports, SP-1/2/3 dispatch); replaces `Rustic-Isles.dll` slice by slice, both loaded MIT first through seam patch 0041 (plan item 11, RT-1, RT-5; [`spec-runtime-r0.md`](spec-runtime-r0.md), [`spec-runtime-r1.md`](spec-runtime-r1.md)) |
+| Realms and Guard (`p2p/`, `realms/`, Guard) | `modules/rustic-isles/reference/1.14.7/ParadoxBackend` | `crates/rustic-rifts-*` (`rustic-rifts-seam`, `rustic-rifts-admission`, `rustic-rifts-relay`, `rustic-rifts-realms`, `rustic-rifts-guard`, `rustic-rifts-host`, `rustic-rifts-transport`; RF1–RF7, MIT clean-room), wired in by `rustic-isles-1-14-7`'s `rifts.rs`; the C++ transport DLL was replaced by `rustic-rifts-transport` and deleted |
+| The C++ game runtime (`Rustic-Isles.dll`) | `modules/rustic-isles/native/runtime` (deleted at R21) | `crates/rustic-isles-runtime-core` (pure: flag cache, log lines, offsets, `.pdata`, chain model, ownership registry, R1 config) and `crates/rustic-isles-runtime` (`rustic_isles_runtime.dll`, installed as `rustic-isles-runtime.dll`: `DllMain`, hook broker, SP-1/2/3 dispatch, one module per slice); replaced `Rustic-Isles.dll` slice by slice (R0–R20, the two DLLs loaded MIT first through seam patch 0041 meanwhile) and is the only runtime since R21, which removed the seam exports and added `occupancy` (`SP-3@R21`, the `[NetConnEdge]` line) in both crates (plan item 11, RT-1, RT-5; [`spec-runtime-r0.md`](spec-runtime-r0.md) to [`spec-runtime-r21.md`](spec-runtime-r21.md)) |
 
 ### 2.8 The patches to Mystic Paradox
 
@@ -213,7 +213,7 @@ Each patch's current state (kept, reduced, dropped because upstream now does the
 
 | Patches | Live in | Carried into Rust by |
 | --- | --- | --- |
-| 0001 (runtime part), 0004, 0008, 0011–0016, 0020, 0024, 0026, 0027, 0029, 0031, 0035, 0037–0039 | `modules/rustic-isles/native/runtime` | Nobody: the runtime stays C++ and keeps taking Freeza's patches (`restricted/docs/paradox-runtime-patches.md`) |
+| 0001 (runtime part), 0004, 0008, 0011–0016, 0020, 0024, 0026, 0027, 0029, 0031, 0035, 0037–0039 | gone (the C++ runtime, deleted at R21) | The MIT runtime slices, each behaviour where [`spec-runtime-surface.md`](spec-runtime-surface.md) section 6 maps it; the rows stay in `restricted/docs/paradox-patches.md` as history |
 | 0002 (`/reforged/api`, `AUTH_MODE=APIKEY`, HTTP-only mode), 0018 (login queue) | `modules/rustic-isles/reference/1.14.7/ParadoxBackend` | RB7; now `rustic-isles-reforged` and `rustic-isles-auth` |
 | 0005, 0007, 0010, 0017, 0023, 0025, 0028, 0030, 0036; 0009 and 0032 as upstream's own code | `modules/rustic-isles/reference/1.14.7/ParadoxBackend` | RB8 (areas) and RB9 (chat: 0017, 0025); now the `rustic-isles-*` areas |
 | 0003, 0021, 0022, 0033 | `modules/rustic-isles/reference/1.14.7/ParadoxDirector` | RB10; now `rustic-isles-director` |
@@ -306,7 +306,7 @@ Place the change first; every row below names the method and where the port is r
 
 | The change is in | It lands in | How | Recorded in |
 | --- | --- | --- | --- |
-| A runtime patch written against Mystic Paradox's tree | `restricted/modules/rustic-isles/native/runtime`; one touching the loader updates `spec-runtime-loader.md` and the root's `native/runtime-loader` instead | Paths rewritten and `git apply --3way`, one commit per patch named `NNNN-runtime-<name>`, as `restricted/docs/paradox-runtime-patches.md` says | A section in `restricted/docs/paradox-patches.md` |
+| A runtime change in Mystic Paradox's tree | The MIT runtime crates, `crates/rustic-isles-runtime` and `-core` (since R21 there is no AGPL runtime to patch); one touching the loader goes to the root's `native/runtime-loader` | Through a clean-room spec, never as a patch: a restricted session describes the behaviour without code in a new or amended `docs/port/spec-runtime-*.md` (the surface page's ids, offsets and log text, as R0–R21 did), and an implementer builds it from the spec alone; a loader change amends `spec-runtime-loader.md` | The spec's change note; a new module's line in section 2.7 |
 | A backend or Director patch written against Mystic Paradox's tree | `restricted/modules/rustic-isles/reference/1.14.7/ParadoxBackend`, `.../ParadoxDirector` | The same rewrite (`ParadoxBackend/` to `restricted/modules/rustic-isles/reference/1.14.7/ParadoxBackend/`), applied as an ordinary commit; a new or changed route goes in RB1's inventory. The MIT `rustic-isles-*` crate takes it only through its spec: describe the change in `docs/port/spec-rustic-isles-<area>.md` without code, implement from the spec, and replay the goldens with `rustic-isles-mit-parity` | `restricted/docs/paradox-patches.md`; the spec's change note |
 | Game data, `store-captures.json` | `restricted/modules/rustic-isles/reference/1.14.7/ParadoxBackend/store-captures.json`; a host's own preset | Taken as they are | The commit |
 | Mystic Paradox's own `main` | rustic-isles (its `upstream/main` branch, archived), then `restricted/modules/rustic-isles` | Advance the fork's `reforged` branch, replay the Reforged patches one by one onto the new base, keep, reduce or drop each, as `ab1830a` did. `ParadoxLauncher`, `ParadoxTransport` and the workflows stay out | The "Updated to" section and table in `restricted/docs/paradox-patches.md`; its `NOTICE.md` |
@@ -363,7 +363,7 @@ still owed, and are closed.
     The commit subject names the row, the body says what changed and why and names the source commit (`From
     FreezaMotoqueiro/Dauntless-Reforged-Revival <path> at <commit>`). The branch is `{type}/{slug}`; push it,
     report the SHA, open no pull request; no AI attribution lines (AGENTS.md, "Commits").
-11. **Leave the hands-on part to the maintainer**, written down: a runtime build with a host's SDK and a played hunt,
+11. **Leave the hands-on part to the maintainer**, written down: a runtime build and a played hunt,
     the canary, a real `start` with MongoDB, signing and publishing.
 
 ## 6. Catch-up entry format
@@ -408,8 +408,8 @@ under its `Rust:` line, as `catchup-host.md` does for `0ba6016`.
   [`delta-launcher-controller.md`](delta-launcher-controller.md): the file-by-file Reforged-against-DR deltas (RX1).
 - [`catchup-host.md`](catchup-host.md), [`catchup-isles.md`](catchup-isles.md): Node commits since the copy and
   their Rust state (RX2, DS5), closed.
-- `restricted/docs/paradox-patches.md` and `restricted/docs/paradox-runtime-patches.md`: how a runtime patch is
-  applied.
+- `restricted/docs/paradox-patches.md`: the record of the patches to Mystic Paradox (the runtime rows are history
+  since R21).
 - [`docs/architecture.md`](../architecture.md): how the parts talk and what each trusts.
 - [`docs/security/`](../security): one checklist per trust-boundary component.
 - `restricted/NOTICE.md`: where each AGPL part comes from, for attribution.

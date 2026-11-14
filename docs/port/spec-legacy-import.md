@@ -2,6 +2,10 @@
 
 # Clean-room behaviour specification: the legacy importer (RD27)
 
+> Since R21 (`spec-runtime-r21.md`) the AGPL runtime is gone; the folder moves into
+> `modules/rustic-isles/native/runtime` are history: nothing builds a runtime there, and the SDK now lives in
+> `.workspace/sdk` (an SDK left in the old folder is imported again).
+
 This page specifies `restricted/legacy` (`dainty-legacy-import` and the `legacy` plugin `dainty-legacy`) so it can
 be re-created as an MIT crate at the root, the way the gateway, the store and the Rifts crates were. The implementer
 works from this page alone and never opens `restricted/legacy`. What is copied from Dauntless Revived today (the

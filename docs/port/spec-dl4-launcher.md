@@ -1,5 +1,9 @@
 # DL4a Clean-Room Specification — Launcher MIT Crate Split & Rewrite (`launcher/src-tauri`)
 
+> Since R21 (`spec-runtime-r21.md`) the AGPL runtime is gone; the runtime files are `rustic-isles-runtime.dll` and
+> `winmm.dll`, and the Host page builds the runtime with cargo, not MSBuild (R21 section 5.2). Import SDK writes
+> to `.workspace/sdk`, not `runtime_source`.
+
 > **Ports moved 2026-11-10.** The loopback services' defaults are now backend 41000, Director 41001, content
 > 41002, admin 41003, allowlist 41005, chat 41006 and QoS 41010, below the dynamic range Windows lends to Hyper-V,
 > WSL and Docker. settings.toml's `[ports]` moves any of them, and on Windows setup and start move one Windows has lent

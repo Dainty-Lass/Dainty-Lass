@@ -2,6 +2,10 @@
 
 # Clean-room behaviour specification: runtime slice R3, process exit and crash handling (RD27, plan item 11)
 
+> Since R21 (`spec-runtime-r21.md`) the AGPL runtime is gone; `rustic-isles-runtime.dll` is the only runtime. This
+> slice's play-test runs on the MIT DLL alone, as that spec's section 9 adapts it: skip every step that builds or
+> patches the AGPL runtime, injects both DLLs, counts `[MitSeam]` lines or runs without the MIT DLL.
+
 R3 is the exit and crash slice of the MIT game runtime (`spec-runtime-surface.md` section 3.4 and section 8's R3 row,
 approved 2026-11-13 with rulings RT-1 to RT-18 in `rulings-2026-11-13.md`). It owns the fourteen ids EXIT-1 to EXIT-14:
 eleven export detours that log every way the process ends, one vectored exception handler that logs faults and

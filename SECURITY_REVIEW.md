@@ -1,7 +1,7 @@
 # Security Review Index
 
 Index of trust-boundary security checklists (`docs/security/*.md`, RX3/DX2) and `cargo fuzz` targets (`fuzz/fuzz_targets/*.rs`) for dainty-lass's MIT components. The AGPL components' checklists (the host
-shell, the Tauri launcher, the runtime loader and the 1.4.4 importer) and their fuzz targets are in [restricted/SECURITY_REVIEW.md](restricted/SECURITY_REVIEW.md) (RD27).
+shell, the Tauri launcher, the launcher's runtime download and the 1.4.4 importer) and their fuzz targets are in [restricted/SECURITY_REVIEW.md](restricted/SECURITY_REVIEW.md) (RD27).
 
 ## Checklists (`docs/security/`)
 
@@ -20,7 +20,7 @@ shell, the Tauri launcher, the runtime loader and the 1.4.4 importer) and their 
 | Change log, hash chain, revert, object-locked bucket and peer log shipping | [docs/security/history.md](docs/security/history.md) | `history_input.rs`, `history_record.rs`, `history_bucket.rs`, `network_logship.rs` | DH1, DH3–DH5, DH7 |
 | Server network (CA, mTLS node links, directory, home API, session tickets, instance registry, matchmaking ring, regional Ramsgate, cluster join) | [docs/security/network.md](docs/security/network.md) | `network_link.rs`, `network_directory.rs`, `network_home.rs`, `network_ticket.rs`, `network_admin.rs`, `network_logship.rs`, `network_ring.rs` | DN2–DN6, DN8, DN9, DN11, DN13 |
 | Epic Games login, manifest parser and CDN chunk installer (`crates/dainty-epic`, host, launcher) | [docs/security/epic.md](docs/security/epic.md) | `epic_manifest.rs` | DE1–DE6 |
-| Remote management (`crates/dainty-remote`: one-time enrollment URIs, certificate pinning, mTLS `Service::Remote`, secret non-export, `host.toml` override preservation, `DH6` guarded approval) | [docs/security/remote-management.md](docs/security/remote-management.md) | `remote_wire.rs` | DD27, RM1–RM4 |
+| Remote management (`crates/dainty-remote`: one-time enrollment URIs, certificate pinning, mTLS `Service::Remote`, secret non-export, `settings.toml` override preservation, `DH6` guarded approval) | [docs/security/remote-management.md](docs/security/remote-management.md) | `remote_wire.rs` | DD27, RM1–RM4 |
 | Rustic Rifts co-op transport and admission (`crates/rustic-rifts-transport`, `rustic-rifts-admission`) | [docs/security/rifts-transport.md](docs/security/rifts-transport.md) | `transport_frame.rs`, `transport_pipe.rs`, `transport_files.rs`, `admission_control.rs`, `admission_ticket.rs` | RD27 |
 | Rustic Rifts Guard (`crates/rustic-rifts-guard`) | [docs/security/rifts-guard.md](docs/security/rifts-guard.md) | `guard_evidence.rs`, `guard_grants.rs` | RD27 |
 | Rustic Rifts realm hosting on the launcher (`crates/rustic-rifts-host`) | [docs/security/rifts-host.md](docs/security/rifts-host.md) | `host_ready_line.rs`, `host_peer_line.rs`, `host_transport_config.rs` | RD27 |
@@ -37,6 +37,7 @@ shell, the Tauri launcher, the runtime loader and the 1.4.4 importer) and their 
 | Rustic Isles launcher API and admin (`crates/rustic-isles-launcher-api`) | [docs/security/rustic-isles-launcher-api.md](docs/security/rustic-isles-launcher-api.md) | `rustic_isles_launcher_api_admin_auth.rs`, `rustic_isles_launcher_api_admin_text.rs`, `rustic_isles_launcher_api_guard.rs`, `rustic_isles_launcher_api_paths.rs`, `rustic_isles_launcher_api_text.rs` | RD27 |
 | Rustic Isles shadow replay (`crates/rustic-isles-replay`) | [docs/security/rustic-isles-replay.md](docs/security/rustic-isles-replay.md) | `rustic_isles_replay_input.rs` | RD27 |
 | Rustic Isles store layer (`crates/rustic-isles-store`) | [docs/security/rustic-isles-store.md](docs/security/rustic-isles-store.md) | `rustic_isles_store_decode.rs` | RD27 |
+| Game runtime (`crates/rustic-isles-runtime`, `-core`: `rustic-isles-runtime.dll`, the only runtime since R21) | [docs/security/game-runtime.md](docs/security/game-runtime.md) | `rustic_isles_runtime_config.rs`, `rustic_isles_runtime_player_host.rs` | RD27, plan item 11 |
 | Catalog exporter (`native/rustic-isles-exporter`) | [docs/security/catalog-exporter.md](docs/security/catalog-exporter.md) | `catalog_exporter_input.rs` | RD27 |
 | Launcher injection (`crates/dainty-inject`, launcher `platform/inject.rs`) | [docs/security/launcher-injection.md](docs/security/launcher-injection.md) | `inject_helper_args.rs` | RD9 |
 | Director injection (`rustic_isles_director::runtime`) | [docs/security/director-injection.md](docs/security/director-injection.md) | `director_runtime_manifest.rs` | RD9 |

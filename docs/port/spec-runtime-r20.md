@@ -2,6 +2,10 @@
 
 # Clean-room behaviour specification: runtime slice R20, server ProcessEvent behaviours (RD27, plan item 11)
 
+> Since R21 (`spec-runtime-r21.md`) the AGPL runtime is gone; `rustic-isles-runtime.dll` is the only runtime. This
+> slice's play-test runs on the MIT DLL alone, as that spec's section 9 adapts it: skip every step that builds or
+> patches the AGPL runtime, injects both DLLs, counts `[MitSeam]` lines or runs without the MIT DLL.
+
 R20 moves the server's behaviour handlers on the dispatch points into the MIT runtime: the feature ids **`SP-2@R20`**
 (post-login match start, the server `ClientRestart` pawn fixes, the vendor camera fix, the `PlayerCanRestart` force,
 the debug damage multiplier) and **`SP-3@R20`** (the manual stamina tick, the bleedout duration floor, and the retired

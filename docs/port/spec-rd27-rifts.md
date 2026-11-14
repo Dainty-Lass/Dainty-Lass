@@ -2,6 +2,9 @@
 
 # RD27 Clean-Room Specification: Rustic Rifts (`modules/rustic-rifts` in dainty-restricted)
 
+> Since R21 (`spec-runtime-r21.md`) the AGPL runtime is gone; `native/runtime/p2p/PlayerHost.cpp` is deleted, and the
+> in-game player host is the MIT runtime's R10 (`spec-runtime-r10.md`); no runtime patch or rebuild is involved.
+
 This is the umbrella of the specification for relicensing Rustic Rifts, the realm-hosting and co-op transport module,
 to MIT. Rifts is in dainty-restricted at `modules/rustic-rifts` under AGPL-3.0-only with Mystic Paradox's
 additional terms. It holds six Rust crates and the C++ `ParadoxTransport.dll`. The maintainer chose to rewrite the

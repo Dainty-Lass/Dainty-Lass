@@ -2,6 +2,10 @@
 
 # Clean-room behaviour specification: runtime slice R14, the player role (omnicell) (RD27, plan item 11)
 
+> Since R21 (`spec-runtime-r21.md`) the AGPL runtime is gone; `rustic-isles-runtime.dll` is the only runtime. This
+> slice's play-test runs on the MIT DLL alone, as that spec's section 9 adapts it: skip every step that builds or
+> patches the AGPL runtime, injects both DLLs, counts `[MitSeam]` lines or runs without the MIT DLL.
+
 R14 is the omnicell slice of the MIT game runtime (`spec-runtime-surface.md` section 3.9, section 4 and section 8's
 R14 row, approved 2026-11-13 with rulings RT-1 to RT-18 in `rulings-2026-11-13.md`). An omnicell is a player's
 `AArchonPlayerRole` equipment actor: its charge ring and ability on the HUD, the lantern ability (tap V) and, for
