@@ -223,9 +223,9 @@ pub struct Paths {
     pub loader_dir: PathBuf,
     /// The built loader, `winmm.dll`.
     pub loader_dll: PathBuf,
-    /// CatalogExporter's sources.
+    /// CatalogExporter's sources: the MIT crate (`native/rustic-isles-exporter`, spec-catalog-exporter 9).
     pub exporter_dir: PathBuf,
-    /// The built CatalogExporter DLL.
+    /// The built CatalogExporter DLL, where the Host page's build leaves it.
     pub exporter_dll: PathBuf,
     /// The backend's game data.
     pub backend_game_data: PathBuf,
@@ -306,8 +306,12 @@ impl Paths {
             .join("x86_64-pc-windows-msvc")
             .join("release")
             .join("winmm.dll");
-        let exporter_dir = isles.join("native").join("catalog-exporter");
-        let exporter_dll = exporter_dir.join("x64").join("Release").join("CatalogExporter.dll");
+        let exporter_dir = repo.join("native").join("rustic-isles-exporter");
+        let exporter_dll = exporter_dir
+            .join("target")
+            .join("x86_64-pc-windows-msvc")
+            .join("release")
+            .join("CatalogExporter.dll");
         let backend_game_data = backend_dir.join("game-data");
         let director_game_data = director_dir.join("game-data");
         let raw_game_data = backend_game_data.join("raw");

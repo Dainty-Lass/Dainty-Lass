@@ -17,6 +17,10 @@ use crate::paths::{GAME_CHANGELIST, Paths};
 pub const PRESET_FORMAT: &str = "dainty-lass-preset";
 /// The `format` of a preset the Reforged Revival Node kit made, still read so its presets load
 pub const LEGACY_PRESET_FORMAT: &str = "dauntless-reforged-revival-preset";
+/// The exporter a preset's export came from: the MIT one since the host kit stopped building Paradox's.
+pub const EXPORTER_SOURCE: &str = "CatalogExporter (native/rustic-isles-exporter)";
+/// The Node kit's line for the exporter, Paradox's C++ one.
+pub const LEGACY_EXPORTER_SOURCE: &str = "CatalogExporter (native/catalog-exporter, from Mystic Paradox)";
 /// The preset's manifest, in the preset folder.
 pub const PRESET_MANIFEST: &str = "preset.json";
 /// Game data never put in a preset: each server builds these from its store captures.
@@ -385,7 +389,7 @@ pub fn create_preset(p: &Paths, opts: &CreateOptions, now: DateTime<Utc>) -> Res
         executable_sha256,
         created: now.to_rfc3339_opts(SecondsFormat::Millis, true),
         sources: vec![
-            "CatalogExporter (native/catalog-exporter, from Mystic Paradox)".to_owned(),
+            EXPORTER_SOURCE.to_owned(),
             "Mystic Paradox game-data generators".to_owned(),
             "Dainty Lass host kit".to_owned(),
         ],

@@ -89,8 +89,8 @@ pub fn missing_paradox(l: &Layout) -> Vec<&'static str> {
     if !l.loader_dir.join("Cargo.toml").is_file() {
         missing.push("native/runtime-loader");
     }
-    if !l.exporter_dir.join("CatalogExporter.vcxproj").is_file() {
-        missing.push("native/catalog-exporter");
+    if !l.exporter_dir.join("Cargo.toml").is_file() {
+        missing.push("native/rustic-isles-exporter");
     }
     missing
 }
@@ -119,7 +119,7 @@ mod tests {
         fs::create_dir_all(&layout.loader_dir).unwrap();
         fs::write(layout.loader_dir.join("Cargo.toml"), "{}").unwrap();
         fs::create_dir_all(&layout.exporter_dir).unwrap();
-        fs::write(layout.exporter_dir.join("CatalogExporter.vcxproj"), "{}").unwrap();
+        fs::write(layout.exporter_dir.join("Cargo.toml"), "{}").unwrap();
 
         assert!(missing_paradox(&layout).is_empty());
     }
