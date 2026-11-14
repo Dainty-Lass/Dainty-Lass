@@ -3,7 +3,7 @@
 # Run Compose from this folder; copy .env.example to .env first. Server settings are setup's, not this file's:
 #   docker compose run --rm host setup --mode public --host play.example.org --name "My Server"
 #   docker compose up -d
-# Profiles: public (the allowlist), toml (configure applies DAINTY_CONFIG_DIR/host.toml), postgres, managed (the
+# Profiles: public (the allowlist), toml (configure applies DAINTY_CONFIG_DIR/settings.toml), postgres, managed (the
 # remote agent), tools (host, run only with `run`), test, network and remote (the harnesses), mongo [RB15].
 # [RB15] marks what goes when RB15 deletes the MongoDB handling.
 
@@ -239,7 +239,7 @@ services:
         condition: service_completed_successfully
         required: false
 
-  # The toml profile: DAINTY_CONFIG_DIR/host.toml is the server's whole configuration
+  # The toml profile: DAINTY_CONFIG_DIR/settings.toml is the server's whole configuration
   configure:
     <<: *server
     profiles: [toml]

@@ -892,9 +892,9 @@ pub struct SharedInvite {
 pub struct SharedConfigBundle {
     /// Revision number, rising with every change.
     pub revision: u64,
-    /// The `host.toml` settings every install shares.
-    pub shared_host_toml: String,
-    /// Extra `host.toml` text per node id.
+    /// The `settings.toml` settings every install shares.
+    pub shared_settings_toml: String,
+    /// Extra `settings.toml` text per node id.
     #[serde(default)]
     pub node_overrides: BTreeMap<String, String>,
     /// Invite codes every install accepts.
@@ -917,14 +917,14 @@ pub struct SharedConfigBundle {
 impl SharedConfigBundle {
     /// Checks every part is in range, the hashes are SHA-256 and nothing is a secret.
     pub fn validate(&self) -> Result<(), RemoteError> {
-        if self.shared_host_toml.len() > 256 * 1024 {
+        if self.shared_settings_toml.len() > 256 * 1024 {
             return Err(RemoteError::InvalidInput(
-                "shared_host_toml exceeds 256 KiB".to_string(),
+                "shared_settings_toml exceeds 256 KiB".to_string(),
             ));
         }
-        if contains_forbidden_secret_str(&self.shared_host_toml) {
+        if contains_forbidden_secret_str(&self.shared_settings_toml) {
             return Err(RemoteError::SecretLeakRefused(
-                "shared_host_toml must never contain secrets".to_string(),
+                "shared_settings_toml must never contain secrets".to_string(),
             ));
         }
         for (node_key, toml_text) in &self.node_overrides {

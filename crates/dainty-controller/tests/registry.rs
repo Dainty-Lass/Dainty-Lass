@@ -1,6 +1,6 @@
 //! The registry's verify (DF3): two modules for one game version refused in either order, a module killed
 //! mid-run shown failed and restarted on command, nothing left running after stop; and what a load does
-//! between: ports moved off a clash, host.toml's settings, the bus, core plugins, plugins on a game module; and
+//! between: ports moved off a clash, settings.toml's settings, the bus, core plugins, plugins on a game module; and
 //! MS2's game calls and restart with backoff.
 #![allow(clippy::unwrap_used, clippy::expect_used, reason = "a panic is how a test fails")]
 
@@ -122,7 +122,7 @@ async fn two_modules_for_one_version_are_refused_in_either_order() {
     reg.load(&id("stub")).await.unwrap();
     reg.unload_all().await;
 
-    // A version the host kit's own stack serves is taken too, and a module host.toml doesn't list never loads
+    // A version the host kit's own stack serves is taken too, and a module settings.toml doesn't list never loads
     let mut options = RegistryOptions::standalone();
     options.taken_versions = vec![(stub_version(), "the server's stub stack".into())];
     let (reg, _) = registry(options);
@@ -301,7 +301,7 @@ async fn a_load_moves_clashing_ports_takes_its_settings_and_joins_the_bus() {
     assert!(plugin.attached().is_empty(), "detached on unload");
     assert!(reg.for_invite("stub").is_none());
 
-    // A setting the module does not read is a typo in host.toml: refused, not ignored
+    // A setting the module does not read is a typo in settings.toml: refused, not ignored
     let (reg, _) = registry(RegistryOptions::standalone());
     let mut entry = compiled_stub();
     entry.settings.insert(

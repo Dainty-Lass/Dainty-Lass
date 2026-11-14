@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# A public server in Docker without a game: setup through host.toml, the [RB15] MongoDB import, every service healthy,
-# the gateway's certificate and proxying, the allowlist's rules, an invite and a clean stop. Plays no game.
+# A public server in Docker without a game: setup through settings.toml, the [RB15] MongoDB import, every service
+# healthy, the gateway's certificate and proxying, the allowlist's rules, an invite and a clean stop. Plays no game.
 #   SMOKE_NO_BUILD=1 uses the images as built; SMOKE_PORT moves the gateway's published port (18443).
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -61,7 +61,7 @@ fi
 started=1
 
 step "a fresh toml apply with no MongoDB"
-cat >"$work/config/host.toml" <<'EOF'
+cat >"$work/config/settings.toml" <<'EOF'
 version = 1
 mode = "public"
 host = "smoke.example.org"
@@ -73,7 +73,7 @@ EOF
 COMPOSE_PROFILES=public,toml docker compose run --rm configure
 contains "$(workspace_file config/backend.env)" "Fresh Toml Apply" "backend.env"
 COMPOSE_PROFILES=public,toml docker compose down --volumes --remove-orphans
-rm -f "$work/config/host.toml"
+rm -f "$work/config/settings.toml"
 
 # [RB15] Steps up to "migrate and verify" go with the MongoDB handling (Q-6)
 step "[RB15] seed a pre-cutover mongo-data volume"
@@ -126,9 +126,9 @@ COMPOSE_PROFILES=public,mongo docker compose run --rm host db migrate
 COMPOSE_PROFILES=public,mongo docker compose run --rm host db verify
 COMPOSE_PROFILES=public,mongo docker compose rm -sf mongo
 
-step "the toml profile applies host.toml alone"
-workspace_file config/host.toml | sed 's/^name = .*/name = "Smoke Toml"/' >"$work/config/host.toml"
-grep -q '^name = "Smoke Toml"' "$work/config/host.toml" || fail "the workspace's host.toml has no name line"
+step "the toml profile applies settings.toml alone"
+workspace_file config/settings.toml | sed 's/^name = .*/name = "Smoke Toml"/' >"$work/config/settings.toml"
+grep -q '^name = "Smoke Toml"' "$work/config/settings.toml" || fail "the workspace's settings.toml has no name line"
 COMPOSE_PROFILES=public,toml docker compose run --rm configure
 contains "$(workspace_file config/backend.env)" "Smoke Toml" "backend.env"
 

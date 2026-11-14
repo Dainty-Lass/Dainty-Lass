@@ -52,7 +52,7 @@ impl EventsConfig {
         Ok(Self { retention_days })
     }
 
-    /// The table host.toml writes.
+    /// The table settings.toml writes.
     #[must_use]
     pub fn to_json(&self) -> Value {
         let mut out = Map::new();

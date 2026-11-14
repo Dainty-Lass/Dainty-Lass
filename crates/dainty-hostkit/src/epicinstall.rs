@@ -7,7 +7,7 @@
 //!
 //! The host signs in with the pasted-code flow (the launcher's fallback): the login URL is printed, the player opens
 //! it anywhere and pastes the code Epic shows. The session it gets is kept in `epic-session.env` beside
-//! `secrets.env`, owner-only, and nowhere else: never in host.toml, a command line option, an env file or a log.
+//! `secrets.env`, owner-only, and nowhere else: never in settings.toml, a command line option, an env file or a log.
 //! Nothing here logs; `egs-api` logs through `log`, which this command never installs a logger for.
 
 use std::fmt::Write as _;

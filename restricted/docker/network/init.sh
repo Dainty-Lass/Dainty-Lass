@@ -3,9 +3,9 @@
 # the server image with the cluster CA volume and the four nodes' workspace volumes, and leaves each node
 #  - its public gateway certificate (the fingerprint the launcher pins when it measures a region),
 #  - its node certificate and key and the CA's certificate (node-cert.pem, node-key.pem, cluster-ca-cert.pem),
-#  - a host.toml naming it and listing the other three, for `dainty-host-docker apply` to run setup from.
+#  - a settings.toml naming it and listing the other three, for `dainty-host-docker apply` to run setup from.
 # The CA file (its key) stays in /ca, which no other service mounts. Run again, it keeps what it made: the CA, every
-# certificate and so every fingerprint; only host.toml is written each time.
+# certificate and so every fingerprint; only settings.toml is written each time.
 #   NETWORK_NODES="oregon=oregon-1@172.28.77.11 new-york=new-york-1@172.28.77.12 ..."   region=node-id@address
 set -eu
 
@@ -78,10 +78,10 @@ port = $port
 fingerprint = "$(cat "$fingerprints/$other_region")"
 TOML
 		done
-	} >"/nodes/$region/config/host.toml"
+	} >"/nodes/$region/config/settings.toml"
 	chown -R 1000:1000 "/nodes/$region"
 	chmod 600 "/nodes/$region/tls/node-key.pem" "/nodes/$region/tls/gateway-key.pem"
-	echo "$id ($region, $address): certificates and host.toml written"
+	echo "$id ($region, $address): certificates and settings.toml written"
 done
 
 chmod 700 /ca

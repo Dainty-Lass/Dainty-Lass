@@ -380,7 +380,7 @@ The keys, with their placeholders:
   `mod_err_input_command`; `mod_err_input_unknown_argument` {name}; `mod_err_input_missing_argument` {name};
   `mod_err_input_argument_text` {name}; `mod_err_input_argument_gap` {name}; `mod_err_settings_json`;
   `mod_err_settings_shape`; `mod_err_settings_unknown_section`; `mod_err_settings_unknown_key` {name};
-  `mod_err_settings_type` {name}; `mod_err_settings_length` {name}; `mod_err_failed_host_toml`;
+  `mod_err_settings_type` {name}; `mod_err_settings_length` {name}; `mod_err_failed_settings_toml`;
   `mod_err_failed_timeout`; `mod_title`; `mod_text`; `mod_empty`; `mod_refresh`; `mod_state_not_loaded`;
   `mod_state_starting`; `mod_state_ready`; `mod_state_failed`; `mod_unverified`; `mod_unverified_text`; `mod_role_game`;
   `mod_role_plugin`; `mod_origin_compiled_in`; `mod_origin_external`; `mod_version` {version}; `mod_no_manifest`;

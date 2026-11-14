@@ -44,7 +44,7 @@ moves = [
 ]
 old_folders = [".workspace/Mystic-Paradox", "paradox", "native/runtime", "native/catalog-exporter"]
 
-# `modules` is free-form; these are the tables, each [json, toml] in host.toml's order
+# `modules` is free-form; these are the tables, each [json, toml] in settings.toml's order
 [keys]
 mongo = [["uri", "uri"], ["manage", "manage"], ["mongod", "mongod"]]
 multipliers = [["xp", "xp"], ["rewards", "rewards"]]

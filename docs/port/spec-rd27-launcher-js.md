@@ -316,7 +316,7 @@ restricted checkout).
    `Dainty Lass Manager` bundle (§4.1) into the temporary root.
 3. Copy the controller's workspace: first run `reforged-host remote sync` in service `host-alpha` (so alpha's last
    contact is inside the 60 s online window), then read from service `host-controller` with `cat` through
-   `docker compose exec -T`: `config/host.toml`, `secrets.env`, `remote-controller.json` and `tls/gateway-cert.pem`,
+   `docker compose exec -T`: `config/settings.toml`, `secrets.env`, `remote-controller.json` and `tls/gateway-cert.pem`,
    `gateway-key.pem`, `node-cert.pem`, `node-key.pem`, `cluster-ca-cert.pem`, `remote-cluster-ca.pem`, all under
    `/opt/reforged/.workspace/`, into the same paths under the profile's workspace `.workspace/`. The files hold keys:
    they stay in the temporary root and are removed with it.

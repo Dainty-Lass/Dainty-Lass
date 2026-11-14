@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Silent Spud
 
-//! `dainty-host setup`: host.toml from the options and the file already there, secrets.env, the env files,
+//! `dainty-host setup`: settings.toml from the options and the file already there, secrets.env, the env files,
 //! the gateway certificate, the firewall rules and, on Linux, Wine and the systemd units.
 
 pub mod database;
@@ -73,7 +73,7 @@ pub trait SetupEnv {
     fn excluded_tcp_ports(&self) -> Vec<(u16, u16)> {
         Vec::new()
     }
-    /// The environment the services will inherit, whose variables override host.toml (RD24).
+    /// The environment the services will inherit, whose variables override settings.toml (RD24).
     fn inherited_env(&self) -> Vec<(String, String)> {
         std::env::vars().collect()
     }
@@ -279,7 +279,7 @@ pub fn run_with(
         .as_ref()
         .is_some_and(|r| r.role.as_deref() == Some("controller"))
     {
-        let _ = crate::commands::remote::set_shared_config_from_host_toml(p);
+        let _ = crate::commands::remote::set_shared_config_from_settings_toml(p);
     }
     if created_secrets {
         out(&format!(
@@ -316,7 +316,7 @@ pub fn run_with(
     let env_files = build_env_files(&config, &sec, p, &commit, platform);
     if !env_files.passthrough_refused.is_empty() {
         return Err(HostError::message(format!(
-            "host.toml's [env] tables can't be applied:
+            "settings.toml's [env] tables can't be applied:
   {}",
             env_files.passthrough_refused.join(
                 "

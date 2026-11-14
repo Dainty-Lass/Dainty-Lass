@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Silent Spud
 
-//! The 1.14.7 module's version data, read at start from the two files host.toml names (RD27, port plan item 9):
+//! The 1.14.7 module's version data, read at start from the two files settings.toml names (RD27, port plan item 9):
 //! `version_facts` (MIT, rulings V-1 and V-3) and `version_data` (Mystic Paradox's design, V-2), merged and checked;
 //! handed to `spec_with` for the compiled-in module, to the generators and the db tool, and installed in the backend
 //! game data folder for a module loaded as a library or a child, which reads both there. Where the host's own export
@@ -40,12 +40,12 @@ pub struct Loaded {
     pub notes: Vec<String>,
 }
 
-/// The design file host.toml names, or the shipped default.
+/// The design file settings.toml names, or the shipped default.
 pub fn path(paths: &Paths, config: Option<&HostConfig>) -> PathBuf {
     hostconfig::version_data_path(paths, config)
 }
 
-/// The facts file host.toml names, or the shipped default.
+/// The facts file settings.toml names, or the shipped default.
 pub fn facts_path(paths: &Paths, config: Option<&HostConfig>) -> PathBuf {
     hostconfig::version_facts_path(paths, config)
 }
@@ -57,7 +57,7 @@ fn read(path: &Path, what: &str, default: &str, setting: &str) -> Result<Option<
         Err(e) if e.kind() == std::io::ErrorKind::NotFound && setting.is_empty() => Ok(None),
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => Err(format!(
             "the 1.14.7 {what} is missing: {} does not exist. The server release ships it as {default}; set \
-             {setting} in host.toml to read it from somewhere else",
+             {setting} in settings.toml to read it from somewhere else",
             path.display()
         )),
         Err(e) => Err(format!("could not read the 1.14.7 {what} {}: {e}", path.display())),
@@ -134,7 +134,7 @@ pub fn load_with(paths: &Paths, config: Option<&HostConfig>) -> Result<Loaded, S
     load_files(&path(paths, config), &facts_path(paths, config), Some(&paths.exports))
 }
 
-/// Reads the files `paths`' host.toml names (or the defaults when it has none or cannot be read).
+/// Reads the files `paths`' settings.toml names (or the defaults when it has none or cannot be read).
 pub fn load(paths: &Paths) -> Result<Loaded, String> {
     let config = hostconfig::load_host_config(paths).ok().flatten();
     load_with(paths, config.as_ref())
@@ -222,12 +222,12 @@ mod tests {
         );
         let missing = load_files(&design, &facts, None).err().unwrap();
         assert!(
-            missing.contains("is missing") && missing.contains("version_data in host.toml"),
+            missing.contains("is missing") && missing.contains("version_data in settings.toml"),
             "{missing}"
         );
         write(&design, &synthetic_split().1);
         let no_facts = load_files(&design, &facts, None).err().unwrap();
-        assert!(no_facts.contains("version_facts in host.toml"), "{no_facts}");
+        assert!(no_facts.contains("version_facts in settings.toml"), "{no_facts}");
         std::fs::write(&facts, "{").unwrap();
         assert!(load_files(&design, &facts, None).err().unwrap().contains("is not JSON"));
         std::fs::write(&facts, "{}").unwrap();

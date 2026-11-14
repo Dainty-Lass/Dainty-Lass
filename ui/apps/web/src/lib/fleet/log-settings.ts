@@ -7,14 +7,14 @@ import { adminApi, type LogSettingsChange } from "@/lib/game/admin-api";
 import { operatorId } from "@/lib/players";
 
 /**
- * A controller's `[logs]` in host.toml (dainty-lass docs/logging.md): the console's format and color and the
+ * A controller's `[logs]` in settings.toml (dainty-lass docs/logging.md): the console's format and color and the
  * Graylog (GELF) collector. The server writes the file; it takes the change at its next start.
  */
 
 const FORMATS = ["text", "json"] as const;
 const COLORS = ["auto", "always", "never"] as const;
 
-/** The controller's settings, or null when it cannot answer (offline, or an admin API without host.toml). */
+/** The controller's settings, or null when it cannot answer (offline, or an admin API without settings.toml). */
 export async function readLogSettings(
   me: Staff,
   controllerId: string,

@@ -28,7 +28,7 @@ pub enum SplitRole {
 }
 
 impl SplitRole {
-    /// The name host.toml spells it with.
+    /// The name settings.toml spells it with.
     pub fn as_str(self) -> &'static str {
         match self {
             Self::Metagame => "metagame",
@@ -98,7 +98,7 @@ impl SplitConfig {
         })
     }
 
-    /// The table host.toml writes.
+    /// The table settings.toml writes.
     #[must_use]
     pub fn to_json(&self) -> Value {
         let mut out = Map::new();

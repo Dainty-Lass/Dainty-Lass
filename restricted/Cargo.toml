@@ -12,7 +12,7 @@ members = [
     # Mystic Paradox's answers replayed against dainty-lass's MIT rifts crates (spec-rd27-rifts 4.3)
     "modules/rustic-rifts/oracle",
 ]
-# Workspaces of their own: the fuzz targets (nightly), the 1.4.4 importer (an external plugin, host.toml pins it)
+# Workspaces of their own: the fuzz targets (nightly), the 1.4.4 importer (an external plugin, settings.toml pins it)
 exclude = ["fuzz", "legacy"]
 
 [workspace.package]
@@ -104,7 +104,7 @@ sha1 = "0.11"
 # Epic sign-in and library only: the manifests and chunks are read by crates/dainty-epic itself (spike DE1)
 egs-api = "=0.14.0"
 thiserror = "2"
-# host.toml: read, and written back keeping the host's own comments and layout
+# settings.toml: read, and written back keeping the host's own comments and layout
 toml_edit = { version = "0.25", default-features = false, features = ["parse", "display"] }
 tokio ={ version = "1", features = ["rt", "macros"] }
 tower = { version = "0.5", features = ["util"] }

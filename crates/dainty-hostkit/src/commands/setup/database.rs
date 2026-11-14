@@ -11,9 +11,9 @@ use crate::hostconfig::{HostConfig, Platform};
 pub enum Database {
     /// SQLite in `.workspace/config/dainty-lass.db` (default on the Rust backend).
     Sqlite,
-    /// Postgres (`[database] engine = "postgres"` in `host.toml`).
+    /// Postgres (`[database] engine = "postgres"` in `settings.toml`).
     Postgres,
-    /// MongoDB with a replica set (`host.toml [mongo]`), for the `paradox` rollback build.
+    /// MongoDB with a replica set (`settings.toml [mongo]`), for the `paradox` rollback build.
     Mongo,
 }
 

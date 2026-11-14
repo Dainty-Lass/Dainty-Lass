@@ -18,7 +18,7 @@ pub use enroll::{
     parse_enrollment_uri, sha256_hex, validate_controller_url, validate_enrollment_token, validate_label,
     verify_cert_fingerprint,
 };
-pub use merge::{PRESERVED_LOCAL_KEYS, PRESERVED_LOCAL_TABLES, is_preserved_local_key, merge_managed_host_toml};
+pub use merge::{PRESERVED_LOCAL_KEYS, PRESERVED_LOCAL_TABLES, is_preserved_local_key, merge_managed_settings_toml};
 pub use state::{
     DEFAULT_OFFLINE_THRESHOLD_MS, EnrolledInstallRecord, EnrolledInstallState, InstallSummary,
     PendingGuardedRemoteAction, RemoteControllerState, RemoteHostHandler, RemoteManagedAgent, SubmitCommandResult,
@@ -332,8 +332,8 @@ max_hunts = 12
 idle_timeout_secs = 900
 "#;
 
-        let merged =
-            merge_managed_host_toml(local_toml, shared_toml, Some(node_override_toml), &[]).expect("merge succeeds");
+        let merged = merge_managed_settings_toml(local_toml, shared_toml, Some(node_override_toml), &[])
+            .expect("merge succeeds");
 
         assert!(merged.contains("name = \"Fleet Frankfurt\""));
         assert!(merged.contains("registration = \"invite\""));
@@ -462,7 +462,7 @@ idle_timeout_secs = 900
             Ok(sample_report("eu-de-1", "eu-central", applied_revision))
         }
 
-        fn read_local_host_toml(&self) -> Result<String, RemoteError> {
+        fn read_local_settings_toml(&self) -> Result<String, RemoteError> {
             Ok(self
                 .local_toml
                 .lock()
@@ -470,7 +470,7 @@ idle_timeout_secs = 900
                 .clone())
         }
 
-        fn write_merged_host_toml(&self, merged_toml: &str, _revision: u64) -> Result<(), RemoteError> {
+        fn write_merged_settings_toml(&self, merged_toml: &str, _revision: u64) -> Result<(), RemoteError> {
             *self
                 .local_toml
                 .lock()
@@ -570,7 +570,7 @@ idle_timeout_secs = 900
         assert_eq!(agent.applied_revision, 1);
         assert!(
             handler
-                .read_local_host_toml()
+                .read_local_settings_toml()
                 .expect("toml")
                 .contains("registration = \"invite\"")
         );

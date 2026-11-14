@@ -214,7 +214,7 @@ mod tests {
     }
 
     #[test]
-    fn services_round_trip_through_host_toml_and_host_json() {
+    fn services_round_trip_through_settings_toml_and_host_json() {
         let config = HostConfig::from_toml(&with_services()).unwrap();
         let services = config.services.clone().unwrap();
         let content = &services["content"];

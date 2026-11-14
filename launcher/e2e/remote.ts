@@ -15,7 +15,7 @@ const CONTAINER_WORKSPACE = "/opt/dainty-lass/.workspace"
 
 // The controller's files the manager needs to act as it: config, secrets, the controller state and its TLS
 const WORKSPACE_FILES = [
-  "config/host.toml",
+  "config/settings.toml",
   "secrets.env",
   "remote-controller.json",
   "tls/gateway-cert.pem",

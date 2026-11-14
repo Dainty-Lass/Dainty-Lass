@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Silent Spud
 
 //! `[env.<service>]` (RD24 phase 2, docs/config-toml-plan.md): variables appended to a service's env file for a
-//! tunable host.toml has no key of its own. A key host.toml already sets, a secret, a port or a bind address is
+//! tunable settings.toml has no key of its own. A key settings.toml already sets, a secret, a port or a bind address is
 //! refused, so the passthrough can't turn a public server's safety settings off.
 //!
 //! ```toml
@@ -85,7 +85,7 @@ pub fn denied(key: &str) -> Option<&'static str> {
         || DENIED_PREFIXES.iter().any(|p| key.starts_with(p))
         || DENIED_SUFFIXES.iter().any(|s| key.ends_with(s))
     {
-        return Some("host.toml's own settings decide it");
+        return Some("settings.toml's own settings decide it");
     }
     None
 }
@@ -179,7 +179,7 @@ pub fn apply(files: &mut EnvFiles, env: &EnvPassthrough) -> Vec<String> {
         for (key, value) in entries {
             if file.iter().any(|(k, _)| k == key) {
                 refused.push(format!(
-                    "env.{service}.{key}: setup already writes {key} from host.toml's own settings; set it there"
+                    "env.{service}.{key}: setup already writes {key} from settings.toml's own settings; set it there"
                 ));
             } else {
                 file.push((key.clone(), text(value)));

@@ -69,7 +69,7 @@ by Mystic (0006, 0009, 0019, 0032, 0034) are not listed: `21b9ff5` has them.
 and 0026 are logging only and can go the same way once the runtime is rebuilt and checked with a client; they
 are interleaved with later fixes in `dllmain.cpp`, so removing them is a hands-on change, not a reverse-apply.
 
-Candidates to become `host.toml` settings rather than patches: 0007, 0023, 0024, 0029 and 0030 are server
+Candidates to become `settings.toml` settings rather than patches: 0007, 0023, 0024, 0029 and 0030 are server
 policy, not fixes.
 
 ## Updating Mystic Paradox

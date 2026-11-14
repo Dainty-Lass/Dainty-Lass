@@ -472,7 +472,7 @@ off, and ports nothing; both flags are dropped (11).
 | `DIAG_NATURAL` | dropped by R12 (R12 13); not read |
 
 Variables, all read through R0's `env_value`: `RUSTIC_ISLES_BLEEDOUT_SECONDS` (10.2), `RUSTIC_ISLES_ALLOW_DAMAGE_DEBUG`,
-`RUSTIC_ISLES_DEBUG_DAMAGE_MULTIPLIER` (9.1), and R0's `RUSTIC_ISLES_RUNTIME_PROFILE`. None is a `host.toml` setting
+`RUSTIC_ISLES_DEBUG_DAMAGE_MULTIPLIER` (9.1), and R0's `RUSTIC_ISLES_RUNTIME_PROFILE`. None is a `settings.toml` setting
 today and R20 makes none: the bleedout floor has never needed a different value, and the debug pair must stay out of
 host configuration. **(call)** If a host ever needs another bleedout length it becomes an RT-11 setting then.
 
@@ -561,7 +561,7 @@ Calls:
    absent (10.3).
 7. The mesh pose experiment is owned and not ported; its two flags dropped (10.4).
 8. `DISABLE_OWNER_PAWN_RELEVANCY` moves from R13 to R20 (11).
-9. No `host.toml` setting for the bleedout length (11).
+9. No `settings.toml` setting for the bleedout length (11).
 10. Numeric variables parse the whole trimmed value (9.1, 10.2).
 
 Departures from the AGPL:

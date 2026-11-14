@@ -39,15 +39,15 @@ dashboard) and `rustic-` for the game servers (`rustic-isles-*`) and realms (`ru
 line, or linking such code, goes under `restricted/`. A crate in root `crates/` is MIT and depends on nothing in
 `restricted/` or AGPL; CI fails a root package that is not MIT or Apache-2.0 or that references `restricted/`.
 `restricted/crates/dainty-host` composes the services into the controller in-process, and the MIT core
-`dainty-lass` (`crates/dainty-lass`) loads the same services as libraries named in `host.toml`'s `[services.<name>]` (RD27 phase 2,
+`dainty-lass` (`crates/dainty-lass`) loads the same services as libraries named in `settings.toml`'s `[services.<name>]` (RD27 phase 2,
 `crates/dainty-plugin-host`).
 
 Dainty Lass serves one game, Dauntless 1.14.7 (2026-10-31). On the default path (since the RU9 code cutover,
 maintainer decision 2026-10-28), restricted's `host::serve` runs the compiled-in MIT `rustic-isles-1-14-7` module:
-the backend on port 41000 and `rustic-isles-director` on port 41001 (host.toml's `[ports]` moves them), on `store`
+the backend on port 41000 and `rustic-isles-director` on port 41001 (settings.toml's `[ports]` moves them), on `store`
 (SQLite by default, or Postgres).
 `rustic-isles-1-14-7-plugin` builds the same module as a library. Both read Mystic Paradox's version data at start
-from the file host.toml's `version_data` names (RD27), which the release ships beside the MIT binaries.
+from the file settings.toml's `version_data` names (RD27), which the release ships beside the MIT binaries.
 
 The server is one executable (RD26). Every service is a module of `crates/dainty-controller`, composed by `host::serve` from
 the files `setup` writes, and still runnable alone as a hidden `dainty-host <service>` subcommand
@@ -147,8 +147,8 @@ is a host's own and is never committed.
 Every service reads one env file, given with `--env-file`, and nothing from its working directory
 (`crates/dainty-service-kit/src/env.rs`, DR X7). As with Node's `--env-file`, the process environment wins over the file.
 **The env files are the host kit's output, not hand-written:** `dainty-host setup` writes them from
-`host.toml` and `secrets.env` (`crates/dainty-hostkit/src/hostconfig.rs`, `hosttoml.rs`), and `start` hands each
-service its own. So a new setting is a field in `host.toml` (in `HostConfig`, and in `hosttoml.rs`'s key
+`settings.toml` and `secrets.env` (`crates/dainty-hostkit/src/hostconfig.rs`, `settingstoml.rs`), and `start` hands each
+service its own. So a new setting is a field in `settings.toml` (in `HostConfig`, and in `settingstoml.rs`'s key
 table with a snake_case name and a comment for new files), a `setup` option where a host should choose it,
 and a line in the service's file. It is never a variable the host is told to export.
 
@@ -158,15 +158,15 @@ It's never a one-file change:
 
 - **The writer and the reader in the same commit.** `hostconfig.rs` writes it, the service's `config.rs`
   reads it (`from_env`), and a test checks the round trip. `update` reruns `setup` with the host's existing
-  `host.toml` (or a Node kit's `host.json`), so a new field that an older file doesn't have must default to
+  `settings.toml` (or a Node kit's `host.json`), so a new field that an older file doesn't have must default to
   today's behaviour.
 - **Use one of the server prefixes** (`DAINTY_`, `GATEWAY_`, `ALLOWLIST_`, `CONTENT_`, `GAMESERVER_`...).
-  A variable in the host's environment wins over its service's env file, with a warning naming the `host.toml` key on
-  every start, and `PORT`, `LOG_LEVEL` and the other generic names only as `DAINTY_<SERVICE>_<NAME>` (RD24,
+  A variable in the host's environment wins over its service's env file, with a warning naming the `settings.toml` key
+  on every start, and `PORT`, `LOG_LEVEL` and the other generic names only as `DAINTY_<SERVICE>_<NAME>` (RD24,
   `crates/dainty-hostkit/src/hostconfig/overrides.rs`). The clean-room host kit has no `SERVER_PREFIXES` list, so a
   stale server setting left in the shell reaches a service, as an override or as a key its file doesn't set. Only the
   controller's registry filters, keeping the OS's own variables for an external module (`system_environment`).
-- **A secret goes in `secrets.env`** (`SECRET_KEYS`), made once and never logged. It is never a `host.toml`
+- **A secret goes in `secrets.env`** (`SECRET_KEYS`), made once and never logged. It is never a `settings.toml`
   field and never an option on the command line.
 - **The docs move with it.** The settings table in `restricted/docs/hosting.md`, and `hosting-linux.md`
   and `hosting-docker.md` wherever a host sees the option. Delete the rows when the variable goes. A stale row is

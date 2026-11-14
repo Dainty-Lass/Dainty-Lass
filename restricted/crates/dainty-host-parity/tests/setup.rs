@@ -658,11 +658,11 @@ fn a_fresh_private_setup_then_again() {
     assert!(text.ends_with("  dainty-host doctor shows what is still missing."));
     assert_eq!(*env.installs.borrow(), 1);
 
-    let config = read_host_config(&p.host_toml).unwrap().unwrap();
+    let config = read_host_config(&p.settings_toml).unwrap().unwrap();
     assert_eq!(config.mode, ServerMode::Private);
     assert_eq!(config.game_dir.as_deref(), Some(game_arg.as_str()));
-    assert!(!p.config.join("host.json").exists(), "host.toml only");
-    let toml = read(&p.host_toml);
+    assert!(!p.config.join("host.json").exists(), "settings.toml only");
+    let toml = read(&p.settings_toml);
     assert!(toml.starts_with("# This server's settings (dainty-host)."), "{toml}");
     assert!(
         toml.contains("\nversion = 1\n") && toml.contains("\nmode = \"private\"\n"),
@@ -700,7 +700,10 @@ fn a_fresh_private_setup_then_again() {
     assert!(lines.contains(&"\n2. Skipped installing and building (--skip-install)".to_owned()));
     assert!(lines.iter().any(|l| l.starts_with("- secrets: kept in ")));
     assert_eq!(read(&p.config.join("secrets.env")), before);
-    assert_eq!(read_host_config(&p.host_toml).unwrap().unwrap().name, "Friday Hunts");
+    assert_eq!(
+        read_host_config(&p.settings_toml).unwrap().unwrap().name,
+        "Friday Hunts"
+    );
 }
 
 #[test]
@@ -721,11 +724,11 @@ fn setup_leaves_a_node_kits_host_json_to_dainty_legacy() {
     );
     let err = r.unwrap_err();
     assert!(err.contains("dainty-legacy import reforged"), "{err}");
-    assert!(!p.host_toml.exists(), "nothing written");
+    assert!(!p.settings_toml.exists(), "nothing written");
 }
 
 #[test]
-fn setup_keeps_the_hosts_own_comments_and_edits_in_host_toml() {
+fn setup_keeps_the_hosts_own_comments_and_edits_in_settings_toml() {
     let (_dir, p, _game) = checkout();
     let env = Mock::new();
     setup(
@@ -735,34 +738,34 @@ fn setup_keeps_the_hosts_own_comments_and_edits_in_host_toml() {
     )
     .0
     .unwrap();
-    let edited = read(&p.host_toml).replace(
+    let edited = read(&p.settings_toml).replace(
         "max_hunt_servers = 3\n",
         "# two hunts are plenty on this PC\nmax_hunt_servers = 2 # was 3\n",
     );
-    assert_ne!(edited, read(&p.host_toml));
-    std::fs::write(&p.host_toml, &edited).unwrap();
+    assert_ne!(edited, read(&p.settings_toml));
+    std::fs::write(&p.settings_toml, &edited).unwrap();
     setup(&p, &["--name", "Saturday Hunts", "--skip-install"], &env)
         .0
         .unwrap();
     assert_eq!(
-        read(&p.host_toml),
+        read(&p.settings_toml),
         edited.replace("name = \"Friday Hunts\"", "name = \"Saturday Hunts\"")
     );
     assert_eq!(load_host_config(&p).unwrap().unwrap().max_hunt_servers, 2);
 }
 
-// DF7: [database] is chosen in host.toml; setup keeps it and writes it into admin.env.
+// DF7: [database] is chosen in settings.toml; setup keeps it and writes it into admin.env.
 #[test]
-fn setup_keeps_the_database_the_host_chose_in_host_toml() {
+fn setup_keeps_the_database_the_host_chose_in_settings_toml() {
     let (_dir, p, _game) = checkout();
     let env = Mock::new();
     setup(&p, &["--mode", "private", "--skip-install"], &env).0.unwrap();
     let admin = read_env_file(&p.config.join("admin.env")).unwrap();
     assert_eq!(admin.get("DAINTY_DB_ENGINE"), Some("sqlite"));
-    let edited = read(&p.host_toml) + "\n# Postgres in Docker\n[database]\nengine = \"postgres\" # was sqlite\n";
-    std::fs::write(&p.host_toml, &edited).unwrap();
+    let edited = read(&p.settings_toml) + "\n# Postgres in Docker\n[database]\nengine = \"postgres\" # was sqlite\n";
+    std::fs::write(&p.settings_toml, &edited).unwrap();
     setup(&p, &["--skip-install"], &env).0.unwrap();
-    assert_eq!(read(&p.host_toml), edited, "kept as written");
+    assert_eq!(read(&p.settings_toml), edited, "kept as written");
     let admin = read_env_file(&p.config.join("admin.env")).unwrap();
     let secrets = read_env_file(&p.config.join("secrets.env")).unwrap();
     assert_eq!(admin.get("DAINTY_DB_ENGINE"), Some("postgres"));
@@ -879,7 +882,7 @@ fn multipliers(p: &Paths, args: &[&str]) -> (Result<std::process::ExitCode, Stri
 }
 
 #[test]
-fn multipliers_change_only_the_multipliers_in_host_toml_and_the_backends_env() {
+fn multipliers_change_only_the_multipliers_in_settings_toml_and_the_backends_env() {
     let (_dir, p, _game) = checkout();
     let (r, lines) = multipliers(&p, &[]);
     assert_eq!(
@@ -890,7 +893,7 @@ fn multipliers_change_only_the_multipliers_in_host_toml_and_the_backends_env() {
     setup(&p, &["--mode", "private", "--skip-install"], &Mock::new())
         .0
         .unwrap();
-    let before = read(&p.host_toml);
+    let before = read(&p.settings_toml);
 
     let (r, lines) = multipliers(&p, &[]);
     assert!(r.is_ok());
@@ -900,7 +903,7 @@ fn multipliers_change_only_the_multipliers_in_host_toml_and_the_backends_env() {
     assert!(r.is_ok(), "{r:?}");
     assert_eq!(lines[0], "Test multipliers ON: XP x5, rewards x2.5.");
     assert!(lines[1].starts_with("Restart the server"));
-    let after = read(&p.host_toml);
+    let after = read(&p.settings_toml);
     // A new [multipliers] table at the end; everything else stays as it was.
     assert_eq!(after, format!("{before}\n[multipliers]\nxp = 5\nrewards = 2.5\n"));
     let backend = read_env_file(&p.config.join("backend.env")).unwrap();
@@ -916,7 +919,7 @@ fn multipliers_change_only_the_multipliers_in_host_toml_and_the_backends_env() {
         "--xp must be a number from 1 to 100 (got 500)"
     );
     multipliers(&p, &["--off"]).0.unwrap();
-    assert_eq!(read(&p.host_toml), before, "--off: the file as it was");
+    assert_eq!(read(&p.settings_toml), before, "--off: the file as it was");
 }
 
 #[test]
@@ -931,7 +934,7 @@ fn multipliers_args_default_is_nothing_asked() {
 // ------------------------------------------------------------------ editions: 1.4.4 is no longer served
 
 #[test]
-fn edition_is_gone_and_host_toml_may_only_say_reborn() {
+fn edition_is_gone_and_settings_toml_may_only_say_reborn() {
     let env = Mock::new();
     let reborn = from_args(&["--mode", "private"], None, &env).unwrap();
     assert!(!host_config_text(&reborn).unwrap().contains("edition"));
@@ -1018,7 +1021,7 @@ mod m1_mongo_migration {
 
     #[test]
     fn fresh_apply_and_toml_profile_succeed_without_mongodb() {
-        // A brand-new node whose host.toml docker/network/init.sh wrote, with the old default [mongo] table
+        // A brand-new node whose settings.toml docker/network/init.sh wrote, with the old default [mongo] table
         let (_dir, p, _game) = checkout();
         let env = Mock {
             platform: Platform::Linux,
@@ -1047,13 +1050,13 @@ xvfb = true
 node = \"oregon-1\"
 region = \"oregon\"
 ";
-        std::fs::write(&p.host_toml, network_node_toml).unwrap();
+        std::fs::write(&p.settings_toml, network_node_toml).unwrap();
         let (r, lines) = setup(&p, &["--skip-install"], &env);
         assert!(r.is_ok(), "fresh apply must succeed: {r:?}\n{}", lines.join("\n"));
         let cfg = load_host_config(&p).unwrap().unwrap();
         assert!(dainty_host::commands::update::check_unmigrated_mongo_data(&p, &cfg).is_ok());
 
-        // The toml profile: /config/host.toml copied in with no [mongo] table, before anything else exists
+        // The toml profile: /config/settings.toml copied in with no [mongo] table, before anything else exists
         let (_dir2, p2, _game2) = checkout();
         std::fs::create_dir_all(&p2.config).unwrap();
         let toml_profile_cfg = "\
@@ -1065,7 +1068,7 @@ name = \"Fresh Toml Profile\"
 registration = \"INVITECODE\"
 max_hunt_servers = 3
 ";
-        std::fs::write(&p2.host_toml, toml_profile_cfg).unwrap();
+        std::fs::write(&p2.settings_toml, toml_profile_cfg).unwrap();
         let (r2, lines2) = setup(&p2, &["--skip-install"], &env);
         assert!(
             r2.is_ok(),

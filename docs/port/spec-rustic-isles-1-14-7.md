@@ -2,7 +2,7 @@
 
 > **Ports moved 2026-11-10.** The loopback services' defaults are now backend 41000, Director 41001, content
 > 41002, admin 41003, allowlist 41005, chat 41006 and QoS 41010, below the dynamic range Windows lends to Hyper-V,
-> WSL and Docker. host.toml's `[ports]` moves any of them, and on Windows setup and start move one Windows has lent
+> WSL and Docker. settings.toml's `[ports]` moves any of them, and on Windows setup and start move one Windows has lent
 > out (a private gateway's 61000 to 41080). The numbers below are the ones recorded upstream: read each 610xx
 > service port as its 410xx counterpart. A private gateway's default stays 61000.
 
@@ -102,7 +102,7 @@ Category A is code written for Dainty Lass with no Paradox code in it; B ports P
 
 | Item | Value | Class (§4) |
 | --- | --- | --- |
-| Module id | `isles-1-14-7` (kept, core §15 item 13: `host.toml`, the gateway's routing and invites name it) | (c) Dainty Lass |
+| Module id | `isles-1-14-7` (kept, core §15 item 13: `settings.toml`, the gateway's routing and invites name it) | (c) Dainty Lass |
 | Display name | `Rustic Isles 1.14.7` | (c) Dainty Lass |
 | Game version | `1.14.7` | (a) |
 | Invite aliases | `reforged` (the manifest answers both `reforged` and `1.14.7`) | (c) Dainty Lass, live contract |
@@ -212,7 +212,7 @@ Checked in this order:
 ### 4.3 `version_data.json` (the run-time inputs)
 
 **Where**: a file named `version_data.json` in the module's backend game data folder (`[modules.isles-1-14-7.game_data]
-backend_dir`, core §8.1). No new setting, `host.toml` field or env line: the folder is already configured.
+backend_dir`, core §8.1). No new setting, `settings.toml` field or env line: the folder is already configured.
 
 **Who writes it**: restricted, which holds the values. Its release carries the document, and its setup (or its
 `reforged-host gamedata` hook, until hostkit gains a step) copies it into the backend game data folder. A host
@@ -552,8 +552,9 @@ The composed module accepts **`x-rustic-host-capability` only**, and serves the 
 
 ## 8. Settings
 
-Read through core's settings (§2). None is new: no `host.toml` field, `setup` option or env line comes with this unit.
-Rifts' own settings are their crates' (`P2P_*`, `RUSTIC_RIFTS_*`); listed here are those the composition itself reads.
+Read through core's settings (§2). None is new: no `settings.toml` field, `setup` option or env line comes with this
+unit. Rifts' own settings are their crates' (`P2P_*`, `RUSTIC_RIFTS_*`); listed here are those the composition itself
+reads.
 
 | Setting | Reader | Secret |
 | --- | --- | --- |
@@ -612,7 +613,7 @@ the core sees as a failed load (`dainty_plugin_v1` answers null), never as undef
 
 ### 9.5 dainty-lass's core
 
-The core loads either artifact from `host.toml`'s `[[modules.external]]` (`id = "isles-1-14-7"`, `path`, `sha256`):
+The core loads either artifact from `settings.toml`'s `[[modules.external]]` (`id = "isles-1-14-7"`, `path`, `sha256`):
 `plugin_host::is_library` picks the library driver for the cdylib and the child driver for the executable; the file
 is checked against its pinned SHA-256 before anything in it runs, and the module's id must equal `id`
 (`docs/security/plugin-host.md`). The core links no rustic-isles code itself.
@@ -810,7 +811,7 @@ arbitrary text through `candidate_destination`, `huntpass_payload` and `objectiv
    generated without restricted's seeds. Until then `storageTokenSeeds` comes from restricted.
 7. **Who installs `version_data.json`**: restricted's setup copying it is the proposal; a hostkit `gamedata` step
    ("version data") would make it visible in `reforged-host gamedata`'s report. A hostkit row if wanted.
-8. **The child executable's name** (`rustic-isles-1-14-7`) differs from the module id (`isles-1-14-7`); `host.toml`
+8. **The child executable's name** (`rustic-isles-1-14-7`) differs from the module id (`isles-1-14-7`); `settings.toml`
    names the path, so either works. Kept as proposed unless the coordinator prefers the id.
 9. **`ReforgedAdmin::home_operation` takes a `HomeInvocation`** while core's hook passes its parts (§5.7); the
    adapter rebuilds one. If the Reforged unit prefers the parts, the adapter shrinks.

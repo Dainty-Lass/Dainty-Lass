@@ -18,7 +18,7 @@ under [security/](security) go through each trust boundary line by line; the AGP
 | Remote management | controller & managed installs | `crates/dainty-remote` (`Service::Remote`) | no listener of its own; rides gateway `/__node/enroll` (rate-limited token redemption) and `/__node/remote` (mTLS under the controller's CA) |
 | Chat (core plugin) | the server | `crates/dainty-chat` | XMPP over WebSocket routed through the gateway; federated server-to-server over `/__node/chat` |
 | Store & history shipping | the server | `crates/dainty-store`, `crates/dainty-history-ship` | SQLite (default) or Postgres on loopback, with a hash-chained change log shipped to S3 object lock or a peer node |
-| Game modules | the server (in-process or child process) | `crates/rustic-isles-1-14-7` composing the `rustic-isles-*` areas (MIT), with `restricted/`'s version data | loopback ports assigned by the controller (`41000`/`41001` by default or host.toml's `[ports]`, shifted on collision) |
+| Game modules | the server (in-process or child process) | `crates/rustic-isles-1-14-7` composing the `rustic-isles-*` areas (MIT), with `restricted/`'s version data | loopback ports assigned by the controller (`41000`/`41001` by default or settings.toml's `[ports]`, shifted on collision) |
 | Realms & TURN relay | the server & realm hosts' PCs | `crates/rustic-rifts-*` (`rustic-rifts-admission`, `rustic-rifts-relay`, `rustic-rifts-realms`, `rustic-rifts-guard`, `rustic-rifts-host`, `rustic-rifts-transport`), `restricted/modules/rustic-rifts` (`ParadoxTransport.dll`) and `turn-rs` | `turn-rs` on UDP/TCP 3478, TLS 5349 and its UDP relay range (the one listener exception, DD24) |
 | Game servers | the server | the game executable, with the host's runtime | UDP 8770-8777 (down to 8766 with ten hunts), guarded by the allowlist |
 | Host kit | the server | `crates/dainty-hostkit` and `restricted/crates/dainty-host`, bin `dainty-host` | nothing; writes `.workspace/config`, manages modules, certs and history, runs `start` |
@@ -48,20 +48,20 @@ Dainty Lass separates **core plugins** from **game modules** ([`crates/dainty-mo
 - **Registration (`Registrar` and `ModuleContext`).** During `register`, a game module registers its HTTP route
   prefixes (which the gateway routes by `GameVersion`), UDP port ranges (which the allowlist unions across loaded
   modules), static and runtime content files, console/admin commands, status panels, admin actions (`kick`, `ban`,
-  `lookup`) and `host.toml` config sections. The controller refuses a second game module for a `GameVersion` that
+  `lookup`) and `settings.toml` config sections. The controller refuses a second game module for a `GameVersion` that
   is already loaded and shifts colliding loopback ports automatically.
 - **In-process and out-of-process loading.** The same `GameModule` trait runs compiled into the server binaries
   (`server-minimal`, `server-console`, `dainty-manager` with `server-gui`) or as an external child process (`module_api::child::main`)
   speaking length-prefixed JSON frames over stdin/stdout ([writing-a-module.md](writing-a-module.md),
-  [security/module-host.md](security/module-host.md)). Only external executables listed in `host.toml` with their
+  [security/module-host.md](security/module-host.md)). Only external executables listed in `settings.toml` with their
   pinned SHA-256 are ever started. A module can also be a library (`[[modules.external]]` with a `.dll` or `.so`
   path), loaded by `crates/dainty-plugin-host` over the C ABI in `module_api::plugin` (RD27).
-- **Services as libraries (RD27).** A service `host.toml` names in `[services.<name>]` (its `library` path and
+- **Services as libraries (RD27).** A service `settings.toml` names in `[services.<name>]` (its `library` path and
   `sha256`) runs as a supervised module of the controller in place of the compiled-in one
   (`controller::service_library`, `hostkit::serve::compose`); `content`, `chat` and `gateway` are known by name and
   what they serve as core plugins. The MIT core, `crates/dainty-lass`, has only the admin API and remote
   management built in and takes every other service this way; `restricted/`'s server binaries still compile
-  them in unless `host.toml` lists them.
+  them in unless `settings.toml` lists them.
 
 ## Joining a server
 
@@ -119,7 +119,7 @@ added there without a policy decision fails CI.
 - **The content server trusts the backend's answer about a key**, cached briefly, and its own folders.
 - **The backend trusts the game servers' key** (`x-rustic-isles-gameserver-apikey`, loopback only) and the
   admin key on loopback. It stores account keys only as HMACs.
-- **The host kit trusts `host.toml` and `secrets.env`** in `.workspace/config`, which it wrote. Every service
+- **The host kit trusts `settings.toml` and `secrets.env`** in `.workspace/config`, which it wrote. Every service
   reads one env file and nothing from its working directory. `start` passes the shell's environment on with the
   file on top, so a server setting the file doesn't name can still come from the shell.
 - **A managed install trusts its enrolled controller only for shared settings and remote admin actions**

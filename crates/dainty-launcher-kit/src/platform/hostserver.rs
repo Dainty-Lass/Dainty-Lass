@@ -34,7 +34,7 @@ pub const SERVER_READY_LINE: &str = "DAINTY_SERVER_READY";
 /// Default local TCP port for the backend service.
 pub const BACKEND_PORT: u16 = 41000;
 
-/// The backend's port in `workspace`'s `backend.env`, which setup writes from host.toml's `[ports]`; the default
+/// The backend's port in `workspace`'s `backend.env`, which setup writes from settings.toml's `[ports]`; the default
 /// when the file or the line is missing.
 #[must_use]
 pub fn workspace_backend_port(workspace: &Path) -> u16 {

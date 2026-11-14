@@ -24,7 +24,7 @@ pub fn run(paths: &Paths, args: &InviteArgs) -> Result<ExitCode, HostError> {
     run_with(paths, args, backend_port(paths), &mut |l| println!("{l}"))
 }
 
-/// The backend's port as host.toml sets it, or the default when there is no host.toml to read.
+/// The backend's port as settings.toml sets it, or the default when there is no settings.toml to read.
 #[must_use]
 pub fn backend_port(paths: &Paths) -> u16 {
     crate::hostconfig::load_host_config(paths)
@@ -183,7 +183,7 @@ fn resolve_or_create_reborn_code(
     match config.registration {
         Registration::Open => Ok("OPEN".to_owned()),
         Registration::None => Err(HostError::message(
-            "registration is disabled (NONE) in host.toml; change registration to INVITECODE or OPEN",
+            "registration is disabled (NONE) in settings.toml; change registration to INVITECODE or OPEN",
         )),
         Registration::Invitecode => {
             let admin_key = read_admin_key(paths)?;

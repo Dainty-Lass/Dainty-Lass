@@ -149,8 +149,8 @@ Reasons a comment may cite: TLS and crypto are aws-lc-rs, never OpenSSL (D10); D
 SQLite (M17); Postgres goes through tokio-postgres, no libpq; diesel's third-party-backend feature is for the store's
 Postgres newtype in `MultiConnection`; `p256` types are public, so restricted/ resolves the same line; Epic pins by
 SHA-1 with MD5 beside it (DD22); `egs-api` is sign-in and library only (DE1); `ts-rs` generates the bridge types (L6);
-`toml_edit` keeps a host's comments in `host.toml`; `dbus-secret-service` is Linux key storage (RL5); `windows` is COM
-for Windows Firewall; the Tauri crates match restricted's launcher (RL13); `turn` is a test TURN server; the `rtc-*`
+`toml_edit` keeps a host's comments in `settings.toml`; `dbus-secret-service` is Linux key storage (RL5); `windows` is
+COM for Windows Firewall; the Tauri crates match restricted's launcher (RL13); `turn` is a test TURN server; the `rtc-*`
 crates are sans-IO ICE and TURN (spec-rd27-rifts D2); `console-subscriber` is the `tokio-console` feature only;
 `tokio-metrics` is per-module task metrics on `/metrics`.
 

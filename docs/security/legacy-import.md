@@ -21,7 +21,7 @@ the player. It listens on nothing.
   database (`import offline-save`), a Reforged Node kit's checkout (`import reforged`: `host.json`, `secrets.env`,
   `backend.env`, the old folders), and the 1.14.7 backend's env file (`--env-file`).
 - **Out:** the 1.14.7 database (one transaction as `host:legacy-import`, in the change log so it can be reverted,
-  DD23); in a checkout, `host.toml`, `host.json.bak`, the MongoDB marker and the folders it moves; `dainty-host db
+  DD23); in a checkout, `settings.toml`, `host.json.bak`, the MongoDB marker and the folders it moves; `dainty-host db
   migrate` and `db verify` as child processes (`--db-tool`).
 - **Who runs it:** the host's console (`dainty-host legacy import`, `module run legacy import-<kind>`) or the host on
   the command line (`dainty-legacy import <kind>`). No other actor reaches it.
@@ -35,7 +35,7 @@ Fuzz targets in `fuzz`:
 - `legacy_database_readers`: arbitrary bytes as a server database, a bare offline database and a `.drsave` (the
   bytes as its database) give an error or a count, never a panic; the source is unchanged and nothing is written
   beside it but the `-wal` and `-shm` any SQLite reader of a WAL database makes.
-- `legacy_host_json`: arbitrary text through the `host.json` to `host.toml` conversion gives an error or a file
+- `legacy_host_json`: arbitrary text through the `host.json` to `settings.toml` conversion gives an error or a file
   that starts with the header and reads back as TOML.
 
 ## Checklist
@@ -95,7 +95,7 @@ Fuzz targets in `fuzz`:
 
 - [ ] `host.json` is read only when it is a file of at most 262144 bytes, and converted before anything moves, so a
       bad file changes nothing.
-- [ ] `host.toml` is written to `host.toml.partial` and renamed; `host.json` is kept as `host.json.bak`.
+- [ ] `settings.toml` is written to `settings.toml.partial` and renamed; `host.json` is kept as `host.json.bak`.
 - [ ] Folders are only renamed, never overwritten or deleted: a destination that exists is skipped.
 - [ ] MongoDB is moved only through `dainty-host db migrate` and `db verify`; the marker is written only after a
       verify with no differences. Their output is captured, so it never reaches a module's frame pipe.

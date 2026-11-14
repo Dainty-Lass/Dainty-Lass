@@ -21,7 +21,7 @@ mod modules {
     use serde_json::json;
     use server_controller::{ModuleEntry, ModuleRegistry, ModuleSource, RegistryOptions};
 
-    const HOST_TOML: &str = "version = 1\nmode = \"private\"\nname = \"Friday Hunts\"\nhost = \"100.101.102.103\"\n\
+    const SETTINGS_TOML: &str = "version = 1\nmode = \"private\"\nname = \"Friday Hunts\"\nhost = \"100.101.102.103\"\n\
         game_address = \"100.101.102.103\"\nregistration = \"INVITECODE\"\nmax_hunt_servers = 3\n";
 
     struct Fixture {
@@ -31,8 +31,8 @@ mod modules {
     }
 
     impl Fixture {
-        fn host_toml(&self) -> std::path::PathBuf {
-            dainty_host::paths::Paths::new(self.dir.path()).host_toml
+        fn settings_toml(&self) -> std::path::PathBuf {
+            dainty_host::paths::Paths::new(self.dir.path()).settings_toml
         }
     }
 
@@ -54,9 +54,9 @@ mod modules {
         panel.attach_registry(Some(registry.clone()));
         panel.set_workspace(Some(dir.path().to_path_buf()));
         let fixture = Fixture { panel, registry, dir };
-        let file = fixture.host_toml();
+        let file = fixture.settings_toml();
         std::fs::create_dir_all(file.parent().unwrap()).unwrap();
-        std::fs::write(file, HOST_TOML).unwrap();
+        std::fs::write(file, SETTINGS_TOML).unwrap();
         fixture
     }
 
@@ -168,7 +168,7 @@ mod modules {
     }
 
     #[tokio::test(flavor = "multi_thread")]
-    async fn settings_are_saved_to_host_toml_and_taken_by_the_next_load() {
+    async fn settings_are_saved_to_settings_toml_and_taken_by_the_next_load() {
         let f = running();
         let panel = shared(&f.panel);
         module(panel.load("stub".into()).await);
@@ -182,7 +182,7 @@ mod modules {
             saved.settings[0].keys[0].default,
             ModuleSettingValue::Text("hello".into())
         );
-        let text = std::fs::read_to_string(f.host_toml()).unwrap();
+        let text = std::fs::read_to_string(f.settings_toml()).unwrap();
         assert!(
             text.contains("[modules.stub.stub]") && text.contains("greeting = \"hey\""),
             "{text}"
@@ -200,7 +200,7 @@ mod modules {
         assert_eq!(said(echo().await).unwrap().0, "hey");
 
         // What does not fit is refused and the file is as it was
-        let before = std::fs::read_to_string(f.host_toml()).unwrap();
+        let before = std::fs::read_to_string(f.settings_toml()).unwrap();
         for (values, why) in [
             (json!({ "stub": { "greeting": 3 } }), "type:stub.greeting"),
             (json!({ "stub": { "nope": "x" } }), "unknown_key:stub.nope"),
@@ -211,7 +211,7 @@ mod modules {
                 (ErrorCode::ModuleSettingsInvalid, why.into())
             );
         }
-        assert_eq!(std::fs::read_to_string(f.host_toml()).unwrap(), before);
+        assert_eq!(std::fs::read_to_string(f.settings_toml()).unwrap(), before);
         // And a module that has not loaded has registered nothing to set
         module(panel.unload("stub".into()).await);
         assert_eq!(
@@ -226,9 +226,9 @@ mod modules {
     }
 
     #[tokio::test(flavor = "multi_thread")]
-    async fn settings_need_a_host_toml() {
+    async fn settings_need_a_settings_toml() {
         let f = running();
-        std::fs::remove_file(f.host_toml()).unwrap();
+        std::fs::remove_file(f.settings_toml()).unwrap();
         let panel = shared(&f.panel);
         module(panel.load("stub".into()).await);
         assert_eq!(
@@ -237,7 +237,7 @@ mod modules {
                     .set_settings("stub".into(), json!({ "stub": { "greeting": "x" } }).to_string())
                     .await
             ),
-            (ErrorCode::ModuleFailed, "host_toml".into())
+            (ErrorCode::ModuleFailed, "settings_toml".into())
         );
     }
 }

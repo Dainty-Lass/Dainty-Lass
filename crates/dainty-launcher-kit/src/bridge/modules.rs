@@ -29,7 +29,7 @@ use super::types::{
 
 type Boxed<T> = Pin<Box<dyn Future<Output = T> + Send>>;
 
-/// What `host.toml` holds for one module: `[modules.<id>.<section>]` tables of keys.
+/// What `settings.toml` holds for one module: `[modules.<id>.<section>]` tables of keys.
 pub type Settings = BTreeMap<String, BTreeMap<String, Value>>;
 
 /// The calls the page makes on the server's modules. Implemented over the embedded server's registry
@@ -58,7 +58,7 @@ pub trait ModulePanel: Send + Sync {
     ) -> Boxed<AdminOutcome>;
 }
 
-/// The longest text one setting holds (host.toml's own bound, `hostconfig/modules.rs`).
+/// The longest text one setting holds (settings.toml's own bound, `hostconfig/modules.rs`).
 pub const VALUE_MAX: usize = 4096;
 /// The longest text one command argument holds
 pub const ARG_MAX: usize = 1024;
@@ -361,7 +361,7 @@ fn setting_sections(config: &[ConfigSection], saved: &Settings) -> Vec<ModuleSec
         .collect()
 }
 
-/// The panel's view of a module; `saved` is what host.toml sets for it.
+/// The panel's view of a module; `saved` is what settings.toml sets for it.
 pub fn view(listed: &Listed, saved: &Settings) -> ModuleView {
     let manifest = listed.manifest.as_ref();
     ModuleView {
@@ -633,7 +633,7 @@ mod tests {
             (key.name.as_str(), &key.default, &key.value),
             ("greeting", &hello, &hello)
         );
-        // host.toml's value shows once set, and one of the wrong type falls back to the default
+        // settings.toml's value shows once set, and one of the wrong type falls back to the default
         let saved = Settings::from([("stub".into(), BTreeMap::from([("greeting".into(), json!("hi"))]))]);
         let again = view(&listed(None), &saved);
         assert_eq!(again.settings[0].keys[0].value, ModuleSettingValue::Text("hi".into()));

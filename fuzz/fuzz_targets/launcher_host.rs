@@ -1,6 +1,6 @@
 //! What the launcher's Host page reads from text it did not write (MIGRATION_PLAN.md RA12, RX3): the
 //! output of `dainty-host` (its `Error:` lines, the `--json` lines of `invite` and `update`, the
-//! published runtime's version, the pack it wrote), the workspace's `host.toml` (or a Node kit's
+//! published runtime's version, the pack it wrote), the workspace's `settings.toml` (or a Node kit's
 //! `host.json`) and `vswhere`'s answers. The invite's link is a secret the page copies, and the
 //! multipliers go back to the host kit as arguments. The launcher's own parser file, compiled in here, since the launcher crate needs a webview
 //! to build.
@@ -57,7 +57,7 @@ fuzz_target!(|data: &[u8]| {
         assert!(!pack.contains(['\\', '/']) && pack.chars().count() <= 120);
     }
 
-    // host.toml
+    // settings.toml
     if let Some(config) = parse::server_config_toml(&text) {
         if let Some((xp, rewards)) = config.multipliers {
             // What goes back to `dainty-host multipliers` as arguments

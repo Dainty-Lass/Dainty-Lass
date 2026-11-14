@@ -50,7 +50,7 @@ fn migrates_legacy_user_data_and_documents_folders_without_losing_or_overwriting
     std::fs::write(legacy_user_data.join("settings.json"), b"{\"language\":\"en\"}").unwrap();
     std::fs::write(legacy_user_data.join("keys/abc.key2"), b"encrypted-key-1").unwrap();
     std::fs::write(
-        legacy_user_data.join("Server/.workspace/config/host.toml"),
+        legacy_user_data.join("Server/.workspace/config/settings.toml"),
         b"mode = \"private\"\n",
     )
     .unwrap();
@@ -66,7 +66,7 @@ fn migrates_legacy_user_data_and_documents_folders_without_losing_or_overwriting
         std::fs::read_to_string(new_user_data.join("keys/abc.key2")).unwrap(),
         "encrypted-key-1"
     );
-    assert!(new_user_data.join("Server/.workspace/config/host.toml").is_file());
+    assert!(new_user_data.join("Server/.workspace/config/settings.toml").is_file());
     let new_keys = paths.recovery();
     assert_eq!(
         std::fs::read_to_string(new_keys.join("abc.txt")).unwrap(),

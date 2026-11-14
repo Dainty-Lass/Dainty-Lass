@@ -53,7 +53,7 @@ RUN --mount=type=cache,id=dainty-cargo-registry,target=/usr/local/cargo/registry
       cp "target/release/lib$lib.so" /out/plugins/; \
     done; \
     cp /out/plugins/librustic_isles_1_14_7_plugin.so /out/plugins/librustic_isles_plugin.so
-# librustic_isles_plugin.so: the pre-rename name, so existing host.toml pins keep loading for one release (Q-3)
+# librustic_isles_plugin.so: the pre-rename name, so existing settings.toml pins keep loading for one release (Q-3)
 
 FROM ${DEBIAN_IMAGE} AS front
 # nft is the only file with a capability: the unprivileged allowlist gets CAP_NET_ADMIN through it alone

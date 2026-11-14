@@ -65,8 +65,8 @@ The lists `tables`, `triggers`, `carried`, `not_player_data` and `cleared` (sect
 
 ### 2.2 `reforged.toml`
 
-The `host.json` to `host.toml` key tables (`top`, `keys.<table>`, each entry `[json name, toml name]` in
-host.toml's order), the retired keys and modules, the file header, the secret names and their old names, and the
+The `host.json` to `settings.toml` key tables (`top`, `keys.<table>`, each entry `[json name, toml name]` in
+settings.toml's order), the retired keys and modules, the file header, the secret names and their old names, and the
 folder moves (`moves`, `sdk_files`, `old_folders`). Appendix B is its full content.
 
 ## 3. Commands
@@ -342,27 +342,27 @@ unsupported. **Only the console may run one**: any other actor gets `Invalid`,
 
 ## 11. The Reforged Node-kit upgrade
 
-`root` is the old checkout. Paths: `.workspace/config/host.json`, `host.toml` beside it, `.workspace/mongodb`.
+`root` is the old checkout. Paths: `.workspace/config/host.json`, `settings.toml` beside it, `.workspace/mongodb`.
 
 Order, each step before the next so a failure leaves the rest as it was:
 
 1. Read `host.json` if it is there: not a file, or over 262144 bytes, is
-   `<path>: not a host.json of at most 262144 bytes`. Neither it nor `host.toml`:
-   `<root>: no .workspace/config/host.json or host.toml, so not a Reforged install`.
-2. With `host.json` and no `host.toml`, convert it now (section 11.2), so a bad file changes nothing.
+   `<path>: not a host.json of at most 262144 bytes`. Neither it nor `settings.toml`:
+   `<root>: no .workspace/config/host.json or settings.toml, so not a Reforged install`.
+2. With `host.json` and no `settings.toml`, convert it now (section 11.2), so a bad file changes nothing.
 3. MongoDB (11.5). 4. Folders (11.3). 5. `secrets.env` (11.4).
-6. Write `host.toml` (unless a dry run): write `host.toml.partial`, rename it over `host.toml`, delete an old
-   `host.json.bak`, rename `host.json` to `host.json.bak`. Count `host.toml`; note
-   `host.json is now host.toml; the old file is kept as host.json.bak`; with keys dropped, note
-   `left out of host.toml (1.4.4, 1.12 or unknown): <comma-joined>`; with `edition` `"legacy"`, note
-   `this server ran only Dauntless 1.4.4: set game_dir in host.toml to a 1.14.7 install before setup`.
-   `host.toml` already there: `unchanged host.toml`, and if `host.json` is too, note
-   `host.toml is already there, so host.json was left as it is: delete it once you've checked`.
+6. Write `settings.toml` (unless a dry run): write `settings.toml.partial`, rename it over `settings.toml`, delete an
+   old `host.json.bak`, rename `host.json` to `host.json.bak`. Count `settings.toml`; note
+   `host.json is now settings.toml; the old file is kept as host.json.bak`; with keys dropped, note
+   `left out of settings.toml (1.4.4, 1.12 or unknown): <comma-joined>`; with `edition` `"legacy"`, note
+   `this server ran only Dauntless 1.4.4: set game_dir in settings.toml to a 1.14.7 install before setup`.
+   `settings.toml` already there: `unchanged settings.toml`, and if `host.json` is too, note
+   `settings.toml is already there, so host.json was left as it is: delete it once you've checked`.
 7. For each old folder still there (`.workspace/Mystic-Paradox`, `paradox`, `native/runtime`,
    `native/catalog-exporter`), note `<relative path> is no longer used: delete it once you've checked what moved`.
-8. Note `next: run dainty-host setup, which checks host.toml and writes the services' settings`.
+8. Note `next: run dainty-host setup, which checks settings.toml and writes the services' settings`.
 
-### 11.2 `host.json` to `host.toml`
+### 11.2 `host.json` to `settings.toml`
 
 Not JSON: `host.json is not valid JSON: <error>`; not an object: `host.json must hold a JSON object`.
 
@@ -380,7 +380,7 @@ order, lists written inline. `network.nodes` is written last in its table as an 
 no header of its own), a nonempty list of objects an array of tables, any other list an inline array. A value is a
 string, a bool, an integer, or a float; anything else (null inside a list, a list inside a list, an object where a
 single value goes) is `<key> must be a single value`, and a number neither integer nor float is
-`<key>: <n> is not a number host.toml can hold`.
+`<key>: <n> is not a number settings.toml can hold`.
 
 ### 11.3 Folders
 
@@ -753,7 +753,7 @@ moves = [
 ]
 old_folders = [".workspace/Mystic-Paradox", "paradox", "native/runtime", "native/catalog-exporter"]
 
-# `modules` is free-form; these are the tables, each [json, toml] in host.toml's order
+# `modules` is free-form; these are the tables, each [json, toml] in settings.toml's order
 [keys]
 mongo = [["uri", "uri"], ["manage", "manage"], ["mongod", "mongod"]]
 multipliers = [["xp", "xp"], ["rewards", "rewards"]]

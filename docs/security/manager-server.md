@@ -21,8 +21,8 @@ which runs the host kit, the services and the module registry in the manager's p
   has the server (DH1): every module call and admin action runs as `Actor::Console`.
 - **In, from modules:** what a module answers (text, data, failure words), which for an external module is another
   process's output.
-- **Out:** the workspace's files (`host.toml`, the env files, `secrets.env`, the databases) and the services the
-  host kit starts, which bind as `host.toml` says (only the gateway off loopback).
+- **Out:** the workspace's files (`settings.toml`, the env files, `secrets.env`, the databases) and the services the
+  host kit starts, which bind as `settings.toml` says (only the gateway off loopback).
 
 Code: `crates/dainty-manager-server/src/` (`lib.rs`, `engine.rs`, `modules.rs`, `history.rs`, `version_data.rs`).
 
@@ -31,10 +31,10 @@ Code: `crates/dainty-manager-server/src/` (`lib.rs`, `engine.rs`, `modules.rs`, 
 ### The page's input
 
 - [ ] No call takes a path or a program from the page (DD5): the workspace is the controller's, module ids go
-      through `module_id`, and the registry only loads what `host.toml` lists (`modules.rs`).
+      through `module_id`, and the registry only loads what `settings.toml` lists (`modules.rs`).
 - [ ] A command runs only when the module registered it, with the arguments `command_args` made from the input;
-      settings are saved only after `merge_settings` accepted every value, and a refusal leaves `host.toml` as it was
-      (`tests/modules.rs`).
+      settings are saved only after `merge_settings` accepted every value, and a refusal leaves `settings.toml` as it
+      was (`tests/modules.rs`).
 - [ ] A revert applies only a plan this process showed in a dry run, under the engine's write lock, once
       (`history.rs`, `tests/history.rs`).
 - [ ] `run_kit` runs only `setup`, `invite`, `multipliers`, `gamedata`, `publish-runtime` and `update`; anything else
@@ -55,7 +55,7 @@ Code: `crates/dainty-manager-server/src/` (`lib.rs`, `engine.rs`, `modules.rs`, 
 - [ ] The 1.14.7 version data and facts are read only from the manager's own install (beside the executable, or
       Tauri's `../lib/Dainty Lass Manager/` on Linux) and written only to the workspace's
       `data/1.14.7/version_data.json` and `version_facts.json`; a host's own `version_data` or `version_facts` in
-      `host.toml` is never overwritten (`version_data.rs`).
+      `settings.toml` is never overwritten (`version_data.rs`).
 
 ### Secrets
 

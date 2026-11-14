@@ -14,7 +14,7 @@ does not hold is a bug to fix before the release, not a box to leave open.
 ## What it is and where the boundary is
 
 The server GUI runs the server, and so the controller and its module registry, inside the launcher. The page lists the
-modules `host.toml` names, loads and unloads them, runs the commands they registered and edits the settings they
+modules `settings.toml` names, loads and unloads them, runs the commands they registered and edits the settings they
 registered. A module ships no UI (DD11): the page draws every card from the module's manifest and registration, which
 for an external module come from its own process (DD5) and are untrusted text.
 
@@ -24,7 +24,7 @@ for an external module come from its own process (DD5) and are untrusted text.
   the plugin theme) and a command's output. All of it is bounded by `module-api` when it registers
   (`ModuleManifest::validate`, `Registration::check`) and again, as text for the page, in `bridge/modules.rs`.
 - **Out to the page:** `ModuleView`s and a command's text and JSON. The page sets a plugin's palette as CSS variables.
-- **Out to disk:** `host.toml`'s `[modules.<id>.<section>]` tables, written by the host kit's own writer.
+- **Out to disk:** `settings.toml`'s `[modules.<id>.<section>]` tables, written by the host kit's own writer.
 - **Who acts:** whoever has the window has the server, as with the console: a command runs as `Actor::Console` (DH1).
 
 Code: `launcher/src-tauri/src/bridge/modules.rs` (the checks and the views),
@@ -37,7 +37,8 @@ Code: `launcher/src-tauri/src/bridge/modules.rs` (the checks and the views),
 - [ ] A module is only ever named by its manifest id (`module_id`: `ModuleId`'s rule, 1 to 64 of `a-z`, `0-9`, `-`). A
       path, a drive, `..` or an upper-case name is `module_unknown` before the registry is asked
       (`only_listed_ids_are_modules`).
-- [ ] Only modules `host.toml` lists exist: the registry answers `module_unknown` for any other id, and no command adds
+- [ ] Only modules `settings.toml` lists exist: the registry answers `module_unknown` for any other id, and no command
+  adds
       an entry or takes an executable, a path or a hash (DD5).
 - [ ] A load or unload goes through `ModuleRegistry::load` and `unload`, which check the SHA-256 of an external module
       as DD5 says; the page cannot skip that.
@@ -61,9 +62,9 @@ Code: `launcher/src-tauri/src/bridge/modules.rs` (the checks and the views),
       the type of the key's default (an integer default takes an integer), text at most 4096 characters without a NUL
       (`merge_settings`, `settings_are_checked_against_what_the_module_registered`).
 - [ ] A module that has not loaded has registered nothing, so nothing is accepted for it.
-- [ ] The patch is merged into what `host.toml` has and written by the host kit's writer (`save_host_config`), which
+- [ ] The patch is merged into what `settings.toml` has and written by the host kit's writer (`save_host_config`), which
       checks the whole file again and keeps the rest of it; a failure leaves the file as it was and the page is told
-      `host_toml` without the file's text.
+      `settings_toml` without the file's text.
 - [ ] A running module keeps the values it started with; the registry hands the new ones to the next load only
       (`ModuleRegistry::update_settings`).
 

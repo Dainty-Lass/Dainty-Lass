@@ -19,7 +19,7 @@ pub struct NameError {
     pub what: &'static str,
 }
 
-/// The rule every name in this crate follows: they end up in paths, logs and `host.toml` keys.
+/// The rule every name in this crate follows: they end up in paths, logs and `settings.toml` keys.
 pub(crate) fn check_name(text: &str, what: &'static str) -> Result<(), NameError> {
     let bytes = text.as_bytes();
     let ok = !bytes.is_empty()
@@ -86,7 +86,7 @@ macro_rules! name_type {
 pub(crate) use name_type;
 
 name_type!(
-    /// A module's id, such as `isles-1-14-7`: its key in `host.toml` and its name in logs and status.
+    /// A module's id, such as `isles-1-14-7`: its key in `settings.toml` and its name in logs and status.
     ModuleId,
     "a module id"
 );
@@ -99,7 +99,7 @@ pub struct DigestError {
     len: usize,
 }
 
-/// A digest of `BYTES` bytes as lowercase hex, the form Legendary, Mystic's guide and `host.toml` write.
+/// A digest of `BYTES` bytes as lowercase hex, the form Legendary, Mystic's guide and `settings.toml` write.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(try_from = "String", into = "String")]
 pub struct HexDigest<const BYTES: usize>([u8; BYTES]);

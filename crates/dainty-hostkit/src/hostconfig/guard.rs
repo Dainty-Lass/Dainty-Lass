@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Silent Spud
 
 //! `[guard]` (DD23 layer 4, DH6): when a destructive or bulk admin action waits for a delay or a second
-//! operator. New to host.toml, so a file without it keeps today behaviour, which is the admin API defaults:
+//! operator. New to settings.toml, so a file without it keeps today behaviour, which is the admin API defaults:
 //! ten bans or timeouts an hour from one key, a revert above a hundred changes and the revoking of an admin or
 //! owner key each wait ten minutes. Each setting is kept as read, so writing the file back changes nothing
 //! unasked, and only the ones set reach `admin.env`.
@@ -53,7 +53,7 @@ const RULES: [(&str, &str); 3] = [
 /// What a `*_guard` setting may say.
 pub const RULE_WORDS: [&str; 3] = ["off", "delay", "approval"];
 
-/// `[guard]`, each setting `None` when host.toml leaves it out (the admin API's default then holds).
+/// `[guard]`, each setting `None` when settings.toml leaves it out (the admin API's default then holds).
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct GuardConfig {
     /// Bans and timeouts one key may make in the window before the next is held.
@@ -117,7 +117,7 @@ impl GuardConfig {
         }
     }
 
-    /// host.json form: the keys that were set, in host.toml order.
+    /// host.json form: the keys that were set, in settings.toml order.
     pub fn to_json(&self) -> Value {
         let number = |value: Option<u32>| value.map(Value::from);
         let word = |value: &Option<String>| value.clone().map(Value::String);

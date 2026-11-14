@@ -36,14 +36,14 @@ const HELLO_TIMEOUT: Duration = Duration::from_secs(10);
 const ATTACH_TIMEOUT: Duration = Duration::from_secs(5);
 const STOP_TIMEOUT: Duration = Duration::from_secs(10);
 
-/// A service library as `host.toml` pins it.
+/// A service library as `settings.toml` pins it.
 #[derive(Debug, Clone)]
 pub struct ServiceLibrary {
     /// The service's name, also its component name.
     pub name: &'static str,
     /// The library file.
     pub path: PathBuf,
-    /// The SHA-256 `host.toml` pins it to; a file that doesn't match is refused.
+    /// The SHA-256 `settings.toml` pins it to; a file that doesn't match is refused.
     pub sha256: Sha256Hex,
     /// What it serves as a core plugin, checked against its hello; empty for a service that takes no registration
     pub serves: &'static [CoreCapability],
@@ -361,7 +361,7 @@ async fn drive(
         ));
     }
     if name != shared.name {
-        return Err(format!("it is the service {name}, host.toml names {}", shared.name));
+        return Err(format!("it is the service {name}, settings.toml names {}", shared.name));
     }
     let mut serves = serves;
     serves.sort();

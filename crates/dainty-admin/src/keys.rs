@@ -108,7 +108,7 @@ impl Role {
     /// Every role, lowest first.
     pub const ALL: [Self; 4] = [Self::Viewer, Self::Moderator, Self::Admin, Self::Owner];
 
-    /// The name host.toml, the database and the CLI use.
+    /// The name settings.toml, the database and the CLI use.
     pub fn as_str(self) -> &'static str {
         match self {
             Self::Viewer => "viewer",

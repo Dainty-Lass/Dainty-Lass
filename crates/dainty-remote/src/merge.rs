@@ -4,8 +4,8 @@
 //! Configuration merger for managed installs (`docs/remote-management.md` §2.3,
 //! `docs/security/remote-management.md`).
 //!
-//! Applies the controller's shared `host.toml` settings and per-install overrides onto a managed
-//! install's `host.toml` while preserving:
+//! Applies the controller's shared `settings.toml` settings and per-install overrides onto a managed
+//! install's `settings.toml` while preserving:
 //! 1. Per-host listener and network identity (`[server] host`, `game_address`, `mode`, `[ports]`,
 //!    `[network]`, `[remote]`);
 //! 2. Per-host filesystem and database paths (`[paths]`, `[database]`, per-node `[history]` bucket);
@@ -16,13 +16,13 @@ use toml_edit::{DocumentMut, Item, Table};
 use crate::RemoteError;
 use crate::wire::contains_forbidden_secret_str;
 
-/// Top-level `host.toml` tables that are always local to the managed install and never overwritten
+/// Top-level `settings.toml` tables that are always local to the managed install and never overwritten
 /// by a controller sync.
 pub const PRESERVED_LOCAL_TABLES: &[&str] = &[
     "ports", "paths", "database", "network", "remote", "mongo", "wine", "linux",
 ];
 
-/// Individual dotted or top-level `host.toml` keys that belong to the local machine's
+/// Individual dotted or top-level `settings.toml` keys that belong to the local machine's
 /// identity and are never overwritten by a controller sync unless explicitly absent locally.
 pub const PRESERVED_LOCAL_KEYS: &[&str] = &[
     "host",
@@ -94,7 +94,7 @@ fn apply_table_recursive(target: &mut Table, source: &Table, prefix: &str, local
 
 /// Merge `shared_toml` and an optional `per_node_override_toml` onto `local_toml`, preserving all
 /// per-host identity fields and `local_overrides` while keeping comments and layout intact.
-pub fn merge_managed_host_toml(
+pub fn merge_managed_settings_toml(
     local_toml: &str,
     shared_toml: &str,
     per_node_override_toml: Option<&str>,
@@ -105,16 +105,16 @@ pub fn merge_managed_host_toml(
         || per_node_override_toml.is_some_and(contains_forbidden_secret_str)
     {
         return Err(RemoteError::SecretLeakRefused(
-            "host.toml merge input must never contain secrets".to_string(),
+            "settings.toml merge input must never contain secrets".to_string(),
         ));
     }
 
     let mut local_doc: DocumentMut = local_toml
         .parse()
-        .map_err(|e| RemoteError::InvalidInput(format!("invalid local host.toml: {e}")))?;
+        .map_err(|e| RemoteError::InvalidInput(format!("invalid local settings.toml: {e}")))?;
     let shared_doc: DocumentMut = shared_toml
         .parse()
-        .map_err(|e| RemoteError::InvalidInput(format!("invalid shared host.toml: {e}")))?;
+        .map_err(|e| RemoteError::InvalidInput(format!("invalid shared settings.toml: {e}")))?;
 
     let mut effective_overrides: Vec<String> = local_overrides.to_vec();
     if let Some(remote_tbl) = local_doc.get("remote").and_then(Item::as_table)
@@ -142,7 +142,7 @@ pub fn merge_managed_host_toml(
     if let Some(node_toml) = per_node_override_toml {
         let node_doc: DocumentMut = node_toml
             .parse()
-            .map_err(|e| RemoteError::InvalidInput(format!("invalid per-node override host.toml: {e}")))?;
+            .map_err(|e| RemoteError::InvalidInput(format!("invalid per-node override settings.toml: {e}")))?;
         apply_table_recursive(local_doc.as_table_mut(), node_doc.as_table(), "", &effective_overrides);
     }
 

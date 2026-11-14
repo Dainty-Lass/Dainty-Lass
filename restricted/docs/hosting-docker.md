@@ -19,8 +19,8 @@ a private server over Tailscale works too.
 | `allowlist` | front | Public servers: opens the game ports to players who logged in (nftables; `dainty-host allowlist`) |
 | `gateway` | front | The front door: TLS on 443 (public) or HTTP on the Tailscale address (private; `dainty-host gateway serve`) |
 | `host` | server | Not a service: `docker compose run --rm host <command>` runs `dainty-host` |
-| `configure` | server | The `toml` profile only: runs setup from `host.toml` and exits, before the others start |
-| `postgres` | `postgres:17` | The `postgres` profile only: Postgres on 127.0.0.1:5432 for a `host.toml` whose `[database]` picks it |
+| `configure` | server | The `toml` profile only: runs setup from `settings.toml` and exits, before the others start |
+| `postgres` | `postgres:17` | The `postgres` profile only: Postgres on 127.0.0.1:5432 for a `settings.toml` whose `[database]` picks it |
 | `mongo`, `backend-rollback`, `director-rollback` | `mongo:8.0`, server-rollback | The `rollback` profile only: MongoDB (`rs0`) and the Node 1.14.7 backend and Director for one release after RU9/RB14 ([below](#migrating-existing-mongodb-data-and-rollback-rollback-profile)) |
 | `net-*`, `netem-*`, `gateway-*`, `configure-*`, `network-init`, `network` | front, server, netem | The `network` profile only: four nodes of a network with injected latency, for tests ([below](#the-network-profile-four-nodes-on-one-machine)) |
 
@@ -31,7 +31,7 @@ filters the game servers' traffic without any privilege on the host and without 
 Only the allowlist has `CAP_NET_ADMIN`, and only through `nft`'s file capability.
 
 **The same files as a Linux host.** Both images are laid out as the server release is, under `/opt/dainty-lass`,
-and every container mounts the volumes at the same paths, so `host.toml`, `secrets.env` and the env files are
+and every container mounts the volumes at the same paths, so `settings.toml`, `secrets.env` and the env files are
 the host kit's, unchanged, and a `.workspace` can move between a container host and a plain one.
 
 | Volume | Path | Holds |
@@ -43,7 +43,7 @@ the host kit's, unchanged, and a `.workspace` can move between a container host 
 | `postgres-data` | Postgres's | The `postgres` profile's database |
 | bind mount `DAINTY_GAME_DIR` | `/game` | Your Dauntless 1.14.7 folder (the one with `Archon`), or the folder `install-game` makes `1.14.7` in |
 | bind mount `DAINTY_IMPORT_DIR` | `/import` (read-only, `host` only) | Files to bring in: the runtime's DLLs, game data packs |
-| bind mount `DAINTY_CONFIG_DIR` | `/config` (read-only, `configure` only) | The `toml` profile's `host.toml` |
+| bind mount `DAINTY_CONFIG_DIR` | `/config` (read-only, `configure` only) | The `toml` profile's `settings.toml` |
 
 ## Before you start
 
@@ -82,11 +82,11 @@ Every crate is in the checkout: the images build with the monorepo root as conte
 `restricted/` reaches the root's MIT crates by path and the build needs no SSH key. The server binary is built with
 `all-modules`, as the release is; to build without any game module, set the build argument
 `DAINTY_MODULES=` (from the root: `docker build -f restricted/docker/Dockerfile --build-arg DAINTY_MODULES= --target server .`).
-The server image also holds the libraries `host.toml` can pin (RD27) in `/opt/dainty-lass/plugins`, so a
+The server image also holds the libraries `settings.toml` can pin (RD27) in `/opt/dainty-lass/plugins`, so a
 `[[modules.external]]` or `[services.<name>]` path there reads `plugins/librustic_isles_1_14_7_plugin.so` and the like
 ([hosting.md](hosting.md#game-modules-and-plugins)). It holds the 1.14.7 version data the server reads at start in
 `/opt/dainty-lass/data/1.14.7/` (`version_data.json` and `version_facts.json`); `version_data` and `version_facts` in
-`host.toml` name other files, as paths in the container.
+`settings.toml` name other files, as paths in the container.
 
 `setup` takes every option it takes on a Linux host (`--max-hunts`, `--public-port`, `--registration` …;
 `docker compose run --rm host setup --help`). In the container it also gets `--skip-install` (the services are
@@ -109,9 +109,9 @@ Epic shows when asked (`run` gives it a terminal; with `-T` or a pipe, put the c
 `--code-file /import/code.txt`). The session it opens is kept in the `workspace` volume
 (`config/epic-session.env`, owner-only): a stopped download continues when you run the command again, and
 `docker compose run --rm host install-game --sign-out` ends and deletes the session, which should be the last thing
-you run. If `host.toml` exists, `install-game` sets `game_dir` to `/game/1.14.7` and rewrites the env files, so the
+you run. If `settings.toml` exists, `install-game` sets `game_dir` to `/game/1.14.7` and rewrites the env files, so the
 `director` container's game servers run from it; if not, give `setup` that folder with `--game /game/1.14.7` (setup
-adds `--game /game` itself only when `/game/Archon` exists). A `toml`-profile `host.toml` in `DAINTY_CONFIG_DIR`
+adds `--game /game` itself only when `/game/Archon` exists). A `toml`-profile `settings.toml` in `DAINTY_CONFIG_DIR`
 replaces the workspace's, so put `game_dir = "/game/1.14.7"` in it. The `compose.yaml` needs nothing for this: the
 `host` service already mounts the game folder and reaches the internet through `net`. About 15 GB comes down;
 [hosting.md](hosting.md#getting-the-game-from-epic) has the rest.
@@ -163,10 +163,10 @@ docker compose up -d
 The node is a machine of its own in your tailnet (`dainty-lass`, or `TS_HOSTNAME`): share that one with
 your friends, and give its share link to setup with `--share`.
 
-## Managed by host.toml alone
+## Managed by settings.toml alone
 
 For a server nobody sets up by hand, such as one kept in a repository or deployed by a script: with the
-`toml` profile, `host.toml` in `./config` (or `DAINTY_CONFIG_DIR`) is the server's whole configuration. At
+`toml` profile, `settings.toml` in `./config` (or `DAINTY_CONFIG_DIR`) is the server's whole configuration. At
 every `docker compose up` the `configure` container copies it into the `workspace` volume and runs setup from
 it with no options, and nothing else starts unless that worked. A setting is changed by editing the file and
 running `docker compose up -d --force-recreate`. That includes `[guard]`, which holds the bulk admin actions
@@ -181,7 +181,7 @@ checks with each service's own rules before anything starts; `docker compose run
 /opt/dainty-lass/.workspace/config/admin.env` lists what waits.
 
 A variable in a container's `environment:` overrides the setting `setup` wrote for the service it runs
-([hosting.md](hosting.md#environment-variables-override-hosttoml)); keep them in `host.toml` instead, so the one
+([hosting.md](hosting.md#environment-variables-override-hosttoml)); keep them in `settings.toml` instead, so the one
 file stays the whole configuration.
 
 In `.env`, `COMPOSE_PROFILES=public,toml` (or `toml` for a private server). The file needs every setting a
@@ -190,7 +190,7 @@ first setup asks for, so the easiest way to get one is to let setup write it onc
 ```bash
 docker compose run --rm host setup --mode public --host play.example.org --name "Friday Hunts"
 mkdir -p config
-docker compose run --rm --entrypoint cat host /opt/dainty-lass/.workspace/config/host.toml > config/host.toml
+docker compose run --rm --entrypoint cat host /opt/dainty-lass/.workspace/config/settings.toml > config/settings.toml
 docker compose up -d
 ```
 
@@ -201,9 +201,9 @@ runtime, the game data and invites are still `host` commands.
 
 ## Postgres
 
-The Rust services keep their database in SQLite unless `host.toml` says otherwise
+The Rust services keep their database in SQLite unless `settings.toml` says otherwise
 ([hosting.md](hosting.md#the-database-engine)). For Postgres, add the `postgres` profile to `COMPOSE_PROFILES`
-(`public,postgres`) and put this in `host.toml`, then run setup (or `up`, with the `toml` profile):
+(`public,postgres`) and put this in `settings.toml`, then run setup (or `up`, with the `toml` profile):
 
 ```toml
 [database]
@@ -218,7 +218,7 @@ Leave `postgres_host`, `postgres_port`, `postgres_user` and `postgres_database` 
 ## A network of servers
 
 A node of a network ([hosting.md](hosting.md#a-network-of-servers)) is an ordinary server: `[network]` and
-`[[network.nodes]]` in `host.toml`, and the three files `network issue-node-cert` wrote in the `workspace` volume's
+`[[network.nodes]]` in `settings.toml`, and the three files `network issue-node-cert` wrote in the `workspace` volume's
 `tls` folder. The CA file stays off the server: `network ca-init` and `issue-node-cert` run on your own machine.
 Node links share the gateway's published TCP port (443); nothing else is published for them.
 
@@ -226,7 +226,7 @@ Node links share the gateway's published TCP port (443); nothing else is publish
 
 For testing, not for running a network: `docker compose --profile network up -d --wait network` starts four nodes of
 one network (DD16) on a private Docker network, with latency between them that matches the canary's regions
-(DN12). Each node is a gateway with node links on, set up from a `host.toml` that lists the other three as
+(DN12). Each node is a gateway with node links on, set up from a `settings.toml` that lists the other three as
 `[[network.nodes]]`, from the same images as a server and with volumes of its own. Nothing else of a server runs in
 them (no backend, MongoDB or game): the gateway answers the node links and the launcher's region ping, which is
 what the harness checks. The other services have no profile, so name the target `network`: a bare
@@ -234,8 +234,8 @@ what the harness checks. The other services have no profile, so name the target 
 
 | Container | What it is |
 | --- | --- |
-| `network-init` | One-shot, as root: makes the cluster CA in the `network-ca` volume, which no other container mounts, and writes into each node's volume its public gateway certificate, its node certificate and key, the CA's certificate (never its key) and its `host.toml` ([security/network.md](https://git.silentspud.com/silentspud/dainty-lass/src/branch/main/docs/security/network.md#the-docker-harness-dn12)) |
-| `configure-<region>` | One-shot: `setup` from that `host.toml` (the `toml` profile's `apply`), then exits |
+| `network-init` | One-shot, as root: makes the cluster CA in the `network-ca` volume, which no other container mounts, and writes into each node's volume its public gateway certificate, its node certificate and key, the CA's certificate (never its key) and its `settings.toml` ([security/network.md](https://git.silentspud.com/silentspud/dainty-lass/src/branch/main/docs/security/network.md#the-docker-harness-dn12)) |
+| `configure-<region>` | One-shot: `setup` from that `settings.toml` (the `toml` profile's `apply`), then exits |
 | `net-<region>` | The node's network namespace and published port, at a fixed address in the private network |
 | `netem-<region>` | `tc` with CAP_NET_ADMIN in that namespace, the only container with it: shapes the node's outgoing traffic (below) |
 | `gateway-<region>` | The node's gateway (`dainty-host gateway serve`), healthy once it listens |
@@ -335,7 +335,7 @@ namespace and the optional dependencies depend on Compose's own behaviour. Rootl
 | What | How |
 | --- | --- |
 | Stop, start | `docker compose stop`, `docker compose up -d`; a clean stop includes the game servers |
-| Change a setting | `docker compose run --rm host setup …` (or `multipliers`), then `docker compose up -d --force-recreate`. With the `toml` profile: edit `config/host.toml`, then the same `up` |
+| Change a setting | `docker compose run --rm host setup …` (or `multipliers`), then `docker compose up -d --force-recreate`. With the `toml` profile: edit `config/settings.toml`, then the same `up` |
 | Update | `git pull`, `docker compose build`, `docker compose up -d`. On a server updating from the pre-RU9 Node backend with existing `mongo-data`, run the one-time migration below first (`backend` refuses to start while `mongo-data` is unmigrated). `dainty-host update` is not used in Docker |
 | Back up | `docker compose run --rm host backup` (into the `workspace` volume, `backups/`), and keep a copy of the `workspace` volume: it holds the certificate every invite names and the secrets |
 | A shell | `docker compose run --rm --entrypoint bash host` |
@@ -361,7 +361,7 @@ images:
    rules for real in the container's own network namespace (`DAINTY_TEST_FIREWALL=1`).
 3. The compose smoke test (`docker/smoke-test.sh`): a pre-cutover `mongo-data` volume seeded with an account and
    invite, `backend` refusing to start before migration, `host db migrate` and `host db verify` moving the data into
-   the SQLite store, the `toml` profile's `configure` applying an edited `host.toml`, every service healthy, the
+   the SQLite store, the `toml` profile's `configure` applying an edited `settings.toml`, every service healthy, the
    gateway serving setup's certificate and answering `/dainty/api/ServerStatus` and account checks from the
    Rust backend, the allowlist's table in place, an invite, a clean stop.
 
@@ -397,7 +397,7 @@ To migrate an existing `mongo-data` volume from the pre-RU9 Node backend:
    store (SQLite in `/opt/dainty-lass/.workspace/config/dainty-lass.db` or the `postgres` profile); `db verify` checks
    every collection and writes `.mongo-migrated` only when it finds no difference, leaving `mongo-data` untouched.
    (To start on a fresh empty database without migrating, pass `--fresh-start` to `host setup` or set
-   `fresh_start = true` under `[database]` in `host.toml`.)
+   `fresh_start = true` under `[database]` in `settings.toml`.)
 3. Stop `mongo` and bring up the Rust services:
    `docker compose --profile rollback rm -sf mongo && docker compose up -d`
 
@@ -405,5 +405,5 @@ For one release after the RU9/RB14 cutover (until RB15), rolling back to the Nod
 the `rollback` Compose profile (`mongo`, `backend-rollback` and `director-rollback`, built from the `server-rollback`
 Dockerfile stage): start `mongo` (`docker compose --profile rollback up -d --wait mongo`), export the store back to
 MongoDB with `docker compose run --rm host db export-mongo --to mongodb://127.0.0.1:27017/reforged` (source and target
-default from `host.toml`), and start `mongo`, `backend-rollback` and `director-rollback` in place of `backend` and
+default from `settings.toml`), and start `mongo`, `backend-rollback` and `director-rollback` in place of `backend` and
 `director` ([hosting.md](hosting.md#rollback-to-the-node-backend-and-mongodb-paradox-feature)).

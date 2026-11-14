@@ -136,7 +136,7 @@ Still open: chat's network rooms still belong to the fixed leader (`effective_le
 are every node of `[[network.nodes]]`, so adding or removing a node is a restart of every node with the new list,
 one at a time (no joint consensus); a node's game data stays on its home (only the directory fails over).
 - **Wired in the controller (`controller::modules::network`):** `Directory` opens on the node database, attaches to
-  `Service::Directory` on `NodeServices`, and spawns `spawn_replication` from `[network]` in `host.toml`.
+  `Service::Directory` on `NodeServices`, and spawns `spawn_replication` from `[network]` in `settings.toml`.
 - **Joining an existing server** (DN13): `dainty-host network join` registers existing accounts through the leader
   with clash suffixes (`_2`..`_999`) and `rename_required = true`.
 
@@ -181,13 +181,13 @@ Tests: `crates/dainty-network/tests/cluster.rs` (the CA and mutual TLS in memory
 `crates/dainty-gateway/tests/nodelink.rs` (several real gateways on 127.0.0.1:0).
 
 Fuzz target: `network_link` in `fuzz` (the route table, the time header, a ping and an error answer, a peer as
-`host.toml` lists it, a certificate's names, and the endpoint's admission of a request head).
+`settings.toml` lists it, a certificate's names, and the endpoint's admission of a request head).
 
 ### Checklist
 
 #### The CA and the files on a node
 
-- [ ] The CA key is only in the CA file: no node file, `host.toml` or env file holds it, and the index next to the
+- [ ] The CA key is only in the CA file: no node file, `settings.toml` or env file holds it, and the index next to the
       CA file (`<ca>.issued.json`) holds no key. Test: `the_owner_makes_a_ca_and_issues_a_nodes_files_from_it`.
 - [ ] A node refuses a CA file that holds a key, a key that isn't its certificate's, and a certificate that doesn't
       chain to its CA or isn't valid now (`NodeCredentials::from_pem`). Test:
@@ -262,10 +262,10 @@ with `docker compose down --volumes`. It keeps the rules above anyway, so what i
   fingerprint.
 - **A node gets its own files only.** `network-init` writes into each node's workspace volume its public gateway
   certificate and key, `node-cert.pem`, `node-key.pem` (600, owned by uid 1000) and `cluster-ca-cert.pem`, which is the
-  CA's certificate, and its `host.toml`. The gateway container mounts that volume read-only.
+  CA's certificate, and its `settings.toml`. The gateway container mounts that volume read-only.
 - **The node certificates name the addresses the harness fixes** (`172.28.77.11` to `.14`, and `<region>.cluster.test`),
   which is also how each peer is listed, so the checks that a peer answers at the address its certificate names are
-  the ones that run. The `host.toml` lists every other node with the SHA-256 of its public gateway certificate.
+  the ones that run. The `settings.toml` lists every other node with the SHA-256 of its public gateway certificate.
 - **CAP_NET_ADMIN is the `netem-*` containers' alone**, in each node's namespace; the gateways keep
   `cap_drop: ALL`, `no-new-privileges` and a read-only root. `tc` shapes only that namespace's outgoing traffic.
 - **Published ports** are the gateways' 443 on `127.0.0.1` (`DAINTY_NETWORK_PUBLISH_ADDRESS`); the node links share
@@ -386,7 +386,7 @@ writes verifies, a changed byte of a real ticket never verifies; public keys fro
 ### Still open
 
 - **Wired in the controller (`controller::modules::network`):** `Tickets`, `HomeService`, and `NetworkedHome` are
-  created from `[network]` in `host.toml`, `HomeRouterHook` registers each loaded game module's `DriverBackend`, and
+  created from `[network]` in `settings.toml`, `HomeRouterHook` registers each loaded game module's `DriverBackend`, and
   `Service::Home` is attached on `NodeServices`. The 5-minute and 6-hour lifetime defaults come from `TicketConfig::default()`.
 - **Revocations and the replay memory are in memory.** A restart of the home forgets who was banned until their ticket
   would have expired anyway (at most 15 minutes, but a holder can renew until the 6-hour limit unless the home's module
@@ -434,7 +434,7 @@ writes verifies, a changed byte of a real ticket never verifies; public keys fro
   - [ ] Regional Ramsgate (`assign_ramsgate`, `AssignHub`) places players from any home node into their lowest-ping region's shared Ramsgate shard and starts a new shard on that region's Director when `max_hub_players` is reached. Test: `dn9_regional_ramsgate_places_players_from_different_homes_into_lowest_ping_hub_and_shards`.
 - **Wired end-to-end in `controller::modules::network`, `rustic-isles` (`module.rs`'s `command`), and `launcher::net::relay` (DN5, DN6, DN8, DN9)**:
   - `HomeRouterHook` registers `DriverDirectorRouter` (`DirectorInvocation` over `GameModule::command`) alongside `DriverBackend` (`HomeInvocation` over `GameModule::command`) for each loaded game module, and `NetworkedHome` delegates all ring methods (`ring_register_instance`, `ring_resolve_join`, `ring_submit_ticket`, `ring_try_form_matches`, `ring_ticket_state`, `ring_forward_hunt_rewards`, `ring_assign_ramsgate`, `ring_register_local_account_key`) to `RingNode`.
-  - `WrongNodePolicy` defaults to `WrongNodePolicy::Refuse` (`409 Conflict` with `"error":"WRONG_NODE"`) and can be switched to `WrongNodePolicy::Redirect` (`x-dainty-redirect-*` + `x-dainty-session-ticket` response headers) via `[network] wrong_node_policy` in `host.toml` (`DAINTY_WRONG_NODE_POLICY`).
+  - `WrongNodePolicy` defaults to `WrongNodePolicy::Refuse` (`409 Conflict` with `"error":"WRONG_NODE"`) and can be switched to `WrongNodePolicy::Redirect` (`x-dainty-redirect-*` + `x-dainty-session-ticket` response headers) via `[network] wrong_node_policy` in `settings.toml` (`DAINTY_WRONG_NODE_POLICY`).
   - `launcher::net::relay` inspects upstream responses for `x-dainty-redirect-host`, `x-dainty-redirect-port`, `x-dainty-redirect-fingerprint`, and `x-dainty-session-ticket`, automatically calling `Relay::repoint` when all four are present.
 
 ## Chat federation (DN10b)

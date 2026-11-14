@@ -22,14 +22,14 @@ via relative path dependencies (`path = "../crates/<name>"` in `Cargo.toml`, `[w
 | `restricted/` | One cargo workspace, every package of its own in `crates/<package name>`: `dainty-host-parity` (the Node host kit's tests and recorded output, run against the root's MIT `dainty-host`). The server binaries are the root's `dainty-server` and `dainty-server-minimal` (MIT since RD27). Also `launcher/src-tauri` (the Tauri launcher backend: `dainty-launcher`, and `dainty-manager` with the `server-gui` feature, kept where Tauri expects it) and the game modules' crates |
 | `modules/rustic-isles/` | The 1.14.7 module's version data (`version-data/1.14.7`), the recorded Node goldens replayed against it (`crates/rustic-isles-mit-parity`), the C++ game runtime (`native/runtime`) and CatalogExporter (`native/catalog-exporter`), and the Node reference tree (`reference/1.14.7`). In-tree since RD27, members of this workspace |
 | `modules/rustic-rifts/` | Peer-to-peer realms' AGPL remainder: `oracle` (Mystic Paradox's Node vectors replayed against the MIT crates). The `rustic-rifts-*` crates themselves are the root's MIT clean-room ones (`../crates/rustic-rifts-*`, RD27) |
-| `legacy/` | dainty-legacy: the 1.4.4 importer, a workspace of its own (an external plugin `host.toml` pins) |
+| `legacy/` | dainty-legacy: the 1.4.4 importer, a workspace of its own (an external plugin `settings.toml` pins) |
 | `fuzz/` | `cargo fuzz` targets for the AGPL components, a workspace of its own |
 | `docker/`, `compose.yaml` | Container deployment (RX4), laid out as the server release |
 | `docs/` | Host and player guides, `paradox-patches.md`, and `security/` for the AGPL components |
 
 Dainty Lass serves one game, Dauntless 1.14.7 (2026-10-31). On the default path (since the RU9 code cutover,
 maintainer decision 2026-10-28), `host::serve` runs the compiled-in Rust `isles-1-14-7` backend (port 41000) and
-in-process Director (port 41001; host.toml's `[ports]` moves either) on `store` (SQLite by default, or Postgres), with `isles-1-14-7` and realms
+in-process Director (port 41001; settings.toml's `[ports]` moves either) on `store` (SQLite by default, or Postgres), with `isles-1-14-7` and realms
 linked in by the server binaries' `all-modules` feature (DF5). The module is the root's clean-room
 `rustic-isles-1-14-7` (RD27), handed restricted's version data design at start
 (`modules/rustic-isles/version-data/1.14.7/version_data.json`, kept current by rustic-isles-mit-parity's `version_data` test,
@@ -46,10 +46,10 @@ and `start` use.
 The same services also build as libraries the MIT core `dainty-lass` loads (RD27 phase 2, the root's `*-plugin`
 crates, which the release and Docker build from the root workspace); `compose.rs` links them into restricted's own
 binaries. No binary carries the 1.14.7 version data: the root's `dainty-host` reads Mystic Paradox's design at
-start from the file `host.toml`'s `version_data` names (default `data/1.14.7/version_data.json` in the server folder,
-where the release and the server image ship it; a checkout falls back to `modules/rustic-isles/version-data/1.14.7`),
-and the MIT facts beside it from `version_facts` (default `data/1.14.7/version_facts.json`; a checkout falls back to
-the root's `crates/rustic-isles-1-14-7/data`).
+start from the file `settings.toml`'s `version_data` names (default `data/1.14.7/version_data.json` in the server
+folder, where the release and the server image ship it; a checkout falls back to
+`modules/rustic-isles/version-data/1.14.7`), and the MIT facts beside it from `version_facts` (default
+`data/1.14.7/version_facts.json`; a checkout falls back to the root's `crates/rustic-isles-1-14-7/data`).
 
 **Which workspace a change goes in** follows its licence: anything ported from DR, Paradox or the Reforged Revival
 line, or linking such code, goes here; code that is neither goes in the root workspace as MIT.
@@ -146,8 +146,8 @@ is a host's own and is never committed.
 Every service reads one env file, given with `--env-file`, and nothing from its working directory
 (the root's `crates/dainty-service-kit/src/env.rs`, DR X7). As with Node's `--env-file`, the process environment wins over the file.
 **The env files are the host kit's output, not hand-written:** `dainty-host setup` writes them from
-`host.toml` and `secrets.env` (the root's `crates/dainty-hostkit/src/hostconfig.rs`, `hosttoml.rs`), and `start` hands each
-service its own. So a new setting is a field in `host.toml` (in `HostConfig`, and in `hosttoml.rs`'s key
+`settings.toml` and `secrets.env` (the root's `crates/dainty-hostkit/src/hostconfig.rs`, `settingstoml.rs`), and `start` hands each
+service its own. So a new setting is a field in `settings.toml` (in `HostConfig`, and in `settingstoml.rs`'s key
 table with a snake_case name and a comment for new files), a `setup` option where a host should choose it,
 and a line in the service's file. It is never a variable the host is told to export.
 
@@ -157,7 +157,7 @@ It's never a one-file change:
 
 - **The writer and the reader in the same commit.** `hostconfig.rs` writes it, the service's `config.rs`
   reads it (`from_env`), and a test checks the round trip. `update` reruns `setup` with the host's existing
-  `host.toml` (or a Node kit's `host.json`), so a new field that an older file doesn't have must default to
+  `settings.toml` (or a Node kit's `host.json`), so a new field that an older file doesn't have must default to
   today's behaviour.
 - **Use one of the server prefixes** (`DAINTY_`, `GATEWAY_`, `ALLOWLIST_`, `CONTENT_`, `GAMESERVER_`...).
   `start` hands each service the shell's environment and then its env file, and the file wins
@@ -165,7 +165,7 @@ It's never a one-file change:
   `SERVER_PREFIXES` list, so a stale server setting left in the shell reaches a service whose file doesn't set it.
   Only the controller's registry filters, keeping the OS's own variables for an external module
   (`system_environment`).
-- **A secret goes in `secrets.env`** (`SECRET_KEYS`), made once and never logged. It is never a `host.toml`
+- **A secret goes in `secrets.env`** (`SECRET_KEYS`), made once and never logged. It is never a `settings.toml`
   field and never an option on the command line.
 - **The docs move with it.** The settings table in `docs/hosting.md`, and `hosting-linux.md` and
   `hosting-docker.md` wherever a host sees the option. Delete the rows when the variable goes. A stale row is

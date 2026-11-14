@@ -26,7 +26,7 @@ discord = ["dainty-hostkit/discord"]
 tokio-console = ["dainty-hostkit/tokio-console"]
 # The game modules compiled in (DF5); 1.14.7 and realms are on by default (RU9/RB14)
 stub-module = ["dainty-controller/stub-module"]
-# The 1.14.7 module; its version data is read at start from the file host.toml names (version_data.rs)
+# The 1.14.7 module; its version data is read at start from the file settings.toml names (version_data.rs)
 isles-1-14-7 = ["db-tools", "dep:rustic-isles", "dep:rustic-isles-director", "dep:rustic-isles-gamedata"]
 realms = ["rustic-isles-1-14-7?/realms"]
 # `dainty-host db`, which takes the legacy starter from the version data

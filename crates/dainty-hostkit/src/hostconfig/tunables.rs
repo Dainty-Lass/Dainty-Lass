@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Silent Spud
 
-//! The services' tunables as host.toml tables (RD24 phase 2, docs/config-toml-plan.md): `[gateway.limits]`,
+//! The services' tunables as settings.toml tables (RD24 phase 2, docs/config-toml-plan.md): `[gateway.limits]`,
 //! `[gateway.rate]`, `[gateway.timeouts]`, `[gateway]`, `[content]`, `[allowlist]`, `[backend]` and `[director]`.
 //! Every setting is optional and only a set one reaches its service's env file, so a file without them writes
 //! what setup wrote before. The defaults stay in each service's own loader. The gateway's, content's and the
@@ -56,7 +56,7 @@ pub struct Setting {
     pub kind: Kind,
 }
 
-/// A table: its name in host.toml, which is also the env file it writes to, and its settings.
+/// A table: its name in settings.toml, which is also the env file it writes to, and its settings.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Table {
     /// `gateway`.
@@ -168,7 +168,7 @@ const DIRECTOR: &[Setting] = &[
 /// The runtime's ceiling for an AFK timeout: a week (spec-runtime-r1 10.2).
 const AFK_MAX_SECONDS: u64 = 604_800;
 
-/// Every table, in host.toml's order.
+/// Every table, in settings.toml's order.
 pub const TABLES: [Table; 5] = [
     Table {
         name: "gateway",
@@ -212,12 +212,12 @@ pub fn env_names(service: &str) -> Vec<&'static str> {
     table(service).map_or_else(Vec::new, |t| t.settings.iter().map(|s| s.env).collect())
 }
 
-/// `gateway.rate.ws` for `GATEWAY_RATE_WS` in `service`'s file, as host.toml spells it.
+/// `gateway.rate.ws` for `GATEWAY_RATE_WS` in `service`'s file, as settings.toml spells it.
 #[must_use]
 pub fn toml_key(service: &str, env: &str) -> Option<String> {
     let t = table(service)?;
     let s = t.settings.iter().find(|s| s.env == env)?;
-    let path: Vec<String> = s.path.split('.').map(crate::hosttoml::snake_case).collect();
+    let path: Vec<String> = s.path.split('.').map(crate::settingstoml::snake_case).collect();
     Some(format!("{}.{}", t.name, path.join(".")))
 }
 

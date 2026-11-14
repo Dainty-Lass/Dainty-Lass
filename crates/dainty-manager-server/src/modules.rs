@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: MIT
 
 //! The server GUI's module panels over the running server's registry (spec-tauri-shell §6, DU3, DF3). Nothing here
-//! takes a path or a program from the page (DD5): the registry only knows what `host.toml` listed. The page's
+//! takes a path or a program from the page (DD5): the registry only knows what `settings.toml` listed. The page's
 //! input is checked by the launcher kit's `bridge::modules` functions.
 
 use std::path::PathBuf;
@@ -54,9 +54,9 @@ fn not_loaded() -> LauncherError {
     refusal(ErrorCode::ModuleBadState, "not_loaded".to_owned())
 }
 
-fn host_toml_error(why: impl std::fmt::Display) -> LauncherError {
+fn settings_toml_error(why: impl std::fmt::Display) -> LauncherError {
     tracing::warn!(service = "host", "module settings: {why}");
-    refusal(ErrorCode::ModuleFailed, "host_toml".to_owned())
+    refusal(ErrorCode::ModuleFailed, "settings_toml".to_owned())
 }
 
 fn registry_error(error: RegistryError) -> LauncherError {
@@ -107,8 +107,8 @@ fn listed(info: ModuleInfo) -> Listed {
 fn load_config(workspace: &std::path::Path) -> Refused<HostConfig> {
     match load_host_config(&Paths::new(workspace)) {
         Ok(Some(config)) => Ok(config),
-        Ok(None) => Err(host_toml_error("there is no host.toml")),
-        Err(why) => Err(host_toml_error(why)),
+        Ok(None) => Err(settings_toml_error("there is no settings.toml")),
+        Err(why) => Err(settings_toml_error(why)),
     }
 }
 
@@ -175,7 +175,7 @@ impl ServerModules {
         *lock(&self.slots.registry) = None;
     }
 
-    /// The workspace whose host.toml holds the modules' settings.
+    /// The workspace whose settings.toml holds the modules' settings.
     pub fn set_workspace(&self, workspace: Option<PathBuf>) {
         *lock(&self.slots.workspace) = workspace;
     }
@@ -188,7 +188,7 @@ impl ServerModules {
         lock(&self.slots.workspace).clone()
     }
 
-    /// The page's view of a module, with what host.toml sets for it.
+    /// The page's view of a module, with what settings.toml sets for it.
     async fn view(&self, info: ModuleInfo) -> ModuleView {
         let workspace = self.workspace();
         let id = info.id.clone();
@@ -284,11 +284,11 @@ impl ServerModules {
                 .get_or_insert_with(ModulesConfig::default)
                 .settings
                 .insert(key, merged.clone());
-            save_host_config(&Paths::new(&workspace), &config).map_err(host_toml_error)?;
+            save_host_config(&Paths::new(&workspace), &config).map_err(settings_toml_error)?;
             Ok(merged)
         })
         .await
-        .map_err(host_toml_error)??;
+        .map_err(settings_toml_error)??;
         // The next load takes them; a running module keeps what it started with
         registry.update_settings(&id, merged).map_err(registry_error)?;
         tracing::info!(service = "host", "module {id} settings saved from the server GUI");

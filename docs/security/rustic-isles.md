@@ -24,8 +24,8 @@ the loopback bind is the boundary (spec §15 item 5).
 - **Out:** the composer's handlers and hooks (restricted's areas today), rifts' route handlers and guard
   (`rifts_seam`), the home API through the module context (`shared.rs`, `ContextHome`), and the admin authenticator
   slot (`AdminAuthenticator`) in front of the `/admin/` rifts rows.
-- **Files:** the env file (and `backend.env`'s `admin.env` and `director.env` siblings) named by `host.toml`, and the
-  game data files by fixed names under the configured folders only (`game_data.rs`).
+- **Files:** the env file (and `backend.env`'s `admin.env` and `director.env` siblings) named by `settings.toml`, and
+  the game data files by fixed names under the configured folders only (`game_data.rs`).
 
 Code: `crates/rustic-isles/src/` (`pipeline.rs`, `pattern.rs`, `routes/`, `body.rs`, `settings.rs`, `replay.rs`,
 `game_data.rs`, `module.rs`, `shared.rs`, `handlers.rs`, `composer.rs`).

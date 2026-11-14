@@ -36,7 +36,7 @@ pub const SCHEMA: DatabaseSchema = DatabaseSchema {
 pub const FILE_NAME: &str = "events.db";
 /// The row written when the recorder fell behind the bus; its payload is `{"missed": n}`.
 pub const LAGGED_EVENT: &str = "events.lagged";
-/// `[events] retention_days` when host.toml leaves it out.
+/// `[events] retention_days` when settings.toml leaves it out.
 pub const DEFAULT_RETENTION_DAYS: u32 = 90;
 /// The most rows [`EventRecorder::list`] returns.
 pub const MAX_LIST: i64 = 1000;
@@ -86,7 +86,7 @@ pub struct EventsOptions {
 }
 
 impl EventsOptions {
-    /// `retention_days` as host.toml gives it: 0 keeps every row.
+    /// `retention_days` as settings.toml gives it: 0 keeps every row.
     #[must_use]
     pub fn from_days(days: u32) -> Self {
         Self {

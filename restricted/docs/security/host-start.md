@@ -16,7 +16,7 @@ backend (port 41000) and in-process Director (port 41001), dainty-lass's MIT `ru
 (SQLite or Postgres), the content server, the admin API, the allowlist helper (public) and the gateway, each with its env file, and stops them all (MongoDB and
 the Node backend/Director run only in opt-in `--features paradox` rollback builds until RB15).
 
-- **In:** `host.toml` (or a Node kit's `host.json`) and the `.env` files under `.workspace/config` (trusted: whoever can write them chooses what
+- **In:** `settings.toml` (or a Node kit's `host.json`) and the `.env` files under `.workspace/config` (trusted: whoever can write them chooses what
   runs), the process environment, and with `DAINTY_CONTROL=stdin` the launcher's stdin pipe.
 - **Out:** child processes (never through a shell), their logs under `.workspace/logs`, and the console.
 

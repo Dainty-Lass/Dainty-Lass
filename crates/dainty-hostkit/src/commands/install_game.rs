@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Silent Spud
 
 //! `dainty-host install-game` (DE6, DD22): installs Dauntless from the host's own Epic library for the game
-//! servers (`crate::epicinstall`), then points host.toml's `game_dir` at the new folder and rewrites the env files,
+//! servers (`crate::epicinstall`), then points settings.toml's `game_dir` at the new folder and rewrites the env files,
 //! so the Director's `GAMESERVER_BINARY_PATH` follows (the same two steps `multipliers` takes).
 //!
 //! `--code-file <file>` or a pasted line on stdin gives the Epic authorization code; the session it opens is kept in
@@ -29,7 +29,7 @@ use crate::paths::Paths;
 /// A pasted code, or the whole page Epic shows it in, is a few hundred bytes.
 const CODE_MAX_BYTES: usize = 16 * 1024;
 
-/// What happened to host.toml.
+/// What happened to settings.toml.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Configured {
     /// `game_dir` now names the folder; the env files were rewritten if setup had made them
@@ -41,7 +41,7 @@ pub enum Configured {
     },
     /// It already did
     Unchanged,
-    /// No host.toml yet: setup takes the folder as `--game`
+    /// No settings.toml yet: setup takes the folder as `--game`
     NoSettings,
     /// Not the version `game_dir` is for
     OtherVersion,
@@ -174,14 +174,14 @@ pub async fn run_with<L: Library>(
     let folder = done.folder.to_string_lossy().into_owned();
     if plan.version != DEFAULT_VERSION {
         out(&format!(
-            "host.toml's game_dir is for Dauntless {DEFAULT_VERSION} and was not changed."
+            "settings.toml's game_dir is for Dauntless {DEFAULT_VERSION} and was not changed."
         ));
         return Ok(ExitCode::SUCCESS);
     }
     match configure(paths, &folder, platform, source_commit)? {
         Configured::Updated { previous, env_files } => {
             out(&format!(
-                "host.toml: game_dir = \"{folder}\"{}",
+                "settings.toml: game_dir = \"{folder}\"{}",
                 previous.map_or(String::new(), |old| format!(" (was \"{old}\")"))
             ));
             if env_files {
@@ -191,9 +191,9 @@ pub async fn run_with<L: Library>(
                 out("Run dainty-host setup to write the env files from it.");
             }
         }
-        Configured::Unchanged => out("host.toml already names this folder."),
+        Configured::Unchanged => out("settings.toml already names this folder."),
         Configured::NoSettings => out(&format!(
-            "No host.toml yet: run setup with --game \"{folder}\" so the game servers run from it."
+            "No settings.toml yet: run setup with --game \"{folder}\" so the game servers run from it."
         )),
         Configured::OtherVersion => {}
     }

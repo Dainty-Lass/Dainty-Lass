@@ -38,7 +38,7 @@ pub use hooks::Hooks;
 pub use realms::RealmsAdapter;
 pub use rifts::rifts_with_core;
 
-/// Kept from restricted: `host.toml`, the gateway's routing and invites name it (core §15 item 13).
+/// Kept from restricted: `settings.toml`, the gateway's routing and invites name it (core §15 item 13).
 pub const ID: &str = "isles-1-14-7";
 /// The module's name as hosts and the launcher show it.
 pub const DISPLAY_NAME: &str = "Rustic Isles 1.14.7";

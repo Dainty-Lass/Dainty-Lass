@@ -279,10 +279,10 @@ pub enum Refusal {
     /// The manifest is invalid; holds the reason.
     #[error("{0}")]
     Manifest(String),
-    /// The executable is another module than the one `host.toml` named.
+    /// The executable is another module than the one `settings.toml` named.
     #[error("expected module {expected}, the executable is {found}")]
     WrongModule {
-        /// The module `host.toml` named.
+        /// The module `settings.toml` named.
         expected: ModuleId,
         /// The module the executable is.
         found: ModuleId,
@@ -290,7 +290,7 @@ pub enum Refusal {
 }
 
 /// The host's check of a child's hello: the protocol and API it speaks, its manifest, and that it is the
-/// module `host.toml` named for that executable.
+/// module `settings.toml` named for that executable.
 pub fn check_hello(hello: &Hello, expected: Option<&ModuleId>) -> Result<(), Refusal> {
     if hello.protocol != PROTOCOL_VERSION {
         return Err(Refusal::Protocol(hello.protocol));

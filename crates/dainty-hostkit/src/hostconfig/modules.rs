@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Silent Spud
 
 //! `[modules]` and `[network]` (DF3, DN2): which game modules and plugins the server loads, and who it is
-//! in a network. Both are new to host.toml, so a file without them runs today's server: every compiled-in
+//! in a network. Both are new to settings.toml, so a file without them runs today's server: every compiled-in
 //! module (this build has none yet), no external one, a node outside any network.
 //!
 //! ```toml
@@ -473,7 +473,7 @@ impl NetworkConfig {
             .unwrap_or_else(|| self.node.clone())
     }
 
-    /// The table host.toml writes.
+    /// The table settings.toml writes.
     pub fn to_json(&self) -> Value {
         let mut out = Map::new();
         out.insert("node".into(), Value::String(self.node.to_string()));
@@ -544,7 +544,7 @@ mod tests {
     }
 
     #[test]
-    fn modules_and_network_round_trip_through_host_toml_and_host_json() {
+    fn modules_and_network_round_trip_through_settings_toml_and_host_json() {
         let config = HostConfig::from_toml(&with_modules()).unwrap();
         let modules = config.modules.clone().unwrap();
         assert_eq!(modules.compiled, Some(vec!["isles-1-14-7".parse().unwrap()]));
@@ -595,7 +595,7 @@ mod tests {
     }
 
     #[test]
-    fn restart_round_trips_through_host_toml_and_host_json() {
+    fn restart_round_trips_through_settings_toml_and_host_json() {
         let mut config = HostConfig::from_toml(&with_modules()).unwrap();
         config.modules.as_mut().unwrap().external[0].restart = true;
         let text = config.to_toml().unwrap();

@@ -1,7 +1,7 @@
 // Copyright (c) 2026 Silent Spud
 // SPDX-License-Identifier: MIT
 
-//! Pure parsers for `dainty-host` output, `host.toml`/`host.json`, and `vswhere` (Spec §2.3).
+//! Pure parsers for `dainty-host` output, `settings.toml`/`host.json`, and `vswhere` (Spec §2.3).
 //! Compiled directly into the `launcher_host` fuzz target.
 
 use serde_json::{Map, Value};
@@ -13,9 +13,9 @@ pub const PINNED_MP_COMMIT: &str = "b4d12f0";
 pub const PATCH_SENTINEL: &str = ".reforged-patches.json";
 /// The CatalogExporter's flags file the Host page writes: which exports run, CRLF line endings.
 pub const EXPORT_FLAGS: &str = "# Written by the Dainty Lass launcher (Host page). See docs/sdk-and-game-data.md.\r\nEXPORT_CATALOG=1\r\nEXPORT_SLAYERS_PATH=1\r\nEXPORT_HUNTS=1\r\nEXPORT_STORE_RUNTIME=1\r\nEXPORT_PROGRESSION=1\r\nEXPORT_COMBAT=0\r\nEXPORT_SKINS=0\r\nEXPORT_SKINS_RESOLVE_STRINGTABLE=0\r\nEXPORT_WEAPON_SLOTS=1\r\nEXPORT_TABLE_INVENTORY=0\r\nEXPORT_CELLS=0\r\nEXPORT_DROP_TABLES=0\r\nEXPORT_CURRENCY_NAMES=0\r\n";
-/// The backend's default port (host.toml's `[ports]` can move it).
+/// The backend's default port (settings.toml's `[ports]` can move it).
 pub const SERVER_PORT: u16 = 41000;
-/// Longest server name kept from `host.toml`, in characters.
+/// Longest server name kept from `settings.toml`, in characters.
 pub const MAX_SERVER_NAME_LEN: usize = 80;
 /// Lowest test multiplier.
 pub const MIN_MULTIPLIER: f64 = 1.0;
@@ -57,7 +57,7 @@ pub struct UpdateDone {
 /// The update summary the page is shown.
 pub type UpdateSummary = UpdateDone;
 
-/// Who may join, from `host.toml`.
+/// Who may join, from `settings.toml`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ServerMode {
     /// Invite only, over a private network.
@@ -66,7 +66,7 @@ pub enum ServerMode {
     Public,
 }
 
-/// The server settings in `host.toml`.
+/// The server settings in `settings.toml`.
 #[derive(Debug, Clone, PartialEq)]
 pub struct ServerConfig {
     /// Server name, cleaned and bounded.
@@ -380,7 +380,7 @@ fn toml_number(item: &Item) -> Option<f64> {
     }
 }
 
-/// Parses `.workspace/config/host.toml`.
+/// Parses `.workspace/config/settings.toml`.
 #[must_use]
 pub fn server_config_toml(raw: &str) -> Option<ServerConfig> {
     if raw.len() > 1024 * 1024 {

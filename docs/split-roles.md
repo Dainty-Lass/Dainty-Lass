@@ -86,14 +86,14 @@ to the metagame half's backend. Copy the metagame half's `secrets.env` to the ga
 
 A public server opens its game ports only to players whose heartbeat reached its gateway (`docs/security/allowlist.md`).
 In a split, heartbeats reach the metagame half, so the game half's allowlist would never open a port. Until the
-allowlist feed crosses the tunnel, a public game half runs with its game ports open to everyone, and `host.toml` must
-say so: `split.open_game_ports = true`, or the file is refused. Put the game half behind a firewall of your own that
-admits only your players' networks if that matters to you.
+allowlist feed crosses the tunnel, a public game half runs with its game ports open to everyone, and `settings.toml`
+must say so: `split.open_game_ports = true`, or the file is refused. Put the game half behind a firewall of your own
+that admits only your players' networks if that matters to you.
 
 ## Docker
 
-Each half is the `server` image running `dainty-host start`, with its own `workspace` volume and `host.toml`. A sketch
-(not yet run against the real client; the per-service `compose.yaml` in `restricted/` is unchanged):
+Each half is the `server` image running `dainty-host start`, with its own `workspace` volume and `settings.toml`. A
+sketch (not yet run against the real client; the per-service `compose.yaml` in `restricted/` is unchanged):
 
 ```yaml
 services:

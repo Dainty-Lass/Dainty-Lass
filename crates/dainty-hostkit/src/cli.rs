@@ -36,7 +36,7 @@ impl Cli {
     reason = "built once per run; boxing the arguments would only clutter clap's derive"
 )]
 pub enum Command {
-    /// Writes host.toml, secrets.env and the services' env files, and installs what the server runs.
+    /// Writes settings.toml, secrets.env and the services' env files, and installs what the server runs.
     Setup(SetupArgs),
     /// Runs the server in the background without a console.
     Start,
@@ -161,7 +161,7 @@ impl Command {
     }
 }
 
-/// Options of `setup`; each one left out keeps host.toml's value, or the default on a first setup.
+/// Options of `setup`; each one left out keeps settings.toml's value, or the default on a first setup.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Args)]
 pub struct SetupArgs {
     /// The kind of server: private (friends over Tailscale) or public (a server on the internet).
@@ -283,19 +283,19 @@ pub struct SetupArgs {
     /// Skips installing and building the services.
     #[arg(long = "skip-install")]
     pub skip_install: bool,
-    /// Reads the Discord bot's token from stdin into secrets.env and turns the bot on (host.toml's discord table).
+    /// Reads the Discord bot's token from stdin into secrets.env and turns the bot on (settings.toml's discord table).
     #[arg(long = "discord-bot-token")]
     pub discord_bot_token: bool,
     /// Turns the Discord bot off; its token stays in secrets.env.
     #[arg(long = "no-discord")]
     pub no_discord: bool,
-    /// A Discord server (guild id) the bot answers in; repeat for more. Replaces the list host.toml has.
+    /// A Discord server (guild id) the bot answers in; repeat for more. Replaces the list settings.toml has.
     #[arg(long = "discord-guild")]
     pub discord_guilds: Vec<String>,
     /// The Discord bot's application id, checked against its token's.
     #[arg(long = "discord-application-id")]
     pub discord_application_id: Option<String>,
-    /// dainty-dash, which the bot asks whether signups are on (left out: host.toml's dashboard_url).
+    /// dainty-dash, which the bot asks whether signups are on (left out: settings.toml's dashboard_url).
     #[arg(long = "discord-dashboard-url")]
     pub discord_dashboard_url: Option<String>,
     /// Words setup did not expect, refused with a hint to quote values with spaces.
@@ -306,7 +306,7 @@ pub struct SetupArgs {
 /// Options of `serve`.
 #[derive(Debug, Clone, PartialEq, Eq, Args)]
 pub struct ServeArgs {
-    /// The host.toml (or .yaml, .yml, .json) to run; the workspace's host.toml when not given.
+    /// The settings.toml (or .yaml, .yml, .json) to run; the workspace's settings.toml when not given.
     #[arg(short = 'c', long)]
     pub config: Option<PathBuf>,
     /// Shows the dashboard instead of the line console.
@@ -496,10 +496,10 @@ pub enum DbCommand {
 /// Options of `db migrate`.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Args)]
 pub struct DbMigrateArgs {
-    /// The MongoDB URI to read; backend.env's or host.toml's when not given.
+    /// The MongoDB URI to read; backend.env's or settings.toml's when not given.
     #[arg(long = "from", visible_alias = "from-mongo")]
     pub from: Option<String>,
-    /// The store to write: a SQLite file or a postgres:// URL; host.toml's when not given.
+    /// The store to write: a SQLite file or a postgres:// URL; settings.toml's when not given.
     #[arg(long)]
     pub to: Option<String>,
     /// The node id derived ids are made for (DD18); `local` when not given.
@@ -528,10 +528,10 @@ pub struct DbMigrateArgs {
 /// Options of `db verify`.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Args)]
 pub struct DbVerifyArgs {
-    /// The MongoDB URI to compare with; backend.env's or host.toml's when not given.
+    /// The MongoDB URI to compare with; backend.env's or settings.toml's when not given.
     #[arg(long = "against", visible_aliases = ["from", "from-mongo"])]
     pub against: Option<String>,
-    /// The store to check: a SQLite file or a postgres:// URL; host.toml's when not given.
+    /// The store to check: a SQLite file or a postgres:// URL; settings.toml's when not given.
     #[arg(long)]
     pub to: Option<String>,
     /// The node id derived ids were made for (DD18); `local` when not given.
@@ -843,7 +843,7 @@ pub enum LegacyCommand {
 pub struct LegacyImportArgs {
     /// revived, offline-save or reforged
     pub kind: String,
-    /// dainty-legacy's executable, when host.toml pins none (a Node kit before its first setup)
+    /// dainty-legacy's executable, when settings.toml pins none (a Node kit before its first setup)
     #[arg(long)]
     pub program: Option<std::path::PathBuf>,
     /// Passed on to `dainty-legacy import <kind>`
@@ -893,10 +893,10 @@ pub enum RemoteCommand {
 /// Options of `remote init-controller`.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Args)]
 pub struct RemoteInitControllerArgs {
-    /// The controller's node id; host.toml's when not given.
+    /// The controller's node id; settings.toml's when not given.
     #[arg(long)]
     pub node: Option<String>,
-    /// The controller's region; host.toml's when not given.
+    /// The controller's region; settings.toml's when not given.
     #[arg(long)]
     pub region: Option<String>,
     /// The URL installs reach the controller at; the gateway's when not given.
@@ -975,9 +975,9 @@ pub struct RemoteLeaveArgs {
 /// Options of `remote set-config`.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Args)]
 pub struct RemoteSetConfigArgs {
-    /// Takes the shared configuration from host.toml; the command always does, so the flag changes nothing.
+    /// Takes the shared configuration from settings.toml; the command always does, so the flag changes nothing.
     #[arg(long = "from-host-toml")]
-    pub from_host_toml: bool,
+    pub from_settings_toml: bool,
     /// Prints JSON.
     #[arg(long)]
     pub json: bool,
@@ -1050,7 +1050,7 @@ pub struct RemoteSyncArgs {
     /// Keeps syncing until stopped.
     #[arg(long = "loop")]
     pub continuous: bool,
-    /// Seconds between syncs; host.toml's, or 5, when not given.
+    /// Seconds between syncs; settings.toml's, or 5, when not given.
     #[arg(long = "interval-secs")]
     pub interval_secs: Option<u64>,
     /// Prints JSON.

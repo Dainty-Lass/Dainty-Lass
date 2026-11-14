@@ -75,7 +75,7 @@ pub enum Rule {
 }
 
 impl Rule {
-    /// The rule a host.toml value names: `off`, `delay` or `approval`.
+    /// The rule a settings.toml value names: `off`, `delay` or `approval`.
     pub fn parse(text: &str) -> Option<Self> {
         match text.trim() {
             "off" => Some(Self::Off),
@@ -85,7 +85,7 @@ impl Rule {
         }
     }
 
-    /// The host.toml value.
+    /// The settings.toml value.
     pub fn as_str(self) -> &'static str {
         match self {
             Self::Off => "off",
@@ -103,7 +103,7 @@ impl Rule {
     }
 }
 
-/// host.toml `[guard]`, as `admin.env` carries it. The defaults leave everyday moderation immediate: ten bans
+/// settings.toml `[guard]`, as `admin.env` carries it. The defaults leave everyday moderation immediate: ten bans
 /// or timeouts an hour from one key, a revert of up to a hundred changes, and the revoking of a viewer or
 /// moderator key.
 #[derive(Debug, Clone, PartialEq, Eq)]

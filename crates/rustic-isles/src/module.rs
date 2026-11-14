@@ -96,7 +96,7 @@ pub struct DefaultPorts {
 
 /// Everything a game version's module is built from.
 pub struct ModuleSpec {
-    /// The module's id, kept in `host.toml` and invites.
+    /// The module's id, kept in `settings.toml` and invites.
     pub id: ModuleId,
     /// The name hosts and the launcher show.
     pub display_name: String,

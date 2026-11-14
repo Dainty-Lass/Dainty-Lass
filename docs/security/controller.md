@@ -20,7 +20,7 @@ module, and each module keeps the checklist of its component (`gateway.md`, `all
 `admin-api.md`, `host-start.md`). What the controller adds is one process holding all of them, a console that drives
 them, and the files it reads to compose them.
 
-- **In, the host's files:** `host.toml`, `host.yaml`/`host.yml` or a Node kit's `host.json`, and the env files setup
+- **In, the host's files:** `settings.toml`, `host.yaml`/`host.yml` or a Node kit's `host.json`, and the env files setup
   wrote. They are the host's own, but a broken or planted file must only ever be refused.
 - **In, the terminal:** console lines on stdin (`serve --interactive`) and the dashboard's keys and `:` prompt
   (`serve --tui`). Whoever has the terminal is the host: the console has no login, by design.
@@ -37,8 +37,8 @@ Code: `crates/dainty-controller/src/controller.rs` (start, ready timeout, stop g
 `hostconfig/yaml.rs`, `services.rs` (`pump`), `launcher/src-tauri/src/server_gui.rs` and `bridge/commands.rs`
 (`host_server_restart`).
 
-Fuzz targets: `host_config` in `fuzz` (host.toml, the YAML reader and host.json, and an accepted file written
-back as host.toml and read again as the same settings), and `host_console` (a console line: what the parser accepts
+Fuzz targets: `host_config` in `fuzz` (settings.toml, the YAML reader and host.json, and an accepted file written
+back as settings.toml and read again as the same settings), and `host_console` (a console line: what the parser accepts
 names only plain service names and known levels, what it answers carries no control character, and a service's line
 as `plain` prints it carries none either).
 
@@ -50,7 +50,7 @@ as `plain` prints it carries none either).
       cannot hold the server's memory.
 - [ ] The YAML reader refuses nesting deeper than 32 levels, blocks and brackets alike, and any text over 256 KiB
       (`MAX_DEPTH`, `MAX_YAML_BYTES`): nothing in it recurses without end. Test:
-      `refuses_what_would_recurse_without_end_or_is_too_large`. host.toml (`toml_edit`) and host.json (`serde_json`,
+      `refuses_what_would_recurse_without_end_or_is_too_large`. settings.toml (`toml_edit`) and host.json (`serde_json`,
       128 levels) are bounded by their parsers.
 - [ ] All three forms go through the same checks as the Node kit's host.json (`HostConfig::from_json`), so a value a
       form accepts is one setup would have written. The `host_config` target checks the round trip.
@@ -99,7 +99,7 @@ as `plain` prints it carries none either).
 
 ### The module registry (DF3)
 
-- [ ] Only a module `host.toml` lists can be loaded (`ModuleEntry`, `RegistryError::NotListed`); the console and
+- [ ] Only a module `settings.toml` lists can be loaded (`ModuleEntry`, `RegistryError::NotListed`); the console and
       the admin API name a module by its id, never a path. An external one is checked against its SHA-256 and its
       hello must name the id listed (`ExternalModule::expected`).
 - [ ] A second game module for a version already served is refused whichever loads first, and so is one for a

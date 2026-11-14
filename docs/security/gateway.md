@@ -141,7 +141,7 @@ first, and content and chat stay the gateway's own upstreams, so a module's rout
 ### The library's boundary (RD27)
 
 The gateway and the allowlist run as one service of the core (`gateway::service`, RD27): compiled in, or as the
-library `crates/dainty-gateway-plugin` exports (a cdylib, which `plugin-host` loads only at the SHA-256 `host.toml` pins;
+library `crates/dainty-gateway-plugin` exports (a cdylib, which `plugin-host` loads only at the SHA-256 `settings.toml` pins;
 dainty-lass's `docs/security/plugin-host.md`), through `controller::service_library::gateway` either way. Compiled in,
 the same messages cross in-memory streams, and the service has a runtime of its own as a library's instance does. The library is the gateway: the listener, TLS and the
 certificate, the policy, the proxying to backends, the node-link endpoint's admission and the capture all stay in

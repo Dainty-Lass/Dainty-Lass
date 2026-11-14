@@ -2,7 +2,7 @@
 
 > **Ports moved 2026-11-10.** The loopback services' defaults are now backend 41000, Director 41001, content
 > 41002, admin 41003, allowlist 41005, chat 41006 and QoS 41010, below the dynamic range Windows lends to Hyper-V,
-> WSL and Docker. host.toml's `[ports]` moves any of them, and on Windows setup and start move one Windows has lent
+> WSL and Docker. settings.toml's `[ports]` moves any of them, and on Windows setup and start move one Windows has lent
 > out (a private gateway's 61000 to 41080). The numbers below are the ones recorded upstream: read each 610xx
 > service port as its 410xx counterpart. A private gateway's default stays 61000.
 
@@ -948,8 +948,9 @@ ends in an allowed apex; a kept request id is always safe.
 
 1. **Replay headers from anyone** (§14). Proposed: honour them only when a new setting
    `RUSTIC_ISLES_REPLAY_HEADERS=on` (off by default; set by `reforged-host db replay`'s target only), and have the
-   gateway drop `x-isles-replay-*` from the internet. A behaviour change and a seam change (the setting, `host.toml`,
-   the gateway): a decision row. The implementer keeps today's behaviour unless the coordinator says otherwise.
+   gateway drop `x-isles-replay-*` from the internet. A behaviour change and a seam change (the setting,
+   `settings.toml`, the gateway): a decision row. The implementer keeps today's behaviour unless the coordinator says
+   otherwise.
 2. **Legacy names.** `MYSTICPARADOX_*` env aliases and `x-mysticparadox-*` header copies were for "one release" after
    2026-11-01. Proposed: drop from the MIT crate (as auth §15 item 9); restricted pre-maps env if it must.
 3. **No automatic `OPTIONS`/`405`.** Express answers `OPTIONS` on a matched path with `200` and an `Allow` list; here
@@ -969,8 +970,8 @@ ends in an allowed apex; a kept request id is always safe.
     module under Paradox's section 7 terms in one sentence. Proposed: rewrite all from this spec (as done here) and
     let the maintainer confirm that the A files carry no Paradox terms if any is ever moved instead.
 12. **The 501 text** keeps the `isles:` prefix; it is client-visible only for unported routes. Kept.
-13. **Module id** stays `isles-1-14-7` (host.toml, the gateway's routing and invites name it) though the MIT crates are
-    `rustic-isles-*`.
+13. **Module id** stays `isles-1-14-7` (settings.toml, the gateway's routing and invites name it) though the MIT crates
+    are `rustic-isles-*`.
 14. **Process globals**: restricted keeps the chat presence and the Reforged status cache as process-wide statics and
     the game data cache keyed by path; two modules in one process would share presence. The MIT crate keeps them per
     module (§5.5); one module behaves the same.

@@ -70,7 +70,7 @@ impl LogsConfig {
         })
     }
 
-    /// The table host.toml writes.
+    /// The table settings.toml writes.
     #[must_use]
     pub fn to_json(&self) -> Value {
         let mut out = Map::new();
@@ -88,10 +88,10 @@ impl LogsConfig {
     }
 }
 
-/// host.toml's `[logs]` for the admin API's `logSettings` and `setLogSettings` (the dashboard).
+/// settings.toml's `[logs]` for the admin API's `logSettings` and `setLogSettings` (the dashboard).
 #[cfg(feature = "admin")]
 pub struct LogsFile {
-    /// The host.toml the settings are read from and written to.
+    /// The settings.toml the settings are read from and written to.
     pub file: std::path::PathBuf,
     /// What this run started with
     pub started: LogsConfig,
@@ -185,7 +185,7 @@ mod tests {
         use dainty_admin::host_settings::{HostSettings, LogSettingsInput};
 
         let dir = tempfile::tempdir().unwrap();
-        let file = dir.path().join("host.toml");
+        let file = dir.path().join("settings.toml");
         std::fs::write(
             &file,
             "version = 1

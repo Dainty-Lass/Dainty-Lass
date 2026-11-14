@@ -16,7 +16,7 @@ use dainty_remote::{
     LifecycleAction, MongoMigrationState, OperatorEnvelope, QueuedRemoteCommand, RemoteCommand as WireRemoteCommand,
     RemoteControllerState, RemoteError, RemoteHostHandler, RemoteLogEntry, RemoteManagedAgent, RemoteRole,
     ServerRunState, SubmitCommandResult, contains_forbidden_secret_str, enroll_with_controller,
-    merge_managed_host_toml, parse_enrollment_uri,
+    merge_managed_settings_toml, parse_enrollment_uri,
 };
 use network_plugin::cluster::{self, ClusterCa, DEFAULT_NODE_DAYS, NodeCertRequest, NodeCredentials};
 use network_plugin::{TlsLinkConfig, TlsPeerLink};
@@ -187,10 +187,10 @@ fn rewrite_env_files_for_config(paths: &Paths, config: &HostConfig) -> Result<()
     Ok(())
 }
 
-/// Extract the shared portion of `host.toml` suitable for `SharedConfigBundle`.
+/// Extract the shared portion of `settings.toml` suitable for `SharedConfigBundle`.
 pub fn shared_toml_from_host_config(paths: &Paths, config: &HostConfig) -> Result<String, HostError> {
-    let raw = if paths.host_toml.is_file() {
-        std::fs::read_to_string(&paths.host_toml).map_err(|e| HostError::io(&paths.host_toml, e))?
+    let raw = if paths.settings_toml.is_file() {
+        std::fs::read_to_string(&paths.settings_toml).map_err(|e| HostError::io(&paths.settings_toml, e))?
     } else {
         config.to_toml()?
     };
@@ -198,7 +198,7 @@ pub fn shared_toml_from_host_config(paths: &Paths, config: &HostConfig) -> Resul
     // or harmlessly ignored when merged on managed installs.
     let mut doc: toml_edit::DocumentMut = raw
         .parse()
-        .map_err(|e| bad(format!("host.toml is not valid TOML: {e}")))?;
+        .map_err(|e| bad(format!("settings.toml is not valid TOML: {e}")))?;
     for key in [
         "host",
         "game_address",
@@ -217,11 +217,11 @@ pub fn shared_toml_from_host_config(paths: &Paths, config: &HostConfig) -> Resul
     Ok(doc.to_string())
 }
 
-/// Makes this server the controller: its gateway certificate, cluster CA and node certificate, host.toml's `[remote]`,
-/// the env files and the controller state. Returns what `--json` prints.
+/// Makes this server the controller: its gateway certificate, cluster CA and node certificate, settings.toml's
+/// `[remote]`, the env files and the controller state. Returns what `--json` prints.
 pub fn init_controller(paths: &Paths, args: &RemoteInitControllerArgs) -> Result<Value, HostError> {
     let mut config =
-        load_host_config(paths)?.ok_or_else(|| bad("no host.toml found: run `dainty-host setup` first"))?;
+        load_host_config(paths)?.ok_or_else(|| bad("no settings.toml found: run `dainty-host setup` first"))?;
     let node: NodeId = args
         .node
         .as_deref()
@@ -291,7 +291,8 @@ pub fn init_controller(paths: &Paths, args: &RemoteInitControllerArgs) -> Result
 /// Mints a single-use enrollment invite, making this server the controller first when it is not yet one.
 /// Returns the invite URI and what `--json` prints.
 pub fn create_invite(paths: &Paths, args: &RemoteInviteArgs) -> Result<(String, Value), HostError> {
-    let config = load_host_config(paths)?.ok_or_else(|| bad("no host.toml found: run `dainty-host setup` first"))?;
+    let config =
+        load_host_config(paths)?.ok_or_else(|| bad("no settings.toml found: run `dainty-host setup` first"))?;
     let state_path = controller_state_path(paths);
     if !state_path.is_file() {
         let _ = init_controller(
@@ -347,7 +348,7 @@ pub fn create_invite(paths: &Paths, args: &RemoteInviteArgs) -> Result<(String, 
 pub fn enroll(paths: &Paths, args: &RemoteEnrollArgs) -> Result<Value, HostError> {
     let invite = parse_enrollment_uri(&args.uri).map_err(|e| bad(e.to_string()))?;
     let mut config =
-        load_host_config(paths)?.ok_or_else(|| bad("no host.toml found: run `dainty-host setup` first"))?;
+        load_host_config(paths)?.ok_or_else(|| bad("no settings.toml found: run `dainty-host setup` first"))?;
     let local_fp = if config.mode == ServerMode::Public {
         Some(ensure_gateway_cert_file(paths, &config.host)?)
     } else {
@@ -527,7 +528,7 @@ pub fn revoke(paths: &Paths, node_str: &str) -> Result<Value, HostError> {
 /// Leaves remote management: drops `[remote]`, rewrites the env files and forgets the enrollment.
 pub fn leave(paths: &Paths) -> Result<Value, HostError> {
     let mut config =
-        load_host_config(paths)?.ok_or_else(|| bad("no host.toml found: run `dainty-host setup` first"))?;
+        load_host_config(paths)?.ok_or_else(|| bad("no settings.toml found: run `dainty-host setup` first"))?;
     config.remote = None;
     save_host_config(paths, &config)?;
     rewrite_env_files_for_config(paths, &config)?;
@@ -538,9 +539,10 @@ pub fn leave(paths: &Paths) -> Result<Value, HostError> {
     }))
 }
 
-/// Publishes host.toml's shareable settings as the next shared configuration revision; returns the revision.
-pub fn set_shared_config_from_host_toml(paths: &Paths) -> Result<Value, HostError> {
-    let config = load_host_config(paths)?.ok_or_else(|| bad("no host.toml found: run `dainty-host setup` first"))?;
+/// Publishes settings.toml's shareable settings as the next shared configuration revision; returns the revision.
+pub fn set_shared_config_from_settings_toml(paths: &Paths) -> Result<Value, HostError> {
+    let config =
+        load_host_config(paths)?.ok_or_else(|| bad("no settings.toml found: run `dainty-host setup` first"))?;
     let state_path = controller_state_path(paths);
     let mut state = RemoteControllerState::load(&state_path).map_err(|e| bad(e.to_string()))?;
     let shared_toml = shared_toml_from_host_config(paths, &config)?;
@@ -856,7 +858,7 @@ impl RemoteHostHandler for HostKitRemoteHandler {
     fn build_report(&self, applied_revision: u64) -> Result<InstallReport, RemoteError> {
         let config = load_host_config(&self.paths)
             .map_err(|e| RemoteError::Io(e.to_string()))?
-            .ok_or_else(|| RemoteError::Io("host.toml is missing".to_string()))?;
+            .ok_or_else(|| RemoteError::Io("settings.toml is missing".to_string()))?;
         let rem = config.remote.clone().unwrap_or_default();
         let node = config
             .network
@@ -944,10 +946,10 @@ impl RemoteHostHandler for HostKitRemoteHandler {
         })
     }
 
-    fn read_local_host_toml(&self) -> Result<String, RemoteError> {
-        if self.paths.host_toml.is_file() {
-            std::fs::read_to_string(&self.paths.host_toml)
-                .map_err(|e| RemoteError::Io(format!("{}: {e}", self.paths.host_toml.display())))
+    fn read_local_settings_toml(&self) -> Result<String, RemoteError> {
+        if self.paths.settings_toml.is_file() {
+            std::fs::read_to_string(&self.paths.settings_toml)
+                .map_err(|e| RemoteError::Io(format!("{}: {e}", self.paths.settings_toml.display())))
         } else {
             let cfg = load_host_config(&self.paths)
                 .map_err(|e| RemoteError::Io(e.to_string()))?
@@ -956,7 +958,7 @@ impl RemoteHostHandler for HostKitRemoteHandler {
         }
     }
 
-    fn write_merged_host_toml(&self, merged_toml: &str, revision: u64) -> Result<(), RemoteError> {
+    fn write_merged_settings_toml(&self, merged_toml: &str, revision: u64) -> Result<(), RemoteError> {
         let cfg = HostConfig::from_toml(merged_toml).map_err(|e| RemoteError::InvalidInput(e.to_string()))?;
         save_host_config(&self.paths, &cfg).map_err(|e| RemoteError::Io(e.to_string()))?;
         rewrite_env_files_for_config(&self.paths, &cfg).map_err(|e| RemoteError::Io(e.to_string()))?;
@@ -1237,7 +1239,8 @@ pub fn compose_remote_module(
 
 /// Syncs a managed install with its controller once, or until stopped with `--loop`; returns the revision applied.
 pub fn sync_with_controller(paths: &Paths, args: &RemoteSyncArgs) -> Result<Value, HostError> {
-    let config = load_host_config(paths)?.ok_or_else(|| bad("no host.toml found: run `dainty-host setup` first"))?;
+    let config =
+        load_host_config(paths)?.ok_or_else(|| bad("no settings.toml found: run `dainty-host setup` first"))?;
     let rem = config
         .remote
         .as_ref()
@@ -1342,7 +1345,7 @@ pub fn sync_with_controller(paths: &Paths, args: &RemoteSyncArgs) -> Result<Valu
 
 /// Runs `dainty-host remote <command>`.
 pub fn run(paths: &Paths, args: &RemoteArgs) -> Outcome {
-    let _ = merge_managed_host_toml;
+    let _ = merge_managed_settings_toml;
     let _ = RemoteConfig::default;
     match &args.command {
         RemoteCommand::InitController(a) => {
@@ -1439,7 +1442,7 @@ pub fn run(paths: &Paths, args: &RemoteArgs) -> Outcome {
             Ok(ExitCode::SUCCESS)
         }
         RemoteCommand::SetConfig(a) => {
-            let val = set_shared_config_from_host_toml(paths)?;
+            let val = set_shared_config_from_settings_toml(paths)?;
             if a.json {
                 println!("{}", serde_json::to_string_pretty(&val).unwrap_or_default());
             } else {
@@ -1508,7 +1511,7 @@ mod tests {
     use super::*;
     use tempfile::TempDir;
 
-    fn write_test_host_toml(paths: &Paths) {
+    fn write_test_settings_toml(paths: &Paths) {
         std::fs::create_dir_all(&paths.config).unwrap();
         let toml = r#"
 version = 1
@@ -1520,14 +1523,14 @@ public_port = 8443
 registration = "INVITECODE"
 max_hunt_servers = 4
 "#;
-        std::fs::write(&paths.host_toml, toml).unwrap();
+        std::fs::write(&paths.settings_toml, toml).unwrap();
     }
 
     #[test]
     fn controller_lifecycle_invite_config_exec_and_revoke() {
         let tmp = TempDir::new().unwrap();
         let paths = Paths::new(tmp.path());
-        write_test_host_toml(&paths);
+        write_test_settings_toml(&paths);
 
         let init = init_controller(
             &paths,
@@ -1586,7 +1589,7 @@ max_hunt_servers = 4
         assert_eq!(status["installs"].as_array().unwrap().len(), 1);
         assert_eq!(status["installs"][0]["node"], "managed-alpha");
 
-        let pub_cfg = set_shared_config_from_host_toml(&paths).unwrap();
+        let pub_cfg = set_shared_config_from_settings_toml(&paths).unwrap();
         assert_eq!(pub_cfg["revision"], 2);
 
         let exec = exec_command(

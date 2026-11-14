@@ -108,8 +108,8 @@ pub struct WorkspacePaths {
     pub publish: PathBuf,
     /// The host kit's logs (`.workspace/logs`).
     pub logs: PathBuf,
-    /// `.workspace/config/host.toml`.
-    pub host_toml: PathBuf,
+    /// `.workspace/config/settings.toml`.
+    pub settings_toml: PathBuf,
     /// Game-data packs (`.workspace/gamedata-packs`).
     pub gamedata_packs: PathBuf,
 }
@@ -205,7 +205,7 @@ impl WorkspacePaths {
         export_roots.dedup();
         let logs = workspace.join("logs");
         let config = workspace.join("config");
-        let host_toml = config.join("host.toml");
+        let settings_toml = config.join("settings.toml");
         let gamedata_packs = workspace.join("gamedata-packs");
 
         Self {
@@ -225,7 +225,7 @@ impl WorkspacePaths {
             export_roots,
             publish,
             logs,
-            host_toml,
+            settings_toml,
             gamedata_packs,
         }
     }
@@ -614,11 +614,11 @@ fn read_bounded_string(path: &Path) -> Option<String> {
     std::fs::read_to_string(path).ok()
 }
 
-/// Reads `.workspace/config/host.toml` into [`HostServerConfig`]; a Node kit's host.json is dainty-legacy's.
+/// Reads `.workspace/config/settings.toml` into [`HostServerConfig`]; a Node kit's host.json is dainty-legacy's.
 #[must_use]
 pub fn read_server_config(root: &Path) -> HostServerConfig {
     let paths = WorkspacePaths::new(root);
-    let Some(cfg) = read_bounded_string(&paths.host_toml)
+    let Some(cfg) = read_bounded_string(&paths.settings_toml)
         .as_deref()
         .and_then(server_config_toml)
     else {
@@ -926,7 +926,7 @@ mod tests {
 
         let paths = WorkspacePaths::new(root);
         assert_eq!(paths.runtime_source, root.join("modules/rustic-isles/native/runtime"));
-        assert_eq!(paths.host_toml, root.join(".workspace/config/host.toml"));
+        assert_eq!(paths.settings_toml, root.join(".workspace/config/settings.toml"));
         // The MIT exporter, whatever the module layout (spec-catalog-exporter 9)
         assert_eq!(paths.exporter_crate, root.join("native/rustic-isles-exporter"));
         assert_eq!(

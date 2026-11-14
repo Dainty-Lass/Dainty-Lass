@@ -99,7 +99,7 @@ impl PortRange {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct PortDefault {
-    /// Name the module and `host.toml` use for it.
+    /// Name the module and `settings.toml` use for it.
     pub name: String,
     /// Its protocol.
     pub transport: Transport,

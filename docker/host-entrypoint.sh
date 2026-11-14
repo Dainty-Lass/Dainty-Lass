@@ -46,12 +46,12 @@ case "$command" in
         exec dainty-host install-game "$@"
         ;;
     apply)
-        if [ -f /config/host.toml ]; then
+        if [ -f /config/settings.toml ]; then
             mkdir -p "$config"
-            cp /config/host.toml "$config/host.toml"
-            echo "host.toml taken from DAINTY_CONFIG_DIR"
-        elif [ ! -f "$config/host.toml" ]; then
-            echo "No host.toml: put one in DAINTY_CONFIG_DIR (./config by default; docs/hosting-docker.md shows how)." >&2
+            cp /config/settings.toml "$config/settings.toml"
+            echo "settings.toml taken from DAINTY_CONFIG_DIR"
+        elif [ ! -f "$config/settings.toml" ]; then
+            echo "No settings.toml: put one in DAINTY_CONFIG_DIR (./config by default; docs/hosting-docker.md shows how)." >&2
             exit 2
         fi
         docker_setup

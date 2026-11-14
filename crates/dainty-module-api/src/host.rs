@@ -1,5 +1,5 @@
 //! The host side of the frame protocol (DD5): [`ChildModule`] starts an external module's executable,
-//! checked against the SHA-256 `host.toml` pins for it, and drives it as a [`ModuleDriver`]. The file is
+//! checked against the SHA-256 `settings.toml` pins for it, and drives it as a [`ModuleDriver`]. The file is
 //! opened once and the bytes hashed are the bytes started ([`open_pinned`]); the child gets only the
 //! environment the controller gives it, and its whole process tree is killed on unload.
 
@@ -27,7 +27,7 @@ use crate::peer::{self, MAX_IN_FLIGHT, MAX_LOG_LINE, Pending, Resolved, Writer, 
 use crate::tree::Tree;
 use crate::version::API_VERSION;
 
-/// An external module as `host.toml` names it (DF3): an executable, pinned by its SHA-256.
+/// An external module as `settings.toml` names it (DF3): an executable, pinned by its SHA-256.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ExternalModule {
     /// The executable.
@@ -36,7 +36,7 @@ pub struct ExternalModule {
     pub sha256: Sha256Hex,
     /// Arguments it is started with.
     pub args: Vec<String>,
-    /// The module `host.toml` lists under this entry; the child's hello must name it
+    /// The module `settings.toml` lists under this entry; the child's hello must name it
     pub expected: Option<ModuleId>,
 }
 
@@ -86,11 +86,11 @@ pub enum LoadError {
         error: std::io::Error,
     },
     /// The executable's SHA-256 is not the pinned one.
-    #[error("{path} has SHA-256 {found}, host.toml pins {expected}")]
+    #[error("{path} has SHA-256 {found}, settings.toml pins {expected}")]
     HashMismatch {
         /// The executable.
         path: PathBuf,
-        /// The pin from `host.toml`.
+        /// The pin from `settings.toml`.
         expected: Sha256Hex,
         /// The executable's actual digest.
         found: Sha256Hex,

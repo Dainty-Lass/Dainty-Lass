@@ -4,12 +4,12 @@
 //! The host kit (`dainty-host`) composed: `hostkit` wired through its hooks to the compiled-in services
 //! (`gateway`, `allowlist`, `content`, `admin`, `chat`), the 1.14.7 module (`rustic-isles-1-14-7`), the
 //! `rustic-isles-db` and `rustic-isles-replay` tools and the game-data generators. The module's version data is
-//! read at start from the file host.toml names (`version_data`).
+//! read at start from the file settings.toml names (`version_data`).
 
 pub use dainty_hostkit::{
     HostError, Outcome, captures, cli, envfile, epicinstall, error, gamepack, guarded, hooks, hostconfig, hostfiles,
-    hosttoml, invite, linux, mongo, paths, preset, progression, publish, repl, selfupdate, services, tls, tui, wine,
-    with_admin_env,
+    invite, linux, mongo, paths, preset, progression, publish, repl, selfupdate, services, settingstoml, tls, tui,
+    wine, with_admin_env,
 };
 
 pub mod compose;
@@ -706,7 +706,7 @@ impl hooks::HostHooks for ServicesHostHooks {
         public: bool,
         guarded: bool,
     ) -> Result<(), HostError> {
-        // A service host.toml loads as a library is hostkit's to compose (compose_service_library)
+        // A service settings.toml loads as a library is hostkit's to compose (compose_service_library)
         let gateway_library = dainty_hostkit::serve::library_configured(config, "gateway");
         let chat_library = dainty_hostkit::serve::library_configured(config, "chat");
 
@@ -755,7 +755,7 @@ impl hooks::HostHooks for ServicesHostHooks {
             let said = credentials.identity();
             if said.node != network.node || said.region != network.region {
                 return Err(HostError::message(format!(
-                    "the node certificate in {} is for {} in {}, but host.toml says {} in {}",
+                    "the node certificate in {} is for {} in {}, but settings.toml says {} in {}",
                     paths.tls.display(),
                     said.node,
                     said.region,
@@ -1889,7 +1889,7 @@ mod tests {
 
     #[cfg(feature = "db-tools")]
     #[test]
-    fn db_migrate_verify_and_export_mongo_work_with_host_toml_defaults() {
+    fn db_migrate_verify_and_export_mongo_work_with_settings_toml_defaults() {
         use crate::cli::{DbArgs, DbCommand, DbExportMongoArgs, DbMigrateArgs, DbVerifyArgs};
         use crate::hostconfig::{
             DatabaseSettings, FileForm, HostConfig, MongoConfig, Registration, ServerMode, save_host_config,
@@ -2096,7 +2096,7 @@ mod tests {
 
         // [services.<name>] takes a service out of the binary: the library runs in its place, pinned by its SHA-256
         let digest = "ab".repeat(32);
-        let doc = dainty_hostkit::hosttoml::document(&format!(
+        let doc = dainty_hostkit::settingstoml::document(&format!(
             "[services.content]\nlibrary = \"plugins/dainty_content_plugin.dll\"\nsha256 = \"{digest}\"\n\
              [services.gateway]\nlibrary = \"plugins/dainty_gateway_plugin.dll\"\nsha256 = \"{digest}\"\n\
              [services.chat]\nlibrary = \"plugins/dainty_chat_plugin.dll\"\nsha256 = \"{digest}\"\n"

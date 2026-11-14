@@ -36,10 +36,10 @@ bin\dainty-host setup --mode private --name "Friday Hunts" --game "D:\Games\Daun
 bin\dainty-host setup --mode public --host play.example.org --game-address 203.0.113.10 --name "Friday Hunts" --game "D:\Games\Dauntless"
 ```
 
-`setup` writes `.workspace\config\host.toml` (every setting, with a comment each), `secrets.env` (made
+`setup` writes `.workspace\config\settings.toml` (every setting, with a comment each), `secrets.env` (made
 once, never shown) and the service `.env` files, and in public mode makes the gateway's certificate.
 **It never remakes that certificate**: every invite's `fp` depends on it. Run `setup` again with different
-options to change a setting, or edit `host.toml` and run `setup` with none.
+options to change a setting, or edit `settings.toml` and run `setup` with none.
 
 No 1.14.7 folder yet? `install-game` fetches one from your own Epic library
 ([below](#getting-the-game-from-epic)) and points `game_dir` at it.
@@ -91,7 +91,7 @@ with the `server-gui` feature) runs the same server in-process from its Host pag
 | `history` | What changed in the server's data, by whom and when (`--actor`, `--account`, `--since`, `--until`); `history verify` checks the log's hash chain. See [Undoing a change](#undoing-a-change) |
 | `revert` | Undo what an actor, an account or a time range changed: a dry run first, then `--apply <plan id>` |
 | `db` | Migrate or verify between MongoDB and the SQLite/Postgres store (`migrate`, `verify`), or export the store back to MongoDB for one-release rollback (`export-mongo`) |
-| `legacy` | `legacy import <revived\|offline-save\|reforged> [args]` runs the importer for an old install, `bin/dainty-legacy` in the release ([source](../../crates/dainty-legacy)): the `legacy` module `[[modules.external]]` pins in `host.toml`, or `--program <path>` before the first setup. In the console, `legacy import` runs it as `module run legacy import-<kind>` |
+| `legacy` | `legacy import <revived\|offline-save\|reforged> [args]` runs the importer for an old install, `bin/dainty-legacy` in the release ([source](../../crates/dainty-legacy)): the `legacy` module `[[modules.external]]` pins in `settings.toml`, or `--program <path>` before the first setup. In the console, `legacy import` runs it as `module run legacy import-<kind>` |
 
 
 ## Getting the game from Epic
@@ -116,8 +116,8 @@ SHA-1 before it is read, every file against the manifest, and the executable aga
 lands is the Epic build and nothing else. A run that is stopped (Ctrl+C, a lost connection, a reboot) continues
 where it left off when you run the same command again. 1.14.7 is about 15 GB.
 
-It goes into a folder of its own under `--dir` (`.workspace\game` unless given). Installing also sets `game_dir` in `host.toml` to its folder and rewrites the env files, so the
-Director's game servers run from it: restart the server for that to take effect. Without a `host.toml` yet, it
+It goes into a folder of its own under `--dir` (`.workspace\game` unless given). Installing also sets `game_dir` in `settings.toml` to its folder and rewrites the env files, so the
+Director's game servers run from it: restart the server for that to take effect. Without a `settings.toml` yet, it
 tells you the `--game` to give `setup`.
 
 ## Undoing a change
@@ -161,10 +161,10 @@ a long list is cut off at 200 lines, so read a mass revert in a terminal), in **
 
 ## Settings
 
-`setup`'s options and the `host.toml` keys they write. A secret (the admin key, the gateway secret, the game
+`setup`'s options and the `settings.toml` keys they write. A secret (the admin key, the gateway secret, the game
 servers' key) lives only in `secrets.env`.
 
-| Option | `host.toml` | What |
+| Option | `settings.toml` | What |
 | --- | --- | --- |
 | `--mode private\|public` | `mode` | Friends over Tailscale, or the internet |
 | `--host` | `host` | The Tailscale IP, or the public IPv4 or DNS name |
@@ -177,34 +177,34 @@ servers' key) lives only in `secrets.env`.
 | `--max-hunts 1-10` | `max_hunt_servers` | Hunts at once; the UDP range widens below 8770 past six |
 | `--xp`, `--rewards`, `--no-multipliers` | `[multipliers]` | Private test servers only |
 | `--public-port` | `public_port` | Another port than 443 |
-| (edit `host.toml`) | `dashboard_url` | The staff dashboard ([dainty-lass `ui/`](https://git.silentspud.com/silentspud/dainty-lass/src/branch/main/ui), dainty-dash), written to `gateway.env` as `CHAT_DASHBOARD_URL` with `DASHBOARD_INGEST_KEY`. Chat takes its filter every 30 s and applies it before delivery (flag, mask, or block, which the sender sees as sent), sends it every room line and whisper with the verdict, and files `/report <player> [category] <what happened>` with it. Left out: chat as before, and `/report` answers that reports are not set up |
-| (edit `host.toml`) | `version_data` | The 1.14.7 version data's design part (Mystic Paradox's `version_data.json`: the reward cache plan, the starter wallet, the legacy starter and the default appearance), read when the server starts, relative to the server folder. Left out: `data/1.14.7/version_data.json`, the file the release ships. A missing or broken file stops `serve` and the backend with a message that names it; `setup` and `start` install it in the backend game data folder for the module loaded as a library. A file from a release before the split, which holds the whole document, is still read alone |
-| (edit `host.toml`) | `version_facts` | The 1.14.7 version facts (the game's ids and GUIDs, MIT `version_facts.json`) the server reads beside `version_data`, relative to the server folder. Left out: `data/1.14.7/version_facts.json`, the file the release ships. Installed beside `version_data`. When the host's export folder has `weapon_slots_1_14_7.jsonl`, the starter weapons' default parts come from it; with `catalog_1_14_7.jsonl`, `gamedata` reports any id the version data names that the catalog lacks |
+| (edit `settings.toml`) | `dashboard_url` | The staff dashboard ([dainty-lass `ui/`](https://git.silentspud.com/silentspud/dainty-lass/src/branch/main/ui), dainty-dash), written to `gateway.env` as `CHAT_DASHBOARD_URL` with `DASHBOARD_INGEST_KEY`. Chat takes its filter every 30 s and applies it before delivery (flag, mask, or block, which the sender sees as sent), sends it every room line and whisper with the verdict, and files `/report <player> [category] <what happened>` with it. Left out: chat as before, and `/report` answers that reports are not set up |
+| (edit `settings.toml`) | `version_data` | The 1.14.7 version data's design part (Mystic Paradox's `version_data.json`: the reward cache plan, the starter wallet, the legacy starter and the default appearance), read when the server starts, relative to the server folder. Left out: `data/1.14.7/version_data.json`, the file the release ships. A missing or broken file stops `serve` and the backend with a message that names it; `setup` and `start` install it in the backend game data folder for the module loaded as a library. A file from a release before the split, which holds the whole document, is still read alone |
+| (edit `settings.toml`) | `version_facts` | The 1.14.7 version facts (the game's ids and GUIDs, MIT `version_facts.json`) the server reads beside `version_data`, relative to the server folder. Left out: `data/1.14.7/version_facts.json`, the file the release ships. Installed beside `version_data`. When the host's export folder has `weapon_slots_1_14_7.jsonl`, the starter weapons' default parts come from it; with `catalog_1_14_7.jsonl`, `gamedata` reports any id the version data names that the catalog lacks |
 | `--server-fps`, `--idle-fps`, `--training-on-demand`, `--training-idle-minutes`, `--verbose-game-logs`, `--memory-guard`, `--min-free-memory-mb`, `--hunt-memory-mb` | `[performance]` | What the game servers cost in CPU and RAM |
 | `--wine`, `--proton`, `--xvfb`, `--interface` | `[linux]` | Linux only ([hosting-linux.md](hosting-linux.md)) |
-| `--fresh-start` (or edit `host.toml`) | `[database]` `engine`, `postgres_host`, `postgres_port`, `postgres_user`, `postgres_database`, `allow_remote`, `fresh_start` | The Rust services' database: `sqlite` (the default, `dainty-lass.db` in `.workspace\config`) or `postgres` (below); `--fresh-start` / `fresh_start = true` starts with an empty database although `.workspace\mongodb` still holds unmigrated data (MongoDB is never modified) |
-| (edit `host.toml`) | `[guard]` `ban_limit`, `ban_window_minutes`, `ban_guard`, `revert_limit`, `revert_guard`, `revoke_guard`, `delay_minutes`, `expire_hours` | When a destructive or bulk admin action waits for a delay or a second operator (below). Left out: ten bans an hour from one key, a revert of over a hundred changes and the revoking of an admin or owner key each wait ten minutes; everything smaller runs at once |
-| (edit `host.toml`) | `[history]` `ship_to_peer` | Ship this node's change log and database snapshots over `Service::LogShip` (`/__node/log_ship`) to a peer node in `[[network.nodes]]` (DH7, below). Left out: off |
-| (edit `host.toml`) | `[switches]` `reforge`, `mastery_persistence`, `bounty_persistence`, `cooldown_persistence`, `account_erasure`, `log_purge`, `rate_limit`, `rate_limit_per_minute`, `gameserver_rate_limit_per_minute`, `host_rate_limit_per_minute` | Backend persistence, rule and request-budget switches written to `backend.env` (`RUSTIC_ISLES_REFORGE`, `RUSTIC_ISLES_MASTERY_PERSISTENCE`, `RUSTIC_ISLES_BOUNTY_PERSISTENCE`, `RUSTIC_ISLES_COOLDOWN_PERSISTENCE`, `RUSTIC_ISLES_ACCOUNT_ERASURE`, `RUSTIC_ISLES_LOG_PURGE`, `RUSTIC_ISLES_RATE_LIMIT`, `RUSTIC_ISLES_RATE_LIMIT_PER_MINUTE`, `RUSTIC_ISLES_GAMESERVER_RATE_LIMIT_PER_MINUTE`, `RUSTIC_ISLES_HOST_RATE_LIMIT_PER_MINUTE`) and forwarded to `isles-1-14-7`'s `[switches]`. Left out: the module's defaults |
-| (edit `host.toml`) | `[modules]` `compiled`, `[[modules.external]]` `id`, `path`, `sha256`, `args`, `autoload`, `[modules.<id>.<section>]` | The game modules and plugins to load (below). Left out: every compiled-in one |
-| (edit `host.toml`) | `[[modules.external]]` `restart` | `true` starts the module again when its process dies: after 1 s, doubling to 60 s, back to 1 s once it has run 10 minutes; five failures in 10 minutes leave it failed with the last reason. Each try is a `module.restarted` event. Left out: `false`, a dead module stays failed until it is loaded again |
-| (edit `host.toml`) | `[services.<name>]` `library`, `sha256` (and `serves` for a name the server doesn't know) | A service loaded as a library in place of the one built into the binary: `content`, `chat` or `gateway`, from the release's `plugins/` folder, pinned by its SHA-256 (below). It runs on its own env file (`chat` on `gateway.env`), and a `gateway` library takes the allowlist's place too. Left out: every service built in, as before |
-| (edit `host.toml`) | `[ports]` `gateway`, `backend`, `director`, `qos`, `content`, `admin`, `allowlist`, `chat` | The TCP ports the server listens on, for a machine where one is taken. `gateway` is a private server's, the port its invites name; a public one's is `public_port`. The others listen on 127.0.0.1. Each needs its own port, and none may be the relay's, MongoDB's or a game server's. On Windows, setup and start move a port Windows has lent out and write the move here ([Ports Windows holds](#ports-windows-holds)). `doctor`, `invite` and the launcher's Host page and invite list follow it. Left out: 61000, 41000, 41001, 41010, 41002, 41003, 41005 and 41006 |
-| (edit `host.toml`) | `[env.<service>]` `KEY = value` (`backend`, `director`, `content`, `gateway`, `admin`, `allowlist`) | Extra lines for that service's env file, for a variable with no setting of its own (`GATEWAY_GAME = "reborn"`). Secrets, ports, bind addresses, `AUTH_*`, the server mode, the multipliers and any variable `setup` already writes are refused, and `setup` stops on one rather than skip it; `doctor` lists the ones in use. Left out: nothing extra |
-| (edit `host.toml`) | `[gateway.limits]`, `[gateway.rate]`, `[gateway.timeouts]`, `[gateway]`, `[content]`, `[allowlist]`, `[backend]`, `[director]` | The services' limits, timeouts and log levels, and the hub size and AFK timeouts ([below](#service-tunables)). `setup` checks them with each service's own rules and stops on a bad one. Left out: each service's default |
-| (edit `host.toml`) | `[network]` `node`, `region`, `leader`, `wrong_node_policy` | This server's name, region and optional directory leader in a network, and what a join that reaches the wrong node gets: `refuse` (the default) or `redirect` to the node that owns it (DN6). Left out: a server on its own |
-| (edit `host.toml`) | `[network]` `failover`, `heartbeat_ms`, `election_timeout_ms` | `failover = true`: the nodes elect the directory leader among themselves and elect another when it goes down, and a registration is acknowledged only once a majority of the nodes holds it; leave `leader` out. Run three or five nodes. The timings default to 1000 and 5000 ms ([distributed-mode.md](https://git.silentspud.com/silentspud/dainty-lass/src/branch/main/docs/distributed-mode.md)). Left out: the fixed leader |
-| (edit `host.toml`) | `[logs]` `format`, `color`, `gelf_url` | The console log: `text` (Docker-like lines, `service \| time LEVEL module: message key=value`) or `json`; color `auto` (on a terminal, unless `NO_COLOR`), `always` or `never`; and a GELF collector (Graylog) every record is shipped to, `https://`, or `http://`/`tcp://` only to this machine or a private network ([logging.md](https://git.silentspud.com/silentspud/dainty-lass/src/branch/main/docs/logging.md)). Left out: colored text, nothing shipped |
+| `--fresh-start` (or edit `settings.toml`) | `[database]` `engine`, `postgres_host`, `postgres_port`, `postgres_user`, `postgres_database`, `allow_remote`, `fresh_start` | The Rust services' database: `sqlite` (the default, `dainty-lass.db` in `.workspace\config`) or `postgres` (below); `--fresh-start` / `fresh_start = true` starts with an empty database although `.workspace\mongodb` still holds unmigrated data (MongoDB is never modified) |
+| (edit `settings.toml`) | `[guard]` `ban_limit`, `ban_window_minutes`, `ban_guard`, `revert_limit`, `revert_guard`, `revoke_guard`, `delay_minutes`, `expire_hours` | When a destructive or bulk admin action waits for a delay or a second operator (below). Left out: ten bans an hour from one key, a revert of over a hundred changes and the revoking of an admin or owner key each wait ten minutes; everything smaller runs at once |
+| (edit `settings.toml`) | `[history]` `ship_to_peer` | Ship this node's change log and database snapshots over `Service::LogShip` (`/__node/log_ship`) to a peer node in `[[network.nodes]]` (DH7, below). Left out: off |
+| (edit `settings.toml`) | `[switches]` `reforge`, `mastery_persistence`, `bounty_persistence`, `cooldown_persistence`, `account_erasure`, `log_purge`, `rate_limit`, `rate_limit_per_minute`, `gameserver_rate_limit_per_minute`, `host_rate_limit_per_minute` | Backend persistence, rule and request-budget switches written to `backend.env` (`RUSTIC_ISLES_REFORGE`, `RUSTIC_ISLES_MASTERY_PERSISTENCE`, `RUSTIC_ISLES_BOUNTY_PERSISTENCE`, `RUSTIC_ISLES_COOLDOWN_PERSISTENCE`, `RUSTIC_ISLES_ACCOUNT_ERASURE`, `RUSTIC_ISLES_LOG_PURGE`, `RUSTIC_ISLES_RATE_LIMIT`, `RUSTIC_ISLES_RATE_LIMIT_PER_MINUTE`, `RUSTIC_ISLES_GAMESERVER_RATE_LIMIT_PER_MINUTE`, `RUSTIC_ISLES_HOST_RATE_LIMIT_PER_MINUTE`) and forwarded to `isles-1-14-7`'s `[switches]`. Left out: the module's defaults |
+| (edit `settings.toml`) | `[modules]` `compiled`, `[[modules.external]]` `id`, `path`, `sha256`, `args`, `autoload`, `[modules.<id>.<section>]` | The game modules and plugins to load (below). Left out: every compiled-in one |
+| (edit `settings.toml`) | `[[modules.external]]` `restart` | `true` starts the module again when its process dies: after 1 s, doubling to 60 s, back to 1 s once it has run 10 minutes; five failures in 10 minutes leave it failed with the last reason. Each try is a `module.restarted` event. Left out: `false`, a dead module stays failed until it is loaded again |
+| (edit `settings.toml`) | `[services.<name>]` `library`, `sha256` (and `serves` for a name the server doesn't know) | A service loaded as a library in place of the one built into the binary: `content`, `chat` or `gateway`, from the release's `plugins/` folder, pinned by its SHA-256 (below). It runs on its own env file (`chat` on `gateway.env`), and a `gateway` library takes the allowlist's place too. Left out: every service built in, as before |
+| (edit `settings.toml`) | `[ports]` `gateway`, `backend`, `director`, `qos`, `content`, `admin`, `allowlist`, `chat` | The TCP ports the server listens on, for a machine where one is taken. `gateway` is a private server's, the port its invites name; a public one's is `public_port`. The others listen on 127.0.0.1. Each needs its own port, and none may be the relay's, MongoDB's or a game server's. On Windows, setup and start move a port Windows has lent out and write the move here ([Ports Windows holds](#ports-windows-holds)). `doctor`, `invite` and the launcher's Host page and invite list follow it. Left out: 61000, 41000, 41001, 41010, 41002, 41003, 41005 and 41006 |
+| (edit `settings.toml`) | `[env.<service>]` `KEY = value` (`backend`, `director`, `content`, `gateway`, `admin`, `allowlist`) | Extra lines for that service's env file, for a variable with no setting of its own (`GATEWAY_GAME = "reborn"`). Secrets, ports, bind addresses, `AUTH_*`, the server mode, the multipliers and any variable `setup` already writes are refused, and `setup` stops on one rather than skip it; `doctor` lists the ones in use. Left out: nothing extra |
+| (edit `settings.toml`) | `[gateway.limits]`, `[gateway.rate]`, `[gateway.timeouts]`, `[gateway]`, `[content]`, `[allowlist]`, `[backend]`, `[director]` | The services' limits, timeouts and log levels, and the hub size and AFK timeouts ([below](#service-tunables)). `setup` checks them with each service's own rules and stops on a bad one. Left out: each service's default |
+| (edit `settings.toml`) | `[network]` `node`, `region`, `leader`, `wrong_node_policy` | This server's name, region and optional directory leader in a network, and what a join that reaches the wrong node gets: `refuse` (the default) or `redirect` to the node that owns it (DN6). Left out: a server on its own |
+| (edit `settings.toml`) | `[network]` `failover`, `heartbeat_ms`, `election_timeout_ms` | `failover = true`: the nodes elect the directory leader among themselves and elect another when it goes down, and a registration is acknowledged only once a majority of the nodes holds it; leave `leader` out. Run three or five nodes. The timings default to 1000 and 5000 ms ([distributed-mode.md](https://git.silentspud.com/silentspud/dainty-lass/src/branch/main/docs/distributed-mode.md)). Left out: the fixed leader |
+| (edit `settings.toml`) | `[logs]` `format`, `color`, `gelf_url` | The console log: `text` (Docker-like lines, `service \| time LEVEL module: message key=value`) or `json`; color `auto` (on a terminal, unless `NO_COLOR`), `always` or `never`; and a GELF collector (Graylog) every record is shipped to, `https://`, or `http://`/`tcp://` only to this machine or a private network ([logging.md](https://git.silentspud.com/silentspud/dainty-lass/src/branch/main/docs/logging.md)). Left out: colored text, nothing shipped |
 | `--discord-bot-token` (the token on stdin), `--no-discord`, `--discord-guild <id>` (repeat it), `--discord-application-id`, `--discord-dashboard-url` | `[discord]` `enabled`, `guild_ids`, `application_id`, `dashboard_url` | The Discord bot ([below](#the-discord-bot)), written to `discord.env`: `/key` and `/status` in the guilds `guild_ids` lists (left out: every guild the bot is in), `application_id` checked against the token's, and the dashboard asked whether signups are on (left out: `dashboard_url`). `--discord-bot-token` turns it on, `--no-discord` off. Left out: no bot |
-| (edit `host.toml`) | `[events]` `retention_days` | How many days the server keeps the game modules' events (a game server up or down, a module restarted, `events.lagged` when the recorder fell behind) in its database: `events.db` beside the game's on SQLite, the server's Postgres database otherwise. 0 to 3650; 0 keeps every event. Left out: 90 days |
-| (edit `host.toml`) | `[split]` `role`, `peer`, `open_game_ports` | This server as one half of two: `metagame` (backend, content, admin) or `gameservers` (the Director and its game servers), the other half's node id in `[[network.nodes]]`, and for a public game half its open game ports ([split-roles.md](https://git.silentspud.com/silentspud/dainty-lass/src/branch/main/docs/split-roles.md)). Left out: one server runs both |
-| (edit `host.toml`) | `[[network.nodes]]` `id`, `region`, `host`, `port`, `fingerprint`, `link` | The other nodes of the network: the only ones this node answers, and the ones it calls (below). `link` (`host:port`) is where node links dial instead of `host`: a back channel such as the peer's Tailscale address, which its node certificate must carry too. Left out: no peers, and the server works as one outside a network |
+| (edit `settings.toml`) | `[events]` `retention_days` | How many days the server keeps the game modules' events (a game server up or down, a module restarted, `events.lagged` when the recorder fell behind) in its database: `events.db` beside the game's on SQLite, the server's Postgres database otherwise. 0 to 3650; 0 keeps every event. Left out: 90 days |
+| (edit `settings.toml`) | `[split]` `role`, `peer`, `open_game_ports` | This server as one half of two: `metagame` (backend, content, admin) or `gameservers` (the Director and its game servers), the other half's node id in `[[network.nodes]]`, and for a public game half its open game ports ([split-roles.md](https://git.silentspud.com/silentspud/dainty-lass/src/branch/main/docs/split-roles.md)). Left out: one server runs both |
+| (edit `settings.toml`) | `[[network.nodes]]` `id`, `region`, `host`, `port`, `fingerprint`, `link` | The other nodes of the network: the only ones this node answers, and the ones it calls (below). `link` (`host:port`) is where node links dial instead of `host`: a back channel such as the peer's Tailscale address, which its node certificate must carry too. Left out: no peers, and the server works as one outside a network |
 
 ### Service tunables
 
 Every key is optional: left out, the service keeps its own default. Each goes to that service's env file as the
 variable shown, and `setup` runs the gateway's, content's and the allowlist helper's own settings check on the
-result, so a value out of range stops `setup` with that service's message and the `host.toml` key.
+result, so a value out of range stops `setup` with that service's message and the `settings.toml` key.
 
 ```toml
 [gateway.limits]
@@ -217,7 +217,7 @@ ws = { burst = 40, per_minute = 24 }
 log_level = "debug"
 ```
 
-| `host.toml` key | Variable | Values | Default |
+| `settings.toml` key | Variable | Values | Default |
 | --- | --- | --- | --- |
 | `[gateway.limits]` `max_body_bytes` | `GATEWAY_MAX_BODY_BYTES` | 1024–67108864 | 131072 |
 | `[gateway.limits]` `max_connections` | `GATEWAY_MAX_CONNECTIONS` | 1–100000 | 2048 |
@@ -278,11 +278,11 @@ net start winnat
 
 `net stop winnat` drops WSL's and Docker's networking for a moment.
 
-### Environment variables override host.toml
+### Environment variables override settings.toml
 
 A variable set in the environment `dainty-host start` runs in wins over what `setup` wrote, when the service
 reads it: a line of its env file, or a variable of its table above (`GATEWAY_RATE_WS=40,24`). Every override is a
-warning in the console and the log each time the service starts, naming the `host.toml` key it beats, and
+warning in the console and the log each time the service starts, naming the `settings.toml` key it beats, and
 `doctor` lists them under `overrides`. A secret, an `AUTH_*` variable, the server mode, the executable hash, the
 registration mode or a multiplier can be overridden too, but its value is never shown. Other variables pass
 through as before.
@@ -498,7 +498,7 @@ with `restart = true`, until the server starts it again; an unload stops it and 
 
 Each service reads one env file `setup` writes into `.workspace\config` (`gateway.env`, `content.env`,
 `backend.env`, `director.env`, `allowlist.env`, `admin.env`), and nothing else. Don't edit them: `setup`
-rewrites them from `host.toml`.
+rewrites them from `settings.toml`.
 
 ### A network of servers
 
@@ -514,7 +514,7 @@ The steps are yours to do by hand:
    for more; `--days` sets how long it is valid, 365 by default). It writes `node-cert.pem`, `node-key.pem` and
    `cluster-ca-cert.pem` to a folder named after the node.
 3. Copy those three files to the server's `.workspace/tls` folder, next to the gateway's own certificate.
-4. In each server's `host.toml`, name it and list the others, then run `setup` again:
+4. In each server's `settings.toml`, name it and list the others, then run `setup` again:
 
 ```toml
 [network]
@@ -565,7 +565,7 @@ The player launcher (`dainty-launcher`) has no remote-management surface.
 
 1. **Initialize the controller.** In **Dainty Lass Manager** -> **Host** -> **Managed installs**, click **Enable
    Controller Mode** (or run `bin\dainty-host remote init-controller --node controller --region oregon --url https://203.0.113.10:443`).
-   This creates `.workspace\tls\remote-cluster-ca.pem` (kept on the controller only) and writes `[remote] role = "controller"` in `host.toml`.
+   This creates `.workspace\tls\remote-cluster-ca.pem` (kept on the controller only) and writes `[remote] role = "controller"` in `settings.toml`.
 2. **Mint a single-use enrollment invite.** In the Manager's **Managed installs** panel, enter the target node ID,
    region and optional label and click **Create Enrollment Invite** (or run `bin\dainty-host remote invite --node us-east-1 --region us-east --label "US East 1"`).
    The URI (`dainty-lass-remote://enroll?v=1&url=...&fp=<sha256>&node=...&region=...&token=...`) is single-use and
@@ -587,7 +587,7 @@ The player launcher (`dainty-launcher`) has no remote-management surface.
    `/__node/remote` (`403 not_a_peer`); `bin\dainty-host remote leave` on a managed install detaches it back to
    `role = "standalone"`.
 
-| `[remote]` key in `host.toml` | `gateway.env` / `host` variable | Values | Default |
+| `[remote]` key in `settings.toml` | `gateway.env` / `host` variable | Values | Default |
 | --- | --- | --- | --- |
 | `role` | `DAINTY_REMOTE_ROLE` | `"standalone"`, `"controller"`, `"managed"` | `"standalone"` |
 | `controller_url` | `DAINTY_REMOTE_CONTROLLER_URL` | `https://<host>[:<port>]` | unset |
@@ -597,7 +597,7 @@ The player launcher (`dainty-launcher`) has no remote-management surface.
 | `region` | `DAINTY_REMOTE_REGION` | `[a-z0-9-]{1,32}` | `[network].region` |
 | `label` | `DAINTY_REMOTE_LABEL` | display string (`1`–`64` chars) | unset |
 | `sync_interval_secs` | `DAINTY_REMOTE_SYNC_INTERVAL_SECS` | integer `5`–`3600` | `15` |
-| `local_overrides` | `DAINTY_REMOTE_LOCAL_OVERRIDES` | array of dotted `host.toml` paths preserved locally | `[]` |
+| `local_overrides` | `DAINTY_REMOTE_LOCAL_OVERRIDES` | array of dotted `settings.toml` paths preserved locally | `[]` |
 
 ## Public servers
 
@@ -617,15 +617,15 @@ bin\dainty-host update --check            # is there a newer server release?
 bin\dainty-host update                    # install it and run setup again
 ```
 
-`update` keeps `.workspace` and runs `setup` from your `host.toml`. Neither moves a Node backend's MongoDB data any
+`update` keeps `.workspace` and runs `setup` from your `settings.toml`. Neither moves a Node backend's MongoDB data any
 more: `bin\dainty-legacy import reforged <old kit>` ([dainty-legacy](../../crates/dainty-legacy)) upgrades an old Node
-kit (its `host.json`, layout and MongoDB), and on a server already on `host.toml`, `bin\dainty-host db migrate`
+kit (its `host.json`, layout and MongoDB), and on a server already on `settings.toml`, `bin\dainty-host db migrate`
 followed by `bin\dainty-host db verify` moves the data into the configured store (`.workspace\config\dainty-lass.db`
 on SQLite, or Postgres when `[database]` sets `engine = "postgres"`). `verify` writes `.workspace\config\.mongo-migrated`
 once it finds no difference; MongoDB is never modified. `start` and `serve` refuse to run the Rust backend while
 `.workspace\mongodb` holds data without that marker (unless the host opts into an empty database with
-`dainty-host setup --fresh-start` or `fresh_start = true` under `[database]` in `host.toml`). A `host.json` with no
-`host.toml` is refused until dainty-legacy has imported it. When `native\` changed, `update` says so: rebuild the
+`dainty-host setup --fresh-start` or `fresh_start = true` under `[database]` in `settings.toml`). A `host.json` with no
+`settings.toml` is refused until dainty-legacy has imported it. When `native\` changed, `update` says so: rebuild the
 runtime and publish it again.
 Players' launchers notice the new hashes and ask once more.
 
@@ -634,7 +634,7 @@ Players' launchers notice the new hashes and ask once more.
 When cutting a live 1.14.7 server over from the Node backend to the Rust backend:
 
 1. **Backup.** Stop the server (or take a snapshot first), run `bin\dainty-host backup` so `.workspace\backups\`
-   holds a fresh database dump, and copy `.workspace\config` (`host.toml`, `secrets.env`) and `.workspace\tls`
+   holds a fresh database dump, and copy `.workspace\config` (`settings.toml`, `secrets.env`) and `.workspace\tls`
    (`gateway-cert.pem`, `gateway-key.pem`) to safe off-server storage.
 2. **Update and migrate.** Run `bin\dainty-host update`. If the server has existing MongoDB data, start `mongod`
    and run `bin\dainty-host db migrate` then `bin\dainty-host db verify`, and confirm `verify` reports no
@@ -645,7 +645,7 @@ When cutting a live 1.14.7 server over from the Node backend to the Rust backend
    loadouts intact, and depart for a hunt.
 4. **Rollback (if needed).** Stop the server, export the SQLite or Postgres store back to MongoDB with
    `bin\dainty-host db export-mongo --to mongodb://127.0.0.1:27017/reforged` (source and target default from
-   `host.toml`), verify with `bin\dainty-host db verify --against mongodb://127.0.0.1:27017/reforged`, and start the
+   `settings.toml`), verify with `bin\dainty-host db verify --against mongodb://127.0.0.1:27017/reforged`, and start the
    `paradox` build (below).
 
 ## Rollback to the Node backend and MongoDB (`paradox` feature)
@@ -660,4 +660,4 @@ the opt-in `paradox` Cargo feature (`cargo build --release -p dainty-server --fe
 Paradox's Node `ParadoxBackend` and `ParadoxDirector` from `modules/rustic-isles/reference/1.14.7/` against MongoDB
 instead of the compiled-in `isles-1-14-7` Rust module. To export a server's SQLite or Postgres store back to MongoDB
 before starting a `paradox` build, run `dainty-host db export-mongo --to <mongodb-uri>` (and optionally
-`dainty-host db verify --against <mongodb-uri>`; `--from` and `--to` default from `host.toml`).
+`dainty-host db verify --against <mongodb-uri>`; `--from` and `--to` default from `settings.toml`).

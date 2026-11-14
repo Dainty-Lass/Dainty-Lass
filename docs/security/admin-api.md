@@ -18,7 +18,7 @@ backend's admin routes and the Director, so what it can do is bounded by what th
   owner's, or one per person, below), an
   optional `x-dainty-operator-id` (digits), and a JSON body. `GET /health` answers `{"ok":true}` without a key, for
   the host kit's ready probe. It reveals nothing.
-- **In, from the host:** `admin.env` (written by `dainty-host setup` from `host.toml` and `secrets.env`) and the
+- **In, from the host:** `admin.env` (written by `dainty-host setup` from `settings.toml` and `secrets.env`) and the
   timeouts file it names.
 - **In, from this machine's services:** the backend's answers (`/admin/v1/players`, `/admin/v1/online-players`,
   `/admin/v1/players/<id>/access`, `/dainty/api/Kick`, `/dainty/api/ServerStatus`) and the Director's
@@ -171,7 +171,8 @@ and input checks (`schema.rs`; `guarded.rs`, `guard.rs`). Not guarded, with the 
       shows `summary`, not `params`.
 - [ ] An unapproved action expires (`expire_hours`); an expired one never runs, also if the server was down past it
       (`a_held_approval_expires_when_nobody_comes`).
-- [ ] The thresholds are `host.toml` `[guard]`, written to `admin.env` by setup and read by `Config::from_env`, which
+- [ ] The thresholds are `settings.toml` `[guard]`, written to `admin.env` by setup and read by `Config::from_env`,
+  which
       refuses a value out of range (`config.rs` test, `host/tests/config.rs`). Left out, the defaults hold only the
       bulk cases (`everyday_moderation_is_immediate_and_old_installs_behave_as_before`).
 - [ ] The count behind `ban_limit` is per key, from `admin_actions`: several keys each stay under it. A team that
@@ -268,7 +269,7 @@ Section 6 keeps the host kit's `.env` files as the Node kit wrote them. This row
 already there: two keys at the end of `secrets.env`, two lines in `backend.env` (after `DAINTY_ADMIN_KEY`), and a
 new `admin.env`. `tests/node_fixtures.rs` still checks every Node-kit line byte for byte and leaves out only these.
 
-DH6 changes no existing file: `admin.env` gains the `DAINTY_GUARD_*` lines only when `host.toml` has a `[guard]`
+DH6 changes no existing file: `admin.env` gains the `DAINTY_GUARD_*` lines only when `settings.toml` has a `[guard]`
 table, the admin database gains a table and a column through a migration, and the schema gains `guarded`, `approve`
 and `cancel`. What does change for a client is that a ban or timeout over the limit, the revoking of an admin or
 owner key and a big revert answer `GUARDED` instead of running (the owner included): that is the row, and the limits

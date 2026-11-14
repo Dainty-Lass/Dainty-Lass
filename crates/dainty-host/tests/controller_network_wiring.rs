@@ -40,7 +40,7 @@ struct TestNode {
     _dir: tempfile::TempDir,
 }
 
-/// The gateway library cargo built beside this test (target/<profile>/), pinned as host.toml would.
+/// The gateway library cargo built beside this test (target/<profile>/), pinned as settings.toml would.
 async fn gateway_library() -> dainty_controller::ServiceLibrary {
     let exe = std::env::current_exe().unwrap();
     let profile = exe.parent().and_then(|deps| deps.parent()).unwrap();

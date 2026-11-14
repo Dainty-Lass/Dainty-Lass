@@ -44,7 +44,7 @@ async fn not_a_reforged_install() {
     assert_eq!(
         err.to_string(),
         format!(
-            "{}: no .workspace/config/host.json or host.toml, so not a Reforged install",
+            "{}: no .workspace/config/host.json or settings.toml, so not a Reforged install",
             dir.path().display()
         )
     );
@@ -58,7 +58,7 @@ async fn not_a_reforged_install() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn host_json_becomes_host_toml() {
+async fn host_json_becomes_settings_toml() {
     let (dir, config) = checkout();
     std::fs::write(
         config.join("host.json"),
@@ -75,15 +75,15 @@ async fn host_json_becomes_host_toml() {
     let mut dry = args(dir.path());
     dry.dry_run = true;
     let report = upgrade(dry).await.unwrap();
-    assert_eq!(report.imported.get("host.toml"), Some(&1));
-    assert!(config.join("host.json").exists() && !config.join("host.toml").exists());
+    assert_eq!(report.imported.get("settings.toml"), Some(&1));
+    assert!(config.join("host.json").exists() && !config.join("settings.toml").exists());
 
     let report = upgrade(args(dir.path())).await.unwrap();
-    let toml = std::fs::read_to_string(config.join("host.toml")).unwrap();
+    let toml = std::fs::read_to_string(config.join("settings.toml")).unwrap();
     assert!(toml.starts_with("# This server's settings (dainty-host)"), "{toml}");
     assert!(toml.ends_with("mode = \"public\"\n"), "{toml}");
     assert!(!config.join("host.json").exists());
-    assert!(!config.join("host.toml.partial").exists());
+    assert!(!config.join("settings.toml.partial").exists());
     assert!(
         std::fs::read_to_string(config.join("host.json.bak"))
             .unwrap()
@@ -97,22 +97,22 @@ async fn host_json_becomes_host_toml() {
             "secrets.env is kept; dainty-host setup adds what it lacks: ALLOWLIST_SECRET, GAMESERVER_API_KEY, \
              API_KEY_HASH_SECRET, RUSTIC_ISLES_METRICS_TOKEN, AUTH_SIGNING_PRIVKEY_B64, AUTH_SIGNING_PUBKEY_B64, \
              DAINTY_ADMIN_API_KEY, RUSTIC_ISLES_MANAGER_OPERATOR_SECRET, DAINTY_DB_PASSWORD",
-            "host.json is now host.toml; the old file is kept as host.json.bak",
-            "left out of host.toml (1.4.4, 1.12 or unknown): edition, legacyPublicPort",
-            "this server ran only Dauntless 1.4.4: set game_dir in host.toml to a 1.14.7 install before setup",
-            "next: run dainty-host setup, which checks host.toml and writes the services' settings",
+            "host.json is now settings.toml; the old file is kept as host.json.bak",
+            "left out of settings.toml (1.4.4, 1.12 or unknown): edition, legacyPublicPort",
+            "this server ran only Dauntless 1.4.4: set game_dir in settings.toml to a 1.14.7 install before setup",
+            "next: run dainty-host setup, which checks settings.toml and writes the services' settings",
         ]
     );
     // No secret's value reaches the report
     let text = report.text();
     assert!(!text.contains("=\"b\"") && !text.contains("GATEWAY_SECRET=a"));
 
-    // Again: host.toml is there
+    // Again: settings.toml is there
     std::fs::write(config.join("host.json"), "{}").unwrap();
     let report = upgrade(args(dir.path())).await.unwrap();
-    assert_eq!(report.unchanged.get("host.toml"), Some(&1));
+    assert_eq!(report.unchanged.get("settings.toml"), Some(&1));
     assert!(report.notes.contains(&String::from(
-        "host.toml is already there, so host.json was left as it is: delete it once you've checked"
+        "settings.toml is already there, so host.json was left as it is: delete it once you've checked"
     )));
 }
 
@@ -120,7 +120,7 @@ async fn host_json_becomes_host_toml() {
 async fn folders_move_and_nothing_is_overwritten() {
     let (dir, config) = checkout();
     let root = dir.path();
-    std::fs::write(config.join("host.toml"), "").unwrap();
+    std::fs::write(config.join("settings.toml"), "").unwrap();
     touch(&root.join("native/runtime/SDK.hpp"));
     touch(&root.join("native/runtime/x64/Release/a.dll"));
     touch(&root.join(".workspace/Mystic-Paradox/MysticParadox/x64/b.dll"));
@@ -165,7 +165,7 @@ async fn folders_move_and_nothing_is_overwritten() {
 async fn mongodb_is_moved_or_left_on_purpose() {
     let (dir, config) = checkout();
     let root = dir.path();
-    std::fs::write(config.join("host.toml"), "").unwrap();
+    std::fs::write(config.join("settings.toml"), "").unwrap();
     let mongo = root.join(".workspace/mongodb");
     touch(&mongo.join("mongod.lock"));
     // Only the lock: nothing to move

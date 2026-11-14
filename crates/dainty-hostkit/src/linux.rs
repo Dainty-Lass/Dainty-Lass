@@ -195,7 +195,8 @@ fn set_executable_mode(path: &Path) -> Result<(), HostError> {
     Ok(())
 }
 
-/// Proton when host.toml names one, else the Wine host.toml names or one found on PATH; `None` when there is none.
+/// Proton when settings.toml names one, else the Wine settings.toml names or one found on PATH; `None` when there is
+/// none.
 pub fn game_runtime(options: &LinuxOptions) -> Result<Option<GameRuntime>, HostError> {
     if let Some(proton) = options.proton.as_deref().map(str::trim).filter(|s| !s.is_empty()) {
         if crate::wine::is_executable(Path::new(proton)) {

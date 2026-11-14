@@ -40,7 +40,7 @@ pub struct Ports {
     pub allowlist: u16,
     /// Chat's TCP port, behind the gateway.
     pub chat: u16,
-    /// A public server's gateway port, unless host.toml sets another.
+    /// A public server's gateway port, unless settings.toml sets another.
     pub public_gateway: u16,
     /// A private server's gateway port.
     pub private_gateway: u16,
@@ -56,7 +56,7 @@ pub struct Ports {
     pub game_lowest: u16,
 }
 
-/// The ports the server uses unless host.toml's `[ports]` moves one (`hostconfig::service_ports`). The loopback
+/// The ports the server uses unless settings.toml's `[ports]` moves one (`hostconfig::service_ports`). The loopback
 /// ones sit below 49152, outside the dynamic range Windows lends Hyper-V, WSL and Docker in blocks of 100.
 pub const PORTS: Ports = Ports {
     backend: 41000,
@@ -241,10 +241,10 @@ pub struct Paths {
     pub captures_pin: PathBuf,
     /// `.workspace/runtime`: the published runtime.
     pub runtime_publish: PathBuf,
-    /// `.workspace/config`: host.toml, secrets.env and the env files.
+    /// `.workspace/config`: settings.toml, secrets.env and the env files.
     pub config: PathBuf,
-    /// `.workspace/config/host.toml`.
-    pub host_toml: PathBuf,
+    /// `.workspace/config/settings.toml`.
+    pub settings_toml: PathBuf,
     /// `.workspace/tls`: the gateway's and the node's certificates.
     pub tls: PathBuf,
     /// The gateway's certificate, which every invite's fingerprint depends on.
@@ -316,7 +316,7 @@ impl Paths {
         let captures_pin = backend_dir.join("store-captures.json");
         let runtime_publish = workspace.join("runtime");
         let config = workspace.join("config");
-        let host_toml = config.join("host.toml");
+        let settings_toml = config.join("settings.toml");
         let tls = workspace.join("tls");
         let cert_file = tls.join("gateway-cert.pem");
         let key_file = tls.join("gateway-key.pem");
@@ -359,7 +359,7 @@ impl Paths {
             captures_pin,
             runtime_publish,
             config,
-            host_toml,
+            settings_toml,
             tls,
             cert_file,
             key_file,
@@ -401,7 +401,10 @@ mod tests {
         assert_eq!(p.repo, Path::new("/srv/server"));
         assert_eq!(p.workspace, Path::new("/srv/server/.workspace"));
         assert_eq!(p.config, Path::new("/srv/server/.workspace/config"));
-        assert_eq!(p.host_toml, Path::new("/srv/server/.workspace/config/host.toml"));
+        assert_eq!(
+            p.settings_toml,
+            Path::new("/srv/server/.workspace/config/settings.toml")
+        );
         assert_eq!(p.cert_file, Path::new("/srv/server/.workspace/tls/gateway-cert.pem"));
         assert_eq!(p.key_file, Path::new("/srv/server/.workspace/tls/gateway-key.pem"));
         assert_eq!(p.mongo_data, Path::new("/srv/server/.workspace/mongodb"));

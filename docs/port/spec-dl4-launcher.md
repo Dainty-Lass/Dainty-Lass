@@ -2,7 +2,7 @@
 
 > **Ports moved 2026-11-10.** The loopback services' defaults are now backend 41000, Director 41001, content
 > 41002, admin 41003, allowlist 41005, chat 41006 and QoS 41010, below the dynamic range Windows lends to Hyper-V,
-> WSL and Docker. host.toml's `[ports]` moves any of them, and on Windows setup and start move one Windows has lent
+> WSL and Docker. settings.toml's `[ports]` moves any of them, and on Windows setup and start move one Windows has lent
 > out (a private gateway's 61000 to 41080). The numbers below are the ones recorded upstream: read each 610xx
 > service port as its 410xx counterpart. A private gateway's default stays 61000.
 
@@ -94,7 +94,7 @@ During the file-by-file provenance audit of the files listed in row DL4, seven f
 | `net/downloader/tests.rs` | AGPL DR Core | `legacy`, `test` | `launcher` (`src-tauri`) | Tests for 1.4.4 downloader. |
 | `platform/mod.rs` | AGPL DR Core | `host`, `legacy` | Both (module root) | Platform layer root. |
 | **`platform/hostkit.rs`** | **DL4 Rewrite (3/8)** | `host` | **MIT crate** | Host workspace layout, toolchain detection (`vswhere`, MSBuild, Cargo), SDK import, Dumper-7 discovery, `run_logged`. Spec in §2.3. |
-| **`platform/hostkit/parse.rs`** | **DL4 Rewrite (3/8)** | `host` | **MIT crate** | Pure parser for `reforged-host` output, `host.toml`/`host.json`, `vswhere`, invite links, multipliers (`launcher_host` fuzz target). Spec in §2.3. |
+| **`platform/hostkit/parse.rs`** | **DL4 Rewrite (3/8)** | `host` | **MIT crate** | Pure parser for `reforged-host` output, `settings.toml`/`host.json`, `vswhere`, invite links, multipliers (`launcher_host` fuzz target). Spec in §2.3. |
 | **`platform/hostkit/tests.rs`** | **DL4 Rewrite (3/8)** | `host`, `test` | **MIT crate** | Tests for `hostkit` and `hostkit::parse`. Spec in §2.3. |
 | **`platform/hostserver.rs`** | **DL4 Rewrite (4/8)** | `host` | **MIT crate** | `HostServer` state machine, `EmbeddedServer` trait, `reforged-host` child management, secret redaction on `invite`. Spec in §2.4. |
 | **`platform/hostserver/tests.rs`** | **DL4 Rewrite (4/8)** | `host`, `test` | **MIT crate** | Fake host script & embedded server state machine tests. Spec in §2.4. |
@@ -471,7 +471,7 @@ pub async fn check_game_exe(
 
 ### 2.3 Module 3: `platform::hostkit` (`hostkit.rs`, `hostkit/parse.rs`, `hostkit/tests.rs`)
 
-Inspects a Dainty Lass checkout ("workspace"), discovers the host toolchain (Visual Studio / MSBuild via `vswhere.exe` and Rust `cargo`), scans Dumper-7 outputs, imports CppSDK headers/functions into `ParadoxRuntime`, reads `.workspace/config/host.toml` (or legacy `host.json`), and runs logged build/host commands.
+Inspects a Dainty Lass checkout ("workspace"), discovers the host toolchain (Visual Studio / MSBuild via `vswhere.exe` and Rust `cargo`), scans Dumper-7 outputs, imports CppSDK headers/functions into `ParadoxRuntime`, reads `.workspace/config/settings.toml` (or legacy `host.json`), and runs logged build/host commands.
 
 #### Constants
 - `pub const RUNTIME_FILE_NAMES: [&str; 2] = ["Rustic-Isles.dll", "winmm.dll"]`
@@ -554,7 +554,7 @@ pub struct WorkspacePaths {
     pub exports: PathBuf,
     pub publish: PathBuf,
     pub logs: PathBuf,
-    pub host_toml: PathBuf,
+    pub settings_toml: PathBuf,
     pub host_json: PathBuf,
     pub gamedata_packs: PathBuf,
 }
@@ -619,7 +619,8 @@ pub async fn run_logged(program: &Path, args: &[String], cwd: &Path, log_file: &
    - `find_host_binary(root)` checks `<root>/<HOST_BINARY>`, `<root>/bin/<HOST_BINARY>`, and `<root>/rust/target/release/<HOST_BINARY>`.
    - `is_workspace(root)` returns `true` iff `find_host_binary(root).is_some()` AND (`<root>/modules/rustic-isles` is a dir OR `<root>/paradox` is a dir).
    - `runtime_publish`: `<root>/.workspace/runtime` if `.workspace` is a dir or `content/data/runtime` is not a dir; otherwise `<root>/content/data/runtime`.
-   - `server_config_toml`: `<root>/.workspace/config/host.toml`; `server_config`: `<root>/.workspace/config/host.json`.
+   - `server_config_toml`: `<root>/.workspace/config/settings.toml`; `server_config`:
+     `<root>/.workspace/config/host.json`.
    - `launcher_log(name)`: `<root>/.workspace/logs/launcher-<name>.log`.
 2. **Game Data Detection (`detect_game_data(dir, required)`)**:
    - If any file in `required` is missing, not a regular file, or has `len() == 0`, returns `GameDataState::Missing`.
@@ -640,7 +641,7 @@ pub async fn run_logged(program: &Path, args: &[String], cwd: &Path, log_file: &
    - `clean_line(raw)`: strips ANSI CSI sequences (`\x1b[` followed by `0x20..=0x3F` parameter bytes and `0x40..=0x7E` final byte), removes `\r`, `trim_end()`, truncates to 400 chars.
    - `failure_line(lines)`: searches in reverse for a line starting with `"Error:"` (returning its trimmed remainder up to 300 chars), falling back to the last non-empty trimmed line up to 300 chars.
    - `invite_line(lines)`: parses `last_json(lines)`; requires `invite` string starting with one of `INVITE_LINK_PREFIXES`, `<= 4096` bytes, no control chars; optional `for` string trimmed, `1..=40` chars, no control chars.
-   - `server_config_toml(raw)` & `server_config(raw)`: parses `host.toml` (via `toml_edit::DocumentMut`) or `host.json` (via `serde_json`), reading `server.name` (trimmed, non-empty, `<= 80` chars, no control chars), `server.mode` (`"private"` or `"public"`), `server.public_host` (when public, trimmed, `<= 255` chars, no control chars or whitespace), and private-mode `test_multipliers` / `gameplay` (`xp` and `rewards` finite in `1.0..=100.0`, returning `Some((xp, rewards))` only when `xp > 1.0 || rewards > 1.0`).
+   - `server_config_toml(raw)` & `server_config(raw)`: parses `settings.toml` (via `toml_edit::DocumentMut`) or `host.json` (via `serde_json`), reading `server.name` (trimmed, non-empty, `<= 80` chars, no control chars), `server.mode` (`"private"` or `"public"`), `server.public_host` (when public, trimmed, `<= 255` chars, no control chars or whitespace), and private-mode `test_multipliers` / `gameplay` (`xp` and `rewards` finite in `1.0..=100.0`, returning `Some((xp, rewards))` only when `xp > 1.0 || rewards > 1.0`).
 
 #### Test Expectations
 - Fuzz target `fuzz/fuzz_targets/launcher_host.rs` compiles `hostkit/parse.rs` directly and verifies all output bounds on arbitrary byte inputs.
@@ -1075,7 +1076,7 @@ Implements **RD9** (zero process injection):
    - `EmbeddedServerState` implements `EmbeddedServer` over `server_controller::ServerController` and `host::serve::prepare_embedded`.
    - `init_telemetry()` combines `platform::log::Layer` and `service_kit::telemetry::ChannelLogLayer` into the global tracing subscriber and forwards only service-span events (`entry.service == "host"`, `HOST_SERVER_COMPONENTS`, or loaded module IDs) to the Host page's log sink formatted as `"{:<14} | {}"`.
 2. **`server_gui/modules.rs`**:
-   - `Panel` implements `bridge::modules::ModulePanel` over the running `ServerController`'s `ModuleRegistry` and `.workspace/config/host.toml` (`COMMAND_TIMEOUT = 120s`, `Actor::Console`).
+   - `Panel` implements `bridge::modules::ModulePanel` over the running `ServerController`'s `ModuleRegistry` and `.workspace/config/settings.toml` (`COMMAND_TIMEOUT = 120s`, `Actor::Console`).
 3. **`server_history.rs`**:
    - Implements `query`, `dry_run`, and `apply` over `admin::history::HistorySet` opened from `<workspace>/.workspace/config/admin.env`.
    - Caches dry-run plans in a process-wide `PlanCache` (`PLANS`) so `apply(workspace, plan_id)` executes only a plan previously shown to the operator and records the revert under actor `"host:server-gui"`.
@@ -1125,7 +1126,7 @@ Implements **RD9** (zero process injection):
    - Client launcher binary: `dainty-lass-client` (`Dainty Lass`).
    - Server GUI binary (`--features server-gui`): `dainty-lass-manager` (`Dainty Lass Manager`, identifier `com.silentspud.daintylass.manager`, separate `userData` folder).
 2. **Default Server Workspace (`ensure_host_workspace`)**:
-   - In `server-gui` mode (or when `auto` is true), if no workspace is configured in `settings.json`, defaults to `<userData>/Server`, creates `.workspace/config`, `.workspace/data`, and `.workspace/logs`, and writes a starter `.workspace/config/host.toml` if absent so `HostKit::workspace_ok` is `true` on a fresh Manager install without requiring a git checkout.
+   - In `server-gui` mode (or when `auto` is true), if no workspace is configured in `settings.json`, defaults to `<userData>/Server`, creates `.workspace/config`, `.workspace/data`, and `.workspace/logs`, and writes a starter `.workspace/config/settings.toml` if absent so `HostKit::workspace_ok` is `true` on a fresh Manager install without requiring a git checkout.
 3. **`host_download_project` Retired**:
    - `Controller::host_download_project` is retired and immediately returns `ActionResult::Err(LauncherError::new(ErrorCode::NotInThisBuild))`.
 
@@ -1156,11 +1157,11 @@ In addition to the module, history, and guarded-action commands, `spec::SERVER_G
 2. `admin_action(request: Object)` -> executes `ban`, `unban`, `kick`, `grant_currency`, `grant_item`, `reset_character`, or `set_role` on a player account, recording the change-log entry under actor `"host:server-gui"`.
 3. `server_doctor()` -> runs `hostkit::doctor::run_doctor` on the active workspace and returns structured `ServerDoctorReport { checks, fails, warnings }`.
 4. `server_backup()` -> creates a hot database backup in `<workspace>/.workspace/backups/` and returns `ServerBackupResult { path, bytes }`.
-5. `server_config_get()` -> reads `<workspace>/.workspace/config/host.toml` and returns `ServerConfigView`.
-6. `server_config_save(patch: Object)` -> validates and writes updated settings (`name`, `mode`, `public_host`, `public_port`, `registration`, `max_hunts`, `xp_multiplier`, `reward_multiplier`, `memory_guard`, `database`) to `host.toml` and regenerates service `.env` files.
+5. `server_config_get()` -> reads `<workspace>/.workspace/config/settings.toml` and returns `ServerConfigView`.
+6. `server_config_save(patch: Object)` -> validates and writes updated settings (`name`, `mode`, `public_host`, `public_port`, `registration`, `max_hunts`, `xp_multiplier`, `reward_multiplier`, `memory_guard`, `database`) to `settings.toml` and regenerates service `.env` files.
 7. `server_mongo_status()` -> inspects `<workspace>` for unmigrated legacy MongoDB data (`.mongo-migrated`, `.workspace/data/mongo`, reachable MongoDB collections) and returns `ServerMongoStatus`.
 8. `server_mongo_migrate(source: OptionalText)` -> runs the MongoDB-to-SQLite migration and verification, writing `.mongo-migrated` on success.
-9. `server_mongo_fresh_start()` -> sets `database.skip_mongo_migration = true` in `host.toml` and writes `.mongo-migrated` so a fresh server starts cleanly without migrating legacy MongoDB data.
+9. `server_mongo_fresh_start()` -> sets `database.skip_mongo_migration = true` in `settings.toml` and writes `.mongo-migrated` so a fresh server starts cleanly without migrating legacy MongoDB data.
 10. `server_module_logs(module_id: OptionalText)` -> returns recent structured log entries (`Vec<ServerLogLine>`) from the in-memory ring buffer filtered by optional service/module name.
 11. `server_invite_list()` -> lists active invite codes from the backend database (`Vec<ServerInviteEntry>`).
 

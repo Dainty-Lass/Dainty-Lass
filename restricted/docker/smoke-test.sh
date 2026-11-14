@@ -35,7 +35,7 @@ if [ "${SMOKE_NO_BUILD:-0}" != 1 ]; then
 fi
 
 step "fresh toml profile apply with no MongoDB succeeds"
-cat <<'TOML' >"$DAINTY_CONFIG_DIR/host.toml"
+cat <<'TOML' >"$DAINTY_CONFIG_DIR/settings.toml"
 version = 1
 mode = "public"
 host = "smoke.example.org"
@@ -98,8 +98,8 @@ compose run --rm host db migrate
 compose run --rm host db verify
 COMPOSE_PROFILES=public,mongo compose rm -sf mongo
 
-step "the toml profile applies host.toml alone"
-compose run --rm --entrypoint sh host -c 'cat /opt/dainty-lass/.workspace/config/host.toml' 	| sed 's/^name = .*/name = "Smoke Toml"/' >"$DAINTY_CONFIG_DIR/host.toml"
+step "the toml profile applies settings.toml alone"
+compose run --rm --entrypoint sh host -c 'cat /opt/dainty-lass/.workspace/config/settings.toml' 	| sed 's/^name = .*/name = "Smoke Toml"/' >"$DAINTY_CONFIG_DIR/settings.toml"
 COMPOSE_PROFILES=public,toml compose run --rm configure
 compose run --rm --entrypoint sh host -c 'cat /opt/dainty-lass/.workspace/config/backend.env' | grep -q 'Smoke Toml'
 

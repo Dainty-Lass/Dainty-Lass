@@ -179,7 +179,7 @@ against them byte for byte. Their subjects, for a maintainer who decides to repl
 
 | File | What it checks |
 | --- | --- |
-| `config.rs` | `host.json`/`host.toml` reading and writing, `secrets.env`, and each service env file for the private and public modes on Windows, Linux and macOS paths, byte for byte against the Node fixtures |
+| `config.rs` | `host.json`/`settings.toml` reading and writing, `secrets.env`, and each service env file for the private and public modes on Windows, Linux and macOS paths, byte for byte against the Node fixtures |
 | `doctor.rs` | each `doctor` check's level and line, and the printed report |
 | `gamedata.rs` | packs (`--export`/`--import`), presets, progression, captures, runtime publishing; files compared with the Node kit's output |
 | `invite.rs` | invite links for each mode and the `invite` command against a fake backend |
@@ -218,9 +218,9 @@ of the shell calls it first, then delegates to the same-named hostkit function (
 | `run_db_command(paths, args, out)` | The `db` subcommands `migrate`, `verify`, `export-mongo` and `replay` (§3.2). Without the module: error `this build does not include the Rustic Isles database tools (rebuild with --features isles-1-14-7)` |
 | `compose_in_process_allowlist` | With the allowlist feature: makes the allowlist slot, adds the allowlist module from `allowlist.env`, answers the slot |
 | `compose_in_process_content` | With the content feature: adds the content module from `content.env` |
-| `compose_in_process_network_and_gateway` | With the gateway feature and `[network]` peers: loads the node certificate, key and cluster CA from the TLS folder, refuses (`the node certificate in <dir> is for <node> in <region>, but host.toml says <node> in <region>`) when the certificate's identity is not `host.toml`'s, loads or makes the session signing key, and adds the network module (leader, peers, database, game version, registry, allowlist slot, 5 s replication, `workspace/peer-logs`, the optional history peer with its state file `config/history-peer-state.json`, the wrong-node policy). Then, unless `[services.gateway]`/`[services.chat]` name a library, the in-process gateway (from `gateway.env`) and chat (from `gateway.env`, the node identity or standalone, the node database, the network leader and peers). Then, for a public, unguarded server without a gateway library: the allowlist guards the game's UDP ports (`hostconfig::game_ports`), or is marked absent in the opt-in Node build |
+| `compose_in_process_network_and_gateway` | With the gateway feature and `[network]` peers: loads the node certificate, key and cluster CA from the TLS folder, refuses (`the node certificate in <dir> is for <node> in <region>, but settings.toml says <node> in <region>`) when the certificate's identity is not `settings.toml`'s, loads or makes the session signing key, and adds the network module (leader, peers, database, game version, registry, allowlist slot, 5 s replication, `workspace/peer-logs`, the optional history peer with its state file `config/history-peer-state.json`, the wrong-node policy). Then, unless `[services.gateway]`/`[services.chat]` name a library, the in-process gateway (from `gateway.env`) and chat (from `gateway.env`, the node identity or standalone, the node database, the network leader and peers). Then, for a public, unguarded server without a gateway library: the allowlist guards the game's UDP ports (`hostconfig::game_ports`), or is marked absent in the opt-in Node build |
 | `compose_service_library` | Delegates to `hostkit::serve::add_service_library` (the per-service compose functions are RD27 phase 2's) |
-| `ensure_gateway_cert` | Public mode without a certificate file: makes one for `host.toml`'s host and prints `- gateway certificate made in <tls dir> (fingerprint <sha256>)` |
+| `ensure_gateway_cert` | Public mode without a certificate file: makes one for `settings.toml`'s host and prints `- gateway certificate made in <tls dir> (fingerprint <sha256>)` |
 | `game_modules` | The compiled-in game module factories (`compose::game_modules`) |
 | `run_service(name, args)` | Dispatches `gateway`, `allowlist`, `content`, `admin`, `backend`, `director`, `remote-agent` to §3.2's mains; `None` for any other name |
 
@@ -232,7 +232,7 @@ of the shell calls it first, then delegates to the same-named hostkit function (
   none. The server folder is inferred from an env file whose parent is `config` inside `.workspace`; otherwise it
   is hostkit's `paths::locate_repo_root`.
 - **`gateway`**: `make-cert`, `--help`, `-h`, `--version`, `-V` and any unreadable argument go to the gateway's own
-  CLI unchanged. With `REFORGED_NETWORK_FULL_NODE=1` and a `host.toml`: the full-node test harness (below).
+  CLI unchanged. With `REFORGED_NETWORK_FULL_NODE=1` and a `settings.toml`: the full-node test harness (below).
   Without a remote-controller state file and CA in the server folder, or when either does not load: the gateway's
   own CLI. Otherwise the gateway runs with node links, and once its links exist it adds every enrolled,
   unrevoked install as a peer and answers enrolment requests: the body is decoded as an enrolment request (400
@@ -248,11 +248,11 @@ of the shell calls it first, then delegates to the same-named hostkit function (
 - **`remote-agent`**: finds the server folder as above (`Configuration: could not locate server workspace` when it
   cannot) and runs `hostkit::commands::remote::sync_with_controller` continuously; any error is printed and exits 1.
 - **`backend` / `director`**: the 1.14.7 module alone, with only that service. `backend` first refuses unmigrated
-  MongoDB data (hostkit's check, or, without `host.toml`, the presence of the Mongo data folder without the
+  MongoDB data (hostkit's check, or, without `settings.toml`, the presence of the Mongo data folder without the
   migrated marker; message names `db migrate`, `db verify`, `dainty-legacy import reforged` and
   `setup --fresh-start`). The module config is the defaults, plus: the env file path under `backend.env_file`,
   `PORT` as the service's port, `PORT_RANGE_BEGIN`..`PORT_RANGE_END` as the `game` range, the backend and director
-  game-data folders when they exist, and `host.toml`'s module switches. The node identity is `[network]`'s or
+  game-data folders when they exist, and `settings.toml`'s module switches. The node identity is `[network]`'s or
   standalone; module log calls print `<module> | <level>: <message>`. Stops on the stop signal.
 - **`db migrate|verify|export-mongo|replay`** (`run_db_command`): the Mongo URI, store target, node (`--node`,
   else `[network].node`, else `local`), areas (comma-separated, repeatable) and game-data folder are resolved as

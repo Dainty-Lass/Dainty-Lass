@@ -73,7 +73,7 @@ fingerprints, each region once, at most 16). dainty-lass's `gateway_policy` cove
 - **The report's key is not checked.** The stub checks the header's shape only, since it stores nothing. DN8 moves
   the route to the home's network plugin, where the key (or a session ticket, DD17) is checked against the account
   before the order is kept.
-- **The node list is empty everywhere** until DN2 and DF3 add `[network]` to `host.toml` and the gateway reads it.
+- **The node list is empty everywhere** until DN2 and DF3 add `[network]` to `settings.toml` and the gateway reads it.
   Whoever fills it decides whether a node lists itself.
 - **Two copies of the shapes.** The region id rule and the routes are written in the gateway and the launcher; a
   launcher test reads the gateway's source to keep them equal until DN2's `crates/dainty-module-api` defines them once.

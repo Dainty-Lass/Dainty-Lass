@@ -377,7 +377,7 @@ impl ModuleStatus {
     }
 }
 
-/// What a module starts with: the ports the controller gave it and its `host.toml` sections.
+/// What a module starts with: the ports the controller gave it and its `settings.toml` sections.
 #[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ModuleConfig {
@@ -391,7 +391,7 @@ pub struct ModuleConfig {
 
 impl ModuleConfig {
     /// The manifest's default ports and the registration's config defaults: what a host with nothing in
-    /// `host.toml` for the module runs.
+    /// `settings.toml` for the module runs.
     pub fn defaults(manifest: &ModuleManifest, registration: &Registration) -> Self {
         let ports = manifest
             .ports
@@ -939,7 +939,7 @@ pub enum CoreCapability {
     Events,
     /// The admin API's kick, ban and lookup (DF4c)
     AdminActions,
-    /// `host.toml` (DF3)
+    /// `settings.toml` (DF3)
     ConfigSections,
     /// The chat plugin (DN10)
     Chat,

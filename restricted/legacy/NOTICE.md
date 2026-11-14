@@ -63,7 +63,7 @@ What stays here is the AGPL importer, kept as that rewrite's test oracle; nothin
 - `module-api` and `store` are dependencies, not copies.
 - Ported from the host kit (`rust/crates/dainty-hostkit`), with the MIT notice kept in each file:
   `crates/dainty-legacy-import/src/reforged/layout.rs` (`commands/setup/paradox.rs`, `paths.rs`),
-  `reforged/hostjson.rs` (`hosttoml.rs`) and `reforged/mongo.rs` (`commands/update.rs`, `commands/db.rs`).
+  `reforged/hostjson.rs` (`settingstoml.rs`) and `reforged/mongo.rs` (`commands/update.rs`, `commands/db.rs`).
 
 No game files and no player data are in this repository: every database the tests use is built when they run.
 "Dauntless" is a trademark of its owners; dainty-legacy is not affiliated with or endorsed by Phoenix Labs or Epic

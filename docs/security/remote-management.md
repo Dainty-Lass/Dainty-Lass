@@ -13,9 +13,9 @@ bug to fix before merging, not a box to leave open.
 ## What it is and where the boundary is
 
 One controller install manages enrolled server installs across machines, containers, and regions. Managed installs
-pull shared `host.toml` revisions, presets, invites, and runtime/gamedata digests from the controller, report status,
-doctor summaries, migration state, and history summaries back, and execute authenticated operator commands (`start`,
-`stop`, `setup`, `ban`, `module` load/unload, `history` query/revert, `backup`, `update`, `db`).
+pull shared `settings.toml` revisions, presets, invites, and runtime/gamedata digests from the controller, report
+status, doctor summaries, migration state, and history summaries back, and execute authenticated operator commands
+(`start`, `stop`, `setup`, `ban`, `module` load/unload, `history` query/revert, `backup`, `update`, `db`).
 
 Because a compromised controller request or forged enrollment could alter a server's configuration or run operator
 actions, and a compromised or curious controller must never obtain a managed install's secrets or player account keys,
@@ -35,14 +35,16 @@ preservation, and `DH6` two-person guarded approval.
 
 Code: `crates/dainty-remote/src/enroll.rs` (enrollment URIs, token validation, SHA-256 fingerprint pinning),
 `crates/dainty-remote/src/wire.rs` (wire envelopes, `MAX_REMOTE_WIRE`, secret-leak detector, `DH2` role and `DH6` guarded
-checks), `crates/dainty-remote/src/merge.rs` (`host.toml` merger preserving per-host identity and `local_overrides`),
-`crates/dainty-remote/src/state.rs` (`RemoteControllerState`, `RemoteManagedAgent`, `sign_enrolled_node_cert`).
+checks), `crates/dainty-remote/src/merge.rs` (`settings.toml` merger preserving per-host identity and
+`local_overrides`), `crates/dainty-remote/src/state.rs` (`RemoteControllerState`, `RemoteManagedAgent`,
+`sign_enrolled_node_cert`).
 
 Fuzz target: `remote_wire` in `fuzz/fuzz_targets/remote_wire.rs` (enrollment URIs, `EnrollRequest`, `EnrollAnswer`,
-`RemoteRequest`, `RemoteResponse`, secret-leak detection, and `merge_managed_host_toml`), including a `Sync` report's
-game servers and availability (MS6), which `InstallReport::validate` caps at `MAX_REPORT_GAME_SERVERS` (256). It checks that no malformed or
-oversized frame panics, that any payload carrying a secret key (`DLK_`, `DLA_`, `secrets.env` variables, PEM private
-keys, password hashes, or SQLite database headers) is refused, and that every accepted message round-trips identically.
+`RemoteRequest`, `RemoteResponse`, secret-leak detection, and `merge_managed_settings_toml`), including a `Sync`
+report's game servers and availability (MS6), which `InstallReport::validate` caps at `MAX_REPORT_GAME_SERVERS` (256).
+It checks that no malformed or oversized frame panics, that any payload carrying a secret key (`DLK_`, `DLA_`,
+`secrets.env` variables, PEM private keys, password hashes, or SQLite database headers) is refused, and that every
+accepted message round-trips identically.
 
 ## Checklist
 
@@ -86,7 +88,7 @@ keys, password hashes, or SQLite database headers) is refused, and that every ac
       - password hashes (`$2a$`, `$2b$`, `$2y$`, `$argon2`);
       - raw SQLite database files (`SQLite format 3\0`).
       Test: `tests::secret_leak_check_refuses_secrets_env_account_keys_private_keys_and_sqlite_headers`.
-- [x] Merging a controller's shared `host.toml` and per-node override (`merge::merge_managed_host_toml`) never overwrites
+- [x] Merging a controller's shared `settings.toml` and per-node override (`merge::merge_managed_settings_toml`) never overwrites
       per-host identity tables (`[ports]`, `[paths]`, `[database]`, `[network]`, `[remote]`, `[mongo]`, `[wine]`),
       per-host listener keys (`server.host`, `server.game_address`, `server.mode`, `server.port`,
       `history.bucket_*`), or any key listed in `[remote] local_overrides`. Test:
@@ -115,7 +117,7 @@ keys, password hashes, or SQLite database headers) is refused, and that every ac
 - [x] Revoking an install (`RemoteControllerState::revoke_install`) immediately sets `revoked = true`, clears queued
       commands, and causes `is_authorized_peer` and `handle_remote_request` to refuse all further traffic from that
       node with `RevokedPeer`.
-- [x] When the controller is unreachable, a managed install continues running on its cached `host.toml` revision,
+- [x] When the controller is unreachable, a managed install continues running on its cached `settings.toml` revision,
       never stops a running server or wipes local state, and backs off heartbeat retries (`5s -> 10s -> 20s -> 40s ->
       60s`, `state::offline_backoff_delay_ms`). Test:
       `tests::revoked_install_is_refused_and_unreachable_controller_keeps_running_with_backoff`.

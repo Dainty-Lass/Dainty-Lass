@@ -225,7 +225,7 @@ impl Engine {
                     import: flags.value("--import"),
                     ..GamedataArgs::default()
                 };
-                if !paths.backend_dir.exists() && !paths.host_toml.exists() {
+                if !paths.backend_dir.exists() && !paths.settings_toml.exists() {
                     // A fresh manager has no data to start from; a failure here shows in the command's own
                     let _ = dainty_host::gamedata::seed_embedded_examples(paths);
                 }
@@ -263,9 +263,9 @@ fn mongo_view(status: MongoMigrationStatus) -> MongoMigrationView {
 fn config_view(paths: &Paths) -> Result<ServerConfigView, String> {
     let mongo_migration = mongo_view(inspect_mongo_migration(paths));
     let config_file = paths
-        .host_toml
+        .settings_toml
         .is_file()
-        .then(|| paths.host_toml.to_string_lossy().into_owned());
+        .then(|| paths.settings_toml.to_string_lossy().into_owned());
     let Some(config) = load_host_config(paths).map_err(text)? else {
         return Ok(ServerConfigView {
             configured: false,
@@ -479,7 +479,7 @@ impl ServerEngine for Engine {
             let _ = write_env_files(&paths, &files);
         }
         if config.remote.as_ref().and_then(|r| r.role.as_deref()) == Some("controller") {
-            let _ = dainty_host::commands::remote::set_shared_config_from_host_toml(&paths);
+            let _ = dainty_host::commands::remote::set_shared_config_from_settings_toml(&paths);
         }
         config_view(&paths)
     }

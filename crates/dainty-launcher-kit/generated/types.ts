@@ -802,11 +802,11 @@ inGame: boolean, };
  */
 export type HostServerMode = "private" | "public";
 /**
- * The server settings read from `host.toml`.
+ * The server settings read from `settings.toml`.
  */
 export type HostServerConfig = { 
 /**
- * `host.toml` exists and parsed.
+ * `settings.toml` exists and parsed.
  */
 configured: boolean, 
 /**
@@ -1358,7 +1358,7 @@ help: string,
  */
 default: ModuleSettingValue, 
 /**
- * The value in `host.toml`, or the default.
+ * The value in `settings.toml`, or the default.
  */
 value: ModuleSettingValue, };
 /**

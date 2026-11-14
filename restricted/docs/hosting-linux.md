@@ -23,7 +23,7 @@ containers in [hosting-docker.md](hosting-docker.md) are this page with the pack
   a pack (`dainty-host gamedata --export`).
 - The **server release** (`DaintyLassServer-<version>-linux-x64.tar.gz`). It ships the 1.14.7 version data in
   `data/1.14.7/version_data.json` and `version_facts.json`, which the server reads when it starts; keep them there,
-  or name other files with `version_data` and `version_facts` in `host.toml` ([hosting.md](hosting.md)). It also needs `bin/dainty-inject.exe` beside
+  or name other files with `version_data` and `version_facts` in `settings.toml` ([hosting.md](hosting.md)). It also needs `bin/dainty-inject.exe` beside
   `dainty-host`: each game server starts through it inside Wine, and it loads the runtime into the game before the
   game runs. Without it no game server starts, and `dainty-host doctor` says so.
 - Public: TCP 443 and UDP 8770-8777 open at the provider's firewall.
@@ -41,7 +41,7 @@ It prints Epic's login address. Open it in a browser on your own PC, sign in, an
 Epic shows when asked (or put it in a file, `--code-file /srv/code.txt`, and delete the file after). The session it
 opens is kept in `.workspace/config/epic-session.env`, mode 0600; `install-game --sign-out` ends and deletes it, and
 should be the last thing you run. A stopped install picks up where it left off when you run the command again.
-`setup --game /srv/dauntless/1.14.7` is then the Dauntless folder; if `host.toml` exists already, `install-game`
+`setup --game /srv/dauntless/1.14.7` is then the Dauntless folder; if `settings.toml` exists already, `install-game`
 sets `game_dir` and rewrites the env files itself. [hosting.md](hosting.md#getting-the-game-from-epic) has the rest.
 Files are written as the server's user, so the game servers can write next to the executable.
 
@@ -67,8 +67,8 @@ bin/dainty-host doctor
 | `systemd/install.sh` | Installs and starts the units (needs root once) |
 | `config/firewall.sh` | Lets a host firewall (ufw) pass TCP 443 and the game's UDP ports |
 
-The units pass on no environment of your shell. To override a `host.toml` setting there
-([hosting.md](hosting.md#environment-variables-override-hosttoml)), put it in a drop-in:
+The units pass on no environment of your shell. To override a `settings.toml` setting there
+([hosting.md](hosting.md#environment-variables-override-settingstoml)), put it in a drop-in:
 `sudo systemctl edit dainty-lass`, then `[Service]` and `Environment=DAINTY_BACKEND_LOG_LEVEL=debug`. `start`
 logs a warning for each one.
 
@@ -89,7 +89,7 @@ firewall rule beyond the gateway's own is needed. Backend rule and request-budge
 `RUSTIC_ISLES_GAMESERVER_RATE_LIMIT_PER_MINUTE`, `RUSTIC_ISLES_HOST_RATE_LIMIT_PER_MINUTE` and the persistence
 switches; see the settings table in [hosting.md](hosting.md#game-modules-and-plugins)).
 
-Postgres instead of SQLite for the Rust services' database is `[database]` in `host.toml`
+Postgres instead of SQLite for the Rust services' database is `[database]` in `settings.toml`
 ([hosting.md](hosting.md#the-database-engine)). On Debian or Ubuntu, with the role's password from `secrets.env`:
 
 ```bash
@@ -141,7 +141,7 @@ bin/dainty-host backup                        # SQLite/Postgres backup into .wor
 ## What to expect
 
 - The first hunt after a start takes longer: Wine warms up. `--server-fps` and `--idle-fps` (`[performance]`
-  in `host.toml`) keep idle game servers cheap.
+  in `settings.toml`) keep idle game servers cheap.
 - `doctor` checks Wine or Proton, `xvfb-run`, `xauth`, `nft`, the Wine prefix, the units and the firewall
   script, and says what each needs.
 - The allowlist's nftables table is swapped in one transaction and filters only the game's UDP ports; it
@@ -157,5 +157,5 @@ On a Linux host that previously ran the Node backend with MongoDB data, run `bin
 ([hosting.md](hosting.md#live-server-cutover-checklist-backup-update-smoke-rollback)).
 For one release after the cutover (until RB15), you can roll back to the Node backend and MongoDB by exporting the store
 back to MongoDB with `bin/dainty-host db export-mongo --to mongodb://127.0.0.1:27017/reforged` (defaulting the source
-and target from `host.toml`) and running a `dainty-host` binary built with `--features paradox`
+and target from `settings.toml`) and running a `dainty-host` binary built with `--features paradox`
 ([hosting.md](hosting.md#rollback-to-the-node-backend-and-mongodb-paradox-feature)).

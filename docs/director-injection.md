@@ -32,7 +32,7 @@ retires from the servers.
    (Wine) and never resumed. The Director logs it in English.
 
 **New setting:** `GAMESERVER_RUNTIME_DIR` in `director.env`, written by `setup` from the workspace layout (not a
-`host.toml` field: no host chooses it). A `director.env` from an older kit lacks it. The Director then refuses
+`settings.toml` field: no host chooses it). A `director.env` from an older kit lacks it. The Director then refuses
 every start of the game (`Dauntless-Win64-Shipping.exe` or the `dainty-gameserver` wrapper), logging that the host
 should run `setup`, rather than start a game that comes up as a windowed client and never reports ready. `update`
 reruns `setup`; a host who replaced the binary by hand runs `setup` once.

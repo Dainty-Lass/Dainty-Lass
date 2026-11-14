@@ -170,10 +170,10 @@ fn secrets() -> Secrets {
     }
 }
 
-/// A host that ran setup: host.toml and the env files.
+/// A host that ran setup: settings.toml and the env files.
 fn set_up(f: &Fixture, extra: serde_json::Value) {
     let c = config(extra);
-    write_host_config(&f.paths.host_toml, &c).unwrap();
+    write_host_config(&f.paths.settings_toml, &c).unwrap();
     write_env_files(
         &f.paths,
         &build_env_files(&c, &secrets(), &f.paths, "", Platform::Linux),
@@ -309,7 +309,7 @@ async fn a_fresh_host_signs_in_with_a_pasted_code_and_installs_for_its_game_serv
     );
     assert_eq!(*epic.seen.lock().unwrap(), ["code"]);
 
-    // host.toml and the Director's env file follow
+    // settings.toml and the Director's env file follow
     let c = load_host_config(&f.paths).unwrap().unwrap();
     assert_eq!(c.game_dir.as_deref(), Some(folder.to_string_lossy().as_ref()));
     let director = parse_env(&std::fs::read_to_string(f.paths.config.join("director.env")).unwrap());
@@ -333,8 +333,10 @@ async fn a_fresh_host_signs_in_with_a_pasted_code_and_installs_for_its_game_serv
     }
     leaks(&f, &ran.lines, &[CODE, ACCESS, REFRESH]);
     assert!(
-        !std::fs::read_to_string(&f.paths.host_toml).unwrap().contains("epic"),
-        "host.toml holds no session"
+        !std::fs::read_to_string(&f.paths.settings_toml)
+            .unwrap()
+            .contains("epic"),
+        "settings.toml holds no session"
     );
     // Nothing to resume once finished
     assert!(!Files::of(&f.paths).resume_file("1.14.7").exists());
@@ -525,22 +527,22 @@ async fn signing_out_ends_and_deletes_the_session_even_when_epic_is_down() {
 }
 
 #[test]
-fn host_toml_follows_only_for_the_version_the_game_servers_run_on_a_server_that_runs_it() {
+fn settings_toml_follows_only_for_the_version_the_game_servers_run_on_a_server_that_runs_it() {
     let dir = tempfile::tempdir().unwrap();
     let paths = Paths::new(dir.path().join("Reforged"));
     let commit = |_: &Path| Ok(String::new());
     let folder = "/srv/game/1.14.7";
 
-    // No host.toml yet: setup is told the folder
+    // No settings.toml yet: setup is told the folder
     assert_eq!(
         configure(&paths, folder, Platform::Linux, &commit).unwrap(),
         Configured::NoSettings
     );
-    assert!(!paths.host_toml.exists(), "nothing is made");
+    assert!(!paths.settings_toml.exists(), "nothing is made");
 
-    // host.toml but no env files (setup not finished): the file only
+    // settings.toml but no env files (setup not finished): the file only
     let c = config(json!({ "gameDir": "/old/Dauntless" }));
-    write_host_config(&paths.host_toml, &c).unwrap();
+    write_host_config(&paths.settings_toml, &c).unwrap();
     assert_eq!(
         configure(&paths, folder, Platform::Linux, &commit).unwrap(),
         Configured::Updated {
@@ -549,7 +551,11 @@ fn host_toml_follows_only_for_the_version_the_game_servers_run_on_a_server_that_
         }
     );
     assert_eq!(
-        read_host_config(&paths.host_toml).unwrap().unwrap().game_dir.as_deref(),
+        read_host_config(&paths.settings_toml)
+            .unwrap()
+            .unwrap()
+            .game_dir
+            .as_deref(),
         Some(folder)
     );
     assert_eq!(
@@ -559,18 +565,18 @@ fn host_toml_follows_only_for_the_version_the_game_servers_run_on_a_server_that_
 }
 
 #[test]
-fn the_host_keeps_the_hosts_own_comments_in_host_toml() {
+fn the_host_keeps_the_hosts_own_comments_in_settings_toml() {
     let dir = tempfile::tempdir().unwrap();
     let paths = Paths::new(dir.path().join("Reforged"));
     let commit = |_: &Path| Ok(String::new());
-    write_host_config(&paths.host_toml, &config(json!({}))).unwrap();
-    let edited = std::fs::read_to_string(&paths.host_toml).unwrap().replace(
+    write_host_config(&paths.settings_toml, &config(json!({}))).unwrap();
+    let edited = std::fs::read_to_string(&paths.settings_toml).unwrap().replace(
         "max_hunt_servers = 3\n",
         "# two hunts are plenty on this PC\nmax_hunt_servers = 2 # was 3\n",
     );
-    std::fs::write(&paths.host_toml, &edited).unwrap();
+    std::fs::write(&paths.settings_toml, &edited).unwrap();
     configure(&paths, "/srv/game/1.14.7", Platform::Linux, &commit).unwrap();
-    let after = std::fs::read_to_string(&paths.host_toml).unwrap();
+    let after = std::fs::read_to_string(&paths.settings_toml).unwrap();
     assert!(
         after.contains("# two hunts are plenty on this PC\nmax_hunt_servers = 2 # was 3\n"),
         "{after}"
@@ -630,7 +636,7 @@ async fn the_executable_the_profile_pins_must_be_the_one_downloaded() {
     assert_eq!(
         load_host_config(&f.paths).unwrap().unwrap().game_dir,
         None,
-        "host.toml is left alone"
+        "settings.toml is left alone"
     );
     assert!(!Files::of(&f.paths).installed_record("1.14.7").exists());
 }

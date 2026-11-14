@@ -13,7 +13,7 @@ use std::time::{Duration, Instant};
 use dainty_hostkit::hostconfig::HostConfig;
 use dainty_hostkit::paths::Paths;
 
-const HOST_TOML: &str = "version = 1\nmode = \"private\"\nname = \"Core Test\"\nhost = \"100.101.102.103\"\n\
+const SETTINGS_TOML: &str = "version = 1\nmode = \"private\"\nname = \"Core Test\"\nhost = \"100.101.102.103\"\n\
     game_address = \"100.101.102.103\"\nregistration = \"INVITECODE\"\nmax_hunt_servers = 1\n\
     [mongo]\nuri = \"mongodb://127.0.0.1:27017\"\nmanage = false\n";
 
@@ -57,7 +57,7 @@ fn server_folder(extra_toml: &str) -> (tempfile::TempDir, Paths, u16) {
     let paths = Paths::new(dir.path());
     std::fs::create_dir_all(&paths.config).unwrap();
     let (port, gateway) = (free_port(), free_port());
-    let text = format!("{HOST_TOML}[ports]\nadmin = {port}\ngateway = {gateway}\n{extra_toml}");
+    let text = format!("{SETTINGS_TOML}[ports]\nadmin = {port}\ngateway = {gateway}\n{extra_toml}");
     // Linux's preflight refuses to start without a Wine; no game server starts here, so any program will do
     #[cfg(unix)]
     let text = {
@@ -67,7 +67,7 @@ fn server_folder(extra_toml: &str) -> (tempfile::TempDir, Paths, u16) {
         std::fs::set_permissions(&wine, std::fs::Permissions::from_mode(0o755)).unwrap();
         format!("{text}[linux]\nwine = \"{}\"\n", wine.display())
     };
-    std::fs::write(&paths.host_toml, &text).unwrap();
+    std::fs::write(&paths.settings_toml, &text).unwrap();
     dainty_hostkit::serve::ensure_server_files(&paths, &HostConfig::from_toml(&text).unwrap()).unwrap();
     (dir, paths, port)
 }
@@ -158,7 +158,7 @@ fn with_no_library_it_serves_the_admin_api() {
 }
 
 #[test]
-fn a_service_host_toml_pins_runs_as_a_library() {
+fn a_service_settings_toml_pins_runs_as_a_library() {
     let library = echo_library();
     let sha256 = dainty_hostkit::selfupdate::sha256_file(&library).unwrap();
     let toml = format!(
@@ -201,5 +201,5 @@ fn a_service_host_toml_pins_runs_as_a_library() {
         String::from_utf8_lossy(&out.stdout),
         String::from_utf8_lossy(&out.stderr)
     );
-    assert!(!out.status.success() && said.contains("host.toml pins"), "{said}");
+    assert!(!out.status.success() && said.contains("settings.toml pins"), "{said}");
 }
