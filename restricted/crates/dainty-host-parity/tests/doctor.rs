@@ -6,11 +6,11 @@
 use serde_json::json;
 
 use dainty_host::doctor::{
-    Check, CpuPatches, Level, count_function_files, game_checks, hunts_that_fit, performance_checks, port_in_use,
-    print_checks, runtime_cpu_patches,
+    Check, Level, count_function_files, game_checks, hunts_that_fit, performance_checks, port_in_use, print_checks,
+    retired_runtime_checks,
 };
 use dainty_host::hostconfig::{DEFAULT_MONGO_URI, DEFAULT_PERFORMANCE, HostConfig, PerformanceOptions, Platform};
-use dainty_host::paths::game_exe_relative;
+use dainty_host::paths::{Paths, game_exe_relative};
 
 fn public(max_hunts: u32, performance: Option<PerformanceOptions>) -> HostConfig {
     let mut c = HostConfig::from_json(&json!({
@@ -23,49 +23,38 @@ fn public(max_hunts: u32, performance: Option<PerformanceOptions>) -> HostConfig
     c
 }
 
+// The Node kit scanned Rustic-Isles.dll for patches 0019 and 0020; R21 retired that DLL, and the MIT runtime always
+// carries both (spec-runtime-r21 H-6), so only the settings line is left
 #[test]
-fn tells_whether_the_published_runtime_has_the_game_servers_cpu_patches() {
-    let dir = tempfile::tempdir().unwrap();
-    let both = dir.path().join("both.dll");
-    let mut bytes = b"MZ junk ".to_vec();
-    bytes.extend(
-        "LEGACY_EXPECTED_PLAYER_WALK.flag"
-            .encode_utf16()
-            .flat_map(u16::to_le_bytes),
-    );
-    bytes.extend_from_slice(b" DAINTY_SERVER_MAX_FPS\0");
-    std::fs::write(&both, bytes).unwrap();
-    let old = dir.path().join("old.dll");
-    std::fs::write(&old, "MZ an older runtime").unwrap();
-    let yes = CpuPatches {
-        cpu_fixes: true,
-        frame_cap: true,
-    };
-    assert_eq!(runtime_cpu_patches(&both), Some(yes));
-    let no = CpuPatches {
-        cpu_fixes: false,
-        frame_cap: false,
-    };
-    assert_eq!(runtime_cpu_patches(&old), Some(no));
-    assert_eq!(runtime_cpu_patches(&dir.path().join("none.dll")), None);
+fn the_performance_checks_are_the_settings_alone() {
     let c = public(3, None);
-    let warn = performance_checks(&c, Some(&old), Some(16384), Platform::Windows);
-    assert_eq!(warn[0].level, Level::Info);
-    assert_eq!(warn[1].level, Level::Warn);
-    assert!(warn[1].text.contains("0019 (CPU fixes) and 0020 (frame cap)"));
+    let checks = performance_checks(&c, Some(16384), Platform::Windows);
+    assert_eq!(checks.len(), 1, "16 GB: only the settings");
+    assert_eq!(checks[0].level, Level::Info);
     assert_eq!(
-        performance_checks(&c, Some(&both), Some(16384), Platform::Windows)[1].level,
-        Level::Ok
-    );
-    assert_eq!(
-        performance_checks(&c, None, Some(16384), Platform::Windows).len(),
-        1,
-        "nothing published: only the settings"
-    );
-    assert_eq!(
-        warn[0].text,
+        checks[0].text,
         "game servers at 30 fps, 10 fps after 15 s without players; Training Grounds on demand, stopped after 5 min without players; quiet game logs; at most 3 hunts (UDP 8770-8777); a new hunt only with 2560 MB free"
     );
+}
+
+#[test]
+fn warns_about_a_retired_runtime_left_published_or_beside_the_game() {
+    let dir = tempfile::tempdir().unwrap();
+    let p = Paths::new(dir.path());
+    let game = dir.path().join("game");
+    let win64 = game.join(game_exe_relative()).parent().unwrap().to_path_buf();
+    let game = game.to_string_lossy().into_owned();
+    assert!(retired_runtime_checks(&p, Some(&game)).is_empty());
+    std::fs::create_dir_all(&p.runtime_publish).unwrap();
+    std::fs::create_dir_all(&win64).unwrap();
+    std::fs::write(p.runtime_publish.join("Rustic-Isles.dll"), "old").unwrap();
+    std::fs::write(win64.join("Rustic-Isles.dll"), "old").unwrap();
+    std::fs::write(win64.join("rustic-isles-runtime.dll"), "mit").unwrap();
+    let checks = retired_runtime_checks(&p, Some(&game));
+    assert_eq!(checks.len(), 2, "{checks:?}");
+    assert!(checks.iter().all(|c| c.level == Level::Warn && c.area == "runtime"));
+    assert_eq!(checks[0].fix.as_deref(), Some("run dainty-host publish-runtime"));
+    assert_eq!(checks[1].fix.as_deref(), Some("delete it"));
 }
 
 #[test]
@@ -82,7 +71,7 @@ fn says_how_many_hunts_fit_in_this_machines_memory() {
     );
     assert_eq!(hunts_that_fit(2 * 1024, &DEFAULT_PERFORMANCE), 0);
     let eight = public(8, None);
-    let guarded = performance_checks(&eight, None, Some(16 * 1024), Platform::Linux);
+    let guarded = performance_checks(&eight, Some(16 * 1024), Platform::Linux);
     assert_eq!(guarded[1].level, Level::Info);
     assert!(
         guarded[1].text.contains(
@@ -93,14 +82,14 @@ fn says_how_many_hunts_fit_in_this_machines_memory() {
         memory_guard: false,
         ..DEFAULT_PERFORMANCE
     };
-    let unguarded = performance_checks(&public(8, Some(off)), None, Some(16 * 1024), Platform::Linux);
+    let unguarded = performance_checks(&public(8, Some(off)), Some(16 * 1024), Platform::Linux);
     assert_eq!(unguarded[1].level, Level::Warn);
     assert_eq!(
         unguarded[1].fix.as_deref(),
         Some("dainty-host setup --memory-guard, or --max-hunts 7")
     );
     assert_eq!(
-        performance_checks(&eight, None, Some(32 * 1024), Platform::Linux).len(),
+        performance_checks(&eight, Some(32 * 1024), Platform::Linux).len(),
         1,
         "32 GB: they fit, nothing to say"
     );

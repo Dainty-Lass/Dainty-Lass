@@ -177,6 +177,19 @@ fn runtime_manifests_name_the_two_files_only() {
         edit(&mut raw);
         kit::parse_runtime_manifest(&raw)
     };
+    // An R21 server's set: the MIT runtime alone, or beside the loader (spec-runtime-r21 7.2); the pair above is a
+    // pre-R21 server's, still played for one launcher release
+    let mit = with(&|raw| raw["files"][1]["name"] = "rustic-isles-runtime.dll".into()).unwrap();
+    assert_eq!(mit.files[0].name, "rustic-isles-runtime.dll");
+    assert_eq!(
+        with(&|raw| {
+            raw["files"] = serde_json::json!([{ "name": "rustic-isles-runtime.dll", "size": 1, "sha256": hash('a') }]);
+        })
+        .unwrap()
+        .files
+        .len(),
+        1
+    );
     // A host that still publishes the runtime under its name from before the rename (DX4)
     assert_eq!(
         with(&|raw| raw["files"][1]["name"] = "MysticParadox.dll".into())

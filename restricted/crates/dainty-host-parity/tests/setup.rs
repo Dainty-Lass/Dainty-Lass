@@ -607,7 +607,6 @@ fn checkout() -> (tempfile::TempDir, Paths, PathBuf) {
     for file in [
         l.backend_dir.join("package.json"),
         l.director_dir.join("package.json"),
-        l.runtime_source.join("Rustic-Isles.vcxproj"),
         l.loader_dir.join("Cargo.toml"),
         l.exporter_dir.join("Cargo.toml"),
     ] {
