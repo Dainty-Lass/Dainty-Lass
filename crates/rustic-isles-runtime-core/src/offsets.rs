@@ -1336,6 +1336,78 @@ pub mod r8 {
     pub const NET_DRIVER_CLIENT_COUNT: usize = 0x98;
 }
 
+/// R20's facts (spec-runtime-r20 4.2). R20 hooks nothing, so no `TARGETS` line.
+pub mod r20 {
+    /// `UNetConnection::SetClientWorldPackageName(connection, FName)`.
+    pub const SET_CLIENT_WORLD_PACKAGE_NAME: u32 = 0x03F7_F050;
+    /// `UArchonGameplayStatics::TickFilterHelper`, DX-8's target: only asked of the broker.
+    pub const TICK_FILTER_HELPER: u32 = 0x0194_80B0;
+    /// `AGameMode::MatchState`, an `FName`.
+    pub const GAME_MODE_MATCH_STATE: usize = 0x2C0;
+    /// A game mode's match state is read only when readable for this span.
+    pub const GAME_MODE_MATCH_STATE_SPAN: usize = 0x2C8;
+    /// `AArchonGameMode_Island::BleedoutDuration` (`f32`); another game mode's field at this offset is unrelated.
+    pub const ISLAND_BLEEDOUT_DURATION: usize = 0x540;
+    /// The island game mode's readable span.
+    pub const ISLAND_BLEEDOUT_SPAN: usize = 0x548;
+    /// `UWorld::AuthorityGameMode` (R8's line).
+    pub const WORLD_AUTHORITY_GAME_MODE: usize = super::r8::WORLD_AUTHORITY_GAME_MODE;
+    /// `UWorld::NetDriver` (R9's line).
+    pub const WORLD_NET_DRIVER: usize = super::r9::WORLD_NET_DRIVER;
+    /// The world span read for the net driver.
+    pub const WORLD_DRIVER_SPAN: usize = 0x40;
+    /// `APlayerController::Player`.
+    pub const PC_PLAYER: usize = 0x298;
+    /// `APlayerController::NetConnection` (R7's and R12's line).
+    pub const PC_NET_CONNECTION: usize = super::r7::PC_NET_CONNECTION;
+    /// A controller's readable span for both.
+    pub const PC_SPAN: usize = 0x420;
+    /// `AController::Pawn`.
+    pub const CONTROLLER_PAWN: usize = 0x250;
+    /// A controller's readable span for its pawn.
+    pub const CONTROLLER_SPAN: usize = 0x258;
+    /// `UPlayer::PlayerController` on a connection.
+    pub const CONN_PLAYER_CONTROLLER: usize = 0x30;
+    /// `UNetConnection::ViewTarget`.
+    pub const CONN_VIEW_TARGET: usize = 0x90;
+    /// `UNetConnection::OwningActor`.
+    pub const CONN_OWNING_ACTOR: usize = 0x98;
+    /// A connection's span for `ViewTarget` alone.
+    pub const CONN_VIEW_SPAN: usize = 0x98;
+    /// A connection's span for both.
+    pub const CONN_SPAN: usize = 0xA0;
+    /// `UNetConnection`'s client world package `FName`.
+    pub const CONN_CLIENT_WORLD_PACKAGE_NAME: usize = 0x1600;
+    /// The span the package name setter needs.
+    pub const CONN_PACKAGE_SPAN: usize = 0x1608;
+    /// The span the stamina loop checks per connection.
+    pub const CONN_SCAN_SPAN: usize = 0x140;
+    /// The actor flag byte; bit `0x08` is `bAlwaysRelevant`.
+    pub const ACTOR_RELEVANCY_FLAGS: usize = 0x58;
+    /// `ENetRole RemoteRole`.
+    pub const ACTOR_REMOTE_ROLE: usize = 0x5F;
+    /// `ENetDormancy NetDormancy`.
+    pub const ACTOR_NET_DORMANCY: usize = 0xF1;
+    /// `NetUpdateFrequency` (`f32`).
+    pub const ACTOR_NET_UPDATE_FREQUENCY: usize = 0x108;
+    /// `NetPriority` (`f32`).
+    pub const ACTOR_NET_PRIORITY: usize = 0x110;
+    /// The span the pawn fixes check.
+    pub const PAWN_SCAN_SPAN: usize = 0x120;
+    /// The outer walk reads an object only when readable for this span (outer at `+0x20`).
+    pub const OUTER_SPAN: usize = 0x28;
+    /// The top object's name is read only when readable for this span.
+    pub const NAME_SPAN: usize = 0x20;
+    /// `K2_PostLogin`'s and `ClientRestart`'s params: one pointer.
+    pub const POINTER_PARAMS: usize = 0x08;
+    /// `PlayerCanRestart`'s params.
+    pub const CAN_RESTART_PARAMS: usize = 0x10;
+    /// Its `ReturnValue` byte.
+    pub const CAN_RESTART_RETURN: usize = 0x08;
+    /// `TickStamina`'s params: `Where`, `Whom`.
+    pub const TICK_STAMINA_PARAMS: usize = 0x02;
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1498,6 +1570,49 @@ mod tests {
             FoundBy::RvaAndBytes(&[
                 0x40, 0x56, 0x48, 0x83, 0xEC, 0x20, 0x48, 0x8B, 0x02, 0x48, 0x8B, 0xF2, 0x0F, 0xB6, 0x50, 0x58
             ])
+        );
+    }
+
+    #[test]
+    fn r20_lines() {
+        use super::r20::*;
+        assert_eq!(SET_CLIENT_WORLD_PACKAGE_NAME, 0x03F7_F050);
+        assert_eq!(TICK_FILTER_HELPER, 0x0194_80B0);
+        assert_eq!(
+            [
+                GAME_MODE_MATCH_STATE,
+                ISLAND_BLEEDOUT_DURATION,
+                WORLD_AUTHORITY_GAME_MODE,
+                WORLD_NET_DRIVER
+            ],
+            [0x2C0, 0x540, 0x118, 0x38]
+        );
+        assert_eq!([PC_PLAYER, PC_NET_CONNECTION, CONTROLLER_PAWN], [0x298, 0x418, 0x250]);
+        assert_eq!(
+            [
+                CONN_PLAYER_CONTROLLER,
+                CONN_VIEW_TARGET,
+                CONN_OWNING_ACTOR,
+                CONN_CLIENT_WORLD_PACKAGE_NAME
+            ],
+            [0x30, 0x90, 0x98, 0x1600]
+        );
+        assert_eq!(
+            [
+                ACTOR_RELEVANCY_FLAGS,
+                ACTOR_REMOTE_ROLE,
+                ACTOR_NET_DORMANCY,
+                ACTOR_NET_UPDATE_FREQUENCY
+            ],
+            [0x58, 0x5F, 0xF1, 0x108]
+        );
+        assert_eq!(
+            [ACTOR_NET_PRIORITY, PAWN_SCAN_SPAN, CONN_SCAN_SPAN],
+            [0x110, 0x120, 0x140]
+        );
+        assert!(
+            TARGETS.iter().all(|line| !line.id.ends_with("@R20")),
+            "R20 hooks nothing"
         );
     }
 }

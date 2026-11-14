@@ -110,6 +110,11 @@ impl ChainModel {
         Ok(())
     }
 
+    /// Whether the AGPL band holds a wrapper (R20's stamina skip asks, spec-runtime-r20 10.3).
+    pub fn has_agpl(&self) -> bool {
+        self.agpl.is_some()
+    }
+
     /// Every wrapper, outermost first.
     pub fn order(&self) -> Vec<(Band, usize)> {
         let mut order: Vec<(Band, usize)> = self.mit.iter().map(|wrapper| (Band::Mit, wrapper.entry)).collect();
@@ -147,6 +152,18 @@ pub fn original(chain: Option<&ChainModel>, target: usize) -> usize {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn has_agpl() {
+        let mut chain = ChainModel::new(1);
+        assert!(!chain.has_agpl());
+        chain.add_mit(2, 0).unwrap();
+        assert!(!chain.has_agpl(), "a MIT wrapper is not the AGPL's");
+        chain.add_agpl(3).unwrap();
+        assert!(chain.has_agpl());
+        chain.remove_agpl(3).unwrap();
+        assert!(!chain.has_agpl());
+    }
 
     const TRAMPOLINE: usize = 0x7000;
 

@@ -67,6 +67,7 @@ pub fn init() {
     if !server {
         crate::branding::register();
     }
+    crate::ffi::server_events::register(server);
     handlers::freeze();
     let hooks_off = (initialized != minhook::MH_OK).then(|| minhook::status_name(initialized));
     let chain = |id: &'static str, install: fn(usize) -> Result<(), i32>| -> Install {

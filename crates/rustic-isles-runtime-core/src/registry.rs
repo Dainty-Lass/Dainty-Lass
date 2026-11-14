@@ -4,7 +4,7 @@
 
 /// The slices whose ids this build owns.
 pub const LANDED: &[&str] = &[
-    "R0", "R1", "R2", "R3", "R4", "R5", "R9", "R7", "R6", "R10", "R11", "R15", "R8", "R16", "R12", "R17", "R13",
+    "R0", "R1", "R2", "R3", "R4", "R5", "R9", "R7", "R6", "R10", "R11", "R15", "R8", "R16", "R12", "R17", "R13", "R20",
 ];
 
 /// The longest id `owns` accepts, in bytes.
@@ -459,6 +459,18 @@ mod tests {
             assert!(owns(b"RG-2"));
             assert!(owns(b"SP-3@R13"));
         }
+    }
+
+    #[test]
+    fn r20_lands_with_or_after_r7() {
+        // spec-runtime-r20 2.2: R20's PlayerCanRestart turns the AGPL's gate off and calls R7's instead
+        if LANDED.contains(&"R20") {
+            assert!(LANDED.contains(&"R7"), "R20 landed without R7");
+        }
+        for id in ["SP-2@R20", "SP-3@R20"] {
+            assert_eq!(owns(id.as_bytes()), LANDED.contains(&"R20"), "{id}");
+        }
+        assert_eq!(ENTRIES.iter().filter(|line| line.slice == "R20").count(), 2);
     }
 
     #[test]

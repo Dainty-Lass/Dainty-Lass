@@ -200,3 +200,8 @@ pub fn remove_inner(target: usize, wrapper: usize) -> Result<(), i32> {
 pub fn original(target: usize) -> usize {
     rustic_isles_runtime_core::chain::original(broker().hooks.get(&target).map(|hook| &hook.chain), target)
 }
+
+/// `chained_by_agpl(T)`: the AGPL band holds a wrapper on `T` (spec-runtime-r20 10.3).
+pub fn chained_by_agpl(target: usize) -> bool {
+    broker().hooks.get(&target).is_some_and(|hook| hook.chain.has_agpl())
+}

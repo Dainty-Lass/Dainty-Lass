@@ -440,7 +440,7 @@ fn registry_and_targets() {
     for id in R7_IDS {
         assert!(owns(id.as_bytes()), "{id}");
     }
-    assert!(!owns(b"SP-2@R20"));
+    assert_eq!(owns(b"SP-2@R20"), registry::LANDED.contains(&"R20"));
     let r7 = ENTRIES.iter().filter(|entry| entry.slice == "R7").count();
     assert_eq!(r7, R7_IDS.len(), "R7 adds 11 owned ids");
     assert!(owned_count() >= 5 + R7_IDS.len());

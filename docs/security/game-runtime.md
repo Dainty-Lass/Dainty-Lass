@@ -415,6 +415,28 @@ SP-1, client only. `LANDED` gains `R16`, so the build also owns `TR-1` and `SP-1
       to 1024 units, non-ASCII becomes `?`, and it is a path, never the URL's options.
 - [ ] `KEEP_STUCK_ASYNC_FLAGS.flag` turns every clear off (report only).
 
+### Server ProcessEvent behaviours (R20)
+
+[`spec-runtime-r20.md`](../port/spec-runtime-r20.md): five SP-2 before handlers and one SP-3 after handler, server
+only. `LANDED` gains `R20` (only with `R7`: `registry::tests::r20_lands_with_or_after_r7`), so the build owns
+`SP-2@R20` and `SP-3@R20`. R20 hooks nothing and patches no byte.
+
+- [ ] Every read is checked (`readable`, `readable_this_frame`); every write goes through `put`, which checks the
+      range committed and in a writable region (`ffi::server_events`). Pawn writes need the pawn live and readable
+      for `0x120`; connection writes need the connection readable through the field.
+- [ ] `SetClientWorldPackageName` (`+0x03F7F050`) is called only when that RVA starts a `.pdata` function, on a live
+      object that `is_a` `NetConnection` and is readable for `0x1608`, with a non-zero name. No fault catch: liveness
+      and class replace the AGPL's.
+- [ ] `PlayerCanRestart` absorbs only when its `ReturnValue` byte is writable; R7's gate runs inside it, and R7's own
+      after handler is not registered once `SP-2@R20` is owned.
+- [ ] The damage multiplier needs all of the development profile, `RUSTIC_ISLES_ALLOW_DAMAGE_DEBUG=1`,
+      `DEBUG_DAMAGE_MULTIPLIER.flag` and a factor that parses whole, finite, above 0 and not 1
+      (`core::server_events::multiplier`); decided once. The launcher never sets the switch.
+- [ ] The bleedout floor writes only on `ArchonGameMode_Island` (never the `ArchonGameMode` base), once, on a full
+      launch; the fallback is bounded `0 < v < 600`, else 30 s.
+- [ ] Every log line is once per process or budgeted (8 owner fix lines, the vendor throttle); `[PostLogin]` is
+      off in the production log profile.
+
 ## Sign-off
 
 Reviewed at commit `________` on `________` by `________`.
