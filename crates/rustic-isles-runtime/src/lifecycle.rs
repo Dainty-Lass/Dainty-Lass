@@ -2,7 +2,7 @@
 
 use crate::config;
 use crate::ffi::exit::{self, Install};
-use crate::ffi::{dispatch, engine, flags, http, loading, log, minhook, net, travel, win};
+use crate::ffi::{dispatch, engine, flags, http, loading, log, minhook, net, repgraph, travel, win};
 use crate::handlers;
 use crate::login;
 use rustic_isles_runtime_core::config::launch::PORT_EXIT_CODE;
@@ -57,6 +57,7 @@ pub fn init() {
     loading::register(server);
     if server {
         net::register();
+        repgraph::register();
     } else {
         let _ = travel::register(base);
     }
@@ -82,7 +83,11 @@ pub fn init() {
         installs.push(exit::install_veh(base));
         installs.push(chain("SP-2", dispatch::install_sp2));
         installs.push(chain("SP-3", dispatch::install_sp3));
-        installs.extend(net::install(true, base, hooks_off));
+        // R12 after NETD-8 and before NETD-3, the AGPL's positions (R12 4.5)
+        let mut net = net::install(true, base, hooks_off);
+        let at = net.iter().position(|(id, _)| *id == "NETD-3").unwrap_or(net.len());
+        net.splice(at..at, repgraph::install(base, hooks_off));
+        installs.extend(net);
         installs.push(chain("HTTP-1", http::install));
         installs.push(crate::player_host::install_header(base, hooks_off));
         installs.extend(listen);

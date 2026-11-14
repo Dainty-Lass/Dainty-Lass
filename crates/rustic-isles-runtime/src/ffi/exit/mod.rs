@@ -209,6 +209,20 @@ pub fn stack_text(capture: usize, keep: usize) -> String {
     texts.join(" ")
 }
 
+/// The first of `capture` frames outside this DLL (R3's own-module trim): R12's RG-5 caller.
+#[inline(never)]
+pub fn first_foreign_frame(capture: usize) -> Option<usize> {
+    let capture = capture.min(CAPTURE_FRAMES);
+    let mut frames = [std::ptr::null_mut::<c_void>(); CAPTURE_FRAMES];
+    // SAFETY: the buffer holds CAPTURE_FRAMES entries, at least `capture`
+    let count = unsafe { RtlCaptureStackBackTrace(0, capture as u32, frames.as_mut_ptr(), std::ptr::null_mut()) };
+    let own = OWN_START.load(Ordering::Relaxed)..OWN_END.load(Ordering::Relaxed);
+    frames[..usize::from(count).min(capture)]
+        .iter()
+        .map(|&frame| frame as usize)
+        .find(|frame| !own.contains(frame))
+}
+
 /// The stack line for `frames`.
 fn write_stack(tag: &str, code: u32, frames: &[usize]) {
     let located: Vec<Located> = frames.iter().map(|&frame| Located::new(frame)).collect();

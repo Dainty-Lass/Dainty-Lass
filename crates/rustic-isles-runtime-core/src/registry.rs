@@ -4,7 +4,7 @@
 
 /// The slices whose ids this build owns.
 pub const LANDED: &[&str] = &[
-    "R0", "R1", "R2", "R3", "R4", "R5", "R9", "R7", "R6", "R10", "R11", "R15", "R8", "R16",
+    "R0", "R1", "R2", "R3", "R4", "R5", "R9", "R7", "R6", "R10", "R11", "R15", "R8", "R16", "R12",
 ];
 
 /// The longest id `owns` accepts, in bytes.
@@ -123,7 +123,7 @@ pub const ENTRIES: &[Entry] = &[
     e("NETD-8", Detour, "R11"),
     e("RG-1", Detour, "R12"),
     e("RG-2", Detour, "R13"),
-    e("RG-3", Detour, "R12"),
+    e("RG-3", Detour, "R14"),
     e("RG-4", Detour, "R12"),
     e("RG-5", Detour, "R12"),
     e("RG-6", Detour, "R12"),
@@ -227,7 +227,11 @@ mod tests {
         ids.extend(range("LD", 9).into_iter().map(|id| (id, "R7")));
         ids.extend(range("NETD", 8).into_iter().map(|id| (id, "R11")));
         ids.extend(range("RG", 7).into_iter().map(|id| {
-            let slice = if id == "RG-2" { "R13" } else { "R12" };
+            let slice = match id.as_str() {
+                "RG-2" => "R13",
+                "RG-3" => "R14",
+                _ => "R12",
+            };
             (id, slice)
         }));
         ids.push(("PR-1".into(), "R14"));
@@ -409,6 +413,24 @@ mod tests {
     fn r16_owns_travel() {
         assert!(owns(b"TR-1"));
         assert!(owns(b"SP-1@R16"));
+    }
+
+    #[test]
+    fn r12_lands_with_or_after_r11() {
+        // spec-runtime-r12 14.2: the drive reads R9's driver and runs before R11's manual tick flushes it
+        if LANDED.contains(&"R12") {
+            assert!(LANDED.contains(&"R11"), "R12 landed without R11");
+            for id in ["RG-1", "RG-4", "RG-5", "RG-6", "RG-7", "SP-3@R12"] {
+                assert!(owns(id.as_bytes()), "{id}");
+            }
+        }
+        assert_eq!(
+            entry("RG-3").map(|line| line.slice),
+            Some("R14"),
+            "RG-3 moved to R14 (12.2)"
+        );
+        assert_eq!(owns(b"RG-2"), LANDED.contains(&"R13"));
+        assert_eq!(owns(b"RG-3"), LANDED.contains(&"R14"));
     }
 
     #[test]

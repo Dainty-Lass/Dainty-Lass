@@ -301,6 +301,22 @@ Fuzz targets in `fuzz`:
 - [ ] Never logged by R8: the roster's ids, the command line, any environment value (settings print as R1's parsed
       values and their source).
 
+### Replication graph and channel guards (R12)
+
+- [ ] `R12` is in `LANDED` only with `R11` (`registry::tests::r12_lands_with_or_after_r11`); RG-3 is R14's, so the
+      AGPL keeps purging its player role caches on route removal until R14 lands.
+- [ ] The invariant: a `PlayerController` is never bound to, sent on or given an RPC on another player's connection
+      (RG-4..7). Each guard fails open only when it cannot prove the controller is another player's.
+- [ ] RG-4..7 are checked against their first bytes in `.pdata` before hooking; RG-1 is owned and never installed.
+      A blocked RG-4 and RG-6 return a full 64-bit 0 (`ffi::repgraph::tests`).
+- [ ] The quarantine never closes or frees a channel; its one write is RG-4 clearing the cached-channel slot, through
+      the checked write, only while the slot still holds the channel read. Stale entries are swept every frame so a
+      reused address is never refused.
+- [ ] The drive calls the graph's virtual slot `+0x2F8` only when it is a `.pdata` function entry inside the
+      executable and the graph's `+0x30` is R9's driver; no fault catch (rulings R11), a re-entry flag per thread.
+- [ ] Every repeating `[MitRepGraph]` line has a budget or is once per pair; lines carry pointers, RVAs, counts and
+      engine names only.
+
 ### Logging
 
 - [ ] Never logged: the command line, the gameserver key (`api_key`) or which request carried it, argv entry 1, any
