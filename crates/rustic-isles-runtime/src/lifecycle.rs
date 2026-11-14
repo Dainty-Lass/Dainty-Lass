@@ -2,7 +2,7 @@
 
 use crate::config;
 use crate::ffi::exit::{self, Install};
-use crate::ffi::{dispatch, engine, flags, http, log, minhook, win};
+use crate::ffi::{dispatch, engine, flags, http, loading, log, minhook, win};
 use crate::handlers;
 use crate::login;
 use rustic_isles_runtime_core::config::launch::PORT_EXIT_CODE;
@@ -49,6 +49,7 @@ pub fn init() {
     } else {
         Vec::new()
     };
+    loading::register(server);
     // Slices register their handlers before this point; the lists are read lock-free from here on
     handlers::freeze();
     let hooks_off = (initialized != minhook::MH_OK).then(|| minhook::status_name(initialized));
@@ -81,6 +82,7 @@ pub fn init() {
         installs.extend(exit::install_exports(hooks_off));
         installs.push(exit::install_veh(base));
     }
+    installs.extend(loading::install(base, server));
     let _ = STATUS.set(Status { server, port, installs });
     log::set_ready();
 }

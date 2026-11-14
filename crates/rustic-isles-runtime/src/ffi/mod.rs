@@ -9,6 +9,7 @@ pub mod flags;
 pub mod headless;
 pub mod http;
 pub mod listen;
+pub mod loading;
 pub mod log;
 pub mod login;
 pub mod memory;
