@@ -21,7 +21,9 @@ use rustic_rifts_host::{
     LocalSession, LocalState, NativeTransportLoader, PeerListEntry, PlayerHostSpawner, RealmHosting, ServerSpawner,
     SessionResult, Signal, TransportAbi, TransportConfig, TransportLoader, default_max_servers, wire_session_id,
 };
-use rustic_rifts_seam::{ADMISSION_KEY_PATH, AccountId, GlobalId, HubKind, NodeId, Secret, SessionId, Ulid};
+use rustic_rifts_seam::{
+    ADMISSION_KEY_PATH, AccountId, BoxFuture, GlobalId, HubKind, NodeId, Secret, SessionId, Ulid, poll_once,
+};
 use serde_json::{Value, json};
 
 use super::{Controller, Shared, now_iso};
@@ -39,6 +41,99 @@ const CROCKFORD: &[u8; 32] = b"0123456789ABCDEFGHJKMNPQRSTVWXYZ";
 
 fn lock<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
     mutex.lock().unwrap_or_else(PoisonError::into_inner)
+}
+
+/// `LocalRealmHosting` does its work inside each call and returns a finished future.
+fn finished<T>(future: BoxFuture<'_, Result<T, HostError>>) -> Result<T, HostError> {
+    poll_once(future).unwrap_or_else(|| Err(HostError::Io("realm hosting did not finish in place".to_owned())))
+}
+
+fn joined<T>(result: Result<Result<T, HostError>, tokio::task::JoinError>) -> Result<T, HostError> {
+    result.unwrap_or_else(|error| Err(HostError::Io(format!("realm worker failed: {error}"))))
+}
+
+fn stop_now(hosting: &LocalRealmHosting, account: AccountId, session: &LocalSession) -> Result<(), HostError> {
+    match session.role {
+        HostedRole::Hub(hub) if session.hosting => finished(hosting.stop_hub(account, hub)),
+        _ => finished(hosting.stop(session.session.clone())),
+    }
+}
+
+/// A stop fences the hosted server on its control pipe and joins the session pump, so it runs on the blocking pool.
+async fn stop_off_worker(
+    hosting: &Arc<LocalRealmHosting>,
+    account: AccountId,
+    session: LocalSession,
+) -> Result<(), HostError> {
+    let hosting = Arc::clone(hosting);
+    joined(tokio::task::spawn_blocking(move || stop_now(&hosting, account, &session)).await)
+}
+
+enum StartPhase {
+    Running,
+    Abandoned,
+    Finished(Option<LocalSession>),
+    Delivered,
+}
+
+/// Stops what a start made once nobody is waiting for it, so a dropped start never leaves its server running.
+struct StartWatch {
+    hosting: Arc<LocalRealmHosting>,
+    account: AccountId,
+    phase: Arc<Mutex<StartPhase>>,
+}
+
+impl Drop for StartWatch {
+    fn drop(&mut self) {
+        let mut phase = lock(&self.phase);
+        match std::mem::replace(&mut *phase, StartPhase::Delivered) {
+            StartPhase::Running => *phase = StartPhase::Abandoned,
+            StartPhase::Finished(Some(local)) => {
+                let (hosting, account) = (Arc::clone(&self.hosting), self.account.clone());
+                // A drop can't await, and the stop may wait on the server's fence
+                std::thread::spawn(move || stop_now(&hosting, account, &local));
+            }
+            StartPhase::Abandoned | StartPhase::Finished(None) | StartPhase::Delivered => {}
+        }
+    }
+}
+
+/// A start waits up to `READY_TIMEOUT` for the hosted server, then for the transport, so it runs on the blocking pool
+/// rather than holding an async worker.
+async fn start_off_worker<F>(
+    hosting: &Arc<LocalRealmHosting>,
+    account: AccountId,
+    start: F,
+) -> Result<LocalSession, HostError>
+where
+    F: FnOnce(&LocalRealmHosting, AccountId) -> BoxFuture<'_, Result<LocalSession, HostError>> + Send + 'static,
+{
+    let phase = Arc::new(Mutex::new(StartPhase::Running));
+    let watch = StartWatch {
+        hosting: Arc::clone(hosting),
+        account: account.clone(),
+        phase: Arc::clone(&phase),
+    };
+    let worker = Arc::clone(hosting);
+    let task = tokio::task::spawn_blocking(move || {
+        let result = finished(start(&worker, account.clone()));
+        let abandoned = {
+            let mut phase = lock(&phase);
+            if matches!(*phase, StartPhase::Abandoned) {
+                true
+            } else {
+                *phase = StartPhase::Finished(result.as_ref().ok().cloned());
+                false
+            }
+        };
+        if abandoned && let Ok(local) = &result {
+            let _ = stop_now(&worker, account, local);
+        }
+        result
+    });
+    let result = joined(task.await);
+    *lock(&watch.phase) = StartPhase::Delivered;
+    result
 }
 
 /// What tests put in place of `rifts-host`'s own parts.
@@ -891,14 +986,7 @@ impl Controller {
             let account = self.realm_account_id();
             if let Ok(sessions) = active.hosting.sessions().await {
                 for session in sessions {
-                    match session.role {
-                        HostedRole::Hub(hub) if session.hosting => {
-                            let _ = active.hosting.stop_hub(account.clone(), hub).await;
-                        }
-                        _ => {
-                            let _ = active.hosting.stop(session.session).await;
-                        }
-                    }
+                    let _ = stop_off_worker(&active.hosting, account.clone(), session).await;
                 }
             }
             let _ = active.transport.shutdown();
@@ -1133,13 +1221,21 @@ impl Controller {
         }
 
         let started = match kind {
-            RealmKind::Hub => hosting.start_hub(account, HubKind::Ramsgate, limits).await,
+            RealmKind::Hub => {
+                start_off_worker(&hosting, account, move |hosting, account| {
+                    hosting.start_hub(account, HubKind::Ramsgate, limits)
+                })
+                .await
+            }
             RealmKind::Hunt => {
                 let session_id = match mint_local_session_id() {
                     Ok(id) => id,
                     Err(error) => return RealmOutcome::Err(error),
                 };
-                hosting.host_hunt(account, session_id).await
+                start_off_worker(&hosting, account, move |hosting, account| {
+                    hosting.host_hunt(account, session_id)
+                })
+                .await
             }
         };
 
@@ -1190,7 +1286,11 @@ impl Controller {
             }
         }
 
-        match hosting.join_hunt(account, session_id.clone()).await {
+        let joining = session_id.clone();
+        let joining_hunt = start_off_worker(&hosting, account, move |hosting, account| {
+            hosting.join_hunt(account, joining)
+        });
+        match joining_hunt.await {
             Ok(_) => {
                 if let Some(active) = self.shared.realms.inner.lock().await.as_mut() {
                     active.last_session = Some(session_id);
@@ -1230,11 +1330,7 @@ impl Controller {
         };
 
         for session in sessions {
-            let res = match session.role {
-                HostedRole::Hub(hub) if session.hosting => hosting.stop_hub(account.clone(), hub).await,
-                _ => hosting.stop(session.session).await,
-            };
-            if let Err(error) = res {
+            if let Err(error) = stop_off_worker(&hosting, account.clone(), session).await {
                 let (code, detail) = map_host_error(error);
                 return RealmOutcome::Err(self.refuse(LauncherError::with_detail(code, &detail)));
             }
