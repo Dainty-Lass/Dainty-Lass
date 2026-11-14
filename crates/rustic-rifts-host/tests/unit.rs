@@ -710,21 +710,21 @@ fn launch_environment() {
     };
     let inherited = [
         ("PATH", "p"),
-        ("rustic_rifts_allow_damage_debug", "1"),
-        ("Rustic_Rifts_Session_Id", "stale"),
-        ("RUSTIC_RIFTS_OTHER", "kept"),
+        ("rustic_isles_allow_damage_debug", "1"),
+        ("Rustic_Isles_Session_Id", "stale"),
+        ("RUSTIC_ISLES_OTHER", "kept"),
     ]
     .map(|(k, v)| (k.to_owned(), v.to_owned()));
     let environment = build_launch_environment(&spec, inherited);
     assert_eq!(environment["PATH"], "p");
-    assert_eq!(environment["RUSTIC_RIFTS_OTHER"], "kept");
-    assert!(!environment.contains_key("rustic_rifts_allow_damage_debug"));
-    assert!(!environment.contains_key("Rustic_Rifts_Session_Id"));
-    assert_eq!(environment["RUSTIC_RIFTS_HUNT_GUARD_EVENTS"], "1");
-    assert_eq!(environment["RUSTIC_RIFTS_SESSION_GENERATION"], "3");
-    assert_eq!(environment["RUSTIC_RIFTS_TRIALS_WEEK"], "002");
+    assert_eq!(environment["RUSTIC_ISLES_OTHER"], "kept");
+    assert!(!environment.contains_key("rustic_isles_allow_damage_debug"));
+    assert!(!environment.contains_key("Rustic_Isles_Session_Id"));
+    assert_eq!(environment["RUSTIC_ISLES_HUNT_GUARD_EVENTS"], "1");
+    assert_eq!(environment["RUSTIC_ISLES_SESSION_GENERATION"], "3");
+    assert_eq!(environment["RUSTIC_ISLES_TRIALS_WEEK"], "002");
     assert!(
-        !environment.contains_key("RUSTIC_RIFTS_MAX_PLAYERS"),
+        !environment.contains_key("RUSTIC_ISLES_MAX_PLAYERS"),
         "hub limits are for hubs only"
     );
     let hub = build_launch_environment(
@@ -735,9 +735,9 @@ fn launch_environment() {
         },
         [],
     );
-    assert_eq!(hub["RUSTIC_RIFTS_MAX_PLAYERS"], "8");
-    assert_eq!(hub["RUSTIC_RIFTS_HUB_AFK_SECONDS"], "60");
-    assert_eq!(hub["RUSTIC_RIFTS_HUNT_GUARD_EVENTS"], "0");
+    assert_eq!(hub["RUSTIC_ISLES_MAX_PLAYERS"], "8");
+    assert_eq!(hub["RUSTIC_ISLES_HUB_AFK_SECONDS"], "60");
+    assert_eq!(hub["RUSTIC_ISLES_HUNT_GUARD_EVENTS"], "0");
     assert_eq!(hub.len(), 17);
 }
 

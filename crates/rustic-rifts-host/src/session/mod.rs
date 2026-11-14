@@ -4,10 +4,10 @@
 //! Realm sessions on the launcher: the backend and spawner ports, the session folder, the hosting and joining flows
 //! and the pure rules they and the launcher's hosting panel use.
 
-// A launch variable's full name (D3).
+// A launch variable's full name: the game server's own prefix, whoever starts it (RT-8, spec-runtime-r10 4).
 macro_rules! rifts_var {
     ($suffix:literal) => {
-        concat!("RUSTIC_RIFTS_", $suffix)
+        concat!("RUSTIC_ISLES_", $suffix)
     };
 }
 
@@ -31,7 +31,7 @@ pub use self::hosting::{LocalRealmHosting, RealmHosting};
 pub use self::rules::*;
 use crate::{HostError, transport::SessionResult};
 
-/// What the hosted game server is told (D3: the `RUSTIC_RIFTS_` prefix); stripped from the inherited environment.
+/// What the hosted game server is told (the runtime's `RUSTIC_ISLES_` names); stripped from the inherited environment.
 pub const LAUNCH_VARIABLES: [&str; 17] = rules::launch_variable_names();
 /// Debug switches a hosted server must never inherit.
 pub const CLEARED_VARIABLES: [&str; 2] = [rifts_var!("ALLOW_DAMAGE_DEBUG"), rifts_var!("DEBUG_DAMAGE_MULTIPLIER")];
@@ -343,7 +343,7 @@ pub struct GameTrafficWatch {
     changed: Instant,
 }
 
-/// What a hosted game server's `RUSTIC_RIFTS_` environment is built from.
+/// What a hosted game server's `RUSTIC_ISLES_` environment is built from.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct LaunchEnvironmentSpec {
     /// The host runtime capability the server authenticates with.

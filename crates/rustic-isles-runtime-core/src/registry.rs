@@ -3,7 +3,7 @@
 //! name to `LANDED` (and, for a new id, its line).
 
 /// The slices whose ids this build owns.
-pub const LANDED: &[&str] = &["R0", "R1", "R2", "R3", "R4", "R5", "R9", "R7", "R6"];
+pub const LANDED: &[&str] = &["R0", "R1", "R2", "R3", "R4", "R5", "R9", "R7", "R6", "R10"];
 
 /// The longest id `owns` accepts, in bytes.
 pub const MAX_ID_BYTES: usize = 47;
@@ -369,6 +369,18 @@ mod tests {
             );
         }
         assert!(!owns(b"UI-14"));
+    }
+
+    #[test]
+    fn owns_r10() {
+        // R10 lands with or after R9 and R2 (spec-runtime-r10 call 3)
+        if LANDED.contains(&"R10") {
+            assert!(LANDED.contains(&"R9") && LANDED.contains(&"R2"));
+        }
+        for id in ["SP-2@R10", "SP-3@R10", "HTTP-1@R10"] {
+            assert_eq!(owns(id.as_bytes()), LANDED.contains(&"R10"), "{id}");
+        }
+        assert_eq!(ENTRIES.iter().filter(|line| line.slice == "R10").count(), 3);
     }
 
     #[test]

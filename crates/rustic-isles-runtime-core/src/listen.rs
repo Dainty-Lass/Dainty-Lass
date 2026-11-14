@@ -232,12 +232,11 @@ pub fn world_driver_note(current: usize, driver: usize) -> &'static str {
     }
 }
 
-/// The DeployServer ready lines, in order (7.1). The second is for a Director from before the rename (RT-8).
-pub fn ready_lines(launch_id: &str, port: u16) -> [String; 2] {
-    [
-        format!("RUSTIC_ISLES_GAMESERVER_READY launchId={launch_id} port={port}\r\n"),
-        format!("MYSTICPARADOX_GAMESERVER_READY launchId={launch_id} port={port}\r\n"),
-    ]
+/// The DeployServer ready line (7.1); RT-8 dropped the old marker (spec-runtime-r10 12.1).
+pub fn ready_lines(launch_id: &str, port: u16) -> [String; 1] {
+    [format!(
+        "RUSTIC_ISLES_GAMESERVER_READY launchId={launch_id} port={port}\r\n"
+    )]
 }
 
 /// `client_connections(driver)`: the non-null entries of a sane array of at most 1024 (8.3).

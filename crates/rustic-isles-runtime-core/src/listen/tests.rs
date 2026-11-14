@@ -156,14 +156,10 @@ fn array_checks() {
 #[test]
 fn ready_lines_parse_as_the_director_does() {
     let id = "0f3c9a2e-4b1d-4e8a-9c7f-1a2b3c4d5e6f";
-    let [first, second] = ready_lines(id, 8780);
+    let [first] = ready_lines(id, 8780);
     assert_eq!(
         first,
         "RUSTIC_ISLES_GAMESERVER_READY launchId=0f3c9a2e-4b1d-4e8a-9c7f-1a2b3c4d5e6f port=8780\r\n"
-    );
-    assert_eq!(
-        second,
-        "MYSTICPARADOX_GAMESERVER_READY launchId=0f3c9a2e-4b1d-4e8a-9c7f-1a2b3c4d5e6f port=8780\r\n"
     );
     // rustic-isles-director's `parse_marker`, copied: trim, the marker, a lowercase-hex-and-hyphen id, a port
     let parse = |line: &str| -> Option<(String, String)> {
@@ -180,7 +176,6 @@ fn ready_lines_parse_as_the_director_does() {
         (id_ok && port_ok).then(|| (id.to_owned(), port.to_owned()))
     };
     assert_eq!(parse(&first), Some((id.to_owned(), "8780".to_owned())));
-    assert_eq!(parse(&second), None, "the Director reads only the first");
 }
 
 #[test]
