@@ -10,7 +10,7 @@ P = "correct horse battery"
 EXE = "a" * 64
 RT_MAIN = "b" * 64
 RT_PROXY = "c" * 64
-ARTIFACTS = [{"name": "Rustic-Isles.dll", "sha256": RT_MAIN}, {"name": "winmm.dll", "sha256": RT_PROXY}]
+ARTIFACTS = [{"name": "rustic-isles-runtime.dll", "sha256": RT_MAIN}, {"name": "winmm.dll", "sha256": RT_PROXY}]
 steps = []
 GS = {"x-rustic-isles-gameserver-apikey": "gs-key-1"}
 
@@ -182,7 +182,7 @@ game_session("game session, wrong build", A, {"buildChangelist": 1})
 game_session("game session, unapproved executable", A, {"executableSha256": "d" * 64})
 game_session("game session, stale manifest version", A, {"runtimeManifestVersion": "0.1.77"})
 game_session("game session, a changed runtime", A, {"runtimeArtifacts": [
-    {"name": "Rustic-Isles.dll", "sha256": "e" * 64}, {"name": "winmm.dll", "sha256": RT_PROXY}]})
+    {"name": "rustic-isles-runtime.dll", "sha256": "e" * 64}, {"name": "winmm.dll", "sha256": RT_PROXY}]})
 game_session("game session, an unknown file", A, {"runtimeArtifacts": ARTIFACTS + [
     {"name": "inject.dll", "sha256": "e" * 64}]})
 game_session("game session, a realm with realms off", A, {"realm": {"name": "friends"}})

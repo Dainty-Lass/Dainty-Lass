@@ -39,7 +39,8 @@ export interface ApprovedRuntimeAttestation {
 }
 
 /** Every launcher installs and reports these: the runtime and the winmm proxy that loads it. */
-const CORE_INSTALLED_ARTIFACTS = ["Rustic-Isles.dll", "winmm.dll"];
+// [DaintyLass] R21: the MIT runtime is the core file; Rustic-Isles.dll is retired
+const CORE_INSTALLED_ARTIFACTS = ["rustic-isles-runtime.dll", "winmm.dll"];
 
 /**
  * The published manifest's other files (an optional module's runtime files, such as the co-op transport) are
@@ -187,8 +188,8 @@ export function GetApprovedRuntimeAttestation(channel: RuntimeChannel,
     if (!Array.isArray(manifest.extraFiles)) {
         throw new LauncherApiError("RUNTIME_BUILD_UNSUPPORTED", "The published runtime manifest is incomplete.");
     }
-    const artifacts: RuntimeArtifactHash[] = [{ name: "Rustic-Isles.dll", sha256: mainHash }];
-    const seen = new Set(["rustic-isles.dll"]);
+    const artifacts: RuntimeArtifactHash[] = [{ name: "rustic-isles-runtime.dll", sha256: mainHash }];
+    const seen = new Set(["rustic-isles-runtime.dll"]);
     for (const raw of manifest.extraFiles) {
         const extra = raw as { name?: unknown; sha256?: unknown };
         const name = typeof extra?.name === "string" ? extra.name : "";
