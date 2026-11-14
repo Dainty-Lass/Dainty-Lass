@@ -466,6 +466,15 @@ pub const TARGETS: &[Target] = &[
         ]),
         what: "UNetDriver::ProcessRemoteFunctionForChannel",
     },
+    // R13: the route at registration
+    Target {
+        id: "RG-2",
+        rva: 0x01BF_E430,
+        found_by: FoundBy::RvaAndBytes(&[
+            0x40, 0x56, 0x48, 0x83, 0xEC, 0x20, 0x48, 0x8B, 0x02, 0x48, 0x8B, 0xF2, 0x0F, 0xB6, 0x50, 0x58,
+        ]),
+        what: "UArchonReplicationGraph::RouteAddNetworkActorToNodes",
+    },
     // R16: travel
     Target {
         id: "TR-1",
@@ -697,6 +706,104 @@ pub mod repgraph {
     pub const ACTOR_FLAGS_58: usize = 0x58;
     /// `UStruct::SuperStruct`.
     pub const STRUCT_SUPER: usize = 0x40;
+}
+
+/// R13's layout and constants (spec-runtime-r13 16.2); the graph's connections are R12's.
+pub mod relevance {
+    /// `UReplicationGraph::AddNetworkActor`, RG-2's caller (not hooked, for the record).
+    pub const ADD_NETWORK_ACTOR: u32 = 0x00F1_2D40;
+    /// The grid's dormancy-aware add (not hooked, for the record).
+    pub const GRID_ADD_ACTOR_DORMANCY: u32 = 0x00F1_2820;
+    /// The actor's relevancy bits.
+    pub const ACTOR_FLAGS_58: usize = 0x58;
+    /// `bOnlyRelevantToOwner`.
+    pub const ONLY_RELEVANT_TO_OWNER: u8 = 0x04;
+    /// `bAlwaysRelevant`.
+    pub const ALWAYS_RELEVANT: u8 = 0x08;
+    /// The next flag byte.
+    pub const ACTOR_FLAGS_59: usize = 0x59;
+    /// `bNetUseOwnerRelevancy`.
+    pub const NET_USE_OWNER_RELEVANCY: u8 = 0x02;
+    /// `AActor::Owner`.
+    pub const ACTOR_OWNER: usize = 0xE0;
+    /// `AActor::NetDormancy` (`u8`).
+    pub const ACTOR_NET_DORMANCY: usize = 0xF1;
+    /// `NetUpdateFrequency` (`f32`).
+    pub const ACTOR_NET_UPDATE_FREQUENCY: usize = 0x108;
+    /// `MinNetUpdateFrequency` (`f32`).
+    pub const ACTOR_MIN_NET_UPDATE_FREQUENCY: usize = 0x10C;
+    /// `DORM_Awake`.
+    pub const DORM_AWAKE: u8 = 1;
+    /// `AArchonCharacter::Weapon`.
+    pub const CHARACTER_WEAPON: usize = 0x5F0;
+    /// The character span read.
+    pub const CHARACTER_SPAN: usize = 0x748;
+    /// The weapon span read.
+    pub const WEAPON_SPAN: usize = 0x300;
+    /// `AController::Pawn`.
+    pub const PLAYER_CONTROLLER_PAWN: usize = 0x250;
+    /// `AArchonCharacter::PlayerRole` (server-only, not replicated).
+    pub const CHARACTER_PLAYER_ROLE: usize = 0x738;
+    /// `FNewReplicatedActorInfo`'s size.
+    pub const NEW_ACTOR_INFO_SIZE: usize = 0x18;
+    /// The graph's actor → `FGlobalActorReplicationInfo` map.
+    pub const GRAPH_GLOBAL_ACTOR_MAP: usize = 0xC0;
+    /// Its element stride.
+    pub const GRAPH_GLOBAL_ACTOR_STRIDE: usize = 0x18;
+    /// The graph span read before it.
+    pub const GRAPH_GLOBAL_ACTOR_SPAN: usize = 0x118;
+    /// A manager's actor → `FConnectionReplicationActorInfo` map.
+    pub const CONN_MANAGER_ACTOR_INFO_MAP: usize = 0x30;
+    /// Its element stride.
+    pub const CONN_MANAGER_ACTOR_INFO_STRIDE: usize = 0x20;
+    /// The manager span read when clearing.
+    pub const CONN_MANAGER_SPAN: usize = 0xE0;
+    /// `FGlobalActorReplicationInfo`'s size.
+    pub const GLOBAL_INFO_SIZE: usize = 0x110;
+    /// `bWantsToBeDormant` (`u8`).
+    pub const GLOBAL_WANTS_DORMANT: usize = 0x14;
+    /// `ActorChannelFrameTimeout` (`u16`).
+    pub const GLOBAL_CHANNEL_TIMEOUT: usize = 0x30;
+    /// `CullDistance` (`f32`).
+    pub const GLOBAL_CULL_DISTANCE: usize = 0x88;
+    /// `CullDistanceSquared` (`f32`).
+    pub const GLOBAL_CULL_DISTANCE_SQ: usize = 0x8C;
+    /// `FConnectionReplicationActorInfo`'s size.
+    pub const CONN_INFO_SIZE: usize = 0x30;
+    /// Its channel.
+    pub const CONN_INFO_CHANNEL: usize = 0x00;
+    /// Its `CullDistance` (`f32`).
+    pub const CONN_INFO_CULL_DISTANCE: usize = 0x08;
+    /// Its `CullDistanceSquared` (`f32`).
+    pub const CONN_INFO_CULL_DISTANCE_SQ: usize = 0x0C;
+    /// Its `LastRepFrameNum` (`i32`).
+    pub const CONN_INFO_LAST_REP_FRAME: usize = 0x14;
+    /// `TSet` sparse array data.
+    pub const MAP_DATA: usize = 0x00;
+    /// `ArrayNum`.
+    pub const MAP_NUM: usize = 0x08;
+    /// `ArrayMax`.
+    pub const MAP_MAX: usize = 0x0C;
+    /// The four inline allocation words.
+    pub const MAP_INLINE_BITS: usize = 0x10;
+    /// The secondary allocation words (null while inline).
+    pub const MAP_SECONDARY_BITS: usize = 0x20;
+    /// `NumBits`.
+    pub const MAP_NUM_BITS: usize = 0x28;
+    /// The map header span read.
+    pub const MAP_SPAN: usize = 0x30;
+    /// The value pointer in an element.
+    pub const MAP_VALUE: usize = 0x08;
+    /// 10 s at 30 Hz (5.5).
+    pub const PLAYER_CHANNEL_GRACE_FRAMES: u16 = 300;
+    /// The weapon wake's period.
+    pub const WEAPON_WAKE_PERIOD_MS: u64 = 250;
+    /// Weapons remembered as handled.
+    pub const WOKEN_RING: usize = 16;
+    /// The relevance pass at most this often.
+    pub const GRACE_PASS_FLOOR_MS: u64 = 1000;
+    /// And at least this often.
+    pub const GRACE_PASS_MAX_MS: u64 = 15_000;
 }
 
 /// R11's called functions, data and layout (spec-runtime-r11 18.2).
@@ -1379,5 +1486,18 @@ mod tests {
         assert!(target("RG-1").is_none());
         assert_eq!(registry::entry("RG-1").map(|line| line.kind), Some(Kind::Detour));
         assert_eq!(NO_TARGET_IDS, ["NETD-8", "RG-1"]);
+    }
+
+    #[test]
+    fn r13_line() {
+        let lines: Vec<_> = TARGETS.iter().filter(|line| line.id == "RG-2").collect();
+        assert_eq!(lines.len(), 1);
+        assert_eq!(lines[0].rva, 0x01BF_E430);
+        assert_eq!(
+            lines[0].found_by,
+            FoundBy::RvaAndBytes(&[
+                0x40, 0x56, 0x48, 0x83, 0xEC, 0x20, 0x48, 0x8B, 0x02, 0x48, 0x8B, 0xF2, 0x0F, 0xB6, 0x50, 0x58
+            ])
+        );
     }
 }

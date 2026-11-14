@@ -4,7 +4,7 @@
 
 /// The slices whose ids this build owns.
 pub const LANDED: &[&str] = &[
-    "R0", "R1", "R2", "R3", "R4", "R5", "R9", "R7", "R6", "R10", "R11", "R15", "R8", "R16", "R12", "R17",
+    "R0", "R1", "R2", "R3", "R4", "R5", "R9", "R7", "R6", "R10", "R11", "R15", "R8", "R16", "R12", "R17", "R13",
 ];
 
 /// The longest id `owns` accepts, in bytes.
@@ -449,6 +449,16 @@ mod tests {
         assert!(!owns(b"SP-1@R16") || LANDED.contains(&"R16"));
         let landed = ENTRIES.iter().filter(|entry| LANDED.contains(&entry.slice)).count();
         assert_eq!(owned_count(), landed);
+    }
+
+    #[test]
+    fn r13_lands_with_or_after_r12() {
+        // spec-runtime-r13 13.2: the tick reads R12's `repgraph::graph()`
+        if LANDED.contains(&"R13") {
+            assert!(LANDED.contains(&"R12"), "R13 landed without R12");
+            assert!(owns(b"RG-2"));
+            assert!(owns(b"SP-3@R13"));
+        }
     }
 
     #[test]

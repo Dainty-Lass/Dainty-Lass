@@ -2,7 +2,7 @@
 
 use crate::config;
 use crate::ffi::exit::{self, Install};
-use crate::ffi::{dispatch, engine, flags, http, loading, log, minhook, net, repgraph, travel, win};
+use crate::ffi::{dispatch, engine, flags, http, loading, log, minhook, net, relevance, repgraph, travel, win};
 use crate::handlers;
 use crate::login;
 use rustic_isles_runtime_core::config::launch::PORT_EXIT_CODE;
@@ -58,6 +58,7 @@ pub fn init() {
     if server {
         net::register();
         repgraph::register();
+        relevance::register();
     } else {
         let _ = travel::register(base);
     }
@@ -89,7 +90,11 @@ pub fn init() {
         // R12 after NETD-8 and before NETD-3, the AGPL's positions (R12 4.5)
         let mut net = net::install(true, base, hooks_off);
         let at = net.iter().position(|(id, _)| *id == "NETD-3").unwrap_or(net.len());
-        net.splice(at..at, repgraph::install(base, hooks_off));
+        let mut graph = repgraph::install(base, hooks_off);
+        // RG-2 right after RG-1, the AGPL's position (R13 4.4)
+        let after_rg1 = graph.iter().position(|(id, _)| *id == "RG-1").map_or(0, |at| at + 1);
+        graph.splice(after_rg1..after_rg1, relevance::install(base, hooks_off));
+        net.splice(at..at, graph);
         installs.extend(net);
         installs.push(chain("HTTP-1", http::install));
         installs.push(crate::player_host::install_header(base, hooks_off));

@@ -336,6 +336,21 @@ Fuzz targets in `fuzz`:
 - [ ] Every repeating `[MitRepGraph]` line has a budget or is once per pair; lines carry pointers, RVAs, counts and
       engine names only.
 
+### Relevance and weapons (R13)
+
+- [ ] `R13` is in `LANDED` only with `R12` (`registry::tests::r13_lands_with_or_after_r12`); its tick reads R12's
+      `repgraph::graph()` and runs at order 400, below the drive's 500.
+- [ ] RG-2 is checked against its first bytes in `.pdata` before hooking; a mismatch means no route correction on
+      that server at all, MIT or AGPL (the install line says so). The detour always calls the original, a panic
+      only skipping the corrections.
+- [ ] RG-2 writes only the registering actor's relevancy bits, its `NetDormancy` and its global info's dormancy,
+      cull and grace fields; the tick only cull snapshots, a character's update rates and one
+      `SetNetDormancy(DORM_Awake)` through `process_event_original` after `params_fit`. Every write is checked
+      readable and writable (without R17's alignment rule, for single bytes); no channel is opened or closed.
+- [ ] The map search dereferences nothing but the answer: a malformed `TMap` (counts out of range, unreadable data
+      or words) answers `None`.
+- [ ] Every repeating `[MitRelevance]` line has a budget; lines carry pointers, flag bytes, counts and engine names.
+
 ### Logging
 
 - [ ] Never logged: the command line, the gameserver key (`api_key`) or which request carried it, argv entry 1, any
