@@ -163,6 +163,9 @@ const DIRECTOR: &[Setting] = &[
     ranged("hubMaxPlayers", "DAINTY_HUB_MAX_PLAYERS", 1, 64),
     ranged("hubAfkSeconds", "DAINTY_HUB_AFK_SECONDS", 0, AFK_MAX_SECONDS),
     ranged("huntAfkSeconds", "DAINTY_HUNT_AFK_SECONDS", 0, AFK_MAX_SECONDS),
+    // Patches 0024 and 0029 on the game servers only; clients keep the defaults (spec-runtime-r15 3, Q-1)
+    of("keepSupplyStackCaps", "DAINTY_KEEP_SUPPLY_STACK_CAPS", Kind::Switch),
+    ranged("cellFusionMinutes", "DAINTY_CELL_FUSION_MINUTES", 0, 10_080),
 ];
 
 /// The runtime's ceiling for an AFK timeout: a week (spec-runtime-r1 10.2).
@@ -520,7 +523,13 @@ mod tests {
     fn rt11_settings_reach_the_director_only_when_set() {
         let d = Tunables::from_json(
             "director",
-            &json!({ "hubMaxPlayers": 8, "hubAfkSeconds": 0, "huntAfkSeconds": 900 }),
+            &json!({
+                "hubMaxPlayers": 8,
+                "hubAfkSeconds": 0,
+                "huntAfkSeconds": 900,
+                "keepSupplyStackCaps": true,
+                "cellFusionMinutes": 0,
+            }),
         )
         .unwrap();
         assert_eq!(
@@ -529,8 +538,16 @@ mod tests {
                 ("DAINTY_HUB_MAX_PLAYERS", "8".to_owned()),
                 ("DAINTY_HUB_AFK_SECONDS", "0".to_owned()),
                 ("DAINTY_HUNT_AFK_SECONDS", "900".to_owned()),
+                ("DAINTY_KEEP_SUPPLY_STACK_CAPS", "true".to_owned()),
+                ("DAINTY_CELL_FUSION_MINUTES", "0".to_owned()),
             ]
         );
+        for bad in [
+            json!({ "cellFusionMinutes": 10_081 }),
+            json!({ "keepSupplyStackCaps": "yes" }),
+        ] {
+            assert!(Tunables::from_json("director", &bad).is_err(), "{bad}");
+        }
         assert!(
             Tunables::from_json("director", &json!({}))
                 .unwrap()

@@ -4238,6 +4238,8 @@ max_hunt_servers = 3
 hub_max_players = 8 # a bigger Ramsgate
 hub_afk_seconds = 0
 hunt_afk_seconds = 900
+keep_supply_stack_caps = true
+cell_fusion_minutes = 45
 ";
         let cfg = HostConfig::from_toml(text).unwrap();
         let dir = tempfile::tempdir().unwrap();
@@ -4246,13 +4248,15 @@ hunt_afk_seconds = 900
         assert!(has("DAINTY_HUB_MAX_PLAYERS", "8"), "{:?}", files.director);
         assert!(has("DAINTY_HUB_AFK_SECONDS", "0"));
         assert!(has("DAINTY_HUNT_AFK_SECONDS", "900"));
+        assert!(has("DAINTY_KEEP_SUPPLY_STACK_CAPS", "true"));
+        assert!(has("DAINTY_CELL_FUSION_MINUTES", "45"));
         for (name, file) in files.files() {
             if name != "director" {
                 assert!(
-                    !file
-                        .into_iter()
-                        .flatten()
-                        .any(|(k, _)| k.starts_with("DAINTY_HUB_") || k.starts_with("DAINTY_HUNT_AFK")),
+                    !file.into_iter().flatten().any(|(k, _)| k.starts_with("DAINTY_HUB_")
+                        || k.starts_with("DAINTY_HUNT_AFK")
+                        || k.starts_with("DAINTY_KEEP_SUPPLY")
+                        || k.starts_with("DAINTY_CELL_FUSION")),
                     "{name}"
                 );
             }
@@ -4262,6 +4266,15 @@ hunt_afk_seconds = 900
             rewritten.contains("hub_max_players = 8 # a bigger Ramsgate"),
             "{rewritten}"
         );
+        let again = HostConfig::from_toml(&rewritten).unwrap();
+        let again = build_env_files(
+            &again,
+            &sample_secrets(),
+            &Paths::new(dir.path()),
+            "",
+            Platform::Windows,
+        );
+        assert_eq!(again.director, files.director);
         let err = HostConfig::from_toml(&text.replace("= 8 #", "= 65 #"))
             .unwrap_err()
             .to_string();

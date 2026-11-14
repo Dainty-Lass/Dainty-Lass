@@ -247,9 +247,14 @@ log_level = "debug"
 | `[director]` `hub_max_players` | `DAINTY_HUB_MAX_PLAYERS` | 1–64 | unset: the game server's `HUB_MAX_PLAYERS.txt`, else 4 |
 | `[director]` `hub_afk_seconds` | `DAINTY_HUB_AFK_SECONDS` | 0 (never kick)–604800; 1–59 count as 60 | unset: `HUB_AFK_TIMEOUT_SECONDS.txt`, else 1200 |
 | `[director]` `hunt_afk_seconds` | `DAINTY_HUNT_AFK_SECONDS` | 0 (never kick)–604800; 1–59 count as 60 | unset: `HUNT_AFK_TIMEOUT_SECONDS.txt`, else the game's own |
+| `[director]` `keep_supply_stack_caps` | `DAINTY_KEEP_SUPPLY_STACK_CAPS` | `true`, `false` | unset: supplies stack without a cap |
+| `[director]` `cell_fusion_minutes` | `DAINTY_CELL_FUSION_MINUTES` | 0 (the game's own times)–10080 | unset: 30 |
 
-The Director hands its env file to every game server it starts, so the last three reach the game servers, which
-read them before the number files beside the executable. A player-hosted hub's own launcher settings still win.
+The Director hands its env file to every game server it starts, so the last five reach the game servers, which
+read the first three before the number files beside the executable. A player-hosted hub's own launcher settings
+still win. The supply cap and fusion time apply on the game servers only: players' games run on the defaults
+(uncapped, 30 minutes), so a host who changes them may see a fusion's time on the Middleman's screen differ from
+when it really ends.
 
 ### Ports Windows holds
 
