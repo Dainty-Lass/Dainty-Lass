@@ -6203,6 +6203,7 @@ dependencies = [
  "hex",
  "p256",
  "rand 0.10.3",
+ "rustic-isles-runtime-core",
  "rustic-rifts-admission",
  "rustic-rifts-seam",
  "rustic-rifts-transport",
@@ -6210,6 +6211,7 @@ dependencies = [
  "serde_json",
  "sha2 0.11.1",
  "tempfile",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]

@@ -282,6 +282,9 @@ Fuzz targets in `fuzz`:
       sources for the old names (`no_mystic_paradox_names_in_the_runtime_sources`).
 - [ ] Fuzzed by `rustic_isles_runtime_player_host`: the bootstrap check never panics, a `Valid` verdict meets every
       grammar, and `is_fence` holds only for the exact request bytes.
+- [ ] The launcher's half (12.2) uses this crate's codec and verdict, not copies: `rustic-rifts-host`'s
+      `PlayerHostSpawner` starts only a launch `bootstrap` accepts, and its pipe ends are checked in
+      `docs/security/rifts-host.md` ("The player host pipes").
 
 ### Net driver safety (R11)
 

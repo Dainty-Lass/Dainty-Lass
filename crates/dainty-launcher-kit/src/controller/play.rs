@@ -153,7 +153,7 @@ impl Controller {
     /// The runtimes to load into the game, the MIT one first (RT-5): the installed files, with the hashes of the
     /// offered set the runtime check just matched, or as found when a local runtime or no offer is in use. The MIT
     /// runtime only when the offered set lists it, or, with no offer, when the folder holds it.
-    fn runtime_dlls(&self, win64: &Path) -> Result<Vec<InjectDll>, LauncherError> {
+    pub(crate) fn runtime_dlls(&self, win64: &Path) -> Result<Vec<InjectDll>, LauncherError> {
         let path = [RUNTIME_DLL, LEGACY_RUNTIME_DLL]
             .iter()
             .map(|name| win64.join(name))

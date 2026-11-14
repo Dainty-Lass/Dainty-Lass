@@ -438,6 +438,7 @@ impl LocalRealmHosting {
                 max_players: spec.max_players,
                 hub_afk_seconds: spec.hub_afk_seconds,
                 trials_week: trials_week(&spec.matchmaker_hunt_id).map(str::to_owned),
+                backend_url: spec.backend_url.clone(),
             },
             inherited_environment(),
         );
@@ -454,6 +455,11 @@ impl LocalRealmHosting {
             &self.game_dir,
             &environment,
         )?;
+        // The server listens before the transport opens and the backend hears the route (spec-runtime-r10 12.2)
+        if let Err(error) = self.spawner.wait_ready(pid) {
+            self.spawner.stop(pid);
+            return Err(error);
+        }
 
         let started = self
             .open_host(folder.path(), &spec, &ice, &guard_token, pid)

@@ -16,6 +16,7 @@ mod rules;
 mod backend;
 mod folder;
 mod hosting;
+mod player_host;
 
 use std::{
     collections::BTreeMap,
@@ -28,11 +29,15 @@ use serde::{Deserialize, Serialize};
 pub use self::backend::{DefaultHostBackend, HostBackend, NoopServerSpawner, ServerSpawner};
 pub use self::folder::*;
 pub use self::hosting::{LocalRealmHosting, RealmHosting};
+pub use self::player_host::{
+    EXIT_AFTER_FENCE, FENCE_ACK_TIMEOUT, FENCE_EXIT_CODE, FENCE_TIMEOUT_EXIT_CODE, HostedPipes, HostedProcess,
+    INVALID_EXIT_CODE, PipeFailure, PlayerHostSpawner, ProcessStarter, READY_TIMEOUT, ReadyRefusal, THREAD_EXIT_CODE,
+};
 pub use self::rules::*;
 use crate::{HostError, transport::SessionResult};
 
 /// What the hosted game server is told (the runtime's `RUSTIC_ISLES_` names); stripped from the inherited environment.
-pub const LAUNCH_VARIABLES: [&str; 17] = rules::launch_variable_names();
+pub const LAUNCH_VARIABLES: [&str; 18] = rules::launch_variable_names();
 /// Debug switches a hosted server must never inherit.
 pub const CLEARED_VARIABLES: [&str; 2] = [rifts_var!("ALLOW_DAMAGE_DEBUG"), rifts_var!("DEBUG_DAMAGE_MULTIPLIER")];
 /// The switches every hosted game server starts with, after its positional arguments.
@@ -376,6 +381,8 @@ pub struct LaunchEnvironmentSpec {
     pub hub_afk_seconds: Option<u32>,
     /// The trials week the hunt belongs to, if it is a trial.
     pub trials_week: Option<String>,
+    /// The backend the server calls with its capability (R1's API base).
+    pub backend_url: String,
 }
 
 /// What hosting and joining share of a session's bootstrap.

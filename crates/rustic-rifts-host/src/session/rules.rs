@@ -420,7 +420,7 @@ fn hub_only<T: ToString>(spec: &LaunchEnvironmentSpec, value: Option<T>) -> Opti
 }
 
 // Each launch variable and its value; `None` leaves it unset. Also the order of `LAUNCH_VARIABLES`.
-const LAUNCH: [(&str, LaunchValue); 17] = [
+const LAUNCH: [(&str, LaunchValue); 18] = [
     (rifts_var!("AUTH_MODE"), |_| Some("HUNT_CAPABILITY".to_owned())),
     (rifts_var!("BIND_ADDRESS"), |_| Some("127.0.0.1".to_owned())),
     (rifts_var!("HOST_RUNTIME_CAPABILITY"), |s| {
@@ -444,10 +444,12 @@ const LAUNCH: [(&str, LaunchValue); 17] = [
     (rifts_var!("MAX_PLAYERS"), |s| hub_only(s, s.max_players)),
     (rifts_var!("HUB_AFK_SECONDS"), |s| hub_only(s, s.hub_afk_seconds)),
     (rifts_var!("TRIALS_WEEK"), |s| s.trials_week.clone()),
+    // Without it R1 points the server at `backend.invalid`, so the capability would reach no one
+    (rifts_var!("BACKEND_URL"), |s| Some(s.backend_url.clone())),
 ];
 
-pub(super) const fn launch_variable_names() -> [&'static str; 17] {
-    let mut names = [""; 17];
+pub(super) const fn launch_variable_names() -> [&'static str; 18] {
+    let mut names = [""; 18];
     let mut at = 0;
     while at < LAUNCH.len() {
         names[at] = LAUNCH[at].0;

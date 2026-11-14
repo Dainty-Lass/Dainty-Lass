@@ -18,7 +18,7 @@ use hyper::Method;
 use rustic_rifts_host::{
     ADMISSION_PUBLIC_KEY_FILE, CommonBootstrapConfig, DefaultHostBackend, FileHostState, HostBackend,
     HostBootstrapSpec, HostError, HostState as _, HostedRole, HubLimits, JoinBootstrapSpec, LocalRealmHosting,
-    LocalSession, LocalState, NativeTransportLoader, NoopServerSpawner, PeerListEntry, RealmHosting, ServerSpawner,
+    LocalSession, LocalState, NativeTransportLoader, PeerListEntry, PlayerHostSpawner, RealmHosting, ServerSpawner,
     SessionResult, Signal, TransportAbi, TransportConfig, TransportLoader, default_max_servers, wire_session_id,
 };
 use rustic_rifts_seam::{ADMISSION_KEY_PATH, AccountId, GlobalId, HubKind, NodeId, Secret, SessionId, Ulid};
@@ -30,6 +30,7 @@ use crate::bridge::types::{
 };
 use crate::net::hostapi::key_headers;
 use crate::net::http::{Endpoint, RequestOptions, request};
+use crate::platform::hosted_server::InjectingStarter;
 use crate::platform::log;
 
 const DEFAULT_HUB_MAX_PLAYERS: u8 = 16;
@@ -859,6 +860,17 @@ fn session_view(hosting: &LocalRealmHosting, local: &LocalSession) -> RealmSessi
 }
 
 impl Controller {
+    /// Starts hosted servers with the runtimes PLAY would load into this folder's game (RD9).
+    fn hosted_server_starter(&self) -> InjectingStarter {
+        let weak = self.weak();
+        InjectingStarter::new(Box::new(move |win64| {
+            let ctrl = Controller::from_weak(&weak)
+                .ok_or_else(|| HostError::Transport("the launcher is shutting down".to_owned()))?;
+            ctrl.runtime_dlls(win64)
+                .map_err(|_| HostError::Transport("the runtime cannot be loaded into the hosted server".to_owned()))
+        }))
+    }
+
     /// Installs test seams for `rifts-host` (transport loader, pinned SHA-256, backend and server spawner).
     #[doc(hidden)]
     pub fn set_realms_seams(&self, seams: RealmsSeams) {
@@ -993,7 +1005,7 @@ impl Controller {
                 None => (
                     Arc::new(NativeTransportLoader) as Arc<dyn TransportLoader>,
                     Arc::new(ServerHostBackend::new(self.weak())) as Arc<dyn HostBackend>,
-                    Arc::new(NoopServerSpawner::new()) as Arc<dyn ServerSpawner>,
+                    Arc::new(PlayerHostSpawner::new(Arc::new(self.hosted_server_starter()))) as Arc<dyn ServerSpawner>,
                 ),
             }
         };

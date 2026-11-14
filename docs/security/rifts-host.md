@@ -22,17 +22,21 @@ commit reviewed.
   peer event lines, diagnostics and outgoing signals.
 - **In, from disk:** `realm-host-limits.json` and `p2p-host-settings.json` in the launcher's config folder, and the
   disable flag `DISABLE_COOP_TRANSPORT.flag`.
-- **Out:** the session folder (`bridge.conf`, `transport.secret`, `capability.secret`, `ticket.secret`), the hosted
+- **In, from the hosted server (untrusted: the game process):** one message on the ready pipe and one answer on the
+  control pipe (spec-runtime-r10 7.4).
+- **Out:** the fence on the control pipe, and the session folder (`bridge.conf`, `transport.secret`, `capability.secret`, `ticket.secret`), the hosted
   server's command line and environment, and calls into the backend port and the transport.
 
 There is no listener, no HTTP client and no account key here: the launcher's backend holds the key and makes every
-call. There is no dynamic loading and no `unsafe` (D1): the transport is the linked `rustic-rifts-transport` crate, so the
+call. The only `unsafe` is the player host pipes on Windows (below). There is no dynamic loading (D1): the transport
+is the linked `rustic-rifts-transport` crate, so the
 old checks on a loaded file (its SHA-256 against the Guard manifest, the export table, the ABI handshake) have nothing
 to check. `NativeTransportLoader::load` ignores the path and digest it is given.
 
 Fuzz targets in `fuzz`: `host_ready_line` (`parse_ice_ready`, every state and flag), `host_peer_line`
 (`apply_peer_line` on a live view), `host_transport_config` (`TransportConfig` JSON into `ice_files` for each role:
-nothing written carries CR or NUL or a line break inside a value).
+nothing written carries CR or NUL or a line break inside a value), `host_player_host_pipes` (the hosted server's
+launch and its pipe messages).
 
 ## Checklist
 
@@ -82,8 +86,39 @@ nothing written carries CR or NUL or a line break inside a value).
 - [ ] The command line binds the server to loopback (`127.0.0.1:<port>`, `-MULTIHOME=127.0.0.1`); `windows_command_line`
   quotes as the C runtime splits, so no argument can add another.
 - [ ] Pipe names and the launch id carry 16 fresh random bytes per start.
-- [ ] **Known gap (R8):** the launcher passes `NoopServerSpawner`, so no server is started; a passing host test is not
-  gameplay.
+- [ ] The launch environment carries `RUSTIC_ISLES_BACKEND_URL` (the bootstrap's `backend_url`), so the capability goes
+  to the backend that issued it; without it R1 points the server at `backend.invalid`.
+
+### The player host pipes (spec-runtime-r10 12.2)
+
+The launcher's ends of the runtime's ready and control pipes (`session/player_host`), behind
+`PlayerHostSpawner`, which the launcher kit gives an `InjectingStarter` (`docs/security/launcher-injection.md`). The
+only `unsafe` in this crate is `session/player_host/windows.rs`; every block has a SAFETY note.
+
+- [ ] Nothing starts unless the runtime's own verdict accepts the launch: `HostedPipes::from_launch` runs
+  `rustic_isles_runtime_core`'s `parse_launch` and `player_host::bootstrap` over the exact argv and environment, and
+  refuses a launch R10 would end with `0xE103`, or one whose `RUSTIC_ISLES_LAUNCHER_PID` is not this process
+  (`a_launch_the_runtime_would_refuse_is_never_started`). Refusals name the label, never a value.
+- [ ] The wire is the runtime core's codec, not a copy (`fence_request`, `fence_ack`, `ready_message`); a test checks
+  each direction against it (`the_wire_is_the_runtimes_codec_both_ways`).
+- [ ] The ready pipe's server end is made before the server starts: first instance (a squatter makes the start fail),
+  inbound, message mode, remote clients rejected, a protected DACL for this user and `LocalSystem` only, no fallback
+  to the default DACL (`the_ready_pipe_is_the_first_instance_and_this_users_alone`).
+- [ ] The ready pipe takes one client, which must be the started server's pid, and one message of at most 511 bytes;
+  only the exact `RIS1 READY` for this session, generation, launch id, port and `bind=127.0.0.1` passes. Any other
+  answer, a timeout (`READY_TIMEOUT`) or the server exiting fails the start, and the server is stopped.
+- [ ] The fence opens the control pipe with `SECURITY_SQOS_PRESENT | SECURITY_IDENTIFICATION`, checks the pipe is
+  served by the started server's pid, writes the exact `RIS1 FENCE` in one write and accepts only the exact
+  `FENCE_ACK`. A pipe that cannot be opened, a wrong server, a wrong or late answer (`FENCE_ACK_TIMEOUT`), or a
+  server still running `EXIT_AFTER_FENCE` after the acknowledgement: the launcher ends the process itself.
+- [ ] Every wait has a deadline (overlapped I/O, cancelled and drained before its buffer is freed) and gives up when
+  the server exits.
+- [ ] No pipe name, session id, launch id or capability reaches an error text or a `Debug` form (`HostedPipes`'s
+  `Debug` prints the port only).
+- [ ] Off Windows no server starts: the ready pipe cannot be made, so hosting fails before the starter runs
+  (spec-runtime-r10 17.4, Proton).
+- [ ] Fuzzed by `host_player_host_pipes`: a launch with one variable overwritten never panics and never yields a
+  malformed `READY`; a message passes only as the exact bytes the runtime's codec writes.
 
 ### Transport output
 

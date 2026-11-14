@@ -707,6 +707,7 @@ fn launch_environment() {
         max_players: Some(8),
         hub_afk_seconds: Some(60),
         trials_week: Some("002".into()),
+        backend_url: "https://127.0.0.1:8443".into(),
     };
     let inherited = [
         ("PATH", "p"),
@@ -723,6 +724,7 @@ fn launch_environment() {
     assert_eq!(environment["RUSTIC_ISLES_HUNT_GUARD_EVENTS"], "1");
     assert_eq!(environment["RUSTIC_ISLES_SESSION_GENERATION"], "3");
     assert_eq!(environment["RUSTIC_ISLES_TRIALS_WEEK"], "002");
+    assert_eq!(environment["RUSTIC_ISLES_BACKEND_URL"], "https://127.0.0.1:8443");
     assert!(
         !environment.contains_key("RUSTIC_ISLES_MAX_PLAYERS"),
         "hub limits are for hubs only"
@@ -738,7 +740,7 @@ fn launch_environment() {
     assert_eq!(hub["RUSTIC_ISLES_MAX_PLAYERS"], "8");
     assert_eq!(hub["RUSTIC_ISLES_HUB_AFK_SECONDS"], "60");
     assert_eq!(hub["RUSTIC_ISLES_HUNT_GUARD_EVENTS"], "0");
-    assert_eq!(hub.len(), 17);
+    assert_eq!(hub.len(), 18);
 }
 
 #[test]

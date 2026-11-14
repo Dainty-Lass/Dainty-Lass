@@ -17,11 +17,25 @@ in-process = ["dep:rustic-rifts-transport"]
 hex.workspace = true
 # The system random source, for session folder and pipe names
 rand.workspace = true
+# The player host's wire and the verdict the hosted runtime gives its launch (spec-runtime-r10 5, 7.4); pure
+rustic-isles-runtime-core = { path = "../rustic-isles-runtime-core" }
 rustic-rifts-seam.workspace = true
 rustic-rifts-transport = { workspace = true, optional = true }
 serde.workspace = true
 serde_json.workspace = true
 sha2.workspace = true
+
+[target."cfg(windows)".dependencies]
+# The launcher's ends of the player host pipes (session/player_host/windows.rs)
+windows-sys = { workspace = true, features = [
+    "Win32_Foundation",
+    "Win32_Security",
+    "Win32_Security_Authorization",
+    "Win32_Storage_FileSystem",
+    "Win32_System_IO",
+    "Win32_System_Pipes",
+    "Win32_System_Threading",
+] }
 
 [dev-dependencies]
 p256.workspace = true
