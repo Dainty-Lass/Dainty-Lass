@@ -16,6 +16,7 @@ pub mod log;
 pub mod login;
 pub mod memory;
 pub mod names;
+pub mod net;
 pub mod offsets;
 pub mod patch;
 pub mod pdata;

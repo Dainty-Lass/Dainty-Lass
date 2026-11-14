@@ -247,6 +247,24 @@ Fuzz targets in `fuzz`:
 - [ ] Fuzzed by `rustic_isles_runtime_player_host`: the bootstrap check never panics, a `Valid` verdict meets every
       grammar, and `is_fence` holds only for the exact request bytes.
 
+### Net driver safety (R11)
+
+- [ ] `R11` is in `LANDED` only with `R9` (`registry::tests::r11_lands_with_or_after_r9`): owning `SP-3@R11` turns
+      the AGPL's driver upkeep and manual tick off, and the MIT ones read R9's listen state.
+- [ ] Every NETD detour and every function R11 only calls (`TickDispatch`, `TickFlush`, `FindNamedNetDriver`,
+      `StaticConstructObject_Internal`) is checked against its first bytes in `.pdata` first; a mismatch hooks or calls
+      nothing (`ffi/net/mod.rs`, `Callee`). NETD-8 is owned and never installed.
+- [ ] The sanitiser walks `ClientConnections` only after `sane_pointer_array` (1 024) and keeps only connections
+      readable for `0x138`; a bad array is emptied, never freed (an engine allocation is not ours to free). Its
+      repairs and every other R11 write go through a checked write (readable, writable region, aligned).
+- [ ] No fault is caught around the manual dispatch and flush (rulings R11): a fault there ends the server through
+      R3's crash path. The drive runs once per frame per thread (a re-entry flag guards both calls).
+- [ ] NETD-3's two temporary changes (the feature array's `Num`, the class's `Abstract` bit) are put back within the
+      same call on every path, a panic included.
+- [ ] NETD-4/5 read and write nothing and answer a full 32-bit 1, after detach too (`ffi::net::tests`).
+- [ ] Every repeating `[MitNet]` line has a budget; NETD-6 logs the first 16 closes only, and never reads the
+      connection's `+0x1318`. No line carries a player name, address or key: only pointers, counts and the stack.
+
 ### Logging
 
 - [ ] Never logged: the command line, the gameserver key (`api_key`) or which request carried it, argv entry 1, any
