@@ -5,7 +5,7 @@ import { mkdirSync, mkdtempSync, rmSync } from "node:fs"
 import os from "node:os"
 import path from "node:path"
 
-import { restrictedDir } from "../scripts/restricted-data"
+import { bundleDir } from "../scripts/restricted-data"
 import { type Answer, type App, launch } from "./lib/app"
 import { install, installer, uninstall } from "./lib/nsis"
 
@@ -56,8 +56,7 @@ async function main(): Promise<void> {
     for (const dir of [profileClient, profileServer]) mkdirSync(path.join(dir, "User Data"), { recursive: true })
 
     step(2, "installing both bundles")
-    const bundles =
-      process.env.E2E_BUNDLE_DIR || path.join(restrictedDir(), "target", "release", "bundle", "nsis")
+    const bundles = bundleDir()
     const clientExe = install(installer(bundles, "Dainty Lass Launcher"), installClient, "dainty-launcher.exe")
     const managerExe = install(installer(bundles, "Dainty Lass Manager"), installServer, "dainty-manager.exe")
 

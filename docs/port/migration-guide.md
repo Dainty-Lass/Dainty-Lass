@@ -344,9 +344,9 @@ still owed, and are closed.
    without it keeps today's behaviour, its name carries a server prefix, a secret goes in `secrets.env`, and the host
    docs' tables move with it (AGENTS.md, "Configuration").
 8. ***Launcher text** goes at the end of both language files (`ui/apps/web/messages/`, or the launcher kit's
-   `core::i18n` for the backend's dialogs) with the same keys and placeholders. In `restricted/`,
-   `RR_UPDATE_GENERATED=1 cargo test -p dainty-launcher generated` regenerates, for a bridge command changed in
-   `bridge/spec.rs`, its TS types, hook list and permissions. Generated files are never edited.
+   `core::i18n` for the backend's dialogs) with the same keys and placeholders. At the root,
+   `RR_UPDATE_GENERATED=1 cargo test -p dainty-launcher-kit generated` regenerates, for a bridge command changed in
+   the kit's `bridge/spec.rs`, its TS types, hook list and permissions. Generated files are never edited.
 9. **Check** from the root of each workspace the change touched (the root, `restricted/`):
 
    ```bash

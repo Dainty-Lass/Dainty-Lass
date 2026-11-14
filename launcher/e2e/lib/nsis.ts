@@ -4,7 +4,7 @@ import { spawnSync } from "node:child_process"
 import { existsSync, readdirSync, readFileSync } from "node:fs"
 import path from "node:path"
 
-import { restrictedDir } from "../../scripts/restricted-data"
+import { appDir } from "../../scripts/restricted-data"
 
 // NSIS takes /D= unquoted and last, so the command line is written by hand rather than quoted per argument
 function runVerbatim(exe: string, args: string): number | null {
@@ -32,15 +32,13 @@ export function uninstall(dir: string): void {
   }
 }
 
+// The shell's tauri.conf.json names launcher/package.json as its version, as the release builds take it
 function bundleVersion(): string {
-  const tauriDir = path.join(restrictedDir(), "launcher", "src-tauri")
-  const config = JSON.parse(readFileSync(path.join(tauriDir, "tauri.conf.json"), "utf8")) as { version?: unknown }
+  const config = JSON.parse(readFileSync(path.join(appDir, "tauri.conf.json"), "utf8")) as { version?: unknown }
   if (typeof config.version === "string" && /^\d/.test(config.version)) return config.version
-  // Without a version in the config, Tauri takes the crate's
-  const manifest = readFileSync(path.join(tauriDir, "Cargo.toml"), "utf8")
-  const pkg = manifest.split(/^\[/m).find((section) => section.startsWith("package]")) ?? ""
-  const version = /^version\s*=\s*"([^"]+)"/m.exec(pkg)?.[1]
-  if (version === undefined) throw new Error(`no version in ${tauriDir}'s tauri.conf.json or Cargo.toml`)
+  const from = typeof config.version === "string" ? path.resolve(appDir, config.version) : ""
+  const version = from === "" ? undefined : (JSON.parse(readFileSync(from, "utf8")) as { version?: unknown }).version
+  if (typeof version !== "string") throw new Error(`no version in ${appDir}'s tauri.conf.json`)
   return version
 }
 

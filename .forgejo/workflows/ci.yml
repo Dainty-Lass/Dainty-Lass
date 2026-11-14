@@ -4,7 +4,7 @@
 #  - Rust (the MIT workspace at the root): fmt, clippy and tests on Linux and Windows, every package MIT and
 #    independent of restricted/, cargo-deny, a short run of every fuzz target
 #  - UI (ui/, dainty-dash): bun install, typecheck, test and build in every mode, with the AGPL bridge types from restricted/ (RD27)
-#  - Rust restricted (restricted/: the AGPL services, the launcher, the bins and the game modules): fmt, clippy and
+#  - Rust restricted (restricted/: the host parity tests, the launcher oracle and the game modules): fmt, clippy and
 #    tests on Linux and Windows, cargo-deny, a short run of every fuzz target
 #  - Paradox (ParadoxBackend, ParadoxDirector in restricted/modules/rustic-isles/reference/1.14.7): npm ci and tests,
 #    and the route inventory
@@ -53,7 +53,6 @@ jobs:
       rust: ${{ steps.pick.outputs.rust }}
       ui: ${{ steps.pick.outputs.ui }}
       rust-restricted: ${{ steps.pick.outputs.rust-restricted }}
-      rust-tauri: ${{ steps.pick.outputs.rust-tauri }}
       paradox: ${{ steps.pick.outputs.paradox }}
       legacy: ${{ steps.pick.outputs.legacy }}
       launcher: ${{ steps.pick.outputs.launcher }}
@@ -184,10 +183,6 @@ jobs:
             out="${family//_/-}"
             echo "$out=$value" | tee -a "$GITHUB_OUTPUT"
           done
-          # Tauri needs WebKitGTK and GTK3 to build on Linux
-          tauri=false
-          if grep -qE '^tauri[[:space:]]*=' restricted/launcher/src-tauri/Cargo.toml 2>/dev/null; then tauri=true; fi
-          echo "rust-tauri=$tauri" | tee -a "$GITHUB_OUTPUT"
 
   rust:
     # Forgejo appends the matrix value to the name
@@ -450,12 +445,13 @@ jobs:
         if: runner.os == 'Windows'
         run: echo "CARGO_BUILD_JOBS=6" >> "$GITHUB_ENV"
 
-      - name: Install the launcher's Linux build dependencies
-        if: runner.os == 'Linux' && needs.changes.outputs.rust-tauri == 'true'
+      # The launcher oracle's Secret Service keystore (dainty-launcher-kit); nothing here builds Tauri any more
+      - name: Install the launcher kit's Linux build dependencies
+        if: runner.os == 'Linux'
         run: |
           sudo=""; [ "$(id -u)" = 0 ] || sudo=sudo
           $sudo apt-get update
-          $sudo apt-get install -y --no-install-recommends libwebkit2gtk-4.1-dev libgtk-3-dev librsvg2-dev libayatana-appindicator3-dev libdbus-1-dev patchelf
+          $sudo apt-get install -y --no-install-recommends libdbus-1-dev pkg-config
 
       - name: No crate from the silentspud registry in Cargo.lock
         run: |
@@ -489,6 +485,11 @@ jobs:
 
       - name: Tests
         run: cargo test --workspace --locked --no-fail-fast
+
+      # The launcher oracle's realms and embedded-server cases (spec-tauri-shell §12.1); Linux only, sparing the PC
+      - name: The launcher oracle with the manager's server
+        if: runner.os == 'Linux'
+        run: cargo test -p dainty-launcher --locked --no-fail-fast --features server-gui,realms
 
 
   rust-restricted-deny:

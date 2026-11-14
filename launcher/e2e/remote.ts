@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
-// The manager's "Managed installs" screen against the remote-management stack that restricted's
+// The manager's "Managed installs" screen against the remote-management stack that the root's
 // docker/remote/test.sh leaves running. Windows with WebView2 and Docker only; run by hand, never in CI.
 import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs"
 import os from "node:os"
 import path from "node:path"
 
-import { restrictedDir } from "../scripts/restricted-data"
+import { bundleDir, repoDir } from "../scripts/restricted-data"
 import { type Answer, type App, launch } from "./lib/app"
 import { install, installer, uninstall } from "./lib/nsis"
 
@@ -42,16 +42,15 @@ async function ignore(work: () => unknown): Promise<void> {
   }
 }
 
-function compose(restricted: string, args: string[]): Buffer {
+function compose(args: string[]): Buffer {
   const argv = ["docker", "compose", "-p", "dainty-remote", "--profile", "remote"]
-  argv.push("-f", path.join(restricted, "compose.yaml"), "exec", "-T", ...args)
+  argv.push("-f", path.join(repoDir, "compose.yaml"), "exec", "-T", ...args)
   const child = Bun.spawnSync(argv, { stdout: "pipe", stderr: "inherit" })
   if (child.exitCode !== 0) throw new Error(`docker compose exec ${args.slice(0, 2).join(" ")} exited ${child.exitCode}`)
   return child.stdout
 }
 
 async function main(): Promise<void> {
-  const restricted = restrictedDir()
   const root = mkdtempSync(path.join(os.tmpdir(), "dl-e2e-remote-"))
   const profile = path.join(root, "profile-server")
   const workspace = path.join(profile, "User Data", "Server")
@@ -65,10 +64,9 @@ async function main(): Promise<void> {
     mkdirSync(workspace, { recursive: true })
 
     step(2, "finding the manager")
-    let exe = path.join(restricted, "target", "release", "dainty-manager.exe")
+    let exe = path.join(repoDir, "target", "release", "dainty-manager.exe")
     if (!existsSync(exe)) {
-      const bundles =
-        process.env.E2E_BUNDLE_DIR || path.join(restricted, "target", "release", "bundle", "nsis")
+      const bundles = bundleDir()
       mkdirSync(installDir, { recursive: true })
       installed = true
       exe = install(installer(bundles, "Dainty Lass Manager"), installDir, "dainty-manager.exe")
@@ -76,10 +74,10 @@ async function main(): Promise<void> {
 
     step(3, "copying the controller's workspace")
     // A sync first, so alpha's last contact falls inside the 60 s online window
-    compose(restricted, ["host-alpha", "dainty-host", "remote", "sync"])
+    compose(["host-alpha", "dainty-host", "remote", "sync"])
     // These hold keys: they stay in the temporary root and go with it
     for (const file of WORKSPACE_FILES) {
-      const contents = compose(restricted, ["host-controller", "cat", `${CONTAINER_WORKSPACE}/${file}`])
+      const contents = compose(["host-controller", "cat", `${CONTAINER_WORKSPACE}/${file}`])
       const target = path.join(workspace, ".workspace", ...file.split("/"))
       mkdirSync(path.dirname(target), { recursive: true })
       writeFileSync(target, contents)

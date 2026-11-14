@@ -25,11 +25,11 @@ dependencies.
 | root | The MIT cargo workspace, every package in `crates/<package name>`: the libraries (`dainty-controller`, `dainty-module-api`, `dainty-epic`, `dainty-history-ship`, `dainty-host` (the host kit composed with the services and the 1.14.7 module), `dainty-hostkit`, `dainty-inject`, `dainty-launcher-kit`, `dainty-plugin-host`, `dainty-protocol`, `dainty-proxy`, `dainty-remote`, `dainty-service-kit`, `dainty-service-plugin`, `dainty-store`), the services (`dainty-admin`, `dainty-gateway`, `dainty-content`), the core plugins (`dainty-network`, `dainty-chat`), the `*-plugin` libraries (`dainty-gateway-plugin`, `dainty-content-plugin`, `dainty-chat-plugin`, `rustic-isles-1-14-7-plugin`), the realms crates (`rustic-rifts-seam`, `rustic-rifts-admission`, `rustic-rifts-relay`, `rustic-rifts-realms`, `rustic-rifts-guard`, `rustic-rifts-transport`, `rustic-rifts-host`), the game module (`rustic-isles` and its areas `rustic-isles-*`, composed for 1.14.7 by `rustic-isles-1-14-7`) and `dainty-lass`, the core binary. `backend` and `director` are RR1's empty stubs, superseded by the `rustic-isles` crates |
 | `fuzz/` | `cargo fuzz` targets for the MIT crates, a workspace of its own (excluded from the main one) |
 | `ui/` | dainty-dash: the staff dashboard, the launcher and server-manager pages `restricted/`'s Tauri shells serve, and the fleet agent. MIT; its generated bridge types come from `restricted/` at build time (`bun run restricted-data`) |
-| `launcher/` | The launcher's JavaScript side (RD27): the isolation hook, the scripts the Tauri shells and the release run, and their tests. The Rust shell (`restricted/launcher/src-tauri`) is in `restricted/` |
+| `launcher/` | The launcher's JavaScript side (RD27): the isolation hook, the scripts the Tauri shell and the release run, and their tests. The Rust shell is the MIT `crates/dainty-launcher-app` |
 | `native/` | `runtime-loader`, the `winmm.dll` the game loads, which loads the Rustic Isles runtime, and `rustic-isles-exporter`, the catalog exporter (MIT, clean-room from `docs/port/spec-runtime-loader.md` and `spec-catalog-exporter.md`). Crates of their own outside both workspaces, so workspace-wide `cargo` commands don't cover them |
 | `scripts/` | `replay-capture.mjs` |
 | `docs/` | `architecture.md`, the plans, `port/` (the migration guide, delta and catch-up lists), `security/` for the MIT components (indexed in [`SECURITY_REVIEW.md`](SECURITY_REVIEW.md)) |
-| `restricted/` | The AGPL-3.0-only workspace (`restricted/Cargo.toml`): `crates/` (`dainty-host-parity`, the Node host kit's tests run against the root's `dainty-host`), `launcher/src-tauri` (Tauri: `dainty-launcher`, `dainty-manager`), `modules/rustic-isles` and `modules/rustic-rifts`, `legacy/` (the 1.4.4 importer's oracle), `docker/`, `compose.yaml`, and the hosting, player and Paradox docs. [`restricted/AGENTS.md`](restricted/AGENTS.md) covers them |
+| `restricted/` | The AGPL-3.0-only workspace (`restricted/Cargo.toml`): `crates/` (`dainty-host-parity`, the Node host kit's tests run against the root's `dainty-host`), `launcher/src-tauri` (the launcher's oracle tests, test-only: the apps are the MIT shell's), `modules/rustic-isles` and `modules/rustic-rifts`, `legacy/` (the 1.4.4 importer's oracle), `docker/`, `compose.yaml`, and the hosting, player and Paradox docs. [`restricted/AGENTS.md`](restricted/AGENTS.md) covers them |
 
 **Names.** The app is Dainty Lass, and DaintyLass only where a space can't go (DD1). A crate, binary or module is
 `<prefix>-<module>`: `dainty-` for core modules (`dainty-lass` is the core run at launch, `dainty-dash` the
@@ -104,12 +104,12 @@ hides the ones after it). The toolchain is pinned in `rust-toolchain.toml`; `car
 
 ### Launcher bridge
 
-The page talks to Rust only through the commands in `restricted/launcher/src-tauri/src/bridge/spec.rs`.
-The TS types (`ui/packages/bridge/src/generated/types.ts`), the isolation hook's command list
-(`launcher/isolation/commands.js`) and the permission set (`permissions/app-commands.toml`) are generated from it
-there and checked by a test. `bun run restricted-data`, in `ui/` and in `launcher/`, copies the first two in from
-`restricted/` (or `DAINTY_RESTRICTED_DIR`); the copies are never committed outside `restricted/`. Never edit them by
-hand: `RR_UPDATE_GENERATED=1 cargo test -p dainty-launcher generated` in `restricted/` rewrites them. The page's method for each command is `ui/packages/bridge/src/api.ts`;
+The page talks to Rust only through the commands in `crates/dainty-launcher-kit/src/bridge/spec.rs`.
+The TS types, the isolation hook's command list and the permission set are generated from it into
+`crates/dainty-launcher-kit/generated` and checked by a test. `bun run restricted-data`, in `ui/` and in `launcher/`,
+copies the first two to `ui/packages/bridge/src/generated/types.ts` and `launcher/isolation/commands.js`; the copies
+are never committed. Never edit them by hand: `RR_UPDATE_GENERATED=1 cargo test -p dainty-launcher-kit generated`
+rewrites them. The page's method for each command is `ui/packages/bridge/src/api.ts`;
 `bun run test` in `launcher` drives it through the isolation hook and fails a command no method calls. The account
 key never crosses the bridge.
 
@@ -204,8 +204,8 @@ reference, Docker and the Tauri shell are tested there.
 
 `ui/` and `launcher/` are one Bun workspace at the root: one `bun install` (from the root or either folder) fills
 the root `node_modules` from the root `bun.lock`. A JS dependency is added in its own package's `package.json`;
-`overrides`, `patchedDependencies` and `trustedDependencies` live in the root one. `restricted/launcher` and the
-Paradox reference keep their own lockfiles, because their builds run from `restricted/` alone.
+`overrides`, `patchedDependencies` and `trustedDependencies` live in the root one. The Paradox reference
+keeps its own lockfile, because its build runs from `restricted/` alone.
 
 Not obvious from reading the suites:
 
