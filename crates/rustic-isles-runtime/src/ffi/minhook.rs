@@ -1,20 +1,20 @@
-//! The vendored MinHook's C API (`minhook/include/MinHook.h`). Only the broker calls it (R0 7.2).
+//! MinHook through the `minhook` crate. Only the broker calls it (R0 7.2).
 
 use std::ffi::c_void;
 use std::sync::OnceLock;
 
-/// `MH_OK`.
-pub const MH_OK: i32 = 0;
-/// `MH_ERROR_ALREADY_INITIALIZED`.
-pub const MH_ERROR_ALREADY_INITIALIZED: i32 = 1;
-/// `MH_UNKNOWN`: also what an export answers when it caught a panic.
-pub const MH_UNKNOWN: i32 = -1;
+use minhook::{MH_STATUS, MinHook};
 
+/// `MH_OK`.
+pub const MH_OK: i32 = MH_STATUS::MH_OK as i32;
+/// `MH_ERROR_ALREADY_INITIALIZED`.
+pub const MH_ERROR_ALREADY_INITIALIZED: i32 = MH_STATUS::MH_ERROR_ALREADY_INITIALIZED as i32;
+/// `MH_UNKNOWN`: also what an export answers when it caught a panic.
+pub const MH_UNKNOWN: i32 = MH_STATUS::MH_UNKNOWN as i32;
+
+// The crate's own init panics on failure; calling it first, from the crate's linked copy, keeps the status instead.
 unsafe extern "system" {
     fn MH_Initialize() -> i32;
-    fn MH_CreateHook(target: *mut c_void, detour: *mut c_void, original: *mut *mut c_void) -> i32;
-    fn MH_RemoveHook(target: *mut c_void) -> i32;
-    fn MH_EnableHook(target: *mut c_void) -> i32;
 }
 
 /// MinHook's status name, for the install lines.
@@ -52,24 +52,24 @@ pub fn initialize() -> i32 {
 
 /// `MH_CreateHook(target, detour, &trampoline)`: the trampoline on success.
 pub fn create(target: usize, detour: usize) -> Result<usize, i32> {
-    let mut trampoline: *mut c_void = std::ptr::null_mut();
     // SAFETY: MinHook checks the target is executable and decodes its prologue before patching anything
-    let status = unsafe { MH_CreateHook(target as *mut c_void, detour as *mut c_void, &mut trampoline) };
-    if status == MH_OK {
-        Ok(trampoline as usize)
-    } else {
-        Err(status)
-    }
+    unsafe { MinHook::create_hook(target as *mut c_void, detour as *mut c_void) }
+        .map(|trampoline| trampoline as usize)
+        .map_err(|status| status as i32)
 }
 
 /// `MH_EnableHook(target)`.
 pub fn enable(target: usize) -> i32 {
     // SAFETY: only for a target `create` hooked
-    unsafe { MH_EnableHook(target as *mut c_void) }
+    status(unsafe { MinHook::enable_hook(target as *mut c_void) })
 }
 
 /// `MH_RemoveHook(target)`, to roll back a hook that could not be enabled.
 pub fn remove(target: usize) -> i32 {
     // SAFETY: only for a target `create` hooked
-    unsafe { MH_RemoveHook(target as *mut c_void) }
+    status(unsafe { MinHook::remove_hook(target as *mut c_void) })
+}
+
+fn status(result: Result<(), MH_STATUS>) -> i32 {
+    result.map_or_else(|status| status as i32, |()| MH_OK)
 }
