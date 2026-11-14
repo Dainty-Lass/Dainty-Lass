@@ -10,6 +10,7 @@ pub mod flags;
 pub mod frame;
 pub mod headless;
 pub mod http;
+pub mod listen;
 pub mod log;
 pub mod login;
 pub mod memory;
@@ -17,6 +18,7 @@ pub mod names;
 pub mod offsets;
 pub mod patch;
 pub mod pdata;
+pub mod reflect;
 pub mod registry;
 
 /// The seam ABI the AGPL runtime checks before it routes a hook through this DLL (R0 7.3).

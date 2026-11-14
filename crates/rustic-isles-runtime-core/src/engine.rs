@@ -36,6 +36,16 @@ impl<'m> Engine<'m> {
         base.checked_add(offset)
     }
 
+    /// The memory it reads through.
+    pub fn memory(&self) -> &'m dyn Memory {
+        self.memory
+    }
+
+    /// The `FUObjectArray`'s address.
+    pub fn objects(&self) -> usize {
+        self.objects
+    }
+
     /// The element count, bounded by `MAX_OBJECTS`.
     pub fn object_count(&self) -> Option<i32> {
         let count = self.memory.i32_at(Self::at(self.objects, layout::OBJECTS_COUNT)?)?;

@@ -3,7 +3,7 @@
 //! name to `LANDED` (and, for a new id, its line).
 
 /// The slices whose ids this build owns.
-pub const LANDED: &[&str] = &["R0", "R1", "R2", "R3", "R4", "R5"];
+pub const LANDED: &[&str] = &["R0", "R1", "R2", "R3", "R4", "R5", "R9"];
 
 /// The longest id `owns` accepts, in bytes.
 pub const MAX_ID_BYTES: usize = 47;
@@ -320,7 +320,7 @@ mod tests {
         if LANDED == ["R0", "R1", "R2", "R3", "R4"] {
             assert_eq!(owned_count(), 25);
         }
-        assert!(!owns(b"SP-3@R9"));
+        assert_eq!(owns(b"SP-3@R9"), LANDED.contains(&"R9"));
         assert!(!owns(b"DX-8"));
         assert!(!owns(b"NOPE-1"));
         assert!(!owns(b""));
@@ -339,6 +339,23 @@ mod tests {
         }
         assert!(owns(b"SP-2@R5"));
         assert!(!owns(b"SP-2@R7"));
+    }
+
+    #[test]
+    fn owns_r9() {
+        // R9 lands alone (rulings R9): SRV-1 and its feature id, not R8's, R10's or R11's
+        assert!(owns(b"SRV-1"));
+        assert!(owns(b"SP-3@R9"));
+        for id in ["SP-3@R8", "SP-3@R10", "SP-3@R11"] {
+            let slice = entry(id).map(|line| line.slice).unwrap_or_default();
+            assert_eq!(owns(id.as_bytes()), LANDED.contains(&slice), "{id}");
+        }
+        assert_eq!(entry("SRV-1").map(|line| line.kind), Some(Kind::Detour));
+        assert_eq!(
+            ENTRIES.iter().filter(|line| line.slice == "R9").count(),
+            2,
+            "R9 adds two"
+        );
     }
 
     #[test]

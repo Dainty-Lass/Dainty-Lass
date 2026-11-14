@@ -11,6 +11,8 @@ pub mod headless;
 #[cfg(minhook)]
 mod lifecycle;
 #[cfg(minhook)]
+pub mod listen;
+#[cfg(minhook)]
 pub mod login;
 
 /// Every raw pointer read, Win32 call, MinHook call, detour body and C export (RT-1).

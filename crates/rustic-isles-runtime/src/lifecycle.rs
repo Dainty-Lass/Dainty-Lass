@@ -44,6 +44,11 @@ pub fn init() {
     if server {
         crate::headless::register();
     }
+    let listen = if server {
+        crate::listen::install(base, initialized)
+    } else {
+        Vec::new()
+    };
     // Slices register their handlers before this point; the lists are read lock-free from here on
     handlers::freeze();
     let hooks_off = (initialized != minhook::MH_OK).then(|| minhook::status_name(initialized));
@@ -66,6 +71,7 @@ pub fn init() {
         installs.push(chain("SP-2", dispatch::install_sp2));
         installs.push(chain("SP-3", dispatch::install_sp3));
         installs.push(chain("HTTP-1", http::install));
+        installs.extend(listen);
         installs.push(exit::install_engine_error(base, hooks_off));
         installs.push(exit::install_crash_wait());
     } else {
