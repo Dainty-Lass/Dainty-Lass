@@ -156,7 +156,7 @@ impl Broker {
     }
 }
 
-/// Adds a MIT wrapper on `target` (band `Mit`, smaller `order` outer). `next` is the wrapper's own cell, which it
+/// Adds a wrapper on `target` (smaller `order` outer). `next` is the wrapper's own cell, which it
 /// loads on every call. A slice never calls MinHook itself.
 pub fn hook(target: usize, wrapper: usize, order: i32, next: &'static NextCell) -> Result<(), i32> {
     let mut broker = broker();
@@ -167,7 +167,7 @@ pub fn hook(target: usize, wrapper: usize, order: i32, next: &'static NextCell) 
     Ok(())
 }
 
-/// Removes a MIT wrapper; its cell keeps its last value so a call in flight finishes.
+/// Removes a wrapper; its cell keeps its last value so a call in flight finishes.
 pub fn unhook(target: usize, wrapper: usize) -> Result<(), i32> {
     let mut broker = broker();
     let hook = broker.hooks.get_mut(&target).ok_or(4)?;
@@ -177,31 +177,7 @@ pub fn unhook(target: usize, wrapper: usize) -> Result<(), i32> {
     Ok(())
 }
 
-/// `rir_chain_add_inner`: the AGPL wrapper, innermost; its next is the trampoline.
-pub fn add_inner(target: usize, wrapper: usize) -> Result<usize, i32> {
-    let mut broker = broker();
-    let hook = broker.hooked(target)?;
-    hook.chain.add_agpl(wrapper).map_err(ChainError::status)?;
-    let trampoline = hook.chain.trampoline();
-    broker.publish(target);
-    Ok(trampoline)
-}
-
-/// `rir_chain_remove_inner`.
-pub fn remove_inner(target: usize, wrapper: usize) -> Result<(), i32> {
-    let mut broker = broker();
-    let hook = broker.hooks.get_mut(&target).ok_or(ChainError::NotCreated.status())?;
-    hook.chain.remove_agpl(wrapper).map_err(ChainError::status)?;
-    broker.publish(target);
-    Ok(())
-}
-
 /// `original(T)`: the trampoline when the broker hooked `T`, else `T`.
 pub fn original(target: usize) -> usize {
     rustic_isles_runtime_core::chain::original(broker().hooks.get(&target).map(|hook| &hook.chain), target)
-}
-
-/// `chained_by_agpl(T)`: the AGPL band holds a wrapper on `T` (spec-runtime-r20 10.3).
-pub fn chained_by_agpl(target: usize) -> bool {
-    broker().hooks.get(&target).is_some_and(|hook| hook.chain.has_agpl())
 }

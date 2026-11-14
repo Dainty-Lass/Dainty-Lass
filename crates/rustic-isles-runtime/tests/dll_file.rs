@@ -1,5 +1,5 @@
-//! The built DLL's tables, read from the file (R0 10.1): the five seam exports by name, and no dynamic CRT
-//! import (the game folder ships an old msvcp140.dll the loader would prefer).
+//! The built DLL's tables, read from the file (R0 10.1): none of the retired seam exports (spec-runtime-r21 4.2),
+//! and no dynamic CRT import (the game folder ships an old msvcp140.dll the loader would prefer).
 #![cfg(all(windows, target_arch = "x86_64"))]
 #![allow(clippy::unwrap_used, clippy::expect_used, reason = "a panic is how a test fails")]
 
@@ -69,6 +69,9 @@ impl Pe {
     }
     fn exports(&self) -> Vec<String> {
         let (rva, _) = self.directory(0);
+        if rva == 0 {
+            return Vec::new();
+        }
         let at = self.offset(rva);
         let count = self.u32(at + 24);
         let names = self.offset(self.u32(at + 32));
@@ -89,7 +92,8 @@ impl Pe {
 }
 
 #[test]
-fn seam_exports_by_name() {
+fn no_seam_exports() {
+    // A stale AGPL runtime beside this DLL fails to resolve them and ends the game with 0xE10A (R21 4.2)
     let pe = Pe::parse(std::fs::read(dll_path()).unwrap());
     let exports = pe.exports();
     for name in [
@@ -98,21 +102,10 @@ fn seam_exports_by_name() {
         "rir_chain_add_inner",
         "rir_chain_remove_inner",
         "rir_original",
+        "rir_listen_driver",
     ] {
-        assert!(
-            exports.iter().any(|export| export == name),
-            "{name} missing from {exports:?}"
-        );
+        assert!(!exports.iter().any(|export| export == name), "{name} in {exports:?}");
     }
-    assert_eq!(rustic_isles_runtime::ffi::exports::rir_seam_version(), 1);
-}
-
-#[test]
-fn listen_driver_export() {
-    // R9 9.2: optional, outside the seam's required set; null until a listen succeeded
-    let pe = Pe::parse(std::fs::read(dll_path()).unwrap());
-    assert!(pe.exports().iter().any(|export| export == "rir_listen_driver"));
-    assert!(rustic_isles_runtime::ffi::listen::rir_listen_driver().is_null());
 }
 
 #[test]

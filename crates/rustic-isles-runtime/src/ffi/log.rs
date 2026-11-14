@@ -1,4 +1,4 @@
-//! The per-port log file shared with the AGPL runtime (R0 4.3): one `WriteFile` per line, a handle reopened when
+//! The per-port log file (R0 4.3): one `WriteFile` per line, a handle reopened when
 //! it goes stale, and a private open-append-close whenever the shared handle is busy, so logging never deadlocks.
 
 use super::flags::path_next_to_exe;
@@ -71,8 +71,7 @@ pub fn raw_for_port(port: u16, message: &str) {
     }
 }
 
-/// Keeps a line for after the status lines: the exports run under the AGPL's loader lock, where nothing is
-/// written.
+/// Keeps a line for after the status lines: installs run under the loader lock, where nothing is written.
 pub fn defer(message: String) {
     if let Ok(mut deferred) = DEFERRED.lock()
         && deferred.len() < MAX_DEFERRED

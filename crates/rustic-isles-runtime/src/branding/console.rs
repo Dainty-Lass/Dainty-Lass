@@ -1,5 +1,4 @@
 //! The F2 console, `CON-1` (spec-runtime-r17 6.2): made on the game thread 3 s after the game viewport appears.
-//! The AGPL's MainThread stands down when this DLL owns `CON-1` (runtime patch 0044).
 
 use crate::ffi::{engine, log, reflect, win};
 use crate::handlers::PeCall;

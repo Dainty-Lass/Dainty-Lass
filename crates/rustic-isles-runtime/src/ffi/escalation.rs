@@ -59,8 +59,8 @@ pub fn now_ticks() -> i64 {
     filetime_to_ticks((u64::from(time.dwHighDateTime) << 32) | u64::from(time.dwLowDateTime))
 }
 
-/// `UObject::ProcessEvent`'s original past every wrapper, MIT and AGPL, with no parameters: no dispatch handler in
-/// either DLL sees the spawn call itself (R18 4.3 step 6). The caller checked `object` live and `function` found in
+/// `UObject::ProcessEvent`'s original past every wrapper, with no parameters: no dispatch handler
+/// sees the spawn call itself (R18 4.3 step 6). The caller checked `object` live and `function` found in
 /// its class chain. R17's `reflect::call` goes through the hooked entry instead.
 pub fn process_event_original(object: usize, function: usize) -> bool {
     let Some(entry) = target("SP-2")

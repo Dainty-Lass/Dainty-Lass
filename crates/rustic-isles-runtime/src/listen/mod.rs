@@ -55,19 +55,17 @@ static SKIPPING: AtomicBool = AtomicBool::new(false);
 
 struct Progress {
     started: bool,
-    stood_down: bool,
     schedule: ListenSchedule,
     tried: bool,
 }
 
 static PROGRESS: Mutex<Progress> = Mutex::new(Progress {
     started: false,
-    stood_down: false,
     schedule: ListenSchedule::new(),
     tried: false,
 });
 
-/// The listen, once it succeeded; always `None` when the AGPL listens (6.5). Readable from any thread.
+/// The listen, once it succeeded. Readable from any thread.
 pub fn state() -> Option<Listening> {
     STATE.get().copied()
 }
@@ -89,7 +87,7 @@ pub fn game_net_driver_name() -> Option<Name> {
 
 /// Who listens in this process; `None` for an unknown auth mode, which ends at the first frame.
 pub fn decision() -> Option<Decision> {
-    core::listen_decision(config::auth_mode(), registry::owns(b"SP-3@R10"))
+    core::listen_decision(config::auth_mode())
 }
 
 /// R10 registers its module once, in its own install before `handlers::freeze()`.
@@ -164,14 +162,7 @@ fn listen_tick(engine: usize, _delta: f32) {
     if listening() {
         return;
     }
-    let Some(decision) = decision() else {
-        return;
-    };
-    if decision == Decision::AgplListens {
-        if !progress.stood_down {
-            progress.stood_down = true;
-            log::line(lines::STAND_DOWN);
-        }
+    if decision().is_none() {
         return;
     }
     match progress.schedule.poll(win::tick(), raw::gworld().is_some()) {

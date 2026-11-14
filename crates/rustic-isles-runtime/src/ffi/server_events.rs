@@ -5,7 +5,7 @@
 
 use super::loading::restart_gate;
 use super::memory::{query, read, read_unaligned, readable, readable_this_frame, readable_unaligned};
-use super::{broker, detaching, engine, flags, listen as raw_listen, log, reflect, win};
+use super::{detaching, engine, flags, listen as raw_listen, log, reflect, win};
 use crate::config;
 use crate::handlers::{self, PeCall, PeHandler, Point, TickHandler, Verdict};
 use rustic_isles_runtime_core::offsets::r20;
@@ -395,16 +395,14 @@ fn player_can_restart(call: &PeCall) -> Verdict {
 
 struct Tick {
     floor_done: bool,
-    skip: Option<bool>,
-    tick_filter_flag: Option<bool>,
+    announced: bool,
     tick_stamina: HashMap<usize, usize>,
 }
 
 static TICK: LazyLock<Mutex<Tick>> = LazyLock::new(|| {
     Mutex::new(Tick {
         floor_done: false,
-        skip: None,
-        tick_filter_flag: None,
+        announced: false,
         tick_stamina: HashMap::new(),
     })
 });
@@ -488,9 +486,6 @@ fn connected_players(_engine: usize, _delta: f32) {
     let Ok(mut tick) = TICK.try_lock() else {
         return;
     };
-    let flag = *tick
-        .tick_filter_flag
-        .get_or_insert_with(|| flags::flag(names::SERVER_TICK_FILTER));
     let Some(driver) = driver() else {
         return;
     };
@@ -504,18 +499,9 @@ fn connected_players(_engine: usize, _delta: f32) {
     if pawns.is_empty() {
         return;
     }
-    let skip = *tick.skip.get_or_insert_with(|| {
-        let target = win::image_base().saturating_add(r20::TICK_FILTER_HELPER as usize);
-        let skip = core::stamina_skip(flag, broker::chained_by_agpl(target));
-        log::line(if skip {
-            lines::STAMINA_SKIPPED
-        } else {
-            lines::STAMINA_MANUAL
-        });
-        skip
-    });
-    if skip {
-        return;
+    if !tick.announced {
+        tick.announced = true;
+        log::line(lines::STAMINA_MANUAL);
     }
     for pawn in pawns {
         tick_stamina(&mut tick, pawn);
@@ -568,36 +554,5 @@ mod tests {
         assert!(tick.before.is_none() && tick.after.is_some());
         let (pe, tick) = table(true, |id| id == b"SP-3@R20");
         assert!(pe.is_empty() && tick.is_some(), "each id alone");
-    }
-
-    #[inline(never)]
-    extern "C" fn chained_target(a: u64) -> u64 {
-        std::hint::black_box(a) ^ 0x5A5A
-    }
-
-    extern "C" fn agpl_wrapper(a: u64) -> u64 {
-        std::hint::black_box(a)
-    }
-
-    #[test]
-    fn chained_by_agpl_reads_the_broker() {
-        use super::super::exports::{rir_chain_add_inner, rir_chain_remove_inner};
-        let target = chained_target as *const () as usize;
-        let wrapper = agpl_wrapper as *const () as usize;
-        assert!(!broker::chained_by_agpl(target), "untouched");
-        let mut next: *mut c_void = std::ptr::null_mut();
-        // SAFETY: valid pointers for the export
-        let status = unsafe {
-            rir_chain_add_inner(
-                target as *mut c_void,
-                wrapper as *mut c_void,
-                c"TEST-R20".as_ptr(),
-                &mut next,
-            )
-        };
-        assert_eq!(status, 0);
-        assert!(broker::chained_by_agpl(target));
-        assert_eq!(rir_chain_remove_inner(target as *mut c_void, wrapper as *mut c_void), 0);
-        assert!(!broker::chained_by_agpl(target));
     }
 }

@@ -3,11 +3,10 @@
 
 use super::broker::{self, NextCell};
 use super::dispatch::{PePoint, pe_dispatch};
-use super::exports::{rir_chain_add_inner, rir_chain_remove_inner, rir_original, rir_owns, rir_seam_version};
 use std::cell::RefCell;
 use std::ffi::c_void;
 use std::hint::black_box;
-use std::sync::atomic::{AtomicU32, AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicU32, Ordering};
 
 type AddFn = extern "C" fn(u64, u64) -> u64;
 
@@ -38,7 +37,6 @@ extern "C" fn target_add(a: u64, b: u64) -> u64 {
 static OUTER_NEXT: NextCell = NextCell::new();
 static INNER_NEXT: NextCell = NextCell::new();
 static ABSORB_NEXT: NextCell = NextCell::new();
-static AGPL_NEXT: AtomicUsize = AtomicUsize::new(0);
 
 extern "C" fn mit_outer(a: u64, b: u64) -> u64 {
     trace("outer");
@@ -48,11 +46,6 @@ extern "C" fn mit_outer(a: u64, b: u64) -> u64 {
 extern "C" fn mit_inner(a: u64, b: u64) -> u64 {
     trace("inner");
     next_fn(INNER_NEXT.load())(a, b + 1) + 1000
-}
-
-extern "C" fn agpl_wrapper(a: u64, b: u64) -> u64 {
-    trace("agpl");
-    next_fn(AGPL_NEXT.load(Ordering::Acquire))(a, b) + 10_000
 }
 
 extern "C" fn absorber(_: u64, _: u64) -> u64 {
@@ -74,55 +67,21 @@ fn broker_chain_on_real_code() {
     let target = address(target_add);
     assert_eq!(call(target, 1, 1), 3);
     assert_eq!(take_trace(), ["original"]);
+    assert_eq!(broker::original(target), target, "unhooked: the target itself");
 
     broker::hook(target, address(mit_inner), 5, &INNER_NEXT).unwrap();
     broker::hook(target, address(mit_outer), -1, &OUTER_NEXT).unwrap();
-    let mut next: *mut c_void = std::ptr::null_mut();
-    let id = c"TEST-1";
-    // SAFETY: valid pointers for the export
-    let status = unsafe {
-        rir_chain_add_inner(
-            target as *mut c_void,
-            address(agpl_wrapper) as *mut c_void,
-            id.as_ptr(),
-            &mut next,
-        )
-    };
-    assert_eq!(status, 0);
-    AGPL_NEXT.store(next as usize, Ordering::Release);
-    let mut second: *mut c_void = std::ptr::null_mut();
-    // SAFETY: as above
-    let again = unsafe {
-        rir_chain_add_inner(
-            target as *mut c_void,
-            address(absorber) as *mut c_void,
-            id.as_ptr(),
-            &mut second,
-        )
-    };
-    assert_eq!(again, 3, "the AGPL band holds one wrapper");
     assert_eq!(
-        rir_original(target as *mut c_void),
-        next,
-        "the AGPL's next is the trampoline"
+        broker::hook(target, address(mit_outer), 0, &OUTER_NEXT),
+        Err(3),
+        "a wrapper is chained once"
     );
 
-    // outer: a=2 → inner: b=2 → agpl → original 2+4=6, then +10000, +1000, +100
-    assert_eq!(call(target, 1, 1), 11_106);
-    assert_eq!(take_trace(), ["outer", "inner", "agpl", "original"]);
-
-    assert_eq!(
-        rir_chain_remove_inner(target as *mut c_void, address(agpl_wrapper) as *mut c_void),
-        0
-    );
-    assert_eq!(
-        rir_chain_remove_inner(target as *mut c_void, address(agpl_wrapper) as *mut c_void),
-        4
-    );
+    // outer: a=2 → inner: b=2 → original 2+4=6, then +1000, +100
     assert_eq!(call(target, 1, 1), 1_106);
     assert_eq!(take_trace(), ["outer", "inner", "original"]);
 
-    let original = next_fn(rir_original(target as *mut c_void) as usize);
+    let original = next_fn(broker::original(target));
     assert_eq!(original(1, 1), 3);
     assert_eq!(take_trace(), ["original"], "original() runs past every wrapper");
 
@@ -130,34 +89,15 @@ fn broker_chain_on_real_code() {
     assert_eq!(call(target, 1, 1), 7);
     assert_eq!(take_trace(), ["absorb"], "an absorbing wrapper stops the chain");
     broker::unhook(target, address(absorber)).unwrap();
+    assert_eq!(broker::unhook(target, address(absorber)), Err(4));
     assert_eq!(call(target, 1, 1), 1_106);
     assert_eq!(take_trace(), ["outer", "inner", "original"]);
 }
 
 #[test]
 fn original_of_an_unhooked_target_is_itself() {
-    let unhooked = 0x1234_5678usize as *mut c_void;
-    assert_eq!(rir_original(unhooked), unhooked);
-    assert_eq!(rir_chain_remove_inner(unhooked, unhooked), 4);
-}
-
-#[test]
-fn seam_answers() {
-    assert_eq!(rir_seam_version(), 1);
-    // SAFETY: NUL-terminated strings or null
-    unsafe {
-        assert_eq!(rir_owns(c"SP-1".as_ptr()), 1);
-        assert_eq!(rir_owns(c"SP-3".as_ptr()), 1);
-        assert_eq!(rir_owns(c"HTTP-1".as_ptr()), 1);
-        assert_eq!(rir_owns(c"HTTP-1@R2".as_ptr()), 1);
-        assert_eq!(rir_owns(c"HTTP-1@R10".as_ptr()), 1);
-        assert_eq!(rir_owns(c"SP-2@R20".as_ptr()), 1);
-        assert_eq!(rir_owns(c"DX-1".as_ptr()), 0);
-        assert_eq!(rir_owns(c"".as_ptr()), 0);
-        assert_eq!(rir_owns(std::ptr::null()), 0);
-        let long = std::ffi::CString::new("S".repeat(48)).unwrap();
-        assert_eq!(rir_owns(long.as_ptr()), 0);
-    }
+    assert_eq!(broker::original(0x1234_5678), 0x1234_5678);
+    assert_eq!(broker::unhook(0x1234_5678, 0x1234_5678), Err(4));
 }
 
 static DEPTH_POINT: PePoint = PePoint::new("TEST-PE", None, false);

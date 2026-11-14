@@ -10,8 +10,6 @@ pub mod flags {
     pub const DISABLE_OWNER_PAWN_RELEVANCY: &str = "DISABLE_OWNER_PAWN_RELEVANCY";
     /// The third switch of the development damage multiplier (9.1).
     pub const DEBUG_DAMAGE_MULTIPLIER: &str = "DEBUG_DAMAGE_MULTIPLIER";
-    /// R19's tick filter switch, only consulted for the stamina skip (10.3).
-    pub const SERVER_TICK_FILTER: &str = "SERVER_TICK_FILTER";
 }
 
 /// The variables R20 reads through `env_value`, with their caps (9.1, 10.2).
@@ -214,13 +212,6 @@ pub fn needs_floor(duration: f32) -> bool {
     duration.is_nan() || duration <= 0.0
 }
 
-// ---- 10.3: the stamina skip ----
-
-/// Skip the manual tick only when the AGPL's tick filter hook is both switched on and chained.
-pub fn stamina_skip(flag: bool, agpl_chained: bool) -> bool {
-    flag && agpl_chained
-}
-
 /// `ECityExecFilter::Both`.
 pub const EXEC_BOTH: u8 = 2;
 /// `ERemoteExecFilter::All`.
@@ -237,9 +228,6 @@ pub mod lines {
     /// `StartMatch` not found.
     pub const START_MATCH_MISSING: &str =
         "[NoLocalPlayer] GameMode.StartMatch not found; the match starts at the game mode's retry";
-    /// The stamina tick skipped.
-    pub const STAMINA_SKIPPED: &str = "[Stamina] manual TickStamina skipped: the AGPL's tick filter hook \
-        (SERVER_TICK_FILTER.flag) runs it in the character's tick";
     /// The stamina tick on.
     pub const STAMINA_MANUAL: &str = "[Stamina] manual TickStamina each frame for connected players";
 
@@ -477,10 +465,6 @@ mod tests {
 
     #[test]
     fn stamina() {
-        assert!(!stamina_skip(false, false));
-        assert!(!stamina_skip(false, true));
-        assert!(!stamina_skip(true, false));
-        assert!(stamina_skip(true, true));
         assert_eq!((EXEC_BOTH, REMOTE_ALL), (2, 5));
     }
 
@@ -537,11 +521,6 @@ mod tests {
         assert_eq!(
             lines::bleedout_set(0.0, 30.0),
             "[Bleedout] BleedoutDuration was 0; set to 30s so a downed player's timer starts"
-        );
-        assert_eq!(
-            lines::STAMINA_SKIPPED,
-            "[Stamina] manual TickStamina skipped: the AGPL's tick filter hook (SERVER_TICK_FILTER.flag) runs it \
-             in the character's tick"
         );
         assert_eq!(
             lines::STAMINA_MANUAL,

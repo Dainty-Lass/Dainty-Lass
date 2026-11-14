@@ -1,11 +1,11 @@
 //! The ownership registry (R0 7.5): every hook and feature id, its kind and its slice, and the slices landed in
-//! this build. The AGPL runtime leaves alone whatever `owns` answers yes for. A slice's one edit here is adding its
-//! name to `LANDED` (and, for a new id, its line).
+//! this build. Every slice installs through `owns(id)`; after R21 every id but R19's is owned. A slice's one edit
+//! here is adding its name to `LANDED` (and, for a new id, its line).
 
 /// The slices whose ids this build owns.
 pub const LANDED: &[&str] = &[
     "R0", "R1", "R2", "R3", "R4", "R5", "R9", "R7", "R6", "R10", "R11", "R15", "R8", "R16", "R12", "R17", "R13", "R20",
-    "R18", "R14",
+    "R18", "R14", "R21",
 ];
 
 /// The longest id `owns` accepts, in bytes.
@@ -14,7 +14,7 @@ pub const MAX_ID_BYTES: usize = 47;
 /// What an id names.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Kind {
-    /// A dispatch point the broker chains (the AGPL always chains its wrapper on it).
+    /// A dispatch point the broker chains.
     Chain,
     /// A MinHook detour (on an RVA or an export).
     Detour,
@@ -26,7 +26,7 @@ pub enum Kind {
     Swap,
     /// A process setting with no hook.
     Setting,
-    /// One dispatch point × one slice: every AGPL block of that slice there.
+    /// One dispatch point × one slice: that slice's handlers there.
     Feature,
 }
 
@@ -144,7 +144,7 @@ pub const ENTRIES: &[Entry] = &[
     e("DX-7", Detour, "R19"),
     e("DX-8", Detour, "R19"),
     e("DX-9", Detour, "R19"),
-    // R4's logging-only probes stay AGPL until R21 (R4 2)
+    // R4's logging-only probes: not ported (R4 2, RT-3)
     e("CL-3", Detour, "R19"),
     e("CL-4", Detour, "R19"),
     e("CL-6", Detour, "R19"),
@@ -175,6 +175,7 @@ pub const ENTRIES: &[Entry] = &[
     e("SP-3@R14", Feature, "R14"),
     e("SP-3@R18", Feature, "R18"),
     e("SP-3@R20", Feature, "R20"),
+    e("SP-3@R21", Feature, "R21"),
     e("HTTP-1@R2", Feature, "R2"),
     e("HTTP-1@R10", Feature, "R10"),
     // R17: the client console (MainThread on the AGPL side, patch 0044)
@@ -186,8 +187,7 @@ pub fn entry(id: &str) -> Option<&'static Entry> {
     ENTRIES.iter().find(|entry| entry.id == id)
 }
 
-/// `owns(id)`: the id is in the registry and its slice has landed. Bytes, as `rir_owns` receives them; empty,
-/// unknown or over 47 bytes is no.
+/// `owns(id)`: the id is in the registry and its slice has landed. Empty, unknown or over 47 bytes is no.
 pub fn owns(id: &[u8]) -> bool {
     if id.is_empty() || id.len() > MAX_ID_BYTES {
         return false;
@@ -270,7 +270,7 @@ mod tests {
             ("SP-2", &["R5", "R7", "R8", "R10", "R14", "R15", "R18", "R20"][..]),
             (
                 "SP-3",
-                &["R7", "R8", "R9", "R10", "R11", "R12", "R13", "R14", "R18", "R20"][..],
+                &["R7", "R8", "R9", "R10", "R11", "R12", "R13", "R14", "R18", "R20", "R21"][..],
             ),
             ("HTTP-1", &["R2", "R10"][..]),
         ];
@@ -496,5 +496,23 @@ mod tests {
     #[test]
     fn diagnostics_never_land() {
         assert!(!LANDED.contains(&"R19"));
+    }
+
+    /// The R21 gate (spec-runtime-r21 4.1): nothing is left to a DLL that is no longer loaded.
+    #[test]
+    fn r21_every_slice_but_r19_landed() {
+        assert!(LANDED.contains(&"R21"));
+        for line in ENTRIES {
+            if line.slice == "R19" {
+                assert!(!owns(line.id.as_bytes()), "{}", line.id);
+            } else {
+                assert!(LANDED.contains(&line.slice), "{} not landed", line.slice);
+                assert!(owns(line.id.as_bytes()), "{}", line.id);
+            }
+        }
+        assert_eq!(
+            entry("SP-3@R21").map(|line| (line.kind, line.slice)),
+            Some((Kind::Feature, "R21"))
+        );
     }
 }
