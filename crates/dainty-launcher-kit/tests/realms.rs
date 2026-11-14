@@ -921,3 +921,117 @@ async fn server_host_backend_drives_realm_hub_and_join_across_two_launchers() {
     join_hx.c.shutdown().await;
     host_hx.c.shutdown().await;
 }
+
+// --- A hosted server that is ready only when the test says so ---
+
+/// `wait_ready` blocks until opened, as the player host's ready pipe does for up to `READY_TIMEOUT`.
+#[derive(Default)]
+struct GatedSpawner {
+    waiting: AtomicBool,
+    open: Mutex<bool>,
+    opened: std::sync::Condvar,
+    stopped: Mutex<Vec<u32>>,
+}
+
+impl GatedSpawner {
+    const PID: u32 = 99;
+
+    async fn until_waiting(&self) {
+        while !self.waiting.load(Ordering::SeqCst) {
+            tokio::time::sleep(std::time::Duration::from_millis(5)).await;
+        }
+    }
+
+    fn release(&self) {
+        *self.open.lock().unwrap() = true;
+        self.opened.notify_all();
+    }
+
+    async fn until_stopped(&self) -> bool {
+        for _ in 0..1000 {
+            if self.stopped.lock().unwrap().contains(&Self::PID) {
+                return true;
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(5)).await;
+        }
+        false
+    }
+}
+
+impl ServerSpawner for GatedSpawner {
+    fn spawn(&self, _: &Path, _: &[String], _: &Path, _: &BTreeMap<String, String>) -> Result<u32, HostError> {
+        Ok(Self::PID)
+    }
+
+    fn wait_ready(&self, _: u32) -> Result<(), HostError> {
+        self.waiting.store(true, Ordering::SeqCst);
+        let open = self.open.lock().unwrap();
+        let (open, _) = self
+            .opened
+            .wait_timeout_while(open, std::time::Duration::from_secs(5), |open| !*open)
+            .unwrap();
+        if *open {
+            Ok(())
+        } else {
+            Err(HostError::Transport("the gate was never opened".to_owned()))
+        }
+    }
+
+    fn stop(&self, pid: u32) {
+        self.stopped.lock().unwrap().push(pid);
+    }
+}
+
+async fn gated_launcher() -> (Harness, Arc<GatedSpawner>) {
+    let hx = Harness::new().await;
+    use base64::Engine as _;
+    let xy = base64::engine::general_purpose::STANDARD.encode([0x5Au8; 64]);
+    let answer = json!({ "keyId": "k1", "publicXy": xy });
+    on_key_server(&hx, answer.to_string()).await;
+    assert_eq!(hx.c.verify_game().await, ActionResult::Ok);
+    let spawner = Arc::new(GatedSpawner::default());
+    hx.c.set_realms_seams(RealmsSeams {
+        loader: Arc::new(FakeLoader) as Arc<dyn TransportLoader>,
+        backend: Arc::new(DefaultHostBackend::new()) as Arc<dyn HostBackend>,
+        spawner: spawner.clone() as Arc<dyn ServerSpawner>,
+    });
+    (hx, spawner)
+}
+
+/// On a one-thread runtime the gate opens only if the start waiting for the server leaves the thread free.
+#[tokio::test(flavor = "current_thread")]
+async fn a_start_waiting_for_its_server_does_not_hold_the_runtime() {
+    let (hx, spawner) = gated_launcher().await;
+    let opener = async {
+        spawner.until_waiting().await;
+        spawner.release();
+    };
+    let (outcome, ()) = tokio::join!(hx.c.realm_host(RealmKind::Hub), opener);
+    let RealmOutcome::Ok(view) = outcome else {
+        panic!("expected RealmOutcome::Ok from realm_host(Hub), got {outcome:?}");
+    };
+    assert_eq!(view.sessions.len(), 1);
+    assert!(spawner.stopped.lock().unwrap().is_empty());
+    hx.c.shutdown().await;
+}
+
+/// A start dropped while its server starts still ends that server once the wait is over, and records nothing.
+#[tokio::test(flavor = "current_thread")]
+async fn a_dropped_start_ends_its_server() {
+    let (hx, spawner) = gated_launcher().await;
+    {
+        let start = hx.c.realm_host(RealmKind::Hub);
+        tokio::pin!(start);
+        tokio::select! {
+            outcome = &mut start => panic!("the start finished before its server was ready: {outcome:?}"),
+            () = spawner.until_waiting() => {}
+        }
+    }
+    spawner.release();
+    assert!(spawner.until_stopped().await, "the abandoned server was never stopped");
+    let RealmOutcome::Ok(view) = hx.c.realm_get().await else {
+        panic!("expected RealmOutcome::Ok from realm_get");
+    };
+    assert!(view.sessions.is_empty());
+    hx.c.shutdown().await;
+}
