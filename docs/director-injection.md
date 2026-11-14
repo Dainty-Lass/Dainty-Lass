@@ -16,8 +16,8 @@ retires from the servers.
 **What changes for a host:**
 
 1. Every game server the Director starts (Ramsgate, the Training Grounds, each hunt) gets the host's published
-   runtime, `.workspace/runtime/Rustic-Isles.dll` (after `rustic-isles-runtime.dll` when `runtime.json` lists the MIT
-   runtime, RT-5), loaded before its first instruction. The expected SHA-256 is the one `runtime.json` lists, read again at each start, so a `publish-runtime` reaches the next server without a
+   runtime, `.workspace/runtime/rustic-isles-runtime.dll` (the MIT runtime alone since R21; before it,
+   `Rustic-Isles.dll` after it, RT-5), loaded before its first instruction. The expected SHA-256 is the one `runtime.json` lists, read again at each start, so a `publish-runtime` reaches the next server without a
    restart.
 2. Nothing is copied next to the server's executable any more. `setup`, `start` and `publish-runtime` remove a
    `winmm.dll` there when it is a loader this workspace published, now or before (`publish_runtime` records a
@@ -42,14 +42,17 @@ reruns `setup`; a host who replaced the binary by hand runs `setup` once.
   until the helper passes its hands-on Proton check ([launcher-injection.md](launcher-injection.md), "Still to do").
   Once that is the default, nothing uses it, and it can go with `LOADER_DLL` in the protocol and the feed.
 - The client feed's optional `winmm.dll` stays for the same players.
-- Restricted's Node Director rollback (`DAINTY_ROLLBACK=1`) still expects `winmm.dll` and `Rustic-Isles.dll` next to
-  the server exe, which nothing installs any more. It no longer starts a working server.
+- Restricted's Node Director rollback (`DAINTY_ROLLBACK=1`) still expects `winmm.dll` and a runtime next to the
+  server exe, which nothing installs any more. It no longer starts a working server. Since R21 it copies
+  `rustic-isles-runtime.dll`, which the loader loads by its fixed name (ruling 2026-11-13, R21 call 7; restricted's
+  R-10).
 
 ## Design, as built
 
 **Windows.** `rustic_isles_director::runtime::for_start` reads `runtime.json` and names
-`<GAMESERVER_RUNTIME_DIR>\rustic-isles-runtime.dll` (when listed) then `<GAMESERVER_RUNTIME_DIR>\Rustic-Isles.dll`,
-each with its hash, in the start's `Command::inject`. `os::spawn` creates the
+`<GAMESERVER_RUNTIME_DIR>\rustic-isles-runtime.dll` with its hash in the start's `Command::inject`. Since R21
+(`spec-runtime-r21.md` H-1) a `runtime.json` that lacks it, or lists `Rustic-Isles.dll` or one of its aliases,
+refuses the start with a message naming the file and asking for `publish-runtime`. `os::spawn` creates the
 server with `CREATE_SUSPENDED` (inside its job, as before) and calls `dainty_inject::load_and_resume` on that child's
 own handle: the same crate, the same held-handle hash check and the same `Sleep(0)`-then-`LoadLibraryW` sequence as
 the launcher. On an error the job is terminated before the start fails.
@@ -59,12 +62,12 @@ depend on how it was loaded, and its logs and switch files are found next to the
 it from `.workspace\runtime` changes nothing it reads.
 
 **Wine.** The Director's program is the `dainty-gameserver` wrapper (`dainty-host gameserver`). It gets the DLL and
-hash in its environment (`DAINTY_INJECT_DLL`, `DAINTY_INJECT_SHA256`, and `DAINTY_INJECT_MIT_DLL`,
-`DAINTY_INJECT_MIT_SHA256` for the MIT runtime; the Director removes any inherited value first). The MIT DLL's
-`--dll` comes first. `wine::build_launch` then runs:
+hash in its environment (`DAINTY_INJECT_DLL`, `DAINTY_INJECT_SHA256`; the Director removes any inherited value
+first). Since R21 the pre-R21 pair's `DAINTY_INJECT_MIT_DLL` and `DAINTY_INJECT_MIT_SHA256` are never set: the
+Director drops an inherited one and the wrapper ignores them (H-2). `wine::build_launch` then runs:
 
 ```text
-[xvfb-run ...] wine|proton run <bin>/dainty-inject.exe --dll Z:\...\.workspace\runtime\Rustic-Isles.dll <sha256> -- Z:\...\Dauntless-Win64-Shipping.exe <server arguments>
+[xvfb-run ...] wine|proton run <bin>/dainty-inject.exe --dll Z:\...\.workspace\runtime\rustic-isles-runtime.dll <sha256> -- Z:\...\Dauntless-Win64-Shipping.exe <server arguments>
 ```
 
 The helper waits for the game and exits with its code, so the Director's readiness, exit and restart handling are
@@ -94,11 +97,11 @@ start is refused and nothing runs; with the right one the server reaches ready.
    `Win64` holds no `winmm.dll`. Without `setup`, `start` logs that every game server is refused and none starts.
 2. `bin\dainty-host start`. The Director's log has no runtime error. Ramsgate reaches ready, headless (no window),
    and stays up; `logs\gameservers\port<N>_ramsgate.log` has the runtime's start lines.
-3. Process Explorer on the Ramsgate process lists `Rustic-Isles.dll` from `.workspace\runtime` and no `winmm.dll`.
+3. Process Explorer on the Ramsgate process lists `rustic-isles-runtime.dll` from `.workspace\runtime` and no `winmm.dll`.
 4. Start a hunt from a client. Its server starts the same way.
 5. With the server running, PLAY from the launcher on the same install. The launcher doesn't refuse over a loader,
    and the game reaches the menu.
-6. Change one byte of `.workspace\runtime\Rustic-Isles.dll` and stop Ramsgate (Task Manager). The Director logs that
+6. Change one byte of `.workspace\runtime\rustic-isles-runtime.dll` and stop Ramsgate (Task Manager). The Director logs that
    the runtime was not loaded and the server was ended; no Ramsgate process stays. Run `publish-runtime` again.
 7. Put any `winmm.dll` in `Win64` and restart. The Director's start log names it.
 
@@ -107,7 +110,7 @@ start is refused and nothing runs; with the right one the server reaches ready.
 1. After updating, `bin/dainty-host setup`, then `bin/dainty-host doctor`: "inject helper ready at
    .../bin/dainty-inject.exe".
 2. `start` (or `docker compose up -d`). Ramsgate reaches ready, headless, and stays up. The game server log's
-   command line shows `dainty-inject.exe --dll Z:\...\Rustic-Isles.dll <sha256> -- Z:\...`.
+   command line shows `dainty-inject.exe --dll Z:\...\rustic-isles-runtime.dll <sha256> -- Z:\...`.
 3. If it doesn't, the game server's log has the helper's own `dainty-inject: ...` line. A Unix exit code keeps only
    the low byte, so the exit line shows `code=3` when a DLL wasn't loaded (Wine refused it, or the hash didn't
    match) and `code=2` when the game didn't start through the helper.

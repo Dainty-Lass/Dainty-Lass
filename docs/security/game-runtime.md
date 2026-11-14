@@ -8,15 +8,14 @@ pure half `crates/rustic-isles-runtime-core` (plan item 11, RT-1; [`spec-runtime
 `SECURITY_REVIEW.md` indexes it. This page covers R0 (the spine), R1 (config) and R2 (backend HTTP); each later slice
 adds its own section.
 
-How to use it: before the first release that ships the MIT DLL beside `Rustic-Isles.dll`, copy this list into that
-release's review, check each item in the code (not from memory), link the code or test that shows it, and sign at
+How to use it: before the first release that ships the MIT DLL alone (R21), copy this list into that release's review, check each item in the code (not from memory), link the code or test that shows it, and sign at
 the end with the date and the commit reviewed. An item that does not hold is a bug to fix before the release, not a
 box to leave open.
 
 ## What it is and where the boundary is
 
 The runtime runs inside the game process, a player's client or a host's game server, with that process's rights.
-It is injected into a game started suspended (RD9 as amended), before `Rustic-Isles.dll`, and its `DllMain` runs
+It is injected into a game started suspended (RD9 as amended), the only runtime since R21, and its `DllMain` runs
 under the loader lock before the engine starts. It listens on nothing and opens no connection; from R2 on it
 rewrites the game's own HTTP requests and adds headers to them. Everything it reads from the game's memory may be
 half-built or freed, so no game pointer is trusted.
@@ -24,19 +23,18 @@ half-built or freed, so no game pointer is trusted.
 - **In:** the process environment (the backend address, the auth mode, R1's settings, a player host's launch
   variables), the
   command line (the role, a server's launch arguments: the gameserver key, the port, the map, the roster), flag
-  files and number files next to the executable, the game's memory (object array, name pool), and calls from the
-  AGPL runtime through the five seam exports. From R2: every URL the game's HTTP requests carry, and a grant id
+  files and number files next to the executable, and the game's memory (object array, name pool). From R2: every URL the game's HTTP requests carry, and a grant id
   header already on a retried request. From R10: the control pipe's bytes from the launcher.
 - **Out:** the per-port log file next to the
-  executable (shared with the AGPL runtime), MinHook's patches on `ProcessEvent`, the engine tick and
+  executable, MinHook's patches on `ProcessEvent`, the engine tick and
   `FCurlHttpRequest::ProcessRequest`, and an exit code (`0xE106`) for a refused full-launch port. From R2: the URL of
   every request to an allowlisted host, rewritten to the backend, and on a server the `x-rustic-isles-grant-id` and
   `x-rustic-isles-gameserver-apikey` headers. From R10: the ready pipe's message, the `x-rustic-host-capability`
   header and the exit codes `0xE103`, `0xE104`, `0xE105` and `0` of a player host.
-- **Trusted:** the AGPL runtime in the same process (it calls the exports with its own detours and pointers), and
-  the launcher or Director that set the environment and command line.
+- **Trusted:** the launcher or Director that set the environment and command line. Since R21 no other code in the
+  process calls into the DLL: it exports none of the seam names (R21 section below).
 
-Code: `crates/rustic-isles-runtime/src/` (`ffi/` holds every `unsafe` line: `dllmain.rs`, `exports.rs`,
+Code: `crates/rustic-isles-runtime/src/` (`ffi/` holds every `unsafe` line: `dllmain.rs`,
 `broker.rs`, `minhook.rs`, `dispatch.rs`, `http.rs`, `memory.rs`, `engine.rs`, `log.rs`, `flags.rs`, `win.rs`;
 safe: `lifecycle.rs`, `config.rs`, `handlers.rs`), `build.rs`, the vendored `minhook/` (v1.3.3, BSD-2-Clause), and
 the core crate's `config/`, `chain.rs`, `http.rs`, `registry.rs`, `engine.rs`, `memory.rs`, `pdata.rs`, `flags.rs`.
@@ -92,27 +90,23 @@ Fuzz targets in `fuzz`:
       `TRIALS_ROTATION_MINUTES` and the Director's `RUSTIC_ISLES_TRIALS_WEEK` (R1's bounded parsers), so it adds no
       fuzz target.
 
-### The broker and the seam
+### The broker
 
 - [ ] One MinHook copy patches a target, once: the broker hooks each target at most once and runs a chain on it
       (`broker.rs`); the stub page is `PAGE_EXECUTE_READ` and only the pointer cells are written, by aligned atomic
       stores, inner cells first and the head last.
-- [ ] The AGPL band holds at most one wrapper per target; a second add is `3` and changes nothing; a remove of an
-      absent wrapper is `4` (`core::chain`, `ffi::tests::broker_chain_on_real_code`).
-- [ ] `rir_owns` reads at most 48 bytes of its argument and answers `0` for null, unknown or over 47 bytes; it takes
-      no lock (`exports.rs`, `core::registry`).
-- [ ] `rir_chain_add_inner` refuses a null `next` or wrapper and writes `*next` only on success.
-- [ ] The exports log nothing directly: they run under the AGPL's loader lock, so their lines are deferred to the
-      first detour call.
+- [ ] A wrapper is chained at most once per target; a second add is `3` and changes nothing; a remove of an absent
+      wrapper is `4` (`core::chain`, `ffi::tests::broker_chain_on_real_code`). The chain is MIT wrappers in `order`,
+      then the original: no AGPL band since R21.
+- [ ] Lines from Init run under the loader lock, so they are deferred to the first detour call (`log::defer`).
 - [ ] The DLL is pinned (`GET_MODULE_HANDLE_EX_FLAG_PIN`) and frees no stub, cell or trampoline, so no chain ever
       points into freed memory.
 - [ ] The ownership registry lists every surface id once with its slice; `owns` answers yes exactly for the ids of
       the slices in `LANDED` (`R0`, `R1`, `R2`, `R3`, `R4`: SP-1..3, HTTP-1, HTTP-1@R2, EXIT-1..14 and CL-1, 2, 5, 7,
       8, 9; `R7`: LD-1..9, `SP-2@R7`, `SP-3@R7`; `R15`: `SP-1@R15`, `SP-2@R15`; `R8`: `SP-2@R8`, `SP-3@R8`;
-      `R17`: `SP-1@R17`, `CON-1`; `HTTP-1@R10` and `SP-2@R20` stay the AGPL's) (`core::registry` tests). R4's seven
+      `R17`: `SP-1@R17`, `CON-1`; since R21 every slice but R19) (`core::registry` tests). R4's seven
       logging-only probes (CL-3, CL-4, CL-6, CL-10..13) are slice `R19`, never owned.
-- [ ] R17 adds `CON-1` (the client console) and owns it with `SP-1@R17`; the AGPL's console stands down only through
-      `rir_owns("CON-1")` (runtime patch 0044).
+- [ ] R17 adds `CON-1` (the client console) and owns it with `SP-1@R17`.
 
 ### Game data writes and calls (R15)
 
@@ -235,9 +229,8 @@ Fuzz targets in `fuzz`:
 
 ### Listen and readiness (R9)
 
-- [ ] R9 owns `SRV-1` and `SP-3@R9` only; with them owned the AGPL stands down from the listen exactly when the MIT
-      listens, and a player host keeps the AGPL's listen until `SP-3@R10` is owned, so the two DLLs never both listen
-      or both stand down (`core::listen::listen_decision`, runtime patch 0052).
+- [ ] R9 owns `SRV-1` and `SP-3@R9`; the MIT runtime listens for a DeployServer and a player host alike, and an
+      invalid auth mode never listens (`core::listen::listen_decision`, R21 4.5).
 - [ ] An unknown `RUSTIC_ISLES_AUTH_MODE` ends the server with `0xE102` on its first frame, before any listen.
 - [ ] SRV-1 writes the map URL only into an engine allocation (`FMemory::Realloc`, never Rust's allocator); a null
       result leaves the engine's own map (`ffi::listen::tests::srv1_write_path`). Its log line holds the map path,
@@ -250,8 +243,6 @@ Fuzz targets in `fuzz`:
 - [ ] The ready lines go only to this process's standard output, with a launch id that passed R0's `env_value`
       (no CR, LF, NUL or non-ASCII, at most 127); no other environment value is logged.
 - [ ] Per-frame driver upkeep writes nothing to a driver that is no longer live or readable (R9 departure 4).
-- [ ] `rir_listen_driver` is a lock-free load that catches panics and answers null until a listen succeeded; it is
-      outside the seam's required set (`tests/dll_file.rs`).
 
 ### Player data and loading (R7)
 
@@ -402,7 +393,8 @@ Fuzz targets in `fuzz`:
 
 - [ ] The DLL imports no `MSVCP140*`, `VCRUNTIME140*` or `api-ms-win-crt-*` (`tests/dll_file.rs`); MinHook is built
       `/MT` by `cc` from the vendored tag, never from `restricted/`.
-- [ ] The five seam exports exist by name (`tests/dll_file.rs`).
+- [ ] The DLL exports none of `rir_seam_version`, `rir_owns`, `rir_chain_add_inner`, `rir_chain_remove_inner`,
+      `rir_original`, `rir_listen_driver` (`tests/dll_file.rs`, R21 4.2).
 
 ### Headless server boot (R5)
 
@@ -474,6 +466,23 @@ only. `LANDED` gains `R20` (only with `R7`: `registry::tests::r20_lands_with_or_
       launch; the fallback is bounded `0 < v < 600`, else 30 s.
 - [ ] Every log line is once per process or budgeted (8 owner fix lines, the vendor throttle); `[PostLogin]` is
       off in the production log profile.
+
+### The MIT runtime alone (R21)
+
+[`spec-runtime-r21.md`](../port/spec-runtime-r21.md): the game loads only `rustic-isles-runtime.dll`. `LANDED` holds
+every slice but R19 (`registry::tests::r21_every_slice_but_r19_landed`).
+
+- [ ] No seam export: a stale `Rustic-Isles.dll` with patch 0041 beside this DLL fails to resolve them and ends the
+      game at start with `0xE10A`, before any hook (fail closed, R21 departure 2). Kept exports answering "owned"
+      would let it run its R19 hooks silently instead.
+- [ ] The broker has no AGPL band, `chained_by_agpl` is gone, and R20 no longer reads `SERVER_TICK_FILTER.flag`
+      (R21 4.3, 4.4).
+- [ ] `[NetConnEdge]` (`SP-3@R21`, server only, after order 1900) writes counts and the driver's address in decimal,
+      nothing a player sent and no secret; one line per change of the count, and none before the server listens
+      (`core::occupancy` tests). The driver's `ClientConnections` is read with R0's checked 8-byte read; a failed
+      read is `-1`.
+- [ ] The launcher and the host kit remove a retired name where they keep runtime files (R21 5.2, 5.3): see
+      `content.md`, `launcher-injection.md`, `director-injection.md`.
 
 ## Sign-off
 

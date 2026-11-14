@@ -3,10 +3,11 @@
 Nothing from the game is in this repository. Every host produces three things from their own Dauntless 1.14.7,
 on a Windows PC with the game installed:
 
-1. the **SDK**: C++ headers generated from the running game, which the runtime is compiled against;
-2. the **runtime**: `Rustic-Isles.dll` (built from `modules/rustic-isles/native/runtime` with the SDK), which players install
-   from your server and the launcher and Director inject (RD9); `winmm.dll` (`native/runtime-loader`) is optional, for
-   Proton players who load it the old way;
+1. the **SDK**: C++ headers generated from the running game, which the CatalogExporter is compiled against;
+2. the **runtime**: `rustic-isles-runtime.dll`, the MIT runtime built from the root's `crates/rustic-isles-runtime`
+   with cargo and no SDK, or the prebuilt one the server release ships in `bin/` (`spec-runtime-r21.md`, call 6),
+   which players install from your server and the launcher and Director inject (RD9); `winmm.dll`
+   (`native/runtime-loader`) is optional, for Proton players who load it the old way;
 3. the **game data**: JSON the backend and the Director serve, generated from an export the CatalogExporter
    (`native/rustic-isles-exporter`, MIT) makes inside the game.
 
@@ -35,24 +36,27 @@ The SDK is Phoenix Labs' material: never commit it, never share it. `.gitignore`
 
 ## 2. The runtime
 
-Visual Studio 2022 with Desktop development with C++ (the v145 toolset and a Windows SDK). Then:
-
-```bat
-modules\rustic-isles\native\runtime\_build.bat          REM Rustic-Isles.dll, one DLL for the client and the dedicated server
-modules\rustic-isles\native\runtime\build-loader.bat    REM winmm.dll from the root's native\runtime-loader (needs the Rust toolchain)
-```
-
-`modules/rustic-isles/native/runtime/BUILD.md` explains the build and the optional
-player-hosted module. The runtime reads the backend's address from the environment at run time, so one build
-serves every server and every player of yours. Publish it:
+Since R21 the runtime is `rustic-isles-runtime.dll` alone, MIT, from the root's `crates/rustic-isles-runtime`
+(`docs/port/spec-runtime-r21.md`). A server release ships it prebuilt in `bin/`, so `setup` and `publish-runtime`
+need no build. In a source checkout, with the Rust toolchain and the MSVC linker (Visual Studio's C++ workload, no
+SDK), the Host page's **Build the runtime** or:
 
 ```powershell
-bin\dainty-host publish-runtime                  # from this checkout's builds
-bin\dainty-host publish-runtime --from C:\dlls   # or from a folder with both DLLs
+cargo build --release --locked --target x86_64-pc-windows-msvc -p rustic-isles-runtime
+cargo build --release --target x86_64-pc-windows-msvc --manifest-path native\runtime-loader\Cargo.toml   # winmm.dll, optional
 ```
 
-The content server then lists the two files with their hashes; players accept them once in the launcher. A
-rebuilt runtime has new hashes, and players are asked again.
+The runtime reads the backend's address from the environment at run time, so one build serves every server and
+every player of yours. Publish it:
+
+```powershell
+bin\dainty-host publish-runtime                  # this checkout's build, else the release's bin\rustic-isles-runtime.dll
+bin\dainty-host publish-runtime --from C:\dlls   # or from a folder holding it (cargo's rustic_isles_runtime.dll counts)
+```
+
+`publish-runtime` removes `Rustic-Isles.dll` and its old names from `.workspace/runtime`, and `doctor` warns about
+one left there or in the servers' `Win64`. The content server then lists the files with their hashes; players accept
+them once in the launcher. A rebuilt runtime has new hashes, and players are asked again.
 
 ## 3. The game data
 

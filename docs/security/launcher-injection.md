@@ -19,8 +19,8 @@ both which process is touched and which file is loaded.
 
 - **Process:** only the child `OsSpawner` itself just created with `CREATE_SUSPENDED`, reached through that child's
   own handle (`tokio::process::Child::raw_handle`). There is no lookup by pid or name and no `OpenProcess`.
-- **Files:** the MIT runtime (`rustic-isles-runtime.dll` in `Win64`, only when the offered or local set has it,
-  RT-5), then the runtime (`Rustic-Isles.dll`, or its pre-DX4 name, in `Win64`), the host's CatalogExporter (the host
+- **Files:** the MIT runtime (`rustic-isles-runtime.dll` in `Win64`), then, only for a pre-R21 set (RT-5,
+  spec-runtime-r21 7.2), `Rustic-Isles.dll` or its pre-DX4 name in `Win64`, the host's CatalogExporter (the host
   kit's build output) and the host's Dumper-7 pick. Each is named by absolute path.
 - **Little parsing:** nothing read from the network or a file chooses a path. The expected runtime hash comes from
   the offered manifest that the runtime check (`check_runtime`) has just matched and the player has trusted. The one
@@ -95,10 +95,14 @@ path against `cmd.exe`).
       hash and it lacks the stand-down marker. A loader someone else placed, or a host's servers' loader, is never
       deleted.
 - [ ] The Windows runtime install never downloads `winmm.dll` (`PLAYER_RUNTIME_FILES`), even when the feed lists it.
-- [ ] `rustic-isles-runtime.dll` is injected before `Rustic-Isles.dll` with the offered set's hash, and only when that
-      set lists it; one the set doesn't list makes the check `Outdated` and the install removes it, so neither PLAY
-      nor the Proton loader loads it beside a runtime it doesn't pair with (`runtime_dlls`,
-      `the_mit_runtime_is_held_only_when_the_set_lists_it`). It is the runtime's own name: never a leftover, never a
+- [ ] Each runtime is injected with the offered set's hash, the MIT one first, and only when that set lists it; one
+      the set doesn't list makes the check `Outdated` and the install removes it, so neither PLAY nor the Proton
+      loader loads it beside a runtime it doesn't pair with (`runtime_dlls`,
+      `the_mit_runtime_is_held_only_when_the_set_lists_it`).
+- [ ] An R21 set is `rustic-isles-runtime.dll` alone: any retired name (`Rustic-Isles.dll`, `MysticParadox.dll`,
+      `MystPaxInternalServer.dll`) in `Win64` is a leftover, the check reports `Outdated`, and the install removes it
+      before anything is downloaded; one it cannot remove stops PLAY (spec-runtime-r21 L-1, L-3;
+      `an_r21_set_is_the_mit_runtime_alone_and_retired_names_go`). A pre-R21 set is still played as a pair. It is the runtime's own name: never a leftover, never a
       session's DLL, set aside for a dump (`the_mit_runtime_is_the_runtimes_own`).
 - [ ] `mystic_loader.ini`, the session record and set-aside runtime files are still refused as before
       (`loader_session::leftovers`).

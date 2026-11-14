@@ -9,6 +9,7 @@
 #                        Director (isles-1-14-7), gateway, allowlist, content server, admin API and database
 #                        migration/rollback commands (`dainty-host db migrate|verify|export-mongo`) are inside it
 #                        dainty-legacy, the legacy importer (MIT, from the root's crates/dainty-legacy)
+#                        rustic-isles-runtime.dll and its .sha256, the prebuilt MIT game runtime (spec-runtime-r21 B-2)
 #      data/1.14.7/version_data.json  Mystic Paradox's version data (AGPL), which the MIT binaries read at start
 #      data/1.14.7/version_facts.json the 1.14.7 version facts (MIT), read beside version_data.json
 #      plugins/          the libraries settings.toml can pin (RD27): the 1.14.7 module ([[modules.external]]) and, once
@@ -59,9 +60,53 @@ jobs:
           echo "version=$version" >> "$GITHUB_OUTPUT"
           echo "servers $version, dry run"
 
+  # The MIT game runtime, prebuilt once for both archives (spec-runtime-r21 B-2, call 6): an MSVC DLL that a Linux or
+  # Docker host can't build. The R0 import and export checks run on this very file.
+  runtime:
+    name: Runtime DLL
+    needs: prepare
+    runs-on: windows-msvc
+    timeout-minutes: 45
+    permissions:
+      contents: read
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Long paths for git
+        run: git config --global core.longpaths true
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install the pinned toolchain
+        run: |
+          rustup show active-toolchain || rustup toolchain install
+          rustup target add x86_64-pc-windows-msvc
+          # windows-msvc is the maintainer's PC (AGENTS.md)
+          echo "CARGO_BUILD_JOBS=6" >> "$GITHUB_ENV"
+
+      - name: Build rustic-isles-runtime.dll and check its tables
+        run: |
+          set -euo pipefail
+          cargo build --release --locked --target x86_64-pc-windows-msvc -p rustic-isles-runtime
+          cargo test --release --locked --target x86_64-pc-windows-msvc -p rustic-isles-runtime --test dll_file
+          mkdir -p runtime-dll
+          # cargo's library name can't hold '-': published under the name every consumer reads (RT-5)
+          cp target/x86_64-pc-windows-msvc/release/rustic_isles_runtime.dll runtime-dll/rustic-isles-runtime.dll
+          (cd runtime-dll && sha256sum rustic-isles-runtime.dll | tee rustic-isles-runtime.dll.sha256)
+
+      - uses: https://code.forgejo.org/forgejo/upload-artifact@16871d9e8cfcf27ff31822cac382bbb5450f1e1e # v4 (v4.3.1, GHES check disabled)
+        with:
+          name: runtime-dll
+          path: runtime-dll/
+          if-no-files-found: error
+          retention-days: 1
+
   build:
     name: Build (${{ matrix.target }})
-    needs: prepare
+    needs: [prepare, runtime]
     runs-on: ${{ matrix.os }}
     timeout-minutes: 75
     permissions:
@@ -151,6 +196,11 @@ jobs:
             echo "::endgroup::"
           done
 
+      - uses: https://code.forgejo.org/forgejo/download-artifact@d8d0a99033603453ad2255e58720b460a0555e1e # v4 (v4.1.4, GHES check disabled)
+        with:
+          name: runtime-dll
+          path: ${{ runner.temp }}/runtime-dll
+
       - name: Assemble the release folder
         run: |
           set -euo pipefail
@@ -164,6 +214,10 @@ jobs:
           for bin in dainty-host dainty-server dainty-server-minimal dainty-legacy; do
             cp "../target/$TARGET/release/$bin$ext" "$out/bin/"
           done
+          # The prebuilt MIT runtime and its SHA-256: setup and publish-runtime publish it when the host built none
+          # (spec-runtime-r21 call 6)
+          cp "$WORK/runtime-dll/rustic-isles-runtime.dll" "$WORK/runtime-dll/rustic-isles-runtime.dll.sha256" "$out/bin/"
+          (cd "$out/bin" && sha256sum -c rustic-isles-runtime.dll.sha256)
           # Mystic Paradox's 1.14.7 version data, AGPL, beside the MIT binaries: the server reads it at start (RD27)
           mkdir -p "$out/data/1.14.7"
           cp modules/rustic-isles/version-data/1.14.7/version_data.json "$out/data/1.14.7/"
@@ -213,6 +267,7 @@ jobs:
           if "$bin/dainty-legacy$ext" import 2> /dev/null; then echo "dainty-legacy took no kind"; exit 1; fi
           test -s "$bin/../data/1.14.7/version_data.json"
           test -s "$bin/../data/1.14.7/version_facts.json"
+          test -s "$bin/rustic-isles-runtime.dll"
           # Each service the binary runs alone, as the systemd units and the containers run it
           for service in gateway allowlist content backend director; do "$bin/dainty-host$ext" "$service" --help > /dev/null; done
           for db_cmd in migrate verify export-mongo; do "$bin/dainty-host$ext" db "$db_cmd" --help > /dev/null; done

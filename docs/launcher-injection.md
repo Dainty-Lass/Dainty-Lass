@@ -19,7 +19,8 @@ and removed around a session.
    `native/runtime-loader` stays. The host kit also keeps publishing `winmm.dll` in the client feed for Proton
    players (maintainer, 2026-11-12), and Windows launchers skip it there.
 2. **The feed's file list changes (seam, approved).** `dainty-protocol`'s manifest needs only `Rustic-Isles.dll`
-   (`REQUIRED_RUNTIME_FILES`), and `winmm.dll` (`LOADER_DLL`) is optional for one release. The content server's
+   (`REQUIRED_RUNTIME_FILES`; `rustic-isles-runtime.dll` since R21), and `winmm.dll` (`LOADER_DLL`) is optional for
+   one release. The content server's
    `runtime.json` rule and the launcher's manifest parser follow it.
 3. **Linux/Proton players choose (amended later on 2026-11-12).** A Settings switch, "Load the runtime with the
    inject helper" (`injectHelper`, Linux only, off by default), picks between the runtime loader (`winmm.dll`, and
@@ -74,7 +75,7 @@ The rows that cite RD9 and need the integration pass to reword them:
 
 1. Opens and hashes every DLL, holding each one.
 2. Takes the process's only thread id, which is the main thread.
-3. For each DLL in order (the MIT runtime when the set has it, then `Rustic-Isles.dll`, then the exporter; RT-5): `VirtualAllocEx` and `WriteProcessMemory` write the
+3. For each DLL in order (the MIT runtime, then a pre-R21 set's `Rustic-Isles.dll`, then the exporter; RT-5): `VirtualAllocEx` and `WriteProcessMemory` write the
    path, `CreateRemoteThread` starts at `LoadLibraryW`, and the launcher waits up to 60 s. `LoadLibraryW` has the
    same address in the game: both are x64, and `kernel32` sits at one base per boot. A zero exit code is checked
    against the module list, since the truncated `HMODULE` can read as zero.
@@ -101,7 +102,7 @@ Proton runs `dainty-inject.exe` in the game's place
 (`LaunchPlan::through_helper`):
 
 ```text
-proton run <resources>/dainty-inject.exe --dll Z:\...\Rustic-Isles.dll <sha256> [--dll ...] -- Z:\...\Dauntless-Win64-Shipping.exe <game arguments>
+proton run <resources>/dainty-inject.exe --dll Z:\...\rustic-isles-runtime.dll <sha256> [--dll ...] -- Z:\...\Dauntless-Win64-Shipping.exe <game arguments>
 ```
 
 The helper parses only that form (`dainty_inject::helper::parse`). It starts the game suspended inside the same
@@ -123,11 +124,14 @@ launcher's AppImage, deb and rpm, not the manager's, as the resource `dainty-inj
 build without the helper still runs; only PLAY with the switch on refuses.
 
 **The feed and the install.**
-- `runtime_files::player_runtime_files` lists what a game folder holds: `rustic-isles-runtime.dll` and
-  `Rustic-Isles.dll` when the runtime is injected (Windows, or Proton with the helper), and both runtimes and the
-  loader when the loader loads it. The MIT runtime is optional (`OPTIONAL_RUNTIME_FILES`, RT-5): held only when the
-  set lists it, and removed when it doesn't. The Proton loader loads it by its fixed name before its runtime choice
-  (`spec-runtime-loader.md` section 3).
+- `runtime_files::player_runtime_files` lists what a game folder may hold: the runtime when it is injected
+  (Windows, or Proton with the helper), and the loader too when the loader loads it. Since R21
+  (`spec-runtime-r21.md` 5.2, 7.2) the launcher plays two set shapes (`SetShape`): an R21 set, the MIT runtime
+  `rustic-isles-runtime.dll` alone, and a pre-R21 server's pair, `Rustic-Isles.dll` with the MIT runtime optional.
+  A file the offered set does not list is removed, and installing an R21 set removes every retired name
+  (`Rustic-Isles.dll`, `MysticParadox.dll`, `MystPaxInternalServer.dll`) from `Win64` first; one that can't be
+  removed stops PLAY. PLAY injects what the set lists, the MIT runtime first. The Proton loader loads the MIT
+  runtime by its fixed name before its runtime choice (`spec-runtime-loader.md` section 3).
 - The Windows install skips a listed `winmm.dll` and retires one it installed itself (`retire_loader`).
 - A Linux launcher shown a feed without the loader reports the runtime as unavailable, rather than starting a game
   that wouldn't load it.
@@ -142,24 +146,26 @@ from the protocol and the client feed.
 
 ## Hands-on checks (maintainer, Windows PC with the game)
 
-Not run. `cargo test` only covers injecting a system DLL into a suspended `cmd.exe`.
+Not run. `cargo test` only covers injecting a system DLL into a suspended `cmd.exe`. Since R21 the names below are
+the MIT runtime's: Process Explorer shows `rustic-isles-runtime.dll` and no `Rustic-Isles.dll`
+(`spec-runtime-r21.md` section 8 has the leftover and rollback checks).
 
 1. Install the runtime from a server whose feed still lists `winmm.dll`. The launcher downloads only
-   `Rustic-Isles.dll`, and a `winmm.dll` that the launcher installed before is removed.
-2. PLAY. The log shows `loading ...\Rustic-Isles.dll into the game, SHA-256 ...` and no ini. The game reaches the
+   `rustic-isles-runtime.dll`, and a `winmm.dll` that the launcher installed before is removed.
+2. PLAY. The log shows `loading ...\rustic-isles-runtime.dll into the game, SHA-256 ...` and no ini. The game reaches the
    menu signed in through the local backend.
-3. While the game runs, Process Explorer (or `listdlls`) on `Dauntless-Win64-Shipping.exe` lists `Rustic-Isles.dll`
+3. While the game runs, Process Explorer (or `listdlls`) on `Dauntless-Win64-Shipping.exe` lists `rustic-isles-runtime.dll`
    from `Win64` and no `winmm.dll` from `Win64`.
 4. Copy an older `winmm.dll` (one built before the stand-down marker) into `Win64`. PLAY refuses with the leftover
    message. Remove it.
 4a. On a host whose `settings.toml` `game_dir` is the player's install: rebuild and publish the loader. Start the
    servers; Ramsgate comes up headless with the runtime. PLAY works with the servers' `winmm.dll` in place, and the
-   log says it stands down. Process Explorer shows `Rustic-Isles.dll` loaded once in the client.
-5. Change one byte of `Rustic-Isles.dll`. PLAY refuses (the runtime check, or the injector's hash check), and no game
+   log says it stands down. Process Explorer shows `rustic-isles-runtime.dll` loaded once in the client.
+5. Change one byte of `rustic-isles-runtime.dll`. PLAY refuses (the runtime check, or the injector's hash check), and no game
    process is left behind.
 6. On the Host page, run a game-data export. The log shows CatalogExporter's SHA-256, the module list shows it in the
    game, and the export files appear.
-7. Run a Dumper-7 session. The SDK is written, and `Rustic-Isles.dll` is not in the game's module list.
+7. Run a Dumper-7 session. The SDK is written, and `rustic-isles-runtime.dll` is not in the game's module list.
 8. On Linux/Proton with the switch off, PLAY as before: the loader still loads the runtime.
 
 ### Proton with the helper (Linux PC with the game)
@@ -187,8 +193,8 @@ The UCRT64 gcc links against the UCRT (`api-ms-win-crt-*`), and Ubuntu's `gcc-mi
    launcher's resources folder as `dainty-inject.exe`: next to the AppImage's other resources, or in
    `crates/../brand/launcher` for a development run.
 2. In Settings, turn on "Load the runtime with the inject helper". The runtime check asks to reinstall. The launcher
-   removes the `winmm.dll` it installed, and the folder holds `Rustic-Isles.dll` alone.
-3. PLAY. The log's command line shows `dainty-inject.exe --dll Z:\...\Rustic-Isles.dll <sha256> -- Z:\...`
+   removes the `winmm.dll` it installed, and the folder holds `rustic-isles-runtime.dll` alone.
+3. PLAY. The log's command line shows `dainty-inject.exe --dll Z:\...\rustic-isles-runtime.dll <sha256> -- Z:\...`
    (the key masked). The game reaches the menu signed in.
 4. If it doesn't, the game-exit log line shows the code: `0xD1A00003` means Wine refused the load (keep the
    loader as the default and report it), and `0xD1A00002` means the game didn't start through the helper.

@@ -53,6 +53,10 @@ the result ignored apart from success or failure. Nothing is ever unloaded.
 
 ## 3. Choosing the runtime
 
+**After R21** (`spec-runtime-r21.md`, L-6) a runtime set holds only `rustic-isles-runtime.dll`, which the fixed-name
+rule below loads; the candidates are only for a set from before R21, and the launcher removes one left beside the
+loader of an R21 set (L-3). The loader's code does not change.
+
 The candidate names, in this order:
 
 | Index | Name | Why |
