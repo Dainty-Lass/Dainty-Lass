@@ -66,8 +66,9 @@ pub fn read_bytes(addr: usize, out: &mut [u8]) -> bool {
     if !readable_unaligned(addr, out.len()) {
         return false;
     }
-    // SAFETY: the source range was just checked; `out` is a distinct, writable buffer
-    unsafe { std::ptr::copy_nonoverlapping(addr as *const u8, out.as_mut_ptr(), out.len()) };
+    // SAFETY: the source range was just checked. `copy`, not `copy_nonoverlapping`: a read past a heap string can
+    // reach `out` itself, freshly allocated on the same heap
+    unsafe { std::ptr::copy(addr as *const u8, out.as_mut_ptr(), out.len()) };
     true
 }
 
