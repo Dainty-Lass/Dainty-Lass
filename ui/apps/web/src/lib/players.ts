@@ -3,7 +3,7 @@ import type { Staff } from "@/lib/db/schema";
 import { DomainError, type ErrorCode } from "@/lib/errors";
 import { fleet } from "@/lib/fleet/status";
 import { adminApi, type GamePlayer } from "@/lib/game/admin-api";
-import { type BackendAccount, backend } from "@/lib/game/backend";
+import { type BackendAccount, backend, type GrantBody, type GrantReport } from "@/lib/game/backend";
 
 /**
  * Moderation as the game enforces it, on one controller (each has its own accounts). The game answers
@@ -250,4 +250,81 @@ export async function setPlayerRoles(
     revertOfId,
   });
   return account;
+}
+
+const GRANT_ID = /^[A-Za-z0-9][A-Za-z0-9._-]{7,63}$/;
+const CATALOG_ID = /^[A-Za-z0-9_.:-]{1,128}$/;
+
+function stacksOf(list: unknown): GrantBody["items"] {
+  if (list === undefined) return undefined;
+  if (!Array.isArray(list) || list.length > 50) throw new DomainError("invalid_input");
+  return list.map((e) => {
+    const { catalogId, quantity } = (e ?? {}) as Record<string, unknown>;
+    if (typeof catalogId !== "string" || !CATALOG_ID.test(catalogId))
+      throw new DomainError("invalid_input");
+    if (!Number.isSafeInteger(quantity) || (quantity as number) < 1)
+      throw new DomainError("invalid_input");
+    return { catalogId, quantity: quantity as number };
+  });
+}
+
+function xpOf(list: unknown): GrantBody["progression"] {
+  if (list === undefined) return undefined;
+  if (!Array.isArray(list) || list.length > 50) throw new DomainError("invalid_input");
+  return list.map((e) => {
+    const { progressionId, xp, rank } = (e ?? {}) as Record<string, unknown>;
+    if (typeof progressionId !== "string" || !CATALOG_ID.test(progressionId))
+      throw new DomainError("invalid_input");
+    if (xp !== undefined && rank === undefined && Number.isSafeInteger(xp) && (xp as number) >= 1)
+      return { progressionId, xp: xp as number };
+    if (
+      rank !== undefined &&
+      xp === undefined &&
+      Number.isSafeInteger(rank) &&
+      (rank as number) >= 1
+    )
+      return { progressionId, rank: rank as number };
+    throw new DomainError("invalid_input");
+  });
+}
+
+/**
+ * Items, currencies and levels given to one account through the backend's own grant path, so they land
+ * as the game's grants do. The grant id comes from the dialog: a retried submit replays, never doubles.
+ * Not revertible: what a player has spent can't be taken back cleanly.
+ */
+export async function grantToPlayer(
+  me: Staff,
+  controllerId: string,
+  userId: string,
+  grantId: string,
+  grant: { items?: unknown; currencies?: unknown; progression?: unknown },
+  reason: string,
+): Promise<GrantReport> {
+  if (!GRANT_ID.test(grantId)) throw new DomainError("invalid_input");
+  const body: GrantBody = {
+    grantId,
+    reason: reasonOf(reason),
+    items: stacksOf(grant.items),
+    currencies: stacksOf(grant.currencies),
+    progression: xpOf(grant.progression),
+  };
+  const api = backend(controllerId);
+  const [account] = (await api.playersById([userId], op(me))).accounts;
+  if (!account) throw new DomainError("not_found");
+  const { report } = await api.grant(userId, body, op(me));
+  recordAudit(me, {
+    action: "player.grant",
+    targetType: "player",
+    targetId: userId,
+    targetLabel: account.displayName,
+    controllerId,
+    reason,
+    after: report,
+  });
+  return report;
+}
+
+export async function grantCatalog(me: Staff, controllerId: string) {
+  return backend(controllerId).grantCatalog(op(me));
 }

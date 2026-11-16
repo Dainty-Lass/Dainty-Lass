@@ -217,17 +217,17 @@ fn rifts() -> rustic_rifts_seam::Rifts {
 #[test]
 fn the_table() {
     let all = routes::all();
-    assert_eq!(all.len(), 291);
+    assert_eq!(all.len(), 293);
     let backend: Vec<_> = all.iter().filter(|r| r.service == Service::Backend).collect();
-    assert_eq!(backend.len(), 286);
-    assert_eq!(backend.iter().filter(|r| r.side == Side::Isles).count(), 219);
+    assert_eq!(backend.len(), 288);
+    assert_eq!(backend.iter().filter(|r| r.side == Side::Isles).count(), 221);
     assert_eq!(backend.iter().filter(|r| r.side == Side::Rifts).count(), 67);
     let director: Vec<_> = all.iter().filter(|r| r.service == Service::Director).collect();
     assert_eq!(director.len(), 5);
     assert_eq!(director.iter().filter(|r| r.side == Side::Isles).count(), 4);
-    assert_eq!(rustic_isles::RouteSet::V1147.routes(Service::Backend).len(), 286);
+    assert_eq!(rustic_isles::RouteSet::V1147.routes(Service::Backend).len(), 288);
     let admin: Vec<_> = all.iter().filter(|r| r.when == When::Admin).collect();
-    assert_eq!(admin.len(), 29);
+    assert_eq!(admin.len(), 31);
     assert!(
         admin
             .iter()

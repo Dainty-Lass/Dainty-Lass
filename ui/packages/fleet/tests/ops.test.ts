@@ -5,6 +5,10 @@ test("only the listed backend routes pass", () => {
   expect(backendAllowed("GET", "/admin/v1/players?page=2&limit=25")).toBe(true);
   expect(backendAllowed("PATCH", "/admin/v1/players/abc-123/access")).toBe(true);
   expect(backendAllowed("DELETE", "/admin/v1/players/abc-123")).toBe(false);
+  expect(backendAllowed("GET", "/admin/v1/grant-catalog")).toBe(true);
+  expect(backendAllowed("POST", "/admin/v1/players/abc-123/grants")).toBe(true);
+  expect(backendAllowed("GET", "/admin/v1/players/abc-123/grants")).toBe(false);
+  expect(backendAllowed("POST", "/admin/v1/players/abc-123/tester-max")).toBe(false);
   expect(backendAllowed("GET", "/admin/v1/player-logs")).toBe(false);
   expect(backendAllowed("GET", "/admin/v1/players/../auth/login")).toBe(false);
   expect(backendAllowed("GET", "//evil.example/admin/v1/players")).toBe(false);

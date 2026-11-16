@@ -1060,3 +1060,198 @@ fn debug_never_shows_secrets() {
     };
     assert!(!format!("{config:?}").contains("hunter2"));
 }
+
+async fn give_character(r: &Rig, account: &AccountId) {
+    let account = account.clone();
+    r.store
+        .write(&ActorContext::new(Actor::System), move |tx, repos| {
+            repos
+                .characters
+                .create(
+                    tx,
+                    &rustic_isles_store::repo::characters::CharacterRecord {
+                        character_id: "char-1".into(),
+                        account,
+                        created_date: "x".into(),
+                        last_modified_date: "x".into(),
+                        name: "S".into(),
+                        update_version: 1,
+                        data: "{}".into(),
+                    },
+                )
+                .map(|_| ())
+        })
+        .await
+        .unwrap();
+}
+
+async fn track_progress(r: &Rig, account: &AccountId, track: &'static str) -> i64 {
+    let account = account.clone();
+    r.store
+        .read(move |conn, repos| repos.progression_tracks.get(conn, &account, track))
+        .await
+        .unwrap()
+        .map_or(0, |t| t.progress)
+}
+
+async fn grant_rig() -> Admin {
+    let funding = FakeFunding::default()
+        .with_track("ExperienceTrack_PlayerLevel", 50_000, 5)
+        .with_catalog(&[
+            "ITEM_A",
+            "WEAPON_SWORD",
+            "CURRENCY_NOTES",
+            "CURRENCY_PLATINUM_UNIV",
+            "CURRENCY_PLATINUM",
+        ]);
+    rig_with(common::Options {
+        store: true,
+        funding: Some(funding),
+        ..Default::default()
+    })
+    .await
+}
+
+#[tokio::test]
+async fn grant_catalog_lists_what_a_grant_may_name() {
+    let t = grant_rig().await;
+    let r = &t.rig;
+    assert_eq!(r.get("/admin/v1/grant-catalog").await.status, 401);
+    let catalog = r.send(session("GET", "/admin/v1/grant-catalog")).await;
+    assert_eq!(catalog.status, 200, "{}", catalog.body);
+    assert_eq!(
+        catalog.json(),
+        json!({
+            "items": [
+                {"catalogId": "ITEM_A", "storage": "stacked", "tags": []},
+                {"catalogId": "WEAPON_SWORD", "storage": "stacked", "tags": []}
+            ],
+            "currencies": ["CURRENCY_NOTES", "CURRENCY_PLATINUM_UNIV"],
+            "progression": [{"progressionId": "ExperienceTrack_PlayerLevel", "maxRank": 5}]
+        })
+    );
+    // The dashboard's path: the manager operator's signed call
+    let signed = r.send(signed("GET", "/admin/v1/grant-catalog", None, now_ms())).await;
+    assert_eq!(signed.status, 200, "{}", signed.body);
+}
+
+#[tokio::test]
+async fn grant_validation() {
+    let t = grant_rig().await;
+    let r = &t.rig;
+    let grant = |body: Value| session("POST", "/admin/v1/players/fox-user/grants").json(&body);
+    let unsigned = r
+        .send(Request1::new("POST", "/admin/v1/players/fox-user/grants").json(&json!({})))
+        .await;
+    assert_eq!(unsigned.status, 401);
+    assert_eq!(r.send(grant(json!({}))).await.code(), "ADMIN_GRANT_ID");
+    assert_eq!(
+        r.send(grant(json!({"grantId": "grant-0001"}))).await.code(),
+        "ADMIN_GRANT_REASON"
+    );
+    let missing = r
+        .send(
+            session("POST", "/admin/v1/players/nobody/grants")
+                .json(&json!({"grantId": "grant-0001", "reason": "for testing"})),
+        )
+        .await;
+    assert_eq!(missing.status, 404);
+    let problems = |body: Value| async move {
+        let mut body = body;
+        body["grantId"] = json!("grant-0001");
+        body["reason"] = json!("for testing");
+        let answer = r.send(grant(body)).await;
+        assert_eq!((answer.status, answer.code()), (422, "ADMIN_GRANT_INVALID".to_owned()));
+        answer.json()["error"]["problems"].clone()
+    };
+    assert_eq!(problems(json!({})).await, json!(["nothing to grant"]));
+    assert_eq!(
+        problems(json!({
+            "items": [
+                {"catalogId": "ITEM_MADE_UP", "quantity": 1},
+                {"catalogId": "CURRENCY_NOTES", "quantity": 1},
+                {"catalogId": "ITEM_A", "quantity": 1001}
+            ],
+            "currencies": [
+                {"catalogId": "CURRENCY_PLATINUM", "quantity": 5},
+                {"catalogId": "ITEM_A", "quantity": 5},
+                {"catalogId": "CURRENCY_NOTES", "quantity": 0}
+            ],
+            "progression": [
+                {"progressionId": "Linked_Slayer_Slot_1", "xp": 5},
+                {"progressionId": "ExperienceTrack_PlayerLevel", "xp": 5, "rank": 2},
+                {"progressionId": "ExperienceTrack_PlayerLevel", "rank": 6}
+            ],
+            "extra": true
+        }))
+        .await,
+        json!([
+            "unknown field \"extra\"",
+            "items[0]: \"ITEM_MADE_UP\" is not in the server's catalog",
+            "items[1]: CURRENCY_NOTES is a currency; list it under currencies",
+            "items[2]: quantity must be an integer from 1 to 1000",
+            "currencies[0]: CURRENCY_PLATINUM is the Platinum aggregate; grant a storefront bucket (CURRENCY_PLATINUM_*) instead",
+            "currencies[1]: \"ITEM_A\" is not a known CURRENCY_* id",
+            "currencies[2]: quantity must be an integer from 1 to 10000000",
+            "progression[0]: \"Linked_Slayer_Slot_1\" is not an approved XP track",
+            "progression[1]: give exactly one of xp or rank",
+            "progression[2]: rank 6 is past ExperienceTrack_PlayerLevel's top rank"
+        ])
+    );
+    assert!(r.audits().await.is_empty(), "a refused grant changes nothing");
+}
+
+#[tokio::test]
+async fn grant_applies_once_and_is_audited() {
+    let t = grant_rig().await;
+    let r = &t.rig;
+    let grant = |body: &Value| session("POST", "/admin/v1/players/fox-user/grants").json(body);
+    let body = json!({
+        "grantId": "grant-0001",
+        "reason": "lost gear refund",
+        "items": [{"catalogId": "WEAPON_SWORD", "quantity": 1}, {"catalogId": "ITEM_A", "quantity": 2}],
+        "currencies": [{"catalogId": "CURRENCY_NOTES", "quantity": 5000}],
+        "progression": [{"progressionId": "ExperienceTrack_PlayerLevel", "xp": 120_000}]
+    });
+    let none = r.send(grant(&body)).await;
+    assert_eq!((none.status, none.code()), (409, "ADMIN_GRANT_NO_CHARACTER".to_owned()));
+    give_character(r, &t.fox).await;
+    let done = r.send(grant(&body)).await;
+    assert_eq!(done.status, 200, "{}", done.body);
+    let report = &done.json()["report"];
+    assert_eq!(report["status"], "done");
+    assert_eq!(report["characterId"], "char-1");
+    assert_eq!(
+        report["items"],
+        json!({"status": "done", "stacks": [
+            {"catalogId": "WEAPON_SWORD", "quantity": 1},
+            {"catalogId": "ITEM_A", "quantity": 2},
+            {"catalogId": "CURRENCY_NOTES", "quantity": 5000}
+        ]})
+    );
+    assert_eq!(report["progression"][0]["granted"], 120_000);
+    assert_eq!(report["progression"][0]["confirmedRank"], 2);
+    assert_eq!(track_progress(r, &t.fox, "ExperienceTrack_PlayerLevel").await, 120_000);
+    let audits = r.audits().await;
+    assert_eq!(audits.len(), 1);
+    assert_eq!(audits[0].action, "player.grant");
+    assert_eq!(audits[0].actor_user_id, "boss-user");
+    assert_eq!(audits[0].target_user_id.as_deref(), Some("fox-user"));
+    assert_eq!(audits[0].reason.as_deref(), Some("lost gear refund"));
+    assert_eq!(audits[0].new_state.as_ref().unwrap()["grantId"], "grant-0001");
+    // A retried grant id replays the ledger instead of granting twice
+    let again = r.send(grant(&body)).await.json();
+    assert_eq!(again["report"]["progression"][0]["granted"], 0);
+    assert_eq!(track_progress(r, &t.fox, "ExperienceTrack_PlayerLevel").await, 120_000);
+    // A rank goal tops the track up to the rank's XP
+    let rank = json!({
+        "grantId": "grant-0002",
+        "reason": "level up for testing",
+        "progression": [{"progressionId": "ExperienceTrack_PlayerLevel", "rank": 4}]
+    });
+    let ranked = r.send(grant(&rank)).await.json();
+    assert_eq!(ranked["report"]["progression"][0]["granted"], 80_000);
+    assert_eq!(ranked["report"]["progression"][0]["confirmedRank"], 4);
+    assert!(ranked["report"].get("items").is_none());
+    assert_eq!(track_progress(r, &t.fox, "ExperienceTrack_PlayerLevel").await, 200_000);
+}

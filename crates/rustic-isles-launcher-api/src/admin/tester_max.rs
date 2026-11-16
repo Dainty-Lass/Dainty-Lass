@@ -45,7 +45,18 @@ pub enum StackOutcome {
     Failed(String),
 }
 
-/// What tester max takes from the economy (§15.3).
+/// One catalog id as the grant picker lists it.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CatalogEntry {
+    /// The catalog id.
+    pub id: String,
+    /// `instanced`, `stacked` or `other`, as the storage policy keeps it.
+    pub storage: &'static str,
+    /// The item's tags.
+    pub tags: Vec<String>,
+}
+
+/// What tester max and staff grants take from the economy (§15.3).
 pub trait TesterFunding: Send + Sync {
     /// Whether tester max may grant XP on this track.
     fn is_approved_xp_track(&self, shared: &Shared, id: &str) -> bool;
@@ -57,11 +68,16 @@ pub trait TesterFunding: Send + Sync {
     fn required_xp_for_rank(&self, shared: &Shared, id: &str, rank: i64) -> RankRequirement;
     /// Whether the catalog has this item id.
     fn is_known_catalog_id(&self, shared: &Shared, id: &str) -> bool;
+    /// Every catalog id the storage policy names, sorted by id.
+    fn catalog(&self, shared: &Shared) -> Vec<CatalogEntry>;
+    /// Every track the XP route may grant to, sorted.
+    fn xp_tracks(&self, shared: &Shared) -> Vec<String>;
     /// Most XP one run grants.
     fn max_xp_grant(&self) -> i64 {
         MAX_GRANT
     }
-    /// One inventory transaction (idempotent per transaction id through the ledger).
+    /// One inventory transaction (idempotent per transaction id through the ledger); `label` names it in the log.
+    #[allow(clippy::too_many_arguments, reason = "the transaction's whole context")]
     fn apply_operator_test_stacks<'a>(
         &'a self,
         shared: &'a Arc<Shared>,
@@ -69,6 +85,7 @@ pub trait TesterFunding: Send + Sync {
         character_id: &'a str,
         transaction_id: &'a str,
         stacks: &'a [(String, i64)],
+        label: &'a str,
     ) -> BoxFuture<'a, StackOutcome>;
 }
 
@@ -113,6 +130,33 @@ impl TesterFunding for EconomyFunding {
             .is_ok_and(|policy| policy.entry(id).is_some())
     }
 
+    fn catalog(&self, shared: &Shared) -> Vec<CatalogEntry> {
+        let Ok(policy) = rustic_isles_economy::inventory::storage_policy::StoragePolicy::load(shared) else {
+            return Vec::new();
+        };
+        let mut out: Vec<CatalogEntry> = policy
+            .entries()
+            .map(|(id, entry)| CatalogEntry {
+                id: id.to_owned(),
+                storage: entry.storage.as_str(),
+                tags: entry.tags.clone(),
+            })
+            .collect();
+        out.sort_by(|a, b| a.id.cmp(&b.id));
+        out
+    }
+
+    fn xp_tracks(&self, shared: &Shared) -> Vec<String> {
+        let curves = rustic_isles_economy::progression::curves(shared);
+        let mut out: Vec<String> = curves
+            .track_ids()
+            .filter(|id| self.is_approved_xp_track(shared, id))
+            .map(str::to_owned)
+            .collect();
+        out.sort();
+        out
+    }
+
     fn apply_operator_test_stacks<'a>(
         &'a self,
         shared: &'a Arc<Shared>,
@@ -120,6 +164,7 @@ impl TesterFunding for EconomyFunding {
         character_id: &'a str,
         transaction_id: &'a str,
         stacks: &'a [(String, i64)],
+        label: &'a str,
     ) -> BoxFuture<'a, StackOutcome> {
         use rustic_isles_economy::inventory::{
             Economy, InventoryPorts, TxContext, TxOptions, TxOutcome, TxRequest, run_inventory_transaction,
@@ -150,7 +195,7 @@ impl TesterFunding for EconomyFunding {
             };
             let options = TxOptions {
                 ownership_already_validated: true,
-                diagnostic_label: Some("tester-max".into()),
+                diagnostic_label: Some(label.to_owned()),
                 operator_test_funding: true,
                 economy: Some(Economy {
                     source: "OPERATOR_TEST".into(),
@@ -305,10 +350,15 @@ pub fn plan_blocks(start: i64, target: i64, ceiling: i64) -> Vec<(i64, i64)> {
 
 /// `tmax-` and the first 40 hex digits of SHA-256 of `<runId>` NUL `<part>`.
 pub fn derived_id(run_id: &str, part: &str) -> String {
+    derived_with("tmax", run_id, part)
+}
+
+/// `<prefix>-` and the first 40 hex digits of SHA-256 of `<runId>` NUL `<part>`.
+pub(crate) fn derived_with(prefix: &str, run_id: &str, part: &str) -> String {
     let mut bytes = run_id.as_bytes().to_vec();
     bytes.push(0);
     bytes.extend_from_slice(part.as_bytes());
-    format!("tmax-{}", &util::sha256_hex(&bytes)[..40])
+    format!("{prefix}-{}", &util::sha256_hex(&bytes)[..40])
 }
 
 #[derive(Debug, Clone)]
@@ -452,12 +502,12 @@ fn parse_entries(kit: &Value) -> KitEntries {
     (progression, stacks)
 }
 
-fn cut(text: &str) -> String {
+pub(crate) fn cut(text: &str) -> String {
     util::take_chars(text, 200)
 }
 
 #[derive(Debug)]
-enum StepError {
+pub(crate) enum StepError {
     Plain(String),
     Repo(RepoError),
 }
@@ -505,37 +555,7 @@ async fn run_track(
             return Err(StepError::Plain(format!("Unsupported progression track '{id}'.")));
         }
         let grant_id = derived_id(run_id, &format!("xp:{id}:{index}"));
-        #[allow(clippy::cast_precision_loss, reason = "an XP amount, far below 2^53")]
-        let hash = rustic_isles_economy::progression::tracks::grant_request_hash(user_id, id, amount as f64);
-        let (a, track) = (account.clone(), id.to_owned());
-        store
-            .account_write(account, &actor, move |tx, repos| {
-                if let Some(existing) = repos.progression_grants.find_by_grant_id(tx.conn(), &grant_id)? {
-                    let same = existing.account == a
-                        && existing.progression_id == track
-                        && existing.amount == amount
-                        && existing.request_hash == hash;
-                    if !same {
-                        return Err(RepoError::Data(format!(
-                            "Progression grant {grant_id} was already used with a different request."
-                        )));
-                    }
-                    return Ok(());
-                }
-                let result = repos.progression_tracks.increment(tx, &a, &track, amount)?;
-                repos.progression_grants.insert_applied(
-                    tx,
-                    &ProgressionGrantRecord {
-                        grant_id,
-                        account: a.clone(),
-                        progression_id: track,
-                        amount,
-                        request_hash: hash,
-                        result,
-                        created_at: iso(now_ms()),
-                    },
-                )
-            })
+        grant_xp_block(store, account, &actor, grant_id, user_id, id, amount)
             .await
             .map_err(StepError::Repo)?;
         row.granted += amount;
@@ -543,38 +563,97 @@ async fn run_track(
     }
     let rank = funding.rank_for_progress(shared, id, start.max(goal)).unwrap_or(0);
     if rank > 0 {
-        let required = match funding.required_xp_for_rank(shared, id, rank) {
-            RankRequirement::UnknownTrack => {
-                return Err(StepError::Plain(format!("rank {rank} confirm refused: unknown_track")));
-            }
-            RankRequirement::OutOfRange => {
-                return Err(StepError::Plain(format!(
-                    "rank {rank} confirm refused: rank_out_of_range"
-                )));
-            }
-            RankRequirement::Xp(xp) => xp,
-        };
-        let (a, track) = (account.clone(), id.to_owned());
-        store
-            .account_write(account, &actor, move |tx, repos| {
-                let progress = repos
-                    .progression_tracks
-                    .get(tx.conn(), &a, &track)?
-                    .map_or(0, |t| t.progress);
-                #[allow(clippy::cast_precision_loss, reason = "track progress is far below 2^53")]
-                if required > 0.0 && (progress as f64) < required {
-                    return Err(RepoError::Data(format!("rank {rank} confirm refused: insufficient_xp")));
-                }
-                repos
-                    .progression_tracks
-                    .set_confirmed_fremium_rank(tx, &a, &track, rank)?;
-                Ok(())
-            })
-            .await
-            .map_err(StepError::Repo)?;
+        confirm_rank(shared, store, funding, account, &actor, id, rank).await?;
         row.confirmed = Some(rank);
     }
     Ok(())
+}
+
+/// One XP grant through the progression grant ledger: a replayed id is a no-op when the request matches, and
+/// refused when it doesn't. True when this call applied it.
+pub(crate) async fn grant_xp_block(
+    store: &IslesStore,
+    account: &AccountId,
+    actor: &ActorContext,
+    grant_id: String,
+    user_id: &str,
+    id: &str,
+    amount: i64,
+) -> Result<bool, RepoError> {
+    #[allow(clippy::cast_precision_loss, reason = "an XP amount, far below 2^53")]
+    let hash = rustic_isles_economy::progression::tracks::grant_request_hash(user_id, id, amount as f64);
+    let (a, track) = (account.clone(), id.to_owned());
+    store
+        .account_write(account, actor, move |tx, repos| {
+            if let Some(existing) = repos.progression_grants.find_by_grant_id(tx.conn(), &grant_id)? {
+                let same = existing.account == a
+                    && existing.progression_id == track
+                    && existing.amount == amount
+                    && existing.request_hash == hash;
+                if !same {
+                    return Err(RepoError::Data(format!(
+                        "Progression grant {grant_id} was already used with a different request."
+                    )));
+                }
+                return Ok(false);
+            }
+            let result = repos.progression_tracks.increment(tx, &a, &track, amount)?;
+            repos.progression_grants.insert_applied(
+                tx,
+                &ProgressionGrantRecord {
+                    grant_id,
+                    account: a.clone(),
+                    progression_id: track,
+                    amount,
+                    request_hash: hash,
+                    result,
+                    created_at: iso(now_ms()),
+                },
+            )?;
+            Ok(true)
+        })
+        .await
+}
+
+/// Confirms the rank the track's XP reaches, as the game's own rank-up does.
+pub(crate) async fn confirm_rank(
+    shared: &Shared,
+    store: &IslesStore,
+    funding: &dyn TesterFunding,
+    account: &AccountId,
+    actor: &ActorContext,
+    id: &str,
+    rank: i64,
+) -> Result<(), StepError> {
+    let required = match funding.required_xp_for_rank(shared, id, rank) {
+        RankRequirement::UnknownTrack => {
+            return Err(StepError::Plain(format!("rank {rank} confirm refused: unknown_track")));
+        }
+        RankRequirement::OutOfRange => {
+            return Err(StepError::Plain(format!(
+                "rank {rank} confirm refused: rank_out_of_range"
+            )));
+        }
+        RankRequirement::Xp(xp) => xp,
+    };
+    let (a, track) = (account.clone(), id.to_owned());
+    store
+        .account_write(account, actor, move |tx, repos| {
+            let progress = repos
+                .progression_tracks
+                .get(tx.conn(), &a, &track)?
+                .map_or(0, |t| t.progress);
+            #[allow(clippy::cast_precision_loss, reason = "track progress is far below 2^53")]
+            if required > 0.0 && (progress as f64) < required {
+                return Err(RepoError::Data(format!("rank {rank} confirm refused: insufficient_xp")));
+            }
+            repos
+                .progression_tracks
+                .set_confirmed_fremium_rank(tx, &a, &track, rank)?;
+            Ok(())
+        })
+        .await
+        .map_err(StepError::Repo)
 }
 
 const NO_CHARACTER: (&str, &str) = (
@@ -628,7 +707,7 @@ async fn run(
     if !stacks.is_empty() {
         let transaction = derived_id(run_id, "items");
         let outcome = funding
-            .apply_operator_test_stacks(shared, user_id, &character, &transaction, &stacks)
+            .apply_operator_test_stacks(shared, user_id, &character, &transaction, &stacks, "tester-max")
             .await;
         report.items = Some(match outcome {
             StackOutcome::Applied => (true, None, stacks.len()),

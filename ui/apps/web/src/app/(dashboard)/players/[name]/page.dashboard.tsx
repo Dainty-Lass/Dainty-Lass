@@ -100,6 +100,7 @@ export default async function PlayerPage({
         moderate: can(me.role, "players:moderate"),
         access: can(me.role, "players:access"),
         roles: can(me.role, "players:roles"),
+        grant: can(me.role, "players:grant"),
         report: can(me.role, "reports:write"),
         revert: can(me.role, "audit:revert"),
         fleet: can(me.role, "players:fleet"),

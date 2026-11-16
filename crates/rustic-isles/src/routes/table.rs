@@ -30,7 +30,7 @@ const fn r(
 }
 
 #[rustfmt::skip]
-pub(super) static TABLE: [RouteDef; 291] = [
+pub(super) static TABLE: [RouteDef; 293] = [
     r(B, Get, r"/", LauncherApi, Isles, Always), // B1
     r(B, Get, r"/health/live", LauncherApi, Isles, Always), // B2
     r(B, Get, r"/health/ready", LauncherApi, Isles, Always), // B3
@@ -252,6 +252,8 @@ pub(super) static TABLE: [RouteDef; 291] = [
     r(B, Get, r"/admin/v1/activity/flags", LauncherApi, Isles, Admin), // B219
     r(B, Patch, r"/admin/v1/activity/flags/:id", LauncherApi, Isles, Admin), // B220
     r(B, Post, r"/admin/v1/players/:userId/tester-max", LauncherApi, Isles, Admin), // B221
+    r(B, Get, r"/admin/v1/grant-catalog", LauncherApi, Isles, Admin), // B221a: staff grants, not in Node
+    r(B, Post, r"/admin/v1/players/:userId/grants", LauncherApi, Isles, Admin), // B221b
     r(B, Get, r"/admin/v1/player-logs", LauncherApi, Isles, Admin), // B222
     r(B, Get, r"/admin/v1/player-logs/:userId/:launchSessionId/:fileName", LauncherApi, Isles, Admin), // B223
     r(B, Delete, r"/admin/v1/player-logs/:userId/:launchSessionId", LauncherApi, Isles, Admin), // B224

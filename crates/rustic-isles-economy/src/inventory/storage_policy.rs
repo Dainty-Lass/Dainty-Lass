@@ -133,6 +133,11 @@ impl StoragePolicy {
         self.entries.get(catalog_id)
     }
 
+    /// Every catalog id the policy names, in no order.
+    pub fn entries(&self) -> impl Iterator<Item = (&str, &PolicyEntry)> {
+        self.entries.iter().map(|(id, entry)| (id.as_str(), entry))
+    }
+
     fn storage_of(&self, item: &Value) -> Option<Storage> {
         let id = item.get("catalogId").and_then(Value::as_str)?;
         self.entry(id).map(|e| e.storage)

@@ -17,7 +17,7 @@ import { pixel, proportional, Table } from "@astryxdesign/core/Table";
 import { Text } from "@astryxdesign/core/Text";
 import { Timestamp } from "@astryxdesign/core/Timestamp";
 import { Token } from "@astryxdesign/core/Token";
-import { Ban, Clock, DoorOpen, Flag, ShieldCheck } from "lucide-react";
+import { Ban, Clock, DoorOpen, Flag, Gift, ShieldCheck } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useState } from "react";
 import { AuditTable } from "@/components/AuditTable";
@@ -32,6 +32,7 @@ import type { BackendAccount } from "@/lib/game/backend";
 import { liftTimeoutAction } from "../actions";
 import { AccessDialog } from "./AccessDialog";
 import { FileReportDialog } from "./FileReportDialog";
+import { GrantDialog } from "./GrantDialog";
 import { ModerationDialog, type ModerationKind } from "./ModerationDialog";
 
 const STATUS_BADGE = {
@@ -77,6 +78,7 @@ export function PlayerDetailClient({
     moderate: boolean;
     access: boolean;
     roles: boolean;
+    grant: boolean;
     report: boolean;
     revert: boolean;
     fleet: boolean;
@@ -96,6 +98,7 @@ export function PlayerDetailClient({
   const te = useTranslations("errors");
   const tr = useTranslations("reports");
   const td = useTranslations("direct");
+  const tg = useTranslations("grants");
   const { run } = useAction();
   const tabs = [
     can.readChat && "chat",
@@ -107,6 +110,7 @@ export function PlayerDetailClient({
   const [dialog, setDialog] = useState<ModerationKind | null>(null);
   const [access, setAccess] = useState(false);
   const [reporting, setReporting] = useState(false);
+  const [granting, setGranting] = useState(false);
 
   const r = player?.restriction;
   const restricted = r && r.kind !== "DISABLED";
@@ -164,6 +168,9 @@ export function PlayerDetailClient({
               : []),
             ...(can.access && account
               ? [{ label: t("editAccess"), onClick: () => setAccess(true) }]
+              : []),
+            ...(can.grant && account
+              ? [{ label: tg("open"), icon: Gift, onClick: () => setGranting(true) }]
               : []),
           ]}
         />
@@ -403,6 +410,16 @@ export function PlayerDetailClient({
           canRoles={can.roles}
           reasons={reasons}
           onClose={() => setAccess(false)}
+        />
+      )}
+      {account && can.grant && (
+        <GrantDialog
+          isOpen={granting}
+          controllerId={controller.id}
+          account={account}
+          online={Boolean(player?.online)}
+          reasons={reasons}
+          onClose={() => setGranting(false)}
         />
       )}
       <FileReportDialog

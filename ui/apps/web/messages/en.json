@@ -253,7 +253,8 @@
       "passkey_added": "{actor} added a passkey",
       "passkey_removed": "{actor} removed a passkey",
       "chat_direct_read": "{actor} read {target}'s direct messages",
-      "controller_logs": "{actor} changed {target}'s log settings"
+      "controller_logs": "{actor} changed {target}'s log settings",
+      "player_grant": "{actor} gave {target} items or levels"
     }
   },
   "players": {
@@ -1144,5 +1145,67 @@
     "urlHint": "An http or https address, without a username or password in it.",
     "urlPlaceholder": "https://example.com/signup",
     "urlMissing": "Account creation is on but has no page, so /key keeps sending login invites."
+  },
+  "grants": {
+    "open": "Grant items",
+    "title": "Grant to {name}",
+    "explain": "Items, currencies and levels go through the game's own grant path, as if the game had given them.",
+    "loading": "Loading the server's catalog",
+    "kind": "What to grant",
+    "kinds": {
+      "item": "Item",
+      "currency": "Currency",
+      "level": "Level"
+    },
+    "item": "Item",
+    "itemPlaceholder": "Search catalog ids, such as a weapon or armour id",
+    "noItems": "No catalog id matches",
+    "currency": "Currency",
+    "currencyPlaceholder": "Pick a currency",
+    "currencyNamed": "{name} ({id})",
+    "currencyNames": {
+      "rams": "Rams",
+      "platinum": "Platinum"
+    },
+    "track": "Track",
+    "trackPlaceholder": "Pick a level or pass track",
+    "trackOption": "{id} (top rank {max})",
+    "levelMode": "Grant as",
+    "modes": {
+      "rank": "Up to a rank",
+      "xp": "XP to add"
+    },
+    "quantity": "Quantity",
+    "xpAmount": "XP to add",
+    "rankAmount": "Rank to reach",
+    "upTo": "1 to {max}",
+    "add": "Add",
+    "remove": "Remove",
+    "empty": "Nothing added yet.",
+    "line": {
+      "item": "{quantity} × {id}",
+      "currency": "{quantity} {name}",
+      "xp": "{amount} XP on {id}",
+      "rank": "{id} up to rank {rank}"
+    },
+    "reason": "Reason",
+    "review": "Review",
+    "back": "Back",
+    "confirm": "Grant",
+    "confirmTitle": "Grant these to {name}?",
+    "reasonShown": "Reason: {reason}",
+    "whenOnline": "The player is online: the game shows it after their next inventory load, when they travel or sign in again.",
+    "whenOffline": "The player sees it the next time they sign in.",
+    "doneTitle": "Granted",
+    "partialTitle": "Granted in part: see what failed below",
+    "result": {
+      "items": "{count, plural, one {# item or currency stack} other {# item or currency stacks}}",
+      "track": "{id}: {granted} XP added, rank {rank}",
+      "status": {
+        "done": "Done",
+        "error": "Failed"
+      }
+    },
+    "close": "Close"
   }
 }
