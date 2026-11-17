@@ -168,7 +168,10 @@
         "title": "Import an SDK folder",
         "hint": "If you dumped it some other way."
       },
-      "build_runtime": { "title": "Build the runtime", "hint": "rustic-isles-runtime.dll, with cargo." },
+      "build_runtime": {
+        "title": "Build the runtime",
+        "hint": "rustic-isles-runtime.dll, with cargo."
+      },
       "build_loader": { "title": "Build the loader", "hint": "winmm.dll, with Cargo." },
       "publish_runtime": {
         "title": "Runtime publish",
