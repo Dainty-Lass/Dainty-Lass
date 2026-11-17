@@ -59,6 +59,7 @@ export function adminApi(controllerId: string) {
     unban: (username: string, reason: string | null, op: string) =>
       g.admin<GamePlayer>("unban", { u: username, r: reason }, op),
     logSettings: (op = "0") => g.admin<LogSettings>("logSettings", {}, op),
+    adminKeys: (op = "0") => g.admin<{ id: string; name: string }[]>("adminKeys", {}, op),
     setLogSettings: (change: LogSettingsChange, op: string) =>
       g.admin<LogSettings>("setLogSettings", { i: change }, op),
   };

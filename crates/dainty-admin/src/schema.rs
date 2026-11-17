@@ -1212,7 +1212,7 @@ impl Admin {
         let mut asked = JoinSet::new();
         for module in modules {
             let plugin = self.modules.clone();
-            let actor = self.modules.actor(&caller.key, self.now());
+            let actor = self.modules.actor(&caller.key, caller.operator.id(), self.now());
             let request = AdminRequest::Lookup {
                 player: name.to_owned(),
             };
@@ -1297,7 +1297,7 @@ impl Admin {
         module: &AdminModule,
         request: AdminRequest,
     ) -> async_graphql::Result<()> {
-        let actor = self.modules.actor(&caller.key, self.now());
+        let actor = self.modules.actor(&caller.key, caller.operator.id(), self.now());
         let request_id = actor.request.clone().unwrap_or_default();
         let sent = serde_json::to_value(&request).unwrap_or_default();
         match self.modules.call(module, actor, request).await {
@@ -1320,7 +1320,7 @@ impl Admin {
         let request = AdminRequest::Lookup {
             player: info.name.clone(),
         };
-        let actor = self.modules.actor(&caller.key, self.now());
+        let actor = self.modules.actor(&caller.key, caller.operator.id(), self.now());
         let latest = match self.modules.call(module, actor, request).await {
             Ok(AdminResponse::Player(latest)) => latest,
             _ => info,

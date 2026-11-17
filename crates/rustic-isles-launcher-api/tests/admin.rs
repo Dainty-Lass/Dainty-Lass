@@ -930,6 +930,14 @@ async fn admin_actions_and_home_operations() {
     let AdminResponse::Player(info) = lookup else {
         panic!("{lookup:?}")
     };
+    // Every action lands in the admin record the dashboard's History reads, by the game's user id
+    let records = r.audits().await;
+    let timeout = records.iter().find(|a| a.action == "player.timeout").unwrap();
+    assert_eq!(
+        (timeout.actor_user_id.as_str(), timeout.target_user_id.as_deref()),
+        ("host", Some("fox-user"))
+    );
+    assert_eq!(timeout.reason.as_deref(), Some("cool off"));
     // The game's own id and the account's dates, which the dashboard looks the backend account up by
     assert_eq!(info.user_id.as_deref(), Some("fox-user"));
     assert!(info.created_at.is_some());
@@ -1271,4 +1279,21 @@ async fn grant_applies_once_and_is_audited() {
     assert_eq!(ranked["report"]["progression"][0]["confirmedRank"], 4);
     assert!(ranked["report"].get("items").is_none());
     assert_eq!(track_progress(r, &t.fox, "ExperienceTrack_PlayerLevel").await, 200_000);
+}
+
+#[test]
+fn the_record_names_who_acted_without_a_key() {
+    use rustic_isles_launcher_api::admin::actions::who;
+    let admin = |request: Option<&str>| {
+        let actor = ActorContext::new(Actor::Admin { key: "abc123".into() });
+        match request {
+            Some(r) => actor.with_request(r),
+            None => actor,
+        }
+    };
+    assert_eq!(who(&admin(Some("admin-1-2-op555"))), "key:abc123/discord:555");
+    assert_eq!(who(&admin(Some("admin-1-2"))), "key:abc123");
+    assert_eq!(who(&admin(Some("admin-1-2-opx"))), "key:abc123");
+    assert_eq!(who(&admin(None)), "key:abc123");
+    assert_eq!(who(&ActorContext::new(Actor::Console)), "host");
 }

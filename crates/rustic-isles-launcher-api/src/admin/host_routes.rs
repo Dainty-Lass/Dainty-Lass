@@ -8,7 +8,7 @@ use dainty_module_api::{Actor, ActorContext};
 use http::{HeaderMap, StatusCode};
 use rustic_isles::Call;
 use rustic_isles_store::repo::auth::{AccessChange, LauncherAccountRecord, OperationalStatus};
-use rustic_isles_store::repo::reforged::InviteRecord;
+use rustic_isles_store::repo::reforged::{AdminAuditRecord, InviteRecord};
 use rustic_isles_store::{IslesStore, RepoError};
 use serde_json::Value;
 
@@ -29,6 +29,28 @@ pub fn local_admin(settings: &rustic_isles::Settings, peer: &str, headers: &Head
     }
     let sent = util::header_text(headers, "x-dainty-admin-key").unwrap_or_default();
     util::ct_eq(&util::sha256(sent.as_bytes()), &util::sha256(configured.as_bytes()))
+}
+
+/// The host's own action on a player, in the admin record the dashboard's History reads, as `host`.
+async fn record(store: &IslesStore, user_id: &str, action: &str, state: Vec<(&str, Value)>, reason: Option<String>) {
+    let audit = AdminAuditRecord {
+        id: util::random_uuid(),
+        actor_user_id: "host".to_owned(),
+        target_user_id: Some(user_id.to_owned()),
+        action: action.to_owned(),
+        old_state: None,
+        new_state: Some(object(state)),
+        reason,
+        ip: String::new(),
+        request_id: util::random_uuid(),
+        created_at: iso(now_ms()),
+    };
+    if let Err(e) = store
+        .write(&console(), move |tx, repos| repos.admin.append_audit(tx, &audit))
+        .await
+    {
+        tracing::error!("[launcher-api] {action} on {user_id}: the admin record failed: {e}");
+    }
 }
 
 fn console() -> ActorContext {
@@ -208,6 +230,7 @@ pub async fn set_account_status(mut call: Call) -> Response {
         return bad_request(Some("Username and Status (active, banned or disabled) are required."));
     };
     let reason = util::str_field(body, "Reason").map(|r| util::take_chars(r, 500));
+    let noted = reason.clone();
     let (account, user_id) = match by_name(&store, &name).await {
         Ok(Some(found)) => found,
         Ok(None) => return Refusal::NotFound.response(StatusCode::NOT_FOUND),
@@ -233,6 +256,14 @@ pub async fn set_account_status(mut call: Call) -> Response {
         Ok(after) => {
             LauncherApiState::of(&call.shared).forget_status();
             let stored = after.map_or(status, |a| a.status);
+            record(
+                &store,
+                &user_id,
+                "player.access",
+                vec![("status", Value::from(stored.as_str()))],
+                noted,
+            )
+            .await;
             tracing::info!(
                 "[launcher-api] {} ({user_id}) set {}",
                 account.display_name,
@@ -282,6 +313,14 @@ pub async fn kick(mut call: Call) -> Response {
     }
     let closed = call.shared.kick_player(&user_id, "kicked by the host").await;
     LauncherApiState::of(&call.shared).forget_status();
+    record(
+        &store,
+        &user_id,
+        "player.kick",
+        vec![("name", Value::from(account.display_name.clone()))],
+        None,
+    )
+    .await;
     tracing::info!(
         "[launcher-api] {} ({user_id}) kicked, {closed} chat connection(s) closed",
         account.display_name

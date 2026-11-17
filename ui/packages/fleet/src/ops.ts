@@ -19,6 +19,8 @@ export const ADMIN_OPS = {
   ban: `mutation($u: String!, $r: String!) { ban(username: $u, reason: $r) { ${PLAYER} } }`,
   unban: `mutation($u: String!, $r: String) { unban(username: $u, reason: $r) { ${PLAYER} } }`,
   logSettings: "{ logSettings { format color gelfUrl restartNeeded } }",
+  // Names for the key ids the game's admin record shows in a player's History
+  adminKeys: "{ adminKeys { id name } }",
   setLogSettings:
     "mutation($i: LogSettingsInput!) { setLogSettings(input: $i) { format color gelfUrl restartNeeded } }",
 } as const;

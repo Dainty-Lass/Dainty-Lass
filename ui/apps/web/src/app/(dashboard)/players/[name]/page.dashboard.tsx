@@ -17,6 +17,7 @@ import { type BackendAccount, backend } from "@/lib/game/backend";
 import { op, operatorId } from "@/lib/players";
 import { reportsAgainst } from "@/lib/reports/store";
 import { getSettings } from "@/lib/settings";
+import { staffByDiscord } from "@/lib/staff";
 import { PlayerDetailClient } from "./PlayerDetailClient";
 
 export async function generateMetadata({
@@ -88,7 +89,13 @@ export default async function PlayerPage({
         { targetUserId: userId, limit: 100 },
         op(me),
       );
-      fromGame = gameHistory(records, userId, displayName, controllerId);
+      const keys = await adminApi(controllerId)
+        .adminKeys(operatorId(me))
+        .catch(() => [] as { id: string; name: string }[]);
+      fromGame = gameHistory(records, userId, displayName, controllerId, own, {
+        keys: new Map(keys.map((k) => [k.id, k.name])),
+        staff: staffByDiscord(),
+      });
     } catch {
       // The backend's record is extra; the dashboard's own stands without it.
     }

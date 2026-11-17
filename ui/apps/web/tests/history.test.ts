@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { gameHistory } from "@/lib/audit/game-history";
+import { actorName, gameHistory } from "@/lib/audit/game-history";
 import { queryAudit } from "@/lib/audit/query";
 import { ingestChat } from "@/lib/chat/store";
 import { createTerm, deleteTerm } from "@/lib/chat/terms";
@@ -103,5 +103,53 @@ describe("a player's history", () => {
       revertible: false,
     });
     expect(rows[0]!.id).toBeLessThan(0);
+  });
+});
+
+describe("the game's record of other tools", () => {
+  test("names the key, the Discord user or the host, and drops what the dashboard already has", () => {
+    const names = { keys: new Map([["abc123", "Ops bot"]]), staff: new Map([["555", "Mira"]]) };
+    expect(actorName("key:abc123", names)).toBe("Ops bot");
+    expect(actorName("key:abc123/discord:555", names)).toBe("Mira");
+    expect(actorName("key:abc123/discord:777", names)).toBe("discord:777");
+    expect(actorName("key:owner", names)).toBe("key:owner");
+    expect(actorName("host", names)).toBe("host");
+    const at = Date.parse("2026-11-16T12:00:00Z");
+    const own = [
+      { action: "player.kick", targetId: "u1", at: at + 2_000 },
+    ] as unknown as Parameters<typeof gameHistory>[4];
+    const rows = gameHistory(
+      [
+        {
+          action: "player.kick",
+          actorUserId: "key:dash/discord:555",
+          targetUserId: "u1",
+          createdAt: "2026-11-16T12:00:00Z",
+        },
+        {
+          action: "player.ban",
+          actorUserId: "key:abc123/discord:555",
+          targetUserId: "u1",
+          createdAt: "2026-11-16T12:00:00Z",
+          newState: { name: "Spud" },
+        },
+        {
+          action: "player.kick",
+          actorUserId: "host",
+          targetUserId: "u1",
+          createdAt: "2026-11-16T14:00:00Z",
+        },
+      ],
+      "u1",
+      "Spud",
+      "local",
+      own,
+      names,
+    );
+    expect(rows.map((r) => [r.action, r.actorName])).toEqual([
+      ["player.ban", "Mira"],
+      ["player.kick", "host"],
+    ]);
+    expect(rows[0]!.after).toEqual({ name: "Spud", actor: "key:abc123/discord:555" });
   });
 });
