@@ -3,6 +3,8 @@
 
 mod auto_login;
 mod console;
+
+pub use console::install_exec_guard;
 mod credits;
 mod login;
 mod press_start;

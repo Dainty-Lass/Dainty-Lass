@@ -180,6 +180,8 @@ pub const ENTRIES: &[Entry] = &[
     e("HTTP-1@R10", Feature, "R10"),
     // R17: the client console (MainThread on the AGPL side, patch 0044)
     e("CON-1", Setting, "R17"),
+    // The game's Shipping `FExec::Exec` stub, which every console command reaches (2026-11 play-test)
+    e("CON-2", Detour, "R17"),
 ];
 
 /// The line for `id`.
@@ -255,7 +257,7 @@ mod tests {
             assert_eq!(lines[0].slice, *slice, "{id}");
         }
         // Ids a slice spec added beyond surface section 3
-        let added = ["CON-1"];
+        let added = ["CON-1", "CON-2"];
         let hooks = ENTRIES
             .iter()
             .filter(|entry| entry.kind != Kind::Feature && !added.contains(&entry.id))
@@ -451,6 +453,8 @@ mod tests {
         assert_eq!(entry("CON-1"), Some(&e("CON-1", Kind::Setting, "R17")));
         assert!(owns(b"SP-1@R17"));
         assert!(owns(b"CON-1"));
+        assert_eq!(entry("CON-2"), Some(&e("CON-2", Kind::Detour, "R17")));
+        assert!(owns(b"CON-2"));
         assert!(!owns(b"SP-1@R16") || LANDED.contains(&"R16"));
         let landed = ENTRIES.iter().filter(|entry| LANDED.contains(&entry.slice)).count();
         assert_eq!(owned_count(), landed);

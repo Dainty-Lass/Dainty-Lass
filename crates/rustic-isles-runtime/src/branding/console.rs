@@ -1,11 +1,17 @@
 //! The F2 console, `CON-1` (spec-runtime-r17 6.2): made on the game thread 3 s after the game viewport appears.
 
-use crate::ffi::{engine, log, reflect, win};
+use crate::ffi::broker::{self, NextCell};
+use crate::ffi::memory::verify_entry;
+use crate::ffi::{engine, flags, log, minhook, reflect, win};
 use crate::handlers::PeCall;
-use rustic_isles_runtime_core::branding::{ConsoleSchedule, console_line};
-use rustic_isles_runtime_core::offsets::r17;
+use rustic_isles_runtime_core::branding::{ConsoleSchedule, console_line, flags as flag_names};
+use rustic_isles_runtime_core::offsets::{FoundBy, r17, target};
+use std::ffi::c_void;
 use std::sync::Mutex;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+
+static EXEC_NEXT: NextCell = NextCell::new();
+static EXEC_LOGGED: AtomicBool = AtomicBool::new(false);
 
 static DONE: AtomicBool = AtomicBool::new(false);
 static SCHEDULE: Mutex<ConsoleSchedule> = Mutex::new(ConsoleSchedule::new());
@@ -110,4 +116,36 @@ fn console(viewport: usize) -> Result<bool, &'static str> {
         return Err("ViewportConsole not writable");
     }
     Ok(true)
+}
+
+/// Installs CON-2: the Shipping `FExec::Exec` stub answers "not handled" instead of a fatal error. The engine asks
+/// every registered command handler in turn, and one of the game's has no `Exec`, so any console command reached it.
+pub fn install_exec_guard(base: usize) -> Result<(), &'static str> {
+    if flags::flag(flag_names::DISABLE_CONSOLE_EXEC_GUARD) {
+        return Err("off (DISABLE_CONSOLE_EXEC_GUARD.flag)");
+    }
+    let unknown = minhook::status_name(minhook::MH_UNKNOWN);
+    let target = target("CON-2").ok_or(unknown)?;
+    if let FoundBy::RvaAndBytes(prologue) = target.found_by
+        && !verify_entry(target.rva, prologue)
+    {
+        return Err("prologue mismatch");
+    }
+    let address = usize::try_from(target.rva)
+        .ok()
+        .and_then(|rva| base.checked_add(rva))
+        .ok_or(unknown)?;
+    broker::hook(address, exec_stub_detour as *const () as usize, 0, &EXEC_NEXT).map_err(minhook::status_name)
+}
+
+// Never calls on: the original is the fatal error
+extern "C" fn exec_stub_detour(this: *mut c_void, _world: *mut c_void, _cmd: *const u16, _ar: *mut c_void) -> u8 {
+    if !EXEC_LOGGED.swap(true, Ordering::Relaxed) {
+        let vtable = reflect::ptr(this as usize).unwrap_or(0);
+        let rva = vtable.saturating_sub(win::image_base());
+        log::line(&format!(
+            "[MitConsole] a command handler without Exec answered not handled (vtable +0x{rva:X})"
+        ));
+    }
+    0
 }

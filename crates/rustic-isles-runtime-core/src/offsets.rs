@@ -495,6 +495,13 @@ pub const TARGETS: &[Target] = &[
         found_by: FoundBy::RvaAndBytes(&LOADMAP_PROLOGUE),
         what: "UEngine::LoadMap",
     },
+    // R17: the Shipping `FExec::Exec` stub the console's commands reach
+    Target {
+        id: "CON-2",
+        rva: r17::EXEC_STUB,
+        found_by: FoundBy::RvaAndBytes(&r17::EXEC_STUB_PROLOGUE),
+        what: "FExec::Exec (PURE_VIRTUAL stub)",
+    },
     // R18: the Trials schedule
     Target {
         id: "ESC-1",
@@ -942,6 +949,12 @@ pub mod exit {
 
 /// R17's layout facts (spec-runtime-r17 section 8.1), each with its owner class.
 pub mod r17 {
+    /// `FExec::Exec`'s Shipping `PURE_VIRTUAL` body: a fatal error naming `Misc/Exec.h` line 23.
+    pub const EXEC_STUB: u32 = 0x00C8_C240;
+    /// `sub rsp,28h; lea r9,[rip+..]; mov edx,17h` (line 23 of `Exec.h`).
+    pub const EXEC_STUB_PROLOGUE: [u8; 16] = [
+        0x48, 0x83, 0xEC, 0x28, 0x4C, 0x8D, 0x0D, 0xCD, 0x4B, 0x42, 0x04, 0xBA, 0x17, 0x00, 0x00, 0x00,
+    ];
     /// `UField.Next`.
     pub const UFIELD_NEXT: usize = 0x28;
     /// `UStruct.SuperStruct`.
