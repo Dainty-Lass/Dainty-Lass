@@ -238,7 +238,8 @@ original is called.
    3. `ArchonPlayerRole` → 6.4
    4. `ArchonWeapon` → 6.5
    5. `ArchonCharacter` → 6.6
-   6. anything else: nothing.
+   6. anything else: an omnicell helper (owned by a role, or a `frank_drone*` class) → 6.7 of
+      `spec-runtime-r14-omnicell-fix.md` section 4; else nothing.
 3. Call `next(graph, info, global_info)`.
 
 The step order and every decision are pure (core) over the read values; the DLL crate reads, writes and calls.

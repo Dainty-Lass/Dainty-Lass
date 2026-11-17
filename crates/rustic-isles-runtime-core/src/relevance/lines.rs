@@ -28,6 +28,8 @@ pub mod kinds {
     pub const PAWN_GRACE: &str = "pawn grace: corrected";
     /// 9.3 step 2.
     pub const ROLE_CULL: &str = "role cull: corrected";
+    /// 6.7.
+    pub const ROLE_HELPER: &str = "route: role helper";
 }
 
 /// `[MitRelevance] <kind>: further lines suppressed`.
@@ -224,5 +226,36 @@ pub fn role_cull(role: usize, pawn: usize, settings: &Settings, cleared: u32) ->
         addr(role),
         addr(pawn),
         settings.result
+    )
+}
+
+/// 6.7's values.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RoleHelperLine {
+    /// The helper's name.
+    pub actor: String,
+    /// Its owner's name.
+    pub owner: String,
+    /// The flag bytes before and after.
+    pub flags58: (u8, u8),
+    /// `+0x59` before and after.
+    pub flags59: (u8, u8),
+    /// `NetDormancy` before and after.
+    pub dormancy: (u8, u8),
+}
+
+/// 6.7.
+pub fn route_role_helper(line: &RoleHelperLine, settings: &Settings) -> String {
+    format!(
+        "{TAG} route: role helper actor={} owner={} flags58={}->{} flags59={}->{} dormancy={}->{} {} route=global",
+        line.actor,
+        line.owner,
+        byte(line.flags58.0),
+        byte(line.flags58.1),
+        byte(line.flags59.0),
+        byte(line.flags59.1),
+        line.dormancy.0,
+        line.dormancy.1,
+        settings_text(settings)
     )
 }

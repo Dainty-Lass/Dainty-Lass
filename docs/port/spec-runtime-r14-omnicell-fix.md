@@ -86,9 +86,44 @@ lost=<list> after: <sign>`.
 Why on the unsheathe and not the sheathe: while sheathed the game hides the weapon HUD on purpose; the omnicell is
 needed back when the weapon is drawn, and a second's settle lets the game's own re-equip run first.
 
-## 4. The maintainer's check (hands-on)
+## 4. The second play-test (2026-11-17): the Frank drone
+
+With sections 2 and 3 in (runtime 20261117-27a14d39) the omnicell still went, and the maintainer narrowed it down: it
+works only in the **first combat area**. Leaving that area after the kill, it goes from the combat HUD; back there,
+pressing V a few times brings it back; it never works in another area. The sheathe watch found nothing lost (`role
+intact after unsheathe`, the same role, identical values at every draw), and the server's role and ability were
+healthy throughout (`ability: handle=58 ... activated=1`, one handle). The hunt server logged one
+`[MitRepGraph] rpc: dropped fn=SetPointingAtPatrolChest target=frank_drone_bp_C_... reason=channel-without-actor`.
+
+**Cause.** `PR_FRANK` spawns a helper actor, `frank_drone_bp_C`, that the omnicell's HUD and ability work through on
+the client. RG-2 (R13 6.1) classifies only controllers, player states, roles, weapons and characters, so the drone goes
+to the spatial grid as spawned, which is R13 6.5's weapon failure again: a dormant actor is filed **static** at the
+cell it registered in (the first combat area) and is gathered only from there, and the class cull distance applies.
+Away from that area the drone's channel closes, the client destroys its replica and the omnicell loses what it was
+bound to; back in the area the channel reopens and the next V re-binds it.
+
+**Fix: R13 6.7, an omnicell helper.** In RG-2, an actor that matches none of 6.1's classes is a **role helper** when
+its owner (`+0xE0`) is a live `ArchonPlayerRole`, or its class's short name starts with `frank_drone` (any case). It is
+routed as a role (6.4): `flags58 | 0x08 & !0x04`, `flags59 & !0x02`, `apply_settings(.., true, 300)`; and, when
+`NetDormancy > 1` and the global info is readable, woken as 6.5 does (`NetDormancy = 1`, `bWantsToBeDormant = 0`).
+Line (budget 64): `[MitRelevance] route: role helper actor=<name> owner=<name> flags58=0x<HH>->0x<HH>
+flags59=0x<HH>->0x<HH> dormancy=<a>-><b> settings=<-1|0|1> cull=<a>-><b> cullSq=<a>-><b> grace=<a>-><b> route=global`.
+The class name is read only for an actor no other branch took and no role owns, once at its registration.
+
+Sections 2 and 3 stay: the gate is a real bug, and the watch's lines are what showed the role itself was never lost.
+
+## 5. The maintainer's check (hands-on)
+
 
 Client log: `rustic_isles_dll_port0.log` beside the game. Hunt servers: `rustic_isles_dll_port87xx.log`.
+
+**The Frank drone first (section 4).** With `PR_FRANK` equipped, start a hunt. The hunt server's log shows
+`[MitRelevance] route: role helper actor=frank_drone_bp_C_... ... route=global` when the drone is spawned (note its
+`dormancy=` and `cull=` values). Fight in the first area, then walk to a second combat area and fight there, then a
+third, far from the start: the omnicell stays on the combat HUD and V fires it in every area (server: `ability:
+handle=<n> ... activated=1` there). No `rpc: dropped ... target=frank_drone_bp_C` line. If the omnicell still goes and
+no `role helper` line appeared, send the hunt server log: the drone was registered some other way. Then the steps below
+(the gate and the watch).
 
 1. **Start.** Log in; start a hunt with the omnicell equipped. In the client log the lines that repeated before appear
    once per possession: one `client: lifecycle replayed` per pawn and role (not 3 to 5 at the same instant), one
@@ -102,9 +137,7 @@ Client log: `rustic_isles_dll_port0.log` beside the game. Hunt servers: `rustic_
 4. **Kill, then out of combat.** Beat a Behemoth, wait for the game to leave combat (the weapon sheathes:
    `client: sheathe 3->0` or similar), then draw the weapon at the next fight: as step 3. Repeat with a second
    Behemoth if the island has one.
-5. **Report back** the `lost=` lists of any repair, and say whether the omnicell came back. If it did not come back
-   although the line says `intact`, the loss is in something the sign does not read (the HUD widget's binding or the
-   input component); copy the `client: sheathe` and `intact` lines around it.
+5. **Report back** the `lost=` lists of any repair, and say whether the omnicell came back.
 6. **Airship HUD (separate, no change here).** On a Trials or escalation launch, note whether any `[MitHud]` line
    appears and whether the combat HUD shows over the airship. None on an ordinary hunt is expected (section 1).
 

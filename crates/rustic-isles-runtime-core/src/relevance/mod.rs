@@ -10,7 +10,10 @@ mod tick;
 mod toolkit;
 
 pub use lines::*;
-pub use route::{Branch, WeaponPlan, controller_flags, global_flags, route, weapon_plan, weapon_route};
+pub use route::{
+    Branch, ROLE_HELPER_PREFIXES, WeaponPlan, controller_flags, global_flags, is_role_helper, route, weapon_plan,
+    weapon_route,
+};
 pub use tick::{Triple, pass, pawn_rates, tick, wake};
 pub use toolkit::{
     Settings, apply_settings, clear_connection_cull, connection_info, connection_manager, global_info, map_find,
@@ -236,6 +239,8 @@ pub struct Budgets {
     pub pawn_grace: LineBudget,
     /// 9.3 step 2.
     pub role_cull: LineBudget,
+    /// 6.7.
+    pub role_helper: LineBudget,
 }
 
 impl Default for Budgets {
@@ -257,6 +262,7 @@ impl Budgets {
             woke: LineBudget::new(32),
             pawn_grace: LineBudget::new(32),
             role_cull: LineBudget::new(32),
+            role_helper: LineBudget::new(64),
         }
     }
 }

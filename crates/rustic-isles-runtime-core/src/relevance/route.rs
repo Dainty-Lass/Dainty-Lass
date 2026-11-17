@@ -1,7 +1,7 @@
 //! RG-2 (6): the route at registration. Every correction is written before the original runs, since the route
 //! files an actor once from the bits it reads then.
 
-use super::{Budgets, Class, Game, PLAYER_CHANNEL_GRACE_FRAMES, apply_settings, budgeted, first_class, lines};
+use super::{Budgets, Class, Game, PLAYER_CHANNEL_GRACE_FRAMES, apply_settings, budgeted, first_class, is_a, lines};
 use crate::offsets::relevance as at;
 use crate::offsets::repgraph as rg;
 
@@ -31,6 +31,21 @@ pub enum Branch {
     Weapon,
     /// 6.6.
     Character,
+    /// 6.7: an actor an omnicell spawns (the Frank drone).
+    RoleHelper,
+}
+
+/// Class-name prefixes of omnicell helpers (6.7): Frank's drone, spawned in the first combat area.
+pub const ROLE_HELPER_PREFIXES: [&str; 1] = ["frank_drone"];
+
+/// 6.7: a helper by its class's short name, or by its owner being a player role.
+pub fn is_role_helper(class_name: Option<&str>, owner_is_role: bool) -> bool {
+    owner_is_role
+        || class_name.is_some_and(|name| {
+            ROLE_HELPER_PREFIXES
+                .iter()
+                .any(|prefix| name.to_ascii_lowercase().starts_with(prefix))
+        })
 }
 
 /// 6.2: only to its owner (always-relevant is tested first, so it must go).
@@ -150,8 +165,48 @@ pub fn route(game: &dyn Game, budgets: &Budgets, info: usize, global_info: usize
             }
             Branch::Character
         }
-        Some(Class::PlayerCharacter) | None => Branch::None,
+        Some(Class::PlayerCharacter) => Branch::None,
+        None => {
+            let owner = game.ptr(actor + at::ACTOR_OWNER);
+            let owner_is_role = owner != 0 && game.is_live_object(owner) && is_a(game, owner, Class::PlayerRole);
+            if !owner_is_role && !is_role_helper(game.class_name(actor).as_deref(), false) {
+                return Branch::None;
+            }
+            role_helper(game, budgets, actor, flags58, global_info);
+            Branch::RoleHelper
+        }
     }
+}
+
+/// 6.7: as a role (global, never culled, the longer grace), and awake, so it follows its player everywhere.
+fn role_helper(game: &dyn Game, budgets: &Budgets, actor: usize, flags58: u8, global_info: usize) {
+    let flags59 = game.u8_at(actor + at::ACTOR_FLAGS_59).unwrap_or(0);
+    let (new58, new59) = global_flags(flags58, flags59);
+    let after58 = set_byte(game, actor + at::ACTOR_FLAGS_58, flags58, new58);
+    let after59 = set_byte(game, actor + at::ACTOR_FLAGS_59, flags59, new59);
+    let dormancy_at = actor + at::ACTOR_NET_DORMANCY;
+    let dormancy = game.u8_at(dormancy_at).unwrap_or(0);
+    let g = (global_info != 0 && game.readable(global_info, GLOBAL_DORMANCY_SPAN)).then_some(global_info);
+    if let Some(g) = g
+        && dormancy > at::DORM_AWAKE
+        && game.write(dormancy_at, &[at::DORM_AWAKE])
+    {
+        game.write(g + at::GLOBAL_WANTS_DORMANT, &[0]);
+    }
+    let settings = apply_settings(game, g, true, PLAYER_CHANNEL_GRACE_FRAMES);
+    let line = || lines::RoleHelperLine {
+        actor: lines::name(actor, game.name(actor)),
+        owner: {
+            let owner = game.ptr(actor + at::ACTOR_OWNER);
+            lines::name(owner, game.name(owner))
+        },
+        flags58: (flags58, after58),
+        flags59: (flags59, after59),
+        dormancy: (dormancy, game.u8_at(dormancy_at).unwrap_or(0)),
+    };
+    budgeted(game, &budgets.role_helper, lines::kinds::ROLE_HELPER, || {
+        lines::route_role_helper(&line(), &settings)
+    });
 }
 
 /// 6.5: patches 0015 and 0016 at registration.
