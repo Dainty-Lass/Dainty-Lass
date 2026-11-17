@@ -1088,3 +1088,50 @@ fn flags_and_classes() {
     }
     assert_eq!(PLAYER_CHANNEL_GRACE_FRAMES, 300);
 }
+
+// ---- 6.7, the omnicell helpers (r14-omnicell-fix 5)
+
+#[test]
+fn rg2_frank_drone_goes_global_and_awake() {
+    let fake = Fake::new();
+    let budgets = Budgets::new();
+    fake.add_class(0x1_0A00, CLASS_ROOT, "frank_drone_bp_C");
+    let drone = registered(&fake, 0x1_0A00, "frank_drone_bp_C_1", 0x00);
+    fake.put_u8(drone.actor + 0x59, 0x02);
+    fake.put_u8(drone.actor + at::ACTOR_NET_DORMANCY, 2);
+    fake.put_u8(drone.global + at::GLOBAL_WANTS_DORMANT, 1);
+    assert_eq!(route_of(&fake, &budgets, &drone), Branch::RoleHelper);
+    assert_eq!((fake.u8(drone.actor + 0x58), fake.u8(drone.actor + 0x59)), (0x08, 0x00));
+    assert_eq!(fake.u8(drone.actor + at::ACTOR_NET_DORMANCY), 1);
+    assert_eq!(fake.u8(drone.global + at::GLOBAL_WANTS_DORMANT), 0);
+    assert_eq!(
+        (fake.f32(drone.global + 0x88), fake.u16(drone.global + 0x30)),
+        (0.0, 300)
+    );
+    assert_eq!(
+        fake.take_lines(),
+        [
+            "[MitRelevance] route: role helper actor=frank_drone_bp_C_1 owner=null flags58=0x00->0x08 flags59=0x02->0x00 \
+          dormancy=2->1 settings=1 cull=15000->0 cullSq=225000000->0 grace=4->300 route=global"
+        ]
+    );
+}
+
+#[test]
+fn rg2_an_actor_owned_by_a_role_is_a_helper() {
+    let fake = Fake::new();
+    let budgets = Budgets::new();
+    let role = fake.object(0x420, CLASS_ROLE, "Role_0");
+    let summon = registered(&fake, CLASS_OTHER, "Summon_0", 0x00);
+    fake.put(summon.actor + at::ACTOR_OWNER, role);
+    assert_eq!(route_of(&fake, &budgets, &summon), Branch::RoleHelper);
+    assert!(fake.take_lines()[0].contains("owner=Role_0"));
+    // Owned by anything else, and not a drone: untouched
+    let pawn = fake.object(0x420, CLASS_OTHER, "Pawn_0");
+    let other = registered(&fake, CLASS_OTHER, "Thing_0", 0x00);
+    fake.put(other.actor + at::ACTOR_OWNER, pawn);
+    assert_eq!(route_of(&fake, &budgets, &other), Branch::None);
+    assert_eq!(fake.u8(other.actor + 0x58), 0x00);
+    assert!(is_role_helper(Some("Frank_Drone_Skin_C"), false));
+    assert!(!is_role_helper(Some("frankly_C"), false));
+}

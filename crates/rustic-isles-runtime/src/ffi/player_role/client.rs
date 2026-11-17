@@ -1,17 +1,19 @@
 //! `SP-1@R14` (11, 12): the client's handlers on `ProcessEvent`.
 
 use super::{ProcessGame, panicked, with_state};
-use crate::ffi::{detaching, dispatch};
+use crate::ffi::{detaching, dispatch, win};
 use crate::handlers::{PeCall, Verdict};
 use rustic_isles_runtime_core::player_role::{self as core, State};
 use std::panic::{AssertUnwindSafe, catch_unwind};
-use std::sync::atomic::AtomicBool;
+use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 
 static PANICKED: AtomicBool = AtomicBool::new(false);
+/// The thread `ClientRestart` last ran on: the game thread (r14-omnicell-fix 2).
+static GAME_THREAD: AtomicU32 = AtomicU32::new(0);
 
-/// Runs `body` past the detaching check, inside `catch_unwind` (4.1).
+/// Runs `body` past the detaching and game-thread checks, inside `catch_unwind` (4.1).
 fn guarded(body: impl FnOnce(&State)) {
-    if detaching() {
+    if detaching() || !core::game_thread_admits(GAME_THREAD.load(Ordering::SeqCst), win::thread_id()) {
         return;
     }
     if catch_unwind(AssertUnwindSafe(|| with_state(body))).is_err() {
@@ -36,6 +38,8 @@ pub fn pump(_call: &PeCall) -> Verdict {
 
 /// After `ClientRestart`, past R7's capture (11.1).
 pub fn client_restart(_call: &PeCall) {
+    // An RPC: always the game thread
+    GAME_THREAD.store(win::thread_id(), Ordering::SeqCst);
     guarded(|state| core::client_restart(&ProcessGame, state));
 }
 
@@ -57,4 +61,9 @@ pub fn hud(call: &PeCall) {
         _ => "hud-show-path",
     };
     guarded(|state| core::reconcile(&ProcessGame, state, trigger));
+}
+
+/// After `OnSheathedStateChanged` (r14-omnicell-fix 3.2).
+pub fn sheathe(call: &PeCall) {
+    guarded(|state| core::sheathe_changed(&ProcessGame, state, call.object, call.params));
 }

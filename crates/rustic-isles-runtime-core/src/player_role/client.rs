@@ -32,6 +32,7 @@ pub fn client_restart(game: &dyn Game, state: &State) {
     state.activation_depth.set(0);
     with(&state.retry, |table| *table = [None; super::RETRY_ENTRIES]);
     with(&state.lifecycle, |life| *life = Lifecycle::new());
+    with(&state.sheathe, |watch| *watch = super::Sheathe::default());
     game.log(&lines::new_possession(captured.pc, captured.pawn));
 }
 
@@ -66,6 +67,7 @@ pub fn client_pump(game: &dyn Game, state: &State, depth: u32) {
             replay(game, state, captured.pc, "pump");
         }
         hud::reconcile(game, state, "pump");
+        super::sheathe_check(game, state, captured.pc);
     } else {
         let due = input(state)
             .wait_log_ms
@@ -201,7 +203,7 @@ fn ptr_of(bytes: &[u8]) -> usize {
 }
 
 /// `GetLoadout` on the controller: the loadout, 0 when none or not called.
-fn get_loadout(game: &dyn Game, state: &State, pc: usize) -> usize {
+pub(super) fn get_loadout(game: &dyn Game, state: &State, pc: usize) -> usize {
     let mut block = [0u8; 8];
     if call(game, state, pc, "ArchonPlayerController", "GetLoadout", &mut block) == Invoke::Called {
         ptr_of(&block)

@@ -25,7 +25,7 @@ use std::sync::OnceLock;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 
 thread_local! {
-    // Game-thread state (4.4): another thread starts from its own empty one
+    // Game-thread state (4.4); the client's handlers run only on the game thread (r14-omnicell-fix 2)
     static STATE: State = const { State::new() };
 }
 
@@ -336,6 +336,16 @@ pub fn register(server: bool) {
         PeHandler {
             after: Some(client::hud),
             ..pe(order::HUD, HUD_NAMES)
+        },
+        PeHandler {
+            after: Some(client::sheathe),
+            ..pe(
+                order::SHEATHE,
+                &[(
+                    Kind::Exact,
+                    "Function BP_PlayerCharacter.BP_PlayerCharacter_C.OnSheathedStateChanged",
+                )],
+            )
         },
     ];
     for handler in handlers {

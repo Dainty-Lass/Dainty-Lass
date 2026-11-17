@@ -1528,6 +1528,12 @@ pub mod r14 {
     pub const CHARACTER_PLAYER_ROLE: usize = 0x738;
     /// Bytes read for it.
     pub const CHARACTER_SPAN: usize = 0x740;
+    /// `AArchonCharacter.bIsActiveGameplay` (`u8`).
+    pub const CHARACTER_ACTIVE_GAMEPLAY: usize = 0xA1A;
+    /// `AArchonCharacter.PlayerRoleAnimStateSetExtensionId` (`FGuid`, 16 bytes; zero when none is pushed).
+    pub const CHARACTER_ROLE_EXTENSION_ID: usize = 0xA1C;
+    /// Bytes read of a character for the sheathe watch.
+    pub const CHARACTER_SHEATHE_SPAN: usize = 0xA2C;
     /// `AArchonPlayerState.PlayerRoleId` (`FString`).
     pub const PS_PLAYER_ROLE_ID: usize = 0x648;
     /// Bytes read for it.

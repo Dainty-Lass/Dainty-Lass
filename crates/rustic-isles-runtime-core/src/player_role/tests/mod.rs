@@ -5,6 +5,7 @@ mod client;
 mod hud;
 mod lines;
 mod server;
+mod sheathe;
 
 use super::*;
 use std::cell::{Cell, RefCell};
