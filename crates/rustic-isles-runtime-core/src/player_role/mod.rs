@@ -8,6 +8,7 @@ mod client;
 mod hud;
 mod lines;
 mod server;
+mod sheathe;
 #[cfg(test)]
 mod tests;
 
@@ -16,6 +17,7 @@ pub use client::{activate, client_pump, client_restart, input_mode_changed, move
 pub use hud::{capture as hud_capture, reconcile};
 pub use lines::*;
 pub use server::{ability, purge, route_remove, server_pump};
+pub use sheathe::{Sheathe, UNSHEATHED, lost, sheathe_changed, sheathe_check, sign};
 
 use crate::memory::Memory;
 use crate::net::{Admit, LineBudget};
@@ -54,6 +56,8 @@ pub mod order {
     pub const INPUT_MODE: i32 = 20;
     /// SP-1 after the HUD names.
     pub const HUD: i32 = 30;
+    /// SP-1 after `OnSheathedStateChanged` (r14-omnicell-fix 3.2).
+    pub const SHEATHE: i32 = 40;
     /// SP-2 before the ability RPCs.
     pub const ABILITY: i32 = 0;
     /// SP-3 after: after R12's drive (500), before R9's upkeep (700).
@@ -114,6 +118,17 @@ pub const HUD_CONTROL_MS: u64 = 1000;
 pub const HUD_TIMEOUT_MS: u64 = 45_000;
 /// Item ids read at most this many UTF-16 units.
 pub const ITEM_ID_UNITS: usize = 128;
+/// The role check waits this long after an unsheathe (r14-omnicell-fix 3.3).
+pub const SHEATHE_SETTLE_MS: u64 = 1000;
+/// Sheathe repairs per pawn at most (3.4).
+pub const SHEATHE_REPAIRS: u32 = 10;
+
+/// Whether a client handler runs on this thread (r14-omnicell-fix 2): only on the thread `ClientRestart` was seen on.
+/// `ProcessEvent` also runs on the engine's worker threads (thread-safe animation updates), which must never call
+/// into the game or keep R14 state.
+pub fn game_thread_admits(recorded: u32, me: u32) -> bool {
+    recorded != 0 && recorded == me
+}
 
 /// How a UFunction is called (4.2).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -280,6 +295,8 @@ pub struct Budgets {
     pub input_mode: LineBudget,
     /// 12.3 step 4.
     pub hide: LineBudget,
+    /// r14-omnicell-fix 3.2.
+    pub sheathe: LineBudget,
 }
 
 impl Default for Budgets {
@@ -296,6 +313,7 @@ impl Budgets {
             ability: LineBudget::new(128),
             input_mode: LineBudget::new(256),
             hide: LineBudget::new(32),
+            sheathe: LineBudget::new(256),
         }
     }
 }
@@ -471,7 +489,7 @@ pub struct Hud {
     pub airship_ended_ms: u64,
 }
 
-/// R14's game-thread state. Each table is borrowed only between calls into the game, which can re-enter R14.
+/// R14's game-thread state (the client's only on the thread of `game_thread_admits`). Each table is borrowed only between calls into the game, which can re-enter R14.
 pub struct State {
     /// 5.3.
     pub retry: RefCell<[Option<RetryEntry>; RETRY_ENTRIES]>,
@@ -493,6 +511,8 @@ pub struct State {
     pub hud: RefCell<Hud>,
     /// 12.3 step 1.
     pub hud_busy: Cell<bool>,
+    /// r14-omnicell-fix 3.
+    pub sheathe: RefCell<Sheathe>,
     /// Once-per-process lines already written.
     pub once: RefCell<Vec<String>>,
     /// 4.3.
@@ -524,6 +544,12 @@ impl State {
                 airship_ended_ms: 0,
             }),
             hud_busy: Cell::new(false),
+            sheathe: RefCell::new(Sheathe {
+                pawn: 0,
+                baseline: None,
+                check_at_ms: None,
+                repairs: 0,
+            }),
             once: RefCell::new(Vec::new()),
             budgets: Budgets::new(),
         }

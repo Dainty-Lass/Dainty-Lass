@@ -359,3 +359,67 @@ pub fn hud_restore(trigger: &str, reason: RestoreReason, since_ms: u64, before: 
     };
     format!("{HUD} restore trigger={trigger} reason={reason} sinceAirshipEndMs={since_ms} visibility={before}->{after}")
 }
+
+/// The sheathe line's budget kind (r14-omnicell-fix 3).
+pub const SHEATHE_KIND: &str = "[MitPlayerRole] client: sheathe";
+
+/// What the sheathe watch reads of the pawn and its role (r14-omnicell-fix 3.1).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct RoleSign {
+    /// The pawn's `PlayerRole`.
+    pub role: usize,
+    /// The role is live (7.1's `role_live`).
+    pub live: bool,
+    /// The character's `bIsActiveGameplay`.
+    pub character_active: u8,
+    /// The character's role anim-state extension id is set.
+    pub extension: bool,
+    /// The role's four lifecycle bytes (`0x2F4..=0x2F7`), 0 when no live role.
+    pub bytes: [u8; 4],
+}
+
+fn sign_text(sign: &RoleSign) -> String {
+    format!(
+        "role={} live={} characterActive={} extension={} roleBytes={}{}{}{}",
+        p(sign.role),
+        bit(sign.live),
+        sign.character_active,
+        bit(sign.extension),
+        sign.bytes[0],
+        sign.bytes[1],
+        sign.bytes[2],
+        sign.bytes[3]
+    )
+}
+
+/// r14-omnicell-fix 3.2.
+pub fn sheathe(previous: u8, new: u8, sign: &RoleSign) -> String {
+    format!("{ROLE} client: sheathe {previous}->{new} {}", sign_text(sign))
+}
+
+/// r14-omnicell-fix 3.3: the first unsheathed check of a pawn.
+pub fn sheathe_baseline(sign: &RoleSign) -> String {
+    format!("{ROLE} client: role baseline after unsheathe {}", sign_text(sign))
+}
+
+/// r14-omnicell-fix 3.3: nothing lost since the baseline.
+pub fn sheathe_intact(sign: &RoleSign) -> String {
+    format!("{ROLE} client: role intact after unsheathe {}", sign_text(sign))
+}
+
+/// r14-omnicell-fix 3.4: what was lost, and the state after the repair.
+pub fn sheathe_repaired(repair: u32, reasons: &[&str], after: &RoleSign) -> String {
+    format!(
+        "{ROLE} client: role repaired after unsheathe repair={repair} lost={} after: {}",
+        reasons.join(","),
+        sign_text(after)
+    )
+}
+
+/// r14-omnicell-fix 3.4: the per-pawn budget ran out.
+pub fn sheathe_gave_up(reasons: &[&str]) -> String {
+    format!(
+        "{ROLE} client: role lost after unsheathe lost={}; repairs exhausted for this pawn",
+        reasons.join(",")
+    )
+}
