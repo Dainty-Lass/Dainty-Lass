@@ -374,6 +374,10 @@ mod tests {
         unsafe { File::from_raw_handle(reader) }
             .read_to_string(&mut got)
             .unwrap();
-        assert_eq!(got, "RUSTIC_ISLES_GAMESERVER_READY launchId=0f-1a port=8780\r\n");
+        // Other tests' libtest output can land in the swapped handle while it is ours.
+        assert!(
+            got.contains("RUSTIC_ISLES_GAMESERVER_READY launchId=0f-1a port=8780\r\n"),
+            "{got:?}"
+        );
     }
 }
