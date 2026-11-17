@@ -11,8 +11,7 @@ use std::os::windows::io::AsRawHandle;
 use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use std::sync::{Mutex, MutexGuard, TryLockError};
 use windows_sys::Win32::Storage::FileSystem::{
-    BY_HANDLE_FILE_INFORMATION, FILE_APPEND_DATA, FILE_SHARE_DELETE, FILE_SHARE_READ, FILE_SHARE_WRITE,
-    GetFileInformationByHandle,
+    BY_HANDLE_FILE_INFORMATION, FILE_SHARE_DELETE, FILE_SHARE_READ, FILE_SHARE_WRITE, GetFileInformationByHandle,
 };
 
 const IDENTITY_CHECK_MS: u64 = 5000;
@@ -92,9 +91,13 @@ pub fn flush_deferred() {
 }
 
 fn open(port: u16) -> Option<File> {
-    let path = path_next_to_exe(&file_name(port))?;
+    open_append(&path_next_to_exe(&file_name(port))?)
+}
+
+// `append`, not `access_mode(FILE_APPEND_DATA)`: std refuses `create` without write or append access
+fn open_append(path: &std::path::Path) -> Option<File> {
     OpenOptions::new()
-        .access_mode(FILE_APPEND_DATA)
+        .append(true)
         .share_mode(FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE)
         .create(true)
         .open(path)
@@ -193,5 +196,20 @@ fn write(port: u16, text: &str) {
             return;
         }
         writer.file = None;
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn open_append_creates_then_appends() {
+        let path = std::env::temp_dir().join(format!("rustic_isles_log_test_{}.log", std::process::id()));
+        let _ = std::fs::remove_file(&path);
+        open_append(&path).unwrap().write_all(b"one\n").unwrap();
+        open_append(&path).unwrap().write_all(b"two\n").unwrap();
+        assert_eq!(std::fs::read_to_string(&path).unwrap(), "one\ntwo\n");
+        std::fs::remove_file(&path).unwrap();
     }
 }
