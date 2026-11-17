@@ -2,6 +2,8 @@
 //! the connection count, the game-mode sample, the AFK write and the tick-side reap; the AFK write at each
 //! `K2_PostLogin`; the watchdog thread; and the one way a server ends itself. The raw calls are `ffi::server_life`.
 
+mod kick;
+
 use crate::config;
 use crate::ffi::exit::Install;
 use crate::ffi::memory::{read, read_bytes, read_unaligned, readable, readable_this_frame};
@@ -251,6 +253,7 @@ fn after_tick(_engine: usize, delta: f32) {
     }
     sync_expected(&mut game, world);
     count_connections(state.driver, now);
+    kick::step(state.driver, now);
     if config::launch().is_some_and(|launch| launch.watchdog) {
         connected_step(&mut game, world, state.driver, delta, now);
     }

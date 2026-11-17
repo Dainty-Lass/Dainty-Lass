@@ -21,8 +21,11 @@ use crate::observe::{NoObserver, Observer};
 use crate::settings::Settings;
 use crate::version::IslesVersion;
 
-/// How long a kick refuses the player's tokens and their servers' writes before it lifts by itself.
-pub const KICK_WINDOW_MS: i64 = 10_000;
+/// The longest a kick refuses the player's tokens and their servers' writes: it lifts sooner when the servers
+/// confirm (`DedicatedServers::kick`), which takes about a second.
+pub const KICK_WINDOW_MS: i64 = 20_000;
+/// After the servers confirm, how long before the kick lifts: the client call reaching the client.
+pub const REMOVAL_GRACE_MS: u64 = 1_000;
 
 /// The module's sign-in area over whatever store the composer opened.
 pub type IslesAuth = Auth<Arc<dyn AuthStore>>;
@@ -306,12 +309,23 @@ impl Shared {
         &self.presence
     }
 
-    /// A staff kick, ban or timeout: for [`KICK_WINDOW_MS`] the player's game tokens and their servers' writes are
-    /// refused (so nothing is saved while they are removed) and chat ends their sessions; then the kick lifts by
-    /// itself and they can sign back in from the menu. A ban or timeout keeps them out through the launcher
-    /// account's eligibility for as long as it lasts. 1 if chat had them online, else 0.
+    /// A staff kick, ban or timeout: the game servers are asked to send the player to the menu (spec-runtime-kick)
+    /// and chat ends their sessions. Until the servers confirm (each has read its kick file and acted), at most
+    /// [`KICK_WINDOW_MS`], the player's game tokens and their servers' writes are refused, so nothing is saved
+    /// while they are removed; then the kick lifts and they can sign back in from the menu with the session they
+    /// have. A ban or timeout keeps them out through the launcher account's eligibility for as long as it lasts.
+    /// 1 if chat had them online, else 0.
     pub async fn kick_player(&self, user_id: &str, reason: &str) -> usize {
         self.auth.kick(user_id, KICK_WINDOW_MS);
+        let (auth, servers, user) = (Arc::clone(&self.auth), self.dedicated_servers(), user_id.to_owned());
+        dainty_service_kit::task::spawn_named("kick", async move {
+            if servers.kick(&user).await {
+                // The client call is on its way when the file is gone; give it a moment to land
+                tokio::time::sleep(std::time::Duration::from_millis(REMOVAL_GRACE_MS)).await;
+                auth.lift_kick(&user);
+                tracing::info!("[Kick] {user}: removed; the kick is lifted");
+            }
+        });
         let closed = self.presence.close_connections(user_id, 1008, reason);
         if let Some(context) = &self.context
             && let Ok(name) = dainty_module_api::EventName::new(dainty_module_api::chat::DISCONNECT_EVENT)

@@ -13,6 +13,7 @@ pub mod flags;
 pub mod frame;
 pub mod headless;
 pub mod http;
+pub mod kick;
 pub mod listen;
 pub mod loading;
 pub mod log;

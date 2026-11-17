@@ -170,6 +170,9 @@ fn runtime_problem(config: &Config) -> Option<String> {
     None
 }
 
+/// How long the Director waits for its servers to act on a kick before it leaves the kick to its window.
+const KICK_CONFIRM: std::time::Duration = std::time::Duration::from_secs(15);
+
 /// The in-memory Director in the module's dedicated-servers slot.
 pub struct InProcessDirector(pub Arc<Director>);
 
@@ -213,6 +216,24 @@ impl DedicatedServers for InProcessDirector {
 
     fn servers(&self) -> BoxFuture<'_, Option<Vec<dainty_module_api::game::GameServer>>> {
         Box::pin(async move { Some(self.0.game_servers()) })
+    }
+
+    fn kick<'a>(&'a self, user_id: &'a str) -> BoxFuture<'a, bool> {
+        Box::pin(async move {
+            let files = self.0.kick(user_id);
+            // A server removes its file when it has read it and acted (spec-runtime-kick 3)
+            let deadline = std::time::Instant::now() + KICK_CONFIRM;
+            loop {
+                if files.iter().all(|file| !file.exists()) {
+                    return true;
+                }
+                if std::time::Instant::now() >= deadline {
+                    tracing::warn!("[Kick] {user_id}: a game server didn't act on the kick in time");
+                    return false;
+                }
+                tokio::time::sleep(std::time::Duration::from_millis(200)).await;
+            }
+        })
     }
 }
 
