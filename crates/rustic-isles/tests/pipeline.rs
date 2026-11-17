@@ -802,7 +802,7 @@ async fn a_game_server_may_not_write_for_a_kicked_player() {
         handlers,
         ..Options::default()
     });
-    t.shared.auth().kick("kicked-user");
+    t.shared.auth().kick("kicked-user", 60_000);
     let key: &[(&str, &str)] = &[("x-rustic-isles-gameserver-apikey", "k")];
     let peer = "127.0.0.1:5000";
     let refused = t.send("POST", "/progression/kicked-user", key, peer).await;

@@ -947,19 +947,23 @@ async fn admin_actions_and_home_operations() {
         (restriction.kind, restriction.until),
         (RestrictionKind::Timeout, Some(until))
     );
-    // The timeout kicked: tokens signed before it are refused, a new sign-in's are not
-    let claims = |iat: i64| {
+    // The timeout kicked: while the kick is carried out the player's tokens are refused; once it lifts, the
+    // session they have works again (the timeout itself keeps them out through the account's eligibility)
+    let claims = |user: &str| {
         let mut claims = serde_json::Map::new();
-        claims.insert("userId".into(), json!("fox-user"));
-        claims.insert("iat".into(), json!(iat));
+        claims.insert("userId".into(), json!(user));
+        claims.insert("iat".into(), json!(now_ms() / 1000 - 60));
         claims
     };
-    let now_s = now_ms() / 1000;
-    assert!(r.shared.auth().is_kicked(&claims(now_s - 60)));
-    assert!(!r.shared.auth().is_kicked(&claims(now_s + 2)));
-    let mut other = claims(now_s - 60);
-    other.insert("userId".into(), json!("someone-else"));
-    assert!(!r.shared.auth().is_kicked(&other));
+    assert!(r.shared.auth().is_kicked(&claims("fox-user")));
+    assert!(!r.shared.auth().is_kicked(&claims("someone-else")));
+    r.shared.auth().lift_kick("fox-user");
+    assert!(!r.shared.auth().is_kicked(&claims("fox-user")));
+    r.shared.auth().kick("fox-user", 0);
+    assert!(
+        !r.shared.auth().is_kicked(&claims("fox-user")),
+        "a window that ended lifts by itself"
+    );
     admin
         .admin_action(
             &r.shared,

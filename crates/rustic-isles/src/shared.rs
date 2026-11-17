@@ -21,6 +21,9 @@ use crate::observe::{NoObserver, Observer};
 use crate::settings::Settings;
 use crate::version::IslesVersion;
 
+/// How long a kick refuses the player's tokens and their servers' writes before it lifts by itself.
+pub const KICK_WINDOW_MS: i64 = 10_000;
+
 /// The module's sign-in area over whatever store the composer opened.
 pub type IslesAuth = Auth<Arc<dyn AuthStore>>;
 
@@ -303,11 +306,12 @@ impl Shared {
         &self.presence
     }
 
-    /// A staff kick, ban or timeout: the player's game tokens stop working (so their game calls, a new hunt and
-    /// chat refuse them until the launcher signs in again), and chat is told to end their sessions. A game server
-    /// they are on is not told (it has no channel for it). 1 if chat had them online, else 0.
+    /// A staff kick, ban or timeout: for [`KICK_WINDOW_MS`] the player's game tokens and their servers' writes are
+    /// refused (so nothing is saved while they are removed) and chat ends their sessions; then the kick lifts by
+    /// itself and they can sign back in from the menu. A ban or timeout keeps them out through the launcher
+    /// account's eligibility for as long as it lasts. 1 if chat had them online, else 0.
     pub async fn kick_player(&self, user_id: &str, reason: &str) -> usize {
-        self.auth.kick(user_id);
+        self.auth.kick(user_id, KICK_WINDOW_MS);
         let closed = self.presence.close_connections(user_id, 1008, reason);
         if let Some(context) = &self.context
             && let Ok(name) = dainty_module_api::EventName::new(dainty_module_api::chat::DISCONNECT_EVENT)
