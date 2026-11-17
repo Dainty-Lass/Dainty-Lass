@@ -233,8 +233,9 @@ pub struct Auth<S: AuthStore> {
     token_keys: tokens::KeyCache,
     warned_official: Mutex<HashSet<String>>,
     notices_failing: AtomicBool,
-    /// Staff kicks: userId to the second of the kick, for the life of the process
-    kicked: Mutex<HashMap<String, i64>>,
+    /// Staff kicks: userId to the second of the kick and whether game servers are still refused for them (until
+    /// a new game token is signed), for the life of the process
+    kicked: Mutex<HashMap<String, (i64, bool)>>,
     this: Weak<Self>,
 }
 
@@ -341,7 +342,25 @@ impl<S: AuthStore> Auth<S> {
         self.kicked
             .lock()
             .unwrap_or_else(PoisonError::into_inner)
-            .insert(user_id.to_owned(), now);
+            .insert(user_id.to_owned(), (now, true));
+    }
+
+    /// Why a game server may not act for the player now: `kicked` until their next sign-in, `restricted` while
+    /// a ban or timeout lasts. A store that can't answer refuses nothing (the route's own checks still run).
+    pub async fn server_refusal(&self, user_id: &str) -> Option<&'static str> {
+        let blocked = self
+            .kicked
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .get(user_id)
+            .is_some_and(|(_, servers)| *servers);
+        if blocked {
+            return Some("kicked");
+        }
+        match self.store().ok()?.launcher_account_by_user_id(user_id).await {
+            Ok(Some(account)) if !policy::is_account_eligible(&account, &self.now_iso()) => Some("restricted"),
+            _ => None,
+        }
     }
 
     /// Whether a game token's claims were signed before (or in the second of) its user's kick.
@@ -349,7 +368,7 @@ impl<S: AuthStore> Auth<S> {
         let Some(Value::String(user_id)) = claims.get("userId") else {
             return false;
         };
-        let Some(at) = self
+        let Some((at, _)) = self
             .kicked
             .lock()
             .unwrap_or_else(PoisonError::into_inner)
@@ -363,7 +382,17 @@ impl<S: AuthStore> Auth<S> {
 
     /// A game token for `userId`; fails when the signing keys cannot load.
     pub fn sign_game_token(&self, user_id: &str) -> Result<String, TokenError> {
-        tokens::sign_game(&*self.token_keys()?, user_id, self.sign_seconds())
+        let token = tokens::sign_game(&*self.token_keys()?, user_id, self.sign_seconds())?;
+        // A new sign-in ends a kick for game servers; the old tokens stay refused
+        if let Some((_, servers)) = self
+            .kicked
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .get_mut(user_id)
+        {
+            *servers = false;
+        }
+        Ok(token)
     }
 
     /// A game token's claims, checked against the system clock.

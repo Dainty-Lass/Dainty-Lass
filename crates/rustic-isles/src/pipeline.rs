@@ -138,6 +138,39 @@ fn has_prefix(path: &str, prefix: &str) -> bool {
         && (path.len() == n || path.as_bytes()[n] == b'/')
 }
 
+/// The headers a game server's key comes in.
+const GAMESERVER_KEYS: [&str; 2] = ["x-rustic-isles-gameserver-apikey", "x-rustic-isles-gameserver-key"];
+
+/// The groups whose routes a game server calls for a player: what a kicked or banned player must not change.
+pub fn acts_for_players(group: routes::Group) -> bool {
+    matches!(
+        group,
+        routes::Group::CharactersLoadouts
+            | routes::Group::InventoryReforge
+            | routes::Group::Progression
+            | routes::Group::BountiesStore
+            | routes::Group::MatchmakingParties
+    )
+}
+
+fn is_write(method: &http::Method) -> bool {
+    !matches!(*method, http::Method::GET | http::Method::HEAD | http::Method::OPTIONS)
+}
+
+/// The player ids a body names: `userId` or `UserId` at the top, or in each element of a top-level array.
+pub fn body_user_ids(body: &Value) -> Vec<String> {
+    let of = |v: &Value| -> Vec<String> {
+        ["userId", "UserId"]
+            .iter()
+            .filter_map(|k| v.get(*k).and_then(Value::as_str).map(str::to_owned))
+            .collect()
+    };
+    match body {
+        Value::Array(items) => items.iter().flat_map(of).collect(),
+        other => of(other),
+    }
+}
+
 fn empty(status: StatusCode) -> Response {
     status.into_response()
 }
@@ -515,6 +548,10 @@ impl<'a> Walk<'a> {
     ) -> Response {
         match &mounted.answer {
             Answer::Handler(handler) => {
+                let mut request = request;
+                if let Err(refused) = self.server_for_refused_player(mounted.row, &params, &mut request).await {
+                    return refused;
+                }
                 handler(Call {
                     shared: Arc::clone(&self.app.shared),
                     route: mounted.row,
@@ -528,6 +565,42 @@ impl<'a> Walk<'a> {
             Answer::NotImplemented => not_implemented(mounted.row, &self.request_id),
             Answer::Rifts(position, route) => self.relay(mounted.row, *position, route, params, request).await,
         }
+    }
+
+    /// A game server's write for a player staff kicked (until they sign in again), banned or timed out is
+    /// refused here, in front of every economy, progression, character, loadout and party route: the server
+    /// calls with its own key and no player token, so game auth can't see who it is for. The player is the
+    /// route's parameters or the body's `userId`. The game server gets a 403, as for any refused call.
+    async fn server_for_refused_player(
+        &self,
+        row: &RouteDef,
+        params: &Params,
+        request: &mut Request,
+    ) -> Result<(), Response> {
+        if self.app.service != Service::Backend
+            || !acts_for_players(row.group)
+            || !is_write(request.method())
+            || !GAMESERVER_KEYS.iter().any(|h| request.headers().contains_key(*h))
+        {
+            return Ok(());
+        }
+        let mut ids: Vec<String> = params.pairs().iter().map(|(_, v)| v.clone()).collect();
+        // Read once and kept for the route; a body the route couldn't read either gets the route's own refusal
+        if let Some(body) = crate::body::read_body(request).await? {
+            ids.extend(body_user_ids(&body));
+        }
+        ids.dedup();
+        for id in ids.iter().filter(|id| !id.is_empty() && id.len() <= 128) {
+            if let Some(why) = self.app.shared.auth().server_refusal(id).await {
+                tracing::warn!(
+                    "[Kick] game server {} {} for {id} refused: the player is {why}",
+                    request.method(),
+                    request.uri().path()
+                );
+                return Err(empty(StatusCode::FORBIDDEN));
+            }
+        }
+        Ok(())
     }
 
     async fn caller(

@@ -8,7 +8,9 @@ export async function collectStatus(cfg: GameConfig, version: string): Promise<A
   const [server, hunts, online, metrics] = await Promise.all([
     runAdminOp<ServerStatus>(cfg, "serverStatus", {}, "0"),
     runAdminOp<HuntStatus>(cfg, "huntStatus", {}, "0"),
-    runBackend<{ count: number }>(cfg, "GET", "/admin/v1/online-players", {
+    // Its own query string: the admin API polls the same route as operator 0, and two identical signatures
+    // in one millisecond are a replay to the backend
+    runBackend<{ count: number }>(cfg, "GET", "/admin/v1/online-players?from=dashboard", {
       id: "0",
       name: "status",
     }),
