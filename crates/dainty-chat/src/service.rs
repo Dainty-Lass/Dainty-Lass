@@ -100,9 +100,11 @@ async fn run(
         .start(&settings, setup.node, host, federation, history, options)
         .await
         .map_err(|e| e.to_string())?;
+    link.on_disconnect(Some(Arc::new(running.disconnector())));
     ctx.status().ready(Some(format!("127.0.0.1:{}", running.port)), None);
     ctx.wait_stop().await;
     ctx.status().stopping();
+    link.on_disconnect(None);
     link.serve_peers(None);
     running.stop().await;
     ctx.status().stopped();

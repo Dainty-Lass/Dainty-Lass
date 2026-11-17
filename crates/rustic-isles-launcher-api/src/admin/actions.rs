@@ -184,9 +184,7 @@ impl LauncherApiAdmin {
                     })
                     .await
                     .map_err(failed)?;
-                shared
-                    .presence()
-                    .close_connections(&target.user_id, 1008, "banned by the host");
+                shared.kick_player(&target.user_id, "banned by the host").await;
                 state.forget_status();
             }
             AdminRequest::Unban { reason, .. } => {
@@ -206,11 +204,16 @@ impl LauncherApiAdmin {
             }
             AdminRequest::Lookup { .. } => {
                 let online = state.active_players(shared, 3 * MINUTE_MS).contains(&target.user_id);
+                let launcher = target.launcher.as_ref();
                 return Ok(AdminResponse::Player(PlayerInfo {
                     account: Some(target.account.global().clone()),
                     name: target.name.clone(),
                     online,
-                    restriction: restriction(target.launcher.as_ref(), &iso(now_ms())),
+                    restriction: restriction(launcher, &iso(now_ms())),
+                    user_id: Some(target.user_id.clone()),
+                    created_at: launcher.map(|l| l.created_at.clone()),
+                    last_login_at: launcher.and_then(|l| l.last_login_at.clone()),
+                    admin: launcher.is_some_and(|l| l.roles.iter().any(|r| r == "admin")),
                 }));
             }
         }
@@ -508,7 +511,7 @@ async fn kick(
         })
         .await
         .map_err(failed)?;
-    shared.presence().close_connections(&target.user_id, 1008, reason);
+    shared.kick_player(&target.user_id, reason).await;
     LauncherApiState::of(shared).forget_status();
     Ok(())
 }

@@ -15,7 +15,7 @@
     reason = "a refusal is the answer itself (§11.2 hands isles a `Response`), so it is not boxed"
 )]
 
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::sync::atomic::AtomicBool;
 use std::sync::{Arc, Mutex, PoisonError, Weak};
 
@@ -233,6 +233,8 @@ pub struct Auth<S: AuthStore> {
     token_keys: tokens::KeyCache,
     warned_official: Mutex<HashSet<String>>,
     notices_failing: AtomicBool,
+    /// Staff kicks: userId to the second of the kick, for the life of the process
+    kicked: Mutex<HashMap<String, i64>>,
     this: Weak<Self>,
 }
 
@@ -249,6 +251,7 @@ impl<S: AuthStore> Auth<S> {
             token_keys: tokens::KeyCache::default(),
             warned_official: Mutex::new(HashSet::new()),
             notices_failing: AtomicBool::new(false),
+            kicked: Mutex::new(HashMap::new()),
             this: this.clone(),
         })
     }
@@ -329,6 +332,33 @@ impl<S: AuthStore> Auth<S> {
     // Validation runs on the system clock (spec §14 item 13)
     fn system_seconds() -> i64 {
         chrono::Utc::now().timestamp()
+    }
+
+    /// A staff kick: the user's game tokens signed until now stop working, so the game and chat refuse them until
+    /// the launcher signs in again. Game tokens don't expire, so nothing else would end them.
+    pub fn kick(&self, user_id: &str) {
+        let now = self.sign_seconds();
+        self.kicked
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .insert(user_id.to_owned(), now);
+    }
+
+    /// Whether a game token's claims were signed before (or in the second of) its user's kick.
+    pub fn is_kicked(&self, claims: &Map<String, Value>) -> bool {
+        let Some(Value::String(user_id)) = claims.get("userId") else {
+            return false;
+        };
+        let Some(at) = self
+            .kicked
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .get(user_id)
+            .copied()
+        else {
+            return false;
+        };
+        claims.get("iat").and_then(Value::as_i64).unwrap_or(0) <= at
     }
 
     /// A game token for `userId`; fails when the signing keys cannot load.

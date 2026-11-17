@@ -23,7 +23,12 @@ struct GameTokens(Arc<IslesAuth>);
 
 impl TokenCheck for GameTokens {
     fn validate(&self, token: &str) -> Result<Map<String, Value>, InvalidToken> {
-        self.0.validate_game_token(token).map_err(|_| InvalidToken)
+        let claims = self.0.validate_game_token(token).map_err(|_| InvalidToken)?;
+        // A kicked player's chat comes back only with the token of a new sign-in
+        if self.0.is_kicked(&claims) {
+            return Err(InvalidToken);
+        }
+        Ok(claims)
     }
 }
 

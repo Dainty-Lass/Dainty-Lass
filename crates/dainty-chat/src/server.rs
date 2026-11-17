@@ -227,6 +227,13 @@ pub enum Event {
         /// Signalled when the tick is done.
         done: oneshot::Sender<()>,
     },
+    /// Staff kicked the player: end every session bound to the JID local part.
+    Disconnect {
+        /// The local part.
+        uid: String,
+        /// Words for the log.
+        reason: String,
+    },
     /// End every session and stop the task.
     Shutdown,
 }
@@ -402,6 +409,7 @@ pub(crate) enum EndReason {
     Shutdown,
     Timeout,
     Refused,
+    Kicked,
 }
 
 impl EndReason {
@@ -417,6 +425,7 @@ impl EndReason {
             Self::Shutdown => "shutdown",
             Self::Timeout => "timeout",
             Self::Refused => "refused",
+            Self::Kicked => "kicked",
         }
     }
 }
@@ -606,6 +615,18 @@ impl Chat {
                 self.tick().await;
                 _ = done.send(());
             }
+            Event::Disconnect { uid, reason } => {
+                let sessions = self.bound_of(&uid);
+                info!(
+                    "chat: kick uid={} sessions={} reason={}",
+                    log_text(&uid, 80),
+                    sessions.len(),
+                    log_text(&reason, 120)
+                );
+                for id in sessions {
+                    self.end(id, EndReason::Kicked).await;
+                }
+            }
             Event::Shutdown => self.shutdown().await,
         }
     }
@@ -737,7 +758,7 @@ impl Chat {
             }
             if matches!(
                 reason,
-                EndReason::Replaced | EndReason::Abuse | EndReason::Size | EndReason::Backlog
+                EndReason::Replaced | EndReason::Abuse | EndReason::Size | EndReason::Backlog | EndReason::Kicked
             ) {
                 self.uid_wait.insert(uid.clone(), now + UID_WAIT);
             }
@@ -758,6 +779,11 @@ impl Chat {
                     writer.send(Out::Close(1000));
                 }
                 EndReason::Size => _ = writer.send(Out::Close(1009)),
+                // Node closed a kicked player's socket with 1008 (policy violation)
+                EndReason::Kicked => {
+                    self.send(id, &format!(r#"<close xmlns="{NS_FRAMING}"/>"#));
+                    writer.send(Out::Close(1008));
+                }
                 _ => _ = writer.send(Out::Cut),
             }
         }

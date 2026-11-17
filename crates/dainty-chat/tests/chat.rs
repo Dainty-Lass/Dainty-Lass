@@ -712,3 +712,28 @@ async fn without_a_dashboard_reports_say_so_and_chat_is_untouched() {
     assert!(!bo.drain().await.iter().any(|f| f.contains("report")));
     server.running.stop().await;
 }
+
+#[tokio::test]
+async fn a_kicked_player_is_disconnected() {
+    let plugin = ChatPlugin::new();
+    let server = start(host(), &plugin).await;
+    let port = server.running.port;
+    let mut ada = login(port, "ada").await;
+    let mut bo = login(port, "bo").await;
+    ada.drain().await;
+    bo.drain().await;
+
+    (server.running.disconnector())("ada", "kicked by the host");
+    let mut code = None;
+    while let Ok(Some(frame)) = tokio::time::timeout(Duration::from_secs(2), ada.socket.next()).await {
+        if let Ok(Message::Close(Some(close))) = frame {
+            code = Some(u16::from(close.code));
+            break;
+        }
+    }
+    assert_eq!(code, Some(1008));
+    // Only the kicked player's sessions end
+    bo.join("General", "Bo").await;
+    assert!(!bo.drain().await.is_empty());
+    server.running.stop().await;
+}

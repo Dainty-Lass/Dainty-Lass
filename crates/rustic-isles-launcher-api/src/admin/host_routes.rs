@@ -280,10 +280,7 @@ pub async fn kick(mut call: Call) -> Response {
         tracing::error!("[launcher-api] Kick: {e}");
         return util::empty(StatusCode::INTERNAL_SERVER_ERROR);
     }
-    let closed = call
-        .shared
-        .presence()
-        .close_connections(&user_id, 1008, "kicked by the host");
+    let closed = call.shared.kick_player(&user_id, "kicked by the host").await;
     LauncherApiState::of(&call.shared).forget_status();
     tracing::info!(
         "[launcher-api] {} ({user_id}) kicked, {closed} chat connection(s) closed",

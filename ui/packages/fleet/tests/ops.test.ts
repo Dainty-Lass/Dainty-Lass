@@ -1,5 +1,11 @@
 import { expect, test } from "bun:test";
-import { backendAllowed, isAdminOp, normalizePairingCode, runBackend } from "../src";
+import {
+  backendAllowed,
+  isAdminOp,
+  nextOperatorTimestamp,
+  normalizePairingCode,
+  runBackend,
+} from "../src";
 
 test("only the listed backend routes pass", () => {
   expect(backendAllowed("GET", "/admin/v1/players?page=2&limit=25")).toBe(true);
@@ -33,4 +39,13 @@ test("a refused route never reaches the network", async () => {
 
 test("pairing codes read the way people type them", () => {
   expect(normalizePairingCode("abcd-efgh ")).toBe("ABCDEFGH");
+});
+
+test("operator timestamps never repeat, even within one millisecond", () => {
+  const a = Number(nextOperatorTimestamp(1_000));
+  const b = Number(nextOperatorTimestamp(1_000));
+  const c = Number(nextOperatorTimestamp(5));
+  expect(b).toBeGreaterThan(a);
+  expect(c).toBeGreaterThan(b);
+  expect(Number(nextOperatorTimestamp(a + 10_000))).toBe(a + 10_000);
 });

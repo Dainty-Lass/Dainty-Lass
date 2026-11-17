@@ -930,11 +930,28 @@ async fn admin_actions_and_home_operations() {
     let AdminResponse::Player(info) = lookup else {
         panic!("{lookup:?}")
     };
+    // The game's own id and the account's dates, which the dashboard looks the backend account up by
+    assert_eq!(info.user_id.as_deref(), Some("fox-user"));
+    assert!(info.created_at.is_some());
+    assert!(!info.admin);
     let restriction = info.restriction.unwrap();
     assert_eq!(
         (restriction.kind, restriction.until),
         (RestrictionKind::Timeout, Some(until))
     );
+    // The timeout kicked: tokens signed before it are refused, a new sign-in's are not
+    let claims = |iat: i64| {
+        let mut claims = serde_json::Map::new();
+        claims.insert("userId".into(), json!("fox-user"));
+        claims.insert("iat".into(), json!(iat));
+        claims
+    };
+    let now_s = now_ms() / 1000;
+    assert!(r.shared.auth().is_kicked(&claims(now_s - 60)));
+    assert!(!r.shared.auth().is_kicked(&claims(now_s + 2)));
+    let mut other = claims(now_s - 60);
+    other.insert("userId".into(), json!("someone-else"));
+    assert!(!r.shared.auth().is_kicked(&other));
     admin
         .admin_action(
             &r.shared,

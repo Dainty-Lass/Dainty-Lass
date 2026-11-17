@@ -212,6 +212,25 @@ impl Running {
         self.shared.unmute(account, actor).await
     }
 
+    /// Ends every session bound to the JID local part `uid` (a staff kick).
+    pub fn disconnect(&self, uid: &str, reason: &str) {
+        _ = self.shared.events.send(Event::Disconnect {
+            uid: uid.to_owned(),
+            reason: reason.to_owned(),
+        });
+    }
+
+    /// A handle that ends a JID local part's sessions while chat runs (for the core's [`Running::disconnect`]).
+    pub fn disconnector(&self) -> impl Fn(&str, &str) + Send + Sync + 'static {
+        let events = self.shared.events.clone();
+        move |uid: &str, reason: &str| {
+            _ = events.send(Event::Disconnect {
+                uid: uid.to_owned(),
+                reason: reason.to_owned(),
+            });
+        }
+    }
+
     /// Runs the periodic work now and waits for it.
     pub async fn tick(&self) {
         self.shared.tick().await;

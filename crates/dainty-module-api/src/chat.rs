@@ -143,6 +143,20 @@ pub struct PresenceEvent {
     pub online: bool,
 }
 
+/// Event emitted by a game module when staff kick, ban or time out a player: chat ends their sessions
+/// (`Payload`: [`DisconnectEvent`]).
+pub const DISCONNECT_EVENT: &str = "chat.disconnect";
+
+/// Payload of [`DISCONNECT_EVENT`].
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct DisconnectEvent {
+    /// The player's id inside the game module: the JID local part.
+    pub user_id: String,
+    /// Words for the log.
+    pub reason: String,
+}
+
 /// Event emitted by a game module to push an XMPP `<message type="headline">` stanza (`Payload`: [`Headline`]).
 pub const HEADLINE_EVENT: &str = "isles.party.headline";
 

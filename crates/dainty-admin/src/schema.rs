@@ -794,18 +794,19 @@ fn module_player(module: &AdminModule, info: PlayerInfo) -> Player {
         restriction,
         online: info.online,
         location: None,
-        admin: false,
-        created_at: None,
-        last_login_at: None,
+        admin: info.admin,
+        created_at: info.created_at,
+        last_login_at: info.last_login_at,
         game: module.game_version.to_string(),
     }
 }
 
-/// The account's network-wide id, or the name for a game that gives none.
+/// The game's own id, which its backend and Director know the player by; else the network-wide id, else the name.
 fn user_id_of(info: &PlayerInfo) -> String {
-    info.account
-        .as_ref()
-        .map_or_else(|| info.name.clone(), ToString::to_string)
+    info.user_id
+        .clone()
+        .or_else(|| info.account.as_ref().map(ToString::to_string))
+        .unwrap_or_else(|| info.name.clone())
 }
 
 fn not_supported(module: &AdminModule, what: &str) -> async_graphql::Error {
@@ -1324,7 +1325,26 @@ impl Admin {
             Ok(AdminResponse::Player(latest)) => latest,
             _ => info,
         };
-        module_player(module, latest)
+        self.placed(module_player(module, latest)).await
+    }
+
+    /// The player with the game server the Director lists them on: there, they are online whatever the module
+    /// saw. A Director that is down leaves the player as they were.
+    async fn placed(&self, mut player: Player) -> Player {
+        match self.upstream.instances().await {
+            Ok(instances) => {
+                if let Some(instance) = instances.into_iter().find(|i| i.player_ids.contains(&player.user_id)) {
+                    player.online = true;
+                    player.location = Some(Location {
+                        kind: location_of(instance.kind),
+                        instance_id: instance.id,
+                        title: instance.title,
+                    });
+                }
+            }
+            Err(error) => log::warn("Director call failed", json!({"error": error.to_string()})),
+        }
+        player
     }
 
     async fn restriction(&self, account: &Account) -> Option<Restriction> {
@@ -1405,7 +1425,7 @@ impl Admin {
         match self.locate(caller, name, game, false).await? {
             None => Ok(None),
             Some(Found::Node(account)) => self.player(&caller.operator, account).await.map(Some),
-            Some(Found::Module(module, info)) => Ok(Some(module_player(&module, info))),
+            Some(Found::Module(module, info)) => Ok(Some(self.placed(module_player(&module, info)).await)),
         }
     }
 

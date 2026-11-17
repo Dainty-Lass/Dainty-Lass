@@ -314,7 +314,7 @@ pub struct PlayerRestriction {
 }
 
 /// A player as an admin lookup shows them.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct PlayerInfo {
     /// The player's network account, when the module knows it.
@@ -327,11 +327,27 @@ pub struct PlayerInfo {
     /// None for a player who may play, or a game whose module doesn't say
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub restriction: Option<PlayerRestriction>,
+    /// The game's own id for the player (the one its backend and Director use), when it has one
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub user_id: Option<String>,
+    /// RFC 3339
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub created_at: Option<String>,
+    /// RFC 3339
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub last_login_at: Option<String>,
+    /// A server admin, whom moderation leaves alone.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub admin: bool,
 }
 
 /// A module's answer to an [`AdminCall`].
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
+#[allow(
+    clippy::large_enum_variant,
+    reason = "one admin answer per call; boxing would change the wire type's users"
+)]
 pub enum AdminResponse {
     /// The action was carried out.
     Done,

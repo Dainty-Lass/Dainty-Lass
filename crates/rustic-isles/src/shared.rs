@@ -303,6 +303,25 @@ impl Shared {
         &self.presence
     }
 
+    /// A staff kick, ban or timeout: the player's game tokens stop working (so their game calls, a new hunt and
+    /// chat refuse them until the launcher signs in again), and chat is told to end their sessions. A game server
+    /// they are on is not told (it has no channel for it). 1 if chat had them online, else 0.
+    pub async fn kick_player(&self, user_id: &str, reason: &str) -> usize {
+        self.auth.kick(user_id);
+        let closed = self.presence.close_connections(user_id, 1008, reason);
+        if let Some(context) = &self.context
+            && let Ok(name) = dainty_module_api::EventName::new(dainty_module_api::chat::DISCONNECT_EVENT)
+            && let Ok(payload) = serde_json::to_value(dainty_module_api::chat::DisconnectEvent {
+                user_id: user_id.to_owned(),
+                reason: reason.to_owned(),
+            })
+            && let Err(error) = context.emit(dainty_module_api::Event { name, payload }).await
+        {
+            tracing::warn!("kick: chat was not told to end {user_id}'s sessions: {error}");
+        }
+        closed
+    }
+
     /// The Director slot; unconfigured until one fills it.
     pub fn dedicated_servers(&self) -> Arc<dyn DedicatedServers> {
         Arc::clone(&self.dedicated.read().unwrap_or_else(PoisonError::into_inner))

@@ -871,6 +871,7 @@ mod games {
                             .restrictions
                             .as_ref()
                             .and_then(|r| r.lock().unwrap().get(found.name).cloned()),
+                        ..PlayerInfo::default()
                     }),
                     _ if found.admin => return Err(ModuleError::failed("this player is a server admin")),
                     AdminRequest::Kick { .. }
