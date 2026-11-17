@@ -360,13 +360,19 @@ async fn a_kick_reaches_every_server_as_a_file_beside_the_game() {
             .unwrap()
             .join(format!("rustic_isles_kick_port{port}.txt"));
         _ = std::fs::remove_file(&file);
-        assert_eq!(r.director.kick("9c65cf9f-kick"), 1);
-        assert_eq!(r.director.kick("has space"), 0);
+        assert_eq!(r.director.kick("9c65cf9f-kick"), std::slice::from_ref(&file));
+        assert!(r.director.kick("has space").is_empty());
         let text = std::fs::read_to_string(&file).unwrap();
         _ = std::fs::remove_file(&file);
         let (at, id) = text.trim_end().split_once(' ').unwrap();
         assert!(at.parse::<u64>().is_ok());
         assert_eq!((id, text.lines().count()), ("9c65cf9f-kick", 1));
+        // The slot confirms once the server has removed its file (as the runtime does when it has acted)
+        let slot = rustic_isles_director::InProcessDirector(r.director.clone());
+        let confirm = tokio::spawn(async move { rustic_isles::DedicatedServers::kick(&slot, "9c65cf9f-kick").await });
+        assert!(wait_for(5, || file.exists()).await);
+        std::fs::remove_file(&file).unwrap();
+        assert!(confirm.await.unwrap());
         r.director.shutdown().await;
     })
     .await;

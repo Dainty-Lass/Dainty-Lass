@@ -758,7 +758,7 @@ impl Chat {
             }
             if matches!(
                 reason,
-                EndReason::Replaced | EndReason::Abuse | EndReason::Size | EndReason::Backlog | EndReason::Kicked
+                EndReason::Replaced | EndReason::Abuse | EndReason::Size | EndReason::Backlog
             ) {
                 self.uid_wait.insert(uid.clone(), now + UID_WAIT);
             }

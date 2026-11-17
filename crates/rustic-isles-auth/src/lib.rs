@@ -233,9 +233,8 @@ pub struct Auth<S: AuthStore> {
     token_keys: tokens::KeyCache,
     warned_official: Mutex<HashSet<String>>,
     notices_failing: AtomicBool,
-    /// Staff kicks: userId to the second of the kick and whether game servers are still refused for them (until
-    /// a new game token is signed), for the life of the process
-    kicked: Mutex<HashMap<String, (i64, bool)>>,
+    /// Staff kicks being carried out: userId to when the kick lifts by itself (ms)
+    kicked: Mutex<HashMap<String, i64>>,
     this: Weak<Self>,
 }
 
@@ -335,26 +334,37 @@ impl<S: AuthStore> Auth<S> {
         chrono::Utc::now().timestamp()
     }
 
-    /// A staff kick: the user's game tokens signed until now stop working, so the game and chat refuse them until
-    /// the launcher signs in again. Game tokens don't expire, so nothing else would end them.
-    pub fn kick(&self, user_id: &str) {
-        let now = self.sign_seconds();
+    /// A staff kick in progress: until `until_ms` (or [`Self::lift_kick`]) the user's game tokens and their game
+    /// servers' writes for them are refused, so nothing is saved between the kick and their removal. It lifts by
+    /// itself: a kick doesn't outlast the removal, and the player signs back in from the menu with the session they
+    /// have. Bans and timeouts last through the launcher account's eligibility, not this.
+    pub fn kick(&self, user_id: &str, window_ms: i64) {
+        let until = self.now().saturating_add(window_ms.max(0));
         self.kicked
             .lock()
             .unwrap_or_else(PoisonError::into_inner)
-            .insert(user_id.to_owned(), (now, true));
+            .insert(user_id.to_owned(), until);
     }
 
-    /// Why a game server may not act for the player now: `kicked` until their next sign-in, `restricted` while
-    /// a ban or timeout lasts. A store that can't answer refuses nothing (the route's own checks still run).
-    pub async fn server_refusal(&self, user_id: &str) -> Option<&'static str> {
-        let blocked = self
-            .kicked
+    /// Ends a kick in progress: the player was removed.
+    pub fn lift_kick(&self, user_id: &str) {
+        self.kicked
             .lock()
             .unwrap_or_else(PoisonError::into_inner)
-            .get(user_id)
-            .is_some_and(|(_, servers)| *servers);
-        if blocked {
+            .remove(user_id);
+    }
+
+    fn kick_active(&self, user_id: &str) -> bool {
+        let now = self.now();
+        let mut kicked = self.kicked.lock().unwrap_or_else(PoisonError::into_inner);
+        kicked.retain(|_, until| *until > now);
+        kicked.contains_key(user_id)
+    }
+
+    /// Why a game server may not act for the player now: `kicked` while a kick is carried out, `restricted` while a
+    /// ban or timeout lasts. A store that can't answer refuses nothing (the route's own checks still run).
+    pub async fn server_refusal(&self, user_id: &str) -> Option<&'static str> {
+        if self.kick_active(user_id) {
             return Some("kicked");
         }
         match self.store().ok()?.launcher_account_by_user_id(user_id).await {
@@ -363,36 +373,14 @@ impl<S: AuthStore> Auth<S> {
         }
     }
 
-    /// Whether a game token's claims were signed before (or in the second of) its user's kick.
+    /// Whether a game token's user is being kicked now.
     pub fn is_kicked(&self, claims: &Map<String, Value>) -> bool {
-        let Some(Value::String(user_id)) = claims.get("userId") else {
-            return false;
-        };
-        let Some((at, _)) = self
-            .kicked
-            .lock()
-            .unwrap_or_else(PoisonError::into_inner)
-            .get(user_id)
-            .copied()
-        else {
-            return false;
-        };
-        claims.get("iat").and_then(Value::as_i64).unwrap_or(0) <= at
+        matches!(claims.get("userId"), Some(Value::String(user_id)) if self.kick_active(user_id))
     }
 
     /// A game token for `userId`; fails when the signing keys cannot load.
     pub fn sign_game_token(&self, user_id: &str) -> Result<String, TokenError> {
-        let token = tokens::sign_game(&*self.token_keys()?, user_id, self.sign_seconds())?;
-        // A new sign-in ends a kick for game servers; the old tokens stay refused
-        if let Some((_, servers)) = self
-            .kicked
-            .lock()
-            .unwrap_or_else(PoisonError::into_inner)
-            .get_mut(user_id)
-        {
-            *servers = false;
-        }
-        Ok(token)
+        tokens::sign_game(&*self.token_keys()?, user_id, self.sign_seconds())
     }
 
     /// A game token's claims, checked against the system clock.

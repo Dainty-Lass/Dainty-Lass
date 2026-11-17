@@ -22,6 +22,7 @@ in section 8.
 | The backend asks the Director to kick a player | `rustic_isles::Shared::kick_player` → `DedicatedServers::kick` |
 | The Director writes a kick file for each server it runs | `rustic-isles-director` `Director::kick` |
 | The server reads the file on the SP-3 tick and sends the player's client to the menu | `rustic-isles-runtime` `server_life::kick`, pure half `rustic-isles-runtime-core::kick` |
+| The kick lifts once every server has acted, so the player can rejoin from the menu | `Shared::kick_player`, `Director` slot `kick` (section 5.1) |
 
 Not here: player-hosted hunts (R10's hosts run on players' machines, out of the Director's reach; the backend already
 refuses their writes for a kicked player), and a server-side forced close of a client that ignores the call (8.3).
@@ -88,6 +89,23 @@ a game without either function logs that no call answered.
 **The text (call 4).** `You were removed from the server by staff.`, made once by R17's `text_for`
 (`Conv_StringToText`). English: the runtime has no catalog; the launcher's own messages are translated.
 
+### 5.1 The kick doesn't outlast the removal (call 5)
+
+A kick removes the player; it does not keep them out. While it is carried out, the backend refuses the player's game
+tokens (their own calls and chat's login) and their game servers' writes for them, so nothing is saved between the
+kick and the removal (`rustic-isles-auth` `kick(user, window)` / `lift_kick`). It lifts on the first of:
+
+1. **The servers' confirmation.** The Director's slot waits, polling every 200 ms for up to 15 s, until every kick
+   file it wrote is gone: a server removes its file when it has read it and, if the player is there, sent the client
+   call in the same step. One second later (the call reaching the client) the kick is lifted:
+   `[Kick] <id>: removed; the kick is lifted`.
+2. **Its window**, 20 s (`KICK_WINDOW_MS`), when a server didn't act in time (`a game server didn't act on the kick in
+   time`), or the slot can't confirm (no Director, a remote one).
+
+Then the client at the menu signs back in with the session it has: no launcher restart, and chat doesn't hold the
+uid after a kicked session. A ban or time-out keeps the player out on its own, through the launcher account's
+eligibility, for as long as it lasts.
+
 ## 6. Log lines
 
 ```text
@@ -100,8 +118,9 @@ a game without either function logs that no call answered.
 [MitRuntime] [Kick] <id> not on this server; request dropped
 ```
 
-The Director logs `[Kick] <id>: asked <n> game server(s) to send them to the menu`, and a warning naming the file when
-one can't be written. No line carries a key, a token or a reason the staff gave.
+The Director logs `[Kick] <id>: asked <n> game server(s) to send them to the menu`, a warning naming the file when
+one can't be written, and `[Kick] <id>: a game server didn't act on the kick in time` when one wasn't removed within
+15 s; the module logs `[Kick] <id>: removed; the kick is lifted`. No line carries a key, a token or a reason the staff gave.
 
 ## 7. Flag
 
@@ -120,7 +139,8 @@ The backend's refusals (dashboard-grants) still apply.
 5. **(ambiguity 1)** The net id string's offset (section 5). Settled by the play-test's `connected ids` line.
 6. **(ambiguity 2)** Whether 1.14.7's client honours `ClientReturnToMainMenuWithTextReason` (or `ClientWasKicked`) by
    going to the menu: the play-test settles it.
-7. **(ambiguity 3)** A modified client that ignores the call stays connected. Its writes are refused by the backend
+7. **(call 5)** A kick lifts once the servers confirm it, else after 20 s (5.1); only bans and time-outs persist.
+8. **(ambiguity 3)** A modified client that ignores the call stays connected. Its writes are refused by the backend
    (dashboard-grants), and the AFK timeout ends an idle one; a server-side close (`UNetConnection::Close`, a native
    address) is left for a later slice if the play-test shows a need.
 
@@ -137,9 +157,12 @@ first time); the net id read at +0x08 and +0x18 and nothing for a null object; t
 2. From the dashboard, kick the player. Within a second or two: the Director logs `asked <n> game server(s)`; the
    Ramsgate log has `request read`, `connected ids: [<your user id>]` (if the id is `?` or different, ambiguity 1:
    report the line) and `<id> sent to the menu (ClientReturnToMainMenuWithTextReason)` (or `ClientWasKicked`).
-3. The client goes back to the main menu, ideally showing the reason. Note what it shows.
+3. The client goes back to the main menu, ideally showing the reason. Note what it shows. About a second later the
+   server log has `[Kick] <id>: removed; the kick is lifted`; from the menu, play again with no launcher restart:
+   the game signs in, chat connects, and Ramsgate loads.
 4. The other servers' logs (training, any hunt) have `<id> not on this server; request dropped` 30 s later.
 5. Repeat in a hunt with a second player: only the kicked one leaves; the hunt goes on for the other.
-6. Ban and time-out: the same, and the launcher refuses to start the game until it ends.
+6. Ban and time-out: the same, but the player stays out (the game's calls are refused, the launcher refuses to start
+   the game) until it ends or is lifted.
 7. Put `DISABLE_STAFF_KICK.flag` beside the executable, restart, kick: the log says `off`, the player stays (the
    backend still refuses their writes).
