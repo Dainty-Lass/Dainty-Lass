@@ -249,6 +249,7 @@ impl GameModule for StubModule {
                     name: player,
                     online: false,
                     restriction: None,
+                    ..PlayerInfo::default()
                 })),
                 AdminRequest::Kick { .. } => Ok(AdminResponse::Done),
                 other => Err(ModuleError::unsupported(format!("{:?}", other.action()))),

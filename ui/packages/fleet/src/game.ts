@@ -116,6 +116,17 @@ export function signOperatorRequest(
   return createHmac("sha256", Buffer.from(secret, "utf8")).update(canonical, "utf8").digest("hex");
 }
 
+let lastSigned = 0;
+
+/**
+ * Now, or one past the last timestamp signed when that is not later: two calls in one millisecond would
+ * otherwise sign the same text, and the backend refuses the second as a replay (it allows 5 s ahead).
+ */
+export function nextOperatorTimestamp(now = Date.now()): string {
+  lastSigned = Math.max(now, lastSigned + 1);
+  return String(lastSigned);
+}
+
 /** The backend drops control characters from the name; dropping them here keeps the header valid. */
 function printable(text: string): string {
   return [...text].filter((c) => c.charCodeAt(0) >= 0x20 && c.charCodeAt(0) !== 0x7f).join("");
@@ -134,7 +145,7 @@ export async function runBackend<T>(
   if (!cfg.operatorSecret)
     return { ok: false, code: "not_configured", message: "manager operator secret" };
   const body = payload === undefined ? "" : JSON.stringify(payload);
-  const timestamp = String(Date.now());
+  const timestamp = nextOperatorTimestamp();
   const operatorId = digits(operator.id);
   let response: Response;
   try {

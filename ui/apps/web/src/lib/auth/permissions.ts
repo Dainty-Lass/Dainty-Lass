@@ -5,7 +5,7 @@
  *   user       anyone signed in (and approved, when the server asks): the overview, players, controllers
  *   moderator  + reports, chat logs and the chat filter, moderating players, and a player's direct
  *              messages (each read audited, with a reason)
- *   admin      + the audit log and undo, accounts, the filter's terms, controllers, members
+ *   admin      + the audit log and undo, accounts and grants, the filter's terms, controllers, members
  *   owner      + settings
  */
 export const ROLES = ["user", "moderator", "admin", "owner"] as const;
@@ -25,6 +25,7 @@ const CAPABILITIES = {
   "audit:revert": "admin",
   "players:access": "admin",
   "players:roles": "admin",
+  "players:grant": "admin",
   // One ban on every controller: a moderator acts per server, an admin across the fleet.
   "players:fleet": "admin",
   "filter:write": "admin",

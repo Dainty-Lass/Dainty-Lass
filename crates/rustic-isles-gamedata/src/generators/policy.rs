@@ -33,6 +33,7 @@ fn ends_with_ci(name: &str, suffix: &str) -> bool {
 fn scanned(name: &str) -> bool {
     (ends_with_ci(name, ".ts") || ends_with_ci(name, ".json"))
         && name != "inventory_storage_policy.json"
+        && name != ITEM_CATALOG_FILE
         && !ends_with_ci(name, ".example.json")
 }
 
@@ -91,6 +92,49 @@ fn entry(item: &super::io::Item) -> Value {
         .cloned()
         .unwrap_or(json!(0));
     json!({ "storage": storage, "maxQuantity": max, "tags": item.tags() })
+}
+
+/// The whole catalog in the backend's game data: what a staff grant may name.
+pub const ITEM_CATALOG_FILE: &str = "item_catalog.json";
+
+/// Writes [`ITEM_CATALOG_FILE`] in `game_data_dir`: every catalog item's storage kind, cap, tags and name, as the
+/// policy writes its entries. The policy holds only the ids the backend names; a staff grant may name any item the
+/// game has (a tonic, a weapon), and lands it as the catalog stores it. Never scanned for the policy's ids.
+pub fn generate_item_catalog(catalog: &Path, game_data_dir: &Path) -> Result<String, String> {
+    let Ok(bytes) = std::fs::read(catalog) else {
+        return Err(format!("Catalog dump not found: {}", show(catalog)));
+    };
+    let sha = hex::encode(Sha256::digest(&bytes));
+    let catalog_map = catalog_from_rows(super::io::read_json_lines(catalog)?);
+    let sorted: BTreeMap<&String, Value> = catalog_map
+        .iter()
+        .map(|(id, item)| {
+            let mut value = entry(item);
+            if let (Some(map), Some(name)) = (
+                value.as_object_mut(),
+                item.row
+                    .get("displayName")
+                    .and_then(Value::as_str)
+                    .filter(|n| !n.is_empty()),
+            ) {
+                map.insert("name".into(), Value::from(name));
+            }
+            (id, value)
+        })
+        .collect();
+    let count = sorted.len();
+    let entries: Map<String, Value> = sorted.into_iter().map(|(k, v)| (k.clone(), v)).collect();
+    let document = json!({
+        "schema": 1,
+        "targetVersion": "1.14.7",
+        "catalogSha256": sha,
+        "items": count,
+        "entries": entries,
+    });
+    create_dir(game_data_dir)?;
+    let target = game_data_dir.join(ITEM_CATALOG_FILE);
+    write_file(&target, &format!("{}\n", stringify_pretty(&document, 2)))?;
+    Ok(format!("Wrote {} ({count} items)", show(&target)))
 }
 
 /// Writes `inventory_storage_policy.json` in `game_data_dir`: each catalog item's storage kind, cap and tags.

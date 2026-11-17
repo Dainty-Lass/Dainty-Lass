@@ -631,6 +631,7 @@ impl GameModule for IslesModule {
             registrar.game_call(kind);
         }
         registrar.emits(name(HEADLINE_EVENT)?);
+        registrar.emits(name(dainty_module_api::chat::DISCONNECT_EVENT)?);
         registrar.subscribes(name(PRESENCE_EVENT)?);
         registrar.config_section(ConfigSection::new("backend").key(
             "env_file",

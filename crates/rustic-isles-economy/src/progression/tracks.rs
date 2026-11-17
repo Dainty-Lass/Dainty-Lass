@@ -188,6 +188,11 @@ impl Curves {
         self.tracks.get(track)
     }
 
+    /// Every track with a curve, in no order.
+    pub fn track_ids(&self) -> impl Iterator<Item = &str> {
+        self.tracks.keys().map(String::as_str)
+    }
+
     /// Whether the track has a curve.
     pub fn has(&self, track: &str) -> bool {
         self.tracks.contains_key(track)

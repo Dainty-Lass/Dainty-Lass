@@ -10,7 +10,7 @@ use std::collections::{BTreeMap, HashMap};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, PoisonError};
 
-use dainty_module_api::chat::{PRESENCE_EVENT, PresenceEvent};
+use dainty_module_api::chat::{DISCONNECT_EVENT, DisconnectEvent, PRESENCE_EVENT, PresenceEvent};
 use dainty_module_api::frame::{MAX_FRAME, encode};
 use dainty_module_api::network::{HomeForward, NodeId, OperationName};
 use dainty_module_api::{
@@ -66,6 +66,7 @@ fn extension(registry: &ModuleRegistry, setup: ChatSetup) -> Arc<dyn Extension> 
         next: AtomicU64::new(1),
         in_flight: Arc::new(Semaphore::new(MAX_PENDING)),
         attached: AtomicBool::new(false),
+        forwarding: AtomicBool::new(false),
     });
     registry.add_hook(Arc::new(Hook(core.clone())));
     Arc::new(Ext(core))
@@ -85,6 +86,8 @@ struct ChatCore {
     next: AtomicU64,
     in_flight: Arc<Semaphore>,
     attached: AtomicBool,
+    /// The `chat.disconnect` forwarder runs (once per registry)
+    forwarding: AtomicBool,
 }
 
 fn lock<T>(mutex: &Mutex<T>) -> std::sync::MutexGuard<'_, T> {
@@ -140,6 +143,9 @@ impl ChatCore {
             }
             *lock(&self.run) = Some(run.clone());
         }
+        if !self.forwarding.swap(true, Ordering::Relaxed) {
+            self.forward_disconnects(registry.subscribe_events());
+        }
         if self.setup.network.is_some() {
             registry
                 .node_services()
@@ -147,6 +153,37 @@ impl ChatCore {
             self.attached.store(true, Ordering::Relaxed);
         }
         Ok(())
+    }
+
+    /// A game module's `chat.disconnect` (a staff kick) goes to the running chat; with none running there are no
+    /// sessions to end. Ends with the registry's bus.
+    fn forward_disconnects(self: &Arc<Self>, mut events: tokio::sync::broadcast::Receiver<(Option<ModuleId>, Event)>) {
+        let core = Arc::downgrade(self);
+        dainty_service_kit::task::spawn_named("chat disconnects", async move {
+            loop {
+                let event = match events.recv().await {
+                    Ok((_, event)) => event,
+                    Err(tokio::sync::broadcast::error::RecvError::Lagged(missed)) => {
+                        tracing::warn!(target: "host", "chat: {missed} events passed before they were read");
+                        continue;
+                    }
+                    Err(tokio::sync::broadcast::error::RecvError::Closed) => break,
+                };
+                if event.name.as_str() != DISCONNECT_EVENT {
+                    continue;
+                }
+                let Some(core) = core.upgrade() else { break };
+                let Ok(DisconnectEvent { user_id, reason }) = serde_json::from_value(event.payload) else {
+                    continue;
+                };
+                let message = ToChat::Disconnect { user_id, reason };
+                if message.in_bounds()
+                    && let Some(run) = lock(&core.run).as_ref()
+                {
+                    run.send(&ToService::Chat(message));
+                }
+            }
+        });
     }
 
     /// The run ended: peers' calls in flight fail, and the node link stops routing to it.

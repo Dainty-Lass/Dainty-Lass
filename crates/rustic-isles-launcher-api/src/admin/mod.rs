@@ -2,13 +2,14 @@
 // Copyright (c) 2026 Silent Spud
 
 //! The admin half (admin spec): the `/admin/v1` wrapper and its caller, sign-in, Discord sign-in, players and audit,
-//! tester max, the release gates, the host-only routes, the module's admin actions and home operations, and the
+//! tester max and staff grants, the release gates, the host-only routes, the module's admin actions and home operations, and the
 //! administrator bootstrap.
 
 pub mod actions;
 pub mod auth;
 pub mod bootstrap;
 pub mod discord;
+pub mod grants;
 pub mod host_routes;
 pub mod players;
 pub mod release_gates;
@@ -35,7 +36,7 @@ use serde_json::Value;
 use crate::util::{self, object};
 
 pub use auth::{AdminAuthenticatorSlot, authenticate_admin};
-pub use tester_max::{EconomyFunding, TesterFunding};
+pub use tester_max::{CatalogEntry, EconomyFunding, TesterFunding};
 
 // ------------------------------------------------------------------ per-module state
 
@@ -579,7 +580,7 @@ pub fn fresh_id() -> String {
 
 type Run = fn(AdminContext) -> dainty_module_api::BoxFuture<'static, Response>;
 
-/// The admin half's 18 rows (§1.2), at the route table's exact paths.
+/// The admin half's 18 rows (§1.2), at the route table's exact paths, and the two staff grant rows.
 pub fn register_admin(handlers: &mut rustic_isles::Handlers) {
     use rustic_isles::Method::{Delete, Get, Patch, Post};
     let b = rustic_isles::Service::Backend;
@@ -627,6 +628,12 @@ pub fn register_admin(handlers: &mut rustic_isles::Handlers) {
     });
     wrapped(handlers, Post, "/admin/v1/players/:userId/tester-max", required, |c| {
         Box::pin(tester_max::tester_max(c))
+    });
+    wrapped(handlers, Get, "/admin/v1/grant-catalog", required, |c| {
+        Box::pin(grants::catalog(c))
+    });
+    wrapped(handlers, Post, "/admin/v1/players/:userId/grants", required, |c| {
+        Box::pin(grants::grant(c))
     });
 }
 

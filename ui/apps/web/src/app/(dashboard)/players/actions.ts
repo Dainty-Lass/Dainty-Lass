@@ -6,6 +6,8 @@ import { attempt, DomainError } from "@/lib/errors";
 import {
   banEverywhere,
   banPlayer,
+  grantCatalog,
+  grantToPlayer,
   kickPlayer,
   liftTimeout,
   setPlayerAccess,
@@ -110,4 +112,28 @@ export async function fileReportAction(
 /** A player's direct messages; the read is audited with its reason before anything comes back. */
 export async function readDirectAction(read: DirectRead) {
   return attempt(async () => readDirectMessages(await requireAction("chat:direct"), read));
+}
+
+/** What a grant may name on the controller's server: its catalog ids, currencies and tracks. */
+export async function grantCatalogAction(controllerId: string) {
+  return attempt(async () => grantCatalog(await requireAction("players:grant"), controllerId));
+}
+
+export async function grantAction(
+  controllerId: string,
+  userId: string,
+  grantId: string,
+  grant: { items?: unknown; currencies?: unknown; progression?: unknown },
+  reason: string,
+) {
+  return attempt(async () =>
+    grantToPlayer(
+      await requireAction("players:grant"),
+      controllerId,
+      userId,
+      grantId,
+      grant,
+      reason,
+    ),
+  );
 }

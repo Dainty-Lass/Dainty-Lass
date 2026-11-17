@@ -53,9 +53,20 @@ impl<S: AuthStore> Auth<S> {
         let Some(Value::String(user_id)) = claims.get("userId") else {
             return Ok(true);
         };
+        if self.is_kicked(claims) {
+            return Ok(false);
+        }
         match self.store()?.launcher_account_by_user_id(user_id).await? {
             None => Ok(true),
             Some(account) => Ok(policy::is_account_eligible(&account, &self.now_iso())),
+        }
+    }
+
+    /// A player's game call is the backend's sign that they are in the game: the hub's chat socket goes to the chat
+    /// service, so the client's own calls and their server's calls for them are what the admin API sees.
+    async fn seen(&self, claims: &Map<String, Value>) {
+        if let Some(Value::String(user_id)) = claims.get("userId") {
+            self.seams.activity.touch_game_session(user_id, self.now()).await;
         }
     }
 
@@ -134,12 +145,15 @@ impl<S: AuthStore> Auth<S> {
                 return GameAuth::Refused(page(StatusCode::INTERNAL_SERVER_ERROR));
             };
             return match self.token_eligible(&claims).await {
-                Ok(true) => GameAuth::Caller(AuthData {
-                    user_id: claims.get("userId").and_then(Value::as_str).map(str::to_owned),
-                    is_gameserver: true,
-                    claims,
-                    runtime: None,
-                }),
+                Ok(true) => {
+                    self.seen(&claims).await;
+                    GameAuth::Caller(AuthData {
+                        user_id: claims.get("userId").and_then(Value::as_str).map(str::to_owned),
+                        is_gameserver: true,
+                        claims,
+                        runtime: None,
+                    })
+                }
                 Ok(false) => GameAuth::Refused(empty(StatusCode::FORBIDDEN)),
                 Err(_) => GameAuth::Refused(page(StatusCode::INTERNAL_SERVER_ERROR)),
             };
@@ -216,12 +230,15 @@ impl<S: AuthStore> Auth<S> {
             return GameAuth::Refused(empty(StatusCode::UNAUTHORIZED));
         };
         match self.token_eligible(&claims).await {
-            Ok(true) => GameAuth::Caller(AuthData {
-                user_id: claims.get("userId").and_then(Value::as_str).map(str::to_owned),
-                is_gameserver: false,
-                claims,
-                runtime: None,
-            }),
+            Ok(true) => {
+                self.seen(&claims).await;
+                GameAuth::Caller(AuthData {
+                    user_id: claims.get("userId").and_then(Value::as_str).map(str::to_owned),
+                    is_gameserver: false,
+                    claims,
+                    runtime: None,
+                })
+            }
             Ok(false) => GameAuth::Refused(empty(StatusCode::FORBIDDEN)),
             Err(_) => GameAuth::Refused(empty(StatusCode::UNAUTHORIZED)),
         }

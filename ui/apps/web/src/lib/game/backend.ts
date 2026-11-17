@@ -21,6 +21,47 @@ export interface BackendAuditRecord {
   newState?: unknown;
 }
 
+/** What a staff grant may name on this controller's server. */
+export interface GrantCatalog {
+  items: { catalogId: string; storage: string; tags: string[]; name?: string }[];
+  currencies: string[];
+  progression: { progressionId: string; maxRank: number | null }[];
+}
+
+export interface GrantStack {
+  catalogId: string;
+  quantity: number;
+}
+
+export type GrantXp =
+  | { progressionId: string; xp: number }
+  | { progressionId: string; rank: number };
+
+export interface GrantBody {
+  grantId: string;
+  reason: string;
+  items?: GrantStack[];
+  currencies?: GrantStack[];
+  progression?: GrantXp[];
+}
+
+export interface GrantReport {
+  grantId: string;
+  userId: string;
+  status: "done" | "partial";
+  characterId?: string;
+  items?: { status: "done" | "error"; error?: string; stacks: GrantStack[] };
+  progression: {
+    progressionId: string;
+    startProgress: number;
+    granted: number;
+    progress: number;
+    confirmedRank: number | null;
+    status: "done" | "error";
+    error?: string;
+  }[];
+}
+
 export function backendConfigured(): boolean {
   return Boolean(config.backend.operatorSecret);
 }
@@ -76,6 +117,14 @@ export function backend(controllerId: string) {
         `/admin/v1/players/${encodeURIComponent(userId)}/roles`,
         op,
         { roles, reason },
+      ),
+    grantCatalog: (op: Operator) => g.backend<GrantCatalog>("GET", "/admin/v1/grant-catalog", op),
+    grant: (userId: string, body: GrantBody, op: Operator) =>
+      g.backend<{ requestId: string; report: GrantReport }>(
+        "POST",
+        `/admin/v1/players/${encodeURIComponent(userId)}/grants`,
+        op,
+        body,
       ),
     audit: (q: { targetUserId?: string; page?: number; limit?: number }, op: Operator) => {
       const params = new URLSearchParams({

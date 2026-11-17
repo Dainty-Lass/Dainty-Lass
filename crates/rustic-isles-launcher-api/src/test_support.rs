@@ -15,7 +15,7 @@ use std::sync::{Arc, Mutex};
 use dainty_module_api::BoxFuture;
 use rustic_isles::Shared;
 
-use crate::admin::tester_max::{RankRequirement, StackOutcome, TesterFunding};
+use crate::admin::tester_max::{CatalogEntry, RankRequirement, StackOutcome, TesterFunding};
 use crate::state::MatchmakingPresence;
 
 /// Pins core's clock (none releases it); the clock is process-wide, so tests that pin it run serially.
@@ -109,6 +109,27 @@ impl TesterFunding for FakeFunding {
         self.catalog.iter().any(|c| c == id)
     }
 
+    fn catalog(&self, _: &Shared) -> Vec<CatalogEntry> {
+        let mut out: Vec<CatalogEntry> = self
+            .catalog
+            .iter()
+            .map(|id| CatalogEntry {
+                id: id.clone(),
+                storage: "stacked",
+                tags: Vec::new(),
+                name: None,
+            })
+            .collect();
+        out.sort_by(|a, b| a.id.cmp(&b.id));
+        out
+    }
+
+    fn xp_tracks(&self, _: &Shared) -> Vec<String> {
+        let mut out: Vec<String> = self.tracks.keys().cloned().collect();
+        out.sort();
+        out
+    }
+
     fn apply_operator_test_stacks<'a>(
         &'a self,
         _: &'a Arc<Shared>,
@@ -116,6 +137,7 @@ impl TesterFunding for FakeFunding {
         character_id: &'a str,
         transaction_id: &'a str,
         stacks: &'a [(String, i64)],
+        _: &'a str,
     ) -> BoxFuture<'a, StackOutcome> {
         Box::pin(async move {
             if self.refuse_stacks {

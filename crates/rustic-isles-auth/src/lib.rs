@@ -15,7 +15,7 @@
     reason = "a refusal is the answer itself (§11.2 hands isles a `Response`), so it is not boxed"
 )]
 
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::sync::atomic::AtomicBool;
 use std::sync::{Arc, Mutex, PoisonError, Weak};
 
@@ -233,6 +233,8 @@ pub struct Auth<S: AuthStore> {
     token_keys: tokens::KeyCache,
     warned_official: Mutex<HashSet<String>>,
     notices_failing: AtomicBool,
+    /// Staff kicks being carried out: userId to when the kick lifts by itself (ms)
+    kicked: Mutex<HashMap<String, i64>>,
     this: Weak<Self>,
 }
 
@@ -249,6 +251,7 @@ impl<S: AuthStore> Auth<S> {
             token_keys: tokens::KeyCache::default(),
             warned_official: Mutex::new(HashSet::new()),
             notices_failing: AtomicBool::new(false),
+            kicked: Mutex::new(HashMap::new()),
             this: this.clone(),
         })
     }
@@ -329,6 +332,50 @@ impl<S: AuthStore> Auth<S> {
     // Validation runs on the system clock (spec §14 item 13)
     fn system_seconds() -> i64 {
         chrono::Utc::now().timestamp()
+    }
+
+    /// A staff kick in progress: until `until_ms` (or [`Self::lift_kick`]) the user's game tokens and their game
+    /// servers' writes for them are refused, so nothing is saved between the kick and their removal. It lifts by
+    /// itself: a kick doesn't outlast the removal, and the player signs back in from the menu with the session they
+    /// have. Bans and timeouts last through the launcher account's eligibility, not this.
+    pub fn kick(&self, user_id: &str, window_ms: i64) {
+        let until = self.now().saturating_add(window_ms.max(0));
+        self.kicked
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .insert(user_id.to_owned(), until);
+    }
+
+    /// Ends a kick in progress: the player was removed.
+    pub fn lift_kick(&self, user_id: &str) {
+        self.kicked
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .remove(user_id);
+    }
+
+    fn kick_active(&self, user_id: &str) -> bool {
+        let now = self.now();
+        let mut kicked = self.kicked.lock().unwrap_or_else(PoisonError::into_inner);
+        kicked.retain(|_, until| *until > now);
+        kicked.contains_key(user_id)
+    }
+
+    /// Why a game server may not act for the player now: `kicked` while a kick is carried out, `restricted` while a
+    /// ban or timeout lasts. A store that can't answer refuses nothing (the route's own checks still run).
+    pub async fn server_refusal(&self, user_id: &str) -> Option<&'static str> {
+        if self.kick_active(user_id) {
+            return Some("kicked");
+        }
+        match self.store().ok()?.launcher_account_by_user_id(user_id).await {
+            Ok(Some(account)) if !policy::is_account_eligible(&account, &self.now_iso()) => Some("restricted"),
+            _ => None,
+        }
+    }
+
+    /// Whether a game token's user is being kicked now.
+    pub fn is_kicked(&self, claims: &Map<String, Value>) -> bool {
+        matches!(claims.get("userId"), Some(Value::String(user_id)) if self.kick_active(user_id))
     }
 
     /// A game token for `userId`; fails when the signing keys cannot load.

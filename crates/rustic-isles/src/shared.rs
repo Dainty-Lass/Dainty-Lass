@@ -21,6 +21,9 @@ use crate::observe::{NoObserver, Observer};
 use crate::settings::Settings;
 use crate::version::IslesVersion;
 
+/// How long a kick refuses the player's tokens and their servers' writes before it lifts by itself.
+pub const KICK_WINDOW_MS: i64 = 10_000;
+
 /// The module's sign-in area over whatever store the composer opened.
 pub type IslesAuth = Auth<Arc<dyn AuthStore>>;
 
@@ -301,6 +304,26 @@ impl Shared {
     /// Who the chat plugin reports online.
     pub fn presence(&self) -> &Presence {
         &self.presence
+    }
+
+    /// A staff kick, ban or timeout: for [`KICK_WINDOW_MS`] the player's game tokens and their servers' writes are
+    /// refused (so nothing is saved while they are removed) and chat ends their sessions; then the kick lifts by
+    /// itself and they can sign back in from the menu. A ban or timeout keeps them out through the launcher
+    /// account's eligibility for as long as it lasts. 1 if chat had them online, else 0.
+    pub async fn kick_player(&self, user_id: &str, reason: &str) -> usize {
+        self.auth.kick(user_id, KICK_WINDOW_MS);
+        let closed = self.presence.close_connections(user_id, 1008, reason);
+        if let Some(context) = &self.context
+            && let Ok(name) = dainty_module_api::EventName::new(dainty_module_api::chat::DISCONNECT_EVENT)
+            && let Ok(payload) = serde_json::to_value(dainty_module_api::chat::DisconnectEvent {
+                user_id: user_id.to_owned(),
+                reason: reason.to_owned(),
+            })
+            && let Err(error) = context.emit(dainty_module_api::Event { name, payload }).await
+        {
+            tracing::warn!("kick: chat was not told to end {user_id}'s sessions: {error}");
+        }
+        closed
     }
 
     /// The Director slot; unconfigured until one fills it.

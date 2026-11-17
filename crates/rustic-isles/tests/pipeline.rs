@@ -40,6 +40,7 @@ impl Answer {
 
 struct Harness {
     app: axum::Router,
+    shared: Arc<Shared>,
 }
 
 #[derive(Default)]
@@ -69,7 +70,8 @@ impl Harness {
         parts.handlers = handlers.clone();
         let shared = Shared::new(parts).unwrap();
         Self {
-            app: rustic_isles::app(shared, Service::Backend, &handlers).unwrap(),
+            app: rustic_isles::app(shared.clone(), Service::Backend, &handlers).unwrap(),
+            shared,
         }
     }
 
@@ -217,17 +219,17 @@ fn rifts() -> rustic_rifts_seam::Rifts {
 #[test]
 fn the_table() {
     let all = routes::all();
-    assert_eq!(all.len(), 291);
+    assert_eq!(all.len(), 293);
     let backend: Vec<_> = all.iter().filter(|r| r.service == Service::Backend).collect();
-    assert_eq!(backend.len(), 286);
-    assert_eq!(backend.iter().filter(|r| r.side == Side::Isles).count(), 219);
+    assert_eq!(backend.len(), 288);
+    assert_eq!(backend.iter().filter(|r| r.side == Side::Isles).count(), 221);
     assert_eq!(backend.iter().filter(|r| r.side == Side::Rifts).count(), 67);
     let director: Vec<_> = all.iter().filter(|r| r.service == Service::Director).collect();
     assert_eq!(director.len(), 5);
     assert_eq!(director.iter().filter(|r| r.side == Side::Isles).count(), 4);
-    assert_eq!(rustic_isles::RouteSet::V1147.routes(Service::Backend).len(), 286);
+    assert_eq!(rustic_isles::RouteSet::V1147.routes(Service::Backend).len(), 288);
     let admin: Vec<_> = all.iter().filter(|r| r.when == When::Admin).collect();
-    assert_eq!(admin.len(), 29);
+    assert_eq!(admin.len(), 31);
     assert!(
         admin
             .iter()
@@ -789,4 +791,44 @@ impl std::io::Write for Capture {
     fn flush(&mut self) -> std::io::Result<()> {
         Ok(())
     }
+}
+
+#[tokio::test]
+async fn a_game_server_may_not_write_for_a_kicked_player() {
+    let mut handlers = Handlers::new();
+    ok_handler(&mut handlers, Method::Post, "/progression/:userId");
+    ok_handler(&mut handlers, Method::Get, "/progression/:userId");
+    let t = Harness::new(Options {
+        handlers,
+        ..Options::default()
+    });
+    t.shared.auth().kick("kicked-user", 60_000);
+    let key: &[(&str, &str)] = &[("x-rustic-isles-gameserver-apikey", "k")];
+    let peer = "127.0.0.1:5000";
+    let refused = t.send("POST", "/progression/kicked-user", key, peer).await;
+    assert_eq!(refused.status, StatusCode::FORBIDDEN);
+    // Reads, other players and calls without the server's key go on to the route
+    assert_eq!(
+        t.send("GET", "/progression/kicked-user", key, peer).await.status,
+        StatusCode::OK
+    );
+    assert_eq!(
+        t.send("POST", "/progression/someone-else", key, peer).await.status,
+        StatusCode::OK
+    );
+    assert_eq!(
+        t.send("POST", "/progression/kicked-user", &[], peer).await.status,
+        StatusCode::OK
+    );
+}
+
+#[test]
+fn the_players_a_body_names() {
+    use serde_json::json;
+    assert_eq!(rustic_isles::pipeline::body_user_ids(&json!({"userId": "a"})), ["a"]);
+    assert_eq!(
+        rustic_isles::pipeline::body_user_ids(&json!([{"UserId": "b"}, {"other": 1}])),
+        ["b"]
+    );
+    assert!(rustic_isles::pipeline::body_user_ids(&json!({"userId": 3})).is_empty());
 }

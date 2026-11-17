@@ -47,6 +47,23 @@ function isFlat(v: unknown): v is Record<string, unknown> {
   return Boolean(v) && typeof v === "object" && !Array.isArray(v);
 }
 
+/**
+ * Where a filter hit's line is in the chat log. Direct messages have none: they are read only with a reason,
+ * from the player's Direct tab.
+ */
+function chatLine(e: AuditEvent): string | null {
+  if (!e.action.startsWith("chat.filter_") || !isFlat(e.after) || !e.targetId) return null;
+  const { channel, at } = e.after;
+  if (channel === "direct" || typeof at !== "number") return null;
+  const params = new URLSearchParams({
+    user: e.targetId,
+    flagged: "1",
+    before: String(at + 1),
+    c: e.controllerId,
+  });
+  return `/chat?${params}`;
+}
+
 const show = (v: unknown) =>
   v === null || v === undefined ? "—" : typeof v === "object" ? JSON.stringify(v) : String(v);
 
@@ -117,6 +134,7 @@ export function AuditTable({
           </Text>
         )}
         <AuditDiff before={e.before} after={e.after} />
+        {chatLine(e) && <Link href={chatLine(e) ?? ""}>{t("openChatLine")}</Link>}
         <Text type="supporting">
           {t("eventId", { id: e.id })}
           {e.ip ? ` · ${e.ip}` : ""}
@@ -150,6 +168,7 @@ export function AuditTable({
               <Stack gap={0.5}>
                 <Text>{text(e)}</Text>
                 <Stack direction="horizontal" gap={1}>
+                  {e.id < 0 && <Badge variant="neutral" label={t("fromGame")} />}
                   {e.revertOfId && (
                     <Badge variant="info" label={t("undoes", { id: e.revertOfId })} />
                   )}

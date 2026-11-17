@@ -107,7 +107,27 @@ pub enum ToChat {
         /// Request body.
         body: serde_json::Value,
     },
+    /// A game module's `chat.disconnect`: end every session of the JID local part (a staff kick, ban or timeout)
+    Disconnect {
+        /// The local part, at most [`MAX_LOCAL`] bytes.
+        user_id: String,
+        /// Words for the log, at most [`MAX_REASON`] bytes.
+        reason: String,
+    },
 }
+
+impl ToChat {
+    /// Whether every text is within its bound.
+    pub fn in_bounds(&self) -> bool {
+        match self {
+            Self::Disconnect { user_id, reason } => user_id.len() <= MAX_LOCAL && reason.len() <= MAX_REASON,
+            _ => true,
+        }
+    }
+}
+
+/// What ends a JID local part's sessions when the core asks: the chat service's, set once it runs.
+pub type DisconnectHandler = Arc<dyn Fn(&str, &str) + Send + Sync>;
 
 /// Chat to the core.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -274,6 +294,7 @@ struct Inner {
     setup: Mutex<Option<ChatSetup>>,
     loaded: Mutex<BTreeSet<ModuleId>>,
     server: Mutex<Option<Arc<dyn PeerServer>>>,
+    disconnect: Mutex<Option<DisconnectHandler>>,
 }
 
 fn lock<T>(mutex: &Mutex<T>) -> std::sync::MutexGuard<'_, T> {
@@ -294,6 +315,7 @@ impl ChatLink {
                 setup: Mutex::default(),
                 loaded: Mutex::default(),
                 server: Mutex::default(),
+                disconnect: Mutex::default(),
             }),
         }
     }
@@ -401,12 +423,25 @@ impl ChatLink {
         *lock(&self.inner.server) = server;
     }
 
+    /// What ends a player's sessions on [`ToChat::Disconnect`] from now on; none drops them.
+    pub fn on_disconnect(&self, handler: Option<DisconnectHandler>) {
+        *lock(&self.inner.disconnect) = handler;
+    }
+
     /// A message from the core, from the instance's read loop.
     pub(crate) fn deliver(&self, message: ToChat) {
         match message {
             ToChat::Setup { setup } => *lock(&self.inner.setup) = Some(*setup),
             ToChat::Loaded { module } => _ = lock(&self.inner.loaded).insert(module),
             ToChat::Unloaded { module } => _ = lock(&self.inner.loaded).remove(&module),
+            ToChat::Disconnect { user_id, reason } => {
+                let handler = lock(&self.inner.disconnect).clone();
+                if let Some(handler) = handler
+                    && user_id.len() <= MAX_LOCAL
+                {
+                    handler(&user_id, &reason);
+                }
+            }
             ToChat::PeerServe { id, from, body } => {
                 let link = self.clone();
                 tokio::spawn(async move {
@@ -434,6 +469,7 @@ impl ChatLink {
         lock(&self.inner.out).take();
         lock(&self.inner.pending).clear();
         lock(&self.inner.server).take();
+        lock(&self.inner.disconnect).take();
     }
 }
 

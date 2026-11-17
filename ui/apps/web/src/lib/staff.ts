@@ -16,6 +16,15 @@ export function listStaff(): Staff[] {
     .all();
 }
 
+/** Each member with a linked Discord account, by that id: names the game's record of what they did. */
+export function staffByDiscord(): Map<string, string> {
+  return new Map(
+    listStaff()
+      .filter((s) => s.discordId)
+      .map((s) => [s.discordId as string, s.displayName || s.username]),
+  );
+}
+
 export function getStaff(id: number): Staff | undefined {
   return db.select().from(schema.staff).where(eq(schema.staff.id, id)).get();
 }

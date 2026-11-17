@@ -15,6 +15,7 @@ use rustic_isles_store::repo::auth::{AccessChange, AccountTimeout, LauncherAccou
 use rustic_isles_store::repo::bounties::{BountyGroup, BountyStateRecord, DraftData, StoredBounty};
 use rustic_isles_store::repo::characters::CharacterRecord;
 use rustic_isles_store::repo::inventory::InventoryRecord;
+use rustic_isles_store::repo::reforged::AdminAuditRecord;
 use rustic_isles_store::{AccountId, AnyConnection, IslesStore, RepoError, Repositories};
 use serde_json::{Map, Value};
 
@@ -143,7 +144,24 @@ impl LauncherApiAdmin {
         };
         let state = LauncherApiState::of(shared);
         let actor = call.actor;
-        match call.request {
+        let request = call.request.clone();
+        let outcome = Self::act(shared, &store, &state, &actor, &target, call.request).await?;
+        if !matches!(request, AdminRequest::Lookup { .. }) {
+            record(&store, &actor, &target, &request).await;
+        }
+        Ok(outcome)
+    }
+
+    async fn act(
+        shared: &Arc<Shared>,
+        store: &IslesStore,
+        state: &LauncherApiState,
+        actor: &ActorContext,
+        target: &Resolved,
+        request: AdminRequest,
+    ) -> Result<AdminResponse, ModuleError> {
+        let (store, actor, target) = (store.clone(), actor.clone(), target.clone());
+        match request {
             AdminRequest::Kick { .. } => {
                 kick(shared, &store, &actor, &target, "kicked by the host").await?;
             }
@@ -184,9 +202,7 @@ impl LauncherApiAdmin {
                     })
                     .await
                     .map_err(failed)?;
-                shared
-                    .presence()
-                    .close_connections(&target.user_id, 1008, "banned by the host");
+                shared.kick_player(&target.user_id, "banned by the host").await;
                 state.forget_status();
             }
             AdminRequest::Unban { reason, .. } => {
@@ -206,11 +222,16 @@ impl LauncherApiAdmin {
             }
             AdminRequest::Lookup { .. } => {
                 let online = state.active_players(shared, 3 * MINUTE_MS).contains(&target.user_id);
+                let launcher = target.launcher.as_ref();
                 return Ok(AdminResponse::Player(PlayerInfo {
                     account: Some(target.account.global().clone()),
                     name: target.name.clone(),
                     online,
-                    restriction: restriction(target.launcher.as_ref(), &iso(now_ms())),
+                    restriction: restriction(launcher, &iso(now_ms())),
+                    user_id: Some(target.user_id.clone()),
+                    created_at: launcher.map(|l| l.created_at.clone()),
+                    last_login_at: launcher.and_then(|l| l.last_login_at.clone()),
+                    admin: launcher.is_some_and(|l| l.roles.iter().any(|r| r == "admin")),
                 }));
             }
         }
@@ -508,9 +529,82 @@ async fn kick(
         })
         .await
         .map_err(failed)?;
-    shared.presence().close_connections(&target.user_id, 1008, reason);
+    shared.kick_player(&target.user_id, reason).await;
     LauncherApiState::of(shared).forget_status();
     Ok(())
+}
+
+/// Who acted, as the admin record and the dashboard's History name them: never a key, only its id or name.
+/// `key:<id>` for an admin key (`key:owner` for the host's own), with `/discord:<id>` when the admin API passed
+/// the Discord user in the request id; `host` for the host's console; `system`; else the actor's text.
+pub fn who(actor: &ActorContext) -> String {
+    let base = match &actor.actor {
+        Actor::Admin { key } => format!("key:{key}"),
+        Actor::Console => "host".to_owned(),
+        Actor::System => "system".to_owned(),
+        Actor::Player { account } => account.to_string(),
+        Actor::Module { module } => format!("module:{module}"),
+    };
+    let operator = actor
+        .request
+        .as_deref()
+        .and_then(|r| r.rsplit_once("-op"))
+        .map(|(_, id)| id)
+        .filter(|id| !id.is_empty() && id.len() <= 32 && id.bytes().all(|b| b.is_ascii_digit()));
+    match operator {
+        Some(id) => format!("{base}/discord:{id}"),
+        None => base,
+    }
+}
+
+fn action_name(request: &AdminRequest) -> &'static str {
+    match request {
+        AdminRequest::Kick { .. } => "player.kick",
+        AdminRequest::Ban { until: Some(_), .. } => "player.timeout",
+        AdminRequest::Ban { until: None, .. } => "player.ban",
+        AdminRequest::Unban { .. } => "player.unban",
+        AdminRequest::LiftTimeout { .. } => "player.lift_timeout",
+        AdminRequest::Lookup { .. } => "player.lookup",
+    }
+}
+
+/// Every admin action on a player lands in the module's admin record, keyed by the game's user id, whatever
+/// sent it (the admin API with any key, the host's tools, a remote controller): the dashboard reads that record
+/// into the player's History. A failed write is logged; the action stands.
+async fn record(store: &IslesStore, actor: &ActorContext, target: &Resolved, request: &AdminRequest) {
+    let (reason, until) = match request {
+        AdminRequest::Kick { reason, .. }
+        | AdminRequest::Unban { reason, .. }
+        | AdminRequest::LiftTimeout { reason, .. } => (reason.clone(), None),
+        AdminRequest::Ban { reason, until, .. } => (reason.clone(), until.clone()),
+        AdminRequest::Lookup { .. } => (None, None),
+    };
+    let mut state = vec![("name", Value::from(target.name.clone()))];
+    if let Some(until) = until {
+        state.push(("until", Value::from(until)));
+    }
+    let audit = AdminAuditRecord {
+        id: util::random_uuid(),
+        actor_user_id: who(actor),
+        target_user_id: Some(target.user_id.clone()),
+        action: action_name(request).to_owned(),
+        old_state: None,
+        new_state: Some(object(state)),
+        reason: reason_of(reason.as_ref()),
+        ip: String::new(),
+        request_id: actor.request.clone().unwrap_or_else(util::random_uuid),
+        created_at: iso(now_ms()),
+    };
+    let action = audit.action.clone();
+    if let Err(e) = store
+        .write(actor, move |tx, repos| repos.admin.append_audit(tx, &audit))
+        .await
+    {
+        tracing::error!(
+            "[launcher-api] {action} on {}: the admin record failed: {e}",
+            target.user_id
+        );
+    }
 }
 
 async fn set_timeout(

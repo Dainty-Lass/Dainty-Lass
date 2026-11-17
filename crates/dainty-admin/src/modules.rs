@@ -113,10 +113,20 @@ impl AdminPlugin {
 
     /// The actor every call carries: the key that asked (its id, never the key), and a request id the admin
     /// API logs beside the operator id, so a change in a module's log leads back to the request that made it
-    /// and the person who asked (DH1, DH2).
-    pub fn actor(&self, key: &str, now_ms: i64) -> ActorContext {
+    /// and the person who asked (DH1, DH2). A Discord operator (digits, not the host's `0`) ends the request id
+    /// as `-op<id>`, so the module's own record of the action can name them.
+    pub fn actor(&self, key: &str, operator: &str, now_ms: i64) -> ActorContext {
         let n = self.requests.fetch_add(1, Ordering::Relaxed);
-        ActorContext::new(Actor::Admin { key: key.to_owned() }).with_request(format!("admin-{now_ms}-{n}"))
+        let named = !operator.is_empty()
+            && operator != crate::upstream::Operator::HOST
+            && operator.len() <= 32
+            && operator.bytes().all(|b| b.is_ascii_digit());
+        let request = if named {
+            format!("admin-{now_ms}-{n}-op{operator}")
+        } else {
+            format!("admin-{now_ms}-{n}")
+        };
+        ActorContext::new(Actor::Admin { key: key.to_owned() }).with_request(request)
     }
 
     /// One call, refused before it is sent when the module didn't register the action, and given up

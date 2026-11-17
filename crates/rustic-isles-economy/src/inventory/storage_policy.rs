@@ -133,6 +133,11 @@ impl StoragePolicy {
         self.entries.get(catalog_id)
     }
 
+    /// Every catalog id the policy names, in no order.
+    pub fn entries(&self) -> impl Iterator<Item = (&str, &PolicyEntry)> {
+        self.entries.iter().map(|(id, entry)| (id.as_str(), entry))
+    }
+
     fn storage_of(&self, item: &Value) -> Option<Storage> {
         let id = item.get("catalogId").and_then(Value::as_str)?;
         self.entry(id).map(|e| e.storage)
@@ -141,6 +146,49 @@ impl StoragePolicy {
     /// Whether the policy keeps the catalog id instanced.
     pub fn is_instanced(&self, catalog_id: &str) -> bool {
         self.entry(catalog_id).is_some_and(|e| e.storage == Storage::Instanced)
+    }
+}
+
+/// The whole catalog the game data generator writes beside the policy (`item_catalog.json`): what a staff grant may
+/// name, with each item's storage and name. Optional: a server whose game data predates it has an empty one.
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct ItemCatalog {
+    /// Each item's storage, cap and tags, as the policy keeps them.
+    pub storage: StoragePolicy,
+    /// Each item's display name, when the export had one.
+    pub names: HashMap<String, String>,
+}
+
+/// The item catalog's file in the backend game data folder.
+pub const ITEM_CATALOG_FILE: &str = "item_catalog.json";
+
+impl ItemCatalog {
+    /// The catalog of `{"entries":{"<id>":{"storage":..,"maxQuantity":..,"tags":[..],"name":..}}}`.
+    pub fn from_document(document: &Value) -> Self {
+        let names = document
+            .get("entries")
+            .and_then(Value::as_object)
+            .map(|entries| {
+                entries
+                    .iter()
+                    .filter_map(|(id, e)| Some((id.clone(), e.get("name")?.as_str()?.to_owned())))
+                    .collect()
+            })
+            .unwrap_or_default();
+        Self {
+            storage: StoragePolicy::from_document(document),
+            names,
+        }
+    }
+
+    /// Loaded on first use and kept; missing or unreadable is empty, tried again next time.
+    pub fn load(shared: &Shared) -> Arc<ItemCatalog> {
+        crate::caches::cached(shared, "inventory.item_catalog", || {
+            match shared.game_data().try_load_backend(ITEM_CATALOG_FILE) {
+                Ok(Some(document)) => (Arc::new(Self::from_document(&document)), true),
+                _ => (Arc::new(Self::default()), false),
+            }
+        })
     }
 }
 
