@@ -1,10 +1,12 @@
 import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
+import { gameHistory } from "@/lib/audit/game-history";
 import { queryAudit } from "@/lib/audit/query";
 import { requirePage } from "@/lib/auth/guard";
 import { can } from "@/lib/auth/permissions";
 import { present } from "@/lib/chat/present";
 import { searchChat } from "@/lib/chat/store";
+import type { AuditEvent } from "@/lib/db/schema";
 import { knownPlayers } from "@/lib/directory";
 import { DomainError } from "@/lib/errors";
 import { getController } from "@/lib/fleet/controllers";
@@ -70,7 +72,7 @@ export default async function PlayerPage({
     userId && may.chat
       ? present(searchChat({ userId, controllerIds: [controllerId], limit: 100 }).messages)
       : [];
-  const history =
+  const own =
     userId && may.audit
       ? queryAudit({
           targetType: "player",
@@ -79,6 +81,19 @@ export default async function PlayerPage({
           pageSize: 100,
         }).events
       : [];
+  let fromGame: AuditEvent[] = [];
+  if (userId && may.audit) {
+    try {
+      const { records } = await backend(controllerId).audit(
+        { targetUserId: userId, limit: 100 },
+        op(me),
+      );
+      fromGame = gameHistory(records, userId, displayName, controllerId);
+    } catch {
+      // The backend's record is extra; the dashboard's own stands without it.
+    }
+  }
+  const history = [...own, ...fromGame].sort((a, b) => b.at - a.at).slice(0, 150);
 
   return (
     <PlayerDetailClient

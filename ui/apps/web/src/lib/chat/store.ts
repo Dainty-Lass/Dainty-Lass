@@ -13,10 +13,11 @@ import {
   type SQL,
   sql,
 } from "drizzle-orm";
+import { recordAudit } from "@/lib/audit/record";
 import { db, schema } from "@/lib/db";
 import type { ChatMessage } from "@/lib/db/schema";
 import { findMatches, verdictOf } from "./filter";
-import { compiledTerms } from "./terms";
+import { compiledTerms, listTerms } from "./terms";
 
 export interface ChatQuery {
   controllerIds?: string[];
@@ -124,8 +125,10 @@ export function ingestChat(
 ): { stored: number; duplicates: number } {
   const terms = compiledTerms();
   let stored = 0;
+  let patterns: Map<number, string> | null = null;
   for (const m of batch) {
     const matches = findMatches(m.body, terms, m.channel);
+    const verdict = m.verdict ?? verdictOf(matches);
     const result = db
       .insert(schema.chatMessages)
       .values({
@@ -139,13 +142,37 @@ export function ingestChat(
         recipientUserId: m.recipient?.userId ?? null,
         recipientName: m.recipient?.name ?? null,
         body: m.body,
-        verdict: m.verdict ?? verdictOf(matches),
+        verdict,
         matchedTermIds: matches.length ? [...new Set(matches.map((x) => x.termId))] : null,
       })
       .onConflictDoNothing()
       .returning({ id: schema.chatMessages.id })
       .all();
     stored += result.length;
+    const row = result[0];
+    if (row && verdict !== "allowed") {
+      patterns ??= new Map(listTerms().map((t) => [t.id, t.pattern]));
+      const termIds = [...new Set(matches.map((x) => x.termId))];
+      // The player's History names the verdict and the terms, never the line: a direct message is read only
+      // with a reason (readDirectMessages), so History links to the chat log instead.
+      recordAudit(
+        { ingest: "chat-filter" },
+        {
+          action: `chat.filter_${verdict}`,
+          targetType: "player",
+          targetId: m.sender.userId,
+          targetLabel: m.sender.name,
+          controllerId,
+          after: {
+            verdict,
+            terms: termIds.map((id) => patterns?.get(id) ?? `#${id}`),
+            channel: m.channel,
+            chatMessageId: row.id,
+            at: m.at,
+          },
+        },
+      );
+    }
   }
   return { stored, duplicates: batch.length - stored };
 }

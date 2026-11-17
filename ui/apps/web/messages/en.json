@@ -254,8 +254,13 @@
       "passkey_removed": "{actor} removed a passkey",
       "chat_direct_read": "{actor} read {target}'s direct messages",
       "controller_logs": "{actor} changed {target}'s log settings",
-      "player_grant": "{actor} gave {target} items or levels"
-    }
+      "player_grant": "{actor} gave {target} items or levels",
+      "chat_filter_flagged": "The chat filter flagged a line from {target}",
+      "chat_filter_masked": "The chat filter masked a line from {target}",
+      "chat_filter_blocked": "The chat filter blocked a line from {target}"
+    },
+    "openChatLine": "Open this line in the chat log",
+    "fromGame": "Recorded by the game server"
   },
   "players": {
     "title": "Players",
