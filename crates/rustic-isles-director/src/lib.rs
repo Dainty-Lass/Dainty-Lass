@@ -214,6 +214,12 @@ impl DedicatedServers for InProcessDirector {
     fn servers(&self) -> BoxFuture<'_, Option<Vec<dainty_module_api::game::GameServer>>> {
         Box::pin(async move { Some(self.0.game_servers()) })
     }
+
+    fn kick<'a>(&'a self, user_id: &'a str) -> BoxFuture<'a, ()> {
+        Box::pin(async move {
+            self.0.kick(user_id);
+        })
+    }
 }
 
 /// The Director as the module's `director` port service (§12.3).

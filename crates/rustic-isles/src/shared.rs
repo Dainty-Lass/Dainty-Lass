@@ -304,10 +304,11 @@ impl Shared {
     }
 
     /// A staff kick, ban or timeout: the player's game tokens stop working (so their game calls, a new hunt and
-    /// chat refuse them until the launcher signs in again), and chat is told to end their sessions. A game server
-    /// they are on is not told (it has no channel for it). 1 if chat had them online, else 0.
+    /// chat refuse them until the launcher signs in again), the game servers are asked to send them to the menu
+    /// (spec-runtime-kick), and chat is told to end their sessions. 1 if chat had them online, else 0.
     pub async fn kick_player(&self, user_id: &str, reason: &str) -> usize {
         self.auth.kick(user_id);
+        self.dedicated_servers().kick(user_id).await;
         let closed = self.presence.close_connections(user_id, 1008, reason);
         if let Some(context) = &self.context
             && let Ok(name) = dainty_module_api::EventName::new(dainty_module_api::chat::DISCONNECT_EVENT)

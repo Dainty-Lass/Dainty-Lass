@@ -417,6 +417,39 @@ impl Director {
         lock(&self.inner).servers.clone()
     }
 
+    /// Asks every listed server to send the player to the menu: one line `<unix ms> <userId>` appended to
+    /// `rustic_isles_kick_port<port>.txt` beside the game's executable, which the server's runtime reads within a
+    /// second and removes (spec-runtime-kick 3). A server the player isn't on drops the request after 30 s. Returns
+    /// how many files were written.
+    pub fn kick(&self, user_id: &str) -> usize {
+        let valid = !user_id.is_empty() && user_id.len() <= 128 && user_id.bytes().all(|b| b.is_ascii_graphic());
+        let Some(dir) = self
+            .config
+            .binary_path
+            .as_deref()
+            .and_then(|binary| std::path::Path::new(binary).parent().map(std::path::Path::to_path_buf))
+            .filter(|_| valid)
+        else {
+            return 0;
+        };
+        let now = now_ms();
+        let mut written = 0;
+        for server in self.gameservers() {
+            let path = dir.join(format!("rustic_isles_kick_port{}.txt", server.port));
+            let appended = std::fs::OpenOptions::new()
+                .create(true)
+                .append(true)
+                .open(&path)
+                .and_then(|mut file| std::io::Write::write_all(&mut file, format!("{now} {user_id}\n").as_bytes()));
+            match appended {
+                Ok(()) => written += 1,
+                Err(error) => tracing::warn!("[Kick] {}: {error}", path.display()),
+            }
+        }
+        tracing::info!("[Kick] {user_id}: asked {written} game server(s) to send them to the menu");
+        written
+    }
+
     /// Hunt ids asked for but missing from the tables, most asked first, as JSON.
     pub fn missing_hunt_requests(&self) -> Value {
         self.missing.to_json()

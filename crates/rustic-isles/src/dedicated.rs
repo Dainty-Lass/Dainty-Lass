@@ -89,6 +89,11 @@ pub trait DedicatedServers: Send + Sync {
     fn servers(&self) -> BoxFuture<'_, Option<Vec<GameServer>>> {
         Box::pin(async { None })
     }
+    /// Asks every game server it runs to send the player back to the menu (spec-runtime-kick); a slot that can't
+    /// reach its servers does nothing.
+    fn kick<'a>(&'a self, _user_id: &'a str) -> BoxFuture<'a, ()> {
+        Box::pin(async {})
+    }
 }
 
 /// The default slot: no Director to ask.
