@@ -1301,3 +1301,35 @@ fn the_record_names_who_acted_without_a_key() {
     assert_eq!(who(&admin(None)), "key:abc123");
     assert_eq!(who(&ActorContext::new(Actor::Console)), "host");
 }
+
+#[test]
+fn a_grant_lands_an_item_the_policy_doesnt_name_as_the_catalog_stores_it() {
+    use rustic_isles_economy::inventory::storage_policy::{ItemCatalog, StoragePolicy};
+    use rustic_isles_launcher_api::admin::tester_max::grant_collections;
+    let policy = StoragePolicy::from_document(&json!({"entries": {"WP_POLICY": {"storage": "instanced"}}}));
+    let catalog = ItemCatalog::from_document(&json!({"entries": {
+        "QI_11A_CRIT_POTION": {"storage": "stacked", "maxQuantity": 30, "name": "Granny's Heartbreaker"},
+        "WP_MS_HOST": {"storage": "instanced", "maxQuantity": 1},
+        "WP_POLICY": {"storage": "stacked"}
+    }}));
+    assert_eq!(catalog.names["QI_11A_CRIT_POTION"], "Granny's Heartbreaker");
+    let stacks = [
+        ("QI_11A_CRIT_POTION".to_owned(), 40),
+        ("WP_MS_HOST".to_owned(), 2),
+        ("WP_POLICY".to_owned(), 1),
+    ];
+    let (instanced, stacked) = grant_collections(&policy, &catalog, &stacks);
+    // A tonic past its cap stays one stack; a weapon only the catalog has is one instance per unit, its id minted
+    // by the transaction; the policy's ids are left to the transaction's normalization
+    assert_eq!(
+        instanced,
+        [json!({"catalogId": "WP_MS_HOST"}), json!({"catalogId": "WP_MS_HOST"})]
+    );
+    assert_eq!(
+        stacked,
+        [
+            json!({"catalogId": "QI_11A_CRIT_POTION", "quantity": 40}),
+            json!({"catalogId": "WP_POLICY", "quantity": 1})
+        ]
+    );
+}

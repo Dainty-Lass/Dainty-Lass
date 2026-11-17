@@ -117,6 +117,7 @@ impl TesterFunding for FakeFunding {
                 id: id.clone(),
                 storage: "stacked",
                 tags: Vec::new(),
+                name: None,
             })
             .collect();
         out.sort_by(|a, b| a.id.cmp(&b.id));

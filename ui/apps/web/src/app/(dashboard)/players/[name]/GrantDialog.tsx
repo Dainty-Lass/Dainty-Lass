@@ -91,16 +91,17 @@ export function GrantDialog({
   const itemSource = useMemo(() => {
     const all: Option[] = (catalog?.items ?? []).map((i) => ({
       id: i.catalogId,
-      label: i.catalogId,
+      label: i.name ? t("itemOption", { name: i.name, id: i.catalogId }) : i.catalogId,
     }));
     return {
+      // By id or by the game's name for it
       search: (query: string) => {
         const q = query.trim().toLowerCase();
-        return all.filter((i) => i.id.toLowerCase().includes(q)).slice(0, 50);
+        return all.filter((i) => i.label.toLowerCase().includes(q)).slice(0, 50);
       },
       bootstrap: () => all.slice(0, 50),
     };
-  }, [catalog]);
+  }, [catalog, t]);
 
   const currencyLabel = (id: string) =>
     NAMED[id] ? t("currencyNamed", { name: t(`currencyNames.${NAMED[id]}`), id }) : id;
