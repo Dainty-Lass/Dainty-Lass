@@ -9,9 +9,9 @@ use std::path::{Path, PathBuf};
 
 use regex::Regex;
 use rustic_isles_gamedata::generators::{
-    enrich_ladyluck_store, generate_inventory_storage_policy, generate_ladyluck_store, generate_platinum_store,
-    generate_progression_config, generate_reward_cache_store, generate_slayers_path, generate_slayers_path_definitions,
-    resolve_platinum_export_file, stringify_pretty,
+    enrich_ladyluck_store, generate_inventory_storage_policy, generate_item_catalog, generate_ladyluck_store,
+    generate_platinum_store, generate_progression_config, generate_reward_cache_store, generate_slayers_path,
+    generate_slayers_path_definitions, resolve_platinum_export_file, stringify_pretty,
 };
 use rustic_isles_gamedata::{
     BackendStep, GeneratorPaths, RewardCacheCategory, RewardCachePlan, RewardCacheSelection, TokenSource,
@@ -931,4 +931,32 @@ fn run_steps() {
             .starts_with("Featured count")
     );
     assert!(!backend.join("inventory_storage_policy.json").exists());
+}
+
+#[test]
+fn item_catalog() {
+    let dir = tempfile::tempdir().unwrap();
+    let catalog = dir.path().join("catalog.jsonl");
+    let data = dir.path().join("game-data");
+    write(
+        &catalog,
+        &jsonl(&[
+            json!({"itemId": "QI_11A_CRIT_POTION", "displayName": "Granny's Heartbreaker", "isStackable": true, "maxQuantity": 30, "tags": ["supplies", "tonic"]}),
+            json!({"itemId": "WP_MS_HOST", "displayName": "Revolution of Boreus", "isStackable": false, "maxQuantity": 1}),
+        ]),
+    );
+    let report = generate_item_catalog(&catalog, &data).unwrap();
+    assert!(report.ends_with("item_catalog.json (2 items)"), "{report}");
+    let written = read_json(&data.join("item_catalog.json"));
+    assert_eq!(written["items"], 2);
+    assert_eq!(
+        written["entries"]["QI_11A_CRIT_POTION"],
+        json!({"storage": "stacked", "maxQuantity": 30, "tags": ["supplies", "tonic"], "name": "Granny's Heartbreaker"})
+    );
+    assert_eq!(written["entries"]["WP_MS_HOST"]["storage"], "instanced");
+    // The whole catalog is never read back as ids the backend names
+    let seeds = TokenSource::Seeds(Vec::new());
+    generate_inventory_storage_policy(&catalog, &seeds, &data).unwrap();
+    let policy = read_json(&data.join("inventory_storage_policy.json"));
+    assert_eq!(policy["referencedCatalogIds"], 0);
 }

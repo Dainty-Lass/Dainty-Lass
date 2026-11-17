@@ -50,10 +50,44 @@ pub enum StackOutcome {
 pub struct CatalogEntry {
     /// The catalog id.
     pub id: String,
-    /// `instanced`, `stacked` or `other`, as the storage policy keeps it.
+    /// `instanced`, `stacked` or `other`, as the storage policy (else the item catalog) keeps it.
     pub storage: &'static str,
     /// The item's tags.
     pub tags: Vec<String>,
+    /// The game's display name, when the item catalog has one.
+    pub name: Option<String>,
+}
+
+/// A grant's stacks as the inventory transaction takes them: an id the storage policy names goes in as a stack (the
+/// transaction's own normalization keeps it as the policy says); one only the item catalog has goes in as the
+/// catalog stores it, a stack for a stackable item and one instance per unit (each minted an id, as for the game
+/// server's adds) for the rest. Returns `(add_instanced, add_stacked)`.
+pub fn grant_collections(
+    policy: &rustic_isles_economy::inventory::storage_policy::StoragePolicy,
+    catalog: &rustic_isles_economy::inventory::storage_policy::ItemCatalog,
+    stacks: &[(String, i64)],
+) -> (Vec<Value>, Vec<Value>) {
+    use rustic_isles_economy::inventory::storage_policy::Storage;
+    let (mut instanced, mut stacked) = (Vec::new(), Vec::new());
+    for (id, quantity) in stacks {
+        let only_catalog = policy.entry(id).is_none();
+        if only_catalog
+            && catalog
+                .storage
+                .entry(id)
+                .is_some_and(|e| e.storage == Storage::Instanced)
+        {
+            for _ in 0..*quantity {
+                instanced.push(object(vec![("catalogId", Value::from(id.clone()))]));
+            }
+        } else {
+            stacked.push(object(vec![
+                ("catalogId", Value::from(id.clone())),
+                ("quantity", Value::from(*quantity)),
+            ]));
+        }
+    }
+    (instanced, stacked)
 }
 
 /// What tester max and staff grants take from the economy (§15.3).
@@ -68,7 +102,7 @@ pub trait TesterFunding: Send + Sync {
     fn required_xp_for_rank(&self, shared: &Shared, id: &str, rank: i64) -> RankRequirement;
     /// Whether the catalog has this item id.
     fn is_known_catalog_id(&self, shared: &Shared, id: &str) -> bool;
-    /// Every catalog id the storage policy names, sorted by id.
+    /// Every catalog id the storage policy or the item catalog names, sorted by id.
     fn catalog(&self, shared: &Shared) -> Vec<CatalogEntry>;
     /// Every track the XP route may grant to, sorted.
     fn xp_tracks(&self, shared: &Shared) -> Vec<String>;
@@ -126,24 +160,32 @@ impl TesterFunding for EconomyFunding {
     }
 
     fn is_known_catalog_id(&self, shared: &Shared, id: &str) -> bool {
-        rustic_isles_economy::inventory::storage_policy::StoragePolicy::load(shared)
-            .is_ok_and(|policy| policy.entry(id).is_some())
+        use rustic_isles_economy::inventory::storage_policy::{ItemCatalog, StoragePolicy};
+        StoragePolicy::load(shared).is_ok_and(|policy| policy.entry(id).is_some())
+            || ItemCatalog::load(shared).storage.entry(id).is_some()
     }
 
     fn catalog(&self, shared: &Shared) -> Vec<CatalogEntry> {
-        let Ok(policy) = rustic_isles_economy::inventory::storage_policy::StoragePolicy::load(shared) else {
-            return Vec::new();
+        use rustic_isles_economy::inventory::storage_policy::{ItemCatalog, StoragePolicy};
+        let items = ItemCatalog::load(shared);
+        let entry_of = |id: &str, entry: &rustic_isles_economy::inventory::storage_policy::PolicyEntry| CatalogEntry {
+            id: id.to_owned(),
+            storage: entry.storage.as_str(),
+            tags: entry.tags.clone(),
+            name: items.names.get(id).cloned(),
         };
-        let mut out: Vec<CatalogEntry> = policy
+        let mut by_id: std::collections::BTreeMap<String, CatalogEntry> = items
+            .storage
             .entries()
-            .map(|(id, entry)| CatalogEntry {
-                id: id.to_owned(),
-                storage: entry.storage.as_str(),
-                tags: entry.tags.clone(),
-            })
+            .map(|(id, entry)| (id.to_owned(), entry_of(id, entry)))
             .collect();
-        out.sort_by(|a, b| a.id.cmp(&b.id));
-        out
+        // The policy is what the transaction keeps an id as: its storage wins
+        if let Ok(policy) = StoragePolicy::load(shared) {
+            for (id, entry) in policy.entries() {
+                by_id.insert(id.to_owned(), entry_of(id, entry));
+            }
+        }
+        by_id.into_values().collect()
     }
 
     fn xp_tracks(&self, shared: &Shared) -> Vec<String> {
@@ -174,21 +216,18 @@ impl TesterFunding for EconomyFunding {
                 return StackOutcome::Failed("the module has no database".into());
             };
             let ports = InventoryPorts::default();
-            let add: Vec<Value> = stacks
-                .iter()
-                .map(|(id, q)| {
-                    object(vec![
-                        ("catalogId", Value::from(id.clone())),
-                        ("quantity", Value::from(*q)),
-                    ])
-                })
-                .collect();
+            let policy = match rustic_isles_economy::inventory::storage_policy::StoragePolicy::load(shared) {
+                Ok(policy) => policy,
+                Err(e) => return StackOutcome::Failed(e.to_string()),
+            };
+            let items = rustic_isles_economy::inventory::storage_policy::ItemCatalog::load(shared);
+            let (instanced, stacked) = grant_collections(&policy, &items, stacks);
             let request = TxRequest {
                 user_id: user_id.to_owned(),
                 character_id: character_id.to_owned(),
                 transaction_id: transaction_id.to_owned(),
-                add_instanced: Value::Array(Vec::new()),
-                add_stacked: Value::Array(add),
+                add_instanced: Value::Array(instanced),
+                add_stacked: Value::Array(stacked),
                 remove_instanced: Value::Array(Vec::new()),
                 remove_stacked: Value::Array(Vec::new()),
                 save_instanced: Value::Array(Vec::new()),

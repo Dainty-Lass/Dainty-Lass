@@ -23,7 +23,7 @@ export interface BackendAuditRecord {
 
 /** What a staff grant may name on this controller's server. */
 export interface GrantCatalog {
-  items: { catalogId: string; storage: string; tags: string[] }[];
+  items: { catalogId: string; storage: string; tags: string[]; name?: string }[];
   currencies: string[];
   progression: { progressionId: string; maxRank: number | null }[];
 }

@@ -17,7 +17,7 @@ use std::path::PathBuf;
 
 pub use ladyluck::{enrich_ladyluck_store, generate_ladyluck_store};
 pub use platinum::{generate_platinum_store, resolve_platinum_export_file};
-pub use policy::{TokenSource, generate_inventory_storage_policy};
+pub use policy::{ITEM_CATALOG_FILE, TokenSource, generate_inventory_storage_policy, generate_item_catalog};
 pub use pretty::stringify_pretty;
 pub use progression::generate_progression_config;
 pub use reward_cache::{RewardCacheCategory, RewardCachePlan, RewardCacheSelection, generate_reward_cache_store};
@@ -110,7 +110,10 @@ pub fn run(step: BackendStep, paths: &GeneratorPaths, inputs: &VersionInputs) ->
         .join("slayers_path_1_14_7")
         .join("player_journey_nodes.jsonl");
     let skus = paths.store_captures.join("Store").join("Product").join("Skus");
-    let policy = || generate_inventory_storage_policy(&catalog, &inputs.storage_tokens, backend);
+    let policy = || {
+        let written = generate_inventory_storage_policy(&catalog, &inputs.storage_tokens, backend)?;
+        Ok::<_, String>(format!("{written}\n{}", generate_item_catalog(&catalog, backend)?))
+    };
     let then_policy = |first: Result<String, String>| Ok(format!("{}\n{}", first?, policy()?));
     match step {
         BackendStep::ProgressionConfig => generate_progression_config(&paths.raw_game_data, backend, true),

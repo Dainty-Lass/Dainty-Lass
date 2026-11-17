@@ -1211,6 +1211,7 @@
         "error": "Failed"
       }
     },
-    "close": "Close"
+    "close": "Close",
+    "itemOption": "{name} ({id})"
   }
 }

@@ -300,11 +300,15 @@ pub async fn catalog(ctx: AdminContext) -> Response {
     let items = items
         .into_iter()
         .map(|e| {
-            object(vec![
+            let mut pairs = vec![
                 ("catalogId", Value::from(e.id)),
                 ("storage", Value::from(e.storage)),
                 ("tags", Value::Array(e.tags.into_iter().map(Value::from).collect())),
-            ])
+            ];
+            if let Some(name) = e.name {
+                pairs.push(("name", Value::from(name)));
+            }
+            object(pairs)
         })
         .collect();
     let currencies = currencies.into_iter().map(|e| Value::from(e.id)).collect();
