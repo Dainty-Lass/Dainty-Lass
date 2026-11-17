@@ -699,7 +699,7 @@ An object in this order:
 | `id`, `displayName`, `displayDescription`, `displayPriority` | Copied from the file object, each only when present |
 | `prices` | Each `{"currencyId":..,"price":<0 when its effective price for a price of 1 is 0, else as written>,"salesPrice":null,"multiPrice":null}` |
 | `maxAllowed` | As read (`null` when absent) |
-| `remaining` | 999 when `maxAllowed` is `null`, else `maxAllowed` |
+| `remaining` | 0 for a one-time SKU the caller owns (below), else 999 when `maxAllowed` is `null`, else `maxAllowed` |
 | `duplicateInstancedItems` | The file's, else `null` |
 | `images` | The file's unless absent or `null`, else `{}` |
 | `tags` | The file's, else `null` |
@@ -708,6 +708,14 @@ An object in this order:
 | `entitlements` | Each `{"name":..,"duration":..}` |
 | `skuProgression` | `null`, else an object of `progressionId`, `ranks`, `xp` in that order, each only when present |
 | `loadoutSlots`, `availableFrom`, `availableTo`, `timeAvailabilityReason`, `platformOfferId`, `missingEntitlementNames` | `null` each |
+
+**Owned** (a departure from Node, which always answers `maxAllowed`; the live service's captures answer 0 for an
+offer the player bought, and the 1.14.7 client shows such an offer as owned): outside a daily section, when the caller
+is a player (a user id other than empty or `INVALID`) whose account exists, a one-time SKU is owned when its purchase
+transaction id (§4.12 step 2) is in the account's ledger, under any of its characters or among its 500 most recent rows
+(as §4.13.2), all looked up in one read. A failed lookup logs `[Store:{tag}] {user} ownership lookup failed - one-time
+offers stay listed[: {error}]` (warn) and owns nothing; a repeat purchase still replays (§4.12). Any owned SKU logs
+`[Store:{tag}] {user} owns {sku ids sorted, joined ", "}` (info).
 
 ### 4.12 The purchase flow (`PurchaseStoreSku`)
 

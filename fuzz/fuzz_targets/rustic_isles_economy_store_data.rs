@@ -56,7 +56,7 @@ fuzz_target!(|data: &[u8]| {
     let settings = Settings::from_pairs([("PLATINUM_STORE_FREE", "0")]);
     for tag in SECTION_ORDER {
         for sku in catalog.skus(tag) {
-            let shown = listing(&settings, sku);
+            let shown = listing(&settings, sku, sku.is_one_time());
             let keys: Vec<&str> = shown
                 .as_object()
                 .map(|m| m.keys().map(String::as_str).collect())

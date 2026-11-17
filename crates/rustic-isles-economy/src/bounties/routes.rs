@@ -3,6 +3,7 @@
 
 //! The 17 bounties-store handlers (bounties spec §3).
 
+use std::collections::HashSet;
 use std::sync::Arc;
 
 use axum::response::Response;
@@ -26,9 +27,9 @@ use crate::bounties::state::{
     parse_delete, validate_bounty_save,
 };
 use crate::bounties::store::{
-    Catalog, PurchaseReason, Sku, is_daily_section, listing, plan_purchase, single_query_value,
+    Catalog, PurchaseReason, Sku, is_daily_section, listing, one_time_transaction_id, plan_purchase, single_query_value,
 };
-use crate::bounties::{BountiesSeams, SkuGrants, find_claim, wallet};
+use crate::bounties::{BountiesSeams, SkuGrants, find_claim, find_recorded, wallet};
 use crate::caller;
 use crate::inventory::{
     Economy, GrantHook, InventoryPorts, TxContext, TxError, TxOptions, TxOutcome, TxRequest, run_inventory_transaction,
@@ -1078,8 +1079,66 @@ async fn get_skus(call: Call) -> Response {
             log_token(&tag)
         );
     }
+    let owned = if is_daily_section(&tag) {
+        HashSet::new()
+    } else {
+        owned_one_time(&entry, &tag, &served).await
+    };
     let settings = entry.shared.settings();
-    ok(&Value::Array(served.iter().map(|s| listing(settings, s)).collect()))
+    ok(&Value::Array(
+        served
+            .iter()
+            .map(|s| listing(settings, s, owned.contains(&s.id)))
+            .collect(),
+    ))
+}
+
+/// The one-time SKUs among `offers` the caller already bought: those whose purchase id is in their ledger. A lookup
+/// that fails leaves them on sale; buying one again replays the first purchase (§4.12).
+async fn owned_one_time(entry: &Entry, tag: &str, offers: &[Sku]) -> HashSet<String> {
+    let Some(user) = entry.user.clone().filter(|u| !u.is_empty() && u != INVALID) else {
+        return HashSet::new();
+    };
+    let by_tx: Vec<(String, &str)> = offers
+        .iter()
+        .filter(|s| s.is_one_time())
+        .map(|s| (one_time_transaction_id(tag, &user, &s.id), s.id.as_str()))
+        .collect();
+    if by_tx.is_empty() {
+        return HashSet::new();
+    }
+    let Some(store) = entry.store() else {
+        return HashSet::new();
+    };
+    let shown = log_token(&user);
+    let account = match entry.account(&store, &user).await {
+        Ok(Some(account)) => account,
+        Ok(None) => return HashSet::new(),
+        Err(_) => {
+            tracing::warn!("[Store:{tag}] {shown} ownership lookup failed - one-time offers stay listed");
+            return HashSet::new();
+        }
+    };
+    let ids = by_tx.iter().map(|(tx, _)| tx.clone()).collect();
+    match find_recorded(&store, &account, ids).await {
+        Ok(found) => {
+            let owned: HashSet<String> = by_tx
+                .into_iter()
+                .filter(|(tx, _)| found.contains(tx))
+                .map(|(_, sku)| sku.to_owned())
+                .collect();
+            if !owned.is_empty() {
+                let mut ids: Vec<&str> = owned.iter().map(String::as_str).collect();
+                ids.sort_unstable();
+                tracing::info!("[Store:{tag}] {shown} owns {}", ids.join(", "));
+            }
+            owned
+        }
+        Err(e) => {
+            tracing::warn!("[Store:{tag}] {shown} ownership lookup failed - one-time offers stay listed: {e}");
+            HashSet::new()
+        }
+    }
 }
 
 async fn get_token(call: Call) -> Response {

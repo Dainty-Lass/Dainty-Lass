@@ -14,6 +14,7 @@ pub mod state;
 pub mod store;
 pub mod wallet;
 
+use std::collections::HashSet;
 use std::sync::Arc;
 
 use dainty_module_api::{BoxFuture, GlobalId};
@@ -108,6 +109,44 @@ pub async fn find_claim(
                 .map(|row| DailyClaim {
                     character_id: row.get("characterId").and_then(Value::as_str).map(str::to_owned),
                 }))
+        })
+        .await
+        .map_err(|e| e.to_string())
+}
+
+/// Which of `transaction_ids` the account's ledger holds, under any of its characters or among its 500 most recent
+/// rows (as `find_claim`), in one read.
+pub async fn find_recorded(
+    store: &IslesStore,
+    account: &AccountId,
+    transaction_ids: Vec<String>,
+) -> Result<HashSet<String>, String> {
+    let id = account.clone();
+    store
+        .read(move |conn, repos| {
+            let mut found = HashSet::new();
+            for character in repos.characters.find_many_by_account(conn, &id)? {
+                for tx in &transaction_ids {
+                    let key = rustic_isles_store::repo::inventory::LedgerKey {
+                        account: &id,
+                        character_id: &character.character_id,
+                        transaction_id: tx,
+                    };
+                    if !found.contains(tx) && repos.inventory_transactions.find_record(conn, key)?.is_some() {
+                        found.insert(tx.clone());
+                    }
+                }
+            }
+            if found.len() < transaction_ids.len() {
+                for row in repos.inventory_transactions.list_recent_for_account(conn, &id, 500)? {
+                    if let Some(tx) = row.get("transactionId").and_then(Value::as_str)
+                        && transaction_ids.iter().any(|t| t == tx)
+                    {
+                        found.insert(tx.to_owned());
+                    }
+                }
+            }
+            Ok(found)
         })
         .await
         .map_err(|e| e.to_string())

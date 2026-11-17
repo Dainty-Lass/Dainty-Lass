@@ -345,6 +345,16 @@ async fn store_routes() {
     buy(&h, "p1", "ll_repeat").await.assert_empty(204);
     buy(&h, "p1", "ll_repeat").await.assert_empty(204);
     assert_eq!(h.balance("p1", "CURRENCY_MARKS_STEEL").await, Some(80.0));
+    // A bought one-time SKU lists as owned (remaining 0) to its buyer only; a repeatable one stays on sale
+    let remaining =
+        |list: &Value, id: &str| list.as_array().unwrap().iter().find(|s| s["id"] == id).unwrap()["remaining"].clone();
+    let ladyluck = "/product/skus/public?requiredTags=ladyluckstore";
+    let mine = h.get(ladyluck, &Who::Player("p1")).await.ok();
+    assert_eq!(remaining(&mine, "ll_one"), 0);
+    assert_eq!(remaining(&mine, "ll_repeat"), 999);
+    assert_eq!(mine[0]["maxAllowed"], 1);
+    assert_eq!(remaining(&h.get(ladyluck, &Who::Player("p2")).await.ok(), "ll_one"), 1);
+    assert_eq!(remaining(&h.get(ladyluck, &GS).await.ok(), "ll_one"), 1);
     // Above the balance
     h.credit("p2", "CURRENCY_MARKS_STEEL", 1.0).await;
     buy(&h, "p2", "ll_one")
@@ -365,6 +375,14 @@ async fn store_routes() {
     buy(&h, "p1", "single_exchange_slot_2").await.assert_empty(204);
     let held = h.get("/entitlementsv2", &Who::Player("p1")).await.ok();
     assert_eq!(held["entitlements"][0]["name"], "exchange_slot_2");
+    let slot = h
+        .get(
+            "/product/skus/public?requiredTags=exchange_vendor_slot_2",
+            &Who::Player("p1"),
+        )
+        .await
+        .ok();
+    assert_eq!(slot[0]["remaining"], 0);
     h.get("/no/such/route", &Who::Player("p1")).await.assert_empty(404);
 }
 
