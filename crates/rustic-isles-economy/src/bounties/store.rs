@@ -525,8 +525,9 @@ impl Catalog {
     }
 }
 
-/// One SKU in `GET /product/skus/public` (§4.11), keys in this order.
-pub fn listing(settings: &Settings, sku: &Sku) -> Value {
+/// One SKU in `GET /product/skus/public` (§4.11), keys in this order. `owned`: the caller already bought this
+/// one-time SKU, so `remaining` is 0, as the live service answered and the client reads to show it as owned.
+pub fn listing(settings: &Settings, sku: &Sku, owned: bool) -> Value {
     let raw = &sku.raw;
     let mut out = Map::new();
     for key in ["id", "displayName", "displayDescription", "displayPriority"] {
@@ -553,7 +554,9 @@ pub fn listing(settings: &Settings, sku: &Sku) -> Value {
         .collect();
     out.insert("prices".into(), Value::Array(prices));
     out.insert("maxAllowed".into(), sku.max_allowed.clone());
-    let remaining = if sku.max_allowed.is_null() {
+    let remaining = if owned {
+        Value::from(0)
+    } else if sku.max_allowed.is_null() {
         Value::from(999)
     } else {
         sku.max_allowed.clone()
@@ -634,6 +637,11 @@ pub fn transaction_scope(tag: &str) -> (String, String) {
         ),
         t => (format!("store-purchase:{t}"), format!("store-purchase-instance:{t}")),
     }
+}
+
+/// The deterministic transaction id of a one-time SKU's purchase: its ledger row is the ownership record.
+pub fn one_time_transaction_id(tag: &str, user_id: &str, sku_id: &str) -> String {
+    sha_upper(&format!("{}:{user_id}:{sku_id}", transaction_scope(tag).0), 32)
 }
 
 /// The deterministic transaction id of one daily claim: one per section, user, SKU and window.
@@ -737,11 +745,11 @@ pub fn plan_purchase(
     now_ms: i64,
     fresh_id: &dyn Fn() -> String,
 ) -> Result<PurchasePlan, PurchaseReason> {
-    let (tx_scope, instance_scope) = transaction_scope(tag);
+    let instance_scope = transaction_scope(tag).1;
     let window_key = is_daily_section(tag).then(|| daily_window(now_ms).2);
     let transaction_id = match &window_key {
         Some(key) => daily_claim_transaction_id(tag, user_id, &sku.id, key),
-        None if sku.is_one_time() => sha_upper(&format!("{tx_scope}:{user_id}:{}", sku.id), 32),
+        None if sku.is_one_time() => one_time_transaction_id(tag, user_id, &sku.id),
         None => fresh_id(),
     };
     let mut remove_stacked = Vec::new();
@@ -928,7 +936,7 @@ mod tests {
         let s = sku(
             json!({"id": "x", "displayName": "X", "prices": [{"currencyId": "id_currency_platinum", "price": 500}], "items": [{"catalogId": "A", "quantity": 1, "instanced": true}]}),
         );
-        let l = listing(&Settings::default(), &s);
+        let l = listing(&Settings::default(), &s, false);
         let keys: Vec<_> = l.as_object().unwrap().keys().cloned().collect();
         assert_eq!(
             keys,
@@ -955,8 +963,9 @@ mod tests {
         );
         assert_eq!(l["prices"][0]["price"], 0);
         assert_eq!(l["remaining"], 999);
+        assert_eq!(listing(&Settings::default(), &s, true)["remaining"], 0);
         assert_eq!(l["items"][0], json!({"catalogId": "A", "quantity": 1}));
-        let paid = listing(&Settings::from_pairs([("PLATINUM_STORE_FREE", "0")]), &s);
+        let paid = listing(&Settings::from_pairs([("PLATINUM_STORE_FREE", "0")]), &s, false);
         assert_eq!(paid["prices"][0]["price"], 500);
     }
 
