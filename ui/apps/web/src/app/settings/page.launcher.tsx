@@ -53,7 +53,7 @@ export default function SettingsPage() {
 
   return (
     <LauncherShell>
-      <Stack gap={4} padding={6} isScrollable height="100%" maxWidth={820}>
+      <Stack gap={4} padding={6} isScrollable height="100%">
         <Heading level={1}>{t("title")}</Heading>
 
         <Section title={t("game")}>

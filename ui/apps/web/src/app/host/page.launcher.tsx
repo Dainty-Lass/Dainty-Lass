@@ -180,7 +180,7 @@ export default function HostPage() {
 
   return (
     <LauncherShell>
-      <Stack gap={4} padding={6} isScrollable height="100%" maxWidth={900}>
+      <Stack gap={4} padding={6} isScrollable height="100%">
         <Stack direction="horizontal" justify="between" align="center" gap={2} wrap="wrap">
           <Stack gap={1}>
             <Heading level={1}>{t("title")}</Heading>
