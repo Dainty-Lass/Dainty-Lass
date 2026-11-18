@@ -65,9 +65,8 @@ pub fn in_level(
     answer
 }
 
-/// A bitfield `bool` property's byte offset and mask, found by name in `class` or its supers (2.3). Only a
-/// `BoolProperty` whose four layout bytes agree is believed: one byte wide, at byte 0, one bit, both masks equal.
-pub fn bool_property(engine: &Engine, class: usize, name: &str) -> Option<(usize, u8)> {
+/// The `FProperty` named `name` in `class` or its supers, with its `FFieldClass` name.
+pub fn find_property(engine: &Engine, class: usize, name: &str) -> Option<(usize, String)> {
     let memory = engine.memory();
     for link in reflect::class_chain(memory, class) {
         let mut field = memory.ptr_at(link.checked_add(sim::USTRUCT_CHILD_PROPERTIES)?)?;
@@ -76,20 +75,42 @@ pub fn bool_property(engine: &Engine, class: usize, name: &str) -> Option<(usize
             walked += 1;
             if engine.fname_at(field.checked_add(sim::FFIELD_NAME)?)?.as_str() == name {
                 let kind = memory.ptr_at(field.checked_add(sim::FFIELD_CLASS)?)?;
-                if engine.fname_at(kind)?.as_str() != "BoolProperty" {
-                    return None;
-                }
-                let offset = usize::try_from(memory.i32_at(field.checked_add(sim::FPROPERTY_OFFSET)?)?).ok()?;
-                let mut bytes = [0u8; 4];
-                if !memory.read(field.checked_add(sim::FBOOL_FIELD_SIZE)?, &mut bytes) {
-                    return None;
-                }
-                return bool_layout(offset, bytes);
+                return Some((field, engine.fname_at(kind)?));
             }
             field = memory.ptr_at(field.checked_add(sim::FFIELD_NEXT)?)?;
         }
     }
     None
+}
+
+/// A bitfield `bool` property's byte offset and mask, found by name in `class` or its supers (2.3). Only a
+/// `BoolProperty` whose four layout bytes agree is believed: one byte wide, at byte 0, one bit, both masks equal.
+pub fn bool_property(engine: &Engine, class: usize, name: &str) -> Option<(usize, u8)> {
+    let memory = engine.memory();
+    let (field, kind) = find_property(engine, class, name)?;
+    if kind != "BoolProperty" {
+        return None;
+    }
+    let offset = usize::try_from(memory.i32_at(field.checked_add(sim::FPROPERTY_OFFSET)?)?).ok()?;
+    let mut bytes = [0u8; 4];
+    if !memory.read(field.checked_add(sim::FBOOL_FIELD_SIZE)?, &mut bytes) {
+        return None;
+    }
+    bool_layout(offset, bytes)
+}
+
+/// A one-byte enum property's offset (4.1): a `ByteProperty` or `EnumProperty` whose `ElementSize` is 1.
+pub fn byte_property(engine: &Engine, class: usize, name: &str) -> Option<usize> {
+    let memory = engine.memory();
+    let (field, kind) = find_property(engine, class, name)?;
+    let size = memory.i32_at(field.checked_add(sim::FPROPERTY_ELEMENT_SIZE)?)?;
+    let offset = usize::try_from(memory.i32_at(field.checked_add(sim::FPROPERTY_OFFSET)?)?).ok()?;
+    byte_layout(&kind, size, offset)
+}
+
+/// The kind and size test of [`byte_property`].
+pub fn byte_layout(kind: &str, size: i32, offset: usize) -> Option<usize> {
+    (matches!(kind, "ByteProperty" | "EnumProperty") && size == 1 && offset > 0).then_some(offset)
 }
 
 /// `FieldSize`, `ByteOffset`, `ByteMask`, `FieldMask` as one believable bitfield bool.
@@ -256,6 +277,73 @@ pub fn refused_line(name: &str) -> String {
 /// The running totals, logged from the after handler when they changed (3.4).
 pub fn refusals_line(refusals: u64, distinct: usize) -> String {
     format!("[MitRuntime] [Stub] packages refused so far: {refusals} lookups of {distinct} packages")
+}
+
+// ---- 4: animation on hubs ----
+
+/// The flag file that turns the animation sweep on (4.2).
+pub const ANIM_FLAG: &str = "RUNTIME_STUB_ANIM";
+/// `EVisibilityBasedAnimTickOption::OnlyTickPoseWhenRendered`: a server renders nothing, so the pose never ticks.
+pub const ONLY_WHEN_RENDERED: u8 = 3;
+/// The four values' names, by value.
+pub const TICK_OPTIONS: [&str; 4] = [
+    "AlwaysTickPoseAndRefreshBones",
+    "AlwaysTickPose",
+    "OnlyTickMontagesWhenNotRendered",
+    "OnlyTickPoseWhenRendered",
+];
+
+/// The animation sweep's start line.
+pub const ANIM_ON_LINE: &str = "[MitRuntime] [Stub] animation on (RUNTIME_STUB_ANIM.flag): hubs only, skeletal meshes in a \
+                                level tick their pose only when rendered, 5 s after listen and every 10 s";
+
+/// The tick option's line, once.
+pub fn anim_option_line(found: Option<usize>) -> String {
+    found.map_or_else(
+        || {
+            "[MitRuntime] [Stub] SkinnedMeshComponent.VisibilityBasedAnimTickOption did not read: animation sweep off"
+                .to_owned()
+        },
+        |offset| format!("[MitRuntime] [Stub] SkinnedMeshComponent.VisibilityBasedAnimTickOption at +0x{offset:X}"),
+    )
+}
+
+/// One animation sweep: components by the option they had (index = value, the last counts any other value).
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+pub struct AnimSweep {
+    /// Before the sweep, by value.
+    pub before: [usize; 5],
+    /// Lowered to `ONLY_WHEN_RENDERED`.
+    pub lowered: usize,
+    /// How long it took.
+    pub ms: u64,
+}
+
+impl AnimSweep {
+    /// Counts one component's value.
+    pub fn count(&mut self, value: u8) {
+        let index = usize::from(value).min(4);
+        self.before[index] += 1;
+    }
+}
+
+/// The animation sweep's line, on the first sweep and whenever it lowered something.
+pub fn anim_line(sweep: &AnimSweep, first: bool) -> Option<String> {
+    (first || sweep.lowered > 0).then(|| {
+        let total: usize = sweep.before.iter().sum();
+        let counts: Vec<String> = TICK_OPTIONS
+            .iter()
+            .zip(sweep.before)
+            .map(|(name, count)| format!("{name} {count}"))
+            .chain((sweep.before[4] > 0).then(|| format!("other {}", sweep.before[4])))
+            .collect();
+        format!(
+            "[MitRuntime] [Stub] animation: {total} skeletal meshes in levels ({}), {} lowered, took {} ms",
+            counts.join(", "),
+            sweep.lowered,
+            sweep.ms
+        )
+    })
 }
 
 /// The functions the sweep calls and their parameter layouts (2.3).

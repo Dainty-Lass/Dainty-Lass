@@ -251,6 +251,34 @@ pub fn write<T: Copy>(addr: usize, value: T) -> bool {
     true
 }
 
+/// One byte at any alignment: a compare-exchange on the aligned word holding it, so a neighbouring field another
+/// thread writes meanwhile is kept (the word is retried, at most 8 times).
+pub fn write_byte(addr: usize, value: u8) -> bool {
+    let word = addr & !7;
+    let shift = (addr - word) * 8;
+    if !writable(word, 8) {
+        return false;
+    }
+    // SAFETY: the aligned 8 bytes were just checked committed, readable and writable; only the one byte changes
+    let atomic = unsafe { std::sync::atomic::AtomicU64::from_ptr(word as *mut u64) };
+    for _ in 0..8 {
+        let old = atomic.load(std::sync::atomic::Ordering::Acquire);
+        let new = (old & !(0xFF << shift)) | (u64::from(value) << shift);
+        if atomic
+            .compare_exchange(
+                old,
+                new,
+                std::sync::atomic::Ordering::AcqRel,
+                std::sync::atomic::Ordering::Acquire,
+            )
+            .is_ok()
+        {
+            return true;
+        }
+    }
+    false
+}
+
 /// `text_for(s)`: an `FText` made once per text by `Conv_StringToText` and kept for the process (R17 call 5).
 pub fn text_for(text: &'static str) -> Option<[u8; FTEXT_SIZE]> {
     if let Ok(texts) = TEXTS.lock()

@@ -1,13 +1,15 @@
 //! Server stubs (spec-runtime-stub): with `RUNTIME_STUB_EFFECTS.flag`, R8's after handler sweeps the object array and
-//! deactivates and unticks every particle component placed or spawned in a level.
+//! deactivates and unticks every particle component placed or spawned in a level; with `RUNTIME_STUB_ANIM.flag`, a
+//! hub's skeletal meshes tick their pose only when rendered.
 
 use crate::ffi::census::RegionCache;
-use crate::ffi::memory::read;
+use crate::ffi::memory::{read, read_unaligned};
 use crate::ffi::{engine, flags, log, reflect, win};
 use rustic_isles_runtime_core::census::{Item, visit};
 use rustic_isles_runtime_core::reflect as core_reflect;
+use rustic_isles_runtime_core::server_life::HubRole;
 use rustic_isles_runtime_core::sim::{check_layout, property_layout};
-use rustic_isles_runtime_core::stub::{self as core, Sweep, layouts};
+use rustic_isles_runtime_core::stub::{self as core, AnimSweep, Sweep, layouts};
 use std::collections::{HashMap, HashSet};
 use std::sync::Mutex;
 use std::time::Instant;
@@ -21,6 +23,10 @@ struct Stub {
     particle: HashMap<usize, bool>,
     level: HashMap<usize, bool>,
     unticked: HashSet<usize>,
+    anim: bool,
+    anim_first: bool,
+    anim_offset: Option<Option<usize>>,
+    skeletal: HashMap<usize, bool>,
     reported: Option<(u64, usize)>,
     totals_at: Option<u64>,
 }
@@ -46,6 +52,10 @@ pub(super) fn step() {
         if enabled {
             log::line(core::ON_LINE);
         }
+        let anim = flags::flag(core::ANIM_FLAG);
+        if anim {
+            log::line(core::ANIM_ON_LINE);
+        }
         Stub {
             enabled,
             start: now,
@@ -55,6 +65,10 @@ pub(super) fn step() {
             particle: HashMap::new(),
             level: HashMap::new(),
             unticked: HashSet::new(),
+            anim,
+            anim_first: true,
+            anim_offset: None,
+            skeletal: HashMap::new(),
             reported: None,
             totals_at: None,
         }
@@ -66,10 +80,16 @@ pub(super) fn step() {
         stub.totals_at = Some(now);
         log::line(&core::refusals_line(totals.0, totals.1));
     }
-    if !stub.enabled || !core::due(stub.start, stub.last, now) || !engine::names_enabled() {
+    if !(stub.enabled || stub.anim) || !core::due(stub.start, stub.last, now) || !engine::names_enabled() {
         return;
     }
     stub.last = Some(now);
+    if stub.anim && super::hub_role() == HubRole::Hub {
+        anim_step(stub);
+    }
+    if !stub.enabled {
+        return;
+    }
     let Some(calls) = *stub.calls.get_or_insert_with(resolve) else {
         stub.enabled = false;
         return;
@@ -81,14 +101,48 @@ pub(super) fn step() {
     stub.first = false;
 }
 
-/// Particle components whose outer chain reaches a level, templates excluded (2.1).
-fn candidates(stub: &mut Stub) -> Vec<usize> {
+/// 4: every skeletal mesh in a level ticks its pose only when rendered, which a server never is.
+fn anim_step(stub: &mut Stub) {
+    let offset = *stub.anim_offset.get_or_insert_with(|| {
+        let found = reflect::find_class("SkinnedMeshComponent")
+            .zip(reflect::engine())
+            .and_then(|(class, engine)| core::byte_property(&engine, class, "VisibilityBasedAnimTickOption"));
+        log::line(&core::anim_option_line(found));
+        found
+    });
+    let Some(offset) = offset else {
+        stub.anim = false;
+        return;
+    };
+    let started = Instant::now();
+    let found = candidates(&mut stub.skeletal, &mut stub.level, "SkeletalMeshComponent");
+    let mut sweep = AnimSweep::default();
+    for component in found {
+        let Some(value) = read_unaligned::<u8>(component + offset) else {
+            continue;
+        };
+        sweep.count(value);
+        if value < core::ONLY_WHEN_RENDERED
+            && engine::is_live_object(component)
+            && reflect::write_byte(component + offset, core::ONLY_WHEN_RENDERED)
+        {
+            sweep.lowered += 1;
+        }
+    }
+    sweep.ms = u64::try_from(started.elapsed().as_millis()).unwrap_or(u64::MAX);
+    if let Some(line) = core::anim_line(&sweep, stub.anim_first) {
+        log::line(&line);
+    }
+    stub.anim_first = false;
+}
+
+/// Objects of `class_name` (or a subclass) whose outer chain reaches a level, templates excluded (2.1).
+fn candidates(classes: &mut HashMap<usize, bool>, level: &mut HashMap<usize, bool>, class_name: &str) -> Vec<usize> {
     let memory = RegionCache::default();
     let Some(engine) = engine::engine_over(&memory) else {
         return Vec::new();
     };
     let mut found = Vec::new();
-    let Stub { particle, level, .. } = stub;
     let mut level_memo: HashMap<usize, bool> = HashMap::new();
     visit(&memory, engine.objects(), |item| {
         let Item::Object {
@@ -103,10 +157,10 @@ fn candidates(stub: &mut Stub) -> Vec<usize> {
         if flags & core::TEMPLATE_FLAGS != 0 {
             return;
         }
-        let is_particle = *particle
+        let wanted = *classes
             .entry(class)
-            .or_insert_with(|| core_reflect::class_is_a(&engine, class, "ParticleSystemComponent"));
-        if !is_particle {
+            .or_insert_with(|| core_reflect::class_is_a(&engine, class, class_name));
+        if !wanted {
             return;
         }
         let mut is_level = |class: usize| {
@@ -154,7 +208,7 @@ fn resolve() -> Option<Calls> {
 
 fn sweep(stub: &mut Stub, calls: Calls) -> Sweep {
     let started = Instant::now();
-    let found = candidates(stub);
+    let found = candidates(&mut stub.particle, &mut stub.level, "ParticleSystemComponent");
     let mut sweep = Sweep {
         components: found.len(),
         ..Sweep::default()

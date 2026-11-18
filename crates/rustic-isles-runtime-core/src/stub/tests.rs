@@ -172,3 +172,29 @@ fn package_names() {
         "[MitRuntime] [Stub] packages refused so far: 12 lookups of 3 packages"
     );
 }
+
+#[test]
+fn anim_texts() {
+    assert_eq!(byte_layout("EnumProperty", 1, 0x5A0), Some(0x5A0));
+    assert_eq!(byte_layout("ByteProperty", 1, 0x5A0), Some(0x5A0));
+    assert_eq!(byte_layout("IntProperty", 4, 0x5A0), None);
+    assert_eq!(byte_layout("EnumProperty", 4, 0x5A0), None);
+    assert_eq!(byte_layout("EnumProperty", 1, 0), None);
+    let mut sweep = AnimSweep::default();
+    for value in [0, 0, 3, 9] {
+        sweep.count(value);
+    }
+    sweep.lowered = 2;
+    sweep.ms = 4;
+    assert_eq!(
+        anim_line(&sweep, false).as_deref(),
+        Some(
+            "[MitRuntime] [Stub] animation: 4 skeletal meshes in levels (AlwaysTickPoseAndRefreshBones 2, AlwaysTickPose 0, \
+             OnlyTickMontagesWhenNotRendered 0, OnlyTickPoseWhenRendered 1, other 1), 2 lowered, took 4 ms"
+        )
+    );
+    assert_eq!(anim_line(&AnimSweep::default(), false), None);
+    assert!(anim_line(&AnimSweep::default(), true).is_some());
+    assert!(anim_option_line(Some(0x5A0)).ends_with("at +0x5A0"));
+    assert!(anim_option_line(None).ends_with("animation sweep off"));
+}
