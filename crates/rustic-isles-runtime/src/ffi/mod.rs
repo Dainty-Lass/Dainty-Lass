@@ -20,6 +20,7 @@ pub mod net;
 pub mod packages;
 pub mod player_host;
 pub mod player_role;
+pub mod profile;
 pub mod reflect;
 pub mod relevance;
 pub mod repgraph;

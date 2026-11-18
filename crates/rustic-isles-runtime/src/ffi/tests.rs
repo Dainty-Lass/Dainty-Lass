@@ -131,3 +131,13 @@ fn depth_guard_absorbs_from_33() {
         );
     }
 }
+
+#[test]
+fn byte_write_keeps_neighbours() {
+    let mut words = Box::new([0x1122_3344_5566_7788u64, 0]);
+    let base = words.as_mut_ptr() as usize;
+    assert!(super::reflect::write_byte(base + 3, 0xAB));
+    assert_eq!(words[0], 0x1122_3344_AB66_7788);
+    assert!(super::reflect::write_byte(base + 15, 0x01));
+    assert_eq!(words[1], 0x0100_0000_0000_0000);
+}

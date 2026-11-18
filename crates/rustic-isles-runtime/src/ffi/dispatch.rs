@@ -2,7 +2,7 @@
 //! landed they guard and forward. Each is a MIT wrapper (band `Mit`, order 0) on the broker's chain.
 
 use super::broker::{self, NextCell};
-use super::memory::{frame_tick, read_bytes};
+use super::memory::frame_tick;
 use super::{detaching, engine, flags, log};
 use crate::handlers::{self, Identity, NameEntry, PeCall, Point, Verdict};
 use rustic_isles_runtime_core::offsets::{layout, target};
@@ -90,11 +90,9 @@ fn name_or_null(object: usize) -> String {
 
 /// What the function reads as now, for the cache's validation.
 fn identity(function: usize) -> Option<Identity> {
-    if function == 0 || !super::memory::readable(function, layout::UOBJECT_SIZE) {
-        return None;
-    }
+    // One query per function and frame: two per call made the queries most of a busy hub's frame (profile 4)
     let mut bytes = [0u8; layout::UOBJECT_SIZE];
-    if !read_bytes(function, &mut bytes) {
+    if function == 0 || !super::memory::read_bytes_this_frame(function, &mut bytes) {
         return None;
     }
     let i32_at = |at: usize| i32::from_le_bytes([bytes[at], bytes[at + 1], bytes[at + 2], bytes[at + 3]]);

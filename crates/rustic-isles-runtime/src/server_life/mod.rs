@@ -5,6 +5,7 @@
 
 mod census;
 mod kick;
+mod profile;
 mod sim;
 mod stub;
 
@@ -254,6 +255,7 @@ fn after_tick(_engine: usize, delta: f32) {
         reset_perf();
         prime_afk(&mut game);
         start_watchdog();
+        profile::start();
     }
     sync_expected(&mut game, world);
     count_connections(state.driver, now);

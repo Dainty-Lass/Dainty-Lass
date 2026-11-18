@@ -980,6 +980,8 @@ pub mod sim {
     pub const FFIELD_NAME: usize = 0x28;
     /// `FProperty.Offset_Internal` (`i32`).
     pub const FPROPERTY_OFFSET: usize = 0x4C;
+    /// `FProperty.ElementSize` (`i32`).
+    pub const FPROPERTY_ELEMENT_SIZE: usize = 0x3C;
     /// `FField.ClassPrivate` (an `FFieldClass`, whose `Name` is its first field).
     pub const FFIELD_CLASS: usize = 0x08;
     /// `FBoolProperty.FieldSize`, then `ByteOffset`, `ByteMask` and `FieldMask` (`u8` each), checked together.
