@@ -61,15 +61,23 @@ call the dispatch validated its name cache with `identity(function)`, which chec
 then copied it with `read_bytes`: two `VirtualQuery` system calls per `ProcessEvent`. Thirty-two characters make
 enough `ProcessEvent` calls that the queries were most of the frame.
 
-**The fix:** `identity` reads through `read_bytes_this_frame`, R0's per-frame readability cache (R0 5.2) followed by a
-plain copy: on the game thread one query per function and frame, off it a fresh query as before. The cache's
-guarantee is R0's (the region stays mapped for the frame on the game thread); the name cache's validation is
-unchanged.
+**The fix:** `identity` reads through `read_bytes_this_frame`: on the game thread, a readability check against the
+last 64 regions `VirtualQuery` returned this epoch (`readable_region_this_frame`, cleared whenever R0's frame epoch
+moves), then a plain copy; off it a fresh query as before. The guarantee is R0 5.2's (memory checked readable this
+epoch on the game thread stays mapped until the epoch moves); the name cache's validation is unchanged. A first
+version used R0's per-pointer cache instead: 256 direct-mapped slots, which thrash once more distinct functions run
+in a frame than there are slots (12% of the game thread at 256 bots, 1.7% with regions).
 
 | Build | fps, 32 bots (60 s windows) | Profile |
 | --- | --- | --- |
-| Before | 13.0 to 14.8 | 98% `VirtualQuery` under `ProcessEvent` dispatch |
-| After | 29.5, 29.7 (the 30 fps cap), worst frame 99 ms | 92% the frame pacer's wait (idle), 2.5% `VirtualQuery` |
+| Before, 32 bots | 13.0 to 14.8 | 98% `VirtualQuery` under `ProcessEvent` dispatch |
+| Per-pointer cache, 32 bots | 29.5, 29.7 (the 30 fps cap), worst frame 99 ms | 92% the frame pacer's wait (idle), 2.5% `VirtualQuery` |
+| Per-pointer cache, 64 bots | 29.7, worst frame 46 ms | 87% idle, 3.9% `VirtualQuery` |
+| Per-pointer cache, 128 bots | 29.7, worst frame 105 ms | 82% idle, 2.1% `VirtualQuery` |
+| Per-pointer cache, 256 bots | 29.7, worst frame 111 ms | 53% idle, 12.2% `VirtualQuery` (cache thrash) |
+| Region cache, 256 bots | 29.7, worst frame 110 ms | 64% idle, 1.7% `VirtualQuery` |
+
+Private commit grows about 0.35 MiB a bot (1370 MiB at 32, 1484 MiB at 256).
 
 So an MIT-runtime hub with 32 standing player characters now has most of its game thread to spare, and the effects
 and animation sweeps (`spec-runtime-stub.md` 4.3, 5) measured the runtime's cost, not the game's.

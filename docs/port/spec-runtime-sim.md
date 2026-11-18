@@ -68,7 +68,7 @@ When a wrong offset table makes every name unreadable, the check fails closed: n
 
 | Command | Meaning |
 | --- | --- |
-| `bots <n> [<class>]` | keep `n` bots (`0..=64`), of pawn class `<class>` (a short class name, 1 to 128 of `A-Za-z0-9_`); without a class, the current one (default `BP_PlayerCharacter_C`) |
+| `bots <n> [<class>]` | keep `n` bots (`0..=256`), of pawn class `<class>` (a short class name, 1 to 128 of `A-Za-z0-9_`); without a class, the current one (default `BP_PlayerCharacter_C`) |
 | `clear` | `bots 0` |
 | `wander <seconds>` | a new goal for every bot each `<seconds>` (`0` off, else `1..=600`; default 5) |
 
@@ -143,9 +143,9 @@ contents, player data.
    client.
 2. Write `bots 8` to the port's file. Within 2 s: the read line and `bots 8/8 (+8)`; the client sees eight characters
    near the spawn, walking after 5 s. Note any `refused` line.
-3. `bots 32`, then `bots 64`: record `[Perf]`, `[Memory]` and the census summary at each step (the input for choosing
+3. `bots 32`, `bots 64`, `bots 128`, then `bots 256`: record `[Perf]`, `[Memory]` and the census summary at each step (the input for choosing
    what to stub).
-4. `clear`: `bots 0/0 (-64)` over 8 s; the next census's actor deltas go back down.
+4. `clear`: `bots 0/0 (-256)` over 32 s; the next census's actor deltas go back down.
 5. Disconnect the client with bots running: the frame rate stays at the active cap.
 6. If `BP_PlayerCharacter_C` crashes or misbehaves without a player state, record it, and try another pawn class with
    `bots 8 <class>` (ambiguity 1).
@@ -161,7 +161,7 @@ contents, player data.
    world's cost per player is what the census needs. Real headless clients remain the way to measure the network.
 3. **Check every parameter layout against the function's own properties.** The offsets in 2.1 are stock UE 4.26; the
    check makes a wrong one a logged refusal instead of a write past a parameter.
-4. **4 spawns and 8 removals a step**, so ramping to 64 bots takes 16 s and never stalls one frame for long.
+4. **4 spawns and 8 removals a step**, so ramping to 256 bots takes 64 s and never stalls one frame for long.
 5. **Bots keep the pacer active** so a test with no client measures the active frame rate. They do not stop R8's reaps
    (1): a stress test runs on a hub.
 

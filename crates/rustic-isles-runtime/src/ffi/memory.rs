@@ -6,6 +6,7 @@ use rustic_isles_runtime_core::frame::FrameCache;
 use rustic_isles_runtime_core::memory::{Memory, Region, region_allows};
 use rustic_isles_runtime_core::patch::{PatchResult, decide};
 use rustic_isles_runtime_core::pdata::Pdata;
+use std::cell::RefCell;
 use std::sync::OnceLock;
 use std::sync::atomic::{AtomicU32, Ordering};
 use windows_sys::Win32::System::Diagnostics::Debug::FlushInstructionCache;
@@ -96,17 +97,61 @@ pub fn frame_tick(bump_only: bool) {
     FRAME.bump();
 }
 
-/// `read_bytes` through `readable_this_frame`: one `VirtualQuery` per address and frame on the game thread, where a
-/// hot path would otherwise pay one per call (spec-runtime-profile 4).
+/// Readable regions remembered for the current epoch, most recent first.
+const FRAME_REGIONS: usize = 64;
+
+thread_local! {
+    static REGIONS: RefCell<(u32, Vec<Region>)> = const { RefCell::new((0, Vec::new())) };
+}
+
+/// `readable` with R0 5.2's lifetime but by region: on the game thread, the last 64 regions that passed are kept until
+/// the epoch moves, so objects packed in a few heap regions cost a few queries a frame (spec-runtime-profile 4).
+pub fn readable_region_this_frame(ptr: usize, size: usize) -> bool {
+    let thread = FRAME_THREAD.load(Ordering::Relaxed);
+    if thread == 0 || thread != thread_id() || super::flags::no_frame_pointer_cache() {
+        return readable(ptr, size);
+    }
+    let epoch = FRAME.epoch();
+    REGIONS.with(|cell| {
+        let mut cell = cell.borrow_mut();
+        if cell.0 != epoch {
+            cell.0 = epoch;
+            cell.1.clear();
+        }
+        let regions = &mut cell.1;
+        if let Some(hit) = regions
+            .iter()
+            .position(|&region| region_allows(ptr, size, Some(region), true))
+        {
+            if hit > 0 {
+                let region = regions.remove(hit);
+                regions.insert(0, region);
+            }
+            return true;
+        }
+        let region = query(ptr);
+        if !region_allows(ptr, size, region, true) {
+            return false;
+        }
+        if let Some(region) = region {
+            regions.insert(0, region);
+            regions.truncate(FRAME_REGIONS);
+        }
+        true
+    })
+}
+
+/// `read_bytes` through `readable_region_this_frame`, for a hot path that would otherwise pay a `VirtualQuery` per
+/// call (spec-runtime-profile 4).
 pub fn read_bytes_this_frame(addr: usize, out: &mut [u8]) -> bool {
     if out.is_empty() {
         return true;
     }
-    if !readable_this_frame(addr, out.len()) {
+    if !readable_region_this_frame(addr, out.len()) {
         return false;
     }
-    // SAFETY: the range was checked readable this frame (R0 5.2's cache, or a fresh query off the game thread);
-    // `copy` because a read can reach `out`'s own heap
+    // SAFETY: the range lies in a region checked readable this epoch on the game thread (R0 5.2's guarantee), or was
+    // queried just now off it; `copy` because a read can reach `out`'s own heap
     unsafe { std::ptr::copy(addr as *const u8, out.as_mut_ptr(), out.len()) };
     true
 }

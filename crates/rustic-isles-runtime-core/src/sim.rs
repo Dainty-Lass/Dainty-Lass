@@ -9,7 +9,7 @@ pub const FLAG: &str = "RUNTIME_SIM_PLAYERS";
 /// The pawn class until a command names another.
 pub const DEFAULT_CLASS: &str = "BP_PlayerCharacter_C";
 /// The most bots a server keeps.
-pub const MAX_BOTS: u32 = 64;
+pub const MAX_BOTS: u32 = 256;
 /// Spawns per step (call 4).
 pub const SPAWNS_PER_STEP: usize = 4;
 /// Removals per step.
@@ -140,7 +140,7 @@ pub fn class_line(class: &str) -> String {
 pub const NO_START_LINE: &str = "[MitRuntime] [Sim] no PlayerStart: no bots";
 
 /// Slot `slot`'s place on the ring around `origin` (4.2).
-#[allow(clippy::cast_precision_loss, reason = "slots are below 64")]
+#[allow(clippy::cast_precision_loss, reason = "slots are below 256")]
 pub fn ring(origin: [f32; 3], slot: usize) -> [f32; 3] {
     let angle = (slot as f32 * 22.5).to_radians();
     let radius = 300.0 + 150.0 * (slot / 16) as f32;

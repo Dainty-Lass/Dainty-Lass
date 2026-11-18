@@ -12,8 +12,9 @@ fn grammar() {
         }
     );
     assert_eq!(parse("bots 4\nclear").bots, Some((0, None)), "the last wins");
+    assert_eq!(parse("bots 256").bots, Some((256, None)), "the cap");
     assert_eq!(parse("wander 0").wander, Some(0));
-    let bad = parse("bots 65\nwander 601\nbots 2 Bad-Class\nbots\nbots x\nfly 3\nbots 1 A B");
+    let bad = parse("bots 257\nwander 601\nbots 2 Bad-Class\nbots\nbots x\nfly 3\nbots 1 A B");
     assert_eq!((bad.bots, bad.wander, bad.ignored), (None, None, 7));
     let long = format!("bots 1 {}", "A".repeat(MAX_CLASS + 1));
     assert_eq!(parse(&long).ignored, 1);
@@ -70,6 +71,14 @@ fn positions() {
         "the second ring"
     );
     assert!((distance(ring(origin, 63), origin) - 750.0).abs() < 0.01);
+    assert!(
+        (distance(ring(origin, 127), origin) - 1350.0).abs() < 0.01,
+        "the eighth ring"
+    );
+    assert!(
+        (distance(ring(origin, 255), origin) - 2550.0).abs() < 0.01,
+        "the sixteenth ring"
+    );
     let mut wander = Wander::new(12345);
     let goals: Vec<[f32; 3]> = (0..1000).map(|_| wander.goal(origin)).collect();
     assert!(
