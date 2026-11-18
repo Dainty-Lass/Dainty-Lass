@@ -1,6 +1,5 @@
 "use client";
 
-import { IconButton } from "@astryxdesign/core/IconButton";
 import { Stack } from "@astryxdesign/core/Stack";
 import { Text } from "@astryxdesign/core/Text";
 import { createContext, type ReactNode, use, useEffect, useState } from "react";
@@ -91,19 +90,37 @@ export function useBridge(): BridgeState {
   return use(BridgeContext);
 }
 
-function Glyph({ d }: { d: string }) {
+/** A Windows 11 caption button (dainty-caption in brand.css), with Segoe Fluent's 10px, 1px glyphs. */
+function CaptionButton({
+  label,
+  d,
+  close = false,
+  onClick,
+}: {
+  label: string;
+  d: string;
+  close?: boolean;
+  onClick: () => void;
+}) {
   return (
-    <svg
-      width="12"
-      height="12"
-      viewBox="0 0 12 12"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.2"
-      aria-hidden="true"
+    <button
+      type="button"
+      className={close ? "dainty-caption dainty-caption-close" : "dainty-caption"}
+      aria-label={label}
+      title={label}
+      onClick={onClick}
     >
-      <path d={d} />
-    </svg>
+      <svg
+        width="10"
+        height="10"
+        viewBox="0 0 10 10"
+        fill="none"
+        stroke="currentColor"
+        aria-hidden="true"
+      >
+        <path d={d} />
+      </svg>
+    </button>
   );
 }
 
@@ -140,25 +157,20 @@ export function TitleBar({
         </Stack>
         {inTauri() && (
           <Stack direction="horizontal" gap={0}>
-            <IconButton
+            <CaptionButton
               label={labels.minimize}
-              variant="ghost"
-              size="sm"
-              icon={<Glyph d="M2 6h8" />}
+              d="M0 5.5h10"
               onClick={() => void api?.minimize()}
             />
-            <IconButton
+            <CaptionButton
               label={labels.maximize}
-              variant="ghost"
-              size="sm"
-              icon={<Glyph d={maximized ? "M3.5 1.5h7v7M1.5 3.5h7v7h-7z" : "M2 2h8v8H2z"} />}
+              d={maximized ? "M2.5 2.5V.5h7v7h-2M.5 2.5h7v7h-7z" : "M.5.5h9v9h-9z"}
               onClick={async () => setMaximized((await api?.toggleMaximize()) ?? false)}
             />
-            <IconButton
+            <CaptionButton
               label={labels.close}
-              variant="ghost"
-              size="sm"
-              icon={<Glyph d="M2.5 2.5l7 7M9.5 2.5l-7 7" />}
+              d="M.5.5l9 9M9.5.5l-9 9"
+              close
               onClick={() => void api?.close()}
             />
           </Stack>
