@@ -1,6 +1,7 @@
 //! The DLL's only unsafe code. Outside this module the crate is safe and calls the wrappers here.
 
 pub mod broker;
+pub mod census;
 pub mod dispatch;
 pub mod economy;
 pub mod engine;

@@ -947,6 +947,12 @@ pub mod exit {
     pub const FNAME_HEADER_LOAD: u32 = 0x0266_0278;
 }
 
+/// The census's layout fact (spec-runtime-census 2.1), checked against `UObject`'s size before each use (2.3).
+pub mod census {
+    /// `UStruct.PropertiesSize` (`i32`).
+    pub const USTRUCT_PROPERTIES_SIZE: usize = 0x58;
+}
+
 /// R17's layout facts (spec-runtime-r17 section 8.1), each with its owner class.
 pub mod r17 {
     /// `FExec::Exec`'s Shipping `PURE_VIRTUAL` body: a fatal error naming `Misc/Exec.h` line 23.

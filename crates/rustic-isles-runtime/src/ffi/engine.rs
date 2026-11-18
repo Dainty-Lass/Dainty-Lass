@@ -4,6 +4,7 @@
 use super::log;
 use super::memory::ProcessMemory;
 use rustic_isles_runtime_core::engine::{Engine, NameCache};
+use rustic_isles_runtime_core::memory::Memory;
 use rustic_isles_runtime_core::names::self_check_failed_line;
 use rustic_isles_runtime_core::offsets::data;
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -27,6 +28,17 @@ pub fn engine() -> Option<Engine<'static>> {
     let objects = base.checked_add(usize::try_from(data::GOBJECTS).ok()?)?;
     let names = base.checked_add(usize::try_from(data::GNAMES).ok()?)?;
     Some(Engine::new(&ProcessMemory, objects, names, Some(&NAMES)))
+}
+
+/// The engine over another reader (the census's region cache), sharing the process's name cache.
+pub fn engine_over(memory: &dyn Memory) -> Option<Engine<'_>> {
+    let base = IMAGE_BASE.load(Ordering::SeqCst);
+    if base == 0 {
+        return None;
+    }
+    let objects = base.checked_add(usize::try_from(data::GOBJECTS).ok()?)?;
+    let names = base.checked_add(usize::try_from(data::GNAMES).ok()?)?;
+    Some(Engine::new(memory, objects, names, Some(&NAMES)))
 }
 
 /// Whether names may be used: the self-check ran once and passed. The pool is decoded directly; `AppendString`
