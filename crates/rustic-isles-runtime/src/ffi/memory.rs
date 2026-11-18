@@ -107,9 +107,18 @@ thread_local! {
 /// `readable` with R0 5.2's lifetime but by region: on the game thread, the last 64 regions that passed are kept until
 /// the epoch moves, so objects packed in a few heap regions cost a few queries a frame (spec-runtime-profile 4).
 pub fn readable_region_this_frame(ptr: usize, size: usize) -> bool {
+    region_this_frame(ptr, size, true)
+}
+
+/// [`readable_region_this_frame`] without the alignment rule, as `read_bytes` checks.
+pub fn readable_unaligned_region_this_frame(ptr: usize, size: usize) -> bool {
+    region_this_frame(ptr, size, false)
+}
+
+fn region_this_frame(ptr: usize, size: usize, aligned: bool) -> bool {
     let thread = FRAME_THREAD.load(Ordering::Relaxed);
     if thread == 0 || thread != thread_id() || super::flags::no_frame_pointer_cache() {
-        return readable(ptr, size);
+        return region_allows(ptr, size, query(ptr), aligned);
     }
     let epoch = FRAME.epoch();
     REGIONS.with(|cell| {
@@ -121,7 +130,7 @@ pub fn readable_region_this_frame(ptr: usize, size: usize) -> bool {
         let regions = &mut cell.1;
         if let Some(hit) = regions
             .iter()
-            .position(|&region| region_allows(ptr, size, Some(region), true))
+            .position(|&region| region_allows(ptr, size, Some(region), aligned))
         {
             if hit > 0 {
                 let region = regions.remove(hit);
@@ -130,7 +139,7 @@ pub fn readable_region_this_frame(ptr: usize, size: usize) -> bool {
             return true;
         }
         let region = query(ptr);
-        if !region_allows(ptr, size, region, true) {
+        if !region_allows(ptr, size, region, aligned) {
             return false;
         }
         if let Some(region) = region {
@@ -147,7 +156,7 @@ pub fn read_bytes_this_frame(addr: usize, out: &mut [u8]) -> bool {
     if out.is_empty() {
         return true;
     }
-    if !readable_region_this_frame(addr, out.len()) {
+    if !readable_unaligned_region_this_frame(addr, out.len()) {
         return false;
     }
     // SAFETY: the range lies in a region checked readable this epoch on the game thread (R0 5.2's guarantee), or was
@@ -167,7 +176,8 @@ pub fn readable_this_frame(ptr: usize, size: usize) -> bool {
     if thread == 0 || thread != thread_id() || super::flags::no_frame_pointer_cache() {
         return readable(ptr, size);
     }
-    FRAME.readable(ptr, size, readable)
+    // A miss tries the frame's regions before the kernel: the slots are per pointer and thrash on a busy server
+    FRAME.readable(ptr, size, readable_region_this_frame)
 }
 
 /// `patch_bytes` at an address: verify, write under `PAGE_EXECUTE_READWRITE`, restore, flush (R0 5.4).

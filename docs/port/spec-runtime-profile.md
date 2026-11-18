@@ -82,6 +82,21 @@ Private commit grows about 0.35 MiB a bot (1370 MiB at 32, 1484 MiB at 256).
 So an MIT-runtime hub with 32 standing player characters now has most of its game thread to spare, and the effects
 and animation sweeps (`spec-runtime-stub.md` 4.3, 5) measured the runtime's cost, not the game's.
 
+## 4a. Real connections: the replication hooks (8 clients, 2026-11-17)
+
+With 8 real clients (`spec-runtime-sim.md` 8) and 256 server bots, the hub held 29.2 fps with its game thread 11%
+idle and 25% in `VirtualQuery`, now from the relevance and replication-graph hooks under the engine's network tick:
+their memory readers checked every actor per connection with plain `readable` and `read_bytes`, and the engine model's
+`readable_this_frame` slots thrashed. Both now read by region for the frame: the two readers use
+`readable_region_this_frame` and `read_bytes_this_frame` (which keeps `read_bytes`'s unaligned rule), and a miss in
+R0's per-pointer slots tries the frame's regions before the kernel. Same guarantee as section 4.
+
+| Build | Load | fps (steady) | Game thread |
+| --- | --- | --- | --- |
+| Before | 8 clients, 256 server bots | 29.2, 29.3 (worst frame 60 ms) | 11% idle, 25.4% `VirtualQuery` |
+| After | 7 clients (the eighth ran out of memory on its host), 256 server bots | 29.5 to 29.7 (worst 49 to 117 ms) | 35.5% idle, 7.6% `VirtualQuery` |
+| After | 8 clients, no server bots | 29.7, 29.8 (worst 69 ms) | |
+
 ## 5. Tests
 
 In CI: the schedule, the tallies (recursion counted once in totals, empty stacks missed), the three lists, their caps

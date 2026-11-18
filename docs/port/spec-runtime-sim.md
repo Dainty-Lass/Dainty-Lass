@@ -171,3 +171,29 @@ contents, player data.
    loadout, an inventory or a player state). If not, a host names another pawn class in the file.
 2. Whether hub levels carry a navigation mesh. Without one, `SimpleMoveToLocation` does nothing and bots stand still,
    which still loads ticking and replication but not movement.
+
+---
+
+## 8. Headless clients (real connections)
+
+Server-side bots load the world but not the network. For the network, real game clients run as bots on a Linux host
+(first run: `siliserve`, 2026-11-17), each with its own account; the scripts live on that host, not in the
+repository, since they name its paths and the server's address.
+
+- **Start.** Under Wine, through `dainty-inject.exe` (the launcher's helper: suspended start, the runtime loaded by
+  absolute path and hash), with the launcher's own login arguments (`launch_args`) and `DAINTY_BACKEND_URL` /
+  `RUSTIC_ISLES_BACKEND_URL` pointing straight at a private-mode gateway (the launcher's relay only rewrites `Host`
+  there). `AUTO_PRESS_START.flag` beside the game takes the client past the start screen and presses Play (R17 5).
+- **The runtime's part (R4 3.3, amended).** The Shipping engine's command-line allow-list drops `-nullrhi`,
+  `-norenderthread` and `-nothreadtimeout`; a client now carries those three from its OS line into the served line
+  (`CLIENT_HEADLESS_SWITCHES`). The launcher never passes them, so a player's line is unchanged; a server keeps its own
+  `-nullrhi` rule.
+- **What works and what does not.** With `-nullrhi` a client logs in but its front end never travels, so bots render:
+  DXVK (D3D11 to Vulkan) on the host's GPU inside a headless `gamescope`, at 1280x720 (the game refuses less). Each bot
+  needs its own Wine prefix with a Wine virtual desktop (`HKCU\Software\Wine\Explorer`): without it, the mouse capture
+  on entering the city ends the client with an X `BadWindow` error. A new account answers the in-game EULA once.
+  Clients loading at the same moment starve one another, so they start about 40 s apart.
+- **The server for a test.** `DAINTY_HUB_AFK_SECONDS` (or the AFK kick ends idle bots at 120 s) and
+  `DAINTY_HUB_MAX_PLAYERS` (4 by default) in the host's environment for the run, not in `settings.toml`.
+- **Cost.** About 2.5 to 3 GB of memory per rendering client: 8 fill a 26 GB host once 256 server bots are replicated
+  to them.
