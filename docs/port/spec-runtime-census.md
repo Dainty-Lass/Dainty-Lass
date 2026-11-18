@@ -76,8 +76,9 @@ Freed slots (null pointers) are skipped silently. Objects pending destruction ar
 ### 3.1 Resolving (the DLL, with the engine)
 
 For each tallied class: its name (`object_name`; `?` when it fails), its `PropertiesSize` (when sizes are on, 2.3),
-and whether it is an actor (`reflect::class_is_a(class, "Actor")`). For each outermost: its name, which for a package
-is its path (`/Game/Maps/...`, `/Script/Engine`). Its **folder** is the path's first two segments (`/Game/Characters`,
+and whether it is an actor (`reflect::class_is_a(class, "Actor")`). For each outermost: its raw name (the `FName` with its
+number, not R0's short form, which keeps only the last path segment), which for a package is its path
+(`/Game/Maps/...`, `/Script/Engine`). Its **folder** is the path's first two segments (`/Game/Characters`,
 `/Script/Engine`); a name without a leading `/` is its own folder.
 
 ## 4. Trigger and cost
