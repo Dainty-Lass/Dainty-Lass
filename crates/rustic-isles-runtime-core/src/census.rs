@@ -64,8 +64,26 @@ fn add(count: usize) -> u64 {
     u64::try_from(count).unwrap_or(u64::MAX)
 }
 
-/// The walk (3): one read per chunk and one per object header, outers memoized.
-pub fn walk(memory: &dyn Memory, objects: usize) -> Option<Walk> {
+/// One slot of the object array, as [`visit`] reads it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Item {
+    /// A live slot whose header read: the object, its class, outer and object flags.
+    Object {
+        /// The object.
+        object: usize,
+        /// Its class (non-null).
+        class: usize,
+        /// Its outer.
+        outer: usize,
+        /// Its `UObject` flags.
+        flags: u32,
+    },
+    /// Slots whose chunk, header or class did not read.
+    Unreadable(u64),
+}
+
+/// Every non-null slot of the object array (3): one read per chunk and one per object header.
+pub fn visit(memory: &dyn Memory, objects: usize, mut each: impl FnMut(Item)) -> Option<()> {
     let count = memory.i32_at(objects.checked_add(layout::OBJECTS_COUNT)?)?;
     if !(0..=layout::MAX_OBJECTS).contains(&count) {
         return None;
@@ -73,8 +91,6 @@ pub fn walk(memory: &dyn Memory, objects: usize) -> Option<Walk> {
     let count = usize::try_from(count).ok()?;
     let chunks = usize::try_from(memory.i32_at(objects.checked_add(layout::OBJECTS_CHUNK_COUNT)?)?).ok()?;
     let table = memory.ptr_at(objects.checked_add(layout::OBJECTS_CHUNKS)?)?;
-    let mut walk = Walk::default();
-    let mut memo: HashMap<usize, usize> = HashMap::new();
     let mut header = [0u8; layout::UOBJECT_SIZE];
     for chunk in 0..count.div_ceil(layout::OBJECTS_PER_CHUNK) {
         let items = (count - chunk * layout::OBJECTS_PER_CHUNK).min(layout::OBJECTS_PER_CHUNK);
@@ -85,7 +101,7 @@ pub fn walk(memory: &dyn Memory, objects: usize) -> Option<Walk> {
             .filter(|&base| base != 0);
         let mut bytes = vec![0u8; items * layout::OBJECT_ITEM_SIZE];
         if !base.is_some_and(|base| memory.read(base, &mut bytes)) {
-            walk.unreadable += add(items);
+            each(Item::Unreadable(add(items)));
             continue;
         }
         for item in bytes.as_chunks::<{ layout::OBJECT_ITEM_SIZE }>().0 {
@@ -93,16 +109,39 @@ pub fn walk(memory: &dyn Memory, objects: usize) -> Option<Walk> {
             if object == 0 {
                 continue;
             }
-            if !memory.read(object, &mut header) {
-                walk.unreadable += 1;
-                continue;
-            }
-            let class = word(&header, layout::UOBJECT_CLASS);
+            let class = if memory.read(object, &mut header) {
+                word(&header, layout::UOBJECT_CLASS)
+            } else {
+                0
+            };
             if class == 0 {
-                walk.unreadable += 1;
+                each(Item::Unreadable(1));
                 continue;
             }
-            let outer = word(&header, layout::UOBJECT_OUTER);
+            let flags = header
+                .get(layout::UOBJECT_FLAGS..layout::UOBJECT_FLAGS + 4)
+                .and_then(|slice| <[u8; 4]>::try_from(slice).ok())
+                .map_or(0, u32::from_le_bytes);
+            each(Item::Object {
+                object,
+                class,
+                outer: word(&header, layout::UOBJECT_OUTER),
+                flags,
+            });
+        }
+    }
+    Some(())
+}
+
+/// The walk (3): every object tallied by class and by outermost, outers memoized.
+pub fn walk(memory: &dyn Memory, objects: usize) -> Option<Walk> {
+    let mut walk = Walk::default();
+    let mut memo: HashMap<usize, usize> = HashMap::new();
+    visit(memory, objects, |item| match item {
+        Item::Unreadable(n) => walk.unreadable += n,
+        Item::Object {
+            object, class, outer, ..
+        } => {
             let top = if outer == 0 {
                 object
             } else {
@@ -112,7 +151,7 @@ pub fn walk(memory: &dyn Memory, objects: usize) -> Option<Walk> {
             *walk.classes.entry(class).or_default() += 1;
             *walk.outermost.entry(top).or_default() += 1;
         }
-    }
+    })?;
     Some(walk)
 }
 

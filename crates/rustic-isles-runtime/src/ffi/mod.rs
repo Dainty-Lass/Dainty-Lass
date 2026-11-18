@@ -17,6 +17,7 @@ pub mod login;
 pub mod memory;
 pub mod minhook;
 pub mod net;
+pub mod packages;
 pub mod player_host;
 pub mod player_role;
 pub mod reflect;

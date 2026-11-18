@@ -182,6 +182,8 @@ pub const ENTRIES: &[Entry] = &[
     e("CON-1", Setting, "R17"),
     // The game's Shipping `FExec::Exec` stub, which every console command reaches (2026-11 play-test)
     e("CON-2", Detour, "R17"),
+    // Servers: packages refused by name (spec-runtime-stub 3)
+    e("PKG-1", Detour, "R8"),
 ];
 
 /// The line for `id`.
@@ -257,7 +259,7 @@ mod tests {
             assert_eq!(lines[0].slice, *slice, "{id}");
         }
         // Ids a slice spec added beyond surface section 3
-        let added = ["CON-1", "CON-2"];
+        let added = ["CON-1", "CON-2", "PKG-1"];
         let hooks = ENTRIES
             .iter()
             .filter(|entry| entry.kind != Kind::Feature && !added.contains(&entry.id))
