@@ -30,6 +30,11 @@ struct Sim {
 
 static SIM: Mutex<Option<Sim>> = Mutex::new(None);
 
+/// Running bots.
+pub fn bots() -> usize {
+    BOTS.load(Ordering::Relaxed)
+}
+
 /// The connection count R8's pacer sees: at least one while bots run (call 5).
 pub fn pacing_count(connections: i32) -> i32 {
     if BOTS.load(Ordering::Relaxed) > 0 {

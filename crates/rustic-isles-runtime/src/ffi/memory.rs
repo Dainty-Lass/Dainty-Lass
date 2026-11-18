@@ -96,6 +96,26 @@ pub fn frame_tick(bump_only: bool) {
     FRAME.bump();
 }
 
+/// `read_bytes` through `readable_this_frame`: one `VirtualQuery` per address and frame on the game thread, where a
+/// hot path would otherwise pay one per call (spec-runtime-profile 4).
+pub fn read_bytes_this_frame(addr: usize, out: &mut [u8]) -> bool {
+    if out.is_empty() {
+        return true;
+    }
+    if !readable_this_frame(addr, out.len()) {
+        return false;
+    }
+    // SAFETY: the range was checked readable this frame (R0 5.2's cache, or a fresh query off the game thread);
+    // `copy` because a read can reach `out`'s own heap
+    unsafe { std::ptr::copy(addr as *const u8, out.as_mut_ptr(), out.len()) };
+    true
+}
+
+/// The game thread's id as SP-3 recorded it (0 before the first tick).
+pub fn frame_thread() -> u32 {
+    FRAME_THREAD.load(Ordering::Relaxed)
+}
+
 /// `readable_this_frame`: the server game thread's cache, else plain `readable`.
 pub fn readable_this_frame(ptr: usize, size: usize) -> bool {
     let thread = FRAME_THREAD.load(Ordering::Relaxed);
