@@ -179,6 +179,44 @@
     app-region: no-drag;
   }
 
+  /* Windows 11's caption buttons, which Astryx has no component for: 46 wide, the bar's 36 px height,
+     square, a faint hover and the system red behind close. */
+  .dainty-caption {
+    display: grid;
+    place-items: center;
+    width: 46px;
+    height: 36px;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    color: inherit;
+    cursor: default;
+  }
+
+  .dainty-caption:hover {
+    background-color: light-dark(rgb(0 0 0 / 3.7%), rgb(255 255 255 / 6%));
+  }
+
+  .dainty-caption:active {
+    background-color: light-dark(rgb(0 0 0 / 2.4%), rgb(255 255 255 / 4%));
+  }
+
+  .dainty-caption-close:hover {
+    background-color: #c42b1c;
+    color: #fff;
+  }
+
+  .dainty-caption-close:active {
+    background-color: #c83c31;
+    color: rgb(255 255 255 / 70%);
+  }
+
+  .dainty-caption:focus-visible {
+    outline: 2px solid currentColor;
+    outline-offset: -2px;
+  }
+
   /* The boot splash (SplashLoader): solid while the page waits, a blurred scrim over it as the logos
      settle, then faded out. Its colours are the shard logo's, like the brand mark's. */
   .dainty-splash {
