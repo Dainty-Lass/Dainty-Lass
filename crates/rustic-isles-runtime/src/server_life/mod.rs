@@ -1,11 +1,12 @@
 //! Slice R8 (spec-runtime-r8): the server's life. Frame pacing before every frame; after it, the expected-player sync,
 //! the connection count, the game-mode sample, the AFK write and the tick-side reap; the AFK write at each
 //! `K2_PostLogin`; the watchdog thread; and the one way a server ends itself. The raw calls are `ffi::server_life`.
-//! The object census (spec-runtime-census) and simulated players (spec-runtime-sim) ride the after handler.
+//! The object census, simulated players and server stubs (spec-runtime-census, -sim, -stub) ride the after handler.
 
 mod census;
 mod kick;
 mod sim;
+mod stub;
 
 use crate::config;
 use crate::ffi::exit::Install;
@@ -259,6 +260,7 @@ fn after_tick(_engine: usize, delta: f32) {
     kick::step(state.driver, now);
     census::step();
     sim::step(world, now);
+    stub::step();
     if config::launch().is_some_and(|launch| launch.watchdog) {
         connected_step(&mut game, world, state.driver, delta, now);
     }
@@ -623,7 +625,8 @@ fn watchdog(watch: &Watch) {
             hub: role == HubRole::Hub,
             counts_usable: sample.counts_usable,
             conn_stamp: CONN_STAMP.load(Ordering::Relaxed),
-            conn_count: CONN_COUNT.load(Ordering::Relaxed),
+            // Bots keep a hub out of the idle trim as they keep it out of the idle cap (sim call 5)
+            conn_count: sim::pacing_count(CONN_COUNT.load(Ordering::Relaxed)),
             travelling: NUM_TRAVELLING.load(Ordering::Relaxed),
             last_client_ms: LAST_CLIENT_MS.load(Ordering::Relaxed),
             trim_allowed: watch.trim_allowed,
