@@ -947,6 +947,24 @@ pub mod exit {
     pub const FNAME_HEADER_LOAD: u32 = 0x0266_0278;
 }
 
+/// The census's layout fact (spec-runtime-census 2.1), checked against `UObject`'s size before each use (2.3).
+pub mod census {
+    /// `UStruct.PropertiesSize` (`i32`).
+    pub const USTRUCT_PROPERTIES_SIZE: usize = 0x58;
+}
+
+/// The simulated players' layout check (spec-runtime-sim 2.2): a function's `FProperty` chain.
+pub mod sim {
+    /// `UStruct.ChildProperties` (the first `FField`).
+    pub const USTRUCT_CHILD_PROPERTIES: usize = 0x50;
+    /// `FField.Next`.
+    pub const FFIELD_NEXT: usize = 0x20;
+    /// `FField.NamePrivate` (`FName`).
+    pub const FFIELD_NAME: usize = 0x28;
+    /// `FProperty.Offset_Internal` (`i32`).
+    pub const FPROPERTY_OFFSET: usize = 0x4C;
+}
+
 /// R17's layout facts (spec-runtime-r17 section 8.1), each with its owner class.
 pub mod r17 {
     /// `FExec::Exec`'s Shipping `PURE_VIRTUAL` body: a fatal error naming `Misc/Exec.h` line 23.

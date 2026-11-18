@@ -2,6 +2,7 @@
 //! the game or Windows, so `cargo test` covers it on every platform (spec-runtime-r0 section 2, spec-runtime-r1).
 
 pub mod branding;
+pub mod census;
 pub mod chain;
 pub mod config;
 pub mod economy;
@@ -33,6 +34,7 @@ pub mod relevance;
 pub mod repgraph;
 pub mod server_events;
 pub mod server_life;
+pub mod sim;
 pub mod travel;
 pub mod weak;
 pub mod widgets;
