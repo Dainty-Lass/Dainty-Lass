@@ -8,7 +8,7 @@ mod tick;
 
 use super::broker;
 use super::exit::Install;
-use super::memory::{query, read_bytes, readable, readable_unaligned, verify_entry};
+use super::memory::{query, read_bytes_this_frame, readable_region_this_frame, readable_unaligned, verify_entry};
 use super::{engine, log, minhook, reflect, win};
 use crate::handlers::{self, TickHandler};
 use rustic_isles_runtime_core::net::install::PROLOGUE_MISMATCH;
@@ -79,10 +79,11 @@ pub struct ProcessGame;
 
 impl Game for ProcessGame {
     fn readable(&self, ptr: usize, size: usize) -> bool {
-        readable(ptr, size)
+        // Per actor and connection each tick: by region, one query per region and frame (profile 4)
+        readable_region_this_frame(ptr, size)
     }
     fn read(&self, addr: usize, out: &mut [u8]) -> bool {
-        read_bytes(addr, out)
+        read_bytes_this_frame(addr, out)
     }
     fn write(&self, addr: usize, bytes: &[u8]) -> bool {
         write_bytes(addr, bytes)

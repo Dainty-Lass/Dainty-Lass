@@ -11,6 +11,9 @@ pub const CULTURE_FLAG: &str = "DISABLE_SERVER_LOCALE_FIX";
 pub const MAX_MULTIHOME_UNITS: usize = 64;
 const MAX_IP_LITERAL_UNITS: usize = 45;
 const TAG: &str = "[MitRuntime] [CommandLine]";
+/// Switches a client carries from its OS line: the Shipping engine's allow-list drops them, and only a headless bot
+/// client (spec-runtime-sim 8) is started with them; the launcher never passes them.
+pub const CLIENT_HEADLESS_SWITCHES: [&str; 3] = ["-nullrhi", "-norenderthread", "-nothreadtimeout"];
 
 /// What the served line says about the culture.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -89,6 +92,13 @@ pub fn build_served_line(
     }
     if server && os_null_rhi && !has(&line, "-nullrhi") {
         append(&mut line, &wide("-nullrhi"));
+    }
+    if !server {
+        for switch in CLIENT_HEADLESS_SWITCHES {
+            if has(os_line, switch) && !has(&line, switch) {
+                append(&mut line, &wide(switch));
+            }
+        }
     }
     let mut notes = Vec::new();
     let mut effective = engine_multihome_in(&line);
@@ -280,13 +290,41 @@ mod tests {
     }
 
     #[test]
-    fn null_rhi_from_the_os_line_on_a_server_only() {
+    fn null_rhi_from_the_os_line() {
         let os = w("server.exe -server -nullrhi");
         let server = build_served_line(&w("server.exe -server"), &[], &os, true, false);
         assert_eq!(text(&server), "server.exe -server -NoEAC -DisableEOS -nullrhi");
         assert!(server.os_null_rhi && !server.engine_null_rhi);
         let client = build_served_line(&w("game.exe"), &[], &os, false, false);
-        assert_eq!(text(&client), "game.exe -NoEAC -DisableEOS");
+        assert_eq!(
+            text(&client),
+            "game.exe -NoEAC -DisableEOS -nullrhi",
+            "a headless bot client"
+        );
+        let bot = w("game.exe -AUTH_TYPE=exchangecode -nullrhi -norenderthread -nothreadtimeout");
+        let served = build_served_line(&w("game.exe -AUTH_TYPE=exchangecode"), &[], &bot, false, false);
+        assert_eq!(
+            text(&served),
+            "game.exe -AUTH_TYPE=exchangecode -NoEAC -DisableEOS -nullrhi -norenderthread -nothreadtimeout"
+        );
+        let player = build_served_line(
+            &w("game.exe"),
+            &[],
+            &w("game.exe -AUTH_TYPE=exchangecode"),
+            false,
+            false,
+        );
+        assert_eq!(
+            text(&player),
+            "game.exe -NoEAC -DisableEOS",
+            "a launcher's player: nothing added"
+        );
+        let server_only = build_served_line(&w("s"), &[], &w("s -norenderthread"), true, false);
+        assert_eq!(
+            text(&server_only),
+            "s -NoEAC -DisableEOS",
+            "a server keeps its own rule"
+        );
         let none = build_served_line(&w("server.exe -server"), &[], &w("server.exe -server"), true, false);
         assert!(!has(&none.line, "-nullrhi"));
         let already = build_served_line(&w("s -nullrhi"), &[], &os, true, false);

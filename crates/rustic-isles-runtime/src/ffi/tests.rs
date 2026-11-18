@@ -141,3 +141,32 @@ fn byte_write_keeps_neighbours() {
     assert!(super::reflect::write_byte(base + 15, 0x01));
     assert_eq!(words[1], 0x0100_0000_0000_0000);
 }
+
+#[test]
+fn region_cache_reads_on_the_frame_thread() {
+    // This test's thread stands in for the game thread; others fall back to plain queries
+    std::thread::spawn(|| {
+        super::memory::frame_tick(false);
+        let block = vec![9u8; 4096];
+        let address = block.as_ptr() as usize;
+        let mut out = [0u8; 8];
+        assert!(super::memory::read_bytes_this_frame(address + 8, &mut out));
+        assert_eq!(out, [9; 8]);
+        assert!(
+            super::memory::read_bytes_this_frame(address + 64, &mut out),
+            "the cached region"
+        );
+        assert!(!super::memory::read_bytes_this_frame(0, &mut out));
+        assert!(
+            !super::memory::readable_region_this_frame(16, 8),
+            "the first page is never mapped"
+        );
+        super::memory::frame_tick(true);
+        assert!(
+            super::memory::read_bytes_this_frame(address + 8, &mut out),
+            "a new epoch queries again"
+        );
+    })
+    .join()
+    .expect("join");
+}

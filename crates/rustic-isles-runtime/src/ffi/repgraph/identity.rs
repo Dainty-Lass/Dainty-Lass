@@ -1,6 +1,6 @@
 //! The game behind `core::repgraph::Game`: R0's checked reads, the liveness test, the found classes (5.1).
 
-use crate::ffi::memory::{function_entry, read_bytes, readable, readable_this_frame};
+use crate::ffi::memory::{function_entry, read_bytes_this_frame, readable_region_this_frame, readable_this_frame};
 use crate::ffi::{engine, listen, log, reflect, win};
 use rustic_isles_runtime_core::repgraph::{Class, Game, SECOND_MS};
 use rustic_isles_runtime_core::widgets::image_size;
@@ -60,13 +60,13 @@ pub struct ProcessGame;
 
 impl Game for ProcessGame {
     fn readable(&self, ptr: usize, size: usize) -> bool {
-        readable(ptr, size)
+        readable_region_this_frame(ptr, size)
     }
     fn readable_this_frame(&self, ptr: usize, size: usize) -> bool {
         readable_this_frame(ptr, size)
     }
     fn read(&self, addr: usize, out: &mut [u8]) -> bool {
-        read_bytes(addr, out)
+        read_bytes_this_frame(addr, out)
     }
     fn write_ptr(&self, addr: usize, value: usize) -> bool {
         reflect::write::<usize>(addr, value)

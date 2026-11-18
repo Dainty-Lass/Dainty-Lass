@@ -68,7 +68,7 @@ When a wrong offset table makes every name unreadable, the check fails closed: n
 
 | Command | Meaning |
 | --- | --- |
-| `bots <n> [<class>]` | keep `n` bots (`0..=64`), of pawn class `<class>` (a short class name, 1 to 128 of `A-Za-z0-9_`); without a class, the current one (default `BP_PlayerCharacter_C`) |
+| `bots <n> [<class>]` | keep `n` bots (`0..=256`), of pawn class `<class>` (a short class name, 1 to 128 of `A-Za-z0-9_`); without a class, the current one (default `BP_PlayerCharacter_C`) |
 | `clear` | `bots 0` |
 | `wander <seconds>` | a new goal for every bot each `<seconds>` (`0` off, else `1..=600`; default 5) |
 
@@ -143,9 +143,9 @@ contents, player data.
    client.
 2. Write `bots 8` to the port's file. Within 2 s: the read line and `bots 8/8 (+8)`; the client sees eight characters
    near the spawn, walking after 5 s. Note any `refused` line.
-3. `bots 32`, then `bots 64`: record `[Perf]`, `[Memory]` and the census summary at each step (the input for choosing
+3. `bots 32`, `bots 64`, `bots 128`, then `bots 256`: record `[Perf]`, `[Memory]` and the census summary at each step (the input for choosing
    what to stub).
-4. `clear`: `bots 0/0 (-64)` over 8 s; the next census's actor deltas go back down.
+4. `clear`: `bots 0/0 (-256)` over 32 s; the next census's actor deltas go back down.
 5. Disconnect the client with bots running: the frame rate stays at the active cap.
 6. If `BP_PlayerCharacter_C` crashes or misbehaves without a player state, record it, and try another pawn class with
    `bots 8 <class>` (ambiguity 1).
@@ -161,7 +161,7 @@ contents, player data.
    world's cost per player is what the census needs. Real headless clients remain the way to measure the network.
 3. **Check every parameter layout against the function's own properties.** The offsets in 2.1 are stock UE 4.26; the
    check makes a wrong one a logged refusal instead of a write past a parameter.
-4. **4 spawns and 8 removals a step**, so ramping to 64 bots takes 16 s and never stalls one frame for long.
+4. **4 spawns and 8 removals a step**, so ramping to 256 bots takes 64 s and never stalls one frame for long.
 5. **Bots keep the pacer active** so a test with no client measures the active frame rate. They do not stop R8's reaps
    (1): a stress test runs on a hub.
 
@@ -171,3 +171,29 @@ contents, player data.
    loadout, an inventory or a player state). If not, a host names another pawn class in the file.
 2. Whether hub levels carry a navigation mesh. Without one, `SimpleMoveToLocation` does nothing and bots stand still,
    which still loads ticking and replication but not movement.
+
+---
+
+## 8. Headless clients (real connections)
+
+Server-side bots load the world but not the network. For the network, real game clients run as bots on a Linux host
+(first run: `siliserve`, 2026-11-17), each with its own account; the scripts live on that host, not in the
+repository, since they name its paths and the server's address.
+
+- **Start.** Under Wine, through `dainty-inject.exe` (the launcher's helper: suspended start, the runtime loaded by
+  absolute path and hash), with the launcher's own login arguments (`launch_args`) and `DAINTY_BACKEND_URL` /
+  `RUSTIC_ISLES_BACKEND_URL` pointing straight at a private-mode gateway (the launcher's relay only rewrites `Host`
+  there). `AUTO_PRESS_START.flag` beside the game takes the client past the start screen and presses Play (R17 5).
+- **The runtime's part (R4 3.3, amended).** The Shipping engine's command-line allow-list drops `-nullrhi`,
+  `-norenderthread` and `-nothreadtimeout`; a client now carries those three from its OS line into the served line
+  (`CLIENT_HEADLESS_SWITCHES`). The launcher never passes them, so a player's line is unchanged; a server keeps its own
+  `-nullrhi` rule.
+- **What works and what does not.** With `-nullrhi` a client logs in but its front end never travels, so bots render:
+  DXVK (D3D11 to Vulkan) on the host's GPU inside a headless `gamescope`, at 1280x720 (the game refuses less). Each bot
+  needs its own Wine prefix with a Wine virtual desktop (`HKCU\Software\Wine\Explorer`): without it, the mouse capture
+  on entering the city ends the client with an X `BadWindow` error. A new account answers the in-game EULA once.
+  Clients loading at the same moment starve one another, so they start about 40 s apart.
+- **The server for a test.** `DAINTY_HUB_AFK_SECONDS` (or the AFK kick ends idle bots at 120 s) and
+  `DAINTY_HUB_MAX_PLAYERS` (4 by default) in the host's environment for the run, not in `settings.toml`.
+- **Cost.** About 2.5 to 3 GB of memory per rendering client: 8 fill a 26 GB host once 256 server bots are replicated
+  to them.
