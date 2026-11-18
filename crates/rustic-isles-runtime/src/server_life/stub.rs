@@ -21,6 +21,8 @@ struct Stub {
     particle: HashMap<usize, bool>,
     level: HashMap<usize, bool>,
     unticked: HashSet<usize>,
+    reported: Option<(u64, usize)>,
+    totals_at: Option<u64>,
 }
 
 #[derive(Clone, Copy)]
@@ -53,8 +55,17 @@ pub(super) fn step() {
             particle: HashMap::new(),
             level: HashMap::new(),
             unticked: HashSet::new(),
+            reported: None,
+            totals_at: None,
         }
     });
+    let totals = crate::ffi::packages::totals();
+    if totals.0 > 0 && stub.reported != Some(totals) && stub.totals_at.is_none_or(|at| now.saturating_sub(at) >= 60_000)
+    {
+        stub.reported = Some(totals);
+        stub.totals_at = Some(now);
+        log::line(&core::refusals_line(totals.0, totals.1));
+    }
     if !stub.enabled || !core::due(stub.start, stub.last, now) || !engine::names_enabled() {
         return;
     }

@@ -115,6 +115,10 @@ pub fn init() {
         installs.extend(player_role::install_pr1(base, hooks_off));
         installs.extend(listen);
         installs.extend(server_life);
+        installs.push((
+            "PKG-1",
+            hooks_off.map_or_else(|| crate::ffi::packages::install(base), Err),
+        ));
         installs.push(exit::install_engine_error(base, hooks_off));
         installs.push(exit::install_crash_wait());
     } else {

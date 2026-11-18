@@ -103,3 +103,72 @@ fn bool_layouts() {
         "[MitRuntime] [Stub] ActorComponent.IsActive not found: effects sweep off"
     );
 }
+
+#[test]
+fn package_rules() {
+    assert!(
+        !Rules::defaults().refuses("/Game/UI/Menus/main_menu_bpw"),
+        "nothing by default"
+    );
+    let rules = Rules::parse(
+        "/Game/UI/
+/Game/Effects/
+",
+    );
+    assert!(rules.refuses("/Game/UI/Menus/main_menu_bpw"));
+    assert!(rules.refuses("/game/effects/fire"), "no case");
+    assert!(!rules.refuses("/Game/Maps/ramsgate/ramsgate_01_persistent"));
+    assert!(!rules.refuses("/Game/UIX/thing"));
+    let list = Rules::parse(
+        "# servers
+/Game/UI/
+!/Game/UI/Data/
+  /Game/Audio/ 
+not-a-path
+! /Game/UI/Fonts/
+",
+    );
+    assert_eq!(list.refuse, ["/game/ui/", "/game/audio/"]);
+    assert_eq!(list.keep, ["/game/ui/data/", "/game/ui/fonts/"]);
+    assert!(list.refuses("/Game/UI/Menus/x"));
+    assert!(!list.refuses("/Game/UI/Data/item_icons"), "kept wins");
+    assert!(list.refuses("/Game/Audio/amb"));
+    assert!(!Rules::parse("").refuses("/Game/UI/x"));
+    let named = Rules::parse(
+        "/Game/UI/
+!encounter_marker_bpc
+",
+    );
+    assert_eq!(named.keep_names, ["encounter_marker_bpc"]);
+    assert!(
+        !named.refuses("/Game/UI/Markers/Encounter_Marker_BPC"),
+        "kept by name, any folder"
+    );
+    assert!(named.refuses("/Game/UI/Markers/encounter_marker_bpc_old"));
+}
+
+#[test]
+fn package_names() {
+    assert_eq!(long_name("/Game/UI/X").as_deref(), Some("/Game/UI/X"));
+    assert_eq!(
+        long_name("../../../Archon/Content/UI/Menus/X.uasset").as_deref(),
+        Some("/Game/UI/Menus/X")
+    );
+    assert_eq!(
+        long_name("..\\..\\Archon\\Content\\UI\\X.umap").as_deref(),
+        Some("/Game/UI/X")
+    );
+    assert_eq!(long_name("Engine/Something"), None);
+    assert_eq!(
+        packages_on_line(&Rules::defaults(), false),
+        "[MitRuntime] [Stub] packages: refusing nothing (keeping none) from the defaults"
+    );
+    assert_eq!(
+        refused_line("/Game/UI/X"),
+        "[MitRuntime] [Stub] package refused: /Game/UI/X"
+    );
+    assert_eq!(
+        refusals_line(12, 3),
+        "[MitRuntime] [Stub] packages refused so far: 12 lookups of 3 packages"
+    );
+}

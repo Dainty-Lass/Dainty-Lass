@@ -137,6 +137,127 @@ pub fn sweep_line(sweep: &Sweep, first: bool) -> Option<String> {
     })
 }
 
+// ---- 3: the package filter ----
+
+/// The flag file that installs the package filter (3.2).
+pub const PACKAGES_FLAG: &str = "RUNTIME_STUB_PACKAGES";
+/// The optional list beside the executable (3.3).
+pub const PACKAGES_FILE: &str = "rustic_isles_stub_packages.txt";
+/// The prefixes refused when the list is absent: none, since refusing whole folders stops a hub booting (3.5).
+pub const DEFAULT_REFUSED: [&str; 0] = [];
+/// Distinct refused names logged one by one; after that only the totals.
+pub const NAMED_REFUSALS: usize = 40;
+/// The longest name the filter reads, in UTF-16 units.
+pub const MAX_NAME: usize = 1024;
+
+/// Which package names are refused: a `keep` prefix wins over a `refuse` one. Compared without case.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Rules {
+    /// Refused prefixes, lower case.
+    pub refuse: Vec<String>,
+    /// Kept prefixes, lower case.
+    pub keep: Vec<String>,
+    /// Kept package names (a path's last segment), lower case.
+    pub keep_names: Vec<String>,
+}
+
+impl Rules {
+    /// The defaults (3.3).
+    pub fn defaults() -> Self {
+        Self {
+            refuse: DEFAULT_REFUSED
+                .iter()
+                .map(|prefix| prefix.to_ascii_lowercase())
+                .collect(),
+            keep: Vec::new(),
+            keep_names: Vec::new(),
+        }
+    }
+
+    /// The list's grammar: one prefix a line, `!` before a kept one, `#` comments and blank lines skipped. A kept
+    /// line without `/` is a package name, kept wherever it is; any other line not starting with `/` is ignored.
+    pub fn parse(text: &str) -> Self {
+        let mut rules = Self {
+            refuse: Vec::new(),
+            keep: Vec::new(),
+            keep_names: Vec::new(),
+        };
+        for line in text.lines().map(str::trim) {
+            if line.is_empty() || line.starts_with('#') {
+                continue;
+            }
+            let (keep, prefix) = line.strip_prefix('!').map_or((false, line), |rest| (true, rest.trim()));
+            if keep && !prefix.is_empty() && !prefix.contains('/') {
+                rules.keep_names.push(prefix.to_ascii_lowercase());
+                continue;
+            }
+            if !prefix.starts_with('/') {
+                continue;
+            }
+            let prefix = prefix.to_ascii_lowercase();
+            if keep {
+                rules.keep.push(prefix);
+            } else {
+                rules.refuse.push(prefix);
+            }
+        }
+        rules
+    }
+
+    /// Whether the long package name is refused.
+    pub fn refuses(&self, long_name: &str) -> bool {
+        let name = long_name.to_ascii_lowercase();
+        let short = name.rsplit('/').next().unwrap_or(&name);
+        self.refuse.iter().any(|prefix| name.starts_with(prefix.as_str()))
+            && !self.keep.iter().any(|prefix| name.starts_with(prefix.as_str()))
+            && !self.keep_names.iter().any(|kept| kept == short)
+    }
+}
+
+/// The long package name for what `DoesPackageExist` was given: a long name as it is, or a game content filename
+/// (`../../../Archon/Content/UI/X.uasset`) as `/Game/UI/X`. `None` for anything else.
+pub fn long_name(given: &str) -> Option<String> {
+    let given = given.replace('\\', "/");
+    if given.starts_with('/') {
+        return Some(given);
+    }
+    let lower = given.to_ascii_lowercase();
+    let at = lower.find("/content/")?;
+    let rest = &given[at + "/content/".len()..];
+    let rest = rest.rsplit_once('.').map_or(rest, |(stem, _)| stem);
+    Some(format!("/Game/{rest}"))
+}
+
+/// The install's line (3.2).
+pub fn packages_on_line(rules: &Rules, from_file: bool) -> String {
+    format!(
+        "[MitRuntime] [Stub] packages: refusing {} (keeping {}) from {}",
+        if rules.refuse.is_empty() {
+            "nothing".to_owned()
+        } else {
+            rules.refuse.join(", ")
+        },
+        if rules.keep.is_empty() && rules.keep_names.is_empty() {
+            "none".to_owned()
+        } else {
+            let mut kept = rules.keep.clone();
+            kept.extend(rules.keep_names.iter().cloned());
+            kept.join(", ")
+        },
+        if from_file { PACKAGES_FILE } else { "the defaults" },
+    )
+}
+
+/// One refused package, logged for the first `NAMED_REFUSALS` distinct names.
+pub fn refused_line(name: &str) -> String {
+    format!("[MitRuntime] [Stub] package refused: {name}")
+}
+
+/// The running totals, logged from the after handler when they changed (3.4).
+pub fn refusals_line(refusals: u64, distinct: usize) -> String {
+    format!("[MitRuntime] [Stub] packages refused so far: {refusals} lookups of {distinct} packages")
+}
+
 /// The functions the sweep calls and their parameter layouts (2.3).
 pub mod layouts {
     /// `ActorComponent.IsActive`.

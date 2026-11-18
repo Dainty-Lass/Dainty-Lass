@@ -502,6 +502,13 @@ pub const TARGETS: &[Target] = &[
         found_by: FoundBy::RvaAndBytes(&r17::EXEC_STUB_PROLOGUE),
         what: "FExec::Exec (PURE_VIRTUAL stub)",
     },
+    // spec-runtime-stub 3: the package filter on game servers
+    Target {
+        id: "PKG-1",
+        rva: stub::DOES_PACKAGE_EXIST,
+        found_by: FoundBy::RvaAndBytes(&stub::DOES_PACKAGE_EXIST_PROLOGUE),
+        what: "FPackageName::DoesPackageExist",
+    },
     // R18: the Trials schedule
     Target {
         id: "ESC-1",
@@ -951,6 +958,16 @@ pub mod exit {
 pub mod census {
     /// `UStruct.PropertiesSize` (`i32`).
     pub const USTRUCT_PROPERTIES_SIZE: usize = 0x58;
+}
+
+/// The package filter's target (spec-runtime-stub 3.1).
+pub mod stub {
+    /// `FPackageName::DoesPackageExist(const FString&, const FGuid*, FString*, bool) -> bool`.
+    pub const DOES_PACKAGE_EXIST: u32 = 0x026A_4EC0;
+    /// `mov rax,rsp; push rbp; push rdi; lea rbp,[rax-18h]; sub rsp,108h`.
+    pub const DOES_PACKAGE_EXIST_PROLOGUE: [u8; 16] = [
+        0x48, 0x8B, 0xC4, 0x55, 0x57, 0x48, 0x8D, 0x68, 0xE8, 0x48, 0x81, 0xEC, 0x08, 0x01, 0x00, 0x00,
+    ];
 }
 
 /// The simulated players' layout check (spec-runtime-sim 2.2): a function's `FProperty` chain.
