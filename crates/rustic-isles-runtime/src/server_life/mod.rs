@@ -1,10 +1,11 @@
 //! Slice R8 (spec-runtime-r8): the server's life. Frame pacing before every frame; after it, the expected-player sync,
 //! the connection count, the game-mode sample, the AFK write and the tick-side reap; the AFK write at each
 //! `K2_PostLogin`; the watchdog thread; and the one way a server ends itself. The raw calls are `ffi::server_life`.
-//! The object census (spec-runtime-census) rides the after handler and the watchdog.
+//! The object census (spec-runtime-census) and simulated players (spec-runtime-sim) ride the after handler.
 
 mod census;
 mod kick;
+mod sim;
 
 use crate::config;
 use crate::ffi::exit::Install;
@@ -204,7 +205,7 @@ fn pace(_engine: usize, _delta: f32) {
         let line = rustic_isles_runtime_core::config::pacing::frame_pace_line(max.clone(), idle.clone());
         log::line(&format!("[MitRuntime] {line}"));
     }
-    let count = CONN_COUNT.load(Ordering::Relaxed);
+    let count = sim::pacing_count(CONN_COUNT.load(Ordering::Relaxed));
     let step = pacing
         .pacer
         .step(now, win::tick(), max.0, idle.0, listen::listening(), count);
@@ -257,6 +258,7 @@ fn after_tick(_engine: usize, delta: f32) {
     count_connections(state.driver, now);
     kick::step(state.driver, now);
     census::step();
+    sim::step(world, now);
     if config::launch().is_some_and(|launch| launch.watchdog) {
         connected_step(&mut game, world, state.driver, delta, now);
     }

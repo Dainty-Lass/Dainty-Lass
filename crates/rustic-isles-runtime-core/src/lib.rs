@@ -34,6 +34,7 @@ pub mod relevance;
 pub mod repgraph;
 pub mod server_events;
 pub mod server_life;
+pub mod sim;
 pub mod travel;
 pub mod weak;
 pub mod widgets;
