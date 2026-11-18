@@ -237,13 +237,22 @@ pub fn resolve(engine: &Engine, walk: &Walk) -> Resolved {
     let packages = walk
         .outermost
         .iter()
-        .map(|(&object, &count)| (engine.object_name(object).unwrap_or_else(|| "?".to_owned()), count))
+        .map(|(&object, &count)| (package_name(engine, object), count))
         .collect();
     Resolved {
         classes,
         packages,
         sizes,
     }
+}
+
+/// An outermost object's raw name: a package's is its whole path (`/Game/Maps/...`), which `object_name`'s short form
+/// would cut to the last segment.
+fn package_name(engine: &Engine, object: usize) -> String {
+    object
+        .checked_add(layout::UOBJECT_NAME)
+        .and_then(|address| engine.fname_at(address))
+        .unwrap_or_else(|| "?".to_owned())
 }
 
 /// A package path's first two segments (3.1); a name without a leading `/` is its own folder.
