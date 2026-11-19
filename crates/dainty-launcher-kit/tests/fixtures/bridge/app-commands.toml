@@ -105,4 +105,10 @@ permissions = [
   "allow-remote-leave",
   "allow-remote-exec",
   "allow-update-launcher",
+  "allow-game-uninstall-plan",
+  "allow-game-uninstall",
+  "allow-get-playtime",
+  "allow-leave-queue",
+  "allow-crash-report-send",
+  "allow-crash-report-dismiss",
 ]

@@ -168,7 +168,11 @@ limited: boolean,
 /**
  * The game servers' economy settings, when the server sends any; absent from Node's and older servers'.
  */
-economy?: StatusEconomy, };
+economy?: StatusEconomy, 
+/**
+ * The oldest launcher the server lets play, when it sets one; absent from Node's and older servers'.
+ */
+minLauncherVersion?: string, };
 /**
  * A language the backend's text is written in.
  */
@@ -184,7 +188,7 @@ export type RuntimeProfile = "production" | "development";
 /**
  * Where the launcher is in getting the player into the game.
  */
-export type Phase = "loading" | "join" | "connect" | "register" | "locate" | "runtime" | "installing" | "ready" | "running";
+export type Phase = "loading" | "join" | "connect" | "register" | "locate" | "runtime" | "installing" | "ready" | "running" | "launcher_too_old";
 /**
  * Why the server could not be reached.
  */
@@ -192,7 +196,7 @@ export type ConnectProblem = "tailscale_missing" | "unreachable" | "bad_answer" 
 /**
  * What is wrong with the chosen game folder.
  */
-export type GameProblem = "not_set" | "not_found" | "unverified" | "wrong_version";
+export type GameProblem = "not_set" | "not_found" | "unverified" | "wrong_version" | "wrong_build" | "missing_archon" | "revived";
 /**
  * The game a server runs.
  */
@@ -208,7 +212,7 @@ export type RuntimeState = "ok" | "missing" | "outdated" | "untrusted" | "unavai
 /**
  * Why a bridge command failed. The page shows each code as its catalog sentence (`errors.<code>`).
  */
-export type ErrorCode = "account_banned" | "invite_invalid_format" | "invite_invalid" | "username_invalid" | "username_taken" | "registration_closed" | "bad_request" | "server_unreachable" | "server_error" | "key_invalid" | "key_rejected" | "key_storage_unavailable" | "folder_invalid" | "game_folder_not_found" | "game_wrong_version" | "runtime_unavailable" | "runtime_untrusted" | "runtime_failed" | "runtime_different_on_server" | "runtime_in_use" | "local_runtime_invalid" | "download_failed" | "disk_space" | "already_running" | "launch_failed" | "compat_runtime_missing" | "config_failed" | "busy" | "cancelled" | "cert_mismatch" | "cert_changed" | "rate_limited" | "relay_port_busy" | "relay_failed" | "loader_leftovers" | "host_failed" | "manifest_mismatch" | "no_content_server" | "file_missing_on_server" | "file_different_on_server" | "dll_failed" | "game_files_invalid" | "windows_runtime_missing" | "folder_other_game" | "folder_not_empty" | "edition_other" | "epic_signed_out" | "epic_library_failed" | "epic_not_owned" | "not_implemented" | "not_in_this_build" | "epic_code_invalid" | "epic_rejected" | "epic_unreachable" | "epic_failed" | "game_version_unknown" | "game_version_unavailable" | "epic_manifest_unavailable" | "guarded_not_found" | "guarded_not_waiting" | "server_stopped" | "module_unknown" | "module_bad_state" | "module_input_invalid" | "module_settings_invalid" | "module_failed" | "history_bad_filter" | "history_unavailable" | "history_plan_changed" | "history_failed" | "realm_unavailable" | "realm_not_found" | "realm_failed" | "inject_helper_missing" | "unknown" | "server_dns_failed" | "server_refused" | "server_timed_out" | "server_tls_failed";
+export type ErrorCode = "account_banned" | "invite_invalid_format" | "invite_invalid" | "username_invalid" | "username_taken" | "registration_closed" | "bad_request" | "server_unreachable" | "server_error" | "key_invalid" | "key_rejected" | "key_storage_unavailable" | "folder_invalid" | "game_folder_not_found" | "game_wrong_version" | "runtime_unavailable" | "runtime_untrusted" | "runtime_failed" | "runtime_different_on_server" | "runtime_in_use" | "local_runtime_invalid" | "download_failed" | "disk_space" | "already_running" | "launch_failed" | "compat_runtime_missing" | "config_failed" | "busy" | "cancelled" | "cert_mismatch" | "cert_changed" | "rate_limited" | "relay_port_busy" | "relay_failed" | "loader_leftovers" | "host_failed" | "manifest_mismatch" | "no_content_server" | "file_missing_on_server" | "file_different_on_server" | "dll_failed" | "game_files_invalid" | "windows_runtime_missing" | "folder_other_game" | "folder_not_empty" | "edition_other" | "epic_signed_out" | "epic_library_failed" | "epic_not_owned" | "not_implemented" | "not_in_this_build" | "epic_code_invalid" | "epic_rejected" | "epic_unreachable" | "epic_failed" | "game_version_unknown" | "game_version_unavailable" | "epic_manifest_unavailable" | "guarded_not_found" | "guarded_not_waiting" | "server_stopped" | "module_unknown" | "module_bad_state" | "module_input_invalid" | "module_settings_invalid" | "module_failed" | "history_bad_filter" | "history_unavailable" | "history_plan_changed" | "history_failed" | "realm_unavailable" | "realm_not_found" | "realm_failed" | "inject_helper_missing" | "game_missing_archon" | "game_wrong_build" | "game_revived" | "game_path_too_long" | "launcher_too_old" | "launcher_update_failed" | "unknown" | "server_dns_failed" | "server_refused" | "server_timed_out" | "server_tls_failed";
 /**
  * A notice the page shows after an action succeeds, by catalog key.
  */
@@ -516,7 +520,11 @@ showGameConsole: boolean,
 /**
  * Under Proton, load the runtime with the `dainty-inject.exe` helper rather than the runtime loader.
  */
-injectHelper: boolean, };
+injectHelper: boolean, 
+/**
+ * Whether a game crash's report goes to the server.
+ */
+crashReports: CrashReports, };
 /**
  * The connection's state.
  */
@@ -672,7 +680,15 @@ lastError: LauncherError | null,
 /**
  * The last notice, until dismissed.
  */
-notice: NoticeCode | null, };
+notice: NoticeCode | null, 
+/**
+ * PLAY's place in the server's login queue (1 is next), while it waits there.
+ */
+queuePosition: number | null, 
+/**
+ * The last game crash's report, until dismissed.
+ */
+crash: CrashOffer | null, };
 /**
  * One news post.
  */
@@ -2129,6 +2145,26 @@ bytes: number,
  * The install made the folder, so all of it goes; otherwise only the game's files and the launcher's own.
  */
 wholeFolder: boolean, };
+/**
+ * Whether a game crash's report goes to the joined server. Off unless the player chooses.
+ */
+export type CrashReports = "never" | "ask" | "always";
+/**
+ * Where the last crash's report is.
+ */
+export type CrashOfferState = "ask" | "sending" | "sent" | "rate_limited" | "failed";
+/**
+ * A game crash the page tells the player about.
+ */
+export type CrashOffer = { 
+/**
+ * The game's crash folder name.
+ */
+id: string, 
+/**
+ * Its report's state.
+ */
+state: CrashOfferState, };
 export type GraphicsPreset = -1 | 0 | 1 | 2 | 3 | 4;
 export type ActionResult = { ok: true } | { ok: false; error: LauncherError };
 export type InviteCheck = { ok: true; certificateChanged: boolean; previousFingerprint: string | null; movedFrom: string | null } | { ok: false; error: LauncherError };
@@ -2154,4 +2190,4 @@ export type RemoteStatusOutcome = { ok: true; status: RemoteStatusView } | { ok:
 export type RemoteInviteOutcome = { ok: true; invite: RemoteInviteView } | { ok: false; error: LauncherError };
 export type RemoteExecOutcome = { ok: true; result: RemoteExecView } | { ok: false; error: LauncherError };
 export type UninstallOutcome = { ok: true; plan: UninstallPlan } | { ok: false; error: LauncherError };
-export type CommandName = "get_snapshot" | "check_invite" | "submit_invite" | "retry_connect" | "forget_server" | "switch_server" | "remove_saved_server" | "register" | "use_existing_key" | "import_key_file" | "save_key_backup" | "dismiss_backup_offer" | "choose_game_folder" | "use_game_path" | "use_detected_game" | "verify_game" | "revived_install" | "revived_choose_folder" | "revived_use_detected" | "trust_runtime" | "install_runtime" | "choose_local_runtime" | "clear_local_runtime" | "cancel_task" | "play" | "set_settings" | "set_status_polling" | "refresh_status" | "get_news" | "get_branding" | "open_external" | "open_game_folder" | "open_logs_folder" | "logout" | "install_update" | "host_get" | "host_choose_workspace" | "host_choose_dumper" | "host_import_gamedata" | "host_import_sdk_folder" | "host_download_project" | "host_action" | "host_open" | "host_server_get" | "host_server_start" | "host_server_stop" | "host_server_restart" | "host_setup" | "host_create_invite" | "host_update" | "host_set_multipliers" | "copy_text" | "take_invite_link" | "game_log_get" | "dismiss_notice" | "dismiss_error" | "subscribe_progress" | "epic_sign_in_start" | "epic_sign_in_code" | "epic_get" | "epic_sign_out" | "epic_library_check" | "game_version_list" | "game_install_start" | "game_install_pause" | "game_install_resume" | "game_install_cancel" | "game_install_get" | "game_install_choose_folder" | "game_install_discard" | "region_ping" | "module_list" | "module_get" | "module_run_command" | "module_set_settings" | "module_load" | "module_unload" | "realm_host" | "realm_join" | "realm_stop" | "realm_get" | "history_query" | "history_revert_dry_run" | "history_revert_apply" | "guarded_list" | "guarded_approve" | "guarded_cancel" | "server_doctor" | "server_backup" | "server_config_get" | "server_config_save" | "server_migrate_mongo" | "server_confirm_fresh_start" | "server_invite_list" | "admin_action" | "remote_status" | "remote_init_controller" | "remote_invite" | "remote_enroll" | "remote_revoke" | "remote_leave" | "remote_exec" | "game_uninstall_plan" | "game_uninstall";
+export type CommandName = "get_snapshot" | "check_invite" | "submit_invite" | "retry_connect" | "forget_server" | "switch_server" | "remove_saved_server" | "register" | "use_existing_key" | "import_key_file" | "save_key_backup" | "dismiss_backup_offer" | "choose_game_folder" | "use_game_path" | "use_detected_game" | "verify_game" | "revived_install" | "revived_choose_folder" | "revived_use_detected" | "trust_runtime" | "install_runtime" | "choose_local_runtime" | "clear_local_runtime" | "cancel_task" | "play" | "set_settings" | "set_status_polling" | "refresh_status" | "get_news" | "get_branding" | "open_external" | "open_game_folder" | "open_logs_folder" | "logout" | "install_update" | "host_get" | "host_choose_workspace" | "host_choose_dumper" | "host_import_gamedata" | "host_import_sdk_folder" | "host_download_project" | "host_action" | "host_open" | "host_server_get" | "host_server_start" | "host_server_stop" | "host_server_restart" | "host_setup" | "host_create_invite" | "host_update" | "host_set_multipliers" | "copy_text" | "take_invite_link" | "game_log_get" | "dismiss_notice" | "dismiss_error" | "subscribe_progress" | "epic_sign_in_start" | "epic_sign_in_code" | "epic_get" | "epic_sign_out" | "epic_library_check" | "game_version_list" | "game_install_start" | "game_install_pause" | "game_install_resume" | "game_install_cancel" | "game_install_get" | "game_install_choose_folder" | "game_install_discard" | "region_ping" | "module_list" | "module_get" | "module_run_command" | "module_set_settings" | "module_load" | "module_unload" | "realm_host" | "realm_join" | "realm_stop" | "realm_get" | "history_query" | "history_revert_dry_run" | "history_revert_apply" | "guarded_list" | "guarded_approve" | "guarded_cancel" | "server_doctor" | "server_backup" | "server_config_get" | "server_config_save" | "server_migrate_mongo" | "server_confirm_fresh_start" | "server_invite_list" | "admin_action" | "remote_status" | "remote_init_controller" | "remote_invite" | "remote_enroll" | "remote_revoke" | "remote_leave" | "remote_exec" | "update_launcher" | "game_uninstall_plan" | "game_uninstall" | "get_playtime" | "leave_queue" | "crash_report_send" | "crash_report_dismiss";

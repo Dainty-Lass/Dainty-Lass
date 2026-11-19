@@ -225,7 +225,7 @@ pub async fn upload_crash_report(endpoint: &Endpoint, key: &str, bundle: Vec<u8>
             400 | 413 => ErrorCode::BadRequest,
             _ => ErrorCode::ServerError,
         })),
-        Err(err) => Err(account_error(&err)),
+        Err(err) => Err(logged_failure(endpoint, UPLOAD_PATH, &err)),
     }
 }
 
@@ -275,7 +275,7 @@ fn queue_options(method: Method, endpoint: &Endpoint, key: &str) -> RequestOptio
 pub async fn join_queue(endpoint: &Endpoint, key: &str) -> Result<QueueReply, LauncherError> {
     match request(endpoint, LOGIN_QUEUE_PATH, queue_options(Method::POST, endpoint, key)).await {
         Ok(res) => parse::queue_reply(res.status, &res.body),
-        Err(err) => Err(account_error(&err)),
+        Err(err) => Err(logged_failure(endpoint, LOGIN_QUEUE_PATH, &err)),
     }
 }
 
