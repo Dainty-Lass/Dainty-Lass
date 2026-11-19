@@ -454,5 +454,10 @@
   "proton": {
     "injectHelper": "Carregar o runtime com o auxiliar de injeção",
     "injectHelperHint": "Só no Proton. Ligado, um pequeno auxiliar carrega o runtime no jogo, como o launcher do Windows faz. Desligado, o carregador do runtime (winmm.dll) ao lado do jogo o carrega. O launcher instala o que cada um precisa antes da próxima vez que o jogo abrir."
+  },
+  "queue": {
+    "position": "Você é o número {position} na fila",
+    "hint": "O servidor está cheio. Mantenha o launcher aberto: o jogo começa quando abrir uma vaga.",
+    "leave": "Sair da fila"
   }
 }

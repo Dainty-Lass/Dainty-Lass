@@ -34,6 +34,7 @@ pub mod notices;
 pub mod observe;
 pub mod operations;
 pub mod probes;
+pub mod queue;
 mod seams;
 pub mod state;
 #[cfg(feature = "test-support")]
@@ -53,7 +54,7 @@ pub use state::{LauncherApiState, MatchmakingCandidates, MatchmakingPresence};
 
 use Method::{Delete, Get, Patch, Post, Put};
 
-/// The public half's 44 rows (§1.2), at the route table's exact paths.
+/// The public half's 46 rows (§1.2), at the route table's exact paths.
 pub fn register_public(handlers: &mut Handlers) {
     let b = Service::Backend;
     let admin = |h: &mut Handlers, method: Method, path: &'static str, run: AdminHandler| {
@@ -75,6 +76,8 @@ pub fn register_public(handlers: &mut Handlers) {
             "/dainty/api/RegistrationStatus",
             launcher_api::registration_status,
         )
+        .on(b, Post, "/dainty/api/LoginQueue", queue::join)
+        .on(b, Delete, "/dainty/api/LoginQueue", queue::leave)
         .on(
             b,
             Get,

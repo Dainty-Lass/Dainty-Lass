@@ -184,6 +184,10 @@ pub(crate) struct State {
     pub(crate) shutting_down: bool,
     pub(crate) game_log: VecDeque<String>,
     pub(crate) host: HostFlags,
+    /// PLAY's place in the server's login queue, while it waits there.
+    pub(crate) queue_position: Option<u32>,
+    /// Ends that wait (`leave_queue`).
+    pub(crate) queue_leave: Option<CancellationToken>,
 }
 
 /// The Host page's flags the controller keeps (§2.4.2).
@@ -246,6 +250,8 @@ impl State {
             shutting_down: false,
             game_log: VecDeque::new(),
             host: HostFlags::default(),
+            queue_position: None,
+            queue_leave: None,
         }
     }
 
@@ -569,6 +575,7 @@ impl Controller {
             status_unsupported: state.status_unsupported,
             last_error: state.last_error.clone(),
             notice: state.notice,
+            queue_position: state.queue_position,
         }
     }
 

@@ -202,6 +202,11 @@ pub async fn play(c: Ctl<'_>) -> Answer<ActionResult> {
 }
 
 #[tauri::command]
+pub fn leave_queue(c: Ctl<'_>) {
+    c.leave_queue();
+}
+
+#[tauri::command]
 pub async fn set_settings(c: Ctl<'_>, patch: Value) -> Answer<Settings> {
     Ok(c.set_settings(checks::settings_patch(&patch)).await)
 }

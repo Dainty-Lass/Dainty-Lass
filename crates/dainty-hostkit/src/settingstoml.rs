@@ -253,6 +253,7 @@ const BACKEND: &[Field] = &[
     ("huntGoNowMinMs", "hunt_go_now_min_ms", false),
     ("huntGoNowMaxMs", "hunt_go_now_max_ms", false),
     ("xmppCapture", "xmpp_capture", false),
+    ("maxOnlinePlayers", "max_online_players", false),
 ];
 
 const DIRECTOR: &[Field] = &[
@@ -866,6 +867,9 @@ fn comment(path: &str) -> &'static str {
         "backend.hunt_go_now_min_ms" => "The least wait before a hunt's Go Now starts it, 1 to 600000 ms (1).",
         "backend.hunt_go_now_max_ms" => "The most wait before a hunt's Go Now starts it, 1 to 600000 ms (1000).",
         "backend.xmpp_capture" => "true: the chat server records its traffic for debugging (false).",
+        "backend.max_online_players" => {
+            "Players online at once, 1 to 10000; past it, PLAY waits in a queue. Left out: no limit, no queue."
+        }
         "director" => "The Director (RD24). Left out: what setup has always written.",
         "director.log_level" => "\"debug\", \"info\" (default), \"warn\" or \"error\".",
         "director.gameserver_startup_gap_seconds" => "Seconds between two game server starts, 0 to 600 (3).",

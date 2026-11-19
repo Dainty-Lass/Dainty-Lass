@@ -88,6 +88,7 @@ pub struct LauncherApiState {
     presence: RwLock<Option<Arc<dyn MatchmakingPresence>>>,
     candidates: RwLock<Option<Arc<dyn MatchmakingCandidates>>>,
     admin: std::sync::OnceLock<Arc<crate::admin::LauncherApiAdmin>>,
+    login_queue: Mutex<crate::queue::LoginQueue>,
 }
 
 impl std::fmt::Debug for LauncherApiState {
@@ -124,6 +125,7 @@ impl LauncherApiState {
             presence: RwLock::new(None),
             candidates: RwLock::new(None),
             admin: std::sync::OnceLock::new(),
+            login_queue: Mutex::new(crate::queue::LoginQueue::default()),
         }
     }
 
@@ -135,6 +137,11 @@ impl LauncherApiState {
     /// The module's state, or a fresh one when the composer put none in the slots (each call then starts over).
     pub fn of(shared: &Shared) -> Arc<Self> {
         shared.slot::<Self>().unwrap_or_else(|| Arc::new(Self::new()))
+    }
+
+    /// The login queue (`queue.rs`).
+    pub fn login_queue(&self) -> std::sync::MutexGuard<'_, crate::queue::LoginQueue> {
+        lock(&self.login_queue)
     }
 
     /// The module's metrics.

@@ -161,6 +161,42 @@ pub fn user_info_reply(status: u16, body: &[u8]) -> Result<UserInfo, LauncherErr
     }
 }
 
+/// Where the login queue put the player.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum QueueReply {
+    /// Go ahead and play.
+    Admitted,
+    /// Waiting, 1 being next.
+    Waiting(u32),
+}
+
+/// The login queue route's reply. A server or gateway without the route (404, 405, a 403 that is no account
+/// refusal) has no queue, so PLAY goes ahead.
+pub fn queue_reply(status: u16, body: &[u8]) -> Result<QueueReply, LauncherError> {
+    let json = json_body(body);
+    let obj = json.as_ref().and_then(Value::as_object);
+    let error = obj.and_then(|o| o.get("error")).and_then(Value::as_str);
+    match status {
+        200 => match (
+            obj.and_then(|o| o.get("admitted")),
+            obj.and_then(|o| o.get("position")).and_then(Value::as_u64),
+        ) {
+            (Some(Value::Bool(true)), _) => Ok(QueueReply::Admitted),
+            (Some(Value::Bool(false)), Some(place)) if place >= 1 => {
+                Ok(QueueReply::Waiting(u32::try_from(place).unwrap_or(u32::MAX)))
+            }
+            _ => Err(LauncherError::new(ErrorCode::ServerError)),
+        },
+        401 => Err(LauncherError::new(ErrorCode::KeyRejected)),
+        403 if matches!(error, Some("account_banned" | "account_disabled")) => {
+            Err(LauncherError::new(ErrorCode::AccountBanned))
+        }
+        403..=405 => Ok(QueueReply::Admitted),
+        429 => Err(LauncherError::new(ErrorCode::RateLimited)),
+        _ => Err(LauncherError::new(ErrorCode::ServerError)),
+    }
+}
+
 /// Removes unsafe characters, collapses whitespace runs to a space, trims and cuts to `max_units` UTF-16 units.
 fn clean_units(value: &str, max_units: usize) -> String {
     let mut collapsed = String::with_capacity(value.len());

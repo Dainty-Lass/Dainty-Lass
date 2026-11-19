@@ -10,6 +10,7 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use dainty_protocol::invite::ServerMode;
+use tokio_util::sync::CancellationToken;
 
 use super::platform::{PreparedGame, RelayOwner};
 use super::stored::{StoredServer, mode_name};
@@ -17,7 +18,7 @@ use super::{Controller, game_language_code};
 use crate::bridge::types::{ActionResult, ErrorCode, LauncherError, RuntimeState};
 use crate::core::game_language;
 use crate::core::pins::EXE_NAME;
-use crate::net::hostapi::{self, UserInfo};
+use crate::net::hostapi::{self, QueueReply, UserInfo};
 use crate::net::relay::{LogSink, PinSink, Relay, RelayConfig, RelayError};
 use crate::net::relay_owner::game_owner_check;
 use crate::net::runtime_files::{
@@ -84,6 +85,9 @@ impl Controller {
             }
         };
         self.lock().key_refused = false;
+        if !self.wait_in_line(server, &key).await? {
+            return Ok(());
+        }
 
         let win64 = self.checked_game().await?;
 
@@ -148,6 +152,43 @@ impl Controller {
             return Err(failed);
         }
         Ok(())
+    }
+
+    /// The server's login queue: true once admitted, false when the player left the line. A rate limit only
+    /// skips a poll; the place is kept.
+    async fn wait_in_line(&self, server: &StoredServer, key: &str) -> Result<bool, LauncherError> {
+        let endpoint = server.endpoint();
+        let leave = CancellationToken::new();
+        self.lock().queue_leave = Some(leave.clone());
+        let every = self.shared.seams.queue_poll;
+        let outcome = loop {
+            match hostapi::join_queue(&endpoint, key).await {
+                Ok(QueueReply::Admitted) => break Ok(true),
+                Ok(QueueReply::Waiting(position)) => {
+                    let changed = self.lock().queue_position.replace(position) != Some(position);
+                    if changed {
+                        log::info(format!("waiting in the server's login queue at place {position}"));
+                        self.publish();
+                    }
+                }
+                Err(refused) if refused.code == ErrorCode::RateLimited => {}
+                Err(refused) => break Err(refused),
+            }
+            tokio::select! {
+                () = leave.cancelled() => {
+                    if !hostapi::leave_queue(&endpoint, key).await {
+                        log::warn("the server did not confirm leaving its login queue");
+                    }
+                    log::info("left the server's login queue");
+                    break Ok(false);
+                }
+                () = tokio::time::sleep(every) => {}
+            }
+        };
+        let mut state = self.lock();
+        state.queue_position = None;
+        state.queue_leave = None;
+        outcome
     }
 
     /// The runtimes to load into the game, the MIT one first (RT-5): the installed files, with the hashes of the

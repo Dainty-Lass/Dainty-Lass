@@ -209,6 +209,8 @@ pub struct Seams {
     pub host_tool: Option<HostTool>,
     /// How long a stopped Host page server gets before its processes are ended.
     pub host_stop_timeout: Duration,
+    /// How often PLAY asks the login queue for its place.
+    pub queue_poll: Duration,
 }
 
 impl Default for Seams {
@@ -223,6 +225,8 @@ impl Default for Seams {
             relay_owner: RelayOwner::Game,
             host_tool: None,
             host_stop_timeout: crate::platform::hostserver::STOP_TIMEOUT,
+            // The server forgets a place not polled for 30 s (rustic-isles-launcher-api `queue.rs`)
+            queue_poll: Duration::from_secs(5),
         }
     }
 }

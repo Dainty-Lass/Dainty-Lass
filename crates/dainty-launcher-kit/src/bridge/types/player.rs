@@ -554,6 +554,8 @@ pub struct Snapshot {
     pub last_error: Option<LauncherError>,
     /// The last notice, until dismissed.
     pub notice: Option<NoticeCode>,
+    /// PLAY's place in the server's login queue (1 is next), while it waits there.
+    pub queue_position: Option<u32>,
 }
 
 /// One news post.

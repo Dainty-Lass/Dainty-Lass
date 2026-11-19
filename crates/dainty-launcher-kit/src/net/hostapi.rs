@@ -21,7 +21,8 @@ pub mod parse;
 mod tests;
 
 pub use parse::{
-    Background, Branding, BrandingImage, ImageType, NewsItem, StatusReply, UserInfo, is_branding_path, sniff_image,
+    Background, Branding, BrandingImage, ImageType, NewsItem, QueueReply, StatusReply, UserInfo, is_branding_path,
+    sniff_image,
 };
 
 /// Header that carries the account key (`DLK_...`) to the server it was made for.
@@ -30,6 +31,8 @@ pub const KEY_HEADER: &str = "x-dainty-user-api-key";
 pub const PROBE_PATH: &str = "/dauntless-status";
 /// The account lookup route.
 pub const USER_INFO_PATH: &str = "/dainty/api/GetUserInfo";
+/// The login queue: POST joins or polls it, DELETE leaves.
+pub const LOGIN_QUEUE_PATH: &str = "/dainty/api/LoginQueue";
 /// The content server's news.
 pub const NEWS_PATH: &str = "/content/v1/news";
 /// The content server's branding index.
@@ -44,6 +47,8 @@ const REGISTER_TIMEOUT: Duration = Duration::from_secs(20);
 const REGISTER_MAX_BYTES: usize = 64 * KIB;
 const USER_INFO_TIMEOUT: Duration = Duration::from_secs(10);
 const USER_INFO_MAX_BYTES: usize = 64 * KIB;
+const QUEUE_TIMEOUT: Duration = Duration::from_secs(10);
+const QUEUE_MAX_BYTES: usize = 4 * KIB;
 const MANIFEST_TIMEOUT: Duration = Duration::from_secs(10);
 const MANIFEST_MAX_BYTES: usize = 64 * KIB;
 const NEWS_TIMEOUT: Duration = Duration::from_secs(10);
@@ -186,6 +191,28 @@ pub async fn fetch_user_info(endpoint: &Endpoint, key: &str) -> Result<UserInfo,
         Ok(res) => parse::user_info_reply(res.status, &res.body),
         Err(err) => Err(account_error(&err)),
     }
+}
+
+fn queue_options(method: Method, endpoint: &Endpoint, key: &str) -> RequestOptions {
+    RequestOptions {
+        method,
+        ..get(QUEUE_TIMEOUT, QUEUE_MAX_BYTES, key_headers(endpoint, Some(key)))
+    }
+}
+
+/// Joins the server's login queue, or polls the place already held.
+pub async fn join_queue(endpoint: &Endpoint, key: &str) -> Result<QueueReply, LauncherError> {
+    match request(endpoint, LOGIN_QUEUE_PATH, queue_options(Method::POST, endpoint, key)).await {
+        Ok(res) => parse::queue_reply(res.status, &res.body),
+        Err(err) => Err(account_error(&err)),
+    }
+}
+
+/// Gives up the place in line; the server frees a place nobody polls anyway, so a failure is only logged.
+pub async fn leave_queue(endpoint: &Endpoint, key: &str) -> bool {
+    request(endpoint, LOGIN_QUEUE_PATH, queue_options(Method::DELETE, endpoint, key))
+        .await
+        .is_ok_and(|res| res.status == 204)
 }
 
 /// The server's runtime manifest; it is public, so no key is sent.

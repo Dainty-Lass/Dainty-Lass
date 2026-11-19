@@ -12,7 +12,7 @@ date and the commit reviewed. An item that does not hold is a bug to fix first, 
 
 ## What it is and where the boundary is
 
-The crate answers 62 backend rows (44 public, 18 admin) inside the Rustic Isles backend (port 61000), which listens on
+The crate answers 66 backend rows (46 public, 20 admin) inside the Rustic Isles backend (port 61000), which listens on
 loopback behind the gateway. The gateway refuses `/admin` and the host-only `/dainty/api/*` prefixes from outside
 (core's `HOST_ONLY_PREFIXES`); the admin API is off unless `RUSTIC_ISLES_ADMIN_API` or `RUSTIC_ISLES_MANAGER_ADMIN`
 is on (core §6.3).
@@ -73,6 +73,9 @@ Fuzz targets in `fuzz`: `rustic_isles_launcher_api_guard`, `rustic_isles_launche
       10.0.0.5).
 - [ ] The sync routes need their own token; every operator view (logs, notices, operations, activity, Guard) runs
       inside the admin wrapper.
+- [ ] The login queue (`queue.rs`) places only an eligible key holder, by its own userId, so one key holds one place;
+      a place nobody polls for 30 s and a seat held 3 minutes are freed on the next call, so the line cannot be
+      filled and left. With no `DAINTY_MAX_ONLINE_PLAYERS` it keeps nothing and admits everyone.
 
 ### Known weak spots (kept as parity; listed for the maintainer)
 

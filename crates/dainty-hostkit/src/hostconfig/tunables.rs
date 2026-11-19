@@ -143,6 +143,8 @@ const BACKEND: &[Setting] = &[
     ranged("huntGoNowMinMs", "HUNT_GO_NOW_MIN_DELAY_MS", 1, TEN_MINUTES_MS),
     ranged("huntGoNowMaxMs", "HUNT_GO_NOW_MAX_DELAY_MS", 1, TEN_MINUTES_MS),
     of("xmppCapture", "REALTIME_XMPP_CAPTURE", Kind::Switch),
+    // The login queue's cap (rustic-isles-launcher-api `queue.rs`); left out, no queue
+    ranged("maxOnlinePlayers", "DAINTY_MAX_ONLINE_PLAYERS", 1, 10_000),
 ];
 
 const DIRECTOR: &[Setting] = &[

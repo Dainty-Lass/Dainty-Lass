@@ -454,5 +454,10 @@
   "proton": {
     "injectHelper": "Load the runtime with the inject helper",
     "injectHelperHint": "Proton only. On, a small helper loads the runtime into the game, as the Windows launcher does. Off, the runtime loader (winmm.dll) beside the game loads it. The launcher installs what each one needs before the next launch."
+  },
+  "queue": {
+    "position": "You're number {position} in line",
+    "hint": "The server is full. Keep the launcher open: the game starts when a place opens up.",
+    "leave": "Leave queue"
   }
 }

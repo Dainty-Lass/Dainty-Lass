@@ -104,4 +104,5 @@ permissions = [
   "allow-remote-revoke",
   "allow-remote-leave",
   "allow-remote-exec",
+  "allow-leave-queue",
 ]

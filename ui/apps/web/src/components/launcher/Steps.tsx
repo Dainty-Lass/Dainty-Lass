@@ -346,9 +346,12 @@ export function TaskStep({ task }: { task: TaskProgress | null }) {
 
 export function ReadyStep({ snapshot }: { snapshot: Snapshot }) {
   const t = useTranslations("launcher.ready");
+  const tq = useTranslations("launcher.queue");
   const { api } = useBridge();
   const act = useAct();
   const running = snapshot.phase === "running";
+  // PLAY is waiting in the server's login queue
+  const place = running ? null : snapshot.queuePosition;
   return (
     <Stack gap={4}>
       {snapshot.account.offerBackup && (
@@ -370,22 +373,40 @@ export function ReadyStep({ snapshot }: { snapshot: Snapshot }) {
       )}
       <Stack direction="horizontal" gap={3} align="center" justify="between" wrap="wrap">
         <Stack gap={1}>
-          <Heading level={2}>{running ? t("running") : t("title")}</Heading>
+          <Heading level={2}>
+            {place !== null
+              ? tq("position", { position: place })
+              : running
+                ? t("running")
+                : t("title")}
+          </Heading>
           <Text type="supporting">
-            {running
-              ? t("runningHint", { port: snapshot.running.relayPort ?? 0 })
-              : t("description")}
+            {place !== null
+              ? tq("hint")
+              : running
+                ? t("runningHint", { port: snapshot.running.relayPort ?? 0 })
+                : t("description")}
           </Text>
         </Stack>
-        <Button
-          label={running ? t("playing") : t("play")}
-          variant="primary"
-          size="lg"
-          width={220}
-          icon={<Play size={18} />}
-          isDisabled={running || snapshot.busy}
-          clickAction={async () => void (await act(() => api!.play()))}
-        />
+        {place !== null ? (
+          <Button
+            label={tq("leave")}
+            variant="secondary"
+            size="lg"
+            width={220}
+            onClick={() => void api?.leaveQueue()}
+          />
+        ) : (
+          <Button
+            label={running ? t("playing") : t("play")}
+            variant="primary"
+            size="lg"
+            width={220}
+            icon={<Play size={18} />}
+            isDisabled={running || snapshot.busy}
+            clickAction={async () => void (await act(() => api!.play()))}
+          />
+        )}
       </Stack>
     </Stack>
   );

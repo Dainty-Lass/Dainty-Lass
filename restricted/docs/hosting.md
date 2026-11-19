@@ -242,6 +242,7 @@ log_level = "debug"
 | `[backend]` `transaction_max_commit_ms` | `MONGODB_TRANSACTION_MAX_COMMIT_TIME_MS` | 1–600000 (`--features paradox` builds) | 15000 |
 | `[backend]` `hunt_go_now_min_ms`, `hunt_go_now_max_ms` | `HUNT_GO_NOW_MIN_DELAY_MS`, `HUNT_GO_NOW_MAX_DELAY_MS` | 1–600000, min no more than max | 1, 1000 |
 | `[backend]` `xmpp_capture` | `REALTIME_XMPP_CAPTURE` | `true`, `false` | `false` |
+| `[backend]` `max_online_players` | `DAINTY_MAX_ONLINE_PLAYERS` | 1–10000: past it, PLAY waits in a first-come queue and the launcher shows the player's place | unset: no limit, no queue |
 | `[director]` `log_level` | `LOG_LEVEL` | `debug`, `info`, `warn`, `error` | `info` |
 | `[director]` `gameserver_startup_gap_seconds` | `SECONDS_TO_WAIT_BETWEEN_GAMESERVER_STARTUP` | 0–600 | 3 |
 | `[director]` `gameserver_ready_timeout_ms` | `GAMESERVER_READY_TIMEOUT_MS` | 1000–600000 | 30000 (90000 on Linux) |

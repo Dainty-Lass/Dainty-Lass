@@ -14,6 +14,7 @@ pub const PUBLIC_LAUNCHER_API: &[(&str, &[&str])] = &[
     ("getuserinfo", &["GET", "HEAD"]),
     ("serverstatus", &["GET", "HEAD"]),
     ("registrationstatus", &["GET", "HEAD"]),
+    ("loginqueue", &["POST", "DELETE"]),
 ];
 
 /// The backend's admin and launcher APIs, metrics and probes: never from off this machine, but for
@@ -602,7 +603,7 @@ mod tests {
         assert!(proxied(&decide("GET", "/dainty/api/ServerStatus")));
     }
 
-    /// The backend's own route table (spec section 5.5): exactly the first four are public.
+    /// The backend's own route table (spec section 5.5): exactly the first four and the login queue are public.
     #[test]
     fn backend_reforged_api_routes() {
         let routes = [
@@ -610,6 +611,8 @@ mod tests {
             ("GET", "GetUserInfo", true),
             ("GET", "ServerStatus", true),
             ("GET", "RegistrationStatus", true),
+            ("POST", "LoginQueue", true),
+            ("DELETE", "LoginQueue", true),
             ("POST", "CreateInvite", false),
             ("GET", "InviteCodes", false),
             ("DELETE", "InviteCode/ABCD-EFGH-JKMN", false),

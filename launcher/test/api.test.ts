@@ -131,6 +131,7 @@ const methodArgs: Record<keyof LauncherApi, unknown[]> = {
   clearLocalRuntime: [],
   cancelTask: [],
   play: [],
+  leaveQueue: [],
   setSettings: [{ language: "pt-BR", windowed: true, graphics: 2 }],
   setStatusPolling: [true],
   refreshStatus: [],
