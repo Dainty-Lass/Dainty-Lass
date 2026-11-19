@@ -28,7 +28,7 @@ enum Gate {
     Game,
     Open,
     /// Game auth, except the Gauntlet's level-access query: the 1.14.7 client sends it with no bearer (first local
-    /// test, 2026-11-10) and its answer is a constant 0 that names no account.
+    /// test, 2026-11-10) and its answer names no account.
     GameUnlessLevelAccess,
 }
 
@@ -123,7 +123,13 @@ pub(crate) fn register(handlers: &mut Handlers) {
         Get,
         r"/^\/progression\/([^/]*)\/([^/]+)$/i",
         GameUnlessLevelAccess,
-        |c| async move { json(envelope(gauntlet::progression_payload(c.params.get("0").unwrap_or("")))) },
+        |c| async move {
+            let access = if gauntlet_on(&c) { gauntlet::LEVEL_ACCESS_ON } else { 0 };
+            json(envelope(gauntlet::progression_payload(
+                c.params.get("0").unwrap_or(""),
+                access,
+            )))
+        },
     );
     on(
         handlers,
@@ -268,6 +274,14 @@ fn progression(shared: &Shared) -> Response {
         replay::now_ms(),
     );
     json(served)
+}
+
+/// `RUSTIC_ISLES_GAUNTLET` reads `on`, trimmed, any case (matchmaking's switch).
+fn gauntlet_on(ctx: &Ctx) -> bool {
+    ctx.shared
+        .settings()
+        .raw("RUSTIC_ISLES_GAUNTLET")
+        .is_some_and(|v| dainty_service_kit::js::trim(v).eq_ignore_ascii_case("on"))
 }
 
 fn gauntlet_config(ctx: &Ctx) -> Response {

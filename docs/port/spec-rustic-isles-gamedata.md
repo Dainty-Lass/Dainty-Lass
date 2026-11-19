@@ -198,7 +198,8 @@ The season id is `ESC_SEASON_1` (the client then asks progression and rewards fo
   as `IsoUtc` texts (core §8.4: `2026-07-30T17:00:00+00:00`); otherwise the envelope of `{}`. Logged (info) with the
   origin host.
 - **B48**: params `0` (the season, may be empty) and `1`. When `0` lower-cased (Unicode) is `level_access`, the
-  envelope of `0` (the level-access request is an integer, 0 for no access); otherwise the envelope of
+  envelope of an integer: `1` when `RUSTIC_ISLES_GAUNTLET` reads `on` (JS-trimmed, ASCII case-insensitive), else `0`
+  (no access; the hunt menu keeps Gauntlet locked, 2026-11-19); otherwise the envelope of
   `{"personal_progression":0,"guild_progression":0}`.
 - **B49** envelope of `{}`; **B50** envelope of `0`; **B51** envelope of `[]` (an array, not an object).
 
@@ -207,6 +208,7 @@ The season id is `ESC_SEASON_1` (the client then asks progression and rewards fo
 | `GET /progression/ESC_SEASON_1/user-1` | `{"personal_progression":0,"guild_progression":0}` |
 | `GET /progression//INVALID` | the same (empty season) |
 | `GET /progression/level_access/user-1?account_id=x`, `GET /PROGRESSION/LEVEL_ACCESS/user-1` | `0` |
+| `GET /progression/level_access/ESC_SEASON_1` with `RUSTIC_ISLES_GAUNTLET= On ` | `1` |
 | `GET /config` at 2026-10-16T08:30:00Z | `{"gauntlet_id":"ESC_SEASON_1","start_at":"2026-07-30T17:00:00+00:00","end_at":"2026-10-22T17:00:00+00:00"}` |
 | `GET /config` with `GAUNTLET_CONFIG_PROBE=0` | `{}` |
 | `GET /config` from `mailbox-prod.steelyard.ca` | core's empty 404 (the row passes on) |

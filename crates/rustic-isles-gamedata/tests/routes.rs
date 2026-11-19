@@ -509,6 +509,19 @@ async fn gauntlet() {
         ..Options::default()
     });
     assert_eq!(off.game("GET", &at("/config")).await.payload(), json!({}));
+    // With Gauntlet on, level access opens the first level; the other progression answers are unchanged
+    let on = Harness::new(Options {
+        settings: vec![("RUSTIC_ISLES_GAUNTLET", " On ")],
+        ..Options::default()
+    });
+    let access = on
+        .send("GET", &at("/progression/level_access/ESC_SEASON_1"), &[], None)
+        .await;
+    assert_eq!(access.body, r#"{"code":null,"message":"OK","payload":1}"#);
+    assert_eq!(
+        on.game("GET", &at("/progression/ESC_SEASON_1/user-1")).await.payload(),
+        json!({"personal_progression": 0, "guild_progression": 0})
+    );
 }
 
 #[tokio::test]

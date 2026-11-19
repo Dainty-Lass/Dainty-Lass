@@ -15,10 +15,14 @@ pub fn config_payload(now_ms: i64) -> Value {
     json!({ "gauntlet_id": GAUNTLET_SEASON_ID, "start_at": start, "end_at": end })
 }
 
-/// The level-access request is an integer (0: no access); any other season gets both levels at 0.
-pub fn progression_payload(first_segment: &str) -> Value {
+/// With Gauntlet on, the level a player may enter: the hunt menu keeps Gauntlet locked at 0 even with the Slayer's
+/// Path node bought (first Gauntlet test, 2026-11-19). 1 is the first level; whether it is the right answer is untested.
+pub const LEVEL_ACCESS_ON: i64 = 1;
+
+/// The level-access request is an integer (0: no access, else `level_access`); any other season gets both levels at 0.
+pub fn progression_payload(first_segment: &str, level_access: i64) -> Value {
     if first_segment.to_lowercase() == "level_access" {
-        json!(0)
+        json!(level_access)
     } else {
         json!({ "personal_progression": 0, "guild_progression": 0 })
     }
@@ -46,9 +50,10 @@ mod tests {
     #[test]
     fn payloads() {
         assert!(leaderboard_payload().is_array());
-        assert_eq!(progression_payload("LEVEL_ACCESS"), json!(0));
+        assert_eq!(progression_payload("LEVEL_ACCESS", 0), json!(0));
+        assert_eq!(progression_payload("level_access", LEVEL_ACCESS_ON), json!(1));
         assert_eq!(
-            progression_payload(""),
+            progression_payload("", LEVEL_ACCESS_ON),
             json!({"personal_progression": 0, "guild_progression": 0})
         );
         assert_eq!(guild_rewards_payload(), json!(0));
