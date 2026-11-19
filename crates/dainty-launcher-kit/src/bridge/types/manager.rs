@@ -640,3 +640,25 @@ outcome!(
     "result",
     RemoteExecView
 );
+
+/// What uninstalling a version deletes, for the page's confirmation.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(any(test, feature = "ts"), derive(ts_rs::TS))]
+#[serde(rename_all = "camelCase")]
+pub struct UninstallPlan {
+    /// The version.
+    pub version: String,
+    /// Its folder.
+    pub folder: String,
+    /// Bytes freed.
+    pub bytes: u64,
+    /// The install made the folder, so all of it goes; otherwise only the game's files and the launcher's own.
+    pub whole_folder: bool,
+}
+
+outcome!(
+    /// The `game_uninstall_plan` answer.
+    UninstallOutcome,
+    "plan",
+    UninstallPlan
+);

@@ -34,7 +34,7 @@ pub const OWN_RUNTIME_DLLS: [&str; 4] = [MIT_RUNTIME_DLL, RUNTIME_DLLS[0], RUNTI
 /// CatalogExporter's file name, as the workspace builds it.
 pub const EXPORTER_DLL: &str = "CatalogExporter.dll";
 /// What a set-aside runtime DLL is renamed to while a Dumper-7 session runs.
-const ASIDE_SUFFIX: &str = ".rr-dump-off";
+pub const ASIDE_SUFFIX: &str = ".rr-dump-off";
 /// The record's file name in the launcher's user data folder.
 pub const RECORD_FILE: &str = "host-loader-session.json";
 /// A record or an ini bigger than this is not the launcher's.

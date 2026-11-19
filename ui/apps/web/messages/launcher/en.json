@@ -474,5 +474,17 @@
     "failed": "The launcher could not update itself. Install launcher {minimum} or newer, then open it again.",
     "current": "This launcher: {version}",
     "retry": "Try again"
+  },
+  "uninstall": {
+    "action": "Uninstall",
+    "title": "Uninstall {version}?",
+    "planning": "Finding the files to delete…",
+    "whole": "The folder {folder} and everything in it is deleted, freeing {size} GB.",
+    "listed": "The game's files in {folder} are deleted, freeing {size} GB. Anything else you keep in that folder stays.",
+    "permanent": "This is permanent: the files do not go to the Recycle Bin.",
+    "confirm": "Uninstall",
+    "keep": "Keep it",
+    "done": "{version} was uninstalled.",
+    "failed": "Uninstalling stopped at {file}. Close any program using it and try again; what is left stays installed."
   }
 }

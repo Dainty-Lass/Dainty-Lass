@@ -474,5 +474,17 @@
     "failed": "O launcher não conseguiu se atualizar. Instale o launcher {minimum} ou mais recente e abra-o de novo.",
     "current": "Este launcher: {version}",
     "retry": "Tentar de novo"
+  },
+  "uninstall": {
+    "action": "Desinstalar",
+    "title": "Desinstalar {version}?",
+    "planning": "Procurando os arquivos a apagar…",
+    "whole": "A pasta {folder} e tudo o que há nela serão apagados, liberando {size} GB.",
+    "listed": "Os arquivos do jogo em {folder} serão apagados, liberando {size} GB. O que mais você guardar nessa pasta fica.",
+    "permanent": "Isto é permanente: os arquivos não vão para a Lixeira.",
+    "confirm": "Desinstalar",
+    "keep": "Manter",
+    "done": "{version} foi desinstalado.",
+    "failed": "A desinstalação parou em {file}. Feche qualquer programa que o esteja usando e tente de novo; o que restou continua instalado."
   }
 }

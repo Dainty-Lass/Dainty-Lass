@@ -74,6 +74,7 @@ const UNIONS: &[(&str, &str)] = &[
     ("RemoteStatusOutcome", "{ ok: true; status: RemoteStatusView }"),
     ("RemoteInviteOutcome", "{ ok: true; invite: RemoteInviteView }"),
     ("RemoteExecOutcome", "{ ok: true; result: RemoteExecView }"),
+    ("UninstallOutcome", "{ ok: true; plan: UninstallPlan }"),
 ];
 
 fn declare<T: TS>(out: &mut String, cfg: &Config) {
@@ -121,7 +122,7 @@ pub fn types_ts() -> String {
         RevertDoneView, RealmState, RealmSessionView, RealmView, DoctorLevel, DoctorCheckView, DoctorReportView,
         MongoMigrationState, MongoMigrationView, ServerConfigView, ServerInviteEntry,
         AdminActionKind, AdminPlayerView, AdminResultView,
-        ManagedInstallView, RemoteStatusView, RemoteInviteView, RemoteExecView,
+        ManagedInstallView, RemoteStatusView, RemoteInviteView, RemoteExecView, UninstallPlan,
     );
     for (name, ok) in UNIONS {
         if *name == "GraphicsPreset" {

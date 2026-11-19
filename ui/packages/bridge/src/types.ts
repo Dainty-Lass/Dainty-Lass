@@ -21,6 +21,7 @@ import type {
   Settings,
   Snapshot,
   TaskProgress,
+  UninstallOutcome,
 } from "./generated/types";
 
 export type { ActionResult, HostKit, HostServerView, Settings, Snapshot, TaskProgress };
@@ -115,6 +116,10 @@ export interface LauncherApi {
   onInviteLink(fn: () => void): void;
   onWindowState(fn: (maximized: boolean) => void): void;
   onGameLog(fn: (lines: string[]) => void): void;
+  /** What uninstalling a version deletes: its folder, the bytes freed, and whether the whole folder goes. */
+  gameUninstallPlan(version: string): Promise<UninstallOutcome>;
+  /** Deletes an installed version for good (no Recycle Bin); refused while the game runs. */
+  gameUninstall(version: string): Promise<ActionResult>;
 }
 
 declare global {

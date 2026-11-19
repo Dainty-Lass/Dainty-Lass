@@ -369,6 +369,8 @@ pub fn run(mut options: Options) -> Result<i32, StartError> {
             bridge::commands::remote_leave,
             bridge::commands::remote_exec,
             bridge::commands::update_launcher,
+            bridge::commands::game_uninstall_plan,
+            bridge::commands::game_uninstall,
         ])
         .setup(move |app| {
             start.setup(app.handle())?;

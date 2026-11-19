@@ -14,19 +14,21 @@ use std::time::Duration;
 use dainty_epic::download::{
     DownloadError, Executable, Gate, Https, ManifestOrigin, Options, Refusal, Stage, Target, fetch_manifest,
 };
-use dainty_epic::manifest::{InstallPath, Sha1Digest};
+use dainty_epic::manifest::{InstallPath, Manifest, Sha1Digest};
 use dainty_module_api::GameVersion;
 
 use super::Controller;
 use super::platform::FolderPurpose;
+use super::stored::edit;
 use crate::bridge::types::{
     ActionResult, ErrorCode, InstallInfo, InstallOutcome, InstallState, LauncherError, NoticeCode, TaskKind,
-    TaskProgress,
+    TaskProgress, UninstallOutcome, UninstallPlan,
 };
 use crate::net::epic_install::{InstallJob, InstallProgress};
 use crate::net::versions::{HttpSources, KnownProfile, Sources, builtin};
 use crate::platform::epic_library::{self, EpicOwnership};
 use crate::platform::epic_session::Epic;
+use crate::platform::game_removal::{Removal, RemovalError, Scope};
 use crate::platform::log;
 
 /// The Epic session and DE3's ownership check, as the installer's gate: it refreshes the session, then asks the
@@ -89,6 +91,28 @@ pub fn launcher_error(error: &DownloadError) -> LauncherError {
     LauncherError::new(code)
 }
 
+/// What the page is told when an uninstall stops: the file that would not go, as `detail`.
+fn removal_error(error: &RemovalError) -> LauncherError {
+    match error {
+        RemovalError::Missing => LauncherError::new(ErrorCode::GameFolderNotFound),
+        RemovalError::FolderIsLink => LauncherError::new(ErrorCode::FolderInvalid),
+        RemovalError::Io { path, .. } => {
+            let name = path.file_name().map(|name| name.to_string_lossy().into_owned());
+            LauncherError::with_detail(ErrorCode::Unknown, &name.unwrap_or_default())
+        }
+    }
+}
+
+/// `path` is `folder` or inside it; Windows paths compare without regard to case.
+fn inside(path: &Path, folder: &Path) -> bool {
+    if cfg!(windows) {
+        let lower = |p: &Path| PathBuf::from(p.to_string_lossy().replace('/', "\\").to_lowercase());
+        lower(path).starts_with(lower(folder))
+    } else {
+        path.starts_with(folder)
+    }
+}
+
 /// The page's task progress for an install.
 fn task(progress: InstallProgress) -> TaskProgress {
     TaskProgress {
@@ -134,6 +158,17 @@ impl Controller {
     /// Names the folder an install made for itself: only that one is deleted when the download is discarded.
     fn created_file(&self, version: &str) -> PathBuf {
         self.epic_dir().join(format!("{version}.created"))
+    }
+
+    /// Names the folder an install made, kept once it finished: uninstalling deletes all of that folder and only
+    /// the manifest's files from any other.
+    fn owned_file(&self, version: &str) -> PathBuf {
+        self.epic_dir().join(format!("{version}.owned"))
+    }
+
+    /// The manifest's file names, one a line, so an uninstall needs no download.
+    fn files_file(&self, version: &str) -> PathBuf {
+        self.epic_dir().join(format!("{version}.files"))
     }
 
     /// The folder versions install into, one folder each: the player's choice, or `~/Games/Dauntless`.
@@ -262,14 +297,22 @@ impl Controller {
         log::info(format!("installing {version} from Epic into {}", folder.display()));
         let outcome = self.install_version(&version, &profile, &job, &folder, &gate).await;
         let record = self.epic_dir().join(format!("{version}.installed"));
-        let outcome = outcome.and_then(|()| {
+        let outcome = outcome.and_then(|files| {
+            let names: String = files.iter().map(|file| format!("{}\n", file.as_str())).collect();
             std::fs::create_dir_all(self.epic_dir())
+                .and_then(|()| std::fs::write(self.files_file(&version), names))
                 .and_then(|()| std::fs::write(&record, folder.to_string_lossy().as_bytes()))
                 .map_err(|_| LauncherError::with_detail(ErrorCode::DownloadFailed, "record"))
         });
         match outcome {
             Ok(()) => {
-                // An installed game is never the discard's to delete
+                // An installed game is never the discard's to delete, but the uninstall's when the install made it
+                let made = std::fs::read_to_string(self.created_file(&version)).ok();
+                if made.is_some_and(|made| Path::new(&made) == folder)
+                    && let Err(error) = std::fs::write(self.owned_file(&version), folder.to_string_lossy().as_bytes())
+                {
+                    log::warn(format!("the install's folder record was not kept: {error}"));
+                }
                 let _ = std::fs::remove_file(self.created_file(&version));
                 lock(&self.shared.installs.entries).remove(&version);
                 log::info(format!("installed {version} from Epic"));
@@ -297,21 +340,15 @@ impl Controller {
         Err("no joined server holds it".to_owned())
     }
 
-    async fn install_version(
+    /// The version's manifest under its pin.
+    async fn pinned_manifest(
         &self,
         version: &str,
         profile: &KnownProfile,
-        job: &InstallJob,
-        folder: &Path,
-        gate: &EpicGate,
-    ) -> Result<(), LauncherError> {
+    ) -> Result<(Manifest, Sha1Digest), LauncherError> {
         let broken = || LauncherError::with_detail(ErrorCode::Unknown, "client_profile");
         let epic = profile.client.epic.as_ref().ok_or_else(broken)?;
         let pin = Sha1Digest(*epic.manifest_sha1.as_bytes());
-        let executable = Executable {
-            path: InstallPath::new(&profile.client.executable).map_err(|_| broken())?,
-            sha256: *epic.executable_sha256.as_bytes(),
-        };
         let https = Https::new(None, Duration::from_secs(60)).map_err(|e| launcher_error(&e.into()))?;
         let server = self.server_manifest(&profile.game_version, &pin);
         let (manifest, origin) = fetch_manifest(Some(server), &epic.manifest_sources, &pin, &https)
@@ -326,6 +363,25 @@ impl Controller {
             ManifestOrigin::Server => log::info(format!("manifest for {version} from a joined server")),
             ManifestOrigin::Source(url) => log::info(format!("manifest for {version} from {url}")),
         }
+        Ok((manifest, pin))
+    }
+
+    /// Installs `version`, answering the manifest's file names.
+    async fn install_version(
+        &self,
+        version: &str,
+        profile: &KnownProfile,
+        job: &InstallJob,
+        folder: &Path,
+        gate: &EpicGate,
+    ) -> Result<Vec<InstallPath>, LauncherError> {
+        let broken = || LauncherError::with_detail(ErrorCode::Unknown, "client_profile");
+        let epic = profile.client.epic.as_ref().ok_or_else(broken)?;
+        let executable = Executable {
+            path: InstallPath::new(&profile.client.executable).map_err(|_| broken())?,
+            sha256: *epic.executable_sha256.as_bytes(),
+        };
+        let (manifest, pin) = self.pinned_manifest(version, profile).await?;
         let target = Target {
             manifest: &manifest,
             manifest_sha1: pin,
@@ -340,8 +396,8 @@ impl Controller {
         let report = move |progress: InstallProgress| platform.emit_progress(&task(progress));
         job.run(&target, &options, gate, &report)
             .await
-            .map(|_| ())
-            .map_err(|e| launcher_error(&e))
+            .map_err(|e| launcher_error(&e))?;
+        Ok(manifest.files().iter().map(|file| file.path.clone()).collect())
     }
 
     fn with_job(&self, version: &str, act: impl FnOnce(&InstallJob) -> bool) -> ActionResult {
@@ -415,6 +471,123 @@ impl Controller {
         let _ = std::fs::remove_file(self.created_file(version));
         lock(&self.shared.installs.entries).remove(version);
         log::info(format!("the download of {version} was cancelled and deleted"));
+        self.publish();
+        ActionResult::Ok
+    }
+
+    /// The installed folder of `version` and what goes from it: all of it when the install made it, otherwise the
+    /// manifest's files (from the record, or the manifest again for an install from before the record).
+    async fn uninstall_scope(&self, version: &str) -> Result<(PathBuf, Option<Vec<InstallPath>>), LauncherError> {
+        let Some(profile) = known_profile(version) else {
+            return Err(LauncherError::with_detail(ErrorCode::GameVersionUnknown, version));
+        };
+        let Some(folder) = self.installed_folder(version).map(PathBuf::from) else {
+            return Err(LauncherError::new(ErrorCode::GameFolderNotFound));
+        };
+        let owned = std::fs::read_to_string(self.owned_file(version)).ok();
+        if owned.is_some_and(|owned| Path::new(&owned) == folder) {
+            return Ok((folder, None));
+        }
+        let recorded = std::fs::read_to_string(self.files_file(version)).ok().and_then(|text| {
+            text.lines()
+                .filter(|line| !line.is_empty())
+                .map(|line| InstallPath::new(line).ok())
+                .collect::<Option<Vec<_>>>()
+        });
+        let files = match recorded {
+            Some(files) if !files.is_empty() => files,
+            _ => {
+                let (manifest, _) = self.pinned_manifest(version, &profile).await?;
+                manifest.files().iter().map(|file| file.path.clone()).collect()
+            }
+        };
+        Ok((folder, Some(files)))
+    }
+
+    async fn plan_removal(&self, version: &str) -> Result<Removal, LauncherError> {
+        let (folder, files) = self.uninstall_scope(version).await?;
+        tokio::task::spawn_blocking(move || {
+            let scope = files.as_deref().map_or(Scope::Whole, Scope::Listed);
+            Removal::plan(&folder, &scope)
+        })
+        .await
+        .map_err(|_| LauncherError::new(ErrorCode::Unknown))?
+        .map_err(|error| removal_error(&error))
+    }
+
+    /// `game_uninstall_plan`: the folder and the bytes an uninstall frees, for the page to confirm.
+    pub async fn game_uninstall_plan(&self, version: &str) -> UninstallOutcome {
+        match self.plan_removal(version).await {
+            Ok(removal) => UninstallOutcome::Ok(UninstallPlan {
+                version: version.to_owned(),
+                folder: removal.folder().to_string_lossy().into_owned(),
+                bytes: removal.bytes(),
+                whole_folder: removal.whole(),
+            }),
+            Err(error) => UninstallOutcome::Err(error),
+        }
+    }
+
+    /// `game_uninstall`: deletes an installed version for good and forgets it, and the game folder when it was
+    /// this one. Refused while any game client runs, since it holds its files.
+    pub async fn game_uninstall(&self, version: &str) -> ActionResult {
+        if self.shared.game.is_running() || !self.platform().running_clients().await.is_empty() {
+            return ActionResult::err(ErrorCode::AlreadyRunning);
+        }
+        {
+            let state = self.lock();
+            if state.busy || state.task.is_some() || lock(&self.shared.installs.entries).contains_key(version) {
+                return ActionResult::err(ErrorCode::Busy);
+            }
+        }
+        let removal = match self.plan_removal(version).await {
+            Ok(removal) => removal,
+            // Already gone from disk: only the records are left to forget
+            Err(error) if error.code == ErrorCode::GameFolderNotFound && self.installed_folder(version).is_some() => {
+                return self.forget_install(version, None).await;
+            }
+            Err(error) => return ActionResult::Err(error),
+        };
+        let folder = removal.folder().to_path_buf();
+        log::info(format!(
+            "uninstalling {version}: {} files, {} bytes{}",
+            removal.count(),
+            removal.bytes(),
+            if removal.whole() { ", the whole folder" } else { "" }
+        ));
+        let removed = tokio::task::spawn_blocking(move || removal.remove())
+            .await
+            .unwrap_or(Err(RemovalError::Missing));
+        if let Err(error) = removed {
+            log::warn(format!("uninstalling {version} stopped: {error}"));
+            return ActionResult::Err(removal_error(&error));
+        }
+        self.forget_install(version, Some(&folder)).await
+    }
+
+    async fn forget_install(&self, version: &str, folder: Option<&Path>) -> ActionResult {
+        let folder = folder
+            .map(Path::to_path_buf)
+            .or_else(|| self.installed_folder(version).map(PathBuf::from));
+        for record in [
+            self.epic_dir().join(format!("{version}.installed")),
+            self.files_file(version),
+            self.owned_file(version),
+            self.resume_file(version),
+            self.created_file(version),
+        ] {
+            let _ = std::fs::remove_file(record);
+        }
+        let root = self.stored().game_root().map(PathBuf::from);
+        if let (Some(root), Some(folder)) = (root, folder)
+            && inside(&root, &folder)
+        {
+            self.edit_settings(|map| edit::field(map, "gameRoot", serde_json::Value::Null))
+                .await;
+        }
+        log::info(format!("uninstalled {version}"));
+        self.look_at_game(false).await;
+        self.look_at_runtime().await;
         self.publish();
         ActionResult::Ok
     }

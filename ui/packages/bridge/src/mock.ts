@@ -582,5 +582,18 @@ export function mockLauncher(): LauncherApi {
     onInviteLink: () => {},
     onWindowState: () => {},
     onGameLog: () => {},
+    gameUninstallPlan: async (version) =>
+      install.state === "installed" && install.folder
+        ? {
+            ok: true,
+            plan: { version, folder: install.folder, bytes: EPIC_TOTAL, wholeFolder: true },
+          }
+        : { ok: false, error: { code: "game_folder_not_found" } },
+    gameUninstall: async () => {
+      if (install.state !== "installed")
+        return { ok: false, error: { code: "game_folder_not_found" } };
+      install = { ...install, state: "not_installed", progress: null, error: null };
+      return OK;
+    },
   };
 }

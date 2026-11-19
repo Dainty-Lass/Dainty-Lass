@@ -253,6 +253,7 @@ struct FakePlatform {
     save_file: Mutex<Option<PathBuf>>,
     console: Mutex<Option<(u32, bool, ConsoleSink)>>,
     game_log: Mutex<Vec<String>>,
+    clients: Mutex<Vec<u32>>,
 }
 
 impl Platform for FakePlatform {
@@ -292,7 +293,8 @@ impl Platform for FakePlatform {
     }
 
     fn running_clients(&self) -> BoxFuture<'_, Vec<u32>> {
-        Box::pin(async { Vec::new() })
+        let clients = self.clients.lock().unwrap().clone();
+        Box::pin(async move { clients })
     }
 
     fn prepare_launch<'a>(&'a self, _: &'a Path, _: bool) -> BoxFuture<'a, PreparedGame> {
@@ -1316,4 +1318,82 @@ async fn the_command_lines_export_is_the_host_pages() {
     game_exits(&controller, &spawner).await;
     controller.shutdown().await;
     assert_key_never_logged();
+}
+
+/// The Epic install records for 1.14.7 in `folder`: the folder the install made (`owned`), or one that was there.
+fn installed_records(pc: &Pc, folder: &Path, owned: bool) {
+    let epic = pc.user_data.join("epic");
+    std::fs::create_dir_all(&epic).unwrap();
+    let folder = folder.to_string_lossy();
+    std::fs::write(epic.join("1.14.7.installed"), folder.as_bytes()).unwrap();
+    std::fs::write(
+        epic.join("1.14.7.files"),
+        "Archon/Binaries/Win64/Dauntless-Win64-Shipping.exe\nVersion.txt\n",
+    )
+    .unwrap();
+    if owned {
+        std::fs::write(epic.join("1.14.7.owned"), folder.as_bytes()).unwrap();
+    }
+}
+
+#[tokio::test]
+async fn uninstall_deletes_a_folder_the_install_made_and_forgets_it_but_not_while_the_game_runs() {
+    let pc = pc().await;
+    let platform = Arc::new(FakePlatform::default());
+    let spawner = Arc::new(FakeSpawner::default());
+    let controller = launcher(&pc, &platform, &spawner);
+    controller.init().await;
+    ok(&controller.use_game_path(&pc.root.to_string_lossy()).await);
+    std::fs::write(pc.win64.join("rustic-isles-runtime.dll"), b"runtime").unwrap();
+    installed_records(&pc, &pc.root, true);
+
+    *platform.clients.lock().unwrap() = vec![4242];
+    assert_eq!(
+        refused(&controller.game_uninstall("1.14.7").await),
+        ErrorCode::AlreadyRunning
+    );
+    assert!(pc.win64.join("Dauntless-Win64-Shipping.exe").is_file());
+    platform.clients.lock().unwrap().clear();
+
+    let plan = serde_json::to_value(controller.game_uninstall_plan("1.14.7").await).unwrap();
+    assert_eq!(plan["ok"], json!(true), "{plan}");
+    assert_eq!(plan["plan"]["wholeFolder"], json!(true));
+    assert_eq!(plan["plan"]["folder"], json!(pc.root.to_string_lossy()));
+    assert!(plan["plan"]["bytes"].as_u64().unwrap() > 0);
+
+    ok(&controller.game_uninstall("1.14.7").await);
+    assert!(!pc.root.exists());
+    match controller.game_install_get("1.14.7") {
+        InstallOutcome::Ok(info) => assert_eq!(info.state, InstallState::NotInstalled),
+        InstallOutcome::Err(error) => panic!("{error:?}"),
+    }
+    assert_eq!(controller.snapshot().game.root, None);
+    assert!(!pc.user_data.join("epic/1.14.7.owned").exists());
+    assert_eq!(
+        refused(&controller.game_uninstall("1.14.7").await),
+        ErrorCode::GameFolderNotFound
+    );
+    controller.shutdown().await;
+}
+
+#[tokio::test]
+async fn uninstall_from_a_folder_that_was_there_deletes_only_the_manifests_files() {
+    let pc = pc().await;
+    let platform = Arc::new(FakePlatform::default());
+    let spawner = Arc::new(FakeSpawner::default());
+    let controller = launcher(&pc, &platform, &spawner);
+    controller.init().await;
+    std::fs::write(pc.root.join("my notes.txt"), b"keep").unwrap();
+    std::fs::write(pc.win64.join("winmm.dll"), b"loader").unwrap();
+    installed_records(&pc, &pc.root, false);
+
+    let plan = serde_json::to_value(controller.game_uninstall_plan("1.14.7").await).unwrap();
+    assert_eq!(plan["plan"]["wholeFolder"], json!(false), "{plan}");
+    ok(&controller.game_uninstall("1.14.7").await);
+    assert!(pc.root.join("my notes.txt").is_file());
+    assert!(!pc.root.join("Version.txt").exists());
+    assert!(!pc.win64.join("Dauntless-Win64-Shipping.exe").exists());
+    assert!(!pc.win64.join("winmm.dll").exists());
+    assert!(!pc.root.join("Archon").exists(), "emptied folders go");
+    controller.shutdown().await;
 }

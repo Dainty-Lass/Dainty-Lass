@@ -12,6 +12,7 @@ import type {
   EpicView,
   GameVersionList,
   InstallOutcome,
+  UninstallOutcome,
 } from "./generated/types";
 import type {
   ActionResult,
@@ -242,4 +243,8 @@ export const api: LauncherApi = {
     on<unknown>("game-log", (lines) =>
       fn(Array.isArray(lines) ? lines.filter((line) => typeof line === "string") : []),
     ),
+  // Walks the install for its size, and may fetch the manifest for an install from before the file list
+  gameUninstallPlan: (version) =>
+    act<UninstallOutcome>("game_uninstall_plan", { version: String(version) }, LONG_TIMEOUT_MS),
+  gameUninstall: (version) => act("game_uninstall", { version: String(version) }, LONG_TIMEOUT_MS),
 };
