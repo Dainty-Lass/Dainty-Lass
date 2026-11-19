@@ -12,6 +12,7 @@
 
 mod areas;
 pub mod gauntlet;
+mod gauntlet_runs;
 pub mod generators;
 pub mod patchnotes;
 pub mod progression_config;

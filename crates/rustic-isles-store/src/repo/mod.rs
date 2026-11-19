@@ -32,6 +32,7 @@ pub mod auth;
 pub mod bounties;
 pub mod characters;
 pub mod chat;
+pub mod gauntlet;
 pub mod inventory;
 pub mod parties;
 pub mod playtime;

@@ -15,16 +15,28 @@ pub fn config_payload(now_ms: i64) -> Value {
     json!({ "gauntlet_id": GAUNTLET_SEASON_ID, "start_at": start, "end_at": end })
 }
 
-/// With Gauntlet on, the level a player may enter: the hunt menu keeps Gauntlet locked at 0 even with the Slayer's
-/// Path node bought (first Gauntlet test, 2026-11-19). 1 is the first level; whether it is the right answer is untested.
-pub const LEVEL_ACCESS_ON: i64 = 1;
+/// With Gauntlet on, the level a player may enter is the one after their best: the hunt menu keeps Gauntlet locked at
+/// 0 even with the Slayer's Path node bought (first Gauntlet test, 2026-11-19).
+pub fn level_access(gauntlet_on: bool, best_level: i64) -> i64 {
+    if gauntlet_on {
+        best_level.max(0).saturating_add(1)
+    } else {
+        0
+    }
+}
 
-/// The level-access request is an integer (0: no access, else `level_access`); any other season gets both levels at 0.
-pub fn progression_payload(first_segment: &str, level_access: i64) -> Value {
-    if first_segment.to_lowercase() == "level_access" {
+/// Whether the request is the level-access query (`/progression/level_access/<season>`).
+pub fn is_level_access(first_segment: &str) -> bool {
+    first_segment.to_lowercase() == "level_access"
+}
+
+/// The level-access request is an integer (0: no access, else `level_access`); any other is both progressions at the
+/// player's best level, as there are no guilds yet.
+pub fn progression_payload(first_segment: &str, level_access: i64, best_level: i64) -> Value {
+    if is_level_access(first_segment) {
         json!(level_access)
     } else {
-        json!({ "personal_progression": 0, "guild_progression": 0 })
+        json!({ "personal_progression": best_level, "guild_progression": best_level })
     }
 }
 
@@ -74,10 +86,16 @@ mod tests {
     #[test]
     fn payloads() {
         assert!(leaderboard_payload().is_array());
-        assert_eq!(progression_payload("LEVEL_ACCESS", 0), json!(0));
-        assert_eq!(progression_payload("level_access", LEVEL_ACCESS_ON), json!(1));
+        assert_eq!(progression_payload("LEVEL_ACCESS", 0, 0), json!(0));
+        assert_eq!(progression_payload("level_access", level_access(true, 0), 0), json!(1));
+        assert_eq!(level_access(true, 4), 5);
+        assert_eq!(level_access(false, 4), 0);
         assert_eq!(
-            progression_payload("", LEVEL_ACCESS_ON),
+            progression_payload("ESC_SEASON_1", 0, 3),
+            json!({"personal_progression": 3, "guild_progression": 3})
+        );
+        assert_eq!(
+            progression_payload("", 1, 0),
             json!({"personal_progression": 0, "guild_progression": 0})
         );
         assert_eq!(guild_rewards_payload(), json!(0));

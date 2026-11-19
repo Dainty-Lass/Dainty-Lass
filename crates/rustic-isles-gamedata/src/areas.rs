@@ -13,7 +13,7 @@ use http::{StatusCode, header};
 use rustic_isles::{BODY_LIMIT, Call, Handlers, Method, Params, Service, Shared, read_body_parts_limit, replay};
 use serde_json::{Map, Value, json};
 
-use crate::{envelope, gauntlet, patchnotes, progression_config, tuning};
+use crate::{envelope, gauntlet, gauntlet_runs, patchnotes, progression_config, tuning};
 
 /// What a handler gets once its gate passed.
 struct Ctx {
@@ -123,13 +123,7 @@ pub(crate) fn register(handlers: &mut Handlers) {
         Get,
         r"/^\/progression\/([^/]*)\/([^/]+)$/i",
         GameUnlessLevelAccess,
-        |c| async move {
-            let access = if gauntlet_on(&c) { gauntlet::LEVEL_ACCESS_ON } else { 0 };
-            json(envelope(gauntlet::progression_payload(
-                c.params.get("0").unwrap_or(""),
-                access,
-            )))
-        },
+        |c| async move { json(envelope(gauntlet_progression(c).await)) },
     );
     on(
         handlers,
@@ -150,7 +144,10 @@ pub(crate) fn register(handlers: &mut Handlers) {
         Get,
         r"/^\/leaderboard\/get_leaderboard\//i",
         Game,
-        |_| async { json(envelope(gauntlet::leaderboard_payload())) },
+        |c| async move {
+            let season = c.request.uri().path().rsplit('/').next().unwrap_or("").to_owned();
+            json(envelope(gauntlet_runs::leaderboard(&c.shared, &season).await))
+        },
     );
     on(handlers, Put, r"/^\/(.*)$/", Game, gauntlet_write);
     on(handlers, Post, r"/^\/(.*)$/", Game, gauntlet_write);
@@ -281,6 +278,7 @@ fn progression(shared: &Shared) -> Response {
 /// A write to the Gauntlet host: logged with its body (credentials dropped) and answered with an empty envelope, until
 /// its shape is known and stored (first Gauntlet test, 2026-11-19).
 async fn gauntlet_write(ctx: Ctx) -> Response {
+    let shared = ctx.shared.clone();
     let method = ctx.request.method().clone();
     let target = ctx
         .request
@@ -292,12 +290,46 @@ async fn gauntlet_write(ctx: Ctx) -> Response {
         Ok(body) => body,
         Err(page) => return page,
     };
+    // The hunt server's level end (first Gauntlet test, 2026-11-19)
+    if method == http::Method::PUT && parts.uri.path() == "/process_run" {
+        match body.as_ref().and_then(gauntlet_runs::FinishedRun::parse) {
+            Some(run) => gauntlet_runs::record(&shared, &run).await,
+            None => tracing::warn!("[Gauntlet] PUT /process_run with a body it could not read"),
+        }
+    }
     let shown = body.map_or_else(
         || "(none)".to_owned(),
         |b| dainty_service_kit::jsjson::stringify(&gauntlet::redacted(b)),
     );
     tracing::info!("[Gauntlet] {method} {target} body={shown}");
     json(envelope(json!({})))
+}
+
+/// B48: level access is the level after the player's best, progression their best. The season and the player come
+/// from the path, except level access, whose player is `?account_id=`.
+async fn gauntlet_progression(ctx: Ctx) -> Value {
+    let first = ctx.params.get("0").unwrap_or("").to_owned();
+    let second = ctx.params.get("1").unwrap_or("").to_owned();
+    let on = gauntlet_on(&ctx);
+    let user = query_value(&ctx.request, "account_id");
+    let shared = ctx.shared;
+    if gauntlet::is_level_access(&first) {
+        let best = match (on, user) {
+            (true, Some(user)) => gauntlet_runs::best_level(&shared, &second, &user).await,
+            _ => 0,
+        };
+        return gauntlet::progression_payload(&first, gauntlet::level_access(on, best), best);
+    }
+    let best = gauntlet_runs::best_level(&shared, &first, &second).await;
+    gauntlet::progression_payload(&first, 0, best)
+}
+
+/// The first `name=` value of the query, percent-decoded.
+fn query_value(request: &Request, name: &str) -> Option<String> {
+    request.uri().query()?.split('&').find_map(|pair| {
+        let (key, value) = pair.split_once('=')?;
+        (key == name).then(|| dainty_service_kit::js::decode_uri_component(value).unwrap_or_else(|| value.to_owned()))
+    })
 }
 
 /// `RUSTIC_ISLES_GAUNTLET` reads `on`, trimmed, any case (matchmaking's switch).
