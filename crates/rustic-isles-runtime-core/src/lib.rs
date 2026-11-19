@@ -33,6 +33,7 @@ pub mod reflect;
 pub mod registry;
 pub mod relevance;
 pub mod repgraph;
+pub mod save_reset;
 pub mod server_events;
 pub mod server_life;
 pub mod sim;

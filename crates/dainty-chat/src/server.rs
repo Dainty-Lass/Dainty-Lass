@@ -69,6 +69,8 @@ const MAX_PAYLOAD: usize = 12_000;
 const MAX_TOKEN_UNITS: usize = 8192;
 const MAX_LOGGED_NAMESPACES: usize = 32;
 const REPORT_WINDOW: i64 = 30_000;
+/// A module command that failed: chat has no player language of its own, as with `/report`'s answers
+const COMMAND_FAILED: &str = "That command could not be run right now. Please try again later.";
 
 /// How a chat runs, beyond its [`crate::Settings`]: the hooks that tests and the host replace.
 #[derive(Clone)]
@@ -463,6 +465,8 @@ pub(crate) struct Session {
     /// `(room JID as the client spelled it, nickname)`, in join order
     pub(crate) rooms: Vec<(String, String)>,
     pub(crate) mute: Option<Mute>,
+    /// The stream's `xml:lang`, passed to a module command so it can answer in the game's language
+    pub(crate) lang: Option<String>,
 }
 
 impl Session {
@@ -692,6 +696,7 @@ impl Chat {
                 available: false,
                 rooms: Vec::new(),
                 mute: None,
+                lang: None,
             },
         );
         info!("chat: connect c={id} from={address} via={via}");
@@ -914,6 +919,9 @@ impl Chat {
         let Some(session) = self.sessions.get_mut(&id) else {
             return;
         };
+        if let Some(lang) = root.attr("xml:lang") {
+            session.lang = Some(lang.chars().take(16).collect());
+        }
         if session.resource.is_none() {
             match root.attr("to").filter(|to| xmpp::is_xmpp_domain(to)) {
                 Some(to) => session.domain = to.to_owned(),
@@ -1346,16 +1354,20 @@ impl Chat {
             let from = session.domain.clone();
             return self.report(id, command, "chat", from, None).await;
         }
+        let (from, muted) = (session.domain.clone(), session.muted(now));
+        let (module, name) = (session.module.clone(), session.name.clone());
+        if let Some(reply) = self.module_command(id, &body).await {
+            return self.reply(id, "chat", &from, &reply);
+        }
         if target == uid {
             return Self::whisper_refused(&uid, shown_target, length, "self");
         }
-        if session.muted(now) {
+        if muted {
             return Self::whisper_refused(&uid, shown_target, length, "muted");
         }
         if !is_authcid_shape(target) {
             return Self::whisper_refused(&uid, shown_target, length, "unknown");
         }
-        let (module, name) = (session.module.clone(), session.name.clone());
         let Some(recipient) = self.resolve_local(target).await else {
             return Self::whisper_refused(&uid, shown_target, length, "unknown");
         };
@@ -1531,14 +1543,47 @@ impl Chat {
                 }
             }
         };
+        self.reply(id, kind, &from, answer);
+    }
+
+    /// A message only the session's player sees: a command's answer, never stored or relayed.
+    pub(crate) fn reply(&mut self, id: u64, kind: &str, from: &str, body: &str) {
         let Some(session) = self.sessions.get(&id) else { return };
         let stanza = format!(
             r#"<message xmlns="jabber:client" type="{kind}" from="{}" to="{}"><body>{}</body></message>"#,
-            escape(&from),
+            escape(from),
             escape(&session.full_jid()),
-            escape(answer)
+            escape(body)
         );
         self.send(id, &stanza);
+    }
+
+    /// A `/` line asked of the player's game module (`ChatQuery::Command`): its reply, or None when the module
+    /// doesn't know the command and the line is said as typed.
+    pub(crate) async fn module_command(&self, id: u64, body: &str) -> Option<String> {
+        if !body.trim_start().starts_with('/') {
+            return None;
+        }
+        let session = self.sessions.get(&id)?;
+        let module = session.module.clone().filter(|m| self.answers_chat(Some(m)))?;
+        let query = ChatQuery::Command {
+            account: session.account.clone()?,
+            line: body.to_owned(),
+            lang: session.lang.clone(),
+        };
+        let uid = session.uid.clone().unwrap_or_default();
+        match self.host.ask(&module, query).await {
+            Ok(ChatAnswer::Reply(reply)) => {
+                info!("chat: command c={id} uid={uid}");
+                Some(reply)
+            }
+            Ok(_) => None,
+            Err(e) if is_unsupported(&e) => None,
+            Err(e) => {
+                warn!("chat: {module} could not run a command c={id} uid={uid}: {e}");
+                Some(COMMAND_FAILED.to_owned())
+            }
+        }
     }
 
     fn waiting_stanza(

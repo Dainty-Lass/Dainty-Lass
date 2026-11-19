@@ -537,6 +537,55 @@ async fn a_module_gives_the_jid_and_the_rules() {
     server.running.stop().await;
 }
 
+#[tokio::test]
+async fn a_module_command_is_answered_to_the_player_alone() {
+    let stub: Arc<dyn GameModule> = Arc::new(StubModule::new());
+    let manifest = stub.manifest();
+    let mut registrar = Registrar::new(manifest.clone());
+    stub.register(&mut registrar).unwrap();
+    let registration = registrar.finish().unwrap();
+    let plugin = ChatPlugin::new();
+    plugin.attach(&manifest, &registration).unwrap();
+    let mut host = TestHost::new("stub", &[]);
+    let node = NodeIdentity::standalone().node;
+    let mut locals = Vec::new();
+    for name in ["Stubby", "Other"] {
+        let id = GlobalId::new(IdKind::Account, &node);
+        let local = id.ulid().to_string().to_lowercase();
+        host.accounts.insert(
+            local.clone(),
+            Account {
+                id,
+                module: manifest.id.clone(),
+                name: name.into(),
+            },
+        );
+        locals.push(local);
+    }
+    let driver = InProcessModule::new(stub, NodeIdentity::standalone(), recording_host()).unwrap();
+    host.drivers.insert(Arc::new(driver));
+    let server = start(host, &plugin).await;
+    let port = server.running.port;
+    let mut one = login(port, &locals[0]).await;
+    let mut two = login(port, &locals[1]).await;
+    one.join("City-a", "Stubby").await;
+    one.expect("status code=\"110\"").await;
+    two.join("City-a", "Other").await;
+    two.expect("status code=\"110\"").await;
+    one.drain().await;
+
+    one.say("City-a", "/reset").await;
+    let answer = one.expect("Reset asked.").await;
+    assert!(answer.contains(&format!("from=\"City-a@muc.{DOMAIN}\"")), "{answer}");
+    one.whisper(&locals[1], "/reset confirm").await;
+    one.expect("Reset asked.").await;
+    // A line the module doesn't know is said as typed
+    one.say("City-a", "/shrug").await;
+    two.expect("<body>/shrug</body>").await;
+    assert!(!two.drain().await.iter().any(|f| f.contains("reset")));
+    server.running.stop().await;
+}
+
 #[test]
 fn the_plugin_serves_chat() {
     let plugin = ChatPlugin::new();

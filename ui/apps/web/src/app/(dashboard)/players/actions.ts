@@ -10,6 +10,8 @@ import {
   grantToPlayer,
   kickPlayer,
   liftTimeout,
+  restoreSave,
+  saveSnapshots,
   setPlayerAccess,
   setPlayerRoles,
   timeoutPlayer,
@@ -136,4 +138,23 @@ export async function grantAction(
       reason,
     ),
   );
+}
+
+/** The save snapshots a player's /reset and staff restores left on the controller. */
+export async function saveSnapshotsAction(controllerId: string, userId: string) {
+  return attempt(async () =>
+    saveSnapshots(await requireAction("players:grant"), controllerId, userId),
+  );
+}
+
+export async function restoreSaveAction(
+  controllerId: string,
+  userId: string,
+  snapshotId: string,
+  reason: string,
+) {
+  return attempt(async () => {
+    const me = await requireAction("players:grant");
+    await restoreSave(me, controllerId, userId, snapshotId, reason);
+  });
 }

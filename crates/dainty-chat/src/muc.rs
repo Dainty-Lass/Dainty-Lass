@@ -581,6 +581,9 @@ impl Chat {
         if let Some(command) = crate::moderation::parse_report(&body) {
             return self.report(session, command, "groupchat", room_jid, Some(key)).await;
         }
+        if let Some(reply) = self.module_command(session, &body).await {
+            return self.reply(session, "groupchat", &room_jid, &reply);
+        }
         let mid = format!("rm-{}", random_hex(16));
         let channel = channel_of(&kind);
         let rated = self.options.moderation.rate(&body, channel);

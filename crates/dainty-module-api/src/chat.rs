@@ -227,6 +227,17 @@ pub enum ChatQuery {
         /// The JID localpart.
         local: String,
     },
+    /// A chat line starting with `/` that chat itself doesn't handle; `Unsupported` when the module doesn't know it,
+    /// and chat then relays the line as said
+    Command {
+        /// The player who typed it.
+        account: GlobalId,
+        /// The whole line as typed.
+        line: String,
+        /// The client's `xml:lang`, when it sent one, so the reply can be in the game's language
+        #[serde(default)]
+        lang: Option<String>,
+    },
 }
 
 /// A game module's answer to a [`ChatQuery`], the variant matching the query's.
@@ -252,6 +263,8 @@ pub enum ChatAnswer {
     RoomOf(Option<RoomKind>),
     /// The local player the localpart names, if any.
     AccountOf(Option<GlobalId>),
+    /// The command's reply, shown to the player who typed it and no one else.
+    Reply(String),
 }
 
 #[cfg(test)]
@@ -295,6 +308,11 @@ mod tests {
             ChatQuery::AccountOf {
                 local: String::from("user-1"),
             },
+            ChatQuery::Command {
+                account: account.clone(),
+                line: String::from("/reset"),
+                lang: Some(String::from("pt-BR")),
+            },
         ] {
             let json = serde_json::to_string(&query).unwrap();
             assert_eq!(serde_json::from_str::<ChatQuery>(&json).unwrap(), query);
@@ -308,6 +326,7 @@ mod tests {
             ChatAnswer::MayWhisper(true),
             ChatAnswer::RoomOf(Some(RoomKind::Network)),
             ChatAnswer::AccountOf(Some(account.clone())),
+            ChatAnswer::Reply(String::from("ok")),
         ] {
             let json = serde_json::to_string(&answer).unwrap();
             assert_eq!(serde_json::from_str::<ChatAnswer>(&json).unwrap(), answer);

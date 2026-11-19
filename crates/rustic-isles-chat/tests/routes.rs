@@ -402,3 +402,48 @@ async fn a_friend_homed_elsewhere_is_503() {
         json!([edge("bob", "PENDING", "OUTBOUND", &tick(0))])
     );
 }
+
+#[tokio::test(flavor = "multi_thread")]
+async fn the_help_screen_s_save_reset() {
+    let temp = rustic_isles_store::test_support::TempStore::open().unwrap();
+    let account = common::account(&temp.store, "slayer").await;
+    let h = Harness::new(Some(temp.store.clone()));
+    let post = |step: &str, lang: &str| ("application/json", json!({"step": step, "lang": lang}).to_string());
+    let say = |caller, body| h.send("POST", "/dainty/v1/save-reset", caller, Some(body));
+
+    assert_eq!(
+        say(As::Nobody, post("ask", "en")).await.status,
+        StatusCode::UNAUTHORIZED
+    );
+    assert_empty(&say(As::Empty, post("ask", "en")).await, StatusCode::FORBIDDEN);
+    assert_empty(
+        &say(As::User("slayer"), post("now", "en")).await,
+        StatusCode::BAD_REQUEST,
+    );
+    assert_empty(&say(As::User("nobody"), post("ask", "en")).await, StatusCode::NOT_FOUND);
+
+    let early = say(As::User("slayer"), post("confirm", "en")).await;
+    assert_eq!(
+        (early.status, early.json()["status"].clone()),
+        (StatusCode::OK, json!("nothingToConfirm"))
+    );
+    let asked = say(As::User("slayer"), post("ask", "pt-BR")).await.json();
+    assert_eq!(asked["status"], "asked");
+    let message = asked["message"].as_str().unwrap();
+    assert!(
+        message.contains("entrar de novo") && !message.contains("/reset"),
+        "{message}"
+    );
+    let done = say(As::User("slayer"), post("confirm", "en")).await.json();
+    assert_eq!(done["status"], "done");
+    assert!(done["message"].as_str().unwrap().contains("rejoin"));
+    let soon = say(As::User("slayer"), post("ask", "en")).await.json();
+    assert_eq!(soon["status"], "tooSoon");
+    let w = account.clone();
+    let snapshots = temp
+        .store
+        .read(move |conn, _| rustic_isles_store::repo::resets::list(conn, &w))
+        .await
+        .unwrap();
+    assert_eq!(snapshots.len(), 1);
+}

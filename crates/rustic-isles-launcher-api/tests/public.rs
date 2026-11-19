@@ -1367,7 +1367,7 @@ fn this_half_registers_its_44_rows() {
                 && r.when != rustic_isles::When::Rifts
         })
         .collect();
-    assert_eq!(reforged.len(), 64);
+    assert_eq!(reforged.len(), 66);
     let (mut p, mut a) = (0, 0);
     for row in &reforged {
         let in_public = public.contains(row.service, row.method, row.path);
@@ -1379,5 +1379,5 @@ fn this_half_registers_its_44_rows() {
             a += 1;
         }
     }
-    assert_eq!((p, a), (44, 20));
+    assert_eq!((p, a), (44, 22));
 }

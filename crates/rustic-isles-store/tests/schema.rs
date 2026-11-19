@@ -45,7 +45,7 @@ async fn versions_columns_and_seed() {
         versions,
         [
             "0001", "0020", "0030", "0050", "0055", "0070", "0200", "0201", "0202", "0203", "0204", "0205", "0500",
-            "0600", "0610", "0620"
+            "0600", "0610", "0620", "0640"
         ]
     );
     let columns: Vec<String> = columns.into_iter().map(|c| c.name).collect();

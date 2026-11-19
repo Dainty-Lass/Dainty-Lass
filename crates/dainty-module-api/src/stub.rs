@@ -275,6 +275,10 @@ impl GameModule for StubModule {
                     may_speak: !matches!(room, RoomKind::Network),
                     history: matches!(room, RoomKind::Party(_) | RoomKind::Hunt(_)),
                 }),
+                // As a game's `/reset` answers: to the player alone
+                ChatQuery::Command { line, .. } if line.split_whitespace().next() == Some("/reset") => {
+                    ChatAnswer::Reply(String::from("Reset asked."))
+                }
                 other => return Err(ModuleError::unsupported(format!("chat query {other:?}"))),
             })
         })

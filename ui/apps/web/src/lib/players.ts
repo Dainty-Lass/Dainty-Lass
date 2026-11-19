@@ -328,3 +328,32 @@ export async function grantToPlayer(
 export async function grantCatalog(me: Staff, controllerId: string) {
   return backend(controllerId).grantCatalog(op(me));
 }
+
+export async function saveSnapshots(me: Staff, controllerId: string, userId: string) {
+  return (await backend(controllerId).saveSnapshots(userId, op(me))).snapshots;
+}
+
+/** Puts a snapshot back as the player's save; the save it replaces becomes a snapshot of its own. */
+export async function restoreSave(
+  me: Staff,
+  controllerId: string,
+  userId: string,
+  snapshotId: string,
+  reason: string,
+) {
+  const api = backend(controllerId);
+  const [account] = (await api.playersById([userId], op(me))).accounts;
+  if (!account) throw new DomainError("not_found");
+  const done = await api.restoreSave(userId, snapshotId, reasonOf(reason), op(me));
+  recordAudit(me, {
+    action: "player.save.restore",
+    targetType: "player",
+    targetId: userId,
+    targetLabel: account.displayName,
+    controllerId,
+    reason,
+    before: { snapshotId: done.replacedSnapshotId },
+    after: { snapshotId },
+  });
+  return done;
+}

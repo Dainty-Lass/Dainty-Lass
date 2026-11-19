@@ -41,6 +41,8 @@ const BACKEND_ROUTES: { method: string; path: RegExp }[] = [
   { method: "PATCH", path: new RegExp(`^/admin/v1/players/${ID}/roles$`) },
   { method: "GET", path: /^\/admin\/v1\/grant-catalog$/ },
   { method: "POST", path: new RegExp(`^/admin/v1/players/${ID}/grants$`) },
+  { method: "GET", path: new RegExp(`^/admin/v1/players/${ID}/save-snapshots$`) },
+  { method: "POST", path: new RegExp(`^/admin/v1/players/${ID}/save-snapshots/${ID}/restore$`) },
 ];
 
 /** Whether a backend request target (path and query) is one an agent will forward. */

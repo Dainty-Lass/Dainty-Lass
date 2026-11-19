@@ -17,6 +17,7 @@ use rustic_isles_store::repo::chat::FriendshipStatus;
 use rustic_isles_store::{IslesAuthStore, IslesStore, RepoError};
 use serde_json::{Map, Value, json};
 
+use crate::reset::{self, ResetAnswer, ResetStep};
 use crate::{ChatSettings, ChatSource, InvalidToken, Player, TokenCheck};
 
 struct GameTokens(Arc<IslesAuth>);
@@ -316,6 +317,19 @@ impl ChatSource for StoreChat {
                 .filter(|e| e.status == FriendshipStatus::Accepted)
                 .map(|e| e.other.global().clone())
                 .collect())
+        })
+    }
+
+    fn save_reset<'a>(
+        &'a self,
+        account: &'a GlobalId,
+        step: ResetStep,
+        now: i64,
+    ) -> BoxFuture<'a, Result<ResetAnswer, ModuleError>> {
+        Box::pin(async move {
+            let store = self.database()?;
+            let id = account_id(account)?;
+            reset::step(store, &id, step, now).await.map_err(unavailable)
         })
     }
 }

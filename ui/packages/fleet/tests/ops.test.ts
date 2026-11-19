@@ -14,6 +14,11 @@ test("only the listed backend routes pass", () => {
   expect(backendAllowed("GET", "/admin/v1/grant-catalog")).toBe(true);
   expect(backendAllowed("POST", "/admin/v1/players/abc-123/grants")).toBe(true);
   expect(backendAllowed("GET", "/admin/v1/players/abc-123/grants")).toBe(false);
+  expect(backendAllowed("GET", "/admin/v1/players/abc-123/save-snapshots")).toBe(true);
+  expect(backendAllowed("POST", "/admin/v1/players/abc-123/save-snapshots/01JX/restore")).toBe(
+    true,
+  );
+  expect(backendAllowed("DELETE", "/admin/v1/players/abc-123/save-snapshots/01JX")).toBe(false);
   expect(backendAllowed("POST", "/admin/v1/players/abc-123/tester-max")).toBe(false);
   expect(backendAllowed("GET", "/admin/v1/player-logs")).toBe(false);
   expect(backendAllowed("GET", "/admin/v1/players/../auth/login")).toBe(false);

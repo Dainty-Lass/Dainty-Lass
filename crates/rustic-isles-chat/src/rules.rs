@@ -10,6 +10,7 @@ use rustic_isles::replay;
 
 use crate::hubs::HubSessions;
 use crate::ids::instance_id;
+use crate::reset;
 use crate::{ChatSource, Player, Refusal, XMPP_DOMAIN, authenticate};
 
 /// History is never kept: Paradox's rooms were in memory, so a joiner sees only what is said after joining.
@@ -51,6 +52,10 @@ pub trait ChatRules: Send + Sync {
                 ChatQuery::MayWhisper { from, to } => Ok(ChatAnswer::MayWhisper(self.may_whisper(from, to))),
                 ChatQuery::RoomOf { name } => Ok(ChatAnswer::RoomOf(self.room_of(source, hubs, name))),
                 ChatQuery::AccountOf { local } => self.account_of(source, local).await.map(ChatAnswer::AccountOf),
+                ChatQuery::Command { account, line, lang } => self
+                    .command(source, account, line, lang.as_deref())
+                    .await
+                    .map(ChatAnswer::Reply),
             }
         })
     }
@@ -147,6 +152,29 @@ pub trait ChatRules: Send + Sync {
         local: &'a str,
     ) -> BoxFuture<'a, Result<Option<GlobalId>, ModuleError>> {
         source.account_of(local)
+    }
+
+    /// A slash command's reply; `Unsupported` for any line but `/reset`, which chat then relays as said. `/reset`
+    /// always answers, so it never reaches the room.
+    fn command<'a>(
+        &'a self,
+        source: &'a dyn ChatSource,
+        account: &'a GlobalId,
+        line: &'a str,
+        lang: Option<&'a str>,
+    ) -> BoxFuture<'a, Result<String, ModuleError>> {
+        Box::pin(async move {
+            let Some(step) = reset::parse(line) else {
+                return Err(ModuleError::new(ErrorKind::Unsupported, "not a module command"));
+            };
+            Ok(match source.save_reset(account, step, replay::now_ms()).await {
+                Ok(answer) => reset::reply(answer, lang),
+                Err(e) => {
+                    tracing::warn!("chat: /reset failed: {e}");
+                    reset::failed(lang)
+                }
+            })
+        })
     }
 }
 

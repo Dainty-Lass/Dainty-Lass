@@ -13,6 +13,7 @@ pub mod grants;
 pub mod host_routes;
 pub mod players;
 pub mod release_gates;
+pub mod saves;
 pub mod signin;
 pub mod tester_max;
 
@@ -635,6 +636,20 @@ pub fn register_admin(handlers: &mut rustic_isles::Handlers) {
     wrapped(handlers, Post, "/admin/v1/players/:userId/grants", required, |c| {
         Box::pin(grants::grant(c))
     });
+    wrapped(
+        handlers,
+        Get,
+        "/admin/v1/players/:userId/save-snapshots",
+        required,
+        |c| Box::pin(saves::list(c)),
+    );
+    wrapped(
+        handlers,
+        Post,
+        "/admin/v1/players/:userId/save-snapshots/:snapshotId/restore",
+        required,
+        |c| Box::pin(saves::restore(c)),
+    );
 }
 
 struct AdminStartup;
