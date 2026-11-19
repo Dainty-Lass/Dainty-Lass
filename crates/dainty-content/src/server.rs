@@ -24,7 +24,7 @@ use tokio::sync::{Semaphore, watch};
 use tokio::task::JoinSet;
 use tokio::time::{Instant, Sleep};
 
-use crate::app::{AppState, handle};
+use crate::app::{AppState, CrashReports, handle};
 use crate::auth::Auth;
 use crate::branding::Branding;
 use crate::config::{Config, bind_address};
@@ -135,8 +135,12 @@ fn build(config: &Config, modules: Arc<ContentModules>, clock: Clock) -> AppStat
     let auth = Auth::backend(&config.backend_url, config.auth_cache_seconds, clock.clone());
     let slots = Slots::new(config.max_streams_per_account, config.max_streams_total);
     let branding = Branding::new(config.branding_dir.clone(), clock.clone());
+    let crash = config
+        .crash_dir
+        .clone()
+        .map(|dir| CrashReports::new(dir, config.dashboard.clone(), clock.clone()));
     let news = News::new(config.news_file.clone(), config.news_url.clone(), clock);
-    AppState::new(runtime, auth, slots, branding, news, modules)
+    AppState::new(runtime, auth, slots, branding, news, modules, crash)
 }
 
 /// Serves `listener` until `stop` turns true, then aborts every open connection.

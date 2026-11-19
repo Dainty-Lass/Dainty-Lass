@@ -308,6 +308,35 @@ pub async fn request(endpoint: &Endpoint, path: &str, options: RequestOptions) -
         &options.headers,
         options.body.as_deref(),
     )?;
+    send(endpoint, pin, req, &options).await
+}
+
+/// POSTs `body` as `content_type`, otherwise as [`request`] does; `options.body` and `options.method` are unused.
+pub async fn upload(
+    endpoint: &Endpoint,
+    path: &str,
+    content_type: &str,
+    body: Bytes,
+    options: RequestOptions,
+) -> Result<HttpResponse, HttpError> {
+    let pin = check_endpoint(endpoint)?;
+    let req = build_request(endpoint, Method::POST, path, "application/json", &options.headers, None)?;
+    let (mut parts, _) = req.into_parts();
+    let header =
+        |text: &str| hyper::header::HeaderValue::from_str(text).map_err(|e| HttpError::Protocol(e.to_string()));
+    parts.headers.insert(hyper::header::CONTENT_TYPE, header(content_type)?);
+    parts
+        .headers
+        .insert(hyper::header::CONTENT_LENGTH, header(&body.len().to_string())?);
+    send(endpoint, pin, Request::from_parts(parts, Full::new(body)), &options).await
+}
+
+async fn send(
+    endpoint: &Endpoint,
+    pin: Option<String>,
+    req: Request<Full<Bytes>>,
+    options: &RequestOptions,
+) -> Result<HttpResponse, HttpError> {
     if options.cancel.as_ref().is_some_and(CancellationToken::is_cancelled) {
         return Err(HttpError::Aborted);
     }

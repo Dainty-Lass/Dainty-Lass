@@ -101,5 +101,7 @@ window.__RR_COMMANDS__ = {
   "remote_revoke": { "node": { kind: "text", max: 64 } },
   "remote_leave": {},
   "remote_exec": { "request": { kind: "object", nullable: false, fields: { "node": { kind: "text", max: 64 }, "action": { kind: "name", names: ["doctor", "backup", "invite", "ban", "unban", "kick", "announce", "guarded_approve", "guarded_cancel"] }, "target": { kind: "optionalText", max: 64 }, "reason": { kind: "optionalText", max: 500 } } } },
+  "crash_report_send": {},
+  "crash_report_dismiss": {},
 };
-window.__RR_SETTINGS_KEYS__ = ["graphics", "windowed", "streamerMode", "hostTools", "language", "gameLanguage", "runtimeProfile", "gameEdition", "minimizeToTray", "closeToTray", "showGameConsole", "injectHelper"];
+window.__RR_SETTINGS_KEYS__ = ["graphics", "windowed", "streamerMode", "hostTools", "language", "gameLanguage", "runtimeProfile", "gameEdition", "minimizeToTray", "closeToTray", "showGameConsole", "injectHelper", "crashReports"];

@@ -122,6 +122,7 @@ pub fn types_ts() -> String {
         MongoMigrationState, MongoMigrationView, ServerConfigView, ServerInviteEntry,
         AdminActionKind, AdminPlayerView, AdminResultView,
         ManagedInstallView, RemoteStatusView, RemoteInviteView, RemoteExecView,
+        CrashReports, CrashOfferState, CrashOffer,
     );
     for (name, ok) in UNIONS {
         if *name == "GraphicsPreset" {
@@ -423,6 +424,7 @@ fn generated_name_lists_are_the_enums() {
         close_to_tray: Some(true),
         show_game_console: Some(true),
         inject_helper: Some(true),
+        crash_reports: Some(CrashReports::Ask),
     };
     let value = serde_json::to_value(full).unwrap();
     let keys: Vec<&str> = value.as_object().unwrap().keys().map(String::as_str).collect();

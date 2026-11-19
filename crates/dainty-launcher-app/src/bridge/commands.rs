@@ -1,7 +1,7 @@
 // Copyright (c) 2026 Silent Spud
 // SPDX-License-Identifier: MIT
 
-//! The page's 100 commands (RD27 spec §2.3.1), in the table's order. Each checks its arguments again with
+//! The page's commands (RD27 spec §2.3.1), in the table's order. Each checks its arguments again with
 //! dainty-launcher-kit's `bridge::checks` (the isolation hook guards the page, these guard the backend), then calls the
 //! controller.
 
@@ -744,4 +744,14 @@ pub async fn remote_exec(c: Ctl<'_>, request: Value) -> Answer<RemoteExecOutcome
         let request = checked!(checks::remote_exec(&request), RemoteExecOutcome);
         c.remote_exec(request).await
     })
+}
+
+#[tauri::command]
+pub async fn crash_report_send(c: Ctl<'_>) -> Answer<ActionResult> {
+    Ok(c.crash_report_send().await)
+}
+
+#[tauri::command]
+pub fn crash_report_dismiss(c: Ctl<'_>) {
+    c.crash_report_dismiss();
 }

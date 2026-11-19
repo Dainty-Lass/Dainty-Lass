@@ -454,5 +454,23 @@
   "proton": {
     "injectHelper": "Load the runtime with the inject helper",
     "injectHelperHint": "Proton only. On, a small helper loads the runtime into the game, as the Windows launcher does. Off, the runtime loader (winmm.dll) beside the game loads it. The launcher installs what each one needs before the next launch."
+  },
+  "crashReports": {
+    "title": "Crash reports",
+    "choice": "Send crash reports to the server",
+    "choiceHint": "When the game crashes, its crash files and this launcher's log can go to the server you play on, so its staff can see what went wrong. Your account key is removed first.",
+    "choices": {
+      "never": "Never",
+      "ask": "Ask each time",
+      "always": "Always"
+    },
+    "ask": "The game crashed. Send the crash report to {server}?",
+    "send": "Send",
+    "dontSend": "Don't send",
+    "sending": "Sending the crash report…",
+    "sent": "Crash report sent. Thank you.",
+    "rate_limited": "The server takes no more crash reports for now. Try again later.",
+    "failed": "The crash report could not be sent.",
+    "retry": "Try again"
   }
 }

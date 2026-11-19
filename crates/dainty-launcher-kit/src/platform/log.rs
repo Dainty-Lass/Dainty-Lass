@@ -3,7 +3,8 @@
 
 //! The launcher's log file, with every line redacted (spec §2.7.4).
 //!
-//! Lines go to `<logs>/launcher.log` once [`set_folder`] is called, and to stderr before that. Nothing here
+//! Lines go to `<logs>/launcher.log` once [`set_folder`] is called, and to stderr before that; each launcher session
+//! starts a fresh one ([`start_session`]). Nothing here
 //! returns an error: logging never fails the launcher.
 
 use std::fmt::Write as _;
@@ -210,6 +211,83 @@ pub fn set_folder(dir: &Path) {
     state().folder = Some(dir.to_path_buf());
 }
 
+/// Starts this launcher session's log in `dir`: the last session's files are kept as `launcher-<time>-*.log`,
+/// the oldest beyond [`KEPT_SESSIONS`] removed, then later lines go to a fresh `launcher.log`.
+pub fn start_session(dir: &Path) {
+    if let Err(failed) = rotate_sessions(dir, KEPT_SESSIONS) {
+        let _ = writeln!(std::io::stderr(), "could not rotate the launcher logs: {failed}");
+    }
+    set_folder(dir);
+}
+
+/// Earlier sessions whose logs are kept.
+pub const KEPT_SESSIONS: usize = 10;
+const SESSION_PREFIX: &str = "launcher-";
+
+/// Archives the current log (and its overflow) under the time it was last written, then prunes to `keep`
+/// sessions. Archived names sort in time order.
+pub fn rotate_sessions(dir: &Path, keep: usize) -> std::io::Result<()> {
+    std::fs::create_dir_all(dir)?;
+    let current = dir.join(LOG_FILE);
+    if let Ok(meta) = std::fs::metadata(&current) {
+        let time: DateTime<Utc> = meta.modified().map_or_else(|_| Utc::now(), DateTime::from);
+        let stamp = time.format("%Y%m%dT%H%M%S%3fZ").to_string();
+        let mut stamp_free = stamp.clone();
+        for n in 1..100 {
+            if !dir.join(format!("{SESSION_PREFIX}{stamp_free}-2.log")).exists() {
+                break;
+            }
+            stamp_free = format!("{stamp}{n:02}");
+        }
+        let old = dir.join(OLD_LOG_FILE);
+        if old.is_file() {
+            std::fs::rename(&old, dir.join(format!("{SESSION_PREFIX}{stamp_free}-1.log")))?;
+        }
+        std::fs::rename(&current, dir.join(format!("{SESSION_PREFIX}{stamp_free}-2.log")))?;
+    }
+    let mut sessions: Vec<(String, PathBuf)> = std::fs::read_dir(dir)?
+        .filter_map(Result::ok)
+        .filter_map(|entry| {
+            let name = entry.file_name().into_string().ok()?;
+            let stamp = name
+                .strip_prefix(SESSION_PREFIX)?
+                .strip_suffix(".log")?
+                .rsplit_once('-')?
+                .0;
+            Some((stamp.to_owned(), entry.path()))
+        })
+        .collect();
+    sessions.sort();
+    let mut stamps: Vec<&str> = sessions.iter().map(|(s, _)| s.as_str()).collect();
+    stamps.dedup();
+    if stamps.len() > keep {
+        let cut = stamps[stamps.len() - keep].to_owned();
+        for (stamp, path) in &sessions {
+            if *stamp < cut {
+                std::fs::remove_file(path)?;
+            }
+        }
+    }
+    Ok(())
+}
+
+/// The last `max` bytes of this session's log, from a line start. Lines were redacted as they were written.
+#[must_use]
+pub fn session_tail(max: usize) -> Option<String> {
+    let folder = folder()?;
+    let bytes = std::fs::read(folder.join(LOG_FILE)).ok()?;
+    let start = bytes.len().saturating_sub(max);
+    let tail = &bytes[start..];
+    let tail = if start > 0 {
+        tail.iter()
+            .position(|b| *b == b'\n')
+            .map_or(&tail[..0], |i| &tail[i + 1..])
+    } else {
+        tail
+    };
+    Some(String::from_utf8_lossy(tail).into_owned())
+}
+
 /// The log folder, once set.
 #[must_use]
 pub fn folder() -> Option<PathBuf> {
@@ -379,6 +457,41 @@ mod tests {
         std::fs::write(&log, vec![b'x'; usize::try_from(MAX_LOG_BYTES).unwrap()]).unwrap();
         append(tmp.path(), "more\n").unwrap();
         assert_eq!(std::fs::metadata(&log).unwrap().len(), MAX_LOG_BYTES + 5);
+    }
+
+    #[test]
+    fn sessions_rotate_and_keep_the_newest() {
+        let tmp = tempfile::tempdir().unwrap();
+        let dir = tmp.path();
+        for n in 0..14 {
+            std::fs::write(dir.join(format!("launcher-2026111{}T000000{n:03}Z-2.log", n / 10)), "s").unwrap();
+        }
+        std::fs::write(dir.join("launcher-20261101T000000000Z-1.log"), "old part").unwrap();
+        std::fs::write(dir.join(LOG_FILE), "current").unwrap();
+        std::fs::write(dir.join(OLD_LOG_FILE), "overflow").unwrap();
+        std::fs::write(dir.join("notes.txt"), "kept").unwrap();
+        rotate_sessions(dir, 3).unwrap();
+
+        let mut names: Vec<String> = std::fs::read_dir(dir)
+            .unwrap()
+            .map(|e| e.unwrap().file_name().into_string().unwrap())
+            .collect();
+        names.sort();
+        assert!(!dir.join(LOG_FILE).exists() && !dir.join(OLD_LOG_FILE).exists());
+        assert_eq!(names.len(), 5, "{names:?}");
+        assert_eq!(names[0], "launcher-20261111T000000012Z-2.log");
+        assert_eq!(names[1], "launcher-20261111T000000013Z-2.log");
+        // The just-archived session is newest, with its overflow beside it.
+        assert!(names[2].ends_with("-1.log") && names[3].ends_with("-2.log"));
+        assert_eq!(std::fs::read_to_string(dir.join(&names[2])).unwrap(), "overflow");
+        assert_eq!(std::fs::read_to_string(dir.join(&names[3])).unwrap(), "current");
+        assert_eq!(names[4], "notes.txt");
+
+        // A second rotation in the same instant doesn't overwrite the first.
+        std::fs::write(dir.join(LOG_FILE), "next").unwrap();
+        rotate_sessions(dir, 10).unwrap();
+        let count = std::fs::read_dir(dir).unwrap().count();
+        assert_eq!(count, 6);
     }
 
     #[test]

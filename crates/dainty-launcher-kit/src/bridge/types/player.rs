@@ -407,6 +407,8 @@ pub struct Settings {
     pub show_game_console: bool,
     /// Under Proton, load the runtime with the `dainty-inject.exe` helper rather than the runtime loader.
     pub inject_helper: bool,
+    /// Whether a game crash's report goes to the server.
+    pub crash_reports: CrashReports,
 }
 
 /// A change to the settings: only the named ones change. Anything else is refused whole (§2.3.4).
@@ -449,6 +451,9 @@ pub struct SettingsPatch {
     /// New Proton helper flag.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub inject_helper: Option<bool>,
+    /// New crash report choice.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub crash_reports: Option<CrashReports>,
 }
 
 object_only!(SettingsPatch);
@@ -554,6 +559,50 @@ pub struct Snapshot {
     pub last_error: Option<LauncherError>,
     /// The last notice, until dismissed.
     pub notice: Option<NoticeCode>,
+    /// The last game crash's report, until dismissed.
+    pub crash: Option<CrashOffer>,
+}
+
+/// Whether a game crash's report goes to the joined server. Off unless the player chooses.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[cfg_attr(any(test, feature = "ts"), derive(ts_rs::TS))]
+#[serde(rename_all = "snake_case")]
+pub enum CrashReports {
+    /// Never sent.
+    #[default]
+    Never,
+    /// The page asks once per crash.
+    Ask,
+    /// Sent without asking.
+    Always,
+}
+
+/// Where the last crash's report is.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(any(test, feature = "ts"), derive(ts_rs::TS))]
+#[serde(rename_all = "snake_case")]
+pub enum CrashOfferState {
+    /// Waiting for the player to send or dismiss it.
+    Ask,
+    /// Being sent.
+    Sending,
+    /// The server took it.
+    Sent,
+    /// The server refused it for now; it can be sent later.
+    RateLimited,
+    /// Sending failed.
+    Failed,
+}
+
+/// A game crash the page tells the player about.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(any(test, feature = "ts"), derive(ts_rs::TS))]
+#[serde(rename_all = "camelCase")]
+pub struct CrashOffer {
+    /// The game's crash folder name.
+    pub id: String,
+    /// Its report's state.
+    pub state: CrashOfferState,
 }
 
 /// One news post.

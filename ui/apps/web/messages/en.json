@@ -72,7 +72,8 @@
     "signOut": "Sign out",
     "controllers": "Controllers",
     "members": "Members",
-    "account": "Your account"
+    "account": "Your account",
+    "crashReports": "Crash reports"
   },
   "login": {
     "title": "Sign in",
@@ -1213,5 +1214,31 @@
     },
     "close": "Close",
     "itemOption": "{name} ({id})"
+  },
+  "crashReports": {
+    "title": "Crash reports",
+    "description": "Game crashes players sent from the launcher. The full files stay on the game server.",
+    "empty": "No crash reports",
+    "emptyHint": "When a player sends a crash report from the launcher, it shows here.",
+    "reportTitle": "Crash {crashId}",
+    "unknown": "Unknown",
+    "noText": "Not sent as text. Read it on the game server.",
+    "noFiles": "The report came without files.",
+    "columns": {
+      "received": "Received",
+      "player": "Player",
+      "crashId": "Crash",
+      "gameVersion": "Game version",
+      "launcherVersion": "Launcher version",
+      "exitCode": "Exit code",
+      "files": "Files",
+      "serverPath": "On the game server",
+      "name": "Name",
+      "size": "Size",
+      "sha256": "SHA-256"
+    },
+    "fileCount": "{count, plural, one {# file} other {# files}}",
+    "bytes": "{size, number} bytes",
+    "filesHeading": "Files"
   }
 }

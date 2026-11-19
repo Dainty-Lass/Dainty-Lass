@@ -454,5 +454,23 @@
   "proton": {
     "injectHelper": "Carregar o runtime com o auxiliar de injeção",
     "injectHelperHint": "Só no Proton. Ligado, um pequeno auxiliar carrega o runtime no jogo, como o launcher do Windows faz. Desligado, o carregador do runtime (winmm.dll) ao lado do jogo o carrega. O launcher instala o que cada um precisa antes da próxima vez que o jogo abrir."
+  },
+  "crashReports": {
+    "title": "Relatórios de falha",
+    "choice": "Enviar relatórios de falha ao servidor",
+    "choiceHint": "Quando o jogo trava, os arquivos da falha e o log deste launcher podem ir para o servidor em que você joga, para a equipe ver o que deu errado. Sua chave de conta é removida antes.",
+    "choices": {
+      "never": "Nunca",
+      "ask": "Perguntar sempre",
+      "always": "Sempre"
+    },
+    "ask": "O jogo travou. Enviar o relatório de falha para {server}?",
+    "send": "Enviar",
+    "dontSend": "Não enviar",
+    "sending": "Enviando o relatório de falha…",
+    "sent": "Relatório de falha enviado. Obrigado.",
+    "rate_limited": "O servidor não aceita mais relatórios de falha por enquanto. Tente de novo mais tarde.",
+    "failed": "Não foi possível enviar o relatório de falha.",
+    "retry": "Tentar de novo"
   }
 }

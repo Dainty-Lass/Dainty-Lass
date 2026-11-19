@@ -24,6 +24,8 @@ use tokio_util::io::ReaderStream;
 
 use crate::auth::{Account, Auth, Check};
 use crate::branding::{Branding, MAX_IMAGE_BYTES};
+use crate::config::Dashboard;
+use crate::crash::{self, Limited, RateLimit, Sender};
 use crate::input::{
     self, KEY_HEADER, Route, VersionKey, cut_utf16, header_text, if_none_match_hits, is_image_file_name,
     is_runtime_file_name,
@@ -53,6 +55,27 @@ struct Inner {
     branding: Branding,
     news: Arc<News>,
     modules: Arc<ContentModules>,
+    crash: Option<CrashReports>,
+}
+
+/// Where crash reports go: the folder, the rate limit and the dashboard copy.
+pub struct CrashReports {
+    dir: PathBuf,
+    limit: RateLimit,
+    clock: crate::Clock,
+    dashboard: Option<Dashboard>,
+}
+
+impl CrashReports {
+    /// Reports kept in `dir`, copied to `dashboard` when there is one.
+    pub fn new(dir: PathBuf, dashboard: Option<Dashboard>, clock: crate::Clock) -> Self {
+        Self {
+            dir,
+            limit: RateLimit::new(clock.clone()),
+            clock,
+            dashboard,
+        }
+    }
 }
 
 impl AppState {
@@ -64,6 +87,7 @@ impl AppState {
         branding: Branding,
         news: News,
         modules: Arc<ContentModules>,
+        crash: Option<CrashReports>,
     ) -> Self {
         Self {
             inner: Arc::new(Inner {
@@ -73,6 +97,7 @@ impl AppState {
                 branding,
                 news: Arc::new(news),
                 modules,
+                crash,
             }),
         }
     }
@@ -170,12 +195,17 @@ async fn blocking<T: Send + 'static>(work: impl FnOnce() -> T + Send + 'static) 
 }
 
 /// Answers one request from `peer`.
-pub async fn handle<B>(state: AppState, request: Request<B>, peer: SocketAddr) -> Response<ReplyBody> {
+pub async fn handle<B>(state: AppState, request: Request<B>, peer: SocketAddr) -> Response<ReplyBody>
+where
+    B: Body<Data = Bytes> + Send,
+    B::Error: Into<Box<dyn std::error::Error + Send + Sync>>,
+{
     let arrived = Instant::now();
     let method = request.method().clone();
     let path = request.uri().path().to_owned();
     let query = request.uri().query().map(str::to_owned);
-    let headers = request.headers();
+    let (parts, body) = request.into_parts();
+    let headers = &parts.headers;
     let ip = header_text(headers, "x-forwarded-for")
         .filter(|ip| !ip.is_empty())
         .unwrap_or_else(|| peer.ip().to_string());
@@ -186,7 +216,10 @@ pub async fn handle<B>(state: AppState, request: Request<B>, peer: SocketAddr) -
         account: None,
     };
     let route = Route::of(&path);
-    let reply = if route == Route::Unknown {
+    let reply = if path == crash::PATH && state.inner.crash.is_some() {
+        ctx.route = "crash-report";
+        state.crash_report(&method, headers, body, &mut ctx).await
+    } else if route == Route::Unknown {
         Reply::error(StatusCode::NOT_FOUND, "not_found")
     } else if method != Method::GET && method != Method::HEAD {
         Reply::error(StatusCode::METHOD_NOT_ALLOWED, "method_not_allowed").header(http::header::ALLOW, "GET, HEAD")
@@ -290,6 +323,90 @@ impl AppState {
             }
             Route::Unknown => Reply::error(StatusCode::NOT_FOUND, "not_found"),
         }
+    }
+
+    /// `POST /content/v1/crash-reports`: checked in the order that reads the least first, the body last.
+    async fn crash_report<B>(&self, method: &Method, headers: &http::HeaderMap, body: B, ctx: &mut Ctx) -> Reply
+    where
+        B: Body<Data = Bytes> + Send,
+        B::Error: Into<Box<dyn std::error::Error + Send + Sync>>,
+    {
+        let Some(crash) = &self.inner.crash else {
+            return Reply::error(StatusCode::NOT_FOUND, "not_found");
+        };
+        if method != Method::POST {
+            return Reply::error(StatusCode::METHOD_NOT_ALLOWED, "method_not_allowed")
+                .header(http::header::ALLOW, "POST");
+        }
+        let declared = header_text(headers, "content-length").and_then(|n| n.trim().parse::<u64>().ok());
+        if declared.is_some_and(|n| n > crash::MAX_UPLOAD as u64) {
+            return error_with_reason(ctx, StatusCode::PAYLOAD_TOO_LARGE, "too_large", "declared_length");
+        }
+        let kind = header_text(headers, "content-type").unwrap_or_default();
+        if !kind.eq_ignore_ascii_case(crash::CONTENT_TYPE) {
+            return error_with_reason(
+                ctx,
+                StatusCode::UNSUPPORTED_MEDIA_TYPE,
+                "bad_content_type",
+                "content_type",
+            );
+        }
+        let account = match self.account(headers, ctx).await {
+            Ok(account) => account,
+            Err(reply) => return *reply,
+        };
+        if let Err(limited) = crash.limit.take(&account.id) {
+            let reason = match limited {
+                Limited::Account => "account_limit",
+                Limited::Total => "total_limit",
+            };
+            return retry_after(
+                error_with_reason(ctx, StatusCode::TOO_MANY_REQUESTS, "rate_limited", reason),
+                crash::WINDOW.as_secs() as u32,
+            );
+        }
+        use http_body_util::BodyExt as _;
+        let upload = match http_body_util::Limited::new(body, crash::MAX_UPLOAD).collect().await {
+            Ok(collected) => collected.to_bytes(),
+            Err(failed) => {
+                let too_large = failed.downcast_ref::<http_body_util::LengthLimitError>().is_some();
+                return if too_large {
+                    error_with_reason(ctx, StatusCode::PAYLOAD_TOO_LARGE, "too_large", "body_length")
+                } else {
+                    error_with_reason(ctx, StatusCode::BAD_REQUEST, "bad_request", "body_read")
+                };
+            }
+        };
+        let parsed = match blocking(move || crash::parse(&upload).map(|bundle| (bundle, upload))).await {
+            Some(parsed) => parsed,
+            None => return Reply::error(StatusCode::INTERNAL_SERVER_ERROR, "internal"),
+        };
+        let (bundle, upload) = match parsed {
+            Ok(parsed) => parsed,
+            Err(bad) => return error_with_reason(ctx, StatusCode::BAD_REQUEST, "bad_report", bad.reason()),
+        };
+        let sender = Sender {
+            id: account.id.clone(),
+            name: account.username.clone(),
+        };
+        let (dir, now) = (crash.dir.clone(), (crash.clock)());
+        let saved = blocking(move || crash::save(&dir, &bundle, &sender, now, &upload)).await;
+        let saved = match saved {
+            Some(Ok(saved)) => saved,
+            Some(Err(failed)) => {
+                return error_with_reason(ctx, StatusCode::INTERNAL_SERVER_ERROR, "internal", &failed.to_string());
+            }
+            None => return Reply::error(StatusCode::INTERNAL_SERVER_ERROR, "internal"),
+        };
+        ctx.reason = Some(format!("saved {}", saved.id));
+        if let Some(dashboard) = crash.dashboard.clone() {
+            let body = saved.dashboard;
+            tokio::spawn(async move { crate::client::post_crash_report(&dashboard, &body).await });
+        }
+        Reply::json(
+            StatusCode::CREATED,
+            dainty_service_kit::jsjson::stringify(&json!({"id": saved.id})),
+        )
     }
 
     fn requested_version(&self, query: Option<&str>) -> Option<GameVersion> {

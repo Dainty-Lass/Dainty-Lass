@@ -8,7 +8,13 @@ import { Selector } from "@astryxdesign/core/Selector";
 import { Stack } from "@astryxdesign/core/Stack";
 import { Switch } from "@astryxdesign/core/Switch";
 import { Text } from "@astryxdesign/core/Text";
-import type { GameLanguage, GraphicsPreset, Language, Settings } from "@dainty/bridge";
+import type {
+  CrashReports,
+  GameLanguage,
+  GraphicsPreset,
+  Language,
+  Settings,
+} from "@dainty/bridge";
 import { useBridge } from "@dainty/bridge/react";
 import { FolderOpen } from "lucide-react";
 import { useTranslations } from "next-intl";
@@ -18,6 +24,7 @@ import { TraySettings } from "@/components/desktop/TraySettings";
 import { LauncherShell } from "@/components/launcher/LauncherShell";
 
 const GRAPHICS: GraphicsPreset[] = [-1, 0, 1, 2, 3, 4];
+const CRASH_REPORTS: CrashReports[] = ["never", "ask", "always"];
 const GAME_LANGUAGES: GameLanguage[] = [
   "auto",
   "en-US",
@@ -46,6 +53,7 @@ export default function SettingsPage() {
   const ta = useTranslations("appearance");
   const tt = useTranslations("tray");
   const tp = useTranslations("launcher.proton");
+  const tc = useTranslations("launcher.crashReports");
   const { snapshot, api } = useBridge();
   if (!snapshot || !api) return null;
   const s = snapshot.settings;
@@ -130,6 +138,17 @@ export default function SettingsPage() {
             label={t("openLogs")}
             icon={<FolderOpen size={16} />}
             onClick={() => void api.openLogsFolder()}
+          />
+        </Section>
+
+        <Section title={tc("title")}>
+          <Selector
+            label={tc("choice")}
+            description={tc("choiceHint")}
+            value={s.crashReports}
+            onChange={(v) => set({ crashReports: v as CrashReports })}
+            options={CRASH_REPORTS.map((c) => ({ value: c, label: tc(`choices.${c}`) }))}
+            width={320}
           />
         </Section>
 

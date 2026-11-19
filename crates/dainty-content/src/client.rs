@@ -79,6 +79,38 @@ async fn exchange(url: &str, headers: &[(&str, &str)], limit: usize) -> Result<R
     })
 }
 
+/// Copies a saved crash report to the staff dashboard (`POST /api/ingest/crash-reports`). A failure is logged
+/// and dropped: the report stays in the crash folder.
+pub async fn post_crash_report(dashboard: &crate::config::Dashboard, body: &serde_json::Value) {
+    static POOL: OnceLock<dainty_http::Client> = OnceLock::new();
+    let pool = POOL.get_or_init(|| dainty_http::client(dainty_http::Schemes::HttpOrHttps));
+    let url = format!("{}/api/ingest/crash-reports", dashboard.url);
+    let result = async {
+        let request = http::Request::post(&url)
+            .header("content-type", "application/json")
+            .header("authorization", format!("Bearer {}", dashboard.key))
+            .body(http_body_util::Full::new(Bytes::from(body.to_string())))
+            .map_err(|e| e.to_string())?;
+        let response = tokio::time::timeout(Duration::from_secs(30), pool.request(request))
+            .await
+            .map_err(|_| TIMEOUT_TEXT.to_owned())?
+            .map_err(|e| e.to_string())?;
+        Ok::<u16, String>(response.status().as_u16())
+    }
+    .await;
+    match result {
+        Ok(200..=299) => {}
+        Ok(status) => crate::log::warn(
+            "the dashboard did not take a crash report",
+            serde_json::json!({"status": status}),
+        ),
+        Err(reason) => crate::log::warn(
+            "could not reach the dashboard with a crash report",
+            serde_json::json!({"reason": reason}),
+        ),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     #![allow(clippy::unwrap_used, reason = "a panic is how a test fails")]

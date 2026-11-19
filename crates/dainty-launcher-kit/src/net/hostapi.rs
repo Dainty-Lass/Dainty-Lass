@@ -12,7 +12,7 @@ use dainty_protocol::status::{STATUS_PATH, ServerStatus};
 use hyper::Method;
 
 use crate::bridge::types::{ErrorCode, LauncherError};
-use crate::net::http::{Endpoint, HttpError, HttpResponse, RequestOptions, check_endpoint, request};
+use crate::net::http::{Endpoint, HttpError, HttpResponse, RequestOptions, check_endpoint, request, upload};
 use crate::net::runtime_files::RuntimeManifestResult;
 
 pub mod parse;
@@ -172,6 +172,29 @@ pub async fn register(endpoint: &Endpoint, body: &RegisterRequest) -> Result<Str
     };
     match request(endpoint, REFORGED.register_path, options).await {
         Ok(res) => parse::register_reply(res.status, &res.body),
+        Err(err) => Err(account_error(&err)),
+    }
+}
+
+/// How long a crash report upload may take.
+pub const CRASH_UPLOAD_TIMEOUT: Duration = Duration::from_secs(60);
+
+/// Sends a crash report bundle (`platform::crash`) with the account key, to the server the key was made for.
+pub async fn upload_crash_report(endpoint: &Endpoint, key: &str, bundle: Vec<u8>) -> Result<(), LauncherError> {
+    use crate::platform::crash::{CONTENT_TYPE, UPLOAD_PATH};
+    let headers = key_headers(endpoint, Some(key));
+    if headers.is_empty() {
+        return Err(LauncherError::new(ErrorCode::KeyInvalid));
+    }
+    let options = get(CRASH_UPLOAD_TIMEOUT, 4096, headers);
+    match upload(endpoint, UPLOAD_PATH, CONTENT_TYPE, bundle.into(), options).await {
+        Ok(res) if matches!(res.status, 200 | 201) => Ok(()),
+        Ok(res) => Err(LauncherError::new(match res.status {
+            429 => ErrorCode::RateLimited,
+            401 | 403 => ErrorCode::KeyRejected,
+            400 | 413 => ErrorCode::BadRequest,
+            _ => ErrorCode::ServerError,
+        })),
         Err(err) => Err(account_error(&err)),
     }
 }

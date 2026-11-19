@@ -106,6 +106,10 @@ export interface LauncherApi {
   gameInstallChooseFolder(): Promise<ActionResult>;
   /** Cancels a download altogether: stops it and deletes what it downloaded. */
   gameInstallDiscard(version: string): Promise<ActionResult>;
+  /** Sends the last crash's report to the server it was played on (`snapshot.crash`). */
+  crashReportSend(): Promise<ActionResult>;
+  /** Forgets the last crash; it is not offered again. */
+  crashReportDismiss(): Promise<void>;
   onSnapshot(fn: (snapshot: Snapshot) => void): void;
   onProgress(fn: (progress: TaskProgress) => void): void;
   onHostKit(fn: (kit: HostKit) => void): void;

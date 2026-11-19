@@ -275,6 +275,12 @@ pub struct Paths {
 }
 
 impl Paths {
+    /// `.workspace/crash-reports`: players' crash reports the content service keeps.
+    #[must_use]
+    pub fn crash_reports(&self) -> PathBuf {
+        self.logs.with_file_name("crash-reports")
+    }
+
     /// The layout under `repo`; Rustic Isles is looked for in `restricted/` first.
     pub fn new(repo: impl Into<PathBuf>) -> Self {
         let repo = repo.into();

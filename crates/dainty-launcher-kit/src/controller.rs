@@ -12,6 +12,7 @@
 mod account;
 pub mod cli;
 mod connect;
+pub(crate) mod crash;
 mod game;
 pub mod guarded;
 #[cfg(feature = "host")]
@@ -184,6 +185,9 @@ pub(crate) struct State {
     pub(crate) shutting_down: bool,
     pub(crate) game_log: VecDeque<String>,
     pub(crate) host: HostFlags,
+    /// When the running game was started, so only its own crash folders count.
+    pub(crate) game_started: Option<std::time::SystemTime>,
+    pub(crate) crash: Option<crash::Pending>,
 }
 
 /// The Host page's flags the controller keeps (§2.4.2).
@@ -246,6 +250,8 @@ impl State {
             shutting_down: false,
             game_log: VecDeque::new(),
             host: HostFlags::default(),
+            game_started: None,
+            crash: None,
         }
     }
 
@@ -569,6 +575,7 @@ impl Controller {
             status_unsupported: state.status_unsupported,
             last_error: state.last_error.clone(),
             notice: state.notice,
+            crash: state.crash.as_ref().map(|c| c.offer.clone()),
         }
     }
 
@@ -659,6 +666,9 @@ impl Controller {
             }
             if let Some(profile) = patch.runtime_profile {
                 stored::edit::field(map, "runtimeProfile", json!(runtime_profile_code(profile)));
+            }
+            if let Some(choice) = patch.crash_reports {
+                stored::edit::field(map, "crashReports", json!(choice));
             }
         })
         .await;
@@ -839,6 +849,7 @@ fn settings_of(stored: &Stored) -> Settings {
         close_to_tray: stored.close_to_tray(),
         show_game_console: stored.show_game_console(),
         inject_helper: stored.inject_helper(),
+        crash_reports: stored.crash_reports(),
     }
 }
 

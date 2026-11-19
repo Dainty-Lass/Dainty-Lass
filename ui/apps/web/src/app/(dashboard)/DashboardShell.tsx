@@ -10,6 +10,7 @@ import { Stack } from "@astryxdesign/core/Stack";
 import { Text } from "@astryxdesign/core/Text";
 import { BrandMark, HUES, type Hue, RAIL_RESIZE, ThemeModeControl } from "@dainty/theme";
 import {
+  Bug,
   Flag,
   History,
   LayoutDashboard,
@@ -43,6 +44,7 @@ export interface ShellProps {
   pending: number;
   nav: {
     reports: boolean;
+    crashReports: boolean;
     chat: boolean;
     audit: boolean;
     controllers: boolean;
@@ -169,6 +171,7 @@ export function DashboardShell({
                 "red",
                 openReports > 0 ? <Badge variant="error" label={String(openReports)} /> : undefined,
               )}
+            {nav.crashReports && item("/crash-reports", t("crashReports"), Bug, "green")}
             {nav.chat && item("/chat", t("chat"), MessagesSquare, "purple")}
             {nav.chat && item("/chat-filter", t("chatFilter"), ShieldBan, "orange")}
             {nav.audit && item("/audit", t("audit"), History, "yellow")}

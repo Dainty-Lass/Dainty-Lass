@@ -140,6 +140,7 @@ export const api: LauncherApi = {
         ...(patch.closeToTray !== undefined ? { closeToTray: patch.closeToTray } : {}),
         ...(patch.showGameConsole !== undefined ? { showGameConsole: patch.showGameConsole } : {}),
         ...(patch.injectHelper !== undefined ? { injectHelper: patch.injectHelper } : {}),
+        ...(patch.crashReports !== undefined ? { crashReports: patch.crashReports } : {}),
       },
     }),
   setStatusPolling: (on) => tell("set_status_polling", { on: on === true }),
@@ -226,6 +227,9 @@ export const api: LauncherApi = {
   // Waits for the download to stop, then deletes its files
   gameInstallDiscard: (version) =>
     act("game_install_discard", { version: String(version) }, LONG_TIMEOUT_MS),
+  // Packs the crash folder and uploads it
+  crashReportSend: () => act("crash_report_send", {}, LONG_TIMEOUT_MS),
+  crashReportDismiss: () => tell("crash_report_dismiss"),
   onSnapshot: (fn) => on<Snapshot>("snapshot", fn),
   // Progress comes over a channel of its own, already throttled by the backend
   onProgress: (fn) => {

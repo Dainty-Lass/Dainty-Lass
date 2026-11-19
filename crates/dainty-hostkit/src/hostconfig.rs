@@ -904,7 +904,8 @@ pub struct HostConfig {
     pub multipliers: Option<Multipliers>,
     /// The TCP port a public server's gateway listens on; 443 when `None`.
     pub public_port: Option<u16>,
-    /// The staff dashboard chat sends its log and reports to, with `DASHBOARD_INGEST_KEY` (dainty-dash)
+    /// The staff dashboard chat sends its log and reports to, and content players' crash reports, with
+    /// `DASHBOARD_INGEST_KEY` (dainty-dash)
     pub dashboard_url: Option<String>,
     /// The 1.14.7 version data the server reads at start; `None` is [`DEFAULT_VERSION_DATA`]. Relative to the
     /// server folder
@@ -3178,6 +3179,7 @@ pub fn build_env_files(c: &HostConfig, s: &Secrets, p: &Paths, source_commit: &s
     push(&mut content, "CONTENT_RUNTIME_DIR", path_text(&p.runtime_publish));
     push(&mut content, "CONTENT_BRANDING_DIR", path_text(&p.branding));
     push(&mut content, "CONTENT_NEWS_FILE", path_text(&p.news_file));
+    push(&mut content, "CONTENT_CRASH_DIR", path_text(&p.crash_reports()));
 
     // 4. admin
     let mut admin = EnvEntries::new();
@@ -3352,6 +3354,11 @@ pub fn build_env_files(c: &HostConfig, s: &Secrets, p: &Paths, source_commit: &s
     if let Some(url) = &c.dashboard_url {
         push(&mut gateway, "CHAT_DASHBOARD_URL", url);
         push(&mut gateway, "CHAT_DASHBOARD_INGEST_KEY", &s.dashboard_ingest_key);
+    }
+    // Players' crash reports are copied there too
+    if let Some(url) = &c.dashboard_url {
+        push(&mut content, "CONTENT_DASHBOARD_URL", url);
+        push(&mut content, "CONTENT_DASHBOARD_INGEST_KEY", &s.dashboard_ingest_key);
     }
 
     // The bot's own file, so its token reaches no other service (D5)
@@ -3972,6 +3979,23 @@ allowlist = 42005"
         has(&files.gateway, "GATEWAY_CONTENT_URL=http://127.0.0.1:42002");
         has(&files.gateway, &format!("CHAT_PORT={}", PORTS.chat));
         has(&files.allowlist.unwrap(), "ALLOWLIST_PORT=42005");
+        has(
+            &files.content,
+            &format!("CONTENT_CRASH_DIR={}", path_text(&p.crash_reports())),
+        );
+        assert!(!lines(&files.content).iter().any(|l| l.starts_with("CONTENT_DASHBOARD")));
+        let mut dashed = read.clone();
+        dashed.dashboard_url = Some("https://dash.example".into());
+        let secrets = Secrets {
+            dashboard_ingest_key: "d".repeat(64),
+            ..Secrets::default()
+        };
+        let files = build_env_files(&dashed, &secrets, &p, "", Platform::Windows);
+        has(&files.content, "CONTENT_DASHBOARD_URL=https://dash.example");
+        has(
+            &files.content,
+            &format!("CONTENT_DASHBOARD_INGEST_KEY={}", "d".repeat(64)),
+        );
 
         for bad in [
             "backend = 443",

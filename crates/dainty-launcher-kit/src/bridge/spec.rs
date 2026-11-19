@@ -162,6 +162,7 @@ pub const SETTINGS_KEYS: &[&str] = &[
     "closeToTray",
     "showGameConsole",
     "injectHelper",
+    "crashReports",
 ];
 
 /// [`super::types::InstallMode`]'s names.
@@ -618,6 +619,8 @@ pub const COMMANDS: &[CommandSpec] = &[
         ServerGui,
         false,
     ),
+    cmd("crash_report_send", &[], Every, false),
+    cmd("crash_report_dismiss", &[], Every, true),
 ];
 
 /// The command named `name`.
@@ -732,8 +735,8 @@ mod tests {
     use super::*;
 
     #[test]
-    fn the_table_has_a_hundred_and_two_unique_commands() {
-        assert_eq!(COMMANDS.len(), 102);
+    fn the_table_has_a_hundred_and_four_unique_commands() {
+        assert_eq!(COMMANDS.len(), 104);
         let mut seen = HashSet::new();
         for spec in COMMANDS {
             assert!(seen.insert(spec.name), "{} twice", spec.name);

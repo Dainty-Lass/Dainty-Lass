@@ -14,6 +14,7 @@ import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { type ReactNode, useEffect } from "react";
 import { toast } from "sonner";
+import { CrashReportBanner } from "./CrashReportBanner";
 
 /** The launcher's frame: its own title bar, the rail, and the backend's error and notice, wherever they arise. */
 export function LauncherShell({ children }: { children: ReactNode }) {
@@ -142,6 +143,7 @@ export function LauncherShell({ children }: { children: ReactNode }) {
             onDismiss={() => void api?.dismissError()}
           />
         )}
+        <CrashReportBanner />
         {children}
       </Stack>
     </AppShell>
