@@ -591,3 +591,87 @@ async fn the_service_library_refuses_a_bad_config() {
         "PORT must be a whole number from 1 to 65535"
     );
 }
+
+async fn post(port: u16, path: &str, headers: &[(&str, &str)], body: &[u8]) -> Reply {
+    let mut request = format!(
+        "POST {path} HTTP/1.1\r\nhost: content\r\ncontent-length: {}\r\n",
+        body.len()
+    );
+    for (name, value) in headers {
+        request.push_str(&format!("{name}: {value}\r\n"));
+    }
+    request.push_str("connection: close\r\n\r\n");
+    let mut socket = TcpStream::connect(("127.0.0.1", port)).await.unwrap();
+    socket.write_all(request.as_bytes()).await.unwrap();
+    // The server may answer and close before the whole body is read
+    _ = socket.write_all(body).await;
+    let mut raw = Vec::new();
+    _ = tokio::time::timeout(Duration::from_secs(20), socket.read_to_end(&mut raw)).await;
+    let split = raw.windows(4).position(|w| w == b"\r\n\r\n").unwrap();
+    let head = String::from_utf8_lossy(&raw[..split]).to_string();
+    let status = head.split(' ').nth(1).unwrap().parse().unwrap();
+    Reply {
+        status,
+        headers: BTreeMap::new(),
+        body: raw[split + 4..].to_vec(),
+    }
+}
+
+fn crash_bundle(files: &[(&str, &[u8])]) -> Vec<u8> {
+    use std::io::Write as _;
+    let mut frame = b"DLCR1\n{\"crashId\":\"UECC-Windows-1_0000\",\"exitCode\":\"0xC0000005\"}\n".to_vec();
+    for (name, data) in files {
+        frame.extend(u16::try_from(name.len()).unwrap().to_be_bytes());
+        frame.extend(name.as_bytes());
+        frame.extend(u32::try_from(data.len()).unwrap().to_be_bytes());
+        frame.extend(*data);
+    }
+    let mut gz = flate2::write::GzEncoder::new(Vec::new(), flate2::Compression::default());
+    gz.write_all(&frame).unwrap();
+    gz.finish().unwrap()
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn crash_reports_are_keyed_capped_and_rate_limited() {
+    use dainty_content::crash;
+    let dir = tempfile::tempdir().unwrap();
+    let app = start(&[dir_env("CONTENT_CRASH_DIR", dir.path())], Arc::default()).await;
+    let port = app.port;
+    let kind = ("content-type", crash::CONTENT_TYPE);
+    let key = ("x-dainty-user-api-key", "DLK_crashreporter000000000000000");
+    let body = crash_bundle(&[("Archon.log", b"Fatal error"), ("UEMinidump.dmp", b"MDMP")]);
+
+    assert_eq!(send(port, "GET", crash::PATH, &[]).await.status, 405);
+    assert_eq!(post(port, crash::PATH, &[kind], &body).await.status, 401);
+    assert_eq!(post(port, crash::PATH, &[key], &body).await.status, 415);
+    let huge = vec![0u8; crash::MAX_UPLOAD + 1];
+    assert_eq!(post(port, crash::PATH, &[kind, key], &huge).await.status, 413);
+    let bad = post(port, crash::PATH, &[kind, key], b"not gzip").await;
+    assert_eq!((bad.status, bad.text()), (400, r#"{"error":"bad_report"}"#.to_owned()));
+
+    // The refused body above counted: two uploads are left this hour.
+    let ok = post(port, crash::PATH, &[kind, key], &body).await;
+    assert_eq!(ok.status, 201, "{}", ok.text());
+    let id = serde_json::from_slice::<Value>(&ok.body).unwrap()["id"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    let saved = dir.path().join(&id);
+    assert_eq!(std::fs::read(saved.join("UEMinidump.dmp")).unwrap(), b"MDMP");
+    let meta: Value = serde_json::from_slice(&std::fs::read(saved.join("meta.json")).unwrap()).unwrap();
+    assert_eq!(meta["crashId"], "UECC-Windows-1_0000");
+
+    assert_eq!(post(port, crash::PATH, &[kind, key], &body).await.status, 201);
+    let limited = post(port, crash::PATH, &[kind, key], &body).await;
+    assert_eq!(limited.status, 429);
+    // Another account still may.
+    let other = ("x-dainty-user-api-key", "DLK_someoneelse0000000000000000000");
+    assert_eq!(post(port, crash::PATH, &[kind, other], &body).await.status, 201);
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn crash_reports_off_without_a_folder() {
+    let app = start(&[], Arc::default()).await;
+    let reply = post(app.port, dainty_content::crash::PATH, &[], b"").await;
+    assert_eq!(reply.status, 404);
+}

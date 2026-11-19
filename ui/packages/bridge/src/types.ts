@@ -113,6 +113,10 @@ export interface LauncherApi {
   updateLauncher(): Promise<ActionResult>;
   /** The signed-in account's online seconds; null when the server gives none. */
   getPlaytime(): Promise<number | null>;
+  /** Sends the last crash's report to the server it was played on (`snapshot.crash`). */
+  crashReportSend(): Promise<ActionResult>;
+  /** Forgets the last crash; it is not offered again. */
+  crashReportDismiss(): Promise<void>;
   onSnapshot(fn: (snapshot: Snapshot) => void): void;
   onProgress(fn: (progress: TaskProgress) => void): void;
   onHostKit(fn: (kit: HostKit) => void): void;

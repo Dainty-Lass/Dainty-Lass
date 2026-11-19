@@ -180,6 +180,8 @@ const methodArgs: Record<keyof LauncherApi, unknown[]> = {
   gameInstallDiscard: ["1.14.7"],
   updateLauncher: [],
   getPlaytime: [],
+  crashReportSend: [],
+  crashReportDismiss: [],
   onSnapshot: [noop],
   onProgress: [noop],
   onHostKit: [noop],

@@ -197,7 +197,7 @@ pub fn run(mut options: Options) -> Result<i32, StartError> {
 
     // 4. Folders
     let paths = Paths::resolve().ok_or(StartError::NoFolders)?;
-    log::set_folder(&paths.logs());
+    log::start_session(&paths.logs());
     log::info(format!("Dainty Lass Launcher {version} starting"));
     if holder.is_none() {
         log::warn("could not hold the single-launcher channel; a second launcher will start on its own");
@@ -373,6 +373,8 @@ pub fn run(mut options: Options) -> Result<i32, StartError> {
             bridge::commands::game_uninstall_plan,
             bridge::commands::game_uninstall,
             bridge::commands::get_playtime,
+            bridge::commands::crash_report_send,
+            bridge::commands::crash_report_dismiss,
         ])
         .setup(move |app| {
             start.setup(app.handle())?;

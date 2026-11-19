@@ -17,6 +17,8 @@ chrono.workspace = true
 clap.workspace = true
 futures-util.workspace = true
 hex.workspace = true
+# Crash report bundles (crash.rs)
+flate2.workspace = true
 http.workspace = true
 http-body.workspace = true
 http-body-util.workspace = true

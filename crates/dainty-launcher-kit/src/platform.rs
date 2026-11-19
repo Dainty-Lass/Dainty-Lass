@@ -4,6 +4,7 @@
 //! Platform discovery, host workspace tools, server lifecycle, and OS integration helpers.
 
 pub mod clipboard;
+pub mod crash;
 pub mod dialogs;
 pub mod epic_library;
 pub mod epic_session;

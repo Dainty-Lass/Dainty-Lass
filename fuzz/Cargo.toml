@@ -753,3 +753,10 @@ path = "fuzz_targets/host_player_host_pipes.rs"
 test = false
 doc = false
 bench = false
+
+[[bin]]
+name = "content_crash_report"
+path = "fuzz_targets/content_crash_report.rs"
+test = false
+doc = false
+bench = false

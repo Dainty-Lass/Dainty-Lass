@@ -49,6 +49,7 @@ function initialSnapshot(): Snapshot {
       closeToTray: false,
       showGameConsole: false,
       injectHelper: false,
+      crashReports: "ask",
     },
     app: {
       version: "2.0.0-dev",
@@ -65,6 +66,7 @@ function initialSnapshot(): Snapshot {
     lastError: null,
     notice: null,
     queuePosition: null,
+    crash: null,
   };
 }
 
@@ -572,6 +574,11 @@ export function mockLauncher(): LauncherApi {
       ok: false,
       error: { code: "launcher_update_failed", detail: "2.1.0" },
     }),
+    crashReportSend: async () => {
+      emit({ crash: { id: "UECC-Windows-0000_0000", state: "sent" } });
+      return OK;
+    },
+    crashReportDismiss: async () => emit({ crash: null }),
     gameInstallChooseFolder: async () => {
       if (installTimer || install.state === "paused" || install.state === "resumable")
         return { ok: false, error: { code: "busy" } };

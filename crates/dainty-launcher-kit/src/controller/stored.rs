@@ -7,7 +7,7 @@
 use dainty_protocol::invite::ServerMode;
 use serde_json::{Map, Value, json};
 
-use crate::bridge::types::{GameLanguage, GraphicsPreset, RuntimeProfile, ServerGame};
+use crate::bridge::types::{CrashReports, GameLanguage, GraphicsPreset, RuntimeProfile, ServerGame};
 use crate::core::i18n::Language;
 use crate::net::http::Endpoint;
 use crate::platform::keystore::{Slot, slot_id};
@@ -242,6 +242,15 @@ impl Stored {
     #[must_use]
     pub fn inject_helper(&self) -> bool {
         self.flag("injectHelper")
+    }
+
+    /// Whether a game crash's report goes to the server; never unless chosen.
+    #[must_use]
+    pub fn crash_reports(&self) -> CrashReports {
+        self.0
+            .get("crashReports")
+            .and_then(|v| serde_json::from_value(v.clone()).ok())
+            .unwrap_or_default()
     }
 
     /// The account name on server `id`.

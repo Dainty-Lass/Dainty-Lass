@@ -509,5 +509,23 @@
     "position": "You're number {position} in line",
     "hint": "The server is full. Keep the launcher open: the game starts when a place opens up.",
     "leave": "Leave queue"
+  },
+  "crashReports": {
+    "title": "Crash reports",
+    "choice": "Send crash reports to the server",
+    "choiceHint": "When the game crashes, its crash files and this launcher's log can go to the server you play on, so its staff can see what went wrong. Your account key is removed first.",
+    "choices": {
+      "never": "Never",
+      "ask": "Ask each time",
+      "always": "Always"
+    },
+    "ask": "The game crashed. Send the crash report to {server}?",
+    "send": "Send",
+    "dontSend": "Don't send",
+    "sending": "Sending the crash report…",
+    "sent": "Crash report sent. Thank you.",
+    "rate_limited": "The server takes no more crash reports for now. Try again later.",
+    "failed": "The crash report could not be sent.",
+    "retry": "Try again"
   }
 }

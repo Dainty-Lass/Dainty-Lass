@@ -509,5 +509,23 @@
     "position": "Você é o número {position} na fila",
     "hint": "O servidor está cheio. Mantenha o launcher aberto: o jogo começa quando abrir uma vaga.",
     "leave": "Sair da fila"
+  },
+  "crashReports": {
+    "title": "Relatórios de falha",
+    "choice": "Enviar relatórios de falha ao servidor",
+    "choiceHint": "Quando o jogo trava, os arquivos da falha e o log deste launcher podem ir para o servidor em que você joga, para a equipe ver o que deu errado. Sua chave de conta é removida antes.",
+    "choices": {
+      "never": "Nunca",
+      "ask": "Perguntar sempre",
+      "always": "Sempre"
+    },
+    "ask": "O jogo travou. Enviar o relatório de falha para {server}?",
+    "send": "Enviar",
+    "dontSend": "Não enviar",
+    "sending": "Enviando o relatório de falha…",
+    "sent": "Relatório de falha enviado. Obrigado.",
+    "rate_limited": "O servidor não aceita mais relatórios de falha por enquanto. Tente de novo mais tarde.",
+    "failed": "Não foi possível enviar o relatório de falha.",
+    "retry": "Tentar de novo"
   }
 }

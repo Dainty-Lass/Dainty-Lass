@@ -12,6 +12,7 @@
 mod account;
 pub mod cli;
 mod connect;
+pub(crate) mod crash;
 mod game;
 pub mod guarded;
 #[cfg(feature = "host")]
@@ -190,6 +191,9 @@ pub(crate) struct State {
     pub(crate) queue_position: Option<u32>,
     /// Ends that wait (`leave_queue`).
     pub(crate) queue_leave: Option<CancellationToken>,
+    /// When the running game was started, so only its own crash folders count.
+    pub(crate) game_started: Option<std::time::SystemTime>,
+    pub(crate) crash: Option<crash::Pending>,
 }
 
 /// The Host page's flags the controller keeps (§2.4.2).
@@ -254,6 +258,8 @@ impl State {
             host: HostFlags::default(),
             queue_position: None,
             queue_leave: None,
+            game_started: None,
+            crash: None,
         }
     }
 
@@ -580,6 +586,7 @@ impl Controller {
             last_error: state.last_error.clone(),
             notice: state.notice,
             queue_position: state.queue_position,
+            crash: state.crash.as_ref().map(|c| c.offer.clone()),
         }
     }
 
@@ -670,6 +677,9 @@ impl Controller {
             }
             if let Some(profile) = patch.runtime_profile {
                 stored::edit::field(map, "runtimeProfile", json!(runtime_profile_code(profile)));
+            }
+            if let Some(choice) = patch.crash_reports {
+                stored::edit::field(map, "crashReports", json!(choice));
             }
         })
         .await;
@@ -869,6 +879,7 @@ fn settings_of(stored: &Stored) -> Settings {
         close_to_tray: stored.close_to_tray(),
         show_game_console: stored.show_game_console(),
         inject_helper: stored.inject_helper(),
+        crash_reports: stored.crash_reports(),
     }
 }
 

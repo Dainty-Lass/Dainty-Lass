@@ -29,6 +29,13 @@
       "when": 1793493269696,
       "tag": "0003_drop_sessions",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1795066372939,
+      "tag": "0004_crash_reports",
+      "breakpoints": true
     }
   ]
 }

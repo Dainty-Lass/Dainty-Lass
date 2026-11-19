@@ -1,7 +1,7 @@
 // Copyright (c) 2026 Silent Spud
 // SPDX-License-Identifier: MIT
 
-//! The page's 103 commands (RD27 spec §2.3.1), in the table's order. Each checks its arguments again with
+//! The page's commands (RD27 spec §2.3.1), in the table's order. Each checks its arguments again with
 //! dainty-launcher-kit's `bridge::checks` (the isolation hook guards the page, these guard the backend), then calls the
 //! controller.
 
@@ -778,4 +778,14 @@ pub async fn game_uninstall(c: Ctl<'_>, version: String) -> Answer<ActionResult>
 #[tauri::command]
 pub async fn get_playtime(c: Ctl<'_>) -> Answer<Option<u64>> {
     Ok(c.playtime().await)
+}
+
+#[tauri::command]
+pub async fn crash_report_send(c: Ctl<'_>) -> Answer<ActionResult> {
+    Ok(c.crash_report_send().await)
+}
+
+#[tauri::command]
+pub fn crash_report_dismiss(c: Ctl<'_>) {
+    c.crash_report_dismiss();
 }

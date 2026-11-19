@@ -350,6 +350,32 @@ export const controllerSamples = sqliteTable(
   (t) => [primaryKey({ columns: [t.controllerId, t.at] })],
 );
 
+/** Player crash reports the content service relays; the full files stay on the game server at `server_path`. */
+export const crashReports = sqliteTable(
+  "crash_reports",
+  {
+    // The sender's 32-hex id, so a retried ingest is a duplicate rather than a second row.
+    id: text("id").primaryKey(),
+    controllerId: controllerId(),
+    receivedAt: integer("received_at", { mode: "number" }).notNull(),
+    userId: text("user_id").notNull(),
+    userName: text("user_name").notNull(),
+    crashId: text("crash_id").notNull(),
+    gameVersion: text("game_version"),
+    launcherVersion: text("launcher_version"),
+    exitCode: text("exit_code"),
+    serverPath: text("server_path").notNull(),
+    files: text("files", { mode: "json" })
+      .notNull()
+      .$type<{ name: string; size: number; sha256: string; text: string | null }[]>(),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    index("crash_reports_received").on(t.receivedAt),
+    index("crash_reports_controller").on(t.controllerId, t.receivedAt),
+  ],
+);
+
 export type Staff = typeof staff.$inferSelect;
 export type AuditEvent = typeof auditEvents.$inferSelect;
 export type Report = typeof reports.$inferSelect;
@@ -358,3 +384,4 @@ export type ChatMessage = typeof chatMessages.$inferSelect;
 export type BlacklistTerm = typeof blacklistTerms.$inferSelect;
 export type ConfigRevision = typeof configRevisions.$inferSelect;
 export type Controller = typeof controllers.$inferSelect;
+export type CrashReport = typeof crashReports.$inferSelect;

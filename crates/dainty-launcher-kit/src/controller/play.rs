@@ -445,6 +445,7 @@ impl Controller {
         ));
 
         self.lock().game_log.clear();
+        self.note_game_started();
         let me = self.clone();
         self.shared
             .game
@@ -501,6 +502,11 @@ impl Controller {
             ));
         }
         self.look_at_runtime().await;
+        if dumping {
+            self.lock().game_started = None;
+        } else {
+            self.look_for_crash(code).await;
+        }
         self.publish();
         self.shared.exits.send_modify(|(count, last)| {
             *count += 1;

@@ -43,6 +43,8 @@ pub const DUMPER_DLL_LIMIT: usize = 260;
 pub const RUNTIME_PROFILES: [&str; 2] = ["production", "development"];
 /// The flags written only while `true`, after `dumperDll` and in this order, so older files keep their bytes.
 pub const OPTIONAL_FLAGS: [&str; 4] = ["minimizeToTray", "closeToTray", "showGameConsole", "injectHelper"];
+/// `crashReports`' values written, after [`OPTIONAL_FLAGS`]; absent is `never`, so older files keep their bytes.
+pub const CRASH_REPORT_CHOICES: [&str; 2] = ["ask", "always"];
 
 /// Which folder-path rule applies.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -153,6 +155,9 @@ pub fn sanitize(raw: &Value, language: Language, os: Os) -> Map<String, Value> {
         if is_true(field(flag)) {
             out.insert(flag.into(), Value::Bool(true));
         }
+    }
+    if let Some(choice) = one_of(field("crashReports"), &CRASH_REPORT_CHOICES, &[]) {
+        out.insert("crashReports".into(), json!(choice));
     }
     out
 }

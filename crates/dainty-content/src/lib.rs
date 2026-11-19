@@ -14,6 +14,7 @@ pub mod branding;
 pub mod cli;
 pub mod client;
 pub mod config;
+pub mod crash;
 pub mod input;
 pub mod limits;
 pub mod log;

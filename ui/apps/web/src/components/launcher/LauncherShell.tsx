@@ -14,6 +14,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { type ReactNode, useEffect } from "react";
 import { toast } from "sonner";
+import { CrashReportBanner } from "./CrashReportBanner";
 
 /** A game folder refused for what it holds: the error banner offers the download instead. */
 const FOLDER_REFUSALS = new Set([
@@ -168,6 +169,7 @@ export function LauncherShell({ children }: { children: ReactNode }) {
             onDismiss={() => void api?.dismissError()}
           />
         )}
+        <CrashReportBanner />
         {children}
       </Stack>
     </AppShell>

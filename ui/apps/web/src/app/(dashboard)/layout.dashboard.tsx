@@ -28,6 +28,7 @@ export default async function DashboardLayout({ children }: { children: ReactNod
       controllers={controllers.map((c) => ({ id: c.id, name: c.name, state: c.state }))}
       nav={{
         reports: can(me.role, "reports:read"),
+        crashReports: can(me.role, "reports:read"),
         chat: can(me.role, "chat:read"),
         audit: can(me.role, "audit:read"),
         controllers: can(me.role, "controllers:read"),

@@ -44,6 +44,28 @@ pub struct Config {
     pub max_streams_total: usize,
     /// Seconds an account lookup stays cached, 0 to 3600 (`CONTENT_AUTH_CACHE_SECONDS`).
     pub auth_cache_seconds: u64,
+    /// Where players' crash reports are kept; none refuses them (`CONTENT_CRASH_DIR`).
+    pub crash_dir: Option<PathBuf>,
+    /// The staff dashboard crash reports are copied to (`CONTENT_DASHBOARD_URL`, `CONTENT_DASHBOARD_INGEST_KEY`).
+    pub dashboard: Option<Dashboard>,
+}
+
+/// The staff dashboard's ingest API.
+#[derive(Clone, PartialEq, Eq)]
+pub struct Dashboard {
+    /// Its base URL, `http://` or `https://`.
+    pub url: String,
+    /// The bearer key, never logged.
+    pub key: String,
+}
+
+impl std::fmt::Debug for Dashboard {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Dashboard")
+            .field("url", &self.url)
+            .field("key", &"<hidden>")
+            .finish()
+    }
 }
 
 impl Config {
@@ -65,6 +87,27 @@ impl Config {
         let max_streams_per_account = whole(env, "CONTENT_MAX_STREAMS_PER_ACCOUNT", 4.0, 1.0, 64.0)? as usize;
         let max_streams_total = whole(env, "CONTENT_MAX_STREAMS_TOTAL", 48.0, 1.0, 1024.0)? as usize;
         let auth_cache_seconds = whole(env, "CONTENT_AUTH_CACHE_SECONDS", 300.0, 0.0, 3600.0)? as u64;
+        let crash_dir = folder(env.raw("CONTENT_CRASH_DIR"));
+        let dashboard = match env.raw("CONTENT_DASHBOARD_URL").map(js::trim).filter(|v| !v.is_empty()) {
+            None => None,
+            Some(url) => {
+                if !(url.starts_with("http://") || url.starts_with("https://")) {
+                    return Err("CONTENT_DASHBOARD_URL must be an http:// or https:// URL".to_owned());
+                }
+                let key = env
+                    .raw("CONTENT_DASHBOARD_INGEST_KEY")
+                    .map(js::trim)
+                    .unwrap_or_default();
+                // The dashboard refuses a shorter key, so every copy would fail
+                if key.len() < 32 {
+                    return Err("CONTENT_DASHBOARD_INGEST_KEY must be at least 32 characters".to_owned());
+                }
+                Some(Dashboard {
+                    url: url.trim_end_matches('/').to_owned(),
+                    key: key.to_owned(),
+                })
+            }
+        };
         Ok(Config {
             version,
             port,
@@ -77,6 +120,8 @@ impl Config {
             max_streams_per_account,
             max_streams_total,
             auth_cache_seconds,
+            crash_dir,
+            dashboard,
         })
     }
 }
@@ -196,6 +241,37 @@ mod tests {
         assert_eq!(
             (c.max_streams_per_account, c.max_streams_total, c.auth_cache_seconds),
             (4, 48, 300)
+        );
+    }
+
+    #[test]
+    fn crash_reports_and_dashboard() {
+        let c = config(&[]).unwrap();
+        assert_eq!((c.crash_dir, c.dashboard), (None, None));
+        let key = "k".repeat(32);
+        let c = config(&[
+            ("CONTENT_CRASH_DIR", "/srv/crash"),
+            ("CONTENT_DASHBOARD_URL", "https://dash.example/"),
+            ("CONTENT_DASHBOARD_INGEST_KEY", &key),
+        ])
+        .unwrap();
+        assert!(c.crash_dir.is_some());
+        let dashboard = c.dashboard.unwrap();
+        assert_eq!(dashboard.url, "https://dash.example");
+        assert!(!format!("{dashboard:?}").contains(&key));
+        assert!(
+            config(&[
+                ("CONTENT_DASHBOARD_URL", "https://d"),
+                ("CONTENT_DASHBOARD_INGEST_KEY", "short")
+            ])
+            .is_err()
+        );
+        assert!(
+            config(&[
+                ("CONTENT_DASHBOARD_URL", "ftp://d"),
+                ("CONTENT_DASHBOARD_INGEST_KEY", &key)
+            ])
+            .is_err()
         );
     }
 
