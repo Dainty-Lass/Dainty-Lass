@@ -125,6 +125,7 @@ export const api: LauncherApi = {
   clearLocalRuntime: () => act("clear_local_runtime"),
   cancelTask: () => tell("cancel_task"),
   play: () => act("play"),
+  leaveQueue: () => tell("leave_queue"),
   // Only the settings fields go across
   setSettings: (patch: Partial<Settings>) =>
     call<Settings>("set_settings", {

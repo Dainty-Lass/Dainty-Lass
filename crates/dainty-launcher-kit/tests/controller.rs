@@ -93,6 +93,8 @@ struct Answers {
     forgot: Arc<AtomicBool>,
     /// The status's `economy`, when it sends one (R15 Q-1).
     economy: Option<serde_json::Value>,
+    /// The login queue's answer: 0 no queue route, -1 admitted, else the place in line.
+    queue: Arc<AtomicI32>,
 }
 
 fn response(status: u16, kind: &str, body: &[u8]) -> Vec<u8> {
@@ -147,6 +149,13 @@ fn answer(answers: &Answers, seen: &Seen) -> Vec<u8> {
                 None => json_response(404, &json!({})),
             }
         }
+        ("POST" | "DELETE", "/dainty/api/LoginQueue") if !keyed => json_response(401, &json!({ "error": "key" })),
+        ("POST", "/dainty/api/LoginQueue") => match answers.queue.load(Ordering::SeqCst) {
+            0 => json_response(404, &json!({ "error": "not_found" })),
+            -1 => json_response(200, &json!({ "admitted": true })),
+            place => json_response(200, &json!({ "admitted": false, "position": place })),
+        },
+        ("DELETE", "/dainty/api/LoginQueue") => response(204, "text/plain", b""),
         ("GET", "/game/hello") => response(200, "text/plain", b"hello from the server"),
         _ => json_response(404, &json!({ "error": "not_found" })),
     }
@@ -435,6 +444,7 @@ fn launcher_polling_every(
         }),
         qos_port: None,
         relay_owner: RelayOwner::Anyone,
+        queue_poll: Duration::from_millis(50),
         ..Seams::default()
     };
     Controller::new(config, Arc::clone(platform) as Arc<dyn Platform>, seams)
@@ -513,6 +523,7 @@ async fn private_flow_from_invite_to_the_games_exit() {
             files,
             forgot: Arc::default(),
             economy: Some(json!({ "keepSupplyStackCaps": true, "cellFusionMinutes": 45 })),
+            queue: Arc::default(),
         },
         None,
     )
@@ -735,6 +746,7 @@ async fn public_flow_through_a_tls_gateway() {
             files: BTreeMap::new(),
             forgot: Arc::default(),
             economy: Some(json!({ "keepSupplyStackCaps": "yes", "cellFusionMinutes": 10_081 })),
+            queue: Arc::default(),
         },
         Some(tls),
     )
@@ -854,6 +866,7 @@ async fn an_unreachable_server_and_a_mismatched_certificate() {
             files: BTreeMap::new(),
             forgot: Arc::default(),
             economy: None,
+            queue: Arc::default(),
         },
         Some(tls),
     )
@@ -1064,6 +1077,7 @@ async fn a_fresh_invite_replaces_a_key_the_server_forgot() {
             files: BTreeMap::new(),
             forgot: Arc::clone(&forgot),
             economy: None,
+            queue: Arc::default(),
         },
         None,
     )
@@ -1150,6 +1164,14 @@ fn run_cli(controller: &Controller, request: CliRequest) -> tokio::task::JoinHan
 
 /// A launcher ready to PLAY: joined, registered, its game found and the server's runtime trusted.
 async fn ready_to_play(pc: &Pc, name: &'static str) -> (FakeServer, Arc<FakeSpawner>, Controller) {
+    ready_to_play_queued(pc, name, Arc::default()).await
+}
+
+async fn ready_to_play_queued(
+    pc: &Pc,
+    name: &'static str,
+    queue: Arc<AtomicI32>,
+) -> (FakeServer, Arc<FakeSpawner>, Controller) {
     let (manifest, files) = runtime("2.0.0");
     let server = fake_server(
         Answers {
@@ -1158,6 +1180,7 @@ async fn ready_to_play(pc: &Pc, name: &'static str) -> (FakeServer, Arc<FakeSpaw
             files,
             forgot: Arc::default(),
             economy: None,
+            queue,
         },
         None,
     )
@@ -1190,6 +1213,61 @@ async fn game_exits(controller: &Controller, spawner: &FakeSpawner) {
 async fn until_launched(spawner: &FakeSpawner, count: usize) -> LaunchPlan {
     until("the launch", || spawner.plans.lock().unwrap().len() == count).await;
     spawner.plans.lock().unwrap().last().cloned().unwrap()
+}
+
+#[tokio::test]
+async fn play_waits_its_turn_in_the_login_queue() {
+    let pc = pc().await;
+    let queue = Arc::new(AtomicI32::new(2));
+    let (server, spawner, controller) = ready_to_play_queued(&pc, "Full Server", Arc::clone(&queue)).await;
+
+    // Queued: PLAY waits, busy, showing the place as it moves up; nothing launches.
+    let playing = tokio::spawn({
+        let controller = controller.clone();
+        async move { controller.play().await }
+    });
+    until("place 2", || controller.snapshot().queue_position == Some(2)).await;
+    assert!(controller.snapshot().busy);
+    queue.store(1, Ordering::SeqCst);
+    until("place 1", || controller.snapshot().queue_position == Some(1)).await;
+
+    // Leaving gives the place back and ends PLAY without an error.
+    controller.leave_queue();
+    ok(&playing.await.unwrap());
+    let snapshot = controller.snapshot();
+    assert_eq!((snapshot.queue_position, snapshot.busy), (None, false));
+    assert!(snapshot.last_error.is_none());
+    assert_eq!(snapshot.phase, Phase::Ready);
+    assert!(
+        server
+            .seen
+            .lock()
+            .unwrap()
+            .iter()
+            .any(|s| s.method == "DELETE" && s.path == "/dainty/api/LoginQueue")
+    );
+    assert!(spawner.plans.lock().unwrap().is_empty());
+
+    // Admitted while waiting: the normal launch follows.
+    let playing = tokio::spawn({
+        let controller = controller.clone();
+        async move { controller.play().await }
+    });
+    until("place 1 again", || controller.snapshot().queue_position == Some(1)).await;
+    queue.store(-1, Ordering::SeqCst);
+    ok(&playing.await.unwrap());
+    until_launched(&spawner, 1).await;
+    assert_eq!(controller.snapshot().queue_position, None);
+    game_exits(&controller, &spawner).await;
+
+    // A server without the queue route lets PLAY straight through.
+    queue.store(0, Ordering::SeqCst);
+    ok(&controller.play().await);
+    until_launched(&spawner, 2).await;
+    game_exits(&controller, &spawner).await;
+
+    controller.shutdown().await;
+    assert_key_never_logged();
 }
 
 #[tokio::test]

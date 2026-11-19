@@ -504,5 +504,10 @@
       "h750": "Commodore",
       "h1000": "Admiral of the Isles"
     }
+  },
+  "queue": {
+    "position": "You're number {position} in line",
+    "hint": "The server is full. Keep the launcher open: the game starts when a place opens up.",
+    "leave": "Leave queue"
   }
 }

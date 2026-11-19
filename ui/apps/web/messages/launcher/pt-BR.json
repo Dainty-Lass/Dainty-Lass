@@ -504,5 +504,10 @@
       "h750": "Comodoro",
       "h1000": "Almirante das Ilhas"
     }
+  },
+  "queue": {
+    "position": "Você é o número {position} na fila",
+    "hint": "O servidor está cheio. Mantenha o launcher aberto: o jogo começa quando abrir uma vaga.",
+    "leave": "Sair da fila"
   }
 }

@@ -1352,7 +1352,7 @@ async fn seams() {
 }
 
 #[test]
-fn this_half_registers_its_45_rows() {
+fn this_half_registers_its_47_rows() {
     let mut public = rustic_isles::Handlers::new();
     rustic_isles_launcher_api::register_public(&mut public);
     let mut admin = rustic_isles::Handlers::new();
@@ -1367,7 +1367,7 @@ fn this_half_registers_its_45_rows() {
                 && r.when != rustic_isles::When::Rifts
         })
         .collect();
-    assert_eq!(reforged.len(), 65);
+    assert_eq!(reforged.len(), 67);
     let (mut p, mut a) = (0, 0);
     for row in &reforged {
         let in_public = public.contains(row.service, row.method, row.path);
@@ -1379,5 +1379,57 @@ fn this_half_registers_its_45_rows() {
             a += 1;
         }
     }
-    assert_eq!((p, a), (45, 20));
+    assert_eq!((p, a), (47, 20));
+}
+
+#[tokio::test]
+async fn login_queue() {
+    let keyed = |method: &'static str, key: &str| {
+        Request1::new(method, "/dainty/api/LoginQueue").header("x-dainty-user-api-key", key)
+    };
+    let open = settings(&[("REGISTRATION_MODE", "OPEN")]);
+    let uncapped = Rig::new(common::Options {
+        settings: open,
+        ..options(true)
+    })
+    .await;
+    let key = register(&uncapped, json!({"Username": "Fox_1"})).await.json()["UUK"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    uncapped.shared.presence().set_online("someone");
+    uncapped
+        .send(keyed("POST", &key))
+        .await
+        .assert(200, r#"{"admitted":true}"#);
+    assert_eq!(uncapped.send(keyed("POST", "DLK_nobody")).await.status, 401);
+
+    let rig = Rig::new(common::Options {
+        settings: settings(&[("REGISTRATION_MODE", "OPEN"), ("DAINTY_MAX_ONLINE_PLAYERS", "1")]),
+        ..options(true)
+    })
+    .await;
+    let mut keys = Vec::new();
+    for name in ["Fox_1", "Fox_2", "Fox_3"] {
+        let made = register(&rig, json!({"Username": name})).await;
+        keys.push(made.json()["UUK"].as_str().unwrap().to_owned());
+    }
+    rig.send(keyed("POST", &keys[0]))
+        .await
+        .assert(200, r#"{"admitted":true}"#);
+    let second = rig.send(keyed("POST", &keys[1])).await;
+    second.assert(200, r#"{"admitted":false,"position":1}"#);
+    assert_eq!(second.header("cache-control"), Some("no-store"));
+    rig.send(keyed("POST", &keys[2]))
+        .await
+        .assert(200, r#"{"admitted":false,"position":2}"#);
+    // The first player gives the seat back: the second is next, and the third moves up
+    assert_eq!(rig.send(keyed("DELETE", &keys[0])).await.status, 204);
+    rig.send(keyed("POST", &keys[2]))
+        .await
+        .assert(200, r#"{"admitted":false,"position":1}"#);
+    rig.send(keyed("POST", &keys[1]))
+        .await
+        .assert(200, r#"{"admitted":true}"#);
+    assert_eq!(rig.send(keyed("DELETE", "DLK_nobody")).await.status, 401);
 }

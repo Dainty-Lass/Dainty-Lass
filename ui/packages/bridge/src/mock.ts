@@ -64,6 +64,7 @@ function initialSnapshot(): Snapshot {
     statusUnsupported: false,
     lastError: null,
     notice: null,
+    queuePosition: null,
   };
 }
 
@@ -365,6 +366,7 @@ export function mockLauncher(): LauncherApi {
     chooseLocalRuntime: async () => OK,
     clearLocalRuntime: async () => OK,
     cancelTask: async () => emit({ busy: false, task: null }),
+    leaveQueue: async () => emit({ busy: false, queuePosition: null }),
     play: async () => {
       emit({ phase: "running", running: { game: true, relayPort: 61100 } });
       setTimeout(() => emit({ phase: "ready", running: { game: false, relayPort: null } }), 8000);

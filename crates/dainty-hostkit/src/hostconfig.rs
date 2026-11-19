@@ -3782,6 +3782,55 @@ gameserver_ready_timeout_ms = 60000
         }
     }
 
+    /// The login queue's cap reaches the backend's file only when set, survives a rewrite, and is range-checked.
+    #[test]
+    fn max_online_players_reaches_the_backend_file() {
+        let base = "version = 1
+mode = \"private\"
+name = \"Friday Hunts\"
+host = \"100.101.102.103\"
+game_address = \"100.101.102.103\"
+registration = \"INVITECODE\"
+max_hunt_servers = 3
+";
+        let dir = tempfile::tempdir().unwrap();
+        let p = Paths::new(dir.path());
+        let backend = |cfg: &HostConfig| build_env_files(cfg, &Secrets::default(), &p, "", Platform::Windows).backend;
+        let unset = HostConfig::from_toml(base).unwrap();
+        assert!(
+            !backend(&unset).iter().any(|(k, _)| k == "DAINTY_MAX_ONLINE_PLAYERS"),
+            "no cap, no queue"
+        );
+        let capped = HostConfig::from_toml(&format!(
+            "{base}
+[backend]
+max_online_players = 40
+"
+        ))
+        .unwrap();
+        let file = backend(&capped);
+        assert_eq!(
+            file.iter()
+                .filter(|(k, v)| k == "DAINTY_MAX_ONLINE_PLAYERS" && v == "40")
+                .count(),
+            1,
+            "{file:?}"
+        );
+        let rewritten = capped.to_toml().unwrap();
+        assert!(rewritten.contains("max_online_players = 40"), "{rewritten}");
+        assert_eq!(HostConfig::from_toml(&rewritten).unwrap().tunables(), capped.tunables());
+        for bad in ["0", "10001", "\"many\""] {
+            let text = format!(
+                "{base}
+[backend]
+max_online_players = {bad}
+"
+            );
+            let err = HostConfig::from_toml(&text).unwrap_err().to_string();
+            assert!(err.contains("backend.max_online_players"), "{bad}: {err}");
+        }
+    }
+
     /// `[split]` needs the other half in `[network]`, guards a public game servers half's ports, and tells the module
     /// which port service it runs.
     #[test]

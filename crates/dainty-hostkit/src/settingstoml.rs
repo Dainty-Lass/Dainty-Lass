@@ -254,6 +254,7 @@ const BACKEND: &[Field] = &[
     ("huntGoNowMaxMs", "hunt_go_now_max_ms", false),
     ("xmppCapture", "xmpp_capture", false),
     ("minLauncherVersion", "min_launcher_version", false),
+    ("maxOnlinePlayers", "max_online_players", false),
 ];
 
 const DIRECTOR: &[Field] = &[
@@ -869,6 +870,9 @@ fn comment(path: &str) -> &'static str {
         "backend.xmpp_capture" => "true: the chat server records its traffic for debugging (false).",
         "backend.min_launcher_version" => {
             "The oldest launcher that may play (\"2.1.0\"); older ones update first. Left out: any launcher."
+        }
+        "backend.max_online_players" => {
+            "Players online at once, 1 to 10000; past it, PLAY waits in a queue. Left out: no limit, no queue."
         }
         "director" => "The Director (RD24). Left out: what setup has always written.",
         "director.log_level" => "\"debug\", \"info\" (default), \"warn\" or \"error\".",

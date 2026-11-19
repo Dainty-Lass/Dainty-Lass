@@ -624,6 +624,8 @@ pub const COMMANDS: &[CommandSpec] = &[
     cmd("game_uninstall", VERSION, Every, false),
     // The signed-in account's online seconds, for the account page's badges
     cmd("get_playtime", &[], Every, false),
+    // PLAY waiting in the server's login queue gives up its place
+    cmd("leave_queue", &[], Every, true),
 ];
 
 /// The command named `name`.

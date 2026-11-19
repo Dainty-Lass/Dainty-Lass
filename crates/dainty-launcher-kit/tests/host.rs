@@ -243,6 +243,7 @@ fn launcher(pc: &Pc, platform: &Arc<FakePlatform>, spawner: &Arc<FakeSpawner>, m
             prefix: mode.map(OsString::from).into_iter().collect(),
         }),
         host_stop_timeout: Duration::from_secs(2),
+        ..Seams::default()
     };
     Controller::new(config, Arc::clone(platform) as Arc<dyn Platform>, seams)
 }

@@ -305,6 +305,16 @@ impl Controller {
         if let Some(cancel) = &state.runtime_cancel {
             cancel.cancel();
         }
+        if let Some(leave) = &state.queue_leave {
+            leave.cancel();
+        }
+    }
+
+    /// `leave_queue`: PLAY stops waiting in the server's login queue and gives up its place.
+    pub fn leave_queue(&self) {
+        if let Some(leave) = &self.lock().queue_leave {
+            leave.cancel();
+        }
     }
 }
 

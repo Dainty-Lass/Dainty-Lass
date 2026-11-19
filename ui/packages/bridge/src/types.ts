@@ -55,6 +55,8 @@ export interface LauncherApi {
   chooseLocalRuntime(): Promise<ActionResult>;
   clearLocalRuntime(): Promise<ActionResult>;
   cancelTask(): Promise<void>;
+  /** PLAY waiting in the server's login queue gives up its place. */
+  leaveQueue(): Promise<void>;
   play(): Promise<ActionResult>;
   setSettings(patch: Partial<Settings>): Promise<Settings>;
   setStatusPolling(on: boolean): Promise<void>;

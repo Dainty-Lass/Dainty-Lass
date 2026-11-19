@@ -147,6 +147,8 @@ const BACKEND: &[Setting] = &[
     of("xmppCapture", "REALTIME_XMPP_CAPTURE", Kind::Switch),
     // Sent in the status; an older launcher turns Play off and updates itself
     of("minLauncherVersion", "DAINTY_MIN_LAUNCHER_VERSION", Kind::Version),
+    // The login queue's cap (rustic-isles-launcher-api `queue.rs`); left out, no queue
+    ranged("maxOnlinePlayers", "DAINTY_MAX_ONLINE_PLAYERS", 1, 10_000),
 ];
 
 const DIRECTOR: &[Setting] = &[

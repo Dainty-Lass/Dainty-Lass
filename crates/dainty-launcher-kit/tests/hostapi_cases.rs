@@ -152,3 +152,34 @@ fn the_key_goes_only_where_the_table_says() {
         }
     }
 }
+
+#[test]
+fn login_queue_replies() {
+    use dainty_launcher_kit::bridge::types::ErrorCode;
+    use dainty_launcher_kit::net::hostapi::parse::{QueueReply, queue_reply};
+    let code = |status: u16, body: &str| queue_reply(status, body.as_bytes()).unwrap_err().code;
+    assert_eq!(queue_reply(200, br#"{"admitted":true}"#), Ok(QueueReply::Admitted));
+    assert_eq!(
+        queue_reply(200, br#"{"admitted":false,"position":3}"#),
+        Ok(QueueReply::Waiting(3))
+    );
+    for bad in [
+        r#"{"admitted":false,"position":0}"#,
+        r#"{"admitted":false}"#,
+        "{}",
+        "nope",
+    ] {
+        assert_eq!(code(200, bad), ErrorCode::ServerError, "{bad}");
+    }
+    // No queue route on an older server or gateway: PLAY goes ahead
+    for status in [403, 404, 405] {
+        assert_eq!(
+            queue_reply(status, br#"{"error":"forbidden"}"#),
+            Ok(QueueReply::Admitted)
+        );
+    }
+    assert_eq!(code(401, "{}"), ErrorCode::KeyRejected);
+    assert_eq!(code(403, r#"{"error":"account_disabled"}"#), ErrorCode::AccountBanned);
+    assert_eq!(code(429, ""), ErrorCode::RateLimited);
+    assert_eq!(code(500, ""), ErrorCode::ServerError);
+}
