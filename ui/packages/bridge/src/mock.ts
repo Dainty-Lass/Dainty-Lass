@@ -560,6 +560,7 @@ export function mockLauncher(): LauncherApi {
       return OK;
     },
     gameInstallGet: async () => ({ ok: true, install }),
+    getPlaytime: async () => (snapshot.account.hasKey ? 37 * 3600 + 1200 : null),
     gameInstallDiscard: async () => {
       stopInstall();
       install = { ...install, state: "not_installed", progress: null, error: null };

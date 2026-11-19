@@ -2268,6 +2268,8 @@ pub fn erase_other_areas(tx: &mut Tx<'_>, account: &AccountId) -> RepoResult<(Ve
         ),
     ));
     out.push(("parties".into(), parties::erase_memberships(conn, account)?));
+    // Not reported: the erase report's keys are the Node API's
+    super::playtime::erase(conn, account)?;
     Ok((out, character_count))
 }
 

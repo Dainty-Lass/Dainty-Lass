@@ -23,6 +23,7 @@ mod join;
 pub mod loader;
 pub mod platform;
 mod play;
+mod playtime;
 #[cfg(feature = "realms")]
 pub mod realms;
 #[cfg(not(feature = "realms"))]

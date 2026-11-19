@@ -109,6 +109,8 @@ export interface LauncherApi {
   gameInstallDiscard(version: string): Promise<ActionResult>;
   /** The server asks for a newer launcher: update now and restart, or answer launcher_update_failed. */
   updateLauncher(): Promise<ActionResult>;
+  /** The signed-in account's online seconds; null when the server gives none. */
+  getPlaytime(): Promise<number | null>;
   onSnapshot(fn: (snapshot: Snapshot) => void): void;
   onProgress(fn: (progress: TaskProgress) => void): void;
   onHostKit(fn: (kit: HostKit) => void): void;

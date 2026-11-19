@@ -826,6 +826,9 @@ impl GameModule for IslesModule {
                 shared.presence().set_offline(&presence.user_id);
                 hooks.player_offline(&shared, &presence.user_id).await;
             }
+            hooks
+                .presence_changed(&shared, &presence.account, presence.online)
+                .await;
             Ok(())
         })
     }

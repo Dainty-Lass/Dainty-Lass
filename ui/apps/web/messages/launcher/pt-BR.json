@@ -486,5 +486,23 @@
     "keep": "Manter",
     "done": "{version} foi desinstalado.",
     "failed": "A desinstalação parou em {file}. Feche qualquer programa que o esteja usando e tente de novo; o que restou continua instalado."
+  },
+  "playtime": {
+    "title": "Tempo de jogo",
+    "hours": "{hours, plural, one {# hora} other {# horas}} online",
+    "next": "{hours, plural, one {Falta # hora} other {Faltam # horas}} para {badge}",
+    "locked": "Desbloqueia com {hours} horas",
+    "unavailable": "Este servidor não informa o tempo de jogo.",
+    "badges": {
+      "h1": "Marujo",
+      "h10": "Marinheiro",
+      "h25": "Vigia",
+      "h50": "Contramestre",
+      "h100": "Navegador",
+      "h250": "Imediato",
+      "h500": "Capitão",
+      "h750": "Comodoro",
+      "h1000": "Almirante das Ilhas"
+    }
   }
 }

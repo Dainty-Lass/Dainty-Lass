@@ -622,6 +622,8 @@ pub const COMMANDS: &[CommandSpec] = &[
     // What uninstalling a version deletes, then the uninstall: refused while the game runs
     cmd("game_uninstall_plan", VERSION, Every, false),
     cmd("game_uninstall", VERSION, Every, false),
+    // The signed-in account's online seconds, for the account page's badges
+    cmd("get_playtime", &[], Every, false),
 ];
 
 /// The command named `name`.
@@ -736,8 +738,8 @@ mod tests {
     use super::*;
 
     #[test]
-    fn the_table_has_a_hundred_and_four_unique_commands() {
-        assert_eq!(COMMANDS.len(), 104);
+    fn the_table_has_a_hundred_and_three_unique_commands() {
+        assert_eq!(COMMANDS.len(), 103);
         let mut seen = HashSet::new();
         for spec in COMMANDS {
             assert!(seen.insert(spec.name), "{} twice", spec.name);

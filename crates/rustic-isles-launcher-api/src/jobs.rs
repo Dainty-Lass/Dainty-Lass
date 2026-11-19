@@ -81,6 +81,18 @@ impl Startup for PublicStartup {
                     }
                 }));
             }
+            crate::playtime::reset(shared).await;
+            let weak = Arc::downgrade(shared);
+            started.tasks.push(tokio::spawn(async move {
+                let every = Duration::from_millis(rustic_isles_store::repo::playtime::TICK_MS.unsigned_abs());
+                loop {
+                    tokio::time::sleep(every).await;
+                    let Some(shared) = weak.upgrade() else {
+                        return;
+                    };
+                    crate::playtime::run_tick(&shared).await;
+                }
+            }));
             let weak = Arc::downgrade(shared);
             started.tasks.push(tokio::spawn(async move {
                 loop {

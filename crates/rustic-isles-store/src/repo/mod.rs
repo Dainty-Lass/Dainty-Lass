@@ -34,6 +34,7 @@ pub mod characters;
 pub mod chat;
 pub mod inventory;
 pub mod parties;
+pub mod playtime;
 pub mod progression;
 pub mod reforged;
 

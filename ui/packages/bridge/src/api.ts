@@ -228,6 +228,7 @@ export const api: LauncherApi = {
   gameInstallDiscard: (version) =>
     act("game_install_discard", { version: String(version) }, LONG_TIMEOUT_MS),
   updateLauncher: () => act("update_launcher", {}, LONG_TIMEOUT_MS),
+  getPlaytime: () => call<number | null>("get_playtime"),
   onSnapshot: (fn) => on<Snapshot>("snapshot", fn),
   // Progress comes over a channel of its own, already throttled by the backend
   onProgress: (fn) => {

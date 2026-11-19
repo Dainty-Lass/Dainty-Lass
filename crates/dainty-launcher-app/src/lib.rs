@@ -371,6 +371,7 @@ pub fn run(mut options: Options) -> Result<i32, StartError> {
             bridge::commands::update_launcher,
             bridge::commands::game_uninstall_plan,
             bridge::commands::game_uninstall,
+            bridge::commands::get_playtime,
         ])
         .setup(move |app| {
             start.setup(app.handle())?;

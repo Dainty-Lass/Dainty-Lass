@@ -316,6 +316,14 @@ pub fn parse_news(raw: &Value) -> Option<Vec<NewsItem>> {
     Some(items.iter().filter_map(parse_news_item).take(MAX_NEWS_ITEMS).collect())
 }
 
+/// The playtime route's reply: whole seconds, none for anything else.
+pub fn playtime_reply(status: u16, body: &[u8]) -> Option<u64> {
+    if status != 200 {
+        return None;
+    }
+    json_body(body)?.get("PlaytimeSeconds")?.as_u64()
+}
+
 /// The news route's reply; none means keep the current list.
 pub fn news_reply(status: u16, body: &[u8]) -> Option<Vec<NewsItem>> {
     if status != 200 {
