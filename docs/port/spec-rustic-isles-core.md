@@ -288,7 +288,7 @@ A row's **scope** is "node" when its path starts `/launcher/`, `/admin/`, `/heal
 `/reforged/api/`, else "version" (the launcher's, operators' and probes' routes are no game version's; areas may use
 it). A row's **name** is `{METHOD} {path}`.
 
-Counts (tests check them): 301 rows, 296 backend (229 isles, 67 rifts) and 5 Director (4 isles, 1 rifts); 33
+Counts (tests check them): 306 rows, 301 backend (234 isles, 67 rifts) and 5 Director (4 isles, 1 rifts); 33
 `admin` (every `/admin/...` row plus `/health/release-gates`), 7 `gauntlet` (including `/config`), 60 `rifts`. The 8
 rifts-side Guard rows isles keeps (RF1 decision 1: `/launcher/v1/guard/sessions`, `/launcher/v1/guard/heartbeat`,
 `/launcher/v1/guard/sessions/:guardSessionId`, both `guard-manifests` rows and the three `/admin/v1/guard/*` reads)
@@ -873,7 +873,7 @@ the route table itself (wire facts), and the crate's own test checks its counts.
 
 | Area | Cases |
 | --- | --- |
-| Table | 301 rows; 296 backend; `RouteSet::V1147.routes(Backend)` 296; 33 `admin` rows, all `/admin/...` or `/health/release-gates`; 7 `gauntlet` including `/config`; every isles-side row not `rifts`; rifts-side rows `rifts` except the 8 Guard rows of §4.2; every path compiles |
+| Table | 306 rows; 301 backend; `RouteSet::V1147.routes(Backend)` 301; 33 `admin` rows, all `/admin/...` or `/health/release-gates`; 7 `gauntlet` including `/config`; every isles-side row not `rifts`; rifts-side rows `rifts` except the 8 Guard rows of §4.2; every path compiles |
 | Matching | §4.1's table |
 | 501 | a bare module (no handlers): `GET /character` → 501, `content-type: application/json; charset=utf-8`, body `{"error":{"code":"NOT_IMPLEMENTED","message":"isles: GET /character is not implemented yet","requestId":"<the x-rustic-isles-request-id header>"}}`; `HEAD /CHARACTER/` → 501, empty body; `GET /nothing/here` → empty 404 |
 | Order | `GET /progression/a/b` → message names `GET /progression/:userId/:progressionId`; the same under `/__origin/gauntlet-prod.steelyard.ca` → names `GET /^\/progression\/([^/]*)\/([^/]+)$/i`; `GET /progression/objectives/u` → `GET /progression/objectives/:userId`; `POST /inventory//dauntlessrel-1.14.7:647472` → `POST /^\/inventory\/([^/]*)\/(.+)$/`; `GET /__origin/evil.example/character` → 400 |
@@ -1058,6 +1058,11 @@ composer; native code, `tools/RuntimeLoader` and `reference/` stay in restricted
 | B32 | POST | `/profile/update` | game-data | isles |  |
 | B33 | POST | `/trials/leaderboards/all` | game-data | isles |  |
 | B34 | POST | `/trials/leaderboards/solo/individual` | game-data | isles |  |
+| B34a | POST | `/trials/leaderboards` | game-data | isles |  |
+| B34b | POST | `/trials/leaderboards/solo` | game-data | isles |  |
+| B34c | POST | `/trials/leaderboards/group` | game-data | isles |  |
+| B34d | POST | `/trials/leaderboards/group/individual` | game-data | isles |  |
+| B34e | POST | `/^\/trials\/(.*)$/` | game-data | isles |  |
 | B35 | GET | `/vivox/login` | chat | isles |  |
 | B36 | POST | `/motd/` | game-data | isles |  |
 | B37 | GET | `/motd/trigger` | game-data | isles |  |

@@ -11,14 +11,15 @@ date and the commit reviewed. An item that does not hold is a bug to fix first, 
 
 ## What it is and where the boundary is
 
-The crate answers 31 backend rows (the login, Ramsgate and Gauntlet answers, the patch notes, the tuning answers and
+The crate answers 36 backend rows (the login, Ramsgate, Trials and Gauntlet answers, the patch notes, the tuning answers and
 the served progression config; `areas.rs`) inside the Rustic Isles backend (port 61000, loopback behind the
 gateway), and holds the eight generators `dainty-host gamedata` runs on the host (`generators/`).
 
-- **In (routes):** path params, echoed into JSON by the writer; request bodies of `POST /trials/leaderboards/all`
+- **In (routes):** path params, echoed into JSON by the writer; request bodies of the `POST /trials/...` routes
   and of any write on the Gauntlet host, through core's bounded reader (100 KiB); the replay-aware clock.
 - **Stored:** a finished Gauntlet run (`PUT /process_run` from a game server) updates the players'
-  `gauntlet_progress` rows; nothing else is written.
+  `gauntlet_progress` rows; a finished Trial (`POST /trials/leaderboards` from a game server) updates the players'
+  `trials_runs` rows; nothing else is written.
 - **In (generators):** host-side files only: the host's own game exports, host-supplied responses, the store captures
   hostkit fetched at a pinned commit and checked by hash, and the version's Reward Cache plan and seed list.
 - **Files read by a route:** `progression_config.json` under the configured backend folder, through core's cached
@@ -26,7 +27,7 @@ gateway), and holds the eight generators `dainty-host gamedata` runs on the host
 - **Files written:** fixed names under hostkit's folders, and backups beside their targets.
 
 Code: `crates/rustic-isles-gamedata/src/` (`areas.rs`, `progression_config.rs`, `tuning.rs`, `gauntlet.rs`,
-`patchnotes.rs`, `generators/`).
+`gauntlet_runs.rs`, `trials.rs`, `patchnotes.rs`, `generators/`).
 
 Fuzz targets in `fuzz`:
 
@@ -44,8 +45,18 @@ Fuzz targets in `fuzz`:
 
 - [ ] Every "game" row runs `Auth::game_auth` before reading anything, and answers its refusal as made
       (`areas.rs`, `on`); the open rows are exactly the eleven spec §3.1 lists.
-- [ ] Only `POST /trials/leaderboards/all` and the Gauntlet host's writes read a body, through
-      `read_body_parts_limit` with `BODY_LIMIT`; a body error is core's error page (`trials_all`, `gauntlet_write`).
+- [ ] Only the Trials routes and the Gauntlet host's writes read a body, through `read_body_parts_limit` with
+      `BODY_LIMIT`; a body error is core's error page (`trials_all`, `trials_body`, `gauntlet_write`).
+- [ ] `POST /trials/leaderboards` records only for a game server (`AuthData.is_gameserver` or a player-hosted
+      `runtime`); a player's own token gets 403 before the body is read, so no one can post a Trial time for another
+      player (`trials_submit`).
+- [ ] A Trials body is logged only after `gauntlet::redacted`, like a Gauntlet write (`trials_body`); the client's
+      `session_id` never reaches the log.
+- [ ] A Trials board names players only by userId, account name, weapon, role and platform, the fields the
+      official board showed; a deleted account's rows are left out (`repo::trials::runs`). The individual routes
+      answer the caller's own line, taken from auth, not from the body.
+- [ ] A board page is at most 100 lines, and the board reads one Trial and difficulty's rows
+      (`trials::BoardQuery`, `repo::trials::runs`).
 - [ ] `PUT /process_run` records only for a game server (`AuthData.is_gameserver` or a player-hosted `runtime`); a
       player's own token gets 403 before the body is used, so no one can post a run for another player
       (`gauntlet_write`).

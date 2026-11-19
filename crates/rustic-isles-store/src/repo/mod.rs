@@ -39,6 +39,7 @@ pub mod playtime;
 pub mod progression;
 pub mod reforged;
 pub mod resets;
+pub mod trials;
 
 use std::sync::Arc;
 

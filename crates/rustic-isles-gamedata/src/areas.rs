@@ -13,7 +13,7 @@ use http::{StatusCode, header};
 use rustic_isles::{BODY_LIMIT, Call, Handlers, Method, Params, Service, Shared, read_body_parts_limit, replay};
 use serde_json::{Map, Value, json};
 
-use crate::{envelope, gauntlet, gauntlet_runs, patchnotes, progression_config, tuning};
+use crate::{envelope, gauntlet, gauntlet_runs, patchnotes, progression_config, trials, tuning};
 
 /// What a handler gets once its gate passed.
 struct Ctx {
@@ -94,13 +94,20 @@ pub(crate) fn register(handlers: &mut Handlers) {
         StatusCode::OK.into_response()
     });
     on(handlers, Post, "/trials/leaderboards/all", Game, trials_all);
-    on(
-        handlers,
-        Post,
-        "/trials/leaderboards/solo/individual",
-        Game,
-        |_| async { json(envelope(json!({}))) },
-    );
+    on(handlers, Post, "/trials/leaderboards/solo/individual", Game, |c| {
+        trials_query(c, TrialsBoard::SoloOwn)
+    });
+    on(handlers, Post, "/trials/leaderboards", Game, trials_submit);
+    on(handlers, Post, "/trials/leaderboards/solo", Game, |c| {
+        trials_query(c, TrialsBoard::Solo)
+    });
+    on(handlers, Post, "/trials/leaderboards/group", Game, |c| {
+        trials_query(c, TrialsBoard::Group)
+    });
+    on(handlers, Post, "/trials/leaderboards/group/individual", Game, |c| {
+        trials_query(c, TrialsBoard::GroupOwn)
+    });
+    on(handlers, Post, r"/^\/trials\/(.*)$/", Game, trials_unknown);
     on(handlers, Post, "/motd/", Game, |_| async {
         StatusCode::NO_CONTENT.into_response()
     });
@@ -220,6 +227,7 @@ fn treatments(shared: &Shared) -> Response {
 }
 
 async fn trials_all(ctx: Ctx) -> Response {
+    let shared = ctx.shared.clone();
     let (parts, body) = ctx.request.into_parts();
     let body = match read_body_parts_limit(&parts, body, BODY_LIMIT).await {
         Ok(body) => body,
@@ -238,11 +246,27 @@ async fn trials_all(ctx: Ctx) -> Response {
     let page = field("page", json!(0));
     let page_size = field("page_size", json!(100));
     let trial_id = field("trial_id", json!(""));
+    let query = trials::BoardQuery::from_body(&body);
+    let boards = trials::boards(&shared, &query.trial_id, query.difficulty).await;
     tracing::info!(
-        "Trials leaderboard all (stubbed empty) trial_id={:?} difficulty={}",
+        "Trials leaderboard all trial_id={:?} difficulty={}: {} solo, {} group",
         dainty_service_kit::js::string(Some(&trial_id)),
-        dainty_service_kit::js::string(Some(&difficulty))
+        dainty_service_kit::js::string(Some(&difficulty)),
+        boards.solo.len(),
+        boards.group.len()
     );
+    // The per-weapon boards only once they hold a line, so an empty answer stays the stub's
+    let mut solo = Map::new();
+    solo.insert(
+        "all".into(),
+        json!({ "difficulty": difficulty, "entries": boards.solo_page(&query, None) }),
+    );
+    for (name, weapon) in trials::WEAPON_BOARDS {
+        let entries = boards.solo_page(&query, Some(weapon));
+        if !entries.is_empty() {
+            solo.insert(name.into(), json!({ "difficulty": difficulty, "entries": entries }));
+        }
+    }
     json(envelope(json!({
         "difficulty": difficulty,
         "guild": {},
@@ -250,10 +274,105 @@ async fn trials_all(ctx: Ctx) -> Response {
         "page_size": page_size,
         "trial_id": trial_id,
         "world": {
-            "group": { "difficulty": difficulty, "entries": [] },
-            "solo": { "all": { "difficulty": difficulty, "entries": [] } }
+            "group": { "difficulty": difficulty, "entries": boards.group_page(&query) },
+            "solo": solo
         }
     })))
+}
+
+#[derive(Clone, Copy)]
+enum TrialsBoard {
+    Solo,
+    Group,
+    SoloOwn,
+    GroupOwn,
+}
+
+/// The body of a Trials request, read and logged (credentials dropped) while the client's requests are being learned.
+async fn trials_body(request: Request) -> Result<(http::request::Parts, Map<String, Value>), Box<Response>> {
+    let target = request
+        .uri()
+        .path_and_query()
+        .map_or_else(String::new, |p| p.as_str().to_owned());
+    let (parts, body) = request.into_parts();
+    let body = read_body_parts_limit(&parts, body, BODY_LIMIT)
+        .await
+        .map_err(Box::new)?;
+    let shown = body.as_ref().map_or_else(
+        || "(none)".to_owned(),
+        |b| dainty_service_kit::jsjson::stringify(&gauntlet::redacted(b.clone())),
+    );
+    tracing::info!("[Trials] {} {target} body={shown}", parts.method);
+    let map = match body {
+        Some(Value::Object(map)) => map,
+        _ => Map::new(),
+    };
+    Ok((parts, map))
+}
+
+/// A board page (`/solo`, `/group`), or the caller's own line with its rank (`/solo/individual`,
+/// `/group/individual`; `{}` before their first run).
+async fn trials_query(ctx: Ctx, board: TrialsBoard) -> Response {
+    let shared = ctx.shared.clone();
+    let (parts, body) = match trials_body(ctx.request).await {
+        Ok(read) => read,
+        Err(page) => return *page,
+    };
+    let query = trials::BoardQuery::from_body(&body);
+    let boards = trials::boards(&shared, &query.trial_id, query.difficulty).await;
+    let caller = parts
+        .extensions
+        .get::<rustic_isles_auth::AuthData>()
+        .and_then(|a| a.user_id.clone())
+        .unwrap_or_default();
+    let page = |entries: Vec<Value>| {
+        json!({
+            "difficulty": query.difficulty,
+            "page": query.page,
+            "page_size": query.page_size,
+            "trial_id": query.trial_id,
+            "entries": entries,
+        })
+    };
+    let payload = match board {
+        TrialsBoard::Solo => page(boards.solo_page(&query, None)),
+        TrialsBoard::Group => page(boards.group_page(&query)),
+        TrialsBoard::SoloOwn => boards.solo_of(&caller).unwrap_or_else(|| json!({})),
+        TrialsBoard::GroupOwn => boards.group_of(&caller).unwrap_or_else(|| json!({})),
+    };
+    json(envelope(payload))
+}
+
+/// `POST /trials/leaderboards`: the hunt server's finished Trial (first Trials test, 2026-11-19). Only a game server
+/// records one; a player's own token is an empty 403.
+async fn trials_submit(ctx: Ctx) -> Response {
+    let shared = ctx.shared.clone();
+    let server = ctx
+        .request
+        .extensions()
+        .get::<rustic_isles_auth::AuthData>()
+        .is_some_and(|a| a.is_gameserver || a.runtime.is_some());
+    if !server {
+        tracing::warn!("[Trials] POST /trials/leaderboards refused: the caller is not a game server");
+        return StatusCode::FORBIDDEN.into_response();
+    }
+    let body = match trials_body(ctx.request).await {
+        Ok((_, body)) => Value::Object(body),
+        Err(page) => return *page,
+    };
+    match trials::FinishedTrial::parse(&body) {
+        Some(run) => trials::record(&shared, &run).await,
+        None => tracing::warn!("[Trials] POST /trials/leaderboards with a body it could not read"),
+    }
+    json(envelope(json!({})))
+}
+
+/// Any other Trials write: logged with its body and answered with an empty envelope, until its shape is known.
+async fn trials_unknown(ctx: Ctx) -> Response {
+    match trials_body(ctx.request).await {
+        Ok(_) => json(envelope(json!({}))),
+        Err(page) => *page,
+    }
 }
 
 fn progression(shared: &Shared) -> Response {

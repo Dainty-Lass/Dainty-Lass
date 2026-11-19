@@ -266,8 +266,8 @@ mod tests {
         let metrics = all().iter().find(|r| r.path == "/internal/v1/metrics").unwrap();
         assert_eq!(metrics.scope(), Scope::Node);
         assert_eq!(metrics.index(), 4);
-        assert!(all()[47].is_regex());
-        assert_eq!(all()[47].group.as_str(), "game-data");
+        assert!(all()[52].is_regex());
+        assert_eq!(all()[52].group.as_str(), "game-data");
         assert_eq!(Method::Get.as_str(), "GET");
         assert!(Method::Get.accepts(&http::Method::HEAD));
         assert!(!Method::Post.accepts(&http::Method::HEAD));

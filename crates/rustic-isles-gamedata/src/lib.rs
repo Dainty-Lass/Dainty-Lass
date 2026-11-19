@@ -16,6 +16,7 @@ mod gauntlet_runs;
 pub mod generators;
 pub mod patchnotes;
 pub mod progression_config;
+pub mod trials;
 pub mod tuning;
 
 use rustic_isles::{Handlers, Method};
@@ -27,7 +28,7 @@ pub use generators::{
 };
 
 /// The 29 `game-data` rows (spec §3.1), in the table's order.
-const ROUTES: [(Method, &str); 31] = [
+const ROUTES: [(Method, &str); 36] = [
     (Method::Post, "/heartbeat"),
     (Method::Post, "/event"),
     (Method::Get, "/crash/CrashReporter/Ping"),
@@ -37,6 +38,11 @@ const ROUTES: [(Method, &str); 31] = [
     (Method::Post, "/profile/update"),
     (Method::Post, "/trials/leaderboards/all"),
     (Method::Post, "/trials/leaderboards/solo/individual"),
+    (Method::Post, "/trials/leaderboards"),
+    (Method::Post, "/trials/leaderboards/solo"),
+    (Method::Post, "/trials/leaderboards/group"),
+    (Method::Post, "/trials/leaderboards/group/individual"),
+    (Method::Post, r"/^\/trials\/(.*)$/"),
     (Method::Post, "/motd/"),
     (Method::Get, "/motd/trigger"),
     (Method::Get, "/playertreatments"),

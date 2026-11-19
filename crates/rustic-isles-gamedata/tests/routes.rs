@@ -636,3 +636,34 @@ async fn progression_config() {
     assert_eq!(later["paths"][0]["start_date"], "2026-10-22T17:00:00+00:00");
     assert_eq!(later["paths"].as_array().unwrap().len(), 2);
 }
+
+#[tokio::test]
+async fn trials_boards_without_a_store() {
+    let h = Harness::bare();
+    let body = r#"{"trial_id":"CR19_PlayerHunt_Arena_Elite","difficulty":2,"page":0,"page_size":10}"#;
+    let a = h.post_json("/trials/leaderboards/solo", "application/json", body).await;
+    assert_eq!(
+        a.payload(),
+        json!({"difficulty":2,"page":0,"page_size":10,"trial_id":"CR19_PlayerHunt_Arena_Elite","entries":[]})
+    );
+    let a = h
+        .post_json("/trials/leaderboards/group", "application/json", "{}")
+        .await;
+    assert_eq!(a.payload()["entries"], json!([]));
+    for own in [
+        "/trials/leaderboards/solo/individual",
+        "/trials/leaderboards/group/individual",
+    ] {
+        let a = h.post_json(own, "application/json", body).await;
+        assert_eq!(a.payload(), json!({}), "{own}");
+    }
+    // Any other Trials write is logged and answered with an empty envelope
+    let a = h
+        .post_json("/trials/leaderboards/guild", "application/json", "{}")
+        .await;
+    assert_eq!(a.payload(), json!({}));
+    // A player's own token may not record a finished run
+    let run = r#"{"trial_id":"T","completion_time":90,"phx_account_id":"user-1","weapon":1}"#;
+    let forged = h.post_json("/trials/leaderboards", "application/json", run).await;
+    assert_eq!((forged.status, forged.body.as_str()), (403, ""));
+}

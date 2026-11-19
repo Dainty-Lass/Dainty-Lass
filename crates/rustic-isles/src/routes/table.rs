@@ -30,7 +30,7 @@ const fn r(
 }
 
 #[rustfmt::skip]
-pub(super) static TABLE: [RouteDef; 301] = [
+pub(super) static TABLE: [RouteDef; 306] = [
     r(B, Get, r"/", LauncherApi, Isles, Always), // B1
     r(B, Get, r"/health/live", LauncherApi, Isles, Always), // B2
     r(B, Get, r"/health/ready", LauncherApi, Isles, Always), // B3
@@ -65,6 +65,12 @@ pub(super) static TABLE: [RouteDef; 301] = [
     r(B, Post, r"/profile/update", GameData, Isles, Always), // B32
     r(B, Post, r"/trials/leaderboards/all", GameData, Isles, Always), // B33
     r(B, Post, r"/trials/leaderboards/solo/individual", GameData, Isles, Always), // B34
+    // The run submission, the boards and anything else Trials sends (first Trials test, 2026-11-19)
+    r(B, Post, r"/trials/leaderboards", GameData, Isles, Always), // B34a
+    r(B, Post, r"/trials/leaderboards/solo", GameData, Isles, Always), // B34b
+    r(B, Post, r"/trials/leaderboards/group", GameData, Isles, Always), // B34c
+    r(B, Post, r"/trials/leaderboards/group/individual", GameData, Isles, Always), // B34d
+    r(B, Post, r"/^\/trials\/(.*)$/", GameData, Isles, Always), // B34e
     r(B, Get, r"/vivox/login", Chat, Isles, Always), // B35
     r(B, Post, r"/motd/", GameData, Isles, Always), // B36
     r(B, Get, r"/motd/trigger", GameData, Isles, Always), // B37
