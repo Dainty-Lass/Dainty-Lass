@@ -366,7 +366,7 @@ impl Default for PerformanceOptions {
     }
 }
 
-const SWITCH_STRINGS: [(&str, &str, &str, &[&str]); 7] = [
+const SWITCH_STRINGS: [(&str, &str, &str, &[&str]); 8] = [
     ("reforge", "reforge", "RUSTIC_ISLES_REFORGE", &["on", "log", "off"]),
     (
         "masteryPersistence",
@@ -394,6 +394,7 @@ const SWITCH_STRINGS: [(&str, &str, &str, &[&str]); 7] = [
     ),
     ("logPurge", "log_purge", "RUSTIC_ISLES_LOG_PURGE", &["on", "off"]),
     ("rateLimit", "rate_limit", "RUSTIC_ISLES_RATE_LIMIT", &["on", "off"]),
+    ("gauntlet", "gauntlet", "RUSTIC_ISLES_GAUNTLET", &["on", "off"]),
 ];
 
 const SWITCH_NUMBERS: [(&str, &str, &str); 3] = [
@@ -437,6 +438,8 @@ pub struct SwitchesConfig {
     pub gameserver_rate_limit_per_minute: Option<u32>,
     /// Requests the host's own tools may make a minute.
     pub host_rate_limit_per_minute: Option<u32>,
+    /// `on` or `off`: whether Gauntlet hunts are matched and its Slayer's Path node shown.
+    pub gauntlet: Option<String>,
 }
 
 impl SwitchesConfig {
@@ -487,6 +490,7 @@ impl SwitchesConfig {
             rate_limit_per_minute: num("rateLimitPerMinute"),
             gameserver_rate_limit_per_minute: num("gameserverRateLimitPerMinute"),
             host_rate_limit_per_minute: num("hostRateLimitPerMinute"),
+            gauntlet: word("gauntlet"),
         }
     }
 
@@ -502,6 +506,7 @@ impl SwitchesConfig {
             ("accountErasure", &self.account_erasure),
             ("logPurge", &self.log_purge),
             ("rateLimit", &self.rate_limit),
+            ("gauntlet", &self.gauntlet),
         ];
         for (k, v) in words {
             if let Some(s) = v {
@@ -3462,6 +3467,20 @@ mod tests {
         assert!(is_dns_name("node-1.tailnet.ts.net"));
         assert!(!is_dns_name("localhost"));
         assert!(!is_dns_name("1.2.3.4"));
+    }
+
+    #[test]
+    fn gauntlet_switch_round_trips() {
+        let table = json!({"gauntlet": "on"});
+        SwitchesConfig::validate(&table).unwrap();
+        let switches = SwitchesConfig::from_json(table.as_object().unwrap());
+        assert_eq!(switches.gauntlet.as_deref(), Some("on"));
+        assert_eq!(switches.to_json(), table);
+        assert_eq!(switches.env(), [("RUSTIC_ISLES_GAUNTLET", "on".to_owned())]);
+        assert_eq!(switches.module_switches(), [("gauntlet", json!("on"))]);
+        assert!(SwitchesConfig::validate(&json!({"gauntlet": "yes"})).is_err());
+        // An older settings.toml has no key: the module's default, off
+        assert!(SwitchesConfig::from_json(&Map::new()).env().is_empty());
     }
 
     #[test]

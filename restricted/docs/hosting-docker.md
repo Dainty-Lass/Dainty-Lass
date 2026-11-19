@@ -174,7 +174,8 @@ running `docker compose up -d --force-recreate`. That includes `[guard]`, which 
 per-minute HTTP request budget (`rate_limit` -> `RUSTIC_ISLES_RATE_LIMIT`, `rate_limit_per_minute` ->
 `RUSTIC_ISLES_RATE_LIMIT_PER_MINUTE`, `gameserver_rate_limit_per_minute` ->
 `RUSTIC_ISLES_GAMESERVER_RATE_LIMIT_PER_MINUTE`, `host_rate_limit_per_minute` ->
-`RUSTIC_ISLES_HOST_RATE_LIMIT_PER_MINUTE`; see [hosting.md](hosting.md#game-modules-and-plugins)), and the
+`RUSTIC_ISLES_HOST_RATE_LIMIT_PER_MINUTE`) and Gauntlet (`gauntlet` -> `RUSTIC_ISLES_GAUNTLET`; see
+[hosting.md](hosting.md#game-modules-and-plugins)), and the
 services' limits and log levels in `[gateway.limits]`, `[gateway.rate]`, `[gateway.timeouts]`, `[content]`,
 `[allowlist]`, `[backend]` and `[director]` (with the hub size, AFK timeouts, supply stack caps and cell fusion time; [hosting.md](hosting.md#service-tunables)), which `configure`
 checks with each service's own rules before anything starts; `docker compose run --rm host admin guarded list --env-file
