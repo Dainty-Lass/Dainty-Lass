@@ -513,6 +513,18 @@ async fn gauntlet() {
     let write = h.game("PUT", &at("/anything/ESC_SEASON_1/user-1")).await;
     assert_eq!((write.status, write.payload()), (200, json!({})));
     assert_ne!(h.game("PUT", "/anything/ESC_SEASON_1/user-1").await.status, 200);
+    // A player's own token may not record a finished run
+    let token = h.token();
+    let run = r#"{"gauntlet_id":"ESC_SEASON_1","players":["user-1"],"level":9,"remaining_sec":1,"data":{}}"#;
+    let forged = h
+        .send(
+            "PUT",
+            &at("/process_run"),
+            &[("authorization", token.as_str())],
+            Some(run),
+        )
+        .await;
+    assert_eq!(forged.status, 403);
     // With Gauntlet on, level access opens the first level; the other progression answers are unchanged
     let on = Harness::new(Options {
         settings: vec![("RUSTIC_ISLES_GAUNTLET", " On ")],

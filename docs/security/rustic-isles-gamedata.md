@@ -11,12 +11,14 @@ date and the commit reviewed. An item that does not hold is a bug to fix first, 
 
 ## What it is and where the boundary is
 
-The crate answers 29 backend rows (the login, Ramsgate and Gauntlet stubs, the patch notes, the tuning answers and
+The crate answers 31 backend rows (the login, Ramsgate and Gauntlet answers, the patch notes, the tuning answers and
 the served progression config; `areas.rs`) inside the Rustic Isles backend (port 61000, loopback behind the
 gateway), and holds the eight generators `dainty-host gamedata` runs on the host (`generators/`).
 
-- **In (routes):** path params, echoed into JSON by the writer; one request body, `POST /trials/leaderboards/all`'s,
-  through core's bounded reader (100 KiB); the replay-aware clock. Nothing is stored.
+- **In (routes):** path params, echoed into JSON by the writer; request bodies of `POST /trials/leaderboards/all`
+  and of any write on the Gauntlet host, through core's bounded reader (100 KiB); the replay-aware clock.
+- **Stored:** a finished Gauntlet run (`PUT /process_run` from a game server) updates the players'
+  `gauntlet_progress` rows; nothing else is written.
 - **In (generators):** host-side files only: the host's own game exports, host-supplied responses, the store captures
   hostkit fetched at a pinned commit and checked by hash, and the version's Reward Cache plan and seed list.
 - **Files read by a route:** `progression_config.json` under the configured backend folder, through core's cached
@@ -42,8 +44,15 @@ Fuzz targets in `fuzz`:
 
 - [ ] Every "game" row runs `Auth::game_auth` before reading anything, and answers its refusal as made
       (`areas.rs`, `on`); the open rows are exactly the eleven spec §3.1 lists.
-- [ ] Only `POST /trials/leaderboards/all` reads a body, through `read_body_parts_limit` with `BODY_LIMIT`; a body
-      error is core's error page (`trials_all`).
+- [ ] Only `POST /trials/leaderboards/all` and the Gauntlet host's writes read a body, through
+      `read_body_parts_limit` with `BODY_LIMIT`; a body error is core's error page (`trials_all`, `gauntlet_write`).
+- [ ] `PUT /process_run` records only for a game server (`AuthData.is_gameserver` or a player-hosted `runtime`); a
+      player's own token gets 403 before the body is used, so no one can post a run for another player
+      (`gauntlet_write`).
+- [ ] A Gauntlet write's body is logged only after `gauntlet::redacted` drops every field named like a credential
+      (`session`, `token`, `key`, `secret`, `password`, `auth`): the client's join body carries `session_id`.
+- [ ] The open level-access query answers a level number for any `account_id`: it tells anyone a player's best
+      Gauntlet level and nothing else (kept open because the client sends it without a bearer).
 - [ ] Params reach answers only as JSON strings (escaped by `service_kit::jsjson`) or as a log line's debug text.
 - [ ] `GET /progression/config` reads the one fixed file name; a read error is logged and answered with the 500
       page, without the error text in the answer (`progression`).

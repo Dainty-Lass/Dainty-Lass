@@ -290,8 +290,16 @@ async fn gauntlet_write(ctx: Ctx) -> Response {
         Ok(body) => body,
         Err(page) => return page,
     };
-    // The hunt server's level end (first Gauntlet test, 2026-11-19)
+    // The hunt server's level end (first Gauntlet test, 2026-11-19); a player's own token may not record a run
     if method == http::Method::PUT && parts.uri.path() == "/process_run" {
+        let server = parts
+            .extensions
+            .get::<rustic_isles_auth::AuthData>()
+            .is_some_and(|a| a.is_gameserver || a.runtime.is_some());
+        if !server {
+            tracing::warn!("[Gauntlet] PUT /process_run refused: the caller is not a game server");
+            return StatusCode::FORBIDDEN.into_response();
+        }
         match body.as_ref().and_then(gauntlet_runs::FinishedRun::parse) {
             Some(run) => gauntlet_runs::record(&shared, &run).await,
             None => tracing::warn!("[Gauntlet] PUT /process_run with a body it could not read"),
