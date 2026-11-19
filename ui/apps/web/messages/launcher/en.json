@@ -454,5 +454,23 @@
   "proton": {
     "injectHelper": "Load the runtime with the inject helper",
     "injectHelperHint": "Proton only. On, a small helper loads the runtime into the game, as the Windows launcher does. Off, the runtime loader (winmm.dll) beside the game loads it. The launcher installs what each one needs before the next launch."
+  },
+  "playtime": {
+    "title": "Playtime",
+    "hours": "{hours, plural, one {# hour} other {# hours}} online",
+    "next": "{hours, plural, one {# hour} other {# hours}} to {badge}",
+    "locked": "Unlocks at {hours} hours",
+    "unavailable": "This server doesn't report playtime.",
+    "badges": {
+      "h1": "Deckhand",
+      "h10": "Able Hand",
+      "h25": "Lookout",
+      "h50": "Boatswain",
+      "h100": "Navigator",
+      "h250": "First Mate",
+      "h500": "Captain",
+      "h750": "Commodore",
+      "h1000": "Admiral of the Isles"
+    }
   }
 }

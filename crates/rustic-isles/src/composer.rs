@@ -134,6 +134,16 @@ pub trait ModuleHooks: Send + Sync {
         Box::pin(async {})
     }
 
+    /// The chat plugin reported a player online or offline: their playtime opens or closes.
+    fn presence_changed<'a>(
+        &'a self,
+        _shared: &'a Arc<Shared>,
+        _account: &'a GlobalId,
+        _online: bool,
+    ) -> BoxFuture<'a, ()> {
+        Box::pin(async {})
+    }
+
     /// Writes an invite (MS3): `expires_at` is ISO text, none never; answers its code.
     fn create_invite<'a>(
         &'a self,

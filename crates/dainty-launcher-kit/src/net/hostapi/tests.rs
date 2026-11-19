@@ -359,3 +359,29 @@ fn the_flavor_names_the_protocol_routes() {
     );
     assert_eq!(REFORGED.key_header, KEY_HEADER);
 }
+
+#[tokio::test]
+async fn playtime_sends_the_key_and_reads_whole_seconds() {
+    let server = FakeServer::start(
+        true,
+        vec![(PLAYTIME_PATH, 200, json_body(&json!({"PlaytimeSeconds": 3600})))],
+    )
+    .await;
+    assert_eq!(fetch_playtime(&server.endpoint(), KEY).await, Some(3600));
+    let requests = server.requests();
+    assert!(requests[0].starts_with(&format!("GET {PLAYTIME_PATH} ")) && has_key(&requests[0]));
+    assert_eq!(fetch_playtime(&server.endpoint(), "not a key").await, None);
+    assert_eq!(server.requests().len(), 1, "an implausible key is never sent");
+    for (status, body) in [
+        (200, json!({"PlaytimeSeconds": -1})),
+        (200, json!({"PlaytimeSeconds": 1.5})),
+        (200, json!({})),
+        (401, json!({"PlaytimeSeconds": 1})),
+    ] {
+        assert_eq!(
+            parse::playtime_reply(status, &json_body(&body)),
+            None,
+            "{status} {body}"
+        );
+    }
+}

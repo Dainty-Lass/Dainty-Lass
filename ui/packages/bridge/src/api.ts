@@ -226,6 +226,7 @@ export const api: LauncherApi = {
   // Waits for the download to stop, then deletes its files
   gameInstallDiscard: (version) =>
     act("game_install_discard", { version: String(version) }, LONG_TIMEOUT_MS),
+  getPlaytime: () => call<number | null>("get_playtime"),
   onSnapshot: (fn) => on<Snapshot>("snapshot", fn),
   // Progress comes over a channel of its own, already throttled by the backend
   onProgress: (fn) => {

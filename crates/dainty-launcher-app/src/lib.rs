@@ -368,6 +368,7 @@ pub fn run(mut options: Options) -> Result<i32, StartError> {
             bridge::commands::remote_revoke,
             bridge::commands::remote_leave,
             bridge::commands::remote_exec,
+            bridge::commands::get_playtime,
         ])
         .setup(move |app| {
             start.setup(app.handle())?;

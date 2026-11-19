@@ -451,6 +451,17 @@ impl ModuleHooks for Runtime {
         rustic_isles_matchmaking::player_offline(shared, user_id)
     }
 
+    fn presence_changed<'a>(
+        &'a self,
+        shared: &'a Arc<Shared>,
+        account: &'a GlobalId,
+        online: bool,
+    ) -> BoxFuture<'a, ()> {
+        Box::pin(rustic_isles_launcher_api::playtime::record_presence(
+            shared, account, online,
+        ))
+    }
+
     fn create_invite<'a>(
         &'a self,
         _shared: &'a Arc<Shared>,

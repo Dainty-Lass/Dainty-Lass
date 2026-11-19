@@ -34,6 +34,8 @@ pub const USER_INFO_PATH: &str = "/dainty/api/GetUserInfo";
 pub const NEWS_PATH: &str = "/content/v1/news";
 /// The content server's branding index.
 pub const BRANDING_PATH: &str = "/content/v1/branding";
+/// The key holder's online playtime (Dainty Lass's own route).
+pub const PLAYTIME_PATH: &str = "/dainty/api/Playtime";
 
 const KIB: usize = 1024;
 /// Status's deadline when the caller gives none.
@@ -186,6 +188,16 @@ pub async fn fetch_user_info(endpoint: &Endpoint, key: &str) -> Result<UserInfo,
         Ok(res) => parse::user_info_reply(res.status, &res.body),
         Err(err) => Err(account_error(&err)),
     }
+}
+
+/// The key holder's online playtime in seconds; none when the server has none to give.
+pub async fn fetch_playtime(endpoint: &Endpoint, key: &str) -> Option<u64> {
+    if !is_plausible_account_key(key) {
+        return None;
+    }
+    let options = get(USER_INFO_TIMEOUT, USER_INFO_MAX_BYTES, key_headers(endpoint, Some(key)));
+    let res = request(endpoint, PLAYTIME_PATH, options).await.ok()?;
+    parse::playtime_reply(res.status, &res.body)
 }
 
 /// The server's runtime manifest; it is public, so no key is sent.

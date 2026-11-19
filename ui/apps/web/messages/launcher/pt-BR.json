@@ -454,5 +454,23 @@
   "proton": {
     "injectHelper": "Carregar o runtime com o auxiliar de injeção",
     "injectHelperHint": "Só no Proton. Ligado, um pequeno auxiliar carrega o runtime no jogo, como o launcher do Windows faz. Desligado, o carregador do runtime (winmm.dll) ao lado do jogo o carrega. O launcher instala o que cada um precisa antes da próxima vez que o jogo abrir."
+  },
+  "playtime": {
+    "title": "Tempo de jogo",
+    "hours": "{hours, plural, one {# hora} other {# horas}} online",
+    "next": "{hours, plural, one {Falta # hora} other {Faltam # horas}} para {badge}",
+    "locked": "Desbloqueia com {hours} horas",
+    "unavailable": "Este servidor não informa o tempo de jogo.",
+    "badges": {
+      "h1": "Marujo",
+      "h10": "Marinheiro",
+      "h25": "Vigia",
+      "h50": "Contramestre",
+      "h100": "Navegador",
+      "h250": "Imediato",
+      "h500": "Capitão",
+      "h750": "Comodoro",
+      "h1000": "Almirante das Ilhas"
+    }
   }
 }

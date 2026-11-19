@@ -16,6 +16,7 @@ import type { ReactNode } from "react";
 import { AppearanceSettings } from "@/components/AppearanceSettings";
 import { TraySettings } from "@/components/desktop/TraySettings";
 import { LauncherShell } from "@/components/launcher/LauncherShell";
+import { PlaytimeCard } from "@/components/launcher/PlaytimeCard";
 
 const GRAPHICS: GraphicsPreset[] = [-1, 0, 1, 2, 3, 4];
 const GAME_LANGUAGES: GameLanguage[] = [
@@ -167,6 +168,8 @@ export default function SettingsPage() {
           </Stack>
           <Text type="supporting">{t("signOutHint")}</Text>
         </Section>
+
+        <PlaytimeCard />
       </Stack>
     </LauncherShell>
   );

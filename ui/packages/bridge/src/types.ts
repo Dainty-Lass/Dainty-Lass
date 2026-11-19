@@ -106,6 +106,8 @@ export interface LauncherApi {
   gameInstallChooseFolder(): Promise<ActionResult>;
   /** Cancels a download altogether: stops it and deletes what it downloaded. */
   gameInstallDiscard(version: string): Promise<ActionResult>;
+  /** The signed-in account's online seconds; null when the server gives none. */
+  getPlaytime(): Promise<number | null>;
   onSnapshot(fn: (snapshot: Snapshot) => void): void;
   onProgress(fn: (progress: TaskProgress) => void): void;
   onHostKit(fn: (kit: HostKit) => void): void;

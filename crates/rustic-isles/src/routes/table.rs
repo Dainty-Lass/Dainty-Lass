@@ -30,7 +30,7 @@ const fn r(
 }
 
 #[rustfmt::skip]
-pub(super) static TABLE: [RouteDef; 293] = [
+pub(super) static TABLE: [RouteDef; 294] = [
     r(B, Get, r"/", LauncherApi, Isles, Always), // B1
     r(B, Get, r"/health/live", LauncherApi, Isles, Always), // B2
     r(B, Get, r"/health/ready", LauncherApi, Isles, Always), // B3
@@ -207,6 +207,7 @@ pub(super) static TABLE: [RouteDef; 293] = [
     r(B, Get, r"/dainty/api/GetUserInfo", LauncherApi, Isles, Always), // B174
     r(B, Get, r"/dainty/api/ServerStatus", LauncherApi, Isles, Always), // B175
     r(B, Get, r"/dainty/api/RegistrationStatus", LauncherApi, Isles, Always), // B176
+    r(B, Get, r"/dainty/api/Playtime", LauncherApi, Isles, Always), // no Node route: the key holder's playtime
     r(B, Post, r"/dainty/api/CreateInvite", LauncherApi, Isles, Always), // B177
     r(B, Get, r"/dainty/api/InviteCodes", LauncherApi, Isles, Always), // B178
     r(B, Delete, r"/dainty/api/InviteCode/:code", LauncherApi, Isles, Always), // B179
