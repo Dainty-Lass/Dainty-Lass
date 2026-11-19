@@ -26,7 +26,7 @@ pub use generators::{
 };
 
 /// The 29 `game-data` rows (spec §3.1), in the table's order.
-const ROUTES: [(Method, &str); 29] = [
+const ROUTES: [(Method, &str); 31] = [
     (Method::Post, "/heartbeat"),
     (Method::Post, "/event"),
     (Method::Get, "/crash/CrashReporter/Ping"),
@@ -48,6 +48,8 @@ const ROUTES: [(Method, &str); 29] = [
     (Method::Get, r"/^\/rewards\/personal\/([^/]*)\/([^/]+)$/i"),
     (Method::Get, r"/^\/rewards\/guild\/([^/]*)\/([^/]+)$/i"),
     (Method::Get, r"/^\/leaderboard\/get_leaderboard\//i"),
+    (Method::Put, r"/^\/(.*)$/"),
+    (Method::Post, r"/^\/(.*)$/"),
     (Method::Get, "/all/"),
     (Method::Get, "/patchnotes/:language/:gameversion"),
     (Method::Get, "/game_tuning/seasonal_event_schedule"),

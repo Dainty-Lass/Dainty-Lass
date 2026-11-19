@@ -43,9 +43,33 @@ pub fn leaderboard_payload() -> Value {
     json!([])
 }
 
+/// The value without any field whose name looks like a credential, at any depth, for the log.
+pub fn redacted(value: Value) -> Value {
+    const SECRET: [&str; 6] = ["session", "token", "key", "secret", "password", "auth"];
+    match value {
+        Value::Object(map) => Value::Object(
+            map.into_iter()
+                .filter(|(k, _)| {
+                    let k = k.to_ascii_lowercase();
+                    !SECRET.iter().any(|s| k.contains(s))
+                })
+                .map(|(k, v)| (k, redacted(v)))
+                .collect(),
+        ),
+        Value::Array(items) => Value::Array(items.into_iter().map(redacted).collect()),
+        other => other,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn redaction() {
+        let body = json!({"level": 3, "session_id": "s", "x": [{"AuthToken": "t", "ok": 1}], "apiKey": "k"});
+        assert_eq!(redacted(body), json!({"level": 3, "x": [{"ok": 1}]}));
+    }
 
     #[test]
     fn payloads() {

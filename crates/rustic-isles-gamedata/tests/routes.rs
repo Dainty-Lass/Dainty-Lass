@@ -509,6 +509,10 @@ async fn gauntlet() {
         ..Options::default()
     });
     assert_eq!(off.game("GET", &at("/config")).await.payload(), json!({}));
+    // A write on the Gauntlet host answers an empty envelope; elsewhere the row passes on
+    let write = h.game("PUT", &at("/anything/ESC_SEASON_1/user-1")).await;
+    assert_eq!((write.status, write.payload()), (200, json!({})));
+    assert_ne!(h.game("PUT", "/anything/ESC_SEASON_1/user-1").await.status, 200);
     // With Gauntlet on, level access opens the first level; the other progression answers are unchanged
     let on = Harness::new(Options {
         settings: vec![("RUSTIC_ISLES_GAUNTLET", " On ")],

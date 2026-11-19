@@ -30,7 +30,7 @@ const fn r(
 }
 
 #[rustfmt::skip]
-pub(super) static TABLE: [RouteDef; 299] = [
+pub(super) static TABLE: [RouteDef; 301] = [
     r(B, Get, r"/", LauncherApi, Isles, Always), // B1
     r(B, Get, r"/health/live", LauncherApi, Isles, Always), // B2
     r(B, Get, r"/health/ready", LauncherApi, Isles, Always), // B3
@@ -82,6 +82,9 @@ pub(super) static TABLE: [RouteDef; 299] = [
     r(B, Get, r"/^\/rewards\/personal\/([^/]*)\/([^/]+)$/i", GameData, Isles, Gauntlet), // B49
     r(B, Get, r"/^\/rewards\/guild\/([^/]*)\/([^/]+)$/i", GameData, Isles, Gauntlet), // B50
     r(B, Get, r"/^\/leaderboard\/get_leaderboard\//i", GameData, Isles, Gauntlet), // B51
+    // The level-end and guild-claim writes, whose paths come from the game's packed config (2026-11-19)
+    r(B, Put, r"/^\/(.*)$/", GameData, Isles, Gauntlet), // B51a
+    r(B, Post, r"/^\/(.*)$/", GameData, Isles, Gauntlet), // B51b
     r(B, Get, r"/huntpass/:userId", Progression, Isles, Always), // B52
     r(B, Get, r"/cooldown/:userId", BountiesStore, Isles, Always), // B53
     r(B, Put, r"/cooldown/batch/:userId", BountiesStore, Isles, Always), // B54

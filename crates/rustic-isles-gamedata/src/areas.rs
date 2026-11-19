@@ -70,7 +70,7 @@ fn text(body: &'static str) -> Response {
 
 pub(crate) fn register(handlers: &mut Handlers) {
     use Gate::{Game, GameUnlessLevelAccess, Open};
-    use Method::{Get, Post};
+    use Method::{Get, Post, Put};
 
     on(handlers, Post, "/heartbeat", Open, |_| async { text("20000") });
     on(handlers, Post, "/event", Open, |_| async { json(json!({})) });
@@ -152,6 +152,8 @@ pub(crate) fn register(handlers: &mut Handlers) {
         Game,
         |_| async { json(envelope(gauntlet::leaderboard_payload())) },
     );
+    on(handlers, Put, r"/^\/(.*)$/", Game, gauntlet_write);
+    on(handlers, Post, r"/^\/(.*)$/", Game, gauntlet_write);
     on(handlers, Get, "/all/", Game, |_| async {
         json(envelope(json!({"messages": []})))
     });
@@ -274,6 +276,28 @@ fn progression(shared: &Shared) -> Response {
         replay::now_ms(),
     );
     json(served)
+}
+
+/// A write to the Gauntlet host: logged with its body (credentials dropped) and answered with an empty envelope, until
+/// its shape is known and stored (first Gauntlet test, 2026-11-19).
+async fn gauntlet_write(ctx: Ctx) -> Response {
+    let method = ctx.request.method().clone();
+    let target = ctx
+        .request
+        .uri()
+        .path_and_query()
+        .map_or_else(String::new, |p| p.as_str().to_owned());
+    let (parts, body) = ctx.request.into_parts();
+    let body = match read_body_parts_limit(&parts, body, BODY_LIMIT).await {
+        Ok(body) => body,
+        Err(page) => return page,
+    };
+    let shown = body.map_or_else(
+        || "(none)".to_owned(),
+        |b| dainty_service_kit::jsjson::stringify(&gauntlet::redacted(b)),
+    );
+    tracing::info!("[Gauntlet] {method} {target} body={shown}");
+    json(envelope(json!({})))
 }
 
 /// `RUSTIC_ISLES_GAUNTLET` reads `on`, trimmed, any case (matchmaking's switch).

@@ -219,15 +219,15 @@ fn rifts() -> rustic_rifts_seam::Rifts {
 #[test]
 fn the_table() {
     let all = routes::all();
-    assert_eq!(all.len(), 299);
+    assert_eq!(all.len(), 301);
     let backend: Vec<_> = all.iter().filter(|r| r.service == Service::Backend).collect();
-    assert_eq!(backend.len(), 294);
-    assert_eq!(backend.iter().filter(|r| r.side == Side::Isles).count(), 227);
+    assert_eq!(backend.len(), 296);
+    assert_eq!(backend.iter().filter(|r| r.side == Side::Isles).count(), 229);
     assert_eq!(backend.iter().filter(|r| r.side == Side::Rifts).count(), 67);
     let director: Vec<_> = all.iter().filter(|r| r.service == Service::Director).collect();
     assert_eq!(director.len(), 5);
     assert_eq!(director.iter().filter(|r| r.side == Side::Isles).count(), 4);
-    assert_eq!(rustic_isles::RouteSet::V1147.routes(Service::Backend).len(), 294);
+    assert_eq!(rustic_isles::RouteSet::V1147.routes(Service::Backend).len(), 296);
     let admin: Vec<_> = all.iter().filter(|r| r.when == When::Admin).collect();
     assert_eq!(admin.len(), 33);
     assert!(
@@ -241,7 +241,7 @@ fn the_table() {
             .all(|r| r.when != When::Always)
     );
     let gauntlet: Vec<_> = all.iter().filter(|r| r.when == When::Gauntlet).collect();
-    assert_eq!(gauntlet.len(), 5);
+    assert_eq!(gauntlet.len(), 7);
     assert!(gauntlet.iter().any(|r| r.path == "/config"));
     assert_eq!(all.iter().filter(|r| r.when == When::Rifts).count(), 60);
     assert!(
