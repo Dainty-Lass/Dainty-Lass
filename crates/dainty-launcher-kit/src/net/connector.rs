@@ -21,7 +21,7 @@ use tokio::net::TcpStream;
 use tokio_rustls::client::TlsStream;
 
 use crate::net::http::{Endpoint, HttpError, check_endpoint};
-use crate::net::pinned::{ConnectError, PinnedTarget, pinned_connect};
+use crate::net::pinned::{ConnectError, PinnedTarget, pinned_connect, tcp_connect};
 
 /// Connects to its endpoint whatever URI the client asks for, so the URI only carries the path. Clones share
 /// the count of connections opened.
@@ -71,11 +71,9 @@ impl Connector {
                 Stream::Tls(TokioIo::new(Box::new(tls)))
             }
             None => {
-                let tcp = tokio::time::timeout(inner.timeout, TcpStream::connect((inner.host.as_str(), inner.port)))
+                let tcp = tokio::time::timeout(inner.timeout, tcp_connect(&inner.host, inner.port))
                     .await
-                    .map_err(|_| ConnectError::Timeout)?
-                    .map_err(|e| ConnectError::Io(e.to_string()))?;
-                let _ = tcp.set_nodelay(true);
+                    .map_err(|_| ConnectError::Timeout)??;
                 Stream::Plain(TokioIo::new(tcp))
             }
         };

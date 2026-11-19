@@ -12,8 +12,12 @@ use dainty_protocol::status::{STATUS_PATH, ServerStatus};
 use hyper::Method;
 
 use crate::bridge::types::{ErrorCode, LauncherError};
-use crate::net::http::{Endpoint, HttpError, HttpResponse, RequestOptions, check_endpoint, request};
+use crate::net::http::{
+    CONNECT_TIMEOUT, Endpoint, FailureKind, HttpError, HttpResponse, REQUEST_TIMEOUT, RequestOptions, check_endpoint,
+    request,
+};
 use crate::net::runtime_files::RuntimeManifestResult;
+use crate::platform::log;
 
 pub mod parse;
 
@@ -36,19 +40,19 @@ pub const NEWS_PATH: &str = "/content/v1/news";
 pub const BRANDING_PATH: &str = "/content/v1/branding";
 
 const KIB: usize = 1024;
-/// Status's deadline when the caller gives none.
-pub const STATUS_TIMEOUT: Duration = Duration::from_secs(5);
+/// Status's deadline when the caller gives none: the answer is small and polled again, so the connect's is enough.
+pub const STATUS_TIMEOUT: Duration = CONNECT_TIMEOUT;
 const STATUS_MAX_BYTES: usize = 1024 * KIB;
 const PROBE_MAX_BYTES: usize = 64 * KIB;
-const REGISTER_TIMEOUT: Duration = Duration::from_secs(20);
+const REGISTER_TIMEOUT: Duration = REQUEST_TIMEOUT;
 const REGISTER_MAX_BYTES: usize = 64 * KIB;
-const USER_INFO_TIMEOUT: Duration = Duration::from_secs(10);
+const USER_INFO_TIMEOUT: Duration = REQUEST_TIMEOUT;
 const USER_INFO_MAX_BYTES: usize = 64 * KIB;
-const MANIFEST_TIMEOUT: Duration = Duration::from_secs(10);
+const MANIFEST_TIMEOUT: Duration = REQUEST_TIMEOUT;
 const MANIFEST_MAX_BYTES: usize = 64 * KIB;
-const NEWS_TIMEOUT: Duration = Duration::from_secs(10);
+const NEWS_TIMEOUT: Duration = REQUEST_TIMEOUT;
 const NEWS_MAX_BYTES: usize = 512 * KIB;
-const BRANDING_TIMEOUT: Duration = Duration::from_secs(10);
+const BRANDING_TIMEOUT: Duration = REQUEST_TIMEOUT;
 const BRANDING_MAX_BYTES: usize = 64 * KIB;
 const IMAGE_TIMEOUT: Duration = Duration::from_secs(30);
 const IMAGE_MAX_BYTES: usize = 15 * 1024 * KIB;
@@ -116,8 +120,8 @@ pub enum StatusOutcome {
         /// The fingerprint it presented.
         actual: String,
     },
-    /// No answer.
-    Unreachable,
+    /// No answer, and why.
+    Unreachable(FailureKind),
 }
 
 fn get(timeout: Duration, max_bytes: usize, headers: Vec<(&'static str, String)>) -> RequestOptions {
@@ -130,16 +134,32 @@ fn get(timeout: Duration, max_bytes: usize, headers: Vec<(&'static str, String)>
 fn transport_outcome(err: HttpError) -> StatusOutcome {
     match err {
         HttpError::Pin { actual } => StatusOutcome::CertMismatch { actual },
-        _ => StatusOutcome::Unreachable,
+        other => StatusOutcome::Unreachable(other.kind()),
     }
 }
 
-/// The transport failures every account route shares.
-fn account_error(err: &HttpError) -> LauncherError {
-    match err {
-        HttpError::Pin { .. } => LauncherError::new(ErrorCode::CertMismatch),
-        _ => LauncherError::new(ErrorCode::ServerUnreachable),
+/// The sentence the player reads for a request that got no answer. A pin mismatch stays the certificate's own.
+pub fn failure_code(kind: FailureKind) -> ErrorCode {
+    match kind {
+        FailureKind::Pin => ErrorCode::CertMismatch,
+        FailureKind::Dns => ErrorCode::ServerDnsFailed,
+        FailureKind::Refused => ErrorCode::ServerRefused,
+        FailureKind::Timeout => ErrorCode::ServerTimedOut,
+        FailureKind::Tls => ErrorCode::ServerTlsFailed,
+        FailureKind::Status => ErrorCode::ServerError,
+        FailureKind::Aborted => ErrorCode::Cancelled,
+        FailureKind::Other | FailureKind::TooLarge => ErrorCode::ServerUnreachable,
     }
+}
+
+/// Logs a failed request with its kind (the key is in a header, never in `err`) and answers its sentence.
+pub fn logged_failure(endpoint: &Endpoint, path: &str, err: &HttpError) -> LauncherError {
+    let kind = err.kind();
+    log::warn(format!(
+        "{}:{}{path} failed ({kind}): {err}",
+        endpoint.host, endpoint.port
+    ));
+    LauncherError::new(failure_code(kind))
 }
 
 /// The server's status, with the key when there is one so the server may show more; 404 falls back to the
@@ -171,8 +191,11 @@ pub async fn register(endpoint: &Endpoint, body: &RegisterRequest) -> Result<Str
         ..RequestOptions::get(REGISTER_TIMEOUT, REGISTER_MAX_BYTES)
     };
     match request(endpoint, REFORGED.register_path, options).await {
-        Ok(res) => parse::register_reply(res.status, &res.body),
-        Err(err) => Err(account_error(&err)),
+        Ok(res) => {
+            log_status(endpoint, REFORGED.register_path, res.status);
+            parse::register_reply(res.status, &res.body)
+        }
+        Err(err) => Err(logged_failure(endpoint, REFORGED.register_path, &err)),
     }
 }
 
@@ -183,8 +206,21 @@ pub async fn fetch_user_info(endpoint: &Endpoint, key: &str) -> Result<UserInfo,
     }
     let options = get(USER_INFO_TIMEOUT, USER_INFO_MAX_BYTES, key_headers(endpoint, Some(key)));
     match request(endpoint, REFORGED.account_path, options).await {
-        Ok(res) => parse::user_info_reply(res.status, &res.body),
-        Err(err) => Err(account_error(&err)),
+        Ok(res) => {
+            log_status(endpoint, REFORGED.account_path, res.status);
+            parse::user_info_reply(res.status, &res.body)
+        }
+        Err(err) => Err(logged_failure(endpoint, REFORGED.account_path, &err)),
+    }
+}
+
+/// Logs an error status with its kind; the reply's own parse picks the sentence.
+fn log_status(endpoint: &Endpoint, path: &str, status: u16) {
+    if let Some(kind) = FailureKind::of_status(status) {
+        log::warn(format!(
+            "{}:{}{path} answered {status} ({kind})",
+            endpoint.host, endpoint.port
+        ));
     }
 }
 
@@ -194,7 +230,10 @@ pub async fn fetch_runtime_manifest(endpoint: &Endpoint) -> RuntimeManifestResul
     match request(endpoint, REFORGED.runtime_manifest_path, options).await {
         Ok(res) => parse::runtime_manifest_reply(res.status, &res.body),
         Err(HttpError::Pin { .. }) => RuntimeManifestResult::CertMismatch,
-        Err(_) => RuntimeManifestResult::Unreachable,
+        Err(err) => {
+            let _ = logged_failure(endpoint, REFORGED.runtime_manifest_path, &err);
+            RuntimeManifestResult::Unreachable
+        }
     }
 }
 

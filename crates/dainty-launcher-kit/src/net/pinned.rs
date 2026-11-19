@@ -4,7 +4,8 @@
 //! TLS pinned to a certificate's SHA-256, the trust an invite's `fp` gives (AGENTS.md: checked before any byte is sent).
 
 use std::fmt;
-use std::net::IpAddr;
+use std::io;
+use std::net::{IpAddr, SocketAddr};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
@@ -43,6 +44,12 @@ pub enum ConnectError {
     Timeout,
     /// The target was refused, or connecting or the handshake failed.
     Io(String),
+    /// The host name did not resolve.
+    Dns(String),
+    /// The host refused or reset the connection.
+    Refused(String),
+    /// The TLS handshake failed for a reason other than the pin.
+    Tls(String),
 }
 
 impl fmt::Display for ConnectError {
@@ -53,6 +60,9 @@ impl fmt::Display for ConnectError {
             }
             Self::Timeout => write!(f, "connection timed out"),
             Self::Io(msg) => write!(f, "connection failed: {msg}"),
+            Self::Dns(msg) => write!(f, "name lookup failed: {msg}"),
+            Self::Refused(msg) => write!(f, "connection refused: {msg}"),
+            Self::Tls(msg) => write!(f, "TLS handshake failed: {msg}"),
         }
     }
 }
@@ -139,6 +149,40 @@ pub fn validate_host(host: &str) -> Result<&str, ConnectError> {
     Ok(unbracketed)
 }
 
+/// A TCP connection to `host` (brackets allowed around IPv6) with no delay, its failure told apart as a name
+/// that did not resolve, a refusal, or a timeout, so the player can be told which. Unbounded: the caller sets the deadline.
+pub(crate) async fn tcp_connect(host: &str, port: u16) -> Result<TcpStream, ConnectError> {
+    let bare = host.strip_prefix('[').and_then(|s| s.strip_suffix(']')).unwrap_or(host);
+    let addrs: Vec<SocketAddr> = match bare.parse::<IpAddr>() {
+        Ok(ip) => vec![SocketAddr::new(ip, port)],
+        Err(_) => tokio::net::lookup_host((bare, port))
+            .await
+            .map_err(|e| ConnectError::Dns(e.to_string()))?
+            .collect(),
+    };
+    let mut last = ConnectError::Dns("no address for the host".to_owned());
+    for addr in addrs {
+        match TcpStream::connect(addr).await {
+            Ok(tcp) => {
+                let _ = tcp.set_nodelay(true);
+                return Ok(tcp);
+            }
+            Err(err) => last = connect_failure(&err),
+        }
+    }
+    Err(last)
+}
+
+fn connect_failure(err: &io::Error) -> ConnectError {
+    match err.kind() {
+        io::ErrorKind::ConnectionRefused | io::ErrorKind::ConnectionReset | io::ErrorKind::ConnectionAborted => {
+            ConnectError::Refused(err.to_string())
+        }
+        io::ErrorKind::TimedOut => ConnectError::Timeout,
+        _ => ConnectError::Io(err.to_string()),
+    }
+}
+
 /// A TLS connection to `target` whose certificate's SHA-256 matches the pin; CA trust and the name are not checked.
 /// `timeout` covers the TCP connect and the handshake.
 pub async fn pinned_connect(target: &PinnedTarget, timeout: Duration) -> Result<TlsStream<TcpStream>, ConnectError> {
@@ -172,17 +216,8 @@ pub async fn pinned_connect(target: &PinnedTarget, timeout: Duration) -> Result<
 
     // An IP address goes in as `ServerName::IpAddress`, for which rustls sends no SNI
     let connector = TlsConnector::from(Arc::new(config));
-    let addr = if host.contains(':') {
-        format!("[{host}]:{}", target.port)
-    } else {
-        format!("{host}:{}", target.port)
-    };
-
     let fut = async {
-        let tcp = TcpStream::connect(&addr)
-            .await
-            .map_err(|e| ConnectError::Io(e.to_string()))?;
-        let _ = tcp.set_nodelay(true);
+        let tcp = tcp_connect(host, target.port).await?;
         match connector.connect(server_name, tcp).await {
             Ok(tls) => Ok(tls),
             Err(err) => {
@@ -194,7 +229,7 @@ pub async fn pinned_connect(target: &PinnedTarget, timeout: Duration) -> Result<
                         actual,
                     });
                 }
-                Err(ConnectError::Io(err.to_string()))
+                Err(ConnectError::Tls(err.to_string()))
             }
         }
     };
@@ -383,7 +418,8 @@ pub(crate) mod tests {
                 fingerprint: pin.clone(),
             };
             let err = pinned_connect(&target, Duration::from_secs(3)).await.unwrap_err();
-            assert!(matches!(err, ConnectError::Io(_)), "{err:?}");
+            // Still refused; the handshake failed on the signature, not on the pin
+            assert!(matches!(err, ConnectError::Tls(_)), "{err:?}");
             server.abort();
         }
     }

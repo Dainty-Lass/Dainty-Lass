@@ -1,5 +1,5 @@
 {
-  "about": "Game config cases written from docs/port/spec-rd27-launcher.md §2.7.6 (RL9, L5). 'engine' cases edit Engine.ini (host defaults to 127.0.0.1, port to 61099, graphics to -1; input null is a missing file), 'user_settings' cases repair GameUserSettings.ini (safe_window defaults to false), 'game' cases remove Game.ini's Phoenix sections (expected null: nothing removed). Every expected text is the file's exact output, CR LF line ends.",
+  "about": "Game config cases written from docs/port/spec-rd27-launcher.md §2.7.6 (RL9, L5). 'engine' cases edit Engine.ini (host defaults to 127.0.0.1, port to 61099, graphics to -1; input null is a missing file), 'user_settings' cases repair GameUserSettings.ini (safe_window defaults to false), 'game' cases remove Game.ini's Phoenix sections (expected null: nothing removed). Every expected text is the file's exact output, CR LF line ends. 'leftovers' (engine, optional) is how many keys another launcher left that were removed.",
   "engine": [
     {
       "name": "an empty file gets only the XMPP section",
@@ -89,6 +89,60 @@
       "input": "",
       "port": 0,
       "error": "invalid_port"
+    },
+    {
+      "name": "a stale chat section written with spaces inside the brackets is replaced, not kept as a second one",
+      "input": "[ onlinesubsystemmcp.xmpp ]\nServerAddr=\"ws://203.0.113.7\"\nServerPort=5222\n[Keep]\nk=v\n",
+      "expected": "[OnlineSubsystemMcp.XMPP]\r\nServerAddr=\"ws://127.0.0.1\"\r\nServerPort=61099\r\nbUseSSL=false\r\n\r\n[Keep]\r\nk=v\r\n",
+      "leftovers": 0
+    },
+    {
+      "name": "a stale chat host by IP with its port and SSL, after other sections, is replaced",
+      "input": "[Core.Log]\nLogNet=Log\n[OnlineSubsystemMcp.XMPP]\nServerAddr=\"wss://198.51.100.20\"\nServerPort=443\nbUseSSL=true\n+ServerAddr=\"ws://10.0.0.5\"\n",
+      "expected": "[OnlineSubsystemMcp.XMPP]\r\nServerAddr=\"ws://127.0.0.1\"\r\nServerPort=61099\r\nbUseSSL=false\r\n\r\n[Core.Log]\r\nLogNet=Log\r\n",
+      "leftovers": 0
+    },
+    {
+      "name": "the HTTP proxy is removed by IP address, the rest of the section kept",
+      "input": "[HTTP]\nHttpTimeout=30\nHttpProxyAddress=192.0.2.10:8888\n",
+      "expected": "[OnlineSubsystemMcp.XMPP]\r\nServerAddr=\"ws://127.0.0.1\"\r\nServerPort=61099\r\nbUseSSL=false\r\n\r\n[HTTP]\r\nHttpTimeout=30\r\n",
+      "leftovers": 1
+    },
+    {
+      "name": "the HTTP proxy is removed by host name too, in any case and with an array prefix",
+      "input": "[http]\n httpproxyaddress = proxy.example:3128\n+HttpProxyAddress=127.0.0.1:8080\n;HttpProxyAddress=kept.comment\n",
+      "expected": "[OnlineSubsystemMcp.XMPP]\r\nServerAddr=\"ws://127.0.0.1\"\r\nServerPort=61099\r\nbUseSSL=false\r\n\r\n[http]\r\n;HttpProxyAddress=kept.comment\r\n",
+      "leftovers": 2
+    },
+    {
+      "name": "a proxy key outside the HTTP section is not the game's proxy and stays",
+      "input": "[Other]\nHttpProxyAddress=192.0.2.10:8888\n",
+      "expected": "[OnlineSubsystemMcp.XMPP]\r\nServerAddr=\"ws://127.0.0.1\"\r\nServerPort=61099\r\nbUseSSL=false\r\n\r\n[Other]\r\nHttpProxyAddress=192.0.2.10:8888\r\n",
+      "leftovers": 0
+    },
+    {
+      "name": "MCP service redirects go whether they name an IP or a host",
+      "input": "[OnlineSubsystemMcp.GameServiceMcp]\nProtocol=http\nDomain=203.0.113.9:3551\n[OnlineSubsystemMcp.AccountServiceMcp]\nDomain=backend.example\n[Keep]\nk=v\n",
+      "expected": "[OnlineSubsystemMcp.XMPP]\r\nServerAddr=\"ws://127.0.0.1\"\r\nServerPort=61099\r\nbUseSSL=false\r\n\r\n[Keep]\r\nk=v\r\n",
+      "leftovers": 3
+    },
+    {
+      "name": "a Phoenix section written into Engine.ini is removed with its IP endpoints",
+      "input": "[ OnlineSubsystemPhoenix ]\nEndpoint=http://198.51.100.4:8080\nGatewayEndpoint=198.51.100.4\n[A]\nb=1\n",
+      "expected": "[OnlineSubsystemMcp.XMPP]\r\nServerAddr=\"ws://127.0.0.1\"\r\nServerPort=61099\r\nbUseSSL=false\r\n\r\n[A]\r\nb=1\r\n",
+      "leftovers": 2
+    },
+    {
+      "name": "an XMPP module section that turns websockets off is removed so chat reaches the relay",
+      "input": "[XMPP]\nbEnableWebsockets=false\n[XMPPSettings]\nkept=1\n",
+      "expected": "[OnlineSubsystemMcp.XMPP]\r\nServerAddr=\"ws://127.0.0.1\"\r\nServerPort=61099\r\nbUseSSL=false\r\n\r\n[XMPPSettings]\r\nkept=1\r\n",
+      "leftovers": 1
+    },
+    {
+      "name": "a name that only starts or ends like an MCP service stays",
+      "input": "[OnlineSubsystemMcp.ServiceMcp]\na=1\n[Other.GameServiceMcp]\nb=2\n",
+      "expected": "[OnlineSubsystemMcp.XMPP]\r\nServerAddr=\"ws://127.0.0.1\"\r\nServerPort=61099\r\nbUseSSL=false\r\n\r\n[OnlineSubsystemMcp.ServiceMcp]\r\na=1\r\n[Other.GameServiceMcp]\r\nb=2\r\n",
+      "leftovers": 0
     }
   ],
   "user_settings": [

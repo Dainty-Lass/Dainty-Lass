@@ -222,6 +222,14 @@ pub enum ErrorCode {
     InjectHelperMissing,
     /// Anything not covered above; the logs have the details.
     Unknown,
+    /// The server's name did not resolve.
+    ServerDnsFailed,
+    /// The server's address refused the connection.
+    ServerRefused,
+    /// The server did not answer in time.
+    ServerTimedOut,
+    /// The secure connection to the server failed, though not on the certificate's fingerprint.
+    ServerTlsFailed,
 }
 
 /// A notice the page shows after an action succeeds, by catalog key.

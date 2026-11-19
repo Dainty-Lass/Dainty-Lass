@@ -74,7 +74,11 @@
     "realm_unavailable": "Realms are not available on this server.",
     "realm_not_found": "That realm does not exist.",
     "realm_failed": "The realm had a problem ({detail}).",
-    "inject_helper_missing": "The Proton inject helper (dainty-inject.exe) is missing. Reinstall the launcher, or turn the helper off in Settings."
+    "inject_helper_missing": "The Proton inject helper (dainty-inject.exe) is missing. Reinstall the launcher, or turn the helper off in Settings.",
+    "server_dns_failed": "The server's name could not be found. Check the invite, or try another DNS server (such as 1.1.1.1 or 8.8.8.8) in your network settings.",
+    "server_refused": "The server's address refused the connection. It may be offline, or a firewall is blocking it.",
+    "server_timed_out": "The server took too long to answer. Your connection may be slow, or the server is busy.",
+    "server_tls_failed": "The secure connection to the server failed. A VPN, proxy or antivirus may be getting in the way."
   },
   "window": {
     "minimize": "Minimize",

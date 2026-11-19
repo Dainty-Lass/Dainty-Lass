@@ -475,3 +475,101 @@ async fn a_disk_failure_is_its_own_kind() {
         .unwrap_err();
     assert!(matches!(err, FileRequestError::Disk(_)), "{err:?}");
 }
+
+/// Answers each connection with `replies` in turn, closing at once on an empty one; the requests read, in order.
+async fn serial_server(replies: Vec<&'static [u8]>) -> (u16, JoinHandle<Vec<String>>) {
+    let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let port = listener.local_addr().unwrap().port();
+    let task = tokio::spawn(async move {
+        let mut seen = Vec::new();
+        for reply in replies {
+            let accepted = tokio::time::timeout(Duration::from_secs(2), listener.accept()).await;
+            let Ok(Ok((mut tcp, _))) = accepted else { break };
+            seen.push(read_request(&mut tcp).await);
+            let _ = tcp.write_all(reply).await;
+            let _ = tcp.shutdown().await;
+        }
+        seen
+    });
+    (port, task)
+}
+
+#[tokio::test]
+async fn a_get_that_breaks_is_sent_once_more_to_the_same_server() {
+    let (port, server) = serial_server(vec![b"", OK_JSON]).await;
+    let response = request(&local(port), "/x", RequestOptions::get(SECONDS, 1024))
+        .await
+        .unwrap();
+    assert_eq!(response.status, 200);
+    assert_eq!(server.await.unwrap().len(), 2);
+}
+
+#[tokio::test]
+async fn a_write_is_never_sent_twice() {
+    let (port, server) = serial_server(vec![b"", OK_JSON]).await;
+    let options = RequestOptions {
+        method: Method::POST,
+        body: Some("{}".to_owned()),
+        ..RequestOptions::get(SECONDS, 1024)
+    };
+    let err = request(&local(port), "/x", options).await.unwrap_err();
+    assert_eq!(err.kind(), FailureKind::Other);
+    assert_eq!(server.await.unwrap().len(), 1);
+}
+
+#[tokio::test]
+async fn a_closed_port_is_refused() {
+    let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let port = listener.local_addr().unwrap().port();
+    drop(listener);
+    let err = request(&local(port), "/x", RequestOptions::get(SECONDS, 1024))
+        .await
+        .unwrap_err();
+    assert_eq!(err.kind(), FailureKind::Refused, "{err}");
+}
+
+#[tokio::test]
+async fn a_name_that_does_not_resolve_is_dns() {
+    // `.invalid` never resolves (RFC 6761)
+    let endpoint = Endpoint {
+        host: "dainty-lass-test.invalid".to_owned(),
+        port: 443,
+        pin: Some("0".repeat(64)),
+    };
+    let err = request(&endpoint, "/x", RequestOptions::get(SECONDS, 1024))
+        .await
+        .unwrap_err();
+    assert_eq!(err.kind(), FailureKind::Dns, "{err}");
+}
+
+#[tokio::test]
+async fn a_server_that_does_not_speak_tls_is_a_tls_failure_not_a_pin_mismatch() {
+    let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let port = listener.local_addr().unwrap().port();
+    let server = tokio::spawn(async move {
+        for _ in 0..2 {
+            let (mut tcp, _) = listener.accept().await.unwrap();
+            let _ = tcp
+                .write_all(b"HTTP/1.1 400 Bad Request\r\ncontent-length: 0\r\n\r\n")
+                .await;
+            let _ = tcp.shutdown().await;
+        }
+    });
+    let endpoint = Endpoint {
+        pin: Some("0".repeat(64)),
+        ..local(port)
+    };
+    let err = request(&endpoint, "/x", RequestOptions::get(SECONDS, 1024))
+        .await
+        .unwrap_err();
+    assert_eq!(err.kind(), FailureKind::Tls, "{err}");
+    server.await.unwrap();
+}
+
+#[test]
+fn error_statuses_have_a_kind() {
+    assert_eq!(FailureKind::of_status(200), None);
+    assert_eq!(FailureKind::of_status(302), None);
+    assert_eq!(FailureKind::of_status(404), Some(FailureKind::Status));
+    assert_eq!(FailureKind::of_status(503), Some(FailureKind::Status));
+}

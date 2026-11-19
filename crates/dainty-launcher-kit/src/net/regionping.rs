@@ -24,8 +24,8 @@ use hyper_util::rt::TokioIo;
 use serde_json::json;
 
 use self::parse::{NodeEntry, NodeList, read_nodes};
-use super::hostapi::{fetch_user_info, key_headers};
-use super::http::{Endpoint, HttpError, RequestOptions, host_header, parse_json_body, request};
+use super::hostapi::{self, fetch_user_info, key_headers};
+use super::http::{Endpoint, RequestOptions, host_header, parse_json_body, request};
 use super::pinned::{ConnectError, PinnedTarget, pinned_connect};
 use crate::bridge::types::{ErrorCode, LauncherError, RegionPing, RegionProblem, RegionRtt};
 
@@ -72,10 +72,7 @@ impl Default for PingSettings {
 pub async fn fetch_nodes(home: &Endpoint) -> Result<Vec<NodeEntry>, ErrorCode> {
     let response = request(home, NODES_PATH, RequestOptions::get(HOME_TIMEOUT, NODES_MAX_BYTES))
         .await
-        .map_err(|error| match error {
-            HttpError::Pin { .. } => ErrorCode::CertMismatch,
-            _ => ErrorCode::ServerUnreachable,
-        })?;
+        .map_err(|error| hostapi::logged_failure(home, NODES_PATH, &error).code)?;
     match read_nodes(response.status, parse_json_body(&response).as_ref()) {
         NodeList::Nodes(nodes) => Ok(nodes),
         NodeList::BadAnswer => Err(ErrorCode::ServerError),
@@ -112,7 +109,9 @@ async fn time_node(node: &NodeEntry, settings: &PingSettings) -> Result<Vec<Dura
         .map_err(|error| match error {
             ConnectError::Pin { .. } => RegionProblem::CertMismatch,
             ConnectError::Timeout => RegionProblem::Timeout,
-            ConnectError::Io(_) => RegionProblem::Unreachable,
+            ConnectError::Io(_) | ConnectError::Dns(_) | ConnectError::Refused(_) | ConnectError::Tls(_) => {
+                RegionProblem::Unreachable
+            }
         })?;
     let (mut sender, connection) = hyper::client::conn::http1::handshake::<_, Empty<Bytes>>(TokioIo::new(stream))
         .await

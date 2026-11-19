@@ -323,6 +323,12 @@ impl Controller {
                 written.phoenix_keys_removed
             ));
         }
+        if written.engine_leftovers_removed > 0 {
+            log::info(format!(
+                "removed {} redirect and proxy settings another launcher left in Engine.ini",
+                written.engine_leftovers_removed
+            ));
+        }
 
         let setting = game_language_code(stored.game_language());
         let locale = game_language::resolve(setting, Some(&self.config().os_locale));

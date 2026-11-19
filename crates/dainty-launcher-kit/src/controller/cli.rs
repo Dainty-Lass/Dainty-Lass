@@ -208,6 +208,10 @@ pub const fn error_text(code: ErrorCode) -> &'static str {
         ErrorCode::RealmFailed => "the realm failed",
         ErrorCode::InjectHelperMissing => "the Proton inject helper is missing from the launcher's resources",
         ErrorCode::Unknown => "something failed; the launcher log has the details",
+        ErrorCode::ServerDnsFailed => "the server's name did not resolve; try another DNS server",
+        ErrorCode::ServerRefused => "the server's address refused the connection",
+        ErrorCode::ServerTimedOut => "the server did not answer in time",
+        ErrorCode::ServerTlsFailed => "the secure connection to the server failed",
     }
 }
 

@@ -466,7 +466,7 @@ async fn a_home_that_cannot_list_its_nodes_is_an_error() {
     };
     assert_eq!(
         region_ping(&gone, Some(KEY), &quick()).await,
-        error(ErrorCode::ServerUnreachable)
+        error(ErrorCode::ServerRefused)
     );
 }
 
