@@ -291,7 +291,6 @@ pub fn run(mut options: Options) -> Result<i32, StartError> {
             bridge::commands::clear_local_runtime,
             bridge::commands::cancel_task,
             bridge::commands::play,
-            bridge::commands::leave_queue,
             bridge::commands::set_settings,
             bridge::commands::set_status_polling,
             bridge::commands::refresh_status,
@@ -373,6 +372,7 @@ pub fn run(mut options: Options) -> Result<i32, StartError> {
             bridge::commands::game_uninstall_plan,
             bridge::commands::game_uninstall,
             bridge::commands::get_playtime,
+            bridge::commands::leave_queue,
             bridge::commands::crash_report_send,
             bridge::commands::crash_report_dismiss,
         ])
