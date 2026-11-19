@@ -7,8 +7,8 @@
 
 use dainty_launcher_kit::bridge::types::GraphicsPreset;
 use dainty_launcher_kit::platform::game_config::{
-    ConfigError, ConfigRequest, decode, edit_engine_ini, join_lines, remove_phoenix, repair_user_settings, split_lines,
-    write_game_config,
+    ConfigError, ConfigRequest, decode, edit_engine_ini_counted, join_lines, remove_phoenix, repair_user_settings,
+    split_lines, write_game_config,
 };
 use serde::Deserialize;
 
@@ -28,6 +28,7 @@ struct EngineCase {
     graphics: Option<i64>,
     expected: Option<String>,
     error: Option<String>,
+    leftovers: Option<usize>,
 }
 
 #[derive(Deserialize)]
@@ -64,9 +65,12 @@ fn engine_ini_table() {
     for case in cases {
         let lines = split_lines(&decode(case.input.as_deref().unwrap_or_default().as_bytes()));
         let host = case.host.as_deref().unwrap_or("127.0.0.1");
-        let result = edit_engine_ini(&lines, host, case.port.unwrap_or(61099), preset(case.graphics));
+        let result = edit_engine_ini_counted(&lines, host, case.port.unwrap_or(61099), preset(case.graphics));
         match (&case.expected, case.error.as_deref(), result) {
-            (Some(expected), None, Ok(out)) => assert_eq!(&join_lines(&out), expected, "{}", case.name),
+            (Some(expected), None, Ok((out, leftovers))) => {
+                assert_eq!(&join_lines(&out), expected, "{}", case.name);
+                assert_eq!(leftovers, case.leftovers.unwrap_or(0), "{}", case.name);
+            }
             (None, Some("invalid_host"), Err(ConfigError::InvalidHost))
             | (None, Some("invalid_port"), Err(ConfigError::InvalidPort)) => {}
             (_, _, other) => panic!("{}: {other:?}", case.name),
@@ -123,6 +127,12 @@ fn engine_ini_table_through_the_file() {
             clean_phoenix: false,
         };
         let outcome = write_game_config(dir.path(), &request).unwrap();
+        assert_eq!(
+            outcome.engine_leftovers_removed,
+            case.leftovers.unwrap_or(0),
+            "{}",
+            case.name
+        );
         assert_eq!(
             std::fs::read(outcome.engine_ini).unwrap(),
             expected.as_bytes(),

@@ -95,6 +95,14 @@ pub enum ConnectProblem {
     BadAnswer,
     /// The certificate is not the invite's.
     CertMismatch,
+    /// The server's name did not resolve.
+    DnsFailed,
+    /// The address refused the connection.
+    Refused,
+    /// No answer in time.
+    TimedOut,
+    /// The secure connection failed, though not on the certificate's fingerprint.
+    TlsFailed,
 }
 
 /// What is wrong with the chosen game folder.

@@ -13,6 +13,7 @@ use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use tokio::net::TcpListener;
 
 use super::*;
+use crate::net::http::FailureKind;
 use crate::net::pinned::certificate_fingerprint;
 use crate::net::pinned::tests::{acceptor, certificate};
 
@@ -277,11 +278,11 @@ async fn no_answer_is_unreachable() {
     let endpoint = closed_endpoint();
     assert_eq!(
         fetch_status(&endpoint, Some(KEY), None).await,
-        StatusOutcome::Unreachable
+        StatusOutcome::Unreachable(FailureKind::Refused)
     );
     assert_eq!(
         fetch_user_info(&endpoint, KEY).await,
-        Err(LauncherError::new(ErrorCode::ServerUnreachable))
+        Err(LauncherError::new(ErrorCode::ServerRefused))
     );
     assert_eq!(
         fetch_runtime_manifest(&endpoint).await,

@@ -17,7 +17,8 @@ use hyper_util::rt::TokioIo;
 use tokio::net::TcpStream;
 use tokio_util::sync::CancellationToken;
 
-use crate::net::pinned::{ConnectError, PinnedTarget, pinned_connect};
+use crate::net::pinned::{ConnectError, PinnedTarget, pinned_connect, tcp_connect};
+use crate::platform::log;
 
 pub mod to_file;
 
@@ -44,7 +45,7 @@ pub struct RequestOptions {
     pub headers: Vec<(&'static str, String)>,
     /// JSON body, sent with its content type and length.
     pub body: Option<String>,
-    /// Deadline for the whole request, connect included.
+    /// Deadline for one attempt, connect included; the connect alone gets at most [`CONNECT_TIMEOUT`].
     pub timeout: Duration,
     /// Largest body accepted before [`HttpError::TooLarge`].
     pub max_bytes: usize,
@@ -84,6 +85,15 @@ pub(crate) fn header_names(headers: &[(&'static str, String)]) -> Vec<&'static s
     headers.iter().map(|(name, _)| *name).collect()
 }
 
+/// Longest wait for the TCP connect and TLS handshake. Long enough for a resolver retry and a slow VPN or
+/// mobile link, short enough that a host that is down is reported well before the request's own deadline.
+pub const CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
+/// The usual deadline for a whole request: room for a server that is slow to answer, such as a register that
+/// hashes and writes, after a connect that took most of [`CONNECT_TIMEOUT`].
+pub const REQUEST_TIMEOUT: Duration = Duration::from_secs(20);
+/// Pause before the one retry of an idempotent request.
+const RETRY_DELAY: Duration = Duration::from_millis(500);
+
 /// A response with its body read in full.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct HttpResponse {
@@ -111,6 +121,88 @@ pub enum HttpError {
     TooLarge,
     /// The caller cancelled.
     Aborted,
+    /// The host name did not resolve.
+    Dns(String),
+    /// The host refused or reset the connection.
+    Refused(String),
+    /// The TLS handshake failed for a reason other than the pin.
+    Tls(String),
+}
+
+/// What kind of failure an [`HttpError`] is, for the log and for which sentence the player reads.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FailureKind {
+    /// The name did not resolve.
+    Dns,
+    /// Nothing listens there, or a firewall resets it.
+    Refused,
+    /// No answer within the deadline.
+    Timeout,
+    /// The TLS handshake failed.
+    Tls,
+    /// The certificate is not the pinned one.
+    Pin,
+    /// The server answered with an error status.
+    Status,
+    /// The HTTP exchange broke, or the endpoint was refused before connecting.
+    Other,
+    /// The answer was larger than allowed.
+    TooLarge,
+    /// The caller cancelled.
+    Aborted,
+}
+
+impl FailureKind {
+    /// The kind of an HTTP status, or none for a success or redirect.
+    pub fn of_status(status: u16) -> Option<Self> {
+        (status >= 400).then_some(Self::Status)
+    }
+
+    /// The name the log uses.
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Dns => "dns",
+            Self::Refused => "refused",
+            Self::Timeout => "timeout",
+            Self::Tls => "tls",
+            Self::Pin => "pin",
+            Self::Status => "status",
+            Self::Other => "other",
+            Self::TooLarge => "too_large",
+            Self::Aborted => "aborted",
+        }
+    }
+}
+
+impl fmt::Display for FailureKind {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+
+impl HttpError {
+    /// The kind of this failure.
+    pub fn kind(&self) -> FailureKind {
+        match self {
+            Self::Pin { .. } => FailureKind::Pin,
+            Self::Timeout => FailureKind::Timeout,
+            Self::Dns(_) => FailureKind::Dns,
+            Self::Refused(_) => FailureKind::Refused,
+            Self::Tls(_) => FailureKind::Tls,
+            Self::Io(_) | Self::Protocol(_) => FailureKind::Other,
+            Self::TooLarge => FailureKind::TooLarge,
+            Self::Aborted => FailureKind::Aborted,
+        }
+    }
+
+    /// Worth one more try of an idempotent request. A pin mismatch never is: the server would show the same
+    /// certificate. Nor is a timeout, as the player has already waited the whole deadline.
+    fn is_transient(&self) -> bool {
+        matches!(
+            self,
+            Self::Dns(_) | Self::Refused(_) | Self::Tls(_) | Self::Io(_) | Self::Protocol(_)
+        )
+    }
 }
 
 impl fmt::Display for HttpError {
@@ -122,6 +214,9 @@ impl fmt::Display for HttpError {
             Self::Protocol(msg) => write!(f, "HTTP protocol error: {msg}"),
             Self::TooLarge => write!(f, "HTTP response exceeded maximum size"),
             Self::Aborted => write!(f, "HTTP request aborted"),
+            Self::Dns(msg) => write!(f, "name lookup failed: {msg}"),
+            Self::Refused(msg) => write!(f, "connection refused: {msg}"),
+            Self::Tls(msg) => write!(f, "TLS handshake failed: {msg}"),
         }
     }
 }
@@ -134,6 +229,9 @@ impl From<ConnectError> for HttpError {
             ConnectError::Pin { actual, .. } => Self::Pin { actual },
             ConnectError::Timeout => Self::Timeout,
             ConnectError::Io(msg) => Self::Io(msg),
+            ConnectError::Dns(msg) => Self::Dns(msg),
+            ConnectError::Refused(msg) => Self::Refused(msg),
+            ConnectError::Tls(msg) => Self::Tls(msg),
         }
     }
 }
@@ -203,7 +301,8 @@ pub fn host_header(endpoint: &Endpoint) -> String {
 
 pub(crate) type Sender = SendRequest<Full<Bytes>>;
 
-/// A fresh HTTP/1.1 connection: pinned TLS when `pin` is set, else plain TCP with no delay.
+/// A fresh HTTP/1.1 connection: pinned TLS when `pin` is set, else plain TCP with no delay. `timeout` bounds the
+/// connect and the TLS handshake.
 pub(crate) async fn open(endpoint: &Endpoint, pin: Option<String>, timeout: Duration) -> Result<Sender, HttpError> {
     match pin {
         Some(fingerprint) => {
@@ -216,10 +315,9 @@ pub(crate) async fn open(endpoint: &Endpoint, pin: Option<String>, timeout: Dura
             handshake(TokioIo::new(tls)).await
         }
         None => {
-            let tcp = TcpStream::connect((endpoint.host.as_str(), endpoint.port))
+            let tcp: TcpStream = tokio::time::timeout(timeout, tcp_connect(&endpoint.host, endpoint.port))
                 .await
-                .map_err(|e| HttpError::Io(e.to_string()))?;
-            let _ = tcp.set_nodelay(true);
+                .map_err(|_| HttpError::Timeout)??;
             handshake(TokioIo::new(tcp)).await
         }
     }
@@ -297,23 +395,56 @@ pub(crate) async fn bounded<T>(
 }
 
 /// Sends one request over a fresh connection and reads the body, bounded by `options`. Redirects are answered,
-/// never followed.
+/// never followed. A GET or HEAD without a body that fails on the way (not a timeout, never a pin mismatch) is sent
+/// once more to the same endpoint, so a key it carries goes nowhere new; anything else is sent exactly once.
 pub async fn request(endpoint: &Endpoint, path: &str, options: RequestOptions) -> Result<HttpResponse, HttpError> {
     let pin = check_endpoint(endpoint)?;
-    let req = build_request(
+    let idempotent = matches!(options.method, Method::GET | Method::HEAD) && options.body.is_none();
+    // Built before any attempt, so a request that cannot be built is not retried
+    let first = build(endpoint, path, &options)?;
+    match attempt(endpoint, pin.clone(), first, &options).await {
+        Err(err) if idempotent && err.is_transient() => {
+            log::info(format!(
+                "{} {}:{}{path} failed ({}: {err}); trying once more",
+                options.method,
+                endpoint.host,
+                endpoint.port,
+                err.kind()
+            ));
+            let pause = async {
+                tokio::time::sleep(RETRY_DELAY).await;
+                Ok(())
+            };
+            bounded(pause, RETRY_DELAY.saturating_mul(2), options.cancel.as_ref()).await?;
+            attempt(endpoint, pin, build(endpoint, path, &options)?, &options).await
+        }
+        result => result,
+    }
+}
+
+fn build(endpoint: &Endpoint, path: &str, options: &RequestOptions) -> Result<Request<Full<Bytes>>, HttpError> {
+    build_request(
         endpoint,
         options.method.clone(),
         path,
         "application/json",
         &options.headers,
         options.body.as_deref(),
-    )?;
+    )
+}
+
+async fn attempt(
+    endpoint: &Endpoint,
+    pin: Option<String>,
+    req: Request<Full<Bytes>>,
+    options: &RequestOptions,
+) -> Result<HttpResponse, HttpError> {
     if options.cancel.as_ref().is_some_and(CancellationToken::is_cancelled) {
         return Err(HttpError::Aborted);
     }
 
     let exchange = async {
-        let mut sender = open(endpoint, pin, options.timeout).await?;
+        let mut sender = open(endpoint, pin, CONNECT_TIMEOUT.min(options.timeout)).await?;
         let res = sender
             .send_request(req)
             .await

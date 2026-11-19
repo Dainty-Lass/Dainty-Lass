@@ -15,6 +15,7 @@ use super::{ART_CACHE_DIR, Controller, NEWS_INTERVAL, UNREACHABLE_MAX_SKIP, back
 use crate::bridge::types::{ActionResult, Branding, ConnectProblem, ErrorCode};
 use crate::core::pins::sha256_hex;
 use crate::net::hostapi::{self, StatusOutcome};
+use crate::net::http::FailureKind;
 use crate::platform::log;
 
 impl Controller {
@@ -92,6 +93,13 @@ impl Controller {
                         _ if private && !tailscale && !is_loopback_host(&server.host) => {
                             ConnectProblem::TailscaleMissing
                         }
+                        StatusOutcome::Unreachable(kind) => match kind {
+                            FailureKind::Dns => ConnectProblem::DnsFailed,
+                            FailureKind::Refused => ConnectProblem::Refused,
+                            FailureKind::Timeout => ConnectProblem::TimedOut,
+                            FailureKind::Tls => ConnectProblem::TlsFailed,
+                            _ => ConnectProblem::Unreachable,
+                        },
                         _ => ConnectProblem::Unreachable,
                     };
                     state.reachable = Some(false);

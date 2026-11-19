@@ -1,8 +1,9 @@
 // Copyright (c) 2026 Silent Spud
 // SPDX-License-Identifier: MIT
 
-//! The game's own config files: Engine.ini points its XMPP chat at the relay, GameUserSettings.ini is repaired
-//! when its window would be off-screen, and Game.ini loses the stale Phoenix endpoints (spec §2.7.6).
+//! The game's own config files: Engine.ini points its XMPP chat at the relay and loses what another launcher left
+//! to redirect the game, GameUserSettings.ini is repaired when its window would be off-screen, and Game.ini loses
+//! the stale Phoenix endpoints (spec §2.7.6).
 
 use std::ffi::OsString;
 use std::io;
@@ -61,7 +62,15 @@ const WINDOW_KEYS: [&str; 5] = [
     "WindowPosY",
 ];
 const MAX_DIMENSION: f64 = 16384.0;
-const ENGINE_DROPPED: [&str; 2] = ["[systemsettings]", "[onlinesubsystemmcp.xmpp]"];
+// Rewritten on every Play
+const ENGINE_OURS: [&str; 2] = ["SystemSettings", "OnlineSubsystemMcp.XMPP"];
+// Another launcher's redirects: without them the game falls back to its packaged defaults, which the relay serves.
+// `[XMPP]` can turn websockets off, and then chat never reaches the relay's ws:// address.
+const ENGINE_LEFTOVERS: [&str; 2] = ["OnlineSubsystemPhoenix", "XMPP"];
+const MCP_PREFIX: &str = "OnlineSubsystemMcp.";
+const MCP_SERVICE_SUFFIX: &str = "ServiceMcp";
+const HTTP_SECTION: &str = "HTTP";
+const HTTP_PROXY_KEY: &str = "HttpProxyAddress";
 const PHOENIX_SECTION: &str = "OnlineSubsystemPhoenix";
 const TMP_SUFFIX: &str = ".rr-tmp";
 
@@ -154,10 +163,48 @@ fn is_header(line: &str) -> bool {
     line.trim_start().starts_with('[')
 }
 
-fn header_starts(line: &str, lower_header: &str) -> bool {
-    line.trim_start()
-        .get(..lower_header.len())
-        .is_some_and(|head| head.eq_ignore_ascii_case(lower_header))
+/// A header's section name, trimmed inside the brackets; what follows the `]` (a comment) is ignored.
+fn section_name(line: &str) -> Option<&str> {
+    let rest = line.trim_start().strip_prefix('[')?;
+    rest.split_once(']').map(|(name, _)| name.trim())
+}
+
+fn is_named(name: &str, names: &[&str]) -> bool {
+    names.iter().any(|n| n.eq_ignore_ascii_case(name))
+}
+
+/// `[OnlineSubsystemMcp.<Something>ServiceMcp]`, where a service's `Domain` and `Protocol` are overridden.
+fn is_mcp_service(name: &str) -> bool {
+    let fold = name.to_ascii_lowercase();
+    fold.len() > MCP_PREFIX.len() + MCP_SERVICE_SUFFIX.len()
+        && fold.starts_with(&MCP_PREFIX.to_ascii_lowercase())
+        && fold.ends_with(&MCP_SERVICE_SUFFIX.to_ascii_lowercase())
+}
+
+/// How Engine.ini treats a section.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum EngineSection {
+    Kept,
+    Ours,
+    Leftover,
+    Http,
+}
+
+fn engine_section(line: &str) -> EngineSection {
+    match section_name(line) {
+        Some(name) if is_named(name, &ENGINE_OURS) => EngineSection::Ours,
+        Some(name) if is_named(name, &ENGINE_LEFTOVERS) || is_mcp_service(name) => EngineSection::Leftover,
+        Some(name) if name.eq_ignore_ascii_case(HTTP_SECTION) => EngineSection::Http,
+        _ => EngineSection::Kept,
+    }
+}
+
+// UE's array prefixes (`+`, `-`, `.`, `!`) still name the same key
+fn is_proxy_line(line: &str) -> bool {
+    key_of(line).is_some_and(|key| {
+        key.trim_start_matches(['+', '-', '.', '!'])
+            .eq_ignore_ascii_case(HTTP_PROXY_KEY)
+    })
 }
 
 fn is_key_line(line: &str) -> bool {
@@ -254,6 +301,18 @@ pub fn edit_engine_ini<S: AsRef<str>>(
     port: u16,
     graphics: GraphicsPreset,
 ) -> Result<Vec<String>, ConfigError> {
+    edit_engine_ini_counted(lines, host, port, graphics).map(|(out, _)| out)
+}
+
+/// [`edit_engine_ini`], with how many key lines another launcher left were removed: Phoenix, MCP service and
+/// `[XMPP]` overrides and the HTTP proxy, whether they name a host or an IP address. The launcher's own sections
+/// are replaced, not counted.
+pub fn edit_engine_ini_counted<S: AsRef<str>>(
+    lines: &[S],
+    host: &str,
+    port: u16,
+    graphics: GraphicsPreset,
+) -> Result<(Vec<String>, usize), ConfigError> {
     if !is_valid_host(host) {
         return Err(ConfigError::InvalidHost);
     }
@@ -261,13 +320,26 @@ pub fn edit_engine_ini<S: AsRef<str>>(
         return Err(ConfigError::InvalidPort);
     }
     let mut kept: Vec<String> = Vec::with_capacity(lines.len());
-    let mut dropping = false;
+    let mut section = EngineSection::Kept;
+    let mut leftovers = 0;
     for line in lines {
         let line = line.as_ref();
         if is_header(line) {
-            dropping = ENGINE_DROPPED.iter().any(|h| header_starts(line, h));
+            section = engine_section(line);
         }
-        if !dropping && !(kept.is_empty() && line.trim().is_empty()) {
+        let dropped = match section {
+            EngineSection::Ours => true,
+            EngineSection::Leftover => {
+                leftovers += usize::from(is_key_line(line));
+                true
+            }
+            EngineSection::Http if is_key_line(line) && is_proxy_line(line) => {
+                leftovers += 1;
+                true
+            }
+            EngineSection::Http | EngineSection::Kept => false,
+        };
+        if !dropped && !(kept.is_empty() && line.trim().is_empty()) {
             kept.push(line.to_owned());
         }
     }
@@ -285,7 +357,7 @@ pub fn edit_engine_ini<S: AsRef<str>>(
     out.push("bUseSSL=false".to_owned());
     out.push(String::new());
     out.extend(kept);
-    Ok(out)
+    Ok((out, leftovers))
 }
 
 /// A section whose window settings the game reads: its name's last `.`-part is letters ending in
@@ -409,6 +481,8 @@ pub struct ConfigOutcome {
     pub display_repaired: bool,
     /// Phoenix keys removed from Game.ini.
     pub phoenix_keys_removed: usize,
+    /// Keys another launcher left in Engine.ini that were removed.
+    pub engine_leftovers_removed: usize,
 }
 
 /// What to write.
@@ -443,7 +517,8 @@ pub fn write_game_config(dir: &Path, request: &ConfigRequest<'_>) -> Result<Conf
 
     let engine_ini = dir.join("Engine.ini");
     let engine = read_lines(&engine_ini)?.unwrap_or_default();
-    let engine = edit_engine_ini(&engine, request.host, request.port, request.graphics)?;
+    let (engine, engine_leftovers_removed) =
+        edit_engine_ini_counted(&engine, request.host, request.port, request.graphics)?;
     write_atomic(&engine_ini, &join_lines(&engine))?;
 
     let user_ini = dir.join("GameUserSettings.ini");
@@ -471,6 +546,7 @@ pub fn write_game_config(dir: &Path, request: &ConfigRequest<'_>) -> Result<Conf
         engine_ini,
         display_repaired,
         phoenix_keys_removed,
+        engine_leftovers_removed,
     })
 }
 

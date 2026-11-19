@@ -870,7 +870,7 @@ async fn an_unreachable_server_and_a_mismatched_certificate() {
     let nobody = free_port().await;
     let gone = invite(ServerMode::Private, nobody, None, "Gone");
     ok(&controller.submit_invite(&gone, false, false).await);
-    assert_eq!(controller.snapshot().connect.problem, Some(ConnectProblem::Unreachable));
+    assert_eq!(controller.snapshot().connect.problem, Some(ConnectProblem::Refused));
     assert_eq!(controller.snapshot().saved_servers.len(), 2);
     assert_eq!(refused(&controller.play().await), ErrorCode::KeyInvalid);
     controller.shutdown().await;
