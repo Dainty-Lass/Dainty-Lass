@@ -23,9 +23,9 @@ pub const BEHEMOTH_CLASS: &str = "ArchonBehemoth";
 pub const MAX_OWNER_STEPS: usize = 2;
 /// How often the found sets are held, in milliseconds.
 pub const HOLD_INTERVAL_MS: u64 = 250;
-/// How often the object array is scanned for sets (a query per object, so seldom): a fresh Behemoth is full for at
-/// most this long.
-pub const SCAN_INTERVAL_MS: u64 = 3_000;
+/// Object array slots looked at each frame: the whole array (a few hundred thousand) in a few seconds, so a fresh
+/// Behemoth is full for about that long, at a small fixed cost a frame.
+pub const SWEEP_SLOTS: usize = 4_096;
 /// The health a Behemoth is held at: any hit takes it past 0.
 pub const HELD_HEALTH: f32 = 1.0;
 /// Behemoths whose first hold is logged.
