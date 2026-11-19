@@ -27,6 +27,7 @@ import { FolderOpen } from "lucide-react";
 import { useFormatter, useTranslations } from "next-intl";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
+import { UninstallGame } from "./UninstallGame";
 
 const ACCOUNT_POLL_MS = 1500;
 const INSTALL_POLL_MS = 1000;
@@ -487,6 +488,16 @@ function VersionCard({
         )}
         {state === "installed" && actions.length === 0 && (
           <Text type="supporting">{t("inUse")}</Text>
+        )}
+        {state === "installed" && (
+          <Stack direction="horizontal" justify="end">
+            <UninstallGame
+              version={entry.version}
+              name={entry.displayName}
+              hideFolder={hide ? t("folderHidden") : null}
+              onDone={() => void epic.reload()}
+            />
+          </Stack>
         )}
         {confirming && actions.includes("discard") && (
           <Banner

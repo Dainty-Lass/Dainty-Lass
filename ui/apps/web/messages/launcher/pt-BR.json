@@ -454,5 +454,17 @@
   "proton": {
     "injectHelper": "Carregar o runtime com o auxiliar de injeção",
     "injectHelperHint": "Só no Proton. Ligado, um pequeno auxiliar carrega o runtime no jogo, como o launcher do Windows faz. Desligado, o carregador do runtime (winmm.dll) ao lado do jogo o carrega. O launcher instala o que cada um precisa antes da próxima vez que o jogo abrir."
+  },
+  "uninstall": {
+    "action": "Desinstalar",
+    "title": "Desinstalar {version}?",
+    "planning": "Procurando os arquivos a apagar…",
+    "whole": "A pasta {folder} e tudo o que há nela serão apagados, liberando {size} GB.",
+    "listed": "Os arquivos do jogo em {folder} serão apagados, liberando {size} GB. O que mais você guardar nessa pasta fica.",
+    "permanent": "Isto é permanente: os arquivos não vão para a Lixeira.",
+    "confirm": "Desinstalar",
+    "keep": "Manter",
+    "done": "{version} foi desinstalado.",
+    "failed": "A desinstalação parou em {file}. Feche qualquer programa que o esteja usando e tente de novo; o que restou continua instalado."
   }
 }

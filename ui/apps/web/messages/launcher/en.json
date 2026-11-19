@@ -454,5 +454,17 @@
   "proton": {
     "injectHelper": "Load the runtime with the inject helper",
     "injectHelperHint": "Proton only. On, a small helper loads the runtime into the game, as the Windows launcher does. Off, the runtime loader (winmm.dll) beside the game loads it. The launcher installs what each one needs before the next launch."
+  },
+  "uninstall": {
+    "action": "Uninstall",
+    "title": "Uninstall {version}?",
+    "planning": "Finding the files to delete…",
+    "whole": "The folder {folder} and everything in it is deleted, freeing {size} GB.",
+    "listed": "The game's files in {folder} are deleted, freeing {size} GB. Anything else you keep in that folder stays.",
+    "permanent": "This is permanent: the files do not go to the Recycle Bin.",
+    "confirm": "Uninstall",
+    "keep": "Keep it",
+    "done": "{version} was uninstalled.",
+    "failed": "Uninstalling stopped at {file}. Close any program using it and try again; what is left stays installed."
   }
 }

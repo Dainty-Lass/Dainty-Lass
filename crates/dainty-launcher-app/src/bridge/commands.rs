@@ -745,3 +745,22 @@ pub async fn remote_exec(c: Ctl<'_>, request: Value) -> Answer<RemoteExecOutcome
         c.remote_exec(request).await
     })
 }
+
+#[tauri::command]
+pub async fn game_uninstall_plan(
+    c: Ctl<'_>,
+    version: String,
+) -> Answer<dainty_launcher_kit::bridge::types::UninstallOutcome> {
+    Ok(match checks::game_version(&version) {
+        Ok(version) => c.game_uninstall_plan(version).await,
+        Err(error) => dainty_launcher_kit::bridge::types::UninstallOutcome::Err(error),
+    })
+}
+
+#[tauri::command]
+pub async fn game_uninstall(c: Ctl<'_>, version: String) -> Answer<ActionResult> {
+    Ok(match checks::game_version(&version) {
+        Ok(version) => c.game_uninstall(version).await,
+        Err(error) => ActionResult::Err(error),
+    })
+}

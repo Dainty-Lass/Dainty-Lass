@@ -10,6 +10,7 @@ pub mod epic_session;
 pub mod game_config;
 pub mod game_console;
 pub mod game_folder;
+pub mod game_removal;
 #[cfg(feature = "realms")]
 pub mod hosted_server;
 pub mod hostkit;

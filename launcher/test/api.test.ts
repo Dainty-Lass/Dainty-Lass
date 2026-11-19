@@ -184,6 +184,8 @@ const methodArgs: Record<keyof LauncherApi, unknown[]> = {
   onInviteLink: [noop],
   onWindowState: [noop],
   onGameLog: [noop],
+  gameUninstallPlan: ["1.14.7"],
+  gameUninstall: ["1.14.7"],
 }
 
 // Commands the old Astro page called and dainty-dash's pages don't yet; take one off as its method lands
