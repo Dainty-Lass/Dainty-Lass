@@ -16,7 +16,7 @@ import { useBridge } from "@dainty/bridge/react";
 import { Download, FolderOpen, Play, ShieldCheck } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useFormatter, useTranslations } from "next-intl";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
 /** Runs a bridge action and toasts its refusal in the catalog's words; the snapshot carries the rest. */
@@ -226,6 +226,7 @@ export function RegisterStep() {
 export function LocateStep({ snapshot }: { snapshot: Snapshot }) {
   const t = useTranslations("launcher.locate");
   const ti = useTranslations("launcher.install");
+  const tf = useTranslations("launcher.folderCheck");
   const router = useRouter();
   const { api } = useBridge();
   const act = useAct();
@@ -234,7 +235,22 @@ export function LocateStep({ snapshot }: { snapshot: Snapshot }) {
   return (
     <StepFrame title={t("title")} description={t("description")}>
       {game.problem && game.problem !== "not_set" && (
-        <Banner status="warning" title={t(`problems.${game.problem}`)} collapsible={false} />
+        <Banner
+          status="warning"
+          title={tf(`problems.${game.problem}`)}
+          collapsible={false}
+          endContent={
+            game.problem !== "unverified" && (
+              <Button
+                label={tf("download")}
+                size="sm"
+                variant="primary"
+                icon={<Download size={16} />}
+                onClick={() => router.push("/game/")}
+              />
+            )
+          }
+        />
       )}
       {game.detected.length > 0 && (
         <List hasDividers header={<Text type="label">{t("found")}</Text>}>
@@ -388,5 +404,42 @@ export function ReadyStep({ snapshot }: { snapshot: Snapshot }) {
         />
       </Stack>
     </Stack>
+  );
+}
+
+/** The server asks for a newer launcher: PLAY is off, and the launcher updates itself, or says to by hand. */
+export function LauncherTooOldStep({ snapshot }: { snapshot: Snapshot }) {
+  const t = useTranslations("launcher.launcherVersion");
+  const { api } = useBridge();
+  const [failed, setFailed] = useState(false);
+  const minimum = snapshot.status?.minLauncherVersion ?? "?";
+
+  async function update() {
+    if (!api) return;
+    setFailed(false);
+    // On success the launcher restarts, or the server no longer asks and the phase moves on
+    const r = await api.updateLauncher();
+    setFailed(!r.ok);
+  }
+
+  // biome-ignore lint/correctness/useExhaustiveDependencies: once per opening of the step.
+  useEffect(() => void update(), [api]);
+
+  return (
+    <StepFrame title={t("title")} description={t("current", { version: snapshot.app.version })}>
+      {failed ? (
+        <Stack gap={3}>
+          <Banner status="error" title={t("failed", { minimum })} collapsible={false} />
+          <Stack direction="horizontal" justify="end">
+            <Button label={t("retry")} clickAction={update} />
+          </Stack>
+        </Stack>
+      ) : (
+        <Stack gap={3} align="center">
+          <Spinner size="lg" />
+          <Text>{t("updating", { minimum })}</Text>
+        </Stack>
+      )}
+    </StepFrame>
   );
 }

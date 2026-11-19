@@ -101,12 +101,6 @@
       "heroic": "Heroic",
       "chosen": "Chosen",
       "revived": "Dauntless Revived"
-    },
-    "problems": {
-      "not_set": "No game folder chosen yet.",
-      "not_found": "No Dauntless was found in that folder.",
-      "unverified": "The game files have not been checked yet.",
-      "wrong_version": "That install is not version 1.14.7."
     }
   },
   "runtime": {
@@ -454,5 +448,23 @@
   "proton": {
     "injectHelper": "Load the runtime with the inject helper",
     "injectHelperHint": "Proton only. On, a small helper loads the runtime into the game, as the Windows launcher does. Off, the runtime loader (winmm.dll) beside the game loads it. The launcher installs what each one needs before the next launch."
+  },
+  "folderCheck": {
+    "problems": {
+      "not_found": "No Dauntless was found in that folder.",
+      "unverified": "The game files have not been checked yet.",
+      "wrong_version": "That folder holds another version of Dauntless; this server plays 1.14.7.",
+      "wrong_build": "That folder holds 1.14.7, but not the build this launcher plays.",
+      "missing_archon": "That folder has Dauntless files but no Archon folder. Pick the folder that contains Archon.",
+      "revived": "That folder is a Dauntless Revived copy, which can't play here."
+    },
+    "download": "Download the game"
+  },
+  "launcherVersion": {
+    "title": "This launcher is too old",
+    "updating": "This server needs launcher {minimum} or newer. Updating now; the launcher restarts when it is done.",
+    "failed": "The launcher could not update itself. Install launcher {minimum} or newer, then open it again.",
+    "current": "This launcher: {version}",
+    "retry": "Try again"
   }
 }

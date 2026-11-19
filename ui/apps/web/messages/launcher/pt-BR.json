@@ -101,12 +101,6 @@
       "heroic": "Heroic",
       "chosen": "Escolhida",
       "revived": "Dauntless Revived"
-    },
-    "problems": {
-      "not_set": "Nenhuma pasta do jogo escolhida ainda.",
-      "not_found": "Nenhum Dauntless foi encontrado nessa pasta.",
-      "unverified": "Os arquivos do jogo ainda não foram verificados.",
-      "wrong_version": "Essa instalação não é a versão 1.14.7."
     }
   },
   "runtime": {
@@ -454,5 +448,23 @@
   "proton": {
     "injectHelper": "Carregar o runtime com o auxiliar de injeção",
     "injectHelperHint": "Só no Proton. Ligado, um pequeno auxiliar carrega o runtime no jogo, como o launcher do Windows faz. Desligado, o carregador do runtime (winmm.dll) ao lado do jogo o carrega. O launcher instala o que cada um precisa antes da próxima vez que o jogo abrir."
+  },
+  "folderCheck": {
+    "problems": {
+      "not_found": "Nenhum Dauntless foi encontrado nessa pasta.",
+      "unverified": "Os arquivos do jogo ainda não foram verificados.",
+      "wrong_version": "Essa pasta tem outra versão do Dauntless; este servidor usa a 1.14.7.",
+      "wrong_build": "Essa pasta tem a 1.14.7, mas não a build que este launcher usa.",
+      "missing_archon": "Essa pasta tem arquivos do Dauntless, mas não a pasta Archon. Escolha a pasta que contém a Archon.",
+      "revived": "Essa pasta é uma cópia do Dauntless Revived, que não roda aqui."
+    },
+    "download": "Baixar o jogo"
+  },
+  "launcherVersion": {
+    "title": "Este launcher está desatualizado",
+    "updating": "Este servidor exige o launcher {minimum} ou mais recente. Atualizando agora; o launcher reinicia ao terminar.",
+    "failed": "O launcher não conseguiu se atualizar. Instale o launcher {minimum} ou mais recente e abra-o de novo.",
+    "current": "Este launcher: {version}",
+    "retry": "Tentar de novo"
   }
 }

@@ -18,6 +18,7 @@ import { LauncherShell } from "@/components/launcher/LauncherShell";
 import {
   ConnectStep,
   JoinStep,
+  LauncherTooOldStep,
   LocateStep,
   ReadyStep,
   RegisterStep,
@@ -42,6 +43,8 @@ function Step({ snapshot }: { snapshot: Snapshot }) {
       return <RuntimeStep snapshot={snapshot} />;
     case "installing":
       return <TaskStep task={progress ?? snapshot.task} />;
+    case "launcher_too_old":
+      return <LauncherTooOldStep snapshot={snapshot} />;
     default:
       return snapshot.task ? (
         <TaskStep task={progress ?? snapshot.task} />

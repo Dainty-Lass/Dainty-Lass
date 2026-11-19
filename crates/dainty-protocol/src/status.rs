@@ -197,6 +197,10 @@ pub struct ServerStatus {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[cfg_attr(feature = "ts", ts(optional))]
     pub economy: Option<StatusEconomy>,
+    /// The oldest launcher the server lets play, when it sets one; absent from Node's and older servers'.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "ts", ts(optional))]
+    pub min_launcher_version: Option<String>,
 }
 
 /// Cleans an optional JSON string value by stripping control/bidi characters, collapsing
@@ -602,5 +606,10 @@ pub fn parse_server_status(raw: &Value) -> Option<ServerStatus> {
         content_port,
         limited,
         economy: parse_economy(obj.get("economy")),
+        min_launcher_version: obj
+            .get("minLauncherVersion")
+            .and_then(Value::as_str)
+            .filter(|text| crate::launcher_version::parse_launcher_version(text).is_some())
+            .map(str::to_owned),
     })
 }

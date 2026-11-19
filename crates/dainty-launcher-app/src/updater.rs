@@ -7,6 +7,7 @@
 use std::sync::{Mutex, PoisonError};
 use std::time::Duration;
 
+use dainty_launcher_kit::bridge::types::{ActionResult, ErrorCode, LauncherError};
 use dainty_launcher_kit::controller::Controller;
 use dainty_launcher_kit::platform::log;
 use tauri::utils::config::BundleType;
@@ -97,6 +98,59 @@ pub async fn install(app: &AppHandle, controller: &Controller) {
         Err(error) => {
             log::warn(format!("could not install launcher update {version}: {error}"));
             controller.set_update_ready(false);
+        }
+    }
+}
+
+/// `update_launcher`: the server asks for a newer launcher, so check and install now rather than on the hour,
+/// then restart. Any failure answers `launcher_update_failed`, and the page tells the player to update by hand.
+pub async fn update_now(app: &AppHandle, controller: &Controller) -> ActionResult {
+    let Some(minimum) = controller.launcher_too_old() else {
+        return ActionResult::Ok;
+    };
+    let failed = || ActionResult::Err(LauncherError::with_detail(ErrorCode::LauncherUpdateFailed, &minimum));
+    if !controller.may_update_now() {
+        return ActionResult::err(ErrorCode::Busy);
+    }
+    let pubkey = configured_pubkey(app);
+    if !updatable(cfg!(windows), tauri::utils::platform::bundle_type(), pubkey.as_deref()) {
+        log::warn(format!(
+            "the server asks for launcher {minimum}, and this build cannot update itself"
+        ));
+        return failed();
+    }
+    let found = match app.state::<Updates>().take() {
+        Some(update) => Ok(Some(update)),
+        None => match app.updater() {
+            Ok(updater) => updater.check().await,
+            Err(error) => Err(error),
+        },
+    };
+    let update = match found {
+        Ok(Some(update)) => update,
+        Ok(None) => {
+            log::warn(format!(
+                "the server asks for launcher {minimum}, and the update feed has nothing newer"
+            ));
+            return failed();
+        }
+        Err(error) => {
+            log::warn(format!("could not check for a launcher update: {error}"));
+            return failed();
+        }
+    };
+    let version = update.version.clone();
+    match update.download_and_install(|_, _| {}, || {}).await {
+        Ok(()) => {
+            log::info(format!(
+                "installed launcher update {version} the server asks for; restarting"
+            ));
+            app.restart();
+        }
+        Err(error) => {
+            log::warn(format!("could not install launcher update {version}: {error}"));
+            controller.set_update_ready(false);
+            failed()
         }
     }
 }

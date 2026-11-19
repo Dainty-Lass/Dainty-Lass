@@ -80,6 +80,9 @@ pub enum Phase {
     Ready,
     /// The game is running.
     Running,
+    /// The server asks for a newer launcher: PLAY is off until it updates.
+    #[serde(rename = "launcher_too_old")]
+    LauncherTooOld,
 }
 
 /// Why the server could not be reached.
@@ -110,6 +113,12 @@ pub enum GameProblem {
     Unverified,
     /// Another game version.
     WrongVersion,
+    /// 1.14.7 by its version text, but another build of the executable.
+    WrongBuild,
+    /// Game files, but no `Archon` folder with the executable.
+    MissingArchon,
+    /// A Dauntless Revived copy.
+    Revived,
 }
 
 /// The game a server runs.

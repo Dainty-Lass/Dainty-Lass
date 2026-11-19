@@ -220,6 +220,18 @@ pub enum ErrorCode {
     RealmFailed,
     /// The Proton inject helper (`dainty-inject.exe`) is missing from the launcher's resources.
     InjectHelperMissing,
+    /// The folder looks like a game, but has no `Archon` folder with the executable.
+    GameMissingArchon,
+    /// The folder holds 1.14.7, but not the build this launcher plays.
+    GameWrongBuild,
+    /// The folder is a Dauntless Revived copy.
+    GameRevived,
+    /// The game's folder is too long a path.
+    GamePathTooLong,
+    /// The server asks for a newer launcher; `detail` holds the version.
+    LauncherTooOld,
+    /// The launcher could not update itself; `detail` holds the version the server asks for.
+    LauncherUpdateFailed,
     /// Anything not covered above; the logs have the details.
     Unknown,
 }

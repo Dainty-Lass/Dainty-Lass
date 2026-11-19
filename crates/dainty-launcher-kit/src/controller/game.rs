@@ -24,6 +24,38 @@ use crate::platform::log;
 /// Verify progress is sent at most this often.
 pub const VERIFY_PROGRESS_INTERVAL: Duration = Duration::from_millis(150);
 
+/// What is wrong with a folder whose executable is there: a Revived copy first, then the version text, then the
+/// executable's hash once known.
+fn problem_of(revived: bool, version_ok: bool, hash: Option<&str>, pin: &str) -> Option<GameProblem> {
+    match hash {
+        _ if revived => Some(GameProblem::Revived),
+        _ if !version_ok => Some(GameProblem::WrongVersion),
+        None => Some(GameProblem::Unverified),
+        Some(hash) if !hash.eq_ignore_ascii_case(pin) => Some(GameProblem::WrongBuild),
+        Some(_) => None,
+    }
+}
+
+/// The error for a folder refused before it is kept, each with its own sentence.
+fn locate_refusal(error: LocateError, missing_archon: bool) -> ErrorCode {
+    match error {
+        LocateError::NotFound if missing_archon => ErrorCode::GameMissingArchon,
+        LocateError::NotFound => ErrorCode::GameFolderNotFound,
+        LocateError::TooLong => ErrorCode::GamePathTooLong,
+        LocateError::Invalid => ErrorCode::FolderInvalid,
+    }
+}
+
+/// The error a folder kept with a problem answers, when the problem refuses it.
+fn kept_refusal(problem: Option<GameProblem>) -> Option<ErrorCode> {
+    match problem? {
+        GameProblem::WrongVersion => Some(ErrorCode::GameWrongVersion),
+        GameProblem::WrongBuild => Some(ErrorCode::GameWrongBuild),
+        GameProblem::Revived => Some(ErrorCode::GameRevived),
+        GameProblem::NotSet | GameProblem::NotFound | GameProblem::Unverified | GameProblem::MissingArchon => None,
+    }
+}
+
 impl Controller {
     /// The game folder's Win64 folder, when the folder is known and holds one.
     pub(crate) fn win64(&self) -> Option<PathBuf> {
@@ -76,20 +108,14 @@ impl Controller {
                 let exe = game_folder::exe_path(&root);
                 if exe.is_file() {
                     let version = game_folder::read_version_text(&root);
+                    let revived = game_folder::is_revived(&root, version.as_deref());
                     info.version_ok = version.as_deref().is_some_and(game_folder::is_supported_version);
                     info.version_text = version;
                     let cached = self.shared.hashes.lock().await.cached(&exe);
-                    info.problem = match cached {
-                        None if !info.version_ok => Some(GameProblem::WrongVersion),
-                        None => Some(GameProblem::Unverified),
-                        Some(hash) if !hash.eq_ignore_ascii_case(&self.config().exe_pin) => {
-                            Some(GameProblem::WrongVersion)
-                        }
-                        Some(_) => {
-                            info.exe_verified = true;
-                            None
-                        }
-                    };
+                    info.problem = problem_of(revived, info.version_ok, cached.as_deref(), &self.config().exe_pin);
+                    info.exe_verified = cached.is_some() && info.problem.is_none();
+                } else if game_folder::missing_archon(&root.to_string_lossy()) {
+                    info.problem = Some(GameProblem::MissingArchon);
                 } else {
                     info.problem = Some(GameProblem::NotFound);
                 }
@@ -186,7 +212,8 @@ impl Controller {
                     self.lock().notice = Some(NoticeCode::GameVerified);
                     Ok(())
                 } else {
-                    Err(LauncherError::new(ErrorCode::GameWrongVersion))
+                    let code = kept_refusal(self.lock().game.problem).unwrap_or(ErrorCode::GameWrongVersion);
+                    Err(LauncherError::new(code))
                 }
             }
             Err(VerifyError::Aborted) => Err(LauncherError::new(ErrorCode::Cancelled)),
@@ -222,9 +249,11 @@ impl Controller {
             return ActionResult::err(ErrorCode::Busy);
         }
         let raw = path.to_owned();
-        let located = tokio::task::spawn_blocking(move || game_folder::locate(&raw))
-            .await
-            .unwrap_or(Err(LocateError::Invalid));
+        let located = tokio::task::spawn_blocking(move || {
+            game_folder::locate(&raw).map_err(|error| (error, game_folder::missing_archon(&raw)))
+        })
+        .await
+        .unwrap_or(Err((LocateError::Invalid, false)));
         if refused() {
             return ActionResult::err(ErrorCode::Busy);
         }
@@ -239,10 +268,10 @@ impl Controller {
                 if self.lock().game.problem == Some(GameProblem::Unverified) {
                     return self.verify_game().await;
                 }
+                // A kept folder's problem is the Locate step's banner, not an error as well
                 ActionResult::Ok
             }
-            Err(LocateError::NotFound) => self.fail(LauncherError::new(ErrorCode::GameFolderNotFound)),
-            Err(LocateError::Invalid | LocateError::TooLong) => self.fail(LauncherError::new(ErrorCode::FolderInvalid)),
+            Err((error, missing_archon)) => self.fail(LauncherError::new(locate_refusal(error, missing_archon))),
         }
     }
 
@@ -276,5 +305,54 @@ impl Controller {
         if let Some(cancel) = &state.runtime_cancel {
             cancel.cancel();
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const PIN: &str = "ab12";
+
+    #[test]
+    fn each_kept_folder_problem_has_its_own_refusal() {
+        assert_eq!(problem_of(true, true, Some(PIN), PIN), Some(GameProblem::Revived));
+        assert_eq!(
+            problem_of(false, false, Some(PIN), PIN),
+            Some(GameProblem::WrongVersion)
+        );
+        assert_eq!(problem_of(false, false, None, PIN), Some(GameProblem::WrongVersion));
+        assert_eq!(problem_of(false, true, None, PIN), Some(GameProblem::Unverified));
+        assert_eq!(
+            problem_of(false, true, Some("cd34"), PIN),
+            Some(GameProblem::WrongBuild)
+        );
+        assert_eq!(problem_of(false, true, Some("AB12"), PIN), None);
+
+        assert_eq!(
+            kept_refusal(Some(GameProblem::WrongVersion)),
+            Some(ErrorCode::GameWrongVersion)
+        );
+        assert_eq!(
+            kept_refusal(Some(GameProblem::WrongBuild)),
+            Some(ErrorCode::GameWrongBuild)
+        );
+        assert_eq!(kept_refusal(Some(GameProblem::Revived)), Some(ErrorCode::GameRevived));
+        assert_eq!(kept_refusal(Some(GameProblem::Unverified)), None);
+        assert_eq!(kept_refusal(None), None);
+    }
+
+    #[test]
+    fn each_refused_pick_has_its_own_refusal() {
+        assert_eq!(
+            locate_refusal(LocateError::NotFound, true),
+            ErrorCode::GameMissingArchon
+        );
+        assert_eq!(
+            locate_refusal(LocateError::NotFound, false),
+            ErrorCode::GameFolderNotFound
+        );
+        assert_eq!(locate_refusal(LocateError::TooLong, false), ErrorCode::GamePathTooLong);
+        assert_eq!(locate_refusal(LocateError::Invalid, false), ErrorCode::FolderInvalid);
     }
 }

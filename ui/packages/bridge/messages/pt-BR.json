@@ -74,7 +74,13 @@
     "realm_unavailable": "Os realms não estão disponíveis neste servidor.",
     "realm_not_found": "Esse realm não existe.",
     "realm_failed": "O realm teve um problema ({detail}).",
-    "inject_helper_missing": "O auxiliar de injeção do Proton (dainty-inject.exe) não foi encontrado. Reinstale o launcher ou desligue o auxiliar nas Configurações."
+    "inject_helper_missing": "O auxiliar de injeção do Proton (dainty-inject.exe) não foi encontrado. Reinstale o launcher ou desligue o auxiliar nas Configurações.",
+    "game_missing_archon": "Essa pasta tem arquivos do Dauntless, mas não a pasta Archon com o jogo. Escolha a pasta que contém a Archon ou baixe o jogo.",
+    "game_wrong_build": "Essa pasta tem a 1.14.7, mas não a build que este launcher usa. Baixe o jogo.",
+    "game_revived": "Essa pasta é uma cópia do Dauntless Revived, que não roda aqui. Baixe o jogo.",
+    "game_path_too_long": "O caminho da pasta do jogo é longo demais. Mova-a para um caminho mais curto ou baixe o jogo.",
+    "launcher_too_old": "Este servidor exige o launcher {detail} ou mais recente.",
+    "launcher_update_failed": "O launcher não conseguiu se atualizar. Instale o launcher {detail} ou mais recente pela página do servidor e abra-o de novo."
   },
   "window": {
     "minimize": "Minimizar",
