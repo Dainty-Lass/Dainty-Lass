@@ -440,7 +440,12 @@ pub struct SwitchesConfig {
     pub host_rate_limit_per_minute: Option<u32>,
     /// `on` or `off`: whether Gauntlet hunts are matched and its Slayer's Path node shown.
     pub gauntlet: Option<String>,
+    /// `on`, `kills` or `off`: the game servers' play-test cheats (DAINTY_TEST_CHEATS), private servers only.
+    pub test_cheats: Option<String>,
 }
+
+/// The words `test_cheats` takes: `on` is every cheat, `kills` one-hit Behemoth kills only.
+const TEST_CHEATS_WORDS: [&str; 3] = ["on", "kills", "off"];
 
 impl SwitchesConfig {
     /// Fails on a `switches` value that is not a table, or on a word or number a switch does not take.
@@ -460,6 +465,14 @@ impl SwitchesConfig {
                     shown(Some(v))
                 )));
             }
+        }
+        if let Some(v) = s.get("testCheats")
+            && !v.as_str().is_some_and(|w| TEST_CHEATS_WORDS.contains(&w))
+        {
+            return Err(bad(format!(
+                "switches.test_cheats must be one of \"on\", \"kills\", \"off\", not {}",
+                shown(Some(v))
+            )));
         }
         for (key, _, _) in SWITCH_NUMBERS {
             if let Some(v) = s.get(key)
@@ -491,6 +504,7 @@ impl SwitchesConfig {
             gameserver_rate_limit_per_minute: num("gameserverRateLimitPerMinute"),
             host_rate_limit_per_minute: num("hostRateLimitPerMinute"),
             gauntlet: word("gauntlet"),
+            test_cheats: word("testCheats"),
         }
     }
 
@@ -507,6 +521,7 @@ impl SwitchesConfig {
             ("logPurge", &self.log_purge),
             ("rateLimit", &self.rate_limit),
             ("gauntlet", &self.gauntlet),
+            ("testCheats", &self.test_cheats),
         ];
         for (k, v) in words {
             if let Some(s) = v {
@@ -542,6 +557,12 @@ impl SwitchesConfig {
             }
         }
         out
+    }
+
+    /// The Director's `DAINTY_TEST_CHEATS`, which every game server it starts inherits; `None` when off.
+    #[must_use]
+    pub fn test_cheats_env(&self) -> Option<&str> {
+        self.test_cheats.as_deref().filter(|w| *w != "off")
     }
 
     /// The module's setting names and values for the switches that are set.
@@ -2395,6 +2416,9 @@ pub fn validate(document: &Value) -> Result<Value, HostError> {
     }
     if let Some(s) = obj.get("switches").filter(|v| !v.is_null()) {
         SwitchesConfig::validate(s)?;
+        if mode == ServerMode::Public && s.get("testCheats").and_then(Value::as_str).is_some_and(|w| w != "off") {
+            return Err(bad("switches.test_cheats is for private (Tailscale) test servers only"));
+        }
     }
     let modules_cfg = match obj.get("modules").filter(|v| !v.is_null()) {
         Some(m) => Some(ModulesConfig::from_json(m)?),
@@ -3159,6 +3183,10 @@ pub fn build_env_files(c: &HostConfig, s: &Secrets, p: &Paths, source_commit: &s
     if !perf.verbose_game_logs {
         push(&mut director, "GAMESERVER_LOG_CMDS", QUIET_GAME_LOG_CMDS);
     }
+    // Game servers inherit the Director's environment; validate refused it on a public server
+    if let Some(cheats) = c.switches.as_ref().and_then(SwitchesConfig::test_cheats_env) {
+        push(&mut director, "DAINTY_TEST_CHEATS", cheats);
+    }
     push(&mut director, "SERVER_RUNTIME_AUTO_UPDATE", "false");
     push(&mut director, "SERVER_RUNTIME_UPDATE_REQUIRED", "false");
     push(&mut director, "GAMESERVER_LOG_DIR", path_text(&p.gameserver_logs));
@@ -3481,6 +3509,21 @@ mod tests {
         assert!(SwitchesConfig::validate(&json!({"gauntlet": "yes"})).is_err());
         // An older settings.toml has no key: the module's default, off
         assert!(SwitchesConfig::from_json(&Map::new()).env().is_empty());
+    }
+
+    #[test]
+    fn test_cheats_switch_round_trips_and_stays_off_the_backend() {
+        let table = json!({"testCheats": "kills"});
+        SwitchesConfig::validate(&table).unwrap();
+        let switches = SwitchesConfig::from_json(table.as_object().unwrap());
+        assert_eq!(switches.to_json(), table);
+        assert_eq!(switches.test_cheats_env(), Some("kills"));
+        assert!(switches.env().is_empty());
+        assert!(switches.module_switches().is_empty());
+        let off = SwitchesConfig::from_json(json!({"testCheats": "off"}).as_object().unwrap());
+        assert_eq!(off.test_cheats_env(), None);
+        assert!(SwitchesConfig::validate(&json!({"testCheats": "yes"})).is_err());
+        assert_eq!(SwitchesConfig::from_json(&Map::new()).test_cheats_env(), None);
     }
 
     #[test]
@@ -4313,6 +4356,50 @@ dashboard_url = \"https://dash.example\"
     #[test]
     fn allowlist_env_is_the_same_from_every_form() {
         every_form_writes_the_same_env("allowlist");
+    }
+
+    /// The play-test cheats reach only the Director's file, which every game server inherits, and never a public one.
+    #[test]
+    fn test_cheats_reach_only_the_director_file_on_a_private_server() {
+        let text = |mode: &str, host: &str| {
+            format!(
+                "version = 1
+mode = \"{mode}\"
+name = \"Friday Hunts\"
+host = \"{host}\"
+                 game_address = \"{host}\"
+registration = \"INVITECODE\"
+max_hunt_servers = 3
+
+[switches]
+test_cheats = \"on\"
+"
+            )
+        };
+        let cfg = HostConfig::from_toml(&text("private", "100.101.102.103")).unwrap();
+        let dir = tempfile::tempdir().unwrap();
+        let files = build_env_files(&cfg, &sample_secrets(), &Paths::new(dir.path()), "", Platform::Windows);
+        assert!(
+            files
+                .director
+                .iter()
+                .any(|(k, v)| k == "DAINTY_TEST_CHEATS" && v == "on")
+        );
+        for (name, file) in files.files() {
+            if name != "director" {
+                assert!(
+                    !file.into_iter().flatten().any(|(k, _)| k.contains("TEST_CHEATS")),
+                    "{name}"
+                );
+            }
+        }
+        assert!(cfg.to_toml().unwrap().contains("test_cheats = \"on\""));
+        let public = HostConfig::from_toml(&text("public", "203.0.113.10")).unwrap_err();
+        assert!(public.to_string().contains("test_cheats"), "{public}");
+        // Off, or an older file without the key: nothing is written
+        let off = HostConfig::from_toml(&text("private", "100.101.102.103").replace("\"on\"", "\"off\"")).unwrap();
+        let files = build_env_files(&off, &sample_secrets(), &Paths::new(dir.path()), "", Platform::Windows);
+        assert!(!files.director.iter().any(|(k, _)| k == "DAINTY_TEST_CHEATS"));
     }
 
     /// RT-11: the hub cap and AFK timeouts reach only the Director's file, which it hands every game server; the

@@ -12,6 +12,7 @@ use rustic_isles_runtime_core::offsets::r20;
 use rustic_isles_runtime_core::reflect::is_writable_protect;
 use rustic_isles_runtime_core::registry;
 use rustic_isles_runtime_core::server_events::{self as core, PawnFields, flags as names, lines, matchers, vars};
+use rustic_isles_runtime_core::test_cheats::{self, Cheats};
 use std::collections::HashMap;
 use std::ffi::c_void;
 use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, AtomicUsize, Ordering};
@@ -21,8 +22,8 @@ type SetPackageNameFn = unsafe extern "C" fn(*mut c_void, u64);
 
 const SLICE: &str = "R20";
 
-/// The SP-2 handlers (3.1).
-fn pe_handlers() -> [PeHandler; 5] {
+/// The SP-2 handlers (3.1), and the host's test cheats.
+fn pe_handlers() -> [PeHandler; 6] {
     let before = |order, matcher, before| PeHandler {
         slice: SLICE,
         order,
@@ -40,6 +41,7 @@ fn pe_handlers() -> [PeHandler; 5] {
         before(0, matchers::CLIENT_RESTART, client_restart),
         before(0, matchers::VENDOR, vendor),
         before(0, matchers::CAN_RESTART, player_can_restart),
+        before(0, test_cheats::GAUNTLET_BROADCAST, gauntlet_broadcast),
     ]
 }
 
@@ -112,6 +114,9 @@ fn params_ptr(params: usize) -> Option<usize> {
 fn damage_factor() -> Option<f32> {
     static FACTOR: OnceLock<Option<f32>> = OnceLock::new();
     *FACTOR.get_or_init(|| {
+        if cheats().one_hit_kills {
+            return Some(test_cheats::ONE_HIT_FACTOR);
+        }
         let allow = win::env_value(vars::ALLOW_DAMAGE_DEBUG.0, vars::ALLOW_DAMAGE_DEBUG.1);
         let factor = win::env_value(vars::DEBUG_DAMAGE_MULTIPLIER.0, vars::DEBUG_DAMAGE_MULTIPLIER.1);
         core::multiplier(
@@ -149,6 +154,46 @@ fn damage(call: &PeCall) -> Verdict {
             .unwrap_or_else(|| "?".to_owned());
         log::line(&lines::damage(&name, &object, before, after, factor));
     }
+    Verdict::Continue
+}
+
+// ---- the host's test cheats (`[switches] test_cheats`) ----
+
+fn cheats() -> Cheats {
+    static CHEATS: OnceLock<Cheats> = OnceLock::new();
+    *CHEATS.get_or_init(|| {
+        let value = win::env_value(test_cheats::VARIABLE.0, test_cheats::VARIABLE.1);
+        let dedicated = config::is_server() && crate::player_host::hosted_role().is_none();
+        let cheats = Cheats::parse(value.as_deref()).for_process(dedicated);
+        if cheats.any() {
+            log::line(&test_cheats::lines::enabled(cheats));
+        }
+        cheats
+    })
+}
+
+static GAUNTLET_CHEATED: AtomicUsize = AtomicUsize::new(0);
+
+/// The first state or level timer broadcast of each Gauntlet state component sets the game's own end-early flag.
+fn gauntlet_broadcast(call: &PeCall) -> Verdict {
+    if detaching()
+        || !cheats().end_gauntlet_early
+        || GAUNTLET_CHEATED.load(Ordering::Relaxed) == call.object
+        || !live(call.object)
+        || !reflect::is_a(call.object, test_cheats::GAUNTLET_STATE_CLASS)
+    {
+        return Verdict::Continue;
+    }
+    GAUNTLET_CHEATED.store(call.object, Ordering::Relaxed);
+    let function = reflect::find_class(test_cheats::GAUNTLET_STATE_CLASS)
+        .and_then(|class| reflect::function(class, test_cheats::END_GAUNTLET_EARLY));
+    let Some(function) = function else {
+        log::line(test_cheats::lines::GAUNTLET_CHEAT_MISSING);
+        return Verdict::Continue;
+    };
+    let mut params = reflect::Params::new(0);
+    let called = reflect::call(call.object, function, &mut params);
+    log::line(&test_cheats::lines::gauntlet_ended_early(call.object, called));
     Verdict::Continue
 }
 
@@ -537,6 +582,7 @@ mod tests {
                 ("R20", 0, true, false),
                 ("R20", 0, true, false),
                 ("R20", 0, true, false),
+                ("R20", 0, true, false),
             ]
         );
         let names = [
@@ -545,6 +591,7 @@ mod tests {
             "Function Engine.PlayerController.ClientRetryClientRestart",
             "Function vendor_interactive_bp.vendor_interactive_bp_C.UpdateCameraForAspect",
             "Function Engine.GameModeBase.PlayerCanRestart",
+            "Function Archon.GauntletGameStateComponent.BroadcastStateTimerToClients",
         ];
         for (handler, name) in pe.iter().zip(names) {
             assert!(matches(handler.matcher, Some(name)), "{name}");

@@ -87,7 +87,8 @@ firewall rule beyond the gateway's own is needed. Backend rule and request-budge
 `rate_limit`, `rate_limit_per_minute`, `gameserver_rate_limit_per_minute`, `host_rate_limit_per_minute`, `gauntlet`) are
 written by `setup` into `backend.env` (`RUSTIC_ISLES_RATE_LIMIT`, `RUSTIC_ISLES_RATE_LIMIT_PER_MINUTE`,
 `RUSTIC_ISLES_GAMESERVER_RATE_LIMIT_PER_MINUTE`, `RUSTIC_ISLES_HOST_RATE_LIMIT_PER_MINUTE`, `RUSTIC_ISLES_GAUNTLET`
-and the persistence switches; see the settings table in [hosting.md](hosting.md#game-modules-and-plugins)).
+and the persistence switches; see the settings table in [hosting.md](hosting.md#game-modules-and-plugins)). The
+play-test cheats, `[switches]` `test_cheats`, go to `director.env` as `DAINTY_TEST_CHEATS` instead, private servers only.
 
 Postgres instead of SQLite for the Rust services' database is `[database]` in `settings.toml`
 ([hosting.md](hosting.md#the-database-engine)). On Debian or Ubuntu, with the role's password from `secrets.env`:

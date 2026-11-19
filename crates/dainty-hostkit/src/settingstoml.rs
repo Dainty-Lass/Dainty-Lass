@@ -195,6 +195,7 @@ const SWITCHES: &[Field] = &[
     ),
     ("hostRateLimitPerMinute", "host_rate_limit_per_minute", false),
     ("gauntlet", "gauntlet", false),
+    ("testCheats", "test_cheats", false),
 ];
 
 // The services' tunables (RD24 phase 2, `hostconfig/tunables.rs`)
@@ -776,6 +777,9 @@ fn comment(path: &str) -> &'static str {
         }
         "switches.gauntlet" => {
             "Whether Gauntlet hunts are matched and the Slayer's Path shows Gauntlet (RUSTIC_ISLES_GAUNTLET): \"on\" or \"off\" (off when left out; untested in game)."
+        }
+        "switches.test_cheats" => {
+            "Play-test cheats on every game server (DAINTY_TEST_CHEATS), private servers only: \"on\" (one-hit Behemoth kills, and a Gauntlet level ends after its first round), \"kills\" (one-hit kills only) or \"off\" (off when left out)."
         }
         "network" => "The network this server is a node of (DD16). Left out: none.",
         "network.node" => "This node's name in the network, such as oregon-1.",
