@@ -102,7 +102,7 @@ impl Director {
                     if let Some(details) = self.reuse_public_hunt(&hunt_id, players) {
                         return Ok(details);
                     }
-                    return self.hunt_from_id(hunt, expected).await.inspect_err(|error| {
+                    return self.hunt_from_id(hunt, expected, None).await.inspect_err(|error| {
                         tracing::error!("SHARED hunt '{hunt_id}' failed to resolve/start: {error}");
                     });
                 }
@@ -117,7 +117,8 @@ impl Director {
                         if non_blank(hunt)?.is_none() || !present(expected) {
                             return Err(unsupported(&mode_text, &hunt_text));
                         }
-                        self.hunt_from_id(hunt, expected).await
+                        self.hunt_from_id(hunt, expected, body.get("GauntletLevel").and_then(Value::as_i64))
+                            .await
                     }
                 };
                 started.inspect_err(|error| {
@@ -160,17 +161,43 @@ impl Director {
             .map_err(|e| e.message)
     }
 
-    async fn hunt_from_id(self: &Arc<Self>, hunt: Option<&Value>, expected: Option<&Value>) -> Result<Details, String> {
+    async fn hunt_from_id(
+        self: &Arc<Self>,
+        hunt: Option<&Value>,
+        expected: Option<&Value>,
+        gauntlet_level: Option<i64>,
+    ) -> Result<Details, String> {
         let manifest = self.resolver().resolve_manifest(hunt, expected)?;
         let text = |key: &str| js::string(manifest.get(key));
         let behemoth = Some(text("behemothPath")).filter(|b| b != "NO_BEHEMOTH");
         let hunt_text = js::string(hunt);
+        let mut map = text("mapPath");
+        let matchmaker_id = text("matchmakerHuntId");
+        // Its map's own mode is Story Mission, so the row's GameModeOverride goes on the URL, and the mode reads its
+        // level there too (the game's `?GauntletLevel=%d`, the client's combined season and level); season 1 level 1
+        // when the request has none (first Gauntlet test, 2026-11-19)
+        if matchmaker_id.to_ascii_lowercase().contains("gauntlet") && !map.contains('?') {
+            let mode = self
+                .resolver()
+                .find_matchmaker_row(&matchmaker_id)
+                .and_then(|row| row.get("GameModeOverride"))
+                .and_then(Value::as_str)
+                .filter(|mode| !mode.is_empty())
+                .map(str::to_owned);
+            if let Some(mode) = mode {
+                map.push_str(&format!("?game={mode}"));
+            }
+            map.push_str(&format!(
+                "?GauntletLevel={}",
+                gauntlet_level.filter(|l| *l > 0).unwrap_or(10_000_001)
+            ));
+        }
         let ids = expected
             .and_then(Value::as_array)
             .map(Vec::as_slice)
             .unwrap_or_default();
         self.start_hunt(
-            text("mapPath"),
+            map,
             behemoth,
             Some(text("matchmakerHuntId")),
             Some(roster(ids, &hunt_text)),

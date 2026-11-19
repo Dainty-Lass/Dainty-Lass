@@ -69,6 +69,8 @@ pub struct JoinRequest {
     pub hunt: Option<String>,
     /// The client's build id.
     pub build_id: Option<String>,
+    /// A Gauntlet join's `gauntlet_level`.
+    pub gauntlet_level: Option<i64>,
     /// The party as the resolution left it.
     pub party: JoinParty,
 }
@@ -184,6 +186,12 @@ impl Ctx {
                 "[HuntRoute] Gauntlet hunt {hunt} refused reason={GAUNTLET_DISABLED_REASON} (RUSTIC_ISLES_GAUNTLET is not on)"
             );
             return Ok(self.state.cancel_hunt(&hunt, &everyone, GAUNTLET_DISABLED_REASON));
+        }
+        if let Some(level) = request.gauntlet_level.filter(|_| rules::is_gauntlet_hunt_id(&hunt)) {
+            self.state
+                .tables()
+                .gauntlet_levels
+                .insert(request.player.clone(), level);
         }
         let is_hub = rules::is_hub_destination(mode, &hunt);
         let context = HuntRouteContext {
@@ -785,11 +793,18 @@ impl Ctx {
             mode.unwrap_or("undefined"),
             players.len()
         );
+        let gauntlet_level = if rules::is_gauntlet_hunt_id(hunt) {
+            let levels = &self.state.tables().gauntlet_levels;
+            players.iter().find_map(|p| levels.get(p).copied())
+        } else {
+            None
+        };
         let request = LaunchRequest {
             game_mode: mode.map(str::to_owned),
             game_args: args.map(str::to_owned),
             hunt_id: hunt.to_owned(),
             expected_players: players.to_vec(),
+            gauntlet_level,
             request_id: self.request_id.clone(),
         };
         let launched = servers.launch(request).await?;
