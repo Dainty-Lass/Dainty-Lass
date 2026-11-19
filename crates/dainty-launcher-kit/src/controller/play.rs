@@ -57,6 +57,9 @@ impl Controller {
         let Some(server) = self.server() else {
             return ActionResult::err(ErrorCode::ServerUnreachable);
         };
+        if let Some(minimum) = self.launcher_too_old() {
+            return ActionResult::Err(LauncherError::with_detail(ErrorCode::LauncherTooOld, &minimum));
+        }
         if let Err(refused) = self.begin_busy() {
             return ActionResult::Err(refused);
         }

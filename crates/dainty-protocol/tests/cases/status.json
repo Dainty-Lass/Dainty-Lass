@@ -15428,5 +15428,157 @@
       }
     },
     "text": "{\"name\":\"Economy\",\"online\":true,\"version\":\"\",\"commit\":\"\",\"sourceUrl\":null,\"registration\":null,\"playersOnline\":0,\"players\":[],\"instances\":[],\"uptimeSeconds\":0,\"game\":null,\"gameData\":\"unknown\",\"chat\":false,\"contentPort\":null,\"limited\":false,\"economy\":{\"keepSupplyStackCaps\":null,\"cellFusionMinutes\":null,\"refused\":[\"economy\"]}}"
+  },
+  {
+    "input": {
+      "name": "Minimum",
+      "online": true,
+      "minLauncherVersion": "2.1.0"
+    },
+    "expected": {
+      "name": "Minimum",
+      "online": true,
+      "version": "",
+      "commit": "",
+      "sourceUrl": null,
+      "registration": null,
+      "playersOnline": 0,
+      "players": [],
+      "instances": [],
+      "uptimeSeconds": 0,
+      "game": null,
+      "gameData": "unknown",
+      "chat": false,
+      "contentPort": null,
+      "limited": false,
+      "minLauncherVersion": "2.1.0"
+    },
+    "text": "{\"name\":\"Minimum\",\"online\":true,\"version\":\"\",\"commit\":\"\",\"sourceUrl\":null,\"registration\":null,\"playersOnline\":0,\"players\":[],\"instances\":[],\"uptimeSeconds\":0,\"game\":null,\"gameData\":\"unknown\",\"chat\":false,\"contentPort\":null,\"limited\":false,\"minLauncherVersion\":\"2.1.0\"}"
+  },
+  {
+    "input": {
+      "name": "Minimum",
+      "online": true,
+      "minLauncherVersion": "2.1.0-rc.1+b7"
+    },
+    "expected": {
+      "name": "Minimum",
+      "online": true,
+      "version": "",
+      "commit": "",
+      "sourceUrl": null,
+      "registration": null,
+      "playersOnline": 0,
+      "players": [],
+      "instances": [],
+      "uptimeSeconds": 0,
+      "game": null,
+      "gameData": "unknown",
+      "chat": false,
+      "contentPort": null,
+      "limited": false,
+      "minLauncherVersion": "2.1.0-rc.1+b7"
+    },
+    "text": "{\"name\":\"Minimum\",\"online\":true,\"version\":\"\",\"commit\":\"\",\"sourceUrl\":null,\"registration\":null,\"playersOnline\":0,\"players\":[],\"instances\":[],\"uptimeSeconds\":0,\"game\":null,\"gameData\":\"unknown\",\"chat\":false,\"contentPort\":null,\"limited\":false,\"minLauncherVersion\":\"2.1.0-rc.1+b7\"}"
+  },
+  {
+    "input": {
+      "name": "Minimum",
+      "online": true,
+      "minLauncherVersion": "v2.1"
+    },
+    "expected": {
+      "name": "Minimum",
+      "online": true,
+      "version": "",
+      "commit": "",
+      "sourceUrl": null,
+      "registration": null,
+      "playersOnline": 0,
+      "players": [],
+      "instances": [],
+      "uptimeSeconds": 0,
+      "game": null,
+      "gameData": "unknown",
+      "chat": false,
+      "contentPort": null,
+      "limited": false
+    },
+    "text": "{\"name\":\"Minimum\",\"online\":true,\"version\":\"\",\"commit\":\"\",\"sourceUrl\":null,\"registration\":null,\"playersOnline\":0,\"players\":[],\"instances\":[],\"uptimeSeconds\":0,\"game\":null,\"gameData\":\"unknown\",\"chat\":false,\"contentPort\":null,\"limited\":false}"
+  },
+  {
+    "input": {
+      "name": "Minimum",
+      "online": true,
+      "minLauncherVersion": " 2.1.0"
+    },
+    "expected": {
+      "name": "Minimum",
+      "online": true,
+      "version": "",
+      "commit": "",
+      "sourceUrl": null,
+      "registration": null,
+      "playersOnline": 0,
+      "players": [],
+      "instances": [],
+      "uptimeSeconds": 0,
+      "game": null,
+      "gameData": "unknown",
+      "chat": false,
+      "contentPort": null,
+      "limited": false
+    },
+    "text": "{\"name\":\"Minimum\",\"online\":true,\"version\":\"\",\"commit\":\"\",\"sourceUrl\":null,\"registration\":null,\"playersOnline\":0,\"players\":[],\"instances\":[],\"uptimeSeconds\":0,\"game\":null,\"gameData\":\"unknown\",\"chat\":false,\"contentPort\":null,\"limited\":false}"
+  },
+  {
+    "input": {
+      "name": "Minimum",
+      "online": true,
+      "minLauncherVersion": 210
+    },
+    "expected": {
+      "name": "Minimum",
+      "online": true,
+      "version": "",
+      "commit": "",
+      "sourceUrl": null,
+      "registration": null,
+      "playersOnline": 0,
+      "players": [],
+      "instances": [],
+      "uptimeSeconds": 0,
+      "game": null,
+      "gameData": "unknown",
+      "chat": false,
+      "contentPort": null,
+      "limited": false
+    },
+    "text": "{\"name\":\"Minimum\",\"online\":true,\"version\":\"\",\"commit\":\"\",\"sourceUrl\":null,\"registration\":null,\"playersOnline\":0,\"players\":[],\"instances\":[],\"uptimeSeconds\":0,\"game\":null,\"gameData\":\"unknown\",\"chat\":false,\"contentPort\":null,\"limited\":false}"
+  },
+  {
+    "input": {
+      "name": "Minimum",
+      "online": true,
+      "minLauncherVersion": ""
+    },
+    "expected": {
+      "name": "Minimum",
+      "online": true,
+      "version": "",
+      "commit": "",
+      "sourceUrl": null,
+      "registration": null,
+      "playersOnline": 0,
+      "players": [],
+      "instances": [],
+      "uptimeSeconds": 0,
+      "game": null,
+      "gameData": "unknown",
+      "chat": false,
+      "contentPort": null,
+      "limited": false
+    },
+    "text": "{\"name\":\"Minimum\",\"online\":true,\"version\":\"\",\"commit\":\"\",\"sourceUrl\":null,\"registration\":null,\"playersOnline\":0,\"players\":[],\"instances\":[],\"uptimeSeconds\":0,\"game\":null,\"gameData\":\"unknown\",\"chat\":false,\"contentPort\":null,\"limited\":false}"
   }
 ]

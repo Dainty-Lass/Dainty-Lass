@@ -856,7 +856,20 @@ async fn status_body(shared: &Arc<Shared>, store: &IslesStore, state: &LauncherA
     if let (Some(economy), Value::Object(body)) = (economy(settings), &mut body) {
         body.insert("economy".into(), economy);
     }
+    if let (Some(minimum), Value::Object(body)) = (min_launcher_version(settings), &mut body) {
+        body.insert("minLauncherVersion".into(), Value::from(minimum));
+    }
     body
+}
+
+/// The oldest launcher the host lets play (`[backend] min_launcher_version`). The host kit checked it is a
+/// version and the launcher parses it again; unset keeps the body Node's.
+pub fn min_launcher_version(settings: &rustic_isles::Settings) -> Option<String> {
+    settings
+        .raw("DAINTY_MIN_LAUNCHER_VERSION")
+        .map(trim)
+        .filter(|text| !text.is_empty() && text.len() <= 64 && text.bytes().all(|b| b.is_ascii_graphic()))
+        .map(str::to_owned)
 }
 
 /// The game servers' supply caps and fusion time, which the launcher hands the player's game (spec-runtime-r15
@@ -998,6 +1011,20 @@ mod tests {
         for bad in ["10081", "-1", "4.5", "", "99999999999", "45min"] {
             assert_eq!(of(&[("DAINTY_CELL_FUSION_MINUTES", bad)]), None, "{bad}");
         }
+    }
+
+    #[test]
+    fn min_launcher_version_only_when_set() {
+        let of =
+            |pairs: &[(&str, &str)]| min_launcher_version(&rustic_isles::Settings::from_pairs(pairs.iter().copied()));
+        assert_eq!(of(&[]), None);
+        assert_eq!(of(&[("DAINTY_MIN_LAUNCHER_VERSION", "")]), None);
+        assert_eq!(
+            of(&[("DAINTY_MIN_LAUNCHER_VERSION", " 2.1.0-rc.1 ")]).as_deref(),
+            Some("2.1.0-rc.1")
+        );
+        assert_eq!(of(&[("DAINTY_MIN_LAUNCHER_VERSION", "2.1 0")]), None);
+        assert_eq!(of(&[("DAINTY_MIN_LAUNCHER_VERSION", &"9".repeat(65))]), None);
     }
 
     #[test]

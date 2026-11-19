@@ -6,6 +6,7 @@
 
 pub mod account;
 pub mod invite;
+pub mod launcher_version;
 pub mod manifest;
 pub mod renamed;
 pub mod status;

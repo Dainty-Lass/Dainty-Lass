@@ -10,10 +10,20 @@ import { Text } from "@astryxdesign/core/Text";
 import { TitleBar, useBridge } from "@dainty/bridge/react";
 import { BrandMark, HUES, RAIL_RESIZE } from "@dainty/theme";
 import { Download, Gamepad2, ScrollText, Server, Settings, Wrench } from "lucide-react";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { type ReactNode, useEffect } from "react";
 import { toast } from "sonner";
+
+/** A game folder refused for what it holds: the error banner offers the download instead. */
+const FOLDER_REFUSALS = new Set([
+  "game_folder_not_found",
+  "game_wrong_version",
+  "game_wrong_build",
+  "game_missing_archon",
+  "game_revived",
+  "game_path_too_long",
+]);
 
 /** The launcher's frame: its own title bar, the rail, and the backend's error and notice, wherever they arise. */
 export function LauncherShell({ children }: { children: ReactNode }) {
@@ -21,6 +31,8 @@ export function LauncherShell({ children }: { children: ReactNode }) {
   const tw = useTranslations("window");
   const te = useTranslations("errors");
   const tn = useTranslations("launcher.notices");
+  const tf = useTranslations("launcher.folderCheck");
+  const router = useRouter();
   const ti = useTranslations("launcher.install");
   const th = useTranslations("launcher.host");
   const { snapshot, api } = useBridge();
@@ -138,6 +150,20 @@ export function LauncherShell({ children }: { children: ReactNode }) {
             container="section"
             title={te(error.code, { detail: error.detail ?? "" })}
             collapsible={false}
+            endContent={
+              FOLDER_REFUSALS.has(error.code) && (
+                <Button
+                  label={tf("download")}
+                  size="sm"
+                  variant="primary"
+                  icon={<Download size={16} />}
+                  onClick={() => {
+                    void api?.dismissError();
+                    router.push("/game/");
+                  }}
+                />
+              )
+            }
             isDismissable
             onDismiss={() => void api?.dismissError()}
           />

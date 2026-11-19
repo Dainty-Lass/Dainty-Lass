@@ -43,6 +43,8 @@ pub enum Kind {
     Switch,
     /// One line of text.
     Text,
+    /// A launcher version (`2.1.0`, `2.1.0-rc.1`), as the launcher compares them.
+    Version,
 }
 
 /// One tunable: its path in the table (host.json's names), its env variable and what it holds.
@@ -143,6 +145,8 @@ const BACKEND: &[Setting] = &[
     ranged("huntGoNowMinMs", "HUNT_GO_NOW_MIN_DELAY_MS", 1, TEN_MINUTES_MS),
     ranged("huntGoNowMaxMs", "HUNT_GO_NOW_MAX_DELAY_MS", 1, TEN_MINUTES_MS),
     of("xmppCapture", "REALTIME_XMPP_CAPTURE", Kind::Switch),
+    // Sent in the status; an older launcher turns Play off and updates itself
+    of("minLauncherVersion", "DAINTY_MIN_LAUNCHER_VERSION", Kind::Version),
 ];
 
 const DIRECTOR: &[Setting] = &[
@@ -296,6 +300,17 @@ fn check(name: &str, s: &Setting, value: &Value) -> Result<(), HostError> {
                 )));
             }
         }
+        Kind::Version => {
+            if !value
+                .as_str()
+                .is_some_and(|t| dainty_protocol::launcher_version::parse_launcher_version(t).is_some())
+            {
+                return Err(bad(format!(
+                    "{at} must be a launcher version such as \"2.1.0\" or \"2.1.0-rc.1\", not {}",
+                    shown(Some(value))
+                )));
+            }
+        }
     }
     Ok(())
 }
@@ -445,13 +460,25 @@ mod tests {
                 ("GATEWAY_ALLOWLIST_REFRESH_SECONDS", "30".to_owned()),
             ]
         );
-        let b = Tunables::from_json("backend", &json!({ "logLevel": "debug", "xmppCapture": true })).unwrap();
+        let b = Tunables::from_json(
+            "backend",
+            &json!({ "logLevel": "debug", "xmppCapture": true, "minLauncherVersion": "2.1.0-rc.1" }),
+        )
+        .unwrap();
         assert_eq!(
             b.env("backend"),
             [
                 ("LOG_LEVEL", "debug".to_owned()),
-                ("REALTIME_XMPP_CAPTURE", "true".to_owned())
+                ("REALTIME_XMPP_CAPTURE", "true".to_owned()),
+                ("DAINTY_MIN_LAUNCHER_VERSION", "2.1.0-rc.1".to_owned())
             ]
+        );
+        // Left out, the backend's file has no minimum: every launcher plays
+        let none = Tunables::from_json("backend", &json!({ "logLevel": "debug" })).unwrap();
+        assert!(
+            none.env("backend")
+                .iter()
+                .all(|(k, _)| *k != "DAINTY_MIN_LAUNCHER_VERSION")
         );
         assert_eq!(Tunables::from_json("backend", &b.to_json()).unwrap(), b);
     }
@@ -483,6 +510,8 @@ mod tests {
             ("content", json!({ "newsUrl": "a\nb" }), "one line"),
             ("backend", json!({ "logLevel": "loud" }), "\"debug\", \"info\""),
             ("backend", json!({ "xmppCapture": "yes" }), "true or false"),
+            ("backend", json!({ "minLauncherVersion": "v2.1" }), "launcher version"),
+            ("backend", json!({ "minLauncherVersion": 2 }), "launcher version"),
             ("backend", json!({ "huntGoNowMinMs": 0 }), "from 1 to 600000"),
             ("backend", json!({ "huntGoNowMinMs": 2000 }), "must not be more than"),
             (

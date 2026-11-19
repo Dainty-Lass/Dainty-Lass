@@ -565,6 +565,10 @@ export function mockLauncher(): LauncherApi {
       install = { ...install, state: "not_installed", progress: null, error: null };
       return OK;
     },
+    updateLauncher: async () => ({
+      ok: false,
+      error: { code: "launcher_update_failed", detail: "2.1.0" },
+    }),
     gameInstallChooseFolder: async () => {
       if (installTimer || install.state === "paused" || install.state === "resumable")
         return { ok: false, error: { code: "busy" } };

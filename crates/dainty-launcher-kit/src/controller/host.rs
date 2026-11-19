@@ -204,7 +204,10 @@ impl Controller {
 
     fn project_target(&self) -> Option<PathBuf> {
         let state = self.lock();
-        if matches!(state.game.problem, Some(GameProblem::NotSet | GameProblem::NotFound)) {
+        if matches!(
+            state.game.problem,
+            Some(GameProblem::NotSet | GameProblem::NotFound | GameProblem::MissingArchon)
+        ) {
             return None;
         }
         let root = state.game.root.clone()?;
@@ -876,12 +879,20 @@ impl Controller {
             return Err(self.refuse_with("game_running"));
         }
         let win64 = self.win64();
-        let Some(win64) =
-            win64.filter(|_| root.is_some() && !matches!(problem, Some(GameProblem::NotSet | GameProblem::NotFound)))
-        else {
+        let Some(win64) = win64.filter(|_| {
+            root.is_some()
+                && !matches!(
+                    problem,
+                    Some(GameProblem::NotSet | GameProblem::NotFound | GameProblem::MissingArchon)
+                )
+        }) else {
             return Err(self.refuse_code(ErrorCode::GameFolderNotFound));
         };
-        if problem == Some(GameProblem::WrongVersion) || !version_ok {
+        let wrong = matches!(
+            problem,
+            Some(GameProblem::WrongVersion | GameProblem::WrongBuild | GameProblem::Revived)
+        );
+        if wrong || !version_ok {
             return Err(self.refuse_code(ErrorCode::GameWrongVersion));
         }
         Ok(win64)

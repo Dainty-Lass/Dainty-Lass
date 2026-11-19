@@ -618,6 +618,7 @@ pub const COMMANDS: &[CommandSpec] = &[
         ServerGui,
         false,
     ),
+    cmd("update_launcher", &[], Every, false),
 ];
 
 /// The command named `name`.
@@ -732,8 +733,8 @@ mod tests {
     use super::*;
 
     #[test]
-    fn the_table_has_a_hundred_and_two_unique_commands() {
-        assert_eq!(COMMANDS.len(), 102);
+    fn the_table_has_a_hundred_and_three_unique_commands() {
+        assert_eq!(COMMANDS.len(), 103);
         let mut seen = HashSet::new();
         for spec in COMMANDS {
             assert!(seen.insert(spec.name), "{} twice", spec.name);

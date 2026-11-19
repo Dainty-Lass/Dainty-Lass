@@ -43,6 +43,7 @@ use std::time::{Duration, Instant};
 
 use chrono::{SecondsFormat, Utc};
 use dainty_protocol::invite::{ServerMode, is_loopback_host, played_versions};
+use dainty_protocol::launcher_version::below_minimum;
 use dainty_protocol::status::ServerStatus;
 use serde_json::{Value, json};
 use tokio::task::JoinHandle;
@@ -485,6 +486,8 @@ impl Controller {
             Phase::Running
         } else if state.reachable != Some(true) {
             Phase::Connect
+        } else if self.too_old_for(state).is_some() {
+            Phase::LauncherTooOld
         } else if !state.has_key || state.key_refused {
             Phase::Register
         } else if state.game.problem.is_some() {
@@ -745,6 +748,25 @@ impl Controller {
     pub fn dismiss_error(&self) {
         self.lock().last_error = None;
         self.publish();
+    }
+
+    /// The launcher version the server asks for, when this launcher is below it (`minLauncherVersion`).
+    pub(crate) fn too_old_for(&self, state: &State) -> Option<String> {
+        let minimum = state.status.as_ref()?.min_launcher_version.as_deref()?;
+        below_minimum(&self.config().version, minimum).then(|| minimum.to_owned())
+    }
+
+    /// The version the server asks for, when this launcher must update before it plays.
+    #[must_use]
+    pub fn launcher_too_old(&self) -> Option<String> {
+        self.too_old_for(&self.lock())
+    }
+
+    /// Nothing would be cut short by updating now: no task, no game, not closing.
+    #[must_use]
+    pub fn may_update_now(&self) -> bool {
+        let state = self.lock();
+        state.task.is_none() && !state.shutting_down && !self.shared.game.is_running()
     }
 
     /// Marks an update as downloaded and waiting.

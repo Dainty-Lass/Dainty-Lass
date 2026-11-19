@@ -106,6 +106,8 @@ export interface LauncherApi {
   gameInstallChooseFolder(): Promise<ActionResult>;
   /** Cancels a download altogether: stops it and deletes what it downloaded. */
   gameInstallDiscard(version: string): Promise<ActionResult>;
+  /** The server asks for a newer launcher: update now and restart, or answer launcher_update_failed. */
+  updateLauncher(): Promise<ActionResult>;
   onSnapshot(fn: (snapshot: Snapshot) => void): void;
   onProgress(fn: (progress: TaskProgress) => void): void;
   onHostKit(fn: (kit: HostKit) => void): void;

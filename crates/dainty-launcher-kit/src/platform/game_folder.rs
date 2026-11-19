@@ -392,9 +392,72 @@ pub fn detect() -> Vec<DetectedGame> {
     detect_in(&StoreFolders::from_vars(|name| std::env::var(name).ok()))
 }
 
+/// Beside a Dauntless Revived 1.4.4 executable: its in-process server, which no 1.14.7 install has.
+pub const REVIVED_MARKER: &str = "UndauntedInternalServer.dll";
+
+/// Whether the game at `root` is a Dauntless Revived copy: its marker, or a 1.4 version text.
+pub fn is_revived_with(root: &Path, version: Option<&str>, is_file: impl Fn(&Path) -> bool) -> bool {
+    is_file(&win64_dir(root).join(REVIVED_MARKER))
+        || version.is_some_and(|v| v.to_ascii_lowercase().contains("rel-1.4."))
+}
+
+/// [`is_revived_with`] on this PC.
+#[must_use]
+pub fn is_revived(root: &Path, version: Option<&str>) -> bool {
+    is_revived_with(root, version, Path::is_file)
+}
+
+/// Whether a folder `raw` points at holds game files (`Version.txt`, `Engine`) but not `Archon` with the executable:
+/// a copy missing its main folder, or the wrong level of the install picked.
+pub fn missing_archon_with(raw: &str, windows: bool, exists: impl Fn(&Path) -> bool) -> bool {
+    let Some(candidates) = candidates(raw, windows) else {
+        return false;
+    };
+    candidates
+        .iter()
+        .map(PathBuf::from)
+        .any(|root| (exists(&root.join(VERSION_FILE)) || exists(&root.join("Engine"))) && !exists(&exe_path(&root)))
+}
+
+/// [`missing_archon_with`] on this PC.
+#[must_use]
+pub fn missing_archon(raw: &str) -> bool {
+    missing_archon_with(raw, cfg!(windows), Path::exists)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn revived_copies_by_marker_or_version() {
+        let root = Path::new("/games/Dauntless");
+        let marker = win64_dir(root).join(REVIVED_MARKER);
+        assert!(is_revived_with(root, Some(SUPPORTED_VERSION), |p| p == marker));
+        assert!(is_revived_with(root, Some("dauntless_REL-1.4.4_Shipping"), |_| false));
+        assert!(!is_revived_with(root, Some(SUPPORTED_VERSION), |_| false));
+        assert!(!is_revived_with(root, None, |_| false));
+    }
+
+    #[test]
+    fn game_files_without_archon() {
+        let at = |files: &'static [&'static str]| move |p: &Path| files.iter().any(|f| p == Path::new(f));
+        assert!(missing_archon_with(
+            "/g/Dauntless",
+            false,
+            at(&["/g/Dauntless/Version.txt"])
+        ));
+        assert!(missing_archon_with("/g/Dauntless", false, at(&["/g/Dauntless/Engine"])));
+        // The parent of the install picked: its Dauntless child is tried too
+        assert!(missing_archon_with("/g", false, at(&["/g/Dauntless/Engine"])));
+        let whole = at(&[
+            "/g/Dauntless/Version.txt",
+            "/g/Dauntless/Archon/Binaries/Win64/Dauntless-Win64-Shipping.exe",
+        ]);
+        assert!(!missing_archon_with("/g/Dauntless", false, whole));
+        assert!(!missing_archon_with("/g/Pictures", false, at(&[])));
+        assert!(!missing_archon_with("not a path", false, at(&["Version.txt"])));
+    }
 
     #[test]
     fn normalising_windows_paths() {

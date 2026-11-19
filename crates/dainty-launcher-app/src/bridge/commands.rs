@@ -745,3 +745,8 @@ pub async fn remote_exec(c: Ctl<'_>, request: Value) -> Answer<RemoteExecOutcome
         c.remote_exec(request).await
     })
 }
+
+#[tauri::command]
+pub async fn update_launcher(app: AppHandle, c: Ctl<'_>) -> Answer<ActionResult> {
+    Ok(updater::update_now(&app, &c).await)
+}
