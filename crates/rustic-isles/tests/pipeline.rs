@@ -229,7 +229,7 @@ fn the_table() {
     assert_eq!(director.iter().filter(|r| r.side == Side::Isles).count(), 4);
     assert_eq!(rustic_isles::RouteSet::V1147.routes(Service::Backend).len(), 291);
     let admin: Vec<_> = all.iter().filter(|r| r.when == When::Admin).collect();
-    assert_eq!(admin.len(), 31);
+    assert_eq!(admin.len(), 33);
     assert!(
         admin
             .iter()

@@ -257,7 +257,8 @@
       "player_grant": "{actor} gave {target} items or levels",
       "chat_filter_flagged": "The chat filter flagged a line from {target}",
       "chat_filter_masked": "The chat filter masked a line from {target}",
-      "chat_filter_blocked": "The chat filter blocked a line from {target}"
+      "chat_filter_blocked": "The chat filter blocked a line from {target}",
+      "player_save_restore": "{actor} restored a save snapshot for {target}"
     },
     "openChatLine": "Open this line in the chat log",
     "fromGame": "Recorded by the game server"
@@ -1213,5 +1214,33 @@
     },
     "close": "Close",
     "itemOption": "{name} ({id})"
+  },
+  "saves": {
+    "open": "Saves",
+    "title": "{name}'s save snapshots",
+    "explain": "A player's in-game /reset sets their old save aside here, as does a restore. Each is kept 30 days.",
+    "loading": "Loading…",
+    "empty": "No save snapshots.",
+    "columns": {
+      "taken": "Taken",
+      "source": "From",
+      "rows": "Rows",
+      "expires": "Deleted"
+    },
+    "sources": {
+      "player": "The player's /reset",
+      "restore": "Replaced by a restore"
+    },
+    "restore": "Restore",
+    "restoredBadge": "Restored",
+    "confirmTitle": "Restore {name}'s save?",
+    "confirmExplain": "Their current save is set aside as a snapshot of its own, so this can be undone the same way.",
+    "confirmWhich": "The save as it was at",
+    "whenOnline": "The player is online: they must quit to the main menu and rejoin to see it.",
+    "reason": "Reason",
+    "back": "Back",
+    "confirm": "Restore save",
+    "restored": "{name}'s save was restored",
+    "close": "Close"
   }
 }

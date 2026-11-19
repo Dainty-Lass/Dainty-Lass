@@ -62,6 +62,17 @@ export interface GrantReport {
   }[];
 }
 
+/** A save snapshot a player's in-game /reset or a staff restore left (kept 30 days). */
+export interface SaveSnapshot {
+  id: string;
+  source: "player" | "restore";
+  actorUserId: string | null;
+  createdAt: string;
+  expiresAt: string;
+  restoredAt: string | null;
+  rows: number;
+}
+
 export function backendConfigured(): boolean {
   return Boolean(config.backend.operatorSecret);
 }
@@ -125,6 +136,19 @@ export function backend(controllerId: string) {
         `/admin/v1/players/${encodeURIComponent(userId)}/grants`,
         op,
         body,
+      ),
+    saveSnapshots: (userId: string, op: Operator) =>
+      g.backend<{ snapshots: SaveSnapshot[] }>(
+        "GET",
+        `/admin/v1/players/${encodeURIComponent(userId)}/save-snapshots`,
+        op,
+      ),
+    restoreSave: (userId: string, snapshotId: string, reason: string, op: Operator) =>
+      g.backend<{ requestId: string; replacedSnapshotId: string; rows: number }>(
+        "POST",
+        `/admin/v1/players/${encodeURIComponent(userId)}/save-snapshots/${encodeURIComponent(snapshotId)}/restore`,
+        op,
+        { reason },
       ),
     audit: (q: { targetUserId?: string; page?: number; limit?: number }, op: Operator) => {
       const params = new URLSearchParams({

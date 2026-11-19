@@ -175,6 +175,7 @@ pub(super) static TABLE: [RouteDef; 296] = [
     r(B, Get, r"/friends/api/v1/:accountId/settings", Chat, Isles, Always), // B142
     r(B, Post, r"/slayerlink/availability", Chat, Isles, Always), // B143
     r(B, Get, r"/slayerlink/status_good", Chat, Isles, Always), // B144
+    r(B, Post, r"/dainty/v1/save-reset", Chat, Isles, Always), // B144a: the help screen's save reset, not in Node
     r(B, Post, r"/launcher/v1/auth/register", Auth, Isles, Always), // B145
     r(B, Post, r"/launcher/v1/auth/login", Auth, Isles, Always), // B146
     r(B, Post, r"/launcher/v1/auth/refresh", Auth, Isles, Always), // B147
@@ -257,6 +258,8 @@ pub(super) static TABLE: [RouteDef; 296] = [
     r(B, Post, r"/admin/v1/players/:userId/tester-max", LauncherApi, Isles, Admin), // B221
     r(B, Get, r"/admin/v1/grant-catalog", LauncherApi, Isles, Admin), // B221a: staff grants, not in Node
     r(B, Post, r"/admin/v1/players/:userId/grants", LauncherApi, Isles, Admin), // B221b
+    r(B, Get, r"/admin/v1/players/:userId/save-snapshots", LauncherApi, Isles, Admin), // B221c: /reset snapshots
+    r(B, Post, r"/admin/v1/players/:userId/save-snapshots/:snapshotId/restore", LauncherApi, Isles, Admin), // B221d
     r(B, Get, r"/admin/v1/player-logs", LauncherApi, Isles, Admin), // B222
     r(B, Get, r"/admin/v1/player-logs/:userId/:launchSessionId/:fileName", LauncherApi, Isles, Admin), // B223
     r(B, Delete, r"/admin/v1/player-logs/:userId/:launchSessionId", LauncherApi, Isles, Admin), // B224

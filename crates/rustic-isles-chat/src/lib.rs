@@ -3,7 +3,7 @@
 
 //! Rustic Isles' chat (RD27, written clean-room from `docs/port/spec-rustic-isles-chat.md`): the answers a 1.14.7
 //! module gives the chat plugin through `dainty_module_api::chat`, the hub-session registry that opens region rooms, the
-//! party headline body, the `chat.*` home operations, and the chat area's 11 backend routes. It never depends on the
+//! party headline body, the `chat.*` home operations, and the chat area's 12 backend routes. It never depends on the
 //! `chat` plugin crate: a game module talks to chat only through `module-api`.
 
 #![cfg_attr(
@@ -20,6 +20,7 @@ mod home;
 pub mod hubs;
 pub mod ids;
 mod login;
+pub mod reset;
 mod routes;
 mod rules;
 mod source;
@@ -125,4 +126,19 @@ pub trait ChatSource: Send + Sync {
 
     /// The other ends of the account's `ACCEPTED` edges, in list order.
     fn friends<'a>(&'a self, account: &'a GlobalId) -> BoxFuture<'a, Result<Vec<GlobalId>, ModuleError>>;
+
+    /// One step of the account's `/reset` at `now`; `Unsupported` where saves can't be reset.
+    fn save_reset<'a>(
+        &'a self,
+        _account: &'a GlobalId,
+        _step: reset::ResetStep,
+        _now: i64,
+    ) -> BoxFuture<'a, Result<reset::ResetAnswer, ModuleError>> {
+        Box::pin(async {
+            Err(ModuleError::new(
+                dainty_module_api::ErrorKind::Unsupported,
+                "no save resets",
+            ))
+        })
+    }
 }

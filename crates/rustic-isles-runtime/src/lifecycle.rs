@@ -69,6 +69,7 @@ pub fn init() {
     crate::economy::register();
     if !server {
         crate::branding::register();
+        crate::save_reset::register();
     }
     crate::ffi::server_events::register(server);
     crate::escalation::register();

@@ -17,7 +17,7 @@ import { pixel, proportional, Table } from "@astryxdesign/core/Table";
 import { Text } from "@astryxdesign/core/Text";
 import { Timestamp } from "@astryxdesign/core/Timestamp";
 import { Token } from "@astryxdesign/core/Token";
-import { Ban, Clock, DoorOpen, Flag, Gift, ShieldCheck } from "lucide-react";
+import { Ban, Clock, DoorOpen, Flag, Gift, History, ShieldCheck } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useState } from "react";
 import { AuditTable } from "@/components/AuditTable";
@@ -34,6 +34,7 @@ import { AccessDialog } from "./AccessDialog";
 import { FileReportDialog } from "./FileReportDialog";
 import { GrantDialog } from "./GrantDialog";
 import { ModerationDialog, type ModerationKind } from "./ModerationDialog";
+import { SavesDialog } from "./SavesDialog";
 
 const STATUS_BADGE = {
   ACTIVE: "success",
@@ -111,6 +112,8 @@ export function PlayerDetailClient({
   const [access, setAccess] = useState(false);
   const [reporting, setReporting] = useState(false);
   const [granting, setGranting] = useState(false);
+  const [saves, setSaves] = useState(false);
+  const ts = useTranslations("saves");
 
   const r = player?.restriction;
   const restricted = r && r.kind !== "DISABLED";
@@ -171,6 +174,9 @@ export function PlayerDetailClient({
               : []),
             ...(can.grant && account
               ? [{ label: tg("open"), icon: Gift, onClick: () => setGranting(true) }]
+              : []),
+            ...(can.grant && account
+              ? [{ label: ts("open"), icon: History, onClick: () => setSaves(true) }]
               : []),
           ]}
         />
@@ -420,6 +426,16 @@ export function PlayerDetailClient({
           online={Boolean(player?.online)}
           reasons={reasons}
           onClose={() => setGranting(false)}
+        />
+      )}
+      {account && can.grant && (
+        <SavesDialog
+          isOpen={saves}
+          controllerId={controller.id}
+          account={account}
+          online={Boolean(player?.online)}
+          reasons={reasons}
+          onClose={() => setSaves(false)}
         />
       )}
       <FileReportDialog

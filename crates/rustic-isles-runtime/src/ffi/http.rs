@@ -326,13 +326,60 @@ fn key_header(context: &Context<'_>, request: usize) {
     }
 }
 
-/// The three steps in order (R2 3.2 step 3).
+/// The three steps in order (R2 3.2 step 3); a client also lends the help screen's reset its sign-in.
 pub(crate) fn process(context: &Context<'_>, request: usize) {
     redirect_url(context, request);
     if context.server {
         grant(context, request);
         key_header(context, request);
+    } else {
+        authorization(context, request);
     }
+}
+
+/// The game's `Authorization` on its own backend requests, kept for the save reset's call (never logged).
+fn authorization(context: &Context<'_>, request: usize) {
+    let Some(url) = read_url(request) else {
+        return;
+    };
+    if in_flight(request) != Some(false) || !rustic_isles_runtime_core::http::is_under(&url.text, context.api_base) {
+        return;
+    }
+    let Some(get) = vtable_slot(request, layout::HTTP_GET_HEADER_SLOT) else {
+        return;
+    };
+    let name = Lent::of("Authorization");
+    let name_fstring = name.fstring();
+    let mut out = FString::empty();
+    // SAFETY: slot 2 of a readable vtable is GetHeader in its hidden-return form (R2 3.1)
+    let get: GetHeaderFn = unsafe { std::mem::transmute::<usize, GetHeaderFn>(get) };
+    // SAFETY: `out` is a zeroed FString of ours, `name` lives past the call
+    unsafe { get(request as *mut c_void, &mut out, &name_fstring) };
+    let returned = out.data as usize;
+    if returned == 0 {
+        return;
+    }
+    if out.num > 1
+        && let GrantValue::Text(value) = read_header(returned, out.num)
+    {
+        crate::save_reset::remember_authorization(&value);
+    }
+    engine_free(context.allocator, returned);
+}
+
+/// A header value of up to 8 KiB, as [`read_back`] reads a grant id.
+fn read_header(data: usize, num: i32) -> GrantValue {
+    if num > 8193 {
+        return GrantValue::Unreadable;
+    }
+    let Ok(count) = usize::try_from(num - 1) else {
+        return GrantValue::Unreadable;
+    };
+    let mut bytes = vec![0u8; count * 2];
+    if !read_bytes(data, &mut bytes) {
+        return GrantValue::Unreadable;
+    }
+    GrantValue::Text(utf16(&bytes))
 }
 
 unsafe extern "C" fn process_request_detour(request: *mut c_void) -> u8 {

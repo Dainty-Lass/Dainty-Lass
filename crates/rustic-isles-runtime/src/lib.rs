@@ -25,6 +25,8 @@ pub mod occupancy;
 #[cfg(minhook)]
 pub mod player_host;
 #[cfg(minhook)]
+mod save_reset;
+#[cfg(minhook)]
 pub mod server_life;
 #[cfg(minhook)]
 pub mod widgets;

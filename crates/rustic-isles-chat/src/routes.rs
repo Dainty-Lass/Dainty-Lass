@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Silent Spud
 
 //! The chat area's backend routes (spec §6; core Appendix A B35, B80, B81, B137-B144): the friends API, the Slayer
-//! link stubs, the guild stubs and `/vivox/login`. The `:accountId` param is never read: the owner is always the
+//! link stubs, the guild stubs, `/vivox/login` and the help screen's save reset. The `:accountId` param is never read: the owner is always the
 //! caller, so one player cannot read or change another's list.
 
 use std::sync::Arc;
@@ -77,6 +77,7 @@ pub fn register_with(handlers: &mut Handlers, clock: Clock) {
     handlers.on(b, Get, "/slayerlink/status_good", |call| {
         authed(call, |_| envelope(slayer_link_status()))
     });
+    handlers.on(b, Post, "/dainty/v1/save-reset", save_reset_route);
 }
 
 fn empty(status: StatusCode) -> Response {
@@ -413,6 +414,52 @@ pub fn slayer_link_status() -> Value {
 }
 
 /// The body first, as Express's `express.json()` ran before every router: a body error is answered before auth.
+/// `POST /dainty/v1/save-reset` `{"step": "ask"|"confirm", "lang"}`: the help screen's reset button, answered
+/// `{"status", "message"}` with the message in the game's language for the runtime's popup to show as is.
+async fn save_reset_route(mut call: Call) -> Response {
+    let body = match read_body(&mut call.request).await {
+        Ok(body) => body,
+        Err(status) => return empty(status),
+    };
+    let (data, store) = match prelude(&mut call).await {
+        Ok(found) => found,
+        Err(answer) => return answer,
+    };
+    let field = |name: &str| body.as_ref().and_then(|b| b.get(name)).and_then(Value::as_str);
+    let lang = field("lang").map(|l| l.chars().take(16).collect::<String>());
+    let step = match field("step") {
+        Some("ask") => crate::reset::ResetStep::Ask,
+        Some("confirm") => crate::reset::ResetStep::Confirm,
+        _ => return empty(StatusCode::BAD_REQUEST),
+    };
+    let Some(caller) = data.user_id else {
+        return empty(StatusCode::FORBIDDEN);
+    };
+    let answered = async {
+        let Some(account) = account_by_user_id(&store, &caller).await? else {
+            return Ok(None);
+        };
+        crate::reset::step(&store, &account.id, step, replay::now_ms())
+            .await
+            .map(Some)
+    };
+    let (status, json) = match answered.await {
+        Ok(Some(answer)) => (
+            StatusCode::OK,
+            json!({"status": crate::reset::status(answer), "message": crate::reset::popup(answer, lang.as_deref())}),
+        ),
+        Ok(None) => return empty(StatusCode::NOT_FOUND),
+        Err(e) => {
+            tracing::warn!("{} {}: {e}", call.route.method.as_str(), call.route.path);
+            (
+                StatusCode::SERVICE_UNAVAILABLE,
+                json!({"status": "failed", "message": crate::reset::failed(lang.as_deref())}),
+            )
+        }
+    };
+    (status, Json(json)).into_response()
+}
+
 async fn availability_route(mut call: Call) -> Response {
     let body = match read_body(&mut call.request).await {
         Ok(body) => body,

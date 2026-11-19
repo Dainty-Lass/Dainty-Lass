@@ -293,6 +293,8 @@ fn grant_only_for_server_grant_paths() {
     reset();
     let fake = Fake::new(GRANT_URL, 200);
     client(&fake);
+    assert_eq!(GETS.with(Cell::get), 1, "a client reads only the game's Authorization");
+    GETS.with(|count| count.set(0));
     run(&fake, true, AuthMode::Invalid, None);
     assert!(sets().is_empty());
     assert_eq!(GETS.with(Cell::get), 0);

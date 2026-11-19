@@ -43,7 +43,9 @@ pub async fn run_ttl_purge(shared: &Shared) {
     let now = now_ms();
     let purged = store
         .write(&ActorContext::new(Actor::System), move |tx, _| {
-            rustic_isles_store::repo::reforged::purge_expired_ttl_rows(tx, now)
+            let rows = rustic_isles_store::repo::reforged::purge_expired_ttl_rows(tx, now)?;
+            // Save snapshots past their 30 days, with the rows they hold
+            Ok(rows + rustic_isles_store::repo::resets::prune(tx, now)?)
         })
         .await;
     match purged {
