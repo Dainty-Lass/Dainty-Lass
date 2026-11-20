@@ -209,14 +209,16 @@ test logged them. Each route reads the body with core's reader (errors as B33), 
   and a run count. Rows of deleted accounts are left out. Fastest `completion_time` first, then the earlier write,
   then name. The solo board keeps each player's fastest row; a weapon board is the rows with that weapon (`sword` 1,
   `axe` 2, `hammer` 3, `chainblades` 4, `pike` 5, `repeaters` 6, `strikers` 7, after the client's
-  `ELeaderboardWeaponType` order; unverified); the group board keeps each `party_key`'s fastest row.
+  `ELeaderboardWeaponType` order; pike's 5 confirmed by a recorded run, the rest unverified); the group board keeps each `party_key`'s fastest row.
+- **When the client asks.** It reads B33 (the boards in Ramsgate) once at login and B34/B34b when the Trials screen
+  opens, so a new run shows in Ramsgate only after the next login (2026-11-20).
 - **B34b/B34c** answer the envelope of a page of the solo or group board. **B34/B34d** answer the caller's (auth's
   `user_id`) solo line, any weapon, or the first group line they are in, with its rank; `{}` when there is none.
 - **B34a** is the hunt server's run (`UArenaGameModeComponent::SubmitLeaderboardsInfo`, origin
   `leaderboards-prod.steelyard.ca`, first seen 2026-11-19; recorded 2026-11-20 as
   `{"difficulty":1,"completion_time":5414,"objectives_completed":3,"trial_id":"Arena_MatchmakerHunt_Elite_0001","party_members":[{"phx_account_id":U,"platform_name":"","weapon":5,"player_role_id":"PR_FRANK","platform":""}]}`). Only a game server may send it, as
   B51a's `PUT /process_run` (an empty 403, the body unused). The body is read as `trial_id` (not blank), `difficulty`
-  (as a query's, 1), `completion_time` (a number or numeric string, below 0 is 0), `objectives_completed` (0) and its
+  (as a query's, 1), `completion_time` (milliseconds: a 2.9 s run sent 2893; a number or numeric string, below 0 is 0), `objectives_completed` (0) and its
   players: the objects (`phx_account_id`, `weapon`, `player_role_id`, `platform`) or userId strings under `party_members`,
   else `entries`, else `players`, else the body itself as one player; repeats dropped, a string taking the body's own `weapon`, role
   and platform. A missing Trial, time or player: a warning, nothing stored. One player is a solo run with their

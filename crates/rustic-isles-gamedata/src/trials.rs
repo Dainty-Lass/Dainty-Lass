@@ -16,7 +16,7 @@ use rustic_isles_store::{IslesStore, RepoError};
 use serde_json::{Map, Value, json};
 
 /// The world's per-weapon solo boards, as the client keys them, and the `weapon` each one holds. The numbers follow
-/// the client's `ELeaderboardWeaponType` order and are unverified against a recorded run.
+/// the client's `ELeaderboardWeaponType` order; pike's 5 is confirmed by a recorded run (2026-11-20), the rest are not.
 pub const WEAPON_BOARDS: [(&str, i64); 7] = [
     ("sword", 1),
     ("axe", 2),
@@ -121,7 +121,7 @@ pub struct FinishedTrial {
     pub trial_id: String,
     /// The difficulty (1 when absent).
     pub difficulty: i64,
-    /// The run's time.
+    /// The run's time in milliseconds (a 2.9 s run sent 2893).
     pub completion_time: f64,
     /// Objectives completed.
     pub objectives_completed: i64,
