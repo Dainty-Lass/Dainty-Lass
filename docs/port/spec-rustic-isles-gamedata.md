@@ -196,6 +196,13 @@ test logged them. Each route reads the body with core's reader (errors as B33), 
   `{"rank":R,"completion_time":C,"entries":P,"objectives_completed":O,"trial_id":T}`, `P` the run's players as
   `{"phx_account_id","platform_name","weapon","player_role_id","platform"}`. **A page**:
   `{"difficulty","page","page_size","trial_id","entries"}` from the query. Ranks count from 1 over the whole board.
+- **The board key.** The game names a Trial `Arena_MatchmakerHunt_<tier>_<NNNN>`, `NNNN` being the whole weeks since
+  its schedule row's start plus one (a static reading of the formatter, 2026-11-20). The runtime moves that start on
+  the hunt server, so the hunt server sent `_0001` while the client asked for `_0312` (first recorded runs,
+  2026-11-20). A `trial_id` of that form (a non-empty tier, four digits) is therefore kept and looked up as the
+  featured hunt, `Arena_MatchmakerHunt_<tier>_<WWW>`, `WWW` the Director's featured week now
+  (`TRIALS_ROTATION_MINUTES`, read as the Director reads it; three digits, 1 to 181); any other id as sent. Lines
+  carry the query's `trial_id`. A run that ends after the week turns is kept under the new week.
 - **The boards** come from the store's `trials_runs` (`rustic-isles-store` migration 0660, `repo::trials`): one row
   per account, Trial, difficulty, mode (`solo`/`group`) and weapon (0 for a group row) holding the best run, its
   objectives, role and platform, the run's sorted userIds joined by `,` (`party_key`), its players (the line's `P`)
@@ -206,11 +213,12 @@ test logged them. Each route reads the body with core's reader (errors as B33), 
 - **B34b/B34c** answer the envelope of a page of the solo or group board. **B34/B34d** answer the caller's (auth's
   `user_id`) solo line, any weapon, or the first group line they are in, with its rank; `{}` when there is none.
 - **B34a** is the hunt server's run (`UArenaGameModeComponent::SubmitLeaderboardsInfo`, origin
-  `leaderboards-prod.steelyard.ca`, first seen 2026-11-19, body not yet recorded). Only a game server may send it, as
+  `leaderboards-prod.steelyard.ca`, first seen 2026-11-19; recorded 2026-11-20 as
+  `{"difficulty":1,"completion_time":5414,"objectives_completed":3,"trial_id":"Arena_MatchmakerHunt_Elite_0001","party_members":[{"phx_account_id":U,"platform_name":"","weapon":5,"player_role_id":"PR_FRANK","platform":""}]}`). Only a game server may send it, as
   B51a's `PUT /process_run` (an empty 403, the body unused). The body is read as `trial_id` (not blank), `difficulty`
   (as a query's, 1), `completion_time` (a number or numeric string, below 0 is 0), `objectives_completed` (0) and its
-  players: the objects (`phx_account_id`, `weapon`, `player_role_id`, `platform`) or userId strings under `entries`,
-  else `players`, else the body itself as one player; repeats dropped, a string taking the body's own `weapon`, role
+  players: the objects (`phx_account_id`, `weapon`, `player_role_id`, `platform`) or userId strings under `party_members`,
+  else `entries`, else `players`, else the body itself as one player; repeats dropped, a string taking the body's own `weapon`, role
   and platform. A missing Trial, time or player: a warning, nothing stored. One player is a solo run with their
   weapon, more a group run. Each player homed here gets their row written as `System`: runs plus one, and the new
   run replaces the best when its time is lower. Answered with the envelope of `{}`.

@@ -30,6 +30,44 @@ pub const WEAPON_BOARDS: [(&str, i64); 7] = [
 /// The most lines a page holds.
 const MAX_PAGE_SIZE: i64 = 100;
 
+/// Rows in the arena schedule; the Director's featured week cycles through them (hunt.rs).
+const ARENA_WEEKS: i64 = 181;
+
+/// `TRIALS_ROTATION_MINUTES` as the Director reads it: a whole number in [1, 525 600], else a week.
+fn rotation_minutes(raw: Option<&str>) -> i64 {
+    raw.and_then(|r| r.trim().parse::<f64>().ok())
+        .filter(|n| n.fract() == 0.0 && (1.0..=525_600.0).contains(n))
+        .map_or(10_080, |n| n as i64)
+}
+
+/// The featured arena week at `now_ms`, three digits: the week the Director launches (hunt.rs).
+pub fn featured_week(now_ms: i64, rotation: Option<&str>) -> String {
+    let span = rotation_minutes(rotation).saturating_mul(60_000);
+    let week = now_ms.div_euclid(span).rem_euclid(ARENA_WEEKS) + 1;
+    format!("{week:03}")
+}
+
+/// The key a Trial's runs are kept under. The game names a Trial `Arena_MatchmakerHunt_<tier>_<NNNN>`, NNNN being
+/// weeks since its schedule row's start plus one; the runtime moves that start on the hunt server only, so the hunt
+/// server sends 0001 while the client asks for another number. Both become the featured hunt,
+/// `Arena_MatchmakerHunt_<tier>_<week>`; any other id is kept as sent.
+pub fn board_key(trial_id: &str, week: &str) -> String {
+    let tier = trial_id
+        .strip_prefix("Arena_MatchmakerHunt_")
+        .and_then(|rest| rest.split_once('_'))
+        .filter(|(tier, n)| !tier.is_empty() && n.len() == 4 && n.bytes().all(|b| b.is_ascii_digit()))
+        .map(|(tier, _)| tier);
+    match tier {
+        Some(tier) => format!("Arena_MatchmakerHunt_{tier}_{week}"),
+        None => trial_id.to_owned(),
+    }
+}
+
+fn shared_key(shared: &Shared, trial_id: &str) -> String {
+    let week = featured_week(replay::now_ms(), shared.settings().raw("TRIALS_ROTATION_MINUTES"));
+    board_key(trial_id, &week)
+}
+
 fn store(shared: &Shared) -> Option<Arc<IslesStore>> {
     shared.slot::<IslesStore>()
 }
@@ -107,12 +145,12 @@ fn player(value: &Value, outer: &Value) -> Option<Player> {
 
 impl FinishedTrial {
     /// The run's `trial_id`, `difficulty`, `completion_time` and `objectives_completed`, and its players: the objects
-    /// (or userIds) under `entries` or `players`, else the body itself as one solo line. None when the Trial, the time
+    /// (or userIds) under `party_members` (the hunt server's), `entries` or `players`, else the body itself as one solo line. None when the Trial, the time
     /// or every player is missing.
     pub fn parse(body: &Value) -> Option<Self> {
         let trial_id = text(body.get("trial_id"));
         let completion_time = float(body.get("completion_time"))?;
-        let listed = ["entries", "players"]
+        let listed = ["party_members", "entries", "players"]
             .iter()
             .find_map(|k| body.get(*k).and_then(Value::as_array));
         let mut seen = HashSet::new();
@@ -258,6 +296,7 @@ impl Boards {
 }
 
 /// The Trial's boards at the difficulty: the solo one has each player's fastest run with each weapon, fastest first.
+/// Lines name the Trial as asked, whatever key its runs are kept under.
 pub async fn boards(shared: &Shared, trial_id: &str, difficulty: i64) -> Boards {
     let empty = Boards {
         solo: Vec::new(),
@@ -270,7 +309,7 @@ pub async fn boards(shared: &Shared, trial_id: &str, difficulty: i64) -> Boards 
     if trial_id.is_empty() {
         return empty;
     }
-    let trial = trial_id.to_owned();
+    let trial = shared_key(shared, trial_id);
     let read = store
         .read(move |conn, _| {
             Ok((
@@ -280,11 +319,16 @@ pub async fn boards(shared: &Shared, trial_id: &str, difficulty: i64) -> Boards 
         })
         .await;
     match read {
-        Ok((solo, group)) => Boards {
-            solo: per_player(solo.clone()),
-            by_weapon: solo,
-            group: per_group(group),
-        },
+        Ok((mut solo, mut group)) => {
+            for e in solo.iter_mut().chain(group.iter_mut()) {
+                trial_id.clone_into(&mut e.run.trial_id);
+            }
+            Boards {
+                solo: per_player(solo.clone()),
+                by_weapon: solo,
+                group: per_group(group),
+            }
+        }
         Err(e) => {
             tracing::warn!("[Trials] {trial_id}: the boards could not be read: {e}");
             empty
@@ -308,6 +352,7 @@ pub async fn record(shared: &Shared, run: &FinishedTrial) {
         tracing::warn!("[Trials] {} finished but there is no store to record it", run.trial_id);
         return;
     };
+    let key = shared_key(shared, &run.trial_id);
     let mut known = Vec::new();
     let mut party = Vec::new();
     for p in &run.players {
@@ -338,7 +383,7 @@ pub async fn record(shared: &Shared, run: &FinishedTrial) {
     for (p, account) in known {
         let fresh = TrialRun {
             account: account.clone(),
-            trial_id: run.trial_id.clone(),
+            trial_id: key.clone(),
             difficulty: run.difficulty,
             mode,
             weapon: if mode == TrialMode::Solo { p.weapon } else { 0 },
@@ -373,9 +418,10 @@ pub async fn record(shared: &Shared, run: &FinishedTrial) {
             .await;
         match written {
             Ok(best) => tracing::info!(
-                "[Trials] {} finished {} (difficulty {}, {:?}, weapon {}) in {}; best {}, {} runs",
+                "[Trials] {} finished {} as {} (difficulty {}, {:?}, weapon {}) in {}; best {}, {} runs",
                 p.user_id,
                 run.trial_id,
+                key,
                 run.difficulty,
                 mode,
                 p.weapon,
@@ -411,6 +457,46 @@ mod tests {
                 party: r#"[{"phx_account_id":"a"},{"phx_account_id":"b"}]"#.into(),
                 runs: 1,
             },
+        }
+    }
+
+    #[test]
+    fn the_hunt_servers_body() {
+        // Recorded from a 1.14.7 hunt server, 2026-11-20
+        let body = json!({"difficulty":1,"completion_time":5414,"objectives_completed":3,
+            "trial_id":"Arena_MatchmakerHunt_Elite_0001","party_members":[{"phx_account_id":"u1",
+            "platform_name":"","weapon":5,"player_role_id":"PR_FRANK","platform":""}]});
+        let run = FinishedTrial::parse(&body).unwrap();
+        assert_eq!((run.completion_time, run.objectives_completed), (5414.0, 3));
+        assert_eq!(
+            run.players,
+            [Player {
+                user_id: "u1".into(),
+                weapon: 5,
+                player_role_id: "PR_FRANK".into(),
+                platform: String::new(),
+            }]
+        );
+    }
+
+    #[test]
+    fn a_trial_is_kept_under_the_featured_hunt() {
+        let week = featured_week(0, None);
+        assert_eq!(week, "001");
+        assert_eq!(featured_week(7 * 86_400_000, None), "002");
+        assert_eq!(featured_week(181 * 7 * 86_400_000, None), "001");
+        assert_eq!(featured_week(60_000, Some("1")), "002");
+        assert_eq!(featured_week(60_000, Some("0")), "001");
+        assert_eq!(
+            board_key("Arena_MatchmakerHunt_Elite_0001", "073"),
+            "Arena_MatchmakerHunt_Elite_073"
+        );
+        assert_eq!(
+            board_key("Arena_MatchmakerHunt_Elite_0312", "073"),
+            "Arena_MatchmakerHunt_Elite_073"
+        );
+        for kept in ["Arena_MatchmakerHunt_Elite_073", "Arena_MatchmakerHunt__0001", "T", ""] {
+            assert_eq!(board_key(kept, "073"), kept);
         }
     }
 
