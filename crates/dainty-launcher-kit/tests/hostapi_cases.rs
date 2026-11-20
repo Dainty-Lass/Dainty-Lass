@@ -183,3 +183,31 @@ fn login_queue_replies() {
     assert_eq!(code(429, ""), ErrorCode::RateLimited);
     assert_eq!(code(500, ""), ErrorCode::ServerError);
 }
+
+#[test]
+fn game_ticket_replies() {
+    use dainty_launcher_kit::bridge::types::ErrorCode;
+    use dainty_launcher_kit::net::hostapi::parse::game_ticket_reply;
+    let ticket = format!("DLT_{}", "0a".repeat(24));
+    let code = |status: u16, body: &str| game_ticket_reply(status, body.as_bytes()).unwrap_err().code;
+    let body = format!(r#"{{"ticket":"{ticket}","expiresInSeconds":300}}"#);
+    assert_eq!(game_ticket_reply(200, body.as_bytes()), Ok(Some(ticket)));
+    for bad in [
+        r#"{"ticket":"DLK_0123456789abcdef0123456789abcdef0123456789abcdef"}"#,
+        r#"{"ticket":"DLT_0A0A0A0A0A0A0A0A0A0A0A0A0A0A0A0A0A0A0A0A0A0A0A0A"}"#,
+        r#"{"ticket":"DLT_0a"}"#,
+        r#"{"ticket":5}"#,
+        "{}",
+        "nope",
+    ] {
+        assert_eq!(code(200, bad), ErrorCode::ServerError, "{bad}");
+    }
+    // A server or gateway that predates tickets: the game logs in with the key
+    for status in [403, 404, 405] {
+        assert_eq!(game_ticket_reply(status, br#"{"error":"forbidden"}"#), Ok(None));
+    }
+    assert_eq!(code(401, "{}"), ErrorCode::KeyRejected);
+    assert_eq!(code(403, r#"{"error":"account_banned"}"#), ErrorCode::AccountBanned);
+    assert_eq!(code(429, ""), ErrorCode::RateLimited);
+    assert_eq!(code(500, ""), ErrorCode::ServerError);
+}

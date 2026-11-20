@@ -1,14 +1,17 @@
 //! What the MIT game runtime reads from its environment and command line (spec-runtime-r1 4, 6; RX3): the backend
 //! address (`RUSTIC_ISLES_BACKEND_URL` / `DAINTY_BACKEND_URL`) and a server's launch arguments, which pick the port,
 //! the map URL the engine loads and the player roster. Also every URL the game hands HTTP-1 (spec-runtime-r2 4, 5):
-//! the split, the redirect and the grant path. And the engine command line CL-1 serves (spec-runtime-r4 3).
+//! the split, the redirect and the grant path. And the engine command line CL-1 serves (spec-runtime-r4 3), and the
+//! in-game relay's target (`DAINTY_SERVER_HOST`, `_PORT`, `_FP`).
 #![no_main]
 
 use libfuzzer_sys::fuzz_target;
 use rustic_isles_runtime_core::config::auth::AuthMode;
-use rustic_isles_runtime_core::config::backend::parse_backend_url;
+use rustic_isles_runtime_core::config::backend::{BackendUrl, parse_backend_url};
 use rustic_isles_runtime_core::config::launch::{Mode, parse_launch};
+use rustic_isles_runtime_core::config::relay;
 use rustic_isles_runtime_core::config::roster::{expected_player_count, map_url};
+use rustic_isles_runtime_core::env::Raw;
 use rustic_isles_runtime_core::http::{
     MAX_REPLACEMENT_UNITS, Redirect, grant_path, is_redirect_host, is_under, redirect, split_url,
 };
@@ -24,6 +27,28 @@ fuzz_target!(|data: &[u8]| {
         assert_eq!(parse_backend_url(&url.api_base()), Ok(url.clone()));
         assert!(!url.chat_address()[6..].contains(':') || url.host.starts_with('['));
     }
+    // The relay's target: NUL separates host, port and pin; one that passes listens on the loopback backend's port
+    let mut parts = text.split('\0');
+    let raw = |part: Option<&str>| Raw::from_text(part, relay::READ_CAP);
+    let (host, port, pin) = (raw(parts.next()), raw(parts.next()), raw(parts.next()));
+    let local = BackendUrl {
+        secure: false,
+        host: "127.0.0.1".to_owned(),
+        port: 61100,
+    };
+    if let Some(Ok(target)) = relay::resolve(&local, &host, &port, &pin) {
+        assert_eq!(target.listen, 61100);
+        assert!(target.port != 0 && !target.host.is_empty());
+        assert!(!target.host.contains(['/', '?', '#', '@', ':', ' ']));
+        assert!(
+            target
+                .pin
+                .as_ref()
+                .is_none_or(|p| p.len() == 64 && p.bytes().all(|b| b.is_ascii_hexdigit()))
+        );
+    }
+    let remote = BackendUrl::built_in();
+    assert!(!matches!(relay::resolve(&remote, &host, &port, &pin), Some(Ok(_))));
     // A game URL: a split host is non-empty with no path, query or port, its tail a path; a rewrite stays under the
     // base
     let url: Vec<u16> = text.encode_utf16().collect();

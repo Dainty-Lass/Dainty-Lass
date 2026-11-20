@@ -15,9 +15,9 @@ use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpSocket, TcpStream};
 
 use super::*;
-use crate::net::pinned::certificate_fingerprint;
-use crate::net::pinned::tests::{acceptor, certificate};
-use crate::net::relay_owner::{GameOwnerCheck, TableSource};
+use crate::owner::{GameOwnerCheck, TableSource};
+use crate::pinned::certificate_fingerprint;
+use crate::pinned::test_tls::{acceptor, certificate};
 
 const KEY: &str = "DLK_relaytestkey0123456789abcdefghij";
 const WAIT: Duration = Duration::from_secs(5);

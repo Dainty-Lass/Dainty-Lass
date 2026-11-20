@@ -2,7 +2,9 @@
 // SPDX-License-Identifier: MIT
 
 //! PLAY (RD27 spec §2.4.7): every check, then the relay, the game's config, its arguments and environment, and
-//! the game itself. The key reaches the game only as its launch argument and the server only through the relay.
+//! the game itself. The key stays in the launcher where the server gives game tickets: the game logs in with a
+//! one-time ticket instead. A runtime that carries the relay runs it inside the game, which then needs nothing
+//! from the launcher once started; for an older runtime the launcher runs the relay as before.
 
 use std::collections::BTreeMap;
 use std::ffi::OsString;
@@ -19,7 +21,7 @@ use crate::bridge::types::{ActionResult, ErrorCode, LauncherError, RuntimeState}
 use crate::core::game_language;
 use crate::core::pins::EXE_NAME;
 use crate::net::hostapi::{self, QueueReply, UserInfo};
-use crate::net::relay::{LogSink, PinSink, Relay, RelayConfig, RelayError};
+use crate::net::relay::{ALTERNATE_PORTS, LogSink, PinSink, Relay, RelayConfig, RelayError};
 use crate::net::relay_owner::game_owner_check;
 use crate::net::runtime_files::{
     AGPL_RUNTIME_DLL, LEGACY_RUNTIME_DLL, MIT_RUNTIME_DLL, RuntimeErrorCode, install_local_runtime, set_file_slot,
@@ -36,6 +38,29 @@ use crate::platform::log;
 
 fn error(code: ErrorCode) -> LauncherError {
     LauncherError::new(code)
+}
+
+/// What the runtime logs when it starts its relay; a runtime file without it predates the in-game relay.
+const IN_GAME_RELAY_MARKER: &[u8] = b"dainty-lass:in-game-relay:v1";
+/// The variables naming the server to an in-game relay (`rustic_isles_runtime_core::config::relay`).
+const SERVER_HOST_VAR: &str = "DAINTY_SERVER_HOST";
+const SERVER_PORT_VAR: &str = "DAINTY_SERVER_PORT";
+const SERVER_FP_VAR: &str = "DAINTY_SERVER_FP";
+
+/// Whether the runtime's bytes carry the in-game relay's marker.
+fn carries_relay(bytes: &[u8]) -> bool {
+    bytes
+        .windows(IN_GAME_RELAY_MARKER.len())
+        .any(|window| window == IN_GAME_RELAY_MARKER)
+}
+
+/// Who carries the game's connection to the server.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum RelayHome {
+    /// The runtime, inside the game, listening on this loopback port.
+    Game(u16),
+    /// The launcher's own relay.
+    Launcher,
 }
 
 impl Controller {
@@ -142,11 +167,34 @@ impl Controller {
             self.lock().host.loader_session = Some(session);
         }
 
-        if let Err(failed) = self.start_relay(server).await {
-            self.end_current_loader_session().await;
-            return Err(failed);
-        }
-        if let Err(failed) = self.launch(server, &win64, &key, &user, dlls).await {
+        let home = if self.runtime_carries_relay(&win64).await {
+            self.game_relay_port().await
+        } else {
+            self.start_relay(server).await.map(|()| RelayHome::Launcher)
+        };
+        let home = match home {
+            Ok(home) => home,
+            Err(failed) => {
+                self.end_current_loader_session().await;
+                return Err(failed);
+            }
+        };
+        let login = match hostapi::fetch_game_ticket(&server.endpoint(), &key).await {
+            Ok(Some(ticket)) => ticket,
+            Ok(None) => {
+                log::info("the server gives no game tickets: the game logs in with the account key");
+                key.clone()
+            }
+            Err(failed) => {
+                let relay = self.lock().relay.take();
+                if let Some(relay) = relay {
+                    relay.stop().await;
+                }
+                self.end_current_loader_session().await;
+                return Err(failed);
+            }
+        };
+        if let Err(failed) = self.launch(server, &win64, &login, &user, dlls, home).await {
             let relay = self.lock().relay.take();
             if let Some(relay) = relay {
                 relay.stop().await;
@@ -268,6 +316,32 @@ impl Controller {
         }
     }
 
+    /// Whether the MIT runtime the game will load runs the relay itself.
+    async fn runtime_carries_relay(&self, win64: &Path) -> bool {
+        match tokio::fs::read(win64.join(MIT_RUNTIME_DLL)).await {
+            Ok(bytes) => tokio::task::spawn_blocking(move || carries_relay(&bytes))
+                .await
+                .unwrap_or(false),
+            Err(_) => false,
+        }
+    }
+
+    /// A loopback port the in-game relay can take: the configured one, else the first alternate that binds, as the
+    /// launcher's relay would choose. Any relay of the launcher's still running is stopped first.
+    async fn game_relay_port(&self) -> Result<RelayHome, LauncherError> {
+        let running = self.lock().relay.take();
+        if let Some(relay) = running {
+            relay.stop().await;
+        }
+        let configured = self.config().relay_port;
+        let free = |port: u16| std::net::TcpListener::bind((std::net::Ipv4Addr::LOCALHOST, port)).is_ok();
+        std::iter::once(configured)
+            .chain(ALTERNATE_PORTS)
+            .find(|port| free(*port))
+            .map(RelayHome::Game)
+            .ok_or_else(|| LauncherError::with_detail(ErrorCode::RelayPortBusy, &configured.to_string()))
+    }
+
     async fn start_relay(&self, server: &StoredServer) -> Result<(), LauncherError> {
         let running = self.lock().relay.take();
         if let Some(relay) = running {
@@ -284,7 +358,7 @@ impl Controller {
             RelayOwner::Anyone => None,
             RelayOwner::Custom(check) => Some(Arc::clone(check)),
         };
-        let log_sink: LogSink = Arc::new(|level, line| log::write(level, &format!("relay: {line}")));
+        let log_sink: LogSink = Arc::new(|level, line| log::write(level.into(), &format!("relay: {line}")));
         let me = self.weak();
         let on_pin: PinSink = Arc::new(move |_seen| {
             if let Some(me) = Controller::from_weak(&me) {
@@ -327,9 +401,10 @@ impl Controller {
         &self,
         server: &StoredServer,
         win64: &Path,
-        key: &str,
+        login: &str,
         user: &UserInfo,
         dlls: Vec<InjectDll>,
+        home: RelayHome,
     ) -> Result<(), LauncherError> {
         let prepared = self
             .platform()
@@ -346,7 +421,10 @@ impl Controller {
         );
         let stored = self.stored();
         // The relay's own port, which is not the configured one when Windows had lent that out
-        let port = self.lock().relay.as_ref().map_or(self.config().relay_port, Relay::port);
+        let port = match home {
+            RelayHome::Game(port) => port,
+            RelayHome::Launcher => self.lock().relay.as_ref().map_or(self.config().relay_port, Relay::port),
+        };
         let written = write_game_config(
             &config_dir,
             &ConfigRequest {
@@ -381,7 +459,7 @@ impl Controller {
             error(ErrorCode::LaunchFailed)
         };
         let args = launch_args(&LaunchArgs {
-            key,
+            key: login,
             user_id: &user.user_id,
             username: &user.username,
             windowed: stored.windowed() || written.display_repaired,
@@ -407,6 +485,16 @@ impl Controller {
             ));
         }
         add_economy_env(&mut env, economy.as_ref());
+        for var in [SERVER_HOST_VAR, SERVER_PORT_VAR, SERVER_FP_VAR] {
+            env.remove(var);
+        }
+        if matches!(home, RelayHome::Game(_)) {
+            env.insert(SERVER_HOST_VAR.to_owned(), server.host.clone());
+            env.insert(SERVER_PORT_VAR.to_owned(), server.port.to_string());
+            if let Some(pin) = server.fp.as_deref().and_then(dainty_relay::pins::normalize_pin) {
+                env.insert(SERVER_FP_VAR.to_owned(), pin);
+            }
+        }
         for dll in &dlls {
             log::info(format!(
                 "loading {} into the game, SHA-256 {}",
@@ -437,11 +525,16 @@ impl Controller {
             }
         };
         log::info(format!(
-            "starting {} for {}:{} ({})",
+            "starting {} for {}:{} ({}, relay in the {})",
             plan.describe(),
             server.host,
             server.port,
-            mode_name(server.mode)
+            mode_name(server.mode),
+            if matches!(home, RelayHome::Game(_)) {
+                "game"
+            } else {
+                "launcher"
+            }
         ));
 
         self.lock().game_log.clear();
@@ -512,5 +605,17 @@ impl Controller {
             *count += 1;
             *last = code;
         });
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn only_a_runtime_with_the_marker_carries_the_relay() {
+        assert!(carries_relay(b"\0\0dainty-lass:in-game-relay:v1: relay on"));
+        assert!(!carries_relay(b"dainty-lass:in-game-relay:v"));
+        assert!(!carries_relay(b""));
     }
 }

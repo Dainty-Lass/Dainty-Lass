@@ -41,6 +41,8 @@ pub const LOGIN_QUEUE_PATH: &str = "/dainty/api/LoginQueue";
 pub const NEWS_PATH: &str = "/content/v1/news";
 /// The content server's branding index.
 pub const BRANDING_PATH: &str = "/content/v1/branding";
+/// Trades the key for the game's one-time login (Dainty Lass's own route).
+pub const GAME_TICKET_PATH: &str = "/dainty/api/GameTicket";
 /// The key holder's online playtime (Dainty Lass's own route).
 pub const PLAYTIME_PATH: &str = "/dainty/api/Playtime";
 
@@ -251,6 +253,29 @@ fn log_status(endpoint: &Endpoint, path: &str, status: u16) {
             "{}:{}{path} answered {status} ({kind})",
             endpoint.host, endpoint.port
         ));
+    }
+}
+
+/// A one-time login for the game in place of the key, or none from a server that predates tickets. The ticket is
+/// a secret until the game redeems it, so it is redacted from the log like the key.
+pub async fn fetch_game_ticket(endpoint: &Endpoint, key: &str) -> Result<Option<String>, LauncherError> {
+    if !is_plausible_account_key(key) {
+        return Err(LauncherError::new(ErrorCode::KeyRejected));
+    }
+    let options = RequestOptions {
+        method: Method::POST,
+        ..get(USER_INFO_TIMEOUT, USER_INFO_MAX_BYTES, key_headers(endpoint, Some(key)))
+    };
+    match request(endpoint, GAME_TICKET_PATH, options).await {
+        Ok(res) => {
+            log_status(endpoint, GAME_TICKET_PATH, res.status);
+            let ticket = parse::game_ticket_reply(res.status, &res.body)?;
+            if let Some(ticket) = &ticket {
+                log::register_secret(ticket);
+            }
+            Ok(ticket)
+        }
+        Err(err) => Err(logged_failure(endpoint, GAME_TICKET_PATH, &err)),
     }
 }
 

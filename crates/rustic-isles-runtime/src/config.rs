@@ -7,6 +7,7 @@ use rustic_isles_runtime_core::config::auth::{self, AuthMode};
 use rustic_isles_runtime_core::config::backend::{self, Backend, BackendUrl};
 use rustic_isles_runtime_core::config::hub::{self, AfkSetting, HubCap, Sources};
 use rustic_isles_runtime_core::config::launch::{Launch, PortError, parse_launch};
+use rustic_isles_runtime_core::config::relay::{self, Refusal, RelayTarget};
 use rustic_isles_runtime_core::config::{pacing, trials};
 use rustic_isles_runtime_core::{wide, wide_contains};
 use std::sync::OnceLock;
@@ -38,6 +39,17 @@ pub fn backend_url() -> BackendUrl {
     BACKEND
         .get()
         .map_or_else(BackendUrl::built_in, |backend| backend.url.clone())
+}
+
+/// The in-game relay's target, when the launcher named a server; read once, by Init on a client.
+pub fn relay_target() -> Option<Result<RelayTarget, Refusal>> {
+    let read = |name| win::env_raw(name, relay::READ_CAP);
+    relay::resolve(
+        &backend_url(),
+        &read(relay::HOST_VAR),
+        &read(relay::PORT_VAR),
+        &read(relay::PIN_VAR),
+    )
 }
 
 /// Init's role step: `-server` anywhere on the command line (case-sensitive), then for a server the auth mode and

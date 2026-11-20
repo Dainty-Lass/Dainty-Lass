@@ -1,0 +1,40 @@
+# Copyright (c) 2026 Silent Spud
+# SPDX-License-Identifier: MIT
+
+[package]
+name = "dainty-relay"
+description = "The game's pinned relay to its server, run by the runtime inside the game or by the launcher"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license = "MIT"
+repository.workspace = true
+publish.workspace = true
+
+[dependencies]
+dainty-protocol.workspace = true
+# End-to-end header rules shared with the server's proxies
+dainty-proxy.workspace = true
+bytes.workspace = true
+futures-util.workspace = true
+hex.workspace = true
+http-body-util.workspace = true
+hyper.workspace = true
+hyper-util = { workspace = true, features = ["tokio", "client-legacy", "http1"] }
+rustls.workspace = true
+sha2.workspace = true
+tokio = { workspace = true, features = ["net", "time", "io-util", "sync", "macros", "rt"] }
+tokio-rustls.workspace = true
+tokio-util.workspace = true
+tower.workspace = true
+# Only for `test-support`'s self-signed certificate
+rcgen = { workspace = true, optional = true }
+
+[dev-dependencies]
+rcgen.workspace = true
+
+[features]
+test-support = ["dep:rcgen"]
+
+[lints]
+workspace = true

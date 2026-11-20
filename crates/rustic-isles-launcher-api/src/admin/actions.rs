@@ -202,6 +202,7 @@ impl LauncherApiAdmin {
                     })
                     .await
                     .map_err(failed)?;
+                shared.auth().revoke_game_tickets(&target.account.to_string());
                 shared.kick_player(&target.user_id, "banned by the host").await;
                 state.forget_status();
             }

@@ -449,6 +449,40 @@ pub async fn get_user_info(call: Call) -> Response {
     util::with_header(util::ok(&body), "x-dainty-account-id", &holder.account.to_string())
 }
 
+/// `POST /dainty/api/GameTicket`: a one-time login for the key holder's game, in place of the key on its command
+/// line (`rustic_isles_auth::game_tickets`). Refused as GetUserInfo refuses.
+pub async fn game_ticket(call: Call) -> Response {
+    let Some(store) = store_of(&call.shared) else {
+        return util::no_store(call.route, &call.request_id);
+    };
+    let Some((holder, _)) = key_holder(&call.shared, &store, call.request.headers()).await else {
+        return json(
+            StatusCode::UNAUTHORIZED,
+            &object(vec![("error", Value::from("unauthorized"))]),
+        );
+    };
+    if !holder.eligible() {
+        let banned = holder
+            .launcher
+            .as_ref()
+            .is_some_and(|l| l.status == OperationalStatus::Banned);
+        let code = if banned { "account_banned" } else { "account_disabled" };
+        return json(StatusCode::FORBIDDEN, &object(vec![("error", Value::from(code))]));
+    }
+    let ticket = call
+        .shared
+        .auth()
+        .mint_game_ticket(rustic_isles_auth::game_tickets::TicketHolder {
+            user_id: holder.user_id.clone(),
+            account_id: holder.account.to_string(),
+        });
+    let seconds = rustic_isles_auth::game_tickets::TTL_MS / 1000;
+    util::ok(&object(vec![
+        ("ticket", Value::from(ticket)),
+        ("expiresInSeconds", Value::from(seconds)),
+    ]))
+}
+
 /// `GET /dainty/api/ServerStatus`: the server's status, the full view for an eligible key holder.
 pub async fn server_status(call: Call) -> Response {
     let Some(store) = store_of(&call.shared) else {

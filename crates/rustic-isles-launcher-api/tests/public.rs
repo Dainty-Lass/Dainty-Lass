@@ -1352,7 +1352,7 @@ async fn seams() {
 }
 
 #[test]
-fn this_half_registers_its_47_rows() {
+fn this_half_registers_its_48_rows() {
     let mut public = rustic_isles::Handlers::new();
     rustic_isles_launcher_api::register_public(&mut public);
     let mut admin = rustic_isles::Handlers::new();
@@ -1367,7 +1367,7 @@ fn this_half_registers_its_47_rows() {
                 && r.when != rustic_isles::When::Rifts
         })
         .collect();
-    assert_eq!(reforged.len(), 69);
+    assert_eq!(reforged.len(), 70);
     let (mut p, mut a) = (0, 0);
     for row in &reforged {
         let in_public = public.contains(row.service, row.method, row.path);
@@ -1379,7 +1379,7 @@ fn this_half_registers_its_47_rows() {
             a += 1;
         }
     }
-    assert_eq!((p, a), (47, 22));
+    assert_eq!((p, a), (48, 22));
 }
 
 #[tokio::test]
@@ -1432,4 +1432,35 @@ async fn login_queue() {
         .await
         .assert(200, r#"{"admitted":true}"#);
     assert_eq!(rig.send(keyed("DELETE", "DLK_nobody")).await.status, 401);
+}
+
+#[tokio::test]
+async fn a_game_ticket_logs_the_game_in_once_for_the_key_holder() {
+    let rig = Rig::new(common::Options {
+        settings: settings(&[("REGISTRATION_MODE", "OPEN"), ("AUTH_MODE", "APIKEY")]),
+        ..options(true)
+    })
+    .await;
+    let key = register(&rig, json!({"Username": "Fox_9"})).await.json()["UUK"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    let mint = |key: &str| Request1::new("POST", "/dainty/api/GameTicket").header("x-dainty-user-api-key", key);
+    assert_eq!(rig.send(mint("DLK_nope")).await.status, 401);
+    let minted = rig.send(mint(&key)).await;
+    assert_eq!(minted.status, 200, "{}", minted.body);
+    assert_eq!(minted.json()["expiresInSeconds"], 300);
+    let ticket = minted.json()["ticket"].as_str().unwrap().to_owned();
+    assert!(ticket.starts_with("DLT_") && ticket.len() == 52);
+
+    let login = |code: &str| {
+        Request1::new("POST", "/account/api/oauth/token")
+            .json(&json!({"grant_type": "exchange_code", "exchange_code": code}))
+    };
+    let first = rig.send(login(&ticket)).await;
+    assert_eq!(first.status, 200, "{}", first.body);
+    assert!(first.json()["access_token"].is_string());
+    assert_eq!(rig.send(login(&ticket)).await.status, 400);
+    // The key itself still logs in, for a launcher that predates tickets
+    assert_eq!(rig.send(login(&key)).await.status, 200);
 }

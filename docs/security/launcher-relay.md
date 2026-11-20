@@ -2,9 +2,10 @@
 
 # Security checklist: the launcher's local relay and its owner check (RX3)
 
-The checklist for the relay the launcher runs while the game plays: `net::relay` and `net::relay_owner` in
-`crates/dainty-launcher-kit` (RL11, spec `docs/port/spec-rd27-launcher.md` §2.6.4 and §2.6.5, RD21). The gateway it talks to
-has its own list in [gateway.md](gateway.md).
+The checklist for the relay that carries the game's traffic while it plays: `relay` and `owner` in
+`crates/dainty-relay` (RL11, spec `docs/port/spec-rd27-launcher.md` §2.6.4 and §2.6.5, RD21). The runtime runs it inside
+the game when it carries it, and the launcher runs it for an older runtime ([in-game-relay.md](../in-game-relay.md)).
+The gateway it talks to has its own list in [gateway.md](gateway.md).
 
 How to use it: before the MIT relay replaces the shell's, copy this list into the review, check each item in the code
 (not from memory), link the code or test that shows it, and sign at the end with the date and the commit reviewed.
@@ -13,7 +14,8 @@ An item that does not hold is a bug to fix first, not a box to leave open.
 ## What it is and where the boundary is
 
 The game is pointed at `http://127.0.0.1:<port>` and believes it is talking to the server. The relay carries what it
-sends, the account key (`x-dainty-user-api-key`) included, to the invite's server. Any program on the PC, and any web
+sends, its login (a game ticket, or the key from a server that predates tickets) and its session token included, to
+the invite's server. Any program on the PC, and any web
 page in a browser on it, can also open 127.0.0.1, so the relay is where a local stranger would try to borrow the
 player's key or session.
 
@@ -27,8 +29,9 @@ player's key or session.
   key.
 - **Process table (Windows):** `System32\netstat.exe -ano -p tcp`, read hidden.
 
-Code: `crates/dainty-launcher-kit/src/net/relay.rs`, `relay/local.rs`, `relay_owner.rs`, `relay_owner/table.rs`; tests in
-`relay/tests.rs` and each file's unit tests.
+Code: `crates/dainty-relay/src/relay.rs`, `relay/local.rs`, `owner.rs`, `owner/table.rs`; tests in `relay/tests.rs` and
+each file's unit tests. The launcher's table source is `crates/dainty-launcher-kit/src/net/relay_owner.rs` (netstat); the
+runtime's is `crates/rustic-isles-runtime/src/ffi/tcp_table.rs` (the IP helper), started from `relay.rs` there.
 
 Fuzz targets in `fuzz` (to be added by the integration pass; RL11 does not touch `fuzz/`):
 
@@ -105,6 +108,27 @@ Fuzz targets in `fuzz` (to be added by the integration pass; RL11 does not touch
       hosts, ports and the fingerprint seen (`the_account_key_never_reaches_the_log`). Upstream errors go through
       `platform::log::describe_error`, which redacts registered secrets.
 
+### In the game
+
+- [ ] The runtime starts the relay only on a client, only when `DAINTY_SERVER_HOST` is set, and only when the backend
+      address is `http` on `127.0.0.1` or `localhost`; the host, port and pin are checked as
+      `rustic_isles_runtime_core::config::relay` does, and again by `check_endpoint` before binding. A refusal is
+      logged by its reason, never its value (`config::relay` tests, the `rustic_isles_runtime_config` fuzz target).
+- [ ] The owner check's pid is the game's own (`std::process::id()`); the IP helper's table is formatted as netstat's
+      lines so the same parser and retries decide (`ffi/tcp_table.rs`). Under Wine (`ntdll!wine_get_version`) there
+      is no check, as off Windows in the launcher.
+- [ ] The runtime logs relay lines only through its log, which never carries a header value; a pin mismatch logs the
+      fingerprint seen.
+
+### Game tickets
+
+- [ ] The launcher sends the key only to `POST /dainty/api/GameTicket` on its own server, and accepts only `DLT_` and
+      48 lowercase hex digits back (`parse::game_ticket_reply`). The ticket is registered for redaction before it is
+      logged anywhere (`a_runtime_that_carries_the_relay_runs_it_in_the_game_which_logs_in_with_a_ticket`).
+- [ ] A ticket is redeemed once, within five minutes, by the `APIKEY` login only, kept as its SHA-256 in memory with
+      at most 4096 pending; a ban drops the account's tickets, and the login checks eligibility again
+      (`game_tickets` tests, `a_game_ticket_logs_the_game_in_once_for_the_key_holder`).
+
 ## Open points
 
 - Off Windows there is no owner check (RD21): any local program that sets a loopback Host and no Origin is served.
@@ -112,7 +136,8 @@ Fuzz targets in `fuzz` (to be added by the integration pass; RL11 does not touch
 - The QoS listener has no owner check. It answers only the fixed QoS page and forwards nothing, so a stranger learns
   only that the relay runs.
 - A program that shares the game's pid (code injected into the game) passes the owner check. The relay can't tell;
-  RD9's loader checks are the defence there.
+  RD9's loader checks are the defence there. In the game the relay shares the process with everything the game
+  loads, which is no change: the game held the key on its command line before.
 - The owner check runs once per connection; a connection the game hands to another process keeps its pass. Windows
   does not let a socket change owner without the game's help.
 
