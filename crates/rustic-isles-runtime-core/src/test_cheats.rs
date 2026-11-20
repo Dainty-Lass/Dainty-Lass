@@ -7,8 +7,34 @@ use crate::names::{Kind, Matcher};
 /// The variable and its `env_value` cap.
 pub const VARIABLE: (&str, usize) = ("DAINTY_TEST_CHEATS", 15);
 
-/// What a Behemoth's received damage is multiplied by: past any 1.14.7 health pool from one hit.
-pub const ONE_HIT_FACTOR: f32 = 100_000.0;
+/// A Behemoth's health is a float on its gameplay-ability attribute set, changed by gameplay effects rather than
+/// `TakeDamage` (whose `Receive*Damage` events only get a copy). 1.14.7's `ArchonBehemoth::GetCurrentHealth`
+/// (RVA 0x188AE40) and `GetMaxHealth` (0x188C4E0) read these offsets on this class.
+pub const HEALTH_SET_CLASS: &str = "ArchonHealthAttributeSet";
+/// `CurrentHealth`, a replicated float (the class's property table).
+pub const HEALTH: usize = 0x30;
+/// `CurrentShield`, which takes a hit before health: held at 0.
+pub const SHIELD: usize = 0x34;
+/// `MaxHealth`.
+pub const MAX_HEALTH: usize = 0x38;
+/// What an attribute set must belong to (its outer, or its outer's outer) to be held low.
+pub const BEHEMOTH_CLASS: &str = "ArchonBehemoth";
+/// How many outers up the Behemoth may be.
+pub const MAX_OWNER_STEPS: usize = 2;
+/// How often the found sets are held, in milliseconds.
+pub const HOLD_INTERVAL_MS: u64 = 250;
+/// Object array slots looked at each frame: the whole array (a few hundred thousand) in a few seconds, so a fresh
+/// Behemoth is full for about that long, at a small fixed cost a frame.
+pub const SWEEP_SLOTS: usize = 4_096;
+/// The health a Behemoth is held at: any hit takes it past 0.
+pub const HELD_HEALTH: f32 = 1.0;
+/// Behemoths whose first hold is logged.
+pub const HOLD_LOG_BUDGET: u32 = 16;
+
+/// The health to write over `current`, `None` when it is already at or below the hold (or not a number).
+pub fn hold(current: f32) -> Option<f32> {
+    (current.is_finite() && current > HELD_HEALTH).then_some(HELD_HEALTH)
+}
 
 /// The Gauntlet's state component and the shipping build's own cheat on it: a flag `AdvanceToNextState` reads,
 /// making the round in progress the level's last (1.14.7 RVA 0x1B15550).
@@ -82,6 +108,25 @@ pub mod lines {
         format!("[TestCheats] CheatEndGauntletEarly on GauntletGameStateComponent {component:#x}: called={called}")
     }
 
+    /// The first time each Behemoth's health is held (budgeted).
+    pub fn health_held(behemoth: &str, set: usize, before: f32, max: f32) -> String {
+        format!("[TestCheats] one-hit kills: {behemoth} health {before:.1} of {max:.1} held at 1 (set {set:#x})")
+    }
+
+    /// A scan found a different number of Behemoth health sets than the last (budgeted).
+    pub fn health_sets(count: usize) -> String {
+        format!("[TestCheats] one-hit kills: {count} Behemoth health set(s) found")
+    }
+
+    /// A held Behemoth found above the hold again: the game restored it, so a hit may not kill (budgeted).
+    pub fn health_restored(behemoth: &str, health: f32) -> String {
+        format!("[TestCheats] one-hit kills: {behemoth} health back at {health:.1}; held at 1 again")
+    }
+
+    /// The scan could not find the class, so no health is held.
+    pub const HEALTH_SET_MISSING: &str =
+        "[TestCheats] ArchonHealthAttributeSet not found; one-hit kills are off for this process";
+
     /// The function could not be found on the component's class.
     pub const GAUNTLET_CHEAT_MISSING: &str =
         "[TestCheats] GauntletGameStateComponent.CheatEndGauntletEarly not found; the level runs every round";
@@ -137,7 +182,21 @@ mod tests {
     }
 
     #[test]
+    fn holds_only_above_one() {
+        assert_eq!(hold(52_000.0), Some(1.0));
+        assert_eq!(hold(1.5), Some(1.0));
+        assert_eq!(hold(1.0), None);
+        assert_eq!(hold(0.0), None);
+        assert_eq!(hold(f32::NAN), None);
+        assert_eq!(hold(f32::INFINITY), None);
+    }
+
+    #[test]
     fn the_lines() {
+        assert_eq!(
+            lines::health_held("mcbeaver_normal_bp_C_1", 0xab, 5200.0, 5200.0),
+            "[TestCheats] one-hit kills: mcbeaver_normal_bp_C_1 health 5200.0 of 5200.0 held at 1 (set 0xab)"
+        );
         assert_eq!(
             lines::enabled(Cheats::parse(Some("kills"))),
             "[TestCheats] on (DAINTY_TEST_CHEATS): one_hit_kills=true end_gauntlet_early=false"

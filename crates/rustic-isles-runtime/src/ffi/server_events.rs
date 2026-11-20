@@ -76,6 +76,12 @@ pub fn register(server: bool) {
     }
     if let Some(handler) = tick {
         let _ = handlers::register_tick(handler);
+        let _ = handlers::register_tick(TickHandler {
+            slice: SLICE,
+            order: matchers::TICK_ORDER,
+            before: None,
+            after: Some(hold_behemoth_health),
+        });
     }
 }
 
@@ -114,9 +120,6 @@ fn params_ptr(params: usize) -> Option<usize> {
 fn damage_factor() -> Option<f32> {
     static FACTOR: OnceLock<Option<f32>> = OnceLock::new();
     *FACTOR.get_or_init(|| {
-        if cheats().one_hit_kills {
-            return Some(test_cheats::ONE_HIT_FACTOR);
-        }
         let allow = win::env_value(vars::ALLOW_DAMAGE_DEBUG.0, vars::ALLOW_DAMAGE_DEBUG.1);
         let factor = win::env_value(vars::DEBUG_DAMAGE_MULTIPLIER.0, vars::DEBUG_DAMAGE_MULTIPLIER.1);
         core::multiplier(
@@ -171,6 +174,132 @@ fn cheats() -> Cheats {
         cheats
     })
 }
+
+/// Where the sweep of the object array goes on next frame.
+static SWEEP_AT: AtomicUsize = AtomicUsize::new(0);
+/// Whether each class seen is a health set class; classes are never collected, so asked once a process.
+static SET_CLASSES: LazyLock<Mutex<HashMap<usize, bool>>> = LazyLock::new(|| Mutex::new(HashMap::new()));
+/// Each Behemoth health set found, with its Behemoth and whether it has been held yet.
+static SETS: LazyLock<Mutex<HashMap<usize, (usize, bool)>>> = LazyLock::new(|| Mutex::new(HashMap::new()));
+/// When the sets were last held.
+static HELD_AT: Mutex<Option<std::time::Instant>> = Mutex::new(None);
+static HOLD_LOGS: AtomicU32 = AtomicU32::new(0);
+static COUNT_LOGS: AtomicU32 = AtomicU32::new(0);
+static LAST_COUNT: AtomicUsize = AtomicUsize::new(0);
+
+/// The Behemoth an attribute set belongs to: its outer, or that one's outer.
+fn behemoth_owning(set: usize) -> Option<usize> {
+    let mut object = set;
+    for _ in 0..test_cheats::MAX_OWNER_STEPS {
+        object = ptr_at(object + rustic_isles_runtime_core::offsets::layout::UOBJECT_OUTER);
+        if !live(object) {
+            return None;
+        }
+        if reflect::is_a(object, test_cheats::BEHEMOTH_CLASS) {
+            return Some(object);
+        }
+    }
+    None
+}
+
+/// This frame's share of the object array (a full scan in one frame stalled the server for up to 0.6 s), through
+/// the census's region cache; new Behemoth health sets join `sets`.
+fn sweep(sets: &mut HashMap<usize, (usize, bool)>) {
+    let cache = super::census::RegionCache::default();
+    let Some(engine) = engine::engine_over(&cache) else {
+        return;
+    };
+    let Ok(mut classes) = SET_CLASSES.lock() else {
+        return;
+    };
+    let mut found = Vec::new();
+    let start = SWEEP_AT.load(Ordering::Relaxed);
+    let next = rustic_isles_runtime_core::reflect::scan_slice(&engine, start, test_cheats::SWEEP_SLOTS, |header| {
+        let class = header.class;
+        let is_set = *classes.entry(class).or_insert_with(|| {
+            rustic_isles_runtime_core::reflect::class_is_a(&engine, class, test_cheats::HEALTH_SET_CLASS)
+        });
+        if is_set && !sets.contains_key(&header.object) {
+            found.push(header.object);
+        }
+    });
+    SWEEP_AT.store(next, Ordering::Relaxed);
+    if next == 0 && !classes.values().any(|is_set| *is_set) {
+        static MISSING: AtomicBool = AtomicBool::new(false);
+        if !MISSING.swap(true, Ordering::Relaxed) {
+            log::line(test_cheats::lines::HEALTH_SET_MISSING);
+        }
+    }
+    drop(classes);
+    for set in found {
+        if let Some(behemoth) = behemoth_owning(set) {
+            sets.insert(set, (behemoth, false));
+        }
+    }
+}
+
+/// One-hit kills: every Behemoth's health is held at 1, so the next hit of any size kills it.
+fn hold_behemoth_health(_engine: usize, _delta: f32) {
+    if detaching() || !cheats().one_hit_kills {
+        return;
+    }
+    let Ok(mut sets) = SETS.lock() else {
+        return;
+    };
+    sweep(&mut sets);
+    let now = std::time::Instant::now();
+    let due = HELD_AT.lock().is_ok_and(|mut held_at| {
+        let due = held_at.is_none_or(|at| now.duration_since(at) >= HOLD_EVERY);
+        if due {
+            *held_at = Some(now);
+        }
+        due
+    });
+    if !due {
+        return;
+    }
+    sets.retain(|&set, &mut (behemoth, _)| live(set) && live(behemoth));
+    if LAST_COUNT.swap(sets.len(), Ordering::Relaxed) != sets.len()
+        && COUNT_LOGS.fetch_add(1, Ordering::Relaxed) < test_cheats::HOLD_LOG_BUDGET
+    {
+        log::line(&test_cheats::lines::health_sets(sets.len()));
+    }
+    for (&set, (behemoth, held)) in sets.iter_mut() {
+        let span = test_cheats::MAX_HEALTH + 4 - test_cheats::HEALTH;
+        if !readable_unaligned(set + test_cheats::HEALTH, span) {
+            continue;
+        }
+        // Writes only when above the hold, so a held Behemoth costs two reads
+        if read_unaligned::<f32>(set + test_cheats::SHIELD).is_some_and(|shield| shield > 0.0) {
+            put::<f32>(set + test_cheats::SHIELD, 0.0);
+        }
+        let Some(before) = read_unaligned::<f32>(set + test_cheats::HEALTH) else {
+            continue;
+        };
+        let Some(after) = test_cheats::hold(before) else {
+            continue;
+        };
+        if !put::<f32>(set + test_cheats::HEALTH, after) {
+            continue;
+        }
+        let first = !*held;
+        *held = true;
+        if HOLD_LOGS.fetch_add(1, Ordering::Relaxed) >= test_cheats::HOLD_LOG_BUDGET {
+            continue;
+        }
+        let name = reflect::engine()
+            .and_then(|engine| engine.object_name(*behemoth))
+            .unwrap_or_else(|| "?".to_owned());
+        log::line(&if first {
+            let max = read_unaligned::<f32>(set + test_cheats::MAX_HEALTH).unwrap_or(f32::NAN);
+            test_cheats::lines::health_held(&name, set, before, max)
+        } else {
+            test_cheats::lines::health_restored(&name, before)
+        });
+    }
+}
+
+const HOLD_EVERY: std::time::Duration = std::time::Duration::from_millis(test_cheats::HOLD_INTERVAL_MS);
 
 static GAUNTLET_CHEATED: AtomicUsize = AtomicUsize::new(0);
 

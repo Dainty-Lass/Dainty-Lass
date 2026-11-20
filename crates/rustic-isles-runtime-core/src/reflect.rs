@@ -168,6 +168,50 @@ pub fn scan(engine: &Engine, mut visit: impl FnMut(&Header) -> bool) -> Option<u
     None
 }
 
+/// Visits at most `budget` array slots from index `start`, in the order [`scan`] does; returns the index to start the
+/// next call at, 0 once past the last object. A chunk is read only for its slots in the range.
+pub fn scan_slice(engine: &Engine, start: usize, budget: usize, mut visit: impl FnMut(&Header)) -> usize {
+    let memory = engine.memory();
+    let Some(count) = engine.object_count().and_then(|count| usize::try_from(count).ok()) else {
+        return 0;
+    };
+    let objects = engine.objects();
+    let Some(table) = at(objects, layout::OBJECTS_CHUNKS).and_then(|addr| memory.ptr_at(addr)) else {
+        return 0;
+    };
+    if start >= count {
+        return 0;
+    }
+    let end = start.saturating_add(budget).min(count);
+    let mut index = start;
+    let mut items = Vec::new();
+    while index < end {
+        let chunk = index / layout::OBJECTS_PER_CHUNK;
+        let in_chunk = index % layout::OBJECTS_PER_CHUNK;
+        let take = (end - index).min(layout::OBJECTS_PER_CHUNK - in_chunk);
+        let chunk_items = at(table, chunk * 8).and_then(|addr| memory.ptr_at(addr)).unwrap_or(0);
+        items.resize(take * layout::OBJECT_ITEM_SIZE, 0);
+        let first = chunk_items.checked_add(in_chunk * layout::OBJECT_ITEM_SIZE);
+        if chunk_items != 0
+            && let Some(first) = first
+            && memory.read(first, &mut items)
+        {
+            for item in items.as_chunks::<{ layout::OBJECT_ITEM_SIZE }>().0 {
+                let mut pointer = [0u8; 8];
+                pointer.copy_from_slice(&item[..8]);
+                if let Ok(object) = usize::try_from(u64::from_le_bytes(pointer))
+                    && object != 0
+                    && let Some(header) = header(memory, object)
+                {
+                    visit(&header);
+                }
+            }
+        }
+        index += take;
+    }
+    if end >= count { 0 } else { end }
+}
+
 fn header_name(engine: &Engine, header: &Header) -> Option<String> {
     let text = engine.decode_name(header.name_index)?;
     Some(names::with_number(names::short(&text), header.name_number))
@@ -466,6 +510,36 @@ mod tests {
             Some("WidgetBlueprintGeneratedClass")
         );
         assert_eq!(class_name_of(&engine, label).as_deref(), Some("TextBlock"));
+    }
+
+    #[test]
+    fn slices_visit_what_a_scan_does() {
+        let mut g = graph();
+        for n in 0..5 {
+            g.world.object(g.text_block, &format!("Label{n}"), 0);
+        }
+        let memory = g.world.memory();
+        let engine = Engine::new(&memory, OBJECTS, NAMES, None);
+        let mut whole = Vec::new();
+        scan(&engine, |header| {
+            whole.push(header.object);
+            false
+        });
+        let mut sliced = Vec::new();
+        let mut start = 0;
+        loop {
+            start = scan_slice(&engine, start, 3, |header| sliced.push(header.object));
+            if start == 0 {
+                break;
+            }
+        }
+        assert!(whole.len() > 5);
+        assert_eq!(sliced, whole);
+        assert_eq!(
+            scan_slice(&engine, usize::MAX, 3, |_| {}),
+            0,
+            "past the end starts over"
+        );
     }
 
     #[test]
