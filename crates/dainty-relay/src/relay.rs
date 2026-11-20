@@ -7,6 +7,7 @@
 //! owner check of [`crate::owner`]) and sends the key only to its own server.
 
 pub mod local;
+pub mod login;
 
 #[cfg(test)]
 mod tests;
@@ -21,7 +22,7 @@ use std::time::Duration;
 
 use bytes::Bytes;
 use http_body_util::combinators::BoxBody;
-use http_body_util::{BodyExt, Empty, Full};
+use http_body_util::{BodyExt, Empty, Full, Limited};
 use hyper::body::Incoming;
 use hyper::header::{
     CACHE_CONTROL, CONNECTION, CONTENT_ENCODING, CONTENT_LENGTH, CONTENT_TYPE, HOST, HeaderName, HeaderValue,
@@ -208,7 +209,7 @@ struct Route {
     home: bool,
     host: HeaderValue,
     connector: Connector,
-    client: Client<Connector, Incoming>,
+    client: Client<Connector, ResponseBody>,
 }
 
 #[derive(Default)]
@@ -230,6 +231,8 @@ struct Shared {
     cancel: CancellationToken,
     /// The address the server's QoS target names and the one this relay holds, when they differ
     qos_moved: Option<(String, String)>,
+    /// The game's login tickets, renewed on each login (`login`)
+    login: Mutex<login::LoginTickets>,
 }
 
 /// A running relay. Dropping it stops it too, without waiting.
@@ -266,6 +269,7 @@ impl Relay {
             on_pin_mismatch: config.on_pin_mismatch,
             cancel: CancellationToken::new(),
             qos_moved,
+            login: Mutex::default(),
         });
         shared.log(
             Level::Info,
@@ -408,6 +412,10 @@ impl Route {
 impl Shared {
     fn log(&self, level: Level, line: &str) {
         (self.log)(level, line);
+    }
+
+    fn lock_login(&self) -> std::sync::MutexGuard<'_, login::LoginTickets> {
+        self.login.lock().unwrap_or_else(PoisonError::into_inner)
     }
 
     fn current(&self) -> Arc<Route> {
@@ -694,6 +702,24 @@ async fn forward(shared: &Arc<Shared>, request: Request<Incoming>, target: &str)
     let Ok(uri) = format!("{UPSTREAM_ORIGIN}{target}").parse::<Uri>() else {
         return json_error(StatusCode::BAD_REQUEST, "bad_request");
     };
+    let signing_in = parts.method == Method::POST && login::is_login(target) && route.home;
+    let mut swapped = false;
+    let body = if signing_in {
+        let Ok(read) = Limited::new(body, login::MAX_LOGIN_BODY).collect().await else {
+            return json_error(StatusCode::PAYLOAD_TOO_LARGE, "login_too_large");
+        };
+        let mut bytes = read.to_bytes().to_vec();
+        swapped = shared.lock_login().outgoing(&mut bytes);
+        if swapped {
+            shared.log(Level::Info, "relay renewed the game's login ticket");
+        }
+        // Read whole, so sent whole: one framing upstream
+        headers.remove(TRANSFER_ENCODING);
+        headers.insert(CONTENT_LENGTH, HeaderValue::from(bytes.len()));
+        full(bytes)
+    } else {
+        body.boxed()
+    };
     let mut upstream = Request::new(body);
     *upstream.method_mut() = parts.method;
     *upstream.uri_mut() = uri;
@@ -703,6 +729,10 @@ async fn forward(shared: &Arc<Shared>, request: Request<Incoming>, target: &str)
     match route.client.request(upstream).await {
         Ok(answer) => {
             shared.follow_redirect(answer.headers());
+            if signing_in {
+                let refresh = answer.headers().get(login::REFRESH_HEADER).map(HeaderValue::as_bytes);
+                shared.lock_login().incoming(answer.status().as_u16(), refresh, swapped);
+            }
             let (parts, body) = answer.into_parts();
             let mut headers = answer_headers(&parts.headers);
             let body = match &shared.qos_moved {
@@ -860,7 +890,11 @@ fn answer_headers(headers: &HeaderMap) -> HeaderMap {
     dainty_proxy::end_to_end(headers, |name| {
         matches!(
             name,
-            REDIRECT_HOST_HEADER | REDIRECT_PORT_HEADER | REDIRECT_FINGERPRINT_HEADER | SESSION_TICKET_HEADER
+            REDIRECT_HOST_HEADER
+                | REDIRECT_PORT_HEADER
+                | REDIRECT_FINGERPRINT_HEADER
+                | SESSION_TICKET_HEADER
+                | login::REFRESH_HEADER
         )
     })
 }

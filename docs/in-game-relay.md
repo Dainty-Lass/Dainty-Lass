@@ -27,6 +27,12 @@ launcher can close once the game is up and the key never enters the game.
 5. The game logs in at `/account/api/oauth/token` with the ticket as its `exchange_code`. `APIKEY` mode redeems a
    `DLT_` value once, within five minutes, checks the account is still eligible, and answers the game token as it
    does for a key. A second use, an expired ticket or one revoked by a ban is 400 or 403.
+6. **Back at the menu.** The game keeps the ticket it was started with and sends it again when it signs in from its
+   menu. Each ticket login's answer carries the session's next ticket in `x-dainty-refresh-ticket` (single-use, 24
+   hours). The relay keeps it, strips it before the game sees the answer, and on the game's next login swaps the
+   spent ticket in the body for it (`dainty_relay::relay::login`). Each login hands on another, so a session holds
+   one live ticket at a time. A swap the server refuses is forgotten; one lost on the way is kept for the game's
+   retry. This works in whichever relay runs, the game's or the launcher's.
 
 ## What changed where
 
@@ -42,9 +48,10 @@ launcher can close once the game is up and the key never enters the game.
 
 ## Limits
 
-- A ticket is single-use. A game that logs in a second time in one session (a return to the title screen that signs
-  in again, if 1.14.7 does that) is refused; Paradox's `LAUNCHER` mode, which the game ran against, has the same
-  one-time code. Restarting the game from the launcher mints a new one.
+- A session's next ticket lives 24 hours: a game left at its menu longer than that cannot sign in again until it is
+  restarted from the launcher. Tickets live in the server's memory, so a server restart ends them the same way.
+- The relay finds the ticket in the login's body (read whole, up to 16 KiB) at a route ending in
+  `/account/api/oauth/token`, and only on the home server.
 - The in-game relay binds the port the launcher chose. If Windows lends that port out in the moment between the
   launcher's check and the game's start, the relay moves to an alternate port the game was not told about, and the
   game cannot reach the server; PLAY again picks a free one.
@@ -65,4 +72,5 @@ Nothing here is played against the real client in CI.
    launcher`).
 5. Proton: PLAY through the inject helper; the relay starts in the game with no owner check, and the game reaches the
    menu.
-6. Return to the title screen and sign in again, to see whether the game logs in a second time with its ticket.
+6. Return to the title screen and sign in again: the game's log has `relay info: relay renewed the game's login
+   ticket` and the game reaches the menu. Do it twice more.

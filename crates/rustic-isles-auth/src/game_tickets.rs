@@ -15,6 +15,10 @@ use crate::util;
 pub const PREFIX: &str = "DLT_";
 /// How long a ticket can be redeemed, in milliseconds: room for a slow first start (shader caches) before login.
 pub const TTL_MS: i64 = 300_000;
+/// How long a login's successor can be redeemed: a game left at the menu for a day can still sign in again.
+pub const REFRESH_TTL_MS: i64 = 24 * 60 * 60 * 1000;
+/// The login's answer carries the successor here; the relay keeps it and strips it before the game sees it.
+pub const REFRESH_HEADER: &str = "x-dainty-refresh-ticket";
 /// Unredeemed tickets kept at most; minting past it drops the oldest.
 pub const MAX_PENDING: usize = 4096;
 /// The random part's length in bytes (48 hex digits, an account key's length).
@@ -52,6 +56,16 @@ pub fn is_ticket(text: &str) -> bool {
 impl GameTickets {
     /// A fresh ticket for `holder`, redeemable once until `now + TTL_MS`.
     pub fn mint(&self, holder: TicketHolder, now: i64) -> String {
+        self.mint_for(holder, now, TTL_MS)
+    }
+
+    /// The ticket a login hands on to the same session's next login (the game back at its menu), redeemable once
+    /// until `now + REFRESH_TTL_MS`. Each redemption mints the next, so a session's chain is one live ticket.
+    pub fn successor(&self, holder: TicketHolder, now: i64) -> String {
+        self.mint_for(holder, now, REFRESH_TTL_MS)
+    }
+
+    fn mint_for(&self, holder: TicketHolder, now: i64, ttl: i64) -> String {
         let ticket = format!("{PREFIX}{}", util::random_hex::<RANDOM_BYTES>());
         let mut pending = self.pending.lock().unwrap_or_else(PoisonError::into_inner);
         pending.retain(|_, entry| entry.expires_at > now);
@@ -67,7 +81,7 @@ impl GameTickets {
             util::sha256_hex(&ticket),
             Pending {
                 holder,
-                expires_at: now + TTL_MS,
+                expires_at: now + ttl,
             },
         );
         ticket
@@ -134,6 +148,17 @@ mod tests {
             assert!(!is_ticket(text), "{text}");
             assert_eq!(tickets.redeem(text, 0), None);
         }
+    }
+
+    #[test]
+    fn a_successor_outlives_a_launch_ticket_and_is_single_use_too() {
+        let tickets = GameTickets::default();
+        let next = tickets.successor(holder(1), 0);
+        assert!(is_ticket(&next));
+        assert_eq!(tickets.redeem(&next, TTL_MS + 1), Some(holder(1)));
+        assert_eq!(tickets.redeem(&next, TTL_MS + 2), None);
+        let late = tickets.successor(holder(1), 0);
+        assert_eq!(tickets.redeem(&late, REFRESH_TTL_MS), None);
     }
 
     #[test]

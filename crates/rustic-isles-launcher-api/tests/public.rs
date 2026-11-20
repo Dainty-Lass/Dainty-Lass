@@ -1461,6 +1461,14 @@ async fn a_game_ticket_logs_the_game_in_once_for_the_key_holder() {
     assert_eq!(first.status, 200, "{}", first.body);
     assert!(first.json()["access_token"].is_string());
     assert_eq!(rig.send(login(&ticket)).await.status, 400);
+    // Each login hands on a successor for the session's next one (the game back at its menu), once each
+    let next = first.header("x-dainty-refresh-ticket").unwrap().to_owned();
+    assert!(next.starts_with("DLT_") && next != ticket);
+    let again = rig.send(login(&next)).await;
+    assert_eq!(again.status, 200, "{}", again.body);
+    assert_eq!(rig.send(login(&next)).await.status, 400);
+    let after = again.header("x-dainty-refresh-ticket").unwrap().to_owned();
+    assert!(after != next);
     // The key itself still logs in, for a launcher that predates tickets
     assert_eq!(rig.send(login(&key)).await.status, 200);
 }

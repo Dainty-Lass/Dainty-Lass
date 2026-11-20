@@ -537,7 +537,15 @@ impl<S: AuthStore> Auth<S> {
             Err(_) => return page(StatusCode::INTERNAL_SERVER_ERROR),
             _ => {}
         }
-        self.token_answer(&holder.user_id, true)
+        let user_id = holder.user_id.clone();
+        let next = self.tickets.successor(holder, self.now());
+        let mut answer = self.token_answer(&user_id, true);
+        if answer.status() == StatusCode::OK
+            && let Ok(value) = axum::http::HeaderValue::from_str(&next)
+        {
+            answer.headers_mut().insert(crate::game_tickets::REFRESH_HEADER, value);
+        }
+        answer
     }
 
     /// The `(userId, account id)` a player account key names.

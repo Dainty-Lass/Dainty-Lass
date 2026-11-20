@@ -128,6 +128,10 @@ Fuzz targets in `fuzz` (to be added by the integration pass; RL11 does not touch
 - [ ] A ticket is redeemed once, within five minutes, by the `APIKEY` login only, kept as its SHA-256 in memory with
       at most 4096 pending; a ban drops the account's tickets, and the login checks eligibility again
       (`game_tickets` tests, `a_game_ticket_logs_the_game_in_once_for_the_key_holder`).
+- [ ] A ticket login's answer carries the session's next ticket (`x-dainty-refresh-ticket`, single-use, 24 hours).
+      The relay reads it only from home, never passes it to the game, and swaps it only for a ticket this relay has
+      already sent, in a login body read whole up to 16 KiB and sent with its length; no line carries either
+      (`relay::login` tests, `the_games_login_from_its_menu_takes_the_ticket_the_last_login_handed_on`).
 
 ## Open points
 
