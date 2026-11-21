@@ -4,7 +4,14 @@ import { AppShell } from "@astryxdesign/core/AppShell";
 import { Avatar } from "@astryxdesign/core/Avatar";
 import { Banner } from "@astryxdesign/core/Banner";
 import { Button } from "@astryxdesign/core/Button";
-import { SideNav, SideNavHeading, SideNavItem, SideNavSection } from "@astryxdesign/core/SideNav";
+import {
+  SideNav,
+  SideNavCollapseButton,
+  SideNavHeading,
+  SideNavItem,
+  SideNavSection,
+  useSideNavCollapse,
+} from "@astryxdesign/core/SideNav";
 import { Stack } from "@astryxdesign/core/Stack";
 import { Text } from "@astryxdesign/core/Text";
 import { TitleBar, useBridge } from "@dainty/bridge/react";
@@ -25,6 +32,17 @@ const FOLDER_REFUSALS = new Set([
   "game_revived",
   "game_path_too_long",
 ]);
+
+/** The rail's foot: the collapse toggle above the account, which SideNav's own button would sit below. */
+function RailFooter({ children }: { children: ReactNode }) {
+  const { isCollapsed } = useSideNavCollapse();
+  return (
+    <Stack gap={1} align={isCollapsed ? "center" : "start"}>
+      <SideNavCollapseButton size="sm" />
+      {children}
+    </Stack>
+  );
+}
 
 /** The launcher's frame: its own title bar, the rail, and the backend's error and notice, wherever they arise. */
 export function LauncherShell({ children }: { children: ReactNode }) {
@@ -62,7 +80,7 @@ export function LauncherShell({ children }: { children: ReactNode }) {
       }
       sideNav={
         <SideNav
-          collapsible
+          collapsible={{ hasButton: false }}
           resizable={RAIL_RESIZE}
           header={
             <SideNavHeading
@@ -72,17 +90,19 @@ export function LauncherShell({ children }: { children: ReactNode }) {
             />
           }
           footer={
-            account ? (
-              <Stack direction="horizontal" gap={2} align="center" padding={2}>
-                <Avatar name={account} size="sm" />
-                <Stack gap={0}>
-                  <Text weight="medium">
-                    {snapshot?.settings.streamerMode ? t("hidden") : account}
-                  </Text>
-                  <Text type="supporting">{snapshot?.server?.name}</Text>
+            <RailFooter>
+              {account && (
+                <Stack direction="horizontal" gap={2} align="center" padding={2}>
+                  <Avatar name={account} size="sm" />
+                  <Stack gap={0}>
+                    <Text weight="medium">
+                      {snapshot?.settings.streamerMode ? t("hidden") : account}
+                    </Text>
+                    <Text type="supporting">{snapshot?.server?.name}</Text>
+                  </Stack>
                 </Stack>
-              </Stack>
-            ) : undefined
+              )}
+            </RailFooter>
           }
         >
           <SideNavSection title={t("navigation")} isHeaderHidden>
