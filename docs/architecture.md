@@ -8,7 +8,7 @@ under [security/](security) go through each trust boundary line by line; the AGP
 
 | Part | Runs on | Code | Listens on |
 | --- | --- | --- | --- |
-| Launcher & Manager | each player's or host's PC | `crates/dainty-launcher-app` (Tauri: `dainty-launcher` and `dainty-manager`, MIT) over `crates/dainty-launcher-kit`, with `launcher/` (the isolation hook and scripts) and pages from `ui/apps/web` (dainty-dash, built with `DAINTY_MODE=launcher` or `manager`) | relay `127.0.0.1:61100` for the game (`dainty-launcher`) |
+| Launcher & Manager | each player's or host's PC | `crates/dainty-launcher-app` (Tauri: `dainty-launcher` and `dainty-manager`, MIT) over `crates/dainty-launcher-kit`, with `launcher/` (the isolation hook and scripts) and pages from `ui/apps/web` (dainty-dash, built with `DAINTY_MODE=launcher` or `manager`) | nothing for a game whose runtime carries the relay; else relay `127.0.0.1:61100` for the game (`dainty-launcher`) |
 | Controller | the server | `crates/dainty-controller` over `crates/dainty-module-api` | the one process tree `start`, the console and `dainty-manager` (`server-gui`) run |
 | Gateway (core plugin) | the server | `crates/dainty-gateway` | public: TLS 443 (or `public_port`); private: HTTP 61000 on the Tailscale address; node links `/__node/*` with mTLS |
 | Allowlist helper (core plugin) | the server, public mode | `crates/dainty-gateway`, bin `allowlist` | loopback; edits nftables (Linux) or Windows Firewall for the union of loaded modules' UDP port ranges |
@@ -18,6 +18,7 @@ under [security/](security) go through each trust boundary line by line; the AGP
 | Remote management | controller & managed installs | `crates/dainty-remote` (`Service::Remote`) | no listener of its own; rides gateway `/__node/enroll` (rate-limited token redemption) and `/__node/remote` (mTLS under the controller's CA) |
 | Chat (core plugin) | the server | `crates/dainty-chat` | XMPP over WebSocket routed through the gateway; federated server-to-server over `/__node/chat` |
 | Store & history shipping | the server | `crates/dainty-store`, `crates/dainty-history-ship` | SQLite (default) or Postgres on loopback, with a hash-chained change log shipped to S3 object lock or a peer node |
+| Game runtime | each player's PC, inside the game | `crates/rustic-isles-runtime` (`rustic-isles-runtime.dll`) with `crates/dainty-relay` | relay `127.0.0.1:61100` (or the port the launcher chose) for the game, from its own thread ([in-game-relay.md](in-game-relay.md)) |
 | Game modules | the server (in-process or child process) | `crates/rustic-isles-1-14-7` composing the `rustic-isles-*` areas (MIT), with `restricted/`'s version data | loopback ports assigned by the controller (`41000`/`41001` by default or settings.toml's `[ports]`, shifted on collision) |
 | Realms & TURN relay | the server & realm hosts' PCs | `crates/rustic-rifts-*` (`rustic-rifts-admission`, `rustic-rifts-relay`, `rustic-rifts-realms`, `rustic-rifts-guard`, `rustic-rifts-host`, `rustic-rifts-transport`), `restricted/modules/rustic-rifts` (`ParadoxTransport.dll`) and `turn-rs` | `turn-rs` on UDP/TCP 3478, TLS 5349 and its UDP relay range (the one listener exception, DD24) |
 | Game servers | the server | the game executable, with the host's runtime | UDP 8770-8777 (down to 8766 with ten hunts), guarded by the allowlist |
@@ -85,10 +86,14 @@ Dainty Lass separates **core plugins** from **game modules** ([`crates/dainty-mo
    runtime before it runs (RD9 as amended, [launcher-injection.md](launcher-injection.md)); under Proton the
    loader or the inject helper does. PLAY refuses a leftover ini, a Host tools DLL or a loader that would load
    the runtime a second time.
-5. **Play.** The launcher starts Dauntless 1.14.7 with `-AUTH_PASSWORD=<key>` and `DAINTY_BACKEND_URL`
-   pointing at its relay. The relay carries the game's HTTP and chat to the gateway and answers the game's
-   region ping (`/QoS`) locally; the game only ever sees `127.0.0.1:61100`. The backend runs Rustic Isles
-   with `AUTH_MODE=APIKEY`, so the key is the game's login.
+5. **Play.** The launcher trades the key for a **game ticket** (`POST /dainty/api/GameTicket`: `DLT_` and 48 hex
+   digits, single-use, five minutes) and starts Dauntless 1.14.7 with `-AUTH_PASSWORD=<ticket>` and
+   `DAINTY_BACKEND_URL` pointing at the relay. The backend runs Rustic Isles with `AUTH_MODE=APIKEY`, whose login
+   takes the ticket once (or, from a launcher that predates tickets, the key), so the key never enters the game.
+   The relay carries the game's HTTP and chat to the gateway and answers the game's region ping (`/QoS`) locally;
+   the game only ever sees `127.0.0.1:61100`. A runtime that carries the relay runs it on a thread of the game's
+   own, told the server by `DAINTY_SERVER_HOST`, `_PORT` and `_FP`, so the launcher can close once the game is up;
+   for an older runtime the launcher runs it ([in-game-relay.md](in-game-relay.md)).
 
 ## The launcher API
 
@@ -102,6 +107,7 @@ the host kit (`crates/rustic-isles-launcher-api/src/reforged_api.rs`, written cl
 | `GET /dainty/api/GetUserInfo` | launcher, content server (`x-dainty-user-api-key`) | yes |
 | `GET /dainty/api/ServerStatus` | launcher, admin API | yes |
 | `GET /dainty/api/RegistrationStatus` | launcher | yes |
+| `POST /dainty/api/GameTicket` | launcher (`x-dainty-user-api-key`) | yes |
 | `POST /dainty/api/CreateInvite`, `GET …/InviteCodes`, `DELETE …/InviteCode/:code` | host kit (`x-dainty-admin-key`, loopback only) | refused |
 | `POST /dainty/api/SetAccountStatus`, `POST /dainty/api/Kick` | host kit, admin API | refused |
 

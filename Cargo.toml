@@ -32,6 +32,7 @@ dainty-module-api = { path = "crates/dainty-module-api", version = "0.1.0", regi
 dainty-plugin-host = { path = "crates/dainty-plugin-host" }
 dainty-protocol = { path = "crates/dainty-protocol" }
 dainty-proxy = { path = "crates/dainty-proxy" }
+dainty-relay = { path = "crates/dainty-relay" }
 dainty-remote = { path = "crates/dainty-remote" }
 dainty-service-kit = { path = "crates/dainty-service-kit" }
 dainty-service-plugin = { path = "crates/dainty-service-plugin" }

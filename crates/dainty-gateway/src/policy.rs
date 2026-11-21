@@ -16,6 +16,7 @@ pub const PUBLIC_LAUNCHER_API: &[(&str, &[&str])] = &[
     ("registrationstatus", &["GET", "HEAD"]),
     ("playtime", &["GET", "HEAD"]),
     ("loginqueue", &["POST", "DELETE"]),
+    ("gameticket", &["POST"]),
 ];
 
 /// The backend's admin and launcher APIs, metrics and probes: never from off this machine, but for
@@ -615,6 +616,7 @@ mod tests {
             ("GET", "Playtime", true),
             ("POST", "LoginQueue", true),
             ("DELETE", "LoginQueue", true),
+            ("POST", "GameTicket", true),
             ("POST", "CreateInvite", false),
             ("GET", "InviteCodes", false),
             ("DELETE", "InviteCode/ABCD-EFGH-JKMN", false),

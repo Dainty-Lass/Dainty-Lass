@@ -25,6 +25,8 @@ serde_json.workspace = true
 [dependencies]
 dainty-http.workspace = true
 dainty-protocol.workspace = true
+# The game's relay, shared with the runtime (net/relay.rs)
+dainty-relay.workspace = true
 # Loads the runtime and the Host tools into the game, and the Proton helper's command line (platform/inject.rs)
 dainty-inject.workspace = true
 dainty-epic.workspace = true
@@ -89,6 +91,7 @@ windows = { workspace = true, features = [
 dbus-secret-service.workspace = true
 
 [dev-dependencies]
+dainty-relay = { workspace = true, features = ["test-support"] }
 # The fake CDN and synthetic versions for the install job (net/epic_install.rs)
 dainty-epic = { workspace = true, features = ["test-support"] }
 tempfile.workspace = true

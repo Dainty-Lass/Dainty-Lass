@@ -71,6 +71,7 @@ pub fn init() {
         crate::branding::register();
         crate::save_reset::register();
         crate::trials_board::register();
+        crate::relay::start();
     }
     crate::ffi::server_events::register(server);
     crate::escalation::register();

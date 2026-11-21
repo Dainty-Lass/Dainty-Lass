@@ -197,6 +197,34 @@ pub fn queue_reply(status: u16, body: &[u8]) -> Result<QueueReply, LauncherError
     }
 }
 
+/// A game ticket: `DLT_` and 48 lowercase hex digits.
+#[must_use]
+pub fn is_game_ticket(text: &str) -> bool {
+    text.strip_prefix("DLT_")
+        .is_some_and(|rest| rest.len() == 48 && rest.bytes().all(|b| matches!(b, b'0'..=b'9' | b'a'..=b'f')))
+}
+
+/// The game ticket route's reply: the ticket, or none from a server or gateway without the route (404, 405, a 403
+/// that is no account refusal), whose game then logs in with the key as before.
+pub fn game_ticket_reply(status: u16, body: &[u8]) -> Result<Option<String>, LauncherError> {
+    let json = json_body(body);
+    let obj = json.as_ref().and_then(Value::as_object);
+    let error = obj.and_then(|o| o.get("error")).and_then(Value::as_str);
+    match status {
+        200 => match obj.and_then(|o| o.get("ticket")).and_then(Value::as_str) {
+            Some(ticket) if is_game_ticket(ticket) => Ok(Some(ticket.to_owned())),
+            _ => Err(LauncherError::new(ErrorCode::ServerError)),
+        },
+        401 => Err(LauncherError::new(ErrorCode::KeyRejected)),
+        403 if matches!(error, Some("account_banned" | "account_disabled")) => {
+            Err(LauncherError::new(ErrorCode::AccountBanned))
+        }
+        403..=405 => Ok(None),
+        429 => Err(LauncherError::new(ErrorCode::RateLimited)),
+        _ => Err(LauncherError::new(ErrorCode::ServerError)),
+    }
+}
+
 /// Removes unsafe characters, collapses whitespace runs to a space, trims and cuts to `max_units` UTF-16 units.
 fn clean_units(value: &str, max_units: usize) -> String {
     let mut collapsed = String::with_capacity(value.len());

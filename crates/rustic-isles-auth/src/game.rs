@@ -473,6 +473,9 @@ impl<S: AuthStore> Auth<S> {
                 if !(1..=256).contains(&util::utf16_len(key)) {
                     return empty(StatusCode::BAD_REQUEST);
                 }
+                if key.starts_with(crate::game_tickets::PREFIX) {
+                    return self.ticket_login(key).await;
+                }
                 let user_id = match self.user_key_owner(key).await {
                     Ok(owner) => owner,
                     Err(_) => return page(StatusCode::INTERNAL_SERVER_ERROR),
@@ -515,6 +518,34 @@ impl<S: AuthStore> Auth<S> {
                 empty(StatusCode::INTERNAL_SERVER_ERROR)
             }
         }
+    }
+
+    /// `APIKEY` mode with a game ticket for the key: the launcher's one-time login (`game_tickets`).
+    async fn ticket_login(&self, ticket: &str) -> Response {
+        let Some(holder) = self.tickets.redeem(ticket, self.now()) else {
+            return empty(StatusCode::BAD_REQUEST);
+        };
+        let store = match self.store() {
+            Ok(store) => store,
+            Err(_) => return page(StatusCode::INTERNAL_SERVER_ERROR),
+        };
+        // Eligibility again: a ban between minting and redeeming still holds
+        match store.launcher_account_by_user_id(&holder.user_id).await {
+            Ok(Some(account)) if !policy::is_account_eligible(&account, &self.now_iso()) => {
+                return empty(StatusCode::FORBIDDEN);
+            }
+            Err(_) => return page(StatusCode::INTERNAL_SERVER_ERROR),
+            _ => {}
+        }
+        let user_id = holder.user_id.clone();
+        let next = self.tickets.successor(holder, self.now());
+        let mut answer = self.token_answer(&user_id, true);
+        if answer.status() == StatusCode::OK
+            && let Ok(value) = axum::http::HeaderValue::from_str(&next)
+        {
+            answer.headers_mut().insert(crate::game_tickets::REFRESH_HEADER, value);
+        }
+        answer
     }
 
     /// The `(userId, account id)` a player account key names.

@@ -47,6 +47,8 @@ const KEY: &str = "DLK_flowtestaccountkey0123456789abcdef";
 /// The key a server that forgot [`KEY`] hands out to the next registration.
 const NEW_KEY: &str = "DLK_flowtestreplacementkey0123456789abc";
 const USER_ID: &str = "user-0001";
+/// The game ticket a server that gives them hands out.
+const TICKET: &str = "DLT_0123456789abcdef0123456789abcdef0123456789abcdef";
 const VERSION_TEXT: &str = "dauntless_rel-1.14.7_Shipping_2024-04-01_14-59-21_647472";
 const WAIT: Duration = Duration::from_secs(10);
 
@@ -95,6 +97,8 @@ struct Answers {
     economy: Option<serde_json::Value>,
     /// The login queue's answer: 0 no queue route, -1 admitted, else the place in line.
     queue: Arc<AtomicI32>,
+    /// Whether it gives game tickets; one that does not predates them and answers 404.
+    tickets: bool,
 }
 
 fn response(status: u16, kind: &str, body: &[u8]) -> Vec<u8> {
@@ -156,6 +160,9 @@ fn answer(answers: &Answers, seen: &Seen) -> Vec<u8> {
             place => json_response(200, &json!({ "admitted": false, "position": place })),
         },
         ("DELETE", "/dainty/api/LoginQueue") => response(204, "text/plain", b""),
+        ("POST", "/dainty/api/GameTicket") if answers.tickets && keyed => {
+            json_response(200, &json!({ "ticket": TICKET, "expiresInSeconds": 300 }))
+        }
         ("GET", "/game/hello") => response(200, "text/plain", b"hello from the server"),
         _ => json_response(404, &json!({ "error": "not_found" })),
     }
@@ -465,10 +472,15 @@ fn invite(mode: ServerMode, port: u16, fp: Option<String>, name: &str) -> String
 }
 
 fn runtime(version: &str) -> (RuntimeManifest, BTreeMap<String, Vec<u8>>) {
+    runtime_with(version, "")
+}
+
+/// A runtime whose files end with `tail`: the in-game relay's marker makes one that carries the relay.
+fn runtime_with(version: &str, tail: &str) -> (RuntimeManifest, BTreeMap<String, Vec<u8>>) {
     let mut files = BTreeMap::new();
     let mut listed = Vec::new();
     for name in RUNTIME_FILE_NAMES {
-        let bytes = format!("{name} built for {version}").into_bytes();
+        let bytes = format!("{name} built for {version}{tail}").into_bytes();
         listed.push(RuntimeFile {
             name: name.to_owned(),
             size: bytes.len() as u64,
@@ -524,6 +536,7 @@ async fn private_flow_from_invite_to_the_games_exit() {
             forgot: Arc::default(),
             economy: Some(json!({ "keepSupplyStackCaps": true, "cellFusionMinutes": 45 })),
             queue: Arc::default(),
+            tickets: false,
         },
         None,
     )
@@ -747,6 +760,7 @@ async fn public_flow_through_a_tls_gateway() {
             forgot: Arc::default(),
             economy: Some(json!({ "keepSupplyStackCaps": "yes", "cellFusionMinutes": 10_081 })),
             queue: Arc::default(),
+            tickets: false,
         },
         Some(tls),
     )
@@ -867,6 +881,7 @@ async fn an_unreachable_server_and_a_mismatched_certificate() {
             forgot: Arc::default(),
             economy: None,
             queue: Arc::default(),
+            tickets: false,
         },
         Some(tls),
     )
@@ -1078,6 +1093,7 @@ async fn a_fresh_invite_replaces_a_key_the_server_forgot() {
             forgot: Arc::clone(&forgot),
             economy: None,
             queue: Arc::default(),
+            tickets: false,
         },
         None,
     )
@@ -1181,6 +1197,7 @@ async fn ready_to_play_queued(
             forgot: Arc::default(),
             economy: None,
             queue,
+            tickets: false,
         },
         None,
     )
@@ -1474,4 +1491,73 @@ async fn uninstall_from_a_folder_that_was_there_deletes_only_the_manifests_files
     assert!(!pc.win64.join("winmm.dll").exists());
     assert!(!pc.root.join("Archon").exists(), "emptied folders go");
     controller.shutdown().await;
+}
+
+#[tokio::test]
+async fn a_runtime_that_carries_the_relay_runs_it_in_the_game_which_logs_in_with_a_ticket() {
+    let pc = pc().await;
+    let (manifest, files) = runtime_with("3.0.0", " dainty-lass:in-game-relay:v1");
+    let server = fake_server(
+        Answers {
+            name: "Ticket Server",
+            manifest: Some(manifest),
+            files,
+            forgot: Arc::default(),
+            economy: None,
+            queue: Arc::default(),
+            tickets: true,
+        },
+        None,
+    )
+    .await;
+    let platform = Arc::new(FakePlatform::default());
+    let spawner = Arc::new(FakeSpawner::default());
+    let controller = launcher(&pc, &platform, &spawner);
+    controller.init().await;
+    ok(&controller
+        .submit_invite(
+            &invite(ServerMode::Private, server.port, None, "Ticket Server"),
+            false,
+            false,
+        )
+        .await);
+    assert!(matches!(
+        controller.register("Player_1").await,
+        RegisterOutcome::Ok { .. }
+    ));
+    ok(&controller.use_game_path(&pc.root.to_string_lossy()).await);
+    ok(&controller.trust_runtime().await);
+
+    ok(&controller.play().await);
+    let plan = until_launched(&spawner, 1).await;
+    let args: Vec<String> = plan.args.iter().map(|a| a.to_string_lossy().into_owned()).collect();
+    assert!(args.contains(&format!("-AUTH_PASSWORD={TICKET}")), "{args:?}");
+    assert!(
+        !args.iter().any(|arg| arg.contains(KEY)),
+        "the key reached the game: {args:?}"
+    );
+    assert_eq!(server.saw("/dainty/api/GameTicket").len(), 1);
+
+    // The runtime listens where the game is pointed; the launcher runs no relay, so it may close
+    let snapshot = controller.snapshot();
+    assert!(snapshot.running.game);
+    assert_eq!(snapshot.running.relay_port, None);
+    assert_eq!(controller.keep_open(), None);
+    assert!(TcpStream::connect(("127.0.0.1", pc.relay_port)).await.is_err());
+    let env = |name: &str| plan.env.get(name).cloned();
+    assert_eq!(
+        env("DAINTY_BACKEND_URL"),
+        Some(format!("http://127.0.0.1:{}", pc.relay_port))
+    );
+    assert_eq!(env("DAINTY_SERVER_HOST").as_deref(), Some("127.0.0.1"));
+    assert_eq!(env("DAINTY_SERVER_PORT"), Some(server.port.to_string()));
+    assert_eq!(env("DAINTY_SERVER_FP"), None);
+
+    let logged = std::fs::read_to_string(log_dir().join(log::LOG_FILE)).unwrap();
+    assert!(!logged.contains(TICKET), "the ticket was logged");
+    assert!(logged.contains("relay in the game"), "{logged}");
+
+    game_exits(&controller, &spawner).await;
+    controller.shutdown().await;
+    assert_key_never_logged();
 }

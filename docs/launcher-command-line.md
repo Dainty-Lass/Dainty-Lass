@@ -24,16 +24,19 @@ dainty-launcher servers
   console hidden as PLAY hides it), runs the window's start-up checks and one connect, then calls `play()` or
   `host_export()`, the methods the bridge commands call. Every check, the relay, the key, the injection, the
   leftover refusal and the clean-up are theirs. There is no second launch path.
-- **The relay lives in the launcher process.** So the command runs until the game exits. Without `--wait` the
-  launcher starts itself again, detached, with the hidden flag `--held`, prints the child's lines until the game is
-  up, and returns 0. The child holds the relay until the game exits, and its log is the launcher's usual log.
+- **The command runs until the game exits.** For a runtime that predates the in-game relay
+  ([in-game-relay.md](in-game-relay.md)) the relay lives in the launcher process, which the game needs. Without
+  `--wait` the launcher starts itself again, detached, with the hidden flag `--held`, prints the child's lines until
+  the game is up, and returns 0. The child holds the relay (when it runs one) until the game exits, and its log is
+  the launcher's usual log.
 - **One launcher at a time.** A command claims the single-launcher channel without handing over any arguments. If the
   window is open it comes to the front and the command fails: `the launcher is already open; close it and run the
   command again`. A window opened while a command runs is turned away, with a line in the log.
 - **Output.** English (a host's tool), on stdout. A refusal is `error: <code>: <sentence> (<detail>)`, the
   controller's `ErrorCode` in snake case with its English sentence, and exits 1. Bad arguments print the usage and
   exit 2. The account key never reaches the command line, stdout or the log: the commands only call the
-  controller, which keeps the key between the key store, the game's launch argument and the relay.
+  controller, which keeps the key between the key store and the server; the game gets a one-time game ticket (or,
+  from a server that predates tickets, the key) as its launch argument.
 - **`export`** writes `export_flags.txt` and loads CatalogExporter as the Host page does, prints the DLL's path
   and SHA-256 (also logged), and once the game exits prints `exports: <folder>`: the newest
   `catalog_export_status.txt` written since the game started, in `Win64\Items_Analysis` or the Host workspace's

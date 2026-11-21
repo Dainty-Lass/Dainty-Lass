@@ -29,6 +29,7 @@ pub mod email;
 pub mod enckeys;
 mod errors;
 mod game;
+pub mod game_tickets;
 pub mod hashes;
 mod jobs;
 mod launcher;
@@ -235,6 +236,8 @@ pub struct Auth<S: AuthStore> {
     notices_failing: AtomicBool,
     /// Staff kicks being carried out: userId to when the kick lifts by itself (ms)
     kicked: Mutex<HashMap<String, i64>>,
+    /// One-time logins the launcher hands the game in place of the account key
+    tickets: game_tickets::GameTickets,
     this: Weak<Self>,
 }
 
@@ -252,6 +255,7 @@ impl<S: AuthStore> Auth<S> {
             warned_official: Mutex::new(HashSet::new()),
             notices_failing: AtomicBool::new(false),
             kicked: Mutex::new(HashMap::new()),
+            tickets: game_tickets::GameTickets::default(),
             this: this.clone(),
         })
     }
@@ -259,6 +263,16 @@ impl<S: AuthStore> Auth<S> {
     /// The version's and host's config.
     pub fn config(&self) -> &AuthConfig {
         &self.config
+    }
+
+    /// A one-time game login for the account, redeemable for [`game_tickets::TTL_MS`].
+    pub fn mint_game_ticket(&self, holder: game_tickets::TicketHolder) -> String {
+        self.tickets.mint(holder, self.now())
+    }
+
+    /// Drops the account's unredeemed game tickets.
+    pub fn revoke_game_tickets(&self, account_id: &str) {
+        self.tickets.revoke_account(account_id);
     }
 
     /// The module's attempt and request limiter.

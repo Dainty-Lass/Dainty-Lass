@@ -71,6 +71,7 @@ pub fn register_public(handlers: &mut Handlers) {
         .on(b, Post, "/dainty/api/Register", launcher_api::register)
         .on(b, Get, "/dainty/api/GetUserInfo", launcher_api::get_user_info)
         .on(b, Get, "/dainty/api/ServerStatus", launcher_api::server_status)
+        .on(b, Post, "/dainty/api/GameTicket", launcher_api::game_ticket)
         .on(
             b,
             Get,

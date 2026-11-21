@@ -23,6 +23,10 @@ rustic-isles-runtime-core = { path = "../rustic-isles-runtime-core" }
 minhook.workspace = true
 
 [target.'cfg(windows)'.dependencies]
+# The in-game relay to the server (relay.rs) and its owner check's table (ffi/tcp_table.rs)
+dainty-relay.workspace = true
+futures-util.workspace = true
+tokio = { workspace = true, features = ["rt", "net", "time"] }
 windows-sys = { workspace = true, features = [
     "Win32_Foundation",
     "Win32_Storage_FileSystem",
@@ -41,6 +45,8 @@ windows-sys = { workspace = true, features = [
     "Win32_Security_Authorization",
     "Win32_System_IO",
     "Win32_System_Pipes",
+    "Win32_NetworkManagement_IpHelper",
+    "Win32_Networking_WinSock",
 ] }
 
 [lints]

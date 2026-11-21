@@ -20,11 +20,11 @@ use bytes::Bytes;
 use common::{acceptor, certificate};
 use dainty_launcher_kit::net::http::Endpoint;
 use dainty_launcher_kit::net::pinned::certificate_fingerprint;
+use dainty_launcher_kit::net::relay::Level;
 use dainty_launcher_kit::net::relay::{
     self as kit, DEFAULT_PORT, QOS_BODY, Relay, RelayConfig, RelayError, RepointError, local as kit_local,
 };
 use dainty_launcher_kit::net::relay_owner::{self, OwnerCheck};
-use dainty_launcher_kit::platform::log::Level;
 use futures_util::future::BoxFuture;
 use http_body_util::combinators::BoxBody;
 use http_body_util::{BodyExt, Empty, Full};

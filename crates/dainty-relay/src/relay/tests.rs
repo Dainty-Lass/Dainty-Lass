@@ -15,9 +15,9 @@ use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpSocket, TcpStream};
 
 use super::*;
-use crate::net::pinned::certificate_fingerprint;
-use crate::net::pinned::tests::{acceptor, certificate};
-use crate::net::relay_owner::{GameOwnerCheck, TableSource};
+use crate::owner::{GameOwnerCheck, TableSource};
+use crate::pinned::certificate_fingerprint;
+use crate::pinned::test_tls::{acceptor, certificate};
 
 const KEY: &str = "DLK_relaytestkey0123456789abcdefghij";
 const WAIT: Duration = Duration::from_secs(5);
@@ -1166,4 +1166,43 @@ async fn the_account_key_never_reaches_the_log() {
         assert!(heard.lines().len() > 1);
         heard.assert_no_key();
     }
+}
+
+#[tokio::test]
+async fn the_games_login_from_its_menu_takes_the_ticket_the_last_login_handed_on() {
+    let (target, fake) = fake_server(false).await;
+    let (relay, heard) = relay_for(target).await;
+    let port = relay.port();
+    let ticket = |n: &str| format!("DLT_{}", n.repeat(24));
+    let (first, second, third) = (ticket("01"), ticket("02"), ticket("03"));
+    let form = |t: &str| format!("grant_type=exchange_code&exchange_code={t}&token_type=eg1");
+    let login = format!(
+        "POST /__origin/account.example/account/api/oauth/token HTTP/1.1\r\nhost: localhost\r\n\
+         content-type: application/x-www-form-urlencoded\r\ncontent-length: {}\r\nconnection: close\r\n\r\n{}",
+        form(&first).len(),
+        form(&first)
+    );
+    let sent = || String::from_utf8(fake.last().body).unwrap();
+
+    fake.answer_next_with(vec![(login::REFRESH_HEADER, second.clone())]);
+    let reply = send(port, &login).await;
+    assert_eq!(
+        reply.header(login::REFRESH_HEADER),
+        None,
+        "the next ticket never reaches the game"
+    );
+    assert_eq!(sent(), form(&first));
+
+    // Back at the menu the game sends the ticket it started with; the relay sends the one handed on
+    fake.answer_next_with(vec![(login::REFRESH_HEADER, third.clone())]);
+    send(port, &login).await;
+    assert_eq!(sent(), form(&second));
+    send(port, &login).await;
+    assert_eq!(sent(), form(&third));
+    assert!(fake.last().headers.get("content-length").is_some());
+    assert!(
+        heard.lines().iter().all(|line| !line.contains("DLT_")),
+        "a ticket was logged"
+    );
+    relay.stop().await;
 }

@@ -46,6 +46,16 @@ pub enum Level {
     Error,
 }
 
+impl From<dainty_relay::Level> for Level {
+    fn from(level: dainty_relay::Level) -> Self {
+        match level {
+            dainty_relay::Level::Info => Self::Info,
+            dainty_relay::Level::Warn => Self::Warn,
+            dainty_relay::Level::Error => Self::Error,
+        }
+    }
+}
+
 impl Level {
     /// The word written in the line.
     #[must_use]

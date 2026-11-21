@@ -7,5 +7,6 @@ pub mod hub;
 pub mod launch;
 pub mod numbers;
 pub mod pacing;
+pub mod relay;
 pub mod roster;
 pub mod trials;
