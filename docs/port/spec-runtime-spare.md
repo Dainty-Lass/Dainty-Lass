@@ -8,8 +8,9 @@ one hunt server started before anyone asks and held just before that map load, s
 load and the listen. This is new behaviour, built from the engine facts below and the runtime's own SRV-1.
 Nothing here is ported.
 
-Off unless the Director's settings have `GAMESERVER_WARM_SPARE=1`. The prototype reads it from the Director's env
-file only: no `settings.toml` key and no `setup` option yet.
+Off unless `settings.toml` has `warm_spare = true` under `[performance]` (`dainty-host setup --warm-spare`, undone
+by `--no-warm-spare`). `setup` writes it to the Director's env file as `GAMESERVER_WARM_SPARE` (`1` or `0`), and
+a file without the key keeps today's behaviour.
 
 ## 1. Engine facts (1.14.7, measured 2026-11-21)
 
@@ -65,11 +66,10 @@ file only: no `settings.toml` key and no `setup` option yet.
 
 ## 5. Open before this leaves prototype
 
-1. A `settings.toml` key (`warm_spare`) and a `setup` option, written to `director.env`.
-2. Call 14 is an index into one build's sequence of getter calls. A changed game build could move it, and the
+1. Call 14 is an index into one build's sequence of getter calls. A changed game build could move it, and the
    fallback in section 3 then turns spares off. A hold keyed to `StartGameInstance` itself would not depend on the
    count.
-3. The placeholder's early getter answers may make the engine preload the placeholder map's packages. Compare a
+2. The placeholder's early getter answers may make the engine preload the placeholder map's packages. Compare a
    spare-served hunt's memory with a cold one on several maps.
-4. A spare log file is named `port<port>_hunt.log` whatever its Behemoth, unlike a cold hunt's `port<port>_<label>.log`.
-5. Hands-on: a full hunt, a Gauntlet and an escalation through a spare, with players fighting.
+3. A spare log file is named `port<port>_hunt.log` whatever its Behemoth, unlike a cold hunt's `port<port>_<label>.log`.
+4. Hands-on: a full hunt, a Gauntlet and an escalation through a spare, with players fighting.

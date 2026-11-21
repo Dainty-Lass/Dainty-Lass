@@ -150,6 +150,13 @@ pub fn performance_from_args(
         perf.hunt_memory_mb = parse_ram_mb("--hunt-ram", raw, 256)?;
     }
 
+    if args.warm_spare {
+        perf.warm_spare = true;
+    }
+    if args.no_warm_spare {
+        perf.warm_spare = false;
+    }
+
     Ok(perf)
 }
 
@@ -187,8 +194,9 @@ pub fn performance_summary(c: &HostConfig) -> String {
     } else {
         "no memory guard".to_owned()
     };
+    let spare_part = if perf.warm_spare { ", one kept warm" } else { "" };
     format!(
-        "Game servers: {fps_part}; {training_part}; {logs_part}; at most {} hunts at once (UDP {first}-{last}), {mem_part}",
+        "Game servers: {fps_part}; {training_part}; {logs_part}; at most {} hunts at once{spare_part} (UDP          {first}-{last}), {mem_part}",
         c.max_hunt_servers
     )
 }
@@ -572,6 +580,7 @@ pub fn host_config_from_args(
             "memoryGuard": perf.memory_guard,
             "minFreeMemoryMb": perf.min_free_memory_mb,
             "huntMemoryMb": perf.hunt_memory_mb,
+            "warmSpare": perf.warm_spare,
         }),
     );
     if let Some(lnx) = linux {
