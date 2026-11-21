@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! `dainty-lass`: the MIT core (RD27). The admin API and remote management are built in; every other service

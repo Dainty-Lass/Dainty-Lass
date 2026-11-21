@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! The realm directory: every launcher realm operation, the entry check Play runs, realm presence and its cache, and

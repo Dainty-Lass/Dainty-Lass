@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! The two ports a hosting flow calls out through: the backend (the launcher's HTTP client, which holds the account

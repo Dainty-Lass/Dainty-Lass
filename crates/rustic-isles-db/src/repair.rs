@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! The RB11 repairs that need the starter values (spec §8.3, §8.4): instance ids for starter items, the

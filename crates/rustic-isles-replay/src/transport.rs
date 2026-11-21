@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! HTTP/1.1 over plain TCP, one connection per request (spec §6.4), and the in-process router endpoint.

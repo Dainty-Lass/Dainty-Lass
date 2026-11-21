@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! `migrate`'s extraction (spec §7): the source's collections, in §7.2's order, into the rows of every table,

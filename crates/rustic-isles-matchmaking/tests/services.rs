@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! The outbox, the QoS listener, the Director over HTTP against an in-test fake, the rifts core and the module hooks

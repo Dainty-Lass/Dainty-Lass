@@ -1,5 +1,5 @@
 // Copyright (c) 2026 Silent Spud
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 
 //! The key store's logic (spec §2.7.1) over a stand-in encryptor and Electron reader. A process of its own, since
 //! it logs and registers secrets.

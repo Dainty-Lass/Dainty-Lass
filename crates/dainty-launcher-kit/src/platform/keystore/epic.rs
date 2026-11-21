@@ -1,5 +1,5 @@
 // Copyright (c) 2026 Silent Spud
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 
 //! The Epic session (DD22, DE2), kept like an account key: `keys/epic.session` beside the key files, encrypted
 //! by the same [`Encryptor`] (DPAPI, or the Secret Service's key on Linux). One file, since the launcher signs in

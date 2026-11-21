@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! Matchmaking's answers to rustic-rifts (spec §11, RF1 §2.2); the rest goes to the composer's core. Accounts cross

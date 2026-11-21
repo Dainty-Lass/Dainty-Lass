@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! Chat as a service, the same compiled in or as the library the core loads (RD27): what host's `compose.rs` composed in-process, over

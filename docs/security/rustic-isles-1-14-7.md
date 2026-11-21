@@ -1,4 +1,4 @@
-<!-- SPDX-License-Identifier: MIT -->
+<!-- SPDX-License-Identifier: MIT OR Apache-2.0 -->
 
 # Security checklist: Rustic Isles 1.14.7, the composed module (RX3)
 

@@ -1,5 +1,5 @@
 // Copyright (c) 2026 Silent Spud
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 
 //! Region ping (DN7, on `net::regionping`): the joined server is the player's home, so its node list
 //! is the one timed and its account key the one the order goes with.

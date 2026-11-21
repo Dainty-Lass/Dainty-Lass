@@ -1,5 +1,5 @@
 // Copyright (c) 2026 Silent Spud
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 
 //! Runs `cases/log.json`, the MIT redaction table written from spec §2.7.4 (L5).
 

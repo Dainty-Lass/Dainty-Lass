@@ -1,5 +1,5 @@
 // Copyright (c) 2026 Silent Spud
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 
 //! Installing a version from Epic (DE5, DD22), on `dainty_epic::download` through `net::epic_install`'s job. One install
 //! runs at a time, each version into a folder of its own; the resume file and the record of a finished install

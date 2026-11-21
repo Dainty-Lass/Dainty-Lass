@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! `rustic_isles_auth::AuthStore` over [`IslesStore`] (spec §12). A player actor's write is an account write for

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! `req.body` for handlers (core spec §3.9). The pipeline parses nothing, so a malformed body on a route that

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! The backend game-data generators `dainty-host gamedata` runs (spec §4, §5). Each returns a report or an

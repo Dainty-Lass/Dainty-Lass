@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! Save resets: a reset leaves a new account's save and keeps identity, the 24-hour limit, a staff restore round

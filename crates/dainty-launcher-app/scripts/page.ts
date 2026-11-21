@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // tauri.conf.json's before-dev and before-build command: the launcher's page from the dashboard, built into this
 // crate's dist/ (never restricted's).
 import path from "node:path"

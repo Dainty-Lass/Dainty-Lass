@@ -1,5 +1,5 @@
 // Copyright (c) 2026 Silent Spud
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 
 //! A stand-in for `dainty-host` in dainty-launcher-kit's tests (RD27 spec §2.10). A first argument `fail` makes `start`
 //! fail and `deaf` makes it ignore the stop line; `invite` answers one JSON line; anything else fails.

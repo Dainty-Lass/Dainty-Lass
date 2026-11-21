@@ -1,5 +1,5 @@
 // Copyright (c) 2026 Silent Spud
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 
 //! PLAY (RD27 spec §2.4.7): every check, then the relay, the game's config, its arguments and environment, and
 //! the game itself. The key stays in the launcher where the server gives game tickets: the game logs in with a

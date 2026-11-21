@@ -1,5 +1,5 @@
 // Copyright (c) 2026 Silent Spud
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 
 //! Fuzz target for the Discord bot (`docs/security/discord.md`, module sharing A7): an interaction as twilight's
 //! model reads it, and what dainty-dash answers. Parsing never panics; an interaction that parses has ids that are not 0 and a token that is

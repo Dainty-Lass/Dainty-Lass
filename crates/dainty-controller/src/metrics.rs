@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! The controller's part of `/metrics` (`dainty_service_kit::metrics`): each component's phase, restarts and uptime,

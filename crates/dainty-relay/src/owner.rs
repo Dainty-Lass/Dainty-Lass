@@ -1,5 +1,5 @@
 // Copyright (c) 2026 Silent Spud
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 
 //! The relay's owner check (RD21): on Windows a loopback connection is served only when the TCP table shows the
 //! game owns its client end. Any local process can reach 127.0.0.1, and the relay carries the player's session,

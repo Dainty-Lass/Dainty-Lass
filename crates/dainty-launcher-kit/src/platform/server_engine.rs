@@ -1,5 +1,5 @@
 // Copyright (c) 2026 Silent Spud
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 
 //! The manager's in-process host kit (RD27 spec §4.3): what the embedded server's own crate does with a
 //! workspace, behind one trait, so the controller keeps the jobs, the checks and the page's events. The blocking

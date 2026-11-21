@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! The 29 handlers (spec §3). A "game" row runs game auth first, so a refusal is answered before anything else.

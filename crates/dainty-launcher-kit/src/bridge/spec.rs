@@ -1,5 +1,5 @@
 // Copyright (c) 2026 Silent Spud
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 
 //! The bridge's command table (RD27 spec §2.3.1–2.3.3): every command the page may call, in the order the
 //! generated files list them, with the shape of each argument and the build that serves it.

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! A service's env file (`--env-file`), read as Node's `--env-file` reads it: the process environment wins (DR X7).

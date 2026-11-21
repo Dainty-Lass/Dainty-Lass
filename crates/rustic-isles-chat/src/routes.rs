@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! The chat area's backend routes (spec §6; core Appendix A B35, B80, B81, B137-B144): the friends API, the Slayer

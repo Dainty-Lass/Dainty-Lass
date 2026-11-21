@@ -1,5 +1,5 @@
 # Copyright (c) 2026 Silent Spud
-# SPDX-License-Identifier: MIT
+# SPDX-License-Identifier: MIT OR Apache-2.0
 
 [package]
 name = "dainty-launcher-kit"
@@ -7,7 +7,7 @@ description = "Clean-room MIT launcher logic for Dainty Lass (`docs/port/spec-dl
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
-license = "MIT"
+license = "MIT OR Apache-2.0"
 repository.workspace = true
 publish.workspace = true
 

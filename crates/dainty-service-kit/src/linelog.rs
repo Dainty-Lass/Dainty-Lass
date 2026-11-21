@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! The Node services' JSON log lines (`{"t","level","msg",...}`), for ports whose log lines are a contract.

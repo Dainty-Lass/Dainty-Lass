@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! The code mail (spec §7.2, §7.4): SMTP settings, the message, and a small SMTP client that never sends the login

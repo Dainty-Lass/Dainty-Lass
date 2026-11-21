@@ -1,5 +1,5 @@
 // Copyright (c) 2026 Silent Spud
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 
 //! The game's login tickets across one session. A ticket logs in once, but the game keeps the one it was started
 //! with and sends it again when it signs in from its menu. Each login's answer carries the next ticket

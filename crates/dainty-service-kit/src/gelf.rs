@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! Log shipping to Graylog in GELF 1.1 (`[logs] gelf_url`, `docs/logging.md`). Logstash's `gelf` input, Fluentd,

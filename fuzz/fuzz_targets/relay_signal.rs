@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! The ICE signals a launcher sends through the relay (spec-rd27-rifts-admission-relay.md §4.5.4): an accepted signal

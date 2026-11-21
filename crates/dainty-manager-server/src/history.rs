@@ -1,5 +1,5 @@
 // Copyright (c) 2026 Silent Spud
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 
 //! History and revert against the workspace's databases (spec-tauri-shell §7, DD23, DH3b), through the same
 //! engine as `dainty-host history` and `revert`. Whether the server runs does not matter.

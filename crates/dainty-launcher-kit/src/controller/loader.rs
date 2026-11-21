@@ -1,5 +1,5 @@
 // Copyright (c) 2026 Silent Spud
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 
 //! The runtime loader's sessions (RD9), for PLAY and the Host tools alike: PLAY refuses while a leftover
 //! ini or a Host tools DLL sits beside the loader, so this is in every build, `host` feature or not. On Windows

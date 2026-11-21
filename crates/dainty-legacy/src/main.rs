@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! With no arguments, the `legacy` plugin out of process (L-2; stdout is the frame pipe, so nothing prints

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! `GET /health/release-gates` (admin spec §8): loopback only, from the env file map. A detail names counts, modes

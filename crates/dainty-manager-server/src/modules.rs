@@ -1,5 +1,5 @@
 // Copyright (c) 2026 Silent Spud
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 
 //! The server GUI's module panels over the running server's registry (spec-tauri-shell §6, DU3, DF3). Nothing here
 //! takes a path or a program from the page (DD5): the registry only knows what `settings.toml` listed. The page's

@@ -1,5 +1,5 @@
 // Copyright (c) 2026 Silent Spud
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 
 //! Proton and Wine on Linux: finding one, its prefix and environment, and installing Wine (spec §2.7.13).
 

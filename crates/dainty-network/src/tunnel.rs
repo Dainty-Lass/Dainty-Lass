@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! HTTP between the two halves of a split server (`docs/split-roles.md`, `docs/security/tunnel.md`). The half that

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! The tool's own MongoDB client (spec §4): OP_MSG over plain TCP, no `mongodb` crate (RB15). Reading and

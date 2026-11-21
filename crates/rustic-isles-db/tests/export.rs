@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! export-mongo's round trip (spec §11.3, §16.2 D11) and the opt-in rehearsal on real servers (D12).

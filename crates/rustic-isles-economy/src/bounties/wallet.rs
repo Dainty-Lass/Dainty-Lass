@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! The wallet (bounties spec §4.8.1, inventory's W1 to W4): an account's currency balances, never stored in an

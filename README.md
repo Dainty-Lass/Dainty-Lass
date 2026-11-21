@@ -30,7 +30,8 @@ the launcher runs on `127.0.0.1:61100`.
 ## What is in this repository
 
 Dainty Lass is a monorepo with a strict licence boundary (RD27): the root workspace and everything outside
-[`restricted/`](restricted) is **MIT** ([LICENSE.txt](LICENSE.txt)); [`restricted/`](restricted) is a separate
+[`restricted/`](restricted) is **MIT OR Apache-2.0** ([LICENSE-MIT.txt](LICENSE-MIT.txt),
+[LICENSE-APACHE.txt](LICENSE-APACHE.txt)); [`restricted/`](restricted) is a separate
 Cargo workspace licensed under **GNU AGPL-3.0-only** ([restricted/LICENSE.txt](restricted/LICENSE.txt),
 [restricted/NOTICE.md](restricted/NOTICE.md)) holding the Node reference the backend was ported from and the oracle
 and parity tests run against the MIT crates, the 1.4.4 importer's oracle, the AGPL Docker copies, and the host and
@@ -38,11 +39,11 @@ player guides. No MIT crate at the root depends on anything in `restricted/`.
 
 | Folder | Licence | What |
 | --- | --- | --- |
-| [root](.) (`crates/`, `fuzz/`) | MIT | The MIT Cargo workspace, every package in `crates/<package name>` (libraries, the gateway, content, admin and chat services, core plugins, the Rustic Isles game module and runtime, the Rustic Rifts crates, the server executables, the launcher's Tauri shell `dainty-launcher-app`, and `dainty-lass`, the core binary), and `fuzz/` |
-| [`ui/`](ui) | MIT | dainty-dash: the staff dashboard, the launcher and server-manager pages the Tauri shell serves, and the fleet agent (Astryx on Next.js through vinext, built with Bun) |
-| [`launcher/`](launcher) | MIT | The launcher's JavaScript side: the isolation hook, the scripts the Tauri shell and the release run, and their tests |
-| [`scripts/`](scripts) | MIT | `replay-capture.mjs`, the shadow-replay wrapper |
-| [`docs/`](docs) | MIT | The architecture, the plans and the MIT components' security checklists ([SECURITY_REVIEW.md](SECURITY_REVIEW.md)) |
+| [root](.) (`crates/`, `fuzz/`) | MIT OR Apache-2.0 | The MIT Cargo workspace, every package in `crates/<package name>` (libraries, the gateway, content, admin and chat services, core plugins, the Rustic Isles game module and runtime, the Rustic Rifts crates, the server executables, the launcher's Tauri shell `dainty-launcher-app`, and `dainty-lass`, the core binary), and `fuzz/` |
+| [`ui/`](ui) | MIT OR Apache-2.0 | dainty-dash: the staff dashboard, the launcher and server-manager pages the Tauri shell serves, and the fleet agent (Astryx on Next.js through vinext, built with Bun) |
+| [`launcher/`](launcher) | MIT OR Apache-2.0 | The launcher's JavaScript side: the isolation hook, the scripts the Tauri shell and the release run, and their tests |
+| [`scripts/`](scripts) | MIT OR Apache-2.0 | `replay-capture.mjs`, the shadow-replay wrapper |
+| [`docs/`](docs) | MIT OR Apache-2.0 | The architecture, the plans and the MIT components' security checklists ([SECURITY_REVIEW.md](SECURITY_REVIEW.md)) |
 | [`restricted/`](restricted) | AGPL-3.0-only | Separate Cargo workspace: the host kit's parity tests (`restricted/crates/dainty-host-parity`), the launcher's oracle tests (`restricted/launcher/src-tauri`, test-only), Rustic Isles' Node reference, version data and parity replay and Rustic Rifts' oracle (`restricted/modules/`), the 1.4.4 importer's oracle (`restricted/legacy/`), the AGPL Docker copies (`restricted/docker/`, `restricted/compose.yaml`), and the host and player guides ([restricted/SECURITY_REVIEW.md](restricted/SECURITY_REVIEW.md)) |
 
 What is left to do: [MIGRATION_PLAN.md](MIGRATION_PLAN.md). The design record behind it:
@@ -78,8 +79,10 @@ on [Dauntless Revived](https://github.com/mixutin/dauntless-revived)
 the launcher follows; and on [Undaunted](https://github.com/SyST3MDeV/Undaunted) (gwog and contributors), which both
 of those build on.
 
-MIT License ([LICENSE.txt](LICENSE.txt)) at the root: everything outside [`restricted/`](restricted) was written or
-rewritten clean-room from no other project. Everything inside [`restricted/`](restricted) is licensed under the GNU
+Everything outside [`restricted/`](restricted) is licensed under either of the MIT License
+([LICENSE-MIT.txt](LICENSE-MIT.txt)) or the Apache License, Version 2.0 ([LICENSE-APACHE.txt](LICENSE-APACHE.txt)),
+at your option; it was written or rewritten clean-room from no other project. Unless you state otherwise, any
+contribution you submit for inclusion outside `restricted/` is dual-licensed the same way, without further terms. Everything inside [`restricted/`](restricted) is licensed under the GNU
 AGPL-3.0-only ([restricted/LICENSE.txt](restricted/LICENSE.txt), [restricted/NOTICE.md](restricted/NOTICE.md)), with
 the additional terms for the Mystic Paradox
 material in [restricted/ADDITIONAL_TERMS.md](restricted/ADDITIONAL_TERMS.md).

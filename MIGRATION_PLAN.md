@@ -88,7 +88,7 @@ SDK (the SDK is still dumped, into `.workspace/sdk`, for the catalog exporter).
 | RD10 | The 24-hour fuzz run and the signed checklist (`SECURITY_REVIEW.md`) for each component before its cutover | Every checklist signed with the date and the commit reviewed |
 | RR3 | Make `CI ok` the required check on `plan` and `main` (`docs/ci-runners.md`) | A red family blocks a merge |
 | — | Merge `plan` into `main` | — |
-| DL5 | A licensing lawyer reads `LICENSE.txt`, `restricted/NOTICE.md` and `restricted/ADDITIONAL_TERMS.md` and the RD27 layout before DX5 | The changes they ask for are made before the first public push |
+| DL5 | A licensing lawyer reads `LICENSE-MIT.txt`, `LICENSE-APACHE.txt`, `restricted/NOTICE.md` and `restricted/ADDITIONAL_TERMS.md` and the RD27 layout before DX5 | The changes they ask for are made before the first public push |
 | DX5 | Publish to GitHub once the launcher and the server are confirmed working: the repository pushed public, the Cargo registry switched or mirrored, the release workflows' tag trigger and publish job restored (`docs/ci-runners.md`) | — |
 
 ### For an agent (code)
@@ -153,7 +153,7 @@ Reference, not work: these stay when their rows are done. "Amended by DD..." poi
 | --- | --- | --- |
 | `Cargo.toml`, `restricted/Cargo.toml`, `rust-toolchain.toml`, `deny.toml`, `.cargo/`, the lint configs | Integration pass | Never; a crate is added only by its skeleton row or the integration pass |
 | `.forgejo/workflows/`, `.github/` | RR3, DX3; RH6 for `server-release.yml`; RA14 for `launcher-release.yml` | Never |
-| `README.md`, `AGENTS.md`, `restricted/AGENTS.md`, `docs/` index pages, `SECURITY_REVIEW.md`, `restricted/SECURITY_REVIEW.md`, `MIGRATION_PLAN.md`, `docs/dainty-lass-plan.md`, `LICENSE.txt`, `restricted/NOTICE.md` | Integration pass | Never; a row writes its own page under `docs/` |
+| `README.md`, `AGENTS.md`, `restricted/AGENTS.md`, `docs/` index pages, `SECURITY_REVIEW.md`, `restricted/SECURITY_REVIEW.md`, `MIGRATION_PLAN.md`, `docs/dainty-lass-plan.md`, `LICENSE-MIT.txt`, `LICENSE-APACHE.txt`, `restricted/NOTICE.md` | Integration pass | Never; a row writes its own page under `docs/` |
 | `crates/dainty-module-api` | DF2 | A needed capability goes through the integration pass |
 | `crates/dainty-protocol` | RS1 | A needed type goes through the integration pass |
 | `crates/dainty-store` (`Database`, change log, migrations, `portable`, `transfer`) | DF7, DH1, DH3a, DH5 | A seam change goes through the integration pass |

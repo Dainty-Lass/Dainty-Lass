@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! Bounty state (bounties spec §4.2 to §4.4): validation, the dedicated and host merges, deletes and the payload.

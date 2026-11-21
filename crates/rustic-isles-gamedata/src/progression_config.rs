@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! `GET /progression/config`'s served file and the Hunt Pass window rewrite (spec §3.7): the client picks the

@@ -1,5 +1,5 @@
 // Copyright (c) 2026 Silent Spud
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 
 //! The values that cross the bridge to the page, as JSON. Each answer is `{ok: true, ...}` or `{ok: false, error}`;
 //! the page shows an [`ErrorCode`] or [`NoticeCode`] as its catalog sentence.

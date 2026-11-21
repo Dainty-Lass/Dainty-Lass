@@ -1,5 +1,5 @@
 // Copyright (c) 2026 Silent Spud
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 
 //! What each command checks before it reaches the controller (RD27 spec §2.3.4). The isolation hook guards the
 //! page; these guard the backend, so they hold even if a page gets past the hook. Each returns the value the

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! Cooldowns (bounties spec §4.6): the game's once-per-period gates (the daily bounty, the patrol bonus, a harvested

@@ -1,5 +1,5 @@
 // Copyright (c) 2026 Silent Spud
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 
 //! Repairs the function lookups of a Dumper-7 SDK dumped at or after upstream commit `42f37f6`, which
 //! writes the outer class's name where the function's belongs:

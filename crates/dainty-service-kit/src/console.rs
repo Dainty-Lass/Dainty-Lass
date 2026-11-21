@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! How a log record reads on the console (`[logs]` in settings.toml, `docs/logging.md`). The text form keeps Docker

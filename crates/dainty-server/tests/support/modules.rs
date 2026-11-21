@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! Shared by both bins' `tests/modules.rs` (DF5): whatever game modules the bin was built with start on the

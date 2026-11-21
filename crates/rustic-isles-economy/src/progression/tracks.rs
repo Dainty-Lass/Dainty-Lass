@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! Rank curves from `progression_config.json`, the track lists and the grant ids (progression spec §4.1 to §4.3).

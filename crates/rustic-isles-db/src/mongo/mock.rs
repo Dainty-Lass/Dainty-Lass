@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! A MongoDB stand-in for tests (spec §16.1): OP_MSG on 127.0.0.1:0, one thread per connection, `hello`,

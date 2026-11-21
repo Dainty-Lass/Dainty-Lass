@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! A 1.4.4 database (spec §5, §6): copied into a private folder, checked by its history, its objects and the

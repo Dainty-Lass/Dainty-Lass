@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! A session's three spellings: the wire UUID the tables, tickets and `bridge.conf` hold, its 128 bits read as a

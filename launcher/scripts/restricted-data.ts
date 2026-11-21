@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copies the bridge's generated command table from dainty-launcher-kit (crates/dainty-launcher-kit/generated, MIT since RL13), so
 // the hook's table is never committed here. Also refreshes ui's bridge types, which api.test.ts imports. The name
 // is the old one: restricted/ is no longer a source.

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! Save resets and their snapshots (`save_snapshots`). A reset moves every save row of the account to the snapshot's

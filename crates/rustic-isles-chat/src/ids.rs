@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! Party and hunt ids inside room names (spec §4.3): a `GlobalId`'s own text cannot sit in a JID, so a room spells

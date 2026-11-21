@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! Express 5's matching for the table's two kinds of path (core spec §4.1). `dainty_service_kit::routing` refuses empty

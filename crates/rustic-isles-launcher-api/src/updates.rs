@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! The runtime and launcher update feeds, their publishing, and the signed Guard manifests on disk (public spec §6).

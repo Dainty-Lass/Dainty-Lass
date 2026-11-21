@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! `SqlGuardStore` through its public API, on SQLite and (with `DAINTY_TEST_POSTGRES_URL`, a server the test may

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! [`ModuleRegistry`]: the game modules and plugins this server runs (DF3), keyed by game version (DD4),

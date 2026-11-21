@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! Fixtures written from the spec (§13.1: nothing copied): capture lines, a small pinned target and raw servers.

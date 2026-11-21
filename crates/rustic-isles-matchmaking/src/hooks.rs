@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! What the composer's `ModuleHooks` take from this crate (spec §12, §7's offline hook): the players of a placed

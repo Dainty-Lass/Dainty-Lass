@@ -1,5 +1,5 @@
 // Copyright (c) 2026 Silent Spud
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 
 //! The page's Dauntless 1.4.4 calls (the bridge still names them), refused: a Dauntless Revived server is
 //! listed but never current (`settings.rs`), so nothing here plays (RD5, RD22).

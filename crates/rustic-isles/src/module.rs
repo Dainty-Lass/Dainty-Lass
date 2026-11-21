@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! The module in dainty-lass's `module-api` (core spec §7): manifest, registration, start and stop, and the chat,

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! Staff kicks on a game server (spec-runtime-kick): the pure half. The Director writes the kicked players' ids to

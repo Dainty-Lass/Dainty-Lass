@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! The Reward Cache store, rebuilt from a curated plan the version supplies (spec §5.4). The client no longer

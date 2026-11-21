@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! The hub each account was last sent to (spec §5.10, Reforged patch 0025 recast for DD21): one registry per

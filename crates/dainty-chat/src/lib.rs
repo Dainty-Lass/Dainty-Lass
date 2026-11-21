@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! Chat (DN10): XMPP over WebSocket for the game's client, as a core plugin. One task owns every session and room

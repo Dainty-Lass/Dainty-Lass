@@ -1,5 +1,5 @@
 // Copyright (c) 2026 Silent Spud
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 
 //! Game tickets: the launcher trades the account key for one of these just before it starts the game, and the game
 //! logs in with it instead of the key (`APIKEY` mode's `exchange_code`). A ticket is single-use and lives minutes,

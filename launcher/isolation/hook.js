@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Tauri's isolation hook: every IPC call the page makes passes through here before it reaches the backend. A call
 // whose command or arguments the generated table doesn't describe is held forever, so the page's own deadline ends
 // it and the backend never sees it. Plain ES5: the isolation frame loads it as is.

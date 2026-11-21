@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! BSON to JSON and back (spec §4.4, §4.5). Every length is checked against the bytes left before use, and

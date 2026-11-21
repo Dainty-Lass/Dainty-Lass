@@ -1,5 +1,5 @@
 // Copyright (c) 2026 Silent Spud
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 
 //! The game's console window, read into the launcher: whatever opens it (the game, the runtime or a
 //! DLL beside it), a helper attaches to it, reads new rows from its screen buffer and writes them to its

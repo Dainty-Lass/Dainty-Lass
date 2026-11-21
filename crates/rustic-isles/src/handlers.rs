@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! How areas answer rows (core spec §3.6, §5.7): a registry keyed by service, method and the row's exact path text.

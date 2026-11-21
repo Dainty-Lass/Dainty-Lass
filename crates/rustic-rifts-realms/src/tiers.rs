@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! Hosting and trust tiers: the player-hosted policy, whether a hunt is routed to a player's PC, and the relay

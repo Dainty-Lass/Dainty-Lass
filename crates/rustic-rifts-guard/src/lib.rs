@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! Rustic Rifts' Guard in observe mode: the Hunt Guard evidence chain a host's transport posts, whom a hosted

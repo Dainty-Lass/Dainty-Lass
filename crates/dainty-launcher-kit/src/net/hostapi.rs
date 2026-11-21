@@ -1,5 +1,5 @@
 // Copyright (c) 2026 Silent Spud
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 
 //! The launcher's requests to a server: status, register, user info, the runtime manifest, news and branding
 //! (spec §2.6.3). The account key goes only to the server it was made for (AGENTS.md).

@@ -1,5 +1,5 @@
 // Copyright (c) 2026 Silent Spud
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 
 //! Realm hosting and joining (RF7, DD12, DU5): links `rifts-host` behind the `realms` feature and serves
 //! `realm_host`, `realm_join`, `realm_stop`, and `realm_get`.

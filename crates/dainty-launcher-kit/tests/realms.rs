@@ -1,5 +1,5 @@
 // Copyright (c) 2026 Silent Spud
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 
 //! Realm hosting and joining tests (`realms` feature, RF7): drives `Controller::realm_host`,
 //! `realm_join`, `realm_stop`, and `realm_get` against a scripted [`TransportAbi`] (the MIT `rifts-host` links its

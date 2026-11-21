@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! TURN credentials: minted here for a turn-rest server, or asked of Cloudflare, with the monthly relay quota read

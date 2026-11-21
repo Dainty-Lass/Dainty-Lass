@@ -1,5 +1,5 @@
 // Copyright (c) 2026 Silent Spud
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 
 //! The backend's own text: the few strings the launcher's Rust side shows itself (dialogs, pickers, the tray),
 //! from the MIT catalog in `catalog` (L1). The page's text is its own.

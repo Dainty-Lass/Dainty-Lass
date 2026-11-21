@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // The manager's "Managed installs" screen against the remote-management stack that the root's
 // docker/remote/test.sh leaves running. Windows with WebView2 and Docker only; run by hand, never in CI.
 import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs"

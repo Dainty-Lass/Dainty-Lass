@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! The store catalog (bounties spec §4.9 to §4.13): the sections, their offers as read from the host's store files,

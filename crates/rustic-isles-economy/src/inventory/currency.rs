@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! `ApplyCurrencyDeltas` (spec §9.1), the prestige gate (§9.2) and the Sparkforge conversion, on the bounties

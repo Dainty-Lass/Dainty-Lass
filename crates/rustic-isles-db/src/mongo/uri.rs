@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! `mongodb://` URIs (spec §4.1). Every option but `authSource` is ignored, TLS and replica sets included.

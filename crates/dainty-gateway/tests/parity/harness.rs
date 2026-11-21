@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! The parity harness (spec-rd27-gateway.md section 5.1): every recorded request on its own TLS connection to a

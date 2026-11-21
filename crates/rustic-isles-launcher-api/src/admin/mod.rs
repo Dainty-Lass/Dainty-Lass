@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! The admin half (admin spec): the `/admin/v1` wrapper and its caller, sign-in, Discord sign-in, players and audit,

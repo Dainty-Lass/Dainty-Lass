@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! Invite link formatting (`dauntless://join?...`), gateway X.509 certificate SHA-256 fingerprint

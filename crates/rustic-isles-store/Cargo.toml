@@ -5,7 +5,7 @@ version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 # Clean-room rewrite from docs/port/spec-rustic-isles-store.md (RD27, docs/port/clean-room/rustic-isles-store.md)
-license = "MIT"
+license = "MIT OR Apache-2.0"
 repository.workspace = true
 publish.workspace = true
 

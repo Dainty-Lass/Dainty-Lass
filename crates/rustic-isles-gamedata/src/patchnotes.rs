@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! `GET /patchnotes/:language/:gameversion` (spec §3.6). The structure, titles, types and dates are the

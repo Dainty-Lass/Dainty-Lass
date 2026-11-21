@@ -1,5 +1,5 @@
 // Copyright (c) 2026 Silent Spud
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 
 //! The launcher's state machine (RD27 spec §2.4): the page sends intents through the bridge's commands, and the
 //! controller publishes a [`Snapshot`] after every step.

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! Launcher logs (public spec §7): testers' uploads, the sync script's reads, the operator's view, the 90-day purge

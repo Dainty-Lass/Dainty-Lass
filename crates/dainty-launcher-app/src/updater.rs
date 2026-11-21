@@ -1,5 +1,5 @@
 // Copyright (c) 2026 Silent Spud
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 
 //! Self-update (RD27 spec §2.7.12) from the `launcher-updates` release (L7). Release builds supply the public
 //! key; without one, or outside a bundle, nothing is ever checked.
@@ -184,6 +184,6 @@ mod tests {
                 "https://github.com/SilentSpud/DaintyLass/releases/download/launcher-updates/latest.json"
             ])
         );
-        assert_eq!(config["bundle"]["license"], "MIT");
+        assert_eq!(config["bundle"]["license"], "MIT OR Apache-2.0");
     }
 }

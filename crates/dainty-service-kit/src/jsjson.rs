@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! JSON as `JSON.stringify` writes it: numbers as JavaScript prints them and integer-like keys first.

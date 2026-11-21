@@ -1,5 +1,5 @@
 // Copyright (c) 2026 Silent Spud
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 
 //! Pure parsers for `dainty-host` output, `settings.toml`/`host.json`, and `vswhere` (Spec §2.3).
 //! Compiled directly into the `launcher_host` fuzz target.

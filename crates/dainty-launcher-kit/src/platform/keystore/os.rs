@@ -1,5 +1,5 @@
 // Copyright (c) 2026 Silent Spud
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 
 //! The OS's protection for key files (spec §2.7.1): DPAPI for the current user on Windows, a random AES-256-GCM
 //! key kept in the Secret Service on Linux, nothing elsewhere. Every call blocks (D-Bus, DPAPI): an async caller

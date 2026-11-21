@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! The pure rules, the host PC's files, the result codes and the stub (spec §8.2 items 2, 3, 6, 8 and the additions).

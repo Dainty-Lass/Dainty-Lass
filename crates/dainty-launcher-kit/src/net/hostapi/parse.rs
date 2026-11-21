@@ -1,5 +1,5 @@
 // Copyright (c) 2026 Silent Spud
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 
 //! The host API's replies, read as untrusted input: each parser takes a status and a body and never fails
 //! louder than the outcome the launcher shows (spec §2.6.3).

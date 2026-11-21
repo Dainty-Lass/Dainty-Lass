@@ -1,5 +1,5 @@
 // Copyright (c) 2026 Silent Spud
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 
 //! The tray icon (RD27 spec §2.2.1), there only while the window is hidden to it: minimising or closing with the
 //! player's `minimizeToTray` / `closeToTray` settings hides the window here, and the icon goes when it comes back.

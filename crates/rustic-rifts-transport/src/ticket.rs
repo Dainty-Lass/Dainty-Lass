@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! Ticket checks on the host side, on `rustic-rifts-admission`'s parser so the issuer and the transport share one format.

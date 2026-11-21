@@ -1,5 +1,5 @@
 // Copyright (c) 2026 Silent Spud
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 
 //! Tauri's app manifest from dainty-launcher-kit's command table (RD27 spec §2.1.4): each command gets its
 //! `allow-`/`deny-` permissions, and the `app-commands` set grants exactly the table. The set and the isolation

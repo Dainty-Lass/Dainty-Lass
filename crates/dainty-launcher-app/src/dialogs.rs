@@ -1,5 +1,5 @@
 // Copyright (c) 2026 Silent Spud
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 
 //! The backend's own dialogs (RD27 spec §2.7.11): the pickers, parented to the main window, and the keep-open
 //! question. Their text is dainty-launcher-kit's MIT catalog (L1).

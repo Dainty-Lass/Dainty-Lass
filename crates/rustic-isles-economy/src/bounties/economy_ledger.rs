@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! The economy ledger monitor (bounties spec §4.14, inventory's W9): Platinum and Hunt Pass reward movements of one

@@ -1,5 +1,5 @@
 // Copyright (c) 2026 Silent Spud
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 
 //! The game versions the launcher offers (DE4, DD22): the compiled-in client profiles (`builtin`) and those
 //! the joined servers' content serves, each Epic build with its download and install size read from its

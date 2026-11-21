@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! Who may talk ICE with whom in a hunt or a realm hub, the per-pair keys, and the checks on the signals the relay

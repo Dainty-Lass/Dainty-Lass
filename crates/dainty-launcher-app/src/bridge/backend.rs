@@ -1,5 +1,5 @@
 // Copyright (c) 2026 Silent Spud
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 
 //! What the commands share beyond the controller (§2.3.5): the page's progress channel, the invite link waiting
 //! for the page, and the manager's module panel.

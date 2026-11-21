@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! A realm hub with six joiners and a changing roster (spec §5.3 "hub"), direct and relay-only through a TURN

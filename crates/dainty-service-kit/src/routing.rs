@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! Routes matched as Express 4 matches them: in registration order, case-insensitively, a trailing slash allowed, and

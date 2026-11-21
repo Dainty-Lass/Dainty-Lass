@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! Admin Discord sign-in (admin spec §5): an allow-listed, PKCE, browser-bound OAuth flow answered with 302s.

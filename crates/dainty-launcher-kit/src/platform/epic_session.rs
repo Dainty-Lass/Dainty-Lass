@@ -1,5 +1,5 @@
 // Copyright (c) 2026 Silent Spud
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 
 //! Epic sign-in behind the bridge's `epic_*` commands (DD22, DE2). A code from the login window (`epic_login`)
 //! or the player's paste is exchanged through `dainty_epic::auth`; the session goes to the keystore (`keystore::epic`)

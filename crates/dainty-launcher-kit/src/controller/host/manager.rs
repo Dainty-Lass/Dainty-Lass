@@ -1,5 +1,5 @@
 // Copyright (c) 2026 Silent Spud
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 
 //! The manager's server panels and its in-process host kit (RD27 spec §4.3): the workspace checks, the jobs and
 //! the page's events here, the work in the embedded server's [`ServerEngine`].

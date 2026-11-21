@@ -1,5 +1,5 @@
 // Copyright (c) 2026 Silent Spud
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 
 //! The game folder (RD27 spec §2.4.8): finding it, choosing it and verifying its executable against the pin.
 

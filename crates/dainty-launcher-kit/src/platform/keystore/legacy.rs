@@ -1,5 +1,5 @@
 // Copyright (c) 2026 Silent Spud
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 
 //! Reading the older Electron launcher's `.key` files, never writing them (spec §2.7.1). Electron seals with
 //! Chromium's scheme: on Windows a DPAPI-protected AES-256-GCM key in `Local State`, on Linux AES-128-CBC under a

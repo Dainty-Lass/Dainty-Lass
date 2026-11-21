@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! Body caps, rate buckets, connection limits, the timers and graceful shutdown (spec-rd27-gateway.md 5.2).

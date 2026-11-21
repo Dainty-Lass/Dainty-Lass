@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! The probes and the metrics route (public spec §4.1 to §4.3). The release-gates probe is the admin half's.

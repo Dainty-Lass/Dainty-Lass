@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! `verify`'s comparison (spec §10.3): per table, the count, a SHA-256 over the canonical records and the

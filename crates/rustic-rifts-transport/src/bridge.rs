@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! The UDP side the game sees: IPv4 sockets on 127.0.0.1 only, non-blocking, pumped by the session thread.

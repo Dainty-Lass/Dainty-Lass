@@ -4,7 +4,7 @@
   "description": "The contract between the dashboard and its controller agents: the game calls either side may make, and the wire protocol",
   "type": "module",
   "private": true,
-  "license": "MIT",
+  "license": "MIT OR Apache-2.0",
   "exports": {
     ".": "./src/index.ts"
   },

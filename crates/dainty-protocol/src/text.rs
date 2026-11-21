@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! String handling that matches JavaScript's: UTF-16 lengths, `trim` and `\s`, and the control and bidi

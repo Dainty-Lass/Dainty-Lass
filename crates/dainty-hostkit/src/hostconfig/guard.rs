@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! `[guard]` (DD23 layer 4, DH6): when a destructive or bulk admin action waits for a delay or a second

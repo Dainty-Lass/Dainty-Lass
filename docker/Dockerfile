@@ -72,7 +72,7 @@ WORKDIR /opt/dainty-lass/.workspace
 USER dainty
 LABEL org.opencontainers.image.title="Dainty Lass front door" \
       org.opencontainers.image.source="https://git.silentspud.com/silentspud/dainty-lass" \
-      org.opencontainers.image.licenses="MIT"
+      org.opencontainers.image.licenses="MIT OR Apache-2.0"
 
 FROM ${DEBIAN_IMAGE} AS server
 RUN apt-get update \
@@ -104,10 +104,10 @@ COPY restricted/modules/rustic-isles/version-data/1.14.7/version_data.json data/
 COPY restricted/modules/rustic-isles/LICENSE restricted/modules/rustic-isles/NOTICE.md \
      restricted/modules/rustic-isles/ADDITIONAL_TERMS.md data/
 COPY restricted/NOTICE.md restricted/ADDITIONAL_TERMS.md data/restricted/
-COPY LICENSE.txt ./
+COPY LICENSE-MIT.txt LICENSE-APACHE.txt ./
 # A Windows build context marks every file executable
 RUN find data -type d -exec chmod 0755 {} + \
- && find data LICENSE.txt Cargo.toml modules -type f -exec chmod 0644 {} +
+ && find data LICENSE-MIT.txt LICENSE-APACHE.txt Cargo.toml modules -type f -exec chmod 0644 {} +
 COPY --from=rust-build /out/bin/ bin/
 COPY --from=rust-build /out/plugins/ plugins/
 COPY --chmod=0755 docker/director-entrypoint.sh bin/dainty-director
@@ -123,7 +123,7 @@ ENTRYPOINT ["/usr/bin/tini", "--"]
 CMD ["dainty-host", "--help"]
 LABEL org.opencontainers.image.title="Dainty Lass server" \
       org.opencontainers.image.source="https://git.silentspud.com/silentspud/dainty-lass" \
-      org.opencontainers.image.licenses="MIT AND AGPL-3.0-only"
+      org.opencontainers.image.licenses="(MIT OR Apache-2.0) AND AGPL-3.0-only"
 
 FROM ${DEBIAN_IMAGE} AS netem
 RUN apt-get update \
@@ -133,7 +133,7 @@ COPY --chmod=0755 docker/network/netem.sh /usr/local/bin/dainty-netem
 ENTRYPOINT ["/usr/local/bin/dainty-netem"]
 LABEL org.opencontainers.image.title="Dainty Lass network harness latency" \
       org.opencontainers.image.source="https://git.silentspud.com/silentspud/dainty-lass" \
-      org.opencontainers.image.licenses="MIT"
+      org.opencontainers.image.licenses="MIT OR Apache-2.0"
 
 FROM server AS test
 USER root
@@ -162,4 +162,4 @@ RUN cd /opt/src \
 ENTRYPOINT ["/usr/bin/tini", "--", "dainty-test"]
 CMD []
 LABEL org.opencontainers.image.title="Dainty Lass server tests" \
-      org.opencontainers.image.licenses="MIT"
+      org.opencontainers.image.licenses="MIT OR Apache-2.0"

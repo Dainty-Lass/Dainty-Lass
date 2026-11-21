@@ -1,5 +1,5 @@
 // Copyright (c) 2026 Silent Spud
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 
 //! The manager's history and revert against a workspace's admin database (spec-tauri-shell §7, §12.2): an
 //! owner's revocation of two moderators' keys is listed, planned and reverted, and the revert is logged as the

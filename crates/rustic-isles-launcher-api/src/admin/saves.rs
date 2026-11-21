@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! The save snapshots a player's `/reset` and staff restores leave (`rustic_isles_store::repo::resets`): listed, and

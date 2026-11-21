@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! The two in-memory limiters (spec §4.7): sliding attempt windows for the sign-in routes and the fixed per-minute

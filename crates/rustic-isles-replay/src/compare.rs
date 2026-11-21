@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! Comparison (spec §8), the gateway redaction alignment (§7.8) and chat stanzas (§9.4).

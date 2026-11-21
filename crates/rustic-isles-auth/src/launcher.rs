@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! The launcher API (spec §3.4, §4.2, §4.3, §4.5, §7): accounts, sessions, email codes, Discord, consent,

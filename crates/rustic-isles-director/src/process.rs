@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! One running game server process (spec §5.5-§5.7): both pipes always drained into its log file (the 2026-07-19

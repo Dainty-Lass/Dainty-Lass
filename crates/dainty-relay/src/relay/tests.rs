@@ -1,5 +1,5 @@
 // Copyright (c) 2026 Silent Spud
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 
 #![allow(clippy::unwrap_used, clippy::expect_used, reason = "a panic is how a test fails")]
 

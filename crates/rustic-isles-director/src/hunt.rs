@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! The hunt tables and the resolver (spec §9): which matchmaker row, map and Behemoth a player hunt starts, tag

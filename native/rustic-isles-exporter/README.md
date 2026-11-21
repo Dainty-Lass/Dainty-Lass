@@ -75,4 +75,4 @@ page, the imported SDK and a local server.
 What the diff settles (spec §12): the name suffix and UTF-16 handling, the store offsets, member types, the soft
 pointer layout, and whether a run loads the tables in time.
 
-Licensed under MIT (`LICENSE`).
+Licensed under either of MIT (`LICENSE-MIT`) or Apache-2.0 (`LICENSE-APACHE`), at your option.

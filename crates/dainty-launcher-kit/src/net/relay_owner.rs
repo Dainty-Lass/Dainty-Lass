@@ -1,5 +1,5 @@
 // Copyright (c) 2026 Silent Spud
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 
 //! The relay's owner check (RD21), `dainty-relay`'s, over the launcher's table source: netstat.
 

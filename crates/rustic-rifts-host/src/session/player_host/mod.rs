@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! The launcher's end of the hosted server's player host (spec-runtime-r10 12.2 row 2): the ready pipe's server end,

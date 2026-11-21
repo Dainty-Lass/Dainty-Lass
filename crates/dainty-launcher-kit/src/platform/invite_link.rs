@@ -1,5 +1,5 @@
 // Copyright (c) 2026 Silent Spud
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 
 //! Invite links from the OS: the link in the launcher's arguments, the invite schemes registered for this
 //! executable, and the per-user channel a second launcher hands its arguments over (spec §2.7.8).

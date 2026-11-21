@@ -1,5 +1,5 @@
 // Copyright (c) 2026 Silent Spud
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 
 //! `dainty-inject.exe`, which Proton runs in place of the game when a Linux player picks the helper over the
 //! runtime loader: `dainty-inject.exe --dll <path> <sha256> [--dll ...] -- <game.exe> [game arguments]`. It starts

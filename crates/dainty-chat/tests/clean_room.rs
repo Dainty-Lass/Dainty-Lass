@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! The clean-room rewrite's own black-box tests (RD27), over real sockets: ghost replacement and the loopback

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! The two data files (spec §2): the 1.4.4 metagame's history as facts, and the Node kit's keys and folders.

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! Windows lends blocks of its dynamic range (49152 to 65535) to Hyper-V, WSL and Docker, and a port inside one

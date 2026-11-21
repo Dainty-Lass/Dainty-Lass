@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! The XP route's half of the weapon reforge (progression spec §4.5, §4.6; inventory's P1 to P5): which grants a

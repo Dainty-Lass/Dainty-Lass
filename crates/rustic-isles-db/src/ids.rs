@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! Derived ids (DD18; spec §6). The `isles-db:` prefixes are values, not names: every id already derived in a

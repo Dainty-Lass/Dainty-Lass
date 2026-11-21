@@ -1,5 +1,5 @@
 // Copyright (c) 2026 Silent Spud
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 
 //! Fuzz target for remote management (`docs/security/remote-management.md`, DD27, RM1):
 //! exercises `parse_enrollment_uri`, `decode_enroll_request`, `decode_enroll_answer`,

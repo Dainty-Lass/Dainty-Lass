@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! The core's side of the gateway service (RD27, `dainty_service_plugin::gateway`), loaded as a library or compiled in: what

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! The Slayer's Path (player journey map) and its rewards (progression spec §4.11, §4.12). Node maps keep the game's

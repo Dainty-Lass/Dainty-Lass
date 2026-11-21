@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! Entitlements (bounties spec §4.7): the third grant a SKU can carry, and how Hunt Pass Premium and the

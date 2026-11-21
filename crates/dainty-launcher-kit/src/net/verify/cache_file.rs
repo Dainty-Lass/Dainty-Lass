@@ -1,5 +1,5 @@
 // Copyright (c) 2026 Silent Spud
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 
 //! The hash cache's file format: `{"files": {<path>: {size, mtimeMs, sha256}}}`.
 

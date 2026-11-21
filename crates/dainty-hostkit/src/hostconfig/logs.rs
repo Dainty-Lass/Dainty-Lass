@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! `[logs]` (`docs/logging.md`): how the server's console reads, and the GELF collector (Graylog) its log is shipped
