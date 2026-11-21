@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! The guarded actions for the server GUI (DD23 layer 4, DH6): what `dainty-host admin guarded` does, in the

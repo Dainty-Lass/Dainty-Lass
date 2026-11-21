@@ -1,5 +1,5 @@
 // Copyright (c) 2026 Silent Spud
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 
 //! The Host page (RD27 spec §2.5): the host kit's workspace, its requirements, the builds and game data, and
 //! the server a host runs from the launcher, all through the workspace's `dainty-host`. With an embedded

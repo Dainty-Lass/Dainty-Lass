@@ -1,5 +1,5 @@
 // Copyright (c) 2026 Silent Spud
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 
 //! The bridge's generated files (RD27 spec §2.3.6): the page's TypeScript types, the isolation hook's command
 //! table and Tauri's permission set, all from [`super::spec`] and [`super::types`]. The test checks them against

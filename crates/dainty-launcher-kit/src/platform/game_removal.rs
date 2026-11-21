@@ -1,5 +1,5 @@
 // Copyright (c) 2026 Silent Spud
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 
 //! Removing a game the launcher installed: the whole folder when the install made it, otherwise only the files the
 //! manifest names and the launcher's own runtime and loader files, so nothing the player kept there goes. A link

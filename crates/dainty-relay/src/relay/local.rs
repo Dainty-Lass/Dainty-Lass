@@ -1,5 +1,5 @@
 // Copyright (c) 2026 Silent Spud
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 
 //! Which requests count as the game's own: loopback peers naming a loopback host, never a browser page (spec
 //! §2.6.4). A web page can reach 127.0.0.1 too, so the Host, `sec-fetch-*` and Origin rules keep it out.

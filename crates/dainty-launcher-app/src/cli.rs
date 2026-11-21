@@ -1,5 +1,5 @@
 // Copyright (c) 2026 Silent Spud
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 
 //! `dainty-launcher play|export|servers` without the window: the kit's controller over [`HeadlessPlatform`],
 //! run to the game's exit (`dainty_launcher_kit::controller::cli`).

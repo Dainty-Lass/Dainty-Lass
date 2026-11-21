@@ -1,5 +1,5 @@
 // Copyright (c) 2026 Silent Spud
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 
 //! A minimal HTTP/1.1 client: one request per connection, pinned TLS to public hosts, bodies bounded.
 

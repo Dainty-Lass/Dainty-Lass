@@ -1,5 +1,5 @@
 // Copyright (c) 2026 Silent Spud
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 
 //! Loading the runtime and the Host tools into a game started suspended (RD9 as of 2026-11-12,
 //! `docs/launcher-injection.md`). Only a process the caller just created suspended, only DLLs named by absolute

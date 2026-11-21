@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! HMAC hashes under `API_KEY_HASH_SECRET` (spec §5.3) and their constant-time comparison.

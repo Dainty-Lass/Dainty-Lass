@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Installs both desktop bundles, hosts a server from the manager, joins it from the client, then bans the player
 // and reads the history. Windows with WebView2 and the built bundles only; run by hand, never in CI.
 import { mkdirSync, mkdtempSync, rmSync } from "node:fs"

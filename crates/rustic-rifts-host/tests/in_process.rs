@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! The in-process transport behind the trait (spec §8.2 item 4, rewritten for D1), and a hub hosted and joined end to

@@ -67,7 +67,7 @@ dependency order, runs the checks and strikes the rows.
   row needs a change to a seam (the workspace `Cargo.toml`, `crates/dainty-protocol`, the bridge spec, `store`
   migrations, the `clap` tree, `.forgejo/`) or to a file another row owns, stop and report it. Don't make the
   change yourself.
-- **Never edit** `MIGRATION_PLAN.md`, `README.md`, `LICENSE.txt`, `SECURITY_REVIEW.md` or the `docs/` index pages
+- **Never edit** `MIGRATION_PLAN.md`, `README.md`, `LICENSE-MIT.txt`, `LICENSE-APACHE.txt`, `SECURITY_REVIEW.md` or the `docs/` index pages
   from a row. Those belong to the integration pass. A row writes only its own page under `docs/`.
 - **New launcher strings go at the end** of every language file, so the integration pass resolves only
   append-only conflicts.
@@ -283,9 +283,11 @@ explanation goes in the commit body or the `docs/security/` checklist.
 
 ## Licensing
 
-MIT ([`LICENSE.txt`](LICENSE.txt)); `ui/` carries its own copy (`ui/LICENSE`). The workspace's `license` is `"MIT"`
-and every crate in `crates/` sets `license = "MIT"` itself; `cargo deny` refuses a dependency whose licence can't
-ship in the AGPL-3.0-only release built from `restricted/`.
+MIT OR Apache-2.0 ([`LICENSE-MIT.txt`](LICENSE-MIT.txt), [`LICENSE-APACHE.txt`](LICENSE-APACHE.txt)); `ui/` carries
+its own copies (`ui/LICENSE-MIT`, `ui/LICENSE-APACHE`). "MIT" elsewhere in these docs is shorthand for that dual
+licence. The workspace's `license` is `"MIT OR Apache-2.0"`, every crate in `crates/` sets it itself, and a new file's
+header is `SPDX-License-Identifier: MIT OR Apache-2.0`; `cargo deny` refuses a dependency whose licence can't ship in
+the AGPL-3.0-only release built from `restricted/`.
 
 A crate here is MIT only while nothing in it is ported from DR, Paradox or the Reforged Revival line: no file from
 those trees, no function rewritten from one while looking at it. Code that is ported belongs in `restricted/`, which

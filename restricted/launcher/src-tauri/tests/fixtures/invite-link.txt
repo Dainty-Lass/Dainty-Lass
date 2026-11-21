@@ -9,7 +9,7 @@ tailscale_share: None
 vc_redist: Some("https://aka.ms/vs/17/release/vc_redist.x64.exe")
 server_source: None
 project_source: Some("https://github.com/SilentSpud/DaintyLass")
-project_license: Some("https://github.com/SilentSpud/DaintyLass/blob/main/LICENSE.txt")
+project_license: Some("https://github.com/SilentSpud/DaintyLass/blob/main/README.md#credits-and-licence")
 project_issues: Some("https://github.com/SilentSpud/DaintyLass/issues")
 project_docs_players: Some("https://github.com/SilentSpud/DaintyLass/blob/main/restricted/docs/players.md")
 project_docs_hosting: Some("https://github.com/SilentSpud/DaintyLass/blob/main/restricted/docs/hosting.md")

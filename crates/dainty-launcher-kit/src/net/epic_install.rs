@@ -1,5 +1,5 @@
 // Copyright (c) 2026 Silent Spud
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 
 //! The Epic install job: `dainty_epic::download::install` with pause, resume and cancel from the page, and its progress
 //! turned into the page's task progress (kind `install`) with a rate and an ETA.

@@ -1,5 +1,5 @@
 // Copyright (c) 2026 Silent Spud
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 
 //! Starting a realm's hosted game server (spec-runtime-r10 12.2 row 2): suspended, the runtime loaded into it by
 //! absolute path with checked hashes, and killed rather than resumed half-loaded (RD9). The pipes around it are

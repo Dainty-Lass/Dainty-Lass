@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! The handle (spec §3) and the sign-in repositories (§6): rows S1-S4 and A1-A11 of §15.2.

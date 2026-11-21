@@ -1,5 +1,5 @@
 // Copyright (c) 2026 Silent Spud
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 
 //! The controller's whole flow (RD27 spec §2.10) against fake servers on loopback: plain HTTP for private mode
 //! and a TLS gateway with a throwaway certificate for public mode. Its own test binary, because it logs to the

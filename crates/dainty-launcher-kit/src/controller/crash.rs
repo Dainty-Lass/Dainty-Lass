@@ -1,5 +1,5 @@
 // Copyright (c) 2026 Silent Spud
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 
 //! Crash reports after the game exits (`docs/security/crash-reports.md`): a crash folder the game just wrote is
 //! offered once, and its report goes only to the server it was played on, never to another one joined later.

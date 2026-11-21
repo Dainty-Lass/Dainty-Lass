@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Builds or serves one of the dashboard's pages for a Tauri shell: the shells' beforeBuildCommand and
 // beforeDevCommand run this, so the page always comes from the dashboard checkout.
 import { cpSync, existsSync, rmSync } from "node:fs"

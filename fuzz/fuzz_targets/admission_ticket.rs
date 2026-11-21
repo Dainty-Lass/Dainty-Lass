@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! The join tickets a host's transport and the backend read (spec-rd27-rifts-admission-relay.md §3.2): a payload that

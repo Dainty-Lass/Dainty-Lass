@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! One persistent hub's supervisor (spec §7.1): single-flight starts, backoff on failure, a retry timer, and a

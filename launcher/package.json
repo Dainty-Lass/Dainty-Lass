@@ -2,7 +2,7 @@
   "name": "dainty-lass-launcher",
   "version": "2.0.0-beta",
   "private": true,
-  "license": "MIT",
+  "license": "MIT OR Apache-2.0",
   "type": "module",
   "packageManager": "bun@1.4.4",
   "scripts": {

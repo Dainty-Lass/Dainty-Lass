@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! `dainty-legacy import <kind> ...` (spec §3): the report on stdout and 0, `dainty-legacy: <error>` on stderr

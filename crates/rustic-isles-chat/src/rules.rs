@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! The answer to each `ChatQuery` for 1.14.7 (spec §5.2-§5.8). Each query is one method with its default, so

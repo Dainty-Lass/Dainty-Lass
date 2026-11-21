@@ -1,5 +1,5 @@
 // Copyright (c) 2026 Silent Spud
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 
 //! External links: the fixed URL of every target the page may open, the check every URL passes before the OS
 //! opens it, and the opening itself (spec §2.7.9, §2.4.10).
@@ -38,7 +38,7 @@ pub fn fixed_url(target: ExternalTarget) -> Option<&'static str> {
         T::TailscaleDownload => "https://tailscale.com/download",
         T::VcRedist => "https://aka.ms/vs/17/release/vc_redist.x64.exe",
         T::ProjectSource => PROJECT_URL,
-        T::ProjectLicense => project_file!("LICENSE.txt"),
+        T::ProjectLicense => project_file!("README.md#credits-and-licence"),
         T::ProjectIssues => "https://github.com/SilentSpud/DaintyLass/issues",
         T::ProjectDocsPlayers => {
             project_file!("restricted/docs/players.md")
@@ -218,7 +218,7 @@ mod tests {
             ("project_source", "https://github.com/SilentSpud/DaintyLass"),
             (
                 "project_license",
-                "https://github.com/SilentSpud/DaintyLass/blob/main/LICENSE.txt",
+                "https://github.com/SilentSpud/DaintyLass/blob/main/README.md#credits-and-licence",
             ),
             ("project_issues", "https://github.com/SilentSpud/DaintyLass/issues"),
             (

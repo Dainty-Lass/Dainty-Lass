@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! The hunt-table importer (spec §10, §14.2), authored: handles use `table`, as the CatalogExporter writes them.

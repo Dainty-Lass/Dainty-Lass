@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! The signed join ticket: `rpt1.<payload>.<signature>`, an ES256 signature over a fixed big-endian payload. The

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! Test helpers: a ticket signer, the session files, a fake backend, a UDP echo server, a game client and a signal

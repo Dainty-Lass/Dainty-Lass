@@ -1,5 +1,5 @@
 // Copyright (c) 2026 Silent Spud
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 
 //! The server's runtime (RD27 spec §2.4.9): what the server offers, whether the player trusted it, and installing
 //! it into the game folder.

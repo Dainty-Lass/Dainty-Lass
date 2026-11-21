@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! The two pipe ends on Windows (spec-runtime-r10 7, 8.2, 12.2). Overlapped I/O, so every wait has a deadline and

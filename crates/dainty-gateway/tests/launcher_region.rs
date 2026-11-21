@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! The launcher's region ping (dainty-lass `launcher-kit`) and the gateway answer the same routes and check the

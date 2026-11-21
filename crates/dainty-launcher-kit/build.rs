@@ -1,5 +1,5 @@
 // Copyright (c) 2026 Silent Spud
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 
 //! The launcher's release version from `launcher/package.json`, the one place it is set: Tauri's config reads the
 //! same file, so the client, the manager and what the controller reports agree (RL14).

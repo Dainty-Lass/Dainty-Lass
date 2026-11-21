@@ -1,5 +1,5 @@
 // Copyright (c) 2026 Silent Spud
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 
 //! The two desktop apps' bundle configs (`dainty-launcher`, `dainty-manager`) are wired and distinct: names,
 //! identifiers, icons, their dashboard page, their update feeds and the version the release builds take.

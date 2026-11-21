@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! History and revert (DD23, DH3a) on both engines. Postgres when `DAINTY_TEST_POSTGRES_URL` is set, as in

@@ -1,5 +1,5 @@
 # Copyright (c) 2026 Silent Spud
-# SPDX-License-Identifier: MIT
+# SPDX-License-Identifier: MIT OR Apache-2.0
 
 [package]
 name = "dainty-launcher-app"
@@ -7,7 +7,7 @@ description = "The MIT Tauri shell of the Dainty Lass launcher (RD27 spec §2.1,
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
-license = "MIT"
+license = "MIT OR Apache-2.0"
 repository.workspace = true
 publish.workspace = true
 # The bundles' file name; the package name `launcher` is restricted's

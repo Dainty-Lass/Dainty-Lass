@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! The runtime every game server is started with (RD9 as of 2026-11-13, `docs/director-injection.md`): the host's

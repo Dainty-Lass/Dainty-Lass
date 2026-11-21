@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! The party outbox dispatcher (spec §8, `PartyOutboxDispatcher.ts`): the outbox as headlines, which the chat

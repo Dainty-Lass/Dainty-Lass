@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! The `/game_tuning/*` payloads (spec §3.4), held as the spec's one-line JSON and parsed once; `preserve_order`

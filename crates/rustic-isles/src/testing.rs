@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! Test support (core spec §13.3): sample paths for every row, a raw HTTP/1.1 client, the addresses a started

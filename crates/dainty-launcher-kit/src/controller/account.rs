@@ -1,5 +1,5 @@
 // Copyright (c) 2026 Silent Spud
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 
 //! The account on the current server (RD27 spec §2.4.6). The key goes only to its own server and slot, and the
 //! key store registers it with the log's redaction before anything could print it.

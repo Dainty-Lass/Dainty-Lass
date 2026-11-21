@@ -1,5 +1,5 @@
 // Copyright (c) 2026 Silent Spud
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 
 //! The player's side of the wire (RD27 spec §2.3.8): the snapshot and its sections, settings, and the answers
 //! of the join and account commands.

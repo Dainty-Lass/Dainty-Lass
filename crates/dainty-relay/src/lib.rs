@@ -1,5 +1,5 @@
 // Copyright (c) 2026 Silent Spud
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 
 //! The game's relay to its server: a loopback listener that carries the game's HTTP and WebSocket upgrades over
 //! TLS pinned to the invite's certificate (or plain HTTP to a private-mode host). The runtime runs it inside the

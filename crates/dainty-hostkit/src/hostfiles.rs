@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! The other files a host writes, in TOML (RD24 phase 3, docs/config-toml-plan.md). `news.toml` is read by content

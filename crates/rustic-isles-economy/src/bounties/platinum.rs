@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! Platinum (bounties spec §4.8.2, §4.8.3): 13 stored buckets shown as one number, and the free-Platinum switch.

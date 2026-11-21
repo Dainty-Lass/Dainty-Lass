@@ -1,5 +1,5 @@
 // Copyright (c) 2026 Silent Spud
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 
 //! The rest of the wire (RD27 spec §2.3.8): Epic and game installs, and the server manager's panels (guarded
 //! actions, history, realms, doctor, server config, invites, remote installs), with their answers.

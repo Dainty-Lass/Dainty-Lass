@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! Room nicknames: the client joins as `UrlEncode(DisplayName):AccountId:OwnResource`, and a nick is only

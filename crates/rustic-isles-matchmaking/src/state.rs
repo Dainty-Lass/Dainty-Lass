@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! What one module keeps in memory (spec §5.2, §5.8, §5.9, DD15): queues, candidates, party instances, launch refs,

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! The game client's side (spec §3.1-§3.3, §4.1): game auth, the sign-in stubs, the Epic Online Services

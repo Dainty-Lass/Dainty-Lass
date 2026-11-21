@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! The hash chain (DD23 layer 3, DH5): each entry carries the hash of the one before it (`prev_hash`) and

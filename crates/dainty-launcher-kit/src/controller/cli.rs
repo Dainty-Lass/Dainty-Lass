@@ -1,5 +1,5 @@
 // Copyright (c) 2026 Silent Spud
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 
 //! `dainty-launcher play|export|servers`: PLAY and the Host page's export session from a terminal, through the
 //! same controller calls the page makes, so every check, the relay, the key, the injection and the clean-up are

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! `generate-admission-key --output <new-directory> --key-id <safe-id>`: a host's new admission key set. Prints no key.

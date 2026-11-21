@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! The SASL `PLAIN` login check (spec §5.5 steps 1-5). Identity comes from the game token, never the JID; the

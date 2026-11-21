@@ -1,5 +1,5 @@
 // Copyright (c) 2026 Silent Spud
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 
 //! The in-process host kit (spec-tauri-shell §5): what `dainty-host` does with a workspace, called as a library.
 //! Errors go back as their text; the launcher kit decides what the page shows.

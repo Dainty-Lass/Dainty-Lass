@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Writes the overlays the release builds pass to `tauri build --config`: client.json for the launcher, and
 // manager.json, the server manager's own config with the same overlay on top.
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs"

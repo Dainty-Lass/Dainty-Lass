@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! What a game version supplies (core spec §5.2, §5.3): its tables, the hooks areas ask, and its share of the

@@ -34,4 +34,4 @@ dll1 = extra.dll
 **Every DLL the ini lists runs inside the game with the player's rights.** List only DLLs you trust; the launcher
 refuses to start the game while an ini or DLL it doesn't know sits next to the loader.
 
-Licensed under MIT (`LICENSE`).
+Licensed under either of MIT (`LICENSE-MIT`) or Apache-2.0 (`LICENSE-APACHE`), at your option.

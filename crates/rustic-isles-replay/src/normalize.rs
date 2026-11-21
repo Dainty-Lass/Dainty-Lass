@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! Normalization (spec §7): tokens, volatile values and first-seen dynamic ids rewritten to one canonical form on

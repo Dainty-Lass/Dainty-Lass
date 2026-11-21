@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! Passwords (spec §5.4): Argon2id PHC strings, and a dummy verification when there is no hash so a miss takes as

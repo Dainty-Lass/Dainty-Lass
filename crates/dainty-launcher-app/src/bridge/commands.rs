@@ -1,5 +1,5 @@
 // Copyright (c) 2026 Silent Spud
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 
 //! The page's commands (RD27 spec §2.3.1), in the table's order. Each checks its arguments again with
 //! dainty-launcher-kit's `bridge::checks` (the isolation hook guards the page, these guard the backend), then calls the

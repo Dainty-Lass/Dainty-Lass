@@ -1,5 +1,5 @@
 // Copyright (c) 2026 Silent Spud
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 
 //! TLS pinned to a certificate's SHA-256, the trust an invite's `fp` gives (AGENTS.md: checked before any byte is sent).
 

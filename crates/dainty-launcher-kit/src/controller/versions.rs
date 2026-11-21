@@ -1,5 +1,5 @@
 // Copyright (c) 2026 Silent Spud
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 
 //! The version list (DE4, on `net::versions`): the compiled-in profiles and the joined servers' ones. Every
 //! server this PC joined is asked, the current one first. Each server's own account key goes to that server's

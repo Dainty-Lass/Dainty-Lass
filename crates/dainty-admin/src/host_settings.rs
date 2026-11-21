@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! settings.toml's `[logs]` for the dashboard (`docs/logging.md`): `logSettings` reads what the file says and what this

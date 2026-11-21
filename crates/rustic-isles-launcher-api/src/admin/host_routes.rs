@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! The host kit's own `/dainty/api/*` calls (admin spec §9): loopback, no gateway stamp, the host key.

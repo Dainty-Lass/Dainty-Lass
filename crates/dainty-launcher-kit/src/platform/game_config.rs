@@ -1,5 +1,5 @@
 // Copyright (c) 2026 Silent Spud
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 
 //! The game's own config files: Engine.ini points its XMPP chat at the relay and loses what another launcher left
 //! to redirect the game, GameUserSettings.ini is repaired when its window would be off-screen, and Game.ini loses

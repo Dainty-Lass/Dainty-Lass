@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! The sealed frame between a host and one joiner: `RX`, version, type, a big-endian counter, then AES-256-GCM

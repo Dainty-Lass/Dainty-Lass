@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! The control frames a host's transport reads from a joiner (spec-rd27-rifts-admission-relay.md §3.4): whatever

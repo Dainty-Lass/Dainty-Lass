@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! Test doubles (feature `test-support`): an in-memory store with §9.3's atomic rules, a recording mail transport,

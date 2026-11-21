@@ -1,5 +1,5 @@
 // Copyright (c) 2026 Silent Spud
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 
 //! The 1.14.7 version data and facts the manager's bundle ships (RD27, port plan item 9): nothing is compiled in,
 //! and the host kit reads the files from the workspace (`data/1.14.7/`, settings.toml's `version_data` and

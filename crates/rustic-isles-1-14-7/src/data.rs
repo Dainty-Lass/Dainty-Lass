@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! The version data (spec §4.3) in two files (port plan item 9, rulings V-1 to V-3): `version_facts.json`, the

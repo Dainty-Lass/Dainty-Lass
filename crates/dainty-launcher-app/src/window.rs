@@ -1,5 +1,5 @@
 // Copyright (c) 2026 Silent Spud
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 
 //! The one window (RD27 spec §2.2): its size, the navigation lock, the close guard and the tray settings.
 

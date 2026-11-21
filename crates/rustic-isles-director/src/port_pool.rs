@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! The hunt ports (spec §6): a FIFO of free ports, so a just-freed port is reused last, and owner-checked leases.

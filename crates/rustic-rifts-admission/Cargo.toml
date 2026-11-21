@@ -4,7 +4,7 @@ description = "Rustic Rifts' admission: signed join tickets, their keys and cont
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
-license = "MIT"
+license = "MIT OR Apache-2.0"
 repository.workspace = true
 publish.workspace = true
 

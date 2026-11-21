@@ -1,5 +1,5 @@
 // Copyright (c) 2026 Silent Spud
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 
 //! The guarded admin actions for the server GUI (DD23, DH6): the destructive and bulk actions that wait for a
 //! delay or a second operator, listed and decided by the host in this process, as `dainty-host admin

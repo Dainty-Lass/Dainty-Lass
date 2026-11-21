@@ -4,7 +4,7 @@
   "description": "Dainty Lass's remote management dashboard, launcher page and server manager page, on one theme",
   "type": "module",
   "private": true,
-  "license": "MIT",
+  "license": "MIT OR Apache-2.0",
   "devEngines": {
     "runtime": {
       "name": "bun",

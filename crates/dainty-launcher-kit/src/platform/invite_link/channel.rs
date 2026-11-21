@@ -1,5 +1,5 @@
 // Copyright (c) 2026 Silent Spud
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 
 //! The single-launcher channel: a named pipe on Windows, a Unix socket elsewhere. The first launcher holds it; a
 //! second one sends its arguments as one JSON array line and exits.

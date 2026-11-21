@@ -1,5 +1,5 @@
 // Copyright (c) 2026 Silent Spud
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 
 //! Whether the signed-in Epic account owns Dauntless (DE3, DD22), for `epic_library_check` and for a download's
 //! start (DE5, through [`require`]). `dainty_epic::library` does the check and keeps the answer a while, in memory and in

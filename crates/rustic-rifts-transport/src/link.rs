@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! One ICE link to one peer, driven by the session thread: the link owns its sockets, the sans-IO agent and the

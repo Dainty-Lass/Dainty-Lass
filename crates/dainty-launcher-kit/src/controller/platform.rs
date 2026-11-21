@@ -1,5 +1,5 @@
 // Copyright (c) 2026 Silent Spud
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 
 //! What the controller needs from the app (RD27 spec §2.4.1). No Tauri type crosses it: the shell implements it,
 //! the tests fake it.

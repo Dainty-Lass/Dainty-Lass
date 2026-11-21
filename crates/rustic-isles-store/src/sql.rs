@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! Bound SQL both engines run alike: written with `?`, numbered to `$1..$n` by `dainty_store::portable` (its portable

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! The 1.14.7 module as a library (spec §9.4). Its id is a constant that parses, so the one construction failure

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! The services' tunables as settings.toml tables (RD24 phase 2, docs/config-toml-plan.md): `[gateway.limits]`,

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! The 18 rows black-box through core's `app()` (spec §17.2 "Routes"): a temp store with alice, bob and carol, the

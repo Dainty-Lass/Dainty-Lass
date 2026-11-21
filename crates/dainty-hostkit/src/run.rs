@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! Short-lived external commands (`git`, `npm`, `netsh`, `tailscale`...): run with their output streamed to a log, or

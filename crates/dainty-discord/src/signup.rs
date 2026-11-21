@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! Whether dainty-dash takes signups: its public `GET /api/public/signup` (A8), `{ "enabled": bool, "url": string |

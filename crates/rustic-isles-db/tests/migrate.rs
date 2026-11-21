@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! migrate and verify against the mock server (spec §16.2 D5 to D10, D13 to D15), on SQLite.

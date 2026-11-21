@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! Party headlines (spec §4.4, §5.11): the public event body the party outbox sends, and the stanza a deliverer

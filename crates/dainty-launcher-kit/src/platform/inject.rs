@@ -1,5 +1,5 @@
 // Copyright (c) 2026 Silent Spud
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 
 //! How the runtime and the Host tools reach the game (RD9 as of 2026-11-12, `docs/launcher-injection.md`). On
 //! Windows the launcher loads them into the game it starts suspended (`dainty-inject`). Under Proton the player

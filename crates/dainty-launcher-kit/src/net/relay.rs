@@ -1,5 +1,5 @@
 // Copyright (c) 2026 Silent Spud
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 
 //! The local relay, now `dainty-relay`'s: the launcher runs it only for a server whose runtime does not run it
 //! inside the game.

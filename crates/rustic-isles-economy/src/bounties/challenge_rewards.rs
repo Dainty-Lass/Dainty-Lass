@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! Season challenge rewards (bounties spec §4.5, inventory's W5 to W7): a completed challenge is claimed by a bounty

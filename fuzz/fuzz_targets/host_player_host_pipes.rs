@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! What the launcher reads from a hosted server's pipes (spec-runtime-r10 12.2 row 2): its launch checked against

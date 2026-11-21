@@ -1,5 +1,5 @@
 // Copyright (c) 2026 Silent Spud
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 
 //! A connector for hyper-util's pooled client that always reaches one endpoint, for callers that send many requests
 //! to the invite's host and want them kept alive.

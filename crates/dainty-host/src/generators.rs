@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! hostkit's `gamedata` steps, run in process by the 1.14.7 module's generators (spec-rd27-host §2.1).

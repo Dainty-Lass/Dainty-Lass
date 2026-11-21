@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! The hunt-table importer (spec §10, `dainty-host gamedata`, RB11): merges a CatalogExporter `EXPORT_HUNTS=1`

@@ -1,5 +1,5 @@
 // Copyright (c) 2026 Silent Spud
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 
 //! No Epic code or token reaches any log (DE2). Its own test binary, because it writes the process-wide log.
 

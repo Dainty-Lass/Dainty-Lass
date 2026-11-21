@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! New here (DD21): which [`RoomKind`] a room JID the client names is. DR's room classes (`muc.rs`'s

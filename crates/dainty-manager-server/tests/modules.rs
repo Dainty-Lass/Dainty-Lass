@@ -1,5 +1,5 @@
 // Copyright (c) 2026 Silent Spud
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 
 //! The server GUI's module panel against a registry holding the stub module (spec-tauri-shell §6, §12.2).
 

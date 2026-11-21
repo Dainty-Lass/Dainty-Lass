@@ -1,5 +1,5 @@
 // Copyright (c) 2026 Silent Spud
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 
 //! Game crash reports (`docs/security/crash-reports.md`): the game's crash folders, which of them were already
 //! offered, and the bundle sent to the joined server's content service.

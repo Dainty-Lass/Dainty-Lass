@@ -1,5 +1,5 @@
 // Copyright (c) 2026 Silent Spud
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 
 //! The account key store (spec §2.7.1): one slot per server, an OS-sealed `<id>.key2` file in `<userData>/keys`,
 //! the old Electron launcher's `<id>.key` read and migrated, and a plain recovery copy in Documents. Every key

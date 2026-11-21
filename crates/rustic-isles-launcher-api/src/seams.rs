@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! `rustic_isles_auth::Seams` implemented over the module's state (public spec §13.1). The composer hands these to

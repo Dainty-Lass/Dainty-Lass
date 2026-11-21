@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! Weapons at base level (spec §7.7, Reforged patch 0036): the 1.14.7 paks carry no per-level power tables, so a

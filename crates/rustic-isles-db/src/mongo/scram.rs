@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! SCRAM-SHA-256 (RFC 7677; spec §4.6). Two departures from restricted, both security (coordinator item 5): the

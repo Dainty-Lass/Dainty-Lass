@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! The character-data rules (spec §5.4 to §5.8) and the loadout write check (§5.12): pure functions over the JSON

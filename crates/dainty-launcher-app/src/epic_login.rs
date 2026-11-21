@@ -1,5 +1,5 @@
 // Copyright (c) 2026 Silent Spud
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 
 //! The Epic sign-in window (DD22, DE2): a second webview on `dainty_epic::auth::LOGIN_URL`. Once the player has signed
 //! in, Epic shows a JSON page with the authorization code; a script on that page alone hands the code over by

@@ -4,7 +4,7 @@
   "description": "Dainty Lass's one theme: the Astryx theme, the CSS stack and the colour-mode provider every app uses",
   "type": "module",
   "private": true,
-  "license": "MIT",
+  "license": "MIT OR Apache-2.0",
   "exports": {
     ".": "./src/index.ts",
     "./mode": "./src/mode.ts",

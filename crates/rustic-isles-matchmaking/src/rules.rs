@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! The pure rules (spec §3.6, §5.4-§5.6, §7, §9): hunt ids, the party a join travels with, the Go Now window, the

@@ -1,5 +1,5 @@
 // Copyright (c) 2026 Silent Spud
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 
 //! The manager's embedded server (`docs/port/spec-tauri-shell.md` §4–8, RD26): the services, the host kit, the
 //! module panels and the history run in the manager's own process. The app hands [`EmbeddedServerState`] to the

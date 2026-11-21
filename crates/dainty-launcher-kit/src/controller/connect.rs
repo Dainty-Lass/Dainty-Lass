@@ -1,5 +1,5 @@
 // Copyright (c) 2026 Silent Spud
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 
 //! Reaching the server and keeping up with it (RD27 spec §2.4.5): the check, the status poll, the account
 //! check, news and art.

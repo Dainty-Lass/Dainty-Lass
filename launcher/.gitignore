@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: MIT
+# SPDX-License-Identifier: MIT OR Apache-2.0
 node_modules/
 dist/
 # dainty-launcher-kit's generated table, copied in by scripts/restricted-data.ts (and dainty-launcher-app's build)

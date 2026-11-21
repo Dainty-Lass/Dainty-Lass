@@ -1,5 +1,5 @@
 // Copyright (c) 2026 Silent Spud
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 
 //! The Host page in a player-only build (no `host` feature): `host.rs`'s methods with nothing behind
 //! them, so the bridge, its generated files and the controller are the same in both builds. The snapshot says

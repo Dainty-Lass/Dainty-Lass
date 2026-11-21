@@ -30,7 +30,7 @@
     "icon": ["icons/32x32.png", "icons/128x128.png", "icons/128x128@2x.png", "icons/icon.png", "icons/icon.ico"],
     "publisher": "Dainty Lass contributors",
     "homepage": "https://github.com/SilentSpud/DaintyLass",
-    "license": "MIT",
+    "license": "MIT OR Apache-2.0",
     "category": "Game",
     "shortDescription": "Join Dainty Lass servers and play Dauntless",
     "longDescription": "The Dainty Lass launcher joins a server from an invite, keeps your account key, checks your Dauntless install and starts the game through the server's runtime.",

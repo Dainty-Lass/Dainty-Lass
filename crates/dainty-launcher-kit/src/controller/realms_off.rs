@@ -1,5 +1,5 @@
 // Copyright (c) 2026 Silent Spud
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 
 //! Realm hosting and joining in a build without the `realms` feature (RF7): the commands answer
 //! `not_in_this_build`, and shutdown is a no-op.

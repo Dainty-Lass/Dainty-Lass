@@ -1,5 +1,5 @@
 // Copyright (c) 2026 Silent Spud
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 
 //! Registers the invite schemes for this executable: the current user's registry on Windows, a desktop entry and
 //! `xdg-mime` for an AppImage on Linux. Packaged client builds only; the shell decides that.

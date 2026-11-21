@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! The starter records (spec §6.2 to §6.4, §7.1, §7.2): instance ids, the manifest a new character is seeded with,

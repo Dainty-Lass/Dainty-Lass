@@ -1,5 +1,5 @@
 // Copyright (c) 2026 Silent Spud
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 
 //! The launcher's MIT Tauri shell (RD27 spec §2.1, RL13): start-up, the window, the bridge's commands and the
 //! controller's [`Platform`](dainty_launcher_kit::controller::Platform) over Tauri. Everything below Tauri is

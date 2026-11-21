@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! The module's admin actions (admin spec §10, core §7.6) and home operations (§11, core §7.8, DN5).

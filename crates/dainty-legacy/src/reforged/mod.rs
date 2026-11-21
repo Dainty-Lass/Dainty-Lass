@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! The Reforged Node-kit upgrade (spec §11): `host.json` to `settings.toml`, MongoDB into the 1.14.7 database,

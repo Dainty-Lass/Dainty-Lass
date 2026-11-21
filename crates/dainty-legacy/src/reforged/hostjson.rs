@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! A Node kit's `host.json` as `settings.toml` (spec §11.2): known keys renamed and in settings.toml's order, retired
