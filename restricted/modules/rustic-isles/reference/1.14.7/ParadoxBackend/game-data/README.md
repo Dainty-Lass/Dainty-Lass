@@ -65,7 +65,8 @@ simply stays unavailable; nothing else changes and `npm test` does not require i
   whole offer, with the reason in the startup log (`[Store:fountain_daily_free_bundle]`).
 - One claim per player per window; the window resets at 17:00 UTC. A repeat claim in the same window only
   replays the first one, and the offer is left out of the player's listing until the reset.
-- `fountain_daily_bundle.example.json` shows the shape.
+- `fountain_daily_bundle.example.json` shows the shape. Dainty Lass's `setup` and `gamedata` write a default
+  (one `CONTAINER_CORE_SILVER_CELLCORE` per toss) when the file is missing, and never replace one that exists.
 
 ## Tester max kit (`tester_max_kit.json`, optional, hand-written)
 

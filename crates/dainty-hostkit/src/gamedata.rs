@@ -391,6 +391,54 @@ pub fn seed_embedded_examples(paths: &Paths) -> Result<Vec<String>, HostError> {
     Ok(seeded)
 }
 
+/// The Ramsgate well's file, which nothing generates.
+pub const FOUNTAIN_FILE: &str = "fountain_daily_bundle.json";
+
+/// The well's default reward: one stacked item, a whole uncapped stack per toss.
+const FOUNTAIN_ITEM: &str = "CONTAINER_CORE_SILVER_CELLCORE";
+
+const FOUNTAIN_DEFAULT: &str = r#"{
+  "skus": [
+    {
+      "id": "fountain_daily_silver_cellcore",
+      "displayName": "Daily Free Bundle",
+      "displayDescription": "",
+      "displayPriority": 0,
+      "prices": [{ "currencyId": "id_currency_platinum", "price": 0 }],
+      "maxAllowed": 1,
+      "images": {},
+      "tags": ["fountain_daily_free_bundle"],
+      "items": [{ "catalogId": "CONTAINER_CORE_SILVER_CELLCORE", "quantity": 1, "instanced": false }],
+      "duplicateInstancedItems": []
+    }
+  ]
+}
+"#;
+
+/// Writes the well's default bundle into `dir` when it has none and its storage policy lists the reward as an
+/// uncapped stack, which the store requires; true when it wrote. A host's own file is never touched.
+pub fn seed_fountain_bundle(dir: &Path) -> Result<bool, HostError> {
+    let target = dir.join(FOUNTAIN_FILE);
+    if target.exists() {
+        return Ok(false);
+    }
+    let policy = dir.join("inventory_storage_policy.json");
+    let Ok(text) = std::fs::read_to_string(&policy) else {
+        return Ok(false);
+    };
+    let Ok(policy) = serde_json::from_str::<serde_json::Value>(normalize_lf_str(&text).as_str()) else {
+        return Ok(false);
+    };
+    let entry = &policy["entries"][FOUNTAIN_ITEM];
+    let stacked = entry["storage"].as_str() == Some("stacked");
+    let uncapped = entry["maxQuantity"].as_f64().is_none_or(|n| n <= 0.0);
+    if !(stacked && uncapped) {
+        return Ok(false);
+    }
+    std::fs::write(&target, FOUNTAIN_DEFAULT).map_err(|e| HostError::io(&target, e))?;
+    Ok(true)
+}
+
 /// Copies each supplied source from `from_dir` that the raw game data lacks; returns the files copied.
 pub fn copy_supplied_sources(p: &Paths, from_dir: &Path) -> Result<Vec<String>, HostError> {
     let mut copied = Vec::new();
@@ -637,6 +685,9 @@ pub fn generate_game_data_with(
         examples.extend(use_examples(&p.backend_game_data, &BACKEND_GAME_DATA)?);
         examples.extend(use_examples(&p.director_game_data, &DIRECTOR_GAME_DATA)?);
     }
+    if seed_fountain_bundle(&p.backend_game_data)? {
+        out("- Ramsgate well: default daily reward written (1 Silver Cell Core)");
+    }
 
     if !failed.is_empty() {
         out(&format!(
@@ -705,5 +756,41 @@ mod tests {
         let state = game_data_state(dir, &BACKEND_GAME_DATA).unwrap();
         assert_eq!(state.state, GameDataKind::Real);
         assert!(state.synthetic.is_empty());
+    }
+
+    #[test]
+    fn the_well_gets_a_default_only_where_the_store_would_take_it() {
+        let tmp = tempfile::tempdir().unwrap();
+        let dir = tmp.path();
+        let policy = |entry: &str| {
+            let text = format!(r#"{{"entries":{{"{FOUNTAIN_ITEM}":{entry}}}}}"#);
+            std::fs::write(dir.join("inventory_storage_policy.json"), text).unwrap();
+        };
+        assert!(!seed_fountain_bundle(dir).unwrap(), "no policy yet");
+        policy(r#"{"storage":"stacked","maxQuantity":5}"#);
+        assert!(!seed_fountain_bundle(dir).unwrap(), "capped");
+        policy(r#"{"storage":"instanced"}"#);
+        assert!(!seed_fountain_bundle(dir).unwrap(), "not stacked");
+        policy(r#"{"storage":"stacked","maxQuantity":0}"#);
+        assert!(seed_fountain_bundle(dir).unwrap());
+
+        let written: serde_json::Value =
+            serde_json::from_str(&std::fs::read_to_string(dir.join(FOUNTAIN_FILE)).unwrap()).unwrap();
+        let skus = written["skus"].as_array().unwrap();
+        assert_eq!(skus.len(), 1);
+        assert_eq!(skus[0]["tags"][0], "fountain_daily_free_bundle");
+        assert_eq!(
+            skus[0]["prices"],
+            serde_json::json!([{"currencyId": "id_currency_platinum", "price": 0}])
+        );
+        assert_eq!(skus[0]["items"][0]["catalogId"], FOUNTAIN_ITEM);
+
+        std::fs::write(dir.join(FOUNTAIN_FILE), "[]").unwrap();
+        assert!(!seed_fountain_bundle(dir).unwrap());
+        assert_eq!(
+            std::fs::read_to_string(dir.join(FOUNTAIN_FILE)).unwrap(),
+            "[]",
+            "a host's file is kept"
+        );
     }
 }
