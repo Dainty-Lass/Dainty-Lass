@@ -8,7 +8,7 @@ import { SideNav, SideNavHeading, SideNavItem, SideNavSection } from "@astryxdes
 import { Stack } from "@astryxdesign/core/Stack";
 import { Text } from "@astryxdesign/core/Text";
 import { TitleBar, useBridge } from "@dainty/bridge/react";
-import { BrandMark, HUES, RAIL_RESIZE } from "@dainty/theme";
+import { ElementalMark, HUES, RAIL_RESIZE } from "@dainty/theme";
 import { Download, Gamepad2, ScrollText, Server, Settings, Wrench } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
@@ -56,7 +56,7 @@ export function LauncherShell({ children }: { children: ReactNode }) {
       topNav={
         <TitleBar
           title={snapshot?.server?.name ?? t("product")}
-          start={<BrandMark size={18} />}
+          start={<ElementalMark size={18} />}
           labels={{ minimize: tw("minimize"), maximize: tw("maximize"), close: tw("close") }}
         />
       }
@@ -68,7 +68,7 @@ export function LauncherShell({ children }: { children: ReactNode }) {
             <SideNavHeading
               heading={t("product")}
               subheading={snapshot?.app.version ? `v${snapshot.app.version}` : undefined}
-              icon={<BrandMark size={24} />}
+              icon={<ElementalMark size={24} />}
             />
           }
           footer={

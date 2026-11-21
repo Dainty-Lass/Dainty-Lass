@@ -1,5 +1,5 @@
 /*
- * What the theme has no token for: the launcher icon's colours (the brand mark only, never chrome), and
+ * What the theme has no token for: the launcher icon's colours (the brand marks only, never chrome), and
  * the frames Astryx does not draw, coloured as Caddy Proxy Manager colours them (its globals.css).
  */
 @layer astryx-theme {
@@ -94,6 +94,40 @@
 
   .dainty-brand-mark circle {
     fill: var(--dainty-gold);
+  }
+
+  /* The launcher's logo, drawn by ElementalMark: the icon's colours, one per element. */
+  .dainty-elemental-mark {
+    display: inline-block;
+    flex: none;
+  }
+
+  .dainty-elemental-radiant {
+    fill: #f5c542;
+  }
+
+  .dainty-elemental-neutral {
+    fill: #b9bec7;
+  }
+
+  .dainty-elemental-frost {
+    fill: #5ec8f2;
+  }
+
+  .dainty-elemental-shock {
+    fill: #a066f0;
+  }
+
+  .dainty-elemental-terra {
+    fill: #6dbe45;
+  }
+
+  .dainty-elemental-umbral {
+    fill: #4a1f6e;
+  }
+
+  .dainty-elemental-blaze {
+    fill: #f0582a;
   }
 
   /* A chat line whose text the filter matched: the matched span, not the whole line. */
