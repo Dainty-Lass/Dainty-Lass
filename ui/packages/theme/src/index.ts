@@ -6,7 +6,6 @@ export { AppearanceControls, type AppearanceLabels } from "./AppearanceControls"
 export * from "./accent";
 export { BrandMark } from "./BrandMark";
 export { DaintyThemeProvider, useThemeMode } from "./DaintyThemeProvider";
-export { ElementalMark } from "./ElementalMark";
 export * from "./mode";
 export { BootSplash, SplashLoader, type SplashStage } from "./SplashLoader";
 export { type StatTile, StatTiles } from "./StatTiles";

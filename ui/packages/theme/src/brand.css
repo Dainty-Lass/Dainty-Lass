@@ -1,12 +1,10 @@
 /*
- * What the theme has no token for: the launcher icon's colours (the brand marks only, never chrome), and
+ * What the theme has no token for: the icon's colours (the brand mark only, never chrome), and
  * the frames Astryx does not draw, coloured as Caddy Proxy Manager colours them (its globals.css).
  */
 @layer astryx-theme {
   [data-astryx-theme] {
     --dainty-navy: #171f29;
-    --dainty-periwinkle: #a0c4ff;
-    --dainty-gold: #e6b664;
   }
 }
 
@@ -80,24 +78,8 @@
     background-color: var(--color-background-card);
   }
 
-  /* The brand mark: the icon's L and dot, drawn by BrandMark. */
+  /* The logo, drawn by BrandMark: the icon's colours, one per element. */
   .dainty-brand-mark {
-    display: inline-block;
-    flex: none;
-    border-radius: 22%;
-    background: var(--dainty-navy);
-  }
-
-  .dainty-brand-mark rect {
-    fill: var(--dainty-periwinkle);
-  }
-
-  .dainty-brand-mark circle {
-    fill: var(--dainty-gold);
-  }
-
-  /* The launcher's logo, drawn by ElementalMark: the icon's colours, one per element. */
-  .dainty-elemental-mark {
     display: inline-block;
     flex: none;
   }
