@@ -24,6 +24,14 @@ const EN: &[(&str, &str)] = &[
     ("tray_open", "Show the launcher"),
     ("tray_quit", "Quit"),
     ("dialog_game_install_folder", "Select where Dauntless versions install"),
+    (
+        "oauth_page_done",
+        "You're signed in. You can close this tab and go back to the launcher.",
+    ),
+    (
+        "oauth_page_failed",
+        "The sign-in didn't finish. Close this tab, go back to the launcher and try again.",
+    ),
 ];
 
 const PT_BR: &[(&str, &str)] = &[
@@ -47,6 +55,14 @@ const PT_BR: &[(&str, &str)] = &[
     (
         "dialog_game_install_folder",
         "Selecione onde as versões do Dauntless são instaladas",
+    ),
+    (
+        "oauth_page_done",
+        "Você entrou. Pode fechar esta aba e voltar ao launcher.",
+    ),
+    (
+        "oauth_page_failed",
+        "A entrada não foi concluída. Feche esta aba, volte ao launcher e tente de novo.",
     ),
 ];
 

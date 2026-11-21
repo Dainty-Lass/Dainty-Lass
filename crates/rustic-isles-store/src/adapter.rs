@@ -618,7 +618,7 @@ impl AuthStore for IslesAuthStore {
                 let email_codes = repos.email_codes.delete_for_account(tx, &id)?;
                 let game_exchange_codes = repos.game_exchange_codes.delete_for_account(tx, &id)?;
                 let discord_oauth_transactions = repos.discord_oauth_transactions.delete_for_account(tx, &id)?;
-                let auth_identities = repos.auth_identities.delete_for_account(tx, &id)?;
+                let auth_identities = repos.auth_identities.delete_every_provider_for_account(tx, &id)?;
                 let user_api_keys = u64::from(repos.api_keys.delete_user_key_hash(tx, &id)?);
                 let friendships = repos.friendships.remove_all_for_account(tx, &id)?;
                 let (other, _) = erase_other_areas(tx, &id)?;

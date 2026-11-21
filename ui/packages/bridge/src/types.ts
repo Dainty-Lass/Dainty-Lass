@@ -39,6 +39,8 @@ export interface LauncherApi {
   switchServer(id: string): Promise<ActionResult>;
   removeSavedServer(id: string): Promise<ActionResult>;
   register(username: string): Promise<RegisterOutcome>;
+  /** The server's OAuth sign-in in the browser; an empty name takes the provider's. Waits up to five minutes. */
+  signIn(username: string): Promise<RegisterOutcome>;
   useExistingKey(text: string): Promise<ActionResult>;
   importKeyFile(): Promise<ActionResult>;
   saveKeyBackup(): Promise<ActionResult>;

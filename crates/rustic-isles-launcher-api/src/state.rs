@@ -89,6 +89,7 @@ pub struct LauncherApiState {
     candidates: RwLock<Option<Arc<dyn MatchmakingCandidates>>>,
     admin: std::sync::OnceLock<Arc<crate::admin::LauncherApiAdmin>>,
     login_queue: Mutex<crate::queue::LoginQueue>,
+    oauth: RwLock<Option<Arc<dyn rustic_isles_auth::oauth::OAuthApi>>>,
 }
 
 impl std::fmt::Debug for LauncherApiState {
@@ -126,7 +127,22 @@ impl LauncherApiState {
             candidates: RwLock::new(None),
             admin: std::sync::OnceLock::new(),
             login_queue: Mutex::new(crate::queue::LoginQueue::default()),
+            oauth: RwLock::new(None),
         }
+    }
+
+    /// The OAuth provider calls (`oauth.rs`): HTTPS unless a test put its own in.
+    pub fn oauth_api(&self) -> Arc<dyn rustic_isles_auth::oauth::OAuthApi> {
+        if let Some(api) = self.oauth.read().unwrap_or_else(PoisonError::into_inner).as_ref() {
+            return Arc::clone(api);
+        }
+        let mut slot = self.oauth.write().unwrap_or_else(PoisonError::into_inner);
+        Arc::clone(slot.get_or_insert_with(|| Arc::new(rustic_isles_auth::oauth::HttpsOAuth::default())))
+    }
+
+    /// Replaces the OAuth provider calls.
+    pub fn set_oauth_api(&self, api: Arc<dyn rustic_isles_auth::oauth::OAuthApi>) {
+        *self.oauth.write().unwrap_or_else(PoisonError::into_inner) = Some(api);
     }
 
     /// The admin half's state when the composer put none in the slots (production Discord, the economy's funding).

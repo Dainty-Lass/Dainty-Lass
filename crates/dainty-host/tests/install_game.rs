@@ -164,6 +164,7 @@ fn secrets() -> Secrets {
         jwt_public_key_b64: hex(8),
         admin_api_key: hex(9),
         discord_bot_token: String::new(),
+        oauth_client_secret: String::new(),
         operator_secret: hex(10),
         database_password: hex(11),
         dashboard_ingest_key: hex(12),

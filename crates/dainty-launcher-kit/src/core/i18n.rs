@@ -36,9 +36,13 @@ pub const TRAY_OPEN: &str = "tray_open";
 pub const TRAY_QUIT: &str = "tray_quit";
 /// The Epic install folder picker's title.
 pub const DIALOG_GAME_INSTALL_FOLDER: &str = "dialog_game_install_folder";
+/// The browser page after an OAuth sign-in reached the launcher.
+pub const OAUTH_PAGE_DONE: &str = "oauth_page_done";
+/// The browser page after an OAuth sign-in that did not.
+pub const OAUTH_PAGE_FAILED: &str = "oauth_page_failed";
 
 /// Every key the backend shows.
-pub const KEYS: [&str; 15] = [
+pub const KEYS: [&str; 17] = [
     APP_TITLE,
     CLOSE_TITLE,
     CLOSE_TEXT,
@@ -54,6 +58,8 @@ pub const KEYS: [&str; 15] = [
     TRAY_OPEN,
     TRAY_QUIT,
     DIALOG_GAME_INSTALL_FOLDER,
+    OAUTH_PAGE_DONE,
+    OAUTH_PAGE_FAILED,
 ];
 
 /// A language the backend's text is written in.

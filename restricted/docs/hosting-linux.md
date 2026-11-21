@@ -129,6 +129,12 @@ shell's history:
 bin/dainty-host setup --discord-bot-token --discord-guild 123456789012345678 < discord-token.txt
 ```
 
+Signing in with Discord ([hosting.md](hosting.md#signing-in-with-discord)) takes its client secret the same way:
+
+```bash
+bin/dainty-host setup --oauth-discord 123456789012345678 --oauth-client-secret < oauth-secret.txt
+```
+
 ## Running it
 
 ```bash

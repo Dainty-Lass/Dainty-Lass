@@ -175,6 +175,8 @@ pub(crate) struct State {
     pub(crate) task: Option<TaskProgress>,
     pub(crate) verify_abort: Option<Abort>,
     pub(crate) runtime_cancel: Option<CancellationToken>,
+    /// Ends `sign_in`'s wait for the browser.
+    pub(crate) sign_in_cancel: Option<CancellationToken>,
     pub(crate) last_error: Option<LauncherError>,
     pub(crate) notice: Option<NoticeCode>,
     pub(crate) update_ready: bool,
@@ -244,6 +246,7 @@ impl State {
             task: None,
             verify_abort: None,
             runtime_cancel: None,
+            sign_in_cancel: None,
             last_error: None,
             notice: None,
             update_ready: false,

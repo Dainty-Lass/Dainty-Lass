@@ -36,6 +36,7 @@ mod launcher;
 pub mod launcher_build;
 mod limiter;
 pub mod mail;
+pub mod oauth;
 pub mod password;
 pub mod policy;
 mod routes;

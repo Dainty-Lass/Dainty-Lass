@@ -38,7 +38,7 @@ const DENIED: [&str; 10] = [
     "BIND_HOST",
     "MY_IP",
 ];
-const DENIED_PREFIXES: [&str; 2] = ["AUTH_", "DAINTY_DB_"];
+const DENIED_PREFIXES: [&str; 3] = ["AUTH_", "DAINTY_DB_", "DAINTY_OAUTH_"];
 const DENIED_SUFFIXES: [&str; 8] = [
     "_SECRET",
     "_KEY",

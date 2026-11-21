@@ -9,6 +9,7 @@ window.__RR_COMMANDS__ = {
   "switch_server": { "id": { kind: "text", max: 24 } },
   "remove_saved_server": { "id": { kind: "text", max: 24 } },
   "register": { "username": { kind: "text", max: 32 } },
+  "sign_in": { "username": { kind: "text", max: 32 } },
   "use_existing_key": { "text": { kind: "text", max: 8192 } },
   "import_key_file": {},
   "save_key_backup": {},

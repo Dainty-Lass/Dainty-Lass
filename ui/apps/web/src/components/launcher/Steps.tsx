@@ -13,7 +13,7 @@ import { TextArea } from "@astryxdesign/core/TextArea";
 import { TextInput } from "@astryxdesign/core/TextInput";
 import type { ActionResult, Snapshot, TaskProgress } from "@dainty/bridge";
 import { useBridge } from "@dainty/bridge/react";
-import { Download, FolderOpen, Play, ShieldCheck } from "lucide-react";
+import { Download, FolderOpen, LogIn, Play, ShieldCheck } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useFormatter, useTranslations } from "next-intl";
 import { useEffect, useState } from "react";
@@ -154,19 +154,43 @@ export function ConnectStep({ snapshot }: { snapshot: Snapshot }) {
   );
 }
 
-export function RegisterStep() {
+export function RegisterStep({ snapshot }: { snapshot: Snapshot }) {
   const t = useTranslations("launcher.register");
+  const ts = useTranslations("launcher.signIn");
   const { api } = useBridge();
   const act = useAct();
   const [name, setName] = useState("");
   const [key, setKey] = useState("");
   const [haveKey, setHaveKey] = useState(false);
+  const [waiting, setWaiting] = useState(false);
   const valid = /^\w{3,16}$/.test(name);
+  const signIn = snapshot.status?.signIn;
   const register = () =>
     act(async () => {
       const r = await api!.register(name);
       return r.ok ? { ok: true } : r;
     });
+  const continueWith = async () => {
+    setWaiting(true);
+    try {
+      await act(async () => {
+        const r = await api!.signIn(valid ? name : "");
+        return r.ok ? { ok: true } : r;
+      });
+    } finally {
+      setWaiting(false);
+    }
+  };
+  if (waiting) {
+    return (
+      <StepFrame title={ts("continue", { name: signIn?.name ?? "" })} description={ts("waiting")}>
+        <Stack direction="horizontal" gap={2} align="center">
+          <Spinner />
+          <Button label={ts("cancel")} variant="ghost" onClick={() => void api?.cancelTask()} />
+        </Stack>
+      </StepFrame>
+    );
+  }
   return (
     <StepFrame title={t("title")} description={t("description")}>
       {haveKey ? (
@@ -201,21 +225,39 @@ export function RegisterStep() {
         <Stack gap={3}>
           <TextInput
             label={t("name")}
-            description={t("nameHint")}
+            description={signIn ? ts("nameOptional", { name: signIn.name }) : t("nameHint")}
             value={name}
             onChange={setName}
             hasAutoFocus
             status={name && !valid ? { type: "error", message: t("nameInvalid") } : undefined}
-            onEnter={() => valid && void register()}
+            onEnter={() => valid && !signIn?.required && void register()}
           />
+          {signIn && (
+            <Stack gap={1}>
+              <Button
+                label={ts("continue", { name: signIn.name })}
+                variant={signIn.required ? "primary" : "secondary"}
+                icon={<LogIn size={16} />}
+                isDisabled={name !== "" && !valid}
+                clickAction={continueWith}
+              />
+              <Text type="supporting">
+                {signIn.required
+                  ? ts("required", { name: signIn.name })
+                  : ts("returning", { name: signIn.name })}
+              </Text>
+            </Stack>
+          )}
           <Stack direction="horizontal" gap={2} justify="between">
             <Button label={t("haveKey")} variant="ghost" onClick={() => setHaveKey(true)} />
-            <Button
-              label={t("create")}
-              variant="primary"
-              isDisabled={!valid}
-              clickAction={async () => void (await register())}
-            />
+            {!signIn?.required && (
+              <Button
+                label={t("create")}
+                variant="primary"
+                isDisabled={!valid}
+                clickAction={async () => void (await register())}
+              />
+            )}
           </Stack>
         </Stack>
       )}

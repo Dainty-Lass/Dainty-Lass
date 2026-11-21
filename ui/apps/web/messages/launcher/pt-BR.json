@@ -527,5 +527,13 @@
     "rate_limited": "O servidor não aceita mais relatórios de falha por enquanto. Tente de novo mais tarde.",
     "failed": "Não foi possível enviar o relatório de falha.",
     "retry": "Tentar de novo"
+  },
+  "signIn": {
+    "continue": "Continuar com {name}",
+    "nameOptional": "De 3 a 16 letras, números ou sublinhados. Com {name}, deixe vazio para usar seu nome no {name}.",
+    "waiting": "Termine de entrar no navegador. O launcher continua sozinho quando você terminar.",
+    "cancel": "Cancelar",
+    "required": "Este servidor cria contas pelo {name}.",
+    "returning": "Já jogou aqui? Continue com {name} para recuperar sua conta neste PC."
   }
 }

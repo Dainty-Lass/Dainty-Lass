@@ -305,6 +305,9 @@ impl Controller {
         if let Some(cancel) = &state.runtime_cancel {
             cancel.cancel();
         }
+        if let Some(cancel) = &state.sign_in_cancel {
+            cancel.cancel();
+        }
         if let Some(leave) = &state.queue_leave {
             leave.cancel();
         }

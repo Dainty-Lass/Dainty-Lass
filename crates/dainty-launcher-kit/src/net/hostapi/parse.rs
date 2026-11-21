@@ -100,9 +100,106 @@ pub fn register_reply(status: u16, body: &[u8]) -> Result<String, LauncherError>
             })
         }
         401 => Err(LauncherError::new(ErrorCode::InviteInvalid)),
+        403 if error_code(obj) == Some("oauth_required") => Err(LauncherError::new(ErrorCode::OauthRequired)),
         409 => Err(LauncherError::new(ErrorCode::UsernameTaken)),
         413 | 429 => Err(LauncherError::new(ErrorCode::RateLimited)),
         _ => Err(LauncherError::new(ErrorCode::ServerError)),
+    }
+}
+
+fn error_code(obj: Option<&serde_json::Map<String, Value>>) -> Option<&str> {
+    obj.and_then(|o| o.get("error")).and_then(Value::as_str)
+}
+
+/// What `OAuthStart` answers: where the player signs in, and what only this launcher holds.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct OAuthStart {
+    /// `discord`, or the host's provider id.
+    pub provider: String,
+    /// The provider's page, still unchecked (`platform::links::check_oauth`).
+    pub authorize_url: String,
+    /// The `state` the redirect must carry.
+    pub state: String,
+    /// The server's HMAC of the `state`, sent back with the code.
+    pub ticket: String,
+}
+
+fn hex_text(value: Option<&Value>, min: usize, max: usize) -> Option<String> {
+    value
+        .and_then(Value::as_str)
+        .filter(|t| (min..=max).contains(&t.len()) && t.bytes().all(|b| b.is_ascii_hexdigit()))
+        .map(str::to_owned)
+}
+
+/// `OAuthStart`'s reply.
+pub fn oauth_start_reply(status: u16, body: &[u8]) -> Result<OAuthStart, LauncherError> {
+    let json = json_body(body);
+    let obj = json.as_ref().and_then(Value::as_object);
+    match status {
+        200 => {
+            let obj = obj.ok_or_else(|| LauncherError::new(ErrorCode::ServerError))?;
+            let provider = obj
+                .get("provider")
+                .and_then(Value::as_str)
+                .filter(|p| dainty_protocol::status::is_provider_id(p));
+            let url = obj
+                .get("authorizeUrl")
+                .and_then(Value::as_str)
+                .filter(|u| u.len() <= 2048);
+            match (
+                provider,
+                url,
+                hex_text(obj.get("state"), 16, 128),
+                hex_text(obj.get("ticket"), 64, 64),
+            ) {
+                (Some(provider), Some(url), Some(state), Some(ticket)) => Ok(OAuthStart {
+                    provider: provider.to_owned(),
+                    authorize_url: url.to_owned(),
+                    state,
+                    ticket,
+                }),
+                _ => Err(LauncherError::new(ErrorCode::ServerError)),
+            }
+        }
+        404 => Err(LauncherError::new(ErrorCode::OauthUnavailable)),
+        413 | 429 => Err(LauncherError::new(ErrorCode::RateLimited)),
+        _ => Err(LauncherError::new(ErrorCode::ServerError)),
+    }
+}
+
+/// `OAuthFinish`'s reply: the account key and the account's name, or why there is none.
+pub fn oauth_finish_reply(status: u16, body: &[u8]) -> Result<(String, String), LauncherError> {
+    let json = json_body(body);
+    let obj = json.as_ref().and_then(Value::as_object);
+    let refused = |code| Err(LauncherError::new(code));
+    match (status, error_code(obj)) {
+        (200, _) => {
+            let key = obj
+                .and_then(|o| o.get("UUK"))
+                .and_then(Value::as_str)
+                .filter(|key| is_plausible_account_key(key));
+            let name = clean_text(obj.and_then(|o| o.get("Username")), MAX_USERNAME);
+            match (key, name) {
+                (Some(key), Some(name)) => Ok((key.to_owned(), name)),
+                _ => refused(ErrorCode::ServerError),
+            }
+        }
+        (400, Some("username_invalid")) => refused(ErrorCode::UsernameInvalid),
+        (400, Some("username_needed")) => refused(ErrorCode::OauthUsernameNeeded),
+        (400, Some("registration_closed")) => refused(ErrorCode::RegistrationClosed),
+        (400, _) => refused(ErrorCode::BadRequest),
+        (401, Some("invite_invalid")) => refused(ErrorCode::InviteInvalid),
+        (401, _) => refused(ErrorCode::OauthExpired),
+        (403, Some("oauth_not_member")) => refused(ErrorCode::OauthNotMember),
+        (403, Some("account_banned" | "account_disabled")) => Err(LauncherError {
+            code: ErrorCode::AccountBanned,
+            detail: clean_text(obj.and_then(|o| o.get("reason")), MAX_BAN_REASON),
+        }),
+        (404, _) => refused(ErrorCode::OauthUnavailable),
+        (409, Some("username_taken")) => refused(ErrorCode::UsernameTaken),
+        (409 | 502, _) => refused(ErrorCode::OauthFailed),
+        (413 | 429, _) => refused(ErrorCode::RateLimited),
+        _ => refused(ErrorCode::ServerError),
     }
 }
 

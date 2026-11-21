@@ -13,6 +13,7 @@ permissions = [
   "allow-switch-server",
   "allow-remove-saved-server",
   "allow-register",
+  "allow-sign-in",
   "allow-use-existing-key",
   "allow-import-key-file",
   "allow-save-key-backup",

@@ -6,7 +6,9 @@
 
 use std::time::Duration;
 
-use dainty_protocol::account::{REGISTER_PATH, RegisterRequest, is_plausible_account_key};
+use dainty_protocol::account::{
+    OAUTH_FINISH_PATH, OAUTH_START_PATH, REGISTER_PATH, RegisterRequest, is_plausible_account_key,
+};
 use dainty_protocol::manifest::RUNTIME_MANIFEST_PATH;
 use dainty_protocol::status::{STATUS_PATH, ServerStatus};
 use hyper::Method;
@@ -25,8 +27,8 @@ pub mod parse;
 mod tests;
 
 pub use parse::{
-    Background, Branding, BrandingImage, ImageType, NewsItem, QueueReply, StatusReply, UserInfo, is_branding_path,
-    sniff_image,
+    Background, Branding, BrandingImage, ImageType, NewsItem, OAuthStart, QueueReply, StatusReply, UserInfo,
+    is_branding_path, sniff_image,
 };
 
 /// Header that carries the account key (`DLK_...`) to the server it was made for.
@@ -53,6 +55,7 @@ const STATUS_MAX_BYTES: usize = 1024 * KIB;
 const PROBE_MAX_BYTES: usize = 64 * KIB;
 const REGISTER_TIMEOUT: Duration = REQUEST_TIMEOUT;
 const REGISTER_MAX_BYTES: usize = 64 * KIB;
+const OAUTH_FINISH_TIMEOUT: Duration = Duration::from_secs(45);
 const USER_INFO_TIMEOUT: Duration = REQUEST_TIMEOUT;
 const USER_INFO_MAX_BYTES: usize = 64 * KIB;
 const QUEUE_TIMEOUT: Duration = Duration::from_secs(10);
@@ -205,6 +208,57 @@ pub async fn register(endpoint: &Endpoint, body: &RegisterRequest) -> Result<Str
             parse::register_reply(res.status, &res.body)
         }
         Err(err) => Err(logged_failure(endpoint, REFORGED.register_path, &err)),
+    }
+}
+
+/// `OAuthFinish`'s body, PascalCase like `Register`'s.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+#[serde(rename_all = "PascalCase")]
+pub struct OAuthFinishRequest {
+    /// The `state` the redirect carried.
+    pub state: String,
+    /// The provider's code.
+    pub code: String,
+    /// `OAuthStart`'s ticket.
+    pub ticket: String,
+    /// The name the player chose; none takes the provider's.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub username: Option<String>,
+    /// The invite's code, for a new account on an invite-only server.
+    pub invite_code: String,
+}
+
+/// Starts an OAuth sign-in on the server.
+pub async fn oauth_start(endpoint: &Endpoint) -> Result<OAuthStart, LauncherError> {
+    let options = RequestOptions {
+        method: Method::POST,
+        body: Some("{}".to_owned()),
+        ..RequestOptions::get(REGISTER_TIMEOUT, REGISTER_MAX_BYTES)
+    };
+    match request(endpoint, OAUTH_START_PATH, options).await {
+        Ok(res) => {
+            log_status(endpoint, OAUTH_START_PATH, res.status);
+            parse::oauth_start_reply(res.status, &res.body)
+        }
+        Err(err) => Err(logged_failure(endpoint, OAUTH_START_PATH, &err)),
+    }
+}
+
+/// Trades the provider's code for the account key and the account's name. The server talks to the provider, so
+/// this waits longer than a register does.
+pub async fn oauth_finish(endpoint: &Endpoint, body: &OAuthFinishRequest) -> Result<(String, String), LauncherError> {
+    let json = serde_json::to_string(body).map_err(|_| LauncherError::new(ErrorCode::BadRequest))?;
+    let options = RequestOptions {
+        method: Method::POST,
+        body: Some(json),
+        ..RequestOptions::get(OAUTH_FINISH_TIMEOUT, REGISTER_MAX_BYTES)
+    };
+    match request(endpoint, OAUTH_FINISH_PATH, options).await {
+        Ok(res) => {
+            log_status(endpoint, OAUTH_FINISH_PATH, res.status);
+            parse::oauth_finish_reply(res.status, &res.body)
+        }
+        Err(err) => Err(logged_failure(endpoint, OAUTH_FINISH_PATH, &err)),
     }
 }
 

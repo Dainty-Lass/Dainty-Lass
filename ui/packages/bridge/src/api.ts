@@ -105,6 +105,7 @@ export const api: LauncherApi = {
   switchServer: (id) => act("switch_server", { id: String(id) }),
   removeSavedServer: (id) => act("remove_saved_server", { id: String(id) }),
   register: (username) => act("register", { username: String(username) }),
+  signIn: (username) => act("sign_in", { username: String(username) }, LONG_TIMEOUT_MS),
   useExistingKey: (text) => act("use_existing_key", { text: String(text) }),
   importKeyFile: () => act("import_key_file", {}, LONG_TIMEOUT_MS),
   saveKeyBackup: () => act("save_key_backup", {}, LONG_TIMEOUT_MS),

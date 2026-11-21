@@ -36,7 +36,7 @@ function Step({ snapshot }: { snapshot: Snapshot }) {
     case "connect":
       return <ConnectStep snapshot={snapshot} />;
     case "register":
-      return <RegisterStep />;
+      return <RegisterStep snapshot={snapshot} />;
     case "locate":
       return <LocateStep snapshot={snapshot} />;
     case "runtime":

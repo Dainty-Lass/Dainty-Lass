@@ -37,8 +37,8 @@ for (const { input } of [...invites.accept, ...invites.reject]) {
 write("invite.json", { accept, reject });
 
 // "text" is what JSON.stringify gives the page, so the field order is checked too. `economy` (spec-runtime-r15
-// Q-1) and `minLauncherVersion` are the Rust's alone: a case sending either keeps its written answer.
-const rustOnly = ["economy", "minLauncherVersion"];
+// Q-1), `minLauncherVersion` and `signIn` are the Rust's alone: a case sending any keeps its written answer.
+const rustOnly = ["economy", "minLauncherVersion", "signIn"];
 write("status.json", read("status.json").map((entry) => {
   if (entry.input && typeof entry.input === "object" && rustOnly.some((k) => k in entry.input)) return entry;
   const expected = parseServerStatus(entry.input);

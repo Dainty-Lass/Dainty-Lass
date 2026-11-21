@@ -152,6 +152,7 @@ export function mockLauncher(): LauncherApi {
     commit: "f891d92",
     sourceUrl: "https://git.silentspud.com/silentspud/dainty-lass",
     registration: "INVITECODE" as const,
+    signIn: { provider: "discord", name: "Discord", required: false },
     playersOnline: 3,
     players: [
       { name: "Moonwick", where: "city" as const, instance: "hub-1" },
@@ -301,6 +302,11 @@ export function mockLauncher(): LauncherApi {
       if (!/^\w{3,16}$/.test(username)) return { ok: false, error: { code: "username_invalid" } };
       emit({ phase: "locate", account: { username, hasKey: true, offerBackup: true } });
       return { ok: true, username };
+    },
+    signIn: async (username) => {
+      const name = username || "Moonwick";
+      emit({ phase: "locate", account: { username: name, hasKey: true, offerBackup: true } });
+      return { ok: true, username: name };
     },
     useExistingKey: async () => {
       emit({

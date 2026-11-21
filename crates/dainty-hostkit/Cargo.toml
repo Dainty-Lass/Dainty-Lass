@@ -78,6 +78,8 @@ libc = "0.2.191"
 
 [dev-dependencies]
 dainty-admin.workspace = true
+# [oauth]'s env is checked against what the backend reads
+rustic-isles-auth.workspace = true
 dainty-epic = { workspace = true, features = ["test-support"] }
 dainty-service-kit.workspace = true
 tempfile.workspace = true

@@ -527,5 +527,13 @@
     "rate_limited": "The server takes no more crash reports for now. Try again later.",
     "failed": "The crash report could not be sent.",
     "retry": "Try again"
+  },
+  "signIn": {
+    "continue": "Continue with {name}",
+    "nameOptional": "3 to 16 letters, digits or underscores. With {name}, leave it empty to use your {name} name.",
+    "waiting": "Finish signing in in your browser. The launcher carries on by itself once you have.",
+    "cancel": "Cancel",
+    "required": "This server makes accounts through {name}.",
+    "returning": "Played here before? Continue with {name} to get your account back on this PC."
   }
 }

@@ -16,6 +16,18 @@ pub const USERNAME_MIN: usize = 3;
 /// Longest accepted username, in bytes.
 pub const USERNAME_MAX: usize = 16;
 
+/// Route the launcher posts to begin an OAuth sign-in.
+pub const OAUTH_START_PATH: &str = "/dainty/api/OAuthStart";
+/// Route the launcher posts the provider's code to, for the account key.
+pub const OAUTH_FINISH_PATH: &str = "/dainty/api/OAuthFinish";
+/// The loopback port the launcher takes the provider's redirect on (RFC 8252 section 7.3). Fixed, because Discord
+/// and most providers match a redirect URI exactly, port included.
+pub const OAUTH_REDIRECT_PORT: u16 = 61190;
+/// The path of [`OAUTH_REDIRECT_URI`].
+pub const OAUTH_REDIRECT_PATH: &str = "/oauth/callback";
+/// The redirect URI every server registers with its provider and the launcher listens on.
+pub const OAUTH_REDIRECT_URI: &str = "http://127.0.0.1:61190/oauth/callback";
+
 const MAX_KEY_EXTRACT_UTF16_LEN: usize = 8192;
 
 /// Body of a registration request, PascalCase on the wire.

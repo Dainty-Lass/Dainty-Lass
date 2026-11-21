@@ -100,6 +100,15 @@ pub async fn register(c: Ctl<'_>, username: String) -> Answer<RegisterOutcome> {
     })
 }
 
+/// An empty name takes the sign-in provider's.
+#[tauri::command]
+pub async fn sign_in(c: Ctl<'_>, username: String) -> Answer<RegisterOutcome> {
+    Ok(match checks::username(&username) {
+        Ok(name) => c.sign_in(name).await,
+        Err(error) => RegisterOutcome::Err(error),
+    })
+}
+
 #[tauri::command]
 pub async fn use_existing_key(c: Ctl<'_>, text: String) -> Answer<ActionResult> {
     Ok(match checks::key_text(&text) {

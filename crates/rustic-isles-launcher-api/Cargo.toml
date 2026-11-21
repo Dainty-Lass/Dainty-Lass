@@ -26,6 +26,8 @@ hex.workspace = true
 http.workspace = true
 http-body-util.workspace = true
 dainty-module-api.workspace = true
+# The loopback redirect URI and the name rules the launcher shares
+dainty-protocol.workspace = true
 rand.workspace = true
 regex.workspace = true
 rustic-isles.workspace = true

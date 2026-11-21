@@ -11,6 +11,7 @@ pub mod events;
 pub mod guard;
 pub mod logs;
 pub mod modules;
+pub mod oauth;
 pub mod overrides;
 pub mod ports;
 pub mod services;
@@ -85,7 +86,7 @@ pub const MAX_HOST_CONFIG_BYTES: u64 = 256 * 1024;
 pub const SECRET_FILE: &str = "secrets.env";
 /// Every key `secrets.env` holds; one missing or empty is made on the next setup, but for
 /// [`PROVIDED_SECRET_KEYS`].
-pub const SECRET_KEYS: [&str; 13] = [
+pub const SECRET_KEYS: [&str; 14] = [
     "GATEWAY_SECRET",
     "ALLOWLIST_SECRET",
     "DAINTY_ADMIN_KEY",
@@ -99,9 +100,11 @@ pub const SECRET_KEYS: [&str; 13] = [
     "DAINTY_DB_PASSWORD",
     "DASHBOARD_INGEST_KEY",
     "DISCORD_BOT_TOKEN",
+    "DAINTY_OAUTH_CLIENT_SECRET",
 ];
-/// Secrets the host brings rather than setup makes: left empty until set (`setup --discord-bot-token`).
-pub const PROVIDED_SECRET_KEYS: [&str; 1] = ["DISCORD_BOT_TOKEN"];
+/// Secrets the host brings rather than setup makes: left empty until set (`setup --discord-bot-token`,
+/// `--oauth-client-secret`).
+pub const PROVIDED_SECRET_KEYS: [&str; 2] = ["DISCORD_BOT_TOKEN", "DAINTY_OAUTH_CLIENT_SECRET"];
 /// Secrets under their names from before the Rustic Isles rename: `setup` moves each to its new name with the same value,
 /// never a fresh one, since a changed secret breaks every signed call (DX4)
 pub const RENAMED_SECRET_KEYS: [(&str, &str); 5] = [
@@ -979,6 +982,8 @@ pub struct HostConfig {
     pub events: Option<events::EventsConfig>,
     /// `[discord]`: the Discord bot (module sharing A7); its token is in secrets.env
     pub discord: Option<discord::DiscordConfig>,
+    /// `[oauth]`: the launcher's OAuth sign-in (`docs/oauth.md`); its client secret is in secrets.env
+    pub oauth: Option<oauth::OAuthConfig>,
     /// `[ports]`: the loopback ports the services listen on, for a machine that holds a default
     pub ports: Option<ports::PortsConfig>,
     /// The file it was read from.
@@ -1160,6 +1165,10 @@ impl HostConfig {
             Some(d) if !d.is_null() => Some(discord::DiscordConfig::from_json(d)?),
             _ => None,
         };
+        let oauth = match obj.get("oauth") {
+            Some(o) if !o.is_null() => Some(oauth::OAuthConfig::from_json(o)?),
+            _ => None,
+        };
         Ok(Self {
             version,
             mode,
@@ -1196,6 +1205,7 @@ impl HostConfig {
             logs,
             events,
             discord,
+            oauth,
             ports,
             file: FileForm {
                 document: obj,
@@ -1261,6 +1271,9 @@ impl HostConfig {
             }
             if self.discord.is_none() {
                 self.discord = prev.discord.clone();
+            }
+            if self.oauth.is_none() {
+                self.oauth = prev.oauth.clone();
             }
             if self.dashboard_url.is_none() {
                 self.dashboard_url = prev.dashboard_url.clone();
@@ -1467,6 +1480,9 @@ impl HostConfig {
         if let Some(d) = &self.discord {
             canonical.insert("discord".into(), d.to_json());
         }
+        if let Some(o) = &self.oauth {
+            canonical.insert("oauth".into(), o.to_json());
+        }
         merge_document_order(&self.file.document, canonical)
     }
 
@@ -1544,6 +1560,8 @@ pub struct Secrets {
     pub dashboard_ingest_key: String,
     /// `DISCORD_BOT_TOKEN`: the Discord bot's (A7), from the host; empty until set.
     pub discord_bot_token: String,
+    /// `DAINTY_OAUTH_CLIENT_SECRET`: the `[oauth]` application's, from the host; empty until set.
+    pub oauth_client_secret: String,
 }
 
 /// The OS the env files are written for.
@@ -2496,6 +2514,10 @@ pub fn validate(document: &Value) -> Result<Value, HostError> {
         Some(d) => Some(discord::DiscordConfig::from_json(d)?),
         None => None,
     };
+    let oauth_cfg = match obj.get("oauth").filter(|v| !v.is_null()) {
+        Some(o) => Some(oauth::OAuthConfig::from_json(o)?),
+        None => None,
+    };
 
     let mut canonical = Map::new();
     canonical.insert("version".into(), Value::from(1));
@@ -2621,6 +2643,9 @@ pub fn validate(document: &Value) -> Result<Value, HostError> {
     if let Some(d) = discord_cfg {
         canonical.insert("discord".into(), d.to_json());
     }
+    if let Some(o) = oauth_cfg {
+        canonical.insert("oauth".into(), o.to_json());
+    }
     Ok(Value::Object(merge_document_order(obj, canonical)))
 }
 
@@ -2655,6 +2680,7 @@ fn merge_document_order(orig: &Map<String, Value>, canonical: Map<String, Value>
         "logs",
         "events",
         "discord",
+        "oauth",
         "ports",
     ];
     let mut out = Map::new();
@@ -2918,6 +2944,7 @@ pub fn load_or_create_secrets(
             database_password: get("DAINTY_DB_PASSWORD"),
             dashboard_ingest_key: get("DASHBOARD_INGEST_KEY"),
             discord_bot_token: get("DISCORD_BOT_TOKEN"),
+            oauth_client_secret: get("DAINTY_OAUTH_CLIENT_SECRET"),
         },
         missing,
     ))
@@ -3061,6 +3088,15 @@ pub fn build_env_files(c: &HostConfig, s: &Secrets, p: &Paths, source_commit: &s
     push(&mut backend, "REALTIME_XMPP_ALLOWED_HOSTS", &c.host);
     push(&mut backend, "REALTIME_XMPP_DEV_CITY_MUC", "false");
     push(&mut backend, "REGISTRATION_MODE", c.registration.as_str());
+    // Sign-in stays off until the client secret is set; every variable is written so none comes from the shell
+    let oauth = c
+        .oauth
+        .as_ref()
+        .filter(|_| !s.oauth_client_secret.trim().is_empty())
+        .map_or_else(oauth::off, |o| o.env(s.oauth_client_secret.trim()));
+    for (name, value) in &oauth {
+        push(&mut backend, name, value);
+    }
     push(&mut backend, "DAINTY_ADMIN_KEY", &s.admin_key);
     push(&mut backend, "RUSTIC_ISLES_MANAGER_ADMIN", "on");
     push(&mut backend, "RUSTIC_ISLES_MANAGER_OPERATOR_SECRET", &s.operator_secret);
@@ -4198,6 +4234,87 @@ dashboard_url = \"https://dash.example\"
         assert_eq!(build_env_files(&off, &secrets, &p, "", Platform::Windows).discord, None);
     }
 
+    /// `[oauth]` round-trips through settings.toml, and reaches the backend's file only with its secret set; without
+    /// one every `DAINTY_OAUTH_*` is written empty, so none comes from the shell.
+    #[test]
+    fn oauth_round_trips_and_is_off_until_its_secret_is_set() {
+        let text = "version = 1
+mode = \"private\"
+name = \"Friday Hunts\"
+host = \"100.101.102.103\"
+game_address = \"100.101.102.103\"
+registration = \"OPEN\"
+max_hunt_servers = 3
+
+[oauth]
+preset = \"discord\"
+client_id = \"123456789012345678\"
+guild_ids = [\"42\"]
+required = true
+";
+        let read = HostConfig::from_toml(text).unwrap();
+        let oauth = read.oauth.clone().unwrap();
+        assert_eq!(
+            oauth.preset,
+            oauth::Preset::Discord {
+                guild_ids: vec!["42".into()]
+            }
+        );
+        let written = read.to_toml().unwrap();
+        assert!(
+            written.contains("[oauth]") && written.contains("guild_ids = [\"42\"]"),
+            "{written}"
+        );
+        assert_eq!(HostConfig::from_toml(&written).unwrap().oauth, read.oauth);
+        let bare = text.split("\n[oauth]").next().unwrap();
+        assert_eq!(
+            HostConfig::from_toml(bare).unwrap().written_over(Some(&read)).oauth,
+            read.oauth
+        );
+        assert!(HostConfig::from_toml(&format!("{text}client_secret = \"x\"\n")).is_err());
+        let mut fresh = HostConfig::from_toml(bare).unwrap();
+        fresh.oauth = Some(
+            oauth::OAuthConfig::from_json(&serde_json::json!({
+                "preset": "custom", "clientId": "c", "providerId": "sso", "name": "Our SSO",
+                "authorizeUrl": "https://sso.example/a", "tokenUrl": "https://sso.example/t",
+                "userinfoUrl": "https://sso.example/u", "scopes": ["openid", "email"]
+            }))
+            .unwrap(),
+        );
+        let custom = fresh.to_toml().unwrap();
+        assert!(custom.contains("scopes = [\"openid\", \"email\"]"), "{custom}");
+        assert_eq!(HostConfig::from_toml(&custom).unwrap().oauth, fresh.oauth);
+
+        let dir = tempfile::tempdir().unwrap();
+        let p = Paths::new(dir.path());
+        let value = |files: &EnvFiles, key: &str| files.backend.iter().find(|(k, _)| k == key).map(|(_, v)| v.clone());
+        let none = build_env_files(&read, &Secrets::default(), &p, "", Platform::Windows);
+        assert_eq!(value(&none, "DAINTY_OAUTH_PRESET").as_deref(), Some(""));
+        let secrets = Secrets {
+            oauth_client_secret: "client-secret".into(),
+            ..Secrets::default()
+        };
+        let files = build_env_files(&read, &secrets, &p, "", Platform::Windows);
+        assert_eq!(value(&files, "DAINTY_OAUTH_PRESET").as_deref(), Some("discord"));
+        assert_eq!(
+            value(&files, "DAINTY_OAUTH_CLIENT_SECRET").as_deref(),
+            Some("client-secret")
+        );
+        assert_eq!(value(&files, "DAINTY_OAUTH_REQUIRED").as_deref(), Some("true"));
+        for (name, entries) in files.files() {
+            if name != "backend" {
+                assert!(
+                    !entries.into_iter().flatten().any(|(_, v)| v.contains("client-secret")),
+                    "{name}.env holds the secret"
+                );
+            }
+        }
+        assert!(overrides::sensitive("DAINTY_OAUTH_CLIENT_SECRET") && overrides::sensitive("DAINTY_OAUTH_REQUIRED"));
+        assert!(env::denied("DAINTY_OAUTH_GUILD_IDS").is_some());
+        load_or_create_secrets(dir.path(), || Ok(sample_secrets())).unwrap();
+        set_provided_secret(dir.path(), "DAINTY_OAUTH_CLIENT_SECRET", "s").unwrap();
+    }
+
     /// The token is the host's to bring: an empty one never makes setup rewrite secrets.env, and setting it keeps
     /// every other secret.
     #[test]
@@ -4493,6 +4610,7 @@ cell_fusion_minutes = 45
             database_password: "d".into(),
             dashboard_ingest_key: "e".into(),
             discord_bot_token: String::new(),
+            oauth_client_secret: String::new(),
         }
     }
 }
