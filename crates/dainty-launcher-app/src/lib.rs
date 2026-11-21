@@ -275,6 +275,7 @@ pub fn run(mut options: Options) -> Result<i32, StartError> {
             bridge::commands::remove_saved_server,
             bridge::commands::register,
             bridge::commands::sign_in,
+            bridge::commands::link_sign_in,
             bridge::commands::use_existing_key,
             bridge::commands::import_key_file,
             bridge::commands::save_key_backup,

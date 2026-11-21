@@ -514,11 +514,18 @@ pub async fn get_user_info(call: Call) -> Response {
         );
     }
     announce(&call.shared, &holder.account, &key, &holder.username).await;
-    let body = object(vec![
+    let mut body = object(vec![
         ("UserId", Value::from(holder.user_id.clone())),
         ("Username", Value::from(holder.username.clone())),
         ("IsAdmin", Value::Bool(holder.admin)),
     ]);
+    // Only with sign-in set up, so the body stays Node's otherwise
+    if let Some(provider) = crate::oauth::provider(&call.shared)
+        && let Some(linked) = crate::oauth::is_linked(&store, &provider.id, &holder.account).await
+        && let Value::Object(body) = &mut body
+    {
+        body.insert("OAuthLinked".into(), Value::Bool(linked));
+    }
     util::with_header(util::ok(&body), "x-dainty-account-id", &holder.account.to_string())
 }
 

@@ -110,6 +110,11 @@ pub async fn sign_in(c: Ctl<'_>, username: String) -> Answer<RegisterOutcome> {
 }
 
 #[tauri::command]
+pub async fn link_sign_in(c: Ctl<'_>) -> Answer<ActionResult> {
+    Ok(c.link_sign_in().await)
+}
+
+#[tauri::command]
 pub async fn use_existing_key(c: Ctl<'_>, text: String) -> Answer<ActionResult> {
     Ok(match checks::key_text(&text) {
         Ok(text) => c.use_existing_key(text).await,

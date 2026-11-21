@@ -140,12 +140,18 @@ impl Controller {
     pub(crate) async fn confirm_account(&self) {
         let Some(server) = self.server() else { return };
         let Some(key) = self.load_key().await else {
-            self.lock().has_key = false;
+            let mut state = self.lock();
+            state.has_key = false;
+            state.oauth_linked = None;
             return;
         };
         match hostapi::fetch_user_info(&server.endpoint(), &key).await {
             Ok(info) => {
-                self.lock().key_refused = false;
+                {
+                    let mut state = self.lock();
+                    state.key_refused = false;
+                    state.oauth_linked = info.oauth_linked;
+                }
                 let id = server.id();
                 if self.stored().username(&id) != Some(info.username.as_str()) {
                     self.edit_settings(|map| edit::keyed_value(map, "usernames", &id, Some(json!(info.username))))

@@ -242,3 +242,84 @@ async fn off_or_set_up_wrong_is_not_found() {
         .await;
     assert_eq!(bad.status, 404);
 }
+
+async fn link(rig: &Rig, key: &str) -> common::Answer {
+    let started = start(rig).await;
+    let body = json!({"State": started["state"], "Code": "the-code", "Ticket": started["ticket"]});
+    rig.send(
+        Request1::new("POST", "/dainty/api/OAuthFinish")
+            .header("x-dainty-user-api-key", key)
+            .json(&body),
+    )
+    .await
+}
+
+async fn register(rig: &Rig, name: &str) -> String {
+    let made = rig
+        .send(Request1::new("POST", "/dainty/api/Register").json(&json!({"Username": name})))
+        .await;
+    made.json()["UUK"].as_str().unwrap().to_owned()
+}
+
+async fn linked(rig: &Rig, key: &str) -> Value {
+    rig.send(Request1::new("GET", "/dainty/api/GetUserInfo").header("x-dainty-user-api-key", key))
+        .await
+        .json()["OAuthLinked"]
+        .clone()
+}
+
+#[tokio::test]
+async fn an_existing_account_links_and_then_signs_in_with_it() {
+    let (rig, fake) = make(&[("REGISTRATION_MODE", "OPEN")], Some(fox(None))).await;
+    let key = register(&rig, "Moonwick").await;
+    assert_eq!(linked(&rig, &key).await, json!(false));
+
+    let unknown = link(&rig, &format!("DLK_{}", "0".repeat(48))).await;
+    assert_eq!((unknown.status, unknown.code()), (401, "unauthorized".to_owned()));
+    assert!(
+        fake.asked.lock().unwrap().is_empty(),
+        "an unknown key never reaches the provider"
+    );
+
+    let done = link(&rig, &key).await;
+    assert_eq!(done.status, 200, "{}", done.body);
+    assert_eq!(done.json(), json!({"Linked": true, "Username": "Moonwick"}));
+    assert_eq!(holder(&rig, &key).await, 200, "linking keeps the key");
+    assert_eq!(linked(&rig, &key).await, json!(true));
+    assert_eq!(link(&rig, &key).await.status, 200, "linking again is a no-op");
+
+    let other = register(&rig, "Tamsin_").await;
+    let taken = link(&rig, &other).await;
+    assert_eq!((taken.status, taken.code()), (409, "oauth_linked_elsewhere".to_owned()));
+
+    let back = finish(&rig, &start(&rig).await, json!({})).await.json();
+    assert_eq!(
+        (back["Username"].as_str(), back["Created"].as_bool()),
+        (Some("Moonwick"), Some(false))
+    );
+
+    *fake.user.lock().unwrap() = Some(OAuthUser {
+        subject: "1".into(),
+        ..fox(None)
+    });
+    let second = link(&rig, back["UUK"].as_str().unwrap()).await;
+    assert_eq!(
+        (second.status, second.code()),
+        (409, "oauth_account_has_link".to_owned())
+    );
+}
+
+#[tokio::test]
+async fn user_info_says_nothing_of_links_without_sign_in() {
+    let rig = Rig::new(common::Options {
+        settings: settings(&[("REGISTRATION_MODE", "OPEN")]),
+        ..options(true)
+    })
+    .await;
+    let key = register(&rig, "Moonwick").await;
+    let info = rig
+        .send(Request1::new("GET", "/dainty/api/GetUserInfo").header("x-dainty-user-api-key", &key))
+        .await
+        .json();
+    assert!(info.get("OAuthLinked").is_none());
+}

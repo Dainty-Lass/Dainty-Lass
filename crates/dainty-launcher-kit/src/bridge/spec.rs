@@ -374,6 +374,7 @@ pub const COMMANDS: &[CommandSpec] = &[
     cmd("remove_saved_server", SERVER_ID, Every, false),
     cmd("register", &[text("username", USERNAME_MAX)], Every, false),
     cmd("sign_in", &[text("username", USERNAME_MAX)], Every, false),
+    cmd("link_sign_in", &[], Every, false),
     cmd("use_existing_key", &[text("text", KEY_TEXT_MAX)], Every, false),
     cmd("import_key_file", &[], Every, false),
     cmd("save_key_backup", &[], Every, false),
@@ -744,8 +745,8 @@ mod tests {
     use super::*;
 
     #[test]
-    fn the_table_has_a_hundred_and_ten_unique_commands() {
-        assert_eq!(COMMANDS.len(), 110);
+    fn the_table_has_a_hundred_and_eleven_unique_commands() {
+        assert_eq!(COMMANDS.len(), 111);
         let mut seen = HashSet::new();
         for spec in COMMANDS {
             assert!(seen.insert(spec.name), "{} twice", spec.name);

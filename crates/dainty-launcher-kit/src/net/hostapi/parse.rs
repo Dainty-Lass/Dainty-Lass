@@ -197,9 +197,23 @@ pub fn oauth_finish_reply(status: u16, body: &[u8]) -> Result<(String, String), 
         }),
         (404, _) => refused(ErrorCode::OauthUnavailable),
         (409, Some("username_taken")) => refused(ErrorCode::UsernameTaken),
+        (409, Some("oauth_linked_elsewhere")) => refused(ErrorCode::OauthLinkedElsewhere),
+        (409, Some("oauth_account_has_link")) => refused(ErrorCode::OauthAccountHasLink),
         (409 | 502, _) => refused(ErrorCode::OauthFailed),
         (413 | 429, _) => refused(ErrorCode::RateLimited),
         _ => refused(ErrorCode::ServerError),
+    }
+}
+
+/// `OAuthFinish`'s reply to a link (the key sent): linked, or why not.
+pub fn oauth_link_reply(status: u16, body: &[u8]) -> Result<(), LauncherError> {
+    let json = json_body(body);
+    let obj = json.as_ref().and_then(Value::as_object);
+    match (status, error_code(obj)) {
+        (200, _) if obj.and_then(|o| o.get("Linked")) == Some(&Value::Bool(true)) => Ok(()),
+        (200, _) => Err(LauncherError::new(ErrorCode::ServerError)),
+        (401, Some("unauthorized")) => Err(LauncherError::new(ErrorCode::KeyRejected)),
+        _ => oauth_finish_reply(status, body).map(|_| ()),
     }
 }
 
@@ -213,6 +227,9 @@ pub struct UserInfo {
     pub username: String,
     /// Whether the account is staff on that server.
     pub is_admin: bool,
+    /// Whether it is linked to the server's OAuth sign-in; none from a server without one.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub oauth_linked: Option<bool>,
 }
 
 /// The user info object, or none when its id or name is unusable.
@@ -229,6 +246,7 @@ pub fn parse_user_info(raw: &Value) -> Option<UserInfo> {
         user_id,
         username: clean_text(obj.get("Username"), MAX_USERNAME)?,
         is_admin: obj.get("IsAdmin") == Some(&Value::Bool(true)),
+        oauth_linked: obj.get("OAuthLinked").and_then(Value::as_bool),
     })
 }
 

@@ -501,6 +501,8 @@ pub struct SnapshotAccount {
     pub has_key: bool,
     /// The page should offer a key backup.
     pub offer_backup: bool,
+    /// Whether the account is linked to the server's OAuth sign-in; none when the server has none or hasn't said.
+    pub oauth_linked: Option<bool>,
 }
 
 /// What is running.

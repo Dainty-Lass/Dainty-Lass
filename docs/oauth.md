@@ -109,8 +109,11 @@ secret goes in the same way, `setup --oauth-client-secret`.
 3. The launcher has the account key, as after a normal sign-up, and goes on to the game folder.
 
 Signing in again on another PC gets the same account back: the server makes a new key for that PC, and the key on
-the other PC stops working (an account has one key). A player who first made their account with a name and invite
-code can't link it to Discord yet.
+the other PC stops working (an account has one key).
+
+A player who made their account with a name and invite code links it in **Preferences > Account > Link Discord**:
+the same browser round, after which signing in with Discord gets that account back. Linking keeps the key. A Discord
+account can be linked to one account per server, and an account to one Discord account.
 
 If port 61190 is taken on the player's PC, the launcher says so; closing the program that holds it fixes it.
 
@@ -128,6 +131,10 @@ launcher                        server (backend)                      Discord
    |                                 |<----------------------- the user --|
    |<--------------------------------| UUK (the account key), Username    |
 ```
+
+Linking is the same round with the account key in `x-dainty-user-api-key` on `OAuthFinish`: the server checks the
+key before it spends the `state`, links the identity to that account and answers `{"Linked":true}` with no key.
+`GetUserInfo` says `OAuthLinked` while sign-in is set up.
 
 - The server holds the client secret; it never reaches the launcher. The provider's code is useless without the
   PKCE verifier, which also never leaves the server.

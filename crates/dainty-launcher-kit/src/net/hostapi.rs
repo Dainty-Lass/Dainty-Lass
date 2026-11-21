@@ -262,6 +262,28 @@ pub async fn oauth_finish(endpoint: &Endpoint, body: &OAuthFinishRequest) -> Res
     }
 }
 
+/// Links the provider's sign-in to the account `key` holds; the key goes only where [`key_headers`] lets it.
+pub async fn oauth_link(endpoint: &Endpoint, key: &str, body: &OAuthFinishRequest) -> Result<(), LauncherError> {
+    let headers = key_headers(endpoint, Some(key));
+    if headers.is_empty() {
+        return Err(LauncherError::new(ErrorCode::KeyInvalid));
+    }
+    let json = serde_json::to_string(body).map_err(|_| LauncherError::new(ErrorCode::BadRequest))?;
+    let options = RequestOptions {
+        method: Method::POST,
+        body: Some(json),
+        headers,
+        ..RequestOptions::get(OAUTH_FINISH_TIMEOUT, REGISTER_MAX_BYTES)
+    };
+    match request(endpoint, OAUTH_FINISH_PATH, options).await {
+        Ok(res) => {
+            log_status(endpoint, OAUTH_FINISH_PATH, res.status);
+            parse::oauth_link_reply(res.status, &res.body)
+        }
+        Err(err) => Err(logged_failure(endpoint, OAUTH_FINISH_PATH, &err)),
+    }
+}
+
 /// How long a crash report upload may take.
 pub const CRASH_UPLOAD_TIMEOUT: Duration = Duration::from_secs(60);
 

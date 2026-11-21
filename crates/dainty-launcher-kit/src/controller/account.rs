@@ -124,12 +124,54 @@ impl Controller {
         RegisterOutcome::Ok { username: name }
     }
 
+    /// `link_sign_in`: links the server's OAuth sign-in to the account the stored key holds, so signing in later
+    /// gets it back on another PC. The key stays as it is.
+    pub async fn link_sign_in(&self) -> ActionResult {
+        let Some(server) = self.server() else {
+            return ActionResult::err(ErrorCode::ServerUnreachable);
+        };
+        let Some(key) = self.load_key().await else {
+            return ActionResult::err(ErrorCode::KeyInvalid);
+        };
+        if let Err(error) = self.begin_busy() {
+            return ActionResult::Err(error);
+        }
+        let cancel = CancellationToken::new();
+        self.lock().sign_in_cancel = Some(cancel.clone());
+        let result = match self.browser_round(&server, &cancel).await {
+            Ok(request) => hostapi::oauth_link(&server.endpoint(), &key, &request).await,
+            Err(error) => Err(error),
+        };
+        self.lock().sign_in_cancel = None;
+        if result.is_ok() {
+            log::info(format!("linked the sign-in on {}:{}", server.host, server.port));
+            let mut state = self.lock();
+            state.oauth_linked = Some(true);
+            state.notice = Some(NoticeCode::OauthLinked);
+        }
+        self.finish(result)
+    }
+
     async fn sign_in_steps(
         &self,
         server: &StoredServer,
         username: &str,
         cancel: &CancellationToken,
     ) -> Result<String, LauncherError> {
+        let mut request = self.browser_round(server, cancel).await?;
+        request.username = (!username.is_empty()).then(|| username.to_owned());
+        request.invite_code = server.code.clone().unwrap_or_default();
+        let (key, name) = hostapi::oauth_finish(&server.endpoint(), &request).await?;
+        self.keep_new_key(server, key, &name).await?;
+        Ok(name)
+    }
+
+    /// Starts a sign-in, opens the provider's page and waits for the browser: the request to finish it with.
+    async fn browser_round(
+        &self,
+        server: &StoredServer,
+        cancel: &CancellationToken,
+    ) -> Result<OAuthFinishRequest, LauncherError> {
         let endpoint = server.endpoint();
         let start = hostapi::oauth_start(&endpoint).await?;
         let Some(url) = links::check_oauth(&start.authorize_url, &start.provider) else {
@@ -155,16 +197,13 @@ impl Controller {
                     RedirectError::Cancelled => ErrorCode::Cancelled,
                 })
             })?;
-        let request = OAuthFinishRequest {
+        Ok(OAuthFinishRequest {
             state: start.state,
             code,
             ticket: start.ticket,
-            username: (!username.is_empty()).then(|| username.to_owned()),
-            invite_code: server.code.clone().unwrap_or_default(),
-        };
-        let (key, name) = hostapi::oauth_finish(&endpoint, &request).await?;
-        self.keep_new_key(server, key, &name).await?;
-        Ok(name)
+            username: None,
+            invite_code: String::new(),
+        })
     }
 
     fn key_present(&self) {

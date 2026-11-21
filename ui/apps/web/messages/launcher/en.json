@@ -19,7 +19,8 @@
     "sdk_imported": "SDK imported.",
     "host_done": "Done.",
     "install_done": "Installed.",
-    "repair_done": "Repaired."
+    "repair_done": "Repaired.",
+    "oauth_linked": "Linked. Signing in with it now gets this account back on any PC."
   },
   "home": {
     "welcome": "Welcome",
@@ -534,6 +535,9 @@
     "waiting": "Finish signing in in your browser. The launcher carries on by itself once you have.",
     "cancel": "Cancel",
     "required": "This server makes accounts through {name}.",
-    "returning": "Played here before? Continue with {name} to get your account back on this PC."
+    "returning": "Played here before? Continue with {name} to get your account back on this PC.",
+    "link": "Link {name}",
+    "linked": "Linked to {name}",
+    "linkHint": "Link {name} to get this account back on another PC by signing in, without your key file."
   }
 }

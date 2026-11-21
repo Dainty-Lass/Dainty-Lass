@@ -35,6 +35,9 @@ fuzz_target!(|data: &[u8]| {
             if let Ok((key, name)) = parse::oauth_finish_reply(status, body) {
                 assert!(status == 200 && is_plausible_account_key(&key) && !name.is_empty());
             }
+            if parse::oauth_link_reply(status, body).is_ok() {
+                assert_eq!(status, 200);
+            }
         }
     }
     if let Ok(text) = std::str::from_utf8(data) {

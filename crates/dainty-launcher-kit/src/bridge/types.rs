@@ -260,6 +260,10 @@ pub enum ErrorCode {
     OauthDenied,
     /// The server sent a sign-in address the launcher does not open.
     OauthBadUrl,
+    /// That sign-in account is linked to another account on this server.
+    OauthLinkedElsewhere,
+    /// This account is linked to another sign-in account already.
+    OauthAccountHasLink,
 }
 
 /// A notice the page shows after an action succeeds, by catalog key.
@@ -285,6 +289,8 @@ pub enum NoticeCode {
     InstallDone,
     /// The game repair finished.
     RepairDone,
+    /// The account was linked to the server's sign-in.
+    OauthLinked,
 }
 
 /// A failed command's answer: the code and optional words for the `{detail}` placeholder.

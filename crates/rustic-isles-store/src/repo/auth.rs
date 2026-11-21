@@ -609,6 +609,13 @@ store_trait! {
         ) -> Option<AuthIdentityRecord>;
         /// Links the identity at `provider`; false when the subject or the account is linked there already.
         fn create_for_provider(&self, tx: &mut Tx<'_>, provider: &str, record: &AuthIdentityRecord) -> bool;
+        /// The account's identity at `provider`.
+        fn find_account_at_provider(
+            &self,
+            conn: &mut AnyConnection,
+            provider: &str,
+            account: &AccountId,
+        ) -> Option<AuthIdentityRecord>;
         /// Unlinks the account's identities at every provider (erasure); returns how many.
         fn delete_every_provider_for_account(&self, tx: &mut Tx<'_>, account: &AccountId) -> u64;
     }
@@ -1471,6 +1478,20 @@ impl AuthIdentityRepository for SqlAuthIdentities {
         .t(&*record.linked_at)
         .run(conn)?;
         Ok(true)
+    }
+
+    fn find_account_at_provider(
+        &self,
+        conn: &mut AnyConnection,
+        provider: &str,
+        account: &AccountId,
+    ) -> RepoResult<Option<AuthIdentityRecord>> {
+        sql(format!("{IDENTITIES} AND account_id = ?"))
+            .t(provider)
+            .t(account.to_string())
+            .first::<IdentityRow>(conn)?
+            .map(IdentityRow::decode)
+            .transpose()
     }
 
     fn delete_every_provider_for_account(&self, tx: &mut Tx<'_>, account: &AccountId) -> RepoResult<u64> {

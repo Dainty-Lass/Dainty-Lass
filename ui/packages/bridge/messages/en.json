@@ -93,7 +93,9 @@
     "oauth_username_needed": "Pick a name for your account, then sign in again.",
     "oauth_required": "This server makes new accounts only through its sign-in.",
     "oauth_denied": "The sign-in was cancelled in the browser.",
-    "oauth_bad_url": "The server sent a sign-in address the launcher won't open. Tell the server's host."
+    "oauth_bad_url": "The server sent a sign-in address the launcher won't open. Tell the server's host.",
+    "oauth_linked_elsewhere": "That account is already linked to another player on this server.",
+    "oauth_account_has_link": "This account is already linked to a different sign-in account."
   },
   "window": {
     "minimize": "Minimize",

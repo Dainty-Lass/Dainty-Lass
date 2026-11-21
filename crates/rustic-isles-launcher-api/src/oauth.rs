@@ -5,7 +5,8 @@
 //! verifier, five minutes) and answers the authorize URL and a ticket, an HMAC of the `state` that only the launcher
 //! holds: another program on the player's PC that catches the loopback redirect has the code and `state` but not the
 //! ticket. `OAuthFinish` spends the `state` once, trades the code with the provider, and answers the account key of the
-//! account linked to that identity, making one (under `REGISTRATION_MODE`) when none is.
+//! account linked to that identity, making one (under `REGISTRATION_MODE`) when none is. With the account key in
+//! `x-dainty-user-api-key` it links the identity to that account instead and answers no key.
 
 use axum::response::Response;
 use http::StatusCode;
@@ -15,8 +16,8 @@ use rustic_isles_store::repo::auth::{DiscordOAuthTransactionRecord, OperationalS
 use serde_json::Value;
 
 use crate::launcher_api::{
-    LinkIdentity, Refusal, RegistrationMode, create_account, is_account_eligible, is_invite_code, make_account_key,
-    normalize_username,
+    Holder, LinkIdentity, Refusal, RegistrationMode, create_account, holder_of_key, is_account_eligible,
+    is_invite_code, make_account_key, normalize_username,
 };
 use crate::state::LauncherApiState;
 use crate::util::{self, field, iso, json, now_ms, object, store_of, trim};
@@ -128,7 +129,35 @@ fn signed_in(key: String, username: &str, created: bool, account: &str) -> Respo
     util::with_header(util::ok(&body), "x-dainty-account-id", account)
 }
 
-/// `POST /dainty/api/OAuthFinish`: the account key for the identity the provider's code signs in.
+/// The key holder linking, when the request carries a key: checked before the `state` is spent.
+async fn linking_holder(
+    shared: &Shared,
+    store: &rustic_isles_store::IslesStore,
+    headers: &http::HeaderMap,
+) -> Result<Option<Holder>, Response> {
+    let Some(key) = util::header_lossy(headers, "x-dainty-user-api-key") else {
+        return Ok(None);
+    };
+    match holder_of_key(shared, store, &key).await {
+        Ok(Some(holder)) if holder.eligible() => Ok(Some(holder)),
+        Ok(Some(holder)) => {
+            let banned = holder
+                .launcher
+                .as_ref()
+                .is_some_and(|l| l.status == OperationalStatus::Banned);
+            let code = if banned { "account_banned" } else { "account_disabled" };
+            Err(error(StatusCode::FORBIDDEN, code))
+        }
+        Ok(None) => Err(error(StatusCode::UNAUTHORIZED, "unauthorized")),
+        Err(e) => {
+            tracing::error!("[launcher-api] OAuth link failed: {e}");
+            Err(util::empty(StatusCode::INTERNAL_SERVER_ERROR))
+        }
+    }
+}
+
+/// `POST /dainty/api/OAuthFinish`: the account key for the identity the provider's code signs in, or, with a key,
+/// that identity linked to the key's account.
 pub async fn finish(call: Call) -> Response {
     let Call {
         shared,
@@ -142,6 +171,10 @@ pub async fn finish(call: Call) -> Response {
     };
     let Some(provider) = provider(&shared) else {
         return error(StatusCode::NOT_FOUND, "oauth_off");
+    };
+    let linking = match linking_holder(&shared, &store, request.headers()).await {
+        Ok(linking) => linking,
+        Err(page) => return page,
     };
     let body = match util::read_json(&mut request).await {
         Ok(body) => body,
@@ -195,6 +228,9 @@ pub async fn finish(call: Call) -> Response {
     if !provider.admits(&user) {
         return error(StatusCode::FORBIDDEN, "oauth_not_member");
     }
+    if let Some(holder) = linking {
+        return link(&store, &provider, user, holder).await;
+    }
     let (id, subject) = (provider.id.clone(), user.subject.clone());
     let linked = store
         .read(move |conn, repos| {
@@ -213,6 +249,83 @@ pub async fn finish(call: Call) -> Response {
             util::empty(StatusCode::INTERNAL_SERVER_ERROR)
         }
     }
+}
+
+enum Linked {
+    Done,
+    Elsewhere,
+    HasOther,
+}
+
+/// Links the identity to the holder's account: idempotent for the same pair, refused when either is linked to
+/// another. The key stays as it is.
+async fn link(
+    store: &rustic_isles_store::IslesStore,
+    provider: &OAuthProvider,
+    user: OAuthUser,
+    holder: Holder,
+) -> Response {
+    let record = rustic_isles_store::repo::auth::AuthIdentityRecord {
+        provider_subject: user.subject.clone(),
+        account: holder.account.clone(),
+        provider_username: util::take_chars(&user.username, 64),
+        provider_avatar_url: provider.avatar_url(&user),
+        linked_at: iso(now_ms()),
+    };
+    let actor = dainty_module_api::ActorContext::new(dainty_module_api::Actor::Player {
+        account: holder.account.global().clone(),
+    });
+    let id = provider.id.clone();
+    let written = store
+        .write(&actor, move |tx, repos| {
+            let ids = &repos.auth_identities;
+            if let Some(found) = ids.find_for_provider(tx.conn(), &id, &record.provider_subject)? {
+                return Ok(if found.account == record.account {
+                    Linked::Done
+                } else {
+                    Linked::Elsewhere
+                });
+            }
+            Ok(if ids.create_for_provider(tx, &id, &record)? {
+                Linked::Done
+            } else {
+                Linked::HasOther
+            })
+        })
+        .await;
+    match written {
+        Ok(Linked::Done) => {
+            tracing::info!("[launcher-api] {} linked {}", holder.username, provider.id);
+            util::ok(&object(vec![
+                ("Linked", Value::Bool(true)),
+                ("Username", Value::from(holder.username)),
+            ]))
+        }
+        Ok(Linked::Elsewhere) => error(StatusCode::CONFLICT, "oauth_linked_elsewhere"),
+        Ok(Linked::HasOther) => error(StatusCode::CONFLICT, "oauth_account_has_link"),
+        Err(e) => {
+            tracing::error!("[launcher-api] OAuth link failed: {e}");
+            util::empty(StatusCode::INTERNAL_SERVER_ERROR)
+        }
+    }
+}
+
+/// Whether the account has an identity at the server's provider (`GetUserInfo`'s `OAuthLinked`).
+pub async fn is_linked(
+    store: &rustic_isles_store::IslesStore,
+    provider: &str,
+    account: &rustic_isles_store::AccountId,
+) -> Option<bool> {
+    let (provider, account) = (provider.to_owned(), account.clone());
+    store
+        .read(move |conn, repos| {
+            repos
+                .auth_identities
+                .find_account_at_provider(conn, &provider, &account)
+        })
+        .await
+        .ok()
+        .map(|found| found.is_some())
 }
 
 /// A new key for the linked account; the key it had stops working (one key per account).

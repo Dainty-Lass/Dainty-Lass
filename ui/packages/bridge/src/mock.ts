@@ -23,7 +23,7 @@ function initialSnapshot(): Snapshot {
     server: null,
     savedServers: [],
     connect: { checking: false, problem: null, tailscaleInstalled: true, lastCheckedAt: null },
-    account: { username: null, hasKey: false, offerBackup: false },
+    account: { username: null, hasKey: false, offerBackup: false, oauthLinked: null },
     game: {
       root: null,
       problem: "not_set",
@@ -300,18 +300,28 @@ export function mockLauncher(): LauncherApi {
     },
     register: async (username) => {
       if (!/^\w{3,16}$/.test(username)) return { ok: false, error: { code: "username_invalid" } };
-      emit({ phase: "locate", account: { username, hasKey: true, offerBackup: true } });
+      emit({
+        phase: "locate",
+        account: { username, hasKey: true, offerBackup: true, oauthLinked: null },
+      });
       return { ok: true, username };
     },
     signIn: async (username) => {
       const name = username || "Moonwick";
-      emit({ phase: "locate", account: { username: name, hasKey: true, offerBackup: true } });
+      emit({
+        phase: "locate",
+        account: { username: name, hasKey: true, offerBackup: true, oauthLinked: null },
+      });
       return { ok: true, username: name };
+    },
+    linkSignIn: async () => {
+      emit({ account: { ...snapshot.account, oauthLinked: true }, notice: "oauth_linked" });
+      return OK;
     },
     useExistingKey: async () => {
       emit({
         phase: "locate",
-        account: { username: "Moonwick", hasKey: true, offerBackup: false },
+        account: { username: "Moonwick", hasKey: true, offerBackup: false, oauthLinked: null },
       });
       return OK;
     },
@@ -406,7 +416,10 @@ export function mockLauncher(): LauncherApi {
     openGameFolder: async () => {},
     openLogsFolder: async () => {},
     logout: async () => {
-      emit({ phase: "register", account: { username: null, hasKey: false, offerBackup: false } });
+      emit({
+        phase: "register",
+        account: { username: null, hasKey: false, offerBackup: false, oauthLinked: null },
+      });
       return OK;
     },
     installUpdate: async () => {},

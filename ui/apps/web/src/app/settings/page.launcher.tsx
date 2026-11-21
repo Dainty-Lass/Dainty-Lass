@@ -55,9 +55,11 @@ export default function SettingsPage() {
   const tt = useTranslations("tray");
   const tp = useTranslations("launcher.proton");
   const tc = useTranslations("launcher.crashReports");
+  const ts = useTranslations("launcher.signIn");
   const { snapshot, api } = useBridge();
   if (!snapshot || !api) return null;
   const s = snapshot.settings;
+  const signIn = snapshot.status?.signIn;
   const set = (patch: Partial<Settings>) => void api.setSettings(patch);
 
   return (
@@ -186,6 +188,29 @@ export default function SettingsPage() {
             />
           </Stack>
           <Text type="supporting">{t("signOutHint")}</Text>
+          {signIn && snapshot.account.hasKey && (
+            <Stack gap={1}>
+              {snapshot.account.oauthLinked ? (
+                <Text>{ts("linked", { name: signIn.name })}</Text>
+              ) : (
+                <Stack direction="horizontal" gap={2}>
+                  <Button
+                    label={ts("link", { name: signIn.name })}
+                    clickAction={async () => void (await api.linkSignIn())}
+                    isDisabled={snapshot.busy}
+                  />
+                  {snapshot.busy && (
+                    <Button
+                      label={ts("cancel")}
+                      variant="ghost"
+                      onClick={() => void api.cancelTask()}
+                    />
+                  )}
+                </Stack>
+              )}
+              <Text type="supporting">{ts("linkHint", { name: signIn.name })}</Text>
+            </Stack>
+          )}
         </Section>
 
         <PlaytimeCard />

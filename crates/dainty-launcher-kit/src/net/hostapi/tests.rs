@@ -234,6 +234,7 @@ async fn user_info_over_pinned_tls() {
             user_id: "u-1".to_owned(),
             username: "Spud".to_owned(),
             is_admin: true,
+            oauth_linked: None,
         })
     );
     let requests = server.requests();
@@ -443,4 +444,29 @@ fn oauth_finish_body() {
         serde_json::to_string(&body).unwrap(),
         r#"{"State":"s","Code":"c","Ticket":"t","InviteCode":""}"#
     );
+}
+
+#[test]
+fn oauth_link_replies() {
+    assert_eq!(
+        parse::oauth_link_reply(200, br#"{"Linked":true,"Username":"x"}"#),
+        Ok(())
+    );
+    assert_eq!(
+        parse::oauth_link_reply(200, br#"{"UUK":"x"}"#).unwrap_err().code,
+        ErrorCode::ServerError
+    );
+    let code = |status: u16, body: &[u8]| parse::oauth_link_reply(status, body).unwrap_err().code;
+    assert_eq!(code(401, br#"{"error":"unauthorized"}"#), ErrorCode::KeyRejected);
+    assert_eq!(code(401, br#"{"error":"oauth_expired"}"#), ErrorCode::OauthExpired);
+    assert_eq!(
+        code(409, br#"{"error":"oauth_linked_elsewhere"}"#),
+        ErrorCode::OauthLinkedElsewhere
+    );
+    assert_eq!(
+        code(409, br#"{"error":"oauth_account_has_link"}"#),
+        ErrorCode::OauthAccountHasLink
+    );
+    let info = parse::parse_user_info(&json!({"UserId": "u", "Username": "n", "OAuthLinked": true})).unwrap();
+    assert_eq!(info.oauth_linked, Some(true));
 }

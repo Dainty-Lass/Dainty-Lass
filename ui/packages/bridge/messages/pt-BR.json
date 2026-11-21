@@ -93,7 +93,9 @@
     "oauth_username_needed": "Escolha um nome para sua conta e entre de novo.",
     "oauth_required": "Este servidor só cria contas novas pela entrada com conta externa.",
     "oauth_denied": "A entrada foi cancelada no navegador.",
-    "oauth_bad_url": "O servidor enviou um endereço de entrada que o launcher não abre. Avise o host do servidor."
+    "oauth_bad_url": "O servidor enviou um endereço de entrada que o launcher não abre. Avise o host do servidor.",
+    "oauth_linked_elsewhere": "Essa conta já está vinculada a outro jogador neste servidor.",
+    "oauth_account_has_link": "Esta conta já está vinculada a outra conta de entrada."
   },
   "window": {
     "minimize": "Minimizar",

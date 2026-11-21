@@ -227,6 +227,8 @@ pub const fn error_text(code: ErrorCode) -> &'static str {
         ErrorCode::OauthRequired => "the server makes new accounts only through its sign-in",
         ErrorCode::OauthDenied => "the sign-in was declined",
         ErrorCode::OauthBadUrl => "the server sent a sign-in address the launcher does not open",
+        ErrorCode::OauthLinkedElsewhere => "that sign-in account is linked to another account on this server",
+        ErrorCode::OauthAccountHasLink => "this account is linked to another sign-in account already",
     }
 }
 

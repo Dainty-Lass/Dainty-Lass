@@ -56,6 +56,9 @@ Fuzz target in `fuzz`:
 - [ ] A new account follows `REGISTRATION_MODE` (an invite is spent in the same write), the name rules, and links the
       identity in that write; a subject linked meanwhile rolls it back (`oauth_linked`).
 - [ ] `Register` refuses with `oauth_required` while `DAINTY_OAUTH_REQUIRED` is on.
+- [ ] A link (`OAuthFinish` with a key) checks the key's holder is eligible before the `state` is spent, links only
+      to that account, refuses an identity linked elsewhere (`oauth_linked_elsewhere`) or an account linked to
+      another identity (`oauth_account_has_link`), and answers no key.
 - [ ] The gateway passes only `POST` to the two routes and limits them as `register`.
 - [ ] Erasure removes identities at every provider (`delete_every_provider_for_account`).
 

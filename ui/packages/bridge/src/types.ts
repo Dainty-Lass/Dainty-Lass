@@ -41,6 +41,8 @@ export interface LauncherApi {
   register(username: string): Promise<RegisterOutcome>;
   /** The server's OAuth sign-in in the browser; an empty name takes the provider's. Waits up to five minutes. */
   signIn(username: string): Promise<RegisterOutcome>;
+  /** Links the server's sign-in to this account in the browser; the key stays. Waits up to five minutes. */
+  linkSignIn(): Promise<ActionResult>;
   useExistingKey(text: string): Promise<ActionResult>;
   importKeyFile(): Promise<ActionResult>;
   saveKeyBackup(): Promise<ActionResult>;
